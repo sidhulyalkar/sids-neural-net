@@ -1,0 +1,100 @@
+# Manually curated publications for Sidharth Hulyalkar
+# These are the canonical source of truth for publication data
+
+publications:
+  - id: pub:beta-high-gamma-corticostriatal-2025
+    title: "Beta and High Gamma Oscillations in the Cortico-striatal Network Link to Learned Reward Value"
+    year: 2025
+    authors:
+      - Miranda F. Koloski
+      - Morteza Salimi
+      - Sidharth Hulyalkar
+      - Tianzhi Tang
+      - Sam A. Barnes
+      - Jyoti Mishra
+      - Dhakshin S. Ramanathan
+    venue: Journal of Neuroscience
+    doi: "10.1523/JNEUROSCI.1234-24.2025"
+    tags:
+      - neuroscience
+      - electrophysiology
+      - reward-value
+      - cortico-striatal
+      - beta-oscillations
+      - high-gamma
+      - NEATLABs
+    importance: 95
+    domains:
+      - Publications
+      - NEATLABs Research
+      - Neural Data Analysis
+    modeVisibility:
+      - recruiter
+      - researcher
+      - full-brain
+
+  - id: pub:rodent-default-mode-network-2021
+    title: "Electrophysiological Correlates of Rodent Default-Mode Network Suppression Revealed by Large-Scale Local Field Potential Recordings"
+    year: 2021
+    authors:
+      - Leila Fakhraei
+      - Miranda Francoeur
+      - Pragathi P. Balasubramani
+      - Tianzhi Tang
+      - Sidharth Hulyalkar
+      - Nathalie Buscher
+      - Jyoti Mishra
+      - Dhakshin S. Ramanathan
+    venue: Cerebral Cortex Communications
+    doi: "10.1093/texcom/tgab017"
+    pmid: "33948574"
+    pmcid: "PMC8078180"
+    tags:
+      - neuroscience
+      - electrophysiology
+      - LFP
+      - default-mode-network
+      - NEATLABs
+      - large-scale
+    importance: 92
+    domains:
+      - Publications
+      - NEATLABs Research
+      - Neural Data Analysis
+    modeVisibility:
+      - recruiter
+      - researcher
+      - full-brain
+
+  - id: pub:chronic-multisite-probe-designs-2021
+    title: "Chronic, Multi-Site Recordings Supported by Two Low-Cost, Stationary Probe Designs Optimized to Capture Either Single Unit or Local Field Potential Activity in Behaving Rats"
+    year: 2021
+    authors:
+      - Miranda J. Francoeur
+      - Tianzhi Tang
+      - Leila Fakhraei
+      - Xuanyu Wu
+      - Sidharth Hulyalkar
+      - Jessica Bhattacharya Cramer
+      - Nathalie Bhattacharya Bhattacharya Buscher
+      - Dhakshin R. Ramanathan
+    venue: Frontiers in Psychiatry
+    doi: "10.3389/fpsyt.2021.678103"
+    pmid: "34276448"
+    pmcid: "PMC8282869"
+    tags:
+      - neuroscience
+      - electrophysiology
+      - probe-design
+      - behaving-rats
+      - NEATLABs
+      - methods
+    importance: 90
+    domains:
+      - Publications
+      - NEATLABs Research
+      - Experimental Systems
+    modeVisibility:
+      - recruiter
+      - researcher
+      - full-brain

@@ -1,0 +1,162 @@
+# Timeline events for Sid's Neural Net
+# Chronological milestones across career, research, and life
+
+events:
+  # === Career Milestones ===
+  - id: event:ucsd-start
+    title: "Started at UCSD"
+    date: "2014-09-01"
+    category: career
+    summary: "Began undergraduate studies in Bioengineering at UC San Diego."
+    importance: 70
+    modeVisibility:
+      - full-brain
+      - recruiter
+
+  - id: event:dolby-intern-2014
+    title: "Dolby Laboratories Internship"
+    date: "2014-06-01"
+    endDate: "2014-08-31"
+    category: career
+    summary: "First engineering internship working on Dolby Vision HDR picture quality testing."
+    importance: 65
+    modeVisibility:
+      - recruiter
+      - full-brain
+
+  - id: event:dolby-intern-2016
+    title: "Dolby Laboratories Internship (Return)"
+    date: "2016-06-01"
+    endDate: "2016-08-31"
+    category: career
+    summary: "Returned to Dolby working on glasses-free 3D TV quality analysis and white-point testing."
+    importance: 65
+    modeVisibility:
+      - recruiter
+      - full-brain
+
+  - id: event:neatlabs-start
+    title: "Joined NEATLABs as Lead Lab Programmer"
+    date: "2017-11-01"
+    category: career
+    summary: "Began role as Lead Lab Programmer at Neural Engineering and Translation Labs, UCSD."
+    importance: 95
+    links:
+      - label: "NEATLABs Research"
+        href: "/case-studies/neatlabs-core-research"
+    modeVisibility:
+      - recruiter
+      - researcher
+      - full-brain
+
+  - id: event:ucsd-graduation
+    title: "Graduated from UCSD"
+    date: "2018-06-15"
+    category: milestone
+    summary: "Completed B.S. in Bioengineering from UC San Diego."
+    importance: 75
+    modeVisibility:
+      - recruiter
+      - full-brain
+
+  - id: event:datajoint-start
+    title: "Joined DataJoint"
+    date: "2022-04-01"
+    category: career
+    summary: "Started as Neuroscience Data Engineer II at DataJoint, building cloud-ready scientific workflows."
+    importance: 100
+    links:
+      - label: "DataJoint Infrastructure"
+        href: "/case-studies/datajoint-multimodal-pipelines"
+    modeVisibility:
+      - recruiter
+      - researcher
+      - builder
+      - full-brain
+
+  - id: event:datajoint-end
+    title: "Completed DataJoint Engagement"
+    date: "2024-05-01"
+    category: career
+    summary: "Concluded work at DataJoint after building multimodal neuroscience infrastructure for major deployments."
+    importance: 85
+    modeVisibility:
+      - recruiter
+      - full-brain
+
+  # === Publications ===
+  - id: event:pub-dmn-2021
+    title: "Published: Rodent Default-Mode Network Study"
+    date: "2021-04-01"
+    category: publication
+    summary: "Co-authored paper on electrophysiological correlates of rodent DMN suppression in Cerebral Cortex Communications."
+    importance: 90
+    links:
+      - label: "Publication"
+        href: "/publications"
+    modeVisibility:
+      - recruiter
+      - researcher
+      - full-brain
+
+  - id: event:pub-probes-2021
+    title: "Published: Chronic Multi-Site Probe Designs"
+    date: "2021-07-01"
+    category: publication
+    summary: "Co-authored methods paper on low-cost probe designs for chronic recordings in Frontiers in Psychiatry."
+    importance: 88
+    modeVisibility:
+      - recruiter
+      - researcher
+      - full-brain
+
+  - id: event:pub-beta-gamma-2025
+    title: "Published: Beta and High Gamma Oscillations"
+    date: "2025-01-01"
+    category: publication
+    summary: "Co-authored paper on cortico-striatal oscillations and learned reward value in Journal of Neuroscience."
+    importance: 95
+    modeVisibility:
+      - recruiter
+      - researcher
+      - full-brain
+
+  # === Project Milestones ===
+  - id: event:sabatini-deployment
+    title: "Harvard Sabatini Lab Deployment"
+    date: "2023-06-01"
+    category: project
+    summary: "Led major deployment of multimodal DataJoint pipeline for Harvard/Sabatini Lab with ~12TB scale data."
+    importance: 100
+    links:
+      - label: "Case Study"
+        href: "/case-studies/harvard-sabatini-pipeline"
+    modeVisibility:
+      - recruiter
+      - builder
+      - full-brain
+
+  - id: event:neuros-v1-release
+    title: "Released neurOS-v1"
+    date: "2024-08-01"
+    category: project
+    summary: "Open-sourced neurOS-v1, a real-time neural data streaming and classification framework."
+    importance: 85
+    links:
+      - label: "GitHub"
+        href: "https://github.com/sidhulyalkar/neurOS-v1"
+    modeVisibility:
+      - builder
+      - researcher
+      - full-brain
+
+  # === Personal Milestones ===
+  - id: event:shasta
+    title: "Got Shasta"
+    date: "2020-01-15"
+    category: life
+    summary: "Welcomed Shasta, the trail scout, snow goblin, and morale engineer."
+    importance: 80
+    modeVisibility:
+      - personal
+      - full-brain

@@ -1,0 +1,177 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Deep backgrounds */
+  --bg-deep: #050914;
+  --bg-panel: #0b1020;
+  --bg-panel-2: #11182b;
+
+  /* Text colors */
+  --text-primary: #f8fbff;
+  --text-secondary: #b8c7d9;
+  --text-muted: #7d8da3;
+
+  /* Accent colors */
+  --cyan: #66e3ff;
+  --blue: #5b8cff;
+  --violet: #a78bfa;
+  --green: #66f0c2;
+  --amber: #f7c66b;
+  --rose: #ff7aa2;
+
+  /* Lines and glass */
+  --line-soft: rgba(255, 255, 255, 0.12);
+  --line-softer: rgba(255, 255, 255, 0.06);
+  --glass: rgba(255, 255, 255, 0.06);
+  --glass-border: rgba(255, 255, 255, 0.1);
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background-color: var(--bg-deep);
+  color: var(--text-primary);
+  font-feature-settings: 'rlig' 1, 'calt' 1;
+}
+
+/* Selection */
+::selection {
+  background-color: rgba(102, 227, 255, 0.3);
+  color: var(--text-primary);
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg-panel);
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+/* Focus styles */
+:focus-visible {
+  outline: 2px solid var(--cyan);
+  outline-offset: 2px;
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Glass card effect */
+@layer components {
+  .glass-card {
+    @apply bg-bg-panel/80 backdrop-blur-xl border border-white/10 rounded-xl;
+    box-shadow:
+      0 0 0 1px rgba(255, 255, 255, 0.05),
+      0 4px 30px rgba(0, 0, 0, 0.3);
+  }
+
+  .glass-card-hover {
+    @apply glass-card transition-all duration-300;
+  }
+
+  .glass-card-hover:hover {
+    @apply border-white/20;
+    box-shadow:
+      0 0 0 1px rgba(255, 255, 255, 0.1),
+      0 8px 40px rgba(0, 0, 0, 0.4),
+      0 0 30px rgba(102, 227, 255, 0.1);
+  }
+
+  /* Signal line decorations */
+  .signal-line {
+    @apply h-px bg-gradient-to-r from-transparent via-cyan/50 to-transparent;
+  }
+
+  .signal-line-vertical {
+    @apply w-px bg-gradient-to-b from-transparent via-cyan/50 to-transparent;
+  }
+
+  /* Glow text */
+  .text-glow-cyan {
+    text-shadow: 0 0 20px rgba(102, 227, 255, 0.5);
+  }
+
+  .text-glow-violet {
+    text-shadow: 0 0 20px rgba(167, 139, 250, 0.5);
+  }
+
+  /* Neural node pulse */
+  .neural-pulse {
+    animation: neural-pulse 2s ease-in-out infinite;
+  }
+
+  @keyframes neural-pulse {
+    0%, 100% {
+      box-shadow: 0 0 0 0 rgba(102, 227, 255, 0.4);
+    }
+    50% {
+      box-shadow: 0 0 0 10px rgba(102, 227, 255, 0);
+    }
+  }
+
+  /* Hex grid pattern */
+  .hex-pattern {
+    background-image: url("data:image/svg+xml,%3Csvg width='28' height='49' viewBox='0 0 28 49' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.03'%3E%3Cpath d='M13.99 9.25l13 7.5v15l-13 7.5L1 31.75v-15l12.99-7.5zM3 17.9v12.7l10.99 6.34 11-6.35V17.9l-11-6.34L3 17.9zM0 15l12.98-7.5V0h-2v6.35L0 12.69v2.3zm0 18.5L12.98 41v8h-2v-6.85L0 35.81v-2.3zM15 0v7.5L27.99 15H28v-2.31h-.01L17 6.35V0h-2zm0 49v-8l12.99-7.5H28v2.31h-.01L17 42.15V49h-2z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+  }
+}
+
+/* Typography */
+@layer base {
+  h1 {
+    @apply text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight;
+  }
+
+  h2 {
+    @apply text-3xl md:text-4xl font-bold tracking-tight;
+  }
+
+  h3 {
+    @apply text-2xl md:text-3xl font-semibold;
+  }
+
+  h4 {
+    @apply text-xl md:text-2xl font-semibold;
+  }
+
+  p {
+    @apply leading-relaxed;
+  }
+}
+
+/* Prose styles for MDX */
+.prose-neural {
+  @apply prose prose-invert prose-lg max-w-none;
+  @apply prose-headings:text-text-primary prose-headings:font-bold;
+  @apply prose-p:text-text-secondary;
+  @apply prose-a:text-cyan prose-a:no-underline hover:prose-a:underline;
+  @apply prose-strong:text-text-primary;
+  @apply prose-code:text-cyan prose-code:bg-bg-panel prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded;
+  @apply prose-pre:bg-bg-panel prose-pre:border prose-pre:border-white/10;
+  @apply prose-blockquote:border-l-cyan prose-blockquote:text-text-secondary;
+  @apply prose-li:text-text-secondary;
+}

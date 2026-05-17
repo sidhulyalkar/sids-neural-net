@@ -1,0 +1,1918 @@
+[
+  {
+    "id": "github:sidhulyalkar/sids-neural-net",
+    "slug": "sids-neural-net",
+    "type": "project",
+    "title": "sids-neural-net",
+    "summary": "Personal Project Website ",
+    "source": "github",
+    "sourceUrl": "https://github.com/sidhulyalkar/sids-neural-net",
+    "tags": [],
+    "domains": [],
+    "status": "active",
+    "updatedAt": "2026-05-17T21:42:42Z",
+    "createdAt": "2026-05-17T21:42:41Z",
+    "github": {
+      "owner": "sidhulyalkar",
+      "repo": "sids-neural-net",
+      "stars": 0,
+      "forks": 0,
+      "language": null,
+      "isFork": false,
+      "pushedAt": "2026-05-17T21:42:42Z",
+      "createdAt": "2026-05-17T21:42:41Z",
+      "topics": [],
+      "description": "Personal Project Website ",
+      "url": "https://github.com/sidhulyalkar/sids-neural-net"
+    }
+  },
+  {
+    "id": "github:sidhulyalkar/neurOS-v1",
+    "slug": "neuros-v1",
+    "type": "project",
+    "title": "neurOS-v1",
+    "summary": "neurOS-v1 is a self‑contained Python package for real‑time neural data streaming, processing and classification.",
+    "source": "github",
+    "sourceUrl": "https://github.com/sidhulyalkar/neurOS-v1",
+    "tags": [
+      "Neuroscience",
+      "Classification",
+      "Jupyter Notebook"
+    ],
+    "domains": [
+      "Neuroscience Research"
+    ],
+    "status": "active",
+    "updatedAt": "2026-05-06T04:21:04Z",
+    "createdAt": "2025-08-19T20:23:40Z",
+    "github": {
+      "owner": "sidhulyalkar",
+      "repo": "neurOS-v1",
+      "stars": 2,
+      "forks": 0,
+      "language": "Jupyter Notebook",
+      "isFork": false,
+      "pushedAt": "2026-05-07T06:13:23Z",
+      "createdAt": "2025-08-19T20:23:40Z",
+      "topics": [],
+      "description": "neurOS-v1 is a self‑contained Python package for real‑time neural data streaming, processing and classification.",
+      "url": "https://github.com/sidhulyalkar/neurOS-v1"
+    }
+  },
+  {
+    "id": "github:sidhulyalkar/woof",
+    "slug": "woof",
+    "type": "project",
+    "title": "woof",
+    "summary": "Pet Fitness Tracking and Socialization Platform",
+    "source": "github",
+    "sourceUrl": "https://github.com/sidhulyalkar/woof",
+    "tags": [
+      "Shasta-inspired",
+      "Personal",
+      "TypeScript"
+    ],
+    "domains": [
+      "Personal Product Experiments"
+    ],
+    "status": "active",
+    "updatedAt": "2025-10-25T02:09:48Z",
+    "createdAt": "2025-08-01T00:07:28Z",
+    "github": {
+      "owner": "sidhulyalkar",
+      "repo": "woof",
+      "stars": 0,
+      "forks": 0,
+      "language": "TypeScript",
+      "isFork": false,
+      "pushedAt": "2025-10-25T02:09:44Z",
+      "createdAt": "2025-08-01T00:07:28Z",
+      "topics": [],
+      "description": "Pet Fitness Tracking and Socialization Platform",
+      "url": "https://github.com/sidhulyalkar/woof"
+    }
+  },
+  {
+    "id": "github:sidhulyalkar/ece-196-eeg",
+    "slug": "ece-196-eeg",
+    "type": "project",
+    "title": "ece-196-eeg",
+    "summary": "",
+    "source": "github",
+    "sourceUrl": "https://github.com/sidhulyalkar/ece-196-eeg",
+    "tags": [
+      "Neuroscience"
+    ],
+    "domains": [
+      "Neuroscience Research"
+    ],
+    "status": "active",
+    "updatedAt": "2025-10-18T20:29:04Z",
+    "createdAt": "2025-10-18T20:29:04Z",
+    "github": {
+      "owner": "sidhulyalkar",
+      "repo": "ece-196-eeg",
+      "stars": 0,
+      "forks": 0,
+      "language": null,
+      "isFork": true,
+      "pushedAt": "2020-03-03T18:11:43Z",
+      "createdAt": "2025-10-18T20:29:04Z",
+      "topics": [],
+      "description": null,
+      "url": "https://github.com/sidhulyalkar/ece-196-eeg"
+    }
+  },
+  {
+    "id": "github:sidhulyalkar/neurOS",
+    "slug": "neuros",
+    "type": "project",
+    "title": "neurOS",
+    "summary": "neurOS is a modular orchestration layer built on top of NeuroForge, designed to streamline the development, execution, and evaluation of advanced brain–computer interface (BCI) pipelines. ",
+    "source": "github",
+    "sourceUrl": "https://github.com/sidhulyalkar/neurOS",
+    "tags": [
+      "Neuroscience",
+      "BCI",
+      "Python"
+    ],
+    "domains": [
+      "BCI & Real-Time Systems",
+      "Neuroscience Research"
+    ],
+    "status": "active",
+    "updatedAt": "2025-08-19T20:20:39Z",
+    "createdAt": "2025-07-06T00:09:58Z",
+    "github": {
+      "owner": "sidhulyalkar",
+      "repo": "neurOS",
+      "stars": 0,
+      "forks": 0,
+      "language": "Python",
+      "isFork": false,
+      "pushedAt": "2025-07-27T00:58:20Z",
+      "createdAt": "2025-07-06T00:09:58Z",
+      "topics": [],
+      "description": "neurOS is a modular orchestration layer built on top of NeuroForge, designed to streamline the development, execution, and evaluation of advanced brain–computer interface (BCI) pipelines. ",
+      "url": "https://github.com/sidhulyalkar/neurOS"
+    }
+  },
+  {
+    "id": "github:sidhulyalkar/neural-mm-tf-mechint",
+    "slug": "neural-mm-tf-mechint",
+    "type": "project",
+    "title": "neural-mm-tf-mechint",
+    "summary": "neural-multi-modal-transformer-mechanistic-interpretability",
+    "source": "github",
+    "sourceUrl": "https://github.com/sidhulyalkar/neural-mm-tf-mechint",
+    "tags": [
+      "mechanistic-interpretability",
+      "Transformers",
+      "Python"
+    ],
+    "domains": [
+      "Mechanistic Interpretability"
+    ],
+    "status": "active",
+    "updatedAt": "2025-07-16T06:13:02Z",
+    "createdAt": "2025-07-16T05:59:40Z",
+    "github": {
+      "owner": "sidhulyalkar",
+      "repo": "neural-mm-tf-mechint",
+      "stars": 0,
+      "forks": 0,
+      "language": "Python",
+      "isFork": false,
+      "pushedAt": "2025-07-16T06:12:59Z",
+      "createdAt": "2025-07-16T05:59:40Z",
+      "topics": [],
+      "description": "neural-multi-modal-transformer-mechanistic-interpretability",
+      "url": "https://github.com/sidhulyalkar/neural-mm-tf-mechint"
+    }
+  },
+  {
+    "id": "github:sidhulyalkar/NeuroForge",
+    "slug": "neuroforge",
+    "type": "project",
+    "title": "NeuroForge",
+    "summary": "System of Agents to generate BCI middleware code",
+    "source": "github",
+    "sourceUrl": "https://github.com/sidhulyalkar/NeuroForge",
+    "tags": [
+      "Neuroscience",
+      "BCI",
+      "Python"
+    ],
+    "domains": [
+      "BCI & Real-Time Systems",
+      "Neuroscience Research"
+    ],
+    "status": "active",
+    "updatedAt": "2025-07-10T03:45:36Z",
+    "createdAt": "2025-06-14T08:24:16Z",
+    "github": {
+      "owner": "sidhulyalkar",
+      "repo": "NeuroForge",
+      "stars": 1,
+      "forks": 0,
+      "language": "Python",
+      "isFork": false,
+      "pushedAt": "2025-06-29T05:01:00Z",
+      "createdAt": "2025-06-14T08:24:16Z",
+      "topics": [],
+      "description": "System of Agents to generate BCI middleware code",
+      "url": "https://github.com/sidhulyalkar/NeuroForge"
+    }
+  },
+  {
+    "id": "github:sidhulyalkar/neuro-DL-Classifier",
+    "slug": "neuro-dl-classifier",
+    "type": "project",
+    "title": "neuro-DL-Classifier",
+    "summary": "ECoG and EEG deep learning based signal classification package",
+    "source": "github",
+    "sourceUrl": "https://github.com/sidhulyalkar/neuro-DL-Classifier",
+    "tags": [
+      "Neuroscience",
+      "Deep Learning",
+      "Classification",
+      "Jupyter Notebook"
+    ],
+    "domains": [
+      "Neuroscience Research"
+    ],
+    "status": "active",
+    "updatedAt": "2025-06-29T04:31:22Z",
+    "createdAt": "2025-06-24T06:36:57Z",
+    "github": {
+      "owner": "sidhulyalkar",
+      "repo": "neuro-DL-Classifier",
+      "stars": 0,
+      "forks": 0,
+      "language": "Jupyter Notebook",
+      "isFork": false,
+      "pushedAt": "2025-06-29T04:31:19Z",
+      "createdAt": "2025-06-24T06:36:57Z",
+      "topics": [],
+      "description": "ECoG and EEG deep learning based signal classification package",
+      "url": "https://github.com/sidhulyalkar/neuro-DL-Classifier"
+    }
+  },
+  {
+    "id": "github:sidhulyalkar/neuralake",
+    "slug": "neuralake",
+    "type": "project",
+    "title": "neuralake",
+    "summary": "",
+    "source": "github",
+    "sourceUrl": "https://github.com/sidhulyalkar/neuralake",
+    "tags": [],
+    "domains": [],
+    "status": "active",
+    "updatedAt": "2025-06-27T02:37:45Z",
+    "createdAt": "2025-06-27T02:37:45Z",
+    "github": {
+      "owner": "sidhulyalkar",
+      "repo": "neuralake",
+      "stars": 0,
+      "forks": 0,
+      "language": null,
+      "isFork": true,
+      "pushedAt": "2025-06-26T03:56:20Z",
+      "createdAt": "2025-06-27T02:37:45Z",
+      "topics": [],
+      "description": null,
+      "url": "https://github.com/sidhulyalkar/neuralake"
+    }
+  },
+  {
+    "id": "github:sidhulyalkar/Neural-Decoding-of-M1-Motor-Neuron",
+    "slug": "neural-decoding-of-m1-motor-neuron",
+    "type": "project",
+    "title": "Neural-Decoding-of-M1-Motor-Neuron",
+    "summary": "Applied Kalman Filter on single motor neuron activity in M1 cortex to predict arm trajectory. Applied data augmentation to original dataset to decreased error by 18.5%.",
+    "source": "github",
+    "sourceUrl": "https://github.com/sidhulyalkar/Neural-Decoding-of-M1-Motor-Neuron",
+    "tags": [
+      "Neuroscience"
+    ],
+    "domains": [
+      "Neuroscience Research"
+    ],
+    "status": "active",
+    "updatedAt": "2025-06-25T22:40:11Z",
+    "createdAt": "2025-06-25T22:40:11Z",
+    "github": {
+      "owner": "sidhulyalkar",
+      "repo": "Neural-Decoding-of-M1-Motor-Neuron",
+      "stars": 0,
+      "forks": 0,
+      "language": null,
+      "isFork": true,
+      "pushedAt": "2025-05-13T18:48:02Z",
+      "createdAt": "2025-06-25T22:40:11Z",
+      "topics": [],
+      "description": "Applied Kalman Filter on single motor neuron activity in M1 cortex to predict arm trajectory. Applied data augmentation to original dataset to decreased error by 18.5%.",
+      "url": "https://github.com/sidhulyalkar/Neural-Decoding-of-M1-Motor-Neuron"
+    }
+  },
+  {
+    "id": "github:sidhulyalkar/2DFFT_pipeline",
+    "slug": "2dfft-pipeline",
+    "type": "project",
+    "title": "2DFFT_pipeline",
+    "summary": "Precision Neuroscience Interview 2DFFT AWS pipeline",
+    "source": "github",
+    "sourceUrl": "https://github.com/sidhulyalkar/2DFFT_pipeline",
+    "tags": [
+      "Neuroscience",
+      "Cloud",
+      "AWS",
+      "Python"
+    ],
+    "domains": [
+      "Cloud Infrastructure",
+      "Neuroscience Research"
+    ],
+    "status": "active",
+    "updatedAt": "2025-05-25T04:08:55Z",
+    "createdAt": "2025-05-24T23:56:10Z",
+    "github": {
+      "owner": "sidhulyalkar",
+      "repo": "2DFFT_pipeline",
+      "stars": 0,
+      "forks": 0,
+      "language": "Python",
+      "isFork": false,
+      "pushedAt": "2025-05-25T04:06:54Z",
+      "createdAt": "2025-05-24T23:56:10Z",
+      "topics": [],
+      "description": "Precision Neuroscience Interview 2DFFT AWS pipeline",
+      "url": "https://github.com/sidhulyalkar/2DFFT_pipeline"
+    }
+  },
+  {
+    "id": "github:sidhulyalkar/computer-vision-course",
+    "slug": "computer-vision-course",
+    "type": "project",
+    "title": "computer-vision-course",
+    "summary": "This repo is the homebase of a community driven course on Computer Vision with Neural Networks. Feel free to join us on the Hugging Face discord: hf.co/join/discord",
+    "source": "github",
+    "sourceUrl": "https://github.com/sidhulyalkar/computer-vision-course",
+    "tags": [
+      "Jupyter Notebook"
+    ],
+    "domains": [],
+    "status": "active",
+    "updatedAt": "2025-05-14T22:19:55Z",
+    "createdAt": "2025-03-04T08:55:25Z",
+    "github": {
+      "owner": "sidhulyalkar",
+      "repo": "computer-vision-course",
+      "stars": 0,
+      "forks": 0,
+      "language": "Jupyter Notebook",
+      "isFork": true,
+      "pushedAt": "2025-05-14T22:19:49Z",
+      "createdAt": "2025-03-04T08:55:25Z",
+      "topics": [],
+      "description": "This repo is the homebase of a community driven course on Computer Vision with Neural Networks. Feel free to join us on the Hugging Face discord: hf.co/join/discord",
+      "url": "https://github.com/sidhulyalkar/computer-vision-course"
+    }
+  },
+  {
+    "id": "github:sidhulyalkar/neurOPS",
+    "slug": "neurops",
+    "type": "project",
+    "title": "neurOPS",
+    "summary": "",
+    "source": "github",
+    "sourceUrl": "https://github.com/sidhulyalkar/neurOPS",
+    "tags": [
+      "Neuroscience",
+      "JavaScript"
+    ],
+    "domains": [
+      "Neuroscience Research"
+    ],
+    "status": "active",
+    "updatedAt": "2025-03-29T16:01:21Z",
+    "createdAt": "2025-03-26T23:24:11Z",
+    "github": {
+      "owner": "sidhulyalkar",
+      "repo": "neurOPS",
+      "stars": 0,
+      "forks": 0,
+      "language": "JavaScript",
+      "isFork": false,
+      "pushedAt": "2025-03-29T16:01:17Z",
+      "createdAt": "2025-03-26T23:24:11Z",
+      "topics": [],
+      "description": null,
+      "url": "https://github.com/sidhulyalkar/neurOPS"
+    }
+  },
+  {
+    "id": "github:sidhulyalkar/mne-python",
+    "slug": "mne-python",
+    "type": "project",
+    "title": "mne-python",
+    "summary": "MNE: Magnetoencephalography (MEG) and Electroencephalography (EEG) in Python",
+    "source": "github",
+    "sourceUrl": "https://github.com/sidhulyalkar/mne-python",
+    "tags": [
+      "Neuroscience"
+    ],
+    "domains": [
+      "Neuroscience Research"
+    ],
+    "status": "active",
+    "updatedAt": "2025-03-27T22:31:22Z",
+    "createdAt": "2025-03-27T22:31:21Z",
+    "github": {
+      "owner": "sidhulyalkar",
+      "repo": "mne-python",
+      "stars": 0,
+      "forks": 0,
+      "language": null,
+      "isFork": true,
+      "pushedAt": "2025-03-24T19:37:14Z",
+      "createdAt": "2025-03-27T22:31:21Z",
+      "topics": [],
+      "description": "MNE: Magnetoencephalography (MEG) and Electroencephalography (EEG) in Python",
+      "url": "https://github.com/sidhulyalkar/mne-python"
+    }
+  },
+  {
+    "id": "github:sidhulyalkar/sciops-dev_sabatini",
+    "slug": "sciops-dev-sabatini",
+    "type": "project",
+    "title": "sciops-dev_sabatini",
+    "summary": "",
+    "source": "github",
+    "sourceUrl": "https://github.com/sidhulyalkar/sciops-dev_sabatini",
+    "tags": [
+      "Jupyter Notebook"
+    ],
+    "domains": [],
+    "status": "active",
+    "updatedAt": "2025-03-27T19:38:06Z",
+    "createdAt": "2022-07-21T17:06:57Z",
+    "github": {
+      "owner": "sidhulyalkar",
+      "repo": "sciops-dev_sabatini",
+      "stars": 1,
+      "forks": 0,
+      "language": "Jupyter Notebook",
+      "isFork": true,
+      "pushedAt": "2025-03-27T19:37:59Z",
+      "createdAt": "2022-07-21T17:06:57Z",
+      "topics": [],
+      "description": null,
+      "url": "https://github.com/sidhulyalkar/sciops-dev_sabatini"
+    }
+  },
+  {
+    "id": "github:sidhulyalkar/neural_ai_network",
+    "slug": "neural-ai-network",
+    "type": "project",
+    "title": "neural_ai_network",
+    "summary": "System of Agents to Analyze Neural Data",
+    "source": "github",
+    "sourceUrl": "https://github.com/sidhulyalkar/neural_ai_network",
+    "tags": [
+      "Python"
+    ],
+    "domains": [],
+    "status": "active",
+    "updatedAt": "2025-03-12T19:10:47Z",
+    "createdAt": "2025-02-26T08:20:28Z",
+    "github": {
+      "owner": "sidhulyalkar",
+      "repo": "neural_ai_network",
+      "stars": 0,
+      "forks": 0,
+      "language": "Python",
+      "isFork": false,
+      "pushedAt": "2025-03-12T19:10:43Z",
+      "createdAt": "2025-02-26T08:20:28Z",
+      "topics": [],
+      "description": "System of Agents to Analyze Neural Data",
+      "url": "https://github.com/sidhulyalkar/neural_ai_network"
+    }
+  },
+  {
+    "id": "github:sidhulyalkar/Diffusion-based-Segmentation",
+    "slug": "diffusion-based-segmentation",
+    "type": "project",
+    "title": "Diffusion-based-Segmentation",
+    "summary": "This is the official Pytorch implementation of the paper \"Diffusion Models for Implicit Image Segmentation Ensembles\".",
+    "source": "github",
+    "sourceUrl": "https://github.com/sidhulyalkar/Diffusion-based-Segmentation",
+    "tags": [],
+    "domains": [],
+    "status": "active",
+    "updatedAt": "2025-03-04T09:30:59Z",
+    "createdAt": "2025-03-04T09:30:59Z",
+    "github": {
+      "owner": "sidhulyalkar",
+      "repo": "Diffusion-based-Segmentation",
+      "stars": 0,
+      "forks": 0,
+      "language": null,
+      "isFork": true,
+      "pushedAt": "2023-06-05T13:14:38Z",
+      "createdAt": "2025-03-04T09:30:59Z",
+      "topics": [],
+      "description": "This is the official Pytorch implementation of the paper \"Diffusion Models for Implicit Image Segmentation Ensembles\".",
+      "url": "https://github.com/sidhulyalkar/Diffusion-based-Segmentation"
+    }
+  },
+  {
+    "id": "github:sidhulyalkar/sidhulyalkar",
+    "slug": "sidhulyalkar",
+    "type": "project",
+    "title": "sidhulyalkar",
+    "summary": "",
+    "source": "github",
+    "sourceUrl": "https://github.com/sidhulyalkar/sidhulyalkar",
+    "tags": [],
+    "domains": [],
+    "status": "active",
+    "updatedAt": "2025-03-04T00:15:17Z",
+    "createdAt": "2025-02-28T09:50:31Z",
+    "github": {
+      "owner": "sidhulyalkar",
+      "repo": "sidhulyalkar",
+      "stars": 0,
+      "forks": 0,
+      "language": null,
+      "isFork": false,
+      "pushedAt": "2025-03-04T00:15:14Z",
+      "createdAt": "2025-02-28T09:50:31Z",
+      "topics": [],
+      "description": null,
+      "url": "https://github.com/sidhulyalkar/sidhulyalkar"
+    }
+  },
+  {
+    "id": "github:sidhulyalkar/QuantumBCI",
+    "slug": "quantumbci",
+    "type": "project",
+    "title": "QuantumBCI",
+    "summary": "",
+    "source": "github",
+    "sourceUrl": "https://github.com/sidhulyalkar/QuantumBCI",
+    "tags": [
+      "BCI",
+      "Python"
+    ],
+    "domains": [
+      "BCI & Real-Time Systems"
+    ],
+    "status": "active",
+    "updatedAt": "2025-03-03T23:48:47Z",
+    "createdAt": "2025-02-22T09:59:14Z",
+    "github": {
+      "owner": "sidhulyalkar",
+      "repo": "QuantumBCI",
+      "stars": 0,
+      "forks": 0,
+      "language": "Python",
+      "isFork": false,
+      "pushedAt": "2025-02-23T23:50:44Z",
+      "createdAt": "2025-02-22T09:59:14Z",
+      "topics": [],
+      "description": null,
+      "url": "https://github.com/sidhulyalkar/QuantumBCI"
+    }
+  },
+  {
+    "id": "github:sidhulyalkar/COVID-19",
+    "slug": "covid-19",
+    "type": "project",
+    "title": "COVID-19",
+    "summary": "Novel Coronavirus (COVID-19) Cases, provided by JHU CSSE",
+    "source": "github",
+    "sourceUrl": "https://github.com/sidhulyalkar/COVID-19",
+    "tags": [],
+    "domains": [],
+    "status": "active",
+    "updatedAt": "2024-10-03T07:24:29Z",
+    "createdAt": "2024-10-03T07:24:29Z",
+    "github": {
+      "owner": "sidhulyalkar",
+      "repo": "COVID-19",
+      "stars": 0,
+      "forks": 0,
+      "language": null,
+      "isFork": true,
+      "pushedAt": "2023-06-10T18:39:00Z",
+      "createdAt": "2024-10-03T07:24:29Z",
+      "topics": [],
+      "description": "Novel Coronavirus (COVID-19) Cases, provided by JHU CSSE",
+      "url": "https://github.com/sidhulyalkar/COVID-19"
+    }
+  },
+  {
+    "id": "github:sidhulyalkar/diffusers",
+    "slug": "diffusers",
+    "type": "project",
+    "title": "diffusers",
+    "summary": "🤗 Diffusers: State-of-the-art diffusion models for image and audio generation in PyTorch and FLAX.",
+    "source": "github",
+    "sourceUrl": "https://github.com/sidhulyalkar/diffusers",
+    "tags": [],
+    "domains": [],
+    "status": "active",
+    "updatedAt": "2024-09-16T00:44:38Z",
+    "createdAt": "2024-09-16T00:44:38Z",
+    "github": {
+      "owner": "sidhulyalkar",
+      "repo": "diffusers",
+      "stars": 0,
+      "forks": 0,
+      "language": null,
+      "isFork": true,
+      "pushedAt": "2024-09-15T20:38:52Z",
+      "createdAt": "2024-09-16T00:44:38Z",
+      "topics": [],
+      "description": "🤗 Diffusers: State-of-the-art diffusion models for image and audio generation in PyTorch and FLAX.",
+      "url": "https://github.com/sidhulyalkar/diffusers"
+    }
+  },
+  {
+    "id": "github:sidhulyalkar/notebooks",
+    "slug": "notebooks",
+    "type": "project",
+    "title": "notebooks",
+    "summary": "Notebooks using the Hugging Face libraries 🤗",
+    "source": "github",
+    "sourceUrl": "https://github.com/sidhulyalkar/notebooks",
+    "tags": [],
+    "domains": [],
+    "status": "active",
+    "updatedAt": "2024-09-05T02:33:20Z",
+    "createdAt": "2024-09-05T02:33:20Z",
+    "github": {
+      "owner": "sidhulyalkar",
+      "repo": "notebooks",
+      "stars": 0,
+      "forks": 0,
+      "language": null,
+      "isFork": true,
+      "pushedAt": "2024-08-19T14:54:09Z",
+      "createdAt": "2024-09-05T02:33:20Z",
+      "topics": [],
+      "description": "Notebooks using the Hugging Face libraries 🤗",
+      "url": "https://github.com/sidhulyalkar/notebooks"
+    }
+  },
+  {
+    "id": "github:sidhulyalkar/transformers",
+    "slug": "transformers",
+    "type": "project",
+    "title": "transformers",
+    "summary": "🤗 Transformers: State-of-the-art Machine Learning for Pytorch, TensorFlow, and JAX.",
+    "source": "github",
+    "sourceUrl": "https://github.com/sidhulyalkar/transformers",
+    "tags": [
+      "Transformers"
+    ],
+    "domains": [],
+    "status": "active",
+    "updatedAt": "2024-09-05T01:30:07Z",
+    "createdAt": "2024-09-05T01:30:06Z",
+    "github": {
+      "owner": "sidhulyalkar",
+      "repo": "transformers",
+      "stars": 0,
+      "forks": 0,
+      "language": null,
+      "isFork": true,
+      "pushedAt": "2024-09-04T19:24:56Z",
+      "createdAt": "2024-09-05T01:30:06Z",
+      "topics": [],
+      "description": "🤗 Transformers: State-of-the-art Machine Learning for Pytorch, TensorFlow, and JAX.",
+      "url": "https://github.com/sidhulyalkar/transformers"
+    }
+  },
+  {
+    "id": "github:sidhulyalkar/cleverhans",
+    "slug": "cleverhans",
+    "type": "project",
+    "title": "cleverhans",
+    "summary": "An adversarial example library for constructing attacks, building defenses, and benchmarking both",
+    "source": "github",
+    "sourceUrl": "https://github.com/sidhulyalkar/cleverhans",
+    "tags": [],
+    "domains": [],
+    "status": "active",
+    "updatedAt": "2024-08-28T03:37:20Z",
+    "createdAt": "2024-08-28T03:37:20Z",
+    "github": {
+      "owner": "sidhulyalkar",
+      "repo": "cleverhans",
+      "stars": 0,
+      "forks": 0,
+      "language": null,
+      "isFork": true,
+      "pushedAt": "2024-04-10T13:26:10Z",
+      "createdAt": "2024-08-28T03:37:20Z",
+      "topics": [],
+      "description": "An adversarial example library for constructing attacks, building defenses, and benchmarking both",
+      "url": "https://github.com/sidhulyalkar/cleverhans"
+    }
+  },
+  {
+    "id": "github:sidhulyalkar/NYU-DLSP20",
+    "slug": "nyu-dlsp20",
+    "type": "project",
+    "title": "NYU-DLSP20",
+    "summary": "NYU Deep Learning Spring 2020",
+    "source": "github",
+    "sourceUrl": "https://github.com/sidhulyalkar/NYU-DLSP20",
+    "tags": [
+      "Deep Learning"
+    ],
+    "domains": [],
+    "status": "active",
+    "updatedAt": "2024-08-28T03:36:11Z",
+    "createdAt": "2024-08-28T03:36:11Z",
+    "github": {
+      "owner": "sidhulyalkar",
+      "repo": "NYU-DLSP20",
+      "stars": 0,
+      "forks": 0,
+      "language": null,
+      "isFork": true,
+      "pushedAt": "2024-08-27T19:25:44Z",
+      "createdAt": "2024-08-28T03:36:11Z",
+      "topics": [],
+      "description": "NYU Deep Learning Spring 2020",
+      "url": "https://github.com/sidhulyalkar/NYU-DLSP20"
+    }
+  },
+  {
+    "id": "github:sidhulyalkar/element-deeplabcut",
+    "slug": "element-deeplabcut",
+    "type": "project",
+    "title": "element-deeplabcut",
+    "summary": "DataJoint Element for behavioral analysis with DeepLabCut",
+    "source": "github",
+    "sourceUrl": "https://github.com/sidhulyalkar/element-deeplabcut",
+    "tags": [
+      "DataJoint",
+      "Jupyter Notebook"
+    ],
+    "domains": [
+      "Neural Data Infrastructure"
+    ],
+    "status": "active",
+    "updatedAt": "2023-11-14T18:43:37Z",
+    "createdAt": "2022-09-16T19:29:08Z",
+    "github": {
+      "owner": "sidhulyalkar",
+      "repo": "element-deeplabcut",
+      "stars": 0,
+      "forks": 0,
+      "language": "Jupyter Notebook",
+      "isFork": true,
+      "pushedAt": "2024-01-27T01:42:16Z",
+      "createdAt": "2022-09-16T19:29:08Z",
+      "topics": [],
+      "description": "DataJoint Element for behavioral analysis with DeepLabCut",
+      "url": "https://github.com/sidhulyalkar/element-deeplabcut"
+    }
+  },
+  {
+    "id": "github:sidhulyalkar/suite2p",
+    "slug": "suite2p",
+    "type": "project",
+    "title": "suite2p",
+    "summary": "cell detection in calcium imaging recordings",
+    "source": "github",
+    "sourceUrl": "https://github.com/sidhulyalkar/suite2p",
+    "tags": [
+      "Jupyter Notebook"
+    ],
+    "domains": [],
+    "status": "active",
+    "updatedAt": "2023-08-16T22:40:45Z",
+    "createdAt": "2023-08-16T22:28:54Z",
+    "github": {
+      "owner": "sidhulyalkar",
+      "repo": "suite2p",
+      "stars": 0,
+      "forks": 0,
+      "language": "Jupyter Notebook",
+      "isFork": true,
+      "pushedAt": "2023-09-08T20:22:21Z",
+      "createdAt": "2023-08-16T22:28:54Z",
+      "topics": [],
+      "description": "cell detection in calcium imaging recordings",
+      "url": "https://github.com/sidhulyalkar/suite2p"
+    }
+  },
+  {
+    "id": "github:sidhulyalkar/element-calcium-imaging",
+    "slug": "element-calcium-imaging",
+    "type": "project",
+    "title": "element-calcium-imaging",
+    "summary": "DataJoint Element for multi-photon calcium imaging analysis with CaImAn and Suite2p",
+    "source": "github",
+    "sourceUrl": "https://github.com/sidhulyalkar/element-calcium-imaging",
+    "tags": [
+      "DataJoint",
+      "Jupyter Notebook"
+    ],
+    "domains": [
+      "Neural Data Infrastructure"
+    ],
+    "status": "active",
+    "updatedAt": "2023-07-27T17:26:59Z",
+    "createdAt": "2022-07-26T19:41:05Z",
+    "github": {
+      "owner": "sidhulyalkar",
+      "repo": "element-calcium-imaging",
+      "stars": 0,
+      "forks": 0,
+      "language": "Jupyter Notebook",
+      "isFork": true,
+      "pushedAt": "2023-12-06T21:25:29Z",
+      "createdAt": "2022-07-26T19:41:05Z",
+      "topics": [],
+      "description": "DataJoint Element for multi-photon calcium imaging analysis with CaImAn and Suite2p",
+      "url": "https://github.com/sidhulyalkar/element-calcium-imaging"
+    }
+  },
+  {
+    "id": "github:sidhulyalkar/microns_phase3_nda",
+    "slug": "microns-phase3-nda",
+    "type": "project",
+    "title": "microns_phase3_nda",
+    "summary": "nda schema for MICrONS phase3",
+    "source": "github",
+    "sourceUrl": "https://github.com/sidhulyalkar/microns_phase3_nda",
+    "tags": [],
+    "domains": [],
+    "status": "active",
+    "updatedAt": "2023-07-19T21:55:59Z",
+    "createdAt": "2023-07-19T21:55:59Z",
+    "github": {
+      "owner": "sidhulyalkar",
+      "repo": "microns_phase3_nda",
+      "stars": 0,
+      "forks": 0,
+      "language": null,
+      "isFork": true,
+      "pushedAt": "2023-07-10T18:15:42Z",
+      "createdAt": "2023-07-19T21:55:59Z",
+      "topics": [],
+      "description": "nda schema for MICrONS phase3",
+      "url": "https://github.com/sidhulyalkar/microns_phase3_nda"
+    }
+  },
+  {
+    "id": "github:sidhulyalkar/element-optogenetics",
+    "slug": "element-optogenetics",
+    "type": "project",
+    "title": "element-optogenetics",
+    "summary": "DataJoint Element for optogenetic experiments",
+    "source": "github",
+    "sourceUrl": "https://github.com/sidhulyalkar/element-optogenetics",
+    "tags": [
+      "DataJoint"
+    ],
+    "domains": [
+      "Neural Data Infrastructure"
+    ],
+    "status": "active",
+    "updatedAt": "2023-06-29T16:59:08Z",
+    "createdAt": "2023-06-29T16:59:08Z",
+    "github": {
+      "owner": "sidhulyalkar",
+      "repo": "element-optogenetics",
+      "stars": 0,
+      "forks": 0,
+      "language": null,
+      "isFork": true,
+      "pushedAt": "2023-05-12T21:50:34Z",
+      "createdAt": "2023-06-29T16:59:08Z",
+      "topics": [],
+      "description": "DataJoint Element for optogenetic experiments",
+      "url": "https://github.com/sidhulyalkar/element-optogenetics"
+    }
+  },
+  {
+    "id": "github:sidhulyalkar/element-miniscope",
+    "slug": "element-miniscope",
+    "type": "project",
+    "title": "element-miniscope",
+    "summary": "DataJoint Element for miniscope calcium imaging analysis with CaImAn",
+    "source": "github",
+    "sourceUrl": "https://github.com/sidhulyalkar/element-miniscope",
+    "tags": [
+      "DataJoint"
+    ],
+    "domains": [
+      "Neural Data Infrastructure"
+    ],
+    "status": "active",
+    "updatedAt": "2023-06-29T16:43:46Z",
+    "createdAt": "2023-06-29T16:43:45Z",
+    "github": {
+      "owner": "sidhulyalkar",
+      "repo": "element-miniscope",
+      "stars": 0,
+      "forks": 0,
+      "language": null,
+      "isFork": true,
+      "pushedAt": "2023-05-26T19:38:10Z",
+      "createdAt": "2023-06-29T16:43:45Z",
+      "topics": [],
+      "description": "DataJoint Element for miniscope calcium imaging analysis with CaImAn",
+      "url": "https://github.com/sidhulyalkar/element-miniscope"
+    }
+  },
+  {
+    "id": "github:sidhulyalkar/facemap",
+    "slug": "facemap",
+    "type": "project",
+    "title": "facemap",
+    "summary": "Framework for predicting neural activity from mouse orofacial movements tracked using a pose estimation model. Package also includes singular value decomposition (SVD) of behavioral videos.",
+    "source": "github",
+    "sourceUrl": "https://github.com/sidhulyalkar/facemap",
+    "tags": [],
+    "domains": [],
+    "status": "active",
+    "updatedAt": "2023-06-06T16:37:48Z",
+    "createdAt": "2023-06-06T16:37:48Z",
+    "github": {
+      "owner": "sidhulyalkar",
+      "repo": "facemap",
+      "stars": 0,
+      "forks": 0,
+      "language": null,
+      "isFork": true,
+      "pushedAt": "2023-05-05T17:18:08Z",
+      "createdAt": "2023-06-06T16:37:48Z",
+      "topics": [],
+      "description": "Framework for predicting neural activity from mouse orofacial movements tracked using a pose estimation model. Package also includes singular value decomposition (SVD) of behavioral videos.",
+      "url": "https://github.com/sidhulyalkar/facemap"
+    }
+  },
+  {
+    "id": "github:sidhulyalkar/element-facemap",
+    "slug": "element-facemap",
+    "type": "project",
+    "title": "element-facemap",
+    "summary": "DataJoint Element for behavioral analysis with Facemap",
+    "source": "github",
+    "sourceUrl": "https://github.com/sidhulyalkar/element-facemap",
+    "tags": [
+      "DataJoint",
+      "Python"
+    ],
+    "domains": [
+      "Neural Data Infrastructure"
+    ],
+    "status": "active",
+    "updatedAt": "2023-05-16T19:21:02Z",
+    "createdAt": "2023-04-11T23:34:53Z",
+    "github": {
+      "owner": "sidhulyalkar",
+      "repo": "element-facemap",
+      "stars": 0,
+      "forks": 0,
+      "language": "Python",
+      "isFork": true,
+      "pushedAt": "2024-01-27T00:37:44Z",
+      "createdAt": "2023-04-11T23:34:53Z",
+      "topics": [],
+      "description": "DataJoint Element for behavioral analysis with Facemap",
+      "url": "https://github.com/sidhulyalkar/element-facemap"
+    }
+  },
+  {
+    "id": "github:sidhulyalkar/element-electrode-localization",
+    "slug": "element-electrode-localization",
+    "type": "project",
+    "title": "element-electrode-localization",
+    "summary": "DataJoint Element for localizing Neuropixels electrodes",
+    "source": "github",
+    "sourceUrl": "https://github.com/sidhulyalkar/element-electrode-localization",
+    "tags": [
+      "DataJoint",
+      "Neuroscience",
+      "Python"
+    ],
+    "domains": [
+      "Neural Data Infrastructure"
+    ],
+    "status": "active",
+    "updatedAt": "2023-01-21T00:07:29Z",
+    "createdAt": "2022-10-18T16:18:41Z",
+    "github": {
+      "owner": "sidhulyalkar",
+      "repo": "element-electrode-localization",
+      "stars": 0,
+      "forks": 0,
+      "language": "Python",
+      "isFork": true,
+      "pushedAt": "2023-01-21T00:07:21Z",
+      "createdAt": "2022-10-18T16:18:41Z",
+      "topics": [],
+      "description": "DataJoint Element for localizing Neuropixels electrodes",
+      "url": "https://github.com/sidhulyalkar/element-electrode-localization"
+    }
+  },
+  {
+    "id": "github:sidhulyalkar/ecephys_spike_sorting",
+    "slug": "ecephys-spike-sorting",
+    "type": "project",
+    "title": "ecephys_spike_sorting",
+    "summary": "Modules for processing extracellular electrophysiology data from Neuropixels probes",
+    "source": "github",
+    "sourceUrl": "https://github.com/sidhulyalkar/ecephys_spike_sorting",
+    "tags": [
+      "Neuroscience",
+      "Python"
+    ],
+    "domains": [
+      "Neuroscience Research"
+    ],
+    "status": "active",
+    "updatedAt": "2023-01-19T21:48:35Z",
+    "createdAt": "2022-12-14T23:29:38Z",
+    "github": {
+      "owner": "sidhulyalkar",
+      "repo": "ecephys_spike_sorting",
+      "stars": 0,
+      "forks": 0,
+      "language": "Python",
+      "isFork": true,
+      "pushedAt": "2023-05-16T16:18:43Z",
+      "createdAt": "2022-12-14T23:29:38Z",
+      "topics": [],
+      "description": "Modules for processing extracellular electrophysiology data from Neuropixels probes",
+      "url": "https://github.com/sidhulyalkar/ecephys_spike_sorting"
+    }
+  },
+  {
+    "id": "github:sidhulyalkar/element-animal",
+    "slug": "element-animal",
+    "type": "project",
+    "title": "element-animal",
+    "summary": "DataJoint Element for Animal Management - NIH U24",
+    "source": "github",
+    "sourceUrl": "https://github.com/sidhulyalkar/element-animal",
+    "tags": [
+      "DataJoint",
+      "Python"
+    ],
+    "domains": [
+      "Neural Data Infrastructure"
+    ],
+    "status": "active",
+    "updatedAt": "2023-01-13T23:35:57Z",
+    "createdAt": "2022-05-24T21:36:42Z",
+    "github": {
+      "owner": "sidhulyalkar",
+      "repo": "element-animal",
+      "stars": 0,
+      "forks": 0,
+      "language": "Python",
+      "isFork": true,
+      "pushedAt": "2023-04-28T18:44:02Z",
+      "createdAt": "2022-05-24T21:36:42Z",
+      "topics": [],
+      "description": "DataJoint Element for Animal Management - NIH U24",
+      "url": "https://github.com/sidhulyalkar/element-animal"
+    }
+  },
+  {
+    "id": "github:sidhulyalkar/element-lab",
+    "slug": "element-lab",
+    "type": "project",
+    "title": "element-lab",
+    "summary": "DataJoint Element for Lab Management - NIH U24",
+    "source": "github",
+    "sourceUrl": "https://github.com/sidhulyalkar/element-lab",
+    "tags": [
+      "DataJoint",
+      "Python"
+    ],
+    "domains": [
+      "Neural Data Infrastructure"
+    ],
+    "status": "active",
+    "updatedAt": "2023-01-13T23:35:18Z",
+    "createdAt": "2022-05-24T21:35:00Z",
+    "github": {
+      "owner": "sidhulyalkar",
+      "repo": "element-lab",
+      "stars": 0,
+      "forks": 0,
+      "language": "Python",
+      "isFork": true,
+      "pushedAt": "2023-01-13T23:35:08Z",
+      "createdAt": "2022-05-24T21:35:00Z",
+      "topics": [],
+      "description": "DataJoint Element for Lab Management - NIH U24",
+      "url": "https://github.com/sidhulyalkar/element-lab"
+    }
+  },
+  {
+    "id": "github:sidhulyalkar/workflow-deeplabcut",
+    "slug": "workflow-deeplabcut",
+    "type": "project",
+    "title": "workflow-deeplabcut",
+    "summary": "Example DataJoint workflow for behavioral analysis with DeepLabCut",
+    "source": "github",
+    "sourceUrl": "https://github.com/sidhulyalkar/workflow-deeplabcut",
+    "tags": [
+      "DataJoint",
+      "Jupyter Notebook"
+    ],
+    "domains": [
+      "Neural Data Infrastructure"
+    ],
+    "status": "active",
+    "updatedAt": "2023-01-13T22:22:09Z",
+    "createdAt": "2022-10-19T15:43:27Z",
+    "github": {
+      "owner": "sidhulyalkar",
+      "repo": "workflow-deeplabcut",
+      "stars": 0,
+      "forks": 0,
+      "language": "Jupyter Notebook",
+      "isFork": true,
+      "pushedAt": "2023-01-13T22:22:04Z",
+      "createdAt": "2022-10-19T15:43:27Z",
+      "topics": [],
+      "description": "Example DataJoint workflow for behavioral analysis with DeepLabCut",
+      "url": "https://github.com/sidhulyalkar/workflow-deeplabcut"
+    }
+  },
+  {
+    "id": "github:sidhulyalkar/spikeinterface",
+    "slug": "spikeinterface",
+    "type": "project",
+    "title": "spikeinterface",
+    "summary": "A Python-based module for creating flexible and robust spike sorting pipelines.",
+    "source": "github",
+    "sourceUrl": "https://github.com/sidhulyalkar/spikeinterface",
+    "tags": [
+      "Neuroscience",
+      "Python"
+    ],
+    "domains": [
+      "Neuroscience Research"
+    ],
+    "status": "active",
+    "updatedAt": "2022-11-21T23:03:31Z",
+    "createdAt": "2022-10-03T18:18:07Z",
+    "github": {
+      "owner": "sidhulyalkar",
+      "repo": "spikeinterface",
+      "stars": 0,
+      "forks": 0,
+      "language": "Python",
+      "isFork": true,
+      "pushedAt": "2022-11-21T23:02:38Z",
+      "createdAt": "2022-10-03T18:18:07Z",
+      "topics": [],
+      "description": "A Python-based module for creating flexible and robust spike sorting pipelines.",
+      "url": "https://github.com/sidhulyalkar/spikeinterface"
+    }
+  },
+  {
+    "id": "github:sidhulyalkar/python-neo",
+    "slug": "python-neo",
+    "type": "project",
+    "title": "python-neo",
+    "summary": "Neo is a package for representing electrophysiology data in Python, together with support for reading a wide range of neurophysiology file formats",
+    "source": "github",
+    "sourceUrl": "https://github.com/sidhulyalkar/python-neo",
+    "tags": [
+      "Neuroscience"
+    ],
+    "domains": [
+      "Neuroscience Research"
+    ],
+    "status": "active",
+    "updatedAt": "2022-11-04T14:41:42Z",
+    "createdAt": "2022-11-21T23:04:43Z",
+    "github": {
+      "owner": "sidhulyalkar",
+      "repo": "python-neo",
+      "stars": 0,
+      "forks": 0,
+      "language": null,
+      "isFork": true,
+      "pushedAt": "2022-11-04T14:40:34Z",
+      "createdAt": "2022-11-21T23:04:43Z",
+      "topics": [],
+      "description": "Neo is a package for representing electrophysiology data in Python, together with support for reading a wide range of neurophysiology file formats",
+      "url": "https://github.com/sidhulyalkar/python-neo"
+    }
+  },
+  {
+    "id": "github:sidhulyalkar/element-event",
+    "slug": "element-event",
+    "type": "project",
+    "title": "element-event",
+    "summary": "DataJoint Element for event-based behavior experiments",
+    "source": "github",
+    "sourceUrl": "https://github.com/sidhulyalkar/element-event",
+    "tags": [
+      "DataJoint",
+      "Python"
+    ],
+    "domains": [
+      "Neural Data Infrastructure"
+    ],
+    "status": "active",
+    "updatedAt": "2022-10-25T23:52:34Z",
+    "createdAt": "2022-10-20T21:44:19Z",
+    "github": {
+      "owner": "sidhulyalkar",
+      "repo": "element-event",
+      "stars": 0,
+      "forks": 0,
+      "language": "Python",
+      "isFork": true,
+      "pushedAt": "2023-01-13T23:36:47Z",
+      "createdAt": "2022-10-20T21:44:19Z",
+      "topics": [],
+      "description": "DataJoint Element for event-based behavior experiments",
+      "url": "https://github.com/sidhulyalkar/element-event"
+    }
+  },
+  {
+    "id": "github:sidhulyalkar/probeinterface",
+    "slug": "probeinterface",
+    "type": "project",
+    "title": "probeinterface",
+    "summary": "Python package to handle probe layout, geometry and wiring to device.",
+    "source": "github",
+    "sourceUrl": "https://github.com/sidhulyalkar/probeinterface",
+    "tags": [],
+    "domains": [],
+    "status": "active",
+    "updatedAt": "2022-09-17T13:35:23Z",
+    "createdAt": "2022-11-21T23:03:16Z",
+    "github": {
+      "owner": "sidhulyalkar",
+      "repo": "probeinterface",
+      "stars": 0,
+      "forks": 0,
+      "language": null,
+      "isFork": true,
+      "pushedAt": "2022-11-17T18:07:00Z",
+      "createdAt": "2022-11-21T23:03:16Z",
+      "topics": [],
+      "description": "Python package to handle probe layout, geometry and wiring to device.",
+      "url": "https://github.com/sidhulyalkar/probeinterface"
+    }
+  },
+  {
+    "id": "github:sidhulyalkar/djsciops-cicd",
+    "slug": "djsciops-cicd",
+    "type": "project",
+    "title": "djsciops-cicd",
+    "summary": "",
+    "source": "github",
+    "sourceUrl": "https://github.com/sidhulyalkar/djsciops-cicd",
+    "tags": [],
+    "domains": [],
+    "status": "active",
+    "updatedAt": "2022-08-23T19:42:34Z",
+    "createdAt": "2022-09-14T15:46:46Z",
+    "github": {
+      "owner": "sidhulyalkar",
+      "repo": "djsciops-cicd",
+      "stars": 0,
+      "forks": 0,
+      "language": null,
+      "isFork": true,
+      "pushedAt": "2022-09-13T19:47:14Z",
+      "createdAt": "2022-09-14T15:46:46Z",
+      "topics": [],
+      "description": null,
+      "url": "https://github.com/sidhulyalkar/djsciops-cicd"
+    }
+  },
+  {
+    "id": "github:sidhulyalkar/element-array-ephys",
+    "slug": "element-array-ephys",
+    "type": "project",
+    "title": "element-array-ephys",
+    "summary": "DataJoint Element for Extracellular Array Electrophysiology - NIH U24",
+    "source": "github",
+    "sourceUrl": "https://github.com/sidhulyalkar/element-array-ephys",
+    "tags": [
+      "DataJoint",
+      "Python"
+    ],
+    "domains": [
+      "Neural Data Infrastructure"
+    ],
+    "status": "active",
+    "updatedAt": "2022-07-19T21:47:09Z",
+    "createdAt": "2022-05-24T21:31:31Z",
+    "github": {
+      "owner": "sidhulyalkar",
+      "repo": "element-array-ephys",
+      "stars": 0,
+      "forks": 0,
+      "language": "Python",
+      "isFork": true,
+      "pushedAt": "2023-09-19T18:34:03Z",
+      "createdAt": "2022-05-24T21:31:31Z",
+      "topics": [],
+      "description": "DataJoint Element for Extracellular Array Electrophysiology - NIH U24",
+      "url": "https://github.com/sidhulyalkar/element-array-ephys"
+    }
+  },
+  {
+    "id": "github:sidhulyalkar/np_data_validation",
+    "slug": "np-data-validation",
+    "type": "project",
+    "title": "np_data_validation",
+    "summary": "Tools for validating data integrity across the lifecycle of an ecephys session file",
+    "source": "github",
+    "sourceUrl": "https://github.com/sidhulyalkar/np_data_validation",
+    "tags": [],
+    "domains": [],
+    "status": "active",
+    "updatedAt": "2022-07-16T03:24:35Z",
+    "createdAt": "2022-09-02T18:02:53Z",
+    "github": {
+      "owner": "sidhulyalkar",
+      "repo": "np_data_validation",
+      "stars": 0,
+      "forks": 0,
+      "language": null,
+      "isFork": true,
+      "pushedAt": "2022-08-30T06:21:20Z",
+      "createdAt": "2022-09-02T18:02:53Z",
+      "topics": [],
+      "description": "Tools for validating data integrity across the lifecycle of an ecephys session file",
+      "url": "https://github.com/sidhulyalkar/np_data_validation"
+    }
+  },
+  {
+    "id": "github:sidhulyalkar/element-interface",
+    "slug": "element-interface",
+    "type": "project",
+    "title": "element-interface",
+    "summary": "Common functions for the DataJoint Elements",
+    "source": "github",
+    "sourceUrl": "https://github.com/sidhulyalkar/element-interface",
+    "tags": [
+      "DataJoint",
+      "Python"
+    ],
+    "domains": [
+      "Neural Data Infrastructure"
+    ],
+    "status": "active",
+    "updatedAt": "2022-06-17T22:46:50Z",
+    "createdAt": "2022-06-08T00:27:30Z",
+    "github": {
+      "owner": "sidhulyalkar",
+      "repo": "element-interface",
+      "stars": 0,
+      "forks": 0,
+      "language": "Python",
+      "isFork": true,
+      "pushedAt": "2023-01-13T23:39:26Z",
+      "createdAt": "2022-06-08T00:27:30Z",
+      "topics": [],
+      "description": "Common functions for the DataJoint Elements",
+      "url": "https://github.com/sidhulyalkar/element-interface"
+    }
+  },
+  {
+    "id": "github:sidhulyalkar/element-session",
+    "slug": "element-session",
+    "type": "project",
+    "title": "element-session",
+    "summary": "DataJoint Element for Session Management - NIH U24",
+    "source": "github",
+    "sourceUrl": "https://github.com/sidhulyalkar/element-session",
+    "tags": [
+      "DataJoint",
+      "Python"
+    ],
+    "domains": [
+      "Neural Data Infrastructure"
+    ],
+    "status": "active",
+    "updatedAt": "2022-06-09T00:17:42Z",
+    "createdAt": "2022-05-24T21:38:02Z",
+    "github": {
+      "owner": "sidhulyalkar",
+      "repo": "element-session",
+      "stars": 0,
+      "forks": 0,
+      "language": "Python",
+      "isFork": true,
+      "pushedAt": "2023-01-13T23:36:20Z",
+      "createdAt": "2022-05-24T21:38:02Z",
+      "topics": [],
+      "description": "DataJoint Element for Session Management - NIH U24",
+      "url": "https://github.com/sidhulyalkar/element-session"
+    }
+  },
+  {
+    "id": "github:sidhulyalkar/workflow-array-ephys",
+    "slug": "workflow-array-ephys",
+    "type": "project",
+    "title": "workflow-array-ephys",
+    "summary": "Example DataJoint workflow of `element-array-ephys` - NIH U24",
+    "source": "github",
+    "sourceUrl": "https://github.com/sidhulyalkar/workflow-array-ephys",
+    "tags": [
+      "DataJoint",
+      "Jupyter Notebook"
+    ],
+    "domains": [
+      "Neural Data Infrastructure"
+    ],
+    "status": "active",
+    "updatedAt": "2022-06-08T23:27:09Z",
+    "createdAt": "2022-05-19T16:55:13Z",
+    "github": {
+      "owner": "sidhulyalkar",
+      "repo": "workflow-array-ephys",
+      "stars": 0,
+      "forks": 0,
+      "language": "Jupyter Notebook",
+      "isFork": true,
+      "pushedAt": "2023-01-21T00:26:17Z",
+      "createdAt": "2022-05-19T16:55:13Z",
+      "topics": [],
+      "description": "Example DataJoint workflow of `element-array-ephys` - NIH U24",
+      "url": "https://github.com/sidhulyalkar/workflow-array-ephys"
+    }
+  },
+  {
+    "id": "github:sidhulyalkar/datajoint-utilities",
+    "slug": "datajoint-utilities",
+    "type": "project",
+    "title": "datajoint-utilities",
+    "summary": "A general purpose repository containing all generic tools/utilities surrounding the DataJoint ecosystem. These can be candidates for DataJoint plugins",
+    "source": "github",
+    "sourceUrl": "https://github.com/sidhulyalkar/datajoint-utilities",
+    "tags": [
+      "DataJoint"
+    ],
+    "domains": [
+      "Neural Data Infrastructure"
+    ],
+    "status": "active",
+    "updatedAt": "2022-06-01T00:09:15Z",
+    "createdAt": "2022-12-21T17:24:26Z",
+    "github": {
+      "owner": "sidhulyalkar",
+      "repo": "datajoint-utilities",
+      "stars": 0,
+      "forks": 0,
+      "language": null,
+      "isFork": true,
+      "pushedAt": "2022-11-09T16:33:55Z",
+      "createdAt": "2022-12-21T17:24:26Z",
+      "topics": [],
+      "description": "A general purpose repository containing all generic tools/utilities surrounding the DataJoint ecosystem. These can be candidates for DataJoint plugins",
+      "url": "https://github.com/sidhulyalkar/datajoint-utilities"
+    }
+  },
+  {
+    "id": "github:sidhulyalkar/datajoint-elements",
+    "slug": "datajoint-elements",
+    "type": "project",
+    "title": "datajoint-elements",
+    "summary": "DataJoint Elements is a collection of curated computational workflows for neurophysiology experiments.",
+    "source": "github",
+    "sourceUrl": "https://github.com/sidhulyalkar/datajoint-elements",
+    "tags": [
+      "DataJoint",
+      "Neuroscience",
+      "Shell"
+    ],
+    "domains": [
+      "Neural Data Infrastructure"
+    ],
+    "status": "active",
+    "updatedAt": "2022-05-31T19:51:47Z",
+    "createdAt": "2022-05-31T19:07:07Z",
+    "github": {
+      "owner": "sidhulyalkar",
+      "repo": "datajoint-elements",
+      "stars": 0,
+      "forks": 0,
+      "language": "Shell",
+      "isFork": true,
+      "pushedAt": "2022-07-13T20:19:11Z",
+      "createdAt": "2022-05-31T19:07:07Z",
+      "topics": [],
+      "description": "DataJoint Elements is a collection of curated computational workflows for neurophysiology experiments.",
+      "url": "https://github.com/sidhulyalkar/datajoint-elements"
+    }
+  },
+  {
+    "id": "github:sidhulyalkar/djlab-docker",
+    "slug": "djlab-docker",
+    "type": "project",
+    "title": "djlab-docker",
+    "summary": "A docker image optimized for running a JupyterLab environment with DataJoint Python.",
+    "source": "github",
+    "sourceUrl": "https://github.com/sidhulyalkar/djlab-docker",
+    "tags": [
+      "DataJoint",
+      "Docker"
+    ],
+    "domains": [
+      "Neural Data Infrastructure",
+      "Cloud Infrastructure"
+    ],
+    "status": "active",
+    "updatedAt": "2022-04-05T16:22:49Z",
+    "createdAt": "2022-11-04T21:39:41Z",
+    "github": {
+      "owner": "sidhulyalkar",
+      "repo": "djlab-docker",
+      "stars": 0,
+      "forks": 0,
+      "language": null,
+      "isFork": true,
+      "pushedAt": "2022-09-16T22:06:16Z",
+      "createdAt": "2022-11-04T21:39:41Z",
+      "topics": [],
+      "description": "A docker image optimized for running a JupyterLab environment with DataJoint Python.",
+      "url": "https://github.com/sidhulyalkar/djlab-docker"
+    }
+  },
+  {
+    "id": "github:sidhulyalkar/DataJoint-Pipeline-and-STRF-Visualization-",
+    "slug": "datajoint-pipeline-and-strf-visualization-",
+    "type": "project",
+    "title": "DataJoint-Pipeline-and-STRF-Visualization-",
+    "summary": "",
+    "source": "github",
+    "sourceUrl": "https://github.com/sidhulyalkar/DataJoint-Pipeline-and-STRF-Visualization-",
+    "tags": [
+      "DataJoint",
+      "Jupyter Notebook"
+    ],
+    "domains": [
+      "Neural Data Infrastructure"
+    ],
+    "status": "active",
+    "updatedAt": "2022-01-17T00:21:37Z",
+    "createdAt": "2022-01-17T00:21:01Z",
+    "github": {
+      "owner": "sidhulyalkar",
+      "repo": "DataJoint-Pipeline-and-STRF-Visualization-",
+      "stars": 0,
+      "forks": 0,
+      "language": "Jupyter Notebook",
+      "isFork": false,
+      "pushedAt": "2022-01-19T22:26:05Z",
+      "createdAt": "2022-01-17T00:21:01Z",
+      "topics": [],
+      "description": null,
+      "url": "https://github.com/sidhulyalkar/DataJoint-Pipeline-and-STRF-Visualization-"
+    }
+  },
+  {
+    "id": "github:sidhulyalkar/djarchive-client",
+    "slug": "djarchive-client",
+    "type": "project",
+    "title": "djarchive-client",
+    "summary": "DataJoint Archive Client",
+    "source": "github",
+    "sourceUrl": "https://github.com/sidhulyalkar/djarchive-client",
+    "tags": [
+      "DataJoint"
+    ],
+    "domains": [
+      "Neural Data Infrastructure"
+    ],
+    "status": "active",
+    "updatedAt": "2021-12-20T20:21:11Z",
+    "createdAt": "2022-06-17T16:48:33Z",
+    "github": {
+      "owner": "sidhulyalkar",
+      "repo": "djarchive-client",
+      "stars": 0,
+      "forks": 0,
+      "language": null,
+      "isFork": true,
+      "pushedAt": "2021-12-20T20:21:08Z",
+      "createdAt": "2022-06-17T16:48:33Z",
+      "topics": [],
+      "description": "DataJoint Archive Client",
+      "url": "https://github.com/sidhulyalkar/djarchive-client"
+    }
+  },
+  {
+    "id": "github:sidhulyalkar/djbase-docker",
+    "slug": "djbase-docker",
+    "type": "project",
+    "title": "djbase-docker",
+    "summary": "A minimal base docker image with DataJoint Python dependencies installed.",
+    "source": "github",
+    "sourceUrl": "https://github.com/sidhulyalkar/djbase-docker",
+    "tags": [
+      "DataJoint",
+      "Docker"
+    ],
+    "domains": [
+      "Neural Data Infrastructure",
+      "Cloud Infrastructure"
+    ],
+    "status": "active",
+    "updatedAt": "2021-11-03T16:50:45Z",
+    "createdAt": "2022-11-03T21:09:23Z",
+    "github": {
+      "owner": "sidhulyalkar",
+      "repo": "djbase-docker",
+      "stars": 0,
+      "forks": 0,
+      "language": null,
+      "isFork": true,
+      "pushedAt": "2022-04-04T14:44:25Z",
+      "createdAt": "2022-11-03T21:09:23Z",
+      "topics": [],
+      "description": "A minimal base docker image with DataJoint Python dependencies installed.",
+      "url": "https://github.com/sidhulyalkar/djbase-docker"
+    }
+  },
+  {
+    "id": "github:sidhulyalkar/miniconda3-docker",
+    "slug": "miniconda3-docker",
+    "type": "project",
+    "title": "miniconda3-docker",
+    "summary": "A minimal base docker image with conda.",
+    "source": "github",
+    "sourceUrl": "https://github.com/sidhulyalkar/miniconda3-docker",
+    "tags": [
+      "Docker"
+    ],
+    "domains": [
+      "Cloud Infrastructure"
+    ],
+    "status": "active",
+    "updatedAt": "2021-11-03T15:45:10Z",
+    "createdAt": "2022-11-03T21:10:34Z",
+    "github": {
+      "owner": "sidhulyalkar",
+      "repo": "miniconda3-docker",
+      "stars": 0,
+      "forks": 0,
+      "language": null,
+      "isFork": true,
+      "pushedAt": "2022-10-11T22:25:55Z",
+      "createdAt": "2022-11-03T21:10:34Z",
+      "topics": [],
+      "description": "A minimal base docker image with conda.",
+      "url": "https://github.com/sidhulyalkar/miniconda3-docker"
+    }
+  },
+  {
+    "id": "github:sidhulyalkar/Neural-Data-Augmentation-Model",
+    "slug": "neural-data-augmentation-model",
+    "type": "project",
+    "title": "Neural-Data-Augmentation-Model",
+    "summary": "Project for Beng 189 class at UCSD. Data augmentation on neural data for Neural network",
+    "source": "github",
+    "sourceUrl": "https://github.com/sidhulyalkar/Neural-Data-Augmentation-Model",
+    "tags": [
+      "MATLAB"
+    ],
+    "domains": [],
+    "status": "active",
+    "updatedAt": "2021-01-04T05:33:10Z",
+    "createdAt": "2021-01-04T05:31:30Z",
+    "github": {
+      "owner": "sidhulyalkar",
+      "repo": "Neural-Data-Augmentation-Model",
+      "stars": 0,
+      "forks": 0,
+      "language": "MATLAB",
+      "isFork": false,
+      "pushedAt": "2021-01-04T05:33:08Z",
+      "createdAt": "2021-01-04T05:31:30Z",
+      "topics": [],
+      "description": "Project for Beng 189 class at UCSD. Data augmentation on neural data for Neural network",
+      "url": "https://github.com/sidhulyalkar/Neural-Data-Augmentation-Model"
+    }
+  },
+  {
+    "id": "github:sidhulyalkar/3DBrainVisualization",
+    "slug": "3dbrainvisualization",
+    "type": "project",
+    "title": "3DBrainVisualization",
+    "summary": "",
+    "source": "github",
+    "sourceUrl": "https://github.com/sidhulyalkar/3DBrainVisualization",
+    "tags": [
+      "Neuroscience"
+    ],
+    "domains": [
+      "Neuroscience Research"
+    ],
+    "status": "active",
+    "updatedAt": "2020-10-22T09:43:52Z",
+    "createdAt": "2020-10-22T09:42:15Z",
+    "github": {
+      "owner": "sidhulyalkar",
+      "repo": "3DBrainVisualization",
+      "stars": 0,
+      "forks": 0,
+      "language": null,
+      "isFork": false,
+      "pushedAt": "2020-10-22T09:43:50Z",
+      "createdAt": "2020-10-22T09:42:15Z",
+      "topics": [],
+      "description": null,
+      "url": "https://github.com/sidhulyalkar/3DBrainVisualization"
+    }
+  },
+  {
+    "id": "github:sidhulyalkar/DepthMapping",
+    "slug": "depthmapping",
+    "type": "project",
+    "title": "DepthMapping",
+    "summary": "Using a Kinect camera to create a depth mapping algorithm ",
+    "source": "github",
+    "sourceUrl": "https://github.com/sidhulyalkar/DepthMapping",
+    "tags": [
+      "Jupyter Notebook"
+    ],
+    "domains": [],
+    "status": "active",
+    "updatedAt": "2020-10-21T07:54:56Z",
+    "createdAt": "2020-10-21T06:21:18Z",
+    "github": {
+      "owner": "sidhulyalkar",
+      "repo": "DepthMapping",
+      "stars": 0,
+      "forks": 0,
+      "language": "Jupyter Notebook",
+      "isFork": false,
+      "pushedAt": "2020-10-21T07:54:54Z",
+      "createdAt": "2020-10-21T06:21:18Z",
+      "topics": [],
+      "description": "Using a Kinect camera to create a depth mapping algorithm ",
+      "url": "https://github.com/sidhulyalkar/DepthMapping"
+    }
+  },
+  {
+    "id": "github:sidhulyalkar/git_tutorial",
+    "slug": "git-tutorial",
+    "type": "project",
+    "title": "git_tutorial",
+    "summary": "",
+    "source": "github",
+    "sourceUrl": "https://github.com/sidhulyalkar/git_tutorial",
+    "tags": [],
+    "domains": [],
+    "status": "active",
+    "updatedAt": "2020-01-20T19:41:55Z",
+    "createdAt": "2020-01-20T19:32:26Z",
+    "github": {
+      "owner": "sidhulyalkar",
+      "repo": "git_tutorial",
+      "stars": 0,
+      "forks": 0,
+      "language": null,
+      "isFork": false,
+      "pushedAt": "2020-01-20T19:41:53Z",
+      "createdAt": "2020-01-20T19:32:26Z",
+      "topics": [],
+      "description": null,
+      "url": "https://github.com/sidhulyalkar/git_tutorial"
+    }
+  },
+  {
+    "id": "github:sidhulyalkar/sidhulyalkar.github.io",
+    "slug": "sidhulyalkar-github-io",
+    "type": "project",
+    "title": "sidhulyalkar.github.io",
+    "summary": "",
+    "source": "github",
+    "sourceUrl": "https://github.com/sidhulyalkar/sidhulyalkar.github.io",
+    "tags": [
+      "HTML"
+    ],
+    "domains": [],
+    "status": "active",
+    "updatedAt": "2016-05-22T00:03:10Z",
+    "createdAt": "2016-05-22T00:02:42Z",
+    "github": {
+      "owner": "sidhulyalkar",
+      "repo": "sidhulyalkar.github.io",
+      "stars": 0,
+      "forks": 0,
+      "language": "HTML",
+      "isFork": false,
+      "pushedAt": "2017-07-25T05:49:29Z",
+      "createdAt": "2016-05-22T00:02:42Z",
+      "topics": [],
+      "description": null,
+      "url": "https://github.com/sidhulyalkar/sidhulyalkar.github.io"
+    }
+  },
+  {
+    "id": "github:sidhulyalkar/sidharthhulyalkar.github.io",
+    "slug": "sidharthhulyalkar-github-io",
+    "type": "project",
+    "title": "sidharthhulyalkar.github.io",
+    "summary": "",
+    "source": "github",
+    "sourceUrl": "https://github.com/sidhulyalkar/sidharthhulyalkar.github.io",
+    "tags": [
+      "HTML"
+    ],
+    "domains": [],
+    "status": "active",
+    "updatedAt": "2016-05-21T23:59:30Z",
+    "createdAt": "2016-05-21T23:58:59Z",
+    "github": {
+      "owner": "sidhulyalkar",
+      "repo": "sidharthhulyalkar.github.io",
+      "stars": 0,
+      "forks": 0,
+      "language": "HTML",
+      "isFork": false,
+      "pushedAt": "2016-05-21T23:59:28Z",
+      "createdAt": "2016-05-21T23:58:59Z",
+      "topics": [],
+      "description": null,
+      "url": "https://github.com/sidhulyalkar/sidharthhulyalkar.github.io"
+    }
+  },
+  {
+    "id": "github:sidhulyalkar/sidharthhulyalkar1",
+    "slug": "sidharthhulyalkar1",
+    "type": "project",
+    "title": "sidharthhulyalkar1",
+    "summary": "",
+    "source": "github",
+    "sourceUrl": "https://github.com/sidhulyalkar/sidharthhulyalkar1",
+    "tags": [
+      "HTML"
+    ],
+    "domains": [],
+    "status": "active",
+    "updatedAt": "2016-05-21T23:52:38Z",
+    "createdAt": "2016-05-21T23:52:06Z",
+    "github": {
+      "owner": "sidhulyalkar",
+      "repo": "sidharthhulyalkar1",
+      "stars": 0,
+      "forks": 0,
+      "language": "HTML",
+      "isFork": false,
+      "pushedAt": "2016-05-21T23:52:37Z",
+      "createdAt": "2016-05-21T23:52:06Z",
+      "topics": [],
+      "description": null,
+      "url": "https://github.com/sidhulyalkar/sidharthhulyalkar1"
+    }
+  },
+  {
+    "id": "github:sidhulyalkar/sidharthhulyalkar",
+    "slug": "sidharthhulyalkar",
+    "type": "project",
+    "title": "sidharthhulyalkar",
+    "summary": "Sidharth Hulyalkar's Resume",
+    "source": "github",
+    "sourceUrl": "https://github.com/sidhulyalkar/sidharthhulyalkar",
+    "tags": [
+      "HTML"
+    ],
+    "domains": [],
+    "status": "active",
+    "updatedAt": "2016-05-21T23:50:31Z",
+    "createdAt": "2016-05-21T23:49:21Z",
+    "github": {
+      "owner": "sidhulyalkar",
+      "repo": "sidharthhulyalkar",
+      "stars": 0,
+      "forks": 0,
+      "language": "HTML",
+      "isFork": false,
+      "pushedAt": "2016-05-21T23:50:29Z",
+      "createdAt": "2016-05-21T23:49:21Z",
+      "topics": [],
+      "description": "Sidharth Hulyalkar's Resume",
+      "url": "https://github.com/sidhulyalkar/sidharthhulyalkar"
+    }
+  }
+]

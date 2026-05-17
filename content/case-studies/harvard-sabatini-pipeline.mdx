@@ -1,0 +1,82 @@
+---
+title: "Harvard Sabatini Lab DataJoint Pipeline"
+slug: harvard-sabatini-pipeline
+summary: "Deploying a production-grade multimodal neuroscience pipeline integrating Neuropixels, behavioral tracking, and optogenetics data at ~12TB scale."
+date: "2023-06-15"
+tags:
+  - datajoint
+  - harvard
+  - sabatini
+  - neuropixels
+  - infrastructure
+domains:
+  - Neural Data Infrastructure
+  - Scientific Workflow Systems
+featured: true
+importance: 100
+relatedProjects:
+  - element-array-ephys
+modeVisibility:
+  - recruiter
+  - researcher
+  - builder
+  - full-brain
+---
+
+## The Challenge
+
+The Sabatini Lab at Harvard Medical School needed a robust data pipeline to handle their growing Neuropixels and behavioral imaging datasets. Manual processing was becoming a bottleneck, and data integrity across modalities was difficult to maintain.
+
+## Solution
+
+I led the deployment of a comprehensive DataJoint pipeline that:
+
+- **Automated** raw data ingestion from multiple acquisition systems
+- **Integrated** Neuropixels spike sorting with Kilosort
+- **Processed** behavioral videos using DeepLabCut pose estimation
+- **Synchronized** multimodal timestamps for cross-modality analysis
+- **Stored** processed data in cloud-optimized formats
+
+## Implementation Details
+
+### Data Ingestion
+
+Built automated scanners that monitor acquisition folders and trigger processing pipelines. The system handles:
+
+- Neuropixels AP/LFP data
+- Behavioral camera feeds
+- Optogenetic stimulation logs
+- Experimental metadata
+
+### Processing Pipeline
+
+The core processing chain includes:
+
+1. **Spike sorting** via SpikeInterface + Kilosort
+2. **Quality metrics** computation for unit validation
+3. **Behavioral tracking** through DeepLabCut
+4. **LFP analysis** with spectral decomposition
+5. **Event alignment** across all modalities
+
+### Cloud Infrastructure
+
+Deployed on AWS with:
+
+- S3 for raw and processed data storage
+- EC2 GPU instances for compute-intensive processing
+- RDS for DataJoint schema hosting
+- Auto-scaling for variable workloads
+
+## Impact
+
+- **12TB+** of data successfully processed
+- **Weeks → Hours** reduction in time-to-analysis
+- **Full provenance** tracking for all computations
+- **Reproducible** analysis across lab members
+
+## Lessons Learned
+
+1. Early investment in data validation saves enormous debugging time
+2. Modular pipelines allow for easy updates as methods improve
+3. Cloud infrastructure provides flexibility but requires careful cost management
+4. Documentation and training are as important as the code itself

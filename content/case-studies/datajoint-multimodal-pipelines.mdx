@@ -1,0 +1,73 @@
+---
+title: "DataJoint Multimodal Neuroscience Infrastructure"
+slug: datajoint-multimodal-pipelines
+summary: "Building cloud-ready scientific workflows for multimodal neuroscience data at scale, processing terabytes of electrophysiology, imaging, and behavioral data."
+date: "2024-01-15"
+tags:
+  - datajoint
+  - infrastructure
+  - cloud
+  - neuroscience
+  - pipelines
+domains:
+  - Neural Data Infrastructure
+  - Scientific Workflow Systems
+featured: true
+importance: 95
+relatedProjects:
+  - element-array-ephys
+  - element-calcium-imaging
+  - element-deeplabcut
+modeVisibility:
+  - recruiter
+  - researcher
+  - builder
+  - full-brain
+---
+
+## Overview
+
+At DataJoint, I architected and deployed multimodal neuroscience data pipelines for major research institutions. These systems process terabytes of electrophysiology, calcium imaging, and behavioral tracking data through cloud-native infrastructure.
+
+## Technical Challenges
+
+The primary challenges included:
+
+- **Scale**: Processing ~12TB of multimodal data per deployment
+- **Complexity**: Integrating diverse data modalities (Neuropixels, two-photon, behavioral tracking)
+- **Reliability**: Building fault-tolerant pipelines that could run for days
+- **Usability**: Making complex infrastructure accessible to neuroscience labs
+
+## Architecture
+
+The pipeline architecture followed a modular design using DataJoint Elements:
+
+1. **Ingestion Layer**: Raw data parsing and validation
+2. **Processing Layer**: Spike sorting, video analysis, signal processing
+3. **Analysis Layer**: Higher-level computations and feature extraction
+4. **Storage Layer**: Cloud-optimized storage with efficient querying
+
+## Key Deployments
+
+### Harvard/Sabatini Lab
+
+Led a major deployment integrating Neuropixels electrophysiology, behavioral tracking, and optogenetics data. The system processes ~12TB of data with fully automated workflows from raw acquisition to analysis-ready datasets.
+
+### Allen Institute Mindscope
+
+Contributed to DataJoint pipelines for large-scale vision neuroscience studies, supporting the Mindscope program's data infrastructure needs.
+
+## Results
+
+- Reduced manual data processing time by **90%**
+- Achieved **99.5%** pipeline reliability for multi-day processing jobs
+- Enabled **reproducible** analysis across distributed teams
+- Scaled to handle **terabytes** of daily acquisitions
+
+## Technologies Used
+
+- Python, Docker, Kubernetes
+- AWS (S3, EC2, RDS)
+- SpikeInterface for electrophysiology
+- DeepLabCut and Facemap for behavioral analysis
+- DataJoint for workflow orchestration

@@ -1,0 +1,98 @@
+[
+  {
+    "slug": "datajoint-multimodal-infrastructure",
+    "title": "DataJoint Multimodal Neuroscience Infrastructure",
+    "importance": 100,
+    "cluster": "Neural Data Infrastructure"
+  },
+  {
+    "slug": "harvard-sabatini-datajoint-pipeline",
+    "title": "Harvard Sabatini DataJoint Pipeline",
+    "importance": 100,
+    "cluster": "Neural Data Infrastructure"
+  },
+  {
+    "slug": "allen-mindscope-datajoint-work",
+    "title": "Allen Institute Mindscope DataJoint Work",
+    "importance": 95,
+    "cluster": "Neural Data Infrastructure"
+  },
+  {
+    "slug": "lu-lab-deeplabcut-facemap",
+    "title": "Lu Lab DeepLabCut and Facemap Integrations",
+    "importance": 95,
+    "cluster": "Computer Vision + Behavior"
+  },
+  {
+    "slug": "datajoint-elements-and-templates",
+    "title": "DataJoint Elements, Templates, Testing, and Validation",
+    "importance": 95,
+    "cluster": "Scientific Workflow Systems"
+  },
+  {
+    "slug": "spikeinterface-array-ephys",
+    "title": "SpikeInterface Integration into DataJoint Array Ephys",
+    "importance": 92,
+    "cluster": "Electrophysiology Infrastructure"
+  },
+  {
+    "slug": "workflow-monitoring-system",
+    "title": "DataJoint Workflow Monitoring System",
+    "importance": 90,
+    "cluster": "Scientific DevOps"
+  },
+  {
+    "slug": "neatlabs-core-research",
+    "title": "NEATLABs Core Research and Lead Lab Programmer Work",
+    "importance": 100,
+    "cluster": "NEATLABs Research"
+  },
+  {
+    "slug": "neatlabs-dtw-tca-unpublished",
+    "title": "NEATLABs DTW and Tensor Component Analysis Work",
+    "importance": 95,
+    "cluster": "Neural Signal Discovery"
+  },
+  {
+    "slug": "neurosky-led-audio-visualization",
+    "title": "NeuroSky, LED Strip Mapping, and Real-Time Audio Visualization",
+    "importance": 82,
+    "cluster": "Real-Time Creative Neurotech"
+  },
+  {
+    "slug": "dolby-labs-early-engineering",
+    "title": "Dolby Laboratories Early Engineering Work",
+    "importance": 75,
+    "cluster": "Audio-Visual Systems"
+  },
+  {
+    "slug": "neural-data-augmentation-m1-kalman",
+    "title": "Neural Data Augmentation and M1 Kalman Decoding",
+    "importance": 85,
+    "cluster": "Neural Decoding and ML"
+  },
+  {
+    "slug": "bioinformatics-biomedical-ml",
+    "title": "Bioinformatics and Biomedical ML Projects",
+    "importance": 70,
+    "cluster": "Biomedical ML"
+  },
+  {
+    "slug": "icp-monitor-emg-morse",
+    "title": "Senior Design ICP Monitor and EMG Morse Decoder",
+    "importance": 72,
+    "cluster": "Bioengineering Hardware"
+  },
+  {
+    "slug": "coeval-ai-web-projects",
+    "title": "CoEval and Recent AI/Web Projects",
+    "importance": 76,
+    "cluster": "Applied AI Products"
+  },
+  {
+    "slug": "personal-interests-life-nodes",
+    "title": "Personal Interests and Life Nodes",
+    "importance": 80,
+    "cluster": "Life Outside the Lab"
+  }
+]
