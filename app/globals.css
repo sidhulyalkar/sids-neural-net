@@ -570,13 +570,29 @@ body::after {
 /* Immersive Atlas Name Display */
 .atlas-name-display {
   font-family: var(--font-bebas), 'Bebas Neue', 'Oswald', 'Impact', system-ui, sans-serif;
-  font-size: clamp(1.5rem, 5vw, 3.5rem);
+  max-width: calc(100vw - 2rem);
+  font-size: 1.5rem;
   font-weight: 400;
-  letter-spacing: 0.35em;
+  line-height: 0.95;
+  letter-spacing: 0.18em;
   text-shadow:
     0 0 40px rgba(102, 227, 255, 0.3),
     0 0 80px rgba(102, 227, 255, 0.15),
     0 2px 4px rgba(0, 0, 0, 0.8);
+}
+
+@media (min-width: 640px) {
+  .atlas-name-display {
+    font-size: 2.2rem;
+    letter-spacing: 0.28em;
+  }
+}
+
+@media (min-width: 1024px) {
+  .atlas-name-display {
+    font-size: 3.2rem;
+    letter-spacing: 0.35em;
+  }
 }
 
 /* Immersive mode - pure black background */

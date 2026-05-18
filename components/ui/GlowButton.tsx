@@ -17,16 +17,16 @@ interface GlowButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 
 const variantClasses: Record<ButtonVariant, string> = {
   primary:
-    'bg-gradient-to-r from-cyan to-cyan-400 text-bg-deep font-semibold hover:from-cyan-300 hover:to-cyan-400',
+    'border border-cyan/40 bg-cyan/[0.15] text-cyan font-semibold hover:bg-cyan/20 hover:border-cyan/70',
   secondary:
-    'bg-bg-panel border border-white/20 text-text-primary hover:bg-white/5 hover:border-white/30',
+    'bg-white/[0.03] border border-white/[0.15] text-text-primary hover:bg-white/[0.06] hover:border-cyan/[0.35]',
   ghost: 'text-text-secondary hover:text-text-primary hover:bg-white/5',
 };
 
 const sizeClasses: Record<ButtonSize, string> = {
-  sm: 'px-3 py-1.5 text-sm rounded-lg',
-  md: 'px-5 py-2.5 text-sm rounded-lg',
-  lg: 'px-6 py-3 text-base rounded-xl',
+  sm: 'px-3 py-1.5 text-sm rounded-md',
+  md: 'px-5 py-2.5 text-sm rounded-md',
+  lg: 'px-6 py-3 text-base rounded-lg',
 };
 
 const glowClasses = {
@@ -53,6 +53,7 @@ export const GlowButton = forwardRef<HTMLButtonElement, GlowButtonProps>(
   ) => {
     const classes = cn(
       'inline-flex items-center justify-center gap-2 font-medium transition-all duration-200',
+      'shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]',
       'focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan focus-visible:ring-offset-2 focus-visible:ring-offset-bg-deep',
       'disabled:opacity-50 disabled:cursor-not-allowed',
       variantClasses[variant],

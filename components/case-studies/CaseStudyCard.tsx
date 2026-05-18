@@ -17,7 +17,7 @@ export function CaseStudyCard({ caseStudy }: CaseStudyCardProps) {
 
   return (
     <Link href={`/case-studies/${slug}`} className="block group">
-      <article className="glass-card hover:border-cyan/30 transition-all duration-300 h-full flex flex-col">
+      <article className="node-shell flex h-full flex-col p-5 transition-all duration-300 hover:-translate-y-1 hover:border-cyan/30 hover:bg-cyan/[0.04]">
         {/* Header */}
         <div className="flex items-start justify-between gap-4 mb-3">
           <div className="flex items-center gap-2 text-sm text-text-muted">
@@ -30,14 +30,14 @@ export function CaseStudyCard({ caseStudy }: CaseStudyCardProps) {
             </time>
           </div>
           {frontmatter.featured && (
-            <span className="px-2 py-0.5 text-xs font-medium bg-amber/20 text-amber rounded-full">
+            <span className="border border-amber/30 bg-amber/10 px-2 py-0.5 font-mono text-[0.62rem] uppercase tracking-[0.14em] text-amber">
               Featured
             </span>
           )}
         </div>
 
         {/* Title */}
-        <h3 className="text-xl font-semibold text-text-primary group-hover:text-cyan transition-colors mb-2">
+        <h3 className="mb-2 text-2xl font-black tracking-tight text-text-primary transition-colors group-hover:text-cyan">
           {frontmatter.title}
         </h3>
 
@@ -53,7 +53,7 @@ export function CaseStudyCard({ caseStudy }: CaseStudyCardProps) {
               {frontmatter.domains.map((domain) => (
                 <span
                   key={domain}
-                  className="text-xs text-violet bg-violet/10 px-2 py-0.5 rounded-full"
+                  className="border border-violet/20 bg-violet/10 px-2 py-0.5 text-xs text-violet"
                 >
                   {domain}
                 </span>
@@ -75,7 +75,7 @@ export function CaseStudyCard({ caseStudy }: CaseStudyCardProps) {
 
         {/* Read more */}
         <div className="flex items-center gap-2 text-sm text-cyan group-hover:gap-3 transition-all">
-          Read case study
+          Open project brief
           <ArrowRight className="w-4 h-4" />
         </div>
       </article>

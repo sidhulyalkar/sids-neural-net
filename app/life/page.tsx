@@ -57,7 +57,7 @@ export default function LifePage() {
             <div className="flex flex-col md:flex-row gap-6">
               {/* Shasta avatar placeholder */}
               <div className="flex-shrink-0">
-                <div className="w-48 h-48 md:w-56 md:h-56 rounded-2xl bg-gradient-to-br from-amber/20 to-rose/20 flex items-center justify-center border border-rose/20">
+                <div className="flex h-48 w-48 items-center justify-center border border-rose/20 bg-gradient-to-br from-amber/20 to-rose/20 md:h-56 md:w-56 neural-panel-cut">
                   <Dog className="w-24 h-24 text-rose/60" />
                 </div>
               </div>
@@ -69,7 +69,7 @@ export default function LifePage() {
                   <h2 className="text-2xl font-bold text-text-primary">Meet Shasta</h2>
                 </div>
                 <p className="text-text-secondary mb-4">
-                  The real star of this website. Trail scout, snow goblin, morale engineer.
+                  The real star of this website. Trail scout, snow enthusiast, morale engineer.
                   She&apos;s the reason half my hikes have become more interesting and the other half have become
                   stories about chasing her up ridgelines.
                 </p>

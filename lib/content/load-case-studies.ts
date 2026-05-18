@@ -63,7 +63,7 @@ export function getCaseStudyBySlug(slug: string): CaseStudy | null {
       slug,
     };
   } catch (error) {
-    console.error(`Error loading case study ${slug}:`, error);
+    console.error(`Error loading project brief ${slug}:`, error);
     return null;
   }
 }

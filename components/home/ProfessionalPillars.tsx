@@ -82,15 +82,15 @@ const iconColorClasses = {
 
 export function ProfessionalPillars() {
   return (
-    <section className="py-24 px-4 sm:px-6 lg:px-8">
+    <section className="px-4 py-24 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-7xl">
         <SectionHeader
           title="What I Build"
-          subtitle="Six pillars spanning neuroscience infrastructure, applied AI, and creative experimentation."
+          subtitle="Six recurring systems: research infrastructure, adaptive models, interpretability, real-time interfaces, applied AI, and product experiments."
           accentColor="violet"
         />
 
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-6">
           {pillars.map((pillar, index) => (
             <motion.div
               key={pillar.title}
@@ -101,12 +101,12 @@ export function ProfessionalPillars() {
             >
               <MotionGlassCard
                 glow={pillar.color as any}
-                className="h-full"
+                className={`node-shell h-full bg-white/[0.025] lg:col-span-2 ${index === 0 || index === 1 ? 'lg:col-span-3' : ''}`}
               >
                 <div className="flex flex-col h-full">
                   {/* Icon */}
                   <div
-                    className={`mb-4 inline-flex h-12 w-12 items-center justify-center rounded-xl border ${colorClasses[pillar.color as keyof typeof colorClasses]}`}
+                    className={`mb-4 inline-flex h-12 w-12 items-center justify-center border ${colorClasses[pillar.color as keyof typeof colorClasses]}`}
                   >
                     <pillar.icon className={`h-6 w-6 ${iconColorClasses[pillar.color as keyof typeof iconColorClasses]}`} />
                   </div>

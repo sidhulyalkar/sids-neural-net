@@ -2,13 +2,13 @@
 
 import { motion } from 'framer-motion';
 import Link from 'next/link';
-import { ArrowRight, ExternalLink } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
 import { MotionGlassCard, SectionHeader, TagPill, GlowButton } from '@/components/ui';
 
 const featuredCaseStudies = [
   {
     slug: 'datajoint-multimodal-pipelines',
-    title: 'Scaling Multimodal Neuroscience Pipelines with DataJoint',
+    title: 'DataJoint Multimodal Pipelines',
     summary:
       'Led and implemented cloud-ready DataJoint workflows for multimodal neuroscience data across major customer deployments including Harvard Sabatini Lab and Allen Institute.',
     tags: ['DataJoint', 'AWS', 'Docker', 'Kubernetes'],
@@ -18,7 +18,7 @@ const featuredCaseStudies = [
   },
   {
     slug: 'neatlabs-core-research',
-    title: 'NEATLABs: Large-Scale LFP Analysis and Neural Engineering',
+    title: 'NEATLABs Neural Engineering',
     summary:
       'Built the computational backbone for large-scale rodent electrophysiology and behavior studies as Lead Lab Programmer, combining MATLAB pipelines, spectral methods, and computational modeling.',
     tags: ['LFP', 'MATLAB', 'Neuroscience', 'Research'],
@@ -28,7 +28,7 @@ const featuredCaseStudies = [
   },
   {
     slug: 'neurofmx-neuros',
-    title: 'neuroFMx / neurOS: Foundation Models for Neural Time Series',
+    title: 'neuroFMx / neurOS',
     summary:
       'Building a modular orchestration layer for BCI pipelines with tokenization, self-supervised learning, and real-time neural inference capabilities.',
     tags: ['Foundation Models', 'BCI', 'Real-Time', 'Python'],
@@ -48,15 +48,15 @@ const colorClasses = {
 
 export function FeaturedCaseStudies() {
   return (
-    <section className="py-24 px-4 sm:px-6 lg:px-8 bg-bg-panel/30">
+    <section className="bg-bg-panel/20 px-4 py-24 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-7xl">
         <SectionHeader
-          title="Featured Case Studies"
-          subtitle="Deep dives into significant projects and their technical architecture."
+          title="Featured Projects"
+          subtitle="The projects that best show the range: infrastructure, research software, model systems, and applied AI."
           accentColor="cyan"
         />
 
-        <div className="grid gap-6 lg:grid-cols-3">
+        <div className="grid gap-4 lg:grid-cols-[1.08fr_0.92fr_1.08fr]">
           {featuredCaseStudies.map((study, index) => (
             <motion.div
               key={study.slug}
@@ -68,7 +68,7 @@ export function FeaturedCaseStudies() {
               <Link href={`/case-studies/${study.slug}`}>
                 <MotionGlassCard
                   glow={study.color as any}
-                  className={`h-full border-l-4 ${colorClasses[study.color as keyof typeof colorClasses]}`}
+                  className={`node-shell h-full border-l-2 bg-white/[0.025] ${colorClasses[study.color as keyof typeof colorClasses]} ${index === 1 ? 'lg:mt-12' : ''}`}
                 >
                   <div className="flex flex-col h-full">
                     {/* Meta */}
@@ -78,7 +78,7 @@ export function FeaturedCaseStudies() {
                     </div>
 
                     {/* Title */}
-                    <h3 className="text-lg font-semibold text-text-primary group-hover:text-cyan transition-colors">
+                    <h3 className="text-2xl font-black tracking-tight text-text-primary group-hover:text-cyan transition-colors">
                       {study.title}
                     </h3>
 
@@ -98,7 +98,7 @@ export function FeaturedCaseStudies() {
 
                     {/* Link indicator */}
                     <div className="mt-4 flex items-center text-sm text-cyan">
-                      Read case study
+                      Open project brief
                       <ArrowRight className="ml-1 h-4 w-4" />
                     </div>
                   </div>
@@ -110,7 +110,7 @@ export function FeaturedCaseStudies() {
 
         <div className="mt-12 text-center">
           <GlowButton href="/case-studies" variant="secondary">
-            View All Case Studies
+            View Project Deep Dives
             <ArrowRight className="h-4 w-4" />
           </GlowButton>
         </div>

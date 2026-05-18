@@ -69,17 +69,39 @@ export function DendriteCurve({ edge, source, target, highlighted = false, signa
         </mesh>
       )}
       {branchCurves.map((branchCurve, index) => (
-        <mesh key={index}>
-          <tubeGeometry args={[branchCurve, 14, signaling ? 0.018 : highlighted ? 0.013 : 0.007, 6, false]} />
-          <meshBasicMaterial
-            color={bright ? harmony.secondary : edge.color}
-            transparent
-            opacity={signaling ? 0.46 : highlighted ? 0.28 : 0.08}
-            blending={bright ? AdditiveBlending : undefined}
-            depthWrite={false}
-          />
-        </mesh>
+        <group key={index}>
+          <mesh>
+            <tubeGeometry args={[branchCurve, 14, signaling ? 0.018 : highlighted ? 0.013 : 0.007, 6, false]} />
+            <meshBasicMaterial
+              color={bright ? harmony.secondary : edge.color}
+              transparent
+              opacity={signaling ? 0.46 : highlighted ? 0.28 : 0.08}
+              blending={bright ? AdditiveBlending : undefined}
+              depthWrite={false}
+            />
+          </mesh>
+          <mesh position={branchCurve.getPoint(1)} scale={signaling ? 0.052 : highlighted ? 0.038 : 0.026}>
+            <sphereGeometry args={[1, 10, 8]} />
+            <meshBasicMaterial
+              color={bright ? harmony.core : edge.color}
+              transparent
+              opacity={signaling ? 0.62 : highlighted ? 0.36 : 0.13}
+              blending={AdditiveBlending}
+              depthWrite={false}
+            />
+          </mesh>
+        </group>
       ))}
+      <mesh position={curve.getPoint(1)} scale={signaling ? 0.09 : highlighted ? 0.065 : 0.038}>
+        <sphereGeometry args={[1, 14, 10]} />
+        <meshBasicMaterial
+          color={bright ? harmony.core : edge.color}
+          transparent
+          opacity={signaling ? 0.72 : highlighted ? 0.42 : 0.16}
+          blending={AdditiveBlending}
+          depthWrite={false}
+        />
+      </mesh>
     </group>
   );
 }

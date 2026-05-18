@@ -31,21 +31,24 @@ export function SectionHeader({
         className
       )}
     >
-      {/* Signal line */}
-      <div
-        className={cn(
-          'mb-6 h-px bg-gradient-to-r',
-          accentColors[accentColor],
-          align === 'center' ? 'mx-auto w-32' : 'w-24'
-        )}
-      />
+      <div className={cn('mb-4 flex items-center gap-3', align === 'center' && 'justify-center')}>
+        <span className="h-1.5 w-1.5 rounded-full bg-cyan shadow-glow-cyan" />
+        <span className="technical-label">Signal Layer</span>
+        <span
+          className={cn(
+            'h-px bg-gradient-to-r',
+            accentColors[accentColor],
+            align === 'center' ? 'w-20' : 'w-16'
+          )}
+        />
+      </div>
 
-      <h2 className="text-3xl font-bold tracking-tight text-text-primary md:text-4xl">
+      <h2 className="text-3xl font-black tracking-tight text-text-primary md:text-5xl">
         {title}
       </h2>
 
       {subtitle && (
-        <p className="mt-4 text-lg text-text-secondary max-w-2xl mx-auto">
+        <p className={cn('mt-4 text-base text-text-secondary md:text-lg', align === 'center' ? 'mx-auto max-w-2xl' : 'max-w-3xl')}>
           {subtitle}
         </p>
       )}

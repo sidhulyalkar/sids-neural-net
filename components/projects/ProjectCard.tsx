@@ -13,7 +13,7 @@ export function ProjectCard({ project }: ProjectCardProps) {
   const importance = project.computedImportance ?? project.importance;
 
   return (
-    <div className="glass-card group hover:border-cyan/30 transition-all duration-300">
+    <div className="comic-panel group flex min-h-[260px] flex-col justify-between p-5 transition-all duration-300 hover:-translate-y-1 hover:border-cyan/[0.35] hover:bg-cyan/[0.045]">
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div className="flex-1 min-w-0">
@@ -21,7 +21,7 @@ export function ProjectCard({ project }: ProjectCardProps) {
             href={`/projects/${project.slug}`}
             className="block"
           >
-            <h3 className="text-lg font-semibold text-text-primary group-hover:text-cyan transition-colors truncate">
+            <h3 className="text-xl font-black text-text-primary transition-colors group-hover:text-cyan">
               {project.title}
             </h3>
           </Link>
@@ -34,14 +34,14 @@ export function ProjectCard({ project }: ProjectCardProps) {
 
         {/* Status badge */}
         <div
-          className={`shrink-0 px-2 py-0.5 text-xs font-medium rounded-full ${
+          className={`shrink-0 border px-2 py-0.5 font-mono text-[0.62rem] uppercase tracking-[0.14em] ${
             project.status === 'active'
-              ? 'bg-green/20 text-green'
+              ? 'border-green/30 bg-green/10 text-green'
               : project.status === 'complete'
-                ? 'bg-cyan/20 text-cyan'
+                ? 'border-cyan/30 bg-cyan/10 text-cyan'
                 : project.status === 'experimental'
-                  ? 'bg-amber/20 text-amber'
-                  : 'bg-text-muted/20 text-text-muted'
+                  ? 'border-amber/30 bg-amber/10 text-amber'
+                  : 'border-white/10 bg-text-muted/10 text-text-muted'
           }`}
         >
           {project.status}
@@ -50,7 +50,7 @@ export function ProjectCard({ project }: ProjectCardProps) {
 
       {/* Summary */}
       {project.summary && (
-        <p className="mt-3 text-sm text-text-secondary line-clamp-2">
+        <p className="mt-4 text-sm text-text-secondary line-clamp-3">
           {project.summary}
         </p>
       )}
@@ -72,7 +72,7 @@ export function ProjectCard({ project }: ProjectCardProps) {
       )}
 
       {/* Footer with GitHub stats and importance */}
-      <div className="mt-4 pt-3 border-t border-border-subtle flex items-center justify-between">
+      <div className="mt-5 flex items-center justify-between border-t border-white/10 pt-4">
         {/* GitHub stats */}
         {project.github && (
           <div className="flex items-center gap-3 text-xs text-text-muted">
@@ -102,9 +102,9 @@ export function ProjectCard({ project }: ProjectCardProps) {
 
         {/* Importance indicator */}
         <div className="flex items-center gap-2">
-          <div className="w-12 h-1.5 bg-bg-deep rounded-full overflow-hidden">
+          <div className="h-1.5 w-12 overflow-hidden bg-bg-deep">
             <div
-              className="h-full rounded-full bg-cyan/50"
+              className="h-full bg-cyan/50"
               style={{ width: `${importance}%` }}
             />
           </div>

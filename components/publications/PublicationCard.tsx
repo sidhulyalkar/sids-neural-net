@@ -12,7 +12,7 @@ export function PublicationCard({ publication }: PublicationCardProps) {
   const pub = publication.publication;
 
   return (
-    <div className="glass-card group hover:border-violet/30 transition-all duration-300">
+    <div className="comic-panel group p-5 transition-all duration-300 hover:border-violet/30">
       {/* Type badge */}
       <div className="flex items-center gap-2 mb-2">
         <div className="p-1.5 bg-violet/10 rounded-md">
@@ -75,6 +75,17 @@ export function PublicationCard({ publication }: PublicationCardProps) {
         </div>
 
         <div className="flex items-center gap-2">
+          {pub?.localPdfPath && (
+            <a
+              href={pub.localPdfPath}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 text-xs text-amber hover:underline"
+            >
+              PDF
+              <FileText className="w-3 h-3" />
+            </a>
+          )}
           {pub?.doi && (
             <a
               href={`https://doi.org/${pub.doi}`}

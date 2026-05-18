@@ -11,20 +11,21 @@ export default function TimelinePage() {
   const events = loadTimelineEvents();
 
   return (
-    <div className="min-h-screen pt-20">
+    <div className="min-h-screen pt-24">
       <div className="mx-auto max-w-4xl px-4 py-12 sm:px-6 lg:px-8">
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-4xl font-bold text-text-primary">Timeline</h1>
-          <p className="mt-2 text-lg text-text-secondary">
-            A chronological journey through {events.length} career milestones, research, projects, and publications.
+        <div className="mb-10">
+          <p className="technical-label">Signal Trace</p>
+          <h1 className="mt-4 text-5xl font-black tracking-tight text-text-primary md:text-7xl">Timeline</h1>
+          <p className="mt-4 text-lg text-text-secondary">
+            A chronological signal trace through {events.length} career, research, project, publication, and life events.
           </p>
         </div>
 
         {/* Signal visualization hint */}
-        <div className="mb-8 p-4 bg-bg-panel/50 border border-border-subtle rounded-lg">
+        <div className="neural-panel neural-panel-cut mb-8 p-4">
           <p className="text-sm text-text-muted">
-            Each event is weighted by importance. Filter by category to focus on specific areas of the journey.
+            Each event is weighted like a signal peak. Filter by category to isolate career, research, project, publication, or life channels.
           </p>
         </div>
 

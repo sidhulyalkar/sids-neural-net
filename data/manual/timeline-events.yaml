@@ -1,4 +1,4 @@
-# Timeline events for Sid's Neural Net
+# Timeline events for Sid Neural Net
 # Chronological milestones across career, research, and life
 
 events:
@@ -129,7 +129,7 @@ events:
     summary: "Led major deployment of multimodal DataJoint pipeline for Harvard/Sabatini Lab with ~12TB scale data."
     importance: 100
     links:
-      - label: "Case Study"
+      - label: "Project Brief"
         href: "/case-studies/harvard-sabatini-pipeline"
     modeVisibility:
       - recruiter
@@ -155,7 +155,7 @@ events:
     title: "Got Shasta"
     date: "2020-01-15"
     category: life
-    summary: "Welcomed Shasta, the trail scout, snow goblin, and morale engineer."
+    summary: "Welcomed Shasta, the trail scout, snow enthusiast, and morale engineer."
     importance: 80
     modeVisibility:
       - personal

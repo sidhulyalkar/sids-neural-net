@@ -1,4 +1,7 @@
 import { Metadata } from 'next';
+import { FlaskConical, Lightbulb, PenLine, WandSparkles } from 'lucide-react';
+import { ComicSectionLayout } from '@/components/neural-atlas/ComicSectionLayout';
+import { NodeDetailPanel } from '@/components/neural-atlas/NodeDetailPanel';
 
 export const metadata: Metadata = {
   title: 'Field Notes',
@@ -7,29 +10,50 @@ export const metadata: Metadata = {
 
 export default function FieldNotesPage() {
   return (
-    <div className="min-h-screen pt-20">
-      <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
-        <div className="mb-8">
-          <h1 className="text-4xl font-bold text-text-primary">Field Notes</h1>
-          <p className="mt-2 text-lg text-text-secondary">
-            Thoughts, explorations, and notes on neural data systems, ML, and research directions.
+    <ComicSectionLayout
+      eyebrow="Experiment Chamber"
+      title="Small builds, field notes, and useful weirdness."
+      intro="A holding space for thinking in public: neural systems sketches, ML notes, creative experiments, tool fragments, and the prototypes that are not formal projects yet."
+    >
+      <div className="comic-grid">
+        <NodeDetailPanel label="Coming Soon" title="Field notes are being organized as thought panels." tone="green" className="comic-span-7 comic-tilt-left">
+          <div className="flex items-center gap-3 text-green">
+            <PenLine className="h-5 w-5" />
+            <span className="technical-label">writing queue</span>
+          </div>
+          <p className="mt-4">
+            Blog-style notes for thinking in public about neural systems, ML, research directions,
+            prototypes, and the occasional delightful technical detour.
           </p>
-        </div>
-
-        <div className="glass-card min-h-[400px] flex items-center justify-center">
-          <div className="text-center">
-            <div className="mx-auto mb-4 h-16 w-16 rounded-full bg-green/20 flex items-center justify-center">
-              <svg className="h-8 w-8 text-green" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-              </svg>
-            </div>
-            <h3 className="text-xl font-semibold text-text-primary">Field Notes Coming Soon</h3>
-            <p className="mt-2 text-text-muted max-w-md">
-              Blog-style notes for thinking in public about neural systems, ML, and research.
+        </NodeDetailPanel>
+        <NodeDetailPanel label="Sketches" title="Creative pranks, strange builds, and low-stakes instruments." tone="amber" className="comic-span-5 comic-tilt-right md:mt-10">
+          <div className="flex gap-3 text-amber">
+            <WandSparkles className="mt-1 h-5 w-5" />
+            <p>
+              A future home for playful technical artifacts: fast prototypes, odd interfaces,
+              tiny tools, and ideas that are better experienced than explained.
             </p>
           </div>
-        </div>
+        </NodeDetailPanel>
+        <NodeDetailPanel label="Lab Notebook" title="Half-formed ideas before they harden into projects." tone="violet" className="comic-span-6">
+          <div className="flex gap-3">
+            <Lightbulb className="mt-1 h-5 w-5 text-violet" />
+            <p>
+              Notes on neural embeddings, searchable scientific memory, multimodal recordings,
+              interpretability probes, and interface patterns for research tools.
+            </p>
+          </div>
+        </NodeDetailPanel>
+        <NodeDetailPanel label="Prototype Shelf" title="Useful experiments get promoted into the project cortex." tone="cyan" className="comic-span-6 comic-tilt-right">
+          <div className="flex gap-3">
+            <FlaskConical className="mt-1 h-5 w-5 text-cyan" />
+            <p>
+              When a note becomes a build, it should eventually link into the projects page with
+              code, context, and a cleaner artifact trail.
+            </p>
+          </div>
+        </NodeDetailPanel>
       </div>
-    </div>
+    </ComicSectionLayout>
   );
 }

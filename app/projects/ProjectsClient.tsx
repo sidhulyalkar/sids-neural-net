@@ -1,11 +1,13 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { Search, Filter, Grid, List, SortDesc, X } from 'lucide-react';
+import { Search, Filter, Grid, List, X } from 'lucide-react';
 import { NeuralNode } from '@/lib/data/schemas';
 import { ProjectCard } from '@/components/projects';
 import { useMode } from '@/lib/contexts/ModeContext';
 import { filterByMode, sortByImportance } from '@/lib/graph/ranking';
+import { ComicSectionLayout } from '@/components/neural-atlas/ComicSectionLayout';
+import { NodeDetailPanel } from '@/components/neural-atlas/NodeDetailPanel';
 
 interface ProjectsClientProps {
   projects: NeuralNode[];
@@ -98,18 +100,22 @@ export function ProjectsClient({
   const hasActiveFilters = search || selectedDomains.length > 0 || selectedTags.length > 0;
 
   return (
-    <div className="min-h-screen pt-20">
-      <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-4xl font-bold text-text-primary">Projects</h1>
-          <p className="mt-2 text-lg text-text-secondary">
-            {filteredProjects.length} projects across neuroscience infrastructure, ML research, and creative experiments.
-          </p>
+    <ComicSectionLayout
+      eyebrow="Project Cortex"
+      title="Builds, systems, and strange useful instruments."
+      intro={`${filteredProjects.length} projects across neuroscience infrastructure, ML research, applied AI, and creative experiments. The archive is searchable, but the emphasis is on the signal: what each project reveals about how I build.`}
+      sideNote={
+        <div className="grid gap-3 text-sm leading-6 text-text-secondary sm:grid-cols-3">
+          <span>NeuroForge</span>
+          <span>neurOS / neuroFMx</span>
+          <span>DataJoint pipelines</span>
         </div>
+      }
+    >
+      <div>
 
         {/* Toolbar */}
-        <div className="mb-6 flex flex-col sm:flex-row gap-4">
+        <div className="mb-6 flex flex-col gap-4 sm:flex-row">
           {/* Search */}
           <div className="flex-1 relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-text-muted" />
@@ -118,7 +124,7 @@ export function ProjectsClient({
               placeholder="Search projects..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 bg-bg-panel border border-border-subtle rounded-lg text-text-primary placeholder:text-text-muted focus:outline-none focus:border-cyan/50"
+              className="w-full border border-white/10 bg-bg-panel/70 py-3 pl-10 pr-4 text-text-primary placeholder:text-text-muted focus:border-cyan/50 focus:outline-none"
             />
             {search && (
               <button
@@ -138,7 +144,7 @@ export function ProjectsClient({
               className={`p-2.5 rounded-lg border transition-colors ${
                 showFilters
                   ? 'bg-cyan/10 border-cyan/30 text-cyan'
-                  : 'bg-bg-panel border-border-subtle text-text-muted hover:text-text-secondary'
+                  : 'bg-bg-panel/70 border-white/10 text-text-muted hover:text-text-secondary'
               }`}
             >
               <Filter className="w-5 h-5" />
@@ -148,7 +154,7 @@ export function ProjectsClient({
             <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value as SortOption)}
-              className="p-2.5 bg-bg-panel border border-border-subtle rounded-lg text-sm text-text-secondary focus:outline-none focus:border-cyan/50"
+              className="border border-white/10 bg-bg-panel/70 p-2.5 text-sm text-text-secondary focus:border-cyan/50 focus:outline-none"
             >
               <option value="importance">Sort by Importance</option>
               <option value="recent">Sort by Recent</option>
@@ -156,13 +162,13 @@ export function ProjectsClient({
             </select>
 
             {/* View toggle */}
-            <div className="flex items-center border border-border-subtle rounded-lg overflow-hidden">
+            <div className="flex items-center overflow-hidden border border-white/10">
               <button
                 onClick={() => setViewMode('grid')}
                 className={`p-2.5 transition-colors ${
                   viewMode === 'grid'
                     ? 'bg-cyan/10 text-cyan'
-                    : 'bg-bg-panel text-text-muted hover:text-text-secondary'
+                  : 'bg-bg-panel/70 text-text-muted hover:text-text-secondary'
                 }`}
               >
                 <Grid className="w-5 h-5" />
@@ -172,7 +178,7 @@ export function ProjectsClient({
                 className={`p-2.5 transition-colors ${
                   viewMode === 'list'
                     ? 'bg-cyan/10 text-cyan'
-                    : 'bg-bg-panel text-text-muted hover:text-text-secondary'
+                  : 'bg-bg-panel/70 text-text-muted hover:text-text-secondary'
                 }`}
               >
                 <List className="w-5 h-5" />
@@ -183,7 +189,7 @@ export function ProjectsClient({
 
         {/* Filters Panel */}
         {showFilters && (
-          <div className="mb-6 p-4 bg-bg-panel border border-border-subtle rounded-lg">
+          <div className="comic-panel mb-6 p-4">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-sm font-medium text-text-primary">Filters</h3>
               {hasActiveFilters && (
@@ -207,7 +213,7 @@ export function ProjectsClient({
                     className={`px-2 py-1 text-xs rounded-full border transition-colors ${
                       selectedDomains.includes(domain)
                         ? 'bg-violet/20 text-violet border-violet/30'
-                        : 'bg-bg-deep text-text-muted border-border-subtle hover:border-text-muted/50'
+                        : 'bg-bg-deep text-text-muted border-white/10 hover:border-text-muted/50'
                     }`}
                   >
                     {domain}
@@ -227,7 +233,7 @@ export function ProjectsClient({
                     className={`px-2 py-1 text-xs rounded-full border transition-colors ${
                       selectedTags.includes(tag)
                         ? 'bg-cyan/20 text-cyan border-cyan/30'
-                        : 'bg-bg-deep text-text-muted border-border-subtle hover:border-text-muted/50'
+                        : 'bg-bg-deep text-text-muted border-white/10 hover:border-text-muted/50'
                     }`}
                   >
                     {tag}
@@ -270,18 +276,22 @@ export function ProjectsClient({
           <div
             className={
               viewMode === 'grid'
-                ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4'
+                ? 'comic-grid'
                 : 'space-y-4'
             }
           >
-            {filteredProjects.map((project) => (
-              <ProjectCard key={project.id} project={project} />
+            {filteredProjects.map((project, index) => (
+              <div
+                key={project.id}
+                className={viewMode === 'grid' ? (index % 5 === 0 ? 'comic-span-8 comic-tilt-left' : index % 5 === 1 ? 'comic-span-4 comic-tilt-right md:mt-8' : 'comic-span-6') : ''}
+              >
+                <ProjectCard project={project} />
+              </div>
             ))}
           </div>
         ) : (
-          <div className="glass-card min-h-[300px] flex items-center justify-center">
+          <NodeDetailPanel label="No Match" title="No projects match those filters." tone="amber">
             <div className="text-center">
-              <p className="text-text-muted">No projects match your filters.</p>
               <button
                 onClick={clearFilters}
                 className="mt-2 text-sm text-cyan hover:underline"
@@ -289,9 +299,9 @@ export function ProjectsClient({
                 Clear filters
               </button>
             </div>
-          </div>
+          </NodeDetailPanel>
         )}
       </div>
-    </div>
+    </ComicSectionLayout>
   );
 }

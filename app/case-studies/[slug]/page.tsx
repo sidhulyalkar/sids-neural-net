@@ -1,7 +1,7 @@
 import { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Calendar, Tag } from 'lucide-react';
+import { ArrowLeft, Calendar } from 'lucide-react';
 import { MDXRemote } from 'next-mdx-remote/rsc';
 import { getCaseStudyBySlug, getCaseStudySlugs } from '@/lib/content/load-case-studies';
 import { TagPill, getTagColor } from '@/components/ui';
@@ -16,7 +16,7 @@ export async function generateMetadata({ params }: CaseStudyPageProps): Promise<
 
   if (!caseStudy) {
     return {
-      title: 'Case Study Not Found',
+      title: 'Project Not Found',
     };
   }
 
@@ -42,28 +42,28 @@ export default async function CaseStudyPage({ params }: CaseStudyPageProps) {
   const { frontmatter, content } = caseStudy;
 
   return (
-    <div className="min-h-screen pt-20">
+    <div className="min-h-screen pt-24">
       <div className="mx-auto max-w-4xl px-4 py-12 sm:px-6 lg:px-8">
         {/* Back link */}
         <Link
           href="/case-studies"
-          className="inline-flex items-center gap-2 text-sm text-text-muted hover:text-cyan transition-colors mb-6"
+          className="mb-6 inline-flex items-center gap-2 text-sm text-text-muted transition-colors hover:text-cyan"
         >
           <ArrowLeft className="w-4 h-4" />
-          Back to Case Studies
+          Back to Projects
         </Link>
 
         {/* Header */}
         <div className="mb-8">
           <div className="flex items-center gap-3 mb-3">
-            <span className="text-xs font-medium text-cyan uppercase tracking-wider">Case Study</span>
+            <span className="technical-label">Project Brief</span>
             {frontmatter.featured && (
-              <span className="px-2 py-0.5 text-xs font-medium bg-amber/20 text-amber rounded-full">
+              <span className="border border-amber/30 bg-amber/10 px-2 py-0.5 font-mono text-xs uppercase tracking-[0.14em] text-amber">
                 Featured
               </span>
             )}
           </div>
-          <h1 className="text-4xl font-bold text-text-primary">{frontmatter.title}</h1>
+          <h1 className="text-4xl font-black tracking-tight text-text-primary md:text-6xl">{frontmatter.title}</h1>
           <p className="mt-4 text-lg text-text-secondary">{frontmatter.summary}</p>
 
           {/* Meta */}
@@ -111,13 +111,13 @@ export default async function CaseStudyPage({ params }: CaseStudyPageProps) {
         </article>
 
         {/* Footer */}
-        <div className="mt-12 pt-8 border-t border-border-subtle">
+        <div className="mt-12 border-t border-border-subtle pt-8">
           <Link
             href="/case-studies"
             className="inline-flex items-center gap-2 text-sm text-cyan hover:underline"
           >
             <ArrowLeft className="w-4 h-4" />
-            View all case studies
+            View all project deep dives
           </Link>
         </div>
       </div>

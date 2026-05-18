@@ -32,7 +32,7 @@ export const GlassCard = forwardRef<HTMLDivElement, GlassCardProps>(
       <div
         ref={ref}
         className={cn(
-          'rounded-xl border border-white/10 bg-bg-panel/80 backdrop-blur-xl',
+          'rounded-lg border border-white/10 bg-bg-panel/70 backdrop-blur-xl',
           'shadow-[0_0_0_1px_rgba(255,255,255,0.05),0_4px_30px_rgba(0,0,0,0.3)]',
           hover && 'transition-all duration-300 hover:border-white/20 hover:shadow-[0_0_0_1px_rgba(255,255,255,0.1),0_8px_40px_rgba(0,0,0,0.4)]',
           glow !== 'none' && glowColors[glow],
@@ -63,7 +63,7 @@ export const MotionGlassCard = forwardRef<HTMLDivElement, MotionGlassCardProps>(
       <motion.div
         ref={ref}
         className={cn(
-          'rounded-xl border border-white/10 bg-bg-panel/80 backdrop-blur-xl',
+          'rounded-lg border border-white/10 bg-bg-panel/70 backdrop-blur-xl',
           'shadow-[0_0_0_1px_rgba(255,255,255,0.05),0_4px_30px_rgba(0,0,0,0.3)]',
           hover && 'transition-shadow duration-300 hover:border-white/20',
           glow !== 'none' && glowColors[glow],

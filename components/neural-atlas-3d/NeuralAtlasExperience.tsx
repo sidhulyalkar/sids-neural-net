@@ -42,6 +42,11 @@ export function NeuralAtlasExperience() {
   const transitionPhase = useAtlasStore((state) => state.transitionPhase);
 
   useEffect(() => {
+    document.body.classList.add('immersive-atlas-mode');
+    return () => document.body.classList.remove('immersive-atlas-mode');
+  }, []);
+
+  useEffect(() => {
     const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     setReducedMotion(prefersReducedMotion);
     if (prefersReducedMotion) {

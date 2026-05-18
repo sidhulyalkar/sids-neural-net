@@ -1,7 +1,9 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useRef } from 'react';
+import { useFrame } from '@react-three/fiber';
 import { AdditiveBlending } from 'three';
+import type { Group } from 'three';
 import type { AtlasGraph } from '../atlasTypes';
 import { useAtlasStore } from '../atlasStore';
 import { DendriteCurve } from './DendriteCurve';
@@ -13,6 +15,7 @@ type NeuralSubnetworkProps = {
 };
 
 export function NeuralSubnetwork({ graph }: NeuralSubnetworkProps) {
+  const networkRef = useRef<Group>(null);
   const activeCategoryId = useAtlasStore((state) => state.activeCategoryId);
   const selectedLeafId = useAtlasStore((state) => state.selectedLeafId);
   const hoveredNodeId = useAtlasStore((state) => state.hoveredNodeId);
@@ -49,8 +52,17 @@ export function NeuralSubnetwork({ graph }: NeuralSubnetworkProps) {
   );
   const rootInBackground = Boolean(activeCategoryId);
 
+  useFrame(({ clock }) => {
+    const network = networkRef.current;
+    if (!network) return;
+
+    const overviewDrift = activeCategoryId ? 0 : 1;
+    network.rotation.z = Math.sin(clock.elapsedTime * 0.065) * 0.035 * overviewDrift;
+    network.rotation.x = Math.cos(clock.elapsedTime * 0.05) * 0.018 * overviewDrift;
+  });
+
   return (
-    <group>
+    <group ref={networkRef}>
       <group position={[0, 0, rootInBackground ? -1.4 : -2.2]}>
         {ghostLeaves.map((node) => (
           <mesh key={`ghost:${node.id}`} position={[node.position.x, node.position.y, node.position.z - 1.6]} scale={node.kind === 'category' ? 0.18 : 0.07}>

@@ -3,27 +3,27 @@ import { getAllCaseStudies } from '@/lib/content/load-case-studies';
 import { CaseStudyCard } from '@/components/case-studies';
 
 export const metadata: Metadata = {
-  title: 'Case Studies',
-  description: 'Deep dives into significant projects and their technical architecture.',
+  title: 'Projects',
+  description: 'Deep project dives into significant systems and their technical architecture.',
 };
 
 export default function CaseStudiesPage() {
   const caseStudies = getAllCaseStudies();
 
   return (
-    <div className="min-h-screen pt-20">
+    <div className="min-h-screen pt-24">
       <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-4xl font-bold text-text-primary">Case Studies</h1>
-          <p className="mt-2 text-lg text-text-secondary">
-            {caseStudies.length} deep dives into significant projects, their technical architecture, and lessons learned.
+        <div className="mb-10 max-w-4xl">
+          <p className="technical-label">Project Deep Dives</p>
+          <h1 className="mt-4 text-5xl font-black tracking-tight text-text-primary md:text-7xl">Projects</h1>
+          <p className="mt-4 text-lg text-text-secondary">
+            {caseStudies.length} deeper reads on the systems, architecture, tradeoffs, and lessons behind major builds.
           </p>
         </div>
 
-        {/* Case Studies Grid */}
         {caseStudies.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
             {caseStudies.map((cs) => (
               <CaseStudyCard key={cs.slug} caseStudy={cs} />
             ))}
@@ -36,18 +36,18 @@ export default function CaseStudiesPage() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                 </svg>
               </div>
-              <h3 className="text-xl font-semibold text-text-primary">No Case Studies Yet</h3>
+              <h3 className="text-xl font-semibold text-text-primary">No Project Deep Dives Yet</h3>
               <p className="mt-2 text-text-muted max-w-md">
-                Case studies will be added soon.
+                Project writeups will be added soon.
               </p>
             </div>
           </div>
         )}
 
         {/* Note */}
-        <div className="mt-12 p-4 bg-bg-panel/50 border border-border-subtle rounded-lg">
+        <div className="node-shell mt-12 p-4">
           <p className="text-sm text-text-muted">
-            Case studies detail the technical decisions, challenges, and outcomes of major projects.
+            Project briefs detail the technical decisions, challenges, and outcomes of major systems.
             Some details are generalized to protect proprietary information.
           </p>
         </div>
