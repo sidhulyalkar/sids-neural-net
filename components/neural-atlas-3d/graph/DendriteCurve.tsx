@@ -3,6 +3,7 @@
 import { useMemo } from 'react';
 import { CatmullRomCurve3, Vector3 } from 'three';
 import type { AtlasEdge, AtlasNode } from '../atlasTypes';
+import { vectorToTuple } from '../atlasTypes';
 
 type DendriteCurveProps = {
   edge: AtlasEdge;
@@ -12,8 +13,8 @@ type DendriteCurveProps = {
 
 export function DendriteCurve({ edge, source, target }: DendriteCurveProps) {
   const curve = useMemo(() => {
-    const start = new Vector3(...source.position);
-    const end = new Vector3(...target.position);
+    const start = new Vector3(...vectorToTuple(source.position));
+    const end = new Vector3(...vectorToTuple(target.position));
     const midpoint = start.clone().lerp(end, 0.5);
     midpoint.z += 0.5 + edge.strength * 0.8;
     return new CatmullRomCurve3([start, midpoint, end]);

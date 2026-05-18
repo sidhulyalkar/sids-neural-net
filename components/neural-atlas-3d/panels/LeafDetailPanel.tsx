@@ -27,6 +27,18 @@ export function LeafDetailPanel({ node }: LeafDetailPanelProps) {
         </button>
       </div>
       {node.summary && <p className="mt-3 text-sm leading-6 text-text-secondary">{node.summary}</p>}
+      <div className="mt-3 flex flex-wrap gap-2">
+        {node.domains.slice(0, 3).map((domain) => (
+          <span key={domain} className="border border-violet/20 bg-violet/10 px-2 py-1 text-xs text-violet">
+            {domain}
+          </span>
+        ))}
+        {node.tags.slice(0, 5).map((tag) => (
+          <span key={tag} className="border border-cyan/15 bg-cyan/[0.06] px-2 py-1 text-xs text-cyan/90">
+            {tag}
+          </span>
+        ))}
+      </div>
       <div className="mt-4 flex flex-wrap gap-2">
         <Link href={node.route} className="signal-button">
           Open route

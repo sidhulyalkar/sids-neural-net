@@ -3,7 +3,7 @@
 import { useAtlasStore } from '../atlasStore';
 
 export function BreadcrumbTrail() {
-  const phase = useAtlasStore((state) => state.phase);
+  const transitionPhase = useAtlasStore((state) => state.transitionPhase);
   const activeCategoryId = useAtlasStore((state) => state.activeCategoryId);
   const returnToOverview = useAtlasStore((state) => state.returnToOverview);
 
@@ -18,7 +18,7 @@ export function BreadcrumbTrail() {
           <span>{activeCategoryId}</span>
         </>
       )}
-      <span className="ml-auto">{phase}</span>
+      <span className="ml-auto">{transitionPhase}</span>
     </div>
   );
 }

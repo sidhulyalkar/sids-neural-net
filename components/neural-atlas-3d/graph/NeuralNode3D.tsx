@@ -3,6 +3,7 @@
 import { Html } from '@react-three/drei';
 import type { ThreeEvent } from '@react-three/fiber';
 import type { AtlasNode } from '../atlasTypes';
+import { vectorToTuple } from '../atlasTypes';
 import { useAtlasStore } from '../atlasStore';
 import { SomaMesh } from '../morphology/SomaMesh';
 import { PyramidalNeuron } from '../morphology/PyramidalNeuron';
@@ -17,9 +18,9 @@ export function NeuralNode3D({ node }: NeuralNode3DProps) {
   const focusCategory = useAtlasStore((state) => state.focusCategory);
   const focusLeaf = useAtlasStore((state) => state.focusLeaf);
   const setHoveredNode = useAtlasStore((state) => state.setHoveredNode);
-  const selectedNodeId = useAtlasStore((state) => state.selectedNodeId);
+  const selectedLeafId = useAtlasStore((state) => state.selectedLeafId);
   const activeCategoryId = useAtlasStore((state) => state.activeCategoryId);
-  const isActive = selectedNodeId === node.id || activeCategoryId === node.id;
+  const isActive = selectedLeafId === node.id || activeCategoryId === node.id;
 
   const handleClick = () => {
     if (node.kind === 'category') focusCategory(node.id);
@@ -30,9 +31,9 @@ export function NeuralNode3D({ node }: NeuralNode3DProps) {
     setHoveredNode(hovered ? node.id : null);
   };
   const commonProps = {
-    position: node.position,
+    position: vectorToTuple(node.position),
     color: node.color,
-    size: isActive ? node.size * 1.22 : node.size,
+    size: isActive ? node.scale * 1.22 : node.scale,
     onClick: handleClick,
   };
 
@@ -50,9 +51,9 @@ export function NeuralNode3D({ node }: NeuralNode3DProps) {
       ) : (
         <SomaMesh {...commonProps} />
       )}
-      <Html position={[node.position[0], node.position[1] - node.size * 0.95, node.position[2]]} center distanceFactor={12}>
+      <Html position={[node.position.x, node.position.y - node.scale * 0.95, node.position.z]} center distanceFactor={12}>
         <span className="pointer-events-none whitespace-nowrap border border-white/10 bg-black/45 px-2 py-1 font-mono text-[10px] uppercase tracking-[0.14em] text-cyan/90 backdrop-blur-md">
-          {node.label}
+          {node.shortLabel}
         </span>
       </Html>
     </group>

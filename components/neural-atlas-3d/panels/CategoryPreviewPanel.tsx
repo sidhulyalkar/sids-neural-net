@@ -24,7 +24,7 @@ export function CategoryPreviewPanel({ categories }: CategoryPreviewPanelProps) 
               : 'border-white/10 bg-white/[0.035] text-text-secondary hover:text-text-primary'
           }`}
         >
-          <span className="block text-sm font-semibold">{category.label}</span>
+          <span className="block text-sm font-semibold">{category.shortLabel}</span>
           <span className="mt-1 block text-xs leading-5 text-text-muted">{category.summary}</span>
         </button>
       ))}

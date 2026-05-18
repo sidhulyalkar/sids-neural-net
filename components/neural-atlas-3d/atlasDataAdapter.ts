@@ -1,131 +1,232 @@
 import graphData from '@/data/generated/neural-graph.json';
-import type { NeuralGraph, NeuralNode } from '@/lib/data/schemas';
-import type { AtlasGraph, AtlasMorphology, AtlasNode, AtlasVec3 } from './atlasTypes';
+import { NeuralGraphSchema } from '@/lib/data/schemas';
+import type { NeuralEdge, NeuralGraph, NeuralNode } from '@/lib/data/schemas';
+import type {
+  AtlasCurveType,
+  AtlasEdge,
+  AtlasEdgeRelation,
+  AtlasGraph,
+  AtlasLeafContentType,
+  AtlasMorphology,
+  AtlasNode,
+  AtlasVector3,
+  AtlasVisibleState,
+} from './atlasTypes';
 import { ATLAS_LAYOUT, CATEGORY_COLORS } from './visualConstants';
 
 type CategoryDefinition = {
   id: string;
-  label: string;
+  title: string;
+  shortLabel: string;
   route: string;
   summary: string;
-  keywords: string[];
   morphology: AtlasMorphology;
+  contentType: AtlasLeafContentType;
+  keywords: string[];
+  domains: string[];
+  clusters: string[];
 };
 
-const generatedGraph = graphData as NeuralGraph;
+type CategoryScore = {
+  categoryId: string;
+  score: number;
+};
+
+const ROOT_ID = 'neural-atlas-root';
+const generatedGraph = NeuralGraphSchema.parse(graphData) as NeuralGraph;
 
 const CATEGORY_DEFINITIONS: CategoryDefinition[] = [
   {
     id: 'about',
-    label: 'About / Identity',
+    title: 'About / Identity',
+    shortLabel: 'About',
     route: '/about',
-    summary: 'Identity, research instincts, and the connective tissue behind the work.',
-    keywords: ['personal', 'life', 'dolby', 'coeval'],
+    summary: 'The central soma for identity, research instincts, taste, and positioning.',
     morphology: 'soma',
+    contentType: 'external',
+    keywords: ['identity', 'about', 'personal', 'dolby', 'coeval'],
+    domains: ['Life Outside the Lab'],
+    clusters: ['Life Outside the Lab'],
   },
   {
-    id: 'professional',
-    label: 'Professional Work',
+    id: 'professional-work',
+    title: 'Professional Work',
+    shortLabel: 'Work',
     route: '/case-studies',
-    summary: 'Research engineering, lab infrastructure, and production scientific systems.',
-    keywords: ['datajoint', 'harvard', 'sabatini', 'allen', 'neatlabs', 'workflow'],
+    summary: 'Research engineering, lab infrastructure, DataJoint deployments, and production scientific systems.',
     morphology: 'pyramidal',
+    contentType: 'case-study',
+    keywords: ['datajoint', 'harvard', 'sabatini', 'allen', 'mindscope', 'neatlabs', 'workflow', 'lu lab', 'deeplabcut', 'facemap'],
+    domains: ['Neural Data Infrastructure', 'Scientific Workflow Systems', 'Scientific DevOps', 'NEATLABs Research'],
+    clusters: ['Neural Data Infrastructure', 'Scientific Workflow Systems', 'Scientific DevOps', 'NEATLABs Research'],
   },
   {
     id: 'projects',
-    label: 'Projects / Code',
+    title: 'Projects / Code',
+    shortLabel: 'Projects',
     route: '/projects',
-    summary: 'Neural data infrastructure, applied AI systems, and prototypes.',
-    keywords: ['neuros', 'neuroforge', 'bci', 'python', 'typescript', 'pipeline'],
+    summary: 'GitHub-backed systems, applied AI products, neural tooling, and working prototypes.',
     morphology: 'pyramidal',
+    contentType: 'project',
+    keywords: ['github', 'python', 'typescript', 'neuros', 'neuroforge', 'pipeline', 'agent', 'classifier', 'app'],
+    domains: ['Applied AI Products', 'BCI & Real-Time Systems', 'Cloud Infrastructure'],
+    clusters: ['Applied AI Products', 'Foundation Models & BCI', 'Cloud Infrastructure', 'DataJoint Elements'],
   },
   {
     id: 'publications',
-    label: 'Publications / Papers',
+    title: 'Publications / Papers',
+    shortLabel: 'Papers',
     route: '/publications',
-    summary: 'Peer-reviewed research artifacts and scientific outputs.',
-    keywords: ['publication', 'neuroscience', 'electrophysiology', 'paper'],
+    summary: 'Peer-reviewed neuroscience papers with DOI, author, venue, and related graph context.',
     morphology: 'interneuron',
+    contentType: 'publication',
+    keywords: ['publication', 'paper', 'journal', 'doi', 'electrophysiology', 'neuroscience'],
+    domains: ['Publications', 'Neural Data Analysis', 'Experimental Systems'],
+    clusters: ['Publications', 'Neuroscience Research'],
   },
   {
-    id: 'ideas',
-    label: 'Research Ideas',
+    id: 'research-ideas',
+    title: 'Research Ideas',
+    shortLabel: 'Ideas',
     route: '/ideas',
-    summary: 'Foundation models, interpretability, BCI systems, and scientific tools.',
-    keywords: ['foundation', 'mechanistic', 'interpretability', 'bci', 'kalman'],
+    summary: 'Foundation models for brain dynamics, mechanistic interpretability, BCI systems, and speculative tools.',
     morphology: 'stellate',
+    contentType: 'idea',
+    keywords: ['foundation', 'mechanistic', 'interpretability', 'bci', 'neurofmx', 'neuros', 'kalman', 'transformer', 'neural signal'],
+    domains: ['Mechanistic Interpretability', 'Neural Foundation Models', 'Neural Decoding and ML', 'Neural Signal Discovery'],
+    clusters: ['Mechanistic Interpretability', 'Foundation Models & BCI', 'Neural Decoding and ML', 'Neural Signal Discovery'],
   },
   {
-    id: 'personal',
-    label: 'Personal Interests',
+    id: 'personal-interests',
+    title: 'Personal Interests',
+    shortLabel: 'Personal',
     route: '/life',
-    summary: 'Outdoor rhythm, animals, music, motion, and life outside the lab.',
-    keywords: ['personal', 'life', 'woof', 'petpath', 'shasta'],
+    summary: 'Outdoor rhythm, Shasta, personal product ideas, motion, music, and life outside the lab.',
     morphology: 'glial',
+    contentType: 'external',
+    keywords: ['personal', 'life', 'woof', 'petpath', 'shasta', 'pet', 'audio', 'visualization'],
+    domains: ['Life Outside the Lab', 'Personal Projects', 'Personal Product Experiments'],
+    clusters: ['Life Outside the Lab', 'Personal Projects', 'Real-Time Creative Neurotech'],
   },
   {
     id: 'photography',
-    label: 'Photography / Field Notes',
+    title: 'Photography / Field Notes',
+    shortLabel: 'Field Notes',
     route: '/photography',
-    summary: 'Field notes, images, and visual attention outside the lab.',
-    keywords: ['photo', 'field', 'shasta', 'creative'],
-    morphology: 'glial',
+    summary: 'Photography, travel fragments, field observations, and visual attention outside the lab.',
+    morphology: 'purkinje-inspired',
+    contentType: 'photography',
+    keywords: ['photo', 'photography', 'field', 'field-note', 'shasta', 'creative', 'travel'],
+    domains: ['Life Outside the Lab', 'Personal Projects'],
+    clusters: ['Life Outside the Lab', 'Personal Projects'],
   },
   {
     id: 'contact',
-    label: 'Contact',
+    title: 'Contact',
+    shortLabel: 'Contact',
     route: '/contact',
-    summary: 'Collaborations, research conversations, and ambitious prototypes.',
-    keywords: ['neuros', 'neuroforge', 'datajoint', 'coeval'],
-    morphology: 'soma',
+    summary: 'An open terminal for collaborations, roles, research conversations, and ambitious prototypes.',
+    morphology: 'axon-terminal',
+    contentType: 'contact',
+    keywords: ['contact', 'collaborate', 'neuros', 'neuroforge', 'datajoint'],
+    domains: ['Applied AI Products', 'Neural Data Infrastructure'],
+    clusters: ['Foundation Models & BCI', 'Applied AI Products', 'Neural Data Infrastructure'],
   },
 ];
 
 export function buildAtlasGraph(): AtlasGraph {
+  const root = buildRootNode();
   const categories = CATEGORY_DEFINITIONS.map((category, index) =>
     categoryToNode(category, index, CATEGORY_DEFINITIONS.length)
   );
-  const leaves = CATEGORY_DEFINITIONS.flatMap((category, categoryIndex) =>
-    generatedGraph.nodes
-      .filter((node) => nodeMatchesCategory(node, category))
-      .sort((a, b) => (b.computedImportance ?? b.importance) - (a.computedImportance ?? a.importance))
-      .slice(0, 6)
-      .map((node, leafIndex, leafList) => leafToNode(node, category, categoryIndex, leafIndex, leafList.length))
+  const leafAssignments = assignGeneratedNodes(generatedGraph.nodes);
+  const leaves = leafAssignments.map(({ node, categoryId, leafIndex, siblingCount }) =>
+    leafToNode(node, categoryId, leafIndex, siblingCount)
   );
 
-  const nodes = [...categories, ...leaves];
-  const nodeIds = new Set(nodes.map((node) => node.id));
-  const categoryEdges = categories
-    .filter((node) => node.id !== 'about')
-    .map((node) => ({
-      id: `category:about:${node.id}`,
-      source: 'about',
-      target: node.id,
-      strength: 0.8,
-      color: node.color,
-    }));
-  const leafEdges = leaves.map((leaf) => ({
-    id: `leaf:${leaf.categoryId}:${leaf.slug}`,
-    source: leaf.categoryId ?? 'about',
-    target: leaf.id,
-    strength: Math.max(0.35, Math.min(0.95, leaf.size / 2.4)),
-    color: leaf.color,
-  }));
-  const relatedEdges = generatedGraph.edges
-    .map((edge) => ({
-      id: `related:${edge.id}`,
-      source: `leaf:${edge.source}`,
-      target: `leaf:${edge.target}`,
-      strength: edge.weight / 10,
-      color: 'rgba(102,227,255,0.28)',
-    }))
-    .filter((edge) => nodeIds.has(edge.source) && nodeIds.has(edge.target))
-    .slice(0, 48);
+  const allNodes = [root, ...categories, ...leaves];
+  const nodeById = new Map(allNodes.map((node) => [node.id, node]));
+  const slugToLeafId = new Map(leaves.map((node) => [node.slug, node.id]));
+  const categoryEdges = categories.map((category, index) =>
+    makeEdge({
+      id: `root:${category.id}`,
+      source: ROOT_ID,
+      target: category.id,
+      relation: 'root-to-category',
+      strength: 0.72 + index * 0.02,
+      curveType: 'axon',
+      color: category.color,
+      signalDelay: index * 0.08,
+      dendriteBranches: 2,
+      visibleInStates: ['root', 'overview', 'always'],
+    })
+  );
+  const leafEdges = leaves.map((leaf, index) =>
+    makeEdge({
+      id: `category:${leaf.parentId}:${leaf.id}`,
+      source: leaf.parentId ?? ROOT_ID,
+      target: leaf.id,
+      relation: 'category-to-leaf',
+      strength: Math.max(0.36, Math.min(0.95, leaf.importance / 110)),
+      curveType: leaf.contentType === 'publication' ? 'synapse' : 'dendrite',
+      color: leaf.color,
+      signalDelay: (index % 8) * 0.05,
+      dendriteBranches: leaf.morphology === 'pyramidal' ? 5 : 3,
+      visibleInStates: ['category', 'detail', 'traveling', 'arriving', 'reading'],
+    })
+  );
+  const relatedEdges = buildRelatedEdges(generatedGraph.edges, slugToLeafId);
+  const edges = [...categoryEdges, ...leafEdges, ...relatedEdges];
+
+  for (const edge of edges) {
+    const source = nodeById.get(edge.source);
+    const target = nodeById.get(edge.target);
+    if (!source || !target) continue;
+    source.childrenIds = source.childrenIds.includes(target.id)
+      ? source.childrenIds
+      : [...source.childrenIds, target.id];
+    target.relatedIds = target.relatedIds.includes(source.id)
+      ? target.relatedIds
+      : [...target.relatedIds, source.id];
+    source.relatedIds = source.relatedIds.includes(target.id)
+      ? source.relatedIds
+      : [...source.relatedIds, target.id];
+  }
 
   return {
+    rootId: ROOT_ID,
+    categoryIds: categories.map((category) => category.id),
+    nodes: allNodes,
+    edges,
     categories,
-    nodes,
-    edges: [...categoryEdges, ...leafEdges, ...relatedEdges],
+    generatedNodeCount: generatedGraph.nodes.length,
+    generatedEdgeCount: generatedGraph.edges.length,
+  };
+}
+
+function buildRootNode(): AtlasNode {
+  return {
+    id: ROOT_ID,
+    slug: 'neural-atlas',
+    title: 'Sid Neural Atlas',
+    shortLabel: 'Atlas',
+    summary: 'The root soma for the spatial map of work, research, publications, ideas, and field notes.',
+    kind: 'root',
+    contentType: 'external',
+    morphology: 'soma',
+    category: 'root',
+    parentId: null,
+    childrenIds: [],
+    relatedIds: [],
+    position: { x: 0, y: 0, z: 0 },
+    scale: 1.35,
+    color: '#f8fbff',
+    route: '/',
+    tags: ['atlas', 'root'],
+    domains: [],
+    importance: 100,
+    featured: true,
+    hiddenUntilParentFocused: false,
   };
 }
 
@@ -133,71 +234,250 @@ function categoryToNode(category: CategoryDefinition, index: number, total: numb
   return {
     id: category.id,
     slug: category.id,
-    title: category.label,
-    label: category.label,
+    title: category.title,
+    shortLabel: category.shortLabel,
     summary: category.summary,
     kind: 'category',
+    contentType: category.contentType,
     morphology: category.morphology,
-    route: category.route,
-    color: CATEGORY_COLORS[category.id],
+    category: category.id,
+    parentId: ROOT_ID,
+    childrenIds: [],
+    relatedIds: [],
     position: radialPosition(index, total, ATLAS_LAYOUT.overviewRadius, 0),
-    size: category.id === 'about' ? 1.2 : 0.9,
+    scale: category.id === 'about' ? 1.08 : 0.92,
+    color: CATEGORY_COLORS[category.id],
+    route: category.route,
+    tags: category.keywords,
+    domains: category.domains,
+    importance: 100,
+    featured: true,
+    hiddenUntilParentFocused: false,
   };
 }
 
-function leafToNode(
-  node: NeuralNode,
-  category: CategoryDefinition,
-  categoryIndex: number,
-  leafIndex: number,
-  totalLeaves: number
-): AtlasNode {
-  const base = radialPosition(categoryIndex, CATEGORY_DEFINITIONS.length, ATLAS_LAYOUT.overviewRadius, 0);
-  const offset = radialPosition(leafIndex, totalLeaves, ATLAS_LAYOUT.leafRadius, (categoryIndex % 3) - 1);
-  const morphology: AtlasMorphology = node.type === 'publication' ? 'interneuron' : 'stellate';
+function assignGeneratedNodes(nodes: NeuralNode[]) {
+  const usedSlugs = new Set<string>();
+  const grouped = new Map<string, NeuralNode[]>();
+
+  for (const node of nodes) {
+    if (usedSlugs.has(node.slug)) continue;
+    const categoryId = pickCategory(node);
+    usedSlugs.add(node.slug);
+    grouped.set(categoryId, [...(grouped.get(categoryId) ?? []), node]);
+  }
+
+  return Array.from(grouped.entries()).flatMap(([categoryId, categoryNodes]) =>
+    categoryNodes
+      .sort((a, b) => (b.computedImportance ?? b.importance) - (a.computedImportance ?? a.importance))
+      .slice(0, 12)
+      .map((node, leafIndex, siblings) => ({
+        node,
+        categoryId,
+        leafIndex,
+        siblingCount: siblings.length,
+      }))
+  );
+}
+
+function pickCategory(node: NeuralNode) {
+  if (node.type === 'publication') return 'publications';
+
+  const scores = CATEGORY_DEFINITIONS.map((category) => ({
+    categoryId: category.id,
+    score: scoreNodeForCategory(node, category),
+  })).sort(sortCategoryScores);
+
+  return scores[0]?.categoryId ?? 'projects';
+}
+
+function sortCategoryScores(a: CategoryScore, b: CategoryScore) {
+  if (b.score !== a.score) return b.score - a.score;
+  const priority = [
+    'professional-work',
+    'research-ideas',
+    'projects',
+    'personal-interests',
+    'photography',
+    'publications',
+    'about',
+    'contact',
+  ];
+  return priority.indexOf(a.categoryId) - priority.indexOf(b.categoryId);
+}
+
+function scoreNodeForCategory(node: NeuralNode, category: CategoryDefinition) {
+  const haystack = nodeHaystack(node);
+  let score = 0;
+
+  for (const keyword of category.keywords) {
+    if (haystack.includes(keyword.toLowerCase())) score += 3;
+  }
+  for (const domain of category.domains) {
+    if (node.domains.some((nodeDomain) => nodeDomain.toLowerCase() === domain.toLowerCase())) score += 5;
+  }
+  if (node.cluster && category.clusters.some((cluster) => cluster.toLowerCase() === node.cluster?.toLowerCase())) {
+    score += 6;
+  }
+
+  if (category.id === 'professional-work') {
+    if (node.source === 'context-doc') score += 4;
+    if (/(datajoint|harvard|sabatini|allen|mindscope|neatlabs|lu lab|workflow)/i.test(haystack)) score += 7;
+  }
+  if (category.id === 'projects') {
+    if (node.source === 'github') score += 5;
+    if (node.github) score += 4;
+    if ((node.computedImportance ?? node.importance) < 90) score += 1;
+  }
+  if (category.id === 'research-ideas') {
+    if (/(mechanistic|interpretability|foundation|bci|neurofmx|neuros|kalman|transformer)/i.test(haystack)) score += 7;
+  }
+  if (category.id === 'personal-interests') {
+    if (/(personal|life|woof|petpath|shasta|pet)/i.test(haystack)) score += 8;
+  }
+  if (category.id === 'photography') {
+    if (/(photo|photography|field|travel|visual attention)/i.test(haystack)) score += 8;
+  }
+
+  return score;
+}
+
+function leafToNode(node: NeuralNode, categoryId: string, leafIndex: number, totalLeaves: number): AtlasNode {
+  const categoryIndex = CATEGORY_DEFINITIONS.findIndex((category) => category.id === categoryId);
+  const category = CATEGORY_DEFINITIONS[Math.max(0, categoryIndex)];
+  const base = radialPosition(Math.max(0, categoryIndex), CATEGORY_DEFINITIONS.length, ATLAS_LAYOUT.overviewRadius, 0);
+  const offset = radialPosition(leafIndex, Math.max(1, totalLeaves), ATLAS_LAYOUT.leafRadius, (categoryIndex % 3) - 1);
+  const contentType = contentTypeForNode(node, categoryId);
+  const importance = node.computedImportance ?? node.importance;
 
   return {
     id: `leaf:${node.slug}`,
     slug: node.slug,
     title: node.title,
-    label: shortLabel(node.title),
-    summary: node.summary,
+    shortLabel: shortLabel(node.title),
+    summary: node.summary || node.description || 'A generated graph artifact connected to this atlas category.',
     kind: 'leaf',
-    morphology,
-    categoryId: category.id,
-    route: routeForNode(node),
-    color: CATEGORY_COLORS[category.id],
-    position: [base[0] + offset[0], base[1] + offset[1], base[2] + offset[2]],
-    size: Math.max(0.36, Math.min(0.8, (node.visualWeight ?? 3) / 10)),
+    contentType,
+    morphology: morphologyForNode(node, contentType, categoryId),
+    category: categoryId,
+    parentId: categoryId,
+    childrenIds: [],
+    relatedIds: [],
+    position: {
+      x: base.x + offset.x,
+      y: base.y + offset.y,
+      z: base.z + offset.z,
+    },
+    scale: Math.max(0.38, Math.min(0.92, (node.visualWeight ?? 3) / 9)),
+    color: CATEGORY_COLORS[categoryId] ?? '#66e3ff',
+    route: routeForNode(node, contentType),
+    externalUrl: node.sourceUrl ?? node.github?.url ?? (node.publication?.doi ? `https://doi.org/${node.publication.doi}` : null),
+    sourceNodeSlug: node.slug,
+    publication: node.publication,
+    github: node.github,
+    tags: node.tags,
+    domains: node.domains,
+    importance,
+    featured: node.featured || importance >= 90,
+    hiddenUntilParentFocused: true,
     sourceNode: node,
   };
 }
 
-function nodeMatchesCategory(node: NeuralNode, category: CategoryDefinition) {
-  if (category.id === 'publications' && node.type !== 'publication') return false;
-  const haystack = [node.slug, node.title, node.summary ?? '', node.cluster ?? '', ...node.domains, ...node.tags]
+function buildRelatedEdges(edges: NeuralEdge[], slugToLeafId: Map<string, string>) {
+  const relatedEdges: AtlasEdge[] = [];
+
+  for (const edge of edges) {
+    const source = slugToLeafId.get(edge.source);
+    const target = slugToLeafId.get(edge.target);
+    if (!source || !target) continue;
+
+    relatedEdges.push(
+      makeEdge({
+        id: `related:${edge.id}`,
+        source,
+        target,
+        relation: 'related',
+        strength: Math.max(0.2, Math.min(0.85, edge.weight / 10)),
+        curveType: 'bundle',
+        color: 'rgba(102,227,255,0.28)',
+        signalDelay: (relatedEdges.length % 12) * 0.04,
+        dendriteBranches: 1,
+        visibleInStates: ['category', 'detail', 'reading'],
+      })
+    );
+  }
+
+  return relatedEdges.slice(0, 80);
+}
+
+function makeEdge(edge: AtlasEdge): AtlasEdge {
+  return edge;
+}
+
+function contentTypeForNode(node: NeuralNode, categoryId: string): AtlasLeafContentType {
+  if (node.type === 'publication') return 'publication';
+  if (node.type === 'case-study') return 'case-study';
+  if (node.type === 'field-note') return 'field-note';
+  if (categoryId === 'research-ideas') return 'idea';
+  if (categoryId === 'photography') return 'photography';
+  if (categoryId === 'contact') return 'contact';
+  if (node.type === 'project') return 'project';
+  return node.sourceUrl ? 'external' : 'project';
+}
+
+function morphologyForNode(node: NeuralNode, contentType: AtlasLeafContentType, categoryId: string): AtlasMorphology {
+  if (contentType === 'publication') return 'interneuron';
+  if (categoryId === 'professional-work') return 'pyramidal';
+  if (categoryId === 'photography') return 'purkinje-inspired';
+  if (categoryId === 'personal-interests') return 'glial';
+  if (categoryId === 'contact') return 'axon-terminal';
+  if ((node.computedImportance ?? node.importance) >= 92) return 'pyramidal';
+  return 'stellate';
+}
+
+function routeForNode(node: NeuralNode, contentType: AtlasLeafContentType) {
+  if (contentType === 'project') return `/projects/${node.slug}`;
+  if (contentType === 'publication') return '/publications';
+  if (contentType === 'case-study') return `/case-studies/${node.slug}`;
+  if (contentType === 'field-note') return `/field-notes/${node.slug}`;
+  if (contentType === 'idea') return '/ideas';
+  if (contentType === 'photography') return '/photography';
+  if (contentType === 'contact') return '/contact';
+  return node.sourceUrl ?? `/neural-net?focus=${node.slug}`;
+}
+
+function radialPosition(index: number, total: number, radius: number, zOffset: number): AtlasVector3 {
+  const angle = (index / Math.max(1, total)) * Math.PI * 2 - Math.PI / 2;
+  return {
+    x: Math.cos(angle) * radius,
+    y: Math.sin(angle) * radius * 0.72,
+    z: Math.sin(angle * 1.7) * ATLAS_LAYOUT.zSpread + zOffset,
+  };
+}
+
+function nodeHaystack(node: NeuralNode) {
+  return [
+    node.slug,
+    node.type,
+    node.title,
+    node.summary ?? '',
+    node.description ?? '',
+    node.cluster ?? '',
+    node.source,
+    ...node.domains,
+    ...node.tags,
+  ]
     .join(' ')
     .toLowerCase();
-  return category.keywords.some((keyword) => haystack.includes(keyword.toLowerCase()));
-}
-
-function radialPosition(index: number, total: number, radius: number, zOffset: number): AtlasVec3 {
-  const angle = (index / Math.max(1, total)) * Math.PI * 2 - Math.PI / 2;
-  return [
-    Math.cos(angle) * radius,
-    Math.sin(angle) * radius * 0.72,
-    Math.sin(angle * 1.7) * ATLAS_LAYOUT.zSpread + zOffset,
-  ];
-}
-
-function routeForNode(node: NeuralNode) {
-  if (node.type === 'project') return `/projects/${node.slug}`;
-  if (node.type === 'publication') return '/publications';
-  if (node.type === 'case-study') return `/case-studies/${node.slug}`;
-  if (node.type === 'field-note') return `/field-notes/${node.slug}`;
-  return `/neural-net?focus=${node.slug}`;
 }
 
 function shortLabel(title: string) {
-  return title.length <= 28 ? title : `${title.slice(0, 25).trim()}...`;
+  const cleaned = title
+    .replace(/^Published:\s*/i, '')
+    .replace(/\s*[:|/]\s*.+$/i, '')
+    .replace(/\b(multimodal|neuroscience|pipeline|pipelines|framework|application|system|systems)\b/gi, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return cleaned.length <= 28 ? cleaned || title : `${cleaned.slice(0, 25).trim()}...`;
 }

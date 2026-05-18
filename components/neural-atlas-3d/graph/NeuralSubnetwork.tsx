@@ -13,12 +13,12 @@ type NeuralSubnetworkProps = {
 
 export function NeuralSubnetwork({ graph }: NeuralSubnetworkProps) {
   const activeCategoryId = useAtlasStore((state) => state.activeCategoryId);
-  const selectedNodeId = useAtlasStore((state) => state.selectedNodeId);
+  const selectedLeafId = useAtlasStore((state) => state.selectedLeafId);
   const nodeById = useMemo(() => new Map(graph.nodes.map((node) => [node.id, node])), [graph.nodes]);
   const visibleNodes = useMemo(
     () =>
       graph.nodes.filter(
-        (node) => node.kind === 'category' || !activeCategoryId || node.categoryId === activeCategoryId
+        (node) => node.kind === 'category' || (!activeCategoryId ? false : node.parentId === activeCategoryId)
       ),
     [activeCategoryId, graph.nodes]
   );
@@ -33,7 +33,7 @@ export function NeuralSubnetwork({ graph }: NeuralSubnetworkProps) {
         return (
           <group key={edge.id}>
             <DendriteCurve edge={edge} source={source} target={target} />
-            <SignalPulse active={selectedNodeId === edge.source || selectedNodeId === edge.target} edge={edge} source={source} target={target} />
+            <SignalPulse active={selectedLeafId === edge.source || selectedLeafId === edge.target} edge={edge} source={source} target={target} />
           </group>
         );
       })}

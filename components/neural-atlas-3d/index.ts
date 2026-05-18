@@ -6,4 +6,19 @@ export { NeuralAtlasFallback } from './NeuralAtlasFallback';
 export { NeuralAtlasLoading } from './NeuralAtlasLoading';
 export { buildAtlasGraph } from './atlasDataAdapter';
 export { useAtlasStore } from './atlasStore';
-export type { AtlasEdge, AtlasGraph, AtlasMorphology, AtlasNode, AtlasPhase, AtlasVec3 } from './atlasTypes';
+export type {
+  AtlasCameraMode,
+  AtlasCurveType,
+  AtlasEdge,
+  AtlasEdgeRelation,
+  AtlasGraph,
+  AtlasLeafContentType,
+  AtlasMorphology,
+  AtlasNavigationLevel,
+  AtlasNavigationState,
+  AtlasNode,
+  AtlasNodeKind,
+  AtlasTransitionPhase,
+  AtlasVec3,
+  AtlasVector3,
+} from './atlasTypes';

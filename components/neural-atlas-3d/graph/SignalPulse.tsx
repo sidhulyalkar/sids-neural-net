@@ -4,6 +4,7 @@ import { useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { CatmullRomCurve3, Mesh, Vector3 } from 'three';
 import type { AtlasEdge, AtlasNode } from '../atlasTypes';
+import { vectorToTuple } from '../atlasTypes';
 
 type SignalPulseProps = {
   active: boolean;
@@ -15,8 +16,8 @@ type SignalPulseProps = {
 export function SignalPulse({ active, edge, source, target }: SignalPulseProps) {
   const meshRef = useRef<Mesh>(null);
   const curve = useMemo(() => {
-    const start = new Vector3(...source.position);
-    const end = new Vector3(...target.position);
+    const start = new Vector3(...vectorToTuple(source.position));
+    const end = new Vector3(...vectorToTuple(target.position));
     const midpoint = start.clone().lerp(end, 0.5);
     midpoint.z += 0.8;
     return new CatmullRomCurve3([start, midpoint, end]);

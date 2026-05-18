@@ -11,11 +11,11 @@ export const ATLAS_COLORS = {
 
 export const CATEGORY_COLORS: Record<string, string> = {
   about: ATLAS_COLORS.white,
-  professional: ATLAS_COLORS.blue,
+  'professional-work': ATLAS_COLORS.blue,
   projects: ATLAS_COLORS.cyan,
   publications: ATLAS_COLORS.violet,
-  ideas: ATLAS_COLORS.green,
-  personal: ATLAS_COLORS.amber,
+  'research-ideas': ATLAS_COLORS.green,
+  'personal-interests': ATLAS_COLORS.amber,
   photography: ATLAS_COLORS.rose,
   contact: '#8fb8ff',
 };

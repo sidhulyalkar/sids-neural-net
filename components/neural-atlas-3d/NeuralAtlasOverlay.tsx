@@ -12,10 +12,10 @@ type NeuralAtlasOverlayProps = {
 };
 
 export function NeuralAtlasOverlay({ graph }: NeuralAtlasOverlayProps) {
-  const selectedNodeId = useAtlasStore((state) => state.selectedNodeId);
+  const selectedLeafId = useAtlasStore((state) => state.selectedLeafId);
   const activeCategoryId = useAtlasStore((state) => state.activeCategoryId);
   const openDetail = useAtlasStore((state) => state.openDetail);
-  const selectedNode = graph.nodes.find((node) => node.id === selectedNodeId) ?? null;
+  const selectedNode = graph.nodes.find((node) => node.id === selectedLeafId) ?? null;
   const activeCategory = graph.categories.find((node) => node.id === activeCategoryId) ?? null;
 
   return (
@@ -38,9 +38,9 @@ export function NeuralAtlasOverlay({ graph }: NeuralAtlasOverlayProps) {
       {(selectedNode ?? activeCategory) && (
         <div className="pointer-events-auto absolute right-4 top-4 w-[min(24rem,calc(100vw-2rem))] border border-white/10 bg-black/35 p-4 backdrop-blur-xl sm:right-6 sm:top-6">
           <p className="font-mono text-[0.62rem] uppercase tracking-[0.2em] text-cyan/75">
-            {(selectedNode ?? activeCategory)?.kind}
-          </p>
-          <h2 className="mt-2 text-xl font-black text-text-primary">{(selectedNode ?? activeCategory)?.title}</h2>
+          {(selectedNode ?? activeCategory)?.kind}
+        </p>
+        <h2 className="mt-2 text-xl font-black text-text-primary">{(selectedNode ?? activeCategory)?.title}</h2>
           <p className="mt-2 text-sm leading-6 text-text-secondary">{(selectedNode ?? activeCategory)?.summary}</p>
           {selectedNode && (
             <button type="button" onClick={() => openDetail(selectedNode.id)} className="signal-button mt-4">
