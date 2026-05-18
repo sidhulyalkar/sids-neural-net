@@ -35,10 +35,10 @@ export function StellateNeuron({
           <meshStandardMaterial
             color={color}
             emissive={color}
-            emissiveIntensity={selected ? 0.34 : active || hovered ? 0.23 : 0.12}
+            emissiveIntensity={selected ? 0.85 : active || hovered ? 0.6 : 0.35}
             transparent
             opacity={opacity}
-            roughness={0.76}
+            roughness={0.4}
           />
         </mesh>
       ))}

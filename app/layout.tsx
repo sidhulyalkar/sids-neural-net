@@ -1,16 +1,24 @@
 import type { Metadata } from 'next';
 import { GeistSans } from 'geist/font/sans';
 import { GeistMono } from 'geist/font/mono';
+import { Bebas_Neue } from 'next/font/google';
 import './globals.css';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
 import { ModeProvider } from '@/lib/contexts/ModeContext';
 
+const bebasNeue = Bebas_Neue({
+  weight: '400',
+  subsets: ['latin'],
+  variable: '--font-bebas',
+  display: 'swap',
+});
+
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'https://sidsneural.net'),
   title: {
-    default: "Sid's Neural Net | Sidharth Hulyalkar",
-    template: "%s | Sid's Neural Net",
+    default: 'Sid Neural Net | Sidharth Hulyalkar',
+    template: '%s | Sid Neural Net',
   },
   description:
     'A living portfolio and research atlas for Sidharth Hulyalkar: neuroscience data infrastructure, applied AI, neural foundation models, mechanistic interpretability, BCI systems, publications, and personal projects.',
@@ -35,8 +43,8 @@ export const metadata: Metadata = {
     type: 'website',
     locale: 'en_US',
     url: '/',
-    siteName: "Sid's Neural Net",
-    title: "Sid's Neural Net | Sidharth Hulyalkar",
+    siteName: 'Sid Neural Net',
+    title: 'Sid Neural Net | Sidharth Hulyalkar',
     description:
       'A living atlas of projects, publications, systems, experiments, interests, and ideas spanning neuroscience, ML, and applied AI.',
     images: [
@@ -44,13 +52,13 @@ export const metadata: Metadata = {
         url: '/og-image.png',
         width: 1200,
         height: 630,
-        alt: "Sid's Neural Net",
+        alt: 'Sid Neural Net',
       },
     ],
   },
   twitter: {
     card: 'summary_large_image',
-    title: "Sid's Neural Net | Sidharth Hulyalkar",
+    title: 'Sid Neural Net | Sidharth Hulyalkar',
     description:
       'A living atlas of projects, publications, systems, experiments, interests, and ideas.',
     images: ['/og-image.png'],
@@ -74,7 +82,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className={`${GeistSans.variable} ${GeistMono.variable}`}>
+    <html lang="en" className={`${GeistSans.variable} ${GeistMono.variable} ${bebasNeue.variable}`}>
       <body className="min-h-screen bg-bg-deep text-text-primary antialiased">
         <ModeProvider>
           <div className="relative flex min-h-screen flex-col">

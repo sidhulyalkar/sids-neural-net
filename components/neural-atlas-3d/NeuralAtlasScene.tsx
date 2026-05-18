@@ -19,12 +19,12 @@ export function NeuralAtlasScene({ graph }: NeuralAtlasSceneProps) {
 
   return (
     <>
-      <color attach="background" args={['#02040c']} />
-      <fog attach="fog" args={['#02040c', isDeepView ? 7 : 12, isDeepView ? 20 : 28]} />
-      <ambientLight intensity={isDeepView ? 0.26 : 0.35} />
-      <pointLight position={[0, 0, 7]} intensity={isArrival ? 3 : 2.1} color="#66e3ff" />
-      <pointLight position={[-7, 4, 3]} intensity={isDeepView ? 0.75 : 1.1} color="#a78bfa" />
-      <pointLight position={[4, -3, 5]} intensity={isDeepView ? 1.2 : 0.55} color="#66f0c2" />
+      <color attach="background" args={['#000000']} />
+      <fog attach="fog" args={['#000000', isDeepView ? 10 : 18, isDeepView ? 28 : 40]} />
+      <ambientLight intensity={isDeepView ? 0.15 : 0.2} />
+      <pointLight position={[0, 0, 8]} intensity={isArrival ? 4.5 : 3.2} color="#00ffff" />
+      <pointLight position={[-8, 5, 4]} intensity={isDeepView ? 1.2 : 1.8} color="#c084fc" />
+      <pointLight position={[5, -4, 6]} intensity={isDeepView ? 1.8 : 1.0} color="#39ff14" />
       <CameraRig graph={graph} />
       <GlialParticleField />
       <NeuralSubnetwork graph={graph} />

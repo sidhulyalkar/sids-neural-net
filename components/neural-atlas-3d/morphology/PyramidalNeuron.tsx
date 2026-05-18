@@ -36,15 +36,15 @@ export function PyramidalNeuron({
         <meshStandardMaterial
           color={color}
           emissive={color}
-          emissiveIntensity={selected ? 0.74 : active || hovered ? 0.48 : 0.28}
-          roughness={0.58}
-          metalness={0.03}
+          emissiveIntensity={selected ? 1.4 : active || hovered ? 1.0 : 0.65}
+          roughness={0.35}
+          metalness={0.02}
         />
       </mesh>
 
       <mesh position={[0, 0.92, 0]} scale={[0.42, 1.6, 0.42]}>
         <sphereGeometry args={[0.28, 18, 14]} />
-        <meshBasicMaterial color={color} transparent opacity={0.16} blending={AdditiveBlending} depthWrite={false} />
+        <meshBasicMaterial color={color} transparent opacity={0.22} blending={AdditiveBlending} depthWrite={false} />
       </mesh>
 
       {branches.map((branch) => (
@@ -53,10 +53,10 @@ export function PyramidalNeuron({
           <meshStandardMaterial
             color={color}
             emissive={color}
-            emissiveIntensity={selected ? 0.42 : active || hovered ? 0.28 : 0.14}
+            emissiveIntensity={selected ? 0.9 : active || hovered ? 0.65 : 0.4}
             transparent
             opacity={branchOpacity}
-            roughness={0.72}
+            roughness={0.45}
           />
         </mesh>
       ))}

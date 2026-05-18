@@ -7,7 +7,7 @@ import { buildAtlasGraph } from './atlasDataAdapter';
 import { useAtlasStore } from './atlasStore';
 import { NeuralAtlasFallback } from './NeuralAtlasFallback';
 import { NeuralAtlasLoading } from './NeuralAtlasLoading';
-import { NeuralAtlasOverlay } from './NeuralAtlasOverlay';
+import { ImmersiveAtlasUI } from './ImmersiveAtlasUI';
 
 const NeuralAtlasCanvas = dynamic(
   () => import('./NeuralAtlasCanvas').then((module) => module.NeuralAtlasCanvas),
@@ -145,9 +145,9 @@ export function NeuralAtlasExperience() {
   }
 
   return (
-    <section className="relative min-h-screen overflow-hidden bg-bg-deep text-text-primary">
+    <section className="relative min-h-screen overflow-hidden bg-black text-text-primary">
       <NeuralAtlasCanvas graph={graph} />
-      <NeuralAtlasOverlay graph={graph} />
+      <ImmersiveAtlasUI />
     </section>
   );
 }

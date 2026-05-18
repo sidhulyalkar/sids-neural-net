@@ -4,6 +4,7 @@ export { NeuralAtlasScene } from './NeuralAtlasScene';
 export { NeuralAtlasOverlay } from './NeuralAtlasOverlay';
 export { NeuralAtlasFallback } from './NeuralAtlasFallback';
 export { NeuralAtlasLoading } from './NeuralAtlasLoading';
+export { ImmersiveAtlasUI } from './ImmersiveAtlasUI';
 export { buildAtlasGraph } from './atlasDataAdapter';
 export { useAtlasStore } from './atlasStore';
 export type {

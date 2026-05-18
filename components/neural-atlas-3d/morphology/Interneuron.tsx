@@ -36,10 +36,10 @@ export function Interneuron({
           <meshStandardMaterial
             color={color}
             emissive={color}
-            emissiveIntensity={selected ? 0.38 : active || hovered ? 0.24 : 0.12}
+            emissiveIntensity={selected ? 0.9 : active || hovered ? 0.6 : 0.35}
             transparent
-            opacity={selected ? 0.74 : active || hovered ? 0.58 : 0.3}
-            roughness={0.7}
+            opacity={selected ? 0.74 : active || hovered ? 0.58 : 0.35}
+            roughness={0.4}
           />
         </mesh>
       ))}

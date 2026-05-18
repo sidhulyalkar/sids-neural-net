@@ -21,7 +21,7 @@ export function NeuralAtlasCanvas({ graph }: NeuralAtlasCanvasProps) {
       <Suspense fallback={null}>
         <NeuralAtlasScene graph={graph} />
         <EffectComposer>
-          <Bloom intensity={0.42} luminanceThreshold={0.18} luminanceSmoothing={0.7} />
+          <Bloom intensity={0.85} luminanceThreshold={0.12} luminanceSmoothing={0.9} mipmapBlur />
         </EffectComposer>
       </Suspense>
     </Canvas>

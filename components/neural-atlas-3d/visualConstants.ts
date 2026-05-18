@@ -1,12 +1,13 @@
 export const ATLAS_COLORS = {
-  background: '#02040c',
-  cyan: '#66e3ff',
-  blue: '#5b8cff',
-  violet: '#a78bfa',
-  green: '#66f0c2',
-  amber: '#f7c66b',
-  rose: '#ff7aa2',
-  white: '#f8fbff',
+  background: '#000000',
+  // Fluorescent microscopy-inspired colors
+  cyan: '#00ffff',
+  blue: '#4d9aff',
+  violet: '#c084fc',
+  green: '#39ff14',
+  amber: '#ffb300',
+  rose: '#ff1493',
+  white: '#ffffff',
 } as const;
 
 export const CATEGORY_COLORS: Record<string, string> = {

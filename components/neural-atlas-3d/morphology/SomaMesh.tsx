@@ -34,7 +34,7 @@ export function SomaMesh({
 }: NeuronMorphologyProps) {
   const stateBoost = selected ? 1.24 : active ? 1.15 : hovered ? 1.08 : 1;
   const lobes = useMemo(() => buildLobes(seed), [seed]);
-  const emissiveIntensity = selected ? 0.82 : active ? 0.62 : hovered ? 0.52 : 0.34;
+  const emissiveIntensity = selected ? 1.6 : active ? 1.2 : hovered ? 1.0 : 0.7;
 
   return (
     <group position={position} scale={scale * stateBoost} onClick={onClick}>
@@ -53,11 +53,11 @@ export function SomaMesh({
         <mesh key={index} position={lobe.position} rotation={lobe.rotation} scale={lobe.scale}>
           <icosahedronGeometry args={[lobe.radius, 3]} />
           <meshStandardMaterial
-            color={index === 0 ? '#f8fbff' : color}
+            color={index === 0 ? '#ffffff' : color}
             emissive={color}
-            emissiveIntensity={index === 0 ? emissiveIntensity * 0.8 : emissiveIntensity}
-            roughness={0.66}
-            metalness={0.04}
+            emissiveIntensity={index === 0 ? emissiveIntensity * 0.85 : emissiveIntensity}
+            roughness={0.35}
+            metalness={0.02}
           />
         </mesh>
       ))}
