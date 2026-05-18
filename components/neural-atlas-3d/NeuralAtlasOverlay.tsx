@@ -33,7 +33,7 @@ export function NeuralAtlasOverlay({ graph }: NeuralAtlasOverlayProps) {
   const relatedLeafNodes = detailNode
     ? detailNode.relatedIds
         .map((relatedId) => graph.nodes.find((node) => node.id === relatedId))
-        .filter((node): node is AtlasNode => Boolean(node) && node.kind === 'leaf' && node.id !== detailNode.id)
+        .filter((node): node is AtlasNode => node != null && node.kind === 'leaf' && node.id !== detailNode.id)
         .slice(0, 6)
     : [];
   const categoryChildren = activeCategoryId
