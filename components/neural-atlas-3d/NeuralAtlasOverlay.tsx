@@ -5,6 +5,7 @@ import { useAtlasStore } from './atlasStore';
 import { AtlasCommandPalette } from './panels/AtlasCommandPalette';
 import { BreadcrumbTrail } from './panels/BreadcrumbTrail';
 import { CategoryPreviewPanel } from './panels/CategoryPreviewPanel';
+import { LeafDetailPanel } from './panels/LeafDetailPanel';
 
 type NeuralAtlasOverlayProps = {
   graph: AtlasGraph;
@@ -13,16 +14,26 @@ type NeuralAtlasOverlayProps = {
 export function NeuralAtlasOverlay({ graph }: NeuralAtlasOverlayProps) {
   const activeCategoryId = useAtlasStore((state) => state.activeCategoryId);
   const activeNodeId = useAtlasStore((state) => state.activeNodeId);
+  const selectedLeafId = useAtlasStore((state) => state.selectedLeafId);
   const hoveredNodeId = useAtlasStore((state) => state.hoveredNodeId);
   const transitionPhase = useAtlasStore((state) => state.transitionPhase);
   const returnToOverview = useAtlasStore((state) => state.returnToOverview);
+  const focusLeaf = useAtlasStore((state) => state.focusLeaf);
   const previewNode =
-    graph.categories.find((node) => node.id === hoveredNodeId) ??
+    graph.nodes.find((node) => node.id === hoveredNodeId && node.kind !== 'root') ??
     graph.categories.find((node) => node.id === activeCategoryId) ??
     graph.categories.find((node) => node.id === 'about') ??
     null;
   const activeCategory = graph.categories.find((node) => node.id === activeCategoryId) ?? null;
   const activeNode = graph.nodes.find((node) => node.id === activeNodeId) ?? activeCategory;
+  const selectedLeaf = graph.nodes.find((node) => node.id === selectedLeafId) ?? null;
+  const categoryChildren = activeCategoryId
+    ? graph.nodes
+        .filter((node) => node.kind === 'leaf' && node.parentId === activeCategoryId)
+        .sort((a, b) => b.importance - a.importance)
+        .slice(0, 9)
+    : [];
+  const commandNodes = activeCategory ? [activeCategory, ...categoryChildren] : graph.categories;
   const signalActive = transitionPhase === 'charging' || transitionPhase === 'traveling' || transitionPhase === 'arriving';
 
   return (
@@ -39,23 +50,50 @@ export function NeuralAtlasOverlay({ graph }: NeuralAtlasOverlayProps) {
       )}
 
       <div className="pointer-events-auto max-w-md border border-white/10 bg-black/35 p-4 backdrop-blur-xl">
-        <BreadcrumbTrail />
+        <BreadcrumbTrail categoryTitle={activeCategory?.shortLabel ?? activeCategory?.title} />
         <h1 className="mt-4 text-3xl font-black leading-tight text-text-primary">Neural Atlas</h1>
         <p className="mt-2 text-sm leading-6 text-text-secondary">
-          A root-level 3D tissue map over the generated graph. Select a category soma to prime the signal path.
+          {activeCategory
+            ? activeCategory.summary
+            : 'A root-level 3D tissue map over the generated graph. Select a category soma to prime the signal path.'}
         </p>
         {activeCategory && (
-          <button type="button" onClick={returnToOverview} className="signal-button mt-4 border-white/15 bg-white/[0.035] text-text-secondary">
-            Reset view
+          <button
+            type="button"
+            onClick={returnToOverview}
+            className="signal-button mt-4 border-white/15 bg-white/[0.035] text-text-secondary"
+            aria-label="Back to cortex overview"
+          >
+            Back to Cortex
           </button>
         )}
-        <div className="mt-4">
-          <CategoryPreviewPanel categories={graph.categories} />
-        </div>
+        {!activeCategory ? (
+          <div className="mt-4">
+            <CategoryPreviewPanel categories={graph.categories} />
+          </div>
+        ) : (
+          <div className="mt-4 grid max-h-[42vh] gap-2 overflow-y-auto pr-1">
+            {categoryChildren.map((node) => (
+              <button
+                key={node.id}
+                type="button"
+                onClick={() => focusLeaf(node.id, node.parentId)}
+                className={`border px-3 py-2 text-left transition-colors ${
+                  selectedLeafId === node.id
+                    ? 'border-cyan/40 bg-cyan/[0.1] text-cyan'
+                    : 'border-white/10 bg-white/[0.035] text-text-secondary hover:text-text-primary focus:border-cyan/40 focus:text-cyan focus:outline-none'
+                }`}
+              >
+                <span className="block text-sm font-semibold">{node.shortLabel}</span>
+                <span className="mt-1 line-clamp-2 block text-xs leading-5 text-text-muted">{node.summary}</span>
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       <div className="pointer-events-auto absolute bottom-4 left-4 w-[min(24rem,calc(100vw-2rem))] sm:bottom-6 sm:left-6">
-        <AtlasCommandPalette nodes={graph.categories} />
+        <AtlasCommandPalette nodes={commandNodes} />
       </div>
 
       {previewNode && (
@@ -68,6 +106,7 @@ export function NeuralAtlasOverlay({ graph }: NeuralAtlasOverlayProps) {
         </div>
       )}
 
+      <LeafDetailPanel node={selectedLeaf} />
     </div>
   );
 }

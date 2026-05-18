@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo } from 'react';
+import { AdditiveBlending } from 'three';
 import type { AtlasGraph } from '../atlasTypes';
 import { useAtlasStore } from '../atlasStore';
 import { DendriteCurve } from './DendriteCurve';
@@ -19,15 +20,51 @@ export function NeuralSubnetwork({ graph }: NeuralSubnetworkProps) {
   const signalPath = useAtlasStore((state) => state.signalPath);
   const transitionPhase = useAtlasStore((state) => state.transitionPhase);
   const nodeById = useMemo(() => new Map(graph.nodes.map((node) => [node.id, node])), [graph.nodes]);
-  const visibleNodes = useMemo(
-    () =>
-      graph.nodes.filter((node) => node.kind === 'category'),
-    [graph.nodes]
-  );
+  const showCategorySubnetwork =
+    Boolean(activeCategoryId) &&
+    (Boolean(selectedLeafId) ||
+      transitionPhase === 'arriving' ||
+      transitionPhase === 'category' ||
+      transitionPhase === 'detail' ||
+      transitionPhase === 'reading');
+  const visibleNodes = useMemo(() => {
+    if (!activeCategoryId) return graph.nodes.filter((node) => node.kind === 'category');
+    if (!showCategorySubnetwork) return graph.nodes.filter((node) => node.kind === 'category');
+
+    return graph.nodes.filter(
+      (node) =>
+        node.id === 'about' ||
+        node.id === activeCategoryId ||
+        node.parentId === activeCategoryId ||
+        node.id === selectedLeafId
+    );
+  }, [activeCategoryId, graph.nodes, selectedLeafId, showCategorySubnetwork]);
   const visibleIds = new Set(visibleNodes.map((node) => node.id));
+  const ghostLeaves = useMemo(
+    () =>
+      activeCategoryId
+        ? graph.categories.filter((node) => node.id !== 'about' && node.id !== activeCategoryId)
+        : graph.nodes.filter((node) => node.kind === 'leaf' && node.featured).slice(0, 42),
+    [activeCategoryId, graph.categories, graph.nodes]
+  );
+  const rootInBackground = Boolean(activeCategoryId);
 
   return (
     <group>
+      <group position={[0, 0, rootInBackground ? -1.4 : -2.2]}>
+        {ghostLeaves.map((node) => (
+          <mesh key={`ghost:${node.id}`} position={[node.position.x, node.position.y, node.position.z - 1.6]} scale={node.kind === 'category' ? 0.18 : 0.07}>
+            <sphereGeometry args={[1, 10, 8]} />
+            <meshBasicMaterial
+              color={node.color}
+              transparent
+              opacity={rootInBackground ? 0.08 : 0.045}
+              blending={AdditiveBlending}
+              depthWrite={false}
+            />
+          </mesh>
+        ))}
+      </group>
       {graph.edges.map((edge) => {
         const source = nodeById.get(edge.source);
         const target = nodeById.get(edge.target);

@@ -14,16 +14,15 @@ export function AtlasCommandPalette({ nodes }: AtlasCommandPaletteProps) {
   const focusLeaf = useAtlasStore((state) => state.focusLeaf);
   const filtered = useMemo(() => {
     const normalized = query.trim().toLowerCase();
-    if (!normalized) return nodes.filter((node) => node.kind === 'category');
+    if (!normalized) return nodes.slice(0, 12);
     return nodes
       .filter((node) => [node.title, node.summary ?? '', node.slug].join(' ').toLowerCase().includes(normalized))
-      .filter((node) => node.kind === 'category')
-      .slice(0, 8);
+      .slice(0, 12);
   }, [nodes, query]);
 
   const openNode = (node: AtlasNode) => {
     if (node.kind === 'category') focusCategory(node.id);
-    else focusLeaf(node.id);
+    else focusLeaf(node.id, node.parentId);
   };
 
   return (
@@ -36,8 +35,14 @@ export function AtlasCommandPalette({ nodes }: AtlasCommandPaletteProps) {
       />
       <div className="mt-2 grid max-h-56 gap-1 overflow-y-auto">
         {filtered.map((node) => (
-          <button key={node.id} type="button" onClick={() => openNode(node)} className="px-2 py-1.5 text-left text-xs text-text-secondary hover:bg-white/[0.06] hover:text-cyan">
-            {node.title}
+          <button
+            key={node.id}
+            type="button"
+            onClick={() => openNode(node)}
+            className="px-2 py-1.5 text-left text-xs text-text-secondary hover:bg-white/[0.06] hover:text-cyan focus:bg-white/[0.06] focus:text-cyan focus:outline-none"
+          >
+            <span className="block">{node.title}</span>
+            <span className="font-mono text-[0.58rem] uppercase tracking-[0.16em] text-text-muted">{node.kind}</span>
           </button>
         ))}
       </div>

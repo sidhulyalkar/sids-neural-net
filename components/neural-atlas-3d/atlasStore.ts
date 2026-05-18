@@ -24,8 +24,10 @@ type AtlasStore = {
   reducedMotion: boolean;
   setHoveredNode: (nodeId: string | null) => void;
   setReducedMotion: (reducedMotion: boolean) => void;
+  setCameraTarget: (cameraTarget: CameraTarget) => void;
   focusCategory: (categoryId: string) => void;
   focusLeaf: (nodeId: string, parentId?: string | null) => void;
+  restoreNavigation: (categoryId: string | null, nodeId?: string | null) => void;
   openDetail: (nodeId: string) => void;
   closeDetail: () => void;
   returnToOverview: () => void;
@@ -54,6 +56,7 @@ export const useAtlasStore = create<AtlasStore>((set, get) => ({
   reducedMotion: false,
   setHoveredNode: (hoveredNodeId) => set({ hoveredNodeId }),
   setReducedMotion: (reducedMotion) => set({ reducedMotion }),
+  setCameraTarget: (cameraTarget) => set({ cameraTarget }),
   focusCategory: (categoryId) =>
     set((state) => {
       if (isTransitioning(state.transitionPhase)) return state;
@@ -161,6 +164,20 @@ export const useAtlasStore = create<AtlasStore>((set, get) => ({
       signalPath: null,
       cameraTarget: CAMERA_TARGETS.leaf,
     }),
+  restoreNavigation: (categoryId, nodeId) => {
+    clearTransitionTimers();
+    set({
+      level: nodeId ? 'detail' : categoryId ? 'category' : 'root',
+      cameraMode: nodeId ? 'detail' : categoryId ? 'category' : 'overview',
+      transitionPhase: nodeId ? 'detail' : categoryId ? 'category' : 'idle',
+      activeCategoryId: categoryId,
+      activeNodeId: nodeId ?? categoryId,
+      selectedLeafId: nodeId ?? null,
+      hoveredNodeId: null,
+      signalPath: null,
+      cameraTarget: nodeId ? CAMERA_TARGETS.leaf : categoryId ? CAMERA_TARGETS.category : CAMERA_TARGETS.overview,
+    });
+  },
   closeDetail: () => {
     clearTransitionTimers();
     set((state) => ({
