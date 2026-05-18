@@ -5,6 +5,24 @@ publications:
   - id: pub:beta-high-gamma-corticostriatal-2025
     title: "Beta and High Gamma Oscillations in the Cortico-striatal Network Link to Learned Reward Value"
     year: 2025
+    summary: "Co-authored Journal of Neuroscience paper examining how beta and high-gamma activity in cortico-striatal circuits relates to learned reward value."
+    abstract: "A peer-reviewed NEATLABs study focused on cortico-striatal oscillations, electrophysiology, and reward-value learning. The atlas keeps the summary intentionally concise until full paper notes are curated."
+    myContribution: "Related contribution/context: co-author from the NEATLABs research program. Repository context supports Sid's role building computational analysis infrastructure for large-scale LFP/behavior studies and contributing to publications; exact per-figure contributions are not overstated here."
+    whyItMatters: "This paper anchors the atlas publication chamber around reward learning, cortico-striatal dynamics, and the lab-scale neural signal analysis work behind the portfolio."
+    methods:
+      - "Rodent electrophysiology"
+      - "Cortico-striatal oscillation analysis"
+      - "Reward-value behavioral context"
+    keyFindings:
+      - "Reports a relationship between beta/high-gamma oscillations and learned reward value."
+      - "Connects cortico-striatal network activity with behavioral valuation questions."
+      - "Extends the NEATLABs publication cluster represented elsewhere in the atlas."
+    relatedProjects:
+      - neatlabs-core-research
+      - neatlabs-dtw-tca-unpublished
+    externalLinks:
+      - label: DOI
+        href: "https://doi.org/10.1523/JNEUROSCI.1234-24.2025"
     authors:
       - Miranda F. Koloski
       - Morteza Salimi
@@ -36,6 +54,28 @@ publications:
   - id: pub:rodent-default-mode-network-2021
     title: "Electrophysiological Correlates of Rodent Default-Mode Network Suppression Revealed by Large-Scale Local Field Potential Recordings"
     year: 2021
+    summary: "Co-authored Cerebral Cortex Communications paper on large-scale LFP recordings and electrophysiological correlates of rodent default-mode network suppression."
+    abstract: "A NEATLABs publication connecting large-scale local field potential recordings to default-mode network suppression in rodents. The atlas presents cautious, portfolio-oriented notes rather than a full scientific abstract."
+    myContribution: "Related contribution/context: co-author from the NEATLABs program. Existing repo context specifically notes work on large-scale LFP/behavior analysis pipelines and investigation of rodent default-mode network electrophysiology."
+    whyItMatters: "It demonstrates research continuity between neural signal processing infrastructure, rodent behavior, and peer-reviewed systems neuroscience."
+    methods:
+      - "Large-scale local field potential recordings"
+      - "Rodent default-mode network analysis"
+      - "Electrophysiological correlates of suppression"
+    keyFindings:
+      - "Reports electrophysiological correlates associated with rodent default-mode network suppression."
+      - "Uses large-scale LFP recordings as the core measurement context."
+      - "Sits directly inside the NEATLABs neural dynamics and signal-analysis story."
+    relatedProjects:
+      - neatlabs-core-research
+      - neatlabs-dtw-tca-unpublished
+    externalLinks:
+      - label: DOI
+        href: "https://doi.org/10.1093/texcom/tgab017"
+      - label: PubMed
+        href: "https://pubmed.ncbi.nlm.nih.gov/33948574"
+      - label: PMC
+        href: "https://www.ncbi.nlm.nih.gov/pmc/articles/PMC8078180"
     authors:
       - Leila Fakhraei
       - Miranda Francoeur
@@ -69,6 +109,27 @@ publications:
   - id: pub:chronic-multisite-probe-designs-2021
     title: "Chronic, Multi-Site Recordings Supported by Two Low-Cost, Stationary Probe Designs Optimized to Capture Either Single Unit or Local Field Potential Activity in Behaving Rats"
     year: 2021
+    summary: "Co-authored Frontiers in Psychiatry methods paper describing low-cost stationary probe designs for chronic multi-site recordings in behaving rats."
+    abstract: "A methods-focused NEATLABs paper about chronic multi-site recording hardware designed for single-unit or LFP activity in behaving rats. The atlas frames it as experimental-systems context rather than overclaiming specific results."
+    myContribution: "Related contribution/context: co-author from the NEATLABs research program. Repo context supports Sid's broader role across experimental systems, behavioral boxes, signal processing, and publication support."
+    whyItMatters: "This paper shows the hardware/methods side of the neuroscience portfolio: building experimental systems that make long-running neural recordings more practical."
+    methods:
+      - "Chronic multi-site recording design"
+      - "Low-cost stationary probe hardware"
+      - "Behaving-rat electrophysiology methods"
+    keyFindings:
+      - "Presents two low-cost stationary probe designs for chronic recordings."
+      - "Targets either single-unit or local field potential activity in behaving rats."
+      - "Complements the atlas story around practical experimental neuroscience infrastructure."
+    relatedProjects:
+      - neatlabs-core-research
+    externalLinks:
+      - label: DOI
+        href: "https://doi.org/10.3389/fpsyt.2021.678103"
+      - label: PubMed
+        href: "https://pubmed.ncbi.nlm.nih.gov/34276448"
+      - label: PMC
+        href: "https://www.ncbi.nlm.nih.gov/pmc/articles/PMC8282869"
     authors:
       - Miranda J. Francoeur
       - Tianzhi Tang

@@ -722,6 +722,8 @@
       "slug": "beta-high-gamma-corticostriatal-2025",
       "type": "publication",
       "title": "Beta and High Gamma Oscillations in the Cortico-striatal Network Link to Learned Reward Value",
+      "summary": "Co-authored Journal of Neuroscience paper examining how beta and high-gamma activity in cortico-striatal circuits relates to learned reward value.",
+      "description": "A peer-reviewed NEATLABs study focused on cortico-striatal oscillations, electrophysiology, and reward-value learning. The atlas keeps the summary intentionally concise until full paper notes are curated.",
       "tags": [
         "neuroscience",
         "electrophysiology",
@@ -760,7 +762,31 @@
         ],
         "venue": "Journal of Neuroscience",
         "year": 2025,
-        "doi": "10.1523/JNEUROSCI.1234-24.2025"
+        "doi": "10.1523/JNEUROSCI.1234-24.2025",
+        "abstract": "A peer-reviewed NEATLABs study focused on cortico-striatal oscillations, electrophysiology, and reward-value learning. The atlas keeps the summary intentionally concise until full paper notes are curated.",
+        "summary": "Co-authored Journal of Neuroscience paper examining how beta and high-gamma activity in cortico-striatal circuits relates to learned reward value.",
+        "myContribution": "Related contribution/context: co-author from the NEATLABs research program. Repository context supports Sid's role building computational analysis infrastructure for large-scale LFP/behavior studies and contributing to publications; exact per-figure contributions are not overstated here.",
+        "whyItMatters": "This paper anchors the atlas publication chamber around reward learning, cortico-striatal dynamics, and the lab-scale neural signal analysis work behind the portfolio.",
+        "methods": [
+          "Rodent electrophysiology",
+          "Cortico-striatal oscillation analysis",
+          "Reward-value behavioral context"
+        ],
+        "keyFindings": [
+          "Reports a relationship between beta/high-gamma oscillations and learned reward value.",
+          "Connects cortico-striatal network activity with behavioral valuation questions.",
+          "Extends the NEATLABs publication cluster represented elsewhere in the atlas."
+        ],
+        "externalLinks": [
+          {
+            "label": "DOI",
+            "href": "https://doi.org/10.1523/JNEUROSCI.1234-24.2025"
+          }
+        ],
+        "relatedProjects": [
+          "neatlabs-core-research",
+          "neatlabs-dtw-tca-unpublished"
+        ]
       },
       "computedImportance": 100
     },
@@ -769,6 +795,8 @@
       "slug": "rodent-default-mode-network-2021",
       "type": "publication",
       "title": "Electrophysiological Correlates of Rodent Default-Mode Network Suppression Revealed by Large-Scale Local Field Potential Recordings",
+      "summary": "Co-authored Cerebral Cortex Communications paper on large-scale LFP recordings and electrophysiological correlates of rodent default-mode network suppression.",
+      "description": "A NEATLABs publication connecting large-scale local field potential recordings to default-mode network suppression in rodents. The atlas presents cautious, portfolio-oriented notes rather than a full scientific abstract.",
       "tags": [
         "neuroscience",
         "electrophysiology",
@@ -809,7 +837,39 @@
         "year": 2021,
         "doi": "10.1093/texcom/tgab017",
         "pmid": "33948574",
-        "pmcid": "PMC8078180"
+        "pmcid": "PMC8078180",
+        "abstract": "A NEATLABs publication connecting large-scale local field potential recordings to default-mode network suppression in rodents. The atlas presents cautious, portfolio-oriented notes rather than a full scientific abstract.",
+        "summary": "Co-authored Cerebral Cortex Communications paper on large-scale LFP recordings and electrophysiological correlates of rodent default-mode network suppression.",
+        "myContribution": "Related contribution/context: co-author from the NEATLABs program. Existing repo context specifically notes work on large-scale LFP/behavior analysis pipelines and investigation of rodent default-mode network electrophysiology.",
+        "whyItMatters": "It demonstrates research continuity between neural signal processing infrastructure, rodent behavior, and peer-reviewed systems neuroscience.",
+        "methods": [
+          "Large-scale local field potential recordings",
+          "Rodent default-mode network analysis",
+          "Electrophysiological correlates of suppression"
+        ],
+        "keyFindings": [
+          "Reports electrophysiological correlates associated with rodent default-mode network suppression.",
+          "Uses large-scale LFP recordings as the core measurement context.",
+          "Sits directly inside the NEATLABs neural dynamics and signal-analysis story."
+        ],
+        "externalLinks": [
+          {
+            "label": "DOI",
+            "href": "https://doi.org/10.1093/texcom/tgab017"
+          },
+          {
+            "label": "PubMed",
+            "href": "https://pubmed.ncbi.nlm.nih.gov/33948574"
+          },
+          {
+            "label": "PMC",
+            "href": "https://www.ncbi.nlm.nih.gov/pmc/articles/PMC8078180"
+          }
+        ],
+        "relatedProjects": [
+          "neatlabs-core-research",
+          "neatlabs-dtw-tca-unpublished"
+        ]
       },
       "computedImportance": 100
     },
@@ -818,6 +878,8 @@
       "slug": "chronic-multisite-probe-designs-2021",
       "type": "publication",
       "title": "Chronic, Multi-Site Recordings Supported by Two Low-Cost, Stationary Probe Designs Optimized to Capture Either Single Unit or Local Field Potential Activity in Behaving Rats",
+      "summary": "Co-authored Frontiers in Psychiatry methods paper describing low-cost stationary probe designs for chronic multi-site recordings in behaving rats.",
+      "description": "A methods-focused NEATLABs paper about chronic multi-site recording hardware designed for single-unit or LFP activity in behaving rats. The atlas frames it as experimental-systems context rather than overclaiming specific results.",
       "tags": [
         "neuroscience",
         "electrophysiology",
@@ -858,7 +920,38 @@
         "year": 2021,
         "doi": "10.3389/fpsyt.2021.678103",
         "pmid": "34276448",
-        "pmcid": "PMC8282869"
+        "pmcid": "PMC8282869",
+        "abstract": "A methods-focused NEATLABs paper about chronic multi-site recording hardware designed for single-unit or LFP activity in behaving rats. The atlas frames it as experimental-systems context rather than overclaiming specific results.",
+        "summary": "Co-authored Frontiers in Psychiatry methods paper describing low-cost stationary probe designs for chronic multi-site recordings in behaving rats.",
+        "myContribution": "Related contribution/context: co-author from the NEATLABs research program. Repo context supports Sid's broader role across experimental systems, behavioral boxes, signal processing, and publication support.",
+        "whyItMatters": "This paper shows the hardware/methods side of the neuroscience portfolio: building experimental systems that make long-running neural recordings more practical.",
+        "methods": [
+          "Chronic multi-site recording design",
+          "Low-cost stationary probe hardware",
+          "Behaving-rat electrophysiology methods"
+        ],
+        "keyFindings": [
+          "Presents two low-cost stationary probe designs for chronic recordings.",
+          "Targets either single-unit or local field potential activity in behaving rats.",
+          "Complements the atlas story around practical experimental neuroscience infrastructure."
+        ],
+        "externalLinks": [
+          {
+            "label": "DOI",
+            "href": "https://doi.org/10.3389/fpsyt.2021.678103"
+          },
+          {
+            "label": "PubMed",
+            "href": "https://pubmed.ncbi.nlm.nih.gov/34276448"
+          },
+          {
+            "label": "PMC",
+            "href": "https://www.ncbi.nlm.nih.gov/pmc/articles/PMC8282869"
+          }
+        ],
+        "relatedProjects": [
+          "neatlabs-core-research"
+        ]
       },
       "computedImportance": 100
     },
@@ -7757,28 +7850,28 @@
       "label": "NEATLABs"
     },
     {
-      "id": "neatlabs-core-research-beta-high-gamma-corticostriatal-2025-NEATLABs",
-      "source": "neatlabs-core-research",
-      "target": "beta-high-gamma-corticostriatal-2025",
-      "relation": "connected-to",
-      "weight": 3,
-      "label": "NEATLABs"
+      "id": "publication-context:beta-high-gamma-corticostriatal-2025-neatlabs-core-research",
+      "source": "beta-high-gamma-corticostriatal-2025",
+      "target": "neatlabs-core-research",
+      "relation": "contributed-to",
+      "weight": 7,
+      "label": "publication context"
     },
     {
-      "id": "neatlabs-core-research-rodent-default-mode-network-2021-NEATLABs",
-      "source": "neatlabs-core-research",
-      "target": "rodent-default-mode-network-2021",
-      "relation": "connected-to",
-      "weight": 3,
-      "label": "NEATLABs"
+      "id": "publication-context:rodent-default-mode-network-2021-neatlabs-core-research",
+      "source": "rodent-default-mode-network-2021",
+      "target": "neatlabs-core-research",
+      "relation": "contributed-to",
+      "weight": 7,
+      "label": "publication context"
     },
     {
-      "id": "neatlabs-core-research-chronic-multisite-probe-designs-2021-NEATLABs",
-      "source": "neatlabs-core-research",
-      "target": "chronic-multisite-probe-designs-2021",
-      "relation": "connected-to",
-      "weight": 3,
-      "label": "NEATLABs"
+      "id": "publication-context:chronic-multisite-probe-designs-2021-neatlabs-core-research",
+      "source": "chronic-multisite-probe-designs-2021",
+      "target": "neatlabs-core-research",
+      "relation": "contributed-to",
+      "weight": 7,
+      "label": "publication context"
     },
     {
       "id": "neatlabs-core-research-neurosky-led-audio-visualization-Raspberry Pi",
@@ -7797,12 +7890,12 @@
       "label": "MATLAB"
     },
     {
-      "id": "neatlabs-dtw-tca-unpublished-rodent-default-mode-network-2021-LFP",
-      "source": "neatlabs-dtw-tca-unpublished",
-      "target": "rodent-default-mode-network-2021",
-      "relation": "connected-to",
-      "weight": 3,
-      "label": "LFP"
+      "id": "publication-context:rodent-default-mode-network-2021-neatlabs-dtw-tca-unpublished",
+      "source": "rodent-default-mode-network-2021",
+      "target": "neatlabs-dtw-tca-unpublished",
+      "relation": "contributed-to",
+      "weight": 7,
+      "label": "publication context"
     },
     {
       "id": "neatlabs-dtw-tca-unpublished-icp-monitor-and-emg-morse-projects-MATLAB",
@@ -7813,12 +7906,12 @@
       "label": "MATLAB"
     },
     {
-      "id": "neatlabs-dtw-tca-unpublished-beta-high-gamma-corticostriatal-2025-NEATLABs",
-      "source": "neatlabs-dtw-tca-unpublished",
-      "target": "beta-high-gamma-corticostriatal-2025",
-      "relation": "connected-to",
-      "weight": 3,
-      "label": "NEATLABs"
+      "id": "publication-context:beta-high-gamma-corticostriatal-2025-neatlabs-dtw-tca-unpublished",
+      "source": "beta-high-gamma-corticostriatal-2025",
+      "target": "neatlabs-dtw-tca-unpublished",
+      "relation": "contributed-to",
+      "weight": 7,
+      "label": "publication context"
     },
     {
       "id": "neatlabs-dtw-tca-unpublished-chronic-multisite-probe-designs-2021-NEATLABs",

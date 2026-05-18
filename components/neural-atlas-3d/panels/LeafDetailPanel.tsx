@@ -31,7 +31,7 @@ type ActionLink = {
 
 const CONTENT_LABELS: Record<AtlasLeafContentType, string> = {
   project: 'Project neuron',
-  publication: 'Publication neuron',
+  publication: 'Paper chamber',
   'case-study': 'Case study neuron',
   'field-note': 'Field note neuron',
   idea: 'Idea neuron',
@@ -43,11 +43,22 @@ const CONTENT_LABELS: Record<AtlasLeafContentType, string> = {
 export function LeafDetailPanel({ node, relatedNodes }: LeafDetailPanelProps) {
   const closeDetail = useAtlasStore((state) => state.closeDetail);
   const focusLeaf = useAtlasStore((state) => state.focusLeaf);
-  const [showRelated, setShowRelated] = useState(() => node?.contentType === 'project');
+  const [showRelated, setShowRelated] = useState(() => node?.contentType === 'project' || node?.contentType === 'publication');
 
   const externalAction = useMemo(() => (node ? externalActionForNode(node) : null), [node]);
 
   if (!node) return null;
+
+  const publicationTone = node.contentType === 'publication';
+  const shellTone = publicationTone
+    ? 'border-violet/25 shadow-[0_0_100px_rgba(167,139,250,0.2)]'
+    : 'border-cyan/20 shadow-[0_0_90px_rgba(102,227,255,0.22)]';
+  const membraneTone = publicationTone
+    ? 'bg-[radial-gradient(circle_at_18%_0%,rgba(248,251,255,0.12),transparent_18rem),radial-gradient(circle_at_100%_22%,rgba(167,139,250,0.16),transparent_22rem)]'
+    : 'bg-[radial-gradient(circle_at_18%_0%,rgba(102,227,255,0.14),transparent_19rem),radial-gradient(circle_at_100%_20%,rgba(167,139,250,0.11),transparent_20rem)]';
+  const tagTone = publicationTone
+    ? 'border-violet/20 bg-violet/[0.08] text-violet-100'
+    : 'border-cyan/15 bg-cyan/[0.06] text-cyan/90';
 
   return (
     <motion.aside
@@ -56,13 +67,13 @@ export function LeafDetailPanel({ node, relatedNodes }: LeafDetailPanelProps) {
       animate={{ opacity: 1, y: 0, scale: 1, filter: 'blur(0px)' }}
       exit={{ opacity: 0, y: 28, scale: 0.98, filter: 'blur(8px)' }}
       transition={{ duration: 0.42, ease: [0.22, 1, 0.36, 1] }}
-      className="pointer-events-auto fixed inset-x-3 bottom-3 z-50 max-h-[86vh] overflow-hidden border border-cyan/20 bg-bg-deep/[0.94] shadow-[0_0_90px_rgba(102,227,255,0.22)] backdrop-blur-2xl sm:inset-x-auto sm:bottom-6 sm:right-6 sm:w-[min(46rem,calc(100vw-3rem))] lg:bottom-1/2 lg:right-8 lg:max-h-[min(82vh,52rem)] lg:translate-y-1/2"
+      className={`pointer-events-auto fixed inset-x-3 bottom-3 z-50 max-h-[86vh] overflow-hidden border bg-bg-deep/[0.94] backdrop-blur-2xl sm:inset-x-auto sm:bottom-6 sm:right-6 sm:w-[min(46rem,calc(100vw-3rem))] lg:bottom-1/2 lg:right-8 lg:max-h-[min(82vh,52rem)] lg:translate-y-1/2 ${shellTone}`}
       role="dialog"
       aria-modal={false}
       aria-labelledby="atlas-leaf-title"
     >
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_0%,rgba(102,227,255,0.14),transparent_19rem),radial-gradient(circle_at_100%_20%,rgba(167,139,250,0.11),transparent_20rem)]" />
-      <div className="absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-cyan/80 to-transparent" />
+      <div className={`absolute inset-0 ${membraneTone}`} />
+      <div className={`absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent ${publicationTone ? 'via-violet/80' : 'via-cyan/80'} to-transparent`} />
 
       <div className="relative flex max-h-[86vh] flex-col lg:max-h-[min(82vh,52rem)]">
         <header className="border-b border-white/10 px-5 py-4 sm:px-7 sm:py-6">
@@ -95,6 +106,7 @@ export function LeafDetailPanel({ node, relatedNodes }: LeafDetailPanelProps) {
                 href={externalAction.href}
                 target="_blank"
                 rel="noopener noreferrer"
+                aria-label={`${externalAction.label} for ${node.title}`}
                 className="signal-button border-white/15 bg-white/[0.04] text-text-secondary"
               >
                 {externalAction.icon === 'github' && <Github className="h-4 w-4" />}
@@ -138,7 +150,7 @@ export function LeafDetailPanel({ node, relatedNodes }: LeafDetailPanelProps) {
             {[...node.domains, ...node.tags].slice(0, 12).map((tag) => (
               <span
                 key={tag}
-                className="inline-flex items-center gap-1.5 border border-cyan/15 bg-cyan/[0.06] px-2.5 py-1.5 text-xs text-cyan/90"
+                className={`inline-flex items-center gap-1.5 border px-2.5 py-1.5 text-xs ${tagTone}`}
               >
                 <Tags className="h-3 w-3" />
                 {tag}
@@ -208,10 +220,14 @@ function ProjectDetail({ node }: { node: AtlasNode }) {
 
 function PublicationDetail({ node }: { node: AtlasNode }) {
   const pub = node.publication;
+  const externalLinks = node.detail?.externalLinks ?? [];
+  const methods = node.detail?.methods ?? [];
+  const keyFindings = node.detail?.keyFindings ?? [];
+  const relatedProjects = node.detail?.relatedProjects ?? [];
 
   return (
     <div className="mt-6 grid gap-4">
-      <div className="grid gap-3 border border-white/10 bg-black/[0.28] p-4 sm:grid-cols-3">
+      <div className="grid gap-3 border border-violet/15 bg-black/[0.3] p-4 sm:grid-cols-3">
         <MetaItem icon={<Calendar className="h-4 w-4" />} label="Year" value={pub?.year?.toString() ?? 'Curating'} />
         <MetaItem icon={<BookOpen className="h-4 w-4" />} label="Venue" value={pub?.venue ?? 'Curating'} />
         <MetaItem icon={<FileCode2 className="h-4 w-4" />} label="Identifiers" value={identifierText(node)} />
@@ -221,12 +237,16 @@ function PublicationDetail({ node }: { node: AtlasNode }) {
           {pub.authors.join(', ')}
         </ReadingSection>
       )}
+      {node.detail?.whyItMatters && <ReadingSection title="Why it matters">{node.detail.whyItMatters}</ReadingSection>}
       <ReadingSection title="My contribution">
         {node.detail?.myContribution ?? 'Contribution details are being curated for this paper.'}
       </ReadingSection>
-      <BulletSection title="Readable summary" items={node.detail?.summaryBullets ?? [node.summary]} />
+      <BulletSection title="Key findings" items={keyFindings.length > 0 ? keyFindings : node.detail?.summaryBullets ?? [node.summary]} />
+      <BulletSection title="Methods / signals" items={methods} />
+      {externalLinks.length > 0 && <ExternalLinkSection title="Paper links" links={externalLinks} />}
+      {relatedProjects.length > 0 && <PillSection title="Related projects" items={relatedProjects} />}
       {node.detail?.paperPdfPath && (
-        <section className="overflow-hidden border border-white/10 bg-black/[0.28]">
+        <section className="overflow-hidden border border-violet/15 bg-black/[0.28]">
           <div className="border-b border-white/10 px-4 py-3">
             <h3 className="text-sm font-black uppercase tracking-[0.16em] text-text-primary">Paper preview</h3>
           </div>
@@ -322,6 +342,31 @@ function PillSection({ title, items }: { title: string; items: string[] }) {
           <span key={item} className="border border-violet/20 bg-violet/10 px-2.5 py-1.5 font-mono text-xs text-violet-100">
             {item}
           </span>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function ExternalLinkSection({ title, links }: { title: string; links: Array<{ label: string; href: string }> }) {
+  if (links.length === 0) return null;
+
+  return (
+    <section className="border border-white/10 bg-black/[0.28] p-4">
+      <h3 className="text-sm font-black uppercase tracking-[0.16em] text-text-primary">{title}</h3>
+      <div className="mt-3 flex flex-wrap gap-2">
+        {links.map((link) => (
+          <a
+            key={`${link.label}-${link.href}`}
+            href={link.href}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label={`Open ${link.label} for paper`}
+            className="inline-flex items-center gap-2 border border-violet/25 bg-violet/10 px-3 py-2 text-sm font-semibold text-violet-100 transition-colors hover:border-violet/50 hover:bg-violet/15"
+          >
+            {link.label}
+            <ArrowUpRight className="h-4 w-4" />
+          </a>
         ))}
       </div>
     </section>

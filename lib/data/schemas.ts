@@ -97,6 +97,21 @@ export const PublicationMetaSchema = z.object({
   pmcid: z.string().optional(),
   citationCount: z.number().optional(),
   abstract: z.string().optional(),
+  summary: z.string().optional(),
+  myContribution: z.string().optional(),
+  whyItMatters: z.string().optional(),
+  methods: z.array(z.string()).default([]),
+  keyFindings: z.array(z.string()).default([]),
+  localPdfPath: z.string().optional(),
+  externalLinks: z
+    .array(
+      z.object({
+        label: z.string(),
+        href: z.string().url(),
+      })
+    )
+    .default([]),
+  relatedProjects: z.array(z.string()).default([]),
 });
 
 export type PublicationMeta = z.infer<typeof PublicationMetaSchema>;

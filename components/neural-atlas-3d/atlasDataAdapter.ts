@@ -394,10 +394,17 @@ function leafToNode(node: NeuralNode, categoryId: string, leafIndex: number, tot
 
 function detailForNode(node: NeuralNode, contentType: AtlasLeafContentType, categoryId: string): AtlasNodeDetail {
   if (contentType === 'publication') {
+    const pub = node.publication;
     return {
-      description: node.publication?.abstract ?? node.summary,
-      myContribution: publicationContributionForNode(node),
+      description: pub?.abstract ?? node.description ?? node.summary,
+      whyItMatters: pub?.whyItMatters,
+      myContribution: pub?.myContribution ?? publicationContributionForNode(node),
       summaryBullets: publicationSummaryBullets(node),
+      methods: pub?.methods ?? [],
+      keyFindings: pub?.keyFindings ?? [],
+      paperPdfPath: pub?.localPdfPath,
+      externalLinks: pub?.externalLinks && pub.externalLinks.length > 0 ? pub.externalLinks : publicationExternalLinks(node),
+      relatedProjects: pub?.relatedProjects ?? [],
     };
   }
 
@@ -449,9 +456,10 @@ function publicationContributionForNode(node: NeuralNode) {
 
 function publicationSummaryBullets(node: NeuralNode) {
   const pub = node.publication;
-  const bullets: string[] = [];
+  const bullets: string[] = [...(pub?.keyFindings ?? [])];
 
-  if (node.summary) bullets.push(node.summary);
+  if (pub?.summary && !bullets.includes(pub.summary)) bullets.unshift(pub.summary);
+  if (node.summary && !bullets.includes(node.summary)) bullets.push(node.summary);
   if (pub?.venue || pub?.year) {
     bullets.push(`Published ${pub.year ? `in ${pub.year}` : ''}${pub.venue ? ` through ${pub.venue}` : ''}.`.replace(/\s+/g, ' '));
   }
@@ -464,6 +472,15 @@ function publicationSummaryBullets(node: NeuralNode) {
   bullets.push('Readable paper notes and contribution details can be expanded from curated metadata as the archive deepens.');
 
   return bullets.slice(0, 5);
+}
+
+function publicationExternalLinks(node: NeuralNode) {
+  const pub = node.publication;
+  return [
+    pub?.doi ? { label: 'DOI', href: `https://doi.org/${pub.doi}` } : null,
+    pub?.pmid ? { label: 'PubMed', href: `https://pubmed.ncbi.nlm.nih.gov/${pub.pmid}` } : null,
+    pub?.pmcid ? { label: 'PMC', href: `https://www.ncbi.nlm.nih.gov/pmc/articles/${pub.pmcid}` } : null,
+  ].filter((link): link is { label: string; href: string } => Boolean(link));
 }
 
 function projectWhyItMatters(node: NeuralNode, categoryId: string) {

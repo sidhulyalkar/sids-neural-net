@@ -68,6 +68,18 @@ interface Publication {
   year: number;
   authors: string[];
   venue: string;
+  summary?: string;
+  abstract?: string;
+  myContribution?: string;
+  whyItMatters?: string;
+  methods?: string[];
+  keyFindings?: string[];
+  localPdfPath?: string;
+  externalLinks?: Array<{
+    label: string;
+    href: string;
+  }>;
+  relatedProjects?: string[];
   doi?: string;
   pmid?: string;
   pmcid?: string;
@@ -279,6 +291,8 @@ function mergeNodes(
       slug: pub.id.replace('pub:', ''),
       type: 'publication',
       title: pub.title,
+      summary: pub.summary,
+      description: pub.abstract,
       tags: pub.tags,
       domains: pub.domains,
       importance: pub.importance,
@@ -296,6 +310,15 @@ function mergeNodes(
         doi: pub.doi,
         pmid: pub.pmid,
         pmcid: pub.pmcid,
+        abstract: pub.abstract,
+        summary: pub.summary,
+        myContribution: pub.myContribution,
+        whyItMatters: pub.whyItMatters,
+        methods: pub.methods ?? [],
+        keyFindings: pub.keyFindings ?? [],
+        localPdfPath: pub.localPdfPath,
+        externalLinks: pub.externalLinks ?? [],
+        relatedProjects: pub.relatedProjects ?? [],
       },
     } as NeuralNode;
 
@@ -376,6 +399,20 @@ function generateEdges(nodes: NeuralNode[]): NeuralEdge[] {
             });
           }
         }
+      }
+    }
+
+    if (node.type === 'publication') {
+      for (const relatedProject of node.publication?.relatedProjects ?? []) {
+        if (!nodeMap.has(relatedProject)) continue;
+        edges.push({
+          id: `publication-context:${node.slug}-${relatedProject}`,
+          source: node.slug,
+          target: relatedProject,
+          relation: 'contributed-to',
+          weight: 7,
+          label: 'publication context',
+        });
       }
     }
   }

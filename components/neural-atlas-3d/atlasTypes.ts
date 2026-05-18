@@ -52,10 +52,17 @@ export type AtlasNodeDetail = {
   whyItMatters?: string;
   myContribution?: string;
   summaryBullets?: string[];
+  methods?: string[];
+  keyFindings?: string[];
   architectureHighlights?: string[];
   representativeFiles?: string[];
   demonstrates?: string;
   paperPdfPath?: string;
+  externalLinks?: Array<{
+    label: string;
+    href: string;
+  }>;
+  relatedProjects?: string[];
 };
 
 export type AtlasNode = {
