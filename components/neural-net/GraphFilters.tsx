@@ -22,7 +22,7 @@ const TYPE_LABELS: Record<string, string> = {
   skill: 'Skills',
   technology: 'Technologies',
   concept: 'Concepts',
-  'case-study': 'Case Studies',
+  'case-study': 'Project Briefs',
   'field-note': 'Field Notes',
   'learning-trail': 'Learning Trails',
   'personal-interest': 'Personal',
@@ -74,12 +74,14 @@ export function GraphFilters({
     filters.types.length > 0 || filters.domains.length > 0 || filters.search.length > 0;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4" role="search" aria-label="Graph filters">
       {/* Search */}
       <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
+        <label htmlFor="graph-search" className="sr-only">Search nodes</label>
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" aria-hidden="true" />
         <input
-          type="text"
+          id="graph-search"
+          type="search"
           placeholder="Search nodes..."
           value={filters.search}
           onChange={(e) => onFiltersChange({ ...filters, search: e.target.value })}
@@ -88,24 +90,26 @@ export function GraphFilters({
         {filters.search && (
           <button
             onClick={() => onFiltersChange({ ...filters, search: '' })}
+            aria-label="Clear search"
             className="absolute right-3 top-1/2 -translate-y-1/2"
           >
-            <X className="w-4 h-4 text-text-muted hover:text-text-secondary" />
+            <X className="w-4 h-4 text-text-muted hover:text-text-secondary" aria-hidden="true" />
           </button>
         )}
       </div>
 
       {/* Mode Toggle */}
-      <div>
-        <div className="flex items-center gap-2 mb-2">
-          <Filter className="w-4 h-4 text-text-muted" />
+      <fieldset>
+        <legend className="flex items-center gap-2 mb-2">
+          <Filter className="w-4 h-4 text-text-muted" aria-hidden="true" />
           <span className="text-xs text-text-muted uppercase tracking-wider">View Mode</span>
-        </div>
-        <div className="flex flex-wrap gap-1">
+        </legend>
+        <div className="flex flex-wrap gap-1" role="group" aria-label="Select view mode">
           {(['recruiter', 'researcher', 'builder', 'full-brain', 'personal'] as const).map((m) => (
             <button
               key={m}
               onClick={() => setMode(m)}
+              aria-pressed={mode === m}
               className={`px-3 py-1 text-xs rounded-full border transition-colors ${
                 mode === m
                   ? 'bg-cyan/20 text-cyan border-cyan/30'
@@ -116,26 +120,28 @@ export function GraphFilters({
             </button>
           ))}
         </div>
-      </div>
+      </fieldset>
 
       {/* Type Filters */}
-      <div>
-        <div className="flex items-center justify-between mb-2">
+      <fieldset>
+        <legend className="flex items-center justify-between mb-2">
           <span className="text-xs text-text-muted uppercase tracking-wider">Node Types</span>
           {filters.types.length > 0 && (
             <button
               onClick={() => onFiltersChange({ ...filters, types: [] })}
+              aria-label="Clear node type filters"
               className="text-xs text-text-muted hover:text-text-secondary"
             >
               Clear
             </button>
           )}
-        </div>
-        <div className="flex flex-wrap gap-1">
+        </legend>
+        <div className="flex flex-wrap gap-1" role="group" aria-label="Filter by node type">
           {availableTypes.map((type) => (
             <button
               key={type}
               onClick={() => toggleType(type)}
+              aria-pressed={filters.types.includes(type)}
               className={`px-2 py-0.5 text-xs rounded-full border transition-colors ${
                 filters.types.includes(type)
                   ? TYPE_COLORS[type] || 'bg-cyan/20 text-cyan border-cyan/30'
@@ -146,26 +152,28 @@ export function GraphFilters({
             </button>
           ))}
         </div>
-      </div>
+      </fieldset>
 
       {/* Domain Filters */}
-      <div>
-        <div className="flex items-center justify-between mb-2">
+      <fieldset>
+        <legend className="flex items-center justify-between mb-2">
           <span className="text-xs text-text-muted uppercase tracking-wider">Domains</span>
           {filters.domains.length > 0 && (
             <button
               onClick={() => onFiltersChange({ ...filters, domains: [] })}
+              aria-label="Clear domain filters"
               className="text-xs text-text-muted hover:text-text-secondary"
             >
               Clear
             </button>
           )}
-        </div>
-        <div className="flex flex-wrap gap-1">
+        </legend>
+        <div className="flex flex-wrap gap-1" role="group" aria-label="Filter by domain">
           {availableDomains.slice(0, 12).map((domain) => (
             <button
               key={domain}
               onClick={() => toggleDomain(domain)}
+              aria-pressed={filters.domains.includes(domain)}
               className={`px-2 py-0.5 text-xs rounded-full border transition-colors ${
                 filters.domains.includes(domain)
                   ? 'bg-violet/20 text-violet border-violet/30'
@@ -176,12 +184,13 @@ export function GraphFilters({
             </button>
           ))}
         </div>
-      </div>
+      </fieldset>
 
       {/* Clear All */}
       {hasActiveFilters && (
         <button
           onClick={clearFilters}
+          aria-label="Clear all active filters"
           className="w-full py-2 text-xs text-text-muted hover:text-text-secondary border border-border-subtle rounded-lg hover:border-text-muted/50 transition-colors"
         >
           Clear All Filters

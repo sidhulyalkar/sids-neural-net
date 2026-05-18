@@ -1,6 +1,6 @@
 # Neural Atlas: Remaining Polish and Risk Assessment
 
-Last updated: After Prompt 9 completion
+Last updated: After Prompt 10 completion, Prompt 14 prep in progress
 
 ---
 
@@ -38,7 +38,7 @@ The neural atlas architecture is substantially implemented through Prompt 9. The
 
 ## What Appears Implemented
 
-Based on commit history through Prompt 9:
+Based on commit history through Prompt 10:
 
 | Prompt | Description | Status |
 |--------|-------------|--------|
@@ -50,19 +50,14 @@ Based on commit history through Prompt 9:
 | 7 | Dendrite signal propagation | Complete |
 | 8 | Camera travel & subnetworks | Complete |
 | 9 | Leaf detail panels | Complete |
+| 10 | Publication integration | Complete |
+| 13 | /neural-net archive polish | Partial (branding, focus param, accessibility) |
 
 ---
 
 ## What Appears Incomplete
 
-### Prompt 10: Publication Integration (Codex Active)
-- Extended publication metadata (abstract, contribution, keyFindings)
-- Curated publication.yaml fields (myContribution, whyItMatters)
-- Publication neuron chamber with PDF embed support
-- Violet-toned archive subnetwork styling
-- Copy citation button
-
-### Prompt 11: Category Subnetwork Curation
+### Prompt 11: Category Subnetwork Curation (Codex Active)
 - Hand-authored category descriptions
 - Curated child node selection per category
 - Importance-based visibility filtering
@@ -100,24 +95,22 @@ Based on commit history through Prompt 9:
 
 ---
 
-## Codex Prompt 10 Collision Notes
+## Codex Prompt 11 Collision Notes
 
-Codex is currently implementing Prompt 10 (Publication Integration). The following files are likely being edited and should be avoided:
+Codex is currently implementing Prompt 11 (Category Subnetwork Curation). The following files are likely being edited and should be avoided:
 
 ### Files to Avoid
-- `data/manual/publications.yaml` - Codex adding curated fields
-- `app/publications/page.tsx` - Potential updates
-- `components/publications/*` - Any publication components
-- `components/neural-atlas-3d/atlasDataAdapter.ts` - Publication mapping
-- `components/neural-atlas-3d/atlasTypes.ts` - Publication metadata types
-- `components/neural-atlas-3d/panels/LeafDetailPanel.tsx` - Publication rendering
-- `public/papers/*` - Any PDF assets
+- `components/neural-atlas-3d/atlasDataAdapter.ts` - Category mapping and curation
+- `components/neural-atlas-3d/atlasTypes.ts` - Category metadata types
+- `data/manual/project-overrides.yaml` - Importance and category settings
+- `data/manual/publications.yaml` - Category assignments
 
 ### Safe to Edit (Verified)
 - `app/neural-net/*` - Graph archive route
 - `components/neural-net/*` - Graph components
 - `docs/*` - Documentation files
-- Other routes not related to publications
+- `README.md` - Project documentation
+- Other routes not in the atlas core
 
 ---
 
@@ -208,9 +201,39 @@ The following files were not edited to prevent merge conflicts:
 
 ---
 
+## Build & Validation Status
+
+Last validated: Prompt 14 prep session
+
+### TypeScript
+- **Status**: PASS
+- No type errors
+
+### Production Build
+- **Status**: PASS
+- 102 static pages generated
+- Homepage: 536 kB First Load JS (includes R3F bundle)
+- /neural-net: 158 kB First Load JS
+
+### Bundle Size Notes
+- Homepage is large (536 kB) due to Three.js and R3F
+- Consider lazy loading the 3D experience for faster initial paint
+- Shared chunks are reasonable at 103 kB
+
+### Accessibility Improvements Made (Prompt 14 Prep)
+- NodeInspector: Added role="dialog", aria-labelledby, aria-describedby
+- NodeInspector: Close button has aria-label
+- NodeInspector: Importance meter has progressbar role
+- GraphFilters: Search input has label and proper type="search"
+- GraphFilters: Filter buttons have aria-pressed
+- GraphFilters: Clear buttons have aria-labels
+- GraphFilters: Fieldsets with legends for grouped controls
+
+---
+
 ## Quick Wins (Can Be Done Anytime)
 
-- Add more aria-labels to overlay controls
+- ~~Add more aria-labels to overlay controls~~ (Done in /neural-net)
 - Improve focus ring visibility
 - Add loading states for slow networks
 - Add error messages for WebGL failures

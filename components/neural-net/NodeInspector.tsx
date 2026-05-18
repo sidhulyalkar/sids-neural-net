@@ -49,13 +49,19 @@ export function NodeInspector({ node, onClose }: NodeInspectorProps) {
   const detailUrl = getDetailUrl();
 
   return (
-    <div className="fixed right-0 top-0 h-full w-full max-w-md bg-bg-panel border-l border-border-subtle shadow-2xl z-50 overflow-hidden">
+    <aside
+      role="dialog"
+      aria-labelledby="node-inspector-title"
+      aria-describedby="node-inspector-summary"
+      className="fixed right-0 top-0 h-full w-full max-w-md bg-bg-panel border-l border-border-subtle shadow-2xl z-50 overflow-hidden"
+    >
       {/* Header */}
       <div className="flex items-center justify-between p-4 border-b border-border-subtle">
         <div className="flex items-center gap-2">
           <div
             className="w-3 h-3 rounded-full"
             style={{ backgroundColor: `var(--${color})` }}
+            aria-hidden="true"
           />
           <span className="text-xs font-medium text-text-muted uppercase tracking-wider">
             {node.type.replace('-', ' ')}
@@ -63,29 +69,37 @@ export function NodeInspector({ node, onClose }: NodeInspectorProps) {
         </div>
         <button
           onClick={onClose}
+          aria-label="Close node inspector"
           className="p-1 rounded-md hover:bg-bg-deep transition-colors"
         >
-          <X className="w-5 h-5 text-text-muted" />
+          <X className="w-5 h-5 text-text-muted" aria-hidden="true" />
         </button>
       </div>
 
       {/* Content */}
       <div className="p-4 overflow-y-auto h-[calc(100%-60px)]">
         {/* Title */}
-        <h2 className="text-xl font-bold text-text-primary mb-2">{node.title}</h2>
+        <h2 id="node-inspector-title" className="text-xl font-bold text-text-primary mb-2">{node.title}</h2>
 
         {/* Summary */}
         {node.summary && (
-          <p className="text-text-secondary text-sm mb-4">{node.summary}</p>
+          <p id="node-inspector-summary" className="text-text-secondary text-sm mb-4">{node.summary}</p>
         )}
 
         {/* Importance meter */}
         <div className="mb-4">
           <div className="flex items-center justify-between mb-1">
-            <span className="text-xs text-text-muted">Importance</span>
+            <span id="importance-label" className="text-xs text-text-muted">Importance</span>
             <span className="text-xs text-text-secondary">{importance}</span>
           </div>
-          <div className="h-1.5 bg-bg-deep rounded-full overflow-hidden">
+          <div
+            role="progressbar"
+            aria-labelledby="importance-label"
+            aria-valuenow={importance}
+            aria-valuemin={0}
+            aria-valuemax={100}
+            className="h-1.5 bg-bg-deep rounded-full overflow-hidden"
+          >
             <div
               className="h-full rounded-full transition-all duration-300"
               style={{
@@ -221,7 +235,7 @@ export function NodeInspector({ node, onClose }: NodeInspectorProps) {
               className="w-full inline-flex items-center justify-center gap-2 px-4 py-2 bg-cyan/10 hover:bg-cyan/20 text-cyan rounded-lg transition-colors"
             >
               View Details
-              <ExternalLink className="w-4 h-4" />
+              <ExternalLink className="w-4 h-4" aria-hidden="true" />
             </Link>
           )}
           {node.sourceUrl && !detailUrl && (
@@ -232,11 +246,11 @@ export function NodeInspector({ node, onClose }: NodeInspectorProps) {
               className="w-full inline-flex items-center justify-center gap-2 px-4 py-2 bg-cyan/10 hover:bg-cyan/20 text-cyan rounded-lg transition-colors"
             >
               View Source
-              <ExternalLink className="w-4 h-4" />
+              <ExternalLink className="w-4 h-4" aria-hidden="true" />
             </a>
           )}
         </div>
       </div>
-    </div>
+    </aside>
   );
 }

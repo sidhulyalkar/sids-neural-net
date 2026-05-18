@@ -1,24 +1,51 @@
-# Sid's Neural Net
+# Sid Neural Net
 
-A living portfolio and research atlas for Sidharth Hulyalkar, built as an interactive Next.js app. The site connects projects, publications, case studies, career milestones, and personal interests through a generated neural graph.
+A living portfolio and research atlas for Sidharth Hulyalkar, built as an interactive Next.js app. The site presents work, publications, and ideas through a cinematic 3D neural atlas experience.
+
+## Architecture Overview
+
+The site has two primary graph experiences:
+
+### Homepage: Cinematic Neural Atlas (`/`)
+
+The homepage is an immersive 3D neural atlas built with React Three Fiber. It provides a curated, story-driven navigation experience:
+
+- **Category neurons**: Major thematic clusters (Projects, Publications, Professional Work, Research Ideas, etc.)
+- **Signal propagation**: Electric pulses travel along dendrites when navigating
+- **Camera travel**: Smooth transitions into category subnetworks
+- **Leaf detail panels**: Rich readable information for individual items
+- **URL state**: Deep-linking via `?atlas=category&node=slug`
+
+### Full Neural Graph Archive (`/neural-net`)
+
+The `/neural-net` route provides a power-user view of the complete generated graph:
+
+- **Cosmograph renderer**: GPU-accelerated large graph visualization
+- **Full dataset**: All 84+ nodes and 580+ edges
+- **Filters**: By type, domain, mode, and search
+- **Focus param**: Direct node selection via `?focus=slug`
+
+## Implementation Reference
+
+See `docs/NEURAL_ATLAS_FULL_IMPLEMENTATION_PLAN.md` for the complete implementation plan and prompt sequence used to build the atlas.
 
 ## What Is Built
 
-- Homepage with an animated constellation hero, professional pillars, featured case studies, publications, current work, and personal signal strip.
-- Neural Net view with an interactive React Flow graph.
-- Projects directory with search, filters, and generated detail pages.
-- Publications page for peer-reviewed work.
-- Timeline with weighted career, research, project, publication, and life events.
-- Case studies powered by MDX.
-- Life, About, Contact, Field Notes, and Learning Trails pages.
-- SEO metadata, sitemap, robots.txt, and Vercel configuration.
+- **Homepage**: Cinematic 3D neural atlas with R3F, signal propagation, and category navigation
+- **Full Graph Archive**: Cosmograph-powered interactive graph at `/neural-net`
+- Projects directory with search, filters, and generated detail pages
+- Publications page for peer-reviewed work
+- Timeline with weighted career, research, project, publication, and life events
+- Case studies powered by MDX
+- Life, About, Contact, Field Notes, and Learning Trails pages
+- SEO metadata, sitemap, robots.txt, and Vercel configuration
 
 Current generated data:
 
 - 63 GitHub repositories ingested into `data/generated/github-repos.json`
 - 84 graph nodes and 581 edges in `data/generated/neural-graph.json`
 - 81 project nodes and 3 publication nodes
-- 3 MDX case studies
+- 3 MDX project deep dives
 - 13 timeline events
 
 ## Tech Stack
@@ -27,7 +54,10 @@ Current generated data:
 - React 19
 - TypeScript
 - Tailwind CSS
-- React Flow via `@xyflow/react`
+- **3D Atlas**: React Three Fiber, Three.js, @react-three/drei, @react-three/postprocessing
+- **Full Graph**: Cosmograph via `@cosmograph/react`
+- **State**: Zustand for navigation state machine
+- **Animation**: Framer Motion for overlays and transitions
 - MDX content through `next-mdx-remote`
 - Zod for runtime data validation
 - YAML and JSON data sources
@@ -125,18 +155,32 @@ The project is ready for Vercel.
 
 Vercel should detect this as a Next.js project and install dependencies with npm because `package-lock.json` is present.
 
+## Documentation
+
+Key documentation files:
+
+- `docs/NEURAL_ATLAS_FULL_IMPLEMENTATION_PLAN.md` - Complete implementation plan and prompt sequence
+- `docs/NEURAL_ATLAS_REBUILD_PLAN.md` - Initial architecture audit and rebuild plan
+- `docs/NEURAL_ATLAS_REMAINING_POLISH.md` - Status, risks, and remaining work
+- `docs/ATLAS_QA_CHECKLIST.md` - Manual QA verification checklist
+- `docs/ATLAS_STORYTELLING_POLISH.md` - Copy and design brief
+
 ## Project Structure
 
 ```text
 app/                  Next.js routes, metadata, sitemap, robots
-components/           UI, layout, home, graph, project, publication, and timeline components
-content/              MDX case studies and copied context documents
+components/
+  neural-atlas-3d/    3D atlas experience (R3F, morphologies, panels)
+  neural-net/         Full graph archive (Cosmograph)
+  home/               Homepage components
+  layout/             Header, Footer, navigation
+  ui/                 Shared UI components
+content/              MDX project deep dives and context documents
 data/generated/       Generated GitHub repo and neural graph JSON
 data/manual/          Manually curated YAML data
-lib/                  Data schemas, content loaders, ranking utilities, context provider
+docs/                 Implementation plans, QA checklists, design briefs
+lib/                  Data schemas, content loaders, ranking utilities
 scripts/              GitHub ingestion and graph build scripts
-sids_neural_net_project_context_pack/
-                      Source context docs used by the graph builder
 ```
 
 ## Commit Workflow
