@@ -43,15 +43,16 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
   }
 
   const importance = project.computedImportance ?? project.importance;
+  const projectSlug = project.slug;
 
-  // Find related nodes (connected via edges)
-  const relatedNodeIds = new Set<string>();
+  // Generated graph edges store node slugs, so keep the lookup slug-based.
+  const relatedNodeSlugs = new Set<string>();
   graph.edges.forEach((edge) => {
-    if (edge.source === project.id) relatedNodeIds.add(edge.target);
-    if (edge.target === project.id) relatedNodeIds.add(edge.source);
+    if (edge.source === projectSlug) relatedNodeSlugs.add(edge.target);
+    if (edge.target === projectSlug) relatedNodeSlugs.add(edge.source);
   });
   const relatedNodes = graph.nodes
-    .filter((n) => relatedNodeIds.has(n.id) && n.id !== project.id)
+    .filter((n) => relatedNodeSlugs.has(n.slug) && n.slug !== projectSlug)
     .slice(0, 6);
 
   return (

@@ -8,6 +8,7 @@ import type {
   AtlasGraph,
   AtlasLeafContentType,
   AtlasMorphology,
+  AtlasNodeDetail,
   AtlasNode,
   AtlasVector3,
   AtlasVisibleState,
@@ -381,6 +382,7 @@ function leafToNode(node: NeuralNode, categoryId: string, leafIndex: number, tot
     sourceNodeSlug: node.slug,
     publication: node.publication,
     github: node.github,
+    detail: detailForNode(node, contentType, categoryId),
     tags: node.tags,
     domains: node.domains,
     importance,
@@ -388,6 +390,163 @@ function leafToNode(node: NeuralNode, categoryId: string, leafIndex: number, tot
     hiddenUntilParentFocused: true,
     sourceNode: node,
   };
+}
+
+function detailForNode(node: NeuralNode, contentType: AtlasLeafContentType, categoryId: string): AtlasNodeDetail {
+  if (contentType === 'publication') {
+    return {
+      description: node.publication?.abstract ?? node.summary,
+      myContribution: publicationContributionForNode(node),
+      summaryBullets: publicationSummaryBullets(node),
+    };
+  }
+
+  if (contentType === 'case-study') {
+    return {
+      description: node.description ?? node.summary,
+      whyItMatters: projectWhyItMatters(node, categoryId),
+    };
+  }
+
+  if (contentType === 'project') {
+    return {
+      description: node.description ?? node.github?.description ?? node.summary,
+      whyItMatters: projectWhyItMatters(node, categoryId),
+      architectureHighlights: architectureHighlightsForNode(node),
+      representativeFiles: representativeFilesForNode(node),
+      demonstrates: demonstratesForNode(node),
+    };
+  }
+
+  if (contentType === 'idea') {
+    return {
+      description: node.description ?? node.summary,
+      whyItMatters: 'This node marks a research direction where neural data, model behavior, and usable scientific tools can meet.',
+      demonstrates: 'Research taste, technical imagination, and the ability to connect engineering systems to biological questions.',
+    };
+  }
+
+  if (contentType === 'photography' || contentType === 'field-note') {
+    return {
+      description: node.description ?? node.summary,
+      whyItMatters: 'A quieter signal in the atlas: attention to place, texture, movement, and the observational habits that also shape research work.',
+    };
+  }
+
+  return {
+    description: node.description ?? node.summary,
+    whyItMatters: 'This is an outward-facing connection point from the atlas into the wider portfolio.',
+  };
+}
+
+function publicationContributionForNode(node: NeuralNode) {
+  if (node.domains.some((domain) => /neatlabs/i.test(domain)) || /neatlabs/i.test(node.tags.join(' '))) {
+    return 'Contributed to NEATLABs research workflows spanning neural data analysis, experimental systems, and publication-ready interpretation.';
+  }
+
+  return 'Contribution details are being curated; this placeholder keeps the paper readable until the publication record is expanded.';
+}
+
+function publicationSummaryBullets(node: NeuralNode) {
+  const pub = node.publication;
+  const bullets: string[] = [];
+
+  if (node.summary) bullets.push(node.summary);
+  if (pub?.venue || pub?.year) {
+    bullets.push(`Published ${pub.year ? `in ${pub.year}` : ''}${pub.venue ? ` through ${pub.venue}` : ''}.`.replace(/\s+/g, ' '));
+  }
+  if (node.tags.length > 0) {
+    bullets.push(`Connects ${node.tags.slice(0, 4).join(', ')} to the broader research graph.`);
+  }
+  if (node.domains.length > 0) {
+    bullets.push(`Sits in ${node.domains.slice(0, 3).join(', ')} within the atlas.`);
+  }
+  bullets.push('Readable paper notes and contribution details can be expanded from curated metadata as the archive deepens.');
+
+  return bullets.slice(0, 5);
+}
+
+function projectWhyItMatters(node: NeuralNode, categoryId: string) {
+  if (categoryId === 'professional-work') {
+    return 'It shows production scientific infrastructure: reproducible workflows, lab-facing tooling, and systems that turn complex experiments into usable datasets.';
+  }
+  if (node.domains.some((domain) => /BCI|Real-Time|Foundation/i.test(domain))) {
+    return 'It pushes toward low-latency neural systems where streaming data, model inference, and experimental feedback need to stay coordinated.';
+  }
+  if (node.domains.some((domain) => /Data Infrastructure|Workflow|DataJoint/i.test(domain)) || /datajoint/i.test(node.tags.join(' '))) {
+    return 'It demonstrates comfort with scientific data plumbing: schemas, compute orchestration, reproducibility, and tools researchers can actually operate.';
+  }
+  if (node.domains.some((domain) => /Interpretability/i.test(domain)) || /interpretability/i.test(node.tags.join(' '))) {
+    return 'It connects model inspection to neuroscience questions, making opaque systems easier to probe and explain.';
+  }
+  if (node.github?.isFork) {
+    return 'It represents contribution-oriented engineering: reading an existing scientific codebase, adapting to its patterns, and improving useful infrastructure.';
+  }
+
+  return 'It is a concrete artifact in the portfolio graph, tying code, domain judgment, and a working implementation into one inspectable node.';
+}
+
+function architectureHighlightsForNode(node: NeuralNode) {
+  const haystack = nodeHaystack(node);
+  const highlights: string[] = [];
+
+  if (/datajoint|element|workflow|pipeline/.test(haystack)) {
+    highlights.push('Schema-centered pipeline architecture with clear ingestion, processing, and analysis boundaries.');
+  }
+  if (/bci|real-time|streaming|classification/.test(haystack)) {
+    highlights.push('Streaming-first design for neural data processing, model inference, and feedback loops.');
+  }
+  if (/agent|middleware|orchestration/.test(haystack)) {
+    highlights.push('Agent/orchestration layer that turns higher-level research intent into executable system behavior.');
+  }
+  if (/transformer|interpretability|foundation/.test(haystack)) {
+    highlights.push('Model-analysis workflow for inspecting latent behavior, interventions, and learned representations.');
+  }
+  if (/aws|cloud|docker|kubernetes/.test(haystack)) {
+    highlights.push('Cloud-ready deployment posture with containerized services and durable storage boundaries.');
+  }
+  if (node.github?.language) {
+    highlights.push(`Primary implementation language: ${node.github.language}.`);
+  }
+
+  return highlights.slice(0, 5);
+}
+
+function representativeFilesForNode(node: NeuralNode) {
+  const repo = node.github?.repo ?? node.slug;
+  const haystack = nodeHaystack(node);
+
+  if (/datajoint|element/.test(haystack)) {
+    return ['schemas/', 'workflow/', 'notebooks/', 'tests/'];
+  }
+  if (/agent|orchestration|middleware/.test(haystack)) {
+    return ['agents/', 'orchestrator/', 'tools/', 'configs/'];
+  }
+  if (/transformer|interpretability/.test(haystack)) {
+    return ['models/', 'analysis/', 'interventions/', 'notebooks/'];
+  }
+  if (/bci|streaming|real-time/.test(haystack)) {
+    return ['streams/', 'processing/', 'classifiers/', 'experiments/'];
+  }
+
+  return [`${repo}/`, 'src/', 'README.md'];
+}
+
+function demonstratesForNode(node: NeuralNode) {
+  if (node.github?.isFork) {
+    return 'Ability to enter established scientific software, preserve local conventions, and contribute without treating the codebase as a blank slate.';
+  }
+  if (node.domains.some((domain) => /Neural Data Infrastructure|Scientific Workflow/i.test(domain))) {
+    return 'Research engineering maturity: translating lab needs into maintainable data systems with clear operational boundaries.';
+  }
+  if (node.domains.some((domain) => /BCI|Real-Time|Foundation/i.test(domain))) {
+    return 'A builder-researcher profile: low-latency systems, neural decoding intuition, and enough product sense to make the tooling navigable.';
+  }
+  if (node.domains.some((domain) => /Applied AI|Interpretability/i.test(domain))) {
+    return 'Modern AI engineering with a research spine: model-facing tools grounded in actual experimental questions.';
+  }
+
+  return 'Readable engineering judgment, project ownership, and the habit of making technical work inspectable.';
 }
 
 function buildRelatedEdges(edges: NeuralEdge[], slugToLeafId: Map<string, string>) {
@@ -444,11 +603,11 @@ function morphologyForNode(node: NeuralNode, contentType: AtlasLeafContentType, 
 
 function routeForNode(node: NeuralNode, contentType: AtlasLeafContentType) {
   if (contentType === 'project') return `/projects/${node.slug}`;
-  if (contentType === 'publication') return '/publications';
+  if (contentType === 'publication') return `/publications?focus=${node.slug}`;
   if (contentType === 'case-study') return `/case-studies/${node.slug}`;
-  if (contentType === 'field-note') return `/field-notes/${node.slug}`;
-  if (contentType === 'idea') return '/ideas';
-  if (contentType === 'photography') return '/photography';
+  if (contentType === 'field-note') return `/field-notes?focus=${node.slug}`;
+  if (contentType === 'idea') return `/ideas?focus=${node.slug}`;
+  if (contentType === 'photography') return `/photography?focus=${node.slug}`;
   if (contentType === 'contact') return '/contact';
   return node.sourceUrl ?? `/neural-net?focus=${node.slug}`;
 }

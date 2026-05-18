@@ -1,6 +1,7 @@
 'use client';
 
-import type { AtlasGraph } from './atlasTypes';
+import { AnimatePresence } from 'framer-motion';
+import type { AtlasGraph, AtlasNode } from './atlasTypes';
 import { useAtlasStore } from './atlasStore';
 import { AtlasCommandPalette } from './panels/AtlasCommandPalette';
 import { BreadcrumbTrail } from './panels/BreadcrumbTrail';
@@ -27,6 +28,14 @@ export function NeuralAtlasOverlay({ graph }: NeuralAtlasOverlayProps) {
   const activeCategory = graph.categories.find((node) => node.id === activeCategoryId) ?? null;
   const activeNode = graph.nodes.find((node) => node.id === activeNodeId) ?? activeCategory;
   const selectedLeaf = graph.nodes.find((node) => node.id === selectedLeafId) ?? null;
+  const detailReady = transitionPhase === 'detail' || transitionPhase === 'reading';
+  const detailNode = detailReady ? selectedLeaf : null;
+  const relatedLeafNodes = detailNode
+    ? detailNode.relatedIds
+        .map((relatedId) => graph.nodes.find((node) => node.id === relatedId))
+        .filter((node): node is AtlasNode => Boolean(node) && node.kind === 'leaf' && node.id !== detailNode.id)
+        .slice(0, 6)
+    : [];
   const categoryChildren = activeCategoryId
     ? graph.nodes
         .filter((node) => node.kind === 'leaf' && node.parentId === activeCategoryId)
@@ -49,8 +58,11 @@ export function NeuralAtlasOverlay({ graph }: NeuralAtlasOverlayProps) {
         </div>
       )}
 
-      <div className="pointer-events-auto max-w-md border border-white/10 bg-black/35 p-4 backdrop-blur-xl">
-        <BreadcrumbTrail categoryTitle={activeCategory?.shortLabel ?? activeCategory?.title} />
+      <div className="pointer-events-auto max-w-md border border-white/10 bg-black/[0.35] p-4 backdrop-blur-xl">
+        <BreadcrumbTrail
+          categoryTitle={activeCategory?.shortLabel ?? activeCategory?.title}
+          leafTitle={detailNode?.shortLabel ?? detailNode?.title}
+        />
         <h1 className="mt-4 text-3xl font-black leading-tight text-text-primary">Neural Atlas</h1>
         <p className="mt-2 text-sm leading-6 text-text-secondary">
           {activeCategory
@@ -96,8 +108,8 @@ export function NeuralAtlasOverlay({ graph }: NeuralAtlasOverlayProps) {
         <AtlasCommandPalette nodes={commandNodes} />
       </div>
 
-      {previewNode && (
-        <div className="pointer-events-auto absolute right-4 top-4 w-[min(24rem,calc(100vw-2rem))] border border-white/10 bg-black/35 p-4 backdrop-blur-xl sm:right-6 sm:top-6">
+      {previewNode && !detailNode && (
+        <div className="pointer-events-auto absolute right-4 top-4 w-[min(24rem,calc(100vw-2rem))] border border-white/10 bg-black/[0.35] p-4 backdrop-blur-xl sm:right-6 sm:top-6">
           <p className="font-mono text-[0.62rem] uppercase tracking-[0.2em] text-cyan/75">
             {previewNode.kind} / {previewNode.morphology}
           </p>
@@ -106,7 +118,9 @@ export function NeuralAtlasOverlay({ graph }: NeuralAtlasOverlayProps) {
         </div>
       )}
 
-      <LeafDetailPanel node={selectedLeaf} />
+      <AnimatePresence mode="wait">
+        {detailNode && <LeafDetailPanel key={detailNode.id} node={detailNode} relatedNodes={relatedLeafNodes} />}
+      </AnimatePresence>
     </div>
   );
 }

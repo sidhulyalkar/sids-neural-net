@@ -4,9 +4,10 @@ import { useAtlasStore } from '../atlasStore';
 
 type BreadcrumbTrailProps = {
   categoryTitle?: string | null;
+  leafTitle?: string | null;
 };
 
-export function BreadcrumbTrail({ categoryTitle }: BreadcrumbTrailProps) {
+export function BreadcrumbTrail({ categoryTitle, leafTitle }: BreadcrumbTrailProps) {
   const transitionPhase = useAtlasStore((state) => state.transitionPhase);
   const activeCategoryId = useAtlasStore((state) => state.activeCategoryId);
   const returnToOverview = useAtlasStore((state) => state.returnToOverview);
@@ -20,6 +21,12 @@ export function BreadcrumbTrail({ categoryTitle }: BreadcrumbTrailProps) {
         <>
           <span>/</span>
           <span>{categoryTitle ?? activeCategoryId}</span>
+        </>
+      )}
+      {leafTitle && (
+        <>
+          <span>/</span>
+          <span className="max-w-[9rem] truncate text-text-secondary">{leafTitle}</span>
         </>
       )}
       <span className="ml-auto">{transitionPhase}</span>

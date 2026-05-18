@@ -47,6 +47,17 @@ export type AtlasEdgeRelation =
   | 'canonical'
   | 'external';
 
+export type AtlasNodeDetail = {
+  description?: string;
+  whyItMatters?: string;
+  myContribution?: string;
+  summaryBullets?: string[];
+  architectureHighlights?: string[];
+  representativeFiles?: string[];
+  demonstrates?: string;
+  paperPdfPath?: string;
+};
+
 export type AtlasNode = {
   id: string;
   slug: string;
@@ -68,6 +79,7 @@ export type AtlasNode = {
   sourceNodeSlug?: string;
   publication?: PublicationMeta;
   github?: GitHubMeta;
+  detail?: AtlasNodeDetail;
   tags: string[];
   domains: string[];
   importance: number;
