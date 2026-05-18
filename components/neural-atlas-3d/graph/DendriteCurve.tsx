@@ -18,8 +18,8 @@ export function DendriteCurve({ edge, source, target, highlighted = false, signa
   const curve = useMemo(() => buildEdgeCurve(edge, source, target), [edge, source, target]);
   const harmony = getCategorySignalHarmony(target.category || source.category);
   const bright = highlighted || signaling;
-  const baseRadius = signaling ? 0.04 : highlighted ? 0.028 : 0.011 + edge.strength * 0.014;
-  const baseOpacity = signaling ? 0.78 : highlighted ? 0.48 : 0.11 + edge.strength * 0.16;
+  const baseRadius = signaling ? 0.042 : highlighted ? 0.03 : 0.017 + edge.strength * 0.016;
+  const baseOpacity = signaling ? 0.86 : highlighted ? 0.58 : 0.24 + edge.strength * 0.18;
 
   const branchCurves = useMemo(
     () => {
@@ -75,29 +75,29 @@ export function DendriteCurve({ edge, source, target, highlighted = false, signa
             <meshBasicMaterial
               color={bright ? harmony.secondary : edge.color}
               transparent
-              opacity={signaling ? 0.46 : highlighted ? 0.28 : 0.08}
+              opacity={signaling ? 0.46 : highlighted ? 0.3 : 0.14}
               blending={bright ? AdditiveBlending : undefined}
               depthWrite={false}
             />
           </mesh>
-          <mesh position={branchCurve.getPoint(1)} scale={signaling ? 0.052 : highlighted ? 0.038 : 0.026}>
+          <mesh position={branchCurve.getPoint(1)} scale={signaling ? 0.052 : highlighted ? 0.038 : 0.032}>
             <sphereGeometry args={[1, 10, 8]} />
             <meshBasicMaterial
               color={bright ? harmony.core : edge.color}
               transparent
-              opacity={signaling ? 0.62 : highlighted ? 0.36 : 0.13}
+              opacity={signaling ? 0.62 : highlighted ? 0.38 : 0.22}
               blending={AdditiveBlending}
               depthWrite={false}
             />
           </mesh>
         </group>
       ))}
-      <mesh position={curve.getPoint(1)} scale={signaling ? 0.09 : highlighted ? 0.065 : 0.038}>
+      <mesh position={curve.getPoint(1)} scale={signaling ? 0.09 : highlighted ? 0.065 : 0.052}>
         <sphereGeometry args={[1, 14, 10]} />
         <meshBasicMaterial
           color={bright ? harmony.core : edge.color}
           transparent
-          opacity={signaling ? 0.72 : highlighted ? 0.42 : 0.16}
+          opacity={signaling ? 0.72 : highlighted ? 0.46 : 0.26}
           blending={AdditiveBlending}
           depthWrite={false}
         />

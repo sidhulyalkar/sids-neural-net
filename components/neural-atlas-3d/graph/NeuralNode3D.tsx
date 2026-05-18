@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { Html } from '@react-three/drei';
 import { useFrame, type ThreeEvent } from '@react-three/fiber';
 import type { Group } from 'three';
@@ -19,6 +19,7 @@ type NeuralNode3DProps = {
 
 export function NeuralNode3D({ node }: NeuralNode3DProps) {
   const groupRef = useRef<Group>(null);
+  const hoverClearRef = useRef<number | null>(null);
   const focusCategory = useAtlasStore((state) => state.focusCategory);
   const focusLeaf = useAtlasStore((state) => state.focusLeaf);
   const setHoveredNode = useAtlasStore((state) => state.setHoveredNode);
@@ -30,7 +31,7 @@ export function NeuralNode3D({ node }: NeuralNode3DProps) {
   const isSelected = selectedLeafId === node.id;
   const visualScale =
     node.scale *
-    (node.kind === 'category' ? 1.34 : 0.86) *
+    (node.kind === 'category' ? 1.48 : 1.02) *
     (node.featured ? 1.08 : 1) *
     (0.9 + Math.min(100, node.importance) / 500);
   const motionSeed = useMemo(() => node.id.split('').reduce((sum, character) => sum + character.charCodeAt(0), 0), [node.id]);
@@ -40,13 +41,27 @@ export function NeuralNode3D({ node }: NeuralNode3DProps) {
     if (node.kind === 'category') focusCategory(node.id);
     else focusLeaf(node.id, node.parentId);
   };
+  const clearHoverTimer = useCallback(() => {
+    if (hoverClearRef.current == null) return;
+    window.clearTimeout(hoverClearRef.current);
+    hoverClearRef.current = null;
+  }, []);
   const stopAndHover = (event: ThreeEvent<PointerEvent>, hovered: boolean) => {
     event.stopPropagation();
-    setHoveredNode(hovered ? node.id : null);
+    if (hovered) {
+      clearHoverTimer();
+      setHoveredNode(node.id);
+      return;
+    }
+    clearHoverTimer();
+    hoverClearRef.current = window.setTimeout(() => {
+      setHoveredNode(null);
+      hoverClearRef.current = null;
+    }, 90);
   };
   const commonProps = {
     color: node.color,
-    scale: isActive || isHovered ? visualScale * 1.12 : visualScale,
+    scale: isActive ? visualScale * 1.08 : visualScale,
     active: isActive,
     hovered: isHovered,
     selected: isSelected,
@@ -58,13 +73,15 @@ export function NeuralNode3D({ node }: NeuralNode3DProps) {
       ? 'stellate'
       : node.morphology;
 
+  useEffect(() => () => clearHoverTimer(), [clearHoverTimer]);
+
   useFrame(({ clock }) => {
     const group = groupRef.current;
     if (!group) return;
 
     const time = clock.elapsedTime;
     const phase = motionSeed * 0.013;
-    const breath = 1 + Math.sin(time * 0.7 + phase) * (isActive ? 0.022 : 0.012);
+    const breath = 1 + Math.sin(time * 0.55 + phase) * (isActive ? 0.016 : 0.007);
 
     group.rotation.z = Math.sin(time * 0.18 + phase) * 0.035;
     group.rotation.x = Math.cos(time * 0.14 + phase) * 0.018;
@@ -99,7 +116,7 @@ export function NeuralNode3D({ node }: NeuralNode3DProps) {
       )}
       {showLabel && (
         <Html position={[0, -visualScale * 0.95, 0]} center distanceFactor={12}>
-          <span className="pointer-events-none whitespace-nowrap border border-white/10 bg-black/40 px-2 py-1 font-mono text-[10px] uppercase tracking-[0.14em] text-cyan/90 backdrop-blur-md">
+          <span className="pointer-events-none whitespace-nowrap border border-white/10 bg-black/40 px-2 py-1 font-mono text-[10px] uppercase tracking-[0.14em] text-[#f4f1eb]/82 backdrop-blur-md">
             {node.shortLabel}
           </span>
         </Html>

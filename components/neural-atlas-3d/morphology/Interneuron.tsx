@@ -11,6 +11,12 @@ type LocalBranch = {
   radius: number;
 };
 
+type Bouton = {
+  id: string;
+  position: [number, number, number];
+  scale: number;
+};
+
 export function Interneuron({
   position = [0, 0, 0],
   color,
@@ -22,7 +28,8 @@ export function Interneuron({
   onClick,
 }: NeuronMorphologyProps) {
   const branches = useMemo(() => buildBranches(seed), [seed]);
-  const stateBoost = selected ? 1.12 : active ? 1.07 : hovered ? 1.04 : 1;
+  const boutons = useMemo(() => buildBoutons(seed, branches), [branches, seed]);
+  const stateBoost = selected ? 1.1 : active ? 1.06 : 1;
 
   return (
     <group position={position} scale={scale * stateBoost} onClick={onClick}>
@@ -35,11 +42,26 @@ export function Interneuron({
           <tubeGeometry args={[branch.curve, 12, branch.radius, 6, false]} />
           <meshStandardMaterial
             color={color}
-            emissive={color}
-            emissiveIntensity={selected ? 0.9 : active || hovered ? 0.6 : 0.35}
+            emissive="#a88c42"
+            emissiveIntensity={selected ? 0.42 : active || hovered ? 0.28 : 0.14}
             transparent
-            opacity={selected ? 0.74 : active || hovered ? 0.58 : 0.35}
-            roughness={0.4}
+            opacity={selected ? 0.86 : active || hovered ? 0.72 : 0.54}
+            roughness={0.92}
+            metalness={0}
+          />
+        </mesh>
+      ))}
+      {boutons.map((bouton) => (
+        <mesh key={bouton.id} position={bouton.position} scale={bouton.scale}>
+          <sphereGeometry args={[1, 8, 6]} />
+          <meshStandardMaterial
+            color="#e7d79d"
+            emissive="#b99a54"
+            emissiveIntensity={active || hovered ? 0.2 : 0.08}
+            transparent
+            opacity={active || hovered ? 0.86 : 0.62}
+            roughness={0.95}
+            metalness={0}
           />
         </mesh>
       ))}
@@ -66,4 +88,19 @@ function buildBranches(seed: string): LocalBranch[] {
       ]),
     };
   });
+}
+
+function buildBoutons(seed: string, branches: LocalBranch[]): Bouton[] {
+  const random = seededRandom(`${seed}:boutons`);
+
+  return branches.flatMap((branch, branchIndex) =>
+    Array.from({ length: 2 + Math.floor(random() * 3) }, (_, index) => {
+      const point = branch.curve.getPoint(0.18 + random() * 0.76);
+      return {
+        id: `${branch.id}:bouton:${branchIndex}:${index}`,
+        position: [point.x, point.y, point.z] as [number, number, number],
+        scale: 0.02 + random() * 0.04,
+      };
+    })
+  );
 }

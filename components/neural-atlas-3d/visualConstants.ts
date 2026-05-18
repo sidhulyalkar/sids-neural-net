@@ -1,13 +1,12 @@
 export const ATLAS_COLORS = {
-  background: '#000000',
-  // Fluorescent microscopy-inspired colors
-  cyan: '#00ffff',
-  blue: '#4d9aff',
-  violet: '#c084fc',
-  green: '#39ff14',
-  amber: '#ffb300',
-  rose: '#ff1493',
-  white: '#ffffff',
+  background: '#030303',
+  cyan: '#d8f3f7',
+  blue: '#cbd8f4',
+  violet: '#ddd0ef',
+  green: '#d7eadc',
+  amber: '#ede2c4',
+  rose: '#efd1dc',
+  white: '#f4f1eb',
 } as const;
 
 export const CATEGORY_COLORS: Record<string, string> = {
@@ -18,7 +17,7 @@ export const CATEGORY_COLORS: Record<string, string> = {
   'research-ideas': ATLAS_COLORS.green,
   'personal-interests': ATLAS_COLORS.amber,
   photography: ATLAS_COLORS.rose,
-  contact: '#8fb8ff',
+  contact: '#d8dde8',
 };
 
 export type SignalHarmony = {

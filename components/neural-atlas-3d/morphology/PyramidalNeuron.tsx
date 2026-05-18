@@ -11,6 +11,13 @@ type Branch = {
   radius: number;
 };
 
+type Spine = {
+  id: string;
+  position: [number, number, number];
+  scale: [number, number, number];
+  rotation: [number, number, number];
+};
+
 export function PyramidalNeuron({
   position = [0, 0, 0],
   color,
@@ -22,8 +29,9 @@ export function PyramidalNeuron({
   onClick,
 }: NeuronMorphologyProps) {
   const branches = useMemo(() => buildBranches(seed), [seed]);
-  const stateBoost = selected ? 1.16 : active ? 1.1 : hovered ? 1.06 : 1;
-  const branchOpacity = selected ? 0.78 : active ? 0.64 : hovered ? 0.56 : 0.34;
+  const spines = useMemo(() => buildSpines(seed, branches, 0.42), [branches, seed]);
+  const stateBoost = selected ? 1.14 : active ? 1.08 : 1;
+  const branchOpacity = selected ? 0.9 : active ? 0.74 : hovered ? 0.68 : 0.52;
 
   return (
     <group position={position} scale={scale * stateBoost} onClick={onClick}>
@@ -35,10 +43,10 @@ export function PyramidalNeuron({
         <coneGeometry args={[0.56, 1.12, 5]} />
         <meshStandardMaterial
           color={color}
-          emissive={color}
-          emissiveIntensity={selected ? 1.4 : active || hovered ? 1.0 : 0.65}
-          roughness={0.35}
-          metalness={0.02}
+          emissive="#b99a54"
+          emissiveIntensity={selected ? 0.64 : active || hovered ? 0.42 : 0.24}
+          roughness={0.9}
+          metalness={0}
         />
       </mesh>
 
@@ -49,14 +57,29 @@ export function PyramidalNeuron({
 
       {branches.map((branch) => (
         <mesh key={branch.id}>
-          <tubeGeometry args={[branch.curve, 18, branch.radius * (hovered || active ? 1.22 : 1), 7, false]} />
+          <tubeGeometry args={[branch.curve, 18, branch.radius * (active ? 1.14 : 1), 7, false]} />
           <meshStandardMaterial
             color={color}
-            emissive={color}
-            emissiveIntensity={selected ? 0.9 : active || hovered ? 0.65 : 0.4}
+            emissive="#9f8142"
+            emissiveIntensity={selected ? 0.42 : active || hovered ? 0.3 : 0.16}
             transparent
             opacity={branchOpacity}
-            roughness={0.45}
+            roughness={0.92}
+            metalness={0}
+          />
+        </mesh>
+      ))}
+      {spines.map((spine) => (
+        <mesh key={spine.id} position={spine.position} rotation={spine.rotation} scale={spine.scale}>
+          <coneGeometry args={[1, 1, 5]} />
+          <meshStandardMaterial
+            color="#d7c58b"
+            emissive="#b99a54"
+            emissiveIntensity={active || hovered ? 0.24 : 0.1}
+            transparent
+            opacity={active || hovered ? 0.78 : 0.58}
+            roughness={0.95}
+            metalness={0}
           />
         </mesh>
       ))}
@@ -176,4 +199,31 @@ function buildBranches(seed: string): Branch[] {
   }
 
   return branches;
+}
+
+function buildSpines(seed: string, branches: Branch[], density = 0.45): Spine[] {
+  const random = seededRandom(`${seed}:spines`);
+  const spines: Spine[] = [];
+
+  branches.forEach((branch, branchIndex) => {
+    const count = Math.max(1, Math.floor((branch.curve.getLength() * density) + random() * 3));
+    for (let index = 0; index < count; index += 1) {
+      const t = 0.16 + random() * 0.78;
+      const point = branch.curve.getPoint(t);
+      const tangent = branch.curve.getTangent(t);
+      const side = index % 2 === 0 ? 1 : -1;
+      const normal = new Vector3(-tangent.y, tangent.x, (random() - 0.5) * 0.6).normalize().multiplyScalar(side);
+      const length = 0.055 + random() * 0.09;
+      const position = point.clone().add(normal.clone().multiplyScalar(length * 0.55));
+
+      spines.push({
+        id: `${branch.id}:spine:${branchIndex}:${index}`,
+        position: [position.x, position.y, position.z],
+        scale: [0.012 + random() * 0.012, length, 0.012 + random() * 0.012],
+        rotation: [Math.atan2(normal.z, normal.y), 0, Math.atan2(normal.y, normal.x) - Math.PI / 2],
+      });
+    }
+  });
+
+  return spines;
 }

@@ -2,89 +2,116 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Menu, X, ArrowRight } from 'lucide-react';
+import { ArrowLeft, ArrowUpRight, Menu, X } from 'lucide-react';
+import type { AtlasGraph } from './atlasTypes';
+import { useAtlasStore } from './atlasStore';
 
 const navLinks = [
+  { href: '/case-studies', label: 'Case Studies' },
   { href: '/projects', label: 'Projects' },
   { href: '/publications', label: 'Publications' },
+  { href: '/ideas', label: 'Ideas' },
+  { href: '/photography', label: 'Photography' },
+  { href: '/field-notes', label: 'Field Notes' },
   { href: '/neural-net', label: 'Full Graph' },
   { href: '/about', label: 'About' },
   { href: '/contact', label: 'Contact' },
 ];
 
-export function ImmersiveAtlasUI() {
+type ImmersiveAtlasUIProps = {
+  graph: AtlasGraph;
+};
+
+export function ImmersiveAtlasUI({ graph }: ImmersiveAtlasUIProps) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const activeCategoryId = useAtlasStore((state) => state.activeCategoryId);
+  const selectedLeafId = useAtlasStore((state) => state.selectedLeafId);
+  const closeDetail = useAtlasStore((state) => state.closeDetail);
+  const returnToOverview = useAtlasStore((state) => state.returnToOverview);
+  const goBack = useAtlasStore((state) => state.goBack);
+  const activeCategory = activeCategoryId ? graph.categories.find((node) => node.id === activeCategoryId) : null;
+  const selectedLeaf = selectedLeafId ? graph.nodes.find((node) => node.id === selectedLeafId) : null;
 
   return (
     <>
-      {/* Minimal menu icon - upper left */}
       <button
         onClick={() => setMenuOpen(true)}
-        className="fixed left-6 top-6 z-50 p-3 border border-white/10 bg-black/40 backdrop-blur-sm hover:border-white/30 hover:bg-black/60 transition-all group"
+        className="fixed left-5 top-5 z-50 border border-white/10 bg-black/50 p-3 text-white/70 backdrop-blur-sm transition-colors hover:border-white/30 hover:text-white"
         aria-label="Open navigation menu"
       >
-        <Menu className="w-6 h-6 text-white/70 group-hover:text-white transition-colors" />
+        <Menu className="h-5 w-5" />
       </button>
 
-      {/* Name at bottom - all caps, square font */}
+      {(activeCategory || selectedLeaf) && (
+        <div className="fixed left-5 top-[4.75rem] z-40 flex max-w-[calc(100vw-2.5rem)] flex-wrap items-center gap-2 text-xs text-[#f4f1eb]/70">
+          <button
+            type="button"
+            onClick={goBack}
+            className="inline-flex items-center gap-2 border border-white/10 bg-black/45 px-3 py-2 font-mono uppercase tracking-[0.16em] transition-colors hover:border-[#f4f1eb]/40 hover:text-[#f4f1eb]"
+          >
+            <ArrowLeft className="h-3.5 w-3.5" />
+            Back
+          </button>
+          {selectedLeaf && (
+            <button
+              type="button"
+              onClick={closeDetail}
+              className="border border-white/10 bg-black/35 px-3 py-2 font-mono uppercase tracking-[0.16em] transition-colors hover:border-[#f4f1eb]/40 hover:text-[#f4f1eb]"
+            >
+              {activeCategory?.shortLabel ?? 'Parent'}
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={returnToOverview}
+            className="border border-white/10 bg-black/35 px-3 py-2 font-mono uppercase tracking-[0.16em] transition-colors hover:border-[#f4f1eb]/40 hover:text-[#f4f1eb]"
+          >
+            Cortex
+          </button>
+          {selectedLeaf && (
+            <Link
+              href={selectedLeaf.route}
+              className="inline-flex items-center gap-2 border border-white/10 bg-black/35 px-3 py-2 font-mono uppercase tracking-[0.16em] transition-colors hover:border-[#f4f1eb]/40 hover:text-[#f4f1eb]"
+            >
+              Page
+              <ArrowUpRight className="h-3.5 w-3.5" />
+            </Link>
+          )}
+        </div>
+      )}
+
       <div className="fixed bottom-0 left-0 right-0 z-40 pointer-events-none">
         <div className="flex justify-center pb-8">
-          <h1 className="atlas-name-display text-white/90 tracking-[0.35em] text-center">
+          <h1 className="atlas-name-display text-center text-[#f4f1eb]/90">
             SIDHARTH HULYALKAR
           </h1>
         </div>
       </div>
 
-      {/* Fullscreen menu overlay */}
-      <AnimatePresence>
-        {menuOpen && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.3 }}
-            className="fixed inset-0 z-[100] bg-black/95 backdrop-blur-xl"
+      {menuOpen && (
+        <div className="fixed inset-0 z-[100] bg-black/95 backdrop-blur-md">
+          <button
+            onClick={() => setMenuOpen(false)}
+            className="absolute right-5 top-5 border border-white/10 p-3 text-white/70 transition-colors hover:border-white/30 hover:text-white"
+            aria-label="Close menu"
           >
-            {/* Close button */}
-            <button
-              onClick={() => setMenuOpen(false)}
-              className="absolute right-6 top-6 p-3 border border-white/10 hover:border-white/30 transition-colors"
-              aria-label="Close menu"
-            >
-              <X className="w-6 h-6 text-white/70 hover:text-white" />
-            </button>
+            <X className="h-5 w-5" />
+          </button>
 
-            {/* Navigation links */}
-            <nav className="h-full flex flex-col items-center justify-center gap-6">
-              {navLinks.map((link, index) => (
-                <motion.div
-                  key={link.href}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: index * 0.08 }}
-                >
-                  <Link
-                    href={link.href}
-                    onClick={() => setMenuOpen(false)}
-                    className="group flex items-center gap-4 text-2xl sm:text-3xl font-light tracking-[0.2em] text-white/60 hover:text-white transition-colors uppercase"
-                  >
-                    <span>{link.label}</span>
-                    <ArrowRight className="w-5 h-5 opacity-0 group-hover:opacity-100 transition-opacity" />
-                  </Link>
-                </motion.div>
-              ))}
-            </nav>
-
-            {/* Subtle name at bottom of menu */}
-            <div className="absolute bottom-8 left-0 right-0 text-center">
-              <span className="text-xs tracking-[0.4em] text-white/30 uppercase">
-                Neural Atlas
-              </span>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+          <nav className="flex h-full flex-col items-center justify-center gap-4 px-6">
+            {navLinks.map((link) => (
+              <Link
+                key={link.href}
+                href={link.href}
+                onClick={() => setMenuOpen(false)}
+                className="text-center text-xl font-light uppercase tracking-[0.16em] text-[#f4f1eb]/58 transition-colors hover:text-[#f4f1eb] sm:text-2xl"
+              >
+                {link.label}
+              </Link>
+            ))}
+          </nav>
+        </div>
+      )}
     </>
   );
 }

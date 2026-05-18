@@ -11,6 +11,12 @@ type RayBranch = {
   radius: number;
 };
 
+type Varicosity = {
+  id: string;
+  position: [number, number, number];
+  scale: number;
+};
+
 export function StellateNeuron({
   position = [0, 0, 0],
   color,
@@ -22,8 +28,9 @@ export function StellateNeuron({
   onClick,
 }: NeuronMorphologyProps) {
   const branches = useMemo(() => buildBranches(seed), [seed]);
-  const stateBoost = selected ? 1.14 : active ? 1.09 : hovered ? 1.05 : 1;
-  const opacity = selected ? 0.72 : active ? 0.6 : hovered ? 0.54 : 0.32;
+  const varicosities = useMemo(() => buildVaricosities(seed, branches), [branches, seed]);
+  const stateBoost = selected ? 1.12 : active ? 1.07 : 1;
+  const opacity = selected ? 0.86 : active ? 0.72 : hovered ? 0.68 : 0.52;
 
   return (
     <group position={position} scale={scale * stateBoost} onClick={onClick}>
@@ -31,14 +38,29 @@ export function StellateNeuron({
 
       {branches.map((branch) => (
         <mesh key={branch.id}>
-          <tubeGeometry args={[branch.curve, 16, branch.radius * (active || hovered ? 1.18 : 1), 6, false]} />
+          <tubeGeometry args={[branch.curve, 16, branch.radius * (active ? 1.12 : 1), 6, false]} />
           <meshStandardMaterial
             color={color}
-            emissive={color}
-            emissiveIntensity={selected ? 0.85 : active || hovered ? 0.6 : 0.35}
+            emissive="#a88c42"
+            emissiveIntensity={selected ? 0.42 : active || hovered ? 0.28 : 0.14}
             transparent
             opacity={opacity}
-            roughness={0.4}
+            roughness={0.92}
+            metalness={0}
+          />
+        </mesh>
+      ))}
+      {varicosities.map((detail) => (
+        <mesh key={detail.id} position={detail.position} scale={detail.scale}>
+          <sphereGeometry args={[1, 8, 6]} />
+          <meshStandardMaterial
+            color="#e3d28e"
+            emissive="#b99a54"
+            emissiveIntensity={active || hovered ? 0.2 : 0.08}
+            transparent
+            opacity={active || hovered ? 0.84 : 0.62}
+            roughness={0.95}
+            metalness={0}
           />
         </mesh>
       ))}
@@ -115,4 +137,27 @@ function buildBranches(seed: string): RayBranch[] {
   }
 
   return branches;
+}
+
+function buildVaricosities(seed: string, branches: RayBranch[]): Varicosity[] {
+  const random = seededRandom(`${seed}:varicosities`);
+  const details: Varicosity[] = [];
+
+  branches.forEach((branch, branchIndex) => {
+    const count = 2 + Math.floor(random() * 4);
+    for (let index = 0; index < count; index += 1) {
+      const point = branch.curve.getPoint(0.08 + random() * 0.86);
+      const tangent = branch.curve.getTangent(0.5);
+      const normal = new Vector3(-tangent.y, tangent.x, (random() - 0.5) * 0.5).normalize();
+      const position = point.add(normal.multiplyScalar((random() - 0.5) * 0.08));
+
+      details.push({
+        id: `${branch.id}:varicosity:${branchIndex}:${index}`,
+        position: [position.x, position.y, position.z],
+        scale: 0.022 + random() * 0.045,
+      });
+    }
+  });
+
+  return details;
 }

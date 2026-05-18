@@ -152,7 +152,7 @@ export function NeuralAtlasExperience() {
   return (
     <section className="fixed inset-0 overflow-hidden bg-black text-text-primary">
       <NeuralAtlasCanvas graph={graph} />
-      <ImmersiveAtlasUI />
+      <ImmersiveAtlasUI graph={graph} />
     </section>
   );
 }
