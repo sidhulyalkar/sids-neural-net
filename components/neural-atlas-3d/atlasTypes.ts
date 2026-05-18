@@ -33,7 +33,7 @@ export type AtlasNavigationLevel = 'root' | 'category' | 'detail';
 
 export type AtlasCameraMode = 'overview' | 'traveling' | 'category' | 'detail';
 
-export type AtlasTransitionPhase = 'idle' | 'charging' | 'traveling' | 'arriving' | 'reading';
+export type AtlasTransitionPhase = 'idle' | 'charging' | 'traveling' | 'arriving' | 'category' | 'detail' | 'reading';
 
 export type AtlasVisibleState = AtlasNavigationLevel | AtlasCameraMode | AtlasTransitionPhase | 'always';
 

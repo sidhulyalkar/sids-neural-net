@@ -1,55 +1,109 @@
 'use client';
 
 import { useMemo } from 'react';
-import { CatmullRomCurve3, Vector3 } from 'three';
+import { AdditiveBlending, CatmullRomCurve3, Vector3 } from 'three';
 import type { AtlasEdge, AtlasNode } from '../atlasTypes';
 import { vectorToTuple } from '../atlasTypes';
+import { getCategorySignalHarmony, seededUnit } from '../visualConstants';
 
 type DendriteCurveProps = {
   edge: AtlasEdge;
   source: AtlasNode;
   target: AtlasNode;
   highlighted?: boolean;
+  signaling?: boolean;
 };
 
-export function DendriteCurve({ edge, source, target, highlighted = false }: DendriteCurveProps) {
-  const curve = useMemo(() => {
-    const start = new Vector3(...vectorToTuple(source.position));
-    const end = new Vector3(...vectorToTuple(target.position));
-    const midpoint = start.clone().lerp(end, 0.5);
-    midpoint.z += 0.5 + edge.strength * 0.8;
-    return new CatmullRomCurve3([start, midpoint, end]);
-  }, [edge.strength, source.position, target.position]);
+export function DendriteCurve({ edge, source, target, highlighted = false, signaling = false }: DendriteCurveProps) {
+  const curve = useMemo(() => buildEdgeCurve(edge, source, target), [edge, source, target]);
+  const harmony = getCategorySignalHarmony(target.category || source.category);
+  const bright = highlighted || signaling;
+  const baseRadius = signaling ? 0.04 : highlighted ? 0.028 : 0.011 + edge.strength * 0.014;
+  const baseOpacity = signaling ? 0.78 : highlighted ? 0.48 : 0.11 + edge.strength * 0.16;
 
   const branchCurves = useMemo(
-    () =>
-      Array.from({ length: edge.dendriteBranches }, (_, index) => {
-        const t = (index + 1) / (edge.dendriteBranches + 1);
+    () => {
+      const random = seededUnit(`${edge.id}:branches`);
+
+      return Array.from({ length: edge.dendriteBranches }, (_, index) => {
+        const t = (index + 1) / (edge.dendriteBranches + 1) + (random() - 0.5) * 0.08;
         const base = curve.getPoint(t);
         const direction = curve.getTangent(t);
-        const normal = new Vector3(-direction.y, direction.x, 0.2).normalize();
+        const normal = new Vector3(-direction.y, direction.x, 0.18 + random() * 0.32).normalize();
         const side = index % 2 === 0 ? 1 : -1;
+        const reach = 0.36 + random() * 0.38 + edge.strength * 0.16;
+        const kink = base.clone().add(normal.clone().multiplyScalar(reach * 0.45 * side));
+
         return new CatmullRomCurve3([
           base,
-          base.clone().add(normal.clone().multiplyScalar(0.28 * side)),
-          base.clone().add(normal.clone().multiplyScalar((0.52 + edge.strength * 0.18) * side)),
+          kink.add(new Vector3((random() - 0.5) * 0.16, (random() - 0.5) * 0.16, (random() - 0.5) * 0.24)),
+          base.clone().add(normal.clone().multiplyScalar(reach * side)),
         ]);
-      }),
-    [curve, edge.dendriteBranches, edge.strength]
+      });
+    },
+    [curve, edge.dendriteBranches, edge.id, edge.strength]
   );
 
   return (
     <group>
       <mesh>
-        <tubeGeometry args={[curve, 48, highlighted ? 0.035 : 0.014 + edge.strength * 0.018, 8, false]} />
-        <meshBasicMaterial color={highlighted ? '#f8fbff' : edge.color} transparent opacity={highlighted ? 0.82 : 0.28 + edge.strength * 0.22} />
+        <tubeGeometry args={[curve, 64, baseRadius, 8, false]} />
+        <meshBasicMaterial
+          color={bright ? harmony.primary : edge.color}
+          transparent
+          opacity={baseOpacity}
+          blending={bright ? AdditiveBlending : undefined}
+          depthWrite={false}
+        />
       </mesh>
+      {bright && (
+        <mesh>
+          <tubeGeometry args={[curve, 64, baseRadius * 2.4, 8, false]} />
+          <meshBasicMaterial
+            color={signaling ? harmony.secondary : edge.color}
+            transparent
+            opacity={signaling ? 0.2 : 0.1}
+            blending={AdditiveBlending}
+            depthWrite={false}
+          />
+        </mesh>
+      )}
       {branchCurves.map((branchCurve, index) => (
         <mesh key={index}>
-          <tubeGeometry args={[branchCurve, 12, highlighted ? 0.018 : 0.01, 6, false]} />
-          <meshBasicMaterial color={edge.color} transparent opacity={highlighted ? 0.55 : 0.18} />
+          <tubeGeometry args={[branchCurve, 14, signaling ? 0.018 : highlighted ? 0.013 : 0.007, 6, false]} />
+          <meshBasicMaterial
+            color={bright ? harmony.secondary : edge.color}
+            transparent
+            opacity={signaling ? 0.46 : highlighted ? 0.28 : 0.08}
+            blending={bright ? AdditiveBlending : undefined}
+            depthWrite={false}
+          />
         </mesh>
       ))}
     </group>
   );
+}
+
+export function buildEdgeCurve(edge: AtlasEdge, source: AtlasNode, target: AtlasNode) {
+  const random = seededUnit(`${edge.id}:curve`);
+  const start = new Vector3(...vectorToTuple(source.position));
+  const end = new Vector3(...vectorToTuple(target.position));
+  const distance = start.distanceTo(end);
+  const direction = end.clone().sub(start).normalize();
+  const normal = new Vector3(-direction.y, direction.x, 0.24 + random() * 0.42).normalize();
+  const lift = 0.34 + edge.strength * 0.72 + random() * 0.42;
+  const bend = Math.min(1.8, distance * (0.08 + random() * 0.07));
+
+  const first = start
+    .clone()
+    .lerp(end, 0.32)
+    .add(normal.clone().multiplyScalar(bend))
+    .add(new Vector3(0, 0, lift));
+  const second = start
+    .clone()
+    .lerp(end, 0.68)
+    .add(normal.clone().multiplyScalar(-bend * 0.72))
+    .add(new Vector3(0, 0, lift * 0.58 + (random() - 0.5) * 0.42));
+
+  return new CatmullRomCurve3([start, first, second, end]);
 }

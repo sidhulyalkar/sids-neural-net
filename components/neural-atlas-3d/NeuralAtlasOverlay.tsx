@@ -12,7 +12,9 @@ type NeuralAtlasOverlayProps = {
 
 export function NeuralAtlasOverlay({ graph }: NeuralAtlasOverlayProps) {
   const activeCategoryId = useAtlasStore((state) => state.activeCategoryId);
+  const activeNodeId = useAtlasStore((state) => state.activeNodeId);
   const hoveredNodeId = useAtlasStore((state) => state.hoveredNodeId);
+  const transitionPhase = useAtlasStore((state) => state.transitionPhase);
   const returnToOverview = useAtlasStore((state) => state.returnToOverview);
   const previewNode =
     graph.categories.find((node) => node.id === hoveredNodeId) ??
@@ -20,9 +22,22 @@ export function NeuralAtlasOverlay({ graph }: NeuralAtlasOverlayProps) {
     graph.categories.find((node) => node.id === 'about') ??
     null;
   const activeCategory = graph.categories.find((node) => node.id === activeCategoryId) ?? null;
+  const activeNode = graph.nodes.find((node) => node.id === activeNodeId) ?? activeCategory;
+  const signalActive = transitionPhase === 'charging' || transitionPhase === 'traveling' || transitionPhase === 'arriving';
 
   return (
     <div className="pointer-events-none absolute inset-0 z-30 p-4 sm:p-6">
+      {transitionPhase === 'arriving' && (
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(248,251,255,0.2),rgba(102,227,255,0.1)_24%,transparent_58%)] opacity-80" />
+      )}
+
+      {signalActive && activeNode && (
+        <div className="absolute left-1/2 top-[18%] -translate-x-1/2 border border-white/10 bg-black/30 px-4 py-3 text-center backdrop-blur-xl">
+          <p className="font-mono text-[0.62rem] uppercase tracking-[0.28em] text-cyan/80">signal propagation</p>
+          <p className="mt-1 max-w-[18rem] truncate text-sm font-semibold text-text-primary">{activeNode.title}</p>
+        </div>
+      )}
+
       <div className="pointer-events-auto max-w-md border border-white/10 bg-black/35 p-4 backdrop-blur-xl">
         <BreadcrumbTrail />
         <h1 className="mt-4 text-3xl font-black leading-tight text-text-primary">Neural Atlas</h1>

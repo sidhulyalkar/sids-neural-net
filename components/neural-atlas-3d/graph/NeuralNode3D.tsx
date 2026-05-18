@@ -33,7 +33,7 @@ export function NeuralNode3D({ node }: NeuralNode3DProps) {
 
   const handleClick = () => {
     if (node.kind === 'category') focusCategory(node.id);
-    else focusLeaf(node.id);
+    else focusLeaf(node.id, node.parentId);
   };
   const stopAndHover = (event: ThreeEvent<PointerEvent>, hovered: boolean) => {
     event.stopPropagation();
