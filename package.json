@@ -13,7 +13,10 @@
     "ingest:graph": "tsx scripts/build-neural-graph.ts"
   },
   "dependencies": {
-    "@xyflow/react": "^12.3.0",
+    "@cosmograph/react": "^1.4.2",
+    "@react-three/drei": "^10.7.7",
+    "@react-three/fiber": "^9.6.1",
+    "@react-three/postprocessing": "^3.0.4",
     "clsx": "^2.1.1",
     "cmdk": "^1.0.0",
     "framer-motion": "^11.15.0",
@@ -25,8 +28,10 @@
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "tailwind-merge": "^2.6.0",
+    "three": "^0.184.0",
     "yaml": "^2.6.0",
-    "zod": "^3.24.0"
+    "zod": "^3.24.0",
+    "zustand": "^5.0.13"
   },
   "devDependencies": {
     "@tailwindcss/typography": "^0.5.15",

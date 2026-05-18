@@ -1,23 +1,5 @@
-import {
-  Hero,
-  ProfessionalPillars,
-  FeaturedCaseStudies,
-  PublicationsHighlight,
-  PersonalSignalStrip,
-  CurrentlyBuilding,
-  ContactCTA,
-} from '@/components/home';
+import { NeuralAtlasExperience } from '@/components/neural-atlas-3d';
 
 export default function HomePage() {
-  return (
-    <>
-      <Hero />
-      <ProfessionalPillars />
-      <FeaturedCaseStudies />
-      <PublicationsHighlight />
-      <CurrentlyBuilding />
-      <PersonalSignalStrip />
-      <ContactCTA />
-    </>
-  );
+  return <NeuralAtlasExperience />;
 }

@@ -3,6 +3,7 @@
 import { useState, useMemo } from 'react';
 import Link from 'next/link';
 import { ExternalLink, Briefcase, GraduationCap, Microscope, FileText, Heart, Star } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { TimelineEvent } from '@/lib/data/schemas';
 import { useMode } from '@/lib/contexts/ModeContext';
 
@@ -10,7 +11,7 @@ interface SignalTimelineProps {
   events: TimelineEvent[];
 }
 
-const CATEGORY_CONFIG: Record<string, { icon: React.ElementType; color: string; label: string }> = {
+const CATEGORY_CONFIG: Record<TimelineEvent['category'], { icon: LucideIcon; color: string; label: string }> = {
   career: { icon: Briefcase, color: 'cyan', label: 'Career' },
   research: { icon: Microscope, color: 'violet', label: 'Research' },
   project: { icon: Star, color: 'green', label: 'Project' },
@@ -47,7 +48,7 @@ export function SignalTimeline({ events }: SignalTimelineProps) {
   };
 
   // Get unique categories from events
-  const categories = Array.from(new Set(events.map((e) => e.category)));
+  const categories = Array.from(new Set(events.map((e) => e.category))) as TimelineEvent['category'][];
 
   // Group events by year
   const eventsByYear = useMemo(() => {
@@ -74,10 +75,10 @@ export function SignalTimeline({ events }: SignalTimelineProps) {
             <button
               key={category}
               onClick={() => toggleCategory(category)}
-              className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full border text-sm transition-colors ${
+              className={`inline-flex items-center gap-2 border px-3 py-1.5 font-mono text-xs uppercase tracking-[0.14em] transition-colors ${
                 isSelected
                   ? `bg-${config.color}/20 text-${config.color} border-${config.color}/30`
-                  : 'bg-bg-panel text-text-muted border-border-subtle hover:border-text-muted/50'
+                  : 'bg-bg-panel/70 text-text-muted border-white/10 hover:border-text-muted/50'
               }`}
               style={
                 isSelected
@@ -106,14 +107,14 @@ export function SignalTimeline({ events }: SignalTimelineProps) {
 
       {/* Timeline */}
       <div className="relative">
-        {/* Vertical line */}
         <div className="absolute left-8 top-0 bottom-0 w-px bg-gradient-to-b from-cyan/50 via-violet/30 to-transparent" />
+        <div className="signal-trace absolute left-8 top-0 h-full w-20 opacity-40" />
 
         {eventsByYear.map(([year, yearEvents]) => (
           <div key={year} className="mb-12">
             {/* Year marker */}
             <div className="flex items-center gap-4 mb-6">
-              <div className="w-16 h-16 rounded-full bg-bg-panel border border-border-subtle flex items-center justify-center z-10">
+              <div className="z-10 flex h-16 w-16 items-center justify-center border border-cyan/20 bg-bg-panel shadow-glow-cyan">
                 <span className="text-lg font-bold text-text-primary">{year}</span>
               </div>
               <div className="h-px flex-1 bg-border-subtle" />
@@ -127,11 +128,11 @@ export function SignalTimeline({ events }: SignalTimelineProps) {
                 return (
                   <div
                     key={event.id}
-                    className="relative glass-card hover:border-cyan/20 transition-colors"
+                    className="node-shell relative p-5 transition-colors hover:border-cyan/25"
                   >
                     {/* Connection dot */}
                     <div
-                      className="absolute -left-[37px] top-6 w-3 h-3 rounded-full"
+                      className="absolute -left-[37px] top-6 h-3 w-3 rounded-full shadow-glow-cyan"
                       style={{ backgroundColor: `var(--${config.color})` }}
                     />
 
@@ -139,13 +140,13 @@ export function SignalTimeline({ events }: SignalTimelineProps) {
                     <div className="flex items-start justify-between gap-4 mb-2">
                       <div className="flex items-center gap-3">
                         <div
-                          className="p-2 rounded-lg"
+                          className="border border-white/10 p-2"
                           style={{ backgroundColor: `rgba(var(--${config.color}-rgb, 102, 227, 255), 0.1)` }}
                         >
                           <Icon className="w-4 h-4" style={{ color: `var(--${config.color})` }} />
                         </div>
                         <div>
-                          <h3 className="font-semibold text-text-primary">{event.title}</h3>
+                          <h3 className="font-bold text-text-primary">{event.title}</h3>
                           <p className="text-sm text-text-muted">
                             {new Date(event.date).toLocaleDateString('en-US', {
                               month: 'short',
@@ -169,7 +170,7 @@ export function SignalTimeline({ events }: SignalTimelineProps) {
                         {Array.from({ length: Math.ceil(event.importance / 20) }).map((_, i) => (
                           <div
                             key={i}
-                            className="w-2 h-2 rounded-full"
+                            className="h-2 w-2"
                             style={{
                               backgroundColor: `var(--${config.color})`,
                               opacity: 0.3 + i * 0.15,
@@ -206,7 +207,7 @@ export function SignalTimeline({ events }: SignalTimelineProps) {
       </div>
 
       {filteredEvents.length === 0 && (
-        <div className="glass-card min-h-[200px] flex items-center justify-center">
+        <div className="node-shell flex min-h-[200px] items-center justify-center">
           <p className="text-text-muted">No events match the current filters.</p>
         </div>
       )}
