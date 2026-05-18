@@ -136,9 +136,11 @@ const CATEGORY_DEFINITIONS: CategoryDefinition[] = [
 
 export function buildAtlasGraph(): AtlasGraph {
   const root = buildRootNode();
-  const categories = CATEGORY_DEFINITIONS.map((category, index) =>
-    categoryToNode(category, index, CATEGORY_DEFINITIONS.length)
-  );
+  const outerCategories = CATEGORY_DEFINITIONS.filter((category) => category.id !== 'about');
+  const categories = CATEGORY_DEFINITIONS.map((category) => {
+    const outerIndex = outerCategories.findIndex((outerCategory) => outerCategory.id === category.id);
+    return categoryToNode(category, outerIndex, outerCategories.length);
+  });
   const leafAssignments = assignGeneratedNodes(generatedGraph.nodes);
   const leaves = leafAssignments.map(({ node, categoryId, leafIndex, siblingCount }) =>
     leafToNode(node, categoryId, leafIndex, siblingCount)
@@ -147,20 +149,22 @@ export function buildAtlasGraph(): AtlasGraph {
   const allNodes = [root, ...categories, ...leaves];
   const nodeById = new Map(allNodes.map((node) => [node.id, node]));
   const slugToLeafId = new Map(leaves.map((node) => [node.slug, node.id]));
-  const categoryEdges = categories.map((category, index) =>
-    makeEdge({
-      id: `root:${category.id}`,
-      source: ROOT_ID,
-      target: category.id,
-      relation: 'root-to-category',
-      strength: 0.72 + index * 0.02,
-      curveType: 'axon',
-      color: category.color,
-      signalDelay: index * 0.08,
-      dendriteBranches: 2,
-      visibleInStates: ['root', 'overview', 'always'],
-    })
-  );
+  const categoryEdges = categories
+    .filter((category) => category.id !== 'about')
+    .map((category, index) =>
+      makeEdge({
+        id: `root:about:${category.id}`,
+        source: 'about',
+        target: category.id,
+        relation: 'root-to-category',
+        strength: 0.72 + index * 0.02,
+        curveType: index % 3 === 0 ? 'bundle' : 'axon',
+        color: category.color,
+        signalDelay: index * 0.08,
+        dendriteBranches: 2 + (index % 3),
+        visibleInStates: ['root', 'overview', 'always'],
+      })
+    );
   const leafEdges = leaves.map((leaf, index) =>
     makeEdge({
       id: `category:${leaf.parentId}:${leaf.id}`,
@@ -231,6 +235,8 @@ function buildRootNode(): AtlasNode {
 }
 
 function categoryToNode(category: CategoryDefinition, index: number, total: number): AtlasNode {
+  const isSignalOrigin = category.id === 'about';
+
   return {
     id: category.id,
     slug: category.id,
@@ -241,11 +247,11 @@ function categoryToNode(category: CategoryDefinition, index: number, total: numb
     contentType: category.contentType,
     morphology: category.morphology,
     category: category.id,
-    parentId: ROOT_ID,
+    parentId: isSignalOrigin ? ROOT_ID : 'about',
     childrenIds: [],
     relatedIds: [],
-    position: radialPosition(index, total, ATLAS_LAYOUT.overviewRadius, 0),
-    scale: category.id === 'about' ? 1.08 : 0.92,
+    position: isSignalOrigin ? { x: 0, y: 0, z: 0.35 } : radialPosition(index, total, ATLAS_LAYOUT.overviewRadius, 0),
+    scale: isSignalOrigin ? 1.22 : 0.86,
     color: CATEGORY_COLORS[category.id],
     route: category.route,
     tags: category.keywords,

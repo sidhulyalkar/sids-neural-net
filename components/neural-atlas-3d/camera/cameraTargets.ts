@@ -2,9 +2,9 @@ import type { CameraTarget } from '../atlasTypes';
 
 export const CAMERA_TARGETS: Record<'overview' | 'category' | 'leaf', CameraTarget> = {
   overview: {
-    position: [0, 0, 18],
+    position: [0, 0, 16],
     lookAt: [0, 0, 0],
-    fov: 46,
+    fov: 42,
   },
   category: {
     position: [0, 0, 11],

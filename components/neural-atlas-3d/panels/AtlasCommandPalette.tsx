@@ -17,6 +17,7 @@ export function AtlasCommandPalette({ nodes }: AtlasCommandPaletteProps) {
     if (!normalized) return nodes.filter((node) => node.kind === 'category');
     return nodes
       .filter((node) => [node.title, node.summary ?? '', node.slug].join(' ').toLowerCase().includes(normalized))
+      .filter((node) => node.kind === 'category')
       .slice(0, 8);
   }, [nodes, query]);
 

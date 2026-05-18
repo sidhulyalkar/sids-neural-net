@@ -4,7 +4,6 @@ import { Suspense } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { Bloom, EffectComposer } from '@react-three/postprocessing';
 import { NeuralAtlasScene } from './NeuralAtlasScene';
-import { NeuralAtlasLoading } from './NeuralAtlasLoading';
 import type { AtlasGraph } from './atlasTypes';
 
 type NeuralAtlasCanvasProps = {
@@ -14,8 +13,9 @@ type NeuralAtlasCanvasProps = {
 export function NeuralAtlasCanvas({ graph }: NeuralAtlasCanvasProps) {
   return (
     <Canvas
-      camera={{ position: [0, 0, 18], fov: 46 }}
-      dpr={[1, 1.75]}
+      className="absolute inset-0 h-full w-full"
+      camera={{ position: [0, 0, 16], fov: 42 }}
+      dpr={[1, 1.5]}
       gl={{ antialias: true, alpha: false, powerPreference: 'high-performance' }}
     >
       <Suspense fallback={null}>

@@ -1,9 +1,12 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useRef } from 'react';
+import { useFrame } from '@react-three/fiber';
+import type { Group } from 'three';
 import { ATLAS_COLORS } from '../visualConstants';
 
 export function GlialParticleField() {
+  const groupRef = useRef<Group>(null);
   const particles = useMemo(
     () =>
       Array.from({ length: 80 }, (_, index) => {
@@ -14,8 +17,14 @@ export function GlialParticleField() {
     []
   );
 
+  useFrame(({ clock }) => {
+    if (!groupRef.current) return;
+    groupRef.current.rotation.z = Math.sin(clock.elapsedTime * 0.08) * 0.018;
+    groupRef.current.rotation.x = Math.cos(clock.elapsedTime * 0.06) * 0.012;
+  });
+
   return (
-    <group>
+    <group ref={groupRef}>
       {particles.map((position, index) => (
         <mesh key={index} position={position}>
           <sphereGeometry args={[0.025 + (index % 3) * 0.01, 8, 8]} />
