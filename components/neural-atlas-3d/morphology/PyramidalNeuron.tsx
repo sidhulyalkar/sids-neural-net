@@ -68,43 +68,109 @@ function buildBranches(seed: string): Branch[] {
   const random = seededRandom(seed);
   const branches: Branch[] = [];
 
+  // Main apical dendrite - longer with more control points for organic curve
+  const apicalWobble = () => (random() - 0.5) * 0.15;
   branches.push({
     id: 'apical',
-    radius: 0.036,
+    radius: 0.032,
     curve: new CatmullRomCurve3([
       new Vector3(0, 0.45, 0),
-      new Vector3((random() - 0.5) * 0.18, 1.28, 0.08),
-      new Vector3((random() - 0.5) * 0.24, 2.15, -0.06),
-      new Vector3((random() - 0.5) * 0.34, 2.82, 0.1),
+      new Vector3(apicalWobble(), 0.85, apicalWobble()),
+      new Vector3(apicalWobble() * 1.2, 1.35, apicalWobble()),
+      new Vector3(apicalWobble() * 1.5, 1.95, apicalWobble() * 1.2),
+      new Vector3(apicalWobble() * 1.8, 2.65, apicalWobble() * 1.5),
+      new Vector3(apicalWobble() * 2, 3.2, apicalWobble() * 1.8),
     ]),
   });
 
-  for (let index = 0; index < 7; index += 1) {
-    const side = index % 2 === 0 ? 1 : -1;
-    const spread = 0.72 + random() * 0.72;
-    const y = -0.22 - random() * 0.48;
-    const z = (random() - 0.5) * 0.34;
+  // Basal dendrites - more branches with secondary branching
+  for (let index = 0; index < 9; index += 1) {
+    const angle = (index / 9) * Math.PI * 2 + (random() - 0.5) * 0.4;
+    const spread = 0.65 + random() * 0.55;
+    const y = -0.25 - random() * 0.35;
+    const z = (random() - 0.5) * 0.5;
+    const endX = Math.cos(angle) * spread;
+    const endZ = Math.sin(angle) * spread * 0.7;
+
+    // Main basal branch
     branches.push({
       id: `basal:${index}`,
-      radius: 0.018 + random() * 0.015,
+      radius: 0.016 + random() * 0.012,
       curve: new CatmullRomCurve3([
-        new Vector3(0, -0.18, 0),
-        new Vector3(side * spread * 0.34, y - random() * 0.18, z * 0.4),
-        new Vector3(side * spread, y - random() * 0.28, z),
+        new Vector3(0, -0.15, 0),
+        new Vector3(endX * 0.3, y * 0.4, endZ * 0.3),
+        new Vector3(endX * 0.6, y * 0.7, endZ * 0.6),
+        new Vector3(endX, y, endZ + z),
+      ]),
+    });
+
+    // Secondary branches from basal
+    if (random() > 0.4) {
+      const branchPoint = 0.5 + random() * 0.3;
+      const branchAngle = angle + (random() - 0.5) * 1.2;
+      const branchSpread = spread * (0.4 + random() * 0.3);
+      branches.push({
+        id: `basal-sec:${index}`,
+        radius: 0.008 + random() * 0.006,
+        curve: new CatmullRomCurve3([
+          new Vector3(endX * branchPoint, y * branchPoint, endZ * branchPoint),
+          new Vector3(
+            Math.cos(branchAngle) * branchSpread,
+            y * branchPoint - random() * 0.2,
+            Math.sin(branchAngle) * branchSpread * 0.6
+          ),
+        ]),
+      });
+    }
+  }
+
+  // Apical oblique branches - more realistic branching from main trunk
+  for (let index = 0; index < 8; index += 1) {
+    const side = index % 2 === 0 ? 1 : -1;
+    const y = 0.7 + index * 0.28 + random() * 0.15;
+    const angle = side * (0.4 + random() * 0.5);
+    const length = 0.4 + random() * 0.35;
+
+    branches.push({
+      id: `apical-oblique:${index}`,
+      radius: 0.009 + random() * 0.007,
+      curve: new CatmullRomCurve3([
+        new Vector3(apicalWobble() * 0.5, y, apicalWobble() * 0.3),
+        new Vector3(
+          Math.sin(angle) * length * 0.5,
+          y + 0.08 + random() * 0.08,
+          Math.cos(angle) * length * 0.3
+        ),
+        new Vector3(
+          Math.sin(angle) * length,
+          y + 0.15 + random() * 0.12,
+          Math.cos(angle) * length * 0.5
+        ),
       ]),
     });
   }
 
-  for (let index = 0; index < 5; index += 1) {
-    const side = index % 2 === 0 ? 1 : -1;
-    const y = 1.1 + random() * 1.2;
+  // Apical tuft at top - dense branching
+  for (let index = 0; index < 12; index += 1) {
+    const angle = (index / 12) * Math.PI * 2 + random() * 0.3;
+    const length = 0.25 + random() * 0.3;
+    const baseY = 3.0 + random() * 0.2;
+
     branches.push({
-      id: `apical-branch:${index}`,
-      radius: 0.012 + random() * 0.01,
+      id: `tuft:${index}`,
+      radius: 0.006 + random() * 0.005,
       curve: new CatmullRomCurve3([
-        new Vector3(0, y, 0),
-        new Vector3(side * (0.22 + random() * 0.22), y + 0.12, (random() - 0.5) * 0.18),
-        new Vector3(side * (0.55 + random() * 0.34), y + 0.22 + random() * 0.22, (random() - 0.5) * 0.28),
+        new Vector3(apicalWobble(), baseY, apicalWobble()),
+        new Vector3(
+          Math.cos(angle) * length * 0.4,
+          baseY + 0.15 + random() * 0.1,
+          Math.sin(angle) * length * 0.3
+        ),
+        new Vector3(
+          Math.cos(angle) * length,
+          baseY + 0.25 + random() * 0.15,
+          Math.sin(angle) * length * 0.5
+        ),
       ]),
     });
   }
