@@ -67,7 +67,7 @@ export function NeuralAtlasOverlay({ graph }: NeuralAtlasOverlayProps) {
         <p className="mt-2 text-sm leading-6 text-text-secondary">
           {activeCategory
             ? activeCategory.summary
-            : 'A root-level 3D tissue map over the generated graph. Select a category soma to prime the signal path.'}
+            : 'Navigate my research, engineering, and creative work. Click a category node to explore deeper.'}
         </p>
         {activeCategory && (
           <button
