@@ -34,7 +34,9 @@ See `docs/NEURAL_ATLAS_FULL_IMPLEMENTATION_PLAN.md` for the complete implementat
 - **Homepage**: Cinematic 3D neural atlas with R3F, signal propagation, and category navigation
 - **Full Graph Archive**: Cosmograph-powered interactive graph at `/neural-net`
 - Projects directory with search, filters, and generated detail pages
+- Code systems page for GitHub-linked repositories and engineering themes
 - Publications page for peer-reviewed work
+- Archive page for publications, case studies, and long-form technical traces
 - Timeline with weighted career, research, project, publication, and life events
 - Case studies powered by MDX
 - Life, About, Contact, Field Notes, and Learning Trails pages
@@ -80,7 +82,10 @@ For a quick smoke test, visit:
 - `http://localhost:3000/`
 - `http://localhost:3000/neural-net`
 - `http://localhost:3000/projects`
+- `http://localhost:3000/code`
 - `http://localhost:3000/publications`
+- `http://localhost:3000/archive`
+- `http://localhost:3000/photography`
 - `http://localhost:3000/case-studies`
 - `http://localhost:3000/timeline`
 
@@ -137,10 +142,10 @@ Run these before deploying or pushing:
 ```bash
 npm run typecheck
 npm run lint
-npm run build
+npx next build
 ```
 
-`npm run build` refreshes generated data first, then creates the production Next.js build.
+`npx next build` validates the app without refreshing generated data. The configured `npm run build` refreshes generated data first, then creates the production Next.js build; avoid that ingest step while Claude is actively working on generated neural atlas data unless you intend to refresh those files.
 
 If you are working from WSL and Node is installed only on Windows, run the npm commands from PowerShell/Command Prompt in this folder or upgrade to WSL 2 and install Node inside WSL. WSL 1 can fail to execute Windows Node/npm shims.
 
@@ -163,6 +168,7 @@ Key documentation files:
 - `docs/NEURAL_ATLAS_REBUILD_PLAN.md` - Initial architecture audit and rebuild plan
 - `docs/NEURAL_ATLAS_REMAINING_POLISH.md` - Status, risks, and remaining work
 - `docs/ATLAS_QA_CHECKLIST.md` - Manual QA verification checklist
+- `docs/SITE_QA_CHECKLIST.md` - Portfolio shell routing, accessibility, responsive, and content QA checklist
 - `docs/ATLAS_STORYTELLING_POLISH.md` - Copy and design brief
 
 ## Project Structure
@@ -178,6 +184,7 @@ components/
 content/              MDX project deep dives and context documents
 data/generated/       Generated GitHub repo and neural graph JSON
 data/manual/          Manually curated YAML data
+src/data/             Navigation, social links, curated code systems, page data
 docs/                 Implementation plans, QA checklists, design briefs
 lib/                  Data schemas, content loaders, ranking utilities
 scripts/              GitHub ingestion and graph build scripts

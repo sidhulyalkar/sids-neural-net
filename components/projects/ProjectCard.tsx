@@ -116,8 +116,8 @@ export function ProjectCard({ project }: ProjectCardProps) {
                 href={project.github.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="p-1 text-text-muted hover:text-cyan transition-colors"
-                title="View on GitHub"
+                className="flex min-h-10 min-w-10 items-center justify-center rounded-md text-text-muted transition-colors hover:bg-white/5 hover:text-cyan"
+                aria-label={`View ${project.title} on GitHub`}
               >
                 <Github className="w-4 h-4" />
               </a>
@@ -127,8 +127,8 @@ export function ProjectCard({ project }: ProjectCardProps) {
                 href={project.sourceUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="p-1 text-text-muted hover:text-cyan transition-colors"
-                title="View source"
+                className="flex min-h-10 min-w-10 items-center justify-center rounded-md text-text-muted transition-colors hover:bg-white/5 hover:text-cyan"
+                aria-label={`View source for ${project.title}`}
               >
                 <ExternalLink className="w-4 h-4" />
               </a>

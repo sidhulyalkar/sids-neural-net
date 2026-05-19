@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { AnimatePresence, motion } from 'framer-motion';
-import { ArrowLeft, ArrowUpRight, Brain, ExternalLink, Menu, Search, X } from 'lucide-react';
+import { ArrowLeft, ArrowUpRight, ExternalLink, X } from 'lucide-react';
 import { DendritePath } from './DendritePath';
 import { NeuralBackground } from './NeuralBackground';
 import { NeuralNodeButton } from './NeuralNode';
@@ -18,15 +18,6 @@ import {
   rootCategoryEdges,
 } from './registry';
 import type { AtlasCategoryId, NeuralAtlasNode } from './registry';
-
-const navLinks = [
-  { href: '/about', label: 'About' },
-  { href: '/projects', label: 'Projects' },
-  { href: '/publications', label: 'Publications' },
-  { href: '/photography', label: 'Photography' },
-  { href: '/ideas', label: 'Ideas' },
-  { href: '/contact', label: 'Contact' },
-];
 
 function useReducedMotionPreference() {
   const [reduced, setReduced] = useState(false);
@@ -49,7 +40,6 @@ export function NeuralGraphHome() {
   const [activeCategoryId, setActiveCategoryId] = useState<AtlasCategoryId | null>(null);
   const [selectedLeaf, setSelectedLeaf] = useState<NeuralAtlasNode | null>(null);
   const [signalNode, setSignalNode] = useState<NeuralAtlasNode | null>(null);
-  const [menuOpen, setMenuOpen] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const signalTimeout = useRef<number | null>(null);
 
@@ -133,65 +123,7 @@ export function NeuralGraphHome() {
     <section className="relative min-h-screen overflow-hidden bg-bg-deep text-text-primary">
       <NeuralBackground />
 
-      <header className="absolute left-0 right-0 top-0 z-40 px-4 py-4 sm:px-6">
-        <nav className="mx-auto flex max-w-7xl items-center justify-between">
-          <Link href="/" className="group flex items-center gap-3" aria-label="Sid Neural Net home">
-            <span className="relative flex h-10 w-10 items-center justify-center rounded-full border border-cyan/30 bg-cyan/10 text-cyan shadow-glow-cyan">
-              <Brain className="h-5 w-5" />
-            </span>
-            <span className="font-black text-text-primary">
-              Sid <span className="text-cyan">Neural Net</span>
-            </span>
-          </Link>
-
-          <div className="hidden items-center gap-1 md:flex">
-            {navLinks.map((link) => (
-              <Link
-                key={link.href}
-                href={link.href}
-                className="px-3 py-2 text-sm text-text-secondary transition-colors hover:text-cyan"
-              >
-                {link.label}
-              </Link>
-            ))}
-            <button
-              type="button"
-              className="ml-2 inline-flex h-9 w-9 items-center justify-center border border-white/10 bg-white/[0.04] text-text-secondary transition-colors hover:text-cyan"
-              onClick={() => setPaletteOpen(true)}
-              aria-label="Open atlas palette"
-            >
-              <Search className="h-4 w-4" />
-            </button>
-          </div>
-
-          <button
-            type="button"
-            className="flex h-10 w-10 items-center justify-center border border-white/10 bg-white/[0.04] text-text-secondary backdrop-blur-md md:hidden"
-            onClick={() => setMenuOpen((open) => !open)}
-            aria-label="Toggle navigation"
-          >
-            {menuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-          </button>
-        </nav>
-        <AnimatePresence>
-          {menuOpen && (
-            <motion.div
-              initial={{ opacity: 0, y: -8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }}
-              className="mx-auto mt-3 grid max-w-7xl gap-1 border border-white/10 bg-bg-deep/82 p-3 backdrop-blur-2xl md:hidden"
-            >
-              {navLinks.map((link) => (
-                <Link key={link.href} href={link.href} className="px-3 py-2 text-sm text-text-secondary hover:text-cyan">
-                  {link.label}
-                </Link>
-              ))}
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </header>
-
-      <main className="relative z-10 min-h-screen px-4 pb-8 pt-24 sm:px-6 lg:pt-20">
+      <main className="relative z-10 min-h-screen px-4 pb-8 pt-10 sm:px-6">
         <div className="mx-auto grid min-h-[calc(100vh-7rem)] max-w-7xl gap-5 lg:grid-cols-[21rem_1fr_22rem]">
           <AtlasControlPanel
             stats={stats}
@@ -337,7 +269,7 @@ function AtlasControlPanel({
 }) {
   return (
     <aside className="relative z-20 self-start border border-white/10 bg-black/[0.28] p-4 backdrop-blur-xl lg:sticky lg:top-24">
-      <p className="font-mono text-xs uppercase tracking-[0.28em] text-cyan/75">neural atlas / life & work</p>
+      <p className="font-mono text-xs uppercase tracking-[0.28em] text-cyan/75">neural graph / life & work</p>
       <h1 className="mt-4 text-4xl font-black leading-[0.95] text-text-primary">
         Navigate the living tissue map.
       </h1>
@@ -347,7 +279,7 @@ function AtlasControlPanel({
       </p>
 
       <div className="mt-5 grid grid-cols-3 gap-2">
-        <StatPill value={stats.projects} label="projects" />
+        <StatPill value={stats.projects} label="builds" />
         <StatPill value={stats.publications} label="papers" />
         <StatPill value={stats.edges} label="links" />
       </div>
@@ -527,7 +459,7 @@ function AtlasLeafDetail({
             </a>
           )}
           <Link href={`/neural-net?focus=${leaf.sourceSlug ?? leaf.id}`} className="signal-button border-white/15 bg-white/[0.035] text-text-secondary">
-            Full graph
+            Graph archive
           </Link>
         </div>
 

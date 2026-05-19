@@ -5,8 +5,17 @@ import graphData from '@/data/generated/neural-graph.json';
 import { NeuralGraphSchema } from '@/lib/data/schemas';
 
 export const metadata: Metadata = {
-  title: 'Full Neural Graph Archive',
-  description: 'Complete interactive graph of all projects, publications, domains, and neural connections.',
+  title: 'Graph Archive',
+  description:
+    'Interactive graph archive of Sidharth Hulyalkar builds, publications, domains, and portfolio connections.',
+  alternates: {
+    canonical: '/neural-net',
+  },
+  openGraph: {
+    title: 'Graph Archive | Sid Neural Net',
+    description: 'A power-user graph archive for builds, publications, domains, and portfolio connections.',
+    url: '/neural-net',
+  },
 };
 
 function NeuralNetLoading() {

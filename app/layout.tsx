@@ -31,6 +31,9 @@ export const metadata: Metadata = {
   ],
   authors: [{ name: 'Sidharth Hulyalkar' }],
   creator: 'Sidharth Hulyalkar',
+  alternates: {
+    canonical: '/',
+  },
   openGraph: {
     type: 'website',
     locale: 'en_US',
@@ -38,22 +41,15 @@ export const metadata: Metadata = {
     siteName: 'Sid Neural Net',
     title: 'Sid Neural Net | Sidharth Hulyalkar',
     description:
-      'A living atlas of projects, publications, systems, experiments, interests, and ideas spanning neuroscience, ML, and applied AI.',
-    images: [
-      {
-        url: '/og-image.png',
-        width: 1200,
-        height: 630,
-        alt: 'Sid Neural Net',
-      },
-    ],
+      'A living atlas of builds, publications, systems, experiments, interests, and ideas spanning neuroscience, ML, and applied AI.',
+    images: [{ url: '/opengraph-image', width: 1200, height: 630, alt: 'Sid Neural Net' }],
   },
   twitter: {
     card: 'summary_large_image',
     title: 'Sid Neural Net | Sidharth Hulyalkar',
     description:
-      'A living atlas of projects, publications, systems, experiments, interests, and ideas.',
-    images: ['/og-image.png'],
+      'A living atlas of builds, publications, systems, experiments, interests, and ideas.',
+    images: ['/opengraph-image'],
   },
   robots: {
     index: true,
@@ -74,12 +70,27 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className={`${GeistSans.variable} ${GeistMono.variable}`}>
-      <body className="min-h-screen bg-bg-deep text-text-primary antialiased">
+    <html
+      lang="en"
+      className={`${GeistSans.variable} ${GeistMono.variable}`}
+      suppressHydrationWarning
+    >
+      <body
+        className="min-h-screen bg-bg-deep text-text-primary antialiased"
+        suppressHydrationWarning
+      >
         <ModeProvider>
           <div className="relative flex min-h-screen flex-col">
+            <a
+              href="#main-content"
+              className="fixed left-4 top-4 z-[100] -translate-y-20 rounded-md border border-cyan/40 bg-bg-deep px-4 py-2 text-sm font-semibold text-cyan shadow-glow-cyan transition-transform focus:translate-y-0"
+            >
+              Skip to content
+            </a>
             <Header />
-            <main className="flex-1">{children}</main>
+            <main id="main-content" className="flex-1" tabIndex={-1}>
+              {children}
+            </main>
             <Footer />
           </div>
         </ModeProvider>

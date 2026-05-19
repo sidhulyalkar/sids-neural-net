@@ -4,14 +4,24 @@ import { NeuralGraphSchema } from '@/lib/data/schemas';
 import { ProjectsClient } from './ProjectsClient';
 
 export const metadata: Metadata = {
-  title: 'Projects',
-  description: 'A searchable directory of all projects spanning neuroscience, ML, infrastructure, and creative experiments.',
+  title: 'Builds',
+  description:
+    'Selected builds by Sidharth Hulyalkar spanning neuroscience data infrastructure, multimodal ML, BCI systems, applied AI, and creative engineering.',
+  alternates: {
+    canonical: '/projects',
+  },
+  openGraph: {
+    title: 'Builds | Sid Neural Net',
+    description:
+      'Searchable builds across neuroscience infrastructure, ML research, BCI systems, and applied AI.',
+    url: '/projects',
+  },
 };
 
 export default function ProjectsPage() {
   const graph = NeuralGraphSchema.parse(graphData);
 
-  // Filter for projects only
+  // Filter for build nodes only.
   const projects = graph.nodes.filter((n) => n.type === 'project');
 
   // Get unique domains for filtering

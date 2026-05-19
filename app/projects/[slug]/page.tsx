@@ -24,6 +24,14 @@ export async function generateMetadata({ params }: ProjectPageProps): Promise<Me
   return {
     title: project.title,
     description: project.summary || `Details about the ${project.title} project.`,
+    alternates: {
+      canonical: `/projects/${project.slug}`,
+    },
+    openGraph: {
+      title: `${project.title} | Sid Neural Net`,
+      description: project.summary || `Details about the ${project.title} project.`,
+      url: `/projects/${project.slug}`,
+    },
   };
 }
 
@@ -64,13 +72,13 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
           className="inline-flex items-center gap-2 text-sm text-text-muted hover:text-cyan transition-colors mb-6"
         >
           <ArrowLeft className="w-4 h-4" />
-          Back to Projects
+          Back to Builds
         </Link>
 
         {/* Header */}
         <div className="mb-8">
           <div className="flex items-center gap-3 mb-3">
-            <span className="text-xs font-medium text-cyan uppercase tracking-wider">Project</span>
+            <span className="text-xs font-medium text-cyan uppercase tracking-wider">Build</span>
             <span
               className={`px-2 py-0.5 text-xs font-medium rounded-full ${
                 project.status === 'active'
@@ -99,7 +107,7 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
         </div>
 
         {/* Main content */}
-        <div className="glass-card mb-8">
+        <div className="glass-card mb-8 p-6">
           {/* Summary */}
           {project.summary && (
             <p className="text-lg text-text-secondary leading-relaxed">
@@ -160,7 +168,7 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
 
         {/* GitHub info */}
         {project.github && (
-          <div className="glass-card mb-8">
+          <div className="glass-card mb-8 p-6">
             <div className="flex items-center gap-2 mb-4">
               <Github className="w-5 h-5 text-text-muted" />
               <h2 className="text-lg font-semibold text-text-primary">GitHub Repository</h2>
@@ -200,9 +208,27 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
           </div>
         )}
 
+        {!project.github && project.sourceUrl && (
+          <div className="glass-card mb-8 p-6">
+            <div className="flex items-center gap-2 mb-4">
+              <ExternalLink className="w-5 h-5 text-text-muted" />
+              <h2 className="text-lg font-semibold text-text-primary">Build Link</h2>
+            </div>
+            <a
+              href={project.sourceUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 px-4 py-2 bg-cyan/10 hover:bg-cyan/20 text-cyan rounded-lg transition-colors"
+            >
+              Open project repository
+              <ExternalLink className="w-4 h-4" />
+            </a>
+          </div>
+        )}
+
         {/* Related nodes */}
         {relatedNodes.length > 0 && (
-          <div className="glass-card">
+          <div className="glass-card p-6">
             <h2 className="text-lg font-semibold text-text-primary mb-4">Related</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {relatedNodes.map((node) => (

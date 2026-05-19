@@ -7,8 +7,17 @@ import { PublicationFocusArchive } from '@/components/publications/PublicationFo
 import { getOpenAlexPublicationEnhancements } from '@/lib/openalex';
 
 export const metadata: Metadata = {
-  title: 'Publications',
-  description: 'Peer-reviewed publications in neuroscience, neural engineering, and computational methods.',
+  title: 'Paper Archive',
+  description:
+    'Peer-reviewed publications by Sidharth Hulyalkar in neuroscience, neural engineering, behavioral systems, and computational methods.',
+  alternates: {
+    canonical: '/publications',
+  },
+  openGraph: {
+    title: 'Paper Archive | Sid Neural Net',
+    description: 'Peer-reviewed neuroscience and computational methods publications.',
+    url: '/publications',
+  },
 };
 
 export default async function PublicationsPage() {
@@ -26,15 +35,8 @@ export default async function PublicationsPage() {
 
   return (
     <ComicSectionLayout
-      eyebrow="Archive Chamber"
-      title="Research artifacts lit from the edge."
-      intro={`${publications.length} peer-reviewed publications in neuroscience, neural engineering, and computational methods, preserved as a readable archive rather than a sterile list.`}
-      sideNote={
-        <p className="text-sm leading-6 text-text-secondary">
-          Publications from NEATLABs at UC San Diego under the guidance of Dr. Lara Bhatt,
-          focusing on neural dynamics, behavioral decoding, and computational neuroscience methods.
-        </p>
-      }
+      eyebrow="archive"
+      title="paper archive"
     >
       <div className="max-w-6xl">
         {/* Publications List */}

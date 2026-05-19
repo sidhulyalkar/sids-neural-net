@@ -33,6 +33,24 @@ next-env.d.ts
 # Testing
 coverage
 
+# Python
+__pycache__/
+*.pyc
+
+# Local photo sources
+photo-input/
+visual_archive/
+visual-archive.zip
+Best pics*.zip
+
+# Local research/reference artifacts
+images/
+neural_frontend.txt
+neuron_nmo*/
+neuron_nmo*.zip
+sid_neural_net_next_steps_guide.docx
+sids.zip
+
 # IDE
 .idea
 .vscode

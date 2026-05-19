@@ -16,13 +16,21 @@ export async function generateMetadata({ params }: CaseStudyPageProps): Promise<
 
   if (!caseStudy) {
     return {
-      title: 'Project Not Found',
+      title: 'Case Study Not Found',
     };
   }
 
   return {
     title: caseStudy.frontmatter.title,
     description: caseStudy.frontmatter.summary,
+    alternates: {
+      canonical: `/case-studies/${caseStudy.slug}`,
+    },
+    openGraph: {
+      title: `${caseStudy.frontmatter.title} | Sid Neural Net`,
+      description: caseStudy.frontmatter.summary,
+      url: `/case-studies/${caseStudy.slug}`,
+    },
   };
 }
 
@@ -50,7 +58,7 @@ export default async function CaseStudyPage({ params }: CaseStudyPageProps) {
           className="mb-6 inline-flex items-center gap-2 text-sm text-text-muted transition-colors hover:text-cyan"
         >
           <ArrowLeft className="w-4 h-4" />
-          Back to Projects
+          Back to Deployed Systems
         </Link>
 
         {/* Header */}
@@ -111,13 +119,13 @@ export default async function CaseStudyPage({ params }: CaseStudyPageProps) {
         </article>
 
         {/* Footer */}
-        <div className="mt-12 border-t border-border-subtle pt-8">
+        <div className="mt-12 border-t border-white/10 pt-8">
           <Link
             href="/case-studies"
             className="inline-flex items-center gap-2 text-sm text-cyan hover:underline"
           >
             <ArrowLeft className="w-4 h-4" />
-            View all project deep dives
+            View all field systems
           </Link>
         </div>
       </div>

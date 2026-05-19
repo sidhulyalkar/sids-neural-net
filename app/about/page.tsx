@@ -1,108 +1,162 @@
 import { Metadata } from 'next';
-import { Brain, Database, Eye, Mountain, Radio, Sparkles } from 'lucide-react';
+import Link from 'next/link';
 import { ComicSectionLayout } from '@/components/neural-atlas/ComicSectionLayout';
-import { NodeDetailPanel } from '@/components/neural-atlas/NodeDetailPanel';
 
 export const metadata: Metadata = {
-  title: 'About',
-  description: 'About Sidharth Hulyalkar - applied AI scientist and neuroscience systems engineer.',
+  title: 'Core',
+  description:
+    'About Sidharth Hulyalkar, a neuroscience data systems, multimodal ML, BCI infrastructure, and applied AI engineer.',
+  alternates: {
+    canonical: '/about',
+  },
+  openGraph: {
+    title: 'Core | Sid Neural Net',
+    description:
+      'Background, working style, and technical through-line for Sidharth Hulyalkar.',
+    url: '/about',
+  },
 };
 
-const arcs = [
-  {
-    icon: Database,
-    label: 'Infrastructure',
-    title: 'I learned to respect data by building systems for messy experiments.',
-    copy: 'At DataJoint and UCSD, the work was not abstract. It was calcium imaging, electrophysiology, behavior, pose, photometry, cloud storage, lab constraints, and researchers who needed the pipeline to hold.',
-  },
-  {
-    icon: Brain,
-    label: 'Models',
-    title: 'I care about models that can explain their grip on brain dynamics.',
-    copy: 'Foundation model work is only interesting to me when it can stay connected to signal quality, temporal structure, biological context, and interpretable mechanisms.',
-  },
-  {
-    icon: Radio,
-    label: 'Interfaces',
-    title: 'Real-time systems keep the theory honest.',
-    copy: 'BCI and closed-loop tools force decisions about latency, reliability, feedback, and what a model can do when the world refuses to wait for a perfect batch job.',
-  },
-  {
-    icon: Eye,
-    label: 'Perception',
-    title: 'The creative side is not separate from the technical side.',
-    copy: 'Photography, field notes, trail time, and visual systems all feed the same habit: noticing structure, timing, texture, and the difference between signal and decoration.',
-  },
+const coordinates = [
+  { label: 'Education', value: 'M.E. Bioengineering, UC San Diego' },
+  { label: 'Undergrad', value: 'B.S. Bioengineering: Biosystems, UC San Diego' },
+  { label: 'Location', value: 'Los Gatos, California' },
+];
+
+const affiliations = [
+  { name: 'Panoptic Bio', role: 'Founding Applied AI Engineer', period: '2025–Present' },
+  { name: 'Stealth NeuroAI Startup', role: 'Founding Engineer', period: '2025' },
+  { name: 'DataJoint', role: 'Neuroscience Data Engineer II', period: '2022–2024' },
+  { name: 'NEATLABs, UCSD', role: 'Lead Lab Programmer', period: '2017–2022' },
+];
+
+const technicalDomains = [
+  'Neural data infrastructure',
+  'Multimodal foundation models',
+  'BCI & real-time systems',
+  'Scientific workflow systems',
+  'Mechanistic interpretability',
+];
+
+const stack = {
+  languages: ['Python', 'MATLAB', 'TypeScript', 'SQL', 'R', 'Java', 'Bash'],
+  'ml/dl': ['PyTorch', 'TensorFlow', 'Keras', 'XGBoost', 'Hugging Face', 'Scikit-learn', 'CUDA'],
+  'architectures': ['CNNs', 'RNNs', 'LSTMs', 'U-Net', 'Transformers', 'Mamba', 'Perceiver IO'],
+  'data science': ['NumPy', 'SciPy', 'Pandas', 'Dask', 'OpenCV', 'Scikit-image'],
+  cloud: ['AWS', 'Google Cloud', 'Cloudflare', 'Docker', 'Kubernetes', 'Terraform', 'Singularity'],
+  'aws services': ['EC2', 'S3', 'Lambda', 'Kinesis', 'CloudWatch', 'EFS'],
+  frameworks: ['FastAPI', 'Next.js', 'React', 'Streamlit', 'Dash', 'DataJoint', 'Nextflow'],
+  'neuro tools': ['SpikeInterface', 'Suite2p', 'CaImAn', 'DeepLabCut', 'Facemap', 'Kilosort', 'Open Ephys', 'Allen SDK'],
+  'data formats': ['NWB', 'Zarr', 'HDF5', 'Parquet', 'MCAP'],
+  'signal processing': ['DTW', 'Kalman Filtering', 'ERP/ERSP', 'Spectral Analysis', 'Granger Causality', 'PCA/ICA'],
+  analysis: ['Electrophysiology', 'LFP/EEG', 'Calcium Imaging', 'Fiber Photometry', 'Pose Estimation', 'Q-Learning'],
+  visualization: ['Matplotlib', 'Seaborn', 'Bokeh', 'Plotly', 'Three.js', 'Foxglove'],
+  devops: ['Git', 'GitHub Actions', 'CI/CD', 'Linux', 'Jira', 'Prometheus', 'Grafana', 'DataDog'],
+  tools: ['Jupyter', 'Vim', 'tmux', 'SSH', 'Arduino', 'Raspberry Pi'],
+};
+
+const links = [
+  { label: 'GitHub', href: 'https://github.com/sidhulyalkar' },
+  { label: 'LinkedIn', href: 'https://linkedin.com/in/sidhulyalkar' },
+  { label: 'Resume', href: '/resume' },
 ];
 
 export default function AboutPage() {
   return (
     <ComicSectionLayout
-      eyebrow="About / Signal Origin"
-      title="Systems where brain data, AI, and interface design meet."
-      intro="I am Sidharth Hulyalkar: a neuroscience data systems and AI engineer drawn to problems where software has to survive contact with real experiments, real users, and real ambiguity."
-      sideNote={
-        <p className="text-sm leading-6 text-text-secondary">
-          The through-line is applied rigor with a visual nervous system: architecture that can hold
-          messy data, models that stay accountable to signal, and interfaces that make complexity navigable.
-        </p>
-      }
+      eyebrow="CORE"
+      title="core"
     >
-      <div className="comic-grid">
-          {arcs.map((arc, index) => {
-            const Icon = arc.icon;
-            return (
-              <section
-                key={arc.title}
-                className={`comic-panel p-5 ${index % 2 ? 'comic-span-5 comic-tilt-right md:mt-10' : 'comic-span-7 comic-tilt-left'}`}
-              >
-                <div className="mb-5 flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <span className="flex h-10 w-10 items-center justify-center border border-cyan/25 bg-cyan/10 text-cyan">
-                      <Icon className="h-5 w-5" />
-                    </span>
-                    <span className="technical-label">{arc.label}</span>
-                  </div>
-                  <span className="h-px w-16 bg-cyan/25" />
+      <div className="space-y-16">
+        {/* Coordinates */}
+        <section>
+          <p className="technical-label mb-8">Coordinates</p>
+          <div className="grid gap-8 sm:grid-cols-3">
+            {coordinates.map((item) => (
+              <div key={item.label}>
+                <p className="font-mono text-[0.62rem] uppercase tracking-[0.18em] text-white/40">
+                  {item.label}
+                </p>
+                <p className="mt-2 text-sm text-text-primary">{item.value}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* Affiliations */}
+        <section>
+          <p className="technical-label mb-8">Affiliations</p>
+          <div className="space-y-6">
+            {affiliations.map((item) => (
+              <div key={item.name} className="flex items-baseline justify-between border-b border-white/8 pb-4">
+                <div>
+                  <p className="text-sm text-text-primary">{item.name}</p>
+                  <p className="mt-1 font-mono text-[0.62rem] uppercase tracking-[0.14em] text-white/50">
+                    {item.role}
+                  </p>
                 </div>
-                <h2 className="text-2xl font-black text-text-primary">{arc.title}</h2>
-                <p className="mt-3 text-sm leading-6 text-text-secondary">{arc.copy}</p>
-              </section>
-            );
-          })}
-          <NodeDetailPanel
-            label="Working Style"
-            title="Applied rigor with a visual nervous system."
-            tone="violet"
-            className="comic-span-8 comic-tilt-left md:mt-8"
-          >
-            <p>
-              I like work where the architecture matters, the data has teeth, and the interface can make
-              complexity feel navigable. That has meant lab pipelines, neural recordings, applied AI
-              products, interpretability experiments, and prototypes that turn a half-formed idea into a
-              working instrument.
-            </p>
-          </NodeDetailPanel>
-          <NodeDetailPanel
-            label="Outside the Lab"
-            title="Field attention keeps the technical work from becoming sterile."
-            tone="green"
-            className="comic-span-4 comic-tilt-right"
-          >
-            <div className="flex items-center gap-3">
-              <Mountain className="h-5 w-5 text-green" />
-              <span className="technical-label">adventure input</span>
+                <p className="font-mono text-[0.62rem] tracking-wider text-white/40">{item.period}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* Technical Domains & Stack */}
+        <div className="grid gap-16 lg:grid-cols-2">
+          <section>
+            <p className="technical-label mb-8">Domains</p>
+            <ul className="space-y-3">
+              {technicalDomains.map((domain) => (
+                <li key={domain} className="flex items-center gap-3 text-sm text-text-secondary">
+                  <span className="h-px w-4 bg-cyan/40" />
+                  {domain}
+                </li>
+              ))}
+            </ul>
+          </section>
+
+          <section>
+            <p className="technical-label mb-8">Stack</p>
+            <div className="space-y-5">
+              {Object.entries(stack).map(([category, items]) => (
+                <div key={category}>
+                  <p className="mb-2 font-mono text-[0.58rem] uppercase tracking-[0.14em] text-white/30">
+                    {category}
+                  </p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {items.map((tech) => (
+                      <span
+                        key={tech}
+                        className="border border-white/10 bg-white/[0.03] px-2 py-0.5 font-mono text-[0.58rem] uppercase tracking-wider text-white/55"
+                      >
+                        {tech}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              ))}
             </div>
-            <p className="mt-4">
-              Trail rhythm, light, weather, Shasta energy, and photography all feed the same habit:
-              noticing structure, timing, texture, and signal.
-            </p>
-            <div className="mt-5 flex items-center gap-2 text-sm text-cyan">
-              <Sparkles className="h-4 w-4" />
-              Built for signal, not spectacle.
-            </div>
-          </NodeDetailPanel>
+          </section>
         </div>
+
+        {/* Links */}
+        <section>
+          <p className="technical-label mb-8">Links</p>
+          <div className="flex flex-wrap gap-6">
+            {links.map((link) => (
+              <Link
+                key={link.label}
+                href={link.href}
+                target={link.href.startsWith('http') ? '_blank' : undefined}
+                rel={link.href.startsWith('http') ? 'noopener noreferrer' : undefined}
+                className="font-mono text-xs uppercase tracking-[0.14em] text-cyan/70 transition-colors hover:text-cyan"
+              >
+                {link.label} →
+              </Link>
+            ))}
+          </div>
+        </section>
+      </div>
     </ComicSectionLayout>
   );
 }

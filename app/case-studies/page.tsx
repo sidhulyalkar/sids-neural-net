@@ -1,57 +1,78 @@
 import { Metadata } from 'next';
+import Link from 'next/link';
 import { getAllCaseStudies } from '@/lib/content/load-case-studies';
-import { CaseStudyCard } from '@/components/case-studies';
+import { ComicSectionLayout } from '@/components/neural-atlas/ComicSectionLayout';
 
 export const metadata: Metadata = {
-  title: 'Projects',
-  description: 'Deep project dives into significant systems and their technical architecture.',
+  title: 'Deployed Systems',
+  description:
+    'Deep system dives into significant neuroscience data systems, applied AI builds, and technical architecture.',
+  alternates: {
+    canonical: '/case-studies',
+  },
+  openGraph: {
+    title: 'Deployed Systems | Sid Neural Net',
+    description: 'Deep project dives into major systems, technical tradeoffs, and architecture.',
+    url: '/case-studies',
+  },
 };
 
 export default function CaseStudiesPage() {
   const caseStudies = getAllCaseStudies();
 
   return (
-    <div className="min-h-screen pt-24">
-      <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
-        {/* Header */}
-        <div className="mb-10 max-w-4xl">
-          <p className="technical-label">Project Deep Dives</p>
-          <h1 className="mt-4 text-5xl font-black tracking-tight text-text-primary md:text-7xl">Projects</h1>
-          <p className="mt-4 text-lg text-text-secondary">
-            {caseStudies.length} deeper reads on the systems, architecture, tradeoffs, and lessons behind major builds.
-          </p>
-        </div>
-
+    <ComicSectionLayout
+      eyebrow="infrastructure"
+      title="deployed systems"
+    >
         {caseStudies.length > 0 ? (
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+          <div className="relative grid gap-5 lg:grid-cols-3">
+            <svg className="absolute inset-0 hidden h-full w-full opacity-35 lg:block" aria-hidden="true">
+              <polyline points="120,80 248,112 360,210 510,190 690,165 760,310 940,342" fill="none" stroke="rgba(102,227,255,0.16)" strokeWidth="1" strokeDasharray="3 7" />
+              <polyline points="160,420 330,350 470,455 650,390 780,342 880,500 1080,470" fill="none" stroke="rgba(205,225,220,0.12)" strokeWidth="1" strokeDasharray="2 8" />
+            </svg>
             {caseStudies.map((cs) => (
-              <CaseStudyCard key={cs.slug} caseStudy={cs} />
+              <article key={cs.slug} className="node-shell relative z-10 flex h-full flex-col p-5">
+                <div className="mb-4 flex items-center justify-between gap-4">
+                  <p className="technical-label">system record</p>
+                  <span className="border border-green/25 bg-green/10 px-2 py-1 font-mono text-[0.62rem] uppercase tracking-[0.14em] text-green">
+                    brief available
+                  </span>
+                </div>
+                <h2 className="text-xl font-semibold leading-tight text-text-primary">{cs.frontmatter.title}</h2>
+                <p className="mt-3 flex-1 text-sm leading-6 text-text-secondary">{cs.frontmatter.summary}</p>
+
+                <dl className="mt-5 grid gap-3 border-t border-white/10 pt-4 text-sm">
+                  <div>
+                    <dt className="font-mono text-[0.62rem] uppercase tracking-[0.18em] text-text-muted">Stack</dt>
+                    <dd className="mt-1 text-text-secondary">{cs.frontmatter.tags.slice(0, 5).join(' / ') || 'Stack details'}</dd>
+                  </div>
+                  <div>
+                    <dt className="font-mono text-[0.62rem] uppercase tracking-[0.18em] text-text-muted">Modalities</dt>
+                    <dd className="mt-1 text-text-secondary">{cs.frontmatter.domains.join(' / ') || 'Deployment context'}</dd>
+                  </div>
+                  <div>
+                    <dt className="font-mono text-[0.62rem] uppercase tracking-[0.18em] text-text-muted">Role</dt>
+                    <dd className="mt-1 text-text-secondary">Documented in project brief</dd>
+                  </div>
+                </dl>
+
+                <Link href={`/case-studies/${cs.slug}`} className="mt-5 inline-flex min-h-10 items-center text-sm text-cyan hover:text-cyan-100">
+                  Open system brief
+                </Link>
+              </article>
             ))}
           </div>
         ) : (
-          <div className="glass-card min-h-[300px] flex items-center justify-center">
+          <div className="node-shell flex min-h-[300px] items-center justify-center p-6">
             <div className="text-center">
-              <div className="mx-auto mb-4 h-16 w-16 rounded-full bg-cyan/20 flex items-center justify-center">
-                <svg className="h-8 w-8 text-cyan" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-              </div>
-              <h3 className="text-xl font-semibold text-text-primary">No Project Deep Dives Yet</h3>
+              <h2 className="text-xl font-semibold text-text-primary">No field system briefs yet</h2>
               <p className="mt-2 text-text-muted max-w-md">
-                Project writeups will be added soon.
+                Add real deployment briefs in <span className="font-mono">content/case-studies</span>.
               </p>
             </div>
           </div>
         )}
-
-        {/* Note */}
-        <div className="node-shell mt-12 p-4">
-          <p className="text-sm text-text-muted">
-            Project briefs detail the technical decisions, challenges, and outcomes of major systems.
-            Some details are generalized to protect proprietary information.
-          </p>
-        </div>
-      </div>
-    </div>
+    </ComicSectionLayout>
   );
 }

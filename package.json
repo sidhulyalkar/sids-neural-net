@@ -10,7 +10,10 @@
     "typecheck": "tsc --noEmit",
     "ingest": "tsx scripts/ingest-github.ts && tsx scripts/build-neural-graph.ts",
     "ingest:github": "tsx scripts/ingest-github.ts",
-    "ingest:graph": "tsx scripts/build-neural-graph.ts"
+    "ingest:graph": "tsx scripts/build-neural-graph.ts",
+    "check:visual-cortex": "python3 scripts/check-visual-archive.py",
+    "check:visual-archive": "python3 scripts/check-visual-archive.py",
+    "photos:update": "python3 scripts/update-visual-archive.py"
   },
   "dependencies": {
     "@cosmograph/react": "^1.4.2",

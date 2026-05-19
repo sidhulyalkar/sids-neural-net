@@ -218,6 +218,7 @@ export const ProjectOverrideSchema = z.object({
   title: z.string().optional(),
   summary: z.string().optional(),
   description: z.string().optional(),
+  sourceUrl: z.string().url().optional(),
   tags: z.array(z.string()).optional(),
   domains: z.array(z.string()).optional(),
   featured: z.boolean().optional(),

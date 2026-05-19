@@ -101,18 +101,10 @@ export function ProjectsClient({
 
   return (
     <ComicSectionLayout
-      eyebrow="Project Cortex"
-      title="Builds, systems, and strange useful instruments."
-      intro={`${filteredProjects.length} projects across neuroscience infrastructure, ML research, applied AI, and creative experiments. The archive is searchable, but the emphasis is on the signal: what each project reveals about how I build.`}
-      sideNote={
-        <div className="grid gap-3 text-sm leading-6 text-text-secondary sm:grid-cols-3">
-          <span>NeuroForge</span>
-          <span>neurOS / neuroFMx</span>
-          <span>DataJoint pipelines</span>
-        </div>
-      }
+      eyebrow="builds"
+      title="builds"
     >
-      <div>
+      <div className="builds-circuit-field">
 
         {/* Toolbar */}
         <div className="mb-6 flex flex-col gap-4 sm:flex-row">
@@ -121,15 +113,17 @@ export function ProjectsClient({
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-text-muted" />
             <input
               type="text"
-              placeholder="Search projects..."
+              placeholder="Search builds..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="w-full border border-white/10 bg-bg-panel/70 py-3 pl-10 pr-4 text-text-primary placeholder:text-text-muted focus:border-cyan/50 focus:outline-none"
             />
             {search && (
               <button
+                type="button"
                 onClick={() => setSearch('')}
-                className="absolute right-3 top-1/2 -translate-y-1/2"
+                className="absolute right-2 top-1/2 flex min-h-9 min-w-9 -translate-y-1/2 items-center justify-center rounded-md"
+                aria-label="Clear project search"
               >
                 <X className="w-4 h-4 text-text-muted hover:text-text-secondary" />
               </button>
@@ -140,17 +134,20 @@ export function ProjectsClient({
           <div className="flex items-center gap-2">
             {/* Filter toggle */}
             <button
+              type="button"
               onClick={() => setShowFilters(!showFilters)}
-              className={`p-2.5 rounded-lg border transition-colors ${
+              className={`min-h-11 min-w-11 p-2.5 rounded-lg border transition-colors ${
                 showFilters
                   ? 'bg-cyan/10 border-cyan/30 text-cyan'
                   : 'bg-bg-panel/70 border-white/10 text-text-muted hover:text-text-secondary'
               }`}
+              aria-label={showFilters ? 'Hide project filters' : 'Show project filters'}
+              aria-expanded={showFilters}
             >
               <Filter className="w-5 h-5" />
             </button>
 
-            {/* Sort dropdown */}
+            {/* Sort control */}
             <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value as SortOption)}
@@ -164,22 +161,28 @@ export function ProjectsClient({
             {/* View toggle */}
             <div className="flex items-center overflow-hidden border border-white/10">
               <button
+                type="button"
                 onClick={() => setViewMode('grid')}
-                className={`p-2.5 transition-colors ${
+                className={`min-h-11 min-w-11 p-2.5 transition-colors ${
                   viewMode === 'grid'
                     ? 'bg-cyan/10 text-cyan'
                   : 'bg-bg-panel/70 text-text-muted hover:text-text-secondary'
                 }`}
+                aria-label="Show builds as grid"
+                aria-pressed={viewMode === 'grid'}
               >
                 <Grid className="w-5 h-5" />
               </button>
               <button
+                type="button"
                 onClick={() => setViewMode('list')}
-                className={`p-2.5 transition-colors ${
+                className={`min-h-11 min-w-11 p-2.5 transition-colors ${
                   viewMode === 'list'
                     ? 'bg-cyan/10 text-cyan'
                   : 'bg-bg-panel/70 text-text-muted hover:text-text-secondary'
                 }`}
+                aria-label="Show builds as list"
+                aria-pressed={viewMode === 'list'}
               >
                 <List className="w-5 h-5" />
               </button>
@@ -194,6 +197,7 @@ export function ProjectsClient({
               <h3 className="text-sm font-medium text-text-primary">Filters</h3>
               {hasActiveFilters && (
                 <button
+                  type="button"
                   onClick={clearFilters}
                   className="text-xs text-text-muted hover:text-cyan"
                 >
@@ -208,13 +212,15 @@ export function ProjectsClient({
               <div className="flex flex-wrap gap-1">
                 {availableDomains.map((domain) => (
                   <button
+                    type="button"
                     key={domain}
                     onClick={() => toggleDomain(domain)}
-                    className={`px-2 py-1 text-xs rounded-full border transition-colors ${
+                    className={`min-h-8 px-2 py-1 text-xs rounded-full border transition-colors ${
                       selectedDomains.includes(domain)
                         ? 'bg-violet/20 text-violet border-violet/30'
                         : 'bg-bg-deep text-text-muted border-white/10 hover:border-text-muted/50'
                     }`}
+                    aria-pressed={selectedDomains.includes(domain)}
                   >
                     {domain}
                   </button>
@@ -228,13 +234,15 @@ export function ProjectsClient({
               <div className="flex flex-wrap gap-1">
                 {availableTags.map((tag) => (
                   <button
+                    type="button"
                     key={tag}
                     onClick={() => toggleTag(tag)}
-                    className={`px-2 py-1 text-xs rounded-full border transition-colors ${
+                    className={`min-h-8 px-2 py-1 text-xs rounded-full border transition-colors ${
                       selectedTags.includes(tag)
                         ? 'bg-cyan/20 text-cyan border-cyan/30'
                         : 'bg-bg-deep text-text-muted border-white/10 hover:border-text-muted/50'
                     }`}
+                    aria-pressed={selectedTags.includes(tag)}
                   >
                     {tag}
                   </button>
@@ -250,9 +258,11 @@ export function ProjectsClient({
             <span className="text-xs text-text-muted">Active filters:</span>
             {selectedDomains.map((domain) => (
               <button
+                type="button"
                 key={domain}
                 onClick={() => toggleDomain(domain)}
-                className="inline-flex items-center gap-1 px-2 py-0.5 text-xs bg-violet/20 text-violet rounded-full"
+                className="inline-flex min-h-8 items-center gap-1 px-2 py-0.5 text-xs bg-violet/20 text-violet rounded-full"
+                aria-label={`Remove ${domain} filter`}
               >
                 {domain}
                 <X className="w-3 h-3" />
@@ -260,9 +270,11 @@ export function ProjectsClient({
             ))}
             {selectedTags.map((tag) => (
               <button
+                type="button"
                 key={tag}
                 onClick={() => toggleTag(tag)}
-                className="inline-flex items-center gap-1 px-2 py-0.5 text-xs bg-cyan/20 text-cyan rounded-full"
+                className="inline-flex min-h-8 items-center gap-1 px-2 py-0.5 text-xs bg-cyan/20 text-cyan rounded-full"
+                aria-label={`Remove ${tag} filter`}
               >
                 {tag}
                 <X className="w-3 h-3" />
@@ -271,7 +283,7 @@ export function ProjectsClient({
           </div>
         )}
 
-        {/* Projects Grid/List */}
+        {/* Builds Grid/List */}
         {filteredProjects.length > 0 ? (
           <div
             className={
@@ -290,9 +302,10 @@ export function ProjectsClient({
             ))}
           </div>
         ) : (
-          <NodeDetailPanel label="No Match" title="No projects match those filters." tone="amber">
+          <NodeDetailPanel label="No Match" title="No builds match those filters." tone="amber">
             <div className="text-center">
               <button
+                type="button"
                 onClick={clearFilters}
                 className="mt-2 text-sm text-cyan hover:underline"
               >

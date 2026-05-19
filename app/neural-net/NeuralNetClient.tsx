@@ -44,21 +44,21 @@ export function NeuralNetClient({
       <div className="flex h-[calc(100vh-5rem)]">
         {/* Sidebar */}
         <aside className="hidden w-80 overflow-y-auto border-r border-white/10 bg-bg-panel/55 p-5 backdrop-blur-xl lg:block">
-          {/* Return to Atlas CTA */}
+          {/* Return home CTA */}
           <Link
             href="/"
             className="mb-5 flex items-center gap-2 text-sm text-cyan hover:text-cyan/80 transition-colors group"
-            aria-label="Return to Neural Atlas"
+            aria-label="Return to home"
           >
             <ArrowLeft className="w-4 h-4 transition-transform group-hover:-translate-x-0.5" />
-            <span>Return to Atlas</span>
+            <span>Return home</span>
           </Link>
 
           <div className="mb-6">
             <p className="technical-label">Complete Archive</p>
-            <h1 className="mt-2 text-2xl font-black text-text-primary">Full Neural Graph</h1>
+            <h1 className="mt-2 text-2xl font-black text-text-primary">Graph Archive</h1>
             <p className="mt-1 text-sm text-text-secondary">
-              The complete graph of all projects, publications, domains, and neural connections.
+              The complete graph of all builds, publications, domains, and neural connections.
             </p>
           </div>
 
@@ -89,7 +89,7 @@ export function NeuralNetClient({
             <div className="space-y-1">
               <div className="flex items-center gap-2">
                 <div className="w-3 h-3 rounded-full bg-cyan" />
-                <span className="text-xs text-text-secondary">Projects</span>
+                <span className="text-xs text-text-secondary">Builds</span>
               </div>
               <div className="flex items-center gap-2">
                 <div className="w-3 h-3 rounded-full bg-violet" />
@@ -130,7 +130,7 @@ export function NeuralNetClient({
               href="/"
               className="signal-button w-full text-center"
             >
-              Enter Neural Atlas
+              Enter home
             </Link>
           </div>
         </aside>
@@ -142,10 +142,10 @@ export function NeuralNetClient({
             <Link
               href="/"
               className="flex items-center gap-1.5 border border-white/10 bg-bg-panel/90 px-3 py-2 backdrop-blur-sm text-xs text-cyan hover:text-cyan/80 hover:border-cyan/30 transition-colors lg:hidden"
-              aria-label="Return to Neural Atlas"
+              aria-label="Return to home"
             >
               <ArrowLeft className="w-3.5 h-3.5" />
-              <span>Atlas</span>
+              <span>Home</span>
             </Link>
             <div className="border border-white/10 bg-bg-panel/90 p-2 backdrop-blur-sm lg:hidden">
               <span className="text-xs text-text-muted">

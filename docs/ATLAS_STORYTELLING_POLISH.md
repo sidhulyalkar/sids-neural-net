@@ -59,11 +59,11 @@ What happens when neuroscience meets machine learning infrastructure?
 
 | Current | Option A (Technical) | Option B (Metaphorical) | Option C (Hybrid) |
 |---------|---------------------|------------------------|-------------------|
-| About | About | Signal Origin | Identity |
-| Professional Work | Deployed Systems | Field Work | Deployed Systems |
-| Projects | Build Archive | Build Cortex | Code Archive |
-| Publications | Paper Archive | Paper Chambers | Publications |
-| Research Ideas | Research Agenda | Speculative Circuits | Research Ideas |
+| About | About | Signal Origin | Origin Signal |
+| Professional Work | Field Systems | Field Work | Field Systems |
+| Projects | Build Archive | Build Log | Code Archive |
+| Publications | Literature Trace | Paper Chambers | Publications |
+| Research Ideas | Research Agenda | Future Circuits | Research Ideas |
 | Personal Interests | Personal | Field Inputs | Personal Interests |
 | Photography | Visual Archive | Visual Field Notes | Photography |
 | Contact | Contact | Signal Output | Contact |
@@ -76,19 +76,19 @@ What happens when neuroscience meets machine learning infrastructure?
 
 Brief summaries shown when hovering a category.
 
-### About / Identity
+### About / Origin Signal
 > "Applied AI scientist/engineer specializing in neuroscience data infrastructure, multimodal ML systems, and real-time neural interfaces."
 
-### Deployed Systems (Professional Work)
+### Field Systems (Professional Work)
 > "Research infrastructure deployed at Harvard, Allen Institute, and neuroscience labs worldwide. Data pipelines that power real science."
 
 ### Code Archive (Projects)
 > "Open-source tools, experimental systems, and engineering artifacts. From BCI classifiers to neural foundation model frameworks."
 
-### Paper Archive (Publications)
+### Literature Trace (Publications)
 > "Peer-reviewed work on neural behavior, electrophysiology, and computational methods. Contributions to neuroscience and ML research."
 
-### Speculative Circuits (Research Ideas)
+### Future Circuits (Research Ideas)
 > "Where I'm heading: brain foundation models, mechanistic interpretability for neural data, session stitching, and closed-loop systems."
 
 ### Field Inputs (Personal Interests)

@@ -6,14 +6,21 @@ import { NodeDetailPanel } from '@/components/neural-atlas/NodeDetailPanel';
 export const metadata: Metadata = {
   title: 'Field Notes',
   description: 'Thoughts, explorations, and notes on neural data systems, ML, and research.',
+  alternates: {
+    canonical: '/field-notes',
+  },
+  openGraph: {
+    title: 'Field Notes | Sid Neural Net',
+    description: 'Experimental writing, prototype notes, and research sketches.',
+    url: '/field-notes',
+  },
 };
 
 export default function FieldNotesPage() {
   return (
     <ComicSectionLayout
-      eyebrow="Experiment Chamber"
-      title="Small builds, field notes, and useful weirdness."
-      intro="A holding space for thinking in public: neural systems sketches, ML notes, creative experiments, tool fragments, and the prototypes that are not formal projects yet."
+      eyebrow="experiments"
+      title="field notes"
     >
       <div className="comic-grid">
         <NodeDetailPanel label="Coming Soon" title="Field notes are being organized as thought panels." tone="green" className="comic-span-7 comic-tilt-left">
@@ -48,7 +55,7 @@ export default function FieldNotesPage() {
           <div className="flex gap-3">
             <FlaskConical className="mt-1 h-5 w-5 text-cyan" />
             <p>
-              When a note becomes a build, it should eventually link into the projects page with
+              When a note becomes a build, it should eventually link into the builds page with
               code, context, and a cleaner artifact trail.
             </p>
           </div>

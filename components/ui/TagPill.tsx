@@ -33,13 +33,13 @@ export function TagPill({
   return (
     <span
       className={cn(
-        'inline-flex items-center rounded-full border font-medium',
+        'inline-flex max-w-full items-center rounded-full border font-medium leading-tight',
         colorClasses[color],
         sizeClasses[size],
         className
       )}
     >
-      {children}
+      <span className="min-w-0 truncate">{children}</span>
     </span>
   );
 }

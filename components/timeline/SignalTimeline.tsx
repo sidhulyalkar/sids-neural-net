@@ -14,7 +14,7 @@ interface SignalTimelineProps {
 const CATEGORY_CONFIG: Record<TimelineEvent['category'], { icon: LucideIcon; color: string; label: string }> = {
   career: { icon: Briefcase, color: 'cyan', label: 'Career' },
   research: { icon: Microscope, color: 'violet', label: 'Research' },
-  project: { icon: Star, color: 'green', label: 'Project' },
+  project: { icon: Star, color: 'green', label: 'Build' },
   publication: { icon: FileText, color: 'amber', label: 'Publication' },
   milestone: { icon: GraduationCap, color: 'cyan', label: 'Milestone' },
   learning: { icon: GraduationCap, color: 'violet', label: 'Learning' },
@@ -121,7 +121,7 @@ export function SignalTimeline({ events }: SignalTimelineProps) {
             </div>
 
             {/* Events for this year */}
-            <div className="space-y-6 ml-8 pl-8 border-l border-border-subtle">
+            <div className="ml-8 space-y-6 border-l border-white/10 pl-8">
               {yearEvents.map((event) => {
                 const config = CATEGORY_CONFIG[event.category];
                 const Icon = config.icon;
@@ -186,16 +186,31 @@ export function SignalTimeline({ events }: SignalTimelineProps) {
                     {/* Links */}
                     {event.links.length > 0 && (
                       <div className="flex flex-wrap gap-2">
-                        {event.links.map((link, i) => (
-                          <Link
-                            key={i}
-                            href={link.href}
-                            className="inline-flex items-center gap-1 text-xs text-cyan hover:underline"
-                          >
-                            {link.label}
-                            {link.href.startsWith('http') && <ExternalLink className="w-3 h-3" />}
-                          </Link>
-                        ))}
+                        {event.links.map((link, i) => {
+                          const isExternal = link.href.startsWith('http');
+                          const className = 'inline-flex min-h-8 items-center gap-1 text-xs text-cyan hover:underline';
+
+                          if (isExternal) {
+                            return (
+                              <a
+                                key={i}
+                                href={link.href}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className={className}
+                              >
+                                {link.label}
+                                <ExternalLink className="w-3 h-3" />
+                              </a>
+                            );
+                          }
+
+                          return (
+                            <Link key={i} href={link.href} className={className}>
+                              {link.label}
+                            </Link>
+                          );
+                        })}
                       </div>
                     )}
                   </div>

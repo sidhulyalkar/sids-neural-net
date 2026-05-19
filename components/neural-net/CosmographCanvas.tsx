@@ -61,10 +61,6 @@ export function CosmographCanvas({
           linkWidth={(link: CosmographLink) => Math.max(0.45, link.weight / 7)}
           linkWidthScale={0.12}
           backgroundColor="transparent"
-          curvedLinks
-          curvedLinkSegments={24}
-          curvedLinkWeight={0.7}
-          curvedLinkControlPointDistance={0.42}
           renderHoveredNodeRing
           hoveredNodeRingColor="#66e3ff"
           focusedNodeRingColor="#f8fbff"

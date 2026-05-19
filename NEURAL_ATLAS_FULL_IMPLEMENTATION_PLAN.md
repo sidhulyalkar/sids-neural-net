@@ -12,8 +12,8 @@ The website should feel like navigating through a living neural tissue map.
 
 The homepage begins in a large 2D/3D neural space. At the center are major category neuron cell bodies representing:
 
-- About / Identity
-- Professional Work / Deployed Systems
+- About / Origin Signal
+- Professional Work / Field Systems
 - Projects / Code
 - Publications / Papers
 - Research Ideas
@@ -209,7 +209,7 @@ Current repo context:
 
 New product vision:
 The entire site should begin as a large 2D/3D navigable neural space. At the center are several large category neuron cell bodies:
-1. About / Identity
+1. About / Origin Signal
 2. Professional Work
 3. Projects / Code
 4. Publications / Papers
@@ -897,7 +897,7 @@ Update atlasDataAdapter.ts and any curated metadata files so each category has h
 
 Categories:
 
-1. About / Identity
+1. About / Origin Signal
    - Summary of who I am
    - Key identity nodes:
      - neuroscience data systems
@@ -1158,10 +1158,10 @@ Tasks:
      - photography/adventure as perceptual craft.
 
 2. Improve category labels:
-   - Professional Work could be "Deployed Systems"
-   - Projects / Code could be "Build Cortex"
-   - Publications could be "Paper Archive"
-   - Research Ideas could be "Speculative Circuits"
+   - Professional Work could be "Field Systems"
+   - Projects / Code could be "Build Log"
+   - Publications could be "Literature Trace"
+   - Research Ideas could be "Future Circuits"
    - Personal Interests could be "Field Inputs"
    - Photography could be "Visual Field Notes"
    Use tasteful labels, but keep clarity.
@@ -1410,4 +1410,3 @@ Preserve clarity. The site can be strange, elegant, and neuron-shaped, but visit
 - GitHub/LinkedIn.
 
 The atlas should be beautiful, but it should not become a glowing maze with a résumé trapped inside.
-

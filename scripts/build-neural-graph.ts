@@ -48,18 +48,22 @@ interface GitHubRepo {
   };
 }
 
+type ModeVisibility = 'recruiter' | 'researcher' | 'builder' | 'full-brain' | 'personal';
+
 interface ManualOverride {
   slug: string;
   importance?: number;
   title?: string;
   summary?: string;
   description?: string;
+  sourceUrl?: string;
   tags?: string[];
   domains?: string[];
   featured?: boolean;
-  modeVisibility?: string[];
+  modeVisibility?: ModeVisibility[];
   cluster?: string;
-  status?: string;
+  status?: 'active' | 'complete' | 'archived' | 'experimental' | 'learning';
+  hidden?: boolean;
 }
 
 interface Publication {
@@ -232,7 +236,7 @@ function mergeNodes(
       status: (override?.status ?? repo.status) as any,
       updatedAt: repo.updatedAt,
       source: 'github',
-      sourceUrl: repo.sourceUrl,
+      sourceUrl: override?.sourceUrl ?? repo.sourceUrl,
       featured: override?.featured ?? false,
       modeVisibility: (override?.modeVisibility ?? ['full-brain']) as any,
       cluster: override?.cluster,
@@ -245,17 +249,23 @@ function mergeNodes(
   // Add/merge context docs (higher priority than GitHub)
   for (const doc of contextDocs) {
     const existing = nodes.get(doc.slug);
+    const override = overrides.get(doc.slug);
     if (existing) {
       // Merge: context doc takes priority
       nodes.set(doc.slug, {
         ...existing,
         ...doc,
+        ...override,
         // Keep GitHub data
         github: existing.github,
-        sourceUrl: existing.sourceUrl ?? doc.sourceUrl,
+        sourceUrl: override?.sourceUrl ?? existing.sourceUrl ?? doc.sourceUrl,
       });
     } else {
-      nodes.set(doc.slug, doc);
+      nodes.set(doc.slug, {
+        ...doc,
+        ...override,
+        sourceUrl: override?.sourceUrl ?? doc.sourceUrl,
+      });
     }
   }
 
@@ -277,6 +287,7 @@ function mergeNodes(
         visualWeight: 3,
         status: (override.status ?? 'active') as any,
         source: 'manual',
+        sourceUrl: override.sourceUrl,
         featured: override.featured ?? false,
         modeVisibility: (override.modeVisibility ?? ['full-brain']) as any,
         cluster: override.cluster,
@@ -448,7 +459,15 @@ async function main() {
   console.log(`  - ${contextDocs.length} context docs`);
 
   // Merge and process
-  const nodes = mergeNodes(githubRepos, overrides, contextDocs, publications);
+  const allNodes = mergeNodes(githubRepos, overrides, contextDocs, publications);
+
+  // Filter out hidden nodes
+  const hiddenSlugs = new Set<string>();
+  for (const [slug, override] of overrides) {
+    if (override.hidden) hiddenSlugs.add(slug);
+  }
+  const nodes = allNodes.filter((n) => !hiddenSlugs.has(n.slug));
+
   const edges = generateEdges(nodes);
 
   console.log(`\nGenerated:`);

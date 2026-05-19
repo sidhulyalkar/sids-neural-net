@@ -1,92 +1,86 @@
 import { Metadata } from 'next';
-import { BrainCircuit, DatabaseZap, GitBranch, MessagesSquare, RadioTower, Search } from 'lucide-react';
 import { ComicSectionLayout } from '@/components/neural-atlas/ComicSectionLayout';
-import { NodeDetailPanel } from '@/components/neural-atlas/NodeDetailPanel';
 
 export const metadata: Metadata = {
   title: 'Research Ideas',
-  description: 'Speculative research ideas around brain dynamics, interpretability, BCI, and scientific tools.',
+  description: 'Research ideas around brain dynamics, interpretability, BCI, and scientific tools.',
+  alternates: {
+    canonical: '/ideas',
+  },
+  openGraph: {
+    title: 'Research Ideas | Sid Neural Net',
+    description: 'Research sketches around brain dynamics, interpretability, BCI, and scientific tools.',
+    url: '/ideas',
+  },
 };
 
 const ideas = [
   {
-    icon: BrainCircuit,
-    label: 'Foundation Models',
     title: 'Foundation models for brain dynamics.',
-    copy: 'Long-context neural time series, behavioral tokens, latent state transitions, and models that can learn across animals, sessions, tasks, and modalities.',
-    tone: 'violet' as const,
-    className: 'comic-span-8 comic-tilt-left',
+    premise: 'Long-context neural time series, behavioral tokens, latent state transitions, and models that can learn across sessions, tasks, and modalities.',
+    domains: ['neural time series', 'multimodal ML'],
+    status: 'sketch',
   },
   {
-    icon: Search,
-    label: 'Searchable Maps',
     title: 'Neural embeddings as navigable memory.',
-    copy: 'Represent experiments as searchable maps: recordings, behavior, metadata, code, paper context, and model states aligned into useful retrieval space.',
-    tone: 'cyan' as const,
-    className: 'comic-span-4 comic-tilt-right md:mt-10',
+    premise: 'Represent recordings, behavior, metadata, code, paper context, and model states as a searchable research map.',
+    domains: ['retrieval', 'scientific tooling'],
+    status: 'draft',
   },
   {
-    icon: GitBranch,
-    label: 'Interpretability',
-    title: 'Mechanistic interpretability for neural systems.',
-    copy: 'Use circuit-style methods to inspect models trained on brain and behavior, then connect learned mechanisms back to biological hypotheses.',
-    tone: 'green' as const,
-    className: 'comic-span-6',
+    title: 'Mechanistic interpretability for neural models.',
+    premise: 'Inspect models trained on brain and behavior, then connect learned mechanisms back to biological hypotheses.',
+    domains: ['interpretability', 'neuroAI'],
+    status: 'active',
   },
   {
-    icon: RadioTower,
-    label: 'Closed Loop',
-    title: 'BCI infrastructure that treats latency as a first-class object.',
-    copy: 'Streaming, decoding, feedback, observability, and adaptation for systems that have to operate while the brain and body keep moving.',
-    tone: 'rose' as const,
-    className: 'comic-span-6 comic-tilt-right',
+    title: 'Latency-aware BCI infrastructure.',
+    premise: 'Streaming, decoding, feedback, observability, and adaptation for systems that have to operate in real time.',
+    domains: ['BCI', 'real-time systems'],
+    status: 'active',
   },
   {
-    icon: DatabaseZap,
-    label: 'Multimodal Data',
-    title: 'Behavioral and neural datasets as living systems.',
-    copy: 'Pipelines where pose, video, calcium imaging, electrophysiology, stimulation, and task events stay queryable and reproducible.',
-    tone: 'amber' as const,
-    className: 'comic-span-5 comic-tilt-left',
+    title: 'Multimodal datasets as living systems.',
+    premise: 'Pipelines where pose, video, calcium imaging, electrophysiology, stimulation, and task events stay queryable and reproducible.',
+    domains: ['data infrastructure', 'reproducibility'],
+    status: 'draft',
   },
   {
-    icon: MessagesSquare,
-    label: 'Scientific Tools',
     title: 'AI-assisted instruments for researchers.',
-    copy: 'Tools that help scientists inspect experiments, generate hypotheses, compare model behavior, and move from artifact to interpretation faster.',
-    tone: 'cyan' as const,
-    className: 'comic-span-7 md:mt-8',
+    premise: 'Tools for inspecting experiments, comparing model behavior, and moving from artifact to interpretation with clearer provenance.',
+    domains: ['research tools', 'applied AI'],
+    status: 'sketch',
   },
 ];
 
 export default function IdeasPage() {
   return (
     <ComicSectionLayout
-      eyebrow="Thought Nodes"
-      title="Speculative systems I keep circling."
-      intro="These are research directions rather than finished claims: a chamber for foundation models of brain dynamics, interpretable neural systems, closed-loop infrastructure, and AI tools that make science more navigable."
+      eyebrow="research"
+      title="research ideas"
     >
-      <div className="comic-grid">
-        {ideas.map((idea) => {
-          const Icon = idea.icon;
-          return (
-            <NodeDetailPanel
-              key={idea.label}
-              label={idea.label}
-              title={idea.title}
-              tone={idea.tone}
-              className={idea.className}
-            >
-              <div className="mb-4 flex items-center gap-3">
-                <span className="flex h-11 w-11 items-center justify-center border border-cyan/25 bg-cyan/10 text-cyan">
-                  <Icon className="h-5 w-5" />
+      <div className="relative grid gap-4 md:grid-cols-2">
+        {ideas.map((idea, index) => (
+          <article key={idea.title} className={`future-circuit-card p-5 ${index % 2 ? 'md:translate-y-8' : ''}`}>
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <p className="font-mono text-[0.66rem] uppercase tracking-[0.22em] text-cyan/70">
+                concept {String(index + 1).padStart(2, '0')}
+              </p>
+              <span className="border border-white/10 px-2 py-1 font-mono text-[0.62rem] uppercase tracking-[0.16em] text-text-muted">
+                {idea.status}
+              </span>
+            </div>
+            <h2 className="text-xl font-semibold leading-tight text-text-primary">{idea.title}</h2>
+            <p className="mt-3 text-sm leading-6 text-text-secondary">{idea.premise}</p>
+            <div className="mt-5 flex flex-wrap gap-3 border-t border-white/10 pt-4">
+              {idea.domains.map((domain) => (
+                <span key={domain} className="font-mono text-[0.62rem] uppercase tracking-[0.16em] text-text-muted">
+                  {domain}
                 </span>
-                <span className="h-px flex-1 bg-cyan/20" />
-              </div>
-              <p>{idea.copy}</p>
-            </NodeDetailPanel>
-          );
-        })}
+              ))}
+            </div>
+          </article>
+        ))}
       </div>
     </ComicSectionLayout>
   );

@@ -1,100 +1,119 @@
 import { Metadata } from 'next';
-import { Mail, Github, Linkedin, MapPin } from 'lucide-react';
+import { BookOpen, FileText, Github, Linkedin, Mail, MapPin } from 'lucide-react';
 import { ComicSectionLayout } from '@/components/neural-atlas/ComicSectionLayout';
-import { NodeDetailPanel } from '@/components/neural-atlas/NodeDetailPanel';
 
 export const metadata: Metadata = {
   title: 'Contact',
-  description: 'Get in touch with Sidharth Hulyalkar.',
+  description:
+    'Contact Sidharth Hulyalkar for neuroscience data infrastructure, multimodal ML, BCI systems, applied AI, and creative technical collaborations.',
+  alternates: {
+    canonical: '/contact',
+  },
+  openGraph: {
+    title: 'Contact | Sid Neural Net',
+    description: 'Email, GitHub, LinkedIn, and collaboration channels for Sidharth Hulyalkar.',
+    url: '/contact',
+  },
 };
+
+const toneClasses = {
+  cyan: 'border-cyan/25 text-cyan hover:border-cyan/50',
+  violet: 'border-violet/25 text-violet hover:border-violet/50',
+  blue: 'border-blue-500/25 text-blue-400 hover:border-blue-500/50',
+  green: 'border-green/25 text-green hover:border-green/50',
+  amber: 'border-amber/25 text-amber hover:border-amber/50',
+} as const;
+
+const socialLinks = [
+  {
+    label: 'Email',
+    value: 'sidsoccer21@gmail.com',
+    href: 'mailto:sidsoccer21@gmail.com',
+    tone: 'cyan' as const,
+    icon: Mail,
+  },
+  {
+    label: 'GitHub',
+    value: '@sidhulyalkar',
+    href: 'https://github.com/sidhulyalkar',
+    external: true,
+    tone: 'violet' as const,
+    icon: Github,
+  },
+  {
+    label: 'LinkedIn',
+    value: 'sidharth-hulyalkar',
+    href: 'https://www.linkedin.com/in/sidharth-hulyalkar/',
+    external: true,
+    tone: 'blue' as const,
+    icon: Linkedin,
+  },
+  {
+    label: 'Google Scholar',
+    value: 'citations',
+    href: 'https://scholar.google.com/citations?user=nuvjyyMAAAAJ&hl=en',
+    external: true,
+    tone: 'amber' as const,
+    icon: BookOpen,
+  },
+  {
+    label: 'Resume',
+    value: 'Current PDF',
+    href: '/resume/SidharthHulyalkar_Resume.pdf',
+    external: true,
+    tone: 'green' as const,
+    icon: FileText,
+  },
+  {
+    label: 'Location',
+    value: 'Los Gatos, California',
+    tone: 'green' as const,
+    icon: MapPin,
+  },
+];
 
 export default function ContactPage() {
   return (
     <ComicSectionLayout
-      eyebrow="Open Channel"
-      title="Collaborations, roles, systems, and strange useful prototypes."
-      intro="Let's connect around neuroscience infrastructure, applied AI, multimodal systems, research tools, or interesting problems with enough ambiguity to be worth building through."
+      eyebrow="contact"
+      title="contact"
     >
-        <div className="comic-grid">
-          <a
-            href="mailto:sidhulyalkar@gmail.com"
-            className="comic-panel comic-span-6 p-6 group"
-          >
-            <div className="flex items-center gap-4">
-              <div className="flex h-12 w-12 items-center justify-center rounded-md bg-cyan/10 border border-cyan/20">
-                <Mail className="h-6 w-6 text-cyan" />
-              </div>
-              <div>
-                <div className="font-semibold text-text-primary group-hover:text-cyan transition-colors">
-                  Email
-                </div>
-                <div className="text-sm text-text-muted">sidhulyalkar@gmail.com</div>
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 max-w-4xl">
+        {socialLinks.map((link) => {
+          const Icon = link.icon;
+          const content = (
+            <div className="flex items-center gap-3">
+              <Icon className="h-4 w-4 flex-shrink-0" />
+              <div className="min-w-0">
+                <div className="font-mono text-xs uppercase tracking-wide">{link.label}</div>
+                <div className="truncate text-sm text-text-secondary mt-0.5">{link.value}</div>
               </div>
             </div>
-          </a>
+          );
 
-          <a
-            href="https://github.com/sidhulyalkar"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="comic-panel comic-span-6 comic-tilt-right p-6 group"
-          >
-            <div className="flex items-center gap-4">
-              <div className="flex h-12 w-12 items-center justify-center rounded-md bg-violet/10 border border-violet/20">
-                <Github className="h-6 w-6 text-violet" />
-              </div>
-              <div>
-                <div className="font-semibold text-text-primary group-hover:text-violet transition-colors">
-                  GitHub
-                </div>
-                <div className="text-sm text-text-muted">@sidhulyalkar</div>
-              </div>
-            </div>
-          </a>
+          const baseClass = `group block border bg-white/[0.02] p-4 transition-colors ${toneClasses[link.tone]}`;
 
-          <a
-            href="https://linkedin.com/in/sidhulyalkar"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="comic-panel comic-span-5 comic-tilt-left p-6 group"
-          >
-            <div className="flex items-center gap-4">
-              <div className="flex h-12 w-12 items-center justify-center rounded-md bg-blue-500/10 border border-blue-500/20">
-                <Linkedin className="h-6 w-6 text-blue-400" />
+          if (!link.href) {
+            return (
+              <div key={link.label} className={baseClass}>
+                {content}
               </div>
-              <div>
-                <div className="font-semibold text-text-primary group-hover:text-blue-400 transition-colors">
-                  LinkedIn
-                </div>
-                <div className="text-sm text-text-muted">sidhulyalkar</div>
-              </div>
-            </div>
-          </a>
+            );
+          }
 
-          <div className="comic-panel comic-span-7 p-6">
-            <div className="flex items-center gap-4">
-              <div className="flex h-12 w-12 items-center justify-center rounded-md bg-green/10 border border-green/20">
-                <MapPin className="h-6 w-6 text-green" />
-              </div>
-              <div>
-                <div className="font-semibold text-text-primary">Location</div>
-                <div className="text-sm text-text-muted">San Diego, California</div>
-              </div>
-            </div>
-          </div>
-          <NodeDetailPanel
-            label="Best Fit"
-            title="Work where the system has to be both rigorous and alive."
-            tone="cyan"
-            className="comic-span-12"
-          >
-            <p>
-              I am especially interested in neural data infrastructure, applied AI products, scientific
-              workflow systems, multimodal ML, BCI tools, interpretability, and creative technical work
-              that needs a builder with taste and tolerance for messy reality.
-            </p>
-          </NodeDetailPanel>
-        </div>
+          return (
+            <a
+              key={link.label}
+              href={link.href}
+              target={link.external ? '_blank' : undefined}
+              rel={link.external ? 'noopener noreferrer' : undefined}
+              className={baseClass}
+            >
+              {content}
+            </a>
+          );
+        })}
+      </div>
     </ComicSectionLayout>
   );
 }

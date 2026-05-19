@@ -15,7 +15,7 @@ interface GraphFiltersProps {
 }
 
 const TYPE_LABELS: Record<string, string> = {
-  project: 'Projects',
+  project: 'Builds',
   publication: 'Publications',
   role: 'Roles',
   organization: 'Organizations',
@@ -116,7 +116,7 @@ export function GraphFilters({
                   : 'bg-bg-deep text-text-muted border-border-subtle hover:border-cyan/30'
               }`}
             >
-              {m === 'full-brain' ? 'Full Brain' : m.charAt(0).toUpperCase() + m.slice(1)}
+              {m === 'full-brain' ? 'Complete' : m.charAt(0).toUpperCase() + m.slice(1)}
             </button>
           ))}
         </div>

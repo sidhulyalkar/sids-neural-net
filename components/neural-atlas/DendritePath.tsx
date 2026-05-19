@@ -23,7 +23,7 @@ function pathFor(source: NeuralAtlasNode, target: NeuralAtlasNode, bend = 0) {
   const controlX = midX + normalX * bend;
   const controlY = midY + normalY * bend;
 
-  return `M ${source.x} ${source.y} Q ${controlX} ${controlY} ${target.x} ${target.y}`;
+  return `M ${source.x} ${source.y} L ${controlX} ${controlY} L ${target.x} ${target.y}`;
 }
 
 function branchFor(source: NeuralAtlasNode, target: NeuralAtlasNode, bend: number, t: number, side: 1 | -1) {
@@ -41,7 +41,7 @@ function branchFor(source: NeuralAtlasNode, target: NeuralAtlasNode, bend: numbe
   const y = oneMinusT * oneMinusT * source.y + 2 * oneMinusT * t * controlY + t * t * target.y;
   const twig = Math.max(3.6, Math.min(8.5, length * 0.15));
 
-  return `M ${x} ${y} Q ${x + normalX * twig * 0.55} ${y + normalY * twig * 0.55} ${x + normalX * twig} ${y + normalY * twig}`;
+  return `M ${x} ${y} L ${x + normalX * twig * 0.55} ${y + normalY * twig * 0.55} L ${x + normalX * twig} ${y + normalY * twig}`;
 }
 
 export function DendritePath({

@@ -2,6 +2,10 @@
 # These merge with GitHub-ingested data, with manual values taking precedence
 
 overrides:
+  # === HIDDEN: Non-project files ===
+  claude-code-ingestion-instructions:
+    hidden: true
+    importance: 0
   # === TOP PRIORITY: DataJoint Work ===
   datajoint-multimodal-infrastructure:
     importance: 100
@@ -12,14 +16,25 @@ overrides:
       - Neural Data Infrastructure
       - Scientific Workflow Systems
     tags:
+      - Python
       - DataJoint
-      - AWS
       - Docker
+      - AWS
       - Kubernetes
-      - calcium-imaging
-      - electrophysiology
+      - MySQL
+      - S3
+      - EFS
+      - Terraform
+      - SpikeInterface
+      - Suite2p
+      - CaImAn
       - DeepLabCut
       - Facemap
+      - fiber photometry
+      - calcium imaging
+      - electrophysiology
+      - pose estimation
+      - worker orchestration
     cluster: "Neural Data Infrastructure"
     modeVisibility:
       - recruiter
@@ -32,16 +47,30 @@ overrides:
     featured: true
     title: "Harvard Sabatini DataJoint Pipeline"
     summary: "Led a major customer deployment for Harvard/Sabatini Lab involving multimodal neuroscience processing and visualization over ~12TB-scale datasets."
+    sourceUrl: "https://github.com/bernardosabatinilab/sabatini-datajoint-pipeline"
     domains:
       - Neural Data Infrastructure
       - Scientific Workflow Systems
     tags:
+      - Python
       - DataJoint
-      - Harvard
-      - Sabatini
-      - AWS
       - Docker
-      - calcium-imaging
+      - AWS
+      - Kubernetes
+      - MySQL
+      - S3
+      - EFS
+      - Terraform
+      - SpikeInterface
+      - Suite2p
+      - CaImAn
+      - DeepLabCut
+      - Facemap
+      - fiber photometry
+      - calcium imaging
+      - electrophysiology
+      - pose estimation
+      - worker orchestration
     cluster: "Neural Data Infrastructure"
     modeVisibility:
       - recruiter
@@ -58,12 +87,17 @@ overrides:
       - NEATLABs Research
       - Neural Signal Discovery
     tags:
-      - UCSD
-      - NEATLABs
-      - LFP
       - MATLAB
-      - Electrophysiology
-      - Research
+      - Python
+      - LFP
+      - EEG
+      - behavioral analysis
+      - Granger causality
+      - cross-correlation
+      - Q-learning
+      - electrophysiology
+      - optogenetics
+      - behavioral rigs
     cluster: "NEATLABs Research"
     modeVisibility:
       - recruiter
@@ -79,11 +113,16 @@ overrides:
       - NEATLABs Research
       - Neural Signal Discovery
     tags:
-      - DTW
-      - TCA
-      - LFP
       - MATLAB
-      - Neural Analysis
+      - Python
+      - LFP
+      - EEG
+      - behavioral analysis
+      - Granger causality
+      - cross-correlation
+      - Q-learning
+      - electrophysiology
+      - optogenetics
     cluster: "NEATLABs Research"
     modeVisibility:
       - researcher
@@ -99,11 +138,20 @@ overrides:
       - BCI & Real-Time Systems
       - Neural Foundation Models
     tags:
-      - neurOS
-      - BCI
-      - real-time
-      - foundation-models
       - Python
+      - PyTorch
+      - FastAPI
+      - NWB
+      - Zarr
+      - WebDataset
+      - Mamba
+      - transformers
+      - Perceiver IO
+      - LoRA
+      - FSDP
+      - real-time inference
+      - neural time series
+      - foundation models
     cluster: "Foundation Models & BCI"
     modeVisibility:
       - recruiter
@@ -118,9 +166,17 @@ overrides:
     domains:
       - BCI & Real-Time Systems
     tags:
-      - neurOS
-      - BCI
-      - orchestration
+      - Python
+      - PyTorch
+      - FastAPI
+      - Mamba
+      - Perceiver IO
+      - LoRA
+      - FSDP
+      - NWB
+      - Zarr
+      - real-time inference
+      - neural time series
     cluster: "Foundation Models & BCI"
     modeVisibility:
       - builder
@@ -135,10 +191,10 @@ overrides:
       - BCI & Real-Time Systems
       - Applied AI Products
     tags:
-      - BCI
-      - agents
-      - middleware
       - Python
+      - FastAPI
+      - real-time systems
+      - BCI infrastructure
     cluster: "Foundation Models & BCI"
     modeVisibility:
       - builder
@@ -152,10 +208,14 @@ overrides:
     domains:
       - Mechanistic Interpretability
     tags:
-      - mechanistic-interpretability
-      - transformers
-      - neural
       - Python
+      - PyTorch
+      - mechanistic interpretability
+      - path patching
+      - ACDC
+      - counterfactual interventions
+      - Bokeh
+      - Plotly
     cluster: "Mechanistic Interpretability"
     modeVisibility:
       - researcher
@@ -212,17 +272,36 @@ overrides:
       - builder
       - full-brain
 
-  # === DataJoint Element Forks ===
+  # === DataJoint Elements ===
   element-deeplabcut:
     importance: 80
-    title: "Element DeepLabCut (Fork)"
+    title: "Element DeepLabCut"
     summary: "DataJoint Element for behavioral analysis with DeepLabCut - contributed improvements."
     domains:
       - Neural Data Infrastructure
     tags:
+      - Python
       - DataJoint
       - DeepLabCut
-      - pose-estimation
+      - pose estimation
+      - behavioral analysis
+    cluster: "DataJoint Elements"
+    modeVisibility:
+      - builder
+      - full-brain
+
+  element-facemap:
+    importance: 78
+    title: "Element Facemap"
+    summary: "DataJoint Element for facial inference and video-derived behavior features with Facemap."
+    domains:
+      - Neural Data Infrastructure
+    tags:
+      - Python
+      - DataJoint
+      - Facemap
+      - pose estimation
+      - behavioral analysis
     cluster: "DataJoint Elements"
     modeVisibility:
       - builder
@@ -230,13 +309,14 @@ overrides:
 
   element-calcium-imaging:
     importance: 80
-    title: "Element Calcium Imaging (Fork)"
+    title: "Element Calcium Imaging"
     summary: "DataJoint Element for multi-photon calcium imaging analysis."
     domains:
       - Neural Data Infrastructure
     tags:
+      - Python
       - DataJoint
-      - calcium-imaging
+      - calcium imaging
       - Suite2p
       - CaImAn
     cluster: "DataJoint Elements"
