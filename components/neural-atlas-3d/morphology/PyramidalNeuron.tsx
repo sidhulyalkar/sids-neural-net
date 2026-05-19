@@ -5,17 +5,11 @@ import { AdditiveBlending, CatmullRomCurve3, Vector3 } from 'three';
 import { SomaMesh, seededRandom } from './SomaMesh';
 import type { NeuronMorphologyProps } from './SomaMesh';
 
-type Branch = {
+type DendriteBranch = {
   id: string;
   curve: CatmullRomCurve3;
   radius: number;
-};
-
-type Spine = {
-  id: string;
-  position: [number, number, number];
-  scale: [number, number, number];
-  rotation: [number, number, number];
+  depth: number;
 };
 
 export function PyramidalNeuron({
@@ -28,202 +22,243 @@ export function PyramidalNeuron({
   seed = 'pyramidal',
   onClick,
 }: NeuronMorphologyProps) {
-  const branches = useMemo(() => buildBranches(seed), [seed]);
-  const spines = useMemo(() => buildSpines(seed, branches, 0.42), [branches, seed]);
-  const stateBoost = selected ? 1.14 : active ? 1.08 : 1;
-  const branchOpacity = selected ? 0.9 : active ? 0.74 : hovered ? 0.68 : 0.52;
+  const branches = useMemo(() => buildDendriticTree(seed), [seed]);
+  const stateBoost = selected ? 1.12 : active ? 1.06 : 1;
+  const baseOpacity = selected ? 0.88 : active ? 0.72 : hovered ? 0.65 : 0.5;
 
   return (
     <group position={position} scale={scale * stateBoost} onClick={onClick}>
-      <group scale={[0.78, 0.95, 0.78]}>
-        <SomaMesh color={color} scale={0.78} active={active} hovered={hovered} selected={selected} seed={`${seed}:soma`} />
+      {/* Organic soma */}
+      <group scale={[0.85, 1.0, 0.85]}>
+        <SomaMesh
+          color={color}
+          scale={0.75}
+          active={active}
+          hovered={hovered}
+          selected={selected}
+          seed={`${seed}:soma`}
+        />
       </group>
 
-      <mesh position={[0, 0.18, 0]} scale={[0.74, 1.08, 0.66]}>
-        <coneGeometry args={[0.56, 1.12, 5]} />
-        <meshStandardMaterial
+      {/* Apical glow cone */}
+      <mesh position={[0, 0.6, 0]} scale={[0.25, 0.8, 0.25]}>
+        <coneGeometry args={[0.5, 1.2, 6]} />
+        <meshBasicMaterial
           color={color}
-          emissive="#b99a54"
-          emissiveIntensity={selected ? 0.64 : active || hovered ? 0.42 : 0.24}
-          roughness={0.9}
-          metalness={0}
+          transparent
+          opacity={0.08}
+          blending={AdditiveBlending}
+          depthWrite={false}
         />
       </mesh>
 
-      <mesh position={[0, 0.92, 0]} scale={[0.42, 1.6, 0.42]}>
-        <sphereGeometry args={[0.28, 18, 14]} />
-        <meshBasicMaterial color={color} transparent opacity={0.22} blending={AdditiveBlending} depthWrite={false} />
-      </mesh>
+      {/* All dendritic branches */}
+      {branches.map((branch) => {
+        const opacity = baseOpacity * (1 - branch.depth * 0.12);
+        const emissiveBoost = selected ? 0.38 : active || hovered ? 0.26 : 0.14;
 
-      {branches.map((branch) => (
-        <mesh key={branch.id}>
-          <tubeGeometry args={[branch.curve, 18, branch.radius * (active ? 1.14 : 1), 7, false]} />
-          <meshStandardMaterial
-            color={color}
-            emissive="#9f8142"
-            emissiveIntensity={selected ? 0.42 : active || hovered ? 0.3 : 0.16}
-            transparent
-            opacity={branchOpacity}
-            roughness={0.92}
-            metalness={0}
-          />
-        </mesh>
-      ))}
-      {spines.map((spine) => (
-        <mesh key={spine.id} position={spine.position} rotation={spine.rotation} scale={spine.scale}>
-          <coneGeometry args={[1, 1, 5]} />
-          <meshStandardMaterial
-            color="#d7c58b"
-            emissive="#b99a54"
-            emissiveIntensity={active || hovered ? 0.24 : 0.1}
-            transparent
-            opacity={active || hovered ? 0.78 : 0.58}
-            roughness={0.95}
-            metalness={0}
-          />
-        </mesh>
-      ))}
+        return (
+          <mesh key={branch.id}>
+            <tubeGeometry
+              args={[branch.curve, Math.max(8, 16 - branch.depth * 2), branch.radius, 5, false]}
+            />
+            <meshStandardMaterial
+              color={color}
+              emissive={color}
+              emissiveIntensity={emissiveBoost * (1 - branch.depth * 0.1)}
+              transparent
+              opacity={opacity}
+              roughness={0.85}
+              metalness={0}
+            />
+          </mesh>
+        );
+      })}
     </group>
   );
 }
 
-function buildBranches(seed: string): Branch[] {
+function buildDendriticTree(seed: string): DendriteBranch[] {
   const random = seededRandom(seed);
-  const branches: Branch[] = [];
+  const branches: DendriteBranch[] = [];
 
-  // Main apical dendrite - longer with more control points for organic curve
-  const apicalWobble = () => (random() - 0.5) * 0.15;
+  // Helper to add a branch with potential children
+  const addBranch = (
+    id: string,
+    start: Vector3,
+    direction: Vector3,
+    length: number,
+    radius: number,
+    depth: number,
+    maxDepth: number
+  ) => {
+    if (depth > maxDepth || radius < 0.003) return;
+
+    const wobble = () => (random() - 0.5) * 0.15 * length;
+    const segments = Math.max(2, 4 - depth);
+    const points: Vector3[] = [start.clone()];
+
+    // Build curved path with organic wobble
+    for (let i = 1; i <= segments; i++) {
+      const t = i / segments;
+      const pos = start.clone().add(direction.clone().multiplyScalar(length * t));
+      pos.x += wobble();
+      pos.y += wobble() * 0.5;
+      pos.z += wobble();
+      points.push(pos);
+    }
+
+    const endPoint = points[points.length - 1];
+    branches.push({
+      id,
+      curve: new CatmullRomCurve3(points),
+      radius,
+      depth,
+    });
+
+    // Spawn child branches with decreasing probability
+    if (depth < maxDepth) {
+      const childCount = Math.floor(random() * 3) + (depth < 2 ? 2 : 1);
+      for (let i = 0; i < childCount; i++) {
+        if (random() > 0.3 + depth * 0.15) continue;
+
+        const branchAngle = (random() - 0.5) * Math.PI * 0.8;
+        const elevationAngle = (random() - 0.5) * Math.PI * 0.5;
+        const childDir = new Vector3(
+          direction.x + Math.sin(branchAngle) * 0.7,
+          direction.y + Math.sin(elevationAngle) * 0.4,
+          direction.z + Math.cos(branchAngle) * 0.7
+        ).normalize();
+
+        addBranch(
+          `${id}:${i}`,
+          endPoint.clone().add(direction.clone().multiplyScalar(-length * 0.15 * random())),
+          childDir,
+          length * (0.5 + random() * 0.3),
+          radius * (0.55 + random() * 0.2),
+          depth + 1,
+          maxDepth
+        );
+      }
+    }
+  };
+
+  // Main apical dendrite - extends upward with extensive branching
+  const apicalBase = new Vector3(0, 0.35, 0);
+  const apicalDir = new Vector3(0, 1, 0);
+
+  // Build main apical trunk
+  const apicalLength = 2.2 + random() * 0.6;
+  const apicalPoints: Vector3[] = [];
+  for (let i = 0; i <= 6; i++) {
+    const t = i / 6;
+    const wobble = (random() - 0.5) * 0.12;
+    apicalPoints.push(new Vector3(
+      wobble * t,
+      0.35 + apicalLength * t,
+      wobble * t * 0.8
+    ));
+  }
+
   branches.push({
-    id: 'apical',
-    radius: 0.032,
-    curve: new CatmullRomCurve3([
-      new Vector3(0, 0.45, 0),
-      new Vector3(apicalWobble(), 0.85, apicalWobble()),
-      new Vector3(apicalWobble() * 1.2, 1.35, apicalWobble()),
-      new Vector3(apicalWobble() * 1.5, 1.95, apicalWobble() * 1.2),
-      new Vector3(apicalWobble() * 1.8, 2.65, apicalWobble() * 1.5),
-      new Vector3(apicalWobble() * 2, 3.2, apicalWobble() * 1.8),
-    ]),
+    id: 'apical-main',
+    curve: new CatmullRomCurve3(apicalPoints),
+    radius: 0.028,
+    depth: 0,
   });
 
-  // Basal dendrites - more branches with secondary branching
-  for (let index = 0; index < 9; index += 1) {
-    const angle = (index / 9) * Math.PI * 2 + (random() - 0.5) * 0.4;
-    const spread = 0.65 + random() * 0.55;
-    const y = -0.25 - random() * 0.35;
-    const z = (random() - 0.5) * 0.5;
-    const endX = Math.cos(angle) * spread;
-    const endZ = Math.sin(angle) * spread * 0.7;
+  // Apical oblique branches - emerge from main trunk
+  for (let i = 0; i < 10; i++) {
+    const t = 0.2 + (i / 10) * 0.65;
+    const trunkPoint = new Vector3(
+      apicalPoints[Math.floor(t * 6)].x,
+      0.35 + apicalLength * t,
+      apicalPoints[Math.floor(t * 6)].z
+    );
+    const side = i % 2 === 0 ? 1 : -1;
+    const angle = side * (0.5 + random() * 0.6);
+    const dir = new Vector3(
+      Math.sin(angle),
+      0.3 + random() * 0.3,
+      Math.cos(angle) * side * 0.6
+    ).normalize();
 
-    // Main basal branch
-    branches.push({
-      id: `basal:${index}`,
-      radius: 0.016 + random() * 0.012,
-      curve: new CatmullRomCurve3([
-        new Vector3(0, -0.15, 0),
-        new Vector3(endX * 0.3, y * 0.4, endZ * 0.3),
-        new Vector3(endX * 0.6, y * 0.7, endZ * 0.6),
-        new Vector3(endX, y, endZ + z),
-      ]),
-    });
-
-    // Secondary branches from basal
-    if (random() > 0.4) {
-      const branchPoint = 0.5 + random() * 0.3;
-      const branchAngle = angle + (random() - 0.5) * 1.2;
-      const branchSpread = spread * (0.4 + random() * 0.3);
-      branches.push({
-        id: `basal-sec:${index}`,
-        radius: 0.008 + random() * 0.006,
-        curve: new CatmullRomCurve3([
-          new Vector3(endX * branchPoint, y * branchPoint, endZ * branchPoint),
-          new Vector3(
-            Math.cos(branchAngle) * branchSpread,
-            y * branchPoint - random() * 0.2,
-            Math.sin(branchAngle) * branchSpread * 0.6
-          ),
-        ]),
-      });
-    }
+    addBranch(
+      `apical-oblique:${i}`,
+      trunkPoint,
+      dir,
+      0.4 + random() * 0.35,
+      0.012 + random() * 0.006,
+      1,
+      3
+    );
   }
 
-  // Apical oblique branches - more realistic branching from main trunk
-  for (let index = 0; index < 8; index += 1) {
-    const side = index % 2 === 0 ? 1 : -1;
-    const y = 0.7 + index * 0.28 + random() * 0.15;
-    const angle = side * (0.4 + random() * 0.5);
-    const length = 0.4 + random() * 0.35;
+  // Apical tuft - dense branching at top
+  const tuftBase = new Vector3(apicalPoints[6].x, apicalPoints[6].y, apicalPoints[6].z);
+  for (let i = 0; i < 14; i++) {
+    const angle = (i / 14) * Math.PI * 2 + random() * 0.4;
+    const elevation = random() * 0.6;
+    const dir = new Vector3(
+      Math.cos(angle) * (0.6 + random() * 0.4),
+      0.4 + elevation,
+      Math.sin(angle) * (0.5 + random() * 0.4)
+    ).normalize();
 
-    branches.push({
-      id: `apical-oblique:${index}`,
-      radius: 0.009 + random() * 0.007,
-      curve: new CatmullRomCurve3([
-        new Vector3(apicalWobble() * 0.5, y, apicalWobble() * 0.3),
-        new Vector3(
-          Math.sin(angle) * length * 0.5,
-          y + 0.08 + random() * 0.08,
-          Math.cos(angle) * length * 0.3
-        ),
-        new Vector3(
-          Math.sin(angle) * length,
-          y + 0.15 + random() * 0.12,
-          Math.cos(angle) * length * 0.5
-        ),
-      ]),
-    });
+    addBranch(
+      `tuft:${i}`,
+      tuftBase.clone().add(new Vector3((random() - 0.5) * 0.1, 0, (random() - 0.5) * 0.1)),
+      dir,
+      0.25 + random() * 0.25,
+      0.008 + random() * 0.005,
+      1,
+      3
+    );
   }
 
-  // Apical tuft at top - dense branching
-  for (let index = 0; index < 12; index += 1) {
-    const angle = (index / 12) * Math.PI * 2 + random() * 0.3;
-    const length = 0.25 + random() * 0.3;
-    const baseY = 3.0 + random() * 0.2;
+  // Basal dendrites - extend downward and outward
+  for (let i = 0; i < 8; i++) {
+    const angle = (i / 8) * Math.PI * 2 + (random() - 0.5) * 0.4;
+    const startPos = new Vector3(
+      Math.cos(angle) * 0.12,
+      -0.1,
+      Math.sin(angle) * 0.1
+    );
+    const dir = new Vector3(
+      Math.cos(angle),
+      -0.35 - random() * 0.25,
+      Math.sin(angle) * 0.85
+    ).normalize();
 
-    branches.push({
-      id: `tuft:${index}`,
-      radius: 0.006 + random() * 0.005,
-      curve: new CatmullRomCurve3([
-        new Vector3(apicalWobble(), baseY, apicalWobble()),
-        new Vector3(
-          Math.cos(angle) * length * 0.4,
-          baseY + 0.15 + random() * 0.1,
-          Math.sin(angle) * length * 0.3
-        ),
-        new Vector3(
-          Math.cos(angle) * length,
-          baseY + 0.25 + random() * 0.15,
-          Math.sin(angle) * length * 0.5
-        ),
-      ]),
-    });
+    addBranch(
+      `basal:${i}`,
+      startPos,
+      dir,
+      0.55 + random() * 0.4,
+      0.018 + random() * 0.008,
+      0,
+      4
+    );
   }
+
+  // Axon - single long process extending downward
+  const axonPoints: Vector3[] = [];
+  for (let i = 0; i <= 5; i++) {
+    const t = i / 5;
+    const wobble = (random() - 0.5) * 0.08;
+    axonPoints.push(new Vector3(
+      wobble + t * (random() - 0.5) * 0.3,
+      -0.25 - t * 1.8,
+      wobble * 0.5 + t * (random() - 0.5) * 0.4
+    ));
+  }
+
+  branches.push({
+    id: 'axon',
+    curve: new CatmullRomCurve3(axonPoints),
+    radius: 0.015,
+    depth: 0,
+  });
 
   return branches;
-}
-
-function buildSpines(seed: string, branches: Branch[], density = 0.45): Spine[] {
-  const random = seededRandom(`${seed}:spines`);
-  const spines: Spine[] = [];
-
-  branches.forEach((branch, branchIndex) => {
-    const count = Math.max(1, Math.floor((branch.curve.getLength() * density) + random() * 3));
-    for (let index = 0; index < count; index += 1) {
-      const t = 0.16 + random() * 0.78;
-      const point = branch.curve.getPoint(t);
-      const tangent = branch.curve.getTangent(t);
-      const side = index % 2 === 0 ? 1 : -1;
-      const normal = new Vector3(-tangent.y, tangent.x, (random() - 0.5) * 0.6).normalize().multiplyScalar(side);
-      const length = 0.055 + random() * 0.09;
-      const position = point.clone().add(normal.clone().multiplyScalar(length * 0.55));
-
-      spines.push({
-        id: `${branch.id}:spine:${branchIndex}:${index}`,
-        position: [position.x, position.y, position.z],
-        scale: [0.012 + random() * 0.012, length, 0.012 + random() * 0.012],
-        rotation: [Math.atan2(normal.z, normal.y), 0, Math.atan2(normal.y, normal.x) - Math.PI / 2],
-      });
-    }
-  });
-
-  return spines;
 }
