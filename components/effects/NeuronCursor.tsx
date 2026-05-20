@@ -17,9 +17,10 @@ type CursorSnapshot = {
 };
 
 const HISTORY_LENGTH = 56;
+const MAX_TRAIL_DISTANCE = 148;
 const SHEATH_COUNT = 6;
-const CURSOR_SCALE = 0.72;
-const INTERACTIVE_SCALE = 0.8;
+const CURSOR_SCALE = 0.58;
+const INTERACTIVE_SCALE = 0.66;
 const MIN_FRAME_DISTANCE = 0.35;
 const MEDIUM_SPEED = 12;
 const HIGH_SPEED = 24;
@@ -62,6 +63,41 @@ function buildPath(points: Point[]) {
   }, '');
 }
 
+function capTrailByDistance(points: Point[], maxDistance: number) {
+  if (points.length < 2) return points;
+
+  const capped = [points[0]];
+  let distance = 0;
+
+  for (let index = 1; index < points.length; index += 1) {
+    const previous = points[index - 1];
+    const current = points[index];
+    const segmentLength = Math.hypot(current.x - previous.x, current.y - previous.y);
+
+    if (segmentLength === 0) {
+      capped.push(current);
+      continue;
+    }
+
+    if (distance + segmentLength > maxDistance) {
+      const remaining = maxDistance - distance;
+      const ratio = Math.max(0, remaining / segmentLength);
+
+      capped.push({
+        x: previous.x + (current.x - previous.x) * ratio,
+        y: previous.y + (current.y - previous.y) * ratio,
+      });
+
+      break;
+    }
+
+    capped.push(current);
+    distance += segmentLength;
+  }
+
+  return capped;
+}
+
 export function NeuronCursor() {
   const pointerRef = useRef<Point | null>(null);
   const historyRef = useRef<Point[]>([]);
@@ -93,18 +129,14 @@ export function NeuronCursor() {
 
       const history = historyRef.current;
       const previous = history[0] ?? pointer;
-      const easedPoint = {
-        x: previous.x + (pointer.x - previous.x) * 0.84,
-        y: previous.y + (pointer.y - previous.y) * 0.84,
-      };
-      const distance = Math.hypot(easedPoint.x - previous.x, easedPoint.y - previous.y);
+      const distance = Math.hypot(pointer.x - previous.x, pointer.y - previous.y);
       const shouldForceRender = forceRenderRef.current;
 
       if (renderedRef.current && distance < MIN_FRAME_DISTANCE && !shouldForceRender) return;
 
       speedRef.current = speedRef.current * 0.5 + distance * 0.5;
       forceRenderRef.current = false;
-      historyRef.current = [easedPoint, ...history].slice(0, HISTORY_LENGTH);
+      historyRef.current = [pointer, ...history].slice(0, HISTORY_LENGTH);
       renderedRef.current = true;
       setSnapshot({
         enabled: true,
@@ -188,11 +220,9 @@ export function NeuronCursor() {
     };
   }, []);
 
-  const tailLength =
-    snapshot.speed > HIGH_SPEED ? 24 : snapshot.speed > MEDIUM_SPEED ? 36 : HISTORY_LENGTH;
   const activePoints = useMemo(
-    () => snapshot.points.slice(0, tailLength),
-    [snapshot.points, tailLength]
+    () => capTrailByDistance(snapshot.points, MAX_TRAIL_DISTANCE),
+    [snapshot.points]
   );
   const cursorPath = useMemo(() => buildPath(activePoints), [activePoints]);
 
@@ -203,12 +233,17 @@ export function NeuronCursor() {
   const trailOpacity = snapshot.visible ? 1 : 0;
   const isExcited = snapshot.excited;
   const isHighSpeed = snapshot.speed > HIGH_SPEED;
-  const activeSheathCount = isHighSpeed ? 3 : snapshot.speed > MEDIUM_SPEED ? 4 : SHEATH_COUNT;
+  const desiredSheathCount = isHighSpeed ? 3 : snapshot.speed > MEDIUM_SPEED ? 4 : SHEATH_COUNT;
+  const activeSheathCount = Math.min(
+    desiredSheathCount,
+    Math.max(0, Math.floor((activePoints.length - 1) / 3))
+  );
 
   const sheathSegments = Array.from({ length: activeSheathCount }, (_, index) => {
-    const pointIndex = 6 + index * 6;
+    const trailSpan = Math.max(1, activePoints.length - 1);
+    const pointIndex = Math.round(((index + 1) / (activeSheathCount + 1)) * trailSpan);
     const point = pointAt(activePoints, pointIndex);
-    const next = pointAt(activePoints, pointIndex + 4);
+    const next = pointAt(activePoints, Math.min(trailSpan, pointIndex + 1));
     const angle = angleBetween(point, next);
     const fade = 1 - index / (activeSheathCount + 1);
 
@@ -221,8 +256,8 @@ export function NeuronCursor() {
     };
   });
 
-  const terminalRoot = pointAt(activePoints, Math.min(activePoints.length - 8, 43));
-  const terminalNext = pointAt(activePoints, Math.min(activePoints.length - 2, 50));
+  const terminalRoot = pointAt(activePoints, Math.max(0, activePoints.length - 4));
+  const terminalNext = pointAt(activePoints, Math.max(0, activePoints.length - 2));
   const terminalAngle = angleBetween(terminalRoot, terminalNext);
 
   return (
@@ -314,7 +349,7 @@ export function NeuronCursor() {
 
       <g
         className="neuron-cursor-soma"
-        transform={`translate(${head.x.toFixed(1)} ${head.y.toFixed(1)}) scale(${bodyScale + (isExcited ? 0.08 : 0)})`}
+        transform={`translate(${head.x.toFixed(1)} ${head.y.toFixed(1)}) scale(${bodyScale + (isExcited ? 0.06 : 0)})`}
         filter="url(#neuron-cursor-glow)"
       >
         <path
