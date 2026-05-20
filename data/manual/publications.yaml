@@ -79,6 +79,8 @@ publications:
     externalLinks:
       - label: DOI
         href: "https://doi.org/10.3758/s13415-024-01208-6"
+      - label: Springer article
+        href: "https://link.springer.com/article/10.3758/s13415-024-01208-6"
       - label: Publisher PDF
         href: "https://link.springer.com/content/pdf/10.3758/s13415-024-01208-6.pdf"
     authors:
@@ -99,6 +101,112 @@ publications:
       - temporal-discounting
       - NEATLABs
     importance: 94
+    domains:
+      - Publications
+      - NEATLABs Research
+      - Neural Data Analysis
+    modeVisibility:
+      - recruiter
+      - researcher
+      - full-brain
+
+  - id: pub:cortico-striatal-beta-oscillations-learned-reward-value-2022
+    title: "Cortico-Striatal Beta-Oscillations as a Marker of Learned Reward Value"
+    year: 2022
+    summary: "Co-authored bioRxiv preprint connecting cortico-striatal beta and high-gamma oscillations to learned reward value across reward-valence, temporal-discounting, and probabilistic reversal-learning behavior."
+    abstract: "A NEATLABs preprint using large-scale local field potential recordings, single-unit analysis, and multiple rodent reward-learning tasks to test whether beta oscillations provide a distributed electrophysiological marker of learned reward value."
+    myContribution: "Co-author contribution/context: contributed to the NEATLABs reward-processing research program spanning electrophysiology, behavioral systems, and neural data analysis."
+    whyItMatters: "This preprint is a bridge record between the later cortico-striatal reward-value publications, making the archive's reward-learning thread more complete."
+    methods:
+      - "Large-scale rodent local field potential recordings"
+      - "Go/wait behavioral inhibition task"
+      - "Temporal discounting task"
+      - "Probabilistic reversal learning task"
+      - "Spike-field coherence analysis"
+    keyFindings:
+      - "Beta and high-gamma activity were associated with reward valence across cortico-striatal-limbic circuitry."
+      - "Beta oscillations scaled with reward magnitude, temporal delay, and reward probability across multiple behavioral tasks."
+      - "The preprint framed reward-evoked beta activity as a candidate physiological marker of learned reward value."
+    relatedProjects:
+      - neatlabs-core-research
+      - neatlabs-dtw-tca-unpublished
+    externalLinks:
+      - label: DOI
+        href: "https://doi.org/10.1101/2022.10.24.513264"
+      - label: bioRxiv PDF
+        href: "https://www.biorxiv.org/content/10.1101/2022.10.24.513264v2.full.pdf"
+    authors:
+      - M. Koloski Francoeur
+      - S. Hulyalkar
+      - T. Tang
+      - X. Wu
+      - L. Fakhraei
+      - J. Mishra
+      - D. S. Ramanathan
+    venue: bioRxiv
+    doi: "10.1101/2022.10.24.513264"
+    tags:
+      - neuroscience
+      - electrophysiology
+      - reward-value
+      - cortico-striatal
+      - beta-oscillations
+      - high-gamma
+      - temporal-discounting
+      - reversal-learning
+      - preprint
+      - NEATLABs
+    importance: 91
+    domains:
+      - Publications
+      - NEATLABs Research
+      - Neural Data Analysis
+    modeVisibility:
+      - recruiter
+      - researcher
+      - full-brain
+
+  - id: pub:beta-oscillatory-activity-value-representation-2022
+    title: "P7. Beta Oscillatory Activity Reflects Value Representation in Cortico-Striatal Reward Networks"
+    year: 2022
+    summary: "Co-authored Biological Psychiatry abstract-only supplement entry on beta oscillatory activity and value representation in cortico-striatal reward networks."
+    abstract: "Abstract-only conference supplement entry proposing that ventral striatum, orbitofrontal cortex, and prefrontal cortex act together dynamically at discrete oscillatory frequencies to build reward value representations."
+    myContribution: "Co-author contribution/context: contributed to the NEATLABs cortico-striatal reward-network research program spanning electrophysiology, behavioral systems, and value-representation analyses."
+    whyItMatters: "This abstract captures an early public version of the cortico-striatal beta-oscillation reward-value thread that later appears across the preprint and peer-reviewed reward-network papers."
+    methods:
+      - "Cortico-striatal reward-network analysis"
+      - "Beta oscillatory activity"
+      - "Reward value representation"
+      - "Conference supplement abstract"
+    keyFindings:
+      - "Frames beta oscillatory activity as a candidate signal for reward value representation."
+      - "Connects ventral striatum, orbitofrontal cortex, and prefrontal cortex in a dynamic reward-network hypothesis."
+      - "Appears as an abstract-only Biological Psychiatry supplement entry."
+    relatedProjects:
+      - neatlabs-core-research
+      - neatlabs-dtw-tca-unpublished
+    externalLinks:
+      - label: Publisher abstract
+        href: "https://www.biologicalpsychiatryjournal.com/article/S0006-3223(22)00329-8/abstract"
+      - label: Full text access
+        href: "https://www.biologicalpsychiatryjournal.com/article/S0006-3223(22)00329-8/abstract"
+    authors:
+      - Miranda Francoeur Koloski
+      - Sidharth Hulyalkar
+      - Jessica Cramer
+      - Dhakshin Ramanathan
+    venue: "Biological Psychiatry, Volume 91, Issue 9, Supplement"
+    tags:
+      - neuroscience
+      - electrophysiology
+      - reward-value
+      - cortico-striatal
+      - beta-oscillations
+      - biological-psychiatry
+      - abstract-only
+      - conference-supplement
+      - NEATLABs
+    importance: 87
     domains:
       - Publications
       - NEATLABs Research

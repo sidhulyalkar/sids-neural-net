@@ -935,8 +935,170 @@
             "href": "https://doi.org/10.3758/s13415-024-01208-6"
           },
           {
+            "label": "Springer article",
+            "href": "https://link.springer.com/article/10.3758/s13415-024-01208-6"
+          },
+          {
             "label": "Publisher PDF",
             "href": "https://link.springer.com/content/pdf/10.3758/s13415-024-01208-6.pdf"
+          }
+        ],
+        "relatedProjects": [
+          "neatlabs-core-research",
+          "neatlabs-dtw-tca-unpublished"
+        ]
+      },
+      "computedImportance": 100
+    },
+    {
+      "id": "pub:cortico-striatal-beta-oscillations-learned-reward-value-2022",
+      "slug": "cortico-striatal-beta-oscillations-learned-reward-value-2022",
+      "type": "publication",
+      "title": "Cortico-Striatal Beta-Oscillations as a Marker of Learned Reward Value",
+      "summary": "Co-authored bioRxiv preprint connecting cortico-striatal beta and high-gamma oscillations to learned reward value across reward-valence, temporal-discounting, and probabilistic reversal-learning behavior.",
+      "description": "A NEATLABs preprint using large-scale local field potential recordings, single-unit analysis, and multiple rodent reward-learning tasks to test whether beta oscillations provide a distributed electrophysiological marker of learned reward value.",
+      "tags": [
+        "neuroscience",
+        "electrophysiology",
+        "reward-value",
+        "cortico-striatal",
+        "beta-oscillations",
+        "high-gamma",
+        "temporal-discounting",
+        "reversal-learning",
+        "preprint",
+        "NEATLABs"
+      ],
+      "domains": [
+        "Publications",
+        "NEATLABs Research",
+        "Neural Data Analysis"
+      ],
+      "importance": 91,
+      "recencyScore": 25,
+      "credibilityScore": 90,
+      "visualWeight": 10,
+      "status": "complete",
+      "source": "manual",
+      "featured": true,
+      "modeVisibility": [
+        "recruiter",
+        "researcher",
+        "full-brain"
+      ],
+      "publication": {
+        "authors": [
+          "M. Koloski Francoeur",
+          "S. Hulyalkar",
+          "T. Tang",
+          "X. Wu",
+          "L. Fakhraei",
+          "J. Mishra",
+          "D. S. Ramanathan"
+        ],
+        "venue": "bioRxiv",
+        "year": 2022,
+        "doi": "10.1101/2022.10.24.513264",
+        "abstract": "A NEATLABs preprint using large-scale local field potential recordings, single-unit analysis, and multiple rodent reward-learning tasks to test whether beta oscillations provide a distributed electrophysiological marker of learned reward value.",
+        "summary": "Co-authored bioRxiv preprint connecting cortico-striatal beta and high-gamma oscillations to learned reward value across reward-valence, temporal-discounting, and probabilistic reversal-learning behavior.",
+        "myContribution": "Co-author contribution/context: contributed to the NEATLABs reward-processing research program spanning electrophysiology, behavioral systems, and neural data analysis.",
+        "whyItMatters": "This preprint is a bridge record between the later cortico-striatal reward-value publications, making the archive's reward-learning thread more complete.",
+        "methods": [
+          "Large-scale rodent local field potential recordings",
+          "Go/wait behavioral inhibition task",
+          "Temporal discounting task",
+          "Probabilistic reversal learning task",
+          "Spike-field coherence analysis"
+        ],
+        "keyFindings": [
+          "Beta and high-gamma activity were associated with reward valence across cortico-striatal-limbic circuitry.",
+          "Beta oscillations scaled with reward magnitude, temporal delay, and reward probability across multiple behavioral tasks.",
+          "The preprint framed reward-evoked beta activity as a candidate physiological marker of learned reward value."
+        ],
+        "externalLinks": [
+          {
+            "label": "DOI",
+            "href": "https://doi.org/10.1101/2022.10.24.513264"
+          },
+          {
+            "label": "bioRxiv PDF",
+            "href": "https://www.biorxiv.org/content/10.1101/2022.10.24.513264v2.full.pdf"
+          }
+        ],
+        "relatedProjects": [
+          "neatlabs-core-research",
+          "neatlabs-dtw-tca-unpublished"
+        ]
+      },
+      "computedImportance": 100
+    },
+    {
+      "id": "pub:beta-oscillatory-activity-value-representation-2022",
+      "slug": "beta-oscillatory-activity-value-representation-2022",
+      "type": "publication",
+      "title": "P7. Beta Oscillatory Activity Reflects Value Representation in Cortico-Striatal Reward Networks",
+      "summary": "Co-authored Biological Psychiatry abstract-only supplement entry on beta oscillatory activity and value representation in cortico-striatal reward networks.",
+      "description": "Abstract-only conference supplement entry proposing that ventral striatum, orbitofrontal cortex, and prefrontal cortex act together dynamically at discrete oscillatory frequencies to build reward value representations.",
+      "tags": [
+        "neuroscience",
+        "electrophysiology",
+        "reward-value",
+        "cortico-striatal",
+        "beta-oscillations",
+        "biological-psychiatry",
+        "abstract-only",
+        "conference-supplement",
+        "NEATLABs"
+      ],
+      "domains": [
+        "Publications",
+        "NEATLABs Research",
+        "Neural Data Analysis"
+      ],
+      "importance": 87,
+      "recencyScore": 25,
+      "credibilityScore": 90,
+      "visualWeight": 10,
+      "status": "complete",
+      "source": "manual",
+      "featured": true,
+      "modeVisibility": [
+        "recruiter",
+        "researcher",
+        "full-brain"
+      ],
+      "publication": {
+        "authors": [
+          "Miranda Francoeur Koloski",
+          "Sidharth Hulyalkar",
+          "Jessica Cramer",
+          "Dhakshin Ramanathan"
+        ],
+        "venue": "Biological Psychiatry, Volume 91, Issue 9, Supplement",
+        "year": 2022,
+        "abstract": "Abstract-only conference supplement entry proposing that ventral striatum, orbitofrontal cortex, and prefrontal cortex act together dynamically at discrete oscillatory frequencies to build reward value representations.",
+        "summary": "Co-authored Biological Psychiatry abstract-only supplement entry on beta oscillatory activity and value representation in cortico-striatal reward networks.",
+        "myContribution": "Co-author contribution/context: contributed to the NEATLABs cortico-striatal reward-network research program spanning electrophysiology, behavioral systems, and value-representation analyses.",
+        "whyItMatters": "This abstract captures an early public version of the cortico-striatal beta-oscillation reward-value thread that later appears across the preprint and peer-reviewed reward-network papers.",
+        "methods": [
+          "Cortico-striatal reward-network analysis",
+          "Beta oscillatory activity",
+          "Reward value representation",
+          "Conference supplement abstract"
+        ],
+        "keyFindings": [
+          "Frames beta oscillatory activity as a candidate signal for reward value representation.",
+          "Connects ventral striatum, orbitofrontal cortex, and prefrontal cortex in a dynamic reward-network hypothesis.",
+          "Appears as an abstract-only Biological Psychiatry supplement entry."
+        ],
+        "externalLinks": [
+          {
+            "label": "Publisher abstract",
+            "href": "https://www.biologicalpsychiatryjournal.com/article/S0006-3223(22)00329-8/abstract"
+          },
+          {
+            "label": "Full text access",
+            "href": "https://www.biologicalpsychiatryjournal.com/article/S0006-3223(22)00329-8/abstract"
           }
         ],
         "relatedProjects": [
@@ -2289,7 +2451,7 @@
       "credibilityScore": 50,
       "visualWeight": 6,
       "status": "active",
-      "updatedAt": "2026-05-17T22:43:40Z",
+      "updatedAt": "2026-05-20T05:36:32Z",
       "source": "github",
       "sourceUrl": "https://github.com/sidhulyalkar/sids-neural-net",
       "featured": false,
@@ -2303,7 +2465,7 @@
         "forks": 0,
         "language": "TypeScript",
         "isFork": false,
-        "pushedAt": "2026-05-17T22:43:35Z",
+        "pushedAt": "2026-05-20T05:36:28Z",
         "createdAt": "2026-05-17T21:42:41Z",
         "topics": [],
         "description": "Personal Project Website ",
@@ -2328,7 +2490,7 @@
         "Neuroscience Research"
       ],
       "importance": 50,
-      "recencyScore": 70,
+      "recencyScore": 55,
       "credibilityScore": 50,
       "visualWeight": 5,
       "status": "active",
@@ -2352,7 +2514,7 @@
         "description": "Precision Neuroscience Interview 2DFFT AWS pipeline",
         "url": "https://github.com/sidhulyalkar/2DFFT_pipeline"
       },
-      "computedImportance": 64
+      "computedImportance": 61
     },
     {
       "id": "github:sidhulyalkar/neurOPS",
@@ -8713,6 +8875,22 @@
       "label": "electrophysiology"
     },
     {
+      "id": "datajoint-multimodal-infrastructure-cortico-striatal-beta-oscillations-learned-reward-value-2022-electrophysiology",
+      "source": "datajoint-multimodal-infrastructure",
+      "target": "cortico-striatal-beta-oscillations-learned-reward-value-2022",
+      "relation": "connected-to",
+      "weight": 3,
+      "label": "electrophysiology"
+    },
+    {
+      "id": "datajoint-multimodal-infrastructure-beta-oscillatory-activity-value-representation-2022-electrophysiology",
+      "source": "datajoint-multimodal-infrastructure",
+      "target": "beta-oscillatory-activity-value-representation-2022",
+      "relation": "connected-to",
+      "weight": 3,
+      "label": "electrophysiology"
+    },
+    {
       "id": "datajoint-multimodal-infrastructure-rodent-default-mode-network-2021-electrophysiology",
       "source": "datajoint-multimodal-infrastructure",
       "target": "rodent-default-mode-network-2021",
@@ -8810,6 +8988,22 @@
       "id": "harvard-sabatini-datajoint-pipeline-cortico-striatal-beta-oscillations-2024-electrophysiology",
       "source": "harvard-sabatini-datajoint-pipeline",
       "target": "cortico-striatal-beta-oscillations-2024",
+      "relation": "connected-to",
+      "weight": 3,
+      "label": "electrophysiology"
+    },
+    {
+      "id": "harvard-sabatini-datajoint-pipeline-cortico-striatal-beta-oscillations-learned-reward-value-2022-electrophysiology",
+      "source": "harvard-sabatini-datajoint-pipeline",
+      "target": "cortico-striatal-beta-oscillations-learned-reward-value-2022",
+      "relation": "connected-to",
+      "weight": 3,
+      "label": "electrophysiology"
+    },
+    {
+      "id": "harvard-sabatini-datajoint-pipeline-beta-oscillatory-activity-value-representation-2022-electrophysiology",
+      "source": "harvard-sabatini-datajoint-pipeline",
+      "target": "beta-oscillatory-activity-value-representation-2022",
       "relation": "connected-to",
       "weight": 3,
       "label": "electrophysiology"
@@ -9005,6 +9199,22 @@
       "label": "publication context"
     },
     {
+      "id": "publication-context:cortico-striatal-beta-oscillations-learned-reward-value-2022-neatlabs-core-research",
+      "source": "cortico-striatal-beta-oscillations-learned-reward-value-2022",
+      "target": "neatlabs-core-research",
+      "relation": "contributed-to",
+      "weight": 7,
+      "label": "publication context"
+    },
+    {
+      "id": "publication-context:beta-oscillatory-activity-value-representation-2022-neatlabs-core-research",
+      "source": "beta-oscillatory-activity-value-representation-2022",
+      "target": "neatlabs-core-research",
+      "relation": "contributed-to",
+      "weight": 7,
+      "label": "publication context"
+    },
+    {
       "id": "publication-context:chronic-multisite-probe-designs-2021-neatlabs-core-research",
       "source": "chronic-multisite-probe-designs-2021",
       "target": "neatlabs-core-research",
@@ -9069,6 +9279,22 @@
       "label": "publication context"
     },
     {
+      "id": "publication-context:cortico-striatal-beta-oscillations-learned-reward-value-2022-neatlabs-dtw-tca-unpublished",
+      "source": "cortico-striatal-beta-oscillations-learned-reward-value-2022",
+      "target": "neatlabs-dtw-tca-unpublished",
+      "relation": "contributed-to",
+      "weight": 7,
+      "label": "publication context"
+    },
+    {
+      "id": "publication-context:beta-oscillatory-activity-value-representation-2022-neatlabs-dtw-tca-unpublished",
+      "source": "beta-oscillatory-activity-value-representation-2022",
+      "target": "neatlabs-dtw-tca-unpublished",
+      "relation": "contributed-to",
+      "weight": 7,
+      "label": "publication context"
+    },
+    {
       "id": "neatlabs-dtw-tca-unpublished-chronic-multisite-probe-designs-2021-electrophysiology",
       "source": "neatlabs-dtw-tca-unpublished",
       "target": "chronic-multisite-probe-designs-2021",
@@ -9109,6 +9335,22 @@
       "label": "neuroscience"
     },
     {
+      "id": "beta-high-gamma-corticostriatal-2025-cortico-striatal-beta-oscillations-learned-reward-value-2022-neuroscience",
+      "source": "beta-high-gamma-corticostriatal-2025",
+      "target": "cortico-striatal-beta-oscillations-learned-reward-value-2022",
+      "relation": "connected-to",
+      "weight": 3,
+      "label": "neuroscience"
+    },
+    {
+      "id": "beta-high-gamma-corticostriatal-2025-beta-oscillatory-activity-value-representation-2022-neuroscience",
+      "source": "beta-high-gamma-corticostriatal-2025",
+      "target": "beta-oscillatory-activity-value-representation-2022",
+      "relation": "connected-to",
+      "weight": 3,
+      "label": "neuroscience"
+    },
+    {
       "id": "beta-high-gamma-corticostriatal-2025-rodent-default-mode-network-2021-neuroscience",
       "source": "beta-high-gamma-corticostriatal-2025",
       "target": "rodent-default-mode-network-2021",
@@ -9141,6 +9383,22 @@
       "label": "neuroscience"
     },
     {
+      "id": "cortico-striatal-beta-oscillations-2024-cortico-striatal-beta-oscillations-learned-reward-value-2022-neuroscience",
+      "source": "cortico-striatal-beta-oscillations-2024",
+      "target": "cortico-striatal-beta-oscillations-learned-reward-value-2022",
+      "relation": "connected-to",
+      "weight": 3,
+      "label": "neuroscience"
+    },
+    {
+      "id": "cortico-striatal-beta-oscillations-2024-beta-oscillatory-activity-value-representation-2022-neuroscience",
+      "source": "cortico-striatal-beta-oscillations-2024",
+      "target": "beta-oscillatory-activity-value-representation-2022",
+      "relation": "connected-to",
+      "weight": 3,
+      "label": "neuroscience"
+    },
+    {
       "id": "cortico-striatal-beta-oscillations-2024-rodent-default-mode-network-2021-neuroscience",
       "source": "cortico-striatal-beta-oscillations-2024",
       "target": "rodent-default-mode-network-2021",
@@ -9167,6 +9425,78 @@
     {
       "id": "cortico-striatal-beta-oscillations-2024-open-source-raspberry-pi-operant-box-2020-neuroscience",
       "source": "cortico-striatal-beta-oscillations-2024",
+      "target": "open-source-raspberry-pi-operant-box-2020",
+      "relation": "connected-to",
+      "weight": 3,
+      "label": "neuroscience"
+    },
+    {
+      "id": "cortico-striatal-beta-oscillations-learned-reward-value-2022-beta-oscillatory-activity-value-representation-2022-neuroscience",
+      "source": "cortico-striatal-beta-oscillations-learned-reward-value-2022",
+      "target": "beta-oscillatory-activity-value-representation-2022",
+      "relation": "connected-to",
+      "weight": 3,
+      "label": "neuroscience"
+    },
+    {
+      "id": "cortico-striatal-beta-oscillations-learned-reward-value-2022-rodent-default-mode-network-2021-neuroscience",
+      "source": "cortico-striatal-beta-oscillations-learned-reward-value-2022",
+      "target": "rodent-default-mode-network-2021",
+      "relation": "connected-to",
+      "weight": 3,
+      "label": "neuroscience"
+    },
+    {
+      "id": "cortico-striatal-beta-oscillations-learned-reward-value-2022-chronic-multisite-probe-designs-2021-neuroscience",
+      "source": "cortico-striatal-beta-oscillations-learned-reward-value-2022",
+      "target": "chronic-multisite-probe-designs-2021",
+      "relation": "connected-to",
+      "weight": 3,
+      "label": "neuroscience"
+    },
+    {
+      "id": "cortico-striatal-beta-oscillations-learned-reward-value-2022-mapping-large-scale-networks-2021-neuroscience",
+      "source": "cortico-striatal-beta-oscillations-learned-reward-value-2022",
+      "target": "mapping-large-scale-networks-2021",
+      "relation": "connected-to",
+      "weight": 3,
+      "label": "neuroscience"
+    },
+    {
+      "id": "cortico-striatal-beta-oscillations-learned-reward-value-2022-open-source-raspberry-pi-operant-box-2020-neuroscience",
+      "source": "cortico-striatal-beta-oscillations-learned-reward-value-2022",
+      "target": "open-source-raspberry-pi-operant-box-2020",
+      "relation": "connected-to",
+      "weight": 3,
+      "label": "neuroscience"
+    },
+    {
+      "id": "beta-oscillatory-activity-value-representation-2022-rodent-default-mode-network-2021-neuroscience",
+      "source": "beta-oscillatory-activity-value-representation-2022",
+      "target": "rodent-default-mode-network-2021",
+      "relation": "connected-to",
+      "weight": 3,
+      "label": "neuroscience"
+    },
+    {
+      "id": "beta-oscillatory-activity-value-representation-2022-chronic-multisite-probe-designs-2021-neuroscience",
+      "source": "beta-oscillatory-activity-value-representation-2022",
+      "target": "chronic-multisite-probe-designs-2021",
+      "relation": "connected-to",
+      "weight": 3,
+      "label": "neuroscience"
+    },
+    {
+      "id": "beta-oscillatory-activity-value-representation-2022-mapping-large-scale-networks-2021-neuroscience",
+      "source": "beta-oscillatory-activity-value-representation-2022",
+      "target": "mapping-large-scale-networks-2021",
+      "relation": "connected-to",
+      "weight": 3,
+      "label": "neuroscience"
+    },
+    {
+      "id": "beta-oscillatory-activity-value-representation-2022-open-source-raspberry-pi-operant-box-2020-neuroscience",
+      "source": "beta-oscillatory-activity-value-representation-2022",
       "target": "open-source-raspberry-pi-operant-box-2020",
       "relation": "connected-to",
       "weight": 3,
@@ -9238,9 +9568,9 @@
     }
   ],
   "metadata": {
-    "generatedAt": "2026-05-19T23:21:11.651Z",
-    "nodeCount": 86,
-    "edgeCount": 705,
+    "generatedAt": "2026-05-20T05:40:00.435Z",
+    "nodeCount": 88,
+    "edgeCount": 726,
     "version": "1.0.0"
   }
 }
