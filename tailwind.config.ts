@@ -1,4 +1,5 @@
 import type { Config } from 'tailwindcss';
+import plugin from 'tailwindcss/plugin';
 
 const config: Config = {
   content: [
@@ -121,6 +122,11 @@ const config: Config = {
   },
   plugins: [
     require('@tailwindcss/typography'),
+    // Custom variant for touch/coarse pointer devices
+    plugin(function({ addVariant }) {
+      addVariant('pointer-coarse', '@media (pointer: coarse)');
+      addVariant('pointer-fine', '@media (pointer: fine)');
+    }),
   ],
 };
 

@@ -38,6 +38,11 @@ html {
   scroll-behavior: smooth;
 }
 
+.neuron-cursor-active,
+.neuron-cursor-active * {
+  cursor: none !important;
+}
+
 body {
   background:
     radial-gradient(circle at 12% 8%, rgba(102, 227, 255, 0.12), transparent 28rem),
@@ -67,6 +72,34 @@ body::before {
 ::selection {
   background-color: rgba(102, 227, 255, 0.3);
   color: var(--text-primary);
+}
+
+.neuron-cursor-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483647;
+  width: 100vw;
+  height: 100vh;
+  overflow: visible;
+  pointer-events: none;
+  transition: opacity 140ms ease;
+}
+
+.neuron-cursor-soma {
+  transform-box: fill-box;
+  transform-origin: center;
+  transition: transform 120ms ease;
+}
+
+@media (pointer: coarse), (prefers-reduced-motion: reduce) {
+  .neuron-cursor-active,
+  .neuron-cursor-active * {
+    cursor: auto !important;
+  }
+
+  .neuron-cursor-overlay {
+    display: none;
+  }
 }
 
 /* Scrollbar */
@@ -841,6 +874,22 @@ body::before {
   @apply prose-pre:bg-bg-panel prose-pre:border prose-pre:border-white/10;
   @apply prose-blockquote:border-l-cyan prose-blockquote:text-text-secondary;
   @apply prose-li:text-text-secondary;
+  @apply prose-img:max-w-full prose-img:h-auto prose-img:rounded-lg prose-img:border prose-img:border-white/10;
+}
+
+.prose-neural img {
+  background: rgba(255, 255, 255, 0.03);
+  padding: 1rem;
+  overflow-x: auto;
+}
+
+/* Allow horizontal scroll for wide diagrams on mobile */
+.prose-neural img[src*="pipeline"],
+.prose-neural img[src*="diagram"] {
+  max-width: 100%;
+  width: 100%;
+  height: auto;
+  object-fit: contain;
 }
 
 /* Immersive Atlas Name Display */

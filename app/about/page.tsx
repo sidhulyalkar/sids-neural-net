@@ -17,11 +17,9 @@ export const metadata: Metadata = {
   },
 };
 
-const coordinates = [
-  { label: 'Education', value: 'M.E. Bioengineering, UC San Diego' },
-  { label: 'Undergrad', value: 'B.S. Bioengineering: Biosystems, UC San Diego' },
-  { label: 'High School', value: 'Los Gatos High School' },
-  { label: 'Location', value: 'Los Gatos, California' },
+const education = [
+  { degree: 'M.E.', field: 'Bioengineering', institution: 'UC San Diego', year: '2022' },
+  { degree: 'B.S.', field: 'Bioengineering: Biosystems', institution: 'UC San Diego', year: '2020' },
 ];
 
 const affiliations = [
@@ -40,6 +38,116 @@ const technicalDomains = [
   'Scientific workflow systems',
   'Mechanistic interpretability',
 ];
+
+// Links for technologies (null = no link)
+const techLinks: Record<string, string | null> = {
+  // Languages
+  'Python': 'https://python.org',
+  'MATLAB': 'https://mathworks.com/products/matlab.html',
+  'TypeScript': 'https://typescriptlang.org',
+  'SQL': null,
+  'R': 'https://r-project.org',
+  'Java': 'https://java.com',
+  'Bash': null,
+  // ML/DL
+  'PyTorch': 'https://pytorch.org',
+  'TensorFlow': 'https://tensorflow.org',
+  'Keras': 'https://keras.io',
+  'XGBoost': 'https://xgboost.readthedocs.io',
+  'Hugging Face': 'https://huggingface.co',
+  'Scikit-learn': 'https://scikit-learn.org',
+  'CUDA': 'https://developer.nvidia.com/cuda-toolkit',
+  // Architectures
+  'CNNs': null,
+  'RNNs': null,
+  'LSTMs': null,
+  'U-Net': null,
+  'Transformers': null,
+  'Mamba': 'https://github.com/state-spaces/mamba',
+  'Perceiver IO': null,
+  // Data Science
+  'NumPy': 'https://numpy.org',
+  'SciPy': 'https://scipy.org',
+  'Pandas': 'https://pandas.pydata.org',
+  'Dask': 'https://dask.org',
+  'OpenCV': 'https://opencv.org',
+  'Scikit-image': 'https://scikit-image.org',
+  // Cloud
+  'AWS': 'https://aws.amazon.com',
+  'Google Cloud': 'https://cloud.google.com',
+  'Cloudflare': 'https://cloudflare.com',
+  'Docker': 'https://docker.com',
+  'Kubernetes': 'https://kubernetes.io',
+  'Terraform': 'https://terraform.io',
+  'Singularity': 'https://sylabs.io/singularity',
+  // AWS Services
+  'EC2': 'https://aws.amazon.com/ec2',
+  'S3': 'https://aws.amazon.com/s3',
+  'Lambda': 'https://aws.amazon.com/lambda',
+  'Kinesis': 'https://aws.amazon.com/kinesis',
+  'CloudWatch': 'https://aws.amazon.com/cloudwatch',
+  'EFS': 'https://aws.amazon.com/efs',
+  // Frameworks
+  'FastAPI': 'https://fastapi.tiangolo.com',
+  'Next.js': 'https://nextjs.org',
+  'React': 'https://react.dev',
+  'Streamlit': 'https://streamlit.io',
+  'Dash': 'https://dash.plotly.com',
+  'DataJoint': 'https://datajoint.com',
+  'Nextflow': 'https://nextflow.io',
+  // Neuro Tools
+  'SpikeInterface': 'https://spikeinterface.readthedocs.io',
+  'Suite2p': 'https://suite2p.readthedocs.io',
+  'CaImAn': 'https://caiman.readthedocs.io',
+  'DeepLabCut': 'https://deeplabcut.github.io/DeepLabCut',
+  'Facemap': 'https://facemap.readthedocs.io',
+  'Kilosort': 'https://github.com/MouseLand/Kilosort',
+  'Open Ephys': 'https://open-ephys.org',
+  'Allen SDK': 'https://allensdk.readthedocs.io',
+  // Data Formats
+  'NWB': 'https://nwb.org',
+  'Zarr': 'https://zarr.dev',
+  'HDF5': 'https://hdfgroup.org/solutions/hdf5',
+  'Parquet': 'https://parquet.apache.org',
+  'MCAP': 'https://mcap.dev',
+  // Signal Processing
+  'DTW': null,
+  'Kalman Filtering': null,
+  'ERP/ERSP': null,
+  'Spectral Analysis': null,
+  'Granger Causality': null,
+  'PCA/ICA': null,
+  // Analysis
+  'Electrophysiology': null,
+  'LFP/EEG': null,
+  'Calcium Imaging': null,
+  'Fiber Photometry': null,
+  'Pose Estimation': null,
+  'Q-Learning': null,
+  // Visualization
+  'Matplotlib': 'https://matplotlib.org',
+  'Seaborn': 'https://seaborn.pydata.org',
+  'Bokeh': 'https://bokeh.org',
+  'Plotly': 'https://plotly.com',
+  'Three.js': 'https://threejs.org',
+  'Foxglove': 'https://foxglove.dev',
+  // DevOps
+  'Git': 'https://git-scm.com',
+  'GitHub Actions': 'https://github.com/features/actions',
+  'CI/CD': null,
+  'Linux': 'https://kernel.org',
+  'Jira': 'https://atlassian.com/software/jira',
+  'Prometheus': 'https://prometheus.io',
+  'Grafana': 'https://grafana.com',
+  'DataDog': 'https://datadoghq.com',
+  // Tools
+  'Jupyter': 'https://jupyter.org',
+  'Vim': 'https://vim.org',
+  'tmux': 'https://github.com/tmux/tmux',
+  'SSH': null,
+  'Arduino': 'https://arduino.cc',
+  'Raspberry Pi': 'https://raspberrypi.org',
+};
 
 const stack = {
   languages: ['Python', 'MATLAB', 'TypeScript', 'SQL', 'R', 'Java', 'Bash'],
@@ -64,6 +172,38 @@ const links = [
   { label: 'Resume', href: '/resume' },
 ];
 
+// Tech chip component with optional link (web-only interactivity)
+function TechChip({ tech }: { tech: string }) {
+  const link = techLinks[tech];
+  const baseClasses = "max-w-full break-words border border-white/10 bg-white/[0.03] px-2 py-0.5 font-mono text-[0.58rem] uppercase tracking-wider text-white/55 transition-all duration-200";
+
+  if (link) {
+    return (
+      <>
+        {/* Desktop: Interactive link */}
+        <a
+          href={link}
+          target="_blank"
+          rel="noopener noreferrer"
+          className={`${baseClasses} hidden cursor-pointer hover:border-cyan/40 hover:bg-cyan/10 hover:text-cyan md:inline-block pointer-coarse:hidden`}
+        >
+          {tech}
+        </a>
+        {/* Mobile/Touch: Non-interactive display */}
+        <span className={`${baseClasses} inline-block md:hidden pointer-coarse:inline-block`}>
+          {tech}
+        </span>
+      </>
+    );
+  }
+
+  return (
+    <span className={baseClasses}>
+      {tech}
+    </span>
+  );
+}
+
 export default function AboutPage() {
   return (
     <ComicSectionLayout
@@ -71,16 +211,21 @@ export default function AboutPage() {
       title="core"
     >
       <div className="space-y-16">
-        {/* Coordinates */}
+        {/* Education */}
         <section>
-          <p className="technical-label mb-8">Coordinates</p>
-          <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
-            {coordinates.map((item) => (
-              <div key={item.label}>
-                <p className="font-mono text-[0.62rem] uppercase tracking-[0.18em] text-white/40">
-                  {item.label}
+          <p className="technical-label mb-8">Education</p>
+          <div className="grid gap-6 sm:grid-cols-2">
+            {education.map((item) => (
+              <div
+                key={`${item.degree}-${item.field}`}
+                className="border-l-2 border-cyan/30 pl-4"
+              >
+                <p className="font-mono text-[0.62rem] uppercase tracking-[0.18em] text-cyan/60">
+                  {item.degree}
                 </p>
-                <p className="mt-2 text-sm text-text-primary">{item.value}</p>
+                <p className="mt-1 text-sm font-medium text-text-primary">{item.field}</p>
+                <p className="mt-1 text-xs text-text-secondary">{item.institution}</p>
+                <p className="mt-0.5 font-mono text-[0.58rem] text-white/40">{item.year}</p>
               </div>
             ))}
           </div>
@@ -98,12 +243,7 @@ export default function AboutPage() {
                   </p>
                   <div className="flex flex-wrap gap-1.5">
                     {items.map((tech) => (
-                      <span
-                        key={tech}
-                        className="max-w-full break-words border border-white/10 bg-white/[0.03] px-2 py-0.5 font-mono text-[0.58rem] uppercase tracking-wider text-white/55"
-                      >
-                        {tech}
-                      </span>
+                      <TechChip key={tech} tech={tech} />
                     ))}
                   </div>
                 </div>
