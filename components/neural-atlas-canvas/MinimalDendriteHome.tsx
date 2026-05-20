@@ -141,6 +141,28 @@ function estimateLabelSize(label: string): Dimensions {
   };
 }
 
+function getCompactLabelPlacement(
+  labelId: string,
+  label: string,
+  dimensions: Dimensions,
+  titleBandHeight: number
+): LabelPlacement {
+  const size = estimateLabelSize(label);
+  const labelOrder = ['projects', 'publications', 'work', 'photography', 'ideas', 'contact'];
+  const index = Math.max(0, labelOrder.indexOf(labelId));
+  const top = clamp(dimensions.height * 0.14, 76, 104);
+  const bottom = Math.max(top + size.height, dimensions.height - titleBandHeight - size.height - 24);
+  const rowGap = labelOrder.length > 1 ? (bottom - top) / (labelOrder.length - 1) : 0;
+  const maxX = Math.max(16, dimensions.width - size.width - 16);
+  const rightSide = index % 2 === 1;
+
+  return {
+    x: rightSide ? maxX : 16,
+    y: clamp(top + rowGap * index, 18, bottom),
+    ...size,
+  };
+}
+
 function getOpenLabelPlacement(
   node: Vec2,
   label: string,
@@ -873,13 +895,22 @@ export function MinimalDendriteHome() {
   const labelPlacements = useMemo(() => {
     const placements = new Map<string, LabelPlacement>();
     const occupiedRects: Rect[] = [];
+    const useCompactLabels = dimensions.width > 0 && dimensions.width < 640;
 
     for (const navLabel of NAV_LABELS) {
       const pos = labelPositions.get(navLabel.id);
-      if (!pos) continue;
+      if (!pos && !useCompactLabels) continue;
+
+      if (useCompactLabels) {
+        placements.set(
+          navLabel.id,
+          getCompactLabelPlacement(navLabel.id, navLabel.label, dimensions, titleBandHeight)
+        );
+        continue;
+      }
 
       const placement = getOpenLabelPlacement(
-        pos,
+        pos as Vec2,
         navLabel.label,
         somaCenter,
         dimensions,
@@ -1041,9 +1072,6 @@ export function MinimalDendriteHome() {
       {/* Navigation labels - attached to branch tips */}
       <div className={`pointer-events-none absolute inset-0 transition-opacity duration-200 ${isMeasured ? 'opacity-100' : 'opacity-0'}`}>
         {NAV_LABELS.map((navLabel) => {
-          const pos = labelPositions.get(navLabel.id);
-          if (!pos) return null;
-
           const isHovered = hoveredId === navLabel.id;
           const labelPlacement = labelPlacements.get(navLabel.id);
           if (!labelPlacement) return null;
@@ -1055,7 +1083,7 @@ export function MinimalDendriteHome() {
               className={`
                 pointer-events-auto absolute transform
                 whitespace-nowrap border px-3 py-1.5
-                text-sm uppercase tracking-normal lg:px-3.5 lg:py-2 lg:text-[15px]
+                text-xs uppercase tracking-normal sm:text-sm lg:px-3.5 lg:py-2 lg:text-[15px]
                 transition-all duration-200
                 ${isHovered
                   ? 'border-cyan-400/40 bg-black/80 text-cyan-300 shadow-lg shadow-cyan-500/20'
@@ -1114,7 +1142,7 @@ export function MinimalDendriteHome() {
           className={`
           pointer-events-auto absolute transform -translate-x-1/2
           whitespace-nowrap border px-3 py-1.5
-          text-sm uppercase tracking-normal lg:px-4 lg:py-2 lg:text-[15px]
+          text-xs uppercase tracking-normal sm:text-sm lg:px-4 lg:py-2 lg:text-[15px]
           transition-all duration-200
           ${hoveredId === 'identity'
             ? 'border-white/30 bg-black/70 text-white'
