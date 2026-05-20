@@ -12,16 +12,25 @@ type CursorSnapshot = {
   visible: boolean;
   interactive: boolean;
   points: Point[];
+  speed: number;
+  excited: boolean;
 };
 
-const HISTORY_LENGTH = 72;
-const SHEATH_COUNT = 7;
+const HISTORY_LENGTH = 56;
+const SHEATH_COUNT = 6;
+const CURSOR_SCALE = 0.72;
+const INTERACTIVE_SCALE = 0.8;
+const MIN_FRAME_DISTANCE = 0.35;
+const MEDIUM_SPEED = 12;
+const HIGH_SPEED = 24;
 
 const EMPTY_SNAPSHOT: CursorSnapshot = {
   enabled: false,
   visible: false,
   interactive: false,
   points: [],
+  speed: 0,
+  excited: false,
 };
 
 function isInteractiveTarget(target: EventTarget | null) {
@@ -46,7 +55,7 @@ function angleBetween(from: Point, to: Point) {
 function buildPath(points: Point[]) {
   if (points.length < 2) return '';
 
-  const sampled = points.filter((_, index) => index % 3 === 0).slice(0, 22);
+  const sampled = points.filter((_, index) => index % 4 === 0).slice(0, 14);
   return sampled.reduce((path, point, index) => {
     const command = index === 0 ? 'M' : 'L';
     return `${path}${command}${point.x.toFixed(1)} ${point.y.toFixed(1)} `;
@@ -57,8 +66,13 @@ export function NeuronCursor() {
   const pointerRef = useRef<Point | null>(null);
   const historyRef = useRef<Point[]>([]);
   const interactiveRef = useRef(false);
+  const speedRef = useRef(0);
   const frameRef = useRef<number | null>(null);
   const leaveTimerRef = useRef<number | null>(null);
+  const clickTimerRef = useRef<number | null>(null);
+  const renderedRef = useRef(false);
+  const excitedUntilRef = useRef(0);
+  const forceRenderRef = useRef(false);
   const [snapshot, setSnapshot] = useState<CursorSnapshot>(EMPTY_SNAPSHOT);
 
   useEffect(() => {
@@ -80,16 +94,25 @@ export function NeuronCursor() {
       const history = historyRef.current;
       const previous = history[0] ?? pointer;
       const easedPoint = {
-        x: previous.x + (pointer.x - previous.x) * 0.72,
-        y: previous.y + (pointer.y - previous.y) * 0.72,
+        x: previous.x + (pointer.x - previous.x) * 0.84,
+        y: previous.y + (pointer.y - previous.y) * 0.84,
       };
+      const distance = Math.hypot(easedPoint.x - previous.x, easedPoint.y - previous.y);
+      const shouldForceRender = forceRenderRef.current;
 
+      if (renderedRef.current && distance < MIN_FRAME_DISTANCE && !shouldForceRender) return;
+
+      speedRef.current = speedRef.current * 0.5 + distance * 0.5;
+      forceRenderRef.current = false;
       historyRef.current = [easedPoint, ...history].slice(0, HISTORY_LENGTH);
+      renderedRef.current = true;
       setSnapshot({
         enabled: true,
         visible: true,
         interactive: interactiveRef.current,
         points: historyRef.current,
+        speed: speedRef.current,
+        excited: window.performance.now() < excitedUntilRef.current,
       });
     };
 
@@ -123,12 +146,32 @@ export function NeuronCursor() {
       }, 80);
     };
 
+    const handlePointerDown = (event: PointerEvent) => {
+      if (event.pointerType === 'touch') return;
+
+      pointerRef.current = { x: event.clientX, y: event.clientY };
+      excitedUntilRef.current = window.performance.now() + 220;
+      forceRenderRef.current = true;
+      requestFrame();
+
+      if (clickTimerRef.current !== null) {
+        window.clearTimeout(clickTimerRef.current);
+      }
+
+      clickTimerRef.current = window.setTimeout(() => {
+        forceRenderRef.current = true;
+        requestFrame();
+      }, 230);
+    };
+
     window.addEventListener('pointermove', handlePointerMove, { passive: true });
+    window.addEventListener('pointerdown', handlePointerDown, { passive: true });
     document.documentElement.addEventListener('pointerleave', handlePointerLeave);
 
     return () => {
       document.documentElement.classList.remove('neuron-cursor-active');
       window.removeEventListener('pointermove', handlePointerMove);
+      window.removeEventListener('pointerdown', handlePointerDown);
       document.documentElement.removeEventListener('pointerleave', handlePointerLeave);
 
       if (frameRef.current !== null) {
@@ -138,35 +181,48 @@ export function NeuronCursor() {
       if (leaveTimerRef.current !== null) {
         window.clearTimeout(leaveTimerRef.current);
       }
+
+      if (clickTimerRef.current !== null) {
+        window.clearTimeout(clickTimerRef.current);
+      }
     };
   }, []);
 
-  const cursorPath = useMemo(() => buildPath(snapshot.points), [snapshot.points]);
+  const tailLength =
+    snapshot.speed > HIGH_SPEED ? 24 : snapshot.speed > MEDIUM_SPEED ? 36 : HISTORY_LENGTH;
+  const activePoints = useMemo(
+    () => snapshot.points.slice(0, tailLength),
+    [snapshot.points, tailLength]
+  );
+  const cursorPath = useMemo(() => buildPath(activePoints), [activePoints]);
 
   if (!snapshot.enabled || snapshot.points.length === 0) return null;
 
-  const head = pointAt(snapshot.points, 0);
-  const bodyScale = snapshot.interactive ? 1.14 : 1;
+  const head = pointAt(activePoints, 0);
+  const bodyScale = snapshot.interactive ? INTERACTIVE_SCALE : CURSOR_SCALE;
   const trailOpacity = snapshot.visible ? 1 : 0;
+  const isExcited = snapshot.excited;
+  const isHighSpeed = snapshot.speed > HIGH_SPEED;
+  const activeSheathCount = isHighSpeed ? 3 : snapshot.speed > MEDIUM_SPEED ? 4 : SHEATH_COUNT;
 
-  const sheathSegments = Array.from({ length: SHEATH_COUNT }, (_, index) => {
-    const pointIndex = 8 + index * 7;
-    const point = pointAt(snapshot.points, pointIndex);
-    const next = pointAt(snapshot.points, pointIndex + 4);
+  const sheathSegments = Array.from({ length: activeSheathCount }, (_, index) => {
+    const pointIndex = 6 + index * 6;
+    const point = pointAt(activePoints, pointIndex);
+    const next = pointAt(activePoints, pointIndex + 4);
     const angle = angleBetween(point, next);
-    const fade = 1 - index / (SHEATH_COUNT + 1);
+    const fade = 1 - index / (activeSheathCount + 1);
 
     return {
       id: `sheath-${index}`,
       point,
       angle,
       fade,
-      width: index % 2 === 0 ? 26 : 22,
+      width: index % 2 === 0 ? 21 : 18,
     };
   });
 
-  const terminalRoot = pointAt(snapshot.points, 63);
-  const terminalNext = pointAt(snapshot.points, 68);
+  const terminalRoot = pointAt(activePoints, Math.min(activePoints.length - 8, 43));
+  const terminalNext = pointAt(activePoints, Math.min(activePoints.length - 2, 50));
   const terminalAngle = angleBetween(terminalRoot, terminalNext);
 
   return (
@@ -179,16 +235,16 @@ export function NeuronCursor() {
     >
       <defs>
         <filter id="neuron-cursor-glow" x="-60%" y="-60%" width="220%" height="220%">
-          <feGaussianBlur stdDeviation="2.2" result="blur" />
+          <feGaussianBlur stdDeviation="1.45" result="blur" />
           <feMerge>
             <feMergeNode in="blur" />
             <feMergeNode in="SourceGraphic" />
           </feMerge>
         </filter>
         <linearGradient id="neuron-cursor-axon" x1="0%" y1="0%" x2="100%" y2="0%">
-          <stop offset="0%" stopColor="rgba(247,198,107,0.10)" />
-          <stop offset="42%" stopColor="rgba(247,198,107,0.76)" />
-          <stop offset="100%" stopColor="rgba(102,227,255,0.16)" />
+          <stop offset="0%" stopColor="rgba(102,227,255,0.08)" />
+          <stop offset="42%" stopColor="rgba(134,236,255,0.68)" />
+          <stop offset="100%" stopColor="rgba(91,140,255,0.18)" />
         </linearGradient>
       </defs>
 
@@ -198,91 +254,93 @@ export function NeuronCursor() {
         stroke="url(#neuron-cursor-axon)"
         strokeLinecap="round"
         strokeLinejoin="round"
-        strokeWidth="3.1"
+        strokeWidth="2.35"
         filter="url(#neuron-cursor-glow)"
       />
       <path
         d={cursorPath}
         fill="none"
-        stroke="rgba(247,198,107,0.52)"
-        strokeDasharray="1 12"
+        stroke={isExcited ? 'rgba(225,250,255,0.72)' : 'rgba(155,238,255,0.42)'}
+        strokeDasharray="1 11"
         strokeLinecap="round"
-        strokeWidth="5.5"
+        strokeWidth={isExcited ? '5' : '4.2'}
       />
 
       {sheathSegments.map((segment) => (
         <g
           key={segment.id}
-          opacity={0.28 + segment.fade * 0.54}
+          opacity={(isExcited ? 0.18 : 0) + 0.28 + segment.fade * 0.54}
           transform={`translate(${segment.point.x.toFixed(1)} ${segment.point.y.toFixed(1)}) rotate(${segment.angle.toFixed(1)})`}
         >
           <rect
             x={-segment.width / 2}
-            y="-7"
+            y="-5.5"
             width={segment.width}
-            height="14"
-            rx="7"
-            fill="rgba(102,227,255,0.28)"
-            stroke="rgba(205,225,220,0.42)"
+            height="11"
+            rx="5.5"
+            fill="rgba(102,227,255,0.26)"
+            stroke="rgba(205,245,255,0.44)"
             strokeWidth="1"
           />
           <rect
-            x={-segment.width / 2 + 5}
-            y="-4.6"
-            width={segment.width - 10}
-            height="9.2"
-            rx="4.6"
-            fill="rgba(247,198,107,0.18)"
+            x={-segment.width / 2 + 4}
+            y="-3.6"
+            width={segment.width - 8}
+            height="7.2"
+            rx="3.6"
+            fill="rgba(134,236,255,0.18)"
           />
         </g>
       ))}
 
-      <g
-        opacity="0.72"
-        transform={`translate(${terminalRoot.x.toFixed(1)} ${terminalRoot.y.toFixed(1)}) rotate(${terminalAngle.toFixed(1)})`}
-        filter="url(#neuron-cursor-glow)"
-      >
-        <path
-          d="M0 0 C8 -7 16 -9 23 -17 M0 0 C9 1 17 5 24 12 M0 0 C10 -2 20 -1 29 1"
-          fill="none"
-          stroke="rgba(247,198,107,0.78)"
-          strokeLinecap="round"
-          strokeWidth="2.2"
-        />
-        <circle cx="23" cy="-17" r="2.4" fill="rgba(247,198,107,0.88)" />
-        <circle cx="24" cy="12" r="2.4" fill="rgba(247,198,107,0.88)" />
-        <circle cx="29" cy="1" r="2.1" fill="rgba(247,198,107,0.88)" />
-      </g>
+      {!isHighSpeed && (
+        <g
+          opacity="0.72"
+          transform={`translate(${terminalRoot.x.toFixed(1)} ${terminalRoot.y.toFixed(1)}) rotate(${terminalAngle.toFixed(1)})`}
+          filter="url(#neuron-cursor-glow)"
+        >
+          <path
+            d="M0 0 C8 -7 16 -9 23 -17 M0 0 C9 1 17 5 24 12 M0 0 C10 -2 20 -1 29 1"
+            fill="none"
+            stroke="rgba(134,236,255,0.76)"
+            strokeLinecap="round"
+            strokeWidth="1.8"
+          />
+          <circle cx="23" cy="-17" r="2.1" fill="rgba(134,236,255,0.84)" />
+          <circle cx="24" cy="12" r="2.1" fill="rgba(134,236,255,0.84)" />
+          <circle cx="29" cy="1" r="1.9" fill="rgba(134,236,255,0.84)" />
+        </g>
+      )}
 
       <g
         className="neuron-cursor-soma"
-        transform={`translate(${head.x.toFixed(1)} ${head.y.toFixed(1)}) scale(${bodyScale})`}
+        transform={`translate(${head.x.toFixed(1)} ${head.y.toFixed(1)}) scale(${bodyScale + (isExcited ? 0.08 : 0)})`}
         filter="url(#neuron-cursor-glow)"
       >
         <path
           d="M-7 -8 C-17 -17 -22 -18 -31 -13 M-9 -4 C-23 -5 -27 -2 -37 6 M-8 6 C-18 13 -19 19 -26 26 M4 -9 C9 -21 16 -25 18 -35 M8 -4 C21 -11 29 -10 39 -16 M8 5 C20 11 25 17 31 29"
           fill="none"
-          stroke="rgba(247,198,107,0.86)"
+          stroke={isExcited ? 'rgba(225,250,255,0.96)' : 'rgba(134,236,255,0.82)'}
           strokeLinecap="round"
           strokeLinejoin="round"
-          strokeWidth="2.4"
+          strokeWidth="2"
         />
         <path
           d="M-22 -18 C-25 -26 -24 -31 -20 -37 M-29 -12 C-38 -14 -42 -18 -47 -25 M-32 6 C-41 10 -44 15 -48 22 M-24 26 C-27 34 -32 39 -39 43 M18 -35 C24 -42 25 -47 25 -54 M39 -16 C47 -21 54 -20 60 -18 M31 29 C34 38 40 42 48 45"
           fill="none"
-          stroke="rgba(247,198,107,0.54)"
+          stroke={isExcited ? 'rgba(175,244,255,0.72)' : 'rgba(134,236,255,0.46)'}
           strokeLinecap="round"
-          strokeWidth="1.8"
+          strokeWidth="1.45"
         />
         <path
           d="M-9 -10 C-1 -18 13 -13 17 -2 C21 10 11 19 -2 18 C-16 17 -22 1 -9 -10Z"
-          fill="rgba(247,198,107,0.96)"
-          stroke="rgba(255,236,182,0.82)"
+          fill={isExcited ? 'rgba(225,250,255,0.94)' : 'rgba(134,236,255,0.88)'}
+          stroke={isExcited ? 'rgba(255,255,255,0.92)' : 'rgba(225,250,255,0.78)'}
           strokeWidth="1.2"
         />
         <path
           d="M0 -6 C6 -8 12 -3 12 4 C12 10 7 14 1 13 C-6 12 -10 7 -9 1 C-8 -3 -5 -5 0 -6Z"
-          fill="rgba(167,23,124,0.86)"
+          fill={isExcited ? 'rgba(91,140,255,0.94)' : 'rgba(71,105,209,0.86)'}
         />
         <path
           d="M8 -5 C12 -2 14 3 12 8"
