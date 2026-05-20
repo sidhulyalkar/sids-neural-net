@@ -10,7 +10,7 @@ export const metadata: Metadata = {
     canonical: '/timeline',
   },
   openGraph: {
-    title: 'Timeline | Sid's Neural Net',
+    title: 'Timeline | Sids Neural Net',
     description: 'A chronological signal trace through career, research, project, publication, and life events.',
     url: '/timeline',
   },

@@ -10,8 +10,8 @@ import { NeuronCursor } from '@/components/effects/NeuronCursor';
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'https://sidsneural.net'),
   title: {
-    default: 'Sid's Neural Net | Sidharth Hulyalkar',
-    template: '%s | Sid's Neural Net',
+    default: 'Sids Neural Net | Sidharth Hulyalkar',
+    template: '%s | Sids Neural Net',
   },
   description:
     'A living portfolio and research atlas for Sidharth Hulyalkar: neuroscience data infrastructure, applied AI, neural foundation models, mechanistic interpretability, BCI systems, publications, and personal projects.',
@@ -39,15 +39,15 @@ export const metadata: Metadata = {
     type: 'website',
     locale: 'en_US',
     url: '/',
-    siteName: 'Sid's Neural Net',
-    title: 'Sid's Neural Net | Sidharth Hulyalkar',
+    siteName: 'Sids Neural Net',
+    title: 'Sids Neural Net | Sidharth Hulyalkar',
     description:
       'A living atlas of builds, publications, systems, experiments, interests, and ideas spanning neuroscience, ML, and applied AI.',
-    images: [{ url: '/opengraph-image', width: 1200, height: 630, alt: 'Sid's Neural Net' }],
+    images: [{ url: '/opengraph-image', width: 1200, height: 630, alt: 'Sids Neural Net' }],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Sid's Neural Net | Sidharth Hulyalkar',
+    title: 'Sids Neural Net | Sidharth Hulyalkar',
     description:
       'A living atlas of builds, publications, systems, experiments, interests, and ideas.',
     images: ['/opengraph-image'],

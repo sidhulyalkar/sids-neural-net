@@ -10,7 +10,7 @@ export const metadata: Metadata = {
     canonical: '/field-notes',
   },
   openGraph: {
-    title: 'Field Notes | Sid's Neural Net',
+    title: 'Field Notes | Sids Neural Net',
     description: 'Experimental writing, prototype notes, and research sketches.',
     url: '/field-notes',
   },

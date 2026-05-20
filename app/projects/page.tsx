@@ -12,7 +12,7 @@ export const metadata: Metadata = {
     canonical: '/projects',
   },
   openGraph: {
-    title: 'Builds | Sid's Neural Net',
+    title: 'Builds | Sids Neural Net',
     description:
       'Searchable builds across neuroscience infrastructure, ML research, BCI systems, and applied AI.',
     url: '/projects',

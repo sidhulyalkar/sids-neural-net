@@ -10,7 +10,7 @@ export const metadata: Metadata = {
     canonical: '/contact',
   },
   openGraph: {
-    title: 'Contact | Sid's Neural Net',
+    title: 'Contact | Sids Neural Net',
     description: 'Email, GitHub, LinkedIn, and collaboration channels for Sidharth Hulyalkar.',
     url: '/contact',
   },

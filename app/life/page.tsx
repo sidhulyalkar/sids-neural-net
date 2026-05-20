@@ -9,7 +9,7 @@ export const metadata: Metadata = {
     canonical: '/life',
   },
   openGraph: {
-    title: 'Life | Sid's Neural Net',
+    title: 'Life | Sids Neural Net',
     description: 'Personal interests, field attention, and life outside the lab.',
     url: '/life',
   },

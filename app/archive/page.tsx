@@ -15,7 +15,7 @@ export const metadata: Metadata = {
     canonical: '/archive',
   },
   openGraph: {
-    title: 'Archive | Sid's Neural Net',
+    title: 'Archive | Sids Neural Net',
     description: 'Extended papers, project case studies, field notes, and technical artifacts.',
     url: '/archive',
   },

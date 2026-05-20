@@ -8,7 +8,7 @@ export const metadata: Metadata = {
     canonical: '/learning-trails',
   },
   openGraph: {
-    title: 'Learning Trails | Sid's Neural Net',
+    title: 'Learning Trails | Sids Neural Net',
     description: 'A structured map of current learning paths and areas of active study.',
     url: '/learning-trails',
   },

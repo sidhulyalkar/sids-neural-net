@@ -27,7 +27,7 @@ export async function generateMetadata({ params }: CaseStudyPageProps): Promise<
       canonical: `/case-studies/${caseStudy.slug}`,
     },
     openGraph: {
-      title: `${caseStudy.frontmatter.title} | Sid's Neural Net`,
+      title: `${caseStudy.frontmatter.title} | Sids Neural Net`,
       description: caseStudy.frontmatter.summary,
       url: `/case-studies/${caseStudy.slug}`,
     },
