@@ -7,6 +7,8 @@ type Point = {
   y: number;
 };
 
+type ShockKind = 'primary' | 'secondary';
+
 type CursorSnapshot = {
   enabled: boolean;
   visible: boolean;
@@ -14,6 +16,8 @@ type CursorSnapshot = {
   points: Point[];
   speed: number;
   excited: boolean;
+  shockId: number;
+  shockKind: ShockKind;
 };
 
 const HISTORY_LENGTH = 56;
@@ -21,6 +25,7 @@ const MAX_TRAIL_DISTANCE = 148;
 const SHEATH_COUNT = 6;
 const CURSOR_SCALE = 0.58;
 const INTERACTIVE_SCALE = 0.66;
+const SOMA_POINTER_OFFSET = 13;
 const MIN_FRAME_DISTANCE = 0.35;
 const MEDIUM_SPEED = 12;
 const HIGH_SPEED = 24;
@@ -32,6 +37,8 @@ const EMPTY_SNAPSHOT: CursorSnapshot = {
   points: [],
   speed: 0,
   excited: false,
+  shockId: 0,
+  shockKind: 'primary',
 };
 
 function isInteractiveTarget(target: EventTarget | null) {
@@ -109,6 +116,8 @@ export function NeuronCursor() {
   const renderedRef = useRef(false);
   const excitedUntilRef = useRef(0);
   const forceRenderRef = useRef(false);
+  const shockIdRef = useRef(0);
+  const shockKindRef = useRef<ShockKind>('primary');
   const [snapshot, setSnapshot] = useState<CursorSnapshot>(EMPTY_SNAPSHOT);
 
   useEffect(() => {
@@ -145,6 +154,8 @@ export function NeuronCursor() {
         points: historyRef.current,
         speed: speedRef.current,
         excited: window.performance.now() < excitedUntilRef.current,
+        shockId: shockIdRef.current,
+        shockKind: shockKindRef.current,
       });
     };
 
@@ -182,7 +193,9 @@ export function NeuronCursor() {
       if (event.pointerType === 'touch') return;
 
       pointerRef.current = { x: event.clientX, y: event.clientY };
-      excitedUntilRef.current = window.performance.now() + 220;
+      excitedUntilRef.current = window.performance.now() + 360;
+      shockIdRef.current += 1;
+      shockKindRef.current = event.button === 2 ? 'secondary' : 'primary';
       forceRenderRef.current = true;
       requestFrame();
 
@@ -193,7 +206,7 @@ export function NeuronCursor() {
       clickTimerRef.current = window.setTimeout(() => {
         forceRenderRef.current = true;
         requestFrame();
-      }, 230);
+      }, 380);
     };
 
     window.addEventListener('pointermove', handlePointerMove, { passive: true });
@@ -230,8 +243,24 @@ export function NeuronCursor() {
 
   const head = pointAt(activePoints, 0);
   const bodyScale = snapshot.interactive ? INTERACTIVE_SCALE : CURSOR_SCALE;
-  const trailOpacity = snapshot.visible ? 1 : 0;
   const isExcited = snapshot.excited;
+  const isSecondaryShock = snapshot.shockKind === 'secondary';
+  const shockGlowFilter = isSecondaryShock
+    ? 'url(#neuron-cursor-electric-glow-secondary)'
+    : 'url(#neuron-cursor-electric-glow)';
+  const shockHaloStroke = isSecondaryShock ? 'rgba(167,139,250,0.5)' : 'rgba(247,198,107,0.46)';
+  const shockGradient = isSecondaryShock
+    ? 'url(#neuron-cursor-shock-secondary)'
+    : 'url(#neuron-cursor-shock)';
+  const shockSparkStroke = isSecondaryShock ? 'rgba(255,190,245,0.98)' : 'rgba(255,255,255,0.96)';
+  const somaScale = bodyScale + (isExcited ? 0.06 : 0);
+  const directionPoint = pointAt(activePoints, 1);
+  const movementDistance = Math.hypot(head.x - directionPoint.x, head.y - directionPoint.y);
+  const movementAngle = Math.atan2(head.y - directionPoint.y, head.x - directionPoint.x);
+  const somaOffset = movementDistance > 0.75 ? SOMA_POINTER_OFFSET * somaScale : 0;
+  const somaX = head.x - Math.cos(movementAngle) * somaOffset;
+  const somaY = head.y - Math.sin(movementAngle) * somaOffset;
+  const trailOpacity = snapshot.visible ? 1 : 0;
   const isHighSpeed = snapshot.speed > HIGH_SPEED;
   const desiredSheathCount = isHighSpeed ? 3 : snapshot.speed > MEDIUM_SPEED ? 4 : SHEATH_COUNT;
   const activeSheathCount = Math.min(
@@ -276,10 +305,48 @@ export function NeuronCursor() {
             <feMergeNode in="SourceGraphic" />
           </feMerge>
         </filter>
+        <filter id="neuron-cursor-electric-glow" x="-80%" y="-80%" width="260%" height="260%">
+          <feGaussianBlur stdDeviation="2.6" result="electricBlur" />
+          <feColorMatrix
+            in="electricBlur"
+            type="matrix"
+            values="1 0 0 0 0.95  0 1 0 0 0.78  0 0 1 0 0.18  0 0 0 1 0"
+            result="warmGlow"
+          />
+          <feMerge>
+            <feMergeNode in="warmGlow" />
+            <feMergeNode in="SourceGraphic" />
+          </feMerge>
+        </filter>
+        <filter id="neuron-cursor-electric-glow-secondary" x="-80%" y="-80%" width="260%" height="260%">
+          <feGaussianBlur stdDeviation="2.8" result="electricBlurSecondary" />
+          <feColorMatrix
+            in="electricBlurSecondary"
+            type="matrix"
+            values="1 0 0 0 0.58  0 1 0 0 0.24  0 0 1 0 0.92  0 0 0 1 0"
+            result="violetGlow"
+          />
+          <feMerge>
+            <feMergeNode in="violetGlow" />
+            <feMergeNode in="SourceGraphic" />
+          </feMerge>
+        </filter>
         <linearGradient id="neuron-cursor-axon" x1="0%" y1="0%" x2="100%" y2="0%">
           <stop offset="0%" stopColor="rgba(102,227,255,0.08)" />
           <stop offset="42%" stopColor="rgba(134,236,255,0.68)" />
           <stop offset="100%" stopColor="rgba(91,140,255,0.18)" />
+        </linearGradient>
+        <linearGradient id="neuron-cursor-shock" x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%" stopColor="rgba(255,255,255,0.12)" />
+          <stop offset="45%" stopColor="rgba(255,255,255,0.98)" />
+          <stop offset="72%" stopColor="rgba(247,198,107,0.92)" />
+          <stop offset="100%" stopColor="rgba(255,244,178,0.2)" />
+        </linearGradient>
+        <linearGradient id="neuron-cursor-shock-secondary" x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%" stopColor="rgba(255,255,255,0.14)" />
+          <stop offset="42%" stopColor="rgba(255,238,255,0.98)" />
+          <stop offset="70%" stopColor="rgba(255,122,162,0.9)" />
+          <stop offset="100%" stopColor="rgba(167,139,250,0.28)" />
         </linearGradient>
       </defs>
 
@@ -300,6 +367,50 @@ export function NeuronCursor() {
         strokeLinecap="round"
         strokeWidth={isExcited ? '5' : '4.2'}
       />
+
+      {isExcited && cursorPath && (
+        <g key={`shock-${snapshot.shockId}`} filter={shockGlowFilter}>
+          <path
+            d={cursorPath}
+            fill="none"
+            stroke={shockHaloStroke}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth="8"
+            strokeDasharray="18 92"
+            strokeDashoffset="112"
+          >
+            <animate attributeName="stroke-dashoffset" values="112;0;-88" dur="360ms" repeatCount="1" />
+            <animate attributeName="opacity" values="0;0.9;0.72;0" dur="360ms" repeatCount="1" fill="freeze" />
+          </path>
+          <path
+            d={cursorPath}
+            fill="none"
+            stroke={shockGradient}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth="4.2"
+            strokeDasharray="10 34 2 18"
+            strokeDashoffset="64"
+          >
+            <animate attributeName="stroke-dashoffset" values="64;0;-74" dur="320ms" repeatCount="1" />
+            <animate attributeName="opacity" values="0;1;0.88;0" dur="360ms" repeatCount="1" fill="freeze" />
+          </path>
+          <path
+            d={cursorPath}
+            fill="none"
+            stroke={shockSparkStroke}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth="1.7"
+            strokeDasharray="2 18"
+            strokeDashoffset="38"
+          >
+            <animate attributeName="stroke-dashoffset" values="38;0;-42" dur="260ms" repeatCount="1" />
+            <animate attributeName="opacity" values="0;1;0.65;0" dur="300ms" repeatCount="1" fill="freeze" />
+          </path>
+        </g>
+      )}
 
       {sheathSegments.map((segment) => (
         <g
@@ -349,7 +460,7 @@ export function NeuronCursor() {
 
       <g
         className="neuron-cursor-soma"
-        transform={`translate(${head.x.toFixed(1)} ${head.y.toFixed(1)}) scale(${bodyScale + (isExcited ? 0.06 : 0)})`}
+        transform={`translate(${somaX.toFixed(1)} ${somaY.toFixed(1)}) scale(${somaScale})`}
         filter="url(#neuron-cursor-glow)"
       >
         <path
