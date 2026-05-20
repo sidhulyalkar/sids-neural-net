@@ -526,7 +526,7 @@ function generateDendriticTree(
           widthEnd: 0.35 + rng() * 0.1,
           alpha: 0.32 + rng() * 0.12,
           children: [],
-          labelId: shouldHaveLabel ? assignedLabel : undefined,
+          labelId: (shouldHaveLabel && assignedLabel) || undefined,
         };
 
         if (shouldHaveLabel && assignedLabel) {
@@ -578,7 +578,7 @@ function generateDendriticTree(
           widthEnd: 0.3,
           alpha: 0.28,
           children: [],
-          labelId: shouldHaveEndLabel ? assignedLabel : undefined,
+          labelId: (shouldHaveEndLabel && assignedLabel) || undefined,
         };
 
         if (shouldHaveEndLabel && assignedLabel) {
