@@ -11,7 +11,7 @@ export const metadata: Metadata = {
     canonical: '/case-studies',
   },
   openGraph: {
-    title: 'Deployed Systems | Sid Neural Net',
+    title: 'Deployed Systems | Sid's Neural Net',
     description: 'Deep project dives into major systems, technical tradeoffs, and architecture.',
     url: '/case-studies',
   },

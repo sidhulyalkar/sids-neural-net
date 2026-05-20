@@ -12,7 +12,7 @@ export const metadata: Metadata = {
     canonical: '/resume',
   },
   openGraph: {
-    title: 'Resume | Sid Neural Net',
+    title: 'Resume | Sid's Neural Net',
     description: 'Current resume for Sidharth Hulyalkar.',
     url: '/resume',
   },

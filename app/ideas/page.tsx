@@ -8,7 +8,7 @@ export const metadata: Metadata = {
     canonical: '/ideas',
   },
   openGraph: {
-    title: 'Research Ideas | Sid Neural Net',
+    title: 'Research Ideas | Sid's Neural Net',
     description: 'Research sketches around brain dynamics, interpretability, BCI, and scientific tools.',
     url: '/ideas',
   },

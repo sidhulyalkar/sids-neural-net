@@ -12,7 +12,7 @@ export const metadata: Metadata = {
     canonical: '/neural-net',
   },
   openGraph: {
-    title: 'Graph Archive | Sid Neural Net',
+    title: 'Graph Archive | Sid's Neural Net',
     description: 'A power-user graph archive for builds, publications, domains, and portfolio connections.',
     url: '/neural-net',
   },

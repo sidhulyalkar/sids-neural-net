@@ -10,7 +10,7 @@ export const metadata: Metadata = {
     canonical: '/photography',
   },
   openGraph: {
-    title: 'Visual Cortex | Sid Neural Net',
+    title: 'Visual Cortex | Sid's Neural Net',
     description: 'A darkroom-style visual cortex for curated field images.',
     url: '/photography',
   },

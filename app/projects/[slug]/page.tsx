@@ -32,7 +32,7 @@ export async function generateMetadata({ params }: ProjectPageProps): Promise<Me
       canonical: `/projects/${project.slug}`,
     },
     openGraph: {
-      title: `${project.title} | Sid Neural Net`,
+      title: `${project.title} | Sid's Neural Net`,
       description: project.summary || `Details about the ${project.title} project.`,
       url: `/projects/${project.slug}`,
     },

@@ -15,7 +15,7 @@ export const metadata: Metadata = {
     canonical: '/code',
   },
   openGraph: {
-    title: 'Code Systems | Sid Neural Net',
+    title: 'Code Systems | Sid's Neural Net',
     description:
       'A portfolio view of code systems spanning neuroscience data infrastructure, BCI, multimodal ML, and applied AI.',
     url: '/code',

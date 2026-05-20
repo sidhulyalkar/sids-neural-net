@@ -14,7 +14,7 @@ export const metadata: Metadata = {
     canonical: '/publications',
   },
   openGraph: {
-    title: 'Paper Archive | Sid Neural Net',
+    title: 'Paper Archive | Sid's Neural Net',
     description: 'Peer-reviewed neuroscience and computational methods publications.',
     url: '/publications',
   },
