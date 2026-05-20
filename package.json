@@ -6,6 +6,7 @@
     "dev": "next dev",
     "build": "npm run ingest && next build",
     "start": "next start",
+    "preview": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "ingest": "tsx scripts/ingest-github.ts && tsx scripts/build-neural-graph.ts",

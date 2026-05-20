@@ -42,16 +42,11 @@ function publicationLinks(publication: NeuralNode, enhancement?: OpenAlexPublica
   return links;
 }
 
-function keepHyphenatedTerms(text: string) {
-  return text.replace(/([A-Za-z])-([A-Za-z])/g, '$1\u2011$2');
-}
-
 export function PublicationFocusArchive({ publications, enhancements }: PublicationFocusArchiveProps) {
   return (
     <section className="publication-focus-shell">
       <div className="mb-8 border-b border-white/10 pb-5">
-        <p className="font-mono text-xs uppercase tracking-[0.28em] text-cyan/75">Paper blocks</p>
-        <h2 className="mt-2 font-mono text-xl font-light uppercase tracking-[0.16em] text-text-primary">
+        <h2 className="font-mono text-xl font-light uppercase tracking-[0.16em] text-text-primary">
           Publication references
         </h2>
       </div>
@@ -66,12 +61,12 @@ export function PublicationFocusArchive({ publications, enhancements }: Publicat
           return (
             <article
               key={publication.id}
-              className={`publication-paper-block p-5 ${index % 3 === 0 ? 'md:-rotate-[0.45deg]' : index % 3 === 1 ? 'md:rotate-[0.35deg] md:translate-y-4' : ''}`}
+              className="publication-paper-block min-w-0 overflow-hidden p-5"
             >
               <div className="mb-4 flex items-center justify-between gap-3">
-                <p className="flex flex-wrap items-center gap-x-2 gap-y-1 font-mono text-[0.66rem] uppercase leading-5 tracking-[0.18em] text-text-muted [overflow-wrap:normal] [word-break:normal] hyphens-none">
+                <p className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 font-mono text-[0.66rem] uppercase leading-5 tracking-[0.18em] text-text-muted [overflow-wrap:anywhere]">
                   {venueParts.map((part, partIndex) => (
-                    <span key={part} className="whitespace-nowrap">
+                    <span key={part} className="max-w-full break-words">
                       {partIndex > 0 && <span className="mr-2 text-text-muted/70">/</span>}
                       {part}
                     </span>
@@ -79,45 +74,40 @@ export function PublicationFocusArchive({ publications, enhancements }: Publicat
                 </p>
               </div>
 
-              <h3 className="text-xl font-semibold leading-tight text-text-primary [overflow-wrap:normal] [word-break:normal] hyphens-none">
-                {keepHyphenatedTerms(publication.title)}
+              <h3 className="text-pretty text-xl font-semibold leading-tight text-text-primary [overflow-wrap:anywhere]">
+                {publication.title}
               </h3>
 
               {pub?.authors && pub.authors.length > 0 && (
-                <p className="mt-3 flex flex-wrap gap-x-1.5 gap-y-0.5 text-sm leading-6 text-text-muted [overflow-wrap:normal] [word-break:normal] hyphens-none">
-                  {pub.authors.map((author, authorIndex) => (
-                    <span key={`${publication.id}-${author}`} className="whitespace-nowrap">
-                      {author}
-                      {authorIndex < pub.authors.length - 1 ? ',' : ''}
-                    </span>
-                  ))}
+                <p className="mt-3 text-pretty text-sm leading-6 text-text-muted [overflow-wrap:anywhere]">
+                  {pub.authors.join(', ')}
                 </p>
               )}
 
-              <p className="mt-4 text-sm leading-6 text-text-secondary">
+              <p className="mt-4 text-pretty text-sm leading-6 text-text-secondary [overflow-wrap:anywhere]">
                 {pub?.abstract || enhancement?.abstract || publication.summary || 'Abstract slot ready for this publication.'}
               </p>
 
-              <div className="mt-4 flex flex-wrap gap-1.5">
+              <div className="mt-4 flex min-w-0 flex-wrap gap-1.5">
                 {[...(enhancement?.topics ?? []), ...publication.tags].slice(0, 6).map((tag, tagIndex) => (
-                  <TagPill key={`${publication.id}-${tag}-${tagIndex}`} color={getTagColor(tag)} size="sm">
+                  <TagPill key={`${publication.id}-${tag}-${tagIndex}`} color={getTagColor(tag)} size="sm" wrap>
                     {tag}
                   </TagPill>
                 ))}
               </div>
 
-              <div className="mt-5 flex flex-wrap gap-3 border-t border-white/10 pt-4">
+              <div className="mt-5 flex min-w-0 flex-wrap gap-x-3 gap-y-2 border-t border-white/10 pt-4">
                 {links.map((link) => (
                   <a
                     key={`${publication.id}-${link.label}-${link.href}`}
                     href={link.href}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex min-h-10 items-center gap-2 text-sm text-cyan hover:text-cyan-100"
+                    className="inline-flex min-h-10 min-w-0 max-w-full items-center gap-2 text-sm text-cyan hover:text-cyan-100"
                     aria-label={`Open ${link.label} for ${publication.title}`}
                   >
-                    {link.kind === 'pdf' ? <FileText className="h-4 w-4" /> : <ExternalLink className="h-4 w-4" />}
-                    {link.label}
+                    {link.kind === 'pdf' ? <FileText className="h-4 w-4 shrink-0" /> : <ExternalLink className="h-4 w-4 shrink-0" />}
+                    <span className="min-w-0 break-words [overflow-wrap:anywhere]">{link.label}</span>
                   </a>
                 ))}
               </div>

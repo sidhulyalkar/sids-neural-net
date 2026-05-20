@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import Image from 'next/image';
 import { ChevronLeft, ChevronRight, X } from 'lucide-react';
 import type { VisualArchiveEntry } from '@/src/data/visualArchive';
@@ -17,17 +17,22 @@ type ArchiveCardStyle = CSSProperties & {
 };
 
 const layoutPattern = [
-  { rotate: '-1.4deg', y: '0.4rem', x: '0rem', width: '96%' },
-  { rotate: '1.1deg', y: '2.1rem', x: '0.7rem', width: '88%' },
-  { rotate: '-0.6deg', y: '0rem', x: '-0.35rem', width: '100%' },
-  { rotate: '1.7deg', y: '1.1rem', x: '0rem', width: '82%' },
-  { rotate: '-1deg', y: '2.8rem', x: '1rem', width: '92%' },
-  { rotate: '0.55deg', y: '0.2rem', x: '-0.4rem', width: '98%' },
-  { rotate: '-1.8deg', y: '1.8rem', x: '0.2rem', width: '86%' },
-  { rotate: '1.25deg', y: '0.8rem', x: '0.8rem', width: '94%' },
-  { rotate: '-0.35deg', y: '2.2rem', x: '-0.7rem', width: '90%' },
-  { rotate: '0.9deg', y: '0rem', x: '0.25rem', width: '100%' },
+  { rotate: '-0.8deg', y: '0.15rem', x: '0rem', width: '100%' },
+  { rotate: '0.7deg', y: '0.65rem', x: '0.2rem', width: '98%' },
+  { rotate: '-0.45deg', y: '0rem', x: '-0.15rem', width: '100%' },
+  { rotate: '0.95deg', y: '0.45rem', x: '0rem', width: '96%' },
+  { rotate: '-0.65deg', y: '0.85rem', x: '0.25rem', width: '99%' },
+  { rotate: '0.35deg', y: '0.1rem', x: '-0.15rem', width: '100%' },
+  { rotate: '-1deg', y: '0.55rem', x: '0.1rem', width: '97%' },
+  { rotate: '0.8deg', y: '0.25rem', x: '0.2rem', width: '100%' },
+  { rotate: '-0.25deg', y: '0.7rem', x: '-0.2rem', width: '98%' },
+  { rotate: '0.55deg', y: '0rem', x: '0.1rem', width: '100%' },
 ] as const;
+
+type BalancedArchiveEntry = {
+  entry: VisualArchiveEntry;
+  index: number;
+};
 
 function cardStyle(index: number): ArchiveCardStyle {
   const layout = layoutPattern[index % layoutPattern.length];
@@ -39,11 +44,39 @@ function cardStyle(index: number): ArchiveCardStyle {
   };
 }
 
+function getResponsiveColumnCount() {
+  if (typeof window === 'undefined') return 1;
+  if (window.matchMedia('(min-width: 1536px)').matches) return 5;
+  if (window.matchMedia('(min-width: 1280px)').matches) return 4;
+  if (window.matchMedia('(min-width: 1024px)').matches) return 3;
+  if (window.matchMedia('(min-width: 640px)').matches) return 2;
+  return 1;
+}
+
+function distributeEntries(entries: VisualArchiveEntry[], columnCount: number): BalancedArchiveEntry[][] {
+  const columns = Array.from({ length: columnCount }, () => [] as BalancedArchiveEntry[]);
+  const columnHeights = Array.from({ length: columnCount }, () => 0);
+
+  entries.forEach((entry, index) => {
+    const layout = layoutPattern[index % layoutPattern.length];
+    const widthScale = Number.parseFloat(layout.width) / 100 || 1;
+    const estimatedHeight = (entry.height / entry.width) * widthScale + 0.08;
+    const targetColumn = columnHeights.indexOf(Math.min(...columnHeights));
+
+    columns[targetColumn].push({ entry, index });
+    columnHeights[targetColumn] += estimatedHeight;
+  });
+
+  return columns;
+}
+
 export function VisualArchiveGallery({ entries }: VisualArchiveGalleryProps) {
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
+  const [columnCount, setColumnCount] = useState(1);
   const closeButtonRef = useRef<HTMLButtonElement | null>(null);
   const activeEntry = activeIndex === null ? null : entries[activeIndex];
   const activeDisplayIndex = activeIndex === null ? 0 : activeIndex + 1;
+  const columns = useMemo(() => distributeEntries(entries, columnCount), [columnCount, entries]);
 
   const close = useCallback(() => setActiveIndex(null), []);
   const showPrevious = useCallback(() => {
@@ -94,37 +127,52 @@ export function VisualArchiveGallery({ entries }: VisualArchiveGalleryProps) {
     };
   }, [activeIndex, close, showNext, showPrevious]);
 
+  useEffect(() => {
+    const updateColumnCount = () => setColumnCount(getResponsiveColumnCount());
+
+    updateColumnCount();
+    window.addEventListener('resize', updateColumnCount);
+    return () => window.removeEventListener('resize', updateColumnCount);
+  }, []);
+
   if (!entries.length) return null;
 
   return (
     <>
       <section className="visual-archive-shell" aria-label="Selected personal photography">
-        <div className="visual-archive-masonry">
-          {entries.map((entry, index) => (
-            <button
-              key={entry.id}
-              type="button"
-              className="visual-archive-card group"
-              style={cardStyle(index)}
-              onClick={() => setActiveIndex(index)}
-              aria-label={`Open image ${index + 1} of ${entries.length}`}
-            >
-              <span
-                className="relative block overflow-hidden border border-white/10 bg-black/40"
-                style={{ aspectRatio: entry.aspectRatio }}
-              >
-                <Image
-                  src={entry.thumbSrc}
-                  alt={entry.alt}
-                  fill
-                  sizes="(min-width: 1280px) 22vw, (min-width: 768px) 42vw, 92vw"
-                  loading="lazy"
-                  decoding="async"
-                  className="object-cover transition duration-500 group-hover:scale-[1.035] motion-reduce:transition-none motion-reduce:group-hover:scale-100"
-                />
-              </span>
-              {entry.title && <span className="sr-only">{entry.title}</span>}
-            </button>
+        <div
+          className="visual-archive-masonry"
+          style={{ '--archive-columns': columnCount } as CSSProperties}
+        >
+          {columns.map((column, columnIndex) => (
+            <div className="visual-archive-column" key={`visual-archive-column-${columnIndex}`}>
+              {column.map(({ entry, index }) => (
+                <button
+                  key={entry.id}
+                  type="button"
+                  className="visual-archive-card group"
+                  style={cardStyle(index)}
+                  onClick={() => setActiveIndex(index)}
+                  aria-label={`Open image ${index + 1} of ${entries.length}`}
+                >
+                  <span
+                    className="relative block overflow-hidden border border-white/10 bg-black/40"
+                    style={{ aspectRatio: entry.aspectRatio }}
+                  >
+                    <Image
+                      src={entry.thumbSrc}
+                      alt={entry.alt}
+                      fill
+                      sizes="(min-width: 1536px) 18vw, (min-width: 1280px) 22vw, (min-width: 1024px) 30vw, (min-width: 640px) 46vw, 92vw"
+                      loading="lazy"
+                      decoding="async"
+                      className="object-cover transition duration-500 group-hover:scale-[1.035] motion-reduce:transition-none motion-reduce:group-hover:scale-100"
+                    />
+                  </span>
+                  {entry.title && <span className="sr-only">{entry.title}</span>}
+                </button>
+              ))}
+            </div>
           ))}
         </div>
       </section>

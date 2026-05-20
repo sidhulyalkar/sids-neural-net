@@ -7,6 +7,7 @@ interface TagPillProps {
   color?: TagColor;
   size?: 'sm' | 'md';
   className?: string;
+  wrap?: boolean;
 }
 
 const colorClasses: Record<TagColor, string> = {
@@ -29,6 +30,7 @@ export function TagPill({
   color = 'default',
   size = 'sm',
   className,
+  wrap = false,
 }: TagPillProps) {
   return (
     <span
@@ -36,10 +38,13 @@ export function TagPill({
         'inline-flex max-w-full items-center rounded-full border font-medium leading-tight',
         colorClasses[color],
         sizeClasses[size],
+        wrap && 'whitespace-normal',
         className
       )}
     >
-      <span className="min-w-0 truncate">{children}</span>
+      <span className={cn('min-w-0', wrap ? 'break-words [overflow-wrap:anywhere]' : 'truncate')}>
+        {children}
+      </span>
     </span>
   );
 }

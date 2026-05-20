@@ -453,18 +453,27 @@ body::before {
   }
 
   .visual-archive-masonry {
-    column-count: 1;
-    column-gap: 1rem;
+    --archive-columns: 1;
+    display: grid;
+    grid-template-columns: repeat(var(--archive-columns), minmax(0, 1fr));
+    gap: clamp(0.85rem, 1.2vw, 1.25rem);
     position: relative;
     z-index: 1;
+    align-items: start;
+  }
+
+  .visual-archive-column {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: clamp(0.85rem, 1.2vw, 1.25rem);
   }
 
   .visual-archive-card {
     display: block;
     width: 100%;
-    margin: 0 0 1rem;
+    margin: 0;
     padding: 0;
-    break-inside: avoid;
     border: 0;
     background: transparent;
     color: inherit;
@@ -500,41 +509,15 @@ body::before {
   }
 
   @media (min-width: 640px) {
-    .visual-archive-masonry {
-      column-count: 2;
-      column-gap: 1.15rem;
-    }
-
     .visual-archive-card {
       width: var(--archive-width);
       margin-right: auto;
-      margin-bottom: 1.35rem;
       transform: translate3d(var(--archive-x), var(--archive-y), 0) rotate(var(--archive-rotate));
     }
 
     .visual-archive-card:hover,
     .visual-archive-card:focus-visible {
       transform: translate3d(var(--archive-x), calc(var(--archive-y) - 0.28rem), 0) rotate(var(--archive-rotate)) scale(1.012);
-    }
-  }
-
-  @media (min-width: 1024px) {
-    .visual-archive-masonry {
-      column-count: 3;
-      column-gap: 1.35rem;
-    }
-  }
-
-  @media (min-width: 1280px) {
-    .visual-archive-masonry {
-      column-count: 4;
-      column-gap: 1.45rem;
-    }
-  }
-
-  @media (min-width: 1536px) {
-    .visual-archive-masonry {
-      column-count: 5;
     }
   }
 
