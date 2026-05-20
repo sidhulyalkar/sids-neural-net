@@ -9,6 +9,9 @@ tags:
   - cloud
   - neuroscience
   - pipelines
+  - spikeinterface
+  - deeplabcut
+  - facemap
 domains:
   - Neural Data Infrastructure
   - Scientific Workflow Systems
@@ -18,6 +21,7 @@ relatedProjects:
   - element-array-ephys
   - element-calcium-imaging
   - element-deeplabcut
+  - element-facemap
 modeVisibility:
   - recruiter
   - researcher
@@ -27,16 +31,38 @@ modeVisibility:
 
 ## Overview
 
-At DataJoint, I architected and deployed multimodal neuroscience data pipelines for major research institutions. These systems process terabytes of electrophysiology, calcium imaging, and behavioral tracking data through cloud-native infrastructure.
+At DataJoint, I served as a core infrastructure engineer responsible for architecting, deploying, and maintaining production neuroscience data pipelines at major research institutions including Harvard Medical School, MIT, Allen Institute, and Friedrich Miescher Institute. These systems process terabytes of multimodal data—electrophysiology, calcium imaging, fiber photometry, and behavioral tracking—through cloud-native infrastructure that I designed and operated.
+
+Beyond deployment work, I was a primary contributor to DataJoint's open-source ecosystem, developing and maintaining **20+ repositories** that form the backbone of reproducible neuroscience workflows used by hundreds of labs globally.
 
 ## Technical Challenges
 
-The primary challenges included:
+Building production neuroscience infrastructure requires navigating challenges across multiple technical domains:
 
-- **Scale**: Processing ~12TB of multimodal data per deployment
-- **Complexity**: Integrating diverse data modalities (Neuropixels, two-photon, behavioral tracking)
-- **Reliability**: Building fault-tolerant pipelines that could run for days
-- **Usability**: Making complex infrastructure accessible to neuroscience labs
+**Data Scale & Velocity:**
+- Single experiments generate 100GB–1TB of raw data across modalities
+- Labs run multiple experiments daily, accumulating 10-50TB monthly
+- Processing must keep pace with acquisition to avoid backlogs
+
+**Computational Complexity:**
+- Spike sorting: GPU-accelerated algorithms running for hours on terabyte datasets
+- Deep learning inference: Pose estimation and calcium imaging requiring batched GPU processing
+- Signal processing: Real-time and offline analysis of multi-channel electrophysiology
+
+**System Integration:**
+- Heterogeneous data formats from dozens of acquisition systems (SpikeGLX, Scanimage, Open Ephys, custom rigs)
+- Metadata management across sessions, subjects, and experimental protocols
+- Cross-modal alignment requiring sub-millisecond timestamp synchronization
+
+**Reliability Requirements:**
+- Multi-day processing jobs that cannot fail silently
+- Data integrity guarantees for irreplaceable experimental recordings
+- Graceful handling of corrupted files, hardware failures, and network issues
+
+**Usability for Scientists:**
+- Complex infrastructure must be operable by neuroscience PhDs, not DevOps engineers
+- Self-service capabilities for common operations
+- Clear error messages and recovery procedures
 
 ## Architecture
 
@@ -47,27 +73,199 @@ The pipeline architecture followed a modular design using DataJoint Elements:
 3. **Analysis Layer**: Higher-level computations and feature extraction
 4. **Storage Layer**: Cloud-optimized storage with efficient querying
 
+## Open-Source Element Development
+
+As a core contributor and maintainer across **20+ DataJoint open-source repositories**, I developed key infrastructure components that are now used by neuroscience labs worldwide. This work required deep understanding of both the underlying neuroscience methods and production software engineering practices.
+
+### SpikeInterface Integration (element-array-ephys)
+
+Led the integration of [SpikeInterface](https://spikeinterface.readthedocs.io) into DataJoint's electrophysiology pipeline—a significant architectural undertaking that unified multiple spike sorting frameworks under a single orchestration layer.
+
+**Technical Implementation:**
+- **Unified sorter API**: Abstracted Kilosort (1, 2, 2.5, 3), SpykingCircus, Mountainsort, and others behind a consistent interface
+- **Preprocessing standardization**: Implemented configurable pipelines for bandpass filtering, common average reference, whitening, and motion correction
+- **Quality metrics automation**: Integrated SpikeInterface's quality metrics (ISI violations, SNR, presence ratio, amplitude cutoff) directly into DataJoint tables
+- **Waveform extraction**: Optimized memory-efficient waveform extraction for datasets with millions of spikes
+
+**Cloud Architecture:**
+- Designed job distribution for parallel spike sorting across EC2 GPU instances
+- Implemented checkpoint/restart logic for fault tolerance during multi-hour sorting jobs
+- Built S3-aware data streaming to avoid copying terabytes of raw data between storage and compute
+
+**Impact**: This integration became the standard approach for electrophysiology processing in DataJoint deployments, used across multiple institutions.
+
+### element-facemap: Training & Inference Modules
+
+Built the complete model training and inference pipeline for [Facemap](https://facemap.readthedocs.io) behavioral analysis, enabling labs to train custom facial movement models and deploy them at scale.
+
+**Training Module:**
+- Automated workflow from labeled video frames to trained neural network models
+- Hyperparameter tracking with full reproducibility (learning rate, augmentation, architecture)
+- Validation metrics computation and model selection logic
+- Integration with lab-specific annotation formats
+
+**Inference Module:**
+- Batch video processing with intelligent frame sampling
+- GPU memory management for processing long behavioral sessions
+- Keypoint extraction with confidence scoring
+- Downstream feature computation (pupil diameter, whisker position, facial motion energy)
+
+**Cloud Configuration:**
+- Docker containerization for consistent execution environments
+- AWS deployment patterns with p3/g4 GPU instance support
+- S3 integration for video storage with streaming inference (no full download required)
+- Cost-optimized spot instance utilization for batch processing
+
+### element-deeplabcut: Cloud Training & Inference
+
+Developed production-grade training and inference pipelines for [DeepLabCut](https://deeplabcut.github.io/DeepLabCut), the most widely-used pose estimation tool in neuroscience.
+
+**Training Pipeline Complexity:**
+- End-to-end workflow: project creation → frame extraction → labeling integration → training → evaluation
+- Multi-animal support for social behavior experiments
+- Transfer learning from pretrained networks (ResNet, MobileNet, EfficientNet backbones)
+- Automated train/test splitting with stratification by session and animal
+
+**Inference Pipeline:**
+- Scalable video processing handling thousands of hours of behavioral footage
+- Checkpoint management for resumable processing after failures
+- Filtering and interpolation of tracked keypoints
+- Batch job orchestration with progress tracking and error handling
+
+**Cloud Deployment (AWS):**
+- **GPU auto-scaling**: Dynamic instance provisioning based on processing queue depth
+- **S3 integration**: Direct video streaming from object storage, model artifact versioning
+- **Docker containerization**: Reproducible environments with pinned dependencies
+- **Cost optimization**: Spot instance support with automatic failover, intelligent scheduling during off-peak hours
+
+**Multi-Project Architecture:**
+- Schema design supporting multiple DLC projects per lab
+- Model versioning with A/B comparison capabilities
+- Cross-project transfer learning workflows
+
 ## Key Deployments
 
 ### Harvard/Sabatini Lab
 
-Led a major deployment integrating Neuropixels electrophysiology, behavioral tracking, and optogenetics data. The system processes ~12TB of data with fully automated workflows from raw acquisition to analysis-ready datasets.
+Led a flagship deployment for one of the world's leading synaptic neuroscience labs, integrating multiple data modalities into a unified analysis platform.
+
+**Technical Scope:**
+- **Neuropixels electrophysiology**: Multi-probe recordings with 384 channels per probe, requiring synchronized spike sorting across terabytes of continuous data
+- **Behavioral tracking**: DeepLabCut pose estimation for precise movement analysis during optogenetic manipulation experiments
+- **Optogenetics integration**: Event-aligned analysis correlating neural activity with light stimulation protocols
+- **Fiber photometry**: Calcium dynamics from genetically-targeted neural populations
+
+**Infrastructure Challenges Solved:**
+- Designed schema architecture to maintain relational integrity across 50+ interconnected tables
+- Implemented automated data validation to catch acquisition errors before expensive processing
+- Built custom ingestion parsers for lab-specific file formats and metadata conventions
+- Configured fault-tolerant job scheduling for multi-day processing runs
+
+**Scale**: ~12TB of multimodal data processed with full provenance from raw acquisition to publication-ready figures.
 
 ### Allen Institute Mindscope
 
-Contributed to DataJoint pipelines for large-scale vision neuroscience studies, supporting the Mindscope program's data infrastructure needs.
+Implemented the Allen Institute's Open Ephys pipeline with DataJoint orchestration, enabling unprecedented turnaround times for large-scale systems neuroscience.
 
-## Results
+**The Challenge:**
+The Mindscope program required same-day or next-day feedback on neural recordings to enable adaptive experimental design. Traditional processing took days to weeks.
 
-- Reduced manual data processing time by **90%**
+**Solution Architecture:**
+- **Parallel spike sorting**: Distributed Kilosort jobs across multiple GPU instances, processing probe data concurrently
+- **Automated quality control**: Real-time quality metrics flagging problematic recordings before researcher review
+- **Streamlined waveform extraction**: Optimized I/O patterns for reading from high-throughput acquisition systems
+
+**Performance Achieved:**
+- **8-12TB of raw electrophysiology data → fully spike-sorted in under 16 hours**
+- Complete waveform extraction, clustering, and quality metrics computation
+- Researchers could review results each morning and adjust experimental parameters for afternoon sessions
+
+**Impact**: Transformed the experimental workflow from "record and analyze later" to true closed-loop iteration, accelerating discovery in visual cortex mapping studies.
+
+### Lu Lab (MIT)
+
+Deployed a sophisticated hybrid pipeline combining deep learning behavioral analysis with human-in-the-loop quality control for calcium imaging.
+
+**Behavioral Analysis Stack:**
+- **element-deeplabcut**: Custom pose estimation models trained on lab-specific behavioral paradigms
+  - Managed training data pipelines from labeled frames through model iteration
+  - Deployed inference at scale across thousands of behavioral sessions
+- **element-facemap**: Facial movement tracking for arousal and attention metrics
+  - Configured custom ROIs for lab-specific camera setups
+  - Integrated pupil tracking with neural activity alignment
+
+**Calcium Imaging Pipeline:**
+- **Automated preprocessing**: Motion correction, cell detection, and signal extraction using Suite2p/CaImAn
+- **Manual mask correction workflow**:
+  - Built intervention pipelines allowing researchers to correct automated cell segmentation
+  - Designed UI integration points for manual ROI adjustment
+  - Maintained full provenance—tracking which cells were auto-detected vs. manually corrected
+- **Quality control checkpoints**: Automated flagging of sessions requiring human review based on motion artifacts, signal quality, and segmentation confidence
+
+**Key Innovation**: Hybrid automation philosophy—automate the 90% that's routine, but build proper tooling for the 10% requiring expert judgment. This approach achieved higher data quality than either fully manual or fully automated approaches alone.
+
+### FMI Luthi Lab (Friedrich Miescher Institute)
+
+Built end-to-end cloud infrastructure for a world-class fear and anxiety neuroscience lab, enabling seamless multimodal data integration from acquisition to analysis.
+
+**Multi-Pipeline Architecture:**
+- **Electrophysiology**:
+  - Neuropixels and tetrode recordings with flexible spike sorting backends
+  - LFP spectral analysis for oscillation and coherence studies
+  - Event-triggered averaging aligned to behavioral timestamps
+
+- **Two-Photon Calcium Imaging**:
+  - Automated cell detection optimized for deep-brain imaging conditions
+  - Longitudinal cell tracking across multi-day fear conditioning experiments
+  - Activity extraction with neuropil correction for accurate ΔF/F computation
+
+- **Fiber Photometry**:
+  - Multi-channel signal processing for simultaneous population recordings
+  - Demodulation and motion artifact correction pipelines
+  - Event-aligned analysis for fear conditioning paradigms
+
+**Cloud Infrastructure:**
+- **AWS deployment**: Full production environment with auto-scaling compute
+- **Storage architecture**: S3-backed data lake with intelligent tiering for cost optimization
+- **Database hosting**: RDS-managed MySQL with automated backups and failover
+- **Compute orchestration**: EC2 instances with GPU acceleration for deep learning workloads
+- **Security**: VPC configuration, IAM policies, and encrypted data transfer for research compliance
+
+**Complexity Managed**: Coordinated schema design across all modalities ensuring cross-modal queries (e.g., "show me calcium activity in amygdala cells during high-theta LFP states in freezing epochs") were performant and intuitive.
+
+## Results & Impact
+
+**Operational Metrics:**
+- Reduced manual data processing time by **90%** across all deployments
 - Achieved **99.5%** pipeline reliability for multi-day processing jobs
-- Enabled **reproducible** analysis across distributed teams
-- Scaled to handle **terabytes** of daily acquisitions
+- **16-hour turnaround** for terabyte-scale electrophysiology (previously days-to-weeks)
+- Scaled to handle **50+ TB monthly** across active deployments
+
+**Scientific Impact:**
+- Enabled **next-day experimental iteration** at Allen Institute Mindscope
+- **Full provenance tracking** from raw acquisition to published figures
+- **Reproducible analysis** across distributed teams and collaborating institutions
+- Supported multiple high-impact publications in systems neuroscience
+
+**Open-Source Contribution:**
+- **20+ repositories** maintained as core contributor
+- Infrastructure now used by **hundreds of neuroscience labs** globally
+- Established patterns for cloud-native scientific computing adopted by the broader community
 
 ## Technologies Used
 
-- Python, Docker, Kubernetes
-- AWS (S3, EC2, RDS)
-- SpikeInterface for electrophysiology
-- DeepLabCut and Facemap for behavioral analysis
+**Languages & Frameworks:**
+- Python, SQL, Bash, Docker, Terraform
+
+**Cloud Infrastructure (AWS):**
+- EC2 (GPU instances for ML workloads), S3, RDS, Lambda, CloudWatch, EFS
+- VPC networking, IAM, Secrets Manager
+
+**Neuroscience Tools:**
+- SpikeInterface, Kilosort, Suite2p, CaImAn
+- DeepLabCut, Facemap
 - DataJoint for workflow orchestration
+
+**MLOps & DevOps:**
+- Docker, Kubernetes, GitHub Actions
+- Prometheus, Grafana for monitoring
