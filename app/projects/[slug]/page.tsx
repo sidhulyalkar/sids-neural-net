@@ -4,6 +4,10 @@ import Link from 'next/link';
 import { ArrowLeft, ExternalLink, Github, Calendar, Tag, Layers, Star, GitFork } from 'lucide-react';
 import graphData from '@/data/generated/neural-graph.json';
 import { NeuralGraphSchema } from '@/lib/data/schemas';
+import {
+  filterProfessionalProjects,
+  isProfessionalProject,
+} from '@/lib/graph/professional-projects';
 import { TagPill, getTagColor } from '@/components/ui';
 
 interface ProjectPageProps {
@@ -13,7 +17,7 @@ interface ProjectPageProps {
 export async function generateMetadata({ params }: ProjectPageProps): Promise<Metadata> {
   const { slug } = await params;
   const graph = NeuralGraphSchema.parse(graphData);
-  const project = graph.nodes.find((n) => n.slug === slug && n.type === 'project');
+  const project = graph.nodes.find((n) => n.slug === slug && isProfessionalProject(n));
 
   if (!project) {
     return {
@@ -37,14 +41,14 @@ export async function generateMetadata({ params }: ProjectPageProps): Promise<Me
 
 export async function generateStaticParams() {
   const graph = NeuralGraphSchema.parse(graphData);
-  const projects = graph.nodes.filter((n) => n.type === 'project');
+  const projects = filterProfessionalProjects(graph.nodes);
   return projects.map((p) => ({ slug: p.slug }));
 }
 
 export default async function ProjectPage({ params }: ProjectPageProps) {
   const { slug } = await params;
   const graph = NeuralGraphSchema.parse(graphData);
-  const project = graph.nodes.find((n) => n.slug === slug && n.type === 'project');
+  const project = graph.nodes.find((n) => n.slug === slug && isProfessionalProject(n));
 
   if (!project) {
     notFound();
@@ -61,6 +65,7 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
   });
   const relatedNodes = graph.nodes
     .filter((n) => relatedNodeSlugs.has(n.slug) && n.slug !== projectSlug)
+    .filter((n) => n.type !== 'project' || isProfessionalProject(n))
     .slice(0, 6);
 
   return (

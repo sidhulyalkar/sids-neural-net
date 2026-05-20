@@ -6,6 +6,12 @@ overrides:
   claude-code-ingestion-instructions:
     hidden: true
     importance: 0
+
+  # === HIDDEN: Personal-only context, not professional builds ===
+  personal-interests-and-life-nodes:
+    hidden: true
+    importance: 0
+
   # === TOP PRIORITY: DataJoint Work ===
   datajoint-multimodal-infrastructure:
     importance: 100
@@ -236,6 +242,7 @@ overrides:
       - TypeScript
     cluster: "Personal Projects"
     modeVisibility:
+      - builder
       - personal
       - full-brain
 

@@ -1,6 +1,7 @@
 import { Metadata } from 'next';
 import graphData from '@/data/generated/neural-graph.json';
 import { NeuralGraphSchema } from '@/lib/data/schemas';
+import { filterProfessionalProjects } from '@/lib/graph/professional-projects';
 import { ProjectsClient } from './ProjectsClient';
 
 export const metadata: Metadata = {
@@ -21,8 +22,8 @@ export const metadata: Metadata = {
 export default function ProjectsPage() {
   const graph = NeuralGraphSchema.parse(graphData);
 
-  // Filter for build nodes only.
-  const projects = graph.nodes.filter((n) => n.type === 'project');
+  // Filter for professional build nodes only.
+  const projects = filterProfessionalProjects(graph.nodes);
 
   // Get unique domains for filtering
   const availableDomains = Array.from(

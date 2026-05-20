@@ -1509,31 +1509,6 @@
       "computedImportance": 94
     },
     {
-      "id": "context:personal-interests-and-life-nodes",
-      "slug": "personal-interests-and-life-nodes",
-      "type": "project",
-      "title": "Personal Interests and Life Nodes",
-      "summary": "",
-      "tags": [],
-      "domains": [
-        "Life Outside the Lab"
-      ],
-      "importance": 80,
-      "recencyScore": 50,
-      "credibilityScore": 80,
-      "visualWeight": 8,
-      "status": "complete",
-      "source": "context-doc",
-      "featured": false,
-      "modeVisibility": [
-        "full-brain",
-        "recruiter",
-        "researcher"
-      ],
-      "cluster": "Life Outside the Lab",
-      "computedImportance": 90
-    },
-    {
       "id": "github:sidhulyalkar/neuro-DL-Classifier",
       "slug": "neuro-dl-classifier",
       "type": "project",
@@ -9568,8 +9543,8 @@
     }
   ],
   "metadata": {
-    "generatedAt": "2026-05-20T05:40:00.435Z",
-    "nodeCount": 88,
+    "generatedAt": "2026-05-20T06:50:15.769Z",
+    "nodeCount": 87,
     "edgeCount": 726,
     "version": "1.0.0"
   }
