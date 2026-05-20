@@ -1,4 +1,4 @@
-# Sid Neural Net
+# Sid's Neural Net
 
 A living portfolio and research atlas for Sidharth Hulyalkar, built as an interactive Next.js app. The site presents work, publications, and ideas through a cinematic 3D neural atlas experience.
 
