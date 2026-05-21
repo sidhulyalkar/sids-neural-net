@@ -150,9 +150,34 @@ function getCompactLabelPlacement(
   const size = estimateLabelSize(label);
   const labelOrder = ['projects', 'publications', 'work', 'photography', 'ideas', 'contact'];
   const index = Math.max(0, labelOrder.indexOf(labelId));
-  const top = clamp(dimensions.height * 0.14, 76, 104);
-  const bottom = Math.max(top + size.height, dimensions.height - titleBandHeight - size.height - 24);
-  const rowGap = labelOrder.length > 1 ? (bottom - top) / (labelOrder.length - 1) : 0;
+  const top = clamp(dimensions.height * 0.10, 56, 90);
+  const bottom = Math.max(top + size.height, dimensions.height - titleBandHeight - size.height - 16);
+
+  // Ensure minimum spacing between labels (at least label height + 8px padding)
+  const minRowGap = size.height + 8;
+  const availableSpace = bottom - top;
+  const requiredSpace = minRowGap * (labelOrder.length - 1);
+
+  // If not enough space, use a two-column layout with staggered positions
+  const useTwoColumns = availableSpace < requiredSpace;
+
+  if (useTwoColumns) {
+    // Split into left column (even indices) and right column (odd indices)
+    const isRightColumn = index % 2 === 1;
+    const columnIndex = Math.floor(index / 2);
+    const itemsPerColumn = Math.ceil(labelOrder.length / 2);
+    const columnGap = Math.max(minRowGap, (bottom - top) / Math.max(1, itemsPerColumn - 1));
+    const maxX = Math.max(16, dimensions.width - size.width - 16);
+
+    return {
+      x: isRightColumn ? maxX : 16,
+      y: clamp(top + columnGap * columnIndex, 18, bottom),
+      ...size,
+    };
+  }
+
+  // Standard single-column staggered layout with adequate spacing
+  const rowGap = Math.max(minRowGap, availableSpace / (labelOrder.length - 1));
   const maxX = Math.max(16, dimensions.width - size.width - 16);
   const rightSide = index % 2 === 1;
 
