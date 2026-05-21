@@ -209,7 +209,9 @@ function getOpenLabelPlacement(
   const maxX = Math.max(minX, dimensions.width - size.width - 18);
   const gap = 34;
 
+  // Generate more candidate positions for better collision avoidance
   const candidates: Vec2[] = [
+    // Primary positions - near the node
     {
       x: node.x + sideX * gap + (sideX < 0 ? -size.width : 0),
       y: node.y + sideY * 12 - size.height / 2,
@@ -226,6 +228,24 @@ function getOpenLabelPlacement(
       x: node.x + sideX * (gap + 22) + (sideX < 0 ? -size.width : 0),
       y: node.y - sideY * (gap + size.height / 2),
     },
+    // Additional positions - further from node to avoid collisions
+    {
+      x: node.x + sideX * (gap + 40) + (sideX < 0 ? -size.width : 0),
+      y: node.y - size.height / 2,
+    },
+    {
+      x: node.x + sideX * gap + (sideX < 0 ? -size.width : 0),
+      y: node.y + sideY * (gap + 30) - size.height / 2,
+    },
+    // Opposite side positions as fallback
+    {
+      x: node.x - sideX * (gap + 10) + (-sideX < 0 ? -size.width : 0),
+      y: node.y - size.height / 2,
+    },
+    {
+      x: node.x - size.width / 2,
+      y: node.y - sideY * (gap + 20) + (-sideY < 0 ? -size.height : 0),
+    },
   ].map((candidate) => ({
     x: clamp(candidate.x, minX, maxX),
     y: clamp(candidate.y, 22, maxY),
@@ -233,6 +253,9 @@ function getOpenLabelPlacement(
 
   let best = candidates[0];
   let bestScore = Number.NEGATIVE_INFINITY;
+
+  // Minimum required distance between labels to prevent overlap
+  const minLabelSpacing = 12;
 
   for (const candidate of candidates) {
     const rect: Rect = { ...candidate, ...size };
@@ -244,12 +267,21 @@ function getOpenLabelPlacement(
     }, 0);
     const nodeDistance = distanceToRect(node, rect);
     const targetGapPenalty = Math.abs(nodeDistance - 24);
+
+    // Stronger label collision penalty with hard constraint for overlaps
     const labelPenalty = occupiedRects.reduce((score, occupiedRect) => {
       const distance = distanceBetweenRects(rect, occupiedRect);
-      if (distance > 42) return score;
-
-      return score + (42 - distance) * 2.5;
+      // Hard penalty for actual overlaps or near-overlaps
+      if (distance < minLabelSpacing) {
+        return score + 10000; // Effectively disqualify this position
+      }
+      // Soft penalty for labels that are close but not overlapping
+      if (distance < 60) {
+        return score + (60 - distance) * 5;
+      }
+      return score;
     }, 0);
+
     const titlePenalty = candidate.y > maxY - 4 ? 80 : 0;
     const score = -nearbyPenalty - labelPenalty - targetGapPenalty - titlePenalty;
 
