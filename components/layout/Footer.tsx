@@ -7,6 +7,7 @@ const footerLinks = [
   { href: '/about', label: 'Core' },
   { href: '/projects', label: 'Builds' },
   { href: '/publications', label: 'Papers' },
+  { href: '/ideas', label: 'Research' },
   { href: '/photography', label: 'Visual Cortex' },
   { href: '/contact', label: 'Contact' },
 ];

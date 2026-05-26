@@ -1,0 +1,131 @@
+export interface ResearchIdea {
+  id: string;
+  title: string;
+  thesis: string;
+  whyItMatters: string;
+  methods: string[];
+  relatedWork: string[];
+  openQuestion?: string;
+  domains: string[];
+  status: 'sketch' | 'draft' | 'active';
+  color: 'cyan' | 'violet' | 'green' | 'amber' | 'rose';
+}
+
+export const researchIdeas: ResearchIdea[] = [
+  {
+    id: 'neural-search',
+    title: 'Neural Search for Multimodal Neuroscience',
+    thesis: 'Build search engines that understand neural recordings, not just metadata.',
+    whyItMatters: 'Scientists spend hours finding relevant recordings, papers, and code. A system that embeds neural data, behavior, and context into the same latent space could enable instant retrieval across experiments, subjects, and modalities.',
+    methods: ['Contrastive learning', 'Cross-modal embeddings', 'Dense retrieval', 'Vector databases'],
+    relatedWork: ['DataJoint pipelines', 'NWB data infrastructure'],
+    openQuestion: 'How do you handle session-to-session variability when creating universal embeddings?',
+    domains: ['retrieval', 'scientific tooling', 'multimodal ML'],
+    status: 'active',
+    color: 'cyan',
+  },
+  {
+    id: 'foundation-neural',
+    title: 'Foundation Models for Neural Dynamics',
+    thesis: 'Train large models on diverse neural recordings to learn transferable representations.',
+    whyItMatters: 'Current neural analysis is task-specific. A foundation model pre-trained on millions of neural time series could enable zero-shot decoding, cross-subject transfer, and session stitching.',
+    methods: ['Transformers/Mamba for long sequences', 'Self-supervised pretraining', 'Multi-task learning', 'Contrastive objectives'],
+    relatedWork: ['Mechanistic interpretability package', 'BCI classifier work'],
+    openQuestion: 'What is the right tokenization strategy for neural signals with varying sampling rates?',
+    domains: ['neural time series', 'foundation models', 'transfer learning'],
+    status: 'active',
+    color: 'violet',
+  },
+  {
+    id: 'mechinterp-neuro',
+    title: 'Mechanistic Interpretability for Neural Models',
+    thesis: 'Apply interpretability tools to models trained on brain data.',
+    whyItMatters: 'Understanding what neural network models learn about brain activity could reveal new neuroscientific hypotheses. Circuit discovery in silico could guide experimental design.',
+    methods: ['Path patching', 'ACDC circuit discovery', 'Activation patching', 'Counterfactual interventions', 'Probing classifiers'],
+    relatedWork: ['TransformerLens interpretability notebooks', 'Neural population dynamics work'],
+    openQuestion: 'Do learned features correspond to known cell types or brain regions?',
+    domains: ['interpretability', 'neuroAI', 'model analysis'],
+    status: 'active',
+    color: 'green',
+  },
+  {
+    id: 'bci-middleware',
+    title: 'Real-Time BCI Middleware',
+    thesis: 'Build the missing infrastructure for closed-loop neuroscience.',
+    whyItMatters: 'Current BCI systems are monolithic. A modular middleware layer could enable hot-swappable decoders, real-time QC, drift detection, and adaptive control without custom engineering.',
+    methods: ['Streaming architectures', 'Low-latency inference', 'Online learning', 'Observability/monitoring'],
+    relatedWork: ['ECoG classifier projects', 'Real-time systems experience'],
+    openQuestion: 'How do you balance latency requirements with model complexity?',
+    domains: ['BCI', 'real-time systems', 'infrastructure'],
+    status: 'draft',
+    color: 'amber',
+  },
+  {
+    id: 'session-stitching',
+    title: 'Session Stitching and Subject Invariance',
+    thesis: 'Learn representations that are stable across sessions and subjects.',
+    whyItMatters: 'Neural recordings drift over time. A model that can align representations across days or subjects would enable longitudinal studies and cross-subject decoders.',
+    methods: ['Domain adaptation', 'Alignment layers', 'Manifold matching', 'Shared latent spaces'],
+    relatedWork: ['Calcium imaging analysis', 'Neuropixels processing'],
+    domains: ['neural dynamics', 'transfer learning', 'longitudinal analysis'],
+    status: 'draft',
+    color: 'cyan',
+  },
+  {
+    id: 'experiment-generation',
+    title: 'Agentic Experiment Design',
+    thesis: 'Use AI agents to propose and evaluate experimental designs.',
+    whyItMatters: 'Scientists spend months designing experiments that may not yield clean data. An agent that understands prior results, current hypotheses, and practical constraints could suggest better experiments.',
+    methods: ['LLM agents', 'Knowledge graphs', 'Bayesian optimization', 'Experiment simulation'],
+    relatedWork: ['Research paper analysis', 'Scientific workflow systems'],
+    openQuestion: 'How do you encode domain constraints and feasibility into agent objectives?',
+    domains: ['research tools', 'agentic AI', 'experiment design'],
+    status: 'sketch',
+    color: 'violet',
+  },
+  {
+    id: 'neural-qc',
+    title: 'Neural Data QC and Drift Detection',
+    thesis: 'Automate quality control for neural recordings.',
+    whyItMatters: 'Bad data wastes analysis time. Automated QC that flags drift, noise, artifacts, and anomalies could catch issues before they propagate through pipelines.',
+    methods: ['Anomaly detection', 'Online drift detection', 'Statistical process control', 'Automated reporting'],
+    relatedWork: ['DataJoint QC workflows', 'Electrophysiology processing'],
+    domains: ['data infrastructure', 'QC', 'reproducibility'],
+    status: 'draft',
+    color: 'green',
+  },
+  {
+    id: 'brain-behavior-alignment',
+    title: 'Multimodal Brain-Behavior Alignment',
+    thesis: 'Learn joint embeddings of neural activity and behavior.',
+    whyItMatters: 'Neural activity and behavior are usually analyzed separately. A model that aligns them in a shared space could enable behavior prediction, state inference, and causal analysis.',
+    methods: ['Contrastive multimodal learning', 'CCA/PLS variants', 'Cross-modal attention', 'Behavior-conditioned models'],
+    relatedWork: ['DeepLabCut integration', 'Facemap analysis', 'Population dynamics work'],
+    domains: ['multimodal ML', 'behavior', 'neural dynamics'],
+    status: 'active',
+    color: 'rose',
+  },
+  {
+    id: 'provenance-search',
+    title: 'Provenance-Aware Scientific Search',
+    thesis: 'Search that understands where data came from and how it was processed.',
+    whyItMatters: 'Reproducibility requires knowing processing history. A search system that tracks provenance could answer questions like "show me all calcium imaging from this genotype processed with Suite2p v0.12".',
+    methods: ['Graph databases', 'Provenance modeling', 'Semantic search', 'DataJoint lineage'],
+    relatedWork: ['DataJoint workflows', 'NWB infrastructure'],
+    domains: ['scientific tooling', 'provenance', 'reproducibility'],
+    status: 'sketch',
+    color: 'amber',
+  },
+  {
+    id: 'ecog-foundation',
+    title: 'ECoG/EEG Foundation Models',
+    thesis: 'Pre-train on large-scale intracranial recordings for better decoders.',
+    whyItMatters: 'Clinical BCI needs better decoders. A foundation model trained on diverse ECoG/EEG data could enable few-shot adaptation to new patients and tasks.',
+    methods: ['Self-supervised learning', 'Cross-patient transfer', 'Spectral tokenization', 'Long-context architectures'],
+    relatedWork: ['ECoG classifier work', 'BCI systems'],
+    openQuestion: 'How do you handle variable electrode placements across patients?',
+    domains: ['BCI', 'foundation models', 'clinical translation'],
+    status: 'sketch',
+    color: 'rose',
+  },
+];

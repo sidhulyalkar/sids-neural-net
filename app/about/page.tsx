@@ -18,18 +18,95 @@ export const metadata: Metadata = {
 };
 
 const education = [
-  { degree: 'M.E.', field: 'Bioengineering', institution: 'UC San Diego', year: '2022' },
-  { degree: 'B.S.', field: 'Bioengineering: Biosystems', institution: 'UC San Diego', year: '2020' },
+  {
+    degree: 'M.E.',
+    field: 'Bioengineering',
+    institution: 'UC San Diego',
+    year: '2022',
+    logo: '/images/logos/ucsd-bioengineering.png'
+  },
+  {
+    degree: 'B.S.',
+    field: 'Bioengineering: Biosystems',
+    institution: 'UC San Diego',
+    year: '2020',
+    logo: '/images/logos/ucsd.png'
+  },
 ];
 
 const affiliations = [
-  { name: 'Panoptic Bio', role: 'Founding Applied AI Engineer', period: '2025–Present' },
-  { name: 'Stealth NeuroAI Startup', role: 'Founding Engineer', period: '2025' },
-  { name: 'DataJoint', role: 'Neuroscience Data Engineer II', period: '2022–2024' },
-  { name: 'NEATLABs, UCSD', role: 'Lead Lab Programmer', period: '2017–2022' },
-  { name: 'Dolby Laboratories', role: 'Engineering Intern, Dolby Vision HDR QA', period: '2014–2015' },
-  { name: 'Dolby Laboratories', role: 'Engineering Intern, 3DTV / white-point QA', period: '2015–2016' },
+  { name: 'Panoptic Bio', role: 'Founding Applied AI Scientist', period: '2026', logo: null },
+  { name: 'Stealth NeuroAI Startup', role: 'Founding Engineer', period: '2025', logo: null },
+  { name: 'DataJoint', role: 'Neuroscience Data Engineer II', period: '2022–2024', logo: '/images/logos/datajoint.png' },
+  { name: 'NEATLABs, UCSD', role: 'Lead Lab Programmer', period: '2017–2022', logo: '/images/logos/neatlabs.png' },
+  { name: 'Dolby Laboratories', role: 'Engineering Intern', period: '2014–2016', logo: '/images/logos/dolby.png' },
 ];
+
+// Deployed systems and professional projects
+const deployedSystems = [
+  {
+    name: 'Lu Lab DataJoint Workflows',
+    description: 'Deployed cloud-based DeepLabCut, Facemap, and calcium imaging pipelines for the Lu Lab at UCSD.',
+    links: [
+      { label: 'element-deeplabcut', href: 'https://github.com/dj-sciops/lulab_element-deeplabcut' },
+      { label: 'element-facemap', href: 'https://github.com/dj-sciops/lulab_element-facemap' },
+      { label: 'element-calcium-imaging', href: 'https://github.com/dj-sciops/lulab_element-calcium-imaging' },
+    ],
+  },
+  {
+    name: 'Mindscope / Allen Institute Ephys',
+    description: 'Large-scale electrophysiology processing with same-day data upload and reproducible pipeline execution.',
+    links: [],
+  },
+  {
+    name: 'Sabatini / Harvard Pipelines',
+    description: 'DataJoint workflows for calcium imaging, electrophysiology, fiber photometry, and behavioral tracking.',
+    links: [],
+  },
+  {
+    name: 'Panoptic Bio',
+    description: 'Applied AI systems for clinical trial intelligence: data pipelines, model evaluation, and decision-support tooling.',
+    links: [],
+  },
+];
+
+const analysisMethods = {
+  'calcium imaging': [
+    { name: 'Suite2p', link: 'https://suite2p.readthedocs.io', desc: 'ROI detection and signal extraction' },
+    { name: 'CaImAn', link: 'https://caiman.readthedocs.io', desc: 'Constrained NMF for calcium imaging' },
+    { name: 'EXTRACT', link: 'https://github.com/schnitzer-lab/EXTRACT-public', desc: 'Robust cell extraction' },
+    { name: 'NoRMCorre', link: 'https://github.com/flatironinstitute/NoRMCorre', desc: 'Non-rigid motion correction' },
+  ],
+  'pose & behavior': [
+    { name: 'DeepLabCut', link: 'https://deeplabcut.github.io/DeepLabCut', desc: 'Markerless pose estimation' },
+    { name: 'Facemap', link: 'https://facemap.readthedocs.io', desc: 'Orofacial and behavioral tracking' },
+    { name: 'Fiber Photometry', link: null, desc: 'Population activity from GCaMP signals' },
+  ],
+  'electrophysiology': [
+    { name: 'SpikeInterface', link: 'https://spikeinterface.readthedocs.io', desc: 'Unified spike sorting API' },
+    { name: 'Kilosort', link: 'https://github.com/MouseLand/Kilosort', desc: 'Template-matching spike sorter' },
+    { name: 'Allen ecephys_spike_sorting', link: 'https://github.com/AllenInstitute/ecephys_spike_sorting', desc: 'Allen Institute pipeline' },
+    { name: 'Neuropixels processing', link: null, desc: 'High-density probe preprocessing' },
+  ],
+  'behavioral modeling': [
+    { name: 'Q-Learning', link: 'https://en.wikipedia.org/wiki/Q-learning', desc: 'Reinforcement learning models' },
+    { name: 'Probabilistic reversal learning', link: null, desc: 'Belief updating under uncertainty' },
+    { name: 'Delay discounting', link: null, desc: 'Temporal preference modeling' },
+    { name: 'Go/NoGo analysis', link: null, desc: 'Impulse control metrics' },
+  ],
+  'neural time-series': [
+    { name: 'Cross-correlation', link: null, desc: 'Pairwise neural synchrony' },
+    { name: 'Granger causality', link: null, desc: 'Directed functional connectivity' },
+    { name: 'Beta/delta network analysis', link: null, desc: 'Oscillatory dynamics' },
+    { name: 'Event-aligned analysis', link: null, desc: 'Trial-locked neural responses' },
+  ],
+  'data infrastructure': [
+    { name: 'DataJoint', link: 'https://datajoint.com', desc: 'Workflow and provenance modeling' },
+    { name: 'NWB', link: 'https://nwb.org', desc: 'Neurodata Without Borders format' },
+    { name: 'HDF5 / Zarr', link: 'https://zarr.dev', desc: 'Chunked array storage' },
+    { name: 'Cloud/distributed processing', link: null, desc: 'AWS, parallel pipelines' },
+  ],
+};
 
 const technicalDomains = [
   'Neural data infrastructure',
@@ -168,7 +245,7 @@ const stack = {
 
 const links = [
   { label: 'GitHub', href: 'https://github.com/sidhulyalkar' },
-  { label: 'LinkedIn', href: 'https://linkedin.com/in/sidhulyalkar' },
+  { label: 'LinkedIn', href: 'https://www.linkedin.com/in/sidharth-hulyalkar/' },
   { label: 'Resume', href: '/resume' },
 ];
 
@@ -218,14 +295,23 @@ export default function AboutPage() {
             {education.map((item) => (
               <div
                 key={`${item.degree}-${item.field}`}
-                className="border-l-2 border-cyan/30 pl-4"
+                className="flex items-start gap-4 border-l-2 border-cyan/30 pl-4"
               >
-                <p className="font-mono text-[0.62rem] uppercase tracking-[0.18em] text-cyan/60">
-                  {item.degree}
-                </p>
-                <p className="mt-1 text-sm font-medium text-text-primary">{item.field}</p>
-                <p className="mt-1 text-xs text-text-secondary">{item.institution}</p>
-                <p className="mt-0.5 font-mono text-[0.58rem] text-white/40">{item.year}</p>
+                {item.logo && (
+                  <img
+                    src={item.logo}
+                    alt={`${item.institution} logo`}
+                    className="mt-1 h-10 w-10 shrink-0 object-contain opacity-80"
+                  />
+                )}
+                <div>
+                  <p className="font-mono text-[0.62rem] uppercase tracking-[0.18em] text-cyan/60">
+                    {item.degree}
+                  </p>
+                  <p className="mt-1 text-sm font-medium text-text-primary">{item.field}</p>
+                  <p className="mt-1 text-xs text-text-secondary">{item.institution}</p>
+                  <p className="mt-0.5 font-mono text-[0.58rem] text-white/40">{item.year}</p>
+                </div>
               </div>
             ))}
           </div>
@@ -286,6 +372,68 @@ export default function AboutPage() {
           </div>
         </div>
 
+        {/* Analysis Methods */}
+        <section>
+          <p className="technical-label mb-8">Analysis Methods</p>
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            {Object.entries(analysisMethods).map(([category, methods]) => (
+              <div key={category} className="node-shell p-4">
+                <p className="mb-3 font-mono text-[0.62rem] uppercase tracking-[0.14em] text-cyan/70">
+                  {category}
+                </p>
+                <div className="space-y-2">
+                  {methods.map((method) => (
+                    <div key={method.name} className="group">
+                      {method.link ? (
+                        <a
+                          href={method.link}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="block text-sm text-text-primary transition-colors hover:text-cyan"
+                        >
+                          {method.name}
+                          <span className="ml-1 text-[0.6rem] text-text-muted">↗</span>
+                        </a>
+                      ) : (
+                        <span className="text-sm text-text-primary">{method.name}</span>
+                      )}
+                      <p className="text-[0.68rem] text-text-muted">{method.desc}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* Deployed Systems */}
+        <section>
+          <p className="technical-label mb-8">Deployed Systems</p>
+          <div className="grid gap-4 md:grid-cols-2">
+            {deployedSystems.map((system) => (
+              <div key={system.name} className="node-shell p-4">
+                <h3 className="text-sm font-medium text-text-primary">{system.name}</h3>
+                <p className="mt-2 text-[0.75rem] text-text-muted">{system.description}</p>
+                {system.links.length > 0 && (
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {system.links.map((link) => (
+                      <a
+                        key={link.label}
+                        href={link.href}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="font-mono text-[0.6rem] uppercase tracking-wider text-cyan/70 hover:text-cyan"
+                      >
+                        {link.label} ↗
+                      </a>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </section>
+
         {/* Links */}
         <section>
           <p className="technical-label mb-8">Links</p>
@@ -301,6 +449,38 @@ export default function AboutPage() {
                 {link.label} →
               </Link>
             ))}
+          </div>
+        </section>
+
+        {/* Affiliation Logos */}
+        <section className="border-t border-white/8 pt-10">
+          <p className="technical-label mb-6 text-center">Affiliations</p>
+          <div className="flex flex-wrap items-center justify-center gap-8 opacity-70">
+            <img
+              src="/images/logos/ucsd.png"
+              alt="UC San Diego"
+              className="h-12 w-auto object-contain grayscale hover:grayscale-0 transition-all"
+            />
+            <img
+              src="/images/logos/ucsd-bioengineering.png"
+              alt="UC San Diego Bioengineering"
+              className="h-10 w-auto object-contain grayscale hover:grayscale-0 transition-all"
+            />
+            <img
+              src="/images/logos/neatlabs.png"
+              alt="NEATLABs"
+              className="h-10 w-auto object-contain grayscale hover:grayscale-0 transition-all"
+            />
+            <img
+              src="/images/logos/datajoint.png"
+              alt="DataJoint"
+              className="h-8 w-auto object-contain grayscale hover:grayscale-0 transition-all"
+            />
+            <img
+              src="/images/logos/dolby.png"
+              alt="Dolby Laboratories"
+              className="h-8 w-auto object-contain grayscale hover:grayscale-0 transition-all"
+            />
           </div>
         </section>
       </div>

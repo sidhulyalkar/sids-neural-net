@@ -1,7 +1,7 @@
 import { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, ExternalLink, Github, Calendar, Tag, Layers, Star, GitFork } from 'lucide-react';
+import { ArrowLeft, ExternalLink, Github, Calendar, Tag, Layers, Star, GitFork, Lightbulb, Wrench, BookOpen } from 'lucide-react';
 import graphData from '@/data/generated/neural-graph.json';
 import { NeuralGraphSchema } from '@/lib/data/schemas';
 import {
@@ -9,6 +9,7 @@ import {
   isProfessionalProject,
 } from '@/lib/graph/professional-projects';
 import { TagPill, getTagColor } from '@/components/ui';
+import { getProjectEnhancement } from '@/data/project-enhancements';
 
 interface ProjectPageProps {
   params: Promise<{ slug: string }>;
@@ -56,6 +57,7 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
 
   const importance = project.computedImportance ?? project.importance;
   const projectSlug = project.slug;
+  const enhancement = getProjectEnhancement(projectSlug);
 
   // Generated graph edges store node slugs, so keep the lookup slug-based.
   const relatedNodeSlugs = new Set<string>();
@@ -97,6 +99,11 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
             </span>
           </div>
           <h1 className="text-4xl font-bold text-text-primary">{project.title}</h1>
+
+          {/* Tagline */}
+          {enhancement?.tagline && (
+            <p className="mt-3 text-lg text-cyan">{enhancement.tagline}</p>
+          )}
 
           {/* Importance bar */}
           <div className="mt-4 flex items-center gap-3">
@@ -170,6 +177,80 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
             </div>
           )}
         </div>
+
+        {/* Enhanced content sections */}
+        {enhancement && (
+          <div className="space-y-6 mb-8">
+            {/* Why it matters */}
+            {enhancement.whyItMatters && (
+              <div className="glass-card p-6">
+                <div className="flex items-center gap-2 mb-3">
+                  <Lightbulb className="w-5 h-5 text-amber" />
+                  <h2 className="text-lg font-semibold text-text-primary">Why It Matters</h2>
+                </div>
+                <p className="text-sm text-text-secondary leading-relaxed">
+                  {enhancement.whyItMatters}
+                </p>
+              </div>
+            )}
+
+            {/* What I built */}
+            {enhancement.whatIBuilt && enhancement.whatIBuilt.length > 0 && (
+              <div className="glass-card p-6">
+                <div className="flex items-center gap-2 mb-3">
+                  <Wrench className="w-5 h-5 text-cyan" />
+                  <h2 className="text-lg font-semibold text-text-primary">What I Built</h2>
+                </div>
+                <ul className="space-y-2">
+                  {enhancement.whatIBuilt.map((item, i) => (
+                    <li key={i} className="flex items-start gap-2 text-sm text-text-secondary">
+                      <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-cyan/60" />
+                      {item}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {/* Technical highlights */}
+            {enhancement.technicalHighlights && enhancement.technicalHighlights.length > 0 && (
+              <div className="glass-card p-6">
+                <div className="flex items-center gap-2 mb-3">
+                  <Tag className="w-5 h-5 text-violet" />
+                  <h2 className="text-lg font-semibold text-text-primary">Technical Highlights</h2>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {enhancement.technicalHighlights.map((highlight) => (
+                    <span
+                      key={highlight}
+                      className="rounded-md border border-violet/20 bg-violet/10 px-3 py-1 text-sm text-violet"
+                    >
+                      {highlight}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Notebooks included */}
+            {enhancement.notebooksIncluded && enhancement.notebooksIncluded.length > 0 && (
+              <div className="glass-card p-6">
+                <div className="flex items-center gap-2 mb-3">
+                  <BookOpen className="w-5 h-5 text-green" />
+                  <h2 className="text-lg font-semibold text-text-primary">Notebooks Included</h2>
+                </div>
+                <ul className="space-y-2">
+                  {enhancement.notebooksIncluded.map((notebook, i) => (
+                    <li key={i} className="flex items-start gap-2 text-sm text-text-secondary">
+                      <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-green/60" />
+                      {notebook}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* GitHub info */}
         {project.github && (

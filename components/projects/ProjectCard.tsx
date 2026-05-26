@@ -11,20 +11,19 @@ interface ProjectCardProps {
 
 export function ProjectCard({ project }: ProjectCardProps) {
   const importance = project.computedImportance ?? project.importance;
+  const projectUrl = `/projects/${project.slug}`;
 
   return (
-    <div className="comic-panel group flex min-h-[260px] flex-col justify-between p-5 transition-all duration-300 hover:-translate-y-1 hover:border-cyan/[0.35] hover:bg-cyan/[0.045]">
+    <Link
+      href={projectUrl}
+      className="comic-panel group flex min-h-[260px] flex-col justify-between p-5 transition-all duration-300 hover:-translate-y-1 hover:border-cyan/[0.35] hover:bg-cyan/[0.045] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan focus-visible:ring-offset-2 focus-visible:ring-offset-bg-deep"
+    >
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div className="flex-1 min-w-0">
-          <Link
-            href={`/projects/${project.slug}`}
-            className="block"
-          >
-            <h3 className="text-xl font-black text-text-primary transition-colors group-hover:text-cyan">
-              {project.title}
-            </h3>
-          </Link>
+          <h3 className="text-xl font-black text-text-primary transition-colors group-hover:text-cyan">
+            {project.title}
+          </h3>
           {project.domains.length > 0 && (
             <p className="text-sm text-text-muted mt-0.5 truncate">
               {project.domains[0]}
@@ -109,7 +108,7 @@ export function ProjectCard({ project }: ProjectCardProps) {
             />
           </div>
 
-          {/* Links */}
+          {/* External links - stop propagation to prevent card navigation */}
           <div className="flex items-center gap-1">
             {project.github?.url && (
               <a
@@ -118,6 +117,8 @@ export function ProjectCard({ project }: ProjectCardProps) {
                 rel="noopener noreferrer"
                 className="flex min-h-10 min-w-10 items-center justify-center rounded-md text-text-muted transition-colors hover:bg-white/5 hover:text-cyan"
                 aria-label={`View ${project.title} on GitHub`}
+                onClick={(e) => e.stopPropagation()}
+                onKeyDown={(e) => e.key === 'Enter' && e.stopPropagation()}
               >
                 <Github className="w-4 h-4" />
               </a>
@@ -129,6 +130,8 @@ export function ProjectCard({ project }: ProjectCardProps) {
                 rel="noopener noreferrer"
                 className="flex min-h-10 min-w-10 items-center justify-center rounded-md text-text-muted transition-colors hover:bg-white/5 hover:text-cyan"
                 aria-label={`View source for ${project.title}`}
+                onClick={(e) => e.stopPropagation()}
+                onKeyDown={(e) => e.key === 'Enter' && e.stopPropagation()}
               >
                 <ExternalLink className="w-4 h-4" />
               </a>
@@ -136,6 +139,6 @@ export function ProjectCard({ project }: ProjectCardProps) {
           </div>
         </div>
       </div>
-    </div>
+    </Link>
   );
 }
