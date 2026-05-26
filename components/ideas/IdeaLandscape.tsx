@@ -10,25 +10,96 @@ interface IdeaNode {
   vx: number;
   vy: number;
   radius: number;
+  rotation: number;
+  rotationSpeed: number;
   color: string;
   originalColor: string;
+  polygon: number[]; // Array of vertex radius multipliers
+  burstTimer: number; // Timer for collision burst effect
+  burstIntensity: number; // How intense the current burst is
+  trail: { x: number; y: number; alpha: number }[]; // Trail effect for bursting
 }
 
 const colorMap: Record<string, string> = {
-  cyan: 'rgba(102, 227, 255, 0.85)',
-  violet: 'rgba(167, 139, 250, 0.85)',
-  green: 'rgba(102, 240, 194, 0.85)',
-  amber: 'rgba(247, 198, 107, 0.85)',
-  rose: 'rgba(255, 122, 162, 0.85)',
+  cyan: 'rgba(102, 227, 255, 0.9)',
+  violet: 'rgba(167, 139, 250, 0.9)',
+  green: 'rgba(102, 240, 194, 0.9)',
+  amber: 'rgba(247, 198, 107, 0.9)',
+  rose: 'rgba(255, 122, 162, 0.9)',
 };
 
 const colorMapSoft: Record<string, string> = {
-  cyan: 'rgba(102, 227, 255, 0.15)',
-  violet: 'rgba(167, 139, 250, 0.15)',
-  green: 'rgba(102, 240, 194, 0.15)',
-  amber: 'rgba(247, 198, 107, 0.15)',
-  rose: 'rgba(255, 122, 162, 0.15)',
+  cyan: 'rgba(102, 227, 255, 0.08)',
+  violet: 'rgba(167, 139, 250, 0.08)',
+  green: 'rgba(102, 240, 194, 0.08)',
+  amber: 'rgba(247, 198, 107, 0.08)',
+  rose: 'rgba(255, 122, 162, 0.08)',
 };
+
+const colorMapGlow: Record<string, string> = {
+  cyan: 'rgba(102, 227, 255, 0.5)',
+  violet: 'rgba(167, 139, 250, 0.5)',
+  green: 'rgba(102, 240, 194, 0.5)',
+  amber: 'rgba(247, 198, 107, 0.5)',
+  rose: 'rgba(255, 122, 162, 0.5)',
+};
+
+const colorMapBurst: Record<string, string> = {
+  cyan: 'rgba(102, 227, 255, 1)',
+  violet: 'rgba(167, 139, 250, 1)',
+  green: 'rgba(102, 240, 194, 1)',
+  amber: 'rgba(247, 198, 107, 1)',
+  rose: 'rgba(255, 122, 162, 1)',
+};
+
+// Generate a random irregular polygon with 5-9 vertices
+function generatePolygon(sides: number): number[] {
+  const vertices: number[] = [];
+
+  for (let i = 0; i < sides; i++) {
+    // More dramatic radius variation (0.55 to 1.0)
+    const radiusVariation = 0.55 + Math.random() * 0.45;
+    vertices.push(radiusVariation);
+  }
+
+  return vertices;
+}
+
+// Convert polygon vertices to SVG path with smooth curves
+function polygonToPath(
+  centerX: number,
+  centerY: number,
+  radius: number,
+  rotation: number,
+  vertices: number[]
+): string {
+  const points: { x: number; y: number }[] = [];
+  const sides = vertices.length;
+  const angleStep = (Math.PI * 2) / sides;
+
+  for (let i = 0; i < sides; i++) {
+    const angle = angleStep * i + rotation;
+    const r = radius * vertices[i];
+    points.push({
+      x: centerX + Math.cos(angle) * r,
+      y: centerY + Math.sin(angle) * r,
+    });
+  }
+
+  // Create a smooth curved path using quadratic bezier curves
+  let path = `M ${points[0].x},${points[0].y}`;
+
+  for (let i = 0; i < sides; i++) {
+    const current = points[i];
+    const next = points[(i + 1) % sides];
+    const midX = (current.x + next.x) / 2;
+    const midY = (current.y + next.y) / 2;
+    path += ` Q ${current.x},${current.y} ${midX},${midY}`;
+  }
+
+  path += ' Z';
+  return path;
+}
 
 interface IdeaLandscapeProps {
   ideas: ResearchIdea[];
@@ -43,6 +114,7 @@ export function IdeaLandscape({ ideas }: IdeaLandscapeProps) {
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
   const animationRef = useRef<number | undefined>(undefined);
   const nodesRef = useRef<IdeaNode[]>([]);
+  const lastTimeRef = useRef<number>(0);
 
   // Check for reduced motion preference
   useEffect(() => {
@@ -59,23 +131,40 @@ export function IdeaLandscape({ ideas }: IdeaLandscapeProps) {
 
     const rect = containerRef.current.getBoundingClientRect();
     const width = rect.width || 800;
-    const height = Math.max(500, rect.height || 600);
+    const height = Math.max(700, rect.height || 800);
     setDimensions({ width, height });
 
     const initialNodes: IdeaNode[] = ideas.map((idea, i) => {
-      const angle = (i / ideas.length) * Math.PI * 2;
-      const radiusFromCenter = Math.min(width, height) * 0.3;
-      const nodeRadius = 60 + Math.random() * 20;
+      // Spread nodes across the canvas with some randomness
+      const cols = Math.ceil(Math.sqrt(ideas.length * (width / height)));
+      const rows = Math.ceil(ideas.length / cols);
+      const col = i % cols;
+      const row = Math.floor(i / cols);
+      const cellWidth = width / cols;
+      const cellHeight = height / rows;
+
+      const nodeRadius = 55 + Math.random() * 35; // Slightly larger for expanded area
+      const sides = 5 + Math.floor(Math.random() * 5); // 5-9 sides for more variety
+
+      // Random initial velocity in all directions
+      const speed = 1.0 + Math.random() * 1.5; // Faster for larger space
+      const angle = Math.random() * Math.PI * 2;
 
       return {
         idea,
-        x: width / 2 + Math.cos(angle) * radiusFromCenter + (Math.random() - 0.5) * 100,
-        y: height / 2 + Math.sin(angle) * radiusFromCenter + (Math.random() - 0.5) * 100,
-        vx: (Math.random() - 0.5) * 0.3,
-        vy: (Math.random() - 0.5) * 0.3,
+        x: cellWidth * (col + 0.5) + (Math.random() - 0.5) * cellWidth * 0.6,
+        y: cellHeight * (row + 0.5) + (Math.random() - 0.5) * cellHeight * 0.6,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed,
         radius: nodeRadius,
+        rotation: Math.random() * Math.PI * 2,
+        rotationSpeed: (Math.random() - 0.5) * 0.015,
         color: colorMap[idea.color],
         originalColor: colorMap[idea.color],
+        polygon: generatePolygon(sides),
+        burstTimer: 0,
+        burstIntensity: 0,
+        trail: [],
       };
     });
 
@@ -83,92 +172,178 @@ export function IdeaLandscape({ ideas }: IdeaLandscapeProps) {
     nodesRef.current = initialNodes;
   }, [ideas]);
 
-  // Animation loop
+  // Animation loop with robust physics
   useEffect(() => {
     if (prefersReducedMotion || nodes.length === 0) return;
 
-    const animate = () => {
-      const currentNodes = nodesRef.current;
+    const animate = (currentTime: number) => {
+      // Calculate delta time for frame-independent physics
+      const deltaTime = lastTimeRef.current ? Math.min((currentTime - lastTimeRef.current) / 16.67, 2) : 1;
+      lastTimeRef.current = currentTime;
+
+      const currentNodes = [...nodesRef.current];
       const { width, height } = dimensions;
-      const padding = 80;
+      const padding = 20; // Minimal edge boundary
 
-      const updatedNodes = currentNodes.map((node, i) => {
-        let { x, y, vx, vy, color, originalColor } = node;
+      // Physics simulation
+      for (let i = 0; i < currentNodes.length; i++) {
+        const node = currentNodes[i];
 
-        // Apply velocity
-        x += vx;
-        y += vy;
-
-        // Boundary collision
-        if (x - node.radius < padding) {
-          x = padding + node.radius;
-          vx = Math.abs(vx) * 0.8;
-        }
-        if (x + node.radius > width - padding) {
-          x = width - padding - node.radius;
-          vx = -Math.abs(vx) * 0.8;
-        }
-        if (y - node.radius < padding) {
-          y = padding + node.radius;
-          vy = Math.abs(vy) * 0.8;
-        }
-        if (y + node.radius > height - padding) {
-          y = height - padding - node.radius;
-          vy = -Math.abs(vy) * 0.8;
+        // Update trail for bursting nodes
+        if (node.burstTimer > 0.3) {
+          node.trail.unshift({ x: node.x, y: node.y, alpha: node.burstTimer });
+          if (node.trail.length > 8) node.trail.pop();
+        } else {
+          // Fade out trail
+          node.trail = node.trail.map(t => ({ ...t, alpha: t.alpha * 0.85 })).filter(t => t.alpha > 0.05);
         }
 
-        // Check collision with other nodes
-        for (let j = 0; j < currentNodes.length; j++) {
-          if (i === j) continue;
-          const other = currentNodes[j];
-          const dx = other.x - x;
-          const dy = other.y - y;
-          const dist = Math.sqrt(dx * dx + dy * dy);
-          const minDist = node.radius + other.radius;
+        // Apply velocity with delta time
+        node.x += node.vx * deltaTime;
+        node.y += node.vy * deltaTime;
 
-          if (dist < minDist && dist > 0) {
-            // Collision detected - swap colors briefly
-            const tempColor = color;
-            color = other.color;
+        // Rotate (faster when bursting)
+        const rotationMultiplier = node.burstTimer > 0 ? 1 + node.burstIntensity * 2 : 1;
+        node.rotation += node.rotationSpeed * deltaTime * rotationMultiplier;
 
-            // Push apart
-            const overlap = minDist - dist;
-            const pushX = (dx / dist) * overlap * 0.5;
-            const pushY = (dy / dist) * overlap * 0.5;
-            x -= pushX;
-            y -= pushY;
-
-            // Bounce velocities
-            vx = -vx * 0.6 + (Math.random() - 0.5) * 0.1;
-            vy = -vy * 0.6 + (Math.random() - 0.5) * 0.1;
+        // Decay burst timer
+        if (node.burstTimer > 0) {
+          node.burstTimer -= 0.025 * deltaTime;
+          if (node.burstTimer < 0) {
+            node.burstTimer = 0;
+            node.burstIntensity = 0;
           }
         }
 
-        // Gradually return to original color
-        if (color !== originalColor) {
-          color = originalColor;
+        // Boundary collision with energetic bounce
+        const bounceEnergy = 0.85;
+        const burstOnWall = 0.6;
+
+        if (node.x - node.radius < padding) {
+          node.x = padding + node.radius;
+          node.vx = Math.abs(node.vx) * bounceEnergy;
+          node.burstTimer = burstOnWall;
+          node.burstIntensity = Math.abs(node.vx) / 4;
+          node.rotationSpeed += (Math.random() - 0.5) * 0.02;
+        }
+        if (node.x + node.radius > width - padding) {
+          node.x = width - padding - node.radius;
+          node.vx = -Math.abs(node.vx) * bounceEnergy;
+          node.burstTimer = burstOnWall;
+          node.burstIntensity = Math.abs(node.vx) / 4;
+          node.rotationSpeed += (Math.random() - 0.5) * 0.02;
+        }
+        if (node.y - node.radius < padding) {
+          node.y = padding + node.radius;
+          node.vy = Math.abs(node.vy) * bounceEnergy;
+          node.burstTimer = burstOnWall;
+          node.burstIntensity = Math.abs(node.vy) / 4;
+          node.rotationSpeed += (Math.random() - 0.5) * 0.02;
+        }
+        if (node.y + node.radius > height - padding) {
+          node.y = height - padding - node.radius;
+          node.vy = -Math.abs(node.vy) * bounceEnergy;
+          node.burstTimer = burstOnWall;
+          node.burstIntensity = Math.abs(node.vy) / 4;
+          node.rotationSpeed += (Math.random() - 0.5) * 0.02;
         }
 
-        // Add slight drift
-        vx += (Math.random() - 0.5) * 0.02;
-        vy += (Math.random() - 0.5) * 0.02;
+        // Check collision with other nodes
+        for (let j = i + 1; j < currentNodes.length; j++) {
+          const other = currentNodes[j];
+          const dx = other.x - node.x;
+          const dy = other.y - node.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          const minDist = node.radius + other.radius;
 
-        // Damping
-        vx *= 0.995;
-        vy *= 0.995;
+          if (dist < minDist && dist > 0.1) {
+            // Collision detected!
+            const overlap = minDist - dist;
+            const nx = dx / dist;
+            const ny = dy / dist;
 
-        // Speed limit
-        const speed = Math.sqrt(vx * vx + vy * vy);
-        if (speed > 0.8) {
-          vx = (vx / speed) * 0.8;
-          vy = (vy / speed) * 0.8;
+            // Separate the nodes (push apart)
+            const separationForce = overlap / 2 + 1;
+            node.x -= nx * separationForce;
+            node.y -= ny * separationForce;
+            other.x += nx * separationForce;
+            other.y += ny * separationForce;
+
+            // Calculate relative velocity along collision normal
+            const dvx = node.vx - other.vx;
+            const dvy = node.vy - other.vy;
+            const dvn = dvx * nx + dvy * ny;
+
+            // Only resolve if objects are moving toward each other
+            if (dvn > 0) {
+              // Mass ratio based on radius (bigger = heavier)
+              const m1 = node.radius * node.radius;
+              const m2 = other.radius * other.radius;
+              const totalMass = m1 + m2;
+
+              // Collision impulse with burst boost
+              const restitution = 1.1; // Slightly super-elastic for fun
+              const burstBoost = 2.2; // Extra energy on collision!
+
+              const impulse = dvn * burstBoost * restitution;
+
+              // Apply impulse based on mass ratio
+              node.vx -= (impulse * m2 / totalMass) * nx;
+              node.vy -= (impulse * m2 / totalMass) * ny;
+              other.vx += (impulse * m1 / totalMass) * nx;
+              other.vy += (impulse * m1 / totalMass) * ny;
+
+              // Calculate collision intensity for visual effects
+              const collisionSpeed = Math.sqrt(dvx * dvx + dvy * dvy);
+              const intensity = Math.min(collisionSpeed / 3, 1.5);
+
+              // Set burst timers for visual effect
+              node.burstTimer = 1.2;
+              node.burstIntensity = intensity;
+              other.burstTimer = 1.2;
+              other.burstIntensity = intensity;
+
+              // Add spin on collision
+              node.rotationSpeed += (Math.random() - 0.5) * 0.05 * intensity;
+              other.rotationSpeed += (Math.random() - 0.5) * 0.05 * intensity;
+            }
+          }
         }
 
-        return { ...node, x, y, vx, vy, color };
-      });
+        // Add gentle random drift for organic movement
+        node.vx += (Math.random() - 0.5) * 0.03 * deltaTime;
+        node.vy += (Math.random() - 0.5) * 0.03 * deltaTime;
 
-      nodesRef.current = updatedNodes;
-      setNodes(updatedNodes);
+        // Apply friction (less friction when bursting)
+        const baseFriction = 0.992;
+        const burstFriction = 0.998;
+        const friction = node.burstTimer > 0 ? burstFriction : baseFriction;
+        node.vx *= Math.pow(friction, deltaTime);
+        node.vy *= Math.pow(friction, deltaTime);
+
+        // Dampen rotation over time
+        node.rotationSpeed *= Math.pow(0.995, deltaTime);
+
+        // Speed limits - higher for larger area
+        const speed = Math.sqrt(node.vx * node.vx + node.vy * node.vy);
+        const maxSpeed = node.burstTimer > 0 ? 10 : 4;
+        const minSpeed = 0.5;
+
+        if (speed > maxSpeed) {
+          node.vx = (node.vx / speed) * maxSpeed;
+          node.vy = (node.vy / speed) * maxSpeed;
+        }
+
+        // Keep things moving - add gentle impulse if too slow
+        if (speed < minSpeed && node.burstTimer <= 0) {
+          const angle = Math.random() * Math.PI * 2;
+          node.vx += Math.cos(angle) * 0.25;
+          node.vy += Math.sin(angle) * 0.25;
+        }
+      }
+
+      nodesRef.current = currentNodes;
+      setNodes([...currentNodes]);
       animationRef.current = requestAnimationFrame(animate);
     };
 
@@ -185,7 +360,7 @@ export function IdeaLandscape({ ideas }: IdeaLandscapeProps) {
     const handleResize = () => {
       if (!containerRef.current) return;
       const rect = containerRef.current.getBoundingClientRect();
-      setDimensions({ width: rect.width, height: Math.max(500, rect.height) });
+      setDimensions({ width: rect.width, height: Math.max(700, rect.height) });
     };
 
     window.addEventListener('resize', handleResize);
@@ -204,67 +379,68 @@ export function IdeaLandscape({ ideas }: IdeaLandscapeProps) {
   }, [handleNodeClick]);
 
   return (
-    <div className="relative">
-      {/* Landscape container */}
+    <div className="relative -mx-4 sm:-mx-6 lg:-mx-8">
+      {/* Landscape container - seamlessly matches site background, edge-to-edge */}
       <div
         ref={containerRef}
-        className="relative h-[600px] w-full overflow-hidden rounded-lg border border-white/10 bg-bg-deep/50"
-        style={{ minHeight: '500px' }}
+        className="relative h-[85vh] w-full overflow-hidden"
+        style={{
+          minHeight: '700px',
+          maxHeight: '1000px',
+          background: 'transparent',
+        }}
       >
-        {/* Background gradient */}
-        <div className="absolute inset-0 bg-gradient-to-br from-cyan/5 via-transparent to-violet/5" />
+        {/* Very subtle vignette for depth */}
+        <div
+          className="pointer-events-none absolute inset-0"
+          style={{
+            background: 'radial-gradient(ellipse at center, transparent 50%, rgba(0,0,0,0.2) 100%)',
+          }}
+        />
 
-        {/* Nodes */}
-        {nodes.map((node) => {
-          const isHovered = hoveredId === node.idea.id;
-          const isSelected = selectedIdea?.id === node.idea.id;
+        {/* SVG Layer for polygons and connections */}
+        <svg
+          className="absolute inset-0 h-full w-full"
+          style={{ zIndex: 1 }}
+        >
+          <defs>
+            {/* Glow filters for each color */}
+            {Object.entries(colorMapGlow).map(([color, rgba]) => (
+              <filter key={color} id={`glow-${color}`} x="-100%" y="-100%" width="300%" height="300%">
+                <feGaussianBlur stdDeviation="8" result="blur" />
+                <feFlood floodColor={rgba} />
+                <feComposite in2="blur" operator="in" />
+                <feMerge>
+                  <feMergeNode />
+                  <feMergeNode in="SourceGraphic" />
+                </feMerge>
+              </filter>
+            ))}
 
-          return (
-            <button
-              key={node.idea.id}
-              className={`absolute flex items-center justify-center rounded-full border transition-all duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan focus-visible:ring-offset-2 focus-visible:ring-offset-bg-deep ${
-                isSelected ? 'z-20' : isHovered ? 'z-10' : 'z-0'
-              }`}
-              style={{
-                left: node.x - node.radius,
-                top: node.y - node.radius,
-                width: node.radius * 2,
-                height: node.radius * 2,
-                backgroundColor: colorMapSoft[node.idea.color],
-                borderColor: node.color,
-                boxShadow: isHovered || isSelected
-                  ? `0 0 30px ${node.color}, 0 0 60px ${colorMapSoft[node.idea.color]}`
-                  : `0 0 20px ${colorMapSoft[node.idea.color]}`,
-                transform: isHovered || isSelected ? 'scale(1.1)' : 'scale(1)',
-              }}
-              onClick={() => handleNodeClick(node.idea)}
-              onKeyDown={(e) => handleKeyDown(e, node.idea)}
-              onMouseEnter={() => setHoveredId(node.idea.id)}
-              onMouseLeave={() => setHoveredId(null)}
-              onFocus={() => setHoveredId(node.idea.id)}
-              onBlur={() => setHoveredId(null)}
-              aria-label={`Research idea: ${node.idea.title}`}
-              aria-pressed={isSelected}
-            >
-              <span
-                className="px-3 text-center font-mono text-[0.65rem] uppercase leading-tight tracking-wide"
-                style={{ color: node.color }}
-              >
-                {node.idea.title.split(' ').slice(0, 3).join(' ')}
-              </span>
-            </button>
-          );
-        })}
+            {/* Burst glow filter */}
+            <filter id="burst-glow" x="-150%" y="-150%" width="400%" height="400%">
+              <feGaussianBlur stdDeviation="15" result="blur" />
+              <feMerge>
+                <feMergeNode in="blur" />
+                <feMergeNode in="blur" />
+                <feMergeNode in="SourceGraphic" />
+              </feMerge>
+            </filter>
+          </defs>
 
-        {/* Connection lines (subtle) */}
-        <svg className="pointer-events-none absolute inset-0 h-full w-full">
+          {/* Connection lines between nearby nodes */}
           {nodes.map((node, i) =>
             nodes.slice(i + 1).map((other) => {
               const dx = other.x - node.x;
               const dy = other.y - node.y;
               const dist = Math.sqrt(dx * dx + dy * dy);
-              if (dist > 300) return null;
-              const opacity = Math.max(0, 1 - dist / 300) * 0.15;
+              if (dist > 400) return null; // Increased range for larger area
+
+              // Connections glow brighter when both nodes are bursting
+              const burstGlow = (node.burstTimer + other.burstTimer) / 2;
+              const baseOpacity = Math.max(0, 1 - dist / 400) * 0.12;
+              const opacity = baseOpacity + burstGlow * 0.3;
+
               return (
                 <line
                   key={`${node.idea.id}-${other.idea.id}`}
@@ -272,23 +448,158 @@ export function IdeaLandscape({ ideas }: IdeaLandscapeProps) {
                   y1={node.y}
                   x2={other.x}
                   y2={other.y}
-                  stroke="rgba(102, 227, 255, 1)"
-                  strokeWidth="0.5"
+                  stroke={burstGlow > 0.3 ? colorMapBurst[node.idea.color] : 'rgba(102, 227, 255, 0.8)'}
+                  strokeWidth={burstGlow > 0.3 ? 1.5 : 0.5}
                   strokeOpacity={opacity}
+                  strokeDasharray={burstGlow > 0.3 ? 'none' : '4,6'}
                 />
               );
             })
           )}
+
+          {/* Trail effects for bursting nodes */}
+          {nodes.map((node) =>
+            node.trail.map((point, idx) => (
+              <circle
+                key={`trail-${node.idea.id}-${idx}`}
+                cx={point.x}
+                cy={point.y}
+                r={node.radius * 0.3 * point.alpha}
+                fill={colorMapGlow[node.idea.color]}
+                opacity={point.alpha * 0.4}
+              />
+            ))
+          )}
+
+          {/* Polygon nodes */}
+          {nodes.map((node) => {
+            const isHovered = hoveredId === node.idea.id;
+            const isSelected = selectedIdea?.id === node.idea.id;
+            const isBursting = node.burstTimer > 0;
+
+            // Scale up slightly when bursting
+            const burstScale = 1 + node.burstIntensity * 0.15;
+            const effectiveRadius = node.radius * (isBursting ? burstScale : 1);
+
+            const path = polygonToPath(node.x, node.y, effectiveRadius, node.rotation, node.polygon);
+            const innerPath = polygonToPath(node.x, node.y, effectiveRadius * 0.75, node.rotation, node.polygon);
+
+            return (
+              <g key={node.idea.id}>
+                {/* Outer burst glow when colliding */}
+                {isBursting && (
+                  <path
+                    d={polygonToPath(node.x, node.y, effectiveRadius * (1.2 + node.burstIntensity * 0.3), node.rotation, node.polygon)}
+                    fill={colorMapGlow[node.idea.color]}
+                    opacity={node.burstTimer * node.burstIntensity}
+                    filter="url(#burst-glow)"
+                  />
+                )}
+
+                {/* Ambient glow */}
+                <path
+                  d={path}
+                  fill={colorMapGlow[node.idea.color]}
+                  opacity={isBursting ? 0.6 + node.burstIntensity * 0.3 : 0.3}
+                  filter={`url(#glow-${node.idea.color})`}
+                />
+
+                {/* Main polygon fill */}
+                <path
+                  d={path}
+                  fill={colorMapSoft[node.idea.color]}
+                  stroke={isBursting ? colorMapBurst[node.idea.color] : node.color}
+                  strokeWidth={isHovered || isSelected ? 2.5 : isBursting ? 2 : 1.2}
+                  strokeOpacity={isBursting ? 1 : 0.8}
+                  style={{
+                    cursor: 'pointer',
+                    transition: 'stroke-width 0.15s ease',
+                  }}
+                  onMouseEnter={() => setHoveredId(node.idea.id)}
+                  onMouseLeave={() => setHoveredId(null)}
+                  onClick={() => handleNodeClick(node.idea)}
+                />
+
+                {/* Inner decorative shape */}
+                <path
+                  d={innerPath}
+                  fill="none"
+                  stroke={node.color}
+                  strokeWidth="0.5"
+                  strokeOpacity={isBursting ? 0.5 : 0.2}
+                  strokeDasharray="2,4"
+                  pointerEvents="none"
+                />
+
+                {/* Center dot */}
+                <circle
+                  cx={node.x}
+                  cy={node.y}
+                  r={isBursting ? 4 + node.burstIntensity * 2 : 2}
+                  fill={isBursting ? colorMapBurst[node.idea.color] : node.color}
+                  opacity={isBursting ? 1 : 0.5}
+                />
+              </g>
+            );
+          })}
         </svg>
+
+        {/* Text labels layer (HTML for better text rendering) */}
+        <div className="pointer-events-none absolute inset-0" style={{ zIndex: 2 }}>
+          {nodes.map((node) => {
+            const isHovered = hoveredId === node.idea.id;
+            const isSelected = selectedIdea?.id === node.idea.id;
+            const isBursting = node.burstTimer > 0;
+            const burstScale = 1 + node.burstIntensity * 0.15;
+            const effectiveRadius = node.radius * (isBursting ? burstScale : 1);
+
+            return (
+              <button
+                key={`label-${node.idea.id}`}
+                className="pointer-events-auto absolute flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan focus-visible:ring-offset-2 focus-visible:ring-offset-transparent"
+                style={{
+                  left: node.x - effectiveRadius,
+                  top: node.y - effectiveRadius,
+                  width: effectiveRadius * 2,
+                  height: effectiveRadius * 2,
+                  transform: isHovered || isSelected ? 'scale(1.05)' : 'scale(1)',
+                  transition: 'transform 0.15s ease',
+                  background: 'transparent',
+                  border: 'none',
+                }}
+                onClick={() => handleNodeClick(node.idea)}
+                onKeyDown={(e) => handleKeyDown(e, node.idea)}
+                onMouseEnter={() => setHoveredId(node.idea.id)}
+                onMouseLeave={() => setHoveredId(null)}
+                onFocus={() => setHoveredId(node.idea.id)}
+                onBlur={() => setHoveredId(null)}
+                aria-label={`Research idea: ${node.idea.title}`}
+                aria-pressed={isSelected}
+              >
+                <span
+                  className="max-w-[85%] text-center font-mono text-[0.58rem] uppercase leading-tight tracking-wide"
+                  style={{
+                    color: isBursting ? colorMapBurst[node.idea.color] : node.color,
+                    textShadow: isBursting
+                      ? `0 0 20px ${colorMapGlow[node.idea.color]}, 0 0 40px ${colorMapGlow[node.idea.color]}`
+                      : `0 0 8px ${colorMapSoft[node.idea.color]}`,
+                  }}
+                >
+                  {node.idea.title.split(' ').slice(0, 3).join(' ')}
+                </span>
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {/* Detail panel */}
       {selectedIdea && (
-        <div className="mt-6 rounded-lg border border-white/10 bg-bg-panel/80 p-6 backdrop-blur-sm">
+        <div className="mx-4 sm:mx-6 lg:mx-8 mt-6 rounded-lg border border-white/10 bg-white/[0.02] p-6 backdrop-blur-sm">
           <div className="mb-4 flex items-start justify-between gap-4">
             <div>
               <span
-                className="mb-2 inline-block rounded-full border px-2 py-0.5 font-mono text-[0.6rem] uppercase tracking-wider"
+                className="mb-2 inline-block rounded-sm border px-2 py-0.5 font-mono text-[0.6rem] uppercase tracking-wider"
                 style={{
                   borderColor: colorMap[selectedIdea.color],
                   color: colorMap[selectedIdea.color],
@@ -354,7 +665,7 @@ export function IdeaLandscape({ ideas }: IdeaLandscapeProps) {
             )}
 
             {selectedIdea.openQuestion && (
-              <div className="rounded-md border-l-2 border-amber/50 bg-amber/5 p-3">
+              <div className="rounded-sm border-l-2 border-amber/50 bg-amber/5 p-3">
                 <p className="mb-1 font-mono text-[0.65rem] uppercase tracking-wider text-amber">
                   Open Question
                 </p>
@@ -390,10 +701,8 @@ export function IdeaList({ ideas }: IdeaLandscapeProps) {
         return (
           <button
             key={idea.id}
-            className={`w-full rounded-lg border text-left transition-all duration-300 ${
-              isExpanded
-                ? 'border-white/20 bg-bg-panel/80'
-                : 'border-white/10 bg-bg-panel/40 hover:border-white/15'
+            className={`w-full text-left transition-all duration-300 rounded-lg border border-white/10 bg-white/[0.02] ${
+              isExpanded ? 'border-white/20' : 'hover:border-white/15'
             }`}
             style={{
               borderLeftColor: colorMap[idea.color],
@@ -405,7 +714,7 @@ export function IdeaList({ ideas }: IdeaLandscapeProps) {
             <div className="p-4">
               <div className="mb-2 flex items-center gap-2">
                 <span
-                  className="rounded-full border px-2 py-0.5 font-mono text-[0.55rem] uppercase tracking-wider"
+                  className="rounded-sm border px-2 py-0.5 font-mono text-[0.55rem] uppercase tracking-wider"
                   style={{
                     borderColor: colorMap[idea.color],
                     color: colorMap[idea.color],

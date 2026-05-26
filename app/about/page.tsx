@@ -23,23 +23,21 @@ const education = [
     field: 'Bioengineering',
     institution: 'UC San Diego',
     year: '2022',
-    logo: '/images/logos/ucsd-bioengineering.png'
   },
   {
     degree: 'B.S.',
     field: 'Bioengineering: Biosystems',
     institution: 'UC San Diego',
     year: '2020',
-    logo: '/images/logos/ucsd.png'
   },
 ];
 
 const affiliations = [
-  { name: 'Panoptic Bio', role: 'Founding Applied AI Scientist', period: '2026', logo: null },
-  { name: 'Stealth NeuroAI Startup', role: 'Founding Engineer', period: '2025', logo: null },
-  { name: 'DataJoint', role: 'Neuroscience Data Engineer II', period: '2022–2024', logo: '/images/logos/datajoint.png' },
-  { name: 'NEATLABs, UCSD', role: 'Lead Lab Programmer', period: '2017–2022', logo: '/images/logos/neatlabs.png' },
-  { name: 'Dolby Laboratories', role: 'Engineering Intern', period: '2014–2016', logo: '/images/logos/dolby.png' },
+  { name: 'Panoptic Bio', role: 'Founding Applied AI Scientist', period: '2026' },
+  { name: 'Stealth NeuroAI Startup', role: 'Founding Engineer', period: '2025' },
+  { name: 'DataJoint', role: 'Neuroscience Data Engineer II', period: '2022–2024' },
+  { name: 'NEATLABs, UCSD', role: 'Lead Lab Programmer', period: '2017–2022' },
+  { name: 'Dolby Laboratories', role: 'Engineering Intern', period: '2014–2016' },
 ];
 
 // Deployed systems and professional projects
@@ -295,23 +293,14 @@ export default function AboutPage() {
             {education.map((item) => (
               <div
                 key={`${item.degree}-${item.field}`}
-                className="flex items-start gap-4 border-l-2 border-cyan/30 pl-4"
+                className="border-l-2 border-cyan/30 pl-4"
               >
-                {item.logo && (
-                  <img
-                    src={item.logo}
-                    alt={`${item.institution} logo`}
-                    className="mt-1 h-10 w-10 shrink-0 object-contain opacity-80"
-                  />
-                )}
-                <div>
-                  <p className="font-mono text-[0.62rem] uppercase tracking-[0.18em] text-cyan/60">
-                    {item.degree}
-                  </p>
-                  <p className="mt-1 text-sm font-medium text-text-primary">{item.field}</p>
-                  <p className="mt-1 text-xs text-text-secondary">{item.institution}</p>
-                  <p className="mt-0.5 font-mono text-[0.58rem] text-white/40">{item.year}</p>
-                </div>
+                <p className="font-mono text-[0.62rem] uppercase tracking-[0.18em] text-cyan/60">
+                  {item.degree}
+                </p>
+                <p className="mt-1 text-sm font-medium text-text-primary">{item.field}</p>
+                <p className="mt-1 text-xs text-text-secondary">{item.institution}</p>
+                <p className="mt-0.5 font-mono text-[0.58rem] text-white/40">{item.year}</p>
               </div>
             ))}
           </div>
@@ -449,38 +438,6 @@ export default function AboutPage() {
                 {link.label} →
               </Link>
             ))}
-          </div>
-        </section>
-
-        {/* Affiliation Logos */}
-        <section className="border-t border-white/8 pt-10">
-          <p className="technical-label mb-6 text-center">Affiliations</p>
-          <div className="flex flex-wrap items-center justify-center gap-8 opacity-70">
-            <img
-              src="/images/logos/ucsd.png"
-              alt="UC San Diego"
-              className="h-12 w-auto object-contain grayscale hover:grayscale-0 transition-all"
-            />
-            <img
-              src="/images/logos/ucsd-bioengineering.png"
-              alt="UC San Diego Bioengineering"
-              className="h-10 w-auto object-contain grayscale hover:grayscale-0 transition-all"
-            />
-            <img
-              src="/images/logos/neatlabs.png"
-              alt="NEATLABs"
-              className="h-10 w-auto object-contain grayscale hover:grayscale-0 transition-all"
-            />
-            <img
-              src="/images/logos/datajoint.png"
-              alt="DataJoint"
-              className="h-8 w-auto object-contain grayscale hover:grayscale-0 transition-all"
-            />
-            <img
-              src="/images/logos/dolby.png"
-              alt="Dolby Laboratories"
-              className="h-8 w-auto object-contain grayscale hover:grayscale-0 transition-all"
-            />
           </div>
         </section>
       </div>
