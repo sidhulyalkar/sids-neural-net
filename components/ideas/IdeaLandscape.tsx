@@ -9,15 +9,12 @@ interface IdeaNode {
   y: number;
   vx: number;
   vy: number;
-  radius: number;
-  rotation: number;
-  rotationSpeed: number;
+  width: number;
+  height: number;
   color: string;
-  originalColor: string;
-  polygon: number[]; // Array of vertex radius multipliers
-  burstTimer: number; // Timer for collision burst effect
-  burstIntensity: number; // How intense the current burst is
-  trail: { x: number; y: number; alpha: number }[]; // Trail effect for bursting
+  burstTimer: number;
+  burstIntensity: number;
+  isHovered: boolean;
 }
 
 const colorMap: Record<string, string> = {
@@ -29,19 +26,19 @@ const colorMap: Record<string, string> = {
 };
 
 const colorMapSoft: Record<string, string> = {
-  cyan: 'rgba(102, 227, 255, 0.08)',
-  violet: 'rgba(167, 139, 250, 0.08)',
-  green: 'rgba(102, 240, 194, 0.08)',
-  amber: 'rgba(247, 198, 107, 0.08)',
-  rose: 'rgba(255, 122, 162, 0.08)',
+  cyan: 'rgba(102, 227, 255, 0.06)',
+  violet: 'rgba(167, 139, 250, 0.06)',
+  green: 'rgba(102, 240, 194, 0.06)',
+  amber: 'rgba(247, 198, 107, 0.06)',
+  rose: 'rgba(255, 122, 162, 0.06)',
 };
 
 const colorMapGlow: Record<string, string> = {
-  cyan: 'rgba(102, 227, 255, 0.5)',
-  violet: 'rgba(167, 139, 250, 0.5)',
-  green: 'rgba(102, 240, 194, 0.5)',
-  amber: 'rgba(247, 198, 107, 0.5)',
-  rose: 'rgba(255, 122, 162, 0.5)',
+  cyan: 'rgba(102, 227, 255, 0.4)',
+  violet: 'rgba(167, 139, 250, 0.4)',
+  green: 'rgba(102, 240, 194, 0.4)',
+  amber: 'rgba(247, 198, 107, 0.4)',
+  rose: 'rgba(255, 122, 162, 0.4)',
 };
 
 const colorMapBurst: Record<string, string> = {
@@ -52,54 +49,59 @@ const colorMapBurst: Record<string, string> = {
   rose: 'rgba(255, 122, 162, 1)',
 };
 
-// Generate a random irregular polygon with 5-9 vertices
-function generatePolygon(sides: number): number[] {
-  const vertices: number[] = [];
+// Unique symbols for each research idea
+const ideaSymbols: Record<string, { path: string; viewBox: string }> = {
+  'neural-search': {
+    path: 'M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z',
+    viewBox: '0 0 24 24',
+  },
+  'foundation-neural': {
+    path: 'M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5',
+    viewBox: '0 0 24 24',
+  },
+  'mechinterp-neuro': {
+    path: 'M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z',
+    viewBox: '0 0 24 24',
+  },
+  'bci-middleware': {
+    path: 'M13 10V3L4 14h7v7l9-11h-7z',
+    viewBox: '0 0 24 24',
+  },
+  'session-stitching': {
+    path: 'M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1',
+    viewBox: '0 0 24 24',
+  },
+  'experiment-generation': {
+    path: 'M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z',
+    viewBox: '0 0 24 24',
+  },
+  'neural-qc': {
+    path: 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z',
+    viewBox: '0 0 24 24',
+  },
+  'brain-behavior-alignment': {
+    path: 'M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15',
+    viewBox: '0 0 24 24',
+  },
+  'provenance-search': {
+    path: 'M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10',
+    viewBox: '0 0 24 24',
+  },
+  'ecog-foundation': {
+    path: 'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z',
+    viewBox: '0 0 24 24',
+  },
+};
 
-  for (let i = 0; i < sides; i++) {
-    // More dramatic radius variation (0.55 to 1.0)
-    const radiusVariation = 0.55 + Math.random() * 0.45;
-    vertices.push(radiusVariation);
-  }
+const defaultSymbol = {
+  path: 'M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253',
+  viewBox: '0 0 24 24',
+};
 
-  return vertices;
-}
-
-// Convert polygon vertices to SVG path with smooth curves
-function polygonToPath(
-  centerX: number,
-  centerY: number,
-  radius: number,
-  rotation: number,
-  vertices: number[]
-): string {
-  const points: { x: number; y: number }[] = [];
-  const sides = vertices.length;
-  const angleStep = (Math.PI * 2) / sides;
-
-  for (let i = 0; i < sides; i++) {
-    const angle = angleStep * i + rotation;
-    const r = radius * vertices[i];
-    points.push({
-      x: centerX + Math.cos(angle) * r,
-      y: centerY + Math.sin(angle) * r,
-    });
-  }
-
-  // Create a smooth curved path using quadratic bezier curves
-  let path = `M ${points[0].x},${points[0].y}`;
-
-  for (let i = 0; i < sides; i++) {
-    const current = points[i];
-    const next = points[(i + 1) % sides];
-    const midX = (current.x + next.x) / 2;
-    const midY = (current.y + next.y) / 2;
-    path += ` Q ${current.x},${current.y} ${midX},${midY}`;
-  }
-
-  path += ' Z';
-  return path;
-}
+// Node dimensions
+const COLLAPSED_SIZE = 72;
+const EXPANDED_WIDTH = 160;
+const EXPANDED_HEIGHT = 80;
 
 interface IdeaLandscapeProps {
   ideas: ResearchIdea[];
@@ -116,7 +118,6 @@ export function IdeaLandscape({ ideas }: IdeaLandscapeProps) {
   const nodesRef = useRef<IdeaNode[]>([]);
   const lastTimeRef = useRef<number>(0);
 
-  // Check for reduced motion preference
   useEffect(() => {
     const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
     setPrefersReducedMotion(mediaQuery.matches);
@@ -125,7 +126,6 @@ export function IdeaLandscape({ ideas }: IdeaLandscapeProps) {
     return () => mediaQuery.removeEventListener('change', handler);
   }, []);
 
-  // Initialize nodes
   useEffect(() => {
     if (!containerRef.current) return;
 
@@ -135,7 +135,6 @@ export function IdeaLandscape({ ideas }: IdeaLandscapeProps) {
     setDimensions({ width, height });
 
     const initialNodes: IdeaNode[] = ideas.map((idea, i) => {
-      // Spread nodes across the canvas with some randomness
       const cols = Math.ceil(Math.sqrt(ideas.length * (width / height)));
       const rows = Math.ceil(ideas.length / cols);
       const col = i % cols;
@@ -143,28 +142,21 @@ export function IdeaLandscape({ ideas }: IdeaLandscapeProps) {
       const cellWidth = width / cols;
       const cellHeight = height / rows;
 
-      const nodeRadius = 55 + Math.random() * 35; // Slightly larger for expanded area
-      const sides = 5 + Math.floor(Math.random() * 5); // 5-9 sides for more variety
-
-      // Random initial velocity in all directions
-      const speed = 1.0 + Math.random() * 1.5; // Faster for larger space
+      const speed = 0.5 + Math.random() * 0.8;
       const angle = Math.random() * Math.PI * 2;
 
       return {
         idea,
-        x: cellWidth * (col + 0.5) + (Math.random() - 0.5) * cellWidth * 0.6,
-        y: cellHeight * (row + 0.5) + (Math.random() - 0.5) * cellHeight * 0.6,
+        x: cellWidth * (col + 0.5) + (Math.random() - 0.5) * cellWidth * 0.4,
+        y: cellHeight * (row + 0.5) + (Math.random() - 0.5) * cellHeight * 0.4,
         vx: Math.cos(angle) * speed,
         vy: Math.sin(angle) * speed,
-        radius: nodeRadius,
-        rotation: Math.random() * Math.PI * 2,
-        rotationSpeed: (Math.random() - 0.5) * 0.015,
+        width: COLLAPSED_SIZE,
+        height: COLLAPSED_SIZE,
         color: colorMap[idea.color],
-        originalColor: colorMap[idea.color],
-        polygon: generatePolygon(sides),
         burstTimer: 0,
         burstIntensity: 0,
-        trail: [],
+        isHovered: false,
       };
     });
 
@@ -172,173 +164,130 @@ export function IdeaLandscape({ ideas }: IdeaLandscapeProps) {
     nodesRef.current = initialNodes;
   }, [ideas]);
 
-  // Animation loop with robust physics
   useEffect(() => {
     if (prefersReducedMotion || nodes.length === 0) return;
 
     const animate = (currentTime: number) => {
-      // Calculate delta time for frame-independent physics
       const deltaTime = lastTimeRef.current ? Math.min((currentTime - lastTimeRef.current) / 16.67, 2) : 1;
       lastTimeRef.current = currentTime;
 
       const currentNodes = [...nodesRef.current];
       const { width, height } = dimensions;
-      const padding = 20; // Minimal edge boundary
+      const padding = 50;
 
-      // Physics simulation
       for (let i = 0; i < currentNodes.length; i++) {
         const node = currentNodes[i];
 
-        // Update trail for bursting nodes
-        if (node.burstTimer > 0.3) {
-          node.trail.unshift({ x: node.x, y: node.y, alpha: node.burstTimer });
-          if (node.trail.length > 8) node.trail.pop();
-        } else {
-          // Fade out trail
-          node.trail = node.trail.map(t => ({ ...t, alpha: t.alpha * 0.85 })).filter(t => t.alpha > 0.05);
-        }
+        const isHovered = hoveredId === node.idea.id;
+        node.isHovered = isHovered;
 
-        // Apply velocity with delta time
+        // Smooth size interpolation
+        const targetWidth = isHovered ? EXPANDED_WIDTH : COLLAPSED_SIZE;
+        const targetHeight = isHovered ? EXPANDED_HEIGHT : COLLAPSED_SIZE;
+        node.width += (targetWidth - node.width) * 0.12;
+        node.height += (targetHeight - node.height) * 0.12;
+
+        const collisionRadius = Math.max(node.width, node.height) / 2;
+
         node.x += node.vx * deltaTime;
         node.y += node.vy * deltaTime;
 
-        // Rotate (faster when bursting)
-        const rotationMultiplier = node.burstTimer > 0 ? 1 + node.burstIntensity * 2 : 1;
-        node.rotation += node.rotationSpeed * deltaTime * rotationMultiplier;
-
-        // Decay burst timer
         if (node.burstTimer > 0) {
-          node.burstTimer -= 0.025 * deltaTime;
+          node.burstTimer -= 0.02 * deltaTime;
           if (node.burstTimer < 0) {
             node.burstTimer = 0;
             node.burstIntensity = 0;
           }
         }
 
-        // Boundary collision with energetic bounce
-        const bounceEnergy = 0.85;
-        const burstOnWall = 0.6;
-
-        if (node.x - node.radius < padding) {
-          node.x = padding + node.radius;
+        // Boundary collision
+        const bounceEnergy = 0.8;
+        if (node.x - collisionRadius < padding) {
+          node.x = padding + collisionRadius;
           node.vx = Math.abs(node.vx) * bounceEnergy;
-          node.burstTimer = burstOnWall;
-          node.burstIntensity = Math.abs(node.vx) / 4;
-          node.rotationSpeed += (Math.random() - 0.5) * 0.02;
+          node.burstTimer = 0.4;
+          node.burstIntensity = Math.abs(node.vx) / 3;
         }
-        if (node.x + node.radius > width - padding) {
-          node.x = width - padding - node.radius;
+        if (node.x + collisionRadius > width - padding) {
+          node.x = width - padding - collisionRadius;
           node.vx = -Math.abs(node.vx) * bounceEnergy;
-          node.burstTimer = burstOnWall;
-          node.burstIntensity = Math.abs(node.vx) / 4;
-          node.rotationSpeed += (Math.random() - 0.5) * 0.02;
+          node.burstTimer = 0.4;
+          node.burstIntensity = Math.abs(node.vx) / 3;
         }
-        if (node.y - node.radius < padding) {
-          node.y = padding + node.radius;
+        if (node.y - collisionRadius < padding) {
+          node.y = padding + collisionRadius;
           node.vy = Math.abs(node.vy) * bounceEnergy;
-          node.burstTimer = burstOnWall;
-          node.burstIntensity = Math.abs(node.vy) / 4;
-          node.rotationSpeed += (Math.random() - 0.5) * 0.02;
+          node.burstTimer = 0.4;
+          node.burstIntensity = Math.abs(node.vy) / 3;
         }
-        if (node.y + node.radius > height - padding) {
-          node.y = height - padding - node.radius;
+        if (node.y + collisionRadius > height - padding) {
+          node.y = height - padding - collisionRadius;
           node.vy = -Math.abs(node.vy) * bounceEnergy;
-          node.burstTimer = burstOnWall;
-          node.burstIntensity = Math.abs(node.vy) / 4;
-          node.rotationSpeed += (Math.random() - 0.5) * 0.02;
+          node.burstTimer = 0.4;
+          node.burstIntensity = Math.abs(node.vy) / 3;
         }
 
-        // Check collision with other nodes
+        // Node collision
         for (let j = i + 1; j < currentNodes.length; j++) {
           const other = currentNodes[j];
+          const otherRadius = Math.max(other.width, other.height) / 2;
+
           const dx = other.x - node.x;
           const dy = other.y - node.y;
           const dist = Math.sqrt(dx * dx + dy * dy);
-          const minDist = node.radius + other.radius;
+          const minDist = collisionRadius + otherRadius + 12;
 
           if (dist < minDist && dist > 0.1) {
-            // Collision detected!
             const overlap = minDist - dist;
             const nx = dx / dist;
             const ny = dy / dist;
 
-            // Separate the nodes (push apart)
-            const separationForce = overlap / 2 + 1;
+            const separationForce = overlap / 2 + 2;
             node.x -= nx * separationForce;
             node.y -= ny * separationForce;
             other.x += nx * separationForce;
             other.y += ny * separationForce;
 
-            // Calculate relative velocity along collision normal
             const dvx = node.vx - other.vx;
             const dvy = node.vy - other.vy;
             const dvn = dvx * nx + dvy * ny;
 
-            // Only resolve if objects are moving toward each other
             if (dvn > 0) {
-              // Mass ratio based on radius (bigger = heavier)
-              const m1 = node.radius * node.radius;
-              const m2 = other.radius * other.radius;
-              const totalMass = m1 + m2;
+              const burstBoost = 1.6;
+              node.vx -= dvn * nx * burstBoost;
+              node.vy -= dvn * ny * burstBoost;
+              other.vx += dvn * nx * burstBoost;
+              other.vy += dvn * ny * burstBoost;
 
-              // Collision impulse with burst boost
-              const restitution = 1.1; // Slightly super-elastic for fun
-              const burstBoost = 2.2; // Extra energy on collision!
-
-              const impulse = dvn * burstBoost * restitution;
-
-              // Apply impulse based on mass ratio
-              node.vx -= (impulse * m2 / totalMass) * nx;
-              node.vy -= (impulse * m2 / totalMass) * ny;
-              other.vx += (impulse * m1 / totalMass) * nx;
-              other.vy += (impulse * m1 / totalMass) * ny;
-
-              // Calculate collision intensity for visual effects
-              const collisionSpeed = Math.sqrt(dvx * dvx + dvy * dvy);
-              const intensity = Math.min(collisionSpeed / 3, 1.5);
-
-              // Set burst timers for visual effect
-              node.burstTimer = 1.2;
+              const intensity = Math.min(Math.sqrt(dvx * dvx + dvy * dvy) / 3, 1);
+              node.burstTimer = 0.8;
               node.burstIntensity = intensity;
-              other.burstTimer = 1.2;
+              other.burstTimer = 0.8;
               other.burstIntensity = intensity;
-
-              // Add spin on collision
-              node.rotationSpeed += (Math.random() - 0.5) * 0.05 * intensity;
-              other.rotationSpeed += (Math.random() - 0.5) * 0.05 * intensity;
             }
           }
         }
 
-        // Add gentle random drift for organic movement
-        node.vx += (Math.random() - 0.5) * 0.03 * deltaTime;
-        node.vy += (Math.random() - 0.5) * 0.03 * deltaTime;
+        node.vx += (Math.random() - 0.5) * 0.015 * deltaTime;
+        node.vy += (Math.random() - 0.5) * 0.015 * deltaTime;
 
-        // Apply friction (less friction when bursting)
-        const baseFriction = 0.992;
-        const burstFriction = 0.998;
-        const friction = node.burstTimer > 0 ? burstFriction : baseFriction;
+        const friction = node.burstTimer > 0 ? 0.996 : 0.988;
         node.vx *= Math.pow(friction, deltaTime);
         node.vy *= Math.pow(friction, deltaTime);
 
-        // Dampen rotation over time
-        node.rotationSpeed *= Math.pow(0.995, deltaTime);
-
-        // Speed limits - higher for larger area
         const speed = Math.sqrt(node.vx * node.vx + node.vy * node.vy);
-        const maxSpeed = node.burstTimer > 0 ? 10 : 4;
-        const minSpeed = 0.5;
+        const maxSpeed = node.burstTimer > 0 ? 6 : 2.5;
+        const minSpeed = 0.25;
 
         if (speed > maxSpeed) {
           node.vx = (node.vx / speed) * maxSpeed;
           node.vy = (node.vy / speed) * maxSpeed;
         }
 
-        // Keep things moving - add gentle impulse if too slow
         if (speed < minSpeed && node.burstTimer <= 0) {
           const angle = Math.random() * Math.PI * 2;
-          node.vx += Math.cos(angle) * 0.25;
-          node.vy += Math.sin(angle) * 0.25;
+          node.vx += Math.cos(angle) * 0.15;
+          node.vy += Math.sin(angle) * 0.15;
         }
       }
 
@@ -353,9 +302,8 @@ export function IdeaLandscape({ ideas }: IdeaLandscapeProps) {
         cancelAnimationFrame(animationRef.current);
       }
     };
-  }, [prefersReducedMotion, dimensions, nodes.length]);
+  }, [prefersReducedMotion, dimensions, nodes.length, hoveredId]);
 
-  // Handle resize
   useEffect(() => {
     const handleResize = () => {
       if (!containerRef.current) return;
@@ -378,68 +326,48 @@ export function IdeaLandscape({ ideas }: IdeaLandscapeProps) {
     }
   }, [handleNodeClick]);
 
+  // Format title with consistent line breaks
+  const formatTitle = (title: string): string[] => {
+    const words = title.split(' ');
+    const lines: string[] = [];
+    let currentLine = '';
+    const maxChars = 16;
+
+    for (const word of words) {
+      if (currentLine.length + word.length + 1 <= maxChars) {
+        currentLine += (currentLine ? ' ' : '') + word;
+      } else {
+        if (currentLine) lines.push(currentLine);
+        currentLine = word;
+      }
+    }
+    if (currentLine) lines.push(currentLine);
+    return lines.slice(0, 3);
+  };
+
   return (
     <div className="relative -mx-4 sm:-mx-6 lg:-mx-8">
-      {/* Landscape container - seamlessly matches site background, edge-to-edge */}
       <div
         ref={containerRef}
         className="relative h-[85vh] w-full overflow-hidden"
-        style={{
-          minHeight: '700px',
-          maxHeight: '1000px',
-          background: 'transparent',
-        }}
+        style={{ minHeight: '700px', maxHeight: '1000px', background: 'transparent' }}
       >
-        {/* Very subtle vignette for depth */}
         <div
           className="pointer-events-none absolute inset-0"
-          style={{
-            background: 'radial-gradient(ellipse at center, transparent 50%, rgba(0,0,0,0.2) 100%)',
-          }}
+          style={{ background: 'radial-gradient(ellipse at center, transparent 50%, rgba(0,0,0,0.15) 100%)' }}
         />
 
-        {/* SVG Layer for polygons and connections */}
-        <svg
-          className="absolute inset-0 h-full w-full"
-          style={{ zIndex: 1 }}
-        >
-          <defs>
-            {/* Glow filters for each color */}
-            {Object.entries(colorMapGlow).map(([color, rgba]) => (
-              <filter key={color} id={`glow-${color}`} x="-100%" y="-100%" width="300%" height="300%">
-                <feGaussianBlur stdDeviation="8" result="blur" />
-                <feFlood floodColor={rgba} />
-                <feComposite in2="blur" operator="in" />
-                <feMerge>
-                  <feMergeNode />
-                  <feMergeNode in="SourceGraphic" />
-                </feMerge>
-              </filter>
-            ))}
-
-            {/* Burst glow filter */}
-            <filter id="burst-glow" x="-150%" y="-150%" width="400%" height="400%">
-              <feGaussianBlur stdDeviation="15" result="blur" />
-              <feMerge>
-                <feMergeNode in="blur" />
-                <feMergeNode in="blur" />
-                <feMergeNode in="SourceGraphic" />
-              </feMerge>
-            </filter>
-          </defs>
-
-          {/* Connection lines between nearby nodes */}
+        {/* Connection lines */}
+        <svg className="absolute inset-0 h-full w-full" style={{ zIndex: 1 }}>
           {nodes.map((node, i) =>
             nodes.slice(i + 1).map((other) => {
               const dx = other.x - node.x;
               const dy = other.y - node.y;
               const dist = Math.sqrt(dx * dx + dy * dy);
-              if (dist > 400) return null; // Increased range for larger area
+              if (dist > 320) return null;
 
-              // Connections glow brighter when both nodes are bursting
               const burstGlow = (node.burstTimer + other.burstTimer) / 2;
-              const baseOpacity = Math.max(0, 1 - dist / 400) * 0.12;
-              const opacity = baseOpacity + burstGlow * 0.3;
+              const opacity = Math.max(0, 1 - dist / 320) * 0.08 + burstGlow * 0.2;
 
               return (
                 <line
@@ -448,124 +376,43 @@ export function IdeaLandscape({ ideas }: IdeaLandscapeProps) {
                   y1={node.y}
                   x2={other.x}
                   y2={other.y}
-                  stroke={burstGlow > 0.3 ? colorMapBurst[node.idea.color] : 'rgba(102, 227, 255, 0.8)'}
-                  strokeWidth={burstGlow > 0.3 ? 1.5 : 0.5}
+                  stroke={burstGlow > 0.15 ? colorMapBurst[node.idea.color] : 'rgba(102, 227, 255, 0.5)'}
+                  strokeWidth={burstGlow > 0.15 ? 1.5 : 0.5}
                   strokeOpacity={opacity}
-                  strokeDasharray={burstGlow > 0.3 ? 'none' : '4,6'}
+                  strokeDasharray={burstGlow > 0.15 ? 'none' : '2,6'}
                 />
               );
             })
           )}
-
-          {/* Trail effects for bursting nodes */}
-          {nodes.map((node) =>
-            node.trail.map((point, idx) => (
-              <circle
-                key={`trail-${node.idea.id}-${idx}`}
-                cx={point.x}
-                cy={point.y}
-                r={node.radius * 0.3 * point.alpha}
-                fill={colorMapGlow[node.idea.color]}
-                opacity={point.alpha * 0.4}
-              />
-            ))
-          )}
-
-          {/* Polygon nodes */}
-          {nodes.map((node) => {
-            const isHovered = hoveredId === node.idea.id;
-            const isSelected = selectedIdea?.id === node.idea.id;
-            const isBursting = node.burstTimer > 0;
-
-            // Scale up slightly when bursting
-            const burstScale = 1 + node.burstIntensity * 0.15;
-            const effectiveRadius = node.radius * (isBursting ? burstScale : 1);
-
-            const path = polygonToPath(node.x, node.y, effectiveRadius, node.rotation, node.polygon);
-            const innerPath = polygonToPath(node.x, node.y, effectiveRadius * 0.75, node.rotation, node.polygon);
-
-            return (
-              <g key={node.idea.id}>
-                {/* Outer burst glow when colliding */}
-                {isBursting && (
-                  <path
-                    d={polygonToPath(node.x, node.y, effectiveRadius * (1.2 + node.burstIntensity * 0.3), node.rotation, node.polygon)}
-                    fill={colorMapGlow[node.idea.color]}
-                    opacity={node.burstTimer * node.burstIntensity}
-                    filter="url(#burst-glow)"
-                  />
-                )}
-
-                {/* Ambient glow */}
-                <path
-                  d={path}
-                  fill={colorMapGlow[node.idea.color]}
-                  opacity={isBursting ? 0.6 + node.burstIntensity * 0.3 : 0.3}
-                  filter={`url(#glow-${node.idea.color})`}
-                />
-
-                {/* Main polygon fill */}
-                <path
-                  d={path}
-                  fill={colorMapSoft[node.idea.color]}
-                  stroke={isBursting ? colorMapBurst[node.idea.color] : node.color}
-                  strokeWidth={isHovered || isSelected ? 2.5 : isBursting ? 2 : 1.2}
-                  strokeOpacity={isBursting ? 1 : 0.8}
-                  style={{
-                    cursor: 'pointer',
-                    transition: 'stroke-width 0.15s ease',
-                  }}
-                  onMouseEnter={() => setHoveredId(node.idea.id)}
-                  onMouseLeave={() => setHoveredId(null)}
-                  onClick={() => handleNodeClick(node.idea)}
-                />
-
-                {/* Inner decorative shape */}
-                <path
-                  d={innerPath}
-                  fill="none"
-                  stroke={node.color}
-                  strokeWidth="0.5"
-                  strokeOpacity={isBursting ? 0.5 : 0.2}
-                  strokeDasharray="2,4"
-                  pointerEvents="none"
-                />
-
-                {/* Center dot */}
-                <circle
-                  cx={node.x}
-                  cy={node.y}
-                  r={isBursting ? 4 + node.burstIntensity * 2 : 2}
-                  fill={isBursting ? colorMapBurst[node.idea.color] : node.color}
-                  opacity={isBursting ? 1 : 0.5}
-                />
-              </g>
-            );
-          })}
         </svg>
 
-        {/* Text labels layer (HTML for better text rendering) */}
-        <div className="pointer-events-none absolute inset-0" style={{ zIndex: 2 }}>
+        {/* Nodes */}
+        <div className="absolute inset-0" style={{ zIndex: 2 }}>
           {nodes.map((node) => {
             const isHovered = hoveredId === node.idea.id;
             const isSelected = selectedIdea?.id === node.idea.id;
             const isBursting = node.burstTimer > 0;
-            const burstScale = 1 + node.burstIntensity * 0.15;
-            const effectiveRadius = node.radius * (isBursting ? burstScale : 1);
+            const symbol = ideaSymbols[node.idea.id] || defaultSymbol;
+            const titleLines = formatTitle(node.idea.title);
 
             return (
               <button
-                key={`label-${node.idea.id}`}
-                className="pointer-events-auto absolute flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan focus-visible:ring-offset-2 focus-visible:ring-offset-transparent"
+                key={node.idea.id}
+                className="absolute flex items-center justify-center transition-all duration-200 ease-out focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan"
                 style={{
-                  left: node.x - effectiveRadius,
-                  top: node.y - effectiveRadius,
-                  width: effectiveRadius * 2,
-                  height: effectiveRadius * 2,
-                  transform: isHovered || isSelected ? 'scale(1.05)' : 'scale(1)',
-                  transition: 'transform 0.15s ease',
-                  background: 'transparent',
-                  border: 'none',
+                  left: node.x - node.width / 2,
+                  top: node.y - node.height / 2,
+                  width: node.width,
+                  height: node.height,
+                  background: colorMapSoft[node.idea.color],
+                  border: `1.5px solid ${isBursting ? colorMapBurst[node.idea.color] : isHovered || isSelected ? colorMap[node.idea.color] : `${colorMap[node.idea.color]}50`}`,
+                  borderRadius: isHovered ? '14px' : '50%',
+                  boxShadow: isBursting
+                    ? `0 0 ${16 + node.burstIntensity * 12}px ${colorMapGlow[node.idea.color]}`
+                    : isHovered
+                    ? `0 0 16px ${colorMapGlow[node.idea.color]}`
+                    : 'none',
+                  transform: `scale(${isBursting ? 1 + node.burstIntensity * 0.08 : 1})`,
                 }}
                 onClick={() => handleNodeClick(node.idea)}
                 onKeyDown={(e) => handleKeyDown(e, node.idea)}
@@ -576,69 +423,140 @@ export function IdeaLandscape({ ideas }: IdeaLandscapeProps) {
                 aria-label={`Research idea: ${node.idea.title}`}
                 aria-pressed={isSelected}
               >
-                <span
-                  className="max-w-[85%] text-center font-mono text-[0.58rem] uppercase leading-tight tracking-wide"
-                  style={{
-                    color: isBursting ? colorMapBurst[node.idea.color] : node.color,
-                    textShadow: isBursting
-                      ? `0 0 20px ${colorMapGlow[node.idea.color]}, 0 0 40px ${colorMapGlow[node.idea.color]}`
-                      : `0 0 8px ${colorMapSoft[node.idea.color]}`,
-                  }}
+                {/* Symbol (collapsed state) */}
+                <div
+                  className="absolute inset-0 flex items-center justify-center transition-opacity duration-200"
+                  style={{ opacity: isHovered ? 0 : 1 }}
                 >
-                  {node.idea.title.split(' ').slice(0, 3).join(' ')}
-                </span>
+                  <svg
+                    viewBox={symbol.viewBox}
+                    className="w-7 h-7"
+                    fill="none"
+                    stroke={isBursting ? colorMapBurst[node.idea.color] : colorMap[node.idea.color]}
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d={symbol.path} />
+                  </svg>
+                </div>
+
+                {/* Title (expanded state) */}
+                <div
+                  className="absolute inset-0 flex flex-col items-center justify-center px-2.5 transition-opacity duration-200"
+                  style={{ opacity: isHovered ? 1 : 0 }}
+                >
+                  {titleLines.map((line, idx) => (
+                    <span
+                      key={idx}
+                      className="text-center font-mono text-[0.55rem] uppercase leading-tight tracking-wide"
+                      style={{ color: colorMap[node.idea.color] }}
+                    >
+                      {line}
+                    </span>
+                  ))}
+                </div>
+
+                {/* Status dot */}
+                <div
+                  className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full"
+                  style={{
+                    background: node.idea.status === 'active'
+                      ? colorMapBurst[node.idea.color]
+                      : node.idea.status === 'draft'
+                      ? `${colorMap[node.idea.color]}70`
+                      : `${colorMap[node.idea.color]}40`,
+                    boxShadow: node.idea.status === 'active' ? `0 0 6px ${colorMapGlow[node.idea.color]}` : 'none',
+                  }}
+                />
               </button>
             );
           })}
         </div>
       </div>
 
-      {/* Detail panel */}
+      {/* Detail panel - elegant grid layout */}
       {selectedIdea && (
-        <div className="mx-4 sm:mx-6 lg:mx-8 mt-6 rounded-lg border border-white/10 bg-white/[0.02] p-6 backdrop-blur-sm">
-          <div className="mb-4 flex items-start justify-between gap-4">
-            <div>
-              <span
-                className="mb-2 inline-block rounded-sm border px-2 py-0.5 font-mono text-[0.6rem] uppercase tracking-wider"
-                style={{
-                  borderColor: colorMap[selectedIdea.color],
-                  color: colorMap[selectedIdea.color],
-                }}
-              >
-                {selectedIdea.status}
-              </span>
-              <h3 className="text-xl font-semibold text-text-primary">
+        <div className="mx-4 sm:mx-6 lg:mx-8 mt-8 rounded-xl border border-white/10 bg-white/[0.02] p-8 backdrop-blur-sm">
+          {/* Header */}
+          <div className="flex items-start justify-between gap-6 mb-8">
+            <div className="space-y-3">
+              <div className="flex items-center gap-3">
+                <svg
+                  viewBox={(ideaSymbols[selectedIdea.id] || defaultSymbol).viewBox}
+                  className="w-6 h-6"
+                  fill="none"
+                  stroke={colorMap[selectedIdea.color]}
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d={(ideaSymbols[selectedIdea.id] || defaultSymbol).path} />
+                </svg>
+                <span
+                  className="rounded-sm border px-2.5 py-1 font-mono text-[0.6rem] uppercase tracking-wider"
+                  style={{ borderColor: colorMap[selectedIdea.color], color: colorMap[selectedIdea.color] }}
+                >
+                  {selectedIdea.status}
+                </span>
+              </div>
+              <h3 className="text-2xl font-semibold text-text-primary leading-tight">
                 {selectedIdea.title}
               </h3>
             </div>
             <button
               onClick={() => setSelectedIdea(null)}
-              className="shrink-0 rounded-md p-2 text-text-muted transition-colors hover:bg-white/5 hover:text-text-primary"
+              className="shrink-0 rounded-lg p-2.5 text-text-muted transition-colors hover:bg-white/5 hover:text-text-primary"
               aria-label="Close details"
             >
-              ✕
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M6 18L18 6M6 6l12 12" />
+              </svg>
             </button>
           </div>
 
-          <p className="mb-4 text-sm font-medium text-cyan">{selectedIdea.thesis}</p>
+          {/* Thesis - prominent */}
+          <div
+            className="mb-8 p-4 rounded-lg border-l-2"
+            style={{ borderColor: colorMap[selectedIdea.color], background: colorMapSoft[selectedIdea.color] }}
+          >
+            <p className="text-base text-text-primary leading-relaxed">{selectedIdea.thesis}</p>
+          </div>
 
-          <div className="space-y-4 text-sm">
-            <div>
-              <p className="mb-1 font-mono text-[0.65rem] uppercase tracking-wider text-text-muted">
-                Why it matters
+          {/* Grid layout for details */}
+          <div className="grid gap-8 md:grid-cols-2">
+            {/* Why it matters */}
+            <div className="space-y-3">
+              <p className="font-mono text-[0.65rem] uppercase tracking-wider text-text-muted">
+                Why It Matters
               </p>
-              <p className="text-text-secondary">{selectedIdea.whyItMatters}</p>
+              <p className="text-sm text-text-secondary leading-relaxed">{selectedIdea.whyItMatters}</p>
             </div>
 
-            <div>
-              <p className="mb-2 font-mono text-[0.65rem] uppercase tracking-wider text-text-muted">
+            {/* Open Question */}
+            {selectedIdea.openQuestion && (
+              <div className="space-y-3">
+                <p className="font-mono text-[0.65rem] uppercase tracking-wider text-amber">
+                  Open Question
+                </p>
+                <p className="text-sm text-text-secondary leading-relaxed italic">
+                  "{selectedIdea.openQuestion}"
+                </p>
+              </div>
+            )}
+          </div>
+
+          {/* Methods & Related Work */}
+          <div className="grid gap-8 md:grid-cols-2 mt-8 pt-8 border-t border-white/8">
+            <div className="space-y-3">
+              <p className="font-mono text-[0.65rem] uppercase tracking-wider text-text-muted">
                 Methods & Tools
               </p>
-              <div className="flex flex-wrap gap-1.5">
+              <div className="flex flex-wrap gap-2">
                 {selectedIdea.methods.map((method) => (
                   <span
                     key={method}
-                    className="rounded-sm border border-white/10 bg-white/5 px-2 py-0.5 font-mono text-[0.6rem] uppercase tracking-wider text-text-secondary"
+                    className="rounded-md border border-white/10 bg-white/5 px-2.5 py-1 font-mono text-[0.6rem] uppercase tracking-wider text-text-secondary"
                   >
                     {method}
                   </span>
@@ -647,15 +565,16 @@ export function IdeaLandscape({ ideas }: IdeaLandscapeProps) {
             </div>
 
             {selectedIdea.relatedWork.length > 0 && (
-              <div>
-                <p className="mb-2 font-mono text-[0.65rem] uppercase tracking-wider text-text-muted">
+              <div className="space-y-3">
+                <p className="font-mono text-[0.65rem] uppercase tracking-wider text-text-muted">
                   Related Experience
                 </p>
-                <div className="flex flex-wrap gap-1.5">
+                <div className="flex flex-wrap gap-2">
                   {selectedIdea.relatedWork.map((work) => (
                     <span
                       key={work}
-                      className="rounded-sm border border-cyan/20 bg-cyan/5 px-2 py-0.5 font-mono text-[0.6rem] uppercase tracking-wider text-cyan/80"
+                      className="rounded-md border px-2.5 py-1 font-mono text-[0.6rem] uppercase tracking-wider"
+                      style={{ borderColor: `${colorMap[selectedIdea.color]}40`, color: colorMap[selectedIdea.color] }}
                     >
                       {work}
                     </span>
@@ -663,26 +582,19 @@ export function IdeaLandscape({ ideas }: IdeaLandscapeProps) {
                 </div>
               </div>
             )}
+          </div>
 
-            {selectedIdea.openQuestion && (
-              <div className="rounded-sm border-l-2 border-amber/50 bg-amber/5 p-3">
-                <p className="mb-1 font-mono text-[0.65rem] uppercase tracking-wider text-amber">
-                  Open Question
-                </p>
-                <p className="text-sm text-text-secondary">{selectedIdea.openQuestion}</p>
-              </div>
-            )}
-
-            <div className="flex flex-wrap gap-2 border-t border-white/10 pt-4">
-              {selectedIdea.domains.map((domain) => (
-                <span
-                  key={domain}
-                  className="font-mono text-[0.6rem] uppercase tracking-wider text-text-muted"
-                >
-                  {domain}
-                </span>
-              ))}
-            </div>
+          {/* Domains footer */}
+          <div className="flex flex-wrap items-center gap-4 mt-8 pt-6 border-t border-white/8">
+            <span className="font-mono text-[0.6rem] uppercase tracking-wider text-text-muted">Domains:</span>
+            {selectedIdea.domains.map((domain) => (
+              <span
+                key={domain}
+                className="font-mono text-[0.6rem] uppercase tracking-wider text-text-muted/70"
+              >
+                {domain}
+              </span>
+            ))}
           </div>
         </div>
       )}
@@ -690,7 +602,7 @@ export function IdeaLandscape({ ideas }: IdeaLandscapeProps) {
   );
 }
 
-// Mobile fallback - stacked cards
+// Mobile fallback
 export function IdeaList({ ideas }: IdeaLandscapeProps) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
@@ -698,43 +610,50 @@ export function IdeaList({ ideas }: IdeaLandscapeProps) {
     <div className="space-y-4">
       {ideas.map((idea) => {
         const isExpanded = expandedId === idea.id;
+        const symbol = ideaSymbols[idea.id] || defaultSymbol;
+
         return (
           <button
             key={idea.id}
-            className={`w-full text-left transition-all duration-300 rounded-lg border border-white/10 bg-white/[0.02] ${
+            className={`w-full text-left transition-all duration-300 rounded-xl border border-white/10 bg-white/[0.02] ${
               isExpanded ? 'border-white/20' : 'hover:border-white/15'
             }`}
-            style={{
-              borderLeftColor: colorMap[idea.color],
-              borderLeftWidth: '3px',
-            }}
+            style={{ borderLeftColor: colorMap[idea.color], borderLeftWidth: '3px' }}
             onClick={() => setExpandedId(isExpanded ? null : idea.id)}
             aria-expanded={isExpanded}
           >
-            <div className="p-4">
-              <div className="mb-2 flex items-center gap-2">
+            <div className="p-5">
+              <div className="flex items-center gap-3 mb-3">
+                <svg
+                  viewBox={symbol.viewBox}
+                  className="w-5 h-5 shrink-0"
+                  fill="none"
+                  stroke={colorMap[idea.color]}
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d={symbol.path} />
+                </svg>
                 <span
                   className="rounded-sm border px-2 py-0.5 font-mono text-[0.55rem] uppercase tracking-wider"
-                  style={{
-                    borderColor: colorMap[idea.color],
-                    color: colorMap[idea.color],
-                  }}
+                  style={{ borderColor: colorMap[idea.color], color: colorMap[idea.color] }}
                 >
                   {idea.status}
                 </span>
               </div>
               <h3 className="text-base font-semibold text-text-primary">{idea.title}</h3>
-              <p className="mt-1 text-sm text-cyan">{idea.thesis}</p>
+              <p className="mt-2 text-sm text-cyan">{idea.thesis}</p>
 
               {isExpanded && (
-                <div className="mt-4 space-y-3 border-t border-white/10 pt-4">
-                  <p className="text-sm text-text-secondary">{idea.whyItMatters}</p>
+                <div className="mt-5 space-y-4 border-t border-white/10 pt-5">
+                  <p className="text-sm text-text-secondary leading-relaxed">{idea.whyItMatters}</p>
 
-                  <div className="flex flex-wrap gap-1">
+                  <div className="flex flex-wrap gap-1.5">
                     {idea.methods.slice(0, 4).map((method) => (
                       <span
                         key={method}
-                        className="rounded-sm border border-white/10 bg-white/5 px-1.5 py-0.5 font-mono text-[0.55rem] uppercase text-text-muted"
+                        className="rounded-md border border-white/10 bg-white/5 px-2 py-0.5 font-mono text-[0.55rem] uppercase text-text-muted"
                       >
                         {method}
                       </span>
