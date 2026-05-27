@@ -160,9 +160,9 @@ export function IdeaLandscape({ ideas }: IdeaLandscapeProps) {
       const angle = Math.random() * Math.PI * 2;
       const vertices = 5 + Math.floor(Math.random() * 5); // 5-9 vertices
 
-      // Size based on title length for better text fit
+      // Size based on title length for better text fit (larger for 14px font)
       const titleLines = formatTitle(idea.title);
-      const baseRadius = 55 + Math.min(titleLines.length * 5, 20);
+      const baseRadius = 80 + Math.min(titleLines.length * 8, 32);
 
       return {
         idea,
@@ -217,8 +217,8 @@ export function IdeaLandscape({ ideas }: IdeaLandscapeProps) {
             node.burstIntensity = 0;
           }
 
-          // Add trail during burst
-          if (node.burstTimer > 0.3 && Math.random() > 0.6) {
+          // Add more trails during burst for dramatic effect
+          if (node.burstTimer > 0.2 && Math.random() > 0.4) {
             node.trail.push({ x: node.x, y: node.y, age: 0 });
           }
         }
@@ -284,30 +284,39 @@ export function IdeaLandscape({ ideas }: IdeaLandscapeProps) {
             other.x += nx * overlap * node2Ratio;
             other.y += ny * overlap * node2Ratio;
 
-            // Elastic collision with burst boost
+            // Elastic collision with strong burst boost
             const dvx = node.vx - other.vx;
             const dvy = node.vy - other.vy;
             const dvn = dvx * nx + dvy * ny;
 
             if (dvn > 0) {
-              const burstBoost = 1.8;
+              const burstBoost = 2.8;
               const impulse = dvn * burstBoost;
 
-              node.vx -= impulse * nx * node1Ratio * 2;
-              node.vy -= impulse * ny * node1Ratio * 2;
-              other.vx += impulse * nx * node2Ratio * 2;
-              other.vy += impulse * ny * node2Ratio * 2;
+              // Strong velocity kick on collision
+              node.vx -= impulse * nx * node1Ratio * 2.5;
+              node.vy -= impulse * ny * node1Ratio * 2.5;
+              other.vx += impulse * nx * node2Ratio * 2.5;
+              other.vy += impulse * ny * node2Ratio * 2.5;
 
-              // Trigger burst effect
-              const intensity = Math.min(Math.sqrt(dvx * dvx + dvy * dvy) / 2.5, 1);
-              node.burstTimer = 1.0;
-              node.burstIntensity = intensity;
-              other.burstTimer = 1.0;
-              other.burstIntensity = intensity;
+              // Add extra burst velocity in collision direction
+              const collisionSpeed = Math.sqrt(dvx * dvx + dvy * dvy);
+              const extraBoost = Math.min(collisionSpeed * 0.4, 2);
+              node.vx -= nx * extraBoost * 0.5;
+              node.vy -= ny * extraBoost * 0.5;
+              other.vx += nx * extraBoost * 0.5;
+              other.vy += ny * extraBoost * 0.5;
 
-              // Spin on collision
-              node.rotationSpeed += (Math.random() - 0.5) * 1.5 * intensity;
-              other.rotationSpeed += (Math.random() - 0.5) * 1.5 * intensity;
+              // Trigger intense burst effect
+              const intensity = Math.min(collisionSpeed / 1.5, 1);
+              node.burstTimer = 1.5;
+              node.burstIntensity = Math.max(intensity, 0.6);
+              other.burstTimer = 1.5;
+              other.burstIntensity = Math.max(intensity, 0.6);
+
+              // Strong spin on collision
+              node.rotationSpeed += (Math.random() - 0.5) * 2.5 * intensity;
+              other.rotationSpeed += (Math.random() - 0.5) * 2.5 * intensity;
             }
           }
         }
@@ -324,9 +333,9 @@ export function IdeaLandscape({ ideas }: IdeaLandscapeProps) {
         // Rotation friction
         node.rotationSpeed *= Math.pow(0.995, deltaTime);
 
-        // Speed limits
+        // Speed limits - much higher during burst for dramatic effect
         const speed = Math.sqrt(node.vx * node.vx + node.vy * node.vy);
-        const maxSpeed = node.burstTimer > 0 ? 5 : 2;
+        const maxSpeed = node.burstTimer > 0 ? 8 : 2;
         const minSpeed = 0.2;
 
         if (speed > maxSpeed) {
@@ -376,17 +385,15 @@ export function IdeaLandscape({ ideas }: IdeaLandscapeProps) {
         className="relative h-[85vh] w-full overflow-hidden"
         style={{ minHeight: '700px', maxHeight: '1000px', background: 'transparent' }}
       >
-        <div
-          className="pointer-events-none absolute inset-0"
-          style={{ background: 'radial-gradient(ellipse at center, transparent 50%, rgba(0,0,0,0.15) 100%)' }}
-        />
+{/* Background removed - transparent to blend with site */}
 
         <svg className="absolute inset-0 h-full w-full" style={{ zIndex: 1 }}>
           <defs>
             {nodes.map((node) => (
-              <filter key={`glow-${node.idea.id}`} id={`glow-${node.idea.id}`}>
-                <feGaussianBlur stdDeviation={3 + node.burstIntensity * 8} result="coloredBlur" />
+              <filter key={`glow-${node.idea.id}`} id={`glow-${node.idea.id}`} x="-100%" y="-100%" width="300%" height="300%">
+                <feGaussianBlur stdDeviation={6 + node.burstIntensity * 18} result="coloredBlur" />
                 <feMerge>
+                  <feMergeNode in="coloredBlur" />
                   <feMergeNode in="coloredBlur" />
                   <feMergeNode in="SourceGraphic" />
                 </feMerge>
@@ -394,16 +401,17 @@ export function IdeaLandscape({ ideas }: IdeaLandscapeProps) {
             ))}
           </defs>
 
-          {/* Connection lines */}
+          {/* Connection lines - glow intensely during burst */}
           {nodes.map((node, i) =>
             nodes.slice(i + 1).map((other) => {
               const dx = other.x - node.x;
               const dy = other.y - node.y;
               const dist = Math.sqrt(dx * dx + dy * dy);
-              if (dist > 350) return null;
+              if (dist > 380) return null;
 
               const burstGlow = (node.burstTimer + other.burstTimer) / 2;
-              const opacity = Math.max(0, 1 - dist / 350) * 0.1 + burstGlow * 0.3;
+              const isBothBursting = node.burstTimer > 0.3 && other.burstTimer > 0.3;
+              const opacity = Math.max(0, 1 - dist / 380) * 0.12 + burstGlow * 0.5;
 
               return (
                 <line
@@ -412,25 +420,25 @@ export function IdeaLandscape({ ideas }: IdeaLandscapeProps) {
                   y1={node.y}
                   x2={other.x}
                   y2={other.y}
-                  stroke={burstGlow > 0.2 ? colorMapBurst[node.idea.color] : 'rgba(102, 227, 255, 0.5)'}
-                  strokeWidth={burstGlow > 0.2 ? 2 : 0.5}
+                  stroke={burstGlow > 0.15 ? colorMapBurst[node.idea.color] : 'rgba(102, 227, 255, 0.5)'}
+                  strokeWidth={isBothBursting ? 3 : burstGlow > 0.15 ? 2 : 0.5}
                   strokeOpacity={opacity}
-                  strokeDasharray={burstGlow > 0.2 ? 'none' : '3,8'}
+                  strokeDasharray={burstGlow > 0.15 ? 'none' : '3,8'}
                 />
               );
             })
           )}
 
-          {/* Trails */}
+          {/* Trails - larger and more visible */}
           {nodes.map((node) =>
             node.trail.map((t, idx) => (
               <circle
                 key={`trail-${node.idea.id}-${idx}`}
                 cx={t.x}
                 cy={t.y}
-                r={6 * (1 - t.age)}
-                fill={colorMapGlow[node.idea.color]}
-                opacity={0.4 * (1 - t.age)}
+                r={10 * (1 - t.age)}
+                fill={colorMapBurst[node.idea.color]}
+                opacity={0.5 * (1 - t.age)}
               />
             ))
           )}
@@ -441,7 +449,7 @@ export function IdeaLandscape({ ideas }: IdeaLandscapeProps) {
             const isSelected = selectedIdea?.id === node.idea.id;
             const isBursting = node.burstTimer > 0;
             const titleLines = formatTitle(node.idea.title);
-            const scale = 1 + node.burstIntensity * 0.12;
+            const scale = 1 + node.burstIntensity * 0.18;
 
             return (
               <g
@@ -452,24 +460,38 @@ export function IdeaLandscape({ ideas }: IdeaLandscapeProps) {
                 onMouseEnter={() => setHoveredId(node.idea.id)}
                 onMouseLeave={() => setHoveredId(null)}
               >
-                {/* Glow effect during burst */}
+                {/* Intense glow effect during burst */}
                 {isBursting && (
-                  <path
-                    d={polygonToPath(node.polygon, node.radius * 1.15, 0, 0)}
-                    fill="none"
-                    stroke={colorMapBurst[node.idea.color]}
-                    strokeWidth={2 + node.burstIntensity * 4}
-                    opacity={node.burstIntensity * 0.6}
-                    filter={`url(#glow-${node.idea.id})`}
-                  />
+                  <>
+                    {/* Outer glow ring */}
+                    <path
+                      d={polygonToPath(node.polygon, node.radius * 1.4, 0, 0)}
+                      fill="none"
+                      stroke={colorMapBurst[node.idea.color]}
+                      strokeWidth={3 + node.burstIntensity * 8}
+                      opacity={node.burstIntensity * 0.4}
+                      filter={`url(#glow-${node.idea.id})`}
+                    />
+                    {/* Inner bright ring */}
+                    <path
+                      d={polygonToPath(node.polygon, node.radius * 1.12, 0, 0)}
+                      fill="none"
+                      stroke={colorMapBurst[node.idea.color]}
+                      strokeWidth={2 + node.burstIntensity * 5}
+                      opacity={node.burstIntensity * 0.8}
+                      filter={`url(#glow-${node.idea.id})`}
+                    />
+                  </>
                 )}
 
-                {/* Main polygon */}
+                {/* Main polygon with flash fill on burst */}
                 <path
                   d={polygonToPath(node.polygon, node.radius, 0, 0)}
-                  fill={colorMapSoft[node.idea.color]}
+                  fill={isBursting
+                    ? `rgba(${node.idea.color === 'cyan' ? '102, 227, 255' : node.idea.color === 'violet' ? '167, 139, 250' : node.idea.color === 'green' ? '102, 240, 194' : node.idea.color === 'amber' ? '247, 198, 107' : '255, 122, 162'}, ${0.08 + node.burstIntensity * 0.15})`
+                    : colorMapSoft[node.idea.color]}
                   stroke={isBursting ? colorMapBurst[node.idea.color] : isHovered || isSelected ? colorMap[node.idea.color] : `${colorMap[node.idea.color]}60`}
-                  strokeWidth={isBursting ? 2.5 : isHovered ? 2 : 1.5}
+                  strokeWidth={isBursting ? 3 : isHovered ? 2 : 1.5}
                   style={{
                     transition: 'stroke 0.2s, stroke-width 0.2s',
                   }}
@@ -477,10 +499,10 @@ export function IdeaLandscape({ ideas }: IdeaLandscapeProps) {
 
                 {/* Counter-rotate text so it stays readable */}
                 <g transform={`rotate(${-node.rotation})`}>
-                  {/* Title text */}
+                  {/* Title text - larger and bolder */}
                   {titleLines.map((line, idx) => {
                     const totalLines = titleLines.length;
-                    const lineHeight = 11;
+                    const lineHeight = 18;
                     const startY = -((totalLines - 1) * lineHeight) / 2;
 
                     return (
@@ -491,10 +513,10 @@ export function IdeaLandscape({ ideas }: IdeaLandscapeProps) {
                         textAnchor="middle"
                         dominantBaseline="middle"
                         fill={isBursting ? colorMapBurst[node.idea.color] : colorMap[node.idea.color]}
-                        fontSize="9"
+                        fontSize="14"
                         fontFamily="ui-monospace, monospace"
-                        fontWeight="500"
-                        letterSpacing="0.03em"
+                        fontWeight="600"
+                        letterSpacing="0.04em"
                         style={{
                           textTransform: 'uppercase',
                           transition: 'fill 0.2s',

@@ -24,9 +24,8 @@ export default function IdeasClient() {
       eyebrow="research"
       title="research ideas"
     >
-      <p className="mb-8 max-w-2xl text-sm text-text-secondary">
-        Research directions I'm exploring or thinking about. Click on nodes to expand details.
-        Ideas span neural data infrastructure, foundation models, mechanistic interpretability, and scientific tooling.
+      <p className="mb-10 text-sm text-text-secondary">
+        Directions I&apos;m exploring. Click nodes to expand.
       </p>
 
       {!isClient ? (
@@ -45,20 +44,19 @@ export default function IdeasClient() {
         <IdeaLandscape ideas={researchIdeas} />
       )}
 
-      {/* Legend */}
-      <div className="mt-8 flex flex-wrap items-center justify-center gap-4 border-t border-white/10 pt-6">
-        <span className="font-mono text-[0.6rem] uppercase tracking-wider text-text-muted">Status:</span>
+      {/* Status legend */}
+      <div className="mt-12 flex items-center justify-center gap-8 border-t border-white/5 pt-8">
         <div className="flex items-center gap-2">
-          <span className="h-2 w-2 rounded-full bg-green" />
-          <span className="font-mono text-[0.6rem] uppercase tracking-wider text-text-muted">Active</span>
+          <span className="h-1.5 w-1.5 rounded-full bg-text-primary" />
+          <span className="text-[0.65rem] text-text-muted">active</span>
         </div>
         <div className="flex items-center gap-2">
-          <span className="h-2 w-2 rounded-full bg-amber" />
-          <span className="font-mono text-[0.6rem] uppercase tracking-wider text-text-muted">Draft</span>
+          <span className="h-1.5 w-1.5 rounded-full bg-text-muted" />
+          <span className="text-[0.65rem] text-text-muted">draft</span>
         </div>
         <div className="flex items-center gap-2">
-          <span className="h-2 w-2 rounded-full bg-violet" />
-          <span className="font-mono text-[0.6rem] uppercase tracking-wider text-text-muted">Sketch</span>
+          <span className="h-1.5 w-1.5 rounded-full bg-text-muted/50" />
+          <span className="text-[0.65rem] text-text-muted">sketch</span>
         </div>
       </div>
     </ComicSectionLayout>
