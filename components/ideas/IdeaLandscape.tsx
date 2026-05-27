@@ -28,11 +28,11 @@ const colorMap: Record<string, string> = {
 };
 
 const colorMapSoft: Record<string, string> = {
-  cyan: 'rgba(102, 227, 255, 0.08)',
-  violet: 'rgba(167, 139, 250, 0.08)',
-  green: 'rgba(102, 240, 194, 0.08)',
-  amber: 'rgba(247, 198, 107, 0.08)',
-  rose: 'rgba(255, 122, 162, 0.08)',
+  cyan: 'rgba(102, 227, 255, 0.03)',
+  violet: 'rgba(167, 139, 250, 0.03)',
+  green: 'rgba(102, 240, 194, 0.03)',
+  amber: 'rgba(247, 198, 107, 0.03)',
+  rose: 'rgba(255, 122, 162, 0.03)',
 };
 
 const colorMapGlow: Record<string, string> = {
@@ -156,7 +156,7 @@ export function IdeaLandscape({ ideas }: IdeaLandscapeProps) {
       const cellWidth = width / cols;
       const cellHeight = height / rows;
 
-      const speed = 0.4 + Math.random() * 0.6;
+      const speed = 0.8 + Math.random() * 0.8;
       const angle = Math.random() * Math.PI * 2;
       const vertices = 5 + Math.floor(Math.random() * 5); // 5-9 vertices
 
@@ -350,33 +350,33 @@ export function IdeaLandscape({ ideas }: IdeaLandscapeProps) {
           }
         }
 
-        // Gentle random walk - keeps things moving but not chaotic
-        node.vx += (Math.random() - 0.5) * 0.008 * deltaTime;
-        node.vy += (Math.random() - 0.5) * 0.008 * deltaTime;
+        // Random walk - keeps things moving and interacting
+        node.vx += (Math.random() - 0.5) * 0.015 * deltaTime;
+        node.vy += (Math.random() - 0.5) * 0.015 * deltaTime;
 
-        // Friction - more friction helps settle faster
-        const friction = node.burstTimer > 0 ? 0.994 : 0.985;
+        // Friction - less friction allows more sustained movement
+        const friction = node.burstTimer > 0 ? 0.996 : 0.992;
         node.vx *= Math.pow(friction, deltaTime);
         node.vy *= Math.pow(friction, deltaTime);
 
         // Rotation friction
         node.rotationSpeed *= Math.pow(0.992, deltaTime);
 
-        // Speed limits - moderate speeds for aesthetic movement
+        // Speed limits - allow more movement for better interaction
         const speed = Math.sqrt(node.vx * node.vx + node.vy * node.vy);
-        const maxSpeed = node.burstTimer > 0 ? 5 : 1.8;
-        const minSpeed = 0.15;
+        const maxSpeed = node.burstTimer > 0 ? 5 : 2.2;
+        const minSpeed = 0.3;
 
         if (speed > maxSpeed) {
           node.vx = (node.vx / speed) * maxSpeed;
           node.vy = (node.vy / speed) * maxSpeed;
         }
 
-        // Gentle nudge if too slow - keeps things alive but calm
-        if (speed < minSpeed && node.burstTimer <= 0 && Math.random() > 0.95) {
+        // More frequent nudge if too slow - ensures continuous interaction
+        if (speed < minSpeed && node.burstTimer <= 0 && Math.random() > 0.8) {
           const kickAngle = Math.random() * Math.PI * 2;
-          node.vx += Math.cos(kickAngle) * 0.08;
-          node.vy += Math.sin(kickAngle) * 0.08;
+          node.vx += Math.cos(kickAngle) * 0.15;
+          node.vy += Math.sin(kickAngle) * 0.15;
         }
       }
 
@@ -518,10 +518,10 @@ export function IdeaLandscape({ ideas }: IdeaLandscapeProps) {
                 <path
                   d={polygonToPath(node.polygon, node.radius, 0, 0)}
                   fill={isBursting
-                    ? `rgba(${node.idea.color === 'cyan' ? '102, 227, 255' : node.idea.color === 'violet' ? '167, 139, 250' : node.idea.color === 'green' ? '102, 240, 194' : node.idea.color === 'amber' ? '247, 198, 107' : '255, 122, 162'}, ${0.08 + node.burstIntensity * 0.15})`
+                    ? `rgba(${node.idea.color === 'cyan' ? '102, 227, 255' : node.idea.color === 'violet' ? '167, 139, 250' : node.idea.color === 'green' ? '102, 240, 194' : node.idea.color === 'amber' ? '247, 198, 107' : '255, 122, 162'}, ${0.04 + node.burstIntensity * 0.1})`
                     : colorMapSoft[node.idea.color]}
-                  stroke={isBursting ? colorMapBurst[node.idea.color] : isHovered || isSelected ? colorMap[node.idea.color] : `${colorMap[node.idea.color]}60`}
-                  strokeWidth={isBursting ? 3 : isHovered ? 2 : 1.5}
+                  stroke={isBursting ? colorMapBurst[node.idea.color] : isHovered || isSelected ? colorMap[node.idea.color] : colorMapGlow[node.idea.color]}
+                  strokeWidth={isBursting ? 2.5 : isHovered ? 2 : 1.5}
                   style={{
                     transition: 'stroke 0.2s, stroke-width 0.2s',
                   }}
