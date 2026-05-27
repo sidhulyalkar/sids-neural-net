@@ -160,9 +160,9 @@ export function IdeaLandscape({ ideas }: IdeaLandscapeProps) {
       const angle = Math.random() * Math.PI * 2;
       const vertices = 5 + Math.floor(Math.random() * 5); // 5-9 vertices
 
-      // Size based on title length for better text fit (larger for 14px font)
+      // Smaller polygons with 14px font - tighter fit
       const titleLines = formatTitle(idea.title);
-      const baseRadius = 80 + Math.min(titleLines.length * 8, 32);
+      const baseRadius = 58 + Math.min(titleLines.length * 5, 18);
 
       return {
         idea,
@@ -194,7 +194,7 @@ export function IdeaLandscape({ ideas }: IdeaLandscapeProps) {
 
       const currentNodes = [...nodesRef.current];
       const { width, height } = dimensions;
-      const padding = 30;
+      const padding = 5; // Minimal border - nodes can go nearly to edges
 
       for (let i = 0; i < currentNodes.length; i++) {
         const node = currentNodes[i];
@@ -284,69 +284,99 @@ export function IdeaLandscape({ ideas }: IdeaLandscapeProps) {
             other.x += nx * overlap * node2Ratio;
             other.y += ny * overlap * node2Ratio;
 
-            // Elastic collision with strong burst boost
+            // Collision physics - dampen if already accelerating, boost if calm
             const dvx = node.vx - other.vx;
             const dvy = node.vy - other.vy;
             const dvn = dvx * nx + dvy * ny;
 
             if (dvn > 0) {
-              const burstBoost = 2.8;
-              const impulse = dvn * burstBoost;
-
-              // Strong velocity kick on collision
-              node.vx -= impulse * nx * node1Ratio * 2.5;
-              node.vy -= impulse * ny * node1Ratio * 2.5;
-              other.vx += impulse * nx * node2Ratio * 2.5;
-              other.vy += impulse * ny * node2Ratio * 2.5;
-
-              // Add extra burst velocity in collision direction
               const collisionSpeed = Math.sqrt(dvx * dvx + dvy * dvy);
-              const extraBoost = Math.min(collisionSpeed * 0.4, 2);
-              node.vx -= nx * extraBoost * 0.5;
-              node.vy -= ny * extraBoost * 0.5;
-              other.vx += nx * extraBoost * 0.5;
-              other.vy += ny * extraBoost * 0.5;
 
-              // Trigger intense burst effect
-              const intensity = Math.min(collisionSpeed / 1.5, 1);
-              node.burstTimer = 1.5;
-              node.burstIntensity = Math.max(intensity, 0.6);
-              other.burstTimer = 1.5;
-              other.burstIntensity = Math.max(intensity, 0.6);
+              // Check if either node is already accelerating from a previous collision
+              const nodeAlreadyBursting = node.burstTimer > 0.3;
+              const otherAlreadyBursting = other.burstTimer > 0.3;
+              const eitherBursting = nodeAlreadyBursting || otherAlreadyBursting;
 
-              // Strong spin on collision
-              node.rotationSpeed += (Math.random() - 0.5) * 2.5 * intensity;
-              other.rotationSpeed += (Math.random() - 0.5) * 2.5 * intensity;
+              if (eitherBursting) {
+                // DAMPEN: If already accelerating, this collision slows them down
+                const dampFactor = 0.4;
+                node.vx -= dvn * nx * node1Ratio * dampFactor;
+                node.vy -= dvn * ny * node1Ratio * dampFactor;
+                other.vx += dvn * nx * node2Ratio * dampFactor;
+                other.vy += dvn * ny * node2Ratio * dampFactor;
+
+                // Apply extra friction to slow down
+                node.vx *= 0.7;
+                node.vy *= 0.7;
+                other.vx *= 0.7;
+                other.vy *= 0.7;
+
+                // Shorter, dimmer flash for dampened collision
+                const intensity = Math.min(collisionSpeed / 3, 0.5);
+                node.burstTimer = 0.4;
+                node.burstIntensity = intensity;
+                other.burstTimer = 0.4;
+                other.burstIntensity = intensity;
+              } else {
+                // BOOST: If both are calm, energize them
+                const burstBoost = 2.2;
+                const impulse = dvn * burstBoost;
+
+                node.vx -= impulse * nx * node1Ratio * 2;
+                node.vy -= impulse * ny * node1Ratio * 2;
+                other.vx += impulse * nx * node2Ratio * 2;
+                other.vy += impulse * ny * node2Ratio * 2;
+
+                // Extra directional kick
+                const extraBoost = Math.min(collisionSpeed * 0.3, 1.5);
+                node.vx -= nx * extraBoost * 0.4;
+                node.vy -= ny * extraBoost * 0.4;
+                other.vx += nx * extraBoost * 0.4;
+                other.vy += ny * extraBoost * 0.4;
+
+                // Bright burst effect
+                const intensity = Math.min(collisionSpeed / 1.5, 1);
+                node.burstTimer = 1.2;
+                node.burstIntensity = Math.max(intensity, 0.5);
+                other.burstTimer = 1.2;
+                other.burstIntensity = Math.max(intensity, 0.5);
+              }
+
+              // Spin on collision (less if dampening)
+              const spinFactor = eitherBursting ? 0.8 : 2.0;
+              node.rotationSpeed += (Math.random() - 0.5) * spinFactor;
+              other.rotationSpeed += (Math.random() - 0.5) * spinFactor;
             }
           }
         }
 
-        // Random walk
-        node.vx += (Math.random() - 0.5) * 0.012 * deltaTime;
-        node.vy += (Math.random() - 0.5) * 0.012 * deltaTime;
+        // Gentle random walk - keeps things moving but not chaotic
+        node.vx += (Math.random() - 0.5) * 0.008 * deltaTime;
+        node.vy += (Math.random() - 0.5) * 0.008 * deltaTime;
 
-        // Friction (less during burst)
-        const friction = node.burstTimer > 0 ? 0.997 : 0.990;
+        // Friction - more friction helps settle faster
+        const friction = node.burstTimer > 0 ? 0.994 : 0.985;
         node.vx *= Math.pow(friction, deltaTime);
         node.vy *= Math.pow(friction, deltaTime);
 
         // Rotation friction
-        node.rotationSpeed *= Math.pow(0.995, deltaTime);
+        node.rotationSpeed *= Math.pow(0.992, deltaTime);
 
-        // Speed limits - much higher during burst for dramatic effect
+        // Speed limits - moderate speeds for aesthetic movement
         const speed = Math.sqrt(node.vx * node.vx + node.vy * node.vy);
-        const maxSpeed = node.burstTimer > 0 ? 8 : 2;
-        const minSpeed = 0.2;
+        const maxSpeed = node.burstTimer > 0 ? 5 : 1.8;
+        const minSpeed = 0.15;
 
         if (speed > maxSpeed) {
           node.vx = (node.vx / speed) * maxSpeed;
           node.vy = (node.vy / speed) * maxSpeed;
         }
 
-        if (speed < minSpeed && node.burstTimer <= 0) {
+        // Gentle nudge if too slow - keeps things alive but calm
+        if (speed < minSpeed && node.burstTimer <= 0 && Math.random() > 0.95) {
           const kickAngle = Math.random() * Math.PI * 2;
-          node.vx += Math.cos(kickAngle) * 0.12;
-          node.vy += Math.sin(kickAngle) * 0.12;
+          node.vx += Math.cos(kickAngle) * 0.08;
+          node.vy += Math.sin(kickAngle) * 0.08;
         }
       }
 
@@ -379,7 +409,7 @@ export function IdeaLandscape({ ideas }: IdeaLandscapeProps) {
   }, []);
 
   return (
-    <div className="relative -mx-4 sm:-mx-6 lg:-mx-8">
+    <div className="relative -mx-4 sm:-mx-8 lg:-mx-12 xl:-mx-16">
       <div
         ref={containerRef}
         className="relative h-[85vh] w-full overflow-hidden"
