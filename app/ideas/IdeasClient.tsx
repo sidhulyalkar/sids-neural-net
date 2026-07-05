@@ -24,9 +24,17 @@ export default function IdeasClient() {
       eyebrow="research"
       title="research ideas"
     >
-      <p className="mb-10 text-sm text-text-secondary">
-        Directions I&apos;m exploring. Click nodes to expand.
-      </p>
+      <div className="mb-10 max-w-3xl space-y-4">
+        <p className="text-base leading-relaxed text-text-secondary">
+          A living map of the questions I keep returning to: neural dynamics, dataset reuse,
+          source-level data thinking, quantum-inspired interfaces, and scientific systems that
+          preserve context from raw signal to interpretation.
+        </p>
+        <p className="text-sm leading-relaxed text-text-muted">
+          The moving nodes mirror how these interests tend to exist in my head: separate ideas
+          until they collide, exchange energy, and become a larger research direction.
+        </p>
+      </div>
 
       {!isClient ? (
         // Server-side fallback

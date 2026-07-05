@@ -3,13 +3,13 @@ import IdeasClient from './IdeasClient';
 
 export const metadata: Metadata = {
   title: 'Research Ideas',
-  description: 'Research directions in neural search, foundation models for brain dynamics, mechanistic interpretability, BCI infrastructure, and scientific tools.',
+  description: 'Research directions in neural dynamics of inhibition, dataset reuse, source-level neural data augmentation, quantum BCI, and large-scale scientific systems.',
   alternates: {
     canonical: '/ideas',
   },
   openGraph: {
     title: 'Research Ideas | Sids Neural Net',
-    description: 'Research sketches around brain dynamics, interpretability, BCI, and scientific tools.',
+    description: 'Research sketches around neural dynamics, dataset reinterpretation, quantum BCI, and systems for scientific discovery.',
     url: '/ideas',
   },
 };
