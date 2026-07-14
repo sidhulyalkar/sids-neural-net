@@ -29,6 +29,24 @@ export const researchIdeas: ResearchIdea[] = [
     color: 'green',
   },
   {
+    id: 'naturalistic-video-encoding',
+    title: 'Neural Encoding of Naturalistic Video',
+    thesis: 'Build brain encoding models for naturalistic video and content, then score them on region-specific, noise-ceiling-normalized, control-matched prediction behind preregistered gates rather than aggregate correlation.',
+    whyItMatters: 'Inspired by Meta\'s TRIBE, this is a falsification-first harness for predicting fMRI responses to movies. The honest contribution so far is methodological: most early "movie-encoding wins" turned out to be artifacts — run-position leakage, BOLD autocorrelation, stimulus-timing warps — caught only by preregistered controls. What survives is a cross-dataset-confirmed visual encoder (DINOv2 + low-level + RAFT-motion composite) that transfers across subject, movie, and dataset, alongside well-powered negative results for audio, affective, and learned-temporal features. The recurring real finding is mapping non-stationarity: a linear feature-to-BOLD map fit on one content does not transfer to other content.',
+    methods: ['DINOv2 / self-supervised video features', 'RAFT optical-flow motion', 'Ridge encoding to Schaefer parcels', 'Noise-ceiling normalization', 'Preregistration + permutation nulls', 'Cross-dataset transfer'],
+    relatedWork: ['Meta TRIBE v2', 'BoldMoments', 'CNeuroMod movie10', 'StudyForrest', 'Emo-FilM'],
+    sourceLinks: [
+      {
+        label: 'Case study: RetinoAffective encoding harness',
+        href: '/case-studies/retinoaffective-video-encoding',
+      },
+    ],
+    openQuestion: 'Can a single feature-to-brain map generalize across content, or is mapping non-stationarity the real signal — and what architecture would encode it honestly?',
+    domains: ['brain encoding', 'naturalistic video', 'falsification-first modeling'],
+    status: 'active',
+    color: 'amber',
+  },
+  {
     id: 'dataset-reuse-search',
     title: 'Neural Search for Dataset Reuse',
     thesis: 'Build search systems that retrieve reusable experiments, not just documents or metadata.',
