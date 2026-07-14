@@ -50,11 +50,21 @@ events:
       - full-brain
 
   - id: event:ucsd-graduation
-    title: "Graduated from UCSD"
-    date: "2018-06-15"
+    title: "Graduated from UCSD (B.S.)"
+    date: "2020-06-15"
     category: milestone
-    summary: "Completed B.S. in Bioengineering from UC San Diego."
+    summary: "Completed B.S. in Bioengineering: Biosystems from UC San Diego."
     importance: 75
+    modeVisibility:
+      - recruiter
+      - full-brain
+
+  - id: event:ucsd-me-graduation
+    title: "Graduated from UCSD (M.E.)"
+    date: "2021-06-15"
+    category: milestone
+    summary: "Completed M.E. in Bioengineering from UC San Diego in one year."
+    importance: 80
     modeVisibility:
       - recruiter
       - full-brain
