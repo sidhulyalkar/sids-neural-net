@@ -93,10 +93,15 @@ const analysisMethods = {
     { name: 'Go/NoGo analysis', link: null, desc: 'Impulse control metrics' },
   ],
   'neural time-series': [
+    { name: 'Fourier / spectral analysis', link: null, desc: 'Power spectra and band power via FFT' },
+    { name: 'Wavelet transform', link: null, desc: 'Time-frequency decomposition' },
+    { name: 'Hilbert transform', link: null, desc: 'Instantaneous amplitude and phase' },
+    { name: 'Phase-domain analysis', link: null, desc: 'Phase locking and phase-amplitude coupling' },
+    { name: 'Spectral coherence', link: null, desc: 'Frequency-resolved coupling between sites' },
+    { name: 'Full-spectrum network mapping', link: null, desc: 'Connectivity across all bands; beta/delta significant in paper' },
     { name: 'Cross-correlation', link: null, desc: 'Pairwise neural synchrony' },
     { name: 'Granger causality', link: null, desc: 'Directed functional connectivity' },
-    { name: 'Beta/delta network analysis', link: null, desc: 'Oscillatory dynamics' },
-    { name: 'Event-aligned analysis', link: null, desc: 'Trial-locked neural responses' },
+    { name: 'Event-aligned ERP / ERSP', link: null, desc: 'Trial-locked responses and spectral perturbation' },
   ],
   'brain encoding': [
     { name: 'DINOv2 features', link: 'https://github.com/facebookresearch/dinov2', desc: 'Self-supervised ViT visual representations' },
