@@ -1,73 +1,103 @@
 ---
-title: "NEATLABs Core Research"
+title: "NEATLABs Behavioral and Neural Research Systems"
 slug: neatlabs-core-research
-summary: "Five years of neural dynamics research at UC San Diego, developing novel analysis methods for understanding brain-behavior relationships."
+summary: "Research systems work at UC San Diego spanning rodent behavioral paradigms, Raspberry Pi operant boxes, large-scale LFP analysis, TBI studies, drug-condition comparisons, and publication-supporting neural dynamics pipelines."
+role: "Lead Lab Programmer and neuroscience research contributor"
+scope: "2017-2022, behavioral task systems, LFP/behavior analysis, Raspberry Pi operant boxes, publication support"
 date: "2022-04-01"
 tags:
   - neatlabs
-  - research
-  - neuroscience
+  - raspberry-pi
+  - matlab
   - lfp
-  - behavioral-decoding
+  - behavior
+  - electrophysiology
 domains:
   - NEATLABs Research
+  - Experimental Systems
   - Neural Signal Discovery
 featured: true
-importance: 95
+importance: 98
 relatedProjects: []
 modeVisibility:
+  - recruiter
   - researcher
+  - builder
   - full-brain
 ---
 
-## Overview
+## The System Behind the Science
 
-As Lead Lab Programmer at NEATLABs (Neural Engineering and Translation Labs) from 2017-2022, I developed computational methods for analyzing neural dynamics and their relationship to behavior.
+At NEATLABs, my work was not only "analysis after the experiment." I helped build and operate the behavioral and computational systems that made the experiments possible: custom rodent paradigms, Raspberry Pi-based behavioral boxes, MATLAB/Simulink control logic, event extraction, local field potential processing, and publication-supporting analyses.
 
-## Research Focus
+The research questions were about decision-making, action suppression, impulsivity, reward value, traumatic brain injury, and cortico-striatal neural dynamics. The software work translated those questions into runnable experiments and analyzable datasets.
 
-Our work centered on understanding how neural oscillations encode information about the environment and guide behavior. Key areas included:
+## Behavioral Paradigms
 
-### Default Mode Network Dynamics
+### Go / No-Go and Go / Wait
 
-Investigated electrophysiological correlates of the default mode network in rodents, contributing to a publication in *Cerebral Cortex Communications*.
+These paradigms were used to study action, behavioral inhibition, and impulsivity. From a systems perspective, the challenge was to make behavioral events precise enough to align with neural signals: cues, waits, premature responses, omissions, rewards, and trial outcomes all needed to become reliable computational events.
 
-### Reward Learning and Oscillations
+This work connects directly to the eNeuro paper on large-scale networks associated with action, behavioral inhibition, and impulsivity, which used multisite LFP recordings in rodents and related human EEG analyses.
 
-Studied how beta and high-gamma oscillations in cortico-striatal circuits encode learned reward value, published in the *Journal of Neuroscience*.
+### Delay Discounting / Temporal Discounting
 
-### Multi-Site Recording Methods
+Delay discounting tasks let us ask how reward value changes as waiting costs increase. The software problem was to represent choice behavior, delay, reward timing, and neural activity in one analyzable structure.
 
-Co-authored methods papers on low-cost probe designs for chronic multi-site recordings, enabling broader adoption of sophisticated recording techniques.
+This became part of the reward-value research thread around cortico-striatal beta oscillations, including work connecting reward-locked beta power with reward magnitude, temporal delay, and subjective value estimates.
 
-## Technical Contributions
+### Probabilistic Reversal Learning
 
-### Analysis Infrastructure
+Probabilistic reversal learning added uncertainty and changing reward contingencies. The goal was to understand how cortico-striatal networks update behavior when reward probabilities change.
 
-- Built Python-based analysis pipelines for LFP signal processing
-- Developed automated artifact detection and removal systems
-- Created visualization tools for multi-channel neural data
+This thread connects to the Journal of Neuroscience paper on beta and high-gamma oscillations reflecting reward certainty during a probabilistic reversal learning task.
 
-### Signal Processing Methods
+## Experimental Conditions
 
-- Implemented time-frequency decomposition methods (wavelets, multitaper)
-- Built cross-frequency coupling analysis tools
-- Developed template matching for behavioral state classification
+The research scope included comparisons across animal and treatment conditions, including healthy controls and TBI-related experiments, along with pharmacological conditions such as saline, methylphenidate, and ketamine where relevant to the lab's study designs.
 
-### Data Management
+The key point for this deployed systems page is scope: the systems had to support structured comparisons across subjects, tasks, trial types, and experimental conditions, while keeping neural and behavioral timing aligned.
 
-- Established lab data organization standards
-- Built versioned analysis pipelines for reproducibility
-- Created documentation systems for methods and results
+## Behavioral Boxes and Raspberry Pi Control
 
-## Publications
+I worked around the behavioral box infrastructure used for translational rodent testing. This included Raspberry Pi-based operant box systems, MATLAB/Simulink control workflows, and synchronization with electrophysiology-oriented experiments.
 
-This work contributed to three peer-reviewed publications:
+This is part of the same engineering lineage as the Journal of Neuroscience Methods paper on an open-source Raspberry Pi-based operant box for translational behavioral testing in rodents. The system-level work mattered because reliable neuroscience depends on reliable event generation, logging, timing, and recovery from ordinary experimental edge cases.
 
-1. **Cerebral Cortex Communications (2021)**: Rodent DMN electrophysiology
-2. **Frontiers in Psychiatry (2021)**: Multi-site probe designs
-3. **Journal of Neuroscience (2025)**: Cortico-striatal oscillations
+## Neural Data Analysis Infrastructure
 
-## Impact
+On the analysis side, I built and maintained workflows for large-scale LFP and behavior analysis:
 
-The methods and infrastructure developed during this period continue to support ongoing research at NEATLABs and have been adopted by collaborating labs.
+- Event-aligned neural signal extraction
+- ERP and ERSP-style analyses
+- Time-frequency processing
+- Cross-correlation and network analyses
+- Granger-causality-style analysis exploration
+- Spike sorting algorithm testing, including Kilosort and MountainSort contexts
+- Large multi-terabyte LFP datasets
+- MATLAB, Jupyter, EEGLAB-style, and parallel computing workflows
+
+I also explored dynamic time warping and tensor component analysis for massive LFP datasets. That work was aimed at finding precise temporal neural patterns across trials, conditions, and animals.
+
+## Publication Anchors
+
+These systems connect to several public NEATLABs papers and preprints:
+
+- [Mapping Large-Scale Networks Associated with Action, Behavioral Inhibition and Impulsivity](https://doi.org/10.1523/ENEURO.0406-20.2021)
+- [Open-source Raspberry Pi-based operant box for translational behavioral testing in rodents](https://doi.org/10.1016/j.jneumeth.2020.108761)
+- [Electrophysiological correlates of rodent default-mode network suppression](https://doi.org/10.1093/texcom/tgab034)
+- [Cortico-striatal beta oscillations as a reward-related signal](https://doi.org/10.3758/s13415-024-01208-6)
+- [Beta and high gamma oscillations in the cortico-striatal network reflect reward certainty](https://doi.org/10.1523/JNEUROSCI.0858-25.2025)
+
+## Why This Is Software Work
+
+The software was not decorative. It was the bridge between a rat in a box, a neural signal on disk, an event timestamp, a pharmacological condition, and a scientific figure.
+
+What this work shows:
+
+- I can reason across hardware, behavior, signal processing, and biology
+- I can build systems where experimental design and data structure stay connected
+- I am comfortable with messy, high-dimensional research data
+- I enjoy making tools that help scientists ask more precise questions
+
+This is the root of my current interest in neuroscience infrastructure: systems that preserve enough context for data to remain scientifically meaningful.

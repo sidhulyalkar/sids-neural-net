@@ -580,7 +580,7 @@ export function IdeaLandscape({ ideas }: IdeaLandscapeProps) {
 
       {/* Detail panel */}
       {selectedIdea && (
-        <div className="mx-4 sm:mx-6 lg:mx-8 mt-8 rounded-xl border border-white/10 bg-white/[0.02] p-8 backdrop-blur-sm">
+        <div className="mx-4 mt-8 rounded-lg border border-white/10 bg-white/[0.02] p-8 backdrop-blur-sm sm:mx-6 lg:mx-8">
           {/* Header */}
           <div className="flex items-start justify-between gap-6 mb-8">
             <div className="space-y-3">
@@ -679,16 +679,36 @@ export function IdeaLandscape({ ideas }: IdeaLandscapeProps) {
           </div>
 
           {/* Domains footer */}
-          <div className="flex flex-wrap items-center gap-4 mt-8 pt-6 border-t border-white/8">
-            <span className="font-mono text-[0.6rem] uppercase tracking-wider text-text-muted">Domains:</span>
-            {selectedIdea.domains.map((domain) => (
-              <span
-                key={domain}
-                className="font-mono text-[0.6rem] uppercase tracking-wider text-text-muted/70"
-              >
-                {domain}
-              </span>
-            ))}
+          <div className="mt-8 border-t border-white/8 pt-6">
+            {selectedIdea.sourceLinks && selectedIdea.sourceLinks.length > 0 && (
+              <div className="mb-6 flex flex-wrap items-center gap-3">
+                <span className="font-mono text-[0.6rem] uppercase tracking-wider text-text-muted">Source Work:</span>
+                {selectedIdea.sourceLinks.map((link) => (
+                  <a
+                    key={link.href}
+                    href={link.href}
+                    target={link.href.startsWith('http') ? '_blank' : undefined}
+                    rel={link.href.startsWith('http') ? 'noopener noreferrer' : undefined}
+                    className="rounded-md border px-2.5 py-1 font-mono text-[0.6rem] uppercase tracking-wider transition-colors hover:bg-white/5"
+                    style={{ borderColor: `${colorMap[selectedIdea.color]}55`, color: colorMap[selectedIdea.color] }}
+                  >
+                    {link.label}
+                  </a>
+                ))}
+              </div>
+            )}
+
+            <div className="flex flex-wrap items-center gap-4">
+              <span className="font-mono text-[0.6rem] uppercase tracking-wider text-text-muted">Domains:</span>
+              {selectedIdea.domains.map((domain) => (
+                <span
+                  key={domain}
+                  className="font-mono text-[0.6rem] uppercase tracking-wider text-text-muted/70"
+                >
+                  {domain}
+                </span>
+              ))}
+            </div>
           </div>
         </div>
       )}
@@ -706,53 +726,74 @@ export function IdeaList({ ideas }: IdeaLandscapeProps) {
         const isExpanded = expandedId === idea.id;
 
         return (
-          <button
+          <div
             key={idea.id}
-            className={`w-full text-left transition-all duration-300 rounded-xl border border-white/10 bg-white/[0.02] ${
+            className={`w-full overflow-hidden rounded-lg border border-white/10 bg-white/[0.02] text-left transition-all duration-300 ${
               isExpanded ? 'border-white/20' : 'hover:border-white/15'
             }`}
             style={{ borderLeftColor: colorMap[idea.color], borderLeftWidth: '3px' }}
-            onClick={() => setExpandedId(isExpanded ? null : idea.id)}
-            aria-expanded={isExpanded}
           >
-            <div className="p-5">
-              <div className="flex items-center gap-3 mb-3">
-                <div
-                  className="w-2.5 h-2.5 rounded-full"
-                  style={{ background: colorMap[idea.color] }}
-                />
-                <span
-                  className="rounded-sm border px-2 py-0.5 font-mono text-[0.55rem] uppercase tracking-wider"
-                  style={{ borderColor: colorMap[idea.color], color: colorMap[idea.color] }}
-                >
-                  {idea.status}
-                </span>
+            <button
+              className="w-full text-left"
+              onClick={() => setExpandedId(isExpanded ? null : idea.id)}
+              aria-expanded={isExpanded}
+            >
+              <div className="p-5">
+                <div className="mb-3 flex items-center gap-3">
+                  <div
+                    className="h-2.5 w-2.5 rounded-full"
+                    style={{ background: colorMap[idea.color] }}
+                  />
+                  <span
+                    className="rounded-sm border px-2 py-0.5 font-mono text-[0.55rem] uppercase tracking-wider"
+                    style={{ borderColor: colorMap[idea.color], color: colorMap[idea.color] }}
+                  >
+                    {idea.status}
+                  </span>
+                </div>
+                <h3 className="text-base font-semibold text-text-primary">{idea.title}</h3>
+                <p className="mt-2 text-sm text-cyan">{idea.thesis}</p>
               </div>
-              <h3 className="text-base font-semibold text-text-primary">{idea.title}</h3>
-              <p className="mt-2 text-sm text-cyan">{idea.thesis}</p>
+            </button>
 
-              {isExpanded && (
-                <div className="mt-5 space-y-4 border-t border-white/10 pt-5">
-                  <p className="text-sm text-text-secondary leading-relaxed">{idea.whyItMatters}</p>
+            {isExpanded && (
+              <div className="mx-5 space-y-4 border-t border-white/10 pb-5 pt-5">
+                <p className="text-sm leading-relaxed text-text-secondary">{idea.whyItMatters}</p>
 
+                <div className="flex flex-wrap gap-1.5">
+                  {idea.methods.slice(0, 4).map((method) => (
+                    <span
+                      key={method}
+                      className="rounded-md border border-white/10 bg-white/5 px-2 py-0.5 font-mono text-[0.55rem] uppercase text-text-muted"
+                    >
+                      {method}
+                    </span>
+                  ))}
+                </div>
+
+                {idea.sourceLinks && idea.sourceLinks.length > 0 && (
                   <div className="flex flex-wrap gap-1.5">
-                    {idea.methods.slice(0, 4).map((method) => (
-                      <span
-                        key={method}
-                        className="rounded-md border border-white/10 bg-white/5 px-2 py-0.5 font-mono text-[0.55rem] uppercase text-text-muted"
+                    {idea.sourceLinks.map((link) => (
+                      <a
+                        key={link.href}
+                        href={link.href}
+                        target={link.href.startsWith('http') ? '_blank' : undefined}
+                        rel={link.href.startsWith('http') ? 'noopener noreferrer' : undefined}
+                        className="rounded-md border px-2 py-0.5 font-mono text-[0.55rem] uppercase"
+                        style={{ borderColor: `${colorMap[idea.color]}55`, color: colorMap[idea.color] }}
                       >
-                        {method}
-                      </span>
+                        {link.label}
+                      </a>
                     ))}
                   </div>
+                )}
 
-                  {idea.openQuestion && (
-                    <p className="text-sm italic text-amber/80">&ldquo;{idea.openQuestion}&rdquo;</p>
-                  )}
-                </div>
-              )}
-            </div>
-          </button>
+                {idea.openQuestion && (
+                  <p className="text-sm italic text-amber/80">&ldquo;{idea.openQuestion}&rdquo;</p>
+                )}
+              </div>
+            )}
+          </div>
         );
       })}
     </div>

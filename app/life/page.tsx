@@ -1,5 +1,5 @@
 import { Metadata } from 'next';
-import { Mountain, Gamepad2, Utensils, Tv, Waves, Dog, Heart } from 'lucide-react';
+import { Mountain, Gamepad2, Utensils, Tv, Waves, Dog, Heart, Flame } from 'lucide-react';
 import { ComicSectionLayout } from '@/components/neural-atlas/ComicSectionLayout';
 
 export const metadata: Metadata = {
@@ -18,9 +18,10 @@ export const metadata: Metadata = {
 const interests = [
   { icon: Mountain, title: 'Adventure', description: 'Hiking, backpacking, trails with Shasta.', color: 'green' },
   { icon: Waves, title: 'Water Sports', description: 'Surfing, paddleboarding, California coast.', color: 'cyan' },
-  { icon: Gamepad2, title: 'Gaming', description: 'Competitive shooters to story-driven RPGs.', color: 'violet' },
-  { icon: Tv, title: 'Anime & Media', description: 'Animation as an art form.', color: 'rose' },
-  { icon: Utensils, title: 'Food', description: 'Cuisines, cooking, best local spots.', color: 'amber' },
+  { icon: Gamepad2, title: 'Gaming', description: 'Hollow Knight, Silksong, Elden Ring, Valorant, Valheim.', color: 'violet' },
+  { icon: Flame, title: 'Anime', description: 'Blue Lock, Fire Force, SLF.', color: 'rose' },
+  { icon: Tv, title: 'TV & Comedy', description: 'Community, South Park, Breaking Bad, Severance, The League.', color: 'green' },
+  { icon: Utensils, title: 'Food', description: 'Cooking, new cuisines, local spots.', color: 'amber' },
 ];
 
 export default function LifePage() {

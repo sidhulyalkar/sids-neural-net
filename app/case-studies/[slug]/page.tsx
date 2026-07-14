@@ -5,6 +5,7 @@ import { ArrowLeft, Calendar } from 'lucide-react';
 import { MDXRemote } from 'next-mdx-remote/rsc';
 import { getCaseStudyBySlug, getCaseStudySlugs } from '@/lib/content/load-case-studies';
 import { TagPill, getTagColor } from '@/components/ui';
+import { SystemDiagram } from '@/components/case-studies/SystemDiagram';
 
 interface CaseStudyPageProps {
   params: Promise<{ slug: string }>;
@@ -115,7 +116,12 @@ export default async function CaseStudyPage({ params }: CaseStudyPageProps) {
 
         {/* Content */}
         <article className="prose-neural">
-          <MDXRemote source={content} />
+          <MDXRemote
+            source={content}
+            components={{
+              SystemDiagram,
+            }}
+          />
         </article>
 
         {/* Footer */}

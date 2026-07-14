@@ -1,21 +1,25 @@
 ---
-title: "Harvard Sabatini Lab DataJoint Pipeline"
+title: "Sabatini Lab DataJoint Workflow"
 slug: harvard-sabatini-pipeline
-summary: "Deploying a production-grade multimodal neuroscience pipeline integrating Neuropixels, behavioral tracking, and optogenetics data at ~12TB scale."
+summary: "Supporting a public Sabatini Lab DataJoint workflow for organizing and processing multimodal neuroscience sessions across imaging, photometry, behavior, electrophysiology, and DLC video data."
+role: "DataJoint deployment and operations support"
+scope: "Public workflow repo, lab data organization, DataJoint setup, notebook-driven analysis, SciViz testing"
+sourceUrl: "https://github.com/bernardosabatinilab/sabatini-datajoint-pipeline"
 date: "2023-06-15"
 tags:
   - datajoint
-  - harvard
   - sabatini
-  - neuropixels
-  - infrastructure
+  - python
+  - notebooks
+  - docker
+  - neuroscience
 domains:
   - Neural Data Infrastructure
   - Scientific Workflow Systems
 featured: true
 importance: 100
 relatedProjects:
-  - element-array-ephys
+  - datajoint-multimodal-pipelines
 modeVisibility:
   - recruiter
   - researcher
@@ -23,66 +27,52 @@ modeVisibility:
   - full-brain
 ---
 
-## The Challenge
+## What This System Was
 
-The Sabatini Lab at Harvard Medical School needed a robust data pipeline to handle their growing Neuropixels and behavioral imaging datasets. Manual processing was becoming a bottleneck, and data integrity across modalities was difficult to maintain.
+The public [bernardosabatinilab/sabatini-datajoint-pipeline](https://github.com/bernardosabatinilab/sabatini-datajoint-pipeline) repository is a Sabatini Lab DataJoint workflow. The repo documents a Python 3.9 environment, editable package installation, Jupyter usage, DataJoint database configuration, Docker-based local SciViz testing, and an expected Inbox-style data layout for lab sessions.
 
-## Solution
+This is a better way to describe the system than the older generic copy on this site. The public repo supports a concrete claim: this was a lab workflow for organizing and working with multimodal neuroscience data in DataJoint, with session directories that can include Imaging, Photometry, Behavior, Ephys, and DLC behavior videos.
 
-I led the deployment of a comprehensive DataJoint pipeline that:
+## Publicly Confirmed Workflow Shape
 
-- **Automated** raw data ingestion from multiple acquisition systems
-- **Integrated** Neuropixels spike sorting with Kilosort
-- **Processed** behavioral videos using DeepLabCut pose estimation
-- **Synchronized** multimodal timestamps for cross-modality analysis
-- **Stored** processed data in cloud-optimized formats
+The repository README defines a subject/session folder structure with multiple optional modalities:
 
-## Implementation Details
+- Imaging data, including ScanImage-style TIFF stacks
+- Photometry data, including `.mat`, `.tdt`, and TOML metadata files
+- Behavior data, including TOML metadata plus parquet or CSV files
+- Ephys data, including `.bin`, `.lf`, and `.meta` files
+- DeepLabCut behavior videos stored as `.avi`
+- DLC project directories kept at the Inbox level
 
-### Data Ingestion
+The repo also includes:
 
-Built automated scanners that monitor acquisition folders and trigger processing pipelines. The system handles:
+- A `workflow` package for DataJoint-style pipeline code
+- `notebooks` for interactive scientific use
+- `docs` for project documentation
+- `tests` for validation
+- `webapps/sciviz` for local SciViz testing through Docker Compose
+- environment and setup files for reproducible local installation
 
-- Neuropixels AP/LFP data
-- Behavioral camera feeds
-- Optogenetic stimulation logs
-- Experimental metadata
+## My Role
 
-### Processing Pipeline
+My contribution should be understood as DataJoint deployment and operations support rather than a vague claim of owning every part of the scientific pipeline. The work sat at the interface between lab data conventions, DataJoint schema-backed workflows, local scientific notebooks, database configuration, and visualization/testing surfaces.
 
-The core processing chain includes:
+That kind of work is practical and high-context: you have to understand how scientists actually store sessions, how acquisition systems produce files, how DataJoint expects relational dependencies to be expressed, and how to make the whole thing usable by a lab without turning every analysis into an infrastructure project.
 
-1. **Spike sorting** via SpikeInterface + Kilosort
-2. **Quality metrics** computation for unit validation
-3. **Behavioral tracking** through DeepLabCut
-4. **LFP analysis** with spectral decomposition
-5. **Event alignment** across all modalities
+## Why It Matters
 
-### Pipeline Architecture
+This system is a good example of the type of software work I enjoy: taking real experimental messiness and giving it a structure that scientists can trust.
 
-The full DataJoint schema showing the relationships between all data modalities:
+The important engineering problem is not only "process a file." It is:
 
-![Sabatini Lab DataJoint Pipeline Architecture](/images/sabatini-datajoint-pipeline.svg)
+- Preserve the relationship between subject, session, modality, and analysis artifact
+- Make derived data traceable back to raw acquisition
+- Keep notebook workflows close enough to scientists to remain useful
+- Provide testing and local visualization surfaces for iteration
+- Respect the lab's existing file organization instead of pretending every lab starts from a perfect data model
 
-### Cloud Infrastructure
+## What This Shows About My Work
 
-Deployed on AWS with:
+This record belongs on the deployed systems page because it represents scientific infrastructure in the real world: public code, lab-specific conventions, database-backed workflow structure, and enough operational detail to make a research workflow run outside a toy example.
 
-- S3 for raw and processed data storage
-- EC2 GPU instances for compute-intensive processing
-- RDS for DataJoint schema hosting
-- Auto-scaling for variable workloads
-
-## Impact
-
-- **12TB+** of data successfully processed
-- **Weeks → Hours** reduction in time-to-analysis
-- **Full provenance** tracking for all computations
-- **Reproducible** analysis across lab members
-
-## Lessons Learned
-
-1. Early investment in data validation saves enormous debugging time
-2. Modular pipelines allow for easy updates as methods improve
-3. Cloud infrastructure provides flexibility but requires careful cost management
-4. Documentation and training are as important as the code itself
+It also shows a pattern that runs through my work: I like systems where software is the translator between instruments, data, researchers, and interpretation.

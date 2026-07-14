@@ -50,11 +50,21 @@ events:
       - full-brain
 
   - id: event:ucsd-graduation
-    title: "Graduated from UCSD"
-    date: "2018-06-15"
+    title: "Graduated from UCSD (B.S.)"
+    date: "2020-06-15"
     category: milestone
-    summary: "Completed B.S. in Bioengineering from UC San Diego."
+    summary: "Completed B.S. in Bioengineering: Biosystems from UC San Diego."
     importance: 75
+    modeVisibility:
+      - recruiter
+      - full-brain
+
+  - id: event:ucsd-me-graduation
+    title: "Graduated from UCSD (M.E.)"
+    date: "2021-06-15"
+    category: milestone
+    summary: "Completed M.E. in Bioengineering from UC San Diego in one year."
+    importance: 80
     modeVisibility:
       - recruiter
       - full-brain
@@ -148,6 +158,22 @@ events:
     modeVisibility:
       - builder
       - researcher
+      - full-brain
+
+  # === Research Programs ===
+  - id: event:retinoaffective-encoding
+    title: "RetinoAffective: Falsification-First Video Encoding"
+    date: "2025-01-01"
+    endDate: "2026-07-14"
+    category: research
+    summary: "Built a falsification-first harness for predicting fMRI responses to naturalistic video. Produced a cross-dataset-confirmed visual encoder (DINOv2 + low-level + RAFT motion), well-powered negative results for audio/affect/temporal features, and a characterized failure mode: mapping non-stationarity across content."
+    importance: 92
+    links:
+      - label: "Project Brief"
+        href: "/case-studies/retinoaffective-video-encoding"
+    modeVisibility:
+      - researcher
+      - builder
       - full-brain
 
   # === Personal Milestones ===

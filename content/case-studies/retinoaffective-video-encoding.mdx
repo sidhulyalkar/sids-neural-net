@@ -1,0 +1,186 @@
+---
+title: "RetinoAffective: Falsification-First Brain Encoding of Naturalistic Video"
+slug: retinoaffective-video-encoding
+summary: "A falsification-first research harness for predicting fMRI responses to naturalistic video. Inspired by Meta's TRIBE, but scored on region-specific, noise-ceiling-normalized, control-matched prediction behind preregistered gates — producing a cross-dataset-confirmed visual encoder, a set of well-powered negative results, and a characterized failure mode."
+role: "Research engineer and analysis lead"
+scope: "2025-2026, naturalistic-video fMRI encoding, preregistered experiments E008-E027, cross-dataset validation"
+date: "2026-07-14"
+tags:
+  - fmri
+  - brain-encoding
+  - naturalistic-video
+  - dinov2
+  - preregistration
+  - neuroai
+  - tribe
+domains:
+  - Neural Encoding
+  - Naturalistic Video
+  - Falsification-First Modeling
+featured: true
+importance: 96
+relatedProjects:
+  - naturalistic-video-encoding
+modeVisibility:
+  - recruiter
+  - researcher
+  - builder
+  - full-brain
+---
+
+## Encoding Video Into the Brain, Honestly
+
+RetinoAffective is a research harness for a single hard question: can a model predict how the
+brain responds to naturalistic video — movies, clips, continuous narrative — and can that
+prediction survive real scrutiny? It is inspired by Meta's TRIBE line of brain-encoding work,
+but it is deliberately scored differently. The metric is not aggregate correlation. It is
+**region-specific, noise-ceiling-normalized, control-matched** prediction, evaluated behind
+preregistered gates that are frozen before any test data is inspected.
+
+<SystemDiagram variant="video-encoding" />
+
+The honest one-line status: this is a *cross-dataset-confirmed visual encoder* with a newly
+qualified subcortical target space. It has confirmed visual results, a set of well-powered
+negative results (temporal, audio, affective), and a characterized failure mode. Audio,
+affective features, and learned temporal integration remain unconfirmed. That mixture is the
+point — the project is designed to make it easy to falsify its own claims.
+
+## What Is Actually Confirmed
+
+A claim only counts here if its confidence interval excludes zero, its permutation null is
+matched to the exact observed statistic, and it survives multiplicity correction.
+
+- **DINOv2-L12 encodes visual cortex, cross-subject, per-clip.** On BoldMoments, r = 0.165,
+  which is 53.6% of the correlation noise ceiling, p = 0.005 (E014b / E014-closure).
+- **A DINO-L12 + low-level + RAFT-motion composite** is the only Bonferroni survivor: +0.049
+  over DINO alone with a CI excluding zero (E015), replicated in E016.
+- **The frozen composite transfers across dataset, subject, and movie.** On CNeuroMod (E024),
+  r = 0.0779, CI [0.0439, 0.1113], null p = 0.002; the increment over a baseline is +0.0360,
+  CI [0.0150, 0.0586].
+- **StudyForrest subcortical targets are reliable.** E025-A: Tian-S1 inter-subject correlation
+  = 0.0840, CI [0.0619, 0.1031], p = 0.002, positive in 8/8 subjects and runs.
+
+## What Is *Not* Confirmed (And Said So)
+
+Reporting negatives is a first-class output, not an embarrassment.
+
+- **Cross-run continuous-movie visual encoding** is recovered, not confirmed: E019 r = 0.080
+  (p = 0.032), but the bootstrap CI [-0.020, +0.171] includes zero.
+- **Multimodal (video + audio) increment on movies** is not confirmed: the full model beats its
+  null (E020, p = 0.001), but the increment-over-DINO CI includes zero.
+- **Affective (CLIP / wav2vec2) increment** in limbic and salience networks is *reliably
+  negative*: E022 gives -0.0088, CI [-0.017, -0.001], in 0/3 subjects.
+- **Learned temporal architectures** (SSM / Transformer) are ineligible — upstream gates failed,
+  so they were never fit (E023).
+- **pRF / gaze / spatial-token advantages** are disproven (E008 / E009).
+
+## The Main Contribution So Far: Catching the Artifacts
+
+Nearly every early "movie-encoding success" in this program was later caught as an artifact of
+the analysis, not a property of the brain. That auditing is the real deliverable:
+
+- **Run-position leakage from zero-padding** inflated a temporal-lag result roughly 22x
+  (E011 → E011-A).
+- **BOLD autocorrelation** (r ≈ 0.28-0.36) and a **run time-polynomial** (r ≈ 0.14) dominate the
+  content-feature signal unless explicitly removed (E012).
+- A **stimulus timing warp** (`local_seconds = 38.30 + 1.043 · experimental_seconds`) silently
+  invalidated two prior cross-run analyses before it was discovered and independently confirmed
+  from speech anchors (E019).
+- The older **StudyForrest stimulus timeline used the wrong movie edit** — the scanner ran a
+  seven-span research cut with overlapping runs, not contiguous commercial frames. The affected
+  stimulus-encoding results were withdrawn; the E025-A reliability result is intact.
+
+The recurring, genuine result underneath these corrections is **mapping non-stationarity**: a
+linear feature-to-BOLD map fit on some content does not transfer to other content, and the same
+content interval fails regardless of which modality is added. It also shows up as *layer regime
+dependence* — DINO-L12 wins on 3-second clips, DINO-L24 wins on continuous narrative.
+
+## The Frozen Model (E023)
+
+The single externally-testable artifact is fully specified and sealed:
+
+- DINOv2 ViT-L/14, layer 12 (block 11): 9 uniformly sampled frames per 3s clip → mean patch
+  token → mean over frames → 1024D
+- plus 11 low-level appearance features (luminance / contrast / edge / saturation / high-freq)
+- plus 50 RAFT-small motion features (5×5 flow-magnitude mean and temporal SD)
+- train-fold standardization, DINO PCA-256, multi-output RidgeCV (alpha in 1e2..1e7)
+- read out to Schaefer-400 visual-network parcels
+
+Explicitly **excluded** because they failed their gates: DINO-L24, R3D-18 video, Whisper audio,
+CLIP affect, wav2vec2 affect, learned HRF/lag sweep, FIR/SSM/Transformer, and pRF/gaze
+optimization. Nothing that failed E023 can be relabeled back in after the fact.
+
+## Datasets
+
+- **BoldMoments** (OpenNeuro ds005165) — short-clip positive control; sub-01–03 betas extracted,
+  DINO + TSM features cached.
+- **StudyForrest** — subcortical target reliability (E025-A confirmed); visual encoding blocked
+  by a scanner-stimulus identity audit.
+- **NNDb ("Back to the Future")** — continuous-movie development; 20 subjects parcellated with
+  timing-corrected features.
+- **CNeuroMod movie10** (bourne / figures / life) — external visual confirmation, closed with all
+  four E024 gates passing. Reserved for confirmation and never tuned on.
+- **Emo-FilM** (OpenNeuro ds004872 / ds004892) — human-annotated affective validation; 30-subject
+  metadata and all 14 aggregate annotation streams cached.
+
+## External Confirmation: E024 and E025
+
+`e024_preregistration.json` (plus amendment 01) froze the complete pipeline before any CNeuroMod
+BOLD was inspected. E024 passed all four gates and confirms **only** the visual representation —
+affect and temporal integration cannot be relabeled into it after failing E023. E025-A separately
+established that StudyForrest subcortical targets are reliable enough to be a future target space,
+even though visual encoding into them is blocked by stimulus identity.
+
+## Benchmarking Against Official TRIBE v2 (E027, in progress)
+
+E027 is a preregistered, matched external-transfer benchmark against the official
+`facebookresearch/tribev2` checkpoint — average-subject full audiovisual-language inference with
+no fine-tuning — harmonized onto the exact E024 CNeuroMod targets, parcels, and held-run time
+indices. It is framed as a comparison of *deployment regimes*, not a parameter-controlled
+ablation: TRIBE v2 receives every official modality but no CNeuroMod fitting, while our model
+receives visual features only with a ridge readout trained on the other E024 subjects and movies.
+
+Getting the official model to run honestly required a chain of sealed, scientifically invariant
+engineering amendments — a torchaudio compatibility shim, a bundled ffmpeg for WAV decoding, and a
+correction to a long-video transcript-duplication bug where every audio chunk re-applied the full
+transcript (a 4830-row, 1623s transcript for a 603s film). Each fix was recorded as an
+implementation correction with explicit regression gates, never as a model or hyperparameter
+change. A companion frozen-modality ablation (E027b) will identify which TRIBE v2 input branches
+are necessary across cortical systems — informing where extra architectural complexity is
+empirically justified rather than assumed.
+
+## Scientific Ground Rules
+
+Every experiment in the program is held to the same standards:
+
+1. Hold out both people and stimulus time/content whenever the dataset allows.
+2. Fit every transform, nuisance model, PCA basis, scaler, and hyperparameter on training data only.
+3. Match each permutation null to the exact observed aggregate statistic.
+4. One primary contrast per experiment; secondary tests are gate-kept and multiplicity-corrected.
+5. Only the full frozen run supports a claim; smoke and screen runs validate code and runtime only.
+6. Reserve CNeuroMod for external confirmation; never tune on it.
+7. Report all negative results and all attempted contrasts.
+
+## Ethical Frame
+
+This project studies consented brain-response prediction for neuroscience and human-centered
+media research. It must not be used to claim mind-reading, infer protected traits, diagnose
+people, or manipulate affective vulnerability. Affect and preference claims require ratings,
+physiology, consent, and controls — and, per E022, are currently **not** supported. No pretrained
+weights at TRIBE-v2 scale, no confirmed improvement over TRIBE v2, no vertex-level prediction, and
+no clinical or diagnostic use are claimed.
+
+## Why This Is Research Systems Work
+
+RetinoAffective is as much a harness as a model. The value is in the machinery that makes it hard
+to fool yourself: preregistration files sealed before test data is touched, executable eligibility
+guards that fail closed when an upstream gate did not pass, matched nulls, frozen artifacts, and a
+consolidated evidence ledger where negatives sit next to positives.
+
+What this work shows:
+
+- I can build brain-encoding models on real, messy naturalistic-video fMRI at multiple datasets.
+- I treat statistics and controls as the product, not the paperwork around it.
+- I can integrate and honestly benchmark a large external model without letting it grade its own homework.
+- I would rather ship a confirmed visual encoder plus five characterized negatives than one
+  unfalsifiable headline number.

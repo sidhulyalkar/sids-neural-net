@@ -139,24 +139,40 @@ overrides:
     importance: 95
     featured: true
     title: "neurOS-v1"
-    summary: "Real-time neural data streaming, processing, classification, and foundation-model experimentation framework."
+    summary: "A modular operating system for brain-computer interfaces: hot-swappable drivers across 16+ biosignal modalities, agent-based real-time orchestration, a registry-driven model zoo, the neuroFMx multimodal foundation model, mechanistic-interpretability tooling, and cloud-native streaming, serving, and observability — as a 10-package monorepo."
+    sourceUrl: "https://github.com/sidhulyalkar/neurOS-v1"
     domains:
       - BCI & Real-Time Systems
       - Neural Foundation Models
+      - Neural Data Infrastructure
     tags:
       - Python
       - PyTorch
       - FastAPI
+      - Streamlit
+      - BrainFlow
+      - LSL
+      - Kafka
+      - Redis
+      - ZeroMQ
       - NWB
       - Zarr
       - WebDataset
+      - Iceberg
       - Mamba
       - transformers
-      - Perceiver IO
+      - tokenization
+      - CEBRA
+      - NDT
+      - POYO
+      - Neuroformer
       - LoRA
-      - FSDP
+      - federated learning
+      - SageMaker
+      - Prometheus
+      - Grafana
+      - mechanistic interpretability
       - real-time inference
-      - neural time series
       - foundation models
     cluster: "Foundation Models & BCI"
     modeVisibility:
