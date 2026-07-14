@@ -687,8 +687,8 @@ export function IdeaLandscape({ ideas }: IdeaLandscapeProps) {
                   <a
                     key={link.href}
                     href={link.href}
-                    target="_blank"
-                    rel="noreferrer"
+                    target={link.href.startsWith('http') ? '_blank' : undefined}
+                    rel={link.href.startsWith('http') ? 'noopener noreferrer' : undefined}
                     className="rounded-md border px-2.5 py-1 font-mono text-[0.6rem] uppercase tracking-wider transition-colors hover:bg-white/5"
                     style={{ borderColor: `${colorMap[selectedIdea.color]}55`, color: colorMap[selectedIdea.color] }}
                   >
@@ -777,8 +777,8 @@ export function IdeaList({ ideas }: IdeaLandscapeProps) {
                       <a
                         key={link.href}
                         href={link.href}
-                        target="_blank"
-                        rel="noreferrer"
+                        target={link.href.startsWith('http') ? '_blank' : undefined}
+                        rel={link.href.startsWith('http') ? 'noopener noreferrer' : undefined}
                         className="rounded-md border px-2 py-0.5 font-mono text-[0.55rem] uppercase"
                         style={{ borderColor: `${colorMap[idea.color]}55`, color: colorMap[idea.color] }}
                       >
