@@ -150,6 +150,22 @@ events:
       - researcher
       - full-brain
 
+  # === Research Programs ===
+  - id: event:retinoaffective-encoding
+    title: "RetinoAffective: Falsification-First Video Encoding"
+    date: "2025-01-01"
+    endDate: "2026-07-14"
+    category: research
+    summary: "Built a falsification-first harness for predicting fMRI responses to naturalistic video. Produced a cross-dataset-confirmed visual encoder (DINOv2 + low-level + RAFT motion), well-powered negative results for audio/affect/temporal features, and a characterized failure mode: mapping non-stationarity across content."
+    importance: 92
+    links:
+      - label: "Project Brief"
+        href: "/case-studies/retinoaffective-video-encoding"
+    modeVisibility:
+      - researcher
+      - builder
+      - full-brain
+
   # === Personal Milestones ===
   - id: event:shasta
     title: "Got Shasta"

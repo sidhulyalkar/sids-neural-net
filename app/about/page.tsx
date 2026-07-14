@@ -22,7 +22,7 @@ const education = [
     degree: 'M.E.',
     field: 'Bioengineering',
     institution: 'UC San Diego',
-    year: '2022',
+    year: '2021',
   },
   {
     degree: 'B.S.',
@@ -98,6 +98,13 @@ const analysisMethods = {
     { name: 'Beta/delta network analysis', link: null, desc: 'Oscillatory dynamics' },
     { name: 'Event-aligned analysis', link: null, desc: 'Trial-locked neural responses' },
   ],
+  'brain encoding': [
+    { name: 'DINOv2 features', link: 'https://github.com/facebookresearch/dinov2', desc: 'Self-supervised ViT visual representations' },
+    { name: 'RAFT optical flow', link: 'https://github.com/princeton-vl/RAFT', desc: 'Motion features for video encoding' },
+    { name: 'Ridge encoding models', link: null, desc: 'Regularized feature-to-BOLD readout' },
+    { name: 'Noise-ceiling normalization', link: null, desc: 'Region-specific reliability scaling' },
+    { name: 'Preregistration & permutation nulls', link: null, desc: 'Falsification-first evaluation' },
+  ],
   'data infrastructure': [
     { name: 'DataJoint', link: 'https://datajoint.com', desc: 'Workflow and provenance modeling' },
     { name: 'NWB', link: 'https://nwb.org', desc: 'Neurodata Without Borders format' },
@@ -109,6 +116,7 @@ const analysisMethods = {
 const technicalDomains = [
   'Neural data infrastructure',
   'Multimodal foundation models',
+  'Naturalistic-video brain encoding',
   'BCI & real-time systems',
   'Scientific workflow systems',
   'Mechanistic interpretability',
