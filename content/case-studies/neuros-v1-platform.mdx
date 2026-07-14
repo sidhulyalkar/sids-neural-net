@@ -1,0 +1,152 @@
+---
+title: "neurOS-v1: A Modular Operating System for BCIs and Neural Foundation Models"
+slug: neuros-v1-platform
+summary: "A 10-package Python monorepo that carries neural data end-to-end — hot-swappable device drivers across 16+ biosignal modalities, agent-based real-time orchestration, a registry-driven model zoo, the neuroFMx multimodal foundation model, mechanistic-interpretability tooling, and cloud-native streaming, serving, and observability."
+role: "Author and architect"
+scope: "Real-time neural data streaming, processing, classification, and multimodal foundation-model R&D"
+sourceUrl: "https://github.com/sidhulyalkar/neurOS-v1"
+date: "2025-11-06"
+tags:
+  - bci
+  - real-time
+  - foundation-models
+  - neuroFMx
+  - mamba
+  - tokenization
+  - streaming
+  - mechanistic-interpretability
+  - pytorch
+domains:
+  - BCI & Real-Time Systems
+  - Neural Foundation Models
+  - Neural Data Infrastructure
+featured: true
+importance: 94
+relatedProjects:
+  - neuros-v1
+modeVisibility:
+  - recruiter
+  - researcher
+  - builder
+  - full-brain
+---
+
+## One Platform, Signal to Interpretation
+
+Neural data work is usually fragmented: one tool acquires from a device, another filters it,
+another trains a model, and nothing shares an architecture. **neurOS-v1** is my attempt to make
+that whole path one coherent system — a modular "operating system" for brain–computer interfaces
+that runs from hot-swappable device drivers and real-time streaming through an agent-orchestrated
+processing pipeline into a multimodal foundation model and mechanistic-interpretability tooling.
+
+<SystemDiagram variant="neuros-platform" />
+
+It is organized as a **10-package monorepo** so each concern stays independently usable and
+testable: `neuros-core`, `neuros-drivers`, `neuros-models`, `neuros-foundation`, `neuros-neurofm`,
+`neuros-mechint`, `neuros-cloud`, `neuros-sourceweigher`, `neuros-ui`, and the `neuros`
+meta-package.
+
+## Hot-Swappable Drivers Across 16+ Modalities
+
+The acquisition layer is a unified driver API with a common `base_driver` contract, so a device
+can be swapped without touching the rest of the pipeline. Implemented drivers span a wide biosignal
+surface:
+
+- **Neural / electrophysiology:** BrainFlow (EEG), ECoG, EMG, EOG, ECG
+- **Optical / imaging:** calcium imaging, video, fNIRS
+- **Autonomic / peripheral:** GSR/EDA, respiration, motion sensors, hormone, phone sensors, audio
+- **Development:** mock and dataset drivers for deterministic, hardware-free runs
+
+A dedicated I/O layer reads and writes **NWB**, and streams to **Zarr**, keeping provenance and
+format standards intact from the first sample.
+
+## Agent-Based Real-Time Orchestration
+
+An asynchronous orchestrator coordinates a set of specialized agents — device, processing, model,
+and **fusion** agents, plus modality-specific agents (motion, pose, video, facial, blink, calcium)
+and a `multimodal_orchestrator` and `modality_manager`. Agents monitor performance and can adapt
+when signals degrade, which is what makes the system usable for genuinely real-time, multi-stream
+BCI rather than a batch script pretending to be live.
+
+The **Constellation demo** exercises this end-to-end: it ingests and synchronizes EEG, audio,
+video, EDA, fNIRS/HD-DOT, respiration, ECG, and phone sensors, writes raw data to NWB/Zarr, exports
+curated **WebDataset** shards, and can launch a distributed training job — with Prometheus metrics
+and fault injection for observability and robustness testing.
+
+## Pluggable Processing and a Model Registry
+
+Filters, feature extractors, adaptation, and health monitoring live in their own modules and load
+dynamically at run time, so new algorithms drop in without changing core code. Models sit behind a
+simple interface and a `model_registry`, giving a genuine model zoo:
+
+- **Deep:** EEGNet, CNN, LSTM, Transformer, DINOv3 backbone, attention-fusion, composite models
+- **Classical:** SVM, KNN, random forest, gradient-boosted trees, simple/linear classifiers
+
+A computer-vision plugin set (DINOv3 backbone, feature matching, linear segmentation head) supports
+imaging-heavy experiments, and a SageMaker launcher handles cloud training.
+
+## neuroFMx: A Multimodal Neural Foundation Model
+
+`neuros-neurofm` is the foundation-model core and the part I care about most architecturally. It
+treats heterogeneous neural signals as sequences of tokens and learns shared representations:
+
+- **Per-modality tokenizers** for spikes, LFP, EEG, fMRI, calcium, audio, video, and binned rates,
+  with a `temporal_alignment` module to put them on a common clock.
+- **Mamba state-space backbone** for linear-time modeling of long neural sequences, alongside a
+  `popt` population transformer and single- and multi-task **neuroFMx** heads.
+- **Self-supervised training** via masked-modeling and multitask losses.
+- **Parameter-efficient adaptation** with LoRA and unit-ID adapters for cross-session / cross-subject
+  transfer.
+- **Integrated reference foundation models** — CEBRA, NDT, POYO, and Neuroformer — behind a common
+  `base_foundation_model` interface, so custom and published architectures are directly comparable.
+
+This is where "combining and building large multimodal models" stops being a slogan: the tokenizer,
+alignment, backbone, adapter, and loss layers are separable pieces I can recompose.
+
+## Mechanistic Interpretability Built In
+
+`neuros-mechint` brings interpretability into the same platform rather than a separate notebook pile:
+
+- **Circuits:** ACDC circuit discovery, path patching, DUNL, motif detection, feature visualization,
+  latent-RNN and circuit-comparison tools.
+- **Concepts / features:** sparse autoencoders and concept SAEs, attribution, and counterfactuals.
+- **Representation alignment:** RSA, CCA, PLS, temporal and cross-species alignment with validation.
+- **Dynamics:** state-space dynamics analysis and bifurcation tooling.
+- **Biophysical grounding:** compartmental and spiking-net models, ion channels, synaptic models,
+  Dale's law, and metabolic constraints — connecting learned representations back to biology.
+
+## Cloud-Native, Observable, Benchmarked
+
+The platform is built to run beyond a laptop:
+
+- **Streaming / ingest:** Kafka, Redis Streams, ZeroMQ publishers, LSL sync, and an Iceberg
+  streaming job; Petastorm and WebDataset exporters for training data.
+- **Distributed / federated:** a federated-learning client and aggregator, plus SageMaker training
+  and model-compression utilities.
+- **Serving:** a FastAPI API, a Streamlit dashboard, and a CLI (`neuros run`, `benchmark`,
+  `constellation`, `dashboard`).
+- **Observability:** Prometheus metrics, a Grafana dashboard, a benchmarking suite for latency /
+  throughput / accuracy, and fault injection.
+
+A `neuros-sourceweigher` service handles data-source weighting for training mixtures, and
+`neuros-ui` provides the dashboards and serving surface.
+
+## Worked Examples
+
+The repository ships runnable notebooks, including motor-imagery classification, multimodal fusion,
+a foundation-models demo, and a large family of DINOv3 neuroscience experiments (Allen atlas, CREMI,
+SNEMI3D, cell tracking, and more), plus extended white-paper documentation on neurotokenization and
+the neuroFMx plan.
+
+## Why This Is Systems Work
+
+neurOS-v1 is where my thinking about neural data pipelines and foundation models lives as one
+architecture instead of scattered scripts. What it demonstrates:
+
+- I can design a modular, extensible platform with clean seams — drivers, agents, processing,
+  models, foundation, interpretability, cloud — that each stand alone.
+- I understand the full stack: device I/O and standards (NWB/Zarr), streaming infrastructure
+  (Kafka/Redis/LSL), distributed and federated training, serving, and observability.
+- I can build a real multimodal foundation model — tokenizers, temporal alignment, a state-space
+  backbone, self-supervised objectives, and parameter-efficient adapters — not just consume one.
+- I treat interpretability and biophysical grounding as first-class, not an afterthought.

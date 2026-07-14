@@ -1,4 +1,4 @@
-type DiagramVariant = 'datajoint' | 'neatlabs' | 'audio-led' | 'lu-lab' | 'video-encoding';
+type DiagramVariant = 'datajoint' | 'neatlabs' | 'audio-led' | 'lu-lab' | 'video-encoding' | 'neuros-platform';
 
 type DiagramNode = {
   title: string;
@@ -192,6 +192,39 @@ const diagrams: Record<DiagramVariant, DiagramDefinition> = {
       },
     ],
     outputs: ['cross-dataset visual encoder', 'ceiling-normalized r', 'preregistered gates', 'honest negatives'],
+  },
+  'neuros-platform': {
+    eyebrow: 'platform architecture map',
+    title: 'neurOS-v1 real-time BCI and foundation-model platform',
+    summary:
+      'A modular monorepo carries neural data from hot-swappable device drivers through agent-orchestrated processing into a multimodal foundation model, serving, and mechanistic interpretability.',
+    lanes: [
+      {
+        label: 'Acquisition and streaming',
+        nodes: [
+          { title: 'Device drivers', subtitle: '16+ modalities, hot-swappable unified API', tone: 'cyan' },
+          { title: 'Streaming backends', subtitle: 'Kafka, Redis Streams, ZeroMQ, LSL sync', tone: 'cyan' },
+          { title: 'Storage and export', subtitle: 'NWB, Zarr, WebDataset, Iceberg', tone: 'cyan' },
+        ],
+      },
+      {
+        label: 'Orchestration and processing',
+        nodes: [
+          { title: 'Agent orchestrator', subtitle: 'Device, processing, model, fusion agents', tone: 'violet' },
+          { title: 'Processing pipeline', subtitle: 'Filters, features, adaptation, health monitor', tone: 'violet' },
+          { title: 'Model registry', subtitle: 'EEGNet, CNN, LSTM, Transformer, DINOv3', tone: 'violet' },
+        ],
+      },
+      {
+        label: 'Foundation and interpretability',
+        nodes: [
+          { title: 'neuroFMx', subtitle: 'Mamba backbone, tokenizers, masked SSL, LoRA', tone: 'green' },
+          { title: 'Foundation models', subtitle: 'CEBRA, NDT, POYO, Neuroformer', tone: 'green' },
+          { title: 'Mechanistic interpretability', subtitle: 'ACDC, SAEs, RSA/CCA, dynamics', tone: 'green' },
+        ],
+      },
+    ],
+    outputs: ['hot-swappable drivers', 'real-time orchestration', 'multimodal foundation model', 'cloud-native + observable'],
   },
 };
 
