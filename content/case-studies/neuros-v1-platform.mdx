@@ -42,9 +42,21 @@ processing pipeline into a multimodal foundation model and mechanistic-interpret
 <SystemDiagram variant="neuros-platform" />
 
 It is organized as a **10-package monorepo** so each concern stays independently usable and
-testable: `neuros-core`, `neuros-drivers`, `neuros-models`, `neuros-foundation`, `neuros-neurofm`,
-`neuros-mechint`, `neuros-cloud`, `neuros-sourceweigher`, `neuros-ui`, and the `neuros`
-meta-package.
+testable. Each package has its own brief with an architecture visualization and a "what it
+comprises / how it differs" breakdown:
+
+- **[neuros-core](/case-studies/neuros-core)** — agent orchestrator, processing pipeline, CV plugins (the runtime heart).
+- **[neuros-drivers](/case-studies/neuros-drivers)** — hot-swappable adapters for 16+ modalities, NWB/Zarr I/O.
+- **[neuros-models](/case-studies/neuros-models)** — the deep + classical model zoo behind one registry.
+- **[neuros-foundation](/case-studies/neuros-foundation)** — reference foundation models (CEBRA, NDT, POYO, Neuroformer).
+- **[neuros-neurofm](/case-studies/neuros-neurofm)** — neuroFMx: the from-scratch multimodal foundation model.
+- **[neuros-mechint](/case-studies/neuros-mechint)** — mechanistic interpretability + biophysical grounding.
+- **[neuros-cloud](/case-studies/neuros-cloud)** — streaming, lakehouse storage/export, federated training.
+- **[neuros-sourceweigher](/case-studies/neuros-sourceweigher)** — data-source weighting for training mixtures.
+- **[neuros-ui](/case-studies/neuros-ui)** — FastAPI serving, Streamlit dashboard, and CLI.
+- **`neuros`** — the umbrella meta-package (this overview).
+
+The sections below walk the platform end to end; follow any link above for that package's detail.
 
 ## Hot-Swappable Drivers Across 16+ Modalities
 

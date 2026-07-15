@@ -1,0 +1,58 @@
+---
+title: "neurOS-v1 Package: neuros-neurofm — the neuroFMx Foundation Model"
+slug: neuros-neurofm
+summary: "The from-scratch multimodal foundation model of neurOS-v1: per-modality tokenizers, a Mamba state-space backbone, self-supervised masked-modeling objectives, and LoRA + unit-ID adapters for cross-session transfer."
+role: "Author and architect"
+sourceUrl: "https://github.com/sidhulyalkar/neurOS-v1"
+scope: "neurOS-v1 monorepo package"
+date: "2025-11-05"
+tags:
+  - neuros-v1
+  - neuroFMx
+  - foundation-models
+  - mamba
+  - tokenization
+  - lora
+  - self-supervised
+domains:
+  - Neural Foundation Models
+  - Neural Data Infrastructure
+featured: false
+importance: 82
+relatedProjects:
+  - neuros-v1
+modeVisibility:
+  - recruiter
+  - researcher
+  - builder
+  - full-brain
+---
+
+## Building a Multimodal Neural Foundation Model
+
+`neuros-neurofm` is the architectural centerpiece: **neuroFMx**, a foundation model built from
+scratch to treat heterogeneous neural signals as tokens and learn shared representations across
+modalities, subjects, and sessions.
+
+<SystemDiagram variant="pkg-neurofm" />
+
+## What It Comprises
+
+- **Tokenizers** — per-modality tokenizers for spikes, LFP, EEG, fMRI, calcium, audio, video, and
+  binned rates, with a `temporal_alignment` module to put them on a common clock.
+- **Backbone** — a **Mamba** state-space backbone for linear-time modeling of long neural
+  sequences, plus a `popt` population transformer.
+- **Models & heads** — `neurofmx`, `neurofmx_complete`, `neurofmx_multitask`, and
+  `multimodal_neurofmx`, with single- and multitask `heads`.
+- **Objectives** — masked-modeling and multitask losses for self-supervised pretraining.
+- **Adapters** — LoRA and unit-ID adapters for parameter-efficient cross-session / cross-subject
+  transfer.
+- **Deployment** — `model_compression`, a `neuros_adapter` integration, and multimodal training.
+
+## How It Differs
+
+`neuros-foundation` *wraps* published models; `neuros-neurofm` **is my own model**. Its separable
+tokenizer, alignment, backbone, adapter, and loss layers are where "combining and building large
+multimodal models" becomes concrete, recomposable engineering rather than a slogan.
+
+Part of the [neurOS-v1 platform](/case-studies/neuros-v1-platform).

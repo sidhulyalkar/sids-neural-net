@@ -1,4 +1,7 @@
-type DiagramVariant =
+import type { DiagramNode, DiagramDefinition } from './diagram-types';
+import { packageDiagrams, type PackageDiagramVariant } from './package-diagrams';
+
+type CoreVariant =
   | 'datajoint'
   | 'neatlabs'
   | 'audio-led'
@@ -9,24 +12,7 @@ type DiagramVariant =
   | 'delay-discounting'
   | 'reversal-learning';
 
-type DiagramNode = {
-  title: string;
-  subtitle: string;
-  tone?: 'cyan' | 'violet' | 'green' | 'amber' | 'rose';
-};
-
-type DiagramSwimlane = {
-  label: string;
-  nodes: DiagramNode[];
-};
-
-type DiagramDefinition = {
-  eyebrow: string;
-  title: string;
-  summary: string;
-  lanes: DiagramSwimlane[];
-  outputs: string[];
-};
+type DiagramVariant = CoreVariant | PackageDiagramVariant;
 
 const toneClasses: Record<NonNullable<DiagramNode['tone']>, string> = {
   cyan: 'border-cyan/30 bg-cyan/[0.06] text-cyan',
@@ -36,7 +22,7 @@ const toneClasses: Record<NonNullable<DiagramNode['tone']>, string> = {
   rose: 'border-rose/30 bg-rose/[0.06] text-rose',
 };
 
-const diagrams: Record<DiagramVariant, DiagramDefinition> = {
+const diagrams: Record<CoreVariant, DiagramDefinition> = {
   datajoint: {
     eyebrow: 'workflow map',
     title: 'DataJoint multimodal system flow',
@@ -340,8 +326,10 @@ interface SystemDiagramProps {
   variant: DiagramVariant;
 }
 
+const allDiagrams: Record<DiagramVariant, DiagramDefinition> = { ...diagrams, ...packageDiagrams };
+
 export function SystemDiagram({ variant }: SystemDiagramProps) {
-  const diagram = diagrams[variant];
+  const diagram = allDiagrams[variant];
 
   return (
     <section className="not-prose my-10 border border-white/10 bg-white/[0.025] p-5">
