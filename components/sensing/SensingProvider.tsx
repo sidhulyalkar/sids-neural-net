@@ -14,6 +14,7 @@ import { SensingHud } from './ui/SensingHud';
 import { GestureControl } from './ui/GestureControl';
 import { GestureController } from './ui/GestureController';
 import { initialGestureTracker, updateGestureTracker } from './gestures';
+import { isCameraPermissionDenied } from './errors';
 import {
   blendshapesToEmotion,
   emotionToTokens,
@@ -49,6 +50,7 @@ function clearTokens(): void {
 
 export function SensingProvider() {
   const enabled = useSensingStore((s) => s.enabled);
+  const status = useSensingStore((s) => s.status);
   const setStatus = useSensingStore((s) => s.setStatus);
   const setReading = useSensingStore((s) => s.setReading);
   const setFps = useSensingStore((s) => s.setFps);
@@ -173,7 +175,7 @@ export function SensingProvider() {
         rafRef.current = requestAnimationFrame(tick);
       } catch (err) {
         if (cancelled) return;
-        const denied = err instanceof DOMException && (err.name === 'NotAllowedError' || err.name === 'SecurityError');
+        const denied = isCameraPermissionDenied(err);
         if (denied) {
           setStatus('denied');
         } else {
@@ -204,7 +206,7 @@ export function SensingProvider() {
       resetGestures();
       return;
     }
-    if (useSensingStore.getState().status !== 'running') return;
+    if (status !== 'running') return;
 
     let cancelled = false;
     setGestureStatus('loading');
@@ -228,7 +230,7 @@ export function SensingProvider() {
       gestureReadyRef.current = false;
       closeGestures();
     };
-  }, [gestureEnabled, loadGestures, closeGestures, setGestureStatus, setGestureError, resetGestures]);
+  }, [gestureEnabled, status, loadGestures, closeGestures, setGestureStatus, setGestureError, resetGestures]);
 
   // Pause the loop when the tab is hidden; resume on return.
   useEffect(() => {

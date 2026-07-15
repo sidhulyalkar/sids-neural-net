@@ -75,6 +75,7 @@ export function GestureController() {
       setFeedback(null);
       setTargetLabel(null);
       setPranked(false);
+      handledActionRef.current = 0;
       document.documentElement.removeAttribute('data-sensing-pranked');
       if (prankTimeoutRef.current !== null) window.clearTimeout(prankTimeoutRef.current);
     }
