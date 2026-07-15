@@ -23,8 +23,24 @@ const ACTION_COOLDOWN_MS = 800;
 const RAISE_MAX_PALM_Y = 0.42;
 const RAISE_DWELL_MS = 450;
 const PINCH_DWELL_MS = 180;
-const PINCH_RATIO = 0.28;
-const MIN_POSE_CONFIDENCE = 0.65;
+/**
+ * Thumb-index gap over hand length, measured in 3D.
+ *
+ * 2D cannot see a pinch: the tips project onto the same point without touching,
+ * so the old test fired on 13-18% of idle frames but only 4% of deliberate
+ * pinches — inverted against reality. Adding z roughly halves the false rate at
+ * the same recall (measured at 0.20: idle-ish negatives 6% -> 2%).
+ */
+const PINCH_RATIO = 0.2;
+/**
+ * MediaPipe does not score its canned classes on a common scale.
+ *
+ * Measured on real takes: Closed_Fist lands at p50 0.95, but Open_Palm at p50
+ * 0.60. A single 0.65 gate discarded 92% of open palms, so the palette gesture
+ * could never fire. This sits just above the recognizer's own 0.55 score
+ * threshold rather than trying to be selective here.
+ */
+const MIN_POSE_CONFIDENCE = 0.55;
 const SECRET_DWELL_MS = 900;
 const SECRET_LOWER_FRAME_Y = 0.58;
 const PRANK_COOLDOWN_MS = 30_000;
@@ -53,10 +69,20 @@ const HAMMER_GRACE_MS = 200;
 const SECRET_GRACE_MS = 260;
 
 const POSE_ACTIONS: Partial<Record<CannedGesture, { action: GestureActionType; dwell: number }>> = {
-  Open_Palm: { action: 'open_palette', dwell: 700 },
   Closed_Fist: { action: 'close_palette', dwell: 450 },
   Thumb_Up: { action: 'activate', dwell: 650 },
 };
+
+/**
+ * The palette opens on a flash: an open palm closed into a fist.
+ *
+ * A held open palm cannot be used — that is how a hand is raised to navigate,
+ * so the two fired together (measured: open_palette x2 during raise_right, with
+ * an open palm classified on 81% of those frames). Navigation *holds* the palm
+ * open and never closes it; the palette gesture is defined by the transition,
+ * which nothing else in the set performs.
+ */
+const OPEN_FLASH_MS = 900;
 
 function clamp01(value: number): number {
   return Math.min(1, Math.max(0, value));
@@ -64,6 +90,11 @@ function clamp01(value: number): number {
 
 function distance(a: GesturePoint, b: GesturePoint): number {
   return Math.hypot(a.x - b.x, a.y - b.y);
+}
+
+/** Includes depth. Only meaningful where the tips may overlap in projection. */
+function distance3(a: GesturePoint, b: GesturePoint): number {
+  return Math.hypot(a.x - b.x, a.y - b.y, (a.z ?? 0) - (b.z ?? 0));
 }
 
 function average(points: GesturePoint[]): GesturePoint {
@@ -145,16 +176,21 @@ export function isHammerPose(landmarks: GesturePoint[]): boolean {
   return true;
 }
 
+/**
+ * Thumb and index tips genuinely touching, judged in 3D and scaled by hand
+ * length. Palm width is not usable here — it foreshortens — and neither is a
+ * flat 2D gap, which a relaxed hand satisfies without the fingers meeting.
+ */
 export function isPinching(landmarks: GesturePoint[]): boolean {
   const thumbTip = landmarks[4];
   const indexTip = landmarks[8];
-  const indexMcp = landmarks[5];
-  const pinkyMcp = landmarks[17];
-  if (!thumbTip || !indexTip || !indexMcp || !pinkyMcp) return false;
+  const wrist = landmarks[0];
+  const middleMcp = landmarks[9];
+  if (!thumbTip || !indexTip || !wrist || !middleMcp) return false;
 
-  const palmWidth = distance(indexMcp, pinkyMcp);
-  if (palmWidth < 0.02) return false;
-  return distance(thumbTip, indexTip) / palmWidth <= PINCH_RATIO;
+  const handLength = distance3(wrist, middleMcp);
+  if (handLength < 0.02) return false;
+  return distance3(thumbTip, indexTip) / handLength <= PINCH_RATIO;
 }
 
 function emitAction(
@@ -195,6 +231,7 @@ export function updateGestureTracker(
         secretStartedAt: null,
         secretSeenAt: null,
         secretLatched: false,
+        openPalmSeenAt: null,
         raiseHand: null,
         raiseStartedAt: null,
         raiseLatched: false,
@@ -234,6 +271,7 @@ export function updateGestureTracker(
   if (pose !== tracker.pose) {
     tracker = { ...tracker, pose, poseStartedAt: now, poseLatched: false };
   }
+  if (pose === 'Open_Palm') tracker = { ...tracker, openPalmSeenAt: now };
 
   // The circle pose is only recognized on ~43% of frames while pinch hits ~52%
   // of the same frames, so a strict test lets pinch fire in the gaps before the
@@ -337,6 +375,20 @@ export function updateGestureTracker(
     }
   } else {
     tracker = { ...tracker, raiseHand: null, raiseStartedAt: null, raiseLatched: false };
+  }
+
+  // Palm flashed shut: open the palette. Firing here also latches the pose, so
+  // the same fist does not immediately close what it just opened.
+  if (
+    canAct &&
+    pose === 'Closed_Fist' &&
+    !tracker.poseLatched &&
+    tracker.openPalmSeenAt !== null &&
+    now - tracker.openPalmSeenAt <= OPEN_FLASH_MS
+  ) {
+    tracker = { ...tracker, poseLatched: true, openPalmSeenAt: null };
+    const emitted = emitAction(tracker, 'open_palette', now);
+    return { tracker: emitted.tracker, action: emitted.action, cursor, pose, confidence: observation.confidence };
   }
 
   const poseAction = POSE_ACTIONS[pose];

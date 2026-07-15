@@ -15,6 +15,8 @@ import {
 
 function landmarks(palmX = 0.5, palmY = 0.5, pinch = false): GesturePoint[] {
   const result: GesturePoint[] = Array.from({ length: 21 }, () => ({ x: palmX, y: palmY, z: 0 }));
+  result[0] = { x: palmX, y: palmY + 0.15, z: 0 };
+  result[9] = { x: palmX, y: palmY - 0.02, z: 0 };
   result[5] = { x: palmX - 0.1, y: palmY };
   result[17] = { x: palmX + 0.1, y: palmY };
   result[8] = { x: palmX - 0.04, y: palmY - 0.16 };
@@ -79,21 +81,45 @@ function step(
   return updateGestureTracker(tracker, frame, at);
 }
 
-test('pinch detection is normalized by palm width', () => {
+test('pinch detection is normalized by hand length and uses depth', () => {
   assert.equal(isPinching(landmarks(0.5, 0.5, true)), true);
   assert.equal(isPinching(landmarks(0.5, 0.5, false)), false);
   assert.equal(isPinching([]), false);
 });
 
-test('open palm must dwell before opening the palette and only fires once per hold', () => {
+test('an open palm flashed shut opens the palette', () => {
   let state = step(initialGestureTracker(), observation('Open_Palm'), 0);
   assert.equal(state.action, null);
-  state = step(state.tracker, observation('Open_Palm'), 699);
-  assert.equal(state.action, null);
-  state = step(state.tracker, observation('Open_Palm'), 700);
+  state = step(state.tracker, observation('Closed_Fist'), 200);
   assert.equal(state.action?.type, 'open_palette');
-  state = step(state.tracker, observation('Open_Palm'), 1700);
+});
+
+test('a held open palm never opens the palette', () => {
+  // This is how a hand is raised to navigate, so it must stay silent.
+  let state = step(initialGestureTracker(), observation('Open_Palm'), 0);
+  for (const at of [500, 1000, 1500, 2000]) {
+    state = step(state.tracker, observation('Open_Palm'), at);
+    assert.equal(state.action, null, `open palm alone fired at ${at}ms`);
+  }
+});
+
+test('a fist long after an open palm closes rather than opens', () => {
+  let state = step(initialGestureTracker(), observation('Open_Palm'), 0);
+  state = step(state.tracker, null, 100);
+  state = step(state.tracker, observation('Closed_Fist'), 2000);
   assert.equal(state.action, null);
+  state = step(state.tracker, observation('Closed_Fist'), 2450);
+  assert.equal(state.action?.type, 'close_palette');
+});
+
+test('the flash fist does not immediately close what it opened', () => {
+  let state = step(initialGestureTracker(), observation('Open_Palm'), 0);
+  state = step(state.tracker, observation('Closed_Fist'), 200);
+  assert.equal(state.action?.type, 'open_palette');
+  for (const at of [700, 1000, 1500]) {
+    state = step(state.tracker, observation('Closed_Fist'), at);
+    assert.equal(state.action, null, `same fist hold fired again at ${at}ms`);
+  }
 });
 
 test('pose can fire again only after release and cooldown', () => {

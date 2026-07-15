@@ -63,6 +63,8 @@ export interface GestureTracker {
   /** Last frame the circle was seen; bridges the gaps that let pinch fire mid-secret. */
   secretSeenAt: number | null;
   secretLatched: boolean;
+  /** Last frame an open palm was classified, for the open->close flash. */
+  openPalmSeenAt: number | null;
   /** Which hand is currently held up ('Left' | 'Right'), null when none is. */
   raiseHand: string | null;
   raiseStartedAt: number | null;
@@ -92,6 +94,7 @@ export function initialGestureTracker(): GestureTracker {
     secretStartedAt: null,
     secretSeenAt: null,
     secretLatched: false,
+    openPalmSeenAt: null,
     raiseHand: null,
     raiseStartedAt: null,
     raiseLatched: false,

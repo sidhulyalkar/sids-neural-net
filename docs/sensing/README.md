@@ -30,9 +30,10 @@ These cost real debugging time. They generalize beyond this package.
    normalized by it inflates ~2.6× exactly when the hand is angled. Use
    `getHandLength()` = `d(wrist, middleMcp)`, which lies along the rotation axis.
 2. **2D landmarks cannot detect a pinch.** Thumb and index tips *project* onto the
-   same point without touching. Measured: `isPinching` fires on **13–18%** of idle
-   frames vs **4%** of deliberate pinch frames — inverted against reality. No
-   threshold separates them (pinch p05 0.11 vs idle_reading p05 0.10). **Needs z.**
+   same point without touching. Measured: 2D `isPinching` fired on **13–18%** of
+   idle frames vs **4%** of deliberate pinch frames — inverted against reality.
+   Adding z roughly halves the false rate at equal recall, so `isPinching` now
+   uses `distance3`. Landmarks without z degrade silently to the 2D behaviour.
 3. **Gate measurement on recognition and you lose the gesture.** A fast strike is
    blurriest exactly when it moves fastest, so the shape test fails during the
    part that matters. Recording positions only on shape-matching frames capped
@@ -50,7 +51,11 @@ These cost real debugging time. They generalize beyond this package.
    we found came from `idle_*` takes of normal activity.
 7. **`performance.now()` restarts per page load.** Replaying across sessions
    invents false gaps; the analyzer splits on >5s jumps.
-8. **Restart the dev server after structural changes.** Adding a metadata route
+8. **MediaPipe's canned scores are not on a common scale.** Measured: Closed_Fist
+   p50 **0.95**, Open_Palm p50 **0.60**. A single 0.65 confidence gate discarded
+   92% of open palms, so `open_palette` never fired once in any take. Do not
+   assume one threshold fits every class.
+9. **Restart the dev server after structural changes.** Adding a metadata route
    (`app/favicon.ico`) or reshaping modules mid-session poisons the webpack cache
    (`Cannot find module './331.js'`, `__webpack_modules__[moduleId] is not a
    function`). Fix: `pkill -f "next dev"; rm -rf .next node_modules/.cache; npm run dev`.
@@ -62,10 +67,10 @@ These cost real debugging time. They generalize beyond this package.
 | Raise **right** hand | `navigate_next` | ✅ fires; handedness verified correct (98%/96%), **not** inverted |
 | Raise **left** hand | `navigate_previous` | ✅ fires clean |
 | **Fist** + downward strike | `page_down` | ✅ 10 fires/28s; zero idle false positives |
-| Open palm (dwell 700ms) | `open_palette` | ⚠️ conflicts with raising an open hand |
+| Open palm **flashed into a fist** | `open_palette` | ✅ 15 fires; a *held* palm is how you raise to navigate, so the transition is the gesture |
 | Closed fist (dwell 450ms) | `close_palette` | ✅ |
 | Thumb up (dwell 650ms) | `activate` | ✅ best performer (classifier 105/105) |
-| Pinch (dwell 180ms) | `activate` | ❌ **11 false positives — needs z** |
+| Pinch (dwell 180ms, **3D**) | `activate` | ⚠️ 10 fires; false-positive rate **unmeasured** (idle takes predate z) |
 | Circle-game (dwell 900ms) | `prank` | ⚠️ leaks `activate` |
 
 Rates: face 12fps, hands **30fps** (a ~200ms strike at 15fps is ~3 samples — too
@@ -73,12 +78,16 @@ few once blur takes some).
 
 ## Open work
 
-- **Pinch needs 3D distance.** The lab now records `z`; the engine still ignores it.
-  Sole remaining false-positive source (~11 across 78s of idle).
-- **Open palm vs raise conflict:** raising an open hand fires `open_palette` (×2 on
-  `raise_right`). Needs a decision, not a threshold.
+- **Idle takes need re-recording with `z`.** All `idle_*` takes predate z, so the
+  3D pinch threshold (0.20) has **never been measured against normal activity** —
+  `distance3` silently degrades to 2D on them, making those numbers invalid.
+  This is the single most important gap: the pinch was the only false-positive
+  source and its new rate is unknown.
+- `raise_left` still emits one `open_palette` (2.3/min) — a raise followed by a fist.
 - Circle-game pose leaks `activate`; untested against z.
 - `RAISE_MAX_PALM_Y = 0.42` / `RAISE_DWELL_MS = 450` are reasoned, not fitted.
+- The hammer is validated only against a *proxy* (an old `fist` take), never a
+  real strike. No `hammer_down` take exists yet.
 
 ## Recording protocol
 
