@@ -44,6 +44,8 @@ html {
 }
 
 body {
+  filter: none;
+  transition: filter 220ms ease;
   background:
     radial-gradient(circle at 12% 8%, rgba(102, 227, 255, 0.12), transparent 28rem),
     radial-gradient(circle at 86% 18%, rgba(91, 140, 255, 0.08), transparent 26rem),
@@ -67,6 +69,50 @@ body::before {
 }
 
 /* Removed blue dot pattern - using dendrite patterns instead */
+
+/* --- Ambient emotion layer (driven by components/sensing) ---
+   Defaults keep the site identical when the layer is OFF (--mood-active: 0).
+   SensingProvider writes these custom properties on <html> while active. */
+:root {
+  --mood-active: 0;
+  --mood-primary: 102, 227, 255;
+  --mood-secondary: 91, 140, 255;
+  --mood-glow: 0;
+}
+
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  opacity: var(--mood-active, 0);
+  transition: opacity 700ms ease;
+  background:
+    radial-gradient(circle at 22% 18%, rgba(var(--mood-primary), calc(0.2 * var(--mood-glow))), transparent 34rem),
+    radial-gradient(circle at 80% 78%, rgba(var(--mood-secondary), calc(0.16 * var(--mood-glow))), transparent 36rem),
+    radial-gradient(circle at 50% 52%, rgba(var(--mood-primary), calc(0.06 * var(--mood-glow))), transparent 46rem);
+}
+
+/* Secret circle-game reaction. Mood variables remain untouched so the exact
+   prior atmosphere returns when GestureController removes the attribute. */
+html[data-sensing-pranked='true'] body {
+  filter: hue-rotate(155deg) saturate(1.45) contrast(1.04);
+}
+
+html[data-sensing-pranked='true'] body::after {
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body::after {
+    transition: none;
+  }
+
+  html[data-sensing-pranked='true'] body {
+    transition: none;
+  }
+}
 
 /* Selection */
 ::selection {
