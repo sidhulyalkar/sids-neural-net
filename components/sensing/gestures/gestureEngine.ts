@@ -22,6 +22,16 @@ const ACTION_COOLDOWN_MS = 800;
  */
 const RAISE_MAX_PALM_Y = 0.42;
 const RAISE_DWELL_MS = 450;
+/**
+ * Navigating requires an open palm, not merely a raised hand.
+ *
+ * Reaching for something is also a raised hand, and it fired 6 navigations in a
+ * 29s idle_reaching take. The shapes separate cleanly though: of frames where
+ * the palm is raised, a deliberate raise is an open palm 85-97% of the time,
+ * while reaching is only 9% (and general idle 0%) — a hand going for an object
+ * is grasping, not open.
+ */
+const RAISE_REQUIRES_OPEN_PALM = true;
 const PINCH_DWELL_MS = 180;
 /**
  * Thumb-index gap over hand length, measured in 3D.
@@ -357,7 +367,10 @@ export function updateGestureTracker(
   // Raise a hand to navigate: right hand forward, left hand back. Handedness
   // comes straight from MediaPipe; the dwell keeps a hand that merely passes
   // through the top of frame from paging the site.
-  const raised = point !== null && point.y <= RAISE_MAX_PALM_Y;
+  const raised =
+    point !== null &&
+    point.y <= RAISE_MAX_PALM_Y &&
+    (!RAISE_REQUIRES_OPEN_PALM || pose === 'Open_Palm');
   const hand = observation.handedness ?? null;
   if (raised && hand) {
     if (tracker.raiseHand !== hand) {
@@ -369,7 +382,7 @@ export function updateGestureTracker(
       tracker.raiseStartedAt !== null &&
       now - tracker.raiseStartedAt >= RAISE_DWELL_MS
     ) {
-      tracker = { ...tracker, raiseLatched: true, poseLatched: true };
+      tracker = { ...tracker, raiseLatched: true, poseLatched: true, openPalmSeenAt: null };
       const emitted = emitAction(tracker, hand === 'Right' ? 'navigate_next' : 'navigate_previous', now);
       return { tracker: emitted.tracker, action: emitted.action, cursor, pose, confidence: observation.confidence };
     }

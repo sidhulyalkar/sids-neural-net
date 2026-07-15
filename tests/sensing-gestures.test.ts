@@ -143,7 +143,7 @@ test('a deliberate pinch emits activate after dwell', () => {
 
 test('raising the right hand navigates forward after a dwell, once per raise', () => {
   const raise = (hand: string): HandObservation => ({
-    ...observation('None', 0.5, 0.2), handedness: hand,
+    ...observation('Open_Palm', 0.5, 0.2), handedness: hand,
   });
   let state = step(initialGestureTracker(), raise('Right'), 0);
   assert.equal(state.action, null);
@@ -156,14 +156,23 @@ test('raising the right hand navigates forward after a dwell, once per raise', (
 });
 
 test('raising the left hand navigates back', () => {
-  const raise: HandObservation = { ...observation('None', 0.5, 0.2), handedness: 'Left' };
+  const raise: HandObservation = { ...observation('Open_Palm', 0.5, 0.2), handedness: 'Left' };
   let state = step(initialGestureTracker(), raise, 0);
   state = step(state.tracker, raise, 500);
   assert.equal(state.action?.type, 'navigate_previous');
 });
 
+test('a raised hand that is not an open palm never navigates', () => {
+  // Reaching for something is also a raised hand; only an open palm may navigate.
+  const grabbing: HandObservation = { ...observation('None', 0.5, 0.2), handedness: 'Right' };
+  let state = step(initialGestureTracker(), grabbing, 0);
+  state = step(state.tracker, grabbing, 500);
+  state = step(state.tracker, grabbing, 1500);
+  assert.equal(state.action, null);
+});
+
 test('a hand held low never navigates', () => {
-  const low: HandObservation = { ...observation('None', 0.5, 0.8), handedness: 'Right' };
+  const low: HandObservation = { ...observation('Open_Palm', 0.5, 0.8), handedness: 'Right' };
   let state = step(initialGestureTracker(), low, 0);
   state = step(state.tracker, low, 500);
   state = step(state.tracker, low, 1500);
@@ -172,7 +181,7 @@ test('a hand held low never navigates', () => {
 
 test('switching hands restarts the dwell', () => {
   const raise = (hand: string): HandObservation => ({
-    ...observation('None', 0.5, 0.2), handedness: hand,
+    ...observation('Open_Palm', 0.5, 0.2), handedness: hand,
   });
   let state = step(initialGestureTracker(), raise('Right'), 0);
   state = step(state.tracker, raise('Left'), 400);
