@@ -11,6 +11,7 @@ import { ReplayRecorder, type ReplayFrame } from './replay';
 import { interpretArtwork } from './artwork';
 import { applySyntheticPreset, syntheticPresetLabels, type SyntheticPresetId } from './syntheticPresets';
 import { initialQuality, adaptQuality, type QualityTier } from './quality';
+import { visualThemeList, visualThemes, type VisualThemeId } from './visualThemes';
 
 const CortexCanvas = dynamic(() => import('./PerceptualCortexCanvas').then((m) => m.PerceptualCortexCanvas), { ssr: false });
 
@@ -20,7 +21,7 @@ const isEditable = (target: EventTarget | null) => {
 };
 
 export function PerceptualCortexExperience() {
-  const { phase, seed, microscopeOpen, reducedMotion, start, crystallize, resume, reset, toggleMicroscope, setReducedMotion } = usePerceptualStore();
+  const { phase, seed, microscopeOpen, reducedMotion, visualTheme, start, crystallize, resume, reset, toggleMicroscope, setReducedMotion, setVisualTheme } = usePerceptualStore();
   const canvas = useRef<HTMLCanvasElement | null>(null);
   const capture = useRef<(() => string) | null>(null);
   const input = useRef<InputSnapshot>(createInputSnapshot());
@@ -118,22 +119,22 @@ export function PerceptualCortexExperience() {
     if (!canvas.current) return;
     const output = document.createElement('canvas'); output.width = 1920; output.height = 1080; const context = output.getContext('2d'); if (!context) return; const ctx = context;
     const highResolution = capture.current?.(); const source = highResolution ? Object.assign(new Image(), { src: highResolution }) : canvas.current;
-    ctx.fillStyle = '#020306'; ctx.fillRect(0, 0, output.width, output.height);
+    ctx.fillStyle = visualThemes[visualTheme].background; ctx.fillRect(0, 0, output.width, output.height);
     if (source instanceof HTMLCanvasElement) ctx.drawImage(source, 0, 0, output.width, output.height); else { source.onload = () => { ctx.drawImage(source, 0, 0, output.width, output.height); finishExport(); }; return; }
     finishExport();
     function finishExport() {
-    const result = interpretArtwork(seed, usePerceptualStore.getState().worldSnapshot); ctx.fillStyle = 'rgba(255,255,255,.58)'; ctx.font = '24px monospace'; ctx.fillText(result.title.toUpperCase(), 54, 1020); ctx.font = '15px monospace'; ctx.fillText(`SEED ${seed}`, 54, 1048);
+    const result = interpretArtwork(seed, usePerceptualStore.getState().worldSnapshot, visualTheme); ctx.fillStyle = 'rgba(255,255,255,.58)'; ctx.font = '24px monospace'; ctx.fillText(result.title.toUpperCase(), 54, 1020); ctx.font = '15px monospace'; ctx.fillText(`${result.theme.toUpperCase()} · SEED ${seed}`, 54, 1048);
     const link = document.createElement('a'); link.download = `perceptual-cortex-${seed}.png`; link.href = output.toDataURL('image/png'); link.click();
     }
   };
 
   const world = usePerceptualStore.getState().worldSnapshot;
-  const artwork = interpretArtwork(seed, world);
+  const artwork = interpretArtwork(seed, world, visualTheme);
   return <section className="fixed inset-0 z-40 overflow-hidden bg-[#020306]" onPointerMove={onPointerMove} onPointerLeave={() => { input.current.pointerActive = false; }}>
-    <div className="absolute inset-0"><CortexCanvas seed={seed} quality={quality} onCanvas={(value) => { canvas.current = value; }} onCaptureReady={(value) => { capture.current = value; }} /></div>
+    <div className="absolute inset-0"><CortexCanvas seed={seed} quality={quality} themeId={visualTheme} onCanvas={(value) => { canvas.current = value; }} onCaptureReady={(value) => { capture.current = value; }} /></div>
     <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_25%,rgba(2,3,6,.7)_100%)]" />
     <header className="absolute left-5 right-5 top-5 z-10 flex items-start justify-between font-mono sm:left-8 sm:right-8 sm:top-8">
-      <div><p className="text-[10px] uppercase tracking-[.34em] text-cyan/60">multimodal neural instrument</p><h1 className="mt-2 text-sm uppercase tracking-[.22em] text-white/90">Perceptual Cortex</h1></div>
+      <div><p className="text-[10px] uppercase tracking-[.34em] text-cyan/60">multimodal neural instrument</p><h1 className="mt-2 text-sm uppercase tracking-[.22em] text-white/90">Perceptual Cortex</h1><p className="mt-2 max-w-sm text-[9px] normal-case tracking-[.08em] text-white/35">{visualThemes[visualTheme].concept} · {visualThemes[visualTheme].description}</p></div>
       <Link href="/photography" className="rounded-full border border-white/15 bg-black/20 px-4 py-2 text-[10px] uppercase tracking-[.2em] text-white/60 backdrop-blur hover:text-white">Exit</Link>
     </header>
 
@@ -142,6 +143,7 @@ export function PerceptualCortexExperience() {
     </div>}
 
     {phase !== 'arrival' && <div className="absolute bottom-5 left-5 right-5 z-10 flex flex-wrap items-end justify-between gap-4 sm:bottom-8 sm:left-8 sm:right-8">
+      <select aria-label="Conceptual color theme" value={visualTheme} onChange={(event) => setVisualTheme(event.target.value as VisualThemeId)} className="rounded-full border border-white/15 bg-black/60 px-3 py-2 font-mono text-[10px] uppercase tracking-[.12em] text-white/65">{visualThemeList.map((theme) => <option key={theme.id} value={theme.id}>{theme.label} · {theme.concept}</option>)}</select>
       <div className="flex max-w-[78vw] flex-wrap gap-2"><button onClick={toggleVision} disabled={visionState === 'requesting'} className={`rounded-full border px-4 py-2 font-mono text-[10px] uppercase tracking-[.18em] backdrop-blur ${visionState === 'active' ? 'border-violet/40 bg-violet/10 text-violet' : 'border-white/15 bg-black/35 text-white/65'}`}>{visionState === 'active' ? '● camera active' : visionState === 'requesting' ? 'loading vision…' : 'enable camera'}</button><button onClick={toggleAudio} disabled={audioState === 'requesting'} className={`rounded-full border px-4 py-2 font-mono text-[10px] uppercase tracking-[.18em] backdrop-blur ${audioState === 'active' ? 'border-green/40 bg-green/10 text-green' : 'border-white/15 bg-black/35 text-white/65'}`}>{audioState === 'active' ? '● microphone active' : audioState === 'requesting' ? 'requesting…' : 'enable microphone'}</button><select aria-label="Synthetic demonstration" value={preset} onChange={(event) => setPreset(event.target.value as SyntheticPresetId | '')} className="rounded-full border border-white/15 bg-black/60 px-3 py-2 font-mono text-[10px] uppercase tracking-[.12em] text-white/65"><option value="">synthetic demo</option>{Object.entries(syntheticPresetLabels).map(([id, label]) => <option key={id} value={id}>{label}</option>)}</select><button onClick={toggleMicroscope} className="rounded-full border border-white/15 bg-black/35 px-4 py-2 font-mono text-[10px] uppercase tracking-[.18em] text-white/65 backdrop-blur">{microscopeOpen ? 'Hide signal' : 'Show the signal'}</button><label className="flex items-center gap-2 rounded-full border border-white/10 bg-black/30 px-4 py-2 font-mono text-[9px] uppercase tracking-[.14em] text-white/45"><input type="checkbox" checked={reducedMotion} onChange={(e) => setReducedMotion(e.target.checked)} /> reduced motion</label></div>
       {phase === 'performing' ? <button onClick={crystallizeSession} className="rounded-full border border-rose/40 bg-rose/10 px-5 py-3 font-mono text-[10px] uppercase tracking-[.2em] text-rose">Crystallize this state</button> : <div className="flex flex-wrap gap-2"><button onClick={save} className="rounded-full border border-cyan/40 bg-cyan/10 px-5 py-3 font-mono text-[10px] uppercase tracking-[.2em] text-cyan">Save PNG</button><button onClick={playReplay} disabled={!replayFrames.length} className="rounded-full border border-violet/30 bg-violet/10 px-4 py-3 font-mono text-[10px] uppercase tracking-[.16em] text-violet">Replay</button><button onClick={() => reset(true)} className="rounded-full border border-white/15 bg-black/35 px-4 py-3 font-mono text-[10px] uppercase tracking-[.16em] text-white/60">Same seed</button><button onClick={() => reset(false)} className="rounded-full border border-white/15 bg-black/35 px-4 py-3 font-mono text-[10px] uppercase tracking-[.16em] text-white/60">New organism</button></div>}
     </div>}

@@ -51,3 +51,10 @@ The hand-tracking slice should first review the current sensing hooks and reuse 
 - Added normalized replay, deterministic titles and interpretations, six synthetic demos, adaptive quality, 1920×1080 export, and deterministic visual fixtures.
 - Migrated linting from interactive `next lint` to ESLint 9 flat configuration.
 - No active sensing-lab or gesture-engine files were modified.
+
+### 2026-07-15 — Conceptual color templates
+
+- Added Homeostasis, Plasticity, Synchrony, Criticality, and Liminality templates.
+- Each template defines a semantic palette for pointer, touch, keyboard, audio, hand, face, and synthetic signals rather than applying a single global tint.
+- Themes also control the soma, membrane, branch populations, pulses, lighting, fog, export background, and exported metadata.
+- Theme concepts are visible in the instrument so the palette remains interpretable instead of decorative.

@@ -7,6 +7,7 @@ import { ReplayRecorder } from '../components/perceptual-cortex/replay';
 import { createWorldState } from '../components/perceptual-cortex/signalTypes';
 import { applySyntheticPreset } from '../components/perceptual-cortex/syntheticPresets';
 import { deriveFaceFeatures, deriveHandFeatures, type Landmark } from '../components/perceptual-cortex/visionFeatures';
+import { visualThemeList } from '../components/perceptual-cortex/visualThemes';
 
 const hand = (offset: number): Landmark[] => Array.from({ length: 21 }, (_, index) => ({ x: offset + index * .004, y: .5 - index * .006, z: 0 }));
 
@@ -39,4 +40,14 @@ test('face features expose continuous activity and bounded stillness without lab
 
 test('synthetic bilateral preset drives stable visual-regression controls', () => {
   const a = createInputSnapshot(); const b = createInputSnapshot(); applySyntheticPreset(a, 'bilateral-bloom', 1200); applySyntheticPreset(b, 'bilateral-bloom', 1200); assert.deepEqual(a.hands, b.hands);
+});
+
+test('every conceptual theme defines a distinct color for every input form', () => {
+  const sources = ['pointer', 'touch', 'keyboard', 'audio', 'hand', 'face', 'synthetic'] as const;
+  assert.equal(visualThemeList.length, 5);
+  for (const theme of visualThemeList) {
+    assert.ok(theme.concept.length > 0);
+    for (const source of sources) assert.match(theme.sources[source], /^#[0-9a-f]{6}$/i);
+    assert.ok(new Set(sources.map((source) => theme.sources[source])).size >= 6);
+  }
 });

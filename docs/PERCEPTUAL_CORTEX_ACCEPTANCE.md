@@ -14,6 +14,7 @@ Date: 2026-07-15
 - Feature-only replay at approximately 12.5 Hz; no images, audio, landmarks, or typed content.
 - Deterministic titles and non-psychological artwork interpretations.
 - Six deterministic synthetic demonstration presets.
+- Five conceptual color templates with distinct mappings for every input modality.
 - High/balanced/low adaptive quality tiers with mobile detection and staged degradation.
 - Reduced-motion behavior for camera and field motion.
 - True 1920×1080 rerender on PNG export with deterministic title and seed.
@@ -41,4 +42,3 @@ Date: 2026-07-15
 ## Manual browser checks still recommended
 
 Automated unit/build checks cannot grant real browser permissions or compare GPU output across devices. Before public release, manually verify camera and microphone permission denial, live camera inference in Chromium/Firefox/Safari, WebGL context recovery, iOS touch behavior, physical-device frame rate, and exported PNG composition. Deterministic preset `bilateral-bloom` at a fixed seed is the canonical visual-regression fixture.
-

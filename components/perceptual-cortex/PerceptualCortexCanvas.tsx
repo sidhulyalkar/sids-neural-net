@@ -6,13 +6,15 @@ import { useEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { usePerceptualStore, worldSnapshot } from './perceptualStore';
 import { qualityConfig, type QualityTier } from './quality';
+import { visualThemes, type VisualThemeId } from './visualThemes';
 
 function seeded(seed: number) {
   let value = seed >>> 0;
   return () => ((value = Math.imul(1664525, value) + 1013904223 >>> 0) / 4294967296);
 }
 
-function Organism({ seed, pulseCount }: { seed: number; pulseCount: number }) {
+function Organism({ seed, pulseCount, themeId }: { seed: number; pulseCount: number; themeId: VisualThemeId }) {
+  const theme = visualThemes[themeId];
   const root = useRef<THREE.Group>(null);
   const soma = useRef<THREE.Mesh>(null);
   const pulses = useRef<THREE.Points>(null);
@@ -68,18 +70,20 @@ function Organism({ seed, pulseCount }: { seed: number; pulseCount: number }) {
       const pulseMaterial = pulses.current.material as THREE.PointsMaterial;
       pulseMaterial.opacity = .22 + world.excitation * .62 + world.highBand * .35;
       pulseMaterial.size = .055 + world.highBand * .045 + world.onsetImpulse * .025;
+      const dominant = world.bilateralStrength > .4 ? 'hand' : world.facialActivity > .35 ? 'face' : world.lowBand + world.midBand + world.highBand > .35 ? 'audio' : world.pointerSpeed > .18 ? 'pointer' : world.growthImpulse > .25 ? 'keyboard' : 'synthetic';
+      pulseMaterial.color.set(theme.sources[dominant]);
     }
   });
 
   return <group ref={root}>
     <mesh ref={soma}>
       <icosahedronGeometry args={[0.58, 5]} />
-      <meshStandardMaterial color="#562f78" emissive="#ff5fa2" roughness={0.72} metalness={0.02} transparent opacity={0.76} />
+      <meshStandardMaterial color={theme.soma} emissive={theme.membrane} roughness={0.72} metalness={0.02} transparent opacity={0.76} />
     </mesh>
-    {branches.map((points, index) => <Line key={index} points={points} color={index % 5 ? '#86d8e8' : '#c291ff'} lineWidth={index < 12 ? 1.4 : .65} transparent opacity={index < 12 ? .7 : .35} />)}
+    {branches.map((points, index) => <Line key={index} points={points} color={index % 5 ? theme.branchPrimary : theme.branchSecondary} lineWidth={index < 12 ? 1.4 : .65} transparent opacity={index < 12 ? .7 : .35} />)}
     <points ref={pulses}>
       <bufferGeometry><bufferAttribute attach="attributes-position" args={[pulsePositions, 3]} /></bufferGeometry>
-      <pointsMaterial color="#fff1ce" size={0.055} transparent depthWrite={false} blending={THREE.AdditiveBlending} />
+      <pointsMaterial color={theme.pulse} size={0.055} transparent depthWrite={false} blending={THREE.AdditiveBlending} />
     </points>
   </group>;
 }
@@ -95,15 +99,16 @@ function CaptureBridge({ onReady, onCaptureReady }: { onReady: (canvas: HTMLCanv
   return null;
 }
 
-export function PerceptualCortexCanvas({ seed, quality, onCanvas, onCaptureReady }: { seed: number; quality: QualityTier; onCanvas: (canvas: HTMLCanvasElement) => void; onCaptureReady: (capture: () => string) => void }) {
+export function PerceptualCortexCanvas({ seed, quality, themeId, onCanvas, onCaptureReady }: { seed: number; quality: QualityTier; themeId: VisualThemeId; onCanvas: (canvas: HTMLCanvasElement) => void; onCaptureReady: (capture: () => string) => void }) {
   const config = qualityConfig[quality];
+  const theme = visualThemes[themeId];
   return <Canvas dpr={[1, config.dpr]} camera={{ position: [0, 0, 8.5], fov: 52 }} gl={{ antialias: quality !== 'low', alpha: false, preserveDrawingBuffer: true }}>
-    <color attach="background" args={['#020306']} />
-    <fog attach="fog" args={['#020306', 7, 14]} />
+    <color attach="background" args={[theme.background]} />
+    <fog attach="fog" args={[theme.fog, 7, 14]} />
     <ambientLight intensity={0.32} />
-    <pointLight position={[2, 3, 4]} color="#8cecff" intensity={7} />
-    <pointLight position={[-3, -2, 2]} color="#b671ff" intensity={5} />
-    <Organism seed={seed} pulseCount={config.pulses} />
+    <pointLight position={[2, 3, 4]} color={theme.branchPrimary} intensity={7} />
+    <pointLight position={[-3, -2, 2]} color={theme.branchSecondary} intensity={5} />
+    <Organism seed={seed} pulseCount={config.pulses} themeId={themeId} />
     <CameraRig />
     <CaptureBridge onReady={onCanvas} onCaptureReady={onCaptureReady} />
   </Canvas>;
