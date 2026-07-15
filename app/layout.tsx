@@ -6,6 +6,7 @@ import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
 import { ModeProvider } from '@/lib/contexts/ModeContext';
 import { NeuronCursor } from '@/components/effects/NeuronCursor';
+import { SensingProvider } from '@/components/sensing/SensingProvider';
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'https://sidsneural.net'),
@@ -83,6 +84,7 @@ export default function RootLayout({
         <ModeProvider>
           <div className="relative flex min-h-screen flex-col">
             <NeuronCursor />
+            <SensingProvider />
             <a
               href="#main-content"
               className="fixed left-4 top-4 z-[100] -translate-y-20 rounded-md border border-cyan/40 bg-bg-deep px-4 py-2 text-sm font-semibold text-cyan shadow-glow-cyan transition-transform focus:translate-y-0"
