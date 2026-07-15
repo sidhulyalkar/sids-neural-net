@@ -28,7 +28,7 @@ const HAND_CONNECTIONS: Array<[number, number]> = [
 ];
 
 const GESTURE_LABELS = [
-  'raise_right', 'raise_left', 'open_palm', 'fist', 'thumb_up', 'pinch', 'hammer_down', 'circle',
+  'raise_right', 'raise_left', 'open_palm', 'fist', 'thumb_up', 'clap', 'hammer_down', 'circle',
 ] as const;
 
 /**
@@ -58,13 +58,14 @@ interface Diag {
   delegates: string;
   handedness: string;
   raised: string;
+  hands: string;
 }
 
 const EMPTY: Diag = {
   brightness: 0, faceFound: false, handFound: false, gesture: '-', gestureScore: 0,
   emotion: '-', emotionScores: {}, topBlendshapes: [], pinchRatio: 0,
   pinching: false, hammerPose: false, secretPose: false, lastAction: 'none', fps: 0, delegates: '…',
-  handedness: '—', raised: '—',
+  handedness: '—', raised: '—', hands: 'none',
 };
 
 /** Mean luma over a downsampled frame. Near 0 means the camera is sending black. */
@@ -177,6 +178,7 @@ export function SensingLab() {
         next.gestureScore = obs.confidence;
         const palmY = [0, 5, 9, 13, 17].reduce((s, i) => s + (obs.landmarks[i]?.y ?? 0), 0) / 5;
         next.handedness = obs.handedness ?? '—';
+        next.hands = obs.other ? 'TWO (clap possible)' : 'one';
         next.raised = palmY <= 0.42 ? `RAISED (palm y ${palmY.toFixed(2)})` : `down (palm y ${palmY.toFixed(2)})`;
         const pw = palmWidth(obs.landmarks);
         const t = obs.landmarks[4], ix = obs.landmarks[8];
@@ -201,6 +203,15 @@ export function SensingLab() {
           gesture: obs?.gesture ?? null,
           confidence: obs?.confidence ?? 0,
           handedness: obs?.handedness ?? null,
+          // Second hand, when visible. The clap is the only gesture needing it.
+          other: obs?.other
+            ? {
+                handedness: obs.other.handedness ?? null,
+                landmarks: obs.other.landmarks.map((p) => [
+                  +p.x.toFixed(4), +p.y.toFixed(4), +(p.z ?? 0).toFixed(4),
+                ]),
+              }
+            : null,
           // z is recorded because 2D tip distance cannot tell a real pinch from
           // a relaxed hand whose thumb and index merely overlap in projection.
           landmarks: obs
@@ -346,6 +357,7 @@ export function SensingLab() {
           </div>
 
           <Row label="hand detected" value={diag.handFound ? 'yes' : 'no'} bad={!diag.handFound} />
+          <Row label="hands visible" value={diag.hands} />
           <Row label="handedness" value={diag.handedness} />
           <Row label="raised?" value={diag.raised} />
           <Row label="canned gesture" value={`${diag.gesture} (${diag.gestureScore.toFixed(2)})`} />

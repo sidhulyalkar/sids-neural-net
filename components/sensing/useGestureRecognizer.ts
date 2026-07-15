@@ -64,7 +64,7 @@ export function useGestureRecognizer(): GestureRecognizerHandle {
       const fileset = await FilesetResolver.forVisionTasks(WASM_URL);
       const options = {
         runningMode: 'VIDEO' as const,
-        numHands: 1,
+        numHands: 2,
         minHandDetectionConfidence: 0.55,
         minHandPresenceConfidence: 0.55,
         minTrackingConfidence: 0.5,
@@ -137,11 +137,15 @@ export function useGestureRecognizer(): GestureRecognizerHandle {
       const landmarks = result.landmarks[0];
       if (!landmarks?.length) return null;
       const category = result.gestures[0]?.[0];
+      const second = result.landmarks[1];
       return {
         landmarks,
         gesture: toCannedGesture(category?.categoryName),
         confidence: category?.score ?? 0,
         handedness: result.handedness?.[0]?.[0]?.categoryName,
+        other: second?.length
+          ? { landmarks: second, handedness: result.handedness?.[1]?.[0]?.categoryName }
+          : undefined,
       };
     },
     [load],

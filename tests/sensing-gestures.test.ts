@@ -132,13 +132,57 @@ test('pose can fire again only after release and cooldown', () => {
   assert.equal(state.action?.type, 'close_palette');
 });
 
-test('a deliberate pinch emits activate after dwell', () => {
+test('a pinch drives the cursor but no longer emits an action', () => {
+  // Pinch-to-activate produced every remaining false positive; thumb_up owns
+  // activate now. The cursor still reports pinching for hover affordances.
   let state = step(initialGestureTracker(), observation('None', 0.5, 0.5, true), 0);
-  state = step(state.tracker, observation('None', 0.5, 0.5, true), 179);
-  assert.equal(state.action, null);
-  state = step(state.tracker, observation('None', 0.5, 0.5, true), 180);
-  assert.equal(state.action?.type, 'activate');
+  for (const at of [180, 400, 1000]) {
+    state = step(state.tracker, observation('None', 0.5, 0.5, true), at);
+    assert.equal(state.action, null, `pinch fired at ${at}ms`);
+  }
   assert.equal(state.cursor?.pinching, true);
+});
+
+/** Two hands, palms `gap` apart horizontally. */
+function clapObservation(gap: number): HandObservation {
+  const left = landmarks(0.5 - gap / 2, 0.5);
+  const right = landmarks(0.5 + gap / 2, 0.5);
+  return {
+    landmarks: left,
+    gesture: 'None',
+    confidence: 0.9,
+    handedness: 'Left',
+    other: { landmarks: right, handedness: 'Right' },
+  };
+}
+
+test('palms brought together emit activate', () => {
+  let state = step(initialGestureTracker(), clapObservation(0.5), 0);
+  assert.equal(state.action, null);
+  state = step(state.tracker, clapObservation(0.05), 200);
+  assert.equal(state.action?.type, 'activate');
+});
+
+test('palms resting near each other never clap without an approach', () => {
+  let state = step(initialGestureTracker(), clapObservation(0.05), 0);
+  for (const at of [200, 600, 1200]) {
+    state = step(state.tracker, clapObservation(0.05), at);
+    assert.equal(state.action, null, `resting hands clapped at ${at}ms`);
+  }
+});
+
+test('a clap fires once until the palms part again', () => {
+  let state = step(initialGestureTracker(), clapObservation(0.5), 0);
+  state = step(state.tracker, clapObservation(0.05), 200);
+  assert.equal(state.action?.type, 'activate');
+  state = step(state.tracker, clapObservation(0.05), 1200);
+  assert.equal(state.action, null, 'held together must not repeat');
+});
+
+test('one hand alone can never clap', () => {
+  let state = step(initialGestureTracker(), observation('None', 0.5, 0.5), 0);
+  state = step(state.tracker, observation('None', 0.5, 0.5), 300);
+  assert.equal(state.action, null);
 });
 
 test('raising the right hand navigates forward after a dwell, once per raise', () => {

@@ -70,19 +70,23 @@ These cost real debugging time. They generalize beyond this package.
 | Open palm **flashed into a fist** | `open_palette` | ✅ 15 fires; a *held* palm is how you raise to navigate, so the transition is the gesture |
 | Closed fist (dwell 450ms) | `close_palette` | ✅ |
 | Thumb up (dwell 650ms) | `activate` | ✅ best performer (classifier 105/105) |
-| Pinch (dwell 180ms, **3D**) | `activate` | ⚠️ 10 fires; false-positive rate **unmeasured** (idle takes predate z) |
+| **Clap** (two palms meeting) | `activate` | 🆕 implemented, **unvalidated** — no two-hand take exists yet |
+| ~~Pinch~~ | — | ❌ **removed.** Fired every remaining false positive; no threshold fixed it. `isPinching` survives only for the air cursor and the secret circle. |
 | Circle-game (dwell 900ms) | `prank` | ⚠️ leaks `activate` |
+
+`numHands` is **2** (the clap needs both). Every other gesture reads the primary
+hand; only the clap reads `observation.other`.
 
 Rates: face 12fps, hands **30fps** (a ~200ms strike at 15fps is ~3 samples — too
 few once blur takes some).
 
 ## Open work
 
-- **Idle takes need re-recording with `z`.** All `idle_*` takes predate z, so the
-  3D pinch threshold (0.20) has **never been measured against normal activity** —
-  `distance3` silently degrades to 2D on them, making those numbers invalid.
-  This is the single most important gap: the pinch was the only false-positive
-  source and its new rate is unknown.
+- **The clap is unvalidated.** Every take was recorded with `numHands: 1`, so no
+  file contains two hands and the clap has never been measured. `CLAP_GAP = 1.1`
+  and `CLAP_APART = 2.0` are reasoned, not fitted. Needs a `clap` take plus fresh
+  `idle_*` takes (hands resting together near the keyboard is the obvious risk).
+- `open_palm` take shows `close_palette` x5 — the flash fist lingers and also closes.
 - `raise_left` still emits one `open_palette` (2.3/min) — a raise followed by a fist.
 - Circle-game pose leaks `activate`; untested against z.
 - `RAISE_MAX_PALM_Y = 0.42` / `RAISE_DWELL_MS = 450` are reasoned, not fitted.

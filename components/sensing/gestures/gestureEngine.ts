@@ -93,6 +93,14 @@ const POSE_ACTIONS: Partial<Record<CannedGesture, { action: GestureActionType; d
  * which nothing else in the set performs.
  */
 const OPEN_FLASH_MS = 900;
+/**
+ * Palms this close together (as a multiple of hand length) count as met.
+ * Scaled by hand length so it holds regardless of distance from the camera.
+ */
+const CLAP_GAP = 1.1;
+/** The palms must have been at least this far apart inside the approach window. */
+const CLAP_APART = 2.0;
+const CLAP_WINDOW_MS = 500;
 
 function clamp01(value: number): number {
   return Math.min(1, Math.max(0, value));
@@ -234,8 +242,6 @@ export function updateGestureTracker(
         pose: 'None',
         poseStartedAt: now,
         poseLatched: false,
-        pinchStartedAt: null,
-        pinchLatched: false,
         hammerSamples: [],
         hammerSeenAt: null,
         secretStartedAt: null,
@@ -295,18 +301,11 @@ export function updateGestureTracker(
   if (secretActive) {
     tracker = {
       ...tracker,
-      pinchStartedAt: null,
-      pinchLatched: false,
       secretSeenAt,
       secretStartedAt: tracker.secretStartedAt ?? now,
     };
   } else {
     tracker = { ...tracker, secretSeenAt: null, secretStartedAt: null, secretLatched: false };
-    if (!pinching) {
-      tracker = { ...tracker, pinchStartedAt: null, pinchLatched: false };
-    } else if (tracker.pinchStartedAt === null) {
-      tracker = { ...tracker, pinchStartedAt: now };
-    }
   }
 
   const canAct = now >= tracker.cooldownUntil;
@@ -327,18 +326,37 @@ export function updateGestureTracker(
     return { tracker: emitted.tracker, action: emitted.action, cursor, pose, confidence: observation.confidence };
   }
 
-  // A deliberate pinch activates the interactive element under the air cursor.
-  if (
-    canAct &&
-    !secretActive &&
-    pinching &&
-    !tracker.pinchLatched &&
-    tracker.pinchStartedAt !== null &&
-    now - tracker.pinchStartedAt >= PINCH_DWELL_MS
-  ) {
-    tracker = { ...tracker, pinchLatched: true, poseLatched: true };
-    const emitted = emitAction(tracker, 'activate', now);
-    return { tracker: emitted.tracker, action: emitted.action, cursor, pose, confidence: observation.confidence };
+  // Pinch no longer emits an action. It survives only to drive the air cursor's
+  // pinching state and to disambiguate the secret circle.
+  //
+  // Measured against idle takes with hands visible, pinch-to-activate produced
+  // every remaining false positive (~5-8/min) and neither lever fixed it: ratio
+  // 0.20/0.17/0.15/0.12 traded 10/9/6/2 real fires against a 6/5/3/3 false
+  // floor, and dwell only destroyed recall. Thumb_up already emits activate at
+  // 105/105 classifier confidence with zero false positives, so the pinch was
+  // buying nothing but misfires.
+
+  // Two palms brought together. Requires both hands, so it is the only gesture
+  // that reads observation.other. The approach test (they were CLAP_APART
+  // recently) is what separates a clap from hands that merely rest near each
+  // other while idle.
+  const other = observation.other ?? null;
+  const otherPalm = other ? getPalmCenter(other.landmarks) : null;
+  const clapGap =
+    palm && otherPalm ? distance(palm, otherPalm) / Math.max(getHandLength(observation.landmarks), 1e-6) : null;
+
+  if (clapGap !== null) {
+    const wasApart =
+      tracker.clapApartAt !== null && now - tracker.clapApartAt <= CLAP_WINDOW_MS;
+    if (clapGap >= CLAP_APART) tracker = { ...tracker, clapApartAt: now };
+    if (canAct && !tracker.clapLatched && clapGap <= CLAP_GAP && wasApart) {
+      tracker = { ...tracker, clapLatched: true, clapApartAt: null };
+      const emitted = emitAction(tracker, 'activate', now);
+      return { tracker: emitted.tracker, action: emitted.action, cursor, pose, confidence: observation.confidence };
+    }
+    if (clapGap > CLAP_GAP) tracker = { ...tracker, clapLatched: false };
+  } else {
+    tracker = { ...tracker, clapApartAt: null, clapLatched: false };
   }
 
   // A downward strike with a closed fist scrolls one page. The fist is what

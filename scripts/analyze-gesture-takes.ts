@@ -19,6 +19,7 @@ interface Frame {
   gesture: string | null;
   confidence: number;
   handedness?: string | null;
+  other?: { handedness?: string | null; landmarks: number[][] } | null;
   /** null when no hand was visible that frame — replayed as a null observation. */
   landmarks: number[][] | null;
 }
@@ -30,8 +31,8 @@ const EXPECTED: Record<string, string> = {
   open_palm: 'open_palette',
   fist: 'close_palette',
   thumb_up: 'activate',
-  pinch: 'activate',
   hammer_down: 'page_down',
+  clap: 'activate',
   circle: 'prank',
 };
 
@@ -112,6 +113,9 @@ for (const [label, raw] of byLabel) {
             gesture: f.gesture as never,
             confidence: f.confidence,
             handedness: f.handedness ?? undefined,
+            other: f.other
+              ? { landmarks: toPoints(f.other.landmarks), handedness: f.other.handedness ?? undefined }
+              : undefined,
           }
         : null;
       const u = updateGestureTracker(tracker, observation, f.t);

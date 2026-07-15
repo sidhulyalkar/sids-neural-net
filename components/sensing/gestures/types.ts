@@ -20,6 +20,8 @@ export interface HandObservation {
   gesture: CannedGesture;
   confidence: number;
   handedness?: string;
+  /** The second hand, when two are visible. Only the clap reads it. */
+  other?: { landmarks: GesturePoint[]; handedness?: string };
 }
 
 export type GestureActionType =
@@ -54,8 +56,9 @@ export interface GestureTracker {
   pose: CannedGesture;
   poseStartedAt: number;
   poseLatched: boolean;
-  pinchStartedAt: number | null;
-  pinchLatched: boolean;
+  /** Last frame the two palms were clearly apart, so a clap needs an approach. */
+  clapApartAt: number | null;
+  clapLatched: boolean;
   hammerSamples: PositionSample[];
   /** Last frame the hammer shape was seen, so a blurred frame mid-swing does not wipe the buffer. */
   hammerSeenAt: number | null;
@@ -87,8 +90,8 @@ export function initialGestureTracker(): GestureTracker {
     pose: 'None',
     poseStartedAt: 0,
     poseLatched: false,
-    pinchStartedAt: null,
-    pinchLatched: false,
+    clapApartAt: null,
+    clapLatched: false,
     hammerSamples: [],
     hammerSeenAt: null,
     secretStartedAt: null,
