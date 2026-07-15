@@ -10,18 +10,47 @@ import {
 } from './types';
 
 const SAMPLE_WINDOW_MS = 420;
-const SWIPE_MIN_DURATION_MS = 100;
-const SWIPE_DISTANCE = 0.24;
-const SWIPE_MAX_VERTICAL_DRIFT = 0.16;
+const MIN_MOTION_DURATION_MS = 100;
 const ACTION_COOLDOWN_MS = 800;
+/**
+ * Navigation is a raised hand, not a swipe.
+ *
+ * A swipe cannot be told from its own return stroke — the hand travels the same
+ * distance back along the same axis, so the recorded takes fire in whichever
+ * direction the cooldown happens to sample. A raised hand is a static pose:
+ * no motion window, no return stroke, nothing for the frame rate to alias.
+ */
+const RAISE_MAX_PALM_Y = 0.42;
+const RAISE_DWELL_MS = 450;
 const PINCH_DWELL_MS = 180;
 const PINCH_RATIO = 0.28;
 const MIN_POSE_CONFIDENCE = 0.65;
 const SECRET_DWELL_MS = 900;
 const SECRET_LOWER_FRAME_Y = 0.58;
 const PRANK_COOLDOWN_MS = 30_000;
-const CHOP_DISTANCE = 0.2;
-const CHOP_MAX_HORIZONTAL_DRIFT = 0.12;
+// Measured: a real downward strike moves the palm ~0.19-0.48 inside the window.
+const HAMMER_DISTANCE = 0.15;
+/**
+ * How folded the fingers must be: max(tip-to-wrist / knuckle-to-wrist).
+ *
+ * A flat-handed chop had to be abandoned — it is the same physical motion as
+ * lowering a raised hand, and no feature separated them (shape, start height,
+ * end height and velocity all overlapped). A fist does separate: measured
+ * below 0.85 on 70% of fist frames but 0-8% of raise/idle frames, because
+ * nobody lowers a raised hand with their fingers curled into their palm.
+ */
+const HAMMER_CURL = 0.85;
+/**
+ * How long the chop buffer keeps tracking after the hand shape drops out.
+ *
+ * The strike is the blurriest part of the gesture, so the shape fails exactly
+ * while the hand is moving fastest. Measured: positions recorded only on
+ * shape-matching frames top out at dy 0.093, while the real strike travels
+ * 0.649 — the motion lives entirely in the frames the shape test rejects.
+ */
+const HAMMER_GRACE_MS = 200;
+/** Bridges frames where the circle pose flickers off and pinch would slip in. */
+const SECRET_GRACE_MS = 260;
 
 const POSE_ACTIONS: Partial<Record<CannedGesture, { action: GestureActionType; dwell: number }>> = {
   Open_Palm: { action: 'open_palette', dwell: 700 },
@@ -48,6 +77,20 @@ function average(points: GesturePoint[]): GesturePoint {
 function getPalmCenter(landmarks: GesturePoint[]): GesturePoint | null {
   const points = [0, 5, 9, 13, 17].map((index) => landmarks[index]).filter(Boolean);
   return points.length === 5 ? average(points) : null;
+}
+
+/**
+ * Wrist-to-middle-knuckle length as the scale reference.
+ *
+ * Palm width (index knuckle -> pinky knuckle) foreshortens to roughly a third
+ * when the hand turns edge-on, which is exactly the chop pose — measured 0.154
+ * flat vs 0.058 chopping. Anything normalized by it inflates ~2.6x mid-chop.
+ * Hand length is taken along the rotation axis, so it stays stable.
+ */
+function getHandLength(landmarks: GesturePoint[]): number {
+  const wrist = landmarks[0];
+  const middleMcp = landmarks[9];
+  return wrist && middleMcp ? distance(wrist, middleMcp) : 0;
 }
 
 function fingerExtended(landmarks: GesturePoint[], pipIndex: number, tipIndex: number): boolean {
@@ -79,29 +122,27 @@ export function isSecretCirclePose(landmarks: GesturePoint[]): boolean {
   );
 }
 
-/** Flat, fingers-together hand shape used to gate downward chop motion. */
-export function isKarateChopPose(landmarks: GesturePoint[]): boolean {
-  const indexMcp = landmarks[5];
-  const pinkyMcp = landmarks[17];
-  const thumbTip = landmarks[4];
-  const tips = [8, 12, 16, 20].map((index) => landmarks[index]);
-  if (!indexMcp || !pinkyMcp || !thumbTip || tips.some((tip) => !tip)) return false;
+/**
+ * Closed fist: every fingertip folded back toward the wrist.
+ *
+ * Gates the downward hammer strike. Testing "no finger is extended" is not
+ * enough — a relaxed or edge-on hand satisfies it, which fired on 56% of idle
+ * talking frames. Requiring each tip to sit closer to the wrist than its own
+ * knuckle is what makes a fist unambiguous.
+ */
+export function isHammerPose(landmarks: GesturePoint[]): boolean {
+  const wrist = landmarks[0];
+  if (!wrist || getHandLength(landmarks) < 0.02) return false;
 
-  const palmWidth = distance(indexMcp, pinkyMcp);
-  if (palmWidth < 0.02) return false;
-  const fingersTogether = tips
-    .slice(1)
-    .every((tip, index) => distance(tips[index]!, tip!) / palmWidth < 0.48);
-  const thumbTucked = distance(thumbTip, indexMcp) / palmWidth < 0.9;
-
-  return (
-    thumbTucked &&
-    fingersTogether &&
-    fingerExtended(landmarks, 6, 8) &&
-    fingerExtended(landmarks, 10, 12) &&
-    fingerExtended(landmarks, 14, 16) &&
-    fingerExtended(landmarks, 18, 20)
-  );
+  for (const [mcpIndex, tipIndex] of [[5, 8], [9, 12], [13, 16], [17, 20]] as const) {
+    const mcp = landmarks[mcpIndex];
+    const tip = landmarks[tipIndex];
+    if (!mcp || !tip) return false;
+    const knuckle = distance(mcp, wrist);
+    if (knuckle < 1e-6) return false;
+    if (distance(tip, wrist) / knuckle >= HAMMER_CURL) return false;
+  }
+  return true;
 }
 
 export function isPinching(landmarks: GesturePoint[]): boolean {
@@ -125,7 +166,6 @@ function emitAction(
     action: { id: tracker.nextActionId, type, at: now },
     tracker: {
       ...tracker,
-      samples: [],
       cooldownUntil: now + ACTION_COOLDOWN_MS,
       nextActionId: tracker.nextActionId + 1,
     },
@@ -133,7 +173,7 @@ function emitAction(
 }
 
 /**
- * Pure temporal gesture reducer. It applies dwell, swipe-distance, and cooldown
+ * Pure temporal gesture reducer. It applies dwell, travel-distance, and cooldown
  * gates so a held pose cannot repeatedly trigger website actions.
  */
 export function updateGestureTracker(
@@ -145,15 +185,19 @@ export function updateGestureTracker(
     return {
       tracker: {
         ...previous,
-        samples: [],
         pose: 'None',
         poseStartedAt: now,
         poseLatched: false,
         pinchStartedAt: null,
         pinchLatched: false,
-        chopSamples: [],
+        hammerSamples: [],
+        hammerSeenAt: null,
         secretStartedAt: null,
+        secretSeenAt: null,
         secretLatched: false,
+        raiseHand: null,
+        raiseStartedAt: null,
+        raiseLatched: false,
       },
       action: null,
       cursor: null,
@@ -168,21 +212,22 @@ export function updateGestureTracker(
     : null;
   const palm = getPalmCenter(observation.landmarks);
   const point = palm ? { x: clamp01(1 - palm.x), y: clamp01(palm.y), at: now } : null;
-  let tracker: GestureTracker = {
-    ...previous,
-    samples: point
-      ? [...previous.samples.filter((sample) => now - sample.at <= SAMPLE_WINDOW_MS), point]
-      : [],
-  };
+  let tracker: GestureTracker = { ...previous };
 
   const secretCandidate = isSecretCirclePose(observation.landmarks);
-  const chopCandidate = isKarateChopPose(observation.landmarks);
+  const hammerCandidate = isHammerPose(observation.landmarks);
+
+  // The hammer is the fastest gesture, so it is the most motion-blurred: the
+  // shape drops out for a frame or two exactly while the hand is moving. Keep
+  // recording positions through that window — merely preserving the buffer
+  // without adding to it loses the strike itself, which is the whole gesture.
+  const hammerSeenAt = hammerCandidate ? now : previous.hammerSeenAt;
+  const hammerAlive = hammerSeenAt !== null && now - hammerSeenAt <= HAMMER_GRACE_MS;
+  const keptHammer = previous.hammerSamples.filter((sample) => now - sample.at <= SAMPLE_WINDOW_MS);
   tracker = {
     ...tracker,
-    chopSamples:
-      chopCandidate && point
-        ? [...previous.chopSamples.filter((sample) => now - sample.at <= SAMPLE_WINDOW_MS), point]
-        : [],
+    hammerSeenAt: hammerAlive ? hammerSeenAt : null,
+    hammerSamples: point && (hammerCandidate || hammerAlive) ? [...keptHammer, point] : [],
   };
 
   const pose = observation.confidence >= MIN_POSE_CONFIDENCE ? observation.gesture : 'None';
@@ -190,22 +235,30 @@ export function updateGestureTracker(
     tracker = { ...tracker, pose, poseStartedAt: now, poseLatched: false };
   }
 
+  // The circle pose is only recognized on ~43% of frames while pinch hits ~52%
+  // of the same frames, so a strict test lets pinch fire in the gaps before the
+  // prank's longer dwell completes. Treat the secret as held across brief drops.
+  const secretSeenAt = secretCandidate ? now : previous.secretSeenAt;
+  const secretActive =
+    secretCandidate || (secretSeenAt !== null && now - secretSeenAt <= SECRET_GRACE_MS);
+
   const pinching = isPinching(observation.landmarks);
   if (cursor) cursor.pinching = pinching;
-  if (secretCandidate) {
+  if (secretActive) {
     tracker = {
       ...tracker,
       pinchStartedAt: null,
       pinchLatched: false,
+      secretSeenAt,
       secretStartedAt: tracker.secretStartedAt ?? now,
     };
-  } else if (!pinching) {
-    tracker = { ...tracker, pinchStartedAt: null, pinchLatched: false };
-  } else if (tracker.pinchStartedAt === null) {
-    tracker = { ...tracker, pinchStartedAt: now };
-  }
-  if (!secretCandidate) {
-    tracker = { ...tracker, secretStartedAt: null, secretLatched: false };
+  } else {
+    tracker = { ...tracker, secretSeenAt: null, secretStartedAt: null, secretLatched: false };
+    if (!pinching) {
+      tracker = { ...tracker, pinchStartedAt: null, pinchLatched: false };
+    } else if (tracker.pinchStartedAt === null) {
+      tracker = { ...tracker, pinchStartedAt: now };
+    }
   }
 
   const canAct = now >= tracker.cooldownUntil;
@@ -215,7 +268,7 @@ export function updateGestureTracker(
   if (
     canAct &&
     now >= tracker.prankCooldownUntil &&
-    secretCandidate &&
+    secretActive &&
     !tracker.secretLatched &&
     tracker.secretStartedAt !== null &&
     now - tracker.secretStartedAt >= SECRET_DWELL_MS
@@ -229,7 +282,7 @@ export function updateGestureTracker(
   // A deliberate pinch activates the interactive element under the air cursor.
   if (
     canAct &&
-    !secretCandidate &&
+    !secretActive &&
     pinching &&
     !tracker.pinchLatched &&
     tracker.pinchStartedAt !== null &&
@@ -240,31 +293,50 @@ export function updateGestureTracker(
     return { tracker: emitted.tracker, action: emitted.action, cursor, pose, confidence: observation.confidence };
   }
 
-  // A fast downward motion with a flat, fingers-together hand scrolls one page.
-  const chopFirst = tracker.chopSamples[0];
-  const chopLast = tracker.chopSamples[tracker.chopSamples.length - 1];
-  if (canAct && chopFirst && chopLast && chopLast.at - chopFirst.at >= SWIPE_MIN_DURATION_MS) {
-    const dx = Math.abs(chopLast.x - chopFirst.x);
-    const dy = chopLast.y - chopFirst.y;
-    if (dy >= CHOP_DISTANCE && dx <= CHOP_MAX_HORIZONTAL_DRIFT) {
-      tracker = { ...tracker, poseLatched: true, chopSamples: [] };
-      const emitted = emitAction(tracker, 'page_down', now);
-      emitted.tracker.cooldownUntil = now + 1200;
-      return { tracker: emitted.tracker, action: emitted.action, cursor, pose, confidence: observation.confidence };
+  // A downward strike with a closed fist scrolls one page. The fist is what
+  // makes this distinguishable from simply putting a raised hand down.
+  //
+  // Measure the largest downward excursion ending at the newest sample, rather
+  // than the buffer's endpoints. A chop is a strike *and a recovery*: once the
+  // sample rate is high enough to hold both in one window, first-to-last
+  // cancels out to nothing and the gesture is never seen. Faster sampling made
+  // that worse, not better, which is what gave the bug away.
+  const hammerLast = tracker.hammerSamples[tracker.hammerSamples.length - 1];
+  if (canAct && hammerLast) {
+    for (const start of tracker.hammerSamples) {
+      if (hammerLast.at - start.at < MIN_MOTION_DURATION_MS) continue;
+      const dx = Math.abs(hammerLast.x - start.x);
+      const dy = hammerLast.y - start.y;
+      if (dy >= HAMMER_DISTANCE && dy > dx) {
+        tracker = { ...tracker, poseLatched: true, hammerSamples: [] };
+        const emitted = emitAction(tracker, 'page_down', now);
+        emitted.tracker.cooldownUntil = now + 1200;
+        return { tracker: emitted.tracker, action: emitted.action, cursor, pose, confidence: observation.confidence };
+      }
     }
   }
 
-  // Swipes use mirrored palm coordinates so direction feels natural in selfie view.
-  const first = tracker.samples[0];
-  const last = tracker.samples[tracker.samples.length - 1];
-  if (canAct && first && last && last.at - first.at >= SWIPE_MIN_DURATION_MS) {
-    const dx = last.x - first.x;
-    const dy = Math.abs(last.y - first.y);
-    if (Math.abs(dx) >= SWIPE_DISTANCE && dy <= SWIPE_MAX_VERTICAL_DRIFT) {
-      tracker = { ...tracker, poseLatched: true };
-      const emitted = emitAction(tracker, dx < 0 ? 'navigate_next' : 'navigate_previous', now);
+  // Raise a hand to navigate: right hand forward, left hand back. Handedness
+  // comes straight from MediaPipe; the dwell keeps a hand that merely passes
+  // through the top of frame from paging the site.
+  const raised = point !== null && point.y <= RAISE_MAX_PALM_Y;
+  const hand = observation.handedness ?? null;
+  if (raised && hand) {
+    if (tracker.raiseHand !== hand) {
+      tracker = { ...tracker, raiseHand: hand, raiseStartedAt: now, raiseLatched: false };
+    }
+    if (
+      canAct &&
+      !tracker.raiseLatched &&
+      tracker.raiseStartedAt !== null &&
+      now - tracker.raiseStartedAt >= RAISE_DWELL_MS
+    ) {
+      tracker = { ...tracker, raiseLatched: true, poseLatched: true };
+      const emitted = emitAction(tracker, hand === 'Right' ? 'navigate_next' : 'navigate_previous', now);
       return { tracker: emitted.tracker, action: emitted.action, cursor, pose, confidence: observation.confidence };
     }
+  } else {
+    tracker = { ...tracker, raiseHand: null, raiseStartedAt: null, raiseLatched: false };
   }
 
   const poseAction = POSE_ACTIONS[pose];

@@ -51,15 +51,22 @@ export interface PositionSample {
 }
 
 export interface GestureTracker {
-  samples: PositionSample[];
   pose: CannedGesture;
   poseStartedAt: number;
   poseLatched: boolean;
   pinchStartedAt: number | null;
   pinchLatched: boolean;
-  chopSamples: PositionSample[];
+  hammerSamples: PositionSample[];
+  /** Last frame the hammer shape was seen, so a blurred frame mid-swing does not wipe the buffer. */
+  hammerSeenAt: number | null;
   secretStartedAt: number | null;
+  /** Last frame the circle was seen; bridges the gaps that let pinch fire mid-secret. */
+  secretSeenAt: number | null;
   secretLatched: boolean;
+  /** Which hand is currently held up ('Left' | 'Right'), null when none is. */
+  raiseHand: string | null;
+  raiseStartedAt: number | null;
+  raiseLatched: boolean;
   prankCooldownUntil: number;
   cooldownUntil: number;
   nextActionId: number;
@@ -75,15 +82,19 @@ export interface GestureUpdate {
 
 export function initialGestureTracker(): GestureTracker {
   return {
-    samples: [],
     pose: 'None',
     poseStartedAt: 0,
     poseLatched: false,
     pinchStartedAt: null,
     pinchLatched: false,
-    chopSamples: [],
+    hammerSamples: [],
+    hammerSeenAt: null,
     secretStartedAt: null,
+    secretSeenAt: null,
     secretLatched: false,
+    raiseHand: null,
+    raiseStartedAt: null,
+    raiseLatched: false,
     prankCooldownUntil: 0,
     cooldownUntil: 0,
     nextActionId: 1,

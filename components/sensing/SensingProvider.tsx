@@ -6,6 +6,7 @@
 // explicitly enables it via SensingToggle.
 
 import { useCallback, useEffect, useRef } from 'react';
+import { usePathname } from 'next/navigation';
 import { useSensingStore } from '@/lib/stores/sensingStore';
 import { useFaceLandmarker } from './useFaceLandmarker';
 import { useGestureRecognizer } from './useGestureRecognizer';
@@ -27,7 +28,10 @@ import {
 
 /** ~12 FPS is plenty for mood; keeps CPU/GPU cost low. */
 const FACE_INTERVAL_MS = 1000 / 12;
-const HAND_INTERVAL_MS = 1000 / 15;
+// Hands run at 30: a chop lasts ~200ms, which 15 FPS samples ~3 times — too few
+// to survive the frames motion blur costs us. Measured chop takes came through
+// at an effective 6.5-11 FPS, which aliased the strike away entirely.
+const HAND_INTERVAL_MS = 1000 / 30;
 
 /** CSS custom properties we override on <html> while active. */
 const MOOD_VARS = ['--mood-active', '--mood-primary', '--mood-secondary', '--mood-glow', '--cyan', '--cyan-rgb'] as const;
@@ -49,6 +53,14 @@ function clearTokens(): void {
 }
 
 export function SensingProvider() {
+  // The lab route drives the same models from its own camera. Mounting this
+  // layer there too would run two cameras and four models at once.
+  const pathname = usePathname();
+  if (pathname?.startsWith('/sensing-lab')) return null;
+  return <SensingLayer />;
+}
+
+function SensingLayer() {
   const enabled = useSensingStore((s) => s.enabled);
   const status = useSensingStore((s) => s.status);
   const setStatus = useSensingStore((s) => s.setStatus);

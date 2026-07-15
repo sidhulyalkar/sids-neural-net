@@ -44,7 +44,7 @@ visual-archive.zip
 Best pics*.zip
 
 # Local research/reference artifacts
-images/
+/images/
 neural_frontend.txt
 neuron_nmo*/
 neuron_nmo*.zip

@@ -7,6 +7,7 @@
 
 import { useCallback, useRef } from 'react';
 import type { BlendshapeMap } from './emotion/types';
+import { quietMediapipeInfoLogs } from './quietMediapipeLogs';
 
 // Pinned to the installed @mediapipe/tasks-vision version for reproducibility.
 const MEDIAPIPE_VERSION = '0.10.17';
@@ -27,12 +28,16 @@ export interface FaceLandmarkerHandle {
   detect: (video: HTMLVideoElement, timestampMs: number) => BlendshapeMap | null;
   /** Release the underlying MediaPipe resources. */
   close: () => void;
+  /** Delegate backing the live landmarker, for diagnostics. */
+  getDelegate: () => 'GPU' | 'CPU' | null;
 }
 
 export function useFaceLandmarker(): FaceLandmarkerHandle {
   const landmarkerRef = useRef<FaceLandmarkerLike | null>(null);
   const generationRef = useRef(0);
   const loadingRef = useRef<{ generation: number; promise: Promise<void> } | null>(null);
+  const delegateRef = useRef<'GPU' | 'CPU'>('GPU');
+  const forceCpuRef = useRef(false);
 
   const load = useCallback(async () => {
     if (landmarkerRef.current) return;
@@ -40,6 +45,7 @@ export function useFaceLandmarker(): FaceLandmarkerHandle {
     if (loadingRef.current?.generation === generation) return loadingRef.current.promise;
 
     const promise = (async () => {
+      quietMediapipeInfoLogs();
       const vision = await import('@mediapipe/tasks-vision');
       const { FaceLandmarker, FilesetResolver } = vision;
       const fileset = await FilesetResolver.forVisionTasks(WASM_URL);
@@ -48,21 +54,27 @@ export function useFaceLandmarker(): FaceLandmarkerHandle {
         runningMode: 'VIDEO' as const,
         numFaces: 1,
       };
+      const create = (delegate: 'GPU' | 'CPU') =>
+        FaceLandmarker.createFromOptions(fileset, {
+          ...options,
+          baseOptions: { modelAssetPath: MODEL_URL, delegate },
+        }) as unknown as Promise<FaceLandmarkerLike>;
 
       let landmarker: FaceLandmarkerLike;
-      try {
-        landmarker = (await FaceLandmarker.createFromOptions(fileset, {
-          ...options,
-          baseOptions: { modelAssetPath: MODEL_URL, delegate: 'GPU' },
-        })) as unknown as FaceLandmarkerLike;
-      } catch (gpuError) {
-        // WebGL may be unavailable, blocked, or unstable on older/mobile GPUs.
-        // CPU mode is slower but preserves the feature instead of failing closed.
-        console.warn('[sensing] GPU delegate unavailable; falling back to CPU', gpuError);
-        landmarker = (await FaceLandmarker.createFromOptions(fileset, {
-          ...options,
-          baseOptions: { modelAssetPath: MODEL_URL, delegate: 'CPU' },
-        })) as unknown as FaceLandmarkerLike;
+      if (forceCpuRef.current) {
+        landmarker = await create('CPU');
+        delegateRef.current = 'CPU';
+      } else {
+        try {
+          landmarker = await create('GPU');
+          delegateRef.current = 'GPU';
+        } catch (gpuError) {
+          // WebGL may be unavailable, blocked, or unstable on older/mobile GPUs.
+          // CPU mode is slower but preserves the feature instead of failing closed.
+          console.warn('[sensing] GPU delegate unavailable; falling back to CPU', gpuError);
+          landmarker = await create('CPU');
+          delegateRef.current = 'CPU';
+        }
       }
 
       // Disable/unmount can happen while WASM or the model is still loading.
@@ -86,14 +98,34 @@ export function useFaceLandmarker(): FaceLandmarkerHandle {
     const landmarker = landmarkerRef.current;
     if (!landmarker) return null;
 
-    const result = landmarker.detectForVideo(video, timestampMs);
+    let result: { faceBlendshapes?: Array<{ categories: Array<{ categoryName: string; score: number }> }> };
+    try {
+      result = landmarker.detectForVideo(video, timestampMs);
+    } catch (err) {
+      // See useGestureRecognizer: a GPU delegate can build and then fail every
+      // inference, which construction-time fallback cannot detect.
+      if (delegateRef.current === 'GPU' && !forceCpuRef.current) {
+        console.warn('[sensing] GPU inference failed; rebuilding on CPU', err);
+        forceCpuRef.current = true;
+        landmarkerRef.current = null;
+        try {
+          landmarker.close();
+        } catch {
+          // A broken graph can also throw on close; the rebuild matters more.
+        }
+        void load();
+        return null;
+      }
+      throw err;
+    }
+
     const categories = result.faceBlendshapes?.[0]?.categories;
     if (!categories || categories.length === 0) return null;
 
     const map: BlendshapeMap = {};
     for (const c of categories) map[c.categoryName] = c.score;
     return map;
-  }, []);
+  }, [load]);
 
   const close = useCallback(() => {
     generationRef.current += 1;
@@ -101,5 +133,7 @@ export function useFaceLandmarker(): FaceLandmarkerHandle {
     landmarkerRef.current = null;
   }, []);
 
-  return { load, detect, close };
+  const getDelegate = useCallback(() => (landmarkerRef.current ? delegateRef.current : null), []);
+
+  return { load, detect, close, getDelegate };
 }

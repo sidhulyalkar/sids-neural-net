@@ -4,42 +4,6 @@ export function NeuralBackground() {
       {/* Base dark background */}
       <div className="fixed inset-0 bg-[#020306]" />
 
-      {/* Neuron image - top left corner, fading in from edge */}
-      <div
-        className="absolute -left-[15%] -top-[10%] h-[70vh] w-[50vw] opacity-[0.12]"
-        style={{
-          backgroundImage: 'url(/images/neuron-bg-1.jpg)',
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-          maskImage: 'radial-gradient(ellipse 80% 80% at 30% 30%, black 10%, transparent 70%)',
-          WebkitMaskImage: 'radial-gradient(ellipse 80% 80% at 30% 30%, black 10%, transparent 70%)',
-        }}
-      />
-
-      {/* Neuron image - bottom right corner */}
-      <div
-        className="absolute -bottom-[15%] -right-[10%] h-[75vh] w-[55vw] opacity-[0.10]"
-        style={{
-          backgroundImage: 'url(/images/neuron-bg-2.jpg)',
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-          maskImage: 'radial-gradient(ellipse 85% 85% at 70% 70%, black 10%, transparent 65%)',
-          WebkitMaskImage: 'radial-gradient(ellipse 85% 85% at 70% 70%, black 10%, transparent 65%)',
-        }}
-      />
-
-      {/* Neuron image - center right, very subtle depth */}
-      <div
-        className="absolute right-[5%] top-[20%] h-[50vh] w-[35vw] opacity-[0.06]"
-        style={{
-          backgroundImage: 'url(/images/neuron-bg-3.jpg)',
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-          maskImage: 'radial-gradient(ellipse 70% 70% at 60% 50%, black 5%, transparent 60%)',
-          WebkitMaskImage: 'radial-gradient(ellipse 70% 70% at 60% 50%, black 5%, transparent 60%)',
-        }}
-      />
-
       {/* SVG dendrite overlay - spread across entire page */}
       <svg className="absolute inset-0 h-full w-full opacity-60" viewBox="0 0 1200 900" preserveAspectRatio="xMidYMid slice">
         <g fill="none" strokeLinecap="round" strokeLinejoin="round">
