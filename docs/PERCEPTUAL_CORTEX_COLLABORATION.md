@@ -58,3 +58,11 @@ The hand-tracking slice should first review the current sensing hooks and reuse 
 - Each template defines a semantic palette for pointer, touch, keyboard, audio, hand, face, and synthetic signals rather than applying a single global tint.
 - Themes also control the soma, membrane, branch populations, pulses, lighting, fog, export background, and exported metadata.
 - Theme concepts are visible in the instrument so the palette remains interpretable instead of decorative.
+
+### 2026-07-15 — Audiovisual second life
+
+- Added an explicit post-crystallization soundscape mode driven by normalized replay features.
+- Excitation controls safe master amplitude; coherence selects harmonic relationships; entropy introduces filtered texture; plasticity shifts the tonal center; frequency bands open the filter; bilateral motion adds upper spectral motion.
+- Conceptual color themes also select the soundscape root, giving each template a related visual and tonal identity.
+- The soundscape uses locally synthesized oscillators and deterministic noise. It never replays, reconstructs, stores, or exports microphone audio.
+- Web Audio nodes are stopped and the context is closed at replay completion and route unmount.

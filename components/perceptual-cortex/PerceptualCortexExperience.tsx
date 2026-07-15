@@ -12,6 +12,7 @@ import { interpretArtwork } from './artwork';
 import { applySyntheticPreset, syntheticPresetLabels, type SyntheticPresetId } from './syntheticPresets';
 import { initialQuality, adaptQuality, type QualityTier } from './quality';
 import { visualThemeList, visualThemes, type VisualThemeId } from './visualThemes';
+import { SoundscapeEngine } from './soundscape';
 
 const CortexCanvas = dynamic(() => import('./PerceptualCortexCanvas').then((m) => m.PerceptualCortexCanvas), { ssr: false });
 
@@ -28,6 +29,7 @@ export function PerceptualCortexExperience() {
   const audioSource = useRef<AudioSignalSource | null>(null);
   const visionSource = useRef<VisionSignalSource | null>(null);
   const recorder = useRef(new ReplayRecorder());
+  const soundscape = useRef<SoundscapeEngine | null>(null);
   const pointer = useRef({ x: 0, y: 0, time: 0 });
   const keyTimes = useRef<number[]>([]);
   const [elapsed, setElapsed] = useState(0);
@@ -39,6 +41,7 @@ export function PerceptualCortexExperience() {
   const [quality, setQuality] = useState<QualityTier>('balanced');
   const [replayFrames, setReplayFrames] = useState<ReplayFrame[]>([]);
   const [replaying, setReplaying] = useState(false);
+  const [soundscapeActive, setSoundscapeActive] = useState(false);
   const replayStarted = useRef(0);
 
   useEffect(() => {
@@ -56,7 +59,7 @@ export function PerceptualCortexExperience() {
       if (input.current.audioActive && audioSource.current) input.current.audio = audioSource.current.sample(now);
       if (preset) applySyntheticPreset(input.current, preset, now);
       const liveWorld = usePerceptualStore.getState().worldSnapshot;
-      if (replaying && replayFrames.length) { const replayTime = now - replayStarted.current; const frame = replayFrames.findLast((candidate) => candidate.timeMs <= replayTime) ?? replayFrames[0]; Object.assign(liveWorld, frame.world); if (replayTime > replayFrames.at(-1)!.timeMs) setReplaying(false); }
+      if (replaying && replayFrames.length) { const replayTime = now - replayStarted.current; const frame = replayFrames.findLast((candidate) => candidate.timeMs <= replayTime) ?? replayFrames[0]; Object.assign(liveWorld, frame.world); soundscape.current?.update(frame.world, visualTheme); if (replayTime > replayFrames.at(-1)!.timeMs) { setReplaying(false); setSoundscapeActive(false); void soundscape.current?.stop(); soundscape.current = null; } }
       else { advanceWorld(liveWorld, input.current, now, dt); recorder.current.capture(now - (usePerceptualStore.getState().startedAt ?? now), liveWorld); }
       frameTotal += dt * 1000; frameCount += 1;
       input.current.speed *= Math.exp(-dt * 4);
@@ -66,12 +69,13 @@ export function PerceptualCortexExperience() {
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, [phase, preset, replayFrames, replaying]);
+  }, [phase, preset, replayFrames, replaying, visualTheme]);
 
   const crystallizeSession = () => { setReplayFrames(recorder.current.snapshot()); crystallize(); };
   const playReplay = () => { if (!replayFrames.length) return; replayStarted.current = performance.now(); resume(); setReplaying(true); };
+  const playSoundscape = async () => { if (!replayFrames.length) return; await soundscape.current?.stop(); const engine = new SoundscapeEngine(); await engine.start(); soundscape.current = engine; setSoundscapeActive(true); replayStarted.current = performance.now(); resume(); setReplaying(true); };
 
-  useEffect(() => () => { void audioSource.current?.disable(); visionSource.current?.disable(); }, []);
+  useEffect(() => () => { void audioSource.current?.disable(); visionSource.current?.disable(); void soundscape.current?.stop(); }, []);
 
   const toggleVision = async () => {
     if (visionState === 'active') { visionSource.current?.disable(); visionSource.current = null; input.current.hands.active = false; input.current.face.active = false; setVisionState('off'); return; }
@@ -145,7 +149,7 @@ export function PerceptualCortexExperience() {
     {phase !== 'arrival' && <div className="absolute bottom-5 left-5 right-5 z-10 flex flex-wrap items-end justify-between gap-4 sm:bottom-8 sm:left-8 sm:right-8">
       <select aria-label="Conceptual color theme" value={visualTheme} onChange={(event) => setVisualTheme(event.target.value as VisualThemeId)} className="rounded-full border border-white/15 bg-black/60 px-3 py-2 font-mono text-[10px] uppercase tracking-[.12em] text-white/65">{visualThemeList.map((theme) => <option key={theme.id} value={theme.id}>{theme.label} · {theme.concept}</option>)}</select>
       <div className="flex max-w-[78vw] flex-wrap gap-2"><button onClick={toggleVision} disabled={visionState === 'requesting'} className={`rounded-full border px-4 py-2 font-mono text-[10px] uppercase tracking-[.18em] backdrop-blur ${visionState === 'active' ? 'border-violet/40 bg-violet/10 text-violet' : 'border-white/15 bg-black/35 text-white/65'}`}>{visionState === 'active' ? '● camera active' : visionState === 'requesting' ? 'loading vision…' : 'enable camera'}</button><button onClick={toggleAudio} disabled={audioState === 'requesting'} className={`rounded-full border px-4 py-2 font-mono text-[10px] uppercase tracking-[.18em] backdrop-blur ${audioState === 'active' ? 'border-green/40 bg-green/10 text-green' : 'border-white/15 bg-black/35 text-white/65'}`}>{audioState === 'active' ? '● microphone active' : audioState === 'requesting' ? 'requesting…' : 'enable microphone'}</button><select aria-label="Synthetic demonstration" value={preset} onChange={(event) => setPreset(event.target.value as SyntheticPresetId | '')} className="rounded-full border border-white/15 bg-black/60 px-3 py-2 font-mono text-[10px] uppercase tracking-[.12em] text-white/65"><option value="">synthetic demo</option>{Object.entries(syntheticPresetLabels).map(([id, label]) => <option key={id} value={id}>{label}</option>)}</select><button onClick={toggleMicroscope} className="rounded-full border border-white/15 bg-black/35 px-4 py-2 font-mono text-[10px] uppercase tracking-[.18em] text-white/65 backdrop-blur">{microscopeOpen ? 'Hide signal' : 'Show the signal'}</button><label className="flex items-center gap-2 rounded-full border border-white/10 bg-black/30 px-4 py-2 font-mono text-[9px] uppercase tracking-[.14em] text-white/45"><input type="checkbox" checked={reducedMotion} onChange={(e) => setReducedMotion(e.target.checked)} /> reduced motion</label></div>
-      {phase === 'performing' ? <button onClick={crystallizeSession} className="rounded-full border border-rose/40 bg-rose/10 px-5 py-3 font-mono text-[10px] uppercase tracking-[.2em] text-rose">Crystallize this state</button> : <div className="flex flex-wrap gap-2"><button onClick={save} className="rounded-full border border-cyan/40 bg-cyan/10 px-5 py-3 font-mono text-[10px] uppercase tracking-[.2em] text-cyan">Save PNG</button><button onClick={playReplay} disabled={!replayFrames.length} className="rounded-full border border-violet/30 bg-violet/10 px-4 py-3 font-mono text-[10px] uppercase tracking-[.16em] text-violet">Replay</button><button onClick={() => reset(true)} className="rounded-full border border-white/15 bg-black/35 px-4 py-3 font-mono text-[10px] uppercase tracking-[.16em] text-white/60">Same seed</button><button onClick={() => reset(false)} className="rounded-full border border-white/15 bg-black/35 px-4 py-3 font-mono text-[10px] uppercase tracking-[.16em] text-white/60">New organism</button></div>}
+      {phase === 'performing' ? <button onClick={crystallizeSession} className="rounded-full border border-rose/40 bg-rose/10 px-5 py-3 font-mono text-[10px] uppercase tracking-[.2em] text-rose">Crystallize this state</button> : <div className="flex flex-wrap gap-2"><button onClick={playSoundscape} disabled={!replayFrames.length || soundscapeActive} className="rounded-full border border-amber/40 bg-amber/10 px-5 py-3 font-mono text-[10px] uppercase tracking-[.18em] text-amber">{soundscapeActive ? '● soundscape playing' : 'enter audiovisual soundscape'}</button><button onClick={save} className="rounded-full border border-cyan/40 bg-cyan/10 px-5 py-3 font-mono text-[10px] uppercase tracking-[.2em] text-cyan">Save PNG</button><button onClick={playReplay} disabled={!replayFrames.length} className="rounded-full border border-violet/30 bg-violet/10 px-4 py-3 font-mono text-[10px] uppercase tracking-[.16em] text-violet">Replay</button><button onClick={() => reset(true)} className="rounded-full border border-white/15 bg-black/35 px-4 py-3 font-mono text-[10px] uppercase tracking-[.16em] text-white/60">Same seed</button><button onClick={() => reset(false)} className="rounded-full border border-white/15 bg-black/35 px-4 py-3 font-mono text-[10px] uppercase tracking-[.16em] text-white/60">New organism</button></div>}
     </div>}
 
     {microscopeOpen && phase !== 'arrival' && <aside className="absolute right-5 top-24 z-10 w-72 rounded-xl border border-white/10 bg-[#050914]/80 p-4 font-mono text-[10px] text-white/55 backdrop-blur-xl sm:right-8">

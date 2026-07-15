@@ -15,6 +15,7 @@ Date: 2026-07-15
 - Deterministic titles and non-psychological artwork interpretations.
 - Six deterministic synthetic demonstration presets.
 - Five conceptual color templates with distinct mappings for every input modality.
+- A post-crystallization generative soundscape synchronized to the feature replay and conceptual theme.
 - High/balanced/low adaptive quality tiers with mobile detection and staged degradation.
 - Reduced-motion behavior for camera and field motion.
 - True 1920×1080 rerender on PNG export with deterministic title and seed.

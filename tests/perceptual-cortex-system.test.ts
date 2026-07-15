@@ -8,6 +8,7 @@ import { createWorldState } from '../components/perceptual-cortex/signalTypes';
 import { applySyntheticPreset } from '../components/perceptual-cortex/syntheticPresets';
 import { deriveFaceFeatures, deriveHandFeatures, type Landmark } from '../components/perceptual-cortex/visionFeatures';
 import { visualThemeList } from '../components/perceptual-cortex/visualThemes';
+import { mapFrameToSound } from '../components/perceptual-cortex/soundscape';
 
 const hand = (offset: number): Landmark[] => Array.from({ length: 21 }, (_, index) => ({ x: offset + index * .004, y: .5 - index * .006, z: 0 }));
 
@@ -50,4 +51,11 @@ test('every conceptual theme defines a distinct color for every input form', () 
     for (const source of sources) assert.match(theme.sources[source], /^#[0-9a-f]{6}$/i);
     assert.ok(new Set(sources.map((source) => theme.sources[source])).size >= 6);
   }
+});
+
+test('soundscape mapping is deterministic, bounded, and responds to the artwork', () => {
+  const world = { excitation: .7, coherence: .8, entropy: .4, plasticity: .5, zoom: 1, bilateralStrength: .6, facialActivity: .3, lowBand: .5, midBand: .4, highBand: .2 };
+  const first = mapFrameToSound(world, 'synchrony'); const second = mapFrameToSound(world, 'synchrony');
+  assert.deepEqual(first, second); assert.ok(first.masterGain > 0 && first.masterGain <= .075); assert.ok(first.filterHz >= 180 && first.filterHz <= 4200); assert.ok(first.shimmerHz > first.rootHz);
+  assert.notEqual(mapFrameToSound(world, 'criticality').rootHz, first.rootHz);
 });
