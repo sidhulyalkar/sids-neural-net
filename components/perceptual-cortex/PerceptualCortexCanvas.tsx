@@ -2,16 +2,17 @@
 
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { Line } from '@react-three/drei';
-import { useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { usePerceptualStore, worldSnapshot } from './perceptualStore';
+import { qualityConfig, type QualityTier } from './quality';
 
 function seeded(seed: number) {
   let value = seed >>> 0;
   return () => ((value = Math.imul(1664525, value) + 1013904223 >>> 0) / 4294967296);
 }
 
-function Organism({ seed }: { seed: number }) {
+function Organism({ seed, pulseCount }: { seed: number; pulseCount: number }) {
   const root = useRef<THREE.Group>(null);
   const soma = useRef<THREE.Mesh>(null);
   const pulses = useRef<THREE.Points>(null);
@@ -31,7 +32,7 @@ function Organism({ seed }: { seed: number }) {
       return [start, mid, end];
     });
   }, [seed]);
-  const pulsePositions = useMemo(() => new Float32Array(72 * 3), []);
+  const pulsePositions = useMemo(() => new Float32Array(pulseCount * 3), [pulseCount]);
 
   useFrame(({ clock }, delta) => {
     const world = worldSnapshot();
@@ -41,7 +42,10 @@ function Organism({ seed }: { seed: number }) {
       root.current.rotation.x = reducedMotion ? 0 : -world.pointerY * 0.018;
       const audioWave = Math.sin(t * (1.15 + world.oscillationFrequency * 2.5)) * world.oscillationAmplitude * .055;
       const scale = phase === 'crystallized' ? 0.96 : 1 + Math.sin(t * 1.15) * (0.012 + world.excitation * .018) + audioWave;
-      root.current.scale.lerp(new THREE.Vector3(scale, scale, scale), Math.min(1, delta * 4));
+      const spatialScale = scale * (1 + world.handSeparation * .12);
+      root.current.scale.lerp(new THREE.Vector3(spatialScale, spatialScale, spatialScale), Math.min(1, delta * 4));
+      root.current.position.x = THREE.MathUtils.lerp(root.current.position.x, world.handX * world.handSpeed * .18, Math.min(1, delta * 5));
+      root.current.position.y = THREE.MathUtils.lerp(root.current.position.y, world.handY * world.handSpeed * .18, Math.min(1, delta * 5));
     }
     if (soma.current) {
       const material = soma.current.material as THREE.MeshStandardMaterial;
@@ -50,7 +54,7 @@ function Organism({ seed }: { seed: number }) {
     }
     if (pulses.current) {
       const array = pulses.current.geometry.attributes.position.array as Float32Array;
-      for (let i = 0; i < 72; i++) {
+      for (let i = 0; i < pulseCount; i++) {
         const branch = branches[i % branches.length];
         const p = (t * world.propagationVelocity * .16 + i * .127) % 1;
         const a = p < .5 ? branch[0] : branch[1];
@@ -80,20 +84,27 @@ function Organism({ seed }: { seed: number }) {
   </group>;
 }
 
-function CaptureBridge({ onReady }: { onReady: (canvas: HTMLCanvasElement) => void }) {
-  const gl = useThree((s) => s.gl);
-  useFrame(() => onReady(gl.domElement));
+function CameraRig() {
+  useFrame(({ camera }, delta) => { const world = worldSnapshot(); const reduced = usePerceptualStore.getState().reducedMotion; const amount = reduced ? .15 : 1; camera.position.x = THREE.MathUtils.lerp(camera.position.x, world.cameraParallaxX * amount, Math.min(1, delta * 3)); camera.position.y = THREE.MathUtils.lerp(camera.position.y, world.cameraParallaxY * amount, Math.min(1, delta * 3)); camera.position.z = THREE.MathUtils.lerp(camera.position.z, 8.5 * world.zoom, Math.min(1, delta * 3)); camera.rotation.z = THREE.MathUtils.lerp(camera.rotation.z, world.cameraRoll * amount, Math.min(1, delta * 3)); });
   return null;
 }
 
-export function PerceptualCortexCanvas({ seed, onCanvas }: { seed: number; onCanvas: (canvas: HTMLCanvasElement) => void }) {
-  return <Canvas dpr={[1, 1.5]} camera={{ position: [0, 0, 8.5], fov: 52 }} gl={{ antialias: true, alpha: false, preserveDrawingBuffer: true }}>
+function CaptureBridge({ onReady, onCaptureReady }: { onReady: (canvas: HTMLCanvasElement) => void; onCaptureReady: (capture: () => string) => void }) {
+  const { gl, scene, camera, size } = useThree();
+  useEffect(() => { onReady(gl.domElement); onCaptureReady(() => { const width = size.width; const height = size.height; const dpr = gl.getPixelRatio(); gl.setPixelRatio(1); gl.setSize(1920, 1080, false); gl.render(scene, camera); const data = gl.domElement.toDataURL('image/png'); gl.setPixelRatio(dpr); gl.setSize(width, height, false); gl.render(scene, camera); return data; }); }, [camera, gl, onCaptureReady, onReady, scene, size.height, size.width]);
+  return null;
+}
+
+export function PerceptualCortexCanvas({ seed, quality, onCanvas, onCaptureReady }: { seed: number; quality: QualityTier; onCanvas: (canvas: HTMLCanvasElement) => void; onCaptureReady: (capture: () => string) => void }) {
+  const config = qualityConfig[quality];
+  return <Canvas dpr={[1, config.dpr]} camera={{ position: [0, 0, 8.5], fov: 52 }} gl={{ antialias: quality !== 'low', alpha: false, preserveDrawingBuffer: true }}>
     <color attach="background" args={['#020306']} />
     <fog attach="fog" args={['#020306', 7, 14]} />
     <ambientLight intensity={0.32} />
     <pointLight position={[2, 3, 4]} color="#8cecff" intensity={7} />
     <pointLight position={[-3, -2, 2]} color="#b671ff" intensity={5} />
-    <Organism seed={seed} />
-    <CaptureBridge onReady={onCanvas} />
+    <Organism seed={seed} pulseCount={config.pulses} />
+    <CameraRig />
+    <CaptureBridge onReady={onCanvas} onCaptureReady={onCaptureReady} />
   </Canvas>;
 }

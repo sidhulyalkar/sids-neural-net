@@ -43,3 +43,11 @@ The current audio analyzer remains route-local because the ambient sensing packa
 
 The hand-tracking slice should first review the current sensing hooks and reuse product-neutral MediaPipe setup, error normalization, and landmark math. It must not reuse navigation gesture classifications as artistic controls: Perceptual Cortex consumes continuous palm position, velocity, pinch, openness, separation, and synchrony.
 
+### 2026-07-15 — Vision, composition, replay, and production hardening
+
+- Added a dedicated vision worker using the repository-pinned MediaPipe version and model conventions.
+- The worker accepts transferable `ImageBitmap` frames and returns compact continuous features; it does not return raw landmarks.
+- Added two-hand force, speed, pinch, separation/symmetry, bilateral bloom, head pose, facial activity, and stillness mappings.
+- Added normalized replay, deterministic titles and interpretations, six synthetic demos, adaptive quality, 1920×1080 export, and deterministic visual fixtures.
+- Migrated linting from interactive `next lint` to ESLint 9 flat configuration.
+- No active sensing-lab or gesture-engine files were modified.

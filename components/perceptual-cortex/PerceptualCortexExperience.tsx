@@ -6,6 +6,11 @@ import { useEffect, useRef, useState } from 'react';
 import { advanceWorld, createInputSnapshot, type InputSnapshot } from './fusionEngine';
 import { usePerceptualStore } from './perceptualStore';
 import { AudioSignalSource } from './AudioSignalSource';
+import { VisionSignalSource } from './VisionSignalSource';
+import { ReplayRecorder, type ReplayFrame } from './replay';
+import { interpretArtwork } from './artwork';
+import { applySyntheticPreset, syntheticPresetLabels, type SyntheticPresetId } from './syntheticPresets';
+import { initialQuality, adaptQuality, type QualityTier } from './quality';
 
 const CortexCanvas = dynamic(() => import('./PerceptualCortexCanvas').then((m) => m.PerceptualCortexCanvas), { ssr: false });
 
@@ -17,36 +22,62 @@ const isEditable = (target: EventTarget | null) => {
 export function PerceptualCortexExperience() {
   const { phase, seed, microscopeOpen, reducedMotion, start, crystallize, resume, reset, toggleMicroscope, setReducedMotion } = usePerceptualStore();
   const canvas = useRef<HTMLCanvasElement | null>(null);
+  const capture = useRef<(() => string) | null>(null);
   const input = useRef<InputSnapshot>(createInputSnapshot());
   const audioSource = useRef<AudioSignalSource | null>(null);
+  const visionSource = useRef<VisionSignalSource | null>(null);
+  const recorder = useRef(new ReplayRecorder());
   const pointer = useRef({ x: 0, y: 0, time: 0 });
   const keyTimes = useRef<number[]>([]);
   const [elapsed, setElapsed] = useState(0);
   const [audioState, setAudioState] = useState<'off' | 'requesting' | 'active' | 'error'>('off');
   const [audioError, setAudioError] = useState('');
+  const [visionState, setVisionState] = useState<'off' | 'requesting' | 'active' | 'error'>('off');
+  const [visionError, setVisionError] = useState('');
+  const [preset, setPreset] = useState<SyntheticPresetId | ''>('');
+  const [quality, setQuality] = useState<QualityTier>('balanced');
+  const [replayFrames, setReplayFrames] = useState<ReplayFrame[]>([]);
+  const [replaying, setReplaying] = useState(false);
+  const replayStarted = useRef(0);
 
   useEffect(() => {
     const media = matchMedia('(prefers-reduced-motion: reduce)');
     setReducedMotion(media.matches);
+    const memory = (navigator as Navigator & { deviceMemory?: number }).deviceMemory;
+    setQuality(initialQuality(innerWidth, memory));
   }, [setReducedMotion]);
 
   useEffect(() => {
     if (phase !== 'performing') return;
-    let raf = 0; let previous = performance.now(); let lastUiUpdate = previous;
+    let raf = 0; let previous = performance.now(); let lastUiUpdate = previous; let frameTotal = 0; let frameCount = 0;
     const tick = (now: number) => {
       const dt = Math.min(.05, (now - previous) / 1000); previous = now;
       if (input.current.audioActive && audioSource.current) input.current.audio = audioSource.current.sample(now);
-      advanceWorld(usePerceptualStore.getState().worldSnapshot, input.current, now, dt);
+      if (preset) applySyntheticPreset(input.current, preset, now);
+      const liveWorld = usePerceptualStore.getState().worldSnapshot;
+      if (replaying && replayFrames.length) { const replayTime = now - replayStarted.current; const frame = replayFrames.findLast((candidate) => candidate.timeMs <= replayTime) ?? replayFrames[0]; Object.assign(liveWorld, frame.world); if (replayTime > replayFrames.at(-1)!.timeMs) setReplaying(false); }
+      else { advanceWorld(liveWorld, input.current, now, dt); recorder.current.capture(now - (usePerceptualStore.getState().startedAt ?? now), liveWorld); }
+      frameTotal += dt * 1000; frameCount += 1;
       input.current.speed *= Math.exp(-dt * 4);
       const started = usePerceptualStore.getState().startedAt;
-      if (started && now - lastUiUpdate >= 500) { setElapsed(now - started); lastUiUpdate = now; }
+      if (started && now - lastUiUpdate >= 1000) { setElapsed(now - started); if (frameCount) setQuality((current) => adaptQuality(current, frameTotal / frameCount)); frameTotal = 0; frameCount = 0; lastUiUpdate = now; }
       raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, [phase]);
+  }, [phase, preset, replayFrames, replaying]);
 
-  useEffect(() => () => { void audioSource.current?.disable(); }, []);
+  const crystallizeSession = () => { setReplayFrames(recorder.current.snapshot()); crystallize(); };
+  const playReplay = () => { if (!replayFrames.length) return; replayStarted.current = performance.now(); resume(); setReplaying(true); };
+
+  useEffect(() => () => { void audioSource.current?.disable(); visionSource.current?.disable(); }, []);
+
+  const toggleVision = async () => {
+    if (visionState === 'active') { visionSource.current?.disable(); visionSource.current = null; input.current.hands.active = false; input.current.face.active = false; setVisionState('off'); return; }
+    setVisionState('requesting'); setVisionError(''); const source = new VisionSignalSource();
+    try { await source.enable((hands, face) => { input.current.hands = hands; input.current.face = face; }, (message) => { setVisionError(message); setVisionState('error'); }); visionSource.current = source; setVisionState('active'); }
+    catch (error) { source.disable(); setVisionError(error instanceof Error ? error.message : 'Camera permission was not granted.'); setVisionState('error'); }
+  };
 
   const toggleAudio = async () => {
     if (audioState === 'active') {
@@ -85,12 +116,21 @@ export function PerceptualCortexExperience() {
   };
   const save = () => {
     if (!canvas.current) return;
-    const link = document.createElement('a'); link.download = `perceptual-cortex-${seed}.png`; link.href = canvas.current.toDataURL('image/png'); link.click();
+    const output = document.createElement('canvas'); output.width = 1920; output.height = 1080; const context = output.getContext('2d'); if (!context) return; const ctx = context;
+    const highResolution = capture.current?.(); const source = highResolution ? Object.assign(new Image(), { src: highResolution }) : canvas.current;
+    ctx.fillStyle = '#020306'; ctx.fillRect(0, 0, output.width, output.height);
+    if (source instanceof HTMLCanvasElement) ctx.drawImage(source, 0, 0, output.width, output.height); else { source.onload = () => { ctx.drawImage(source, 0, 0, output.width, output.height); finishExport(); }; return; }
+    finishExport();
+    function finishExport() {
+    const result = interpretArtwork(seed, usePerceptualStore.getState().worldSnapshot); ctx.fillStyle = 'rgba(255,255,255,.58)'; ctx.font = '24px monospace'; ctx.fillText(result.title.toUpperCase(), 54, 1020); ctx.font = '15px monospace'; ctx.fillText(`SEED ${seed}`, 54, 1048);
+    const link = document.createElement('a'); link.download = `perceptual-cortex-${seed}.png`; link.href = output.toDataURL('image/png'); link.click();
+    }
   };
 
   const world = usePerceptualStore.getState().worldSnapshot;
+  const artwork = interpretArtwork(seed, world);
   return <section className="fixed inset-0 z-40 overflow-hidden bg-[#020306]" onPointerMove={onPointerMove} onPointerLeave={() => { input.current.pointerActive = false; }}>
-    <div className="absolute inset-0"><CortexCanvas seed={seed} onCanvas={(value) => { canvas.current = value; }} /></div>
+    <div className="absolute inset-0"><CortexCanvas seed={seed} quality={quality} onCanvas={(value) => { canvas.current = value; }} onCaptureReady={(value) => { capture.current = value; }} /></div>
     <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_25%,rgba(2,3,6,.7)_100%)]" />
     <header className="absolute left-5 right-5 top-5 z-10 flex items-start justify-between font-mono sm:left-8 sm:right-8 sm:top-8">
       <div><p className="text-[10px] uppercase tracking-[.34em] text-cyan/60">multimodal neural instrument</p><h1 className="mt-2 text-sm uppercase tracking-[.22em] text-white/90">Perceptual Cortex</h1></div>
@@ -102,12 +142,13 @@ export function PerceptualCortexExperience() {
     </div>}
 
     {phase !== 'arrival' && <div className="absolute bottom-5 left-5 right-5 z-10 flex flex-wrap items-end justify-between gap-4 sm:bottom-8 sm:left-8 sm:right-8">
-      <div className="flex flex-wrap gap-2"><button onClick={toggleAudio} disabled={audioState === 'requesting'} className={`rounded-full border px-4 py-2 font-mono text-[10px] uppercase tracking-[.18em] backdrop-blur ${audioState === 'active' ? 'border-green/40 bg-green/10 text-green' : 'border-white/15 bg-black/35 text-white/65'}`}>{audioState === 'active' ? '● microphone active' : audioState === 'requesting' ? 'requesting…' : 'enable microphone'}</button><button onClick={toggleMicroscope} className="rounded-full border border-white/15 bg-black/35 px-4 py-2 font-mono text-[10px] uppercase tracking-[.18em] text-white/65 backdrop-blur">{microscopeOpen ? 'Hide signal' : 'Show the signal'}</button><label className="flex items-center gap-2 rounded-full border border-white/10 bg-black/30 px-4 py-2 font-mono text-[9px] uppercase tracking-[.14em] text-white/45"><input type="checkbox" checked={reducedMotion} onChange={(e) => setReducedMotion(e.target.checked)} /> reduced motion</label></div>
-      {phase === 'performing' ? <button onClick={crystallize} className="rounded-full border border-rose/40 bg-rose/10 px-5 py-3 font-mono text-[10px] uppercase tracking-[.2em] text-rose">Crystallize this state</button> : <div className="flex gap-2"><button onClick={save} className="rounded-full border border-cyan/40 bg-cyan/10 px-5 py-3 font-mono text-[10px] uppercase tracking-[.2em] text-cyan">Save PNG</button><button onClick={() => reset(true)} className="rounded-full border border-white/15 bg-black/35 px-4 py-3 font-mono text-[10px] uppercase tracking-[.16em] text-white/60">Same seed</button><button onClick={() => reset(false)} className="rounded-full border border-white/15 bg-black/35 px-4 py-3 font-mono text-[10px] uppercase tracking-[.16em] text-white/60">New organism</button></div>}
+      <div className="flex max-w-[78vw] flex-wrap gap-2"><button onClick={toggleVision} disabled={visionState === 'requesting'} className={`rounded-full border px-4 py-2 font-mono text-[10px] uppercase tracking-[.18em] backdrop-blur ${visionState === 'active' ? 'border-violet/40 bg-violet/10 text-violet' : 'border-white/15 bg-black/35 text-white/65'}`}>{visionState === 'active' ? '● camera active' : visionState === 'requesting' ? 'loading vision…' : 'enable camera'}</button><button onClick={toggleAudio} disabled={audioState === 'requesting'} className={`rounded-full border px-4 py-2 font-mono text-[10px] uppercase tracking-[.18em] backdrop-blur ${audioState === 'active' ? 'border-green/40 bg-green/10 text-green' : 'border-white/15 bg-black/35 text-white/65'}`}>{audioState === 'active' ? '● microphone active' : audioState === 'requesting' ? 'requesting…' : 'enable microphone'}</button><select aria-label="Synthetic demonstration" value={preset} onChange={(event) => setPreset(event.target.value as SyntheticPresetId | '')} className="rounded-full border border-white/15 bg-black/60 px-3 py-2 font-mono text-[10px] uppercase tracking-[.12em] text-white/65"><option value="">synthetic demo</option>{Object.entries(syntheticPresetLabels).map(([id, label]) => <option key={id} value={id}>{label}</option>)}</select><button onClick={toggleMicroscope} className="rounded-full border border-white/15 bg-black/35 px-4 py-2 font-mono text-[10px] uppercase tracking-[.18em] text-white/65 backdrop-blur">{microscopeOpen ? 'Hide signal' : 'Show the signal'}</button><label className="flex items-center gap-2 rounded-full border border-white/10 bg-black/30 px-4 py-2 font-mono text-[9px] uppercase tracking-[.14em] text-white/45"><input type="checkbox" checked={reducedMotion} onChange={(e) => setReducedMotion(e.target.checked)} /> reduced motion</label></div>
+      {phase === 'performing' ? <button onClick={crystallizeSession} className="rounded-full border border-rose/40 bg-rose/10 px-5 py-3 font-mono text-[10px] uppercase tracking-[.2em] text-rose">Crystallize this state</button> : <div className="flex flex-wrap gap-2"><button onClick={save} className="rounded-full border border-cyan/40 bg-cyan/10 px-5 py-3 font-mono text-[10px] uppercase tracking-[.2em] text-cyan">Save PNG</button><button onClick={playReplay} disabled={!replayFrames.length} className="rounded-full border border-violet/30 bg-violet/10 px-4 py-3 font-mono text-[10px] uppercase tracking-[.16em] text-violet">Replay</button><button onClick={() => reset(true)} className="rounded-full border border-white/15 bg-black/35 px-4 py-3 font-mono text-[10px] uppercase tracking-[.16em] text-white/60">Same seed</button><button onClick={() => reset(false)} className="rounded-full border border-white/15 bg-black/35 px-4 py-3 font-mono text-[10px] uppercase tracking-[.16em] text-white/60">New organism</button></div>}
     </div>}
 
     {microscopeOpen && phase !== 'arrival' && <aside className="absolute right-5 top-24 z-10 w-72 rounded-xl border border-white/10 bg-[#050914]/80 p-4 font-mono text-[10px] text-white/55 backdrop-blur-xl sm:right-8">
-      <p className="uppercase tracking-[.24em] text-cyan/75">Signal microscope</p>{audioError && <p className="mt-3 rounded border border-rose/25 bg-rose/10 p-2 leading-4 text-rose/80">{audioError} Pointer mode remains available.</p>}<p className="mt-3 leading-5 text-white/35">signal → normalized features → temporal fusion → organism</p><dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-2"><dt>active</dt><dd className="text-right text-white/80">{world.activeModalities.join(', ')}</dd><dt>excitation</dt><dd className="text-right">{world.excitation.toFixed(3)}</dd><dt>coherence</dt><dd className="text-right">{world.coherence.toFixed(3)}</dd><dt>entropy</dt><dd className="text-right">{world.entropy.toFixed(3)}</dd><dt>plasticity</dt><dd className="text-right">{world.plasticity.toFixed(3)}</dd><dt>audio rms</dt><dd className="text-right">{input.current.audio.smoothedRms.toFixed(3)}</dd><dt>bass / mid / high</dt><dd className="text-right">{world.lowBand.toFixed(2)} / {world.midBand.toFixed(2)} / {world.highBand.toFixed(2)}</dd><dt>session</dt><dd className="text-right">{Math.floor(elapsed / 1000)}s</dd><dt>seed</dt><dd className="truncate text-right">{seed}</dd></dl><p className="mt-4 border-t border-white/10 pt-3 leading-5 text-white/35">Audio is analyzed locally and never recorded or saved. Typed characters are never retained.</p>
+      <p className="uppercase tracking-[.24em] text-cyan/75">Signal microscope · {quality}</p>{(audioError || visionError) && <p className="mt-3 rounded border border-rose/25 bg-rose/10 p-2 leading-4 text-rose/80">{audioError || visionError} Pointer mode remains available.</p>}<p className="mt-3 leading-5 text-white/35">signal → normalized features → temporal fusion → organism</p><dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-2"><dt>active</dt><dd className="text-right text-white/80">{world.activeModalities.join(', ')}</dd><dt>excitation</dt><dd className="text-right">{world.excitation.toFixed(3)}</dd><dt>coherence</dt><dd className="text-right">{world.coherence.toFixed(3)}</dd><dt>hands / speed</dt><dd className="text-right">{input.current.hands.count} / {world.handSpeed.toFixed(2)}</dd><dt>pinch / separation</dt><dd className="text-right">{input.current.hands.pinch.toFixed(2)} / {world.handSeparation.toFixed(2)}</dd><dt>face activity</dt><dd className="text-right">{world.facialActivity.toFixed(3)}</dd><dt>audio rms</dt><dd className="text-right">{input.current.audio.smoothedRms.toFixed(3)}</dd><dt>session / replay</dt><dd className="text-right">{Math.floor(elapsed / 1000)}s / {recorder.current.snapshot().length}</dd><dt>seed</dt><dd className="truncate text-right">{seed}</dd></dl><p className="mt-4 border-t border-white/10 pt-3 leading-5 text-white/35">Camera and audio are processed locally. No imagery, audio, landmarks, or typed content is saved.</p>
     </aside>}
+    {phase === 'crystallized' && !microscopeOpen && <aside className="absolute left-5 top-24 z-10 w-[min(22rem,calc(100vw-2.5rem))] rounded-xl border border-white/10 bg-[#050914]/80 p-5 backdrop-blur-xl sm:left-8"><p className="font-mono text-[9px] uppercase tracking-[.24em] text-rose/70">crystallized signal</p><h2 className="mt-3 text-xl font-light text-white">{artwork.title}</h2><dl className="mt-5 grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-xs text-white/45"><dt>Dominant influence</dt><dd className="text-right text-white/75">{artwork.dominantInfluence}</dd><dt>Temporal character</dt><dd className="text-right text-white/75">{artwork.temporalCharacter}</dd><dt>Spatial character</dt><dd className="text-right text-white/75">{artwork.spatialCharacter}</dd><dt>Excitation profile</dt><dd className="text-right text-white/75">{artwork.excitationProfile}</dd><dt>Active modalities</dt><dd className="text-right text-white/75">{artwork.activeModalities.join(', ')}</dd></dl><p className="mt-4 text-[10px] leading-4 text-white/30">An interpretation of creative control signals, not a psychological assessment.</p></aside>}
   </section>;
 }

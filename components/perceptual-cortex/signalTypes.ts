@@ -16,6 +16,10 @@ export type PerceptualWorldState = {
   propagationVelocity: number;
   oscillationAmplitude: number; oscillationFrequency: number;
   lowBand: number; midBand: number; highBand: number; onsetImpulse: number;
+  zoom: number; symmetry: number; handSeparation: number; bilateralStrength: number;
+  handX: number; handY: number; handSpeed: number;
+  cameraParallaxX: number; cameraParallaxY: number; cameraRoll: number;
+  facialActivity: number; facialStillness: number;
   activeModalities: SignalSourceId[];
 };
 
@@ -26,4 +30,8 @@ export const createWorldState = (): PerceptualWorldState => ({
   propagationVelocity: 0.25, activeModalities: ['synthetic'],
   oscillationAmplitude: 0.04, oscillationFrequency: 0.2,
   lowBand: 0, midBand: 0, highBand: 0, onsetImpulse: 0,
+  zoom: 1, symmetry: .5, handSeparation: 0, bilateralStrength: 0,
+  handX: 0, handY: 0, handSpeed: 0,
+  cameraParallaxX: 0, cameraParallaxY: 0, cameraRoll: 0,
+  facialActivity: 0, facialStillness: 1,
 });
