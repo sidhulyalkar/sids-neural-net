@@ -1,0 +1,75 @@
+---
+title: "NEATLabs Paradigm: Delay Discounting — Reward Value & Subjective Value"
+slug: neatlabs-delay-discounting
+summary: "The reward-value paradigm at NEATLabs: rats choose between smaller-sooner and larger-later rewards while reward-locked cortico-striatal beta oscillations track reward magnitude, delay cost, and computationally modeled subjective value. Anchors the Cognitive, Affective, & Behavioral Neuroscience paper on beta as a reward signal."
+role: "Lead Lab Programmer — behavior systems, time-frequency & value-model analysis"
+scope: "Temporal / delay discounting, reward-locked LFP, subjective-value modeling"
+date: "2024-03-01"
+tags:
+  - delay-discounting
+  - temporal-discounting
+  - reward-value
+  - beta-oscillations
+  - cortico-striatal
+  - electrophysiology
+domains:
+  - NEATLabs Research
+  - Neural Signal Discovery
+  - Neural Data Analysis
+featured: true
+importance: 92
+relatedProjects:
+  - neatlabs-core-research
+modeVisibility:
+  - recruiter
+  - researcher
+  - builder
+  - full-brain
+---
+
+## The Question: What Is a Reward Worth Once You Have to Wait?
+
+Delay discounting asks how the value of a reward falls as the cost of waiting rises — the core of
+temporal decision-making and a classic impulsivity axis. At NEATLabs, rats made these trade-offs
+while we asked whether a *distributed electrophysiological signal* tracks subjective reward value.
+
+<SystemDiagram variant="delay-discounting" />
+
+## Study Design and Rat Behavior
+
+The task pits **smaller-sooner** against **larger-later** rewards and manipulates the delay to the
+larger option. The behavior it elucidates:
+
+- **Preference curves** — how strongly an animal discounts future reward as delay grows.
+- **Sensitivity to magnitude** — whether a bigger reward pulls choice even under a longer wait.
+- **Individual impulsivity** — steeper discounting means a more impulsive animal.
+
+Each choice, delay, and reward-delivery moment had to become a clean event so that neural activity
+could be locked precisely to reward receipt.
+
+## Methodology
+
+- **Recording:** rodent **local field potential** recordings across the reward network —
+  orbitofrontal cortex, medial prefrontal cortex, anterior insula, ventral striatum, and amygdala.
+- **Analysis:** **reward-locked time-frequency analysis**, isolating oscillatory power evoked at the
+  moment of reward across delays and magnitudes.
+- **Modeling:** a **computational model of subjective value**, so neural signals could be tested
+  against a per-trial estimate of what the reward was *worth* to the animal, not just its objective size.
+
+## What We Found
+
+The paper identified cortico-striatal **beta oscillations** as a reward-related signal:
+
+- **Reward-locked beta power signaled reward magnitude** and **decayed with longer delays** — moving
+  with value, not just sensory reward.
+- **OFC, mPFC, anterior insula, ventral striatum, and amygdala** electrodes all showed
+  beta-frequency reward signals, making this a genuinely distributed network signal.
+- **Beta power correlated with subjective-value estimates** from the computational model — tying the
+  physiological signal to a behavioral, model-based quantity.
+
+## Publications
+
+- [Cortico-striatal beta oscillations as a reward-related signal — Cognitive, Affective, & Behavioral Neuroscience (2024)](https://doi.org/10.3758/s13415-024-01208-6)
+- [Cortico-Striatal Beta-Oscillations as a Marker of Learned Reward Value — bioRxiv preprint (2022)](https://doi.org/10.1101/2022.10.24.513264)
+
+This paradigm is one thread of the broader [NEATLabs research program](/case-studies/neatlabs-core-research).

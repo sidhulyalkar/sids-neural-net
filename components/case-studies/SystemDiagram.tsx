@@ -1,4 +1,13 @@
-type DiagramVariant = 'datajoint' | 'neatlabs' | 'audio-led' | 'lu-lab' | 'video-encoding' | 'neuros-platform';
+type DiagramVariant =
+  | 'datajoint'
+  | 'neatlabs'
+  | 'audio-led'
+  | 'lu-lab'
+  | 'video-encoding'
+  | 'neuros-platform'
+  | 'go-nogo'
+  | 'delay-discounting'
+  | 'reversal-learning';
 
 type DiagramNode = {
   title: string;
@@ -225,6 +234,105 @@ const diagrams: Record<DiagramVariant, DiagramDefinition> = {
       },
     ],
     outputs: ['hot-swappable drivers', 'real-time orchestration', 'multimodal foundation model', 'cloud-native + observable'],
+  },
+  'go-nogo': {
+    eyebrow: 'behavioral paradigm map',
+    title: 'Go/No-Go & Go/Wait — action, inhibition, impulsivity',
+    summary:
+      'Rats act, withhold, or wait in response to cues while distributed cortico-striatal LFP and human EEG reveal separable action and inhibition networks.',
+    lanes: [
+      {
+        label: 'Task design',
+        nodes: [
+          { title: 'Cue presentation', subtitle: 'Go vs No-Go / wait signals', tone: 'amber' },
+          { title: 'Response window', subtitle: 'Act, withhold, or wait for reward', tone: 'amber' },
+          { title: 'Trial outcomes', subtitle: 'Correct, premature, omission', tone: 'amber' },
+        ],
+      },
+      {
+        label: 'Neural measurement',
+        nodes: [
+          { title: 'Multisite LFP', subtitle: 'Distributed cortico-striatal electrodes', tone: 'violet' },
+          { title: 'Human EEG', subtitle: 'Translational cross-species comparison', tone: 'violet' },
+          { title: 'Functional connectivity', subtitle: 'Network-level coupling analysis', tone: 'violet' },
+        ],
+      },
+      {
+        label: 'What we found',
+        nodes: [
+          { title: 'Action coding', subtitle: 'Low-frequency activity tracks action/sensory', tone: 'green' },
+          { title: 'Inhibition', subtitle: 'Prefrontal/premotor theta tracks withholding', tone: 'green' },
+          { title: 'Impulsivity', subtitle: 'Motor-inhibitory connectivity ↔ less impulsivity', tone: 'green' },
+        ],
+      },
+    ],
+    outputs: ['action networks', 'theta inhibition signal', 'impulsivity connectivity', 'rodent-human bridge'],
+  },
+  'delay-discounting': {
+    eyebrow: 'behavioral paradigm map',
+    title: 'Delay Discounting — reward value & subjective value',
+    summary:
+      'Rats choose between smaller-sooner and larger-later rewards while reward-locked beta oscillations track reward magnitude, delay cost, and modeled subjective value.',
+    lanes: [
+      {
+        label: 'Task design',
+        nodes: [
+          { title: 'Choice options', subtitle: 'Smaller-sooner vs larger-later', tone: 'amber' },
+          { title: 'Delay manipulation', subtitle: 'Increasing waiting cost', tone: 'amber' },
+          { title: 'Reward delivery', subtitle: 'Magnitude and timing vary', tone: 'amber' },
+        ],
+      },
+      {
+        label: 'Neural measurement',
+        nodes: [
+          { title: 'Reward-locked LFP', subtitle: 'Time-frequency around reward', tone: 'violet' },
+          { title: 'Reward network', subtitle: 'OFC, mPFC, insula, vStr, amygdala', tone: 'violet' },
+          { title: 'Subjective-value model', subtitle: 'Computational value estimates', tone: 'violet' },
+        ],
+      },
+      {
+        label: 'What we found',
+        nodes: [
+          { title: 'Beta = magnitude', subtitle: 'Reward-locked beta scales with reward size', tone: 'green' },
+          { title: 'Delay decay', subtitle: 'Beta power decays with longer delays', tone: 'green' },
+          { title: 'Value correlate', subtitle: 'Beta tracks modeled subjective value', tone: 'green' },
+        ],
+      },
+    ],
+    outputs: ['reward-locked beta', 'magnitude scaling', 'delay sensitivity', 'subjective-value marker'],
+  },
+  'reversal-learning': {
+    eyebrow: 'behavioral paradigm map',
+    title: 'Probabilistic Reversal Learning — reward certainty',
+    summary:
+      'Reward contingencies flip unpredictably; beta and high-gamma oscillations track reward probability, and optogenetic beta stimulation causally perturbs adaptive behavior.',
+    lanes: [
+      {
+        label: 'Task design',
+        nodes: [
+          { title: 'Probabilistic reward', subtitle: 'Uncertain, changing contingencies', tone: 'amber' },
+          { title: 'Reversals', subtitle: 'Contingencies flip mid-session', tone: 'amber' },
+          { title: 'Adaptive choice', subtitle: 'Update behavior under uncertainty', tone: 'amber' },
+        ],
+      },
+      {
+        label: 'Neural measurement',
+        nodes: [
+          { title: 'Cortico-striatal LFP', subtitle: 'Reward-evoked oscillations', tone: 'violet' },
+          { title: 'RL model', subtitle: 'Trial-by-trial value and uncertainty', tone: 'violet' },
+          { title: 'Optogenetics', subtitle: 'Beta-frequency OFC stimulation', tone: 'violet' },
+        ],
+      },
+      {
+        label: 'What we found',
+        nodes: [
+          { title: 'Reward certainty', subtitle: 'Beta & high-gamma track valence/probability', tone: 'green' },
+          { title: 'Connectivity ↔ performance', subtitle: 'Beta coupling predicts behavior', tone: 'green' },
+          { title: 'Causal test', subtitle: 'OFC beta stim → maladaptive responses', tone: 'green' },
+        ],
+      },
+    ],
+    outputs: ['reward-certainty signal', 'beta/high-gamma coding', 'performance connectivity', 'causal optogenetic test'],
   },
 };
 
