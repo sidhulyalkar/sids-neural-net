@@ -1,0 +1,16 @@
+{
+  "generatedAt": "2026-07-16T00:00:00.000Z",
+  "tracks": [
+    {
+      "spotifyId": "4uLU6hMCjMI75M1A2tKUQC",
+      "title": "Sample Track (replace via npm run music:fetch)",
+      "artist": "Placeholder Artist",
+      "album": "",
+      "albumArtUrl": "",
+      "spotifyUrl": "https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC",
+      "popularity": 50,
+      "bpm": 113,
+      "downbeatMs": 320
+    }
+  ]
+}
