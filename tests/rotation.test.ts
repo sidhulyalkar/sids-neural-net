@@ -45,3 +45,26 @@ test('intensity raises energy but stays clamped', () => {
   const beatMs = 60000 / 120;
   assert.ok(sample(grid, beatMs, 1.4).lowEnergy >= sample(grid, beatMs, 1.0).lowEnergy);
 });
+
+import { PlaybackClock } from '../components/perceptual-cortex/playbackClock';
+
+test('playback clock interpolates while playing', () => {
+  const clock = new PlaybackClock();
+  clock.update(1000, false, 0);
+  assert.equal(clock.positionMs(500), 1500);
+  assert.equal(clock.isPlaying, true);
+});
+
+test('playback clock freezes while paused', () => {
+  const clock = new PlaybackClock();
+  clock.update(1000, true, 0);
+  assert.equal(clock.positionMs(500), 1000);
+  assert.equal(clock.isPlaying, false);
+});
+
+test('playback clock snaps to the reported position on update', () => {
+  const clock = new PlaybackClock();
+  clock.update(1000, false, 0);
+  clock.update(2000, false, 1000);
+  assert.equal(clock.positionMs(1000), 2000);
+});
