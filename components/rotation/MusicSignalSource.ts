@@ -27,12 +27,17 @@ declare global {
 }
 
 const API_SRC = 'https://open.spotify.com/embed/iframe-api/v1';
+const API_LOAD_TIMEOUT_MS = 8000;
 
 function loadIframeApi(): Promise<IFrameAPI> {
   if (window.__spotifyIframeApi) return Promise.resolve(window.__spotifyIframeApi);
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      reject(new Error('Timed out waiting for Spotify iframe API to load'));
+    }, API_LOAD_TIMEOUT_MS);
     const prior = window.onSpotifyIframeApiReady;
     window.onSpotifyIframeApiReady = (api) => {
+      clearTimeout(timeout);
       window.__spotifyIframeApi = api;
       prior?.(api);
       resolve(api);
@@ -41,6 +46,10 @@ function loadIframeApi(): Promise<IFrameAPI> {
       const script = document.createElement('script');
       script.src = API_SRC;
       script.async = true;
+      script.onerror = () => {
+        clearTimeout(timeout);
+        reject(new Error('Failed to load Spotify iframe API script'));
+      };
       document.body.appendChild(script);
     }
   });
