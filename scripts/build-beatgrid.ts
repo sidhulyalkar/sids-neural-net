@@ -14,8 +14,8 @@ async function main() {
   const downbeatMs = Number(downbeatArg);
   const durationMs = Number(durationArg ?? 210000);
 
-  if (!Number.isFinite(bpm) || bpm <= 0 || !Number.isFinite(downbeatMs)) {
-    console.error('bpm must be > 0 and downbeatMs must be a number.');
+  if (!Number.isFinite(bpm) || bpm <= 0 || !Number.isFinite(downbeatMs) || !Number.isFinite(durationMs) || durationMs <= 0) {
+    console.error('bpm must be > 0, downbeatMs must be a number, and durationMs must be a positive number.');
     process.exit(1);
   }
 

@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 export const trackSchema = z.object({
-  spotifyId: z.string().min(1),
+  spotifyId: z.string().regex(/^[A-Za-z0-9]+$/),
   title: z.string().min(1),
   artist: z.string().min(1),
   album: z.string().default(''),

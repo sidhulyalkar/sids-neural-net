@@ -27,6 +27,7 @@ async function existingGrids(): Promise<Map<string, Pick<Track, 'bpm' | 'downbea
     const parsed = manifestSchema.parse(JSON.parse(await readFile(manifestPath, 'utf8')));
     return new Map(parsed.tracks.map((t) => [t.spotifyId, { bpm: t.bpm, downbeatMs: t.downbeatMs }]));
   } catch {
+    console.warn('Could not read existing manifest; prior bpm/downbeat grids will not be preserved.');
     return new Map();
   }
 }

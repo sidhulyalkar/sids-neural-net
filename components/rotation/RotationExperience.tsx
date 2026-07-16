@@ -6,6 +6,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { advanceWorld, createInputSnapshot, type InputSnapshot } from '../perceptual-cortex/fusionEngine';
 import { silentAudioFeatures } from '../perceptual-cortex/audioFeatures';
 import { usePerceptualStore } from '../perceptual-cortex/perceptualStore';
+import { VisionSignalSource } from '../perceptual-cortex/VisionSignalSource';
 import { sample, type MusicTimeline } from '../perceptual-cortex/musicTimeline';
 import { initialQuality, type QualityTier } from '../perceptual-cortex/quality';
 import { visualThemeList, type VisualThemeId } from '../perceptual-cortex/visualThemes';
@@ -29,8 +30,10 @@ export function RotationExperience() {
   const timeline = useRef<MusicTimeline | null>(null);
   const flash = useRef<HTMLDivElement | null>(null);
   const pointer = useRef({ x: 0, y: 0, time: 0 });
+  const visionSource = useRef<VisionSignalSource | null>(null);
   const [selected, setSelected] = useState<Track | null>(null);
   const [quality, setQuality] = useState<QualityTier>('balanced');
+  const [visionState, setVisionState] = useState<'off' | 'requesting' | 'active' | 'error'>('off');
 
   useEffect(() => {
     const memory = (navigator as Navigator & { deviceMemory?: number }).deviceMemory;
@@ -81,7 +84,28 @@ export function RotationExperience() {
     return () => cancelAnimationFrame(raf);
   }, []);
 
-  useEffect(() => () => { controller.current?.destroy(); }, []);
+  useEffect(() => () => { controller.current?.destroy(); visionSource.current?.disable(); }, []);
+
+  const toggleVision = async () => {
+    if (visionState === 'active') {
+      visionSource.current?.disable();
+      visionSource.current = null;
+      input.current.hands.active = false;
+      input.current.face.active = false;
+      setVisionState('off');
+      return;
+    }
+    setVisionState('requesting');
+    const source = new VisionSignalSource();
+    try {
+      await source.enable((hands, face) => { input.current.hands = hands; input.current.face = face; }, () => setVisionState('error'));
+      visionSource.current = source;
+      setVisionState('active');
+    } catch {
+      source.disable();
+      setVisionState('error');
+    }
+  };
 
   const onPointerMove = (event: React.PointerEvent) => {
     const now = performance.now();
@@ -113,6 +137,7 @@ export function RotationExperience() {
             {visualThemeList.map((theme) => <option key={theme.id} value={theme.id}>{theme.label} · {theme.concept}</option>)}
           </select>
           <label className="flex items-center gap-2 font-mono text-[9px] uppercase tracking-[.14em] text-white/45"><input type="checkbox" checked={reducedMotion} onChange={(e) => setReducedMotion(e.target.checked)} /> reduced motion</label>
+          <button onClick={toggleVision} disabled={visionState === 'requesting'} className={`rounded-full border px-4 py-2 font-mono text-[10px] uppercase tracking-[.18em] backdrop-blur ${visionState === 'active' ? 'border-violet/40 bg-violet/10 text-violet' : 'border-white/15 bg-black/35 text-white/65'}`}>{visionState === 'active' ? '● camera active' : visionState === 'requesting' ? 'loading vision…' : 'enable camera'}</button>
         </div>
         {selected && (
           <div className="mb-3">

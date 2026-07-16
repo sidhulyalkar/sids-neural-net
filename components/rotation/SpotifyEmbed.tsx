@@ -58,8 +58,12 @@ export function SpotifyEmbed({ uri, onController }: {
           lastLoadedUri.current = target;
           onControllerRef.current(created);
           if (desiredUri.current !== target) {
-            controller.current.loadTrack(desiredUri.current);
-            lastLoadedUri.current = desiredUri.current;
+            try {
+              controller.current.loadTrack(desiredUri.current);
+              lastLoadedUri.current = desiredUri.current;
+            } catch (err) {
+              console.warn('Spotify embed failed to switch track', err);
+            }
           }
         })
         .catch((err) => {
