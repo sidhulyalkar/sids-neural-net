@@ -11,33 +11,68 @@ export function SpotifyEmbed({ uri, onController }: {
   const controller = useRef<MusicPlaybackController | null>(null);
   const lastLoadedUri = useRef<string | null>(null);
   const creating = useRef(false);
+  const desiredUri = useRef(uri);
+  const mounted = useRef(false);
+  const onControllerRef = useRef(onController);
 
   useEffect(() => {
-    let cancelled = false;
+    onControllerRef.current = onController;
+  });
+
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+      controller.current?.destroy();
+      controller.current = null;
+    };
+  }, []);
+
+  useEffect(() => {
+    desiredUri.current = uri;
     if (!host.current) return;
+
     if (controller.current) {
-      if (lastLoadedUri.current !== uri) {
+      if (uri !== lastLoadedUri.current) {
         controller.current.loadTrack(uri);
         lastLoadedUri.current = uri;
       }
       return;
     }
-    if (creating.current) return;
-    creating.current = true;
-    MusicPlaybackController.create(host.current, uri).then((created) => {
-      if (cancelled) { created.destroy(); return; }
-      controller.current = created;
-      lastLoadedUri.current = uri;
-      onController(created);
-    }).catch((err) => {
-      console.warn('SpotifyEmbed: failed to initialize Spotify iframe API', err);
-    }).finally(() => {
-      creating.current = false;
-    });
-    return () => { cancelled = true; };
-  }, [uri, onController]);
 
-  useEffect(() => () => { controller.current?.destroy(); controller.current = null; }, []);
+    if (creating.current) return;
+
+    startCreate();
+
+    function startCreate() {
+      if (!host.current) return;
+      creating.current = true;
+      const target = desiredUri.current;
+      MusicPlaybackController.create(host.current, target)
+        .then((created) => {
+          if (!mounted.current) {
+            created.destroy();
+            return;
+          }
+          controller.current = created;
+          lastLoadedUri.current = target;
+          onControllerRef.current(created);
+          if (desiredUri.current !== target) {
+            controller.current.loadTrack(desiredUri.current);
+            lastLoadedUri.current = desiredUri.current;
+          }
+        })
+        .catch((err) => {
+          console.warn('Spotify embed failed to load', err);
+        })
+        .finally(() => {
+          creating.current = false;
+          if (mounted.current && !controller.current && desiredUri.current !== target) {
+            startCreate();
+          }
+        });
+    }
+  }, [uri]);
 
   return <div ref={host} className="w-full" />;
 }

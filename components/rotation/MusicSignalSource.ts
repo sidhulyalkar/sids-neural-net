@@ -28,6 +28,7 @@ declare global {
 
 const API_SRC = 'https://open.spotify.com/embed/iframe-api/v1';
 const API_LOAD_TIMEOUT_MS = 8000;
+const CONTROLLER_TIMEOUT_MS = 8000;
 
 function loadIframeApi(): Promise<IFrameAPI> {
   if (window.__spotifyIframeApi) return Promise.resolve(window.__spotifyIframeApi);
@@ -65,8 +66,15 @@ export class MusicPlaybackController {
 
   static async create(element: HTMLElement, uri: string): Promise<MusicPlaybackController> {
     const api = await loadIframeApi();
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
+      let settled = false;
+      const timer = setTimeout(() => {
+        if (!settled) { settled = true; reject(new Error('Spotify createController timed out')); }
+      }, CONTROLLER_TIMEOUT_MS);
       api.createController(element, { uri, width: '100%', height: 80 }, (controller) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
         resolve(new MusicPlaybackController(controller));
       });
     });
