@@ -58,6 +58,7 @@ function loadIframeApi(): Promise<IFrameAPI> {
 
 export class MusicPlaybackController {
   private clock = new PlaybackClock();
+  private destroyed = false;
   private constructor(private controller: EmbedController) {
     controller.addListener('playback_update', (e) => {
       this.clock.update(e.data.position, e.data.isPaused, performance.now());
@@ -85,5 +86,9 @@ export class MusicPlaybackController {
   pause() { this.controller.pause(); }
   getPositionMs() { return this.clock.positionMs(performance.now()); }
   get isPlaying() { return this.clock.isPlaying; }
-  destroy() { this.controller.destroy(); }
+  destroy() {
+    if (this.destroyed) return;
+    this.destroyed = true;
+    this.controller.destroy();
+  }
 }

@@ -4,6 +4,7 @@ import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { advanceWorld, createInputSnapshot, type InputSnapshot } from '../perceptual-cortex/fusionEngine';
+import { silentAudioFeatures } from '../perceptual-cortex/audioFeatures';
 import { usePerceptualStore } from '../perceptual-cortex/perceptualStore';
 import { sample, type MusicTimeline } from '../perceptual-cortex/musicTimeline';
 import { initialQuality, type QualityTier } from '../perceptual-cortex/quality';
@@ -68,6 +69,7 @@ export function RotationExperience() {
         if (flash.current) flash.current.style.opacity = String(0.08 + features.onset * 0.32);
       } else {
         input.current.audioActive = false;
+        input.current.audio = silentAudioFeatures();
         if (flash.current) flash.current.style.opacity = '0';
       }
       const world = usePerceptualStore.getState().worldSnapshot;
