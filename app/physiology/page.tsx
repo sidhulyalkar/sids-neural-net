@@ -8,9 +8,9 @@ import {
 } from '@/components/portfolio/PageShell';
 
 export const metadata: Metadata = {
-  title: 'PhysioPersona | Sidharth Hulyalkar',
+  title: 'PhysioPersona Nature Atlas | Sidharth Hulyalkar',
   description:
-    'A local-first 3D physiological persona and adaptive tiny nature world connecting privacy-safe sensing evidence, explicit preferences, playful exploration, and replayable research snapshots.',
+    'A local-first physiological persona exploring 900 deterministic miniature nature worlds, combining privacy-safe sensing evidence, explicit game preferences, layered 2.5D rendering, and inspectable local memory.',
 };
 
 const layers = [
@@ -28,8 +28,27 @@ const layers = [
   },
   {
     title: 'play',
-    copy: 'The evidence can animate a tiny explorer while explicit choices shape its worlds, habits, and memories as a separate local game layer.',
+    copy: 'Evidence can animate the explorer while explicit choices shape a completely separate local preference model, world history, favorites, and field journal.',
   },
+];
+
+const atlasCollections = [
+  ['🌳 101–150 · deep woods', 'Rainforest canopies, banyan roots, bamboo, taiga, animal clearings, glowing fungi, nurse logs, and tangled understories.'],
+  ['🌊 151–200 · waters', 'Reefs, bays, lagoons, wetlands, whale horizons, kelp forests, sea-glass shores, ice shelves, waterfalls, and open ocean.'],
+  ['❄️ 201–250 · alpine', 'Ice caverns, blizzards, glacier valleys, summit cairns, ridgelines, winter wildlife, alpenglow, tarns, and frozen waterfalls.'],
+  ['🌷 251–300 · gardens', 'Cherry avenues, tulip rows, orchards, pollinators, prairie grass, fountains, lotus blossoms, rock gardens, and flower architecture.'],
+  ['🏜️ 301–350 · arid worlds', 'Savanna wildlife, slot canyons, mesas, dunes, salt flats, saguaros, badlands, desert sunsets, and tiny animal tracks.'],
+  ['🌌 351–400 · weather + sky', 'Supercells, double rainbows, moons, galaxies, meteor trails, sundogs, monsoon rain, aurora, and tiny observatories.'],
+  ['🍄 401–450 · fairycore', 'Moss picnics, acorn cups, tree libraries, gossamer webs, wild berries, ivy ruins, seedling stories, and absurdly cozy logs.'],
+  ['✨ 451–500 · bioluminescence', 'Neon tides, ghost mushrooms, fluorescent reefs, glowworms, firefly swarms, moonlit mist, and midnight plankton.'],
+  ['🌸 501–550 · pastel blooms', 'Wisteria tunnels, hydrangea, magnolia, peony, crocus, delphinium, soft flower fields, and botanical close-ups.'],
+  ['🌧️ 551–600 · rain worlds', 'Tin-roof rain, dark pines, foggy lochs, muddy tracks, flooded creeks, misty marshes, storm fronts, and reflective puddles.'],
+  ['🍂 601–650 · autumn', 'Maple canopies, pumpkin patches, orchards, hay bales, swirling leaves, harvest fields, gourds, seed pods, and golden grass.'],
+  ['🪨 651–700 · zen', 'Balanced stones, raked sand, bamboo water features, still pools, bonsai, single leaves, mossy steps, and minimalist gardens.'],
+  ['🐚 701–750 · ethereal coasts', 'Sea glass, abalone, pastel horizons, shells, moonlit sea, fog, foam, tide pools, sunbeams, and shoreline grasses.'],
+  ['💎 751–800 · crystal + frost', 'Bismuth, quartz, amethyst, glacier ice, snowflakes, geodes, frozen webs, crevasses, mineral colors, and ice tunnels.'],
+  ['🌵 801–850 · desert boho', 'Agave, terracotta dunes, desert sun, washed stone, dry roads, yucca, cholla, rock arches, badlands, and twilight.'],
+  ['☁️ 851–900 · celestial', 'Milky Way bands, aurora curtains, nebulae, planets, cloud streets, sun halos, meteor streaks, dawn light, and thunderheads.'],
 ];
 
 export default function PhysiologyPage() {
@@ -37,8 +56,8 @@ export default function PhysiologyPage() {
     <PageShell>
       <PageHeader
         eyebrow="experiment · local-first physiological computing"
-        title="physio persona"
-        intro="Part evidence viewer, part tiny nature world. A small 3D explorer can breathe with trustworthy signals, wander through landscapes, perform ridiculous little tasks, and gradually learn the places and activities a visitor explicitly chooses. The science stays typed and uncertain; the personality stays playful, inspectable, and local."
+        title="physio persona · nature atlas"
+        intro="A physiology-reactive tiny explorer living inside a 900-world procedural nature atlas. Each world is rendered as an illustrated 2.5D diorama in real 3D space, with layered parallax, atmosphere, motion, wildlife, activities, and an inspectable rendering blueprint. The body can react to measured evidence; the personality only learns from choices you deliberately make."
         actions={
           <>
             <ExternalLinkChip href="https://github.com/sidhulyalkar/WiFisio-Atlas">
@@ -53,16 +72,36 @@ export default function PhysiologyPage() {
 
       <PhysiologyPersonaLab />
 
-      <SectionShell eyebrow="tiny worlds" title="nature as the persona's changing playground">
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-          {[
-            ['🏔️ snowy ridge', 'Pines, distant peaks, cairns, stargazing, collecting rocks, and an entirely unnecessary snow-angel career.'],
-            ['🌿 fern jungle', 'Huge leaves, moss, glowing insects, wandering, gardening, and following fireflies with poor navigational discipline.'],
-            ['🔥 fire cave', 'A warm little shelter for mineral collecting, campfire loafing, resting, and quiet late-night star watching near the entrance.'],
-            ['🏞️ river bend', 'Reeds, stepping stones, fishing, stone skipping, wandering, and a suspiciously decorative bridge-shaped future.'],
-            ['🌊 windy coast', 'Sand, water, shells, sea grass, shoreline exploring, and tiny adventures under very large weather.'],
-            ['🌼 wildflower meadow', 'Flowers, gardens, fireflies, mushrooms, naps, and first-rate lying-down-looking-at-the-sky infrastructure.'],
-          ].map(([title, copy]) => (
+      <SectionShell eyebrow="atlas architecture" title="900 worlds without 900 hard-coded scenes">
+        <div className="grid gap-4 lg:grid-cols-3">
+          <article className="rounded-xl border border-white/10 bg-white/[0.025] p-5 sm:p-6">
+            <h3 className="font-mono text-sm text-text-primary">world manifest</h3>
+            <p className="mt-3 text-xs leading-6 text-text-secondary/70">
+              Every world has a stable ID, collection, terrain, palette, focal subject, wildlife, activity set, atmosphere, preference bias, and deterministic seed. The atlas is data first, so a new world is a scene specification rather than another page of fragile rendering code.
+            </p>
+          </article>
+          <article className="rounded-xl border border-white/10 bg-white/[0.025] p-5 sm:p-6">
+            <h3 className="font-mono text-sm text-text-primary">scene compiler</h3>
+            <p className="mt-3 text-xs leading-6 text-text-secondary/70">
+              Each specification becomes a richer visual brief: foreground, midground, backdrop, depth mode, camera grammar, lighting, motion, interaction cue, and a vocabulary of renderable subjects such as trees, mushrooms, coral, crystal, water, mountains, weather, celestial cards, and wildlife.
+            </p>
+          </article>
+          <article className="rounded-xl border border-white/10 bg-white/[0.025] p-5 sm:p-6">
+            <h3 className="font-mono text-sm text-text-primary">2.5D diorama renderer</h3>
+            <p className="mt-3 text-xs leading-6 text-text-secondary/70">
+              Flat-shaded props and illustration-like planes live at real 3D depths. Orbiting the camera separates the layers with parallax, while procedural animation gives water, fog, rain, snow, glow, foliage, celestial events, and tiny animals just enough motion to feel inhabited.
+            </p>
+          </article>
+        </div>
+      </SectionShell>
+
+      <SectionShell eyebrow="field guide" title="seventeen collections, one continuous little universe">
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          <article className="rounded-xl border border-cyan/20 bg-cyan/[0.035] p-5">
+            <h3 className="font-mono text-sm text-text-primary">🌲 001–100 · original atlas</h3>
+            <p className="mt-2 text-xs leading-6 text-text-secondary/70">The first forests, water worlds, mountains, meadows, deserts, skies, caves, rivers, coasts, and playful nature landmarks that established the visual language.</p>
+          </article>
+          {atlasCollections.map(([title, copy]) => (
             <article key={title} className="rounded-xl border border-white/10 bg-white/[0.025] p-5">
               <h3 className="font-mono text-sm text-text-primary">{title}</h3>
               <p className="mt-2 text-xs leading-6 text-text-secondary/70">{copy}</p>
@@ -72,17 +111,40 @@ export default function PhysiologyPage() {
       </SectionShell>
 
       <SectionShell eyebrow="learning" title="train the persona, not a diagnosis">
-        <div className="grid gap-4 lg:grid-cols-2">
+        <div className="grid gap-4 lg:grid-cols-3">
           <article className="rounded-xl border border-white/10 bg-white/[0.025] p-5 sm:p-6">
             <h3 className="font-mono text-sm text-text-primary">explicit preference memory</h3>
             <p className="mt-3 text-xs leading-6 text-text-secondary/70">
-              Choosing worlds and activities slowly updates six transparent game preferences: curiosity, energy, collecting, exploring, calm-world affinity, and wild-world affinity. Visitors can inspect the values, drag the sliders themselves, export the JSON, or erase everything. The state lives in localStorage rather than a hidden behavioral profile on a server.
+              Choosing a world or activity can update six transparent game preferences: curiosity, energy, collecting, exploring, calm-world affinity, and wild-world affinity. The sliders remain directly editable, and the entire persona plus atlas state can be exported or erased.
+            </p>
+          </article>
+          <article className="rounded-xl border border-white/10 bg-white/[0.025] p-5 sm:p-6">
+            <h3 className="font-mono text-sm text-text-primary">recommendation does not self-train</h3>
+            <p className="mt-3 text-xs leading-6 text-text-secondary/70">
+              The World Director can suggest or automatically wander to somewhere novel, but an algorithm-selected destination does not become evidence about the visitor merely because it was shown. Favorites and deliberate choices remain distinct explicit signals.
             </p>
           </article>
           <article className="rounded-xl border border-white/10 bg-white/[0.025] p-5 sm:p-6">
             <h3 className="font-mono text-sm text-text-primary">mood is temporary atmosphere</h3>
             <p className="mt-3 text-xs leading-6 text-text-secondary/70">
-              Calm, curious, energized, and sleepy are explicit self-report controls for the current visit. They can influence light, pace, stars, and recommendations, but they do not permanently alter the saved trait vector. Physiology can still change evidence-reactive body animation without being converted into a psychological label.
+              Calm, curious, energized, and sleepy are self-report controls for the current visit. They can affect recommendations and presentation without permanently rewriting personality. Physiological evidence can animate the body without being turned into a psychological label.
+            </p>
+          </article>
+        </div>
+      </SectionShell>
+
+      <SectionShell eyebrow="performance" title="large atlas, one WebGL world at a time">
+        <div className="grid gap-4 lg:grid-cols-2">
+          <article className="rounded-xl border border-white/10 bg-white/[0.025] p-5 sm:p-6">
+            <h3 className="font-mono text-sm text-text-primary">lightweight field guide</h3>
+            <p className="mt-3 text-xs leading-6 text-text-secondary/70">
+              The browser never mounts 900 WebGL canvases. Atlas cards use tiny CSS previews and render 48 entries per page. Only the selected world owns a React Three Fiber scene, with bounded object counts, deterministic scatter, and a capped device pixel ratio.
+            </p>
+          </article>
+          <article className="rounded-xl border border-white/10 bg-white/[0.025] p-5 sm:p-6">
+            <h3 className="font-mono text-sm text-text-primary">procedural assets over downloads</h3>
+            <p className="mt-3 text-xs leading-6 text-text-secondary/70">
+              Most geometry is generated from reusable primitives instead of hundreds of texture packs or heavy GLTF files. A pine, coral shelf, shell, crystal cluster, aurora ribbon, or cloud layer can be recolored and composed from the world blueprint while retaining a consistent visual style.
             </p>
           </article>
         </div>
@@ -128,20 +190,20 @@ export default function PhysiologyPage() {
             <div>
               <h3 className="font-mono text-sm text-text-primary">appearance can stay ephemeral</h3>
               <p className="mt-3 text-xs leading-6 text-text-secondary/70">
-                The current camera interaction samples only a soft appearance color in the browser. The little explorer can eventually gain richer local-only accessories and facial animation without requiring the public site to store a face, biometric template, or inferred identity.
+                The current camera interaction samples only a soft appearance color in the browser. The explorer can gain richer local-only accessories and facial animation without requiring the public site to store a face, biometric template, or inferred identity.
               </p>
             </div>
           </div>
         </div>
       </SectionShell>
 
-      <SectionShell eyebrow="next" title="where the little world can grow">
+      <SectionShell eyebrow="next" title="where the atlas can grow without losing its rules">
         <div className="grid gap-3 md:grid-cols-2">
           {[
-            ['1 · richer adventures', 'Add weather events, day/night cycles, discoverable objects, tiny shelters, seasonal variants, and rare world transitions while keeping scene assets lightweight.'],
-            ['2 · replay memories', 'Let de-identified physiology replays become special journeys the persona can revisit, with confidence and abstentions still visible underneath the animation.'],
-            ['3 · browser-local face rig', 'Drive eyes, mouth, blink, and head pose from local landmarks while keeping self-reported mood distinct from expression features.'],
-            ['4 · secure live bridge', 'Pair a local WiFisio companion with short-lived scoped tokens and stream only persona-safe evidence, never the local Research Hub or raw RF.'],
+            ['1 · persistent objects', 'Let collected shells, stones, seeds, flowers, and crystals appear back at the explorer’s tiny home as explicitly earned decorations.'],
+            ['2 · daily world state', 'Use deterministic local date seeds for weather and rare discoveries, then compute elapsed changes when the visitor returns rather than pretending a browser tab simulated life in the background.'],
+            ['3 · richer hero silhouettes', 'Continue expanding reusable focal-object families so even extremely specific entries such as honeycomb, observatory, pumpkin, sea glass, mineral geodes, and garden structures gain bespoke geometry.'],
+            ['4 · replay memories', 'Let de-identified physiology replays become special journeys the persona can revisit while confidence, observability, and abstentions remain inspectable underneath.'],
           ].map(([title, copy]) => (
             <article key={title} className="rounded-xl border border-white/10 bg-white/[0.025] p-5">
               <h3 className="font-mono text-sm text-text-primary">{title}</h3>
