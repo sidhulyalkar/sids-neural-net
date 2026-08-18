@@ -19,6 +19,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     '/archive',
     '/photography',
     '/ideas',
+    '/physiology',
     '/timeline',
     '/case-studies',
     '/about',
