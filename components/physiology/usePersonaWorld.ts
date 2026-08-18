@@ -23,7 +23,7 @@ import {
   suggestWorldActivity,
   toggleAtlasFavorite,
   type NatureAtlasProgress,
-} from '@/lib/physiology/natureWorlds';
+} from '@/lib/physiology/natureWorldsExpanded';
 
 type PersonaWorldState = {
   profile: PersonaWorldProfile;
@@ -106,8 +106,8 @@ export function usePersonaWorld(initialMood: PersonaMoodSelfReport): PersonaWorl
       setWorldId(nextWorld.id);
       setActivity(nextActivity);
       setAtlas((current) => recordAtlasVisit(current, nextWorld.id));
-      // Deliberately do not train the saved preference vector here. The recommender
-      // chose this destination, not the visitor. Explicit world/activity choices train.
+      // Wandering is algorithm-selected discovery, so it never trains the saved
+      // preference vector. Only explicit world/activity/favorite choices do.
     },
     [atlas, profile]
   );
