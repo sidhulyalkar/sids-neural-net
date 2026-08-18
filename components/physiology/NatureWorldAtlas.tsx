@@ -1,14 +1,15 @@
 'use client';
 
-import { useMemo, useState } from 'react';
-import { Check, Heart, Map, Search, Sparkles } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { Check, ChevronLeft, ChevronRight, Heart, Map, Search, Sparkles } from 'lucide-react';
 import {
+  NATURE_COLLECTIONS,
   NATURE_WORLDS,
   NATURE_WORLD_PALETTES,
-  NATURE_WORLD_THEMES,
+  atlasSummary,
   type NatureAtlasProgress,
-  type NatureWorldTheme,
-} from '@/lib/physiology/natureWorlds';
+  type NatureCollectionId,
+} from '@/lib/physiology/natureWorldsExpanded';
 
 type AtlasProps = {
   currentWorldId: string;
@@ -17,25 +18,73 @@ type AtlasProps = {
   onToggleFavorite: (worldId: string) => void;
 };
 
-type ThemeFilter = NatureWorldTheme | 'all';
+type CollectionFilter = NatureCollectionId | 'all';
+const PAGE_SIZE = 48;
+
+function percent(value: number) {
+  return `${Math.round(value * 100)}%`;
+}
+
+function PreviewCard({ worldId }: { worldId: string }) {
+  const world = NATURE_WORLDS.find((entry) => entry.id === worldId) ?? NATURE_WORLDS[0];
+  const palette = NATURE_WORLD_PALETTES[world.palette];
+  const atmosphere = world.scene.atmosphere;
+  return (
+    <div
+      className="relative mb-3 h-14 overflow-hidden rounded-lg border border-white/10"
+      style={{ background: `linear-gradient(180deg, ${palette.sky}, ${palette.fog} 58%, ${palette.ground} 59%)` }}
+    >
+      <div className="absolute inset-x-0 bottom-0 h-4 opacity-90" style={{ backgroundColor: palette.ground }} />
+      <div className="absolute bottom-2 left-[18%] h-3 w-8 rounded-[50%] opacity-80" style={{ backgroundColor: palette.secondary }} />
+      <div className="absolute bottom-1 right-[17%] h-5 w-5 rounded-full opacity-80" style={{ backgroundColor: palette.accent }} />
+      {(atmosphere === 'glow' || atmosphere === 'night') && (
+        <><i className="absolute left-[18%] top-2 h-1 w-1 rounded-full bg-white/75" /><i className="absolute left-[62%] top-3 h-1 w-1 rounded-full bg-white/55" /><i className="absolute right-[14%] top-1.5 h-1 w-1 rounded-full bg-white/65" /></>
+      )}
+      {(atmosphere === 'rain' || atmosphere === 'storm') && (
+        <div className="absolute inset-0 opacity-30" style={{ backgroundImage: 'repeating-linear-gradient(105deg, transparent 0 8px, rgba(220,240,255,.8) 9px 10px, transparent 11px 18px)' }} />
+      )}
+      {world.scene.renderCues.includes('rainbow') && (
+        <div className="absolute left-1/2 top-2 h-7 w-14 -translate-x-1/2 rounded-t-full border-t-2 border-pink-200/70" />
+      )}
+    </div>
+  );
+}
 
 export function NatureWorldAtlas({ currentWorldId, progress, onChooseWorld, onToggleFavorite }: AtlasProps) {
-  const [theme, setTheme] = useState<ThemeFilter>('all');
+  const [collection, setCollection] = useState<CollectionFilter>('all');
   const [query, setQuery] = useState('');
   const [favoritesOnly, setFavoritesOnly] = useState(false);
+  const [page, setPage] = useState(0);
+  const summary = atlasSummary(progress);
 
   const filtered = useMemo(() => {
     const needle = query.trim().toLowerCase();
     return NATURE_WORLDS.filter((world) => {
-      if (theme !== 'all' && world.theme !== theme) return false;
+      if (collection !== 'all' && world.collection !== collection) return false;
       if (favoritesOnly && !progress.favorites.includes(world.id)) return false;
       if (!needle) return true;
-      return [world.name, world.description, world.theme, world.terrain, ...world.features, ...world.wildlife]
-        .join(' ')
-        .toLowerCase()
-        .includes(needle);
+      return [
+        world.name,
+        world.description,
+        world.theme,
+        world.terrain,
+        world.collection,
+        world.scene.collectionLabel,
+        world.scene.atmosphere,
+        world.scene.depth,
+        world.scene.visualThesis,
+        ...world.scene.renderCues,
+        ...world.features,
+        ...world.wildlife,
+      ].join(' ').toLowerCase().includes(needle);
     });
-  }, [favoritesOnly, progress.favorites, query, theme]);
+  }, [collection, favoritesOnly, progress.favorites, query]);
+
+  useEffect(() => setPage(0), [collection, favoritesOnly, query]);
+
+  const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const safePage = Math.min(page, pageCount - 1);
+  const visible = filtered.slice(safePage * PAGE_SIZE, safePage * PAGE_SIZE + PAGE_SIZE);
 
   return (
     <section className="rounded-2xl border border-white/10 bg-white/[0.025] p-5 sm:p-6">
@@ -43,15 +92,17 @@ export function NatureWorldAtlas({ currentWorldId, progress, onChooseWorld, onTo
         <div>
           <div className="flex items-center gap-2">
             <Map className="h-4 w-4 text-cyan/70" />
-            <h2 className="font-mono text-sm text-text-primary">100-world nature atlas</h2>
+            <h2 className="font-mono text-sm text-text-primary">900-world nature atlas</h2>
           </div>
           <p className="mt-2 max-w-3xl text-xs leading-5 text-text-secondary/60">
-            Every card is a deterministic procedural diorama recipe, not a screenshot. Visit anything immediately, then let the local persona learn which tiny corners of nature you keep returning to.
+            A searchable field guide to every miniature world. Each entry has a deterministic visual grammar, scene brief, camera plan, atmosphere, activities, and local discovery state. Nothing is locked.
           </p>
         </div>
-        <div className="flex gap-2 font-mono text-[0.62rem] text-text-secondary/55">
-          <span className="rounded-full border border-white/10 px-2.5 py-1">{progress.discovered.length}/100 discovered</span>
-          <span className="rounded-full border border-white/10 px-2.5 py-1">♥ {progress.favorites.length}</span>
+        <div className="grid grid-cols-2 gap-2 font-mono text-[0.62rem] text-text-secondary/55 sm:flex">
+          <span className="rounded-full border border-white/10 px-2.5 py-1">{summary.discovered}/900 discovered</span>
+          <span className="rounded-full border border-white/10 px-2.5 py-1">{percent(summary.completion)} atlas</span>
+          <span className="rounded-full border border-white/10 px-2.5 py-1">{summary.collectionsVisited}/17 collections</span>
+          <span className="rounded-full border border-white/10 px-2.5 py-1">♥ {summary.favorites}</span>
         </div>
       </div>
 
@@ -61,7 +112,7 @@ export function NatureWorldAtlas({ currentWorldId, progress, onChooseWorld, onTo
           <input
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="search mushrooms, aurora, otter, snow, river..."
+            placeholder="search aurora, sloth, rain, lavender, crystal, river, shell..."
             className="w-full bg-transparent text-text-primary outline-none placeholder:text-text-secondary/35"
           />
         </label>
@@ -74,48 +125,48 @@ export function NatureWorldAtlas({ currentWorldId, progress, onChooseWorld, onTo
         </button>
       </div>
 
-      <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
-        <button
-          type="button"
-          onClick={() => setTheme('all')}
-          className={`shrink-0 rounded-full border px-3 py-1.5 text-[0.68rem] transition ${theme === 'all' ? 'border-cyan/35 bg-cyan/[0.08] text-cyan' : 'border-white/10 text-text-secondary hover:border-white/20'}`}
-        >
-          ✨ all 100
-        </button>
-        {NATURE_WORLD_THEMES.map((item) => (
+      <div className="mt-3 flex gap-2 overflow-x-auto pb-2">
+        {NATURE_COLLECTIONS.map((item) => (
           <button
             key={item.id}
             type="button"
-            onClick={() => setTheme(item.id)}
-            className={`shrink-0 rounded-full border px-3 py-1.5 text-[0.68rem] transition ${theme === item.id ? 'border-cyan/35 bg-cyan/[0.08] text-cyan' : 'border-white/10 text-text-secondary hover:border-white/20'}`}
+            onClick={() => setCollection(item.id)}
+            className={`shrink-0 rounded-full border px-3 py-1.5 text-[0.68rem] transition ${collection === item.id ? 'border-cyan/35 bg-cyan/[0.08] text-cyan' : 'border-white/10 text-text-secondary hover:border-white/20'}`}
           >
-            {item.icon} {item.label} · 20
+            {item.icon} {item.label} · {item.range}
           </button>
         ))}
       </div>
 
-      <div className="mt-5 max-h-[620px] overflow-y-auto pr-1">
-        {filtered.length === 0 ? (
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-3 text-[0.64rem] text-text-secondary/45">
+        <span>{filtered.length} worlds match · showing {visible.length} at a time for a lighter DOM</span>
+        {pageCount > 1 && (
+          <div className="flex items-center gap-2">
+            <button type="button" aria-label="Previous atlas page" disabled={safePage === 0} onClick={() => setPage((value) => Math.max(0, value - 1))} className="flex h-8 w-8 items-center justify-center rounded-md border border-white/10 disabled:opacity-30"><ChevronLeft className="h-3.5 w-3.5" /></button>
+            <span className="font-mono">{safePage + 1}/{pageCount}</span>
+            <button type="button" aria-label="Next atlas page" disabled={safePage >= pageCount - 1} onClick={() => setPage((value) => Math.min(pageCount - 1, value + 1))} className="flex h-8 w-8 items-center justify-center rounded-md border border-white/10 disabled:opacity-30"><ChevronRight className="h-3.5 w-3.5" /></button>
+          </div>
+        )}
+      </div>
+
+      <div className="mt-4">
+        {visible.length === 0 ? (
           <div className="rounded-xl border border-dashed border-white/10 p-8 text-center text-xs text-text-secondary/50">
-            No tiny world matches that search. The creature has checked under several rocks.
+            No tiny world matches that search. The creature has checked under several extremely legitimate rocks.
           </div>
         ) : (
           <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {filtered.map((world) => {
+            {visible.map((world) => {
               const selected = world.id === currentWorldId;
               const discovered = progress.discovered.includes(world.id);
               const favorite = progress.favorites.includes(world.id);
-              const palette = NATURE_WORLD_PALETTES[world.palette];
               return (
                 <article
                   key={world.id}
                   className={`group relative overflow-hidden rounded-xl border transition ${selected ? 'border-cyan/45 bg-cyan/[0.06]' : 'border-white/10 bg-black/10 hover:border-white/20 hover:bg-white/[0.025]'}`}
                 >
                   <button type="button" onClick={() => onChooseWorld(world.id)} className="w-full p-3.5 text-left">
-                    <div className="mb-3 flex h-12 items-end overflow-hidden rounded-lg border border-white/10" style={{ backgroundColor: palette.sky }}>
-                      <div className="h-5 w-full opacity-90" style={{ backgroundColor: palette.ground }} />
-                      <div className="absolute ml-2 mb-1.5 h-2 w-7 rounded-full opacity-80" style={{ backgroundColor: palette.accent }} />
-                    </div>
+                    <PreviewCard worldId={world.id} />
                     <div className="flex items-start gap-2">
                       <span className="text-base" aria-hidden>{world.icon}</span>
                       <div className="min-w-0">
@@ -123,9 +174,8 @@ export function NatureWorldAtlas({ currentWorldId, progress, onChooseWorld, onTo
                         <p className="mt-1 line-clamp-2 text-[0.61rem] leading-4 text-text-secondary/48">{world.description}</p>
                       </div>
                     </div>
-                    <div className="mt-3 flex items-center justify-between gap-2 font-mono text-[0.56rem] uppercase tracking-[0.08em] text-text-secondary/38">
-                      <span>{world.theme}</span>
-                      <span>{progress.visits[world.id] ?? 0} visits</span>
+                    <div className="mt-3 flex flex-wrap items-center gap-1.5 font-mono text-[0.54rem] uppercase tracking-[0.07em] text-text-secondary/38">
+                      <span>{world.scene.depth}</span><span>·</span><span>{world.scene.atmosphere}</span><span>·</span><span>{progress.visits[world.id] ?? 0} visits</span>
                     </div>
                   </button>
 
@@ -133,7 +183,7 @@ export function NatureWorldAtlas({ currentWorldId, progress, onChooseWorld, onTo
                     type="button"
                     onClick={() => onToggleFavorite(world.id)}
                     aria-label={`${favorite ? 'Remove' : 'Add'} ${world.name} ${favorite ? 'from' : 'to'} favorites`}
-                    className={`absolute right-2.5 top-2.5 flex h-8 w-8 items-center justify-center rounded-full border backdrop-blur transition ${favorite ? 'border-rose-200/30 bg-rose-300/15 text-rose-200' : 'border-white/10 bg-black/20 text-white/45 opacity-60 hover:opacity-100'}`}
+                    className={`absolute right-2.5 top-2.5 flex h-8 w-8 items-center justify-center rounded-full border backdrop-blur transition ${favorite ? 'border-rose-200/30 bg-rose-300/15 text-rose-200' : 'border-white/10 bg-black/20 text-white/45 opacity-70 hover:opacity-100'}`}
                   >
                     <Heart className={`h-3.5 w-3.5 ${favorite ? 'fill-current' : ''}`} />
                   </button>
@@ -152,7 +202,7 @@ export function NatureWorldAtlas({ currentWorldId, progress, onChooseWorld, onTo
 
       <div className="mt-4 flex items-start gap-2 rounded-lg border border-white/10 bg-black/10 p-3 text-[0.64rem] leading-5 text-text-secondary/50">
         <Sparkles className="mt-0.5 h-3.5 w-3.5 shrink-0 text-cyan/60" />
-        Discovery is intentionally soft progression. Nothing is locked. Visiting a world adds it to the local passport, while favorites are explicit and can influence future wandering recommendations.
+        The atlas is intentionally soft progression. Visiting records discovery, favoriting is an explicit preference signal, and recommendation-selected wandering never trains itself. Search and collection filters are presentation only.
       </div>
     </section>
   );
