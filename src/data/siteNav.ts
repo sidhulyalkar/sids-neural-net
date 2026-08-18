@@ -79,6 +79,12 @@ export const siteNavItems: SiteNavItem[] = [
     section: 'research',
   },
   {
+    href: '/physiology',
+    label: 'PhysioPersona',
+    description: 'Evidence-first WiFi physiology experiments and a playful 3D persona.',
+    section: 'research',
+  },
+  {
     href: '/timeline',
     label: 'Timeline',
     description: 'Career, research, project, publication, and life events.',
