@@ -4,6 +4,7 @@ import { useRef } from 'react';
 import { OrbitControls } from '@react-three/drei';
 import { Canvas, useFrame } from '@react-three/fiber';
 import type { Group, Mesh } from 'three';
+import { NatureWorldHero } from '@/components/physiology/NatureWorldHero';
 import { NatureWorldRenderer } from '@/components/physiology/NatureWorldRenderer';
 import { getNatureWorld } from '@/lib/physiology/natureWorldsExpanded';
 import {
@@ -209,6 +210,7 @@ function SceneContent(props: SceneProps) {
   return (
     <>
       <NatureWorldRenderer key={world.id} world={world} />
+      <NatureWorldHero world={world} />
       <pointLight position={[-3,2.4,2.5]} intensity={4.5} distance={8} color={props.accent} />
       <ActivityProp activity={props.activity} />
       <Persona snapshot={props.snapshot} mood={props.mood} accent={props.accent} activity={props.activity} />
