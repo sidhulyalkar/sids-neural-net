@@ -5,10 +5,7 @@ import { OrbitControls } from '@react-three/drei';
 import { Canvas, useFrame } from '@react-three/fiber';
 import type { Group, Mesh } from 'three';
 import { NatureWorldRenderer } from '@/components/physiology/NatureWorldRenderer';
-import {
-  NATURE_WORLD_PALETTES,
-  getNatureWorld,
-} from '@/lib/physiology/natureWorlds';
+import { getNatureWorld } from '@/lib/physiology/natureWorldsExpanded';
 import {
   dominantSleepStage,
   getSignal,
@@ -209,18 +206,10 @@ function Persona({ snapshot, mood, accent, activity }: Omit<SceneProps, 'worldId
 
 function SceneContent(props: SceneProps) {
   const world = getNatureWorld(props.worldId);
-  const palette = NATURE_WORLD_PALETTES[world.palette];
-  const cave = world.terrain === 'cave';
-  const ambient = cave ? 0.42 : props.mood === 'energized' ? 0.95 : props.mood === 'calm' ? 0.72 : 0.82;
   return (
     <>
-      <color attach="background" args={[palette.sky]} />
-      <fog attach="fog" args={[palette.fog, 6.5, 13]} />
-      <ambientLight intensity={ambient} />
-      <hemisphereLight color={palette.accent} groundColor={palette.ground} intensity={cave ? 0.55 : 1.1} />
-      <directionalLight position={[3.5,5.5,3]} intensity={props.mood === 'energized' ? 2.2 : 1.55} color={palette.accent} />
-      <pointLight position={[-3,2.4,2.5]} intensity={7} distance={8} color={props.accent} />
       <NatureWorldRenderer key={world.id} world={world} />
+      <pointLight position={[-3,2.4,2.5]} intensity={4.5} distance={8} color={props.accent} />
       <ActivityProp activity={props.activity} />
       <Persona snapshot={props.snapshot} mood={props.mood} accent={props.accent} activity={props.activity} />
     </>
@@ -230,21 +219,26 @@ function SceneContent(props: SceneProps) {
 export function PhysioPersonaAtlasScene(props: SceneProps) {
   const world = getNatureWorld(props.worldId);
   const activity = ACTIVITIES[props.activity];
+  const cameraZ = world.scene.depth === 'macro' ? 4.75 : world.scene.depth === 'panorama' ? 5.65 : 5.25;
+  const cameraY = world.scene.depth === 'vertical' ? 1.9 : 1.65;
   return (
     <div className="relative h-[500px] w-full overflow-hidden rounded-2xl border border-white/10 bg-black/25 sm:h-[620px]">
-      <Canvas dpr={[1,1.4]} camera={{ position: [0,1.65,5.25], fov: 42 }}>
+      <Canvas dpr={[1,1.35]} camera={{ position: [0,cameraY,cameraZ], fov: world.scene.depth === 'panorama' ? 46 : 42 }}>
         <SceneContent {...props} />
-        <OrbitControls target={[0,0.72,0]} enablePan={false} minDistance={3.7} maxDistance={6.8} minPolarAngle={Math.PI*0.24} maxPolarAngle={Math.PI*0.66} />
+        <OrbitControls target={[0,0.72,0]} enablePan={false} minDistance={3.7} maxDistance={7.2} minPolarAngle={Math.PI*0.22} maxPolarAngle={Math.PI*0.68} />
       </Canvas>
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/65 via-black/20 to-transparent px-4 pb-4 pt-16 sm:px-5 sm:pb-5">
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 via-black/22 to-transparent px-4 pb-4 pt-16 sm:px-5 sm:pb-5">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div className="max-w-xl">
-            <p className="font-mono text-[0.6rem] uppercase tracking-[0.16em] text-white/50">world {String(world.index).padStart(3,'0')} · {world.theme}</p>
+            <p className="font-mono text-[0.6rem] uppercase tracking-[0.16em] text-white/50">world {String(world.index).padStart(3,'0')} · {world.scene.collectionLabel} · {world.scene.depth}</p>
             <p className="mt-1 text-sm font-medium text-white/92">{world.icon} {world.name}</p>
             <p className="mt-1 hidden max-w-lg text-[0.65rem] leading-5 text-white/52 sm:block">{world.description}</p>
           </div>
           <p className="rounded-full border border-white/15 bg-black/25 px-3 py-1.5 text-[0.68rem] text-white/75 backdrop-blur">{activity.icon} {activity.name}</p>
         </div>
+      </div>
+      <div className="pointer-events-none absolute left-3 top-3 rounded-full border border-white/10 bg-black/25 px-2.5 py-1 font-mono text-[0.55rem] uppercase tracking-[0.12em] text-white/45 backdrop-blur">
+        2.5D procedural · seed {world.seed}
       </div>
     </div>
   );
