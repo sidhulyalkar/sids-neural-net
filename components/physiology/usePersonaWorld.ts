@@ -35,16 +35,18 @@ export function usePersonaWorld(initialMood: PersonaMoodSelfReport): PersonaWorl
   const [activity, setActivity] = useState<PersonaActivity>('explore');
   const [hydrated, setHydrated] = useState(false);
   const wanderIndex = useRef(0);
+  const initialMoodRef = useRef(initialMood);
 
   useEffect(() => {
     const saved = loadWorldProfile(window.localStorage.getItem(PERSONA_WORLD_STORAGE_KEY));
     const visited = incrementVisit(saved);
-    const recommendedBiome = suggestBiome(visited, initialMood);
+    const mood = initialMoodRef.current;
+    const recommendedBiome = suggestBiome(visited, mood);
     setProfile(visited);
     setBiome(recommendedBiome);
-    setActivity(suggestActivity(visited, recommendedBiome, initialMood));
+    setActivity(suggestActivity(visited, recommendedBiome, mood));
     setHydrated(true);
-  }, [initialMood]);
+  }, []);
 
   useEffect(() => {
     if (!hydrated) return;
