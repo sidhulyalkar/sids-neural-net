@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { NatureAtmosphereCanvas } from '@/components/physiology/nature2d/NatureAtmosphereCanvas';
 import { NatureWorldArt2D } from '@/components/physiology/nature2d/NatureWorldArt2D';
+import { NatureWorldMotifs2D } from '@/components/physiology/nature2d/NatureWorldMotifs2D';
 import { Persona2D } from '@/components/physiology/nature2d/Persona2D';
 import {
   NATURE_WORLD_PALETTES,
@@ -106,6 +107,7 @@ export function NatureWorld2D({ snapshot, mood, accent, worldId, activity }: Pro
       style={{ cursor: interactiveWater ? 'crosshair' : 'default' }}
     >
       <NatureWorldArt2D world={world} pointerX={pointer.x} pointerY={pointer.y} />
+      <NatureWorldMotifs2D world={world} pointerX={pointer.x} pointerY={pointer.y} />
 
       <svg viewBox="0 0 1200 720" className="pointer-events-none absolute inset-0 h-full w-full" preserveAspectRatio="xMidYMid slice" aria-hidden>
         <ActivityOverlay activity={activity} />
@@ -145,7 +147,7 @@ export function NatureWorld2D({ snapshot, mood, accent, worldId, activity }: Pro
         </div>
       </div>
 
-      <style jsx>{`
+      <style jsx global>{`
         @keyframes nature-ripple {
           0% { width: 1rem; height: 0.35rem; opacity: 0.75; transform: translate(-50%, -50%) scale(0.5); }
           70% { opacity: 0.25; }
