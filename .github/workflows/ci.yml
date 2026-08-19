@@ -34,6 +34,9 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
+      - name: Audit 900 World Loom scenes
+        run: npm run check:world3d
+
       - name: Build committed site state
         env:
           NEXT_PUBLIC_SITE_URL: https://example.invalid
