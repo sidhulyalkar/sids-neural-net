@@ -2,10 +2,10 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { Check, ChevronLeft, ChevronRight, Heart, Map, Search, Sparkles } from 'lucide-react';
+import { NatureWorldThumbnail2D } from '@/components/physiology/nature2d/NatureWorldThumbnail2D';
 import {
   NATURE_COLLECTIONS,
   NATURE_WORLDS,
-  NATURE_WORLD_PALETTES,
   atlasSummary,
   type NatureAtlasProgress,
   type NatureCollectionId,
@@ -23,31 +23,6 @@ const PAGE_SIZE = 48;
 
 function percent(value: number) {
   return `${Math.round(value * 100)}%`;
-}
-
-function PreviewCard({ worldId }: { worldId: string }) {
-  const world = NATURE_WORLDS.find((entry) => entry.id === worldId) ?? NATURE_WORLDS[0];
-  const palette = NATURE_WORLD_PALETTES[world.palette];
-  const atmosphere = world.scene.atmosphere;
-  return (
-    <div
-      className="relative mb-3 h-14 overflow-hidden rounded-lg border border-white/10"
-      style={{ background: `linear-gradient(180deg, ${palette.sky}, ${palette.fog} 58%, ${palette.ground} 59%)` }}
-    >
-      <div className="absolute inset-x-0 bottom-0 h-4 opacity-90" style={{ backgroundColor: palette.ground }} />
-      <div className="absolute bottom-2 left-[18%] h-3 w-8 rounded-[50%] opacity-80" style={{ backgroundColor: palette.secondary }} />
-      <div className="absolute bottom-1 right-[17%] h-5 w-5 rounded-full opacity-80" style={{ backgroundColor: palette.accent }} />
-      {(atmosphere === 'glow' || atmosphere === 'night') && (
-        <><i className="absolute left-[18%] top-2 h-1 w-1 rounded-full bg-white/75" /><i className="absolute left-[62%] top-3 h-1 w-1 rounded-full bg-white/55" /><i className="absolute right-[14%] top-1.5 h-1 w-1 rounded-full bg-white/65" /></>
-      )}
-      {(atmosphere === 'rain' || atmosphere === 'storm') && (
-        <div className="absolute inset-0 opacity-30" style={{ backgroundImage: 'repeating-linear-gradient(105deg, transparent 0 8px, rgba(220,240,255,.8) 9px 10px, transparent 11px 18px)' }} />
-      )}
-      {world.scene.renderCues.includes('rainbow') && (
-        <div className="absolute left-1/2 top-2 h-7 w-14 -translate-x-1/2 rounded-t-full border-t-2 border-pink-200/70" />
-      )}
-    </div>
-  );
 }
 
 export function NatureWorldAtlas({ currentWorldId, progress, onChooseWorld, onToggleFavorite }: AtlasProps) {
@@ -92,10 +67,10 @@ export function NatureWorldAtlas({ currentWorldId, progress, onChooseWorld, onTo
         <div>
           <div className="flex items-center gap-2">
             <Map className="h-4 w-4 text-cyan/70" />
-            <h2 className="font-mono text-sm text-text-primary">900-world nature atlas</h2>
+            <h2 className="font-mono text-sm text-text-primary">900-world illustrated field guide</h2>
           </div>
           <p className="mt-2 max-w-3xl text-xs leading-5 text-text-secondary/60">
-            A searchable field guide to every miniature world. Each entry has a deterministic visual grammar, scene brief, camera plan, atmosphere, activities, and local discovery state. Nothing is locked.
+            Every card uses a tiny SVG interpretation of the same scene blueprint as the full viewport, so forests, coasts, flowers, mountains, deserts, glow worlds, and celestial scenes already read differently before you enter them. Nothing is locked.
           </p>
         </div>
         <div className="grid grid-cols-2 gap-2 font-mono text-[0.62rem] text-text-secondary/55 sm:flex">
@@ -166,7 +141,7 @@ export function NatureWorldAtlas({ currentWorldId, progress, onChooseWorld, onTo
                   className={`group relative overflow-hidden rounded-xl border transition ${selected ? 'border-cyan/45 bg-cyan/[0.06]' : 'border-white/10 bg-black/10 hover:border-white/20 hover:bg-white/[0.025]'}`}
                 >
                   <button type="button" onClick={() => onChooseWorld(world.id)} className="w-full p-3.5 text-left">
-                    <PreviewCard worldId={world.id} />
+                    <NatureWorldThumbnail2D world={world} />
                     <div className="flex items-start gap-2">
                       <span className="text-base" aria-hidden>{world.icon}</span>
                       <div className="min-w-0">
