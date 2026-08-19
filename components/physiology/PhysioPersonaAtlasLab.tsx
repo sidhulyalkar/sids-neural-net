@@ -13,8 +13,8 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { NatureWorldAtlas } from '@/components/physiology/NatureWorldAtlas';
+import { NatureWorldViewport, type NatureRenderMode } from '@/components/physiology/NatureWorldViewport';
 import { PersonaEvidencePanel } from '@/components/physiology/PersonaEvidencePanel';
-import { PhysioPersonaAtlasScene } from '@/components/physiology/PhysioPersonaAtlasScene';
 import { usePersonaWorld } from '@/components/physiology/usePersonaWorld';
 import { createDemoPersonaSnapshot } from '@/lib/physiology/demo';
 import type { PersonaMoodSelfReport, PersonaSnapshot } from '@/lib/physiology/schema';
@@ -61,6 +61,7 @@ export function PhysioPersonaAtlasLab() {
   const [fileName, setFileName] = useState<string | null>(null);
   const [mood, setMood] = useState<PersonaMoodSelfReport>('curious');
   const [accent, setAccent] = useState(DEFAULT_ACCENT);
+  const [renderMode, setRenderMode] = useState<NatureRenderMode>('2d');
   const startedAt = useRef(Date.now());
   const world = usePersonaWorld('curious');
 
@@ -110,7 +111,7 @@ export function PhysioPersonaAtlasLab() {
             <div className="flex items-center gap-2"><Sparkles className="h-5 w-5 text-cyan/80" /><p className="font-mono text-[0.65rem] uppercase tracking-[0.16em] text-cyan/70">physio persona nature atlas</p></div>
             <h2 className="mt-3 max-w-3xl text-xl font-medium text-text-primary sm:text-2xl">900 tiny worlds, one creature, and an inspectable memory of what you actually choose.</h2>
             <p className="mt-3 max-w-4xl text-xs leading-6 text-text-secondary/70">
-              The atlas is rendered as layered 2.5D nature dioramas inside a real 3D scene. Physiology can animate the body. Self-reported mood can tint this visit. Only explicit world, activity, favorite, and slider choices become persistent game-preference signals.
+              The production experience is now 2D-first: layered SVG illustration, canvas atmosphere, physiology-reactive character animation, and pointer parallax. The same world blueprint can still be opened through an experimental Three.js renderer, but WebGL is no longer required to enjoy the atlas.
             </p>
           </div>
           <div className="grid grid-cols-2 gap-2 font-mono text-[0.62rem] text-text-secondary/60 sm:flex sm:flex-wrap sm:justify-end">
@@ -122,11 +123,36 @@ export function PhysioPersonaAtlasLab() {
         </div>
       </section>
 
+      <section className="rounded-2xl border border-white/10 bg-white/[0.02] p-3 sm:p-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="font-mono text-[0.6rem] uppercase tracking-[0.14em] text-cyan/60">renderer</p>
+            <p className="mt-1 text-xs text-text-secondary/60">One world definition, two presentation layers. 2D is the production default; 3D remains an opt-in laboratory.</p>
+          </div>
+          <div className="inline-flex rounded-xl border border-white/10 bg-black/15 p-1">
+            <button
+              type="button"
+              onClick={() => setRenderMode('2d')}
+              className={`rounded-lg px-3 py-2 text-xs transition ${renderMode === '2d' ? 'bg-cyan/[0.12] text-cyan' : 'text-text-secondary hover:text-text-primary'}`}
+            >
+              ✦ illustrated 2D
+            </button>
+            <button
+              type="button"
+              onClick={() => setRenderMode('3d')}
+              className={`rounded-lg px-3 py-2 text-xs transition ${renderMode === '3d' ? 'bg-cyan/[0.12] text-cyan' : 'text-text-secondary hover:text-text-primary'}`}
+            >
+              ◇ 3D experimental
+            </button>
+          </div>
+        </div>
+      </section>
+
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1.42fr)_minmax(22rem,0.58fr)]">
         <div>
-          <PhysioPersonaAtlasScene snapshot={snapshot} mood={mood} accent={accent} worldId={world.worldId} activity={world.activity} />
+          <NatureWorldViewport mode={renderMode} snapshot={snapshot} mood={mood} accent={accent} worldId={world.worldId} activity={world.activity} />
           <div className="mt-3 flex flex-wrap items-center justify-between gap-3 text-[0.68rem] text-text-secondary/55">
-            <span>drag to orbit · scroll to zoom · deterministic 2.5D parallax scene</span>
+            <span>{renderMode === '2d' ? 'move the pointer for layered parallax · tap water for ripples · reduced-motion aware' : 'drag to orbit · scroll to zoom · experimental Three.js renderer'}</span>
             <span className="font-mono">observability {percentage(snapshot.overall_observability)}</span>
           </div>
         </div>
@@ -173,8 +199,8 @@ export function PhysioPersonaAtlasLab() {
       <section className="rounded-2xl border border-white/10 bg-white/[0.025] p-5 sm:p-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <div className="flex items-center gap-2"><Layers3 className="h-4 w-4 text-cyan/70" /><h2 className="font-mono text-sm text-text-primary">scene blueprint · why this world looks different</h2></div>
-            <p className="mt-2 max-w-3xl text-xs leading-5 text-text-secondary/60">Every atlas entry carries an authored-by-rule rendering brief. The renderer turns these fields into depth layers, focal props, atmosphere, motion, and camera behavior instead of merely recoloring one biome.</p>
+            <div className="flex items-center gap-2"><Layers3 className="h-4 w-4 text-cyan/70" /><h2 className="font-mono text-sm text-text-primary">scene blueprint · renderer-independent world contract</h2></div>
+            <p className="mt-2 max-w-3xl text-xs leading-5 text-text-secondary/60">Every atlas entry carries the same visual brief regardless of renderer. SVG/Canvas translates it into illustrated layers today; Three.js can later translate the same fields into geometry, materials, lights, and camera placement.</p>
           </div>
           <span className="rounded-full border border-white/10 px-3 py-1 font-mono text-[0.6rem] text-text-secondary/45">{currentWorld.scene.renderCues.length} render cues</span>
         </div>
