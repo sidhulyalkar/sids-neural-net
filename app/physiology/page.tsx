@@ -10,7 +10,7 @@ import {
 export const metadata: Metadata = {
   title: 'PhysioPersona Nature Atlas | Sidharth Hulyalkar',
   description:
-    'A local-first physiological persona exploring 900 deterministic miniature nature worlds, combining privacy-safe sensing evidence, explicit game preferences, layered 2.5D rendering, and inspectable local memory.',
+    'A local-first physiological persona exploring 900 deterministic miniature nature worlds through an illustrated SVG and Canvas renderer, with optional experimental Three.js scenes.',
 };
 
 const layers = [
@@ -28,7 +28,7 @@ const layers = [
   },
   {
     title: 'play',
-    copy: 'Evidence can animate the explorer while explicit choices shape a completely separate local preference model, world history, favorites, and field journal.',
+    copy: 'Evidence can animate the explorer while explicit choices shape a separate local preference model, world history, favorites, and field journal.',
   },
 ];
 
@@ -57,41 +57,53 @@ export default function PhysiologyPage() {
       <PageHeader
         eyebrow="experiment · local-first physiological computing"
         title="physio persona · nature atlas"
-        intro="A physiology-reactive tiny explorer living inside a 900-world procedural nature atlas. Each world is rendered as an illustrated 2.5D diorama in real 3D space, with layered parallax, atmosphere, motion, wildlife, activities, and an inspectable rendering blueprint. The body can react to measured evidence; the personality only learns from choices you deliberately make."
+        intro="A physiology-reactive tiny explorer living inside a 900-world nature atlas. The production renderer is now 2D-first: layered SVG illustration, deterministic Canvas atmosphere, pointer parallax, and a vector character rig. Every world keeps the same renderer-independent scene blueprint, so the strongest environments can later be promoted into richer Three.js and WebXR spaces without rebuilding the atlas model."
         actions={
           <>
-            <ExternalLinkChip href="https://github.com/sidhulyalkar/WiFisio-Atlas">
-              WiFisio-Atlas
-            </ExternalLinkChip>
-            <ExternalLinkChip href="https://github.com/sidhulyalkar/sids-neural-net">
-              website source
-            </ExternalLinkChip>
+            <ExternalLinkChip href="https://github.com/sidhulyalkar/WiFisio-Atlas">WiFisio-Atlas</ExternalLinkChip>
+            <ExternalLinkChip href="https://github.com/sidhulyalkar/sids-neural-net">website source</ExternalLinkChip>
           </>
         }
       />
 
       <PhysiologyPersonaLab />
 
-      <SectionShell eyebrow="atlas architecture" title="900 worlds without 900 hard-coded scenes">
+      <SectionShell eyebrow="rendering architecture" title="illustrate first, enter in 3D later">
         <div className="grid gap-4 lg:grid-cols-3">
-          <article className="rounded-xl border border-white/10 bg-white/[0.025] p-5 sm:p-6">
-            <h3 className="font-mono text-sm text-text-primary">world manifest</h3>
+          <article className="rounded-xl border border-cyan/20 bg-cyan/[0.035] p-5 sm:p-6">
+            <h3 className="font-mono text-sm text-text-primary">1 · production 2D</h3>
             <p className="mt-3 text-xs leading-6 text-text-secondary/70">
-              Every world has a stable ID, collection, terrain, palette, focal subject, wildlife, activity set, atmosphere, preference bias, and deterministic seed. The atlas is data first, so a new world is a scene specification rather than another page of fragile rendering code.
+              SVG owns crisp environmental forms and the vector persona. Canvas owns rain, snow, fog, stars, wind, glow, and other high-frequency effects. CSS and DOM own controls, accessibility, and lightweight transitions. Pointer movement creates layered parallax without requiring WebGL.
             </p>
           </article>
           <article className="rounded-xl border border-white/10 bg-white/[0.025] p-5 sm:p-6">
-            <h3 className="font-mono text-sm text-text-primary">scene compiler</h3>
+            <h3 className="font-mono text-sm text-text-primary">2 · shared world contract</h3>
             <p className="mt-3 text-xs leading-6 text-text-secondary/70">
-              Each specification becomes a richer visual brief: foreground, midground, backdrop, depth mode, camera grammar, lighting, motion, interaction cue, and a vocabulary of renderable subjects such as trees, mushrooms, coral, crystal, water, mountains, weather, celestial cards, and wildlife.
+              All 900 worlds still compile into the same focal subject, palette, foreground, midground, backdrop, atmosphere, motion, lighting, depth, camera, interaction, wildlife, activity, and deterministic-seed specification. Rendering is downstream of that contract.
             </p>
           </article>
           <article className="rounded-xl border border-white/10 bg-white/[0.025] p-5 sm:p-6">
-            <h3 className="font-mono text-sm text-text-primary">2.5D diorama renderer</h3>
+            <h3 className="font-mono text-sm text-text-primary">3 · experimental 3D</h3>
             <p className="mt-3 text-xs leading-6 text-text-secondary/70">
-              Flat-shaded props and illustration-like planes live at real 3D depths. Orbiting the camera separates the layers with parallax, while procedural animation gives water, fog, rain, snow, glow, foliage, celestial events, and tiny animals just enough motion to feel inhabited.
+              The existing React Three Fiber scene is preserved behind an explicit renderer toggle and dynamically loaded only on demand. Once a 2D world proves its composition and interaction, the same blueprint can drive real geometry, materials, lighting, depth, and eventually WebXR.
             </p>
           </article>
+        </div>
+      </SectionShell>
+
+      <SectionShell eyebrow="2D scene engine" title="a tiny animated storybook window, not a static illustration">
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          {[
+            ['background', 'Color-scripted sky, celestial objects, clouds, distant ranges, islands, and atmospheric silhouettes move only slightly.'],
+            ['world layers', 'Terrain, water, trees, flowers, cactus, mushrooms, crystal, rocks, wildlife, and focal objects are distributed deterministically from each world seed.'],
+            ['living foreground', 'Nearby foliage moves farther with the pointer, creating depth while keeping the scene cheap enough for ordinary browsers and mobile GPUs.'],
+            ['effects', 'A dedicated Canvas layer renders bounded rain, mist, snow, stars, fireflies, glow, and wind while respecting reduced-motion preferences.'],
+          ].map(([title, copy]) => (
+            <article key={title} className="rounded-xl border border-white/10 bg-white/[0.025] p-5">
+              <p className="font-mono text-[0.64rem] uppercase tracking-[0.14em] text-cyan/60">{title}</p>
+              <p className="mt-3 text-xs leading-6 text-text-secondary/70">{copy}</p>
+            </article>
+          ))}
         </div>
       </SectionShell>
 
@@ -99,7 +111,7 @@ export default function PhysiologyPage() {
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
           <article className="rounded-xl border border-cyan/20 bg-cyan/[0.035] p-5">
             <h3 className="font-mono text-sm text-text-primary">🌲 001–100 · original atlas</h3>
-            <p className="mt-2 text-xs leading-6 text-text-secondary/70">The first forests, water worlds, mountains, meadows, deserts, skies, caves, rivers, coasts, and playful nature landmarks that established the visual language.</p>
+            <p className="mt-2 text-xs leading-6 text-text-secondary/70">The first forests, water worlds, mountains, meadows, deserts, skies, caves, rivers, coasts, and playful nature landmarks that established the atlas vocabulary.</p>
           </article>
           {atlasCollections.map(([title, copy]) => (
             <article key={title} className="rounded-xl border border-white/10 bg-white/[0.025] p-5">
@@ -114,38 +126,28 @@ export default function PhysiologyPage() {
         <div className="grid gap-4 lg:grid-cols-3">
           <article className="rounded-xl border border-white/10 bg-white/[0.025] p-5 sm:p-6">
             <h3 className="font-mono text-sm text-text-primary">explicit preference memory</h3>
-            <p className="mt-3 text-xs leading-6 text-text-secondary/70">
-              Choosing a world or activity can update six transparent game preferences: curiosity, energy, collecting, exploring, calm-world affinity, and wild-world affinity. The sliders remain directly editable, and the entire persona plus atlas state can be exported or erased.
-            </p>
+            <p className="mt-3 text-xs leading-6 text-text-secondary/70">Choosing a world or activity can update six transparent game preferences: curiosity, energy, collecting, exploring, calm-world affinity, and wild-world affinity. The sliders remain directly editable, and the entire local persona plus atlas state can be exported or erased.</p>
           </article>
           <article className="rounded-xl border border-white/10 bg-white/[0.025] p-5 sm:p-6">
             <h3 className="font-mono text-sm text-text-primary">recommendation does not self-train</h3>
-            <p className="mt-3 text-xs leading-6 text-text-secondary/70">
-              The World Director can suggest or automatically wander to somewhere novel, but an algorithm-selected destination does not become evidence about the visitor merely because it was shown. Favorites and deliberate choices remain distinct explicit signals.
-            </p>
+            <p className="mt-3 text-xs leading-6 text-text-secondary/70">The World Director may suggest or wander somewhere novel, but an algorithm-selected destination does not become evidence about the visitor merely because it was shown. Favorites and deliberate choices remain distinct explicit signals.</p>
           </article>
           <article className="rounded-xl border border-white/10 bg-white/[0.025] p-5 sm:p-6">
             <h3 className="font-mono text-sm text-text-primary">mood is temporary atmosphere</h3>
-            <p className="mt-3 text-xs leading-6 text-text-secondary/70">
-              Calm, curious, energized, and sleepy are self-report controls for the current visit. They can affect recommendations and presentation without permanently rewriting personality. Physiological evidence can animate the body without being turned into a psychological label.
-            </p>
+            <p className="mt-3 text-xs leading-6 text-text-secondary/70">Calm, curious, energized, and sleepy are self-report controls for the current visit. They can affect recommendations and presentation without permanently rewriting personality. Physiological evidence can animate the body without becoming a psychological label.</p>
           </article>
         </div>
       </SectionShell>
 
-      <SectionShell eyebrow="performance" title="large atlas, one WebGL world at a time">
+      <SectionShell eyebrow="performance" title="900 worlds without 900 expensive renderers">
         <div className="grid gap-4 lg:grid-cols-2">
           <article className="rounded-xl border border-white/10 bg-white/[0.025] p-5 sm:p-6">
-            <h3 className="font-mono text-sm text-text-primary">lightweight field guide</h3>
-            <p className="mt-3 text-xs leading-6 text-text-secondary/70">
-              The browser never mounts 900 WebGL canvases. Atlas cards use tiny CSS previews and render 48 entries per page. Only the selected world owns a React Three Fiber scene, with bounded object counts, deterministic scatter, and a capped device pixel ratio.
-            </p>
+            <h3 className="font-mono text-sm text-text-primary">2D by default</h3>
+            <p className="mt-3 text-xs leading-6 text-text-secondary/70">The normal experience mounts one SVG scene and one bounded Canvas effects layer. Canvas pixel ratio is capped, deterministic particle counts are bounded, and the atlas browser remains CSS-only with 48 entries per page.</p>
           </article>
           <article className="rounded-xl border border-white/10 bg-white/[0.025] p-5 sm:p-6">
-            <h3 className="font-mono text-sm text-text-primary">procedural assets over downloads</h3>
-            <p className="mt-3 text-xs leading-6 text-text-secondary/70">
-              Most geometry is generated from reusable primitives instead of hundreds of texture packs or heavy GLTF files. A pine, coral shelf, shell, crystal cluster, aurora ribbon, or cloud layer can be recolored and composed from the world blueprint while retaining a consistent visual style.
-            </p>
+            <h3 className="font-mono text-sm text-text-primary">3D is code-split</h3>
+            <p className="mt-3 text-xs leading-6 text-text-secondary/70">React Three Fiber is dynamically imported only after a visitor chooses the experimental renderer. The production path therefore does not initialize a WebGL context or build the Three.js scene graph just to display an atlas world.</p>
           </article>
         </div>
       </SectionShell>
@@ -165,15 +167,11 @@ export default function PhysiologyPage() {
         <div className="grid gap-4 lg:grid-cols-2">
           <article className="rounded-xl border border-white/10 bg-white/[0.025] p-5">
             <h3 className="font-mono text-sm text-text-primary">current capability</h3>
-            <p className="mt-3 text-xs leading-6 text-text-secondary/70">
-              WiFisio currently has a respiration-oriented sleep mechanics study. It can estimate respiratory features, but that is not the same thing as validated sleep staging. A model-agnostic benchmark in the research repository evaluates four-stage predictions against PSG-derived labels using accuracy, balanced accuracy, macro F1, kappa, calibration, probability quality, abstention coverage, and per-subject results.
-            </p>
+            <p className="mt-3 text-xs leading-6 text-text-secondary/70">WiFisio currently has a respiration-oriented sleep mechanics study. It can estimate respiratory features, but that is not the same thing as validated sleep staging. A model-agnostic benchmark evaluates four-stage predictions against PSG-derived labels with calibration, abstention coverage, and per-subject results.</p>
           </article>
           <article className="rounded-xl border border-white/10 bg-white/[0.025] p-5">
             <h3 className="font-mono text-sm text-text-primary">target experiment</h3>
-            <p className="mt-3 text-xs leading-6 text-text-secondary/70">
-              The first serious target is patient-disjoint WiFi CSI plus polysomnography. Respiration reproduction comes first, then sleep/wake, then wake/light/deep/REM. Every stage keeps a simple baseline, null controls, held-out subjects, and calibration so a prettier sequence model cannot quietly hide leakage.
-            </p>
+            <p className="mt-3 text-xs leading-6 text-text-secondary/70">The first serious target is patient-disjoint WiFi CSI plus polysomnography. Respiration reproduction comes first, then sleep/wake, then wake/light/deep/REM, always with simple baselines, held-out subjects, and calibration.</p>
           </article>
         </div>
       </SectionShell>
@@ -183,27 +181,23 @@ export default function PhysiologyPage() {
           <div className="grid gap-6 lg:grid-cols-2">
             <div>
               <h3 className="font-mono text-sm text-text-primary">expression is animation evidence</h3>
-              <p className="mt-3 text-xs leading-6 text-text-secondary/70">
-                A future browser-local face-landmark adapter can supply smile intensity, blink rate, head pose, and mouth motion. Those are expression features, not ground-truth mood. Actual mood remains explicitly self-reported. Raw frames stay local unless a separate research protocol deliberately records them.
-              </p>
+              <p className="mt-3 text-xs leading-6 text-text-secondary/70">A future browser-local face-landmark adapter can supply smile intensity, blink rate, head pose, and mouth motion. Those are expression features, not ground-truth mood. Raw frames stay local unless a separate research protocol deliberately records them.</p>
             </div>
             <div>
               <h3 className="font-mono text-sm text-text-primary">appearance can stay ephemeral</h3>
-              <p className="mt-3 text-xs leading-6 text-text-secondary/70">
-                The current camera interaction samples only a soft appearance color in the browser. The explorer can gain richer local-only accessories and facial animation without requiring the public site to store a face, biometric template, or inferred identity.
-              </p>
+              <p className="mt-3 text-xs leading-6 text-text-secondary/70">The current camera interaction samples only a soft appearance color in the browser. The explorer can gain richer local-only accessories and facial animation without requiring the public site to store a face, biometric template, or inferred identity.</p>
             </div>
           </div>
         </div>
       </SectionShell>
 
-      <SectionShell eyebrow="next" title="where the atlas can grow without losing its rules">
+      <SectionShell eyebrow="promotion path" title="when a world earns real 3D">
         <div className="grid gap-3 md:grid-cols-2">
           {[
-            ['1 · persistent objects', 'Let collected shells, stones, seeds, flowers, and crystals appear back at the explorer’s tiny home as explicitly earned decorations.'],
-            ['2 · daily world state', 'Use deterministic local date seeds for weather and rare discoveries, then compute elapsed changes when the visitor returns rather than pretending a browser tab simulated life in the background.'],
-            ['3 · richer hero silhouettes', 'Continue expanding reusable focal-object families so even extremely specific entries such as honeycomb, observatory, pumpkin, sea glass, mineral geodes, and garden structures gain bespoke geometry.'],
-            ['4 · replay memories', 'Let de-identified physiology replays become special journeys the persona can revisit while confidence, observability, and abstentions remain inspectable underneath.'],
+            ['composition first', 'A 2D world should already have a recognizable focal subject, readable depth, successful palette, and a reason for the explorer to be there.'],
+            ['interaction second', 'The world should contain an interaction worth carrying forward: water ripples, collecting, shelter building, fishing, weather, wildlife, or another scene-specific behavior.'],
+            ['geometry third', 'Only then should the scene blueprint be translated into real geometry, materials, lights, shadows, and camera movement.'],
+            ['WebXR last', 'The strongest 3D scenes can eventually expose an intentional “enter this world” transition instead of making immersive rendering mandatory for all 900 entries.'],
           ].map(([title, copy]) => (
             <article key={title} className="rounded-xl border border-white/10 bg-white/[0.025] p-5">
               <h3 className="font-mono text-sm text-text-primary">{title}</h3>
