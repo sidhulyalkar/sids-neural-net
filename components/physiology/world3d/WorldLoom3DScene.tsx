@@ -1,9 +1,9 @@
 'use client';
 
-import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { OrbitControls, Sparkles, Stars } from '@react-three/drei';
 import { Canvas, useFrame } from '@react-three/fiber';
-import { Group, InstancedMesh, Mesh, Object3D, WebGLRenderer } from 'three';
+import { Group, InstancedMesh, Mesh, Object3D, type WebGLRenderer } from 'three';
 import { NATURE_WORLD_PALETTES, getNatureWorld } from '@/lib/physiology/natureWorldsExpanded';
 import { getSignal, type PersonaMoodSelfReport, type PersonaSnapshot } from '@/lib/physiology/schema';
 import { ACTIVITIES, type PersonaActivity } from '@/lib/physiology/world';
@@ -27,8 +27,6 @@ type SceneProps = {
   activity: PersonaActivity;
 };
 
-type Palette = ReturnType<typeof paletteFor>;
-
 type XrNavigator = Navigator & {
   xr?: {
     requestSession: (mode: 'immersive-vr', options?: unknown) => Promise<unknown>;
@@ -44,7 +42,9 @@ function paletteFor(plan: World3DPlan) {
   return NATURE_WORLD_PALETTES[plan.source.palette];
 }
 
-function colorFor(role: MaterialRole, palette: ReturnType<typeof paletteFor>, accent: string): string {
+type Palette = ReturnType<typeof paletteFor>;
+
+function colorFor(role: MaterialRole, palette: Palette, accent: string): string {
   if (role === 'ground') return palette.ground;
   if (role === 'accent') return accent || palette.accent;
   if (role === 'secondary') return palette.secondary;
@@ -80,9 +80,9 @@ function Material({ style, role, palette, accent, emissive = 0 }: { style: Mater
 function WorldPrimitiveMesh({ primitive, palette, accent, onLandmark }: { primitive: World3DPrimitive; palette: Palette; accent: string; onLandmark: () => void }) {
   return (
     <mesh
-      position={primitive.position}
-      rotation={primitive.rotation}
-      scale={primitive.scale}
+      position={[...primitive.position]}
+      rotation={[...primitive.rotation]}
+      scale={[...primitive.scale]}
       castShadow={primitive.collision !== 'ground'}
       receiveShadow
       onClick={primitive.id === 'landmark' ? (event) => { event.stopPropagation(); onLandmark(); } : undefined}
@@ -143,12 +143,19 @@ function InstancedScatter({ group, palette, accent }: { group: World3DScatterGro
   );
 }
 
-function WorldLawGroup({ plan, resonance, children }: { plan: World3DPlan; resonance: number; children: React.ReactNode }) {
+function WorldLawGroup({ plan, resonance, children }: { plan: World3DPlan; resonance: number; children: ReactNode }) {
   const ref = useRef<Group>(null);
+  const lastResonance = useRef(resonance);
+  const impulseStart = useRef(-10);
+
   useFrame(({ clock }) => {
     if (!ref.current) return;
     const t = clock.getElapsedTime();
-    const impulse = Math.max(0, 1 - ((t - resonance) / 2));
+    if (resonance !== lastResonance.current) {
+      lastResonance.current = resonance;
+      impulseStart.current = t;
+    }
+    const impulse = Math.max(0, 1 - (t - impulseStart.current) / 2);
     const motion = WORLD3D_QUALITY_RULES.maximumWorldMotionMeters;
     const rotation = WORLD3D_QUALITY_RULES.maximumWorldRotationRadians;
     ref.current.position.y = 0;
@@ -160,6 +167,7 @@ function WorldLawGroup({ plan, resonance, children }: { plan: World3DPlan; reson
     if (plan.law === 'harmony') ref.current.position.y = Math.sin(t * 0.9) * motion * 0.12 + impulse * motion * 0.18;
     if (plan.law === 'echo') ref.current.rotation.y = Math.sin(t * 0.62) * rotation * 0.12 * Math.max(0.3, impulse);
   });
+
   return <group ref={ref}>{children}</group>;
 }
 
@@ -221,7 +229,7 @@ function SceneContent({ plan, snapshot, mood, accent, resonance, onLandmark }: {
       <fog attach="fog" args={[palette.fog, plan.atmosphere.fogNear, plan.atmosphere.fogFar]} />
       <ambientLight intensity={plan.lighting.ambient} />
       <hemisphereLight args={[palette.sky, palette.ground, plan.lighting.fill]} />
-      <directionalLight position={plan.lighting.keyPosition} intensity={plan.lighting.key} color={palette.glow} castShadow shadow-mapSize-width={1024} shadow-mapSize-height={1024} />
+      <directionalLight position={[...plan.lighting.keyPosition]} intensity={plan.lighting.key} color={palette.glow} castShadow shadow-mapSize-width={1024} shadow-mapSize-height={1024} />
       <pointLight position={[0, 2.2, -plan.radius * 0.48]} intensity={plan.lighting.landmarkGlow} distance={7} color={palette.glow} />
       <WorldLawGroup plan={plan} resonance={resonance}>
         {plan.structures.map((entry) => <WorldPrimitiveMesh key={entry.id} primitive={entry} palette={palette} accent={accent} onLandmark={onLandmark} />)}
@@ -254,6 +262,8 @@ export function WorldLoom3DScene(props: SceneProps) {
       renderer.xr.enabled = true;
       renderer.xr.setReferenceSpaceType('local-floor');
       await (renderer.xr as unknown as { setSession: (value: unknown) => Promise<void> }).setSession(session);
+      const endAwareSession = session as { addEventListener?: (name: string, callback: () => void) => void };
+      endAwareSession.addEventListener?.('end', () => setXrStatus('idle'));
       setXrStatus('active');
     } catch {
       setXrStatus('error');
@@ -279,7 +289,7 @@ export function WorldLoom3DScene(props: SceneProps) {
           mood={props.mood}
           accent={props.accent}
           resonance={resonance}
-          onLandmark={() => setResonance(performance.now() / 1000)}
+          onLandmark={() => setResonance((value) => value + 1)}
         />
         <OrbitControls
           target={[...plan.camera.target]}
