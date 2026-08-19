@@ -1,14 +1,24 @@
 # PhysioPersona Nature Atlas 900
 
-The PhysioPersona Nature Atlas is a local-first interactive layer for the `/physiology` experiment. It turns a physiology-reactive avatar into a tiny explorer that can inhabit **900 deterministic miniature nature worlds** while keeping the scientific evidence model and the playful preference model deliberately separate.
+The PhysioPersona Nature Atlas is a local-first interactive layer for `/physiology`. It turns a physiology-reactive avatar into a tiny explorer that can inhabit **900 deterministic miniature nature worlds** while keeping scientific evidence and playful preference learning deliberately separate.
+
+## Rendering decision
+
+The atlas is now **2D-first in production**.
+
+The world model is renderer-independent. The default experience uses layered SVG, Canvas atmosphere, CSS/DOM UI, and pointer parallax. The existing React Three Fiber / Three.js renderer remains available as an explicit experimental mode and is dynamically loaded only after a visitor asks for it.
+
+This ordering lets us establish composition, atmosphere, focal-subject quality, interactions, and activity design before spending 3D asset and GPU budget.
+
+See `PHYSIO_PERSONA_2D_FIRST_RENDERING.md` for the renderer-specific architecture.
 
 ## Design goals
 
 1. **900 worlds without 900 custom scene components.** Worlds are data-driven scene specifications compiled into a shared rendering vocabulary.
-2. **Illustrative 2D art with real 3D depth.** The renderer uses flat-shaded low-poly props and illustration-like planes at different Z depths. Orbiting reveals parallax, creating a pop-up-book / diorama feel.
-3. **Recognizable variation, not palette swaps.** Every world has a focal subject, scene depth grammar, foreground/midground/backdrop brief, atmosphere, motion, lighting, camera, interaction cue, render vocabulary, wildlife, and deterministic seed.
+2. **Detailed illustration before geometry.** SVG supplies crisp scene forms and the character rig; Canvas supplies weather, glow, stars, mist, and other high-frequency effects.
+3. **Recognizable variation, not palette swaps.** Every world has a focal subject, depth grammar, foreground/midground/backdrop brief, atmosphere, motion, lighting, camera intent, interaction cue, wildlife, and deterministic seed.
 4. **Local, inspectable preference learning.** The game persona is trained only by explicit choices. It is not a psychological diagnosis and physiology does not silently change the saved preference vector.
-5. **One WebGL scene at a time.** The field guide remains usable with 900 entries by using lightweight CSS previews and pagination instead of hundreds of canvases.
+5. **3D is a promotion path.** Strong 2D worlds can later be translated into real Three.js/WebXR environments using the same scene contract.
 
 ## Atlas collections
 
@@ -34,7 +44,7 @@ The PhysioPersona Nature Atlas is a local-first interactive layer for the `/phys
 
 ## World contract
 
-The original `NatureWorldDefinition` remains the compatibility layer. `RichNatureWorldDefinition` adds a scene plan:
+`RichNatureWorldDefinition` adds a renderer-independent scene plan to the original `NatureWorldDefinition` compatibility layer:
 
 ```ts
 type NatureScenePlan = {
@@ -57,19 +67,19 @@ type NatureScenePlan = {
 };
 ```
 
-A build-time invariant throws if the compiled atlas does not contain exactly 900 worlds.
+A module-load invariant throws if the compiled atlas does not contain exactly 900 worlds.
 
 ## Scene compiler
 
 `lib/physiology/natureWorldsExpanded.ts` contains the exact 101–900 manifest and enriches the hand-authored 001–100 launch set.
 
-The compiler derives:
+The compiler derives or preserves:
 
 - broad theme and terrain;
 - compatible palette;
 - base persona biome for compatibility with the existing preference model;
 - atmosphere such as clear, fog, rain, storm, snow, glow, sunrise, sunset, or night;
-- render cues from the focal subject vocabulary;
+- render cues from focal-subject vocabulary;
 - broad wildlife classes;
 - scene depth grammar;
 - suggested activities;
@@ -77,29 +87,53 @@ The compiler derives:
 - transparent game-preference bias;
 - deterministic seed.
 
-This is deliberately a **visual grammar**, not a generative-AI request executed at runtime. Visitors get stable, reproducible worlds and the site does not require an image model or network request to render a scene.
+This is a **visual grammar**, not a runtime image-generation request. Worlds are reproducible and do not need a network model call to render.
 
-## 2.5D rendering
+## Production 2D renderer
 
-`components/physiology/NatureWorldRenderer.tsx` turns scene plans into an interactive miniature world.
+The production scene uses several specialized layers instead of forcing everything into one canvas:
 
-The visual vocabulary currently includes:
+- `NatureWorldArt2D.tsx` renders deterministic SVG environments and focal subjects;
+- `NatureAtmosphereCanvas.tsx` renders bounded particles, fog, rain, snow, glow, stars, and wind;
+- `Persona2D.tsx` renders the physiology-reactive vector character;
+- `NatureWorld2D.tsx` owns parallax, water-ripple interaction, compositing, reduced-motion behavior, and activity props;
+- `NatureWorldThumbnail2D.tsx` gives field-guide cards lightweight SVG previews using the same palette and cue system.
 
-- pine, oak, bamboo, willow, and palm forms;
-- ferns, flowers, mushrooms, cactus, agave, and yucca;
-- rocks, crystals, ice, coral, and shells;
-- river, pond/lake, and ocean water sheets;
-- mountain and cloud backdrop layers;
-- caves, paths, bridges, and webs;
-- rainbows, aurora ribbons, sun, moon, stars, and meteors;
-- rain, storm, snow, wind, glow, and night particles;
-- stylized insect, bird, aquatic, reptile, and mammal silhouettes.
+The active world is composed as layered illustration:
 
-The renderer uses deterministic scatter from each world seed. Re-entering a world preserves its broad composition rather than randomly rerolling every React render.
+1. sky and celestial layer;
+2. clouds and atmosphere;
+3. distant ranges / horizon;
+4. terrain or water;
+5. far vegetation and wildlife;
+6. focal subject;
+7. persona and activity prop;
+8. near foliage;
+9. Canvas atmosphere;
+10. vignette and light treatment.
+
+Pointer movement offsets these visual layers at different strengths to produce parallax without WebGL.
+
+## Experimental 3D renderer
+
+`NatureWorldViewport.tsx` is the presentation boundary.
+
+The default path renders `NatureWorld2D`. The existing `PhysioPersonaAtlasScene` is loaded through `next/dynamic` only when the user selects **3D experimental**.
+
+That preserves the Three.js work while keeping production startup and mobile rendering independent of WebGL.
+
+A world should move further into 3D only after its 2D version has established:
+
+- recognizable focal subject;
+- strong composition;
+- readable depth hierarchy;
+- successful palette;
+- useful activity;
+- interaction worth preserving.
 
 ## Depth modes
 
-Six scene grammars stop the atlas from feeling like one camera setup repeated 900 times:
+Six scene grammars influence both renderers:
 
 - `macro`: close focal objects such as leaves, flowers, shells, mushrooms, droplets, and crystals;
 - `pathway`: trails, rivers, roads, bridges, canyons, and tunnels that pull the eye through depth;
@@ -107,8 +141,6 @@ Six scene grammars stop the atlas from feeling like one camera setup repeated 90
 - `vertical`: peaks, waterfalls, canopies, cliffs, aurora, and tall focal structures;
 - `horizon`: shoreline and layered landscape compositions;
 - `intimate`: cozy pockets such as dens, gardens, moss, rocks, and small woodland subjects.
-
-`PhysioPersonaAtlasScene.tsx` adapts camera height, distance, and FOV to the selected depth grammar.
 
 ## Atlas progression
 
@@ -124,16 +156,7 @@ type NatureAtlasProgress = {
 };
 ```
 
-The field guide supports:
-
-- text search across scene metadata;
-- 17 collection filters;
-- favorites-only filtering;
-- discovery count;
-- favorite count;
-- collection coverage;
-- per-world visits;
-- pagination at 48 cards per page.
+The field guide supports search, 17 collection filters, favorites-only filtering, discovery count, collection coverage, per-world visits, and pagination at 48 cards per page.
 
 Nothing is locked. Discovery is a soft passport, not a grind gate.
 
@@ -148,68 +171,59 @@ The saved game persona contains six transparent values:
 - calm worlds;
 - wild worlds.
 
-The important causal rule is:
+The causal rule is:
 
 > **The recommender is not allowed to train itself.**
 
-Explicit world choices and activity choices can update the game-preference vector. Favorites are explicit preference signals. The `wander()` action can choose and discover a recommended destination, but it does **not** update the persistent preference vector merely because the system displayed that world.
+Explicit world choices and activity choices can update the game-preference vector. Favorites are explicit preference signals. The `wander()` action can choose and discover a recommended destination, but it does not update persistent preferences merely because the system displayed that world.
 
 Self-reported mood is also not written into the permanent game-personality vector.
 
 ## Physiology boundary
 
-The avatar remains downstream of `physioatlas.persona.v1` evidence:
+The avatar remains downstream of `physioatlas.persona.v1` evidence in both renderers:
 
-- respiration can drive breathing animation;
+- respiration drives breathing cadence;
 - movement can affect body motion;
-- cardiac rate can drive a visible pulse;
-- sleep estimates can modify energy when present;
-- weak or missing signals should remain absent/unknown rather than fabricated.
+- cardiac rate drives a visible pulse;
+- sleep estimates can modify animation energy when present;
+- weak or missing signals should remain absent or unknown rather than fabricated.
 
-The 900-world preference model never treats physiology as evidence of personality.
+The world preference model never treats physiology as evidence of personality.
 
 ## Camera boundary
 
-The current optional camera interaction is browser-local and samples a soft color seed for the avatar. Raw frames are not uploaded by this feature. Future face-landmark animation should remain a local expression rig, not an emotion or personality diagnosis.
+The optional camera interaction is browser-local and samples a soft color seed for the avatar. Raw frames are not uploaded by this feature. Future face-landmark animation should remain a local expression rig, not an emotion or personality diagnosis.
 
 ## Performance strategy
 
-The atlas intentionally avoids the obvious 900-world performance traps:
+The 2D-first design avoids the obvious 900-world performance traps:
 
-- only one React Three Fiber `Canvas` is mounted;
-- atlas cards use CSS previews, not WebGL thumbnails;
-- field-guide pagination mounts at most 48 cards at once;
-- scene scatter is deterministic and bounded;
-- device pixel ratio is capped in the main canvas;
-- primitives are reused instead of importing hundreds of large models or texture sets;
-- the active world is selected by ID, so inactive worlds cost data memory rather than render loops.
+- one active SVG world at a time;
+- one bounded Canvas effects layer with DPR capped at 1.5;
+- no WebGL initialization in default mode;
+- experimental Three.js is dynamically imported;
+- field-guide cards use lightweight SVG previews rather than canvases;
+- pagination mounts at most 48 cards at once;
+- scatter and particles are deterministic and bounded;
+- `prefers-reduced-motion` is respected;
+- inactive worlds cost data memory rather than render loops.
 
 ## Key files
 
 - `lib/physiology/natureWorlds.ts` — original 001–100 scene definitions and palettes.
 - `lib/physiology/natureWorldsExpanded.ts` — 900-world manifest/compiler, scene plans, recommendation helpers, atlas progression.
-- `components/physiology/NatureWorldRenderer.tsx` — deterministic 2.5D procedural world renderer.
-- `components/physiology/PhysioPersonaAtlasScene.tsx` — scene host plus physiology-reactive avatar.
+- `components/physiology/NatureWorldViewport.tsx` — renderer-independent presentation boundary and 2D/3D switch.
+- `components/physiology/nature2d/NatureWorld2D.tsx` — interactive illustrated viewport.
+- `components/physiology/nature2d/NatureWorldArt2D.tsx` — layered SVG environment and focal-subject renderer.
+- `components/physiology/nature2d/NatureAtmosphereCanvas.tsx` — Canvas weather and glow effects.
+- `components/physiology/nature2d/Persona2D.tsx` — physiology-reactive vector explorer.
+- `components/physiology/nature2d/NatureWorldThumbnail2D.tsx` — lightweight field-guide previews.
+- `components/physiology/PhysioPersonaAtlasScene.tsx` — experimental React Three Fiber renderer.
 - `components/physiology/NatureWorldAtlas.tsx` — searchable/paginated 900-world field guide.
 - `components/physiology/usePersonaWorld.ts` — local persona + atlas state and explicit-learning rules.
 - `components/physiology/PhysioPersonaAtlasLab.tsx` — integrated user experience.
 - `components/physiology/PersonaEvidencePanel.tsx` — research snapshot, camera seed, confidence, observability, and privacy controls.
-
-## Extending the renderer
-
-Adding world 901 should not require a new route or new scene host. Add the world specification and ensure its focal vocabulary maps to useful render cues.
-
-For especially distinctive subjects, add a reusable hero-object family rather than a one-off world component. Good next hero families include:
-
-- baskets, honeycomb, nests, acorn cups, and tree-library props;
-- pumpkins, gourds, apples, hay bales, and harvest structures;
-- fountains, pots, hedges, trellises, and garden gates;
-- zen basins, stone lanterns, bamboo water spouts, bonsai, and ikebana;
-- sea glass, specialty shell silhouettes, piers, canoes, and dams;
-- mineral-specific crystal silhouettes and geode interiors;
-- observatories, planet cards, halo effects, nebula ribbons, and specialized cloud structures.
-
-The rule is to increase the **shared visual vocabulary** instead of accumulating 900 unrelated components.
 
 ## Validation expectations
 
@@ -218,7 +232,8 @@ A Nature Atlas change is not complete until:
 1. the 900-world count invariant passes;
 2. TypeScript succeeds;
 3. the production Next.js build succeeds;
-4. a representative sample from every collection renders without runtime errors;
-5. discovery/favorite/reset/export behavior remains local;
-6. recommender-selected wandering still does not train persistent preferences;
-7. the evidence and privacy boundaries remain visible in the UI.
+4. representative worlds across all 17 collections render without runtime errors;
+5. 2D is the initial renderer and 3D remains opt-in;
+6. discovery/favorite/reset/export behavior remains local;
+7. recommender-selected wandering still does not train persistent preferences;
+8. the evidence and privacy boundaries remain visible in the UI.
