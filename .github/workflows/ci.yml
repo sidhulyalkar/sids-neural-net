@@ -53,7 +53,7 @@ jobs:
       - name: Validate deterministic Nature Atlas corpus
         run: npm run check:nature-corpus
 
-      - name: Audit 900 World Loom scenes
+      - name: Audit 1000 World Loom scenes
         run: npm run check:world3d
 
       - name: Generate Next route and module bundle analysis
@@ -86,13 +86,16 @@ jobs:
 
       - name: Smoke public production routes
         run: |
-          for route in / /neural-net /case-studies /physiology /perceptual-cortex /rotation /sensing-lab /physiology/visual-audit /photography /arcade /arcade/stretchicorn /arcade/unirico; do
+          for route in / /neural-net /case-studies /physiology /perceptual-cortex /rotation /sensing-lab /physiology/visual-audit /photography /arcade /arcade/stretchicorn /arcade/unirico /arcade/mosslight; do
             echo "GET $route"
             curl --retry 2 --retry-connrefused -fsS "http://127.0.0.1:3000$route" >/dev/null
           done
           echo "GET pinned uniRico runtime"
           curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/game-runtimes/unirico/index.html | grep -q '<canvas id="c"'
           curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/game-runtimes/unirico/runtime/core.js | grep -q 'use strict\|const\|function'
+          echo "GET first-party Mosslight runtime"
+          curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/game-runtimes/mosslight/index.html | grep -q 'Mosslight: Rooms of Renewal'
+          curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/game-runtimes/mosslight/index.html | grep -q "title:'Earthheart'"
 
       - name: Install smoke-test browser
         run: npx --yes playwright@1.55.0 install --with-deps chromium
@@ -110,6 +113,8 @@ jobs:
           npx --yes playwright@1.55.0 screenshot --browser=chromium --viewport-size="1440,1100" --full-page http://127.0.0.1:3000/arcade artifacts/browser-smoke/arcade-catalog.png
           npx --yes playwright@1.55.0 screenshot --browser=chromium --viewport-size="1440,1000" http://127.0.0.1:3000/arcade/stretchicorn artifacts/browser-smoke/arcade-stretchicorn.png
           npx --yes playwright@1.55.0 screenshot --browser=chromium --viewport-size="1440,1000" http://127.0.0.1:3000/arcade/unirico artifacts/browser-smoke/arcade-unirico.png
+          npx --yes playwright@1.55.0 screenshot --browser=chromium --viewport-size="1440,1000" http://127.0.0.1:3000/arcade/mosslight artifacts/browser-smoke/arcade-mosslight.png
+          npx --yes playwright@1.55.0 screenshot --browser=chromium --viewport-size="960,640" http://127.0.0.1:3000/game-runtimes/mosslight/index.html artifacts/browser-smoke/mosslight-runtime.png
 
       - name: Upload production audit artifacts
         if: always()
