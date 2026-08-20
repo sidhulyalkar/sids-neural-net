@@ -13,6 +13,12 @@ export const siteNavItems: SiteNavItem[] = [
     section: 'atlas',
   },
   {
+    href: '/frontier',
+    label: 'FRONTIER',
+    description: 'Live personal intelligence radar for research, ML, data, football, and useful surprise.',
+    section: 'system',
+  },
+  {
     href: '/about',
     label: 'Core',
     description: 'Background, working style, and technical focus.',
@@ -111,5 +117,5 @@ export const siteNavItems: SiteNavItem[] = [
 ];
 
 export const primaryNavItems = siteNavItems.filter((item) =>
-  ['/', '/about', '/projects', '/code', '/resume', '/publications', '/photography', '/contact'].includes(item.href)
+  ['/', '/frontier', '/about', '/projects', '/code', '/resume', '/publications', '/photography', '/contact'].includes(item.href)
 );
