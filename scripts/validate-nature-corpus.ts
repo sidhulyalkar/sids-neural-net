@@ -24,6 +24,9 @@ function assert(condition: unknown, message: string) {
 assert(NATURE_WORLDS.length === 1000, `expected 1000 worlds, found ${NATURE_WORLDS.length}`);
 assert(new Set(NATURE_WORLDS.map((world) => world.id)).size === 1000, 'world ids must be unique');
 assert(new Set(NATURE_WORLDS.map((world) => world.seed)).size === 1000, 'world seeds must be unique');
+assert(new Set(NATURE_WORLDS.map((world) => world.name.trim().toLowerCase())).size === 1000, 'world names must be unique');
+const worldIndices = NATURE_WORLDS.map((world) => world.index).sort((a, b) => a - b);
+assert(worldIndices.every((index, offset) => index === offset + 1), 'world indices must form a gap-free 1..1000 sequence');
 
 const collections = NATURE_COLLECTIONS.filter((entry) => entry.id !== 'all');
 for (const collection of collections) {
@@ -73,6 +76,6 @@ if (errors.length > 0) {
 }
 
 const facetCounts = Object.fromEntries(requiredFacets.map((facet) => [facet, NATURE_VISUAL_CORPUS.filter((fixture) => fixture.facets.includes(facet)).length]));
-console.log(`Nature Atlas corpus PASS: ${NATURE_WORLDS.length} worlds, ${collections.length} collections, ${NATURE_VISUAL_CORPUS.length} canonical fixtures.`);
+console.log(`Nature Atlas corpus PASS: ${NATURE_WORLDS.length} unique worlds, ${collections.length} collections, ${NATURE_VISUAL_CORPUS.length} canonical fixtures.`);
 console.log(`Fallback-subject renderer: ${fallbackOnlyWorlds.length}/${NATURE_WORLDS.length} worlds (${(fallbackRatio * 100).toFixed(1)}%).`);
 console.log(JSON.stringify(facetCounts, null, 2));
