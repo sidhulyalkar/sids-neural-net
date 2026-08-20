@@ -26,11 +26,17 @@ test('the arcade is part of the shared portfolio navigation', () => {
   assert.ok(siteNavItems.some((item) => item.href === '/arcade' && item.label === 'Game Arcade'));
   assert.ok(primaryNavItems.some((item) => item.href === '/arcade'));
 
+  const home = readRepoFile('app/page.tsx');
+  assert.match(home, /href="\/arcade"/);
+  assert.match(home, /Playable now · 3 games/);
+  assert.match(home, /Stretchicorn · uniRico · Mosslight/);
+  assert.match(home, /z-\[70\]/);
+  assert.match(home, /data-gesture-target/);
+
   const footer = readRepoFile('components/layout/Footer.tsx');
   assert.match(footer, /href: '\/arcade', label: 'Arcade'/);
 
   const discovery = readRepoFile('components/layout/ArcadeDiscovery.tsx');
-  assert.match(discovery, /pathname === '\/'/);
   assert.match(discovery, /pathname === '\/about'/);
   assert.match(discovery, /pathname === '\/projects'/);
   assert.match(discovery, /href="\/arcade"/);
