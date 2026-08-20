@@ -1,6 +1,5 @@
-import { readFile, writeFile } from 'node:fs/promises';
+import { writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { manifestSchema, type Track } from '../lib/spotify/manifest';
 
 const { SPOTIFY_CLIENT_ID, SPOTIFY_CLIENT_SECRET, SPOTIFY_REFRESH_TOKEN } = process.env;
 
@@ -20,50 +19,45 @@ async function accessToken(): Promise<string> {
   return ((await response.json()) as { access_token: string }).access_token;
 }
 
-const manifestPath = join(process.cwd(), 'content', 'music', 'top-tracks.json');
-
-async function existingGrids(): Promise<Map<string, Pick<Track, 'bpm' | 'downbeatMs'>>> {
-  try {
-    const parsed = manifestSchema.parse(JSON.parse(await readFile(manifestPath, 'utf8')));
-    return new Map(parsed.tracks.map((t) => [t.spotifyId, { bpm: t.bpm, downbeatMs: t.downbeatMs }]));
-  } catch {
-    console.warn('Could not read existing manifest; prior bpm/downbeat grids will not be preserved.');
-    return new Map();
-  }
-}
-
+/**
+ * Discovery deliberately writes a candidate file instead of replacing the
+ * production Rotation manifest. A public track is not promoted until BPM /
+ * downbeat timing has been explicitly curated or analyzed.
+ */
 async function main() {
   const token = await accessToken();
-  const grids = await existingGrids();
   const response = await fetch('https://api.spotify.com/v1/me/top/tracks?limit=50&time_range=medium_term', {
     headers: { Authorization: `Bearer ${token}` },
   });
   if (!response.ok) throw new Error(`Top tracks failed: ${response.status} ${await response.text()}`);
   const data = (await response.json()) as {
-    items: Array<{ id: string; name: string; popularity: number; external_urls: { spotify: string };
-      artists: Array<{ name: string }>; album: { name: string; images: Array<{ url: string }> } }>;
+    items: Array<{
+      id: string;
+      name: string;
+      popularity: number;
+      duration_ms: number;
+      external_urls: { spotify: string };
+      artists: Array<{ name: string }>;
+      album: { name: string; images: Array<{ url: string }> };
+    }>;
   };
 
-  const tracks: Track[] = data.items.map((item) => {
-    const prior = grids.get(item.id);
-    return {
-      spotifyId: item.id,
-      title: item.name,
-      artist: item.artists.map((a) => a.name).join(', '),
-      album: item.album.name,
-      albumArtUrl: item.album.images[0]?.url ?? '',
-      spotifyUrl: item.external_urls.spotify,
-      popularity: item.popularity,
-      ...(prior?.bpm ? { bpm: prior.bpm } : {}),
-      ...(prior?.downbeatMs != null ? { downbeatMs: prior.downbeatMs } : {}),
-    };
-  });
+  const candidates = data.items.map((item) => ({
+    spotifyId: item.id,
+    title: item.name,
+    artist: item.artists.map((artist) => artist.name).join(', '),
+    album: item.album.name,
+    albumArtUrl: item.album.images[0]?.url ?? '',
+    spotifyUrl: item.external_urls.spotify,
+    popularity: item.popularity,
+    durationMs: item.duration_ms,
+    needsTimingCuration: true,
+  }));
 
-  const manifest = manifestSchema.parse({ generatedAt: new Date().toISOString(), tracks });
-  await writeFile(manifestPath, JSON.stringify(manifest, null, 2));
-  const missing = tracks.filter((t) => t.bpm == null).map((t) => `${t.title} — ${t.artist}`);
-  console.log(`Wrote ${tracks.length} tracks to content/music/top-tracks.json.`);
-  if (missing.length) console.log(`\nNeed a beat-grid (run npm run music:grid -- <id> <bpm> <downbeatMs>):\n- ${missing.join('\n- ')}`);
+  const path = join(process.cwd(), 'content', 'music', 'top-tracks.candidates.json');
+  await writeFile(path, JSON.stringify({ generatedAt: new Date().toISOString(), candidates }, null, 2));
+  console.log(`Wrote ${candidates.length} discovery candidates to ${path}.`);
+  console.log('Production top-tracks.json was left untouched. Curate BPM/downbeat timing before promotion.');
 }
 
 main().catch((error) => { console.error(error); process.exit(1); });
