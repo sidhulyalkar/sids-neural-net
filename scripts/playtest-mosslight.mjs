@@ -53,9 +53,13 @@ const cast = await page.evaluate(() => window.__MOSSLIGHT_PLAYTEST__.snapshot())
 if (cast.stats.casts < 1) failures.push('pointer cast smoke did not register a cast');
 if (cast.stats.correct < 1) failures.push('guided pointer cast did not complete a correct restoration step');
 
+const expectedInitialTools = ['rain', 'rain', 'mend', 'rain', 'wind', 'rain', 'rain', 'sun', 'rain', 'wind'];
 const rooms = [];
 for (let index = 0; index < metadata.roomCount; index += 1) {
   const before = await page.evaluate((roomIndex) => window.__MOSSLIGHT_PLAYTEST__.setRoom(roomIndex), index);
+  const expectedTool = expectedInitialTools[index];
+  if (before.selected !== expectedTool) failures.push(`${metadata.roomTitles[index]} should initially guide ${expectedTool}, got ${before.selected}`);
+
   // Wait until the short room title card is gone so the fixture audits the actual playfield.
   await page.waitForTimeout(1500);
   const stressedFile = `room-${String(index + 1).padStart(2, '0')}-stressed.png`;
@@ -74,6 +78,7 @@ for (let index = 0; index < metadata.roomCount; index += 1) {
     stressedProgress: before.progress,
     restoredProgress: after.progress,
     selectedTool: before.selected,
+    expectedInitialTool: expectedTool,
     fps: after.fps,
   });
 }
@@ -109,4 +114,4 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log(`Mosslight browser playtest PASS: ${rooms.length} stressed/restored room pairs, movement + correct-cast smoke, ${finalSnapshot.fps.toFixed(1)} FPS.`);
+console.log(`Mosslight browser playtest PASS: ${rooms.length} unobstructed stressed/restored room pairs, movement + correct-cast smoke, guided starting tools, ${finalSnapshot.fps.toFixed(1)} FPS.`);
