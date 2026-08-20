@@ -1,0 +1,61 @@
+import assert from 'node:assert/strict';
+import { existsSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import test from 'node:test';
+
+import { arcadeGames } from '../src/data/arcadeGames';
+import { primaryNavItems, siteNavItems } from '../src/data/siteNav';
+
+const root = process.cwd();
+
+const readRepoFile = (path: string) => readFileSync(join(root, path), 'utf8');
+
+test('the arcade exposes every current game as a playable cabinet', () => {
+  assert.deepEqual(
+    arcadeGames.map((game) => game.slug),
+    ['stretchicorn', 'unirico', 'mosslight']
+  );
+
+  for (const game of arcadeGames) {
+    assert.equal(game.status, 'playable', `${game.title} should be playable`);
+    assert.ok(game.launchUrl, `${game.title} should have a launch URL`);
+  }
+});
+
+test('the arcade is part of the shared portfolio navigation', () => {
+  assert.ok(siteNavItems.some((item) => item.href === '/arcade' && item.label === 'Game Arcade'));
+  assert.ok(primaryNavItems.some((item) => item.href === '/arcade'));
+
+  const footer = readRepoFile('components/layout/Footer.tsx');
+  assert.match(footer, /href: '\/arcade', label: 'Arcade'/);
+
+  const discovery = readRepoFile('components/layout/ArcadeDiscovery.tsx');
+  assert.match(discovery, /pathname === '\/'/);
+  assert.match(discovery, /pathname === '\/about'/);
+  assert.match(discovery, /pathname === '\/projects'/);
+  assert.match(discovery, /href="\/arcade"/);
+});
+
+test('the embedded Stretchicorn release is complete', () => {
+  const runtimeRoot = 'public/game-runtimes/stretchicorn';
+  const modules = [
+    'src/style.css',
+    'src/00-core.js',
+    'src/01-combat.js',
+    'src/02-update.js',
+    'src/03-render.js',
+    'src/04-ui-input.js',
+  ];
+
+  assert.ok(existsSync(join(root, runtimeRoot, 'index.html')));
+  for (const module of modules) {
+    assert.ok(existsSync(join(root, runtimeRoot, module)), `missing Stretchicorn runtime file: ${module}`);
+  }
+
+  const html = readRepoFile(`${runtimeRoot}/index.html`);
+  for (const module of modules.filter((module) => module.endsWith('.js'))) {
+    assert.match(html, new RegExp(module.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+  }
+
+  assert.equal(arcadeGames.find((game) => game.slug === 'stretchicorn')?.launchUrl, '/game-runtimes/stretchicorn/index.html');
+});
