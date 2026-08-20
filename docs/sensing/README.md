@@ -68,7 +68,7 @@ The gesture runtime remains opt-in. Hidden tabs pause inference, the camera is r
 
 ## First-use visitor calibration
 
-The production site now runs a short six-checkpoint calibration before unlocking gesture-driven navigation on a browser that has no saved profile:
+The production site offers a short six-checkpoint calibration when a browser has no saved profile:
 
 1. hold the air cursor on the calibration target;
 2. pinch the locked target and release;
@@ -77,11 +77,15 @@ The production site now runs a short six-checkpoint calibration before unlocking
 5. perform the open-palm → fist menu transition;
 6. perform the downward closed-fist scroll strike.
 
-While this course is active, navigation, palette opening, target activation, and scrolling are **sandboxed**. The reducer still recognizes them, but the real page does not move until all checkpoints pass. This prevents the act of learning the controls from accidentally navigating the site.
+While this course is active, navigation, palette opening, target activation, and scrolling are **sandboxed**. The reducer still recognizes them, but the real page does not move until calibration completes or the visitor exits the course. This prevents the act of learning the controls from accidentally navigating the site.
+
+Calibration is intentionally **optional and reversible**. A first-time visitor can choose **Skip for now** or press `Esc` at any checkpoint and immediately return to normal site interaction with the conservative default gesture profile. Skipping does not write a fake calibration profile to `localStorage`, so the visitor can still choose to tune the controls later.
+
+Recalibration is also **transactional**. If a visitor already has a saved profile and starts recalibration, the previous profile remains intact until the new six-step course finishes successfully. Choosing **Keep current**, pressing `Esc`, or otherwise cancelling restores the existing profile immediately and never overwrites it with partial calibration evidence.
 
 The course stores only a small `localStorage` profile containing derived values such as pointer jitter, target acquisition halo, target-lock timing, pinch dwell, and release debounce. It does **not** persist camera frames, hand landmarks, biometric templates, or the calibration trajectory itself. Larger gesture identity thresholds are verified by successful checkpoints but remain at their validated global safety settings rather than being weakened per user.
 
-The derived profile is reused on later visits from that browser. The live `Hands live` control exposes a **recalibrate** action for a new camera position, lighting setup, or user.
+The derived profile is reused on later visits from that browser. The persistent `Hands live` control exposes a dedicated **↻ recalibrate** action, and the gesture guide also exposes **recalibrate**, so users can quickly retune after moving the laptop, changing webcam angle or distance, changing lighting, switching posture, or handing the device to another person.
 
 ## Facial signal semantics
 
