@@ -1,0 +1,59 @@
+name: One-Shot Mosslight Runtime Fix
+
+on:
+  pull_request:
+    branches:
+      - master
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    if: github.head_ref == 'agent/xr-react-visual-arcade'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout PR head
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          fetch-depth: 0
+
+      - name: Set up Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Rename hazard constructor without touching canvas height
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('public/game-runtimes/mosslight/index.html')
+          text = path.read_text()
+          old = 'H('
+          count = text.count(old)
+          if count < 12:
+              raise SystemExit(f'expected at least 12 hazard constructor references, found {count}')
+          text = text.replace(old, 'HZ(')
+          path.write_text(text)
+          print(f'renamed {count} hazard constructor references')
+          Path('.github/workflows/mosslight-runtime-fix.yml').unlink()
+          PY
+
+      - name: Validate runtime and site contracts
+        run: |
+          npm ci
+          npm run check:mosslight
+          npm run typecheck
+          npm run lint
+          npm run check:nature-corpus
+          npm run check:world3d
+
+      - name: Commit validated runtime fix
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -- public/game-runtimes/mosslight/index.html .github/workflows/mosslight-runtime-fix.yml
+          git commit -m "Fix Mosslight hazard constructor namespace"
+          git push origin HEAD:${{ github.event.pull_request.head.ref }}
