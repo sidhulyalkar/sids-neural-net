@@ -22,6 +22,7 @@ export type FrontierSourceKind =
   | 'github'
   | 'openalex'
   | 'rss'
+  | 'youtube'
   | 'football_data'
   | 'brave_web'
   | 'local';
