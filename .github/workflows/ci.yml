@@ -62,7 +62,7 @@ jobs:
         run: |
           mkdir -p artifacts/nature-atlas
           npx --yes playwright@1.55.0 screenshot --browser=chromium --viewport-size="1440,1100" --full-page http://127.0.0.1:3000/physiology/visual-audit artifacts/nature-atlas/desktop.png
-          npx --yes playwright@1.55.0 screenshot --browser=chromium --device="iPhone 13" --full-page http://127.0.0.1:3000/physiology/visual-audit artifacts/nature-atlas/mobile.png
+          npx --yes playwright@1.55.0 screenshot --browser=chromium --viewport-size="390,844" --full-page http://127.0.0.1:3000/physiology/visual-audit artifacts/nature-atlas/mobile.png
 
       - name: Upload Nature Atlas visual corpus
         uses: actions/upload-artifact@v4
