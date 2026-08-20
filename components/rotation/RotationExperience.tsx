@@ -28,6 +28,8 @@ const CortexCanvas = dynamic(
 
 const manifest = parseManifest(manifestData);
 const ranges: TimeRange[] = ['short_term', 'medium_term', 'long_term'];
+const ignoreCanvas = (_canvas: HTMLCanvasElement) => undefined;
+const ignoreCapture = (_capture: () => string) => undefined;
 
 function Metric({ value, label, note }: { value: string; label: string; note: string }) {
   return (
@@ -137,7 +139,13 @@ export function RotationExperience() {
       onPointerLeave={() => { input.current.pointerActive = false; }}
     >
       <div className="absolute inset-0 opacity-70">
-        <CortexCanvas seed={seed} quality={quality} themeId={visualTheme} />
+        <CortexCanvas
+          seed={seed}
+          quality={quality}
+          themeId={visualTheme}
+          onCanvas={ignoreCanvas}
+          onCaptureReady={ignoreCapture}
+        />
       </div>
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_20%,rgba(2,3,6,.18),rgba(2,3,6,.72)_50%,rgba(2,3,6,.96)_100%)]" />
       <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-[#020306]/30 via-[#020306]/55 to-[#020306]" />
