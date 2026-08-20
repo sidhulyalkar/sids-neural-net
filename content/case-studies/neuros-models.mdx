@@ -1,0 +1,52 @@
+---
+title: "neurOS-v1 Package: neuros-models — Model Zoo & Registry"
+slug: neuros-models
+summary: "A registry-driven library of deep and classical models behind one interface, so architectures are swappable and directly comparable, with a SageMaker launcher for cloud training."
+role: "Author and architect"
+sourceUrl: "https://github.com/sidhulyalkar/neurOS-v1"
+scope: "neurOS-v1 monorepo package"
+date: "2025-11-05"
+tags:
+  - neuros-v1
+  - models
+  - model-registry
+  - pytorch
+  - sagemaker
+domains:
+  - BCI & Real-Time Systems
+  - Neural Foundation Models
+featured: false
+importance: 78
+relatedProjects:
+  - neuros-v1
+modeVisibility:
+  - recruiter
+  - researcher
+  - builder
+  - full-brain
+---
+
+## A Swappable Model Zoo
+
+`neuros-models` collects the decoders and classifiers neurOS can run, all behind a common
+`base_model` interface and a `model_registry`, so a pipeline can name a model and get it.
+
+<SystemDiagram variant="pkg-models" />
+
+## What It Comprises
+
+- **Deep models** — EEGNet, CNN, LSTM, Transformer, a DINOv3 model, attention-fusion, and composite
+  models.
+- **Classical models** — SVM, KNN, random forest, gradient-boosted trees, and simple/linear
+  classifiers as baselines.
+- **Registry** — `model_registry` giving every model one interface, so custom architectures drop in.
+- **Training** — a SageMaker launcher for cloud training.
+
+## How It Differs
+
+`neuros-models` holds **task-specific supervised architectures** — the decoders you train per
+dataset. That is distinct from `neuros-foundation` (published pretrained foundation models) and
+`neuros-neurofm` (the from-scratch neuroFMx foundation model). This package is the everyday zoo;
+those two are the large-scale representation-learning stacks.
+
+Part of the [neurOS-v1 platform](/case-studies/neuros-v1-platform).

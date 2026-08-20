@@ -15,24 +15,40 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  typecheck-and-build:
+  production-gate:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 40
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: '22'
           cache: npm
 
-      - name: Install dependencies
-        run: npm ci
+      - name: Install exact locked dependencies
+        run: |
+          npm ci
+          mkdir -p artifacts/dependency-lock
+          cp package-lock.json artifacts/dependency-lock/package-lock.json
+
+      - name: Audit dependencies
+        run: |
+          mkdir -p artifacts/security
+          npm audit --json > artifacts/security/npm-audit-all.json || true
+          npm audit --omit=dev --json > artifacts/security/npm-audit-production.json || true
+          npm audit --omit=dev --audit-level=high
 
       - name: Typecheck
         run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Unit tests
+        run: npm test
 
       - name: Validate deterministic Nature Atlas corpus
         run: npm run check:nature-corpus
@@ -40,17 +56,27 @@ jobs:
       - name: Audit 900 World Loom scenes
         run: npm run check:world3d
 
-      - name: Build committed site state
+      - name: Generate Next route and module bundle analysis
+        run: |
+          npx next experimental-analyze --output
+          mkdir -p artifacts/bundle-analyzer
+          cp -R .next/diagnostics/analyze/. artifacts/bundle-analyzer/
+
+      - name: Build deterministic committed site state
         env:
           NEXT_PUBLIC_SITE_URL: https://example.invalid
-        run: npx next build
+          NEXT_PUBLIC_WORLD_LOOM_XR: disabled
+        run: npm run build
 
-      - name: Start built site for visual fixtures
+      - name: Enforce emitted JavaScript bundle budget
+        run: npm run check:bundle
+
+      - name: Start built site
         run: |
           npx next start -p 3000 > /tmp/sids-neural-net.log 2>&1 &
           echo $! > /tmp/sids-neural-net.pid
-          for attempt in {1..30}; do
-            if curl -fsS http://127.0.0.1:3000/physiology/visual-audit >/dev/null; then
+          for attempt in {1..40}; do
+            if curl -fsS http://127.0.0.1:3000/ >/dev/null; then
               exit 0
             fi
             sleep 1
@@ -58,19 +84,31 @@ jobs:
           cat /tmp/sids-neural-net.log
           exit 1
 
-      - name: Install visual-audit browser
+      - name: Smoke public production routes
+        run: |
+          for route in / /neural-net /case-studies /physiology /perceptual-cortex /rotation /sensing-lab /physiology/visual-audit; do
+            echo "GET $route"
+            curl --retry 2 --retry-connrefused -fsS "http://127.0.0.1:3000$route" >/dev/null
+          done
+
+      - name: Install smoke-test browser
         run: npx --yes playwright@1.55.0 install --with-deps chromium
 
-      - name: Capture canonical Nature Atlas screenshots
+      - name: Capture production browser fixtures
         run: |
-          mkdir -p artifacts/nature-atlas
-          npx --yes playwright@1.55.0 screenshot --browser=chromium --viewport-size="1440,1100" --full-page http://127.0.0.1:3000/physiology/visual-audit artifacts/nature-atlas/desktop.png
-          npx --yes playwright@1.55.0 screenshot --browser=chromium --viewport-size="390,844" --full-page http://127.0.0.1:3000/physiology/visual-audit artifacts/nature-atlas/mobile.png
+          mkdir -p artifacts/browser-smoke
+          npx --yes playwright@1.55.0 screenshot --browser=chromium --viewport-size="1440,1100" --full-page http://127.0.0.1:3000/physiology/visual-audit artifacts/browser-smoke/nature-atlas-desktop.png
+          npx --yes playwright@1.55.0 screenshot --browser=chromium --viewport-size="390,844" --full-page http://127.0.0.1:3000/physiology/visual-audit artifacts/browser-smoke/nature-atlas-mobile.png
+          npx --yes playwright@1.55.0 screenshot --browser=chromium --viewport-size="1440,1000" http://127.0.0.1:3000/neural-net artifacts/browser-smoke/neural-net.png
+          npx --yes playwright@1.55.0 screenshot --browser=chromium --viewport-size="1440,1000" http://127.0.0.1:3000/perceptual-cortex artifacts/browser-smoke/perceptual-cortex.png
+          npx --yes playwright@1.55.0 screenshot --browser=chromium --viewport-size="1440,1000" http://127.0.0.1:3000/rotation artifacts/browser-smoke/rotation.png
+          npx --yes playwright@1.55.0 screenshot --browser=chromium --viewport-size="1440,1000" --full-page http://127.0.0.1:3000/case-studies artifacts/browser-smoke/case-studies.png
 
-      - name: Upload Nature Atlas visual corpus
-        uses: actions/upload-artifact@v4
+      - name: Upload production audit artifacts
+        if: always()
+        uses: actions/upload-artifact@v7
         with:
-          name: nature-atlas-visual-corpus
-          path: artifacts/nature-atlas
-          if-no-files-found: error
+          name: production-audit-artifacts
+          path: artifacts
+          if-no-files-found: warn
           retention-days: 14

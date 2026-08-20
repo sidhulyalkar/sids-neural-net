@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
-import matter from 'gray-matter';
 import { z } from 'zod';
+import { parseFrontmatter } from './frontmatter';
 
 export const CaseStudyFrontmatterSchema = z.object({
   title: z.string(),
@@ -33,11 +33,8 @@ const CONTENT_DIR = path.join(process.cwd(), 'content/case-studies');
 
 export function getCaseStudySlugs(): string[] {
   try {
-    if (!fs.existsSync(CONTENT_DIR)) {
-      return [];
-    }
-    const files = fs.readdirSync(CONTENT_DIR);
-    return files
+    if (!fs.existsSync(CONTENT_DIR)) return [];
+    return fs.readdirSync(CONTENT_DIR)
       .filter((file) => file.endsWith('.mdx'))
       .map((file) => file.replace(/\.mdx$/, ''));
   } catch {
@@ -48,45 +45,28 @@ export function getCaseStudySlugs(): string[] {
 export function getCaseStudyBySlug(slug: string): CaseStudy | null {
   try {
     const filePath = path.join(CONTENT_DIR, `${slug}.mdx`);
-    if (!fs.existsSync(filePath)) {
-      return null;
-    }
-
+    if (!fs.existsSync(filePath)) return null;
     const fileContent = fs.readFileSync(filePath, 'utf-8');
-    const { data, content } = matter(fileContent);
-
-    const frontmatter = CaseStudyFrontmatterSchema.parse({
-      ...data,
-      slug,
-    });
-
-    return {
-      frontmatter,
-      content,
-      slug,
-    };
+    const { data, content } = parseFrontmatter(fileContent);
+    const frontmatter = CaseStudyFrontmatterSchema.parse({ ...data, slug });
+    return { frontmatter, content, slug };
   } catch (error) {
-    console.error(`Error loading project brief ${slug}:`, error);
+    console.error(`Error loading case study ${slug}:`, error);
     return null;
   }
 }
 
 export function getAllCaseStudies(): CaseStudy[] {
-  const slugs = getCaseStudySlugs();
-  const caseStudies = slugs
+  return getCaseStudySlugs()
     .map((slug) => getCaseStudyBySlug(slug))
-    .filter((cs): cs is CaseStudy => cs !== null);
-
-  // Sort by date descending, then by importance
-  return caseStudies.sort((a, b) => {
-    const dateCompare = new Date(b.frontmatter.date).getTime() - new Date(a.frontmatter.date).getTime();
-    if (dateCompare !== 0) return dateCompare;
-    return b.frontmatter.importance - a.frontmatter.importance;
-  });
+    .filter((caseStudy): caseStudy is CaseStudy => caseStudy !== null)
+    .sort((a, b) => {
+      const dateCompare = new Date(b.frontmatter.date).getTime() - new Date(a.frontmatter.date).getTime();
+      if (dateCompare !== 0) return dateCompare;
+      return b.frontmatter.importance - a.frontmatter.importance;
+    });
 }
 
 export function getFeaturedCaseStudies(limit = 4): CaseStudy[] {
-  return getAllCaseStudies()
-    .filter((cs) => cs.frontmatter.featured)
-    .slice(0, limit);
+  return getAllCaseStudies().filter((caseStudy) => caseStudy.frontmatter.featured).slice(0, limit);
 }

@@ -1,0 +1,85 @@
+---
+title: "NEATLabs Paradigm: Go/No-Go & Go/Wait — Action, Inhibition, Impulsivity"
+slug: neatlabs-go-nogo-inhibition
+summary: "The behavioral-inhibition paradigm at NEATLabs: rats act, withhold, or wait in response to cues while distributed cortico-striatal LFP and human EEG reveal separable action and inhibition networks. Anchors the eNeuro large-scale-network paper and the rodent default-mode suppression study."
+role: "Lead Lab Programmer — task systems, event extraction, LFP/behavior analysis"
+scope: "Go/No-Go and Go/Wait behavioral inhibition, multisite LFP, human EEG comparison"
+date: "2021-02-01"
+tags:
+  - go-nogo
+  - behavioral-inhibition
+  - impulsivity
+  - lfp
+  - eeg
+  - electrophysiology
+domains:
+  - NEATLabs Research
+  - Experimental Systems
+  - Neural Signal Discovery
+featured: true
+importance: 93
+relatedProjects:
+  - neatlabs-core-research
+modeVisibility:
+  - recruiter
+  - researcher
+  - builder
+  - full-brain
+---
+
+## The Question: When Does the Brain Choose *Not* to Act?
+
+Behavioral inhibition — the ability to withhold or delay a prepotent action — is central to
+impulsivity, and its failure shows up across ADHD, addiction, and mood disorders. At NEATLabs this
+was studied with **Go/No-Go** and **Go/Wait** paradigms in rats, where the whole experiment turns
+on the difference between *acting* and *not acting*.
+
+<SystemDiagram variant="go-nogo" />
+
+## Study Design and Rat Behavior
+
+The paradigms make a clean behavioral dissociation. On **Go** trials the rat should emit a response
+to earn reward; on **No-Go** trials it should withhold that same response; on **Go/Wait** trials it
+must delay responding until a wait interval elapses. The behavior the design elucidates is precise:
+
+- **Correct Go** — the animal detects the cue and acts.
+- **Correct No-Go / successful wait** — the animal suppresses or postpones a response it is primed to make.
+- **Premature responses** — a direct behavioral readout of impulsivity: the rat cannot hold the
+  action back.
+- **Omissions** — failures of engagement or detection.
+
+Turning those events into reliable, millisecond-aligned computational markers — cues, waits,
+premature responses, omissions, rewards — was the systems problem I owned, because the neural
+analysis is only as good as the behavioral timestamps feeding it.
+
+## Methodology
+
+- **Recording:** large-scale **multisite local field potential** recordings across distributed
+  cortico-striatal and limbic sites in behaving rats, using the lab's chronic multi-site probe
+  designs.
+- **Cross-species bridge:** an analogous **human EEG** version of the task, so rodent network
+  findings could be compared against human electrophysiology.
+- **Analysis:** event-aligned time-frequency decomposition and **functional connectivity** analysis
+  to move from single-site power to network-level coupling between action and inhibition regions.
+
+## What We Found
+
+The eNeuro paper mapped large-scale networks associated with action, behavioral inhibition, and
+impulsivity:
+
+- **Low-frequency activity** was linked with action and sensory-driven responses.
+- **Theta activity in prefrontal and premotor regions** was linked with inhibition — the signature
+  of withholding a response.
+- **Connectivity between motor cortex and inhibitory regions** related to *diminished* impulsivity:
+  stronger coupling, better control.
+
+A companion study on the **rodent default-mode network** used the same large-scale LFP approach and
+found a shared **alpha/low-beta suppression** pattern during task engagement in both rats and
+humans — further evidence that these distributed dynamics translate across species.
+
+## Publications
+
+- [Mapping Large-Scale Networks Associated with Action, Behavioral Inhibition and Impulsivity — eNeuro (2021)](https://doi.org/10.1523/ENEURO.0406-20.2021)
+- [Electrophysiological Correlates of Rodent Default-Mode Network Suppression — Cerebral Cortex Communications (2021)](https://doi.org/10.1093/texcom/tgab034)
+
+This paradigm is one thread of the broader [NEATLabs research program](/case-studies/neatlabs-core-research).

@@ -24,6 +24,9 @@
     "paths": {
       "@/*": [
         "./*"
+      ],
+      "gray-matter": [
+        "./lib/content/grayMatterCompat.ts"
       ]
     },
     "target": "ES2017"
