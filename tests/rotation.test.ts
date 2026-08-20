@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { parseManifest } from '../lib/spotify/manifest';
-import manifestData from '../content/music/top-tracks.json' with { type: 'json' };
+import manifestData from '../content/music/top-tracks.json';
 import { sample, timelineFromTrack, type MusicTimeline } from '../components/perceptual-cortex/musicTimeline';
 import { PlaybackClock } from '../components/perceptual-cortex/playbackClock';
 
