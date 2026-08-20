@@ -8,7 +8,7 @@ import {
   rankFrontierItems,
   selectDailyRun,
 } from '../lib/frontier/scoring';
-import { parseFrontierRss } from '../lib/frontier/sources';
+import { parseFrontierRss, parseYouTubeAtom } from '../lib/frontier/sources';
 import type { FrontierHistoryEntry, FrontierItem } from '../lib/frontier/types';
 
 function item(overrides: Partial<FrontierItem> = {}): FrontierItem {
@@ -102,4 +102,27 @@ test('rss parser retains publisher image media and classifies Premier League sig
   assert.equal(parsed.length, 1);
   assert.equal(parsed[0].lane, 'premier_league');
   assert.equal(parsed[0].media?.url, 'https://example.com/image.jpg');
+});
+
+test('youtube atom parser creates a playable visual signal with channel provenance', () => {
+  const xml = `<?xml version="1.0" encoding="UTF-8"?>
+  <feed xmlns:yt="http://www.youtube.com/xml/schemas/2015" xmlns:media="http://search.yahoo.com/mrss/">
+    <entry>
+      <yt:videoId>abc123XYZ</yt:videoId>
+      <title>Premier League xG and pressing explained</title>
+      <published>2026-08-20T09:00:00+00:00</published>
+      <author><name>Football Data Lab</name></author>
+      <media:group>
+        <media:description>How pressing shapes expected goals in the Premier League.</media:description>
+        <media:thumbnail url="https://i.ytimg.com/vi/abc123XYZ/hqdefault.jpg" width="480" height="360" />
+      </media:group>
+    </entry>
+  </feed>`;
+  const parsed = parseYouTubeAtom(xml);
+  assert.equal(parsed.length, 1);
+  assert.equal(parsed[0].lane, 'premier_league');
+  assert.equal(parsed[0].sourceLabel, 'Football Data Lab');
+  assert.equal(parsed[0].media?.type, 'youtube');
+  assert.equal(parsed[0].media?.url, 'abc123XYZ');
+  assert.equal(parsed[0].media?.poster, 'https://i.ytimg.com/vi/abc123XYZ/hqdefault.jpg');
 });
