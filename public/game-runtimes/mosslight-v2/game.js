@@ -184,10 +184,9 @@
   function nextUsefulAbility() {
     if (!state.room) return 'rain';
     const unfinished = state.room.targets.filter((target) => !target.done);
-    const currentStillUseful = unfinished.some((target) => targetExpected(target) === state.selected);
-    if (currentStillUseful) return state.selected;
     const nearest = nearestTarget(unfinished);
-    return nearest ? targetExpected(nearest) : state.room.unlock[0];
+    if (nearest) return targetExpected(nearest);
+    return state.room.unlock[0];
   }
 
   function smartSelect() {
@@ -641,7 +640,7 @@
     ui.intro.querySelector('p').textContent = `${state.room.task}  ${state.room.mechanic}.`;
     ui.intro.classList.add('show');
     clearTimeout(introTimer);
-    introTimer = setTimeout(() => ui.intro.classList.remove('show'), 1900);
+    introTimer = setTimeout(() => ui.intro.classList.remove('show'), 1350);
   }
 
   function toast(message, duration = 600) {
