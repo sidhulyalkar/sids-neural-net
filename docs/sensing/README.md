@@ -1,104 +1,86 @@
-# Sensing layer — architecture, shared tools, and measured findings
+# Sensing layer: observable signals, gestures, and shared camera runtime
 
-Consent-gated, browser-only camera sensing: ambient emotion tint + hand gesture
-navigation. Nothing leaves the device.
+Consent-gated, browser-only sensing for aesthetic site reactivity and hand-gesture navigation. Camera frames stay local and are never persisted by the production site.
 
-**Owner surface:** `components/sensing/**`, `app/sensing-lab/**`,
-`tests/sensing-*.test.ts`, `scripts/analyze-gesture-takes.ts`.
+The production contract is intentionally narrow: **the face pipeline reports visible activation, not emotion, intent, personality, or mental state.** Its public features are facial activity, smile activation, eye openness, brow activity, mouth activity, expression asymmetry, blink activation, stillness, and measured head pose when a pose adapter is available.
 
-> **Working alongside `components/perceptual-cortex/`.** That package does its own
-> worker-based tracking and audio reactivity, and deliberately does not import the
-> sensing engine. The two are independent by design — but several problems below
-> are inherent to MediaPipe-in-the-browser and will bite any package that touches
-> it. **Read "Shared tools" before writing new MediaPipe code.**
+**Owner surface:** `components/sensing/**`, `app/sensing-lab/**`, `lib/media/CameraSession.ts`, `tests/sensing-*.test.ts`, and `scripts/analyze-gesture-takes.ts`.
 
-## Shared tools — reuse these, don't re-solve them
+## Architecture
 
-| Tool | Path | Why it exists |
+```text
+InteractionCapabilityProvider
+  ├─ lightweight consent + intent state
+  └─ explicit opt-in
+       ↓ dynamic import
+SensingProvider
+  ├─ CameraSession
+  ├─ FaceLandmarker → observable ExpressionReading
+  ├─ GestureRecognizer → gesture reducer
+  ├─ expression → visual tokens
+  └─ strict teardown on disable/unmount
+```
+
+`CameraSession` is also used by Perceptual Cortex so both systems share the same permission, stream attachment, and track-cleanup behavior. Perceptual Cortex still owns its worker-isolated feature extraction and fusion runtime rather than importing the global sensing engine.
+
+## Shared tools
+
+| Tool | Path | Purpose |
 |---|---|---|
-| `quietMediapipeInfoLogs()` | `components/sensing/quietMediapipeLogs.ts` | MediaPipe's WASM logs `INFO:` lines through `console.error`. Next's dev overlay escalates any `console.error` into a blocking modal, so loading a model pops an error dialog that reports *success*. Call this before any MediaPipe import. Safe to call from anywhere; it filters only exact `INFO:`-prefixed strings and is idempotent. |
-| GPU→CPU delegate fallback | `useFaceLandmarker.ts`, `useGestureRecognizer.ts` | **A GPU delegate can construct successfully and then fail on every inference** (Firefox/WebGL: `No texture2d array with name - dst_tensor_output_10`). Construction-time try/catch never sees this. Both hooks catch the *first inference* throw, rebuild on CPU, and expose `getDelegate()`. Any new MediaPipe integration needs this or it will silently detect nothing in Firefox. |
-| Sensing Lab | `app/sensing-lab`, `components/sensing/lab/` | Dev instrument: live camera + landmark overlay + every intermediate value, plus labeled JSONL recording. Localizes failures to a stage (camera → frame content → model → heuristic → action). Not linked from the site. |
-| Take analyzer | `scripts/analyze-gesture-takes.ts` | Replays recorded JSONL through the real reducer. `npx tsx scripts/analyze-gesture-takes.ts <file>.jsonl` |
+| `CameraSession` | `lib/media/CameraSession.ts` | One explicit getUserMedia lifecycle with reliable track cleanup. |
+| MediaPipe log filter | `components/sensing/quietMediapipeLogs.ts` | Prevents harmless MediaPipe `INFO:` output from becoming a blocking Next dev overlay. |
+| GPU→CPU delegate fallback | `useFaceLandmarker.ts`, `useGestureRecognizer.ts` | Rebuilds on CPU when a delegate constructs successfully but fails on first inference. |
+| Sensing Lab | `app/sensing-lab`, `components/sensing/lab/` | Local camera health, raw observable face activations, hand landmarks, gesture state, and optional local calibration recording. |
+| Take analyzer | `scripts/analyze-gesture-takes.ts` | Replays locally downloaded JSONL through the real reducer. Historical recordings are intentionally not committed to production. |
 
-## Hard-won constraints (all measured, not guessed)
+## Measured gesture constraints
 
-These cost real debugging time. They generalize beyond this package.
+These findings came from the prior calibration campaign and remain engineering constraints rather than guesses.
 
-1. **Palm width is not a scale reference.** `d(indexMcp, pinkyMcp)` foreshortens to
-   ~⅓ when the hand turns edge-on (measured 0.154 flat → 0.058). Anything
-   normalized by it inflates ~2.6× exactly when the hand is angled. Use
-   `getHandLength()` = `d(wrist, middleMcp)`, which lies along the rotation axis.
-2. **2D landmarks cannot detect a pinch.** Thumb and index tips *project* onto the
-   same point without touching. Measured: 2D `isPinching` fired on **13–18%** of
-   idle frames vs **4%** of deliberate pinch frames — inverted against reality.
-   Adding z roughly halves the false rate at equal recall, so `isPinching` now
-   uses `distance3`. Landmarks without z degrade silently to the 2D behaviour.
-3. **Gate measurement on recognition and you lose the gesture.** A fast strike is
-   blurriest exactly when it moves fastest, so the shape test fails during the
-   part that matters. Recording positions only on shape-matching frames capped
-   dy at 0.093; tracking *through* the blur found the real 0.649. The shape test
-   decides *whether to watch*, never *what to record*.
-4. **Endpoint comparisons alias.** Comparing `buffer[first] → buffer[last]` breaks
-   once the sample rate is high enough to hold a motion *and its recovery* — they
-   cancel. Scan for the largest excursion instead. Raising 15→30fps made the chop
-   fire *less* until this was fixed.
-5. **A motion gesture whose inverse is also a gesture is unresolvable.** Swipes
-   couldn't be told from their return stroke; the flat-hand chop couldn't be told
-   from lowering a raised hand (shape, start height, end height and velocity all
-   overlapped). Both were replaced by poses, not tuned.
-6. **Record negatives.** Gesture takes only measure recall. Every false positive
-   we found came from `idle_*` takes of normal activity.
-7. **`performance.now()` restarts per page load.** Replaying across sessions
-   invents false gaps; the analyzer splits on >5s jumps.
-8. **MediaPipe's canned scores are not on a common scale.** Measured: Closed_Fist
-   p50 **0.95**, Open_Palm p50 **0.60**. A single 0.65 confidence gate discarded
-   92% of open palms, so `open_palette` never fired once in any take. Do not
-   assume one threshold fits every class.
-9. **Restart the dev server after structural changes.** Adding a metadata route
-   (`app/favicon.ico`) or reshaping modules mid-session poisons the webpack cache
-   (`Cannot find module './331.js'`, `__webpack_modules__[moduleId] is not a
-   function`). Fix: `pkill -f "next dev"; rm -rf .next node_modules/.cache; npm run dev`.
+1. **Palm width is a poor scale reference.** It foreshortens dramatically when the hand turns edge-on. Use hand length for scale-sensitive geometry.
+2. **2D landmarks cannot reliably establish a pinch.** Projected fingertips can overlap without touching. The remaining pinch utility uses 3D distance when z is available and is not a production navigation action.
+3. **Do not gate motion measurement on recognition.** Fast motion is blurriest at peak velocity. Shape recognition decides whether to watch, not which motion samples are recorded.
+4. **Endpoint comparisons alias motion and recovery.** Scan for the largest excursion inside the window instead of comparing only first and last samples.
+5. **If the inverse motion is also a common gesture, tune less and redesign more.** Ambiguous swipes/chops were replaced with more identifiable pose transitions.
+6. **Record negatives.** Deliberate gesture takes measure recall; normal `idle_*` activity is what exposes false positives.
+7. **`performance.now()` restarts per page load.** Offline replay must split large timestamp jumps into separate sessions.
+8. **MediaPipe canned gesture scores are class-dependent.** One global confidence threshold can erase otherwise valid classes.
+9. **Motion gestures need temporal resolution.** Hands run at 30 fps because a roughly 200 ms strike is under-sampled at 15 fps once blur removes frames.
 
 ## Current gesture set
 
-| Gesture | Action | Status |
+| Gesture | Action | Evidence status |
 |---|---|---|
-| Raise **right** hand | `navigate_next` | ✅ fires; handedness verified correct (98%/96%), **not** inverted |
-| Raise **left** hand | `navigate_previous` | ✅ fires clean |
-| **Fist** + downward strike | `page_down` | ✅ 10 fires/28s; zero idle false positives |
-| Open palm **flashed into a fist** | `open_palette` | ✅ 15 fires; a *held* palm is how you raise to navigate, so the transition is the gesture |
-| Closed fist (dwell 450ms) | `close_palette` | ✅ |
-| Thumb up (dwell 650ms) | `activate` | ✅ best performer (classifier 105/105) |
-| **Clap** (two palms meeting) | `activate` | 🆕 implemented, **unvalidated** — no two-hand take exists yet |
-| ~~Pinch~~ | — | ❌ **removed.** Fired every remaining false positive; no threshold fixed it. `isPinching` survives only for the air cursor and the secret circle. |
-| Circle-game (dwell 900ms) | `prank` | ⚠️ leaks `activate` |
+| Raise right hand | `navigate_next` | validated in prior calibration |
+| Raise left hand | `navigate_previous` | validated in prior calibration |
+| Fist + downward strike | `page_down` | validated in prior calibration |
+| Open-palm → fist transition | `open_palette` | validated in prior calibration |
+| Closed-fist dwell | `close_palette` | validated in prior calibration |
+| Thumb-up dwell | `activate` | strongest prior performer |
+| Clap | `activate` | implemented, still needs fresh two-hand validation |
+| Circle-game dwell | `prank` | experimental; can leak `activate` |
+| Pinch navigation | removed | false-positive rate was unacceptable |
 
-`numHands` is **2** (the clap needs both). Every other gesture reads the primary
-hand; only the clap reads `observation.other`.
+The gesture runtime remains opt-in. Hidden tabs pause inference, the camera is released on cleanup, and MediaPipe does not enter the global bundle/lifecycle until the visitor explicitly enables camera signals.
 
-Rates: face 12fps, hands **30fps** (a ~200ms strike at 15fps is ~3 samples — too
-few once blur takes some).
+## Facial signal semantics
 
-## Open work
+The expression adapter maps MediaPipe blendshape activations only to directly observable dimensions. For example, symmetric mouth-smile blendshapes can increase `smileActivation`; brow blendshapes can increase `browActivity`; blink blendshapes can increase `blinkActivation`. Those dimensions may alter color, glow, parallax, or particle activity.
 
-- **The clap is unvalidated.** Every take was recorded with `numHands: 1`, so no
-  file contains two hands and the clap has never been measured. `CLAP_GAP = 1.1`
-  and `CLAP_APART = 2.0` are reasoned, not fitted. Needs a `clap` take plus fresh
-  `idle_*` takes (hands resting together near the keyboard is the obvious risk).
-- `open_palm` take shows `close_palette` x5 — the flash fist lingers and also closes.
-- `raise_left` still emits one `open_palette` (2.3/min) — a raise followed by a fist.
-- Circle-game pose leaks `activate`; untested against z.
-- `RAISE_MAX_PALM_Y = 0.42` / `RAISE_DWELL_MS = 450` are reasoned, not fitted.
-- The hammer is validated only against a *proxy* (an old `fist` take), never a
-  real strike. No `hammer_down` take exists yet.
+It deliberately does **not** map those signals to categories such as joy, fear, sadness, anger, surprise, or calm. The old heuristic emotion subsystem and its tests were removed from production rather than hidden behind different copy.
 
-## Recording protocol
+Head orientation is initialized neutral unless a transformation-matrix adapter supplies measured pose values. The system does not fabricate pose from unrelated blendshape scores.
 
-Open `/sensing-lab` in **Chrome** (Firefox's GPU delegate fails; CPU fallback at
-6fps starves motion gestures). Start camera → pick a label → Record → Download.
-Hit Clear between labels; files are cumulative until you do.
+## Calibration protocol
 
-- **Gesture takes:** perform deliberately, pause fully between reps.
-- **Idle takes:** never perform a gesture; behave normally with hands visible.
-  Any action fired is a false positive.
+Open `/sensing-lab`, start the camera, select a gesture or `idle_*` label, record locally, then download the JSONL file. Use fresh gesture and idle takes when changing reducer thresholds:
+
+```bash
+npx tsx scripts/analyze-gesture-takes.ts ~/Downloads/gesture-takes-*.jsonl
+```
+
+Do not commit those recordings to the production repository. The analyzer code is versioned; user calibration data stays local.
+
+## Remaining experimental work
+
+The clap needs fresh two-hand positive and idle data. Circle-game isolation and hammer-specific calibration can also be improved. Those gaps do not prevent the validated gesture/navigation subset or the observable-expression visual layer from shipping, but they should remain labeled experimental until measured again.
