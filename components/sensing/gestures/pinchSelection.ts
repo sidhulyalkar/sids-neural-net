@@ -2,6 +2,18 @@ export const PINCH_HOLD_MS = 150;
 export const TARGET_LOCK_MS = 120;
 export const RELEASE_ARM_MS = 100;
 
+export interface PinchSelectionConfig {
+  pinchHoldMs: number;
+  targetLockMs: number;
+  releaseArmMs: number;
+}
+
+export const DEFAULT_PINCH_SELECTION_CONFIG: PinchSelectionConfig = {
+  pinchHoldMs: PINCH_HOLD_MS,
+  targetLockMs: TARGET_LOCK_MS,
+  releaseArmMs: RELEASE_ARM_MS,
+};
+
 export interface PinchSelectionState {
   /** A stable release has been observed since the hand appeared or the last activation. */
   armed: boolean;
@@ -53,12 +65,14 @@ export function initialPinchSelectionState(): PinchSelectionState {
  * - one pinch produces at most one activation until a stable release;
  * - one-frame pinch dropouts do not re-arm the selector.
  *
- * Keeping this state machine DOM-free makes its false-positive behavior fully
- * deterministic and unit-testable. The controller supplies opaque target keys.
+ * The config is deliberately narrow: calibration may tune timing, but it cannot
+ * remove these safety invariants. Keeping the state machine DOM-free makes its
+ * false-positive behavior deterministic and unit-testable.
  */
 export function updatePinchSelection(
   previous: PinchSelectionState,
   frame: PinchSelectionFrame,
+  config: PinchSelectionConfig = DEFAULT_PINCH_SELECTION_CONFIG,
 ): PinchSelectionUpdate {
   let state: PinchSelectionState = { ...previous };
 
@@ -70,14 +84,14 @@ export function updatePinchSelection(
   const targetLocked = Boolean(
     state.targetKey &&
       state.targetStartedAt !== null &&
-      frame.now - state.targetStartedAt >= TARGET_LOCK_MS,
+      frame.now - state.targetStartedAt >= config.targetLockMs,
   );
 
   if (!frame.pinching) {
     const releaseStartedAt = previous.pinching || previous.releaseStartedAt === null
       ? frame.now
       : previous.releaseStartedAt;
-    const releaseStable = frame.now - releaseStartedAt >= RELEASE_ARM_MS;
+    const releaseStable = frame.now - releaseStartedAt >= config.releaseArmMs;
 
     state = {
       ...state,
@@ -105,9 +119,8 @@ export function updatePinchSelection(
   }
 
   const pinchHeld =
-    state.pinchStartedAt !== null && frame.now - state.pinchStartedAt >= PINCH_HOLD_MS;
-  const sameTarget =
-    state.pinchTargetKey !== null && state.pinchTargetKey === state.targetKey;
+    state.pinchStartedAt !== null && frame.now - state.pinchStartedAt >= config.pinchHoldMs;
+  const sameTarget = state.pinchTargetKey !== null && state.pinchTargetKey === state.targetKey;
 
   if (state.armed && !state.fired && pinchHeld && sameTarget && targetLocked) {
     state = { ...state, armed: false, fired: true };
