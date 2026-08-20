@@ -2,8 +2,8 @@ import type { Metadata } from 'next';
 import { RotationExperience } from '@/components/rotation/RotationExperience';
 
 export const metadata: Metadata = {
-  title: "Sid's Rotation",
-  description: 'A gesture-reactive visualizer for my Spotify rotation — the neural organism moves to the beat and to you.',
+  title: "Sid's Rotation | Listening Fingerprint",
+  description: 'My Spotify Top Items across three listening horizons — current rotation, persistent favorites, and artist gravity in an interactive neural field.',
   alternates: { canonical: '/rotation' },
 };
 
