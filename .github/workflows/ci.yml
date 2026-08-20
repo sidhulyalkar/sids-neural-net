@@ -17,7 +17,7 @@ concurrency:
 jobs:
   production-gate:
     runs-on: ubuntu-latest
-    timeout-minutes: 35
+    timeout-minutes: 40
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -34,11 +34,12 @@ jobs:
           mkdir -p artifacts/dependency-lock
           cp package-lock.json artifacts/dependency-lock/package-lock.json
 
-      - name: Report production dependency advisories
+      - name: Audit dependencies
         run: |
           mkdir -p artifacts/security
-          npm audit --omit=dev --json > artifacts/security/npm-audit.json || true
-          npm audit --omit=dev --audit-level=critical
+          npm audit --json > artifacts/security/npm-audit-all.json || true
+          npm audit --omit=dev --json > artifacts/security/npm-audit-production.json || true
+          npm audit --omit=dev --audit-level=high
 
       - name: Typecheck
         run: npm run typecheck
@@ -55,13 +56,19 @@ jobs:
       - name: Audit 900 World Loom scenes
         run: npm run check:world3d
 
+      - name: Generate Next route and module bundle analysis
+        run: |
+          npx next experimental-analyze --output
+          mkdir -p artifacts/bundle-analyzer
+          cp -R .next/diagnostics/analyze/. artifacts/bundle-analyzer/
+
       - name: Build deterministic committed site state
         env:
           NEXT_PUBLIC_SITE_URL: https://example.invalid
           NEXT_PUBLIC_WORLD_LOOM_XR: disabled
         run: npm run build
 
-      - name: Enforce JavaScript bundle budget
+      - name: Enforce emitted JavaScript bundle budget
         run: npm run check:bundle
 
       - name: Start built site
@@ -79,7 +86,7 @@ jobs:
 
       - name: Smoke public production routes
         run: |
-          for route in / /case-studies /physiology /perceptual-cortex /rotation /sensing-lab /physiology/visual-audit; do
+          for route in / /neural-net /case-studies /physiology /perceptual-cortex /rotation /sensing-lab /physiology/visual-audit; do
             echo "GET $route"
             curl --retry 2 --retry-connrefused -fsS "http://127.0.0.1:3000$route" >/dev/null
           done
@@ -92,6 +99,7 @@ jobs:
           mkdir -p artifacts/browser-smoke
           npx --yes playwright@1.55.0 screenshot --browser=chromium --viewport-size="1440,1100" --full-page http://127.0.0.1:3000/physiology/visual-audit artifacts/browser-smoke/nature-atlas-desktop.png
           npx --yes playwright@1.55.0 screenshot --browser=chromium --viewport-size="390,844" --full-page http://127.0.0.1:3000/physiology/visual-audit artifacts/browser-smoke/nature-atlas-mobile.png
+          npx --yes playwright@1.55.0 screenshot --browser=chromium --viewport-size="1440,1000" http://127.0.0.1:3000/neural-net artifacts/browser-smoke/neural-net.png
           npx --yes playwright@1.55.0 screenshot --browser=chromium --viewport-size="1440,1000" http://127.0.0.1:3000/perceptual-cortex artifacts/browser-smoke/perceptual-cortex.png
           npx --yes playwright@1.55.0 screenshot --browser=chromium --viewport-size="1440,1000" http://127.0.0.1:3000/rotation artifacts/browser-smoke/rotation.png
           npx --yes playwright@1.55.0 screenshot --browser=chromium --viewport-size="1440,1000" --full-page http://127.0.0.1:3000/case-studies artifacts/browser-smoke/case-studies.png
