@@ -11,6 +11,7 @@ FRONTIER is a native `/frontier` destination inside `sids-neural-net`. It is des
 5. **Breadth before scroll depth.** The daily run reserves space for Premier League, ML/data, AI/NeuroAI, transferable methods, and exploration before filling remaining slots.
 6. **Game mechanics reward learning behavior, not raw clicks.** XP is minted once per signal and quest rewards are idempotent per day.
 7. **Memory is explicit and portable.** Saves, groups, history, and learned preferences are browser-local by default and can be exported/imported as JSON.
+8. **Media is evidence-bearing.** Images, videos, charts, metrics, and generated signal art are presentation modes around the same provenance-rich signal model, not decoration pasted onto a generic card.
 
 ## Architecture
 
@@ -20,6 +21,7 @@ live internet
   ├─ GitHub
   ├─ OpenAlex
   ├─ specialist RSS
+  ├─ YouTube public Atom feeds (optional channel set)
   ├─ football-data.org (optional key)
   └─ Brave Search (optional key)
           │
@@ -70,9 +72,13 @@ FOOTBALL_DATA_API_KEY=
 OPENALEX_EMAIL=
 OPENALEX_API_KEY=
 FRONTIER_RSS_FEEDS=
+FRONTIER_YOUTUBE_CHANNELS=
 ```
 
-`BRAVE_SEARCH_API_KEY` adds a broad-web search layer. `FOOTBALL_DATA_API_KEY` adds structured Premier League fixtures/results. `FRONTIER_RSS_FEEDS` accepts comma-separated specialist RSS/Atom endpoints.
+- `BRAVE_SEARCH_API_KEY` adds a broad-web discovery layer and converts discovered YouTube URLs into playable video signals.
+- `FOOTBALL_DATA_API_KEY` adds structured Premier League fixtures/results.
+- `FRONTIER_RSS_FEEDS` accepts comma-separated specialist RSS endpoints.
+- `FRONTIER_YOUTUBE_CHANNELS` accepts comma-separated YouTube channel IDs and consumes their public Atom feeds. No YouTube API key is required for these monitored-channel feeds.
 
 ## Feed data model
 
@@ -92,7 +98,7 @@ All sources normalize into `FrontierItem`:
 - momentum
 - human-readable recommendation rationale
 
-This lets a match result, paper, repository, video, and article coexist without pretending they are the same media object.
+This lets a match result, paper, repository, video, and article coexist without pretending they are the same media object. Feature video cards can play inline; smaller video cards preserve a poster and open to the primary source.
 
 ## Personal learning state
 
@@ -139,11 +145,14 @@ FRONTIER deliberately avoids the standard social-media center-column clone.
 - asymmetric editorial feature grid
 - finite daily-run structure
 - generative signal art when publisher media is absent
+- publisher images with lazy loading and restrained treatment
+- inline YouTube / video support for feature signals
 - provenance and ranking evidence visible on-card
-- image/video capable media frames
+- structured match / repository / paper metrics
 - lane-specific visual accents
 - subtle animated signal-field background
 - responsive 12-column desktop layout collapsing cleanly for mobile
+- wrapped touch-safe reaction controls on narrow cards
 - `content-visibility` and lazy media to keep deep feeds inexpensive
 - `prefers-reduced-motion` support
 
@@ -157,11 +166,11 @@ The user can export a complete versioned memory capsule and import it into anoth
 
 ## Production gates
 
-The website CI now checks FRONTIER through the same production release pipeline as the rest of the site:
+The website CI checks FRONTIER through the same production release pipeline as the rest of the site:
 
 - TypeScript typecheck
 - ESLint
-- Node test suite, including FRONTIER ranking/resurfacing/RSS tests
+- Node test suite, including ranking, knowledge-state, resurfacing, RSS-image, and YouTube-Atom tests
 - deterministic existing corpus audits
 - Next module/bundle analysis
 - production build
@@ -171,7 +180,7 @@ The website CI now checks FRONTIER through the same production release pipeline 
 - Playwright desktop screenshot at 1440×1100
 - Playwright mobile screenshot at 390×844
 
-The source API route is designed to return a valid degraded payload even when CI has no outbound source credentials.
+The source API route is designed to return a valid degraded payload even when CI has no optional source credentials.
 
 ## Future extensions
 
@@ -180,7 +189,7 @@ The next meaningful upgrades should deepen the world model rather than merely ad
 1. authenticated cross-device memory sync
 2. entity extraction and personal knowledge graph
 3. temporal attention velocity / emerging-signal detection
-4. richer video discovery and transcript summaries
+4. transcript-aware video summaries and chapter extraction
 5. explicit contradiction / belief-update tracking
 6. contextual-bandit exploration after enough interactions exist
 7. learned candidate-generation queries from positive and negative topic evidence
