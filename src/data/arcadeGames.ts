@@ -75,8 +75,8 @@ export const arcadeGames: ArcadeGame[] = [
     title: 'Mosslight',
     subtitle: 'ROOMS OF RENEWAL · RESTORE, DON’T DEFEAT.',
     description:
-      'A forgiving top-down ecological action-puzzle game starring Sprig, a tiny moss keeper. Move smoothly, aim naturally, and restore ten transforming rooms with rain, sun, seeds, wind, care, and gathering.',
-    version: 'v0.2.0',
+      'A forgiving top-down ecological action-puzzle game starring Sprig, a tiny moss keeper. Move smoothly, follow clear need cues, and restore ten transforming rooms with rain, sun, seeds, wind, care, and gathering.',
+    version: 'v0.2.1',
     status: 'playable',
     sourceVisibility: 'public',
     repoUrl: 'https://github.com/sidhulyalkar/sids-neural-net',
