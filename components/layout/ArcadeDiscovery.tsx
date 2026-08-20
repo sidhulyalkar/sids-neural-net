@@ -18,23 +18,6 @@ const contextCopy = {
 
 export function ArcadeDiscovery() {
   const pathname = usePathname();
-
-  if (pathname === '/') {
-    return (
-      <Link
-        href="/arcade"
-        aria-label="Open the game arcade"
-        className="group fixed bottom-5 right-4 z-40 rounded-xl border border-violet/35 bg-bg-deep/90 px-4 py-3 font-mono shadow-[0_0_28px_rgba(168,142,255,0.12)] backdrop-blur-md transition-all hover:-translate-y-0.5 hover:border-violet/70 hover:bg-violet/[0.08] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet/70 sm:bottom-7 sm:right-7"
-      >
-        <span className="block text-[9px] uppercase tracking-[0.22em] text-violet/65">Core playground</span>
-        <span className="mt-1 flex items-center gap-3 text-xs uppercase tracking-[0.16em] text-text-primary">
-          Game Arcade
-          <span aria-hidden="true" className="text-violet transition-transform group-hover:translate-x-1">→</span>
-        </span>
-      </Link>
-    );
-  }
-
   const context = pathname === '/about' ? contextCopy.about : pathname === '/projects' ? contextCopy.builds : null;
   if (!context) return null;
 
@@ -42,6 +25,7 @@ export function ArcadeDiscovery() {
     <div className="relative z-20 mx-auto w-full max-w-7xl px-4 pt-5 sm:px-6 lg:px-8">
       <Link
         href="/arcade"
+        data-gesture-target
         className="group flex flex-col gap-3 rounded-2xl border border-violet/25 bg-violet/[0.035] px-5 py-4 shadow-[0_0_35px_rgba(168,142,255,0.06)] transition-all hover:border-violet/55 hover:bg-violet/[0.065] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet/60 sm:flex-row sm:items-center sm:justify-between sm:px-6"
       >
         <div>
