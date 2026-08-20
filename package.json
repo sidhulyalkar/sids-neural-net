@@ -20,6 +20,7 @@
     "check:visual-cortex": "python3 scripts/check-visual-archive.py",
     "check:visual-archive": "python3 scripts/check-visual-archive.py",
     "photos:update": "python3 scripts/update-visual-archive.py",
+    "gestures:analyze": "tsx scripts/analyze-gesture-takes.ts",
     "music:fetch": "tsx scripts/fetch-spotify-top.ts",
     "music:grid": "tsx scripts/build-beatgrid.ts"
   },
