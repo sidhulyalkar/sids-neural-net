@@ -15,7 +15,6 @@ type SourceRun = { items: FrontierItem[]; status: FrontierSourceStatus };
 
 type HNItem = {
   id: number;
-  type?: string;
   by?: string;
   time?: number;
   title?: string;
@@ -59,10 +58,8 @@ type BraveResult = {
   title?: string;
   url?: string;
   description?: string;
-  age?: string;
   profile?: { long_name?: string };
   thumbnail?: { src?: string };
-  video?: { duration?: string };
 };
 
 type FootballMatch = {
@@ -88,15 +85,6 @@ function stableId(input: string): string {
   return (hash >>> 0).toString(36);
 }
 
-function cleanText(value: string | undefined | null): string {
-  if (!value) return '';
-  return decodeXml(value)
-    .replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, '$1')
-    .replace(/<[^>]+>/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-}
-
 function decodeXml(value: string): string {
   return value
     .replace(/&amp;/g, '&')
@@ -105,6 +93,15 @@ function decodeXml(value: string): string {
     .replace(/&quot;/g, '"')
     .replace(/&#39;/g, "'")
     .replace(/&#x27;/g, "'");
+}
+
+function cleanText(value: string | undefined | null): string {
+  if (!value) return '';
+  return decodeXml(value)
+    .replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, '$1')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 function summarize(value: string, maxLength = 300): string {
@@ -166,7 +163,9 @@ function scoreItem(
   const quality = clamp(rawQuality * (FRONTIER_SOURCE_WEIGHTS[sourceKind] ?? 1));
   const momentum = clamp(rawMomentum);
   const novelty = clamp(0.5 + Math.min(0.22, importanceHits * 0.025) + (sourceKind === 'github' ? 0.08 : 0));
-  const baseScore = clamp(importance * 0.31 + quality * 0.27 + momentum * 0.16 + freshness * 0.18 + novelty * 0.08);
+  const baseScore = clamp(
+    importance * 0.31 + quality * 0.27 + momentum * 0.16 + freshness * 0.18 + novelty * 0.08
+  );
   return { importance, quality, momentum, novelty, baseScore };
 }
 
@@ -230,26 +229,31 @@ async function hackerNewsItems(): Promise<FrontierItem[]> {
   });
   const stories = await Promise.all(
     ids.slice(0, 12).map((id) =>
-      fetchJson<HNItem>(`https://hacker-news.firebaseio.com/v0/item/${id}.json`, { next: { revalidate: 60 * 10 } })
-        .catch(() => null)
+      fetchJson<HNItem>(`https://hacker-news.firebaseio.com/v0/item/${id}.json`, {
+        next: { revalidate: 60 * 10 },
+      }).catch(() => null)
     )
   );
 
   return stories.flatMap((story) => {
     if (!story?.title || !story.id) return [];
     const publishedAt = new Date((story.time ?? Math.floor(Date.now() / 1000)) * 1000).toISOString();
-    const text = `${story.title}`;
+    const text = story.title;
     const lane = classifyFrontierLane(text);
-    const score = Math.log10(Math.max(1, story.score ?? 1)) / 3;
+    const votes = Math.log10(Math.max(1, story.score ?? 1)) / 3;
     const comments = Math.log10(Math.max(1, story.descendants ?? 1)) / 3;
-    const scores = scoreItem(text, 'hackernews', publishedAt, clamp(score * 0.65 + comments * 0.35), 0.58);
+    const scores = scoreItem(text, 'hackernews', publishedAt, clamp(votes * 0.65 + comments * 0.35), 0.58);
     return [{
       id: `hn-${story.id}`,
       title: story.title,
-      summary: `${story.score ?? 0} points · ${story.descendants ?? 0} comments. Community momentum is treated as a signal, not a proxy for truth.`,
+      summary: `${story.score ?? 0} points · ${story.descendants ?? 0} comments. Community momentum is a discovery signal, not a proxy for truth.`,
       url: story.url || `https://news.ycombinator.com/item?id=${story.id}`,
-      source: 'news.ycombinator.com', sourceLabel: 'Hacker News', sourceKind: 'hackernews' as const,
-      publishedAt, lane, tags: inferTags(text, lane, ['discussion']),
+      source: 'news.ycombinator.com',
+      sourceLabel: 'Hacker News',
+      sourceKind: 'hackernews' as const,
+      publishedAt,
+      lane,
+      tags: inferTags(text, lane, ['discussion']),
       metrics: [
         { label: 'points', value: String(story.score ?? 0) },
         { label: 'comments', value: String(story.descendants ?? 0) },
@@ -270,7 +274,6 @@ async function githubItems(): Promise<FrontierItem[]> {
   ];
   const token = process.env.FRONTIER_GITHUB_TOKEN || process.env.GITHUB_TOKEN;
   const headers: HeadersInit = token ? { Authorization: `Bearer ${token}` } : {};
-
   const payloads = await Promise.all(
     queries.map((query) => {
       const q = `${query} pushed:>=${since}`;
@@ -298,8 +301,11 @@ async function githubItems(): Promise<FrontierItem[]> {
       title: repo.full_name,
       summary: summarize(repo.description || 'Recently active open-source project worth inspecting at the source.'),
       url: repo.html_url,
-      source: 'github.com', sourceLabel: 'GitHub', sourceKind: 'github' as const,
-      publishedAt, lane,
+      source: 'github.com',
+      sourceLabel: 'GitHub',
+      sourceKind: 'github' as const,
+      publishedAt,
+      lane,
       tags: inferTags(text, lane, [...(repo.topics ?? []).slice(0, 4), repo.language ?? '']),
       media,
       metrics: [
@@ -308,7 +314,7 @@ async function githubItems(): Promise<FrontierItem[]> {
         ...(repo.language ? [{ label: 'language', value: repo.language }] : []),
       ],
       ...scores,
-      why: 'Fresh builder signal: active code is useful evidence that an idea is becoming executable.',
+      why: 'Fresh builder signal: active code is evidence that an idea is becoming executable.',
     }];
   }));
 }
@@ -322,7 +328,6 @@ async function openAlexItems(): Promise<FrontierItem[]> {
     'football soccer analytics tracking expected goals',
   ];
   const mailto = process.env.OPENALEX_EMAIL || process.env.EMAIL;
-
   const payloads = await Promise.all(queries.map(async (query) => {
     const url = new URL('https://api.openalex.org/works');
     url.searchParams.set('search', query);
@@ -339,8 +344,12 @@ async function openAlexItems(): Promise<FrontierItem[]> {
   return payloads.flatMap((payload) => (payload.results ?? []).flatMap((work) => {
     if (!work.id || !work.title || seen.has(work.id)) return [];
     seen.add(work.id);
-    const publishedAt = work.publication_date ? new Date(`${work.publication_date}T12:00:00Z`).toISOString() : new Date().toISOString();
-    const topics = (work.topics ?? []).filter((topic) => topic.display_name).sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
+    const publishedAt = work.publication_date
+      ? new Date(`${work.publication_date}T12:00:00Z`).toISOString()
+      : new Date().toISOString();
+    const topics = (work.topics ?? [])
+      .filter((topic) => topic.display_name)
+      .sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
     const abstract = abstractFromIndex(work.abstract_inverted_index);
     const text = `${work.title} ${abstract} ${topics.map((topic) => topic.display_name).join(' ')}`;
     const lane = classifyFrontierLane(text);
@@ -350,12 +359,21 @@ async function openAlexItems(): Promise<FrontierItem[]> {
     return [{
       id: `oa-${stableId(work.id)}`,
       title: cleanText(work.title),
-      summary: summarize(abstract || `Recent scholarly work indexed by OpenAlex. Open the primary source for methods, evidence, and limitations.`),
+      summary: summarize(abstract || 'Recent scholarly work indexed by OpenAlex. Open the primary source for methods, evidence, and limitations.'),
       url: work.open_access?.oa_url || work.primary_location?.landing_page_url || work.doi || work.id,
-      source: sourceName, sourceLabel: sourceName, sourceKind: 'openalex' as const,
-      publishedAt, lane,
-      authors: (work.authorships ?? []).flatMap((authorship) => authorship.author?.display_name ? [authorship.author.display_name] : []).slice(0, 5),
-      tags: inferTags(text, lane, topics.flatMap((topic) => topic.display_name ? [topic.display_name] : []).slice(0, 4)),
+      source: sourceName,
+      sourceLabel: sourceName,
+      sourceKind: 'openalex' as const,
+      publishedAt,
+      lane,
+      authors: (work.authorships ?? []).flatMap((authorship) =>
+        authorship.author?.display_name ? [authorship.author.display_name] : []
+      ).slice(0, 5),
+      tags: inferTags(
+        text,
+        lane,
+        topics.flatMap((topic) => topic.display_name ? [topic.display_name] : []).slice(0, 4)
+      ),
       metrics: [{ label: 'citations', value: citations.toLocaleString() }],
       ...scores,
       readMinutes: 12,
@@ -369,11 +387,24 @@ function xmlTag(block: string, tag: string): string {
   return cleanText(match?.[1] ?? '');
 }
 
-function xmlAttribute(block: string, tagPattern: string, attribute: string): string | undefined {
-  const tag = block.match(new RegExp(`<${tagPattern}\\b[^>]*>`, 'i'))?.[0];
-  if (!tag) return undefined;
-  const match = tag.match(new RegExp(`${attribute}=["']([^"']+)["']`, 'i'));
-  return match?.[1] ? decodeXml(match[1]) : undefined;
+function xmlRawTag(block: string, tag: string): string {
+  const match = block.match(new RegExp(`<${tag}(?:\\s[^>]*)?>([\\s\\S]*?)<\\/${tag}>`, 'i'));
+  return match?.[1] ? decodeXml(match[1]).trim() : '';
+}
+
+/**
+ * XML feed elements commonly encode media as one of several self-closing tags.
+ * Split alternatives instead of injecting an ungrouped `|` into a regex, which
+ * would allow the first alternative to match before the requested attribute.
+ */
+function xmlAttribute(block: string, tagNames: string, attribute: string): string | undefined {
+  for (const tagName of tagNames.split('|')) {
+    const tag = block.match(new RegExp(`<${tagName}\\b[^>]*>`, 'i'))?.[0];
+    if (!tag) continue;
+    const match = tag.match(new RegExp(`${attribute}=["']([^"']+)["']`, 'i'));
+    if (match?.[1]) return decodeXml(match[1]);
+  }
+  return undefined;
 }
 
 export function parseFrontierRss(xml: string, sourceLabel = 'RSS'): FrontierItem[] {
@@ -384,7 +415,9 @@ export function parseFrontierRss(xml: string, sourceLabel = 'RSS'): FrontierItem
     if (!title || !url) return [];
     const description = xmlTag(block, 'description') || xmlTag(block, 'content:encoded');
     const publishedRaw = xmlTag(block, 'pubDate') || xmlTag(block, 'dc:date');
-    const publishedAt = Number.isNaN(Date.parse(publishedRaw)) ? new Date().toISOString() : new Date(publishedRaw).toISOString();
+    const publishedAt = Number.isNaN(Date.parse(publishedRaw))
+      ? new Date().toISOString()
+      : new Date(publishedRaw).toISOString();
     const text = `${title} ${description}`;
     const lane = classifyFrontierLane(text);
     const image = xmlAttribute(block, 'media:content|media:thumbnail|enclosure', 'url');
@@ -394,11 +427,50 @@ export function parseFrontierRss(xml: string, sourceLabel = 'RSS'): FrontierItem
       title,
       summary: summarize(description || 'Fresh item from a monitored specialist feed.'),
       url,
-      source: sourceLabel, sourceLabel, sourceKind: 'rss' as const,
-      publishedAt, lane, tags: inferTags(text, lane, [sourceLabel]),
+      source: sourceLabel,
+      sourceLabel,
+      sourceKind: 'rss' as const,
+      publishedAt,
+      lane,
+      tags: inferTags(text, lane, [sourceLabel]),
       media: image ? { type: 'image', url: image, alt: title, aspectRatio: 'landscape' } : undefined,
       ...scores,
-      why: 'Direct specialist feed signal, retained even when social ranking has not noticed it yet.',
+      why: 'Direct specialist-feed signal, retained even when social ranking has not noticed it yet.',
+    }];
+  });
+}
+
+/** Parse YouTube's public Atom feeds into first-class playable video signals. */
+export function parseYouTubeAtom(xml: string, fallbackLabel = 'YouTube'): FrontierItem[] {
+  const blocks = xml.match(/<entry\b[\s\S]*?<\/entry>/gi) ?? [];
+  return blocks.slice(0, 12).flatMap((block) => {
+    const videoId = xmlTag(block, 'yt:videoId');
+    const title = xmlTag(block, 'title');
+    if (!videoId || !title) return [];
+    const description = xmlTag(block, 'media:description');
+    const author = xmlTag(block, 'name');
+    const publishedRaw = xmlTag(block, 'published');
+    const publishedAt = Number.isNaN(Date.parse(publishedRaw))
+      ? new Date().toISOString()
+      : new Date(publishedRaw).toISOString();
+    const text = `${title} ${description} ${author}`;
+    const lane = classifyFrontierLane(text);
+    const thumbnail = xmlAttribute(block, 'media:thumbnail', 'url') || `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
+    const scores = scoreItem(text, 'youtube', publishedAt, 0.52, 0.68);
+    return [{
+      id: `yt-${videoId}`,
+      title,
+      summary: summarize(description || 'Fresh video from a monitored channel.'),
+      url: `https://www.youtube.com/watch?v=${videoId}`,
+      source: 'youtube.com',
+      sourceLabel: author || fallbackLabel,
+      sourceKind: 'youtube' as const,
+      publishedAt,
+      lane,
+      tags: inferTags(text, lane, ['video', author || fallbackLabel]),
+      media: { type: 'youtube', url: videoId, poster: thumbnail, alt: title, aspectRatio: 'wide' },
+      ...scores,
+      why: 'A monitored video signal adds visual explanation without forcing you into a separate discovery app.',
     }];
   });
 }
@@ -411,6 +483,20 @@ async function rssItems(): Promise<FrontierItem[]> {
     const xml = await fetchText(url);
     const host = new URL(url).hostname.replace(/^www\./, '');
     return parseFrontierRss(xml, host);
+  }));
+  return payloads.flat();
+}
+
+async function youtubeItems(): Promise<FrontierItem[]> {
+  const channels = (process.env.FRONTIER_YOUTUBE_CHANNELS ?? '')
+    .split(',')
+    .map((value) => value.trim())
+    .filter(Boolean)
+    .slice(0, 8);
+  if (!channels.length) return [];
+  const payloads = await Promise.all(channels.map(async (channelId) => {
+    const xml = await fetchText(`https://www.youtube.com/feeds/videos.xml?channel_id=${encodeURIComponent(channelId)}`);
+    return parseYouTubeAtom(xml, 'YouTube');
   }));
   return payloads.flat();
 }
@@ -434,14 +520,18 @@ async function footballItems(): Promise<FrontierItem[]> {
     const title = finished ? `${home} ${homeScore}–${awayScore} ${away}` : `${home} vs ${away}`;
     const summary = finished
       ? `Premier League · Matchweek ${match.matchday ?? '—'} · ${match.status.toLowerCase()}`
-      : `Premier League · Matchweek ${match.matchday ?? '—'} · ${new Date(match.utcDate).toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: 'America/Los_Angeles' })} PT`;
+      : `Premier League · Matchweek ${match.matchday ?? '—'} · ${new Date(match.utcDate).toLocaleString('en-US', {
+          weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: 'America/Los_Angeles',
+        })} PT`;
     const scores = scoreItem(title, 'football_data', match.utcDate, finished ? 0.72 : 0.58, 0.95);
     return {
       id: `fd-${match.id}`,
       title,
       summary,
       url: 'https://www.premierleague.com/fixtures',
-      source: 'football-data.org', sourceLabel: 'Premier League data', sourceKind: 'football_data' as const,
+      source: 'football-data.org',
+      sourceLabel: 'Premier League data',
+      sourceKind: 'football_data' as const,
       publishedAt: match.utcDate,
       lane: 'premier_league' as const,
       tags: ['premier league', 'fixture', finished ? 'result' : 'upcoming', home.toLowerCase(), away.toLowerCase()],
@@ -454,6 +544,20 @@ async function footballItems(): Promise<FrontierItem[]> {
       why: 'Structured matchday context keeps the football radar grounded in the actual schedule.',
     };
   });
+}
+
+function youtubeVideoId(url: string): string | undefined {
+  try {
+    const parsed = new URL(url);
+    if (parsed.hostname === 'youtu.be') return parsed.pathname.split('/').filter(Boolean)[0];
+    if (parsed.hostname.endsWith('youtube.com')) {
+      if (parsed.pathname.startsWith('/shorts/')) return parsed.pathname.split('/')[2];
+      return parsed.searchParams.get('v') || undefined;
+    }
+  } catch {
+    return undefined;
+  }
+  return undefined;
 }
 
 async function braveItems(): Promise<FrontierItem[]> {
@@ -478,20 +582,31 @@ async function braveItems(): Promise<FrontierItem[]> {
     seen.add(result.url);
     const text = `${result.title} ${result.description ?? ''}`;
     const lane = classifyFrontierLane(text);
-    const scores = scoreItem(text, 'brave_web', new Date().toISOString(), 0.5, 0.62);
+    const videoId = youtubeVideoId(result.url);
+    const sourceKind: FrontierSourceKind = videoId ? 'youtube' : 'brave_web';
+    const scores = scoreItem(text, sourceKind, new Date().toISOString(), 0.5, 0.62);
+    const sourceLabel = result.profile?.long_name || new URL(result.url).hostname.replace(/^www\./, '');
+    const media: FrontierMedia | undefined = videoId
+      ? { type: 'youtube', url: videoId, poster: result.thumbnail?.src, alt: result.title, aspectRatio: 'wide' }
+      : result.thumbnail?.src
+        ? { type: 'image', url: result.thumbnail.src, alt: result.title, aspectRatio: 'landscape' }
+        : undefined;
     return [{
-      id: `web-${stableId(result.url)}`,
+      id: `${videoId ? 'yt-web' : 'web'}-${stableId(result.url)}`,
       title: cleanText(result.title),
       summary: summarize(result.description || 'Fresh web discovery. Prefer the linked primary evidence when available.'),
       url: result.url,
-      source: result.profile?.long_name || new URL(result.url).hostname.replace(/^www\./, ''),
-      sourceLabel: result.profile?.long_name || new URL(result.url).hostname.replace(/^www\./, ''),
-      sourceKind: 'brave_web' as const,
-      publishedAt: new Date().toISOString(), lane,
-      tags: inferTags(text, lane, ['web discovery']),
-      media: result.thumbnail?.src ? { type: 'image', url: result.thumbnail.src, alt: result.title, aspectRatio: 'landscape' } : undefined,
+      source: sourceLabel,
+      sourceLabel,
+      sourceKind,
+      publishedAt: new Date().toISOString(),
+      lane,
+      tags: inferTags(text, lane, [videoId ? 'video' : 'web discovery']),
+      media,
       ...scores,
-      why: 'Broad-web exploration expands discovery beyond the fixed source list.',
+      why: videoId
+        ? 'Fresh explanatory video discovered by the broad-web radar.'
+        : 'Broad-web exploration expands discovery beyond the fixed source list.',
     }];
   }));
 }
@@ -525,12 +640,24 @@ export async function getFrontierFeed(): Promise<FrontierFeedResponse> {
     runSource('github', 'GitHub', githubItems),
     runSource('openalex', 'OpenAlex', openAlexItems),
     runSource('rss', 'Specialist feeds', rssItems),
+    process.env.FRONTIER_YOUTUBE_CHANNELS
+      ? runSource('youtube', 'Video channels', youtubeItems)
+      : Promise.resolve({
+          items: [],
+          status: { id: 'youtube', label: 'Video channels', ok: false, count: 0, message: 'optional channels not configured' },
+        } as SourceRun),
     process.env.FOOTBALL_DATA_API_KEY
       ? runSource('football_data', 'Football Data', footballItems)
-      : Promise.resolve({ items: [], status: { id: 'football_data', label: 'Football Data', ok: false, count: 0, message: 'optional key not configured' } } as SourceRun),
+      : Promise.resolve({
+          items: [],
+          status: { id: 'football_data', label: 'Football Data', ok: false, count: 0, message: 'optional key not configured' },
+        } as SourceRun),
     process.env.BRAVE_SEARCH_API_KEY
       ? runSource('brave_web', 'Broad web', braveItems)
-      : Promise.resolve({ items: [], status: { id: 'brave_web', label: 'Broad web', ok: false, count: 0, message: 'optional key not configured' } } as SourceRun),
+      : Promise.resolve({
+          items: [],
+          status: { id: 'brave_web', label: 'Broad web', ok: false, count: 0, message: 'optional key not configured' },
+        } as SourceRun),
   ]);
 
   const items = dedupe(runs.flatMap((run) => run.items))
