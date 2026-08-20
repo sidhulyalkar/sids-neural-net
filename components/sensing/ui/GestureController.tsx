@@ -46,6 +46,7 @@ const ACTION_LABELS: Record<GestureActionType, string> = {
 };
 
 const GESTURE_GUIDE_EVENT = 'sensing:gesture-guide';
+const GESTURE_RECALIBRATE_EVENT = 'sensing:gesture-recalibrate';
 const CALIBRATION_TARGET = 'primary';
 const AIM_SAMPLE_MS = 480;
 const MIN_AIM_SAMPLES = 8;
@@ -213,6 +214,7 @@ export function GestureController() {
   const uiQueueRef = useRef<Array<() => void>>([]);
   const pinchSelectionRef = useRef(initialPinchSelectionState());
   const calibrationProfileRef = useRef<GestureCalibrationProfile | null>(null);
+  const calibrationFallbackProfileRef = useRef<GestureCalibrationProfile | null>(null);
   const calibrationStepIndexRef = useRef(0);
   const interactionGateRef = useRef<InteractionGate>('pending');
   const sessionInitializedRef = useRef(false);
@@ -263,6 +265,10 @@ export function GestureController() {
 
   const beginCalibration = useCallback(() => {
     clearGuideTimers();
+    // Recalibration is transactional. Keep the currently persisted profile as a
+    // fallback until the new course completes, so cancelling never degrades an
+    // already tuned session.
+    calibrationFallbackProfileRef.current = loadGestureCalibration();
     interactionGateRef.current = 'calibrating';
     calibrationStepIndexRef.current = 0;
     aimSeenAtRef.current = null;
@@ -281,12 +287,49 @@ export function GestureController() {
     showFeedback('Calibration started', 900);
   }, [clearGuideTimers, queueUi, showFeedback]);
 
+  const cancelCalibration = useCallback(() => {
+    if (interactionGateRef.current !== 'calibrating') return;
+
+    const previousProfile = calibrationFallbackProfileRef.current;
+    calibrationProfileRef.current = previousProfile ?? DEFAULT_GESTURE_CALIBRATION;
+    interactionGateRef.current = 'ready';
+    calibrationStepIndexRef.current = 0;
+    aimSeenAtRef.current = null;
+    pointerSamplesRef.current = [];
+    calibrationPinchStartedAtRef.current = null;
+    calibrationPinchActivatedRef.current = false;
+    calibrationPinchDurationRef.current = 300;
+    pinchSelectionRef.current = initialPinchSelectionState();
+    clearGuideTimers();
+
+    queueUi(() => {
+      setPaletteOpen(false);
+      setCalibrationActive(false);
+      setCalibrationStepIndex(0);
+      // A first-time skip uses safe defaults for this session without pretending
+      // they are a completed calibration or writing them to localStorage.
+      setCalibrationProfile(previousProfile);
+      setPanelKind('guide');
+      setGuidePhase('visible');
+    });
+
+    showFeedback(
+      previousProfile
+        ? 'Calibration cancelled · previous profile restored'
+        : 'Calibration skipped · safe defaults active',
+      1500,
+    );
+    guideFadeTimeoutRef.current = window.setTimeout(() => setGuidePhase('fading'), 4800);
+    guideHideTimeoutRef.current = window.setTimeout(() => setGuidePhase('hidden'), 5900);
+  }, [clearGuideTimers, queueUi, showFeedback]);
+
   const finishCalibration = useCallback(() => {
     const profile = deriveGestureCalibration({
       pointerSamples: pointerSamplesRef.current,
       pinchDurationMs: calibrationPinchDurationRef.current,
     });
     calibrationProfileRef.current = profile;
+    calibrationFallbackProfileRef.current = profile;
     saveGestureCalibration(profile);
     interactionGateRef.current = 'ready';
     clearGuideTimers();
@@ -333,6 +376,7 @@ export function GestureController() {
     const stored = loadGestureCalibration();
     if (stored) {
       calibrationProfileRef.current = stored;
+      calibrationFallbackProfileRef.current = stored;
       interactionGateRef.current = 'ready';
       queueUi(() => setCalibrationProfile(stored));
       showGuide();
@@ -343,9 +387,25 @@ export function GestureController() {
 
   useEffect(() => {
     const reopenGuide = () => showGuide();
+    const recalibrate = () => beginCalibration();
     window.addEventListener(GESTURE_GUIDE_EVENT, reopenGuide);
-    return () => window.removeEventListener(GESTURE_GUIDE_EVENT, reopenGuide);
-  }, [showGuide]);
+    window.addEventListener(GESTURE_RECALIBRATE_EVENT, recalibrate);
+    return () => {
+      window.removeEventListener(GESTURE_GUIDE_EVENT, reopenGuide);
+      window.removeEventListener(GESTURE_RECALIBRATE_EVENT, recalibrate);
+    };
+  }, [beginCalibration, showGuide]);
+
+  useEffect(() => {
+    if (!calibrationActive) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      event.preventDefault();
+      cancelCalibration();
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [calibrationActive, cancelCalibration]);
 
   useEffect(() => {
     if (enabled) return;
@@ -605,6 +665,8 @@ export function GestureController() {
               stepIndex={calibrationStepIndex}
               targetLocked={targetLocked}
               pinching={Boolean(cursor?.pinching)}
+              hasExistingProfile={Boolean(calibrationFallbackProfileRef.current)}
+              onCancel={cancelCalibration}
             />
           ) : panelKind === 'complete' ? (
             <CalibrationComplete profile={calibrationProfile} />
@@ -769,10 +831,14 @@ function CalibrationPanel({
   stepIndex,
   targetLocked,
   pinching,
+  hasExistingProfile,
+  onCancel,
 }: {
   stepIndex: number;
   targetLocked: boolean;
   pinching: boolean;
+  hasExistingProfile: boolean;
+  onCancel: () => void;
 }) {
   const step = CALIBRATION_STEPS[stepIndex];
   const showTarget = step?.id === 'aim' || step?.id === 'pinch';
@@ -800,9 +866,21 @@ function CalibrationPanel({
               </p>
             </div>
           </div>
-          <span className="rounded-full border border-white/10 bg-bg-deep/60 px-2.5 py-1 font-mono text-[9px] text-text-muted">
-            {stepIndex + 1}/{CALIBRATION_STEPS.length}
-          </span>
+          <div className="flex shrink-0 flex-col items-end gap-2">
+            <span className="rounded-full border border-white/10 bg-bg-deep/60 px-2.5 py-1 font-mono text-[9px] text-text-muted">
+              {stepIndex + 1}/{CALIBRATION_STEPS.length}
+            </span>
+            <button
+              type="button"
+              data-gesture-ignore
+              onClick={onCancel}
+              aria-label="Exit gesture calibration and return to the site"
+              className="pointer-events-auto flex items-center gap-1.5 rounded-full border border-white/10 bg-bg-deep/65 px-2.5 py-1.5 font-mono text-[9px] text-text-muted transition hover:border-white/25 hover:text-text-primary"
+            >
+              <X className="h-3 w-3" />
+              {hasExistingProfile ? 'keep current' : 'skip for now'}
+            </button>
+          </div>
         </div>
         <div className="mt-3 h-1 overflow-hidden rounded-full bg-white/10">
           <div
@@ -886,11 +964,13 @@ function CalibrationPanel({
         </div>
       </div>
 
-      <div className="flex items-center justify-center gap-2 border-t border-white/10 px-4 py-2 font-mono text-[9px] text-text-muted">
+      <div className="flex flex-wrap items-center justify-center gap-2 border-t border-white/10 px-4 py-2 font-mono text-[9px] text-text-muted">
         <Sparkles className="h-3 w-3 text-violet" />
         only derived cursor jitter + timing are saved locally
         <span className="text-white/20">·</span>
-        no frames or landmarks stored
+        Esc or {hasExistingProfile ? 'keep current' : 'skip for now'} exits immediately
+        <span className="text-white/20">·</span>
+        recalibrate anytime after moving your device
       </div>
     </div>
   );
@@ -917,9 +997,13 @@ function GestureGuide({
               </span>
               <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-green" />
             </div>
-            <h2 className="mt-1 text-base font-semibold text-text-primary">Your calibrated hand is the pointer.</h2>
+            <h2 className="mt-1 text-base font-semibold text-text-primary">
+              {profile ? 'Your calibrated hand is the pointer.' : 'Your hand is the pointer.'}
+            </h2>
             <p className="mt-0.5 text-xs text-text-muted">
-              Aim first, wait for green lock, pinch, then release before the next selection.
+              {profile
+                ? 'Aim first, wait for green lock, pinch, then release before the next selection.'
+                : 'Safe default targeting is active. You can use the site now and recalibrate whenever your setup is convenient.'}
             </p>
           </div>
         </div>
@@ -949,7 +1033,7 @@ function GestureGuide({
         </GuideCard>
       </div>
 
-      {profile && (
+      {profile ? (
         <div className="flex flex-wrap items-center justify-center gap-1.5 border-t border-white/10 px-4 py-2 font-mono text-[8px] text-text-muted">
           <span className="rounded-full border border-green/20 bg-green/5 px-2 py-1 text-green">calibrated</span>
           <span>target halo {profile.targetProbeRadiusPx}px</span>
@@ -960,13 +1044,18 @@ function GestureGuide({
           <span className="text-white/20">·</span>
           <span>jitter {profile.pointerJitterPx}px</span>
         </div>
+      ) : (
+        <div className="flex items-center justify-center gap-2 border-t border-white/10 px-4 py-2 font-mono text-[8px] text-text-muted">
+          <span className="rounded-full border border-amber/20 bg-amber/5 px-2 py-1 text-amber">safe defaults active</span>
+          calibration remains optional and can be started at any time
+        </div>
       )}
 
       <div className="flex items-center justify-center gap-2 border-t border-white/10 px-4 py-2 font-mono text-[9px] text-text-muted">
         <ChevronDown className="h-3 w-3" />
         Downward closed-fist strike scrolls the page
         <span className="text-white/20">·</span>
-        calibration stays on this browser
+        use ↻ after moving your device or camera
       </div>
     </div>
   );
@@ -984,7 +1073,7 @@ function CalibrationComplete({ profile }: { profile: GestureCalibrationProfile |
         </div>
         <h2 className="mt-1 text-lg font-semibold text-text-primary">Air controls unlocked.</h2>
         <p className="mt-1 max-w-lg text-xs leading-relaxed text-text-muted">
-          The site learned your pointer steadiness and pinch cadence, and verified every navigation gesture on this camera setup.
+          The site learned your pointer steadiness and pinch cadence, and verified every navigation gesture on this camera setup. Use ↻ any time your position or device setup changes.
         </p>
         {profile && (
           <div className="mt-4 flex flex-wrap justify-center gap-2 font-mono text-[9px] text-text-muted">
