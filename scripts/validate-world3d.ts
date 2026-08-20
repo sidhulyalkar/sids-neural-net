@@ -57,12 +57,6 @@ if (warnings.length > 0) {
   if (warnings.length > 20) console.warn(`  ... ${warnings.length - 20} additional warnings omitted`);
 }
 
-if (xrBlockers.length > 0) {
-  console.warn('WebXR stays feature-gated until the strict runtime audit reaches 900/900. Representative blockers:');
-  for (const failure of xrBlockers.slice(0, 30)) console.warn(`  W${String(failure.index).padStart(3, '0')} ${failure.code}: ${failure.message}`);
-  if (xrBlockers.length > 30) console.warn(`  ... ${xrBlockers.length - 30} additional XR blockers omitted`);
-}
-
 if (plans.length !== 900) {
   throw new Error(`World Loom corpus invariant failed: expected 900 worlds, got ${plans.length}`);
 }
@@ -72,4 +66,11 @@ if (failures.length > 0) {
   throw new Error(`World Loom desktop validation failed for ${failures.length} generated world constraint(s).`);
 }
 
-console.log('World Loom desktop validation passed. WebXR readiness is reported separately and cannot silently inherit desktop-safe status.');
+if (xrBlockers.length > 0 || xrReady !== plans.length) {
+  console.error('Strict WebXR release gate failed. Representative blockers:');
+  for (const failure of xrBlockers.slice(0, 40)) console.error(`  W${String(failure.index).padStart(3, '0')} ${failure.code}: ${failure.message}`);
+  if (xrBlockers.length > 40) console.error(`  ... ${xrBlockers.length - 40} additional XR blockers omitted`);
+  throw new Error(`World Loom XR validation failed: ${xrReady}/${plans.length} worlds ready with ${xrBlockers.length} blocker(s).`);
+}
+
+console.log('World Loom release validation passed: desktop 900/900 and strict WebXR 900/900.');
