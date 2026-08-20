@@ -25,10 +25,10 @@ function baseLandmarks(palmX = 0.5, palmY = 0.5, pinch = false): GesturePoint[] 
   points[8] = { x: palmX - 0.06, y: palmY - 0.2, z: 0 };
   points[10] = { x: palmX - 0.01, y: palmY - 0.07, z: 0 };
   points[12] = { x: palmX, y: palmY - 0.2, z: 0 };
-  points[14] = { x: palmX + 0.05, y: palmY - 0.05, z: 0 };
-  points[16] = { x: palmX + 0.05, y: palmY + 0.03, z: 0 };
-  points[18] = { x: palmX + 0.1, y: palmY - 0.04, z: 0 };
-  points[20] = { x: palmX + 0.09, y: palmY + 0.04, z: 0 };
+  points[14] = { x: palmX + 0.05, y: palmY - 0.06, z: 0 };
+  points[16] = { x: palmX + 0.05, y: palmY - 0.19, z: 0 };
+  points[18] = { x: palmX + 0.1, y: palmY - 0.05, z: 0 };
+  points[20] = { x: palmX + 0.09, y: palmY - 0.18, z: 0 };
   points[4] = pinch
     ? { x: palmX - 0.065, y: palmY - 0.195, z: 0 }
     : { x: palmX + 0.13, y: palmY + 0.01, z: 0 };
@@ -68,7 +68,7 @@ function twoFingerLandmarks(y = 0.35, x = 0.5): GesturePoint[] {
   points[6] = { x: x - 0.05, y: y + 0.1, z: 0 };
   points[8] = { x: x - 0.04, y, z: 0 };
   points[10] = { x: x + 0.01, y: y + 0.1, z: 0 };
-  points[12] = { x: x + 0.02, y: y, z: 0 };
+  points[12] = { x: x + 0.02, y, z: 0 };
   points[14] = { x: x + 0.06, y: palmY - 0.02, z: 0 };
   points[16] = { x: x + 0.06, y: palmY + 0.05, z: 0 };
   points[18] = { x: x + 0.1, y: palmY - 0.01, z: 0 };
