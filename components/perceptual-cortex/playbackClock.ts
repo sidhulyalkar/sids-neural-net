@@ -6,14 +6,20 @@ export class PlaybackClock {
   private playing = false;
 
   update(positionMs: number, isPaused: boolean, wallMs: number) {
-    this.lastPositionMs = positionMs;
+    this.lastPositionMs = Math.max(0, positionMs);
     this.lastWallMs = wallMs;
     this.playing = !isPaused;
   }
 
+  reset(wallMs = 0) {
+    this.lastPositionMs = 0;
+    this.lastWallMs = wallMs;
+    this.playing = false;
+  }
+
   positionMs(wallMs: number): number {
     if (!this.playing) return this.lastPositionMs;
-    return this.lastPositionMs + (wallMs - this.lastWallMs);
+    return Math.max(0, this.lastPositionMs + (wallMs - this.lastWallMs));
   }
 
   get isPlaying() {
