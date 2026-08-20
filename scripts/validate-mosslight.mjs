@@ -17,6 +17,7 @@ expect(html.includes('./rooms.js') && html.includes('./game.js') && html.include
 expect(html.includes('W A S D') && html.includes('Mouse') && html.includes('Click'), 'simple three-control onboarding is missing');
 expect(html.includes('gentle mode') && html.includes('flow mode'), 'gentle/default and optional flow modes must both be exposed');
 expect(styles.includes('#abilityBar') && styles.includes('#hintCard'), 'HUD visual system is incomplete');
+expect(/\.ability:disabled\s*\{\s*display:none\s*\}/.test(styles), 'locked tools must stay hidden until introduced');
 
 const roomTitles = [
   'Dew Garden',
@@ -45,6 +46,8 @@ expect(game.includes('function assistedAim('), 'gentle aim assistance is missing
 expect(game.includes("state.difficulty === 'gentle'"), 'gentle-mode tuning is missing');
 expect(game.includes('function drawPlayer(') && game.includes('drawFox(') && game.includes('drawOwl(') && game.includes('drawDeer('), 'character-specific renderers are missing');
 expect(game.includes('function smartSelect('), 'guided tool selection is missing');
+expect(game.includes('const nearest = nearestTarget(unfinished);') && !game.includes('currentStillUseful'), 'guided selection must follow the nearest unresolved relationship');
+expect(game.includes("setTimeout(() => ui.intro.classList.remove('show'), 1350)"), 'room intro must clear quickly enough for immediate play');
 expect(game.includes('window.__MOSSLIGHT_PLAYTEST__'), 'browser playtest API is missing');
 expect(game.includes("version: '0.2.0'"), 'playtest API version is not v0.2.0');
 expect(game.includes('function drawAimReticle('), 'directional aim feedback is missing');
@@ -64,4 +67,4 @@ if (errors.length) {
   process.exit(1);
 }
 
-console.log(`Mosslight v0.2 PASS: ${roomTitles.length} rooms, ${abilities.length} tools, gentle + flow modes, split JavaScript compiles.`);
+console.log(`Mosslight v0.2 PASS: ${roomTitles.length} rooms, ${abilities.length} tools, progressive disclosure, gentle + flow modes, split JavaScript compiles.`);
