@@ -6,6 +6,7 @@ import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
 import { ModeProvider } from '@/lib/contexts/ModeContext';
 import { NeuronCursor } from '@/components/effects/NeuronCursor';
+import { InteractionCapabilityProvider } from '@/components/sensing/InteractionCapabilityProvider';
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'https://sidsneural.net'),
@@ -32,9 +33,7 @@ export const metadata: Metadata = {
   ],
   authors: [{ name: 'Sidharth Hulyalkar' }],
   creator: 'Sidharth Hulyalkar',
-  alternates: {
-    canonical: '/',
-  },
+  alternates: { canonical: '/' },
   openGraph: {
     type: 'website',
     locale: 'en_US',
@@ -48,8 +47,7 @@ export const metadata: Metadata = {
   twitter: {
     card: 'summary_large_image',
     title: 'Sids Neural Net | Sidharth Hulyalkar',
-    description:
-      'A living atlas of builds, publications, systems, experiments, interests, and ideas.',
+    description: 'A living atlas of builds, publications, systems, experiments, interests, and ideas.',
     images: ['/opengraph-image'],
   },
   robots: {
@@ -65,24 +63,14 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html
-      lang="en"
-      className={`${GeistSans.variable} ${GeistMono.variable}`}
-      suppressHydrationWarning
-    >
-      <body
-        className="min-h-screen bg-bg-deep text-text-primary antialiased"
-        suppressHydrationWarning
-      >
+    <html lang="en" className={`${GeistSans.variable} ${GeistMono.variable}`} suppressHydrationWarning>
+      <body className="min-h-screen bg-bg-deep text-text-primary antialiased" suppressHydrationWarning>
         <ModeProvider>
           <div className="relative flex min-h-screen flex-col">
             <NeuronCursor />
+            <InteractionCapabilityProvider />
             <a
               href="#main-content"
               className="fixed left-4 top-4 z-[100] -translate-y-20 rounded-md border border-cyan/40 bg-bg-deep px-4 py-2 text-sm font-semibold text-cyan shadow-glow-cyan transition-transform focus:translate-y-0"
@@ -90,9 +78,7 @@ export default function RootLayout({
               Skip to content
             </a>
             <Header />
-            <main id="main-content" className="flex-1" tabIndex={-1}>
-              {children}
-            </main>
+            <main id="main-content" className="flex-1" tabIndex={-1}>{children}</main>
             <Footer />
           </div>
         </ModeProvider>
