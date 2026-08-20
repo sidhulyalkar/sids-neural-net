@@ -49,11 +49,22 @@ function anchorMap(plan: World3DPlan) {
   return new Map(plan.anchors.map((anchor) => [anchor.id, anchor]));
 }
 
-function laneOffsets(connection: World3DConnection) {
+/**
+ * Produce a deterministic ladder of lane and shoulder offsets. The authored
+ * connection width remains the preferred walking lane. Wider offsets are
+ * collision-avoidance shoulders used only when dense generated geometry blocks
+ * the direct route. Every resulting station is still independently checked for
+ * real player clearance before it can become an XR teleport target.
+ */
+function navigationOffsets(connection: World3DConnection, worldRadius: number) {
   if (connection.kind === 'portal') return [0];
-  const usableHalfWidth = Math.max(0, connection.width * 0.5 - 0.42);
-  if (usableHalfWidth < 0.12) return [0];
-  return [0, -usableHalfWidth * 0.45, usableHalfWidth * 0.45, -usableHalfWidth * 0.88, usableHalfWidth * 0.88];
+  const usableHalfWidth = Math.max(0.18, connection.width * 0.5 - 0.42);
+  const offsets = [0, -usableHalfWidth * 0.45, usableHalfWidth * 0.45, -usableHalfWidth * 0.9, usableHalfWidth * 0.9];
+  const maximumShoulder = Math.min(5.6, Math.max(2.4, worldRadius * 0.42));
+  for (let offset = usableHalfWidth + 0.55; offset <= maximumShoulder + 1e-6; offset += 0.55) {
+    offsets.push(-offset, offset);
+  }
+  return offsets;
 }
 
 function corridorPoint(from: Vec3, to: Vec3, t: number, laneOffset: number): Vec3 {
@@ -67,6 +78,10 @@ function corridorPoint(from: Vec3, to: Vec3, t: number, laneOffset: number): Vec
   return [center[0] + normalX * laneOffset, center[1], center[2] + normalZ * laneOffset];
 }
 
+function insideWorld(plan: World3DPlan, position: Vec3) {
+  return Math.hypot(position[0], position[2]) <= plan.radius * 0.92;
+}
+
 export function buildWorldNavigationGeometry(plan: World3DPlan): WorldNavigationGeometry {
   const anchors = anchorMap(plan);
   const corridors: NavigationCorridor[] = [];
@@ -77,20 +92,16 @@ export function buildWorldNavigationGeometry(plan: World3DPlan): WorldNavigation
     const to = anchors.get(connection.to)?.position;
     if (!from || !to) continue;
     const length = distance(from, to);
-    const samples = Math.max(2, Math.ceil(length / 0.55));
-    const offsets = laneOffsets(connection);
+    const samples = Math.max(3, Math.ceil(length / 0.48));
+    const offsets = navigationOffsets(connection, plan.radius);
     const points: NavigationPoint[] = [];
 
     for (let index = 0; index <= samples; index += 1) {
       const t = index / samples;
       for (const laneOffset of offsets) {
-        points.push({
-          position: corridorPoint(from, to, t, laneOffset),
-          connectionId: connection.id,
-          t,
-          width: connection.width,
-          laneOffset,
-        });
+        const position = corridorPoint(from, to, t, laneOffset);
+        if (!insideWorld(plan, position)) continue;
+        points.push({ position, connectionId: connection.id, t, width: connection.width, laneOffset });
       }
     }
 
@@ -102,7 +113,8 @@ export function buildWorldNavigationGeometry(plan: World3DPlan): WorldNavigation
   const deduped = new Map<string, NavigationPoint>();
   for (const point of teleportPoints) {
     const key = `${Math.round(point.position[0] * 10)}:${Math.round(point.position[1] * 10)}:${Math.round(point.position[2] * 10)}`;
-    if (!deduped.has(key) || Math.abs(point.laneOffset) < Math.abs(deduped.get(key)!.laneOffset)) deduped.set(key, point);
+    const existing = deduped.get(key);
+    if (!existing || Math.abs(point.laneOffset) < Math.abs(existing.laneOffset)) deduped.set(key, point);
   }
 
   return { corridors, teleportPoints: [...deduped.values()] };
@@ -127,7 +139,9 @@ export function clearanceFromStructure(position: Vec3, structure: World3DPrimiti
 
 export function hasPlayerClearance(plan: World3DPlan, position: Vec3, radius = 0.32): boolean {
   const required = radius + 0.08;
-  return plan.structures.every((structure) => !structureBlocksPlayer(structure) || structure.id === 'landmark' || clearanceFromStructure(position, structure) >= required);
+  return plan.structures.every(
+    (structure) => !structureBlocksPlayer(structure) || structure.id === 'landmark' || clearanceFromStructure(position, structure) >= required,
+  );
 }
 
 export function findSafeSpawnPosition(plan: World3DPlan, radius = WORLD3D_STANDARDS.spawnClearRadius): Vec3 | null {
@@ -135,26 +149,32 @@ export function findSafeSpawnPosition(plan: World3DPlan, radius = WORLD3D_STANDA
   if (!spawn) return null;
   if (hasPlayerClearance(plan, spawn.position, radius)) return [...spawn.position];
 
-  // Reserve a deterministic local-floor station around the authored spawn. The
-  // visual compiler is free to place dense geometry nearby, but XR never begins
-  // inside it. Search concentric rings before falling back to corridor lanes.
-  for (let ring = 1; ring <= 12; ring += 1) {
-    const distanceFromSpawn = ring * 0.28;
-    const samples = 12 + ring * 2;
+  // Search the authored spawn neighborhood from nearest to farthest so worlds
+  // retain their intended entrance whenever possible. The maximum radius scales
+  // with the generated scene rather than assuming every labyrinth has a clear
+  // patch within a fixed three metres.
+  const maximumDistance = Math.min(plan.radius * 0.78, 9.5);
+  const ringSpacing = 0.32;
+  const rings = Math.ceil(maximumDistance / ringSpacing);
+  for (let ring = 1; ring <= rings; ring += 1) {
+    const distanceFromSpawn = ring * ringSpacing;
+    const samples = 16 + Math.min(36, ring * 2);
     for (let index = 0; index < samples; index += 1) {
-      const angle = (index / samples) * Math.PI * 2 + ring * 0.31;
+      const angle = (index / samples) * Math.PI * 2 + ring * 0.317;
       const candidate: Vec3 = [
         spawn.position[0] + Math.cos(angle) * distanceFromSpawn,
         spawn.position[1],
         spawn.position[2] + Math.sin(angle) * distanceFromSpawn,
       ];
-      if (Math.hypot(candidate[0], candidate[2]) > plan.radius * 0.9) continue;
+      if (!insideWorld(plan, candidate)) continue;
       if (hasPlayerClearance(plan, candidate, radius)) return candidate;
     }
   }
 
+  // A valid navigation station is a safe final fallback and remains ordered by
+  // proximity to the authored spawn. It is never accepted without clearance.
   const nearestLane = validTeleportPoints(plan)
-    .filter((point) => horizontalDistance(point.position, spawn.position) <= 4.2)
+    .filter((point) => hasPlayerClearance(plan, point.position, radius))
     .sort((a, b) => horizontalDistance(a.position, spawn.position) - horizontalDistance(b.position, spawn.position))[0];
   return nearestLane ? [...nearestLane.position] : null;
 }
@@ -163,7 +183,7 @@ export function isTeleportPointValid(plan: World3DPlan, point: NavigationPoint):
   if (point.width < WORLD3D_STANDARDS.minimumWalkableWidth) return false;
   const corridor = buildWorldNavigationGeometry(plan).corridors.find((entry) => entry.connection.id === point.connectionId);
   if (corridor && corridor.slopeDegrees > WORLD3D_STANDARDS.maximumWalkSlopeDegrees && corridor.connection.kind !== 'portal') return false;
-  return hasPlayerClearance(plan, point.position);
+  return insideWorld(plan, point.position) && hasPlayerClearance(plan, point.position);
 }
 
 export function validTeleportPoints(plan: World3DPlan): NavigationPoint[] {
@@ -172,8 +192,8 @@ export function validTeleportPoints(plan: World3DPlan): NavigationPoint[] {
   return geometry.teleportPoints.filter((point) => {
     const corridor = corridors.get(point.connectionId);
     if (!corridor) return false;
-    if (corridor.connection.kind === 'portal') return true;
+    if (corridor.connection.kind === 'portal') return insideWorld(plan, point.position) && hasPlayerClearance(plan, point.position);
     if (corridor.slopeDegrees > WORLD3D_STANDARDS.maximumWalkSlopeDegrees) return false;
-    return hasPlayerClearance(plan, point.position);
+    return insideWorld(plan, point.position) && hasPlayerClearance(plan, point.position);
   });
 }
