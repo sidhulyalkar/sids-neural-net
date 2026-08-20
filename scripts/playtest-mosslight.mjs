@@ -1,6 +1,11 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { chromium } from 'playwright';
+import { createRequire } from 'node:module';
+
+const playwrightRoot = process.env.PLAYWRIGHT_MODULE_ROOT;
+if (!playwrightRoot) throw new Error('PLAYWRIGHT_MODULE_ROOT is required');
+const requireFromPlaywright = createRequire(path.join(playwrightRoot, 'package.json'));
+const { chromium } = requireFromPlaywright('playwright');
 
 const baseUrl = process.env.MOSSLIGHT_BASE_URL || 'http://127.0.0.1:3000';
 const outputDir = process.env.MOSSLIGHT_PLAYTEST_DIR || 'artifacts/mosslight-playtest';
