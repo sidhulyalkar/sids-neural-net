@@ -74,40 +74,22 @@ export const metadata: Metadata = {
 
 export default function CaseStudiesPage() {
   const caseStudies = getAllCaseStudies();
-  const featuredCount = caseStudies.filter((cs) => cs.frontmatter.featured).length;
 
   return (
     <ComicSectionLayout
       eyebrow="infrastructure"
       title="deployed systems"
     >
-      <div className="mb-10 grid gap-6 lg:grid-cols-[minmax(0,1fr)_18rem]">
-        <div className="max-w-3xl space-y-4">
-          <p className="text-base leading-relaxed text-text-secondary">
-            Systems I have helped build, operate, or translate into working research environments:
-            cloud neuroscience workflows, behavioral experiment infrastructure, electrophysiology
-            analysis systems, and real-time creative hardware.
-          </p>
-          <p className="text-sm leading-relaxed text-text-muted">
-            The throughline is practical translation: taking messy signals, lab constraints, hardware,
-            and human workflows, then shaping them into systems other people can actually use.
-          </p>
-        </div>
-
-        <div className="grid grid-cols-3 gap-3 lg:grid-cols-1">
-          <div className="border border-white/10 bg-white/[0.02] p-3">
-            <p className="font-mono text-[0.6rem] uppercase tracking-[0.18em] text-text-muted">records</p>
-            <p className="mt-1 text-2xl font-semibold text-text-primary">{caseStudies.length}</p>
-          </div>
-          <div className="border border-white/10 bg-white/[0.02] p-3">
-            <p className="font-mono text-[0.6rem] uppercase tracking-[0.18em] text-text-muted">featured</p>
-            <p className="mt-1 text-2xl font-semibold text-text-primary">{featuredCount}</p>
-          </div>
-          <div className="border border-white/10 bg-white/[0.02] p-3">
-            <p className="font-mono text-[0.6rem] uppercase tracking-[0.18em] text-text-muted">span</p>
-            <p className="mt-1 text-2xl font-semibold text-text-primary">research</p>
-          </div>
-        </div>
+      <div className="mb-10 max-w-3xl space-y-4">
+        <p className="text-base leading-relaxed text-text-secondary">
+          Systems I have helped build, operate, or translate into working research environments:
+          cloud neuroscience workflows, behavioral experiment infrastructure, electrophysiology
+          analysis systems, and real-time creative hardware.
+        </p>
+        <p className="text-sm leading-relaxed text-text-muted">
+          The throughline is practical translation: taking messy signals, lab constraints, hardware,
+          and human workflows, then shaping them into systems other people can actually use.
+        </p>
       </div>
 
       {caseStudies.length > 0 ? (

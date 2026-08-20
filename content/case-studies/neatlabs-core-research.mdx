@@ -30,27 +30,28 @@ modeVisibility:
 
 At NEATLABs, my work was not only "analysis after the experiment." I helped build and operate the behavioral and computational systems that made the experiments possible: custom rodent paradigms, Raspberry Pi-based behavioral boxes, MATLAB/Simulink control logic, event extraction, local field potential processing, and publication-supporting analyses.
 
+<SystemDiagram variant="neatlabs" />
+
 The research questions were about decision-making, action suppression, impulsivity, reward value, traumatic brain injury, and cortico-striatal neural dynamics. The software work translated those questions into runnable experiments and analyzable datasets.
 
 ## Behavioral Paradigms
 
-### Go / No-Go and Go / Wait
+Each core paradigm has its own dedicated brief with a study-design visualization, the specific rat
+behavior it elucidated, and the methodology of the paper it anchored:
 
-These paradigms were used to study action, behavioral inhibition, and impulsivity. From a systems perspective, the challenge was to make behavioral events precise enough to align with neural signals: cues, waits, premature responses, omissions, rewards, and trial outcomes all needed to become reliable computational events.
+- **[Go/No-Go & Go/Wait — Action, Inhibition, Impulsivity](/case-studies/neatlabs-go-nogo-inhibition)**
+  — acting vs withholding vs waiting; multisite LFP + human EEG map action and theta-inhibition
+  networks (eNeuro 2021; rodent default-mode suppression 2021).
+- **[Delay Discounting — Reward Value & Subjective Value](/case-studies/neatlabs-delay-discounting)**
+  — smaller-sooner vs larger-later choices; reward-locked cortico-striatal beta tracks magnitude,
+  delay, and modeled subjective value (Cognitive, Affective, & Behavioral Neuroscience 2024).
+- **[Probabilistic Reversal Learning — Reward Certainty](/case-studies/neatlabs-reversal-learning)**
+  — uncertain, reversing contingencies; beta and high-gamma track reward probability, and
+  optogenetic beta stimulation causally perturbs behavior (Journal of Neuroscience 2025).
 
-This work connects directly to the eNeuro paper on large-scale networks associated with action, behavioral inhibition, and impulsivity, which used multisite LFP recordings in rodents and related human EEG analyses.
-
-### Delay Discounting / Temporal Discounting
-
-Delay discounting tasks let us ask how reward value changes as waiting costs increase. The software problem was to represent choice behavior, delay, reward timing, and neural activity in one analyzable structure.
-
-This became part of the reward-value research thread around cortico-striatal beta oscillations, including work connecting reward-locked beta power with reward magnitude, temporal delay, and subjective value estimates.
-
-### Probabilistic Reversal Learning
-
-Probabilistic reversal learning added uncertainty and changing reward contingencies. The goal was to understand how cortico-striatal networks update behavior when reward probabilities change.
-
-This thread connects to the Journal of Neuroscience paper on beta and high-gamma oscillations reflecting reward certainty during a probabilistic reversal learning task.
+Across all three, the systems challenge I owned was the same: turn cues, waits, premature
+responses, omissions, choices, and rewards into reliable, millisecond-aligned computational events,
+because the neural analysis is only as trustworthy as the behavioral timestamps beneath it.
 
 ## Experimental Conditions
 

@@ -1,0 +1,46 @@
+---
+title: "neurOS-v1 Package: neuros-sourceweigher — Data-Source Weighting"
+slug: neuros-sourceweigher
+summary: "A focused service that weights heterogeneous data sources for training mixtures, so a foundation model learns from the right blend of data rather than from raw volume."
+role: "Author and architect"
+sourceUrl: "https://github.com/sidhulyalkar/neurOS-v1"
+scope: "neurOS-v1 monorepo package"
+date: "2025-11-05"
+tags:
+  - neuros-v1
+  - data-weighting
+  - training-mixtures
+  - foundation-models
+domains:
+  - Neural Foundation Models
+  - Neural Data Infrastructure
+featured: false
+importance: 70
+relatedProjects:
+  - neuros-v1
+modeVisibility:
+  - researcher
+  - builder
+  - full-brain
+---
+
+## The Right Blend, Not the Biggest Pile
+
+`neuros-sourceweigher` is a small, sharp service that decides *how much each data source should
+count* when assembling a training mixture — the lever that keeps a foundation model from being
+dominated by whatever dataset happens to be largest.
+
+<SystemDiagram variant="pkg-sourceweigher" />
+
+## What It Comprises
+
+- **Weigher** — the source-weighting logic that scores and balances data sources.
+- **Service** — an API wrapper so the weigher can be called from training and cloud pipelines.
+
+## How It Differs
+
+It is the smallest package by surface area but a distinct concern: `neuros-cloud` *moves and stores*
+data and `neuros-neurofm` *trains on* it, while `neuros-sourceweigher` governs the **mixture** —
+turning "more data" into "better-balanced data" for pretraining.
+
+Part of the [neurOS-v1 platform](/case-studies/neuros-v1-platform).

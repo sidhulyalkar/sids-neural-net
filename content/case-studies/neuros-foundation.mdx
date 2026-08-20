@@ -1,0 +1,53 @@
+---
+title: "neurOS-v1 Package: neuros-foundation — Reference Foundation Models"
+slug: neuros-foundation
+summary: "Published neural foundation models — CEBRA, NDT, POYO, Neuroformer — behind one base interface, with dataset loaders, so external architectures are directly comparable inside neurOS-v1."
+role: "Author and architect"
+sourceUrl: "https://github.com/sidhulyalkar/neurOS-v1"
+scope: "neurOS-v1 monorepo package"
+date: "2025-11-05"
+tags:
+  - neuros-v1
+  - foundation-models
+  - cebra
+  - ndt
+  - poyo
+  - neuroformer
+domains:
+  - Neural Foundation Models
+  - Neural Data Infrastructure
+featured: false
+importance: 80
+relatedProjects:
+  - neuros-v1
+modeVisibility:
+  - recruiter
+  - researcher
+  - builder
+  - full-brain
+---
+
+## Published Foundation Models, One Interface
+
+`neuros-foundation` wraps the field's reference neural foundation models behind a shared
+`base_foundation_model` contract, so they can be loaded, run, and compared like any other neurOS
+component.
+
+<SystemDiagram variant="pkg-foundation" />
+
+## What It Comprises
+
+- **CEBRA** — consistent latent embeddings of neural and behavioral data.
+- **NDT** — the Neural Data Transformer.
+- **POYO** — a spiking / population foundation model.
+- **Neuroformer** — a multimodal neural foundation model.
+- **Interface** — `base_foundation_model` plus `utils` for a shared load/infer path.
+- **Datasets** — Allen and BCI dataset loaders for benchmarking.
+
+## How It Differs
+
+This package is about **reusing and benchmarking published architectures**, not building one. It is
+the comparison harness that sits next to `neuros-neurofm` (my own neuroFMx model) — so I can measure
+a from-scratch design against established baselines on the same loaders and interface.
+
+Part of the [neurOS-v1 platform](/case-studies/neuros-v1-platform).

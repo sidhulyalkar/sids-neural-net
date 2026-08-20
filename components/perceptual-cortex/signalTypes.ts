@@ -1,0 +1,37 @@
+export type SignalSourceId = 'hand' | 'face' | 'audio' | 'pointer' | 'touch' | 'keyboard' | 'synthetic';
+
+export type PerceptualWorldState = {
+  timestampMs: number;
+  pointerX: number;
+  pointerY: number;
+  pointerSpeed: number;
+  excitation: number;
+  coherence: number;
+  tension: number;
+  entropy: number;
+  plasticity: number;
+  trailEnergy: number;
+  growthImpulse: number;
+  pulseRate: number;
+  propagationVelocity: number;
+  oscillationAmplitude: number; oscillationFrequency: number;
+  lowBand: number; midBand: number; highBand: number; onsetImpulse: number;
+  zoom: number; symmetry: number; handSeparation: number; bilateralStrength: number;
+  handX: number; handY: number; handSpeed: number;
+  cameraParallaxX: number; cameraParallaxY: number; cameraRoll: number;
+  facialActivity: number; facialStillness: number;
+  activeModalities: SignalSourceId[];
+};
+
+export const createWorldState = (): PerceptualWorldState => ({
+  timestampMs: 0, pointerX: 0, pointerY: 0, pointerSpeed: 0,
+  excitation: 0.12, coherence: 0.72, tension: 0.18, entropy: 0.22,
+  plasticity: 0, trailEnergy: 0, growthImpulse: 0, pulseRate: 0.2,
+  propagationVelocity: 0.25, activeModalities: ['synthetic'],
+  oscillationAmplitude: 0.04, oscillationFrequency: 0.2,
+  lowBand: 0, midBand: 0, highBand: 0, onsetImpulse: 0,
+  zoom: 1, symmetry: .5, handSeparation: 0, bilateralStrength: 0,
+  handX: 0, handY: 0, handSpeed: 0,
+  cameraParallaxX: 0, cameraParallaxY: 0, cameraRoll: 0,
+  facialActivity: 0, facialStillness: 1,
+});
