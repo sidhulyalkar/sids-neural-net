@@ -164,38 +164,38 @@
       obstacles:[{x:454,y:205,w:52,h:165,k:'hedge'},{x:454,y:418,w:52,h:120,k:'hedge'}],hazards:[],targets:[
         T('fern-a','plant',250,210,['rain','sun'],'fern cup'),T('fern-b','plant',680,190,['rain','sun'],'moss flower'),T('fern-c','plant',650,445,['rain','sun'],'dew grass') ]},
     {id:'orchard',title:'Orchard House',task:'Grow fruit, seed bare soil, then gather what the room offers.',intro:'Restoration can create resources. Fruit will matter in the next room.',decor:'orchard',bg:'#181109',floor:'#2b1c0f',accent:'#f0b866',unlocks:['seed','gather'],
-      obstacles:[{x:350,y:270,w:70,h:70,k:'tree'},{x:545,y:360,w:70,h:70,k:'tree'}],hazards:[H(470,170,18,24,9,'thorn')],targets:[
+      obstacles:[{x:350,y:270,w:70,h:70,k:'tree'},{x:545,y:360,w:70,h:70,k:'tree'}],hazards:[HZ(470,170,18,24,9,'thorn')],targets:[
         T('apple-a','fruit',230,210,['rain','sun','gather'],'apple tree'),T('apple-b','fruit',720,210,['rain','sun','gather'],'pear tree'),T('patch-a','patch',295,445,['rain','seed','sun'],'bare orchard bed'),T('patch-b','patch',700,455,['rain','seed','sun'],'bare orchard bed') ]},
     {id:'rescue',title:'Rescue Hollow',task:'Heal wandering animals, then feed them fruit from the orchard.',intro:'Care is not enough if the animal is hungry. Mend first. Feed second.',decor:'hollow',bg:'#0b1714',floor:'#12251e',accent:'#9fe4bb',unlocks:['mend'],
-      obstacles:[{x:425,y:165,w:110,h:58,k:'log'},{x:420,y:435,w:125,h:50,k:'log'}],hazards:[H(570,295,20,-28,14,'thorn'),H(315,330,16,22,-16,'thorn')],targets:[
+      obstacles:[{x:425,y:165,w:110,h:58,k:'log'},{x:420,y:435,w:125,h:50,k:'log'}],hazards:[HZ(570,295,20,-28,14,'thorn'),HZ(315,330,16,22,-16,'thorn')],targets:[
         T('fox','animal',260,245,['mend','gather'],'injured fox',{wander:24}),T('owl','animal',690,215,['mend','gather'],'tired owl',{wander:18}),T('deer','animal',680,440,['mend','gather'],'scratched deer',{wander:30}) ]},
     {id:'river',title:'River Workshop',task:'Rotate three sluices until water can reach the dry basin.',intro:'Rain becomes current here. Each hit rotates a gate. Read the channel arrows.',decor:'river',bg:'#071523',floor:'#0b2436',accent:'#6bc9f2',unlocks:['wind'],
-      obstacles:[{x:310,y:285,w:90,h:52,k:'rock'},{x:595,y:325,w:90,h:52,k:'rock'}],hazards:[H(470,145,17,38,0,'current'),H(465,500,17,-38,0,'current')],targets:[
+      obstacles:[{x:310,y:285,w:90,h:52,k:'rock'},{x:595,y:325,w:90,h:52,k:'rock'}],hazards:[HZ(470,145,17,38,0,'current'),HZ(465,500,17,-38,0,'current')],targets:[
         S('sluice-a',275,165,0,1,'upper sluice'),S('sluice-b',500,320,2,3,'middle sluice'),S('sluice-c',720,470,1,0,'lower sluice'),T('reed-bank','patch',790,190,['rain','seed','wind'],'riparian reed bank') ]},
     {id:'cloud',title:'Cloud Meadow',task:'Push stormlets over dry basins, then rain and sun on the meadow below.',intro:'Wind now has physics. Aim through the cloud to move it. Position before casting rain.',decor:'meadow',bg:'#14243a',floor:'#1d3850',accent:'#b4e8ff',unlocks:[],
-      obstacles:[{x:450,y:300,w:60,h:120,k:'stone'}],hazards:[H(310,350,17,26,-18,'current'),H(700,320,17,-24,20,'current')],targets:[
+      obstacles:[{x:450,y:300,w:60,h:120,k:'stone'}],hazards:[HZ(310,350,17,26,-18,'current'),HZ(700,320,17,-24,20,'current')],targets:[
         C('cloud-a',210,150,710,205,82,'western stormlet'),C('cloud-b',720,120,260,430,76,'eastern stormlet'),T('meadow-core','patch',495,500,['rain','seed','sun'],'central meadow') ]},
     {id:'ember',title:'Emberstep',task:'Cool embers, clear smoke, reseed black ground, and wake new growth.',intro:'A damaged room asks for an ordered recovery, not a single cure.',decor:'burn',bg:'#1a0d0a',floor:'#2a1711',accent:'#f29a68',unlocks:[],
-      obstacles:[{x:310,y:180,w:86,h:40,k:'char'},{x:600,y:430,w:110,h:40,k:'char'}],hazards:[H(270,390,25,36,-10,'heat'),H(690,245,27,-34,12,'smoke'),H(490,150,18,16,28,'heat')],targets:[
+      obstacles:[{x:310,y:180,w:86,h:40,k:'char'},{x:600,y:430,w:110,h:40,k:'char'}],hazards:[HZ(270,390,25,36,-10,'heat'),HZ(690,245,27,-34,12,'smoke'),HZ(490,150,18,16,28,'heat')],targets:[
         T('scar-a','ember',255,190,['rain','wind','seed','sun'],'western burn scar'),T('scar-b','ember',700,420,['rain','wind','seed','sun'],'eastern burn scar'),T('snag','plant',520,320,['mend','rain','seed','sun'],'fire-split tree') ]},
     {id:'pollinator',title:'Pollinator Conservatory',task:'Bloom flower islands and carry pollen on the wind.',intro:'The shortest route is not always the best route. Keep your chain alive through the glasshouse.',decor:'glasshouse',bg:'#191222',floor:'#2b1b31',accent:'#ef9ed7',unlocks:[],
-      obstacles:[{x:330,y:125,w:34,h:155,k:'glass'},{x:330,y:365,w:34,h:150,k:'glass'},{x:600,y:190,w:34,h:165,k:'glass'}],hazards:[H(470,175,16,0,38,'thorn'),H(770,350,16,-34,-12,'thorn')],targets:[
+      obstacles:[{x:330,y:125,w:34,h:155,k:'glass'},{x:330,y:365,w:34,h:150,k:'glass'},{x:600,y:190,w:34,h:165,k:'glass'}],hazards:[HZ(470,175,16,0,38,'thorn'),HZ(770,350,16,-34,-12,'thorn')],targets:[
         T('flowers-a','pollinator',210,185,['rain','sun','wind'],'lavender island'),T('flowers-b','pollinator',500,430,['rain','sun','wind'],'clover island'),T('flowers-c','pollinator',760,190,['rain','sun','wind'],'trumpet flower island'),T('bee-home','patch',760,470,['seed','sun','mend'],'pollinator shelter') ]},
     {id:'alpine',title:'Alpine Thaw',task:'Melt frozen springs, carry water, restore flowers, and recover the ibex.',intro:'Sun opens the water. Rain carries it. Seeds turn runoff back into habitat.',decor:'alpine',bg:'#0b1725',floor:'#13283a',accent:'#b8edff',unlocks:[],
-      obstacles:[{x:410,y:175,w:120,h:70,k:'ice'},{x:270,y:400,w:95,h:58,k:'rock'},{x:650,y:385,w:95,h:58,k:'rock'}],hazards:[H(500,280,18,28,22,'cold'),H(730,170,17,-32,8,'cold')],targets:[
+      obstacles:[{x:410,y:175,w:120,h:70,k:'ice'},{x:270,y:400,w:95,h:58,k:'rock'},{x:650,y:385,w:95,h:58,k:'rock'}],hazards:[HZ(500,280,18,28,22,'cold'),HZ(730,170,17,-32,8,'cold')],targets:[
         T('spring-a','ice',220,190,['sun','rain','seed'],'frozen spring'),T('spring-b','ice',730,435,['sun','rain','seed'],'icebound seep'),T('alpine-flowers','patch',520,500,['rain','seed','sun'],'alpine flower bench'),T('ibex','animal',760,230,['mend'],'tired ibex',{wander:16}) ]},
     {id:'tide',title:'Tide Nursery',task:'Restore mangroves, seagrass, and coral while the current keeps moving.',intro:'The room breathes in tides. Use dashes to cross current fronts without losing your chain.',decor:'tide',bg:'#061a1f',floor:'#0a2b30',accent:'#70e5d6',unlocks:[],
-      obstacles:[{x:430,y:220,w:42,h:180,k:'mangrove'},{x:600,y:155,w:42,h:160,k:'mangrove'}],hazards:[H(260,320,21,44,0,'current'),H(525,500,19,-40,0,'current'),H(735,315,21,42,0,'current')],targets:[
+      obstacles:[{x:430,y:220,w:42,h:180,k:'mangrove'},{x:600,y:155,w:42,h:160,k:'mangrove'}],hazards:[HZ(260,320,21,44,0,'current'),HZ(525,500,19,-40,0,'current'),HZ(735,315,21,42,0,'current')],targets:[
         T('mangrove-a','mangrove',220,190,['rain','seed','mend'],'young mangrove'),T('seagrass','patch',300,470,['rain','seed','sun'],'seagrass nursery'),T('coral-a','coral',715,205,['mend','rain','sun'],'coral nursery'),T('coral-b','coral',710,455,['mend','rain','sun'],'moonpool coral') ]},
     {id:'heart',title:'Earthheart',task:'Reconnect weather, water, fruit, wildlife, and the central habitat node.',intro:'The final room asks for the whole language. Nothing is isolated anymore.',decor:'heart',bg:'#070d12',floor:'#0d1b20',accent:'#9fffc1',unlocks:[],
-      obstacles:[{x:410,y:245,w:140,h:58,k:'root'},{x:410,y:365,w:140,h:58,k:'root'}],hazards:[H(265,315,20,34,20,'smoke'),H(700,290,20,-36,-18,'thorn'),H(520,145,18,22,30,'current')],targets:[
+      obstacles:[{x:410,y:245,w:140,h:58,k:'root'},{x:410,y:365,w:140,h:58,k:'root'}],hazards:[HZ(265,315,20,34,20,'smoke'),HZ(700,290,20,-36,-18,'thorn'),HZ(520,145,18,22,30,'current')],targets:[
         C('heart-cloud',190,130,720,155,80,'weather heart'),S('heart-sluice',250,455,3,1,'river heart'),T('heart-fruit','fruit',760,455,['rain','seed','sun','gather'],'ancestor fruit tree'),T('heart-animal','animal',740,250,['mend','gather'],'returning deer',{wander:20}),T('earthheart','heart',505,320,['rain','sun','seed','wind','mend','gather'],'Earthheart') ]}
   ];
 
   function T(id,kind,x,y,sequence,label,extra={}){return {id,kind,x,y,sequence,label,r:kind==='heart'?38:kind==='animal'?24:kind==='fruit'?28:kind==='cloud'?34:25,...extra}}
   function C(id,x,y,zx,zy,zr,label){return {id,kind:'cloud',x,y,r:36,sequence:['wind','rain','sun'],label,zone:{x:zx,y:zy,r:zr}}}
   function S(id,x,y,orientation,goal,label){return {id,kind:'sluice',x,y,r:27,sequence:['rain'],label,orientation,goal}}
-  function H(x,y,r,vx,vy,type){return {x,y,r,vx,vy,type}}
+  function HZ(x,y,r,vx,vy,type){return {x,y,r,vx,vy,type}}
 
   const state={mode:'title',roomIndex:0,room:null,player:null,projectiles:[],particles:[],selected:'rain',unlocked:new Set(['rain','sun']),harmony:100,fruit:0,chain:0,chainTimer:0,bestChain:0,totalTime:0,roomTime:0,shootCd:0,dashCd:0,dashTime:0,hitCd:0,stats:{casts:0,correct:0,hits:0,fruit:0},messageTimer:0,audio:null,lastAim:{x:1,y:0},hudClock:0};
   const keys=new Set();
