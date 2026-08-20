@@ -17,12 +17,12 @@ type Props = {
 };
 
 const Experimental3D = dynamic(
-  () => import('@/components/physiology/PhysioPersonaAtlasScene').then((module) => module.PhysioPersonaAtlasScene),
+  () => import('@/components/physiology/world3d/WorldLoom3DScene').then((module) => module.WorldLoom3DScene),
   {
     ssr: false,
     loading: () => (
       <div className="flex h-[500px] items-center justify-center rounded-2xl border border-white/10 bg-black/25 text-xs text-text-secondary/55 sm:h-[620px]">
-        loading experimental Three.js world…
+        weaving deterministic 3D world…
       </div>
     ),
   }
