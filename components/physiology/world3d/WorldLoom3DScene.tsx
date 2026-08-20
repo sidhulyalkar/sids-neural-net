@@ -1,13 +1,16 @@
 'use client';
 
-import { useCallback, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { OrbitControls, Sparkles, Stars } from '@react-three/drei';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { Group, InstancedMesh, Mesh, Object3D, type WebGLRenderer } from 'three';
 import { NATURE_WORLD_PALETTES, getNatureWorld } from '@/lib/physiology/natureWorldsExpanded';
 import { getSignal, type PersonaMoodSelfReport, type PersonaSnapshot } from '@/lib/physiology/schema';
 import { ACTIVITIES, type PersonaActivity } from '@/lib/physiology/world';
+import { detectWorldLoomCapabilities, worldLoomXrFeatureEnabled, type WorldLoomCapabilities } from '@/lib/physiology/world3d/capabilities';
 import { compileWorld3D } from '@/lib/physiology/world3d/compileWorld3D';
+import { buildWorldNavigationGeometry } from '@/lib/physiology/world3d/navigation';
+import { auditWorldLoomReadiness } from '@/lib/physiology/world3d/readiness';
 import { makeRandom, range, sampleAnnulus } from '@/lib/physiology/world3d/random';
 import { WORLD3D_QUALITY_RULES } from '@/lib/physiology/world3d/standards';
 import type {
@@ -241,16 +244,34 @@ function SceneContent({ plan, snapshot, mood, accent, resonance, onLandmark }: {
   );
 }
 
+const EMPTY_CAPABILITIES: WorldLoomCapabilities = { webgl: true, webxr: false, immersiveVr: null, handTrackingHint: false };
+
 export function WorldLoom3DScene(props: SceneProps) {
   const world = getNatureWorld(props.worldId);
   const plan = useMemo(() => compileWorld3D(world), [world]);
+  const readiness = useMemo(() => auditWorldLoomReadiness(plan), [plan]);
+  const navigation = useMemo(() => buildWorldNavigationGeometry(plan), [plan]);
   const activity = ACTIVITIES[props.activity];
   const [renderer, setRenderer] = useState<WebGLRenderer | null>(null);
   const [xrStatus, setXrStatus] = useState<'idle' | 'entering' | 'active' | 'unsupported' | 'error'>('idle');
   const [resonance, setResonance] = useState(0);
-  const supportsXr = typeof navigator !== 'undefined' && Boolean((navigator as XrNavigator).xr);
+  const [capabilities, setCapabilities] = useState<WorldLoomCapabilities>(EMPTY_CAPABILITIES);
+  const xrFeatureEnabled = worldLoomXrFeatureEnabled();
+  const canEnterXr = xrFeatureEnabled && readiness.xrReady && capabilities.webxr && capabilities.immersiveVr !== false;
+
+  useEffect(() => {
+    let cancelled = false;
+    void detectWorldLoomCapabilities().then((result) => {
+      if (!cancelled) setCapabilities(result);
+    });
+    return () => { cancelled = true; };
+  }, []);
 
   const enterXr = useCallback(async () => {
+    if (!xrFeatureEnabled || !readiness.xrReady) {
+      setXrStatus('unsupported');
+      return;
+    }
     const xr = (navigator as XrNavigator).xr;
     if (!xr || !renderer) {
       setXrStatus('unsupported');
@@ -268,7 +289,7 @@ export function WorldLoom3DScene(props: SceneProps) {
     } catch {
       setXrStatus('error');
     }
-  }, [renderer]);
+  }, [readiness.xrReady, renderer, xrFeatureEnabled]);
 
   return (
     <div className="relative h-[500px] w-full overflow-hidden rounded-2xl border border-white/10 bg-black/25 sm:h-[620px]">
@@ -278,8 +299,8 @@ export function WorldLoom3DScene(props: SceneProps) {
         camera={{ position: [...plan.camera.desktopPosition], fov: plan.camera.fov, near: 0.1, far: plan.radius * 4 + 18 }}
         gl={{ antialias: true, powerPreference: 'high-performance' }}
         onCreated={({ gl }) => {
-          gl.xr.enabled = true;
-          gl.xr.setReferenceSpaceType('local-floor');
+          gl.xr.enabled = xrFeatureEnabled;
+          if (xrFeatureEnabled) gl.xr.setReferenceSpaceType('local-floor');
           setRenderer(gl);
         }}
       >
@@ -314,12 +335,14 @@ export function WorldLoom3DScene(props: SceneProps) {
 
       <div className="absolute left-3 top-3 flex max-w-[78%] flex-wrap gap-1.5 font-mono text-[0.53rem] uppercase tracking-[0.1em] text-white/62">
         <span className="rounded-full border border-white/10 bg-black/35 px-2.5 py-1 backdrop-blur">world loom · seed {plan.seed}</span>
-        <span className={`rounded-full border px-2.5 py-1 backdrop-blur ${plan.diagnostics.xrSafe ? 'border-emerald-300/20 bg-emerald-950/35 text-emerald-100/75' : 'border-amber-300/20 bg-amber-950/35 text-amber-100/75'}`}>{plan.diagnostics.xrSafe ? 'XR audit ✓' : 'XR audit !'}</span>
+        <span className={`rounded-full border px-2.5 py-1 backdrop-blur ${readiness.desktopReady ? 'border-emerald-300/20 bg-emerald-950/35 text-emerald-100/75' : 'border-amber-300/20 bg-amber-950/35 text-amber-100/75'}`}>{readiness.desktopReady ? 'desktop audit ✓' : 'desktop audit !'}</span>
+        <span className={`rounded-full border px-2.5 py-1 backdrop-blur ${readiness.xrReady ? 'border-emerald-300/20 bg-emerald-950/35 text-emerald-100/75' : 'border-white/10 bg-black/35 text-white/55'}`}>{readiness.xrReady ? 'XR spatial audit ✓' : 'XR gated'}</span>
+        <span className="rounded-full border border-white/10 bg-black/35 px-2.5 py-1 backdrop-blur">{navigation.corridors.length} routes · {readiness.teleportPointCount} teleport points</span>
         <span className="rounded-full border border-white/10 bg-black/35 px-2.5 py-1 backdrop-blur">{plan.diagnostics.instanceCount} instances · ~{plan.diagnostics.estimatedDrawCalls} draws</span>
       </div>
 
       <div className="absolute right-3 top-3 flex gap-2">
-        {supportsXr && plan.diagnostics.xrSafe ? (
+        {canEnterXr ? (
           <button
             type="button"
             onClick={enterXr}
@@ -331,9 +354,10 @@ export function WorldLoom3DScene(props: SceneProps) {
         ) : null}
       </div>
 
-      {plan.diagnostics.issues.length > 0 ? (
-        <div className="pointer-events-none absolute right-3 top-12 max-w-[260px] rounded-xl border border-amber-300/15 bg-black/50 p-2 text-[0.58rem] leading-4 text-amber-100/65 backdrop-blur">
-          {plan.diagnostics.issues.slice(0, 2).map((issue) => <p key={`${issue.code}-${issue.message}`}>{issue.severity === 'error' ? '×' : '△'} {issue.code}</p>)}
+      {(readiness.blockers.length > 0 || readiness.warnings.length > 0) ? (
+        <div className="pointer-events-none absolute right-3 top-12 max-w-[280px] rounded-xl border border-amber-300/15 bg-black/50 p-2 text-[0.58rem] leading-4 text-amber-100/65 backdrop-blur">
+          {readiness.blockers.slice(0, 2).map((issue) => <p key={`block-${issue.code}-${issue.message}`}>× {issue.code}</p>)}
+          {readiness.blockers.length === 0 && readiness.warnings.slice(0, 2).map((issue) => <p key={`warn-${issue.code}-${issue.message}`}>△ {issue.code}</p>)}
         </div>
       ) : null}
     </div>
