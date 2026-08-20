@@ -17,7 +17,7 @@ concurrency:
 jobs:
   typecheck-and-build:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 25
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -34,7 +34,40 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
+      - name: Validate deterministic Nature Atlas corpus
+        run: npm run check:nature-corpus
+
       - name: Build committed site state
         env:
           NEXT_PUBLIC_SITE_URL: https://example.invalid
         run: npx next build
+
+      - name: Start built site for visual fixtures
+        run: |
+          npx next start -p 3000 > /tmp/sids-neural-net.log 2>&1 &
+          echo $! > /tmp/sids-neural-net.pid
+          for attempt in {1..30}; do
+            if curl -fsS http://127.0.0.1:3000/physiology/visual-audit >/dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/sids-neural-net.log
+          exit 1
+
+      - name: Install visual-audit browser
+        run: npx --yes playwright@1.55.0 install --with-deps chromium
+
+      - name: Capture canonical Nature Atlas screenshots
+        run: |
+          mkdir -p artifacts/nature-atlas
+          npx --yes playwright@1.55.0 screenshot --browser=chromium --viewport-size="1440,1100" --full-page http://127.0.0.1:3000/physiology/visual-audit artifacts/nature-atlas/desktop.png
+          npx --yes playwright@1.55.0 screenshot --browser=chromium --viewport-size="390,844" --full-page http://127.0.0.1:3000/physiology/visual-audit artifacts/nature-atlas/mobile.png
+
+      - name: Upload Nature Atlas visual corpus
+        uses: actions/upload-artifact@v4
+        with:
+          name: nature-atlas-visual-corpus
+          path: artifacts/nature-atlas
+          if-no-files-found: error
+          retention-days: 14
