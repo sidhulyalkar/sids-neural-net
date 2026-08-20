@@ -96,12 +96,19 @@ jobs:
           echo "GET pinned uniRico runtime"
           curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/game-runtimes/unirico/index.html | grep -q '<canvas id="c"'
           curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/game-runtimes/unirico/runtime/core.js | grep -q 'use strict\|const\|function'
-          echo "GET first-party Mosslight runtime"
-          curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/game-runtimes/mosslight/index.html | grep -q 'Mosslight: Rooms of Renewal'
-          curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/game-runtimes/mosslight/index.html | grep -q "title:'Earthheart'"
+          echo "GET first-party Mosslight v0.2 runtime"
+          curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/game-runtimes/mosslight-v2/index.html | grep -q 'Mosslight v0.2: Rooms of Renewal'
+          curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/game-runtimes/mosslight-v2/game.js | grep -q '__MOSSLIGHT_PLAYTEST__'
+          curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/game-runtimes/mosslight-v2/rooms.js | grep -q "title: 'Earthheart'"
 
       - name: Install smoke-test browser
         run: npx --yes playwright@1.55.0 install --with-deps chromium
+
+      - name: Playtest all Mosslight rooms
+        run: |
+          PW_BIN="$(npm exec --yes --package=playwright@1.55.0 -- which playwright)"
+          PW_ROOT="$(cd "$(dirname "$PW_BIN")/.." && pwd)"
+          PLAYWRIGHT_MODULE_ROOT="$PW_ROOT" node scripts/playtest-mosslight.mjs
 
       - name: Capture production browser fixtures
         run: |
@@ -117,7 +124,7 @@ jobs:
           npx --yes playwright@1.55.0 screenshot --browser=chromium --viewport-size="1440,1000" http://127.0.0.1:3000/arcade/stretchicorn artifacts/browser-smoke/arcade-stretchicorn.png
           npx --yes playwright@1.55.0 screenshot --browser=chromium --viewport-size="1440,1000" http://127.0.0.1:3000/arcade/unirico artifacts/browser-smoke/arcade-unirico.png
           npx --yes playwright@1.55.0 screenshot --browser=chromium --viewport-size="1440,1000" http://127.0.0.1:3000/arcade/mosslight artifacts/browser-smoke/arcade-mosslight.png
-          npx --yes playwright@1.55.0 screenshot --browser=chromium --viewport-size="960,640" http://127.0.0.1:3000/game-runtimes/mosslight/index.html artifacts/browser-smoke/mosslight-runtime.png
+          npx --yes playwright@1.55.0 screenshot --browser=chromium --viewport-size="960,640" http://127.0.0.1:3000/game-runtimes/mosslight-v2/index.html artifacts/browser-smoke/mosslight-runtime.png
 
       - name: Upload production audit artifacts
         if: always()
