@@ -1,10 +1,11 @@
 'use client';
 
 import { useState } from 'react';
-import { AlertCircle, Hand, Loader2, ShieldCheck, Sparkles, X } from 'lucide-react';
+import { AlertCircle, Hand, Loader2, RotateCcw, ShieldCheck, Sparkles, X } from 'lucide-react';
 import { useSensingStore } from '@/lib/stores/sensingStore';
 
 const GESTURE_GUIDE_EVENT = 'sensing:gesture-guide';
+const GESTURE_RECALIBRATE_EVENT = 'sensing:gesture-recalibrate';
 
 export function GestureControl() {
   const sensingStatus = useSensingStore((state) => state.status);
@@ -17,6 +18,7 @@ export function GestureControl() {
   if (sensingStatus !== 'running') return null;
 
   const reopenGuide = () => window.dispatchEvent(new Event(GESTURE_GUIDE_EVENT));
+  const recalibrate = () => window.dispatchEvent(new Event(GESTURE_RECALIBRATE_EVENT));
 
   return (
     <div
@@ -69,7 +71,7 @@ export function GestureControl() {
           <div className="mx-3 mb-3 rounded-xl border border-violet/20 bg-violet/[0.06] px-3 py-2.5">
             <div className="font-mono text-[9px] font-semibold uppercase tracking-[0.16em] text-violet">First use · quick calibration</div>
             <p className="mt-1 text-[10px] leading-relaxed text-text-muted">
-              A 10–30 second guided course verifies every gesture on your camera and tunes only derived pointer jitter, target tolerance, and pinch timing. The profile stays in this browser.
+              A 10–30 second guided course verifies every gesture on your camera and tunes only derived pointer jitter, target tolerance, and pinch timing. You can skip it, cancel at any point, or recalibrate later if you move your device.
             </p>
           </div>
 
@@ -83,7 +85,7 @@ export function GestureControl() {
               className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-violet/15 px-3 py-2.5 text-xs font-semibold text-violet transition hover:bg-violet/25"
             >
               <Hand className="h-3.5 w-3.5" />
-              Enable + calibrate
+              Enable air controls
             </button>
             <button
               type="button"
@@ -123,6 +125,17 @@ export function GestureControl() {
             {status === 'running' && <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-green" />}
             <span className="hidden font-mono text-[8px] uppercase tracking-[0.14em] text-text-muted sm:inline">guide</span>
           </button>
+          {status === 'running' && (
+            <button
+              type="button"
+              onClick={recalibrate}
+              aria-label="Recalibrate gesture control"
+              title="Moved your device? Recalibrate air controls"
+              className="grid w-9 place-items-center border-l border-white/10 text-text-muted transition hover:bg-violet/10 hover:text-violet"
+            >
+              <RotateCcw className="h-3.5 w-3.5" />
+            </button>
+          )}
           <button
             type="button"
             onClick={() => setEnabled(false)}
