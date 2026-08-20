@@ -38,7 +38,7 @@ test('the arcade is part of the shared portfolio navigation', () => {
 
 test('the embedded Stretchicorn release is complete', () => {
   const runtimeRoot = 'public/game-runtimes/stretchicorn';
-  const modules = [
+  const runtimeModules = [
     'src/style.css',
     'src/00-core.js',
     'src/01-combat.js',
@@ -48,13 +48,13 @@ test('the embedded Stretchicorn release is complete', () => {
   ];
 
   assert.ok(existsSync(join(root, runtimeRoot, 'index.html')));
-  for (const module of modules) {
-    assert.ok(existsSync(join(root, runtimeRoot, module)), `missing Stretchicorn runtime file: ${module}`);
+  for (const runtimeModule of runtimeModules) {
+    assert.ok(existsSync(join(root, runtimeRoot, runtimeModule)), `missing Stretchicorn runtime file: ${runtimeModule}`);
   }
 
   const html = readRepoFile(`${runtimeRoot}/index.html`);
-  for (const module of modules.filter((module) => module.endsWith('.js'))) {
-    assert.match(html, new RegExp(module.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+  for (const runtimeModule of runtimeModules.filter((entry) => entry.endsWith('.js'))) {
+    assert.match(html, new RegExp(runtimeModule.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
   }
 
   assert.equal(arcadeGames.find((game) => game.slug === 'stretchicorn')?.launchUrl, '/game-runtimes/stretchicorn/index.html');
