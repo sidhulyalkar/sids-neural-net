@@ -33,10 +33,18 @@ for (const collection of collections) {
   assert(fixtureCount >= 4, `collection ${collection.id} has only ${fixtureCount} canonical fixtures; expected at least 4`);
 }
 
+const fallbackOnlyWorlds = NATURE_WORLDS.filter((world) => world.scene.renderCues.length === 0);
+const fallbackRatio = fallbackOnlyWorlds.length / NATURE_WORLDS.length;
+assert(
+  fallbackRatio <= 0.08,
+  `generic focal-subject fallback expanded to ${(fallbackRatio * 100).toFixed(1)}% of the atlas; keep it at or below 8%`,
+);
+
 for (const world of NATURE_WORLDS) {
   assert(Number.isFinite(world.seed), `world ${world.id} has a non-finite seed`);
   assert(world.scene.visualThesis.trim().length > 24, `world ${world.id} has an underspecified visual thesis`);
-  assert(world.scene.renderCues.length > 0, `world ${world.id} has no render cues`);
+  assert(world.scene.focalSubject.trim().length > 0, `world ${world.id} has no focal subject`);
+  assert(world.icon.trim().length > 0, `world ${world.id} has neither explicit render cues nor an icon fallback`);
   assert(world.scene.renderCues.length <= 12, `world ${world.id} exceeds the render-cue cap`);
   assert(world.scene.density >= 0 && world.scene.density <= 1, `world ${world.id} density is outside [0,1]`);
   assert(world.scene.sparkle >= 0 && world.scene.sparkle <= 1, `world ${world.id} sparkle is outside [0,1]`);
@@ -66,4 +74,5 @@ if (errors.length > 0) {
 
 const facetCounts = Object.fromEntries(requiredFacets.map((facet) => [facet, NATURE_VISUAL_CORPUS.filter((fixture) => fixture.facets.includes(facet)).length]));
 console.log(`Nature Atlas corpus PASS: ${NATURE_WORLDS.length} worlds, ${collections.length} collections, ${NATURE_VISUAL_CORPUS.length} canonical fixtures.`);
+console.log(`Fallback-subject renderer: ${fallbackOnlyWorlds.length}/${NATURE_WORLDS.length} worlds (${(fallbackRatio * 100).toFixed(1)}%).`);
 console.log(JSON.stringify(facetCounts, null, 2));
