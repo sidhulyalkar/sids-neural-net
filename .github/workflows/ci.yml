@@ -28,8 +28,11 @@ jobs:
           node-version: '22'
           cache: npm
 
-      - name: Install dependencies
-        run: npm ci
+      - name: Resolve dependency migration lockfile
+        run: |
+          npm install
+          mkdir -p artifacts/dependency-lock
+          cp package-lock.json artifacts/dependency-lock/package-lock.json
 
       - name: Report production dependency advisories
         run: |
@@ -95,7 +98,7 @@ jobs:
 
       - name: Upload production audit artifacts
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: production-audit-artifacts
           path: artifacts
