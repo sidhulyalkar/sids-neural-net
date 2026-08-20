@@ -86,7 +86,7 @@ jobs:
 
       - name: Smoke public production routes
         run: |
-          for route in / /neural-net /case-studies /physiology /perceptual-cortex /rotation /sensing-lab /physiology/visual-audit; do
+          for route in / /neural-net /case-studies /physiology /perceptual-cortex /rotation /sensing-lab /physiology/visual-audit /photography /arcade /arcade/stretchicorn /arcade/unirico; do
             echo "GET $route"
             curl --retry 2 --retry-connrefused -fsS "http://127.0.0.1:3000$route" >/dev/null
           done
@@ -103,6 +103,9 @@ jobs:
           npx --yes playwright@1.55.0 screenshot --browser=chromium --viewport-size="1440,1000" http://127.0.0.1:3000/perceptual-cortex artifacts/browser-smoke/perceptual-cortex.png
           npx --yes playwright@1.55.0 screenshot --browser=chromium --viewport-size="1440,1000" http://127.0.0.1:3000/rotation artifacts/browser-smoke/rotation.png
           npx --yes playwright@1.55.0 screenshot --browser=chromium --viewport-size="1440,1000" --full-page http://127.0.0.1:3000/case-studies artifacts/browser-smoke/case-studies.png
+          npx --yes playwright@1.55.0 screenshot --browser=chromium --viewport-size="1440,1100" --full-page http://127.0.0.1:3000/photography artifacts/browser-smoke/visual-cortex.png
+          npx --yes playwright@1.55.0 screenshot --browser=chromium --viewport-size="1440,1100" --full-page http://127.0.0.1:3000/arcade artifacts/browser-smoke/arcade-catalog.png
+          npx --yes playwright@1.55.0 screenshot --browser=chromium --viewport-size="1440,1000" http://127.0.0.1:3000/arcade/stretchicorn artifacts/browser-smoke/arcade-stretchicorn.png
 
       - name: Upload production audit artifacts
         if: always()
