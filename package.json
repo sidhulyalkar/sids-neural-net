@@ -16,7 +16,9 @@
     "check:visual-cortex": "python3 scripts/check-visual-archive.py",
     "check:visual-archive": "python3 scripts/check-visual-archive.py",
     "photos:update": "python3 scripts/update-visual-archive.py",
-    "music:fetch": "tsx scripts/fetch-spotify-top.ts"
+    "music:fetch": "tsx scripts/fetch-spotify-top.ts",
+    "music:soloist:doctor": "tsx scripts/spotify-soloist-doctor.ts",
+    "music:soloist:start": "tsx scripts/run-spotify-soloist.ts"
   },
   "dependencies": {
     "@cosmograph/react": "^1.4.2",
