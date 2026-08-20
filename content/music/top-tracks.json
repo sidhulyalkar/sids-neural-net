@@ -1,0 +1,101 @@
+{
+  "version": 2,
+  "generatedAt": "2026-08-20T20:46:00.000Z",
+  "source": "spotify-top-items",
+  "isPlaceholder": true,
+  "snapshots": {
+    "short_term": {
+      "timeRange": "short_term",
+      "tracks": [
+        {
+          "rank": 1,
+          "spotifyId": "4uLU6hMCjMI75M1A2tKUQC",
+          "title": "Spotify data refresh required",
+          "artist": "Run npm run music:fetch",
+          "artists": [
+            {
+              "spotifyId": "0LyfQWJT6nXafLPZqxe9Of",
+              "name": "Run npm run music:fetch",
+              "spotifyUrl": "https://open.spotify.com/"
+            }
+          ],
+          "album": "Placeholder only",
+          "albumArtUrl": "",
+          "spotifyUrl": "https://open.spotify.com/"
+        }
+      ],
+      "artists": [
+        {
+          "rank": 1,
+          "spotifyId": "0LyfQWJT6nXafLPZqxe9Of",
+          "name": "Spotify data refresh required",
+          "spotifyUrl": "https://open.spotify.com/",
+          "imageUrl": "",
+          "genres": []
+        }
+      ]
+    },
+    "medium_term": {
+      "timeRange": "medium_term",
+      "tracks": [
+        {
+          "rank": 1,
+          "spotifyId": "4uLU6hMCjMI75M1A2tKUQC",
+          "title": "Spotify data refresh required",
+          "artist": "Run npm run music:fetch",
+          "artists": [
+            {
+              "spotifyId": "0LyfQWJT6nXafLPZqxe9Of",
+              "name": "Run npm run music:fetch",
+              "spotifyUrl": "https://open.spotify.com/"
+            }
+          ],
+          "album": "Placeholder only",
+          "albumArtUrl": "",
+          "spotifyUrl": "https://open.spotify.com/"
+        }
+      ],
+      "artists": [
+        {
+          "rank": 1,
+          "spotifyId": "0LyfQWJT6nXafLPZqxe9Of",
+          "name": "Spotify data refresh required",
+          "spotifyUrl": "https://open.spotify.com/",
+          "imageUrl": "",
+          "genres": []
+        }
+      ]
+    },
+    "long_term": {
+      "timeRange": "long_term",
+      "tracks": [
+        {
+          "rank": 1,
+          "spotifyId": "4uLU6hMCjMI75M1A2tKUQC",
+          "title": "Spotify data refresh required",
+          "artist": "Run npm run music:fetch",
+          "artists": [
+            {
+              "spotifyId": "0LyfQWJT6nXafLPZqxe9Of",
+              "name": "Run npm run music:fetch",
+              "spotifyUrl": "https://open.spotify.com/"
+            }
+          ],
+          "album": "Placeholder only",
+          "albumArtUrl": "",
+          "spotifyUrl": "https://open.spotify.com/"
+        }
+      ],
+      "artists": [
+        {
+          "rank": 1,
+          "spotifyId": "0LyfQWJT6nXafLPZqxe9Of",
+          "name": "Spotify data refresh required",
+          "spotifyUrl": "https://open.spotify.com/",
+          "imageUrl": "",
+          "genres": []
+        }
+      ]
+    }
+  }
+}

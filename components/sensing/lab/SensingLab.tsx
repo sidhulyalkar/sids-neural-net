@@ -304,11 +304,14 @@ export function SensingLab() {
           Start camera
         </button>
         <label className="flex items-center gap-1.5 text-sm text-slate-300">
-          <input type="checkbox" checked={runHand} onChange={(e) => setRunHand(e.target.checked)} />
+          {/* suppressHydrationWarning: extensions stamp data-has-listeners onto
+              inputs before hydration. Harmless, but the dev overlay it triggers
+              covers this instrument. Safe here — dev-only, no SSR-sensitive state. */}
+          <input suppressHydrationWarning type="checkbox" checked={runHand} onChange={(e) => setRunHand(e.target.checked)} />
           hand model
         </label>
         <label className="flex items-center gap-1.5 text-sm text-slate-300">
-          <input type="checkbox" checked={runFace} onChange={(e) => setRunFace(e.target.checked)} />
+          <input suppressHydrationWarning type="checkbox" checked={runFace} onChange={(e) => setRunFace(e.target.checked)} />
           face model
         </label>
         <span className="text-sm text-slate-400">{diag.fps} fps</span>

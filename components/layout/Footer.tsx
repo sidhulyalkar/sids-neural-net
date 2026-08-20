@@ -9,6 +9,7 @@ const footerLinks = [
   { href: '/publications', label: 'Papers' },
   { href: '/ideas', label: 'Research' },
   { href: '/photography', label: 'Visual Cortex' },
+  { href: '/rotation', label: 'Rotation' },
   { href: '/contact', label: 'Contact' },
 ];
 

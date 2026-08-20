@@ -139,7 +139,10 @@ export function PerceptualCortexExperience() {
     <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_25%,rgba(2,3,6,.7)_100%)]" />
     <header className="absolute left-5 right-5 top-5 z-10 flex items-start justify-between font-mono sm:left-8 sm:right-8 sm:top-8">
       <div><p className="text-[10px] uppercase tracking-[.34em] text-cyan/60">multimodal neural instrument</p><h1 className="mt-2 text-sm uppercase tracking-[.22em] text-white/90">Perceptual Cortex</h1><p className="mt-2 max-w-sm text-[9px] normal-case tracking-[.08em] text-white/35">{visualThemes[visualTheme].concept} · {visualThemes[visualTheme].description}</p></div>
-      <Link href="/photography" className="rounded-full border border-white/15 bg-black/20 px-4 py-2 text-[10px] uppercase tracking-[.2em] text-white/60 backdrop-blur hover:text-white">Exit</Link>
+      <div className="flex gap-2">
+        <Link href="/rotation" className="rounded-full border border-amber/30 bg-amber/10 px-4 py-2 text-[10px] uppercase tracking-[.2em] text-amber/80 backdrop-blur hover:text-amber">Rotation</Link>
+        <Link href="/photography" className="rounded-full border border-white/15 bg-black/20 px-4 py-2 text-[10px] uppercase tracking-[.2em] text-white/60 backdrop-blur hover:text-white">Exit</Link>
+      </div>
     </header>
 
     {phase === 'arrival' && <div className="absolute inset-0 z-20 grid place-items-center bg-[#020306]/45 p-6 backdrop-blur-[2px]">

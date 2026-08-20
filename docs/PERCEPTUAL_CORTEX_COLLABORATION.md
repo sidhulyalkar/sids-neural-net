@@ -66,3 +66,13 @@ The hand-tracking slice should first review the current sensing hooks and reuse 
 - Conceptual color themes also select the soundscape root, giving each template a related visual and tonal identity.
 - The soundscape uses locally synthesized oscillators and deterministic noise. It never replays, reconstructs, stores, or exports microphone audio.
 - Web Audio nodes are stopped and the context is closed at replay completion and route unmount.
+
+## Rotation (Spotify showcase)
+
+`/rotation` showcases top tracks. Spotify's embed streams the real audio and reports
+playback position via the iFrame API; a precomputed per-track beat-grid
+(`public/music/timelines/<id>.json`) is sampled at that position into `AudioFeatures`
+and fed through `advanceWorld` alongside live gestures (music leads at
+`MUSIC_INTENSITY = 1.4`). No song audio is ever hosted or reconstructed — only derived
+beat timing and public metadata. Refresh the list with `npm run music:fetch`; author a
+beat-grid with `npm run music:grid -- <id> <bpm> <downbeatMs>`.
