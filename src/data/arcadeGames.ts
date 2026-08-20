@@ -22,8 +22,11 @@ export type ArcadeGame = {
 
 const cleanRuntimeUrl = (value: string | undefined) => {
   const url = value?.trim();
-  return url && /^https:\/\//i.test(url) ? url : undefined;
+  return url && (/^https:\/\//i.test(url) || /^\/(?!\/)/.test(url)) ? url : undefined;
 };
+
+const stretchicornRuntime = cleanRuntimeUrl(process.env.NEXT_PUBLIC_ARCADE_STRETCHICORN_URL);
+const uniricoRuntime = cleanRuntimeUrl(process.env.NEXT_PUBLIC_ARCADE_UNIRICO_URL) ?? '/game-runtimes/unirico/index.html';
 
 export const arcadeGames: ArcadeGame[] = [
   {
@@ -33,9 +36,9 @@ export const arcadeGames: ArcadeGame[] = [
     description:
       'A compact desktop action game about steering an elastic unicorn from both ends, charging a rainbow spring, and fighting an increasingly unreasonable corn army across 13 trials.',
     version: 'v0.21.0',
-    status: cleanRuntimeUrl(process.env.NEXT_PUBLIC_ARCADE_STRETCHICORN_URL) ? 'playable' : 'preview',
+    status: stretchicornRuntime ? 'playable' : 'preview',
     sourceVisibility: 'private',
-    launchUrl: cleanRuntimeUrl(process.env.NEXT_PUBLIC_ARCADE_STRETCHICORN_URL),
+    launchUrl: stretchicornRuntime,
     aspectRatio: '960 / 640',
     nativeSize: { width: 960, height: 640 },
     tags: ['arcade action', 'js13k', 'canvas', 'procedural audio'],
@@ -55,10 +58,10 @@ export const arcadeGames: ArcadeGame[] = [
     description:
       'A precision canvas game built around movement, momentum, compact level geometry, reactive sound, and a deliberately tiny web-game runtime.',
     version: 'v0.17.1',
-    status: cleanRuntimeUrl(process.env.NEXT_PUBLIC_ARCADE_UNIRICO_URL) ? 'playable' : 'preview',
+    status: 'playable',
     sourceVisibility: 'public',
     repoUrl: 'https://github.com/sidhulyalkar/uniRico',
-    launchUrl: cleanRuntimeUrl(process.env.NEXT_PUBLIC_ARCADE_UNIRICO_URL),
+    launchUrl: uniricoRuntime,
     aspectRatio: '16 / 10',
     tags: ['movement', 'js13k', 'canvas', 'level design'],
     controls: [
