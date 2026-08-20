@@ -6,7 +6,18 @@ import { usePathname } from 'next/navigation';
 export function Header() {
   const pathname = usePathname();
 
-  if (pathname === '/') return null;
+  if (pathname === '/') {
+    return (
+      <Link
+        href="/rotation"
+        aria-label="Open Sid's Spotify listening rotation"
+        className="group fixed right-4 top-4 z-50 rounded-full border border-white/10 bg-[#020306]/55 px-4 py-2.5 font-mono backdrop-blur-xl transition hover:border-green/35 hover:bg-green/[.06] sm:right-6 sm:top-6"
+      >
+        <span className="block text-[8px] uppercase tracking-[.22em] text-green/60 transition group-hover:text-green/80">listening</span>
+        <span className="mt-0.5 block text-[10px] uppercase tracking-[.16em] text-white/55 transition group-hover:text-white/85">Rotation ↗</span>
+      </Link>
+    );
+  }
 
   return (
     <Link
