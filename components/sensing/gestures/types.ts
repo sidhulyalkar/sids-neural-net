@@ -20,23 +20,28 @@ export interface HandObservation {
   gesture: CannedGesture;
   confidence: number;
   handedness?: string;
-  /** The second hand, when two are visible. Only the clap reads it. */
   other?: { landmarks: GesturePoint[]; handedness?: string };
 }
 
 export type GestureActionType =
+  | 'history_back'
+  | 'scroll'
+  | 'activate'
+  | 'prank'
+  // Legacy names remain readable by older recordings/tools, but production no
+  // longer emits them as part of the simplified gesture vocabulary.
   | 'navigate_next'
   | 'navigate_previous'
   | 'open_palette'
   | 'close_palette'
-  | 'activate'
-  | 'page_down'
-  | 'prank';
+  | 'page_down';
 
 export interface GestureAction {
   id: number;
   type: GestureActionType;
   at: number;
+  /** Signed viewport fraction for two-finger scrolling. Positive means down. */
+  deltaY?: number;
 }
 
 export interface GestureCursor {
@@ -56,19 +61,19 @@ export interface GestureTracker {
   pose: CannedGesture;
   poseStartedAt: number;
   poseLatched: boolean;
-  /** Last frame the two palms were clearly apart, so a clap needs an approach. */
+  /** Vertical motion history while index + middle fingers are extended. */
+  scrollSamples: PositionSample[];
+  /** Last frame the two-finger pose was confidently present. */
+  scrollSeenAt: number | null;
+  /** Legacy fields retained for offline-take compatibility. */
   clapApartAt: number | null;
   clapLatched: boolean;
   hammerSamples: PositionSample[];
-  /** Last frame the hammer shape was seen, so a blurred frame mid-swing does not wipe the buffer. */
   hammerSeenAt: number | null;
   secretStartedAt: number | null;
-  /** Last frame the circle was seen; bridges the gaps that let pinch fire mid-secret. */
   secretSeenAt: number | null;
   secretLatched: boolean;
-  /** Last frame an open palm was classified, for the open->close flash. */
   openPalmSeenAt: number | null;
-  /** Which hand is currently held up ('Left' | 'Right'), null when none is. */
   raiseHand: string | null;
   raiseStartedAt: number | null;
   raiseLatched: boolean;
@@ -90,6 +95,8 @@ export function initialGestureTracker(): GestureTracker {
     pose: 'None',
     poseStartedAt: 0,
     poseLatched: false,
+    scrollSamples: [],
+    scrollSeenAt: null,
     clapApartAt: null,
     clapLatched: false,
     hammerSamples: [],
