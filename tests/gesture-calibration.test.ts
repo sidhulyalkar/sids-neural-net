@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  CALIBRATION_STEPS,
   deriveGestureCalibration,
   parseGestureCalibration,
 } from '../components/sensing/gestures/gestureCalibration';
@@ -17,6 +18,13 @@ function cluster(cx: number, cy: number, radius: number) {
     return { x: cx + Math.cos(angle) * wobble, y: cy + Math.sin(angle) * wobble };
   });
 }
+
+test('calibration course validates the exact simplified production grammar', () => {
+  assert.deepEqual(
+    CALIBRATION_STEPS.map((step) => step.id),
+    ['aim', 'pinch', 'back', 'scroll-down', 'scroll-up'],
+  );
+});
 
 test('calibration widens target acquisition for a noisier pointer', () => {
   const steady = deriveGestureCalibration({
