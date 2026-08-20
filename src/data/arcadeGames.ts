@@ -25,7 +25,8 @@ const cleanRuntimeUrl = (value: string | undefined) => {
   return url && (/^https:\/\//i.test(url) || /^\/(?!\/)/.test(url)) ? url : undefined;
 };
 
-const stretchicornRuntime = cleanRuntimeUrl(process.env.NEXT_PUBLIC_ARCADE_STRETCHICORN_URL);
+const stretchicornRuntime =
+  cleanRuntimeUrl(process.env.NEXT_PUBLIC_ARCADE_STRETCHICORN_URL) ?? '/game-runtimes/stretchicorn/index.html';
 const uniricoRuntime = cleanRuntimeUrl(process.env.NEXT_PUBLIC_ARCADE_UNIRICO_URL) ?? '/game-runtimes/unirico/index.html';
 
 export const arcadeGames: ArcadeGame[] = [
@@ -36,7 +37,7 @@ export const arcadeGames: ArcadeGame[] = [
     description:
       'A compact desktop action game about steering an elastic unicorn from both ends, charging a rainbow spring, and fighting an increasingly unreasonable corn army across 13 trials.',
     version: 'v0.21.0',
-    status: stretchicornRuntime ? 'playable' : 'preview',
+    status: 'playable',
     sourceVisibility: 'private',
     launchUrl: stretchicornRuntime,
     aspectRatio: '960 / 640',
