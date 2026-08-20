@@ -1,13 +1,12 @@
-export const GESTURE_CALIBRATION_VERSION = 1;
-export const GESTURE_CALIBRATION_STORAGE_KEY = 'sids.gesture-calibration.v1';
+export const GESTURE_CALIBRATION_VERSION = 2;
+export const GESTURE_CALIBRATION_STORAGE_KEY = 'sids.gesture-calibration.v2';
 
 export type CalibrationStepId =
   | 'aim'
   | 'pinch'
-  | 'raise-right'
-  | 'raise-left'
-  | 'menu'
-  | 'scroll';
+  | 'back'
+  | 'scroll-down'
+  | 'scroll-up';
 
 export const CALIBRATION_STEPS: ReadonlyArray<{
   id: CalibrationStepId;
@@ -15,11 +14,10 @@ export const CALIBRATION_STEPS: ReadonlyArray<{
   short: string;
 }> = [
   { id: 'aim', title: 'Aim', short: 'Hold the cursor on the calibration target.' },
-  { id: 'pinch', title: 'Pinch', short: 'Pinch the locked target, then release.' },
-  { id: 'raise-right', title: 'Next', short: 'Raise your right open palm.' },
-  { id: 'raise-left', title: 'Back', short: 'Raise your left open palm.' },
-  { id: 'menu', title: 'Menu', short: 'Show an open palm, then close it into a fist.' },
-  { id: 'scroll', title: 'Scroll', short: 'Make a deliberate downward closed-fist strike.' },
+  { id: 'pinch', title: 'Click', short: 'Pinch the locked target, then release.' },
+  { id: 'back', title: 'Back', short: 'Make a closed fist and hold it briefly.' },
+  { id: 'scroll-down', title: 'Scroll down', short: 'Hold up two fingers and move them downward.' },
+  { id: 'scroll-up', title: 'Scroll up', short: 'Keep two fingers up and move them upward.' },
 ] as const;
 
 export interface GestureCalibrationProfile {
@@ -80,9 +78,9 @@ function quantile(values: number[], q: number): number {
  * Build a conservative per-browser profile from derived cursor motion only.
  * No camera frames or landmarks are retained.
  *
- * More pointer jitter widens the acquisition halo and slightly increases the
- * lock/release guards. Pinch timing follows the user's demonstrated cadence but
- * stays inside bounds that reject single-frame noise and sluggish accidental holds.
+ * The calibrated profile tunes target acquisition and pinch cadence. Fist-back
+ * and two-finger scroll must still pass the global production recognizer, so
+ * calibration verifies them without silently weakening their identity gates.
  */
 export function deriveGestureCalibration(
   evidence: GestureCalibrationEvidence,
