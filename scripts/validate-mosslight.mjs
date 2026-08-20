@@ -31,7 +31,7 @@ const abilities = ['rain', 'sun', 'seed', 'wind', 'mend', 'gather'];
 for (const ability of abilities) expect(html.includes(`${ability}:{name:`), `missing ability definition: ${ability}`);
 
 expect((html.match(/T\('/g) ?? []).length >= 20, 'expected at least 20 authored restoration targets');
-expect((html.match(/H\(/g) ?? []).length >= 12, 'expected at least 12 authored stress fronts');
+expect((html.match(/HZ\(/g) ?? []).length >= 12, 'expected at least 12 authored stress fronts');
 expect((html.match(/C\('/g) ?? []).length >= 3, 'expected authored moveable storm-cloud encounters');
 expect((html.match(/S\('/g) ?? []).length >= 4, 'expected authored river-sluice encounters');
 
