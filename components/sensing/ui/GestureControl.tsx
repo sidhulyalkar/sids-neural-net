@@ -41,37 +41,33 @@ export function GestureControl() {
                   <ShieldCheck className="h-3.5 w-3.5" />
                   <span className="font-mono text-[9px] font-semibold uppercase tracking-[0.18em]">Local hand tracking</span>
                 </div>
-                <h2 className="mt-1 text-sm font-semibold text-text-primary">Turn your hand into the site controller.</h2>
+                <h2 className="mt-1 text-sm font-semibold text-text-primary">Three gestures control the site.</h2>
                 <p className="mt-1 text-[11px] leading-relaxed text-text-muted">
-                  The active camera is reused to recognize hand landmarks in your browser. Frames and landmarks are not uploaded or stored.
+                  Hand landmarks are recognized in your browser. Camera frames and landmarks are not uploaded or stored.
                 </p>
               </div>
             </div>
           </div>
 
-          <div className="grid gap-2 p-3 sm:grid-cols-2">
-            <div className="rounded-xl border border-white/10 bg-white/[0.035] p-3">
-              <div className="font-mono text-[9px] uppercase tracking-[0.16em] text-green">Point + pinch</div>
-              <div className="mt-1 text-[10px] leading-relaxed text-text-muted">Aim at a control, wait for green target lock, then pinch to select.</div>
+          <div className="grid gap-2 p-3 sm:grid-cols-3">
+            <div className="rounded-xl border border-green/20 bg-green/[0.035] p-3">
+              <div className="font-mono text-[9px] uppercase tracking-[0.16em] text-green">Pinch = click</div>
+              <div className="mt-1 text-[10px] leading-relaxed text-text-muted">Aim at a control, wait for green lock, pinch briefly, then release.</div>
             </div>
-            <div className="rounded-xl border border-white/10 bg-white/[0.035] p-3">
-              <div className="font-mono text-[9px] uppercase tracking-[0.16em] text-violet">Raise left / right</div>
-              <div className="mt-1 text-[10px] leading-relaxed text-text-muted">Hold an open hand high to move backward or forward through sections.</div>
+            <div className="rounded-xl border border-violet/20 bg-violet/[0.035] p-3">
+              <div className="font-mono text-[9px] uppercase tracking-[0.16em] text-violet">Fist = back</div>
+              <div className="mt-1 text-[10px] leading-relaxed text-text-muted">Hold a closed fist briefly to go back one browser-history page.</div>
             </div>
-            <div className="rounded-xl border border-white/10 bg-white/[0.035] p-3">
-              <div className="font-mono text-[9px] uppercase tracking-[0.16em] text-amber">Open palm → fist</div>
-              <div className="mt-1 text-[10px] leading-relaxed text-text-muted">Flash the gesture navigation menu. A held fist closes it.</div>
-            </div>
-            <div className="rounded-xl border border-white/10 bg-white/[0.035] p-3">
-              <div className="font-mono text-[9px] uppercase tracking-[0.16em] text-cyan">Downward fist</div>
-              <div className="mt-1 text-[10px] leading-relaxed text-text-muted">A deliberate downward closed-fist strike scrolls one screen.</div>
+            <div className="rounded-xl border border-cyan/20 bg-cyan/[0.035] p-3">
+              <div className="font-mono text-[9px] uppercase tracking-[0.16em] text-cyan">Two fingers = scroll</div>
+              <div className="mt-1 text-[10px] leading-relaxed text-text-muted">Raise index + middle fingers and move them vertically to scroll up or down.</div>
             </div>
           </div>
 
           <div className="mx-3 mb-3 rounded-xl border border-violet/20 bg-violet/[0.06] px-3 py-2.5">
             <div className="font-mono text-[9px] font-semibold uppercase tracking-[0.16em] text-violet">First use · quick calibration</div>
             <p className="mt-1 text-[10px] leading-relaxed text-text-muted">
-              A 10–30 second guided course verifies every gesture on your camera and tunes only derived pointer jitter, target tolerance, and pinch timing. You can skip it, cancel at any point, or recalibrate later if you move your device.
+              A short five-step course validates click, back, scroll down, and scroll up on your camera setup while tuning pointer and pinch timing. Skip anytime or recalibrate later after moving your device.
             </p>
           </div>
 
