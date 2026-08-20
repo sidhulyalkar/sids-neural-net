@@ -1,8 +1,10 @@
 'use client';
 
 import { useState } from 'react';
-import { AlertCircle, Hand, Loader2, ShieldCheck, X } from 'lucide-react';
+import { AlertCircle, Hand, Loader2, ShieldCheck, Sparkles, X } from 'lucide-react';
 import { useSensingStore } from '@/lib/stores/sensingStore';
+
+const GESTURE_GUIDE_EVENT = 'sensing:gesture-guide';
 
 export function GestureControl() {
   const sensingStatus = useSensingStore((state) => state.status);
@@ -14,6 +16,8 @@ export function GestureControl() {
 
   if (sensingStatus !== 'running') return null;
 
+  const reopenGuide = () => window.dispatchEvent(new Event(GESTURE_GUIDE_EVENT));
+
   return (
     <div
       className="fixed bottom-16 right-4 z-[60] flex flex-col items-end gap-2 print:hidden"
@@ -21,40 +25,63 @@ export function GestureControl() {
     >
       {showConsent && !enabled && (
         <div
-          className="w-80 rounded-xl border border-violet/25 bg-bg-panel/95 p-4 shadow-glow-violet backdrop-blur"
+          className="w-[min(90vw,24rem)] overflow-hidden rounded-2xl border border-violet/30 bg-bg-panel/95 shadow-glow-violet backdrop-blur-xl"
           role="dialog"
           aria-label="Gesture control consent"
         >
-          <div className="mb-2 flex items-center gap-2 text-violet">
-            <ShieldCheck className="h-4 w-4" />
-            <span className="text-sm font-semibold">Hands-free controls</span>
+          <div className="border-b border-white/10 bg-gradient-to-r from-violet/15 via-cyan/10 to-transparent p-4">
+            <div className="flex items-start gap-3">
+              <div className="grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-violet/25 bg-violet/15 text-violet">
+                <Sparkles className="h-4 w-4" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2 text-violet">
+                  <ShieldCheck className="h-3.5 w-3.5" />
+                  <span className="font-mono text-[9px] font-semibold uppercase tracking-[0.18em]">Local hand tracking</span>
+                </div>
+                <h2 className="mt-1 text-sm font-semibold text-text-primary">Turn your hand into the site controller.</h2>
+                <p className="mt-1 text-[11px] leading-relaxed text-text-muted">
+                  The active camera is reused to recognize hand landmarks in your browser. Frames and landmarks are not uploaded or stored.
+                </p>
+              </div>
+            </div>
           </div>
-          <p className="text-xs leading-relaxed text-text-secondary">
-            Reuses the active camera to recognize hand landmarks locally. Hand images and landmarks
-            are never uploaded or stored. Enabling downloads a pinned MediaPipe gesture model.
-          </p>
-          <ul className="mt-3 space-y-1 font-mono text-[10px] text-text-muted">
-            <li>Swipe sideways · previous / next section</li>
-            <li>Open palm · open navigation</li>
-            <li>Closed fist · close navigation</li>
-            <li>Pinch or thumbs up · activate target</li>
-            <li>Downward karate chop · page down</li>
-          </ul>
-          <div className="mt-3 flex gap-2">
+
+          <div className="grid gap-2 p-3 sm:grid-cols-2">
+            <div className="rounded-xl border border-white/10 bg-white/[0.035] p-3">
+              <div className="font-mono text-[9px] uppercase tracking-[0.16em] text-green">Point + pinch</div>
+              <div className="mt-1 text-[10px] leading-relaxed text-text-muted">Aim at a control, wait for green target lock, then pinch to select.</div>
+            </div>
+            <div className="rounded-xl border border-white/10 bg-white/[0.035] p-3">
+              <div className="font-mono text-[9px] uppercase tracking-[0.16em] text-violet">Raise left / right</div>
+              <div className="mt-1 text-[10px] leading-relaxed text-text-muted">Hold an open hand high to move backward or forward through sections.</div>
+            </div>
+            <div className="rounded-xl border border-white/10 bg-white/[0.035] p-3">
+              <div className="font-mono text-[9px] uppercase tracking-[0.16em] text-amber">Open palm → fist</div>
+              <div className="mt-1 text-[10px] leading-relaxed text-text-muted">Flash the gesture navigation menu. A held fist closes it.</div>
+            </div>
+            <div className="rounded-xl border border-white/10 bg-white/[0.035] p-3">
+              <div className="font-mono text-[9px] uppercase tracking-[0.16em] text-cyan">Downward fist</div>
+              <div className="mt-1 text-[10px] leading-relaxed text-text-muted">A deliberate downward closed-fist strike scrolls one screen.</div>
+            </div>
+          </div>
+
+          <div className="flex gap-2 border-t border-white/10 p-3">
             <button
               type="button"
               onClick={() => {
                 setShowConsent(false);
                 setEnabled(true);
               }}
-              className="flex-1 rounded-lg bg-violet/15 px-3 py-2 text-xs font-semibold text-violet transition hover:bg-violet/25"
+              className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-violet/15 px-3 py-2.5 text-xs font-semibold text-violet transition hover:bg-violet/25"
             >
-              Enable gestures
+              <Hand className="h-3.5 w-3.5" />
+              Enable air controls
             </button>
             <button
               type="button"
               onClick={() => setShowConsent(false)}
-              className="rounded-lg border border-white/10 px-3 py-2 text-xs text-text-secondary transition hover:border-white/20"
+              className="rounded-xl border border-white/10 px-3 py-2.5 text-xs text-text-secondary transition hover:border-white/20 hover:text-text-primary"
             >
               Not now
             </button>
@@ -63,7 +90,7 @@ export function GestureControl() {
       )}
 
       {enabled && status === 'error' && (
-        <div className="w-72 rounded-lg border border-rose/30 bg-bg-panel/95 p-3 text-xs text-text-secondary backdrop-blur">
+        <div className="w-72 rounded-xl border border-rose/30 bg-bg-panel/95 p-3 text-xs text-text-secondary shadow-lg backdrop-blur">
           <div className="mb-1 flex items-center gap-1.5 font-semibold text-rose">
             <AlertCircle className="h-3.5 w-3.5" />
             Hand controls unavailable
@@ -72,27 +99,44 @@ export function GestureControl() {
         </div>
       )}
 
-      <button
-        type="button"
-        aria-pressed={enabled}
-        onClick={() => {
-          if (enabled) setEnabled(false);
-          else setShowConsent((value) => !value);
-        }}
-        className={`flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium backdrop-blur transition-all ${
-          enabled
-            ? 'border-violet/35 bg-bg-panel/90 text-text-primary'
-            : 'border-white/10 bg-bg-panel/80 text-text-secondary hover:border-violet/40 hover:text-violet'
-        }`}
-      >
-        {status === 'loading' ? (
-          <Loader2 className="h-4 w-4 animate-spin text-violet" />
-        ) : (
+      {enabled ? (
+        <div className="flex items-stretch overflow-hidden rounded-full border border-violet/35 bg-bg-panel/90 shadow-lg backdrop-blur-xl">
+          <button
+            type="button"
+            onClick={reopenGuide}
+            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-text-primary transition hover:bg-violet/10"
+            title="Show gesture guide"
+          >
+            {status === 'loading' ? (
+              <Loader2 className="h-4 w-4 animate-spin text-violet" />
+            ) : (
+              <Hand className="h-4 w-4 text-violet" />
+            )}
+            <span>{status === 'running' ? 'Hands live' : 'Loading hands…'}</span>
+            {status === 'running' && <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-green" />}
+            <span className="hidden font-mono text-[8px] uppercase tracking-[0.14em] text-text-muted sm:inline">guide</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setEnabled(false)}
+            aria-label="Disable gesture control"
+            title="Disable gesture control"
+            className="grid w-9 place-items-center border-l border-white/10 text-text-muted transition hover:bg-white/5 hover:text-text-primary"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      ) : (
+        <button
+          type="button"
+          aria-pressed={false}
+          onClick={() => setShowConsent((value) => !value)}
+          className="flex items-center gap-2 rounded-full border border-white/10 bg-bg-panel/80 px-4 py-2 text-sm font-medium text-text-secondary backdrop-blur transition-all hover:border-violet/40 hover:bg-bg-panel/95 hover:text-violet"
+        >
           <Hand className="h-4 w-4 text-violet" />
-        )}
-        <span>{enabled ? (status === 'running' ? 'Hands live' : 'Loading hands…') : 'Gesture control'}</span>
-        {enabled && <X className="h-3.5 w-3.5 opacity-60" />}
-      </button>
+          <span>Gesture control</span>
+        </button>
+      )}
     </div>
   );
 }
