@@ -57,8 +57,8 @@ if (warnings.length > 0) {
   if (warnings.length > 20) console.warn(`  ... ${warnings.length - 20} additional warnings omitted`);
 }
 
-if (plans.length !== 900) {
-  throw new Error(`World Loom corpus invariant failed: expected 900 worlds, got ${plans.length}`);
+if (plans.length !== 1000) {
+  throw new Error(`World Loom corpus invariant failed: expected 1000 worlds, got ${plans.length}`);
 }
 
 if (failures.length > 0) {
@@ -73,4 +73,4 @@ if (xrBlockers.length > 0 || xrReady !== plans.length) {
   throw new Error(`World Loom XR validation failed: ${xrReady}/${plans.length} worlds ready with ${xrBlockers.length} blocker(s).`);
 }
 
-console.log('World Loom release validation passed: desktop 900/900 and strict WebXR 900/900.');
+console.log('World Loom release validation passed: desktop 1000/1000 and strict WebXR 1000/1000.');

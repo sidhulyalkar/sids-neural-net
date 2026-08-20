@@ -21,9 +21,9 @@ function assert(condition: unknown, message: string) {
   if (!condition) errors.push(message);
 }
 
-assert(NATURE_WORLDS.length === 900, `expected 900 worlds, found ${NATURE_WORLDS.length}`);
-assert(new Set(NATURE_WORLDS.map((world) => world.id)).size === 900, 'world ids must be unique');
-assert(new Set(NATURE_WORLDS.map((world) => world.seed)).size === 900, 'world seeds must be unique');
+assert(NATURE_WORLDS.length === 1000, `expected 1000 worlds, found ${NATURE_WORLDS.length}`);
+assert(new Set(NATURE_WORLDS.map((world) => world.id)).size === 1000, 'world ids must be unique');
+assert(new Set(NATURE_WORLDS.map((world) => world.seed)).size === 1000, 'world seeds must be unique');
 
 const collections = NATURE_COLLECTIONS.filter((entry) => entry.id !== 'all');
 for (const collection of collections) {

@@ -53,13 +53,13 @@ export function NatureWorldAtlas({ currentWorldId, progress, onChooseWorld, onTo
     <section className="rounded-2xl border border-white/10 bg-white/[0.025] p-5 sm:p-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2"><Map className="h-4 w-4 text-cyan/70" /><h2 className="font-mono text-sm text-text-primary">900-world illustrated field guide</h2></div>
+          <div className="flex items-center gap-2"><Map className="h-4 w-4 text-cyan/70" /><h2 className="font-mono text-sm text-text-primary">1,000-world illustrated field guide</h2></div>
           <p className="mt-2 max-w-3xl text-xs leading-5 text-text-secondary/60">Every card uses a tiny SVG interpretation of the same scene blueprint as the full viewport, so forests, coasts, flowers, mountains, deserts, glow worlds, and celestial scenes already read differently before you enter them. Nothing is locked.</p>
         </div>
         <div className="grid grid-cols-2 gap-2 font-mono text-[0.62rem] text-text-secondary/55 sm:flex">
-          <span className="rounded-full border border-white/10 px-2.5 py-1">{summary.discovered}/900 discovered</span>
+          <span className="rounded-full border border-white/10 px-2.5 py-1">{summary.discovered}/1,000 discovered</span>
           <span className="rounded-full border border-white/10 px-2.5 py-1">{percent(summary.completion)} atlas</span>
-          <span className="rounded-full border border-white/10 px-2.5 py-1">{summary.collectionsVisited}/17 collections</span>
+          <span className="rounded-full border border-white/10 px-2.5 py-1">{summary.collectionsVisited}/19 collections</span>
           <span className="rounded-full border border-white/10 px-2.5 py-1">♥ {summary.favorites}</span>
         </div>
       </div>
