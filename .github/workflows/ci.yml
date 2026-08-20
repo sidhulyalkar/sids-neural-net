@@ -107,6 +107,12 @@ jobs:
       - name: Install smoke-test browser
         run: npx --yes playwright@1.55.0 install --with-deps chromium
 
+      - name: Validate homepage Game Arcade CTA
+        run: |
+          PW_BIN="$(npm exec --yes --package=playwright@1.55.0 -- which playwright)"
+          PW_ROOT="$(cd "$(dirname "$PW_BIN")/.." && pwd)"
+          PLAYWRIGHT_MODULE_ROOT="$PW_ROOT" node scripts/playtest-arcade-home.mjs
+
       - name: Playtest all Mosslight rooms
         run: |
           PW_BIN="$(npm exec --yes --package=playwright@1.55.0 -- which playwright)"
