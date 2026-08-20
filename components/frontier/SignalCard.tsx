@@ -57,9 +57,34 @@ function mediaLabel(item: FrontierItem): string {
   return 'live signal';
 }
 
+function publishedLabel(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return 'recent';
+  return new Intl.DateTimeFormat('en-US', {
+    month: 'short',
+    day: 'numeric',
+    timeZone: 'America/Los_Angeles',
+  }).format(date);
+}
+
 function SignalArt({ item }: { item: FrontierItem }) {
   const lane = FRONTIER_LANE_MAP[item.lane];
   return <div className={styles.signalArt} aria-hidden="true"><div className={styles.signalGlyph}>{lane.glyph}</div></div>;
+}
+
+function DiscoveryImage({ src, alt }: { src: string; alt: string }) {
+  return (
+    // Publisher media can originate from arbitrary live sources, so a static next/image host allowlist is unsuitable.
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={src}
+      alt={alt}
+      className={styles.mediaImage}
+      loading="lazy"
+      decoding="async"
+      referrerPolicy="no-referrer"
+    />
+  );
 }
 
 function Media({ item, variant }: { item: FrontierItem; variant: SignalCardVariant }) {
@@ -77,20 +102,35 @@ function Media({ item, variant }: { item: FrontierItem; variant: SignalCardVaria
           allow="accelerometer; encrypted-media; gyroscope; picture-in-picture"
           allowFullScreen
         />
+      ) : youtube && media.poster ? (
+        <DiscoveryImage src={media.poster} alt={media.alt || item.title} />
       ) : media?.type === 'image' && media.url ? (
-        // Discovery images can originate from arbitrary publishers, so a static next/image host allowlist is intentionally unsuitable.
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={media.url} alt={media.alt || ''} className={styles.mediaImage} loading="lazy" decoding="async" referrerPolicy="no-referrer" />
+        <DiscoveryImage src={media.url} alt={media.alt || ''} />
       ) : media?.type === 'video' && media.url && variant === 'feature' ? (
-        <video className={styles.mediaImage} controls preload="metadata" poster={media.poster}><source src={media.url} /></video>
-      ) : <SignalArt item={item} />}
+        <video className={styles.mediaImage} controls preload="metadata" poster={media.poster}>
+          <source src={media.url} />
+        </video>
+      ) : (
+        <SignalArt item={item} />
+      )}
       <div className={styles.mediaShade} />
       <div className={styles.mediaLabel}><span>●</span>{mediaLabel(item)}</div>
     </div>
   );
 }
 
-export function SignalCard({ item, variant = 'standard', saved = false, reaction, explanation, resurfaced = false, onSeen, onOpen, onSave, onReact }: Props) {
+export function SignalCard({
+  item,
+  variant = 'standard',
+  saved = false,
+  reaction,
+  explanation,
+  resurfaced = false,
+  onSeen,
+  onOpen,
+  onSave,
+  onReact,
+}: Props) {
   const ref = useRef<HTMLElement | null>(null);
   const observed = useRef(false);
   const lane = FRONTIER_LANE_MAP[item.lane];
@@ -111,15 +151,13 @@ export function SignalCard({ item, variant = 'standard', saved = false, reaction
 
   const cardClass = [
     styles.card,
+    'bg-[#050c10]',
     variant === 'feature' ? styles.cardFeature : '',
     variant === 'wide' ? styles.cardWide : '',
     variant === 'standard' ? styles.cardStandard : '',
     variant === 'compact' ? styles.cardCompact : '',
   ].filter(Boolean).join(' ');
   const style = { '--lane-accent': LANE_ACCENTS[item.lane] ?? '#76edff' } as CSSProperties;
-  const published = new Date(item.publishedAt);
-  const days = Math.round((published.getTime() - Date.now()) / 86_400_000);
-  const timeLabel = Number.isNaN(published.getTime()) ? 'recent' : new Intl.RelativeTimeFormat('en', { numeric: 'auto' }).format(days, 'day');
 
   return (
     <article ref={ref} className={cardClass} style={style}>
@@ -127,16 +165,24 @@ export function SignalCard({ item, variant = 'standard', saved = false, reaction
       <div className={styles.cardBody}>
         <div className={styles.cardTopline}>
           <span className={styles.laneLabel}>{resurfaced ? '↺ Second chance · ' : ''}{lane.shortLabel}</span>
-          <span className={styles.sourceLabel}>{item.sourceLabel} · {timeLabel}</span>
+          <span className={styles.sourceLabel}>{item.sourceLabel} · {publishedLabel(item.publishedAt)}</span>
         </div>
         <h3 className={styles.cardTitle}>{item.title}</h3>
         <p className={styles.cardSummary}>{item.summary}</p>
 
-        {item.metrics?.length ? <div className={styles.metrics}>{item.metrics.slice(0, 4).map((metric) => (
-          <span className={styles.metric} key={`${metric.label}-${metric.value}`}><span className={styles.metricValue}>{metric.value}</span>{metric.label}</span>
-        ))}</div> : null}
+        {item.metrics?.length ? (
+          <div className={styles.metrics}>
+            {item.metrics.slice(0, 4).map((metric) => (
+              <span className={styles.metric} key={`${metric.label}-${metric.value}`}>
+                <span className={styles.metricValue}>{metric.value}</span>{metric.label}
+              </span>
+            ))}
+          </div>
+        ) : null}
 
-        <div className={styles.tags}>{item.tags.slice(0, variant === 'feature' ? 6 : 4).map((tag) => <span className={styles.tag} key={tag}>{tag}</span>)}</div>
+        <div className={styles.tags}>
+          {item.tags.slice(0, variant === 'feature' ? 6 : 4).map((tag) => <span className={styles.tag} key={tag}>{tag}</span>)}
+        </div>
         <p className={styles.reason}><span className={styles.reasonStrong}>Why it found you:</span> {explanation}</p>
 
         <div className={styles.scoreRail} aria-label="Signal scores">
@@ -148,14 +194,36 @@ export function SignalCard({ item, variant = 'standard', saved = false, reaction
           ))}
         </div>
 
-        <div className={styles.actions}>
+        <div className={styles.actions} style={{ flexWrap: 'wrap' }}>
           {REACTIONS.map((option) => (
-            <button key={option.id} type="button" title={option.label} aria-label={`${option.label}: ${item.title}`} aria-pressed={reaction === option.id} className={`${styles.actionButton} ${reaction === option.id ? styles.actionActive : ''}`} onClick={() => onReact(item, option.id)}>{option.glyph}</button>
+            <button
+              key={option.id}
+              type="button"
+              title={option.label}
+              aria-label={`${option.label}: ${item.title}`}
+              aria-pressed={reaction === option.id}
+              className={`${styles.actionButton} ${reaction === option.id ? styles.actionActive : ''}`}
+              onClick={() => onReact(item, option.id)}
+            >
+              {option.glyph}
+            </button>
           ))}
-          <button type="button" className={`${styles.saveButton} ${saved ? styles.actionActive : ''}`} onClick={() => onSave(item)} aria-pressed={saved}>
+          <button
+            type="button"
+            className={`${styles.saveButton} ${saved ? styles.actionActive : ''}`}
+            onClick={() => onSave(item)}
+            aria-pressed={saved}
+          >
             <Bookmark size={11} fill={saved ? 'currentColor' : 'none'} /> {saved ? 'Saved' : 'Save'}
           </button>
-          <a className={styles.openButton} href={item.url} target="_blank" rel="noopener noreferrer" onClick={() => onOpen(item)} aria-label={`Open ${item.title} on ${host(item.url) || item.sourceLabel}`}>
+          <a
+            className={styles.openButton}
+            href={item.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={() => onOpen(item)}
+            aria-label={`Open ${item.title} on ${host(item.url) || item.sourceLabel}`}
+          >
             <ExternalLink size={11} /> Open
           </a>
         </div>
