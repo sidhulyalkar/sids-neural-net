@@ -50,6 +50,9 @@ jobs:
       - name: Unit tests
         run: npm test
 
+      - name: Validate Mosslight runtime
+        run: npm run check:mosslight
+
       - name: Validate deterministic Nature Atlas corpus
         run: npm run check:nature-corpus
 
