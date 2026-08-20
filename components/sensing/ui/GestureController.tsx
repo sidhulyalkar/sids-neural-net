@@ -75,11 +75,6 @@ function distanceToRect(x: number, y: number, rect: DOMRect): number {
   return Math.hypot(dx, dy);
 }
 
-/**
- * Resolve a gesture target with a small forgiving halo around the air cursor.
- * Direct hits always win. Nearby probes make compact links/buttons selectable
- * without turning the page into one giant invisible click surface.
- */
 function interactiveAt(x: number, y: number): HTMLElement | null {
   const px = x * window.innerWidth;
   const py = y * window.innerHeight;
@@ -117,8 +112,7 @@ function targetKey(target: HTMLElement | null): string | null {
   if (!target) return null;
   let id = targetIds.get(target);
   if (!id) {
-    id = nextTargetId;
-    nextTargetId += 1;
+    id = nextTargetId++;
     targetIds.set(target, id);
   }
   return `gesture-target-${id}`;
@@ -137,7 +131,7 @@ function activateTarget(target: HTMLElement): void {
   try {
     target.focus({ preventScroll: true });
   } catch {
-    // A synthetic/legacy target may not accept focus options. Clicking still works.
+    // Some synthetic/legacy targets do not accept focus options. Clicking still works.
   }
   target.click();
 }
@@ -163,46 +157,51 @@ export function GestureController() {
   const pose = useSensingStore((state) => state.gesturePose);
   const action = useSensingStore((state) => state.gestureAction);
   const fps = useSensingStore((state) => state.gestureFps);
+
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [targetText, setTargetText] = useState<string | null>(null);
   const [targetLocked, setTargetLocked] = useState(false);
   const [guidePhase, setGuidePhase] = useState<GuidePhase>('hidden');
   const [pranked, setPranked] = useState(false);
+
   const handledActionRef = useRef(0);
   const feedbackTimeoutRef = useRef<number | null>(null);
   const prankTimeoutRef = useRef<number | null>(null);
   const guideFadeTimeoutRef = useRef<number | null>(null);
   const guideHideTimeoutRef = useRef<number | null>(null);
   const uiFrameRef = useRef<number | null>(null);
+  const uiQueueRef = useRef<Array<() => void>>([]);
   const pinchSelectionRef = useRef(initialPinchSelectionState());
 
   const currentRouteIndex = useMemo(() => routeIndex(pathname), [pathname]);
 
-  const scheduleUi = useCallback((update: () => void) => {
-    if (uiFrameRef.current !== null) window.cancelAnimationFrame(uiFrameRef.current);
+  const queueUi = useCallback((update: () => void) => {
+    uiQueueRef.current.push(update);
+    if (uiFrameRef.current !== null) return;
     uiFrameRef.current = window.requestAnimationFrame(() => {
       uiFrameRef.current = null;
-      update();
+      const queued = uiQueueRef.current.splice(0);
+      for (const run of queued) run();
     });
   }, []);
 
   const showFeedback = useCallback(
     (label: string, duration = 1200) => {
-      scheduleUi(() => setFeedback(label));
+      queueUi(() => setFeedback(label));
       if (feedbackTimeoutRef.current !== null) window.clearTimeout(feedbackTimeoutRef.current);
       feedbackTimeoutRef.current = window.setTimeout(() => setFeedback(null), duration);
     },
-    [scheduleUi],
+    [queueUi],
   );
 
   const showGuide = useCallback(() => {
     if (guideFadeTimeoutRef.current !== null) window.clearTimeout(guideFadeTimeoutRef.current);
     if (guideHideTimeoutRef.current !== null) window.clearTimeout(guideHideTimeoutRef.current);
-    scheduleUi(() => setGuidePhase('visible'));
+    queueUi(() => setGuidePhase('visible'));
     guideFadeTimeoutRef.current = window.setTimeout(() => setGuidePhase('fading'), 5400);
     guideHideTimeoutRef.current = window.setTimeout(() => setGuidePhase('hidden'), 6500);
-  }, [scheduleUi]);
+  }, [queueUi]);
 
   useEffect(() => {
     if (enabled && status === 'running') showGuide();
@@ -217,7 +216,7 @@ export function GestureController() {
   useEffect(() => {
     if (enabled) return;
     pinchSelectionRef.current = initialPinchSelectionState();
-    scheduleUi(() => {
+    queueUi(() => {
       setPaletteOpen(false);
       setFeedback(null);
       setTargetText(null);
@@ -230,11 +229,12 @@ export function GestureController() {
     if (prankTimeoutRef.current !== null) window.clearTimeout(prankTimeoutRef.current);
     if (guideFadeTimeoutRef.current !== null) window.clearTimeout(guideFadeTimeoutRef.current);
     if (guideHideTimeoutRef.current !== null) window.clearTimeout(guideHideTimeoutRef.current);
-  }, [enabled, scheduleUi]);
+  }, [enabled, queueUi]);
 
   useEffect(
     () => () => {
       if (uiFrameRef.current !== null) window.cancelAnimationFrame(uiFrameRef.current);
+      uiQueueRef.current = [];
       if (feedbackTimeoutRef.current !== null) window.clearTimeout(feedbackTimeoutRef.current);
       if (prankTimeoutRef.current !== null) window.clearTimeout(prankTimeoutRef.current);
       if (guideFadeTimeoutRef.current !== null) window.clearTimeout(guideFadeTimeoutRef.current);
@@ -247,7 +247,7 @@ export function GestureController() {
   useEffect(() => {
     if (!enabled || status !== 'running' || !cursor) {
       pinchSelectionRef.current = initialPinchSelectionState();
-      scheduleUi(() => {
+      queueUi(() => {
         setTargetText(null);
         setTargetLocked(false);
       });
@@ -261,16 +261,15 @@ export function GestureController() {
     }
 
     const target = interactiveAt(cursor.x, cursor.y);
-    const key = targetKey(target);
     const selection = updatePinchSelection(pinchSelectionRef.current, {
       pinching: cursor.pinching,
-      targetKey: key,
+      targetKey: targetKey(target),
       now: performance.now(),
     });
     pinchSelectionRef.current = selection.state;
 
     const label = targetLabel(target);
-    scheduleUi(() => {
+    queueUi(() => {
       setTargetText(label);
       setTargetLocked(selection.targetLocked);
     });
@@ -284,7 +283,7 @@ export function GestureController() {
 
     activateTarget(target);
     showFeedback('Pinch selected');
-  }, [cursor, enabled, paletteOpen, scheduleUi, showFeedback, status]);
+  }, [cursor, enabled, paletteOpen, queueUi, showFeedback, status]);
 
   useEffect(() => {
     if (!enabled || !action || action.id === handledActionRef.current || document.hidden) return;
@@ -292,21 +291,19 @@ export function GestureController() {
 
     const blocked = isTyping() || hasBlockingDialog();
     switch (action.type) {
-      case 'navigate_next': {
+      case 'navigate_next':
         if (blocked || paletteOpen) return;
         router.push(siteNavItems[(currentRouteIndex + 1) % siteNavItems.length].href);
         break;
-      }
-      case 'navigate_previous': {
+      case 'navigate_previous':
         if (blocked || paletteOpen) return;
         router.push(siteNavItems[(currentRouteIndex - 1 + siteNavItems.length) % siteNavItems.length].href);
         break;
-      }
       case 'open_palette':
-        if (!blocked) scheduleUi(() => setPaletteOpen(true));
+        if (!blocked) queueUi(() => setPaletteOpen(true));
         break;
       case 'close_palette':
-        scheduleUi(() => setPaletteOpen(false));
+        queueUi(() => setPaletteOpen(false));
         break;
       case 'activate': {
         if ((!paletteOpen && blocked) || !cursor) return;
@@ -327,20 +324,19 @@ export function GestureController() {
         });
         break;
       }
-      case 'prank': {
+      case 'prank':
         document.documentElement.setAttribute('data-sensing-pranked', 'true');
-        scheduleUi(() => setPranked(true));
+        queueUi(() => setPranked(true));
         if (prankTimeoutRef.current !== null) window.clearTimeout(prankTimeoutRef.current);
         prankTimeoutRef.current = window.setTimeout(() => {
           document.documentElement.removeAttribute('data-sensing-pranked');
           setPranked(false);
         }, 3200);
         break;
-      }
     }
 
     showFeedback(ACTION_LABELS[action.type], action.type === 'prank' ? 3200 : 1200);
-  }, [action, currentRouteIndex, cursor, enabled, paletteOpen, router, scheduleUi, showFeedback]);
+  }, [action, currentRouteIndex, cursor, enabled, paletteOpen, queueUi, router, showFeedback]);
 
   if (!enabled || status !== 'running') return null;
 
@@ -370,43 +366,21 @@ export function GestureController() {
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.22em] text-violet">
-                      Air controls online
-                    </span>
+                    <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.22em] text-violet">Air controls online</span>
                     <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-green" />
                   </div>
                   <h2 className="mt-1 text-base font-semibold text-text-primary">Your hand is now the pointer.</h2>
-                  <p className="mt-0.5 text-xs text-text-muted">
-                    Aim first, wait for the green lock, then pinch. Release before the next selection.
-                  </p>
+                  <p className="mt-0.5 text-xs text-text-muted">Aim first, wait for the green lock, then pinch. Release before the next selection.</p>
                 </div>
               </div>
-              <span className="rounded-full border border-white/10 bg-bg-deep/60 px-2.5 py-1 font-mono text-[9px] text-text-muted">
-                fades automatically
-              </span>
+              <span className="rounded-full border border-white/10 bg-bg-deep/60 px-2.5 py-1 font-mono text-[9px] text-text-muted">fades automatically</span>
             </div>
 
             <div className="grid gap-2 p-3 sm:grid-cols-2 lg:grid-cols-4">
-              <div className="rounded-2xl border border-white/10 bg-white/[0.035] p-3">
-                <MousePointer2 className="h-4 w-4 text-cyan" />
-                <div className="mt-2 text-xs font-semibold text-text-primary">Point to aim</div>
-                <div className="mt-1 text-[10px] leading-relaxed text-text-muted">Index fingertip steers the violet cursor.</div>
-              </div>
-              <div className="rounded-2xl border border-white/10 bg-white/[0.035] p-3">
-                <Hand className="h-4 w-4 text-green" />
-                <div className="mt-2 text-xs font-semibold text-text-primary">Pinch to select</div>
-                <div className="mt-1 text-[10px] leading-relaxed text-text-muted">Green means locked. Touch thumb + index briefly.</div>
-              </div>
-              <div className="rounded-2xl border border-white/10 bg-white/[0.035] p-3">
-                <MoveHorizontal className="h-4 w-4 text-violet" />
-                <div className="mt-2 text-xs font-semibold text-text-primary">Raise to navigate</div>
-                <div className="mt-1 text-[10px] leading-relaxed text-text-muted">Open right hand goes next. Open left goes back.</div>
-              </div>
-              <div className="rounded-2xl border border-white/10 bg-white/[0.035] p-3">
-                <Menu className="h-4 w-4 text-amber" />
-                <div className="mt-2 text-xs font-semibold text-text-primary">Flash the menu</div>
-                <div className="mt-1 text-[10px] leading-relaxed text-text-muted">Open palm → fist opens navigation. Fist closes it.</div>
-              </div>
+              <GuideCard icon={<MousePointer2 className="h-4 w-4 text-cyan" />} title="Point to aim">Index fingertip steers the violet cursor.</GuideCard>
+              <GuideCard icon={<Hand className="h-4 w-4 text-green" />} title="Pinch to select">Green means locked. Touch thumb + index briefly.</GuideCard>
+              <GuideCard icon={<MoveHorizontal className="h-4 w-4 text-violet" />} title="Raise to navigate">Open right hand goes next. Open left goes back.</GuideCard>
+              <GuideCard icon={<Menu className="h-4 w-4 text-amber" />} title="Flash the menu">Open palm → fist opens navigation. Fist closes it.</GuideCard>
             </div>
 
             <div className="flex items-center justify-center gap-2 border-t border-white/10 px-4 py-2 font-mono text-[9px] text-text-muted">
@@ -422,7 +396,7 @@ export function GestureController() {
       {cursor && (
         <div
           aria-hidden="true"
-          className="pointer-events-none fixed z-[90] -translate-x-1/2 -translate-y-1/2 transition-[left,top] duration-50"
+          className="pointer-events-none fixed z-[90] -translate-x-1/2 -translate-y-1/2 transition-[left,top] duration-75"
           style={{ left: `${cursor.x * 100}%`, top: `${cursor.y * 100}%` }}
         >
           <div
@@ -438,9 +412,7 @@ export function GestureController() {
                       : 'border-violet bg-violet/10 shadow-glow-violet'
             }`}
           >
-            {targetLocked && !cursor.pinching && (
-              <span className="absolute h-11 w-11 rounded-full border border-green/35" />
-            )}
+            {targetLocked && !cursor.pinching && <span className="absolute h-11 w-11 rounded-full border border-green/35" />}
             <span className="h-1.5 w-1.5 rounded-full bg-white" />
           </div>
           {targetText && (
@@ -464,14 +436,8 @@ export function GestureController() {
       </div>
 
       {pranked && (
-        <div
-          className="pointer-events-none fixed inset-x-4 top-[42%] z-[100] text-center"
-          role="status"
-          aria-live="assertive"
-        >
-          <span className="inline-block rounded-2xl border border-amber/45 bg-bg-deep/95 px-6 py-4 font-mono text-sm font-semibold text-amber shadow-glow-amber backdrop-blur">
-            Okay, you got me. The site looked. 👀
-          </span>
+        <div className="pointer-events-none fixed inset-x-4 top-[42%] z-[100] text-center" role="status" aria-live="assertive">
+          <span className="inline-block rounded-2xl border border-amber/45 bg-bg-deep/95 px-6 py-4 font-mono text-sm font-semibold text-amber shadow-glow-amber backdrop-blur">Okay, you got me. The site looked. 👀</span>
         </div>
       )}
 
@@ -486,27 +452,18 @@ export function GestureController() {
             if (event.target === event.currentTarget) setPaletteOpen(false);
           }}
         >
-          <Command className="w-full max-w-2xl overflow-hidden rounded-3xl border border-violet/30 bg-bg-panel/98 shadow-glow-violet">
+          <Command className="w-full max-w-2xl overflow-hidden rounded-3xl border border-violet/30 bg-bg-panel/95 shadow-glow-violet">
             <div className="border-b border-white/10 bg-gradient-to-r from-violet/15 via-transparent to-cyan/10 px-5 py-4">
               <div className="flex items-start justify-between gap-4">
                 <div className="flex items-start gap-3">
-                  <div className="grid h-9 w-9 place-items-center rounded-xl border border-violet/25 bg-violet/15 text-violet">
-                    <Hand className="h-4 w-4" />
-                  </div>
+                  <div className="grid h-9 w-9 place-items-center rounded-xl border border-violet/25 bg-violet/15 text-violet"><Hand className="h-4 w-4" /></div>
                   <div>
                     <div className="font-mono text-[9px] uppercase tracking-[0.2em] text-violet">Gesture navigator</div>
                     <div className="mt-1 text-sm font-semibold text-text-primary">Point, lock, pinch.</div>
                     <div className="mt-0.5 text-[10px] text-text-muted">Move near an item until the cursor turns green.</div>
                   </div>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setPaletteOpen(false)}
-                  aria-label="Close navigation"
-                  className="rounded-xl border border-white/10 p-2 text-text-muted transition hover:border-white/20 hover:text-text-primary"
-                >
-                  <X className="h-4 w-4" />
-                </button>
+                <button type="button" onClick={() => setPaletteOpen(false)} aria-label="Close navigation" className="rounded-xl border border-white/10 p-2 text-text-muted transition hover:border-white/20 hover:text-text-primary"><X className="h-4 w-4" /></button>
               </div>
               <div className="mt-3 flex flex-wrap gap-1.5 font-mono text-[9px] text-text-muted">
                 <span className="rounded-full border border-white/10 bg-bg-deep/50 px-2 py-1">green = locked</span>
@@ -517,16 +474,10 @@ export function GestureController() {
 
             <div className="flex items-center gap-2 border-b border-white/10 px-4">
               <Search className="h-4 w-4 text-violet" />
-              <Command.Input
-                autoFocus
-                placeholder="Search the neural net…"
-                className="h-12 flex-1 bg-transparent text-sm text-text-primary outline-none placeholder:text-text-muted"
-              />
+              <Command.Input autoFocus placeholder="Search the neural net…" className="h-12 flex-1 bg-transparent text-sm text-text-primary outline-none placeholder:text-text-muted" />
             </div>
             <Command.List className="max-h-[52vh] overflow-y-auto p-2">
-              <Command.Empty className="px-3 py-8 text-center text-sm text-text-muted">
-                No matching signal.
-              </Command.Empty>
+              <Command.Empty className="px-3 py-8 text-center text-sm text-text-muted">No matching signal.</Command.Empty>
               <Command.Group heading="Navigate" className="text-xs text-text-muted">
                 {siteNavItems.map((item) => (
                   <Command.Item
@@ -547,12 +498,20 @@ export function GestureController() {
                 ))}
               </Command.Group>
             </Command.List>
-            <div className="border-t border-white/10 px-4 py-2 text-center font-mono text-[9px] text-text-muted">
-              Point + green lock + pinch to choose · release between selections · closed fist to cancel
-            </div>
+            <div className="border-t border-white/10 px-4 py-2 text-center font-mono text-[9px] text-text-muted">Point + green lock + pinch to choose · release between selections · closed fist to cancel</div>
           </Command>
         </div>
       )}
     </>
+  );
+}
+
+function GuideCard({ icon, title, children }: { icon: React.ReactNode; title: string; children: React.ReactNode }) {
+  return (
+    <div className="rounded-2xl border border-white/10 bg-white/[0.035] p-3">
+      {icon}
+      <div className="mt-2 text-xs font-semibold text-text-primary">{title}</div>
+      <div className="mt-1 text-[10px] leading-relaxed text-text-muted">{children}</div>
+    </div>
   );
 }
