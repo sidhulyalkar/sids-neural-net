@@ -6,6 +6,10 @@
 
 The room-unlock cadence is intentionally readable and arcade-like, but the ruleset is original: the player's directional shots are ecological interventions rather than weapons. The satisfying part is learning causal chains quickly enough to turn a stressed biome into a thriving one.
 
+## v0.1 implementation status
+
+The first playable runtime is implemented at `/game-runtimes/mosslight/index.html` and registered in the site's Arcade. CI compiles the embedded JavaScript before release and checks the authored campaign contract: ten named rooms, six restoration abilities, moving storm-cloud encounters, river sluices, restoration targets, and environmental stress fronts. Browser fixtures exercise both the standalone runtime and the neural Arcade chamber.
+
 ## Design pillars
 
 1. **Action-game hands, puzzle-game brain.** Movement should feel immediate, smooth, and expressive. The player independently aims and fires restoration abilities while accelerating, drifting, and dashing through a room.
