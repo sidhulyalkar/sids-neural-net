@@ -3,13 +3,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Command } from 'cmdk';
 import {
+  Check,
   ChevronDown,
   Hand,
   Menu,
   MousePointer2,
   MoveHorizontal,
+  RotateCcw,
   Search,
   Sparkles,
+  Target,
   X,
 } from 'lucide-react';
 import { usePathname, useRouter } from 'next/navigation';
@@ -17,8 +20,19 @@ import { siteNavItems } from '@/src/data/siteNav';
 import { useSensingStore } from '@/lib/stores/sensingStore';
 import type { GestureActionType } from '../gestures';
 import {
+  CALIBRATION_BOOTSTRAP_PROFILE,
+  CALIBRATION_STEPS,
+  DEFAULT_GESTURE_CALIBRATION,
+  deriveGestureCalibration,
+  loadGestureCalibration,
+  saveGestureCalibration,
+  type CalibrationStepId,
+  type GestureCalibrationProfile,
+} from '../gestures/gestureCalibration';
+import {
   initialPinchSelectionState,
   updatePinchSelection,
+  type PinchSelectionConfig,
 } from '../gestures/pinchSelection';
 
 const ACTION_LABELS: Record<GestureActionType, string> = {
@@ -32,7 +46,9 @@ const ACTION_LABELS: Record<GestureActionType, string> = {
 };
 
 const GESTURE_GUIDE_EVENT = 'sensing:gesture-guide';
-const TARGET_PROBE_RADIUS_PX = 20;
+const CALIBRATION_TARGET = 'primary';
+const AIM_SAMPLE_MS = 480;
+const MIN_AIM_SAMPLES = 8;
 const INTERACTIVE_SELECTOR = [
   '[data-gesture-target]',
   'a[href]',
@@ -47,6 +63,10 @@ const INTERACTIVE_SELECTOR = [
 
 const targetIds = new WeakMap<HTMLElement, number>();
 let nextTargetId = 1;
+
+type GuidePhase = 'hidden' | 'visible' | 'fading';
+type PanelKind = 'guide' | 'calibration' | 'complete';
+type InteractionGate = 'pending' | 'calibrating' | 'ready';
 
 function isTyping(): boolean {
   const active = document.activeElement;
@@ -75,15 +95,20 @@ function distanceToRect(x: number, y: number, rect: DOMRect): number {
   return Math.hypot(dx, dy);
 }
 
-function interactiveAt(x: number, y: number): HTMLElement | null {
+function interactiveAt(x: number, y: number, probeRadiusPx: number): HTMLElement | null {
   const px = x * window.innerWidth;
   const py = y * window.innerHeight;
+  const diagonal = probeRadiusPx * 0.7;
   const probes = [
     [0, 0],
-    [TARGET_PROBE_RADIUS_PX, 0],
-    [-TARGET_PROBE_RADIUS_PX, 0],
-    [0, TARGET_PROBE_RADIUS_PX],
-    [0, -TARGET_PROBE_RADIUS_PX],
+    [probeRadiusPx, 0],
+    [-probeRadiusPx, 0],
+    [0, probeRadiusPx],
+    [0, -probeRadiusPx],
+    [diagonal, diagonal],
+    [diagonal, -diagonal],
+    [-diagonal, diagonal],
+    [-diagonal, -diagonal],
   ] as const;
   const candidates = new Set<HTMLElement>();
 
@@ -105,7 +130,7 @@ function interactiveAt(x: number, y: number): HTMLElement | null {
       bestDistance = score;
     }
   }
-  return bestDistance <= TARGET_PROBE_RADIUS_PX ? best : null;
+  return bestDistance <= probeRadiusPx ? best : null;
 }
 
 function targetKey(target: HTMLElement | null): string | null {
@@ -146,7 +171,17 @@ function routeIndex(pathname: string): number {
   return candidates[0]?.index ?? 0;
 }
 
-type GuidePhase = 'hidden' | 'visible' | 'fading';
+function pinchConfig(profile: GestureCalibrationProfile): PinchSelectionConfig {
+  return {
+    pinchHoldMs: profile.pinchHoldMs,
+    targetLockMs: profile.targetLockMs,
+    releaseArmMs: profile.releaseArmMs,
+  };
+}
+
+function isCalibrationTarget(target: HTMLElement | null): boolean {
+  return target?.dataset.gestureCalibrationTarget === CALIBRATION_TARGET;
+}
 
 export function GestureController() {
   const router = useRouter();
@@ -163,6 +198,10 @@ export function GestureController() {
   const [targetText, setTargetText] = useState<string | null>(null);
   const [targetLocked, setTargetLocked] = useState(false);
   const [guidePhase, setGuidePhase] = useState<GuidePhase>('hidden');
+  const [panelKind, setPanelKind] = useState<PanelKind>('guide');
+  const [calibrationActive, setCalibrationActive] = useState(false);
+  const [calibrationStepIndex, setCalibrationStepIndex] = useState(0);
+  const [calibrationProfile, setCalibrationProfile] = useState<GestureCalibrationProfile | null>(null);
   const [pranked, setPranked] = useState(false);
 
   const handledActionRef = useRef(0);
@@ -173,6 +212,15 @@ export function GestureController() {
   const uiFrameRef = useRef<number | null>(null);
   const uiQueueRef = useRef<Array<() => void>>([]);
   const pinchSelectionRef = useRef(initialPinchSelectionState());
+  const calibrationProfileRef = useRef<GestureCalibrationProfile | null>(null);
+  const calibrationStepIndexRef = useRef(0);
+  const interactionGateRef = useRef<InteractionGate>('pending');
+  const sessionInitializedRef = useRef(false);
+  const aimSeenAtRef = useRef<number | null>(null);
+  const pointerSamplesRef = useRef<Array<{ x: number; y: number }>>([]);
+  const calibrationPinchStartedAtRef = useRef<number | null>(null);
+  const calibrationPinchActivatedRef = useRef(false);
+  const calibrationPinchDurationRef = useRef(300);
 
   const currentRouteIndex = useMemo(() => routeIndex(pathname), [pathname]);
 
@@ -186,6 +234,13 @@ export function GestureController() {
     });
   }, []);
 
+  const clearGuideTimers = useCallback(() => {
+    if (guideFadeTimeoutRef.current !== null) window.clearTimeout(guideFadeTimeoutRef.current);
+    if (guideHideTimeoutRef.current !== null) window.clearTimeout(guideHideTimeoutRef.current);
+    guideFadeTimeoutRef.current = null;
+    guideHideTimeoutRef.current = null;
+  }, []);
+
   const showFeedback = useCallback(
     (label: string, duration = 1200) => {
       queueUi(() => setFeedback(label));
@@ -196,16 +251,95 @@ export function GestureController() {
   );
 
   const showGuide = useCallback(() => {
-    if (guideFadeTimeoutRef.current !== null) window.clearTimeout(guideFadeTimeoutRef.current);
-    if (guideHideTimeoutRef.current !== null) window.clearTimeout(guideHideTimeoutRef.current);
-    queueUi(() => setGuidePhase('visible'));
+    if (interactionGateRef.current === 'calibrating') return;
+    clearGuideTimers();
+    queueUi(() => {
+      setPanelKind('guide');
+      setGuidePhase('visible');
+    });
     guideFadeTimeoutRef.current = window.setTimeout(() => setGuidePhase('fading'), 5400);
     guideHideTimeoutRef.current = window.setTimeout(() => setGuidePhase('hidden'), 6500);
-  }, [queueUi]);
+  }, [clearGuideTimers, queueUi]);
+
+  const beginCalibration = useCallback(() => {
+    clearGuideTimers();
+    interactionGateRef.current = 'calibrating';
+    calibrationStepIndexRef.current = 0;
+    aimSeenAtRef.current = null;
+    pointerSamplesRef.current = [];
+    calibrationPinchStartedAtRef.current = null;
+    calibrationPinchActivatedRef.current = false;
+    calibrationPinchDurationRef.current = 300;
+    pinchSelectionRef.current = initialPinchSelectionState();
+    queueUi(() => {
+      setPaletteOpen(false);
+      setCalibrationActive(true);
+      setCalibrationStepIndex(0);
+      setPanelKind('calibration');
+      setGuidePhase('visible');
+    });
+    showFeedback('Calibration started', 900);
+  }, [clearGuideTimers, queueUi, showFeedback]);
+
+  const finishCalibration = useCallback(() => {
+    const profile = deriveGestureCalibration({
+      pointerSamples: pointerSamplesRef.current,
+      pinchDurationMs: calibrationPinchDurationRef.current,
+    });
+    calibrationProfileRef.current = profile;
+    saveGestureCalibration(profile);
+    interactionGateRef.current = 'ready';
+    clearGuideTimers();
+    queueUi(() => {
+      setCalibrationProfile(profile);
+      setCalibrationActive(false);
+      setPanelKind('complete');
+      setGuidePhase('visible');
+    });
+    showFeedback('Air controls calibrated', 1600);
+    guideFadeTimeoutRef.current = window.setTimeout(() => setGuidePhase('fading'), 1900);
+    guideHideTimeoutRef.current = window.setTimeout(() => setGuidePhase('hidden'), 2800);
+  }, [clearGuideTimers, queueUi, showFeedback]);
+
+  const advanceCalibration = useCallback(
+    (stepId: CalibrationStepId) => {
+      if (interactionGateRef.current !== 'calibrating') return false;
+      const index = calibrationStepIndexRef.current;
+      if (CALIBRATION_STEPS[index]?.id !== stepId) return false;
+
+      const nextIndex = index + 1;
+      showFeedback(`${CALIBRATION_STEPS[index].title} calibrated`, 700);
+      if (nextIndex >= CALIBRATION_STEPS.length) {
+        finishCalibration();
+      } else {
+        calibrationStepIndexRef.current = nextIndex;
+        pinchSelectionRef.current = initialPinchSelectionState();
+        queueUi(() => setCalibrationStepIndex(nextIndex));
+      }
+      return true;
+    },
+    [finishCalibration, queueUi, showFeedback],
+  );
 
   useEffect(() => {
-    if (enabled && status === 'running') showGuide();
-  }, [enabled, status, showGuide]);
+    if (!enabled || status !== 'running') {
+      sessionInitializedRef.current = false;
+      interactionGateRef.current = 'pending';
+      return;
+    }
+    if (sessionInitializedRef.current) return;
+    sessionInitializedRef.current = true;
+
+    const stored = loadGestureCalibration();
+    if (stored) {
+      calibrationProfileRef.current = stored;
+      interactionGateRef.current = 'ready';
+      queueUi(() => setCalibrationProfile(stored));
+      showGuide();
+    } else {
+      beginCalibration();
+    }
+  }, [beginCalibration, enabled, queueUi, showGuide, status]);
 
   useEffect(() => {
     const reopenGuide = () => showGuide();
@@ -216,20 +350,21 @@ export function GestureController() {
   useEffect(() => {
     if (enabled) return;
     pinchSelectionRef.current = initialPinchSelectionState();
+    interactionGateRef.current = 'pending';
     queueUi(() => {
       setPaletteOpen(false);
       setFeedback(null);
       setTargetText(null);
       setTargetLocked(false);
       setGuidePhase('hidden');
+      setCalibrationActive(false);
       setPranked(false);
     });
     handledActionRef.current = 0;
     document.documentElement.removeAttribute('data-sensing-pranked');
     if (prankTimeoutRef.current !== null) window.clearTimeout(prankTimeoutRef.current);
-    if (guideFadeTimeoutRef.current !== null) window.clearTimeout(guideFadeTimeoutRef.current);
-    if (guideHideTimeoutRef.current !== null) window.clearTimeout(guideHideTimeoutRef.current);
-  }, [enabled, queueUi]);
+    clearGuideTimers();
+  }, [clearGuideTimers, enabled, queueUi]);
 
   useEffect(
     () => () => {
@@ -237,15 +372,14 @@ export function GestureController() {
       uiQueueRef.current = [];
       if (feedbackTimeoutRef.current !== null) window.clearTimeout(feedbackTimeoutRef.current);
       if (prankTimeoutRef.current !== null) window.clearTimeout(prankTimeoutRef.current);
-      if (guideFadeTimeoutRef.current !== null) window.clearTimeout(guideFadeTimeoutRef.current);
-      if (guideHideTimeoutRef.current !== null) window.clearTimeout(guideHideTimeoutRef.current);
+      clearGuideTimers();
       document.documentElement.removeAttribute('data-sensing-pranked');
     },
-    [],
+    [clearGuideTimers],
   );
 
   useEffect(() => {
-    if (!enabled || status !== 'running' || !cursor) {
+    if (!enabled || status !== 'running' || !cursor || interactionGateRef.current === 'pending') {
       pinchSelectionRef.current = initialPinchSelectionState();
       queueUi(() => {
         setTargetText(null);
@@ -254,25 +388,90 @@ export function GestureController() {
       return;
     }
 
-    if (paletteOpen) {
+    const calibrating = interactionGateRef.current === 'calibrating';
+    const profile = calibrating
+      ? CALIBRATION_BOOTSTRAP_PROFILE
+      : calibrationProfileRef.current ?? DEFAULT_GESTURE_CALIBRATION;
+
+    if (!calibrating && paletteOpen) {
       const list = document.querySelector<HTMLElement>('[cmdk-list]');
       if (cursor.y < 0.22) list?.scrollBy({ top: -18 });
       if (cursor.y > 0.78) list?.scrollBy({ top: 18 });
     }
 
-    const target = interactiveAt(cursor.x, cursor.y);
-    const selection = updatePinchSelection(pinchSelectionRef.current, {
-      pinching: cursor.pinching,
-      targetKey: targetKey(target),
-      now: performance.now(),
-    });
+    let target = interactiveAt(cursor.x, cursor.y, profile.targetProbeRadiusPx);
+    if (calibrating && !isCalibrationTarget(target)) target = null;
+
+    const now = performance.now();
+    const selection = updatePinchSelection(
+      pinchSelectionRef.current,
+      { pinching: cursor.pinching, targetKey: targetKey(target), now },
+      pinchConfig(profile),
+    );
     pinchSelectionRef.current = selection.state;
 
-    const label = targetLabel(target);
+    const label = calibrating && target ? 'Calibration target' : targetLabel(target);
     queueUi(() => {
       setTargetText(label);
       setTargetLocked(selection.targetLocked);
     });
+
+    if (calibrating) {
+      const step = CALIBRATION_STEPS[calibrationStepIndexRef.current]?.id;
+      const onCalibrationTarget = isCalibrationTarget(target);
+
+      if (step === 'aim') {
+        if (onCalibrationTarget && !cursor.pinching) {
+          if (aimSeenAtRef.current === null) {
+            aimSeenAtRef.current = now;
+            pointerSamplesRef.current = [];
+          }
+          pointerSamplesRef.current.push({
+            x: cursor.x * window.innerWidth,
+            y: cursor.y * window.innerHeight,
+          });
+          if (pointerSamplesRef.current.length > 45) pointerSamplesRef.current.shift();
+
+          if (
+            selection.targetLocked &&
+            now - aimSeenAtRef.current >= AIM_SAMPLE_MS &&
+            pointerSamplesRef.current.length >= MIN_AIM_SAMPLES
+          ) {
+            advanceCalibration('aim');
+          }
+        } else {
+          aimSeenAtRef.current = null;
+          pointerSamplesRef.current = [];
+        }
+        return;
+      }
+
+      if (step === 'pinch') {
+        if (cursor.pinching && calibrationPinchStartedAtRef.current === null) {
+          calibrationPinchStartedAtRef.current = now;
+        }
+        if (selection.activate && onCalibrationTarget) {
+          calibrationPinchActivatedRef.current = true;
+          showFeedback('Pinch recognized · release', 900);
+        }
+        if (
+          !cursor.pinching &&
+          calibrationPinchActivatedRef.current &&
+          calibrationPinchStartedAtRef.current !== null
+        ) {
+          calibrationPinchDurationRef.current = Math.max(
+            140,
+            now - calibrationPinchStartedAtRef.current,
+          );
+          calibrationPinchStartedAtRef.current = null;
+          calibrationPinchActivatedRef.current = false;
+          advanceCalibration('pinch');
+        }
+        return;
+      }
+
+      return;
+    }
 
     if (!selection.activate || !target || document.hidden) return;
     const blocked = isTyping() || hasBlockingDialog();
@@ -283,12 +482,42 @@ export function GestureController() {
 
     activateTarget(target);
     showFeedback('Pinch selected');
-  }, [cursor, enabled, paletteOpen, queueUi, showFeedback, status]);
+  }, [
+    advanceCalibration,
+    cursor,
+    enabled,
+    paletteOpen,
+    queueUi,
+    showFeedback,
+    status,
+  ]);
 
   useEffect(() => {
     if (!enabled || !action || action.id === handledActionRef.current || document.hidden) return;
     handledActionRef.current = action.id;
 
+    if (interactionGateRef.current === 'pending') return;
+    if (interactionGateRef.current === 'calibrating') {
+      switch (action.type) {
+        case 'navigate_next':
+          advanceCalibration('raise-right');
+          break;
+        case 'navigate_previous':
+          advanceCalibration('raise-left');
+          break;
+        case 'open_palette':
+          advanceCalibration('menu');
+          break;
+        case 'page_down':
+          advanceCalibration('scroll');
+          break;
+        default:
+          break;
+      }
+      return;
+    }
+
+    const profile = calibrationProfileRef.current ?? DEFAULT_GESTURE_CALIBRATION;
     const blocked = isTyping() || hasBlockingDialog();
     switch (action.type) {
       case 'navigate_next':
@@ -307,7 +536,7 @@ export function GestureController() {
         break;
       case 'activate': {
         if ((!paletteOpen && blocked) || !cursor) return;
-        const target = interactiveAt(cursor.x, cursor.y);
+        const target = interactiveAt(cursor.x, cursor.y, profile.targetProbeRadiusPx);
         if (!target) {
           showFeedback('No target under cursor');
           return;
@@ -336,67 +565,62 @@ export function GestureController() {
     }
 
     showFeedback(ACTION_LABELS[action.type], action.type === 'prank' ? 3200 : 1200);
-  }, [action, currentRouteIndex, cursor, enabled, paletteOpen, queueUi, router, showFeedback]);
+  }, [
+    action,
+    advanceCalibration,
+    currentRouteIndex,
+    cursor,
+    enabled,
+    paletteOpen,
+    queueUi,
+    router,
+    showFeedback,
+  ]);
 
   if (!enabled || status !== 'running') return null;
 
-  const cursorStatus = feedback
-    ? feedback
-    : targetLocked
-      ? 'Target locked · pinch to select'
-      : cursor?.pinching
-        ? 'Pinching · release to re-arm'
-        : pose.replaceAll('_', ' ');
+  const currentCalibrationStep = CALIBRATION_STEPS[calibrationStepIndex];
+  const cursorStatus = calibrationActive
+    ? `Calibration ${calibrationStepIndex + 1}/${CALIBRATION_STEPS.length} · ${currentCalibrationStep?.short ?? ''}`
+    : feedback
+      ? feedback
+      : targetLocked
+        ? 'Target locked · pinch to select'
+        : cursor?.pinching
+          ? 'Pinching · release to re-arm'
+          : pose.replaceAll('_', ' ');
 
   return (
     <>
       {guidePhase !== 'hidden' && (
         <div
-          className={`pointer-events-none fixed left-1/2 top-16 z-[95] w-[min(92vw,760px)] -translate-x-1/2 transition-all duration-700 ${
+          className={`fixed left-1/2 top-14 z-[95] w-[min(94vw,820px)] -translate-x-1/2 transition-all duration-700 ${
             guidePhase === 'fading' ? '-translate-y-3 opacity-0' : 'translate-y-0 opacity-100'
-          }`}
+          } ${panelKind === 'calibration' ? 'pointer-events-none' : ''}`}
           role="status"
           aria-live="polite"
         >
-          <div className="overflow-hidden rounded-3xl border border-violet/30 bg-bg-panel/95 shadow-glow-violet backdrop-blur-xl">
-            <div className="flex items-start justify-between gap-4 border-b border-white/10 bg-gradient-to-r from-violet/15 via-cyan/10 to-transparent px-5 py-4">
-              <div className="flex items-start gap-3">
-                <div className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl border border-violet/30 bg-violet/15 text-violet">
-                  <Sparkles className="h-5 w-5" />
-                </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.22em] text-violet">Air controls online</span>
-                    <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-green" />
-                  </div>
-                  <h2 className="mt-1 text-base font-semibold text-text-primary">Your hand is now the pointer.</h2>
-                  <p className="mt-0.5 text-xs text-text-muted">Aim first, wait for the green lock, then pinch. Release before the next selection.</p>
-                </div>
-              </div>
-              <span className="rounded-full border border-white/10 bg-bg-deep/60 px-2.5 py-1 font-mono text-[9px] text-text-muted">fades automatically</span>
-            </div>
-
-            <div className="grid gap-2 p-3 sm:grid-cols-2 lg:grid-cols-4">
-              <GuideCard icon={<MousePointer2 className="h-4 w-4 text-cyan" />} title="Point to aim">Index fingertip steers the violet cursor.</GuideCard>
-              <GuideCard icon={<Hand className="h-4 w-4 text-green" />} title="Pinch to select">Green means locked. Touch thumb + index briefly.</GuideCard>
-              <GuideCard icon={<MoveHorizontal className="h-4 w-4 text-violet" />} title="Raise to navigate">Open right hand goes next. Open left goes back.</GuideCard>
-              <GuideCard icon={<Menu className="h-4 w-4 text-amber" />} title="Flash the menu">Open palm → fist opens navigation. Fist closes it.</GuideCard>
-            </div>
-
-            <div className="flex items-center justify-center gap-2 border-t border-white/10 px-4 py-2 font-mono text-[9px] text-text-muted">
-              <ChevronDown className="h-3 w-3" />
-              Downward closed-fist strike scrolls the page
-              <span className="text-white/20">·</span>
-              camera landmarks stay local
-            </div>
-          </div>
+          {panelKind === 'calibration' ? (
+            <CalibrationPanel
+              stepIndex={calibrationStepIndex}
+              targetLocked={targetLocked}
+              pinching={Boolean(cursor?.pinching)}
+            />
+          ) : panelKind === 'complete' ? (
+            <CalibrationComplete profile={calibrationProfile} />
+          ) : (
+            <GestureGuide
+              profile={calibrationProfile}
+              onRecalibrate={beginCalibration}
+            />
+          )}
         </div>
       )}
 
       {cursor && (
         <div
           aria-hidden="true"
-          className="pointer-events-none fixed z-[90] -translate-x-1/2 -translate-y-1/2 transition-[left,top] duration-75"
+          className="pointer-events-none fixed z-[100] -translate-x-1/2 -translate-y-1/2 transition-[left,top] duration-75"
           style={{ left: `${cursor.x * 100}%`, top: `${cursor.y * 100}%` }}
         >
           <div
@@ -412,22 +636,30 @@ export function GestureController() {
                       : 'border-violet bg-violet/10 shadow-glow-violet'
             }`}
           >
-            {targetLocked && !cursor.pinching && <span className="absolute h-11 w-11 rounded-full border border-green/35" />}
+            {targetLocked && !cursor.pinching && (
+              <span className="absolute h-11 w-11 rounded-full border border-green/35" />
+            )}
             <span className="h-1.5 w-1.5 rounded-full bg-white" />
           </div>
           {targetText && (
             <div className="absolute left-5 top-7 w-max max-w-56 rounded-xl border border-white/10 bg-bg-deep/95 px-2.5 py-1.5 shadow-lg backdrop-blur">
-              <span className={`block font-mono text-[8px] font-semibold uppercase tracking-[0.18em] ${targetLocked ? 'text-green' : 'text-cyan'}`}>
+              <span
+                className={`block font-mono text-[8px] font-semibold uppercase tracking-[0.18em] ${
+                  targetLocked ? 'text-green' : 'text-cyan'
+                }`}
+              >
                 {targetLocked ? 'locked · pinch' : 'acquiring target'}
               </span>
-              <span className="mt-0.5 block truncate font-mono text-[9px] text-text-secondary">{targetText}</span>
+              <span className="mt-0.5 block truncate font-mono text-[9px] text-text-secondary">
+                {targetText}
+              </span>
             </div>
           )}
         </div>
       )}
 
       <div
-        className="pointer-events-none fixed left-1/2 top-5 z-[90] -translate-x-1/2 rounded-full border border-violet/25 bg-bg-panel/85 px-3 py-1.5 font-mono text-[10px] text-text-secondary backdrop-blur"
+        className="pointer-events-none fixed left-1/2 top-5 z-[90] max-w-[90vw] -translate-x-1/2 rounded-full border border-violet/25 bg-bg-panel/85 px-3 py-1.5 text-center font-mono text-[10px] text-text-secondary backdrop-blur"
         aria-live="polite"
       >
         <span className={targetLocked ? 'text-green' : 'text-violet'}>{cursorStatus}</span>
@@ -436,12 +668,18 @@ export function GestureController() {
       </div>
 
       {pranked && (
-        <div className="pointer-events-none fixed inset-x-4 top-[42%] z-[100] text-center" role="status" aria-live="assertive">
-          <span className="inline-block rounded-2xl border border-amber/45 bg-bg-deep/95 px-6 py-4 font-mono text-sm font-semibold text-amber shadow-glow-amber backdrop-blur">Okay, you got me. The site looked. 👀</span>
+        <div
+          className="pointer-events-none fixed inset-x-4 top-[42%] z-[100] text-center"
+          role="status"
+          aria-live="assertive"
+        >
+          <span className="inline-block rounded-2xl border border-amber/45 bg-bg-deep/95 px-6 py-4 font-mono text-sm font-semibold text-amber shadow-glow-amber backdrop-blur">
+            Okay, you got me. The site looked. 👀
+          </span>
         </div>
       )}
 
-      {paletteOpen && (
+      {paletteOpen && !calibrationActive && (
         <div
           className="fixed inset-0 z-[80] flex items-start justify-center bg-bg-deep/70 px-4 pt-[10vh] backdrop-blur-md"
           role="dialog"
@@ -456,14 +694,27 @@ export function GestureController() {
             <div className="border-b border-white/10 bg-gradient-to-r from-violet/15 via-transparent to-cyan/10 px-5 py-4">
               <div className="flex items-start justify-between gap-4">
                 <div className="flex items-start gap-3">
-                  <div className="grid h-9 w-9 place-items-center rounded-xl border border-violet/25 bg-violet/15 text-violet"><Hand className="h-4 w-4" /></div>
+                  <div className="grid h-9 w-9 place-items-center rounded-xl border border-violet/25 bg-violet/15 text-violet">
+                    <Hand className="h-4 w-4" />
+                  </div>
                   <div>
-                    <div className="font-mono text-[9px] uppercase tracking-[0.2em] text-violet">Gesture navigator</div>
+                    <div className="font-mono text-[9px] uppercase tracking-[0.2em] text-violet">
+                      Gesture navigator
+                    </div>
                     <div className="mt-1 text-sm font-semibold text-text-primary">Point, lock, pinch.</div>
-                    <div className="mt-0.5 text-[10px] text-text-muted">Move near an item until the cursor turns green.</div>
+                    <div className="mt-0.5 text-[10px] text-text-muted">
+                      Move near an item until the cursor turns green.
+                    </div>
                   </div>
                 </div>
-                <button type="button" onClick={() => setPaletteOpen(false)} aria-label="Close navigation" className="rounded-xl border border-white/10 p-2 text-text-muted transition hover:border-white/20 hover:text-text-primary"><X className="h-4 w-4" /></button>
+                <button
+                  type="button"
+                  onClick={() => setPaletteOpen(false)}
+                  aria-label="Close navigation"
+                  className="rounded-xl border border-white/10 p-2 text-text-muted transition hover:border-white/20 hover:text-text-primary"
+                >
+                  <X className="h-4 w-4" />
+                </button>
               </div>
               <div className="mt-3 flex flex-wrap gap-1.5 font-mono text-[9px] text-text-muted">
                 <span className="rounded-full border border-white/10 bg-bg-deep/50 px-2 py-1">green = locked</span>
@@ -474,10 +725,16 @@ export function GestureController() {
 
             <div className="flex items-center gap-2 border-b border-white/10 px-4">
               <Search className="h-4 w-4 text-violet" />
-              <Command.Input autoFocus placeholder="Search the neural net…" className="h-12 flex-1 bg-transparent text-sm text-text-primary outline-none placeholder:text-text-muted" />
+              <Command.Input
+                autoFocus
+                placeholder="Search the neural net…"
+                className="h-12 flex-1 bg-transparent text-sm text-text-primary outline-none placeholder:text-text-muted"
+              />
             </div>
             <Command.List className="max-h-[52vh] overflow-y-auto p-2">
-              <Command.Empty className="px-3 py-8 text-center text-sm text-text-muted">No matching signal.</Command.Empty>
+              <Command.Empty className="px-3 py-8 text-center text-sm text-text-muted">
+                No matching signal.
+              </Command.Empty>
               <Command.Group heading="Navigate" className="text-xs text-text-muted">
                 {siteNavItems.map((item) => (
                   <Command.Item
@@ -498,12 +755,264 @@ export function GestureController() {
                 ))}
               </Command.Group>
             </Command.List>
-            <div className="border-t border-white/10 px-4 py-2 text-center font-mono text-[9px] text-text-muted">Point + green lock + pinch to choose · release between selections · closed fist to cancel</div>
+            <div className="border-t border-white/10 px-4 py-2 text-center font-mono text-[9px] text-text-muted">
+              Point + green lock + pinch to choose · release between selections · closed fist to cancel
+            </div>
           </Command>
         </div>
       )}
     </>
   );
+}
+
+function CalibrationPanel({
+  stepIndex,
+  targetLocked,
+  pinching,
+}: {
+  stepIndex: number;
+  targetLocked: boolean;
+  pinching: boolean;
+}) {
+  const step = CALIBRATION_STEPS[stepIndex];
+  const showTarget = step?.id === 'aim' || step?.id === 'pinch';
+
+  return (
+    <div className="overflow-hidden rounded-3xl border border-violet/35 bg-bg-panel/97 shadow-glow-violet backdrop-blur-xl">
+      <div className="border-b border-white/10 bg-gradient-to-r from-violet/20 via-cyan/10 to-transparent px-5 py-4">
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex items-start gap-3">
+            <div className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl border border-violet/30 bg-violet/15 text-violet">
+              <Target className="h-5 w-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.22em] text-violet">
+                  Personal air-control calibration
+                </span>
+                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-green" />
+              </div>
+              <h2 className="mt-1 text-base font-semibold text-text-primary">
+                Teach the site how your hand moves.
+              </h2>
+              <p className="mt-0.5 text-xs text-text-muted">
+                Six quick checkpoints, usually 10–30 seconds. Real navigation and scrolling stay sandboxed until all six pass.
+              </p>
+            </div>
+          </div>
+          <span className="rounded-full border border-white/10 bg-bg-deep/60 px-2.5 py-1 font-mono text-[9px] text-text-muted">
+            {stepIndex + 1}/{CALIBRATION_STEPS.length}
+          </span>
+        </div>
+        <div className="mt-3 h-1 overflow-hidden rounded-full bg-white/10">
+          <div
+            className="h-full rounded-full bg-violet transition-[width] duration-300"
+            style={{ width: `${(stepIndex / CALIBRATION_STEPS.length) * 100}%` }}
+          />
+        </div>
+      </div>
+
+      <div className="grid gap-2 p-3 sm:grid-cols-3 lg:grid-cols-6">
+        {CALIBRATION_STEPS.map((item, index) => {
+          const complete = index < stepIndex;
+          const active = index === stepIndex;
+          return (
+            <div
+              key={item.id}
+              className={`rounded-2xl border p-3 transition-all ${
+                complete
+                  ? 'border-green/35 bg-green/10'
+                  : active
+                    ? 'border-violet/45 bg-violet/12 shadow-glow-violet'
+                    : 'border-white/10 bg-white/[0.025] opacity-55'
+              }`}
+            >
+              <div className="flex items-center justify-between gap-2">
+                <CalibrationIcon step={item.id} complete={complete} />
+                {complete && <Check className="h-3.5 w-3.5 text-green" />}
+              </div>
+              <div className={`mt-2 text-[11px] font-semibold ${complete ? 'text-green' : active ? 'text-text-primary' : 'text-text-muted'}`}>
+                {item.title}
+              </div>
+              <div className="mt-1 font-mono text-[8px] uppercase tracking-[0.12em] text-text-muted">
+                {complete ? 'selected' : active ? 'do this now' : 'queued'}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="border-t border-white/10 px-5 py-4">
+        <div className="flex flex-col items-center gap-3 text-center">
+          <div>
+            <div className="font-mono text-[9px] uppercase tracking-[0.18em] text-cyan">
+              Current checkpoint
+            </div>
+            <div className="mt-1 text-sm font-semibold text-text-primary">{step?.short}</div>
+          </div>
+
+          {showTarget ? (
+            <button
+              type="button"
+              data-gesture-target
+              data-gesture-calibration-target={CALIBRATION_TARGET}
+              onClick={(event) => event.preventDefault()}
+              className={`pointer-events-auto relative grid h-20 w-44 place-items-center overflow-hidden rounded-2xl border-2 transition-all ${
+                pinching && targetLocked
+                  ? 'scale-95 border-green bg-green/20 shadow-glow-green'
+                  : targetLocked
+                    ? 'border-green bg-green/10 shadow-glow-green'
+                    : 'border-cyan/45 bg-cyan/5 shadow-glow-cyan'
+              }`}
+              aria-label="Calibration target"
+            >
+              <span className={`absolute h-12 w-12 rounded-full border ${targetLocked ? 'border-green/50' : 'border-cyan/30'}`} />
+              <span className={`h-2.5 w-2.5 rounded-full ${targetLocked ? 'bg-green' : 'bg-cyan'}`} />
+              <span className="absolute bottom-2 font-mono text-[8px] uppercase tracking-[0.16em] text-text-muted">
+                {step?.id === 'aim'
+                  ? targetLocked
+                    ? 'hold steady'
+                    : 'aim here'
+                  : targetLocked
+                    ? 'pinch + release'
+                    : 'find green lock'}
+              </span>
+            </button>
+          ) : (
+            <div className="rounded-2xl border border-white/10 bg-bg-deep/45 px-5 py-3 font-mono text-[9px] text-text-muted">
+              The gesture is being recognized live. It will not affect the page during calibration.
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="flex items-center justify-center gap-2 border-t border-white/10 px-4 py-2 font-mono text-[9px] text-text-muted">
+        <Sparkles className="h-3 w-3 text-violet" />
+        only derived cursor jitter + timing are saved locally
+        <span className="text-white/20">·</span>
+        no frames or landmarks stored
+      </div>
+    </div>
+  );
+}
+
+function GestureGuide({
+  profile,
+  onRecalibrate,
+}: {
+  profile: GestureCalibrationProfile | null;
+  onRecalibrate: () => void;
+}) {
+  return (
+    <div className="overflow-hidden rounded-3xl border border-violet/30 bg-bg-panel/95 shadow-glow-violet backdrop-blur-xl">
+      <div className="flex items-start justify-between gap-4 border-b border-white/10 bg-gradient-to-r from-violet/15 via-cyan/10 to-transparent px-5 py-4">
+        <div className="flex items-start gap-3">
+          <div className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl border border-violet/30 bg-violet/15 text-violet">
+            <Sparkles className="h-5 w-5" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.22em] text-violet">
+                Air controls online
+              </span>
+              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-green" />
+            </div>
+            <h2 className="mt-1 text-base font-semibold text-text-primary">Your calibrated hand is the pointer.</h2>
+            <p className="mt-0.5 text-xs text-text-muted">
+              Aim first, wait for green lock, pinch, then release before the next selection.
+            </p>
+          </div>
+        </div>
+        <button
+          type="button"
+          data-gesture-ignore
+          onClick={onRecalibrate}
+          className="flex shrink-0 items-center gap-1.5 rounded-full border border-white/10 bg-bg-deep/60 px-2.5 py-1.5 font-mono text-[9px] text-text-muted transition hover:border-violet/35 hover:text-violet"
+        >
+          <RotateCcw className="h-3 w-3" />
+          recalibrate
+        </button>
+      </div>
+
+      <div className="grid gap-2 p-3 sm:grid-cols-2 lg:grid-cols-4">
+        <GuideCard icon={<MousePointer2 className="h-4 w-4 text-cyan" />} title="Point to aim">
+          Index fingertip steers the cursor. Your local profile adds a forgiving target halo.
+        </GuideCard>
+        <GuideCard icon={<Hand className="h-4 w-4 text-green" />} title="Pinch to select">
+          Green means locked. Touch thumb + index briefly, then release.
+        </GuideCard>
+        <GuideCard icon={<MoveHorizontal className="h-4 w-4 text-violet" />} title="Raise to navigate">
+          Open right hand goes next. Open left goes back.
+        </GuideCard>
+        <GuideCard icon={<Menu className="h-4 w-4 text-amber" />} title="Flash the menu">
+          Open palm → fist opens navigation. A held fist closes it.
+        </GuideCard>
+      </div>
+
+      {profile && (
+        <div className="flex flex-wrap items-center justify-center gap-1.5 border-t border-white/10 px-4 py-2 font-mono text-[8px] text-text-muted">
+          <span className="rounded-full border border-green/20 bg-green/5 px-2 py-1 text-green">calibrated</span>
+          <span>target halo {profile.targetProbeRadiusPx}px</span>
+          <span className="text-white/20">·</span>
+          <span>lock {profile.targetLockMs}ms</span>
+          <span className="text-white/20">·</span>
+          <span>pinch {profile.pinchHoldMs}ms</span>
+          <span className="text-white/20">·</span>
+          <span>jitter {profile.pointerJitterPx}px</span>
+        </div>
+      )}
+
+      <div className="flex items-center justify-center gap-2 border-t border-white/10 px-4 py-2 font-mono text-[9px] text-text-muted">
+        <ChevronDown className="h-3 w-3" />
+        Downward closed-fist strike scrolls the page
+        <span className="text-white/20">·</span>
+        calibration stays on this browser
+      </div>
+    </div>
+  );
+}
+
+function CalibrationComplete({ profile }: { profile: GestureCalibrationProfile | null }) {
+  return (
+    <div className="overflow-hidden rounded-3xl border border-green/35 bg-bg-panel/97 shadow-glow-green backdrop-blur-xl">
+      <div className="flex flex-col items-center px-6 py-6 text-center">
+        <div className="grid h-12 w-12 place-items-center rounded-full border border-green/35 bg-green/15 text-green">
+          <Check className="h-6 w-6" />
+        </div>
+        <div className="mt-3 font-mono text-[9px] font-semibold uppercase tracking-[0.22em] text-green">
+          6 / 6 calibrated
+        </div>
+        <h2 className="mt-1 text-lg font-semibold text-text-primary">Air controls unlocked.</h2>
+        <p className="mt-1 max-w-lg text-xs leading-relaxed text-text-muted">
+          The site learned your pointer steadiness and pinch cadence, and verified every navigation gesture on this camera setup.
+        </p>
+        {profile && (
+          <div className="mt-4 flex flex-wrap justify-center gap-2 font-mono text-[9px] text-text-muted">
+            <span className="rounded-full border border-white/10 bg-bg-deep/45 px-2.5 py-1">halo {profile.targetProbeRadiusPx}px</span>
+            <span className="rounded-full border border-white/10 bg-bg-deep/45 px-2.5 py-1">lock {profile.targetLockMs}ms</span>
+            <span className="rounded-full border border-white/10 bg-bg-deep/45 px-2.5 py-1">pinch {profile.pinchHoldMs}ms</span>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function CalibrationIcon({ step, complete }: { step: CalibrationStepId; complete: boolean }) {
+  if (complete) return <Check className="h-4 w-4 text-green" />;
+  switch (step) {
+    case 'aim':
+      return <MousePointer2 className="h-4 w-4 text-cyan" />;
+    case 'pinch':
+      return <Hand className="h-4 w-4 text-green" />;
+    case 'raise-right':
+    case 'raise-left':
+      return <MoveHorizontal className="h-4 w-4 text-violet" />;
+    case 'menu':
+      return <Menu className="h-4 w-4 text-amber" />;
+    case 'scroll':
+      return <ChevronDown className="h-4 w-4 text-cyan" />;
+  }
 }
 
 function GuideCard({ icon, title, children }: { icon: React.ReactNode; title: string; children: React.ReactNode }) {
