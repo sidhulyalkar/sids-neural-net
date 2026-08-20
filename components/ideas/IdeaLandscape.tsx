@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { ResearchIdea } from '@/data/research-ideas';
+import { useMediaQuery } from '@/lib/hooks/useBrowserState';
 
 interface IdeaNode {
   idea: ResearchIdea;
@@ -127,18 +128,10 @@ export function IdeaLandscape({ ideas }: IdeaLandscapeProps) {
   const [selectedIdea, setSelectedIdea] = useState<ResearchIdea | null>(null);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [dimensions, setDimensions] = useState({ width: 800, height: 600 });
-  const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
+  const prefersReducedMotion = useMediaQuery('(prefers-reduced-motion: reduce)');
   const animationRef = useRef<number | undefined>(undefined);
   const nodesRef = useRef<IdeaNode[]>([]);
   const lastTimeRef = useRef<number>(0);
-
-  useEffect(() => {
-    const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
-    setPrefersReducedMotion(mediaQuery.matches);
-    const handler = (e: MediaQueryListEvent) => setPrefersReducedMotion(e.matches);
-    mediaQuery.addEventListener('change', handler);
-    return () => mediaQuery.removeEventListener('change', handler);
-  }, []);
 
   useEffect(() => {
     if (!containerRef.current) return;

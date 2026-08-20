@@ -128,8 +128,6 @@ export function NeuronCursor() {
     if (!canUseCustomCursor) return undefined;
 
     document.documentElement.classList.add('neuron-cursor-active');
-    setSnapshot((current) => ({ ...current, enabled: true }));
-
     const publishFrame = () => {
       const pointer = pointerRef.current;
       frameRef.current = null;

@@ -42,13 +42,17 @@ export function PerceptualCortexExperience() {
   const [replayFrames, setReplayFrames] = useState<ReplayFrame[]>([]);
   const [replaying, setReplaying] = useState(false);
   const [soundscapeActive, setSoundscapeActive] = useState(false);
+  const [microscopeStats, setMicroscopeStats] = useState({ handsCount: 0, pinch: 0, audioRms: 0, replayCount: 0 });
   const replayStarted = useRef(0);
 
   useEffect(() => {
-    const media = matchMedia('(prefers-reduced-motion: reduce)');
-    setReducedMotion(media.matches);
-    const memory = (navigator as Navigator & { deviceMemory?: number }).deviceMemory;
-    setQuality(initialQuality(innerWidth, memory));
+    const frame = requestAnimationFrame(() => {
+      const media = matchMedia('(prefers-reduced-motion: reduce)');
+      setReducedMotion(media.matches);
+      const memory = (navigator as Navigator & { deviceMemory?: number }).deviceMemory;
+      setQuality(initialQuality(innerWidth, memory));
+    });
+    return () => cancelAnimationFrame(frame);
   }, [setReducedMotion]);
 
   useEffect(() => {
@@ -64,7 +68,7 @@ export function PerceptualCortexExperience() {
       frameTotal += dt * 1000; frameCount += 1;
       input.current.speed *= Math.exp(-dt * 4);
       const started = usePerceptualStore.getState().startedAt;
-      if (started && now - lastUiUpdate >= 1000) { setElapsed(now - started); if (frameCount) setQuality((current) => adaptQuality(current, frameTotal / frameCount)); frameTotal = 0; frameCount = 0; lastUiUpdate = now; }
+      if (started && now - lastUiUpdate >= 1000) { setElapsed(now - started); setMicroscopeStats({ handsCount: input.current.hands.count, pinch: input.current.hands.pinch, audioRms: input.current.audio.smoothedRms, replayCount: recorder.current.snapshot().length }); if (frameCount) setQuality((current) => adaptQuality(current, frameTotal / frameCount)); frameTotal = 0; frameCount = 0; lastUiUpdate = now; }
       raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
@@ -156,7 +160,7 @@ export function PerceptualCortexExperience() {
     </div>}
 
     {microscopeOpen && phase !== 'arrival' && <aside className="absolute right-5 top-24 z-10 w-72 rounded-xl border border-white/10 bg-[#050914]/80 p-4 font-mono text-[10px] text-white/55 backdrop-blur-xl sm:right-8">
-      <p className="uppercase tracking-[.24em] text-cyan/75">Signal microscope · {quality}</p>{(audioError || visionError) && <p className="mt-3 rounded border border-rose/25 bg-rose/10 p-2 leading-4 text-rose/80">{audioError || visionError} Pointer mode remains available.</p>}<p className="mt-3 leading-5 text-white/35">signal → normalized features → temporal fusion → organism</p><dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-2"><dt>active</dt><dd className="text-right text-white/80">{world.activeModalities.join(', ')}</dd><dt>excitation</dt><dd className="text-right">{world.excitation.toFixed(3)}</dd><dt>coherence</dt><dd className="text-right">{world.coherence.toFixed(3)}</dd><dt>hands / speed</dt><dd className="text-right">{input.current.hands.count} / {world.handSpeed.toFixed(2)}</dd><dt>pinch / separation</dt><dd className="text-right">{input.current.hands.pinch.toFixed(2)} / {world.handSeparation.toFixed(2)}</dd><dt>face activity</dt><dd className="text-right">{world.facialActivity.toFixed(3)}</dd><dt>audio rms</dt><dd className="text-right">{input.current.audio.smoothedRms.toFixed(3)}</dd><dt>session / replay</dt><dd className="text-right">{Math.floor(elapsed / 1000)}s / {recorder.current.snapshot().length}</dd><dt>seed</dt><dd className="truncate text-right">{seed}</dd></dl><p className="mt-4 border-t border-white/10 pt-3 leading-5 text-white/35">Camera and audio are processed locally. No imagery, audio, landmarks, or typed content is saved.</p>
+      <p className="uppercase tracking-[.24em] text-cyan/75">Signal microscope · {quality}</p>{(audioError || visionError) && <p className="mt-3 rounded border border-rose/25 bg-rose/10 p-2 leading-4 text-rose/80">{audioError || visionError} Pointer mode remains available.</p>}<p className="mt-3 leading-5 text-white/35">signal → normalized features → temporal fusion → organism</p><dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-2"><dt>active</dt><dd className="text-right text-white/80">{world.activeModalities.join(', ')}</dd><dt>excitation</dt><dd className="text-right">{world.excitation.toFixed(3)}</dd><dt>coherence</dt><dd className="text-right">{world.coherence.toFixed(3)}</dd><dt>hands / speed</dt><dd className="text-right">{microscopeStats.handsCount} / {world.handSpeed.toFixed(2)}</dd><dt>pinch / separation</dt><dd className="text-right">{microscopeStats.pinch.toFixed(2)} / {world.handSeparation.toFixed(2)}</dd><dt>face activity</dt><dd className="text-right">{world.facialActivity.toFixed(3)}</dd><dt>audio rms</dt><dd className="text-right">{microscopeStats.audioRms.toFixed(3)}</dd><dt>session / replay</dt><dd className="text-right">{Math.floor(elapsed / 1000)}s / {microscopeStats.replayCount}</dd><dt>seed</dt><dd className="truncate text-right">{seed}</dd></dl><p className="mt-4 border-t border-white/10 pt-3 leading-5 text-white/35">Camera and audio are processed locally. No imagery, audio, landmarks, or typed content is saved.</p>
     </aside>}
     {phase === 'crystallized' && !microscopeOpen && <aside className="absolute left-5 top-24 z-10 w-[min(22rem,calc(100vw-2.5rem))] rounded-xl border border-white/10 bg-[#050914]/80 p-5 backdrop-blur-xl sm:left-8"><p className="font-mono text-[9px] uppercase tracking-[.24em] text-rose/70">crystallized signal</p><h2 className="mt-3 text-xl font-light text-white">{artwork.title}</h2><dl className="mt-5 grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-xs text-white/45"><dt>Dominant influence</dt><dd className="text-right text-white/75">{artwork.dominantInfluence}</dd><dt>Temporal character</dt><dd className="text-right text-white/75">{artwork.temporalCharacter}</dd><dt>Spatial character</dt><dd className="text-right text-white/75">{artwork.spatialCharacter}</dd><dt>Excitation profile</dt><dd className="text-right text-white/75">{artwork.excitationProfile}</dd><dt>Active modalities</dt><dd className="text-right text-white/75">{artwork.activeModalities.join(', ')}</dd></dl><p className="mt-4 text-[10px] leading-4 text-white/30">An interpretation of creative control signals, not a psychological assessment.</p></aside>}
   </section>;
