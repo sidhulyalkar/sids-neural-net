@@ -1,60 +1,104 @@
-import { mkdir, readdir, stat, writeFile } from 'node:fs/promises';
-import { join, relative } from 'node:path';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 
-const ROOT = '.next/static/chunks';
+const ANALYZE_DATA = 'artifacts/bundle-analyzer/data/analyze.data';
 const REPORT_PATH = 'artifacts/bundle-budget/report.json';
-const MAX_SINGLE_CHUNK_BYTES = 2_000_000;
-const MAX_SPLIT_INVENTORY_BYTES = 20_000_000;
 
-type Entry = { path: string; bytes: number };
+const MAX_CLIENT_CHUNK_RAW_BYTES = 500_000;
+const MAX_CLIENT_CHUNK_COMPRESSED_BYTES = 180_000;
+const MAX_CLIENT_TOTAL_RAW_BYTES = 2_000_000;
+const MAX_CLIENT_TOTAL_COMPRESSED_BYTES = 800_000;
 
-async function walk(path: string, entries: Entry[]) {
-  for (const name of await readdir(path)) {
-    const full = join(path, name);
-    const info = await stat(full);
-    if (info.isDirectory()) await walk(full, entries);
-    else if (name.endsWith('.js')) entries.push({ path: relative(ROOT, full), bytes: info.size });
+type AnalyzerChunkPart = {
+  output_file_index: number;
+  size: number;
+  compressed_size: number;
+};
+
+type AnalyzerFile = { filename: string };
+type AnalyzerFrame = {
+  output_files: AnalyzerFile[];
+  chunk_parts: AnalyzerChunkPart[];
+};
+
+type ClientChunk = {
+  filename: string;
+  rawBytes: number;
+  compressedBytes: number;
+  parts: number;
+};
+
+function readAnalyzerFrame(buffer: Buffer): AnalyzerFrame {
+  if (buffer.length < 5) throw new Error('Turbopack analyzer data is unexpectedly empty');
+  const jsonLength = buffer.readUInt32BE(0);
+  if (jsonLength <= 0 || jsonLength + 4 > buffer.length) {
+    throw new Error(`Invalid Turbopack analyzer frame length: ${jsonLength}`);
   }
+  return JSON.parse(buffer.subarray(4, 4 + jsonLength).toString('utf8')) as AnalyzerFrame;
 }
 
-const entries: Entry[] = [];
-await walk(ROOT, entries);
-entries.sort((a, b) => b.bytes - a.bytes);
-const inventoryBytes = entries.reduce((sum, entry) => sum + entry.bytes, 0);
-const largest = entries[0];
+const frame = readAnalyzerFrame(await readFile(ANALYZE_DATA));
+const aggregate = new Map<number, { rawBytes: number; compressedBytes: number; parts: number }>();
+for (const part of frame.chunk_parts) {
+  const current = aggregate.get(part.output_file_index) ?? { rawBytes: 0, compressedBytes: 0, parts: 0 };
+  current.rawBytes += part.size ?? 0;
+  current.compressedBytes += part.compressed_size ?? 0;
+  current.parts += 1;
+  aggregate.set(part.output_file_index, current);
+}
+
+const clientChunks: ClientChunk[] = frame.output_files
+  .map((file, index) => ({ file, index, sizes: aggregate.get(index) ?? { rawBytes: 0, compressedBytes: 0, parts: 0 } }))
+  .filter(({ file }) => file.filename.startsWith('[client-fs]/_next/static/chunks/') && file.filename.endsWith('.js'))
+  .map(({ file, sizes }) => ({ filename: file.filename, ...sizes }))
+  .sort((a, b) => b.rawBytes - a.rawBytes);
+
+const totalRawBytes = clientChunks.reduce((sum, chunk) => sum + chunk.rawBytes, 0);
+const totalCompressedBytes = clientChunks.reduce((sum, chunk) => sum + chunk.compressedBytes, 0);
+const largestRaw = clientChunks[0];
+const largestCompressed = [...clientChunks].sort((a, b) => b.compressedBytes - a.compressedBytes)[0];
 
 const failures: string[] = [];
-if (entries.length === 0) failures.push('no Next.js JavaScript chunks found');
-if (largest && largest.bytes > MAX_SINGLE_CHUNK_BYTES) {
-  failures.push(`largest emitted chunk ${(largest.bytes / 1_000_000).toFixed(2)} MB exceeds ${(MAX_SINGLE_CHUNK_BYTES / 1_000_000).toFixed(2)} MB`);
+if (clientChunks.length === 0) failures.push('Turbopack analyzer reported no client JavaScript chunks');
+if (largestRaw && largestRaw.rawBytes > MAX_CLIENT_CHUNK_RAW_BYTES) {
+  failures.push(`largest raw client chunk ${(largestRaw.rawBytes / 1000).toFixed(1)} kB exceeds ${(MAX_CLIENT_CHUNK_RAW_BYTES / 1000).toFixed(0)} kB`);
 }
-if (inventoryBytes > MAX_SPLIT_INVENTORY_BYTES) {
-  failures.push(`all-route split inventory ${(inventoryBytes / 1_000_000).toFixed(2)} MB exceeds ${(MAX_SPLIT_INVENTORY_BYTES / 1_000_000).toFixed(2)} MB`);
+if (largestCompressed && largestCompressed.compressedBytes > MAX_CLIENT_CHUNK_COMPRESSED_BYTES) {
+  failures.push(`largest compressed client chunk ${(largestCompressed.compressedBytes / 1000).toFixed(1)} kB exceeds ${(MAX_CLIENT_CHUNK_COMPRESSED_BYTES / 1000).toFixed(0)} kB`);
+}
+if (totalRawBytes > MAX_CLIENT_TOTAL_RAW_BYTES) {
+  failures.push(`analyzed client JS total ${(totalRawBytes / 1_000_000).toFixed(2)} MB exceeds ${(MAX_CLIENT_TOTAL_RAW_BYTES / 1_000_000).toFixed(2)} MB`);
+}
+if (totalCompressedBytes > MAX_CLIENT_TOTAL_COMPRESSED_BYTES) {
+  failures.push(`analyzed compressed client JS total ${(totalCompressedBytes / 1_000_000).toFixed(2)} MB exceeds ${(MAX_CLIENT_TOTAL_COMPRESSED_BYTES / 1_000_000).toFixed(2)} MB`);
 }
 
 const report = {
   generatedAt: new Date().toISOString(),
-  note: 'Next.js 16 removed legacy per-route JS size build metrics. This gate bounds emitted chunk size and the total split-JS inventory. CI separately runs public-route browser smoke tests; route/module analysis is captured with Next experimental-analyze.',
+  source: 'Next.js 16 Turbopack experimental-analyze',
   thresholds: {
-    maxSingleChunkBytes: MAX_SINGLE_CHUNK_BYTES,
-    maxSplitInventoryBytes: MAX_SPLIT_INVENTORY_BYTES,
+    maxClientChunkRawBytes: MAX_CLIENT_CHUNK_RAW_BYTES,
+    maxClientChunkCompressedBytes: MAX_CLIENT_CHUNK_COMPRESSED_BYTES,
+    maxClientTotalRawBytes: MAX_CLIENT_TOTAL_RAW_BYTES,
+    maxClientTotalCompressedBytes: MAX_CLIENT_TOTAL_COMPRESSED_BYTES,
   },
-  inventory: {
-    bytes: inventoryBytes,
-    chunks: entries.length,
-    largestChunks: entries.slice(0, 30),
+  client: {
+    chunks: clientChunks.length,
+    totalRawBytes,
+    totalCompressedBytes,
+    largestChunks: clientChunks.slice(0, 30),
   },
   failures,
 };
 await mkdir('artifacts/bundle-budget', { recursive: true });
 await writeFile(REPORT_PATH, `${JSON.stringify(report, null, 2)}\n`);
 
-console.log(`Bundle inventory: ${entries.length} split JS chunks, ${(inventoryBytes / 1_000_000).toFixed(2)} MB across the entire route-split site.`);
-console.log('Largest emitted chunks:');
-for (const entry of entries.slice(0, 12)) console.log(`  ${(entry.bytes / 1000).toFixed(1)} kB  ${entry.path}`);
+console.log(`Turbopack client budget: ${clientChunks.length} JS chunks, ${(totalRawBytes / 1_000_000).toFixed(2)} MB raw, ${(totalCompressedBytes / 1_000_000).toFixed(2)} MB compressed.`);
+for (const chunk of clientChunks.slice(0, 12)) {
+  console.log(`  ${(chunk.rawBytes / 1000).toFixed(1)} kB raw · ${(chunk.compressedBytes / 1000).toFixed(1)} kB compressed · ${chunk.filename}`);
+}
 console.log(`Wrote bundle report to ${REPORT_PATH}.`);
 
-if (failures.length) {
+if (failures.length > 0) {
   for (const failure of failures) console.error(`Bundle budget FAIL: ${failure}`);
   process.exit(1);
 }
