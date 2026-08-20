@@ -34,8 +34,9 @@ const metadata = await page.evaluate(() => ({
 if (metadata.version !== '0.2.0') failures.push(`expected v0.2.0, got ${metadata.version}`);
 if (metadata.roomCount !== 10) failures.push(`expected 10 rooms, got ${metadata.roomCount}`);
 
-// Real input smoke: movement must feel responsive and casting must register.
+// Real input smoke: movement must feel responsive and a guided cast must actually restore a step.
 await page.evaluate(() => window.__MOSSLIGHT_PLAYTEST__.setRoom(0));
+await page.waitForTimeout(1500);
 const start = await page.evaluate(() => window.__MOSSLIGHT_PLAYTEST__.snapshot());
 await page.keyboard.down('d');
 await page.waitForTimeout(320);
@@ -44,21 +45,24 @@ await page.waitForTimeout(80);
 const moved = await page.evaluate(() => window.__MOSSLIGHT_PLAYTEST__.snapshot());
 if ((moved.player?.x ?? 0) - (start.player?.x ?? 0) < 18) failures.push('WASD movement smoke did not move Sprig far enough');
 
-await page.mouse.move(300, 210);
-await page.mouse.click(300, 210);
-await page.waitForTimeout(90);
+// Aim at the first Dew Garden sprout and verify the Rain step is accepted, not merely fired.
+await page.mouse.move(290, 210);
+await page.mouse.click(290, 210);
+await page.waitForTimeout(420);
 const cast = await page.evaluate(() => window.__MOSSLIGHT_PLAYTEST__.snapshot());
 if (cast.stats.casts < 1) failures.push('pointer cast smoke did not register a cast');
+if (cast.stats.correct < 1) failures.push('guided pointer cast did not complete a correct restoration step');
 
 const rooms = [];
 for (let index = 0; index < metadata.roomCount; index += 1) {
   const before = await page.evaluate((roomIndex) => window.__MOSSLIGHT_PLAYTEST__.setRoom(roomIndex), index);
-  await page.waitForTimeout(260);
+  // Wait until the short room title card is gone so the fixture audits the actual playfield.
+  await page.waitForTimeout(1500);
   const stressedFile = `room-${String(index + 1).padStart(2, '0')}-stressed.png`;
   await page.screenshot({ path: path.join(outputDir, stressedFile) });
 
   const after = await page.evaluate(() => window.__MOSSLIGHT_PLAYTEST__.completeRoom());
-  await page.waitForTimeout(260);
+  await page.waitForTimeout(320);
   const restoredFile = `room-${String(index + 1).padStart(2, '0')}-restored.png`;
   await page.screenshot({ path: path.join(outputDir, restoredFile) });
 
@@ -88,6 +92,7 @@ const report = {
     movedX: moved.player?.x,
     deltaX: (moved.player?.x ?? 0) - (start.player?.x ?? 0),
     casts: cast.stats.casts,
+    correctActions: cast.stats.correct,
   },
   rooms,
   finalFps: finalSnapshot.fps,
@@ -104,4 +109,4 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log(`Mosslight browser playtest PASS: ${rooms.length} stressed/restored room pairs, movement + cast smoke, ${finalSnapshot.fps.toFixed(1)} FPS.`);
+console.log(`Mosslight browser playtest PASS: ${rooms.length} stressed/restored room pairs, movement + correct-cast smoke, ${finalSnapshot.fps.toFixed(1)} FPS.`);
