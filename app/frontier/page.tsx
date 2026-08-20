@@ -14,5 +14,20 @@ export const metadata: Metadata = {
 };
 
 export default function FrontierPage() {
-  return <FrontierExperience />;
+  const now = new Date();
+  const initialDateLabel = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/Los_Angeles',
+    weekday: 'long',
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric',
+  }).format(now);
+  const initialDayKey = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Los_Angeles',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(now);
+
+  return <FrontierExperience initialDateLabel={initialDateLabel} initialDayKey={initialDayKey} />;
 }
