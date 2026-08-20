@@ -163,6 +163,7 @@ export const FRONTIER_SOURCE_WEIGHTS: Record<string, number> = {
   github: 1.05,
   hackernews: 0.92,
   rss: 0.92,
+  youtube: 0.98,
   football_data: 1.14,
   brave_web: 1.0,
   local: 0.8,
