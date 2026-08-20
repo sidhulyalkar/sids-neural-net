@@ -15,6 +15,7 @@ import type {
   FrontierFeedResponse,
   FrontierItem,
   FrontierLaneId,
+  FrontierReaction,
   FrontierSourceStatus,
   FrontierView,
 } from '@/lib/frontier/types';
@@ -88,9 +89,7 @@ function relativeGenerated(iso?: string): string {
 function humanDate(iso: string): string {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return 'recently';
-  return new Intl.DateTimeFormat('en-US', {
-    month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit',
-  }).format(date);
+  return new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }).format(date);
 }
 
 export function FrontierExperience() {
@@ -126,9 +125,7 @@ export function FrontierExperience() {
   }, []);
 
   useEffect(() => {
-    setDateLabel(new Intl.DateTimeFormat('en-US', {
-      weekday: 'long', month: 'long', day: 'numeric', year: 'numeric',
-    }).format(new Date()));
+    setDateLabel(new Intl.DateTimeFormat('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }).format(new Date()));
     void loadFeed();
     const timer = window.setInterval(() => void loadFeed(), 15 * 60_000);
     return () => window.clearInterval(timer);
@@ -136,10 +133,7 @@ export function FrontierExperience() {
 
   const resurfacing = useMemo(() => Object.values(store.history)
     .filter((entry) => isDueForResurface(entry))
-    .map((entry) => ({
-      ...entry.item,
-      tags: Array.from(new Set(['second-chance', ...entry.item.tags])),
-    })), [store.history]);
+    .map((entry) => ({ ...entry.item, tags: Array.from(new Set(['second-chance', ...entry.item.tags])) })), [store.history]);
 
   const mergedItems = useMemo(() => {
     const live = items.length ? items : onboardingSignals();
@@ -147,21 +141,15 @@ export function FrontierExperience() {
     return [...live, ...resurfacing.filter((item) => !liveIds.has(item.id))];
   }, [items, resurfacing]);
 
-  const ranked = useMemo(
-    () => rankFrontierItems(mergedItems, store.profile, store.history),
-    [mergedItems, store.profile, store.history]
-  );
-
-  const dailyRun = useMemo(
-    () => selectDailyRun(ranked, store.history, 14),
-    [ranked, store.history]
-  );
-
+  const ranked = useMemo(() => rankFrontierItems(mergedItems, store.profile, store.history), [mergedItems, store.profile, store.history]);
+  const dailyRun = useMemo(() => selectDailyRun(ranked, store.history, 14), [ranked, store.history]);
   const dayKey = localDayKey();
   const quests = useMemo(() => buildDailyQuests(store.history, dayKey), [store.history, dayKey]);
+  const awardQuest = store.awardQuest;
+
   useEffect(() => {
-    for (const quest of quests) if (quest.complete) store.awardQuest(quest.id, quest.xp, dayKey);
-  }, [quests, store, dayKey]);
+    for (const quest of quests) if (quest.complete) awardQuest(quest.id, quest.xp, dayKey);
+  }, [quests, awardQuest, dayKey]);
 
   const level = levelForXp(store.game.xp);
   const onlineSources = sources.filter((source) => source.ok).length;
@@ -170,14 +158,17 @@ export function FrontierExperience() {
   const activeCollectionItems = activeCollection
     ? activeCollection.itemIds.flatMap((id) => store.saved[id] ? [store.saved[id]] : [])
     : savedItems;
-
   const exploreItems = laneFilter === 'all' ? ranked : ranked.filter((item) => item.lane === laneFilter);
   const historyEntries = Object.values(store.history).sort((a, b) => new Date(b.lastSeenAt).getTime() - new Date(a.lastSeenAt).getTime());
 
-  const seenCallback = useCallback((item: FrontierItem, resurfaced?: boolean) => store.markSeen(item, resurfaced), [store]);
-  const openCallback = useCallback((item: FrontierItem) => store.recordOpen(item), [store]);
-  const saveCallback = useCallback((item: FrontierItem) => store.toggleSave(item), [store]);
-  const reactCallback = useCallback((item: FrontierItem, reaction: Parameters<typeof store.react>[1]) => store.react(item, reaction), [store]);
+  const markSeen = store.markSeen;
+  const recordOpen = store.recordOpen;
+  const toggleSave = store.toggleSave;
+  const react = store.react;
+  const seenCallback = useCallback((item: FrontierItem, resurfaced?: boolean) => markSeen(item, resurfaced), [markSeen]);
+  const openCallback = useCallback((item: FrontierItem) => recordOpen(item), [recordOpen]);
+  const saveCallback = useCallback((item: FrontierItem) => toggleSave(item), [toggleSave]);
+  const reactCallback = useCallback((item: FrontierItem, reaction: FrontierReaction) => react(item, reaction), [react]);
 
   const downloadBackup = useCallback(() => {
     const blob = new Blob([JSON.stringify(frontierBackup(store), null, 2)], { type: 'application/json' });
@@ -235,15 +226,9 @@ export function FrontierExperience() {
           <div>
             <p className={styles.eyebrow}>Personal intelligence system · {dateLabel}</p>
             <h1 className={styles.wordmark}>Your world, <span className={styles.wordmarkAccent}>in signal.</span></h1>
-            <p className={styles.deck}>
-              A finite daily run across Premier League football, machine learning, data analysis, NeuroAI, science, tools, and useful weirdness. It remembers what you know, what you save, what you ignore, and where your curiosity is moving.
-            </p>
+            <p className={styles.deck}>A finite daily run across Premier League football, machine learning, data analysis, NeuroAI, science, tools, and useful weirdness. It remembers what you know, what you save, what you ignore, and where your curiosity is moving.</p>
             <div className={styles.sourceStrip} aria-label="Live source status">
-              {sources.map((source) => (
-                <span key={source.id} className={`${styles.sourceStatus} ${source.ok ? styles.sourceOnline : styles.sourceOffline}`} title={source.message}>
-                  {source.label} {source.ok ? source.count : '—'}
-                </span>
-              ))}
+              {sources.map((source) => <span key={source.id} className={`${styles.sourceStatus} ${source.ok ? styles.sourceOnline : styles.sourceOffline}`} title={source.message}>{source.label} {source.ok ? source.count : '—'}</span>)}
               {error ? <span className={`${styles.sourceStatus} ${styles.sourceOffline}`}>degraded · {error}</span> : null}
             </div>
           </div>
@@ -262,16 +247,7 @@ export function FrontierExperience() {
         </header>
 
         <nav className={styles.nav} aria-label="FRONTIER views">
-          {VIEWS.map((option) => (
-            <button
-              type="button"
-              key={option.id}
-              className={`${styles.navButton} ${view === option.id ? styles.activeNav : ''}`}
-              onClick={() => setView(option.id)}
-            >
-              {option.label}
-            </button>
-          ))}
+          {VIEWS.map((option) => <button type="button" key={option.id} className={`${styles.navButton} ${view === option.id ? styles.activeNav : ''}`} onClick={() => setView(option.id)}>{option.label}</button>)}
         </nav>
 
         {view === 'today' ? (
@@ -293,10 +269,7 @@ export function FrontierExperience() {
                 <p className={styles.sectionAside}>Important items can break through your taste model. The side channel keeps football, ML/data, and adjacent discovery from collapsing into one obsession.</p>
               </div>
               {loading && !items.length ? <div className={styles.featureGrid}><div className={styles.skeleton} /><div className={styles.featureStack}><div className={styles.skeleton} /><div className={styles.skeleton} /></div></div> : (
-                <div className={styles.featureGrid}>
-                  {hero ? renderCard(hero, 'feature') : <div className={styles.empty}>No live signal yet. The next source scan will repopulate this worldline.</div>}
-                  <div className={styles.featureStack}>{sideSignals.map((item) => renderCard(item, 'compact'))}</div>
-                </div>
+                <div className={styles.featureGrid}>{hero ? renderCard(hero, 'feature') : <div className={styles.empty}>No live signal yet. The next source scan will repopulate this worldline.</div>}<div className={styles.featureStack}>{sideSignals.map((item) => renderCard(item, 'compact'))}</div></div>
               )}
             </section>
 
@@ -305,9 +278,7 @@ export function FrontierExperience() {
                 <div><p className={styles.sectionKicker}>02 · Continue the run</p><h2 className={styles.sectionTitle}>Breadth before scroll depth.</h2></div>
                 <p className={styles.sectionAside}>A finite run is intentional. Resolve the good signals, save the long ones, and let tomorrow&apos;s radar learn from the shape of your attention.</p>
               </div>
-              <div className={styles.grid}>
-                {runRemainder.map((item, index) => renderCard(item, index % 5 === 0 ? 'wide' : 'standard'))}
-              </div>
+              <div className={styles.grid}>{runRemainder.map((item, index) => renderCard(item, index % 5 === 0 ? 'wide' : 'standard'))}</div>
             </section>
           </>
         ) : null}
@@ -320,15 +291,9 @@ export function FrontierExperience() {
             </div>
             <div className={styles.filterRail}>
               <button type="button" onClick={() => setLaneFilter('all')} className={`${styles.filterButton} ${laneFilter === 'all' ? styles.filterActive : ''}`}>All signals</button>
-              {FRONTIER_LANES.map((lane) => (
-                <button type="button" key={lane.id} onClick={() => setLaneFilter(lane.id)} className={`${styles.filterButton} ${laneFilter === lane.id ? styles.filterActive : ''}`}>
-                  {lane.glyph} {lane.shortLabel}
-                </button>
-              ))}
+              {FRONTIER_LANES.map((lane) => <button type="button" key={lane.id} onClick={() => setLaneFilter(lane.id)} className={`${styles.filterButton} ${laneFilter === lane.id ? styles.filterActive : ''}`}>{lane.glyph} {lane.shortLabel}</button>)}
             </div>
-            <div className={`${styles.grid} ${styles.section}`}>
-              {exploreItems.slice(0, 48).map((item, index) => renderCard(item, index % 7 === 0 ? 'wide' : 'standard'))}
-            </div>
+            <div className={`${styles.grid} ${styles.section}`}>{exploreItems.slice(0, 48).map((item, index) => renderCard(item, index % 7 === 0 ? 'wide' : 'standard'))}</div>
           </section>
         ) : null}
 
@@ -336,7 +301,7 @@ export function FrontierExperience() {
           <section className={styles.section}>
             <div className={styles.sectionHeader}>
               <div><p className={styles.sectionKicker}>External memory</p><h2 className={styles.sectionTitle}>Your saved knowledge, grouped by intent.</h2></div>
-              <p className={styles.sectionAside}>Saving is not a positive taste vote by itself. Collections are memory organization; explicit reactions teach recommendation preference.</p>
+              <p className={styles.sectionAside}>Saving is not a positive taste vote by itself. Collections organize memory; explicit reactions teach preference.</p>
             </div>
             <div className={styles.libraryLayout}>
               <aside className={styles.collectionRail}>
@@ -351,12 +316,29 @@ export function FrontierExperience() {
                 </div>
               </aside>
               <div>
-                {activeCollectionItems.length ? (
-                  <div className={styles.grid}>{activeCollectionItems.map((item, index) => renderCard(item, index % 5 === 0 ? 'wide' : 'standard'))}</div>
-                ) : (
-                  <div className={styles.empty}>
-                    <div><p className={styles.micro}>Empty group</p><p style={{ marginTop: 8 }}>Save a signal, then organize it into this collection from your persistent library.</p></div>
+                {activeCollection && activeCollection.id !== 'inbox' && savedItems.length ? (
+                  <div style={{ marginBottom: 22 }}>
+                    <p className={styles.micro}>Organize “{activeCollection.name}” · tap saved signals to add or remove</p>
+                    <div className={styles.filterRail} style={{ marginTop: 9 }}>
+                      {savedItems.map((item) => {
+                        const active = activeCollection.itemIds.includes(item.id);
+                        return (
+                          <button
+                            type="button"
+                            key={`membership-${item.id}`}
+                            title={item.title}
+                            className={`${styles.filterButton} ${active ? styles.filterActive : ''}`}
+                            onClick={() => store.toggleCollectionItem(activeCollection.id, item)}
+                          >
+                            {active ? '✓' : '+'} {item.title.length > 46 ? `${item.title.slice(0, 46)}…` : item.title}
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
+                ) : null}
+                {activeCollectionItems.length ? <div className={styles.grid}>{activeCollectionItems.map((item, index) => renderCard(item, index % 5 === 0 ? 'wide' : 'standard'))}</div> : (
+                  <div className={styles.empty}><div><p className={styles.micro}>Empty group</p><p style={{ marginTop: 8 }}>{savedItems.length ? 'Use the organizer above to add saved signals to this group.' : 'Save a signal from the Daily Run or Explore view and it will appear here.'}</p></div></div>
                 )}
               </div>
             </div>
@@ -369,17 +351,13 @@ export function FrontierExperience() {
               <div><p className={styles.sectionKicker}>Memory trace</p><h2 className={styles.sectionTitle}>What crossed your attention.</h2></div>
               <p className={styles.sectionAside}>History is retained locally and powers second chances. Ignoring a strong item once is not interpreted as disinterest.</p>
             </div>
-            {historyEntries.length ? (
-              <div className={styles.historyList}>
-                {historyEntries.slice(0, 120).map((entry) => (
-                  <div className={styles.historyItem} key={entry.item.id}>
-                    <div className={styles.historyTime}>{humanDate(entry.lastSeenAt)}</div>
-                    <div><div className={styles.historyTitle}>{entry.item.title}</div><div className={styles.historyMeta}>{FRONTIER_LANE_MAP[entry.item.lane].shortLabel} · {entry.item.sourceLabel} · {entry.impressions} impression{entry.impressions === 1 ? '' : 's'}</div></div>
-                    <div className={styles.micro}>{entry.reaction ?? (entry.openedAt ? 'opened' : 'unresolved')}</div>
-                  </div>
-                ))}
+            {historyEntries.length ? <div className={styles.historyList}>{historyEntries.slice(0, 120).map((entry) => (
+              <div className={styles.historyItem} key={entry.item.id}>
+                <div className={styles.historyTime}>{humanDate(entry.lastSeenAt)}</div>
+                <div><div className={styles.historyTitle}>{entry.item.title}</div><div className={styles.historyMeta}>{FRONTIER_LANE_MAP[entry.item.lane].shortLabel} · {entry.item.sourceLabel} · {entry.impressions} impression{entry.impressions === 1 ? '' : 's'}</div></div>
+                <div className={styles.micro}>{entry.reaction ?? (entry.openedAt ? 'opened' : 'unresolved')}</div>
               </div>
-            ) : <div className={styles.empty}>Your memory trace begins when signals become meaningfully visible.</div>}
+            ))}</div> : <div className={styles.empty}>Your memory trace begins when signals become meaningfully visible.</div>}
           </section>
         ) : null}
 
@@ -393,9 +371,7 @@ export function FrontierExperience() {
             <div className={styles.section}>
               <p className={styles.sectionKicker}>Strongest learned concepts</p>
               <div className={styles.tags}>
-                {Object.entries(store.profile.topicAffinity).sort((a, b) => b[1] - a[1]).slice(0, 24).map(([topic, affinity]) => (
-                  <span key={topic} className={styles.tag}>{topic} · {Math.round(affinity * 100)}</span>
-                ))}
+                {Object.entries(store.profile.topicAffinity).sort((a, b) => b[1] - a[1]).slice(0, 24).map(([topic, affinity]) => <span key={topic} className={styles.tag}>{topic} · {Math.round(affinity * 100)}</span>)}
                 {!Object.keys(store.profile.topicAffinity).length ? <span className={styles.tag}>Cold start · your feedback will grow this map</span> : null}
               </div>
             </div>
