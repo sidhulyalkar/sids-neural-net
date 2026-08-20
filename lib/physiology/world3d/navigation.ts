@@ -32,11 +32,7 @@ function horizontalDistance(a: Vec3, b: Vec3): number {
 }
 
 function lerp(a: Vec3, b: Vec3, t: number): Vec3 {
-  return [
-    a[0] + (b[0] - a[0]) * t,
-    a[1] + (b[1] - a[1]) * t,
-    a[2] + (b[2] - a[2]) * t,
-  ];
+  return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
 }
 
 function slopeDegrees(a: Vec3, b: Vec3): number {
@@ -53,17 +49,14 @@ function anchorMap(plan: World3DPlan) {
  * Produce a deterministic ladder of lane and shoulder offsets. The authored
  * connection width remains the preferred walking lane. Wider offsets are
  * collision-avoidance shoulders used only when dense generated geometry blocks
- * the direct route. Every resulting station is still independently checked for
- * real player clearance before it can become an XR teleport target.
+ * the direct route. Every resulting station is independently clearance-tested.
  */
 function navigationOffsets(connection: World3DConnection, worldRadius: number) {
   if (connection.kind === 'portal') return [0];
   const usableHalfWidth = Math.max(0.18, connection.width * 0.5 - 0.42);
   const offsets = [0, -usableHalfWidth * 0.45, usableHalfWidth * 0.45, -usableHalfWidth * 0.9, usableHalfWidth * 0.9];
   const maximumShoulder = Math.min(5.6, Math.max(2.4, worldRadius * 0.42));
-  for (let offset = usableHalfWidth + 0.55; offset <= maximumShoulder + 1e-6; offset += 0.55) {
-    offsets.push(-offset, offset);
-  }
+  for (let offset = usableHalfWidth + 0.55; offset <= maximumShoulder + 1e-6; offset += 0.55) offsets.push(-offset, offset);
   return offsets;
 }
 
@@ -121,17 +114,36 @@ export function buildWorldNavigationGeometry(plan: World3DPlan): WorldNavigation
 }
 
 function horizontalRadius(structure: World3DPrimitive): number {
-  if (structure.kind === 'column' || structure.kind === 'spire' || structure.kind === 'crystal') {
-    return Math.max(structure.scale[0], structure.scale[2]) * 0.42;
-  }
+  if (structure.kind === 'column' || structure.kind === 'spire' || structure.kind === 'crystal') return Math.max(structure.scale[0], structure.scale[2]) * 0.42;
   return Math.max(structure.scale[0], structure.scale[2]) * 0.5;
+}
+
+function orientedBoxClearance(position: Vec3, structure: World3DPrimitive): number {
+  const dx = position[0] - structure.position[0];
+  const dz = position[2] - structure.position[2];
+  const yaw = structure.rotation[1] ?? 0;
+  const cosine = Math.cos(yaw);
+  const sine = Math.sin(yaw);
+  const localX = dx * cosine + dz * sine;
+  const localZ = -dx * sine + dz * cosine;
+  const qx = Math.abs(localX) - structure.scale[0] * 0.5;
+  const qz = Math.abs(localZ) - structure.scale[2] * 0.5;
+  const outside = Math.hypot(Math.max(qx, 0), Math.max(qz, 0));
+  const inside = Math.min(Math.max(qx, qz), 0);
+  return outside + inside;
 }
 
 export function structureBlocksPlayer(structure: World3DPrimitive): boolean {
   return structure.collision === 'solid' || structure.collision === 'interaction';
 }
 
+/**
+ * Signed horizontal distance to the authored collision footprint. Thin walls
+ * and slabs are treated as rotated rectangles instead of giant bounding
+ * circles, which preserves actual maze gaps and canyon lanes in the XR audit.
+ */
 export function clearanceFromStructure(position: Vec3, structure: World3DPrimitive): number {
+  if (structure.kind === 'slab' || structure.kind === 'shard' || structure.kind === 'arch') return orientedBoxClearance(position, structure);
   const dx = position[0] - structure.position[0];
   const dz = position[2] - structure.position[2];
   return Math.hypot(dx, dz) - horizontalRadius(structure);
@@ -149,10 +161,6 @@ export function findSafeSpawnPosition(plan: World3DPlan, radius = WORLD3D_STANDA
   if (!spawn) return null;
   if (hasPlayerClearance(plan, spawn.position, radius)) return [...spawn.position];
 
-  // Search the authored spawn neighborhood from nearest to farthest so worlds
-  // retain their intended entrance whenever possible. The maximum radius scales
-  // with the generated scene rather than assuming every labyrinth has a clear
-  // patch within a fixed three metres.
   const maximumDistance = Math.min(plan.radius * 0.78, 9.5);
   const ringSpacing = 0.32;
   const rings = Math.ceil(maximumDistance / ringSpacing);
@@ -171,8 +179,6 @@ export function findSafeSpawnPosition(plan: World3DPlan, radius = WORLD3D_STANDA
     }
   }
 
-  // A valid navigation station is a safe final fallback and remains ordered by
-  // proximity to the authored spawn. It is never accepted without clearance.
   const nearestLane = validTeleportPoints(plan)
     .filter((point) => hasPlayerClearance(plan, point.position, radius))
     .sort((a, b) => horizontalDistance(a.position, spawn.position) - horizontalDistance(b.position, spawn.position))[0];
