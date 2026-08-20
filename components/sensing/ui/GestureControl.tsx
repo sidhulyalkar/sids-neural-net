@@ -66,6 +66,13 @@ export function GestureControl() {
             </div>
           </div>
 
+          <div className="mx-3 mb-3 rounded-xl border border-violet/20 bg-violet/[0.06] px-3 py-2.5">
+            <div className="font-mono text-[9px] font-semibold uppercase tracking-[0.16em] text-violet">First use · quick calibration</div>
+            <p className="mt-1 text-[10px] leading-relaxed text-text-muted">
+              A 10–30 second guided course verifies every gesture on your camera and tunes only derived pointer jitter, target tolerance, and pinch timing. The profile stays in this browser.
+            </p>
+          </div>
+
           <div className="flex gap-2 border-t border-white/10 p-3">
             <button
               type="button"
@@ -76,7 +83,7 @@ export function GestureControl() {
               className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-violet/15 px-3 py-2.5 text-xs font-semibold text-violet transition hover:bg-violet/25"
             >
               <Hand className="h-3.5 w-3.5" />
-              Enable air controls
+              Enable + calibrate
             </button>
             <button
               type="button"
