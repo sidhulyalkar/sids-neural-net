@@ -71,6 +71,10 @@ function currentMode(): ViewMode {
   return stored && modeConfigs[stored] ? stored : 'full-brain';
 }
 
+function serverMode(): ViewMode {
+  return 'full-brain';
+}
+
 function subscribe(onStoreChange: () => void) {
   const onStorage = (event: StorageEvent) => {
     if (event.key === STORAGE_KEY) onStoreChange();
@@ -84,10 +88,9 @@ function subscribe(onStoreChange: () => void) {
 }
 
 export function ModeProvider({ children }: { children: ReactNode }) {
-  const mode = useSyncExternalStore(subscribe, currentMode, () => 'full-brain');
+  const mode = useSyncExternalStore<ViewMode>(subscribe, currentMode, serverMode);
 
   const setMode = (newMode: ViewMode) => {
-    if (!modeConfigs[newMode]) return;
     window.localStorage.setItem(STORAGE_KEY, newMode);
     window.dispatchEvent(new Event(MODE_EVENT));
   };
