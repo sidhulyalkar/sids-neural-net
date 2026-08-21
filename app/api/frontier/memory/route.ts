@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getFrontierSession } from '@/lib/frontier/auth';
-import { parseFrontierPersistedState } from '@/lib/frontier/memoryMerge';
+import { compactFrontierCloudMemory, parseFrontierPersistedState } from '@/lib/frontier/memoryMerge';
 import { getRemoteMemory, putRemoteMemory, remoteMemoryConfigured } from '@/lib/frontier/remoteStore';
 
 export const runtime = 'nodejs';
@@ -50,11 +50,11 @@ export async function PUT(request: NextRequest) {
   if (!incoming) return privateJson({ error: 'invalid FRONTIER memory payload' }, 400);
 
   try {
-    // The browser merges remote + local state once when a signed-in session begins.
-    // Subsequent writes are the authoritative current snapshot so an explicit
-    // unsave, collection removal, or preference reversal can propagate instead
-    // of being resurrected forever by a server-side union.
-    const memory = await putRemoteMemory(user.sub, incoming);
+    // Behavior aggregates and the learned profile are the long-term memory. Raw
+    // history is bounded before cloud storage so the model can grow for years
+    // without turning the sync payload into an ever-expanding event archive.
+    const compacted = compactFrontierCloudMemory(incoming);
+    const memory = await putRemoteMemory(user.sub, compacted);
     return privateJson({ ok: true, memory });
   } catch (error) {
     return privateJson({ error: error instanceof Error ? error.message : 'could not save memory' }, 503);
