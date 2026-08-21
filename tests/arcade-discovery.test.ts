@@ -31,17 +31,20 @@ test('the Game Network exposes every current game as a playable entry', () => {
   }
 });
 
-test('Sylvaria Countercut v0.8.1 is canonical while Mosslight remains a compatibility alias', () => {
+test('Sylvaria Countercut v0.8.2 is canonical while Mosslight remains a compatibility alias', () => {
   const sylvaria = arcadeGames.find((game) => game.slug === 'sylvaria');
   assert.ok(sylvaria);
   assert.equal(sylvaria.title, 'Sylvaria');
-  assert.equal(sylvaria.version, 'v0.8.1');
+  assert.equal(sylvaria.version, 'v0.8.2');
   assert.match(sylvaria.subtitle, /COUNTERCUT/);
   assert.match(sylvaria.description, /Sprid/);
-  assert.match(sylvaria.description, /step-dash/i);
+  assert.match(sylvaria.description, /step/i);
   assert.match(sylvaria.description, /machete/i);
+  assert.match(sylvaria.description, /zigzag/i);
+  assert.match(sylvaria.description, /cross-enemy/i);
   assert.ok(sylvaria.controls.some((control) => control.input === 'W A S D' && /step-dash/i.test(control.action)));
   assert.ok(sylvaria.controls.some((control) => control.input === 'Arrow Keys' && /machete/i.test(control.action)));
+  assert.ok(sylvaria.controls.some((control) => control.input === 'Counter routing' && /high speed/i.test(control.action)));
   assert.ok(sylvaria.controls.some((control) => control.input === 'P' && /pause/i.test(control.action)));
   assert.equal(getArcadeGame('mosslight')?.slug, 'sylvaria');
   assert.equal(getArcadeGame('sylvaria')?.slug, 'sylvaria');
@@ -49,7 +52,8 @@ test('Sylvaria Countercut v0.8.1 is canonical while Mosslight remains a compatib
   const runtime = readRepoFile('public/game-runtimes/mosslight-v2/index.html');
   assert.match(runtime, /Sylvaria: Countercut/);
   assert.match(runtime, /Sprid/);
-  assert.match(runtime, /game-v81\.js/);
+  assert.match(runtime, /game-v82\.js/);
+  assert.doesNotMatch(runtime, /game-v81\.js|input-buffer-v81\.js/);
   assert.match(runtime, /render-scale-v7\.js/);
   assert.match(runtime, /render-optimizer-v6\.js/);
   assert.match(runtime, /visual-system-v8\.js/);
@@ -67,7 +71,7 @@ test('Sylvaria Countercut keeps high-DPI rendering before gameplay and immersive
 
   const renderScaleIndex = runtime.indexOf('render-scale-v7.js');
   const optimizerIndex = runtime.indexOf('render-optimizer-v6.js');
-  const gameIndex = runtime.indexOf('game-v81.js');
+  const gameIndex = runtime.indexOf('game-v82.js');
   const visualIndex = runtime.indexOf('visual-system-v8.js');
   assert.ok(renderScaleIndex >= 0 && renderScaleIndex < optimizerIndex);
   assert.ok(optimizerIndex < gameIndex);
@@ -83,10 +87,14 @@ test('Sylvaria Countercut keeps high-DPI rendering before gameplay and immersive
 
   assert.match(visuals, /routeGeometry: true/);
   assert.match(visuals, /lockedIntentTelegraphs: true/);
+  assert.match(visuals, /resilientMoveQueue: true/);
+  assert.match(visuals, /projectilePatternReadability: true/);
+  assert.match(visuals, /evasiveEnemyCues: true/);
+  assert.match(visuals, /counterRouting: true/);
   assert.match(visuals, /requestFullscreen/);
   assert.match(visuals, /living trees are gameplay objectives and physical routing geometry/);
   assert.match(visuals, /deadwood physically blocks step-dashes/);
-  assert.match(visuals, /version: '0\.8\.1'/);
+  assert.match(visuals, /version: '0\.8\.2'/);
 
   assert.match(styles, /100svh/);
   assert.match(styles, /aspect-ratio:3\/2/);
@@ -184,7 +192,7 @@ test('Vercel allows the site to embed its own game runtimes without allowing cro
   }
 });
 
-test('Countercut browser validation includes actual Google Chrome Stable', () => {
+test('Countercut browser validation includes actual Google Chrome Stable and combat-depth contracts', () => {
   const workflow = readRepoFile('.github/workflows/ci.yml');
   const browserTest = readRepoFile('scripts/playtest-sylvaria-browsers.mjs');
   const combatTest = readRepoFile('scripts/playtest-sylvaria-countercut.mjs');
@@ -194,10 +202,13 @@ test('Countercut browser validation includes actual Google Chrome Stable', () =>
   assert.match(browserTest, /name: 'chrome-stable'/);
   assert.match(browserTest, /channel: 'chrome'/);
   assert.match(browserTest, /ArrowUp/);
-  assert.match(browserTest, /version !== '0\.8\.1'/);
+  assert.match(browserTest, /version !== '0\.8\.2'/);
   assert.match(combatTest, /spawnCounterShot/);
   assert.match(combatTest, /placeDeadwoodAhead/);
   assert.match(combatTest, /buffer/i);
+  assert.match(combatTest, /crosscut/i);
+  assert.match(combatTest, /zigzag|spiral|swerve/i);
+  assert.match(combatTest, /forceEvade/);
 });
 
 test('the embedded Stretchicorn release is complete', () => {
