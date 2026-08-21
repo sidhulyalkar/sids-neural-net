@@ -31,12 +31,9 @@ One skip is never interpreted as dislike. Quiet-skip penalties begin only after 
 
 Live behavior is recorded immediately for inspection, but implicit ranking reads a frozen preference snapshot captured at the beginning of a session.
 
-That means reading one mountain-bike story cannot suddenly reorder the feed while it is on screen. Evidence from the current visit becomes ranking evidence on a later session. This gives FRONTIER two timescales:
+That means reading one mountain-bike story cannot suddenly reorder the feed while it is on screen. Evidence from the current visit becomes ranking evidence on a later session.
 
-- within a visit: stable reading surface plus live inspectable learning
-- between visits: adaptive ranking based on accumulated behavior
-
-The regression suite explicitly locks this behavior: current-session positive/open events must not change the behavioral ranking adjustment until a later session snapshot is created.
+The regression suite explicitly locks this behavior: current-session engagement cannot change the behavioral ranking adjustment until a later session snapshot is created.
 
 ## Context it can learn
 
