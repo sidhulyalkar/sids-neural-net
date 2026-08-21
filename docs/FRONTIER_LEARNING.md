@@ -36,6 +36,8 @@ That means reading one mountain-bike story cannot suddenly reorder the feed whil
 - within a visit: stable reading surface plus live inspectable learning
 - between visits: adaptive ranking based on accumulated behavior
 
+The regression suite explicitly locks this behavior: current-session positive/open events must not change the behavioral ranking adjustment until a later session snapshot is created.
+
 ## Context it can learn
 
 The local model can identify patterns such as:
