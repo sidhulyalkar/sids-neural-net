@@ -2,7 +2,13 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Download, RefreshCw, RotateCcw, Upload } from 'lucide-react';
-import { FRONTIER_LANES, FRONTIER_LANE_MAP } from '@/lib/frontier/config';
+import {
+  FRONTIER_LANES,
+  FRONTIER_LANE_MAP,
+  FRONTIER_REALMS,
+  laneMatchesRealm,
+} from '@/lib/frontier/config';
+import { FRONTIER_PINNED_TOPICS, topicMatchesItem } from '@/lib/frontier/interests';
 import {
   buildDailyQuests,
   explainRecommendation,
@@ -16,6 +22,7 @@ import type {
   FrontierItem,
   FrontierLaneId,
   FrontierReaction,
+  FrontierRealm,
   FrontierSourceStatus,
   FrontierView,
 } from '@/lib/frontier/types';
@@ -31,39 +38,104 @@ const VIEWS: Array<{ id: FrontierView; label: string }> = [
   { id: 'map', label: 'My radar' },
 ];
 
+type FormatFilter = 'all' | 'papers' | 'code' | 'projects' | 'video' | 'threads' | 'sports' | 'games' | 'music';
+
+const FORMAT_FILTERS: Array<{ id: FormatFilter; label: string }> = [
+  { id: 'all', label: 'Everything' },
+  { id: 'papers', label: 'Studies' },
+  { id: 'code', label: 'Codebases' },
+  { id: 'projects', label: 'Project design' },
+  { id: 'video', label: 'Video' },
+  { id: 'threads', label: 'Posts + threads' },
+  { id: 'sports', label: 'Sports' },
+  { id: 'games', label: 'Games' },
+  { id: 'music', label: 'Music' },
+];
+
 type Props = {
   initialDateLabel: string;
   initialDayKey: string;
 };
 
+function systemSignal(
+  id: string,
+  title: string,
+  summary: string,
+  lane: FrontierLaneId,
+  tags: string[],
+  publishedAt: string
+): FrontierItem {
+  return {
+    id,
+    title,
+    summary,
+    url: '/frontier',
+    source: 'FRONTIER',
+    sourceLabel: 'System',
+    sourceKind: 'local',
+    publishedAt,
+    lane,
+    tags,
+    baseScore: 0.62,
+    importance: 0.54,
+    novelty: 0.52,
+    quality: 0.78,
+    momentum: 0.4,
+    why: 'System-status signal, never fabricated news.',
+  };
+}
+
 function onboardingSignals(): FrontierItem[] {
   const publishedAt = '2026-08-20T12:00:00.000Z';
   return [
-    {
-      id: 'frontier-warming',
-      title: 'FRONTIER is warming up the live source mesh',
-      summary: 'The interface remains usable when an upstream source is temporarily unavailable. Live feeds are fetched independently, cached on the server, and merged with persistent personal memory.',
-      url: '/frontier', source: 'FRONTIER', sourceLabel: 'System', sourceKind: 'local', publishedAt,
-      lane: 'must_know', tags: ['frontier', 'personalization', 'live radar'],
-      baseScore: 0.72, importance: 0.72, novelty: 0.55, quality: 0.8, momentum: 0.5,
-      why: 'System-status signal, never fabricated news.',
-    },
-    {
-      id: 'frontier-football-ready',
-      title: 'Premier League radar ready for matchday signal',
-      summary: 'Football stories, tactical analysis, structured fixtures, injuries, transfers, analytics, and video can occupy their own lane without crowding out ML or science.',
-      url: '/frontier', source: 'FRONTIER', sourceLabel: 'System', sourceKind: 'local', publishedAt,
-      lane: 'premier_league', tags: ['premier league', 'football analytics', 'tactics'],
-      baseScore: 0.64, importance: 0.56, novelty: 0.5, quality: 0.76, momentum: 0.42,
-    },
-    {
-      id: 'frontier-ml-ready',
-      title: 'ML + Data Lab ready for methods worth stealing',
-      summary: 'The data lane prioritizes tools, benchmarks, statistical methods, causal inference, forecasting, visualization, and practical analysis ideas instead of generic AI headlines.',
-      url: '/frontier', source: 'FRONTIER', sourceLabel: 'System', sourceKind: 'local', publishedAt,
-      lane: 'ml_data', tags: ['machine learning', 'data analysis', 'methods'],
-      baseScore: 0.64, importance: 0.55, novelty: 0.54, quality: 0.78, momentum: 0.4,
-    },
+    systemSignal(
+      'frontier-warming',
+      'FRONTIER is warming up the live source mesh',
+      'Live sources are fetched independently, cached on the server, and merged with a deployable daily snapshot plus your browser-local memory.',
+      'must_know',
+      ['frontier', 'personalization', 'live radar'],
+      publishedAt
+    ),
+    systemSignal(
+      'frontier-research-ready',
+      'Brainfood is wired for papers, code, methods, and project fuel',
+      'OpenAlex, GitHub, technical communities, specialist feeds, and broad-web discovery stay separate enough that studies do not get flattened into generic tech news.',
+      'ml_data',
+      ['machine learning', 'open source', 'papers', 'methods'],
+      publishedAt
+    ),
+    systemSignal(
+      'frontier-team-ready',
+      'Your four-team clubhouse has its own lane',
+      'Patriots, Warriors, Chelsea, and Manchester City can surface fixtures, roster moves, tactical context, highlights, memes, and fan discussion without taking over the science feed.',
+      'team_pulse',
+      ['patriots', 'warriors', 'chelsea', 'manchester city'],
+      publishedAt
+    ),
+    systemSignal(
+      'frontier-games-ready',
+      'Your Steam library now rotates through Game Radar',
+      'Favorite and adjacent games are sampled across days so patches, releases, trailers, mods, and indie discoveries stay fresh instead of repeating the same franchises forever.',
+      'gaming',
+      ['steam', 'metroidvania', 'indie games', 'game radar'],
+      publishedAt
+    ),
+    systemSignal(
+      'frontier-bass-ready',
+      'Bass Orbit follows the shape of your actual listening',
+      'The music radar can reuse the site’s Spotify taste profile for top artists, followed artists, and playlists, then widen into bass releases, sets, remixes, and SoundCloud discovery.',
+      'music',
+      ['dubstep', 'bass music', 'spotify', 'soundcloud'],
+      publishedAt
+    ),
+    systemSignal(
+      'frontier-reddit-ready',
+      'Reddit orbit rotates across your communities',
+      'A small daily sample spans technical subreddits, games, music, sports, outdoors, animals, and internet culture. It is finite on purpose.',
+      'internet_culture',
+      ['reddit', 'community', 'memes', 'daily rotation'],
+      publishedAt
+    ),
   ];
 }
 
@@ -101,6 +173,46 @@ function humanDate(iso: string): string {
   }).format(date);
 }
 
+function formatMatches(item: FrontierItem, filter: FormatFilter): boolean {
+  switch (filter) {
+    case 'all': return true;
+    case 'papers': return item.sourceKind === 'openalex' || item.tags.some((tag) => ['paper', 'study', 'research'].includes(tag));
+    case 'code': return item.sourceKind === 'github' || item.lane === 'builder_signal';
+    case 'projects': return ['methods', 'builder_signal', 'creative_tech'].includes(item.lane);
+    case 'video': return item.media?.type === 'youtube' || item.media?.type === 'video';
+    case 'threads': return ['reddit', 'social', 'hackernews'].includes(item.sourceKind);
+    case 'sports': return ['team_pulse', 'premier_league', 'world_soccer', 'sports'].includes(item.lane);
+    case 'games': return item.lane === 'gaming';
+    case 'music': return item.lane === 'music';
+  }
+}
+
+function itemSearchText(item: FrontierItem): string {
+  return `${item.title} ${item.summary} ${item.tags.join(' ')} ${item.sourceLabel}`;
+}
+
+function realmCopy(realm: FrontierRealm): { title: string; accent: string; deck: string } {
+  if (realm === 'learn') {
+    return {
+      title: 'Brainfood,',
+      accent: 'with receipts.',
+      deck: 'A finite research run across novel studies, open-source code, reusable methods, project design, NeuroAI, ML/data, and science. Evidence first, rabbit holes second.',
+    };
+  }
+  if (realm === 'play') {
+    return {
+      title: 'The fun stuff,',
+      accent: 'minus the sludge.',
+      deck: 'Your teams, best highlights, Reddit threads, memes, games, bass music, outdoor rabbit holes, and useful internet chaos, filtered through the same personal radar instead of an infinite feed.',
+    };
+  }
+  return {
+    title: 'Your world,',
+    accent: 'in signal.',
+    deck: 'One finite daily run across research, code, teams, sports, games, dubstep, Reddit, video, and useful weirdness. It remembers what you know, save, skip, and where your curiosity is moving.',
+  };
+}
+
 export function FrontierExperience({ initialDateLabel, initialDayKey }: Props) {
   const store = useFrontierStore();
   const [view, setView] = useState<FrontierView>('today');
@@ -109,7 +221,10 @@ export function FrontierExperience({ initialDateLabel, initialDayKey }: Props) {
   const [generatedAt, setGeneratedAt] = useState<string>();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>();
+  const [realm, setRealm] = useState<FrontierRealm>('all');
   const [laneFilter, setLaneFilter] = useState<'all' | FrontierLaneId>('all');
+  const [formatFilter, setFormatFilter] = useState<FormatFilter>('all');
+  const [topicFilter, setTopicFilter] = useState('all');
   const [collectionFilter, setCollectionFilter] = useState('inbox');
   const [newCollection, setNewCollection] = useState('');
   const fileInput = useRef<HTMLInputElement | null>(null);
@@ -155,7 +270,11 @@ export function FrontierExperience({ initialDateLabel, initialDayKey }: Props) {
     () => rankFrontierItems(mergedItems, store.profile, store.history),
     [mergedItems, store.profile, store.history]
   );
-  const dailyRun = useMemo(() => selectDailyRun(ranked, store.history, 14), [ranked, store.history]);
+  const realmRanked = useMemo(
+    () => ranked.filter((item) => laneMatchesRealm(item.lane, realm)),
+    [ranked, realm]
+  );
+  const dailyRun = useMemo(() => selectDailyRun(realmRanked, store.history, 14), [realmRanked, store.history]);
   const quests = useMemo(() => buildDailyQuests(store.history, initialDayKey), [store.history, initialDayKey]);
   const awardQuest = store.awardQuest;
 
@@ -172,9 +291,16 @@ export function FrontierExperience({ initialDateLabel, initialDayKey }: Props) {
   const activeCollectionItems = activeCollection
     ? activeCollection.itemIds.flatMap((id) => store.saved[id] ? [store.saved[id]] : [])
     : savedItems;
-  const exploreItems = laneFilter === 'all' ? ranked : ranked.filter((item) => item.lane === laneFilter);
+  const activeTopic = FRONTIER_PINNED_TOPICS.find((topic) => topic.id === topicFilter);
+  const exploreItems = useMemo(() => realmRanked.filter((item) => {
+    if (laneFilter !== 'all' && item.lane !== laneFilter) return false;
+    if (!formatMatches(item, formatFilter)) return false;
+    if (activeTopic && !topicMatchesItem(activeTopic, itemSearchText(item))) return false;
+    return true;
+  }), [activeTopic, formatFilter, laneFilter, realmRanked]);
   const historyEntries = Object.values(store.history)
     .sort((a, b) => new Date(b.lastSeenAt).getTime() - new Date(a.lastSeenAt).getTime());
+  const copy = realmCopy(realm);
 
   const markSeen = store.markSeen;
   const recordOpen = store.recordOpen;
@@ -229,9 +355,28 @@ export function FrontierExperience({ initialDateLabel, initialDayKey }: Props) {
     />
   ), [openCallback, reactCallback, saveCallback, seenCallback, store.history, store.profile, store.saved]);
 
+  const setRealmFilter = useCallback((nextRealm: FrontierRealm) => {
+    setRealm(nextRealm);
+    setLaneFilter('all');
+    setTopicFilter('all');
+    setFormatFilter('all');
+  }, []);
+
+  const openTopic = useCallback((topicId: string) => {
+    const topic = FRONTIER_PINNED_TOPICS.find((candidate) => candidate.id === topicId);
+    if (!topic) return;
+    setRealm(topic.realm);
+    setTopicFilter(topic.id);
+    setLaneFilter('all');
+    setFormatFilter('all');
+    setView('explore');
+  }, []);
+
   const hero = dailyRun[0];
   const sideSignals = dailyRun.slice(1, 3);
   const runRemainder = dailyRun.slice(3);
+  const visibleLanes = FRONTIER_LANES.filter((lane) => laneMatchesRealm(lane.id, realm));
+  const visibleTopics = FRONTIER_PINNED_TOPICS.filter((topic) => realm === 'all' || topic.realm === realm);
 
   return (
     <div className={styles.shell}>
@@ -240,14 +385,12 @@ export function FrontierExperience({ initialDateLabel, initialDayKey }: Props) {
         <header className={styles.masthead}>
           <div>
             <p className={styles.eyebrow}>Personal intelligence system · {initialDateLabel}</p>
-            <h1 className={styles.wordmark}>Your world, <span className={styles.wordmarkAccent}>in signal.</span></h1>
-            <p className={styles.deck}>
-              A finite daily run across Premier League football, machine learning, data analysis, NeuroAI, science, tools, video, and useful weirdness. It remembers what you know, save, ignore, and where your curiosity is moving.
-            </p>
+            <h1 className={styles.wordmark}>{copy.title} <span className={styles.wordmarkAccent}>{copy.accent}</span></h1>
+            <p className={styles.deck}>{copy.deck}</p>
             <div className={styles.sourceStrip} aria-label="Live source status">
               {sources.map((source) => (
                 <span
-                  key={source.id}
+                  key={`${source.id}-${source.label}`}
                   className={`${styles.sourceStatus} ${source.ok ? styles.sourceOnline : styles.sourceOffline}`}
                   title={source.message}
                 >
@@ -289,6 +432,36 @@ export function FrontierExperience({ initialDateLabel, initialDayKey }: Props) {
           ))}
         </nav>
 
+        <div className={styles.filterRail} aria-label="FRONTIER perspective">
+          {FRONTIER_REALMS.map((option) => (
+            <button
+              type="button"
+              key={option.id}
+              className={`${styles.filterButton} ${realm === option.id ? styles.filterActive : ''}`}
+              onClick={() => setRealmFilter(option.id)}
+              title={option.description}
+            >
+              {option.glyph} {option.label}
+            </button>
+          ))}
+          <span className={styles.micro} style={{ alignSelf: 'center', marginLeft: 6 }}>
+            {FRONTIER_REALMS.find((option) => option.id === realm)?.description}
+          </span>
+        </div>
+
+        <div className={styles.filterRail} aria-label="Pinned personal topics" style={{ marginTop: 8 }}>
+          {visibleTopics.map((topic) => (
+            <button
+              type="button"
+              key={topic.id}
+              className={`${styles.filterButton} ${topicFilter === topic.id ? styles.filterActive : ''}`}
+              onClick={() => openTopic(topic.id)}
+            >
+              {topic.glyph} {topic.label}
+            </button>
+          ))}
+        </div>
+
         {view === 'today' ? (
           <>
             <div className={styles.questStrip} aria-label="Daily learning quests">
@@ -310,7 +483,7 @@ export function FrontierExperience({ initialDateLabel, initialDayKey }: Props) {
                   <p className={styles.sectionKicker}>01 · Today&apos;s worldline</p>
                   <h2 className={styles.sectionTitle}>The few signals worth interrupting your day.</h2>
                 </div>
-                <p className={styles.sectionAside}>Important items can break through your taste model. Football, ML/data, and adjacent discovery retain independent oxygen.</p>
+                <p className={styles.sectionAside}>No doomscroll contract. FRONTIER reserves breadth, learns from explicit reactions, and stops after a finite run.</p>
               </div>
               {loading && !items.length ? (
                 <div className={styles.featureGrid}>
@@ -328,7 +501,7 @@ export function FrontierExperience({ initialDateLabel, initialDayKey }: Props) {
             <section className={styles.section}>
               <div className={styles.sectionHeader}>
                 <div><p className={styles.sectionKicker}>02 · Continue the run</p><h2 className={styles.sectionTitle}>Breadth before scroll depth.</h2></div>
-                <p className={styles.sectionAside}>Resolve the good signals, save the long ones, and let tomorrow&apos;s radar learn from the shape of your attention.</p>
+                <p className={styles.sectionAside}>Save the long ones, resolve the good ones, and let tomorrow&apos;s radar learn from the shape of your attention.</p>
               </div>
               <div className={styles.grid}>
                 {runRemainder.map((item, index) => renderCard(item, index % 5 === 0 ? 'wide' : 'standard'))}
@@ -340,12 +513,14 @@ export function FrontierExperience({ initialDateLabel, initialDayKey }: Props) {
         {view === 'explore' ? (
           <section className={styles.section}>
             <div className={styles.sectionHeader}>
-              <div><p className={styles.sectionKicker}>Open radar</p><h2 className={styles.sectionTitle}>Explore beyond the finite daily run.</h2></div>
-              <p className={styles.sectionAside}>The full candidate field keeps the same learning model without the Daily Run&apos;s editorial slot budget.</p>
+              <div><p className={styles.sectionKicker}>Open radar</p><h2 className={styles.sectionTitle}>Slice the signal by what you actually want right now.</h2></div>
+              <p className={styles.sectionAside}>Studies, codebases, project designs, videos, social threads, sports, games, and music remain first-class formats rather than one generic card pile.</p>
             </div>
-            <div className={styles.filterRail}>
-              <button type="button" onClick={() => setLaneFilter('all')} className={`${styles.filterButton} ${laneFilter === 'all' ? styles.filterActive : ''}`}>All signals</button>
-              {FRONTIER_LANES.map((lane) => (
+
+            <p className={styles.micro}>Category</p>
+            <div className={styles.filterRail} style={{ marginTop: 8 }}>
+              <button type="button" onClick={() => setLaneFilter('all')} className={`${styles.filterButton} ${laneFilter === 'all' ? styles.filterActive : ''}`}>All categories</button>
+              {visibleLanes.map((lane) => (
                 <button
                   type="button"
                   key={lane.id}
@@ -356,8 +531,32 @@ export function FrontierExperience({ initialDateLabel, initialDayKey }: Props) {
                 </button>
               ))}
             </div>
+
+            <p className={styles.micro} style={{ marginTop: 13 }}>Format</p>
+            <div className={styles.filterRail} style={{ marginTop: 8 }}>
+              {FORMAT_FILTERS.map((filter) => (
+                <button
+                  type="button"
+                  key={filter.id}
+                  onClick={() => setFormatFilter(filter.id)}
+                  className={`${styles.filterButton} ${formatFilter === filter.id ? styles.filterActive : ''}`}
+                >
+                  {filter.label}
+                </button>
+              ))}
+            </div>
+
+            {activeTopic ? (
+              <div className={styles.sourceStrip} style={{ marginTop: 10 }}>
+                <span className={`${styles.sourceStatus} ${styles.sourceOnline}`}>Pinned · {activeTopic.label}</span>
+                <button type="button" className={styles.utilityButton} onClick={() => setTopicFilter('all')}>Clear topic</button>
+              </div>
+            ) : null}
+
             <div className={`${styles.grid} ${styles.section}`}>
-              {exploreItems.slice(0, 48).map((item, index) => renderCard(item, index % 7 === 0 ? 'wide' : 'standard'))}
+              {exploreItems.length
+                ? exploreItems.slice(0, 60).map((item, index) => renderCard(item, index % 7 === 0 ? 'wide' : 'standard'))
+                : <div className={styles.empty} style={{ gridColumn: '1 / -1' }}>No signals match this slice yet. Try a wider category or format.</div>}
             </div>
           </section>
         ) : null}
