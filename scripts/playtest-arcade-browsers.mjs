@@ -106,15 +106,22 @@ async function testSylvaria(page, engineName) {
   if (!frame) throw new Error('Sylvaria iframe did not attach');
 
   const bridge = await assertNativeBridge(frame, 'Sylvaria');
-  await frame.waitForFunction(() => Boolean(window.__MOSSLIGHT_PLAYTEST__), null, { timeout: 10_000 });
+  await frame.waitForFunction(() => Boolean(window.__MOSSLIGHT_PLAYTEST__) && Boolean(window.SylvariaVisualSystem) && Boolean(window.SylvariaRenderBudget), null, { timeout: 10_000 });
   await frame.waitForFunction(() => window.MosslightExpedition?.atlasCount === 1000, null, { timeout: 10_000 });
   const identity = await frame.evaluate(() => ({
     title: window.__MOSSLIGHT_PLAYTEST__.title,
     version: window.__MOSSLIGHT_PLAYTEST__.version,
+    visualVersion: window.SylvariaVisualSystem.version,
+    themes: Object.keys(window.SylvariaVisualSystem.themes),
+    quality: window.SylvariaRenderBudget.snapshot(),
   }));
-  if (identity.title !== 'Sylvaria' || identity.version !== '0.5.0') {
+  if (identity.title !== 'Sylvaria' || identity.version !== '0.6.0' || identity.visualVersion !== '0.6.0') {
     throw new Error(`Sylvaria runtime identity mismatch: ${JSON.stringify(identity)}`);
   }
+  for (const theme of ['forest','volcanic','reef','ice','celestial']) {
+    if (!identity.themes.includes(theme)) throw new Error(`Sylvaria visual system missing ${theme} theme`);
+  }
+  if (!['performance','balanced','high'].includes(identity.quality.tier)) throw new Error(`Sylvaria invalid visual quality tier: ${identity.quality.tier}`);
 
   await frame.locator('#title').waitFor({ state: 'visible' });
   await frame.locator('#start').waitFor({ state: 'visible' });
@@ -135,6 +142,7 @@ async function testSylvaria(page, engineName) {
   if ((after.player?.x ?? 0) <= (before.player?.x ?? 0) + 8) {
     throw new Error(`Sylvaria keyboard input failed (${before.player?.x} -> ${after.player?.x})`);
   }
+  if (!after.visual?.theme || !after.visual?.quality?.tier) throw new Error('Sylvaria v0.6 snapshot lost visual telemetry');
 
   await frame.evaluate(() => window.__MOSSLIGHT_PLAYTEST__.setRoom(0));
   await assertCanvasKeyboardFocus(frame, 'Sylvaria arrow aim');
@@ -150,7 +158,7 @@ async function testSylvaria(page, engineName) {
     throw new Error('Sylvaria ArrowUp + ArrowRight + Space did not register a cast');
   }
 
-  // Explicitly prove the v0.5 state machine on every browser engine. Completing
+  // Explicitly prove the v0.6 state machine on every browser engine. Completing
   // the puzzle may arm the gate, but it must remain closed until F fires it.
   await frame.evaluate(() => window.__MOSSLIGHT_PLAYTEST__.setRoom(0, 1));
   const gateReady = await frame.evaluate(() => window.__MOSSLIGHT_PLAYTEST__.completeRoom());
@@ -178,6 +186,7 @@ async function testSylvaria(page, engineName) {
     portalPhase: gateOpen.portalPhase,
     portalShots: gateOpen.stats.portals,
     fps: after.fps,
+    visual: after.visual,
   };
 }
 
