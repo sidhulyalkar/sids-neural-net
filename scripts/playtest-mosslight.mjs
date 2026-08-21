@@ -61,10 +61,25 @@ function arrowKeysForVector(dx, dy) {
   ][octant];
 }
 
+function nearestUnfinishedTarget(snapshot) {
+  if (!snapshot?.player) return null;
+  let best = null;
+  let bestDistance = Infinity;
+  for (const target of snapshot.targets || []) {
+    if (target.done) continue;
+    const distance = Math.hypot(target.x - snapshot.player.x, target.y - snapshot.player.y);
+    if (distance < bestDistance) {
+      best = target;
+      bestDistance = distance;
+    }
+  }
+  return best;
+}
+
 await page.evaluate(() => window.__MOSSLIGHT_PLAYTEST__.setRoom(0, 1));
 await page.waitForTimeout(120);
 const pointerBefore = await page.evaluate(() => window.__MOSSLIGHT_PLAYTEST__.snapshot());
-const pointerTarget = pointerBefore.targets.find((target) => !target.done);
+const pointerTarget = nearestUnfinishedTarget(pointerBefore);
 if (!pointerTarget) failures.push('room one must expose a puzzle target');
 else {
   await page.mouse.move(pointerTarget.x, pointerTarget.y);
@@ -78,7 +93,7 @@ else {
 await page.evaluate(() => window.__MOSSLIGHT_PLAYTEST__.setRoom(0, 1));
 await page.waitForTimeout(120);
 const keyboardBefore = await page.evaluate(() => window.__MOSSLIGHT_PLAYTEST__.snapshot());
-const keyboardTarget = keyboardBefore.targets.find((target) => !target.done);
+const keyboardTarget = nearestUnfinishedTarget(keyboardBefore);
 if (!keyboardTarget || !keyboardBefore.player) failures.push('keyboard aim needs target/player state');
 else {
   const arrows = arrowKeysForVector(keyboardTarget.x - keyboardBefore.player.x, keyboardTarget.y - keyboardBefore.player.y);
@@ -89,7 +104,7 @@ else {
   await page.waitForTimeout(540);
   const keyboardAfter = await page.evaluate(() => window.__MOSSLIGHT_PLAYTEST__.snapshot());
   if (keyboardAfter.stats.casts <= keyboardBefore.stats.casts) failures.push(`arrow aim + Space did not fire (${arrows.join(' + ')})`);
-  if (keyboardAfter.stats.correct <= keyboardBefore.stats.correct) failures.push(`arrow aim + Space did not solve a puzzle step (${arrows.join(' + ')})`);
+  if (keyboardAfter.stats.correct <= keyboardBefore.stats.correct) failures.push(`arrow aim + Space did not solve the nearest assisted puzzle step (${arrows.join(' + ')})`);
   if (keyboardAfter.aimSource !== 'keyboard') failures.push(`arrow aim lost keyboard authority: ${keyboardAfter.aimSource}`);
 }
 
@@ -145,6 +160,7 @@ const report = {
   generatedAt: new Date().toISOString(), runtimeUrl, version: metadata.version,
   expedition: metadata.expedition, director: metadata.director,
   movement: { from: start.player, to: moved.player },
+  aimContract: { pointerTarget, keyboardTarget },
   portalGate: { before: gateBefore, ready: gateReady, afterAdvance },
   guardian: { start: bossStart, defeated: bossDefeated, ready: bossReady },
   difficulty: { earlyEnemies: early.enemies.length, depth300Enemies: deep.enemies.length },
