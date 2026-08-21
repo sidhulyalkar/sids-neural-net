@@ -68,16 +68,18 @@ for (const { name, browserType, launchOptions } of engines) {
     const titleStats = await canvasStats(frame);
     await frame.locator('#start').click();
     await frame.waitForFunction(() => window.__MOSSLIGHT_PLAYTEST__.snapshot().mode === 'playing');
-    await frame.locator('#c').focus();
+    const canvasInput = frame.locator('#c');
+    await canvasInput.focus();
     const before = await frame.evaluate(() => window.__MOSSLIGHT_PLAYTEST__.snapshot());
 
-    // This deliberately releases both taps quickly. A correct one-command queue must
-    // survive keyup and the rest of the first committed dash on every browser engine.
-    await page.keyboard.press('d');
+    // Target the focusable canvas inside the iframe directly. page.keyboard relies on
+    // top-document focus forwarding, which WebKit intentionally handles differently.
+    // These remain real browser keyboard events, but now the event target is explicit.
+    await canvasInput.press('d');
     await page.waitForTimeout(25);
-    await page.keyboard.press('s');
+    await canvasInput.press('s');
     await page.waitForTimeout(300);
-    await page.keyboard.press('ArrowUp');
+    await canvasInput.press('ArrowUp');
     await page.waitForTimeout(140);
 
     const after = await frame.evaluate(() => window.__MOSSLIGHT_PLAYTEST__.snapshot());
@@ -104,4 +106,4 @@ if (failed) {
   for (const result of report.filter((entry) => !entry.ok)) console.error(` - ${result.name}: ${result.error}`);
   process.exit(1);
 }
-console.log(`Sylvaria Countercut v0.8.2 browser matrix PASS: ${report.map((entry) => entry.name).join(', ')}; persistent D→S queue and orthogonal cut verified.`);
+console.log(`Sylvaria Countercut v0.8.2 browser matrix PASS: ${report.map((entry) => entry.name).join(', ')}; persistent D→S queue and orthogonal cut verified inside the runtime frame.`);
