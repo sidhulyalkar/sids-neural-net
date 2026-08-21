@@ -6,7 +6,7 @@ import { usePathname } from 'next/navigation';
 const footerLinks = [
   { href: '/about', label: 'Core' },
   { href: '/projects', label: 'Builds' },
-  { href: '/arcade', label: 'Arcade' },
+  { href: '/arcade', label: 'Game Network' },
   { href: '/publications', label: 'Papers' },
   { href: '/ideas', label: 'Research' },
   { href: '/photography', label: 'Visual Cortex' },
