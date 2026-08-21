@@ -24,6 +24,8 @@
   let lastQualityShift = performance.now();
   let lastFrame = performance.now();
   let requestedShadowBlur = 0;
+  let shadowPatchActive = false;
+  let gradientPatchActive = false;
 
   const findDescriptor = (object, prop) => {
     let cursor = object;
@@ -37,14 +39,17 @@
 
   const shadowDescriptor = findDescriptor(Object.getPrototypeOf(ctx), 'shadowBlur');
   if (shadowDescriptor?.get && shadowDescriptor?.set) {
-    Object.defineProperty(ctx, 'shadowBlur', {
-      configurable: true,
-      get() { return requestedShadowBlur; },
-      set(value) {
-        requestedShadowBlur = Number(value) || 0;
-        shadowDescriptor.set.call(ctx, Math.min(requestedShadowBlur, CONFIG[tier].blurCap));
-      },
-    });
+    try {
+      Object.defineProperty(ctx, 'shadowBlur', {
+        configurable: true,
+        get() { return requestedShadowBlur; },
+        set(value) {
+          requestedShadowBlur = Number(value) || 0;
+          shadowDescriptor.set.call(ctx, Math.min(requestedShadowBlur, CONFIG[tier].blurCap));
+        },
+      });
+      shadowPatchActive = true;
+    } catch {}
   }
 
   try {
@@ -102,18 +107,27 @@
   };
 
   if (fillDescriptor?.get && fillDescriptor?.set && strokeDescriptor?.get && strokeDescriptor?.set) {
-    ctx.createLinearGradient = (...args) => new GradientRequest('linear', args);
-    ctx.createRadialGradient = (...args) => new GradientRequest('radial', args);
-    Object.defineProperty(ctx, 'fillStyle', {
-      configurable: true,
-      get() { return fillDescriptor.get.call(ctx); },
-      set(value) { fillDescriptor.set.call(ctx, value?.__sylvariaGradient ? resolveGradient(value) : value); },
-    });
-    Object.defineProperty(ctx, 'strokeStyle', {
-      configurable: true,
-      get() { return strokeDescriptor.get.call(ctx); },
-      set(value) { strokeDescriptor.set.call(ctx, value?.__sylvariaGradient ? resolveGradient(value) : value); },
-    });
+    try {
+      Object.defineProperty(ctx, 'fillStyle', {
+        configurable: true,
+        get() { return fillDescriptor.get.call(ctx); },
+        set(value) { fillDescriptor.set.call(ctx, value?.__sylvariaGradient ? resolveGradient(value) : value); },
+      });
+      Object.defineProperty(ctx, 'strokeStyle', {
+        configurable: true,
+        get() { return strokeDescriptor.get.call(ctx); },
+        set(value) { strokeDescriptor.set.call(ctx, value?.__sylvariaGradient ? resolveGradient(value) : value); },
+      });
+      ctx.createLinearGradient = (...args) => new GradientRequest('linear', args);
+      ctx.createRadialGradient = (...args) => new GradientRequest('radial', args);
+      gradientPatchActive = true;
+    } catch {
+      try { delete ctx.fillStyle; } catch {}
+      try { delete ctx.strokeStyle; } catch {}
+      try { ctx.createLinearGradient = nativeLinear; } catch {}
+      try { ctx.createRadialGradient = nativeRadial; } catch {}
+      gradientCache.clear();
+    }
   }
 
   const applyTier = (nextTier, reason = 'manual') => {
@@ -176,6 +190,8 @@
         gradientCacheLimit: CONFIG[tier].gradientCache,
         blurCap: CONFIG[tier].blurCap,
         overlayFps: CONFIG[tier].overlayFps,
+        gradientCacheActive: gradientPatchActive,
+        shadowBudgetActive: shadowPatchActive,
       };
     },
   });
