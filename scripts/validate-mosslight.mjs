@@ -7,26 +7,35 @@ const expedition = fs.readFileSync(`${root}/expedition.js`, 'utf8');
 const director = fs.readFileSync(`${root}/director.js`, 'utf8');
 const preflight = fs.readFileSync(`${root}/arena-preflight.js`, 'utf8');
 const game = fs.readFileSync(`${root}/game-v5.js`, 'utf8');
+const renderOptimizer = fs.readFileSync(`${root}/render-optimizer-v6.js`, 'utf8');
+const visualSystem = fs.readFileSync(`${root}/visual-system-v6.js`, 'utf8');
 const portalStyles = fs.readFileSync(`${root}/portal-v4.css`, 'utf8');
 const sylvariaStyles = fs.readFileSync(`${root}/sylvaria-v5.css`, 'utf8');
+const visualStyles = fs.readFileSync(`${root}/sylvaria-v6.css`, 'utf8');
 const atlasRoute = fs.readFileSync('app/game-runtimes/mosslight-atlas/route.ts', 'utf8');
 const arcadeGames = fs.readFileSync('src/data/arcadeGames.ts', 'utf8');
+const visualDoc = fs.readFileSync('docs/SYLVARIA_V06_VISUAL_SYSTEM.md', 'utf8');
 const errors = [];
 const expect = (condition, message) => { if (!condition) errors.push(message); };
 
 expect(html.includes('<canvas id="c"'), 'runtime must expose the game canvas');
 expect(html.includes('Sylvaria: Mossglint Run'), 'Sylvaria title is missing');
-expect(html.includes('./game-v5.js') && !html.includes('./game-v4.js'), 'production shell must run Sylvaria v0.5 only');
-expect(html.includes('./sylvaria-v5.css') && html.includes('./arena-preflight.js'), 'Sylvaria visual/preflight layers are missing');
-expect(html.indexOf('./director.js') < html.indexOf('./arena-preflight.js') && html.indexOf('./arena-preflight.js') < html.indexOf('./game-v5.js'), 'arena preflight must run after Director and before gameplay');
+expect(html.includes('./game-v5.js') && !html.includes('./game-v4.js'), 'production shell must keep the validated v0.5 gameplay core');
+expect(html.includes('./sylvaria-v5.css') && html.includes('./sylvaria-v6.css') && html.includes('./arena-preflight.js'), 'Sylvaria visual/preflight layers are missing');
+expect(html.includes('./render-optimizer-v6.js') && html.includes('./visual-system-v6.js'), 'v0.6 adaptive rendering layers are missing');
+expect(html.indexOf('./director.js') < html.indexOf('./arena-preflight.js'), 'arena preflight must run after Director');
+expect(html.indexOf('./arena-preflight.js') < html.indexOf('./render-optimizer-v6.js'), 'render optimizer must run after arena content is prepared');
+expect(html.indexOf('./render-optimizer-v6.js') < html.indexOf('./game-v5.js') && html.indexOf('./game-v5.js') < html.indexOf('./visual-system-v6.js'), 'v0.6 optimizer must wrap the gameplay renderer before the visual overlay starts');
 expect(html.includes('fire gate') && html.includes('extract') && html.includes('never look back'), 'new one-way extraction story rule is missing');
 expect(html.includes('start scored run') && html.includes('explorer run'), 'proper run menu modes are missing');
 expect(html.includes('how to play') && html.includes('controls') && html.includes('options'), 'menu navigation is incomplete');
 expect(html.includes('data-bind="portalFire"') && html.includes('data-bind="portalEnter"'), 'portal fire/entry controls must be separately remappable');
 expect(html.includes('id="portalFireBtn"'), 'dedicated portal fire HUD button is missing');
 expect(html.includes('musicToggle') && html.includes('sfxToggle') && html.includes('volume'), 'audio options are incomplete');
+expect(html.includes('id="visualQuality"') && html.includes('id="qualityState"'), 'visual quality controls are missing');
+expect(html.includes('id="biomeBadge"'), 'biome identity badge is missing from the HUD');
 expect(html.includes('mossglint') && html.includes('portalState') && html.includes('integrity') && html.includes('bossState'), 'run HUD is missing portal-run state');
-expect(arcadeGames.includes("title: 'Sylvaria'") && arcadeGames.includes("version: 'v0.5.0'"), 'Game Network must publish Sylvaria v0.5');
+expect(arcadeGames.includes("title: 'Sylvaria'") && arcadeGames.includes("version: 'v0.6.0'"), 'Game Network must publish Sylvaria v0.6');
 
 const roomTitles = ['Dew Garden','Orchard House','Rescue Hollow','River Workshop','Cloud Meadow','Emberstep','Pollinator Conservatory','Alpine Thaw','Tide Nursery','Earthheart'];
 for (const title of roomTitles) expect(rooms.includes(`title: '${title}'`), `missing mechanic template: ${title}`);
@@ -64,16 +73,36 @@ expect(game.includes('globalPressure') && game.includes('Math.log2'), 'difficult
 expect(game.includes('score') && game.includes('speedBonus') && game.includes('BEST_KEY'), 'speed/skill scoring and local best tracking are incomplete');
 expect(game.includes('DEFAULT_BINDINGS') && game.includes('beginCapture') && game.includes('saveSettings'), 'control remapping persistence is incomplete');
 expect(game.includes('class SylvariaMusic') && game.includes('this.bpm()') && game.includes('setWorld'), 'custom reactive procedural music engine is missing');
-expect(game.includes("version: '0.5.0'") && game.includes("title: 'Sylvaria'"), 'playtest API must identify Sylvaria v0.5.0');
+expect(game.includes("title: 'Sylvaria'"), 'gameplay core must identify Sylvaria');
 expect(game.includes('function aimVector') && game.includes("aimSource = 'keyboard'") && game.includes("aimSource = 'mouse'"), 'mouse + keyboard aim arbitration is missing');
 expect(game.includes('spec.cooldown / state.relics.fireRate') && game.includes('spec.radius * state.relics.projectileScale'), 'firing powerups must affect gameplay');
 expect(game.includes('state.relics.spread') && game.includes('state.relics.pierce'), 'spread/piercing builds are missing');
-expect(game.includes('drawBiomeBackground') && game.includes('drawSprid') && game.includes('drawCreatureGlyph'), 'reference-driven visual rewrite is incomplete');
+expect(game.includes('drawBiomeBackground') && game.includes('drawSprid') && game.includes('drawCreatureGlyph'), 'reference-driven gameplay renderer is incomplete');
 expect(game.includes("const colors = ['#9b5cff', '#52d9ff', '#79ff9a', '#6f73ff']"), 'neon purple/blue/green portal palette is missing');
 expect(portalStyles.includes('.bindingGrid') && portalStyles.includes('.storyRule') && portalStyles.includes('.milestone'), 'base menu/control styling is incomplete');
 expect(sylvariaStyles.includes('#portalFireBtn.ready') && sylvariaStyles.includes('@keyframes portalButtonPulse'), 'portal charge button animation is missing');
 
-for (const [name, source] of [['rooms.js', rooms], ['expedition.js', expedition], ['director.js', director], ['arena-preflight.js', preflight], ['game-v5.js', game]]) {
+for (const theme of ['forest','volcanic','reef','ice','celestial']) {
+  expect(visualSystem.includes(`${theme}: {`), `missing v0.6 visual theme: ${theme}`);
+}
+expect(visualSystem.includes('SPRID_RULES') && visualSystem.includes('ENEMY_RULES') && visualSystem.includes('ASSET_CHECKLIST'), 'visual design rules must be executable metadata');
+expect(visualSystem.includes('buildForestSprite') && visualSystem.includes('buildVolcanicSprite') && visualSystem.includes('buildReefSprite') && visualSystem.includes('buildIceSprite') && visualSystem.includes('buildCelestialSprite'), '2x biome motif kits are incomplete');
+expect(visualSystem.includes('drawCuteEnemyFace') && visualSystem.includes('drawSpridPolish') && visualSystem.includes('drawPortalPolish'), 'character/portal polish layer is incomplete');
+expect(visualSystem.includes("playtest.version = '0.6.0'") && visualSystem.includes('SylvariaVisualSystem'), 'runtime must expose the v0.6 visual system contract');
+expect(visualSystem.includes('visualQuality') && visualSystem.includes('budget.setPreference'), 'visual quality setting is not wired to the runtime');
+expect(renderOptimizer.includes('GradientRequest') && renderOptimizer.includes('gradientCache'), 'gradient reuse cache is missing');
+expect(renderOptimizer.includes('shadowBlur') && renderOptimizer.includes('blurCap'), 'bounded glow budget is missing');
+expect(renderOptimizer.includes("performance: { blurCap") && renderOptimizer.includes("balanced: { blurCap") && renderOptimizer.includes("high: { blurCap"), 'visual quality tiers are incomplete');
+expect(renderOptimizer.includes('fps-downshift') && renderOptimizer.includes('fps-upshift'), 'Auto visual-quality governor is missing');
+expect(visualStyles.includes('--biome-accent') && visualStyles.includes('body[data-syl-theme'), 'HUD must inherit biome-specific visual language');
+expect(visualStyles.includes('prefers-contrast:more') && visualStyles.includes('data-sylvaria-quality="performance"'), 'accessibility/performance visual CSS is incomplete');
+expect(visualDoc.includes('Sprid design rules') && visualDoc.includes('Enemy art rules') && visualDoc.includes('Per-biome palette + motif guide') && visualDoc.includes('Exact asset checklist'), 'v0.6 visual design document is incomplete');
+expect(visualDoc.includes('Visual QA matrix') && visualDoc.includes('Future upgrades'), 'visual QA/future roadmap is missing');
+
+for (const [name, source] of [
+  ['rooms.js', rooms], ['expedition.js', expedition], ['director.js', director], ['arena-preflight.js', preflight],
+  ['game-v5.js', game], ['render-optimizer-v6.js', renderOptimizer], ['visual-system-v6.js', visualSystem],
+]) {
   try { new Function(source); } catch (error) { errors.push(`${name} does not compile: ${error instanceof Error ? error.message : String(error)}`); }
 }
 
@@ -83,4 +112,4 @@ if (errors.length) {
   process.exit(1);
 }
 
-console.log(`Sylvaria PASS: v0.5 explicit Mossglint gate shot, extraction phase, ${roomTitles.length} mechanic templates, 1,000-world milestone, every-10th-world guardians, procedural arena preflight, remappable controls, reactive music, visual biome renderer, global difficulty, and Atlas continuation.`);
+console.log(`Sylvaria PASS: v0.6 crisp biome art system, adaptive rendering, Sprid/enemy design rules, polished HUD, explicit Mossglint gate shot, ${roomTitles.length} mechanic templates, 1,000-world milestone, guardians, remappable controls, reactive music, global difficulty, and Atlas continuation.`);
