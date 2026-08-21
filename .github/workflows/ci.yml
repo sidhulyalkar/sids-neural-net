@@ -50,7 +50,7 @@ jobs:
       - name: Unit tests
         run: npm test
 
-      - name: Validate Mosslight runtime
+      - name: Validate Sylvaria runtime
         run: npm run check:mosslight
 
       - name: Validate deterministic Nature Atlas corpus
@@ -89,7 +89,7 @@ jobs:
 
       - name: Smoke public production routes
         run: |
-          for route in / /neural-net /case-studies /physiology /perceptual-cortex /rotation /sensing-lab /physiology/visual-audit /photography /arcade /arcade/stretchicorn /arcade/unirico /arcade/mosslight; do
+          for route in / /neural-net /case-studies /physiology /perceptual-cortex /rotation /sensing-lab /physiology/visual-audit /photography /arcade /arcade/stretchicorn /arcade/unirico /arcade/sylvaria /arcade/mosslight; do
             echo "GET $route"
             curl --retry 2 --retry-connrefused -fsS "http://127.0.0.1:3000$route" >/dev/null
           done
@@ -99,17 +99,19 @@ jobs:
           echo "GET pinned uniRico runtime"
           curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/game-runtimes/unirico/index.html | grep -q '<canvas id="c"'
           curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/game-runtimes/unirico/runtime/core.js | grep -q 'use strict\|const\|function'
-          echo "GET Mosslight Mossglint Run v0.4 runtime"
-          curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/game-runtimes/mosslight-v2/index.html | grep -q 'Mosslight: Mossglint Run'
+          echo "GET Sylvaria Mossglint Run v0.5 runtime"
+          curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/game-runtimes/mosslight-v2/index.html | grep -q 'Sylvaria: Mossglint Run'
           curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/game-runtimes/mosslight-v2/index.html | grep -q './director.js'
-          curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/game-runtimes/mosslight-v2/index.html | grep -q './game-v4.js'
-          curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/game-runtimes/mosslight-v2/index.html | grep -q './portal-v4.css'
+          curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/game-runtimes/mosslight-v2/index.html | grep -q './game-v5.js'
+          curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/game-runtimes/mosslight-v2/index.html | grep -q './sylvaria-v5.css'
           curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/game-runtimes/mosslight-v2/expedition.js | grep -q 'sid.mosslight.atlas-deck.v1'
           curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/game-runtimes/mosslight-atlas | grep -q '"count":1000'
           curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/game-runtimes/mosslight-v2/director.js | grep -q 'MosslightDirector'
-          curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/game-runtimes/mosslight-v2/game-v4.js | grep -q "version: '0.4.0'"
-          curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/game-runtimes/mosslight-v2/game-v4.js | grep -q 'ATLAS_LENGTH = 1000'
-          curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/game-runtimes/mosslight-v2/game-v4.js | grep -q 'class MosslightMusic'
+          curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/game-runtimes/mosslight-v2/game-v5.js | grep -q "version: '0.5.0'"
+          curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/game-runtimes/mosslight-v2/game-v5.js | grep -q "title: 'Sylvaria'"
+          curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/game-runtimes/mosslight-v2/game-v5.js | grep -q 'ATLAS_LENGTH = 1000'
+          curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/game-runtimes/mosslight-v2/game-v5.js | grep -q 'class SylvariaMusic'
+          curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/game-runtimes/mosslight-v2/game-v5.js | grep -q 'firePortalCharge'
           curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/game-runtimes/mosslight-v2/rooms.js | grep -q "title: 'Earthheart'"
 
       - name: Install cross-browser smoke engines
@@ -129,7 +131,7 @@ jobs:
           PW_ROOT="$(cd "$(dirname "$PW_BIN")/.." && pwd)"
           PLAYWRIGHT_MODULE_ROOT="$PW_ROOT" node scripts/playtest-arcade-browsers.mjs
 
-      - name: Playtest Mosslight Mossglint Run
+      - name: Playtest Sylvaria Mossglint Run
         run: |
           PW_BIN="$(npm exec --yes --package=playwright@1.55.0 -- which playwright)"
           PW_ROOT="$(cd "$(dirname "$PW_BIN")/.." && pwd)"
@@ -150,8 +152,8 @@ jobs:
           npx --yes playwright@1.55.0 screenshot --browser=chromium --viewport-size="1440,1100" --full-page http://127.0.0.1:3000/arcade artifacts/browser-smoke/game-network.png
           npx --yes playwright@1.55.0 screenshot --browser=chromium --viewport-size="1440,1000" http://127.0.0.1:3000/arcade/stretchicorn artifacts/browser-smoke/arcade-stretchicorn.png
           npx --yes playwright@1.55.0 screenshot --browser=chromium --viewport-size="1440,1000" http://127.0.0.1:3000/arcade/unirico artifacts/browser-smoke/arcade-unirico.png
-          npx --yes playwright@1.55.0 screenshot --browser=chromium --viewport-size="1440,1000" http://127.0.0.1:3000/arcade/mosslight artifacts/browser-smoke/arcade-mosslight.png
-          npx --yes playwright@1.55.0 screenshot --browser=chromium --viewport-size="960,640" http://127.0.0.1:3000/game-runtimes/mosslight-v2/index.html artifacts/browser-smoke/mosslight-runtime.png
+          npx --yes playwright@1.55.0 screenshot --browser=chromium --viewport-size="1440,1000" http://127.0.0.1:3000/arcade/sylvaria artifacts/browser-smoke/arcade-sylvaria.png
+          npx --yes playwright@1.55.0 screenshot --browser=chromium --viewport-size="960,640" http://127.0.0.1:3000/game-runtimes/mosslight-v2/index.html artifacts/browser-smoke/sylvaria-runtime.png
 
       - name: Upload production audit artifacts
         if: always()
