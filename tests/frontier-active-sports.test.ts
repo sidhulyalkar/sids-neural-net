@@ -57,6 +57,14 @@ test('active sports profile includes every explicitly requested discipline', () 
   }
 });
 
+test('active sports are positively seeded into the cold-start profile', () => {
+  const profile = createInitialProfile();
+  for (const topic of ['rock climbing', 'mountain biking', 'skiing', 'skateboarding', 'longboarding', 'soccer', 'ripstik', 'ripsurf']) {
+    assert.ok((profile.topicAffinity[topic] ?? 0) > 0, `Expected positive affinity for ${topic}`);
+  }
+  assert.ok(profile.laneAffinity.sports > 0);
+});
+
 test('active sports rotate into a finite daily discovery set', () => {
   const daily = pickDailyActiveSports('2026-08-21', 4);
   assert.equal(daily.length, 4);
