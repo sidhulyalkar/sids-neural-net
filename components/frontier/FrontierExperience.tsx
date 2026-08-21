@@ -41,6 +41,8 @@ import { SignalCard } from './SignalCard';
 import styles from './frontier-experience.module.css';
 
 const LIVE_REFRESH_MS = 4 * 60_000;
+const FEED_CACHE_KEY = 'frontier-live-feed-cache-v1';
+const FEED_CACHE_MAX_AGE_MS = 36 * 60 * 60_000;
 
 const VIEWS: Array<{ id: FrontierView; label: string }> = [
   { id: 'today', label: 'Today' },
@@ -95,10 +97,19 @@ function formatMatches(item: FrontierItem, filter: FormatFilter): boolean {
   }
 }
 
-function realmTitle(realm: FrontierRealm): string {
-  if (realm === 'learn') return 'Brainfood';
-  if (realm === 'play') return 'After Hours';
-  return 'For You';
+function LoadingBoard() {
+  return (
+    <div className={styles.loadingGrid} aria-label="Scanning live sources">
+      {Array.from({ length: 6 }, (_, index) => (
+        <div className={styles.loadingCard} key={index} aria-hidden="true">
+          <span className={styles.loadingMeta} />
+          <span className={styles.loadingHeadline} />
+          <span className={styles.loadingHeadlineShort} />
+          <span className={styles.loadingLine} />
+        </div>
+      ))}
+    </div>
+  );
 }
 
 export function FrontierExperience({ initialDateLabel, initialDayKey }: Props) {
@@ -142,6 +153,22 @@ export function FrontierExperience({ initialDateLabel, initialDayKey }: Props) {
     ])).slice(0, 28);
   }, [store.profile.topicAffinity]);
 
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(FEED_CACHE_KEY);
+      if (!raw) return;
+      const cached = JSON.parse(raw) as FrontierFeedResponse;
+      const generated = new Date(cached.generatedAt).getTime();
+      if (!Array.isArray(cached.items) || !cached.items.length || !Number.isFinite(generated)) return;
+      if (Date.now() - generated > FEED_CACHE_MAX_AGE_MS) return;
+      setItems(cached.items);
+      setSources(Array.isArray(cached.sources) ? cached.sources : []);
+      setGeneratedAt(cached.generatedAt);
+    } catch {
+      // Cache is opportunistic. A corrupt browser entry should never block live discovery.
+    }
+  }, []);
+
   const loadFeed = useCallback(async (forceFresh = false) => {
     requestRef.current?.abort();
     const controller = new AbortController();
@@ -162,6 +189,17 @@ export function FrontierExperience({ initialDateLabel, initialDayKey }: Props) {
       setSources(payload.sources ?? []);
       setGeneratedAt(payload.generatedAt);
       if (payload.error) setError(payload.error);
+      if (!activeSearch && payload.items?.length) {
+        try {
+          window.localStorage.setItem(FEED_CACHE_KEY, JSON.stringify({
+            generatedAt: payload.generatedAt,
+            items: payload.items.slice(0, 72),
+            sources: payload.sources ?? [],
+          } satisfies FrontierFeedResponse));
+        } catch {
+          // Discovery remains live even if browser storage is unavailable or full.
+        }
+      }
     } catch (feedError) {
       if (controller.signal.aborted) return;
       setError(feedError instanceof Error ? feedError.message : 'Live feed temporarily unavailable');
@@ -169,7 +207,7 @@ export function FrontierExperience({ initialDateLabel, initialDayKey }: Props) {
       if (requestRef.current === controller) requestRef.current = null;
       setLoading(false);
     }
-  }, [focusSignature]);
+  }, [activeSearch, focusSignature]);
 
   useEffect(() => {
     void loadFeed();
@@ -353,8 +391,7 @@ export function FrontierExperience({ initialDateLabel, initialDayKey }: Props) {
       <div className={styles.inner}>
         <header className={styles.compactMasthead}>
           <div className={styles.brandBlock} title={initialDateLabel}>
-            <p className={styles.eyebrow}>FRONTIER</p>
-            <h1 className={styles.minimalTitle}>{realmTitle(realm)}</h1>
+            <span className={styles.wordmark}>FRONTIER</span>
           </div>
 
           <form className={styles.topicSearch} onSubmit={submitSearch} role="search">
@@ -418,7 +455,7 @@ export function FrontierExperience({ initialDateLabel, initialDayKey }: Props) {
               items={dailyRun}
               renderCard={(item, mode) => renderCard(item, mode)}
               onLayoutChange={layoutCallback}
-              empty={<div className={styles.empty}>{loading ? 'Scanning…' : 'Nothing new yet.'}</div>}
+              empty={loading ? <LoadingBoard /> : <div className={styles.empty}>Nothing new yet.</div>}
             />
           </main>
         ) : null}
@@ -447,7 +484,7 @@ export function FrontierExperience({ initialDateLabel, initialDayKey }: Props) {
               renderCard={(item, mode) => renderCard(item, mode)}
               onLayoutChange={layoutCallback}
               compact
-              empty={<div className={styles.empty}>{loading ? 'Searching…' : activeSearch ? 'No match. Try a wider phrase.' : 'No signals in this slice.'}</div>}
+              empty={loading ? <LoadingBoard /> : <div className={styles.empty}>{activeSearch ? 'No match. Try a wider phrase.' : 'No signals in this slice.'}</div>}
             />
           </section>
         ) : null}
