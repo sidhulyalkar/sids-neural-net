@@ -4,19 +4,19 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover" />
 <meta name="theme-color" content="#06110e" />
-<title>Sylvaria: Countercut</title>
+<title>Sylvaria: Environmental Resonance</title>
 <link rel="stylesheet" href="./sylvaria-v8.css" />
 </head>
 <body>
 <div id="game">
-  <canvas id="c" width="960" height="640" tabindex="0" aria-label="Sylvaria Countercut directional forest combat game"></canvas>
+  <canvas id="c" width="960" height="640" tabindex="0" aria-label="Sylvaria Environmental Resonance directional forest combat game"></canvas>
   <div id="hud" class="hidden" aria-hidden="true">
     <div id="top">
       <div id="roomCard" class="glass">
-        <div id="roomKicker">room 001 · countercut expedition</div>
+        <div id="roomKicker">room 001 · environmental countercut</div>
         <div id="roomTitle">Trailhead Trespass</div>
-        <div id="roomTask">Tap WASD to step-dash. Arrow keys cut. Save the trees.</div>
-        <div id="biomeBadge">learn committed movement</div>
+        <div id="roomTask">Commit with WASD. Counter with arrows. Read the ground too.</div>
+        <div id="biomeBadge">clean clearing · movement first</div>
       </div>
       <div id="stats" class="runStats">
         <div class="stat glass"><b>score</b><span id="score">0</span></div>
@@ -28,6 +28,7 @@
       <div><b>trees</b><span id="treeState">5/5</span></div>
       <div><b>flow</b><span id="flowState">0%</span></div>
       <div><b>step dash</b><span id="dashState">48px</span></div>
+      <div><b>terrain / routes</b><span id="terrainState">ground · 0</span></div>
       <div><b>counters</b><span id="counterState">0</span></div>
       <div><b>cross / long</b><span id="returnState">0/0</span></div>
       <div><b>grazes</b><span id="grazeState">0</span></div>
@@ -38,37 +39,39 @@
 
   <div id="title" class="screen">
     <div class="panel menuPanel">
-      <div class="eyebrow">forest counter-combat · thousands of seeded scenarios</div>
-      <h1><em class="sylvariaWord">Sylvaria</em><br/>Countercut</h1>
-      <p class="lede narrow">Sprid is a machete-wielding forest runner dropped into clear-cut operations that get stranger, faster, and more coordinated every room. Protect living trees, chop deadwood into routes, read enemy commitments, and turn hostile projectile patterns into high-speed weapons against the rest of the formation.</p>
+      <div class="eyebrow">v0.9 · environmental counter-combat · thousands of seeded scenarios</div>
+      <h1><em class="sylvariaWord">Sylvaria</em><br/>Environmental Resonance</h1>
+      <p class="lede narrow">Sprid is a machete-wielding forest runner fighting clear-cut operations across living arenas. Protect trees, chop routes through deadwood and tall grass, read enemy commitments, and turn hostile projectile patterns into high-speed weapons. Ice, mud, sand, water, brambles, and breakable barriers obey the same rules for Sprid and his enemies, so the ground becomes another part of the Countercut formation.</p>
       <div class="combatRule">
-        <div><b>W A S D</b><span>persistent one-step cardinal queue, never floaty drift</span></div>
-        <div><b>Arrow Keys</b><span>independent up / down / left / right machete cuts</span></div>
-        <div><b>Counter Route</b><span>return shots at high speed; long and cross-enemy hits pay more</span></div>
-        <div><b>Read Patterns</b><span>straight, zigzag, wave, spiral, swerve, and wobble fire</span></div>
+        <div><b>W A S D</b><span>persistent one-step cardinal queue; terrain changes commitment, never the input grammar</span></div>
+        <div><b>Arrow Keys</b><span>independent machete cuts, arrival-side counters, foliage chops, and contextual terrain breaks</span></div>
+        <div><b>Counter Route</b><span>return shots at high speed; long, cross-enemy, and hazard-routed hits pay more</span></div>
+        <div><b>Read Ground</b><span>ice glides, mud and sand drag, water slows, brambles stagger, grass opens under the blade</span></div>
       </div>
       <div class="menuActions">
-        <button id="start" class="primary wide">start countercut run</button>
+        <button id="start" class="primary wide">start environmental run</button>
         <button id="explore" class="secondary wide">practice expedition</button>
         <div class="menuGrid"><button id="howBtn" class="ghost">how combat works</button><button id="controlsBtn" class="ghost">controls</button></div>
       </div>
       <div id="bestRun" class="bestRun">best · no run yet</div>
-      <p class="microcopy">The first ten rooms are an authored combat curriculum. Deeper rooms deterministically remix ten enemy archetypes, movement pressure, support networks, and projectile geometries without changing the four-direction counter grammar.</p>
+      <p class="microcopy">The first ten rooms teach one new terrain idea at a time, alternating dense tactical spaces with cleaner clearings. Deeper rooms deterministically remix terrain, enemy roles, projectile geometries, and route pressure without changing the four-direction Countercut grammar.</p>
     </div>
   </div>
 
   <div id="howScreen" class="screen hidden">
     <div class="panel subPanel">
-      <div class="eyebrow">countercut grammar</div><h2>Movement commits. Cutting routes danger.</h2>
+      <div class="eyebrow">environmental countercut grammar</div><h2>Movement commits. Cutting routes danger. Terrain shapes both.</h2>
       <div class="howGrid">
-        <div><b>01 · step-dash</b><p>Tap WASD for a short cardinal burst. Hold to repeat. A second tap made during the current burst stays queued even after key release and executes immediately when the first step finishes.</p></div>
-        <div><b>02 · cut</b><p>Arrow keys swing the machete in four cardinal directions. Cuts travel with Sprid during a dash, so movement and attack vectors can disagree.</p></div>
-        <div><b>03 · counter</b><p>Cut toward the side a projectile reaches you from. Countering removes its hostile curve and launches a much faster return with restrained target assist inside your chosen lane.</p></div>
-        <div><b>04 · route fire</b><p>Returned bullets can hit any enemy, not just the shooter. Cross-enemy hits score Crosscuts. Long return flights gain damage and score. Perfect counters can penetrate one target.</p></div>
-        <div><b>05 · read patterns</b><p>Hostile shots may zigzag, wave, spiral, swerve once, or wobble irregularly. The answer remains spatial: read the side the projectile actually arrives from.</p></div>
-        <div><b>06 · hunt evasive units</b><p>Foremen and Chairs backstep. Lobbyists, Brokers, and Surveyors can blink away. Their escape destination is telegraphed, and a returned shot staggers them out of evasion.</p></div>
-        <div><b>07 · shape the forest</b><p>Living trees and deadwood block step-dashes. Chop deadwood to manufacture lanes before a projectile pattern makes that route urgent.</p></div>
-        <div><b>08 · survive the run</b><p>Heartwood persists. Perfect Groves heal one heartwood. Flow rewards counters and close dash-grazes. Dash distance grows, making later movement stronger and harder to place.</p></div>
+        <div><b>01 · step-dash</b><p>Tap WASD for a cardinal burst. A second tap made during the current burst remains queued after key release and executes after the first commitment.</p></div>
+        <div><b>02 · cut</b><p>Arrow keys swing the machete in four cardinal directions. Cuts travel with Sprid during a dash, so movement and attack vectors remain independent.</p></div>
+        <div><b>03 · counter</b><p>Cut toward the side a projectile actually reaches you from. Its hostile curve disappears and it launches as a much faster return.</p></div>
+        <div><b>04 · route fire</b><p>Returned bullets can hit any enemy. Crosscuts, Long Returns, penetration, and pushing enemies into hazardous terrain reward deliberate formation reads.</p></div>
+        <div><b>05 · read terrain</b><p>Ice extends commitment. Mud and sand add drag. Water slows. Brambles and shattered ice stagger. The same mobility and hazard rules apply to enemies.</p></div>
+        <div><b>06 · hunt evasive units</b><p>Foremen and Chairs backstep; Lobbyists, Brokers, and Surveyors blink. Mud, brambles, and ice shards can jam a safe escape destination.</p></div>
+        <div><b>07 · shape the forest</b><p>Chop tall grass and deadwood to clean sightlines. Break brittle root barriers with repeated cuts or a reflected projectile to manufacture new lanes.</p></div>
+        <div><b>08 · resonate</b><p>A precisely timed dash-cut can fracture ice into a dangerous shard field. Environmental transformations are contextual, so ordinary cuts do not erase projectile pressure.</p></div>
+        <div><b>09 · read patterns</b><p>Straight, zigzag, wave, spiral, swerve, and wobble bullets keep distinct silhouettes. Their counter rule remains spatial and unchanged.</p></div>
+        <div><b>10 · survive the run</b><p>Heartwood persists. Perfect Groves heal one heartwood. Flow rewards counters, grazes, and smart routing as dash commitment grows deeper in the forest.</p></div>
       </div>
       <div class="actions"><button class="secondary" data-back>back</button></div>
     </div>
@@ -76,7 +79,7 @@
 
   <div id="controlsScreen" class="screen hidden">
     <div class="panel subPanel controlsPanel">
-      <div class="eyebrow">controls</div><h2>Eight combat keys. One optional mute.</h2>
+      <div class="eyebrow">controls</div><h2>Eight combat keys. Terrain adds decisions, not buttons.</h2>
       <div class="bindingGrid">
         <div><span>step-dash north</span><b>W</b></div><div><span>up chop / counter</span><b>↑</b></div>
         <div><span>step-dash south</span><b>S</b></div><div><span>down chop / counter</span><b>↓</b></div>
@@ -84,7 +87,7 @@
         <div><span>step-dash east</span><b>D</b></div><div><span>right chop / counter</span><b>→</b></div>
         <div><span>pause / resume</span><b>P</b></div><div><span>mute SFX</span><b>M</b></div>
       </div>
-      <p class="microcopy">OS key-repeat is ignored. Sylvaria owns held-step cadence, the one-command movement queue, and cut timing so inputs behave consistently across Chrome, Firefox, Safari/WebKit, and different keyboards.</p>
+      <p class="microcopy">OS key-repeat is ignored. Sylvaria owns held-step cadence, its persistent one-command queue, cut timing, and terrain sampling so the same combat input behaves consistently across Chrome, Firefox, Safari/WebKit, and different keyboards.</p>
       <div class="actions"><button class="secondary" data-back>back</button></div>
     </div>
   </div>
@@ -95,7 +98,7 @@
 <script src="/game-runtimes/game-network-bridge.js"></script>
 <script src="./render-scale-v7.js"></script>
 <script src="./render-optimizer-v6.js"></script>
-<script src="./game-v82.js"></script>
-<script src="./visual-system-v8.js"></script>
+<script src="./game-v90.js"></script>
+<script src="./visual-system-v9.js"></script>
 </body>
 </html>
