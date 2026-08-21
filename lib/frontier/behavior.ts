@@ -4,6 +4,7 @@ import type {
   FrontierBehaviorEvent,
   FrontierBehaviorModel,
   FrontierItem,
+  FrontierLaneId,
   FrontierLayoutMode,
   FrontierTimeBucket,
   FrontierView,
@@ -11,6 +12,7 @@ import type {
 
 const MAX_TOPICS = 96;
 const SESSION_GAP_MS = 30 * 60_000;
+const DAY_MS = 86_400_000;
 
 export function emptyAggregate(): FrontierBehaviorAggregate {
   return {
@@ -58,6 +60,19 @@ export function formatForItem(item: FrontierItem): string {
   return 'text';
 }
 
+function noveltyBucket(item: FrontierItem): string {
+  if (item.novelty >= 0.72) return 'high';
+  if (item.novelty <= 0.38) return 'familiar';
+  return 'balanced';
+}
+
+function depthBucket(item: FrontierItem): string | undefined {
+  if (!item.readMinutes) return undefined;
+  if (item.readMinutes <= 3) return 'quick';
+  if (item.readMinutes >= 8) return 'deep';
+  return 'medium';
+}
+
 function touchAggregate(
   aggregate: FrontierBehaviorAggregate | undefined,
   event: FrontierBehaviorEvent,
@@ -93,12 +108,12 @@ function trimStats(stats: Record<string, FrontierBehaviorAggregate>, limit = MAX
 
 function updateMap(
   map: Record<string, FrontierBehaviorAggregate>,
-  keys: string[],
+  keys: Array<string | undefined>,
   event: FrontierBehaviorEvent,
   now: string
 ): Record<string, FrontierBehaviorAggregate> {
   const next = { ...map };
-  for (const key of keys.filter(Boolean)) next[key] = touchAggregate(next[key], event, now);
+  for (const key of keys) if (key) next[key] = touchAggregate(next[key], event, now);
   return next;
 }
 
@@ -108,11 +123,14 @@ export function applyBehaviorEvent(
   event: FrontierBehaviorEvent,
   date = new Date()
 ): FrontierBehaviorModel {
-  if (!model.implicitLearning) return model;
+  // Local/system cards are product status, not evidence about the owner's taste.
+  if (!model.implicitLearning || item.sourceKind === 'local') return model;
   const now = date.toISOString();
   const bucket = timeBucket(date);
   const weekday = date.toLocaleDateString('en-US', { weekday: 'short' }).toLowerCase();
   const format = formatForItem(item);
+  const novelty = noveltyBucket(item);
+  const depth = depthBucket(item);
   const topicKeys = item.tags.slice(0, 8).map((tag) => tag.toLowerCase());
 
   return {
@@ -126,6 +144,8 @@ export function applyBehaviorEvent(
       `${bucket}:${item.lane}`,
       `${weekday}:${item.lane}`,
       `${bucket}:${format}`,
+      `novelty:${novelty}`,
+      depth ? `depth:${depth}` : undefined,
     ], event, now), 128),
     lastActiveAt: now,
   };
@@ -174,24 +194,35 @@ export function recordViewUse(model: FrontierBehaviorModel, view: FrontierView):
   };
 }
 
-export function aggregatePreference(aggregate?: FrontierBehaviorAggregate): { score: number; confidence: number } {
-  if (!aggregate || aggregate.shown < 2) return { score: 0, confidence: 0 };
+export function aggregatePreference(
+  aggregate?: FrontierBehaviorAggregate,
+  date = new Date()
+): { score: number; confidence: number } {
+  if (!aggregate) return { score: 0, confidence: 0 };
+  const directEvidence = aggregate.expanded + aggregate.opened * 2 + aggregate.saved * 3 + aggregate.positive * 3 + aggregate.negative * 3;
+  if (aggregate.shown < 2 && directEvidence < 3) return { score: 0, confidence: 0 };
+
   const engaged = aggregate.dwelled * 0.24 + aggregate.expanded * 0.48 + aggregate.opened * 0.82 + aggregate.saved * 1.05 + aggregate.positive * 1.15;
   const negative = aggregate.negative * 1.2;
   const shown = Math.max(1, aggregate.shown);
   const positiveRate = (engaged - negative) / shown;
-  const quietSkipRate = Math.max(0, (shown - Math.min(shown, aggregate.dwelled + aggregate.expanded + aggregate.opened + aggregate.saved + aggregate.positive)) / shown - 0.78);
+  const resolvedEngagements = Math.min(shown, aggregate.dwelled + aggregate.expanded + aggregate.opened + aggregate.saved + aggregate.positive);
+  const quietSkipRate = Math.max(0, (shown - resolvedEngagements) / shown - 0.78);
   const skipPenalty = shown >= 12 ? quietSkipRate * 0.32 : 0;
   const score = Math.max(-1, Math.min(1.2, positiveRate - skipPenalty));
   const evidence = aggregate.shown + aggregate.opened * 2 + aggregate.saved * 3 + aggregate.positive * 3 + aggregate.negative * 3;
-  return { score, confidence: Math.min(1, evidence / 18) };
+  const ageDays = aggregate.lastAt ? Math.max(0, (date.getTime() - new Date(aggregate.lastAt).getTime()) / DAY_MS) : 0;
+  const recency = Math.max(0.35, Math.exp(-ageDays / 120));
+  return { score, confidence: Math.min(1, evidence / 18) * recency };
 }
 
 export function behavioralAdjustment(item: FrontierItem, model?: FrontierBehaviorModel, date = new Date()): number {
-  if (!model?.implicitLearning) return 0;
+  if (!model?.implicitLearning || item.sourceKind === 'local') return 0;
   const bucket = timeBucket(date);
   const weekday = date.toLocaleDateString('en-US', { weekday: 'short' }).toLowerCase();
   const format = formatForItem(item);
+  const novelty = noveltyBucket(item);
+  const depth = depthBucket(item);
   const signals: Array<[FrontierBehaviorAggregate | undefined, number]> = [
     [model.laneStats[item.lane], 0.055],
     [model.sourceStats[item.sourceKind], 0.018],
@@ -200,11 +231,13 @@ export function behavioralAdjustment(item: FrontierItem, model?: FrontierBehavio
     [model.contextStats[`${bucket}:${item.lane}`], 0.04],
     [model.contextStats[`${weekday}:${item.lane}`], 0.022],
     [model.contextStats[`${bucket}:${format}`], 0.018],
+    [model.contextStats[`novelty:${novelty}`], 0.018],
+    [depth ? model.contextStats[`depth:${depth}`] : undefined, 0.012],
   ];
   for (const tag of item.tags.slice(0, 5)) signals.push([model.topicStats[tag.toLowerCase()], 0.018]);
 
   return signals.reduce((sum, [aggregate, weight]) => {
-    const preference = aggregatePreference(aggregate);
+    const preference = aggregatePreference(aggregate, date);
     return sum + preference.score * preference.confidence * weight;
   }, 0);
 }
@@ -215,50 +248,83 @@ export type FrontierHabitInsight = {
   confidence: number;
 };
 
-function strongestEntry(stats: Record<string, FrontierBehaviorAggregate>): [string, FrontierBehaviorAggregate] | undefined {
-  return Object.entries(stats)
-    .map(([key, value]) => ({ key, value, pref: aggregatePreference(value) }))
+function strongestEntry(
+  stats: Record<string, FrontierBehaviorAggregate>,
+  date = new Date()
+): [string, FrontierBehaviorAggregate] | undefined {
+  const best = Object.entries(stats)
+    .map(([key, value]) => ({ key, value, pref: aggregatePreference(value, date) }))
     .filter((entry) => entry.pref.confidence >= 0.18 && entry.pref.score > 0.12)
-    .sort((a, b) => (b.pref.score * b.pref.confidence) - (a.pref.score * a.pref.confidence))[0]
-    ? (() => {
-        const best = Object.entries(stats)
-          .map(([key, value]) => ({ key, value, pref: aggregatePreference(value) }))
-          .filter((entry) => entry.pref.confidence >= 0.18 && entry.pref.score > 0.12)
-          .sort((a, b) => (b.pref.score * b.pref.confidence) - (a.pref.score * a.pref.confidence))[0];
-        return best ? [best.key, best.value] as [string, FrontierBehaviorAggregate] : undefined;
-      })()
-    : undefined;
+    .sort((a, b) => (b.pref.score * b.pref.confidence) - (a.pref.score * a.pref.confidence))[0];
+  return best ? [best.key, best.value] : undefined;
 }
 
-export function summarizeHabits(model: FrontierBehaviorModel): FrontierHabitInsight[] {
+function laneName(id: string): string {
+  return FRONTIER_LANE_MAP[id as FrontierLaneId]?.shortLabel ?? id;
+}
+
+export function summarizeHabits(model: FrontierBehaviorModel, date = new Date()): FrontierHabitInsight[] {
   const insights: FrontierHabitInsight[] = [];
-  const lane = strongestEntry(model.laneStats);
+  const lane = strongestEntry(model.laneStats, date);
   if (lane) {
-    const pref = aggregatePreference(lane[1]);
+    const pref = aggregatePreference(lane[1], date);
+    insights.push({ label: 'Pulls you in', detail: `${laneName(lane[0])} is earning unusually strong engagement.`, confidence: pref.confidence });
+  }
+
+  const contextual = Object.entries(model.contextStats)
+    .filter(([key]) => /^(morning|afternoon|evening|late):/.test(key))
+    .map(([key, value]) => ({ key, value, pref: aggregatePreference(value, date) }))
+    .filter((entry) => entry.pref.confidence >= 0.28 && entry.pref.score > 0.18)
+    .sort((a, b) => (b.pref.score * b.pref.confidence) - (a.pref.score * a.pref.confidence))[0];
+  if (contextual) {
+    const [bucket, subject] = contextual.key.split(':');
     insights.push({
-      label: 'Pulls you in',
-      detail: `${FRONTIER_LANE_MAP[lane[0] as keyof typeof FRONTIER_LANE_MAP]?.shortLabel ?? lane[0]} is earning unusually strong engagement.`,
-      confidence: pref.confidence,
+      label: 'Habit pocket',
+      detail: `${bucket} + ${FRONTIER_LANE_MAP[subject as FrontierLaneId]?.shortLabel ?? subject} is becoming a recurring high-attention combination.`,
+      confidence: contextual.pref.confidence,
     });
   }
-  const format = strongestEntry(model.formatStats);
+
+  const format = strongestEntry(model.formatStats, date);
   if (format) {
-    const pref = aggregatePreference(format[1]);
+    const pref = aggregatePreference(format[1], date);
     insights.push({ label: 'Format', detail: `${format[0]} signals are getting more of your attention.`, confidence: pref.confidence });
   }
-  const time = strongestEntry(model.timeStats);
+  const time = strongestEntry(model.timeStats, date);
   if (time) {
-    const pref = aggregatePreference(time[1]);
+    const pref = aggregatePreference(time[1], date);
     insights.push({ label: 'Rhythm', detail: `${time[0]} is becoming a high-engagement FRONTIER window.`, confidence: pref.confidence });
   }
+
+  const highNovelty = aggregatePreference(model.contextStats['novelty:high'], date);
+  const familiar = aggregatePreference(model.contextStats['novelty:familiar'], date);
+  if (highNovelty.confidence >= 0.3 && highNovelty.score > familiar.score + 0.18) {
+    insights.push({ label: 'Discovery appetite', detail: 'You are consistently rewarding higher-novelty discoveries.', confidence: highNovelty.confidence });
+  } else if (familiar.confidence >= 0.3 && familiar.score > highNovelty.score + 0.18) {
+    insights.push({ label: 'Discovery appetite', detail: 'You are currently spending more time on familiar, high-relevance signal.', confidence: familiar.confidence });
+  }
+
   const preferredLayout = model.layoutUses.feed === model.layoutUses.desk ? undefined : model.layoutUses.feed > model.layoutUses.desk ? 'Feed' : 'Desk';
   const layoutTotal = model.layoutUses.feed + model.layoutUses.desk;
   if (preferredLayout && layoutTotal >= 3) {
-    insights.push({ label: 'Reading mode', detail: `You choose ${preferredLayout} more often.`, confidence: Math.min(1, layoutTotal / 12) });
+    insights.push({ label: 'Reading mode', detail: `You use ${preferredLayout} more often.`, confidence: Math.min(1, layoutTotal / 12) });
   }
+
+  const primaryViews = Object.entries(model.viewUses)
+    .sort((a, b) => b[1] - a[1]);
+  const totalViews = primaryViews.reduce((sum, [, count]) => sum + count, 0);
+  if (primaryViews[0] && primaryViews[0][1] >= 3 && totalViews >= 5) {
+    const viewLabels: Record<FrontierView, string> = { today: 'Today', explore: 'Explore', saved: 'Saved', history: 'History', map: 'Radar' };
+    insights.push({
+      label: 'Navigation habit',
+      detail: `${viewLabels[primaryViews[0][0] as FrontierView]} is your most-used FRONTIER view so far.`,
+      confidence: Math.min(1, primaryViews[0][1] / 10),
+    });
+  }
+
   if (model.sessions >= 2 && model.totalActiveMs > 0) {
     const avgMinutes = Math.max(1, Math.round(model.totalActiveMs / model.sessions / 60_000));
     insights.push({ label: 'Session shape', detail: `A typical visit is about ${avgMinutes} minute${avgMinutes === 1 ? '' : 's'}.`, confidence: Math.min(1, model.sessions / 10) });
   }
-  return insights.slice(0, 5);
+  return insights.slice(0, 6);
 }
