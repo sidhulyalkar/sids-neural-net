@@ -39,6 +39,8 @@ type Props = {
   explanation: string;
   resurfaced?: boolean;
   onSeen: (item: FrontierItem, resurfaced?: boolean) => void;
+  onDwell: (item: FrontierItem, dwellMs: number) => void;
+  onExpand: (item: FrontierItem) => void;
   onOpen: (item: FrontierItem) => void;
   onSave: (item: FrontierItem) => void;
   onReact: (item: FrontierItem, reaction: FrontierReaction) => void;
@@ -146,12 +148,17 @@ export function SignalCard({
   explanation,
   resurfaced = false,
   onSeen,
+  onDwell,
+  onExpand,
   onOpen,
   onSave,
   onReact,
 }: Props) {
   const ref = useRef<HTMLElement | null>(null);
   const observed = useRef(false);
+  const dwelled = useRef(false);
+  const dwellTimer = useRef<number | undefined>(undefined);
+  const expandedRecorded = useRef(false);
   const [expanded, setExpanded] = useState(false);
   const lane = FRONTIER_LANE_MAP[item.lane];
   const style = { '--lane-accent': LANE_ACCENTS[item.lane] ?? '#76edff' } as CSSProperties;
@@ -160,17 +167,31 @@ export function SignalCard({
 
   useEffect(() => {
     const node = ref.current;
-    if (!node || observed.current || typeof IntersectionObserver === 'undefined') return;
+    if (!node || typeof IntersectionObserver === 'undefined') return;
     const observer = new IntersectionObserver((entries) => {
-      if (entries.some((entry) => entry.isIntersecting && entry.intersectionRatio >= 0.5)) {
+      const visible = entries.some((entry) => entry.isIntersecting && entry.intersectionRatio >= 0.5);
+      if (visible && !observed.current) {
         observed.current = true;
         onSeen(item, resurfaced);
-        observer.disconnect();
       }
-    }, { threshold: [0.5] });
+      if (visible && !dwelled.current && dwellTimer.current === undefined) {
+        dwellTimer.current = window.setTimeout(() => {
+          dwelled.current = true;
+          dwellTimer.current = undefined;
+          onDwell(item, 7_500);
+        }, 7_500);
+      }
+      if (!visible && dwellTimer.current !== undefined) {
+        window.clearTimeout(dwellTimer.current);
+        dwellTimer.current = undefined;
+      }
+    }, { threshold: [0, 0.5] });
     observer.observe(node);
-    return () => observer.disconnect();
-  }, [item, onSeen, resurfaced]);
+    return () => {
+      observer.disconnect();
+      if (dwellTimer.current !== undefined) window.clearTimeout(dwellTimer.current);
+    };
+  }, [item, onDwell, onSeen, resurfaced]);
 
   const quickActions = (
     <div className={styles.quickActions}>
@@ -232,13 +253,24 @@ export function SignalCard({
     );
   }
 
+  const toggleExpanded = () => {
+    setExpanded((value) => {
+      const next = !value;
+      if (next && !expandedRecorded.current) {
+        expandedRecorded.current = true;
+        onExpand(item);
+      }
+      return next;
+    });
+  };
+
   return (
     <article ref={ref} className={`${styles.card} ${styles.tileCard} ${expanded ? styles.cardExpanded : ''}`} style={style}>
       <button
         type="button"
         className={styles.tilePeek}
         aria-expanded={expanded}
-        onClick={() => setExpanded((value) => !value)}
+        onClick={toggleExpanded}
       >
         <div className={styles.cardTopline}>
           <span className={styles.laneLabel}>{resurfaced ? '↺ ' : ''}{lane.shortLabel}</span>
