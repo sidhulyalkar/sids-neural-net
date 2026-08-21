@@ -1,4 +1,5 @@
 import frontierSnapshot from '@/content/frontier/latest.json';
+import { getActiveSportsFeed } from './activeSportsSources';
 import { getPersonalFrontierFeed } from './personalSources';
 import { getFrontierFeed } from './sources';
 import type { FrontierFeedResponse, FrontierItem, FrontierSourceStatus } from './types';
@@ -65,12 +66,13 @@ function recentSnapshotItems(): FrontierItem[] {
 export async function getIntegratedFrontierFeed(
   options: IntegratedOptions = {}
 ): Promise<FrontierFeedResponse> {
-  const [baseResult, personalResult] = await Promise.allSettled([
+  const [baseResult, personalResult, activeSportsResult] = await Promise.allSettled([
     getFrontierFeed(),
     getPersonalFrontierFeed(),
+    getActiveSportsFeed(),
   ]);
 
-  const liveFeeds = [baseResult, personalResult].flatMap((result) =>
+  const liveFeeds = [baseResult, personalResult, activeSportsResult].flatMap((result) =>
     result.status === 'fulfilled' ? [result.value] : []
   );
   const liveItems = dedupe(liveFeeds.flatMap((feed) => feed.items))
@@ -92,6 +94,9 @@ export async function getIntegratedFrontierFeed(
   }
   if (personalResult.status === 'rejected') {
     sources.push({ id: 'local', label: 'Personal mesh', ok: false, count: 0, message: 'personal live source mesh unavailable' });
+  }
+  if (activeSportsResult.status === 'rejected') {
+    sources.push({ id: 'local', label: 'Active sports mesh', ok: false, count: 0, message: 'active sports source mesh unavailable' });
   }
 
   return {
