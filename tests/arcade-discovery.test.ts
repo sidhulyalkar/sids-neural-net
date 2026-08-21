@@ -31,6 +31,24 @@ test('the Game Network exposes every current game as a playable entry', () => {
   }
 });
 
+test('Sprid is the canonical Mosslight protagonist name', () => {
+  const mosslight = arcadeGames.find((game) => game.slug === 'mosslight');
+  assert.ok(mosslight);
+  assert.match(mosslight.description, /Sprid/);
+  assert.ok(mosslight.controls.some((control) => /Sprid/.test(control.action)));
+
+  for (const path of [
+    'public/game-runtimes/mosslight-v2/index.html',
+    'src/data/arcadeGames.ts',
+    'docs/MOSSLIGHT_MOSSGLINT_RUN_V04.md',
+    'docs/MOSSLIGHT_V02_PLAYABILITY_AND_VISUAL_REVIEW.md',
+  ]) {
+    const source = readRepoFile(path);
+    assert.match(source, /Sprid/, `${path} should name Sprid`);
+    assert.doesNotMatch(source, /Sprig/, `${path} still contains the retired Sprig name`);
+  }
+});
+
 test('Game Network naming is consistent across every visible discovery surface', () => {
   assert.ok(siteNavItems.some((item) => item.href === '/arcade' && item.label === 'Game Network'));
   assert.ok(primaryNavItems.some((item) => item.href === '/arcade'));
