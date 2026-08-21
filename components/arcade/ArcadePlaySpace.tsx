@@ -74,11 +74,12 @@ export function ArcadePlaySpace({ game }: { game: ArcadeGame }) {
 
     try {
       const frameDocument = frameWindow.document;
-      if (frameDocument.documentElement.dataset.gameNetworkBridge === 'ready') return;
 
       // Create the listener inside the runtime's own JavaScript realm. Parent-realm
       // callbacks attached directly to iframe documents are handled differently by
       // Firefox/WebKit. postMessage is the browser-native cross-realm contract.
+      // The child-window flag makes this injection idempotent without mutating a
+      // DOM object derived from the React ref.
       const bridge = frameDocument.createElement('script');
       bridge.textContent = `(() => {
         if (window.__SIDS_GAME_NETWORK_BRIDGE__) return;
@@ -96,7 +97,6 @@ export function ArcadePlaySpace({ game }: { game: ArcadeGame }) {
       })();`;
       frameDocument.documentElement.appendChild(bridge);
       bridge.remove();
-      frameDocument.documentElement.dataset.gameNetworkBridge = 'ready';
     } catch {
       // Optional external runtime overrides stay isolated from the host document.
     }
