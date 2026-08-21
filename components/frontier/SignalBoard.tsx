@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import type { PointerEvent as ReactPointerEvent, ReactNode } from 'react';
 import { Grip, LayoutGrid, Rows3 } from 'lucide-react';
 import type { FrontierItem } from '@/lib/frontier/types';
-import styles from './frontier.module.css';
+import styles from './frontier-minimal.module.css';
 
 export type SignalLayoutMode = 'desk' | 'feed';
 
@@ -51,7 +51,8 @@ export function SignalBoard({ items, renderCard, empty, compact = false }: Props
 
   useEffect(() => {
     const saved = window.localStorage.getItem('frontier-layout-mode');
-    if (saved === 'feed' || saved === 'desk') setMode(saved);
+    const preferred = saved === 'feed' || saved === 'desk' ? saved : 'desk';
+    setMode(window.innerWidth < 720 ? 'feed' : preferred);
   }, []);
 
   useEffect(() => {
@@ -63,10 +64,6 @@ export function SignalBoard({ items, renderCard, empty, compact = false }: Props
       return next;
     });
   }, [items]);
-
-  useEffect(() => {
-    if (compact && mode === 'desk' && window.innerWidth < 760) setMode('feed');
-  }, [compact, mode]);
 
   const deskHeight = useMemo(() => {
     const rows = Math.max(1, Math.ceil(items.length / 4));
