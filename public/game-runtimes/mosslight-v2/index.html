@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
 <meta name="theme-color" content="#071715" />
-<title>Mosslight v0.2: Rooms of Renewal</title>
+<title>Mosslight: Atlas Expeditions</title>
 <link rel="stylesheet" href="./styles.css" />
 </head>
 <body>
@@ -13,9 +13,9 @@
   <div id="hud" aria-hidden="true">
     <div id="top">
       <div id="roomCard" class="glass">
-        <div id="roomKicker">room 01 · restoration 0%</div>
-        <div id="roomTitle">Dew Garden</div>
-        <div id="roomTask">Water each thirsty sprout, then wake it with sunlight.</div>
+        <div id="roomKicker">world 001 · restoration 0%</div>
+        <div id="roomTitle">Mosslight</div>
+        <div id="roomTask">Restore a living world one relationship at a time.</div>
       </div>
       <div id="stats">
         <div class="stat glass"><b>chain</b><span id="chain">×0</span></div>
@@ -23,7 +23,7 @@
         <div class="stat glass"><b>time</b><span id="time">0:00.0</span></div>
       </div>
     </div>
-    <div id="hintCard" class="glass"><strong>First step:</strong> move toward a sprout. Its floating icon shows the tool it needs.</div>
+    <div id="hintCard" class="glass"><strong>First step:</strong> move toward a glowing relationship. Its icon shows the restoration tool it needs.</div>
     <div id="dash" class="glass"><b>shift · dash</b><span id="dashState">READY</span></div>
     <div id="toast" class="glass"></div>
     <div id="roomIntro"><div class="n"></div><h2></h2><p></p></div>
@@ -40,48 +40,50 @@
 
   <div id="title" class="screen">
     <div class="panel">
-      <div class="eyebrow">a tiny ecology action game · v0.2</div>
-      <h1><em>Mosslight</em><br/>Rooms of Renewal</h1>
-      <p class="lede">Guide Sprig through ten small living rooms. Nothing attacks you and nothing needs defeating. Move, aim, and give each part of the ecosystem the next thing it needs.</p>
+      <div class="eyebrow">a tiny ecology action game · atlas expeditions</div>
+      <h1><em>Mosslight</em><br/>Atlas Expeditions</h1>
+      <p class="lede">Guide Sprig through ten living worlds drawn from a 1,000-scene Nature Atlas. Each visit advances through unseen worlds before the deck cycles, while the restoration language stays readable and smooth.</p>
       <div class="simpleControls">
         <div class="simpleControl"><b>W A S D</b><span>move Sprig smoothly</span></div>
-        <div class="simpleControl"><b>Mouse</b><span>point where Sprig should aim</span></div>
-        <div class="simpleControl"><b>Click</b><span>use the glowing restoration tool</span></div>
+        <div class="simpleControl"><b>Mouse / Arrows</b><span>aim freely with pointer or keyboard</span></div>
+        <div class="simpleControl"><b>Click / Space</b><span>cast the glowing restoration tool</span></div>
       </div>
       <div id="modePill"><i></i> gentle mode · forgiving aim · no death</div>
       <div class="actions">
-        <button id="start" class="primary">enter Dew Garden</button>
+        <button id="start" class="primary">enter expedition</button>
         <button id="challenge" class="secondary">flow mode</button>
-        <span class="hint">Shift dashes · Q/E cycles tools · numbers are optional shortcuts</span>
+        <span class="hint">Shift dashes · Q/E cycles tools · 1–6 selects tools · arrow aim persists after release</span>
       </div>
     </div>
   </div>
 
   <div id="pauseScreen" class="screen hidden">
     <div class="panel">
-      <div class="eyebrow">the room is holding still</div>
+      <div class="eyebrow">the world is holding still</div>
       <h1 style="font-size:42px">Paused</h1>
-      <p class="lede">Press P or resume when you are ready. Nothing changes while the room is paused.</p>
+      <p class="lede">Press P or resume when you are ready. Nothing changes while the world is paused.</p>
       <div class="actions"><button id="resume" class="primary">resume</button></div>
     </div>
   </div>
 
   <div id="victory" class="screen hidden">
     <div class="panel">
-      <div class="eyebrow">all ten rooms are breathing</div>
-      <h1><em>The Earthheart</em><br/>answers back.</h1>
-      <p class="lede">You restored a connected system instead of clearing a dungeon. Replay for smoother routes, fewer wasted casts, and longer ecological chains.</p>
+      <div class="eyebrow">ten worlds are breathing</div>
+      <h1><em>The Atlas</em><br/>keeps unfolding.</h1>
+      <p class="lede">This expedition restored ten connected ecosystems. The next run draws the next unseen worlds from the 1,000-scene deck, with new palettes, atmospheres, geometry, wildlife, and stress fronts.</p>
       <div class="summary">
         <div><b>run time</b><span id="sumTime">0:00</span></div>
         <div><b>best chain</b><span id="sumChain">×0</span></div>
         <div><b>stress hits</b><span id="sumHits">0</span></div>
         <div><b>accuracy</b><span id="sumAccuracy">100%</span></div>
       </div>
-      <div class="actions"><button id="again" class="primary">restore again</button><button id="flowAgain" class="secondary">try flow mode</button></div>
+      <div class="actions"><button id="again" class="primary">next expedition</button><button id="flowAgain" class="secondary">next in flow mode</button></div>
     </div>
   </div>
 </div>
 <script src="./rooms.js"></script>
+<script src="/game-runtimes/mosslight-atlas"></script>
+<script src="./expedition.js"></script>
 <script src="./game.js"></script>
 </body>
 </html>
