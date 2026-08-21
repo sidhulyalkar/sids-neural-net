@@ -82,9 +82,8 @@ async function assertGameFocus(page, target, label) {
 }
 
 async function assertCanvasKeyboardFocus(frame, label) {
-  // Programmatic focus is deliberate here. Clicking Mosslight's canvas is a real
-  // gameplay cast, which would put the runtime on its shot cooldown and corrupt
-  // the keyboard-control assertion that follows.
+  // Programmatic focus is deliberate here. Clicking Sylvaria's canvas is a real
+  // resonance cast, which would put the runtime on cooldown before keyboard tests.
   await frame.locator('#c').focus();
   const focus = await frame.evaluate(() => ({
     documentHasFocus: document.hasFocus(),
@@ -95,29 +94,36 @@ async function assertCanvasKeyboardFocus(frame, label) {
   }
 }
 
-async function testMosslight(page, engineName) {
-  const response = await page.goto(`${baseUrl}/arcade/mosslight`, { waitUntil: 'networkidle' });
-  if (!response?.ok()) throw new Error(`Mosslight route returned ${response?.status() ?? 'no response'}`);
+async function testSylvaria(page, engineName) {
+  const response = await page.goto(`${baseUrl}/arcade/sylvaria`, { waitUntil: 'networkidle' });
+  if (!response?.ok()) throw new Error(`Sylvaria route returned ${response?.status() ?? 'no response'}`);
 
-  const iframe = page.locator('iframe[title="Mosslight game runtime"]');
+  const iframe = page.locator('iframe[title="Sylvaria game runtime"]');
   await iframe.waitFor({ state: 'visible' });
-  if ((await iframe.getAttribute('sandbox')) !== null) throw new Error('Mosslight same-origin runtime should not be sandboxed');
+  if ((await iframe.getAttribute('sandbox')) !== null) throw new Error('Sylvaria same-origin runtime should not be sandboxed');
 
   const frame = page.frames().find((candidate) => candidate.url().includes('/game-runtimes/mosslight-v2/'));
-  if (!frame) throw new Error('Mosslight iframe did not attach');
+  if (!frame) throw new Error('Sylvaria iframe did not attach');
 
-  const bridge = await assertNativeBridge(frame, 'Mosslight');
+  const bridge = await assertNativeBridge(frame, 'Sylvaria');
   await frame.waitForFunction(() => Boolean(window.__MOSSLIGHT_PLAYTEST__), null, { timeout: 10_000 });
   await frame.waitForFunction(() => window.MosslightExpedition?.atlasCount === 1000, null, { timeout: 10_000 });
+  const identity = await frame.evaluate(() => ({
+    title: window.__MOSSLIGHT_PLAYTEST__.title,
+    version: window.__MOSSLIGHT_PLAYTEST__.version,
+  }));
+  if (identity.title !== 'Sylvaria' || identity.version !== '0.5.0') {
+    throw new Error(`Sylvaria runtime identity mismatch: ${JSON.stringify(identity)}`);
+  }
+
   await frame.locator('#title').waitFor({ state: 'visible' });
   await frame.locator('#start').waitFor({ state: 'visible' });
+  const initial = await assertPainted(frame, 'Sylvaria title');
+  await page.screenshot({ path: path.join(outputDir, `${engineName}-sylvaria-title.png`), fullPage: true });
 
-  const initial = await assertPainted(frame, 'Mosslight title');
-  await page.screenshot({ path: path.join(outputDir, `${engineName}-mosslight-title.png`), fullPage: true });
-
-  await assertGameFocus(page, frame.locator('#start'), 'Mosslight');
+  await assertGameFocus(page, frame.locator('#start'), 'Sylvaria');
   await frame.waitForFunction(() => window.__MOSSLIGHT_PLAYTEST__?.snapshot().mode === 'playing');
-  await assertCanvasKeyboardFocus(frame, 'Mosslight');
+  await assertCanvasKeyboardFocus(frame, 'Sylvaria');
 
   const before = await frame.evaluate(() => window.__MOSSLIGHT_PLAYTEST__.snapshot());
   await page.keyboard.down('d');
@@ -127,11 +133,11 @@ async function testMosslight(page, engineName) {
   const after = await frame.evaluate(() => window.__MOSSLIGHT_PLAYTEST__.snapshot());
 
   if ((after.player?.x ?? 0) <= (before.player?.x ?? 0) + 8) {
-    throw new Error(`Mosslight keyboard input failed (${before.player?.x} -> ${after.player?.x})`);
+    throw new Error(`Sylvaria keyboard input failed (${before.player?.x} -> ${after.player?.x})`);
   }
 
   await frame.evaluate(() => window.__MOSSLIGHT_PLAYTEST__.setRoom(0));
-  await assertCanvasKeyboardFocus(frame, 'Mosslight arrow aim');
+  await assertCanvasKeyboardFocus(frame, 'Sylvaria arrow aim');
   const beforeArrow = await frame.evaluate(() => window.__MOSSLIGHT_PLAYTEST__.snapshot());
   await page.keyboard.down('ArrowRight');
   await page.keyboard.down('ArrowUp');
@@ -141,18 +147,36 @@ async function testMosslight(page, engineName) {
   await page.waitForTimeout(420);
   const afterArrow = await frame.evaluate(() => window.__MOSSLIGHT_PLAYTEST__.snapshot());
   if (afterArrow.stats.casts <= beforeArrow.stats.casts) {
-    throw new Error('Mosslight ArrowUp + ArrowRight + Space did not register a cast');
+    throw new Error('Sylvaria ArrowUp + ArrowRight + Space did not register a cast');
   }
 
-  const playing = await assertPainted(frame, 'Mosslight playing');
-  await page.screenshot({ path: path.join(outputDir, `${engineName}-mosslight-playing.png`), fullPage: true });
+  // Explicitly prove the v0.5 state machine on every browser engine. Completing
+  // the puzzle may arm the gate, but it must remain closed until F fires it.
+  await frame.evaluate(() => window.__MOSSLIGHT_PLAYTEST__.setRoom(0, 1));
+  const gateReady = await frame.evaluate(() => window.__MOSSLIGHT_PLAYTEST__.completeRoom());
+  if (!gateReady.portalReady || gateReady.portalOpen) {
+    throw new Error(`Sylvaria gate should be READY but closed after puzzle completion: ${JSON.stringify({ phase: gateReady.portalPhase, ready: gateReady.portalReady, open: gateReady.portalOpen })}`);
+  }
+  await assertCanvasKeyboardFocus(frame, 'Sylvaria gate fire');
+  await page.keyboard.press('f');
+  await frame.waitForFunction(() => window.__MOSSLIGHT_PLAYTEST__.snapshot().portalOpen === true, null, { timeout: 3_000 });
+  const gateOpen = await frame.evaluate(() => window.__MOSSLIGHT_PLAYTEST__.snapshot());
+  if (gateOpen.portalPhase !== 'open' || gateOpen.stats.portals < 1) {
+    throw new Error(`Sylvaria portal shot failed: ${JSON.stringify({ phase: gateOpen.portalPhase, portals: gateOpen.stats.portals })}`);
+  }
+
+  const playing = await assertPainted(frame, 'Sylvaria extraction');
+  await page.screenshot({ path: path.join(outputDir, `${engineName}-sylvaria-extraction.png`), fullPage: true });
   return {
     bridge,
+    identity,
     atlasCount: await frame.evaluate(() => window.MosslightExpedition.atlasCount),
     initial,
     playing,
     movement: [before.player?.x, after.player?.x],
     arrowCastDelta: afterArrow.stats.casts - beforeArrow.stats.casts,
+    portalPhase: gateOpen.portalPhase,
+    portalShots: gateOpen.stats.portals,
     fps: after.fps,
   };
 }
@@ -230,12 +254,12 @@ for (const { name: engineName, browserType, launchOptions } of engines) {
       errors.push(`console: ${text}`);
     });
 
-    const mosslight = await testMosslight(page, engineName);
+    const sylvaria = await testSylvaria(page, engineName);
     const stretchicorn = await testStretchicorn(page, engineName);
     const unirico = await testUniRico(page, engineName);
 
     if (errors.length) throw new Error(errors.join('\n'));
-    report.push({ engine: engineName, ok: true, mosslight, stretchicorn, unirico });
+    report.push({ engine: engineName, ok: true, sylvaria, stretchicorn, unirico });
   } catch (error) {
     failed = true;
     report.push({
