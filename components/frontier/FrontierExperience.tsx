@@ -33,6 +33,7 @@ import type {
   FrontierSourceStatus,
   FrontierView,
 } from '@/lib/frontier/types';
+import { FrontierAccount } from './FrontierAccount';
 import { InterestConstellation } from './InterestConstellation';
 import { PreferenceLens } from './PreferenceLens';
 import { SignalBoard } from './SignalBoard';
@@ -185,7 +186,7 @@ export function FrontierExperience({ initialDateLabel, initialDayKey }: Props) {
       });
       if (!response.ok) throw new Error(`Feed returned ${response.status}`);
       const payload = (await response.json()) as FrontierFeedResponse & { error?: string };
-      setItems(payload.items ?? []);
+      setItems((current) => payload.error && !(payload.items?.length) ? current : (payload.items ?? []));
       setSources(payload.sources ?? []);
       setGeneratedAt(payload.generatedAt);
       if (payload.error) setError(payload.error);
@@ -420,10 +421,13 @@ export function FrontierExperience({ initialDateLabel, initialDayKey }: Props) {
             ) : <kbd className={styles.searchShortcut}>/</kbd>}
           </form>
 
-          <div className={styles.radarStatus} title={`${onlineSources} live sources${generatedAt ? ` · updated ${humanDate(generatedAt)}` : ''}${requestFocus.length ? ` · focus: ${requestFocus.join(', ')}` : ''}`}>
-            <span className={`${styles.liveDot} ${error ? styles.liveDotDegraded : ''}`} />
-            <span>{loading ? 'scanning' : error ? 'partial' : 'live'}</span>
-            <button type="button" className={styles.refreshIcon} onClick={() => void loadFeed(true)} aria-label="Refresh live feed" title="Refresh live"><RefreshCw size={12} /></button>
+          <div className={styles.headerActions}>
+            <div className={styles.radarStatus} title={`${onlineSources} live sources${generatedAt ? ` · updated ${humanDate(generatedAt)}` : ''}${requestFocus.length ? ` · focus: ${requestFocus.join(', ')}` : ''}`}>
+              <span className={`${styles.liveDot} ${error ? styles.liveDotDegraded : ''}`} />
+              <span>{loading ? 'scanning' : error ? 'partial' : 'live'}</span>
+              <button type="button" className={styles.refreshIcon} onClick={() => void loadFeed(true)} aria-label="Refresh live feed" title="Refresh live"><RefreshCw size={12} /></button>
+            </div>
+            <FrontierAccount />
           </div>
         </header>
 
