@@ -296,7 +296,7 @@ export function FrontierExperience({ initialDateLabel, initialDayKey }: Props) {
           </div>
         </header>
 
-        <div className={styles.controlDock}>
+        <div className={styles.controlDock} style={{ flexWrap: 'wrap', overflow: 'visible' }}>
           <nav className={styles.nav} aria-label="FRONTIER views">
             {VIEWS.map((option) => (
               <button type="button" key={option.id} className={`${styles.navButton} ${view === option.id ? styles.activeNav : ''}`} onClick={() => setView(option.id)}>
