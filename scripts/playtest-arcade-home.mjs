@@ -26,31 +26,31 @@ for (const viewport of [
   });
 
   await page.goto(`${baseUrl}/`, { waitUntil: 'networkidle' });
-  const cta = page.getByRole('link', { name: 'Play games in the Game Arcade' });
+  const cta = page.getByRole('link', { name: 'Open the Game Network' });
 
   if ((await cta.count()) !== 1) {
-    failures.push(`${viewport.name}: expected exactly one homepage Game Arcade CTA`);
+    failures.push(`${viewport.name}: expected exactly one homepage Game Network CTA`);
   } else {
-    if (!(await cta.isVisible())) failures.push(`${viewport.name}: homepage Game Arcade CTA is not visible`);
+    if (!(await cta.isVisible())) failures.push(`${viewport.name}: homepage Game Network CTA is not visible`);
     const href = await cta.getAttribute('href');
-    if (href !== '/arcade') failures.push(`${viewport.name}: homepage Game Arcade CTA href is ${href}`);
+    if (href !== '/arcade') failures.push(`${viewport.name}: homepage Game Network CTA href is ${href}`);
 
     const box = await cta.boundingBox();
     if (!box) {
-      failures.push(`${viewport.name}: homepage Game Arcade CTA has no rendered bounding box`);
+      failures.push(`${viewport.name}: homepage Game Network CTA has no rendered bounding box`);
     } else {
       const insideViewport =
         box.x >= 0 &&
         box.y >= 0 &&
         box.x + box.width <= viewport.width &&
         box.y + box.height <= viewport.height;
-      if (!insideViewport) failures.push(`${viewport.name}: homepage Game Arcade CTA is outside the viewport`);
+      if (!insideViewport) failures.push(`${viewport.name}: homepage Game Network CTA is outside the viewport`);
     }
 
     await page.screenshot({ path: path.join(outputDir, `home-${viewport.name}.png`) });
     await cta.click();
     await page.waitForURL('**/arcade');
-    if (!page.url().endsWith('/arcade')) failures.push(`${viewport.name}: Game Arcade CTA did not navigate to /arcade`);
+    if (!page.url().endsWith('/arcade')) failures.push(`${viewport.name}: Game Network CTA did not navigate to /arcade`);
   }
 
   if (consoleErrors.length) failures.push(`${viewport.name}: console errors: ${consoleErrors.join(' | ')}`);
@@ -67,4 +67,4 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log('Homepage Game Arcade CTA is visible, in-viewport, and navigates correctly on desktop and mobile.');
+console.log('Homepage Game Network CTA is visible, in-viewport, and navigates correctly on desktop and mobile.');
