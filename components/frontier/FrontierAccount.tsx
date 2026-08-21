@@ -25,6 +25,7 @@ type MemoryResponse = {
     state?: unknown;
     updatedAt?: string;
   } | null;
+  error?: string;
 };
 
 type ImportResponse = {
@@ -76,34 +77,50 @@ export function FrontierAccount() {
     let cancelled = false;
     let unsubscribe: (() => void) | undefined;
 
+    const saveSnapshot = async (state: FrontierPersistedState): Promise<boolean> => {
+      syncing.current = true;
+      try {
+        return await pushMemory(state);
+      } catch {
+        return false;
+      } finally {
+        syncing.current = false;
+      }
+    };
+
     const begin = async () => {
       setSyncState('loading');
       try {
         const response = await fetch('/api/frontier/memory', { cache: 'no-store' });
         const payload = await response.json() as MemoryResponse;
         if (cancelled) return;
+        // Never treat a transient cloud-read failure as an empty account. Doing so
+        // could overwrite a healthy remote memory snapshot with a single device's
+        // local copy. Local FRONTIER remains fully usable while sync reports error.
+        if (!response.ok) {
+          setSyncState('error');
+          return;
+        }
         const local = frontierBackup(useFrontierStore.getState());
         const remote = parseFrontierPersistedState(payload.memory?.state);
         const merged = mergeFrontierMemory(remote, local);
         useFrontierStore.getState().importBackup(merged);
-        syncing.current = true;
-        const saved = await pushMemory(merged);
-        syncing.current = false;
+        const saved = await saveSnapshot(merged);
         if (cancelled) return;
         setSyncState(saved ? 'synced' : 'error');
+        if (!saved) return;
 
         unsubscribe = useFrontierStore.subscribe((state) => {
           if (syncing.current) return;
           if (timer.current !== undefined) window.clearTimeout(timer.current);
           timer.current = window.setTimeout(async () => {
             setSyncState('saving');
-            syncing.current = true;
-            const ok = await pushMemory(frontierBackup(state)).catch(() => false);
-            syncing.current = false;
+            const ok = await saveSnapshot(frontierBackup(state));
             if (!cancelled) setSyncState(ok ? 'synced' : 'error');
           }, 1_400);
         });
       } catch {
+        syncing.current = false;
         if (!cancelled) setSyncState('error');
       }
     };
@@ -111,6 +128,8 @@ export function FrontierAccount() {
     void begin();
     const flush = () => {
       if (timer.current !== undefined) window.clearTimeout(timer.current);
+      // Best effort only. The debounced autosave is the primary persistence path;
+      // browser keepalive payload limits can reject large final snapshots.
       void pushMemory(frontierBackup(useFrontierStore.getState()), true).catch(() => false);
     };
     window.addEventListener('pagehide', flush);
@@ -119,6 +138,7 @@ export function FrontierAccount() {
       unsubscribe?.();
       window.removeEventListener('pagehide', flush);
       if (timer.current !== undefined) window.clearTimeout(timer.current);
+      syncing.current = false;
     };
   }, [hydrated, session?.authenticated, session?.syncConfigured]);
 
