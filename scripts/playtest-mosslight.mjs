@@ -23,18 +23,26 @@ page.on('console', (message) => {
 
 const runtimeUrl = `${baseUrl}/game-runtimes/mosslight-v2/index.html?playtest=1`;
 await page.goto(runtimeUrl, { waitUntil: 'networkidle' });
-await page.waitForFunction(() => Boolean(window.__MOSSLIGHT_PLAYTEST__));
+await page.waitForFunction(() => Boolean(window.__MOSSLIGHT_PLAYTEST__) && Boolean(window.MosslightExpedition));
 
 const metadata = await page.evaluate(() => ({
   version: window.__MOSSLIGHT_PLAYTEST__.version,
   roomCount: window.__MOSSLIGHT_PLAYTEST__.roomCount,
   roomTitles: window.__MOSSLIGHT_PLAYTEST__.roomTitles,
+  expedition: window.MosslightExpedition.summary(),
 }));
 
-if (metadata.version !== '0.2.0') failures.push(`expected v0.2.0, got ${metadata.version}`);
+if (metadata.version !== '0.2.0') failures.push(`expected v0.2.0 playtest API, got ${metadata.version}`);
 if (metadata.roomCount !== 10) failures.push(`expected 10 rooms, got ${metadata.roomCount}`);
+if (metadata.expedition?.atlasCount !== 1000) failures.push(`expected 1000 Atlas scenes, got ${metadata.expedition?.atlasCount}`);
+if (metadata.expedition?.runSize !== 10) failures.push(`expected 10-scene expedition, got ${metadata.expedition?.runSize}`);
+const runWorlds = metadata.expedition?.worlds ?? [];
+if (new Set(runWorlds.map((world) => world.index)).size !== 10) failures.push('expedition should contain 10 unique Atlas worlds');
+if (JSON.stringify(runWorlds.map((world) => world.index)) !== JSON.stringify([1,2,3,4,5,6,7,8,9,10])) {
+  failures.push(`playtest expedition should deterministically use worlds 001-010, got ${runWorlds.map((world) => world.index).join(',')}`);
+}
 
-// Real input smoke: movement must feel responsive and a guided cast must actually restore a step.
+// Real movement smoke.
 await page.evaluate(() => window.__MOSSLIGHT_PLAYTEST__.setRoom(0));
 await page.waitForTimeout(1500);
 const start = await page.evaluate(() => window.__MOSSLIGHT_PLAYTEST__.snapshot());
@@ -45,13 +53,28 @@ await page.waitForTimeout(80);
 const moved = await page.evaluate(() => window.__MOSSLIGHT_PLAYTEST__.snapshot());
 if ((moved.player?.x ?? 0) - (start.player?.x ?? 0) < 18) failures.push('WASD movement smoke did not move Sprig far enough');
 
-// Aim at the first Dew Garden sprout and verify the Rain step is accepted, not merely fired.
+// Mouse aim: point at the first relationship and verify Rain is accepted.
+await page.evaluate(() => window.__MOSSLIGHT_PLAYTEST__.setRoom(0));
+await page.waitForTimeout(100);
 await page.mouse.move(290, 210);
 await page.mouse.click(290, 210);
-await page.waitForTimeout(420);
-const cast = await page.evaluate(() => window.__MOSSLIGHT_PLAYTEST__.snapshot());
-if (cast.stats.casts < 1) failures.push('pointer cast smoke did not register a cast');
-if (cast.stats.correct < 1) failures.push('guided pointer cast did not complete a correct restoration step');
+await page.waitForTimeout(460);
+const mouseCast = await page.evaluate(() => window.__MOSSLIGHT_PLAYTEST__.snapshot());
+if (mouseCast.stats.casts < 1) failures.push('pointer cast smoke did not register a cast');
+if (mouseCast.stats.correct < 1) failures.push('guided pointer aim did not complete a correct restoration step');
+
+// Laptop keyboard aim: diagonal arrow aim + Space must complete the same first relationship.
+await page.evaluate(() => window.__MOSSLIGHT_PLAYTEST__.setRoom(0));
+await page.waitForTimeout(100);
+await page.keyboard.down('ArrowRight');
+await page.keyboard.down('ArrowUp');
+await page.keyboard.press('Space');
+await page.keyboard.up('ArrowUp');
+await page.keyboard.up('ArrowRight');
+await page.waitForTimeout(520);
+const keyboardCast = await page.evaluate(() => window.__MOSSLIGHT_PLAYTEST__.snapshot());
+if (keyboardCast.stats.casts < 1) failures.push('arrow-key + Space aim did not register a cast');
+if (keyboardCast.stats.correct < 1) failures.push('arrow-key aim did not complete a correct restoration step');
 
 const expectedInitialTools = ['rain', 'rain', 'mend', 'rain', 'wind', 'rain', 'rain', 'sun', 'rain', 'wind'];
 const rooms = [];
@@ -60,7 +83,6 @@ for (let index = 0; index < metadata.roomCount; index += 1) {
   const expectedTool = expectedInitialTools[index];
   if (before.selected !== expectedTool) failures.push(`${metadata.roomTitles[index]} should initially guide ${expectedTool}, got ${before.selected}`);
 
-  // Wait until the short room title card is gone so the fixture audits the actual playfield.
   await page.waitForTimeout(1500);
   const stressedFile = `room-${String(index + 1).padStart(2, '0')}-stressed.png`;
   await page.screenshot({ path: path.join(outputDir, stressedFile) });
@@ -73,6 +95,7 @@ for (let index = 0; index < metadata.roomCount; index += 1) {
   rooms.push({
     index: index + 1,
     title: metadata.roomTitles[index],
+    atlasWorld: runWorlds[index],
     stressedScreenshot: stressedFile,
     restoredScreenshot: restoredFile,
     stressedProgress: before.progress,
@@ -92,12 +115,13 @@ const report = {
   runtimeUrl,
   version: metadata.version,
   difficulty: 'gentle',
+  expedition: metadata.expedition,
   interactionSmoke: {
     startX: start.player?.x,
     movedX: moved.player?.x,
     deltaX: (moved.player?.x ?? 0) - (start.player?.x ?? 0),
-    casts: cast.stats.casts,
-    correctActions: cast.stats.correct,
+    mouse: { casts: mouseCast.stats.casts, correctActions: mouseCast.stats.correct },
+    keyboard: { casts: keyboardCast.stats.casts, correctActions: keyboardCast.stats.correct, input: 'ArrowUp + ArrowRight + Space' },
   },
   rooms,
   finalFps: finalSnapshot.fps,
@@ -114,4 +138,4 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log(`Mosslight browser playtest PASS: ${rooms.length} unobstructed stressed/restored room pairs, movement + correct-cast smoke, guided starting tools, ${finalSnapshot.fps.toFixed(1)} FPS.`);
+console.log(`Mosslight browser playtest PASS: 1,000-scene Atlas feed, ${rooms.length} unique expedition rooms, mouse + arrow-key aim, movement, correct-cast smoke, ${finalSnapshot.fps.toFixed(1)} FPS.`);
