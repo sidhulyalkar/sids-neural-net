@@ -5,7 +5,7 @@ FRONTIER can run anonymously with browser-local learning, or as a signed-in pers
 The signed-in design intentionally separates four concerns:
 
 1. **Identity** — Google OpenID Connect (`openid email profile`).
-2. **Private remote memory** — a per-user snapshot stored in a private Redis/Upstash REST database.
+2. **Private remote memory** — a per-user snapshot stored in a private Redis/Upstash REST database and encrypted before storage.
 3. **Optional Google taste import** — YouTube read-only access is requested separately and only after the user explicitly chooses it.
 4. **Live discovery** — the existing request-time FRONTIER source mesh consumes the resulting preference model without exposing raw private history to discovery providers.
 
@@ -15,7 +15,7 @@ No auth/database npm dependency is required. The implementation uses Next route 
 
 ### Google Cloud
 
-Create a Google OAuth **Web application** and register this production callback:
+Create a Google OAuth **Web application**, enable the YouTube Data API v3 for the project, configure the OAuth consent screen, and register this production callback:
 
 ```text
 https://sidhulyalkar.com/api/auth/google/callback
@@ -36,7 +36,7 @@ FRONTIER_AUTH_SECRET=
 FRONTIER_AUTH_ORIGIN=https://sidhulyalkar.com
 ```
 
-`FRONTIER_AUTH_SECRET` should be a long random production secret and must never be committed.
+`FRONTIER_AUTH_SECRET` should be a long random production secret and must never be committed. Changing it intentionally invalidates existing FRONTIER sessions and makes previously encrypted private cloud records unreadable, so treat it as durable application key material.
 
 ### Cloud memory
 
@@ -90,7 +90,7 @@ The merge preserves:
 - behavior aggregates and attention time
 - saves
 - collections
-- history
+- recent/meaningful history
 - reactions
 - XP/streak state
 - the newest stable ranking snapshot
@@ -98,6 +98,16 @@ The merge preserves:
 After the initial merge, the current browser snapshot is authoritative. This matters because a pure set-union would make explicit deletions impossible: an unsaved item or removed collection would reappear forever. Subsequent writes therefore replace the user's current remote snapshot.
 
 The client debounces writes so ordinary scrolling does not hammer storage. It also attempts a final best-effort flush on pagehide.
+
+### Longitudinal growth without an infinite raw log
+
+The enduring model is carried by bounded behavioral aggregates, topic/source/lane affinities, knowledge state, and stable ranking snapshots. Those structures can continue learning for years without storing every scroll event forever.
+
+Before a cloud write, raw item history is compacted to a bounded recent/meaningful window. Saves, reactions, opened items, and recent entries receive priority. This protects sync latency and storage cost while preserving the statistics that actually drive long-term recommendations.
+
+### Encryption at rest
+
+Both cloud memory and stored Google OAuth grants are encrypted with **AES-256-GCM** before they are written to Redis. Separate purpose-derived keys are generated from `FRONTIER_AUTH_SECRET` for memory and Google credentials. The Redis database therefore does not contain readable preference history, saves, or OAuth tokens.
 
 ## What Google preferences are imported
 
@@ -132,15 +142,15 @@ Imported signals are bounded and remain weaker than repeated explicit FRONTIER f
 
 Google Search history, Chrome browsing history, Gmail contents, Drive documents, Calendar contents, location history, and other private account data are **not** silently ingested.
 
-Some of these are not available through normal Google Sign-In APIs at all. Others would require substantially broader sensitive scopes. If support is ever added, it should be a separate explicit connector with a clear preview of what will be learned before applying it.
+Some of these are not available through normal Google Sign-In APIs at all. Others require substantially broader sensitive or data-portability scopes. Any future support should remain a separate explicit connector with a clear preview of what will be learned before applying it.
 
 ## Token storage
 
-When YouTube permission is granted, Google OAuth tokens are stored only server-side. The token bundle is encrypted with AES-256-GCM using a key derived from `FRONTIER_AUTH_SECRET` before being written to Redis.
-
-The browser receives neither the access token nor refresh token.
+When YouTube permission is granted, Google OAuth tokens are stored only server-side and encrypted before storage. The browser receives neither the access token nor refresh token.
 
 The importer refreshes an expired Google access token server-side when a refresh token is available. If permission expires or is revoked, the UI asks the user to reconnect rather than falling back to a weaker hidden path.
+
+Google recommends incremental authorization for web-server OAuth applications, which is why FRONTIER requests the YouTube scope only when the user invokes the import rather than bundling it into ordinary sign-in.
 
 ## Recommendation growth over time
 
