@@ -19,7 +19,7 @@ export const FRONTIER_REALMS: Array<{
 }> = [
   { id: 'all', label: 'For You', glyph: '✦', description: 'The useful + the fun, in one finite run.' },
   { id: 'learn', label: 'Brainfood', glyph: '⌁', description: 'Papers, code, methods, science, and project fuel.' },
-  { id: 'play', label: 'After Hours', glyph: '◉', description: 'Teams, highlights, memes, games, music, and internet gold.' },
+  { id: 'play', label: 'After Hours', glyph: '◉', description: 'Teams, highlights, active sports, games, music, and internet gold.' },
 ];
 
 export const FRONTIER_LANES: FrontierLaneDefinition[] = [
@@ -159,10 +159,10 @@ export const FRONTIER_LANES: FrontierLaneDefinition[] = [
     label: 'World Soccer',
     shortLabel: 'World Soccer',
     glyph: '◉',
-    description: 'Champions League, international football, tactical innovation, scouting, and global transfers.',
-    weight: 0.94,
+    description: 'Champions League, international football, player stories, skills, tactical innovation, scouting, and global transfers.',
+    weight: 0.98,
     realm: 'play',
-    keywords: ['champions league', 'world cup', 'la liga', 'bundesliga', 'serie a', 'football tactics', 'soccer analytics'],
+    keywords: ['champions league', 'world cup', 'la liga', 'bundesliga', 'serie a', 'football tactics', 'soccer analytics', 'soccer', 'football skills'],
   },
   {
     id: 'team_pulse',
@@ -179,13 +179,19 @@ export const FRONTIER_LANES: FrontierLaneDefinition[] = [
   },
   {
     id: 'sports',
-    label: 'Sports + Fantasy Signal',
+    label: 'Sports + Motion',
     shortLabel: 'Sports',
     glyph: '◍',
-    description: 'NFL, NBA, fantasy strategy, tracking data, big plays, and worthwhile sports stories beyond the favorite-team orbit.',
-    weight: 0.82,
+    description: 'The sports you do and are learning, plus pro circuits, athlete stories, standout clips, NFL/NBA, fantasy, and worthwhile sports signal.',
+    weight: 1.04,
     realm: 'play',
-    keywords: ['nfl', 'nba', 'fantasy football', 'sports analytics', 'player tracking', 'expected value', 'highlight'],
+    keywords: [
+      'rock climbing', 'sport climbing', 'bouldering', 'lead climbing', 'speed climbing', 'ifsc',
+      'mountain biking', 'mountain bike', 'mtb', 'downhill mtb', 'enduro mtb', 'crankworx',
+      'skiing', 'freeski', 'freeride', 'freeride world tour', 'skateboarding', 'skateboard', 'street skating',
+      'longboarding', 'longboard', 'ripstik', 'ripstick', 'caster board', 'ripsurf', 'ripsurfing', 'waveboard',
+      'nfl', 'nba', 'fantasy football', 'sports analytics', 'player tracking', 'expected value', 'highlight',
+    ],
   },
   {
     id: 'gaming',
@@ -229,12 +235,11 @@ export const FRONTIER_LANES: FrontierLaneDefinition[] = [
     label: 'Life + Outside',
     shortLabel: 'Outside',
     glyph: '↟',
-    description: 'Mountain biking, climbing, skiing, huskies, animals, photography, nature, food, and visual rabbit holes.',
+    description: 'Huskies, animals, photography, nature, food, trails, and visual rabbit holes beyond the dedicated active-sports radar.',
     weight: 0.76,
     realm: 'play',
     keywords: [
-      'mountain biking', 'mtb', 'bouldering', 'climbing', 'skiing', 'husky', 'dog', 'animal', 'wildlife',
-      'photography', 'landscape', 'nature', 'food', 'trail',
+      'husky', 'dog', 'animal', 'wildlife', 'photography', 'landscape', 'nature', 'food', 'trail',
     ],
   },
   {
@@ -276,7 +281,7 @@ export const FRONTIER_IMPORTANCE_TERMS = [
   'replication', 'randomized trial', 'systematic review', 'meta-analysis', 'open source', 'dataset',
   'standard', 'release', 'foundation model', 'mechanistic interpretability', 'neural decoding',
   'brain computer interface', 'agent', 'inference', 'premier league', 'injury', 'transfer', 'trade',
-  'signing', 'release date', 'dlc', 'major update',
+  'signing', 'release date', 'dlc', 'major update', 'world championship', 'final', 'record',
 ];
 
 export const DEFAULT_COLLECTIONS: FrontierCollection[] = [
@@ -285,7 +290,7 @@ export const DEFAULT_COLLECTIONS: FrontierCollection[] = [
   { id: 'project-fuel', name: 'Project fuel', description: 'Ideas worth transferring into something you are building.', itemIds: [], createdAt: '2026-08-20T00:00:00.000Z' },
   { id: 'ml-data', name: 'ML + data', description: 'Methods, tools, benchmarks, and analysis ideas.', itemIds: [], createdAt: '2026-08-20T00:00:00.000Z' },
   { id: 'football', name: 'Football', description: 'Tactics, analytics, transfers, and matchday context.', itemIds: [], createdAt: '2026-08-20T00:00:00.000Z' },
-  { id: 'clubhouse', name: 'Clubhouse', description: 'Favorite teams, highlights, fan threads, and sports rabbit holes.', itemIds: [], createdAt: '2026-08-20T00:00:00.000Z' },
+  { id: 'clubhouse', name: 'Clubhouse', description: 'Favorite teams, active sports, highlights, fan threads, and motion rabbit holes.', itemIds: [], createdAt: '2026-08-20T00:00:00.000Z' },
   { id: 'games-music', name: 'Games + bass', description: 'Game discoveries, releases, sets, tracks, and artists to revisit.', itemIds: [], createdAt: '2026-08-20T00:00:00.000Z' },
 ];
 
@@ -301,6 +306,17 @@ export function createInitialProfile(): FrontierProfile {
       warriors: 0.28,
       chelsea: 0.38,
       'manchester city': 0.34,
+      soccer: 0.3,
+      'rock climbing': 0.34,
+      climbing: 0.3,
+      bouldering: 0.3,
+      'mountain biking': 0.36,
+      mtb: 0.3,
+      skiing: 0.3,
+      skateboarding: 0.28,
+      longboarding: 0.26,
+      ripstik: 0.24,
+      ripsurf: 0.24,
       dubstep: 0.34,
       'bass music': 0.28,
       metroidvania: 0.28,
