@@ -285,11 +285,18 @@ export const useFrontierStore = create<FrontierStore>()(
         });
       },
 
-      setImplicitLearning: (enabled) => set({
-        behavior: { ...get().behavior, implicitLearning: enabled, sessionStartedAt: enabled ? get().behavior.sessionStartedAt : undefined },
-      }),
+      setImplicitLearning: (enabled) => {
+        const current = get().behavior;
+        if (current.implicitLearning === enabled) return;
+        if (enabled) {
+          set({ behavior: startBehaviorSession({ ...current, implicitLearning: true, sessionStartedAt: undefined }) });
+        } else {
+          const settled = endBehaviorSession(current);
+          set({ behavior: { ...settled, implicitLearning: false, sessionStartedAt: undefined } });
+        }
+      },
 
-      resetBehavior: () => set({ behavior: createInitialBehaviorModel() }),
+      resetBehavior: () => set({ behavior: startBehaviorSession(createInitialBehaviorModel()) }),
 
       importBackup: (payload) => {
         const parsed = migrateState(payload);
