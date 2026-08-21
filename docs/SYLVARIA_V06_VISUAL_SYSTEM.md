@@ -71,7 +71,7 @@ Every Atlas world is classified into one of five high-level visual families. Atl
 - Motifs render from cached 2× vector sheets and are composited with integer-aligned `drawImage` calls.
 - Motifs live primarily at arena edges and never cover the spawn pocket, puzzle targets, gate anchor, or primary traversal lane.
 - Parallax motion is shallow. It exists to create depth, not to compete with moving hazards.
-- At least two motif types should be visible in high/balanced quality for every biome family.
+- At least two motif types should be represented by each biome kit. Balanced and Performance may display fewer instances to preserve frame time.
 
 ## 4. UI / HUD polish rules
 
@@ -123,7 +123,8 @@ Gameplay simulation is never changed by visual quality.
 - [x] celestial/anomaly 2× motif sheet
 - [x] biome-derived HUD variables and biome badge
 - [x] Mossglint / gate / portal global glow language
-- [x] adaptive render budget and gradient cache
+- [x] adaptive render budget and transform-safe gradient cache
+- [x] separate throttled decorative overlay canvas
 - [x] Auto / High / Balanced / Performance visual presets
 
 ### Optional authored-art expansion slots
@@ -147,20 +148,21 @@ Visual quality and smoothness are one system.
 
 ### Runtime rules
 
-- Full-screen and character gradients are cached using quantized gradient signatures.
-- Expensive `shadowBlur` is capped per visual tier.
+- Full-screen and character gradients are cached using quantized, transform-aware gradient signatures where the browser supports the optimization safely.
+- Expensive `shadowBlur` is capped per visual tier where Canvas host-object patching is supported; browsers that reject the shim fall back safely to native rendering.
 - Motif art is drawn once into 2× cached canvases and reused with `drawImage`.
-- Per-frame overlay work uses flat fills/strokes and avoids new gradients.
+- Decorative biome motifs/faces live on a separate transparent overlay canvas and run at a lower cadence than gameplay.
 - Auto mode monitors sustained FPS rather than reacting to one slow frame.
-- Quality shifts only decorative density and glow. Physics, input, collision, hazards, enemy budgets, portal timing, and scoring remain deterministic.
+- Quality shifts only decorative density, overlay cadence, HUD blur, and glow. Physics, input, collision, hazards, enemy budgets, portal timing, and scoring remain deterministic.
 
 ### Target budgets
 
 - **Chrome Stable / Chromium / Firefox:** target ≥ 55 FPS in ordinary worlds; dedicated CI floor ≥ 42 FPS under headless instrumentation.
-- **WebKit:** preserve input and gameplay timing under iframe throttling; Auto should prefer balanced/performance before compromising simulation.
-- Motif overlay: ≤ 7 cached images/frame in High, ≤ 4 Balanced, ≤ 2 Performance.
+- **WebKit:** preserve input and gameplay timing under iframe throttling; Auto should prefer Balanced/Performance before compromising simulation.
+- Motif overlay: ≤ 6 cached images/paint in High, ≤ 3 Balanced, ≤ 1 Performance.
+- Decorative overlay cadence: 45 FPS High, 30 FPS Balanced, 24 FPS Performance.
 - Gradient cache: 224 High, 144 Balanced, 72 Performance.
-- Blur cap: 12 px High, 7 Balanced, 2.5 Performance.
+- Blur cap: 9 px High, 4.5 Balanced, 0.75 Performance when the Canvas host-object optimization is supported.
 
 ## Visual QA matrix
 
@@ -177,7 +179,7 @@ Each release should capture at least one deterministic fixture for:
 9. Sprid under keyboard aim
 10. Performance-tier rendering
 
-Automated checks should verify the runtime exposes all five themes, all required art-rule metadata, a valid quality tier, and no console/runtime errors across Chrome Stable, Chromium, Firefox, and WebKit.
+Automated checks scan real Atlas sectors until every biome family has been encountered, load those actual worlds, verify the gameplay canvas remains nonblank/diverse, save screenshot fixtures, and validate the Performance tier separately. The four-engine Game Network matrix additionally guards Chrome Stable, Chromium, Firefox, and WebKit runtime behavior.
 
 ## Future upgrades
 
