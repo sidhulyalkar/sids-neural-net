@@ -49,7 +49,7 @@ for (const { name, browserType, launchOptions } of engines) {
     await iframe.waitFor({ state: 'visible' });
     const frame = page.frames().find((candidate) => candidate.url().includes('/game-runtimes/mosslight-v2/'));
     if (!frame) throw new Error('Sylvaria runtime iframe did not attach');
-    await frame.waitForFunction(() => window.__SIDS_GAME_NETWORK_BRIDGE__ === true && window.__MOSSLIGHT_PLAYTEST__?.version === '0.8.2' && window.SylvariaVisualSystem?.version === '0.8.2');
+    await frame.waitForFunction(() => window.__SIDS_GAME_NETWORK_BRIDGE__ === true && window.__MOSSLIGHT_PLAYTEST__?.version === '0.9.0' && window.SylvariaVisualSystem?.version === '0.9.0');
     const identity = await frame.evaluate(() => ({
       version: window.__MOSSLIGHT_PLAYTEST__.version,
       title: window.__MOSSLIGHT_PLAYTEST__.title,
@@ -60,9 +60,10 @@ for (const { name, browserType, launchOptions } of engines) {
         return rect ? { width: rect.width, height: rect.height, ratio: rect.width / rect.height } : null;
       })(),
     }));
-    if (identity.title !== 'Sylvaria' || identity.version !== '0.8.2') throw new Error(`identity mismatch ${JSON.stringify(identity)}`);
+    if (identity.title !== 'Sylvaria' || identity.version !== '0.9.0') throw new Error(`identity mismatch ${JSON.stringify(identity)}`);
     if (identity.roomCount !== 10) throw new Error(`authored room count mismatch ${identity.roomCount}`);
-    if (!identity.visual?.playfieldAspectSafe || !identity.visual?.immersiveControl || !identity.visual?.routeGeometry || !identity.visual?.lockedIntentTelegraphs || !identity.visual?.resilientMoveQueue || !identity.visual?.projectilePatternReadability || !identity.visual?.evasiveEnemyCues || !identity.visual?.counterRouting) throw new Error(`visual contract incomplete ${JSON.stringify(identity.visual)}`);
+    const visual = identity.visual;
+    if (!visual?.playfieldAspectSafe || !visual?.immersiveControl || !visual?.routeGeometry || !visual?.lockedIntentTelegraphs || !visual?.resilientMoveQueue || !visual?.projectilePatternReadability || !visual?.evasiveEnemyCues || !visual?.counterRouting || !visual?.terrainReadability || !visual?.symmetricTerrainRules || !visual?.cachedTerrainLayer || !visual?.destructibleFoliage || !visual?.combatAnimationStates || !visual?.proceduralSilhouettes) throw new Error(`visual contract incomplete ${JSON.stringify(visual)}`);
     if (!identity.layout || Math.abs(identity.layout.ratio - 1.5) > .02) throw new Error(`playfield lost 3:2 ratio ${JSON.stringify(identity.layout)}`);
 
     const titleStats = await canvasStats(frame);
@@ -71,18 +72,15 @@ for (const { name, browserType, launchOptions } of engines) {
     const canvasInput = frame.locator('#c');
     await canvasInput.focus();
     const before = await frame.evaluate(() => window.__MOSSLIGHT_PLAYTEST__.snapshot());
+    if (!Array.isArray(before.terrain) || before.terrain.length < 1) throw new Error('authored v0.9 room did not expose terrain state');
+    if (!before.terrain.some((patch) => patch.type === 'grass')) throw new Error(`room 1 should introduce harmless grass before hazards: ${JSON.stringify(before.terrain)}`);
 
-    // Target the focusable canvas inside the iframe directly. page.keyboard relies on
-    // top-document focus forwarding, which WebKit handles differently.
-    // Both movement taps are still released quickly: the queue itself must preserve S.
+    // Keep the exact nasty input sequence that closed the v0.8 WebKit bug.
+    // Both movement taps release quickly; the second command must survive the first committed dash.
     await canvasInput.press('d');
     await page.waitForTimeout(25);
     await canvasInput.press('s');
 
-    // Separate input acceptance from render/simulation cadence. Headless WebKit can run
-    // RAF significantly slower under the four-engine CI job, so first prove that S was
-    // accepted into the persistent queue, then require it to execute within a bounded
-    // gameplay deadline rather than an arbitrary 300ms wall-clock sample.
     const queueProbe = await frame.evaluate(() => window.__MOSSLIGHT_PLAYTEST__.snapshot());
     const queueAccepted = queueProbe.player?.bufferedMove === 's' || (queueProbe.player?.y ?? 0) > (before.player?.y ?? 0) + 8 || queueProbe.stats.dashes >= before.stats.dashes + 2;
     if (!queueAccepted) throw new Error(`south input was not accepted by persistent queue: ${JSON.stringify({ before: [before.player?.x, before.player?.y, before.stats.dashes], probe: [queueProbe.player?.x, queueProbe.player?.y, queueProbe.player?.bufferedMove, queueProbe.stats.dashes] })}`);
@@ -107,8 +105,8 @@ for (const { name, browserType, launchOptions } of engines) {
 
     const playStats = await canvasStats(frame);
     if (!playStats.ready || playStats.distinct < 8 || playStats.lit < 20) throw new Error(`canvas under-rendered ${JSON.stringify(playStats)}`);
-    await page.screenshot({ path: path.join(outputDir, `${name}-countercut-v082.png`), fullPage: true });
-    report.push({ name, ok: true, identity, titleStats, playStats, queueProbe: { bufferedMove: queueProbe.player?.bufferedMove ?? null, dashes: queueProbe.stats.dashes - before.stats.dashes }, movement: [before.player?.x, before.player?.y, after.player?.x, after.player?.y], dashes: after.stats.dashes - before.stats.dashes, cuts: after.stats.cuts - before.stats.cuts, fps: after.fps });
+    await page.screenshot({ path: path.join(outputDir, `${name}-environmental-resonance-v090.png`), fullPage: true });
+    report.push({ name, ok: true, identity, titleStats, playStats, terrain: before.terrain.map((patch) => patch.type), queueProbe: { bufferedMove: queueProbe.player?.bufferedMove ?? null, dashes: queueProbe.stats.dashes - before.stats.dashes }, movement: [before.player?.x, before.player?.y, after.player?.x, after.player?.y], dashes: after.stats.dashes - before.stats.dashes, cuts: after.stats.cuts - before.stats.cuts, fps: after.fps });
   } catch (error) {
     failed = true;
     report.push({ name, ok: false, error: error instanceof Error ? error.message : String(error), errors });
@@ -118,8 +116,8 @@ for (const { name, browserType, launchOptions } of engines) {
 }
 fs.writeFileSync(path.join(outputDir, 'report.json'), JSON.stringify(report, null, 2));
 if (failed) {
-  console.error('Sylvaria cross-browser matrix failed');
+  console.error('Sylvaria Environmental Resonance cross-browser matrix failed');
   for (const result of report.filter((entry) => !entry.ok)) console.error(` - ${result.name}: ${result.error}`);
   process.exit(1);
 }
-console.log(`Sylvaria Countercut v0.8.2 browser matrix PASS: ${report.map((entry) => entry.name).join(', ')}; persistent D→S queue acceptance/execution and orthogonal cut verified inside the runtime frame.`);
+console.log(`Sylvaria Environmental Resonance v0.9.0 browser matrix PASS: ${report.map((entry) => entry.name).join(', ')}; persistent D→S queue, orthogonal cut, terrain state, and visual contracts verified inside the runtime frame.`);
