@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import { ArcadePlaySpace } from '@/components/arcade/ArcadePlaySpace';
 import { arcadeGames, getArcadeGame } from '@/src/data/arcadeGames';
 
@@ -24,6 +24,8 @@ export async function generateMetadata({ params }: ArcadeGamePageProps): Promise
 
 export default async function ArcadeGamePage({ params }: ArcadeGamePageProps) {
   const { slug } = await params;
+  if (slug === 'mosslight') redirect('/arcade/sylvaria');
+
   const game = getArcadeGame(slug);
   if (!game) notFound();
   return <ArcadePlaySpace game={game} />;
