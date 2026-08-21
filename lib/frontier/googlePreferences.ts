@@ -1,3 +1,5 @@
+import type { FrontierProfile } from './types';
+
 export type GoogleSubscriptionSignal = {
   channelId: string;
   title: string;
@@ -106,5 +108,27 @@ export function deriveGooglePreferenceImport(
       likedVideos: likedVideos.length,
       learnedTopics: topics.length,
     },
+  };
+}
+
+export function applyPreferenceImportToProfile(
+  profile: FrontierProfile,
+  preferenceImport: FrontierPreferenceImport
+): FrontierProfile {
+  const topicAffinity = { ...profile.topicAffinity };
+  for (const topic of preferenceImport.topics) {
+    const key = canonical(topic.key);
+    if (!key) continue;
+    topicAffinity[key] = Math.max(-0.8, Math.min(1.4, (topicAffinity[key] ?? 0) + topic.weight));
+  }
+  const sourceAffinity = { ...profile.sourceAffinity };
+  for (const [source, weight] of Object.entries(preferenceImport.sourceAffinity)) {
+    sourceAffinity[source] = Math.max(-0.5, Math.min(0.8, (sourceAffinity[source] ?? 0) + weight));
+  }
+  return {
+    ...profile,
+    topicAffinity,
+    sourceAffinity,
+    meaningfulInteractions: profile.meaningfulInteractions + Math.min(12, Math.ceil(preferenceImport.topics.length / 6)),
   };
 }
