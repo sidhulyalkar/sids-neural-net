@@ -68,16 +68,17 @@ test('dwell, expansion, open, save, and positive feedback accumulate preference 
 test('ranking snapshot remains frozen while current-session behavior changes', () => {
   const signal = item();
   const firstVisit = new Date('2026-08-21T18:00:00');
+  const rankingTime = new Date('2026-08-22T18:00:00');
   let model = createInitialBehaviorModel();
   model = applyBehaviorEvent(model, signal, { kind: 'impression' }, firstVisit);
   model = applyBehaviorEvent(model, signal, { kind: 'open' }, firstVisit);
   model = applyBehaviorEvent(model, signal, { kind: 'save' }, firstVisit);
-  model = startBehaviorSession(model, new Date('2026-08-22T18:00:00'));
+  model = startBehaviorSession(model, rankingTime);
 
-  const before = behavioralAdjustment(signal, model, new Date('2026-08-22T18:00:00'));
+  const before = behavioralAdjustment(signal, model, rankingTime);
   model = applyBehaviorEvent(model, signal, { kind: 'positive' }, new Date('2026-08-22T18:02:00'));
   model = applyBehaviorEvent(model, signal, { kind: 'open' }, new Date('2026-08-22T18:03:00'));
-  const after = behavioralAdjustment(signal, model, new Date('2026-08-22T18:04:00'));
+  const after = behavioralAdjustment(signal, model, rankingTime);
 
   assert.equal(after, before);
 });
