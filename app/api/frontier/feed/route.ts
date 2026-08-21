@@ -1,12 +1,12 @@
 import { NextResponse } from 'next/server';
-import { getFrontierFeed } from '@/lib/frontier/sources';
+import { getIntegratedFrontierFeed } from '@/lib/frontier/aggregate';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
   try {
-    const feed = await getFrontierFeed();
+    const feed = await getIntegratedFrontierFeed();
     return NextResponse.json(feed, {
       headers: {
         'Cache-Control': 'public, s-maxage=600, stale-while-revalidate=1800',
