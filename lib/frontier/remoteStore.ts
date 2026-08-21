@@ -41,19 +41,26 @@ export function remoteMemoryConfigured(): boolean {
 async function redisCommand<T>(command: Array<string | number>): Promise<T | null> {
   const config = redisConfig();
   if (!config) return null;
-  const response = await fetch(config.url, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${config.token}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(command),
-    cache: 'no-store',
-  });
-  if (!response.ok) throw new Error(`remote memory returned ${response.status}`);
-  const payload = await response.json() as RedisResponse<T>;
-  if (payload.error) throw new Error(payload.error);
-  return payload.result ?? null;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 5_000);
+  try {
+    const response = await fetch(config.url, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${config.token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(command),
+      cache: 'no-store',
+      signal: controller.signal,
+    });
+    if (!response.ok) throw new Error(`remote memory returned ${response.status}`);
+    const payload = await response.json() as RedisResponse<T>;
+    if (payload.error) throw new Error(payload.error);
+    return payload.result ?? null;
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 function userKey(sub: string, suffix: string): string {
