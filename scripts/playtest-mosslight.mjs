@@ -75,6 +75,18 @@ function nearestUnfinishedTarget(snapshot) {
   return best;
 }
 
+async function waitForShotResolution(before, label, timeoutMs = 1800) {
+  const deadline = Date.now() + timeoutMs;
+  let snapshot = await page.evaluate(() => window.__MOSSLIGHT_PLAYTEST__.snapshot());
+  while (Date.now() < deadline) {
+    if (snapshot.stats.casts > before.stats.casts && snapshot.stats.correct > before.stats.correct) return snapshot;
+    await page.waitForTimeout(40);
+    snapshot = await page.evaluate(() => window.__MOSSLIGHT_PLAYTEST__.snapshot());
+  }
+  failures.push(`${label} did not resolve a correct puzzle shot within ${timeoutMs}ms (casts ${before.stats.casts}->${snapshot.stats.casts}, correct ${before.stats.correct}->${snapshot.stats.correct})`);
+  return snapshot;
+}
+
 await page.evaluate(() => window.__MOSSLIGHT_PLAYTEST__.setRoom(0, 1));
 await page.waitForTimeout(120);
 const pointerBefore = await page.evaluate(() => window.__MOSSLIGHT_PLAYTEST__.snapshot());
@@ -83,8 +95,7 @@ if (!pointerTarget) failures.push('room one must expose a puzzle target');
 else {
   await page.mouse.move(pointerTarget.x, pointerTarget.y);
   await page.mouse.click(pointerTarget.x, pointerTarget.y);
-  await page.waitForTimeout(520);
-  const pointerAfter = await page.evaluate(() => window.__MOSSLIGHT_PLAYTEST__.snapshot());
+  const pointerAfter = await waitForShotResolution(pointerBefore, 'mouse aim');
   if (pointerAfter.stats.casts <= pointerBefore.stats.casts) failures.push('mouse click did not fire Sprid portal gun');
   if (pointerAfter.stats.correct <= pointerBefore.stats.correct) failures.push('mouse aim did not advance a correct puzzle resonance');
 }
@@ -100,8 +111,7 @@ else {
   for (const key of arrows) await page.keyboard.down(key);
   await page.keyboard.press('Space');
   for (const key of [...arrows].reverse()) await page.keyboard.up(key);
-  await page.waitForTimeout(540);
-  const keyboardAfter = await page.evaluate(() => window.__MOSSLIGHT_PLAYTEST__.snapshot());
+  const keyboardAfter = await waitForShotResolution(keyboardBefore, `arrow aim + Space (${arrows.join(' + ')})`);
   if (keyboardAfter.stats.casts <= keyboardBefore.stats.casts) failures.push(`arrow aim + Space did not fire (${arrows.join(' + ')})`);
   if (keyboardAfter.stats.correct <= keyboardBefore.stats.correct) failures.push(`arrow aim + Space did not solve the nearest assisted puzzle step (${arrows.join(' + ')})`);
   if (keyboardAfter.aimSource !== 'keyboard') failures.push(`arrow aim lost keyboard authority: ${keyboardAfter.aimSource}`);
