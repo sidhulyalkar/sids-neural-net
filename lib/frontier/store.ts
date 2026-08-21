@@ -46,15 +46,13 @@ function updateStreak(game: FrontierGameState, now = new Date()): FrontierGameSt
   if (game.lastActiveDay === today) return game;
   if (!game.lastActiveDay) return { ...game, streak: 1, lastActiveDay: today };
   const gap = dayDifference(game.lastActiveDay, today);
-  return {
-    ...game,
-    streak: gap === 1 ? game.streak + 1 : 1,
-    lastActiveDay: today,
-  };
+  return { ...game, streak: gap === 1 ? game.streak + 1 : 1, lastActiveDay: today };
 }
 
 function xpForReaction(reaction: FrontierReaction): number {
   switch (reaction) {
+    case 'up': return 6;
+    case 'down': return 2;
     case 'love': return 9;
     case 'important': return 8;
     case 'surprise': return 8;
@@ -68,8 +66,8 @@ function xpForReaction(reaction: FrontierReaction): number {
 }
 
 function behaviorKindForReaction(reaction: FrontierReaction): 'positive' | 'negative' | undefined {
-  if (['love', 'important', 'surprise', 'useful'].includes(reaction)) return 'positive';
-  if (['meh', 'hide'].includes(reaction)) return 'negative';
+  if (['up', 'love', 'important', 'surprise', 'useful'].includes(reaction)) return 'positive';
+  if (['down', 'meh', 'hide'].includes(reaction)) return 'negative';
   return undefined;
 }
 
@@ -116,27 +114,22 @@ function historyEntry(item: FrontierItem, previous?: FrontierHistoryEntry): Fron
   const now = new Date().toISOString();
   return previous
     ? { ...previous, item, lastSeenAt: now, impressions: previous.impressions + 1 }
-    : {
-        item,
-        firstSeenAt: now,
-        lastSeenAt: now,
-        impressions: 1,
-        resurfacedCount: 0,
-        rewarded: false,
-      };
+    : { item, firstSeenAt: now, lastSeenAt: now, impressions: 1, dwellMs: 0, resurfacedCount: 0, rewarded: false };
 }
 
 function migrateState(payload: unknown): FrontierPersistedState | null {
   if (!payload || typeof payload !== 'object') return null;
   const candidate = payload as Record<string, unknown>;
   if (!candidate.profile || !candidate.saved || !candidate.history || !candidate.collections || !candidate.game) return null;
+  const history = candidate.history as FrontierPersistedState['history'];
+  for (const entry of Object.values(history)) if (entry.dwellMs === undefined) entry.dwellMs = 0;
   return {
     version: 2,
     profile: candidate.profile as FrontierProfile,
     behavior: (candidate.behavior as FrontierBehaviorModel | undefined) ?? createInitialBehaviorModel(),
     saved: candidate.saved as FrontierPersistedState['saved'],
     collections: candidate.collections as FrontierCollection[],
-    history: candidate.history as FrontierPersistedState['history'],
+    history,
     game: candidate.game as FrontierGameState,
   };
 }
@@ -147,7 +140,6 @@ export const useFrontierStore = create<FrontierStore>()(
       ...initialState(),
       hydrated: false,
       setHydrated: (value) => set({ hydrated: value }),
-
       beginSession: () => set({ behavior: startBehaviorSession(get().behavior) }),
       endSession: () => set({ behavior: endBehaviorSession(get().behavior) }),
       recordView: (view) => set({ behavior: recordViewUse(get().behavior, view) }),
@@ -165,22 +157,27 @@ export const useFrontierStore = create<FrontierStore>()(
       },
 
       recordDwell: (item, dwellMs) => {
-        set({ behavior: applyBehaviorEvent(get().behavior, item, { kind: 'dwell', dwellMs }) });
+        const bounded = Math.max(0, Math.min(dwellMs, 120_000));
+        if (bounded < 1_000) return;
+        const current = get();
+        const previous = current.history[item.id] ?? historyEntry(item);
+        set({
+          history: {
+            ...current.history,
+            [item.id]: { ...previous, item, lastSeenAt: new Date().toISOString(), dwellMs: (previous.dwellMs ?? 0) + bounded },
+          },
+          behavior: applyBehaviorEvent(current.behavior, item, { kind: 'dwell', dwellMs: bounded }),
+        });
       },
 
-      recordExpand: (item) => {
-        set({ behavior: applyBehaviorEvent(get().behavior, item, { kind: 'expand' }) });
-      },
+      recordExpand: (item) => set({ behavior: applyBehaviorEvent(get().behavior, item, { kind: 'expand' }) }),
 
       recordOpen: (item) => {
         const current = get();
         const now = new Date().toISOString();
         const previous = current.history[item.id] ?? historyEntry(item);
         set({
-          history: {
-            ...current.history,
-            [item.id]: { ...previous, item, openedAt: now, lastSeenAt: now },
-          },
+          history: { ...current.history, [item.id]: { ...previous, item, openedAt: now, lastSeenAt: now } },
           behavior: applyBehaviorEvent(current.behavior, item, { kind: 'open' }),
           game: updateStreak(current.game),
         });
@@ -193,23 +190,14 @@ export const useFrontierStore = create<FrontierStore>()(
         const firstReward = !previous.rewarded;
         const nextProfile = applyReactionToProfile(current.profile, item, reaction);
         const behaviorKind = behaviorKindForReaction(reaction);
-        const nextBehavior = behaviorKind
-          ? applyBehaviorEvent(current.behavior, item, { kind: behaviorKind })
-          : current.behavior;
+        const nextBehavior = behaviorKind ? applyBehaviorEvent(current.behavior, item, { kind: behaviorKind }) : current.behavior;
         const game = updateStreak(current.game);
         set({
           profile: nextProfile,
           behavior: nextBehavior,
           history: {
             ...current.history,
-            [item.id]: {
-              ...previous,
-              item,
-              reaction,
-              reactedAt: now,
-              lastSeenAt: now,
-              rewarded: true,
-            },
+            [item.id]: { ...previous, item, reaction, reactedAt: now, lastSeenAt: now, rewarded: true },
           },
           game: { ...game, xp: game.xp + (firstReward ? xpForReaction(reaction) : 0) },
         });
@@ -228,11 +216,7 @@ export const useFrontierStore = create<FrontierStore>()(
           saved[item.id] = item;
           if (inbox && !inbox.itemIds.includes(item.id)) inbox.itemIds.push(item.id);
         }
-        set({
-          saved,
-          collections,
-          behavior: wasSaved ? current.behavior : applyBehaviorEvent(current.behavior, item, { kind: 'save' }),
-        });
+        set({ saved, collections, behavior: wasSaved ? current.behavior : applyBehaviorEvent(current.behavior, item, { kind: 'save' }) });
       },
 
       createCollection: (name, description) => {
@@ -256,10 +240,7 @@ export const useFrontierStore = create<FrontierStore>()(
         const collections = current.collections.map((collection) => {
           if (collection.id !== collectionId) return collection;
           const exists = collection.itemIds.includes(item.id);
-          return {
-            ...collection,
-            itemIds: exists ? collection.itemIds.filter((id) => id !== item.id) : [...collection.itemIds, item.id],
-          };
+          return { ...collection, itemIds: exists ? collection.itemIds.filter((id) => id !== item.id) : [...collection.itemIds, item.id] };
         });
         set({ saved, collections });
       },
@@ -277,10 +258,7 @@ export const useFrontierStore = create<FrontierStore>()(
           game: {
             ...updateStreak(current.game),
             xp: current.game.xp + xp,
-            completedQuestDays: {
-              ...current.game.completedQuestDays,
-              [dayKey]: [...completed, questId],
-            },
+            completedQuestDays: { ...current.game.completedQuestDays, [dayKey]: [...completed, questId] },
           },
         });
       },
