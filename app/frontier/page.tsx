@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { FrontierAccountDock } from '@/components/frontier/FrontierAccountDock';
 import { FrontierExperience } from '@/components/frontier/FrontierExperience';
 
 export const metadata: Metadata = {
@@ -29,5 +30,10 @@ export default function FrontierPage() {
     day: '2-digit',
   }).format(now);
 
-  return <FrontierExperience initialDateLabel={initialDateLabel} initialDayKey={initialDayKey} />;
+  return (
+    <>
+      <FrontierAccountDock />
+      <FrontierExperience initialDateLabel={initialDateLabel} initialDayKey={initialDayKey} />
+    </>
+  );
 }
