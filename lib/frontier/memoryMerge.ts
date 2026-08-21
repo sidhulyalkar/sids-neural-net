@@ -10,6 +10,8 @@ import type {
   FrontierProfile,
 } from './types';
 
+const CLOUD_HISTORY_LIMIT = 900;
+
 function objectRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value && typeof value === 'object' && !Array.isArray(value));
 }
@@ -35,7 +37,7 @@ function mergeNumericMap(left: Record<string, number>, right: Record<string, num
   return Object.fromEntries(Array.from(keys).map((key) => {
     const a = left[key];
     const b = right[key];
-    if (a === undefined) return [key, b];
+    if (a === undefined) return [key, b ?? 0];
     if (b === undefined) return [key, a];
     return [key, Math.abs(a) >= Math.abs(b) ? a : b];
   }));
@@ -64,7 +66,7 @@ function mergeAggregate(left?: FrontierBehaviorAggregate, right?: FrontierBehavi
     positive: Math.max(left.positive, right.positive),
     negative: Math.max(left.negative, right.negative),
     dwellMs: Math.max(left.dwellMs, right.dwellMs),
-    lastAt: [left.lastAt, right.lastAt].filter(Boolean).sort().at(-1),
+    lastAt: [left.lastAt, right.lastAt].filter((value): value is string => Boolean(value)).sort().at(-1),
   };
 }
 
@@ -81,6 +83,10 @@ function mergeAggregateMap(
   return out;
 }
 
+function newestOptional(left?: string, right?: string): string | undefined {
+  return [left, right].filter((value): value is string => Boolean(value)).sort().at(-1);
+}
+
 function mergeBehavior(left: FrontierBehaviorModel, right: FrontierBehaviorModel): FrontierBehaviorModel {
   const initial = createInitialBehaviorModel();
   const leftSnapshotAt = left.rankingSnapshot?.capturedAt ?? '';
@@ -89,7 +95,7 @@ function mergeBehavior(left: FrontierBehaviorModel, right: FrontierBehaviorModel
     implicitLearning: left.implicitLearning && right.implicitLearning,
     sessions: Math.max(left.sessions, right.sessions),
     sessionStartedAt: undefined,
-    lastActiveAt: [left.lastActiveAt, right.lastActiveAt].filter(Boolean).sort().at(-1),
+    lastActiveAt: newestOptional(left.lastActiveAt, right.lastActiveAt),
     totalActiveMs: Math.max(left.totalActiveMs, right.totalActiveMs),
     laneStats: mergeAggregateMap(left.laneStats ?? initial.laneStats, right.laneStats ?? initial.laneStats),
     sourceStats: mergeAggregateMap(left.sourceStats ?? initial.sourceStats, right.sourceStats ?? initial.sourceStats),
@@ -120,8 +126,8 @@ function mergeHistoryEntry(left: FrontierHistoryEntry, right: FrontierHistoryEnt
     lastSeenAt: left.lastSeenAt >= right.lastSeenAt ? left.lastSeenAt : right.lastSeenAt,
     impressions: Math.max(left.impressions, right.impressions),
     dwellMs: Math.max(left.dwellMs ?? 0, right.dwellMs ?? 0) || undefined,
-    openedAt: [left.openedAt, right.openedAt].filter(Boolean).sort().at(-1),
-    reactedAt: [left.reactedAt, right.reactedAt].filter(Boolean).sort().at(-1),
+    openedAt: newestOptional(left.openedAt, right.openedAt),
+    reactedAt: newestOptional(left.reactedAt, right.reactedAt),
     reaction: latest.reaction ?? left.reaction ?? right.reaction,
     resurfacedCount: Math.max(left.resurfacedCount, right.resurfacedCount),
     rewarded: left.rewarded || right.rewarded,
@@ -155,7 +161,7 @@ function mergeGame(left: FrontierGameState, right: FrontierGameState): FrontierG
   return {
     xp: Math.max(left.xp, right.xp),
     streak: Math.max(left.streak, right.streak),
-    lastActiveDay: [left.lastActiveDay, right.lastActiveDay].filter(Boolean).sort().at(-1),
+    lastActiveDay: newestOptional(left.lastActiveDay, right.lastActiveDay),
     completedQuestDays,
   };
 }
@@ -180,7 +186,8 @@ export function mergeFrontierMemory(
   for (const key of historyKeys) {
     const a = left.history[key];
     const b = right.history[key];
-    history[key] = a && b ? mergeHistoryEntry(a, b) : (a ?? b);
+    const entry = a && b ? mergeHistoryEntry(a, b) : (a ?? b);
+    if (entry) history[key] = entry;
   }
   return {
     version: 2,
@@ -190,5 +197,26 @@ export function mergeFrontierMemory(
     collections: mergeCollections(left.collections, right.collections),
     history,
     game: mergeGame(left.game, right.game),
+  };
+}
+
+export function compactFrontierCloudMemory(
+  state: FrontierPersistedState,
+  historyLimit = CLOUD_HISTORY_LIMIT
+): FrontierPersistedState {
+  const savedIds = new Set(Object.keys(state.saved));
+  const entries = Object.entries(state.history)
+    .sort(([, a], [, b]) => new Date(b.lastSeenAt).getTime() - new Date(a.lastSeenAt).getTime());
+  const protectedEntries = entries.filter(([id, entry]) => savedIds.has(id) || Boolean(entry.reaction) || Boolean(entry.openedAt));
+  const protectedIds = new Set(protectedEntries.slice(0, historyLimit).map(([id]) => id));
+  const remainingSlots = Math.max(0, historyLimit - protectedIds.size);
+  for (const [id] of entries) {
+    if (protectedIds.size >= historyLimit || remainingSlots <= 0) break;
+    protectedIds.add(id);
+  }
+  const history = Object.fromEntries(entries.filter(([id]) => protectedIds.has(id)).slice(0, historyLimit));
+  return {
+    ...state,
+    history,
   };
 }
