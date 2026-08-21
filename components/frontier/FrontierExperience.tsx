@@ -27,6 +27,7 @@ import type {
   FrontierView,
 } from '@/lib/frontier/types';
 import { InterestConstellation } from './InterestConstellation';
+import { PreferenceLens } from './PreferenceLens';
 import { SignalBoard } from './SignalBoard';
 import type { SignalLayoutMode } from './SignalBoard';
 import { SignalCard } from './SignalCard';
@@ -174,6 +175,23 @@ export function FrontierExperience({ initialDateLabel, initialDayKey }: Props) {
     return () => window.clearInterval(timer);
   }, [loadFeed]);
 
+  const beginSession = store.beginSession;
+  const endSession = store.endSession;
+  useEffect(() => {
+    beginSession();
+    const finish = () => endSession();
+    window.addEventListener('pagehide', finish);
+    return () => {
+      window.removeEventListener('pagehide', finish);
+      endSession();
+    };
+  }, [beginSession, endSession]);
+
+  const recordView = store.recordView;
+  useEffect(() => {
+    recordView(view);
+  }, [recordView, view]);
+
   const resurfacing = useMemo(
     () => Object.values(store.history)
       .filter((entry) => isDueForResurface(entry))
@@ -188,8 +206,8 @@ export function FrontierExperience({ initialDateLabel, initialDayKey }: Props) {
   }, [items, resurfacing]);
 
   const ranked = useMemo(
-    () => rankFrontierItems(mergedItems, store.profile, store.history),
-    [mergedItems, store.profile, store.history]
+    () => rankFrontierItems(mergedItems, store.profile, store.history, new Date(), store.behavior),
+    [mergedItems, store.behavior, store.history, store.profile]
   );
   const realmRanked = useMemo(
     () => ranked.filter((item) => laneMatchesRealm(item.lane, realm)),
@@ -222,13 +240,19 @@ export function FrontierExperience({ initialDateLabel, initialDayKey }: Props) {
     .sort((a, b) => new Date(b.lastSeenAt).getTime() - new Date(a.lastSeenAt).getTime());
 
   const markSeen = store.markSeen;
+  const recordDwell = store.recordDwell;
+  const recordExpand = store.recordExpand;
   const recordOpen = store.recordOpen;
   const toggleSave = store.toggleSave;
   const react = store.react;
+  const recordLayout = store.recordLayout;
   const seenCallback = useCallback((item: FrontierItem, resurfaced?: boolean) => markSeen(item, resurfaced), [markSeen]);
+  const dwellCallback = useCallback((item: FrontierItem, dwellMs: number) => recordDwell(item, dwellMs), [recordDwell]);
+  const expandCallback = useCallback((item: FrontierItem) => recordExpand(item), [recordExpand]);
   const openCallback = useCallback((item: FrontierItem) => recordOpen(item), [recordOpen]);
   const saveCallback = useCallback((item: FrontierItem) => toggleSave(item), [toggleSave]);
   const reactCallback = useCallback((item: FrontierItem, reaction: FrontierReaction) => react(item, reaction), [react]);
+  const layoutCallback = useCallback((layout: SignalLayoutMode) => recordLayout(layout), [recordLayout]);
 
   const renderCard = useCallback((item: FrontierItem, presentation: SignalLayoutMode | 'library' = 'library') => (
     <SignalCard
@@ -236,14 +260,16 @@ export function FrontierExperience({ initialDateLabel, initialDayKey }: Props) {
       presentation={presentation}
       saved={Boolean(store.saved[item.id])}
       reaction={store.history[item.id]?.reaction}
-      explanation={explainRecommendation(item, store.profile)}
+      explanation={explainRecommendation(item, store.profile, store.behavior)}
       resurfaced={item.tags.includes('second-chance')}
       onSeen={seenCallback}
+      onDwell={dwellCallback}
+      onExpand={expandCallback}
       onOpen={openCallback}
       onSave={saveCallback}
       onReact={reactCallback}
     />
-  ), [openCallback, reactCallback, saveCallback, seenCallback, store.history, store.profile, store.saved]);
+  ), [dwellCallback, expandCallback, openCallback, reactCallback, saveCallback, seenCallback, store.behavior, store.history, store.profile, store.saved]);
 
   const downloadBackup = useCallback(() => {
     const blob = new Blob([JSON.stringify(frontierBackup(store), null, 2)], { type: 'application/json' });
@@ -292,6 +318,7 @@ export function FrontierExperience({ initialDateLabel, initialDayKey }: Props) {
             <span className={styles.liveDot} /> {loading && !items.length ? 'scanning' : `${onlineSources} sources`}
             <span>·</span><span>{dailyRun.length} signals</span>
             <span>·</span><span>{savedItems.length} saved</span>
+            <span>·</span><span>{store.behavior.implicitLearning ? 'learning' : 'learning paused'}</span>
             {error ? <span className={styles.degraded}>· degraded</span> : null}
           </div>
         </header>
@@ -324,6 +351,7 @@ export function FrontierExperience({ initialDateLabel, initialDayKey }: Props) {
             <SignalBoard
               items={dailyRun}
               renderCard={(item, mode) => renderCard(item, mode)}
+              onLayoutChange={layoutCallback}
               empty={<div className={styles.empty}>No live signal yet. Refresh in a moment.</div>}
             />
           </main>
@@ -356,6 +384,7 @@ export function FrontierExperience({ initialDateLabel, initialDayKey }: Props) {
             <SignalBoard
               items={exploreItems.slice(0, 48)}
               renderCard={(item, mode) => renderCard(item, mode)}
+              onLayoutChange={layoutCallback}
               compact
               empty={<div className={styles.empty}>No signals match this slice. Widen one filter.</div>}
             />
@@ -407,6 +436,7 @@ export function FrontierExperience({ initialDateLabel, initialDayKey }: Props) {
                 <SignalBoard
                   items={activeCollectionItems}
                   renderCard={(item, mode) => renderCard(item, mode)}
+                  onLayoutChange={layoutCallback}
                   compact
                   empty={<div className={styles.empty}>{savedItems.length ? 'This group is empty.' : 'Save a signal and it will appear here.'}</div>}
                 />
@@ -436,12 +466,21 @@ export function FrontierExperience({ initialDateLabel, initialDayKey }: Props) {
 
         {view === 'map' ? (
           <section className={styles.section}>
-            <InterestConstellation profile={store.profile} />
+            <PreferenceLens
+              behavior={store.behavior}
+              onToggleLearning={store.setImplicitLearning}
+              onResetBehavior={() => {
+                if (window.confirm('Forget only the behavior/habit model while keeping saves, explicit reactions, and history?')) store.resetBehavior();
+              }}
+            />
+            <div className={styles.radarMapSection}>
+              <InterestConstellation profile={store.profile} />
+            </div>
           </section>
         ) : null}
 
         <footer className={styles.footerTools}>
-          <span className={styles.micro}>Local memory · {store.game.streak} day streak · {store.game.xp} XP</span>
+          <span className={styles.micro}>Local memory · {store.game.streak} day streak · {store.game.xp} XP · {store.behavior.sessions} learned sessions</span>
           <div className={styles.toolGroup}>
             <button type="button" className={styles.utilityButton} onClick={() => void loadFeed()}><RefreshCw size={11} /> Refresh</button>
             <button type="button" className={styles.utilityButton} onClick={downloadBackup}><Download size={11} /> Export</button>
@@ -451,7 +490,7 @@ export function FrontierExperience({ initialDateLabel, initialDayKey }: Props) {
               type="button"
               className={styles.utilityButton}
               onClick={() => {
-                if (window.confirm('Reset FRONTIER history, saves, collections, XP, and learned preferences in this browser?')) store.resetFrontier();
+                if (window.confirm('Reset FRONTIER history, saves, collections, XP, learned behavior, and explicit preferences in this browser?')) store.resetFrontier();
               }}
             >
               <RotateCcw size={11} /> Reset
