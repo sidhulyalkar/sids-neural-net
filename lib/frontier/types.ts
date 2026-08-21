@@ -33,6 +33,7 @@ export type FrontierSourceKind =
   | 'steam'
   | 'social'
   | 'brave_web'
+  | 'gdelt'
   | 'local';
 
 export type FrontierMedia = {
@@ -87,6 +88,8 @@ export type FrontierFeedResponse = {
 };
 
 export const FRONTIER_REACTIONS = [
+  'up',
+  'down',
   'love',
   'important',
   'surprise',
@@ -114,6 +117,7 @@ export type FrontierHistoryEntry = {
   firstSeenAt: string;
   lastSeenAt: string;
   impressions: number;
+  dwellMs?: number;
   openedAt?: string;
   reaction?: FrontierReaction;
   reactedAt?: string;
