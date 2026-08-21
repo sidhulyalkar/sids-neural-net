@@ -71,17 +71,36 @@ test('Google taste import learns subscriptions and likes without retaining raw w
 test('Google taste import strengthens profile topics and YouTube source affinity', () => {
   const profile = createInitialProfile();
   const before = profile.topicAffinity['mountain biking'] ?? 0;
-  const next = applyPreferenceImportToProfile(profile, {
-    provider: 'google-youtube',
+  const preferenceImport = {
+    provider: 'google-youtube' as const,
     importedAt: '2026-08-21T12:00:00.000Z',
     topics: [{ key: 'mountain biking', weight: 0.2 }],
     sourceAffinity: { youtube: 0.18 },
     summary: { subscriptions: 1, likedVideos: 3, learnedTopics: 1 },
-  });
+  };
+  const next = applyPreferenceImportToProfile(profile, preferenceImport);
+  const repeated = applyPreferenceImportToProfile(next, preferenceImport);
 
   assert.ok(next.topicAffinity['mountain biking'] > before);
   assert.equal(next.sourceAffinity.youtube, 0.18);
+  assert.equal(repeated.topicAffinity['mountain biking'], next.topicAffinity['mountain biking']);
+  assert.equal(repeated.sourceAffinity.youtube, next.sourceAffinity.youtube);
   assert.equal(profile.sourceAffinity.youtube, undefined);
+});
+
+test('Google account seeds never override explicit negative preference evidence', () => {
+  const profile = createInitialProfile();
+  profile.topicAffinity['reaction videos'] = -0.45;
+  profile.sourceAffinity.youtube = -0.2;
+  const next = applyPreferenceImportToProfile(profile, {
+    provider: 'google-youtube',
+    importedAt: '2026-08-21T12:00:00.000Z',
+    topics: [{ key: 'reaction videos', weight: 0.34 }],
+    sourceAffinity: { youtube: 0.18 },
+    summary: { subscriptions: 4, likedVideos: 8, learnedTopics: 1 },
+  });
+  assert.equal(next.topicAffinity['reaction videos'], -0.45);
+  assert.equal(next.sourceAffinity.youtube, -0.2);
 });
 
 test('cloud-memory merge preserves useful state from both devices', () => {
