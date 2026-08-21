@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createInitialProfile } from '../lib/frontier/config';
+import { FRONTIER_GAME_LIBRARY, FRONTIER_MUSIC_ARTISTS, pickDailySubreddits } from '../lib/frontier/interests';
+import { parseRedditListing } from '../lib/frontier/personalSources';
 import {
   applyReactionToProfile,
   isDueForResurface,
@@ -60,6 +62,17 @@ test('already-known feedback advances knowledge without penalizing topic prefere
   assert.ok(next.knownTopics['machine learning'] > 0);
 });
 
+test('personal cold start includes the favorite-team and bass orbit', () => {
+  const profile = createInitialProfile();
+  assert.ok(profile.topicAffinity.patriots > 0);
+  assert.ok(profile.topicAffinity.warriors > 0);
+  assert.ok(profile.topicAffinity.chelsea > 0);
+  assert.ok(profile.topicAffinity['manchester city'] > 0);
+  assert.ok(profile.topicAffinity.dubstep > 0);
+  assert.ok(profile.laneAffinity.team_pulse > 0);
+  assert.ok(profile.laneAffinity.music > 0);
+});
+
 test('hidden items are removed from personalized ranking', () => {
   const signal = item();
   const hiddenHistory: Record<string, FrontierHistoryEntry> = {
@@ -76,18 +89,71 @@ test('unresolved valuable items become due for a second chance after one day', (
   assert.ok(personalizedScore(signal, createInitialProfile(), entry, now) > 0);
 });
 
-test('daily run reserves soccer and ML/data when those signals exist', () => {
+test('daily run reserves brainfood, favorite-team, gaming, and broader sports when present', () => {
   const signals = [
     item({ id: 'important', lane: 'must_know', importance: 0.95, title: 'Major release' }),
-    item({ id: 'pl', lane: 'premier_league', title: 'Premier League tactical shift', tags: ['premier league', 'tactics'] }),
     item({ id: 'ml', lane: 'ml_data', title: 'New data analysis method' }),
-    item({ id: 'neuro', lane: 'neuro_frontier', title: 'Neural decoding result', tags: ['neural decoding'] }),
+    item({ id: 'code', lane: 'builder_signal', sourceKind: 'github', title: 'Useful public repository', tags: ['open source'] }),
+    item({ id: 'team', lane: 'team_pulse', sourceKind: 'reddit', title: 'Patriots roster move', tags: ['patriots'] }),
+    item({ id: 'pl', lane: 'premier_league', title: 'Premier League tactical shift', tags: ['premier league', 'tactics'] }),
+    item({ id: 'game', lane: 'gaming', sourceKind: 'steam', title: 'Hollow Knight update', tags: ['hollow knight'] }),
+    item({ id: 'music', lane: 'music', title: 'New bass release', tags: ['dubstep'] }),
     item({ id: 'wild', lane: 'wildcards', title: 'Unexpected adjacent idea', novelty: 0.9, tags: ['unexpected'] }),
   ];
   const ranked = rankFrontierItems(signals, createInitialProfile(), {});
-  const run = selectDailyRun(ranked, {}, 5);
-  assert.ok(run.some((signal) => signal.lane === 'premier_league'));
+  const run = selectDailyRun(ranked, {}, 8);
   assert.ok(run.some((signal) => signal.lane === 'ml_data'));
+  assert.ok(run.some((signal) => signal.lane === 'builder_signal'));
+  assert.ok(run.some((signal) => signal.lane === 'team_pulse'));
+  assert.ok(run.some((signal) => signal.lane === 'premier_league'));
+  assert.ok(run.some((signal) => signal.lane === 'gaming'));
+  assert.ok(run.some((signal) => signal.lane === 'music'));
+});
+
+test('daily subreddit rotation always contains the four favorite-team communities', () => {
+  const selected = pickDailySubreddits('2026-08-20');
+  for (const subreddit of ['Patriots', 'warriors', 'chelseafc', 'MCFC']) {
+    assert.ok(selected.includes(subreddit));
+  }
+  assert.ok(selected.length <= 15);
+});
+
+test('steam library seed contains representative games from the supplied library', () => {
+  const titles = new Set(FRONTIER_GAME_LIBRARY.map((game) => game.title.toLowerCase()));
+  for (const title of ['elden ring', 'hollow knight: silksong', 'nine sols', 'dead cells', 'tunic', 'rain world']) {
+    assert.ok(titles.has(title));
+  }
+});
+
+test('music taste seed supplies artist names to the discovery orbit', () => {
+  const names = new Set(FRONTIER_MUSIC_ARTISTS.map((artist) => artist.toLowerCase()));
+  assert.ok(names.has('illenium'));
+  assert.ok(names.has('virtual riot'));
+  assert.ok(names.has('skrillex'));
+});
+
+test('reddit parser maps favorite-team community posts into the team pulse lane', () => {
+  const parsed = parseRedditListing({
+    data: {
+      children: [{
+        data: {
+          id: 'pats-1',
+          title: 'Patriots rookie flashes in practice clip',
+          subreddit: 'Patriots',
+          permalink: '/r/Patriots/comments/pats1/example/',
+          created_utc: 1787250000,
+          score: 1420,
+          num_comments: 188,
+          preview: { images: [{ source: { url: 'https://example.com/pats.jpg' } }] },
+        },
+      }],
+    },
+  }, 'Patriots');
+  assert.equal(parsed.length, 1);
+  assert.equal(parsed[0].lane, 'team_pulse');
+  assert.equal(parsed[0].sourceKind, 'reddit');
+  assert.equal(parsed[0].sourceLabel, 'r/Patriots');
+  assert.equal(parsed[0].media?.url, 'https://example.com/pats.jpg');
 });
 
 test('rss parser retains publisher image media and classifies Premier League signal', () => {
