@@ -1,5 +1,6 @@
 import frontierSnapshot from '@/content/frontier/latest.json';
 import { getActiveSportsFeed } from './activeSportsSources';
+import { normalizeFeedToEnglish } from './english';
 import { getPersonalFrontierFeed } from './personalSources';
 import { getFrontierFeed } from './sources';
 import type { FrontierFeedResponse, FrontierItem, FrontierSourceStatus } from './types';
@@ -88,8 +89,8 @@ export async function getIntegratedFrontierFeed(
         !liveKeys.has(canonicalKey(item)) && !liveKeys.has(item.title.toLowerCase())
       );
 
-  const items = [...liveItems, ...archive]
-    .slice(0, 180);
+  const candidateItems = [...liveItems, ...archive].slice(0, 180);
+  const items = await normalizeFeedToEnglish(candidateItems);
 
   const sources = mergeStatuses(liveFeeds.flatMap((feed) => feed.sources));
   if (baseResult.status === 'rejected') {
