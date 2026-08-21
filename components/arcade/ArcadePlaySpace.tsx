@@ -14,18 +14,19 @@ export function ArcadePlaySpace({ game }: { game: ArcadeGame }) {
   const trustedSameOriginRuntime = Boolean(game.launchUrl?.startsWith('/'));
 
   const engageFocus = useCallback(() => {
+    document.documentElement.classList.add('game-runtime-focused');
     setFocused(true);
   }, []);
 
   const leaveFocus = useCallback(() => {
+    document.documentElement.classList.remove('game-runtime-focused');
     setFocused(false);
     shellRef.current?.focus();
   }, []);
 
   useEffect(() => {
-    document.documentElement.classList.toggle('game-runtime-focused', focused);
     return () => document.documentElement.classList.remove('game-runtime-focused');
-  }, [focused]);
+  }, []);
 
   useEffect(() => {
     const onFullscreen = () => setFullscreen(document.fullscreenElement === shellRef.current);
@@ -89,6 +90,7 @@ export function ArcadePlaySpace({ game }: { game: ArcadeGame }) {
       className="min-h-screen bg-[#020306] text-white outline-none"
       data-arcade-focus={focused ? 'true' : 'false'}
     >
+      <style>{`.game-runtime-focused .neuron-cursor-overlay{display:none!important}`}</style>
       <div className="mx-auto flex min-h-screen w-full max-w-[1320px] flex-col px-4 pb-8 pt-5 sm:px-7 lg:px-10">
         <header
           className={`flex items-center justify-between gap-4 transition-opacity ${
