@@ -58,7 +58,11 @@ test('dwell, expansion, open, save, and positive feedback accumulate preference 
   assert.equal(model.formatStats.video.saved, 1);
   assert.equal(model.contextStats['evening:sports'].positive, 1);
   assert.ok(aggregatePreference(model.laneStats.sports).score > 0.5);
-  assert.ok(behavioralAdjustment(signal, model, when) > 0);
+
+  // Live evidence is inspectable immediately but does not move the current feed.
+  assert.equal(behavioralAdjustment(signal, model, when), 0);
+  model = startBehaviorSession(model, new Date('2026-08-22T19:30:00'));
+  assert.ok(behavioralAdjustment(signal, model, new Date('2026-08-22T19:30:00')) > 0);
 });
 
 test('mere exposure is weak evidence and does not immediately punish a topic', () => {
