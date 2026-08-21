@@ -61,15 +61,15 @@ function userKey(sub: string, suffix: string): string {
   return `frontier:user:${digest}:${suffix}`;
 }
 
-function encryptionKey(): Buffer {
+function encryptionKey(purpose: 'memory' | 'google'): Buffer {
   const secret = process.env.FRONTIER_AUTH_SECRET?.trim();
-  if (!secret) throw new Error('FRONTIER_AUTH_SECRET is required to encrypt Google grants');
-  return createHash('sha256').update(`frontier-google-grant:${secret}`).digest();
+  if (!secret) throw new Error('FRONTIER_AUTH_SECRET is required to encrypt private FRONTIER data');
+  return createHash('sha256').update(`frontier-${purpose}:${secret}`).digest();
 }
 
-function encrypt(value: unknown): string {
+function encrypt(value: unknown, purpose: 'memory' | 'google'): string {
   const iv = randomBytes(12);
-  const cipher = createCipheriv('aes-256-gcm', encryptionKey(), iv);
+  const cipher = createCipheriv('aes-256-gcm', encryptionKey(purpose), iv);
   const plaintext = Buffer.from(JSON.stringify(value), 'utf8');
   const encrypted = Buffer.concat([cipher.update(plaintext), cipher.final()]);
   const payload: EncryptedPayload = {
@@ -81,11 +81,11 @@ function encrypt(value: unknown): string {
   return JSON.stringify(payload);
 }
 
-function decrypt<T>(value: string): T | null {
+function decrypt<T>(value: string, purpose: 'memory' | 'google'): T | null {
   try {
     const payload = JSON.parse(value) as EncryptedPayload;
     if (payload.v !== 1 || !payload.iv || !payload.tag || !payload.data) return null;
-    const decipher = createDecipheriv('aes-256-gcm', encryptionKey(), Buffer.from(payload.iv, 'base64url'));
+    const decipher = createDecipheriv('aes-256-gcm', encryptionKey(purpose), Buffer.from(payload.iv, 'base64url'));
     decipher.setAuthTag(Buffer.from(payload.tag, 'base64url'));
     const plaintext = Buffer.concat([
       decipher.update(Buffer.from(payload.data, 'base64url')),
@@ -99,33 +99,28 @@ function decrypt<T>(value: string): T | null {
 
 export async function getRemoteMemory(sub: string): Promise<FrontierRemoteMemory | null> {
   const raw = await redisCommand<string>(['GET', userKey(sub, 'memory')]);
-  if (!raw) return null;
-  try {
-    return JSON.parse(raw) as FrontierRemoteMemory;
-  } catch {
-    return null;
-  }
+  return raw ? decrypt<FrontierRemoteMemory>(raw, 'memory') : null;
 }
 
 export async function putRemoteMemory(sub: string, state: FrontierPersistedState): Promise<FrontierRemoteMemory> {
+  if (!remoteMemoryConfigured()) throw new Error('remote memory is not configured');
   const envelope: FrontierRemoteMemory = {
     version: 1,
     updatedAt: new Date().toISOString(),
     state,
   };
-  const result = await redisCommand<string>(['SET', userKey(sub, 'memory'), JSON.stringify(envelope)]);
-  if (result === null && !remoteMemoryConfigured()) throw new Error('remote memory is not configured');
+  await redisCommand<string>(['SET', userKey(sub, 'memory'), encrypt(envelope, 'memory')]);
   return envelope;
 }
 
 export async function getGoogleGrant(sub: string): Promise<GoogleGrant | null> {
   const raw = await redisCommand<string>(['GET', userKey(sub, 'google')]);
-  return raw ? decrypt<GoogleGrant>(raw) : null;
+  return raw ? decrypt<GoogleGrant>(raw, 'google') : null;
 }
 
 export async function putGoogleGrant(sub: string, grant: GoogleGrant): Promise<void> {
   if (!remoteMemoryConfigured()) throw new Error('remote memory is required for Google preference imports');
-  await redisCommand<string>(['SET', userKey(sub, 'google'), encrypt(grant)]);
+  await redisCommand<string>(['SET', userKey(sub, 'google'), encrypt(grant, 'google')]);
 }
 
 export async function clearGoogleGrant(sub: string): Promise<void> {
