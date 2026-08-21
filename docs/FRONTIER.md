@@ -5,7 +5,7 @@ FRONTIER is a native `/frontier` destination inside `sids-neural-net`. It is a f
 The product intentionally has two complementary faces:
 
 - **Brainfood** — novel studies, public codebases, useful methods, project designs, ML/data, AI/NeuroAI, and broad science.
-- **After Hours** — Patriots, Warriors, Chelsea, Manchester City, sports highlights, Reddit/community posts, memes, games, bass music, video, outdoors, animals, and internet culture.
+- **After Hours** — Patriots, Warriors, Chelsea, Manchester City, active sports, sports highlights, Reddit/community posts, memes, games, bass music, video, outdoors, animals, and internet culture.
 
 `For You` recombines both into one daily run while preserving independent lane budgets.
 
@@ -15,8 +15,8 @@ The product intentionally has two complementary faces:
 2. **Important can beat personalized.** Major developments are allowed to break through the taste model.
 3. **Knowledge is not taste.** `Already knew` advances the modeled knowledge frontier without teaching dislike.
 4. **Missed does not mean irrelevant.** Unresolved high-value items can return after 1, 3, and 7 days.
-5. **Breadth before scroll depth.** The daily run explicitly reserves room for evidence, code, reusable methods, favorite teams, broader sports, games, culture, and useful surprise.
-6. **Fun is first-class, not filler.** A great match clip, game release, bass set, or genuinely funny community post can be valuable without pretending to be a research paper.
+5. **Breadth before scroll depth.** The daily run explicitly reserves room for evidence, code, reusable methods, favorite teams, active sports, broader sports, games, culture, and useful surprise.
+6. **Fun is first-class, not filler.** A great climbing send, downhill run, match clip, game release, bass set, or genuinely funny community post can be valuable without pretending to be a research paper.
 7. **Game mechanics reward meaningful behavior, not raw clicks.** XP is minted once per signal and quest rewards are idempotent per day.
 8. **Memory is explicit and portable.** Saves, groups, history, and learned preferences are browser-local by default and can be exported/imported as JSON.
 9. **Media is evidence-bearing.** Images, videos, charts, metrics, and generated signal art are presentation modes around the same provenance-rich signal model.
@@ -34,6 +34,31 @@ The product intentionally has two complementary faces:
 - Manchester City
 
 Team aliases map into a dedicated `team_pulse` lane so favorite-team news, highlights, roster moves, tactical analysis, and community posts are not diluted into generic sports.
+
+### Active sports / motion radar
+
+FRONTIER separately models sports the owner actively does or is learning:
+
+- rock climbing / bouldering / lead climbing
+- mountain biking / downhill / enduro
+- skiing / freeski / freeride
+- skateboarding
+- longboarding
+- soccer
+- RipStik / caster-board riding
+- RipSurf / waveboard / land-surfing progression
+
+These are not treated as generic “outdoors” tags. They receive positive cold-start affinities, an `Active sports` pinned shortcut, and their own Daily Run reservation so favorite-team news cannot crowd them out.
+
+Four active sports rotate through the live discovery mesh each day. Recent snapshots accumulate across deployments, so all disciplines remain in orbit without multiplying every request by eight on every page load.
+
+The source strategy has three layers:
+
+1. **Professional / current stories** — zero-config news RSS searches for competition results, athlete stories, records, event news, and notable performances.
+2. **Community clips** — recent top Reddit posts from relevant climbing, MTB, skiing, skateboarding, longboarding, and soccer communities, with YouTube and Reddit-hosted video promoted to playable media when available.
+3. **Wider clip discovery** — when `BRAVE_SEARCH_API_KEY` is configured, sport-specific queries expand into YouTube, web, X/Threads-indexed results, best runs, sends, tricks, and highlight videos.
+
+For RipStik and RipSurf, FRONTIER deliberately searches progression, creator riding, advanced tricks, and standout clips rather than inventing a professional circuit that may not exist.
 
 ### Games
 
@@ -61,11 +86,11 @@ The supplied followed-subreddit snapshot is checked into the personal-interest l
 - science / ML / neuroscience / engineering
 - games / music
 - sports and favorite-team communities
+- active sports such as mountain biking / climbing / skiing / soccer
 - humor / memes / internet culture
-- mountain biking / climbing / skiing
 - animals / huskies / nature / photography / food
 
-Favorite-team communities are always eligible; the rest rotate deterministically by date.
+Favorite-team communities are always eligible; active-sports communities receive dedicated rotating slots; the rest rotate deterministically by date.
 
 ## Architecture
 
@@ -76,31 +101,32 @@ live internet
   ├─ OpenAlex
   ├─ specialist RSS
   ├─ Reddit public listings
+  ├─ active-sports news + clip mesh
   ├─ Steam public game news
   ├─ YouTube public Atom feeds (optional channel set)
   ├─ football-data.org (optional key)
   └─ Brave Search (optional personal web / video / social widening)
           │
-          ├───────────────┐
-          ▼               ▼
-lib/frontier/sources.ts   lib/frontier/personalSources.ts
-  research/core mesh       teams + games + communities + culture
-          └───────────────┬┘
-                          ▼
-                 lib/frontier/aggregate.ts
-               normalize + dedupe + snapshot fallback
-                          │
-                          ▼
-                   /api/frontier/feed
-                cached, fault-isolated JSON
-                          │
-                          ▼
-                  FrontierExperience
-          Daily Run / Explore / Saved / History / My Radar
-                          │
-                          ▼
-                    client memory
-      lane affinity + topic affinity + source affinity + known state
+          ├───────────────────────┬────────────────────────┐
+          ▼                       ▼                        ▼
+lib/frontier/sources.ts  lib/frontier/personalSources.ts  activeSportsSources.ts
+  research/core mesh       teams + games + culture        motion + pro + clips
+          └───────────────────────┼────────────────────────┘
+                                  ▼
+                         lib/frontier/aggregate.ts
+                       normalize + dedupe + snapshot fallback
+                                  │
+                                  ▼
+                           /api/frontier/feed
+                        cached, fault-isolated JSON
+                                  │
+                                  ▼
+                          FrontierExperience
+                  Daily Run / Explore / Saved / History / My Radar
+                                  │
+                                  ▼
+                            client memory
+              lane affinity + topic affinity + source affinity + known state
 ```
 
 The server source mesh never writes private user interaction state. Browser memory never needs source credentials.
@@ -114,6 +140,7 @@ The server source mesh never writes private user interaction state. Browser memo
 - OpenAlex recent scholarly works
 - Guardian football RSS
 - Reddit public top-of-day listings across the rotating personal subreddit orbit
+- active-sports news RSS plus top community clip/story discovery
 - Steam public game news for the rotating library sample
 
 Every source is wrapped independently. A timeout or malformed payload from one adapter produces degraded source status rather than a failed feed.
@@ -133,7 +160,7 @@ FRONTIER_YOUTUBE_CHANNELS=
 FRONTIER_SUBREDDITS=
 ```
 
-- `BRAVE_SEARCH_API_KEY` adds targeted discovery for favorite teams, highlights, YouTube, X/Threads results, games, bass artists, SoundCloud, and the broader web.
+- `BRAVE_SEARCH_API_KEY` adds targeted discovery for favorite teams, active sports, best clips, YouTube, X/Threads results, games, bass artists, SoundCloud, and the broader web.
 - `FOOTBALL_DATA_API_KEY` adds structured Premier League fixtures/results.
 - `FRONTIER_RSS_FEEDS` accepts comma-separated specialist RSS endpoints.
 - `FRONTIER_YOUTUBE_CHANNELS` accepts comma-separated YouTube channel IDs and consumes their public Atom feeds without a YouTube API key.
@@ -145,9 +172,9 @@ The top-level perspective control is intentionally tiny:
 
 - **For You** — balanced world model.
 - **Brainfood** — research/code/method/project-design lanes only.
-- **After Hours** — favorite teams, sports, games, music, Reddit/social culture, life/outdoors, and wildcards.
+- **After Hours** — favorite teams, active sports, broader sports, games, music, Reddit/social culture, life/outdoors, and wildcards.
 
-Pinned personal topics provide fast paths for New papers, Open source, NeuroAI, ML + data, Patriots, Warriors, Chelsea, Man City, Bass Orbit, Game Radar, and Internet Gold.
+Pinned personal topics provide fast paths for New papers, Open source, NeuroAI, ML + data, Patriots, Warriors, Chelsea, Man City, **Active sports**, Bass Orbit, Game Radar, and Internet Gold.
 
 Explore adds an orthogonal format filter:
 
@@ -180,7 +207,7 @@ All sources normalize into `FrontierItem`:
 - momentum
 - human-readable recommendation rationale
 
-A match result, paper, repository, Reddit post, Steam update, video, and article can therefore coexist without pretending they are the same object.
+A match result, climbing final, downhill clip, paper, repository, Reddit post, Steam update, video, and article can therefore coexist without pretending they are the same object.
 
 ## Personal learning state
 
@@ -249,7 +276,8 @@ FRONTIER deliberately avoids the standard center-column social clone.
 - one large editorial feature plus a compact signal river
 - tiny pill controls instead of dashboard chrome
 - Brainfood / After Hours perspectives rather than a sprawling sidebar
-- lane accents for science, teams, games, music, and internet culture
+- one compact `Active sports` shortcut rather than eight permanent navigation tabs
+- lane accents for science, teams, sports/motion, games, music, and internet culture
 - publisher/community images with lazy loading and restrained treatment
 - inline YouTube/video support for feature signals
 - provenance and ranking evidence visible on-card
@@ -278,7 +306,7 @@ The website CI checks FRONTIER through the same production release pipeline as t
 
 - TypeScript typecheck
 - ESLint
-- Node test suite, including personal-team, subreddit, game-library, ranking, knowledge-state, resurfacing, RSS-image, and YouTube-Atom tests
+- Node test suite, including active-sports cold start, daily rotation, daily-run reservation, professional-news parsing, playable community clips, personal-team, subreddit, game-library, ranking, knowledge-state, resurfacing, RSS-image, and YouTube-Atom tests
 - deterministic existing corpus audits
 - Next module/bundle analysis
 - production build
