@@ -67,7 +67,7 @@ export function SignalBoard({ items, renderCard, empty, compact = false }: Props
 
   const deskHeight = useMemo(() => {
     const rows = Math.max(1, Math.ceil(items.length / 4));
-    return Math.max(compact ? 520 : 650, rows * 190 + 190);
+    return Math.max(compact ? 390 : 440, rows * 165 + 125);
   }, [compact, items.length]);
 
   const switchMode = (next: SignalLayoutMode) => {
