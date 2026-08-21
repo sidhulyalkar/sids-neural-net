@@ -43,17 +43,19 @@ export function SignalBoard({ items, renderCard, empty, compact = false, onLayou
           type="button"
           className={`${styles.layoutButton} ${mode === 'desk' ? styles.layoutActive : ''}`}
           onClick={() => switchMode('desk')}
-          title="Arrange signals in a calm visual grid"
+          title="Grid"
+          aria-label="Grid layout"
         >
-          <LayoutGrid size={13} /> Grid
+          <LayoutGrid size={13} />
         </button>
         <button
           type="button"
           className={`${styles.layoutButton} ${mode === 'feed' ? styles.layoutActive : ''}`}
           onClick={() => switchMode('feed')}
-          title="Arrange signals in a compact reading list"
+          title="List"
+          aria-label="List layout"
         >
-          <Rows3 size={13} /> List
+          <Rows3 size={13} />
         </button>
       </div>
 
