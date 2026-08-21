@@ -65,9 +65,17 @@ function isYouTubeId(value?: string): value is string {
   return Boolean(value && /^[A-Za-z0-9_-]{6,20}$/.test(value));
 }
 
+function mediaKey(item: FrontierItem): string {
+  return [item.id, item.media?.type, item.media?.url, item.media?.poster].join('|');
+}
+
 function hasRenderableMedia(item: FrontierItem): boolean {
   const media = item.media;
   if (!media || media.type === 'none' || media.type === 'chart') return false;
+  // The core GitHub adapter currently exposes an owner avatar rather than visual
+  // repository content. Keep it out of the editorial feed rather than dressing
+  // a code signal with a decorative profile image.
+  if (item.sourceKind === 'github' && media.type === 'image') return false;
   if (media.type === 'youtube') return isYouTubeId(media.url);
   return isHttpUrl(media.url);
 }
@@ -215,14 +223,11 @@ export function SignalCard({
   const dwellTimer = useRef<number | undefined>(undefined);
   const expandedRecorded = useRef(false);
   const [expanded, setExpanded] = useState(false);
-  const [mediaUnavailable, setMediaUnavailable] = useState(false);
+  const [unavailableMediaKey, setUnavailableMediaKey] = useState<string>();
   const lane = FRONTIER_LANE_MAP[item.lane];
   const feed = presentation === 'feed';
-  const hasMedia = !mediaUnavailable && hasRenderableMedia(item);
-
-  useEffect(() => {
-    setMediaUnavailable(false);
-  }, [item.id, item.media?.type, item.media?.url, item.media?.poster]);
+  const currentMediaKey = mediaKey(item);
+  const hasMedia = unavailableMediaKey !== currentMediaKey && hasRenderableMedia(item);
 
   useEffect(() => {
     const node = ref.current;
@@ -251,6 +256,8 @@ export function SignalCard({
       if (dwellTimer.current !== undefined) window.clearTimeout(dwellTimer.current);
     };
   }, [item, onDwell, onSeen, resurfaced]);
+
+  const markMediaUnavailable = () => setUnavailableMediaKey(currentMediaKey);
 
   const quickActions = (
     <div className={styles.quickActions}>
@@ -311,7 +318,7 @@ export function SignalCard({
         </div>
         {hasMedia ? (
           <div className={styles.feedMediaSlot}>
-            <RealMedia item={item} interactive onUnavailable={() => setMediaUnavailable(true)} />
+            <RealMedia item={item} interactive onUnavailable={markMediaUnavailable} />
           </div>
         ) : null}
       </article>
@@ -333,7 +340,7 @@ export function SignalCard({
     <article ref={ref} className={`${styles.card} ${styles.tileCard} ${hasMedia ? styles.tileCardMedia : styles.tileCardText} ${expanded ? styles.cardExpanded : ''}`}>
       {hasMedia ? (
         <div className={styles.tileMedia}>
-          <RealMedia item={item} interactive={expanded} onUnavailable={() => setMediaUnavailable(true)} />
+          <RealMedia item={item} interactive={expanded} onUnavailable={markMediaUnavailable} />
         </div>
       ) : null}
 
