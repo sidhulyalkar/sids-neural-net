@@ -8,6 +8,7 @@
 <link rel="stylesheet" href="./styles.css" />
 <link rel="stylesheet" href="./portal-v4.css" />
 <link rel="stylesheet" href="./sylvaria-v5.css" />
+<link rel="stylesheet" href="./sylvaria-v6.css" />
 </head>
 <body>
 <div id="game">
@@ -19,6 +20,7 @@
         <div id="roomKicker">world 001 / 1000 · depth 1</div>
         <div id="roomTitle">Sylvaria</div>
         <div id="roomTask">Solve the world. Condense Mossglint. Fire the gate. Escape.</div>
+        <div id="biomeBadge">forest / moss · soft moss · cyan spores · warm bark</div>
       </div>
       <div id="stats" class="runStats">
         <div class="stat glass"><b>score</b><span id="score">0</span></div>
@@ -124,7 +126,9 @@
       <label class="optionRow"><span><b>sound effects</b><small>resonances, Mossglint, portal charging, extraction, guardians</small></span><input id="sfxToggle" type="checkbox" checked /></label>
       <label class="optionRow"><span><b>aim assistance</b><small>lightly bends near-correct puzzle shots while preserving manual aim</small></span><input id="assistToggle" type="checkbox" checked /></label>
       <label class="optionRow"><span><b>reduced motion</b><small>reduces decorative ambient drift while preserving gameplay telegraphs</small></span><input id="motionToggle" type="checkbox" /></label>
+      <label class="optionRow"><span><b>visual quality</b><small>Auto keeps the art crisp while adapting glow and decorative density to your browser</small></span><select id="visualQuality"><option value="auto">Auto</option><option value="high">High</option><option value="balanced">Balanced</option><option value="performance">Performance</option></select></label>
       <label class="optionRow volumeRow"><span><b>master volume</b><small>music and effects</small></span><input id="volume" type="range" min="0" max="1" value="0.68" step="0.02" /></label>
+      <div class="qualityHint">active render tier · <span id="qualityState">BALANCED</span></div>
       <div class="actions"><button class="secondary" data-back>back</button></div>
     </div>
   </div>
@@ -163,6 +167,8 @@
 <script src="./expedition.js"></script>
 <script src="./director.js"></script>
 <script src="./arena-preflight.js"></script>
+<script src="./render-optimizer-v6.js"></script>
 <script src="./game-v5.js"></script>
+<script src="./visual-system-v6.js"></script>
 </body>
 </html>
