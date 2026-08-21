@@ -13,14 +13,16 @@
   });
   const SPRID_RULES = Object.freeze([
     'Sprid remains a tiny high-contrast forest warrior at gameplay scale',
-    'cardinal machete cuts read before ornament',
+    'the machete is always rendered independently from step-dash deformation',
+    'cardinal cuts and arrival-direction hints read before ornament',
     'step-dash stretch communicates committed movement without changing collision geometry',
     'counter flashes are brighter than ambient particles',
   ]);
   const WORLD_RULES = Object.freeze([
-    'living trees are gameplay objectives, not background dressing',
-    'deadwood creates optional chop lanes and score decisions',
-    'enemy telegraphs stay readable over biome decoration',
+    'living trees are gameplay objectives and physical routing geometry',
+    'deadwood physically blocks step-dashes until Sprid chops it open',
+    'enemy intent lines and recovery rings stay readable over biome decoration',
+    'support links reveal Committee shields without adding HUD text',
     'the 960x640 arena remains a stable 3:2 combat field',
     'full-device background extends the room palette without hiding threats',
   ]);
@@ -46,7 +48,10 @@
     bg.strokeStyle = `hsl(${hue} 70% 70%)`;
     for (let i = 0; i < 18; i += 1) {
       const x = (i * 83 + depth * 29) % Math.max(1, innerWidth);
-      bg.beginPath(); bg.moveTo(x, innerHeight); bg.lineTo(x + Math.sin(i) * 90, innerHeight * .2); bg.stroke();
+      bg.beginPath();
+      bg.moveTo(x, innerHeight);
+      bg.lineTo(x + Math.sin(i) * 90, innerHeight * .2);
+      bg.stroke();
     }
     bg.globalAlpha = 1;
   }
@@ -79,14 +84,21 @@
   const originalSnapshot = playtest.snapshot.bind(playtest);
   function visualSnapshot() {
     return {
-      version: '0.8.0', theme: 'forest', themeLabel: 'countercut forest',
+      version: '0.8.1',
+      theme: 'forest',
+      themeLabel: 'countercut forest',
       quality: window.SylvariaRenderBudget?.snapshot?.() || { tier: 'balanced' },
-      backdropCanvas: true, overlayCanvas: false, playfieldAspectSafe: true,
+      backdropCanvas: true,
+      overlayCanvas: false,
+      playfieldAspectSafe: true,
       immersiveControl: Boolean(document.getElementById('immersiveBtn')),
-      backgroundParticles: 0, playfieldScale: window.SylvariaDisplayScale?.scale || 1,
+      backgroundParticles: 0,
+      playfieldScale: window.SylvariaDisplayScale?.scale || 1,
+      routeGeometry: true,
+      lockedIntentTelegraphs: true,
     };
   }
-  playtest.version = '0.8.0';
+  playtest.version = '0.8.1';
   playtest.snapshot = () => ({ ...originalSnapshot(), visual: visualSnapshot() });
 
   window.addEventListener('resize', resize);
@@ -94,7 +106,11 @@
   resize();
 
   window.SylvariaVisualSystem = Object.freeze({
-    version: '0.8.0', themes: THEMES, spridRules: SPRID_RULES, worldRules: WORLD_RULES,
-    classifyTheme: () => THEMES.forest, snapshot: visualSnapshot,
+    version: '0.8.1',
+    themes: THEMES,
+    spridRules: SPRID_RULES,
+    worldRules: WORLD_RULES,
+    classifyTheme: () => THEMES.forest,
+    snapshot: visualSnapshot,
   });
 })();
