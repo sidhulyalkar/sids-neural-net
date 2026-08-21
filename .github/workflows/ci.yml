@@ -99,23 +99,31 @@ jobs:
           echo "GET pinned uniRico runtime"
           curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/game-runtimes/unirico/index.html | grep -q '<canvas id="c"'
           curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/game-runtimes/unirico/runtime/core.js | grep -q 'use strict\|const\|function'
-          echo "GET Sylvaria Countercut v0.8.1 runtime"
-          curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/game-runtimes/mosslight-v2/index.html | grep -q 'Sylvaria: Countercut'
-          curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/game-runtimes/mosslight-v2/index.html | grep -q './game-v81.js'
-          curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/game-runtimes/mosslight-v2/index.html | grep -q './visual-system-v8.js'
-          curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/game-runtimes/mosslight-v2/index.html | grep -q './sylvaria-v8.css'
-          if curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/game-runtimes/mosslight-v2/index.html | grep -q './game-v5.js\|./game-v8.js'; then
-            echo "retired Sylvaria gameplay core is still wired" >&2
+          echo "GET Sylvaria Countercut v0.8.2 runtime"
+          SYL_INDEX="$(curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/game-runtimes/mosslight-v2/index.html)"
+          printf '%s' "$SYL_INDEX" | grep -q 'Sylvaria: Countercut'
+          printf '%s' "$SYL_INDEX" | grep -q './game-v82.js'
+          printf '%s' "$SYL_INDEX" | grep -q './visual-system-v8.js'
+          printf '%s' "$SYL_INDEX" | grep -q './sylvaria-v8.css'
+          if printf '%s' "$SYL_INDEX" | grep -q './game-v5.js\|./game-v8.js\|./game-v81.js\|./input-buffer-v81.js'; then
+            echo "retired Sylvaria gameplay/input core is still wired" >&2
             exit 1
           fi
-          curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/game-runtimes/mosslight-v2/game-v81.js | grep -q "const VERSION='0.8.1'"
-          curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/game-runtimes/mosslight-v2/game-v81.js | grep -q 'function requestDash'
-          curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/game-runtimes/mosslight-v2/game-v81.js | grep -q 'function resolveDashTarget'
-          curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/game-runtimes/mosslight-v2/game-v81.js | grep -q 'function counterShot'
-          curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/game-runtimes/mosslight-v2/game-v81.js | grep -q 'function shieldProvider'
-          curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/game-runtimes/mosslight-v2/game-v81.js | grep -q 'beneficiaryId'
-          curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/game-runtimes/mosslight-v2/game-v81.js | grep -q "name:'PAC-a-Saw'"
-          curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/game-runtimes/mosslight-v2/visual-system-v8.js | grep -q "version: '0.8.1'"
+          SYL_GAME="$(curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/game-runtimes/mosslight-v2/game-v82.js)"
+          printf '%s' "$SYL_GAME" | grep -q "const VERSION = '0.8.2'"
+          printf '%s' "$SYL_GAME" | grep -q 'const MAX_SHOTS = 128'
+          printf '%s' "$SYL_GAME" | grep -q 'function queueMove'
+          printf '%s' "$SYL_GAME" | grep -q 'function consumeMoveQueue'
+          printf '%s' "$SYL_GAME" | grep -q 'function requestDash'
+          printf '%s' "$SYL_GAME" | grep -q 'function resolveDashTarget'
+          printf '%s' "$SYL_GAME" | grep -q 'function counterShot'
+          printf '%s' "$SYL_GAME" | grep -q 'function chooseReturnTarget'
+          printf '%s' "$SYL_GAME" | grep -q 'function applyProjectilePattern'
+          printf '%s' "$SYL_GAME" | grep -q 'function maybeBeginEvade'
+          printf '%s' "$SYL_GAME" | grep -q "name: 'Boundary Surveyor'"
+          printf '%s' "$SYL_GAME" | grep -q "name: 'Mulcher Rig'"
+          printf '%s' "$SYL_GAME" | grep -q "name: 'PAC-a-Saw'"
+          curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/game-runtimes/mosslight-v2/visual-system-v8.js | grep -q "version: '0.8.2'"
 
       - name: Install cross-browser smoke engines
         run: |
@@ -156,8 +164,8 @@ jobs:
           npx --yes playwright@1.55.0 screenshot --browser=chromium --viewport-size="1440,1000" http://127.0.0.1:3000/arcade/stretchicorn artifacts/browser-smoke/arcade-stretchicorn.png
           npx --yes playwright@1.55.0 screenshot --browser=chromium --viewport-size="1440,1000" http://127.0.0.1:3000/arcade/unirico artifacts/browser-smoke/arcade-unirico.png
           npx --yes playwright@1.55.0 screenshot --browser=chromium --viewport-size="1440,1000" http://127.0.0.1:3000/arcade/sylvaria artifacts/browser-smoke/arcade-sylvaria-countercut.png
-          npx --yes playwright@1.55.0 screenshot --browser=chromium --viewport-size="1920,1080" http://127.0.0.1:3000/game-runtimes/mosslight-v2/index.html artifacts/browser-smoke/sylvaria-countercut-v081-widescreen.png
-          npx --yes playwright@1.55.0 screenshot --browser=chromium --viewport-size="390,844" http://127.0.0.1:3000/game-runtimes/mosslight-v2/index.html artifacts/browser-smoke/sylvaria-countercut-v081-portrait.png
+          npx --yes playwright@1.55.0 screenshot --browser=chromium --viewport-size="1920,1080" http://127.0.0.1:3000/game-runtimes/mosslight-v2/index.html artifacts/browser-smoke/sylvaria-countercut-v082-widescreen.png
+          npx --yes playwright@1.55.0 screenshot --browser=chromium --viewport-size="390,844" http://127.0.0.1:3000/game-runtimes/mosslight-v2/index.html artifacts/browser-smoke/sylvaria-countercut-v082-portrait.png
 
       - name: Upload production audit artifacts
         if: always()
