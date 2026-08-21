@@ -20,10 +20,25 @@ const REACTIONS: Array<{ id: FrontierReaction; glyph: string; label: string }> =
 ];
 
 const LANE_ACCENTS: Record<string, string> = {
-  must_know: '#ffd47a', premier_league: '#9dffb1', world_soccer: '#a7e6ba', ml_data: '#78e9ff',
-  ai_frontier: '#a79cff', neuro_frontier: '#ef9cff', methods: '#87f0d2', builder_signal: '#90c9ff',
-  competitions: '#ffd08c', broad_science: '#b7f3e1', creative_tech: '#ff9ed1', world_pulse: '#f1e2a4',
-  sports: '#b3d4ff', wildcards: '#d5afff',
+  must_know: '#ffd47a',
+  ml_data: '#78e9ff',
+  ai_frontier: '#a79cff',
+  neuro_frontier: '#ef9cff',
+  methods: '#87f0d2',
+  builder_signal: '#90c9ff',
+  competitions: '#ffd08c',
+  broad_science: '#b7f3e1',
+  creative_tech: '#ff9ed1',
+  world_pulse: '#f1e2a4',
+  premier_league: '#9dffb1',
+  world_soccer: '#a7e6ba',
+  team_pulse: '#80e6a8',
+  sports: '#b3d4ff',
+  gaming: '#ffb36b',
+  music: '#ff85cf',
+  internet_culture: '#ffe17a',
+  life: '#9fd6a6',
+  wildcards: '#d5afff',
 };
 
 export type SignalCardVariant = 'feature' | 'wide' | 'standard' | 'compact';
@@ -51,6 +66,10 @@ function host(url: string): string {
 
 function mediaLabel(item: FrontierItem): string {
   if (item.media?.type === 'youtube' || item.media?.type === 'video') return 'video signal';
+  if (item.sourceKind === 'reddit') return 'reddit signal';
+  if (item.sourceKind === 'steam' || item.lane === 'gaming') return 'game signal';
+  if (item.lane === 'music') return 'music signal';
+  if (item.sourceKind === 'social') return 'social signal';
   if (item.sourceKind === 'openalex') return 'paper signal';
   if (item.sourceKind === 'github') return 'builder signal';
   if (item.sourceKind === 'football_data') return 'match signal';
