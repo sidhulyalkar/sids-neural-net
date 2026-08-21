@@ -38,7 +38,7 @@ import { PreferenceLens } from './PreferenceLens';
 import { SignalBoard } from './SignalBoard';
 import type { SignalLayoutMode } from './SignalBoard';
 import { SignalCard } from './SignalCard';
-import styles from './frontier-minimal.module.css';
+import styles from './frontier-experience.module.css';
 
 const LIVE_REFRESH_MS = 4 * 60_000;
 
