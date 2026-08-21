@@ -94,9 +94,6 @@ export function FrontierAccount() {
         const response = await fetch('/api/frontier/memory', { cache: 'no-store' });
         const payload = await response.json() as MemoryResponse;
         if (cancelled) return;
-        // Never treat a transient cloud-read failure as an empty account. Doing so
-        // could overwrite a healthy remote memory snapshot with a single device's
-        // local copy. Local FRONTIER remains fully usable while sync reports error.
         if (!response.ok) {
           setSyncState('error');
           return;
@@ -128,8 +125,6 @@ export function FrontierAccount() {
     void begin();
     const flush = () => {
       if (timer.current !== undefined) window.clearTimeout(timer.current);
-      // Best effort only. The debounced autosave is the primary persistence path;
-      // browser keepalive payload limits can reject large final snapshots.
       void pushMemory(frontierBackup(useFrontierStore.getState()), true).catch(() => false);
     };
     window.addEventListener('pagehide', flush);
@@ -150,7 +145,7 @@ export function FrontierAccount() {
     await fetch('/api/auth/logout', { method: 'POST', cache: 'no-store' });
     setSession((current) => current ? { ...current, authenticated: false, user: undefined } : current);
     setSyncState('idle');
-    setMessage('Signed out. This browser keeps its local copy.');
+    setMessage(undefined);
   };
 
   const importGoogle = async () => {
@@ -164,16 +159,16 @@ export function FrontierAccount() {
         return;
       }
       if (!response.ok || !payload.preferences) {
-        setMessage(payload.needsStorage ? 'Cloud memory must be configured before Google taste import.' : (payload.error ?? 'Google import failed.'));
+        setMessage(payload.needsStorage ? 'Cloud memory is required first.' : (payload.error ?? 'Import failed.'));
         return;
       }
       useFrontierStore.setState((state) => ({
         profile: applyPreferenceImportToProfile(state.profile, payload.preferences!),
       }));
       const summary = payload.preferences.summary;
-      setMessage(`Learned from ${summary.subscriptions} subscriptions and ${summary.likedVideos} liked videos.`);
+      setMessage(`${summary.subscriptions} subscriptions · ${summary.likedVideos} likes learned`);
     } catch {
-      setMessage('Google import is temporarily unavailable.');
+      setMessage('Import unavailable.');
     } finally {
       setImporting(false);
     }
@@ -183,16 +178,16 @@ export function FrontierAccount() {
 
   if (!session.configured) {
     return (
-      <div className={styles.account} title="Configure Google OAuth to enable cross-device FRONTIER memory">
-        <CloudOff size={13} /> <span>local memory</span>
+      <div className={styles.localOnly} title="Local memory. Configure Google OAuth for cross-device sync.">
+        <CloudOff size={12} /> local
       </div>
     );
   }
 
   if (!session.authenticated) {
     return (
-      <button type="button" className={styles.signIn} onClick={signIn}>
-        <LogIn size={13} /> Sign in with Google
+      <button type="button" className={styles.signIn} onClick={signIn} title="Sign in with Google">
+        <LogIn size={12} /> Sign in
       </button>
     );
   }
@@ -200,31 +195,36 @@ export function FrontierAccount() {
   const syncLabel = !session.syncConfigured
     ? 'local only'
     : syncState === 'loading'
-      ? 'loading memory'
+      ? 'loading'
       : syncState === 'saving'
         ? 'saving'
         : syncState === 'error'
           ? 'sync issue'
-          : 'cloud synced';
+          : 'synced';
+  const shortName = session.user?.name?.split(/\s+/)[0] ?? session.user?.email.split('@')[0] ?? 'Account';
 
   return (
-    <div className={styles.accountWrap}>
-      <div className={styles.account}>
+    <details className={styles.accountMenu}>
+      <summary className={styles.account} title={`${session.user?.email ?? shortName} · ${syncLabel}`}>
         {session.user?.picture ? (
           // Google profile image is identity UI, not editorial feed media.
           // eslint-disable-next-line @next/next/no-img-element
           <img src={session.user.picture} alt="" className={styles.avatar} referrerPolicy="no-referrer" />
-        ) : <Cloud size={13} />}
-        <span className={styles.name}>{session.user?.name ?? session.user?.email}</span>
-        <span className={styles.sync}>{syncLabel}</span>
-      </div>
-      <div className={styles.actions}>
-        <button type="button" onClick={() => void importGoogle()} disabled={importing || !session.syncConfigured} title="Use consented YouTube subscriptions and liked videos as private preference signals">
-          {importing ? <RefreshCw size={12} className={styles.spin} /> : <Youtube size={12} />} Import YouTube taste
+        ) : <Cloud size={12} />}
+        <span className={styles.name}>{shortName}</span>
+        <span className={`${styles.syncDot} ${syncState === 'error' ? styles.syncError : ''}`} aria-label={syncLabel} />
+      </summary>
+      <div className={styles.menuPanel}>
+        <div className={styles.menuMeta}>
+          <span>{session.user?.email}</span>
+          <strong>{syncLabel}</strong>
+        </div>
+        <button type="button" onClick={() => void importGoogle()} disabled={importing || !session.syncConfigured} title="Learn from consented YouTube subscriptions and liked videos">
+          {importing ? <RefreshCw size={12} className={styles.spin} /> : <Youtube size={12} />} YouTube taste
         </button>
-        <button type="button" onClick={() => void signOut()} title="Sign out"><LogOut size={12} /></button>
+        <button type="button" onClick={() => void signOut()}><LogOut size={12} /> Sign out</button>
+        {message ? <div className={styles.message}>{message}</div> : null}
       </div>
-      {message ? <div className={styles.message}>{message}</div> : null}
-    </div>
+    </details>
   );
 }
