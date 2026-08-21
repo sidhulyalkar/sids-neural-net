@@ -7,8 +7,17 @@ import { arcadeGames } from '../src/data/arcadeGames';
 import { primaryNavItems, siteNavItems } from '../src/data/siteNav';
 
 const root = process.cwd();
-
 const readRepoFile = (path: string) => readFileSync(join(root, path), 'utf8');
+
+const gameNetworkSurfaces = [
+  'app/page.tsx',
+  'app/arcade/page.tsx',
+  'app/arcade/[slug]/page.tsx',
+  'components/arcade/ArcadePlaySpace.tsx',
+  'components/layout/ArcadeDiscovery.tsx',
+  'components/layout/Footer.tsx',
+  'src/data/siteNav.ts',
+];
 
 test('the Game Network exposes every current game as a playable entry', () => {
   assert.deepEqual(
@@ -22,9 +31,14 @@ test('the Game Network exposes every current game as a playable entry', () => {
   }
 });
 
-test('the Game Network is part of the shared portfolio navigation', () => {
+test('Game Network naming is consistent across every visible discovery surface', () => {
   assert.ok(siteNavItems.some((item) => item.href === '/arcade' && item.label === 'Game Network'));
   assert.ok(primaryNavItems.some((item) => item.href === '/arcade'));
+
+  for (const path of gameNetworkSurfaces) {
+    const source = readRepoFile(path);
+    assert.doesNotMatch(source, /Game Arcade|game arcade/, `${path} still contains the old Game Arcade label`);
+  }
 
   const home = readRepoFile('app/page.tsx');
   assert.match(home, /href="\/arcade"/);
@@ -35,10 +49,19 @@ test('the Game Network is part of the shared portfolio navigation', () => {
   assert.match(footer, /href: '\/arcade', label: 'Game Network'/);
 
   const discovery = readRepoFile('components/layout/ArcadeDiscovery.tsx');
-  assert.match(discovery, /pathname === '\/about'/);
-  assert.match(discovery, /pathname === '\/projects'/);
+  assert.match(discovery, /'\/about': 'core'/);
+  assert.match(discovery, /'\/projects': 'builds'/);
   assert.match(discovery, /href="\/arcade"/);
-  assert.match(discovery, /Game Network/);
+  assert.match(discovery, /game network/);
+});
+
+test('the Game Network index stays intentionally minimal', () => {
+  const page = readRepoFile('app/arcade/page.tsx');
+  const catalog = readRepoFile('components/arcade/ArcadeCatalog.tsx');
+
+  assert.match(page, />\s*game network\s*</);
+  assert.doesNotMatch(page, /interactive lobe|games docked|future-game ready|canvas \+ web runtimes/i);
+  assert.doesNotMatch(catalog, /game\.subtitle|game\.version|game\.description|game\.tags/);
 });
 
 test('the embedded Stretchicorn release is complete', () => {
