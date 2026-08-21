@@ -106,7 +106,11 @@ async function testSylvaria(page, engineName) {
   if (!frame) throw new Error('Sylvaria iframe did not attach');
 
   const bridge = await assertNativeBridge(frame, 'Sylvaria');
-  await frame.waitForFunction(() => Boolean(window.__MOSSLIGHT_PLAYTEST__) && Boolean(window.SylvariaVisualSystem) && Boolean(window.SylvariaRenderBudget), null, { timeout: 10_000 });
+  await frame.waitForFunction(
+    () => Boolean(window.__MOSSLIGHT_PLAYTEST__) && Boolean(window.SylvariaVisualSystem) && Boolean(window.SylvariaRenderBudget) && Boolean(window.SylvariaDisplayScale),
+    null,
+    { timeout: 10_000 }
+  );
   await frame.waitForFunction(() => window.MosslightExpedition?.atlasCount === 1000, null, { timeout: 10_000 });
   const identity = await frame.evaluate(() => ({
     title: window.__MOSSLIGHT_PLAYTEST__.title,
@@ -114,14 +118,40 @@ async function testSylvaria(page, engineName) {
     visualVersion: window.SylvariaVisualSystem.version,
     themes: Object.keys(window.SylvariaVisualSystem.themes),
     quality: window.SylvariaRenderBudget.snapshot(),
+    display: window.SylvariaDisplayScale,
+    visual: window.__MOSSLIGHT_PLAYTEST__.snapshot().visual,
+    layout: (() => {
+      const canvas = document.getElementById('c');
+      const backdrop = document.getElementById('sylWorldBackdrop');
+      const rect = canvas?.getBoundingClientRect();
+      const backdropRect = backdrop?.getBoundingClientRect();
+      return rect && backdropRect ? {
+        canvasWidth: rect.width,
+        canvasHeight: rect.height,
+        canvasRatio: rect.width / rect.height,
+        backdropWidth: backdropRect.width,
+        backdropHeight: backdropRect.height,
+        viewportWidth: innerWidth,
+        viewportHeight: innerHeight,
+      } : null;
+    })(),
   }));
-  if (identity.title !== 'Sylvaria' || identity.version !== '0.6.0' || identity.visualVersion !== '0.6.0') {
+  if (identity.title !== 'Sylvaria' || identity.version !== '0.7.0' || identity.visualVersion !== '0.7.0') {
     throw new Error(`Sylvaria runtime identity mismatch: ${JSON.stringify(identity)}`);
   }
   for (const theme of ['forest','volcanic','reef','ice','celestial']) {
     if (!identity.themes.includes(theme)) throw new Error(`Sylvaria visual system missing ${theme} theme`);
   }
   if (!['performance','balanced','high'].includes(identity.quality.tier)) throw new Error(`Sylvaria invalid visual quality tier: ${identity.quality.tier}`);
+  if (!identity.visual?.backdropCanvas || !identity.visual?.playfieldAspectSafe || !identity.visual?.immersiveControl) {
+    throw new Error(`Sylvaria v0.7 immersion telemetry incomplete: ${JSON.stringify(identity.visual)}`);
+  }
+  if (!identity.layout || Math.abs(identity.layout.canvasRatio - 1.5) > 0.015) {
+    throw new Error(`Sylvaria playfield lost 3:2 geometry: ${JSON.stringify(identity.layout)}`);
+  }
+  if (Math.abs(identity.layout.backdropWidth - identity.layout.viewportWidth) > 2 || Math.abs(identity.layout.backdropHeight - identity.layout.viewportHeight) > 2) {
+    throw new Error(`Sylvaria backdrop does not fill runtime viewport: ${JSON.stringify(identity.layout)}`);
+  }
 
   await frame.locator('#title').waitFor({ state: 'visible' });
   await frame.locator('#start').waitFor({ state: 'visible' });
@@ -142,7 +172,9 @@ async function testSylvaria(page, engineName) {
   if ((after.player?.x ?? 0) <= (before.player?.x ?? 0) + 8) {
     throw new Error(`Sylvaria keyboard input failed (${before.player?.x} -> ${after.player?.x})`);
   }
-  if (!after.visual?.theme || !after.visual?.quality?.tier) throw new Error('Sylvaria v0.6 snapshot lost visual telemetry');
+  if (!after.visual?.theme || !after.visual?.quality?.tier || !after.visual?.backdropCanvas) {
+    throw new Error('Sylvaria v0.7 snapshot lost immersion telemetry');
+  }
 
   await frame.evaluate(() => window.__MOSSLIGHT_PLAYTEST__.setRoom(0));
   await assertCanvasKeyboardFocus(frame, 'Sylvaria arrow aim');
@@ -158,8 +190,8 @@ async function testSylvaria(page, engineName) {
     throw new Error('Sylvaria ArrowUp + ArrowRight + Space did not register a cast');
   }
 
-  // Explicitly prove the v0.6 state machine on every browser engine. Completing
-  // the puzzle may arm the gate, but it must remain closed until F fires it.
+  // Completing the ecological circuit may arm the gate, but it must remain
+  // closed until the explicit F-key portal shot reaches the eastern anchor.
   await frame.evaluate(() => window.__MOSSLIGHT_PLAYTEST__.setRoom(0, 1));
   const gateReady = await frame.evaluate(() => window.__MOSSLIGHT_PLAYTEST__.completeRoom());
   if (!gateReady.portalReady || gateReady.portalOpen) {
