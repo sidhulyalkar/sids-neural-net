@@ -72,9 +72,9 @@ export const arcadeGames: ArcadeGame[] = [
     accent: 'cyan',
   },
   {
-    slug: 'mosslight',
+    slug: 'sylvaria',
     title: 'Sylvaria',
-    subtitle: 'MOS SGLINT RUN · SOLVE, FIRE THE GATE, ESCAPE.',
+    subtitle: 'MOSSGLINT RUN · SOLVE, FIRE THE GATE, ESCAPE.',
     description:
       'A one-way portal action-puzzle run across the 1,000-scene Nature Atlas. Sprid solves ecological resonance circuits, fights or routes around patterned encounters, collects Mossglint, fires a charged neon gate into each world anchor, survives the extraction phase, defeats guardian bosses, and carries permanent build upgrades into progressively harder worlds.',
     version: 'v0.5.0',
@@ -101,5 +101,6 @@ export const arcadeGames: ArcadeGame[] = [
 ];
 
 export function getArcadeGame(slug: string) {
-  return arcadeGames.find((game) => game.slug === slug);
+  const canonicalSlug = slug === 'mosslight' ? 'sylvaria' : slug;
+  return arcadeGames.find((game) => game.slug === canonicalSlug);
 }
