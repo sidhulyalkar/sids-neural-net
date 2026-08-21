@@ -49,18 +49,36 @@ async function assertPainted(frame, label, minimumDistinct = 8, minimumLit = 20)
   return stats;
 }
 
-async function assertGameFocus(page, iframe, label) {
-  await iframe.click({ position: { x: 120, y: 120 } });
-  await page.waitForFunction(() => document.documentElement.classList.contains('game-runtime-focused'));
+async function assertGameFocus(page, target, label) {
+  await target.click();
+  await page.waitForFunction(
+    () => document.documentElement.classList.contains('game-runtime-focused'),
+    null,
+    { timeout: 5_000 }
+  );
+
   const cursorState = await page.evaluate(() => ({
     focused: document.documentElement.classList.contains('game-runtime-focused'),
     cursorDisplay: document.querySelector('.neuron-cursor-overlay')
       ? getComputedStyle(document.querySelector('.neuron-cursor-overlay')).display
       : 'not-rendered',
   }));
+
   if (!cursorState.focused) throw new Error(`${label}: host did not enter game focus mode`);
   if (cursorState.cursorDisplay !== 'none' && cursorState.cursorDisplay !== 'not-rendered') {
     throw new Error(`${label}: neural cursor remained visible during game focus (${cursorState.cursorDisplay})`);
+  }
+}
+
+async function assertCanvasKeyboardFocus(frame, label) {
+  const canvas = frame.locator('#c');
+  await canvas.click({ position: { x: 480, y: 320 } });
+  const focus = await frame.evaluate(() => ({
+    documentHasFocus: document.hasFocus(),
+    activeElementId: document.activeElement?.id || null,
+  }));
+  if (!focus.documentHasFocus || focus.activeElementId !== 'c') {
+    throw new Error(`${label}: canvas keyboard focus failed: ${JSON.stringify(focus)}`);
   }
 }
 
@@ -82,15 +100,18 @@ async function testMosslight(page, engineName) {
 
   const initial = await assertPainted(frame, 'Mosslight title');
   await page.screenshot({ path: path.join(outputDir, `${engineName}-mosslight-title.png`), fullPage: true });
-  await assertGameFocus(page, iframe, 'Mosslight');
-  await frame.locator('#start').click();
+
+  // Click the actual control inside the frame. This verifies the host's
+  // document-level capture bridge, including Firefox's iframe focus model.
+  await assertGameFocus(page, frame.locator('#start'), 'Mosslight');
   await frame.waitForFunction(() => window.__MOSSLIGHT_PLAYTEST__?.snapshot().mode === 'playing');
+  await assertCanvasKeyboardFocus(frame, 'Mosslight');
 
   const before = await frame.evaluate(() => window.__MOSSLIGHT_PLAYTEST__.snapshot());
   await page.keyboard.down('d');
-  await page.waitForTimeout(350);
+  await page.waitForTimeout(600);
   await page.keyboard.up('d');
-  await page.waitForTimeout(100);
+  await page.waitForTimeout(120);
   const after = await frame.evaluate(() => window.__MOSSLIGHT_PLAYTEST__.snapshot());
 
   if ((after.player?.x ?? 0) <= (before.player?.x ?? 0) + 8) {
@@ -121,7 +142,8 @@ async function testStretchicorn(page, engineName) {
   if (initialMode !== 0) throw new Error(`Stretchicorn expected title mode 0, got ${initialMode}`);
 
   await page.screenshot({ path: path.join(outputDir, `${engineName}-stretchicorn-title.png`), fullPage: true });
-  await assertGameFocus(page, iframe, 'Stretchicorn');
+  await assertGameFocus(page, frame.locator('#c'), 'Stretchicorn');
+  await assertCanvasKeyboardFocus(frame, 'Stretchicorn');
   await page.keyboard.press('Space');
   await page.waitForTimeout(500);
 
@@ -147,7 +169,7 @@ async function testUniRico(page, engineName) {
   await frame.locator('#c').waitFor({ state: 'visible' });
   await page.waitForTimeout(500);
   const initial = await assertPainted(frame, 'uniRico title', 4, 8);
-  await assertGameFocus(page, iframe, 'uniRico');
+  await assertGameFocus(page, frame.locator('#c'), 'uniRico');
   await page.screenshot({ path: path.join(outputDir, `${engineName}-unirico.png`), fullPage: true });
   return { initial };
 }
