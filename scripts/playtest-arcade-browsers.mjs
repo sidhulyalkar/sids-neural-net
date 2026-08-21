@@ -43,9 +43,14 @@ function canvasStats(frame) {
 }
 
 async function assertPainted(frame, label, minimumDistinct = 8, minimumLit = 20) {
-  const stats = await canvasStats(frame);
+  const deadline = Date.now() + 5_000;
+  let stats = await canvasStats(frame);
+  while ((!stats.ready || stats.distinct < minimumDistinct || stats.lit < minimumLit) && Date.now() < deadline) {
+    await frame.page().waitForTimeout(100);
+    stats = await canvasStats(frame);
+  }
   if (!stats.ready || stats.distinct < minimumDistinct || stats.lit < minimumLit) {
-    throw new Error(`${label} canvas under-rendered: ${JSON.stringify(stats)}`);
+    throw new Error(`${label} canvas under-rendered after first-paint window: ${JSON.stringify(stats)}`);
   }
   return stats;
 }
@@ -77,8 +82,10 @@ async function assertGameFocus(page, target, label) {
 }
 
 async function assertCanvasKeyboardFocus(frame, label) {
-  const canvas = frame.locator('#c');
-  await canvas.click({ position: { x: 480, y: 320 } });
+  // Programmatic focus is deliberate here. Clicking Mosslight's canvas is a real
+  // gameplay cast, which would put the runtime on its shot cooldown and corrupt
+  // the keyboard-control assertion that follows.
+  await frame.locator('#c').focus();
   const focus = await frame.evaluate(() => ({
     documentHasFocus: document.hasFocus(),
     activeElementId: document.activeElement?.id || null,
@@ -104,7 +111,6 @@ async function testMosslight(page, engineName) {
   await frame.waitForFunction(() => window.MosslightExpedition?.atlasCount === 1000, null, { timeout: 10_000 });
   await frame.locator('#title').waitFor({ state: 'visible' });
   await frame.locator('#start').waitFor({ state: 'visible' });
-  await page.waitForTimeout(250);
 
   const initial = await assertPainted(frame, 'Mosslight title');
   await page.screenshot({ path: path.join(outputDir, `${engineName}-mosslight-title.png`), fullPage: true });
@@ -164,7 +170,6 @@ async function testStretchicorn(page, engineName) {
 
   const bridge = await assertNativeBridge(frame, 'Stretchicorn');
   await frame.locator('#c').waitFor({ state: 'visible' });
-  await page.waitForTimeout(350);
 
   const initial = await assertPainted(frame, 'Stretchicorn title');
   const initialMode = await frame.evaluate(() => eval('mode'));
@@ -197,7 +202,6 @@ async function testUniRico(page, engineName) {
 
   const bridge = await assertNativeBridge(frame, 'uniRico');
   await frame.locator('#c').waitFor({ state: 'visible' });
-  await page.waitForTimeout(500);
   const initial = await assertPainted(frame, 'uniRico title', 4, 8);
   await assertGameFocus(page, frame.locator('#c'), 'uniRico');
   await page.screenshot({ path: path.join(outputDir, `${engineName}-unirico.png`), fullPage: true });
@@ -222,9 +226,6 @@ for (const { name: engineName, browserType, launchOptions } of engines) {
     page.on('console', (message) => {
       if (message.type() !== 'error') return;
       const text = message.text();
-      // Chrome logs missing browser-owned resources such as /favicon.ico as a
-      // console error. Runtime failures are tracked above with the response URL,
-      // so ignore this generic browser diagnostic while preserving real JS errors.
       if (/Failed to load resource: the server responded with a status of 404/i.test(text)) return;
       errors.push(`console: ${text}`);
     });
