@@ -5,6 +5,13 @@ import Link from 'next/link';
 import { Expand, ExternalLink, Maximize2, Minimize2, RefreshCw } from 'lucide-react';
 import type { ArcadeGame } from '@/src/data/arcadeGames';
 
+const GAME_NETWORK_BRIDGE_SOURCE = 'sids-game-network-runtime';
+
+type GameNetworkBridgeMessage = {
+  source?: string;
+  kind?: 'focus' | 'escape';
+};
+
 export function ArcadePlaySpace({ game }: { game: ArcadeGame }) {
   const shellRef = useRef<HTMLDivElement | null>(null);
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
@@ -38,15 +45,25 @@ export function ArcadePlaySpace({ game }: { game: ArcadeGame }) {
         if (document.activeElement === iframeRef.current) engageFocus();
       });
     };
+    const onRuntimeMessage = (event: MessageEvent<GameNetworkBridgeMessage>) => {
+      if (event.origin !== window.location.origin) return;
+      if (event.source !== iframeRef.current?.contentWindow) return;
+      if (event.data?.source !== GAME_NETWORK_BRIDGE_SOURCE) return;
+
+      if (event.data.kind === 'escape' && !document.fullscreenElement) leaveFocus();
+      else engageFocus();
+    };
 
     document.addEventListener('fullscreenchange', onFullscreen);
     window.addEventListener('keydown', onParentKeyDown);
     window.addEventListener('blur', onWindowBlur);
+    window.addEventListener('message', onRuntimeMessage);
 
     return () => {
       document.removeEventListener('fullscreenchange', onFullscreen);
       window.removeEventListener('keydown', onParentKeyDown);
       window.removeEventListener('blur', onWindowBlur);
+      window.removeEventListener('message', onRuntimeMessage);
     };
   }, [engageFocus, focused, leaveFocus]);
 
@@ -57,23 +74,33 @@ export function ArcadePlaySpace({ game }: { game: ArcadeGame }) {
 
     try {
       const frameDocument = frameWindow.document;
-      const onFrameKeyDown = (event: KeyboardEvent) => {
-        if (event.key === 'Escape' && !document.fullscreenElement) leaveFocus();
-        else engageFocus();
-      };
+      if (frameDocument.documentElement.dataset.gameNetworkBridge === 'ready') return;
 
-      // Listen on the embedded document in capture phase. Firefox does not
-      // consistently surface iframe pointer activity through parent-window blur,
-      // while document-level capture fires at the exact user interaction point.
-      frameDocument.addEventListener('pointerdown', engageFocus, { capture: true, passive: true });
-      frameDocument.addEventListener('mousedown', engageFocus, { capture: true, passive: true });
-      frameDocument.addEventListener('touchstart', engageFocus, { capture: true, passive: true });
-      frameDocument.addEventListener('focusin', engageFocus, true);
-      frameDocument.addEventListener('keydown', onFrameKeyDown, true);
+      // Create the listener inside the runtime's own JavaScript realm. Parent-realm
+      // callbacks attached directly to iframe documents are handled differently by
+      // Firefox/WebKit. postMessage is the browser-native cross-realm contract.
+      const bridge = frameDocument.createElement('script');
+      bridge.textContent = `(() => {
+        if (window.__SIDS_GAME_NETWORK_BRIDGE__) return;
+        window.__SIDS_GAME_NETWORK_BRIDGE__ = true;
+        const notify = (kind = 'focus') => {
+          try {
+            window.parent.postMessage({ source: '${GAME_NETWORK_BRIDGE_SOURCE}', kind }, window.location.origin);
+          } catch (_) {}
+        };
+        window.addEventListener('pointerdown', () => notify('focus'), true);
+        window.addEventListener('mousedown', () => notify('focus'), true);
+        window.addEventListener('touchstart', () => notify('focus'), { capture: true, passive: true });
+        window.addEventListener('focusin', () => notify('focus'), true);
+        window.addEventListener('keydown', (event) => notify(event.key === 'Escape' ? 'escape' : 'focus'), true);
+      })();`;
+      frameDocument.documentElement.appendChild(bridge);
+      bridge.remove();
+      frameDocument.documentElement.dataset.gameNetworkBridge = 'ready';
     } catch {
       // Optional external runtime overrides stay isolated from the host document.
     }
-  }, [engageFocus, leaveFocus, trustedSameOriginRuntime]);
+  }, [trustedSameOriginRuntime]);
 
   const toggleFullscreen = async () => {
     const shell = shellRef.current;
