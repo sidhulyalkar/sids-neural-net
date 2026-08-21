@@ -73,15 +73,31 @@ for (const { name, browserType, launchOptions } of engines) {
     const before = await frame.evaluate(() => window.__MOSSLIGHT_PLAYTEST__.snapshot());
 
     // Target the focusable canvas inside the iframe directly. page.keyboard relies on
-    // top-document focus forwarding, which WebKit intentionally handles differently.
-    // These remain real browser keyboard events, but now the event target is explicit.
+    // top-document focus forwarding, which WebKit handles differently.
+    // Both movement taps are still released quickly: the queue itself must preserve S.
     await canvasInput.press('d');
     await page.waitForTimeout(25);
     await canvasInput.press('s');
-    await page.waitForTimeout(300);
+
+    // Separate input acceptance from render/simulation cadence. Headless WebKit can run
+    // RAF significantly slower under the four-engine CI job, so first prove that S was
+    // accepted into the persistent queue, then require it to execute within a bounded
+    // gameplay deadline rather than an arbitrary 300ms wall-clock sample.
+    const queueProbe = await frame.evaluate(() => window.__MOSSLIGHT_PLAYTEST__.snapshot());
+    const queueAccepted = queueProbe.player?.bufferedMove === 's' || (queueProbe.player?.y ?? 0) > (before.player?.y ?? 0) + 8 || queueProbe.stats.dashes >= before.stats.dashes + 2;
+    if (!queueAccepted) throw new Error(`south input was not accepted by persistent queue: ${JSON.stringify({ before: [before.player?.x, before.player?.y, before.stats.dashes], probe: [queueProbe.player?.x, queueProbe.player?.y, queueProbe.player?.bufferedMove, queueProbe.stats.dashes] })}`);
+
+    await frame.waitForFunction(
+      ({ baseDashes, baseY }) => {
+        const snap = window.__MOSSLIGHT_PLAYTEST__.snapshot();
+        return snap.stats.dashes >= baseDashes + 2 && (snap.player?.y ?? 0) > baseY + 30 && !snap.player?.bufferedMove;
+      },
+      { baseDashes: before.stats.dashes, baseY: before.player?.y ?? 0 },
+      { timeout: 1400 }
+    );
+
     await canvasInput.press('ArrowUp');
     await page.waitForTimeout(140);
-
     const after = await frame.evaluate(() => window.__MOSSLIGHT_PLAYTEST__.snapshot());
     if ((after.player?.x ?? 0) <= (before.player?.x ?? 0) + 30) throw new Error(`east step failed ${before.player?.x} -> ${after.player?.x}`);
     if ((after.player?.y ?? 0) <= (before.player?.y ?? 0) + 30) throw new Error(`persistent queued south step failed ${before.player?.y} -> ${after.player?.y}`);
@@ -92,7 +108,7 @@ for (const { name, browserType, launchOptions } of engines) {
     const playStats = await canvasStats(frame);
     if (!playStats.ready || playStats.distinct < 8 || playStats.lit < 20) throw new Error(`canvas under-rendered ${JSON.stringify(playStats)}`);
     await page.screenshot({ path: path.join(outputDir, `${name}-countercut-v082.png`), fullPage: true });
-    report.push({ name, ok: true, identity, titleStats, playStats, movement: [before.player?.x, before.player?.y, after.player?.x, after.player?.y], dashes: after.stats.dashes - before.stats.dashes, cuts: after.stats.cuts - before.stats.cuts, fps: after.fps });
+    report.push({ name, ok: true, identity, titleStats, playStats, queueProbe: { bufferedMove: queueProbe.player?.bufferedMove ?? null, dashes: queueProbe.stats.dashes - before.stats.dashes }, movement: [before.player?.x, before.player?.y, after.player?.x, after.player?.y], dashes: after.stats.dashes - before.stats.dashes, cuts: after.stats.cuts - before.stats.cuts, fps: after.fps });
   } catch (error) {
     failed = true;
     report.push({ name, ok: false, error: error instanceof Error ? error.message : String(error), errors });
@@ -106,4 +122,4 @@ if (failed) {
   for (const result of report.filter((entry) => !entry.ok)) console.error(` - ${result.name}: ${result.error}`);
   process.exit(1);
 }
-console.log(`Sylvaria Countercut v0.8.2 browser matrix PASS: ${report.map((entry) => entry.name).join(', ')}; persistent D→S queue and orthogonal cut verified inside the runtime frame.`);
+console.log(`Sylvaria Countercut v0.8.2 browser matrix PASS: ${report.map((entry) => entry.name).join(', ')}; persistent D→S queue acceptance/execution and orthogonal cut verified inside the runtime frame.`);
