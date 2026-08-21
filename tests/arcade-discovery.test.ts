@@ -64,6 +64,30 @@ test('the Game Network index stays intentionally minimal', () => {
   assert.doesNotMatch(catalog, /game\.subtitle|game\.version|game\.description|game\.tags/);
 });
 
+test('Vercel allows the site to embed its own game runtimes without allowing cross-site framing', () => {
+  const vercelConfig = JSON.parse(readRepoFile('vercel.json')) as {
+    headers?: Array<{
+      source?: string;
+      headers?: Array<{ key?: string; value?: string }>;
+    }>;
+  };
+
+  const globalHeaders = vercelConfig.headers?.find((rule) => rule.source === '/(.*)')?.headers ?? [];
+  const frameOption = globalHeaders.find((header) => header.key === 'X-Frame-Options')?.value;
+  assert.equal(frameOption, 'SAMEORIGIN');
+  assert.notEqual(frameOption, 'DENY');
+
+  for (const source of ['/game-runtimes/stretchicorn/(.*)', '/game-runtimes/mosslight-v2/(.*)']) {
+    const runtimeHeaders = vercelConfig.headers?.find((rule) => rule.source === source)?.headers ?? [];
+    assert.ok(
+      runtimeHeaders.some(
+        (header) => header.key === 'Content-Security-Policy' && header.value === "frame-ancestors 'self'"
+      ),
+      `${source} must remain frameable by the portfolio origin only`
+    );
+  }
+});
+
 test('the embedded Stretchicorn release is complete', () => {
   const runtimeRoot = 'public/game-runtimes/stretchicorn';
   const runtimeModules = [
