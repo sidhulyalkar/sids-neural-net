@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Bookmark, ChevronDown, ExternalLink, Heart, MessageCircleMore } from 'lucide-react';
+import { Bookmark, ChevronDown, ExternalLink, Heart, MessageCircleMore, ThumbsDown, ThumbsUp } from 'lucide-react';
 import { FRONTIER_LANE_MAP } from '@/lib/frontier/config';
 import type { FrontierItem, FrontierReaction } from '@/lib/frontier/types';
 import { EditorialClip } from './EditorialClip';
@@ -45,11 +45,7 @@ function host(url: string): string {
 function publishedLabel(value: string): string {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return 'recent';
-  return new Intl.DateTimeFormat('en-US', {
-    month: 'short',
-    day: 'numeric',
-    timeZone: 'America/Los_Angeles',
-  }).format(date);
+  return new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', timeZone: 'America/Los_Angeles' }).format(date);
 }
 
 function isHttpUrl(value?: string): value is string {
@@ -57,9 +53,7 @@ function isHttpUrl(value?: string): value is string {
   try {
     const parsed = new URL(value);
     return parsed.protocol === 'https:' || parsed.protocol === 'http:';
-  } catch {
-    return false;
-  }
+  } catch { return false; }
 }
 
 function isYouTubeId(value?: string): value is string {
@@ -73,9 +67,6 @@ function mediaKey(item: FrontierItem): string {
 function hasRenderableMedia(item: FrontierItem): boolean {
   const media = item.media;
   if (!media || media.type === 'none' || media.type === 'chart') return false;
-  // The core GitHub adapter currently exposes an owner avatar rather than visual
-  // repository content. Keep it out of the editorial feed rather than dressing
-  // a code signal with a decorative profile image.
   if (item.sourceKind === 'github' && media.type === 'image') return false;
   if (media.type === 'youtube') return isYouTubeId(media.url);
   return isHttpUrl(media.url);
@@ -85,27 +76,11 @@ function DiscoveryImage({ src, alt, onUnavailable }: { src: string; alt: string;
   return (
     // Live publisher/community media cannot use a static next/image host allowlist.
     // eslint-disable-next-line @next/next/no-img-element
-    <img
-      src={src}
-      alt={alt}
-      className={styles.mediaImage}
-      loading="lazy"
-      decoding="async"
-      referrerPolicy="no-referrer"
-      onError={onUnavailable}
-    />
+    <img src={src} alt={alt} className={styles.mediaImage} loading="lazy" decoding="async" referrerPolicy="no-referrer" onError={onUnavailable} />
   );
 }
 
-function RealMedia({
-  item,
-  interactive = false,
-  onUnavailable,
-}: {
-  item: FrontierItem;
-  interactive?: boolean;
-  onUnavailable: () => void;
-}) {
+function RealMedia({ item, interactive = false, onUnavailable }: { item: FrontierItem; interactive?: boolean; onUnavailable: () => void }) {
   const media = item.media;
   if (!media || !hasRenderableMedia(item)) return null;
 
@@ -126,59 +101,32 @@ function RealMedia({
       );
     }
     const poster = isHttpUrl(media.poster) ? media.poster : `https://i.ytimg.com/vi/${media.url}/hqdefault.jpg`;
-    return (
-      <div className={styles.realMedia}>
-        <DiscoveryImage src={poster} alt={media.alt || item.title} onUnavailable={onUnavailable} />
-        <span className={styles.mediaKind}>Video</span>
-      </div>
-    );
+    return <div className={styles.realMedia}><DiscoveryImage src={poster} alt={media.alt || item.title} onUnavailable={onUnavailable} /><span className={styles.mediaKind}>Video</span></div>;
   }
 
   if (media.type === 'image' && isHttpUrl(media.url)) {
-    return (
-      <div className={styles.realMedia}>
-        <DiscoveryImage src={media.url} alt={media.alt || item.title} onUnavailable={onUnavailable} />
-      </div>
-    );
+    return <div className={styles.realMedia}><DiscoveryImage src={media.url} alt={media.alt || item.title} onUnavailable={onUnavailable} /></div>;
   }
 
   if (media.type === 'video' && isHttpUrl(media.url)) {
     if (!interactive && isHttpUrl(media.poster)) {
-      return (
-        <div className={styles.realMedia}>
-          <DiscoveryImage src={media.poster} alt={media.alt || item.title} onUnavailable={onUnavailable} />
-          <span className={styles.mediaKind}>Video</span>
-        </div>
-      );
+      return <div className={styles.realMedia}><DiscoveryImage src={media.poster} alt={media.alt || item.title} onUnavailable={onUnavailable} /><span className={styles.mediaKind}>Video</span></div>;
     }
     return (
       <div className={styles.realMedia}>
-        <video
-          className={styles.mediaImage}
-          controls
-          preload="metadata"
-          poster={isHttpUrl(media.poster) ? media.poster : undefined}
-          onError={onUnavailable}
-        >
+        <video className={styles.mediaImage} controls preload="metadata" poster={isHttpUrl(media.poster) ? media.poster : undefined} onError={onUnavailable}>
           <source src={media.url} />
         </video>
         <span className={styles.mediaKind}>Video</span>
       </div>
     );
   }
-
   return null;
 }
 
 function MetricLine({ item }: { item: FrontierItem }) {
   if (!item.metrics?.length) return null;
-  return (
-    <div className={styles.metricLine}>
-      {item.metrics.slice(0, 3).map((metric) => (
-        <span key={`${metric.label}-${metric.value}`}><strong>{metric.value}</strong> {metric.label}</span>
-      ))}
-    </div>
-  );
+  return <div className={styles.metricLine}>{item.metrics.slice(0, 3).map((metric) => <span key={`${metric.label}-${metric.value}`}><strong>{metric.value}</strong> {metric.label}</span>)}</div>;
 }
 
 function Feedback({ item, reaction, onReact }: Pick<Props, 'item' | 'reaction' | 'onReact'>) {
@@ -220,8 +168,6 @@ export function SignalCard({
 }: Props) {
   const ref = useRef<HTMLElement | null>(null);
   const observed = useRef(false);
-  const dwelled = useRef(false);
-  const dwellTimer = useRef<number | undefined>(undefined);
   const expandedRecorded = useRef(false);
   const [expanded, setExpanded] = useState(false);
   const [unavailableMediaKey, setUnavailableMediaKey] = useState<string>();
@@ -233,28 +179,44 @@ export function SignalCard({
   useEffect(() => {
     const node = ref.current;
     if (!node || typeof IntersectionObserver === 'undefined') return;
+    let visible = false;
+    let visibleSince: number | undefined;
+
+    const start = () => {
+      if (visibleSince === undefined && document.visibilityState === 'visible') visibleSince = performance.now();
+    };
+    const flush = () => {
+      if (visibleSince === undefined) return;
+      const elapsed = Math.min(120_000, Math.max(0, performance.now() - visibleSince));
+      visibleSince = undefined;
+      if (elapsed >= 1_500) onDwell(item, Math.round(elapsed));
+    };
+    const visibilityChanged = () => {
+      if (document.visibilityState === 'hidden') flush();
+      else if (visible) start();
+    };
+
     const observer = new IntersectionObserver((entries) => {
-      const visible = entries.some((entry) => entry.isIntersecting && entry.intersectionRatio >= 0.5);
-      if (visible && !observed.current) {
+      const nextVisible = entries.some((entry) => entry.isIntersecting && entry.intersectionRatio >= 0.55);
+      if (nextVisible && !observed.current) {
         observed.current = true;
         onSeen(item, resurfaced);
       }
-      if (visible && !dwelled.current && dwellTimer.current === undefined) {
-        dwellTimer.current = window.setTimeout(() => {
-          dwelled.current = true;
-          dwellTimer.current = undefined;
-          onDwell(item, 7_500);
-        }, 7_500);
+      if (nextVisible && !visible) {
+        visible = true;
+        start();
+      } else if (!nextVisible && visible) {
+        visible = false;
+        flush();
       }
-      if (!visible && dwellTimer.current !== undefined) {
-        window.clearTimeout(dwellTimer.current);
-        dwellTimer.current = undefined;
-      }
-    }, { threshold: [0, 0.5] });
+    }, { threshold: [0, 0.55] });
+
     observer.observe(node);
+    document.addEventListener('visibilitychange', visibilityChanged);
     return () => {
+      flush();
       observer.disconnect();
-      if (dwellTimer.current !== undefined) window.clearTimeout(dwellTimer.current);
+      document.removeEventListener('visibilitychange', visibilityChanged);
     };
   }, [item, onDwell, onSeen, resurfaced]);
 
@@ -264,22 +226,27 @@ export function SignalCard({
     <div className={styles.quickActions}>
       <button
         type="button"
-        className={`${styles.iconAction} ${reaction === 'love' ? styles.actionActive : ''}`}
-        title="Love"
-        aria-label={`Love ${item.title}`}
-        onClick={() => onReact(item, 'love')}
-      >
-        <Heart size={13} fill={reaction === 'love' ? 'currentColor' : 'none'} />
-      </button>
+        className={`${styles.iconAction} ${reaction === 'up' ? styles.actionActive : ''}`}
+        title="More like this"
+        aria-label={`More like this: ${item.title}`}
+        aria-pressed={reaction === 'up'}
+        onClick={() => onReact(item, 'up')}
+      ><ThumbsUp size={13} fill={reaction === 'up' ? 'currentColor' : 'none'} /></button>
+      <button
+        type="button"
+        className={`${styles.iconAction} ${reaction === 'down' ? styles.actionActive : ''}`}
+        title="Less like this"
+        aria-label={`Less like this: ${item.title}`}
+        aria-pressed={reaction === 'down'}
+        onClick={() => onReact(item, 'down')}
+      ><ThumbsDown size={13} fill={reaction === 'down' ? 'currentColor' : 'none'} /></button>
       <button
         type="button"
         className={`${styles.iconAction} ${saved ? styles.actionActive : ''}`}
         title={saved ? 'Saved' : 'Save'}
         aria-label={`${saved ? 'Saved' : 'Save'} ${item.title}`}
         onClick={() => onSave(item)}
-      >
-        <Bookmark size={13} fill={saved ? 'currentColor' : 'none'} />
-      </button>
+      ><Bookmark size={13} fill={saved ? 'currentColor' : 'none'} /></button>
       <a
         className={styles.iconAction}
         href={item.url}
@@ -288,9 +255,7 @@ export function SignalCard({
         onClick={() => onOpen(item)}
         aria-label={`Open ${item.title} on ${host(item.url) || item.sourceLabel}`}
         title="Open source"
-      >
-        <ExternalLink size={13} />
-      </a>
+      ><ExternalLink size={13} /></a>
     </div>
   );
 
@@ -314,12 +279,7 @@ export function SignalCard({
   ) : null;
 
   const contextButton = (
-    <button
-      type="button"
-      className={styles.expandCue}
-      aria-expanded={expanded}
-      onClick={toggleExpanded}
-    >
+    <button type="button" className={styles.expandCue} aria-expanded={expanded} onClick={toggleExpanded}>
       {expanded ? 'Less' : 'Context'} <ChevronDown size={12} />
     </button>
   );
@@ -328,16 +288,8 @@ export function SignalCard({
     return (
       <article ref={ref} className={`${styles.card} ${styles.feedCard} ${styles.feedCardText}`}>
         <div className={styles.feedCopy}>
-          <EditorialClip
-            item={item}
-            presentation="list"
-            resurfaced={resurfaced}
-            onOpen={() => onOpen(item)}
-          />
-          <div className={styles.feedActions}>
-            {contextButton}
-            {quickActions}
-          </div>
+          <EditorialClip item={item} presentation="list" resurfaced={resurfaced} onOpen={() => onOpen(item)} />
+          <div className={styles.feedActions}>{contextButton}{quickActions}</div>
           {contextPanel}
         </div>
       </article>
@@ -348,12 +300,7 @@ export function SignalCard({
     return (
       <article ref={ref} className={`${styles.card} ${styles.tileCard} ${styles.tileCardText} ${expanded ? styles.cardExpanded : ''}`}>
         <div className={styles.tileBody}>
-          <EditorialClip
-            item={item}
-            presentation="grid"
-            resurfaced={resurfaced}
-            onOpen={() => onOpen(item)}
-          />
+          <EditorialClip item={item} presentation="grid" resurfaced={resurfaced} onOpen={() => onOpen(item)} />
           {contextButton}
           {contextPanel}
         </div>
@@ -376,25 +323,17 @@ export function SignalCard({
           {meta}
           <h3 className={styles.cardTitle}>{item.title}</h3>
           <p className={styles.cardSummary}>{item.summary}</p>
-          <div className={styles.feedActions}>
-            {contextButton}
-            {quickActions}
-          </div>
+          <div className={styles.feedActions}>{contextButton}{quickActions}</div>
           {contextPanel}
         </div>
-        <div className={styles.feedMediaSlot}>
-          <RealMedia item={item} interactive onUnavailable={markMediaUnavailable} />
-        </div>
+        <div className={styles.feedMediaSlot}><RealMedia item={item} interactive onUnavailable={markMediaUnavailable} /></div>
       </article>
     );
   }
 
   return (
     <article ref={ref} className={`${styles.card} ${styles.tileCard} ${styles.tileCardMedia} ${expanded ? styles.cardExpanded : ''}`}>
-      <div className={styles.tileMedia}>
-        <RealMedia item={item} interactive={expanded} onUnavailable={markMediaUnavailable} />
-      </div>
-
+      <div className={styles.tileMedia}><RealMedia item={item} interactive={expanded} onUnavailable={markMediaUnavailable} /></div>
       <div className={styles.tileBody}>
         {meta}
         <h3 className={styles.cardTitle}>{item.title}</h3>
@@ -402,7 +341,6 @@ export function SignalCard({
         {contextButton}
         {contextPanel}
       </div>
-
       <div className={styles.tileFooter}>{quickActions}</div>
     </article>
   );
