@@ -75,19 +75,23 @@ await page.waitForTimeout(80);
 const moved = await page.evaluate(() => window.__MOSSLIGHT_PLAYTEST__.snapshot());
 if ((moved.player?.x ?? 0) - (start.player?.x ?? 0) < 18) failures.push('WASD movement smoke did not move Sprig far enough');
 
-// Mouse aim: point at the first relationship and verify Rain is accepted.
+// Mouse aim: point at the first relationship and require this input to add a new
+// cast and a new correct restoration action.
 await page.evaluate(() => window.__MOSSLIGHT_PLAYTEST__.setRoom(0));
 await page.waitForTimeout(100);
+const beforeMouse = await page.evaluate(() => window.__MOSSLIGHT_PLAYTEST__.snapshot());
 await page.mouse.move(290, 210);
 await page.mouse.click(290, 210);
 await page.waitForTimeout(460);
 const mouseCast = await page.evaluate(() => window.__MOSSLIGHT_PLAYTEST__.snapshot());
-if (mouseCast.stats.casts < 1) failures.push('pointer cast smoke did not register a cast');
-if (mouseCast.stats.correct < 1) failures.push('guided pointer aim did not complete a correct restoration step');
+if (mouseCast.stats.casts <= beforeMouse.stats.casts) failures.push('pointer aim did not add a new cast');
+if (mouseCast.stats.correct <= beforeMouse.stats.correct) failures.push('pointer aim did not add a new correct restoration step');
 
-// Laptop keyboard aim: diagonal arrow aim + Space must complete the same first relationship.
+// Laptop keyboard aim: diagonal arrow aim + Space must independently add its own
+// cast and correct action, so a successful mouse path can never mask a keyboard bug.
 await page.evaluate(() => window.__MOSSLIGHT_PLAYTEST__.setRoom(0));
 await page.waitForTimeout(100);
+const beforeKeyboard = await page.evaluate(() => window.__MOSSLIGHT_PLAYTEST__.snapshot());
 await page.keyboard.down('ArrowRight');
 await page.keyboard.down('ArrowUp');
 await page.keyboard.press('Space');
@@ -95,8 +99,8 @@ await page.keyboard.up('ArrowUp');
 await page.keyboard.up('ArrowRight');
 await page.waitForTimeout(520);
 const keyboardCast = await page.evaluate(() => window.__MOSSLIGHT_PLAYTEST__.snapshot());
-if (keyboardCast.stats.casts < 1) failures.push('arrow-key + Space aim did not register a cast');
-if (keyboardCast.stats.correct < 1) failures.push('arrow-key aim did not complete a correct restoration step');
+if (keyboardCast.stats.casts <= beforeKeyboard.stats.casts) failures.push('arrow-key + Space aim did not add a new cast');
+if (keyboardCast.stats.correct <= beforeKeyboard.stats.correct) failures.push('arrow-key aim did not add a new correct restoration step');
 
 const expectedInitialTools = ['rain', 'rain', 'mend', 'rain', 'wind', 'rain', 'rain', 'sun', 'rain', 'wind'];
 const rooms = [];
@@ -147,8 +151,15 @@ const report = {
     startX: start.player?.x,
     movedX: moved.player?.x,
     deltaX: (moved.player?.x ?? 0) - (start.player?.x ?? 0),
-    mouse: { casts: mouseCast.stats.casts, correctActions: mouseCast.stats.correct },
-    keyboard: { casts: keyboardCast.stats.casts, correctActions: keyboardCast.stats.correct, input: 'ArrowUp + ArrowRight + Space' },
+    mouse: {
+      castsAdded: mouseCast.stats.casts - beforeMouse.stats.casts,
+      correctActionsAdded: mouseCast.stats.correct - beforeMouse.stats.correct,
+    },
+    keyboard: {
+      castsAdded: keyboardCast.stats.casts - beforeKeyboard.stats.casts,
+      correctActionsAdded: keyboardCast.stats.correct - beforeKeyboard.stats.correct,
+      input: 'ArrowUp + ArrowRight + Space',
+    },
   },
   rooms,
   finalFps: finalSnapshot.fps,
@@ -165,4 +176,4 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log(`Mosslight browser playtest PASS: 1,000-scene Atlas feed, disjoint repeat expeditions, ${rooms.length} unique rooms, mouse + arrow-key aim, movement, correct-cast smoke, ${finalSnapshot.fps.toFixed(1)} FPS.`);
+console.log(`Mosslight browser playtest PASS: 1,000-scene Atlas feed, disjoint repeat expeditions, ${rooms.length} unique rooms, independent mouse + arrow-key aim, movement, correct-cast smoke, ${finalSnapshot.fps.toFixed(1)} FPS.`);
