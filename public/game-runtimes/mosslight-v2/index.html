@@ -13,7 +13,7 @@
   <div id="hud" aria-hidden="true">
     <div id="top">
       <div id="roomCard" class="glass">
-        <div id="roomKicker">world 001 · restoration 0%</div>
+        <div id="roomKicker">world 001 · threat 1/10 · restoration 0%</div>
         <div id="roomTitle">Mosslight</div>
         <div id="roomTask">Restore a living world one relationship at a time.</div>
       </div>
@@ -40,19 +40,19 @@
 
   <div id="title" class="screen">
     <div class="panel">
-      <div class="eyebrow">a tiny ecology action game · atlas expeditions</div>
+      <div class="eyebrow">a tiny ecology action game · evolving atlas expeditions</div>
       <h1><em>Mosslight</em><br/>Atlas Expeditions</h1>
-      <p class="lede">Guide Sprig through ten living worlds drawn from a 1,000-scene Nature Atlas. Each visit advances through unseen worlds before the deck cycles, while the restoration language stays readable and smooth.</p>
+      <p class="lede">Guide Sprig through ten living worlds drawn from a 1,000-scene Nature Atlas. Difficulty builds room by room: wildlife learns new movement patterns, terrain creates escape puzzles, and collectible world gifts change how your restoration build plays.</p>
       <div class="simpleControls">
-        <div class="simpleControl"><b>W A S D</b><span>move Sprig smoothly</span></div>
-        <div class="simpleControl"><b>Mouse / Arrows</b><span>aim freely with pointer or keyboard</span></div>
-        <div class="simpleControl"><b>Click / Space</b><span>cast the glowing restoration tool</span></div>
+        <div class="simpleControl"><b>W A S D</b><span>move Sprig through changing routes</span></div>
+        <div class="simpleControl"><b>Mouse / Arrows</b><span>aim freely or use laptop twin-stick aim</span></div>
+        <div class="simpleControl"><b>Click / Space</b><span>cast; world gifts evolve your shots</span></div>
       </div>
-      <div id="modePill"><i></i> gentle mode · forgiving aim · no death</div>
+      <div id="modePill"><i></i> gentle mode · readable telegraphs · no death</div>
       <div class="actions">
         <button id="start" class="primary">enter expedition</button>
         <button id="challenge" class="secondary">flow mode</button>
-        <span class="hint">Shift dashes · Q/E cycles tools · 1–6 selects tools · hold arrows to aim, Space to cast</span>
+        <span class="hint">Shift dashes · Q/E cycles tools · 1–6 selects tools · hold arrows to aim · collect glowing world gifts</span>
       </div>
     </div>
   </div>
@@ -70,7 +70,7 @@
     <div class="panel">
       <div class="eyebrow">ten worlds are breathing</div>
       <h1><em>The Atlas</em><br/>keeps unfolding.</h1>
-      <p class="lede">This expedition restored ten connected ecosystems. The next run draws the next unseen worlds from the 1,000-scene deck, with new palettes, atmospheres, geometry, wildlife, and stress fronts.</p>
+      <p class="lede">This expedition restored ten connected ecosystems while building a unique collection of world gifts. The next run draws the next unseen Atlas worlds, with new palettes, wildlife movement grammars, obstacle choreography, situations, and powerup combinations.</p>
       <div class="summary">
         <div><b>run time</b><span id="sumTime">0:00</span></div>
         <div><b>best chain</b><span id="sumChain">×0</span></div>
@@ -85,6 +85,7 @@
 <script src="./rooms.js"></script>
 <script src="/game-runtimes/mosslight-atlas"></script>
 <script src="./expedition.js"></script>
-<script src="./game.js"></script>
+<script src="./director.js"></script>
+<script src="./game-v3.js"></script>
 </body>
 </html>
