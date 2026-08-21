@@ -152,8 +152,10 @@ function takeFirst(
 }
 
 /**
- * A finite daily run with an editorial spine. It guarantees breadth before
- * filling the remaining slots from the personalized ranking.
+ * A finite daily run with an editorial spine. When the caller supplies the full
+ * radar, the run explicitly reserves room for both deep-learning signal and the
+ * user's after-hours world. If the caller pre-filters to Brainfood or After
+ * Hours, the same selector gracefully fills from the available realm only.
  */
 export function selectDailyRun(
   ranked: FrontierItem[],
@@ -165,14 +167,23 @@ export function selectDailyRun(
   const selected: FrontierItem[] = [];
   const push = (item?: FrontierItem) => { if (item) selected.push(item); };
 
-  push(takeFirst(ranked, used, (item) => item.importance >= 0.72 || item.lane === 'must_know'));
-  push(takeFirst(ranked, used, (item) => item.lane === 'premier_league'));
-  push(takeFirst(ranked, used, (item) => item.lane === 'ml_data'));
-  push(takeFirst(ranked, used, (item) => item.lane === 'ai_frontier'));
-  push(takeFirst(ranked, used, (item) => item.lane === 'neuro_frontier'));
+  // Global interruption budget.
+  push(takeFirst(ranked, used, (item) => item.importance >= 0.76 || item.lane === 'must_know'));
+
+  // Brainfood: evidence, code, and reusable methods each get independent oxygen.
+  push(takeFirst(ranked, used, (item) => ['ml_data', 'ai_frontier', 'neuro_frontier', 'broad_science'].includes(item.lane)));
+  push(takeFirst(ranked, used, (item) => item.lane === 'builder_signal'));
+  push(takeFirst(ranked, used, (item) => item.lane === 'methods' || item.lane === 'creative_tech'));
+
+  // After Hours: favorite teams first, then the broader pitch/court, games, and culture.
+  push(takeFirst(ranked, used, (item) => item.lane === 'team_pulse'));
+  push(takeFirst(ranked, used, (item) => ['premier_league', 'world_soccer', 'sports'].includes(item.lane)));
+  push(takeFirst(ranked, used, (item) => item.lane === 'gaming'));
+  push(takeFirst(ranked, used, (item) => item.lane === 'music' || item.lane === 'internet_culture' || item.lane === 'life'));
+
+  // The memory system and exploration budget keep the feed from becoming stale.
   push(takeFirst(ranked, used, (item) => isDueForResurface(history[item.id], now)));
-  push(takeFirst(ranked, used, (item) => item.lane === 'methods' || item.lane === 'builder_signal'));
-  push(takeFirst(ranked, used, (item) => item.novelty >= 0.68 || item.lane === 'wildcards'));
+  push(takeFirst(ranked, used, (item) => item.novelty >= 0.7 || item.lane === 'wildcards'));
 
   for (const item of ranked) {
     if (selected.length >= limit) break;
@@ -180,12 +191,12 @@ export function selectDailyRun(
 
     // Prevent one lane from swallowing the finite briefing.
     const sameLane = selected.filter((candidate) => candidate.lane === item.lane).length;
-    if (sameLane >= Math.max(2, Math.ceil(limit * 0.26))) continue;
+    if (sameLane >= Math.max(2, Math.ceil(limit * 0.24))) continue;
     selected.push(item);
     used.add(item.id);
   }
 
-  return selected;
+  return selected.slice(0, limit);
 }
 
 export function explainRecommendation(item: FrontierItem, profile: FrontierProfile): string {
@@ -195,7 +206,7 @@ export function explainRecommendation(item: FrontierItem, profile: FrontierProfi
 
   if (resurfaceLike(item)) return 'Second chance: this signal was worth keeping in orbit.';
   if (item.importance >= 0.8) return 'High global importance, promoted even beyond your normal taste profile.';
-  if (strongestTag && strongestTag.affinity > 0.08) return `Your recent interest in ${strongestTag.tag} pulled this into range.`;
+  if (strongestTag && strongestTag.affinity > 0.08) return `Your interest in ${strongestTag.tag} pulled this into range.`;
   if ((profile.laneAffinity[item.lane] ?? 0) > 0.12) return `Your ${FRONTIER_LANE_MAP[item.lane].shortLabel} signal has been strengthening.`;
   if (item.novelty > 0.72) return 'Exploration slot: adjacent enough to matter, different enough to expand the map.';
   return item.why || `Strong fit for your ${FRONTIER_LANE_MAP[item.lane].shortLabel} radar.`;
@@ -208,20 +219,19 @@ function resurfaceLike(item: FrontierItem): boolean {
 export function buildDailyQuests(history: Record<string, FrontierHistoryEntry>, dayKey: string): FrontierQuest[] {
   const todays = Object.values(history).filter((entry) => entry.reactedAt?.startsWith(dayKey));
   const meaningful = todays.filter((entry) => entry.reaction && !['meh', 'hide', 'known'].includes(entry.reaction));
-  const lanes = new Set(meaningful.map((entry) => entry.item.lane));
-  const hasSoccer = meaningful.some((entry) => ['premier_league', 'world_soccer'].includes(entry.item.lane));
-  const hasMl = meaningful.some((entry) => ['ml_data', 'ai_frontier', 'methods'].includes(entry.item.lane));
+  const hasBrainfood = meaningful.some((entry) => FRONTIER_LANE_MAP[entry.item.lane].realm === 'learn');
+  const hasAfterHours = meaningful.some((entry) => FRONTIER_LANE_MAP[entry.item.lane].realm === 'play');
   const surprises = todays.filter((entry) => entry.reaction === 'surprise').length;
   const secondChances = todays.filter((entry) => entry.item.tags.includes('second-chance')).length;
 
   return [
     {
-      id: 'hat-trick', label: 'Hat Trick', description: 'Meaningfully engage across three different knowledge lanes.',
-      current: Math.min(3, lanes.size), target: 3, complete: lanes.size >= 3, xp: 18,
+      id: 'brainfood', label: 'Brainfood', description: 'Resolve one paper, codebase, method, or science signal.',
+      current: Number(hasBrainfood), target: 1, complete: hasBrainfood, xp: 14,
     },
     {
-      id: 'pitch-python', label: 'Pitch + Python', description: 'Learn one soccer signal and one ML/data signal.',
-      current: Number(hasSoccer) + Number(hasMl), target: 2, complete: hasSoccer && hasMl, xp: 16,
+      id: 'clubhouse', label: 'Clubhouse', description: 'Catch one team, game, music, sports, or culture signal.',
+      current: Number(hasAfterHours), target: 1, complete: hasAfterHours, xp: 12,
     },
     {
       id: 'second-wind', label: 'Second Wind', description: 'Resolve something the radar brought back for another look.',
