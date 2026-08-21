@@ -6,7 +6,7 @@ import { Bookmark, ChevronDown, ExternalLink, Heart, MessageCircleMore } from 'l
 import { FRONTIER_LANE_MAP } from '@/lib/frontier/config';
 import type { FrontierItem, FrontierReaction } from '@/lib/frontier/types';
 import type { SignalLayoutMode } from './SignalBoard';
-import styles from './frontier.module.css';
+import styles from './frontier-minimal.module.css';
 
 const REACTIONS: Array<{ id: FrontierReaction; glyph: string; label: string }> = [
   { id: 'love', glyph: '♥', label: 'Love' },
