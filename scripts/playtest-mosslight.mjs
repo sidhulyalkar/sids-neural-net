@@ -24,6 +24,7 @@ await page.waitForFunction(() => Boolean(window.__MOSSLIGHT_PLAYTEST__) && Boole
 
 const metadata = await page.evaluate(() => ({
   version: window.__MOSSLIGHT_PLAYTEST__.version,
+  title: window.__MOSSLIGHT_PLAYTEST__.title,
   roomCount: window.__MOSSLIGHT_PLAYTEST__.roomCount,
   roomTitles: window.__MOSSLIGHT_PLAYTEST__.roomTitles,
   expedition: window.MosslightExpedition.summary(),
@@ -32,7 +33,8 @@ const metadata = await page.evaluate(() => ({
   patterns: window.MosslightDirector.movementPatterns,
 }));
 
-if (metadata.version !== '0.4.0') failures.push(`expected v0.4.0, got ${metadata.version}`);
+if (metadata.version !== '0.5.0') failures.push(`expected v0.5.0, got ${metadata.version}`);
+if (metadata.title !== 'Sylvaria') failures.push(`expected Sylvaria runtime title, got ${metadata.title}`);
 if (metadata.roomCount !== 10) failures.push(`expected 10 mechanic templates per loaded sector, got ${metadata.roomCount}`);
 if (metadata.expedition?.atlasCount !== 1000) failures.push(`expected canonical 1000-scene Atlas, got ${metadata.expedition?.atlasCount}`);
 if (new Set((metadata.expedition?.worlds || []).map((world) => world.index)).size !== 10) failures.push('loaded sector must contain 10 unique Atlas worlds');
@@ -40,7 +42,7 @@ if (new Set(metadata.director.map((room) => room.situation)).size < 4) failures.
 for (const id of ['rapid-bloom','giant-dew','prism-spores','river-echo','sunstep','moss-ward']) if (!metadata.powerups.includes(id)) failures.push(`missing world gift ${id}`);
 for (const pattern of ['patrol','weave','orbit','swoop','stalk','dash','spiral']) if (!metadata.patterns.includes(pattern)) failures.push(`missing encounter grammar ${pattern}`);
 
-await page.screenshot({ path: path.join(outputDir, 'menu.png') });
+await page.screenshot({ path: path.join(outputDir, 'sylvaria-menu.png') });
 await page.click('#start');
 await page.waitForFunction(() => window.__MOSSLIGHT_PLAYTEST__.snapshot().mode === 'playing');
 await page.locator('#c').focus();
@@ -68,10 +70,7 @@ function nearestUnfinishedTarget(snapshot) {
   for (const target of snapshot.targets || []) {
     if (target.done) continue;
     const distance = Math.hypot(target.x - snapshot.player.x, target.y - snapshot.player.y);
-    if (distance < bestDistance) {
-      best = target;
-      bestDistance = distance;
-    }
+    if (distance < bestDistance) { best = target; bestDistance = distance; }
   }
   return best;
 }
@@ -86,7 +85,7 @@ else {
   await page.mouse.click(pointerTarget.x, pointerTarget.y);
   await page.waitForTimeout(520);
   const pointerAfter = await page.evaluate(() => window.__MOSSLIGHT_PLAYTEST__.snapshot());
-  if (pointerAfter.stats.casts <= pointerBefore.stats.casts) failures.push('mouse click did not fire portal gun');
+  if (pointerAfter.stats.casts <= pointerBefore.stats.casts) failures.push('mouse click did not fire Sprid portal gun');
   if (pointerAfter.stats.correct <= pointerBefore.stats.correct) failures.push('mouse aim did not advance a correct puzzle resonance');
 }
 
@@ -110,24 +109,36 @@ else {
 
 await page.evaluate(() => window.__MOSSLIGHT_PLAYTEST__.setRoom(0, 1));
 const gateBefore = await page.evaluate(() => window.__MOSSLIGHT_PLAYTEST__.snapshot());
-if (gateBefore.portalOpen) failures.push('portal must start sealed');
+if (gateBefore.portalOpen || gateBefore.portalReady) failures.push('world must start with a sealed gate');
 const gateReady = await page.evaluate(() => window.__MOSSLIGHT_PLAYTEST__.completeRoom());
-if (!gateReady.portalOpen) failures.push('solving all room-one puzzles should charge the portal');
-if (gateReady.stones < gateReady.stoneQuota) failures.push(`portal opened without Mossglint quota: ${gateReady.stones}/${gateReady.stoneQuota}`);
+if (!gateReady.portalReady) failures.push(`solving room one should arm the portal shot, got phase=${gateReady.portalPhase}`);
+if (gateReady.portalOpen) failures.push('solving puzzles must not automatically open the gate in v0.5');
+if (gateReady.stones < gateReady.stoneQuota) failures.push(`gate armed without Mossglint quota: ${gateReady.stones}/${gateReady.stoneQuota}`);
+await page.screenshot({ path: path.join(outputDir, 'gate-ready.png') });
+await page.locator('#c').focus();
+await page.keyboard.press('f');
+await page.waitForFunction(() => window.__MOSSLIGHT_PLAYTEST__.snapshot().portalOpen === true, null, { timeout: 2500 });
+const gateOpen = await page.evaluate(() => window.__MOSSLIGHT_PLAYTEST__.snapshot());
+if (gateOpen.portalPhase !== 'open') failures.push(`F portal shot did not enter open extraction phase: ${gateOpen.portalPhase}`);
+if (gateOpen.stats.portals < 1) failures.push('portal shot was not counted');
+await page.screenshot({ path: path.join(outputDir, 'gate-open-extraction.png') });
 const afterAdvance = await page.evaluate(() => window.__MOSSLIGHT_PLAYTEST__.advance());
 if (afterAdvance.worldDepth !== 2 || afterAdvance.worldsCleared !== 1) failures.push(`portal transition should move only forward to depth 2, got depth=${afterAdvance.worldDepth}, cleared=${afterAdvance.worldsCleared}`);
 
 await page.evaluate(() => window.__MOSSLIGHT_PLAYTEST__.setRoom(9, 10));
 const bossStart = await page.evaluate(() => window.__MOSSLIGHT_PLAYTEST__.snapshot());
 if (!bossStart.boss || bossStart.boss.dead) failures.push('world 10 must spawn a live guardian');
-if (bossStart.portalOpen) failures.push('guardian world portal must start sealed');
+if (bossStart.portalOpen || bossStart.portalReady) failures.push('guardian world gate must start sealed');
 const bossDefeated = await page.evaluate(() => window.__MOSSLIGHT_PLAYTEST__.defeatBoss());
-if (bossDefeated.portalOpen) failures.push('guardian defeat alone must not bypass unresolved arena puzzles');
+if (bossDefeated.portalOpen || bossDefeated.portalReady) failures.push('guardian defeat alone must not bypass unresolved arena puzzles');
 if (!bossDefeated.boss?.dead) failures.push('guardian defeat helper did not defeat guardian');
 const bossReady = await page.evaluate(() => window.__MOSSLIGHT_PLAYTEST__.completeRoom());
-if (!bossReady.portalOpen) failures.push('guardian world portal should open after puzzles + boss + Mossglint quota');
-if (bossReady.stones < bossReady.stoneQuota) failures.push('guardian room opened without enough Mossglint');
-await page.screenshot({ path: path.join(outputDir, 'guardian-ready.png') });
+if (!bossReady.portalReady || bossReady.portalOpen) failures.push(`guardian world should arm but not auto-open after puzzles + boss + Mossglint, got ${bossReady.portalPhase}`);
+if (bossReady.stones < bossReady.stoneQuota) failures.push('guardian room armed without enough Mossglint');
+await page.evaluate(() => window.__MOSSLIGHT_PLAYTEST__.firePortal());
+await page.waitForFunction(() => window.__MOSSLIGHT_PLAYTEST__.snapshot().portalOpen === true, null, { timeout: 2500 });
+const bossOpen = await page.evaluate(() => window.__MOSSLIGHT_PLAYTEST__.snapshot());
+await page.screenshot({ path: path.join(outputDir, 'guardian-extraction.png') });
 
 await page.evaluate(() => window.__MOSSLIGHT_PLAYTEST__.setRoom(2, 3));
 const early = await page.evaluate(() => window.__MOSSLIGHT_PLAYTEST__.snapshot());
@@ -157,12 +168,12 @@ if (final.fps < 42) failures.push(`runtime FPS too low: ${final.fps.toFixed(1)}`
 if (consoleErrors.length) failures.push(...consoleErrors.map((error) => `console error: ${error}`));
 
 const report = {
-  generatedAt: new Date().toISOString(), runtimeUrl, version: metadata.version,
+  generatedAt: new Date().toISOString(), runtimeUrl, title: metadata.title, version: metadata.version,
   expedition: metadata.expedition, director: metadata.director,
   movement: { from: start.player, to: moved.player },
   aimContract: { pointerTarget, keyboardTarget },
-  portalGate: { before: gateBefore, ready: gateReady, afterAdvance },
-  guardian: { start: bossStart, defeated: bossDefeated, ready: bossReady },
+  portalGate: { before: gateBefore, ready: gateReady, open: gateOpen, afterAdvance },
+  guardian: { start: bossStart, defeated: bossDefeated, ready: bossReady, open: bossOpen },
   difficulty: { earlyEnemies: early.enemies.length, depth300Enemies: deep.enemies.length },
   replay: { firstIndices, secondIndices, overlap },
   finalFps: final.fps, consoleErrors, failures,
@@ -171,8 +182,8 @@ fs.writeFileSync(path.join(outputDir, 'report.json'), `${JSON.stringify(report, 
 await browser.close();
 
 if (failures.length) {
-  console.error(`Mosslight v0.4 browser playtest failed with ${failures.length} issue(s):`);
+  console.error(`Sylvaria v0.5 browser playtest failed with ${failures.length} issue(s):`);
   for (const failure of failures) console.error(` - ${failure}`);
   process.exit(1);
 }
-console.log('Mosslight v0.4 PASS: one-way portal gating, Mossglint economy, guardian lock, global difficulty, dual aim, persistent unseen Atlas sectors, and performance verified.');
+console.log('Sylvaria v0.5 PASS: explicit Mossglint gate shot, animated extraction portal, guardian lock, global difficulty, dual aim, persistent unseen Atlas sectors, and performance verified.');
