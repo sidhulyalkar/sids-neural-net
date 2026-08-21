@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import type { CSSProperties } from 'react';
 import { Bookmark, ChevronDown, ExternalLink, Heart, MessageCircleMore } from 'lucide-react';
 import { FRONTIER_LANE_MAP } from '@/lib/frontier/config';
 import type { FrontierItem, FrontierReaction } from '@/lib/frontier/types';
@@ -19,14 +18,6 @@ const REACTIONS: Array<{ id: FrontierReaction; glyph: string; label: string }> =
   { id: 'meh', glyph: '·', label: 'Meh' },
   { id: 'hide', glyph: '×', label: 'Hide' },
 ];
-
-const LANE_ACCENTS: Record<string, string> = {
-  must_know: '#ffd47a', ml_data: '#78e9ff', ai_frontier: '#a79cff', neuro_frontier: '#ef9cff',
-  methods: '#87f0d2', builder_signal: '#90c9ff', competitions: '#ffd08c', broad_science: '#b7f3e1',
-  creative_tech: '#ff9ed1', world_pulse: '#f1e2a4', premier_league: '#9dffb1', world_soccer: '#a7e6ba',
-  team_pulse: '#80e6a8', sports: '#b3d4ff', gaming: '#ffb36b', music: '#ff85cf',
-  internet_culture: '#ffe17a', life: '#9fd6a6', wildcards: '#d5afff',
-};
 
 export type SignalCardVariant = 'feature' | 'wide' | 'standard' | 'compact';
 
@@ -60,18 +51,56 @@ function publishedLabel(value: string): string {
   }).format(date);
 }
 
-function DiscoveryImage({ src, alt }: { src: string; alt: string }) {
+function isHttpUrl(value?: string): value is string {
+  if (!value) return false;
+  try {
+    const parsed = new URL(value);
+    return parsed.protocol === 'https:' || parsed.protocol === 'http:';
+  } catch {
+    return false;
+  }
+}
+
+function isYouTubeId(value?: string): value is string {
+  return Boolean(value && /^[A-Za-z0-9_-]{6,20}$/.test(value));
+}
+
+function hasRenderableMedia(item: FrontierItem): boolean {
+  const media = item.media;
+  if (!media || media.type === 'none' || media.type === 'chart') return false;
+  if (media.type === 'youtube') return isYouTubeId(media.url);
+  return isHttpUrl(media.url);
+}
+
+function DiscoveryImage({ src, alt, onUnavailable }: { src: string; alt: string; onUnavailable: () => void }) {
   return (
     // Live publisher/community media cannot use a static next/image host allowlist.
     // eslint-disable-next-line @next/next/no-img-element
-    <img src={src} alt={alt} className={styles.mediaImage} loading="lazy" decoding="async" referrerPolicy="no-referrer" />
+    <img
+      src={src}
+      alt={alt}
+      className={styles.mediaImage}
+      loading="lazy"
+      decoding="async"
+      referrerPolicy="no-referrer"
+      onError={onUnavailable}
+    />
   );
 }
 
-function RealMedia({ item, interactive = false }: { item: FrontierItem; interactive?: boolean }) {
+function RealMedia({
+  item,
+  interactive = false,
+  onUnavailable,
+}: {
+  item: FrontierItem;
+  interactive?: boolean;
+  onUnavailable: () => void;
+}) {
   const media = item.media;
-  if (!media || media.type === 'none') return null;
-  if (media.type === 'youtube' && media.url) {
+  if (!media || !hasRenderableMedia(item)) return null;
+
+  if (media.type === 'youtube' && isYouTubeId(media.url)) {
     if (interactive) {
       return (
         <div className={styles.realMedia}>
@@ -83,26 +112,52 @@ function RealMedia({ item, interactive = false }: { item: FrontierItem; interact
             allow="accelerometer; encrypted-media; gyroscope; picture-in-picture"
             allowFullScreen
           />
+          <span className={styles.mediaKind}>Video</span>
         </div>
       );
     }
-    const poster = media.poster || `https://i.ytimg.com/vi/${media.url}/hqdefault.jpg`;
-    return <div className={styles.realMedia}><DiscoveryImage src={poster} alt={media.alt || item.title} /></div>;
-  }
-  if (media.type === 'image' && media.url) {
-    return <div className={styles.realMedia}><DiscoveryImage src={media.url} alt={media.alt || item.title} /></div>;
-  }
-  if (media.type === 'video' && media.url) {
+    const poster = isHttpUrl(media.poster) ? media.poster : `https://i.ytimg.com/vi/${media.url}/hqdefault.jpg`;
     return (
       <div className={styles.realMedia}>
-        {interactive ? (
-          <video className={styles.mediaImage} controls preload="metadata" poster={media.poster}><source src={media.url} /></video>
-        ) : media.poster ? (
-          <DiscoveryImage src={media.poster} alt={media.alt || item.title} />
-        ) : null}
+        <DiscoveryImage src={poster} alt={media.alt || item.title} onUnavailable={onUnavailable} />
+        <span className={styles.mediaKind}>Video</span>
       </div>
     );
   }
+
+  if (media.type === 'image' && isHttpUrl(media.url)) {
+    return (
+      <div className={styles.realMedia}>
+        <DiscoveryImage src={media.url} alt={media.alt || item.title} onUnavailable={onUnavailable} />
+      </div>
+    );
+  }
+
+  if (media.type === 'video' && isHttpUrl(media.url)) {
+    if (!interactive && isHttpUrl(media.poster)) {
+      return (
+        <div className={styles.realMedia}>
+          <DiscoveryImage src={media.poster} alt={media.alt || item.title} onUnavailable={onUnavailable} />
+          <span className={styles.mediaKind}>Video</span>
+        </div>
+      );
+    }
+    return (
+      <div className={styles.realMedia}>
+        <video
+          className={styles.mediaImage}
+          controls
+          preload="metadata"
+          poster={isHttpUrl(media.poster) ? media.poster : undefined}
+          onError={onUnavailable}
+        >
+          <source src={media.url} />
+        </video>
+        <span className={styles.mediaKind}>Video</span>
+      </div>
+    );
+  }
+
   return null;
 }
 
@@ -160,10 +215,14 @@ export function SignalCard({
   const dwellTimer = useRef<number | undefined>(undefined);
   const expandedRecorded = useRef(false);
   const [expanded, setExpanded] = useState(false);
+  const [mediaUnavailable, setMediaUnavailable] = useState(false);
   const lane = FRONTIER_LANE_MAP[item.lane];
-  const style = { '--lane-accent': LANE_ACCENTS[item.lane] ?? '#76edff' } as CSSProperties;
   const feed = presentation === 'feed';
-  const hasMedia = Boolean(item.media && item.media.type !== 'none' && item.media.url);
+  const hasMedia = !mediaUnavailable && hasRenderableMedia(item);
+
+  useEffect(() => {
+    setMediaUnavailable(false);
+  }, [item.id, item.media?.type, item.media?.url, item.media?.poster]);
 
   useEffect(() => {
     const node = ref.current;
@@ -227,28 +286,34 @@ export function SignalCard({
     </div>
   );
 
+  const meta = (
+    <div className={styles.cardTopline}>
+      <span className={styles.laneLabel}>{resurfaced ? '↺ ' : ''}{lane.shortLabel}</span>
+      <span className={styles.sourceLabel}>{item.sourceLabel} · {publishedLabel(item.publishedAt)}</span>
+    </div>
+  );
+
   if (feed) {
     return (
-      <article ref={ref} className={`${styles.card} ${styles.feedCard}`} style={style}>
+      <article ref={ref} className={`${styles.card} ${styles.feedCard} ${hasMedia ? styles.feedCardMedia : styles.feedCardText}`}>
         <div className={styles.feedCopy}>
-          <div className={styles.cardTopline}>
-            <span className={styles.laneLabel}>{resurfaced ? '↺ ' : ''}{lane.shortLabel}</span>
-            <span className={styles.sourceLabel}>{item.sourceLabel} · {publishedLabel(item.publishedAt)}</span>
-          </div>
+          {meta}
           <h3 className={styles.cardTitle}>{item.title}</h3>
           <p className={styles.cardSummary}>{item.summary}</p>
+          <div className={styles.feedDetails}>
+            <MetricLine item={item} />
+            <p className={styles.reason}>{explanation}</p>
+          </div>
+          <div className={styles.feedActions}>
+            {quickActions}
+            <Feedback item={item} reaction={reaction} onReact={onReact} />
+          </div>
         </div>
         {hasMedia ? (
           <div className={styles.feedMediaSlot}>
-            <RealMedia item={item} interactive />
+            <RealMedia item={item} interactive onUnavailable={() => setMediaUnavailable(true)} />
           </div>
         ) : null}
-        <aside className={styles.feedContext}>
-          <MetricLine item={item} />
-          <p className={styles.reason}>{explanation}</p>
-          {quickActions}
-          <Feedback item={item} reaction={reaction} onReact={onReact} />
-        </aside>
       </article>
     );
   }
@@ -265,32 +330,35 @@ export function SignalCard({
   };
 
   return (
-    <article ref={ref} className={`${styles.card} ${styles.tileCard} ${expanded ? styles.cardExpanded : ''}`} style={style}>
-      <button
-        type="button"
-        className={styles.tilePeek}
-        aria-expanded={expanded}
-        onClick={toggleExpanded}
-      >
-        <div className={styles.cardTopline}>
-          <span className={styles.laneLabel}>{resurfaced ? '↺ ' : ''}{lane.shortLabel}</span>
-          <span className={styles.sourceLabel}>{item.sourceLabel} · {publishedLabel(item.publishedAt)}</span>
+    <article ref={ref} className={`${styles.card} ${styles.tileCard} ${hasMedia ? styles.tileCardMedia : styles.tileCardText} ${expanded ? styles.cardExpanded : ''}`}>
+      {hasMedia ? (
+        <div className={styles.tileMedia}>
+          <RealMedia item={item} interactive={expanded} onUnavailable={() => setMediaUnavailable(true)} />
         </div>
+      ) : null}
+
+      <div className={styles.tileBody}>
+        {meta}
         <h3 className={styles.cardTitle}>{item.title}</h3>
         <p className={styles.cardSummary}>{item.summary}</p>
-        <span className={styles.expandCue}>{expanded ? 'Collapse' : 'Expand'} <ChevronDown size={12} /></span>
-      </button>
 
-      {expanded ? (
-        <div className={styles.expandedPanel}>
-          <RealMedia item={item} interactive />
-          <div className={styles.expandedCopy}>
+        <button
+          type="button"
+          className={styles.expandCue}
+          aria-expanded={expanded}
+          onClick={toggleExpanded}
+        >
+          {expanded ? 'Less' : 'Context'} <ChevronDown size={12} />
+        </button>
+
+        {expanded ? (
+          <div className={styles.expandedPanel}>
             <MetricLine item={item} />
             <p className={styles.reason}>{explanation}</p>
             <Feedback item={item} reaction={reaction} onReact={onReact} />
           </div>
-        </div>
-      ) : null}
+        ) : null}
+      </div>
 
       <div className={styles.tileFooter}>{quickActions}</div>
     </article>
