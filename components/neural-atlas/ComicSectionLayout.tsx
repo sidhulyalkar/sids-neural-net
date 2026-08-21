@@ -32,7 +32,7 @@ export function ComicSectionLayout({
           initial={headerInitial}
           animate={{ opacity: 1, y: 0, scale: 1 }}
           transition={{ duration: reduceMotion ? 0 : 0.7 }}
-          className="flex max-w-4xl items-start justify-between gap-5"
+          className="flex max-w-4xl items-start justify-between gap-4 sm:gap-5"
         >
           <div className="min-w-0">
             {eyebrow ? (
@@ -49,7 +49,7 @@ export function ComicSectionLayout({
           <Link
             href="/frontier"
             aria-label="Open FRONTIER personal intelligence radar"
-            className="group hidden shrink-0 items-center gap-2 rounded-full border border-cyan/15 bg-black/20 px-3 py-2 font-mono text-[0.56rem] uppercase tracking-[0.14em] text-cyan/65 transition-all hover:-translate-y-px hover:border-cyan/35 hover:bg-cyan/[0.055] hover:text-cyan sm:inline-flex"
+            className="group inline-flex shrink-0 items-center gap-2 rounded-full border border-cyan/15 bg-black/20 px-2.5 py-2 font-mono text-[0.52rem] uppercase tracking-[0.12em] text-cyan/65 transition-all hover:-translate-y-px hover:border-cyan/35 hover:bg-cyan/[0.055] hover:text-cyan sm:px-3 sm:text-[0.56rem] sm:tracking-[0.14em]"
           >
             <span className="relative flex h-1.5 w-1.5">
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-cyan/45 opacity-60 motion-reduce:animate-none" />
