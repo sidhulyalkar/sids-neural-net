@@ -16,13 +16,16 @@
     'the machete is always rendered independently from step-dash deformation',
     'cardinal cuts and arrival-direction hints read before ornament',
     'step-dash stretch communicates committed movement without changing collision geometry',
+    'high-speed returned bullets use a brighter trail than hostile projectiles',
     'counter flashes are brighter than ambient particles',
   ]);
   const WORLD_RULES = Object.freeze([
     'living trees are gameplay objectives and physical routing geometry',
     'deadwood physically blocks step-dashes until Sprid chops it open',
     'enemy intent lines and recovery rings stay readable over biome decoration',
+    'evasion destinations are telegraphed before backsteps or blinks resolve',
     'support links reveal Committee shields without adding HUD text',
+    'hostile zigzag wave spiral swerve and wobble patterns preserve readable arrival-side counters',
     'the 960x640 arena remains a stable 3:2 combat field',
     'full-device background extends the room palette without hiding threats',
   ]);
@@ -84,7 +87,7 @@
   const originalSnapshot = playtest.snapshot.bind(playtest);
   function visualSnapshot() {
     return {
-      version: '0.8.1',
+      version: '0.8.2',
       theme: 'forest',
       themeLabel: 'countercut forest',
       quality: window.SylvariaRenderBudget?.snapshot?.() || { tier: 'balanced' },
@@ -96,9 +99,13 @@
       playfieldScale: window.SylvariaDisplayScale?.scale || 1,
       routeGeometry: true,
       lockedIntentTelegraphs: true,
+      resilientMoveQueue: true,
+      projectilePatternReadability: true,
+      evasiveEnemyCues: true,
+      counterRouting: true,
     };
   }
-  playtest.version = '0.8.1';
+  playtest.version = '0.8.2';
   playtest.snapshot = () => ({ ...originalSnapshot(), visual: visualSnapshot() });
 
   window.addEventListener('resize', resize);
@@ -106,7 +113,7 @@
   resize();
 
   window.SylvariaVisualSystem = Object.freeze({
-    version: '0.8.1',
+    version: '0.8.2',
     themes: THEMES,
     spridRules: SPRID_RULES,
     worldRules: WORLD_RULES,
