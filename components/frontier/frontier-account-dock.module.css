@@ -1,0 +1,16 @@
+.dock {
+  position: fixed;
+  top: 18px;
+  right: 18px;
+  z-index: 80;
+  pointer-events: auto;
+}
+
+@media (max-width: 900px) {
+  .dock {
+    top: auto;
+    right: 12px;
+    bottom: 12px;
+    max-width: calc(100vw - 24px);
+  }
+}
