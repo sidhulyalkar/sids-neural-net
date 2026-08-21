@@ -16,7 +16,7 @@ export async function generateMetadata({ params }: ArcadeGamePageProps): Promise
   const game = getArcadeGame(slug);
   if (!game) return {};
   return {
-    title: `${game.title} | Game Arcade`,
+    title: `${game.title} | Game Network`,
     description: game.description,
     alternates: { canonical: `/arcade/${game.slug}` },
   };
