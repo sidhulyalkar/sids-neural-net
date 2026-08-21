@@ -20,11 +20,14 @@ export function SignalBoard({ items, renderCard, empty, compact = false, onLayou
   const [mode, setMode] = useState<SignalLayoutMode>('desk');
 
   useEffect(() => {
-    const saved = window.localStorage.getItem('frontier-layout-mode');
-    const preferred = saved === 'feed' || saved === 'desk' ? saved : 'desk';
-    const resolved = window.innerWidth < 720 ? 'feed' : preferred;
-    setMode(resolved);
-    onLayoutChange?.(resolved);
+    const frame = window.requestAnimationFrame(() => {
+      const saved = window.localStorage.getItem('frontier-layout-mode');
+      const preferred = saved === 'feed' || saved === 'desk' ? saved : 'desk';
+      const resolved = window.innerWidth < 720 ? 'feed' : preferred;
+      setMode(resolved);
+      onLayoutChange?.(resolved);
+    });
+    return () => window.cancelAnimationFrame(frame);
   }, [onLayoutChange]);
 
   const switchMode = (next: SignalLayoutMode) => {
