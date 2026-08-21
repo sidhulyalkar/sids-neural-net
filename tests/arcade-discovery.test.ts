@@ -31,16 +31,17 @@ test('the Game Network exposes every current game as a playable entry', () => {
   }
 });
 
-test('Sylvaria v0.6 is canonical while the previous Mosslight URL remains a compatibility alias', () => {
+test('Sylvaria v0.7 is canonical while the previous Mosslight URL remains a compatibility alias', () => {
   const sylvaria = arcadeGames.find((game) => game.slug === 'sylvaria');
   assert.ok(sylvaria);
   assert.equal(sylvaria.title, 'Sylvaria');
-  assert.equal(sylvaria.version, 'v0.6.0');
+  assert.equal(sylvaria.version, 'v0.7.0');
   assert.match(sylvaria.subtitle, /MOSSGLINT RUN/);
   assert.match(sylvaria.description, /Sprid/);
-  assert.match(sylvaria.description, /biome-specific/);
+  assert.match(sylvaria.description, /full-device/);
   assert.ok(sylvaria.controls.some((control) => control.input === 'F' && /portal gate/i.test(control.action)));
   assert.ok(sylvaria.controls.some((control) => control.input === 'Enter' && /open portal/i.test(control.action)));
+  assert.ok(sylvaria.controls.some((control) => control.input === 'Fullscreen' && /device display/i.test(control.action)));
   assert.equal(getArcadeGame('mosslight')?.slug, 'sylvaria');
   assert.equal(getArcadeGame('sylvaria')?.slug, 'sylvaria');
 
@@ -48,47 +49,77 @@ test('Sylvaria v0.6 is canonical while the previous Mosslight URL remains a comp
   assert.match(runtime, /Sylvaria: Mossglint Run/);
   assert.match(runtime, /Sprid/);
   assert.match(runtime, /game-v5\.js/);
+  assert.match(runtime, /render-scale-v7\.js/);
   assert.match(runtime, /render-optimizer-v6\.js/);
-  assert.match(runtime, /visual-system-v6\.js/);
-  assert.match(runtime, /sylvaria-v6\.css/);
+  assert.match(runtime, /visual-system-v7\.js/);
+  assert.match(runtime, /sylvaria-v7\.css/);
+  assert.doesNotMatch(runtime, /visual-system-v6\.js/);
   assert.doesNotMatch(runtime, /game-v4\.js/);
 });
 
-test('Sylvaria v0.6 codifies crisp biome art and adaptive performance', () => {
+test('Sylvaria v0.7 keeps high-DPI rendering, gameplay, and immersion layers in the safe order', () => {
   const runtime = readRepoFile('public/game-runtimes/mosslight-v2/index.html');
+  const renderScale = readRepoFile('public/game-runtimes/mosslight-v2/render-scale-v7.js');
   const optimizer = readRepoFile('public/game-runtimes/mosslight-v2/render-optimizer-v6.js');
-  const visuals = readRepoFile('public/game-runtimes/mosslight-v2/visual-system-v6.js');
-  const styles = readRepoFile('public/game-runtimes/mosslight-v2/sylvaria-v6.css');
-  const doc = readRepoFile('docs/SYLVARIA_V06_VISUAL_SYSTEM.md');
+  const visuals = readRepoFile('public/game-runtimes/mosslight-v2/visual-system-v7.js');
+  const styles = readRepoFile('public/game-runtimes/mosslight-v2/sylvaria-v7.css');
+  const doc = readRepoFile('docs/SYLVARIA_V07_IMMERSION_SYSTEM.md');
 
-  assert.match(runtime, /id="biomeBadge"/);
-  assert.match(runtime, /id="visualQuality"/);
-  assert.match(runtime, /id="qualityState"/);
-  assert.ok(runtime.indexOf('render-optimizer-v6.js') < runtime.indexOf('game-v5.js'));
-  assert.ok(runtime.indexOf('game-v5.js') < runtime.indexOf('visual-system-v6.js'));
+  const renderScaleIndex = runtime.indexOf('render-scale-v7.js');
+  const optimizerIndex = runtime.indexOf('render-optimizer-v6.js');
+  const gameIndex = runtime.indexOf('game-v5.js');
+  const visualIndex = runtime.indexOf('visual-system-v7.js');
+  assert.ok(renderScaleIndex >= 0 && renderScaleIndex < optimizerIndex);
+  assert.ok(optimizerIndex < gameIndex);
+  assert.ok(gameIndex < visualIndex);
 
-  for (const theme of ['forest', 'volcanic', 'reef', 'ice', 'celestial']) {
-    assert.match(visuals, new RegExp(`${theme}: \\{`));
-  }
-  for (const builder of ['buildForestSprite', 'buildVolcanicSprite', 'buildReefSprite', 'buildIceSprite', 'buildCelestialSprite']) {
-    assert.match(visuals, new RegExp(builder));
-  }
-  assert.match(visuals, /SPRID_RULES/);
-  assert.match(visuals, /ENEMY_RULES/);
-  assert.match(visuals, /ASSET_CHECKLIST/);
-  assert.match(visuals, /drawCuteEnemyFace/);
-  assert.match(visuals, /playtest\.version = '0\.6\.0'/);
+  assert.match(renderScale, /devicePixelRatio/);
+  assert.match(renderScale, /SylvariaDisplayScale/);
+  assert.match(renderScale, /ctx\.setTransform\(scale/);
   assert.match(optimizer, /GradientRequest/);
   assert.match(optimizer, /gradientCache/);
   assert.match(optimizer, /fps-downshift/);
   assert.match(optimizer, /fps-upshift/);
-  assert.match(styles, /--biome-accent/);
-  assert.match(styles, /prefers-contrast:more/);
-  assert.match(doc, /Sprid design rules/);
-  assert.match(doc, /Enemy art rules/);
-  assert.match(doc, /Per-biome palette \+ motif guide/);
-  assert.match(doc, /Exact asset checklist/);
-  assert.match(doc, /Visual QA matrix/);
+
+  for (const theme of ['forest', 'volcanic', 'reef', 'ice', 'celestial']) {
+    assert.match(visuals, new RegExp(`${theme}: \\{`));
+  }
+  assert.match(visuals, /collection === 'celestial'/);
+  assert.match(visuals, /scene\.renderCues/);
+  assert.match(visuals, /sylWorldBackdrop/);
+  assert.match(visuals, /drawForestBackdrop/);
+  assert.match(visuals, /drawVolcanicBackdrop/);
+  assert.match(visuals, /drawReefBackdrop/);
+  assert.match(visuals, /drawIceBackdrop/);
+  assert.match(visuals, /drawCelestialBackdrop/);
+  assert.match(visuals, /detectReactions/);
+  assert.match(visuals, /installFullscreenControl/);
+  assert.match(visuals, /WORLD_RULES/);
+  assert.match(visuals, /playtest\.version = '0\.7\.0'/);
+
+  assert.match(styles, /100svh/);
+  assert.match(styles, /safe-area-inset-top/);
+  assert.match(styles, /--syl-playfield-w/);
+  assert.match(styles, /--syl-playfield-h/);
+  assert.match(styles, /#sylWorldBackdrop/);
+  assert.match(styles, /data-syl-pseudo-fullscreen/);
+
+  assert.match(doc, /logical 960×640/);
+  assert.match(doc, /high-DPI/);
+  assert.match(doc, /full-device/);
+  assert.match(doc, /five world families/i);
+  assert.match(doc, /performance budget/i);
+  assert.match(doc, /visual QA matrix/i);
+});
+
+test('Game Network fullscreen removes portfolio chrome and gives the iframe the whole display', () => {
+  const playSpace = readRepoFile('components/arcade/ArcadePlaySpace.tsx');
+  assert.match(playSpace, /data-arcade-fullscreen/);
+  assert.match(playSpace, /requestFullscreen\(\{ navigationUI: 'hide' \}\)/);
+  assert.match(playSpace, /fullscreen \? 'hidden'/);
+  assert.match(playSpace, /absolute inset-0 flex items-stretch justify-stretch p-0/);
+  assert.match(playSpace, /relative h-full w-full overflow-hidden bg-black/);
+  assert.match(playSpace, /style=\{fullscreen \? undefined : \{ aspectRatio: game\.aspectRatio \}\}/);
 });
 
 test('Sprid is the canonical Sylvaria protagonist name', () => {
@@ -103,6 +134,7 @@ test('Sprid is the canonical Sylvaria protagonist name', () => {
     'docs/MOSSLIGHT_MOSSGLINT_RUN_V04.md',
     'docs/MOSSLIGHT_V02_PLAYABILITY_AND_VISUAL_REVIEW.md',
     'docs/SYLVARIA_V06_VISUAL_SYSTEM.md',
+    'docs/SYLVARIA_V07_IMMERSION_SYSTEM.md',
   ]) {
     const source = readRepoFile(path);
     assert.match(source, /Sprid/, `${path} should name Sprid`);
