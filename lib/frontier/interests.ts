@@ -16,6 +16,17 @@ export type FrontierGameInterest = {
   weight: number;
 };
 
+export type FrontierActiveSport = {
+  id: string;
+  label: string;
+  lane: FrontierLaneId;
+  aliases: string[];
+  tags: string[];
+  query: string;
+  reddit: string[];
+  weight: number;
+};
+
 export const FRONTIER_TEAMS = [
   {
     id: 'patriots',
@@ -42,6 +53,94 @@ export const FRONTIER_TEAMS = [
     tags: ['manchester city', 'man city', 'premier league'],
   },
 ] as const;
+
+/**
+ * Sports the owner actively does or is learning. These are modeled separately
+ * from favorite spectator teams so FRONTIER can surface technique, athlete
+ * stories, professional circuits, progression ideas, and genuinely great clips.
+ */
+export const FRONTIER_ACTIVE_SPORTS: FrontierActiveSport[] = [
+  {
+    id: 'rock-climbing',
+    label: 'Rock climbing',
+    lane: 'sports',
+    aliases: ['rock climbing', 'sport climbing', 'bouldering', 'lead climbing', 'speed climbing'],
+    tags: ['active sport', 'rock climbing', 'climbing', 'bouldering'],
+    query: 'rock climbing IFSC bouldering lead climbing athlete story competition highlights best sends clips',
+    reddit: ['climbing', 'bouldering', 'ClimbingPorn'],
+    weight: 1.0,
+  },
+  {
+    id: 'mountain-biking',
+    label: 'Mountain biking',
+    lane: 'sports',
+    aliases: ['mountain biking', 'mountain bike', 'mtb', 'downhill mtb', 'enduro mtb'],
+    tags: ['active sport', 'mountain biking', 'mtb', 'downhill'],
+    query: 'mountain biking UCI downhill enduro Crankworx rider story race highlights best runs clips',
+    reddit: ['mountainbiking', 'MTB'],
+    weight: 1.0,
+  },
+  {
+    id: 'skiing',
+    label: 'Skiing',
+    lane: 'sports',
+    aliases: ['skiing', 'freeski', 'freeride skiing', 'alpine skiing'],
+    tags: ['active sport', 'skiing', 'freeski', 'freeride'],
+    query: 'skiing FIS Freeride World Tour X Games athlete story best run highlights clips',
+    reddit: ['skiing'],
+    weight: 0.94,
+  },
+  {
+    id: 'skateboarding',
+    label: 'Skateboarding',
+    lane: 'sports',
+    aliases: ['skateboarding', 'skateboard', 'street skateboarding', 'vert skateboarding'],
+    tags: ['active sport', 'skateboarding', 'street skating', 'best trick'],
+    query: 'skateboarding SLS X Games pro contest skater story best trick highlights clips',
+    reddit: ['skateboarding'],
+    weight: 0.92,
+  },
+  {
+    id: 'longboarding',
+    label: 'Longboarding',
+    lane: 'sports',
+    aliases: ['longboarding', 'longboard', 'downhill longboarding', 'longboard dancing'],
+    tags: ['active sport', 'longboarding', 'downhill longboard', 'freeride'],
+    query: 'longboarding downhill freeride longboard dancing rider story event best run tricks clips',
+    reddit: ['longboarding'],
+    weight: 0.86,
+  },
+  {
+    id: 'soccer',
+    label: 'Soccer',
+    lane: 'world_soccer',
+    aliases: ['soccer', 'football skills', 'association football'],
+    tags: ['active sport', 'soccer', 'football', 'skills'],
+    query: 'soccer football player story technique skills best goals assists highlights clips',
+    reddit: ['soccer'],
+    weight: 0.94,
+  },
+  {
+    id: 'ripstik',
+    label: 'RipStik',
+    lane: 'sports',
+    aliases: ['ripstik', 'ripstick', 'caster board', 'casterboard'],
+    tags: ['active sport', 'ripstik', 'caster board', 'tricks'],
+    query: 'RipStik caster board advanced tricks progression best clips riding',
+    reddit: [],
+    weight: 0.8,
+  },
+  {
+    id: 'ripsurf',
+    label: 'RipSurf',
+    lane: 'sports',
+    aliases: ['ripsurf', 'ripsurfing', 'waveboard', 'land surfing'],
+    tags: ['active sport', 'ripsurf', 'waveboard', 'land surfing'],
+    query: 'RipSurf waveboard land surfing advanced tricks progression best clips riding',
+    reddit: [],
+    weight: 0.8,
+  },
+];
 
 /**
  * Seeded from the Steam-library snapshot supplied for FRONTIER. App IDs are
@@ -127,10 +226,13 @@ const SUBREDDIT_GROUPS = {
     'nottheonion', 'Showerthoughts', 'todayilearned', 'funny', 'gifs', 'mildlyinteresting', 'nextfuckinglevel',
     'InternetIsBeautiful', 'PerfectTiming', 'blackmagicfuckery', 'ThatsInsane',
   ],
+  activeSports: [
+    'mountainbiking', 'MTB', 'bouldering', 'climbing', 'ClimbingPorn', 'skiing', 'soccer',
+    'skateboarding', 'longboarding',
+  ],
   life: [
-    'mountainbiking', 'MTB', 'bouldering', 'climbing', 'ClimbingPorn', 'skiing', 'husky', 'HuskyTantrums',
-    'AnimalsBeingBros', 'AnimalsBeingDerps', 'aww', 'rarepuppers', 'NatureIsFuckingLit', 'EarthPorn',
-    'ExposurePorn', 'spaceporn', 'AbandonedPorn', 'Art', 'food',
+    'husky', 'HuskyTantrums', 'AnimalsBeingBros', 'AnimalsBeingDerps', 'aww', 'rarepuppers',
+    'NatureIsFuckingLit', 'EarthPorn', 'ExposurePorn', 'spaceporn', 'AbandonedPorn', 'Art', 'food',
   ],
 } as const;
 
@@ -145,7 +247,7 @@ function hashString(value: string): number {
   return hash >>> 0;
 }
 
-function rotatePick(values: readonly string[], count: number, seed: number): string[] {
+function rotatePick<T>(values: readonly T[], count: number, seed: number): T[] {
   if (!values.length || count <= 0) return [];
   const start = seed % values.length;
   return Array.from({ length: Math.min(count, values.length) }, (_, index) => values[(start + index) % values.length]);
@@ -158,10 +260,17 @@ export function pickDailySubreddits(dayKey: string, custom: string[] = []): stri
     ...rotatePick(SUBREDDIT_GROUPS.learn, 2, seed + 3),
     ...rotatePick(SUBREDDIT_GROUPS.gamesMusic, 2, seed + 7),
     ...rotatePick(SUBREDDIT_GROUPS.culture, 2, seed + 11),
-    ...rotatePick(SUBREDDIT_GROUPS.life, 2, seed + 17),
+    ...rotatePick(SUBREDDIT_GROUPS.activeSports, 2, seed + 17),
+    ...rotatePick(SUBREDDIT_GROUPS.life, 1, seed + 19),
     ...rotatePick(FRONTIER_FOLLOWED_SUBREDDITS, 1, seed + 23),
     ...custom,
   ])).slice(0, 15);
+}
+
+export function pickDailyActiveSports(dayKey: string, count = 4): FrontierActiveSport[] {
+  const seed = hashString(`${dayKey}-active-sports`);
+  const weighted = [...FRONTIER_ACTIVE_SPORTS].sort((a, b) => b.weight - a.weight);
+  return rotatePick(weighted, count, seed + 29);
 }
 
 export function pickDailySteamGames(dayKey: string): FrontierGameInterest[] {
@@ -186,6 +295,13 @@ export const FRONTIER_PINNED_TOPICS: FrontierInterestTopic[] = [
   { id: 'warriors', label: 'Warriors', realm: 'play', glyph: 'GS', aliases: ['golden state warriors', 'warriors', 'dubs', 'dub nation'] },
   { id: 'chelsea', label: 'Chelsea', realm: 'play', glyph: 'CFC', aliases: ['chelsea fc', 'chelsea football club', 'chelsea', 'cfc'] },
   { id: 'man-city', label: 'Man City', realm: 'play', glyph: 'MC', aliases: ['manchester city', 'man city', 'mcfc'] },
+  {
+    id: 'active-sports',
+    label: 'Active sports',
+    realm: 'play',
+    glyph: '↟',
+    aliases: FRONTIER_ACTIVE_SPORTS.flatMap((sport) => [sport.label, ...sport.aliases]),
+  },
   { id: 'bass', label: 'Bass orbit', realm: 'play', glyph: '♫', aliases: ['dubstep', 'edm', 'bass music', ...FRONTIER_MUSIC_ARTISTS] },
   { id: 'games', label: 'Game radar', realm: 'play', glyph: '▣', aliases: ['metroidvania', 'roguelike', 'indie game', ...FRONTIER_GAME_LIBRARY.flatMap((game) => [game.title, ...(game.aliases ?? [])])] },
   { id: 'memes', label: 'Internet gold', realm: 'play', glyph: '☺', aliases: ['meme', 'funny', 'shitpost', 'viral', 'reddit', 'humor'] },
@@ -198,6 +314,8 @@ function includesAlias(text: string, aliases: readonly string[]): boolean {
 
 export function personalLaneForText(text: string): FrontierLaneId | undefined {
   if (FRONTIER_TEAMS.some((team) => includesAlias(text, team.aliases))) return 'team_pulse';
+  const activeSport = FRONTIER_ACTIVE_SPORTS.find((sport) => includesAlias(text, sport.aliases));
+  if (activeSport) return activeSport.lane;
   if (FRONTIER_GAME_LIBRARY.some((game) => includesAlias(text, [game.title, ...(game.aliases ?? [])]))) return 'gaming';
   if (includesAlias(text, ['dubstep', 'edm', 'bass music', 'bass music festival', ...FRONTIER_MUSIC_ARTISTS])) return 'music';
   if (includesAlias(text, ['meme', 'shitpost', 'funny clip', 'viral post'])) return 'internet_culture';
@@ -209,6 +327,9 @@ export function personalInterestTags(text: string): string[] {
   for (const team of FRONTIER_TEAMS) {
     if (includesAlias(text, team.aliases)) tags.push(...team.tags);
   }
+  for (const sport of FRONTIER_ACTIVE_SPORTS) {
+    if (includesAlias(text, sport.aliases)) tags.push(...sport.tags);
+  }
   for (const game of FRONTIER_GAME_LIBRARY) {
     if (includesAlias(text, [game.title, ...(game.aliases ?? [])])) tags.push(game.title.toLowerCase());
   }
@@ -216,7 +337,7 @@ export function personalInterestTags(text: string): string[] {
     if (text.toLowerCase().includes(artist.toLowerCase())) tags.push(artist.toLowerCase());
   }
   if (includesAlias(text, ['dubstep', 'edm', 'bass music'])) tags.push('bass music');
-  return Array.from(new Set(tags)).slice(0, 8);
+  return Array.from(new Set(tags)).slice(0, 10);
 }
 
 export function topicMatchesItem(topic: FrontierInterestTopic, text: string): boolean {
