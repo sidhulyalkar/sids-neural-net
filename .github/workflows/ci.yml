@@ -105,7 +105,9 @@ jobs:
           curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/game-runtimes/mosslight-v2/rooms.js | grep -q "title: 'Earthheart'"
 
       - name: Install cross-browser smoke engines
-        run: npx --yes playwright@1.55.0 install --with-deps chromium firefox webkit
+        run: |
+          npx --yes playwright@1.55.0 install --with-deps chromium firefox webkit
+          npx --yes playwright@1.55.0 install chrome
 
       - name: Validate homepage Game Network CTA
         run: |
@@ -113,7 +115,7 @@ jobs:
           PW_ROOT="$(cd "$(dirname "$PW_BIN")/.." && pwd)"
           PLAYWRIGHT_MODULE_ROOT="$PW_ROOT" node scripts/playtest-arcade-home.mjs
 
-      - name: Validate Game Network across Chromium Firefox and WebKit
+      - name: Validate Game Network across Chrome Stable Chromium Firefox and WebKit
         run: |
           PW_BIN="$(npm exec --yes --package=playwright@1.55.0 -- which playwright)"
           PW_ROOT="$(cd "$(dirname "$PW_BIN")/.." && pwd)"
