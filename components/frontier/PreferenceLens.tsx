@@ -17,9 +17,9 @@ function engagementEvidence(behavior: FrontierBehaviorModel): number {
 }
 
 export function PreferenceLens({ behavior, onToggleLearning, onResetBehavior }: Props) {
-  const insights = summarizeHabits(behavior);
+  const insights = summarizeHabits(behavior).slice(0, 6);
   const lanes = Object.entries(behavior.laneStats)
-    .map(([lane, stats]) => ({ lane: lane as FrontierLaneId, stats, pref: aggregatePreference(stats) }))
+    .map(([lane, stats]) => ({ lane: lane as FrontierLaneId, pref: aggregatePreference(stats) }))
     .filter((entry) => entry.pref.confidence >= 0.12)
     .sort((a, b) => (b.pref.score * b.pref.confidence) - (a.pref.score * a.pref.confidence))
     .slice(0, 7);
@@ -29,9 +29,8 @@ export function PreferenceLens({ behavior, onToggleLearning, onResetBehavior }: 
     <div className={styles.learningLens}>
       <div className={styles.learningHead}>
         <div>
-          <span className={styles.micro}><Brain size={12} /> Preference learning</span>
-          <h2>What FRONTIER is learning</h2>
-          <p>Behavior stays in this browser. Dwell, expansion, opens, saves, explicit feedback, time-of-day, and reading mode gently tune ranking. Mere scrolling is weak evidence.</p>
+          <span className={styles.micro}><Brain size={12} /> Taste</span>
+          <h2>What&apos;s sticking</h2>
         </div>
         <label className={styles.learningToggle}>
           <input
@@ -39,14 +38,13 @@ export function PreferenceLens({ behavior, onToggleLearning, onResetBehavior }: 
             checked={behavior.implicitLearning}
             onChange={(event) => onToggleLearning(event.target.checked)}
           />
-          <span>{behavior.implicitLearning ? 'Learning on' : 'Learning paused'}</span>
+          <span>{behavior.implicitLearning ? 'Learning' : 'Paused'}</span>
         </label>
       </div>
 
       <div className={styles.learningSummary}>
-        <span>{behavior.sessions} session{behavior.sessions === 1 ? '' : 's'}</span>
-        <span>{evidence} evidence points</span>
-        <span>{behavior.layoutUses.feed + behavior.layoutUses.desk} layout choices</span>
+        <span>{behavior.sessions} sessions</span>
+        <span>{evidence} signals</span>
       </div>
 
       {insights.length ? (
@@ -61,9 +59,7 @@ export function PreferenceLens({ behavior, onToggleLearning, onResetBehavior }: 
             </div>
           ))}
         </div>
-      ) : (
-        <div className={styles.learningEmpty}>A few visits are enough to start revealing stable patterns. FRONTIER waits for evidence instead of guessing from one click.</div>
-      )}
+      ) : null}
 
       {lanes.length ? (
         <div className={styles.learnedLanes}>
@@ -78,7 +74,6 @@ export function PreferenceLens({ behavior, onToggleLearning, onResetBehavior }: 
       ) : null}
 
       <div className={styles.learningFoot}>
-        <span>Implicit signals only reorder within FRONTIER&apos;s editorial guardrails. Important news and exploration slots remain protected.</span>
         <button type="button" className={styles.utilityButton} onClick={onResetBehavior}><RotateCcw size={11} /> Forget habits</button>
       </div>
     </div>
