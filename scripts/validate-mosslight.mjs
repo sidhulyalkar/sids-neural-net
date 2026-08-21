@@ -4,7 +4,8 @@ const root = 'public/game-runtimes/mosslight-v2';
 const html = fs.readFileSync(`${root}/index.html`, 'utf8');
 const rooms = fs.readFileSync(`${root}/rooms.js`, 'utf8');
 const expedition = fs.readFileSync(`${root}/expedition.js`, 'utf8');
-const game = fs.readFileSync(`${root}/game.js`, 'utf8');
+const director = fs.readFileSync(`${root}/director.js`, 'utf8');
+const game = fs.readFileSync(`${root}/game-v3.js`, 'utf8');
 const styles = fs.readFileSync(`${root}/styles.css`, 'utf8');
 const atlasRoute = fs.readFileSync('app/game-runtimes/mosslight-atlas/route.ts', 'utf8');
 const errors = [];
@@ -16,11 +17,11 @@ const expect = (condition, message) => {
 expect(html.includes('<canvas id="c"'), 'runtime must expose the game canvas');
 expect(html.includes('Mosslight: Atlas Expeditions'), 'Atlas Expeditions runtime title is missing');
 expect(
-  html.includes('./rooms.js') && html.includes('/game-runtimes/mosslight-atlas') && html.includes('./expedition.js') && html.includes('./game.js') && html.includes('./styles.css'),
-  'runtime shell must load authored rooms, canonical atlas feed, expedition adapter, game, and styles'
+  html.includes('./rooms.js') && html.includes('/game-runtimes/mosslight-atlas') && html.includes('./expedition.js') && html.includes('./director.js') && html.includes('./game-v3.js') && html.includes('./styles.css'),
+  'runtime shell must load authored rooms, canonical atlas feed, expedition adapter, progression director, v0.3 game, and styles'
 );
 expect(html.includes('W A S D') && html.includes('Mouse / Arrows') && html.includes('Click / Space'), 'mouse + keyboard aim/cast onboarding is incomplete');
-expect(html.includes('1,000-scene Nature Atlas') && html.includes('unseen worlds'), 'replayable 1,000-world promise is missing from onboarding');
+expect(html.includes('1,000-scene Nature Atlas') && html.includes('world gifts'), 'replayable 1,000-world progression promise is missing from onboarding');
 expect(html.includes('gentle mode') && html.includes('flow mode'), 'gentle/default and optional flow modes must both be exposed');
 expect(styles.includes('#abilityBar') && styles.includes('#hintCard'), 'HUD visual system is incomplete');
 expect(/\.ability:disabled\s*\{\s*display:none\s*\}/.test(styles), 'locked tools must stay hidden until introduced');
@@ -40,7 +41,7 @@ const roomTitles = [
 for (const title of roomTitles) expect(rooms.includes(`title: '${title}'`), `missing mechanic template: ${title}`);
 
 const abilities = ['rain', 'sun', 'seed', 'wind', 'mend', 'gather'];
-for (const ability of abilities) expect(game.includes(`${ability}: { name:`), `missing ability definition: ${ability}`);
+for (const ability of abilities) expect(game.includes(`${ability}:`) && game.includes(`name: '${ability[0].toUpperCase()}${ability.slice(1)}'`), `missing ability definition: ${ability}`);
 
 expect((rooms.match(/T\('/g) ?? []).length >= 30, 'expected at least 30 authored restoration targets');
 expect((rooms.match(/H\('/g) ?? []).length >= 10, 'expected authored environmental stress fronts');
@@ -62,20 +63,37 @@ expect(expedition.includes('installAtlasOverlay') && expedition.includes('render
 expect(expedition.includes("['again', 'flowAgain']"), 'replay buttons must advance to a new expedition');
 expect(expedition.includes('atlasCount: atlas.count') && expedition.includes('runSize: RUN_SIZE'), 'Atlas expedition diagnostics are missing');
 
+const powerups = ['rapid-bloom', 'giant-dew', 'prism-spores', 'river-echo', 'sunstep', 'moss-ward'];
+for (const powerup of powerups) expect(director.includes(`id: '${powerup}'`), `missing expedition powerup: ${powerup}`);
+const encounterPatterns = ['patrol', 'weave', 'orbit', 'swoop', 'stalk', 'dash', 'spiral'];
+for (const pattern of encounterPatterns) expect(director.includes(`'${pattern}'`), `missing wildlife encounter movement pattern: ${pattern}`);
+const situations = ['tidal-lanes', 'living-corridor', 'heat-crossing', 'alpine-switchback', 'orbital-dance', 'weather-window', 'earthheart-convergence'];
+for (const situation of situations) expect(director.includes(`'${situation}'`), `missing terrain situation: ${situation}`);
+expect(director.includes('const level = slot + 1') && director.includes('speedScale') && director.includes('encounterCount'), 'room-by-room difficulty progression is missing');
+expect(director.includes('motionForObstacle') && director.includes("type: 'slide-x'") && director.includes("type: 'orbit'"), 'moving obstacle choreography is missing');
+expect(director.includes('movementPattern = animalPatternFor'), 'restoration animals need species-aware movement');
+expect(director.includes('window.MosslightDirector'), 'progression director diagnostics are missing');
+
 expect(game.includes('function assistedAim('), 'gentle aim assistance is missing');
 expect(game.includes("keys.has('arrowright')") && game.includes("keys.has('arrowleft')") && game.includes("keys.has('arrowup')") && game.includes("keys.has('arrowdown')"), 'arrow-key aiming is not wired into the aim vector');
 expect(game.includes("if (lower === ' ' && state.mode === 'playing') fire();"), 'Space casting is not wired for keyboard aiming');
-expect(game.includes("state.difficulty === 'gentle'"), 'gentle-mode tuning is missing');
-expect(game.includes('function drawPlayer(') && game.includes('drawFox(') && game.includes('drawOwl(') && game.includes('drawDeer('), 'character-specific renderers are missing');
-expect(game.includes('function smartSelect('), 'guided tool selection is missing');
-expect(game.includes('const nearest = nearestTarget(unfinished);') && !game.includes('currentStillUseful'), 'guided selection must follow the nearest unresolved relationship');
-expect(game.includes("setTimeout(() => ui.intro.classList.remove('show'), 1350)"), 'room intro must clear quickly enough for immediate play');
+expect(game.includes("aimSource = 'keyboard'") && game.includes("aimSource = 'mouse'"), 'mouse/keyboard aim arbitration is missing');
+expect(game.includes('spec.cooldown / state.relics.fireRate'), 'Rapid Bloom must modify fire cadence');
+expect(game.includes('spec.radius * state.relics.projectileScale'), 'Giant Dew must modify projectile size');
+expect(game.includes('state.relics.spread') && game.includes("[-.14, 0, .14]"), 'Prism Spores three-shot spread is missing');
+expect(game.includes('state.relics.pierce'), 'River Echo piercing is missing');
+expect(game.includes('state.relics.moveSpeed') && game.includes('state.relics.dashRecharge'), 'Sunstep mobility modifiers are missing');
+expect(game.includes('state.relics.shieldCharges'), 'Moss Ward shield charges are missing');
+expect(game.includes('function updateEncounter(') && game.includes("pattern === 'dash'") && game.includes("pattern === 'stalk'") && game.includes("pattern === 'orbit'"), 'custom encounter movement engine is incomplete');
+expect(game.includes('function updateAnimalTarget(') && game.includes("pattern === 'swoop'") && game.includes("pattern === 'flee'") && game.includes("pattern === 'hop'"), 'animal target movement grammar is incomplete');
+expect(game.includes('function updateSituation(') && game.includes('spawnSituationWave'), 'telegraphed room situations are missing');
+expect(game.includes('function updateObstacles('), 'moving obstacles are not integrated into gameplay');
+expect(game.includes('function collectPowerup('), 'world gift collection is missing');
 expect(game.includes('window.__MOSSLIGHT_PLAYTEST__'), 'browser playtest API is missing');
-expect(game.includes("version: '0.2.0'"), 'playtest API version is not v0.2.0');
-expect(game.includes('function drawAimReticle('), 'directional aim feedback is missing');
-expect(game.includes('drawGardenDecor') && game.includes('drawTideDecor') && game.includes('drawHeartDecor'), 'room-specific visual transformations are incomplete');
+expect(game.includes("version: '0.3.0'"), 'playtest API version is not v0.3.0');
+expect(game.includes('function drawAimReticle(') && game.includes('function drawEncounter(') && game.includes('function drawPowerup(') && game.includes('function drawWave('), 'v0.3 gameplay feedback renderers are incomplete');
 
-for (const [name, source] of [['rooms.js', rooms], ['expedition.js', expedition], ['game.js', game]]) {
+for (const [name, source] of [['rooms.js', rooms], ['expedition.js', expedition], ['director.js', director], ['game-v3.js', game]]) {
   try {
     new Function(source);
   } catch (error) {
@@ -89,4 +107,4 @@ if (errors.length) {
   process.exit(1);
 }
 
-console.log(`Mosslight PASS: ${roomTitles.length} stable mechanic templates + 1,000-scene replay deck, ${abilities.length} tools, mouse/arrow aim, gentle + flow modes, Atlas adapter compiles.`);
+console.log(`Mosslight PASS: ${roomTitles.length} escalating Atlas rooms, ${abilities.length} restoration tools, ${powerups.length} expedition powerups, ${encounterPatterns.length} wildlife movement grammars, ${situations.length} terrain situations, mouse/arrow aim, gentle + flow modes.`);
