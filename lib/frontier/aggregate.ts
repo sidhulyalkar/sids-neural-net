@@ -72,7 +72,10 @@ export async function getIntegratedFrontierFeed(
     getActiveSportsFeed(),
   ]);
 
-  const liveFeeds = [baseResult, personalResult, activeSportsResult].flatMap((result) =>
+  // Active-sports adapters intentionally precede the broad personal mesh so a
+  // duplicate climbing/MTB/etc. community post keeps its sport-specific tags,
+  // playable clip metadata, and daily active-sports reservation semantics.
+  const liveFeeds = [baseResult, activeSportsResult, personalResult].flatMap((result) =>
     result.status === 'fulfilled' ? [result.value] : []
   );
   const liveItems = dedupe(liveFeeds.flatMap((feed) => feed.items))
