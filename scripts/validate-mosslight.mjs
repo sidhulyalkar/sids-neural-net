@@ -70,7 +70,7 @@ for (const pattern of encounterPatterns) expect(director.includes(`'${pattern}'`
 const situations = ['tidal-lanes', 'living-corridor', 'heat-crossing', 'alpine-switchback', 'orbital-dance', 'weather-window', 'earthheart-convergence'];
 for (const situation of situations) expect(director.includes(`'${situation}'`), `missing terrain situation: ${situation}`);
 expect(director.includes('const level = slot + 1') && director.includes('speedScale') && director.includes('encounterCount'), 'room-by-room difficulty progression is missing');
-expect(director.includes('motionForObstacle') && director.includes("type: 'slide-x'") && director.includes("type: 'orbit'"), 'moving obstacle choreography is missing');
+expect(director.includes('motionForObstacle') && director.includes("'slide-x'") && director.includes("'slide-y'") && director.includes("type: 'orbit'"), 'moving obstacle choreography is missing');
 expect(director.includes('movementPattern = animalPatternFor'), 'restoration animals need species-aware movement');
 expect(director.includes('window.MosslightDirector'), 'progression director diagnostics are missing');
 
