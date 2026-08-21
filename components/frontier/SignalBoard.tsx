@@ -75,6 +75,15 @@ export function SignalBoard({ items, renderCard, empty, compact = false }: Props
     window.localStorage.setItem('frontier-layout-mode', next);
   };
 
+  const bringForward = (item: FrontierItem) => {
+    if (mode !== 'desk') return;
+    const z = ++topZ.current;
+    setPositions((current) => {
+      const position = current[item.id];
+      return position ? { ...current, [item.id]: { ...position, z } } : current;
+    });
+  };
+
   const onPointerDown = (event: ReactPointerEvent<HTMLButtonElement>, item: FrontierItem) => {
     if (mode !== 'desk') return;
     event.preventDefault();
@@ -155,6 +164,7 @@ export function SignalBoard({ items, renderCard, empty, compact = false }: Props
                   transform: `translate3d(${position.x}px, ${position.y}px, 0) rotate(${position.rotate}deg)`,
                   zIndex: position.z,
                 }}
+                onPointerDown={() => bringForward(item)}
               >
                 <button
                   type="button"
