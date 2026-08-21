@@ -2,19 +2,31 @@
 
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import {
+  applyBehaviorEvent,
+  createInitialBehaviorModel,
+  endBehaviorSession,
+  recordLayoutUse,
+  recordViewUse,
+  startBehaviorSession,
+} from './behavior';
 import { applyReactionToProfile } from './scoring';
 import { createInitialProfile, DEFAULT_COLLECTIONS } from './config';
 import type {
+  FrontierBehaviorModel,
   FrontierCollection,
   FrontierGameState,
   FrontierHistoryEntry,
   FrontierItem,
+  FrontierLayoutMode,
   FrontierPersistedState,
   FrontierProfile,
   FrontierReaction,
+  FrontierView,
 } from './types';
 
 const STORAGE_KEY = 'frontier-personal-radar-v1';
+const STATE_VERSION = 2;
 
 function localDayKey(date = new Date()): string {
   const year = date.getFullYear();
@@ -55,10 +67,22 @@ function xpForReaction(reaction: FrontierReaction): number {
   }
 }
 
+function behaviorKindForReaction(reaction: FrontierReaction): 'positive' | 'negative' | undefined {
+  if (['love', 'important', 'surprise', 'useful'].includes(reaction)) return 'positive';
+  if (['meh', 'hide'].includes(reaction)) return 'negative';
+  return undefined;
+}
+
 export type FrontierStore = FrontierPersistedState & {
   hydrated: boolean;
   setHydrated: (value: boolean) => void;
+  beginSession: () => void;
+  endSession: () => void;
+  recordView: (view: FrontierView) => void;
+  recordLayout: (layout: FrontierLayoutMode) => void;
   markSeen: (item: FrontierItem, resurfaced?: boolean) => void;
+  recordDwell: (item: FrontierItem, dwellMs: number) => void;
+  recordExpand: (item: FrontierItem) => void;
   recordOpen: (item: FrontierItem) => void;
   react: (item: FrontierItem, reaction: FrontierReaction) => void;
   toggleSave: (item: FrontierItem) => void;
@@ -66,6 +90,8 @@ export type FrontierStore = FrontierPersistedState & {
   toggleCollectionItem: (collectionId: string, item: FrontierItem) => void;
   removeCollection: (collectionId: string) => void;
   awardQuest: (questId: string, xp: number, dayKey?: string) => void;
+  setImplicitLearning: (enabled: boolean) => void;
+  resetBehavior: () => void;
   importBackup: (payload: unknown) => boolean;
   resetFrontier: () => void;
 };
@@ -76,8 +102,9 @@ function initialGame(): FrontierGameState {
 
 function initialState(): FrontierPersistedState {
   return {
-    version: 1,
+    version: 2,
     profile: createInitialProfile(),
+    behavior: createInitialBehaviorModel(),
     saved: {},
     collections: DEFAULT_COLLECTIONS.map((collection) => ({ ...collection, itemIds: [] })),
     history: {},
@@ -99,13 +126,19 @@ function historyEntry(item: FrontierItem, previous?: FrontierHistoryEntry): Fron
       };
 }
 
-function safeBackup(payload: unknown): FrontierPersistedState | null {
+function migrateState(payload: unknown): FrontierPersistedState | null {
   if (!payload || typeof payload !== 'object') return null;
-  const candidate = payload as Partial<FrontierPersistedState>;
-  if (candidate.version !== 1 || !candidate.profile || !candidate.saved || !candidate.history || !candidate.collections || !candidate.game) {
-    return null;
-  }
-  return candidate as FrontierPersistedState;
+  const candidate = payload as Record<string, unknown>;
+  if (!candidate.profile || !candidate.saved || !candidate.history || !candidate.collections || !candidate.game) return null;
+  return {
+    version: 2,
+    profile: candidate.profile as FrontierProfile,
+    behavior: (candidate.behavior as FrontierBehaviorModel | undefined) ?? createInitialBehaviorModel(),
+    saved: candidate.saved as FrontierPersistedState['saved'],
+    collections: candidate.collections as FrontierCollection[],
+    history: candidate.history as FrontierPersistedState['history'],
+    game: candidate.game as FrontierGameState,
+  };
 }
 
 export const useFrontierStore = create<FrontierStore>()(
@@ -115,11 +148,28 @@ export const useFrontierStore = create<FrontierStore>()(
       hydrated: false,
       setHydrated: (value) => set({ hydrated: value }),
 
+      beginSession: () => set({ behavior: startBehaviorSession(get().behavior) }),
+      endSession: () => set({ behavior: endBehaviorSession(get().behavior) }),
+      recordView: (view) => set({ behavior: recordViewUse(get().behavior, view) }),
+      recordLayout: (layout) => set({ behavior: recordLayoutUse(get().behavior, layout) }),
+
       markSeen: (item, resurfaced = false) => {
-        const previous = get().history[item.id];
+        const current = get();
+        const previous = current.history[item.id];
         const next = historyEntry(item, previous);
         if (resurfaced && previous) next.resurfacedCount = previous.resurfacedCount + 1;
-        set({ history: { ...get().history, [item.id]: next } });
+        set({
+          history: { ...current.history, [item.id]: next },
+          behavior: applyBehaviorEvent(current.behavior, item, { kind: 'impression' }),
+        });
+      },
+
+      recordDwell: (item, dwellMs) => {
+        set({ behavior: applyBehaviorEvent(get().behavior, item, { kind: 'dwell', dwellMs }) });
+      },
+
+      recordExpand: (item) => {
+        set({ behavior: applyBehaviorEvent(get().behavior, item, { kind: 'expand' }) });
       },
 
       recordOpen: (item) => {
@@ -131,6 +181,7 @@ export const useFrontierStore = create<FrontierStore>()(
             ...current.history,
             [item.id]: { ...previous, item, openedAt: now, lastSeenAt: now },
           },
+          behavior: applyBehaviorEvent(current.behavior, item, { kind: 'open' }),
           game: updateStreak(current.game),
         });
       },
@@ -141,9 +192,14 @@ export const useFrontierStore = create<FrontierStore>()(
         const previous = current.history[item.id] ?? historyEntry(item);
         const firstReward = !previous.rewarded;
         const nextProfile = applyReactionToProfile(current.profile, item, reaction);
+        const behaviorKind = behaviorKindForReaction(reaction);
+        const nextBehavior = behaviorKind
+          ? applyBehaviorEvent(current.behavior, item, { kind: behaviorKind })
+          : current.behavior;
         const game = updateStreak(current.game);
         set({
           profile: nextProfile,
+          behavior: nextBehavior,
           history: {
             ...current.history,
             [item.id]: {
@@ -164,14 +220,19 @@ export const useFrontierStore = create<FrontierStore>()(
         const saved = { ...current.saved };
         const collections = current.collections.map((collection) => ({ ...collection, itemIds: [...collection.itemIds] }));
         const inbox = collections.find((collection) => collection.id === 'inbox');
-        if (saved[item.id]) {
+        const wasSaved = Boolean(saved[item.id]);
+        if (wasSaved) {
           delete saved[item.id];
           for (const collection of collections) collection.itemIds = collection.itemIds.filter((id) => id !== item.id);
         } else {
           saved[item.id] = item;
           if (inbox && !inbox.itemIds.includes(item.id)) inbox.itemIds.push(item.id);
         }
-        set({ saved, collections });
+        set({
+          saved,
+          collections,
+          behavior: wasSaved ? current.behavior : applyBehaviorEvent(current.behavior, item, { kind: 'save' }),
+        });
       },
 
       createCollection: (name, description) => {
@@ -224,8 +285,14 @@ export const useFrontierStore = create<FrontierStore>()(
         });
       },
 
+      setImplicitLearning: (enabled) => set({
+        behavior: { ...get().behavior, implicitLearning: enabled, sessionStartedAt: enabled ? get().behavior.sessionStartedAt : undefined },
+      }),
+
+      resetBehavior: () => set({ behavior: createInitialBehaviorModel() }),
+
       importBackup: (payload) => {
-        const parsed = safeBackup(payload);
+        const parsed = migrateState(payload);
         if (!parsed) return false;
         set({ ...parsed, hydrated: true });
         return true;
@@ -235,10 +302,12 @@ export const useFrontierStore = create<FrontierStore>()(
     }),
     {
       name: STORAGE_KEY,
-      version: 1,
+      version: STATE_VERSION,
+      migrate: (persistedState) => migrateState(persistedState) ?? initialState(),
       partialize: (state) => ({
         version: state.version,
         profile: state.profile,
+        behavior: state.behavior,
         saved: state.saved,
         collections: state.collections,
         history: state.history,
@@ -251,8 +320,9 @@ export const useFrontierStore = create<FrontierStore>()(
 
 export function frontierBackup(state: FrontierStore): FrontierPersistedState {
   return {
-    version: 1,
+    version: 2,
     profile: state.profile,
+    behavior: state.behavior,
     saved: state.saved,
     collections: state.collections,
     history: state.history,
