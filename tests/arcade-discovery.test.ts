@@ -3,7 +3,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import test from 'node:test';
 
-import { arcadeGames } from '../src/data/arcadeGames';
+import { arcadeGames, getArcadeGame } from '../src/data/arcadeGames';
 import { primaryNavItems, siteNavItems } from '../src/data/siteNav';
 
 const root = process.cwd();
@@ -22,7 +22,7 @@ const gameNetworkSurfaces = [
 test('the Game Network exposes every current game as a playable entry', () => {
   assert.deepEqual(
     arcadeGames.map((game) => game.slug),
-    ['stretchicorn', 'unirico', 'mosslight']
+    ['stretchicorn', 'unirico', 'sylvaria']
   );
 
   for (const game of arcadeGames) {
@@ -31,11 +31,30 @@ test('the Game Network exposes every current game as a playable entry', () => {
   }
 });
 
-test('Sprid is the canonical Mosslight protagonist name', () => {
-  const mosslight = arcadeGames.find((game) => game.slug === 'mosslight');
-  assert.ok(mosslight);
-  assert.match(mosslight.description, /Sprid/);
-  assert.ok(mosslight.controls.some((control) => /Sprid/.test(control.action)));
+test('Sylvaria v0.5 is canonical while the previous Mosslight URL remains a compatibility alias', () => {
+  const sylvaria = arcadeGames.find((game) => game.slug === 'sylvaria');
+  assert.ok(sylvaria);
+  assert.equal(sylvaria.title, 'Sylvaria');
+  assert.equal(sylvaria.version, 'v0.5.0');
+  assert.match(sylvaria.subtitle, /MOSSGLINT RUN/);
+  assert.match(sylvaria.description, /Sprid/);
+  assert.ok(sylvaria.controls.some((control) => control.input === 'F' && /portal gate/i.test(control.action)));
+  assert.ok(sylvaria.controls.some((control) => control.input === 'Enter' && /open portal/i.test(control.action)));
+  assert.equal(getArcadeGame('mosslight')?.slug, 'sylvaria');
+  assert.equal(getArcadeGame('sylvaria')?.slug, 'sylvaria');
+
+  const runtime = readRepoFile('public/game-runtimes/mosslight-v2/index.html');
+  assert.match(runtime, /Sylvaria: Mossglint Run/);
+  assert.match(runtime, /Sprid/);
+  assert.match(runtime, /game-v5\.js/);
+  assert.doesNotMatch(runtime, /game-v4\.js/);
+});
+
+test('Sprid is the canonical Sylvaria protagonist name', () => {
+  const sylvaria = arcadeGames.find((game) => game.slug === 'sylvaria');
+  assert.ok(sylvaria);
+  assert.match(sylvaria.description, /Sprid/);
+  assert.ok(sylvaria.controls.some((control) => /Sprid/.test(control.action)));
 
   for (const path of [
     'public/game-runtimes/mosslight-v2/index.html',
@@ -114,9 +133,10 @@ test('Game Network browser validation includes actual Google Chrome Stable', () 
   assert.match(workflow, /Chrome Stable Chromium Firefox and WebKit/);
   assert.match(browserTest, /name: 'chrome-stable'/);
   assert.match(browserTest, /channel: 'chrome'/);
-  assert.match(browserTest, /testMosslight\(page, engineName\)/);
+  assert.match(browserTest, /testSylvaria\(page, engineName\)/);
   assert.match(browserTest, /testStretchicorn\(page, engineName\)/);
   assert.match(browserTest, /testUniRico\(page, engineName\)/);
+  assert.match(browserTest, /page\.keyboard\.press\('f'\)/);
 });
 
 test('the embedded Stretchicorn release is complete', () => {
