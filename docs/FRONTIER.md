@@ -2,6 +2,8 @@
 
 FRONTIER is a native `/frontier` destination inside `sids-neural-net`. It is a finite personal world radar, not an engagement-maximizing infinite social feed.
 
+> **Live runtime:** FRONTIER now performs request-time adaptive discovery independently of site deployments. See [`docs/FRONTIER_LIVE_RUNTIME.md`](./FRONTIER_LIVE_RUNTIME.md) for the current polling, query-planning, source-quality, dwell, up/down, exploration, privacy, and reliability contract.
+
 The product intentionally has two complementary faces:
 
 - **Brainfood** — novel studies, public codebases, useful methods, project designs, ML/data, AI/NeuroAI, and broad science.
@@ -11,16 +13,18 @@ The product intentionally has two complementary faces:
 
 ## Product principles
 
-1. **Discovery value over clicks.** Ranking combines personal relevance, importance, quality, freshness, momentum, novelty, knowledge state, and resurfacing.
+1. **Discovery value over clicks.** Ranking combines personal relevance, importance, quality, freshness, momentum, novelty, knowledge state, resurfacing, bounded behavioral evidence, and uncertainty-aware exploration.
 2. **Important can beat personalized.** Major developments are allowed to break through the taste model.
 3. **Knowledge is not taste.** `Already knew` advances the modeled knowledge frontier without teaching dislike.
 4. **Missed does not mean irrelevant.** Unresolved high-value items can return after 1, 3, and 7 days.
 5. **Breadth before scroll depth.** The daily run explicitly reserves room for evidence, code, reusable methods, favorite teams, active sports, broader sports, games, culture, and useful surprise.
 6. **Fun is first-class, not filler.** A great climbing send, downhill run, match clip, game release, bass set, or genuinely funny community post can be valuable without pretending to be a research paper.
-7. **Game mechanics reward meaningful behavior, not raw clicks.** XP is minted once per signal and quest rewards are idempotent per day.
-8. **Memory is explicit and portable.** Saves, groups, history, and learned preferences are browser-local by default and can be exported/imported as JSON.
-9. **Media is evidence-bearing.** Images, videos, charts, metrics, and generated signal art are presentation modes around the same provenance-rich signal model.
-10. **The feed must end.** FRONTIER is deliberately finite. Explore exists when the user wants depth; Daily Run should never become sludge.
+7. **Explicit feedback beats weak inference.** Up/down, richer reactions, opens, and saves outweigh passive dwell evidence.
+8. **Attention is measured conservatively.** Dwell counts only while a card is actually visible and the browser tab is active; it never becomes an automatic like.
+9. **Memory is explicit and portable.** Saves, groups, history, attention time, and learned preferences are browser-local by default and can be exported/imported as JSON.
+10. **Media is evidence-bearing.** FRONTIER renders real source-backed media only. Text-only content becomes a source-grounded editorial clipping rather than generated filler art.
+11. **The feed must end.** FRONTIER is deliberately finite. Explore exists when the user wants depth; Daily Run should never become sludge.
+12. **Fresh content must not require a deploy.** Runtime queries refresh current candidates while the committed snapshot acts only as a durable fallback.
 
 ## Personal seed
 
@@ -50,86 +54,66 @@ FRONTIER separately models sports the owner actively does or is learning:
 
 These are not treated as generic “outdoors” tags. They receive positive cold-start affinities, an `Active sports` pinned shortcut, and their own Daily Run reservation so favorite-team news cannot crowd them out.
 
-Four active sports rotate through the live discovery mesh each day. Recent snapshots accumulate across deployments, so all disciplines remain in orbit without multiplying every request by eight on every page load.
-
-The source strategy has three layers:
-
-1. **Professional / current stories** — zero-config news RSS searches for competition results, athlete stories, records, event news, and notable performances.
-2. **Community clips** — recent top Reddit posts from relevant climbing, MTB, skiing, skateboarding, longboarding, and soccer communities, with YouTube and Reddit-hosted video promoted to playable media when available.
-3. **Wider clip discovery** — when `BRAVE_SEARCH_API_KEY` is configured, sport-specific queries expand into YouTube, web, X/Threads-indexed results, best runs, sends, tricks, and highlight videos.
-
-For RipStik and RipSurf, FRONTIER deliberately searches progression, creator riding, advanced tricks, and standout clips rather than inventing a professional circuit that may not exist.
+Four active sports rotate through the broad source mesh each day. The live adaptive query planner can additionally search whichever sports are earning strong explicit or stable behavioral preference.
 
 ### Games
 
 The checked-in game seed is based on the supplied Steam library snapshot. It includes strong interests such as Elden Ring, Ender Lilies, Hollow Knight / Silksong, Nine Sols, Dead Cells, Celeste, TUNIC, Rain World, Outer Wilds, Ori, Cyberpunk 2077, Deep Rock Galactic, Lethal Company, Valheim, V Rising, Astroneer, The Binding of Isaac, Another Crab's Treasure, Palworld, ULTRAKILL, Ender Magnolia, and adjacent titles.
 
-Only a small rotating subset is polled each day. This keeps the source fan-out cheap and prevents the same games from dominating every run.
+Only a small rotating subset is polled through Steam each day. Wider runtime discovery can still react to learned game topics through the adaptive web mesh.
 
 ### Music
 
-`content/music/taste-profile.json` is the reusable taste bridge between the existing music showcase and FRONTIER. The fallback seed contains bass/electronic artists already represented by the site, while `npm run music:fetch` can refresh:
+`content/music/taste-profile.json` is the reusable taste bridge between the existing music showcase and FRONTIER. The fallback seed contains bass/electronic artists already represented by the site, while `npm run music:fetch` can refresh top/followed artists, playlist names, and top tracks when the appropriate Spotify owner scopes are configured.
 
-- top artists
-- followed artists when the refresh token has `user-follow-read`
-- playlist names when the refresh token has `playlist-read-private`
-- top tracks
-
-FRONTIER uses artist/playlist metadata only for discovery. The existing beat-synchronized Rotation experience still requires separately curated BPM/downbeat timing and is not overwritten.
-
-The supplied SoundCloud profile remains a discovery anchor for broad-web searches. No fragile unauthenticated page scraping is required.
+FRONTIER uses artist/playlist metadata for discovery. The existing beat-synchronized Rotation experience still requires separately curated BPM/downbeat timing and is not overwritten.
 
 ### Reddit
 
-The supplied followed-subreddit snapshot is checked into the personal-interest layer and grouped into lightweight daily rotations across:
-
-- science / ML / neuroscience / engineering
-- games / music
-- sports and favorite-team communities
-- active sports such as mountain biking / climbing / skiing / soccer
-- humor / memes / internet culture
-- animals / huskies / nature / photography / food
-
-Favorite-team communities are always eligible; active-sports communities receive dedicated rotating slots; the rest rotate deterministically by date.
+The supplied followed-subreddit snapshot is checked into the personal-interest layer and grouped into lightweight rotations across science/ML/neuroscience, games/music, sports and favorite teams, active sports, humor/internet culture, animals, nature, photography, and food.
 
 ## Architecture
 
 ```text
-live internet
-  ├─ Hacker News
-  ├─ GitHub
-  ├─ OpenAlex
-  ├─ specialist RSS
-  ├─ Reddit public listings
-  ├─ active-sports news + clip mesh
-  ├─ Steam public game news
-  ├─ YouTube public Atom feeds (optional channel set)
-  ├─ football-data.org (optional key)
-  └─ Brave Search (optional personal web / video / social widening)
+browser-local world model
+  ├─ explicit affinity
+  ├─ up/down + rich feedback
+  ├─ active viewport dwell
+  ├─ opens / saves
+  └─ frozen between-session behavior snapshot
           │
-          ├───────────────────────┬────────────────────────┐
-          ▼                       ▼                        ▼
-lib/frontier/sources.ts  lib/frontier/personalSources.ts  activeSportsSources.ts
-  research/core mesh       teams + games + culture        motion + pro + clips
-          └───────────────────────┼────────────────────────┘
-                                  ▼
-                         lib/frontier/aggregate.ts
-                       normalize + dedupe + snapshot fallback
-                                  │
-                                  ▼
-                           /api/frontier/feed
-                        cached, fault-isolated JSON
-                                  │
-                                  ▼
-                          FrontierExperience
-                  Daily Run / Explore / Saved / History / My Radar
-                                  │
-                                  ▼
-                            client memory
-              lane affinity + topic affinity + source affinity + known state
+          ▼
+  bounded discovery focus
+          │
+          ▼
+  /api/frontier/feed
+          │
+          ├─ core mesh: HN / GitHub / OpenAlex / RSS
+          ├─ personal mesh: teams / games / music / community
+          ├─ active-sports mesh
+          ├─ GDELT request-time live web search
+          ├─ focused OpenAlex search
+          └─ focused GitHub search
+          │
+          ▼
+ normalize → dedupe → English → snapshot fallback
+          │
+          ▼
+ client ranking + finite editorial selection
+          │
+          ▼
+ Grid/List + editorial clipping + real media
 ```
 
-The server source mesh never writes private user interaction state. Browser memory never needs source credentials.
+The server source mesh never writes private user interaction state. Browser memory never needs source credentials. Only a short bounded list of discovery concepts is sent to the request-time adaptive endpoint.
+
+## Live behavior
+
+The client requests a live feed on load, refreshes every four minutes while the tab is visible, and refreshes when a hidden tab becomes visible again. A manual `Refresh live` request bypasses the short response cache.
+
+This design is near-real-time polling because the upstream services are pull APIs/feeds. It does not require a long-running socket and does not require a Vercel deployment for new content to appear.
+
+The committed daily snapshot remains useful for continuity and degraded upstream periods, but it is not the mechanism that keeps the page current.
 
 ## Source behavior
 
@@ -142,8 +126,15 @@ The server source mesh never writes private user interaction state. Browser memo
 - Reddit public top-of-day listings across the rotating personal subreddit orbit
 - active-sports news RSS plus top community clip/story discovery
 - Steam public game news for the rotating library sample
+- GDELT request-time article discovery for bounded learned focus concepts
 
 Every source is wrapped independently. A timeout or malformed payload from one adapter produces degraded source status rather than a failed feed.
+
+### Adaptive source quality
+
+The live web adapter uses domain quality as a prior, not as an absolute truth label. Reuters/AP/BBC, scientific publishers, government/education domains, and official sports organizations receive stronger source-quality priors. Other domains can still surface when relevance, freshness, novelty, and personal fit are strong.
+
+A same-domain cap and a same-host Daily Run cap prevent one outlet from taking over the page. Popularity or community momentum is always treated as discovery evidence, not truth evidence.
 
 ### Optional widening
 
@@ -158,71 +149,26 @@ OPENALEX_API_KEY=
 FRONTIER_RSS_FEEDS=
 FRONTIER_YOUTUBE_CHANNELS=
 FRONTIER_SUBREDDITS=
+FRONTIER_MUSIC_ARTISTS=
 ```
-
-- `BRAVE_SEARCH_API_KEY` adds targeted discovery for favorite teams, active sports, best clips, YouTube, X/Threads results, games, bass artists, SoundCloud, and the broader web.
-- `FOOTBALL_DATA_API_KEY` adds structured Premier League fixtures/results.
-- `FRONTIER_RSS_FEEDS` accepts comma-separated specialist RSS endpoints.
-- `FRONTIER_YOUTUBE_CHANNELS` accepts comma-separated YouTube channel IDs and consumes their public Atom feeds without a YouTube API key.
-- `FRONTIER_SUBREDDITS` appends extra communities to the checked-in personal rotation.
-
-## Brainfood / After Hours / Explore
-
-The top-level perspective control is intentionally tiny:
-
-- **For You** — balanced world model.
-- **Brainfood** — research/code/method/project-design lanes only.
-- **After Hours** — favorite teams, active sports, broader sports, games, music, Reddit/social culture, life/outdoors, and wildcards.
-
-Pinned personal topics provide fast paths for New papers, Open source, NeuroAI, ML + data, Patriots, Warriors, Chelsea, Man City, **Active sports**, Bass Orbit, Game Radar, and Internet Gold.
-
-Explore adds an orthogonal format filter:
-
-- Studies
-- Codebases
-- Project design
-- Video
-- Posts + threads
-- Sports
-- Games
-- Music
-
-This avoids forcing source, topic, and media type into one overloaded category system.
 
 ## Feed data model
 
-All sources normalize into `FrontierItem`:
-
-- source provenance
-- title/summary/url
-- publication time
-- primary lane
-- tags and authors
-- media (`image`, `youtube`, `video`, `chart`, `none`)
-- structured metrics
-- base score
-- importance
-- novelty
-- quality
-- momentum
-- human-readable recommendation rationale
+All sources normalize into `FrontierItem` with provenance, title/summary/url, publication time, primary lane, tags/authors, optional real media, structured metrics, source-independent relevance signals, and a human-readable recommendation rationale.
 
 A match result, climbing final, downhill clip, paper, repository, Reddit post, Steam update, video, and article can therefore coexist without pretending they are the same object.
 
 ## Personal learning state
 
-The client stores four separable kinds of state:
+The client stores separable evidence for broad lane affinity, topic affinity, source affinity, known topics, source/format/context behavior, and accumulated viewport-visible dwell.
 
-- **lane affinity** — broad direction
-- **topic affinity** — learned concept-level preference
-- **source affinity** — whether a source repeatedly produces value
-- **known topics** — subjects already familiar enough that introductory results should lose novelty
-
-Feedback has intentionally different semantics:
+Primary feedback semantics:
 
 | Signal | Effect |
 | --- | --- |
-| Love | strong positive preference |
+| Thumb up | strong “more like this” preference |
+| Thumb down | strong “less like this” preference; no resurfacing |
+| Love | strongest positive preference |
 | Important | positive + importance preference |
 | Surprise | positive + raises exploration budget |
 | Useful | positive practical preference |
@@ -232,104 +178,36 @@ Feedback has intentionally different semantics:
 | Meh | negative preference |
 | Hide | strong negative and suppress item |
 
-Saving is *not* automatically treated as liking. Collections are external-memory organization, not taste labels.
+Dwell contributes only soft evidence. Roughly twelve seconds of genuinely visible attention is one soft engagement unit, capped so it cannot overwhelm direct feedback. Hidden-tab time is not counted.
 
-## Persistent second chances
+Saving remains external-memory organization and only weak behavioral evidence rather than a permanent identity label.
 
-An unresolved item can return after:
+## Stability + exploration
 
-```text
-first impression
-  └─ +1 day → second chance
-       └─ +3 days → third chance
-            └─ +7 days → final chance
-```
+Behavior learned during the active visit does not reorder cards underneath the reader. Ranking uses a frozen behavior snapshot captured at session start.
 
-The original item snapshot is stored in browser history, so resurfacing does not depend on the source still returning the item in tomorrow's API window.
+FRONTIER also adds a small bounded uncertainty bonus for topics with weak behavioral evidence. This UCB-like term preserves exploration and helps prevent early interactions from collapsing the radar into a narrow filter bubble. Explicit feedback remains much stronger than this bonus.
 
-## Daily archive + Vercel deployment
+The Daily Run retains protected category slots plus lane and source diversity caps.
 
-FRONTIER has both live cache refreshes and a durable daily snapshot.
+## Daily archive + deployment
 
-`npm run frontier:snapshot` writes the current integrated source mesh to:
+`npm run frontier:snapshot` and `.github/workflows/frontier-refresh.yml` still maintain `content/frontier/latest.json` as a durable fallback.
 
-```text
-content/frontier/latest.json
-```
-
-`.github/workflows/frontier-refresh.yml` runs daily and can also be triggered manually. It:
-
-1. installs the production dependencies,
-2. optionally refreshes the Spotify taste profile when owner credentials are present,
-3. builds the integrated FRONTIER snapshot,
-4. refuses to replace the archive when the live mesh is suspiciously empty,
-5. commits changed snapshot/taste files to `master`.
-
-On the normal Git-backed Vercel setup, that content commit naturally produces a fresh deployment. The live API still refreshes more frequently through CDN caching, while the committed snapshot gives cross-deployment continuity and a fallback when an upstream source is temporarily unavailable.
-
-The scheduled refresh is daily by default. Changing the cron to every other day is a one-line deployment policy change; the product architecture does not depend on the exact cadence.
+Code/schema changes require a normal website deployment. **New content does not.** Once the runtime is deployed, current source results are queried on page load and while the page remains active.
 
 ## Visual language
 
-FRONTIER deliberately avoids the standard center-column social clone.
-
-- one large editorial feature plus a compact signal river
-- tiny pill controls instead of dashboard chrome
-- Brainfood / After Hours perspectives rather than a sprawling sidebar
-- one compact `Active sports` shortcut rather than eight permanent navigation tabs
-- lane accents for science, teams, sports/motion, games, music, and internet culture
-- publisher/community images with lazy loading and restrained treatment
-- inline YouTube/video support for feature signals
-- provenance and ranking evidence visible on-card
-- structured match / repository / paper / community metrics
-- subtle animated signal-field background
-- responsive 12-column desktop layout collapsing cleanly for mobile
-- touch-safe reaction controls
-- `content-visibility` and lazy media to keep deep Explore views inexpensive
-- `prefers-reduced-motion` support
-
-The design should feel playful through content, typography, small glyphs, and accents rather than through noisy decoration.
+FRONTIER uses a restrained Grid/List editorial system. Real source images/videos are shown when present. Text-only signals become topic-aware editorial clippings derived only from source-backed titles/summaries. Generated filler imagery is not used.
 
 ## Persistence and privacy
 
-`lib/frontier/store.ts` uses Zustand persistence backed by browser storage. This gives immediate deployment with no database/account migration and keeps private interaction history off the public website backend.
-
-The user can export a complete versioned memory capsule and import it into another browser. The storage boundary is intentionally isolated so a future authenticated remote-sync adapter can be added without changing ranking or UI semantics.
-
-## Navigation integration
-
-FRONTIER is registered in the site navigation, homepage live portal, sitemap, and shared section layout. The shared section header means pages using `ComicSectionLayout`, including Core/About and Contact, expose a compact FRONTIER jump without each page duplicating navigation code.
+`lib/frontier/store.ts` uses Zustand persistence backed by browser storage. The user can export/import a versioned memory capsule. Raw browsing history, reactions, attention traces, and saved-item state remain client-local; request-time adaptive discovery transmits only the bounded focus topics required to perform the current search.
 
 ## Production gates
 
-The website CI checks FRONTIER through the same production release pipeline as the rest of the site:
-
-- TypeScript typecheck
-- ESLint
-- Node test suite, including active-sports cold start, daily rotation, daily-run reservation, professional-news parsing, playable community clips, personal-team, subreddit, game-library, ranking, knowledge-state, resurfacing, RSS-image, and YouTube-Atom tests
-- deterministic existing corpus audits
-- Next module/bundle analysis
-- production build
-- emitted JavaScript bundle budget
-- running-server smoke test for `/frontier`
-- running-server smoke test for `/api/frontier/feed`
-- Playwright desktop screenshot at 1440×1100
-- Playwright mobile screenshot at 390×844
-
-The source API returns a valid degraded payload even when optional credentials are absent.
+Website CI validates FRONTIER through TypeScript, ESLint, unit tests, deterministic corpus audits, Next bundle analysis/build, JavaScript budget, running-server route smoke tests, and desktop/mobile browser fixtures. Live-discovery tests cover bounded query focus, alias collapse, negative-topic exclusion, source-backed GDELT parsing, publisher diversity, and the no-invented-body contract.
 
 ## Future extensions
 
-The next meaningful upgrades should deepen the world model rather than simply pile on more feeds:
-
-1. authenticated cross-device memory sync
-2. entity extraction and a temporal personal knowledge graph
-3. emerging-signal / attention-velocity detection
-4. transcript-aware video summaries and chapter extraction
-5. explicit contradiction / belief-update tracking
-6. contextual-bandit exploration after enough interactions exist
-7. learned candidate-generation queries from positive and negative topic evidence
-8. “this updates something you learned last month” memory bridges
-9. authenticated first-party connectors for services whose public pages intentionally resist scraping
-
-The architecture keeps these boundaries explicit rather than baking them into presentation code.
+The architecture now has clean insertion points for authenticated cross-device memory sync, richer entity/temporal knowledge graphs, emerging-signal velocity detection, transcript-aware video summaries, contradiction tracking, and more formal contextual-bandit evaluation. Those should be added only when they improve measurable discovery quality rather than simply increasing feed volume.
