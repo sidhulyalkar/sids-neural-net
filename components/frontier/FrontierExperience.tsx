@@ -30,7 +30,7 @@ import { InterestConstellation } from './InterestConstellation';
 import { SignalBoard } from './SignalBoard';
 import type { SignalLayoutMode } from './SignalBoard';
 import { SignalCard } from './SignalCard';
-import styles from './frontier.module.css';
+import styles from './frontier-minimal.module.css';
 
 const VIEWS: Array<{ id: FrontierView; label: string }> = [
   { id: 'today', label: 'Today' },
