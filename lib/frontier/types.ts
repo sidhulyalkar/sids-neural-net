@@ -156,6 +156,15 @@ export type FrontierBehaviorEvent = {
   dwellMs?: number;
 };
 
+export type FrontierBehaviorSnapshot = {
+  laneStats: Record<string, FrontierBehaviorAggregate>;
+  sourceStats: Record<string, FrontierBehaviorAggregate>;
+  topicStats: Record<string, FrontierBehaviorAggregate>;
+  formatStats: Record<string, FrontierBehaviorAggregate>;
+  contextStats: Record<string, FrontierBehaviorAggregate>;
+  capturedAt: string;
+};
+
 export type FrontierBehaviorModel = {
   implicitLearning: boolean;
   sessions: number;
@@ -170,6 +179,7 @@ export type FrontierBehaviorModel = {
   contextStats: Record<string, FrontierBehaviorAggregate>;
   layoutUses: Record<FrontierLayoutMode, number>;
   viewUses: Record<FrontierView, number>;
+  rankingSnapshot?: FrontierBehaviorSnapshot;
 };
 
 export type FrontierPersistedState = {
