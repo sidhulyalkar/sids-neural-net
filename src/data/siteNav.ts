@@ -32,8 +32,8 @@ export const siteNavItems: SiteNavItem[] = [
   },
   {
     href: '/arcade',
-    label: 'Game Arcade',
-    description: 'Custom games inside a focused neural play chamber.',
+    label: 'Game Network',
+    description: 'Playable browser games connected through the neural portfolio.',
     section: 'portfolio',
   },
   {
