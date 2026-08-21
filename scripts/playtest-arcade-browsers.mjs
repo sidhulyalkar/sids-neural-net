@@ -50,6 +50,11 @@ async function assertPainted(frame, label, minimumDistinct = 8, minimumLit = 20)
   return stats;
 }
 
+async function assertNativeBridge(frame, label) {
+  await frame.waitForFunction(() => window.__SIDS_GAME_NETWORK_BRIDGE__ === true, null, { timeout: 5_000 });
+  return `${label} native focus bridge ready`;
+}
+
 async function assertGameFocus(page, target, label) {
   await target.click();
   await page.waitForFunction(
@@ -94,7 +99,9 @@ async function testMosslight(page, engineName) {
   const frame = page.frames().find((candidate) => candidate.url().includes('/game-runtimes/mosslight-v2/'));
   if (!frame) throw new Error('Mosslight iframe did not attach');
 
+  const bridge = await assertNativeBridge(frame, 'Mosslight');
   await frame.waitForFunction(() => Boolean(window.__MOSSLIGHT_PLAYTEST__), null, { timeout: 10_000 });
+  await frame.waitForFunction(() => window.MosslightExpedition?.atlasCount === 1000, null, { timeout: 10_000 });
   await frame.locator('#title').waitFor({ state: 'visible' });
   await frame.locator('#start').waitFor({ state: 'visible' });
   await page.waitForTimeout(250);
@@ -117,9 +124,31 @@ async function testMosslight(page, engineName) {
     throw new Error(`Mosslight keyboard input failed (${before.player?.x} -> ${after.player?.x})`);
   }
 
+  await frame.evaluate(() => window.__MOSSLIGHT_PLAYTEST__.setRoom(0));
+  await assertCanvasKeyboardFocus(frame, 'Mosslight arrow aim');
+  const beforeArrow = await frame.evaluate(() => window.__MOSSLIGHT_PLAYTEST__.snapshot());
+  await page.keyboard.down('ArrowRight');
+  await page.keyboard.down('ArrowUp');
+  await page.keyboard.press('Space');
+  await page.keyboard.up('ArrowUp');
+  await page.keyboard.up('ArrowRight');
+  await page.waitForTimeout(420);
+  const afterArrow = await frame.evaluate(() => window.__MOSSLIGHT_PLAYTEST__.snapshot());
+  if (afterArrow.stats.casts <= beforeArrow.stats.casts) {
+    throw new Error('Mosslight ArrowUp + ArrowRight + Space did not register a cast');
+  }
+
   const playing = await assertPainted(frame, 'Mosslight playing');
   await page.screenshot({ path: path.join(outputDir, `${engineName}-mosslight-playing.png`), fullPage: true });
-  return { initial, playing, movement: [before.player?.x, after.player?.x], fps: after.fps };
+  return {
+    bridge,
+    atlasCount: await frame.evaluate(() => window.MosslightExpedition.atlasCount),
+    initial,
+    playing,
+    movement: [before.player?.x, after.player?.x],
+    arrowCastDelta: afterArrow.stats.casts - beforeArrow.stats.casts,
+    fps: after.fps,
+  };
 }
 
 async function testStretchicorn(page, engineName) {
@@ -133,6 +162,7 @@ async function testStretchicorn(page, engineName) {
   const frame = page.frames().find((candidate) => candidate.url().includes('/game-runtimes/stretchicorn/'));
   if (!frame) throw new Error('Stretchicorn iframe did not attach');
 
+  const bridge = await assertNativeBridge(frame, 'Stretchicorn');
   await frame.locator('#c').waitFor({ state: 'visible' });
   await page.waitForTimeout(350);
 
@@ -151,7 +181,7 @@ async function testStretchicorn(page, engineName) {
 
   const playing = await assertPainted(frame, 'Stretchicorn playing');
   await page.screenshot({ path: path.join(outputDir, `${engineName}-stretchicorn-playing.png`), fullPage: true });
-  return { initial, playing, modes: [initialMode, playingMode] };
+  return { bridge, initial, playing, modes: [initialMode, playingMode] };
 }
 
 async function testUniRico(page, engineName) {
@@ -165,12 +195,13 @@ async function testUniRico(page, engineName) {
   const frame = page.frames().find((candidate) => candidate.url().includes('/game-runtimes/unirico/'));
   if (!frame) throw new Error('uniRico iframe did not attach');
 
+  const bridge = await assertNativeBridge(frame, 'uniRico');
   await frame.locator('#c').waitFor({ state: 'visible' });
   await page.waitForTimeout(500);
   const initial = await assertPainted(frame, 'uniRico title', 4, 8);
   await assertGameFocus(page, frame.locator('#c'), 'uniRico');
   await page.screenshot({ path: path.join(outputDir, `${engineName}-unirico.png`), fullPage: true });
-  return { initial };
+  return { bridge, initial };
 }
 
 for (const { name: engineName, browserType, launchOptions } of engines) {
@@ -181,8 +212,21 @@ for (const { name: engineName, browserType, launchOptions } of engines) {
     const page = await browser.newPage({ viewport: { width: 1440, height: 1000 }, deviceScaleFactor: 1 });
 
     page.on('pageerror', (error) => errors.push(`pageerror: ${error.message}`));
+    page.on('response', (response) => {
+      if (response.status() < 400) return;
+      const url = response.url();
+      if (url.startsWith(baseUrl) && url.includes('/game-runtimes/')) {
+        errors.push(`runtime response ${response.status()}: ${url}`);
+      }
+    });
     page.on('console', (message) => {
-      if (message.type() === 'error') errors.push(`console: ${message.text()}`);
+      if (message.type() !== 'error') return;
+      const text = message.text();
+      // Chrome logs missing browser-owned resources such as /favicon.ico as a
+      // console error. Runtime failures are tracked above with the response URL,
+      // so ignore this generic browser diagnostic while preserving real JS errors.
+      if (/Failed to load resource: the server responded with a status of 404/i.test(text)) return;
+      errors.push(`console: ${text}`);
     });
 
     const mosslight = await testMosslight(page, engineName);
