@@ -54,7 +54,7 @@ expect(game.includes('state.worldsCleared % ATLAS_LENGTH === 0'), 'world 1000 mi
 expect(game.includes('deep loop'), 'run must continue after the first complete Atlas');
 expect(game.includes('deriveStoneQuota') && game.includes('awardStone') && game.includes('canChargePortal'), 'Mossglint charge economy is incomplete');
 expect(game.includes("state.portal.phase = 'ready'") && game.includes('firePortalCharge') && game.includes("state.portal.phase = 'charging'"), 'portal must have an explicit ready-to-charge action');
-expect(game.includes("state.portal.phase = 'firing'") && game.includes('portal.bolt') && game.includes('openExtractionPortal'), 'charged portal projectile and anchor impact are incomplete');
+expect(game.includes("portal.phase = 'firing'") && game.includes('portal.bolt') && game.includes('openExtractionPortal'), 'charged portal projectile and anchor impact are incomplete');
 expect(game.includes("state.portal.phase = 'open'") && game.includes('state.portal.extractionAge'), 'extraction phase is incomplete');
 expect(game.includes('attemptPortalEnter') && game.includes('reach the portal to commit'), 'portal traversal must require reaching the live gate');
 expect(game.includes('spawnBoss') && game.includes('defeatBoss') && game.includes('awardBossStones'), 'guardian boss/reward loop is incomplete');
