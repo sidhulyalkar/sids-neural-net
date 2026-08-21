@@ -1,17 +1,26 @@
 (() => {
   'use strict';
 
-  const canvas = document.getElementById('c');
-  const ctx = canvas?.getContext('2d');
+  const gameCanvas = document.getElementById('c');
   const playtest = window.__MOSSLIGHT_PLAYTEST__;
   const content = window.MosslightContent;
   const budget = window.SylvariaRenderBudget;
-  if (!canvas || !ctx || !playtest || !content?.rooms?.length || !budget) return;
+  if (!gameCanvas || !playtest || !content?.rooms?.length || !budget) return;
 
   const W = 960;
   const H = 640;
   const TAU = Math.PI * 2;
-  const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
+  const overlay = document.createElement('canvas');
+  overlay.id = 'sylVisualOverlay';
+  overlay.width = W;
+  overlay.height = H;
+  overlay.setAttribute('aria-hidden', 'true');
+  gameCanvas.insertAdjacentElement('afterend', overlay);
+  const ctx = overlay.getContext('2d');
+  if (!ctx) { overlay.remove(); return; }
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
+
   const hash = (value) => {
     let result = 2166136261;
     for (const ch of String(value)) {
@@ -107,6 +116,7 @@
     out.width = size * 2;
     out.height = size * 2;
     const g = out.getContext('2d');
+    if (!g) return { canvas: out, g: null, size };
     g.scale(2, 2);
     g.imageSmoothingEnabled = true;
     g.imageSmoothingQuality = 'high';
@@ -125,6 +135,7 @@
 
   function buildForestSprite() {
     const { canvas: out, g } = highResCanvas();
+    if (!g) return out;
     const glow = g.createRadialGradient(74, 105, 2, 74, 105, 54);
     glow.addColorStop(0, 'rgba(94,255,184,.16)'); glow.addColorStop(1, 'rgba(0,0,0,0)');
     g.fillStyle = glow; g.fillRect(10, 42, 140, 112);
@@ -146,6 +157,7 @@
 
   function buildVolcanicSprite() {
     const { canvas: out, g } = highResCanvas();
+    if (!g) return out;
     const glow = g.createRadialGradient(80, 128, 2, 80, 128, 62);
     glow.addColorStop(0, 'rgba(255,115,64,.2)'); glow.addColorStop(1, 'rgba(0,0,0,0)');
     g.fillStyle = glow; g.fillRect(12, 62, 136, 96);
@@ -165,6 +177,7 @@
 
   function buildReefSprite() {
     const { canvas: out, g } = highResCanvas();
+    if (!g) return out;
     const glow = g.createRadialGradient(74, 118, 1, 74, 118, 58);
     glow.addColorStop(0, 'rgba(78,223,255,.15)'); glow.addColorStop(1, 'rgba(0,0,0,0)');
     g.fillStyle = glow; g.fillRect(8, 50, 144, 108);
@@ -183,6 +196,7 @@
 
   function buildIceSprite() {
     const { canvas: out, g } = highResCanvas();
+    if (!g) return out;
     const gradient = g.createLinearGradient(0, 80, 0, 156);
     gradient.addColorStop(0, 'rgba(199,246,255,.62)'); gradient.addColorStop(1, 'rgba(73,137,177,.22)');
     g.fillStyle = gradient;
@@ -200,6 +214,7 @@
 
   function buildCelestialSprite() {
     const { canvas: out, g } = highResCanvas();
+    if (!g) return out;
     const glow = g.createRadialGradient(80, 113, 0, 80, 113, 62);
     glow.addColorStop(0, 'rgba(136,105,255,.18)'); glow.addColorStop(1, 'rgba(0,0,0,0)');
     g.fillStyle = glow; g.fillRect(12, 48, 136, 112);
@@ -215,11 +230,11 @@
     return out;
   }
 
-  function motifFor(theme) {
-    if (motifCache.has(theme.id)) return motifCache.get(theme.id);
+  function motifFor(activeTheme) {
+    if (motifCache.has(activeTheme.id)) return motifCache.get(activeTheme.id);
     const builders = { forest: buildForestSprite, volcanic: buildVolcanicSprite, reef: buildReefSprite, ice: buildIceSprite, celestial: buildCelestialSprite };
-    const sprite = builders[theme.id]();
-    motifCache.set(theme.id, sprite);
+    const sprite = builders[activeTheme.id]();
+    motifCache.set(activeTheme.id, sprite);
     return sprite;
   }
 
@@ -229,7 +244,7 @@
   function refreshScene(snapshot, force = false) {
     const room = content.rooms[snapshot.sectorIndex] || content.rooms[0];
     const key = `${snapshot.sectorIndex}:${snapshot.worldDepth}:${room?.atlas?.seed || room?.id || 0}`;
-    if (!force && key === sceneKey) return;
+    if (!force && key === sceneKey) return false;
     sceneKey = key;
     theme = classifyTheme(room);
     const rng = rngFrom(hash(key));
@@ -255,6 +270,7 @@
     root.style.setProperty('--biome-ink', theme.colors.ink);
     const badge = document.getElementById('biomeBadge');
     if (badge) badge.textContent = `${theme.label} · ${theme.cue}`;
+    return true;
   }
 
   function drawMotif(sprite, item, player) {
@@ -359,22 +375,28 @@
       quality: budget.snapshot(),
       motifCount: Math.min(motifLayout.length, budget.current.motifCount),
       spriteScale: budget.current.spriteScale,
+      overlayCanvas: true,
     };
   }
 
   let frameHandle = 0;
+  let lastOverlayPaint = -Infinity;
   function renderOverlay(now) {
     const snapshot = originalSnapshot();
-    refreshScene(snapshot);
+    const sceneChanged = refreshScene(snapshot);
     budget.noteFrame(now, snapshot.fps);
-    const sprite = motifFor(theme);
-    const motifCount = Math.min(motifLayout.length, budget.current.motifCount);
-
-    if (snapshot.mode === 'playing') {
-      for (let i = 0; i < motifCount; i += 1) drawMotif(sprite, motifLayout[i], snapshot.player);
-      for (const enemy of snapshot.enemies || []) drawCuteEnemyFace(enemy, now);
-      drawSpridPolish(snapshot, now);
-      drawPortalPolish(snapshot, now);
+    const interval = 1000 / budget.current.overlayFps;
+    if (sceneChanged || now - lastOverlayPaint >= interval) {
+      lastOverlayPaint = now;
+      ctx.clearRect(0, 0, W, H);
+      if (snapshot.mode === 'playing') {
+        const sprite = motifFor(theme);
+        const motifCount = Math.min(motifLayout.length, budget.current.motifCount);
+        for (let i = 0; i < motifCount; i += 1) drawMotif(sprite, motifLayout[i], snapshot.player);
+        for (const enemy of snapshot.enemies || []) drawCuteEnemyFace(enemy, now);
+        drawSpridPolish(snapshot, now);
+        drawPortalPolish(snapshot, now);
+      }
     }
     frameHandle = requestAnimationFrame(renderOverlay);
   }
@@ -384,7 +406,10 @@
   if (qualityBadge) qualityBadge.textContent = budget.tier.toUpperCase();
   frameHandle = requestAnimationFrame(renderOverlay);
 
-  window.addEventListener('pagehide', () => cancelAnimationFrame(frameHandle), { once: true });
+  window.addEventListener('pagehide', () => {
+    cancelAnimationFrame(frameHandle);
+    overlay.remove();
+  }, { once: true });
 
   window.SylvariaVisualSystem = Object.freeze({
     version: '0.6.0',
