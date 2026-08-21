@@ -296,7 +296,11 @@ export const useFrontierStore = create<FrontierStore>()(
         }
       },
 
-      resetBehavior: () => set({ behavior: startBehaviorSession(createInitialBehaviorModel()) }),
+      resetBehavior: () => {
+        const enabled = get().behavior.implicitLearning;
+        const fresh = { ...createInitialBehaviorModel(), implicitLearning: enabled };
+        set({ behavior: enabled ? startBehaviorSession(fresh) : fresh });
+      },
 
       importBackup: (payload) => {
         const parsed = migrateState(payload);
