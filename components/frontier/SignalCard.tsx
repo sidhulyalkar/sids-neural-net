@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Bookmark, ChevronDown, ExternalLink, Heart, MessageCircleMore } from 'lucide-react';
 import { FRONTIER_LANE_MAP } from '@/lib/frontier/config';
 import type { FrontierItem, FrontierReaction } from '@/lib/frontier/types';
+import { EditorialClip } from './EditorialClip';
 import type { SignalLayoutMode } from './SignalBoard';
 import styles from './frontier-minimal.module.css';
 
@@ -293,6 +294,73 @@ export function SignalCard({
     </div>
   );
 
+  const toggleExpanded = () => {
+    setExpanded((value) => {
+      const next = !value;
+      if (next && !expandedRecorded.current) {
+        expandedRecorded.current = true;
+        onExpand(item);
+      }
+      return next;
+    });
+  };
+
+  const contextPanel = expanded ? (
+    <div className={styles.expandedPanel}>
+      <MetricLine item={item} />
+      <p className={styles.reason}>{explanation}</p>
+      <Feedback item={item} reaction={reaction} onReact={onReact} />
+    </div>
+  ) : null;
+
+  if (feed && !hasMedia) {
+    return (
+      <article ref={ref} className={`${styles.card} ${styles.feedCard} ${styles.feedCardText}`}>
+        <div className={styles.feedCopy}>
+          <EditorialClip
+            item={item}
+            presentation="list"
+            resurfaced={resurfaced}
+            onOpen={() => onOpen(item)}
+          />
+          <div className={styles.feedDetails}>
+            <MetricLine item={item} />
+            <p className={styles.reason}>{explanation}</p>
+          </div>
+          <div className={styles.feedActions}>
+            {quickActions}
+            <Feedback item={item} reaction={reaction} onReact={onReact} />
+          </div>
+        </div>
+      </article>
+    );
+  }
+
+  if (!feed && !hasMedia) {
+    return (
+      <article ref={ref} className={`${styles.card} ${styles.tileCard} ${styles.tileCardText} ${expanded ? styles.cardExpanded : ''}`}>
+        <div className={styles.tileBody}>
+          <EditorialClip
+            item={item}
+            presentation="grid"
+            resurfaced={resurfaced}
+            onOpen={() => onOpen(item)}
+          />
+          <button
+            type="button"
+            className={styles.expandCue}
+            aria-expanded={expanded}
+            onClick={toggleExpanded}
+          >
+            {expanded ? 'Less' : 'Context'} <ChevronDown size={12} />
+          </button>
+          {contextPanel}
+        </div>
+        <div className={styles.tileFooter}>{quickActions}</div>
+      </article>
+    );
+  }
+
   const meta = (
     <div className={styles.cardTopline}>
       <span className={styles.laneLabel}>{resurfaced ? '↺ ' : ''}{lane.shortLabel}</span>
@@ -302,7 +370,7 @@ export function SignalCard({
 
   if (feed) {
     return (
-      <article ref={ref} className={`${styles.card} ${styles.feedCard} ${hasMedia ? styles.feedCardMedia : styles.feedCardText}`}>
+      <article ref={ref} className={`${styles.card} ${styles.feedCard} ${styles.feedCardMedia}`}>
         <div className={styles.feedCopy}>
           {meta}
           <h3 className={styles.cardTitle}>{item.title}</h3>
@@ -316,33 +384,18 @@ export function SignalCard({
             <Feedback item={item} reaction={reaction} onReact={onReact} />
           </div>
         </div>
-        {hasMedia ? (
-          <div className={styles.feedMediaSlot}>
-            <RealMedia item={item} interactive onUnavailable={markMediaUnavailable} />
-          </div>
-        ) : null}
+        <div className={styles.feedMediaSlot}>
+          <RealMedia item={item} interactive onUnavailable={markMediaUnavailable} />
+        </div>
       </article>
     );
   }
 
-  const toggleExpanded = () => {
-    setExpanded((value) => {
-      const next = !value;
-      if (next && !expandedRecorded.current) {
-        expandedRecorded.current = true;
-        onExpand(item);
-      }
-      return next;
-    });
-  };
-
   return (
-    <article ref={ref} className={`${styles.card} ${styles.tileCard} ${hasMedia ? styles.tileCardMedia : styles.tileCardText} ${expanded ? styles.cardExpanded : ''}`}>
-      {hasMedia ? (
-        <div className={styles.tileMedia}>
-          <RealMedia item={item} interactive={expanded} onUnavailable={markMediaUnavailable} />
-        </div>
-      ) : null}
+    <article ref={ref} className={`${styles.card} ${styles.tileCard} ${styles.tileCardMedia} ${expanded ? styles.cardExpanded : ''}`}>
+      <div className={styles.tileMedia}>
+        <RealMedia item={item} interactive={expanded} onUnavailable={markMediaUnavailable} />
+      </div>
 
       <div className={styles.tileBody}>
         {meta}
@@ -358,13 +411,7 @@ export function SignalCard({
           {expanded ? 'Less' : 'Context'} <ChevronDown size={12} />
         </button>
 
-        {expanded ? (
-          <div className={styles.expandedPanel}>
-            <MetricLine item={item} />
-            <p className={styles.reason}>{explanation}</p>
-            <Feedback item={item} reaction={reaction} onReact={onReact} />
-          </div>
-        ) : null}
+        {contextPanel}
       </div>
 
       <div className={styles.tileFooter}>{quickActions}</div>
