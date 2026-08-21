@@ -1,10 +1,11 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { CSSProperties } from 'react';
-import { Bookmark, ExternalLink } from 'lucide-react';
+import { Bookmark, ChevronDown, ExternalLink, Heart, MessageCircleMore } from 'lucide-react';
 import { FRONTIER_LANE_MAP } from '@/lib/frontier/config';
 import type { FrontierItem, FrontierReaction } from '@/lib/frontier/types';
+import type { SignalLayoutMode } from './SignalBoard';
 import styles from './frontier.module.css';
 
 const REACTIONS: Array<{ id: FrontierReaction; glyph: string; label: string }> = [
@@ -20,25 +21,11 @@ const REACTIONS: Array<{ id: FrontierReaction; glyph: string; label: string }> =
 ];
 
 const LANE_ACCENTS: Record<string, string> = {
-  must_know: '#ffd47a',
-  ml_data: '#78e9ff',
-  ai_frontier: '#a79cff',
-  neuro_frontier: '#ef9cff',
-  methods: '#87f0d2',
-  builder_signal: '#90c9ff',
-  competitions: '#ffd08c',
-  broad_science: '#b7f3e1',
-  creative_tech: '#ff9ed1',
-  world_pulse: '#f1e2a4',
-  premier_league: '#9dffb1',
-  world_soccer: '#a7e6ba',
-  team_pulse: '#80e6a8',
-  sports: '#b3d4ff',
-  gaming: '#ffb36b',
-  music: '#ff85cf',
-  internet_culture: '#ffe17a',
-  life: '#9fd6a6',
-  wildcards: '#d5afff',
+  must_know: '#ffd47a', ml_data: '#78e9ff', ai_frontier: '#a79cff', neuro_frontier: '#ef9cff',
+  methods: '#87f0d2', builder_signal: '#90c9ff', competitions: '#ffd08c', broad_science: '#b7f3e1',
+  creative_tech: '#ff9ed1', world_pulse: '#f1e2a4', premier_league: '#9dffb1', world_soccer: '#a7e6ba',
+  team_pulse: '#80e6a8', sports: '#b3d4ff', gaming: '#ffb36b', music: '#ff85cf',
+  internet_culture: '#ffe17a', life: '#9fd6a6', wildcards: '#d5afff',
 };
 
 export type SignalCardVariant = 'feature' | 'wide' | 'standard' | 'compact';
@@ -46,6 +33,7 @@ export type SignalCardVariant = 'feature' | 'wide' | 'standard' | 'compact';
 type Props = {
   item: FrontierItem;
   variant?: SignalCardVariant;
+  presentation?: SignalLayoutMode | 'library';
   saved?: boolean;
   reaction?: FrontierReaction;
   explanation: string;
@@ -56,24 +44,8 @@ type Props = {
   onReact: (item: FrontierItem, reaction: FrontierReaction) => void;
 };
 
-function score(value: number): number {
-  return Math.round(Math.max(0, Math.min(1, value)) * 100);
-}
-
 function host(url: string): string {
   try { return new URL(url).hostname.replace(/^www\./, ''); } catch { return ''; }
-}
-
-function mediaLabel(item: FrontierItem): string {
-  if (item.media?.type === 'youtube' || item.media?.type === 'video') return 'video signal';
-  if (item.sourceKind === 'reddit') return 'reddit signal';
-  if (item.sourceKind === 'steam' || item.lane === 'gaming') return 'game signal';
-  if (item.lane === 'music') return 'music signal';
-  if (item.sourceKind === 'social') return 'social signal';
-  if (item.sourceKind === 'openalex') return 'paper signal';
-  if (item.sourceKind === 'github') return 'builder signal';
-  if (item.sourceKind === 'football_data') return 'match signal';
-  return 'live signal';
 }
 
 function publishedLabel(value: string): string {
@@ -86,61 +58,89 @@ function publishedLabel(value: string): string {
   }).format(date);
 }
 
-function SignalArt({ item }: { item: FrontierItem }) {
-  const lane = FRONTIER_LANE_MAP[item.lane];
-  return <div className={styles.signalArt} aria-hidden="true"><div className={styles.signalGlyph}>{lane.glyph}</div></div>;
-}
-
 function DiscoveryImage({ src, alt }: { src: string; alt: string }) {
   return (
-    // Publisher media can originate from arbitrary live sources, so a static next/image host allowlist is unsuitable.
+    // Live publisher/community media cannot use a static next/image host allowlist.
     // eslint-disable-next-line @next/next/no-img-element
-    <img
-      src={src}
-      alt={alt}
-      className={styles.mediaImage}
-      loading="lazy"
-      decoding="async"
-      referrerPolicy="no-referrer"
-    />
+    <img src={src} alt={alt} className={styles.mediaImage} loading="lazy" decoding="async" referrerPolicy="no-referrer" />
   );
 }
 
-function Media({ item, variant }: { item: FrontierItem; variant: SignalCardVariant }) {
+function RealMedia({ item, interactive = false }: { item: FrontierItem; interactive?: boolean }) {
   const media = item.media;
-  const youtube = media?.type === 'youtube' && media.url;
+  if (!media || media.type === 'none') return null;
+  if (media.type === 'youtube' && media.url) {
+    if (interactive) {
+      return (
+        <div className={styles.realMedia}>
+          <iframe
+            title={`Video: ${item.title}`}
+            src={`https://www.youtube-nocookie.com/embed/${media.url}`}
+            className={styles.mediaImage}
+            loading="lazy"
+            allow="accelerometer; encrypted-media; gyroscope; picture-in-picture"
+            allowFullScreen
+          />
+        </div>
+      );
+    }
+    const poster = media.poster || `https://i.ytimg.com/vi/${media.url}/hqdefault.jpg`;
+    return <div className={styles.realMedia}><DiscoveryImage src={poster} alt={media.alt || item.title} /></div>;
+  }
+  if (media.type === 'image' && media.url) {
+    return <div className={styles.realMedia}><DiscoveryImage src={media.url} alt={media.alt || item.title} /></div>;
+  }
+  if (media.type === 'video' && media.url) {
+    return (
+      <div className={styles.realMedia}>
+        {interactive ? (
+          <video className={styles.mediaImage} controls preload="metadata" poster={media.poster}><source src={media.url} /></video>
+        ) : media.poster ? (
+          <DiscoveryImage src={media.poster} alt={media.alt || item.title} />
+        ) : null}
+      </div>
+    );
+  }
+  return null;
+}
 
+function MetricLine({ item }: { item: FrontierItem }) {
+  if (!item.metrics?.length) return null;
   return (
-    <div className={styles.media}>
-      {youtube && variant === 'feature' ? (
-        <iframe
-          title={`Video: ${item.title}`}
-          src={`https://www.youtube-nocookie.com/embed/${media.url}`}
-          className={styles.mediaImage}
-          loading="lazy"
-          allow="accelerometer; encrypted-media; gyroscope; picture-in-picture"
-          allowFullScreen
-        />
-      ) : youtube && media.poster ? (
-        <DiscoveryImage src={media.poster} alt={media.alt || item.title} />
-      ) : media?.type === 'image' && media.url ? (
-        <DiscoveryImage src={media.url} alt={media.alt || ''} />
-      ) : media?.type === 'video' && media.url && variant === 'feature' ? (
-        <video className={styles.mediaImage} controls preload="metadata" poster={media.poster}>
-          <source src={media.url} />
-        </video>
-      ) : (
-        <SignalArt item={item} />
-      )}
-      <div className={styles.mediaShade} />
-      <div className={styles.mediaLabel}><span>●</span>{mediaLabel(item)}</div>
+    <div className={styles.metricLine}>
+      {item.metrics.slice(0, 3).map((metric) => (
+        <span key={`${metric.label}-${metric.value}`}><strong>{metric.value}</strong> {metric.label}</span>
+      ))}
     </div>
+  );
+}
+
+function Feedback({ item, reaction, onReact }: Pick<Props, 'item' | 'reaction' | 'onReact'>) {
+  return (
+    <details className={styles.feedbackMenu}>
+      <summary><MessageCircleMore size={12} /> Feedback</summary>
+      <div className={styles.feedbackGrid}>
+        {REACTIONS.map((option) => (
+          <button
+            key={option.id}
+            type="button"
+            title={option.label}
+            aria-label={`${option.label}: ${item.title}`}
+            aria-pressed={reaction === option.id}
+            className={`${styles.feedbackButton} ${reaction === option.id ? styles.actionActive : ''}`}
+            onClick={() => onReact(item, option.id)}
+          >
+            <span>{option.glyph}</span>{option.label}
+          </button>
+        ))}
+      </div>
+    </details>
   );
 }
 
 export function SignalCard({
   item,
-  variant = 'standard',
+  presentation = 'library',
   saved = false,
   reaction,
   explanation,
@@ -152,101 +152,118 @@ export function SignalCard({
 }: Props) {
   const ref = useRef<HTMLElement | null>(null);
   const observed = useRef(false);
+  const [expanded, setExpanded] = useState(false);
   const lane = FRONTIER_LANE_MAP[item.lane];
+  const style = { '--lane-accent': LANE_ACCENTS[item.lane] ?? '#76edff' } as CSSProperties;
+  const feed = presentation === 'feed';
 
   useEffect(() => {
     const node = ref.current;
     if (!node || observed.current || typeof IntersectionObserver === 'undefined') return;
     const observer = new IntersectionObserver((entries) => {
-      if (entries.some((entry) => entry.isIntersecting && entry.intersectionRatio >= 0.55)) {
+      if (entries.some((entry) => entry.isIntersecting && entry.intersectionRatio >= 0.5)) {
         observed.current = true;
         onSeen(item, resurfaced);
         observer.disconnect();
       }
-    }, { threshold: [0.55] });
+    }, { threshold: [0.5] });
     observer.observe(node);
     return () => observer.disconnect();
   }, [item, onSeen, resurfaced]);
 
-  const cardClass = [
-    styles.card,
-    'bg-[#050c10]',
-    variant === 'feature' ? styles.cardFeature : '',
-    variant === 'wide' ? styles.cardWide : '',
-    variant === 'standard' ? styles.cardStandard : '',
-    variant === 'compact' ? styles.cardCompact : '',
-  ].filter(Boolean).join(' ');
-  const style = { '--lane-accent': LANE_ACCENTS[item.lane] ?? '#76edff' } as CSSProperties;
+  const quickActions = (
+    <div className={styles.quickActions}>
+      <button
+        type="button"
+        className={`${styles.iconAction} ${reaction === 'love' ? styles.actionActive : ''}`}
+        title="Love"
+        aria-label={`Love ${item.title}`}
+        onClick={() => onReact(item, 'love')}
+      >
+        <Heart size={13} fill={reaction === 'love' ? 'currentColor' : 'none'} />
+      </button>
+      <button
+        type="button"
+        className={`${styles.iconAction} ${saved ? styles.actionActive : ''}`}
+        title={saved ? 'Saved' : 'Save'}
+        aria-label={`${saved ? 'Saved' : 'Save'} ${item.title}`}
+        onClick={() => onSave(item)}
+      >
+        <Bookmark size={13} fill={saved ? 'currentColor' : 'none'} />
+      </button>
+      <a
+        className={styles.iconAction}
+        href={item.url}
+        target="_blank"
+        rel="noopener noreferrer"
+        onClick={() => onOpen(item)}
+        aria-label={`Open ${item.title} on ${host(item.url) || item.sourceLabel}`}
+        title="Open source"
+      >
+        <ExternalLink size={13} />
+      </a>
+    </div>
+  );
+
+  if (feed) {
+    return (
+      <article ref={ref} className={`${styles.card} ${styles.feedCard}`} style={style}>
+        <div className={styles.feedCopy}>
+          <div className={styles.cardTopline}>
+            <span className={styles.laneLabel}>{resurfaced ? '↺ ' : ''}{lane.shortLabel}</span>
+            <span className={styles.sourceLabel}>{item.sourceLabel} · {publishedLabel(item.publishedAt)}</span>
+          </div>
+          <h3 className={styles.cardTitle}>{item.title}</h3>
+          <p className={styles.cardSummary}>{item.summary}</p>
+        </div>
+        <div className={styles.feedMediaSlot}>
+          <RealMedia item={item} interactive />
+          {!item.media || item.media.type === 'none' ? (
+            <button type="button" className={styles.textCenterpiece} onClick={() => setExpanded((value) => !value)}>
+              <span>{expanded ? 'Less' : 'Read deeper'}</span>
+              <strong>{item.summary}</strong>
+            </button>
+          ) : null}
+        </div>
+        <aside className={styles.feedContext}>
+          <MetricLine item={item} />
+          <p className={styles.reason}>{explanation}</p>
+          {quickActions}
+          <Feedback item={item} reaction={reaction} onReact={onReact} />
+        </aside>
+      </article>
+    );
+  }
 
   return (
-    <article ref={ref} className={cardClass} style={style}>
-      <Media item={item} variant={variant} />
-      <div className={styles.cardBody}>
+    <article ref={ref} className={`${styles.card} ${styles.tileCard} ${expanded ? styles.cardExpanded : ''}`} style={style}>
+      <button
+        type="button"
+        className={styles.tilePeek}
+        aria-expanded={expanded}
+        onClick={() => setExpanded((value) => !value)}
+      >
         <div className={styles.cardTopline}>
-          <span className={styles.laneLabel}>{resurfaced ? '↺ Second chance · ' : ''}{lane.shortLabel}</span>
+          <span className={styles.laneLabel}>{resurfaced ? '↺ ' : ''}{lane.shortLabel}</span>
           <span className={styles.sourceLabel}>{item.sourceLabel} · {publishedLabel(item.publishedAt)}</span>
         </div>
         <h3 className={styles.cardTitle}>{item.title}</h3>
         <p className={styles.cardSummary}>{item.summary}</p>
+        <span className={styles.expandCue}>{expanded ? 'Collapse' : 'Expand'} <ChevronDown size={12} /></span>
+      </button>
 
-        {item.metrics?.length ? (
-          <div className={styles.metrics}>
-            {item.metrics.slice(0, 4).map((metric) => (
-              <span className={styles.metric} key={`${metric.label}-${metric.value}`}>
-                <span className={styles.metricValue}>{metric.value}</span>{metric.label}
-              </span>
-            ))}
+      {expanded ? (
+        <div className={styles.expandedPanel}>
+          <RealMedia item={item} interactive />
+          <div className={styles.expandedCopy}>
+            <MetricLine item={item} />
+            <p className={styles.reason}>{explanation}</p>
+            <Feedback item={item} reaction={reaction} onReact={onReact} />
           </div>
-        ) : null}
-
-        <div className={styles.tags}>
-          {item.tags.slice(0, variant === 'feature' ? 6 : 4).map((tag) => <span className={styles.tag} key={tag}>{tag}</span>)}
         </div>
-        <p className={styles.reason}><span className={styles.reasonStrong}>Why it found you:</span> {explanation}</p>
+      ) : null}
 
-        <div className={styles.scoreRail} aria-label="Signal scores">
-          {([['importance', item.importance], ['novelty', item.novelty], ['quality', item.quality]] as const).map(([label, value]) => (
-            <div className={styles.scoreCell} key={label}>
-              <div className={styles.scoreLabel}><span>{label}</span><span>{score(value)}</span></div>
-              <div className={styles.scoreTrack}><div className={styles.scoreFill} style={{ width: `${score(value)}%` }} /></div>
-            </div>
-          ))}
-        </div>
-
-        <div className={styles.actions} style={{ flexWrap: 'wrap' }}>
-          {REACTIONS.map((option) => (
-            <button
-              key={option.id}
-              type="button"
-              title={option.label}
-              aria-label={`${option.label}: ${item.title}`}
-              aria-pressed={reaction === option.id}
-              className={`${styles.actionButton} ${reaction === option.id ? styles.actionActive : ''}`}
-              onClick={() => onReact(item, option.id)}
-            >
-              {option.glyph}
-            </button>
-          ))}
-          <button
-            type="button"
-            className={`${styles.saveButton} ${saved ? styles.actionActive : ''}`}
-            onClick={() => onSave(item)}
-            aria-pressed={saved}
-          >
-            <Bookmark size={11} fill={saved ? 'currentColor' : 'none'} /> {saved ? 'Saved' : 'Save'}
-          </button>
-          <a
-            className={styles.openButton}
-            href={item.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={() => onOpen(item)}
-            aria-label={`Open ${item.title} on ${host(item.url) || item.sourceLabel}`}
-          >
-            <ExternalLink size={11} /> Open
-          </a>
-        </div>
-      </div>
+      <div className={styles.tileFooter}>{quickActions}</div>
     </article>
   );
 }
