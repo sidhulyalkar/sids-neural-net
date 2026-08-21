@@ -7,16 +7,16 @@ export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
   const focusTopics = decodeDiscoveryFocus(request.nextUrl.searchParams.get('focus'));
+  const forceFresh = request.nextUrl.searchParams.get('fresh') === '1';
   try {
     const feed = await getIntegratedFrontierFeed({ focusTopics });
     return NextResponse.json(feed, {
       headers: {
-        // The route executes independently of deployments. The shared feed gets
-        // a short edge cache; personalized focus queries remain browser-private
-        // while their upstream adapters use bounded request-time fetching.
-        'Cache-Control': focusTopics.length
-          ? 'private, max-age=60, stale-while-revalidate=120'
-          : 'public, s-maxage=180, stale-while-revalidate=600',
+        'Cache-Control': forceFresh
+          ? 'no-store'
+          : focusTopics.length
+            ? 'private, max-age=60, stale-while-revalidate=120'
+            : 'public, s-maxage=180, stale-while-revalidate=600',
         'X-Frontier-Live': focusTopics.length ? 'adaptive' : 'shared',
       },
     });
