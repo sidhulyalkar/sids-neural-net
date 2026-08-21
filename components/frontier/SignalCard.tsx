@@ -313,6 +313,17 @@ export function SignalCard({
     </div>
   ) : null;
 
+  const contextButton = (
+    <button
+      type="button"
+      className={styles.expandCue}
+      aria-expanded={expanded}
+      onClick={toggleExpanded}
+    >
+      {expanded ? 'Less' : 'Context'} <ChevronDown size={12} />
+    </button>
+  );
+
   if (feed && !hasMedia) {
     return (
       <article ref={ref} className={`${styles.card} ${styles.feedCard} ${styles.feedCardText}`}>
@@ -323,14 +334,11 @@ export function SignalCard({
             resurfaced={resurfaced}
             onOpen={() => onOpen(item)}
           />
-          <div className={styles.feedDetails}>
-            <MetricLine item={item} />
-            <p className={styles.reason}>{explanation}</p>
-          </div>
           <div className={styles.feedActions}>
+            {contextButton}
             {quickActions}
-            <Feedback item={item} reaction={reaction} onReact={onReact} />
           </div>
+          {contextPanel}
         </div>
       </article>
     );
@@ -346,14 +354,7 @@ export function SignalCard({
             resurfaced={resurfaced}
             onOpen={() => onOpen(item)}
           />
-          <button
-            type="button"
-            className={styles.expandCue}
-            aria-expanded={expanded}
-            onClick={toggleExpanded}
-          >
-            {expanded ? 'Less' : 'Context'} <ChevronDown size={12} />
-          </button>
+          {contextButton}
           {contextPanel}
         </div>
         <div className={styles.tileFooter}>{quickActions}</div>
@@ -375,14 +376,11 @@ export function SignalCard({
           {meta}
           <h3 className={styles.cardTitle}>{item.title}</h3>
           <p className={styles.cardSummary}>{item.summary}</p>
-          <div className={styles.feedDetails}>
-            <MetricLine item={item} />
-            <p className={styles.reason}>{explanation}</p>
-          </div>
           <div className={styles.feedActions}>
+            {contextButton}
             {quickActions}
-            <Feedback item={item} reaction={reaction} onReact={onReact} />
           </div>
+          {contextPanel}
         </div>
         <div className={styles.feedMediaSlot}>
           <RealMedia item={item} interactive onUnavailable={markMediaUnavailable} />
@@ -401,16 +399,7 @@ export function SignalCard({
         {meta}
         <h3 className={styles.cardTitle}>{item.title}</h3>
         <p className={styles.cardSummary}>{item.summary}</p>
-
-        <button
-          type="button"
-          className={styles.expandCue}
-          aria-expanded={expanded}
-          onClick={toggleExpanded}
-        >
-          {expanded ? 'Less' : 'Context'} <ChevronDown size={12} />
-        </button>
-
+        {contextButton}
         {contextPanel}
       </div>
 
