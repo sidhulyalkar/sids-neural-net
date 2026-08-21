@@ -76,7 +76,7 @@ export const arcadeGames: ArcadeGame[] = [
     title: 'Mosslight',
     subtitle: 'MOSSLIGHT RUN · SOLVE, CHARGE, PORTAL.',
     description:
-      'A one-way ecological action gauntlet across the 1,000-scene Nature Atlas. Sprig uses a compact Mossglint portal gun to solve resonance puzzles, fight or evade patterned encounters, defeat guardian bosses, collect permanent build upgrades, charge each arena portal, and push for the deepest possible run with no backtracking.',
+      'A one-way ecological action gauntlet across the 1,000-scene Nature Atlas. Sprid uses a compact Mossglint portal gun to solve resonance puzzles, fight or evade patterned encounters, defeat guardian bosses, collect permanent build upgrades, charge each arena portal, and push for the deepest possible run with no backtracking.',
     version: 'v0.4.0',
     status: 'playable',
     sourceVisibility: 'public',
@@ -86,7 +86,7 @@ export const arcadeGames: ArcadeGame[] = [
     nativeSize: { width: 960, height: 640 },
     tags: ['portal gun', 'action puzzle', '1000-scene atlas', 'one-way run', 'bosses', 'procedural music', 'powerups', 'canvas'],
     controls: [
-      { input: 'W A S D', action: 'Move Sprig through the arena' },
+      { input: 'W A S D', action: 'Move Sprid through the arena' },
       { input: 'Mouse / Arrow Keys', action: 'Aim the Mossglint portal gun independently' },
       { input: 'Click / Space', action: 'Fire the selected resonance' },
       { input: 'Shift', action: 'Dash through encounter and hazard patterns' },
