@@ -15,7 +15,7 @@ export const siteNavItems: SiteNavItem[] = [
   {
     href: '/frontier',
     label: 'FRONTIER',
-    description: 'Live personal intelligence radar for research, ML, data, football, and useful surprise.',
+    description: 'Daily personal world radar for research, code, teams, sports, games, music, communities, and useful surprise.',
     section: 'system',
   },
   {
