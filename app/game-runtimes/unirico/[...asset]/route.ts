@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 
 const UNIRICO_COMMIT = '5c3737957f302e9c44917097494684419e58e757';
 const SOURCE_ROOT = `https://raw.githubusercontent.com/sidhulyalkar/uniRico/${UNIRICO_COMMIT}/src`;
+const GAME_NETWORK_BRIDGE = '<script src="/game-runtimes/game-network-bridge.js"></script>';
 
 const ALLOWED_ASSETS = new Set([
   'index.html',
@@ -28,6 +29,13 @@ type RuntimeAssetRouteProps = {
 
 export const dynamic = 'force-dynamic';
 
+function injectGameNetworkBridge(html: string) {
+  if (html.includes('/game-runtimes/game-network-bridge.js')) return html;
+  return html.includes('</body>')
+    ? html.replace('</body>', `${GAME_NETWORK_BRIDGE}</body>`)
+    : `${html}\n${GAME_NETWORK_BRIDGE}\n`;
+}
+
 export async function GET(_request: Request, { params }: RuntimeAssetRouteProps) {
   const { asset } = await params;
   const path = asset.join('/');
@@ -48,7 +56,10 @@ export async function GET(_request: Request, { params }: RuntimeAssetRouteProps)
   }
 
   const extension = path.split('.').pop() ?? 'txt';
-  const body = await upstream.arrayBuffer();
+  const body = path === 'index.html'
+    ? injectGameNetworkBridge(await upstream.text())
+    : await upstream.arrayBuffer();
+
   return new NextResponse(body, {
     status: 200,
     headers: {
