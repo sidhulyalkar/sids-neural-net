@@ -23,16 +23,19 @@ page.on('console', (message) => {
 
 const runtimeUrl = `${baseUrl}/game-runtimes/mosslight-v2/index.html?playtest=1`;
 await page.goto(runtimeUrl, { waitUntil: 'networkidle' });
-await page.waitForFunction(() => Boolean(window.__MOSSLIGHT_PLAYTEST__) && Boolean(window.MosslightExpedition));
+await page.waitForFunction(() => Boolean(window.__MOSSLIGHT_PLAYTEST__) && Boolean(window.MosslightExpedition) && Boolean(window.MosslightDirector));
 
 const metadata = await page.evaluate(() => ({
   version: window.__MOSSLIGHT_PLAYTEST__.version,
   roomCount: window.__MOSSLIGHT_PLAYTEST__.roomCount,
   roomTitles: window.__MOSSLIGHT_PLAYTEST__.roomTitles,
   expedition: window.MosslightExpedition.summary(),
+  director: window.MosslightDirector.summary(),
+  powerups: window.MosslightDirector.powerups.map((powerup) => powerup.id),
+  movementPatterns: window.MosslightDirector.movementPatterns,
 }));
 
-if (metadata.version !== '0.2.0') failures.push(`expected v0.2.0 playtest API, got ${metadata.version}`);
+if (metadata.version !== '0.3.0') failures.push(`expected v0.3.0 playtest API, got ${metadata.version}`);
 if (metadata.roomCount !== 10) failures.push(`expected 10 rooms, got ${metadata.roomCount}`);
 if (metadata.expedition?.atlasCount !== 1000) failures.push(`expected 1000 Atlas scenes, got ${metadata.expedition?.atlasCount}`);
 if (metadata.expedition?.runSize !== 10) failures.push(`expected 10-scene expedition, got ${metadata.expedition?.runSize}`);
@@ -42,8 +45,28 @@ if (JSON.stringify(runWorlds.map((world) => world.index)) !== JSON.stringify([1,
   failures.push(`playtest expedition should deterministically use worlds 001-010, got ${runWorlds.map((world) => world.index).join(',')}`);
 }
 
-// Production replay contract: two consecutive real expeditions must advance through
-// the persistent without-replacement deck instead of reseeding or replaying worlds.
+const expectedPowerups = ['rapid-bloom', 'giant-dew', 'prism-spores', 'river-echo', 'sunstep', 'moss-ward'];
+for (const powerup of expectedPowerups) {
+  if (!metadata.powerups.includes(powerup)) failures.push(`director catalog missing ${powerup}`);
+}
+const expectedPatterns = ['patrol', 'weave', 'orbit', 'swoop', 'stalk', 'dash', 'spiral'];
+for (const pattern of expectedPatterns) {
+  if (!metadata.movementPatterns.includes(pattern)) failures.push(`director missing encounter movement grammar ${pattern}`);
+}
+
+if (metadata.director.length !== 10) failures.push(`director should enrich 10 rooms, got ${metadata.director.length}`);
+metadata.director.forEach((room, index) => {
+  if (room.level !== index + 1) failures.push(`room ${index + 1} expected threat ${index + 1}/10, got ${room.level}`);
+  if (index === 0 && room.powerup !== null) failures.push('tutorial room should remain powerup-free');
+  if (index > 0 && !room.powerup) failures.push(`room ${index + 1} should contain a world gift`);
+});
+const earlyEncounterCount = metadata.director.slice(0, 2).reduce((sum, room) => sum + room.encounterPatterns.length, 0);
+const lateEncounterCount = metadata.director.slice(-3).reduce((sum, room) => sum + room.encounterPatterns.length, 0);
+if (earlyEncounterCount !== 0) failures.push(`tutorial rooms should not spawn encounter agents, got ${earlyEncounterCount}`);
+if (lateEncounterCount < 10) failures.push(`late expedition should combine many encounter agents, got ${lateEncounterCount}`);
+if (!metadata.director.slice(3).some((room) => room.movingObstacles > 0)) failures.push('later rooms should introduce moving obstacle geometry');
+if (new Set(metadata.director.map((room) => room.situation)).size < 4) failures.push('playtest expedition should expose multiple terrain situation grammars');
+
 const replayPage = await browser.newPage({ viewport: { width: 960, height: 640 }, deviceScaleFactor: 1 });
 await replayPage.goto(`${baseUrl}/game-runtimes/mosslight-v2/index.html?replay-contract=1`, { waitUntil: 'networkidle' });
 await replayPage.evaluate(() => localStorage.removeItem('sid.mosslight.atlas-deck.v1'));
@@ -64,9 +87,8 @@ if (replayFirst.deck?.cursor !== 10 || replaySecond.deck?.cursor !== 20) {
 }
 await replayPage.close();
 
-// Real movement smoke.
 await page.evaluate(() => window.__MOSSLIGHT_PLAYTEST__.setRoom(0));
-await page.waitForTimeout(1500);
+await page.waitForTimeout(700);
 const start = await page.evaluate(() => window.__MOSSLIGHT_PLAYTEST__.snapshot());
 await page.keyboard.down('d');
 await page.waitForTimeout(320);
@@ -74,20 +96,6 @@ await page.keyboard.up('d');
 await page.waitForTimeout(80);
 const moved = await page.evaluate(() => window.__MOSSLIGHT_PLAYTEST__.snapshot());
 if ((moved.player?.x ?? 0) - (start.player?.x ?? 0) < 18) failures.push('WASD movement smoke did not move Sprig far enough');
-
-async function generatedAimProbe() {
-  return page.evaluate(() => {
-    const snapshot = window.__MOSSLIGHT_PLAYTEST__.snapshot();
-    const room = window.MosslightContent.rooms[snapshot.roomIndex];
-    const player = snapshot.player;
-    const unfinished = room.targets.filter((target) => !target.done);
-    const target = unfinished.reduce((best, candidate) => {
-      const distance = Math.hypot(candidate.x - player.x, candidate.y - player.y);
-      return !best || distance < best.distance ? { ...candidate, distance } : best;
-    }, null);
-    return target ? { player, target } : null;
-  });
-}
 
 function arrowKeysForVector(dx, dy) {
   const angle = Math.atan2(dy, dx);
@@ -105,68 +113,105 @@ function arrowKeysForVector(dx, dy) {
   ][normalized];
 }
 
-// Mouse aim: point at the actual procedurally generated nearest relationship and
-// require this input to add both a new cast and a new correct restoration action.
-await page.evaluate(() => window.__MOSSLIGHT_PLAYTEST__.setRoom(0));
-await page.waitForTimeout(100);
-const beforeMouse = await page.evaluate(() => window.__MOSSLIGHT_PLAYTEST__.snapshot());
-const mouseProbe = await generatedAimProbe();
-if (!mouseProbe) {
-  failures.push('could not resolve generated mouse-aim target');
-} else {
-  await page.mouse.move(mouseProbe.target.x, mouseProbe.target.y);
-  await page.mouse.click(mouseProbe.target.x, mouseProbe.target.y);
-  await page.waitForTimeout(760);
+async function firstTargetSnapshot() {
+  return page.evaluate(() => {
+    const snapshot = window.__MOSSLIGHT_PLAYTEST__.snapshot();
+    return { snapshot, target: snapshot.targets.find((target) => !target.done) };
+  });
 }
-const mouseCast = await page.evaluate(() => window.__MOSSLIGHT_PLAYTEST__.snapshot());
-if (mouseCast.stats.casts <= beforeMouse.stats.casts) failures.push('pointer aim did not add a new cast');
-if (mouseCast.stats.correct <= beforeMouse.stats.correct) failures.push('pointer aim did not add a new correct restoration step');
 
-// Laptop keyboard aim: quantize the actual generated target vector to the nearest
-// 8-way arrow direction, hold those arrows, and cast with Space. This proves the
-// keyboard scheme stays useful even after Atlas geometry perturbs target positions.
 await page.evaluate(() => window.__MOSSLIGHT_PLAYTEST__.setRoom(0));
-await page.waitForTimeout(100);
-await page.locator('#c').focus();
-const beforeKeyboard = await page.evaluate(() => window.__MOSSLIGHT_PLAYTEST__.snapshot());
-const keyboardProbe = await generatedAimProbe();
+await page.waitForTimeout(140);
+let { snapshot: beforeMouse, target: mouseTarget } = await firstTargetSnapshot();
+if (!mouseTarget) failures.push('room 1 should expose a restoration target for pointer test');
+else {
+  await page.mouse.move(mouseTarget.x, mouseTarget.y);
+  await page.mouse.click(mouseTarget.x, mouseTarget.y);
+  await page.waitForTimeout(520);
+  const mouseCast = await page.evaluate(() => window.__MOSSLIGHT_PLAYTEST__.snapshot());
+  if (mouseCast.stats.casts <= beforeMouse.stats.casts) failures.push('pointer aim did not add a new cast');
+  if (mouseCast.stats.correct <= beforeMouse.stats.correct) failures.push('pointer aim did not add a new correct restoration step');
+}
+
+await page.evaluate(() => window.__MOSSLIGHT_PLAYTEST__.setRoom(0));
+await page.waitForTimeout(140);
+const keyboardData = await firstTargetSnapshot();
+const beforeKeyboard = keyboardData.snapshot;
+const keyboardTarget = keyboardData.target;
 let keyboardKeys = [];
-if (!keyboardProbe) {
-  failures.push('could not resolve generated keyboard-aim target');
-} else {
-  keyboardKeys = arrowKeysForVector(
-    keyboardProbe.target.x - keyboardProbe.player.x,
-    keyboardProbe.target.y - keyboardProbe.player.y
-  );
+let keyboardCast = beforeKeyboard;
+if (!keyboardTarget || !beforeKeyboard.player) failures.push('room 1 should expose target/player data for keyboard aim test');
+else {
+  keyboardKeys = arrowKeysForVector(keyboardTarget.x - beforeKeyboard.player.x, keyboardTarget.y - beforeKeyboard.player.y);
+  await page.locator('#c').focus();
   for (const key of keyboardKeys) await page.keyboard.down(key);
   await page.keyboard.press('Space');
   for (const key of [...keyboardKeys].reverse()) await page.keyboard.up(key);
-  await page.waitForTimeout(800);
+  await page.waitForTimeout(560);
+  keyboardCast = await page.evaluate(() => window.__MOSSLIGHT_PLAYTEST__.snapshot());
+  if (keyboardCast.stats.casts <= beforeKeyboard.stats.casts) failures.push('arrow-key + Space aim did not add a new cast');
+  if (keyboardCast.stats.correct <= beforeKeyboard.stats.correct) failures.push(`arrow-key aim did not add a correct restoration step (${keyboardKeys.join(' + ')})`);
+  if (keyboardCast.aimSource !== 'keyboard') failures.push(`arrow aim should remain keyboard-authoritative until pointer moves, got ${keyboardCast.aimSource}`);
 }
-const keyboardCast = await page.evaluate(() => window.__MOSSLIGHT_PLAYTEST__.snapshot());
-if (keyboardCast.stats.casts <= beforeKeyboard.stats.casts) failures.push('arrow-key + Space aim did not add a new cast');
-if (keyboardCast.stats.correct <= beforeKeyboard.stats.correct) failures.push(`8-way arrow aim (${keyboardKeys.join(' + ')}) did not add a new correct restoration step`);
+
+const buildSnapshots = [];
+for (const roomIndex of [1, 2, 3]) {
+  await page.evaluate((index) => window.__MOSSLIGHT_PLAYTEST__.setRoom(index), roomIndex);
+  const beforeGift = await page.evaluate(() => window.__MOSSLIGHT_PLAYTEST__.snapshot());
+  if (!beforeGift.powerup) {
+    failures.push(`room ${roomIndex + 1} did not expose a world gift`);
+    continue;
+  }
+  const afterGift = await page.evaluate(() => window.__MOSSLIGHT_PLAYTEST__.collectPowerup());
+  if (!afterGift.powerup?.collected) failures.push(`room ${roomIndex + 1} world gift did not collect`);
+  if (afterGift.stats.gifts <= beforeGift.stats.gifts) failures.push(`room ${roomIndex + 1} gift counter did not advance`);
+  buildSnapshots.push({ roomIndex, powerup: afterGift.powerup?.id, relics: afterGift.relics });
+}
+if (buildSnapshots.length === 3) {
+  const finalBuild = buildSnapshots.at(-1).relics;
+  const changed = finalBuild.fireRate > 1 || finalBuild.projectileScale > 1 || finalBuild.spread > 1 || finalBuild.pierce > 0 || finalBuild.moveSpeed > 1 || finalBuild.dashRecharge > 1 || finalBuild.shield > 0;
+  if (!changed) failures.push('collecting world gifts did not change the expedition build');
+  if (finalBuild.collected.length < 3) failures.push(`expected at least 3 persistent collected gifts, got ${finalBuild.collected.length}`);
+}
+
+await page.evaluate(() => window.__MOSSLIGHT_PLAYTEST__.setRoom(9));
+const lateStart = await page.evaluate(() => window.__MOSSLIGHT_PLAYTEST__.snapshot());
+if (lateStart.challenge?.level !== 10) failures.push(`final room should be threat 10/10, got ${lateStart.challenge?.level}`);
+if (lateStart.encounters.length < 5) failures.push(`final room should combine 5 encounter agents, got ${lateStart.encounters.length}`);
+await page.waitForTimeout(3400);
+const lateActive = await page.evaluate(() => window.__MOSSLIGHT_PLAYTEST__.snapshot());
+if (!lateActive.waves.length) failures.push('final room did not generate a telegraphed situation sweep');
+const movedEncounter = lateStart.encounters.some((encounter, index) => {
+  const after = lateActive.encounters[index];
+  return after && Math.hypot(after.x - encounter.x, after.y - encounter.y) > 12;
+});
+if (!movedEncounter) failures.push('late-room wildlife encounter agents did not visibly move');
 
 const expectedInitialTools = ['rain', 'rain', 'mend', 'rain', 'wind', 'rain', 'rain', 'sun', 'rain', 'wind'];
-const rooms = [];
+const roomReports = [];
 for (let index = 0; index < metadata.roomCount; index += 1) {
   const before = await page.evaluate((roomIndex) => window.__MOSSLIGHT_PLAYTEST__.setRoom(roomIndex), index);
   const expectedTool = expectedInitialTools[index];
   if (before.selected !== expectedTool) failures.push(`${metadata.roomTitles[index]} should initially guide ${expectedTool}, got ${before.selected}`);
 
-  await page.waitForTimeout(1500);
+  await page.waitForTimeout(700);
   const stressedFile = `room-${String(index + 1).padStart(2, '0')}-stressed.png`;
   await page.screenshot({ path: path.join(outputDir, stressedFile) });
 
   const after = await page.evaluate(() => window.__MOSSLIGHT_PLAYTEST__.completeRoom());
-  await page.waitForTimeout(320);
+  await page.waitForTimeout(240);
   const restoredFile = `room-${String(index + 1).padStart(2, '0')}-restored.png`;
   await page.screenshot({ path: path.join(outputDir, restoredFile) });
 
-  rooms.push({
+  roomReports.push({
     index: index + 1,
     title: metadata.roomTitles[index],
     atlasWorld: runWorlds[index],
+    challenge: before.challenge,
+    powerup: before.powerup?.id || null,
+    encounterPatterns: before.encounters.map((encounter) => encounter.pattern),
+    animalPatterns: before.targets.filter((target) => target.kind === 'animal').map((target) => target.movementPattern),
+    movingObstacles: before.movingObstacles,
     stressedScreenshot: stressedFile,
     restoredScreenshot: restoredFile,
     stressedProgress: before.progress,
@@ -187,28 +232,16 @@ const report = {
   version: metadata.version,
   difficulty: 'gentle',
   expedition: metadata.expedition,
-  replayContract: {
-    first: replayFirst,
-    second: replaySecond,
-    overlap,
-  },
+  director: metadata.director,
+  replayContract: { first: replayFirst, second: replaySecond, overlap },
   interactionSmoke: {
-    startX: start.player?.x,
-    movedX: moved.player?.x,
-    deltaX: (moved.player?.x ?? 0) - (start.player?.x ?? 0),
-    mouse: {
-      target: mouseProbe?.target ? { x: mouseProbe.target.x, y: mouseProbe.target.y, label: mouseProbe.target.label } : null,
-      castsAdded: mouseCast.stats.casts - beforeMouse.stats.casts,
-      correctActionsAdded: mouseCast.stats.correct - beforeMouse.stats.correct,
-    },
-    keyboard: {
-      target: keyboardProbe?.target ? { x: keyboardProbe.target.x, y: keyboardProbe.target.y, label: keyboardProbe.target.label } : null,
-      keys: keyboardKeys,
-      castsAdded: keyboardCast.stats.casts - beforeKeyboard.stats.casts,
-      correctActionsAdded: keyboardCast.stats.correct - beforeKeyboard.stats.correct,
-    },
+    movement: { startX: start.player?.x, movedX: moved.player?.x, deltaX: (moved.player?.x ?? 0) - (start.player?.x ?? 0) },
+    mouse: { target: mouseTarget, castsAdded: keyboardData ? undefined : undefined },
+    keyboard: { target: keyboardTarget, keys: keyboardKeys, castsAdded: keyboardCast.stats.casts - beforeKeyboard.stats.casts, correctActionsAdded: keyboardCast.stats.correct - beforeKeyboard.stats.correct },
+    buildSnapshots,
+    lateRoom: { start: lateStart, active: lateActive },
   },
-  rooms,
+  rooms: roomReports,
   finalFps: finalSnapshot.fps,
   consoleErrors,
   failures,
@@ -223,4 +256,4 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log(`Mosslight browser playtest PASS: 1,000-scene Atlas feed, disjoint repeat expeditions, ${rooms.length} unique rooms, generated-target mouse + 8-way arrow aim, movement, correct-cast smoke, ${finalSnapshot.fps.toFixed(1)} FPS.`);
+console.log(`Mosslight browser playtest PASS: 1,000-scene Atlas feed, disjoint repeat expeditions, escalating 1→10 threat curve, persistent world gifts, custom wildlife/obstacle/situation movement, independent mouse + arrow-key aim, ${roomReports.length} rooms, ${finalSnapshot.fps.toFixed(1)} FPS.`);
