@@ -3,10 +3,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { PointerEvent as ReactPointerEvent, ReactNode } from 'react';
 import { Grip, LayoutGrid, Rows3 } from 'lucide-react';
-import type { FrontierItem } from '@/lib/frontier/types';
+import type { FrontierItem, FrontierLayoutMode } from '@/lib/frontier/types';
 import styles from './frontier-minimal.module.css';
 
-export type SignalLayoutMode = 'desk' | 'feed';
+export type SignalLayoutMode = FrontierLayoutMode;
 
 type Position = { x: number; y: number; z: number; rotate: number };
 type DragState = { id: string; pointerId: number; startX: number; startY: number; originX: number; originY: number };
@@ -16,6 +16,7 @@ type Props = {
   renderCard: (item: FrontierItem, mode: SignalLayoutMode) => ReactNode;
   empty?: ReactNode;
   compact?: boolean;
+  onLayoutChange?: (mode: SignalLayoutMode) => void;
 };
 
 function hash(value: string): number {
@@ -43,7 +44,7 @@ function tidyPositions(items: FrontierItem[]): Record<string, Position> {
   return Object.fromEntries(items.map((item, index) => [item.id, defaultPosition(item, index)]));
 }
 
-export function SignalBoard({ items, renderCard, empty, compact = false }: Props) {
+export function SignalBoard({ items, renderCard, empty, compact = false, onLayoutChange }: Props) {
   const [mode, setMode] = useState<SignalLayoutMode>('desk');
   const [positions, setPositions] = useState<Record<string, Position>>(() => tidyPositions(items));
   const [drag, setDrag] = useState<DragState | null>(null);
@@ -52,8 +53,10 @@ export function SignalBoard({ items, renderCard, empty, compact = false }: Props
   useEffect(() => {
     const saved = window.localStorage.getItem('frontier-layout-mode');
     const preferred = saved === 'feed' || saved === 'desk' ? saved : 'desk';
-    setMode(window.innerWidth < 720 ? 'feed' : preferred);
-  }, []);
+    const resolved = window.innerWidth < 720 ? 'feed' : preferred;
+    setMode(resolved);
+    onLayoutChange?.(resolved);
+  }, [onLayoutChange]);
 
   useEffect(() => {
     setPositions((current) => {
@@ -73,6 +76,7 @@ export function SignalBoard({ items, renderCard, empty, compact = false }: Props
   const switchMode = (next: SignalLayoutMode) => {
     setMode(next);
     window.localStorage.setItem('frontier-layout-mode', next);
+    onLayoutChange?.(next);
   };
 
   const bringForward = (item: FrontierItem) => {
