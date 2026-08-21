@@ -1,34 +1,18 @@
 # FRONTIER preference + habit learning
 
-FRONTIER has two deliberately separate personalization layers.
+FRONTIER separates explicit preference from cautious behavioral learning.
 
-1. **Explicit preference state** learns from Love / Important / Surprise / Useful / Read / Already knew / Later / Meh / Hide.
-2. **Behavioral state** learns cautiously from what the owner actually spends time with: meaningful dwell, tile expansion, source opens, saves, reading layout, session rhythm, source choice, format, time-of-day, and repeated lane/topic engagement.
+## What it learns
 
-Both remain browser-local and are included in the portable FRONTIER memory export. No interaction history is written into the public daily snapshot.
+Explicit reactions keep their own semantics: Love, Important, Surprise, Useful, Read, Already knew, Later, Meh, and Hide.
 
-## Why a separate behavioral model
+The behavioral model learns aggregate patterns from meaningful dwell, tile expansion, source opens, saves, reading layout, session rhythm, source choice, content format, novelty level, reading depth when available, time of day, weekday, and repeated lane/topic engagement.
 
-A click is not a personality. FRONTIER therefore avoids collapsing every interaction into one opaque recommender score.
-
-The behavioral model keeps counters for:
-
-- broad lane engagement
-- source kind and publisher/community engagement
-- topic/tag engagement
-- text / image / video / paper / code / thread format
-- morning / afternoon / evening / late usage
-- time-of-day × lane and time-of-day × format context
-- weekday × lane context
-- Desk vs Feed usage
-- view usage
-- session count and approximate active session duration
-
-The model is intentionally aggregate-only. It does not record mouse paths, raw scrolling, precise cursor coordinates, or keystrokes.
+All behavioral state remains browser-local and is included in the portable FRONTIER memory export. No private interaction history is written into the public daily content snapshot.
 
 ## Evidence hierarchy
 
-Implicit events are weighted by how meaningful they are:
+FRONTIER deliberately treats behavior as uncertain evidence rather than ground truth.
 
 ```text
 impression      very weak evidence
@@ -36,54 +20,64 @@ impression      very weak evidence
 expand          moderate positive evidence
 open source     strong positive evidence
 save            stronger positive evidence
-explicit love / important / surprise / useful
+explicit positive feedback
                 strongest positive evidence
 meh / hide      negative evidence
 ```
 
-A plain impression is not treated as dislike. Quiet-skip penalties only begin after repeated exposure, and even then their ranking effect is deliberately small. This prevents accidental scrolling, page position, or one busy session from poisoning the model.
+One skip is never interpreted as dislike. Quiet-skip penalties begin only after repeated exposure and remain small. Old behavioral evidence gradually loses confidence so the model can follow preference drift rather than fossilizing an old version of the owner.
 
-## Contextual ranking
+## Stable between-session learning
 
-`lib/frontier/behavior.ts` computes a small confidence-weighted behavioral adjustment. The signal can consider:
+Live behavior is recorded immediately for inspection, but implicit ranking reads a frozen preference snapshot captured at the beginning of a session.
 
-- whether this lane has repeatedly earned engagement
-- whether this source tends to produce useful items
-- whether the item's format fits observed behavior
-- whether this lane or format tends to work at the current time of day
-- whether a topic has repeatedly led to meaningful engagement
+That means reading one mountain-bike story cannot suddenly reorder the feed while it is on screen. Evidence from the current visit becomes ranking evidence on a later session. This gives FRONTIER two timescales:
 
-The behavioral adjustment is intentionally bounded. It supplements the existing editorial score instead of replacing it.
+- within a visit: stable reading surface plus live inspectable learning
+- between visits: adaptive ranking based on accumulated behavior
 
-FRONTIER still protects finite Daily Run slots for global importance, research evidence, code, reusable methods, favorite teams, active sports, broader sports, games/music/culture, resurfacing, and exploration. A learned habit cannot turn the product into a one-topic filter bubble.
+## Context it can learn
 
-## Inspectability
+The local model can identify patterns such as:
 
-The Radar view includes **What FRONTIER is learning**. It exposes:
+- lanes and topics that repeatedly earn attention
+- trusted or repeatedly useful sources
+- text, image, video, paper, code, or discussion preference
+- morning / afternoon / evening / late reading rhythm
+- time-of-day × topic habit pockets
+- weekday × topic patterns
+- high-novelty versus familiar discovery appetite
+- quick versus deeper reading preference when read-time metadata exists
+- Desk versus Feed preference
+- most-used FRONTIER views
+- approximate session length and return rhythm
 
-- high-confidence habit summaries
-- preferred lane tendencies
-- format tendency
-- time-of-day rhythm
-- Desk vs Feed preference
-- approximate session shape
-- confidence rather than pretending every observation is certain
+## Ranking guardrails
 
-The owner can pause implicit learning at any time or **Forget habits** without deleting saves, explicit reactions, history, or collections.
+The learned behavioral adjustment is deliberately bounded and supplements the editorial score rather than replacing it.
+
+FRONTIER still protects finite Daily Run space for global importance, primary research, public code, reusable methods/project design, favorite teams, active sports, broader sports, games/music/culture, second chances, and exploration. Personalization cannot collapse the page into a one-topic filter bubble.
+
+## Inspectability and control
+
+The Radar view includes **What FRONTIER is learning** with confidence-aware habit summaries and learned lane tendencies.
+
+The owner can pause behavioral learning or use **Forget habits** to clear only the implicit behavior model while retaining saves, explicit reactions, history, collections, and the rest of FRONTIER memory. Pausing remains paused after forgetting habits.
 
 ## Persistence and migration
 
-The local state schema is version 2. Existing version-1 FRONTIER memory migrates in place by preserving profile, saves, collections, history, and game state while initializing an empty behavioral model.
+The local state schema is version 2. Existing version-1 state and memory exports migrate in place by preserving profile, saves, collections, history, and game state while initializing the behavioral model.
 
-Imported version-1 backups are accepted and upgraded the same way.
+The ranking snapshot is local behavioral state and is never part of the public content archive.
 
 ## Design constraints
 
-- Local-first by default.
-- No public behavioral telemetry.
-- No raw surveillance-style event stream.
-- No negative inference from one skip.
-- Explicit reactions override implicit ambiguity.
-- Important information can break through personalization.
-- Exploration remains protected.
-- Learned behavior is inspectable, pausable, resettable, and portable.
+- local-first by default
+- no public behavioral telemetry
+- no raw cursor paths, raw scroll trails, or keystroke logging
+- no negative inference from one skip
+- explicit feedback keeps distinct semantics
+- current-session implicit evidence must not reshuffle the reading surface
+- important information can break through personalization
+- exploration remains protected
+- learned behavior is inspectable, pausable, resettable, and portable
