@@ -40,7 +40,7 @@ The dock is intentionally peripheral while reading:
 - the behavior is requestAnimationFrame-throttled and uses passive scroll/pointer listeners
 - `prefers-reduced-motion` removes decorative transitions
 
-The content canvas reserves bottom safe space so the dock never covers the final cards or browser safe-area inset.
+The content canvas reserves bottom safe space so the dock never covers the final cards or browser safe-area inset. On narrow screens it is lifted above the site's persistent camera-signal affordance so both controls retain independent hit targets.
 
 ## Topic search
 
