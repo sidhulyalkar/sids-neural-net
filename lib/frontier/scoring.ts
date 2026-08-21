@@ -1,4 +1,4 @@
-import { behavioralAdjustment, formatForItem, aggregatePreference, timeBucket } from './behavior';
+import { behavioralAdjustment, behavioralExplorationBonus, formatForItem, aggregatePreference, timeBucket } from './behavior';
 import { FRONTIER_LANE_MAP } from './config';
 import type {
   FrontierBehaviorModel,
@@ -23,6 +23,8 @@ export function freshnessScore(publishedAt: string, now = new Date()): number {
 
 function reactionValue(reaction: FrontierReaction): number {
   switch (reaction) {
+    case 'up': return 0.82;
+    case 'down': return -0.72;
     case 'love': return 1;
     case 'important': return 0.88;
     case 'surprise': return 0.76;
@@ -35,11 +37,7 @@ function reactionValue(reaction: FrontierReaction): number {
   }
 }
 
-export function applyReactionToProfile(
-  profile: FrontierProfile,
-  item: FrontierItem,
-  reaction: FrontierReaction
-): FrontierProfile {
+export function applyReactionToProfile(profile: FrontierProfile, item: FrontierItem, reaction: FrontierReaction): FrontierProfile {
   const value = reactionValue(reaction);
   const next: FrontierProfile = {
     laneAffinity: { ...profile.laneAffinity },
@@ -50,7 +48,6 @@ export function applyReactionToProfile(
     meaningfulInteractions: profile.meaningfulInteractions + (reaction === 'read' ? 0 : 1),
   };
 
-  // "Already knew" advances the knowledge frontier without teaching dislike.
   if (reaction === 'known') {
     for (const tag of item.tags) {
       const key = tag.toLowerCase();
@@ -69,13 +66,13 @@ export function applyReactionToProfile(
   }
 
   if (reaction === 'surprise') next.curiosity = clamp(next.curiosity + 0.035, 0.08, 0.55);
-  if (reaction === 'hide') next.curiosity = clamp(next.curiosity - 0.015, 0.08, 0.55);
+  if (reaction === 'hide' || reaction === 'down') next.curiosity = clamp(next.curiosity - 0.01, 0.08, 0.55);
   return next;
 }
 
 export function resurfaceBonus(entry: FrontierHistoryEntry | undefined, now = new Date()): number {
-  if (!entry || entry.reaction === 'hide' || entry.reaction === 'meh' || entry.reaction === 'known') return 0;
-  if (entry.reaction === 'read' || entry.reaction === 'love' || entry.reaction === 'useful' || entry.reaction === 'important') return 0;
+  if (!entry || ['hide', 'meh', 'down', 'known'].includes(entry.reaction ?? '')) return 0;
+  if (entry.reaction && ['read', 'love', 'up', 'useful', 'important'].includes(entry.reaction)) return 0;
   if (entry.resurfacedCount >= RESURFACE_DAYS.length) return 0;
 
   const sinceSeenDays = (now.getTime() - new Date(entry.lastSeenAt).getTime()) / DAY_MS;
@@ -112,6 +109,7 @@ export function personalizedScore(
   const surpriseTarget = 0.52;
   const usefulSurprise = 1 - Math.min(1, Math.abs(item.novelty - surpriseTarget) / surpriseTarget);
   const learnedBehavior = behavioralAdjustment(item, behavior, now);
+  const exploration = behavioralExplorationBonus(item, behavior, now) * (0.65 + profile.curiosity);
 
   const score =
     item.baseScore * 0.28 +
@@ -125,6 +123,7 @@ export function personalizedScore(
     usefulSurprise * profile.curiosity * 0.12 -
     knownness * 0.08 +
     learnedBehavior +
+    exploration +
     resurfaceBonus(historyEntry, now);
 
   return clamp(score, -1, 1.5);
@@ -139,19 +138,12 @@ export function rankFrontierItems(
 ): FrontierItem[] {
   return items
     .filter((item) => history[item.id]?.reaction !== 'hide')
-    .map((item) => ({
-      item,
-      score: personalizedScore(item, profile, history[item.id], now, behavior),
-    }))
+    .map((item) => ({ item, score: personalizedScore(item, profile, history[item.id], now, behavior) }))
     .sort((a, b) => b.score - a.score)
     .map(({ item }) => item);
 }
 
-function takeFirst(
-  source: FrontierItem[],
-  used: Set<string>,
-  predicate: (item: FrontierItem) => boolean
-): FrontierItem | undefined {
+function takeFirst(source: FrontierItem[], used: Set<string>, predicate: (item: FrontierItem) => boolean): FrontierItem | undefined {
   const item = source.find((candidate) => !used.has(candidate.id) && predicate(candidate));
   if (item) used.add(item.id);
   return item;
@@ -161,10 +153,10 @@ function isActiveSportSignal(item: FrontierItem): boolean {
   return item.tags.includes('active sport') || item.tags.includes('active sports');
 }
 
-/**
- * A finite daily run with an editorial spine. Personalization can reorder within
- * the spine, but it cannot erase evidence, active interests, or exploration.
- */
+function sourceHost(item: FrontierItem): string {
+  try { return new URL(item.url).hostname.replace(/^www\./, ''); } catch { return item.source; }
+}
+
 export function selectDailyRun(
   ranked: FrontierItem[],
   history: Record<string, FrontierHistoryEntry>,
@@ -192,6 +184,9 @@ export function selectDailyRun(
     if (used.has(item.id)) continue;
     const sameLane = selected.filter((candidate) => candidate.lane === item.lane).length;
     if (sameLane >= Math.max(2, Math.ceil(limit * 0.24))) continue;
+    const host = sourceHost(item);
+    const sameHost = selected.filter((candidate) => sourceHost(candidate) === host).length;
+    if (sameHost >= 2) continue;
     selected.push(item);
     used.add(item.id);
   }
@@ -236,28 +231,16 @@ function resurfaceLike(item: FrontierItem): boolean {
 
 export function buildDailyQuests(history: Record<string, FrontierHistoryEntry>, dayKey: string): FrontierQuest[] {
   const todays = Object.values(history).filter((entry) => entry.reactedAt?.startsWith(dayKey));
-  const meaningful = todays.filter((entry) => entry.reaction && !['meh', 'hide', 'known'].includes(entry.reaction));
+  const meaningful = todays.filter((entry) => entry.reaction && !['meh', 'down', 'hide', 'known'].includes(entry.reaction));
   const hasBrainfood = meaningful.some((entry) => FRONTIER_LANE_MAP[entry.item.lane].realm === 'learn');
   const hasAfterHours = meaningful.some((entry) => FRONTIER_LANE_MAP[entry.item.lane].realm === 'play');
   const surprises = todays.filter((entry) => entry.reaction === 'surprise').length;
   const secondChances = todays.filter((entry) => entry.item.tags.includes('second-chance')).length;
 
   return [
-    {
-      id: 'brainfood', label: 'Brainfood', description: 'Resolve one paper, codebase, method, or science signal.',
-      current: Number(hasBrainfood), target: 1, complete: hasBrainfood, xp: 14,
-    },
-    {
-      id: 'clubhouse', label: 'Clubhouse', description: 'Catch one team, active sport, game, music, or culture signal.',
-      current: Number(hasAfterHours), target: 1, complete: hasAfterHours, xp: 12,
-    },
-    {
-      id: 'second-wind', label: 'Second Wind', description: 'Resolve something the radar brought back for another look.',
-      current: Math.min(1, secondChances), target: 1, complete: secondChances >= 1, xp: 12,
-    },
-    {
-      id: 'curiosity', label: 'Useful Surprise', description: 'Mark one discovery as genuinely surprising.',
-      current: Math.min(1, surprises), target: 1, complete: surprises >= 1, xp: 12,
-    },
+    { id: 'brainfood', label: 'Brainfood', description: 'Resolve one paper, codebase, method, or science signal.', current: Number(hasBrainfood), target: 1, complete: hasBrainfood, xp: 14 },
+    { id: 'clubhouse', label: 'Clubhouse', description: 'Catch one team, active sport, game, music, or culture signal.', current: Number(hasAfterHours), target: 1, complete: hasAfterHours, xp: 12 },
+    { id: 'second-wind', label: 'Second Wind', description: 'Resolve something the radar brought back for another look.', current: Math.min(1, secondChances), target: 1, complete: secondChances >= 1, xp: 12 },
+    { id: 'curiosity', label: 'Useful Surprise', description: 'Mark one discovery as genuinely surprising.', current: Math.min(1, surprises), target: 1, complete: surprises >= 1, xp: 12 },
   ];
 }
