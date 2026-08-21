@@ -4,8 +4,16 @@ import { extractGoogleTranslation, needsEnglishTranslation } from '../lib/fronti
 
 test('detects clearly non-English script while leaving normal English copy alone', () => {
   assert.equal(needsEnglishTranslation('A new Elden Ring update is live on Steam'), false);
+  assert.equal(needsEnglishTranslation('Rock climber Janja Garnbret wins another dramatic final'), false);
   assert.equal(needsEnglishTranslation('Одна из лучших игр поколения теперь на новой консоли'), true);
   assert.equal(needsEnglishTranslation('新しい研究結果が発表されました'), true);
+});
+
+test('detects common Latin-script foreign-language feed copy', () => {
+  assert.equal(needsEnglishTranslation('Una nueva actualización para el juego está disponible ahora'), true);
+  assert.equal(needsEnglishTranslation('Le nouveau jeu est maintenant disponible avec une grande mise à jour'), true);
+  assert.equal(needsEnglishTranslation('Die neue Version ist jetzt mit einem großen Update verfügbar'), true);
+  assert.equal(needsEnglishTranslation('A café in Montréal hosts a new climbing film night'), false);
 });
 
 test('extracts translated fragments from the translation response shape', () => {
