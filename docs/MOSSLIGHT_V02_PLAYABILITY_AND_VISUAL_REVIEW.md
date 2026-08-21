@@ -14,7 +14,7 @@ v0.2 treats accessibility, visual identity, and game feel as core mechanics rath
 
 The first screen teaches only three things:
 
-- **WASD** moves Sprig,
+- **WASD** moves Sprid,
 - **Mouse** aims,
 - **Click** uses the current restoration tool.
 
@@ -28,9 +28,9 @@ Everything else is secondary and learned in play:
 
 The default difficulty is **Gentle**. An optional **Flow** mode preserves a tighter mastery version.
 
-## Sprig
+## Sprid
 
-The player is now **Sprig**, a tiny moss keeper rendered as an animated character rather than an orb.
+The player is now **Sprid**, a tiny moss keeper rendered as an animated character rather than an orb.
 
 Visual requirements:
 
@@ -169,7 +169,7 @@ Production CI now runs a dedicated Mosslight browser playtest after the built Ne
 It verifies:
 
 - the v0.2 runtime loads without page/console errors,
-- real WASD input moves Sprig,
+- real WASD input moves Sprid,
 - a real pointer click registers a cast,
 - all ten rooms can be entered through the playtest API,
 - all ten stressed states render,
@@ -183,7 +183,7 @@ This produces **20 room-state screenshots** per production gate so visual regres
 
 For each room, inspect:
 
-1. **Character:** Can Sprig be found instantly? Is aim direction obvious?
+1. **Character:** Can Sprid be found instantly? Is aim direction obvious?
 2. **Objective:** Can the player tell what needs attention without reading a paragraph?
 3. **Target identity:** Are plant, animal, cloud, sluice, ember, ice, coral, mangrove, and Earthheart forms distinct?
 4. **Depth:** Does the room feel composed rather than like objects on a flat spreadsheet?
@@ -196,7 +196,7 @@ For each room, inspect:
 
 ## v0.2 definition of done
 
-- Sprig replaces the anonymous orb player.
+- Sprid replaces the anonymous orb player.
 - Species-specific creature silhouettes ship.
 - Three-control onboarding ships.
 - Gentle mode is default.
