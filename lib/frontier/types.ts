@@ -136,9 +136,46 @@ export type FrontierGameState = {
   completedQuestDays: Record<string, string[]>;
 };
 
+export type FrontierTimeBucket = 'morning' | 'afternoon' | 'evening' | 'late';
+export type FrontierLayoutMode = 'desk' | 'feed';
+
+export type FrontierBehaviorAggregate = {
+  shown: number;
+  dwelled: number;
+  expanded: number;
+  opened: number;
+  saved: number;
+  positive: number;
+  negative: number;
+  dwellMs: number;
+  lastAt?: string;
+};
+
+export type FrontierBehaviorEvent = {
+  kind: 'impression' | 'dwell' | 'expand' | 'open' | 'save' | 'positive' | 'negative';
+  dwellMs?: number;
+};
+
+export type FrontierBehaviorModel = {
+  implicitLearning: boolean;
+  sessions: number;
+  sessionStartedAt?: string;
+  lastActiveAt?: string;
+  totalActiveMs: number;
+  laneStats: Record<string, FrontierBehaviorAggregate>;
+  sourceStats: Record<string, FrontierBehaviorAggregate>;
+  topicStats: Record<string, FrontierBehaviorAggregate>;
+  formatStats: Record<string, FrontierBehaviorAggregate>;
+  timeStats: Record<string, FrontierBehaviorAggregate>;
+  contextStats: Record<string, FrontierBehaviorAggregate>;
+  layoutUses: Record<FrontierLayoutMode, number>;
+  viewUses: Record<FrontierView, number>;
+};
+
 export type FrontierPersistedState = {
-  version: 1;
+  version: 2;
   profile: FrontierProfile;
+  behavior: FrontierBehaviorModel;
   saved: Record<string, FrontierItem>;
   collections: FrontierCollection[];
   history: Record<string, FrontierHistoryEntry>;
