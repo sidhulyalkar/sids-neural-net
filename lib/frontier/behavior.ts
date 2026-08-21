@@ -167,7 +167,9 @@ export function startBehaviorSession(model: FrontierBehaviorModel, date = new Da
   if (!model.implicitLearning) return model;
   const now = date.toISOString();
   const last = model.lastActiveAt ? new Date(model.lastActiveAt).getTime() : 0;
-  const startsNew = !last || date.getTime() - last > SESSION_GAP_MS;
+  // Child layout/view effects can fire a few milliseconds before the parent session
+  // effect. The first real visit must still count as session one.
+  const startsNew = !model.sessionStartedAt && (model.sessions === 0 || !last || date.getTime() - last > SESSION_GAP_MS);
   return {
     ...model,
     sessions: model.sessions + (startsNew ? 1 : 0),
