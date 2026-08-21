@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Download, RefreshCw, RotateCcw, Upload } from 'lucide-react';
+import { Download, RefreshCw, RotateCcw, Search, Upload, X } from 'lucide-react';
 import {
   FRONTIER_LANES,
   FRONTIER_LANE_MAP,
@@ -9,7 +9,7 @@ import {
   laneMatchesRealm,
 } from '@/lib/frontier/config';
 import { buildDiscoveryFocus, encodeDiscoveryFocus } from '@/lib/frontier/discoveryFocus';
-import { FRONTIER_PINNED_TOPICS, topicMatchesItem } from '@/lib/frontier/interests';
+import { FRONTIER_PINNED_TOPICS } from '@/lib/frontier/interests';
 import {
   buildDailyQuests,
   explainRecommendation,
@@ -17,6 +17,12 @@ import {
   rankFrontierItems,
   selectDailyRun,
 } from '@/lib/frontier/scoring';
+import {
+  buildTopicSearchFocus,
+  normalizeTopicSearch,
+  topicSearchMatches,
+  topicSearchScore,
+} from '@/lib/frontier/topicSearch';
 import { frontierBackup, useFrontierStore } from '@/lib/frontier/store';
 import type {
   FrontierFeedResponse,
@@ -40,19 +46,19 @@ const VIEWS: Array<{ id: FrontierView; label: string }> = [
   { id: 'today', label: 'Today' },
   { id: 'explore', label: 'Explore' },
   { id: 'saved', label: 'Saved' },
-  { id: 'history', label: 'History' },
+  { id: 'history', label: 'Seen' },
   { id: 'map', label: 'Radar' },
 ];
 
 type FormatFilter = 'all' | 'papers' | 'code' | 'projects' | 'video' | 'threads' | 'sports' | 'games' | 'music';
 
 const FORMAT_FILTERS: Array<{ id: FormatFilter; label: string }> = [
-  { id: 'all', label: 'Everything' },
+  { id: 'all', label: 'All formats' },
   { id: 'papers', label: 'Studies' },
-  { id: 'code', label: 'Codebases' },
-  { id: 'projects', label: 'Project design' },
+  { id: 'code', label: 'Code' },
+  { id: 'projects', label: 'Projects' },
   { id: 'video', label: 'Video' },
-  { id: 'threads', label: 'Posts + threads' },
+  { id: 'threads', label: 'Threads' },
   { id: 'sports', label: 'Sports' },
   { id: 'games', label: 'Games' },
   { id: 'music', label: 'Music' },
@@ -63,48 +69,9 @@ type Props = {
   initialDayKey: string;
 };
 
-function systemSignal(
-  id: string,
-  title: string,
-  summary: string,
-  lane: FrontierLaneId,
-  tags: string[],
-  publishedAt: string
-): FrontierItem {
-  return {
-    id,
-    title,
-    summary,
-    url: '/frontier',
-    source: 'FRONTIER',
-    sourceLabel: 'System',
-    sourceKind: 'local',
-    publishedAt,
-    lane,
-    tags,
-    baseScore: 0.62,
-    importance: 0.54,
-    novelty: 0.52,
-    quality: 0.78,
-    momentum: 0.4,
-    why: 'System status only, never fabricated news.',
-  };
-}
-
-function onboardingSignals(): FrontierItem[] {
-  const publishedAt = '2026-08-20T12:00:00.000Z';
-  return [
-    systemSignal('frontier-warming', 'FRONTIER is warming up the live source mesh', 'Live sources are being merged with the durable daily snapshot and your local memory.', 'must_know', ['frontier'], publishedAt),
-    systemSignal('frontier-research-ready', 'Brainfood is ready for papers, code, and methods', 'Research, public code, methods, and project ideas stay separate enough to remain useful.', 'ml_data', ['machine learning', 'open source'], publishedAt),
-    systemSignal('frontier-team-ready', 'Your four-team clubhouse is live', 'Patriots, Warriors, Chelsea, and Manchester City have protected signal space.', 'team_pulse', ['patriots', 'warriors', 'chelsea', 'manchester city'], publishedAt),
-    systemSignal('frontier-active-ready', 'Active sports have their own motion radar', 'Climbing, MTB, skiing, skating, soccer, RipStik, RipSurf, and longboarding rotate through professional stories and clips.', 'sports', ['active sport'], publishedAt),
-    systemSignal('frontier-games-ready', 'Game Radar is rotating through your library', 'Fresh game updates and adjacent discoveries rotate rather than repeating the same franchises.', 'gaming', ['steam'], publishedAt),
-  ];
-}
-
 function humanDate(iso: string): string {
   const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return 'recently';
+  if (Number.isNaN(date.getTime())) return 'recent';
   return new Intl.DateTimeFormat('en-US', {
     timeZone: 'America/Los_Angeles',
     month: 'short',
@@ -128,10 +95,6 @@ function formatMatches(item: FrontierItem, filter: FormatFilter): boolean {
   }
 }
 
-function itemSearchText(item: FrontierItem): string {
-  return `${item.title} ${item.summary} ${item.tags.join(' ')} ${item.sourceLabel}`;
-}
-
 function realmTitle(realm: FrontierRealm): string {
   if (realm === 'learn') return 'Brainfood';
   if (realm === 'play') return 'After Hours';
@@ -149,24 +112,41 @@ export function FrontierExperience({ initialDateLabel, initialDayKey }: Props) {
   const [realm, setRealm] = useState<FrontierRealm>('all');
   const [laneFilter, setLaneFilter] = useState<'all' | FrontierLaneId>('all');
   const [formatFilter, setFormatFilter] = useState<FormatFilter>('all');
-  const [topicFilter, setTopicFilter] = useState('all');
+  const [searchDraft, setSearchDraft] = useState('');
+  const [activeSearch, setActiveSearch] = useState('');
   const [collectionFilter, setCollectionFilter] = useState('inbox');
   const [newCollection, setNewCollection] = useState('');
   const fileInput = useRef<HTMLInputElement | null>(null);
+  const searchInput = useRef<HTMLInputElement | null>(null);
   const requestRef = useRef<AbortController | null>(null);
-  const hasLoadedRef = useRef(false);
 
-  const discoveryFocus = useMemo(
+  const adaptiveFocus = useMemo(
     () => buildDiscoveryFocus(store.profile, store.behavior, 7),
     [store.profile, store.behavior]
   );
-  const focusSignature = useMemo(() => encodeDiscoveryFocus(discoveryFocus), [discoveryFocus]);
+  const requestFocus = useMemo(
+    () => buildTopicSearchFocus(activeSearch, adaptiveFocus, 8),
+    [activeSearch, adaptiveFocus]
+  );
+  const focusSignature = useMemo(() => encodeDiscoveryFocus(requestFocus), [requestFocus]);
+
+  const searchSuggestions = useMemo(() => {
+    const learned = Object.entries(store.profile.topicAffinity)
+      .filter(([, score]) => score > 0.2)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 12)
+      .map(([topic]) => topic);
+    return Array.from(new Set([
+      ...FRONTIER_PINNED_TOPICS.map((topic) => topic.label),
+      ...learned,
+    ])).slice(0, 28);
+  }, [store.profile.topicAffinity]);
 
   const loadFeed = useCallback(async (forceFresh = false) => {
     requestRef.current?.abort();
     const controller = new AbortController();
     requestRef.current = controller;
-    if (!hasLoadedRef.current) setLoading(true);
+    setLoading(true);
     setError(undefined);
     try {
       const params = new URLSearchParams();
@@ -182,7 +162,6 @@ export function FrontierExperience({ initialDateLabel, initialDayKey }: Props) {
       setSources(payload.sources ?? []);
       setGeneratedAt(payload.generatedAt);
       if (payload.error) setError(payload.error);
-      hasLoadedRef.current = true;
     } catch (feedError) {
       if (controller.signal.aborted) return;
       setError(feedError instanceof Error ? feedError.message : 'Live feed temporarily unavailable');
@@ -209,6 +188,19 @@ export function FrontierExperience({ initialDateLabel, initialDayKey }: Props) {
     };
   }, [loadFeed]);
 
+  useEffect(() => {
+    const shortcut = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      const typing = target?.tagName === 'INPUT' || target?.tagName === 'TEXTAREA' || target?.tagName === 'SELECT' || target?.isContentEditable;
+      if (event.key === '/' && !typing) {
+        event.preventDefault();
+        searchInput.current?.focus();
+      }
+    };
+    window.addEventListener('keydown', shortcut);
+    return () => window.removeEventListener('keydown', shortcut);
+  }, []);
+
   const beginSession = store.beginSession;
   const endSession = store.endSession;
   useEffect(() => {
@@ -232,9 +224,8 @@ export function FrontierExperience({ initialDateLabel, initialDayKey }: Props) {
   );
 
   const mergedItems = useMemo(() => {
-    const live = items.length ? items : onboardingSignals();
-    const liveIds = new Set(live.map((item) => item.id));
-    return [...live, ...resurfacing.filter((item) => !liveIds.has(item.id))];
+    const liveIds = new Set(items.map((item) => item.id));
+    return [...items, ...resurfacing.filter((item) => !liveIds.has(item.id))];
   }, [items, resurfacing]);
 
   const ranked = useMemo(
@@ -259,15 +250,17 @@ export function FrontierExperience({ initialDateLabel, initialDayKey }: Props) {
   const activeCollectionItems = activeCollection
     ? activeCollection.itemIds.flatMap((id) => store.saved[id] ? [store.saved[id]] : [])
     : savedItems;
-  const activeTopic = FRONTIER_PINNED_TOPICS.find((topic) => topic.id === topicFilter);
   const visibleLanes = FRONTIER_LANES.filter((lane) => laneMatchesRealm(lane.id, realm));
-  const visibleTopics = FRONTIER_PINNED_TOPICS.filter((topic) => realm === 'all' || topic.realm === realm);
-  const exploreItems = useMemo(() => realmRanked.filter((item) => {
-    if (laneFilter !== 'all' && item.lane !== laneFilter) return false;
-    if (!formatMatches(item, formatFilter)) return false;
-    if (activeTopic && !topicMatchesItem(activeTopic, itemSearchText(item))) return false;
-    return true;
-  }), [activeTopic, formatFilter, laneFilter, realmRanked]);
+  const exploreItems = useMemo(() => {
+    const filtered = realmRanked.filter((item) => {
+      if (laneFilter !== 'all' && item.lane !== laneFilter) return false;
+      if (!formatMatches(item, formatFilter)) return false;
+      if (activeSearch && !topicSearchMatches(item, activeSearch)) return false;
+      return true;
+    });
+    if (!activeSearch) return filtered;
+    return [...filtered].sort((a, b) => topicSearchScore(b, activeSearch) - topicSearchScore(a, activeSearch));
+  }, [activeSearch, formatFilter, laneFilter, realmRanked]);
   const historyEntries = Object.values(store.history)
     .sort((a, b) => new Date(b.lastSeenAt).getTime() - new Date(a.lastSeenAt).getTime());
 
@@ -303,6 +296,24 @@ export function FrontierExperience({ initialDateLabel, initialDayKey }: Props) {
     />
   ), [dwellCallback, expandCallback, openCallback, reactCallback, saveCallback, seenCallback, store.behavior, store.history, store.profile, store.saved]);
 
+  const submitSearch = useCallback((event?: React.FormEvent) => {
+    event?.preventDefault();
+    const next = normalizeTopicSearch(searchDraft);
+    setSearchDraft(next);
+    setActiveSearch(next);
+    if (next) {
+      setView('explore');
+      setLaneFilter('all');
+      setFormatFilter('all');
+    }
+  }, [searchDraft]);
+
+  const clearSearch = useCallback(() => {
+    setSearchDraft('');
+    setActiveSearch('');
+    searchInput.current?.focus();
+  }, []);
+
   const downloadBackup = useCallback(() => {
     const blob = new Blob([JSON.stringify(frontierBackup(store), null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -334,7 +345,6 @@ export function FrontierExperience({ initialDateLabel, initialDayKey }: Props) {
   const setRealmFilter = useCallback((nextRealm: FrontierRealm) => {
     setRealm(nextRealm);
     setLaneFilter('all');
-    setTopicFilter('all');
     setFormatFilter('all');
   }, []);
 
@@ -342,20 +352,45 @@ export function FrontierExperience({ initialDateLabel, initialDayKey }: Props) {
     <div className={styles.shell}>
       <div className={styles.inner}>
         <header className={styles.compactMasthead}>
-          <div className={styles.brandBlock}>
-            <p className={styles.eyebrow}>FRONTIER · {initialDateLabel}</p>
+          <div className={styles.brandBlock} title={initialDateLabel}>
+            <p className={styles.eyebrow}>FRONTIER</p>
             <h1 className={styles.minimalTitle}>{realmTitle(realm)}</h1>
           </div>
-          <div className={styles.radarStatus} title={generatedAt ? `Last live scan ${humanDate(generatedAt)} · adaptive focus: ${discoveryFocus.join(', ')}` : undefined}>
-            <span className={styles.liveDot} /> {loading && !items.length ? 'scanning' : `${onlineSources} live sources`}
-            <span>·</span><span>{dailyRun.length} signals</span>
-            <span>·</span><span>{savedItems.length} saved</span>
-            <span>·</span><span>{store.behavior.implicitLearning ? 'learning' : 'learning paused'}</span>
-            {error ? <span className={styles.degraded}>· degraded</span> : null}
+
+          <form className={styles.topicSearch} onSubmit={submitSearch} role="search">
+            <Search size={15} aria-hidden="true" />
+            <input
+              ref={searchInput}
+              value={searchDraft}
+              onChange={(event) => setSearchDraft(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Escape' && (searchDraft || activeSearch)) {
+                  event.preventDefault();
+                  clearSearch();
+                }
+              }}
+              list="frontier-topic-suggestions"
+              placeholder="Search any topic…"
+              aria-label="Search FRONTIER topics"
+              autoComplete="off"
+              spellCheck="false"
+            />
+            <datalist id="frontier-topic-suggestions">
+              {searchSuggestions.map((topic) => <option value={topic} key={topic} />)}
+            </datalist>
+            {searchDraft || activeSearch ? (
+              <button type="button" className={styles.searchClear} onClick={clearSearch} aria-label="Clear topic search"><X size={13} /></button>
+            ) : <kbd className={styles.searchShortcut}>/</kbd>}
+          </form>
+
+          <div className={styles.radarStatus} title={`${onlineSources} live sources${generatedAt ? ` · updated ${humanDate(generatedAt)}` : ''}${requestFocus.length ? ` · focus: ${requestFocus.join(', ')}` : ''}`}>
+            <span className={`${styles.liveDot} ${error ? styles.liveDotDegraded : ''}`} />
+            <span>{loading ? 'scanning' : error ? 'partial' : 'live'}</span>
+            <button type="button" className={styles.refreshIcon} onClick={() => void loadFeed(true)} aria-label="Refresh live feed" title="Refresh live"><RefreshCw size={12} /></button>
           </div>
         </header>
 
-        <div className={styles.controlDock} style={{ flexWrap: 'wrap', overflow: 'visible' }}>
+        <div className={styles.controlDock}>
           <nav className={styles.nav} aria-label="FRONTIER views">
             {VIEWS.map((option) => (
               <button type="button" key={option.id} className={`${styles.navButton} ${view === option.id ? styles.activeNav : ''}`} onClick={() => setView(option.id)}>
@@ -370,7 +405,6 @@ export function FrontierExperience({ initialDateLabel, initialDayKey }: Props) {
                 key={option.id}
                 className={`${styles.filterButton} ${realm === option.id ? styles.filterActive : ''}`}
                 onClick={() => setRealmFilter(option.id)}
-                title={option.description}
               >
                 {option.label}
               </button>
@@ -384,7 +418,7 @@ export function FrontierExperience({ initialDateLabel, initialDayKey }: Props) {
               items={dailyRun}
               renderCard={(item, mode) => renderCard(item, mode)}
               onLayoutChange={layoutCallback}
-              empty={<div className={styles.empty}>No live signal yet. Refresh in a moment.</div>}
+              empty={<div className={styles.empty}>{loading ? 'Scanning…' : 'Nothing new yet.'}</div>}
             />
           </main>
         ) : null}
@@ -392,33 +426,28 @@ export function FrontierExperience({ initialDateLabel, initialDayKey }: Props) {
         {view === 'explore' ? (
           <section className={styles.signalStage}>
             <div className={styles.exploreBar}>
-              <label>
-                <span>Topic</span>
-                <select value={topicFilter} onChange={(event) => setTopicFilter(event.target.value)}>
-                  <option value="all">Everything</option>
-                  {visibleTopics.map((topic) => <option key={topic.id} value={topic.id}>{topic.label}</option>)}
-                </select>
-              </label>
-              <label>
-                <span>Category</span>
-                <select value={laneFilter} onChange={(event) => setLaneFilter(event.target.value as 'all' | FrontierLaneId)}>
+              {activeSearch ? (
+                <div className={styles.searchContext}>
+                  <span className={styles.searchQuery}>“{activeSearch}”</span>
+                  <span>{exploreItems.length} match{exploreItems.length === 1 ? '' : 'es'}</span>
+                </div>
+              ) : <span className={styles.exploreLabel}>Browse</span>}
+              <div className={styles.exploreFilters}>
+                <select value={laneFilter} onChange={(event) => setLaneFilter(event.target.value as 'all' | FrontierLaneId)} aria-label="Category">
                   <option value="all">All categories</option>
                   {visibleLanes.map((lane) => <option key={lane.id} value={lane.id}>{lane.shortLabel}</option>)}
                 </select>
-              </label>
-              <label>
-                <span>Format</span>
-                <select value={formatFilter} onChange={(event) => setFormatFilter(event.target.value as FormatFilter)}>
+                <select value={formatFilter} onChange={(event) => setFormatFilter(event.target.value as FormatFilter)} aria-label="Format">
                   {FORMAT_FILTERS.map((filter) => <option key={filter.id} value={filter.id}>{filter.label}</option>)}
                 </select>
-              </label>
+              </div>
             </div>
             <SignalBoard
               items={exploreItems.slice(0, 48)}
               renderCard={(item, mode) => renderCard(item, mode)}
               onLayoutChange={layoutCallback}
               compact
-              empty={<div className={styles.empty}>No signals match this slice. Widen one filter.</div>}
+              empty={<div className={styles.empty}>{loading ? 'Searching…' : activeSearch ? 'No match. Try a wider phrase.' : 'No signals in this slice.'}</div>}
             />
           </section>
         ) : null}
@@ -452,7 +481,7 @@ export function FrontierExperience({ initialDateLabel, initialDayKey }: Props) {
               <div>
                 {activeCollection && activeCollection.id !== 'inbox' && savedItems.length ? (
                   <details className={styles.organizer}>
-                    <summary>Organize {activeCollection.name}</summary>
+                    <summary>Organize</summary>
                     <div className={styles.organizerItems}>
                       {savedItems.map((item) => {
                         const active = activeCollection.itemIds.includes(item.id);
@@ -470,7 +499,7 @@ export function FrontierExperience({ initialDateLabel, initialDayKey }: Props) {
                   renderCard={(item, mode) => renderCard(item, mode)}
                   onLayoutChange={layoutCallback}
                   compact
-                  empty={<div className={styles.empty}>{savedItems.length ? 'This group is empty.' : 'Save a signal and it will appear here.'}</div>}
+                  empty={<div className={styles.empty}>{savedItems.length ? 'Empty group.' : 'Nothing saved yet.'}</div>}
                 />
               </div>
             </div>
@@ -486,13 +515,13 @@ export function FrontierExperience({ initialDateLabel, initialDayKey }: Props) {
                     <div className={styles.historyTime}>{humanDate(entry.lastSeenAt)}</div>
                     <div>
                       <div className={styles.historyTitle}>{entry.item.title}</div>
-                      <div className={styles.historyMeta}>{FRONTIER_LANE_MAP[entry.item.lane].shortLabel} · {entry.item.sourceLabel}{entry.dwellMs ? ` · ${Math.round(entry.dwellMs / 1000)}s attention` : ''}</div>
+                      <div className={styles.historyMeta}>{FRONTIER_LANE_MAP[entry.item.lane].shortLabel} · {entry.item.sourceLabel}{entry.dwellMs ? ` · ${Math.round(entry.dwellMs / 1000)}s` : ''}</div>
                     </div>
-                    <div className={styles.micro}>{entry.reaction ?? (entry.openedAt ? 'opened' : 'unresolved')}</div>
+                    <div className={styles.micro}>{entry.reaction ?? (entry.openedAt ? 'opened' : '')}</div>
                   </div>
                 ))}
               </div>
-            ) : <div className={styles.empty}>Your history begins when signals become visible.</div>}
+            ) : <div className={styles.empty}>Nothing seen yet.</div>}
           </section>
         ) : null}
 
@@ -502,7 +531,7 @@ export function FrontierExperience({ initialDateLabel, initialDayKey }: Props) {
               behavior={store.behavior}
               onToggleLearning={store.setImplicitLearning}
               onResetBehavior={() => {
-                if (window.confirm('Forget only the behavior/habit model while keeping saves, explicit reactions, and history?')) store.resetBehavior();
+                if (window.confirm('Forget learned habits while keeping saves, reactions, and history?')) store.resetBehavior();
               }}
             />
             <div className={styles.radarMapSection}>
@@ -512,22 +541,24 @@ export function FrontierExperience({ initialDateLabel, initialDayKey }: Props) {
         ) : null}
 
         <footer className={styles.footerTools}>
-          <span className={styles.micro}>Live runtime · local memory · {store.game.streak} day streak · {store.game.xp} XP · {store.behavior.sessions} learned sessions</span>
-          <div className={styles.toolGroup}>
-            <button type="button" className={styles.utilityButton} onClick={() => void loadFeed(true)}><RefreshCw size={11} /> Refresh live</button>
-            <button type="button" className={styles.utilityButton} onClick={downloadBackup}><Download size={11} /> Export</button>
-            <button type="button" className={styles.utilityButton} onClick={() => fileInput.current?.click()}><Upload size={11} /> Import</button>
-            <input ref={fileInput} type="file" accept="application/json" hidden onChange={(event) => void importBackup(event.target.files?.[0])} />
-            <button
-              type="button"
-              className={styles.utilityButton}
-              onClick={() => {
-                if (window.confirm('Reset FRONTIER history, saves, collections, XP, learned behavior, and explicit preferences in this browser?')) store.resetFrontier();
-              }}
-            >
-              <RotateCcw size={11} /> Reset
-            </button>
-          </div>
+          <details className={styles.dataMenu}>
+            <summary>Data</summary>
+            <div className={styles.dataMenuPanel}>
+              <span className={styles.micro}>{store.behavior.sessions} sessions · {store.game.streak}d streak</span>
+              <button type="button" className={styles.utilityButton} onClick={downloadBackup}><Download size={11} /> Export</button>
+              <button type="button" className={styles.utilityButton} onClick={() => fileInput.current?.click()}><Upload size={11} /> Import</button>
+              <input ref={fileInput} type="file" accept="application/json" hidden onChange={(event) => void importBackup(event.target.files?.[0])} />
+              <button
+                type="button"
+                className={styles.utilityButton}
+                onClick={() => {
+                  if (window.confirm('Reset local FRONTIER memory, saves, history, and preferences?')) store.resetFrontier();
+                }}
+              >
+                <RotateCcw size={11} /> Reset
+              </button>
+            </div>
+          </details>
         </footer>
       </div>
     </div>
