@@ -42,6 +42,28 @@ if (JSON.stringify(runWorlds.map((world) => world.index)) !== JSON.stringify([1,
   failures.push(`playtest expedition should deterministically use worlds 001-010, got ${runWorlds.map((world) => world.index).join(',')}`);
 }
 
+// Production replay contract: two consecutive real expeditions must advance through
+// the persistent without-replacement deck instead of reseeding or replaying worlds.
+const replayPage = await browser.newPage({ viewport: { width: 960, height: 640 }, deviceScaleFactor: 1 });
+await replayPage.goto(`${baseUrl}/game-runtimes/mosslight-v2/index.html?replay-contract=1`, { waitUntil: 'networkidle' });
+await replayPage.evaluate(() => localStorage.removeItem('sid.mosslight.atlas-deck.v1'));
+await replayPage.reload({ waitUntil: 'networkidle' });
+await replayPage.waitForFunction(() => Boolean(window.MosslightExpedition));
+const replayFirst = await replayPage.evaluate(() => window.MosslightExpedition.summary());
+const replaySecond = await replayPage.evaluate(() => {
+  window.MosslightExpedition.newRun();
+  return window.MosslightExpedition.summary();
+});
+const firstIndices = replayFirst.worlds.map((world) => world.index);
+const secondIndices = replaySecond.worlds.map((world) => world.index);
+const overlap = firstIndices.filter((index) => secondIndices.includes(index));
+if (new Set(firstIndices).size !== 10 || new Set(secondIndices).size !== 10) failures.push('real replay deck must produce 10 unique worlds per expedition');
+if (overlap.length) failures.push(`consecutive expeditions repeated worlds before deck exhaustion: ${overlap.join(',')}`);
+if (replayFirst.deck?.cursor !== 10 || replaySecond.deck?.cursor !== 20) {
+  failures.push(`persistent Atlas deck should advance cursor 10 -> 20, got ${replayFirst.deck?.cursor} -> ${replaySecond.deck?.cursor}`);
+}
+await replayPage.close();
+
 // Real movement smoke.
 await page.evaluate(() => window.__MOSSLIGHT_PLAYTEST__.setRoom(0));
 await page.waitForTimeout(1500);
@@ -116,6 +138,11 @@ const report = {
   version: metadata.version,
   difficulty: 'gentle',
   expedition: metadata.expedition,
+  replayContract: {
+    first: replayFirst,
+    second: replaySecond,
+    overlap,
+  },
   interactionSmoke: {
     startX: start.player?.x,
     movedX: moved.player?.x,
@@ -138,4 +165,4 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log(`Mosslight browser playtest PASS: 1,000-scene Atlas feed, ${rooms.length} unique expedition rooms, mouse + arrow-key aim, movement, correct-cast smoke, ${finalSnapshot.fps.toFixed(1)} FPS.`);
+console.log(`Mosslight browser playtest PASS: 1,000-scene Atlas feed, disjoint repeat expeditions, ${rooms.length} unique rooms, mouse + arrow-key aim, movement, correct-cast smoke, ${finalSnapshot.fps.toFixed(1)} FPS.`);
