@@ -17,39 +17,43 @@
 .inner {
   width: min(1500px, calc(100% - 44px));
   margin: 0 auto;
-  padding: 18px 0 52px;
+  padding: 15px 0 48px;
 }
 
 .compactMasthead {
   display: grid;
-  grid-template-columns: minmax(150px, 0.6fr) minmax(300px, 1.8fr) minmax(90px, 0.45fr);
+  grid-template-columns: minmax(110px, 0.5fr) minmax(300px, 1.9fr) minmax(90px, 0.45fr);
   grid-template-areas: "brand search status";
   gap: clamp(18px, 3vw, 54px);
-  align-items: end;
-  min-height: 70px;
-  padding: 3px 2px 16px;
+  align-items: center;
+  min-height: 54px;
+  padding: 2px 2px 11px;
   border-bottom: 1px solid var(--line);
 }
 
-.brandBlock { grid-area: brand; min-width: 0; }
+.brandBlock {
+  grid-area: brand;
+  min-width: 0;
+}
 
-.eyebrow,
+.wordmark,
 .micro {
   margin: 0;
   font-family: var(--font-geist-mono), monospace;
-  font-size: 8px;
-  letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--subtle);
 }
 
-.minimalTitle {
-  margin: 5px 0 0;
-  color: var(--ink);
-  font-size: clamp(27px, 3vw, 39px);
-  font-weight: 490;
-  letter-spacing: -0.048em;
-  line-height: 0.98;
+.wordmark {
+  font-size: 10px;
+  font-weight: 520;
+  letter-spacing: 0.2em;
+  color: #9aa59f;
+}
+
+.micro {
+  font-size: 8px;
+  letter-spacing: 0.12em;
 }
 
 .topicSearch {
@@ -58,10 +62,10 @@
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
   gap: 10px;
-  min-height: 44px;
+  min-height: 43px;
   padding: 0 11px 0 13px;
   border: 1px solid var(--line);
-  border-radius: 12px;
+  border-radius: 11px;
   background: rgba(255, 255, 255, 0.016);
   color: var(--subtle);
   transition: border-color 140ms ease, background 140ms ease, box-shadow 140ms ease;
@@ -125,7 +129,6 @@
   align-items: center;
   justify-content: flex-end;
   gap: 7px;
-  padding-bottom: 2px;
   color: var(--subtle);
   font-family: var(--font-geist-mono), monospace;
   font-size: 7px;
@@ -153,8 +156,8 @@
   align-items: center;
   justify-content: space-between;
   gap: 14px;
-  margin-bottom: 8px;
-  padding: 7px 0;
+  margin-bottom: 7px;
+  padding: 6px 0;
   border-bottom: 1px solid var(--line);
   background: rgba(5, 7, 6, 0.93);
   backdrop-filter: blur(20px);
@@ -207,9 +210,9 @@
   align-items: center;
   justify-content: space-between;
   gap: 14px;
-  min-height: 38px;
-  margin-bottom: 3px;
-  padding: 2px 0 7px;
+  min-height: 36px;
+  margin-bottom: 2px;
+  padding: 1px 0 6px;
 }
 
 .searchContext {
@@ -264,9 +267,49 @@
 
 .exploreFilters select:focus { border-color: var(--line-strong); color: #cad2ce; }
 
+.loadingGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 9px;
+  padding-top: 1px;
+}
+
+.loadingCard {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  min-height: 174px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: rgba(255, 255, 255, 0.008);
+  overflow: hidden;
+}
+
+.loadingMeta,
+.loadingHeadline,
+.loadingHeadlineShort,
+.loadingLine {
+  display: block;
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(165, 213, 193, 0.025), rgba(165, 213, 193, 0.07), rgba(165, 213, 193, 0.025));
+  background-size: 220% 100%;
+  animation: frontierScan 1.8s ease-in-out infinite;
+}
+
+.loadingMeta { width: 26%; height: 5px; margin-bottom: 9px; }
+.loadingHeadline { width: 88%; height: 12px; border-radius: 4px; }
+.loadingHeadlineShort { width: 61%; height: 12px; border-radius: 4px; }
+.loadingLine { width: 74%; height: 6px; margin-top: 12px; }
+
+@keyframes frontierScan {
+  0%, 100% { background-position: 100% 0; opacity: 0.5; }
+  50% { background-position: 0 0; opacity: 0.86; }
+}
+
 .empty {
   display: grid;
-  min-height: 180px;
+  min-height: 92px;
   place-items: center;
   border-top: 1px solid var(--line);
   color: #65706a;
@@ -391,6 +434,10 @@
   background: var(--surface);
 }
 
+@media (max-width: 1120px) {
+  .loadingGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
 @media (max-width: 920px) {
   .inner { width: calc(100% - 26px); }
   .compactMasthead {
@@ -398,8 +445,9 @@
     grid-template-areas:
       "brand status"
       "search search";
-    gap: 11px 18px;
-    align-items: end;
+    gap: 8px 18px;
+    align-items: center;
+    padding-top: 4px;
   }
   .topicSearch { width: 100%; }
   .libraryLayout { grid-template-columns: 1fr; }
@@ -415,12 +463,12 @@
 }
 
 @media (max-width: 720px) {
-  .inner { width: calc(100% - 16px); padding-top: 9px; }
-  .compactMasthead { min-height: 0; padding-bottom: 10px; }
-  .minimalTitle { font-size: 27px; }
-  .topicSearch { min-height: 42px; border-radius: 10px; }
+  .inner { width: calc(100% - 16px); padding-top: 8px; }
+  .compactMasthead { min-height: 0; padding-bottom: 9px; }
+  .wordmark { font-size: 9px; }
+  .topicSearch { min-height: 41px; border-radius: 10px; }
   .searchShortcut { display: none; }
-  .controlDock { gap: 8px; margin-bottom: 4px; overflow-x: auto; padding: 6px 0; }
+  .controlDock { gap: 8px; margin-bottom: 4px; overflow-x: auto; padding: 5px 0; }
   .nav,
   .realmSwitch { flex: 0 0 auto; }
   .navButton,
@@ -429,6 +477,9 @@
   .exploreFilters { width: 100%; overflow-x: auto; }
   .exploreFilters select { flex: 0 0 auto; }
   .searchQuery { max-width: 68vw; }
+  .loadingGrid { grid-template-columns: 1fr; gap: 7px; }
+  .loadingCard { min-height: 125px; padding: 13px; }
+  .loadingCard:nth-child(n+4) { display: none; }
   .historyItem { grid-template-columns: 1fr auto; }
   .historyTime { grid-column: 1 / -1; }
   .dataMenuPanel { align-items: flex-start; flex-wrap: wrap; justify-content: flex-end; max-width: calc(100vw - 24px); }
@@ -439,4 +490,8 @@
   .navButton,
   .filterButton,
   .utilityButton { transition: none; }
+  .loadingMeta,
+  .loadingHeadline,
+  .loadingHeadlineShort,
+  .loadingLine { animation: none; }
 }
