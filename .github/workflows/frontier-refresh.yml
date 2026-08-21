@@ -1,0 +1,71 @@
+name: FRONTIER Daily Refresh
+
+on:
+  schedule:
+    - cron: '17 14 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: frontier-daily-refresh
+  cancel-in-progress: true
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Refresh Spotify taste profile when credentials exist
+        env:
+          SPOTIFY_CLIENT_ID: ${{ secrets.SPOTIFY_CLIENT_ID }}
+          SPOTIFY_CLIENT_SECRET: ${{ secrets.SPOTIFY_CLIENT_SECRET }}
+          SPOTIFY_REFRESH_TOKEN: ${{ secrets.SPOTIFY_REFRESH_TOKEN }}
+        run: |
+          if [[ -n "$SPOTIFY_CLIENT_ID" && -n "$SPOTIFY_CLIENT_SECRET" && -n "$SPOTIFY_REFRESH_TOKEN" ]]; then
+            npm run music:fetch
+          else
+            echo "Spotify credentials are optional; keeping the checked-in taste profile."
+          fi
+
+      - name: Build live FRONTIER snapshot
+        env:
+          FRONTIER_GITHUB_TOKEN: ${{ secrets.FRONTIER_GITHUB_TOKEN || github.token }}
+          BRAVE_SEARCH_API_KEY: ${{ secrets.BRAVE_SEARCH_API_KEY }}
+          FOOTBALL_DATA_API_KEY: ${{ secrets.FOOTBALL_DATA_API_KEY }}
+          OPENALEX_EMAIL: ${{ vars.OPENALEX_EMAIL }}
+          OPENALEX_API_KEY: ${{ secrets.OPENALEX_API_KEY }}
+          FRONTIER_RSS_FEEDS: ${{ vars.FRONTIER_RSS_FEEDS }}
+          FRONTIER_YOUTUBE_CHANNELS: ${{ vars.FRONTIER_YOUTUBE_CHANNELS }}
+          FRONTIER_SUBREDDITS: ${{ vars.FRONTIER_SUBREDDITS }}
+        run: npm run frontier:snapshot
+
+      - name: Commit refreshed signal archive
+        run: |
+          git config user.name "frontier-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add content/frontier/latest.json
+          [[ -f content/music/taste-profile.json ]] && git add content/music/taste-profile.json
+          [[ -f content/music/top-tracks.candidates.json ]] && git add content/music/top-tracks.candidates.json
+          if git diff --cached --quiet; then
+            echo "No content changes to publish."
+            exit 0
+          fi
+          git commit -m "content: refresh FRONTIER daily signal snapshot"
+          git push origin HEAD:master
