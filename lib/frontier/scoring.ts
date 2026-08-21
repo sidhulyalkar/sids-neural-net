@@ -1,5 +1,7 @@
+import { behavioralAdjustment, formatForItem, aggregatePreference, timeBucket } from './behavior';
 import { FRONTIER_LANE_MAP } from './config';
 import type {
+  FrontierBehaviorModel,
   FrontierHistoryEntry,
   FrontierItem,
   FrontierProfile,
@@ -92,7 +94,8 @@ export function personalizedScore(
   item: FrontierItem,
   profile: FrontierProfile,
   historyEntry?: FrontierHistoryEntry,
-  now = new Date()
+  now = new Date(),
+  behavior?: FrontierBehaviorModel
 ): number {
   if (historyEntry?.reaction === 'hide') return -1;
 
@@ -108,6 +111,7 @@ export function personalizedScore(
   const freshness = freshnessScore(item.publishedAt, now);
   const surpriseTarget = 0.52;
   const usefulSurprise = 1 - Math.min(1, Math.abs(item.novelty - surpriseTarget) / surpriseTarget);
+  const learnedBehavior = behavioralAdjustment(item, behavior, now);
 
   const score =
     item.baseScore * 0.28 +
@@ -120,6 +124,7 @@ export function personalizedScore(
     sourceAffinity * 0.03 +
     usefulSurprise * profile.curiosity * 0.12 -
     knownness * 0.08 +
+    learnedBehavior +
     resurfaceBonus(historyEntry, now);
 
   return clamp(score, -1, 1.5);
@@ -129,13 +134,14 @@ export function rankFrontierItems(
   items: FrontierItem[],
   profile: FrontierProfile,
   history: Record<string, FrontierHistoryEntry>,
-  now = new Date()
+  now = new Date(),
+  behavior?: FrontierBehaviorModel
 ): FrontierItem[] {
   return items
     .filter((item) => history[item.id]?.reaction !== 'hide')
     .map((item) => ({
       item,
-      score: personalizedScore(item, profile, history[item.id], now),
+      score: personalizedScore(item, profile, history[item.id], now, behavior),
     }))
     .sort((a, b) => b.score - a.score)
     .map(({ item }) => item);
@@ -156,10 +162,8 @@ function isActiveSportSignal(item: FrontierItem): boolean {
 }
 
 /**
- * A finite daily run with an editorial spine. When the caller supplies the full
- * radar, the run explicitly reserves room for both deep-learning signal and the
- * user's after-hours world. If the caller pre-filters to Brainfood or After
- * Hours, the same selector gracefully fills from the available realm only.
+ * A finite daily run with an editorial spine. Personalization can reorder within
+ * the spine, but it cannot erase evidence, active interests, or exploration.
  */
 export function selectDailyRun(
   ranked: FrontierItem[],
@@ -171,30 +175,21 @@ export function selectDailyRun(
   const selected: FrontierItem[] = [];
   const push = (item?: FrontierItem) => { if (item) selected.push(item); };
 
-  // Global interruption budget.
   push(takeFirst(ranked, used, (item) => item.importance >= 0.76 || item.lane === 'must_know'));
-
-  // Brainfood: evidence, code, and reusable methods each get independent oxygen.
   push(takeFirst(ranked, used, (item) => ['ml_data', 'ai_frontier', 'neuro_frontier', 'broad_science'].includes(item.lane)));
   push(takeFirst(ranked, used, (item) => item.lane === 'builder_signal'));
   push(takeFirst(ranked, used, (item) => item.lane === 'methods' || item.lane === 'creative_tech'));
-
-  // After Hours: favorite teams, things the user actively does, then the broader pitch/court.
   push(takeFirst(ranked, used, (item) => item.lane === 'team_pulse'));
   push(takeFirst(ranked, used, (item) => isActiveSportSignal(item)));
   push(takeFirst(ranked, used, (item) => ['premier_league', 'world_soccer', 'sports'].includes(item.lane)));
   push(takeFirst(ranked, used, (item) => item.lane === 'gaming'));
   push(takeFirst(ranked, used, (item) => item.lane === 'music' || item.lane === 'internet_culture' || item.lane === 'life'));
-
-  // The memory system and exploration budget keep the feed from becoming stale.
   push(takeFirst(ranked, used, (item) => isDueForResurface(history[item.id], now)));
   push(takeFirst(ranked, used, (item) => item.novelty >= 0.7 || item.lane === 'wildcards'));
 
   for (const item of ranked) {
     if (selected.length >= limit) break;
     if (used.has(item.id)) continue;
-
-    // Prevent one lane from swallowing the finite briefing.
     const sameLane = selected.filter((candidate) => candidate.lane === item.lane).length;
     if (sameLane >= Math.max(2, Math.ceil(limit * 0.24))) continue;
     selected.push(item);
@@ -204,10 +199,28 @@ export function selectDailyRun(
   return selected.slice(0, limit);
 }
 
-export function explainRecommendation(item: FrontierItem, profile: FrontierProfile): string {
+export function explainRecommendation(
+  item: FrontierItem,
+  profile: FrontierProfile,
+  behavior?: FrontierBehaviorModel,
+  now = new Date()
+): string {
   const strongestTag = item.tags
     .map((tag) => ({ tag, affinity: profile.topicAffinity[tag.toLowerCase()] ?? 0 }))
     .sort((a, b) => b.affinity - a.affinity)[0];
+
+  if (behavior?.implicitLearning) {
+    const bucket = timeBucket(now);
+    const context = aggregatePreference(behavior.contextStats[`${bucket}:${item.lane}`]);
+    if (context.confidence >= 0.35 && context.score > 0.2) {
+      return `You tend to engage with ${FRONTIER_LANE_MAP[item.lane].shortLabel} more in the ${bucket}.`;
+    }
+    const format = formatForItem(item);
+    const formatPreference = aggregatePreference(behavior.formatStats[format]);
+    if (formatPreference.confidence >= 0.45 && formatPreference.score > 0.24) {
+      return `Your recent behavior suggests a growing preference for ${format} signals.`;
+    }
+  }
 
   if (resurfaceLike(item)) return 'Second chance: this signal was worth keeping in orbit.';
   if (item.importance >= 0.8) return 'High global importance, promoted even beyond your normal taste profile.';
