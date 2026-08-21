@@ -2,13 +2,14 @@
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover" />
 <meta name="theme-color" content="#06110e" />
 <title>Sylvaria: Mossglint Run</title>
 <link rel="stylesheet" href="./styles.css" />
 <link rel="stylesheet" href="./portal-v4.css" />
 <link rel="stylesheet" href="./sylvaria-v5.css" />
 <link rel="stylesheet" href="./sylvaria-v6.css" />
+<link rel="stylesheet" href="./sylvaria-v7.css" />
 </head>
 <body>
 <div id="game">
@@ -20,7 +21,7 @@
         <div id="roomKicker">world 001 / 1000 · depth 1</div>
         <div id="roomTitle">Sylvaria</div>
         <div id="roomTask">Solve the world. Condense Mossglint. Fire the gate. Escape.</div>
-        <div id="biomeBadge">forest / moss · soft moss · cyan spores · warm bark</div>
+        <div id="biomeBadge">forest / moss · moss cathedral · cyan spores · warm bark</div>
       </div>
       <div id="stats" class="runStats">
         <div class="stat glass"><b>score</b><span id="score">0</span></div>
@@ -57,9 +58,9 @@
         <span>solve</span><i>→</i><span>condense Mossglint</span><i>→</i><span>fire gate</span><i>→</i><span>extract</span><i>→</i><span>never look back</span>
       </div>
       <div class="portalLegend" aria-label="Sylvaria run flow">
-        <div><b>Read the world</b><span>Each arena has a different movement grammar, route, and ecological puzzle.</span></div>
+        <div><b>Read the world</b><span>Each arena has a different movement grammar, route, ecology, atmosphere, and living horizon.</span></div>
         <div><b>Fire the gate</b><span>When Mossglint aligns, press F to launch the charged portal shot.</span></div>
-        <div><b>Escape</b><span>The live neon rift starts a short extraction phase. Reach it and commit forward.</span></div>
+        <div><b>Escape</b><span>The live neon rift destabilizes the environment. Reach it and commit forward.</span></div>
       </div>
       <div class="menuActions">
         <button id="start" class="primary wide">start scored run</button>
@@ -80,11 +81,11 @@
       <div class="eyebrow">the Sylvarian gate rule</div>
       <h2>Every world ends with an escape.</h2>
       <div class="howGrid">
-        <div><b>01 · read</b><p>Targets show the resonance they need. Terrain, wildlife, and sweep lanes telegraph danger before it arrives.</p></div>
+        <div><b>01 · read</b><p>Targets show the resonance they need. Terrain, wildlife, atmosphere, and sweep lanes telegraph danger before it arrives.</p></div>
         <div><b>02 · solve</b><p>Complete each ecological relationship. Every completed node condenses one Mossglint stone.</p></div>
         <div><b>03 · fight or route</b><p>Your portal gun also damages hostile encounters. Clear them for safety and score, or route around them to save time.</p></div>
         <div><b>04 · fire gate</b><p>When the Mossglint quota is met, press F. Sprid charges the gun and fires a portal bolt into the eastern anchor.</p></div>
-        <div><b>05 · extract</b><p>The open portal intensifies the arena briefly. Reach the rift and press Enter or cross its edge to commit forward.</p></div>
+        <div><b>05 · extract</b><p>The open portal intensifies the arena and the world around it. Reach the rift and press Enter or cross its edge to commit forward.</p></div>
         <div><b>06 · adapt</b><p>World gifts persist for the full run. Build around fire rate, projectile size, spread, piercing, speed, and protection.</p></div>
       </div>
       <p class="lede small">Every tenth world locks Mossglint behind a guardian. Defeat it for two gate stones and a persistent gift. There are no scored-run retries and no backtracking.</p>
@@ -125,8 +126,8 @@
       <label class="optionRow"><span><b>music</b><small>procedural score reacts to biome, depth, and guardians</small></span><input id="musicToggle" type="checkbox" checked /></label>
       <label class="optionRow"><span><b>sound effects</b><small>resonances, Mossglint, portal charging, extraction, guardians</small></span><input id="sfxToggle" type="checkbox" checked /></label>
       <label class="optionRow"><span><b>aim assistance</b><small>lightly bends near-correct puzzle shots while preserving manual aim</small></span><input id="assistToggle" type="checkbox" checked /></label>
-      <label class="optionRow"><span><b>reduced motion</b><small>reduces decorative ambient drift while preserving gameplay telegraphs</small></span><input id="motionToggle" type="checkbox" /></label>
-      <label class="optionRow"><span><b>visual quality</b><small>Auto keeps the art crisp while adapting glow and decorative density to your browser</small></span><select id="visualQuality"><option value="auto">Auto</option><option value="high">High</option><option value="balanced">Balanced</option><option value="performance">Performance</option></select></label>
+      <label class="optionRow"><span><b>reduced motion</b><small>reduces ambient parallax and decorative drift while preserving gameplay telegraphs</small></span><input id="motionToggle" type="checkbox" /></label>
+      <label class="optionRow"><span><b>visual quality</b><small>Auto keeps the living world crisp while adapting glow, atmosphere, and decorative density to your browser</small></span><select id="visualQuality"><option value="auto">Auto</option><option value="high">High</option><option value="balanced">Balanced</option><option value="performance">Performance</option></select></label>
       <label class="optionRow volumeRow"><span><b>master volume</b><small>music and effects</small></span><input id="volume" type="range" min="0" max="1" value="0.68" step="0.02" /></label>
       <div class="qualityHint">active render tier · <span id="qualityState">BALANCED</span></div>
       <div class="actions"><button class="secondary" data-back>back</button></div>
@@ -167,8 +168,9 @@
 <script src="./expedition.js"></script>
 <script src="./director.js"></script>
 <script src="./arena-preflight.js"></script>
+<script src="./render-scale-v7.js"></script>
 <script src="./render-optimizer-v6.js"></script>
 <script src="./game-v5.js"></script>
-<script src="./visual-system-v6.js"></script>
+<script src="./visual-system-v7.js"></script>
 </body>
 </html>
