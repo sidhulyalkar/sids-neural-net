@@ -6,7 +6,11 @@ import {
   applyPreferenceImportToProfile,
   deriveGooglePreferenceImport,
 } from '../lib/frontier/googlePreferences';
-import { mergeFrontierMemory, parseFrontierPersistedState } from '../lib/frontier/memoryMerge';
+import {
+  compactFrontierCloudMemory,
+  mergeFrontierMemory,
+  parseFrontierPersistedState,
+} from '../lib/frontier/memoryMerge';
 import type { FrontierItem, FrontierPersistedState } from '../lib/frontier/types';
 
 function item(id: string, title: string): FrontierItem {
@@ -117,6 +121,32 @@ test('cloud-memory merge preserves useful state from both devices', () => {
   assert.equal(merged.history.a.dwellMs, 24_000);
   assert.equal(merged.history.a.reaction, 'up');
   assert.equal(merged.history.a.resurfacedCount, 1);
+});
+
+test('cloud compaction bounds raw history but prioritizes meaningful rows', () => {
+  const memory = state();
+  for (let index = 0; index < 6; index += 1) {
+    const signal = item(`i${index}`, `Item ${index}`);
+    memory.history[signal.id] = {
+      item: signal,
+      firstSeenAt: `2026-08-2${index}T10:00:00.000Z`,
+      lastSeenAt: `2026-08-2${index}T11:00:00.000Z`,
+      impressions: 1,
+      resurfacedCount: 0,
+      rewarded: false,
+    };
+  }
+  memory.saved.i0 = memory.history.i0.item;
+  memory.history.i1.reaction = 'love';
+  memory.history.i1.rewarded = true;
+
+  const compacted = compactFrontierCloudMemory(memory, 3);
+  assert.equal(Object.keys(compacted.history).length, 3);
+  assert.ok(compacted.history.i0);
+  assert.ok(compacted.history.i1);
+  assert.ok(compacted.history.i5);
+  assert.equal(Object.keys(compacted.saved).length, 1);
+  assert.equal(compacted.profile.topicAffinity.neuroai, memory.profile.topicAffinity.neuroai);
 });
 
 test('remote-memory parser rejects unrelated payloads', () => {
