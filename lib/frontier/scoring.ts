@@ -151,6 +151,10 @@ function takeFirst(
   return item;
 }
 
+function isActiveSportSignal(item: FrontierItem): boolean {
+  return item.tags.includes('active sport') || item.tags.includes('active sports');
+}
+
 /**
  * A finite daily run with an editorial spine. When the caller supplies the full
  * radar, the run explicitly reserves room for both deep-learning signal and the
@@ -175,8 +179,9 @@ export function selectDailyRun(
   push(takeFirst(ranked, used, (item) => item.lane === 'builder_signal'));
   push(takeFirst(ranked, used, (item) => item.lane === 'methods' || item.lane === 'creative_tech'));
 
-  // After Hours: favorite teams first, then the broader pitch/court, games, and culture.
+  // After Hours: favorite teams, things the user actively does, then the broader pitch/court.
   push(takeFirst(ranked, used, (item) => item.lane === 'team_pulse'));
+  push(takeFirst(ranked, used, (item) => isActiveSportSignal(item)));
   push(takeFirst(ranked, used, (item) => ['premier_league', 'world_soccer', 'sports'].includes(item.lane)));
   push(takeFirst(ranked, used, (item) => item.lane === 'gaming'));
   push(takeFirst(ranked, used, (item) => item.lane === 'music' || item.lane === 'internet_culture' || item.lane === 'life'));
@@ -230,7 +235,7 @@ export function buildDailyQuests(history: Record<string, FrontierHistoryEntry>, 
       current: Number(hasBrainfood), target: 1, complete: hasBrainfood, xp: 14,
     },
     {
-      id: 'clubhouse', label: 'Clubhouse', description: 'Catch one team, game, music, sports, or culture signal.',
+      id: 'clubhouse', label: 'Clubhouse', description: 'Catch one team, active sport, game, music, or culture signal.',
       current: Number(hasAfterHours), target: 1, complete: hasAfterHours, xp: 12,
     },
     {
