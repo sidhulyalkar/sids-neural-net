@@ -12,9 +12,10 @@ const outputDir = process.env.ARCADE_BROWSER_DIR || 'artifacts/arcade-browser-ma
 fs.mkdirSync(outputDir, { recursive: true });
 
 const engines = [
-  ['chromium', chromium],
-  ['firefox', firefox],
-  ['webkit', webkit],
+  { name: 'chrome-stable', browserType: chromium, launchOptions: { channel: 'chrome' } },
+  { name: 'chromium', browserType: chromium, launchOptions: {} },
+  { name: 'firefox', browserType: firefox, launchOptions: {} },
+  { name: 'webkit', browserType: webkit, launchOptions: {} },
 ];
 
 const report = [];
@@ -101,8 +102,6 @@ async function testMosslight(page, engineName) {
   const initial = await assertPainted(frame, 'Mosslight title');
   await page.screenshot({ path: path.join(outputDir, `${engineName}-mosslight-title.png`), fullPage: true });
 
-  // Click the actual control inside the frame. This verifies the host's
-  // document-level capture bridge, including Firefox's iframe focus model.
   await assertGameFocus(page, frame.locator('#start'), 'Mosslight');
   await frame.waitForFunction(() => window.__MOSSLIGHT_PLAYTEST__?.snapshot().mode === 'playing');
   await assertCanvasKeyboardFocus(frame, 'Mosslight');
@@ -174,11 +173,11 @@ async function testUniRico(page, engineName) {
   return { initial };
 }
 
-for (const [engineName, browserType] of engines) {
+for (const { name: engineName, browserType, launchOptions } of engines) {
   const errors = [];
   let browser;
   try {
-    browser = await browserType.launch({ headless: true });
+    browser = await browserType.launch({ headless: true, ...launchOptions });
     const page = await browser.newPage({ viewport: { width: 1440, height: 1000 }, deviceScaleFactor: 1 });
 
     page.on('pageerror', (error) => errors.push(`pageerror: ${error.message}`));
