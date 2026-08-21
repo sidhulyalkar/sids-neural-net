@@ -8,6 +8,7 @@ import {
   FRONTIER_REALMS,
   laneMatchesRealm,
 } from '@/lib/frontier/config';
+import { buildDiscoveryFocus, encodeDiscoveryFocus } from '@/lib/frontier/discoveryFocus';
 import { FRONTIER_PINNED_TOPICS, topicMatchesItem } from '@/lib/frontier/interests';
 import {
   buildDailyQuests,
@@ -32,6 +33,8 @@ import { SignalBoard } from './SignalBoard';
 import type { SignalLayoutMode } from './SignalBoard';
 import { SignalCard } from './SignalCard';
 import styles from './frontier-minimal.module.css';
+
+const LIVE_REFRESH_MS = 4 * 60_000;
 
 const VIEWS: Array<{ id: FrontierView; label: string }> = [
   { id: 'today', label: 'Today' },
@@ -150,29 +153,60 @@ export function FrontierExperience({ initialDateLabel, initialDayKey }: Props) {
   const [collectionFilter, setCollectionFilter] = useState('inbox');
   const [newCollection, setNewCollection] = useState('');
   const fileInput = useRef<HTMLInputElement | null>(null);
+  const requestRef = useRef<AbortController | null>(null);
+  const hasLoadedRef = useRef(false);
 
-  const loadFeed = useCallback(async () => {
-    setLoading(true);
+  const discoveryFocus = useMemo(
+    () => buildDiscoveryFocus(store.profile, store.behavior, 7),
+    [store.profile, store.behavior]
+  );
+  const focusSignature = useMemo(() => encodeDiscoveryFocus(discoveryFocus), [discoveryFocus]);
+
+  const loadFeed = useCallback(async (forceFresh = false) => {
+    requestRef.current?.abort();
+    const controller = new AbortController();
+    requestRef.current = controller;
+    if (!hasLoadedRef.current) setLoading(true);
     setError(undefined);
     try {
-      const response = await fetch('/api/frontier/feed', { cache: 'no-store' });
+      const params = new URLSearchParams();
+      if (focusSignature) params.set('focus', focusSignature);
+      if (forceFresh) params.set('fresh', '1');
+      const response = await fetch(`/api/frontier/feed${params.size ? `?${params.toString()}` : ''}`, {
+        cache: 'no-store',
+        signal: controller.signal,
+      });
       if (!response.ok) throw new Error(`Feed returned ${response.status}`);
       const payload = (await response.json()) as FrontierFeedResponse & { error?: string };
       setItems(payload.items ?? []);
       setSources(payload.sources ?? []);
       setGeneratedAt(payload.generatedAt);
       if (payload.error) setError(payload.error);
+      hasLoadedRef.current = true;
     } catch (feedError) {
+      if (controller.signal.aborted) return;
       setError(feedError instanceof Error ? feedError.message : 'Live feed temporarily unavailable');
     } finally {
+      if (requestRef.current === controller) requestRef.current = null;
       setLoading(false);
     }
-  }, []);
+  }, [focusSignature]);
 
   useEffect(() => {
     void loadFeed();
-    const timer = window.setInterval(() => void loadFeed(), 15 * 60_000);
-    return () => window.clearInterval(timer);
+    const tick = () => {
+      if (document.visibilityState === 'visible') void loadFeed();
+    };
+    const timer = window.setInterval(tick, LIVE_REFRESH_MS);
+    const visibilityChanged = () => {
+      if (document.visibilityState === 'visible') void loadFeed();
+    };
+    document.addEventListener('visibilitychange', visibilityChanged);
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener('visibilitychange', visibilityChanged);
+      requestRef.current?.abort();
+    };
   }, [loadFeed]);
 
   const beginSession = store.beginSession;
@@ -188,9 +222,7 @@ export function FrontierExperience({ initialDateLabel, initialDayKey }: Props) {
   }, [beginSession, endSession]);
 
   const recordView = store.recordView;
-  useEffect(() => {
-    recordView(view);
-  }, [recordView, view]);
+  useEffect(() => { recordView(view); }, [recordView, view]);
 
   const resurfacing = useMemo(
     () => Object.values(store.history)
@@ -314,8 +346,8 @@ export function FrontierExperience({ initialDateLabel, initialDayKey }: Props) {
             <p className={styles.eyebrow}>FRONTIER · {initialDateLabel}</p>
             <h1 className={styles.minimalTitle}>{realmTitle(realm)}</h1>
           </div>
-          <div className={styles.radarStatus} title={generatedAt ? `Last scan ${humanDate(generatedAt)}` : undefined}>
-            <span className={styles.liveDot} /> {loading && !items.length ? 'scanning' : `${onlineSources} sources`}
+          <div className={styles.radarStatus} title={generatedAt ? `Last live scan ${humanDate(generatedAt)} · adaptive focus: ${discoveryFocus.join(', ')}` : undefined}>
+            <span className={styles.liveDot} /> {loading && !items.length ? 'scanning' : `${onlineSources} live sources`}
             <span>·</span><span>{dailyRun.length} signals</span>
             <span>·</span><span>{savedItems.length} saved</span>
             <span>·</span><span>{store.behavior.implicitLearning ? 'learning' : 'learning paused'}</span>
@@ -454,7 +486,7 @@ export function FrontierExperience({ initialDateLabel, initialDayKey }: Props) {
                     <div className={styles.historyTime}>{humanDate(entry.lastSeenAt)}</div>
                     <div>
                       <div className={styles.historyTitle}>{entry.item.title}</div>
-                      <div className={styles.historyMeta}>{FRONTIER_LANE_MAP[entry.item.lane].shortLabel} · {entry.item.sourceLabel}</div>
+                      <div className={styles.historyMeta}>{FRONTIER_LANE_MAP[entry.item.lane].shortLabel} · {entry.item.sourceLabel}{entry.dwellMs ? ` · ${Math.round(entry.dwellMs / 1000)}s attention` : ''}</div>
                     </div>
                     <div className={styles.micro}>{entry.reaction ?? (entry.openedAt ? 'opened' : 'unresolved')}</div>
                   </div>
@@ -480,9 +512,9 @@ export function FrontierExperience({ initialDateLabel, initialDayKey }: Props) {
         ) : null}
 
         <footer className={styles.footerTools}>
-          <span className={styles.micro}>Local memory · {store.game.streak} day streak · {store.game.xp} XP · {store.behavior.sessions} learned sessions</span>
+          <span className={styles.micro}>Live runtime · local memory · {store.game.streak} day streak · {store.game.xp} XP · {store.behavior.sessions} learned sessions</span>
           <div className={styles.toolGroup}>
-            <button type="button" className={styles.utilityButton} onClick={() => void loadFeed()}><RefreshCw size={11} /> Refresh</button>
+            <button type="button" className={styles.utilityButton} onClick={() => void loadFeed(true)}><RefreshCw size={11} /> Refresh live</button>
             <button type="button" className={styles.utilityButton} onClick={downloadBackup}><Download size={11} /> Export</button>
             <button type="button" className={styles.utilityButton} onClick={() => fileInput.current?.click()}><Upload size={11} /> Import</button>
             <input ref={fileInput} type="file" accept="application/json" hidden onChange={(event) => void importBackup(event.target.files?.[0])} />
