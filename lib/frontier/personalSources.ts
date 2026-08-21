@@ -308,7 +308,7 @@ async function steamItems(): Promise<FrontierItem[]> {
         tags: tagsForText(text, 'gaming', [game.title, news.feedlabel ?? 'steam', 'game update']),
         media: { type: 'image', url: image, alt: game.title, aspectRatio: 'landscape' } as FrontierMedia,
         ...scores,
-        why: `Fresh first-party Steam signal for a game already in your library orbit.`,
+        why: 'Fresh first-party Steam signal for a game already in your library orbit.',
       }];
     }).slice(0, 2);
   }));
@@ -330,13 +330,21 @@ function youtubeVideoId(url: string): string | undefined {
 }
 
 function personalDiscoveryQueries(): DiscoveryQuery[] {
-  const music = FRONTIER_MUSIC_ARTISTS.slice(0, 7).join(' ');
+  const extraArtists = (process.env.FRONTIER_MUSIC_ARTISTS ?? '')
+    .split(',')
+    .map((value) => value.trim())
+    .filter(Boolean);
+  const musicArtists = Array.from(new Set([...FRONTIER_MUSIC_ARTISTS, ...extraArtists])).slice(0, 10);
+  const music = musicArtists.map((artist) => `"${artist}"`).join(' ');
   const games = FRONTIER_GAME_LIBRARY.slice(0, 10).map((game) => `"${game.title}"`).join(' ');
+  const teamQueries: DiscoveryQuery[] = FRONTIER_TEAMS.map((team) => ({
+    query: `"${team.label}" highlights memes analysis`,
+    lane: 'team_pulse',
+    tags: [...team.tags],
+  }));
+
   return [
-    { query: '"New England Patriots" highlights memes analysis', lane: 'team_pulse', tags: ['new england patriots', 'nfl'] },
-    { query: '"Golden State Warriors" highlights memes Steph Curry', lane: 'team_pulse', tags: ['golden state warriors', 'nba'] },
-    { query: '"Chelsea FC" highlights tactics memes', lane: 'team_pulse', tags: ['chelsea', 'premier league'] },
-    { query: '"Manchester City" highlights tactics memes', lane: 'team_pulse', tags: ['manchester city', 'premier league'] },
+    ...teamQueries,
     { query: `${music} dubstep bass music new release live set`, lane: 'music', tags: ['dubstep', 'bass music'] },
     { query: `${games} metroidvania indie game new release trailer`, lane: 'gaming', tags: ['game discovery', 'metroidvania'] },
     { query: 'site:youtube.com metroidvania roguelike indie game trailer new release', lane: 'gaming', tags: ['video', 'game discovery'] },
