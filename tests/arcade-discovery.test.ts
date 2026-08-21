@@ -88,6 +88,19 @@ test('Vercel allows the site to embed its own game runtimes without allowing cro
   }
 });
 
+test('Game Network browser validation includes actual Google Chrome Stable', () => {
+  const workflow = readRepoFile('.github/workflows/ci.yml');
+  const browserTest = readRepoFile('scripts/playtest-arcade-browsers.mjs');
+
+  assert.match(workflow, /playwright@1\.55\.0 install chrome/);
+  assert.match(workflow, /Chrome Stable Chromium Firefox and WebKit/);
+  assert.match(browserTest, /name: 'chrome-stable'/);
+  assert.match(browserTest, /channel: 'chrome'/);
+  assert.match(browserTest, /testMosslight\(page, engineName\)/);
+  assert.match(browserTest, /testStretchicorn\(page, engineName\)/);
+  assert.match(browserTest, /testUniRico\(page, engineName\)/);
+});
+
 test('the embedded Stretchicorn release is complete', () => {
   const runtimeRoot = 'public/game-runtimes/stretchicorn';
   const runtimeModules = [
