@@ -97,7 +97,7 @@ The merge preserves:
 
 After the initial merge, the current browser snapshot is authoritative. This matters because a pure set-union would make explicit deletions impossible: an unsaved item or removed collection would reappear forever. Subsequent writes therefore replace the user's current remote snapshot.
 
-The client debounces writes so ordinary scrolling does not hammer storage. It also attempts a final best-effort flush on pagehide.
+The client debounces writes so ordinary scrolling does not hammer storage. It also attempts a final best-effort flush on pagehide. A failed cloud read is never interpreted as an empty account, which prevents a transient storage outage from overwriting a healthy remote snapshot.
 
 ### Longitudinal growth without an infinite raw log
 
@@ -108,6 +108,8 @@ Before a cloud write, raw item history is compacted to a bounded recent/meaningf
 ### Encryption at rest
 
 Both cloud memory and stored Google OAuth grants are encrypted with **AES-256-GCM** before they are written to Redis. Separate purpose-derived keys are generated from `FRONTIER_AUTH_SECRET` for memory and Google credentials. The Redis database therefore does not contain readable preference history, saves, or OAuth tokens.
+
+Remote-memory network calls have bounded timeouts so account infrastructure cannot stall the live reading surface.
 
 ## What Google preferences are imported
 
@@ -136,7 +138,7 @@ Examples of useful imported signal include:
 - research/engineering concepts
 - team names
 
-Imported signals are bounded and remain weaker than repeated explicit FRONTIER feedback. A one-time Google import should seed discovery, not permanently override what the user later teaches FRONTIER directly.
+Imported signals are bounded and remain weaker than repeated explicit FRONTIER feedback. Re-importing the same account data is idempotent rather than repeatedly inflating affinity, and an imported seed never overrides a topic/source that explicit FRONTIER feedback has already driven negative.
 
 ### What is deliberately not silently imported
 
@@ -169,7 +171,7 @@ The model continues to learn from:
 - time-of-day and weekday context
 - reading mode and navigation habits
 
-Current-session implicit behavior still feeds a **frozen between-session ranking snapshot**, so a page does not reorder beneath the user while they are reading it. Cloud sync persists the richer model so later sessions and other devices can start from that accumulated evidence.
+Current-session implicit behavior still feeds a **frozen between-session ranking snapshot**, so a page does not reorder beneath the user while they are reading it. Cloud sync persists the richer model so later sessions and other devices can start from that accumulated evidence. Importing or restoring a stronger cross-device profile changes the live discovery focus immediately because the runtime feed request is derived from the active profile.
 
 ## Privacy boundary
 
@@ -198,3 +200,17 @@ The product degrades deliberately:
 - Google APIs unavailable → existing preference memory remains intact.
 
 The signed-in layer must never be a single point of failure for reading the live radar.
+
+## Production validation
+
+Website CI exercises the account boundary even without production credentials:
+
+- session route must remain anonymously readable and report `authenticated:false`
+- private cloud-memory route must reject anonymous access with 401
+- private Google-import route must reject anonymous access with 401
+- signed-session primitives have tamper and expiry tests
+- Google preference derivation has idempotence and negative-preference tests
+- cloud merge and history compaction are covered by unit tests
+- the entire site still passes typecheck, lint, production build, bundle budget, live route smoke tests, and desktop/mobile Playwright capture
+
+OAuth and Redis secrets are deployment configuration, not repository data. Production credential validation therefore happens after those secrets are entered into the deployment environment.
