@@ -5,6 +5,7 @@ const html = fs.readFileSync(`${root}/index.html`, 'utf8');
 const rooms = fs.readFileSync(`${root}/rooms.js`, 'utf8');
 const expedition = fs.readFileSync(`${root}/expedition.js`, 'utf8');
 const director = fs.readFileSync(`${root}/director.js`, 'utf8');
+const preflight = fs.readFileSync(`${root}/arena-preflight.js`, 'utf8');
 const game = fs.readFileSync(`${root}/game-v4.js`, 'utf8');
 const portalStyles = fs.readFileSync(`${root}/portal-v4.css`, 'utf8');
 const atlasRoute = fs.readFileSync('app/game-runtimes/mosslight-atlas/route.ts', 'utf8');
@@ -14,7 +15,8 @@ const expect = (condition, message) => { if (!condition) errors.push(message); }
 expect(html.includes('<canvas id="c"'), 'runtime must expose the game canvas');
 expect(html.includes('Mosslight: Mossglint Run'), 'Mossglint Run title is missing');
 expect(html.includes('./game-v4.js') && !html.includes('./game-v3.js'), 'production shell must run v0.4 portal runtime only');
-expect(html.includes('./portal-v4.css'), 'portal-run visual layer is missing');
+expect(html.includes('./portal-v4.css') && html.includes('./arena-preflight.js'), 'portal-run visual/preflight layers are missing');
+expect(html.indexOf('./director.js') < html.indexOf('./arena-preflight.js') && html.indexOf('./arena-preflight.js') < html.indexOf('./game-v4.js'), 'arena preflight must run after Director and before gameplay');
 expect(html.includes('one-way atlas gauntlet') && html.includes('never look back'), 'one-way story rule is missing from onboarding');
 expect(html.includes('start scored run') && html.includes('explorer run'), 'proper run menu modes are missing');
 expect(html.includes('how to play') && html.includes('controls') && html.includes('options'), 'menu navigation is incomplete');
@@ -37,6 +39,10 @@ for (const pattern of ['patrol','weave','orbit','swoop','stalk','dash','spiral']
 expect(director.includes('NOVELTY_ROTATION') && director.includes('variedSituationFor'), 'run-level situation novelty budget is missing');
 expect(director.includes('usedPatterns') && director.includes('encounterPatternFor'), 'within-room encounter novelty budget is missing');
 
+expect(preflight.includes('SPAWN') && preflight.includes('PORTAL'), 'arena preflight must reserve spawn and exit pockets');
+expect(preflight.includes('repairObstacle') && preflight.includes('repairPowerup') && preflight.includes('repairEncounter'), 'arena preflight must repair blocked geometry, gifts, and encounter starts');
+expect(preflight.includes('MosslightArenaPreflight') && preflight.includes('expedition.newRun'), 'arena safety diagnostics must rerun for new Atlas sectors');
+
 expect(game.includes('ATLAS_LENGTH = 1000'), '1,000-world run milestone is missing');
 expect(game.includes('state.worldDepth % 10 === 0'), 'guardian cadence must be every tenth world');
 expect(game.includes('window.MosslightExpedition?.newRun?.()'), 'run must request new unseen Atlas batches after each ten-world sector');
@@ -53,12 +59,12 @@ expect(game.includes('score') && game.includes('speedBonus') && game.includes('B
 expect(game.includes('DEFAULT_BINDINGS') && game.includes('beginCapture') && game.includes('saveSettings'), 'control remapping persistence is incomplete');
 expect(game.includes('class MosslightMusic') && game.includes('this.bpm()') && game.includes('setWorld'), 'custom reactive procedural music engine is missing');
 expect(game.includes("version: '0.4.0'"), 'playtest API version must be v0.4.0');
-expect(game.includes('function aimVector') && game.includes('aimSource = \'keyboard\'') && game.includes('aimSource = \'mouse\''), 'mouse + keyboard aim arbitration is missing');
+expect(game.includes('function aimVector') && game.includes("aimSource = 'keyboard'") && game.includes("aimSource = 'mouse'"), 'mouse + keyboard aim arbitration is missing');
 expect(game.includes('spec.cooldown / state.relics.fireRate') && game.includes('spec.radius * state.relics.projectileScale'), 'firing powerups must affect gameplay');
 expect(game.includes('state.relics.spread') && game.includes('state.relics.pierce'), 'spread/piercing builds are missing');
 expect(portalStyles.includes('.bindingGrid') && portalStyles.includes('.storyRule') && portalStyles.includes('.milestone'), 'v0.4 menu/control/milestone styling is incomplete');
 
-for (const [name, source] of [['rooms.js', rooms], ['expedition.js', expedition], ['director.js', director], ['game-v4.js', game]]) {
+for (const [name, source] of [['rooms.js', rooms], ['expedition.js', expedition], ['director.js', director], ['arena-preflight.js', preflight], ['game-v4.js', game]]) {
   try { new Function(source); } catch (error) { errors.push(`${name} does not compile: ${error instanceof Error ? error.message : String(error)}`); }
 }
 
@@ -68,4 +74,4 @@ if (errors.length) {
   process.exit(1);
 }
 
-console.log(`Mosslight PASS: v0.4 one-way Mossglint portal run, ${roomTitles.length} mechanic templates, 1,000-world milestone, every-10th-world guardians, remappable controls, reactive procedural music, global difficulty, and Atlas continuation.`);
+console.log(`Mosslight PASS: v0.4 one-way Mossglint portal run, ${roomTitles.length} mechanic templates, 1,000-world milestone, every-10th-world guardians, procedural arena preflight, remappable controls, reactive procedural music, global difficulty, and Atlas continuation.`);
