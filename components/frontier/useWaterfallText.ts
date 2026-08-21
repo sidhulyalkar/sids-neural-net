@@ -70,7 +70,6 @@ function measureCharacters(input: HTMLInputElement, text: string) {
     range.setStart(textNode, index);
     range.setEnd(textNode, index + 1);
     const rect = range.getBoundingClientRect();
-    range.detach();
 
     // Only animate characters that were actually visible inside the single-line input.
     if (rect.right <= inputRect.left || rect.left >= inputRect.right) continue;
@@ -86,8 +85,8 @@ export function useWaterfallText(
   { collisionRef, durationMs = 1_500 }: Options = {}
 ) {
   const [active, setActive] = useState(false);
-  const rafRef = useRef<number>();
-  const overlayRef = useRef<HTMLDivElement>();
+  const rafRef = useRef<number | undefined>(undefined);
+  const overlayRef = useRef<HTMLDivElement | undefined>(undefined);
   const particlesRef = useRef<Particle[]>([]);
   const mountedRef = useRef(true);
 
