@@ -289,7 +289,7 @@ export function FrontierExperience({ initialDateLabel, initialDayKey }: Props) {
             <h1 className={styles.minimalTitle}>{realmTitle(realm)}</h1>
           </div>
           <div className={styles.radarStatus} title={generatedAt ? `Last scan ${humanDate(generatedAt)}` : undefined}>
-            <span className={styles.liveDot} /> {onlineSources} sources
+            <span className={styles.liveDot} /> {loading && !items.length ? 'scanning' : `${onlineSources} sources`}
             <span>·</span><span>{dailyRun.length} signals</span>
             <span>·</span><span>{savedItems.length} saved</span>
             {error ? <span className={styles.degraded}>· degraded</span> : null}
@@ -321,15 +321,11 @@ export function FrontierExperience({ initialDateLabel, initialDayKey }: Props) {
 
         {view === 'today' ? (
           <main className={styles.signalStage}>
-            {loading && !items.length ? (
-              <div className={styles.skeleton} />
-            ) : (
-              <SignalBoard
-                items={dailyRun}
-                renderCard={(item, mode) => renderCard(item, mode)}
-                empty={<div className={styles.empty}>No live signal yet. Refresh in a moment.</div>}
-              />
-            )}
+            <SignalBoard
+              items={dailyRun}
+              renderCard={(item, mode) => renderCard(item, mode)}
+              empty={<div className={styles.empty}>No live signal yet. Refresh in a moment.</div>}
+            />
           </main>
         ) : null}
 
