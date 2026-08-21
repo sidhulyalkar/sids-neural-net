@@ -1,7 +1,5 @@
 export const FRONTIER_LANE_IDS = [
   'must_know',
-  'premier_league',
-  'world_soccer',
   'ml_data',
   'ai_frontier',
   'neuro_frontier',
@@ -11,7 +9,14 @@ export const FRONTIER_LANE_IDS = [
   'broad_science',
   'creative_tech',
   'world_pulse',
+  'premier_league',
+  'world_soccer',
+  'team_pulse',
   'sports',
+  'gaming',
+  'music',
+  'internet_culture',
+  'life',
   'wildcards',
 ] as const;
 
@@ -24,6 +29,9 @@ export type FrontierSourceKind =
   | 'rss'
   | 'youtube'
   | 'football_data'
+  | 'reddit'
+  | 'steam'
+  | 'social'
   | 'brave_web'
   | 'local';
 
@@ -148,3 +156,4 @@ export type FrontierQuest = {
 };
 
 export type FrontierView = 'today' | 'explore' | 'saved' | 'history' | 'map';
+export type FrontierRealm = 'all' | 'learn' | 'play';
