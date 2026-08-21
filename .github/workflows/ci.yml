@@ -50,7 +50,7 @@ jobs:
       - name: Unit tests
         run: npm test
 
-      - name: Validate Sylvaria Countercut runtime
+      - name: Validate Sylvaria Environmental Resonance runtime
         run: npm run check:mosslight
 
       - name: Validate deterministic Nature Atlas corpus
@@ -99,31 +99,39 @@ jobs:
           echo "GET pinned uniRico runtime"
           curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/game-runtimes/unirico/index.html | grep -q '<canvas id="c"'
           curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/game-runtimes/unirico/runtime/core.js | grep -q 'use strict\|const\|function'
-          echo "GET Sylvaria Countercut v0.8.2 runtime"
-          SYL_INDEX="$(curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/game-runtimes/mosslight-v2/index.html)"
-          printf '%s' "$SYL_INDEX" | grep -q 'Sylvaria: Countercut'
-          printf '%s' "$SYL_INDEX" | grep -q './game-v82.js'
-          printf '%s' "$SYL_INDEX" | grep -q './visual-system-v8.js'
-          printf '%s' "$SYL_INDEX" | grep -q './sylvaria-v8.css'
-          if printf '%s' "$SYL_INDEX" | grep -q './game-v5.js\|./game-v8.js\|./game-v81.js\|./input-buffer-v81.js'; then
-            echo "retired Sylvaria gameplay/input core is still wired" >&2
+          echo "GET Sylvaria Environmental Resonance v0.9.0 runtime"
+          curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/game-runtimes/mosslight-v2/index.html -o /tmp/sylvaria-index.html
+          curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/game-runtimes/mosslight-v2/game-v90.js -o /tmp/sylvaria-game.js
+          curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/game-runtimes/mosslight-v2/visual-system-v9.js -o /tmp/sylvaria-visual.js
+          grep -q 'Sylvaria: Environmental Resonance' /tmp/sylvaria-index.html
+          grep -q './game-v90.js' /tmp/sylvaria-index.html
+          grep -q './visual-system-v9.js' /tmp/sylvaria-index.html
+          grep -q './sylvaria-v8.css' /tmp/sylvaria-index.html
+          if grep -q './game-v5.js\|./game-v8.js\|./game-v81.js\|./game-v82.js\|./input-buffer-v81.js\|./visual-system-v8.js' /tmp/sylvaria-index.html; then
+            echo "retired Sylvaria gameplay/visual core is still wired" >&2
             exit 1
           fi
-          SYL_GAME="$(curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/game-runtimes/mosslight-v2/game-v82.js)"
-          printf '%s' "$SYL_GAME" | grep -q "const VERSION = '0.8.2'"
-          printf '%s' "$SYL_GAME" | grep -q 'const MAX_SHOTS = 128'
-          printf '%s' "$SYL_GAME" | grep -q 'function queueMove'
-          printf '%s' "$SYL_GAME" | grep -q 'function consumeMoveQueue'
-          printf '%s' "$SYL_GAME" | grep -q 'function requestDash'
-          printf '%s' "$SYL_GAME" | grep -q 'function resolveDashTarget'
-          printf '%s' "$SYL_GAME" | grep -q 'function counterShot'
-          printf '%s' "$SYL_GAME" | grep -q 'function chooseReturnTarget'
-          printf '%s' "$SYL_GAME" | grep -q 'function applyProjectilePattern'
-          printf '%s' "$SYL_GAME" | grep -q 'function maybeBeginEvade'
-          printf '%s' "$SYL_GAME" | grep -q "name: 'Boundary Surveyor'"
-          printf '%s' "$SYL_GAME" | grep -q "name: 'Mulcher Rig'"
-          printf '%s' "$SYL_GAME" | grep -q "name: 'PAC-a-Saw'"
-          curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/game-runtimes/mosslight-v2/visual-system-v8.js | grep -q "version: '0.8.2'"
+          grep -q "const VERSION = '0.9.0'" /tmp/sylvaria-game.js
+          grep -q 'const MAX_SHOTS = 128' /tmp/sylvaria-game.js
+          grep -q 'const MAX_PENDING = 72' /tmp/sylvaria-game.js
+          grep -q 'function queueMove' /tmp/sylvaria-game.js
+          grep -q 'function consumeMoveQueue' /tmp/sylvaria-game.js
+          grep -q 'function counterShot' /tmp/sylvaria-game.js
+          grep -q 'function chooseReturnTarget' /tmp/sylvaria-game.js
+          grep -q 'function applyProjectilePattern' /tmp/sylvaria-game.js
+          grep -q 'function terrainAt' /tmp/sylvaria-game.js
+          grep -q 'function mobilityAt' /tmp/sylvaria-game.js
+          grep -q 'function applyTerrainHazard' /tmp/sylvaria-game.js
+          grep -q 'function knockIntoTerrain' /tmp/sylvaria-game.js
+          grep -q 'function breakBrittle' /tmp/sylvaria-game.js
+          grep -q 'function fractureIce' /tmp/sylvaria-game.js
+          grep -q 'function drawEnemySilhouette' /tmp/sylvaria-game.js
+          grep -q "name: 'Boundary Surveyor'" /tmp/sylvaria-game.js
+          grep -q "name: 'Mulcher Rig'" /tmp/sylvaria-game.js
+          grep -q "name: 'PAC-a-Saw'" /tmp/sylvaria-game.js
+          grep -q "version: '0.9.0'" /tmp/sylvaria-visual.js
+          grep -q 'symmetricTerrainRules: true' /tmp/sylvaria-visual.js
+          grep -q 'cachedTerrainLayer: true' /tmp/sylvaria-visual.js
 
       - name: Install cross-browser smoke engines
         run: |
@@ -136,13 +144,13 @@ jobs:
           PW_ROOT="$(cd "$(dirname "$PW_BIN")/.." && pwd)"
           PLAYWRIGHT_MODULE_ROOT="$PW_ROOT" node scripts/playtest-arcade-home.mjs
 
-      - name: Validate Sylvaria Countercut across Chrome Stable Chromium Firefox and WebKit
+      - name: Validate Sylvaria Environmental Resonance across Chrome Stable Chromium Firefox and WebKit
         run: |
           PW_BIN="$(npm exec --yes --package=playwright@1.55.0 -- which playwright)"
           PW_ROOT="$(cd "$(dirname "$PW_BIN")/.." && pwd)"
           PLAYWRIGHT_MODULE_ROOT="$PW_ROOT" node scripts/playtest-sylvaria-browsers.mjs
 
-      - name: Playtest Sylvaria Countercut combat
+      - name: Playtest Sylvaria Environmental Resonance combat and terrain
         run: |
           PW_BIN="$(npm exec --yes --package=playwright@1.55.0 -- which playwright)"
           PW_ROOT="$(cd "$(dirname "$PW_BIN")/.." && pwd)"
@@ -163,9 +171,9 @@ jobs:
           npx --yes playwright@1.55.0 screenshot --browser=chromium --viewport-size="1440,1100" --full-page http://127.0.0.1:3000/arcade artifacts/browser-smoke/game-network.png
           npx --yes playwright@1.55.0 screenshot --browser=chromium --viewport-size="1440,1000" http://127.0.0.1:3000/arcade/stretchicorn artifacts/browser-smoke/arcade-stretchicorn.png
           npx --yes playwright@1.55.0 screenshot --browser=chromium --viewport-size="1440,1000" http://127.0.0.1:3000/arcade/unirico artifacts/browser-smoke/arcade-unirico.png
-          npx --yes playwright@1.55.0 screenshot --browser=chromium --viewport-size="1440,1000" http://127.0.0.1:3000/arcade/sylvaria artifacts/browser-smoke/arcade-sylvaria-countercut.png
-          npx --yes playwright@1.55.0 screenshot --browser=chromium --viewport-size="1920,1080" http://127.0.0.1:3000/game-runtimes/mosslight-v2/index.html artifacts/browser-smoke/sylvaria-countercut-v082-widescreen.png
-          npx --yes playwright@1.55.0 screenshot --browser=chromium --viewport-size="390,844" http://127.0.0.1:3000/game-runtimes/mosslight-v2/index.html artifacts/browser-smoke/sylvaria-countercut-v082-portrait.png
+          npx --yes playwright@1.55.0 screenshot --browser=chromium --viewport-size="1440,1000" http://127.0.0.1:3000/arcade/sylvaria artifacts/browser-smoke/arcade-sylvaria-environmental-resonance.png
+          npx --yes playwright@1.55.0 screenshot --browser=chromium --viewport-size="1920,1080" http://127.0.0.1:3000/game-runtimes/mosslight-v2/index.html artifacts/browser-smoke/sylvaria-v090-widescreen.png
+          npx --yes playwright@1.55.0 screenshot --browser=chromium --viewport-size="390,844" http://127.0.0.1:3000/game-runtimes/mosslight-v2/index.html artifacts/browser-smoke/sylvaria-v090-portrait.png
 
       - name: Upload production audit artifacts
         if: always()
