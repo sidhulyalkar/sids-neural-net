@@ -76,15 +76,15 @@ export const arcadeGames: ArcadeGame[] = [
     title: 'Sylvaria',
     subtitle: 'MOSSGLINT RUN · SOLVE, FIRE THE GATE, ESCAPE.',
     description:
-      'A one-way portal action-puzzle run across the 1,000-scene Nature Atlas. Sprid solves ecological resonance circuits, fights or routes around patterned encounters, collects Mossglint, fires a charged neon gate into each world anchor, survives the extraction phase, defeats guardian bosses, and carries permanent build upgrades into progressively harder worlds.',
-    version: 'v0.5.0',
+      'A one-way portal action-puzzle run across the 1,000-scene Nature Atlas. Sprid explores crisp biome-specific living arenas, solves ecological resonance circuits, fights or routes around cute patterned encounters, collects Mossglint, fires a charged neon gate, survives extraction, defeats guardian bosses, and carries permanent build upgrades into progressively harder worlds.',
+    version: 'v0.6.0',
     status: 'playable',
     sourceVisibility: 'public',
     repoUrl: 'https://github.com/sidhulyalkar/sids-neural-net',
     launchUrl: '/game-runtimes/mosslight-v2/index.html',
     aspectRatio: '960 / 640',
     nativeSize: { width: 960, height: 640 },
-    tags: ['portal gun', 'action puzzle', '1000-scene atlas', 'one-way run', 'bosses', 'procedural music', 'powerups', 'extraction', 'canvas'],
+    tags: ['portal gun', 'action puzzle', '1000-scene atlas', 'biome art system', 'adaptive rendering', 'bosses', 'procedural music', 'powerups', 'extraction', 'canvas'],
     controls: [
       { input: 'W A S D', action: 'Move Sprid through the arena' },
       { input: 'Mouse / Arrow Keys', action: 'Aim the Mossglint portal gun independently' },
