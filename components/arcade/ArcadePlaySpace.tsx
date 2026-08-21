@@ -36,7 +36,14 @@ export function ArcadePlaySpace({ game }: { game: ArcadeGame }) {
   }, []);
 
   useEffect(() => {
-    const onFullscreen = () => setFullscreen(document.fullscreenElement === shellRef.current);
+    const onFullscreen = () => {
+      const active = document.fullscreenElement === shellRef.current;
+      setFullscreen(active);
+      if (active) {
+        engageFocus();
+        window.requestAnimationFrame(() => iframeRef.current?.focus());
+      }
+    };
     const onParentKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape' && focused && !document.fullscreenElement) leaveFocus();
     };
@@ -108,7 +115,11 @@ export function ArcadePlaySpace({ game }: { game: ArcadeGame }) {
 
     try {
       if (document.fullscreenElement) await document.exitFullscreen();
-      else await shell.requestFullscreen();
+      else {
+        await shell.requestFullscreen({ navigationUI: 'hide' });
+        engageFocus();
+        window.requestAnimationFrame(() => iframeRef.current?.focus());
+      }
     } catch {
       engageFocus();
     }
@@ -123,15 +134,26 @@ export function ArcadePlaySpace({ game }: { game: ArcadeGame }) {
     <main
       ref={shellRef}
       tabIndex={-1}
-      className="min-h-screen bg-[#020306] text-white outline-none"
+      className={`bg-[#020306] text-white outline-none ${fullscreen ? 'h-screen w-screen overflow-hidden' : 'min-h-screen'}`}
       data-arcade-focus={focused ? 'true' : 'false'}
+      data-arcade-fullscreen={fullscreen ? 'true' : 'false'}
     >
       <style>{`.game-runtime-focused .neuron-cursor-overlay{display:none!important}`}</style>
-      <div className="mx-auto flex min-h-screen w-full max-w-[1320px] flex-col px-4 pb-8 pt-5 sm:px-7 lg:px-10">
+      <div
+        className={
+          fullscreen
+            ? 'relative h-screen w-screen overflow-hidden'
+            : 'mx-auto flex min-h-screen w-full max-w-[1320px] flex-col px-4 pb-8 pt-5 sm:px-7 lg:px-10'
+        }
+      >
         <header
-          className={`flex items-center justify-between gap-4 transition-opacity ${
-            focused ? 'pointer-events-none opacity-20' : 'opacity-100'
-          }`}
+          className={
+            fullscreen
+              ? 'hidden'
+              : `flex items-center justify-between gap-4 transition-opacity ${
+                  focused ? 'pointer-events-none opacity-20' : 'opacity-100'
+                }`
+          }
         >
           <div>
             <Link
@@ -147,12 +169,22 @@ export function ArcadePlaySpace({ game }: { game: ArcadeGame }) {
           </span>
         </header>
 
-        <section className="flex flex-1 items-center justify-center py-6 sm:py-8">
-          <div className="w-full max-w-[1160px]">
-            <div className="border border-white/10 bg-black p-1.5 sm:p-2">
+        <section
+          className={
+            fullscreen
+              ? 'absolute inset-0 flex items-stretch justify-stretch p-0'
+              : 'flex flex-1 items-center justify-center py-6 sm:py-8'
+          }
+        >
+          <div className={fullscreen ? 'h-full w-full max-w-none' : 'w-full max-w-[1160px]'}>
+            <div className={fullscreen ? 'h-full w-full bg-black' : 'border border-white/10 bg-black p-1.5 sm:p-2'}>
               <div
-                className="relative mx-auto w-full overflow-hidden bg-black"
-                style={{ aspectRatio: game.aspectRatio }}
+                className={
+                  fullscreen
+                    ? 'relative h-full w-full overflow-hidden bg-black'
+                    : 'relative mx-auto w-full overflow-hidden bg-black'
+                }
+                style={fullscreen ? undefined : { aspectRatio: game.aspectRatio }}
               >
                 {game.launchUrl ? (
                   <iframe
@@ -186,7 +218,7 @@ export function ArcadePlaySpace({ game }: { game: ArcadeGame }) {
               </div>
             </div>
 
-            <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+            <div className={fullscreen ? 'hidden' : 'mt-2 flex flex-wrap items-center justify-between gap-2'}>
               <p className="font-mono text-[8px] uppercase tracking-[0.16em] text-white/25">
                 {focused ? 'game focus · escape releases' : 'click inside the game to focus'}
               </p>
@@ -215,9 +247,10 @@ export function ArcadePlaySpace({ game }: { game: ArcadeGame }) {
                       type="button"
                       onClick={toggleFullscreen}
                       className="flex h-8 items-center gap-2 border border-white/10 px-2.5 font-mono text-[8px] uppercase tracking-[0.12em] text-white/35 transition-colors hover:border-white/25 hover:text-white/65"
+                      aria-label={fullscreen ? 'Exit fullscreen game' : 'Open fullscreen game'}
                     >
                       {fullscreen ? <Minimize2 className="h-3 w-3" /> : <Maximize2 className="h-3 w-3" />}
-                      <span className="hidden sm:inline">screen</span>
+                      <span className="hidden sm:inline">fullscreen</span>
                     </button>
                     <a
                       href={game.launchUrl}
@@ -236,9 +269,13 @@ export function ArcadePlaySpace({ game }: { game: ArcadeGame }) {
         </section>
 
         <footer
-          className={`grid gap-4 border-t border-white/8 pt-4 transition-opacity lg:grid-cols-[1.3fr_1fr] ${
-            focused ? 'pointer-events-none opacity-15' : 'opacity-100'
-          }`}
+          className={
+            fullscreen
+              ? 'hidden'
+              : `grid gap-4 border-t border-white/8 pt-4 transition-opacity lg:grid-cols-[1.3fr_1fr] ${
+                  focused ? 'pointer-events-none opacity-15' : 'opacity-100'
+                }`
+          }
         >
           <div>
             <p className="font-mono text-[8px] uppercase tracking-[0.16em] text-white/30">{game.subtitle}</p>
