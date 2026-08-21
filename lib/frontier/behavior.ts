@@ -3,6 +3,7 @@ import type {
   FrontierBehaviorAggregate,
   FrontierBehaviorEvent,
   FrontierBehaviorModel,
+  FrontierBehaviorSnapshot,
   FrontierItem,
   FrontierLaneId,
   FrontierLayoutMode,
@@ -71,6 +72,17 @@ function depthBucket(item: FrontierItem): string | undefined {
   if (item.readMinutes <= 3) return 'quick';
   if (item.readMinutes >= 8) return 'deep';
   return 'medium';
+}
+
+function captureRankingSnapshot(model: FrontierBehaviorModel, date = new Date()): FrontierBehaviorSnapshot {
+  return {
+    laneStats: model.laneStats,
+    sourceStats: model.sourceStats,
+    topicStats: model.topicStats,
+    formatStats: model.formatStats,
+    contextStats: model.contextStats,
+    capturedAt: date.toISOString(),
+  };
 }
 
 function touchAggregate(
@@ -161,6 +173,10 @@ export function startBehaviorSession(model: FrontierBehaviorModel, date = new Da
     sessions: model.sessions + (startsNew ? 1 : 0),
     sessionStartedAt: startsNew ? now : (model.sessionStartedAt ?? now),
     lastActiveAt: now,
+    // Ranking reads this frozen snapshot. Live evidence collected during this visit
+    // becomes ranking evidence on a later session, so reading never causes cards to
+    // reshuffle underneath the user.
+    rankingSnapshot: startsNew ? captureRankingSnapshot(model, date) : model.rankingSnapshot,
   };
 }
 
@@ -217,24 +233,25 @@ export function aggregatePreference(
 }
 
 export function behavioralAdjustment(item: FrontierItem, model?: FrontierBehaviorModel, date = new Date()): number {
-  if (!model?.implicitLearning || item.sourceKind === 'local') return 0;
+  if (!model?.implicitLearning || item.sourceKind === 'local' || !model.rankingSnapshot) return 0;
+  const memory = model.rankingSnapshot;
   const bucket = timeBucket(date);
   const weekday = date.toLocaleDateString('en-US', { weekday: 'short' }).toLowerCase();
   const format = formatForItem(item);
   const novelty = noveltyBucket(item);
   const depth = depthBucket(item);
   const signals: Array<[FrontierBehaviorAggregate | undefined, number]> = [
-    [model.laneStats[item.lane], 0.055],
-    [model.sourceStats[item.sourceKind], 0.018],
-    [model.sourceStats[item.sourceLabel.toLowerCase()], 0.016],
-    [model.formatStats[format], 0.025],
-    [model.contextStats[`${bucket}:${item.lane}`], 0.04],
-    [model.contextStats[`${weekday}:${item.lane}`], 0.022],
-    [model.contextStats[`${bucket}:${format}`], 0.018],
-    [model.contextStats[`novelty:${novelty}`], 0.018],
-    [depth ? model.contextStats[`depth:${depth}`] : undefined, 0.012],
+    [memory.laneStats[item.lane], 0.055],
+    [memory.sourceStats[item.sourceKind], 0.018],
+    [memory.sourceStats[item.sourceLabel.toLowerCase()], 0.016],
+    [memory.formatStats[format], 0.025],
+    [memory.contextStats[`${bucket}:${item.lane}`], 0.04],
+    [memory.contextStats[`${weekday}:${item.lane}`], 0.022],
+    [memory.contextStats[`${bucket}:${format}`], 0.018],
+    [memory.contextStats[`novelty:${novelty}`], 0.018],
+    [depth ? memory.contextStats[`depth:${depth}`] : undefined, 0.012],
   ];
-  for (const tag of item.tags.slice(0, 5)) signals.push([model.topicStats[tag.toLowerCase()], 0.018]);
+  for (const tag of item.tags.slice(0, 5)) signals.push([memory.topicStats[tag.toLowerCase()], 0.018]);
 
   return signals.reduce((sum, [aggregate, weight]) => {
     const preference = aggregatePreference(aggregate, date);
