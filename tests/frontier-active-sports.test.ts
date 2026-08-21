@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { createInitialProfile } from '../lib/frontier/config';
 import {
   FRONTIER_ACTIVE_SPORTS,
   personalInterestTags,
@@ -10,11 +11,34 @@ import {
   parseActiveSportNewsRss,
   parseActiveSportRedditListing,
 } from '../lib/frontier/activeSportsSources';
+import { rankFrontierItems, selectDailyRun } from '../lib/frontier/scoring';
+import type { FrontierItem } from '../lib/frontier/types';
 
 function sport(id: string) {
   const found = FRONTIER_ACTIVE_SPORTS.find((candidate) => candidate.id === id);
   assert.ok(found, `Missing active sport ${id}`);
   return found;
+}
+
+function signal(overrides: Partial<FrontierItem>): FrontierItem {
+  return {
+    id: 'signal',
+    title: 'Signal',
+    summary: 'A fresh signal.',
+    url: 'https://example.com/signal',
+    source: 'example.com',
+    sourceLabel: 'Example',
+    sourceKind: 'rss',
+    publishedAt: new Date().toISOString(),
+    lane: 'sports',
+    tags: [],
+    baseScore: 0.64,
+    importance: 0.56,
+    novelty: 0.58,
+    quality: 0.68,
+    momentum: 0.52,
+    ...overrides,
+  };
 }
 
 test('active sports profile includes every explicitly requested discipline', () => {
@@ -50,6 +74,22 @@ test('personal classification recognizes ride and climb vocabulary', () => {
   assert.ok(tags.includes('skateboarding'));
   assert.ok(tags.includes('longboarding'));
   assert.ok(tags.includes('active sport'));
+});
+
+test('daily run reserves an active sport separately from favorite-team and soccer slots', () => {
+  const signals = [
+    signal({ id: 'brainfood', lane: 'ml_data', title: 'New ML method', tags: ['machine learning'] }),
+    signal({ id: 'team', lane: 'team_pulse', title: 'Warriors update', tags: ['warriors'] }),
+    signal({ id: 'soccer', lane: 'premier_league', title: 'Premier League update', tags: ['premier league'] }),
+    signal({ id: 'active', lane: 'sports', title: 'Downhill MTB race run', tags: ['active sport', 'mountain biking', 'mtb'] }),
+    signal({ id: 'game', lane: 'gaming', title: 'Indie game update', tags: ['indie game'] }),
+    signal({ id: 'music', lane: 'music', title: 'Bass release', tags: ['dubstep'] }),
+  ];
+  const ranked = rankFrontierItems(signals, createInitialProfile(), {});
+  const daily = selectDailyRun(ranked, {}, 6);
+  assert.ok(daily.some((item) => item.id === 'active'));
+  assert.ok(daily.some((item) => item.id === 'team'));
+  assert.ok(daily.some((item) => item.id === 'soccer'));
 });
 
 test('professional sports RSS becomes a provenance-rich active sport signal', () => {
