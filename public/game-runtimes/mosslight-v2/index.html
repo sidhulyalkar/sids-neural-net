@@ -3,82 +3,147 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
-<meta name="theme-color" content="#071715" />
-<title>Mosslight: Atlas Expeditions</title>
+<meta name="theme-color" content="#06110e" />
+<title>Mosslight: Mossglint Run</title>
 <link rel="stylesheet" href="./styles.css" />
+<link rel="stylesheet" href="./portal-v4.css" />
 </head>
 <body>
 <div id="game">
-  <canvas id="c" width="960" height="640" tabindex="0" aria-label="Mosslight ecological action-puzzle game"></canvas>
+  <canvas id="c" width="960" height="640" tabindex="0" aria-label="Mosslight Mossglint Run ecological action puzzle game"></canvas>
+
   <div id="hud" aria-hidden="true">
     <div id="top">
-      <div id="roomCard" class="glass">
-        <div id="roomKicker">world 001 · threat 1/10 · restoration 0%</div>
+      <div id="roomCard" class="glass compact">
+        <div id="roomKicker">world 001 / 1000 · depth 1</div>
         <div id="roomTitle">Mosslight</div>
-        <div id="roomTask">Restore a living world one relationship at a time.</div>
+        <div id="roomTask">Solve the arena. Condense Mossglint. Open the portal.</div>
       </div>
-      <div id="stats">
-        <div class="stat glass"><b>chain</b><span id="chain">×0</span></div>
-        <div class="stat glass"><b>fruit</b><span id="fruit">0</span></div>
+      <div id="stats" class="runStats">
+        <div class="stat glass"><b>score</b><span id="score">0</span></div>
         <div class="stat glass"><b>time</b><span id="time">0:00.0</span></div>
+        <div class="stat glass"><b>stability</b><span id="integrity">◆◆◆</span></div>
       </div>
     </div>
-    <div id="hintCard" class="glass"><strong>First step:</strong> move toward a glowing relationship. Its icon shows the restoration tool it needs.</div>
-    <div id="dash" class="glass"><b>shift · dash</b><span id="dashState">READY</span></div>
+    <div id="hintCard" class="glass"><strong>Objective:</strong> each solved ecological node condenses one Mossglint stone.</div>
+    <div id="runRail" class="glass">
+      <div><b>mossglint</b><span id="mossglint">0/3</span></div>
+      <div><b>portal</b><span id="portalState">0%</span></div>
+      <div><b>dash</b><span id="dashState">READY</span></div>
+      <div id="bossWrap"><b>guardian</b><span id="bossState"></span></div>
+    </div>
     <div id="toast" class="glass"></div>
-    <div id="roomIntro"><div class="n"></div><h2></h2><p></p></div>
   </div>
 
-  <div id="abilityBar" class="glass" aria-label="Restoration tools">
-    <button class="ability active" data-a="rain" style="--c:#6bdcff"><span class="key">1</span><div class="icon">🌧️</div><div class="name">Rain</div></button>
-    <button class="ability" data-a="sun" style="--c:#ffd66b"><span class="key">2</span><div class="icon">☀️</div><div class="name">Sun</div></button>
-    <button class="ability" data-a="seed" style="--c:#7bf19d" disabled><span class="key">3</span><div class="icon">🌱</div><div class="name">Seed</div></button>
-    <button class="ability" data-a="wind" style="--c:#c8f7ed" disabled><span class="key">4</span><div class="icon">🍃</div><div class="name">Wind</div></button>
-    <button class="ability" data-a="mend" style="--c:#ff8ebc" disabled><span class="key">5</span><div class="icon">💚</div><div class="name">Mend</div></button>
-    <button class="ability" data-a="gather" style="--c:#ffb66e" disabled><span class="key">6</span><div class="icon">🍎</div><div class="name">Gather</div></button>
+  <div id="abilityBar" class="glass" aria-label="Portal gun resonances">
+    <button class="ability active" data-a="rain" style="--c:#6bdcff"><span class="key">1</span><div class="icon">◌</div><div class="name">Rain</div></button>
+    <button class="ability" data-a="sun" style="--c:#ffd66b"><span class="key">2</span><div class="icon">✦</div><div class="name">Sun</div></button>
+    <button class="ability" data-a="seed" style="--c:#7bf19d" disabled><span class="key">3</span><div class="icon">⌁</div><div class="name">Seed</div></button>
+    <button class="ability" data-a="wind" style="--c:#c8f7ed" disabled><span class="key">4</span><div class="icon">≈</div><div class="name">Wind</div></button>
+    <button class="ability" data-a="mend" style="--c:#ff8ebc" disabled><span class="key">5</span><div class="icon">◇</div><div class="name">Mend</div></button>
+    <button class="ability" data-a="gather" style="--c:#ffb66e" disabled><span class="key">6</span><div class="icon">●</div><div class="name">Gather</div></button>
   </div>
 
   <div id="title" class="screen">
-    <div class="panel">
-      <div class="eyebrow">a tiny ecology action game · evolving atlas expeditions</div>
-      <h1><em>Mosslight</em><br/>Atlas Expeditions</h1>
-      <p class="lede">Guide Sprig through ten living worlds drawn from a 1,000-scene Nature Atlas. Difficulty builds room by room: wildlife learns new movement patterns, terrain creates escape puzzles, and collectible world gifts change how your restoration build plays.</p>
-      <div class="simpleControls">
-        <div class="simpleControl"><b>W A S D</b><span>move Sprig through changing routes</span></div>
-        <div class="simpleControl"><b>Mouse / Arrows</b><span>aim freely or use laptop twin-stick aim</span></div>
-        <div class="simpleControl"><b>Click / Space</b><span>cast; world gifts evolve your shots</span></div>
+    <div class="panel menuPanel">
+      <div class="eyebrow">one-way atlas gauntlet · 1,000 worlds</div>
+      <h1><em>Mosslight</em><br/>Mossglint Run</h1>
+      <p class="lede narrow">Sprig found a portal gun with an empty heart. Every sealed world hides ecological puzzles, hostile wildlife patterns, and Mossglint stones. Solve enough to charge the gun, survive the arena, and jump east. The world closes behind you.</p>
+      <div class="storyRule">
+        <span>solve</span><i>→</i><span>condense Mossglint</span><i>→</i><span>open portal</span><i>→</i><span>never look back</span>
       </div>
-      <div id="modePill"><i></i> gentle mode · readable telegraphs · no death</div>
-      <div class="actions">
-        <button id="start" class="primary">enter expedition</button>
-        <button id="challenge" class="secondary">flow mode</button>
-        <span class="hint">Shift dashes · Q/E cycles tools · 1–6 selects tools · hold arrows to aim · collect glowing world gifts</span>
+      <div class="menuActions">
+        <button id="start" class="primary wide">start scored run</button>
+        <button id="explore" class="secondary wide">explorer run</button>
+        <div class="menuGrid">
+          <button id="howBtn" class="ghost">how to play</button>
+          <button id="controlsBtn" class="ghost">controls</button>
+          <button id="optionsBtn" class="ghost">options</button>
+        </div>
       </div>
+      <div id="bestRun" class="bestRun">best · no run yet</div>
+      <p class="microcopy">Every 10th world has a guardian. World 1000 is a milestone, not the end.</p>
+    </div>
+  </div>
+
+  <div id="howScreen" class="screen hidden">
+    <div class="panel subPanel">
+      <div class="eyebrow">the mossglint rule</div>
+      <h2>Every arena asks a different question.</h2>
+      <div class="howGrid">
+        <div><b>01 · read</b><p>Targets show the resonance they need. Terrain and wildlife telegraph moving danger before it arrives.</p></div>
+        <div><b>02 · solve</b><p>Complete each ecological relationship. Every finished puzzle condenses one Mossglint stone.</p></div>
+        <div><b>03 · fight or route</b><p>Your portal gun also damages hostile encounters. Clear them for score, or route around them when speed matters more.</p></div>
+        <div><b>04 · commit</b><p>Charge the eastern portal. Entering it permanently closes the world behind you and raises the next world's pressure.</p></div>
+      </div>
+      <p class="lede small">Every tenth world locks the portal behind an Atlas guardian. Defeat it for extra Mossglint and a permanent world gift. Builds persist for the entire run.</p>
+      <div class="actions"><button class="secondary" data-back>back</button></div>
+    </div>
+  </div>
+
+  <div id="controlsScreen" class="screen hidden">
+    <div class="panel subPanel controlsPanel">
+      <div class="eyebrow">controls · click any key to remap</div>
+      <h2>Make the portal gun yours.</h2>
+      <div class="bindingGrid">
+        <button data-bind="moveUp"><span>move up</span><b class="bindKey">W</b></button>
+        <button data-bind="moveDown"><span>move down</span><b class="bindKey">S</b></button>
+        <button data-bind="moveLeft"><span>move left</span><b class="bindKey">A</b></button>
+        <button data-bind="moveRight"><span>move right</span><b class="bindKey">D</b></button>
+        <button data-bind="aimUp"><span>aim up</span><b class="bindKey">↑</b></button>
+        <button data-bind="aimDown"><span>aim down</span><b class="bindKey">↓</b></button>
+        <button data-bind="aimLeft"><span>aim left</span><b class="bindKey">←</b></button>
+        <button data-bind="aimRight"><span>aim right</span><b class="bindKey">→</b></button>
+        <button data-bind="cast"><span>cast / fire</span><b class="bindKey">Space</b></button>
+        <button data-bind="dash"><span>dash</span><b class="bindKey">Shift</b></button>
+        <button data-bind="portal"><span>enter portal</span><b class="bindKey">Enter</b></button>
+        <button data-bind="cyclePrev"><span>previous resonance</span><b class="bindKey">Q</b></button>
+        <button data-bind="cycleNext"><span>next resonance</span><b class="bindKey">E</b></button>
+        <button data-bind="pause"><span>pause</span><b class="bindKey">P</b></button>
+      </div>
+      <p class="microcopy">Mouse always remains available for free aim and click-to-fire. Number keys 1–6 directly select unlocked resonances.</p>
+      <div class="actions"><button id="resetControls" class="ghost">reset defaults</button><button class="secondary" data-back>back</button></div>
+    </div>
+  </div>
+
+  <div id="optionsScreen" class="screen hidden">
+    <div class="panel subPanel optionsPanel">
+      <div class="eyebrow">options</div>
+      <h2>Keep the signal comfortable.</h2>
+      <label class="optionRow"><span><b>music</b><small>procedural score reacts to world and pressure</small></span><input id="musicToggle" type="checkbox" checked /></label>
+      <label class="optionRow"><span><b>sound effects</b><small>portal gun, Mossglint, damage, guardians</small></span><input id="sfxToggle" type="checkbox" checked /></label>
+      <label class="optionRow"><span><b>aim assistance</b><small>lightly bends near-correct puzzle shots</small></span><input id="assistToggle" type="checkbox" checked /></label>
+      <label class="optionRow"><span><b>reduced motion</b><small>removes decorative ambient drift</small></span><input id="motionToggle" type="checkbox" /></label>
+      <label class="optionRow volumeRow"><span><b>master volume</b><small>music and effects</small></span><input id="volume" type="range" min="0" max="1" value="0.68" step="0.02" /></label>
+      <div class="actions"><button class="secondary" data-back>back</button></div>
     </div>
   </div>
 
   <div id="pauseScreen" class="screen hidden">
-    <div class="panel">
-      <div class="eyebrow">the world is holding still</div>
-      <h1 style="font-size:42px">Paused</h1>
-      <p class="lede">Press P or resume when you are ready. Nothing changes while the world is paused.</p>
-      <div class="actions"><button id="resume" class="primary">resume</button></div>
+    <div class="panel subPanel pausePanel">
+      <div class="eyebrow">portal field suspended</div>
+      <h2>Paused</h2>
+      <p class="lede small">The arena is frozen. Your run clock is frozen with it.</p>
+      <div class="menuActions">
+        <button id="resume" class="primary wide">resume</button>
+        <button id="pauseOptions" class="ghost wide">options</button>
+      </div>
     </div>
   </div>
 
-  <div id="victory" class="screen hidden">
-    <div class="panel">
-      <div class="eyebrow">ten worlds are breathing</div>
-      <h1><em>The Atlas</em><br/>keeps unfolding.</h1>
-      <p class="lede">This expedition restored ten connected ecosystems while building a unique collection of world gifts. The next run draws the next unseen Atlas worlds, with new palettes, wildlife movement grammars, obstacle choreography, situations, and powerup combinations.</p>
-      <div class="summary">
-        <div><b>run time</b><span id="sumTime">0:00</span></div>
-        <div><b>best chain</b><span id="sumChain">×0</span></div>
-        <div><b>stress hits</b><span id="sumHits">0</span></div>
-        <div><b>accuracy</b><span id="sumAccuracy">100%</span></div>
-      </div>
-      <div class="actions"><button id="again" class="primary">next expedition</button><button id="flowAgain" class="secondary">next in flow mode</button></div>
+  <div id="gameOver" class="screen hidden">
+    <div class="panel subPanel">
+      <div class="eyebrow">run archived</div>
+      <h2 id="gameOverTitle">portal field collapsed</h2>
+      <p id="gameOverSummary" class="lede">0 worlds · 0 points</p>
+      <p class="microcopy">A scored run is one-way. There are no room retries and no rewind. The next attempt starts from a fresh Atlas route.</p>
+      <div class="actions"><button id="restartRun" class="primary">run again</button><button id="menuFromGameOver" class="secondary">main menu</button></div>
     </div>
+  </div>
+
+  <div id="atlasMilestone" class="milestone hidden" aria-live="polite">
+    <b>ATLAS CLEARED</b>
+    <span id="atlasMilestoneCopy">You crossed all 1,000 worlds.</span>
   </div>
 </div>
 <script src="/game-runtimes/game-network-bridge.js"></script>
@@ -87,6 +152,6 @@
 <script src="/game-runtimes/mosslight-atlas"></script>
 <script src="./expedition.js"></script>
 <script src="./director.js"></script>
-<script src="./game-v3.js"></script>
+<script src="./game-v4.js"></script>
 </body>
 </html>
