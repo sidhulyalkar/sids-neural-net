@@ -27,14 +27,22 @@ const meta = await page.evaluate(() => ({
   rooms: window.__MOSSLIGHT_PLAYTEST__.roomTitles,
   visualVersion: window.SylvariaVisualSystem.version,
   visual: window.__MOSSLIGHT_PLAYTEST__.snapshot().visual,
+  projectilePatterns: window.MosslightDirector?.projectilePatterns,
+  movementPatterns: window.MosslightDirector?.movementPatterns,
 }));
-if (meta.title !== 'Sylvaria' || meta.version !== '0.8.1') failures.push(`runtime identity mismatch: ${JSON.stringify(meta)}`);
-if (meta.visualVersion !== '0.8.1') failures.push(`visual version mismatch: ${meta.visualVersion}`);
+if (meta.title !== 'Sylvaria' || meta.version !== '0.8.2') failures.push(`runtime identity mismatch: ${JSON.stringify(meta)}`);
+if (meta.visualVersion !== '0.8.2') failures.push(`visual version mismatch: ${meta.visualVersion}`);
 if (meta.roomCount !== 10 || meta.rooms.length !== 10) failures.push(`expected ten authored rooms, got ${meta.roomCount}`);
 if (!meta.rooms.includes('PAC-a-Saw Summit')) failures.push('boss room is missing from authored curriculum');
-if (!meta.visual?.backdropCanvas || !meta.visual?.playfieldAspectSafe || !meta.visual?.routeGeometry || !meta.visual?.lockedIntentTelegraphs) failures.push(`visual contract incomplete: ${JSON.stringify(meta.visual)}`);
+if (!meta.visual?.backdropCanvas || !meta.visual?.playfieldAspectSafe || !meta.visual?.routeGeometry || !meta.visual?.lockedIntentTelegraphs || !meta.visual?.resilientMoveQueue || !meta.visual?.projectilePatternReadability || !meta.visual?.evasiveEnemyCues || !meta.visual?.counterRouting) failures.push(`visual contract incomplete: ${JSON.stringify(meta.visual)}`);
+for (const pattern of ['straight', 'zigzag', 'wave', 'spiral', 'swerve', 'wobble', 'return']) {
+  if (!meta.projectilePatterns?.includes(pattern)) failures.push(`projectile pattern registry missing ${pattern}`);
+}
+for (const movement of ['backstep', 'blink-evade']) {
+  if (!meta.movementPatterns?.includes(movement)) failures.push(`movement registry missing ${movement}`);
+}
 
-await page.screenshot({ path: path.join(outputDir, 'countercut-title.png') });
+await page.screenshot({ path: path.join(outputDir, 'countercut-v082-title.png') });
 await page.click('#start');
 await page.waitForFunction(() => window.__MOSSLIGHT_PLAYTEST__.snapshot().mode === 'playing');
 await page.locator('#c').focus();
@@ -53,11 +61,12 @@ const beforeBuffer = await page.evaluate(() => window.__MOSSLIGHT_PLAYTEST__.sna
 await page.keyboard.press('d');
 await page.waitForTimeout(25);
 await page.keyboard.press('s');
-await page.waitForTimeout(270);
+await page.waitForTimeout(300);
 const afterBuffer = await page.evaluate(() => window.__MOSSLIGHT_PLAYTEST__.snapshot());
-if (afterBuffer.stats.dashes < beforeBuffer.stats.dashes + 2) failures.push(`buffered D -> S should resolve two committed steps, got ${afterBuffer.stats.dashes - beforeBuffer.stats.dashes}`);
-if ((afterBuffer.player?.x ?? 0) <= (beforeBuffer.player?.x ?? 0) + 32) failures.push('buffered first east step did not resolve');
-if ((afterBuffer.player?.y ?? 0) <= (beforeBuffer.player?.y ?? 0) + 32) failures.push('buffered south step did not resolve after first dash');
+if (afterBuffer.stats.dashes < beforeBuffer.stats.dashes + 2) failures.push(`persistent queued D -> S should resolve two committed steps, got ${afterBuffer.stats.dashes - beforeBuffer.stats.dashes}`);
+if ((afterBuffer.player?.x ?? 0) <= (beforeBuffer.player?.x ?? 0) + 32) failures.push('queued first east step did not resolve');
+if ((afterBuffer.player?.y ?? 0) <= (beforeBuffer.player?.y ?? 0) + 32) failures.push('queued south step did not resolve after first dash');
+if (afterBuffer.player?.bufferedMove) failures.push(`movement queue should drain after execution, got ${afterBuffer.player.bufferedMove}`);
 
 await page.evaluate(() => window.__MOSSLIGHT_PLAYTEST__.setRoom(0, 1));
 await page.locator('#c').focus();
@@ -98,11 +107,101 @@ for (const direction of ['up', 'down', 'left', 'right']) {
   }, direction);
   await page.locator('#c').focus();
   const before = await page.evaluate(() => window.__MOSSLIGHT_PLAYTEST__.snapshot());
-  await page.waitForTimeout(65);
+  await page.waitForTimeout(55);
   await page.keyboard.press(keyFor[direction]);
-  await page.waitForTimeout(140);
+  await page.waitForTimeout(110);
   const after = await page.evaluate(() => window.__MOSSLIGHT_PLAYTEST__.snapshot());
   if (after.stats.counters <= before.stats.counters) failures.push(`${direction} machete cut failed to counter matching projectile`);
+}
+
+// Nonlinear trajectories remain counterable because the rule follows arrival side.
+for (const pattern of ['zigzag', 'spiral', 'swerve', 'wobble']) {
+  await page.evaluate((projectilePattern) => {
+    window.__MOSSLIGHT_PLAYTEST__.setRoom(1, 2);
+    window.__MOSSLIGHT_PLAYTEST__.clearCombatants();
+    window.__MOSSLIGHT_PLAYTEST__.firePattern(projectilePattern, 'right', 88);
+  }, pattern);
+  await page.locator('#c').focus();
+  const before = await page.evaluate(() => window.__MOSSLIGHT_PLAYTEST__.snapshot());
+  if (before.shots[0]?.pattern !== pattern) failures.push(`${pattern} playtest projectile did not retain its hostile path family`);
+  await page.waitForTimeout(35);
+  await page.keyboard.press('ArrowRight');
+  await page.waitForTimeout(80);
+  const after = await page.evaluate(() => window.__MOSSLIGHT_PLAYTEST__.snapshot());
+  if (after.stats.counters <= before.stats.counters) failures.push(`${pattern} projectile was not counterable by its actual arrival side`);
+}
+
+// Counter-routing arena: the original shooter is far right, but a second enemy sits in the chosen lane.
+// A correct return should accelerate beyond hostile speeds, hit the cross-target first, and award Crosscut.
+await page.evaluate(() => {
+  const p = window.__MOSSLIGHT_PLAYTEST__;
+  p.setRoom(1, 2);
+  p.clearCombatants();
+  p.setPlayerPosition(190, 320);
+  p.spawnTestEnemy('foreman', 760, 320, 'source-foreman');
+  p.spawnTestEnemy('surveyor', 505, 320, 'cross-target');
+  p.spawnCounterShot('right', 82, { ownerId: 'source-foreman', speed: 245 });
+});
+await page.locator('#c').focus();
+await page.waitForTimeout(40);
+const beforeCrosscut = await page.evaluate(() => window.__MOSSLIGHT_PLAYTEST__.snapshot());
+await page.keyboard.press('ArrowRight');
+await page.waitForTimeout(35);
+const returned = await page.evaluate(() => window.__MOSSLIGHT_PLAYTEST__.snapshot());
+const friendlyReturn = returned.shots.find((shot) => shot.friendly);
+if (!friendlyReturn) failures.push('successful counter did not create a friendly return projectile');
+else {
+  if (friendlyReturn.speed < 800) failures.push(`normal return should exceed 800px/s, got ${friendlyReturn.speed.toFixed(1)}`);
+  if (friendlyReturn.pattern !== 'return') failures.push(`counter should normalize hostile motion into return path, got ${friendlyReturn.pattern}`);
+  if (friendlyReturn.counterTargetId !== 'cross-target') failures.push(`counter assist should select the nearer enemy in the chosen lane, got ${friendlyReturn.counterTargetId}`);
+}
+await page.waitForTimeout(320);
+const crosscut = await page.evaluate(() => window.__MOSSLIGHT_PLAYTEST__.snapshot());
+if (crosscut.stats.crosscuts < 1) failures.push('reflected projectile did not award a Crosscut when it hit a different enemy than its shooter');
+if (!crosscut.enemies.find((enemy) => enemy.id === 'cross-target')?.counterStagger) failures.push('returned shot should stagger an evasive cross-target');
+
+// A distant original shooter should produce a Long Return bonus when no nearer target steals the lane.
+await page.evaluate(() => {
+  const p = window.__MOSSLIGHT_PLAYTEST__;
+  p.setRoom(1, 2);
+  p.clearCombatants();
+  p.setPlayerPosition(175, 320);
+  p.spawnTestEnemy('foreman', 790, 320, 'long-source');
+  p.spawnCounterShot('right', 82, { ownerId: 'long-source', speed: 245 });
+});
+await page.locator('#c').focus();
+await page.waitForTimeout(40);
+await page.keyboard.press('ArrowRight');
+await page.waitForTimeout(650);
+const longReturn = await page.evaluate(() => window.__MOSSLIGHT_PLAYTEST__.snapshot());
+if (longReturn.stats.longReturns < 1) failures.push('long-distance reflected hit did not award a Long Return');
+
+// Perfect counters fire at the higher return speed and carry one penetration charge.
+await page.evaluate(() => {
+  const p = window.__MOSSLIGHT_PLAYTEST__;
+  p.setRoom(1, 2);
+  p.clearCombatants();
+  p.setPlayerPosition(190, 320);
+  p.spawnTestEnemy('foreman', 760, 320, 'perfect-source');
+  p.spawnCounterShot('right', 68, { ownerId: 'perfect-source', speed: 180 });
+});
+await page.locator('#c').focus();
+await page.keyboard.press('ArrowRight');
+await page.waitForTimeout(20);
+const perfectReturn = await page.evaluate(() => window.__MOSSLIGHT_PLAYTEST__.snapshot());
+const perfectShot = perfectReturn.shots.find((shot) => shot.friendly);
+if (!perfectShot || perfectShot.speed < 1000) failures.push(`perfect return should exceed 1000px/s, got ${perfectShot?.speed ?? 'no shot'}`);
+if (perfectShot && perfectShot.pierces !== 1) failures.push(`perfect return should begin with one penetration charge, got ${perfectShot.pierces}`);
+
+// Evasive enemies must show the cue first and then meaningfully relocate.
+for (const type of ['surveyor', 'foreman']) {
+  const evadeStart = await page.evaluate((enemyType) => window.__MOSSLIGHT_PLAYTEST__.forceEvade(enemyType, 80), type);
+  const startEnemy = evadeStart.enemies[0];
+  if (!startEnemy?.evading || startEnemy.intent?.kind !== 'evade') failures.push(`${type} did not expose an evade destination cue before movement`);
+  await page.waitForTimeout(330);
+  const evadeEnd = await page.evaluate(() => window.__MOSSLIGHT_PLAYTEST__.snapshot());
+  const endEnemy = evadeEnd.enemies[0];
+  if (!endEnemy || Math.hypot(endEnemy.x - startEnemy.x, endEnemy.y - startEnemy.y) < 38) failures.push(`${type} evade did not create meaningful separation`);
 }
 
 await page.evaluate(() => window.__MOSSLIGHT_PLAYTEST__.setRoom(8, 9));
@@ -144,7 +243,7 @@ if (!deterministic.same) failures.push('deep room blueprint must be deterministi
 await page.evaluate(() => window.__MOSSLIGHT_PLAYTEST__.setRoom(9, 10));
 let boss = await page.evaluate(() => window.__MOSSLIGHT_PLAYTEST__.snapshot());
 if (!boss.boss || boss.boss.dead || boss.boss.phase !== 1) failures.push(`room 10 must open with live PAC-a-Saw phase 1: ${JSON.stringify(boss.boss)}`);
-await page.screenshot({ path: path.join(outputDir, 'pac-a-saw-room10.png') });
+await page.screenshot({ path: path.join(outputDir, 'pac-a-saw-v082-room10.png') });
 await page.evaluate(() => window.__MOSSLIGHT_PLAYTEST__.forceBossPhase(2));
 try {
   await page.waitForFunction(() => window.__MOSSLIGHT_PLAYTEST__.snapshot().boss?.vulnerable === true, null, { timeout: 1800 });
@@ -168,18 +267,20 @@ const deep = await page.evaluate(() => window.__MOSSLIGHT_PLAYTEST__.setRoom(1, 
 if (!deep.room?.title?.startsWith('Wild Sector')) failures.push(`post-10 room must use seeded procedural blueprint: ${deep.room?.title}`);
 if ((deep.enemies?.length ?? 0) < 4) failures.push(`deep procedural room encounter too small: ${deep.enemies?.length}`);
 if ((deep.trees?.filter((tree) => tree.alive).length ?? 0) < 7) failures.push('deep procedural room should contain a defendable grove');
-await page.screenshot({ path: path.join(outputDir, 'wild-sector-022.png') });
+await page.screenshot({ path: path.join(outputDir, 'wild-sector-022-v082.png') });
 
 await page.waitForTimeout(900);
 const final = await page.evaluate(() => window.__MOSSLIGHT_PLAYTEST__.snapshot());
+if (final.shots.length > 128) failures.push(`projectile cap exceeded: ${final.shots.length}`);
+if (final.pendingShots > 72) failures.push(`pending-shot cap exceeded: ${final.pendingShots}`);
 if (final.fps < 42) failures.push(`runtime FPS too low: ${final.fps.toFixed(1)}`);
 if (consoleErrors.length) failures.push(...consoleErrors.map((error) => `console error: ${error}`));
 
-fs.writeFileSync(path.join(outputDir, 'report.json'), JSON.stringify({ meta, tapDistance, holdDashDelta, dashCurve, deterministic, final, failures }, null, 2));
+fs.writeFileSync(path.join(outputDir, 'report-v082.json'), JSON.stringify({ meta, tapDistance, holdDashDelta, dashCurve, deterministic, crosscut, longReturn, perfectReturn, final, failures }, null, 2));
 await browser.close();
 if (failures.length) {
-  console.error(`Sylvaria Countercut playtest failed with ${failures.length} issue(s):`);
+  console.error(`Sylvaria Countercut v0.8.2 playtest failed with ${failures.length} issue(s):`);
   for (const failure of failures) console.error(` - ${failure}`);
   process.exit(1);
 }
-console.log(`Sylvaria Countercut v0.8.1 browser PASS: tap=${tapDistance.toFixed(1)}px, held steps=${holdDashDelta}, counters=4/4, buffered chaining, route chopping, persistent heartwood, boss recovery, dash curve=${JSON.stringify(dashCurve)}, fps=${final.fps.toFixed(1)}.`);
+console.log(`Sylvaria Countercut v0.8.2 browser PASS: tap=${tapDistance.toFixed(1)}px, held steps=${holdDashDelta}, counters=4/4, persistent queue, route chopping, nonlinear counters, high-speed Crosscut + Long Return rewards, blink/backstep evasion, persistent heartwood, boss recovery, dash curve=${JSON.stringify(dashCurve)}, fps=${final.fps.toFixed(1)}.`);
