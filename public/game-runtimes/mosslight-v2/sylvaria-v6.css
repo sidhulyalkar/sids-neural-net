@@ -1,0 +1,37 @@
+:root{--biome-bg:#06120c;--biome-mid:#12331f;--biome-floor:#1d4a2d;--biome-accent:#8dffac;--biome-water:#5fe9ff;--biome-warm:#e8a76c;--biome-danger:#ff8f72;--biome-ink:#effff4}
+#game{background:var(--biome-bg)}
+#c{filter:none!important;image-rendering:auto;transform:translateZ(0);backface-visibility:hidden}
+#roomCard{position:relative;overflow:hidden;border-color:color-mix(in srgb,var(--biome-accent) 24%,transparent);background:linear-gradient(135deg,rgba(3,10,9,.9),rgba(5,9,14,.84))}
+#roomCard:after{content:"";position:absolute;left:0;right:0;bottom:0;height:1px;background:linear-gradient(90deg,var(--biome-accent),var(--biome-water),transparent);opacity:.42}
+#roomKicker{color:var(--biome-accent)!important}
+#roomTitle{letter-spacing:-.02em}
+#biomeBadge{margin-top:4px;max-width:390px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:color-mix(in srgb,var(--biome-water) 72%,#fff);font:700 7px/1.25 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.075em;text-transform:uppercase;opacity:.72}
+#runRail{border-color:color-mix(in srgb,var(--biome-accent) 18%,transparent);box-shadow:0 12px 34px rgba(0,0,0,.22)}
+#runRail b,.stat b{letter-spacing:.095em}
+#portalState{color:#cbb2ff!important}
+#mossglint{color:var(--biome-accent)!important}
+#integrity{color:color-mix(in srgb,var(--biome-accent) 78%,#fff)!important}
+#bossState:not(:empty){color:var(--biome-danger)!important}
+#hintCard{border-color:color-mix(in srgb,var(--biome-water) 16%,transparent);box-shadow:0 8px 28px rgba(0,0,0,.18)}
+#hintCard strong{color:var(--biome-accent)}
+#abilityBar{border-color:color-mix(in srgb,var(--biome-water) 15%,transparent);box-shadow:0 -8px 30px rgba(0,0,0,.16)}
+.ability{position:relative;overflow:hidden}
+.ability:after{content:"";position:absolute;left:18%;right:18%;bottom:2px;height:1px;background:var(--c);opacity:0;transition:opacity .12s ease,transform .12s ease;transform:scaleX(.45)}
+.ability.active:after{opacity:.88;transform:scaleX(1)}
+.ability.active .icon{filter:drop-shadow(0 0 4px var(--c))}
+#portalFireBtn.ready{border-color:#b68cff!important;box-shadow:0 0 12px rgba(159,99,255,.24),inset 0 0 16px rgba(92,225,255,.06)!important}
+.optionRow select{min-width:132px;border:1px solid rgba(166,223,194,.15);border-radius:8px;background:#07100e;color:#dff7e8;padding:7px 26px 7px 9px;font:700 9px/1.1 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.04em;text-transform:uppercase;outline:none}
+.optionRow select:focus-visible{border-color:var(--biome-water);box-shadow:0 0 0 2px color-mix(in srgb,var(--biome-water) 18%,transparent)}
+.qualityHint{display:inline-flex;align-items:center;gap:6px;margin-top:5px;color:#69867a;font:600 8px/1.3 ui-monospace,monospace;text-transform:uppercase;letter-spacing:.055em}
+#qualityState{color:var(--biome-water)}
+body[data-syl-theme="forest"] .sylvariaWord{background:linear-gradient(95deg,#c7ffd8,#82f4b5 38%,#67e7ff 72%,#d3a7ff);-webkit-background-clip:text;background-clip:text}
+body[data-syl-theme="volcanic"] .sylvariaWord{background:linear-gradient(95deg,#ffc194,#ff8f5a 35%,#65ead8 72%,#93f6ee);-webkit-background-clip:text;background-clip:text}
+body[data-syl-theme="reef"] .sylvariaWord{background:linear-gradient(95deg,#86ffe3,#5de6ff 44%,#72a7ff 72%,#ffab92);-webkit-background-clip:text;background-clip:text}
+body[data-syl-theme="ice"] .sylvariaWord{background:linear-gradient(95deg,#f2fdff,#bceeff 40%,#95c7ff 68%,#cbb4ff);-webkit-background-clip:text;background-clip:text}
+body[data-syl-theme="celestial"] .sylvariaWord{background:linear-gradient(95deg,#9effdf,#68dbff 38%,#a99bff 68%,#e08dff);-webkit-background-clip:text;background-clip:text}
+html[data-sylvaria-quality="performance"] #c{filter:none!important}
+html[data-sylvaria-quality="performance"] .glass{box-shadow:none!important}
+html[data-sylvaria-quality="balanced"] #portalFireBtn.ready{animation-duration:1.6s}
+@media(prefers-contrast:more){#roomCard,#runRail,#hintCard,#abilityBar{border-color:rgba(235,255,244,.32)!important}.ability:not(:disabled){color:#fff}.stat span,#runRail span{color:#fff!important}}
+@media(max-width:720px){#biomeBadge{max-width:230px}.optionRow select{min-width:108px;font-size:8px}}
+@media(prefers-reduced-motion:reduce){.ability:after{transition:none}.ability.active .icon{filter:none}}
