@@ -1,6 +1,7 @@
 :root{--biome-bg:#06120c;--biome-mid:#12331f;--biome-floor:#1d4a2d;--biome-accent:#8dffac;--biome-water:#5fe9ff;--biome-warm:#e8a76c;--biome-danger:#ff8f72;--biome-ink:#effff4}
 #game{background:var(--biome-bg)}
 #c{filter:none!important;image-rendering:auto;transform:translateZ(0);backface-visibility:hidden}
+#sylVisualOverlay{pointer-events:none;cursor:default;image-rendering:auto;contain:strict;transform:translateZ(0);backface-visibility:hidden}
 #roomCard{position:relative;overflow:hidden;border-color:color-mix(in srgb,var(--biome-accent) 24%,transparent);background:linear-gradient(135deg,rgba(3,10,9,.9),rgba(5,9,14,.84))}
 #roomCard:after{content:"";position:absolute;left:0;right:0;bottom:0;height:1px;background:linear-gradient(90deg,var(--biome-accent),var(--biome-water),transparent);opacity:.42}
 #roomKicker{color:var(--biome-accent)!important}
@@ -29,9 +30,11 @@ body[data-syl-theme="volcanic"] .sylvariaWord{background:linear-gradient(95deg,#
 body[data-syl-theme="reef"] .sylvariaWord{background:linear-gradient(95deg,#86ffe3,#5de6ff 44%,#72a7ff 72%,#ffab92);-webkit-background-clip:text;background-clip:text}
 body[data-syl-theme="ice"] .sylvariaWord{background:linear-gradient(95deg,#f2fdff,#bceeff 40%,#95c7ff 68%,#cbb4ff);-webkit-background-clip:text;background-clip:text}
 body[data-syl-theme="celestial"] .sylvariaWord{background:linear-gradient(95deg,#9effdf,#68dbff 38%,#a99bff 68%,#e08dff);-webkit-background-clip:text;background-clip:text}
-html[data-sylvaria-quality="performance"] #c{filter:none!important}
-html[data-sylvaria-quality="performance"] .glass{box-shadow:none!important}
+html[data-sylvaria-quality="balanced"] #hud .glass{backdrop-filter:blur(4px)}
 html[data-sylvaria-quality="balanced"] #portalFireBtn.ready{animation-duration:1.6s}
+html[data-sylvaria-quality="performance"] #c,html[data-sylvaria-quality="performance"] #sylVisualOverlay{filter:none!important}
+html[data-sylvaria-quality="performance"] #hud .glass{box-shadow:none!important;backdrop-filter:none!important}
+html[data-sylvaria-quality="performance"] .ability.active .icon{filter:none}
 @media(prefers-contrast:more){#roomCard,#runRail,#hintCard,#abilityBar{border-color:rgba(235,255,244,.32)!important}.ability:not(:disabled){color:#fff}.stat span,#runRail span{color:#fff!important}}
 @media(max-width:720px){#biomeBadge{max-width:230px}.optionRow select{min-width:108px;font-size:8px}}
 @media(prefers-reduced-motion:reduce){.ability:after{transition:none}.ability.active .icon{filter:none}}
