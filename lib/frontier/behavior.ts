@@ -16,16 +16,7 @@ const SESSION_GAP_MS = 30 * 60_000;
 const DAY_MS = 86_400_000;
 
 export function emptyAggregate(): FrontierBehaviorAggregate {
-  return {
-    shown: 0,
-    dwelled: 0,
-    expanded: 0,
-    opened: 0,
-    saved: 0,
-    positive: 0,
-    negative: 0,
-    dwellMs: 0,
-  };
+  return { shown: 0, dwelled: 0, expanded: 0, opened: 0, saved: 0, positive: 0, negative: 0, dwellMs: 0 };
 }
 
 export function createInitialBehaviorModel(): FrontierBehaviorModel {
@@ -85,11 +76,7 @@ function captureRankingSnapshot(model: FrontierBehaviorModel, date = new Date())
   };
 }
 
-function touchAggregate(
-  aggregate: FrontierBehaviorAggregate | undefined,
-  event: FrontierBehaviorEvent,
-  now: string
-): FrontierBehaviorAggregate {
+function touchAggregate(aggregate: FrontierBehaviorAggregate | undefined, event: FrontierBehaviorEvent, now: string): FrontierBehaviorAggregate {
   const next = { ...(aggregate ?? emptyAggregate()), lastAt: now };
   switch (event.kind) {
     case 'impression': next.shown += 1; break;
@@ -111,8 +98,8 @@ function trimStats(stats: Record<string, FrontierBehaviorAggregate>, limit = MAX
   if (entries.length <= limit) return stats;
   return Object.fromEntries(entries
     .sort((a, b) => {
-      const left = (a[1].positive * 8) + (a[1].saved * 7) + (a[1].opened * 5) + a[1].dwelled;
-      const right = (b[1].positive * 8) + (b[1].saved * 7) + (b[1].opened * 5) + b[1].dwelled;
+      const left = (a[1].positive * 8) + (a[1].saved * 7) + (a[1].opened * 5) + Math.min(8, a[1].dwellMs / 12_000);
+      const right = (b[1].positive * 8) + (b[1].saved * 7) + (b[1].opened * 5) + Math.min(8, b[1].dwellMs / 12_000);
       return right - left;
     })
     .slice(0, limit));
@@ -135,7 +122,6 @@ export function applyBehaviorEvent(
   event: FrontierBehaviorEvent,
   date = new Date()
 ): FrontierBehaviorModel {
-  // Local/system cards are product status, not evidence about the owner's taste.
   if (!model.implicitLearning || item.sourceKind === 'local') return model;
   const now = date.toISOString();
   const bucket = timeBucket(date);
@@ -167,17 +153,12 @@ export function startBehaviorSession(model: FrontierBehaviorModel, date = new Da
   if (!model.implicitLearning) return model;
   const now = date.toISOString();
   const last = model.lastActiveAt ? new Date(model.lastActiveAt).getTime() : 0;
-  // Child layout/view effects can fire a few milliseconds before the parent session
-  // effect. The first real visit must still count as session one.
   const startsNew = !model.sessionStartedAt && (model.sessions === 0 || !last || date.getTime() - last > SESSION_GAP_MS);
   return {
     ...model,
     sessions: model.sessions + (startsNew ? 1 : 0),
     sessionStartedAt: startsNew ? now : (model.sessionStartedAt ?? now),
     lastActiveAt: now,
-    // Ranking reads this frozen snapshot. Live evidence collected during this visit
-    // becomes ranking evidence on a later session, so reading never causes cards to
-    // reshuffle underneath the user.
     rankingSnapshot: startsNew ? captureRankingSnapshot(model, date) : model.rankingSnapshot,
   };
 }
@@ -186,30 +167,17 @@ export function endBehaviorSession(model: FrontierBehaviorModel, date = new Date
   if (!model.implicitLearning || !model.sessionStartedAt) return model;
   const started = new Date(model.sessionStartedAt).getTime();
   const elapsed = Math.max(0, Math.min(date.getTime() - started, 4 * 60 * 60_000));
-  return {
-    ...model,
-    totalActiveMs: model.totalActiveMs + elapsed,
-    sessionStartedAt: undefined,
-    lastActiveAt: date.toISOString(),
-  };
+  return { ...model, totalActiveMs: model.totalActiveMs + elapsed, sessionStartedAt: undefined, lastActiveAt: date.toISOString() };
 }
 
 export function recordLayoutUse(model: FrontierBehaviorModel, layout: FrontierLayoutMode): FrontierBehaviorModel {
   if (!model.implicitLearning) return model;
-  return {
-    ...model,
-    layoutUses: { ...model.layoutUses, [layout]: model.layoutUses[layout] + 1 },
-    lastActiveAt: new Date().toISOString(),
-  };
+  return { ...model, layoutUses: { ...model.layoutUses, [layout]: model.layoutUses[layout] + 1 }, lastActiveAt: new Date().toISOString() };
 }
 
 export function recordViewUse(model: FrontierBehaviorModel, view: FrontierView): FrontierBehaviorModel {
   if (!model.implicitLearning) return model;
-  return {
-    ...model,
-    viewUses: { ...model.viewUses, [view]: model.viewUses[view] + 1 },
-    lastActiveAt: new Date().toISOString(),
-  };
+  return { ...model, viewUses: { ...model.viewUses, [view]: model.viewUses[view] + 1 }, lastActiveAt: new Date().toISOString() };
 }
 
 export function aggregatePreference(
@@ -217,21 +185,25 @@ export function aggregatePreference(
   date = new Date()
 ): { score: number; confidence: number } {
   if (!aggregate) return { score: 0, confidence: 0 };
-  const directEvidence = aggregate.expanded + aggregate.opened * 2 + aggregate.saved * 3 + aggregate.positive * 3 + aggregate.negative * 3;
-  if (aggregate.shown < 2 && directEvidence < 3) return { score: 0, confidence: 0 };
-
-  const engaged = aggregate.dwelled * 0.24 + aggregate.expanded * 0.48 + aggregate.opened * 0.82 + aggregate.saved * 1.05 + aggregate.positive * 1.15;
-  const negative = aggregate.negative * 1.2;
   const shown = Math.max(1, aggregate.shown);
+  // Twelve seconds of genuine viewport attention is roughly one soft engagement
+  // unit. Dwell is capped by impressions so a forgotten background tab cannot
+  // overwhelm explicit votes, saves, or opens.
+  const dwellUnits = Math.min(shown * 1.25, aggregate.dwellMs / 12_000);
+  const directEvidence = dwellUnits * 0.65 + aggregate.expanded + aggregate.opened * 2 + aggregate.saved * 3 + aggregate.positive * 3 + aggregate.negative * 3;
+  if (aggregate.shown < 2 && directEvidence < 2.5) return { score: 0, confidence: 0 };
+
+  const engaged = dwellUnits * 0.42 + aggregate.expanded * 0.48 + aggregate.opened * 0.82 + aggregate.saved * 1.05 + aggregate.positive * 1.15;
+  const negative = aggregate.negative * 1.25;
   const positiveRate = (engaged - negative) / shown;
-  const resolvedEngagements = Math.min(shown, aggregate.dwelled + aggregate.expanded + aggregate.opened + aggregate.saved + aggregate.positive);
-  const quietSkipRate = Math.max(0, (shown - resolvedEngagements) / shown - 0.78);
-  const skipPenalty = shown >= 12 ? quietSkipRate * 0.32 : 0;
+  const resolvedEngagements = Math.min(shown, dwellUnits + aggregate.expanded + aggregate.opened + aggregate.saved + aggregate.positive);
+  const quietSkipRate = Math.max(0, (shown - resolvedEngagements) / shown - 0.8);
+  const skipPenalty = shown >= 12 ? quietSkipRate * 0.28 : 0;
   const score = Math.max(-1, Math.min(1.2, positiveRate - skipPenalty));
-  const evidence = aggregate.shown + aggregate.opened * 2 + aggregate.saved * 3 + aggregate.positive * 3 + aggregate.negative * 3;
+  const evidence = aggregate.shown + Math.min(6, dwellUnits) + aggregate.opened * 2 + aggregate.saved * 3 + aggregate.positive * 3 + aggregate.negative * 3;
   const ageDays = aggregate.lastAt ? Math.max(0, (date.getTime() - new Date(aggregate.lastAt).getTime()) / DAY_MS) : 0;
   const recency = Math.max(0.35, Math.exp(-ageDays / 120));
-  return { score, confidence: Math.min(1, evidence / 18) * recency };
+  return { score, confidence: Math.min(1, evidence / 20) * recency };
 }
 
 export function behavioralAdjustment(item: FrontierItem, model?: FrontierBehaviorModel, date = new Date()): number {
@@ -261,16 +233,20 @@ export function behavioralAdjustment(item: FrontierItem, model?: FrontierBehavio
   }, 0);
 }
 
-export type FrontierHabitInsight = {
-  label: string;
-  detail: string;
-  confidence: number;
-};
+export function behavioralExplorationBonus(item: FrontierItem, model?: FrontierBehaviorModel, date = new Date()): number {
+  if (!model?.implicitLearning || !model.rankingSnapshot || item.sourceKind === 'local') return 0;
+  const memory = model.rankingSnapshot;
+  const evidence = [memory.laneStats[item.lane], ...item.tags.slice(0, 4).map((tag) => memory.topicStats[tag.toLowerCase()])]
+    .map((aggregate) => aggregatePreference(aggregate, date).confidence);
+  const meanConfidence = evidence.length ? evidence.reduce((sum, value) => sum + value, 0) / evidence.length : 0;
+  // A tiny UCB-like uncertainty bonus prevents early feedback from collapsing the
+  // world model. It is deliberately much smaller than explicit preference terms.
+  return Math.max(0, Math.min(0.035, (1 - meanConfidence) * item.novelty * 0.035));
+}
 
-function strongestEntry(
-  stats: Record<string, FrontierBehaviorAggregate>,
-  date = new Date()
-): [string, FrontierBehaviorAggregate] | undefined {
+export type FrontierHabitInsight = { label: string; detail: string; confidence: number };
+
+function strongestEntry(stats: Record<string, FrontierBehaviorAggregate>, date = new Date()): [string, FrontierBehaviorAggregate] | undefined {
   const best = Object.entries(stats)
     .map(([key, value]) => ({ key, value, pref: aggregatePreference(value, date) }))
     .filter((entry) => entry.pref.confidence >= 0.18 && entry.pref.score > 0.12)
@@ -325,12 +301,9 @@ export function summarizeHabits(model: FrontierBehaviorModel, date = new Date())
 
   const preferredLayout = model.layoutUses.feed === model.layoutUses.desk ? undefined : model.layoutUses.feed > model.layoutUses.desk ? 'Feed' : 'Desk';
   const layoutTotal = model.layoutUses.feed + model.layoutUses.desk;
-  if (preferredLayout && layoutTotal >= 3) {
-    insights.push({ label: 'Reading mode', detail: `You use ${preferredLayout} more often.`, confidence: Math.min(1, layoutTotal / 12) });
-  }
+  if (preferredLayout && layoutTotal >= 3) insights.push({ label: 'Reading mode', detail: `You use ${preferredLayout} more often.`, confidence: Math.min(1, layoutTotal / 12) });
 
-  const primaryViews = Object.entries(model.viewUses)
-    .sort((a, b) => b[1] - a[1]);
+  const primaryViews = Object.entries(model.viewUses).sort((a, b) => b[1] - a[1]);
   const totalViews = primaryViews.reduce((sum, [, count]) => sum + count, 0);
   if (primaryViews[0] && primaryViews[0][1] >= 3 && totalViews >= 5) {
     const viewLabels: Record<FrontierView, string> = { today: 'Today', explore: 'Explore', saved: 'Saved', history: 'History', map: 'Radar' };
