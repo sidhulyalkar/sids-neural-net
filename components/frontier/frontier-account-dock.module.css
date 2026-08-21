@@ -8,9 +8,13 @@
 
 @media (max-width: 900px) {
   .dock {
-    top: auto;
-    right: 12px;
-    bottom: 12px;
-    max-width: calc(100vw - 24px);
+    /* On small screens the account control belongs to the masthead, not the
+       persistent floating-control layer. Let it scroll away so it cannot fight
+       the site's camera/gesture affordances or obscure reading cards. */
+    position: absolute;
+    top: 14px;
+    right: 10px;
+    bottom: auto;
+    max-width: min(58vw, 230px);
   }
 }
