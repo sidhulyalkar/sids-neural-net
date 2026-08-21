@@ -24,7 +24,7 @@ expect(game.includes('nearestLivingTree') && game.includes("endRun('The grove wa
 expect(game.includes('proceduralBlueprint') && game.includes('rngFrom(hash(`sylvaria-room-${depth}`))'), 'seeded post-room-10 generation missing');
 for (const enemy of ['feller','foreman','lobbyist','skidder','drone','chair','broker','mech']) expect(game.includes(`${enemy}: {`), `missing enemy archetype ${enemy}`);
 for (const title of ['Trailhead Trespass','Nailgun Nursery','Red Tape Ravine','Skidder Switchback','Sawdisc Wetland','Committee Canopy','Subsidy Grove','Clearcut Conveyor','Four-Way Firebreak','PAC-a-Saw Summit']) expect(game.includes(`title: '${title}'`), `missing authored room ${title}`);
-expect(game.includes("name: 'PAC-a-Saw'") && game.includes('boss.phase === 2') && game.includes('boss.phase === 3'), 'three-phase PAC-a-Saw boss missing');
+expect(game.includes("name: 'PAC-a-Saw'") && game.includes('boss.phase = 2') && game.includes('boss.phase = 3'), 'three-phase PAC-a-Saw boss missing');
 expect(game.includes("state.mode='paused'") && game.includes("state.mode='playing'"), 'pause/resume loop missing');
 expect(game.includes('window.__MOSSLIGHT_PLAYTEST__') && game.includes('spawnCounterShot'), 'playtest instrumentation missing');
 expect(visuals.includes("version: '0.8.0'") && visuals.includes('requestFullscreen'), 'v0.8 immersive visual shell missing');
