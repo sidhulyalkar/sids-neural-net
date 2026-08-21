@@ -22,7 +22,7 @@
 
 .compactMasthead {
   display: grid;
-  grid-template-columns: minmax(110px, 0.5fr) minmax(300px, 1.9fr) minmax(90px, 0.45fr);
+  grid-template-columns: minmax(120px, 0.5fr) minmax(300px, 1.9fr) minmax(160px, 0.65fr);
   grid-template-areas: "brand search status";
   gap: clamp(18px, 3vw, 54px);
   align-items: center;
@@ -34,6 +34,7 @@
 .brandBlock {
   grid-area: brand;
   min-width: 0;
+  padding-left: 52px;
 }
 
 .wordmark,
@@ -123,12 +124,22 @@
 .searchClear:hover,
 .refreshIcon:hover { color: #dce4df; }
 
-.radarStatus {
+.headerActions {
+  position: relative;
+  z-index: 76;
   grid-area: status;
   display: flex;
+  min-width: 0;
   align-items: center;
   justify-content: flex-end;
   gap: 7px;
+}
+
+.radarStatus {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
   color: var(--subtle);
   font-family: var(--font-geist-mono), monospace;
   font-size: 7px;
@@ -146,7 +157,7 @@
 }
 
 .liveDotDegraded { background: #b99090; box-shadow: none; }
-.refreshIcon { width: 26px; height: 26px; border-radius: 6px; }
+.refreshIcon { width: 24px; height: 26px; border-radius: 6px; }
 
 .controlDock {
   position: sticky;
@@ -449,6 +460,7 @@
     align-items: center;
     padding-top: 4px;
   }
+  .brandBlock { padding-left: 52px; }
   .topicSearch { width: 100%; }
   .libraryLayout { grid-template-columns: 1fr; }
   .collectionRail {
@@ -468,6 +480,7 @@
   .wordmark { font-size: 9px; }
   .topicSearch { min-height: 41px; border-radius: 10px; }
   .searchShortcut { display: none; }
+  .radarStatus span:nth-child(2) { display: none; }
   .controlDock { gap: 8px; margin-bottom: 4px; overflow-x: auto; padding: 5px 0; }
   .nav,
   .realmSwitch { flex: 0 0 auto; }
