@@ -119,16 +119,23 @@ export function applyPreferenceImportToProfile(
   for (const topic of preferenceImport.topics) {
     const key = canonical(topic.key);
     if (!key) continue;
-    topicAffinity[key] = Math.max(-0.8, Math.min(1.4, (topicAffinity[key] ?? 0) + topic.weight));
+    const current = topicAffinity[key] ?? 0;
+    // Imported account data is a seed, not a vote. Re-importing the same Google
+    // data is idempotent and never overrides a topic the user has explicitly
+    // driven negative inside FRONTIER.
+    if (current < -0.05) continue;
+    const importedTarget = Math.min(0.58, 0.24 + topic.weight * 1.15);
+    topicAffinity[key] = Math.max(current, importedTarget);
   }
   const sourceAffinity = { ...profile.sourceAffinity };
   for (const [source, weight] of Object.entries(preferenceImport.sourceAffinity)) {
-    sourceAffinity[source] = Math.max(-0.5, Math.min(0.8, (sourceAffinity[source] ?? 0) + weight));
+    const current = sourceAffinity[source] ?? 0;
+    if (current < -0.05) continue;
+    sourceAffinity[source] = Math.max(current, Math.min(0.45, weight));
   }
   return {
     ...profile,
     topicAffinity,
     sourceAffinity,
-    meaningfulInteractions: profile.meaningfulInteractions + Math.min(12, Math.ceil(preferenceImport.topics.length / 6)),
   };
 }
