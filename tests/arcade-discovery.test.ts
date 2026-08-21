@@ -10,7 +10,7 @@ const root = process.cwd();
 
 const readRepoFile = (path: string) => readFileSync(join(root, path), 'utf8');
 
-test('the arcade exposes every current game as a playable cabinet', () => {
+test('the Game Network exposes every current game as a playable entry', () => {
   assert.deepEqual(
     arcadeGames.map((game) => game.slug),
     ['stretchicorn', 'unirico', 'mosslight']
@@ -22,24 +22,23 @@ test('the arcade exposes every current game as a playable cabinet', () => {
   }
 });
 
-test('the arcade is part of the shared portfolio navigation', () => {
-  assert.ok(siteNavItems.some((item) => item.href === '/arcade' && item.label === 'Game Arcade'));
+test('the Game Network is part of the shared portfolio navigation', () => {
+  assert.ok(siteNavItems.some((item) => item.href === '/arcade' && item.label === 'Game Network'));
   assert.ok(primaryNavItems.some((item) => item.href === '/arcade'));
 
   const home = readRepoFile('app/page.tsx');
   assert.match(home, /href="\/arcade"/);
-  assert.match(home, /Playable now · 3 games/);
-  assert.match(home, /Stretchicorn · uniRico · Mosslight/);
-  assert.match(home, /z-\[70\]/);
+  assert.match(home, /game network/i);
   assert.match(home, /data-gesture-target/);
 
   const footer = readRepoFile('components/layout/Footer.tsx');
-  assert.match(footer, /href: '\/arcade', label: 'Arcade'/);
+  assert.match(footer, /href: '\/arcade', label: 'Game Network'/);
 
   const discovery = readRepoFile('components/layout/ArcadeDiscovery.tsx');
   assert.match(discovery, /pathname === '\/about'/);
   assert.match(discovery, /pathname === '\/projects'/);
   assert.match(discovery, /href="\/arcade"/);
+  assert.match(discovery, /Game Network/);
 });
 
 test('the embedded Stretchicorn release is complete', () => {
