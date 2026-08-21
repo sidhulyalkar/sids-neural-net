@@ -1,0 +1,126 @@
+.accountWrap {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 5px;
+  min-width: 0;
+}
+
+.account,
+.signIn,
+.actions button {
+  border: 1px solid rgba(173, 197, 186, 0.16);
+  background: rgba(10, 16, 14, 0.74);
+  color: rgba(235, 241, 237, 0.82);
+  font: 500 10px/1.1 var(--font-geist-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  letter-spacing: 0.015em;
+}
+
+.account {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  max-width: min(360px, 46vw);
+  min-height: 28px;
+  padding: 4px 8px 4px 5px;
+  border-radius: 999px;
+}
+
+.signIn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 10px;
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.signIn:hover,
+.actions button:hover:not(:disabled) {
+  border-color: rgba(160, 210, 184, 0.34);
+  color: rgba(248, 252, 249, 0.96);
+}
+
+.avatar {
+  width: 20px;
+  height: 20px;
+  flex: 0 0 auto;
+  object-fit: cover;
+  border-radius: 50%;
+}
+
+.name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sync {
+  color: rgba(154, 183, 168, 0.58);
+  white-space: nowrap;
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 5px;
+}
+
+.actions button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 25px;
+  padding: 5px 8px;
+  border-radius: 7px;
+  cursor: pointer;
+}
+
+.actions button:disabled {
+  cursor: default;
+  opacity: 0.38;
+}
+
+.message {
+  max-width: 360px;
+  color: rgba(170, 193, 181, 0.7);
+  font: 500 9px/1.35 var(--font-geist-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  text-align: right;
+}
+
+.placeholder {
+  width: 90px;
+  height: 28px;
+}
+
+.spin {
+  animation: accountSpin 900ms linear infinite;
+}
+
+@keyframes accountSpin {
+  to { transform: rotate(360deg); }
+}
+
+@media (max-width: 760px) {
+  .accountWrap {
+    width: 100%;
+    align-items: stretch;
+  }
+
+  .account {
+    max-width: 100%;
+  }
+
+  .actions {
+    justify-content: flex-start;
+  }
+
+  .message {
+    max-width: none;
+    text-align: left;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spin { animation: none; }
+}
