@@ -225,13 +225,14 @@
       if (shot.kind === 'saw' && !shot.friendly) { const dx = p.x - shot.x, dy = p.y - shot.y, m = Math.hypot(dx, dy) || 1; shot.vx += dx / m * 42 * dt; shot.vy += dy / m * 42 * dt; }
       shot.x += shot.vx * dt; shot.y += shot.vy * dt; if (shot.life <= 0 || shot.x < -30 || shot.x > W + 30 || shot.y < 50 || shot.y > H + 30) { shot.dead = true; continue; }
       if (shot.friendly) { for (const enemy of state.enemies) { if (!enemy.dead && dist(shot, enemy) < shot.r + enemy.r) { damageEnemy(enemy, shot.damage, { x: Math.sign(shot.vx), y: Math.sign(shot.vy) }); shot.dead = true; break; } } if (!shot.dead && state.boss && !state.boss.dead && dist(shot, state.boss) < shot.r + state.boss.r) { damageBoss(shot.damage, { x: Math.sign(shot.vx), y: Math.sign(shot.vy) }); shot.dead = true; } continue; }
-      for (const tree of state.trees) { if (tree.alive && shot.owner?.type === 'mech' && dist(shot, tree) < shot.r + tree.r) { damageTree(tree, 1); shot.dead = true; break; } }
+      for (const tree of state.trees) { if (tree.alive && ['mech','boss'].includes(shot.owner?.type) && dist(shot, tree) < shot.r + tree.r) { damageTree(tree, 1); shot.dead = true; break; } }
       if (!shot.dead && dist(shot, p) < shot.r + p.r) { if (shot.kind === 'tape') state.slowTimer = 2.2; damagePlayer(1, shot); shot.dead = true; }
     }
     state.shots = state.shots.filter((s) => !s.dead);
   }
   function updateSlashes(dt) {
     for (const slash of state.slashes) {
+      slash.x = state.player.x; slash.y = state.player.y;
       slash.age += dt; for (const shot of state.shots) counterShot(shot, slash); const d = DIRS[slash.direction];
       for (const enemy of state.enemies) { if (enemy.dead || slash.hits.has(enemy.id) || !slashContains(slash, enemy)) continue; slash.hits.add(enemy.id); damageEnemy(enemy, 1.25, d); state.player.flow = clamp(state.player.flow + 4, 0, 100); }
       if (state.boss && !state.boss.dead && !slash.hits.has(state.boss.id) && slashContains(slash, state.boss)) { slash.hits.add(state.boss.id); damageBoss(1.1, d); state.player.flow = clamp(state.player.flow + 3, 0, 100); }
@@ -289,7 +290,7 @@
   window.MosslightExpedition={atlasCount:1000,summary:()=>({atlasCount:1000,worlds:Array.from({length:10},(_,i)=>({index:i+1})),deck:{cursor:10}}),newRun:()=>({})};
   window.MosslightDirector={movementPatterns:['telegraph','cardinal-shot','orbit','charge','support','tree-pressure'],powerups:[],summary:()=>ROOM_BLUEPRINTS.map((r,i)=>({room:i+1,situation:r.subtitle}))};
 
-  document.addEventListener('keydown',(event)=>{const key=normKey(event.key);if(['w','a','s','d','arrowup','arrowdown','arrowleft','arrowright',' ','shift','enter'].includes(key))event.preventDefault();if(state.mode==='menu'&&key==='enter'){startRun('run');return;}if(state.mode!=='playing')return;if(MOVE_DIRS[key]){if(!state.heldMoves.has(key))dashStep(MOVE_DIRS[key],key);state.heldMoves.add(key);return;}if(CUT_KEYS[key]){cut(CUT_KEYS[key]);return;}if(key==='p'){state.mode='paused';$('pauseScreen').classList.remove('hidden');return;}});
+  document.addEventListener('keydown',(event)=>{const key=normKey(event.key);if(['w','a','s','d','arrowup','arrowdown','arrowleft','arrowright',' ','shift','enter'].includes(key))event.preventDefault();if(state.mode==='menu'&&key==='enter'){startRun('run');return;}if(state.mode!=='playing')return;if(event.repeat&&CUT_KEYS[key])return;if(MOVE_DIRS[key]){if(!state.heldMoves.has(key))dashStep(MOVE_DIRS[key],key);state.heldMoves.add(key);return;}if(CUT_KEYS[key]){cut(CUT_KEYS[key]);return;}if(key==='p'){state.mode='paused';$('pauseScreen').classList.remove('hidden');return;}});
   document.addEventListener('keyup',(event)=>{const key=normKey(event.key);if(MOVE_DIRS[key])state.heldMoves.delete(key);}); window.addEventListener('blur',()=>state.heldMoves.clear());
   $('start')?.addEventListener('click',()=>startRun('run')); $('explore')?.addEventListener('click',()=>startRun('explore')); $('restartRun')?.addEventListener('click',()=>{$('gameOver').classList.add('hidden');startRun('run');}); $('menuFromGameOver')?.addEventListener('click',()=>{state.mode='menu';$('gameOver').classList.add('hidden');$('title').classList.remove('hidden');$('hud').classList.add('hidden');}); $('resume')?.addEventListener('click',()=>{state.mode='playing';$('pauseScreen').classList.add('hidden');canvas.focus();}); $('howBtn')?.addEventListener('click',()=>{$('title').classList.add('hidden');$('howScreen').classList.remove('hidden');}); $('controlsBtn')?.addEventListener('click',()=>{$('title').classList.add('hidden');$('controlsScreen').classList.remove('hidden');}); document.querySelectorAll('[data-back]').forEach((btn)=>btn.addEventListener('click',()=>{document.querySelectorAll('.screen').forEach(el=>el.classList.add('hidden'));$('title').classList.remove('hidden');})); $('bestRun').textContent=`best · room ${state.best.room||0} · ${state.best.score||0} score`;
   drawBackground(); requestAnimationFrame(frame);
