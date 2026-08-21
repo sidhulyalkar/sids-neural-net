@@ -56,11 +56,20 @@ export function ArcadePlaySpace({ game }: { game: ArcadeGame }) {
     if (!frameWindow) return;
 
     try {
-      frameWindow.addEventListener('pointerdown', engageFocus, { passive: true });
-      frameWindow.addEventListener('keydown', (event) => {
+      const frameDocument = frameWindow.document;
+      const onFrameKeyDown = (event: KeyboardEvent) => {
         if (event.key === 'Escape' && !document.fullscreenElement) leaveFocus();
         else engageFocus();
-      });
+      };
+
+      // Listen on the embedded document in capture phase. Firefox does not
+      // consistently surface iframe pointer activity through parent-window blur,
+      // while document-level capture fires at the exact user interaction point.
+      frameDocument.addEventListener('pointerdown', engageFocus, { capture: true, passive: true });
+      frameDocument.addEventListener('mousedown', engageFocus, { capture: true, passive: true });
+      frameDocument.addEventListener('touchstart', engageFocus, { capture: true, passive: true });
+      frameDocument.addEventListener('focusin', engageFocus, true);
+      frameDocument.addEventListener('keydown', onFrameKeyDown, true);
     } catch {
       // Optional external runtime overrides stay isolated from the host document.
     }
@@ -135,6 +144,7 @@ export function ArcadePlaySpace({ game }: { game: ArcadeGame }) {
                     referrerPolicy="strict-origin-when-cross-origin"
                     onLoad={connectFrameFocus}
                     onFocus={engageFocus}
+                    tabIndex={0}
                   />
                 ) : (
                   <div className="absolute inset-0 grid place-items-center p-6 text-center">
