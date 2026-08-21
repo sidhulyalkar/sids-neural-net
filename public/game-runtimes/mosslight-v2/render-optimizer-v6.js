@@ -8,13 +8,15 @@
   const QUALITY_KEY = 'sid.sylvaria.visual-quality.v6';
   const LEVELS = ['performance', 'balanced', 'high'];
   const CONFIG = {
-    performance: { blurCap: 2.5, gradientCache: 72, motifCount: 2, ambientAlpha: .34, spriteScale: 1.5 },
-    balanced: { blurCap: 7, gradientCache: 144, motifCount: 4, ambientAlpha: .48, spriteScale: 2 },
-    high: { blurCap: 12, gradientCache: 224, motifCount: 7, ambientAlpha: .62, spriteScale: 2 },
+    performance: { blurCap: 0.75, gradientCache: 72, motifCount: 1, ambientAlpha: .3, spriteScale: 1.5, overlayFps: 24 },
+    balanced: { blurCap: 4.5, gradientCache: 144, motifCount: 3, ambientAlpha: .44, spriteScale: 2, overlayFps: 30 },
+    high: { blurCap: 9, gradientCache: 224, motifCount: 6, ambientAlpha: .6, spriteScale: 2, overlayFps: 45 },
   };
 
   const validPreference = (value) => ['auto', ...LEVELS].includes(value) ? value : 'auto';
-  let preference = validPreference(localStorage.getItem(QUALITY_KEY) || 'auto');
+  let preference;
+  try { preference = validPreference(localStorage.getItem(QUALITY_KEY) || 'auto'); }
+  catch { preference = 'auto'; }
   let tier = preference === 'auto' ? 'balanced' : preference;
   let smoothedFps = 60;
   let lowWindows = 0;
@@ -56,11 +58,21 @@
   const strokeDescriptor = findDescriptor(Object.getPrototypeOf(ctx), 'strokeStyle');
   const gradientCache = new Map();
 
+  const currentTransform = () => {
+    try {
+      const matrix = ctx.getTransform();
+      return [matrix.a, matrix.b, matrix.c, matrix.d, matrix.e, matrix.f];
+    } catch {
+      return [1, 0, 0, 1, 0, 0];
+    }
+  };
+
   class GradientRequest {
     constructor(kind, args) {
       this.__sylvariaGradient = true;
       this.kind = kind;
       this.args = args;
+      this.transform = currentTransform();
       this.stops = [];
     }
     addColorStop(offset, color) {
@@ -69,7 +81,7 @@
   }
 
   const numberKey = (value) => Math.round(Number(value) * 2) / 2;
-  const gradientKey = (request) => `${request.kind}:${request.args.map(numberKey).join(',')}:${request.stops.map(([offset, color]) => `${numberKey(offset)}@${color}`).join('|')}`;
+  const gradientKey = (request) => `${request.kind}:${request.args.map(numberKey).join(',')}:m=${request.transform.map(numberKey).join(',')}:${request.stops.map(([offset, color]) => `${numberKey(offset)}@${color}`).join('|')}`;
   const trimCache = () => {
     const limit = CONFIG[tier].gradientCache;
     while (gradientCache.size > limit) gradientCache.delete(gradientCache.keys().next().value);
@@ -127,17 +139,17 @@
     const instantaneous = 1000 / elapsed;
     const sample = Number.isFinite(reportedFps) && reportedFps > 1 ? Math.min(instantaneous, reportedFps) : instantaneous;
     smoothedFps = smoothedFps * .92 + sample * .08;
-    if (preference !== 'auto' || now - lastQualityShift < 1800) return;
+    if (preference !== 'auto' || now - lastQualityShift < 1600) return;
 
-    if (smoothedFps < 45) { lowWindows += 1; highWindows = 0; }
-    else if (smoothedFps > 57) { highWindows += 1; lowWindows = 0; }
+    if (smoothedFps < 47) { lowWindows += 1; highWindows = 0; }
+    else if (smoothedFps > 58) { highWindows += 1; lowWindows = 0; }
     else { lowWindows = Math.max(0, lowWindows - 1); highWindows = Math.max(0, highWindows - 1); }
 
-    if (lowWindows > 55) {
+    if (lowWindows > 34) {
       const index = Math.max(0, LEVELS.indexOf(tier) - 1);
       applyTier(LEVELS[index], 'fps-downshift');
       lowWindows = 0;
-    } else if (highWindows > 260) {
+    } else if (highWindows > 300) {
       const index = Math.min(LEVELS.length - 1, LEVELS.indexOf(tier) + 1);
       applyTier(LEVELS[index], 'fps-upshift');
       highWindows = 0;
@@ -163,6 +175,7 @@
         gradientCacheSize: gradientCache.size,
         gradientCacheLimit: CONFIG[tier].gradientCache,
         blurCap: CONFIG[tier].blurCap,
+        overlayFps: CONFIG[tier].overlayFps,
       };
     },
   });
