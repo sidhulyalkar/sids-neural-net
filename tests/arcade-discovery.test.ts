@@ -31,13 +31,14 @@ test('the Game Network exposes every current game as a playable entry', () => {
   }
 });
 
-test('Sylvaria v0.5 is canonical while the previous Mosslight URL remains a compatibility alias', () => {
+test('Sylvaria v0.6 is canonical while the previous Mosslight URL remains a compatibility alias', () => {
   const sylvaria = arcadeGames.find((game) => game.slug === 'sylvaria');
   assert.ok(sylvaria);
   assert.equal(sylvaria.title, 'Sylvaria');
-  assert.equal(sylvaria.version, 'v0.5.0');
+  assert.equal(sylvaria.version, 'v0.6.0');
   assert.match(sylvaria.subtitle, /MOSSGLINT RUN/);
   assert.match(sylvaria.description, /Sprid/);
+  assert.match(sylvaria.description, /biome-specific/);
   assert.ok(sylvaria.controls.some((control) => control.input === 'F' && /portal gate/i.test(control.action)));
   assert.ok(sylvaria.controls.some((control) => control.input === 'Enter' && /open portal/i.test(control.action)));
   assert.equal(getArcadeGame('mosslight')?.slug, 'sylvaria');
@@ -47,7 +48,47 @@ test('Sylvaria v0.5 is canonical while the previous Mosslight URL remains a comp
   assert.match(runtime, /Sylvaria: Mossglint Run/);
   assert.match(runtime, /Sprid/);
   assert.match(runtime, /game-v5\.js/);
+  assert.match(runtime, /render-optimizer-v6\.js/);
+  assert.match(runtime, /visual-system-v6\.js/);
+  assert.match(runtime, /sylvaria-v6\.css/);
   assert.doesNotMatch(runtime, /game-v4\.js/);
+});
+
+test('Sylvaria v0.6 codifies crisp biome art and adaptive performance', () => {
+  const runtime = readRepoFile('public/game-runtimes/mosslight-v2/index.html');
+  const optimizer = readRepoFile('public/game-runtimes/mosslight-v2/render-optimizer-v6.js');
+  const visuals = readRepoFile('public/game-runtimes/mosslight-v2/visual-system-v6.js');
+  const styles = readRepoFile('public/game-runtimes/mosslight-v2/sylvaria-v6.css');
+  const doc = readRepoFile('docs/SYLVARIA_V06_VISUAL_SYSTEM.md');
+
+  assert.match(runtime, /id="biomeBadge"/);
+  assert.match(runtime, /id="visualQuality"/);
+  assert.match(runtime, /id="qualityState"/);
+  assert.ok(runtime.indexOf('render-optimizer-v6.js') < runtime.indexOf('game-v5.js'));
+  assert.ok(runtime.indexOf('game-v5.js') < runtime.indexOf('visual-system-v6.js'));
+
+  for (const theme of ['forest', 'volcanic', 'reef', 'ice', 'celestial']) {
+    assert.match(visuals, new RegExp(`${theme}: \\{`));
+  }
+  for (const builder of ['buildForestSprite', 'buildVolcanicSprite', 'buildReefSprite', 'buildIceSprite', 'buildCelestialSprite']) {
+    assert.match(visuals, new RegExp(builder));
+  }
+  assert.match(visuals, /SPRID_RULES/);
+  assert.match(visuals, /ENEMY_RULES/);
+  assert.match(visuals, /ASSET_CHECKLIST/);
+  assert.match(visuals, /drawCuteEnemyFace/);
+  assert.match(visuals, /playtest\.version = '0\.6\.0'/);
+  assert.match(optimizer, /GradientRequest/);
+  assert.match(optimizer, /gradientCache/);
+  assert.match(optimizer, /fps-downshift/);
+  assert.match(optimizer, /fps-upshift/);
+  assert.match(styles, /--biome-accent/);
+  assert.match(styles, /prefers-contrast:more/);
+  assert.match(doc, /Sprid design rules/);
+  assert.match(doc, /Enemy art rules/);
+  assert.match(doc, /Per-biome palette \+ motif guide/);
+  assert.match(doc, /Exact asset checklist/);
+  assert.match(doc, /Visual QA matrix/);
 });
 
 test('Sprid is the canonical Sylvaria protagonist name', () => {
@@ -61,6 +102,7 @@ test('Sprid is the canonical Sylvaria protagonist name', () => {
     'src/data/arcadeGames.ts',
     'docs/MOSSLIGHT_MOSSGLINT_RUN_V04.md',
     'docs/MOSSLIGHT_V02_PLAYABILITY_AND_VISUAL_REVIEW.md',
+    'docs/SYLVARIA_V06_VISUAL_SYSTEM.md',
   ]) {
     const source = readRepoFile(path);
     assert.match(source, /Sprid/, `${path} should name Sprid`);
@@ -137,6 +179,8 @@ test('Game Network browser validation includes actual Google Chrome Stable', () 
   assert.match(browserTest, /testStretchicorn\(page, engineName\)/);
   assert.match(browserTest, /testUniRico\(page, engineName\)/);
   assert.match(browserTest, /page\.keyboard\.press\('f'\)/);
+  assert.match(browserTest, /SylvariaVisualSystem/);
+  assert.match(browserTest, /SylvariaRenderBudget/);
 });
 
 test('the embedded Stretchicorn release is complete', () => {
