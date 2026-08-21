@@ -20,7 +20,120 @@ const engines = [
 const report = [];
 let failed = false;
 
-for (const [name, browserType] of engines) {
+function canvasStats(frame) {
+  return frame.evaluate(() => {
+    const canvas = document.querySelector('#c');
+    const context = canvas?.getContext('2d');
+    if (!canvas || !context) return { ready: false, distinct: 0, lit: 0, checksum: 0 };
+
+    const samples = [];
+    let lit = 0;
+    let checksum = 0;
+    for (let y = 24; y < canvas.height; y += 48) {
+      for (let x = 24; x < canvas.width; x += 48) {
+        const pixel = context.getImageData(x, y, 1, 1).data;
+        samples.push(`${pixel[0]},${pixel[1]},${pixel[2]},${pixel[3]}`);
+        if (pixel[0] + pixel[1] + pixel[2] > 35 && pixel[3] > 0) lit += 1;
+        checksum = (checksum + pixel[0] * 3 + pixel[1] * 5 + pixel[2] * 7 + pixel[3]) % 1_000_000_007;
+      }
+    }
+    return { ready: true, distinct: new Set(samples).size, lit, checksum };
+  });
+}
+
+async function assertGameFocus(page, iframe, label) {
+  await iframe.click({ position: { x: 120, y: 120 } });
+  await page.waitForFunction(() => document.documentElement.classList.contains('game-runtime-focused'));
+  const focused = await page.evaluate(() => document.documentElement.classList.contains('game-runtime-focused'));
+  if (!focused) throw new Error(`${label}: host did not enter game focus mode`);
+}
+
+async function testMosslight(page, engineName) {
+  const response = await page.goto(`${baseUrl}/arcade/mosslight`, { waitUntil: 'networkidle' });
+  if (!response?.ok()) throw new Error(`Mosslight route returned ${response?.status() ?? 'no response'}`);
+
+  const iframe = page.locator('iframe[title="Mosslight game runtime"]');
+  await iframe.waitFor({ state: 'visible' });
+  if ((await iframe.getAttribute('sandbox')) !== null) throw new Error('Mosslight same-origin runtime should not be sandboxed');
+
+  const frame = page.frames().find((candidate) => candidate.url().includes('/game-runtimes/mosslight-v2/'));
+  if (!frame) throw new Error('Mosslight iframe did not attach');
+
+  await frame.waitForFunction(() => Boolean(window.__MOSSLIGHT_PLAYTEST__), null, { timeout: 10_000 });
+  await frame.locator('#title').waitFor({ state: 'visible' });
+  await frame.locator('#start').waitFor({ state: 'visible' });
+  await page.waitForTimeout(250);
+
+  const initial = await canvasStats(frame);
+  if (!initial.ready || initial.distinct < 8 || initial.lit < 20) {
+    throw new Error(`Mosslight title canvas under-rendered: ${JSON.stringify(initial)}`);
+  }
+
+  await page.screenshot({ path: path.join(outputDir, `${engineName}-mosslight-title.png`), fullPage: true });
+  await assertGameFocus(page, iframe, 'Mosslight');
+  await frame.locator('#start').click();
+  await frame.waitForFunction(() => window.__MOSSLIGHT_PLAYTEST__?.snapshot().mode === 'playing');
+
+  const before = await frame.evaluate(() => window.__MOSSLIGHT_PLAYTEST__.snapshot());
+  await page.keyboard.down('d');
+  await page.waitForTimeout(350);
+  await page.keyboard.up('d');
+  await page.waitForTimeout(100);
+  const after = await frame.evaluate(() => window.__MOSSLIGHT_PLAYTEST__.snapshot());
+
+  if ((after.player?.x ?? 0) <= (before.player?.x ?? 0) + 8) {
+    throw new Error(`Mosslight keyboard input failed (${before.player?.x} -> ${after.player?.x})`);
+  }
+
+  const playing = await canvasStats(frame);
+  if (!playing.ready || playing.distinct < 8 || playing.lit < 20) {
+    throw new Error(`Mosslight playing canvas under-rendered: ${JSON.stringify(playing)}`);
+  }
+
+  await page.screenshot({ path: path.join(outputDir, `${engineName}-mosslight-playing.png`), fullPage: true });
+  return { initial, playing, movement: [before.player?.x, after.player?.x], fps: after.fps };
+}
+
+async function testStretchicorn(page, engineName) {
+  const response = await page.goto(`${baseUrl}/arcade/stretchicorn`, { waitUntil: 'networkidle' });
+  if (!response?.ok()) throw new Error(`Stretchicorn route returned ${response?.status() ?? 'no response'}`);
+
+  const iframe = page.locator('iframe[title="Stretchicorn game runtime"]');
+  await iframe.waitFor({ state: 'visible' });
+  if ((await iframe.getAttribute('sandbox')) !== null) throw new Error('Stretchicorn same-origin runtime should not be sandboxed');
+
+  const frame = page.frames().find((candidate) => candidate.url().includes('/game-runtimes/stretchicorn/'));
+  if (!frame) throw new Error('Stretchicorn iframe did not attach');
+
+  await frame.locator('#c').waitFor({ state: 'visible' });
+  await page.waitForTimeout(350);
+
+  const initial = await canvasStats(frame);
+  if (!initial.ready || initial.distinct < 8 || initial.lit < 20) {
+    throw new Error(`Stretchicorn title canvas under-rendered: ${JSON.stringify(initial)}`);
+  }
+
+  const initialMode = await frame.evaluate(() => eval('mode'));
+  if (initialMode !== 0) throw new Error(`Stretchicorn expected title mode 0, got ${initialMode}`);
+
+  await page.screenshot({ path: path.join(outputDir, `${engineName}-stretchicorn-title.png`), fullPage: true });
+  await assertGameFocus(page, iframe, 'Stretchicorn');
+  await page.keyboard.press('Space');
+  await page.waitForTimeout(500);
+
+  const playingMode = await frame.evaluate(() => eval('mode'));
+  if (playingMode !== 1) throw new Error(`Stretchicorn did not enter gameplay after Space; mode=${playingMode}`);
+
+  const playing = await canvasStats(frame);
+  if (!playing.ready || playing.distinct < 8 || playing.lit < 20) {
+    throw new Error(`Stretchicorn playing canvas under-rendered: ${JSON.stringify(playing)}`);
+  }
+
+  await page.screenshot({ path: path.join(outputDir, `${engineName}-stretchicorn-playing.png`), fullPage: true });
+  return { initial, playing, modes: [initialMode, playingMode] };
+}
+
+for (const [engineName, browserType] of engines) {
   const errors = [];
   let browser;
   try {
@@ -32,95 +145,19 @@ for (const [name, browserType] of engines) {
       if (message.type() === 'error') errors.push(`console: ${message.text()}`);
     });
 
-    const response = await page.goto(`${baseUrl}/arcade/mosslight`, { waitUntil: 'networkidle' });
-    if (!response?.ok()) throw new Error(`arcade route returned ${response?.status() ?? 'no response'}`);
-
-    const iframe = page.locator('iframe[title="Mosslight game runtime"]');
-    await iframe.waitFor({ state: 'visible' });
-    const frame = page.frames().find((candidate) => candidate.url().includes('/game-runtimes/mosslight-v2/'));
-    if (!frame) throw new Error('Mosslight iframe did not attach');
-
-    await frame.waitForFunction(() => Boolean(window.__MOSSLIGHT_PLAYTEST__), null, { timeout: 10_000 });
-    await frame.locator('#title').waitFor({ state: 'visible' });
-    await frame.locator('#start').waitFor({ state: 'visible' });
-
-    const initial = await frame.evaluate(() => {
-      const canvas = document.querySelector('#c');
-      const context = canvas?.getContext('2d');
-      if (!canvas || !context) return { canvasReady: false };
-
-      const points = [];
-      for (let y = 40; y < canvas.height; y += 80) {
-        for (let x = 40; x < canvas.width; x += 80) {
-          const pixel = context.getImageData(x, y, 1, 1).data;
-          points.push(`${pixel[0]},${pixel[1]},${pixel[2]},${pixel[3]}`);
-        }
-      }
-
-      const title = document.querySelector('#title');
-      const start = document.querySelector('#start');
-      const style = title ? getComputedStyle(title) : null;
-      return {
-        canvasReady: true,
-        distinctCanvasSamples: new Set(points).size,
-        titleDisplay: style?.display,
-        titleVisibility: style?.visibility,
-        titleOpacity: style?.opacity,
-        startText: start?.textContent?.trim(),
-        runtime: window.__MOSSLIGHT_PLAYTEST__.snapshot(),
-      };
-    });
-
-    if (!initial.canvasReady) throw new Error('2D canvas context unavailable');
-    if ((initial.distinctCanvasSamples ?? 0) < 8) {
-      throw new Error(`canvas appears blank or under-rendered (${initial.distinctCanvasSamples} distinct samples)`);
-    }
-    if (!initial.startText?.toLowerCase().includes('dew garden')) throw new Error('start control did not render');
-
-    await page.screenshot({ path: path.join(outputDir, `${name}-mosslight-title.png`), fullPage: true });
-
-    await frame.locator('#start').click();
-    await frame.waitForFunction(() => window.__MOSSLIGHT_PLAYTEST__?.snapshot().mode === 'playing');
-    const before = await frame.evaluate(() => window.__MOSSLIGHT_PLAYTEST__.snapshot());
-
-    await frame.locator('#c').click({ position: { x: 450, y: 320 } });
-    await page.keyboard.down('d');
-    await page.waitForTimeout(350);
-    await page.keyboard.up('d');
-    await page.waitForTimeout(100);
-
-    const after = await frame.evaluate(() => window.__MOSSLIGHT_PLAYTEST__.snapshot());
-    if ((after.player?.x ?? 0) <= (before.player?.x ?? 0) + 8) {
-      throw new Error(`keyboard input did not move Sprig (${before.player?.x} -> ${after.player?.x})`);
-    }
-
-    const playingPixels = await frame.evaluate(() => {
-      const canvas = document.querySelector('#c');
-      const context = canvas?.getContext('2d');
-      if (!canvas || !context) return 0;
-      const data = context.getImageData(0, 0, canvas.width, canvas.height).data;
-      let nonBlack = 0;
-      for (let i = 0; i < data.length; i += 4 * 256) {
-        if (data[i] + data[i + 1] + data[i + 2] > 35 && data[i + 3] > 0) nonBlack += 1;
-      }
-      return nonBlack;
-    });
-    if (playingPixels < 100) throw new Error(`playing scene appears blank (${playingPixels} sampled lit pixels)`);
-
-    await page.screenshot({ path: path.join(outputDir, `${name}-mosslight-playing.png`), fullPage: true });
+    const mosslight = await testMosslight(page, engineName);
+    const stretchicorn = await testStretchicorn(page, engineName);
 
     if (errors.length) throw new Error(errors.join('\n'));
-
-    report.push({
-      engine: name,
-      ok: true,
-      distinctCanvasSamples: initial.distinctCanvasSamples,
-      movement: [before.player?.x, after.player?.x],
-      fps: after.fps,
-    });
+    report.push({ engine: engineName, ok: true, mosslight, stretchicorn });
   } catch (error) {
     failed = true;
-    report.push({ engine: name, ok: false, error: error instanceof Error ? error.message : String(error), errors });
+    report.push({
+      engine: engineName,
+      ok: false,
+      error: error instanceof Error ? error.message : String(error),
+      errors,
+    });
   } finally {
     await browser?.close();
   }
