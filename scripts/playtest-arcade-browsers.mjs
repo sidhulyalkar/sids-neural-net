@@ -41,11 +41,27 @@ function canvasStats(frame) {
   });
 }
 
+async function assertPainted(frame, label, minimumDistinct = 8, minimumLit = 20) {
+  const stats = await canvasStats(frame);
+  if (!stats.ready || stats.distinct < minimumDistinct || stats.lit < minimumLit) {
+    throw new Error(`${label} canvas under-rendered: ${JSON.stringify(stats)}`);
+  }
+  return stats;
+}
+
 async function assertGameFocus(page, iframe, label) {
   await iframe.click({ position: { x: 120, y: 120 } });
   await page.waitForFunction(() => document.documentElement.classList.contains('game-runtime-focused'));
-  const focused = await page.evaluate(() => document.documentElement.classList.contains('game-runtime-focused'));
-  if (!focused) throw new Error(`${label}: host did not enter game focus mode`);
+  const cursorState = await page.evaluate(() => ({
+    focused: document.documentElement.classList.contains('game-runtime-focused'),
+    cursorDisplay: document.querySelector('.neuron-cursor-overlay')
+      ? getComputedStyle(document.querySelector('.neuron-cursor-overlay')).display
+      : 'not-rendered',
+  }));
+  if (!cursorState.focused) throw new Error(`${label}: host did not enter game focus mode`);
+  if (cursorState.cursorDisplay !== 'none' && cursorState.cursorDisplay !== 'not-rendered') {
+    throw new Error(`${label}: neural cursor remained visible during game focus (${cursorState.cursorDisplay})`);
+  }
 }
 
 async function testMosslight(page, engineName) {
@@ -64,11 +80,7 @@ async function testMosslight(page, engineName) {
   await frame.locator('#start').waitFor({ state: 'visible' });
   await page.waitForTimeout(250);
 
-  const initial = await canvasStats(frame);
-  if (!initial.ready || initial.distinct < 8 || initial.lit < 20) {
-    throw new Error(`Mosslight title canvas under-rendered: ${JSON.stringify(initial)}`);
-  }
-
+  const initial = await assertPainted(frame, 'Mosslight title');
   await page.screenshot({ path: path.join(outputDir, `${engineName}-mosslight-title.png`), fullPage: true });
   await assertGameFocus(page, iframe, 'Mosslight');
   await frame.locator('#start').click();
@@ -85,11 +97,7 @@ async function testMosslight(page, engineName) {
     throw new Error(`Mosslight keyboard input failed (${before.player?.x} -> ${after.player?.x})`);
   }
 
-  const playing = await canvasStats(frame);
-  if (!playing.ready || playing.distinct < 8 || playing.lit < 20) {
-    throw new Error(`Mosslight playing canvas under-rendered: ${JSON.stringify(playing)}`);
-  }
-
+  const playing = await assertPainted(frame, 'Mosslight playing');
   await page.screenshot({ path: path.join(outputDir, `${engineName}-mosslight-playing.png`), fullPage: true });
   return { initial, playing, movement: [before.player?.x, after.player?.x], fps: after.fps };
 }
@@ -108,11 +116,7 @@ async function testStretchicorn(page, engineName) {
   await frame.locator('#c').waitFor({ state: 'visible' });
   await page.waitForTimeout(350);
 
-  const initial = await canvasStats(frame);
-  if (!initial.ready || initial.distinct < 8 || initial.lit < 20) {
-    throw new Error(`Stretchicorn title canvas under-rendered: ${JSON.stringify(initial)}`);
-  }
-
+  const initial = await assertPainted(frame, 'Stretchicorn title');
   const initialMode = await frame.evaluate(() => eval('mode'));
   if (initialMode !== 0) throw new Error(`Stretchicorn expected title mode 0, got ${initialMode}`);
 
@@ -124,13 +128,28 @@ async function testStretchicorn(page, engineName) {
   const playingMode = await frame.evaluate(() => eval('mode'));
   if (playingMode !== 1) throw new Error(`Stretchicorn did not enter gameplay after Space; mode=${playingMode}`);
 
-  const playing = await canvasStats(frame);
-  if (!playing.ready || playing.distinct < 8 || playing.lit < 20) {
-    throw new Error(`Stretchicorn playing canvas under-rendered: ${JSON.stringify(playing)}`);
-  }
-
+  const playing = await assertPainted(frame, 'Stretchicorn playing');
   await page.screenshot({ path: path.join(outputDir, `${engineName}-stretchicorn-playing.png`), fullPage: true });
   return { initial, playing, modes: [initialMode, playingMode] };
+}
+
+async function testUniRico(page, engineName) {
+  const response = await page.goto(`${baseUrl}/arcade/unirico`, { waitUntil: 'networkidle' });
+  if (!response?.ok()) throw new Error(`uniRico route returned ${response?.status() ?? 'no response'}`);
+
+  const iframe = page.locator('iframe[title="uniRico game runtime"]');
+  await iframe.waitFor({ state: 'visible' });
+  if ((await iframe.getAttribute('sandbox')) !== null) throw new Error('uniRico same-origin runtime should not be sandboxed');
+
+  const frame = page.frames().find((candidate) => candidate.url().includes('/game-runtimes/unirico/'));
+  if (!frame) throw new Error('uniRico iframe did not attach');
+
+  await frame.locator('#c').waitFor({ state: 'visible' });
+  await page.waitForTimeout(500);
+  const initial = await assertPainted(frame, 'uniRico title', 4, 8);
+  await assertGameFocus(page, iframe, 'uniRico');
+  await page.screenshot({ path: path.join(outputDir, `${engineName}-unirico.png`), fullPage: true });
+  return { initial };
 }
 
 for (const [engineName, browserType] of engines) {
@@ -147,9 +166,10 @@ for (const [engineName, browserType] of engines) {
 
     const mosslight = await testMosslight(page, engineName);
     const stretchicorn = await testStretchicorn(page, engineName);
+    const unirico = await testUniRico(page, engineName);
 
     if (errors.length) throw new Error(errors.join('\n'));
-    report.push({ engine: engineName, ok: true, mosslight, stretchicorn });
+    report.push({ engine: engineName, ok: true, mosslight, stretchicorn, unirico });
   } catch (error) {
     failed = true;
     report.push({
