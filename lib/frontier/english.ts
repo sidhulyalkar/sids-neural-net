@@ -1,13 +1,49 @@
 import type { FrontierItem } from './types';
 
 const NON_LATIN_SCRIPT = /[\p{Script=Cyrillic}\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}\p{Script=Arabic}\p{Script=Hebrew}\p{Script=Devanagari}\p{Script=Thai}]/gu;
+const ACCENTED_LATIN = /[à-ž]/giu;
 const TRANSLATE_TIMEOUT_MS = 2600;
+
+const FOREIGN_HINTS = new Set([
+  // Spanish / Portuguese / Italian
+  'para', 'pero', 'como', 'esta', 'este', 'estos', 'estas', 'una', 'uno', 'unos', 'unas', 'del', 'desde', 'sobre', 'nuevo', 'nueva',
+  'mais', 'com', 'uma', 'novo', 'nova', 'agora', 'della', 'delle', 'degli', 'nuovo', 'nuova', 'anche',
+  // French
+  'avec', 'dans', 'pour', 'une', 'des', 'les', 'est', 'sur', 'nouveau', 'nouvelle', 'mais', 'après', 'avant',
+  // German / Dutch
+  'und', 'der', 'die', 'das', 'mit', 'für', 'auf', 'ist', 'neue', 'neuer', 'neues', 'ein', 'eine',
+  'het', 'een', 'voor', 'van', 'nieuwe', 'met',
+  // Polish / Turkish
+  'jest', 'dla', 'oraz', 'nowy', 'nowa', 'przez', 'ile', 'bir', 'için', 'ile', 'yeni', 'olan',
+]);
+
+const ENGLISH_HINTS = new Set([
+  'the', 'a', 'an', 'and', 'or', 'to', 'of', 'for', 'with', 'from', 'in', 'on', 'is', 'are', 'new', 'now', 'after', 'before', 'this', 'that',
+]);
+
+function latinLanguageLooksForeign(text: string): boolean {
+  const tokens = text
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, ' ')
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+  if (tokens.length < 4) return false;
+
+  const foreign = tokens.reduce((count, token) => count + Number(FOREIGN_HINTS.has(token)), 0);
+  const english = tokens.reduce((count, token) => count + Number(ENGLISH_HINTS.has(token)), 0);
+  const accented = text.match(ACCENTED_LATIN)?.length ?? 0;
+  const punctuationHint = /[¿¡]/.test(text);
+
+  return foreign >= 2 && english === 0 || foreign >= 1 && (accented >= 2 || punctuationHint) && english <= 1;
+}
 
 export function needsEnglishTranslation(value: string): boolean {
   const text = value.trim();
   if (!text) return false;
   const matches = text.match(NON_LATIN_SCRIPT)?.length ?? 0;
-  return matches >= 2 && matches / Math.max(1, text.length) > 0.025;
+  if (matches >= 2 && matches / Math.max(1, text.length) > 0.025) return true;
+  return latinLanguageLooksForeign(text);
 }
 
 export function extractGoogleTranslation(payload: unknown): string | undefined {
