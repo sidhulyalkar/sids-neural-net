@@ -65,6 +65,23 @@ test('dwell, expansion, open, save, and positive feedback accumulate preference 
   assert.ok(behavioralAdjustment(signal, model, new Date('2026-08-22T19:30:00')) > 0);
 });
 
+test('ranking snapshot remains frozen while current-session behavior changes', () => {
+  const signal = item();
+  const firstVisit = new Date('2026-08-21T18:00:00');
+  let model = createInitialBehaviorModel();
+  model = applyBehaviorEvent(model, signal, { kind: 'impression' }, firstVisit);
+  model = applyBehaviorEvent(model, signal, { kind: 'open' }, firstVisit);
+  model = applyBehaviorEvent(model, signal, { kind: 'save' }, firstVisit);
+  model = startBehaviorSession(model, new Date('2026-08-22T18:00:00'));
+
+  const before = behavioralAdjustment(signal, model, new Date('2026-08-22T18:00:00'));
+  model = applyBehaviorEvent(model, signal, { kind: 'positive' }, new Date('2026-08-22T18:02:00'));
+  model = applyBehaviorEvent(model, signal, { kind: 'open' }, new Date('2026-08-22T18:03:00'));
+  const after = behavioralAdjustment(signal, model, new Date('2026-08-22T18:04:00'));
+
+  assert.equal(after, before);
+});
+
 test('mere exposure is weak evidence and does not immediately punish a topic', () => {
   const signal = item();
   let model = createInitialBehaviorModel();
@@ -81,6 +98,14 @@ test('implicit learning can be paused without changing accumulated behavior', ()
   const paused = { ...base, implicitLearning: false };
   const next = applyBehaviorEvent(paused, signal, { kind: 'open' }, new Date('2026-08-21T18:00:00'));
   assert.deepEqual(next, paused);
+});
+
+test('first session still counts if an earlier UI event touched last-active time', () => {
+  let model = createInitialBehaviorModel();
+  model = recordLayoutUse(model, 'desk');
+  model = startBehaviorSession(model, new Date());
+  assert.equal(model.sessions, 1);
+  assert.ok(model.sessionStartedAt);
 });
 
 test('session and layout behavior produce inspectable habit summaries', () => {
