@@ -72,7 +72,7 @@ The visible characters are copied into an `aria-hidden`, pointer-events-none fix
 - floor friction and angular damping
 - a complete opacity fade by 1.5 seconds
 
-There is no physics dependency. The integrator is a few scalar updates in `lib/frontier/waterfallPhysics.ts`.
+There is no physics dependency. The integrator is a few scalar updates in `lib/frontier/waterfallPhysics.ts`. Particle movement uses `transform: translate3d(...) rotate(...)` plus opacity only, so each frame stays on compositor-friendly properties and does not reflow the content feed.
 
 ### Lifecycle safety
 
