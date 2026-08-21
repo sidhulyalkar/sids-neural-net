@@ -2,7 +2,7 @@
 
 ## The premise
 
-Sprig carries a small portal gun whose core is powered by **Mossglint**, a mineral that forms only when a damaged ecological relationship is repaired.
+Sprid carries a small portal gun whose core is powered by **Mossglint**, a mineral that forms only when a damaged ecological relationship is repaired.
 
 Every Nature Atlas world is a sealed one-way arena. To leave it, the player must:
 
