@@ -75,32 +75,77 @@ await page.waitForTimeout(80);
 const moved = await page.evaluate(() => window.__MOSSLIGHT_PLAYTEST__.snapshot());
 if ((moved.player?.x ?? 0) - (start.player?.x ?? 0) < 18) failures.push('WASD movement smoke did not move Sprig far enough');
 
-// Mouse aim: point at the first relationship and require this input to add a new
-// cast and a new correct restoration action.
+async function generatedAimProbe() {
+  return page.evaluate(() => {
+    const snapshot = window.__MOSSLIGHT_PLAYTEST__.snapshot();
+    const room = window.MosslightContent.rooms[snapshot.roomIndex];
+    const player = snapshot.player;
+    const unfinished = room.targets.filter((target) => !target.done);
+    const target = unfinished.reduce((best, candidate) => {
+      const distance = Math.hypot(candidate.x - player.x, candidate.y - player.y);
+      return !best || distance < best.distance ? { ...candidate, distance } : best;
+    }, null);
+    return target ? { player, target } : null;
+  });
+}
+
+function arrowKeysForVector(dx, dy) {
+  const angle = Math.atan2(dy, dx);
+  const octant = Math.round(angle / (Math.PI / 4));
+  const normalized = ((octant % 8) + 8) % 8;
+  return [
+    ['ArrowRight'],
+    ['ArrowRight', 'ArrowDown'],
+    ['ArrowDown'],
+    ['ArrowLeft', 'ArrowDown'],
+    ['ArrowLeft'],
+    ['ArrowLeft', 'ArrowUp'],
+    ['ArrowUp'],
+    ['ArrowRight', 'ArrowUp'],
+  ][normalized];
+}
+
+// Mouse aim: point at the actual procedurally generated nearest relationship and
+// require this input to add both a new cast and a new correct restoration action.
 await page.evaluate(() => window.__MOSSLIGHT_PLAYTEST__.setRoom(0));
 await page.waitForTimeout(100);
 const beforeMouse = await page.evaluate(() => window.__MOSSLIGHT_PLAYTEST__.snapshot());
-await page.mouse.move(290, 210);
-await page.mouse.click(290, 210);
-await page.waitForTimeout(460);
+const mouseProbe = await generatedAimProbe();
+if (!mouseProbe) {
+  failures.push('could not resolve generated mouse-aim target');
+} else {
+  await page.mouse.move(mouseProbe.target.x, mouseProbe.target.y);
+  await page.mouse.click(mouseProbe.target.x, mouseProbe.target.y);
+  await page.waitForTimeout(760);
+}
 const mouseCast = await page.evaluate(() => window.__MOSSLIGHT_PLAYTEST__.snapshot());
 if (mouseCast.stats.casts <= beforeMouse.stats.casts) failures.push('pointer aim did not add a new cast');
 if (mouseCast.stats.correct <= beforeMouse.stats.correct) failures.push('pointer aim did not add a new correct restoration step');
 
-// Laptop keyboard aim: diagonal arrow aim + Space must independently add its own
-// cast and correct action, so a successful mouse path can never mask a keyboard bug.
+// Laptop keyboard aim: quantize the actual generated target vector to the nearest
+// 8-way arrow direction, hold those arrows, and cast with Space. This proves the
+// keyboard scheme stays useful even after Atlas geometry perturbs target positions.
 await page.evaluate(() => window.__MOSSLIGHT_PLAYTEST__.setRoom(0));
 await page.waitForTimeout(100);
+await page.locator('#c').focus();
 const beforeKeyboard = await page.evaluate(() => window.__MOSSLIGHT_PLAYTEST__.snapshot());
-await page.keyboard.down('ArrowRight');
-await page.keyboard.down('ArrowUp');
-await page.keyboard.press('Space');
-await page.keyboard.up('ArrowUp');
-await page.keyboard.up('ArrowRight');
-await page.waitForTimeout(520);
+const keyboardProbe = await generatedAimProbe();
+let keyboardKeys = [];
+if (!keyboardProbe) {
+  failures.push('could not resolve generated keyboard-aim target');
+} else {
+  keyboardKeys = arrowKeysForVector(
+    keyboardProbe.target.x - keyboardProbe.player.x,
+    keyboardProbe.target.y - keyboardProbe.player.y
+  );
+  for (const key of keyboardKeys) await page.keyboard.down(key);
+  await page.keyboard.press('Space');
+  for (const key of [...keyboardKeys].reverse()) await page.keyboard.up(key);
+  await page.waitForTimeout(800);
+}
 const keyboardCast = await page.evaluate(() => window.__MOSSLIGHT_PLAYTEST__.snapshot());
 if (keyboardCast.stats.casts <= beforeKeyboard.stats.casts) failures.push('arrow-key + Space aim did not add a new cast');
-if (keyboardCast.stats.correct <= beforeKeyboard.stats.correct) failures.push('arrow-key aim did not add a new correct restoration step');
+if (keyboardCast.stats.correct <= beforeKeyboard.stats.correct) failures.push(`8-way arrow aim (${keyboardKeys.join(' + ')}) did not add a new correct restoration step`);
 
 const expectedInitialTools = ['rain', 'rain', 'mend', 'rain', 'wind', 'rain', 'rain', 'sun', 'rain', 'wind'];
 const rooms = [];
@@ -152,13 +197,15 @@ const report = {
     movedX: moved.player?.x,
     deltaX: (moved.player?.x ?? 0) - (start.player?.x ?? 0),
     mouse: {
+      target: mouseProbe?.target ? { x: mouseProbe.target.x, y: mouseProbe.target.y, label: mouseProbe.target.label } : null,
       castsAdded: mouseCast.stats.casts - beforeMouse.stats.casts,
       correctActionsAdded: mouseCast.stats.correct - beforeMouse.stats.correct,
     },
     keyboard: {
+      target: keyboardProbe?.target ? { x: keyboardProbe.target.x, y: keyboardProbe.target.y, label: keyboardProbe.target.label } : null,
+      keys: keyboardKeys,
       castsAdded: keyboardCast.stats.casts - beforeKeyboard.stats.casts,
       correctActionsAdded: keyboardCast.stats.correct - beforeKeyboard.stats.correct,
-      input: 'ArrowUp + ArrowRight + Space',
     },
   },
   rooms,
@@ -176,4 +223,4 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log(`Mosslight browser playtest PASS: 1,000-scene Atlas feed, disjoint repeat expeditions, ${rooms.length} unique rooms, independent mouse + arrow-key aim, movement, correct-cast smoke, ${finalSnapshot.fps.toFixed(1)} FPS.`);
+console.log(`Mosslight browser playtest PASS: 1,000-scene Atlas feed, disjoint repeat expeditions, ${rooms.length} unique rooms, generated-target mouse + 8-way arrow aim, movement, correct-cast smoke, ${finalSnapshot.fps.toFixed(1)} FPS.`);
