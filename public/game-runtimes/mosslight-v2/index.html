@@ -16,7 +16,7 @@
       <div id="roomCard" class="glass">
         <div id="roomKicker">room 001 · countercut expedition</div>
         <div id="roomTitle">Trailhead Trespass</div>
-        <div id="roomTask">WASD step-dashes. Arrow keys cut. Save the trees.</div>
+        <div id="roomTask">Tap WASD to step-dash. Arrow keys cut. Save the trees.</div>
         <div id="biomeBadge">learn the step-dash</div>
       </div>
       <div id="stats" class="runStats">
@@ -30,6 +30,7 @@
       <div><b>flow</b><span id="flowState">0%</span></div>
       <div><b>step dash</b><span id="dashState">48px</span></div>
       <div><b>counters</b><span id="counterState">0</span></div>
+      <div><b>grazes</b><span id="grazeState">0</span></div>
       <div id="bossWrap" hidden><b>PAC-a-Saw</b><span id="bossState"></span></div>
     </div>
     <div id="toast" class="glass"></div>
@@ -39,12 +40,12 @@
     <div class="panel menuPanel">
       <div class="eyebrow">forest counter-combat · thousands of seeded scenarios</div>
       <h1><em class="sylvariaWord">Sylvaria</em><br/>Countercut</h1>
-      <p class="lede narrow">Sprid is a machete-wielding forest runner dropped into clear-cut operations that get stranger, faster, and more coordinated every room. Protect living trees, chop deadwood to open lanes, read enemy telegraphs, and turn hostile projectiles back with four directional cuts.</p>
+      <p class="lede narrow">Sprid is a machete-wielding forest runner dropped into clear-cut operations that get stranger, faster, and more coordinated every room. Protect living trees, chop deadwood to physically open dash lanes, read locked enemy intentions, and turn hostile projectiles back with four directional cuts.</p>
       <div class="combatRule">
-        <div><b>W A S D</b><span>cardinal step-dashes, never floaty drift</span></div>
-        <div><b>Arrow Keys</b><span>up / down / left / right machete cuts</span></div>
-        <div><b>Counter</b><span>cut toward an incoming projectile</span></div>
-        <div><b>Advance</b><span>dash length grows and becomes a risk</span></div>
+        <div><b>W A S D</b><span>bufferable cardinal step-dashes, never floaty drift</span></div>
+        <div><b>Arrow Keys</b><span>independent up / down / left / right machete cuts</span></div>
+        <div><b>Counter + Graze</b><span>return bullets or skim danger to build Flow</span></div>
+        <div><b>Advance</b><span>dash length grows, heartwood persists, positioning gets harder</span></div>
       </div>
       <div class="menuActions">
         <button id="start" class="primary wide">start countercut run</button>
@@ -52,7 +53,7 @@
         <div class="menuGrid"><button id="howBtn" class="ghost">how combat works</button><button id="controlsBtn" class="ghost">controls</button></div>
       </div>
       <div id="bestRun" class="bestRun">best · no run yet</div>
-      <p class="microcopy">The first ten rooms are authored as a combat curriculum. Deeper rooms recombine the same rules into deterministic seeded scenarios.</p>
+      <p class="microcopy">The first ten rooms are authored as a combat curriculum. Deeper rooms recombine the same grammar deterministically. Every tenth deep room grows another PAC-a-Saw problem.</p>
     </div>
   </div>
 
@@ -60,12 +61,14 @@
     <div class="panel subPanel">
       <div class="eyebrow">countercut grammar</div><h2>Movement is a commitment. Cutting is independent.</h2>
       <div class="howGrid">
-        <div><b>01 · step-dash</b><p>Tap WASD for a short cardinal burst. Hold a direction to repeat bursts at a controlled cadence. There is no continuous drift.</p></div>
-        <div><b>02 · cut</b><p>Arrow keys swing the machete in four cardinal directions. A cut can damage enemies, chop deadwood, or catch a projectile.</p></div>
-        <div><b>03 · counter</b><p>Cut toward the side a projectile reaches you from. Early contact is a perfect counter and sends a stronger shot back.</p></div>
-        <div><b>04 · overlap</b><p>You can cut while step-dashing. The movement direction and attack direction do not need to match.</p></div>
-        <div><b>05 · protect</b><p>Some enemies prefer living trees over Sprid. If the grove is fully clear-cut, the run ends.</p></div>
-        <div><b>06 · grow</b><p>Dash distance increases through the run. Longer steps cross danger faster but punish careless positioning and overcommitment.</p></div>
+        <div><b>01 · step-dash</b><p>Tap WASD for a short cardinal burst. Hold to repeat game-timed bursts. A fast second tap is buffered so chained movement stays responsive even during the current step.</p></div>
+        <div><b>02 · cut</b><p>Arrow keys swing the machete in four cardinal directions. Cuts travel with Sprid during a dash, so movement and attack vectors can disagree.</p></div>
+        <div><b>03 · counter</b><p>Cut toward the side a projectile reaches you from. Early contact creates a stronger white perfect counter. Nearby arrows teach the arrival side.</p></div>
+        <div><b>04 · route</b><p>Living trees and deadwood now block step-dashes. Chop deadwood to manufacture lanes before an enemy pattern makes that route urgent.</p></div>
+        <div><b>05 · read</b><p>Attack telegraphs lock their target before release. When a line appears, the enemy has committed. Move, counter, or exploit the recovery window.</p></div>
+        <div><b>06 · protect</b><p>Heartwood persists between rooms. Save every tree in a room to recover one heartwood. Lose the full grove and the run ends.</p></div>
+        <div><b>07 · flow</b><p>Perfect counters, kills, and close dash-grazes build Flow. Flow shortens cut recovery and held-step cadence without changing your learned dash distance.</p></div>
+        <div><b>08 · grow</b><p>Dash distance increases through the run. Longer steps cross danger faster but make fine positioning and obstacle routing more demanding.</p></div>
       </div>
       <div class="actions"><button class="secondary" data-back>back</button></div>
     </div>
@@ -73,15 +76,15 @@
 
   <div id="controlsScreen" class="screen hidden">
     <div class="panel subPanel controlsPanel">
-      <div class="eyebrow">controls</div><h2>Eight keys. Deep timing.</h2>
+      <div class="eyebrow">controls</div><h2>Eight combat keys. One optional mute.</h2>
       <div class="bindingGrid">
         <div><span>step-dash north</span><b>W</b></div><div><span>up chop / counter</span><b>↑</b></div>
         <div><span>step-dash south</span><b>S</b></div><div><span>down chop / counter</span><b>↓</b></div>
         <div><span>step-dash west</span><b>A</b></div><div><span>left chop / counter</span><b>←</b></div>
         <div><span>step-dash east</span><b>D</b></div><div><span>right chop / counter</span><b>→</b></div>
-        <div><span>pause</span><b>P</b></div><div><span>menu start</span><b>Enter</b></div>
+        <div><span>pause / resume</span><b>P</b></div><div><span>mute SFX</span><b>M</b></div>
       </div>
-      <p class="microcopy">Held WASD repeats discrete dashes. The game intentionally avoids analog acceleration so movement stays crisp under variable browser frame timing.</p>
+      <p class="microcopy">OS key-repeat is ignored. Sylvaria owns both held-step cadence and cut timing so the same input feels consistent across Chrome, Firefox, Safari/WebKit, and different keyboards.</p>
       <div class="actions"><button class="secondary" data-back>back</button></div>
     </div>
   </div>
@@ -92,7 +95,7 @@
 <script src="/game-runtimes/game-network-bridge.js"></script>
 <script src="./render-scale-v7.js"></script>
 <script src="./render-optimizer-v6.js"></script>
-<script src="./game-v8.js"></script>
+<script src="./game-v81.js"></script>
 <script src="./visual-system-v8.js"></script>
 </body>
 </html>
