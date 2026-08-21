@@ -1,11 +1,11 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { FormEvent } from 'react';
 import { Download, RefreshCw, RotateCcw, Search, Upload, X } from 'lucide-react';
 import {
   FRONTIER_LANES,
   FRONTIER_LANE_MAP,
-  FRONTIER_REALMS,
   laneMatchesRealm,
 } from '@/lib/frontier/config';
 import { buildDiscoveryFocus, encodeDiscoveryFocus } from '@/lib/frontier/discoveryFocus';
@@ -34,24 +34,18 @@ import type {
   FrontierView,
 } from '@/lib/frontier/types';
 import { FrontierAccount } from './FrontierAccount';
+import { FrontierUtilityDock } from './FrontierUtilityDock';
 import { InterestConstellation } from './InterestConstellation';
 import { PreferenceLens } from './PreferenceLens';
 import { SignalBoard } from './SignalBoard';
 import type { SignalLayoutMode } from './SignalBoard';
 import { SignalCard } from './SignalCard';
+import { useWaterfallText } from './useWaterfallText';
 import styles from './frontier-experience.module.css';
 
 const LIVE_REFRESH_MS = 4 * 60_000;
 const FEED_CACHE_KEY = 'frontier-live-feed-cache-v1';
 const FEED_CACHE_MAX_AGE_MS = 36 * 60 * 60_000;
-
-const VIEWS: Array<{ id: FrontierView; label: string }> = [
-  { id: 'today', label: 'Today' },
-  { id: 'explore', label: 'Explore' },
-  { id: 'saved', label: 'Saved' },
-  { id: 'history', label: 'Seen' },
-  { id: 'map', label: 'Radar' },
-];
 
 type FormatFilter = 'all' | 'papers' | 'code' | 'projects' | 'video' | 'threads' | 'sports' | 'games' | 'music';
 
@@ -124,13 +118,17 @@ export function FrontierExperience({ initialDateLabel, initialDayKey }: Props) {
   const [realm, setRealm] = useState<FrontierRealm>('all');
   const [laneFilter, setLaneFilter] = useState<'all' | FrontierLaneId>('all');
   const [formatFilter, setFormatFilter] = useState<FormatFilter>('all');
+  const [layoutMode, setLayoutMode] = useState<SignalLayoutMode>('desk');
   const [searchDraft, setSearchDraft] = useState('');
   const [activeSearch, setActiveSearch] = useState('');
   const [collectionFilter, setCollectionFilter] = useState('inbox');
   const [newCollection, setNewCollection] = useState('');
   const fileInput = useRef<HTMLInputElement | null>(null);
   const searchInput = useRef<HTMLInputElement | null>(null);
+  const utilityDockRef = useRef<HTMLDivElement | null>(null);
   const requestRef = useRef<AbortController | null>(null);
+  const recordLayout = store.recordLayout;
+  const { launchWaterfall, waterfallActive } = useWaterfallText(searchInput, { collisionRef: utilityDockRef });
 
   const adaptiveFocus = useMemo(
     () => buildDiscoveryFocus(store.profile, store.behavior, 7),
@@ -153,6 +151,17 @@ export function FrontierExperience({ initialDateLabel, initialDayKey }: Props) {
       ...learned,
     ])).slice(0, 28);
   }, [store.profile.topicAffinity]);
+
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(() => {
+      const saved = window.localStorage.getItem('frontier-layout-mode');
+      const preferred: SignalLayoutMode = saved === 'feed' || saved === 'desk' ? saved : 'desk';
+      const resolved: SignalLayoutMode = window.innerWidth < 720 ? 'feed' : preferred;
+      setLayoutMode(resolved);
+      recordLayout(resolved);
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [recordLayout]);
 
   useEffect(() => {
     try {
@@ -290,6 +299,11 @@ export function FrontierExperience({ initialDateLabel, initialDayKey }: Props) {
     ? activeCollection.itemIds.flatMap((id) => store.saved[id] ? [store.saved[id]] : [])
     : savedItems;
   const visibleLanes = FRONTIER_LANES.filter((lane) => laneMatchesRealm(lane.id, realm));
+  const categoryOptions = useMemo(() => [
+    { value: 'all', label: 'All categories' },
+    ...visibleLanes.map((lane) => ({ value: lane.id, label: lane.shortLabel })),
+  ], [visibleLanes]);
+  const formatOptions = useMemo(() => FORMAT_FILTERS.map((filter) => ({ value: filter.id, label: filter.label })), []);
   const exploreItems = useMemo(() => {
     const filtered = realmRanked.filter((item) => {
       if (laneFilter !== 'all' && item.lane !== laneFilter) return false;
@@ -309,14 +323,12 @@ export function FrontierExperience({ initialDateLabel, initialDayKey }: Props) {
   const recordOpen = store.recordOpen;
   const toggleSave = store.toggleSave;
   const react = store.react;
-  const recordLayout = store.recordLayout;
   const seenCallback = useCallback((item: FrontierItem, resurfaced?: boolean) => markSeen(item, resurfaced), [markSeen]);
   const dwellCallback = useCallback((item: FrontierItem, dwellMs: number) => recordDwell(item, dwellMs), [recordDwell]);
   const expandCallback = useCallback((item: FrontierItem) => recordExpand(item), [recordExpand]);
   const openCallback = useCallback((item: FrontierItem) => recordOpen(item), [recordOpen]);
   const saveCallback = useCallback((item: FrontierItem) => toggleSave(item), [toggleSave]);
   const reactCallback = useCallback((item: FrontierItem, reaction: FrontierReaction) => react(item, reaction), [react]);
-  const layoutCallback = useCallback((layout: SignalLayoutMode) => recordLayout(layout), [recordLayout]);
 
   const renderCard = useCallback((item: FrontierItem, presentation: SignalLayoutMode | 'library' = 'library') => (
     <SignalCard
@@ -335,23 +347,52 @@ export function FrontierExperience({ initialDateLabel, initialDayKey }: Props) {
     />
   ), [dwellCallback, expandCallback, openCallback, reactCallback, saveCallback, seenCallback, store.behavior, store.history, store.profile, store.saved]);
 
-  const submitSearch = useCallback((event?: React.FormEvent) => {
+  const submitSearch = useCallback((event?: FormEvent) => {
     event?.preventDefault();
     const next = normalizeTopicSearch(searchDraft);
-    setSearchDraft(next);
+    if (!next) return;
+
+    // Capture the real input geometry before React clears it. The animation nodes
+    // then become the visible text while the search immediately transitions to Explore.
+    launchWaterfall(searchDraft);
+    setSearchDraft('');
     setActiveSearch(next);
-    if (next) {
-      setView('explore');
-      setLaneFilter('all');
-      setFormatFilter('all');
-    }
-  }, [searchDraft]);
+    setView('explore');
+    setLaneFilter('all');
+    setFormatFilter('all');
+  }, [launchWaterfall, searchDraft]);
 
   const clearSearch = useCallback(() => {
     setSearchDraft('');
     setActiveSearch('');
     searchInput.current?.focus();
   }, []);
+
+  const changeView = useCallback((next: FrontierView) => {
+    setView(next);
+    if (next === 'today') {
+      setSearchDraft('');
+      setActiveSearch('');
+      setLaneFilter('all');
+      setFormatFilter('all');
+    }
+  }, []);
+
+  const changeLayout = useCallback((next: SignalLayoutMode) => {
+    setLayoutMode(next);
+    window.localStorage.setItem('frontier-layout-mode', next);
+    recordLayout(next);
+  }, [recordLayout]);
+
+  const changeCategory = useCallback((value: string) => {
+    setLaneFilter(value as 'all' | FrontierLaneId);
+    if (view === 'today' && value !== 'all') setView('explore');
+  }, [view]);
+
+  const changeFormat = useCallback((value: string) => {
+    setFormatFilter(value as FormatFilter);
+    if (view === 'today' && value !== 'all') setView('explore');
+  }, [view]);
 
   const downloadBackup = useCallback(() => {
     const blob = new Blob([JSON.stringify(frontierBackup(store), null, 2)], { type: 'application/json' });
@@ -399,6 +440,7 @@ export function FrontierExperience({ initialDateLabel, initialDayKey }: Props) {
             <Search size={15} aria-hidden="true" />
             <input
               ref={searchInput}
+              className={waterfallActive ? styles.searchInputWaterfall : undefined}
               value={searchDraft}
               onChange={(event) => setSearchDraft(event.target.value)}
               onKeyDown={(event) => {
@@ -431,34 +473,12 @@ export function FrontierExperience({ initialDateLabel, initialDayKey }: Props) {
           </div>
         </header>
 
-        <div className={styles.controlDock}>
-          <nav className={styles.nav} aria-label="FRONTIER views">
-            {VIEWS.map((option) => (
-              <button type="button" key={option.id} className={`${styles.navButton} ${view === option.id ? styles.activeNav : ''}`} onClick={() => setView(option.id)}>
-                {option.label}
-              </button>
-            ))}
-          </nav>
-          <div className={styles.realmSwitch} aria-label="FRONTIER perspective">
-            {FRONTIER_REALMS.map((option) => (
-              <button
-                type="button"
-                key={option.id}
-                className={`${styles.filterButton} ${realm === option.id ? styles.filterActive : ''}`}
-                onClick={() => setRealmFilter(option.id)}
-              >
-                {option.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
         {view === 'today' ? (
           <main className={styles.signalStage}>
             <SignalBoard
               items={dailyRun}
+              mode={layoutMode}
               renderCard={(item, mode) => renderCard(item, mode)}
-              onLayoutChange={layoutCallback}
               empty={loading ? <LoadingBoard /> : <div className={styles.empty}>Nothing new yet.</div>}
             />
           </main>
@@ -466,27 +486,10 @@ export function FrontierExperience({ initialDateLabel, initialDayKey }: Props) {
 
         {view === 'explore' ? (
           <section className={styles.signalStage}>
-            <div className={styles.exploreBar}>
-              {activeSearch ? (
-                <div className={styles.searchContext}>
-                  <span className={styles.searchQuery}>“{activeSearch}”</span>
-                  <span>{exploreItems.length} match{exploreItems.length === 1 ? '' : 'es'}</span>
-                </div>
-              ) : <span className={styles.exploreLabel}>Browse</span>}
-              <div className={styles.exploreFilters}>
-                <select value={laneFilter} onChange={(event) => setLaneFilter(event.target.value as 'all' | FrontierLaneId)} aria-label="Category">
-                  <option value="all">All categories</option>
-                  {visibleLanes.map((lane) => <option key={lane.id} value={lane.id}>{lane.shortLabel}</option>)}
-                </select>
-                <select value={formatFilter} onChange={(event) => setFormatFilter(event.target.value as FormatFilter)} aria-label="Format">
-                  {FORMAT_FILTERS.map((filter) => <option key={filter.id} value={filter.id}>{filter.label}</option>)}
-                </select>
-              </div>
-            </div>
             <SignalBoard
               items={exploreItems.slice(0, 48)}
+              mode={layoutMode}
               renderCard={(item, mode) => renderCard(item, mode)}
-              onLayoutChange={layoutCallback}
               compact
               empty={loading ? <LoadingBoard /> : <div className={styles.empty}>{activeSearch ? 'No match. Try a wider phrase.' : 'No signals in this slice.'}</div>}
             />
@@ -537,8 +540,8 @@ export function FrontierExperience({ initialDateLabel, initialDayKey }: Props) {
                 ) : null}
                 <SignalBoard
                   items={activeCollectionItems}
+                  mode={layoutMode}
                   renderCard={(item, mode) => renderCard(item, mode)}
-                  onLayoutChange={layoutCallback}
                   compact
                   empty={<div className={styles.empty}>{savedItems.length ? 'Empty group.' : 'Nothing saved yet.'}</div>}
                 />
@@ -602,6 +605,24 @@ export function FrontierExperience({ initialDateLabel, initialDayKey }: Props) {
           </details>
         </footer>
       </div>
+
+      <FrontierUtilityDock
+        ref={utilityDockRef}
+        view={view}
+        realm={realm}
+        layoutMode={layoutMode}
+        category={laneFilter}
+        format={formatFilter}
+        categoryOptions={categoryOptions}
+        formatOptions={formatOptions}
+        activeSearch={activeSearch}
+        onViewChange={changeView}
+        onRealmChange={setRealmFilter}
+        onLayoutChange={changeLayout}
+        onCategoryChange={changeCategory}
+        onFormatChange={changeFormat}
+        onClearSearch={clearSearch}
+      />
     </div>
   );
 }
