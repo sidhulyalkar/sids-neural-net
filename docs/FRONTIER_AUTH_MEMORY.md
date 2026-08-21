@@ -13,6 +13,8 @@ No auth/database npm dependency is required. The implementation uses Next route 
 
 ## Deployment configuration
 
+The repository implementation is complete, but authenticated production mode cannot activate until the deployment has a Google OAuth client, a durable auth secret, and private Redis credentials. Without them the same build intentionally stays in local-memory mode.
+
 ### Google Cloud
 
 Create a Google OAuth **Web application**, enable the YouTube Data API v3 for the project, configure the OAuth consent screen, and register this production callback:
