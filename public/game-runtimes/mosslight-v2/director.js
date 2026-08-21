@@ -58,6 +58,59 @@
   const MOVEMENT_PATTERNS = ['patrol', 'weave', 'orbit', 'swoop', 'stalk', 'dash', 'spiral'];
   const ANIMAL_PATTERNS = ['prowl', 'swoop', 'graze', 'hop', 'flee', 'orbit'];
 
+  const SITUATIONS = {
+    'tidal-lanes': {
+      id: 'tidal-lanes',
+      name: 'tidal lanes',
+      hint: 'Currents sweep in readable bands. Cross after a lane passes.',
+    },
+    'living-corridor': {
+      id: 'living-corridor',
+      name: 'living corridor',
+      hint: 'Roots and wildlife reshape the safe route. Keep an exit lane in mind.',
+    },
+    'heat-crossing': {
+      id: 'heat-crossing',
+      name: 'heat crossing',
+      hint: 'Heat fronts open and close crossing windows. Dash through the cool gap.',
+    },
+    'alpine-switchback': {
+      id: 'alpine-switchback',
+      name: 'alpine switchback',
+      hint: 'Cold fronts weave across narrow routes. Change lanes before they meet.',
+    },
+    'orbital-dance': {
+      id: 'orbital-dance',
+      name: 'orbital dance',
+      hint: 'Orbiting bodies create rotating gaps. Move with the gap instead of against it.',
+    },
+    'weather-window': {
+      id: 'weather-window',
+      name: 'weather window',
+      hint: 'Weather sweeps the arena in pulses. Restore during the quiet beat.',
+    },
+    'migration-path': {
+      id: 'migration-path',
+      name: 'migration path',
+      hint: 'Wildlife crosses the room in patterns. Read the route, then move.',
+    },
+    'earthheart-convergence': {
+      id: 'earthheart-convergence',
+      name: 'Earthheart convergence',
+      hint: 'Read several moving lanes at once. Restore in the openings.',
+    },
+  };
+
+  const NOVELTY_ROTATION = [
+    'migration-path',
+    'weather-window',
+    'living-corridor',
+    'tidal-lanes',
+    'orbital-dance',
+    'alpine-switchback',
+    'heat-crossing',
+  ];
+
   const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 
   function rngFrom(seed) {
@@ -79,31 +132,63 @@
     return new Set(room.atlas?.scene?.renderCues || []);
   }
 
-  function situationFor(room, slot) {
+  function naturalSituationFor(room, slot) {
     const terrain = room.atlas?.terrain || room.decor;
     const atmosphere = room.atlas?.scene?.atmosphere || 'calm';
     const cues = cueSet(room);
 
-    if (slot === 9) return { id: 'earthheart-convergence', name: 'Earthheart convergence', hint: 'Read several moving lanes at once. Restore in the openings.' };
+    if (slot === 9) return SITUATIONS['earthheart-convergence'];
     if (['reef', 'shore', 'wetland', 'river', 'lake'].includes(terrain) || cues.has('coral') || cues.has('water')) {
-      return { id: 'tidal-lanes', name: 'tidal lanes', hint: 'Currents sweep in readable bands. Cross after a lane passes.' };
+      return SITUATIONS['tidal-lanes'];
     }
     if (['forest', 'garden', 'meadow', 'field'].includes(terrain) || cues.has('tree') || cues.has('roots')) {
-      return { id: 'living-corridor', name: 'living corridor', hint: 'Roots and wildlife reshape the safe route. Keep an exit lane in mind.' };
+      return SITUATIONS['living-corridor'];
     }
     if (['desert', 'canyon', 'volcanic'].includes(terrain) || atmosphere === 'sunset') {
-      return { id: 'heat-crossing', name: 'heat crossing', hint: 'Heat fronts open and close crossing windows. Dash through the cool gap.' };
+      return SITUATIONS['heat-crossing'];
     }
     if (['ice', 'snow', 'mountain'].includes(terrain) || cues.has('ice') || cues.has('snow')) {
-      return { id: 'alpine-switchback', name: 'alpine switchback', hint: 'Cold fronts weave across narrow routes. Change lanes before they meet.' };
+      return SITUATIONS['alpine-switchback'];
     }
     if (room.atlas?.collection === 'celestial' || cues.has('stars') || cues.has('meteor') || cues.has('aurora')) {
-      return { id: 'orbital-dance', name: 'orbital dance', hint: 'Orbiting bodies create rotating gaps. Move with the gap instead of against it.' };
+      return SITUATIONS['orbital-dance'];
     }
     if (['storm', 'rain', 'wind'].includes(atmosphere)) {
-      return { id: 'weather-window', name: 'weather window', hint: 'Weather sweeps the arena in pulses. Restore during the quiet beat.' };
+      return SITUATIONS['weather-window'];
     }
-    return { id: 'migration-path', name: 'migration path', hint: 'Wildlife crosses the room in patterns. Read the route, then move.' };
+    return SITUATIONS['migration-path'];
+  }
+
+  function variedSituationFor(room, slot, usage) {
+    const natural = naturalSituationFor(room, slot);
+    if (slot === 9) return { ...natural, atlasSituation: natural.id, remixed: false };
+
+    const naturalUses = usage.get(natural.id) || 0;
+    if (naturalUses < 2) {
+      usage.set(natural.id, naturalUses + 1);
+      return { ...natural, atlasSituation: natural.id, remixed: false };
+    }
+
+    const offset = (sceneSeed(room, slot) + slot * 3) % NOVELTY_ROTATION.length;
+    let chosen = natural.id;
+    for (let step = 0; step < NOVELTY_ROTATION.length; step += 1) {
+      const candidate = NOVELTY_ROTATION[(offset + step) % NOVELTY_ROTATION.length];
+      if ((usage.get(candidate) || 0) < 2) {
+        chosen = candidate;
+        break;
+      }
+    }
+
+    usage.set(chosen, (usage.get(chosen) || 0) + 1);
+    const selected = SITUATIONS[chosen];
+    return {
+      ...selected,
+      atlasSituation: natural.id,
+      remixed: chosen !== natural.id,
+      hint: chosen === natural.id
+        ? selected.hint
+        : `${selected.hint} This is a ${natural.name} world remixed into a new movement problem.`,
+    };
   }
 
   function speciesFor(room, index) {
@@ -116,7 +201,7 @@
     return ['fox', 'owl', 'deer', 'moth'][index % 4];
   }
 
-  function encounterPatternFor(room, index, slot) {
+  function preferredEncounterPattern(room, index, slot) {
     const species = String(speciesFor(room, index)).toLowerCase();
     if (/owl|hawk|eagle|bird|moth|butterfly|bat/.test(species)) return slot >= 5 ? 'swoop' : 'weave';
     if (/deer|goat|antelope|horse/.test(species)) return slot >= 6 ? 'dash' : 'patrol';
@@ -124,6 +209,15 @@
     if (/ray|fish|turtle|dolphin|whale/.test(species)) return slot >= 6 ? 'orbit' : 'weave';
     if (/marmot|hare|rabbit/.test(species)) return slot >= 5 ? 'dash' : 'patrol';
     return MOVEMENT_PATTERNS[(sceneSeed(room, slot) + index * 3) % MOVEMENT_PATTERNS.length];
+  }
+
+  function encounterPatternFor(room, index, slot, usedPatterns) {
+    const preferred = preferredEncounterPattern(room, index, slot);
+    if (!usedPatterns.has(preferred)) return preferred;
+
+    const alternatives = MOVEMENT_PATTERNS.filter((pattern) => !usedPatterns.has(pattern));
+    if (!alternatives.length) return preferred;
+    return alternatives[(sceneSeed(room, slot) + index * 5) % alternatives.length];
   }
 
   function animalPatternFor(target, room, index) {
@@ -136,8 +230,9 @@
     return ANIMAL_PATTERNS[(sceneSeed(room, index) + index) % ANIMAL_PATTERNS.length];
   }
 
-  function makeEncounter(room, slot, index, rng, level) {
-    const pattern = encounterPatternFor(room, index, slot);
+  function makeEncounter(room, slot, index, rng, level, usedPatterns) {
+    const pattern = encounterPatternFor(room, index, slot, usedPatterns);
+    usedPatterns.add(pattern);
     const species = speciesFor(room, index);
     const speed = 54 + level * 6 + rng() * 22;
     const edge = index % 4;
@@ -182,7 +277,6 @@
   }
 
   function powerupFor(room, slot, rng) {
-    // Room 1 stays pure tutorial. Every later room contains one world gift.
     if (slot === 0) return null;
     const sceneOffset = (room.atlas?.seed || 0) % POWERUPS.length;
     const powerup = POWERUPS[(sceneOffset + slot * 2) % POWERUPS.length];
@@ -195,12 +289,12 @@
     };
   }
 
-  function enrichRoom(room, slot) {
-    if (room.directorVersion === 1) return room;
+  function enrichRoom(room, slot, situationUsage) {
+    if (room.directorVersion === 2) return room;
     const rng = rngFrom(sceneSeed(room, slot));
     const level = slot + 1;
     const pressure = clamp((level - 1) / 9, 0, 1);
-    const situation = situationFor(room, slot);
+    const situation = variedSituationFor(room, slot, situationUsage);
     const encounterCount = slot < 2 ? 0 : Math.min(5, 1 + Math.floor((slot - 1) / 2));
 
     room.challenge = {
@@ -209,6 +303,8 @@
       speedScale: 0.78 + pressure * 0.66,
       encounterCount,
       situation,
+      atlasSituation: situation.atlasSituation,
+      remixedForNovelty: situation.remixed,
       rewardLabel: slot === 0 ? 'learn the restoration loop' : 'find the world gift while you restore',
     };
 
@@ -226,8 +322,6 @@
       obstacle.motion = motionForObstacle(room, slot, index, rng);
     });
 
-    // Existing environmental fronts remain, but the Director gives each one a
-    // motion grammar instead of leaving everything as edge-bouncing circles.
     room.hazards.forEach((hazard, index) => {
       hazard.baseX = hazard.x;
       hazard.baseY = hazard.y;
@@ -237,16 +331,21 @@
       hazard.speedScale = 0.85 + pressure * 0.7;
     });
 
-    room.encounters = Array.from({ length: encounterCount }, (_, index) => makeEncounter(room, slot, index, rng, level));
+    const usedPatterns = new Set();
+    room.encounters = Array.from(
+      { length: encounterCount },
+      (_, index) => makeEncounter(room, slot, index, rng, level, usedPatterns),
+    );
     room.powerup = powerupFor(room, slot, rng);
-    room.directorVersion = 1;
+    room.directorVersion = 2;
     room.teaching = `${room.teaching} ${situation.hint}`;
     room.mechanic = `${room.mechanic} · threat ${level}/10`;
     return room;
   }
 
   function enrichRooms() {
-    content.rooms.forEach((room, slot) => enrichRoom(room, slot));
+    const situationUsage = new Map();
+    content.rooms.forEach((room, slot) => enrichRoom(room, slot, situationUsage));
     return content.rooms;
   }
 
@@ -262,22 +361,22 @@
     };
   }
 
-  // expedition.js registered these handlers before this script, so on click the
-  // freshly generated Atlas rooms exist by the time this enrichment runs. game-v3
-  // registers its restart handler afterwards and therefore sees enriched rooms.
   for (const id of ['again', 'flowAgain']) {
     document.getElementById(id)?.addEventListener('click', enrichRooms);
   }
 
   window.MosslightDirector = {
-    schemaVersion: 1,
+    schemaVersion: 2,
     powerups: POWERUPS,
     movementPatterns: MOVEMENT_PATTERNS,
+    situations: Object.values(SITUATIONS).map((situation) => situation.id),
     refresh: enrichRooms,
     summary: () => content.rooms.map((room) => ({
       id: room.id,
       level: room.challenge?.level,
       situation: room.challenge?.situation?.id,
+      atlasSituation: room.challenge?.atlasSituation,
+      remixedForNovelty: Boolean(room.challenge?.remixedForNovelty),
       encounterPatterns: room.encounters?.map((encounter) => encounter.pattern) || [],
       animalPatterns: room.targets.filter((target) => target.kind === 'animal').map((target) => target.movementPattern),
       movingObstacles: room.obstacles.filter((obstacle) => obstacle.motion).length,
