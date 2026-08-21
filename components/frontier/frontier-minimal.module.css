@@ -506,6 +506,51 @@
 .historyTitle { color: #bdceca; font-size: 12px; }
 .historyMeta { margin-top: 3px; color: #536a65; font-size: 8px; }
 
+.learningLens {
+  padding: 18px;
+  border: 1px solid rgba(184,226,217,0.09);
+  border-radius: 14px;
+  background: rgba(4,10,13,0.7);
+}
+.learningHead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+}
+.learningHead .micro { display: inline-flex; align-items: center; gap: 6px; }
+.learningHead h2 { margin-top: 7px; font-size: clamp(20px, 2.1vw, 30px); font-weight: 520; letter-spacing: -0.035em; }
+.learningHead p { max-width: 740px; margin-top: 7px; color: #718681; font-size: 10px; line-height: 1.55; }
+.learningToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 9px;
+  border: 1px solid rgba(184,226,217,0.08);
+  border-radius: 9px;
+  color: #7d918c;
+  font-family: var(--font-geist-mono), monospace;
+  font-size: 8px;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.learningToggle input { accent-color: #75e7f5; }
+.learningSummary { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 16px; color: #5c736e; font-family: var(--font-geist-mono), monospace; font-size: 7px; text-transform: uppercase; }
+.habitGrid { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 7px; margin-top: 12px; }
+.habitCard { min-height: 104px; padding: 12px; border: 1px solid rgba(184,226,217,0.07); border-radius: 11px; background: rgba(255,255,255,0.012); }
+.habitCard > span { color: #5e746f; font-family: var(--font-geist-mono), monospace; font-size: 7px; letter-spacing: 0.09em; text-transform: uppercase; }
+.habitCard strong { display: block; margin-top: 8px; color: #c8d7d3; font-size: 11px; font-weight: 470; line-height: 1.45; }
+.confidenceTrack { height: 2px; margin-top: 14px; overflow: hidden; background: rgba(255,255,255,0.04); }
+.confidenceTrack div { height: 100%; background: #75e7f5; opacity: 0.65; }
+.learningEmpty { margin-top: 12px; padding: 18px; border: 1px dashed rgba(184,226,217,0.08); border-radius: 11px; color: #617771; font-size: 10px; }
+.learnedLanes { display: grid; gap: 6px; margin-top: 14px; }
+.learnedLane { display: grid; grid-template-columns: 110px minmax(0,1fr) 32px; gap: 8px; align-items: center; color: #657a75; font-family: var(--font-geist-mono), monospace; font-size: 7px; text-transform: uppercase; }
+.learnedLane > div { height: 2px; overflow: hidden; background: rgba(255,255,255,0.04); }
+.learnedLane i { display: block; height: 100%; background: #89e9c0; opacity: 0.65; }
+.learnedLane small { text-align: right; color: #536a65; font-size: 7px; }
+.learningFoot { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-top: 16px; padding-top: 12px; border-top: 1px solid rgba(184,226,217,0.06); color: #5d726d; font-size: 9px; line-height: 1.45; }
+.radarMapSection { margin-top: 10px; }
+
 .empty,
 .skeleton {
   min-height: 240px;
@@ -531,6 +576,7 @@
   .libraryLayout { grid-template-columns: 1fr; }
   .collectionRail { position: static; display: flex; overflow-x: auto; }
   .collectionButton { width: auto; flex: 0 0 auto; }
+  .habitGrid { grid-template-columns: repeat(2, minmax(0,1fr)); }
 }
 
 @media (max-width: 720px) {
@@ -552,6 +598,10 @@
   .footerTools { align-items: flex-start; flex-direction: column; }
   .historyItem { grid-template-columns: 1fr auto; }
   .historyTime { grid-column: 1 / -1; }
+  .learningHead { flex-direction: column; gap: 12px; }
+  .habitGrid { grid-template-columns: 1fr; }
+  .learningFoot { align-items: flex-start; flex-direction: column; }
+  .learnedLane { grid-template-columns: 86px minmax(0,1fr) 28px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
