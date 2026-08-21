@@ -170,7 +170,10 @@
 
 @media (max-width: 720px) {
   .dock {
-    bottom: max(8px, env(safe-area-inset-bottom));
+    /* FRONTIER shares the mobile viewport with the site's camera-signal pill.
+       Lift the reading dock just above that persistent control rather than
+       competing for the same bottom-edge hit target. */
+    bottom: max(62px, calc(env(safe-area-inset-bottom) + 54px));
     max-width: calc(100vw - 12px);
     padding: 5px;
     border-radius: 12px;
