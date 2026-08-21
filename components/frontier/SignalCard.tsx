@@ -156,6 +156,7 @@ export function SignalCard({
   const lane = FRONTIER_LANE_MAP[item.lane];
   const style = { '--lane-accent': LANE_ACCENTS[item.lane] ?? '#76edff' } as CSSProperties;
   const feed = presentation === 'feed';
+  const hasMedia = Boolean(item.media && item.media.type !== 'none' && item.media.url);
 
   useEffect(() => {
     const node = ref.current;
@@ -216,15 +217,11 @@ export function SignalCard({
           <h3 className={styles.cardTitle}>{item.title}</h3>
           <p className={styles.cardSummary}>{item.summary}</p>
         </div>
-        <div className={styles.feedMediaSlot}>
-          <RealMedia item={item} interactive />
-          {!item.media || item.media.type === 'none' ? (
-            <button type="button" className={styles.textCenterpiece} onClick={() => setExpanded((value) => !value)}>
-              <span>{expanded ? 'Less' : 'Read deeper'}</span>
-              <strong>{item.summary}</strong>
-            </button>
-          ) : null}
-        </div>
+        {hasMedia ? (
+          <div className={styles.feedMediaSlot}>
+            <RealMedia item={item} interactive />
+          </div>
+        ) : null}
         <aside className={styles.feedContext}>
           <MetricLine item={item} />
           <p className={styles.reason}>{explanation}</p>
