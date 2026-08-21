@@ -3,11 +3,11 @@ import { FrontierExperience } from '@/components/frontier/FrontierExperience';
 
 export const metadata: Metadata = {
   title: 'FRONTIER · Personal Intelligence Radar',
-  description: 'A live, adaptive personal intelligence feed for Premier League football, machine learning, data analysis, neuroscience, science, tools, and useful surprise.',
+  description: 'A live, adaptive personal radar for novel research, public code, project design, science, favorite teams, sports highlights, games, dubstep, Reddit, video, and internet culture.',
   alternates: { canonical: '/frontier' },
   openGraph: {
     title: 'FRONTIER · Personal Intelligence Radar',
-    description: 'A finite daily run across the live internet that learns what is useful, important, surprising, and already known.',
+    description: 'Brainfood and After Hours in one finite daily run: studies, code, teams, games, music, community signal, and useful surprise.',
     url: '/frontier',
     type: 'website',
   },
