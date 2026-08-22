@@ -4,21 +4,21 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover" />
 <meta name="theme-color" content="#07130f" />
-<title>Sylvaria · Frog Pond</title>
+<title>Sylvaria · Kinetic Pond</title>
 <link rel="stylesheet" href="./sylvaria-v8.css" />
 <link rel="stylesheet" href="./sylvaria-minimal-v011.css" />
 <link rel="stylesheet" href="./sylvaria-pond-v012.css" />
 </head>
 <body>
-<!-- Presentation v0.12.0. Authoritative engine v0.11.1 with 30 fixed arenas; ./v011-entry.js is loaded beneath ./v012-entry.js so ranked replay identity remains unchanged. -->
+<!-- v0.13.0 is a new authoritative combat season: continuous glide, charged omnidirectional dash, kinetic tongue arcs, predictive evasion, and replay schema 2. -->
 <div id="game">
-  <canvas id="c" width="960" height="640" tabindex="0" aria-label="Sylvaria frog pond action game"></canvas>
+  <canvas id="c" width="960" height="640" tabindex="0" aria-label="Sylvaria kinetic frog pond action game"></canvas>
   <div id="hud" class="hidden" aria-hidden="true">
     <div id="top">
       <div id="roomCard" class="glass">
         <div id="roomKicker">01 / pond</div>
         <div id="roomTitle">Lily Clearing</div>
-        <div id="roomTask">Move first. Tongue-slap incoming attacks back.</div>
+        <div id="roomTask">Glide freely. Catch fire in the opening tongue frames to parry.</div>
         <div id="biomeBadge"></div>
       </div>
       <div id="stats" class="runStats">
@@ -32,16 +32,16 @@
       <div><b>status</b><span id="fieldState">clear</span></div>
       <div id="targetWrap" hidden><b>target</b><span id="targetState"></span></div>
       <div id="bossWrap" hidden><b>boss</b><span id="bossState"></span></div>
-      <span class="telemetryHidden" aria-hidden="true"><span id="flowState">0%</span><span id="dashState">48px</span><span id="terrainState">ground</span><span id="counterState">0</span><span id="returnState">0/0</span><span id="grazeState">0</span></span>
+      <span class="telemetryHidden" aria-hidden="true"><span id="flowState">0%</span><span id="dashState">space · dash</span><span id="terrainState">ground</span><span id="counterState">0</span><span id="returnState">0/0</span><span id="grazeState">0</span></span>
     </div>
     <div id="toast" class="glass"></div>
   </div>
 
   <div id="title" class="screen">
     <div class="panel menuPanel">
-      <div class="eyebrow">v0.12 · frog pond presentation</div>
+      <div class="eyebrow">v0.13 · kinetic arc combat</div>
       <h1><em class="sylvariaWord">Sylvaria</em></h1>
-      <p class="lede narrow">A fast pond run about a frog, hungry insects, and one very useful tongue. Move with WASD. Slap with the arrow keys. Catch an incoming attack at the right moment to send it back.</p>
+      <p class="lede narrow">Glide through a hostile pond, charge bursts in any steering direction, and swing the frog's tongue through a broad arc. Catch insect fire in the opening edge of the sweep to parry it into a faster weapon while evasive enemies try to escape the rest of your blade path.</p>
       <div class="menuActions">
         <button id="start" class="primary wide">start run</button>
         <button id="explore" class="secondary wide">learn controls</button>
@@ -52,19 +52,21 @@
         <div class="rankHead"><span>top verified runs</span><span id="rankSeason">ranked</span></div>
         <ol id="rankRows"></ol>
       </div>
-      <p class="microcopy">Thirty fixed pond arenas reward learning layouts and insect behavior. Reeds, mud, water, algae, poison, driftwood, and optional side routes can help or trap either side. After pond 30, the same verified run continues into deterministic endless rooms.</p>
+      <p class="microcopy">Thirty fixed pond arenas now escalate through Skimmers, Striders, precision Dragonflies, armored Shellbacks, legacy insect roles, currents, hazards, and increasingly dense crossfire. The same 120 Hz simulation remains server-replayable, but v0.13 is a new combat season.</p>
     </div>
   </div>
 
   <div id="howScreen" class="screen hidden">
     <div class="panel subPanel">
       <div class="eyebrow">how to play</div>
-      <h2>Move. Slap. Eat the opening.</h2>
+      <h2>Glide. Charge. Sweep. Return fire.</h2>
       <div class="howGrid">
-        <div><b>Move</b><p>WASD commits the frog to a short cardinal burst. One extra direction can stay queued while the current move finishes.</p></div>
-        <div><b>Tongue slap / reflect</b><p>Arrow keys snap the tongue in four directions. Meet an incoming attack from the side it reaches you and the slap sends it back. Precise timing makes the return faster.</p></div>
-        <div><b>Use the pond</b><p>Mud, shallow water, slick algae, dense reeds, shell beds, poison, and breakable cover affect both sides. Harder ponds combine several at once.</p></div>
-        <div><b>Explore</b><p>Reeds, driftwood, stones, and mushrooms can open optional routes or temporary healing, speed, shield, reach, and flow effects. They never replace the core movement-and-reflect game.</p></div>
+        <div><b>Glide</b><p>Hold any WASD combination for continuous acceleration and smooth diagonal steering. Release to coast briefly; slick surfaces preserve more momentum.</p></div>
+        <div><b>Charge dash</b><p>Hold Space to store burst energy while you keep steering. Release to launch along the current input vector, or along your existing momentum when no direction is held. Space can also queue just before dash recovery ends.</p></div>
+        <div><b>Tongue arc</b><p>Arrow keys choose the direction of a wide tongue sweep. Every swing has a short wind-up, an active moving arc, and recovery. A committed dash can cancel directly into the blade after its opening burst.</p></div>
+        <div><b>Parry</b><p>The first five active simulation ticks, about 42 ms, are the parry window. Meet incoming fire there to launch a 1160 px/s return that hits harder and can pierce. The later sweep still cuts enemies and the pond, but it does not reflect projectiles.</p></div>
+        <div><b>Read enemies</b><p>Skimmers orbit, Striders evade, Dragonflies fire high-speed lanes, and Shellbacks armor their front. Flank, redirect fire, or reposition instead of mashing attacks.</p></div>
+        <div><b>Use the pond</b><p>Water currents, mud, reeds, poison, algae, stones, and reflected shots reshape each fight. Strong runs use the environment to split overlapping threats.</p></div>
       </div>
       <div class="actions"><button class="secondary" data-back>back</button></div>
     </div>
@@ -73,15 +75,16 @@
   <div id="controlsScreen" class="screen hidden">
     <div class="panel subPanel controlsPanel">
       <div class="eyebrow">controls</div>
-      <h2>Eight combat keys.</h2>
+      <h2>Nine combat keys.</h2>
       <div class="bindingGrid">
-        <div><span>move north</span><b>W</b></div><div><span>tongue up</span><b>↑</b></div>
-        <div><span>move south</span><b>S</b></div><div><span>tongue down</span><b>↓</b></div>
-        <div><span>move west</span><b>A</b></div><div><span>tongue left</span><b>←</b></div>
-        <div><span>move east</span><b>D</b></div><div><span>tongue right</span><b>→</b></div>
-        <div><span>pause / resume</span><b>P</b></div><div><span>mute / unmute</span><b>M</b></div>
+        <div><span>glide north</span><b>W</b></div><div><span>tongue arc up</span><b>↑</b></div>
+        <div><span>glide south</span><b>S</b></div><div><span>tongue arc down</span><b>↓</b></div>
+        <div><span>glide west</span><b>A</b></div><div><span>tongue arc left</span><b>←</b></div>
+        <div><span>glide east</span><b>D</b></div><div><span>tongue arc right</span><b>→</b></div>
+        <div><span>hold / release dash</span><b>Space</b></div><div><span>pause / resume</span><b>P</b></div>
+        <div><span>mute / unmute</span><b>M</b></div><div><span>fullscreen</span><b>button</b></div>
       </div>
-      <p class="microcopy">Movement and tongue attacks remain independent. The simulation owns held-key cadence and ignores operating-system key repeat.</p>
+      <p class="microcopy">WASD can combine diagonally. Space charging never interrupts steering. Arrow attacks are discrete timed swings, so movement and combat remain independently controllable.</p>
       <div class="actions"><button class="secondary" data-back>back</button></div>
     </div>
   </div>
@@ -93,6 +96,6 @@
 <script src="./render-scale-v7.js"></script>
 <script src="./render-optimizer-v6.js"></script>
 <script src="./v091/fullscreen.js"></script>
-<script type="module" src="./v012-entry.js"></script>
+<script type="module" src="./v013-entry.js"></script>
 </body>
 </html>

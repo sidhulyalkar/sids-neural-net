@@ -13,7 +13,7 @@ import {
 
 const SECRET = 'sylvaria-test-secret-32-bytes-minimum-value';
 const ENGINE_HASH = 'b'.repeat(64);
-const BUILD_SHA = 'test-build-011';
+const BUILD_SHA = 'test-build-013';
 const NOW = 1_800_000_000_000;
 const NONCE = '12345678-1234-4234-9234-123456789abc';
 
@@ -51,7 +51,7 @@ test('ranked run tickets are signed, current-engine bound and single-use', async
 test('ranked replay duration must fit inside the age of its claimed ticket', () => {
   const ticket = {
     schema: 1 as const,
-    engineVersion: '0.11.1' as const,
+    engineVersion: '0.13.0' as const,
     engineHash: ENGINE_HASH,
     seed: 110001,
     buildSha: BUILD_SHA,
@@ -129,7 +129,7 @@ test('request fingerprints and accepted-run proofs are deterministic but bind ev
 
   const base = {
     secret: SECRET,
-    engineVersion: '0.11.1',
+    engineVersion: '0.13.0',
     engineHash: ENGINE_HASH,
     buildSha: BUILD_SHA,
     ticketNonce: NONCE,

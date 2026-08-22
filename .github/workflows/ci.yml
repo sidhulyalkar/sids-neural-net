@@ -50,7 +50,7 @@ jobs:
       - name: Unit tests
         run: npm test
 
-      - name: Validate Sylvaria v0.11.1 runtime
+      - name: Validate Sylvaria v0.13 kinetic runtime
         run: npm run check:mosslight
 
       - name: Profile Sylvaria readable runtime size
@@ -90,7 +90,7 @@ jobs:
           cat /tmp/sids-neural-net.log
           exit 1
 
-      - name: Smoke public production routes
+      - name: Smoke public production routes and Sylvaria v0.13 Reactive Blade modules
         run: |
           for route in / /neural-net /case-studies /physiology /perceptual-cortex /rotation /sensing-lab /physiology/visual-audit /photography /arcade /arcade/stretchicorn /arcade/unirico /arcade/sylvaria /arcade/mosslight; do
             echo "GET $route"
@@ -103,85 +103,90 @@ jobs:
           curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/game-runtimes/unirico/index.html | grep -q '<canvas id="c"'
           curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/game-runtimes/unirico/runtime/core.js | grep -q 'use strict\|const\|function'
 
-          echo "GET Sylvaria v0.11.1 runtime"
+          echo "GET Sylvaria v0.13 Reactive Blade runtime"
           SYL=http://127.0.0.1:3000/game-runtimes/mosslight-v2
           curl --retry 2 --retry-connrefused -fsS "$SYL/index.html" -o /tmp/sylvaria-index.html
-          curl --retry 2 --retry-connrefused -fsS "$SYL/v011-entry.js" -o /tmp/sylvaria-v011-entry.js
+          curl --retry 2 --retry-connrefused -fsS "$SYL/v013-entry.js" -o /tmp/sylvaria-v013-entry.js
+          curl --retry 2 --retry-connrefused -fsS "$SYL/v013/kinetic-combat-v013.js" -o /tmp/sylvaria-kinetics.js
+          curl --retry 2 --retry-connrefused -fsS "$SYL/v013/enemy-ai-v013.js" -o /tmp/sylvaria-ai.js
+          curl --retry 2 --retry-connrefused -fsS "$SYL/v013/replay-v013.js" -o /tmp/sylvaria-replay-v013.js
+          curl --retry 2 --retry-connrefused -fsS "$SYL/v013/coach-v013.js" -o /tmp/sylvaria-coach-v013.js
+          curl --retry 2 --retry-connrefused -fsS "$SYL/v013/kinetic-presentation-v013.js" -o /tmp/sylvaria-kinetic-presentation.js
+          curl --retry 2 --retry-connrefused -fsS "$SYL/v012-entry.js" -o /tmp/sylvaria-v012-entry.js
+          curl --retry 2 --retry-connrefused -fsS "$SYL/v012/webgl-pond-v012.js" -o /tmp/sylvaria-pond.js
+          curl --retry 2 --retry-connrefused -fsS "$SYL/v012/art-atlas-pro-v012.js" -o /tmp/sylvaria-atlas.js
           curl --retry 2 --retry-connrefused -fsS "$SYL/v011/rooms-v011.js" -o /tmp/sylvaria-rooms-v011.js
-          curl --retry 2 --retry-connrefused -fsS "$SYL/v011/replay-v011.js" -o /tmp/sylvaria-replay-v011.js
-          curl --retry 2 --retry-connrefused -fsS "$SYL/v011/presentation-v011.js" -o /tmp/sylvaria-presentation-v011.js
-          curl --retry 2 --retry-connrefused -fsS "$SYL/v011/input-guard-v011.js" -o /tmp/sylvaria-input-v011.js
           curl --retry 2 --retry-connrefused -fsS "$SYL/v011/competitive-v011.js" -o /tmp/sylvaria-competitive-v011.js
-          curl --retry 2 --retry-connrefused -fsS "$SYL/v011/coach-v011.js" -o /tmp/sylvaria-coach-v011.js
           curl --retry 2 --retry-connrefused -fsS "$SYL/v091/synergy-v010.js" -o /tmp/sylvaria-synergy.js
           for moduleName in model world movement battle-core render boot fullscreen; do
             curl --retry 2 --retry-connrefused -fsS "$SYL/v091/$moduleName.js" -o "/tmp/sylvaria-$moduleName.js"
           done
-          grep -q 'v0.11.1' /tmp/sylvaria-index.html
-          grep -q '30 fixed arenas' /tmp/sylvaria-index.html
+          grep -q 'v0.13 · kinetic arc combat' /tmp/sylvaria-index.html
+          grep -q 'Glide. Charge. Sweep. Return fire.' /tmp/sylvaria-index.html
+          grep -q 'first five active simulation ticks' /tmp/sylvaria-index.html
+          grep -q './v013-entry.js' /tmp/sylvaria-index.html
           grep -q 'id="rankPanel"' /tmp/sylvaria-index.html
           grep -q 'id="rankedSubmit"' /tmp/sylvaria-index.html
-          grep -q './v091/fullscreen.js' /tmp/sylvaria-index.html
-          grep -q './v011-entry.js' /tmp/sylvaria-index.html
-          if grep -q './v010-entry.js\|<script type="module" src="./v091/boot.js"' /tmp/sylvaria-index.html; then
-            echo "v0.11.1 shell bypassed the current entrypoint" >&2
+          if grep -qi 'mid-swing\|middle of the active sweep is the sweet spot' /tmp/sylvaria-index.html; then
+            echo "v0.13 shell still teaches retired midpoint parry timing" >&2
             exit 1
           fi
-          if grep -q './game-v90.js\|./game-v82.js\|./game-v81.js\|./input-buffer-v81.js\|./game-v8.js\|./game-v5.js\|./visual-system-v9.js' /tmp/sylvaria-index.html; then
-            echo "retired Sylvaria runtime is still wired" >&2
+          if grep -q '<script type="module" src="./v012-entry.js"\|<script type="module" src="./v091/boot.js"' /tmp/sylvaria-index.html; then
+            echo "v0.13 shell bypassed its current entrypoint" >&2
             exit 1
           fi
-          grep -q "import './v091/model.js'" /tmp/sylvaria-v011-entry.js
-          grep -q "rooms-v011.js" /tmp/sylvaria-v011-entry.js
-          grep -q "competitive-v011.js" /tmp/sylvaria-v011-entry.js
-          grep -q "coach-v011.js" /tmp/sylvaria-v011-entry.js
-          grep -q "VERSION='0.11.1'" /tmp/sylvaria-v011-entry.js
-          grep -q 'expandedArenas:true' /tmp/sylvaria-v011-entry.js
-          grep -q 'competitiveRuns:true' /tmp/sylvaria-v011-entry.js
-          grep -q 'actionCoach:true' /tmp/sylvaria-v011-entry.js
-          grep -q "VERSION='0.11.1'" /tmp/sylvaria-replay-v011.js
-          grep -q 'MAX_EVENTS=20000' /tmp/sylvaria-replay-v011.js
-          grep -q 'visibilitychange' /tmp/sylvaria-replay-v011.js
+          grep -q "v013/kinetic-combat-v013.js" /tmp/sylvaria-v013-entry.js
+          grep -q "v013/enemy-ai-v013.js" /tmp/sylvaria-v013-entry.js
+          grep -q "v013/replay-v013.js" /tmp/sylvaria-v013-entry.js
+          grep -q 'continuousGlide:true' /tmp/sylvaria-v013-entry.js
+          grep -q 'chargedOmniDash:true' /tmp/sylvaria-v013-entry.js
+          grep -q 'exponentialDash:true' /tmp/sylvaria-v013-entry.js
+          grep -q 'bufferedDash:true' /tmp/sylvaria-v013-entry.js
+          grep -q 'dashBladeCancel:true' /tmp/sylvaria-v013-entry.js
+          grep -q 'kineticTongueArc:true' /tmp/sylvaria-v013-entry.js
+          grep -q 'reactiveBladeParry:true' /tmp/sylvaria-v013-entry.js
+          grep -q 'proceduralBladeTrail:true' /tmp/sylvaria-v013-entry.js
+          grep -q 'selectiveHitStop:true' /tmp/sylvaria-v013-entry.js
+          grep -q 'predictiveArcEvasion:true' /tmp/sylvaria-v013-entry.js
+          grep -q 'moveSpeed:238' /tmp/sylvaria-kinetics.js
+          grep -q 'dashDecay:.90483742' /tmp/sylvaria-kinetics.js
+          grep -q 'dashBuffer:.10' /tmp/sylvaria-kinetics.js
+          grep -q 'dashCancelTicks:4' /tmp/sylvaria-kinetics.js
+          grep -q 'arcDegrees:156' /tmp/sylvaria-kinetics.js
+          grep -q 'parryWindow:5/120' /tmp/sylvaria-kinetics.js
+          grep -q 'perfectReflectSpeed:1160' /tmp/sylvaria-kinetics.js
+          grep -q 'function beginDashCharge' /tmp/sylvaria-kinetics.js
+          grep -q 'function cancelDashIntoBlade' /tmp/sylvaria-kinetics.js
+          grep -q 'function arcSweepContains' /tmp/sylvaria-kinetics.js
+          grep -q 'function counterShotArc' /tmp/sylvaria-kinetics.js
+          grep -q 'state.bladeTrails.push' /tmp/sylvaria-kinetics.js
+          grep -q "signalHitStop('parry',4)" /tmp/sylvaria-kinetics.js
+          grep -q 'skimmer:' /tmp/sylvaria-ai.js
+          grep -q 'strider:' /tmp/sylvaria-ai.js
+          grep -q 'sniper:' /tmp/sylvaria-ai.js
+          grep -q 'shellback:' /tmp/sylvaria-ai.js
+          grep -q 'function maybeReadArc' /tmp/sylvaria-ai.js
+          grep -q 'SCHEMA=2' /tmp/sylvaria-replay-v013.js
+          grep -q 'space:\[12,13\]' /tmp/sylvaria-replay-v013.js
+          grep -q 'WASD · glide freely' /tmp/sylvaria-coach-v013.js
+          grep -q 'opening blade frames · parry incoming fire' /tmp/sylvaria-coach-v013.js
+          grep -q 'function drawArcAttack' /tmp/sylvaria-kinetic-presentation.js
+          grep -q 'function drawBladeTrails' /tmp/sylvaria-kinetic-presentation.js
+          grep -q 'if(holdFrames>0){holdFrames--;return}' /tmp/sylvaria-kinetic-presentation.js
+          grep -q "PRESENTATION='0.12.0',ENGINE='0.11.1'" /tmp/sylvaria-v012-entry.js
+          grep -q "getContext('webgl2'" /tmp/sylvaria-pond.js
+          grep -q 'function frog' /tmp/sylvaria-atlas.js
           grep -q 'ROOMS_V011' /tmp/sylvaria-rooms-v011.js
-          grep -q "bossName:'Mulcher'" /tmp/sylvaria-rooms-v011.js
-          grep -q 'event.repeat' /tmp/sylvaria-input-v011.js
           grep -q '/api/sylvaria/run-ticket' /tmp/sylvaria-competitive-v011.js
-          grep -q '/api/sylvaria/leaderboard/submit' /tmp/sylvaria-competitive-v011.js
-          grep -q 'new best' /tmp/sylvaria-competitive-v011.js
-          grep -q 'WASD · move' /tmp/sylvaria-coach-v011.js
-          grep -q 'cut toward incoming shots' /tmp/sylvaria-coach-v011.js
           grep -q "VERSION='0.9.1'" /tmp/sylvaria-model.js
           grep -q 'FIXED_DT=1/120' /tmp/sylvaria-model.js
           grep -q 'MAX_SHOTS=128' /tmp/sylvaria-model.js
           grep -q 'MAX_PENDING=72' /tmp/sylvaria-model.js
-          grep -q 'function queueMove' /tmp/sylvaria-movement.js
-          grep -q 'function consumeMoveQueue' /tmp/sylvaria-movement.js
-          grep -q 'speed=perfect?1040:840' /tmp/sylvaria-movement.js
-          grep -q 'function tryDashCutIce' /tmp/sylvaria-movement.js
-          grep -q 'p.dashEcho=.085' /tmp/sylvaria-movement.js
-          grep -q 'function terrainAt' /tmp/sylvaria-world.js
-          grep -q 'function mobilityAt' /tmp/sylvaria-world.js
-          grep -q 'function resolveEnemyDeath' /tmp/sylvaria-world.js
-          grep -q 'function updateBossPhases' /tmp/sylvaria-world.js
-          grep -q 'function updateGas' /tmp/sylvaria-world.js
-          grep -q 'function moveToward' /tmp/sylvaria-battle-core.js
-          grep -q 'speed=420\*global\*mob.move' /tmp/sylvaria-battle-core.js
-          grep -q 'function ventBoss' /tmp/sylvaria-battle-core.js
-          grep -q 'function rebuildTerrainCache' /tmp/sylvaria-render.js
-          grep -q 'function drawMushrooms' /tmp/sylvaria-render.js
-          grep -q 'function drawGas' /tmp/sylvaria-render.js
-          grep -q 'function labEnemyTravel' /tmp/sylvaria-boot.js
-          grep -q 'environmentalDiscovery:true' /tmp/sylvaria-boot.js
-          grep -q 'requestFullscreen' /tmp/sylvaria-fullscreen.js
           grep -q 'function triggerReturnEcology' /tmp/sylvaria-synergy.js
-          grep -q 'function shearGas' /tmp/sylvaria-synergy.js
           grep -q 'function hazardScoreAt' /tmp/sylvaria-synergy.js
-          grep -q 'function steerCautious' /tmp/sylvaria-synergy.js
           grep -q 'function bulldozeBoss' /tmp/sylvaria-synergy.js
-          grep -q 'state.verdantTimer=3.6' /tmp/sylvaria-synergy.js
-          grep -q 'function chooseThreat' /tmp/sylvaria-synergy.js
 
-          echo "GET v0.11.1 leaderboard in intentionally unconfigured CI deployment"
+          echo "GET v0.13 leaderboard in intentionally unconfigured CI deployment"
           curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/api/sylvaria/leaderboard | grep -q '"configured":false'
           ticket_status="$(curl -sS -o /tmp/sylvaria-ticket.json -w '%{http_code}' -X POST http://127.0.0.1:3000/api/sylvaria/run-ticket)"
           test "$ticket_status" = "503"
@@ -198,31 +203,25 @@ jobs:
           PW_ROOT="$(cd "$(dirname "$PW_BIN")/.." && pwd)"
           PLAYWRIGHT_MODULE_ROOT="$PW_ROOT" node scripts/playtest-arcade-home.mjs
 
-      - name: Validate Sylvaria v0.11.1 across Chrome Stable Chromium Firefox and WebKit
+      - name: Validate Sylvaria v0.13 across Chrome Stable Chromium Firefox and WebKit
         run: |
           PW_BIN="$(npm exec --yes --package=playwright@1.55.0 -- which playwright)"
           PW_ROOT="$(cd "$(dirname "$PW_BIN")/.." && pwd)"
           PLAYWRIGHT_MODULE_ROOT="$PW_ROOT" node scripts/playtest-sylvaria-browsers.mjs
 
-      - name: Verify Sylvaria v0.11.1 browser to Node replay parity
+      - name: Verify Sylvaria v0.13 browser to Node replay parity
         run: |
           PW_BIN="$(npm exec --yes --package=playwright@1.55.0 -- which playwright)"
           PW_ROOT="$(cd "$(dirname "$PW_BIN")/.." && pwd)"
           PLAYWRIGHT_MODULE_ROOT="$PW_ROOT" node --import tsx scripts/playtest-sylvaria-replay-parity.mjs
 
-      - name: Playtest Sylvaria protected mechanics
+      - name: Playtest Sylvaria v0.13 Reactive Blade combat
         run: |
           PW_BIN="$(npm exec --yes --package=playwright@1.55.0 -- which playwright)"
           PW_ROOT="$(cd "$(dirname "$PW_BIN")/.." && pwd)"
-          PLAYWRIGHT_MODULE_ROOT="$PW_ROOT" node scripts/playtest-sylvaria-countercut.mjs
+          PLAYWRIGHT_MODULE_ROOT="$PW_ROOT" node scripts/playtest-sylvaria-v013-kinetics.mjs
 
-      - name: Playtest Sylvaria interaction composition
-        run: |
-          PW_BIN="$(npm exec --yes --package=playwright@1.55.0 -- which playwright)"
-          PW_ROOT="$(cd "$(dirname "$PW_BIN")/.." && pwd)"
-          PLAYWRIGHT_MODULE_ROOT="$PW_ROOT" node scripts/playtest-sylvaria-synergy.mjs
-
-      - name: Playtest Sylvaria controls coaching and competitive loop
+      - name: Playtest Sylvaria v0.13 controls coaching and competitive loop
         run: |
           PW_BIN="$(npm exec --yes --package=playwright@1.55.0 -- which playwright)"
           PW_ROOT="$(cd "$(dirname "$PW_BIN")/.." && pwd)"
@@ -243,9 +242,9 @@ jobs:
           npx --yes playwright@1.55.0 screenshot --browser=chromium --viewport-size="1440,1100" --full-page http://127.0.0.1:3000/arcade artifacts/browser-smoke/game-network.png
           npx --yes playwright@1.55.0 screenshot --browser=chromium --viewport-size="1440,1000" http://127.0.0.1:3000/arcade/stretchicorn artifacts/browser-smoke/arcade-stretchicorn.png
           npx --yes playwright@1.55.0 screenshot --browser=chromium --viewport-size="1440,1000" http://127.0.0.1:3000/arcade/unirico artifacts/browser-smoke/arcade-unirico.png
-          npx --yes playwright@1.55.0 screenshot --browser=chromium --viewport-size="1440,1000" http://127.0.0.1:3000/arcade/sylvaria artifacts/browser-smoke/arcade-sylvaria-v011.png
-          npx --yes playwright@1.55.0 screenshot --browser=chromium --viewport-size="1920,1080" http://127.0.0.1:3000/game-runtimes/mosslight-v2/index.html artifacts/browser-smoke/sylvaria-v011-widescreen.png
-          npx --yes playwright@1.55.0 screenshot --browser=chromium --viewport-size="390,844" http://127.0.0.1:3000/game-runtimes/mosslight-v2/index.html artifacts/browser-smoke/sylvaria-v011-portrait.png
+          npx --yes playwright@1.55.0 screenshot --browser=chromium --viewport-size="1440,1000" http://127.0.0.1:3000/arcade/sylvaria artifacts/browser-smoke/arcade-sylvaria-v013.png
+          npx --yes playwright@1.55.0 screenshot --browser=chromium --viewport-size="1920,1080" http://127.0.0.1:3000/game-runtimes/mosslight-v2/index.html artifacts/browser-smoke/sylvaria-v013-widescreen.png
+          npx --yes playwright@1.55.0 screenshot --browser=chromium --viewport-size="390,844" http://127.0.0.1:3000/game-runtimes/mosslight-v2/index.html artifacts/browser-smoke/sylvaria-v013-portrait.png
 
       - name: Upload production audit artifacts
         if: always()

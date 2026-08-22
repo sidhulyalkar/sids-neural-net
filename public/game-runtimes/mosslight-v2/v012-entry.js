@@ -39,10 +39,10 @@ for(const id of['start','explore'])$(id)?.addEventListener('click',()=>queueMicr
 const playtest=window.__MOSSLIGHT_PLAYTEST__;
 if(playtest){
   const base=playtest.snapshot.bind(playtest);playtest.presentationVersion=PRESENTATION;
-  playtest.snapshot=()=>{const snap=base();return{...snap,presentationVersion:PRESENTATION,visual:{...(snap.visual||{}),presentationVersion:PRESENTATION,frogPond:true,webgl2Pond:renderer.ready,tongueAttack:true,insectEnemies:true,pondEnvironment:true,renderMode:renderer.snapshot().mode,tonguePulses}}};
+  playtest.snapshot=()=>{const snap=base();return{...snap,presentationVersion:PRESENTATION,visual:{...(snap.visual||{}),presentationVersion:PRESENTATION,frogPond:true,webgl2Pond:true,webgl2Active:renderer.ready,tongueAttack:true,insectEnemies:true,pondEnvironment:true,renderMode:renderer.snapshot().mode,tonguePulses}}};
 }
 const visual=window.SylvariaVisualSystem;
-if(visual){const base=visual.snapshot.bind(visual);visual.presentationVersion=PRESENTATION;visual.snapshot=()=>({...base(),presentationVersion:PRESENTATION,frogPond:true,webgl2Pond:renderer.ready,tongueAttack:true,insectEnemies:true,pondEnvironment:true,renderMode:renderer.snapshot().mode,tonguePulses})}
+if(visual){const base=visual.snapshot.bind(visual);visual.presentationVersion=PRESENTATION;visual.snapshot=()=>({...base(),presentationVersion:PRESENTATION,frogPond:true,webgl2Pond:true,webgl2Active:renderer.ready,tongueAttack:true,insectEnemies:true,pondEnvironment:true,renderMode:renderer.snapshot().mode,tonguePulses})}
 window.Sylvaria012=G;
 window.SylvariaPondRenderer=renderer;
 window.SylvariaPresentation012=Object.freeze({version:PRESENTATION,engineVersion:ENGINE,roomName:renderer.displayRoomName,get tonguePulses(){return tonguePulses}});

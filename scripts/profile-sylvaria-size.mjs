@@ -15,6 +15,12 @@ const competitionFiles = [
   `${runtimeRoot}/sylvaria-pond-v012.css`,
   `${runtimeRoot}/render-scale-v7.js`,
   `${runtimeRoot}/render-optimizer-v6.js`,
+  `${runtimeRoot}/v013-entry.js`,
+  `${runtimeRoot}/v013/kinetic-combat-v013.js`,
+  `${runtimeRoot}/v013/enemy-ai-v013.js`,
+  `${runtimeRoot}/v013/replay-v013.js`,
+  `${runtimeRoot}/v013/coach-v013.js`,
+  `${runtimeRoot}/v013/kinetic-presentation-v013.js`,
   `${runtimeRoot}/v012-entry.js`,
   `${runtimeRoot}/v012/art-atlas-v012.js`,
   `${runtimeRoot}/v012/art-atlas-pro-v012.js`,
@@ -30,10 +36,8 @@ const competitionFiles = [
   `${runtimeRoot}/v091/synergy-v010.js`,
   `${runtimeRoot}/v011/rooms-v011.js`,
   `${runtimeRoot}/v011/presentation-v011.js`,
-  `${runtimeRoot}/v011/replay-v011.js`,
   `${runtimeRoot}/v011/input-guard-v011.js`,
   `${runtimeRoot}/v011/competitive-v011.js`,
-  `${runtimeRoot}/v011/coach-v011.js`,
 ];
 const portfolioOnlyFiles = ['public/game-runtimes/game-network-bridge.js'];
 
@@ -59,11 +63,11 @@ function profile(files) {
 const readableRuntime = profile(competitionFiles);
 const portfolioPayload = profile([...competitionFiles, ...portfolioOnlyFiles]);
 const report = {
-  presentationVersion: '0.12.0',
-  engineVersion: '0.11.1',
+  presentationVersion: '0.13.0',
+  engineVersion: '0.13.0',
   generatedAt: new Date().toISOString(),
   competitionLimitBytes,
-  note: 'This report measures the readable portfolio runtime that actually ships, including the generated-at-load WebGL2 frog/pond renderer source and professional procedural atlas. It is not a JS13k submission artifact. A future competition pack would use a separate minimal renderer, omit portfolio leaderboard/networking UX, flatten and minify the required game files, then satisfy the official ZIP cap independently.',
+  note: 'This report measures the readable portfolio runtime that actually ships: the WebGL2 frog/pond presentation plus the v0.13 continuous kinetics, charged dash, kinetic tongue arc, evasive enemy AI, replay recorder and coaching. It is not a JS13k submission artifact. A future competition pack would use a separate minimal renderer and simulation package, omit portfolio leaderboard/networking UX, flatten and minify the required game files, then satisfy the official ZIP cap independently.',
   readableRuntime,
   portfolioPayload,
   competitionGap: {
@@ -74,7 +78,7 @@ const report = {
 };
 
 fs.writeFileSync(path.join(artifactDir, 'report.json'), JSON.stringify(report, null, 2));
-console.log('Sylvaria v0.12 presentation / v0.11.1 engine runtime size profile');
+console.log('Sylvaria v0.13 kinetic combat runtime size profile');
 console.table(readableRuntime.rows.map((row) => ({ file: row.file.replace(`${runtimeRoot}/`, ''), raw: row.raw, gzip: row.gzip, brotli: row.brotli })));
 console.log(`Readable runtime aggregate: raw ${readableRuntime.aggregate.raw} B · gzip ${readableRuntime.aggregate.gzip} B · brotli ${readableRuntime.aggregate.brotli} B`);
 console.log(`Reference 13 KiB cap: ${competitionLimitBytes} B. Current readable runtime is intentionally NOT treated as a competition-ready package.`);
