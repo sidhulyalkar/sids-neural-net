@@ -8,6 +8,8 @@ const source = readFileSync(
   'utf8',
 );
 const DT = 1 / 120;
+const near = (actual: number, expected: number, epsilon = 1e-12) =>
+  assert.ok(Math.abs(actual - expected) <= epsilon, `${actual} != ${expected}`);
 
 test('v0.14 removes hidden dodge odds from agile kinetic enemies', () => {
   assert.match(source, /spec\.dodge=100/);
@@ -23,8 +25,8 @@ test('enemy evade cadence is expressed in exact simulation ticks', () => {
   assert.match(source, /cooldownTicks:174/);
   assert.match(source, /e\.arcDodgeCooldown=q\(flow\.cooldownTicks\*DT\)/);
 
-  assert.equal(9 * DT, 0.075);
-  assert.equal(108 * DT, 0.9);
+  near(9 * DT, 0.075);
+  near(108 * DT, 0.9);
 });
 
 test('finishing an evade creates one deterministic blade punish window', () => {
@@ -43,8 +45,8 @@ test('Strider remains the fastest reactor but exposes a meaningful follow-up win
   const punish = 30 * DT;
   const cooldown = 108 * DT;
   assert.ok(reaction < 0.1);
-  assert.ok(punish >= 0.25);
-  assert.ok(cooldown >= 0.9);
+  assert.ok(punish >= 0.25 - 1e-12);
+  assert.ok(cooldown >= 0.9 - 1e-12);
 });
 
 test('enemy flow layer stays fixed-step deterministic', () => {
