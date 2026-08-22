@@ -65,3 +65,11 @@ test('headless verifier accepts down and up on the same simulation tick in recor
   assert.equal(summary.stats.dashes, 1);
   assert.equal(summary.ended, false);
 });
+
+test('ranked replay verification fails closed when its CPU budget is exhausted', () => {
+  const envelope = makeSylvariaReplayEnvelope(SAMPLE_REPLAY, 480);
+  assert.throws(
+    () => verifySylvariaReplay(envelope, 0, { allowIncomplete: true, maxWallMs: 0 }),
+    /exceeded CPU budget/,
+  );
+});
