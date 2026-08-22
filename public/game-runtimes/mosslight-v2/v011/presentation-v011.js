@@ -6,6 +6,10 @@ const replace=[
 [/WAVE-SPORE BLOOM/gi,'POISON'],[/SPORE ROUTE/gi,'POISON'],[/SPORE SHEAR/gi,'POISON SHIFT'],[/HAZARD FINISH/gi,'HAZARD'],[/TERRAIN ROUTE/gi,'ROUTE'],[/COUNTER BREAK/gi,'BREAK'],[/CLEAR SIGHTLINE/gi,'CLEAR']
 ];
 function clean(value){let text=String(value??'');for(const [pattern,next] of replace)text=text.replace(pattern,next);return text.replace(/\s*·\s*/g,' · ').trim()}
+// The diagonal lattice is decorative, not collision information. Rebuild the
+// cached background with the same palette/terrain geometry but at much lower
+// route-line contrast so late arenas keep a readable threat hierarchy.
+F.rebuildTerrainCache=()=>{const g=G.terrainCtx;if(!g)return;g.clearRect(0,0,G.W,G.H);const palette=state.room?.palette||['#07160f','#123a24'],gradient=g.createLinearGradient(0,0,G.W,G.H);gradient.addColorStop(0,palette[0]);gradient.addColorStop(1,palette[1]);g.fillStyle=gradient;g.fillRect(0,0,G.W,G.H);g.save();g.globalAlpha=.05;g.strokeStyle=palette[2]||'#79ef91';for(let i=0;i<16;i++){g.beginPath();g.moveTo((i*131+state.worldDepth*31)%G.W,G.H);g.lineTo((i*89+80)%G.W,80);g.stroke()}g.restore();for(const patch of state.terrain)if(patch.type!=='grass')F.drawTerrainPatch(g,patch);state.terrainCacheDirty=false};
 const baseToast=F.toast;F.toast=text=>baseToast?.(clean(text));
 const baseEnd=F.endRun;F.endRun=reason=>baseEnd?.(clean(reason));
 const baseHud=F.updateHud;F.updateHud=(force=false)=>{baseHud?.(force);if(!state.player||!state.room)return;const area=state.room.area||'forest',depth=String(state.worldDepth).padStart(2,'0');const $=G.$;$('roomKicker').textContent=`${depth} / ${area}`;$('roomTask').textContent=state.room.hint||'Survive.';$('biomeBadge').textContent=state.room.subtitle||'';const active=[];if(state.player.buffs.rush>0)active.push('speed');if(state.player.shieldCharges>0)active.push('shield');if(state.player.buffs.edge>0)active.push('reach');$('fieldState').textContent=active.join(' · ')||'none';if(state.boss&&!state.boss.dead){const label=state.room.bossName||'boss';$('bossState').textContent=`${label} · ${Math.max(0,Math.ceil(state.boss.hp))}/${state.boss.maxHp}`}}
