@@ -63,6 +63,12 @@ test('threat cost and phrase budget distinguish coverage engage precision heavy 
   assert.match(source, /tick\+profile\.restTicks/);
 });
 
+test('stale phrase budget and role memory reset after one deterministic idle rest', () => {
+  assert.match(source, /function resetIdlePhrase\(profile\)/);
+  assert.match(source, /phraseAttacks>0&&tick>gateTick\+profile\.restTicks/);
+  assert.match(source, /phraseIndex\+\+;lastRole='light'/);
+});
+
 test('melee feller commitments and bosses share the same threat queue as projectile roles', () => {
   assert.match(source, /feller:'engage'/);
   assert.match(source, /if\(state\.boss&&!state\.boss\.dead\)actors\.push\(state\.boss\)/);
