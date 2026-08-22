@@ -7,7 +7,9 @@ const VECTOR_STORE = 'vectors';
 const PROFILE_STORE = 'profile';
 const PROFILE_KEY = 'interest';
 const SEQUENCE_KEY = 'sequence-v1';
-export const FRONTIER_VECTOR_LIMIT = 1_000;
+export const FRONTIER_HOT_VECTOR_LIMIT = 1_000;
+/** Backward-compatible alias: Phase 3 keeps 1,000 vectors hot while cold memory is chunked separately. */
+export const FRONTIER_VECTOR_LIMIT = FRONTIER_HOT_VECTOR_LIMIT;
 
 export type FrontierVectorMetadata = {
   title?: string;
@@ -346,6 +348,7 @@ export class FrontierVectorStore {
     transaction.objectStore(VECTOR_STORE).clear();
     transaction.objectStore(PROFILE_STORE).clear();
     await done;
+    if (typeof window !== 'undefined') window.dispatchEvent(new Event('frontier:clear-vector-archive'));
   }
 }
 
