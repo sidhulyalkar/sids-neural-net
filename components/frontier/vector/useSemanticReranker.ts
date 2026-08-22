@@ -8,16 +8,21 @@ import {
   semanticTelemetryWeight,
 } from '@/lib/frontier/vector/telemetryEngine';
 import { frontierVectorStore, type FrontierVectorMetadata } from '@/lib/frontier/vector/vectorStore';
-import type { FrontierInterestState } from '@/lib/frontier/vector/math';
+import { normalizeVector, type FrontierInterestState } from '@/lib/frontier/vector/math';
+import { neighborhoodCentroid } from '@/lib/frontier/vector/chunkedVectorStore';
 import {
   blendSequenceWithLongTerm,
   type FrontierSequenceState,
 } from '@/lib/frontier/vector/sequenceModel';
+import { frontierSignalLoadSnapshot } from '@/lib/frontier/signals/signalState';
+import { modulateImplicitSignalWeight } from '@/lib/frontier/signals/signalProcessing';
+import { useChunkedVectorStore } from './useChunkedVectorStore';
 import { useSequenceModelWorker } from './useSequenceModelWorker';
 import { useVectorWorker } from './useVectorWorker';
 
 const INDEX_BATCH = 12;
 const ACTIVE_INDEX_LIMIT = 96;
+const RESIDENT_VECTOR_LIMIT = 320;
 
 function embeddingText(item: FrontierItem): string {
   return `${item.title}\n${item.summary}\n${item.tags.join(' · ')}`.slice(0, 3_500);
@@ -50,6 +55,22 @@ function idleTurn(): Promise<void> {
   return new Promise((resolve) => window.setTimeout(resolve, 24));
 }
 
+function trimResidentVectors(vectors: Map<string, Float32Array>, protectedIds: Set<string>): void {
+  if (vectors.size <= RESIDENT_VECTOR_LIMIT) return;
+  for (const id of vectors.keys()) {
+    if (vectors.size <= RESIDENT_VECTOR_LIMIT) break;
+    if (!protectedIds.has(id)) vectors.delete(id);
+  }
+}
+
+function blendMemoryTarget(primary: Float32Array | undefined, memory: Float32Array | undefined): Float32Array | undefined {
+  if (!primary?.length) return memory;
+  if (!memory?.length || memory.length !== primary.length) return primary;
+  const output = new Float32Array(primary.length);
+  for (let index = 0; index < output.length; index += 1) output[index] = primary[index] * 0.86 + memory[index] * 0.14;
+  return normalizeVector(output);
+}
+
 export function useSemanticReranker(
   items: FrontierItem[],
   options: {
@@ -60,6 +81,11 @@ export function useSemanticReranker(
 ) {
   const { embed, warm, backend } = useVectorWorker();
   const sequenceWorker = useSequenceModelWorker();
+  const {
+    putMany: archivePutMany,
+    getIds: archiveGetIds,
+    neighborhood: archiveNeighborhood,
+  } = useChunkedVectorStore();
   const enabled = options.enabled !== false;
   const query = options.query ?? '';
   const seedText = options.seedText ?? '';
@@ -69,6 +95,7 @@ export function useSemanticReranker(
   const [vectorVersion, setVectorVersion] = useState(0);
   const [interest, setInterest] = useState<FrontierInterestState>();
   const [sequence, setSequence] = useState<FrontierSequenceState>();
+  const [memoryCentroid, setMemoryCentroid] = useState<Float32Array>();
 
   const ensureSequenceHydrated = useCallback(() => {
     if (!sequenceHydrationRef.current) {
@@ -101,13 +128,43 @@ export function useSemanticReranker(
       if (cancelled) return;
       void warm();
       const candidates = items.slice(0, ACTIVE_INDEX_LIMIT);
+      const protectedIds = new Set(candidates.map((item) => item.id));
       let cached = new Map<string, Float32Array>();
       try { cached = await frontierVectorStore.getMany(candidates.map((item) => item.id)); } catch { /* private mode may disable IDB */ }
       if (cancelled) return;
       for (const [id, vector] of cached) vectorsRef.current.set(id, vector);
-      if (cached.size) setVectorVersion((version) => version + 1);
 
-      const missing = candidates.filter((item) => !vectorsRef.current.has(item.id));
+      let missing = candidates.filter((item) => !vectorsRef.current.has(item.id));
+      if (missing.length) {
+        try {
+          const archived = await archiveGetIds(missing.map((item) => item.id));
+          if (cancelled) return;
+          const byId = new Map(candidates.map((item) => [item.id, item]));
+          const promote: Array<{ id: string; vector: Float32Array; textHash: string; metadata: FrontierVectorMetadata }> = [];
+          for (const entry of archived) {
+            vectorsRef.current.set(entry.id, entry.vector);
+            const item = byId.get(entry.id);
+            promote.push({
+              id: entry.id,
+              vector: entry.vector,
+              textHash: entry.textHash,
+              metadata: item ? metadata(item) : {
+                title: entry.title,
+                sourceLabel: entry.sourceLabel,
+                lane: entry.lane,
+                publishedAt: entry.publishedAt,
+                engagement: entry.engagement,
+                lastSignalAt: entry.lastSignalAt,
+              },
+            });
+          }
+          if (promote.length) void frontierVectorStore.putMany(promote).catch(() => undefined);
+        } catch {
+          // Cold archive is opportunistic; active content can always be re-embedded.
+        }
+      }
+
+      missing = candidates.filter((item) => !vectorsRef.current.has(item.id));
       for (let start = 0; start < missing.length && !cancelled; start += INDEX_BATCH) {
         const batch = missing.slice(start, start + INDEX_BATCH);
         try {
@@ -118,22 +175,20 @@ export function useSemanticReranker(
             const vector = embedded.get(item.id);
             if (!vector) continue;
             vectorsRef.current.set(item.id, vector);
-            toStore.push({
-              id: item.id,
-              vector,
-              textHash: textHash(embeddingText(item)),
-              metadata: metadata(item),
-            });
+            toStore.push({ id: item.id, vector, textHash: textHash(embeddingText(item)), metadata: metadata(item) });
           }
           if (toStore.length) {
-            setVectorVersion((version) => version + 1);
             try { await frontierVectorStore.putMany(toStore); } catch { /* in-memory ranking still works */ }
+            void archivePutMany(toStore).catch(() => undefined);
           }
         } catch {
           break;
         }
         await idleTurn();
       }
+
+      trimResidentVectors(vectorsRef.current, protectedIds);
+      if (cached.size || candidates.some((item) => vectorsRef.current.has(item.id))) setVectorVersion((version) => version + 1);
 
       if (cancelled) return;
       try {
@@ -157,7 +212,7 @@ export function useSemanticReranker(
 
     void index();
     return () => { cancelled = true; };
-  }, [embed, enabled, ensureSequenceHydrated, itemSignature, items, seedText, warm]);
+  }, [archiveGetIds, archivePutMany, embed, enabled, ensureSequenceHydrated, itemSignature, items, seedText, warm]);
 
   useEffect(() => {
     if (!enabled) return;
@@ -171,19 +226,26 @@ export function useSemanticReranker(
         }
         if (!vector) {
           try {
+            const archived = await archiveGetIds([event.item.id]);
+            vector = archived[0]?.vector;
+            if (vector) vectorsRef.current.set(event.item.id, vector);
+          } catch {}
+        }
+        if (!vector) {
+          try {
             const embedded = await embed([{ id: event.item.id, text: embeddingText(event.item) }]);
             vector = embedded.get(event.item.id);
             if (vector) {
               vectorsRef.current.set(event.item.id, vector);
-              try {
-                await frontierVectorStore.put(
-                  event.item.id,
-                  vector,
-                  textHash(embeddingText(event.item)),
-                  event.at,
-                  metadata(event.item)
-                );
-              } catch {}
+              const record = {
+                id: event.item.id,
+                vector,
+                textHash: textHash(embeddingText(event.item)),
+                metadata: metadata(event.item),
+                at: event.at,
+              };
+              try { await frontierVectorStore.put(record.id, record.vector, record.textHash, event.at, record.metadata); } catch {}
+              void archivePutMany([record]).catch(() => undefined);
               setVectorVersion((version) => version + 1);
             }
           } catch {
@@ -192,18 +254,27 @@ export function useSemanticReranker(
         }
         if (!vector) return;
 
-        // Maintain the slow centroid as a durable prior, while the recurrent
-        // sequence state becomes the primary next-item target.
+        // Long-term taste keeps the full interaction evidence. Physiological
+        // load only tempers positive implicit momentum in the fast context SSM.
         try {
           const nextInterest = await frontierVectorStore.updateInterest(vector, signal, event.at);
           setInterest(nextInterest);
         } catch {}
 
         try { await frontierVectorStore.recordEngagement(event.item.id, signal, event.at); } catch {}
+        void archivePutMany([{
+          id: event.item.id,
+          vector,
+          textHash: textHash(embeddingText(event.item)),
+          metadata: { ...metadata(event.item), engagement: signal, lastSignalAt: event.at },
+          at: event.at,
+        }]).catch(() => undefined);
 
+        const explicit = event.kind === 'reaction' || event.kind === 'save';
+        const sequenceSignal = modulateImplicitSignalWeight(signal, frontierSignalLoadSnapshot(event.at), explicit);
         try {
           await ensureSequenceHydrated();
-          const nextSequence = await sequenceWorker.update(vector, signal, event.at);
+          const nextSequence = await sequenceWorker.update(vector, sequenceSignal, event.at);
           setSequence(nextSequence);
           try { await frontierVectorStore.setSequence(nextSequence); } catch {}
         } catch {
@@ -212,11 +283,33 @@ export function useSemanticReranker(
         }
       }).catch(() => undefined);
     });
-  }, [embed, enabled, ensureSequenceHydrated, sequenceWorker]);
+  }, [archiveGetIds, archivePutMany, embed, enabled, ensureSequenceHydrated, sequenceWorker]);
 
-  const rankingTarget = useMemo(
+  const sequenceTarget = useMemo(
     () => blendSequenceWithLongTerm(sequence?.target, interest?.vector, sequence?.interactions ?? 0),
     [interest, sequence]
+  );
+
+  useEffect(() => {
+    if (!enabled || !sequenceTarget?.length) {
+      setMemoryCentroid(undefined);
+      return;
+    }
+    let cancelled = false;
+    void archiveNeighborhood(sequenceTarget, { maxChunks: 6, maxItems: 144 })
+      .then((entries) => {
+        if (cancelled) return;
+        setMemoryCentroid(neighborhoodCentroid(entries, sequenceTarget));
+        for (const entry of entries) vectorsRef.current.set(entry.id, entry.vector);
+        trimResidentVectors(vectorsRef.current, new Set(items.slice(0, ACTIVE_INDEX_LIMIT).map((item) => item.id)));
+      })
+      .catch(() => undefined);
+    return () => { cancelled = true; };
+  }, [archiveNeighborhood, enabled, items, sequenceTarget]);
+
+  const rankingTarget = useMemo(
+    () => blendMemoryTarget(sequenceTarget, memoryCentroid),
+    [memoryCentroid, sequenceTarget]
   );
 
   const rankedItems = useMemo(() => {
@@ -242,5 +335,6 @@ export function useSemanticReranker(
     interestReady: Boolean(interest),
     sequenceReady: Boolean(sequence?.interactions),
     sequenceInteractions: sequence?.interactions ?? 0,
+    outOfCoreReady: Boolean(memoryCentroid),
   };
 }
