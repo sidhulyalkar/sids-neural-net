@@ -1,6 +1,10 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef } from 'react';
+import {
+  FRONTIER_WORKER_REQUEST_TIMEOUT_MS,
+  publishFrontierRuntimeHealth,
+} from '@/lib/frontier/runtime/runtimeHealth';
 import type { FrontierSequenceState } from '@/lib/frontier/vector/sequenceModel';
 
 type WorkerResponse =
@@ -17,6 +21,7 @@ type WorkerResponse =
 type Pending = {
   resolve: (value: FrontierSequenceState) => void;
   reject: (error: Error) => void;
+  timeoutId: number;
 };
 
 function requestId(): string {
@@ -35,15 +40,32 @@ function fromResponse(response: Extract<WorkerResponse, { type: 'state' }>): Fro
 export function useSequenceModelWorker() {
   const workerRef = useRef<Worker | null>(null);
   const pendingRef = useRef(new Map<string, Pending>());
+  const failuresRef = useRef(0);
 
   const failPending = useCallback((message: string) => {
     const error = new Error(message);
-    for (const pending of pendingRef.current.values()) pending.reject(error);
+    for (const pending of pendingRef.current.values()) {
+      window.clearTimeout(pending.timeoutId);
+      pending.reject(error);
+    }
     pendingRef.current.clear();
   }, []);
 
+  const failWorker = useCallback((worker: Worker, message: string) => {
+    if (workerRef.current !== worker) return;
+    workerRef.current = null;
+    worker.terminate();
+    failuresRef.current += 1;
+    failPending(message);
+    publishFrontierRuntimeHealth('sequence-model', 'degraded', {
+      message,
+      consecutiveFailures: failuresRef.current,
+    });
+  }, [failPending]);
+
   const ensureWorker = useCallback(() => {
     if (workerRef.current) return workerRef.current;
+    publishFrontierRuntimeHealth('sequence-model', 'starting');
     try {
       const worker = new Worker(new URL('./sequenceModelWorker.ts', import.meta.url), { type: 'module' });
       worker.onmessage = (event: MessageEvent<WorkerResponse>) => {
@@ -51,31 +73,48 @@ export function useSequenceModelWorker() {
         const pending = pendingRef.current.get(payload.requestId);
         if (!pending) return;
         pendingRef.current.delete(payload.requestId);
-        if (payload.type === 'error') pending.reject(new Error(payload.message));
-        else pending.resolve(fromResponse(payload));
+        window.clearTimeout(pending.timeoutId);
+        if (payload.type === 'error') {
+          pending.reject(new Error(payload.message));
+          publishFrontierRuntimeHealth('sequence-model', 'degraded', { message: payload.message });
+        } else {
+          failuresRef.current = 0;
+          pending.resolve(fromResponse(payload));
+          publishFrontierRuntimeHealth('sequence-model', 'ready');
+        }
       };
-      worker.onerror = () => {
-        failPending('sequence worker failed');
-        worker.terminate();
-        if (workerRef.current === worker) workerRef.current = null;
-      };
+      worker.onerror = () => failWorker(worker, 'sequence worker failed');
+      worker.onmessageerror = () => failWorker(worker, 'sequence worker returned an unreadable message');
       workerRef.current = worker;
       return worker;
     } catch {
+      failuresRef.current += 1;
       failPending('sequence worker unavailable');
+      publishFrontierRuntimeHealth('sequence-model', 'failed', {
+        message: 'sequence worker unavailable',
+        consecutiveFailures: failuresRef.current,
+      });
       return null;
     }
-  }, [failPending]);
+  }, [failPending, failWorker]);
 
   const send = useCallback((payload: Record<string, unknown>, transfers: Transferable[] = []) => {
     const worker = ensureWorker();
     if (!worker) return Promise.reject(new Error('sequence worker unavailable'));
     const id = requestId();
     return new Promise<FrontierSequenceState>((resolve, reject) => {
-      pendingRef.current.set(id, { resolve, reject });
-      worker.postMessage({ ...payload, requestId: id }, transfers);
+      const timeoutId = window.setTimeout(() => {
+        if (!pendingRef.current.has(id)) return;
+        failWorker(worker, `sequence worker timed out after ${FRONTIER_WORKER_REQUEST_TIMEOUT_MS}ms`);
+      }, FRONTIER_WORKER_REQUEST_TIMEOUT_MS);
+      pendingRef.current.set(id, { resolve, reject, timeoutId });
+      try {
+        worker.postMessage({ ...payload, requestId: id }, transfers);
+      } catch {
+        failWorker(worker, 'sequence worker postMessage failed');
+      }
     });
-  }, [ensureWorker]);
+  }, [ensureWorker, failWorker]);
 
   const hydrate = useCallback((state?: FrontierSequenceState) => {
     if (!state) return send({ type: 'hydrate' });
@@ -101,9 +140,11 @@ export function useSequenceModelWorker() {
   const reset = useCallback(() => send({ type: 'reset' }), [send]);
 
   useEffect(() => () => {
-    workerRef.current?.terminate();
+    const worker = workerRef.current;
     workerRef.current = null;
+    worker?.terminate();
     failPending('sequence worker unmounted');
+    publishFrontierRuntimeHealth('sequence-model', 'idle');
   }, [failPending]);
 
   return useMemo(() => ({ hydrate, update, reset }), [hydrate, reset, update]);
