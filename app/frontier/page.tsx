@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { BackgroundCanvas } from '@/components/frontier/BackgroundCanvas';
 import { FrontierExperience } from '@/components/frontier/FrontierExperience';
+import { SignalTelemetryBridge } from '@/components/frontier/signals/SignalTelemetryBridge';
 import spatial from '@/components/frontier/frontier-spatial.module.css';
 
 export const metadata: Metadata = {
@@ -34,6 +35,7 @@ export default function FrontierPage() {
   return (
     <div className={spatial.root}>
       <BackgroundCanvas />
+      <SignalTelemetryBridge />
       <FrontierExperience initialDateLabel={initialDateLabel} initialDayKey={initialDayKey} />
     </div>
   );
