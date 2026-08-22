@@ -10,8 +10,8 @@ type FlipSnapshot = {
 };
 
 export function useMediaFlip(ref: RefObject<HTMLElement | null>) {
-  const first = useRef<FlipSnapshot>();
-  const animation = useRef<Animation>();
+  const first = useRef<FlipSnapshot | undefined>(undefined);
+  const animation = useRef<Animation | undefined>(undefined);
 
   const capture = useCallback(() => {
     const node = ref.current;
@@ -27,7 +27,11 @@ export function useMediaFlip(ref: RefObject<HTMLElement | null>) {
   const play = useCallback((durationMs = 420) => {
     const node = ref.current;
     const snapshot = first.current;
-    if (!node || !snapshot || prefersReducedMotion()) return;
+    if (!node || !snapshot) return;
+    if (prefersReducedMotion()) {
+      first.current = undefined;
+      return;
+    }
 
     const last = node.getBoundingClientRect();
     const dx = snapshot.rect.left - last.left;
@@ -37,7 +41,7 @@ export function useMediaFlip(ref: RefObject<HTMLElement | null>) {
     const lastRadius = window.getComputedStyle(node).borderRadius;
 
     animation.current?.cancel();
-    animation.current = node.animate([
+    const nextAnimation = node.animate([
       {
         transformOrigin: 'top left',
         transform: `translate3d(${dx}px, ${dy}px, 0) scale(${sx}, ${sy})`,
@@ -53,11 +57,14 @@ export function useMediaFlip(ref: RefObject<HTMLElement | null>) {
       easing: 'cubic-bezier(.2,.78,.2,1)',
       fill: 'both',
     });
+    animation.current = nextAnimation;
 
-    animation.current.addEventListener('finish', () => {
-      animation.current?.cancel();
-      animation.current = undefined;
-      first.current = undefined;
+    nextAnimation.addEventListener('finish', () => {
+      if (animation.current === nextAnimation) {
+        nextAnimation.cancel();
+        animation.current = undefined;
+        first.current = undefined;
+      }
     }, { once: true });
   }, [ref]);
 
