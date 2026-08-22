@@ -33,6 +33,27 @@ const SEMANTIC_COLD_START = FRONTIER_PINNED_TOPICS
   .map((topic) => topic.label)
   .join(' · ');
 
+function priorityFirst(items: FrontierItem[]): FrontierItem[] {
+  const priority = items
+    .filter((item) => item.highPriority && item.watchSignal)
+    .sort((left, right) => (right.watchSignal?.score ?? 0) - (left.watchSignal?.score ?? 0)
+      || (right.watchSignal?.triggeredAt ?? 0) - (left.watchSignal?.triggeredAt ?? 0));
+  if (!priority.length) return items;
+  const priorityIds = new Set(priority.map((item) => item.id));
+  return [...priority, ...items.filter((item) => !priorityIds.has(item.id))];
+}
+
+function PriorityMarker({ item }: { item: FrontierItem }) {
+  if (!item.highPriority || !item.watchSignal) return null;
+  return (
+    <div className={spatial.priorityMarker} aria-label={`Watch Intent signal: ${item.watchSignal.label}`}>
+      <span>Signal</span>
+      <span>{item.watchSignal.label}</span>
+      <span>{Math.round(item.watchSignal.score * 100)}%</span>
+    </div>
+  );
+}
+
 export function SignalBoard({
   items,
   mode,
@@ -87,11 +108,19 @@ export function SignalBoard({
   }, [appendStable, semantic.items]);
 
   const displayedItems = useMemo(() => {
-    if (!appendStable || !stableOrder.length) return semantic.items;
-    const byId = new Map(semantic.items.map((item) => [item.id, item]));
-    const ordered = stableOrder.flatMap((id) => byId.get(id) ? [byId.get(id)!] : []);
-    const included = new Set(ordered.map((item) => item.id));
-    return [...ordered, ...semantic.items.filter((item) => !included.has(item.id))];
+    let ordered: FrontierItem[];
+    if (!appendStable || !stableOrder.length) {
+      ordered = semantic.items;
+    } else {
+      const byId = new Map(semantic.items.map((item) => [item.id, item]));
+      const stable = stableOrder.flatMap((id) => byId.get(id) ? [byId.get(id)!] : []);
+      const included = new Set(stable.map((item) => item.id));
+      ordered = [...stable, ...semantic.items.filter((item) => !included.has(item.id))];
+    }
+    // Explicit Watch Intents are the one exception to append-only ordering. A
+    // high-priority item gets a deterministic Signal slot at the leading edge,
+    // while every ambient item keeps its stable relative order.
+    return priorityFirst(ordered);
   }, [appendStable, semantic.items, stableOrder]);
 
   const itemSignature = useMemo(() => displayedItems.map((item) => item.id).join('|'), [displayedItems]);
@@ -132,7 +161,13 @@ export function SignalBoard({
       {!displayedItems.length ? empty : mode === 'feed' ? (
         <div className={`${styles.readingFeed} ${spatial.feed}`}>
           {displayedItems.map((item) => (
-            <div key={item.id} data-frontier-virtual-card className={`${styles.feedItem} ${spatial.feedItem} ${perf.virtualItem} ${perf.feedVirtualItem}`}>
+            <div
+              key={item.id}
+              data-frontier-virtual-card
+              data-frontier-priority={item.highPriority ? 'true' : undefined}
+              className={`${styles.feedItem} ${spatial.feedItem} ${item.highPriority ? spatial.priorityFeedItem : ''} ${perf.virtualItem} ${perf.feedVirtualItem}`}
+            >
+              <PriorityMarker item={item} />
               {renderCard(item, 'feed')}
             </div>
           ))}
@@ -141,7 +176,13 @@ export function SignalBoard({
       ) : (
         <div className={`${styles.signalGrid} ${spatial.grid} ${compact ? styles.signalGridCompact : ''}`}>
           {displayedItems.map((item) => (
-            <div key={item.id} data-frontier-virtual-card className={`${styles.gridItem} ${spatial.item} ${perf.virtualItem}`}>
+            <div
+              key={item.id}
+              data-frontier-virtual-card
+              data-frontier-priority={item.highPriority ? 'true' : undefined}
+              className={`${styles.gridItem} ${spatial.item} ${item.highPriority ? spatial.priorityItem : ''} ${perf.virtualItem}`}
+            >
+              <PriorityMarker item={item} />
               {renderCard(item, 'desk')}
             </div>
           ))}
