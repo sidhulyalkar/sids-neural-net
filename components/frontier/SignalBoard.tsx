@@ -3,6 +3,7 @@
 import type { ReactNode } from 'react';
 import type { FrontierItem, FrontierLayoutMode } from '@/lib/frontier/types';
 import styles from './frontier-minimal.module.css';
+import perf from './signal-board-performance.module.css';
 
 export type SignalLayoutMode = FrontierLayoutMode;
 
@@ -19,12 +20,16 @@ export function SignalBoard({ items, mode, renderCard, empty, compact = false }:
     <div className={styles.boardShell}>
       {!items.length ? empty : mode === 'feed' ? (
         <div className={styles.readingFeed}>
-          {items.map((item) => <div key={item.id} className={styles.feedItem}>{renderCard(item, 'feed')}</div>)}
+          {items.map((item) => (
+            <div key={item.id} className={`${styles.feedItem} ${perf.virtualItem} ${perf.feedVirtualItem}`}>
+              {renderCard(item, 'feed')}
+            </div>
+          ))}
         </div>
       ) : (
         <div className={`${styles.signalGrid} ${compact ? styles.signalGridCompact : ''}`}>
           {items.map((item) => (
-            <div key={item.id} className={styles.gridItem}>
+            <div key={item.id} className={`${styles.gridItem} ${perf.virtualItem}`}>
               {renderCard(item, 'desk')}
             </div>
           ))}
