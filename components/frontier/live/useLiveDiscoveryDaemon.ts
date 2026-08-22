@@ -37,6 +37,8 @@ export function useLiveDiscoveryDaemon(options: {
 }) {
   const workerRef = useRef<Worker | null>(null);
   const exclusionRef = useRef(new Set<string>());
+  const exclusionListRef = useRef<string[]>([]);
+  const focusRef = useRef(options.focusSignature);
   const pendingRef = useRef(new Map<string, FrontierItem>());
   const lastActivitySent = useRef(0);
   const retryTimer = useRef<number | undefined>(undefined);
@@ -50,9 +52,25 @@ export function useLiveDiscoveryDaemon(options: {
     options.excludeItems.flatMap((item) => frontierSeenSignatures(item))
   )).slice(0, 256), [options.excludeItems]);
 
+  const configureWorker = useCallback((worker: Worker) => {
+    const request: FrontierDaemonRequest = {
+      type: 'configure',
+      config: {
+        focusSignature: focusRef.current,
+        visible: document.visibilityState === 'visible',
+        lastActivityAt: Date.now(),
+        excludeSignatures: exclusionListRef.current,
+      },
+    };
+    worker.postMessage(request);
+  }, []);
+
   useEffect(() => {
     exclusionRef.current = new Set(excludeSignatures);
-  }, [excludeSignatures]);
+    exclusionListRef.current = excludeSignatures;
+    focusRef.current = options.focusSignature;
+    if (workerRef.current) configureWorker(workerRef.current);
+  }, [configureWorker, excludeSignatures, options.focusSignature]);
 
   const prunePendingForSeen = useCallback((signatures: string[]) => {
     if (!signatures.length || !pendingRef.current.size) return;
@@ -87,19 +105,6 @@ export function useLiveDiscoveryDaemon(options: {
     if (generatedAt || sources.length) setMeta({ generatedAt, sources });
     if (changed) setPendingVersion((version) => version + 1);
   }, []);
-
-  const configureWorker = useCallback((worker: Worker) => {
-    const request: FrontierDaemonRequest = {
-      type: 'configure',
-      config: {
-        focusSignature: options.focusSignature,
-        visible: document.visibilityState === 'visible',
-        lastActivityAt: Date.now(),
-        excludeSignatures,
-      },
-    };
-    worker.postMessage(request);
-  }, [excludeSignatures, options.focusSignature]);
 
   useEffect(() => {
     let worker: Worker;
@@ -167,11 +172,6 @@ export function useLiveDiscoveryDaemon(options: {
     };
   }, [acceptFresh, configureWorker, workerGeneration]);
 
-  useEffect(() => {
-    const worker = workerRef.current;
-    if (worker) configureWorker(worker);
-  }, [configureWorker]);
-
   useEffect(() => listenFrontierSeenSignatures(prunePendingForSeen), [prunePendingForSeen]);
 
   useEffect(() => {
@@ -221,9 +221,13 @@ export function useLiveDiscoveryDaemon(options: {
     const snapshot = Array.from(pendingRef.current.values());
     const exact = await filterUnseenFrontierItems(snapshot);
     const allowed = exact.filter((item) => !frontierSeenSignatures(item).some((signature) => exclusionRef.current.has(signature)));
+    const allowedKeys = new Set(allowed.map((item) => frontierItemIdentityKey(item)));
+    for (const key of pendingRef.current.keys()) {
+      if (!allowedKeys.has(key)) pendingRef.current.delete(key);
+    }
     const selected = allowed.slice(0, Math.max(1, Math.min(MAX_PENDING, limit)));
     for (const item of selected) pendingRef.current.delete(frontierItemIdentityKey(item));
-    if (selected.length || snapshot.length !== pendingRef.current.size) setPendingVersion((version) => version + 1);
+    if (snapshot.length !== pendingRef.current.size) setPendingVersion((version) => version + 1);
     return selected;
   }, []);
 
