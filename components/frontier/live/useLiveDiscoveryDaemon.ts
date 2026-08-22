@@ -127,9 +127,6 @@ export function useLiveDiscoveryDaemon(options: {
     }
 
     let changed = false;
-    // Priority candidates are deliberately inserted first in the pending map so
-    // the next stable stream reveal cannot bury an interruption behind ambient
-    // backlog. SignalBoard then reserves the leading spatial slot for them.
     for (const item of [...urgent, ...ambient]) {
       const key = frontierItemIdentityKey(item);
       if (!pendingRef.current.has(key)) {
@@ -141,8 +138,8 @@ export function useLiveDiscoveryDaemon(options: {
       const overflow = pendingRef.current.size - MAX_PENDING;
       const entries = Array.from(pendingRef.current.entries());
       const ambientKeys = entries.filter(([, item]) => !item.highPriority).map(([key]) => key);
-      const fallbackKeys = entries.map(([key]) => key);
-      const remove = [...ambientKeys, ...fallbackKeys.filter((key) => !ambientKeys.includes(key))].slice(-overflow);
+      const priorityKeys = entries.filter(([, item]) => item.highPriority).map(([key]) => key);
+      const remove = [...ambientKeys, ...priorityKeys].slice(0, overflow);
       remove.forEach((key) => pendingRef.current.delete(key));
       changed = true;
     }
