@@ -34,6 +34,7 @@ export type FrontierSourceKind =
   | 'openreview'
   | 'lobsters'
   | 'nasa'
+  | 'vimeo'
   | 'rss'
   | 'youtube'
   | 'football_data'
