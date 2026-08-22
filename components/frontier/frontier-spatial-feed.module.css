@@ -17,14 +17,61 @@
   grid-column: span 4;
 }
 
-/* A quiet editorial cadence. The varying spans create proximity groups without
-   creating boxes or rails, while every three-item phrase still resolves to 12 columns. */
 .board .item:nth-child(9n + 1) { grid-column: span 5; }
 .board .item:nth-child(9n + 2) { grid-column: span 3; }
 .board .item:nth-child(9n + 3) { grid-column: span 4; }
 .board .item:nth-child(9n + 7) { grid-column: span 3; }
 .board .item:nth-child(9n + 8) { grid-column: span 4; }
 .board .item:nth-child(9n + 9) { grid-column: span 5; }
+
+.board .priorityItem {
+  position: relative;
+  grid-column: span 5;
+  isolation: isolate;
+}
+
+.board .priorityItem::before {
+  position: absolute;
+  z-index: -1;
+  top: -28px;
+  right: -30px;
+  bottom: -26px;
+  left: -30px;
+  pointer-events: none;
+  content: '';
+  background: radial-gradient(circle at 16% 10%, rgba(165, 213, 193, 0.075), transparent 54%);
+}
+
+.priorityMarker {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 8px;
+  color: rgba(165, 213, 193, 0.66);
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-size: 7px;
+  letter-spacing: 0.055em;
+  text-transform: uppercase;
+}
+
+.priorityMarker span:first-child {
+  color: rgba(192, 230, 214, 0.94);
+  font-weight: 620;
+  letter-spacing: 0.11em;
+}
+
+.priorityMarker span:nth-child(2) {
+  min-width: 0;
+  overflow: hidden;
+  color: rgba(189, 207, 198, 0.62);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.priorityMarker span:last-child {
+  margin-left: auto;
+  color: rgba(165, 213, 193, 0.48);
+}
 
 .board .feed {
   display: grid;
@@ -45,6 +92,21 @@
   padding-left: clamp(0px, 4vw, 62px);
 }
 
+.board .priorityFeedItem {
+  position: relative;
+  padding-right: clamp(0px, 9vw, 110px) !important;
+  padding-left: 0 !important;
+}
+
+.board .priorityFeedItem::before {
+  position: absolute;
+  z-index: -1;
+  inset: -30px -40px;
+  pointer-events: none;
+  content: '';
+  background: radial-gradient(circle at 12% 12%, rgba(165, 213, 193, 0.07), transparent 56%);
+}
+
 @media (max-width: 1120px) {
   .board .grid { grid-template-columns: repeat(8, minmax(0, 1fr)); }
   .board .item,
@@ -54,6 +116,7 @@
   .board .item:nth-child(9n + 7),
   .board .item:nth-child(9n + 8),
   .board .item:nth-child(9n + 9) { grid-column: span 4; }
+  .board .priorityItem { grid-column: span 5; }
 }
 
 @media (max-width: 720px) {
@@ -69,9 +132,14 @@
   .board .item:nth-child(9n + 3),
   .board .item:nth-child(9n + 7),
   .board .item:nth-child(9n + 8),
-  .board .item:nth-child(9n + 9) { grid-column: 1; }
+  .board .item:nth-child(9n + 9),
+  .board .priorityItem { grid-column: 1; }
 
   .board .feed { gap: clamp(38px, 13vw, 62px); }
   .board .feedItem:nth-child(odd),
-  .board .feedItem:nth-child(even) { padding-inline: 0; }
+  .board .feedItem:nth-child(even),
+  .board .priorityFeedItem { padding-inline: 0 !important; }
+  .board .priorityItem::before,
+  .board .priorityFeedItem::before { inset-inline: -12px; }
+  .priorityMarker { margin-bottom: 6px; }
 }
