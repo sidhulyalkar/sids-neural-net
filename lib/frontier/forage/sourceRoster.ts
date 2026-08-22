@@ -182,9 +182,6 @@ export function shouldEvictFrontierForagedSource(record: FrontierForagedSource, 
   const rolling = frontierRollingSourceYield(record, now);
   const ageDays = Math.max(0, now - record.discoveredAt) / DAY_MS;
   if (ageDays < 2.5 || rolling.polls < 5) return false;
-  // A source that repeatedly returns material but never produces a credible,
-  // aligned or unseen result gets a short probation rather than permanent rent
-  // in the autonomous roster.
   if (rolling.polls >= 6 && rolling.discovered >= 8 && rolling.aligned === 0 && rolling.unseen === 0) return true;
   if (rolling.polls >= 10 && rolling.discovered >= 12 && rolling.alignedRate < 0.04 && rolling.unseenRate < 0.05) return true;
   if (rolling.polls >= 8 && rolling.failures / rolling.polls >= 0.75) return true;
@@ -383,10 +380,9 @@ export async function markFrontierForagedDomainProbed(domain: string, now = Date
     const db = await openForageDb();
     const transaction = db.transaction(DOMAIN_STORE, 'readwrite');
     const done = transactionDone(transaction);
-    const store = transaction.objectStore(STORE);
-    const previous = await requestPromise(transaction.objectStore(DOMAIN_STORE).get(domain)) as FrontierForagedDomainObservation | undefined;
-    if (previous) transaction.objectStore(DOMAIN_STORE).put({ ...previous, lastProbedAt: now } satisfies FrontierForagedDomainObservation);
-    void store;
+    const store = transaction.objectStore(DOMAIN_STORE);
+    const previous = await requestPromise(store.get(domain)) as FrontierForagedDomainObservation | undefined;
+    if (previous) store.put({ ...previous, lastProbedAt: now } satisfies FrontierForagedDomainObservation);
     await done;
   } catch {}
 }
