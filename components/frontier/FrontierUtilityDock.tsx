@@ -2,9 +2,10 @@
 
 import { forwardRef, useCallback, useEffect, useRef, useState } from 'react';
 import type { ForwardedRef } from 'react';
-import { ChevronDown, LayoutGrid, Rows3, X } from 'lucide-react';
+import { ChevronDown, LayoutGrid, Rows3, Volume2, VolumeX, X } from 'lucide-react';
 import { setFrontierClientQuery } from '@/lib/frontier/vector/clientQuery';
 import type { FrontierLayoutMode, FrontierRealm, FrontierView } from '@/lib/frontier/types';
+import { useUIFrequencies } from './audio/useUIFrequencies';
 import styles from './frontier-utility-dock.module.css';
 
 type Option = { value: string; label: string };
@@ -45,18 +46,27 @@ function DockSelect({
   options,
   label,
   onChange,
+  onInteraction,
   className = '',
 }: {
   value: string;
   options: Option[];
   label: string;
   onChange: (value: string) => void;
+  onInteraction?: () => void;
   className?: string;
 }) {
   return (
     <label className={`${styles.selectWrap} ${className}`}>
       <span className={styles.srOnly}>{label}</span>
-      <select value={value} aria-label={label} onChange={(event) => onChange(event.target.value)}>
+      <select
+        value={value}
+        aria-label={label}
+        onChange={(event) => {
+          onInteraction?.();
+          onChange(event.target.value);
+        }}
+      >
         {options.map((option) => <option value={option.value} key={option.value}>{option.label}</option>)}
       </select>
       <ChevronDown size={10} aria-hidden="true" />
@@ -90,6 +100,7 @@ export const FrontierUtilityDock = forwardRef<HTMLDivElement, Props>(function Fr
   const lastScrollYRef = useRef(0);
   const rafRef = useRef<number | undefined>(undefined);
   const [hidden, setHidden] = useState(false);
+  const { muted, toggleMuted, playDockClick } = useUIFrequencies();
 
   const setDockRef = useCallback((node: HTMLDivElement | null) => {
     dockRef.current = node;
@@ -139,6 +150,16 @@ export const FrontierUtilityDock = forwardRef<HTMLDivElement, Props>(function Fr
   const feedView = view === 'today' || view === 'explore';
   const layoutView = feedView || view === 'saved';
 
+  const toggleAudio = () => {
+    if (muted) {
+      toggleMuted();
+      playDockClick();
+    } else {
+      playDockClick();
+      toggleMuted();
+    }
+  };
+
   return (
     <div
       ref={setDockRef}
@@ -161,17 +182,19 @@ export const FrontierUtilityDock = forwardRef<HTMLDivElement, Props>(function Fr
         value={view}
         label="View"
         options={VIEW_OPTIONS}
+        onInteraction={playDockClick}
         onChange={(value) => onViewChange(value as FrontierView)}
         className={styles.viewSelect}
       />
 
       {feedView ? (
         <>
-          <span className={styles.divider} aria-hidden="true" />
+          <span className={styles.airGap} aria-hidden="true" />
           <DockSelect
             value={realm}
             label="Perspective"
             options={REALM_OPTIONS}
+            onInteraction={playDockClick}
             onChange={(value) => onRealmChange(value as FrontierRealm)}
             className={styles.realmSelect}
           />
@@ -179,6 +202,7 @@ export const FrontierUtilityDock = forwardRef<HTMLDivElement, Props>(function Fr
             value={category}
             label="Category"
             options={categoryOptions}
+            onInteraction={playDockClick}
             onChange={onCategoryChange}
             className={styles.categorySelect}
           />
@@ -186,6 +210,7 @@ export const FrontierUtilityDock = forwardRef<HTMLDivElement, Props>(function Fr
             value={format}
             label="Format"
             options={formatOptions}
+            onInteraction={playDockClick}
             onChange={onFormatChange}
             className={styles.formatSelect}
           />
@@ -196,19 +221,29 @@ export const FrontierUtilityDock = forwardRef<HTMLDivElement, Props>(function Fr
         <span className={styles.queryChip} title={activeSearch}>
           <span>{activeSearch}</span>
           {onClearSearch ? (
-            <button type="button" onClick={onClearSearch} aria-label={`Clear search ${activeSearch}`}><X size={10} /></button>
+            <button
+              type="button"
+              onClick={() => {
+                playDockClick();
+                onClearSearch();
+              }}
+              aria-label={`Clear search ${activeSearch}`}
+            ><X size={10} /></button>
           ) : null}
         </span>
       ) : null}
 
       {layoutView ? (
         <>
-          <span className={styles.divider} aria-hidden="true" />
+          <span className={styles.airGap} aria-hidden="true" />
           <div className={styles.layoutToggle} aria-label="Content layout">
             <button
               type="button"
               className={layoutMode === 'desk' ? styles.activeLayout : ''}
-              onClick={() => onLayoutChange('desk')}
+              onClick={() => {
+                playDockClick();
+                onLayoutChange('desk');
+              }}
               aria-label="Grid layout"
               aria-pressed={layoutMode === 'desk'}
               title="Grid"
@@ -216,7 +251,10 @@ export const FrontierUtilityDock = forwardRef<HTMLDivElement, Props>(function Fr
             <button
               type="button"
               className={layoutMode === 'feed' ? styles.activeLayout : ''}
-              onClick={() => onLayoutChange('feed')}
+              onClick={() => {
+                playDockClick();
+                onLayoutChange('feed');
+              }}
               aria-label="List layout"
               aria-pressed={layoutMode === 'feed'}
               title="List"
@@ -224,6 +262,17 @@ export const FrontierUtilityDock = forwardRef<HTMLDivElement, Props>(function Fr
           </div>
         </>
       ) : null}
+
+      <button
+        type="button"
+        className={styles.audioToggle}
+        onClick={toggleAudio}
+        aria-label={muted ? 'Enable FRONTIER interface audio' : 'Mute FRONTIER interface audio'}
+        aria-pressed={muted}
+        title={muted ? 'Audio off' : 'Audio on'}
+      >
+        {muted ? <VolumeX size={12} /> : <Volume2 size={12} />}
+      </button>
     </div>
   );
 });
