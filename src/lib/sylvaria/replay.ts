@@ -1,9 +1,9 @@
-export const SYLVARIA_REPLAY_SCHEMA = 1 as const;
-export const SYLVARIA_ENGINE_VERSION = '0.11.1' as const;
+export const SYLVARIA_REPLAY_SCHEMA = 2 as const;
+export const SYLVARIA_ENGINE_VERSION = '0.13.0' as const;
 export const SYLVARIA_OFFICIAL_SEED = 110001;
 export const SYLVARIA_MAX_REPLAY_TICKS = 120 * 60 * 20;
-export const SYLVARIA_MAX_REPLAY_EVENTS = 20_000;
-export const SYLVARIA_MAX_REPLAY_BYTES = 120 * 1024;
+export const SYLVARIA_MAX_REPLAY_EVENTS = 24_000;
+export const SYLVARIA_MAX_REPLAY_BYTES = 128 * 1024;
 
 export const SYLVARIA_ACTIONS = [
   'w-down',
@@ -18,10 +18,12 @@ export const SYLVARIA_ACTIONS = [
   'cut-down',
   'cut-left',
   'cut-right',
+  'dash-down',
+  'dash-up',
 ] as const;
 
 export type SylvariaReplayAction = (typeof SYLVARIA_ACTIONS)[number];
-export type SylvariaReplayActionCode = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11;
+export type SylvariaReplayActionCode = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13;
 
 export type SylvariaReplayEvent = {
   tick: number;
