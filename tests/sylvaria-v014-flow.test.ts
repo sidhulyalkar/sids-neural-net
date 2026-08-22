@@ -30,6 +30,15 @@ test('late recovery input has a deterministic seven-tick grace window', () => {
   assert.match(source, /p\.bladeQueuedDirection=null;p\.bladeBuffer=0;F\.cut\(direction\)/);
 });
 
+test('charged dash release honors the last displayed charge vector after movement keys are released', () => {
+  assert.match(source, /function heldSetForVector/);
+  assert.match(source, /const inheritedReleaseDashCharge=F\.releaseDashCharge/);
+  assert.match(source, /p\.dashChargeVector/);
+  assert.match(source, /state\.heldMoves=heldSetForVector\(remembered\)/);
+  assert.match(source, /finally\{state\.heldMoves=realHeld\}/);
+  assert.match(source, /window\.addEventListener\?\.\('keyup',onFlowSpaceUp,true\)/);
+});
+
 test('committed dash steering rotates direction without injecting ordinary glide speed', () => {
   assert.match(source, /dashSteerBlend:\.055/);
   assert.match(source, /function steerCommittedDash/);
