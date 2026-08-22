@@ -4,18 +4,18 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover" />
 <meta name="theme-color" content="#06110e" />
-<title>Sylvaria: Environmental Resonance</title>
+<title>Sylvaria: Ecological Synergy</title>
 <link rel="stylesheet" href="./sylvaria-v8.css" />
 </head>
 <body>
 <div id="game">
-  <canvas id="c" width="960" height="640" tabindex="0" aria-label="Sylvaria Environmental Resonance directional forest combat game"></canvas>
+  <canvas id="c" width="960" height="640" tabindex="0" aria-label="Sylvaria Ecological Synergy directional forest combat game"></canvas>
   <div id="hud" class="hidden" aria-hidden="true">
     <div id="top">
       <div id="roomCard" class="glass">
-        <div id="roomKicker">room 001 · environmental countercut</div>
+        <div id="roomKicker">room 001 · ecological countercut</div>
         <div id="roomTitle">Trailhead Trespass</div>
-        <div id="roomTask">Commit with WASD. Counter with arrows. Explore the ecology.</div>
+        <div id="roomTask">Commit with WASD. Counter with arrows. Compose the ecology.</div>
         <div id="biomeBadge">clean clearing · hidden heartleaf</div>
       </div>
       <div id="stats" class="runStats">
@@ -40,39 +40,39 @@
 
   <div id="title" class="screen">
     <div class="panel menuPanel">
-      <div class="eyebrow">v0.9.1 · forage &amp; fracture · environmental counter-combat</div>
-      <h1><em class="sylvariaWord">Sylvaria</em><br/>Environmental Resonance</h1>
-      <p class="lede narrow">Sprid is a machete-wielding forest runner fighting clear-cut operations across living arenas. Protect trees, Countercut hostile patterns, reshape routes, and explore while the fight is still alive. Tall grass, deadwood, rubble, fungi, ice, mud, water, sand, and brambles can hide advantages or become weapons. The ecology obeys the same rules for Sprid and his enemies.</p>
+      <div class="eyebrow">v0.10 · ecological synergy · counter-combat as an ecosystem</div>
+      <h1><em class="sylvariaWord">Sylvaria</em><br/>Ecological Synergy</h1>
+      <p class="lede narrow">Sprid is a machete-wielding forest runner fighting clear-cut machinery inside living arenas. The proven Countercut rules remain exact, but the systems now compose: reflected shots can trigger fungi, wave-origin returns can bloom poison clouds, committed dash-cuts can shear spores into new lanes, cautious enemies read dangerous ground, and PAC-a-Saw physically bulldozes route geometry. Perfect counters and environmental routes can ignite Verdant Flow without changing the core movement or return-fire numbers.</p>
       <div class="combatRule">
         <div><b>W A S D</b><span>persistent one-step cardinal queue; terrain changes commitment, never the input grammar</span></div>
-        <div><b>Arrow Keys</b><span>independent machete cuts, arrival-side counters, foliage chops, mushroom triggers, and contextual fractures</span></div>
-        <div><b>Counter Route</b><span>return shots at high speed; long, cross-enemy, hazard, and spore-routed hits pay more</span></div>
-        <div><b>Explore Mid-Fight</b><span>grass, deadwood, rubble, and readable fungi can reveal healing, speed, guard, reach, Flow, or dangerous spores</span></div>
+        <div><b>Arrow Keys</b><span>independent machete cuts, arrival-side counters, foliage chops, fractures, and committed spore shears</span></div>
+        <div><b>Chain Ecology</b><span>returned projectiles can trigger mushrooms; route hazards and chain reactions deliberately instead of waiting for random effects</span></div>
+        <div><b>Verdant Flow</b><span>link perfect Countercuts, Crosscuts, Long Returns, gas routes, and terrain finishes to enter a short ecological power state</span></div>
       </div>
       <div class="menuActions">
-        <button id="start" class="primary wide">start environmental run</button>
+        <button id="start" class="primary wide">start synergy run</button>
         <button id="explore" class="secondary wide">practice expedition</button>
         <div class="menuGrid"><button id="howBtn" class="ghost">how combat works</button><button id="controlsBtn" class="ghost">controls</button></div>
       </div>
       <div id="bestRun" class="bestRun">best · no run yet</div>
-      <p class="microcopy">The first ten rooms teach terrain and forest chemistry one concept at a time. Exploration is optional but tactically rewarding. Deeper rooms deterministically remix enemies, projectile geometry, route pressure, fungi, forage, and terrain without changing the eight-key Countercut grammar.</p>
+      <p class="microcopy">The first ten rooms still teach a bounded ecology one idea at a time. v0.10 adds composition rather than more buttons: reflected fire, fungi, gas, terrain, temporary forage, enemy behavior, and boss routing can now interact while the eight-key Countercut grammar stays fixed.</p>
     </div>
   </div>
 
   <div id="howScreen" class="screen hidden">
     <div class="panel subPanel">
-      <div class="eyebrow">environmental countercut grammar</div><h2>Movement commits. Cutting routes danger. Curiosity changes the fight.</h2>
+      <div class="eyebrow">ecological countercut grammar</div><h2>Movement commits. Countercut redirects danger. Synergy lets one good read reshape the room.</h2>
       <div class="howGrid">
         <div><b>01 · step-dash</b><p>Tap WASD for a cardinal burst. A second tap made during the current burst stays queued after key release and executes after the first commitment.</p></div>
         <div><b>02 · cut</b><p>Arrow keys swing the machete in four directions. Cuts travel with Sprid during a dash, so movement and attack vectors remain independent.</p></div>
-        <div><b>03 · counter</b><p>Cut toward the side a projectile actually reaches you from. Its hostile curve disappears and it launches back at 840 px/s, or 1040 px/s on a perfect Countercut.</p></div>
-        <div><b>04 · route fire</b><p>Returned bullets can hit any enemy. Crosscuts, Long Returns, penetration, and environmental knockback reward deliberate formation reads.</p></div>
-        <div><b>05 · read terrain</b><p>Ice extends commitment. Mud and sand add drag. Water slows. Brambles and shattered ice stagger. Ground rules apply to enemies too.</p></div>
-        <div><b>06 · forage</b><p>Fully clear grass, chop deadwood, or break rubble to discover short-lived advantages. Heartleaf heals, resin accelerates cadence, Barkguard blocks a hit, Edge Stone extends reach, and Flow Sap restores Flow.</p></div>
-        <div><b>07 · read fungi</b><p>Friendly caps have clean luminous colors. Yellow-green Venomcaps and uncanny Ghostcaps vent spores when cut. Toxic clouds hurt Sprid and enemies alike, so timing matters.</p></div>
-        <div><b>08 · fracture</b><p>Cut during a dash, or immediately after one, to fracture ice crossed by that committed movement. The shards become a symmetric hazard instead of a free projectile erase.</p></div>
-        <div><b>09 · hunt evasive units</b><p>Foremen and Chairs backstep; Lobbyists, Brokers, and Surveyors blink. Mud, brambles, shards, and carefully triggered gas can turn escape space into a trap.</p></div>
-        <div><b>10 · survive the run</b><p>Heartwood persists. Perfect Groves heal one heartwood. Flow and temporary field finds reward players who keep moving, reading, and reshaping each arena.</p></div>
+        <div><b>03 · counter</b><p>Cut toward the side a projectile actually reaches you from. Hostile motion normalizes into an 840 px/s return, or 1040 px/s on a perfect Countercut.</p></div>
+        <div><b>04 · chain a return</b><p>A reflected projectile can trigger a mushroom without spending the return. A wave-origin Countercut blooms toxic spores farther, making projectile history tactically meaningful after reflection.</p></div>
+        <div><b>05 · shear spores</b><p>Cut a gas cloud during a committed dash or its short echo window to shove the cloud in the cut direction. Verdant Flow makes the ecological shove stronger, not the base dash or Countercut.</p></div>
+        <div><b>06 · read the hunters</b><p>Surveyors and other cautious units reject gas-filled escape space and steer away from dangerous footing. Skidders remain reckless, so baiting them through poison and shards stays viable.</p></div>
+        <div><b>07 · forage</b><p>Clear grass, deadwood, or rubble for Heartleaf, Rush Resin, Barkguard, Edge Stone, or Flow Sap. Temporary finds reward curiosity without permanent power inflation.</p></div>
+        <div><b>08 · verdant flow</b><p>Perfect Countercuts, Crosscuts, Long Returns, terrain routes, hazard finishes, and spore routes build a short synergy chain. At high Flow, three linked reads ignite Verdant Flow.</p></div>
+        <div><b>09 · read the boss</b><p>PAC-a-Saw vents heat before major attacks and now bulldozes deadwood and rubble it physically crosses. The machine can accidentally manufacture your next route.</p></div>
+        <div><b>10 · visual priority</b><p>Only the most immediate hostile projectile receives the threat halo. Friendly returns and Sprid remain visually dominant over gas, particles, and decorative terrain as rooms become denser.</p></div>
       </div>
       <div class="actions"><button class="secondary" data-back>back</button></div>
     </div>
@@ -80,7 +80,7 @@
 
   <div id="controlsScreen" class="screen hidden">
     <div class="panel subPanel controlsPanel">
-      <div class="eyebrow">controls</div><h2>Eight combat keys. Ecology adds decisions, not buttons.</h2>
+      <div class="eyebrow">controls</div><h2>Eight combat keys. More composition, still no control bloat.</h2>
       <div class="bindingGrid">
         <div><span>step-dash north</span><b>W</b></div><div><span>up chop / counter</span><b>↑</b></div>
         <div><span>step-dash south</span><b>S</b></div><div><span>down chop / counter</span><b>↓</b></div>
@@ -88,7 +88,7 @@
         <div><span>step-dash east</span><b>D</b></div><div><span>right chop / counter</span><b>→</b></div>
         <div><span>pause / resume</span><b>P</b></div><div><span>mute SFX</span><b>M</b></div>
       </div>
-      <p class="microcopy">OS key-repeat is ignored. Sylvaria owns held-step cadence, its persistent one-command queue, cut timing, terrain sampling, temporary buffs, and environmental hazards so the same combat input remains deterministic across Chrome, Firefox, and Safari/WebKit.</p>
+      <p class="microcopy">OS key-repeat is ignored. Sylvaria owns held-step cadence, its persistent one-command queue, cut timing, terrain sampling, temporary buffs, hazards, and synergy timing so the same combat grammar remains deterministic across Chrome, Firefox, and Safari/WebKit.</p>
       <div class="actions"><button class="secondary" data-back>back</button></div>
     </div>
   </div>
@@ -100,6 +100,6 @@
 <script src="./render-scale-v7.js"></script>
 <script src="./render-optimizer-v6.js"></script>
 <script src="./v091/fullscreen.js"></script>
-<script type="module" src="./v091/boot.js"></script>
+<script type="module" src="./v010-entry.js"></script>
 </body>
 </html>
