@@ -5,8 +5,13 @@ export function isFrontierTypingTarget(target: EventTarget | null): boolean {
   return target.tagName === 'INPUT'
     || target.tagName === 'TEXTAREA'
     || target.tagName === 'SELECT'
+    || target.tagName === 'BUTTON'
+    || target.tagName === 'A'
+    || target.tagName === 'VIDEO'
+    || target.tagName === 'AUDIO'
+    || target.tagName === 'SUMMARY'
     || target.isContentEditable
-    || Boolean(target.closest('[role="textbox"], [role="dialog"] input, video, audio'));
+    || Boolean(target.closest('[role="textbox"], [role="dialog"] input, [role="button"], video, audio'));
 }
 
 export function resolveFrontierFocalKeyboardIntent(input: {
