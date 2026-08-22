@@ -20,6 +20,7 @@ type Registration = {
 
 type WorkerSuccess = {
   id: string;
+  stage: 'preview' | 'final';
   bitmap: ImageBitmap;
   width: number;
   height: number;
@@ -32,6 +33,7 @@ type WorkerFailure = {
 };
 
 type PendingDecode = {
+  onPreview: (payload: WorkerSuccess) => void;
   resolve: (payload: WorkerSuccess) => void;
   reject: (error: Error) => void;
 };
@@ -255,6 +257,10 @@ class FrontierImagePlane {
             if ('bitmap' in event.data) event.data.bitmap.close();
             return;
           }
+          if ('bitmap' in event.data && event.data.stage === 'preview') {
+            pending.onPreview(event.data);
+            return;
+          }
           this.pending.delete(event.data.id);
           if ('bitmap' in event.data) pending.resolve(event.data);
           else pending.reject(new Error(event.data.error));
@@ -314,7 +320,7 @@ class FrontierImagePlane {
       return;
     }
     if (registration.failedUntil && registration.failedUntil > Date.now()) {
-      registration.onState('fallback');
+      registration.onState(this.cache && registration.textureKey && this.cache.has(registration.textureKey) ? 'ready' : 'fallback');
       return;
     }
     const rect = registration.node.getBoundingClientRect();
@@ -342,7 +348,23 @@ class FrontierImagePlane {
       priority,
       run: async (signal) => {
         try {
-          const payload = await this.decode(registration.id, registration.src, width, height, signal);
+          const payload = await this.decode(
+            registration.id,
+            registration.src,
+            width,
+            height,
+            signal,
+            (preview) => {
+              if (signal.aborted || !this.registrations.has(registration.id)) {
+                preview.bitmap.close();
+                return;
+              }
+              this.cache?.put(textureKey, preview.bitmap);
+              const current = this.registrations.get(registration.id);
+              if (current?.textureKey === textureKey) current.onState('ready');
+              this.invalidate();
+            }
+          );
           if (signal.aborted || !this.registrations.has(registration.id)) {
             payload.bitmap.close();
             frontierMediaTelemetry.requestCancelled();
@@ -364,7 +386,7 @@ class FrontierImagePlane {
           const current = this.registrations.get(registration.id);
           if (current) {
             current.failedUntil = Date.now() + FAILED_RETRY_MS;
-            current.onState('fallback');
+            current.onState(current.textureKey && this.cache?.has(current.textureKey) ? 'ready' : 'fallback');
           }
           throw error;
         }
@@ -392,7 +414,14 @@ class FrontierImagePlane {
     if (!sharedByNearSurface) this.cache?.remove(key);
   }
 
-  private decode(id: string, url: string, width: number, height: number, signal: AbortSignal): Promise<WorkerSuccess> {
+  private decode(
+    id: string,
+    url: string,
+    width: number,
+    height: number,
+    signal: AbortSignal,
+    onPreview: (payload: WorkerSuccess) => void
+  ): Promise<WorkerSuccess> {
     if (!this.worker) return this.decodeOnMainThread(id, url, width, height, signal);
     const requestId = `${id}:${performance.now()}:${Math.random().toString(36).slice(2)}`;
     return new Promise<WorkerSuccess>((resolve, reject) => {
@@ -403,6 +432,7 @@ class FrontierImagePlane {
       };
       signal.addEventListener('abort', abort, { once: true });
       this.pending.set(requestId, {
+        onPreview,
         resolve: (payload) => {
           signal.removeEventListener('abort', abort);
           resolve(payload);
@@ -431,7 +461,7 @@ class FrontierImagePlane {
       bitmap.close();
       throw new DOMException('Aborted', 'AbortError');
     }
-    return { id, bitmap, width: bitmap.width, height: bitmap.height, decodeMs: performance.now() - started };
+    return { id, stage: 'final', bitmap, width: bitmap.width, height: bitmap.height, decodeMs: performance.now() - started };
   }
 
   private render(): void {
