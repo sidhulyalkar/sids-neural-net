@@ -1,5 +1,7 @@
 import type { Metadata } from 'next';
+import { BackgroundCanvas } from '@/components/frontier/BackgroundCanvas';
 import { FrontierExperience } from '@/components/frontier/FrontierExperience';
+import spatial from '@/components/frontier/frontier-spatial.module.css';
 
 export const metadata: Metadata = {
   title: 'FRONTIER · Personal Intelligence Radar',
@@ -29,5 +31,10 @@ export default function FrontierPage() {
     day: '2-digit',
   }).format(now);
 
-  return <FrontierExperience initialDateLabel={initialDateLabel} initialDayKey={initialDayKey} />;
+  return (
+    <div className={spatial.root}>
+      <BackgroundCanvas />
+      <FrontierExperience initialDateLabel={initialDateLabel} initialDayKey={initialDayKey} />
+    </div>
+  );
 }
