@@ -51,8 +51,11 @@ test('WebGL2 pond renderer still implements height-derived normals bounded light
 
 test('v0.13 kinetic presentation suppresses the old straight tongue and renders the authoritative sweeping arc',()=>{
   const presentation=read(`${runtime}/v013/kinetic-presentation-v013.js`);
-  assert.match(presentation,/state\.slashes\.filter\(s=>s\.kind!=='arc'\)/);
+  assert.match(presentation,/original\.filter\(s=>s\.kind!=='arc'\)/);
+  assert.match(presentation,/state\.slashes=legacy/);
+  assert.match(presentation,/state\.slashes=original/);
   assert.match(presentation,/function drawArcAttack/);
+  assert.match(presentation,/function drawBladeTrails/);
   assert.match(presentation,/quadraticCurveTo/);
   assert.match(presentation,/s\.phase==='windup'/);
   assert.match(presentation,/s\.phase==='active'/);
@@ -62,12 +65,13 @@ test('v0.13 kinetic presentation suppresses the old straight tongue and renders 
   assert.doesNotMatch(presentation,/F\.(?:updateMovement|updateEnemies|updateShots|cut)\s*=/);
 });
 
-test('production pond shell teaches v0.13 glide charge and sweep controls',()=>{
+test('production pond shell teaches v0.13 glide charge opening parry and sweep controls',()=>{
   const html=read(`${runtime}/index.html`);
   const arcade=read('src/data/arcadeGames.ts');
   assert.match(html,/v0\.13 · kinetic arc combat/);
   assert.match(html,/Lily Clearing/);
-  assert.match(html,/Glide freely\. Mid-swing tongue contact sends attacks back/);
+  assert.match(html,/Catch fire in the opening tongue frames to parry/);
+  assert.match(html,/first five active simulation ticks/);
   assert.match(html,/glide north/);
   assert.match(html,/tongue arc up/);
   assert.match(html,/hold \/ release dash/);
@@ -75,6 +79,7 @@ test('production pond shell teaches v0.13 glide charge and sweep controls',()=>{
   assert.match(arcade,/version: 'v0\.13\.0'/);
   assert.match(arcade,/GLIDE · SWEEP · RETURN FIRE\./);
   assert.match(arcade,/continuous pond movement/);
+  assert.match(arcade,/opening five active ticks/);
   assert.match(arcade,/webgl2/);
 });
 
