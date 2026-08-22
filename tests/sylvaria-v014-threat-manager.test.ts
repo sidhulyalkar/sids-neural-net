@@ -60,6 +60,14 @@ test('threat cost and phrase budget distinguish coverage engage precision heavy 
   assert.match(source, /nextSlotTick\+profile\.restTicks/);
 });
 
+test('melee feller commitments and bosses share the same threat queue as projectile roles', () => {
+  assert.match(source, /feller:'engage'/);
+  assert.match(source, /if\(state\.boss&&!state\.boss\.dead\)actors\.push\(state\.boss\)/);
+  assert.match(source, /if\(e&&e===state\.boss\)return'heavy'/);
+  assert.match(source, /const inheritedBoss=F\.updateBoss/);
+  assert.match(source, /F\.updateBoss=\(dt\)=>\{const result=inheritedBoss\(dt\);recordReleasedTelegraphs\(\);return result\}/);
+});
+
 test('post-evade vulnerability opens one fixed scheduler grace edge without deleting existing projectiles', () => {
   assert.match(source, /if\(open&&!punishWindowActive\)/);
   assert.match(source, /pushQueuePastGrace\(punishGraceUntil\)/);
