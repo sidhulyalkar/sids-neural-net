@@ -102,6 +102,14 @@ export type FrontierMetric = {
   detail?: string;
 };
 
+export type FrontierWatchSignal = {
+  intentId: string;
+  label: string;
+  /** Normalized semantic match score in [0, 1]. */
+  score: number;
+  triggeredAt: number;
+};
+
 export type FrontierItem = {
   id: string;
   title: string;
@@ -123,6 +131,9 @@ export type FrontierItem = {
   momentum: number;
   readMinutes?: number;
   why?: string;
+  /** Phase 6 interruption metadata. Only explicit Watch Intents can set this. */
+  highPriority?: boolean;
+  watchSignal?: FrontierWatchSignal;
 };
 
 export type FrontierSourceStatus = {
