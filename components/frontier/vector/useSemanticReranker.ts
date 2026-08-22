@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { FRONTIER_MESH_PROFILE_UPDATE_EVENT } from '@/lib/frontier/sync/meshProfileEvents';
 import type { FrontierItem } from '@/lib/frontier/types';
 import { rerankFrontierItems } from '@/lib/frontier/vector/ranker';
 import {
@@ -213,6 +214,34 @@ export function useSemanticReranker(
     void index();
     return () => { cancelled = true; };
   }, [archiveGetIds, archivePutMany, embed, enabled, ensureSequenceHydrated, itemSignature, items, seedText, warm]);
+
+  useEffect(() => {
+    if (!enabled) return;
+    const refreshFromMesh = () => {
+      telemetryQueue.current = telemetryQueue.current.then(async () => {
+        let nextInterest: FrontierInterestState | undefined;
+        let nextSequence: FrontierSequenceState | undefined;
+        try { nextInterest = await frontierVectorStore.getInterest(); } catch {}
+        try { nextSequence = await frontierVectorStore.getSequence(); } catch {}
+        if (nextInterest) setInterest(nextInterest);
+        if (nextSequence) {
+          const hydration = sequenceWorker.hydrate(nextSequence)
+            .then((hydrated) => {
+              setSequence(hydrated);
+              return hydrated;
+            })
+            .catch(() => {
+              setSequence(nextSequence);
+              return nextSequence;
+            });
+          sequenceHydrationRef.current = hydration;
+          await hydration;
+        }
+      }).catch(() => undefined);
+    };
+    window.addEventListener(FRONTIER_MESH_PROFILE_UPDATE_EVENT, refreshFromMesh);
+    return () => window.removeEventListener(FRONTIER_MESH_PROFILE_UPDATE_EVENT, refreshFromMesh);
+  }, [enabled, sequenceWorker]);
 
   useEffect(() => {
     if (!enabled) return;
