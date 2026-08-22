@@ -2,6 +2,7 @@ import type {
   SylvariaRunTicketRecord,
   SylvariaTicketStore,
 } from './leaderboard';
+import { SYLVARIA_ENGINE_VERSION } from './replay';
 
 export type SylvariaVerifiedRunRecord = {
   playerId?: string | null;
@@ -68,8 +69,6 @@ function authHeaders(key: string) {
     apikey: key,
     'content-type': 'application/json',
   };
-  // Legacy service-role JWTs require bearer auth. New secret API keys should
-  // remain in the apikey header and never ship to the browser.
   if (key.startsWith('eyJ')) headers.authorization = `Bearer ${key}`;
   return headers;
 }
@@ -77,7 +76,7 @@ function authHeaders(key: string) {
 function mapTicket(row: Record<string, unknown>): SylvariaRunTicketRecord {
   return {
     schema: 1,
-    engineVersion: String(row.engine_version) as '0.11.0',
+    engineVersion: String(row.engine_version) as typeof SYLVARIA_ENGINE_VERSION,
     engineHash: String(row.engine_hash),
     seed: Number(row.seed),
     buildSha: String(row.build_sha),
