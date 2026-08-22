@@ -3,76 +3,61 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover" />
-<meta name="theme-color" content="#06110e" />
-<title>Sylvaria: Ecological Synergy</title>
+<meta name="theme-color" content="#050807" />
+<title>Sylvaria</title>
 <link rel="stylesheet" href="./sylvaria-v8.css" />
+<link rel="stylesheet" href="./sylvaria-minimal-v011.css" />
 </head>
 <body>
 <div id="game">
-  <canvas id="c" width="960" height="640" tabindex="0" aria-label="Sylvaria Ecological Synergy directional forest combat game"></canvas>
+  <canvas id="c" width="960" height="640" tabindex="0" aria-label="Sylvaria directional forest combat game"></canvas>
   <div id="hud" class="hidden" aria-hidden="true">
     <div id="top">
       <div id="roomCard" class="glass">
-        <div id="roomKicker">room 001 · ecological countercut</div>
-        <div id="roomTitle">Trailhead Trespass</div>
-        <div id="roomTask">Commit with WASD. Counter with arrows. Compose the ecology.</div>
-        <div id="biomeBadge">clean clearing · hidden heartleaf</div>
+        <div id="roomKicker">01 / forest</div>
+        <div id="roomTitle">Clearing</div>
+        <div id="roomTask">Move first. Cut incoming shots back.</div>
+        <div id="biomeBadge"></div>
       </div>
       <div id="stats" class="runStats">
         <div class="stat glass"><b>score</b><span id="score">0</span></div>
         <div class="stat glass"><b>time</b><span id="time">0:00.0</span></div>
-        <div class="stat glass"><b>heartwood</b><span id="integrity">◆◆◆◆◆</span></div>
+        <div class="stat glass"><b>health</b><span id="integrity">◆◆◆◆◆</span></div>
       </div>
     </div>
     <div id="runRail" class="glass">
       <div><b>trees</b><span id="treeState">5/5</span></div>
-      <div><b>flow</b><span id="flowState">0%</span></div>
-      <div><b>step dash</b><span id="dashState">48px</span></div>
-      <div><b>terrain / routes</b><span id="terrainState">ground · 0</span></div>
-      <div><b>field kit</b><span id="fieldState">0 · none</span></div>
-      <div><b>counters</b><span id="counterState">0</span></div>
-      <div><b>cross / long</b><span id="returnState">0/0</span></div>
-      <div><b>grazes</b><span id="grazeState">0</span></div>
-      <div id="bossWrap" hidden><b>PAC-a-Saw</b><span id="bossState"></span></div>
+      <div><b>status</b><span id="fieldState">none</span></div>
+      <div id="bossWrap" hidden><b>boss</b><span id="bossState"></span></div>
+      <span class="telemetryHidden" aria-hidden="true"><span id="flowState">0%</span><span id="dashState">48px</span><span id="terrainState">ground</span><span id="counterState">0</span><span id="returnState">0/0</span><span id="grazeState">0</span></span>
     </div>
     <div id="toast" class="glass"></div>
   </div>
 
   <div id="title" class="screen">
     <div class="panel menuPanel">
-      <div class="eyebrow">v0.10 · ecological synergy · counter-combat as an ecosystem</div>
-      <h1><em class="sylvariaWord">Sylvaria</em><br/>Ecological Synergy</h1>
-      <p class="lede narrow">Sprid is a machete-wielding forest runner fighting clear-cut machinery inside living arenas. The proven Countercut rules remain exact, but the systems now compose: reflected shots can trigger fungi, wave-origin returns can bloom poison clouds, committed dash-cuts can shear spores into new lanes, cautious enemies read dangerous ground, and PAC-a-Saw physically bulldozes route geometry. Perfect counters and environmental routes can ignite Verdant Flow without changing the core movement or return-fire numbers.</p>
-      <div class="combatRule">
-        <div><b>W A S D</b><span>persistent one-step cardinal queue; terrain changes commitment, never the input grammar</span></div>
-        <div><b>Arrow Keys</b><span>independent machete cuts, arrival-side counters, foliage chops, fractures, and committed spore shears</span></div>
-        <div><b>Chain Ecology</b><span>returned projectiles can trigger mushrooms; route hazards and chain reactions deliberately instead of waiting for random effects</span></div>
-        <div><b>Verdant Flow</b><span>link perfect Countercuts, Crosscuts, Long Returns, gas routes, and terrain finishes to enter a short ecological power state</span></div>
-      </div>
+      <div class="eyebrow">v0.11.1 · 30 fixed arenas</div>
+      <h1><em class="sylvariaWord">Sylvaria</em></h1>
+      <p class="lede narrow">Move with WASD. Cut with the arrow keys. A correctly timed cut sends an incoming shot back. Terrain, breakable routes, mushrooms, and enemy behavior can all be used against each other.</p>
       <div class="menuActions">
-        <button id="start" class="primary wide">start synergy run</button>
-        <button id="explore" class="secondary wide">practice expedition</button>
-        <div class="menuGrid"><button id="howBtn" class="ghost">how combat works</button><button id="controlsBtn" class="ghost">controls</button></div>
+        <button id="start" class="primary wide">start run</button>
+        <button id="explore" class="secondary wide">practice</button>
+        <div class="menuGrid"><button id="howBtn" class="ghost">how to play</button><button id="controlsBtn" class="ghost">controls</button></div>
       </div>
       <div id="bestRun" class="bestRun">best · no run yet</div>
-      <p class="microcopy">The first ten rooms still teach a bounded ecology one idea at a time. v0.10 adds composition rather than more buttons: reflected fire, fungi, gas, terrain, temporary forage, enemy behavior, and boss routing can now interact while the eight-key Countercut grammar stays fixed.</p>
+      <p class="microcopy">The first 30 arenas are fixed and seeded. Learn the layouts, find useful side routes, and push deeper. After arena 30, the run continues into deterministic endless rooms.</p>
     </div>
   </div>
 
   <div id="howScreen" class="screen hidden">
     <div class="panel subPanel">
-      <div class="eyebrow">ecological countercut grammar</div><h2>Movement commits. Countercut redirects danger. Synergy lets one good read reshape the room.</h2>
+      <div class="eyebrow">how to play</div>
+      <h2>Simple inputs. Difficult rooms.</h2>
       <div class="howGrid">
-        <div><b>01 · step-dash</b><p>Tap WASD for a cardinal burst. A second tap made during the current burst stays queued after key release and executes after the first commitment.</p></div>
-        <div><b>02 · cut</b><p>Arrow keys swing the machete in four directions. Cuts travel with Sprid during a dash, so movement and attack vectors remain independent.</p></div>
-        <div><b>03 · counter</b><p>Cut toward the side a projectile actually reaches you from. Hostile motion normalizes into an 840 px/s return, or 1040 px/s on a perfect Countercut.</p></div>
-        <div><b>04 · chain a return</b><p>A reflected projectile can trigger a mushroom without spending the return. A wave-origin Countercut blooms toxic spores farther, making projectile history tactically meaningful after reflection.</p></div>
-        <div><b>05 · shear spores</b><p>Cut a gas cloud during a committed dash or its short echo window to shove the cloud in the cut direction. Verdant Flow makes the ecological shove stronger, not the base dash or Countercut.</p></div>
-        <div><b>06 · read the hunters</b><p>Surveyors and other cautious units reject gas-filled escape space and steer away from dangerous footing. Skidders remain reckless, so baiting them through poison and shards stays viable.</p></div>
-        <div><b>07 · forage</b><p>Clear grass, deadwood, or rubble for Heartleaf, Rush Resin, Barkguard, Edge Stone, or Flow Sap. Temporary finds reward curiosity without permanent power inflation.</p></div>
-        <div><b>08 · verdant flow</b><p>Perfect Countercuts, Crosscuts, Long Returns, terrain routes, hazard finishes, and spore routes build a short synergy chain. At high Flow, three linked reads ignite Verdant Flow.</p></div>
-        <div><b>09 · read the boss</b><p>PAC-a-Saw vents heat before major attacks and now bulldozes deadwood and rubble it physically crosses. The machine can accidentally manufacture your next route.</p></div>
-        <div><b>10 · visual priority</b><p>Only the most immediate hostile projectile receives the threat halo. Friendly returns and Sprid remain visually dominant over gas, particles, and decorative terrain as rooms become denser.</p></div>
+        <div><b>Move</b><p>WASD commits to a short cardinal dash. One extra direction can stay queued while the current dash finishes.</p></div>
+        <div><b>Cut / reflect</b><p>Arrow keys cut in four directions. Cut toward the side an incoming shot reaches you from to send it back. Precise timing makes the return faster.</p></div>
+        <div><b>Use the room</b><p>Mud, water, ice, bramble, rubble, grass, poison, and breakable routes affect both sides. Later arenas are built around combining these rules.</p></div>
+        <div><b>Explore</b><p>Deadwood, grass, rubble, and mushrooms can reveal healing, speed, shield, reach, flow, or poison. These are temporary choices, not permanent upgrades.</p></div>
       </div>
       <div class="actions"><button class="secondary" data-back>back</button></div>
     </div>
@@ -80,26 +65,27 @@
 
   <div id="controlsScreen" class="screen hidden">
     <div class="panel subPanel controlsPanel">
-      <div class="eyebrow">controls</div><h2>Eight combat keys. More composition, still no control bloat.</h2>
+      <div class="eyebrow">controls</div>
+      <h2>Eight combat keys.</h2>
       <div class="bindingGrid">
-        <div><span>step-dash north</span><b>W</b></div><div><span>up chop / counter</span><b>↑</b></div>
-        <div><span>step-dash south</span><b>S</b></div><div><span>down chop / counter</span><b>↓</b></div>
-        <div><span>step-dash west</span><b>A</b></div><div><span>left chop / counter</span><b>←</b></div>
-        <div><span>step-dash east</span><b>D</b></div><div><span>right chop / counter</span><b>→</b></div>
-        <div><span>pause / resume</span><b>P</b></div><div><span>mute SFX</span><b>M</b></div>
+        <div><span>move north</span><b>W</b></div><div><span>cut up</span><b>↑</b></div>
+        <div><span>move south</span><b>S</b></div><div><span>cut down</span><b>↓</b></div>
+        <div><span>move west</span><b>A</b></div><div><span>cut left</span><b>←</b></div>
+        <div><span>move east</span><b>D</b></div><div><span>cut right</span><b>→</b></div>
+        <div><span>pause / resume</span><b>P</b></div><div><span>mute / unmute</span><b>M</b></div>
       </div>
-      <p class="microcopy">OS key-repeat is ignored. Sylvaria owns held-step cadence, its persistent one-command queue, cut timing, terrain sampling, temporary buffs, hazards, and synergy timing so the same combat grammar remains deterministic across Chrome, Firefox, and Safari/WebKit.</p>
+      <p class="microcopy">Movement and cutting are independent. The simulation owns held-key cadence and ignores operating-system key repeat.</p>
       <div class="actions"><button class="secondary" data-back>back</button></div>
     </div>
   </div>
 
-  <div id="pauseScreen" class="screen hidden"><div class="panel subPanel"><div class="eyebrow">forest signal suspended</div><h2>Paused</h2><div class="actions"><button id="resume" class="primary">resume</button></div></div></div>
-  <div id="gameOver" class="screen hidden"><div class="panel subPanel"><div class="eyebrow">run archived</div><h2 id="gameOverTitle">the grove fell</h2><p id="gameOverSummary" class="lede"></p><div class="actions"><button id="restartRun" class="primary">run again</button><button id="menuFromGameOver" class="secondary">main menu</button></div></div></div>
+  <div id="pauseScreen" class="screen hidden"><div class="panel subPanel"><div class="eyebrow">paused</div><h2>Pause</h2><div class="actions"><button id="resume" class="primary">resume</button></div></div></div>
+  <div id="gameOver" class="screen hidden"><div class="panel subPanel"><div class="eyebrow">run complete</div><h2 id="gameOverTitle">run over</h2><p id="gameOverSummary" class="lede"></p><div class="actions"><button id="restartRun" class="primary">run again</button><button id="menuFromGameOver" class="secondary">menu</button></div></div></div>
 </div>
 <script src="/game-runtimes/game-network-bridge.js"></script>
 <script src="./render-scale-v7.js"></script>
 <script src="./render-optimizer-v6.js"></script>
 <script src="./v091/fullscreen.js"></script>
-<script type="module" src="./v010-entry.js"></script>
+<script type="module" src="./v011-entry.js"></script>
 </body>
 </html>
