@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { performance as monotonicClock } from 'node:perf_hooks';
 import vm from 'node:vm';
 
 import {
@@ -26,6 +27,7 @@ export const SYLVARIA_AUTHORITATIVE_SOURCE_PATHS = [
   `${ROOT}/v091/battle-core.js`,
   `${ROOT}/v091/synergy-v010.js`,
 ] as const;
+export const SYLVARIA_RANKED_VERIFY_MAX_WALL_MS = 8_000;
 
 export type SylvariaReplaySummary = {
   engineVersion: typeof SYLVARIA_ENGINE_VERSION;
@@ -50,6 +52,7 @@ export type SylvariaReplayVerification = SylvariaReplaySummary & {
 export type SylvariaSimulationOptions = {
   allowIncomplete?: boolean;
   stopOnGameOver?: boolean;
+  maxWallMs?: number;
 };
 
 type RuntimeBundle = {
@@ -87,7 +90,13 @@ function sha256(value: string | Uint8Array) {
 
 export function loadSylvariaAuthoritativeBundle(): RuntimeBundle {
   if (cachedBundle) return cachedBundle;
-  const sources = SYLVARIA_AUTHORITATIVE_SOURCE_PATHS.map((path) => ({ path, content: readFileSync(join(process.cwd(), path), 'utf8') }));
+  const sources = [
+    { path: SYLVARIA_AUTHORITATIVE_SOURCE_PATHS[0], content: readFileSync(join(process.cwd(), 'public', 'game-runtimes', 'mosslight-v2', 'v091', 'model.js'), 'utf8') },
+    { path: SYLVARIA_AUTHORITATIVE_SOURCE_PATHS[1], content: readFileSync(join(process.cwd(), 'public', 'game-runtimes', 'mosslight-v2', 'v091', 'world.js'), 'utf8') },
+    { path: SYLVARIA_AUTHORITATIVE_SOURCE_PATHS[2], content: readFileSync(join(process.cwd(), 'public', 'game-runtimes', 'mosslight-v2', 'v091', 'movement.js'), 'utf8') },
+    { path: SYLVARIA_AUTHORITATIVE_SOURCE_PATHS[3], content: readFileSync(join(process.cwd(), 'public', 'game-runtimes', 'mosslight-v2', 'v091', 'battle-core.js'), 'utf8') },
+    { path: SYLVARIA_AUTHORITATIVE_SOURCE_PATHS[4], content: readFileSync(join(process.cwd(), 'public', 'game-runtimes', 'mosslight-v2', 'v091', 'synergy-v010.js'), 'utf8') },
+  ];
   const framed = sources.map(({ path, content }) => `${path.length}:${path}\0${content.length}:${content}`).join('\0');
   cachedBundle = { sources, hash: sha256(framed) };
   return cachedBundle;
@@ -166,8 +175,6 @@ function createHeadlessEngine(): EngineContext {
     if (source.path.endsWith('/synergy-v010.js')) {
       const G = sandbox.Sylvaria091;
       if (!G?.fn) throw new Error('Sylvaria core modules did not initialize before synergy');
-      // v0.10 synergy wraps presentation hooks. In server verification they are
-      // deliberately no-ops and are not part of the authoritative source hash.
       G.fn.render ??= () => undefined;
       G.fn.updateHud ??= () => undefined;
     }
@@ -325,11 +332,19 @@ function summarize(engine: EngineContext, tick: number): SylvariaReplaySummary {
   };
 }
 
+function assertWithinWallBudget(startedAt: number, maxWallMs: number | undefined) {
+  if (maxWallMs === undefined) return;
+  if (!Number.isFinite(maxWallMs) || maxWallMs < 0) throw new Error('Sylvaria replay CPU budget must be a non-negative finite number');
+  if (monotonicClock.now() - startedAt > maxWallMs) throw new Error('Sylvaria replay verification exceeded CPU budget');
+}
+
 export function simulateSylvariaReplay(events: readonly SylvariaReplayEvent[], durationTicks: number, options: SylvariaSimulationOptions = {}): SylvariaReplaySummary {
   if (!Number.isSafeInteger(durationTicks) || durationTicks < 1 || durationTicks > SYLVARIA_MAX_REPLAY_TICKS) {
     throw new Error(`Sylvaria replay duration must be 1..${SYLVARIA_MAX_REPLAY_TICKS} ticks`);
   }
+  const startedAt = monotonicClock.now();
   const engine = createHeadlessEngine();
+  assertWithinWallBudget(startedAt, options.maxWallMs);
   let eventIndex = 0;
   let actualTick = 0;
   for (let tick = 1; tick <= durationTicks; tick += 1) {
@@ -340,11 +355,13 @@ export function simulateSylvariaReplay(events: readonly SylvariaReplayEvent[], d
     }
     if (eventIndex < events.length && events[eventIndex].tick < tick) throw new Error('replay input events are not monotonic');
     simulateTick(engine);
+    if ((tick & 255) === 0) assertWithinWallBudget(startedAt, options.maxWallMs);
     if (engine.state.mode === 'gameover') {
       if (options.stopOnGameOver) break;
       if (tick !== durationTicks) throw new Error(`run ended at tick ${tick}, before declared duration ${durationTicks}`);
     }
   }
+  assertWithinWallBudget(startedAt, options.maxWallMs);
   if (eventIndex !== events.length) throw new Error('replay contains input after simulated duration');
   const summary = summarize(engine, actualTick);
   if (!options.allowIncomplete && !summary.ended) throw new Error('ranked Sylvaria replay did not reach an authoritative end state');
@@ -358,7 +375,10 @@ export function verifySylvariaReplay(envelopeValue: unknown, claimedScore: numbe
   if (envelope.engineHash !== engineHash) throw new Error('Sylvaria replay engine hash is not current');
   const bytes = sylvariaReplayBytesFromBase64Url(envelope.input);
   const events = decodeSylvariaReplayEvents(bytes);
-  const summary = simulateSylvariaReplay(events, envelope.durationTicks, options);
+  const summary = simulateSylvariaReplay(events, envelope.durationTicks, {
+    ...options,
+    maxWallMs: options.maxWallMs ?? SYLVARIA_RANKED_VERIFY_MAX_WALL_MS,
+  });
   if (summary.score !== claimedScore) throw new Error(`claimed score ${claimedScore} does not match authoritative score ${summary.score}`);
   return { ...summary, replayHash: sha256(bytes), claimedScore };
 }
