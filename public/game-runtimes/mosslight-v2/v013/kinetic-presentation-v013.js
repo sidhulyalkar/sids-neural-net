@@ -5,7 +5,7 @@ const overlay=document.createElement('canvas');overlay.id='kineticCanvas';overla
 overlay.style.position='absolute';overlay.style.inset='0';overlay.style.width='100%';overlay.style.height='100%';overlay.style.pointerEvents='none';overlay.style.zIndex='4';
 (document.getElementById('pondCanvas')||canvas).insertAdjacentElement('afterend',overlay);
 const ctx=overlay.getContext('2d');
-let renderedArcs=0;
+let renderedArcs=0,renderedTrailSamples=0,lastHitStopSerial=0,holdFrames=0,hitStopsRendered=0;
 
 function anglePoint(p,a,r){return{x:p.x+Math.cos(a)*r,y:p.y+Math.sin(a)*r}}
 function curveTongue(p,a,length,alpha=1,trail=false){
@@ -17,22 +17,35 @@ function curveTongue(p,a,length,alpha=1,trail=false){
   ctx.restore();return tip;
 }
 
+function drawBladeTrails(){
+  renderedTrailSamples=0;
+  const trails=state.bladeTrails||[];if(!trails.length)return;
+  ctx.save();ctx.lineCap='round';
+  for(const t of trails){
+    const life=clamp(t.life/(t.maxLife||.095),0,1),alpha=life*life,ccw=t.sweepDir<0;
+    renderedTrailSamples++;
+    ctx.strokeStyle=`rgba(255,246,190,${.12+.43*alpha})`;ctx.lineWidth=2.2+5.2*alpha;ctx.beginPath();ctx.arc(t.x,t.y,t.reach*.96,t.from,t.to,ccw);ctx.stroke();
+    ctx.strokeStyle=`rgba(255,130,166,${.08+.24*alpha})`;ctx.lineWidth=4.5*alpha;ctx.beginPath();ctx.arc(t.x,t.y,t.reach*.72,t.from,t.to,ccw);ctx.stroke();
+  }
+  ctx.restore();
+}
+
 function drawArcAttack(s,p){
   renderedArcs++;
   if(s.phase==='windup'){
-    const t=clamp(s.phaseTime/s.windup,0,1),len=14+t*22;curveTongue(p,s.startAngle,len,.72);return;
+    const t=clamp(s.phaseTime/s.windup,0,1),len=18+t*28;curveTongue(p,s.startAngle,len,.78);return;
   }
   if(s.phase==='active'){
-    const prior=s.angle-(s.sweepDir||1)*.055;curveTongue(p,prior,s.reach*.92,.11,true);const tip=curveTongue(p,s.angle,s.reach,1);
-    if(Math.abs((s.activeProgress||0)-.5)<=s.perfectWindow){ctx.save();ctx.strokeStyle='rgba(255,250,185,.88)';ctx.lineWidth=2;ctx.beginPath();ctx.arc(tip.x,tip.y,12,0,Math.PI*2);ctx.stroke();ctx.restore()}
+    const prior=s.angle-(s.sweepDir||1)*.07;curveTongue(p,prior,s.reach*.92,.10,true);const tip=curveTongue(p,s.angle,s.reach,1);
+    if((s.phaseTime||0)<=(s.parryWindow||0)){ctx.save();ctx.strokeStyle='rgba(255,250,185,.92)';ctx.lineWidth=2.4;ctx.beginPath();ctx.arc(tip.x,tip.y,13,0,Math.PI*2);ctx.stroke();ctx.restore()}
     return;
   }
-  const t=clamp(s.phaseTime/s.recovery,0,1);curveTongue(p,s.endAngle,s.reach*(1-t)+14,.72*(1-t));
+  const t=clamp(s.phaseTime/s.recovery,0,1);curveTongue(p,s.endAngle,s.reach*(1-t)+14,.68*(1-t));
 }
 
 function drawDash(p){
   if(p.dashCharging){const t=clamp(p.dashCharge||0,0,1),pulse=1+Math.sin(state.roomTime*8)*.025;ctx.save();ctx.strokeStyle='rgba(206,255,171,.78)';ctx.lineWidth=3;ctx.beginPath();ctx.arc(p.x,p.y,p.r*1.55*pulse,-Math.PI/2,-Math.PI/2+Math.PI*2*t);ctx.stroke();const d=p.dashChargeVector||{x:1,y:0};ctx.strokeStyle='rgba(224,255,198,.5)';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(p.x+d.x*(p.r+8),p.y+d.y*(p.r+8));ctx.lineTo(p.x+d.x*(p.r+22+t*20),p.y+d.y*(p.r+22+t*20));ctx.stroke();ctx.restore()}
-  if(p.dash){const d=p.dash.dir||{x:1,y:0},charge=p.dash.charge||.5;ctx.save();const gradient=ctx.createLinearGradient(p.x-d.x*70,p.y-d.y*70,p.x,p.y);gradient.addColorStop(0,'rgba(153,255,151,0)');gradient.addColorStop(1,'rgba(214,255,177,.55)');ctx.strokeStyle=gradient;ctx.lineWidth=4+charge*4;ctx.lineCap='round';ctx.beginPath();ctx.moveTo(p.x-d.x*(45+charge*32),p.y-d.y*(45+charge*32));ctx.lineTo(p.x-d.x*12,p.y-d.y*12);ctx.stroke();ctx.restore()}
+  if(p.dash){const d=p.dash.dir||{x:1,y:0},charge=p.dash.charge||.5,speedRatio=clamp((p.dash.speed||0)/1100,0,1);ctx.save();const gradient=ctx.createLinearGradient(p.x-d.x*82,p.y-d.y*82,p.x,p.y);gradient.addColorStop(0,'rgba(153,255,151,0)');gradient.addColorStop(1,`rgba(214,255,177,${.28+.34*speedRatio})`);ctx.strokeStyle=gradient;ctx.lineWidth=3+charge*4;ctx.lineCap='round';ctx.beginPath();ctx.moveTo(p.x-d.x*(48+charge*40),p.y-d.y*(48+charge*40));ctx.lineTo(p.x-d.x*12,p.y-d.y*12);ctx.stroke();ctx.restore()}
 }
 
 function drawCurrents(){
@@ -52,17 +65,23 @@ function drawKineticEnemies(){
 
 function drawOverlay(){
   if(overlay.width!==canvas.width||overlay.height!==canvas.height){overlay.width=canvas.width;overlay.height=canvas.height}
-  ctx.clearRect(0,0,overlay.width,overlay.height);renderedArcs=0;if(state.mode!=='playing'&&!state.player)return;drawCurrents();const p=state.player;if(p){drawDash(p);for(const s of state.slashes)if(s.kind==='arc')drawArcAttack(s,p)}drawKineticEnemies();
+  ctx.clearRect(0,0,overlay.width,overlay.height);renderedArcs=0;if(state.mode!=='playing'&&!state.player)return;drawCurrents();drawBladeTrails();const p=state.player;if(p){drawDash(p);for(const s of state.slashes)if(s.kind==='arc')drawArcAttack(s,p)}drawKineticEnemies();
+}
+
+function syncHitStop(){
+  const serial=state.hitStopSerial||0;if(serial===lastHitStopSerial)return;
+  lastHitStopSerial=serial;const kind=state.hitStopKind||'enemy';holdFrames=kind==='parry'?2:1;hitStopsRendered++;
 }
 
 const inheritedRender=F.render;
 F.render=()=>{
+  syncHitStop();if(holdFrames>0){holdFrames--;return}
   const original=state.slashes,legacy=original.filter(s=>s.kind!=='arc');state.slashes=legacy;
   try{inheritedRender?.()}finally{state.slashes=original}
   drawOverlay();
 };
 
 const inheritedHud=F.updateHud;
-F.updateHud=(force=false)=>{inheritedHud?.(force);const p=state.player,d=G.$('dashState');if(!p||!d)return;if(p.dashCharging)d.textContent=`charge ${Math.round((p.dashCharge||0)*100)}%`;else if(p.dash)d.textContent='burst';else if(p.dashCooldown>0)d.textContent=`dash ${p.dashCooldown.toFixed(1)}s`;else d.textContent='space · dash'};
+F.updateHud=(force=false)=>{inheritedHud?.(force);const p=state.player,d=G.$('dashState');if(!p||!d)return;if(p.dashCharging)d.textContent=`charge ${Math.round((p.dashCharge||0)*100)}%`;else if(p.dashBuffer>0)d.textContent='dash queued';else if(p.dash)d.textContent='burst';else if(p.dashCooldown>0)d.textContent=`dash ${p.dashCooldown.toFixed(1)}s`;else d.textContent='space · dash'};
 
-window.SylvariaKineticPresentation=Object.freeze({version:VERSION,canvas:overlay,snapshot:()=>({version:VERSION,renderedArcs,overlay:true,chargeRing:Boolean(state.player?.dashCharging),kineticEnemies:state.enemies.filter(e=>e.kineticType&&!e.dead).length})});
+window.SylvariaKineticPresentation=Object.freeze({version:VERSION,canvas:overlay,snapshot:()=>({version:VERSION,renderedArcs,renderedTrailSamples,overlay:true,chargeRing:Boolean(state.player?.dashCharging),dashBuffered:Boolean(state.player?.dashBuffer>0),hitStopHoldFrames:holdFrames,hitStopsRendered,kineticEnemies:state.enemies.filter(e=>e.kineticType&&!e.dead).length})});
