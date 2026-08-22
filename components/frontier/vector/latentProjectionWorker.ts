@@ -28,7 +28,7 @@ self.onmessage = (event: MessageEvent<ProjectRequest>) => {
     const vectors: Float32Array[] = [];
     for (let row = 0; row < rows; row += 1) {
       const start = row * dimensions;
-      vectors.push(matrix.slice(start, start + dimensions));
+      vectors.push(matrix.subarray(start, start + dimensions));
     }
     const result = randomizedPca3(vectors, { dimensions, iterations: rows > 600 ? 7 : 9 });
     const positions = result.positions.buffer as ArrayBuffer;
