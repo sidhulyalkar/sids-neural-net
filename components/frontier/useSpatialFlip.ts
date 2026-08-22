@@ -39,9 +39,9 @@ function springKeyframes(first: DOMRect, last: DOMRect): Keyframe[] {
 }
 
 export function useSpatialFlip(containerRef: RefObject<HTMLElement | null>) {
-  const first = useRef<Snapshot>();
+  const first = useRef<Snapshot | undefined>(undefined);
   const animations = useRef(new Map<string, Animation>());
-  const mediaFrame = useRef<number>();
+  const mediaFrame = useRef<number | undefined>(undefined);
 
   const stopMediaPulse = useCallback(() => {
     if (mediaFrame.current !== undefined) cancelAnimationFrame(mediaFrame.current);
@@ -71,8 +71,6 @@ export function useSpatialFlip(containerRef: RefObject<HTMLElement | null>) {
     for (const node of root.querySelectorAll<HTMLElement>(CARD_SELECTOR)) {
       const key = cardKey(node);
       if (!key) continue;
-      // Measuring before cancelling preserves the exact visual position if a
-      // second click interrupts an in-flight expansion.
       const rect = node.getBoundingClientRect();
       if (isNearViewport(rect)) snapshot.set(key, rect);
     }
