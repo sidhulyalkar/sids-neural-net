@@ -16,15 +16,15 @@ const page = await browser.newPage({ viewport: { width: 1280, height: 900 }, dev
 page.on('pageerror', (error) => failures.push(`pageerror: ${error.message}`));
 page.on('console', (message) => { if (message.type() === 'error') consoleErrors.push(message.text()); });
 const snap = () => page.evaluate(() => window.__MOSSLIGHT_PLAYTEST__.snapshot());
-const setRoom = (depth) => page.evaluate((d) => window.__MOSSLIGHT_PLAYTEST__.setRoom((d - 1) % 10, d), depth);
-const cleanLab = async (depth = 1) => page.evaluate((d) => { const p=window.__MOSSLIGHT_PLAYTEST__; p.setRoom((d-1)%10,d); p.clearCombatants(); p.labClearGeometry(); }, depth);
+const setRoom = (depth) => page.evaluate((d) => window.__MOSSLIGHT_PLAYTEST__.setRoom((d - 1) % 30, d), depth);
+const cleanLab = async (depth = 1) => page.evaluate((d) => { const p=window.__MOSSLIGHT_PLAYTEST__; p.setRoom((d-1)%30,d); p.clearCombatants(); p.labClearGeometry(); }, depth);
 
-await page.goto(`${baseUrl}/game-runtimes/mosslight-v2/index.html?ecological-synergy-lab=1`, { waitUntil: 'networkidle' });
-await page.waitForFunction(() => window.__MOSSLIGHT_PLAYTEST__?.version === '0.10.0' && window.SylvariaSynergy?.version === '0.10.0');
+await page.goto(`${baseUrl}/game-runtimes/mosslight-v2/index.html?interaction-lab=1`, { waitUntil: 'networkidle' });
+await page.waitForFunction(() => window.__MOSSLIGHT_PLAYTEST__?.version === '0.11.1' && window.SylvariaSynergy?.version === '0.10.0');
 await page.click('#start');
 await page.waitForFunction(() => window.__MOSSLIGHT_PLAYTEST__.snapshot().mode === 'playing');
 
-// 1. A real wave-origin Countercut physically crosses a Venomcap and blooms the gas.
+// 1. A real wave-origin reflect physically crosses a poison mushroom and blooms gas.
 await cleanLab(4);
 const returnSetup = await page.evaluate(() => {
   const p=window.__MOSSLIGHT_PLAYTEST__,G=window.Sylvaria091;
@@ -43,7 +43,7 @@ const returnEcology = await page.evaluate((id) => {
   const G=window.Sylvaria091,m=G.state.mushrooms.find(x=>x.id===id),gas=G.state.gasClouds.at(-1);
   return { mushroomCut:m?.cut, gasMaxR:gas?.maxR, gasR:gas?.r, gasLife:gas?.maxLife, synergy:window.SylvariaSynergy.snapshot(), stats:G.state.stats };
 }, returnSetup.mushroomId);
-assert(returnEcology.mushroomCut, 'wave-origin reflected projectile did not trigger the Venomcap');
+assert(returnEcology.mushroomCut, 'wave-origin reflected projectile did not trigger poison mushroom');
 assert(returnEcology.synergy.mushroomReturns > returnSetup.before.mushroomReturns, 'return-mushroom interaction was not recorded');
 assert(returnEcology.gasMaxR > 64, `wave-origin toxic bloom was not amplified beyond base radius: ${returnEcology.gasMaxR}`);
 
@@ -81,7 +81,7 @@ assert(hazardSpace.score > 5, `active gas did not produce meaningful hazard scor
 assert(hazardSpace.safeInGas === false, 'gas-filled destination was still accepted as safe evade space');
 assert(hazardSpace.safeAway === true, 'clean remote destination was unexpectedly rejected');
 
-// 4. Cautious AI should reduce its local hazard score during ordinary movement.
+// 4. Cautious AI should reduce predictive local hazard score during ordinary movement.
 await cleanLab(7);
 const steerBefore = await page.evaluate(() => {
   const p=window.__MOSSLIGHT_PLAYTEST__,G=window.Sylvaria091;
@@ -94,26 +94,27 @@ await page.waitForTimeout(330);
 const steerAfter = await page.evaluate(() => { const G=window.Sylvaria091,e=G.state.enemies.find(x=>x.id==='hazard-aware-foreman'); return { x:e?.x,y:e?.y,score:e?window.SylvariaSynergy.hazardScoreAt(e.x,e.y,e):null }; });
 assert(steerAfter.score !== null && steerAfter.score < steerBefore.score, `cautious enemy did not reduce hazard score: ${steerBefore.score} -> ${steerAfter.score}`);
 
-// 5. PAC-a-Saw bulldozes overlapping route geometry without minting player loot.
+// 5. The first boss bulldozes overlapping route geometry without minting player loot.
 await setRoom(10);
 const bulldozeBefore = await page.evaluate(() => {
   const G=window.Sylvaria091,b=G.state.boss;
   G.state.brittle.push({id:'boss-lab-rubble',x:b.x+3,y:b.y,r:18,hp:2,dead:false,angle:0,phase:0,secret:false});
-  return { discoveries:G.state.stats.discoveries, pickups:G.state.pickups.length, bulldozes:G.state.stats.bossBulldozes||0 };
+  return { room:G.state.room.title, discoveries:G.state.stats.discoveries, pickups:G.state.pickups.length, bulldozes:G.state.stats.bossBulldozes||0 };
 });
 await page.waitForTimeout(80);
 const bulldozeAfter = await page.evaluate(() => { const G=window.Sylvaria091; return { dead:G.state.brittle.find(x=>x.id==='boss-lab-rubble')?.dead, discoveries:G.state.stats.discoveries, pickups:G.state.pickups.length, bulldozes:G.state.stats.bossBulldozes||0 }; });
-assert(bulldozeAfter.dead, 'PAC-a-Saw did not bulldoze overlapping brittle rubble');
+assert(bulldozeBefore.room === 'Surveyor', `room 10 should be Surveyor, got ${bulldozeBefore.room}`);
+assert(bulldozeAfter.dead, 'boss did not bulldoze overlapping brittle rubble');
 assert(bulldozeAfter.bulldozes > bulldozeBefore.bulldozes, 'boss bulldoze was not recorded');
 assert(bulldozeAfter.discoveries === bulldozeBefore.discoveries && bulldozeAfter.pickups === bulldozeBefore.pickups, 'boss bulldoze incorrectly generated player exploration rewards');
 
-// 6. Three real perfect Countercuts at high Flow ignite Verdant Flow while return speed stays protected.
+// 6. Three real perfect reflects at high Flow activate the inherited short flow state while return speed stays protected.
 await cleanLab(2);
 await page.evaluate(() => {
   const p=window.__MOSSLIGHT_PLAYTEST__,G=window.Sylvaria091;
   p.setPlayerPosition(190,320); G.state.player.flow=80;
-  p.spawnTestEnemy('mech',900,120,'verdant-anchor');
-  const anchor=G.state.enemies.find(x=>x.id==='verdant-anchor'); anchor.state='recover'; anchor.clock=99; anchor.counterStagger=99;
+  p.spawnTestEnemy('mech',900,120,'flow-anchor');
+  const anchor=G.state.enemies.find(x=>x.id==='flow-anchor'); anchor.state='recover'; anchor.clock=99; anchor.counterStagger=99;
 });
 const perfectSpeeds=[];
 for(let i=0;i<3;i++){
@@ -124,10 +125,10 @@ for(let i=0;i<3;i++){
   perfectSpeeds.push(speed);
   await page.waitForTimeout(205);
 }
-const verdant = await page.evaluate(() => ({ synergy:window.SylvariaSynergy.snapshot(), perfectCounters:window.Sylvaria091.state.stats.perfectCounters, flow:window.Sylvaria091.state.player.flow }));
-assert(perfectSpeeds.every((speed)=>speed>=1000&&speed<=1080), `Verdant qualification altered protected perfect-return speed: ${JSON.stringify(perfectSpeeds)}`);
-assert(verdant.perfectCounters >= 3, `three perfect Countercuts were not recorded: ${verdant.perfectCounters}`);
-assert(verdant.synergy.verdantTimer > 0 && verdant.synergy.flowActivations > 0, `real perfect-counter chain did not ignite Verdant Flow: ${JSON.stringify(verdant)}`);
+const flowState = await page.evaluate(() => ({ synergy:window.SylvariaSynergy.snapshot(), perfectCounters:window.Sylvaria091.state.stats.perfectCounters, flow:window.Sylvaria091.state.player.flow }));
+assert(perfectSpeeds.every((speed)=>speed>=1000&&speed<=1080), `high-Flow qualification altered protected perfect-return speed: ${JSON.stringify(perfectSpeeds)}`);
+assert(flowState.perfectCounters >= 3, `three perfect reflects were not recorded: ${flowState.perfectCounters}`);
+assert(flowState.synergy.verdantTimer > 0 && flowState.synergy.flowActivations > 0, `real perfect-reflect chain did not activate flow state: ${JSON.stringify(flowState)}`);
 
 // 7. Threat-priority calculation produces one imminent hostile priority without changing projectiles.
 await cleanLab(2);
@@ -140,14 +141,14 @@ assert(Number.isFinite(threat.threatTti) && threat.threatTti > 0, `nearest-threa
 
 await page.waitForTimeout(500);
 const final = await snap();
-assert(final.shots.length <= 128 && final.pendingShots <= 72, `projectile caps violated under synergy: ${final.shots.length}/${final.pendingShots}`);
-assert(final.fps >= 42, `synergy lab FPS below 42: ${final.fps.toFixed(1)}`);
-await page.screenshot({ path:path.join(outputDir,'ecological-synergy-v010-lab.png'), fullPage:true });
-await setRoom(10); await page.waitForTimeout(900); await page.screenshot({ path:path.join(outputDir,'pac-a-saw-v010-synergy.png'), fullPage:true });
+assert(final.shots.length <= 128 && final.pendingShots <= 72, `projectile caps violated under interaction load: ${final.shots.length}/${final.pendingShots}`);
+assert(final.fps >= 42, `interaction lab FPS below 42: ${final.fps.toFixed(1)}`);
+await page.screenshot({ path:path.join(outputDir,'v0111-interaction-lab.png'), fullPage:true });
+await setRoom(10); await page.waitForTimeout(900); await page.screenshot({ path:path.join(outputDir,'v0111-surveyor.png'), fullPage:true });
 
-const report={ returnEcology,shearSetup,shearAfter,hazardSpace,steerBefore,steerAfter,bulldozeBefore,bulldozeAfter,perfectSpeeds,verdant,threat,final,consoleErrors,failures };
-fs.writeFileSync(path.join(outputDir,'report-v010-synergy.json'),JSON.stringify(report,null,2));
+const report={ returnEcology,shearSetup,shearAfter,hazardSpace,steerBefore,steerAfter,bulldozeBefore,bulldozeAfter,perfectSpeeds,flowState,threat,final,consoleErrors,failures };
+fs.writeFileSync(path.join(outputDir,'report-v0111-interactions.json'),JSON.stringify(report,null,2));
 await browser.close();
 if(consoleErrors.length)failures.push(...consoleErrors.map((e)=>`console error: ${e}`));
-if(failures.length){console.error(`Sylvaria v0.10 Ecological Synergy lab failed with ${failures.length} issue(s):`);for(const failure of failures)console.error(` - ${failure}`);process.exit(1)}
-console.log(`Sylvaria v0.10 Ecological Synergy PASS: wave-return mushroom bloom, committed gas shear, gas-aware evade space, cautious hazard steering, PAC bulldoze without loot, real-event Verdant Flow, threat priority, protected projectile caps, and ${final.fps.toFixed(1)} FPS verified.`);
+if(failures.length){console.error(`Sylvaria v0.11.1 interaction lab failed with ${failures.length} issue(s):`);for(const failure of failures)console.error(` - ${failure}`);process.exit(1)}
+console.log(`Sylvaria v0.11.1 interaction lab PASS: return-triggered poison, committed gas shear, gas-aware evade space, cautious hazard steering, boss bulldoze without loot, real-event Flow activation, threat priority, protected projectile caps, and ${final.fps.toFixed(1)} FPS verified.`);
