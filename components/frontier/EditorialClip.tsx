@@ -54,6 +54,7 @@ export function EditorialClip({ item, presentation, resurfaced = false, onOpen }
         target="_blank"
         rel="noopener noreferrer"
         className={styles.storyLink}
+        data-frontier-fluid-primary-link="true"
         onClick={onOpen}
         aria-label={`Read ${item.title} on ${item.sourceLabel}`}
       >
