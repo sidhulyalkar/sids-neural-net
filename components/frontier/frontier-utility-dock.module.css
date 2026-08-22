@@ -207,6 +207,18 @@
   .formatSelect select { max-width: 92px; }
   .queryChip { max-width: 118px; }
   .airGap { width: 3px; }
+
+  /* The dock is intentionally horizontally scrollable on very narrow screens,
+     but mute is a global safety control and should never disappear off-canvas. */
+  .audioToggle {
+    position: sticky;
+    right: 0;
+    z-index: 2;
+    margin-left: 4px;
+    background: rgba(6, 9, 8, 0.84);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
