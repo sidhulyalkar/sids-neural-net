@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { FrontierThroughputEstimator, chooseFrontierVideoVariant } from '../lib/frontier/media/abr';
+import { shouldUseBicubicUpscale } from '../lib/frontier/media/mediaShader';
 import { FrontierMediaScheduler } from '../lib/frontier/media/scheduler';
 import type { FrontierVideoVariant } from '../lib/frontier/types';
 
@@ -30,6 +31,12 @@ test('ABR requires headroom and healthy buffer before upgrading', () => {
   assert.equal(shallow?.id, '720');
   const healthy = chooseFrontierVideoVariant(variants, 10_000_000, 1920, '720', 10);
   assert.equal(healthy?.id, '1080');
+});
+
+test('bicubic reconstruction activates only when source pixels undersample the physical target', () => {
+  assert.equal(shouldUseBicubicUpscale(640, 360, 640, 360, 1), false);
+  assert.equal(shouldUseBicubicUpscale(640, 360, 640, 360, 2), true);
+  assert.equal(shouldUseBicubicUpscale(1920, 1080, 640, 360, 2), false);
 });
 
 test('media scheduler bounds concurrency and prioritizes queued visible work', async () => {
