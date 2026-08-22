@@ -3,11 +3,14 @@ import { FRONTIER_VECTOR_DIMENSION, normalizeVector } from './math';
 export const FRONTIER_SEQUENCE_DIMENSION = 64;
 export const FRONTIER_SEQUENCE_DECAY = 0.85;
 const INPUT_GAIN = 0.38;
+const IDLE_DECAY_STEP_MS = 2 * 60 * 60_000;
+const CONTEXT_RESET_MS = 12 * 60 * 60_000;
 
 export type FrontierSequenceState = {
   state: Float32Array;
   target: Float32Array;
   updatedAt: number;
+  /** Number of interactions in the current momentum context, not lifetime history. */
   interactions: number;
 };
 
@@ -67,9 +70,9 @@ export function emptySequenceState(now = Date.now()): FrontierSequenceState {
 }
 
 /**
- * x[k+1] = A x[k] + B (w u[k]) where A = 0.85 I.
- * y[k] = C x[k]. Negative evidence naturally pushes the trajectory away from
- * the interacted embedding rather than merely lowering a scalar score.
+ * x[k+1] = A x[k] + B (w u[k]) where A = 0.85 I per interaction.
+ * Additional powers of A are applied after long idle gaps so yesterday's
+ * reading context cannot dominate a new session indefinitely.
  */
 export function updateSequenceState(
   current: FrontierSequenceState | undefined,
@@ -84,9 +87,12 @@ export function updateSequenceState(
   const projected = projectEmbeddingToSequence(itemVector);
   const next = new Float32Array(FRONTIER_SEQUENCE_DIMENSION);
   const boundedWeight = Math.max(-2, Math.min(1.5, weight));
+  const idleMs = current ? Math.max(0, now - current.updatedAt) : 0;
+  const idleSteps = Math.min(8, Math.floor(idleMs / IDLE_DECAY_STEP_MS));
+  const effectiveDecay = Math.pow(decay, 1 + idleSteps);
 
   for (let index = 0; index < next.length; index += 1) {
-    next[index] = previous[index] * decay + projected[index] * boundedWeight * INPUT_GAIN;
+    next[index] = previous[index] * effectiveDecay + projected[index] * boundedWeight * INPUT_GAIN;
   }
 
   // Keep pathological repeated signals bounded while retaining direction.
@@ -102,7 +108,7 @@ export function updateSequenceState(
     state: next,
     target: reconstructSequenceTarget(next),
     updatedAt: now,
-    interactions: (current?.interactions ?? 0) + 1,
+    interactions: idleMs >= CONTEXT_RESET_MS ? 1 : (current?.interactions ?? 0) + 1,
   };
 }
 
