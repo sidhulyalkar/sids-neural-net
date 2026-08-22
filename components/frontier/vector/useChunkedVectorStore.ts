@@ -1,6 +1,10 @@
 'use client';
 
 import { useCallback, useEffect, useRef } from 'react';
+import {
+  FRONTIER_WORKER_REQUEST_TIMEOUT_MS,
+  publishFrontierRuntimeHealth,
+} from '@/lib/frontier/runtime/runtimeHealth';
 import type { FrontierChunkMetadata, FrontierChunkVector } from '@/lib/frontier/vector/chunkedVectorStore';
 
 type WorkerVector = FrontierChunkMetadata & {
@@ -19,6 +23,7 @@ type WorkerResponse =
 type Pending = {
   resolve: (response: WorkerResponse) => void;
   reject: (error: Error) => void;
+  timeoutId: number;
 };
 
 function makeRequestId(): string {
@@ -35,15 +40,32 @@ function decode(entries: WorkerVector[]): FrontierChunkVector[] {
 export function useChunkedVectorStore() {
   const workerRef = useRef<Worker | null>(null);
   const pendingRef = useRef(new Map<string, Pending>());
+  const failuresRef = useRef(0);
 
   const failPending = useCallback((message: string) => {
     const error = new Error(message);
-    for (const pending of pendingRef.current.values()) pending.reject(error);
+    for (const pending of pendingRef.current.values()) {
+      window.clearTimeout(pending.timeoutId);
+      pending.reject(error);
+    }
     pendingRef.current.clear();
   }, []);
 
+  const failWorker = useCallback((worker: Worker, message: string) => {
+    if (workerRef.current !== worker) return;
+    workerRef.current = null;
+    worker.terminate();
+    failuresRef.current += 1;
+    failPending(message);
+    publishFrontierRuntimeHealth('vector-archive', 'degraded', {
+      message,
+      consecutiveFailures: failuresRef.current,
+    });
+  }, [failPending]);
+
   const ensureWorker = useCallback(() => {
     if (workerRef.current) return workerRef.current;
+    publishFrontierRuntimeHealth('vector-archive', 'starting');
     try {
       const worker = new Worker(new URL('./chunkedVectorStore.worker.ts', import.meta.url), { type: 'module' });
       worker.onmessage = (event: MessageEvent<WorkerResponse>) => {
@@ -51,31 +73,48 @@ export function useChunkedVectorStore() {
         const pending = pendingRef.current.get(response.requestId);
         if (!pending) return;
         pendingRef.current.delete(response.requestId);
-        if (response.type === 'error') pending.reject(new Error(response.message));
-        else pending.resolve(response);
+        window.clearTimeout(pending.timeoutId);
+        if (response.type === 'error') {
+          pending.reject(new Error(response.message));
+          publishFrontierRuntimeHealth('vector-archive', 'degraded', { message: response.message });
+        } else {
+          failuresRef.current = 0;
+          pending.resolve(response);
+          publishFrontierRuntimeHealth('vector-archive', 'ready');
+        }
       };
-      worker.onerror = () => {
-        failPending('chunked vector worker failed');
-        worker.terminate();
-        if (workerRef.current === worker) workerRef.current = null;
-      };
+      worker.onerror = () => failWorker(worker, 'chunked vector worker failed');
+      worker.onmessageerror = () => failWorker(worker, 'chunked vector worker returned an unreadable message');
       workerRef.current = worker;
       return worker;
     } catch {
+      failuresRef.current += 1;
       failPending('chunked vector worker unavailable');
+      publishFrontierRuntimeHealth('vector-archive', 'failed', {
+        message: 'chunked vector worker unavailable',
+        consecutiveFailures: failuresRef.current,
+      });
       return null;
     }
-  }, [failPending]);
+  }, [failPending, failWorker]);
 
   const send = useCallback((payload: Record<string, unknown>, transfers: Transferable[] = []) => {
     const worker = ensureWorker();
     if (!worker) return Promise.reject(new Error('chunked vector worker unavailable'));
     const requestId = makeRequestId();
     return new Promise<WorkerResponse>((resolve, reject) => {
-      pendingRef.current.set(requestId, { resolve, reject });
-      worker.postMessage({ ...payload, requestId }, transfers);
+      const timeoutId = window.setTimeout(() => {
+        if (!pendingRef.current.has(requestId)) return;
+        failWorker(worker, `chunked vector worker timed out after ${FRONTIER_WORKER_REQUEST_TIMEOUT_MS}ms`);
+      }, FRONTIER_WORKER_REQUEST_TIMEOUT_MS);
+      pendingRef.current.set(requestId, { resolve, reject, timeoutId });
+      try {
+        worker.postMessage({ ...payload, requestId }, transfers);
+      } catch {
+        failWorker(worker, 'chunked vector worker postMessage failed');
+      }
     });
-  }, [ensureWorker]);
+  }, [ensureWorker, failWorker]);
 
   const putMany = useCallback(async (entries: Array<{
     id: string;
@@ -132,9 +171,11 @@ export function useChunkedVectorStore() {
   }, [clear]);
 
   useEffect(() => () => {
-    workerRef.current?.terminate();
+    const worker = workerRef.current;
     workerRef.current = null;
+    worker?.terminate();
     failPending('chunked vector worker unmounted');
+    publishFrontierRuntimeHealth('vector-archive', 'idle');
   }, [failPending]);
 
   return { putMany, getIds, neighborhood, stats, clear };
