@@ -85,6 +85,14 @@ test('stale phrase budget and role memory reset after one deterministic idle res
   assert.match(source, /phraseIndex\+\+;lastRole='light'/);
 });
 
+test('an armed beat diverted into defensive AI is consumed and cannot become a ghost reservation', () => {
+  assert.match(source, /function actorDiverted\(actor\)/);
+  assert.match(source, /if\(item\.armed\)/);
+  assert.match(source, /!item\.released&&!isTelegraphing\(actor\)&&actorDiverted\(actor\)/);
+  assert.match(source, /reason:actor\?\.kineticEvade\|\|actor\?\.evade\?'defense':'interrupted'/);
+  assert.match(source, /clearActorReservation\(actor\);item\.cancelled=true;item\.yielded=true/);
+});
+
 test('melee feller commitments and bosses share the same threat queue as projectile roles', () => {
   assert.match(source, /feller:'engage'/);
   assert.match(source, /if\(state\.boss&&!state\.boss\.dead\)actors\.push\(state\.boss\)/);
