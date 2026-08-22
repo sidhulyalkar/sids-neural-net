@@ -5,6 +5,7 @@ import test from 'node:test';
 
 const authoritative = [
   'public/game-runtimes/mosslight-v2/v091/model.js',
+  'public/game-runtimes/mosslight-v2/v011/rooms-v011.js',
   'public/game-runtimes/mosslight-v2/v091/world.js',
   'public/game-runtimes/mosslight-v2/v091/movement.js',
   'public/game-runtimes/mosslight-v2/v091/battle-core.js',
@@ -40,4 +41,5 @@ test('determinism audit remains scoped to simulation sources, not presentation',
   assert.equal(authoritative.some((path) => path.endsWith('/render.js')), false);
   assert.equal(authoritative.some((path) => path.endsWith('/boot.js')), false);
   assert.equal(authoritative.some((path) => path.includes('/v011/replay-v011.js')), false);
+  assert.equal(authoritative.some((path) => path.includes('/v011/presentation-v011.js')), false);
 });
