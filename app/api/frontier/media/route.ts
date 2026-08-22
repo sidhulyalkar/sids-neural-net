@@ -8,7 +8,7 @@ const MAX_MEDIA_BYTES = 16 * 1024 * 1024;
 const MAX_REDIRECTS = 3;
 const FETCH_TIMEOUT_MS = 7_000;
 
-async function fetchSafeImage(url: URL, redirects = 0): Promise<{ bytes: Uint8Array; contentType: string; source: URL }> {
+async function fetchSafeImage(url: URL, redirects = 0): Promise<{ bytes: ArrayBuffer; contentType: string; source: URL }> {
   if (redirects > MAX_REDIRECTS) throw new Error('Too many media redirects');
   const safeUrl = await assertSafeMediaUrl(url.toString());
   const controller = new AbortController();
@@ -49,13 +49,13 @@ async function fetchSafeImage(url: URL, redirects = 0): Promise<{ bytes: Uint8Ar
       chunks.push(value);
     }
 
-    const bytes = new Uint8Array(total);
+    const bytes = new Uint8Array(new ArrayBuffer(total));
     let offset = 0;
     for (const chunk of chunks) {
       bytes.set(chunk, offset);
       offset += chunk.byteLength;
     }
-    return { bytes, contentType, source: safeUrl };
+    return { bytes: bytes.buffer, contentType, source: safeUrl };
   } finally {
     clearTimeout(timer);
   }
