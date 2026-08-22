@@ -49,7 +49,7 @@ test('important visual items become wide without promoting ordinary text cards',
 
 test('structured evidence keeps a standard footprint while plain text stays compact', () => {
   assert.equal(frontierVisualRole(item({ metrics: [{ label: 'AUC', value: '0.91' }] }), 4, false), 'standard');
-  assert.equal(frontierVisualRole(item({ artifacts: [{ type: 'benchmark', label: 'AUC', value: '0.91' }] }), 4, false), 'standard');
+  assert.equal(frontierVisualRole(item({ artifacts: [{ kind: 'benchmark', label: 'AUC', value: '0.91' }] }), 4, false), 'standard');
   assert.equal(frontierVisualRole(item(), 4, false), 'compact');
 });
 
