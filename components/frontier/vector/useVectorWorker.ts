@@ -24,6 +24,12 @@ export function useVectorWorker() {
   const pendingRef = useRef(new Map<string, Pending>());
   const [backend, setBackend] = useState<FrontierVectorBackend>('idle');
 
+  const failPending = useCallback((message: string) => {
+    const error = new Error(message);
+    for (const pending of pendingRef.current.values()) pending.reject(error);
+    pendingRef.current.clear();
+  }, []);
+
   const ensureWorker = useCallback(() => {
     if (workerRef.current) return workerRef.current;
     try {
@@ -40,14 +46,20 @@ export function useVectorWorker() {
         setBackend(response.backend);
         pending.resolve(response);
       };
-      worker.onerror = () => setBackend('unavailable');
+      worker.onerror = () => {
+        setBackend('unavailable');
+        failPending('vector worker failed');
+        worker.terminate();
+        if (workerRef.current === worker) workerRef.current = null;
+      };
       workerRef.current = worker;
       return worker;
     } catch {
       setBackend('unavailable');
+      failPending('vector worker unavailable');
       return null;
     }
-  }, []);
+  }, [failPending]);
 
   const send = useCallback((payload: { type: 'warm' | 'embed'; items?: Array<{ id: string; text: string }> }) => {
     const worker = ensureWorker();
@@ -76,9 +88,8 @@ export function useVectorWorker() {
   useEffect(() => () => {
     workerRef.current?.terminate();
     workerRef.current = null;
-    for (const pending of pendingRef.current.values()) pending.reject(new Error('vector worker unmounted'));
-    pendingRef.current.clear();
-  }, []);
+    failPending('vector worker unmounted');
+  }, [failPending]);
 
   return { embed, warm, backend };
 }
