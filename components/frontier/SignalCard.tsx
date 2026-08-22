@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Bookmark, ChevronDown, ExternalLink, MessageCircleMore, ThumbsDown, ThumbsUp } from 'lucide-react';
 import { FRONTIER_LANE_MAP } from '@/lib/frontier/config';
+import { FRONTIER_VIEWPORT_SEEN_MS, markFrontierItemSeen } from '@/lib/frontier/live/seenLedger';
 import type { FrontierItem, FrontierReaction } from '@/lib/frontier/types';
 import { EditorialClip } from './EditorialClip';
 import { canRenderFrontierMedia, FrontierMediaSurface, frontierMediaKey } from './media/FrontierMediaSurface';
@@ -106,11 +107,28 @@ export function SignalCard({
     if (!node || typeof IntersectionObserver === 'undefined') return;
     let visible = false;
     let visibleSince: number | undefined;
+    let ledgerTimer: number | undefined;
+    let ledgerRecorded = false;
 
+    const cancelLedgerTimer = () => {
+      if (ledgerTimer !== undefined) window.clearTimeout(ledgerTimer);
+      ledgerTimer = undefined;
+    };
+    const startLedgerTimer = () => {
+      if (ledgerRecorded || ledgerTimer !== undefined || document.visibilityState !== 'visible') return;
+      ledgerTimer = window.setTimeout(() => {
+        ledgerTimer = undefined;
+        if (!visible || document.visibilityState !== 'visible' || ledgerRecorded) return;
+        ledgerRecorded = true;
+        void markFrontierItemSeen(item, 'viewport').catch(() => undefined);
+      }, FRONTIER_VIEWPORT_SEEN_MS);
+    };
     const start = () => {
       if (visibleSince === undefined && document.visibilityState === 'visible') visibleSince = performance.now();
+      startLedgerTimer();
     };
     const flush = () => {
+      cancelLedgerTimer();
       if (visibleSince === undefined) return;
       const elapsed = Math.min(120_000, Math.max(0, performance.now() - visibleSince));
       visibleSince = undefined;
@@ -125,6 +143,8 @@ export function SignalCard({
       const nextVisible = entries.some((entry) => entry.isIntersecting && entry.intersectionRatio >= 0.55);
       if (nextVisible && !observed.current) {
         observed.current = true;
+        // Existing behavior telemetry still records the impression immediately.
+        // The strict suppression ledger waits for 2.5 s of real visible exposure.
         onSeen(item, resurfaced);
       }
       if (nextVisible && !visible) {
@@ -139,6 +159,7 @@ export function SignalCard({
     observer.observe(node);
     document.addEventListener('visibilitychange', visibilityChanged);
     return () => {
+      visible = false;
       flush();
       observer.disconnect();
       document.removeEventListener('visibilitychange', visibilityChanged);
@@ -146,6 +167,21 @@ export function SignalCard({
   }, [item, onDwell, onSeen, resurfaced]);
 
   const markMediaUnavailable = () => setUnavailableMediaKey(currentMediaKey);
+  const recordExplicit = (reason: 'open' | 'save' | 'reaction' | 'expand') => {
+    void markFrontierItemSeen(item, reason).catch(() => undefined);
+  };
+  const openWithSeen = () => {
+    recordExplicit('open');
+    onOpen(item);
+  };
+  const saveWithSeen = () => {
+    recordExplicit('save');
+    onSave(item);
+  };
+  const reactWithSeen = (_item: FrontierItem, nextReaction: FrontierReaction) => {
+    recordExplicit('reaction');
+    onReact(item, nextReaction);
+  };
 
   const quickActions = (
     <div className={styles.quickActions}>
@@ -155,7 +191,7 @@ export function SignalCard({
         title="More like this"
         aria-label={`More like this: ${item.title}`}
         aria-pressed={reaction === 'up'}
-        onClick={() => onReact(item, 'up')}
+        onClick={() => reactWithSeen(item, 'up')}
       ><ThumbsUp size={13} fill={reaction === 'up' ? 'currentColor' : 'none'} /></button>
       <button
         type="button"
@@ -163,21 +199,21 @@ export function SignalCard({
         title="Less like this"
         aria-label={`Less like this: ${item.title}`}
         aria-pressed={reaction === 'down'}
-        onClick={() => onReact(item, 'down')}
+        onClick={() => reactWithSeen(item, 'down')}
       ><ThumbsDown size={13} fill={reaction === 'down' ? 'currentColor' : 'none'} /></button>
       <button
         type="button"
         className={`${styles.iconAction} ${saved ? styles.actionActive : ''}`}
         title={saved ? 'Saved' : 'Save'}
         aria-label={`${saved ? 'Saved' : 'Save'} ${item.title}`}
-        onClick={() => onSave(item)}
+        onClick={saveWithSeen}
       ><Bookmark size={13} fill={saved ? 'currentColor' : 'none'} /></button>
       <a
         className={styles.iconAction}
         href={item.url}
         target="_blank"
         rel="noopener noreferrer"
-        onClick={() => onOpen(item)}
+        onClick={openWithSeen}
         aria-label={`Open ${item.title} on ${host(item.url) || item.sourceLabel}`}
         title="Open source"
       ><ExternalLink size={13} /></a>
@@ -189,6 +225,7 @@ export function SignalCard({
       const next = !value;
       if (next && !expandedRecorded.current) {
         expandedRecorded.current = true;
+        recordExplicit('expand');
         onExpand(item);
       }
       return next;
@@ -199,7 +236,7 @@ export function SignalCard({
     <div className={styles.expandedPanel}>
       <MetricLine item={item} />
       <p className={styles.reason}>{explanation}</p>
-      <Feedback item={item} reaction={reaction} onReact={onReact} />
+      <Feedback item={item} reaction={reaction} onReact={reactWithSeen} />
     </div>
   ) : null;
 
@@ -213,7 +250,7 @@ export function SignalCard({
     return (
       <article ref={ref} className={`${styles.card} ${styles.feedCard} ${styles.feedCardText}`}>
         <div className={styles.feedCopy}>
-          <EditorialClip item={item} presentation="list" resurfaced={resurfaced} onOpen={() => onOpen(item)} />
+          <EditorialClip item={item} presentation="list" resurfaced={resurfaced} onOpen={openWithSeen} />
           <div className={styles.feedActions}>{contextButton}{quickActions}</div>
           {contextPanel}
         </div>
@@ -225,7 +262,7 @@ export function SignalCard({
     return (
       <article ref={ref} className={`${styles.card} ${styles.tileCard} ${styles.tileCardText} ${expanded ? styles.cardExpanded : ''}`}>
         <div className={styles.tileBody}>
-          <EditorialClip item={item} presentation="grid" resurfaced={resurfaced} onOpen={() => onOpen(item)} />
+          <EditorialClip item={item} presentation="grid" resurfaced={resurfaced} onOpen={openWithSeen} />
           {contextButton}
           {contextPanel}
         </div>
