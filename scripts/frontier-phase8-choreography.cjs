@@ -25,14 +25,23 @@ async function rect(page, selector) {
   });
 }
 
-async function pointerClick(page, selector) {
+async function pointerPoint(page, selector) {
   const box = await page.locator(selector).boundingBox();
   assert(box, `Expected ${selector} to have a bounding box`);
-  const x = box.x + Math.min(box.width * 0.5, Math.max(12, box.width - 12));
-  const y = box.y + Math.min(box.height * 0.5, Math.max(10, box.height - 10));
-  await page.mouse.move(x, y);
+  return {
+    x: box.x + Math.min(box.width * 0.5, Math.max(12, box.width - 12)),
+    y: box.y + Math.min(box.height * 0.5, Math.max(10, box.height - 10)),
+  };
+}
+
+async function pointerClickAt(page, point) {
+  await page.mouse.move(point.x, point.y);
   await page.mouse.down({ button: 'left' });
   await page.mouse.up({ button: 'left' });
+}
+
+async function pointerClick(page, selector) {
+  await pointerClickAt(page, await pointerPoint(page, selector));
 }
 
 async function installTelemetry(page) {
@@ -71,14 +80,7 @@ async function installTelemetry(page) {
 
 async function midFlightSample(page) {
   return page.evaluate((selector) => new Promise((resolve) => {
-    let frames = 0;
-    const sample = () => {
-      frames += 1;
-      if (frames < 2) {
-        requestAnimationFrame(sample);
-        return;
-      }
-
+    requestAnimationFrame(() => {
       const node = document.querySelector(selector);
       if (!(node instanceof HTMLElement)) throw new Error('Phase 8 audit card disappeared mid-flight');
       const visual = node.getBoundingClientRect();
@@ -103,8 +105,7 @@ async function midFlightSample(page) {
           height: visual.height,
         },
       });
-    };
-    requestAnimationFrame(sample);
+    });
   }), CARD);
 }
 
@@ -141,7 +142,15 @@ async function runInterruptionCase(page) {
   await installTelemetry(page);
 
   const origin = await rect(page, CARD);
-  await pointerClick(page, LINK);
+  // Resolve the trusted hit target once before motion starts. Re-querying a
+  // transformed link between releases can spend a material portion of the
+  // product's 250 ms double-release window on Playwright/CI IPC rather than
+  // exercising the interaction itself.
+  const hitPoint = await pointerPoint(page, LINK);
+  await pointerClickAt(page, hitPoint);
+  const firstReleaseTimes = await page.evaluate(() => window.__frontierPhase8Audit?.releases ?? []);
+  assert.equal(firstReleaseTimes.length, 1, `Expected one first pointer release, got ${firstReleaseTimes.length}`);
+
   const mid = await midFlightSample(page);
 
   assert.equal(mid.expanded, true, 'First pointer release must expand synchronously before the next paint');
@@ -170,15 +179,22 @@ async function runInterruptionCase(page) {
     `Visual FLIP width escaped the origin→layout interval: ${mid.visual.width}`,
   );
 
-  const popupPromise = page.waitForEvent('popup', { timeout: 2_000 });
-  await pointerClick(page, LINK);
-  const popup = await popupPromise;
-  await popup.waitForURL(/interaction-audit\?popup=1/, { timeout: 2_000 });
+  const popupPromise = page.waitForEvent('popup', { timeout: 2_000 })
+    .then((popup) => ({ popup }))
+    .catch((error) => ({ error }));
+  await pointerClickAt(page, hitPoint);
 
+  // Diagnose and enforce the product contract before waiting on popup timing.
+  // Both timestamps are trusted Chromium PointerEvent.timeStamp values.
   const releaseTimes = await page.evaluate(() => window.__frontierPhase8Audit?.releases ?? []);
   assert.equal(releaseTimes.length, 2, `Expected two qualified pointer releases, got ${releaseTimes.length}`);
   const releaseDeltaMs = releaseTimes[1] - releaseTimes[0];
   assert(releaseDeltaMs > 0 && releaseDeltaMs < 250, `Second release missed 250ms interruption threshold: ${releaseDeltaMs}ms`);
+
+  const popupResult = await popupPromise;
+  if (popupResult.error) throw popupResult.error;
+  const popup = popupResult.popup;
+  await popup.waitForURL(/interaction-audit\?popup=1/, { timeout: 2_000 });
 
   await waitForAnimationToSettle(page, false);
   const finalRect = await rect(page, CARD);
