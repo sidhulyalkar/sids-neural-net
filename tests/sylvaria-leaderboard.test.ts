@@ -3,6 +3,7 @@ import test from 'node:test';
 
 import {
   InMemorySylvariaTicketStore,
+  assertSylvariaReplayFitsTicketWindow,
   claimSylvariaRunTicket,
   createSylvariaAcceptedRunProof,
   issueSylvariaRunTicket,
@@ -44,6 +45,27 @@ test('ranked run tickets are signed, current-engine bound and single-use', async
   await assert.rejects(
     () => claimSylvariaRunTicket({ token: issued.token, secret: SECRET, store, now: NOW + 3000, engineHash: ENGINE_HASH, buildSha: BUILD_SHA }),
     /already used/,
+  );
+});
+
+test('ranked replay duration must fit inside the age of its claimed ticket', () => {
+  const ticket = {
+    schema: 1 as const,
+    engineVersion: '0.11.1' as const,
+    engineHash: ENGINE_HASH,
+    seed: 110001,
+    buildSha: BUILD_SHA,
+    nonce: NONCE,
+    issuedAt: NOW,
+    expiresAt: NOW + 20 * 60_000,
+    requestFingerprint: null,
+    usedAt: NOW + 5 * 60_000,
+  };
+  assert.doesNotThrow(() => assertSylvariaReplayFitsTicketWindow(ticket, 120 * 60 * 5));
+  assert.doesNotThrow(() => assertSylvariaReplayFitsTicketWindow({ ...ticket, usedAt: NOW + 10_000 }, 120 * 14));
+  assert.throws(
+    () => assertSylvariaReplayFitsTicketWindow({ ...ticket, usedAt: NOW + 10_000 }, 120 * 60 * 5),
+    /predates its run ticket/,
   );
 });
 
