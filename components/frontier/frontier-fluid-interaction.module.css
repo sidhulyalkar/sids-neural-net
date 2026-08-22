@@ -1,0 +1,45 @@
+.card {
+  position: relative;
+  min-width: 0;
+  touch-action: manipulation;
+  transform-origin: top left;
+  will-change: transform;
+}
+
+.card[data-fluid-expanded='false'] {
+  cursor: default;
+}
+
+.expanded {
+  grid-column: 1 / -1 !important;
+  padding-inline: 0 !important;
+  content-visibility: visible !important;
+  contain-intrinsic-size: auto !important;
+  z-index: 6;
+}
+
+.expanded::before {
+  position: absolute;
+  z-index: -1;
+  inset: -20px clamp(-20px, -2vw, -8px) -26px;
+  pointer-events: none;
+  content: '';
+  background: radial-gradient(circle at 18% 8%, rgba(165, 213, 193, 0.045), transparent 58%);
+}
+
+.expanded [data-frontier-fluid-primary-link='true'] {
+  cursor: zoom-out;
+}
+
+.card:not(.expanded) [data-frontier-fluid-primary-link='true'] {
+  cursor: zoom-in;
+}
+
+@media (max-width: 720px) {
+  .expanded { grid-column: 1 !important; }
+  .expanded::before { inset-inline: -10px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card { will-change: auto; }
+}
