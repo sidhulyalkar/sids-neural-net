@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useId, useRef, useState } from 'react';
+import type { CSSProperties } from 'react';
 import { registerFrontierGpuImage } from './mediaPlane';
 import styles from './frontier-media.module.css';
 
@@ -9,14 +10,18 @@ type Props = {
   src: string;
   alt: string;
   className?: string;
+  placeholderColor?: string;
   onUnavailable?: () => void;
 };
 
-export function GpuImageSurface({ id, src, alt, className = '', onUnavailable }: Props) {
+export function GpuImageSurface({ id, src, alt, className = '', placeholderColor, onUnavailable }: Props) {
   const slotRef = useRef<HTMLDivElement>(null);
   const reactId = useId();
   const [state, setState] = useState<'loading' | 'ready' | 'fallback'>('loading');
   const [fallbackFailed, setFallbackFailed] = useState(false);
+  const surfaceStyle = placeholderColor
+    ? ({ '--frontier-media-placeholder': placeholderColor } as CSSProperties)
+    : undefined;
 
   useEffect(() => {
     const node = slotRef.current;
@@ -42,10 +47,11 @@ export function GpuImageSurface({ id, src, alt, className = '', onUnavailable }:
       role="img"
       aria-label={alt}
       data-media-state={state}
+      style={surfaceStyle}
     >
-      {state !== 'ready' && !fallbackFailed ? (
-        // Publisher/community images remain the resilient fallback when cross-origin
-        // fetch/decode cannot enter the GPU path.
+      {state === 'fallback' && !fallbackFailed ? (
+        // The native element exists only after the GPU/worker path declines the
+        // asset, avoiding two simultaneous decodes for every successful image.
         // eslint-disable-next-line @next/next/no-img-element
         <img
           src={src}
