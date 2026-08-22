@@ -143,8 +143,6 @@ export function SignalCard({
       const nextVisible = entries.some((entry) => entry.isIntersecting && entry.intersectionRatio >= 0.55);
       if (nextVisible && !observed.current) {
         observed.current = true;
-        // Existing behavior telemetry still records the impression immediately.
-        // The strict suppression ledger waits for 2.5 s of real visible exposure.
         onSeen(item, resurfaced);
       }
       if (nextVisible && !visible) {
@@ -246,6 +244,13 @@ export function SignalCard({
     </button>
   );
 
+  const meta = (
+    <div className={styles.cardTopline}>
+      <span className={styles.laneLabel}>{resurfaced ? '↺ ' : ''}{lane.shortLabel}</span>
+      <span className={styles.sourceLabel}>{item.sourceLabel} · {publishedLabel(item.publishedAt)}</span>
+    </div>
+  );
+
   if (feed && !hasMedia) {
     return (
       <article ref={ref} className={`${styles.card} ${styles.feedCard} ${styles.feedCardText}`}>
@@ -262,7 +267,18 @@ export function SignalCard({
     return (
       <article ref={ref} className={`${styles.card} ${styles.tileCard} ${styles.tileCardText} ${expanded ? styles.cardExpanded : ''}`}>
         <div className={styles.tileBody}>
-          <EditorialClip item={item} presentation="grid" resurfaced={resurfaced} onOpen={openWithSeen} />
+          {meta}
+          <a
+            href={item.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={styles.tileStoryLink}
+            data-frontier-fluid-primary-link="true"
+            onClick={openWithSeen}
+          >
+            <h3 className={styles.cardTitle}>{item.title}</h3>
+            <p className={styles.cardSummary}>{item.summary}</p>
+          </a>
           {contextButton}
           {contextPanel}
         </div>
@@ -270,13 +286,6 @@ export function SignalCard({
       </article>
     );
   }
-
-  const meta = (
-    <div className={styles.cardTopline}>
-      <span className={styles.laneLabel}>{resurfaced ? '↺ ' : ''}{lane.shortLabel}</span>
-      <span className={styles.sourceLabel}>{item.sourceLabel} · {publishedLabel(item.publishedAt)}</span>
-    </div>
-  );
 
   if (feed) {
     return (
