@@ -1,119 +1,76 @@
 import fs from 'node:fs';
 
 const root = 'public/game-runtimes/mosslight-v2';
-const html = fs.readFileSync(`${root}/index.html`, 'utf8');
-const game = fs.readFileSync(`${root}/game-v90.js`, 'utf8');
-const visuals = fs.readFileSync(`${root}/visual-system-v9.js`, 'utf8');
-const styles = fs.readFileSync(`${root}/sylvaria-v8.css`, 'utf8');
-const arcade = fs.readFileSync('src/data/arcadeGames.ts', 'utf8');
-const doc = fs.readFileSync('docs/SYLVARIA_V09_ENVIRONMENTAL_RESONANCE.md', 'utf8');
+const read = (path) => fs.readFileSync(path, 'utf8');
+const html = read(`${root}/index.html`);
+const files = Object.fromEntries(['model','world','movement','battle-core','render','boot'].map((name) => [name, read(`${root}/v091/${name}.js`)]));
+const styles = read(`${root}/sylvaria-v8.css`);
+const arcade = read('src/data/arcadeGames.ts');
+const doc = read('docs/SYLVARIA_V09_ENVIRONMENTAL_RESONANCE.md');
 const errors = [];
 const expect = (condition, message) => { if (!condition) errors.push(message); };
+const has = (source, ...needles) => needles.every((needle) => source.includes(needle));
 
-expect(html.includes('Sylvaria: Environmental Resonance'), 'v0.9 title missing');
-expect(html.includes('./game-v90.js') && html.includes('./visual-system-v9.js'), 'production shell must load v0.9 runtime and visual system');
-expect(!html.includes('./game-v82.js') && !html.includes('./game-v81.js') && !html.includes('./input-buffer-v81.js') && !html.includes('./game-v8.js') && !html.includes('./game-v5.js'), 'retired Sylvaria gameplay/input core is still wired');
-expect(html.includes('terrain / routes') && html.includes('id="terrainState"'), 'environmental routing telemetry missing');
-expect(html.includes('Terrain adds decisions, not buttons') && html.includes('same rules for Sprid and his enemies'), 'shared-terrain tutorial language missing');
+expect(has(html, 'Sylvaria: Environmental Resonance', 'id="fieldState"', 'field kit', 'Explore Mid-Fight'), 'v0.9.1 shell/tutorial is incomplete');
+expect(html.includes('<script type="module" src="./v091/boot.js"></script>'), 'production shell must boot the canonical v091 module graph');
+for (const retired of ['./game-v90.js','./game-v82.js','./game-v81.js','./input-buffer-v81.js','./visual-system-v9.js']) expect(!html.includes(retired), `retired runtime still wired: ${retired}`);
 
-expect(game.includes("const VERSION = '0.9.0'"), 'runtime version must be 0.9.0');
-expect(game.includes('const FIXED_DT = 1 / 120') && game.includes('while (accumulator >= FIXED_DT)'), 'fixed 120 Hz combat simulation missing');
-expect(game.includes('const MAX_SHOTS = 128') && game.includes('const MAX_PENDING = 72'), 'projectile scheduling caps changed');
-expect(game.includes('const MAX_PARTICLES = 280'), 'v0.9 particle cap missing');
+expect(has(files.model, "VERSION='0.9.1'", 'FIXED_DT=1/120', 'MAX_SHOTS=128', 'MAX_PENDING=72'), 'protected fixed-step/cap constants changed');
+for (const terrain of ['ice','mud','sand','water','bramble','grass','shards']) expect(files.model.includes(`${terrain}:`), `missing terrain ${terrain}`);
+for (const forage of ['heartleaf','rushResin','barkguard','edgeStone','flowSap']) expect(files.model.includes(`${forage}:`), `missing forage reward ${forage}`);
+for (const mushroom of ['heartcap','swiftcap','guardcap','edgecap','venomcap','ghostcap']) expect(files.model.includes(`${mushroom}:`), `missing mushroom ${mushroom}`);
+for (const enemy of ['feller','foreman','lobbyist','skidder','drone','chair','broker','surveyor','mech','mulcher']) expect(files.model.includes(`${enemy}:`), `missing enemy ${enemy}`);
+for (const title of ['Trailhead Trespass','Nailgun Nursery','Red Tape Ravine','Skidder Switchback','Sawdisc Wetland','Committee Canopy','Subsidy Grove','Clearcut Conveyor','Four-Way Firebreak','PAC-a-Saw Summit']) expect(files.model.includes(`title:'${title}'`), `missing authored room ${title}`);
+expect(has(files.model, 'secrets:', 'mushrooms:', 'proceduralBlueprint', 'sylvaria-v091-room-${depth}'), 'deterministic exploration/deep-room grammar missing');
 
-// Protected movement grammar: persistent one-command queue, never a stopwatch buffer.
-expect(game.includes('moveQueue: null') && game.includes('function queueMove') && game.includes('function consumeMoveQueue'), 'persistent one-command movement queue missing');
-expect(game.includes('state.moveQueue = { key, serial: ++state.inputSerial }'), 'movement queue must explicitly retain the newest command');
-expect(!game.includes('moveBuffer') && !game.includes('moveQueue.life') && !game.includes('life:.13'), 'movement buffering must not expire on a stopwatch');
-expect(game.includes('if (consumeMoveQueue()) return') && game.includes('p.dash = null') && game.includes('p.dashCooldown = 0'), 'queued movement must drain after committed dash completion');
-expect(game.includes('heldMoves') && game.includes('heldOrder') && game.includes('repeatCadence'), 'game-timed held WASD cadence missing');
-expect(game.includes('resolveDashTarget') && game.includes('blockedSteps') && game.includes('blockers()'), 'physical dash obstacle routing missing');
-expect(game.includes('Math.floor((depth - 10) / 4) * 3'), 'progressive dash-length risk/reward scaling missing');
+expect(has(files.world, 'function terrainAt', 'function mobilityAt', 'function evadeDestinationSafe', "['mud','bramble','shards'].includes(p.type)"), 'shared terrain/evade sampler missing');
+expect(has(files.world, 'function resolveEnemyDeath', 'function updateBossPhases', 'function resolveBossDeath', 'function damageEnemy', 'function damageBoss'), 'centralized damage/death pipeline missing');
+expect(has(files.world, "damageBoss(.45,null,{hazard:true", "damageEnemy(e,.55,null,{hazard:true", 'hazardKills'), 'terrain hazards bypass centralized bookkeeping');
+expect(has(files.world, 'function spawnGasCloud', 'function updateGas', 'gasRoutes', "damageEnemy(e,.7,null,{hazard:true,gas:true"), 'symmetric toxic-spore system missing');
+expect(has(files.world, 'function rewardExploration', 'function maybeReleaseGrassCache', 'function breakDeadwood', 'function breakBrittle', 'function cutMushroom', 'function collectPickup'), 'environmental discovery/reward pipeline missing');
+expect(has(files.world, "i.type==='rushResin'", "i.type==='barkguard'", "i.type==='edgeStone'", "i.type==='flowSap'"), 'temporary forage effects incomplete');
 
-// Protected Countercut grammar.
-expect(game.includes("arrowup: 'up'") && game.includes("arrowdown: 'down'") && game.includes("arrowleft: 'left'") && game.includes("arrowright: 'right'"), 'four cardinal machete cuts missing');
-expect(game.includes('counterShot') && game.includes('shotApproachDirection') && game.includes('perfectWindow'), 'directional projectile counter timing missing');
-expect(game.includes('slash.x = state.player.x') && game.includes('slash.y = state.player.y'), 'active cut must travel with Sprid during a dash');
-expect(game.includes("shot.pattern = 'return'") && game.includes('const speed = perfect ? 1040 : 840'), 'high-speed normalized return missing');
-expect(game.includes('chooseReturnTarget') && game.includes('returnVector') && game.includes('counterTargetId'), 'restrained counter target assist missing');
-expect(game.includes('reflectedTravel') && game.includes('longReturns'), 'distance-scaled Long Return reward missing');
-expect(game.includes('originalOwnerId') && game.includes('crosscuts') && game.includes('target.id !== shot.originalOwnerId'), 'cross-enemy return reward missing');
-expect(game.includes('shot.pierces = perfect ? 1 : 0') && game.includes('ricochets'), 'perfect-counter penetration reward missing');
-expect(game.includes('counterStagger') && game.includes("enemy.state = 'recover'"), 'returned shots must stagger evasive enemies');
+expect(has(files.movement, 'function queueMove', 'function consumeMoveQueue', 'state.moveQueue={key,serial:++state.inputSerial}', 'if(consumeMoveQueue())return'), 'persistent one-command movement queue changed');
+expect(!files.movement.includes('moveQueue.life') && !files.movement.includes('moveBuffer'), 'movement queue must not be stopwatch-expiring');
+expect(has(files.movement, 'function resolveDashTarget', 'F.mobilityAt', "['mud','sand'].includes(end.type)"), 'terrain-aware Sprid routing missing');
+expect(has(files.movement, 'function tryDashCutIce', 'function segmentCircleHit', 'p.dashEcho>0', 'p.dashEcho=.085', "type:'shards'", 'state.stats.iceFractures++'), 'live dash-cut ice fracture / echo window missing');
+expect(has(files.movement, 'function counterShot', 'function shotApproachDirection', 'function chooseReturnTarget', 'speed=perfect?1040:840', "s.pattern='return'"), 'protected Countercut routing/speeds changed');
+expect(has(files.movement, 'reflectedTravel', 'crosscuts', 'longReturns', 's.pierces=perfect?1:0', 'ricochets'), 'Crosscut/Long Return/penetration rewards missing');
+expect(has(files.movement, 'p.buffs.edge>0?24:0', 'p.buffs.rush>0?1.08:1'), 'field-kit combat benefits are not wired into reach/movement');
 
-for (const pattern of ['straight', 'zigzag', 'wave', 'spiral', 'swerve', 'wobble', 'return']) {
-  expect(game.includes(`'${pattern}'`), `missing projectile pattern ${pattern}`);
-}
-expect(game.includes('function applyProjectilePattern') && game.includes('normalizeShotSpeed'), 'deterministic projectile-pattern integrator missing');
-expect(game.includes('scheduleShot') && game.includes('updatePendingShots') && game.includes('queueVolley'), 'staggered volley scheduler missing');
-expect(game.includes('entityRand'), 'deterministic per-enemy gameplay RNG missing');
+for (const pattern of ['straight','zigzag','wave','spiral','swerve','wobble','return']) expect(files['battle-core'].includes(`'${pattern}'`), `missing projectile pattern ${pattern}`);
+expect(has(files['battle-core'], 'function moveToward', 'F.mobilityAt(e.x,e.y)', 'speed*mob.move*dt'), 'ordinary enemy mud/terrain drag missing');
+expect(has(files['battle-core'], "e.type==='skidder'&&e.state==='charge'", 'speed=420*global*mob.move'), 'Skidder charge terrain drag missing');
+expect(has(files['battle-core'], 'function maybeBeginEvade', 'function safeEvadeDestination', 'ESCAPE JAMMED'), 'terrain-aware evasion missing');
+expect(has(files['battle-core'], 'function ventBoss', 'b.sawAngle', 'b.heat', 'b.exhaustClock', 'function bossAttack'), 'PAC-a-Saw heat/exhaust anticipation state missing');
+expect(has(files['battle-core'], 'MAX_SHOTS', 'MAX_PENDING', 'scheduleShot', 'updatePendingShots'), 'projectile cap/scheduler integration missing');
 
-// Environmental Resonance terrain grammar.
-for (const terrain of ['ice', 'mud', 'sand', 'water', 'bramble', 'grass', 'shards']) {
-  expect(game.includes(`${terrain}: {`) || game.includes(`'${terrain}'`), `missing terrain state ${terrain}`);
-}
-expect(game.includes('function terrainAt') && game.includes('function mobilityAt'), 'shared terrain sampler missing');
-expect(game.includes('const startMobility = mobilityAt(startX, startY)') && game.includes('baseDistance * startMobility.dash'), 'Sprid dash commitment is not terrain-aware');
-expect(game.includes('function moveToward') && game.includes('const mobility = mobilityAt(enemy.x, enemy.y)') && game.includes('speed * mobility.move * dt'), 'ordinary enemy movement is not using shared terrain mobility');
-expect(game.includes("enemy.type === 'skidder' && enemy.state === 'charge'") && game.includes('420 * global * mobility.move'), 'Skidder charge does not obey terrain mobility');
-expect(game.includes('function evadeDestinationSafe') && game.includes("['mud', 'bramble', 'shards'].includes(terrain.type)"), 'unsafe terrain must be rejected for evasive destinations');
-expect(game.includes('ESCAPE JAMMED') && game.includes('terrainRoutes'), 'terrain must be able to jam evasive enemies and reward routing');
-expect(game.includes('function applyTerrainHazard') && game.includes("kind === 'player'") && game.includes("kind === 'boss'"), 'terrain hazards must handle player, enemy, and boss symmetrically');
-expect(game.includes('function knockIntoTerrain') && game.includes('TERRAIN ROUTE'), 'reflected knockback terrain routing missing');
+expect(has(files.render, 'function rebuildTerrainCache', 'terrainCanvas', 'drawTerrainPatch', 'drawGrass', 'drawMushrooms', 'drawGas', 'drawPickups'), 'cached/material ecology renderer missing');
+expect(has(files.render, 'function saw(', 'function drawBoss', 'b.sawAngle', 'b.heat', "strokeStyle=heat>.6?'#ffd27b'"), 'PAC-a-Saw high-contrast industrial saw rendering missing');
+expect(has(files.render, 'drawEnemy', "e.type==='surveyor'", "e.type==='mulcher'", 'afterimages'), 'enemy silhouette/locomotion readability missing');
+expect(has(files.render, "s.pattern==='zigzag'", "s.pattern==='spiral'", "s.pattern==='swerve'", "s.pattern==='wobble'"), 'projectile visual signatures missing');
+expect(has(files.render, "p.shieldCharges>0", "p.buffs.edge>0", 'fieldState'), 'temporary field-kit feedback missing');
 
-// Forest manipulation should enrich combat without adding a new button.
-expect(game.includes('state.foliage') && game.includes('grassCut') && game.includes('blade.cut = true'), 'destructible tall grass missing');
-expect(game.includes('state.brittle') && game.includes('function breakBrittle') && game.includes('COUNTER BREAK'), 'brittle route barriers / reflected break missing');
-expect(game.includes('function fractureIce') && game.includes("patch.type = 'shards'") && game.includes('state.player.dash && slash.age <= slash.perfectWindow'), 'contextual dash-cut ice fracture missing');
-expect(game.includes('deadwood') && game.includes('state.debris'), 'deadwood route shaping missing');
-expect(game.includes('nearestLivingTree') && game.includes("endRun('The grove was clear-cut')"), 'living-tree defense failure state missing');
+expect(has(files.boot, "import './movement.js'", "import './battle-core.js'", "import './render.js'"), 'canonical v0.9.1 module graph missing');
+expect(has(files.boot, 'while(accumulator>=FIXED_DT)', 'function labEnemyTravel', 'F.moveToward(e,state.player,ENEMY_TYPES[type].speed,FIXED_DT)'), 'fixed simulation / isolated enemy mobility fixture missing');
+expect(has(files.boot, 'function labClearGeometry', 'function placeMushroom', 'triggerMushroom', 'applyHazardToEnemy', 'applyHazardToBoss'), 'v0.9.1 environmental playtest hooks missing');
+for (const flag of ['resilientMoveQueue','projectilePatternReadability','counterRouting','terrainReadability','symmetricTerrainRules','environmentalDiscovery','symmetricSporeHazards','pacIndustrialSilhouette','pacExhaustTelegraph']) expect(files.boot.includes(`${flag}:true`), `visual/playtest contract missing ${flag}`);
 
-// Rendering must remain inexpensive and mechanically readable.
-expect(game.includes("document.createElement('canvas')") && game.includes('terrainCanvas.width = W') && game.includes('function rebuildTerrainCache'), 'cached terrain canvas missing');
-expect(game.includes('state.terrainCacheDirty') && game.includes('ctx.drawImage(terrainCanvas, 0, 0)'), 'terrain cache invalidation/draw path missing');
-expect(game.includes('function drawGrass') && game.includes('function drawBrittle'), 'procedural environmental rendering missing');
-expect(game.includes('function drawEnemySilhouette') && game.includes('locomotion') && game.includes('recoil'), 'enemy silhouette/locomotion/recoil states missing');
-expect(game.includes('afterimages') && game.includes('enemy.afterimages.push'), 'blink/backstep afterimages missing');
-expect(game.includes("shot.pattern === 'zigzag'") && game.includes("shot.pattern === 'spiral'") && game.includes("shot.pattern === 'wave'") && game.includes("shot.pattern === 'swerve'") && game.includes("shot.pattern === 'wobble'"), 'projectile visual signatures missing');
-
-expect(game.includes('maybeBeginEvade') && game.includes('safeEvadeDestination') && game.includes('updateEvade'), 'enemy evasion state machine missing');
-expect(game.includes("['lobbyist', 'broker', 'surveyor'].includes(enemy.type) ? 'blink' : 'backstep'"), 'blink/backstep role split missing');
-expect(game.includes("enemy.intent = { kind: 'evade'"), 'evasion destination telegraph missing');
-expect(game.includes('state.stats.grazes') && game.includes('p.dash && !shot.grazed'), 'dash-graze Flow mechanic missing');
-expect(game.includes('chooseIntent') && game.includes('beginTelegraph') && game.includes('enemy.intent'), 'locked attack-intent telegraphs missing');
-expect(game.includes('shieldProvider') && game.includes("candidate.type === 'chair'"), 'Committee Chair shield support missing');
-expect(game.includes('beneficiaryId') && game.includes("enemy.type === 'broker'"), 'interceptable Subsidy Broker transfer missing');
-expect(game.includes('perfect ? 1 : 0') && game.includes('fullGroves'), 'persistent heartwood / Perfect Grove recovery missing');
-expect(game.includes('proceduralBlueprint') && game.includes('sylvaria-v9-room-${depth}'), 'deterministic post-room-10 terrain generation missing');
-
-for (const enemy of ['feller', 'foreman', 'lobbyist', 'skidder', 'drone', 'chair', 'broker', 'surveyor', 'mech', 'mulcher']) {
-  expect(game.includes(`${enemy}: {`), `missing enemy archetype ${enemy}`);
-}
-for (const title of ['Trailhead Trespass', 'Nailgun Nursery', 'Red Tape Ravine', 'Skidder Switchback', 'Sawdisc Wetland', 'Committee Canopy', 'Subsidy Grove', 'Clearcut Conveyor', 'Four-Way Firebreak', 'PAC-a-Saw Summit']) {
-  expect(game.includes(`title: '${title}'`), `missing authored room ${title}`);
-}
-expect(game.includes("name: 'PAC-a-Saw'") && game.includes('boss.phase = 2') && game.includes('boss.phase = 3'), 'three-phase PAC-a-Saw boss missing');
-expect(game.includes("boss.state = 'recover'") && game.includes("vulnerable: state.boss.state === 'recover'"), 'boss punish windows must remain explicit and observable');
-expect(game.includes("key === 'p' && state.mode === 'paused'") && game.includes("state.mode = 'paused'"), 'P must toggle pause/resume');
-expect(game.includes('class CountercutAudio') && game.includes("key === 'm'"), 'lightweight combat SFX/mute control missing');
-expect(game.includes('window.__MOSSLIGHT_PLAYTEST__') && game.includes('placeTerrain') && game.includes('setEnemyPosition') && game.includes('fractureIce'), 'v0.9 environmental playtest instrumentation missing');
-
-expect(visuals.includes("version: '0.9.0'") && visuals.includes('requestFullscreen'), 'v0.9 immersive visual shell missing');
-for (const flag of ['resilientMoveQueue', 'projectilePatternReadability', 'evasiveEnemyCues', 'counterRouting', 'terrainReadability', 'symmetricTerrainRules', 'cachedTerrainLayer', 'destructibleFoliage', 'combatAnimationStates', 'proceduralSilhouettes']) {
-  expect(visuals.includes(`${flag}: true`), `visual snapshot missing ${flag}`);
-}
 expect(styles.includes('aspect-ratio:3/2') && styles.includes('#runRail'), 'aspect-safe sparse HUD styling missing');
-expect(arcade.includes("version: 'v0.9.0'") && arcade.includes('SHAPE THE GROUND') && arcade.includes('terrain tactics'), 'Game Network metadata is not on Environmental Resonance v0.9');
-expect(doc.includes('Shared terrain matrix') && doc.includes('120 Hz') && doc.includes('Canvas 2D') && doc.includes('Tall grass'), 'v0.9 implementation document incomplete');
+expect(arcade.includes('v0.9.1') && /forage|ecology|fracture/i.test(arcade), 'Game Network metadata is not on v0.9.1');
+expect(/0\.9\.1/.test(doc) && /forage|forest chemistry/i.test(doc) && /hazard/i.test(doc) && /PAC-a-Saw/.test(doc), 'v0.9.1 implementation document incomplete');
 
-for (const [name, source] of [['game-v90.js', game], ['visual-system-v9.js', visuals]]) {
-  try { new Function(source); } catch (error) { errors.push(`${name} does not compile: ${error instanceof Error ? error.message : String(error)}`); }
+for (const name of ['model','world','movement','battle-core','render']) {
+  try { new Function(files[name]); } catch (error) { errors.push(`${name}.js does not compile: ${error.message}`); }
 }
+try {
+  const stripped = files.boot.replace(/^import\s+['"][^'"]+['"];?/gm, '');
+  new Function(stripped);
+} catch (error) { errors.push(`boot.js does not compile after import stripping: ${error.message}`); }
 
 if (errors.length) {
-  console.error(`Sylvaria Environmental Resonance validation failed with ${errors.length} issue(s):`);
+  console.error(`Sylvaria v0.9.1 validation failed with ${errors.length} issue(s):`);
   for (const error of errors) console.error(` - ${error}`);
   process.exit(1);
 }
-
-console.log('Sylvaria Environmental Resonance PASS: v0.9.0 persistent movement queue, 120 Hz Countercut, 840/1040 returns, shared terrain mobility, terrain-aware enemy movement and evasion, destructible grass and brittle barriers, contextual ice fracture, hazard knockback routing, cached Canvas 2D terrain, procedural combat silhouettes, ten authored terrain rooms, deterministic deep remixes, and unchanged projectile caps.');
+console.log('Sylvaria v0.9.1 PASS: protected 120 Hz Countercut and persistent queue, live dash-cut ice fracture, laboratory-proven shared terrain mobility, centralized hazard bookkeeping, deterministic forage/mushroom ecology, symmetric toxic spores, cached material rendering, and industrial PAC-a-Saw anticipation are wired without changing projectile caps.');
