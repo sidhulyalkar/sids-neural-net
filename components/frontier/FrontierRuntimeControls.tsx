@@ -91,7 +91,7 @@ export function FrontierRuntimeControls() {
   };
 
   return (
-    <details className={styles.dataMenu}>
+    <details className={`${styles.dataMenu} ${styles.runtimeMenu}`}>
       <summary>Local</summary>
       <div className={`${styles.dataMenuPanel} ${styles.runtimePanel}`}>
         <section className={styles.runtimeGroup} aria-label="FRONTIER local runtime health">
