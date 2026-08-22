@@ -108,6 +108,7 @@ jobs:
           curl --retry 2 --retry-connrefused -fsS "$SYL/index.html" -o /tmp/sylvaria-index.html
           curl --retry 2 --retry-connrefused -fsS "$SYL/v010-entry.js" -o /tmp/sylvaria-v010-entry.js
           curl --retry 2 --retry-connrefused -fsS "$SYL/v091/synergy-v010.js" -o /tmp/sylvaria-synergy.js
+          curl --retry 2 --retry-connrefused -fsS "$SYL/v011/replay-v011.js" -o /tmp/sylvaria-replay-v011.js
           for moduleName in model world movement battle-core render boot fullscreen; do
             curl --retry 2 --retry-connrefused -fsS "$SYL/v091/$moduleName.js" -o "/tmp/sylvaria-$moduleName.js"
           done
@@ -130,6 +131,9 @@ jobs:
           grep -q 'ecologicalSynergy:true' /tmp/sylvaria-v010-entry.js
           grep -q 'hazardAwareAI:true' /tmp/sylvaria-v010-entry.js
           grep -q 'verdantFlow:true' /tmp/sylvaria-v010-entry.js
+          grep -q "VERSION='0.11.0'" /tmp/sylvaria-replay-v011.js
+          grep -q 'function encode' /tmp/sylvaria-replay-v011.js
+          grep -q 'F.updateMovement=' /tmp/sylvaria-replay-v011.js
           grep -q "VERSION='0.9.1'" /tmp/sylvaria-model.js
           grep -q 'FIXED_DT=1/120' /tmp/sylvaria-model.js
           grep -q 'MAX_SHOTS=128' /tmp/sylvaria-model.js
@@ -162,6 +166,12 @@ jobs:
           grep -q 'state.verdantTimer=3.6' /tmp/sylvaria-synergy.js
           grep -q 'function chooseThreat' /tmp/sylvaria-synergy.js
 
+          echo "GET v0.11 leaderboard in intentionally unconfigured CI deployment"
+          curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/api/sylvaria/leaderboard | grep -q '"configured":false'
+          ticket_status="$(curl -sS -o /tmp/sylvaria-ticket.json -w '%{http_code}' -X POST http://127.0.0.1:3000/api/sylvaria/run-ticket)"
+          test "$ticket_status" = "503"
+          grep -q '"configured":false' /tmp/sylvaria-ticket.json
+
       - name: Install cross-browser smoke engines
         run: |
           npx --yes playwright@1.55.0 install --with-deps chromium firefox webkit
@@ -178,6 +188,12 @@ jobs:
           PW_BIN="$(npm exec --yes --package=playwright@1.55.0 -- which playwright)"
           PW_ROOT="$(cd "$(dirname "$PW_BIN")/.." && pwd)"
           PLAYWRIGHT_MODULE_ROOT="$PW_ROOT" node scripts/playtest-sylvaria-browsers.mjs
+
+      - name: Verify Sylvaria v0.11 browser to Node replay parity
+        run: |
+          PW_BIN="$(npm exec --yes --package=playwright@1.55.0 -- which playwright)"
+          PW_ROOT="$(cd "$(dirname "$PW_BIN")/.." && pwd)"
+          PLAYWRIGHT_MODULE_ROOT="$PW_ROOT" node --import tsx scripts/playtest-sylvaria-replay-parity.mjs
 
       - name: Playtest Sylvaria protected Countercut ecology baseline
         run: |
