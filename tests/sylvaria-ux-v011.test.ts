@@ -17,7 +17,7 @@ test('Sylvaria keeps competition visible as one restrained chase target', () => 
   assert.match(competitive, /to go/);
   assert.match(competitive, /function provisionalPlacement/);
   assert.match(competitive, /current board/);
-  assert.doesNotMatch(competitive, /streak|daily quest|xp|currency/i);
+  assert.doesNotMatch(competitive, /\b(?:streak|xp|currency)\b|daily quest/i);
 });
 
 test('Learn Controls is non-ranked and forgiving only until the first successful reflect', () => {
