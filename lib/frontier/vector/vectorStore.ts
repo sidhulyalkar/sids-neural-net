@@ -1,17 +1,41 @@
 import { updateInterestEwma, type FrontierInterestState } from './math';
+import type { FrontierSequenceState } from './sequenceModel';
 
 const DB_NAME = 'frontier-vector-index-v1';
 const DB_VERSION = 1;
 const VECTOR_STORE = 'vectors';
 const PROFILE_STORE = 'profile';
 const PROFILE_KEY = 'interest';
+const SEQUENCE_KEY = 'sequence-v1';
 export const FRONTIER_VECTOR_LIMIT = 1_000;
+
+export type FrontierVectorMetadata = {
+  title?: string;
+  sourceLabel?: string;
+  lane?: string;
+  publishedAt?: string;
+  engagement?: number;
+  lastSignalAt?: number;
+};
 
 export type StoredFrontierVector = {
   id: string;
   vector: ArrayBuffer;
   dimensions: number;
   textHash: string;
+  createdAt: number;
+  lastAccessedAt: number;
+  title?: string;
+  sourceLabel?: string;
+  lane?: string;
+  publishedAt?: string;
+  engagement?: number;
+  lastSignalAt?: number;
+};
+
+export type FrontierVectorSnapshot = FrontierVectorMetadata & {
+  id: string;
+  vector: Float32Array;
   createdAt: number;
   lastAccessedAt: number;
 };
@@ -21,6 +45,16 @@ type StoredInterestProfile = {
   vector: ArrayBuffer;
   dimensions: number;
   mass: number;
+  updatedAt: number;
+};
+
+type StoredSequenceProfile = {
+  key: typeof SEQUENCE_KEY;
+  state: ArrayBuffer;
+  stateDimensions: number;
+  target: ArrayBuffer;
+  targetDimensions: number;
+  interactions: number;
   updatedAt: number;
 };
 
@@ -112,6 +146,18 @@ async function evictToLimit(db: IDBDatabase, limit = FRONTIER_VECTOR_LIMIT): Pro
   await done;
 }
 
+function metadataFields(metadata?: FrontierVectorMetadata): FrontierVectorMetadata {
+  if (!metadata) return {};
+  return {
+    title: metadata.title?.slice(0, 280),
+    sourceLabel: metadata.sourceLabel?.slice(0, 100),
+    lane: metadata.lane?.slice(0, 64),
+    publishedAt: metadata.publishedAt,
+    engagement: Number.isFinite(metadata.engagement) ? metadata.engagement : undefined,
+    lastSignalAt: Number.isFinite(metadata.lastSignalAt) ? metadata.lastSignalAt : undefined,
+  };
+}
+
 export class FrontierVectorStore {
   async get(id: string): Promise<Float32Array | undefined> {
     const db = await openVectorDb();
@@ -135,16 +181,40 @@ export class FrontierVectorStore {
     return output;
   }
 
-  async put(id: string, vector: Float32Array, textHash: string, now = Date.now()): Promise<void> {
+  /** Snapshot for the Radar map. Reading this intentionally does not touch LRU ages. */
+  async snapshot(limit = FRONTIER_VECTOR_LIMIT): Promise<FrontierVectorSnapshot[]> {
+    const db = await openVectorDb();
+    const records = await readAllVectors(db);
+    return records
+      .sort((left, right) => right.lastAccessedAt - left.lastAccessedAt || left.id.localeCompare(right.id))
+      .slice(0, Math.max(0, Math.min(FRONTIER_VECTOR_LIMIT, limit)))
+      .map((record) => ({
+        id: record.id,
+        vector: new Float32Array(record.vector.slice(0)),
+        createdAt: record.createdAt,
+        lastAccessedAt: record.lastAccessedAt,
+        title: record.title,
+        sourceLabel: record.sourceLabel,
+        lane: record.lane,
+        publishedAt: record.publishedAt,
+        engagement: record.engagement,
+        lastSignalAt: record.lastSignalAt,
+      }));
+  }
+
+  async put(id: string, vector: Float32Array, textHash: string, now = Date.now(), metadata?: FrontierVectorMetadata): Promise<void> {
     const db = await openVectorDb();
     const transaction = db.transaction(VECTOR_STORE, 'readwrite');
     const done = transactionDone(transaction);
+    const existing = await requestPromise(transaction.objectStore(VECTOR_STORE).get(id)) as StoredFrontierVector | undefined;
     const record: StoredFrontierVector = {
+      ...existing,
+      ...metadataFields(metadata),
       id,
       vector: cloneVectorBuffer(vector),
       dimensions: vector.length,
       textHash,
-      createdAt: now,
+      createdAt: existing?.createdAt ?? now,
       lastAccessedAt: now,
     };
     transaction.objectStore(VECTOR_STORE).put(record);
@@ -152,26 +222,49 @@ export class FrontierVectorStore {
     await evictToLimit(db);
   }
 
-  async putMany(entries: Array<{ id: string; vector: Float32Array; textHash: string }>): Promise<void> {
+  async putMany(entries: Array<{ id: string; vector: Float32Array; textHash: string; metadata?: FrontierVectorMetadata }>): Promise<void> {
     if (!entries.length) return;
     const db = await openVectorDb();
+    const existingRecords = await readAllVectors(db);
+    const existing = new Map(existingRecords.map((record) => [record.id, record]));
     const transaction = db.transaction(VECTOR_STORE, 'readwrite');
     const done = transactionDone(transaction);
     const store = transaction.objectStore(VECTOR_STORE);
     const now = Date.now();
     for (const entry of entries) {
+      const previous = existing.get(entry.id);
       const record: StoredFrontierVector = {
+        ...previous,
+        ...metadataFields(entry.metadata),
         id: entry.id,
         vector: cloneVectorBuffer(entry.vector),
         dimensions: entry.vector.length,
         textHash: entry.textHash,
-        createdAt: now,
+        createdAt: previous?.createdAt ?? now,
         lastAccessedAt: now,
       };
       store.put(record);
     }
     await done;
     await evictToLimit(db);
+  }
+
+  async recordEngagement(id: string, signal: number, at = Date.now()): Promise<void> {
+    const db = await openVectorDb();
+    const transaction = db.transaction(VECTOR_STORE, 'readwrite');
+    const done = transactionDone(transaction);
+    const store = transaction.objectStore(VECTOR_STORE);
+    const record = await requestPromise(store.get(id)) as StoredFrontierVector | undefined;
+    if (record) {
+      const previous = Number.isFinite(record.engagement) ? (record.engagement ?? 0) : 0;
+      const boundedSignal = Math.max(-2, Math.min(1.5, signal));
+      store.put({
+        ...record,
+        engagement: Math.max(-4, Math.min(6, previous * 0.92 + boundedSignal)),
+        lastSignalAt: at,
+      });
+    }
+    await done;
   }
 
   async getInterest(): Promise<FrontierInterestState | undefined> {
@@ -208,6 +301,38 @@ export class FrontierVectorStore {
     const next = updateInterestEwma(current, itemVector, signal, now);
     await this.setInterest(next);
     return next;
+  }
+
+  async getSequence(): Promise<FrontierSequenceState | undefined> {
+    const db = await openVectorDb();
+    const transaction = db.transaction(PROFILE_STORE, 'readonly');
+    const done = transactionDone(transaction);
+    const record = await requestPromise(transaction.objectStore(PROFILE_STORE).get(SEQUENCE_KEY)) as StoredSequenceProfile | undefined;
+    await done;
+    if (!record) return undefined;
+    return {
+      state: new Float32Array(record.state.slice(0)),
+      target: new Float32Array(record.target.slice(0)),
+      interactions: record.interactions,
+      updatedAt: record.updatedAt,
+    };
+  }
+
+  async setSequence(sequence: FrontierSequenceState): Promise<void> {
+    const db = await openVectorDb();
+    const transaction = db.transaction(PROFILE_STORE, 'readwrite');
+    const done = transactionDone(transaction);
+    const record: StoredSequenceProfile = {
+      key: SEQUENCE_KEY,
+      state: cloneVectorBuffer(sequence.state),
+      stateDimensions: sequence.state.length,
+      target: cloneVectorBuffer(sequence.target),
+      targetDimensions: sequence.target.length,
+      interactions: sequence.interactions,
+      updatedAt: sequence.updatedAt,
+    };
+    transaction.objectStore(PROFILE_STORE).put(record);
+    await done;
   }
 
   async clear(): Promise<void> {
