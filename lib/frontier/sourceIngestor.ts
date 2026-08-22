@@ -466,7 +466,7 @@ function adapters(): SourceAdapter[] {
         const from = new Date(Date.now() - 14 * DAY_MS).toISOString().slice(0, 10);
         const q = `${query ? `${query} ` : ''}created:>=${from} stars:>5`;
         const token = typeof process !== 'undefined' ? (process.env.FRONTIER_GITHUB_TOKEN || process.env.GITHUB_TOKEN) : undefined;
-        const headers = token ? { Authorization: `Bearer ${token}` } : {};
+        const headers: HeadersInit = token ? { Authorization: `Bearer ${token}` } : {};
         const url = `https://api.github.com/search/repositories?q=${encodeURIComponent(q)}&sort=stars&order=desc&per_page=${Math.min(30, limit)}`;
         return parseGithubTrending(await fetchJson<GithubSearchPayload>(url, headers, signal));
       },
