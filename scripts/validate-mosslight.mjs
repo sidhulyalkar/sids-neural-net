@@ -35,9 +35,9 @@ expect(has(leaderboard,'SYLVARIA_TICKET_START_GRACE_MS = 5_000','assertSylvariaR
 expect(submit.includes('assertSylvariaReplayFitsTicketWindow(ticket, envelope.durationTicks)'),'submit route does not enforce ticket window');
 
 expect(atlasEntry.includes('art-atlas-pro-v012.js'),'stable atlas entrypoint must re-export professional atlas');
-for(const sprite of['frog','fly','bee','mosquito','beetle','dragonfly','hornet','moth','crane','divingBeetle','wasp','lilyBed','reeds','driftwood','rock','mushroom','lilyPad','tongue','stinger','reflected','water','mud','bank','algae','tangle','shells'])expect(atlas.includes(`'${sprite}'`),`v0.12 atlas missing ${sprite}`);
-expect(has(atlas,'function frog','function fastHeight',"filter='grayscale(1) contrast(1.18) blur(1px)'"),'professional height-atlas generation incomplete');
-expect(!/getImageData|putImageData|willReadFrequently|\.roundRect\(/.test(atlas),'shipping atlas must avoid synchronous pixel readback and optional Canvas roundRect');
+for(const sprite of['frog','fly','bee','mosquito','beetle','dragonfly','hornet','moth','crane','divingBeetle','wasp','lilyBed','reeds','driftwood','rock','shrub','mushroom','pickup','lilyPad','tongue','stinger','reflected','water','mud','bank','algae','tangle','shells'])expect(atlas.includes(`'${sprite}'`),`v0.12 atlas missing ${sprite}`);
+expect(has(atlas,'function frog','function fastHeight','g.drawImage(diffuse,0,0)'),'professional height-atlas generation incomplete');
+expect(!/getImageData|putImageData|willReadFrequently|\.filter\s*=|\.roundRect\(/.test(atlas),'shipping atlas must avoid synchronous pixel readback filtered preprocessing and optional Canvas roundRect');
 expect(!atlas.includes('Math.random'),'visual asset generation must be deterministic within a room/load');
 expect(has(pond,'MAX_SPRITES=900,MAX_LIGHTS=6',"getContext('webgl2'",'uHeight','float hL=texture','vec3 normal=normalize','max(dot(normal,lightDir),0.0)','gl.bufferSubData','active.sort((a,b)=>a.layer-b.layer||a.foot-b.foot)','webglcontextlost','canvas-fallback'),'WebGL2 normal-lighting/batch/fallback contract incomplete');
 for(const pair of["feller:'fly'","foreman:'bee'","lobbyist:'mosquito'","skidder:'beetle'","drone:'dragonfly'","chair:'hornet'","surveyor:'crane'","mech:'divingBeetle'"])expect(pond.includes(pair),`missing insect mapping ${pair}`);
