@@ -18,6 +18,8 @@ jobs:
   production-gate:
     runs-on: ubuntu-latest
     timeout-minutes: 40
+    env:
+      FRONTIER_INTERACTION_AUDIT: enabled
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -121,19 +123,28 @@ jobs:
           grep -q 'unsupported FRONTIER source' /tmp/frontier-ingest-unsupported.json
 
       - name: Install smoke-test browser
-        run: npx --yes playwright@1.55.0 install --with-deps chromium
+        run: |
+          rm -rf /tmp/frontier-playwright
+          npm install --prefix /tmp/frontier-playwright --no-package-lock --no-save playwright@1.55.0
+          /tmp/frontier-playwright/node_modules/.bin/playwright install --with-deps chromium
+
+      - name: Choreograph FRONTIER Phase 8 interactions
+        env:
+          NODE_PATH: /tmp/frontier-playwright/node_modules
+          FRONTIER_AUDIT_URL: http://127.0.0.1:3000/frontier/interaction-audit
+        run: node scripts/frontier-phase8-choreography.cjs
 
       - name: Capture production browser fixtures
         run: |
           mkdir -p artifacts/browser-smoke
-          npx --yes playwright@1.55.0 screenshot --browser=chromium --wait-for-timeout 6000 --viewport-size="1440,1100" --full-page http://127.0.0.1:3000/frontier artifacts/browser-smoke/frontier-desktop.png
-          npx --yes playwright@1.55.0 screenshot --browser=chromium --wait-for-timeout 6000 --viewport-size="390,844" --full-page http://127.0.0.1:3000/frontier artifacts/browser-smoke/frontier-mobile.png
-          npx --yes playwright@1.55.0 screenshot --browser=chromium --viewport-size="1440,1100" --full-page http://127.0.0.1:3000/physiology/visual-audit artifacts/browser-smoke/nature-atlas-desktop.png
-          npx --yes playwright@1.55.0 screenshot --browser=chromium --viewport-size="390,844" --full-page http://127.0.0.1:3000/physiology/visual-audit artifacts/browser-smoke/nature-atlas-mobile.png
-          npx --yes playwright@1.55.0 screenshot --browser=chromium --viewport-size="1440,1000" http://127.0.0.1:3000/neural-net artifacts/browser-smoke/neural-net.png
-          npx --yes playwright@1.55.0 screenshot --browser=chromium --viewport-size="1440,1000" http://127.0.0.1:3000/perceptual-cortex artifacts/browser-smoke/perceptual-cortex.png
-          npx --yes playwright@1.55.0 screenshot --browser=chromium --viewport-size="1440,1000" http://127.0.0.1:3000/rotation artifacts/browser-smoke/rotation.png
-          npx --yes playwright@1.55.0 screenshot --browser=chromium --viewport-size="1440,1000" --full-page http://127.0.0.1:3000/case-studies artifacts/browser-smoke/case-studies.png
+          /tmp/frontier-playwright/node_modules/.bin/playwright screenshot --browser=chromium --wait-for-timeout 6000 --viewport-size="1440,1100" --full-page http://127.0.0.1:3000/frontier artifacts/browser-smoke/frontier-desktop.png
+          /tmp/frontier-playwright/node_modules/.bin/playwright screenshot --browser=chromium --wait-for-timeout 6000 --viewport-size="390,844" --full-page http://127.0.0.1:3000/frontier artifacts/browser-smoke/frontier-mobile.png
+          /tmp/frontier-playwright/node_modules/.bin/playwright screenshot --browser=chromium --viewport-size="1440,1100" --full-page http://127.0.0.1:3000/physiology/visual-audit artifacts/browser-smoke/nature-atlas-desktop.png
+          /tmp/frontier-playwright/node_modules/.bin/playwright screenshot --browser=chromium --viewport-size="390,844" --full-page http://127.0.0.1:3000/physiology/visual-audit artifacts/browser-smoke/nature-atlas-mobile.png
+          /tmp/frontier-playwright/node_modules/.bin/playwright screenshot --browser=chromium --viewport-size="1440,1000" http://127.0.0.1:3000/neural-net artifacts/browser-smoke/neural-net.png
+          /tmp/frontier-playwright/node_modules/.bin/playwright screenshot --browser=chromium --viewport-size="1440,1000" http://127.0.0.1:3000/perceptual-cortex artifacts/browser-smoke/perceptual-cortex.png
+          /tmp/frontier-playwright/node_modules/.bin/playwright screenshot --browser=chromium --viewport-size="1440,1000" http://127.0.0.1:3000/rotation artifacts/browser-smoke/rotation.png
+          /tmp/frontier-playwright/node_modules/.bin/playwright screenshot --browser=chromium --viewport-size="1440,1000" --full-page http://127.0.0.1:3000/case-studies artifacts/browser-smoke/case-studies.png
 
       - name: Upload production audit artifacts
         if: always()
