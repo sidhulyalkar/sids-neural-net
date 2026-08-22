@@ -41,7 +41,7 @@ const LEGACY_ROLE=Object.freeze({
   mulcher:'coverage',
 });
 
-const P=(gapMin,gapMax,budget,maxAttacks,breakTicks,punishGraceTicks,accent)=>Object.freeze({gapMin,gapMax,budget,maxAttacks,breakTicks,punishGraceTicks,accent});
+const P=(gapMin,gapMax,budget,maxAttacks,restTicks,punishGraceTicks,accent)=>Object.freeze({gapMin,gapMax,budget,maxAttacks,restTicks,punishGraceTicks,accent});
 export const ROOM_THREAT_PROFILES=Object.freeze([
   P(12,12,3,2,24,12,'duet'),P(11,12,3,2,23,12,'lane'),P(11,12,3,2,22,12,'drag'),P(10,12,4,3,22,11,'bait'),P(10,11,4,3,21,11,'coverage'),
   P(10,11,4,3,20,11,'support'),P(9,11,4,3,20,10,'evade'),P(9,10,5,3,19,10,'artillery'),P(9,10,5,3,18,10,'mixed'),P(9,10,5,3,20,10,'boss'),
@@ -54,7 +54,7 @@ export const ROOM_THREAT_PROFILES=Object.freeze([
 let roomDepth=1,tick=0,nextSlotTick=0,phraseStartTick=0,phraseCost=0,phraseAttacks=0,lastRole='light',serial=0;
 let pending=[];
 let releases=[];
-let punishGraceUntil=0;
+let punishGraceUntil=0,punishWindowActive=false;
 const MAX_RELEASE_LOG=48;
 
 function profileForDepth(depth=state.worldDepth||1){
@@ -82,8 +82,10 @@ function assignSlot(item){
   const profile=profileForDepth();
   let slot=Math.max(tick,nextSlotTick,punishGraceUntil);
   if(phraseAttacks>=profile.maxAttacks||phraseCost+item.cost>profile.budget){
-    slot=Math.max(slot,phraseStartTick+profile.breakTicks);
+    slot=Math.max(slot,nextSlotTick+profile.restTicks,punishGraceUntil);
     resetPhrase(slot);
+  }else if(phraseAttacks===0){
+    phraseStartTick=slot;
   }
   const gap=deterministicGap(profile,item);
   item.slotTick=slot;item.gapTicks=gap;
@@ -98,8 +100,11 @@ function enqueueReady(){
     if(!readyToRequest(e)||pending.some(p=>p.enemy===e))continue;
     pending.push({enemy:e,id:stableId(e),role:roleFor(e),cost:costFor(e),requestTick:tick,serial:serial++,slotTick:null,gapTicks:null});
   }
-  const unscheduled=pending.filter(p=>!Number.isFinite(p.slotTick)).sort(candidateSort);
-  for(const item of unscheduled)assignSlot(item);
+  const unscheduled=pending.filter(p=>!Number.isFinite(p.slotTick));
+  while(unscheduled.length){
+    unscheduled.sort(candidateSort);
+    const item=unscheduled.shift();assignSlot(item);
+  }
 }
 function cancelInvalidReservations(){
   for(const item of pending){
@@ -109,6 +114,14 @@ function cancelInvalidReservations(){
     }
   }
   pending=pending.filter(p=>!p.cancelled);
+}
+function pushQueuePastGrace(until){
+  let cursor=until;
+  for(const item of pending.filter(p=>!p.cancelled&&!p.released&&Number.isFinite(p.slotTick)).sort((a,b)=>a.slotTick-b.slotTick||a.serial-b.serial)){
+    if(item.slotTick<cursor){item.slotTick=cursor;item.enemy.v014ThreatScheduledTick=cursor}
+    cursor=item.slotTick+(item.gapTicks||profileForDepth().gapMin);
+  }
+  nextSlotTick=Math.max(nextSlotTick,cursor);
 }
 function holdQueuedThreats(){
   for(const item of pending){
@@ -132,11 +145,14 @@ function recordReleasedTelegraphs(){
   pending=pending.filter(p=>!p.released&&!p.cancelled);
 }
 function observePunishWindows(){
-  const profile=profileForDepth();
-  if(state.enemies.some(e=>!e.dead&&(e.v014PunishTimer||0)>0))punishGraceUntil=Math.max(punishGraceUntil,tick+profile.punishGraceTicks);
+  const open=state.enemies.some(e=>!e.dead&&(e.v014PunishTimer||0)>0);
+  if(open&&!punishWindowActive){
+    const profile=profileForDepth();punishGraceUntil=Math.max(punishGraceUntil,tick+profile.punishGraceTicks);pushQueuePastGrace(punishGraceUntil);
+  }
+  punishWindowActive=open;
 }
 function resetThreatState(depth=state.worldDepth||1){
-  roomDepth=depth|0;tick=0;nextSlotTick=0;phraseStartTick=0;phraseCost=0;phraseAttacks=0;lastRole='light';serial=0;pending=[];releases=[];punishGraceUntil=0;
+  roomDepth=depth|0;tick=0;nextSlotTick=0;phraseStartTick=0;phraseCost=0;phraseAttacks=0;lastRole='light';serial=0;pending=[];releases=[];punishGraceUntil=0;punishWindowActive=false;
   for(const e of state.enemies){e.v014ThreatScheduledTick=null;e.v014ThreatRole=null;e.v014ThreatSerial=null}
 }
 
@@ -163,7 +179,7 @@ window.SylvariaThreatManager=Object.freeze({
   transitions:ROLE_TRANSITIONS,
   roleFor,
   snapshot:()=>({
-    version:THREAT_MANAGER_VERSION,roomDepth,tick,profile:profileForDepth(),nextSlotTick,phraseStartTick,phraseCost,phraseAttacks,lastRole,punishGraceUntil,
+    version:THREAT_MANAGER_VERSION,roomDepth,tick,profile:profileForDepth(),nextSlotTick,phraseStartTick,phraseCost,phraseAttacks,lastRole,punishGraceUntil,punishWindowActive,
     queue:pending.map(p=>({id:p.id,role:p.role,cost:p.cost,requestTick:p.requestTick,slotTick:p.slotTick,gapTicks:p.gapTicks})),
     releases:[...releases],
   }),
