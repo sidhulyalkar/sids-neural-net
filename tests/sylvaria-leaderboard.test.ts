@@ -107,7 +107,7 @@ test('request fingerprints and accepted-run proofs are deterministic but bind ev
 
   const base = {
     secret: SECRET,
-    engineVersion: '0.11.0',
+    engineVersion: '0.11.1',
     engineHash: ENGINE_HASH,
     buildSha: BUILD_SHA,
     ticketNonce: NONCE,
