@@ -7,6 +7,7 @@ import { getPersonalFrontierFeed } from './personalSources';
 import { getSharedMultiSourceFrontierFeed } from './sourceIngestorShared';
 import { getFrontierFeed } from './sources';
 import type { FrontierFeedResponse, FrontierItem, FrontierSourceStatus } from './types';
+import { getVimeoStaffPicksFeed } from './vimeoSource';
 
 const DAY_MS = 86_400_000;
 
@@ -47,6 +48,7 @@ function enrichFormatSemantics(entry: FrontierItem): FrontierItem {
   if (entry.sourceKind === 'paperswithcode' || entry.sourceKind === 'github') tags.add('code');
   if (entry.sourceKind === 'lobsters') tags.add('thread');
   if (entry.sourceKind === 'nasa') tags.add('visual science');
+  if (entry.sourceKind === 'vimeo') tags.add('video');
   return tags.size === entry.tags.length ? entry : { ...entry, tags: [...tags] };
 }
 
@@ -80,19 +82,20 @@ function recentSnapshotItems(): FrontierItem[] {
 
 export async function getIntegratedFrontierFeed(options: IntegratedOptions = {}): Promise<FrontierFeedResponse> {
   const focusTopics = Array.from(new Set((options.focusTopics ?? []).map((topic) => topic.trim()).filter(Boolean))).slice(0, 10);
-  const [baseResult, personalResult, activeSportsResult, adaptiveResult, multiSourceResult, expandedResult] = await Promise.allSettled([
+  const [baseResult, personalResult, activeSportsResult, adaptiveResult, multiSourceResult, expandedResult, vimeoResult] = await Promise.allSettled([
     getFrontierFeed(),
     getPersonalFrontierFeed(),
     getActiveSportsFeed(),
     focusTopics.length ? getAdaptiveLiveDiscovery(focusTopics) : Promise.resolve({ generatedAt: new Date().toISOString(), items: [], sources: [] }),
     getSharedMultiSourceFrontierFeed(focusTopics),
     getSharedExpandedPublicFeed(focusTopics),
+    getVimeoStaffPicksFeed(),
   ]);
 
   // Focused discovery and research meshes intentionally precede broad sources.
   // When adapters converge on one URL, the richer request-time normalization
   // survives deduplication while weaker duplicates disappear.
-  const orderedResults = [adaptiveResult, multiSourceResult, expandedResult, baseResult, activeSportsResult, personalResult];
+  const orderedResults = [adaptiveResult, multiSourceResult, expandedResult, vimeoResult, baseResult, activeSportsResult, personalResult];
   const liveFeeds = orderedResults.flatMap((result) => result.status === 'fulfilled' ? [result.value] : []);
   const liveItems = dedupe(liveFeeds.flatMap((feed) => feed.items).map(enrichFormatSemantics))
     .sort((a, b) => b.baseScore - a.baseScore);
@@ -114,6 +117,7 @@ export async function getIntegratedFrontierFeed(options: IntegratedOptions = {})
   if (adaptiveResult.status === 'rejected' && focusTopics.length) sources.push({ id: 'gdelt', label: 'Adaptive live mesh', ok: false, count: 0, message: 'focused request-time discovery unavailable' });
   if (multiSourceResult.status === 'rejected') sources.push({ id: 'local', label: 'Research ingestion mesh', ok: false, count: 0, message: 'multi-source ingestion unavailable' });
   if (expandedResult.status === 'rejected') sources.push({ id: 'local', label: 'Expanded public mesh', ok: false, count: 0, message: 'expanded public discovery unavailable' });
+  if (vimeoResult.status === 'rejected') sources.push({ id: 'vimeo', label: 'Vimeo Staff Picks', ok: false, count: 0, message: 'Vimeo discovery unavailable' });
 
   return { generatedAt: new Date().toISOString(), items, sources: mergeStatuses(sources) };
 }
