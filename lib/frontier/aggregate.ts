@@ -3,7 +3,7 @@ import { getActiveSportsFeed } from './activeSportsSources';
 import { normalizeFeedToEnglish } from './english';
 import { getAdaptiveLiveDiscovery } from './liveDiscovery';
 import { getPersonalFrontierFeed } from './personalSources';
-import { getMultiSourceFrontierFeed } from './sourceIngestor';
+import { getSharedMultiSourceFrontierFeed } from './sourceIngestorShared';
 import { getFrontierFeed } from './sources';
 import type { FrontierFeedResponse, FrontierItem, FrontierSourceStatus } from './types';
 
@@ -82,7 +82,7 @@ export async function getIntegratedFrontierFeed(options: IntegratedOptions = {})
     getPersonalFrontierFeed(),
     getActiveSportsFeed(),
     focusTopics.length ? getAdaptiveLiveDiscovery(focusTopics) : Promise.resolve({ generatedAt: new Date().toISOString(), items: [], sources: [] }),
-    getMultiSourceFrontierFeed(focusTopics),
+    getSharedMultiSourceFrontierFeed(focusTopics),
   ]);
 
   // Focused discovery and the multi-source research/code mesh intentionally
