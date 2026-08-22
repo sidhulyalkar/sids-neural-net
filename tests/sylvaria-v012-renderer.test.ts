@@ -7,17 +7,18 @@ const root=process.cwd();
 const runtime='public/game-runtimes/mosslight-v2';
 const read=(path:string)=>readFileSync(join(root,path),'utf8');
 
-test('v0.12 is a presentation release over the qualified v0.11.1 engine season',()=>{
-  const entry=read(`${runtime}/v012-entry.js`);
-  const replay=read(`${runtime}/v011/replay-v011.js`);
+test('v0.12 remains a presentation-only foundation even though production advances to the v0.13 engine season',()=>{
+  const entry12=read(`${runtime}/v012-entry.js`);
+  const entry13=read(`${runtime}/v013-entry.js`);
   const server=read('src/lib/sylvaria/replay.ts');
-  assert.match(entry,/PRESENTATION='0\.12\.0',ENGINE='0\.11\.1'/);
-  assert.match(entry,/import'\.\/v011-entry\.js'/);
-  assert.match(replay,/VERSION='0\.11\.1'/);
-  assert.match(server,/SYLVARIA_ENGINE_VERSION = '0\.11\.1'/);
-  assert.doesNotMatch(entry,/F\.(?:update|updateMovement|updateEnemies|updateShots|cut|dashStep|counterShot)\s*=/);
-  assert.match(entry,/F\.render=/);
-  assert.match(entry,/F\.updateHud=/);
+  assert.match(entry12,/PRESENTATION='0\.12\.0',ENGINE='0\.11\.1'/);
+  assert.match(entry12,/import'\.\/v011-entry\.js'/);
+  assert.doesNotMatch(entry12,/F\.(?:update|updateMovement|updateEnemies|updateShots|cut|dashStep|counterShot)\s*=/);
+  assert.match(entry12,/F\.render=/);
+  assert.match(entry12,/F\.updateHud=/);
+  assert.match(entry13,/import'\.\/v012-entry\.js'/);
+  assert.match(entry13,/v013\/kinetic-combat-v013\.js/);
+  assert.match(server,/SYLVARIA_ENGINE_VERSION = '0\.13\.0'/);
 });
 
 test('frog pond art atlas contains readable player insect terrain and tongue assets without CPU pixel readback or filtered preprocessing',()=>{
@@ -32,7 +33,7 @@ test('frog pond art atlas contains readable player insect terrain and tongue ass
   assert.doesNotMatch(art,/Math\.random/);
 });
 
-test('WebGL2 renderer implements height-derived normals bounded lights batching and foot-Y sorting',()=>{
+test('WebGL2 pond renderer still implements height-derived normals bounded lights batching and foot-Y sorting',()=>{
   const renderer=read(`${runtime}/v012/webgl-pond-v012.js`);
   assert.match(renderer,/getContext\('webgl2'/);
   assert.match(renderer,/MAX_SPRITES=900,MAX_LIGHTS=6/);
@@ -45,33 +46,42 @@ test('WebGL2 renderer implements height-derived normals bounded lights batching 
   assert.match(renderer,/canvas-fallback/);
   assert.match(renderer,/ENEMY_ART=Object\.freeze/);
   for(const pair of ["feller:'fly'","foreman:'bee'","lobbyist:'mosquito'","skidder:'beetle'","drone:'dragonfly'","chair:'hornet'","surveyor:'crane'","mech:'divingBeetle'"])assert.ok(renderer.includes(pair),`missing insect mapping ${pair}`);
-  assert.match(renderer,/for\(const s of state\.slashes\)/);
-  assert.match(renderer,/emit\('tongue'/);
   assert.doesNotMatch(renderer,/F\.(?:update|cut|dashStep|counterShot)\s*=/);
 });
 
-test('pond shell teaches the frog fantasy without changing the eight-key control grammar',()=>{
-  const html=read(`${runtime}/index.html`);
-  const arcade=read('src/data/arcadeGames.ts');
-  assert.match(html,/v0\.12 · frog pond presentation/);
-  assert.match(html,/Lily Clearing/);
-  assert.match(html,/Tongue-slap incoming attacks back/);
-  assert.match(html,/tongue up/);
-  assert.match(html,/tongue down/);
-  assert.match(html,/tongue left/);
-  assert.match(html,/tongue right/);
-  assert.match(html,/\.\/v012-entry\.js/);
-  assert.match(arcade,/version: 'v0\.12\.0'/);
-  assert.match(arcade,/HOP · SLAP · REFLECT\./);
-  assert.match(arcade,/frog-and-pond/);
-  assert.match(arcade,/WebGL2/);
+test('v0.13 kinetic presentation suppresses the old straight tongue and renders the authoritative sweeping arc',()=>{
+  const presentation=read(`${runtime}/v013/kinetic-presentation-v013.js`);
+  assert.match(presentation,/state\.slashes\.filter\(s=>s\.kind!=='arc'\)/);
+  assert.match(presentation,/function drawArcAttack/);
+  assert.match(presentation,/quadraticCurveTo/);
+  assert.match(presentation,/s\.phase==='windup'/);
+  assert.match(presentation,/s\.phase==='active'/);
+  assert.match(presentation,/s\.phaseTime\/s\.recovery/);
+  assert.match(presentation,/drawDash/);
+  assert.match(presentation,/drawKineticEnemies/);
+  assert.doesNotMatch(presentation,/F\.(?:updateMovement|updateEnemies|updateShots|cut)\s*=/);
 });
 
-test('v0.12 graphics documentation protects simulation and replay boundaries',()=>{
+test('production pond shell teaches v0.13 glide charge and sweep controls',()=>{
+  const html=read(`${runtime}/index.html`);
+  const arcade=read('src/data/arcadeGames.ts');
+  assert.match(html,/v0\.13 · kinetic arc combat/);
+  assert.match(html,/Lily Clearing/);
+  assert.match(html,/Glide freely\. Mid-swing tongue contact sends attacks back/);
+  assert.match(html,/glide north/);
+  assert.match(html,/tongue arc up/);
+  assert.match(html,/hold \/ release dash/);
+  assert.match(html,/\.\/v013-entry\.js/);
+  assert.match(arcade,/version: 'v0\.13\.0'/);
+  assert.match(arcade,/GLIDE · SWEEP · RETURN FIRE\./);
+  assert.match(arcade,/continuous pond movement/);
+  assert.match(arcade,/webgl2/);
+});
+
+test('v0.12 graphics documentation remains a historical presentation contract beneath v0.13',()=>{
   const doc=read('docs/SYLVARIA_V012_FROG_POND_GRAPHICS.md');
   assert.match(doc,/authoritative game remains the fully qualified v0\.11\.1 engine/);
   assert.match(doc,/120 Hz fixed simulation tick/);
-  assert.match(doc,/840 \/ 1040 px\/s/);
   assert.match(doc,/ranked engine version therefore remains \*\*0\.11\.1\*\*/);
   assert.match(doc,/Only `F\.render` is replaced/);
   assert.match(doc,/≤ 6 dynamic lights/);
