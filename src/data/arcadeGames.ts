@@ -76,7 +76,7 @@ export const arcadeGames: ArcadeGame[] = [
     title: 'Sylvaria',
     subtitle: 'GLIDE · SWEEP · RETURN FIRE.',
     description:
-      'A deterministic frog combat game built around continuous pond movement and a timing-driven tongue weapon. Glide smoothly with combined WASD input, hold and release Space to charge an omnidirectional burst, then use the arrow keys to swing a broad tongue arc through enemies and incoming fire. Mid-swing projectile contact creates the strongest returns. Skimmers orbit, Striders read and evade the sweep, Dragonflies fire high-speed precision lanes, Shellback beetles armor their front, and legacy insect roles combine with currents, mud, reeds, poison, cover, and reflected projectiles across thirty fixed arenas and deterministic endless play.',
+      'A deterministic frog combat game built around continuous pond movement and a timing-driven tongue weapon. Glide smoothly with combined WASD input, hold and release Space to charge an omnidirectional burst, then use the arrow keys to swing a broad tongue arc through enemies and incoming fire. Catch projectiles in the opening five active ticks to parry them into 1160 px/s piercing returns; the rest of the sweep remains an offensive melee blade. Skimmers orbit, Striders read and evade the sweep, Dragonflies fire high-speed precision lanes, Shellback beetles armor their front, and legacy insect roles combine with currents, mud, reeds, poison, cover, and reflected projectiles across thirty fixed arenas and deterministic endless play.',
     version: 'v0.13.0',
     status: 'playable',
     sourceVisibility: 'public',
@@ -87,8 +87,8 @@ export const arcadeGames: ArcadeGame[] = [
     tags: ['arcade action', 'frog', 'pond', 'kinetic combat', 'tongue arc', 'charged dash', 'projectile reflection', 'reactive ai', 'webgl2', 'fixed arenas', 'terrain tactics', 'deterministic replay', 'verified leaderboard'],
     controls: [
       { input: 'W A S D', action: 'Glide continuously; combine directions for smooth diagonal steering' },
-      { input: 'Space', action: 'Hold to charge, steer while charging, release for an omnidirectional dash' },
-      { input: 'Arrow Keys', action: 'Start a directional tongue sweep; mid-swing contact creates the strongest reflect' },
+      { input: 'Space', action: 'Hold to charge, steer while charging, release for an omnidirectional dash; presses can buffer near recovery' },
+      { input: 'Arrow Keys', action: 'Start a directional tongue sweep; opening contact parries projectiles and later arc contact strikes enemies' },
       { input: 'Pond terrain', action: 'Use currents, mud, reeds, stones, poison, and reflected fire against both sides' },
       { input: 'P / M', action: 'Pause / mute' },
       { input: 'Fullscreen', action: 'Expand the pond across the display' },
