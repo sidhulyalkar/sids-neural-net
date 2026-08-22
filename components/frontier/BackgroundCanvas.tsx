@@ -9,7 +9,7 @@ precision highp float;
 out vec2 v_uv;
 void main() {
   vec2 p = vec2(float((gl_VertexID << 1) & 2), float(gl_VertexID & 2));
-  v_uv = p * 0.5;
+  v_uv = p;
   gl_Position = vec4(p * 2.0 - 1.0, 0.0, 1.0);
 }`;
 
@@ -162,7 +162,9 @@ export function BackgroundCanvas({ explorationVector }: Props) {
       frame = undefined;
       if (stopped || document.visibilityState === 'hidden') return;
       resize();
-      displayedExploration += (targetExplorationRef.current - displayedExploration) * 0.075;
+      displayedExploration = reducedMotion
+        ? targetExplorationRef.current
+        : displayedExploration + (targetExplorationRef.current - displayedExploration) * 0.075;
 
       gl.useProgram(program);
       gl.uniform2f(uniforms.resolution, canvas.width, canvas.height);
