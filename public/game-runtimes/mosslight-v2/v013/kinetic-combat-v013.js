@@ -313,7 +313,7 @@ function returnDirection(shot,s){
 }
 function shotApproaching(shot){const p=state.player,dx=p.x-shot.x,dy=p.y-shot.y,n=normalize(dx,dy),v=normalize(shot.vx,shot.vy);return n.m>0&&v.m>0&&n.x*v.x+n.y*v.y>.06}
 function counterShotArc(shot,s){
-  if(shot.dead||shot.friendly||s.phaseTime>s.parryWindow||!shotApproaching(shot)||!arcSweepContains(s,shot,4))return false;
+  if(shot.dead||shot.friendly||s.phaseTime>=s.parryWindow||!shotApproaching(shot)||!arcSweepContains(s,shot,4))return false;
   const v=returnDirection(shot,s),speed=KINETIC_CONFIG.perfectReflectSpeed;
   shot.originPattern||=shot.pattern;shot.friendly=true;shot.beneficiaryId=null;shot.originalOwnerId||=shot.owner?.id||null;shot.owner=null;shot.pattern='return';
   shot.vx=q(v.x*speed);shot.vy=q(v.y*speed);shot.baseSpeed=speed;shot.damage=3;shot.counterQuality='perfect';shot.counterTargetId=null;shot.reflectedTravel=0;shot.pierces=1;shot.hitIds=new Set();shot.color='#fffde8';shot.life=1.72;
