@@ -12,6 +12,8 @@ import {
 } from './behavior';
 import { applyReactionToProfile } from './scoring';
 import { createInitialProfile, DEFAULT_COLLECTIONS } from './config';
+import { emitFrontierSemanticTelemetry } from './vector/telemetryEngine';
+import { frontierVectorStore } from './vector/vectorStore';
 import type {
   FrontierBehaviorModel,
   FrontierCollection,
@@ -168,9 +170,14 @@ export const useFrontierStore = create<FrontierStore>()(
           },
           behavior: applyBehaviorEvent(current.behavior, item, { kind: 'dwell', dwellMs: bounded }),
         });
+        if (current.behavior.implicitLearning) emitFrontierSemanticTelemetry({ kind: 'dwell', item, dwellMs: bounded });
       },
 
-      recordExpand: (item) => set({ behavior: applyBehaviorEvent(get().behavior, item, { kind: 'expand' }) }),
+      recordExpand: (item) => {
+        const current = get();
+        set({ behavior: applyBehaviorEvent(current.behavior, item, { kind: 'expand' }) });
+        if (current.behavior.implicitLearning) emitFrontierSemanticTelemetry({ kind: 'expand', item });
+      },
 
       recordOpen: (item) => {
         const current = get();
@@ -181,6 +188,7 @@ export const useFrontierStore = create<FrontierStore>()(
           behavior: applyBehaviorEvent(current.behavior, item, { kind: 'open' }),
           game: updateStreak(current.game),
         });
+        if (current.behavior.implicitLearning) emitFrontierSemanticTelemetry({ kind: 'open', item });
       },
 
       react: (item, reaction) => {
@@ -201,6 +209,7 @@ export const useFrontierStore = create<FrontierStore>()(
           },
           game: { ...game, xp: game.xp + (firstReward ? xpForReaction(reaction) : 0) },
         });
+        if (current.behavior.implicitLearning) emitFrontierSemanticTelemetry({ kind: 'reaction', item, reaction });
       },
 
       toggleSave: (item) => {
@@ -217,6 +226,7 @@ export const useFrontierStore = create<FrontierStore>()(
           if (inbox && !inbox.itemIds.includes(item.id)) inbox.itemIds.push(item.id);
         }
         set({ saved, collections, behavior: wasSaved ? current.behavior : applyBehaviorEvent(current.behavior, item, { kind: 'save' }) });
+        if (!wasSaved && current.behavior.implicitLearning) emitFrontierSemanticTelemetry({ kind: 'save', item });
       },
 
       createCollection: (name, description) => {
@@ -278,6 +288,7 @@ export const useFrontierStore = create<FrontierStore>()(
         const enabled = get().behavior.implicitLearning;
         const fresh = { ...createInitialBehaviorModel(), implicitLearning: enabled };
         set({ behavior: enabled ? startBehaviorSession(fresh) : fresh });
+        void frontierVectorStore.clear().catch(() => undefined);
       },
 
       importBackup: (payload) => {
@@ -287,7 +298,10 @@ export const useFrontierStore = create<FrontierStore>()(
         return true;
       },
 
-      resetFrontier: () => set({ ...initialState(), hydrated: true }),
+      resetFrontier: () => {
+        set({ ...initialState(), hydrated: true });
+        void frontierVectorStore.clear().catch(() => undefined);
+      },
     }),
     {
       name: STORAGE_KEY,
