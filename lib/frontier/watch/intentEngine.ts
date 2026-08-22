@@ -12,16 +12,22 @@ const DB_VERSION = 1;
 const STORE = 'watch_intents';
 const MAX_INTENTS = 48;
 
+export type FrontierIntentEmbeddingBackend = 'minilm' | 'feature-hash';
+
 export type FrontierWatchIntent = {
   id: string;
   label: string;
   vector: Float32Array;
+  embeddingBackend: FrontierIntentEmbeddingBackend;
   active: boolean;
   createdAt: number;
   updatedAt: number;
 };
 
-type StoredWatchIntent = Omit<FrontierWatchIntent, 'vector'> & { vector: ArrayBuffer };
+type StoredWatchIntent = Omit<FrontierWatchIntent, 'vector' | 'embeddingBackend'> & {
+  vector: ArrayBuffer;
+  embeddingBackend?: FrontierIntentEmbeddingBackend;
+};
 
 export type FrontierWatchMatch = {
   intentId: string;
@@ -99,6 +105,7 @@ export function watchIntentId(label: string): string {
 function fromStored(record: StoredWatchIntent): FrontierWatchIntent {
   return {
     ...record,
+    embeddingBackend: record.embeddingBackend === 'minilm' ? 'minilm' : 'feature-hash',
     vector: normalizeVector(new Float32Array(record.vector)),
   };
 }
@@ -159,6 +166,7 @@ export async function listFrontierWatchIntents(): Promise<FrontierWatchIntent[]>
 export async function putFrontierWatchIntent(
   label: string,
   vector: Float32Array,
+  embeddingBackend: FrontierIntentEmbeddingBackend,
   now = Date.now()
 ): Promise<FrontierWatchIntent> {
   const normalizedLabel = normalizeWatchIntentLabel(label);
@@ -172,6 +180,7 @@ export async function putFrontierWatchIntent(
     id: watchIntentId(normalizedLabel),
     label: normalizedLabel,
     vector: normalizeVector(vector),
+    embeddingBackend,
     active: true,
     createdAt: previous?.createdAt ?? now,
     updatedAt: now,
