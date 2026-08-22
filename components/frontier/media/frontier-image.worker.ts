@@ -13,6 +13,7 @@ type CancelRequest = {
 
 type DecodeSuccess = {
   id: string;
+  stage: 'preview' | 'final';
   bitmap: ImageBitmap;
   width: number;
   height: number;
@@ -52,6 +53,33 @@ scope.onmessage = async (event: MessageEvent<DecodeRequest | CancelRequest>) => 
     if (!response.ok) throw new Error(`Image ${response.status}`);
     const blob = await response.blob();
     if (controller.signal.aborted) return;
+
+    // A tiny first decode gives the GPU a source-authentic soft preview while the
+    // display-resolution bitmap is still decoding. This replaces synthetic image
+    // placeholders without shipping a BlurHash dependency or decoding the source
+    // at its original megapixel size.
+    const previewScale = Math.min(1, 48 / Math.max(1, width, height));
+    const preview = await createImageBitmap(blob, {
+      resizeWidth: Math.max(1, Math.round(width * previewScale)),
+      resizeHeight: Math.max(1, Math.round(height * previewScale)),
+      resizeQuality: 'low',
+      imageOrientation: 'from-image',
+      premultiplyAlpha: 'premultiply',
+    });
+    if (controller.signal.aborted) {
+      preview.close();
+      return;
+    }
+    const previewPayload: DecodeSuccess = {
+      id,
+      stage: 'preview',
+      bitmap: preview,
+      width: preview.width,
+      height: preview.height,
+      decodeMs: performance.now() - started,
+    };
+    scope.postMessage(previewPayload, [preview]);
+
     const bitmap = await createImageBitmap(blob, {
       resizeWidth: Math.max(1, Math.round(width)),
       resizeHeight: Math.max(1, Math.round(height)),
@@ -65,6 +93,7 @@ scope.onmessage = async (event: MessageEvent<DecodeRequest | CancelRequest>) => 
     }
     const payload: DecodeSuccess = {
       id,
+      stage: 'final',
       bitmap,
       width: bitmap.width,
       height: bitmap.height,
