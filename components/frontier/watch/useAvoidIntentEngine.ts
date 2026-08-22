@@ -11,11 +11,11 @@ import {
   type FrontierAvoidAnchor,
 } from '@/lib/frontier/watch/avoidEngine';
 import type { FrontierIntentEmbeddingBackend } from '@/lib/frontier/watch/intentEngine';
-import { useVectorWorker, type FrontierEmbeddingBackend } from '../vector/useVectorWorker';
+import { useVectorWorker, type FrontierVectorBackend } from '../vector/useVectorWorker';
 
 const MIGRATION_BATCH = 24;
 
-function intentBackend(value: FrontierEmbeddingBackend): FrontierIntentEmbeddingBackend | undefined {
+function intentBackend(value: FrontierVectorBackend): FrontierIntentEmbeddingBackend | undefined {
   return value === 'minilm' || value === 'feature-hash' ? value : undefined;
 }
 
