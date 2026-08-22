@@ -8,6 +8,7 @@ import type { FrontierItem, FrontierReaction } from '@/lib/frontier/types';
 import { EditorialClip } from './EditorialClip';
 import { canRenderFrontierMedia, FrontierMediaSurface, frontierMediaKey } from './media/FrontierMediaSurface';
 import type { SignalLayoutMode } from './SignalBoard';
+import mediaForward from './frontier-media-forward-cards.module.css';
 import styles from './frontier-minimal.module.css';
 
 const REACTIONS: Array<{ id: FrontierReaction; glyph: string; label: string }> = [
@@ -245,7 +246,7 @@ export function SignalCard({
   );
 
   const meta = (
-    <div className={styles.cardTopline}>
+    <div className={`${styles.cardTopline} ${mediaForward.topline}`}>
       <span className={styles.laneLabel}>{resurfaced ? '↺ ' : ''}{lane.shortLabel}</span>
       <span className={styles.sourceLabel}>{item.sourceLabel} · {publishedLabel(item.publishedAt)}</span>
     </div>
@@ -253,8 +254,8 @@ export function SignalCard({
 
   if (feed && !hasMedia) {
     return (
-      <article ref={ref} className={`${styles.card} ${styles.feedCard} ${styles.feedCardText}`}>
-        <div className={styles.feedCopy}>
+      <article ref={ref} className={`${styles.card} ${styles.feedCard} ${styles.feedCardText} ${mediaForward.card} ${mediaForward.feedCard}`}>
+        <div className={`${styles.feedCopy} ${mediaForward.feedCopy}`}>
           <EditorialClip item={item} presentation="list" resurfaced={resurfaced} onOpen={openWithSeen} />
           <div className={styles.feedActions}>{contextButton}{quickActions}</div>
           {contextPanel}
@@ -265,39 +266,39 @@ export function SignalCard({
 
   if (!feed && !hasMedia) {
     return (
-      <article ref={ref} className={`${styles.card} ${styles.tileCard} ${styles.tileCardText} ${expanded ? styles.cardExpanded : ''}`}>
-        <div className={styles.tileBody}>
+      <article ref={ref} className={`${styles.card} ${styles.tileCard} ${styles.tileCardText} ${mediaForward.card} ${mediaForward.tileCard} ${mediaForward.tileText} ${expanded ? styles.cardExpanded : ''}`}>
+        <div className={`${styles.tileBody} ${mediaForward.body}`}>
           {meta}
           <a
             href={item.url}
             target="_blank"
             rel="noopener noreferrer"
-            className={styles.tileStoryLink}
+            className={`${styles.tileStoryLink} ${mediaForward.storyLink}`}
             data-frontier-fluid-primary-link="true"
             onClick={openWithSeen}
           >
-            <h3 className={styles.cardTitle}>{item.title}</h3>
-            <p className={styles.cardSummary}>{item.summary}</p>
+            <h3 className={`${styles.cardTitle} ${mediaForward.title}`}>{item.title}</h3>
+            <p className={`${styles.cardSummary} ${mediaForward.summary}`}>{item.summary}</p>
           </a>
           {contextButton}
           {contextPanel}
         </div>
-        <div className={styles.tileFooter}>{quickActions}</div>
+        <div className={`${styles.tileFooter} ${mediaForward.footer}`}>{quickActions}</div>
       </article>
     );
   }
 
   if (feed) {
     return (
-      <article ref={ref} className={`${styles.card} ${styles.feedCard} ${styles.feedCardMedia}`}>
-        <div className={styles.feedCopy}>
+      <article ref={ref} className={`${styles.card} ${styles.feedCard} ${styles.feedCardMedia} ${mediaForward.card} ${mediaForward.feedCard} ${mediaForward.feedMedia}`}>
+        <div className={`${styles.feedCopy} ${mediaForward.feedCopy}`}>
           {meta}
-          <h3 className={styles.cardTitle}>{item.title}</h3>
-          <p className={styles.cardSummary}>{item.summary}</p>
+          <h3 className={`${styles.cardTitle} ${mediaForward.title}`}>{item.title}</h3>
+          <p className={`${styles.cardSummary} ${mediaForward.summary} ${mediaForward.feedSummary}`}>{item.summary}</p>
           <div className={styles.feedActions}>{contextButton}{quickActions}</div>
           {contextPanel}
         </div>
-        <div className={styles.feedMediaSlot}>
+        <div className={`${styles.feedMediaSlot} ${mediaForward.feedMediaSlot}`}>
           <FrontierMediaSurface item={item} onUnavailable={markMediaUnavailable} />
         </div>
       </article>
@@ -305,18 +306,18 @@ export function SignalCard({
   }
 
   return (
-    <article ref={ref} className={`${styles.card} ${styles.tileCard} ${styles.tileCardMedia} ${expanded ? styles.cardExpanded : ''}`}>
-      <div className={styles.tileMedia}>
+    <article ref={ref} className={`${styles.card} ${styles.tileCard} ${styles.tileCardMedia} ${mediaForward.card} ${mediaForward.tileCard} ${mediaForward.tileMediaCard} ${expanded ? styles.cardExpanded : ''}`}>
+      <div className={`${styles.tileMedia} ${mediaForward.mediaSlot}`}>
         <FrontierMediaSurface item={item} onUnavailable={markMediaUnavailable} />
       </div>
-      <div className={styles.tileBody}>
+      <div className={`${styles.tileBody} ${mediaForward.body}`}>
         {meta}
-        <h3 className={styles.cardTitle}>{item.title}</h3>
-        <p className={styles.cardSummary}>{item.summary}</p>
+        <h3 className={`${styles.cardTitle} ${mediaForward.title}`}>{item.title}</h3>
+        <p className={`${styles.cardSummary} ${mediaForward.summary}`}>{item.summary}</p>
         {contextButton}
         {contextPanel}
       </div>
-      <div className={styles.tileFooter}>{quickActions}</div>
+      <div className={`${styles.tileFooter} ${mediaForward.footer}`}>{quickActions}</div>
     </article>
   );
 }
