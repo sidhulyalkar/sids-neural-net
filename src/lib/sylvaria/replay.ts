@@ -1,5 +1,5 @@
 export const SYLVARIA_REPLAY_SCHEMA = 1 as const;
-export const SYLVARIA_ENGINE_VERSION = '0.11.0' as const;
+export const SYLVARIA_ENGINE_VERSION = '0.11.1' as const;
 export const SYLVARIA_OFFICIAL_SEED = 110001;
 export const SYLVARIA_MAX_REPLAY_TICKS = 120 * 60 * 20;
 export const SYLVARIA_MAX_REPLAY_EVENTS = 20_000;
