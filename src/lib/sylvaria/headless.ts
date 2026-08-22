@@ -22,6 +22,7 @@ import {
 const ROOT = 'public/game-runtimes/mosslight-v2';
 export const SYLVARIA_AUTHORITATIVE_SOURCE_PATHS = [
   `${ROOT}/v091/model.js`,
+  `${ROOT}/v011/rooms-v011.js`,
   `${ROOT}/v091/world.js`,
   `${ROOT}/v091/movement.js`,
   `${ROOT}/v091/battle-core.js`,
@@ -92,10 +93,11 @@ export function loadSylvariaAuthoritativeBundle(): RuntimeBundle {
   if (cachedBundle) return cachedBundle;
   const sources = [
     { path: SYLVARIA_AUTHORITATIVE_SOURCE_PATHS[0], content: readFileSync(join(process.cwd(), 'public', 'game-runtimes', 'mosslight-v2', 'v091', 'model.js'), 'utf8') },
-    { path: SYLVARIA_AUTHORITATIVE_SOURCE_PATHS[1], content: readFileSync(join(process.cwd(), 'public', 'game-runtimes', 'mosslight-v2', 'v091', 'world.js'), 'utf8') },
-    { path: SYLVARIA_AUTHORITATIVE_SOURCE_PATHS[2], content: readFileSync(join(process.cwd(), 'public', 'game-runtimes', 'mosslight-v2', 'v091', 'movement.js'), 'utf8') },
-    { path: SYLVARIA_AUTHORITATIVE_SOURCE_PATHS[3], content: readFileSync(join(process.cwd(), 'public', 'game-runtimes', 'mosslight-v2', 'v091', 'battle-core.js'), 'utf8') },
-    { path: SYLVARIA_AUTHORITATIVE_SOURCE_PATHS[4], content: readFileSync(join(process.cwd(), 'public', 'game-runtimes', 'mosslight-v2', 'v091', 'synergy-v010.js'), 'utf8') },
+    { path: SYLVARIA_AUTHORITATIVE_SOURCE_PATHS[1], content: readFileSync(join(process.cwd(), 'public', 'game-runtimes', 'mosslight-v2', 'v011', 'rooms-v011.js'), 'utf8') },
+    { path: SYLVARIA_AUTHORITATIVE_SOURCE_PATHS[2], content: readFileSync(join(process.cwd(), 'public', 'game-runtimes', 'mosslight-v2', 'v091', 'world.js'), 'utf8') },
+    { path: SYLVARIA_AUTHORITATIVE_SOURCE_PATHS[3], content: readFileSync(join(process.cwd(), 'public', 'game-runtimes', 'mosslight-v2', 'v091', 'movement.js'), 'utf8') },
+    { path: SYLVARIA_AUTHORITATIVE_SOURCE_PATHS[4], content: readFileSync(join(process.cwd(), 'public', 'game-runtimes', 'mosslight-v2', 'v091', 'battle-core.js'), 'utf8') },
+    { path: SYLVARIA_AUTHORITATIVE_SOURCE_PATHS[5], content: readFileSync(join(process.cwd(), 'public', 'game-runtimes', 'mosslight-v2', 'v091', 'synergy-v010.js'), 'utf8') },
   ];
   const framed = sources.map(({ path, content }) => `${path.length}:${path}\0${content.length}:${content}`).join('\0');
   cachedBundle = { sources, hash: sha256(framed) };
@@ -164,12 +166,12 @@ function createHeadlessEngine(): EngineContext {
     setTimeout() { return 0; }, clearTimeout() {},
     Uint8Array, Uint8ClampedArray, Set, Map, Math, JSON, Date,
     performance: { now: () => 0 },
-    navigator: { userAgent: 'SylvariaHeadlessVerifier/0.11' },
+    navigator: { userAgent: 'SylvariaHeadlessVerifier/0.11.1' },
     canvas,
   };
   sandbox.window = sandbox;
   sandbox.globalThis = sandbox;
-  const context = vm.createContext(sandbox, { name: 'sylvaria-headless-v011' });
+  const context = vm.createContext(sandbox, { name: 'sylvaria-headless-v0111' });
 
   for (const source of loadSylvariaAuthoritativeBundle().sources) {
     if (source.path.endsWith('/synergy-v010.js')) {
