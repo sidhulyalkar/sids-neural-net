@@ -65,7 +65,8 @@ test('v0.13 records Space charge and release as deterministic actions 12 and 13'
   harness.dispatch('keydown', { key: ' ', code: 'Space', repeat: false });
   harness.dispatch('keyup', { key: ' ', code: 'Space' });
   const snapshot = harness.window.SylvariaReplay.snapshot();
-  assert.deepEqual(snapshot.events.map((event: { action: number }) => event.action), [12, 13]);
+  const actions = Array.from(snapshot.events, (event: { action: number }) => Number(event.action));
+  assert.deepEqual(actions, [12, 13]);
   assert.equal(snapshot.eligible, true);
 });
 
