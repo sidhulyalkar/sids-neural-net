@@ -36,12 +36,55 @@ export type FrontierSourceKind =
   | 'gdelt'
   | 'local';
 
+export type FrontierSegment = {
+  url: string;
+  duration: number;
+  byteLength?: number;
+};
+
+export type FrontierVideoVariant = {
+  id: string;
+  width: number;
+  height: number;
+  fps?: number;
+  bitrate: number;
+  codec: string;
+  mimeType: string;
+};
+
+export type FrontierVideoStream =
+  | {
+      kind: 'progressive';
+      url: string;
+      mimeType?: string;
+    }
+  | {
+      kind: 'hls';
+      manifestUrl: string;
+    }
+  | {
+      kind: 'frontier-fmp4';
+      initUrl: string;
+      variants: Array<FrontierVideoVariant & { segments: FrontierSegment[] }>;
+    };
+
 export type FrontierMedia = {
   type: 'image' | 'youtube' | 'video' | 'chart' | 'none';
   url?: string;
+  /** Optional same-origin or trusted CORS-safe image surface used by the GPU path. */
+  proxyUrl?: string;
   poster?: string;
+  /** Optional same-origin/CORS-safe poster equivalent. */
+  posterProxyUrl?: string;
   alt?: string;
   aspectRatio?: 'square' | 'portrait' | 'landscape' | 'wide';
+  width?: number;
+  height?: number;
+  /** Derived only from the real source image; never synthetic editorial media. */
+  blurHash?: string;
+  averageColor?: string;
+  duration?: number;
+  streams?: FrontierVideoStream[];
 };
 
 export type FrontierMetric = {
