@@ -54,6 +54,34 @@ function steerCommittedDash(p){
   if(steered.m)p.dash.dir={x:steered.x,y:steered.y};
 }
 
+function heldSetForVector(v){
+  const keys=new Set();if(!v)return keys;
+  if(v.x<-.25)keys.add('a');else if(v.x>.25)keys.add('d');
+  if(v.y<-.25)keys.add('w');else if(v.y>.25)keys.add('s');
+  return keys;
+}
+
+const inheritedReleaseDashCharge=F.releaseDashCharge;
+F.releaseDashCharge=()=>{
+  const p=state.player;if(!p?.dashCharging)return inheritedReleaseDashCharge();
+  const held=F.heldVector?.();
+  if(held?.m)return inheritedReleaseDashCharge();
+  const remembered=normalize(p.dashChargeVector?.x||0,p.dashChargeVector?.y||0);if(!remembered.m)return inheritedReleaseDashCharge();
+  const realHeld=state.heldMoves;state.heldMoves=heldSetForVector(remembered);
+  try{return inheritedReleaseDashCharge()}finally{state.heldMoves=realHeld}
+};
+
+// The v0.13 DOM handler closes over its original release function. A window-level
+// capture listener reaches Space-up first and routes it through the v0.14
+// authoritative seam. The inherited document handler then observes an already
+// released charge and becomes a no-op, while replay listeners still receive the event.
+function onFlowSpaceUp(event){
+  if(String(event.key||'').toLowerCase()!==' '&&event.code!=='Space')return;
+  if(state.mode!=='playing')return;
+  F.releaseDashCharge();
+}
+window.addEventListener?.('keyup',onFlowSpaceUp,true);
+
 const inheritedCut=F.cut;
 F.cut=(direction)=>{
   const p=state.player;if(!p||state.mode!=='playing')return false;
@@ -137,6 +165,7 @@ window.SylvariaFlowCombat=Object.freeze({
     dashSteerBlend:FLOW_CONFIG.dashSteerBlend,
     parryDashRefund:FLOW_CONFIG.parryDashRefund,
     dashSpeedEnvelope:DASH_SPEED_ENVELOPE,
+    dashChargeVector:state.player?.dashChargeVector?{...state.player.dashChargeVector}:null,
     lastDashAccuracy:state.player?.lastDashAccuracy||null,
   }),
 });
