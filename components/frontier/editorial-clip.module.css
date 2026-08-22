@@ -6,26 +6,6 @@
   --clip-letter-spacing: -0.03em;
   position: relative;
   min-width: 0;
-  padding-left: 13px;
-}
-
-.clip::before {
-  position: absolute;
-  top: 1px;
-  bottom: 1px;
-  left: 0;
-  width: 1px;
-  background: rgba(165, 213, 193, 0.22);
-  content: '';
-}
-
-.clip::after {
-  position: absolute;
-  top: 0;
-  right: 0;
-  width: 24px;
-  border-top: 1px solid rgba(226, 237, 231, 0.12);
-  content: '';
 }
 
 .masthead {
@@ -96,16 +76,9 @@
 .highlightBlock {
   position: relative;
   margin-top: 17px;
-  padding-top: 13px;
 }
 
-.highlightRule {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: min(58px, 22%);
-  border-top: 1px solid rgba(226, 237, 231, 0.18);
-}
+.highlightRule { display: none; }
 
 .highlight {
   margin: 0;
@@ -159,7 +132,6 @@
   --clip-letter-spacing: -0.045em;
 }
 
-.builder::before { background: rgba(165, 213, 193, 0.3); }
 .builder .headline { font-size: clamp(18px, 1.7vw, 24px); line-height: 1.12; }
 .builder .clipLabel::before { content: '[ '; }
 .builder .clipLabel::after { content: ' ]'; }
@@ -174,7 +146,6 @@
 
 .sport .headline { max-width: 96%; line-height: 1.02; }
 .sport .highlight { font-style: italic; }
-.sport .highlightRule { width: min(84px, 30%); }
 
 /* Games clipping: slightly chunkier feature typography, restrained by the same monochrome shell. */
 .games {
@@ -184,9 +155,7 @@
   --clip-letter-spacing: -0.038em;
 }
 
-.games::after { width: 12px; border-top-color: rgba(165, 213, 193, 0.28); }
-.games .highlightBlock { padding-left: 10px; }
-.games .highlightRule { top: 7px; bottom: 0; left: 0; width: 1px; border-top: 0; background: rgba(165, 213, 193, 0.18); }
+.games .highlightBlock { padding-left: 0; }
 
 /* Music clipping: poster-like serif contrast and an airy listening note. */
 .music {
@@ -209,7 +178,6 @@
 }
 
 .culture .headline { line-height: 1.08; }
-.culture .highlightRule { width: 34px; }
 
 .dispatch {
   --clip-font: var(--font-geist-sans), system-ui, sans-serif;
@@ -231,7 +199,6 @@
 .grid .highlight { display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 4; }
 
 @media (max-width: 720px) {
-  .clip { padding-left: 10px; }
   .masthead { gap: 8px; }
   .list .storyLink { grid-template-columns: 1fr; row-gap: 0; }
   .list .highlightBlock { margin-top: 15px; }
