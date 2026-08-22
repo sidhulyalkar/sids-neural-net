@@ -68,7 +68,14 @@ function YouTubeSurface({ item, onUnavailable }: { item: FrontierItem; onUnavail
           allowFullScreen
         />
       ) : (
-        <GpuImageSurface id={`${item.id}:youtube`} src={poster} alt={media.alt || item.title} className={styles.posterSurface} onUnavailable={onUnavailable} />
+        <GpuImageSurface
+          id={`${item.id}:youtube`}
+          src={poster}
+          alt={media.alt || item.title}
+          className={styles.posterSurface}
+          placeholderColor={media.averageColor}
+          onUnavailable={onUnavailable}
+        />
       )}
     </div>
   );
@@ -93,6 +100,7 @@ export function FrontierMediaSurface({
         src={src}
         alt={media.alt || item.title}
         className={styles.primaryImage}
+        placeholderColor={media.averageColor}
         onUnavailable={onUnavailable}
       />
     );
