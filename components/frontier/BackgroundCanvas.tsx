@@ -123,7 +123,7 @@ export function BackgroundCanvas({ explorationVector }: Props) {
     });
     if (!gl) return;
 
-    let program: WebGLProgram | undefined;
+    let program: WebGLProgram;
     try {
       program = link(gl);
     } catch {
