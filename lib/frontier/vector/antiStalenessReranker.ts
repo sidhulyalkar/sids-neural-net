@@ -1,6 +1,6 @@
 import type { FrontierItem } from '../types';
 import { cosineSimilarity } from './math';
-import { hybridFrontierScores } from './ranker';
+import { hybridFrontierScores, type FrontierInterestResolver } from './ranker';
 import { projectEmbeddingToSequence } from './sequenceModel';
 
 export type FrontierAntiStalenessScore = {
@@ -17,6 +17,8 @@ type ExposureCounts = {
   authors: Map<string, number>;
   tags: Map<string, number>;
 };
+
+export type FrontierContextStateResolver = (item: FrontierItem) => Float32Array | undefined;
 
 function host(value: string): string {
   try { return new URL(value).hostname.toLowerCase().replace(/^www\./, ''); } catch { return ''; }
@@ -85,15 +87,15 @@ export function scoreFrontierAntiStaleness(
   visibleItems: FrontierItem[],
   explorationTemperature: number,
   now = Date.now(),
-  repetitionAlpha = 0.045
+  repetitionAlpha = 0.045,
+  rankingTargetForItem?: FrontierInterestResolver,
+  contextStateForItem?: FrontierContextStateResolver
 ): FrontierAntiStalenessScore[] {
   const tau = Math.max(0, Math.min(1, explorationTemperature));
-  const baseline = hybridFrontierScores(items, vectors, rankingTarget, query, now);
+  const baseline = hybridFrontierScores(items, vectors, rankingTarget, query, now, rankingTargetForItem);
   return baseline.map((entry) => {
-    const distance = frontierSemanticDistance64(vectors.get(entry.item.id), contextState);
-    // During a temperature spike, distant content still has to clear a quality
-    // floor. This prevents random low-credibility material from winning merely
-    // because it is semantically far away.
+    const resolvedState = contextStateForItem?.(entry.item) ?? contextState;
+    const distance = frontierSemanticDistance64(vectors.get(entry.item.id), resolvedState);
     const exploration = distance * (0.72 + 0.28 * Math.max(0, Math.min(1, entry.item.quality)));
     const repetitionPenalty = frontierRepetitionPenalty(entry.item, visibleItems, repetitionAlpha);
     return {
@@ -115,7 +117,9 @@ export function rerankFrontierAntiStaleness(
   query: string,
   visibleItems: FrontierItem[],
   explorationTemperature: number,
-  now = Date.now()
+  now = Date.now(),
+  rankingTargetForItem?: FrontierInterestResolver,
+  contextStateForItem?: FrontierContextStateResolver
 ): FrontierItem[] {
   return scoreFrontierAntiStaleness(
     items,
@@ -125,7 +129,10 @@ export function rerankFrontierAntiStaleness(
     query,
     visibleItems,
     explorationTemperature,
-    now
+    now,
+    0.045,
+    rankingTargetForItem,
+    contextStateForItem
   )
     .sort((left, right) => right.finalScore - left.finalScore || right.item.baseScore - left.item.baseScore || left.item.id.localeCompare(right.item.id))
     .map((entry) => entry.item);
