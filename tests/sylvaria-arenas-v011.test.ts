@@ -83,7 +83,8 @@ test('every fixed arena contains optional exploration and milestone rooms are de
   }
   for (const depth of [5, 15, 25]) assert.match(rooms[depth - 1].subtitle, /trial/);
   assert.deepEqual([10, 20, 30].map((depth) => rooms[depth - 1].bossName), ['Surveyor', 'Harvester', 'Mulcher']);
-  assert.deepEqual(rooms.map((room, index) => room.boss ? index + 1 : null).filter(Boolean), [10, 20, 30]);
+  const bossDepths = Array.from(rooms, (room, index) => room.boss ? index + 1 : null).filter((depth): depth is number => depth !== null);
+  assert.deepEqual(bossDepths, [10, 20, 30]);
 });
 
 test('player-facing arena names are physical and restrained rather than pun-driven', () => {
