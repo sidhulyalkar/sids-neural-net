@@ -14,6 +14,8 @@ type Registration = {
   onState: (state: SurfaceState) => void;
   near: boolean;
   textureKey?: string;
+  releaseTimer?: number;
+  failedUntil?: number;
 };
 
 type WorkerSuccess = {
@@ -33,6 +35,9 @@ type PendingDecode = {
   resolve: (payload: WorkerSuccess) => void;
   reject: (error: Error) => void;
 };
+
+const TEXTURE_RELEASE_DELAY_MS = 12_000;
+const FAILED_RETRY_MS = 45_000;
 
 const VERTEX_SHADER = `#version 300 es
 in vec2 a_position;
@@ -140,8 +145,16 @@ class FrontierImagePlane {
         const registration = this.registrations.get(id);
         if (!registration) continue;
         registration.near = entry.isIntersecting;
-        if (entry.isIntersecting) this.ensureTexture(registration);
-        else this.scheduler.cancel(`image:${id}`);
+        if (entry.isIntersecting) {
+          if (registration.releaseTimer !== undefined) {
+            window.clearTimeout(registration.releaseTimer);
+            registration.releaseTimer = undefined;
+          }
+          this.ensureTexture(registration);
+        } else {
+          this.scheduler.cancel(`image:${id}`);
+          this.scheduleTextureRelease(registration);
+        }
       }
       this.invalidate();
     }, { rootMargin: '700px 0px', threshold: 0 });
@@ -150,8 +163,15 @@ class FrontierImagePlane {
     this.mount();
   }
 
+  isDestroyed(): boolean {
+    return this.destroyed;
+  }
+
   register(input: Omit<Registration, 'near'>): () => void {
-    if (this.destroyed) return () => undefined;
+    if (this.destroyed) {
+      input.onState('fallback');
+      return () => undefined;
+    }
     if (this.idleDestroyTimer !== undefined) {
       window.clearTimeout(this.idleDestroyTimer);
       this.idleDestroyTimer = undefined;
@@ -176,7 +196,8 @@ class FrontierImagePlane {
     this.observer.unobserve(registration.node);
     this.resizeObserver.unobserve(registration.node);
     this.scheduler.cancel(`image:${id}`);
-    if (registration.textureKey) this.cache?.remove(registration.textureKey);
+    if (registration.releaseTimer !== undefined) window.clearTimeout(registration.releaseTimer);
+    this.releaseRegistrationTexture(registration);
     delete registration.node.dataset.frontierGpuId;
     this.registrations.delete(id);
     this.invalidate();
@@ -251,12 +272,16 @@ class FrontierImagePlane {
     event.preventDefault();
     this.gpuAvailable = false;
     this.cache?.destroy();
-    for (const registration of this.registrations.values()) registration.onState('fallback');
+    for (const registration of this.registrations.values()) {
+      registration.textureKey = undefined;
+      registration.onState('fallback');
+    }
   };
 
   private readonly onContextRestored = () => {
+    // Keep the semantic/native fallback stable. A new plane is acquired after
+    // the current surfaces remount rather than risking a half-restored context.
     this.destroy();
-    sharedPlane = undefined;
   };
 
   private readonly onViewportChange = () => this.invalidate();
@@ -288,6 +313,10 @@ class FrontierImagePlane {
       registration.onState('fallback');
       return;
     }
+    if (registration.failedUntil && registration.failedUntil > Date.now()) {
+      registration.onState('fallback');
+      return;
+    }
     const rect = registration.node.getBoundingClientRect();
     if (rect.width < 2 || rect.height < 2) return;
 
@@ -297,9 +326,10 @@ class FrontierImagePlane {
     const height = Math.max(24, Math.min(1280, Math.round(rect.height * dpr * scale)));
     const textureKey = `${registration.src}|${width}x${height}`;
     if (!forceResize && registration.textureKey === textureKey && this.cache.has(textureKey)) return;
-    if (registration.textureKey && registration.textureKey !== textureKey) this.cache.remove(registration.textureKey);
+    if (registration.textureKey && registration.textureKey !== textureKey) this.releaseRegistrationTexture(registration);
     registration.textureKey = textureKey;
     if (this.cache.has(textureKey)) {
+      registration.failedUntil = undefined;
       registration.onState('ready');
       this.invalidate();
       return;
@@ -311,19 +341,55 @@ class FrontierImagePlane {
       id: `image:${registration.id}`,
       priority,
       run: async (signal) => {
-        const payload = await this.decode(registration.id, registration.src, width, height, signal);
-        if (signal.aborted || !this.registrations.has(registration.id)) {
-          payload.bitmap.close();
-          frontierMediaTelemetry.requestCancelled();
-          return;
+        try {
+          const payload = await this.decode(registration.id, registration.src, width, height, signal);
+          if (signal.aborted || !this.registrations.has(registration.id)) {
+            payload.bitmap.close();
+            frontierMediaTelemetry.requestCancelled();
+            return;
+          }
+          frontierMediaTelemetry.imageDecoded(payload.decodeMs);
+          this.cache?.put(textureKey, payload.bitmap);
+          const current = this.registrations.get(registration.id);
+          if (current?.textureKey === textureKey) {
+            current.failedUntil = undefined;
+            current.onState('ready');
+          }
+          this.invalidate();
+        } catch (error) {
+          if (signal.aborted) {
+            frontierMediaTelemetry.requestCancelled();
+            return;
+          }
+          const current = this.registrations.get(registration.id);
+          if (current) {
+            current.failedUntil = Date.now() + FAILED_RETRY_MS;
+            current.onState('fallback');
+          }
+          throw error;
         }
-        frontierMediaTelemetry.imageDecoded(payload.decodeMs);
-        this.cache?.put(textureKey, payload.bitmap);
-        const current = this.registrations.get(registration.id);
-        if (current?.textureKey === textureKey) current.onState('ready');
-        this.invalidate();
       },
     });
+  }
+
+  private scheduleTextureRelease(registration: Registration): void {
+    if (registration.releaseTimer !== undefined) window.clearTimeout(registration.releaseTimer);
+    registration.releaseTimer = window.setTimeout(() => {
+      registration.releaseTimer = undefined;
+      if (registration.near || !this.registrations.has(registration.id)) return;
+      this.releaseRegistrationTexture(registration);
+      this.invalidate();
+    }, TEXTURE_RELEASE_DELAY_MS);
+  }
+
+  private releaseRegistrationTexture(registration: Registration): void {
+    const key = registration.textureKey;
+    if (!key) return;
+    registration.textureKey = undefined;
+    const sharedByNearSurface = [...this.registrations.values()].some((candidate) =>
+      candidate !== registration && candidate.near && candidate.textureKey === key
+    );
+    if (!sharedByNearSurface) this.cache?.remove(key);
   }
 
   private decode(id: string, url: string, width: number, height: number, signal: AbortSignal): Promise<WorkerSuccess> {
@@ -332,6 +398,7 @@ class FrontierImagePlane {
     return new Promise<WorkerSuccess>((resolve, reject) => {
       const abort = () => {
         this.pending.delete(requestId);
+        this.worker?.postMessage({ type: 'cancel', id: requestId });
         reject(new DOMException('Aborted', 'AbortError'));
       };
       signal.addEventListener('abort', abort, { once: true });
@@ -345,7 +412,7 @@ class FrontierImagePlane {
           reject(error);
         },
       });
-      this.worker?.postMessage({ id: requestId, url, width, height });
+      this.worker?.postMessage({ type: 'decode', id: requestId, url, width, height });
     });
   }
 
@@ -360,6 +427,10 @@ class FrontierImagePlane {
       imageOrientation: 'from-image',
       premultiplyAlpha: 'premultiply',
     });
+    if (signal.aborted) {
+      bitmap.close();
+      throw new DOMException('Aborted', 'AbortError');
+    }
     return { id, bitmap, width: bitmap.width, height: bitmap.height, decodeMs: performance.now() - started };
   }
 
@@ -430,10 +501,17 @@ class FrontierImagePlane {
     this.destroyed = true;
     if (this.raf !== undefined) cancelAnimationFrame(this.raf);
     if (this.idleDestroyTimer !== undefined) window.clearTimeout(this.idleDestroyTimer);
+    for (const registration of this.registrations.values()) {
+      if (registration.releaseTimer !== undefined) window.clearTimeout(registration.releaseTimer);
+      registration.onState('fallback');
+    }
     this.scheduler.cancelAll();
     this.observer.disconnect();
     this.resizeObserver.disconnect();
-    for (const pending of this.pending.values()) pending.reject(new Error('media plane destroyed'));
+    for (const [id, pending] of this.pending) {
+      this.worker?.postMessage({ type: 'cancel', id });
+      pending.reject(new Error('media plane destroyed'));
+    }
     this.pending.clear();
     this.worker?.terminate();
     this.worker = undefined;
@@ -447,6 +525,7 @@ class FrontierImagePlane {
       this.canvas.remove();
     }
     this.teardownGpuOnly();
+    if (sharedPlane === this) sharedPlane = undefined;
   }
 
   private teardownGpuOnly(): void {
@@ -468,6 +547,6 @@ export function registerFrontierGpuImage(input: {
   onState: (state: SurfaceState) => void;
 }): () => void {
   if (typeof window === 'undefined') return () => undefined;
-  if (!sharedPlane) sharedPlane = new FrontierImagePlane();
+  if (!sharedPlane || sharedPlane.isDestroyed()) sharedPlane = new FrontierImagePlane();
   return sharedPlane.register(input);
 }
