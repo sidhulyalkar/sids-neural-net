@@ -6,7 +6,7 @@
   min-height: 0;
   overflow: hidden;
   border-radius: 9px;
-  background: #070a09;
+  background: var(--frontier-media-placeholder, #070a09);
 }
 
 .primaryImage,
