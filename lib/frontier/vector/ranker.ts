@@ -10,10 +10,12 @@ export type FrontierHybridScore = {
   freshness: number;
   credibility: number;
   bm25: number;
+  avoidPenalty: number;
   exploration: boolean;
 };
 
 export type FrontierInterestResolver = (item: FrontierItem) => Float32Array | undefined;
+export type FrontierScorePenaltyResolver = (item: FrontierItem) => number;
 
 function tokenize(value: string): string[] {
   return value
@@ -95,7 +97,8 @@ export function hybridFrontierScores(
   interestVector: Float32Array | undefined,
   query = '',
   now = Date.now(),
-  interestForItem?: FrontierInterestResolver
+  interestForItem?: FrontierInterestResolver,
+  penaltyForItem?: FrontierScorePenaltyResolver
 ): FrontierHybridScore[] {
   const lexical = bm25Scores(items, query);
   return items.map((item) => {
@@ -106,12 +109,13 @@ export function hybridFrontierScores(
     const freshness = freshnessDecay(item.publishedAt, now);
     const credibility = Math.max(0, Math.min(1, item.quality));
     const bm25 = lexical.get(item.id) ?? 0;
-    // Dense preference is resolved per curiosity context when a parallel
-    // trajectory is available. The global target remains only the cold-start
-    // fallback, preventing a deep dive in one domain from becoming the fast
-    // semantic state for every other domain.
-    const score = 0.4 * semantic + 0.3 * freshness + 0.2 * credibility + 0.1 * bm25;
-    return { item, score, semantic, freshness, credibility, bm25, exploration: false };
+    const avoidPenalty = Math.max(0, Math.min(0.45, penaltyForItem?.(item) ?? 0));
+    // Explicit negative anchors subtract from the final candidate score rather
+    // than training the positive profile backwards. That keeps "avoid X"
+    // immediately reversible and prevents negative topics from contaminating
+    // unrelated positive trajectories.
+    const score = 0.4 * semantic + 0.3 * freshness + 0.2 * credibility + 0.1 * bm25 - avoidPenalty;
+    return { item, score, semantic, freshness, credibility, bm25, avoidPenalty, exploration: false };
   });
 }
 
@@ -131,7 +135,9 @@ export function applyEpsilonGreedyExploration(
     .slice(protectedCount)
     .map((entry) => ({
       entry,
-      noveltyScore: entry.item.novelty * 0.5 + (1 - entry.semantic) * 0.3 + random() * 0.2,
+      // Avoided material is not allowed to sneak back through the exploration
+      // lane simply because it is distant from the current context.
+      noveltyScore: entry.item.novelty * 0.5 + (1 - entry.semantic) * 0.3 + random() * 0.2 - entry.avoidPenalty,
     }))
     .sort((left, right) => right.noveltyScore - left.noveltyScore)
     .slice(0, exploreCount)
@@ -166,9 +172,10 @@ export function rerankFrontierItems(
   epsilon = 0.15,
   now = Date.now(),
   seed?: string,
-  interestForItem?: FrontierInterestResolver
+  interestForItem?: FrontierInterestResolver,
+  penaltyForItem?: FrontierScorePenaltyResolver
 ): FrontierItem[] {
-  const scores = hybridFrontierScores(items, vectors, interestVector, query, now, interestForItem);
+  const scores = hybridFrontierScores(items, vectors, interestVector, query, now, interestForItem, penaltyForItem);
   const ranked = scores.sort((left, right) => right.score - left.score || right.item.baseScore - left.item.baseScore);
   return applyEpsilonGreedyExploration(ranked, epsilon, seed).map((entry) => entry.item);
 }
