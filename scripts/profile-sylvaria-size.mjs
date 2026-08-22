@@ -11,9 +11,10 @@ const runtimeRoot = 'public/game-runtimes/mosslight-v2';
 const competitionFiles = [
   `${runtimeRoot}/index.html`,
   `${runtimeRoot}/sylvaria-v8.css`,
+  `${runtimeRoot}/sylvaria-minimal-v011.css`,
   `${runtimeRoot}/render-scale-v7.js`,
   `${runtimeRoot}/render-optimizer-v6.js`,
-  `${runtimeRoot}/v010-entry.js`,
+  `${runtimeRoot}/v011-entry.js`,
   `${runtimeRoot}/v091/model.js`,
   `${runtimeRoot}/v091/world.js`,
   `${runtimeRoot}/v091/movement.js`,
@@ -22,6 +23,12 @@ const competitionFiles = [
   `${runtimeRoot}/v091/boot.js`,
   `${runtimeRoot}/v091/fullscreen.js`,
   `${runtimeRoot}/v091/synergy-v010.js`,
+  `${runtimeRoot}/v011/rooms-v011.js`,
+  `${runtimeRoot}/v011/presentation-v011.js`,
+  `${runtimeRoot}/v011/replay-v011.js`,
+  `${runtimeRoot}/v011/input-guard-v011.js`,
+  `${runtimeRoot}/v011/competitive-v011.js`,
+  `${runtimeRoot}/v011/coach-v011.js`,
 ];
 const portfolioOnlyFiles = ['public/game-runtimes/game-network-bridge.js'];
 
@@ -47,10 +54,10 @@ function profile(files) {
 const readableRuntime = profile(competitionFiles);
 const portfolioPayload = profile([...competitionFiles, ...portfolioOnlyFiles]);
 const report = {
-  version: '0.10.0',
+  version: '0.11.1',
   generatedAt: new Date().toISOString(),
   competitionLimitBytes,
-  note: 'This report measures the readable portfolio runtime. It is not a JS13k submission artifact. A future competition pack must flatten/minify/pack only the required game files and satisfy the official ZIP cap independently.',
+  note: 'This report measures the readable portfolio runtime that actually ships. It is not a JS13k submission artifact. A future competition pack would omit portfolio-only networking/leaderboard UX, flatten and minify the required game files, then satisfy the official ZIP cap independently.',
   readableRuntime,
   portfolioPayload,
   competitionGap: {
@@ -61,7 +68,7 @@ const report = {
 };
 
 fs.writeFileSync(path.join(artifactDir, 'report.json'), JSON.stringify(report, null, 2));
-console.log('Sylvaria v0.10 runtime size profile');
+console.log('Sylvaria v0.11.1 runtime size profile');
 console.table(readableRuntime.rows.map((row) => ({ file: row.file.replace(`${runtimeRoot}/`, ''), raw: row.raw, gzip: row.gzip, brotli: row.brotli })));
 console.log(`Readable runtime aggregate: raw ${readableRuntime.aggregate.raw} B · gzip ${readableRuntime.aggregate.gzip} B · brotli ${readableRuntime.aggregate.brotli} B`);
 console.log(`Reference 13 KiB cap: ${competitionLimitBytes} B. Current readable runtime is intentionally NOT treated as a competition-ready package.`);
