@@ -6,8 +6,12 @@ import vm from 'node:vm';
 import {
   SYLVARIA_ENGINE_VERSION,
   SYLVARIA_MAX_REPLAY_TICKS,
+  SYLVARIA_OFFICIAL_SEED,
+  SYLVARIA_REPLAY_SCHEMA,
   decodeSylvariaReplayEvents,
+  encodeSylvariaReplayEvents,
   sylvariaReplayBytesFromBase64Url,
+  sylvariaReplayBytesToBase64Url,
   validateSylvariaReplayEnvelope,
   type SylvariaReplayActionCode,
   type SylvariaReplayEnvelope,
@@ -33,12 +37,7 @@ export type SylvariaReplaySummary = {
   score: number;
   worldDepth: number;
   worldsCleared: number;
-  player: null | {
-    x: number;
-    y: number;
-    hp: number;
-    flow: number;
-  };
+  player: null | { x: number; y: number; hp: number; flow: number };
   stats: Record<string, number>;
   stateHash: string;
 };
@@ -59,7 +58,6 @@ type RuntimeBundle = {
 };
 
 type EngineContext = {
-  sandbox: Record<string, unknown>;
   G: any;
   F: any;
   state: any;
@@ -89,10 +87,7 @@ function sha256(value: string | Uint8Array) {
 
 export function loadSylvariaAuthoritativeBundle(): RuntimeBundle {
   if (cachedBundle) return cachedBundle;
-  const sources = SYLVARIA_AUTHORITATIVE_SOURCE_PATHS.map((path) => ({
-    path,
-    content: readFileSync(join(process.cwd(), path), 'utf8'),
-  }));
+  const sources = SYLVARIA_AUTHORITATIVE_SOURCE_PATHS.map((path) => ({ path, content: readFileSync(join(process.cwd(), path), 'utf8') }));
   const framed = sources.map(({ path, content }) => `${path.length}:${path}\0${content.length}:${content}`).join('\0');
   cachedBundle = { sources, hash: sha256(framed) };
   return cachedBundle;
@@ -104,7 +99,7 @@ export function sylvariaAuthoritativeEngineHash() {
 
 function createNoopCanvasContext() {
   const gradient = { addColorStop() {} };
-  const target: Record<string | symbol, unknown> = {
+  const target: Record<PropertyKey, unknown> = {
     createLinearGradient: () => gradient,
     createRadialGradient: () => gradient,
     getImageData: () => ({ data: new Uint8ClampedArray(4) }),
@@ -127,20 +122,9 @@ function createNoopCanvasContext() {
 function createHeadlessDocument() {
   const context = createNoopCanvasContext();
   const classList = { add() {}, remove() {}, contains() { return false; } };
-  const generic = () => ({
-    hidden: false,
-    textContent: '',
-    classList,
-    style: {},
-    focus() {},
-    addEventListener() {},
-    querySelectorAll() { return []; },
-  });
+  const generic = () => ({ hidden: false, textContent: '', classList, style: {}, focus() {}, addEventListener() {}, querySelectorAll() { return []; } });
   const canvas = {
-    ...generic(),
-    id: 'c',
-    width: 960,
-    height: 640,
+    ...generic(), id: 'c', width: 960, height: 640,
     getContext: () => context,
     getBoundingClientRect: () => ({ x: 0, y: 0, width: 960, height: 640 }),
   };
@@ -148,10 +132,7 @@ function createHeadlessDocument() {
     canvas,
     document: {
       getElementById(id: string) { return id === 'c' ? canvas : generic(); },
-      createElement(tag: string) {
-        if (tag === 'canvas') return { ...canvas, id: '' };
-        return generic();
-      },
+      createElement(tag: string) { return tag === 'canvas' ? { ...canvas, id: '' } : generic(); },
       querySelectorAll() { return []; },
       addEventListener() {},
     },
@@ -171,24 +152,25 @@ function createHeadlessEngine(): EngineContext {
       clear() { storage.clear(); },
     },
     queueMicrotask(callback: () => void) { callback(); },
-    setTimeout() { return 0; },
-    clearTimeout() {},
-    Uint8Array,
-    Uint8ClampedArray,
-    Set,
-    Map,
-    Math,
-    JSON,
-    Date,
+    setTimeout() { return 0; }, clearTimeout() {},
+    Uint8Array, Uint8ClampedArray, Set, Map, Math, JSON, Date,
     performance: { now: () => 0 },
     navigator: { userAgent: 'SylvariaHeadlessVerifier/0.11' },
     canvas,
   };
   sandbox.window = sandbox;
   sandbox.globalThis = sandbox;
-
   const context = vm.createContext(sandbox, { name: 'sylvaria-headless-v011' });
+
   for (const source of loadSylvariaAuthoritativeBundle().sources) {
+    if (source.path.endsWith('/synergy-v010.js')) {
+      const G = sandbox.Sylvaria091;
+      if (!G?.fn) throw new Error('Sylvaria core modules did not initialize before synergy');
+      // v0.10 synergy wraps presentation hooks. In server verification they are
+      // deliberately no-ops and are not part of the authoritative source hash.
+      G.fn.render ??= () => undefined;
+      G.fn.updateHud ??= () => undefined;
+    }
     vm.runInContext(`(()=>{\n${source.content}\n})()`, context, { filename: source.path, timeout: 1_000 });
   }
 
@@ -196,15 +178,13 @@ function createHeadlessEngine(): EngineContext {
   if (!G?.fn || !G?.state) throw new Error('Sylvaria authoritative engine failed to initialize');
   const F = G.fn;
   const state = G.state;
-  const engine: EngineContext = { sandbox, G, F, state, endReason: null };
-
+  const engine: EngineContext = { G, F, state, endReason: null };
   F.endRun = (reason: string) => {
     if (state.mode === 'gameover') return;
     state.mode = 'gameover';
     engine.endReason = String(reason || 'run ended');
   };
   F.advanceRoom = () => advanceRoom(engine);
-
   state.mode = 'playing';
   state.runMode = 'ranked-replay';
   state.score = 0;
@@ -230,10 +210,6 @@ function advanceRoom(engine: EngineContext) {
   const carry = { hp: state.player.hp, flow: state.player.flow * 0.35 };
   state.worldsCleared += 1;
   F.setupRoom(state.worldDepth + 1, carry);
-}
-
-function roomCleared(engine: EngineContext) {
-  return engine.F.roomCleared();
 }
 
 function applyMovementDown(engine: EngineContext, key: 'w' | 'a' | 's' | 'd') {
@@ -267,14 +243,13 @@ function applyAction(engine: EngineContext, action: SylvariaReplayActionCode) {
     case 9: engine.F.cut('down'); break;
     case 10: engine.F.cut('left'); break;
     case 11: engine.F.cut('right'); break;
-    default: throw new Error(`invalid replay action ${String(action)}`);
   }
 }
 
 function simulateTick(engine: EngineContext) {
   const { G, F, state } = engine;
-  const dt = G.FIXED_DT;
   if (state.mode !== 'playing') return;
+  const dt = G.FIXED_DT;
   state.totalTime += dt;
   state.roomTime += dt;
   if (state.slowTimer > 0) state.slowTimer -= dt;
@@ -291,7 +266,7 @@ function simulateTick(engine: EngineContext) {
   F.updateGas(dt);
   F.updatePickups(dt);
   F.updateParticles(dt);
-  if (roomCleared(engine)) {
+  if (F.roomCleared()) {
     state.roomClearTimer += dt;
     if (state.roomClearTimer > 0.8) advanceRoom(engine);
   } else state.roomClearTimer = 0;
@@ -300,73 +275,33 @@ function simulateTick(engine: EngineContext) {
 function digestState(state: any) {
   const player = state.player;
   const payload = {
-    mode: state.mode,
-    worldDepth: state.worldDepth,
-    worldsCleared: state.worldsCleared,
-    score: state.score,
-    totalTime: state.totalTime,
-    roomTime: state.roomTime,
-    roomClearTimer: state.roomClearTimer,
-    synergyChain: state.synergyChain ?? 0,
-    synergyTimer: state.synergyTimer ?? 0,
-    verdantTimer: state.verdantTimer ?? 0,
+    mode: state.mode, worldDepth: state.worldDepth, worldsCleared: state.worldsCleared,
+    score: state.score, totalTime: state.totalTime, roomTime: state.roomTime, roomClearTimer: state.roomClearTimer,
+    synergyChain: state.synergyChain ?? 0, synergyTimer: state.synergyTimer ?? 0, verdantTimer: state.verdantTimer ?? 0,
     player: player ? {
-      x: player.x,
-      y: player.y,
-      hp: player.hp,
-      flow: player.flow,
-      dashCooldown: player.dashCooldown,
-      cutCooldown: player.cutCooldown,
+      x: player.x, y: player.y, hp: player.hp, flow: player.flow,
+      dashCooldown: player.dashCooldown, cutCooldown: player.cutCooldown,
       dash: player.dash ? { ...player.dash, dir: player.dash.dir ? { x: player.dash.dir.x, y: player.dash.dir.y } : null } : null,
-      buffs: { ...player.buffs },
-      shieldCharges: player.shieldCharges,
+      buffs: { ...player.buffs }, shieldCharges: player.shieldCharges,
     } : null,
     moveQueue: state.moveQueue ? { ...state.moveQueue } : null,
-    heldMoves: [...state.heldMoves].sort(),
-    heldOrder: [...state.heldOrder],
-    stats: { ...state.stats },
+    heldMoves: [...state.heldMoves].sort(), heldOrder: [...state.heldOrder], stats: { ...state.stats },
     trees: state.trees.map((tree: any) => ({ id: tree.id, hp: tree.hp, alive: tree.alive, x: tree.x, y: tree.y })),
     enemies: state.enemies.map((enemy: any) => ({
-      id: enemy.id,
-      type: enemy.type,
-      x: enemy.x,
-      y: enemy.y,
-      hp: enemy.hp,
-      dead: enemy.dead,
-      state: enemy.state,
-      clock: enemy.clock,
-      telegraph: enemy.telegraph,
-      rngState: enemy.rngState,
-      counterStagger: enemy.counterStagger,
+      id: enemy.id, type: enemy.type, x: enemy.x, y: enemy.y, hp: enemy.hp, dead: enemy.dead,
+      state: enemy.state, clock: enemy.clock, telegraph: enemy.telegraph, rngState: enemy.rngState, counterStagger: enemy.counterStagger,
     })),
     boss: state.boss ? {
-      id: state.boss.id,
-      x: state.boss.x,
-      y: state.boss.y,
-      hp: state.boss.hp,
-      dead: state.boss.dead,
-      phase: state.boss.phase,
-      state: state.boss.state,
-      clock: state.boss.clock,
-      rngState: state.boss.rngState,
+      id: state.boss.id, x: state.boss.x, y: state.boss.y, hp: state.boss.hp, dead: state.boss.dead,
+      phase: state.boss.phase, state: state.boss.state, clock: state.boss.clock, rngState: state.boss.rngState,
     } : null,
     terrain: state.terrain.map((patch: any) => ({ id: patch.id, type: patch.type, active: patch.active, cracked: patch.cracked, x: patch.x, y: patch.y, r: patch.r })),
     mushrooms: state.mushrooms.map((mushroom: any) => ({ id: mushroom.id, type: mushroom.type, cut: mushroom.cut, x: mushroom.x, y: mushroom.y })),
     gasClouds: state.gasClouds.map((cloud: any) => ({ x: cloud.x, y: cloud.y, r: cloud.r, maxR: cloud.maxR, life: cloud.life, type: cloud.type })),
     shots: state.shots.map((shot: any) => ({
-      x: shot.x,
-      y: shot.y,
-      vx: shot.vx,
-      vy: shot.vy,
-      life: shot.life,
-      kind: shot.kind,
-      pattern: shot.pattern,
-      originPattern: shot.originPattern ?? null,
-      friendly: shot.friendly,
-      originalOwnerId: shot.originalOwnerId ?? null,
-      counterQuality: shot.counterQuality ?? null,
-      reflectedTravel: shot.reflectedTravel ?? 0,
-      pierces: shot.pierces ?? 0,
+      x: shot.x, y: shot.y, vx: shot.vx, vy: shot.vy, life: shot.life, kind: shot.kind, pattern: shot.pattern,
+      originPattern: shot.originPattern ?? null, friendly: shot.friendly, originalOwnerId: shot.originalOwnerId ?? null,
+      counterQuality: shot.counterQuality ?? null, reflectedTravel: shot.reflectedTravel ?? 0, pierces: shot.pierces ?? 0,
     })),
   };
   return sha256(stableJson(payload));
@@ -384,29 +319,21 @@ function summarize(engine: EngineContext, tick: number): SylvariaReplaySummary {
     score: Math.floor(state.score),
     worldDepth: Number(state.worldDepth),
     worldsCleared: Number(state.worldsCleared),
-    player: state.player ? {
-      x: Number(state.player.x),
-      y: Number(state.player.y),
-      hp: Number(state.player.hp),
-      flow: Number(state.player.flow),
-    } : null,
+    player: state.player ? { x: Number(state.player.x), y: Number(state.player.y), hp: Number(state.player.hp), flow: Number(state.player.flow) } : null,
     stats: Object.fromEntries(Object.entries(state.stats).map(([key, value]) => [key, Number(value)])),
     stateHash: digestState(state),
   };
 }
 
-export function simulateSylvariaReplay(
-  events: readonly SylvariaReplayEvent[],
-  durationTicks: number,
-  options: SylvariaSimulationOptions = {},
-): SylvariaReplaySummary {
+export function simulateSylvariaReplay(events: readonly SylvariaReplayEvent[], durationTicks: number, options: SylvariaSimulationOptions = {}): SylvariaReplaySummary {
   if (!Number.isSafeInteger(durationTicks) || durationTicks < 1 || durationTicks > SYLVARIA_MAX_REPLAY_TICKS) {
     throw new Error(`Sylvaria replay duration must be 1..${SYLVARIA_MAX_REPLAY_TICKS} ticks`);
   }
   const engine = createHeadlessEngine();
   let eventIndex = 0;
-  let tick = 0;
-  for (tick = 1; tick <= durationTicks; tick += 1) {
+  let actualTick = 0;
+  for (let tick = 1; tick <= durationTicks; tick += 1) {
+    actualTick = tick;
     while (eventIndex < events.length && events[eventIndex].tick === tick) {
       applyAction(engine, events[eventIndex].action);
       eventIndex += 1;
@@ -419,17 +346,12 @@ export function simulateSylvariaReplay(
     }
   }
   if (eventIndex !== events.length) throw new Error('replay contains input after simulated duration');
-  const actualTick = Math.min(tick, durationTicks);
   const summary = summarize(engine, actualTick);
   if (!options.allowIncomplete && !summary.ended) throw new Error('ranked Sylvaria replay did not reach an authoritative end state');
   return summary;
 }
 
-export function verifySylvariaReplay(
-  envelopeValue: unknown,
-  claimedScore: number,
-  options: SylvariaSimulationOptions = {},
-): SylvariaReplayVerification {
+export function verifySylvariaReplay(envelopeValue: unknown, claimedScore: number, options: SylvariaSimulationOptions = {}): SylvariaReplayVerification {
   if (!Number.isSafeInteger(claimedScore) || claimedScore < 0) throw new Error('claimed Sylvaria score must be a non-negative integer');
   const envelope = validateSylvariaReplayEnvelope(envelopeValue);
   const engineHash = sylvariaAuthoritativeEngineHash();
@@ -441,11 +363,7 @@ export function verifySylvariaReplay(
   return { ...summary, replayHash: sha256(bytes), claimedScore };
 }
 
-export function makeSylvariaReplayEnvelope(
-  events: readonly SylvariaReplayEvent[],
-  durationTicks: number,
-): SylvariaReplayEnvelope {
-  const { encodeSylvariaReplayEvents, sylvariaReplayBytesToBase64Url, SYLVARIA_OFFICIAL_SEED, SYLVARIA_REPLAY_SCHEMA } = require('./replay') as typeof import('./replay');
+export function makeSylvariaReplayEnvelope(events: readonly SylvariaReplayEvent[], durationTicks: number): SylvariaReplayEnvelope {
   return {
     schema: SYLVARIA_REPLAY_SCHEMA,
     engineVersion: SYLVARIA_ENGINE_VERSION,
