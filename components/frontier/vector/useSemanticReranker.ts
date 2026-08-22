@@ -1,14 +1,19 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { FrontierItem } from '@/lib/frontier/types';
 import { rerankFrontierItems } from '@/lib/frontier/vector/ranker';
 import {
   listenFrontierSemanticTelemetry,
   semanticTelemetryWeight,
 } from '@/lib/frontier/vector/telemetryEngine';
-import { frontierVectorStore } from '@/lib/frontier/vector/vectorStore';
+import { frontierVectorStore, type FrontierVectorMetadata } from '@/lib/frontier/vector/vectorStore';
 import type { FrontierInterestState } from '@/lib/frontier/vector/math';
+import {
+  blendSequenceWithLongTerm,
+  type FrontierSequenceState,
+} from '@/lib/frontier/vector/sequenceModel';
+import { useSequenceModelWorker } from './useSequenceModelWorker';
 import { useVectorWorker } from './useVectorWorker';
 
 const INDEX_BATCH = 12;
@@ -16,6 +21,15 @@ const ACTIVE_INDEX_LIMIT = 96;
 
 function embeddingText(item: FrontierItem): string {
   return `${item.title}\n${item.summary}\n${item.tags.join(' · ')}`.slice(0, 3_500);
+}
+
+function metadata(item: FrontierItem): FrontierVectorMetadata {
+  return {
+    title: item.title,
+    sourceLabel: item.sourceLabel,
+    lane: item.lane,
+    publishedAt: item.publishedAt,
+  };
 }
 
 function textHash(value: string): string {
@@ -45,13 +59,33 @@ export function useSemanticReranker(
   } = {}
 ) {
   const { embed, warm, backend } = useVectorWorker();
+  const sequenceWorker = useSequenceModelWorker();
   const enabled = options.enabled !== false;
   const query = options.query ?? '';
   const seedText = options.seedText ?? '';
   const vectorsRef = useRef(new Map<string, Float32Array>());
   const telemetryQueue = useRef(Promise.resolve());
+  const sequenceHydrationRef = useRef<Promise<FrontierSequenceState | undefined> | undefined>(undefined);
   const [vectorVersion, setVectorVersion] = useState(0);
   const [interest, setInterest] = useState<FrontierInterestState>();
+  const [sequence, setSequence] = useState<FrontierSequenceState>();
+
+  const ensureSequenceHydrated = useCallback(() => {
+    if (!sequenceHydrationRef.current) {
+      sequenceHydrationRef.current = (async () => {
+        let stored: FrontierSequenceState | undefined;
+        try { stored = await frontierVectorStore.getSequence(); } catch { stored = undefined; }
+        try {
+          const hydrated = await sequenceWorker.hydrate(stored);
+          setSequence(hydrated);
+          return hydrated;
+        } catch {
+          return stored;
+        }
+      })();
+    }
+    return sequenceHydrationRef.current;
+  }, [sequenceWorker]);
 
   const itemSignature = useMemo(
     () => items.slice(0, ACTIVE_INDEX_LIMIT).map((item) => `${item.id}:${item.title}:${item.summary.length}`).join('|'),
@@ -79,12 +113,17 @@ export function useSemanticReranker(
         try {
           const embedded = await embed(batch.map((item) => ({ id: item.id, text: embeddingText(item) })));
           if (cancelled) return;
-          const toStore: Array<{ id: string; vector: Float32Array; textHash: string }> = [];
+          const toStore: Array<{ id: string; vector: Float32Array; textHash: string; metadata: FrontierVectorMetadata }> = [];
           for (const item of batch) {
             const vector = embedded.get(item.id);
             if (!vector) continue;
             vectorsRef.current.set(item.id, vector);
-            toStore.push({ id: item.id, vector, textHash: textHash(embeddingText(item)) });
+            toStore.push({
+              id: item.id,
+              vector,
+              textHash: textHash(embeddingText(item)),
+              metadata: metadata(item),
+            });
           }
           if (toStore.length) {
             setVectorVersion((version) => version + 1);
@@ -112,11 +151,13 @@ export function useSemanticReranker(
       } catch {
         // Ranking simply remains on the existing FRONTIER model if persistence is unavailable.
       }
+
+      if (!cancelled) void ensureSequenceHydrated();
     };
 
     void index();
     return () => { cancelled = true; };
-  }, [embed, enabled, itemSignature, items, seedText, warm]);
+  }, [embed, enabled, ensureSequenceHydrated, itemSignature, items, seedText, warm]);
 
   useEffect(() => {
     if (!enabled) return;
@@ -134,7 +175,15 @@ export function useSemanticReranker(
             vector = embedded.get(event.item.id);
             if (vector) {
               vectorsRef.current.set(event.item.id, vector);
-              try { await frontierVectorStore.put(event.item.id, vector, textHash(embeddingText(event.item))); } catch {}
+              try {
+                await frontierVectorStore.put(
+                  event.item.id,
+                  vector,
+                  textHash(embeddingText(event.item)),
+                  event.at,
+                  metadata(event.item)
+                );
+              } catch {}
               setVectorVersion((version) => version + 1);
             }
           } catch {
@@ -142,16 +191,33 @@ export function useSemanticReranker(
           }
         }
         if (!vector) return;
+
+        // Maintain the slow centroid as a durable prior, while the recurrent
+        // sequence state becomes the primary next-item target.
         try {
-          const next = await frontierVectorStore.updateInterest(vector, signal, event.at);
-          setInterest(next);
+          const nextInterest = await frontierVectorStore.updateInterest(vector, signal, event.at);
+          setInterest(nextInterest);
+        } catch {}
+
+        try { await frontierVectorStore.recordEngagement(event.item.id, signal, event.at); } catch {}
+
+        try {
+          await ensureSequenceHydrated();
+          const nextSequence = await sequenceWorker.update(vector, signal, event.at);
+          setSequence(nextSequence);
+          try { await frontierVectorStore.setSequence(nextSequence); } catch {}
         } catch {
-          // IndexedDB can be unavailable in strict private contexts. Existing
-          // non-vector preference learning remains fully functional.
+          // Sequence momentum is additive. Long-term semantic ranking remains
+          // available if a browser blocks workers or IndexedDB.
         }
       }).catch(() => undefined);
     });
-  }, [embed, enabled]);
+  }, [embed, enabled, ensureSequenceHydrated, sequenceWorker]);
+
+  const rankingTarget = useMemo(
+    () => blendSequenceWithLongTerm(sequence?.target, interest?.vector, sequence?.interactions ?? 0),
+    [interest, sequence]
+  );
 
   const rankedItems = useMemo(() => {
     void vectorVersion;
@@ -161,18 +227,20 @@ export function useSemanticReranker(
     return rerankFrontierItems(
       items,
       vectorsRef.current,
-      interest?.vector,
+      rankingTarget,
       query,
       0.15,
       Date.now(),
       `${new Date().toISOString().slice(0, 10)}:${query.toLowerCase()}`
     );
-  }, [enabled, interest, items, query, vectorVersion]);
+  }, [enabled, items, query, rankingTarget, vectorVersion]);
 
   return {
     items: rankedItems,
     backend,
     indexed: vectorsRef.current.size,
     interestReady: Boolean(interest),
+    sequenceReady: Boolean(sequence?.interactions),
+    sequenceInteractions: sequence?.interactions ?? 0,
   };
 }
