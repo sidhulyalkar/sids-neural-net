@@ -1,30 +1,17 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { publishFrontierRuntimeHealth } from '@/lib/frontier/runtime/runtimeHealth';
 import { connectLocalSignalSocket } from '@/lib/frontier/signals/signalBridge';
+import {
+  FRONTIER_SIGNAL_CONFIG_EVENT,
+  readFrontierSignalBridgeConfig,
+} from '@/lib/frontier/signals/signalConfig';
 import { useSignalProcessor } from './useSignalProcessor';
 
-const CONFIG_KEY = 'frontier-signal-bridge-v1';
 const RETRY_BASE_MS = 1_000;
 const RETRY_MAX_MS = 30_000;
 export const FRONTIER_SIGNAL_SAMPLES_EVENT = 'frontier:signal-samples';
-
-type SignalBridgeConfig = {
-  enabled?: boolean;
-  url?: string;
-};
-
-function readConfig(): SignalBridgeConfig {
-  try {
-    const raw = window.localStorage.getItem(CONFIG_KEY);
-    if (!raw) return {};
-    const parsed = JSON.parse(raw) as SignalBridgeConfig;
-    return parsed && typeof parsed === 'object' ? parsed : {};
-  } catch {
-    return {};
-  }
-}
 
 function retryDelay(failures: number): number {
   return Math.min(RETRY_MAX_MS, RETRY_BASE_MS * 2 ** Math.max(0, Math.min(5, failures - 1)));
@@ -32,7 +19,7 @@ function retryDelay(failures: number): number {
 
 /**
  * Invisible opt-in bridge. Nothing is connected by default. A local sensor
- * relay can be enabled with localStorage config, while Web Bluetooth callers
+ * relay can be enabled with browser-local config, while Web Bluetooth callers
  * can dispatch frontier:signal-samples after an explicit user gesture.
  *
  * When an explicitly enabled localhost relay disappears, FRONTIER reconnects
@@ -41,6 +28,7 @@ function retryDelay(failures: number): number {
  */
 export function SignalTelemetryBridge() {
   const { push } = useSignalProcessor();
+  const [configVersion, setConfigVersion] = useState(0);
 
   useEffect(() => {
     const onSamples = (event: Event) => {
@@ -48,9 +36,18 @@ export function SignalTelemetryBridge() {
       const values = custom.detail?.values;
       if (values?.length) void push(values).catch(() => undefined);
     };
+    const onConfig = () => setConfigVersion((version) => version + 1);
     window.addEventListener(FRONTIER_SIGNAL_SAMPLES_EVENT, onSamples);
+    window.addEventListener(FRONTIER_SIGNAL_CONFIG_EVENT, onConfig);
+    return () => {
+      window.removeEventListener(FRONTIER_SIGNAL_SAMPLES_EVENT, onSamples);
+      window.removeEventListener(FRONTIER_SIGNAL_CONFIG_EVENT, onConfig);
+    };
+  }, [push]);
 
-    const config = readConfig();
+  useEffect(() => {
+    void configVersion;
+    const config = readFrontierSignalBridgeConfig();
     let disconnect: (() => void) | undefined;
     let retryTimer: number | undefined;
     let failures = 0;
@@ -110,11 +107,10 @@ export function SignalTelemetryBridge() {
     return () => {
       stopped = true;
       clearRetry();
-      window.removeEventListener(FRONTIER_SIGNAL_SAMPLES_EVENT, onSamples);
       disconnect?.();
       publishFrontierRuntimeHealth('signal-bridge', 'idle');
     };
-  }, [push]);
+  }, [configVersion, push]);
 
   return null;
 }
