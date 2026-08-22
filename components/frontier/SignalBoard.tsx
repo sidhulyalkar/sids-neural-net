@@ -12,10 +12,12 @@ import type { FrontierItem, FrontierLayoutMode } from '@/lib/frontier/types';
 import { FRONTIER_CLIENT_QUERY_EVENT, getFrontierClientQuery } from '@/lib/frontier/vector/clientQuery';
 import { useUIFrequencies } from './audio/useUIFrequencies';
 import { FrontierFocalPlane } from './FrontierFocalPlane';
+import { FrontierIntelligenceBadges } from './FrontierIntelligenceBadges';
 import { usePredictivePrefetch } from './media/usePredictivePrefetch';
 import { useFrontierSynthesis } from './synthesis/useFrontierSynthesis';
 import { useAdaptiveReadingDensity } from './useAdaptiveReadingDensity';
 import { useSemanticReranker } from './vector/useSemanticReranker';
+import densityStyles from './frontier-adaptive-density.module.css';
 import styles from './frontier-minimal.module.css';
 import spatial from './frontier-spatial-feed.module.css';
 import perf from './signal-board-performance.module.css';
@@ -210,7 +212,7 @@ export function SignalBoard({
 
   return (
     <div
-      className={`${styles.boardShell} ${spatial.board}`}
+      className={`${styles.boardShell} ${spatial.board} ${densityStyles.scope}`}
       data-vector-backend={semantic.backend}
       data-exploration={explorationVector.toFixed(3)}
       data-density={density}
@@ -228,6 +230,7 @@ export function SignalBoard({
             >
               <PriorityMarker item={item} />
               <VelocityMarker item={item} />
+              <FrontierIntelligenceBadges item={item} />
               <span className={spatial.focalHint} aria-hidden="true">Space · quick view</span>
               {renderCard(item, 'feed')}
             </div>
@@ -247,6 +250,7 @@ export function SignalBoard({
             >
               <PriorityMarker item={item} />
               <VelocityMarker item={item} />
+              <FrontierIntelligenceBadges item={item} />
               <span className={spatial.focalHint} aria-hidden="true">Space · quick view</span>
               {renderCard(item, 'desk')}
             </div>
