@@ -4,6 +4,10 @@ import type { FrontierFeedResponse, FrontierItem, FrontierMedia } from './types'
 
 const FETCH_TIMEOUT_MS = 7_500;
 const DAY_MS = 86_400_000;
+const CACHE_TTL_MS = 2 * 60_000;
+
+let cached: { at: number; value: FrontierFeedResponse } | undefined;
+let inflight: Promise<FrontierFeedResponse> | undefined;
 
 type VimeoPicture = {
   sizes?: Array<{ width?: number; height?: number; link?: string }>;
@@ -82,7 +86,7 @@ export function parseVimeoStaffPicks(payload: VimeoCollection): FrontierItem[] {
       tags: Array.from(new Set([...tags.slice(0, 6), 'vimeo', 'staff pick', 'video', lane.replaceAll('_', ' ')])),
       authors: video.user?.name ? [video.user.name] : undefined,
       media,
-      metrics: video.duration ? [{ label: 'duration', value: `${Math.round(video.duration / 60)} min` }] : undefined,
+      metrics: video.duration ? [{ label: 'duration', value: `${Math.max(1, Math.round(video.duration / 60))} min` }] : undefined,
       quality,
       importance,
       novelty,
@@ -93,10 +97,7 @@ export function parseVimeoStaffPicks(payload: VimeoCollection): FrontierItem[] {
   });
 }
 
-export async function getVimeoStaffPicksFeed(): Promise<FrontierFeedResponse> {
-  const token = process.env.FRONTIER_VIMEO_ACCESS_TOKEN?.trim();
-  if (!token) return { generatedAt: new Date().toISOString(), items: [], sources: [] };
-
+async function fetchVimeoStaffPicks(token: string): Promise<FrontierFeedResponse> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
   try {
@@ -136,4 +137,26 @@ export async function getVimeoStaffPicksFeed(): Promise<FrontierFeedResponse> {
   } finally {
     clearTimeout(timer);
   }
+}
+
+export async function getVimeoStaffPicksFeed(): Promise<FrontierFeedResponse> {
+  const token = process.env.FRONTIER_VIMEO_ACCESS_TOKEN?.trim();
+  if (!token) return { generatedAt: new Date().toISOString(), items: [], sources: [] };
+
+  if (cached && Date.now() - cached.at < CACHE_TTL_MS) return cached.value;
+  if (inflight) return inflight;
+
+  const request = fetchVimeoStaffPicks(token)
+    .then((value) => {
+      // Cache successful and degraded responses briefly. Repeated upstream 4xx/5xx
+      // failures should not create a request storm under concurrent visitors.
+      cached = { at: Date.now(), value };
+      return value;
+    })
+    .finally(() => {
+      if (inflight === request) inflight = undefined;
+    });
+
+  inflight = request;
+  return request;
 }
