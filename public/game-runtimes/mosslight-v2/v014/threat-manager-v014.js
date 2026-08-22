@@ -34,8 +34,9 @@ export const ROOM_THREAT_PROFILES=Object.freeze([
 let roomDepth=1,tick=0,gateTick=0,phraseStartTick=0,phraseCost=0,phraseAttacks=0,lastRole='light',serial=0,phraseIndex=0;
 let pending=[];
 let releases=[];
+let yields=[];
 let punishGraceUntil=0,punishWindowActive=false;
-const MAX_RELEASE_LOG=48;
+const MAX_EVENT_LOG=48;
 
 function profileForDepth(depth=state.worldDepth||1){return ROOM_THREAT_PROFILES[Math.max(0,Math.min(ROOM_THREAT_PROFILES.length-1,(depth|0)-1))]}
 function profileTitleForDepth(depth=state.worldDepth||1){return ROOM_PROFILE_TITLES[Math.max(0,Math.min(ROOM_PROFILE_TITLES.length-1,(depth|0)-1))]}
@@ -51,6 +52,7 @@ function candidateSort(a,b){const ar=transitionRank(a.role),br=transitionRank(b.
 function deterministicGap(profile,item){const span=profile.gapMax-profile.gapMin+1;if(span<=1)return profile.gapMin;return profile.gapMin+(hash(`v014-threat:${roomDepth}:${phraseIndex}:${item.id}:${item.serial}`)%span)}
 function resetPhrase(startTick=tick){phraseStartTick=startTick;phraseCost=0;phraseAttacks=0;phraseIndex++;lastRole='light'}
 function clearActorReservation(actor){if(!actor)return;actor.v014ThreatQueued=false;actor.v014ThreatScheduledTick=null;actor.v014ThreatRole=null;actor.v014ThreatSerial=null}
+function actorDiverted(actor){return Boolean(!actor||actor.dead||actor.kineticEvade||actor.evade||actor.state==='recover'||actor.state==='charge'||actor.state==='kinetic-lunge')}
 
 function enqueueReady(){
   for(const actor of allThreatActors()){
@@ -61,10 +63,15 @@ function enqueueReady(){
 }
 function cancelInvalidRequests(){
   for(const item of pending){
-    if(item.armed)continue;
-    const actor=item.actor;if(!actor||actor.dead||actor.kineticEvade||actor.evade||actor.state==='recover'||actor.state==='charge'||actor.state==='kinetic-lunge'){
-      clearActorReservation(actor);item.cancelled=true;
+    const actor=item.actor;
+    if(item.armed){
+      if(!item.released&&!isTelegraphing(actor)&&actorDiverted(actor)){
+        yields.push({tick,id:item.id,role:item.role,slotTick:item.slotTick,reason:actor?.kineticEvade||actor?.evade?'defense':'interrupted'});if(yields.length>MAX_EVENT_LOG)yields.shift();
+        clearActorReservation(actor);item.cancelled=true;item.yielded=true;
+      }
+      continue;
     }
+    if(actorDiverted(actor)){clearActorReservation(actor);item.cancelled=true}
   }
   pending=pending.filter(item=>!item.cancelled);
 }
@@ -96,7 +103,7 @@ function recordReleasedTelegraphs(){
     if(isTelegraphing(actor)){
       item.released=true;clearActorReservation(actor);
       releases.push({tick,id:item.id,role:item.role,cost:item.cost,requestTick:item.requestTick,slotTick:item.slotTick,gapTicks:item.gapTicks,roomDepth,roomTitle:profileTitleForDepth(),phraseIndex,boss:actor===state.boss});
-      if(releases.length>MAX_RELEASE_LOG)releases.shift();
+      if(releases.length>MAX_EVENT_LOG)releases.shift();
     }
   }
   pending=pending.filter(item=>!item.released&&!item.cancelled);
@@ -108,7 +115,7 @@ function observePunishWindows(){
 }
 function resetThreatState(depth=state.worldDepth||1){
   for(const item of pending)clearActorReservation(item.actor);
-  roomDepth=depth|0;tick=0;gateTick=0;phraseStartTick=0;phraseCost=0;phraseAttacks=0;lastRole='light';serial=0;phraseIndex=0;pending=[];releases=[];punishGraceUntil=0;punishWindowActive=false;
+  roomDepth=depth|0;tick=0;gateTick=0;phraseStartTick=0;phraseCost=0;phraseAttacks=0;lastRole='light';serial=0;phraseIndex=0;pending=[];releases=[];yields=[];punishGraceUntil=0;punishWindowActive=false;
   for(const actor of allThreatActors())clearActorReservation(actor);
 }
 
@@ -131,6 +138,6 @@ window.SylvariaThreatManager=Object.freeze({
     rosterTitle:state.room?.title||null,profileAligned:!state.room?.title||state.room.title===profileTitleForDepth(),
     queuedCost:pending.filter(item=>!item.armed&&!item.cancelled).reduce((sum,item)=>sum+item.cost,0),
     queue:pending.map(item=>({id:item.id,role:item.role,cost:item.cost,requestTick:item.requestTick,armed:item.armed,slotTick:item.slotTick,gapTicks:item.gapTicks,boss:item.actor===state.boss})),
-    releases:[...releases],
+    releases:[...releases],yields:[...yields],
   }),
 });
