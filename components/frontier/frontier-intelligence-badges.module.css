@@ -1,0 +1,48 @@
+.badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin: 0 0 8px;
+}
+
+.badges > span,
+.badges > a {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 5px;
+  min-width: 0;
+  max-width: min(240px, 100%);
+  padding: 3px 6px;
+  border-radius: 999px;
+  background: rgba(165, 213, 193, 0.045);
+  color: rgba(183, 201, 192, 0.64);
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-size: 6px;
+  text-decoration: none;
+  letter-spacing: 0.035em;
+}
+
+.badges small {
+  flex: 0 0 auto;
+  color: rgba(148, 166, 157, 0.55);
+  font-size: inherit;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.badges strong {
+  min-width: 0;
+  overflow: hidden;
+  color: rgba(215, 226, 220, 0.72);
+  font-size: inherit;
+  font-weight: 520;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.badges > a:hover,
+.badges > a:focus-visible {
+  outline: 0;
+  background: rgba(165, 213, 193, 0.075);
+  color: rgba(227, 235, 231, 0.86);
+}
