@@ -5,7 +5,8 @@ export type FrontierRuntimeSubsystem =
   | 'sequence-model'
   | 'signal-processor'
   | 'signal-bridge'
-  | 'mesh';
+  | 'mesh'
+  | 'live-daemon';
 
 export type FrontierRuntimeStatus = 'idle' | 'starting' | 'ready' | 'degraded' | 'failed';
 
