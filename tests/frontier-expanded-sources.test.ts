@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { parseLobsters, parseNasaApod, parseOpenReview, parseRxiv } from '../lib/frontier/expandedSources';
+import { parseVimeoStaffPicks } from '../lib/frontier/vimeoSource';
 
 test('bioRxiv parser preserves scientific metadata', () => {
   const items = parseRxiv({
@@ -77,4 +78,31 @@ test('NASA APOD uses real source imagery as media', () => {
   assert.equal(items[0]?.media?.type, 'image');
   assert.equal(items[0]?.media?.url, 'https://apod.nasa.gov/image/example-hd.jpg');
   assert.ok(items[0]?.tags.includes('astronomy'));
+});
+
+test('Vimeo Staff Picks parser keeps source thumbnail and canonical playback link', () => {
+  const items = parseVimeoStaffPicks({
+    data: [{
+      uri: '/videos/12345',
+      name: 'A Tiny Film About Motion',
+      description: 'A short experimental film about physical movement.',
+      link: 'https://vimeo.com/12345',
+      duration: 183,
+      created_time: '2026-08-20T12:00:00.000Z',
+      pictures: {
+        sizes: [
+          { width: 640, height: 360, link: 'https://i.vimeocdn.com/video/example_640x360.jpg' },
+          { width: 1280, height: 720, link: 'https://i.vimeocdn.com/video/example_1280x720.jpg' },
+        ],
+      },
+      tags: [{ name: 'experimental' }, { name: 'film' }],
+      user: { name: 'Example Filmmaker' },
+    }],
+  });
+  assert.equal(items.length, 1);
+  assert.equal(items[0]?.sourceKind, 'vimeo');
+  assert.equal(items[0]?.url, 'https://vimeo.com/12345');
+  assert.equal(items[0]?.media?.type, 'image');
+  assert.equal(items[0]?.media?.url, 'https://i.vimeocdn.com/video/example_1280x720.jpg');
+  assert.equal(items[0]?.authors?.[0], 'Example Filmmaker');
 });
