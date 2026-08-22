@@ -29,7 +29,7 @@ const KINETIC_ROLE=Object.freeze({
   shellback:'heavy',
 });
 const LEGACY_ROLE=Object.freeze({
-  feller:'light',
+  feller:'engage',
   foreman:'precision',
   lobbyist:'support',
   skidder:'engage',
@@ -60,9 +60,10 @@ const MAX_RELEASE_LOG=48;
 function profileForDepth(depth=state.worldDepth||1){
   return ROOM_THREAT_PROFILES[Math.max(0,Math.min(ROOM_THREAT_PROFILES.length-1,(depth|0)-1))];
 }
-function roleFor(e){return KINETIC_ROLE[e?.kineticType]||LEGACY_ROLE[e?.type]||'light'}
+function allThreatActors(){const actors=[...state.enemies];if(state.boss&&!state.boss.dead)actors.push(state.boss);return actors}
+function roleFor(e){if(e&&e===state.boss)return'heavy';return KINETIC_ROLE[e?.kineticType]||LEGACY_ROLE[e?.type]||'light'}
 function costFor(e){return ROLE_COST[roleFor(e)]??1}
-function stableId(e){return String(e?.id||`${e?.kineticType||e?.type||'enemy'}:${e?.x||0}:${e?.y||0}`)}
+function stableId(e){return String(e?.id||`${e===state.boss?'boss':e?.kineticType||e?.type||'enemy'}:${e?.x||0}:${e?.y||0}`)}
 function isTelegraphing(e){return e?.state==='telegraph'||e?.state==='kinetic-telegraph'||(e?.telegraph||0)>0}
 function isBusy(e){return Boolean(e?.dead||e?.kineticEvade||e?.evade||e?.counterStagger>0||e?.state==='recover'||e?.state==='charge'||e?.state==='kinetic-lunge'||isTelegraphing(e))}
 function isHeavyThreat(e){return costFor(e)>0}
@@ -71,7 +72,7 @@ function transitionRank(role){const order=ROLE_TRANSITIONS[lastRole]||ROLE_TRANS
 function candidateSort(a,b){
   const ar=transitionRank(a.role),br=transitionRank(b.role);if(ar!==br)return ar-br;
   if(a.requestTick!==b.requestTick)return a.requestTick-b.requestTick;
-  const ai=stableId(a.enemy),bi=stableId(b.enemy);return ai<bi?-1:ai>bi?1:0;
+  const ai=stableId(a.actor),bi=stableId(b.actor);return ai<bi?-1:ai>bi?1:0;
 }
 function deterministicGap(profile,item){
   const span=profile.gapMax-profile.gapMin+1;if(span<=1)return profile.gapMin;
@@ -89,16 +90,16 @@ function assignSlot(item){
   }
   const gap=deterministicGap(profile,item);
   item.slotTick=slot;item.gapTicks=gap;
-  item.enemy.v014ThreatScheduledTick=slot;
-  item.enemy.v014ThreatRole=item.role;
-  item.enemy.v014ThreatSerial=item.serial;
+  item.actor.v014ThreatScheduledTick=slot;
+  item.actor.v014ThreatRole=item.role;
+  item.actor.v014ThreatSerial=item.serial;
   phraseCost+=item.cost;phraseAttacks++;
   nextSlotTick=slot+gap;lastRole=item.role;
 }
 function enqueueReady(){
-  for(const e of state.enemies){
-    if(!readyToRequest(e)||pending.some(p=>p.enemy===e))continue;
-    pending.push({enemy:e,id:stableId(e),role:roleFor(e),cost:costFor(e),requestTick:tick,serial:serial++,slotTick:null,gapTicks:null});
+  for(const actor of allThreatActors()){
+    if(!readyToRequest(actor)||pending.some(p=>p.actor===actor))continue;
+    pending.push({actor,id:stableId(actor),role:roleFor(actor),cost:costFor(actor),requestTick:tick,serial:serial++,slotTick:null,gapTicks:null});
   }
   const unscheduled=pending.filter(p=>!Number.isFinite(p.slotTick));
   while(unscheduled.length){
@@ -108,9 +109,9 @@ function enqueueReady(){
 }
 function cancelInvalidReservations(){
   for(const item of pending){
-    const e=item.enemy;if(!e||e.dead){if(e)e.v014ThreatScheduledTick=null;item.cancelled=true;continue}
-    if(Number.isFinite(item.slotTick)&&tick<item.slotTick&&(e.kineticEvade||e.evade||e.state==='recover')){
-      e.v014ThreatScheduledTick=null;e.v014ThreatRole=null;item.cancelled=true;
+    const actor=item.actor;if(!actor||actor.dead){if(actor)actor.v014ThreatScheduledTick=null;item.cancelled=true;continue}
+    if(Number.isFinite(item.slotTick)&&tick<item.slotTick&&(actor.kineticEvade||actor.evade||actor.state==='recover')){
+      actor.v014ThreatScheduledTick=null;actor.v014ThreatRole=null;item.cancelled=true;
     }
   }
   pending=pending.filter(p=>!p.cancelled);
@@ -118,27 +119,27 @@ function cancelInvalidReservations(){
 function pushQueuePastGrace(until){
   let cursor=until;
   for(const item of pending.filter(p=>!p.cancelled&&!p.released&&Number.isFinite(p.slotTick)).sort((a,b)=>a.slotTick-b.slotTick||a.serial-b.serial)){
-    if(item.slotTick<cursor){item.slotTick=cursor;item.enemy.v014ThreatScheduledTick=cursor}
+    if(item.slotTick<cursor){item.slotTick=cursor;item.actor.v014ThreatScheduledTick=cursor}
     cursor=item.slotTick+(item.gapTicks||profileForDepth().gapMin);
   }
   nextSlotTick=Math.max(nextSlotTick,cursor);
 }
 function holdQueuedThreats(){
   for(const item of pending){
-    const e=item.enemy;if(!e||e.dead||!Number.isFinite(item.slotTick))continue;
-    if(tick<item.slotTick&&e.state==='move'&&!e.kineticEvade&&!e.evade){
+    const actor=item.actor;if(!actor||actor.dead||!Number.isFinite(item.slotTick))continue;
+    if(tick<item.slotTick&&actor.state==='move'&&!actor.kineticEvade&&!actor.evade){
       const ticksRemaining=item.slotTick-tick+1;
-      e.clock=Math.max(e.clock||0,q(ticksRemaining*FIXED_DT));
+      actor.clock=Math.max(actor.clock||0,q(ticksRemaining*FIXED_DT));
     }
   }
 }
 function recordReleasedTelegraphs(){
   for(const item of pending){
-    const e=item.enemy;if(!e||e.dead)continue;
-    if(!item.released&&isTelegraphing(e)){
+    const actor=item.actor;if(!actor||actor.dead)continue;
+    if(!item.released&&isTelegraphing(actor)){
       item.released=true;
-      e.v014ThreatScheduledTick=null;
-      releases.push({tick,id:item.id,role:item.role,cost:item.cost,requestTick:item.requestTick,slotTick:item.slotTick,gapTicks:item.gapTicks,roomDepth});
+      actor.v014ThreatScheduledTick=null;
+      releases.push({tick,id:item.id,role:item.role,cost:item.cost,requestTick:item.requestTick,slotTick:item.slotTick,gapTicks:item.gapTicks,roomDepth,boss:actor===state.boss});
       if(releases.length>MAX_RELEASE_LOG)releases.shift();
     }
   }
@@ -151,9 +152,10 @@ function observePunishWindows(){
   }
   punishWindowActive=open;
 }
+function resetActorThreat(actor){if(actor){actor.v014ThreatScheduledTick=null;actor.v014ThreatRole=null;actor.v014ThreatSerial=null}}
 function resetThreatState(depth=state.worldDepth||1){
   roomDepth=depth|0;tick=0;nextSlotTick=0;phraseStartTick=0;phraseCost=0;phraseAttacks=0;lastRole='light';serial=0;pending=[];releases=[];punishGraceUntil=0;punishWindowActive=false;
-  for(const e of state.enemies){e.v014ThreatScheduledTick=null;e.v014ThreatRole=null;e.v014ThreatSerial=null}
+  for(const actor of allThreatActors())resetActorThreat(actor);
 }
 
 const inheritedSetup=F.setupRoom;
@@ -171,6 +173,8 @@ F.updateEnemies=(dt)=>{
   recordReleasedTelegraphs();
   return result;
 };
+const inheritedBoss=F.updateBoss;
+F.updateBoss=(dt)=>{const result=inheritedBoss(dt);recordReleasedTelegraphs();return result};
 
 window.SylvariaThreatManager=Object.freeze({
   version:THREAT_MANAGER_VERSION,
@@ -180,7 +184,7 @@ window.SylvariaThreatManager=Object.freeze({
   roleFor,
   snapshot:()=>({
     version:THREAT_MANAGER_VERSION,roomDepth,tick,profile:profileForDepth(),nextSlotTick,phraseStartTick,phraseCost,phraseAttacks,lastRole,punishGraceUntil,punishWindowActive,
-    queue:pending.map(p=>({id:p.id,role:p.role,cost:p.cost,requestTick:p.requestTick,slotTick:p.slotTick,gapTicks:p.gapTicks})),
+    queue:pending.map(p=>({id:p.id,role:p.role,cost:p.cost,requestTick:p.requestTick,slotTick:p.slotTick,gapTicks:p.gapTicks,boss:p.actor===state.boss})),
     releases:[...releases],
   }),
 });
