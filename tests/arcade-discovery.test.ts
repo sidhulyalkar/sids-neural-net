@@ -61,8 +61,8 @@ test('v0.9.1 production runtime uses one canonical modular graph and preserves d
   assert.match(runtime, /sylvaria-v8\.css/);
   assert.doesNotMatch(runtime, /game-v90\.js|visual-system-v9\.js|game-v82\.js|game-v81\.js|input-buffer-v81\.js|game-v8\.js|game-v5\.js/);
 
-  for (const module of v091Modules) {
-    assert.ok(existsSync(join(root, v091Root, module)), `missing canonical v0.9.1 module ${module}`);
+  for (const moduleName of v091Modules) {
+    assert.ok(existsSync(join(root, v091Root, moduleName)), `missing canonical v0.9.1 module ${moduleName}`);
   }
   for (const retired of ['combat.js', 'battle.js']) {
     assert.equal(existsSync(join(root, v091Root, retired)), false, `superseded v0.9.1 module should not remain: ${retired}`);
