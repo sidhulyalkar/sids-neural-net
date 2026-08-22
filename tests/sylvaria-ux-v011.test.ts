@@ -10,6 +10,7 @@ const runtimeRoot = 'public/game-runtimes/mosslight-v2';
 test('Sylvaria keeps competition visible as one restrained chase target', () => {
   const html = read(`${runtimeRoot}/index.html`);
   const competitive = read(`${runtimeRoot}/v011/competitive-v011.js`);
+  const styles = read(`${runtimeRoot}/sylvaria-minimal-v011.css`);
   assert.match(html, /id="targetWrap" hidden/);
   assert.match(html, /id="targetState"/);
   assert.match(competitive, /function nextTarget/);
@@ -17,7 +18,17 @@ test('Sylvaria keeps competition visible as one restrained chase target', () => 
   assert.match(competitive, /to go/);
   assert.match(competitive, /function provisionalPlacement/);
   assert.match(competitive, /current board/);
+  assert.match(styles, /#targetWrap\[hidden\],#bossWrap\[hidden\]\{display:none!important\}/);
   assert.doesNotMatch(competitive, /\b(?:streak|xp|currency)\b|daily quest/i);
+});
+
+test('verified leaderboard state collapses the input form after it has served its purpose', () => {
+  const competitive = read(`${runtimeRoot}/v011/competitive-v011.js`);
+  const styles = read(`${runtimeRoot}/sylvaria-minimal-v011.css`);
+  assert.match(competitive, /function rankForm/);
+  assert.match(competitive, /if\(form\)form\.hidden=true/);
+  assert.match(competitive, /if\(form\)form\.hidden=false/);
+  assert.match(styles, /\.rankForm\[hidden\],\.rankForm \[hidden\]\{display:none!important\}/);
 });
 
 test('Learn Controls is non-ranked and forgiving only until the first successful reflect', () => {
