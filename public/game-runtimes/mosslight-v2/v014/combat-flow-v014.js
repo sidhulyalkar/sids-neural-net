@@ -87,6 +87,16 @@ function onFlowSpaceUp(event){
 }
 window.addEventListener?.('keyup',onFlowSpaceUp,true);
 
+function consumeReleasedDashBuffer(p,dt){
+  if(!p||p.dash||p.dashCharging||!p.dashBufferReleased||p.dashBufferHeld||!(p.dashBuffer>0))return false;
+  const cooldownAfter=Math.max(0,(p.dashCooldown||0)-dt),bufferAfter=Math.max(0,p.dashBuffer-dt);
+  if(cooldownAfter>0||bufferAfter<=0)return false;
+  const queued=p.dashQueuedCharge||.18;
+  p.dashCooldown=0;p.dashBuffer=0;p.dashBufferReleased=false;p.dashBufferHeld=false;
+  F.beginDashCharge();if(!p.dashCharging)return false;
+  p.dashCharge=Math.max(.18,queued);F.releaseDashCharge();return Boolean(p.dash);
+}
+
 const inheritedCut=F.cut;
 F.cut=(direction)=>{
   const p=state.player;if(!p||state.mode!=='playing')return false;
@@ -109,7 +119,9 @@ F.cut=(direction)=>{
 
 const inheritedMovement=F.updateMovement;
 F.updateMovement=(dt)=>{
-  const p=state.player,dashRef=p?.dash?.reactive?p.dash:null;
+  const p=state.player;
+  if(p)consumeReleasedDashBuffer(p,dt);
+  const dashRef=p?.dash?.reactive?p.dash:null;
   if(p)steerCommittedDash(p);
   if(dashRef&&!Number.isFinite(dashRef.v014PathTravel))dashRef.v014PathTravel=0;
   const ox=p?.x??0,oy=p?.y??0;
