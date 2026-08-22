@@ -18,6 +18,7 @@ import {
 
 const ACTOR_KEY = 'frontier-mesh-actor-v1';
 const STATE_KEY = 'frontier-mesh-state-v1';
+const MAX_SYNCED_CHUNKS = 12;
 
 function randomActorId(): string {
   if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) return crypto.randomUUID();
@@ -36,20 +37,29 @@ function loadActorId(): string {
   }
 }
 
+function boundMeshChunks(state: FrontierMeshState): FrontierMeshState {
+  const entries = Object.entries(state.chunks);
+  if (entries.length <= MAX_SYNCED_CHUNKS) return state;
+  const chunks = Object.fromEntries(entries
+    .sort((left, right) => right[1].value.updatedAt - left[1].value.updatedAt || right[1].clock.counter - left[1].clock.counter)
+    .slice(0, MAX_SYNCED_CHUNKS));
+  return { ...state, chunks };
+}
+
 function loadMeshState(actorId: string): FrontierMeshState {
   try {
     const raw = localStorage.getItem(STATE_KEY);
     if (!raw) return createFrontierMeshState(actorId);
     const parsed = JSON.parse(raw) as FrontierMeshState;
     if (parsed.version !== 1) return createFrontierMeshState(actorId);
-    return { ...parsed, actorId };
+    return boundMeshChunks({ ...parsed, actorId });
   } catch {
     return createFrontierMeshState(actorId);
   }
 }
 
 function persistMeshState(state: FrontierMeshState): void {
-  try { localStorage.setItem(STATE_KEY, JSON.stringify(state)); } catch {}
+  try { localStorage.setItem(STATE_KEY, JSON.stringify(boundMeshChunks(state))); } catch {}
 }
 
 /**
@@ -84,7 +94,7 @@ export function useFrontierMeshSync() {
 
   const applyState = useCallback((next: FrontierMeshState) => {
     setState((current) => {
-      const merged = current ? mergeFrontierMeshState(current, next) : next;
+      const merged = boundMeshChunks(current ? mergeFrontierMeshState(current, next) : next);
       persistMeshState(merged);
       if (merged.sequence) {
         const sequence = deserializeSequenceState(merged.sequence.value);
@@ -130,7 +140,8 @@ export function useFrontierMeshSync() {
   const publishChunk = useCallback((chunk: MeshChunkPayload) => {
     setState((current) => {
       if (!current) return current;
-      const next = withChunkRegister(current, chunk);
+      if (current.chunks[chunk.chunkId]?.value.hash === chunk.hash) return current;
+      const next = boundMeshChunks(withChunkRegister(current, chunk));
       persistMeshState(next);
       peerRef.current?.updateState(next);
       return next;
