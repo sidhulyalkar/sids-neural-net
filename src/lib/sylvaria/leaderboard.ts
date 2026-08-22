@@ -8,6 +8,8 @@ import {
 
 export const SYLVARIA_TICKET_SCHEMA = 1 as const;
 export const SYLVARIA_DEFAULT_TICKET_TTL_MS = 20 * 60 * 1000;
+export const SYLVARIA_TICKET_START_GRACE_MS = 5_000;
+const SYLVARIA_SIMULATION_HZ = 120;
 
 export type SylvariaRunTicketClaims = {
   schema: typeof SYLVARIA_TICKET_SCHEMA;
@@ -180,6 +182,21 @@ export async function claimSylvariaRunTicket(options: {
     record.expiresAt !== claims.expiresAt
   ) throw new Error('Sylvaria run ticket storage record does not match signed claims');
   return record;
+}
+
+export function assertSylvariaReplayFitsTicketWindow(
+  ticket: SylvariaRunTicketRecord,
+  durationTicks: number,
+  graceMs = SYLVARIA_TICKET_START_GRACE_MS,
+) {
+  if (!Number.isSafeInteger(durationTicks) || durationTicks < 1) throw new Error('Sylvaria ranked replay duration is invalid');
+  if (!Number.isSafeInteger(graceMs) || graceMs < 0 || graceMs > 30_000) throw new Error('Sylvaria ranked replay timing grace is invalid');
+  if (!Number.isSafeInteger(ticket.usedAt) || (ticket.usedAt ?? 0) < ticket.issuedAt) throw new Error('Sylvaria run ticket has no valid claim time');
+  const replayMs = durationTicks * 1000 / SYLVARIA_SIMULATION_HZ;
+  const ticketAgeMs = (ticket.usedAt as number) - ticket.issuedAt;
+  if (replayMs > ticketAgeMs + graceMs) {
+    throw new Error('Sylvaria ranked replay predates its run ticket');
+  }
 }
 
 export function sylvariaRequestFingerprint(secret: string | Buffer, parts: readonly string[]) {
