@@ -8,10 +8,12 @@ import {
   createFrontierMeshState,
   deserializeSequenceState,
   mergeFrontierMeshState,
+  withChunkRegister,
   withEngagementDelta,
   withSequenceState,
   type FrontierMeshState,
   type FrontierMeshStatus,
+  type MeshChunkPayload,
 } from '@/lib/frontier/sync/meshSync';
 
 const ACTOR_KEY = 'frontier-mesh-actor-v1';
@@ -125,6 +127,16 @@ export function useFrontierMeshSync() {
     });
   }, []);
 
+  const publishChunk = useCallback((chunk: MeshChunkPayload) => {
+    setState((current) => {
+      if (!current) return current;
+      const next = withChunkRegister(current, chunk);
+      persistMeshState(next);
+      peerRef.current?.updateState(next);
+      return next;
+    });
+  }, []);
+
   const createOffer = useCallback(() => ensurePeer().createOffer(), [ensurePeer]);
   const acceptOffer = useCallback((offer: string) => ensurePeer().acceptOffer(offer), [ensurePeer]);
   const acceptAnswer = useCallback((answer: string) => ensurePeer().acceptAnswer(answer), [ensurePeer]);
@@ -143,5 +155,6 @@ export function useFrontierMeshSync() {
     close,
     publishSequence,
     publishEngagement,
+    publishChunk,
   };
 }
