@@ -24,7 +24,11 @@ for(const id of['start','explore'])$(id)?.addEventListener('click',()=>queueMicr
 
 const playtest=window.__MOSSLIGHT_PLAYTEST__;
 if(playtest){
-  const base=playtest.snapshot.bind(playtest);playtest.version=VERSION;playtest.presentationVersion=PRESENTATION;
+  const base=playtest.snapshot.bind(playtest),baseClearCombatants=playtest.clearCombatants?.bind(playtest);playtest.version=VERSION;playtest.presentationVersion=PRESENTATION;
+  // Qualification labs deliberately remove every hostile. Keep that operation from
+  // masquerading as an authored-room clear and resetting kinetic state mid-measurement.
+  // Normal runs still advance through the ordinary room-clear state machine.
+  if(baseClearCombatants)playtest.clearCombatants=()=>{baseClearCombatants();state.roomClearTimer=-1000;return playtest.snapshot()};
   playtest.beginDashCharge=()=>{F.beginDashCharge();return playtest.snapshot()};
   playtest.releaseDashCharge=()=>{F.releaseDashCharge();return playtest.snapshot()};
   playtest.snapshot=()=>{const snap=base();return{...snap,version:VERSION,engineVersion:VERSION,presentationVersion:PRESENTATION,kinetics:window.SylvariaKinetics?.snapshot?.()||null,kineticAI:window.SylvariaKineticAI?.snapshot?.()||null,kineticPresentation:window.SylvariaKineticPresentation?.snapshot?.()||null,replay:window.SylvariaReplay?.snapshot?.()||null,coach:window.SylvariaCoach?.snapshot?.()||null,enemies:snap.enemies?.map(e=>{const live=state.enemies.find(x=>x.id===e.id);return{...e,kineticType:live?.kineticType||null,kineticState:live?.state||e.pattern}}),visual:{...(snap.visual||{}),version:VERSION,presentationVersion:PRESENTATION,continuousGlide:true,chargedOmniDash:true,exponentialDash:true,bufferedDash:true,dashBladeCancel:true,kineticTongueArc:true,reactiveBladeParry:true,proceduralBladeTrail:true,selectiveHitStop:true,tangentReflection:true,predictiveArcEvasion:true,expandedEnemyRoster:true,currentStreams:true}}};
