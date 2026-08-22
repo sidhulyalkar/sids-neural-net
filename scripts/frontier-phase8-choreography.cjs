@@ -78,13 +78,30 @@ async function midFlightSample(page) {
         requestAnimationFrame(sample);
         return;
       }
+
       const node = document.querySelector(selector);
       if (!(node instanceof HTMLElement)) throw new Error('Phase 8 audit card disappeared mid-flight');
-      const value = node.getBoundingClientRect();
+      const visual = node.getBoundingClientRect();
+      const animations = node.getAnimations();
+      const primary = animations[0];
+      const transform = getComputedStyle(node).transform;
+
       resolve({
         expanded: node.dataset.fluidExpanded === 'true',
-        animations: node.getAnimations().length,
-        rect: { x: value.x, y: value.y, width: value.width, height: value.height },
+        animationCount: animations.length,
+        animationCurrentTime: typeof primary?.currentTime === 'number' ? primary.currentTime : null,
+        animationPlayState: primary?.playState ?? null,
+        transform,
+        layout: {
+          width: node.offsetWidth,
+          height: node.offsetHeight,
+        },
+        visual: {
+          x: visual.x,
+          y: visual.y,
+          width: visual.width,
+          height: visual.height,
+        },
       });
     };
     requestAnimationFrame(sample);
@@ -128,10 +145,26 @@ async function runInterruptionCase(page) {
   const mid = await midFlightSample(page);
 
   assert.equal(mid.expanded, true, 'First pointer release must expand synchronously before the next paint');
-  assert(mid.animations > 0, 'Kinetic FLIP must be active mid-flight');
+  assert(mid.animationCount > 0, 'Kinetic FLIP must be active mid-flight');
   assert(
-    mid.rect.width > origin.width + 0.5 || mid.rect.height > origin.height + 0.5,
-    `Expected visible kinetic growth beyond origin ${JSON.stringify(origin)}, saw ${JSON.stringify(mid.rect)}`,
+    typeof mid.animationCurrentTime === 'number' && mid.animationCurrentTime > 0 && mid.animationCurrentTime < 250,
+    `Expected an in-flight WAAPI clock below the double-click window, saw ${mid.animationCurrentTime}`,
+  );
+  assert(
+    mid.animationPlayState === 'running' || mid.animationPlayState === 'pending',
+    `Expected running FLIP animation, saw ${mid.animationPlayState}`,
+  );
+  assert(
+    mid.layout.width > origin.width + 100,
+    `Expanded CSS Grid layout did not physically grow: ${mid.layout.width} vs ${origin.width}`,
+  );
+  assert(
+    mid.transform !== 'none' && mid.transform !== 'matrix(1, 0, 0, 1, 0, 0)',
+    `Expected a non-identity FLIP compositor transform, saw ${mid.transform}`,
+  );
+  assert(
+    mid.visual.width >= origin.width - 0.25 && mid.visual.width <= mid.layout.width + 0.25,
+    `Visual FLIP width escaped the origin→layout interval: ${mid.visual.width}`,
   );
 
   const popupPromise = page.waitForEvent('popup', { timeout: 2_000 });
@@ -152,7 +185,14 @@ async function runInterruptionCase(page) {
   await popup.close();
   return {
     origin: compactRect(origin),
-    midFlight: compactRect(mid.rect),
+    midFlightVisual: compactRect(mid.visual),
+    expandedLayout: {
+      width: mid.layout.width,
+      height: mid.layout.height,
+    },
+    animationCurrentTimeMs: Number(mid.animationCurrentTime.toFixed(3)),
+    animationPlayState: mid.animationPlayState,
+    compositorTransform: mid.transform,
     collapsed: compactRect(finalRect),
     releaseDeltaMs: Number(releaseDeltaMs.toFixed(3)),
   };
