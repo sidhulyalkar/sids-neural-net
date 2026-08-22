@@ -1,0 +1,14 @@
+const G=window.Sylvaria091,F=G.fn,state=G.state,$=G.$;
+const SEEN_KEY='sid.sylvaria.controls.v011';
+let enabled=false,practice=false,stage=0,lastPrompt=-99,lastSerial=-1;
+function hasSeen(){try{return localStorage.getItem(SEEN_KEY)==='1'}catch{return false}}
+function remember(){try{localStorage.setItem(SEEN_KEY,'1')}catch{}}
+function prompt(text){if(state.roomTime-lastPrompt<.55)return;lastPrompt=state.roomTime;F.toast?.(text)}
+function begin(force=false){const replay=window.SylvariaReplay?.snapshot?.();lastSerial=replay?.runSerial??lastSerial+1;practice=force;enabled=force||!hasSeen();stage=0;lastPrompt=-99;if(enabled)queueMicrotask(()=>prompt('WASD · move'))}
+const baseHud=F.updateHud;F.updateHud=(force=false)=>{baseHud?.(force);if(!enabled||state.mode!=='playing')return;const stats=state.stats;if(stage===0&&stats.dashes>0){stage=1;prompt('arrow keys · cut');return}if(stage===1&&stats.cuts>0){stage=2;prompt(state.worldDepth<2?'good · room 2 adds incoming shots':'cut toward incoming shots · reflect');return}if(stage===2&&state.worldDepth>=2&&state.roomTime>.7){stage=3;prompt('cut toward incoming shots · reflect');return}if(stage>=2&&stats.counters>0){stage=4;prompt('good · returns damage enemies');remember();if(!practice)enabled=false}};
+const baseSetup=F.setupRoom;F.setupRoom=(depth,...rest)=>{const result=baseSetup(depth,...rest);if(enabled&&depth===2&&stage>=2){lastPrompt=-99;queueMicrotask(()=>prompt('cut toward incoming shots · reflect'))}return result};
+$('start')?.addEventListener('click',()=>begin(false));
+$('restartRun')?.addEventListener('click',()=>begin(false));
+$('explore')?.addEventListener('click',()=>begin(true));
+document.addEventListener('keydown',event=>{if(event.repeat||String(event.key).toLowerCase()!=='enter')return;queueMicrotask(()=>{const serial=window.SylvariaReplay?.snapshot?.().runSerial;if(state.mode==='playing'&&state.runMode==='run'&&serial!==lastSerial)begin(false)})});
+window.SylvariaCoach=Object.freeze({version:'0.11.1',snapshot:()=>({enabled,practice,stage})});
