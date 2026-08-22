@@ -20,16 +20,15 @@ test('v0.12 is a presentation release over the qualified v0.11.1 engine season',
   assert.match(entry,/F\.updateHud=/);
 });
 
-test('frog pond art atlas contains readable player insect terrain and tongue assets without CPU pixel readback',()=>{
+test('frog pond art atlas contains readable player insect terrain and tongue assets without CPU pixel readback or filtered preprocessing',()=>{
   const atlasEntry=read(`${runtime}/v012/art-atlas-v012.js`);
   const art=read(`${runtime}/v012/art-atlas-pro-v012.js`);
   assert.match(atlasEntry,/art-atlas-pro-v012\.js/);
-  for(const sprite of ['frog','fly','bee','mosquito','beetle','dragonfly','hornet','moth','crane','divingBeetle','wasp','lilyBed','reeds','driftwood','rock','mushroom','lilyPad','tongue','stinger','reflected','water','mud','bank','algae','tangle','shells']) assert.ok(art.includes(`'${sprite}'`),`missing ${sprite}`);
+  for(const sprite of ['frog','fly','bee','mosquito','beetle','dragonfly','hornet','moth','crane','divingBeetle','wasp','lilyBed','reeds','driftwood','rock','shrub','mushroom','pickup','lilyPad','tongue','stinger','reflected','water','mud','bank','algae','tangle','shells']) assert.ok(art.includes(`'${sprite}'`),`missing ${sprite}`);
   assert.match(art,/function frog/);
   assert.match(art,/function fastHeight/);
-  assert.match(art,/filter='grayscale\(1\) contrast\(1\.18\) blur\(1px\)'/);
-  assert.doesNotMatch(art,/getImageData|putImageData|willReadFrequently/);
-  assert.doesNotMatch(art,/\.roundRect\(/);
+  assert.match(art,/g\.drawImage\(diffuse,0,0\)/);
+  assert.doesNotMatch(art,/getImageData|putImageData|willReadFrequently|\.filter\s*=|\.roundRect\(/);
   assert.doesNotMatch(art,/Math\.random/);
 });
 
