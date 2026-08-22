@@ -3,6 +3,7 @@
 import { forwardRef, useCallback, useEffect, useRef, useState } from 'react';
 import type { ForwardedRef } from 'react';
 import { ChevronDown, LayoutGrid, Rows3, X } from 'lucide-react';
+import { setFrontierClientQuery } from '@/lib/frontier/vector/clientQuery';
 import type { FrontierLayoutMode, FrontierRealm, FrontierView } from '@/lib/frontier/types';
 import styles from './frontier-utility-dock.module.css';
 
@@ -94,6 +95,12 @@ export const FrontierUtilityDock = forwardRef<HTMLDivElement, Props>(function Fr
     dockRef.current = node;
     assignRef(forwardedRef, node);
   }, [forwardedRef]);
+
+  useEffect(() => {
+    setFrontierClientQuery(view === 'explore' ? (activeSearch ?? '') : '');
+  }, [activeSearch, view]);
+
+  useEffect(() => () => setFrontierClientQuery(''), []);
 
   useEffect(() => {
     lastScrollYRef.current = window.scrollY;
