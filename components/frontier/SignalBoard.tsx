@@ -119,9 +119,6 @@ export function SignalBoard({
     explorationTemperature,
     diversityReference,
   });
-  // Live boards opt into presentation synthesis by virtue of appendStable.
-  // Saved/collection boards remain literal unless a caller explicitly opts in,
-  // so a convergence collapse can never make a saved item appear to vanish.
   const synthesisEnabled = synthesis ?? appendStable;
   const presentationItems = useFrontierSynthesis(semantic.items, {
     enabled: synthesisEnabled,
@@ -268,7 +265,6 @@ export function SignalBoard({
               className={`${styles.feedItem} ${spatial.feedItem} ${item.highPriority ? spatial.priorityFeedItem : ''} ${item.velocitySignal ? spatial.velocityItem : ''} ${perf.virtualItem} ${perf.feedVirtualItem}`}
             >
               <div
-                data-frontier-virtual-card
                 data-frontier-priority={item.highPriority ? 'true' : undefined}
                 data-frontier-velocity={item.velocitySignal ? 'true' : undefined}
                 {...hoverProps(item)}
@@ -296,7 +292,6 @@ export function SignalBoard({
               className={`${styles.gridItem} ${spatial.item} ${item.highPriority ? spatial.priorityItem : ''} ${item.velocitySignal ? spatial.velocityItem : ''} ${perf.virtualItem}`}
             >
               <div
-                data-frontier-virtual-card
                 data-frontier-priority={item.highPriority ? 'true' : undefined}
                 data-frontier-velocity={item.velocitySignal ? 'true' : undefined}
                 {...hoverProps(item)}
