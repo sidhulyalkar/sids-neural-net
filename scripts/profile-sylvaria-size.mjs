@@ -17,6 +17,7 @@ const competitionFiles = [
   `${runtimeRoot}/render-optimizer-v6.js`,
   `${runtimeRoot}/v012-entry.js`,
   `${runtimeRoot}/v012/art-atlas-v012.js`,
+  `${runtimeRoot}/v012/art-atlas-pro-v012.js`,
   `${runtimeRoot}/v012/webgl-pond-v012.js`,
   `${runtimeRoot}/v011-entry.js`,
   `${runtimeRoot}/v091/model.js`,
@@ -62,7 +63,7 @@ const report = {
   engineVersion: '0.11.1',
   generatedAt: new Date().toISOString(),
   competitionLimitBytes,
-  note: 'This report measures the readable portfolio runtime that actually ships, including the generated-at-load WebGL2 frog/pond renderer source. It is not a JS13k submission artifact. A future competition pack would use a separate minimal renderer, omit portfolio leaderboard/networking UX, flatten and minify the required game files, then satisfy the official ZIP cap independently.',
+  note: 'This report measures the readable portfolio runtime that actually ships, including the generated-at-load WebGL2 frog/pond renderer source and professional procedural atlas. It is not a JS13k submission artifact. A future competition pack would use a separate minimal renderer, omit portfolio leaderboard/networking UX, flatten and minify the required game files, then satisfy the official ZIP cap independently.',
   readableRuntime,
   portfolioPayload,
   competitionGap: {
