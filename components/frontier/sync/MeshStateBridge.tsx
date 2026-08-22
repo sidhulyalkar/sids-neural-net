@@ -1,8 +1,11 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { listenFrontierSemanticTelemetry, semanticTelemetryWeight } from '@/lib/frontier/vector/telemetryEngine';
 import { frontierVectorStore } from '@/lib/frontier/vector/vectorStore';
+import { frontierSpatialGridKey } from '@/lib/frontier/vector/chunkedVectorStore';
+import { decodeMeshVectorChunk, encodeMeshVectorChunk } from '@/lib/frontier/sync/meshChunkCodec';
+import { useChunkedVectorStore } from '../vector/useChunkedVectorStore';
 import { useFrontierMeshSync } from './useFrontierMeshSync';
 
 export const FRONTIER_MESH_COMMAND_EVENT = 'frontier:mesh-command';
@@ -19,7 +22,10 @@ type MeshCommand = {
  * default while making manual desktop/mobile pairing available to a thin UI.
  */
 export function MeshStateBridge() {
+  const importedHashes = useRef(new Set<string>());
+  const { putMany: archivePutMany, neighborhood: archiveNeighborhood } = useChunkedVectorStore();
   const {
+    state,
     status,
     createOffer,
     acceptOffer,
@@ -27,17 +33,52 @@ export function MeshStateBridge() {
     close,
     publishSequence,
     publishEngagement,
+    publishChunk,
   } = useFrontierMeshSync();
 
   useEffect(() => listenFrontierSemanticTelemetry((event) => {
     const weight = semanticTelemetryWeight(event);
     if (Math.abs(weight) > 0.001) publishEngagement(event.item.id, weight);
     window.setTimeout(() => {
-      void frontierVectorStore.getSequence().then((sequence) => {
-        if (sequence) publishSequence(sequence);
+      void frontierVectorStore.getSequence().then(async (sequence) => {
+        if (!sequence) return;
+        publishSequence(sequence);
+        try {
+          const neighbors = await archiveNeighborhood(sequence.target, { maxChunks: 2, maxItems: 24 });
+          if (!neighbors.length) return;
+          const chunkId = `mesh:${frontierSpatialGridKey(sequence.target)}`;
+          publishChunk(encodeMeshVectorChunk(chunkId, neighbors, event.at));
+        } catch {
+          // Peer chunk publication is best-effort; local memory remains primary.
+        }
       }).catch(() => undefined);
-    }, 80);
-  }), [publishEngagement, publishSequence]);
+    }, 100);
+  }), [archiveNeighborhood, publishChunk, publishEngagement, publishSequence]);
+
+  useEffect(() => {
+    if (!state) return;
+    for (const register of Object.values(state.chunks)) {
+      const chunk = register.value;
+      if (!chunk.payload || importedHashes.current.has(chunk.hash)) continue;
+      importedHashes.current.add(chunk.hash);
+      const entries = decodeMeshVectorChunk(chunk);
+      if (!entries.length) continue;
+      void archivePutMany(entries.map((entry) => ({
+        id: entry.id,
+        vector: entry.vector,
+        textHash: entry.textHash,
+        at: Math.max(entry.lastAccessedAt, chunk.updatedAt),
+        metadata: {
+          title: entry.title,
+          sourceLabel: entry.sourceLabel,
+          lane: entry.lane,
+          publishedAt: entry.publishedAt,
+          engagement: entry.engagement,
+          lastSignalAt: entry.lastSignalAt,
+        },
+      }))).catch(() => undefined);
+    }
+  }, [archivePutMany, state]);
 
   useEffect(() => {
     const respond = (detail: Record<string, unknown>) => {
