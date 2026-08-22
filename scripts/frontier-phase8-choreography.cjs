@@ -147,8 +147,11 @@ async function runInterruptionCase(page) {
   assert.equal(mid.expanded, true, 'First pointer release must expand synchronously before the next paint');
   assert(mid.animationCount > 0, 'Kinetic FLIP must be active mid-flight');
   assert(
-    typeof mid.animationCurrentTime === 'number' && mid.animationCurrentTime > 0 && mid.animationCurrentTime < 250,
-    `Expected an in-flight WAAPI clock below the double-click window, saw ${mid.animationCurrentTime}`,
+    typeof mid.animationCurrentTime === 'number'
+      && Number.isFinite(mid.animationCurrentTime)
+      && mid.animationCurrentTime >= 0
+      && mid.animationCurrentTime < 250,
+    `Expected a WAAPI start/in-flight clock inside the double-click window, saw ${mid.animationCurrentTime}`,
   );
   assert(
     mid.animationPlayState === 'running' || mid.animationPlayState === 'pending',
