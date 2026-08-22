@@ -37,6 +37,16 @@ function dedupe(items: FrontierItem[]): FrontierItem[] {
   });
 }
 
+function enrichFormatSemantics(entry: FrontierItem): FrontierItem {
+  const tags = new Set(entry.tags);
+  if (['openalex', 'arxiv', 'huggingface', 'paperswithcode'].includes(entry.sourceKind)) {
+    tags.add('paper');
+    tags.add('research');
+  }
+  if (entry.sourceKind === 'paperswithcode' || entry.sourceKind === 'github') tags.add('code');
+  return tags.size === entry.tags.length ? entry : { ...entry, tags: [...tags] };
+}
+
 function mergeStatuses(statuses: FrontierSourceStatus[]): FrontierSourceStatus[] {
   const merged = new Map<string, FrontierSourceStatus>();
   for (const status of statuses) {
@@ -80,12 +90,15 @@ export async function getIntegratedFrontierFeed(options: IntegratedOptions = {})
   // request-time normalization survives deduplication.
   const orderedResults = [adaptiveResult, multiSourceResult, baseResult, activeSportsResult, personalResult];
   const liveFeeds = orderedResults.flatMap((result) => result.status === 'fulfilled' ? [result.value] : []);
-  const liveItems = dedupe(liveFeeds.flatMap((feed) => feed.items)).sort((a, b) => b.baseScore - a.baseScore);
+  const liveItems = dedupe(liveFeeds.flatMap((feed) => feed.items).map(enrichFormatSemantics))
+    .sort((a, b) => b.baseScore - a.baseScore);
 
   const liveKeys = new Set(liveItems.flatMap((item) => [canonicalKey(item), item.title.toLowerCase()]));
   const archive = options.includeSnapshot === false
     ? []
-    : recentSnapshotItems().filter((item) => !liveKeys.has(canonicalKey(item)) && !liveKeys.has(item.title.toLowerCase()));
+    : recentSnapshotItems()
+        .map(enrichFormatSemantics)
+        .filter((item) => !liveKeys.has(canonicalKey(item)) && !liveKeys.has(item.title.toLowerCase()));
 
   const candidateItems = [...liveItems, ...archive].slice(0, 280);
   const items = await normalizeFeedToEnglish(candidateItems);
