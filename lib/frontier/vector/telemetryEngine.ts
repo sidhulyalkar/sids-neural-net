@@ -1,4 +1,5 @@
 import type { FrontierItem, FrontierReaction } from '@/lib/frontier/types';
+import { getFrontierScrollVelocity, readingPaceFactor } from './interactionPace';
 
 export const FRONTIER_SEMANTIC_TELEMETRY_EVENT = 'frontier:semantic-telemetry';
 
@@ -17,6 +18,8 @@ export type FrontierSemanticTelemetry = {
   dwellMs?: number;
   reaction?: FrontierReaction;
   depth?: number;
+  /** Smoothed signed page velocity captured at the interaction boundary. */
+  scrollVelocityPxPerMs?: number;
 };
 
 const REACTION_WEIGHTS: Record<FrontierReaction, number> = {
@@ -42,18 +45,24 @@ export function semanticTelemetryWeight(event: FrontierSemanticTelemetry): numbe
     case 'dwell': {
       const seconds = Math.max(0, Math.min(120, (event.dwellMs ?? 0) / 1000));
       if (seconds < 1.5) return 0;
-      return Math.min(0.62, 0.08 + Math.log1p(seconds - 1.5) / 8.5);
+      const dwell = Math.min(0.62, 0.08 + Math.log1p(seconds - 1.5) / 8.5);
+      return dwell * readingPaceFactor(event.scrollVelocityPxPerMs ?? 0);
     }
     case 'visibility-depth': {
       const depth = Math.max(0, Math.min(1, event.depth ?? 0));
-      return depth < 0.45 ? 0 : 0.06 + depth * 0.16;
+      if (depth < 0.45) return 0;
+      return (0.06 + depth * 0.16) * readingPaceFactor(event.scrollVelocityPxPerMs ?? 0);
     }
   }
 }
 
 export function emitFrontierSemanticTelemetry(event: Omit<FrontierSemanticTelemetry, 'at'> & { at?: number }): void {
   if (typeof window === 'undefined') return;
-  const detail: FrontierSemanticTelemetry = { ...event, at: event.at ?? Date.now() };
+  const detail: FrontierSemanticTelemetry = {
+    ...event,
+    at: event.at ?? Date.now(),
+    scrollVelocityPxPerMs: event.scrollVelocityPxPerMs ?? getFrontierScrollVelocity(),
+  };
   window.dispatchEvent(new CustomEvent<FrontierSemanticTelemetry>(FRONTIER_SEMANTIC_TELEMETRY_EVENT, { detail }));
 }
 
