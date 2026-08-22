@@ -41,6 +41,21 @@ check(JSON.stringify(mixedRoles)===JSON.stringify(['coverage','engage','precisio
 check(mixedGaps.every(g=>g>=mixed.profile.gapMin&&g<=mixed.profile.gapMax),`room 29 stagger gaps escaped profile ${JSON.stringify({mixedGaps,profile:mixed.profile,releases:mixed.releases})}`);
 check(new Set(mixed.releases.map(r=>r.tick)).size===mixed.releases.length,'multiple heavy telegraphs released on the same authoritative tick');
 
+// Live queue proof: a Strider becoming ready after the lead Skimmer must take the response beat ahead of a second waiting Skimmer.
+const liveQueueSetup=await page.evaluate(()=>{
+  const play=window.__MOSSLIGHT_PLAYTEST__,G=window.Sylvaria091;play.setRoom(28,29);play.labClearGeometry();play.setPlayerPosition(300,330);
+  const skimmers=G.state.enemies.filter(e=>e.kineticType==='skimmer').slice(0,2),strider=G.state.enemies.find(e=>e.kineticType==='strider');const keep=new Set([...skimmers.map(e=>e.id),strider?.id].filter(Boolean));
+  for(const e of G.state.enemies){if(!keep.has(e.id)){e.dead=true;continue}e.state='move';e.telegraph=0;e.kineticEvade=null;e.evade=null;e.counterStagger=0;e.arcDodgeCooldown=99;e.v014PunishTimer=0;e.clock=e===strider?99:.00001}
+  return{skimmerIds:skimmers.map(e=>e.id),striderId:strider?.id||null,profile:window.SylvariaThreatManager.snapshot().profile};
+});
+check(liveQueueSetup.skimmerIds.length===2&&Boolean(liveQueueSetup.striderId),`late responder setup incomplete: ${JSON.stringify(liveQueueSetup)}`);
+const leadCoverage=await waitForValue(()=>{const s=window.SylvariaThreatManager.snapshot();return s.releases.length>=1?{count:s.releases.length,release:s.releases.at(-1),gateTick:s.gateTick}:false},null,1200);
+check(leadCoverage.release.role==='coverage',`lead beat was not coverage: ${JSON.stringify(leadCoverage)}`);
+await page.evaluate(id=>{const e=window.Sylvaria091.state.enemies.find(x=>x.id===id);if(e)e.clock=.00001},liveQueueSetup.striderId);
+const lateResponse=await waitForValue(base=>{const s=window.SylvariaThreatManager.snapshot();if(s.releases.length<=base)return false;return{releases:s.releases.slice(-2),queue:s.queue,tick:s.tick}},leadCoverage.count,1500);
+check(lateResponse.releases[0].role==='coverage'&&lateResponse.releases[1].role==='engage',`late Strider failed to steal response beat: ${JSON.stringify(lateResponse)}`);
+check(lateResponse.releases[1].id===liveQueueSetup.striderId,`response beat went to wrong engage actor: ${JSON.stringify(lateResponse)}`);
+
 // Room 1 only permits a small two-beat phrase. A third heavy request must cross a real phrase rest.
 const earlySetup=await page.evaluate(()=>{
   const play=window.__MOSSLIGHT_PLAYTEST__,G=window.Sylvaria091;play.setRoom(0,1);play.clearCombatants();play.labClearGeometry();play.setPlayerPosition(300,330);
@@ -78,7 +93,7 @@ const graceSetup=await page.evaluate(()=>{
 });
 const queueBeforeGrace=await waitForValue(()=>{const s=window.SylvariaThreatManager.snapshot();return s.releases.length>=1&&s.queue.filter(item=>!item.armed).length>=2?{tick:s.tick,gateTick:s.gateTick,queue:s.queue,releases:s.releases}:false},null,1600);
 await page.evaluate(id=>{const e=window.Sylvaria091.state.enemies.find(x=>x.id===id);if(e)e.v014PunishTimer=30/120},graceSetup.at(-1));
-const grace=await waitForValue(base=>{const s=window.SylvariaThreatManager.snapshot();if(!s.punishWindowActive||s.punishGraceUntil<=s.tick||!s.queue.length)return false;return{tick:s.tick,gateTick:s.gateTick,punishGraceUntil:s.punishGraceUntil,queue:s.queue,releases:s.releases,base}},queueBeforeGrace.releases.length,900);
+const grace=await waitForValue(()=>{const s=window.SylvariaThreatManager.snapshot();if(!s.punishWindowActive||s.punishGraceUntil<=s.tick||!s.queue.length)return false;return{tick:s.tick,gateTick:s.gateTick,punishGraceUntil:s.punishGraceUntil,queue:s.queue,releases:s.releases}},null,900);
 check(grace.gateTick>=grace.punishGraceUntil,`fresh punish window did not move the threat gate: ${JSON.stringify(grace)}`);
 check(grace.queue.every(item=>!item.armed),`a new queued threat armed inside punish grace: ${JSON.stringify(grace.queue)}`);
 check(grace.releases.length===queueBeforeGrace.releases.length,'punish grace deleted or admitted pressure on its opening edge');
@@ -88,8 +103,8 @@ check(firstAfterGrace.release.tick>=grace.punishGraceUntil,`next telegraph escap
 
 for(const error of pageErrors)failures.push(`pageerror: ${error}`);
 await page.screenshot({path:path.join(outputDir,'rhythmic-threat-orchestration-v014.png'),fullPage:true});
-const report={profiles,mixedSetup,mixed:{...mixed,roles:mixedRoles,gaps:mixedGaps},earlySetup,early:{...early,gaps:earlyGaps},boss:{setup:bossSetup,phrase:bossPhrase,gap:bossGap},grace:{before:queueBeforeGrace,open:grace,firstAfterGrace},failures};
+const report={profiles,mixedSetup,mixed:{...mixed,roles:mixedRoles,gaps:mixedGaps},liveQueue:{setup:liveQueueSetup,lead:leadCoverage,response:lateResponse},earlySetup,early:{...early,gaps:earlyGaps},boss:{setup:bossSetup,phrase:bossPhrase,gap:bossGap},grace:{before:queueBeforeGrace,open:grace,firstAfterGrace},failures};
 fs.writeFileSync(path.join(outputDir,'threat-report.json'),JSON.stringify(report,null,2));
 await browser.close();
 if(failures.length){console.error(`Sylvaria v0.14 threat orchestration failed with ${failures.length} issue(s):`);for(const failure of failures)console.error(` - ${failure}`);process.exit(1)}
-console.log(`Sylvaria v0.14 threat orchestration PASS · 30 authored profiles · room 29 ${mixedRoles.join(' → ')} at ${mixedGaps.join('/')} tick gaps · room 1 phrase break ${earlyGaps[1]} ticks · boss/support gap ${bossGap} ticks · punish grace gate verified.`);
+console.log(`Sylvaria v0.14 threat orchestration PASS · 30 authored profiles · room 29 ${mixedRoles.join(' → ')} at ${mixedGaps.join('/')} tick gaps · late Strider stole response beat · room 1 phrase break ${earlyGaps[1]} ticks · boss/support gap ${bossGap} ticks · punish grace gate verified.`);
