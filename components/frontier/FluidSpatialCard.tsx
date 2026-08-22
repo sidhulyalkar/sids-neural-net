@@ -1,7 +1,9 @@
 'use client';
 
+import { useCallback, useEffect, useLayoutEffect, useRef } from 'react';
 import type { ReactNode } from 'react';
 import { markFrontierItemSeen } from '@/lib/frontier/live/seenLedger';
+import { frontierMasonrySpan } from '@/lib/frontier/presentation/mediaForward';
 import { useFrontierStore } from '@/lib/frontier/store';
 import type { FrontierItem } from '@/lib/frontier/types';
 import { FrontierInlineFocal } from './FrontierInlineFocal';
@@ -19,6 +21,11 @@ type Props = {
   onExternalOpen?: (item: FrontierItem) => void;
 };
 
+function cssNumber(node: HTMLElement, property: string, fallback: number): number {
+  const parsed = Number.parseFloat(getComputedStyle(node).getPropertyValue(property));
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : fallback;
+}
+
 export function FluidSpatialCard({
   item,
   expanded,
@@ -28,6 +35,8 @@ export function FluidSpatialCard({
   onCollapse,
   onExternalOpen,
 }: Props) {
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  const measureRef = useRef<HTMLDivElement | null>(null);
   const recordOpen = useFrontierStore((state) => state.recordOpen);
   const interaction = useFluidInteraction({
     item,
@@ -46,16 +55,41 @@ export function FluidSpatialCard({
     },
   });
 
+  const syncMasonrySpan = useCallback(() => {
+    const root = rootRef.current;
+    const measure = measureRef.current;
+    if (!root || !measure) return;
+    const height = Math.max(measure.scrollHeight, measure.getBoundingClientRect().height);
+    const rowHeight = cssNumber(root, '--frontier-masonry-row-height', 8);
+    const rowGap = cssNumber(root, '--frontier-masonry-row-gap', 10);
+    root.style.setProperty('--frontier-masonry-span', String(frontierMasonrySpan(height, rowHeight, rowGap)));
+  }, []);
+
+  useLayoutEffect(() => {
+    syncMasonrySpan();
+  }, [expanded, syncMasonrySpan]);
+
+  useEffect(() => {
+    const measure = measureRef.current;
+    if (!measure || typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(() => syncMasonrySpan());
+    observer.observe(measure);
+    return () => observer.disconnect();
+  }, [syncMasonrySpan]);
+
   return (
     <div
+      ref={rootRef}
       data-frontier-fluid-card={item.id}
       data-frontier-virtual-card
       data-fluid-expanded={expanded ? 'true' : 'false'}
       className={`${className} ${styles.card} ${expanded ? styles.expanded : ''}`}
       {...interaction}
     >
-      <InlineMediaSurface expanded={expanded}>{children}</InlineMediaSurface>
-      {expanded ? <FrontierInlineFocal item={item} /> : null}
+      <div ref={measureRef} className={styles.measure}>
+        <InlineMediaSurface expanded={expanded}>{children}</InlineMediaSurface>
+        {expanded ? <FrontierInlineFocal item={item} /> : null}
+      </div>
     </div>
   );
 }
