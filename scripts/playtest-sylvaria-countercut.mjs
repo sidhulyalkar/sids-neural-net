@@ -21,8 +21,8 @@ const setRoom = (depth) => page.evaluate((d) => window.__MOSSLIGHT_PLAYTEST__.se
 const cleanLab = async (depth = 1) => { await setRoom(depth); await api('clearCombatants'); await api('labClearGeometry'); };
 const assert = (condition, message) => { if (!condition) failures.push(message); };
 
-await page.goto(`${baseUrl}/game-runtimes/mosslight-v2/index.html?forage-fracture-playtest=1`, { waitUntil: 'networkidle' });
-await page.waitForFunction(() => window.__MOSSLIGHT_PLAYTEST__?.version === '0.9.1' && window.SylvariaVisualSystem?.version === '0.9.1');
+await page.goto(`${baseUrl}/game-runtimes/mosslight-v2/index.html?ecological-synergy-baseline=1`, { waitUntil: 'networkidle' });
+await page.waitForFunction(() => window.__MOSSLIGHT_PLAYTEST__?.version === '0.10.0' && window.SylvariaVisualSystem?.version === '0.10.0' && window.SylvariaSynergy?.version === '0.10.0');
 const meta = await page.evaluate(() => ({
   title: window.__MOSSLIGHT_PLAYTEST__.title,
   version: window.__MOSSLIGHT_PLAYTEST__.version,
@@ -34,14 +34,14 @@ const meta = await page.evaluate(() => ({
   forage: window.MosslightDirector.foragePatterns,
   mushrooms: window.MosslightDirector.mushroomPatterns,
 }));
-assert(meta.title === 'Sylvaria' && meta.version === '0.9.1', `runtime identity mismatch ${JSON.stringify(meta)}`);
+assert(meta.title === 'Sylvaria' && meta.version === '0.10.0', `runtime identity mismatch ${JSON.stringify(meta)}`);
 assert(meta.rooms.length === 10 && meta.rooms.includes('PAC-a-Saw Summit'), 'ten-room authored curriculum missing');
-for (const flag of ['resilientMoveQueue','projectilePatternReadability','evasiveEnemyCues','counterRouting','terrainReadability','symmetricTerrainRules','destructibleFoliage','combatAnimationStates','proceduralSilhouettes','environmentalDiscovery','symmetricSporeHazards','pacIndustrialSilhouette','pacExhaustTelegraph']) assert(meta.visual?.[flag], `visual contract missing ${flag}`);
-for (const p of ['straight','zigzag','wave','spiral','swerve','wobble','return']) assert(meta.projectiles.includes(p), `projectile registry missing ${p}`);
+for (const flag of ['resilientMoveQueue','projectilePatternReadability','evasiveEnemyCues','counterRouting','terrainReadability','symmetricTerrainRules','destructibleFoliage','combatAnimationStates','proceduralSilhouettes','environmentalDiscovery','symmetricSporeHazards','pacIndustrialSilhouette','pacExhaustTelegraph','ecologicalSynergy','hazardAwareAI','verdantFlow','threatPriority','pacBulldoze','returnEcology','gasShear']) assert(meta.visual?.[flag], `visual contract missing ${flag}`);
+for (const p of ['straight','zigzag','wave','spiral','swerve','wobble','return','return-ecology']) assert(meta.projectiles.includes(p), `projectile registry missing ${p}`);
 for (const t of ['ice','mud','sand','water','bramble','grass','shards']) assert(meta.terrain.includes(t), `terrain registry missing ${t}`);
 for (const f of ['heartleaf','rushResin','barkguard','edgeStone','flowSap']) assert(meta.forage.includes(f), `forage registry missing ${f}`);
 for (const m of ['heartcap','swiftcap','guardcap','edgecap','venomcap','ghostcap']) assert(meta.mushrooms.includes(m), `mushroom registry missing ${m}`);
-await page.screenshot({ path: path.join(outputDir, 'forage-fracture-v091-title.png') });
+await page.screenshot({ path: path.join(outputDir, 'ecological-synergy-v010-title.png') });
 await page.click('#start');
 await page.waitForFunction(() => window.__MOSSLIGHT_PLAYTEST__.snapshot().mode === 'playing');
 await focus();
@@ -81,8 +81,6 @@ for (const pattern of ['zigzag','spiral','swerve','wobble']) {
   assert(after.stats.counters > before.stats.counters, `${pattern} shot was not counterable from actual right arrival side`);
 }
 
-// Crosscut + hazard route laboratory. The target is frozen in recovery so this
-// measures reflected knockback geometry, not ordinary Surveyor locomotion.
 await cleanLab(2);
 await page.evaluate(() => {
   const p = window.__MOSSLIGHT_PLAYTEST__;
@@ -131,8 +129,6 @@ await setRoom(1); await api('clearCombatants'); let s=await snap(); const blade=
 await setRoom(2); await api('clearCombatants'); s=await snap(); const log=s.debris.find((d)=>!d.dead); assert(Boolean(log),'room 2 has no deadwood'); if(log){await api('setPlayerPosition',[log.x-25,log.y]); await page.evaluate(()=>window.__MOSSLIGHT_PLAYTEST__.cut('right')); await page.waitForTimeout(210); await page.evaluate(()=>window.__MOSSLIGHT_PLAYTEST__.cut('right')); await page.waitForTimeout(210); after=await snap(); assert(after.debris.find((d)=>d.id===log.id)?.dead,'two cuts did not open deadwood');}
 await setRoom(8); await api('clearCombatants'); s=await snap(); const rubble=s.brittle.find((b)=>!b.dead); assert(Boolean(rubble),'room 8 has no brittle rubble'); if(rubble){await api('setPlayerPosition',[rubble.x-25,rubble.y]); await page.evaluate(()=>window.__MOSSLIGHT_PLAYTEST__.cut('right')); await page.waitForTimeout(210); await page.evaluate(()=>window.__MOSSLIGHT_PLAYTEST__.cut('right')); await page.waitForTimeout(210); after=await snap(); assert(after.brittle.find((b)=>b.id===rubble.id)?.dead,'two cuts did not reshape brittle rubble'); assert(after.stats.brittleBroken>0,'rubble break not recorded');}
 
-// Keep one inert laboratory enemy alive so the normal 800 ms room-clear timer
-// cannot advance the room and reset temporary forage buffs during this sequence.
 await cleanLab(3);
 await page.evaluate(() => {
   const p=window.__MOSSLIGHT_PLAYTEST__;
@@ -161,12 +157,12 @@ await setRoom(22); after=await snap(); assert(after.enemies.length>=4 && after.t
 
 await focus(); await page.keyboard.press('p'); await page.waitForTimeout(80); assert((await snap()).mode==='paused','P did not pause'); await page.keyboard.press('p'); await page.waitForTimeout(80); assert((await snap()).mode==='playing','P did not resume');
 await page.waitForTimeout(650); after=await snap(); assert(after.shots.length<=128 && after.pendingShots<=72,`projectile caps violated: ${after.shots.length}/${after.pendingShots}`); assert(after.fps>=42,`headless FPS below 42: ${after.fps.toFixed(1)}`);
-await page.screenshot({ path:path.join(outputDir,'forage-fracture-v091-deep-room.png'), fullPage:true });
-await setRoom(10); await page.waitForTimeout(900); await page.screenshot({ path:path.join(outputDir,'pac-a-saw-v091-industrial.png'), fullPage:true });
+await page.screenshot({ path:path.join(outputDir,'ecological-synergy-v010-deep-room.png'), fullPage:true });
+await setRoom(10); await page.waitForTimeout(900); await page.screenshot({ path:path.join(outputDir,'pac-a-saw-v010-industrial.png'), fullPage:true });
 
 const report={ meta, measurements:{ tapDistance, groundDash, mudDash, enemyGround:groundTravel.distance, enemyMud:mudTravel.distance, finalFps:after.fps }, final:after, consoleErrors, failures };
-fs.writeFileSync(path.join(outputDir,'report-v091.json'),JSON.stringify(report,null,2));
+fs.writeFileSync(path.join(outputDir,'report-v010-baseline.json'),JSON.stringify(report,null,2));
 await browser.close();
 if(consoleErrors.length) failures.push(...consoleErrors.map((e)=>`console error: ${e}`));
-if(failures.length){console.error(`Sylvaria v0.9.1 playtest failed with ${failures.length} issue(s):`);for(const f of failures)console.error(` - ${f}`);process.exit(1)}
-console.log(`Sylvaria v0.9.1 combat/ecology PASS: protected queue + Countercut, ${groundTravel.distance.toFixed(2)}→${mudTravel.distance.toFixed(2)} enemy mud drag, live ice fracture, terrain routing, forage buffs, toxic spore symmetry, centralized hazard kills/boss phases, deep progression, projectile caps, and ${after.fps.toFixed(1)} FPS verified.`);
+if(failures.length){console.error(`Sylvaria v0.10 protected-baseline playtest failed with ${failures.length} issue(s):`);for(const f of failures)console.error(` - ${f}`);process.exit(1)}
+console.log(`Sylvaria v0.10 protected baseline PASS: unchanged queue + Countercut, ${groundTravel.distance.toFixed(2)}→${mudTravel.distance.toFixed(2)} enemy mud drag, live ice fracture, terrain routing, forage buffs, toxic spore symmetry, centralized hazard kills/boss phases, deep progression, projectile caps, and ${after.fps.toFixed(1)} FPS verified.`);
