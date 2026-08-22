@@ -79,8 +79,8 @@ export type FrontierVideoStream =
 
 export type FrontierMedia = {
   type: 'image' | 'youtube' | 'video' | 'chart' | 'none';
-  /** Optional same-origin or trusted CORS-safe image surface used by the GPU path. */
   url?: string;
+  /** Optional same-origin or trusted CORS-safe image surface used by the GPU path. */
   proxyUrl?: string;
   poster?: string;
   /** Optional same-origin/CORS-safe poster equivalent. */
@@ -255,40 +255,56 @@ export type FrontierBehaviorAggregate = {
   lastAt?: string;
 };
 
-export type FrontierRankingSnapshot = {
-  topicStats: Record<string, FrontierBehaviorAggregate>;
+export type FrontierBehaviorEvent = {
+  kind: 'impression' | 'dwell' | 'expand' | 'open' | 'save' | 'positive' | 'negative';
+  dwellMs?: number;
+};
+
+export type FrontierBehaviorSnapshot = {
   laneStats: Record<string, FrontierBehaviorAggregate>;
   sourceStats: Record<string, FrontierBehaviorAggregate>;
-  sourceKindStats: Record<string, FrontierBehaviorAggregate>;
-  authorStats: Record<string, FrontierBehaviorAggregate>;
-  timeStats: Record<string, FrontierBehaviorAggregate>;
-  layoutStats: Record<string, FrontierBehaviorAggregate>;
-  sectionStats: Record<string, FrontierBehaviorAggregate>;
+  topicStats: Record<string, FrontierBehaviorAggregate>;
+  formatStats: Record<string, FrontierBehaviorAggregate>;
+  contextStats: Record<string, FrontierBehaviorAggregate>;
+  capturedAt: string;
 };
 
 export type FrontierBehaviorModel = {
-  sessions: number;
-  lastSessionAt?: string;
-  lastActiveAt?: string;
-  sessionStartedAt?: string;
-  sessionDepth: number;
-  longestSessionDepth: number;
-  totalScrollDepth: number;
   implicitLearning: boolean;
-  rankingSnapshot: FrontierRankingSnapshot;
+  sessions: number;
+  sessionStartedAt?: string;
+  lastActiveAt?: string;
+  totalActiveMs: number;
+  laneStats: Record<string, FrontierBehaviorAggregate>;
+  sourceStats: Record<string, FrontierBehaviorAggregate>;
   topicStats: Record<string, FrontierBehaviorAggregate>;
+  formatStats: Record<string, FrontierBehaviorAggregate>;
+  timeStats: Record<string, FrontierBehaviorAggregate>;
+  contextStats: Record<string, FrontierBehaviorAggregate>;
+  layoutUses: Record<FrontierLayoutMode, number>;
+  viewUses: Record<FrontierView, number>;
+  rankingSnapshot?: FrontierBehaviorSnapshot;
 };
 
-export type FrontierStoreState = {
-  version: number;
-  hydrated: boolean;
+export type FrontierPersistedState = {
+  version: 2;
   profile: FrontierProfile;
-  history: Record<string, FrontierHistoryEntry>;
+  behavior: FrontierBehaviorModel;
   saved: Record<string, FrontierItem>;
   collections: FrontierCollection[];
+  history: Record<string, FrontierHistoryEntry>;
   game: FrontierGameState;
-  behavior: FrontierBehaviorModel;
 };
 
-export type FrontierRealm = 'all' | 'learn' | 'play';
+export type FrontierQuest = {
+  id: string;
+  label: string;
+  description: string;
+  current: number;
+  target: number;
+  complete: boolean;
+  xp: number;
+};
+
 export type FrontierView = 'today' | 'explore' | 'saved' | 'history' | 'map';
+export type FrontierRealm = 'all' | 'learn' | 'play';
