@@ -39,7 +39,17 @@ async function renderStats(frame) {
 }
 
 async function waitFor(frame, fn, arg = null, timeout = 5000) {
-  return frame.waitForFunction(fn, arg, { timeout });
+  const handle = await frame.waitForFunction(fn, arg, { timeout });
+  await handle.dispose();
+}
+
+async function waitForValue(frame, fn, arg = null, timeout = 5000) {
+  const handle = await frame.waitForFunction(fn, arg, { timeout });
+  try {
+    return await handle.jsonValue();
+  } finally {
+    await handle.dispose();
+  }
 }
 
 async function dispatchKey(frame, type, key, code) {
@@ -76,6 +86,7 @@ async function releaseQualificationKeys(frame) {
 for (const { name, browserType, launchOptions } of engines) {
   const errors = [];
   let browser;
+  let stage = 'launch';
   try {
     browser = await browserType.launch({ headless: true, ...launchOptions });
     const page = await browser.newPage({ viewport: { width: 1440, height: 1000 }, deviceScaleFactor: 1 });
@@ -84,14 +95,17 @@ for (const { name, browserType, launchOptions } of engines) {
       if (message.type() === 'error') errors.push(`console: ${message.text()}`);
     });
 
+    stage = 'route-load';
     const response = await page.goto(`${baseUrl}/arcade/sylvaria`, { waitUntil: 'networkidle' });
     if (!response?.ok()) throw new Error(`route returned ${response?.status() ?? 'no response'}`);
 
+    stage = 'iframe-attach';
     const iframe = page.locator('iframe[title="Sylvaria game runtime"]');
     await iframe.waitFor({ state: 'visible' });
     const frame = page.frames().find((f) => f.url().includes('/game-runtimes/mosslight-v2/'));
     if (!frame) throw new Error('Sylvaria runtime iframe did not attach');
 
+    stage = 'v013-bootstrap';
     try {
       await waitFor(
         frame,
@@ -123,9 +137,22 @@ for (const { name, browserType, launchOptions } of engines) {
 
     // Force one presentation pass so the menu qualification does not depend on
     // browser-specific requestAnimationFrame scheduling in a headless iframe.
+    stage = 'title-webgl-ready';
     await frame.evaluate(() => window.SylvariaPondRenderer?.render?.());
-    await waitFor(frame, () => window.SylvariaPondRenderer?.snapshot?.().ready === true, null, 10000);
+    try {
+      await waitFor(frame, () => window.SylvariaPondRenderer?.snapshot?.().ready === true, null, 10000);
+    } catch (error) {
+      const diagnostic = await frame
+        .evaluate(() => ({
+          pond: window.SylvariaPondRenderer?.snapshot?.() || null,
+          bootstrap: window.__SYLVARIA_POND_BOOTSTRAP__ || null,
+          canvas: Boolean(document.querySelector('#pondCanvas')),
+        }))
+        .catch(() => null);
+      throw new Error(`pond renderer did not become ready: ${JSON.stringify(diagnostic)} · ${error.message}`);
+    }
 
+    stage = 'identity-contract';
     const identity = await frame.evaluate(() => ({
       version: window.__MOSSLIGHT_PLAYTEST__.version,
       presentationVersion: window.__MOSSLIGHT_PLAYTEST__.presentationVersion,
@@ -196,11 +223,13 @@ for (const { name, browserType, launchOptions } of engines) {
       throw new Error(`Reactive Blade title copy mismatch ${JSON.stringify(identity.copy)}`);
     }
 
+    stage = 'title-render-contract';
     const titleRender = await renderStats(frame);
     if (!titleRender.gl || titleRender.sprites < 5 || titleRender.lights < 1 || titleRender.legacyOpacity !== '0') {
       throw new Error(`title renderer underqualified ${JSON.stringify(titleRender)}`);
     }
 
+    stage = 'start-room';
     await frame.locator('#start').click();
     await waitFor(frame, () => window.__MOSSLIGHT_PLAYTEST__.snapshot().mode === 'playing', null, 5000);
     const authoredStart = await frame.evaluate(() => window.__MOSSLIGHT_PLAYTEST__.snapshot());
@@ -211,6 +240,7 @@ for (const { name, browserType, launchOptions } of engines) {
     // Movement qualification happens in a deterministic, obstacle-free lane.
     // This isolates the input/kinetic contract from authored-room collisions and
     // prevents a perfectly valid short dash from ending before the assertion samples it.
+    stage = 'lab-lane-setup';
     const before = await frame.evaluate(() => {
       const playtest = window.__MOSSLIGHT_PLAYTEST__;
       playtest.clearCombatants();
@@ -221,6 +251,7 @@ for (const { name, browserType, launchOptions } of engines) {
       return playtest.snapshot();
     });
 
+    stage = 'continuous-glide';
     await dispatchKey(frame, 'keydown', 'd', 'KeyD');
     await waitFor(
       frame,
@@ -240,6 +271,7 @@ for (const { name, browserType, launchOptions } of engines) {
       throw new Error(`held movement incorrectly counted as dash ${before.stats.dashes}->${glide.game.stats.dashes}`);
     }
 
+    stage = 'diagonal-steering';
     await dispatchKey(frame, 'keydown', 'w', 'KeyW');
     await waitFor(
       frame,
@@ -252,6 +284,7 @@ for (const { name, browserType, launchOptions } of engines) {
     );
     const diagonal = await frame.evaluate(() => window.SylvariaKinetics.snapshot());
 
+    stage = 'dash-charge';
     await dispatchKey(frame, 'keydown', ' ', 'Space');
     await waitFor(
       frame,
@@ -264,21 +297,21 @@ for (const { name, browserType, launchOptions } of engines) {
     );
     const charging = await frame.evaluate(() => window.SylvariaKinetics.snapshot());
 
+    // Capture the transient dash state atomically. Fast headless engines can run the
+    // entire 12-22 tick burst between a successful wait and a second evaluate call.
+    stage = 'charged-burst';
     await dispatchKey(frame, 'keyup', ' ', 'Space');
-    await waitFor(
+    const burst = await waitForValue(
       frame,
       (dashesBefore) => {
         const game = window.__MOSSLIGHT_PLAYTEST__.snapshot();
         const kinetics = window.SylvariaKinetics.snapshot();
-        return game.stats.dashes > dashesBefore && kinetics.dashing && (kinetics.dash?.speed ?? 0) >= 400;
+        if (game.stats.dashes <= dashesBefore || !kinetics.dashing || (kinetics.dash?.speed ?? 0) < 400) return false;
+        return { game, kinetics };
       },
       before.stats.dashes,
       1500,
     );
-    const burst = await frame.evaluate(() => ({
-      game: window.__MOSSLIGHT_PLAYTEST__.snapshot(),
-      kinetics: window.SylvariaKinetics.snapshot(),
-    }));
     if (burst.game.stats.dashes < before.stats.dashes + 1) throw new Error('charge release did not count one dash');
     if ((burst.kinetics.dash?.speed ?? 0) < 400) {
       throw new Error(`charged burst did not exceed glide speed ${JSON.stringify(burst.kinetics)}`);
@@ -287,30 +320,35 @@ for (const { name, browserType, launchOptions } of engines) {
     await dispatchKey(frame, 'keyup', 'w', 'KeyW');
     await dispatchKey(frame, 'keyup', 'd', 'KeyD');
 
+    // Arc state is transient for the same reason, so return the exact state that
+    // satisfied both the input and renderer assertions.
+    stage = 'reactive-blade-arc';
     const cutsBefore = burst.game.stats.cuts;
     await dispatchKey(frame, 'keydown', 'ArrowUp', 'ArrowUp');
     await dispatchKey(frame, 'keyup', 'ArrowUp', 'ArrowUp');
-    await waitFor(
+    const arc = await waitForValue(
       frame,
-      (cuts) =>
-        window.__MOSSLIGHT_PLAYTEST__.snapshot().stats.cuts > cuts &&
-        window.SylvariaKineticPresentation?.snapshot?.().renderedArcs > 0,
+      (cuts) => {
+        const game = window.__MOSSLIGHT_PLAYTEST__.snapshot();
+        const presentation = window.SylvariaKineticPresentation?.snapshot?.();
+        if (game.stats.cuts <= cuts || !presentation || presentation.renderedArcs <= 0) return false;
+        return {
+          game,
+          kinetics: window.SylvariaKinetics.snapshot(),
+          presentation,
+          slashes: window.Sylvaria091.state.slashes.map((s) => ({
+            kind: s.kind,
+            phase: s.phase,
+            angle: s.angle,
+            start: s.startAngle,
+            end: s.endAngle,
+            parryWindow: s.parryWindow,
+          })),
+        };
+      },
       cutsBefore,
       1200,
     );
-    const arc = await frame.evaluate(() => ({
-      game: window.__MOSSLIGHT_PLAYTEST__.snapshot(),
-      kinetics: window.SylvariaKinetics.snapshot(),
-      presentation: window.SylvariaKineticPresentation.snapshot(),
-      slashes: window.Sylvaria091.state.slashes.map((s) => ({
-        kind: s.kind,
-        phase: s.phase,
-        angle: s.angle,
-        start: s.startAngle,
-        end: s.endAngle,
-        parryWindow: s.parryWindow,
-      })),
-    }));
     if (arc.game.stats.cuts <= cutsBefore) throw new Error('ArrowUp did not register tongue sweep');
     if (!arc.presentation.overlay) throw new Error('kinetic arc overlay missing');
     if (!arc.slashes.some((s) => s.kind === 'arc' && Math.abs((s.parryWindow || 0) - 5 / 120) < 1e-6)) {
@@ -319,6 +357,7 @@ for (const { name, browserType, launchOptions } of engines) {
 
     // Restore the authored first pond before visual capture. Browser mechanics are
     // tested in the lab lane, while the screenshot still qualifies the real room.
+    stage = 'authored-room-restore';
     await frame.evaluate(() => {
       window.__MOSSLIGHT_PLAYTEST__.setRoom(0, 1);
       window.SylvariaPondRenderer?.render?.();
@@ -338,6 +377,7 @@ for (const { name, browserType, launchOptions } of engines) {
       throw new Error(`pond renderer under-rendered ${JSON.stringify(playRender)}`);
     }
 
+    stage = 'screenshot';
     await page.screenshot({ path: path.join(outputDir, `${name}-reactive-blade-v013.png`), fullPage: true });
     report.push({
       name,
@@ -364,7 +404,8 @@ for (const { name, browserType, launchOptions } of engines) {
     report.push({
       name,
       ok: false,
-      error: error instanceof Error ? error.message : String(error),
+      stage,
+      error: `${stage}: ${error instanceof Error ? error.message : String(error)}`,
       errors,
     });
   } finally {
