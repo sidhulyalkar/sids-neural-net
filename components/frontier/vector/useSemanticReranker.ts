@@ -2,7 +2,21 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FRONTIER_MESH_PROFILE_UPDATE_EVENT } from '@/lib/frontier/sync/meshProfileEvents';
+import {
+  frontierTrajectoryState,
+  frontierTrajectoryTarget,
+  listFrontierTrajectories,
+  listenFrontierTrajectoryChanges,
+  updateFrontierTrajectory,
+  type FrontierTrajectoryMap,
+} from '@/lib/frontier/trajectory/contextTrajectories';
 import type { FrontierItem } from '@/lib/frontier/types';
+import {
+  bestFrontierAvoidMatch,
+  listFrontierAvoidAnchors,
+  listenFrontierAvoidChanges,
+  type FrontierAvoidAnchor,
+} from '@/lib/frontier/watch/avoidEngine';
 import { rerankFrontierAntiStaleness } from '@/lib/frontier/vector/antiStalenessReranker';
 import { rerankFrontierItems } from '@/lib/frontier/vector/ranker';
 import {
@@ -102,6 +116,8 @@ export function useSemanticReranker(
   const [interest, setInterest] = useState<FrontierInterestState>();
   const [sequence, setSequence] = useState<FrontierSequenceState>();
   const [memoryCentroid, setMemoryCentroid] = useState<Float32Array>();
+  const [trajectories, setTrajectories] = useState<FrontierTrajectoryMap>({});
+  const [avoidAnchors, setAvoidAnchors] = useState<FrontierAvoidAnchor[]>([]);
 
   const ensureSequenceHydrated = useCallback(() => {
     if (!sequenceHydrationRef.current) {
@@ -119,6 +135,25 @@ export function useSemanticReranker(
     }
     return sequenceHydrationRef.current;
   }, [sequenceWorker]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const refreshTrajectories = () => {
+      void listFrontierTrajectories().then((next) => { if (!cancelled) setTrajectories(next); });
+    };
+    const refreshAvoids = () => {
+      void listFrontierAvoidAnchors().then((next) => { if (!cancelled) setAvoidAnchors(next); });
+    };
+    refreshTrajectories();
+    refreshAvoids();
+    const stopTrajectories = listenFrontierTrajectoryChanges(refreshTrajectories);
+    const stopAvoids = listenFrontierAvoidChanges(refreshAvoids);
+    return () => {
+      cancelled = true;
+      stopTrajectories();
+      stopAvoids();
+    };
+  }, []);
 
   const itemSignature = useMemo(
     () => items.slice(0, ACTIVE_INDEX_LIMIT).map((item) => `${item.id}:${item.title}:${item.summary.length}`).join('|'),
@@ -288,8 +323,6 @@ export function useSemanticReranker(
         }
         if (!vector) return;
 
-        // Long-term taste keeps the full interaction evidence. Physiological
-        // load only tempers positive implicit momentum in the fast context SSM.
         try {
           const nextInterest = await frontierVectorStore.updateInterest(vector, signal, event.at);
           setInterest(nextInterest);
@@ -306,14 +339,22 @@ export function useSemanticReranker(
 
         const explicit = event.kind === 'reaction' || event.kind === 'save';
         const sequenceSignal = modulateImplicitSignalWeight(signal, frontierSignalLoadSnapshot(event.at), explicit);
+
+        // The legacy/global fast state remains for cold start and peer
+        // continuity, but it is no longer the universal candidate target.
         try {
           await ensureSequenceHydrated();
           const nextSequence = await sequenceWorker.update(vector, sequenceSignal, event.at);
           setSequence(nextSequence);
           try { await frontierVectorStore.setSequence(nextSequence); } catch {}
-        } catch {
-          // Sequence momentum is additive. Long-term semantic ranking remains
-          // available if a browser blocks workers or IndexedDB.
+        } catch {}
+
+        // Exactly one domain trajectory receives the same bounded interaction
+        // evidence. Seven fixed namespaces keep this state tiny and prevent
+        // unrelated modes of curiosity from sharing fast momentum.
+        const nextTrajectory = await updateFrontierTrajectory(event.item, vector, sequenceSignal, event.at);
+        if (nextTrajectory) {
+          setTrajectories((current) => ({ ...current, [nextTrajectory.context]: nextTrajectory }));
         }
       }).catch(() => undefined);
     });
@@ -351,6 +392,17 @@ export function useSemanticReranker(
     if (!enabled || !items.length) return items;
     const enoughVectors = vectorsRef.current.size >= Math.min(6, items.length);
     if (!enoughVectors && !query.trim()) return items;
+
+    const now = Date.now();
+    const compatibleAvoids = avoidAnchors.filter((anchor) => anchor.active && anchor.embeddingBackend === backend);
+    const targetForItem = (item: FrontierItem) => frontierTrajectoryTarget(item, trajectories, rankingTarget, now);
+    const stateForItem = (item: FrontierItem) => frontierTrajectoryState(item, trajectories, sequence?.state, now);
+    const penaltyForItem = (item: FrontierItem) => {
+      const vector = vectorsRef.current.get(item.id);
+      if (!vector || !compatibleAvoids.length) return 0;
+      return bestFrontierAvoidMatch(vector, compatibleAvoids)?.penalty ?? 0;
+    };
+
     if (explorationTemperature > 0.001) {
       return rerankFrontierAntiStaleness(
         items,
@@ -360,7 +412,10 @@ export function useSemanticReranker(
         query,
         diversityReference,
         explorationTemperature,
-        Date.now()
+        now,
+        targetForItem,
+        stateForItem,
+        penaltyForItem
       );
     }
     return rerankFrontierItems(
@@ -369,10 +424,24 @@ export function useSemanticReranker(
       rankingTarget,
       query,
       0.15,
-      Date.now(),
-      `${new Date().toISOString().slice(0, 10)}:${query.toLowerCase()}`
+      now,
+      `${new Date(now).toISOString().slice(0, 10)}:${query.toLowerCase()}`,
+      targetForItem,
+      penaltyForItem
     );
-  }, [diversityReference, enabled, explorationTemperature, items, query, rankingTarget, sequence?.state, vectorVersion]);
+  }, [
+    avoidAnchors,
+    backend,
+    diversityReference,
+    enabled,
+    explorationTemperature,
+    items,
+    query,
+    rankingTarget,
+    sequence?.state,
+    trajectories,
+    vectorVersion,
+  ]);
 
   return {
     items: rankedItems,
@@ -381,6 +450,9 @@ export function useSemanticReranker(
     interestReady: Boolean(interest),
     sequenceReady: Boolean(sequence?.interactions),
     sequenceInteractions: sequence?.interactions ?? 0,
+    trajectoryReady: Object.keys(trajectories).length > 0,
+    trajectoryContexts: Object.keys(trajectories).length,
+    avoidAnchors: avoidAnchors.filter((anchor) => anchor.active).length,
     outOfCoreReady: Boolean(memoryCentroid),
   };
 }
