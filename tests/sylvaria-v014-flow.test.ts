@@ -48,25 +48,21 @@ test('released dash buffers become real dashes before the movement step that wou
   assert.match(source, /if\(p\)consumeReleasedDashBuffer\(p,dt\)/);
 });
 
-test('committed dash steering rotates direction without injecting ordinary glide speed', () => {
+test('committed dash steering is expressive but hard-capped relative to the launch vector', () => {
   assert.match(source, /dashSteerBlend:\.055/);
+  assert.match(source, /dashSteerMaxRadians:\.38/);
   assert.match(source, /function steerCommittedDash/);
-  assert.match(source, /p\.dash\.dir=\{x:steered\.x,y:steered\.y\}/);
+  assert.match(source, /if\(!dash\.v014LaunchDir\)dash\.v014LaunchDir=\{x:d\.x,y:d\.y\}/);
+  assert.match(source, /clamp\(angleDelta\(launchAngle,proposedAngle\),-FLOW_CONFIG\.dashSteerMaxRadians,FLOW_CONFIG\.dashSteerMaxRadians\)/);
+  assert.match(source, /dash\.dir=\{x:q\(Math\.cos\(angle\)\),y:q\(Math\.sin\(angle\)\)\}/);
   assert.match(source, /if\(dashRef\)state\.heldMoves=new Set\(\)/);
   assert.match(source, /finally\{if\(dashRef\)state\.heldMoves=held\}/);
   assert.doesNotMatch(source, /p\.dash\.speed\s*=/);
 
-  let x = 1;
-  let y = 0;
-  for (let tick = 0; tick < 6; tick += 1) {
-    const bx = x * 0.945;
-    const by = y * 0.945 + 0.055;
-    const length = Math.hypot(bx, by);
-    x = bx / length;
-    y = by / length;
-  }
-  assert.ok(x > 0.9, `six ticks should preserve dash commitment, x=${x}`);
-  assert.ok(y > 0.25, `six ticks should permit visible course correction, y=${y}`);
+  const cap = 0.38;
+  assert.ok(Math.cos(cap) > 0.92, 'course-correction cap must retain strong launch-axis commitment');
+  assert.ok(Math.sin(cap) > 0.36, 'course-correction cap must still create visible steering authority');
+  assert.ok(cap * 180 / Math.PI < 22, 'committed dash should never bend 22 degrees or more');
 });
 
 test('v0.14 reports the player-reachable dash envelope rather than dormant zero-charge endpoints', () => {
