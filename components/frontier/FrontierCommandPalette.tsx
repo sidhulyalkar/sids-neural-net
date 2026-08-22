@@ -6,20 +6,40 @@ import {
   parseFrontierPaletteCommand,
   resolveFrontierPaletteKeyboardIntent,
 } from '@/lib/frontier/watch/commandPalette';
+import type { FrontierAvoidAnchor } from '@/lib/frontier/watch/avoidEngine';
 import type { FrontierWatchIntent } from '@/lib/frontier/watch/intentEngine';
 import styles from './frontier-command-palette.module.css';
 
 type Props = {
   intents: FrontierWatchIntent[];
+  avoids: FrontierAvoidAnchor[];
   onCreate: (query: string) => Promise<FrontierWatchIntent>;
   onRemove: (id: string) => Promise<void>;
   onSetActive: (id: string, active: boolean) => Promise<void>;
+  onCreateAvoid: (query: string) => Promise<FrontierAvoidAnchor>;
+  onRemoveAvoid: (id: string) => Promise<void>;
+  onSetAvoidActive: (id: string, active: boolean) => Promise<void>;
 };
 
-export function FrontierCommandPalette({ intents, onCreate, onRemove, onSetActive }: Props) {
+function fuzzyLabelMatch<T extends { label: string }>(items: T[], query: string): T | undefined {
+  const normalized = query.toLowerCase();
+  return items.find((item) => item.label.toLowerCase() === normalized)
+    ?? items.find((item) => item.label.toLowerCase().includes(normalized));
+}
+
+export function FrontierCommandPalette({
+  intents,
+  avoids,
+  onCreate,
+  onRemove,
+  onSetActive,
+  onCreateAvoid,
+  onRemoveAvoid,
+  onSetAvoidActive,
+}: Props) {
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState('');
-  const [message, setMessage] = useState('Watch: state-space neural models');
+  const [message, setMessage] = useState('Watch: state-space neural models · Avoid: generic AI hype');
   const [busy, setBusy] = useState(false);
   const inputRef = useRef<HTMLInputElement | null>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
@@ -71,7 +91,7 @@ export function FrontierCommandPalette({ intents, onCreate, onRemove, onSetActiv
       return;
     }
     if (command.kind === 'help') {
-      setMessage('Watch: topic · Unwatch: topic · List watches');
+      setMessage('Watch: topic · Avoid: topic · Unwatch/Unavoid · List watches/avoids');
       return;
     }
     if (command.kind === 'list') {
@@ -79,10 +99,13 @@ export function FrontierCommandPalette({ intents, onCreate, onRemove, onSetActiv
       setMessage(`${active} active watch${active === 1 ? '' : 'es'} · ${intents.length} stored`);
       return;
     }
+    if (command.kind === 'list-avoids') {
+      const active = avoids.filter((anchor) => anchor.active).length;
+      setMessage(`${active} active avoid${active === 1 ? '' : 's'} · ${avoids.length} stored`);
+      return;
+    }
     if (command.kind === 'unwatch') {
-      const normalized = command.query.toLowerCase();
-      const match = intents.find((intent) => intent.label.toLowerCase() === normalized)
-        ?? intents.find((intent) => intent.label.toLowerCase().includes(normalized));
+      const match = fuzzyLabelMatch(intents, command.query);
       if (!match) {
         setMessage(`No watch matches “${command.query}”.`);
         return;
@@ -92,6 +115,35 @@ export function FrontierCommandPalette({ intents, onCreate, onRemove, onSetActiv
         await onRemove(match.id);
         setDraft('');
         setMessage(`Stopped watching ${match.label}.`);
+      } finally {
+        setBusy(false);
+      }
+      return;
+    }
+    if (command.kind === 'unavoid') {
+      const match = fuzzyLabelMatch(avoids, command.query);
+      if (!match) {
+        setMessage(`No avoid anchor matches “${command.query}”.`);
+        return;
+      }
+      setBusy(true);
+      try {
+        await onRemoveAvoid(match.id);
+        setDraft('');
+        setMessage(`Allowed ${match.label} again.`);
+      } finally {
+        setBusy(false);
+      }
+      return;
+    }
+    if (command.kind === 'avoid') {
+      setBusy(true);
+      try {
+        const created = await onCreateAvoid(command.query);
+        setDraft('');
+        setMessage(`Avoiding ${created.label}.`);
+      } catch (error) {
+        setMessage(error instanceof Error ? error.message : 'Could not create Avoid anchor.');
       } finally {
         setBusy(false);
       }
@@ -132,7 +184,7 @@ export function FrontierCommandPalette({ intents, onCreate, onRemove, onSetActiv
                 void submit();
               }
             }}
-            placeholder="Watch: 13kb physics engines"
+            placeholder="Watch: 13kb physics engines · Avoid: generic crypto news"
             aria-label="FRONTIER command"
             autoComplete="off"
             spellCheck="false"
@@ -147,8 +199,8 @@ export function FrontierCommandPalette({ intents, onCreate, onRemove, onSetActiv
 
         {intents.length ? (
           <div className={styles.watchList} aria-label="Stored Watch Intents">
-            {intents.slice(0, 10).map((intent) => (
-              <div className={styles.watchRow} key={intent.id} data-active={intent.active ? 'true' : 'false'}>
+            {intents.slice(0, 8).map((intent) => (
+              <div className={styles.watchRow} key={intent.id} data-active={intent.active ? 'true' : 'false'} data-kind="watch">
                 <button
                   type="button"
                   className={styles.watchToggle}
@@ -157,9 +209,29 @@ export function FrontierCommandPalette({ intents, onCreate, onRemove, onSetActiv
                   title={intent.active ? 'Pause watch' : 'Resume watch'}
                 >
                   <span className={styles.watchDot} aria-hidden="true" />
-                  <span>{intent.label}</span>
+                  <span>watch · {intent.label}</span>
                 </button>
                 <button type="button" className={styles.removeWatch} onClick={() => void onRemove(intent.id)} aria-label={`Remove watch ${intent.label}`}>×</button>
+              </div>
+            ))}
+          </div>
+        ) : null}
+
+        {avoids.length ? (
+          <div className={styles.watchList} aria-label="Stored Avoid anchors">
+            {avoids.slice(0, 8).map((anchor) => (
+              <div className={styles.watchRow} key={anchor.id} data-active={anchor.active ? 'true' : 'false'} data-kind="avoid">
+                <button
+                  type="button"
+                  className={styles.watchToggle}
+                  onClick={() => void onSetAvoidActive(anchor.id, !anchor.active)}
+                  aria-pressed={anchor.active}
+                  title={anchor.active ? 'Pause avoid anchor' : 'Resume avoid anchor'}
+                >
+                  <span className={styles.watchDot} aria-hidden="true" />
+                  <span>avoid · {anchor.label}</span>
+                </button>
+                <button type="button" className={styles.removeWatch} onClick={() => void onRemoveAvoid(anchor.id)} aria-label={`Remove avoid ${anchor.label}`}>×</button>
               </div>
             ))}
           </div>
