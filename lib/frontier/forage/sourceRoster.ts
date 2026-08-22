@@ -6,8 +6,19 @@ const SOURCE_STORE = 'poll_sources';
 const DOMAIN_STORE = 'domain_observations';
 export const FRONTIER_FORAGED_SOURCE_LIMIT = 50;
 export const FRONTIER_FORAGED_SOURCE_CHANNEL = 'frontier-source-roster-v1';
+export const FRONTIER_SOURCE_YIELD_WINDOW_DAYS = 14;
 const BASE_POLL_INTERVAL_MS = 12 * 60_000;
 const DOMAIN_PROBE_INTERVAL_MS = 12 * 60 * 60_000;
+const DAY_MS = 86_400_000;
+
+export type FrontierSourceYieldDay = {
+  day: string;
+  polls: number;
+  discovered: number;
+  unseen: number;
+  aligned: number;
+  failures: number;
+};
 
 export type FrontierForagedSource = {
   id: string;
@@ -28,6 +39,7 @@ export type FrontierForagedSource = {
   totalUnseen: number;
   yieldQuality: number;
   consecutiveFailures: number;
+  yield14d?: FrontierSourceYieldDay[];
 };
 
 export type FrontierForagedDomainObservation = {
@@ -37,6 +49,16 @@ export type FrontierForagedDomainObservation = {
   firstObservedAt: number;
   lastObservedAt: number;
   lastProbedAt: number;
+};
+
+export type FrontierRollingYield = {
+  polls: number;
+  discovered: number;
+  unseen: number;
+  aligned: number;
+  failures: number;
+  unseenRate: number;
+  alignedRate: number;
 };
 
 function requestPromise<T>(request: IDBRequest<T>): Promise<T> {
@@ -98,25 +120,94 @@ function openForageDb(): Promise<IDBDatabase> {
   return dbPromise;
 }
 
+function dayKey(at: number): string {
+  return new Date(at).toISOString().slice(0, 10);
+}
+
+function retainedYieldDays(days: FrontierSourceYieldDay[] | undefined, now = Date.now()): FrontierSourceYieldDay[] {
+  const cutoff = dayKey(now - (FRONTIER_SOURCE_YIELD_WINDOW_DAYS - 1) * DAY_MS);
+  return (days ?? []).filter((entry) => entry.day >= cutoff).slice(-FRONTIER_SOURCE_YIELD_WINDOW_DAYS);
+}
+
+export function frontierRollingSourceYield(record: Pick<FrontierForagedSource, 'yield14d'>, now = Date.now()): FrontierRollingYield {
+  const days = retainedYieldDays(record.yield14d, now);
+  const totals = days.reduce((acc, day) => ({
+    polls: acc.polls + day.polls,
+    discovered: acc.discovered + day.discovered,
+    unseen: acc.unseen + day.unseen,
+    aligned: acc.aligned + day.aligned,
+    failures: acc.failures + day.failures,
+  }), { polls: 0, discovered: 0, unseen: 0, aligned: 0, failures: 0 });
+  return {
+    ...totals,
+    unseenRate: totals.discovered > 0 ? totals.unseen / totals.discovered : 0,
+    alignedRate: totals.discovered > 0 ? totals.aligned / totals.discovered : 0,
+  };
+}
+
+function updateYieldWindow(
+  previous: FrontierSourceYieldDay[] | undefined,
+  sample: { discovered: number; unseen: number; aligned: number; success: boolean },
+  now: number
+): FrontierSourceYieldDay[] {
+  const days = retainedYieldDays(previous, now);
+  const key = dayKey(now);
+  const current = days.find((entry) => entry.day === key);
+  if (current) {
+    current.polls += 1;
+    current.discovered += sample.discovered;
+    current.unseen += sample.unseen;
+    current.aligned += sample.aligned;
+    current.failures += sample.success ? 0 : 1;
+  } else {
+    days.push({
+      day: key,
+      polls: 1,
+      discovered: sample.discovered,
+      unseen: sample.unseen,
+      aligned: sample.aligned,
+      failures: sample.success ? 0 : 1,
+    });
+  }
+  return days.slice(-FRONTIER_SOURCE_YIELD_WINDOW_DAYS);
+}
+
 function recencyScore(at: number, now: number, halfLifeMs: number): number {
   if (!Number.isFinite(at) || at <= 0) return 0;
   const age = Math.max(0, now - at);
   return Math.pow(0.5, age / Math.max(1, halfLifeMs));
 }
 
+export function shouldEvictFrontierForagedSource(record: FrontierForagedSource, now = Date.now()): boolean {
+  const rolling = frontierRollingSourceYield(record, now);
+  const ageDays = Math.max(0, now - record.discoveredAt) / DAY_MS;
+  if (ageDays < 2.5 || rolling.polls < 5) return false;
+  // A source that repeatedly returns material but never produces a credible,
+  // aligned or unseen result gets a short probation rather than permanent rent
+  // in the autonomous roster.
+  if (rolling.polls >= 6 && rolling.discovered >= 8 && rolling.aligned === 0 && rolling.unseen === 0) return true;
+  if (rolling.polls >= 10 && rolling.discovered >= 12 && rolling.alignedRate < 0.04 && rolling.unseenRate < 0.05) return true;
+  if (rolling.polls >= 8 && rolling.failures / rolling.polls >= 0.75) return true;
+  return false;
+}
+
 export function frontierForagedSourceRetentionScore(record: FrontierForagedSource, now = Date.now()): number {
-  const usefulRecency = recencyScore(record.lastUsefulAt || record.discoveredAt, now, 14 * 86_400_000);
-  const accessRecency = recencyScore(record.lastPolledAt || record.discoveredAt, now, 3 * 86_400_000);
-  return record.yieldQuality * 2.4
-    + record.semanticSimilarity * 1.55
-    + record.credibility * 1.25
-    + usefulRecency * 0.75
-    + accessRecency * 0.28
+  const usefulRecency = recencyScore(record.lastUsefulAt || record.discoveredAt, now, 14 * DAY_MS);
+  const accessRecency = recencyScore(record.lastPolledAt || record.discoveredAt, now, 3 * DAY_MS);
+  const rolling = frontierRollingSourceYield(record, now);
+  const recentYield = Math.min(1, rolling.unseenRate * 0.55 + rolling.alignedRate * 0.9);
+  return record.yieldQuality * 1.45
+    + recentYield * 1.55
+    + record.semanticSimilarity * 1.45
+    + record.credibility * 1.15
+    + usefulRecency * 0.7
+    + accessRecency * 0.2
     - Math.min(1.2, record.consecutiveFailures * 0.16);
 }
 
 export function retainFrontierForagedSources(records: FrontierForagedSource[], max = FRONTIER_FORAGED_SOURCE_LIMIT, now = Date.now()): FrontierForagedSource[] {
-  return [...records]
+  return records
+    .filter((record) => !shouldEvictFrontierForagedSource(record, now))
     .sort((left, right) => frontierForagedSourceRetentionScore(right, now) - frontierForagedSourceRetentionScore(left, now)
       || right.lastUsefulAt - left.lastUsefulAt
       || left.id.localeCompare(right.id))
@@ -133,19 +224,22 @@ async function allSources(db: IDBDatabase): Promise<FrontierForagedSource[]> {
 
 async function pruneSources(db: IDBDatabase, now = Date.now()): Promise<void> {
   const records = await allSources(db);
-  if (records.length <= FRONTIER_FORAGED_SOURCE_LIMIT) return;
   const keep = new Set(retainFrontierForagedSources(records, FRONTIER_FORAGED_SOURCE_LIMIT, now).map((record) => record.id));
+  const remove = records.filter((record) => !keep.has(record.id));
+  if (!remove.length) return;
   const transaction = db.transaction(SOURCE_STORE, 'readwrite');
   const done = transactionDone(transaction);
   const store = transaction.objectStore(SOURCE_STORE);
-  for (const record of records) if (!keep.has(record.id)) store.delete(record.id);
+  for (const record of remove) store.delete(record.id);
   await done;
+  publishRosterChange();
 }
 
 export async function listFrontierForagedSources(): Promise<FrontierForagedSource[]> {
   if (typeof indexedDB === 'undefined') return [];
   try {
     const db = await openForageDb();
+    await pruneSources(db);
     return retainFrontierForagedSources(await allSources(db));
   } catch {
     return [];
@@ -184,6 +278,7 @@ export async function upsertFrontierForagedSources(evaluations: FrontierForageEv
         totalUnseen: previous?.totalUnseen ?? 0,
         yieldQuality: previous?.yieldQuality ?? 0.45,
         consecutiveFailures: previous?.consecutiveFailures ?? 0,
+        yield14d: retainedYieldDays(previous?.yield14d, now),
       };
       store.put(record);
       written.push(record);
@@ -198,21 +293,27 @@ export async function upsertFrontierForagedSources(evaluations: FrontierForageEv
 }
 
 export function frontierForagedSourceDueAt(record: FrontierForagedSource): number {
+  const rolling = frontierRollingSourceYield(record);
   const failureBackoff = Math.pow(2, Math.min(5, Math.max(0, record.consecutiveFailures)));
-  const lowYieldBackoff = record.yieldQuality < 0.18 ? 3 : record.yieldQuality < 0.35 ? 2 : 1;
+  const recentYield = Math.max(record.yieldQuality, rolling.unseenRate * 0.55 + rolling.alignedRate * 0.9);
+  const lowYieldBackoff = recentYield < 0.12 ? 4 : recentYield < 0.26 ? 2 : 1;
   return (record.lastPolledAt || 0) + BASE_POLL_INTERVAL_MS * failureBackoff * lowYieldBackoff;
 }
 
 export async function readDueFrontierForagedSources(limit = 3, now = Date.now()): Promise<FrontierForagedSource[]> {
   const sources = await listFrontierForagedSources();
   return sources
-    .filter((source) => source.active && frontierForagedSourceDueAt(source) <= now)
+    .filter((source) => source.active && !shouldEvictFrontierForagedSource(source, now) && frontierForagedSourceDueAt(source) <= now)
     .sort((left, right) => frontierForagedSourceDueAt(left) - frontierForagedSourceDueAt(right)
       || frontierForagedSourceRetentionScore(right, now) - frontierForagedSourceRetentionScore(left, now))
     .slice(0, Math.max(0, Math.min(6, limit)));
 }
 
-export async function recordFrontierForagedSourceYield(id: string, result: { discovered: number; unseen: number; success: boolean }, now = Date.now()): Promise<void> {
+export async function recordFrontierForagedSourceYield(
+  id: string,
+  result: { discovered: number; unseen: number; aligned?: number; success: boolean },
+  now = Date.now()
+): Promise<void> {
   if (typeof indexedDB === 'undefined') return;
   try {
     const db = await openForageDb();
@@ -223,20 +324,27 @@ export async function recordFrontierForagedSourceYield(id: string, result: { dis
     if (previous) {
       const discovered = Math.max(0, Math.round(result.discovered));
       const unseen = Math.max(0, Math.min(discovered || result.unseen, Math.round(result.unseen)));
-      const sample = result.success ? (discovered > 0 ? unseen / discovered : 0) : 0;
-      store.put({
+      const aligned = Math.max(0, Math.min(discovered || result.aligned || 0, Math.round(result.aligned ?? 0)));
+      const sample = result.success && discovered > 0
+        ? Math.min(1, unseen / discovered * 0.55 + aligned / discovered * 0.75)
+        : 0;
+      const next: FrontierForagedSource = {
         ...previous,
         updatedAt: now,
         lastPolledAt: now,
-        lastUsefulAt: unseen > 0 ? now : previous.lastUsefulAt,
+        lastUsefulAt: unseen > 0 || aligned > 0 ? now : previous.lastUsefulAt,
         totalPolls: previous.totalPolls + 1,
         totalDiscovered: previous.totalDiscovered + discovered,
         totalUnseen: previous.totalUnseen + unseen,
         yieldQuality: previous.yieldQuality * 0.82 + sample * 0.18,
         consecutiveFailures: result.success ? 0 : previous.consecutiveFailures + 1,
-      } satisfies FrontierForagedSource);
+        yield14d: updateYieldWindow(previous.yield14d, { discovered, unseen, aligned, success: result.success }, now),
+      };
+      if (shouldEvictFrontierForagedSource(next, now)) store.delete(id);
+      else store.put(next);
     }
     await done;
+    publishRosterChange();
   } catch {}
 }
 
@@ -275,9 +383,10 @@ export async function markFrontierForagedDomainProbed(domain: string, now = Date
     const db = await openForageDb();
     const transaction = db.transaction(DOMAIN_STORE, 'readwrite');
     const done = transactionDone(transaction);
-    const store = transaction.objectStore(DOMAIN_STORE);
-    const previous = await requestPromise(store.get(domain)) as FrontierForagedDomainObservation | undefined;
-    if (previous) store.put({ ...previous, lastProbedAt: now } satisfies FrontierForagedDomainObservation);
+    const store = transaction.objectStore(STORE);
+    const previous = await requestPromise(transaction.objectStore(DOMAIN_STORE).get(domain)) as FrontierForagedDomainObservation | undefined;
+    if (previous) transaction.objectStore(DOMAIN_STORE).put({ ...previous, lastProbedAt: now } satisfies FrontierForagedDomainObservation);
+    void store;
     await done;
   } catch {}
 }
