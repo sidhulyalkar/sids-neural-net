@@ -8,6 +8,7 @@ import {
   scheduleFrontierPrefetch,
   shouldPrefetchMedia,
 } from '@/lib/frontier/media/streamPrefetcher';
+import { resetFrontierScrollVelocity, setFrontierScrollVelocity } from '@/lib/frontier/vector/interactionPace';
 
 const HORIZON_MS = 300;
 const COOLDOWN_MS = 24_000;
@@ -90,6 +91,7 @@ export function usePredictivePrefetch(): void {
       const currentY = window.scrollY;
       const instant = (currentY - scrollY) / dt;
       scrollVelocity = scrollVelocity * 0.58 + instant * 0.42;
+      setFrontierScrollVelocity(scrollVelocity, now);
       scrollY = currentY;
       scrollAt = now;
       invalidate();
@@ -97,6 +99,7 @@ export function usePredictivePrefetch(): void {
 
     const onVisibility = () => {
       if (document.visibilityState === 'visible') invalidate();
+      else resetFrontierScrollVelocity();
     };
 
     window.addEventListener('pointermove', onPointerMove, { passive: true });
@@ -106,6 +109,7 @@ export function usePredictivePrefetch(): void {
 
     return () => {
       if (raf !== undefined) window.cancelAnimationFrame(raf);
+      resetFrontierScrollVelocity();
       window.removeEventListener('pointermove', onPointerMove);
       window.removeEventListener('scroll', onScroll);
       document.removeEventListener('visibilitychange', onVisibility);
