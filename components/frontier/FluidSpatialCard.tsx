@@ -1,6 +1,7 @@
 'use client';
 
 import type { ReactNode } from 'react';
+import { markFrontierItemSeen } from '@/lib/frontier/live/seenLedger';
 import type { FrontierItem } from '@/lib/frontier/types';
 import { FrontierInlineFocal } from './FrontierInlineFocal';
 import { InlineMediaSurface } from './media/InlineMediaSurface';
@@ -29,9 +30,15 @@ export function FluidSpatialCard({
   const interaction = useFluidInteraction({
     item,
     expanded,
-    onExpand,
+    onExpand: (next) => {
+      void markFrontierItemSeen(next, 'expand').catch(() => undefined);
+      onExpand(next);
+    },
     onCollapse,
-    onExternalOpen,
+    onExternalOpen: (next) => {
+      void markFrontierItemSeen(next, 'open').catch(() => undefined);
+      onExternalOpen?.(next);
+    },
   });
 
   return (
