@@ -4,6 +4,7 @@ import { FrontierExperience } from '@/components/frontier/FrontierExperience';
 import { FrontierRuntimeControls } from '@/components/frontier/FrontierRuntimeControls';
 import { SignalTelemetryBridge } from '@/components/frontier/signals/SignalTelemetryBridge';
 import { MeshStateBridge } from '@/components/frontier/sync/MeshStateBridge';
+import { FrontierAutonomyProvider } from '@/components/frontier/watch/FrontierAutonomyProvider';
 import spatial from '@/components/frontier/frontier-spatial.module.css';
 
 export const metadata: Metadata = {
@@ -39,7 +40,9 @@ export default function FrontierPage() {
       <BackgroundCanvas />
       <SignalTelemetryBridge />
       <MeshStateBridge />
-      <FrontierExperience initialDateLabel={initialDateLabel} initialDayKey={initialDayKey} />
+      <FrontierAutonomyProvider>
+        <FrontierExperience initialDateLabel={initialDateLabel} initialDayKey={initialDayKey} />
+      </FrontierAutonomyProvider>
       <FrontierRuntimeControls />
     </div>
   );
