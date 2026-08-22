@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { publishFrontierMeshProfileUpdate } from '@/lib/frontier/sync/meshProfileEvents';
 import { frontierVectorStore } from '@/lib/frontier/vector/vectorStore';
 import type { FrontierSequenceState } from '@/lib/frontier/vector/sequenceModel';
 import {
@@ -98,7 +99,9 @@ export function useFrontierMeshSync() {
       persistMeshState(merged);
       if (merged.sequence) {
         const sequence = deserializeSequenceState(merged.sequence.value);
-        void frontierVectorStore.setSequence(sequence).catch(() => undefined);
+        void frontierVectorStore.setSequence(sequence)
+          .then(() => publishFrontierMeshProfileUpdate())
+          .catch(() => undefined);
       }
       return merged;
     });
