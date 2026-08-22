@@ -16,6 +16,11 @@ const ROLE_TRANSITIONS=Object.freeze({
 const KINETIC_ROLE=Object.freeze({skimmer:'coverage',strider:'engage',sniper:'precision',shellback:'heavy'});
 const LEGACY_ROLE=Object.freeze({feller:'engage',foreman:'precision',lobbyist:'support',skidder:'engage',drone:'coverage',chair:'support',broker:'support',surveyor:'precision',mech:'heavy',mulcher:'coverage'});
 
+export const ROOM_PROFILE_TITLES=Object.freeze([
+  'Clearing','Road','Mud Bank','Slope','Wet Ground','Dense Growth','Bramble Line','Rubble Yard','Crossing','Surveyor',
+  'Lower Canopy','Channel','Roots','Dark Grove','Floodplain','Spore Field','Broken Bank','Upper Roots','Old Growth','Harvester',
+  'Access Road','Machine Yard','Burn Strip','Service Lane','Shard Field','Scrap Field','Heat Line','Loading Yard','Open Cut','Mulcher',
+]);
 const P=(gapMin,gapMax,budget,maxAttacks,restTicks,punishGraceTicks,accent)=>Object.freeze({gapMin,gapMax,budget,maxAttacks,restTicks,punishGraceTicks,accent});
 export const ROOM_THREAT_PROFILES=Object.freeze([
   P(12,12,3,2,24,12,'duet'),P(11,12,3,2,23,12,'lane'),P(11,12,3,2,22,12,'drag'),P(10,12,4,3,22,11,'bait'),P(10,11,4,3,21,11,'coverage'),
@@ -33,6 +38,7 @@ let punishGraceUntil=0,punishWindowActive=false;
 const MAX_RELEASE_LOG=48;
 
 function profileForDepth(depth=state.worldDepth||1){return ROOM_THREAT_PROFILES[Math.max(0,Math.min(ROOM_THREAT_PROFILES.length-1,(depth|0)-1))]}
+function profileTitleForDepth(depth=state.worldDepth||1){return ROOM_PROFILE_TITLES[Math.max(0,Math.min(ROOM_PROFILE_TITLES.length-1,(depth|0)-1))]}
 function allThreatActors(){const actors=[...state.enemies];if(state.boss&&!state.boss.dead)actors.push(state.boss);return actors}
 function roleFor(actor){if(actor&&actor===state.boss)return'heavy';return KINETIC_ROLE[actor?.kineticType]||LEGACY_ROLE[actor?.type]||'light'}
 function costFor(actor){return ROLE_COST[roleFor(actor)]??1}
@@ -89,7 +95,7 @@ function recordReleasedTelegraphs(){
     if(!item.armed||item.released)continue;const actor=item.actor;if(!actor||actor.dead)continue;
     if(isTelegraphing(actor)){
       item.released=true;clearActorReservation(actor);
-      releases.push({tick,id:item.id,role:item.role,cost:item.cost,requestTick:item.requestTick,slotTick:item.slotTick,gapTicks:item.gapTicks,roomDepth,phraseIndex,boss:actor===state.boss});
+      releases.push({tick,id:item.id,role:item.role,cost:item.cost,requestTick:item.requestTick,slotTick:item.slotTick,gapTicks:item.gapTicks,roomDepth,roomTitle:profileTitleForDepth(),phraseIndex,boss:actor===state.boss});
       if(releases.length>MAX_RELEASE_LOG)releases.shift();
     }
   }
@@ -119,9 +125,10 @@ const inheritedBoss=F.updateBoss;
 F.updateBoss=(dt)=>{const result=inheritedBoss(dt);recordReleasedTelegraphs();return result};
 
 window.SylvariaThreatManager=Object.freeze({
-  version:THREAT_MANAGER_VERSION,profiles:ROOM_THREAT_PROFILES,roleCost:ROLE_COST,transitions:ROLE_TRANSITIONS,roleFor,
+  version:THREAT_MANAGER_VERSION,profiles:ROOM_THREAT_PROFILES,profileTitles:ROOM_PROFILE_TITLES,roleCost:ROLE_COST,transitions:ROLE_TRANSITIONS,roleFor,
   snapshot:()=>({
-    version:THREAT_MANAGER_VERSION,roomDepth,tick,profile:profileForDepth(),gateTick,phraseStartTick,phraseCost,phraseAttacks,phraseIndex,lastRole,punishGraceUntil,punishWindowActive,
+    version:THREAT_MANAGER_VERSION,roomDepth,roomTitle:profileTitleForDepth(),profile:profileForDepth(),tick,gateTick,phraseStartTick,phraseCost,phraseAttacks,phraseIndex,lastRole,punishGraceUntil,punishWindowActive,
+    rosterTitle:state.room?.title||null,profileAligned:!state.room?.title||state.room.title===profileTitleForDepth(),
     queuedCost:pending.filter(item=>!item.armed&&!item.cancelled).reduce((sum,item)=>sum+item.cost,0),
     queue:pending.map(item=>({id:item.id,role:item.role,cost:item.cost,requestTick:item.requestTick,armed:item.armed,slotTick:item.slotTick,gapTicks:item.gapTicks,boss:item.actor===state.boss})),
     releases:[...releases],
