@@ -19,6 +19,10 @@ const REQUEST_TIMEOUT_MS = 8_000;
 const ARTICLE_REVISIT_COOLDOWN_MS = 6 * 60 * 60_000;
 const MAX_RECURRING_DOMAIN_PROBES = 2;
 
+type ParsePayload = Omit<Extract<FrontierForagerRequest, { type: 'parse' }>, 'requestId'>;
+type EvaluatePayload = Omit<Extract<FrontierForagerRequest, { type: 'evaluate' }>, 'requestId'>;
+type ForagerRequestPayload = ParsePayload | EvaluatePayload;
+
 type Pending = {
   resolve: (response: FrontierForagerResponse) => void;
   reject: (error: Error) => void;
@@ -107,7 +111,7 @@ export function useSourceForager() {
     }
   }, [failPending]);
 
-  const send = useCallback((request: Omit<FrontierForagerRequest, 'requestId'>, transfer: Transferable[] = []) => {
+  const send = useCallback((request: ForagerRequestPayload, transfer: Transferable[] = []) => {
     const worker = ensureWorker();
     if (!worker) return Promise.reject(new Error('source-forager worker unavailable'));
     const id = requestId();
@@ -118,7 +122,10 @@ export function useSourceForager() {
       }, REQUEST_TIMEOUT_MS);
       pendingRef.current.set(id, { resolve, reject, timer });
       try {
-        worker.postMessage({ ...request, requestId: id } satisfies FrontierForagerRequest, { transfer });
+        const message: FrontierForagerRequest = request.type === 'parse'
+          ? { ...request, requestId: id }
+          : { ...request, requestId: id };
+        worker.postMessage(message, { transfer });
       } catch (error) {
         window.clearTimeout(timer);
         pendingRef.current.delete(id);
@@ -146,9 +153,7 @@ export function useSourceForager() {
     }
   }, [parse]);
 
-  const evaluate = useCallback(async (
-    candidates: FrontierForageCandidate[]
-  ): Promise<FrontierForageEvaluation[]> => {
+  const evaluate = useCallback(async (candidates: FrontierForageCandidate[]): Promise<FrontierForageEvaluation[]> => {
     if (!candidates.length) return [];
     const sequence = await frontierVectorStore.getSequence().catch(() => undefined);
     if (!sequence?.interactions || !sequence.state?.length) return [];
@@ -165,12 +170,7 @@ export function useSourceForager() {
     if (!latent.length) return [];
     const activeState = sequence.state.slice().buffer as ArrayBuffer;
     const transfers: Transferable[] = [activeState, ...latent.map((entry) => entry.buffer)];
-    const response = await send({
-      type: 'evaluate',
-      candidates,
-      vectors: latent,
-      activeState,
-    }, transfers);
+    const response = await send({ type: 'evaluate', candidates, vectors: latent, activeState }, transfers);
     if (response.type !== 'evaluated') throw new Error('source-forager evaluation response mismatch');
     return response.evaluations;
   }, [embed, send]);
