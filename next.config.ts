@@ -2,6 +2,7 @@ import type { NextConfig } from 'next';
 
 const sylvariaAuthoritativeSources = [
   './public/game-runtimes/mosslight-v2/v091/model.js',
+  './public/game-runtimes/mosslight-v2/v011/rooms-v011.js',
   './public/game-runtimes/mosslight-v2/v091/world.js',
   './public/game-runtimes/mosslight-v2/v091/movement.js',
   './public/game-runtimes/mosslight-v2/v091/battle-core.js',
