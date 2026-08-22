@@ -104,11 +104,6 @@ function recencyScore(at: number, now: number, halfLifeMs: number): number {
   return Math.pow(0.5, age / Math.max(1, halfLifeMs));
 }
 
-/**
- * Retention combines source quality with usefulness and LRU recency. High-yield
- * sources can survive a quiet spell, while recently touched low-yield sources
- * receive only a small grace period rather than occupying the roster forever.
- */
 export function frontierForagedSourceRetentionScore(record: FrontierForagedSource, now = Date.now()): number {
   const usefulRecency = recencyScore(record.lastUsefulAt || record.discoveredAt, now, 14 * 86_400_000);
   const accessRecency = recencyScore(record.lastPolledAt || record.discoveredAt, now, 3 * 86_400_000);
@@ -120,11 +115,7 @@ export function frontierForagedSourceRetentionScore(record: FrontierForagedSourc
     - Math.min(1.2, record.consecutiveFailures * 0.16);
 }
 
-export function retainFrontierForagedSources(
-  records: FrontierForagedSource[],
-  max = FRONTIER_FORAGED_SOURCE_LIMIT,
-  now = Date.now()
-): FrontierForagedSource[] {
+export function retainFrontierForagedSources(records: FrontierForagedSource[], max = FRONTIER_FORAGED_SOURCE_LIMIT, now = Date.now()): FrontierForagedSource[] {
   return [...records]
     .sort((left, right) => frontierForagedSourceRetentionScore(right, now) - frontierForagedSourceRetentionScore(left, now)
       || right.lastUsefulAt - left.lastUsefulAt
@@ -135,7 +126,7 @@ export function retainFrontierForagedSources(
 async function allSources(db: IDBDatabase): Promise<FrontierForagedSource[]> {
   const transaction = db.transaction(SOURCE_STORE, 'readonly');
   const done = transactionDone(transaction);
-  const records = await requestPromise(transaction.objectStore(STORE).getAll()) as FrontierForagedSource[];
+  const records = await requestPromise(transaction.objectStore(SOURCE_STORE).getAll()) as FrontierForagedSource[];
   await done;
   return records;
 }
@@ -161,10 +152,7 @@ export async function listFrontierForagedSources(): Promise<FrontierForagedSourc
   }
 }
 
-export async function upsertFrontierForagedSources(
-  evaluations: FrontierForageEvaluation[],
-  now = Date.now()
-): Promise<FrontierForagedSource[]> {
+export async function upsertFrontierForagedSources(evaluations: FrontierForageEvaluation[], now = Date.now()): Promise<FrontierForagedSource[]> {
   const accepted = evaluations.filter((evaluation) => evaluation.accepted && evaluation.candidate.kind === 'feed');
   if (!accepted.length || typeof indexedDB === 'undefined') return [];
   try {
@@ -224,11 +212,7 @@ export async function readDueFrontierForagedSources(limit = 3, now = Date.now())
     .slice(0, Math.max(0, Math.min(6, limit)));
 }
 
-export async function recordFrontierForagedSourceYield(
-  id: string,
-  result: { discovered: number; unseen: number; success: boolean },
-  now = Date.now()
-): Promise<void> {
+export async function recordFrontierForagedSourceYield(id: string, result: { discovered: number; unseen: number; success: boolean }, now = Date.now()): Promise<void> {
   if (typeof indexedDB === 'undefined') return;
   try {
     const db = await openForageDb();
@@ -256,11 +240,7 @@ export async function recordFrontierForagedSourceYield(
   } catch {}
 }
 
-export async function noteFrontierForagedDomain(
-  domain: string,
-  contextText: string,
-  now = Date.now()
-): Promise<FrontierForagedDomainObservation | undefined> {
+export async function noteFrontierForagedDomain(domain: string, contextText: string, now = Date.now()): Promise<FrontierForagedDomainObservation | undefined> {
   const normalized = domain.trim().toLowerCase().replace(/^www\./, '').replace(/\.$/, '');
   if (!normalized || typeof indexedDB === 'undefined') return undefined;
   try {
