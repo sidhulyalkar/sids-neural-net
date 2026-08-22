@@ -40,9 +40,7 @@ for (const spec of engines) {
     const errors = [];
     page.on('pageerror', (error) => errors.push(error.message));
     await page.goto(`${baseUrl}/game-runtimes/mosslight-v2/index.html?record-parity=1`, { waitUntil: 'networkidle' });
-    await page.waitForFunction(() => window.__MOSSLIGHT_PLAYTEST__?.version === '0.10.0');
-    await page.evaluate(async () => { await import('/game-runtimes/mosslight-v2/v011/replay-v011.js'); });
-    await page.waitForFunction(() => window.SylvariaReplay?.version === '0.11.0');
+    await page.waitForFunction(() => window.__MOSSLIGHT_PLAYTEST__?.version === '0.11.1' && window.SylvariaReplay?.version === '0.11.1');
     await page.click('#start');
     await page.locator('#c').focus();
 
@@ -68,12 +66,18 @@ for (const spec of engines) {
         game: window.__MOSSLIGHT_PLAYTEST__.snapshot(),
       };
     });
+    if (browserResult.replay.version !== '0.11.1') throw new Error(`unexpected recorder version ${browserResult.replay.version}`);
+    if (!browserResult.replay.eligible) throw new Error(`recorder marked short parity run ineligible: ${browserResult.replay.overflowReason}`);
     if (browserResult.replay.eventCount < 9) throw new Error(`recorder captured too few inputs: ${browserResult.replay.eventCount}`);
     if (browserResult.replay.durationTicks < 40) throw new Error(`recorder captured too few ticks: ${browserResult.replay.durationTicks}`);
 
     node = simulateSylvariaReplay(browserResult.replay.events, browserResult.replay.durationTicks, { allowIncomplete: true });
     const b = browserResult.game;
     const mismatches = [];
+    if (b.version !== '0.11.1') mismatches.push(`browser game version ${b.version}`);
+    if (b.roomCount !== 30) mismatches.push(`browser roomCount ${b.roomCount}`);
+    if (b.room?.title !== 'Clearing') mismatches.push(`browser room title ${b.room?.title}`);
+    if (node.engineVersion !== '0.11.1') mismatches.push(`node engine version ${node.engineVersion}`);
     if (node.score !== Math.floor(b.score)) mismatches.push(`score ${b.score} != ${node.score}`);
     if (node.worldDepth !== b.worldDepth) mismatches.push(`worldDepth ${b.worldDepth} != ${node.worldDepth}`);
     for (const key of ['dashes', 'cuts', 'counters', 'perfectCounters', 'crosscuts', 'longReturns', 'grassCut', 'terrainRoutes', 'hazardKills']) {
@@ -93,11 +97,14 @@ for (const spec of engines) {
     report.push({
       name: spec.name,
       ok: true,
+      version: b.version,
+      room: b.room?.title,
       durationTicks: browserResult.replay.durationTicks,
       eventCount: browserResult.replay.eventCount,
       inputBytes: browserResult.replay.inputBytes,
       score: node.score,
       worldDepth: node.worldDepth,
+      engineHash: node.engineHash,
       stateHash: node.stateHash,
       browserPlayer: b.player,
       nodePlayer: node.player,
@@ -119,8 +126,8 @@ for (const spec of engines) {
 
 fs.writeFileSync(path.join(outputDir, 'report.json'), JSON.stringify(report, null, 2));
 if (failed) {
-  console.error('Sylvaria v0.11 browser ↔ Node replay parity failed');
+  console.error('Sylvaria v0.11.1 browser ↔ Node replay parity failed');
   for (const item of report.filter((entry) => !entry.ok)) console.error(` - ${item.name}: ${item.error}`);
   process.exit(1);
 }
-console.log(`Sylvaria v0.11 replay parity PASS: ${report.map((entry) => `${entry.name} ${entry.eventCount} events/${entry.durationTicks} ticks`).join(', ')} reproduced by the exact-source Node verifier.`);
+console.log(`Sylvaria v0.11.1 replay parity PASS: ${report.map((entry) => `${entry.name} ${entry.eventCount} events/${entry.durationTicks} ticks`).join(', ')} reproduced by the exact-source Node verifier with authored arena rules included in the engine hash.`);
