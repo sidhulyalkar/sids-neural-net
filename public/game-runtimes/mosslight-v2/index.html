@@ -41,10 +41,14 @@
       <p class="lede narrow">Move with WASD. Cut with the arrow keys. A correctly timed cut sends an incoming shot back. Terrain, breakable routes, mushrooms, and enemy behavior can all be used against each other.</p>
       <div class="menuActions">
         <button id="start" class="primary wide">start run</button>
-        <button id="explore" class="secondary wide">practice</button>
+        <button id="explore" class="secondary wide">learn controls</button>
         <div class="menuGrid"><button id="howBtn" class="ghost">how to play</button><button id="controlsBtn" class="ghost">controls</button></div>
       </div>
       <div id="bestRun" class="bestRun">best · no run yet</div>
+      <div id="rankPanel" class="rankPanel" hidden>
+        <div class="rankHead"><span>top verified runs</span><span id="rankSeason">ranked</span></div>
+        <ol id="rankRows"></ol>
+      </div>
       <p class="microcopy">The first 30 arenas are fixed and seeded. Learn the layouts, find useful side routes, and push deeper. After arena 30, the run continues into deterministic endless rooms.</p>
     </div>
   </div>
@@ -80,7 +84,7 @@
   </div>
 
   <div id="pauseScreen" class="screen hidden"><div class="panel subPanel"><div class="eyebrow">paused</div><h2>Pause</h2><div class="actions"><button id="resume" class="primary">resume</button></div></div></div>
-  <div id="gameOver" class="screen hidden"><div class="panel subPanel"><div class="eyebrow">run complete</div><h2 id="gameOverTitle">run over</h2><p id="gameOverSummary" class="lede"></p><div class="actions"><button id="restartRun" class="primary">run again</button><button id="menuFromGameOver" class="secondary">menu</button></div></div></div>
+  <div id="gameOver" class="screen hidden"><div class="panel subPanel resultPanel"><div class="eyebrow">run complete</div><h2 id="gameOverTitle">run over</h2><p id="gameOverSummary" class="lede"></p><div id="runDelta" class="runDelta"></div><div id="rankedSubmit" class="rankedSubmit" hidden><span id="rankedState">ranked replay ready</span><div class="rankForm"><input id="rankName" maxlength="24" autocomplete="nickname" spellcheck="false" aria-label="Leaderboard name" placeholder="name for leaderboard" /><button id="submitRank" class="secondary">post score</button></div></div><div class="actions"><button id="restartRun" class="primary">run again</button><button id="menuFromGameOver" class="secondary">menu</button></div></div></div>
 </div>
 <script src="/game-runtimes/game-network-bridge.js"></script>
 <script src="./render-scale-v7.js"></script>
