@@ -104,6 +104,16 @@ jobs:
           session="$(curl -fsS http://127.0.0.1:3000/api/auth/session)"
           echo "$session" | grep -q '"authenticated":false'
 
+      - name: Smoke FRONTIER media gateway boundaries
+        run: |
+          missing_status="$(curl -sS -o /tmp/frontier-media-missing.json -w '%{http_code}' http://127.0.0.1:3000/api/frontier/media)"
+          test "$missing_status" = "400"
+          grep -q 'missing media url' /tmp/frontier-media-missing.json
+
+          unsafe_status="$(curl -sS -o /tmp/frontier-media-unsafe.json -w '%{http_code}' 'http://127.0.0.1:3000/api/frontier/media?url=http%3A%2F%2F127.0.0.1%2Fprivate.png')"
+          test "$unsafe_status" = "403"
+          grep -q 'not trusted' /tmp/frontier-media-unsafe.json
+
       - name: Install smoke-test browser
         run: npx --yes playwright@1.55.0 install --with-deps chromium
 
