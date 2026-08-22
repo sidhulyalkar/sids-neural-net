@@ -1,0 +1,39 @@
+.scope :global(article h3),
+.scope :global(article p) {
+  transition: font-size 240ms ease, line-height 240ms ease, margin 240ms ease;
+}
+
+.scope[data-density='scan'] :global(article h3) {
+  font-size: 94%;
+  line-height: 1.13;
+}
+
+.scope[data-density='scan'] :global(article p) {
+  font-size: 94%;
+  line-height: 1.42;
+}
+
+.scope[data-density='scan'] :global(article [class*='highlightBlock']),
+.scope[data-density='scan'] :global(article [class*='feedActions']) {
+  margin-top: 8px;
+}
+
+.scope[data-density='deep'] :global(article h3) {
+  font-size: 104%;
+  line-height: 1.24;
+}
+
+.scope[data-density='deep'] :global(article p) {
+  font-size: 103%;
+  line-height: 1.68;
+}
+
+.scope[data-density='deep'] :global(article [class*='highlightBlock']),
+.scope[data-density='deep'] :global(article [class*='feedActions']) {
+  margin-top: 16px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .scope :global(article h3),
+  .scope :global(article p) { transition: none; }
+}
