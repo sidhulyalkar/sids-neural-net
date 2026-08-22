@@ -114,14 +114,20 @@ jobs:
           test "$unsafe_status" = "403"
           grep -q 'not trusted' /tmp/frontier-media-unsafe.json
 
+      - name: Smoke FRONTIER ingestion boundaries
+        run: |
+          unsupported_status="$(curl -sS -o /tmp/frontier-ingest-unsupported.json -w '%{http_code}' 'http://127.0.0.1:3000/api/frontier/ingest?source=not-a-source')"
+          test "$unsupported_status" = "400"
+          grep -q 'unsupported FRONTIER source' /tmp/frontier-ingest-unsupported.json
+
       - name: Install smoke-test browser
         run: npx --yes playwright@1.55.0 install --with-deps chromium
 
       - name: Capture production browser fixtures
         run: |
           mkdir -p artifacts/browser-smoke
-          npx --yes playwright@1.55.0 screenshot --browser=chromium --viewport-size="1440,1100" --full-page http://127.0.0.1:3000/frontier artifacts/browser-smoke/frontier-desktop.png
-          npx --yes playwright@1.55.0 screenshot --browser=chromium --viewport-size="390,844" --full-page http://127.0.0.1:3000/frontier artifacts/browser-smoke/frontier-mobile.png
+          npx --yes playwright@1.55.0 screenshot --browser=chromium --wait-for-timeout 6000 --viewport-size="1440,1100" --full-page http://127.0.0.1:3000/frontier artifacts/browser-smoke/frontier-desktop.png
+          npx --yes playwright@1.55.0 screenshot --browser=chromium --wait-for-timeout 6000 --viewport-size="390,844" --full-page http://127.0.0.1:3000/frontier artifacts/browser-smoke/frontier-mobile.png
           npx --yes playwright@1.55.0 screenshot --browser=chromium --viewport-size="1440,1100" --full-page http://127.0.0.1:3000/physiology/visual-audit artifacts/browser-smoke/nature-atlas-desktop.png
           npx --yes playwright@1.55.0 screenshot --browser=chromium --viewport-size="390,844" --full-page http://127.0.0.1:3000/physiology/visual-audit artifacts/browser-smoke/nature-atlas-mobile.png
           npx --yes playwright@1.55.0 screenshot --browser=chromium --viewport-size="1440,1000" http://127.0.0.1:3000/neural-net artifacts/browser-smoke/neural-net.png
