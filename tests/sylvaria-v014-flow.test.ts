@@ -8,8 +8,11 @@ const source = readFileSync(
   'utf8',
 );
 const DT = 1 / 120;
+const DECAY = 0.90483742;
 const near = (actual: number, expected: number, epsilon = 1e-12) =>
   assert.ok(Math.abs(actual - expected) <= epsilon, `${actual} != ${expected}`);
+const solvedOpeningSpeed = (distance: number, ticks: number) =>
+  distance * (1 - DECAY) / (DT * (1 - DECAY ** ticks));
 
 test('v0.14 buffers blade intent instead of violating the four-tick dash commitment', () => {
   assert.match(source, /bladeBuffer:7\/120/);
@@ -27,10 +30,12 @@ test('late recovery input has a deterministic seven-tick grace window', () => {
   assert.match(source, /p\.bladeQueuedDirection=null;p\.bladeBuffer=0;F\.cut\(direction\)/);
 });
 
-test('committed dash steering rotates the dash direction without changing scalar decay math', () => {
+test('committed dash steering rotates direction without injecting ordinary glide speed', () => {
   assert.match(source, /dashSteerBlend:\.055/);
   assert.match(source, /function steerCommittedDash/);
   assert.match(source, /p\.dash\.dir=\{x:steered\.x,y:steered\.y\}/);
+  assert.match(source, /if\(dashRef\)state\.heldMoves=new Set\(\)/);
+  assert.match(source, /finally\{if\(dashRef\)state\.heldMoves=held\}/);
   assert.doesNotMatch(source, /p\.dash\.speed\s*=/);
 
   let x = 1;
@@ -44,6 +49,19 @@ test('committed dash steering rotates the dash direction without changing scalar
   }
   assert.ok(x > 0.9, `six ticks should preserve dash commitment, x=${x}`);
   assert.ok(y > 0.25, `six ticks should permit visible course correction, y=${y}`);
+});
+
+test('v0.14 exposes the real geometric opening-speed envelope instead of stale legacy speed labels', () => {
+  assert.match(source, /DASH_SPEED_ENVELOPE/);
+  assert.match(source, /neutralMin:solvedOpeningSpeed/);
+  assert.match(source, /neutralMax:solvedOpeningSpeed/);
+  assert.match(source, /lastDashAccuracy/);
+  assert.match(source, /pathTravel:q\(dashRef\.v014PathTravel\|\|0\)/);
+
+  const min = solvedOpeningSpeed(78, 12);
+  const max = solvedOpeningSpeed(154, 22);
+  assert.ok(min > 1274 && min < 1275, `unexpected minimum opening speed ${min}`);
+  assert.ok(max > 1977 && max < 1979, `unexpected maximum opening speed ${max}`);
 });
 
 test('Flow improves tempo without widening the five-tick parry window', () => {
