@@ -13,6 +13,14 @@ type Pending = {
   reject: (error: Error) => void;
 };
 
+const EMPTY_FEATURES: FrontierSignalFeatures = {
+  load: 0,
+  mean: 0,
+  standardDeviation: 0,
+  derivativeRms: 0,
+  sampleCount: 0,
+};
+
 function requestId(): string {
   return `signal-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 }
@@ -20,13 +28,7 @@ function requestId(): string {
 export function useSignalProcessor() {
   const workerRef = useRef<Worker | null>(null);
   const pendingRef = useRef(new Map<string, Pending>());
-  const [features, setFeatures] = useState<FrontierSignalFeatures>({
-    load: 0,
-    mean: 0,
-    standardDeviation: 0,
-    derivativeRms: 0,
-    sampleCount: 0,
-  });
+  const [features, setFeatures] = useState<FrontierSignalFeatures>(EMPTY_FEATURES);
 
   const ensureWorker = useCallback(() => {
     if (workerRef.current) return workerRef.current;
@@ -64,7 +66,7 @@ export function useSignalProcessor() {
   }, []);
 
   const push = useCallback((values: ArrayLike<number>): Promise<FrontierSignalFeatures> => {
-    if (!values.length) return Promise.resolve(features);
+    if (!values.length) return Promise.resolve(EMPTY_FEATURES);
     const worker = ensureWorker();
     const copy = Float32Array.from(values);
     const buffer = copy.buffer as ArrayBuffer;
@@ -73,7 +75,7 @@ export function useSignalProcessor() {
       pendingRef.current.set(id, { resolve, reject });
       worker.postMessage({ type: 'samples', requestId: id, values: buffer }, [buffer]);
     });
-  }, [ensureWorker, features]);
+  }, [ensureWorker]);
 
   const reset = useCallback(() => {
     const worker = ensureWorker();
