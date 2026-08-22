@@ -3,20 +3,21 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover" />
-<meta name="theme-color" content="#050807" />
-<title>Sylvaria</title>
+<meta name="theme-color" content="#07130f" />
+<title>Sylvaria · Frog Pond</title>
 <link rel="stylesheet" href="./sylvaria-v8.css" />
 <link rel="stylesheet" href="./sylvaria-minimal-v011.css" />
+<link rel="stylesheet" href="./sylvaria-pond-v012.css" />
 </head>
 <body>
 <div id="game">
-  <canvas id="c" width="960" height="640" tabindex="0" aria-label="Sylvaria directional forest combat game"></canvas>
+  <canvas id="c" width="960" height="640" tabindex="0" aria-label="Sylvaria frog pond action game"></canvas>
   <div id="hud" class="hidden" aria-hidden="true">
     <div id="top">
       <div id="roomCard" class="glass">
-        <div id="roomKicker">01 / forest</div>
-        <div id="roomTitle">Clearing</div>
-        <div id="roomTask">Move first. Cut incoming shots back.</div>
+        <div id="roomKicker">01 / pond</div>
+        <div id="roomTitle">Lily Clearing</div>
+        <div id="roomTask">Move first. Tongue-slap incoming attacks back.</div>
         <div id="biomeBadge"></div>
       </div>
       <div id="stats" class="runStats">
@@ -26,8 +27,8 @@
       </div>
     </div>
     <div id="runRail" class="glass">
-      <div><b>trees</b><span id="treeState">5/5</span></div>
-      <div><b>status</b><span id="fieldState">none</span></div>
+      <div><b>lilies</b><span id="treeState">5/5</span></div>
+      <div><b>status</b><span id="fieldState">clear</span></div>
       <div id="targetWrap" hidden><b>target</b><span id="targetState"></span></div>
       <div id="bossWrap" hidden><b>boss</b><span id="bossState"></span></div>
       <span class="telemetryHidden" aria-hidden="true"><span id="flowState">0%</span><span id="dashState">48px</span><span id="terrainState">ground</span><span id="counterState">0</span><span id="returnState">0/0</span><span id="grazeState">0</span></span>
@@ -37,9 +38,9 @@
 
   <div id="title" class="screen">
     <div class="panel menuPanel">
-      <div class="eyebrow">v0.11.1 · 30 fixed arenas</div>
+      <div class="eyebrow">v0.12 · frog pond presentation</div>
       <h1><em class="sylvariaWord">Sylvaria</em></h1>
-      <p class="lede narrow">Move with WASD. Cut with the arrow keys. A correctly timed cut sends an incoming shot back. Terrain, breakable routes, mushrooms, and enemy behavior can all be used against each other.</p>
+      <p class="lede narrow">A fast pond run about a frog, hungry insects, and one very useful tongue. Move with WASD. Slap with the arrow keys. Catch an incoming attack at the right moment to send it back.</p>
       <div class="menuActions">
         <button id="start" class="primary wide">start run</button>
         <button id="explore" class="secondary wide">learn controls</button>
@@ -50,19 +51,19 @@
         <div class="rankHead"><span>top verified runs</span><span id="rankSeason">ranked</span></div>
         <ol id="rankRows"></ol>
       </div>
-      <p class="microcopy">The first 30 arenas are fixed and seeded. Learn the layouts, find useful side routes, and push deeper. After arena 30, the run continues into deterministic endless rooms.</p>
+      <p class="microcopy">Thirty fixed pond arenas reward learning layouts and insect behavior. Reeds, mud, water, algae, poison, driftwood, and optional side routes can help or trap either side. After pond 30, the same verified run continues into deterministic endless rooms.</p>
     </div>
   </div>
 
   <div id="howScreen" class="screen hidden">
     <div class="panel subPanel">
       <div class="eyebrow">how to play</div>
-      <h2>Simple inputs. Difficult rooms.</h2>
+      <h2>Move. Slap. Eat the opening.</h2>
       <div class="howGrid">
-        <div><b>Move</b><p>WASD commits to a short cardinal dash. One extra direction can stay queued while the current dash finishes.</p></div>
-        <div><b>Cut / reflect</b><p>Arrow keys cut in four directions. Cut toward the side an incoming shot reaches you from to send it back. Precise timing makes the return faster.</p></div>
-        <div><b>Use the room</b><p>Mud, water, ice, bramble, rubble, grass, poison, and breakable routes affect both sides. Later arenas are built around combining these rules.</p></div>
-        <div><b>Explore</b><p>Deadwood, grass, rubble, and mushrooms can reveal healing, speed, shield, reach, flow, or poison. These are temporary choices, not permanent upgrades.</p></div>
+        <div><b>Move</b><p>WASD commits the frog to a short cardinal burst. One extra direction can stay queued while the current move finishes.</p></div>
+        <div><b>Tongue slap / reflect</b><p>Arrow keys snap the tongue in four directions. Meet an incoming attack from the side it reaches you and the slap sends it back. Precise timing makes the return faster.</p></div>
+        <div><b>Use the pond</b><p>Mud, shallow water, slick algae, dense reeds, shell beds, poison, and breakable cover affect both sides. Harder ponds combine several at once.</p></div>
+        <div><b>Explore</b><p>Reeds, driftwood, stones, and mushrooms can open optional routes or temporary healing, speed, shield, reach, and flow effects. They never replace the core movement-and-reflect game.</p></div>
       </div>
       <div class="actions"><button class="secondary" data-back>back</button></div>
     </div>
@@ -73,13 +74,13 @@
       <div class="eyebrow">controls</div>
       <h2>Eight combat keys.</h2>
       <div class="bindingGrid">
-        <div><span>move north</span><b>W</b></div><div><span>cut up</span><b>↑</b></div>
-        <div><span>move south</span><b>S</b></div><div><span>cut down</span><b>↓</b></div>
-        <div><span>move west</span><b>A</b></div><div><span>cut left</span><b>←</b></div>
-        <div><span>move east</span><b>D</b></div><div><span>cut right</span><b>→</b></div>
+        <div><span>move north</span><b>W</b></div><div><span>tongue up</span><b>↑</b></div>
+        <div><span>move south</span><b>S</b></div><div><span>tongue down</span><b>↓</b></div>
+        <div><span>move west</span><b>A</b></div><div><span>tongue left</span><b>←</b></div>
+        <div><span>move east</span><b>D</b></div><div><span>tongue right</span><b>→</b></div>
         <div><span>pause / resume</span><b>P</b></div><div><span>mute / unmute</span><b>M</b></div>
       </div>
-      <p class="microcopy">Movement and cutting are independent. The simulation owns held-key cadence and ignores operating-system key repeat.</p>
+      <p class="microcopy">Movement and tongue attacks remain independent. The simulation owns held-key cadence and ignores operating-system key repeat.</p>
       <div class="actions"><button class="secondary" data-back>back</button></div>
     </div>
   </div>
@@ -91,6 +92,6 @@
 <script src="./render-scale-v7.js"></script>
 <script src="./render-optimizer-v6.js"></script>
 <script src="./v091/fullscreen.js"></script>
-<script type="module" src="./v011-entry.js"></script>
+<script type="module" src="./v012-entry.js"></script>
 </body>
 </html>
