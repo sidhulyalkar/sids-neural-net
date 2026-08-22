@@ -13,6 +13,7 @@ const near = (actual: number, expected: number, epsilon = 1e-12) =>
   assert.ok(Math.abs(actual - expected) <= epsilon, `${actual} != ${expected}`);
 const solvedOpeningSpeed = (distance: number, ticks: number) =>
   distance * (1 - DECAY) / (DT * (1 - DECAY ** ticks));
+const smoothstep = (t: number) => t * t * (3 - 2 * t);
 
 test('v0.14 buffers blade intent instead of violating the four-tick dash commitment', () => {
   assert.match(source, /bladeBuffer:7\/120/);
@@ -60,17 +61,24 @@ test('committed dash steering rotates direction without injecting ordinary glide
   assert.ok(y > 0.25, `six ticks should permit visible course correction, y=${y}`);
 });
 
-test('v0.14 exposes the real geometric opening-speed envelope instead of stale legacy speed labels', () => {
+test('v0.14 reports the player-reachable dash envelope rather than dormant zero-charge endpoints', () => {
+  assert.match(source, /minimumReleaseCharge:\.12/);
+  assert.match(source, /DASH_DISTANCE_ENVELOPE/);
   assert.match(source, /DASH_SPEED_ENVELOPE/);
-  assert.match(source, /neutralMin:solvedOpeningSpeed/);
-  assert.match(source, /neutralMax:solvedOpeningSpeed/);
+  assert.match(source, /tapMin:TAP_DASH\.distance/);
+  assert.match(source, /fullMax:FULL_DASH\.distance/);
   assert.match(source, /lastDashAccuracy/);
   assert.match(source, /pathTravel:q\(dashRef\.v014PathTravel\|\|0\)/);
 
-  const min = solvedOpeningSpeed(78, 12);
-  const max = solvedOpeningSpeed(154, 22);
-  assert.ok(min > 1274 && min < 1275, `unexpected minimum opening speed ${min}`);
-  assert.ok(max > 1977 && max < 1979, `unexpected maximum opening speed ${max}`);
+  const curve = smoothstep(0.12);
+  const tapDistance = 78 + (154 - 78) * curve;
+  const tapTicks = Math.round(12 + (22 - 12) * curve);
+  const tapSpeed = solvedOpeningSpeed(tapDistance, tapTicks);
+  const fullSpeed = solvedOpeningSpeed(154, 22);
+  near(tapDistance, 81.020544);
+  assert.equal(tapTicks, 12);
+  assert.ok(tapSpeed > 1323 && tapSpeed < 1325, `unexpected tap opening speed ${tapSpeed}`);
+  assert.ok(fullSpeed > 1977 && fullSpeed < 1979, `unexpected full opening speed ${fullSpeed}`);
 });
 
 test('Flow improves tempo without widening the five-tick parry window', () => {
