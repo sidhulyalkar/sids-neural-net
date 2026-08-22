@@ -1,6 +1,14 @@
 'use client';
 
 import { mediaDecodeScale } from '@/lib/frontier/media/capabilities';
+import {
+  configureWideGamutDrawingBuffer,
+  FRONTIER_MEDIA_FRAGMENT_SHADER,
+  FRONTIER_MEDIA_VERTEX_SHADER,
+  frontierWebGlContextAttributes,
+  nativeMediaDpr,
+  shouldUseBicubicUpscale,
+} from '@/lib/frontier/media/mediaShader';
 import { FrontierMediaScheduler, type FrontierMediaPriority } from '@/lib/frontier/media/scheduler';
 import { frontierMediaTelemetry } from '@/lib/frontier/media/telemetry';
 import { FrontierTextureCache } from '@/lib/frontier/media/textureCache';
@@ -41,24 +49,6 @@ type PendingDecode = {
 const TEXTURE_RELEASE_DELAY_MS = 12_000;
 const FAILED_RETRY_MS = 45_000;
 
-const VERTEX_SHADER = `#version 300 es
-in vec2 a_position;
-in vec2 a_uv;
-out vec2 v_uv;
-void main() {
-  gl_Position = vec4(a_position, 0.0, 1.0);
-  v_uv = a_uv;
-}`;
-
-const FRAGMENT_SHADER = `#version 300 es
-precision mediump float;
-uniform sampler2D u_texture;
-in vec2 v_uv;
-out vec4 outColor;
-void main() {
-  outColor = texture(u_texture, v_uv);
-}`;
-
 function compileShader(gl: WebGL2RenderingContext, type: number, source: string): WebGLShader {
   const shader = gl.createShader(type);
   if (!shader) throw new Error('Unable to create WebGL shader');
@@ -75,8 +65,8 @@ function compileShader(gl: WebGL2RenderingContext, type: number, source: string)
 function createProgram(gl: WebGL2RenderingContext): WebGLProgram {
   const program = gl.createProgram();
   if (!program) throw new Error('Unable to create WebGL program');
-  const vertex = compileShader(gl, gl.VERTEX_SHADER, VERTEX_SHADER);
-  const fragment = compileShader(gl, gl.FRAGMENT_SHADER, FRAGMENT_SHADER);
+  const vertex = compileShader(gl, gl.VERTEX_SHADER, FRONTIER_MEDIA_VERTEX_SHADER);
+  const fragment = compileShader(gl, gl.FRAGMENT_SHADER, FRONTIER_MEDIA_FRAGMENT_SHADER);
   gl.attachShader(program, vertex);
   gl.attachShader(program, fragment);
   gl.linkProgram(program);
@@ -192,6 +182,16 @@ class FrontierImagePlane {
     return () => this.unregister(input.id);
   }
 
+  warm(id: string): void {
+    const registration = this.registrations.get(id);
+    if (!registration || this.destroyed) return;
+    if (registration.releaseTimer !== undefined) {
+      window.clearTimeout(registration.releaseTimer);
+      registration.releaseTimer = undefined;
+    }
+    this.ensureTexture(registration);
+  }
+
   private unregister(id: string): void {
     const registration = this.registrations.get(id);
     if (!registration) return;
@@ -223,14 +223,9 @@ class FrontierImagePlane {
         zIndex: '42',
         contain: 'strict',
       });
-      const gl = canvas.getContext('webgl2', {
-        alpha: true,
-        antialias: false,
-        depth: false,
-        stencil: false,
-        powerPreference: 'high-performance',
-      });
+      const gl = canvas.getContext('webgl2', frontierWebGlContextAttributes());
       if (!gl) throw new Error('WebGL2 unavailable');
+      configureWideGamutDrawingBuffer(gl);
 
       const program = createProgram(gl);
       const buffer = gl.createBuffer();
@@ -327,9 +322,9 @@ class FrontierImagePlane {
     if (rect.width < 2 || rect.height < 2) return;
 
     const scale = mediaDecodeScale();
-    const dpr = Math.min(window.devicePixelRatio || 1, 1.75);
-    const width = Math.max(32, Math.min(1920, Math.round(rect.width * dpr * scale)));
-    const height = Math.max(24, Math.min(1280, Math.round(rect.height * dpr * scale)));
+    const dpr = nativeMediaDpr(2.5);
+    const width = Math.max(32, Math.min(2560, Math.round(rect.width * dpr * scale)));
+    const height = Math.max(24, Math.min(1600, Math.round(rect.height * dpr * scale)));
     const textureKey = `${registration.src}|${width}x${height}`;
     if (!forceResize && registration.textureKey === textureKey && this.cache.has(textureKey)) return;
     if (registration.textureKey && registration.textureKey !== textureKey) this.releaseRegistrationTexture(registration);
@@ -472,13 +467,14 @@ class FrontierImagePlane {
     const cache = this.cache;
     if (!canvas || !gl || !program || !buffer || !cache || !this.gpuAvailable) return;
 
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const dpr = nativeMediaDpr(2.5);
     const pixelWidth = Math.max(1, Math.floor(window.innerWidth * dpr));
     const pixelHeight = Math.max(1, Math.floor(window.innerHeight * dpr));
     if (canvas.width !== pixelWidth || canvas.height !== pixelHeight) {
       canvas.width = pixelWidth;
       canvas.height = pixelHeight;
       cache.setBudget(gpuBudgetBytes());
+      configureWideGamutDrawingBuffer(gl);
     }
 
     gl.viewport(0, 0, canvas.width, canvas.height);
@@ -491,10 +487,14 @@ class FrontierImagePlane {
 
     const positionLocation = gl.getAttribLocation(program, 'a_position');
     const uvLocation = gl.getAttribLocation(program, 'a_uv');
+    const sourceSizeLocation = gl.getUniformLocation(program, 'u_sourceSize');
+    const bicubicLocation = gl.getUniformLocation(program, 'u_useBicubic');
+    const textureLocation = gl.getUniformLocation(program, 'u_texture');
     gl.enableVertexAttribArray(positionLocation);
     gl.enableVertexAttribArray(uvLocation);
     gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 16, 0);
     gl.vertexAttribPointer(uvLocation, 2, gl.FLOAT, false, 16, 8);
+    gl.uniform1i(textureLocation, 0);
 
     for (const registration of this.registrations.values()) {
       if (!registration.near || !registration.textureKey) continue;
@@ -522,6 +522,11 @@ class FrontierImagePlane {
       gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STREAM_DRAW);
       gl.activeTexture(gl.TEXTURE0);
       gl.bindTexture(gl.TEXTURE_2D, entry.texture);
+      gl.uniform2f(sourceSizeLocation, entry.width, entry.height);
+      gl.uniform1f(
+        bicubicLocation,
+        shouldUseBicubicUpscale(entry.width, entry.height, rect.width, rect.height, dpr) ? 1 : 0
+      );
       gl.drawArrays(gl.TRIANGLES, 0, 6);
     }
   }
@@ -579,4 +584,8 @@ export function registerFrontierGpuImage(input: {
   if (typeof window === 'undefined') return () => undefined;
   if (!sharedPlane || sharedPlane.isDestroyed()) sharedPlane = new FrontierImagePlane();
   return sharedPlane.register(input);
+}
+
+export function warmFrontierGpuImage(id: string): void {
+  sharedPlane?.warm(id);
 }
