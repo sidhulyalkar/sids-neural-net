@@ -86,7 +86,7 @@ export function SignalBoard({
   appendStable = false,
   streamEpoch = 0,
   onNearEnd,
-  synthesis = true,
+  synthesis,
 }: Props) {
   usePredictivePrefetch();
   const density = useAdaptiveReadingDensity();
@@ -112,8 +112,12 @@ export function SignalBoard({
     explorationTemperature,
     diversityReference,
   });
+  // Live boards opt into presentation synthesis by virtue of appendStable.
+  // Saved/collection boards remain literal unless a caller explicitly opts in,
+  // so a convergence collapse can never make a saved item appear to vanish.
+  const synthesisEnabled = synthesis ?? appendStable;
   const presentationItems = useFrontierSynthesis(semantic.items, {
-    enabled: synthesis,
+    enabled: synthesisEnabled,
     vectorEpoch: semantic.indexed,
   });
 
