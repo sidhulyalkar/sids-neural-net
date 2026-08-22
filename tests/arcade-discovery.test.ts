@@ -210,9 +210,11 @@ test('v0.10 browser/combat validation keeps the four-engine queue gauntlet and a
   const workflow = readRepoFile('.github/workflows/ci.yml');
   const browserTest = readRepoFile('scripts/playtest-sylvaria-browsers.mjs');
   const combatTest = readRepoFile('scripts/playtest-sylvaria-countercut.mjs');
+  const synergyTest = readRepoFile('scripts/playtest-sylvaria-synergy.mjs');
   assert.match(workflow, /playwright@1\.55\.0 install chrome/);
   assert.match(workflow, /Chrome Stable Chromium Firefox and WebKit/);
   assert.match(workflow, /profile:sylvaria/);
+  assert.match(workflow, /playtest-sylvaria-synergy\.mjs/);
   assert.match(browserTest, /name:'chrome-stable'/);
   assert.match(browserTest, /channel:'chrome'/);
   assert.match(browserTest, /0\.10\.0/);
@@ -221,12 +223,15 @@ test('v0.10 browser/combat validation keeps the four-engine queue gauntlet and a
   assert.match(browserTest, /ecologicalSynergy/);
   assert.match(browserTest, /verdantFlow/);
   assert.match(combatTest, /labEnemyTravel/);
-  assert.match(combatTest, /mushroomReturns/);
-  assert.match(combatTest, /gasShears/);
-  assert.match(combatTest, /hazardScoreAt/);
-  assert.match(combatTest, /bossBulldozes/);
-  assert.match(combatTest, /verdantTimer/);
+  assert.match(combatTest, /iceFractures/);
+  assert.match(combatTest, /hazardKills/);
   assert.match(combatTest, /1040|1000/);
+  assert.match(synergyTest, /mushroomReturns/);
+  assert.match(synergyTest, /gasShears/);
+  assert.match(synergyTest, /hazardScoreAt/);
+  assert.match(synergyTest, /bossBulldozes/);
+  assert.match(synergyTest, /verdantTimer/);
+  assert.match(synergyTest, /threatTti/);
 });
 
 test('the embedded Stretchicorn release is complete', () => {
