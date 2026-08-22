@@ -4,6 +4,10 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { Maximize2, Minimize2, Pause, Play, Volume2, VolumeX } from 'lucide-react';
 import { canPlayNativeHls, shouldAutoplayMedia, supportsMediaSource } from '@/lib/frontier/media/capabilities';
 import { FrontierMseController } from '@/lib/frontier/media/mse';
+import {
+  prewarmFrontierVideoStream,
+  registerFrontierPrefetchTarget,
+} from '@/lib/frontier/media/streamPrefetcher';
 import { frontierMediaTelemetry } from '@/lib/frontier/media/telemetry';
 import type { FrontierVideoStream } from '@/lib/frontier/types';
 import { GpuImageSurface } from './GpuImageSurface';
@@ -64,6 +68,17 @@ export function AdaptiveVideoSurface({ id, url, poster, alt, streams, onUnavaila
   const [failed, setFailed] = useState(false);
   const streamCandidates = useMemo(() => orderedStreams(streams), [streams]);
   const mountedPlayer = visibility !== 'off' || expanded;
+
+  useEffect(() => {
+    const node = shellRef.current;
+    if (!node) return;
+    return registerFrontierPrefetchTarget({
+      id: `video:${id}`,
+      kind: 'video',
+      node,
+      warm: () => prewarmFrontierVideoStream(streamCandidates[0], url),
+    });
+  }, [id, streamCandidates, url]);
 
   const elevateVirtualBoundary = useCallback(() => {
     if (boundaryRestoreTimer.current !== undefined) {
