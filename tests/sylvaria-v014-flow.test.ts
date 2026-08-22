@@ -8,6 +8,8 @@ const source = readFileSync(
   'utf8',
 );
 const DT = 1 / 120;
+const near = (actual: number, expected: number, epsilon = 1e-12) =>
+  assert.ok(Math.abs(actual - expected) <= epsilon, `${actual} != ${expected}`);
 
 test('v0.14 buffers blade intent instead of violating the four-tick dash commitment', () => {
   assert.match(source, /bladeBuffer:7\/120/);
@@ -15,8 +17,8 @@ test('v0.14 buffers blade intent instead of violating the four-tick dash commitm
   assert.match(source, /p\.dash\?\.reactive&&p\.dash\.elapsedTicks<FLOW_CONFIG\.dashCommitTicks/);
   assert.match(source, /if\(preCommit\)return queueBlade\(direction\)/);
   assert.match(source, /if\(p\.dash\?\.reactive&&p\.dash\.elapsedTicks<FLOW_CONFIG\.dashCommitTicks\)return false/);
-  assert.equal(4 * DT, 1 / 30);
-  assert.equal(7 * DT, 7 / 120);
+  near(4 * DT, 1 / 30);
+  near(7 * DT, 7 / 120);
 });
 
 test('late recovery input has a deterministic seven-tick grace window', () => {
@@ -52,8 +54,8 @@ test('Flow improves tempo without widening the five-tick parry window', () => {
 
   const baseRecovery = 10 * DT;
   const fullFlowRecovery = 7 * DT;
-  assert.equal(baseRecovery - fullFlowRecovery, 3 * DT);
-  assert.equal(12 * DT, 0.1);
+  near(baseRecovery - fullFlowRecovery, 3 * DT);
+  near(12 * DT, 0.1);
 });
 
 test('flow layer remains fixed-step deterministic and contains no browser-clock gameplay APIs', () => {
