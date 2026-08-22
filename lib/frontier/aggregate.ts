@@ -3,6 +3,7 @@ import { getActiveSportsFeed } from './activeSportsSources';
 import { normalizeFeedToEnglish } from './english';
 import { getAdaptiveLiveDiscovery } from './liveDiscovery';
 import { getPersonalFrontierFeed } from './personalSources';
+import { getMultiSourceFrontierFeed } from './sourceIngestor';
 import { getFrontierFeed } from './sources';
 import type { FrontierFeedResponse, FrontierItem, FrontierSourceStatus } from './types';
 
@@ -66,17 +67,18 @@ function recentSnapshotItems(): FrontierItem[] {
 
 export async function getIntegratedFrontierFeed(options: IntegratedOptions = {}): Promise<FrontierFeedResponse> {
   const focusTopics = Array.from(new Set((options.focusTopics ?? []).map((topic) => topic.trim()).filter(Boolean))).slice(0, 10);
-  const [baseResult, personalResult, activeSportsResult, adaptiveResult] = await Promise.allSettled([
+  const [baseResult, personalResult, activeSportsResult, adaptiveResult, multiSourceResult] = await Promise.allSettled([
     getFrontierFeed(),
     getPersonalFrontierFeed(),
     getActiveSportsFeed(),
     focusTopics.length ? getAdaptiveLiveDiscovery(focusTopics) : Promise.resolve({ generatedAt: new Date().toISOString(), items: [], sources: [] }),
+    getMultiSourceFrontierFeed(focusTopics),
   ]);
 
-  // Focused live discovery intentionally precedes the broad meshes. If two
-  // adapters find the same URL, the focused result keeps the learned topic tag
-  // and request-time freshness evidence that caused it to be queried.
-  const orderedResults = [adaptiveResult, baseResult, activeSportsResult, personalResult];
+  // Focused discovery and the multi-source research/code mesh intentionally
+  // precede broad sources. If adapters converge on the same URL, the richer
+  // request-time normalization survives deduplication.
+  const orderedResults = [adaptiveResult, multiSourceResult, baseResult, activeSportsResult, personalResult];
   const liveFeeds = orderedResults.flatMap((result) => result.status === 'fulfilled' ? [result.value] : []);
   const liveItems = dedupe(liveFeeds.flatMap((feed) => feed.items)).sort((a, b) => b.baseScore - a.baseScore);
 
@@ -85,7 +87,7 @@ export async function getIntegratedFrontierFeed(options: IntegratedOptions = {})
     ? []
     : recentSnapshotItems().filter((item) => !liveKeys.has(canonicalKey(item)) && !liveKeys.has(item.title.toLowerCase()));
 
-  const candidateItems = [...liveItems, ...archive].slice(0, 240);
+  const candidateItems = [...liveItems, ...archive].slice(0, 280);
   const items = await normalizeFeedToEnglish(candidateItems);
   const sources = mergeStatuses(liveFeeds.flatMap((feed) => feed.sources));
 
@@ -93,6 +95,7 @@ export async function getIntegratedFrontierFeed(options: IntegratedOptions = {})
   if (personalResult.status === 'rejected') sources.push({ id: 'local', label: 'Personal mesh', ok: false, count: 0, message: 'personal live source mesh unavailable' });
   if (activeSportsResult.status === 'rejected') sources.push({ id: 'local', label: 'Active sports mesh', ok: false, count: 0, message: 'active sports source mesh unavailable' });
   if (adaptiveResult.status === 'rejected' && focusTopics.length) sources.push({ id: 'gdelt', label: 'Adaptive live mesh', ok: false, count: 0, message: 'focused request-time discovery unavailable' });
+  if (multiSourceResult.status === 'rejected') sources.push({ id: 'local', label: 'Research ingestion mesh', ok: false, count: 0, message: 'multi-source ingestion unavailable' });
 
   return { generatedAt: new Date().toISOString(), items, sources: mergeStatuses(sources) };
 }
