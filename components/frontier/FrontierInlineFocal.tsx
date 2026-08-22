@@ -3,6 +3,8 @@
 import { ExternalLink } from 'lucide-react';
 import { frontierFocalTakeaways } from '@/lib/frontier/synthesis/artifactExtractor';
 import type { FrontierItem } from '@/lib/frontier/types';
+import { FrontierScientificArtifactPlanes } from './artifactRenderer';
+import { LocalConvergenceSynthesis } from './LocalConvergenceSynthesis';
 import styles from './frontier-inline-focal.module.css';
 
 type Props = {
@@ -15,6 +17,7 @@ export function FrontierInlineFocal({ item }: Props) {
     <section className={styles.inline} aria-label={`Expanded view: ${item.title}`}>
       <div className={styles.copy}>
         {item.summary ? <p className={styles.summary}>{item.summary}</p> : null}
+        <FrontierScientificArtifactPlanes text={item.summary} />
         {takeaways.length ? (
           <div className={styles.takeaways} aria-label="Key takeaways">
             {takeaways.map((takeaway) => <p key={takeaway}>{takeaway}</p>)}
@@ -32,6 +35,8 @@ export function FrontierInlineFocal({ item }: Props) {
       </div>
 
       <div className={styles.evidence}>
+        {item.convergence?.members.length ? <LocalConvergenceSynthesis item={item} /> : null}
+
         {item.artifacts?.length ? (
           <div className={styles.artifacts} aria-label="Extracted artifacts">
             {item.artifacts.slice(0, 6).map((artifact, index) => artifact.url ? (
@@ -55,7 +60,7 @@ export function FrontierInlineFocal({ item }: Props) {
         {item.convergence?.members.length ? (
           <div className={styles.sources} aria-label="Converging sources">
             <div className={styles.sectionLabel}>Converging sources</div>
-            {item.convergence.members.slice(0, 8).map((member) => (
+            {item.convergence.members.slice(0, 8).map((member, index) => (
               <a
                 href={member.url}
                 target="_blank"
@@ -63,7 +68,7 @@ export function FrontierInlineFocal({ item }: Props) {
                 data-frontier-fluid-native="true"
                 key={`${member.id}-${member.url}`}
               >
-                <span>{member.sourceLabel}</span>
+                <span>[S{index + 1}] · {member.sourceLabel}</span>
                 <strong>{member.title}</strong>
               </a>
             ))}
