@@ -10,10 +10,11 @@ import {
   recordViewUse,
   startBehaviorSession,
 } from './behavior';
-import { applyReactionToProfile } from './scoring';
 import { createInitialProfile, DEFAULT_COLLECTIONS } from './config';
-import { emitFrontierSemanticTelemetry } from './vector/telemetryEngine';
-import { frontierVectorStore } from './vector/vectorStore';
+import { clearFrontierForagedSources } from './forage/sourceRoster';
+import { applyReactionToProfile } from './scoring';
+import { clearFrontierVelocityHistory } from './synthesis/velocityEngine';
+import { clearFrontierTrajectories } from './trajectory/contextTrajectories';
 import type {
   FrontierBehaviorModel,
   FrontierCollection,
@@ -26,6 +27,10 @@ import type {
   FrontierReaction,
   FrontierView,
 } from './types';
+import { emitFrontierSemanticTelemetry } from './vector/telemetryEngine';
+import { frontierVectorStore } from './vector/vectorStore';
+import { clearFrontierAvoidAnchors } from './watch/avoidEngine';
+import { clearFrontierWatchIntents } from './watch/intentEngine';
 
 const STORAGE_KEY = 'frontier-personal-radar-v1';
 const STATE_VERSION = 2;
@@ -289,18 +294,31 @@ export const useFrontierStore = create<FrontierStore>()(
         const fresh = { ...createInitialBehaviorModel(), implicitLearning: enabled };
         set({ behavior: enabled ? startBehaviorSession(fresh) : fresh });
         void frontierVectorStore.clear().catch(() => undefined);
+        void clearFrontierTrajectories();
+        void clearFrontierVelocityHistory();
+        void clearFrontierForagedSources();
       },
 
       importBackup: (payload) => {
         const parsed = migrateState(payload);
         if (!parsed) return false;
         set({ ...parsed, hydrated: true });
+        // Backups predate the independent fast-trajectory and velocity stores.
+        // Clear inferred derivatives so the imported profile is not combined
+        // with stale local momentum from the previously loaded profile.
+        void clearFrontierTrajectories();
+        void clearFrontierVelocityHistory();
         return true;
       },
 
       resetFrontier: () => {
         set({ ...initialState(), hydrated: true });
         void frontierVectorStore.clear().catch(() => undefined);
+        void clearFrontierTrajectories();
+        void clearFrontierVelocityHistory();
+        void clearFrontierForagedSources();
+        void clearFrontierAvoidAnchors();
+        void clearFrontierWatchIntents();
       },
     }),
     {
