@@ -20,7 +20,7 @@ function createRecorderHarness() {
     updateMovement() {},
     endRun() {},
   };
-  const window: Record<string, any> = { Sylvaria091: { fn: F, state } };
+  const window: Record<string, any> = { Sylvaria091: { fn: F, state }, addEventListener() {} };
   const sandbox = {
     window,
     document,
@@ -34,9 +34,9 @@ function createRecorderHarness() {
     btoa(value: string) { return Buffer.from(value, 'binary').toString('base64'); },
   };
   vm.runInNewContext(
-    readFileSync(join(process.cwd(), 'public/game-runtimes/mosslight-v2/v011/replay-v011.js'), 'utf8'),
+    readFileSync(join(process.cwd(), 'public/game-runtimes/mosslight-v2/v013/replay-v013.js'), 'utf8'),
     sandbox,
-    { filename: 'replay-v011.js' },
+    { filename: 'replay-v013.js' },
   );
   F.setupRoom(1);
   const dispatch = (type: string, event: Record<string, unknown> = {}) => {
@@ -45,17 +45,28 @@ function createRecorderHarness() {
   return { window, document, dispatch };
 }
 
-test('browser replay recorder stops allocating at 20,000 gameplay events', () => {
+test('v0.13 browser replay recorder stops allocating at 24,000 gameplay events', () => {
   const harness = createRecorderHarness();
-  for (let index = 0; index < 20_001; index += 1) {
+  for (let index = 0; index < 24_001; index += 1) {
     harness.dispatch('keydown', { key: 'ArrowUp', repeat: false });
   }
   const snapshot = harness.window.SylvariaReplay.snapshot();
-  assert.equal(snapshot.eventCount, 20_000);
+  assert.equal(snapshot.version, '0.13.0');
+  assert.equal(snapshot.schema, 2);
+  assert.equal(snapshot.eventCount, 24_000);
   assert.equal(snapshot.eligible, false);
   assert.equal(snapshot.active, false);
   assert.equal(snapshot.overflowReason, 'input event limit');
-  assert.deepEqual({ ...snapshot.limits }, { events: 20_000, ticks: 144_000, bytes: 120 * 1024 });
+  assert.deepEqual({ ...snapshot.limits }, { events: 24_000, ticks: 144_000, bytes: 128 * 1024 });
+});
+
+test('v0.13 records Space charge and release as deterministic actions 12 and 13', () => {
+  const harness = createRecorderHarness();
+  harness.dispatch('keydown', { key: ' ', code: 'Space', repeat: false });
+  harness.dispatch('keyup', { key: ' ', code: 'Space' });
+  const snapshot = harness.window.SylvariaReplay.snapshot();
+  assert.deepEqual(snapshot.events.map((event: { action: number }) => event.action), [12, 13]);
+  assert.equal(snapshot.eligible, true);
 });
 
 test('ranked replay capture becomes ineligible when the document is hidden', () => {
