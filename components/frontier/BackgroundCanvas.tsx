@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from 'react';
 import { FRONTIER_AMBIENT_EXPLORATION_EVENT } from '@/lib/frontier/ambientState';
+import { FRONTIER_AUDIO_MOMENTUM_EVENT, type FrontierAudioBands } from '@/lib/frontier/audio/audioReactivity';
 import styles from './frontier-ambient.module.css';
 
 const VERTEX_SHADER = `#version 300 es
@@ -20,17 +21,18 @@ out vec4 outColor;
 uniform vec2 u_resolution;
 uniform float u_time;
 uniform float u_exploration;
+uniform float u_audioMomentum;
 
-float fluidField(vec2 p, float time, float exploration) {
-  float frequency = mix(1.35, 2.75, exploration);
-  float speed = mix(0.065, 0.13, exploration);
+float fluidField(vec2 p, float time, float exploration, float audioMomentum) {
+  float frequency = mix(1.35, 2.75, exploration) + audioMomentum * 0.22;
+  float speed = mix(0.065, 0.13, exploration) * (1.0 + audioMomentum * 0.24);
   vec2 q = p;
-  q.x += 0.22 * sin(p.y * (1.7 + exploration) + time * speed);
-  q.y += 0.18 * cos(p.x * (1.35 + exploration * 0.9) - time * speed * 0.82);
+  q.x += (0.22 + audioMomentum * 0.025) * sin(p.y * (1.7 + exploration) + time * speed);
+  q.y += (0.18 + audioMomentum * 0.018) * cos(p.x * (1.35 + exploration * 0.9) - time * speed * 0.82);
 
   float a = sin((q.x + q.y * 0.63) * frequency + time * speed * 0.7);
   float b = cos((q.y - q.x * 0.48) * (frequency * 1.21) - time * speed * 0.93);
-  float c = sin(length(q + vec2(0.45, -0.2)) * (2.7 + exploration * 1.9) - time * speed * 0.54);
+  float c = sin(length(q + vec2(0.45, -0.2)) * (2.7 + exploration * 1.9 + audioMomentum * 0.3) - time * speed * 0.54);
   return (a + b + c) / 3.0;
 }
 
@@ -39,15 +41,15 @@ void main() {
   vec2 p = uv * 2.0 - 1.0;
   p.x *= u_resolution.x / max(1.0, u_resolution.y);
 
-  float field = fluidField(p, u_time, u_exploration);
-  float contours = 0.5 + 0.5 * sin(field * mix(5.0, 8.2, u_exploration));
+  float field = fluidField(p, u_time, u_exploration, u_audioMomentum);
+  float contours = 0.5 + 0.5 * sin(field * (mix(5.0, 8.2, u_exploration) + u_audioMomentum * 0.34));
   float vignette = smoothstep(1.45, 0.22, length(p * vec2(0.72, 0.92)));
-  float energy = mix(0.26, 0.48, u_exploration) * vignette;
+  float energy = (mix(0.26, 0.48, u_exploration) + u_audioMomentum * 0.055) * vignette;
 
   vec3 base = vec3(0.012, 0.019, 0.016);
   vec3 cool = vec3(0.018, 0.033, 0.028);
   vec3 tint = mix(base, cool, (0.22 + contours * 0.38) * energy);
-  float breathing = 0.0035 * sin(u_time * 0.055 + field * 1.6);
+  float breathing = (0.0035 + u_audioMomentum * 0.0018) * sin(u_time * (0.055 + u_audioMomentum * 0.018) + field * 1.6);
   tint += breathing * vec3(0.72, 1.0, 0.88);
 
   outColor = vec4(tint, 1.0);
@@ -62,6 +64,7 @@ type Uniforms = {
   resolution: WebGLUniformLocation | null;
   time: WebGLUniformLocation | null;
   exploration: WebGLUniformLocation | null;
+  audioMomentum: WebGLUniformLocation | null;
 };
 
 function clamp01(value: number): number {
@@ -102,6 +105,7 @@ function link(gl: WebGL2RenderingContext): WebGLProgram {
 export function BackgroundCanvas({ explorationVector }: Props) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const targetExplorationRef = useRef(clamp01(explorationVector ?? 0.34));
+  const targetAudioRef = useRef(0);
   const controlledRef = useRef(explorationVector !== undefined);
 
   useEffect(() => {
@@ -134,10 +138,12 @@ export function BackgroundCanvas({ explorationVector }: Props) {
       resolution: gl.getUniformLocation(program, 'u_resolution'),
       time: gl.getUniformLocation(program, 'u_time'),
       exploration: gl.getUniformLocation(program, 'u_exploration'),
+      audioMomentum: gl.getUniformLocation(program, 'u_audioMomentum'),
     };
 
     const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     let displayedExploration = targetExplorationRef.current;
+    let displayedAudio = 0;
     let timeout: number | undefined;
     let frame: number | undefined;
     let stopped = false;
@@ -165,11 +171,15 @@ export function BackgroundCanvas({ explorationVector }: Props) {
       displayedExploration = reducedMotion
         ? targetExplorationRef.current
         : displayedExploration + (targetExplorationRef.current - displayedExploration) * 0.075;
+      displayedAudio = reducedMotion
+        ? 0
+        : displayedAudio + (targetAudioRef.current - displayedAudio) * 0.22;
 
       gl.useProgram(program);
       gl.uniform2f(uniforms.resolution, canvas.width, canvas.height);
       gl.uniform1f(uniforms.time, reducedMotion ? 0 : now / 1000);
       gl.uniform1f(uniforms.exploration, displayedExploration);
+      gl.uniform1f(uniforms.audioMomentum, displayedAudio);
       gl.drawArrays(gl.TRIANGLES, 0, 3);
       lastRender = now;
 
@@ -198,6 +208,12 @@ export function BackgroundCanvas({ explorationVector }: Props) {
       if (reducedMotion) requestDraw();
     };
 
+    const onAudioMomentum = (event: Event) => {
+      const detail = (event as CustomEvent<FrontierAudioBands>).detail;
+      if (!detail || !Number.isFinite(detail.momentum)) return;
+      targetAudioRef.current = reducedMotion ? 0 : clamp01(detail.momentum);
+    };
+
     const onResize = () => requestDraw();
     const onVisibility = () => {
       if (document.visibilityState === 'visible') requestDraw();
@@ -210,6 +226,7 @@ export function BackgroundCanvas({ explorationVector }: Props) {
     };
 
     window.addEventListener(FRONTIER_AMBIENT_EXPLORATION_EVENT, onExploration);
+    window.addEventListener(FRONTIER_AUDIO_MOMENTUM_EVENT, onAudioMomentum);
     window.addEventListener('resize', onResize, { passive: true });
     document.addEventListener('visibilitychange', onVisibility);
     canvas.addEventListener('webglcontextlost', onContextLost, false);
@@ -220,6 +237,7 @@ export function BackgroundCanvas({ explorationVector }: Props) {
       if (timeout !== undefined) window.clearTimeout(timeout);
       if (frame !== undefined) window.cancelAnimationFrame(frame);
       window.removeEventListener(FRONTIER_AMBIENT_EXPLORATION_EVENT, onExploration);
+      window.removeEventListener(FRONTIER_AUDIO_MOMENTUM_EVENT, onAudioMomentum);
       window.removeEventListener('resize', onResize);
       document.removeEventListener('visibilitychange', onVisibility);
       canvas.removeEventListener('webglcontextlost', onContextLost);
@@ -227,5 +245,12 @@ export function BackgroundCanvas({ explorationVector }: Props) {
     };
   }, []);
 
-  return <canvas ref={canvasRef} className={styles.canvas} aria-hidden="true" />;
+  return (
+    <canvas
+      ref={canvasRef}
+      className={styles.canvas}
+      data-frontier-audio-reactive="true"
+      aria-hidden="true"
+    />
+  );
 }
