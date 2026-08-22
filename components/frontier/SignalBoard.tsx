@@ -2,6 +2,7 @@
 
 import type { ReactNode } from 'react';
 import type { FrontierItem, FrontierLayoutMode } from '@/lib/frontier/types';
+import { usePredictivePrefetch } from './media/usePredictivePrefetch';
 import styles from './frontier-minimal.module.css';
 import perf from './signal-board-performance.module.css';
 
@@ -16,6 +17,8 @@ type Props = {
 };
 
 export function SignalBoard({ items, mode, renderCard, empty, compact = false }: Props) {
+  usePredictivePrefetch();
+
   return (
     <div className={styles.boardShell}>
       {!items.length ? empty : mode === 'feed' ? (
