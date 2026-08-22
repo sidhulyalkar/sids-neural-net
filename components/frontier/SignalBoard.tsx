@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { ambientExplorationVector, emitFrontierAmbientExploration } from '@/lib/frontier/ambientState';
 import { FRONTIER_PINNED_TOPICS } from '@/lib/frontier/interests';
@@ -11,12 +11,13 @@ import {
 import type { FrontierItem, FrontierLayoutMode } from '@/lib/frontier/types';
 import { FRONTIER_CLIENT_QUERY_EVENT, getFrontierClientQuery } from '@/lib/frontier/vector/clientQuery';
 import { useUIFrequencies } from './audio/useUIFrequencies';
-import { FrontierFocalPlane } from './FrontierFocalPlane';
+import { FluidSpatialCard } from './FluidSpatialCard';
 import { FrontierIntelligenceBadges } from './FrontierIntelligenceBadges';
 import { usePredictivePrefetch } from './media/usePredictivePrefetch';
 import { useFrontierSynthesis } from './synthesis/useFrontierSynthesis';
 import { useAdaptiveReadingDensity } from './useAdaptiveReadingDensity';
 import { useSemanticReranker } from './vector/useSemanticReranker';
+import { useSpatialFlip } from './useSpatialFlip';
 import densityStyles from './frontier-adaptive-density.module.css';
 import styles from './frontier-minimal.module.css';
 import spatial from './frontier-spatial-feed.module.css';
@@ -36,6 +37,8 @@ type Props = {
   streamEpoch?: number;
   onNearEnd?: () => void;
   synthesis?: boolean;
+  onFluidExpand?: (item: FrontierItem) => void;
+  onFluidExternalOpen?: (item: FrontierItem) => void;
 };
 
 const SEMANTIC_COLD_START = FRONTIER_PINNED_TOPICS
@@ -87,17 +90,21 @@ export function SignalBoard({
   streamEpoch = 0,
   onNearEnd,
   synthesis,
+  onFluidExpand,
+  onFluidExternalOpen,
 }: Props) {
   usePredictivePrefetch();
   const density = useAdaptiveReadingDensity();
   const { playSearchResolved } = useUIFrequencies();
+  const boardRef = useRef<HTMLDivElement | null>(null);
+  const { captureSpatialFlip, playSpatialFlip, cancelSpatialFlip } = useSpatialFlip(boardRef);
   const resolvedSoundQuery = useRef('');
   const endSentinel = useRef<HTMLDivElement | null>(null);
   const nearEndAt = useRef(0);
   const hoveredRef = useRef<FrontierItem | undefined>(undefined);
   const [query, setQuery] = useState(() => getFrontierClientQuery());
   const [stableOrder, setStableOrder] = useState<string[]>([]);
-  const [focalItem, setFocalItem] = useState<FrontierItem>();
+  const [expandedItemId, setExpandedItemId] = useState<string>();
 
   useEffect(() => {
     const update = (event: Event) => setQuery((event as CustomEvent<string>).detail ?? '');
@@ -123,6 +130,7 @@ export function SignalBoard({
 
   useEffect(() => {
     setStableOrder([]);
+    setExpandedItemId(undefined);
   }, [streamEpoch]);
 
   useEffect(() => {
@@ -154,10 +162,33 @@ export function SignalBoard({
   }, [appendStable, presentationItems, stableOrder]);
 
   useEffect(() => {
+    if (expandedItemId && !displayedItems.some((item) => item.id === expandedItemId)) setExpandedItemId(undefined);
+  }, [displayedItems, expandedItemId]);
+
+  const expandInline = useCallback((item: FrontierItem) => {
+    if (expandedItemId === item.id) return;
+    captureSpatialFlip();
+    setExpandedItemId(item.id);
+    onFluidExpand?.(item);
+  }, [captureSpatialFlip, expandedItemId, onFluidExpand]);
+
+  const collapseInline = useCallback((item: FrontierItem) => {
+    if (expandedItemId !== item.id) return;
+    captureSpatialFlip();
+    setExpandedItemId(undefined);
+  }, [captureSpatialFlip, expandedItemId]);
+
+  useLayoutEffect(() => {
+    playSpatialFlip();
+  }, [expandedItemId, playSpatialFlip]);
+
+  useEffect(() => cancelSpatialFlip, [cancelSpatialFlip]);
+
+  useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       const action = resolveFrontierFocalKeyboardIntent({
         key: event.key,
-        open: Boolean(focalItem),
+        open: Boolean(expandedItemId),
         hasHoveredItem: Boolean(hoveredRef.current),
         typing: isFrontierTypingTarget(event.target),
         metaKey: event.metaKey,
@@ -166,15 +197,16 @@ export function SignalBoard({
       });
       if (action === 'open' && hoveredRef.current) {
         event.preventDefault();
-        setFocalItem(hoveredRef.current);
-      } else if (action === 'close') {
+        expandInline(hoveredRef.current);
+      } else if (action === 'close' && expandedItemId) {
         event.preventDefault();
-        setFocalItem(undefined);
+        const item = displayedItems.find((candidate) => candidate.id === expandedItemId);
+        if (item) collapseInline(item);
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [focalItem]);
+  }, [collapseInline, displayedItems, expandInline, expandedItemId]);
 
   const itemSignature = useMemo(() => displayedItems.map((item) => item.id).join('|'), [displayedItems]);
   const explorationVector = useMemo(() => ambientExplorationVector(displayedItems), [displayedItems]);
@@ -216,53 +248,70 @@ export function SignalBoard({
 
   return (
     <div
+      ref={boardRef}
       className={`${styles.boardShell} ${spatial.board} ${densityStyles.scope}`}
       data-vector-backend={semantic.backend}
       data-exploration={explorationVector.toFixed(3)}
       data-density={density}
+      data-fluid-expanded={expandedItemId ? 'true' : 'false'}
     >
       {!displayedItems.length ? empty : mode === 'feed' ? (
         <div className={`${styles.readingFeed} ${spatial.feed}`}>
           {displayedItems.map((item) => (
-            <div
+            <FluidSpatialCard
               key={item.id}
-              data-frontier-virtual-card
-              data-frontier-priority={item.highPriority ? 'true' : undefined}
-              data-frontier-velocity={item.velocitySignal ? 'true' : undefined}
+              item={item}
+              expanded={expandedItemId === item.id}
+              onExpand={expandInline}
+              onCollapse={collapseInline}
+              onExternalOpen={onFluidExternalOpen}
               className={`${styles.feedItem} ${spatial.feedItem} ${item.highPriority ? spatial.priorityFeedItem : ''} ${item.velocitySignal ? spatial.velocityItem : ''} ${perf.virtualItem} ${perf.feedVirtualItem}`}
-              {...hoverProps(item)}
             >
-              <PriorityMarker item={item} />
-              <VelocityMarker item={item} />
-              <FrontierIntelligenceBadges item={item} />
-              <span className={spatial.focalHint} aria-hidden="true">Space · quick view</span>
-              {renderCard(item, 'feed')}
-            </div>
+              <div
+                data-frontier-virtual-card
+                data-frontier-priority={item.highPriority ? 'true' : undefined}
+                data-frontier-velocity={item.velocitySignal ? 'true' : undefined}
+                {...hoverProps(item)}
+              >
+                <PriorityMarker item={item} />
+                <VelocityMarker item={item} />
+                <FrontierIntelligenceBadges item={item} />
+                <span className={spatial.focalHint} aria-hidden="true">click focus · 2× source</span>
+                {renderCard(item, 'feed')}
+              </div>
+            </FluidSpatialCard>
           ))}
           <div ref={endSentinel} aria-hidden="true" style={{ height: 1 }} />
         </div>
       ) : (
         <div className={`${styles.signalGrid} ${spatial.grid} ${compact ? styles.signalGridCompact : ''}`}>
           {displayedItems.map((item) => (
-            <div
+            <FluidSpatialCard
               key={item.id}
-              data-frontier-virtual-card
-              data-frontier-priority={item.highPriority ? 'true' : undefined}
-              data-frontier-velocity={item.velocitySignal ? 'true' : undefined}
+              item={item}
+              expanded={expandedItemId === item.id}
+              onExpand={expandInline}
+              onCollapse={collapseInline}
+              onExternalOpen={onFluidExternalOpen}
               className={`${styles.gridItem} ${spatial.item} ${item.highPriority ? spatial.priorityItem : ''} ${item.velocitySignal ? spatial.velocityItem : ''} ${perf.virtualItem}`}
-              {...hoverProps(item)}
             >
-              <PriorityMarker item={item} />
-              <VelocityMarker item={item} />
-              <FrontierIntelligenceBadges item={item} />
-              <span className={spatial.focalHint} aria-hidden="true">Space · quick view</span>
-              {renderCard(item, 'desk')}
-            </div>
+              <div
+                data-frontier-virtual-card
+                data-frontier-priority={item.highPriority ? 'true' : undefined}
+                data-frontier-velocity={item.velocitySignal ? 'true' : undefined}
+                {...hoverProps(item)}
+              >
+                <PriorityMarker item={item} />
+                <VelocityMarker item={item} />
+                <FrontierIntelligenceBadges item={item} />
+                <span className={spatial.focalHint} aria-hidden="true">click focus · 2× source</span>
+                {renderCard(item, 'desk')}
+              </div>
+            </FluidSpatialCard>
           ))}
           <div ref={endSentinel} aria-hidden="true" style={{ height: 1 }} />
         </div>
       )}
-      <FrontierFocalPlane item={focalItem} onClose={() => setFocalItem(undefined)} />
     </div>
   );
 }
