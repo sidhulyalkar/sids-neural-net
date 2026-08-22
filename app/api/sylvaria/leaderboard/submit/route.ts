@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
 import {
+  assertSylvariaReplayFitsTicketWindow,
   claimSylvariaRunTicket,
   createSylvariaAcceptedRunProof,
 } from '../../../../../src/lib/sylvaria/leaderboard';
@@ -55,7 +56,6 @@ export async function POST(request: Request) {
   const engineHash = sylvariaAuthoritativeEngineHash();
 
   try {
-    // Claim first: one ranked-run ticket authorizes one verification attempt.
     const ticket = await claimSylvariaRunTicket({
       token: body.ticket,
       secret: config.leaderboardSecret,
@@ -70,6 +70,7 @@ export async function POST(request: Request) {
       envelope.engineHash !== ticket.engineHash ||
       envelope.seed !== ticket.seed
     ) throw new Error('Replay identity does not match ranked-run ticket');
+    assertSylvariaReplayFitsTicketWindow(ticket, envelope.durationTicks);
 
     const verified = verifySylvariaReplay(envelope, body.claimedScore);
     const replayBytes = sylvariaReplayBytesFromBase64Url(envelope.input);
