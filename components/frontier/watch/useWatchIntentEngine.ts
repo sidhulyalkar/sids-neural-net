@@ -11,7 +11,6 @@ import {
   putFrontierWatchIntent,
   removeFrontierWatchIntent,
   setFrontierWatchIntentActive,
-  type FrontierIntentEmbeddingBackend,
   type FrontierWatchIntent,
 } from '@/lib/frontier/watch/intentEngine';
 import type { FrontierItem } from '@/lib/frontier/types';
@@ -36,8 +35,10 @@ function fingerprint(item: FrontierItem): string {
 
 function stripWatchSignal(item: FrontierItem): FrontierItem {
   if (!item.highPriority && !item.watchSignal) return item;
-  const { highPriority: _highPriority, watchSignal: _watchSignal, ...rest } = item;
-  return rest;
+  const next = { ...item };
+  delete next.highPriority;
+  delete next.watchSignal;
+  return next;
 }
 
 export function useWatchIntentEngine() {
@@ -121,9 +122,8 @@ export function useWatchIntentEngine() {
         return !cached || cached.fingerprint !== fingerprint(item);
       });
 
-      let embedded: Awaited<ReturnType<typeof embedDetailed>> | undefined;
       if (missing.length) {
-        embedded = await embedDetailed(missing.map((item) => ({ id: item.id, text: embeddingText(item) })));
+        const embedded = await embedDetailed(missing.map((item) => ({ id: item.id, text: embeddingText(item) })));
         scoringBackend = scoringBackend ?? embedded.backend;
         for (const item of missing) {
           const vector = embedded.vectors.get(item.id);
@@ -143,8 +143,9 @@ export function useWatchIntentEngine() {
     if (!scoringBackend) return items.map(stripWatchSignal);
     let compatible = active.filter((intent) => intent.embeddingBackend === scoringBackend);
     if (compatible.length !== active.length) {
+      const targetBackend = scoringBackend;
       migrationRef.current = migrationRef.current.then(async () => {
-        compatible = await migrateBackend(active, scoringBackend!);
+        compatible = await migrateBackend(active, targetBackend);
       }).catch(() => undefined);
       await migrationRef.current;
     }
