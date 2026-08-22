@@ -42,11 +42,13 @@ test('the three ten-room acts tighten cadence and raise simultaneous phrase capa
   assert.ok(average(acts[0], 'maxAttacks') < average(acts[2], 'maxAttacks'));
 });
 
-test('call-and-response role ordering prevents repeated coverage from dominating a phrase', () => {
+test('call-and-response selection is recomputed on every legal beat from the live pending queue', () => {
   assert.match(source, /coverage:Object\.freeze\(\['engage','precision','support','heavy','coverage'\]\)/);
   assert.match(source, /engage:Object\.freeze\(\['precision','coverage','support','heavy','engage'\]\)/);
   assert.match(source, /precision:Object\.freeze\(\['engage','coverage','heavy','support','precision'\]\)/);
-  assert.match(source, /while\(unscheduled\.length\)\{\s*unscheduled\.sort\(candidateSort\)/);
+  assert.match(source, /eligible\.sort\(candidateSort\);const item=eligible\[0\]/);
+  assert.match(source, /tick<Math\.max\(gateTick,punishGraceUntil\)/);
+  assert.match(source, /holdWaitingThreats/);
 });
 
 test('threat cost and phrase budget distinguish coverage engage precision heavy and support pressure', () => {
@@ -55,22 +57,24 @@ test('threat cost and phrase budget distinguish coverage engage precision heavy 
   assert.match(source, /precision:2/);
   assert.match(source, /heavy:3/);
   assert.match(source, /support:1/);
-  assert.match(source, /phraseCost\+item\.cost>profile\.budget/);
+  assert.match(source, /const remaining=profile\.budget-phraseCost/);
+  assert.match(source, /waiting\.filter\(item=>item\.cost<=remaining\)/);
   assert.match(source, /phraseAttacks>=profile\.maxAttacks/);
-  assert.match(source, /nextSlotTick\+profile\.restTicks/);
+  assert.match(source, /tick\+profile\.restTicks/);
 });
 
 test('melee feller commitments and bosses share the same threat queue as projectile roles', () => {
   assert.match(source, /feller:'engage'/);
   assert.match(source, /if\(state\.boss&&!state\.boss\.dead\)actors\.push\(state\.boss\)/);
-  assert.match(source, /if\(e&&e===state\.boss\)return'heavy'/);
+  assert.match(source, /if\(actor&&actor===state\.boss\)return'heavy'/);
   assert.match(source, /const inheritedBoss=F\.updateBoss/);
   assert.match(source, /F\.updateBoss=\(dt\)=>\{const result=inheritedBoss\(dt\);recordReleasedTelegraphs\(\);return result\}/);
 });
 
 test('post-evade vulnerability opens one fixed scheduler grace edge without deleting existing projectiles', () => {
   assert.match(source, /if\(open&&!punishWindowActive\)/);
-  assert.match(source, /pushQueuePastGrace\(punishGraceUntil\)/);
+  assert.match(source, /punishGraceUntil=Math\.max\(punishGraceUntil,tick\+profile\.punishGraceTicks\)/);
+  assert.match(source, /gateTick=Math\.max\(gateTick,punishGraceUntil\)/);
   assert.doesNotMatch(source, /state\.shots\s*=|pendingShots\s*=\[\]/);
 });
 
