@@ -81,6 +81,8 @@ for (const pattern of ['zigzag','spiral','swerve','wobble']) {
   assert(after.stats.counters > before.stats.counters, `${pattern} shot was not counterable from actual right arrival side`);
 }
 
+// Crosscut + hazard route laboratory. The target is frozen in recovery so this
+// measures reflected knockback geometry, not ordinary Surveyor locomotion.
 await cleanLab(2);
 await page.evaluate(() => {
   const p = window.__MOSSLIGHT_PLAYTEST__;
@@ -88,6 +90,8 @@ await page.evaluate(() => {
   p.placeTerrain('bramble',535,320,28);
   p.spawnTestEnemy('foreman',760,320,'source-foreman');
   p.spawnTestEnemy('surveyor',500,320,'cross-target');
+  const target = window.Sylvaria091.state.enemies.find((enemy) => enemy.id === 'cross-target');
+  target.state = 'recover'; target.counterStagger = 2; target.clock = 2;
   p.spawnCounterShot('right',82,{ ownerId:'source-foreman', speed:245 });
 });
 await focus(); await page.waitForTimeout(40); before = await snap(); await page.keyboard.press('ArrowRight'); await page.waitForTimeout(35); let mid = await snap();
@@ -96,13 +100,13 @@ assert(returned && returned.speed >= 800 && returned.pattern === 'return', `norm
 assert(returned?.counterTargetId === 'cross-target', `return assist missed cross-target: ${returned?.counterTargetId}`);
 await page.waitForTimeout(360); after = await snap();
 assert(after.stats.crosscuts >= 1, 'cross-target reflected hit did not award Crosscut');
-assert(after.stats.terrainRoutes >= 1, 'reflected knockback did not route target into brambles');
+assert(after.stats.terrainRoutes >= 1, 'reflected knockback did not route stationary target into brambles');
 
 await cleanLab(2); await page.evaluate(() => { const p=window.__MOSSLIGHT_PLAYTEST__; p.setPlayerPosition(175,320); p.spawnTestEnemy('foreman',790,320,'long-source'); p.spawnCounterShot('right',82,{ownerId:'long-source',speed:245}); }); await focus(); await page.waitForTimeout(40); await page.keyboard.press('ArrowRight'); await page.waitForTimeout(700); after=await snap();
 assert(after.stats.longReturns >= 1, 'long-distance reflected hit did not award Long Return');
 await cleanLab(2); await page.evaluate(() => { const p=window.__MOSSLIGHT_PLAYTEST__; p.setPlayerPosition(190,320); p.spawnTestEnemy('foreman',760,320,'perfect-source'); p.spawnCounterShot('right',68,{ownerId:'perfect-source',speed:180}); }); await focus(); await page.keyboard.press('ArrowRight'); await page.waitForTimeout(20); mid=await snap();
 const perfect = mid.shots.find((s) => s.friendly);
-assert(perfect?.speed >= 1000, `perfect return should exceed 1000px/s: ${perfect?.speed}`);
+assert(perfect?.speed >= 1000, `perfect 1040 return should exceed 1000px/s: ${perfect?.speed}`);
 assert(perfect?.pierces === 1, `perfect return lost penetration charge: ${perfect?.pierces}`);
 
 const groundTravel = await page.evaluate(() => window.__MOSSLIGHT_PLAYTEST__.labEnemyTravel('feller','ground',.30));
@@ -127,7 +131,18 @@ await setRoom(1); await api('clearCombatants'); let s=await snap(); const blade=
 await setRoom(2); await api('clearCombatants'); s=await snap(); const log=s.debris.find((d)=>!d.dead); assert(Boolean(log),'room 2 has no deadwood'); if(log){await api('setPlayerPosition',[log.x-25,log.y]); await page.evaluate(()=>window.__MOSSLIGHT_PLAYTEST__.cut('right')); await page.waitForTimeout(210); await page.evaluate(()=>window.__MOSSLIGHT_PLAYTEST__.cut('right')); await page.waitForTimeout(210); after=await snap(); assert(after.debris.find((d)=>d.id===log.id)?.dead,'two cuts did not open deadwood');}
 await setRoom(8); await api('clearCombatants'); s=await snap(); const rubble=s.brittle.find((b)=>!b.dead); assert(Boolean(rubble),'room 8 has no brittle rubble'); if(rubble){await api('setPlayerPosition',[rubble.x-25,rubble.y]); await page.evaluate(()=>window.__MOSSLIGHT_PLAYTEST__.cut('right')); await page.waitForTimeout(210); await page.evaluate(()=>window.__MOSSLIGHT_PLAYTEST__.cut('right')); await page.waitForTimeout(210); after=await snap(); assert(after.brittle.find((b)=>b.id===rubble.id)?.dead,'two cuts did not reshape brittle rubble'); assert(after.stats.brittleBroken>0,'rubble break not recorded');}
 
-await cleanLab(3); await api('setPlayerPosition',[220,320]); await page.evaluate(()=>window.__MOSSLIGHT_PLAYTEST__.damagePlayer(1)); await page.waitForTimeout(700);
+// Keep one inert laboratory enemy alive so the normal 800 ms room-clear timer
+// cannot advance the room and reset temporary forage buffs during this sequence.
+await cleanLab(3);
+await page.evaluate(() => {
+  const p=window.__MOSSLIGHT_PLAYTEST__;
+  p.setPlayerPosition(220,320);
+  p.spawnTestEnemy('mech',900,110,'forage-room-anchor');
+  const anchor=window.Sylvaria091.state.enemies.find((enemy)=>enemy.id==='forage-room-anchor');
+  anchor.state='recover'; anchor.counterStagger=99; anchor.clock=99;
+  p.damagePlayer(1);
+});
+await page.waitForTimeout(700);
 for (const [type,check] of [['heartcap','heart'],['swiftcap','rush'],['guardcap','guard'],['edgecap','edge']]) {
   const placed=await page.evaluate((t)=>window.__MOSSLIGHT_PLAYTEST__.placeMushroom(t,230,320),type); const m=placed.mushrooms.at(-1); await page.evaluate((id)=>window.__MOSSLIGHT_PLAYTEST__.triggerMushroom(id),m.id); await page.waitForTimeout(80); after=await snap();
   if(check==='heart') assert(after.player.hp>=5,'Heartcap/Heartleaf did not restore heartwood');
