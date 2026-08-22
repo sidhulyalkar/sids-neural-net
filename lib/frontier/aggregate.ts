@@ -1,6 +1,7 @@
 import frontierSnapshot from '@/content/frontier/latest.json';
 import { getActiveSportsFeed } from './activeSportsSources';
 import { normalizeFeedToEnglish } from './english';
+import { getExpandedPublicFeed } from './expandedSources';
 import { getAdaptiveLiveDiscovery } from './liveDiscovery';
 import { getPersonalFrontierFeed } from './personalSources';
 import { getSharedMultiSourceFrontierFeed } from './sourceIngestorShared';
@@ -39,11 +40,13 @@ function dedupe(items: FrontierItem[]): FrontierItem[] {
 
 function enrichFormatSemantics(entry: FrontierItem): FrontierItem {
   const tags = new Set(entry.tags);
-  if (['openalex', 'arxiv', 'huggingface', 'paperswithcode'].includes(entry.sourceKind)) {
+  if (['openalex', 'arxiv', 'huggingface', 'paperswithcode', 'biorxiv', 'medrxiv', 'openreview'].includes(entry.sourceKind)) {
     tags.add('paper');
     tags.add('research');
   }
   if (entry.sourceKind === 'paperswithcode' || entry.sourceKind === 'github') tags.add('code');
+  if (entry.sourceKind === 'lobsters') tags.add('thread');
+  if (entry.sourceKind === 'nasa') tags.add('visual science');
   return tags.size === entry.tags.length ? entry : { ...entry, tags: [...tags] };
 }
 
@@ -77,18 +80,19 @@ function recentSnapshotItems(): FrontierItem[] {
 
 export async function getIntegratedFrontierFeed(options: IntegratedOptions = {}): Promise<FrontierFeedResponse> {
   const focusTopics = Array.from(new Set((options.focusTopics ?? []).map((topic) => topic.trim()).filter(Boolean))).slice(0, 10);
-  const [baseResult, personalResult, activeSportsResult, adaptiveResult, multiSourceResult] = await Promise.allSettled([
+  const [baseResult, personalResult, activeSportsResult, adaptiveResult, multiSourceResult, expandedResult] = await Promise.allSettled([
     getFrontierFeed(),
     getPersonalFrontierFeed(),
     getActiveSportsFeed(),
     focusTopics.length ? getAdaptiveLiveDiscovery(focusTopics) : Promise.resolve({ generatedAt: new Date().toISOString(), items: [], sources: [] }),
     getSharedMultiSourceFrontierFeed(focusTopics),
+    getExpandedPublicFeed(focusTopics),
   ]);
 
-  // Focused discovery and the multi-source research/code mesh intentionally
-  // precede broad sources. If adapters converge on the same URL, the richer
-  // request-time normalization survives deduplication.
-  const orderedResults = [adaptiveResult, multiSourceResult, baseResult, activeSportsResult, personalResult];
+  // Focused discovery and research meshes intentionally precede broad sources.
+  // When adapters converge on one URL, the richer request-time normalization
+  // survives deduplication while weaker duplicates disappear.
+  const orderedResults = [adaptiveResult, multiSourceResult, expandedResult, baseResult, activeSportsResult, personalResult];
   const liveFeeds = orderedResults.flatMap((result) => result.status === 'fulfilled' ? [result.value] : []);
   const liveItems = dedupe(liveFeeds.flatMap((feed) => feed.items).map(enrichFormatSemantics))
     .sort((a, b) => b.baseScore - a.baseScore);
@@ -100,7 +104,7 @@ export async function getIntegratedFrontierFeed(options: IntegratedOptions = {})
         .map(enrichFormatSemantics)
         .filter((item) => !liveKeys.has(canonicalKey(item)) && !liveKeys.has(item.title.toLowerCase()));
 
-  const candidateItems = [...liveItems, ...archive].slice(0, 280);
+  const candidateItems = [...liveItems, ...archive].slice(0, 320);
   const items = await normalizeFeedToEnglish(candidateItems);
   const sources = mergeStatuses(liveFeeds.flatMap((feed) => feed.sources));
 
@@ -109,6 +113,7 @@ export async function getIntegratedFrontierFeed(options: IntegratedOptions = {})
   if (activeSportsResult.status === 'rejected') sources.push({ id: 'local', label: 'Active sports mesh', ok: false, count: 0, message: 'active sports source mesh unavailable' });
   if (adaptiveResult.status === 'rejected' && focusTopics.length) sources.push({ id: 'gdelt', label: 'Adaptive live mesh', ok: false, count: 0, message: 'focused request-time discovery unavailable' });
   if (multiSourceResult.status === 'rejected') sources.push({ id: 'local', label: 'Research ingestion mesh', ok: false, count: 0, message: 'multi-source ingestion unavailable' });
+  if (expandedResult.status === 'rejected') sources.push({ id: 'local', label: 'Expanded public mesh', ok: false, count: 0, message: 'expanded public discovery unavailable' });
 
   return { generatedAt: new Date().toISOString(), items, sources: mergeStatuses(sources) };
 }
