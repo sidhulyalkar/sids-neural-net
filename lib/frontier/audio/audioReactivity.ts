@@ -19,6 +19,7 @@ type Binding = {
   frame?: number;
   momentum: number;
   lastPublished: number;
+  lastPublishedAt: number;
 };
 
 type Registry = {
@@ -31,7 +32,7 @@ type FrontierWindow = Window & {
   __frontierAudioReactivity?: Registry;
 };
 
-const FFT_SIZE = 512;
+const FFT_SIZE = 1_024;
 const SMOOTHING = 0.76;
 const SUB_BASS: [number, number] = [24, 92];
 const LOW_MID: [number, number] = [92, 320];
@@ -49,8 +50,10 @@ export function frontierFrequencyBinRange(
 ): FrontierFrequencyBinRange {
   const bins = Math.max(1, Math.floor(fftSize / 2));
   const hzPerBin = Math.max(1e-6, sampleRate / fftSize);
-  const start = Math.max(0, Math.min(bins - 1, Math.floor(lowHz / hzPerBin)));
-  const end = Math.max(start + 1, Math.min(bins, Math.ceil(highHz / hzPerBin)));
+  // Ceil the lower edge so DC / frequencies below the requested band never
+  // leak into sub-bass energy. End is exclusive.
+  const start = Math.max(0, Math.min(bins - 1, Math.ceil(lowHz / hzPerBin)));
+  const end = Math.max(start + 1, Math.min(bins, Math.floor(highHz / hzPerBin) + 1));
   return { start, end };
 }
 
@@ -121,6 +124,8 @@ function stopBinding(binding: Binding, reset = true) {
   binding.frame = undefined;
   if (reset && binding.momentum !== 0) {
     binding.momentum = 0;
+    binding.lastPublished = 0;
+    binding.lastPublishedAt = 0;
     publish({ subBass: 0, lowMid: 0, momentum: 0 });
   }
 }
@@ -144,6 +149,7 @@ function ensureBinding(element: HTMLMediaElement): Binding | undefined {
       bins: new Uint8Array(analyser.frequencyBinCount),
       momentum: 0,
       lastPublished: 0,
+      lastPublishedAt: 0,
     };
     state.bindings.set(element, binding);
     return binding;
@@ -176,10 +182,11 @@ function startBinding(binding: Binding) {
       frontierFrequencyBinRange(state.context.sampleRate, binding.analyser.fftSize, LOW_MID[0], LOW_MID[1]),
     );
     binding.momentum = frontierAudioMomentum(subBass, lowMid, binding.momentum);
-    // Keep analysis at rAF cadence but avoid flooding the window event bus with
-    // imperceptible changes. The ambient canvas interpolates between samples.
-    if (Math.abs(binding.momentum - binding.lastPublished) >= 0.008 || now % 120 < 17) {
+    // Analysis runs at rAF cadence only during playback. Publishing is capped to
+    // meaningful changes or ~10 Hz heartbeats so the window event bus stays quiet.
+    if (Math.abs(binding.momentum - binding.lastPublished) >= 0.008 || now - binding.lastPublishedAt >= 96) {
       binding.lastPublished = binding.momentum;
+      binding.lastPublishedAt = now;
       publish({ subBass, lowMid, momentum: binding.momentum });
     }
     binding.frame = requestAnimationFrame(sample);
