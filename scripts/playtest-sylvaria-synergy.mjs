@@ -15,6 +15,14 @@ const browser = await chromium.launch({ headless: true });
 const page = await browser.newPage({ viewport: { width: 1280, height: 900 }, deviceScaleFactor: 1 });
 page.on('pageerror', (error) => failures.push(`pageerror: ${error.message}`));
 page.on('console', (message) => { if (message.type() === 'error') consoleErrors.push(message.text()); });
+// This lab verifies ecology/combat composition only. Ranked service behavior is
+// covered independently by the competitive browser gate, so intentionally
+// unavailable leaderboard endpoints must not contaminate ecology console QA.
+await page.route('**/api/sylvaria/**', (route) => route.fulfill({
+  status: 200,
+  contentType: 'application/json',
+  body: JSON.stringify({ configured: false, ranked: false, entries: [] }),
+}));
 const snap = () => page.evaluate(() => window.__MOSSLIGHT_PLAYTEST__.snapshot());
 const setRoom = (depth) => page.evaluate((d) => window.__MOSSLIGHT_PLAYTEST__.setRoom((d - 1) % 30, d), depth);
 const cleanLab = async (depth = 1) => page.evaluate((d) => { const p=window.__MOSSLIGHT_PLAYTEST__; p.setRoom((d-1)%30,d); p.clearCombatants(); p.labClearGeometry(); }, depth);
