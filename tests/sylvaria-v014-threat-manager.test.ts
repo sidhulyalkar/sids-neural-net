@@ -7,6 +7,10 @@ const source = readFileSync(
   join(process.cwd(), 'public/game-runtimes/mosslight-v2/v014/threat-manager-v014.js'),
   'utf8',
 );
+const roomsSource = readFileSync(
+  join(process.cwd(), 'public/game-runtimes/mosslight-v2/v011/rooms-v011.js'),
+  'utf8',
+);
 
 function profileArgs() {
   const block = source.match(/ROOM_THREAT_PROFILES=Object\.freeze\(\[([\s\S]*?)\]\);/)?.[1] ?? '';
@@ -15,11 +19,23 @@ function profileArgs() {
     restTicks: Number(match[5]), punishGraceTicks: Number(match[6]), accent: match[7],
   }));
 }
+function threatTitles() {
+  const block = source.match(/ROOM_PROFILE_TITLES=Object\.freeze\(\[([\s\S]*?)\]\);/)?.[1] ?? '';
+  return [...block.matchAll(/'([^']+)'/g)].map(match => match[1]);
+}
+function authoredRoomTitles() {
+  return [...roomsSource.matchAll(/R\('([^']+)'/g)].map(match => match[1]).slice(0, 30);
+}
 
 const profiles = profileArgs();
+const profileTitles = threatTitles();
+const roomTitles = authoredRoomTitles();
 
-test('every fixed Sylvaria room has an explicit rhythmic threat profile', () => {
+test('every fixed Sylvaria room has an explicit rhythmic threat profile in the authored roster order', () => {
   assert.equal(profiles.length, 30);
+  assert.equal(profileTitles.length, 30);
+  assert.equal(roomTitles.length, 30);
+  assert.deepEqual(profileTitles, roomTitles);
   assert.ok(profiles.every(profile => profile.accent.length > 0));
 });
 
