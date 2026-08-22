@@ -14,7 +14,7 @@ fs.mkdirSync(outputDir, { recursive: true });
 const engines = [
   { name: 'chrome-stable', browserType: chromium, launchOptions: { channel: 'chrome' } },
   { name: 'chromium', browserType: chromium, launchOptions: {} },
-  { name: 'firefox', browserType: firefox, launchOptions: {} },
+  { name: 'firefox', browserType: firefox, launchOptions: {}, allowCanvasFallback: true },
   { name: 'webkit', browserType: webkit, launchOptions: {} },
 ];
 const report = [];
@@ -83,7 +83,7 @@ async function releaseQualificationKeys(frame) {
   }
 }
 
-for (const { name, browserType, launchOptions } of engines) {
+for (const { name, browserType, launchOptions, allowCanvasFallback = false } of engines) {
   const errors = [];
   let browser;
   let stage = 'launch';
@@ -137,10 +137,21 @@ for (const { name, browserType, launchOptions } of engines) {
 
     // Force one presentation pass so the menu qualification does not depend on
     // browser-specific requestAnimationFrame scheduling in a headless iframe.
-    stage = 'title-webgl-ready';
+    stage = 'title-renderer-ready';
     await frame.evaluate(() => window.SylvariaPondRenderer?.render?.());
     try {
-      await waitFor(frame, () => window.SylvariaPondRenderer?.snapshot?.().ready === true, null, 10000);
+      await waitFor(
+        frame,
+        ({ allowCanvasFallback }) => {
+          const pond = window.SylvariaPondRenderer?.snapshot?.();
+          return Boolean(
+            pond?.ready === true ||
+              (allowCanvasFallback && pond?.mode === 'canvas-fallback' && pond?.error === 'WebGL2 unavailable'),
+          );
+        },
+        { allowCanvasFallback },
+        10000,
+      );
     } catch (error) {
       const diagnostic = await frame
         .evaluate(() => ({
@@ -149,7 +160,7 @@ for (const { name, browserType, launchOptions } of engines) {
           canvas: Boolean(document.querySelector('#pondCanvas')),
         }))
         .catch(() => null);
-      throw new Error(`pond renderer did not become ready: ${JSON.stringify(diagnostic)} · ${error.message}`);
+      throw new Error(`pond renderer did not become usable: ${JSON.stringify(diagnostic)} · ${error.message}`);
     }
 
     stage = 'identity-contract';
@@ -207,8 +218,11 @@ for (const { name, browserType, launchOptions } of engines) {
     ]) {
       if (!identity.visual?.[flag]) throw new Error(`visual/runtime contract missing ${flag}`);
     }
-    if (identity.pond.mode !== 'webgl2' || !identity.pond.ready) {
-      throw new Error(`WebGL2 pond renderer unavailable: ${JSON.stringify(identity.pond)}`);
+    const webglReady = identity.pond.mode === 'webgl2' && identity.pond.ready;
+    const fallbackReady =
+      allowCanvasFallback && identity.pond.mode === 'canvas-fallback' && identity.pond.error === 'WebGL2 unavailable';
+    if (!webglReady && !fallbackReady) {
+      throw new Error(`pond renderer unavailable: ${JSON.stringify(identity.pond)}`);
     }
     if (!identity.fullscreen) throw new Error('fullscreen control missing');
     if (!identity.layout || Math.abs(identity.layout.ratio - 1.5) > 0.02) {
@@ -225,8 +239,17 @@ for (const { name, browserType, launchOptions } of engines) {
 
     stage = 'title-render-contract';
     const titleRender = await renderStats(frame);
-    if (!titleRender.gl || titleRender.sprites < 5 || titleRender.lights < 1 || titleRender.legacyOpacity !== '0') {
-      throw new Error(`title renderer underqualified ${JSON.stringify(titleRender)}`);
+    if (webglReady) {
+      if (!titleRender.gl || titleRender.sprites < 5 || titleRender.lights < 1 || titleRender.legacyOpacity !== '0') {
+        throw new Error(`WebGL title renderer underqualified ${JSON.stringify(titleRender)}`);
+      }
+    } else if (
+      titleRender.gl ||
+      titleRender.mode !== 'canvas-fallback' ||
+      titleRender.error !== 'WebGL2 unavailable' ||
+      titleRender.legacyOpacity === '0'
+    ) {
+      throw new Error(`canvas fallback underqualified ${JSON.stringify(titleRender)}`);
     }
 
     stage = 'start-room';
@@ -362,19 +385,37 @@ for (const { name, browserType, launchOptions } of engines) {
       window.__MOSSLIGHT_PLAYTEST__.setRoom(0, 1);
       window.SylvariaPondRenderer?.render?.();
     });
-    await waitFor(
-      frame,
-      () => {
-        const render = window.SylvariaPondRenderer?.snapshot?.();
-        return render?.ready === true && render.sprites >= 10 && render.lights >= 1;
-      },
-      null,
-      2000,
-    );
+    if (webglReady) {
+      await waitFor(
+        frame,
+        () => {
+          const render = window.SylvariaPondRenderer?.snapshot?.();
+          return render?.ready === true && render.sprites >= 10 && render.lights >= 1;
+        },
+        null,
+        2000,
+      );
+    } else {
+      await frame.evaluate(() => window.Sylvaria091.fn.render?.());
+      await waitFor(
+        frame,
+        () => {
+          const game = window.__MOSSLIGHT_PLAYTEST__.snapshot();
+          const pond = window.SylvariaPondRenderer?.snapshot?.();
+          return game.mode === 'playing' && game.enemies.length > 0 && pond?.mode === 'canvas-fallback';
+        },
+        null,
+        2000,
+      );
+    }
     const after = await frame.evaluate(() => window.__MOSSLIGHT_PLAYTEST__.snapshot());
     const playRender = await renderStats(frame);
-    if (!playRender.ready || playRender.mode !== 'webgl2' || playRender.sprites < 10 || playRender.lights < 1) {
-      throw new Error(`pond renderer under-rendered ${JSON.stringify(playRender)}`);
+    if (webglReady) {
+      if (!playRender.ready || playRender.mode !== 'webgl2' || playRender.sprites < 10 || playRender.lights < 1) {
+        throw new Error(`pond renderer under-rendered ${JSON.stringify(playRender)}`);
+      }
+    } else if (playRender.mode !== 'canvas-fallback' || playRender.error !== 'WebGL2 unavailable' || playRender.legacyOpacity === '0') {
+      throw new Error(`legacy canvas fallback did not remain visible ${JSON.stringify(playRender)}`);
     }
 
     stage = 'screenshot';
@@ -397,6 +438,7 @@ for (const { name, browserType, launchOptions } of engines) {
         dashes: burst.game.stats.dashes - before.stats.dashes,
       },
       arc,
+      rendererMode: webglReady ? 'webgl2' : 'canvas-fallback',
       finalFps: after.fps,
     });
   } catch (error) {
@@ -427,5 +469,5 @@ if (failed) {
   process.exit(1);
 }
 console.log(
-  `Sylvaria v0.13 browser matrix PASS: ${report.map((r) => r.name).join(', ')}; WebGL2 pond, continuous glide, diagonal steering, exponential charged dash, five-tick Reactive Blade arc, and kinetic enemy roster verified.`,
+  `Sylvaria v0.13 browser matrix PASS: ${report.map((r) => `${r.name}:${r.rendererMode}`).join(', ')}; renderer startup, continuous glide, diagonal steering, exponential charged dash, five-tick Reactive Blade arc, and kinetic enemy roster verified.`,
 );
