@@ -140,6 +140,72 @@ function mechanicalClick(): void {
   }, { once: true });
 }
 
+/**
+ * A short, bright Watch Intent transient. It is intentionally separate from
+ * the soft stream pulse, but still obeys the global mute and browser activation
+ * policy. An autonomous discovery never earns permission to create sound.
+ */
+function prioritySignal(): void {
+  if (engineMuted) return;
+  const ctx = ensureContext();
+  if (!ctx || !masterGain) return;
+  resumeContext(ctx);
+
+  const now = ctx.currentTime + 0.005;
+  const tone = ctx.createOscillator();
+  const overtone = ctx.createOscillator();
+  const toneGain = ctx.createGain();
+  const overtoneGain = ctx.createGain();
+  const source = ctx.createBufferSource();
+  const noiseHighpass = ctx.createBiquadFilter();
+  const noiseGain = ctx.createGain();
+
+  tone.type = 'sine';
+  tone.frequency.setValueAtTime(1_920, now);
+  tone.frequency.exponentialRampToValueAtTime(1_260, now + 0.13);
+  toneGain.gain.setValueAtTime(0.0001, now);
+  toneGain.gain.exponentialRampToValueAtTime(0.09, now + 0.004);
+  toneGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.145);
+
+  overtone.type = 'triangle';
+  overtone.frequency.setValueAtTime(3_840, now);
+  overtone.frequency.exponentialRampToValueAtTime(2_520, now + 0.075);
+  overtoneGain.gain.setValueAtTime(0.0001, now);
+  overtoneGain.gain.exponentialRampToValueAtTime(0.024, now + 0.003);
+  overtoneGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.082);
+
+  source.buffer = noiseBuffer(ctx);
+  noiseHighpass.type = 'highpass';
+  noiseHighpass.frequency.setValueAtTime(5_200, now);
+  noiseHighpass.Q.setValueAtTime(0.55, now);
+  noiseGain.gain.setValueAtTime(0.024, now);
+  noiseGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.025);
+
+  tone.connect(toneGain);
+  overtone.connect(overtoneGain);
+  source.connect(noiseHighpass);
+  noiseHighpass.connect(noiseGain);
+  toneGain.connect(masterGain);
+  overtoneGain.connect(masterGain);
+  noiseGain.connect(masterGain);
+
+  tone.start(now);
+  overtone.start(now);
+  source.start(now);
+  tone.stop(now + 0.155);
+  overtone.stop(now + 0.09);
+  source.stop(now + 0.03);
+  tone.addEventListener('ended', () => {
+    tone.disconnect();
+    overtone.disconnect();
+    toneGain.disconnect();
+    overtoneGain.disconnect();
+    source.disconnect();
+    noiseHighpass.disconnect();
+    noiseGain.disconnect();
+  }, { once: true });
+}
+
 export function useUIFrequencies() {
   const [muted, setMuted] = useState(false);
 
@@ -191,6 +257,7 @@ export function useUIFrequencies() {
 
   const playSearchResolved = useCallback(() => searchThud(), []);
   const playDockClick = useCallback(() => mechanicalClick(), []);
+  const playPrioritySignal = useCallback(() => prioritySignal(), []);
 
-  return { muted, toggleMuted, playSearchResolved, playDockClick };
+  return { muted, toggleMuted, playSearchResolved, playDockClick, playPrioritySignal };
 }
