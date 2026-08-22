@@ -28,7 +28,7 @@ test('the Game Network exposes every current game as a playable entry', () => {
   }
 });
 
-test('Sylvaria v0.13 advertises the kinetic combat actually shipped by production', () => {
+test('Sylvaria v0.13 advertises the reactive blade combat actually shipped by production', () => {
   const game = arcadeGames.find((entry) => entry.slug === 'sylvaria');
   assert.ok(game);
   assert.equal(game.title, 'Sylvaria');
@@ -36,15 +36,17 @@ test('Sylvaria v0.13 advertises the kinetic combat actually shipped by productio
   assert.match(game.subtitle, /GLIDE.*SWEEP.*RETURN FIRE/);
   assert.match(game.description, /continuous pond movement/i);
   assert.match(game.description, /omnidirectional burst/i);
-  assert.match(game.description, /mid-swing/i);
+  assert.match(game.description, /opening five active ticks/i);
+  assert.match(game.description, /1160 px\/s/i);
   assert.match(game.description, /Skimmers/i);
   assert.match(game.description, /Striders/i);
   assert.match(game.description, /Shellback/i);
   assert.match(game.description, /thirty fixed arenas/i);
+  assert.doesNotMatch(game.description, /mid-swing/i);
   for (const tag of ['kinetic combat', 'tongue arc', 'charged dash', 'reactive ai', 'deterministic replay']) assert.ok(game.tags.includes(tag));
   assert.ok(game.controls.some((control) => control.input === 'W A S D' && /continuously|diagonal/i.test(control.action)));
-  assert.ok(game.controls.some((control) => control.input === 'Space' && /charge|omnidirectional/i.test(control.action)));
-  assert.ok(game.controls.some((control) => control.input === 'Arrow Keys' && /tongue sweep|mid-swing/i.test(control.action)));
+  assert.ok(game.controls.some((control) => control.input === 'Space' && /charge|omnidirectional|buffer/i.test(control.action)));
+  assert.ok(game.controls.some((control) => control.input === 'Arrow Keys' && /tongue sweep|opening contact|parr/i.test(control.action)));
   assert.equal(getArcadeGame('mosslight')?.slug, 'sylvaria');
   assert.equal(getArcadeGame('sylvaria')?.slug, 'sylvaria');
 });
@@ -87,7 +89,10 @@ test('v0.13 boots the qualified pond graphics first and then owns authoritative 
   assert.match(entry13, /v013\/kinetic-presentation-v013\.js/);
   assert.match(kinetics, /moveSpeed:238/);
   assert.match(kinetics, /arcDegrees:156/);
-  assert.match(kinetics, /perfectReflectSpeed:1120/);
+  assert.match(kinetics, /parryWindow:5\/120/);
+  assert.match(kinetics, /perfectReflectSpeed:1160/);
+  assert.match(kinetics, /dashDecay:\.90483742/);
+  assert.match(kinetics, /dashBuffer:\.10/);
   assert.match(kinetics, /function beginDashCharge/);
   assert.match(kinetics, /function releaseDashCharge/);
   assert.match(kinetics, /phase:'windup'/);
@@ -100,6 +105,7 @@ test('v0.13 boots the qualified pond graphics first and then owns authoritative 
   assert.match(replay, /SCHEMA=2/);
   assert.match(replay, /space:\[12,13\]/);
   assert.match(presentation, /function drawArcAttack/);
+  assert.match(presentation, /function drawBladeTrails/);
 });
 
 test('the old dash-step substrate stays reconstructible but is explicitly overridden by v0.13 production', () => {
@@ -136,7 +142,8 @@ test('Game Network fullscreen removes portfolio chrome and gives the iframe the 
 test('current Sylvaria player-facing surfaces keep the pond vocabulary restrained', () => {
   const visible = [read(`${runtime}/index.html`), read('src/data/arcadeGames.ts')].join('\n');
   assert.doesNotMatch(visible, /Sprid|Sprig|Verdant Flow|Ecological Synergy|PAC-a-Saw|Heartleaf|Rush Resin|Barkguard|Edge Stone|Flow Sap/i);
-  for (const word of ['Sylvaria', 'frog', 'tongue', 'reflect', 'pond', 'glide', 'dash']) assert.match(visible, new RegExp(word, 'i'));
+  assert.doesNotMatch(visible, /mid-swing|middle of the active sweep is the sweet spot/i);
+  for (const word of ['Sylvaria', 'frog', 'tongue', 'reflect', 'pond', 'glide', 'dash', 'parry']) assert.match(visible, new RegExp(word, 'i'));
 });
 
 test('Game Network naming is consistent across every visible discovery surface', () => {
