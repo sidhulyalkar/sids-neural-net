@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { decodeDiscoveryFocus, encodeDiscoveryFocus } from '@/lib/frontier/discoveryFocus';
 import type {
   FrontierDaemonRequest,
   FrontierDaemonResponse,
@@ -14,6 +15,7 @@ import {
 } from '@/lib/frontier/live/seenLedger';
 import { publishFrontierRuntimeHealth } from '@/lib/frontier/runtime/runtimeHealth';
 import type { FrontierItem, FrontierSourceStatus } from '@/lib/frontier/types';
+import { useFrontierAutonomy } from '../watch/FrontierAutonomyProvider';
 
 const MAX_PENDING = 96;
 const ACTIVITY_THROTTLE_MS = 4_000;
@@ -37,12 +39,13 @@ export function useLiveDiscoveryDaemon(options: {
   prioritizeItems?: (items: FrontierItem[]) => Promise<FrontierItem[]>;
   onHighPriority?: (items: FrontierItem[], meta: { generatedAt?: string; sources: FrontierSourceStatus[] }) => void;
 }) {
+  const autonomy = useFrontierAutonomy();
   const workerRef = useRef<Worker | null>(null);
   const exclusionRef = useRef(new Set<string>());
   const exclusionListRef = useRef<string[]>([]);
-  const focusRef = useRef(options.focusSignature);
-  const prioritizeRef = useRef(options.prioritizeItems);
-  const highPriorityRef = useRef(options.onHighPriority);
+  const focusRef = useRef('');
+  const prioritizeRef = useRef<(items: FrontierItem[]) => Promise<FrontierItem[]>>(autonomy.prioritizeItems);
+  const highPriorityRef = useRef<(items: FrontierItem[], meta: { generatedAt?: string; sources: FrontierSourceStatus[] }) => void>(autonomy.announceHighPriority);
   const pendingRef = useRef(new Map<string, FrontierItem>());
   const lastActivitySent = useRef(0);
   const retryTimer = useRef<number | undefined>(undefined);
@@ -51,6 +54,12 @@ export function useLiveDiscoveryDaemon(options: {
   const [status, setStatus] = useState<FrontierDaemonStatus>(EMPTY_STATUS);
   const [meta, setMeta] = useState<PendingMeta>({ sources: [] });
   const [workerGeneration, setWorkerGeneration] = useState(0);
+
+  const watchFocusKey = autonomy.activeWatchLabels.join('|');
+  const combinedFocusSignature = useMemo(() => encodeDiscoveryFocus(Array.from(new Set([
+    ...decodeDiscoveryFocus(options.focusSignature),
+    ...autonomy.activeWatchLabels,
+  ])).slice(0, 10)), [autonomy.activeWatchLabels, options.focusSignature]);
 
   const excludeSignatures = useMemo(() => Array.from(new Set(
     options.excludeItems.flatMap((item) => frontierSeenSignatures(item))
@@ -72,11 +81,23 @@ export function useLiveDiscoveryDaemon(options: {
   useEffect(() => {
     exclusionRef.current = new Set(excludeSignatures);
     exclusionListRef.current = excludeSignatures;
-    focusRef.current = options.focusSignature;
-    prioritizeRef.current = options.prioritizeItems;
-    highPriorityRef.current = options.onHighPriority;
+    focusRef.current = combinedFocusSignature;
+    prioritizeRef.current = options.prioritizeItems ?? autonomy.prioritizeItems;
+    highPriorityRef.current = (items, meta) => {
+      autonomy.announceHighPriority(items, meta);
+      if (options.onHighPriority) options.onHighPriority(items, meta);
+    };
     if (workerRef.current) configureWorker(workerRef.current);
-  }, [configureWorker, excludeSignatures, options.focusSignature, options.onHighPriority, options.prioritizeItems]);
+  }, [
+    autonomy.announceHighPriority,
+    autonomy.prioritizeItems,
+    combinedFocusSignature,
+    configureWorker,
+    excludeSignatures,
+    options.onHighPriority,
+    options.prioritizeItems,
+    watchFocusKey,
+  ]);
 
   const prunePendingForSeen = useCallback((signatures: string[]) => {
     if (!signatures.length || !pendingRef.current.size) return;
@@ -101,14 +122,15 @@ export function useLiveDiscoveryDaemon(options: {
     const urgent = allowed.filter((item) => item.highPriority && item.watchSignal);
     const ambient = allowed.filter((item) => !item.highPriority || !item.watchSignal);
 
-    if (urgent.length && highPriorityRef.current) {
-      try { highPriorityRef.current(urgent, { generatedAt, sources }); } catch { /* interruption UI failure cannot drop ambient feed */ }
-    } else if (urgent.length) {
-      ambient.unshift(...urgent);
+    if (urgent.length) {
+      try { highPriorityRef.current(urgent, { generatedAt, sources }); } catch { /* audio/notification is additive */ }
     }
 
     let changed = false;
-    for (const item of ambient) {
+    // Priority candidates are deliberately inserted first in the pending map so
+    // the next stable stream reveal cannot bury an interruption behind ambient
+    // backlog. SignalBoard then reserves the leading spatial slot for them.
+    for (const item of [...urgent, ...ambient]) {
       const key = frontierItemIdentityKey(item);
       if (!pendingRef.current.has(key)) {
         pendingRef.current.set(key, item);
@@ -117,8 +139,11 @@ export function useLiveDiscoveryDaemon(options: {
     }
     if (pendingRef.current.size > MAX_PENDING) {
       const overflow = pendingRef.current.size - MAX_PENDING;
-      const keys = Array.from(pendingRef.current.keys()).slice(0, overflow);
-      keys.forEach((key) => pendingRef.current.delete(key));
+      const entries = Array.from(pendingRef.current.entries());
+      const ambientKeys = entries.filter(([, item]) => !item.highPriority).map(([key]) => key);
+      const fallbackKeys = entries.map(([key]) => key);
+      const remove = [...ambientKeys, ...fallbackKeys.filter((key) => !ambientKeys.includes(key))].slice(-overflow);
+      remove.forEach((key) => pendingRef.current.delete(key));
       changed = true;
     }
     if (generatedAt || sources.length) setMeta({ generatedAt, sources });
@@ -244,7 +269,11 @@ export function useLiveDiscoveryDaemon(options: {
     for (const key of pendingRef.current.keys()) {
       if (!allowedKeys.has(key)) pendingRef.current.delete(key);
     }
-    const selected = allowed.slice(0, Math.max(1, Math.min(MAX_PENDING, limit)));
+    const prioritized = [
+      ...allowed.filter((item) => item.highPriority && item.watchSignal),
+      ...allowed.filter((item) => !item.highPriority || !item.watchSignal),
+    ];
+    const selected = prioritized.slice(0, Math.max(1, Math.min(MAX_PENDING, limit)));
     for (const item of selected) pendingRef.current.delete(frontierItemIdentityKey(item));
     if (snapshot.length !== pendingRef.current.size) setPendingVersion((version) => version + 1);
     return selected;
