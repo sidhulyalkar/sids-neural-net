@@ -2,6 +2,7 @@
 
 import type { ReactNode } from 'react';
 import { markFrontierItemSeen } from '@/lib/frontier/live/seenLedger';
+import { useFrontierStore } from '@/lib/frontier/store';
 import type { FrontierItem } from '@/lib/frontier/types';
 import { FrontierInlineFocal } from './FrontierInlineFocal';
 import { InlineMediaSurface } from './media/InlineMediaSurface';
@@ -27,6 +28,7 @@ export function FluidSpatialCard({
   onCollapse,
   onExternalOpen,
 }: Props) {
+  const recordOpen = useFrontierStore((state) => state.recordOpen);
   const interaction = useFluidInteraction({
     item,
     expanded,
@@ -37,6 +39,9 @@ export function FluidSpatialCard({
     onCollapse,
     onExternalOpen: (next) => {
       void markFrontierItemSeen(next, 'open').catch(() => undefined);
+      // A canonical external open is explicit behavior authority. The preceding
+      // inline expansion remains presentation-only and never calls recordExpand.
+      recordOpen(next);
       onExternalOpen?.(next);
     },
   });
