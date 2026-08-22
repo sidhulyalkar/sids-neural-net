@@ -4,15 +4,7 @@ const {state,FIXED_DT,hash}=G,F=G.fn;
 export const THREAT_MANAGER_VERSION='0.14.0';
 const q=v=>Math.round(v*100000)/100000;
 
-const ROLE_COST=Object.freeze({
-  coverage:2,
-  engage:1,
-  precision:2,
-  heavy:3,
-  support:1,
-  light:0,
-});
-
+const ROLE_COST=Object.freeze({coverage:2,engage:1,precision:2,heavy:3,support:1,light:0});
 const ROLE_TRANSITIONS=Object.freeze({
   coverage:Object.freeze(['engage','precision','support','heavy','coverage']),
   engage:Object.freeze(['precision','coverage','support','heavy','engage']),
@@ -21,25 +13,8 @@ const ROLE_TRANSITIONS=Object.freeze({
   support:Object.freeze(['coverage','engage','precision','heavy','support']),
   light:Object.freeze(['coverage','engage','precision','heavy','support','light']),
 });
-
-const KINETIC_ROLE=Object.freeze({
-  skimmer:'coverage',
-  strider:'engage',
-  sniper:'precision',
-  shellback:'heavy',
-});
-const LEGACY_ROLE=Object.freeze({
-  feller:'engage',
-  foreman:'precision',
-  lobbyist:'support',
-  skidder:'engage',
-  drone:'coverage',
-  chair:'support',
-  broker:'support',
-  surveyor:'precision',
-  mech:'heavy',
-  mulcher:'coverage',
-});
+const KINETIC_ROLE=Object.freeze({skimmer:'coverage',strider:'engage',sniper:'precision',shellback:'heavy'});
+const LEGACY_ROLE=Object.freeze({feller:'engage',foreman:'precision',lobbyist:'support',skidder:'engage',drone:'coverage',chair:'support',broker:'support',surveyor:'precision',mech:'heavy',mulcher:'coverage'});
 
 const P=(gapMin,gapMax,budget,maxAttacks,restTicks,punishGraceTicks,accent)=>Object.freeze({gapMin,gapMax,budget,maxAttacks,restTicks,punishGraceTicks,accent});
 export const ROOM_THREAT_PROFILES=Object.freeze([
@@ -51,111 +26,83 @@ export const ROOM_THREAT_PROFILES=Object.freeze([
   P(6,7,7,4,13,6,'blink'),P(6,7,8,5,13,6,'pressure'),P(6,7,8,5,13,6,'artillery-pair'),P(6,7,8,5,12,6,'maximum-mixed'),P(6,7,8,5,14,6,'final-boss'),
 ]);
 
-let roomDepth=1,tick=0,nextSlotTick=0,phraseStartTick=0,phraseCost=0,phraseAttacks=0,lastRole='light',serial=0;
+let roomDepth=1,tick=0,gateTick=0,phraseStartTick=0,phraseCost=0,phraseAttacks=0,lastRole='light',serial=0,phraseIndex=0;
 let pending=[];
 let releases=[];
 let punishGraceUntil=0,punishWindowActive=false;
 const MAX_RELEASE_LOG=48;
 
-function profileForDepth(depth=state.worldDepth||1){
-  return ROOM_THREAT_PROFILES[Math.max(0,Math.min(ROOM_THREAT_PROFILES.length-1,(depth|0)-1))];
-}
+function profileForDepth(depth=state.worldDepth||1){return ROOM_THREAT_PROFILES[Math.max(0,Math.min(ROOM_THREAT_PROFILES.length-1,(depth|0)-1))]}
 function allThreatActors(){const actors=[...state.enemies];if(state.boss&&!state.boss.dead)actors.push(state.boss);return actors}
-function roleFor(e){if(e&&e===state.boss)return'heavy';return KINETIC_ROLE[e?.kineticType]||LEGACY_ROLE[e?.type]||'light'}
-function costFor(e){return ROLE_COST[roleFor(e)]??1}
-function stableId(e){return String(e?.id||`${e===state.boss?'boss':e?.kineticType||e?.type||'enemy'}:${e?.x||0}:${e?.y||0}`)}
-function isTelegraphing(e){return e?.state==='telegraph'||e?.state==='kinetic-telegraph'||(e?.telegraph||0)>0}
-function isBusy(e){return Boolean(e?.dead||e?.kineticEvade||e?.evade||e?.counterStagger>0||e?.state==='recover'||e?.state==='charge'||e?.state==='kinetic-lunge'||isTelegraphing(e))}
-function isHeavyThreat(e){return costFor(e)>0}
-function readyToRequest(e){return isHeavyThreat(e)&&!isBusy(e)&&e?.state==='move'&&(e.clock||0)<=FIXED_DT+.000001&&!Number.isFinite(e.v014ThreatScheduledTick)}
+function roleFor(actor){if(actor&&actor===state.boss)return'heavy';return KINETIC_ROLE[actor?.kineticType]||LEGACY_ROLE[actor?.type]||'light'}
+function costFor(actor){return ROLE_COST[roleFor(actor)]??1}
+function stableId(actor){return String(actor?.id||`${actor===state.boss?'boss':actor?.kineticType||actor?.type||'enemy'}:${actor?.x||0}:${actor?.y||0}`)}
+function isTelegraphing(actor){return actor?.state==='telegraph'||actor?.state==='kinetic-telegraph'||(actor?.telegraph||0)>0}
+function isBusy(actor){return Boolean(actor?.dead||actor?.kineticEvade||actor?.evade||actor?.counterStagger>0||actor?.state==='recover'||actor?.state==='charge'||actor?.state==='kinetic-lunge'||isTelegraphing(actor))}
+function readyToRequest(actor){return costFor(actor)>0&&!isBusy(actor)&&actor?.state==='move'&&(actor.clock||0)<=FIXED_DT+.000001&&!actor.v014ThreatQueued&&!Number.isFinite(actor.v014ThreatScheduledTick)}
 function transitionRank(role){const order=ROLE_TRANSITIONS[lastRole]||ROLE_TRANSITIONS.light;const i=order.indexOf(role);return i<0?order.length:i}
-function candidateSort(a,b){
-  const ar=transitionRank(a.role),br=transitionRank(b.role);if(ar!==br)return ar-br;
-  if(a.requestTick!==b.requestTick)return a.requestTick-b.requestTick;
-  const ai=stableId(a.actor),bi=stableId(b.actor);return ai<bi?-1:ai>bi?1:0;
-}
-function deterministicGap(profile,item){
-  const span=profile.gapMax-profile.gapMin+1;if(span<=1)return profile.gapMin;
-  return profile.gapMin+(hash(`v014-threat:${roomDepth}:${item.id}:${item.serial}`)%span);
-}
-function resetPhrase(startTick){phraseStartTick=startTick;phraseCost=0;phraseAttacks=0}
-function assignSlot(item){
-  const profile=profileForDepth();
-  let slot=Math.max(tick,nextSlotTick,punishGraceUntil);
-  if(phraseAttacks>=profile.maxAttacks||phraseCost+item.cost>profile.budget){
-    slot=Math.max(slot,nextSlotTick+profile.restTicks,punishGraceUntil);
-    resetPhrase(slot);
-  }else if(phraseAttacks===0){
-    phraseStartTick=slot;
-  }
-  const gap=deterministicGap(profile,item);
-  item.slotTick=slot;item.gapTicks=gap;
-  item.actor.v014ThreatScheduledTick=slot;
-  item.actor.v014ThreatRole=item.role;
-  item.actor.v014ThreatSerial=item.serial;
-  phraseCost+=item.cost;phraseAttacks++;
-  nextSlotTick=slot+gap;lastRole=item.role;
-}
+function candidateSort(a,b){const ar=transitionRank(a.role),br=transitionRank(b.role);if(ar!==br)return ar-br;if(a.requestTick!==b.requestTick)return a.requestTick-b.requestTick;return a.id<b.id?-1:a.id>b.id?1:0}
+function deterministicGap(profile,item){const span=profile.gapMax-profile.gapMin+1;if(span<=1)return profile.gapMin;return profile.gapMin+(hash(`v014-threat:${roomDepth}:${phraseIndex}:${item.id}:${item.serial}`)%span)}
+function resetPhrase(startTick=tick){phraseStartTick=startTick;phraseCost=0;phraseAttacks=0;phraseIndex++}
+function clearActorReservation(actor){if(!actor)return;actor.v014ThreatQueued=false;actor.v014ThreatScheduledTick=null;actor.v014ThreatRole=null;actor.v014ThreatSerial=null}
+
 function enqueueReady(){
   for(const actor of allThreatActors()){
-    if(!readyToRequest(actor)||pending.some(p=>p.actor===actor))continue;
-    pending.push({actor,id:stableId(actor),role:roleFor(actor),cost:costFor(actor),requestTick:tick,serial:serial++,slotTick:null,gapTicks:null});
-  }
-  const unscheduled=pending.filter(p=>!Number.isFinite(p.slotTick));
-  while(unscheduled.length){
-    unscheduled.sort(candidateSort);
-    const item=unscheduled.shift();assignSlot(item);
+    if(!readyToRequest(actor)||pending.some(item=>item.actor===actor))continue;
+    const item={actor,id:stableId(actor),role:roleFor(actor),cost:costFor(actor),requestTick:tick,serial:serial++,armed:false,slotTick:null,gapTicks:null};
+    actor.v014ThreatQueued=true;actor.v014ThreatRole=item.role;actor.v014ThreatSerial=item.serial;pending.push(item);
   }
 }
-function cancelInvalidReservations(){
+function cancelInvalidRequests(){
   for(const item of pending){
-    const actor=item.actor;if(!actor||actor.dead){if(actor)actor.v014ThreatScheduledTick=null;item.cancelled=true;continue}
-    if(Number.isFinite(item.slotTick)&&tick<item.slotTick&&(actor.kineticEvade||actor.evade||actor.state==='recover')){
-      actor.v014ThreatScheduledTick=null;actor.v014ThreatRole=null;item.cancelled=true;
+    if(item.armed)continue;
+    const actor=item.actor;if(!actor||actor.dead||actor.kineticEvade||actor.evade||actor.state==='recover'||actor.state==='charge'||actor.state==='kinetic-lunge'){
+      clearActorReservation(actor);item.cancelled=true;
     }
   }
-  pending=pending.filter(p=>!p.cancelled);
+  pending=pending.filter(item=>!item.cancelled);
 }
-function pushQueuePastGrace(until){
-  let cursor=until;
-  for(const item of pending.filter(p=>!p.cancelled&&!p.released&&Number.isFinite(p.slotTick)).sort((a,b)=>a.slotTick-b.slotTick||a.serial-b.serial)){
-    if(item.slotTick<cursor){item.slotTick=cursor;item.actor.v014ThreatScheduledTick=cursor}
-    cursor=item.slotTick+(item.gapTicks||profileForDepth().gapMin);
-  }
-  nextSlotTick=Math.max(nextSlotTick,cursor);
+function beginPhraseRest(profile){resetPhrase(tick+profile.restTicks);gateTick=Math.max(gateTick,punishGraceUntil,tick+profile.restTicks)}
+function chooseBeat(){
+  const profile=profileForDepth();if(tick<Math.max(gateTick,punishGraceUntil))return null;
+  const waiting=pending.filter(item=>!item.armed&&!item.cancelled);if(!waiting.length)return null;
+  if(phraseAttacks>=profile.maxAttacks){beginPhraseRest(profile);return null}
+  const remaining=profile.budget-phraseCost;
+  const eligible=waiting.filter(item=>item.cost<=remaining);
+  if(!eligible.length){beginPhraseRest(profile);return null}
+  eligible.sort(candidateSort);const item=eligible[0],actor=item.actor,gap=deterministicGap(profile,item);
+  item.armed=true;item.slotTick=tick;item.gapTicks=gap;
+  actor.v014ThreatQueued=false;actor.v014ThreatScheduledTick=tick;actor.clock=0;
+  if(phraseAttacks===0)phraseStartTick=tick;
+  phraseCost+=item.cost;phraseAttacks++;lastRole=item.role;gateTick=tick+gap;
+  return item;
 }
-function holdQueuedThreats(){
+function holdWaitingThreats(){
   for(const item of pending){
-    const actor=item.actor;if(!actor||actor.dead||!Number.isFinite(item.slotTick))continue;
-    if(tick<item.slotTick&&actor.state==='move'&&!actor.kineticEvade&&!actor.evade){
-      const ticksRemaining=item.slotTick-tick+1;
-      actor.clock=Math.max(actor.clock||0,q(ticksRemaining*FIXED_DT));
-    }
+    if(item.armed||item.cancelled)continue;const actor=item.actor;if(!actor||actor.dead||actor.state!=='move')continue;
+    actor.clock=Math.max(actor.clock||0,q(FIXED_DT*2));
   }
 }
 function recordReleasedTelegraphs(){
   for(const item of pending){
-    const actor=item.actor;if(!actor||actor.dead)continue;
-    if(!item.released&&isTelegraphing(actor)){
-      item.released=true;
-      actor.v014ThreatScheduledTick=null;
-      releases.push({tick,id:item.id,role:item.role,cost:item.cost,requestTick:item.requestTick,slotTick:item.slotTick,gapTicks:item.gapTicks,roomDepth,boss:actor===state.boss});
+    if(!item.armed||item.released)continue;const actor=item.actor;if(!actor||actor.dead)continue;
+    if(isTelegraphing(actor)){
+      item.released=true;clearActorReservation(actor);
+      releases.push({tick,id:item.id,role:item.role,cost:item.cost,requestTick:item.requestTick,slotTick:item.slotTick,gapTicks:item.gapTicks,roomDepth,phraseIndex,boss:actor===state.boss});
       if(releases.length>MAX_RELEASE_LOG)releases.shift();
     }
   }
-  pending=pending.filter(p=>!p.released&&!p.cancelled);
+  pending=pending.filter(item=>!item.released&&!item.cancelled);
 }
 function observePunishWindows(){
   const open=state.enemies.some(e=>!e.dead&&(e.v014PunishTimer||0)>0);
-  if(open&&!punishWindowActive){
-    const profile=profileForDepth();punishGraceUntil=Math.max(punishGraceUntil,tick+profile.punishGraceTicks);pushQueuePastGrace(punishGraceUntil);
-  }
+  if(open&&!punishWindowActive){const profile=profileForDepth();punishGraceUntil=Math.max(punishGraceUntil,tick+profile.punishGraceTicks);gateTick=Math.max(gateTick,punishGraceUntil)}
   punishWindowActive=open;
 }
-function resetActorThreat(actor){if(actor){actor.v014ThreatScheduledTick=null;actor.v014ThreatRole=null;actor.v014ThreatSerial=null}}
 function resetThreatState(depth=state.worldDepth||1){
-  roomDepth=depth|0;tick=0;nextSlotTick=0;phraseStartTick=0;phraseCost=0;phraseAttacks=0;lastRole='light';serial=0;pending=[];releases=[];punishGraceUntil=0;punishWindowActive=false;
-  for(const actor of allThreatActors())resetActorThreat(actor);
+  for(const item of pending)clearActorReservation(item.actor);
+  roomDepth=depth|0;tick=0;gateTick=0;phraseStartTick=0;phraseCost=0;phraseAttacks=0;lastRole='light';serial=0;phraseIndex=0;pending=[];releases=[];punishGraceUntil=0;punishWindowActive=false;
+  for(const actor of allThreatActors())clearActorReservation(actor);
 }
 
 const inheritedSetup=F.setupRoom;
@@ -164,27 +111,17 @@ resetThreatState(state.worldDepth||1);
 
 const inheritedEnemies=F.updateEnemies;
 F.updateEnemies=(dt)=>{
-  tick++;
-  observePunishWindows();
-  cancelInvalidReservations();
-  enqueueReady();
-  holdQueuedThreats();
-  const result=inheritedEnemies(dt);
-  recordReleasedTelegraphs();
-  return result;
+  tick++;observePunishWindows();cancelInvalidRequests();enqueueReady();chooseBeat();holdWaitingThreats();
+  const result=inheritedEnemies(dt);recordReleasedTelegraphs();return result;
 };
 const inheritedBoss=F.updateBoss;
 F.updateBoss=(dt)=>{const result=inheritedBoss(dt);recordReleasedTelegraphs();return result};
 
 window.SylvariaThreatManager=Object.freeze({
-  version:THREAT_MANAGER_VERSION,
-  profiles:ROOM_THREAT_PROFILES,
-  roleCost:ROLE_COST,
-  transitions:ROLE_TRANSITIONS,
-  roleFor,
+  version:THREAT_MANAGER_VERSION,profiles:ROOM_THREAT_PROFILES,roleCost:ROLE_COST,transitions:ROLE_TRANSITIONS,roleFor,
   snapshot:()=>({
-    version:THREAT_MANAGER_VERSION,roomDepth,tick,profile:profileForDepth(),nextSlotTick,phraseStartTick,phraseCost,phraseAttacks,lastRole,punishGraceUntil,punishWindowActive,
-    queue:pending.map(p=>({id:p.id,role:p.role,cost:p.cost,requestTick:p.requestTick,slotTick:p.slotTick,gapTicks:p.gapTicks,boss:p.actor===state.boss})),
+    version:THREAT_MANAGER_VERSION,roomDepth,tick,profile:profileForDepth(),gateTick,phraseStartTick,phraseCost,phraseAttacks,phraseIndex,lastRole,punishGraceUntil,punishWindowActive,
+    queue:pending.map(item=>({id:item.id,role:item.role,cost:item.cost,requestTick:item.requestTick,armed:item.armed,slotTick:item.slotTick,gapTicks:item.gapTicks,boss:item.actor===state.boss})),
     releases:[...releases],
   }),
 });
