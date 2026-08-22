@@ -39,6 +39,8 @@ type Props = {
   streamEpoch?: number;
   onNearEnd?: () => void;
   synthesis?: boolean;
+  /** Test/audit escape hatch. Production callers should keep semantic ranking enabled. */
+  semanticEnabled?: boolean;
   onFluidExpand?: (item: FrontierItem) => void;
   onFluidExternalOpen?: (item: FrontierItem) => void;
 };
@@ -100,6 +102,7 @@ export function SignalBoard({
   streamEpoch = 0,
   onNearEnd,
   synthesis,
+  semanticEnabled = true,
   onFluidExpand,
   onFluidExternalOpen,
 }: Props) {
@@ -125,7 +128,7 @@ export function SignalBoard({
   const semantic = useSemanticReranker(items, {
     query,
     seedText: SEMANTIC_COLD_START,
-    enabled: true,
+    enabled: semanticEnabled,
     explorationTemperature,
     diversityReference,
   });
