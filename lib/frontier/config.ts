@@ -128,8 +128,16 @@ export function laneMatchesRealm(lane: FrontierLaneId, realm: FrontierRealm): bo
 
 export const FRONTIER_SOURCE_WEIGHTS: Record<string, number> = {
   openalex: 1.1,
+  arxiv: 1.06,
+  huggingface: 1.02,
+  paperswithcode: 1.03,
+  biorxiv: 1.08,
+  medrxiv: 1.07,
+  openreview: 1.08,
   github: 1.05,
   hackernews: 0.92,
+  lobsters: 0.94,
+  nasa: 1.08,
   rss: 0.92,
   youtube: 0.98,
   football_data: 1.14,
