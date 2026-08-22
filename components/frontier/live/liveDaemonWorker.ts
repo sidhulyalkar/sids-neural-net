@@ -109,6 +109,15 @@ function mergeSources(left: FrontierSourceStatus[], right: FrontierSourceStatus[
   return Array.from(map.values());
 }
 
+function alignedLearnedCandidate(item: FrontierItem): boolean {
+  // Learned-source yield is about recent feed purity, not merely freshness.
+  // Require credible normalized source quality plus a strong intrinsic
+  // relevance/importance signal before a candidate earns aligned-yield credit.
+  return item.quality >= 0.7
+    && item.baseScore >= 0.66
+    && (item.importance >= 0.62 || item.novelty >= 0.68);
+}
+
 async function fetchJsonFeed(url: string, leaderSignal: AbortSignal): Promise<FrontierFeedResponse & { error?: string }> {
   const controller = new AbortController();
   const timer = self.setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
@@ -147,15 +156,17 @@ async function pollForagedSources(signal: AbortSignal): Promise<{ items: Frontie
       const feed = await fetchForagedFeed(learned.endpoint, signal);
       const discovered = feed.items ?? [];
       const unseen = await unseenAndAllowed(discovered);
+      const aligned = unseen.filter(alignedLearnedCandidate).length;
       items.push(...unseen);
       sources = mergeSources(sources, feed.sources ?? []);
       await recordFrontierForagedSourceYield(learned.id, {
         discovered: discovered.length,
         unseen: unseen.length,
+        aligned,
         success: !feed.error,
       });
     } catch {
-      await recordFrontierForagedSourceYield(learned.id, { discovered: 0, unseen: 0, success: false });
+      await recordFrontierForagedSourceYield(learned.id, { discovered: 0, unseen: 0, aligned: 0, success: false });
     }
   }
   return { items: dedupe(items), sources };
@@ -176,8 +187,6 @@ async function discover(signal: AbortSignal): Promise<void> {
       sources = mergeSources(sources, learned.sources);
     }
 
-    // If personalization and learned neighborhoods are still too narrow, make
-    // one bounded wide request. No synthetic filler and no unbounded retries.
     if (candidates.length < MIN_WIDE_BATCH && config.focusSignature && !signal.aborted) {
       const wide = await fetchFeed('', signal);
       const wideCandidates = await unseenAndAllowed(wide.items ?? []);
