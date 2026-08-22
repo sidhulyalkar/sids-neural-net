@@ -27,6 +27,8 @@ export const SYLVARIA_AUTHORITATIVE_SOURCE_PATHS = [
   `${ROOT}/v091/movement.js`,
   `${ROOT}/v091/battle-core.js`,
   `${ROOT}/v091/synergy-v010.js`,
+  `${ROOT}/v013/kinetic-combat-v013.js`,
+  `${ROOT}/v013/enemy-ai-v013.js`,
 ] as const;
 export const SYLVARIA_RANKED_VERIFY_MAX_WALL_MS = 8_000;
 
@@ -66,6 +68,7 @@ type EngineContext = {
   F: any;
   state: any;
   endReason: string | null;
+  heldInput: Set<string>;
 };
 
 let cachedBundle: RuntimeBundle | null = null;
@@ -89,16 +92,26 @@ function sha256(value: string | Uint8Array) {
   return createHash('sha256').update(value).digest('hex');
 }
 
+function runtimeSource(relative: string) {
+  return readFileSync(join(process.cwd(), 'public', 'game-runtimes', 'mosslight-v2', ...relative.split('/')), 'utf8');
+}
+
 export function loadSylvariaAuthoritativeBundle(): RuntimeBundle {
   if (cachedBundle) return cachedBundle;
-  const sources = [
-    { path: SYLVARIA_AUTHORITATIVE_SOURCE_PATHS[0], content: readFileSync(join(process.cwd(), 'public', 'game-runtimes', 'mosslight-v2', 'v091', 'model.js'), 'utf8') },
-    { path: SYLVARIA_AUTHORITATIVE_SOURCE_PATHS[1], content: readFileSync(join(process.cwd(), 'public', 'game-runtimes', 'mosslight-v2', 'v011', 'rooms-v011.js'), 'utf8') },
-    { path: SYLVARIA_AUTHORITATIVE_SOURCE_PATHS[2], content: readFileSync(join(process.cwd(), 'public', 'game-runtimes', 'mosslight-v2', 'v091', 'world.js'), 'utf8') },
-    { path: SYLVARIA_AUTHORITATIVE_SOURCE_PATHS[3], content: readFileSync(join(process.cwd(), 'public', 'game-runtimes', 'mosslight-v2', 'v091', 'movement.js'), 'utf8') },
-    { path: SYLVARIA_AUTHORITATIVE_SOURCE_PATHS[4], content: readFileSync(join(process.cwd(), 'public', 'game-runtimes', 'mosslight-v2', 'v091', 'battle-core.js'), 'utf8') },
-    { path: SYLVARIA_AUTHORITATIVE_SOURCE_PATHS[5], content: readFileSync(join(process.cwd(), 'public', 'game-runtimes', 'mosslight-v2', 'v091', 'synergy-v010.js'), 'utf8') },
-  ];
+  const relatives = [
+    'v091/model.js',
+    'v011/rooms-v011.js',
+    'v091/world.js',
+    'v091/movement.js',
+    'v091/battle-core.js',
+    'v091/synergy-v010.js',
+    'v013/kinetic-combat-v013.js',
+    'v013/enemy-ai-v013.js',
+  ] as const;
+  const sources = relatives.map((relative, index) => ({
+    path: SYLVARIA_AUTHORITATIVE_SOURCE_PATHS[index],
+    content: runtimeSource(relative),
+  }));
   const framed = sources.map(({ path, content }) => `${path.length}:${path}\0${content.length}:${content}`).join('\0');
   cachedBundle = { sources, hash: sha256(framed) };
   return cachedBundle;
@@ -142,12 +155,18 @@ function createHeadlessDocument() {
   return {
     canvas,
     document: {
+      hidden: false,
       getElementById(id: string) { return id === 'c' ? canvas : generic(); },
       createElement(tag: string) { return tag === 'canvas' ? { ...canvas, id: '' } : generic(); },
       querySelectorAll() { return []; },
       addEventListener() {},
     },
   };
+}
+
+function executableRuntimeSource(source: { path: string; content: string }) {
+  if (!source.path.includes('/v013/')) return source.content;
+  return source.content.replace(/^export\s+/gm, '');
 }
 
 function createHeadlessEngine(): EngineContext {
@@ -164,14 +183,15 @@ function createHeadlessEngine(): EngineContext {
     },
     queueMicrotask(callback: () => void) { callback(); },
     setTimeout() { return 0; }, clearTimeout() {},
+    addEventListener() {}, removeEventListener() {},
     Uint8Array, Uint8ClampedArray, Set, Map, Math, JSON, Date,
     performance: { now: () => 0 },
-    navigator: { userAgent: 'SylvariaHeadlessVerifier/0.11.1' },
+    navigator: { userAgent: 'SylvariaHeadlessVerifier/0.13.0' },
     canvas,
   };
   sandbox.window = sandbox;
   sandbox.globalThis = sandbox;
-  const context = vm.createContext(sandbox, { name: 'sylvaria-headless-v0111' });
+  const context = vm.createContext(sandbox, { name: 'sylvaria-headless-v013' });
 
   for (const source of loadSylvariaAuthoritativeBundle().sources) {
     if (source.path.endsWith('/synergy-v010.js')) {
@@ -180,14 +200,14 @@ function createHeadlessEngine(): EngineContext {
       G.fn.render ??= () => undefined;
       G.fn.updateHud ??= () => undefined;
     }
-    vm.runInContext(`(()=>{\n${source.content}\n})()`, context, { filename: source.path, timeout: 1_000 });
+    vm.runInContext(`(()=>{\n${executableRuntimeSource(source)}\n})()`, context, { filename: source.path, timeout: 1_000 });
   }
 
   const G = sandbox.Sylvaria091;
   if (!G?.fn || !G?.state) throw new Error('Sylvaria authoritative engine failed to initialize');
   const F = G.fn;
   const state = G.state;
-  const engine: EngineContext = { G, F, state, endReason: null };
+  const engine: EngineContext = { G, F, state, endReason: null, heldInput: new Set() };
   F.endRun = (reason: string) => {
     if (state.mode === 'gameover') return;
     state.mode = 'gameover';
@@ -221,9 +241,19 @@ function advanceRoom(engine: EngineContext) {
   F.setupRoom(state.worldDepth + 1, carry);
 }
 
+function pressInput(engine: EngineContext, key: string) {
+  if (engine.heldInput.has(key)) throw new Error(`invalid replay: repeated ${key.toUpperCase()} down while key is held`);
+  engine.heldInput.add(key);
+}
+
+function releaseInput(engine: EngineContext, key: string) {
+  if (!engine.heldInput.has(key)) throw new Error(`invalid replay: ${key.toUpperCase()} up without matching down`);
+  engine.heldInput.delete(key);
+}
+
 function applyMovementDown(engine: EngineContext, key: 'w' | 'a' | 's' | 'd') {
   const { state, F } = engine;
-  if (state.heldMoves.has(key)) throw new Error(`invalid replay: repeated ${key.toUpperCase()} down while key is held`);
+  pressInput(engine, key);
   state.heldMoves.add(key);
   state.heldOrder = state.heldOrder.filter((entry: string) => entry !== key);
   state.heldOrder.push(key);
@@ -232,9 +262,19 @@ function applyMovementDown(engine: EngineContext, key: 'w' | 'a' | 's' | 'd') {
 
 function applyMovementUp(engine: EngineContext, key: 'w' | 'a' | 's' | 'd') {
   const { state } = engine;
-  if (!state.heldMoves.has(key)) throw new Error(`invalid replay: ${key.toUpperCase()} up without matching down`);
+  releaseInput(engine, key);
   state.heldMoves.delete(key);
   state.heldOrder = state.heldOrder.filter((entry: string) => entry !== key);
+}
+
+function applyDashDown(engine: EngineContext) {
+  pressInput(engine, 'space');
+  engine.F.beginDashCharge();
+}
+
+function applyDashUp(engine: EngineContext) {
+  releaseInput(engine, 'space');
+  engine.F.releaseDashCharge();
 }
 
 function applyAction(engine: EngineContext, action: SylvariaReplayActionCode) {
@@ -252,6 +292,8 @@ function applyAction(engine: EngineContext, action: SylvariaReplayActionCode) {
     case 9: engine.F.cut('down'); break;
     case 10: engine.F.cut('left'); break;
     case 11: engine.F.cut('right'); break;
+    case 12: applyDashDown(engine); break;
+    case 13: applyDashUp(engine); break;
   }
 }
 
@@ -288,17 +330,29 @@ function digestState(state: any) {
     score: state.score, totalTime: state.totalTime, roomTime: state.roomTime, roomClearTimer: state.roomClearTimer,
     synergyChain: state.synergyChain ?? 0, synergyTimer: state.synergyTimer ?? 0, verdantTimer: state.verdantTimer ?? 0,
     player: player ? {
-      x: player.x, y: player.y, hp: player.hp, flow: player.flow,
-      dashCooldown: player.dashCooldown, cutCooldown: player.cutCooldown,
+      x: player.x, y: player.y, vx: player.vx ?? 0, vy: player.vy ?? 0, hp: player.hp, flow: player.flow,
+      dashCooldown: player.dashCooldown, dashCharge: player.dashCharge ?? 0, dashCharging: Boolean(player.dashCharging),
+      dashChargeVector: player.dashChargeVector ? { ...player.dashChargeVector } : null,
+      cutCooldown: player.cutCooldown, swingParity: player.swingParity ?? 0,
       dash: player.dash ? { ...player.dash, dir: player.dash.dir ? { x: player.dash.dir.x, y: player.dash.dir.y } : null } : null,
       buffs: { ...player.buffs }, shieldCharges: player.shieldCharges,
     } : null,
-    moveQueue: state.moveQueue ? { ...state.moveQueue } : null,
     heldMoves: [...state.heldMoves].sort(), heldOrder: [...state.heldOrder], stats: { ...state.stats },
+    slashes: state.slashes.map((slash: any) => ({
+      kind: slash.kind ?? 'legacy', direction: slash.direction, x: slash.x, y: slash.y, age: slash.age, life: slash.life,
+      phase: slash.phase ?? null, phaseTime: slash.phaseTime ?? 0, startAngle: slash.startAngle ?? null,
+      endAngle: slash.endAngle ?? null, angle: slash.angle ?? null, prevAngle: slash.prevAngle ?? null,
+      sweepDir: slash.sweepDir ?? null, activeProgress: slash.activeProgress ?? 0, reach: slash.reach,
+      hits: slash.hits instanceof Set ? [...slash.hits].sort() : [], gasShearDone: Boolean(slash.gasShearDone),
+    })),
     trees: state.trees.map((tree: any) => ({ id: tree.id, hp: tree.hp, alive: tree.alive, x: tree.x, y: tree.y })),
     enemies: state.enemies.map((enemy: any) => ({
-      id: enemy.id, type: enemy.type, x: enemy.x, y: enemy.y, hp: enemy.hp, dead: enemy.dead,
+      id: enemy.id, type: enemy.type, kineticType: enemy.kineticType ?? null, x: enemy.x, y: enemy.y, hp: enemy.hp, dead: enemy.dead,
       state: enemy.state, clock: enemy.clock, telegraph: enemy.telegraph, rngState: enemy.rngState, counterStagger: enemy.counterStagger,
+      arcDodgeCooldown: enemy.arcDodgeCooldown ?? 0, kineticCue: enemy.kineticCue ?? 0,
+      kineticEvade: enemy.kineticEvade ? { ...enemy.kineticEvade } : null,
+      facingAngle: enemy.facingAngle ?? null, contactCooldown: enemy.contactCooldown ?? 0,
+      velocity: enemy.velocity ? { ...enemy.velocity } : null,
     })),
     boss: state.boss ? {
       id: state.boss.id, x: state.boss.x, y: state.boss.y, hp: state.boss.hp, dead: state.boss.dead,
@@ -311,6 +365,7 @@ function digestState(state: any) {
       x: shot.x, y: shot.y, vx: shot.vx, vy: shot.vy, life: shot.life, kind: shot.kind, pattern: shot.pattern,
       originPattern: shot.originPattern ?? null, friendly: shot.friendly, originalOwnerId: shot.originalOwnerId ?? null,
       counterQuality: shot.counterQuality ?? null, reflectedTravel: shot.reflectedTravel ?? 0, pierces: shot.pierces ?? 0,
+      v013Scaled: Boolean(shot.v013Scaled),
     })),
   };
   return sha256(stableJson(payload));
