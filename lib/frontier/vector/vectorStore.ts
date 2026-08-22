@@ -126,6 +126,14 @@ async function readAllVectors(db: IDBDatabase): Promise<StoredFrontierVector[]> 
   return records;
 }
 
+async function readVectorRecord(db: IDBDatabase, id: string): Promise<StoredFrontierVector | undefined> {
+  const transaction = db.transaction(VECTOR_STORE, 'readonly');
+  const done = transactionDone(transaction);
+  const record = await requestPromise(transaction.objectStore(VECTOR_STORE).get(id)) as StoredFrontierVector | undefined;
+  await done;
+  return record;
+}
+
 async function touchVectors(db: IDBDatabase, records: StoredFrontierVector[], now: number): Promise<void> {
   if (!records.length) return;
   const transaction = db.transaction(VECTOR_STORE, 'readwrite');
@@ -161,10 +169,7 @@ function metadataFields(metadata?: FrontierVectorMetadata): FrontierVectorMetada
 export class FrontierVectorStore {
   async get(id: string): Promise<Float32Array | undefined> {
     const db = await openVectorDb();
-    const transaction = db.transaction(VECTOR_STORE, 'readonly');
-    const done = transactionDone(transaction);
-    const record = await requestPromise(transaction.objectStore(VECTOR_STORE).get(id)) as StoredFrontierVector | undefined;
-    await done;
+    const record = await readVectorRecord(db, id);
     if (!record) return undefined;
     await touchVectors(db, [record], Date.now());
     return new Float32Array(record.vector.slice(0));
@@ -204,9 +209,7 @@ export class FrontierVectorStore {
 
   async put(id: string, vector: Float32Array, textHash: string, now = Date.now(), metadata?: FrontierVectorMetadata): Promise<void> {
     const db = await openVectorDb();
-    const transaction = db.transaction(VECTOR_STORE, 'readwrite');
-    const done = transactionDone(transaction);
-    const existing = await requestPromise(transaction.objectStore(VECTOR_STORE).get(id)) as StoredFrontierVector | undefined;
+    const existing = await readVectorRecord(db, id);
     const record: StoredFrontierVector = {
       ...existing,
       ...metadataFields(metadata),
@@ -217,6 +220,8 @@ export class FrontierVectorStore {
       createdAt: existing?.createdAt ?? now,
       lastAccessedAt: now,
     };
+    const transaction = db.transaction(VECTOR_STORE, 'readwrite');
+    const done = transactionDone(transaction);
     transaction.objectStore(VECTOR_STORE).put(record);
     await done;
     await evictToLimit(db);
@@ -251,19 +256,18 @@ export class FrontierVectorStore {
 
   async recordEngagement(id: string, signal: number, at = Date.now()): Promise<void> {
     const db = await openVectorDb();
+    const record = await readVectorRecord(db, id);
+    if (!record) return;
+    const previous = Number.isFinite(record.engagement) ? (record.engagement ?? 0) : 0;
+    const boundedSignal = Math.max(-2, Math.min(1.5, signal));
     const transaction = db.transaction(VECTOR_STORE, 'readwrite');
     const done = transactionDone(transaction);
-    const store = transaction.objectStore(VECTOR_STORE);
-    const record = await requestPromise(store.get(id)) as StoredFrontierVector | undefined;
-    if (record) {
-      const previous = Number.isFinite(record.engagement) ? (record.engagement ?? 0) : 0;
-      const boundedSignal = Math.max(-2, Math.min(1.5, signal));
-      store.put({
-        ...record,
-        engagement: Math.max(-4, Math.min(6, previous * 0.92 + boundedSignal)),
-        lastSignalAt: at,
-      });
-    }
+    transaction.objectStore(VECTOR_STORE).put({
+      ...record,
+      engagement: Math.max(-4, Math.min(6, previous * 0.92 + boundedSignal)),
+      lastSignalAt: at,
+      lastAccessedAt: at,
+    });
     await done;
   }
 
