@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import type { FrontierSequenceState } from '@/lib/frontier/vector/sequenceModel';
 
 type WorkerResponse =
@@ -81,18 +81,21 @@ export function useSequenceModelWorker() {
     if (!state) return send({ type: 'hydrate' });
     const latent = state.state.slice();
     const target = state.target.slice();
+    const latentBuffer = latent.buffer as ArrayBuffer;
+    const targetBuffer = target.buffer as ArrayBuffer;
     return send({
       type: 'hydrate',
-      state: latent.buffer,
-      target: target.buffer,
+      state: latentBuffer,
+      target: targetBuffer,
       updatedAt: state.updatedAt,
       interactions: state.interactions,
-    }, [latent.buffer, target.buffer]);
+    }, [latentBuffer, targetBuffer]);
   }, [send]);
 
   const update = useCallback((vector: Float32Array, weight: number, at: number) => {
     const copy = vector.slice();
-    return send({ type: 'update', vector: copy.buffer, weight, at }, [copy.buffer]);
+    const buffer = copy.buffer as ArrayBuffer;
+    return send({ type: 'update', vector: buffer, weight, at }, [buffer]);
   }, [send]);
 
   const reset = useCallback(() => send({ type: 'reset' }), [send]);
@@ -103,5 +106,5 @@ export function useSequenceModelWorker() {
     failPending('sequence worker unmounted');
   }, [failPending]);
 
-  return { hydrate, update, reset };
+  return useMemo(() => ({ hydrate, update, reset }), [hydrate, reset, update]);
 }
