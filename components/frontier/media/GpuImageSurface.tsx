@@ -2,7 +2,8 @@
 
 import { useEffect, useId, useRef, useState } from 'react';
 import type { CSSProperties } from 'react';
-import { registerFrontierGpuImage } from './mediaPlane';
+import { registerFrontierPrefetchTarget } from '@/lib/frontier/media/streamPrefetcher';
+import { registerFrontierGpuImage, warmFrontierGpuImage } from './mediaPlane';
 import styles from './frontier-media.module.css';
 
 type Props = {
@@ -22,19 +23,30 @@ export function GpuImageSurface({ id, src, alt, className = '', placeholderColor
   const surfaceStyle = placeholderColor
     ? ({ '--frontier-media-placeholder': placeholderColor } as CSSProperties)
     : undefined;
+  const gpuId = `${id}:${reactId}`;
 
   useEffect(() => {
     const node = slotRef.current;
     if (!node || !src) return;
     setState('loading');
     setFallbackFailed(false);
-    return registerFrontierGpuImage({
-      id: `${id}:${reactId}`,
+    const unregisterGpu = registerFrontierGpuImage({
+      id: gpuId,
       node,
       src,
       onState: setState,
     });
-  }, [id, reactId, src]);
+    const unregisterPrefetch = registerFrontierPrefetchTarget({
+      id: `image:${gpuId}`,
+      kind: 'image',
+      node,
+      warm: () => warmFrontierGpuImage(gpuId),
+    });
+    return () => {
+      unregisterPrefetch();
+      unregisterGpu();
+    };
+  }, [gpuId, src]);
 
   useEffect(() => {
     if (fallbackFailed) onUnavailable?.();
