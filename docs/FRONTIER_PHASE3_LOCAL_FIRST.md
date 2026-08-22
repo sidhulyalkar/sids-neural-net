@@ -73,12 +73,14 @@ All filtering and load estimation run in a dedicated worker.
 
 - recurrent 64D/384D sequence state: deterministic LWW register using Lamport-style logical clock + actor tie-break
 - engagement values: per-item PN counters, merged by per-actor maxima
-- vector chunks: LWW chunk registers that can carry manifest-only state or an optional encoded payload
+- vector chunks: LWW chunk registers carrying quantized active semantic-neighborhood payloads
 - small configuration values: LWW registers
 
 The merge operation is deterministic, commutative for concurrent state, and idempotent.
 
 `MeshStateBridge` mirrors semantic telemetry into the local CRDT state even when no peer is connected. A WebRTC peer is instantiated only when pairing is explicitly requested.
+
+When the current sequence trajectory changes, FRONTIER pages a small cold-memory neighborhood, quantizes at most 24 nearby vectors, registers that semantic chunk in the CRDT, and imports unseen peer chunks back into the worker-owned archive. The local peer replica keeps only the 12 most recently updated chunk registers so signaling payloads and localStorage state remain bounded even when the lifetime archive is much larger.
 
 ### Pairing
 
@@ -103,6 +105,7 @@ RTCDataChannel traffic is encrypted by the browser's DTLS transport. No central 
 - resident semantic map: bounded independently of archive size
 - cold vector encoding: Int8 + per-vector scale
 - WebRTC connection: created only on explicit pairing
+- peer CRDT chunk window: 12 recent semantic chunks
 - signal bridge: opt-in only
 - no TensorFlow.js, Yjs, Automerge, vector database, CRDT package, or signal-processing dependency
 
