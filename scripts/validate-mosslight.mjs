@@ -29,9 +29,10 @@ expect(has(kinetics,"KINETIC_VERSION='0.13.0'",'moveSpeed:238','acceleration:188
 expect(has(kinetics,'function queueMove(){state.moveQueue=null;return false}','function consumeMoveQueue(){state.moveQueue=null;return false}','function repeatCadence(){return 0}'),'retired movement queue can still drive production');
 expect(!kinetics.includes('state.moveQueue={key,serial'),'v0.13 must not reintroduce queued dash-step locomotion');
 
-// The tongue is a reactive blade: opening five active ticks parry; the remainder is melee/world offense.
+// The tongue is a reactive blade: exactly the first five active samples parry; the remainder is melee/world offense.
 expect(has(kinetics,'arcDegrees:156','arcWindup:3/120','arcActive:15/120','arcRecovery:10/120','arcReach:94','parryWindow:5/120','perfectReflectSpeed:1160',"phase:'windup'","s.phase='active'","s.phase='recovery'",'function arcSweepContains','function fullArcContains','function counterShotArc',"F.addCallout?.(shot.x,shot.y-14,'PARRY'",'function cancelDashIntoBlade','dashCancelTicks:4'),'reactive blade arc or opening parry timing incomplete');
-expect(has(kinetics,'tangent=s.sweepDir>0','s.phaseTime>s.parryWindow','signalHitStop(\'parry\',4)','state.bladeTrails.push'),'reflection is not based on moving-arc contact inside the opening parry window');
+expect(has(kinetics,'tangent=s.sweepDir>0','s.phaseTime>=s.parryWindow','arcSweepContains(s,shot,4)',"signalHitStop('parry',4)",'state.bladeTrails.push'),'reflection is not based on moving-arc contact inside the strict five-tick opening parry window');
+expect(has(kineticPresentation,"(s.phaseTime||0)<(s.parryWindow||0)",'lastHitStopKind','lastHoldFramesApplied'), 'presentation cue is not aligned with strict parry timing / asymmetric impact tiers');
 expect(!/Math\.abs\(s\.activeProgress-\.5\)|perfectWindow:\.12|SWEET SPOT/.test(kinetics),'retired midpoint Countercut timing leaked into v0.13 blade logic');
 expect(has(kinetics,"document.addEventListener('keydown',onSpaceDown,true)","document.addEventListener('keyup',onSpaceUp,true)"),'Space charge/release input missing');
 expect(has(kinetics,'Math.round(v*100000)/100000','p.x=q(p.x);p.y=q(p.y);p.vx=q(p.vx);p.vy=q(p.vy)'),'deterministic kinetic rounding missing');
