@@ -8,15 +8,20 @@ export const FLOW_CONFIG=Object.freeze({
   dashSteerBlend:.055,
   parryDashRefund:12/120,
   recoveryTicksAtFullFlow:7,
+  minimumReleaseCharge:.12,
 });
 
 const q=v=>Math.round(v*100000)/100000;
 const normalize=(x,y)=>{const m=Math.hypot(x,y);return m>1e-7?{x:q(x/m),y:q(y/m),m}:{x:0,y:0,m:0}};
+const smoothstep=t=>t*t*(3-2*t);
 const solvedOpeningSpeed=(distance,ticks,decay=BASE_KINETICS.config.dashDecay)=>q(distance*(1-decay)/(FIXED_DT*(1-Math.pow(decay,ticks))));
-export const DASH_SPEED_ENVELOPE=Object.freeze({
-  neutralMin:solvedOpeningSpeed(BASE_KINETICS.config.dashDistanceMin,BASE_KINETICS.config.dashTicksMin),
-  neutralMax:solvedOpeningSpeed(BASE_KINETICS.config.dashDistanceMax,BASE_KINETICS.config.dashTicksMax),
-});
+const dashSpecForCharge=charge=>{
+  const curve=smoothstep(clamp(charge,0,1)),ticks=Math.round(lerp(BASE_KINETICS.config.dashTicksMin,BASE_KINETICS.config.dashTicksMax,curve)),distance=q(lerp(BASE_KINETICS.config.dashDistanceMin,BASE_KINETICS.config.dashDistanceMax,curve));
+  return Object.freeze({charge:q(charge),curve:q(curve),ticks,distance,openingSpeed:solvedOpeningSpeed(distance,ticks)});
+};
+const TAP_DASH=dashSpecForCharge(FLOW_CONFIG.minimumReleaseCharge),FULL_DASH=dashSpecForCharge(1);
+export const DASH_DISTANCE_ENVELOPE=Object.freeze({tapMin:TAP_DASH.distance,fullMax:FULL_DASH.distance});
+export const DASH_SPEED_ENVELOPE=Object.freeze({tapMin:TAP_DASH.openingSpeed,fullMax:FULL_DASH.openingSpeed});
 
 function initFlowPlayer(p){
   if(!p)return;
@@ -111,8 +116,8 @@ F.updateMovement=(dt)=>{
 
   // The geometric dash solver owns burst magnitude. During a committed dash,
   // WASD may rotate dash.dir above, but it must not also inject ordinary glide
-  // acceleration into the same tick. On neutral ground this makes the solved
-  // 78–154 px target describe actual path length, not merely an internal scalar.
+  // acceleration into the same tick. On neutral ground this makes the reachable
+  // 81.020544–154 px target describe actual path length, not merely an internal scalar.
   const held=dashRef?state.heldMoves:null;
   if(dashRef)state.heldMoves=new Set();
   let result;
@@ -155,6 +160,7 @@ F.updateSlashes=(dt)=>{
 window.SylvariaFlowCombat=Object.freeze({
   version:FLOW_VERSION,
   config:FLOW_CONFIG,
+  dashDistanceEnvelope:DASH_DISTANCE_ENVELOPE,
   dashSpeedEnvelope:DASH_SPEED_ENVELOPE,
   snapshot:()=>({
     version:FLOW_VERSION,
@@ -164,6 +170,7 @@ window.SylvariaFlowCombat=Object.freeze({
     dashCommitTicks:FLOW_CONFIG.dashCommitTicks,
     dashSteerBlend:FLOW_CONFIG.dashSteerBlend,
     parryDashRefund:FLOW_CONFIG.parryDashRefund,
+    dashDistanceEnvelope:DASH_DISTANCE_ENVELOPE,
     dashSpeedEnvelope:DASH_SPEED_ENVELOPE,
     dashChargeVector:state.player?.dashChargeVector?{...state.player.dashChargeVector}:null,
     lastDashAccuracy:state.player?.lastDashAccuracy||null,
