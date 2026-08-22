@@ -36,6 +36,7 @@ export function FluidSpatialCard({
   return (
     <div
       data-frontier-fluid-card={item.id}
+      data-frontier-virtual-card
       data-fluid-expanded={expanded ? 'true' : 'false'}
       className={`${className} ${styles.card} ${expanded ? styles.expanded : ''}`}
       {...interaction}
