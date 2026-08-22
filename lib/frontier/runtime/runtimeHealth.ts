@@ -6,7 +6,8 @@ export type FrontierRuntimeSubsystem =
   | 'signal-processor'
   | 'signal-bridge'
   | 'mesh'
-  | 'live-daemon';
+  | 'live-daemon'
+  | 'source-forager';
 
 export type FrontierRuntimeStatus = 'idle' | 'starting' | 'ready' | 'degraded' | 'failed';
 
