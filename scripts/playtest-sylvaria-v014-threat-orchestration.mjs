@@ -53,6 +53,23 @@ const earlyGaps=early.releases.slice(1).map((r,i)=>r.tick-early.releases[i].tick
 check(earlyGaps[0]>=early.profile.gapMin&&earlyGaps[0]<=early.profile.gapMax,`room 1 first duet gap invalid: ${JSON.stringify({earlyGaps,early})}`);
 check(earlyGaps[1]>=early.profile.gapMin+early.profile.restTicks,`room 1 third threat did not cross a phrase rest: ${JSON.stringify({earlyGaps,profile:early.profile,releases:early.releases})}`);
 
+// Final boss and support pressure share the same phrase budget instead of independent clocks.
+const bossSetup=await page.evaluate(()=>{
+  const play=window.__MOSSLIGHT_PLAYTEST__,G=window.Sylvaria091;play.setRoom(29,30);play.labClearGeometry();play.setPlayerPosition(300,330);
+  const support=G.state.enemies.find(e=>e.kineticType==='skimmer');
+  for(const e of G.state.enemies){if(e!==support)e.dead=true}
+  if(support){support.state='move';support.clock=.00001;support.telegraph=0;support.kineticEvade=null;support.evade=null;support.counterStagger=0;support.arcDodgeCooldown=99}
+  const b=G.state.boss;if(b){b.dead=false;b.state='move';b.clock=.00001;b.telegraph=0;b.counterStagger=0;b.recover=0}
+  return{supportId:support?.id||null,bossId:b?.id||null,profile:window.SylvariaThreatManager.snapshot().profile};
+});
+check(Boolean(bossSetup.supportId&&bossSetup.bossId),`final boss coordination setup incomplete: ${JSON.stringify(bossSetup)}`);
+const bossPhrase=await waitForValue(()=>{const s=window.SylvariaThreatManager.snapshot();return s.releases.length>=2?{tick:s.tick,releases:s.releases.slice(-2),profile:s.profile}:false},null,2200);
+const bossGap=bossPhrase.releases[1].tick-bossPhrase.releases[0].tick;
+check(bossPhrase.releases.some(r=>r.boss===true&&r.role==='heavy'),`boss never entered heavy threat budget: ${JSON.stringify(bossPhrase)}`);
+check(bossPhrase.releases.some(r=>r.role==='coverage'),`support coverage never entered boss phrase: ${JSON.stringify(bossPhrase)}`);
+check(bossGap>=bossPhrase.profile.gapMin&&bossGap<=bossPhrase.profile.gapMax,`boss/support telegraphs did not share final-room cadence: ${JSON.stringify({bossGap,bossPhrase})}`);
+check(bossPhrase.releases[0].tick!==bossPhrase.releases[1].tick,'boss and support telegraphed on the same authoritative tick');
+
 // A newly opened post-evade punish window pushes not-yet-released telegraphs beyond its fixed grace edge.
 const graceSetup=await page.evaluate(()=>{
   const play=window.__MOSSLIGHT_PLAYTEST__,G=window.Sylvaria091;play.setRoom(28,29);play.labClearGeometry();play.setPlayerPosition(300,330);
@@ -67,8 +84,8 @@ check((grace.punishGraceUntil-grace.tick)<=mixed.profile.punishGraceTicks+1,'pun
 
 for(const error of pageErrors)failures.push(`pageerror: ${error}`);
 await page.screenshot({path:path.join(outputDir,'rhythmic-threat-orchestration-v014.png'),fullPage:true});
-const report={profiles,mixedSetup,mixed:{...mixed,roles:mixedRoles,gaps:mixedGaps},earlySetup,early:{...early,gaps:earlyGaps},grace:{before:queueBeforeGrace,after:grace},failures};
+const report={profiles,mixedSetup,mixed:{...mixed,roles:mixedRoles,gaps:mixedGaps},earlySetup,early:{...early,gaps:earlyGaps},boss:{setup:bossSetup,phrase:bossPhrase,gap:bossGap},grace:{before:queueBeforeGrace,after:grace},failures};
 fs.writeFileSync(path.join(outputDir,'threat-report.json'),JSON.stringify(report,null,2));
 await browser.close();
 if(failures.length){console.error(`Sylvaria v0.14 threat orchestration failed with ${failures.length} issue(s):`);for(const failure of failures)console.error(` - ${failure}`);process.exit(1)}
-console.log(`Sylvaria v0.14 threat orchestration PASS · 30 authored profiles · room 29 ${mixedRoles.join(' → ')} at ${mixedGaps.join('/')} tick gaps · room 1 phrase break ${earlyGaps[1]} ticks · punish grace reflow verified.`);
+console.log(`Sylvaria v0.14 threat orchestration PASS · 30 authored profiles · room 29 ${mixedRoles.join(' → ')} at ${mixedGaps.join('/')} tick gaps · room 1 phrase break ${earlyGaps[1]} ticks · boss/support gap ${bossGap} ticks · punish grace reflow verified.`);
