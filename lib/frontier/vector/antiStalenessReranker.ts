@@ -1,6 +1,10 @@
 import type { FrontierItem } from '../types';
 import { cosineSimilarity } from './math';
-import { hybridFrontierScores, type FrontierInterestResolver } from './ranker';
+import {
+  hybridFrontierScores,
+  type FrontierInterestResolver,
+  type FrontierScorePenaltyResolver,
+} from './ranker';
 import { projectEmbeddingToSequence } from './sequenceModel';
 
 export type FrontierAntiStalenessScore = {
@@ -9,6 +13,7 @@ export type FrontierAntiStalenessScore = {
   exploration: number;
   semanticDistance: number;
   repetitionPenalty: number;
+  avoidPenalty: number;
   finalScore: number;
 };
 
@@ -89,10 +94,11 @@ export function scoreFrontierAntiStaleness(
   now = Date.now(),
   repetitionAlpha = 0.045,
   rankingTargetForItem?: FrontierInterestResolver,
-  contextStateForItem?: FrontierContextStateResolver
+  contextStateForItem?: FrontierContextStateResolver,
+  penaltyForItem?: FrontierScorePenaltyResolver
 ): FrontierAntiStalenessScore[] {
   const tau = Math.max(0, Math.min(1, explorationTemperature));
-  const baseline = hybridFrontierScores(items, vectors, rankingTarget, query, now, rankingTargetForItem);
+  const baseline = hybridFrontierScores(items, vectors, rankingTarget, query, now, rankingTargetForItem, penaltyForItem);
   return baseline.map((entry) => {
     const resolvedState = contextStateForItem?.(entry.item) ?? contextState;
     const distance = frontierSemanticDistance64(vectors.get(entry.item.id), resolvedState);
@@ -104,7 +110,14 @@ export function scoreFrontierAntiStaleness(
       exploration,
       semanticDistance: distance,
       repetitionPenalty,
-      finalScore: (1 - tau) * entry.score + tau * exploration - repetitionPenalty,
+      avoidPenalty: entry.avoidPenalty,
+      // The explicit avoid term survives temperature spikes. It is not diluted
+      // by (1-tau), otherwise high exploration could re-promote exactly the
+      // semantic region the reader asked FRONTIER to suppress.
+      finalScore: (1 - tau) * (entry.score + entry.avoidPenalty)
+        + tau * exploration
+        - repetitionPenalty
+        - entry.avoidPenalty,
     };
   });
 }
@@ -119,7 +132,8 @@ export function rerankFrontierAntiStaleness(
   explorationTemperature: number,
   now = Date.now(),
   rankingTargetForItem?: FrontierInterestResolver,
-  contextStateForItem?: FrontierContextStateResolver
+  contextStateForItem?: FrontierContextStateResolver,
+  penaltyForItem?: FrontierScorePenaltyResolver
 ): FrontierItem[] {
   return scoreFrontierAntiStaleness(
     items,
@@ -132,7 +146,8 @@ export function rerankFrontierAntiStaleness(
     now,
     0.045,
     rankingTargetForItem,
-    contextStateForItem
+    contextStateForItem,
+    penaltyForItem
   )
     .sort((left, right) => right.finalScore - left.finalScore || right.item.baseScore - left.item.baseScore || left.item.id.localeCompare(right.item.id))
     .map((entry) => entry.item);
