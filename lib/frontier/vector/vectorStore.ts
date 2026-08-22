@@ -84,65 +84,71 @@ export function selectLruEvictions(records: LruRecord[], limit = FRONTIER_VECTOR
     .map((record) => record.id);
 }
 
+async function readAllVectors(db: IDBDatabase): Promise<StoredFrontierVector[]> {
+  const transaction = db.transaction(VECTOR_STORE, 'readonly');
+  const done = transactionDone(transaction);
+  const records = await requestPromise(transaction.objectStore(VECTOR_STORE).getAll()) as StoredFrontierVector[];
+  await done;
+  return records;
+}
+
+async function touchVectors(db: IDBDatabase, records: StoredFrontierVector[], now: number): Promise<void> {
+  if (!records.length) return;
+  const transaction = db.transaction(VECTOR_STORE, 'readwrite');
+  const done = transactionDone(transaction);
+  const store = transaction.objectStore(VECTOR_STORE);
+  for (const record of records) store.put({ ...record, lastAccessedAt: now });
+  await done;
+}
+
 async function evictToLimit(db: IDBDatabase, limit = FRONTIER_VECTOR_LIMIT): Promise<void> {
-  const read = db.transaction(VECTOR_STORE, 'readonly');
-  const records = await requestPromise(read.objectStore(VECTOR_STORE).getAll()) as StoredFrontierVector[];
-  await transactionDone(read);
+  const records = await readAllVectors(db);
   const evictions = selectLruEvictions(records, limit);
   if (!evictions.length) return;
-  const write = db.transaction(VECTOR_STORE, 'readwrite');
-  const store = write.objectStore(VECTOR_STORE);
+  const transaction = db.transaction(VECTOR_STORE, 'readwrite');
+  const done = transactionDone(transaction);
+  const store = transaction.objectStore(VECTOR_STORE);
   for (const id of evictions) store.delete(id);
-  await transactionDone(write);
+  await done;
 }
 
 export class FrontierVectorStore {
   async get(id: string): Promise<Float32Array | undefined> {
     const db = await openVectorDb();
-    const transaction = db.transaction(VECTOR_STORE, 'readwrite');
-    const store = transaction.objectStore(VECTOR_STORE);
-    const record = await requestPromise(store.get(id)) as StoredFrontierVector | undefined;
-    if (record) {
-      record.lastAccessedAt = Date.now();
-      store.put(record);
-    }
-    await transactionDone(transaction);
-    return record ? new Float32Array(record.vector.slice(0)) : undefined;
+    const transaction = db.transaction(VECTOR_STORE, 'readonly');
+    const done = transactionDone(transaction);
+    const record = await requestPromise(transaction.objectStore(VECTOR_STORE).get(id)) as StoredFrontierVector | undefined;
+    await done;
+    if (!record) return undefined;
+    await touchVectors(db, [record], Date.now());
+    return new Float32Array(record.vector.slice(0));
   }
 
   async getMany(ids: string[]): Promise<Map<string, Float32Array>> {
     const output = new Map<string, Float32Array>();
     if (!ids.length) return output;
+    const wanted = new Set(ids);
     const db = await openVectorDb();
-    const transaction = db.transaction(VECTOR_STORE, 'readwrite');
-    const store = transaction.objectStore(VECTOR_STORE);
-    const now = Date.now();
-    for (const id of ids) {
-      const record = await requestPromise(store.get(id)) as StoredFrontierVector | undefined;
-      if (!record) continue;
-      record.lastAccessedAt = now;
-      store.put(record);
-      output.set(id, new Float32Array(record.vector.slice(0)));
-    }
-    await transactionDone(transaction);
+    const records = (await readAllVectors(db)).filter((record) => wanted.has(record.id));
+    for (const record of records) output.set(record.id, new Float32Array(record.vector.slice(0)));
+    await touchVectors(db, records, Date.now());
     return output;
   }
 
   async put(id: string, vector: Float32Array, textHash: string, now = Date.now()): Promise<void> {
     const db = await openVectorDb();
     const transaction = db.transaction(VECTOR_STORE, 'readwrite');
-    const store = transaction.objectStore(VECTOR_STORE);
-    const previous = await requestPromise(store.get(id)) as StoredFrontierVector | undefined;
+    const done = transactionDone(transaction);
     const record: StoredFrontierVector = {
       id,
       vector: cloneVectorBuffer(vector),
       dimensions: vector.length,
       textHash,
-      createdAt: previous?.createdAt ?? now,
+      createdAt: now,
       lastAccessedAt: now,
     };
-    store.put(record);
-    await transactionDone(transaction);
+    transaction.objectStore(VECTOR_STORE).put(record);
+    await done;
     await evictToLimit(db);
   }
 
@@ -150,6 +156,7 @@ export class FrontierVectorStore {
     if (!entries.length) return;
     const db = await openVectorDb();
     const transaction = db.transaction(VECTOR_STORE, 'readwrite');
+    const done = transactionDone(transaction);
     const store = transaction.objectStore(VECTOR_STORE);
     const now = Date.now();
     for (const entry of entries) {
@@ -163,15 +170,16 @@ export class FrontierVectorStore {
       };
       store.put(record);
     }
-    await transactionDone(transaction);
+    await done;
     await evictToLimit(db);
   }
 
   async getInterest(): Promise<FrontierInterestState | undefined> {
     const db = await openVectorDb();
     const transaction = db.transaction(PROFILE_STORE, 'readonly');
+    const done = transactionDone(transaction);
     const record = await requestPromise(transaction.objectStore(PROFILE_STORE).get(PROFILE_KEY)) as StoredInterestProfile | undefined;
-    await transactionDone(transaction);
+    await done;
     if (!record) return undefined;
     return {
       vector: new Float32Array(record.vector.slice(0)),
@@ -183,6 +191,7 @@ export class FrontierVectorStore {
   async setInterest(profile: FrontierInterestState): Promise<void> {
     const db = await openVectorDb();
     const transaction = db.transaction(PROFILE_STORE, 'readwrite');
+    const done = transactionDone(transaction);
     const record: StoredInterestProfile = {
       key: PROFILE_KEY,
       vector: cloneVectorBuffer(profile.vector),
@@ -191,7 +200,7 @@ export class FrontierVectorStore {
       updatedAt: profile.updatedAt,
     };
     transaction.objectStore(PROFILE_STORE).put(record);
-    await transactionDone(transaction);
+    await done;
   }
 
   async updateInterest(itemVector: Float32Array, signal: number, now = Date.now()): Promise<FrontierInterestState> {
@@ -204,9 +213,10 @@ export class FrontierVectorStore {
   async clear(): Promise<void> {
     const db = await openVectorDb();
     const transaction = db.transaction([VECTOR_STORE, PROFILE_STORE], 'readwrite');
+    const done = transactionDone(transaction);
     transaction.objectStore(VECTOR_STORE).clear();
     transaction.objectStore(PROFILE_STORE).clear();
-    await transactionDone(transaction);
+    await done;
   }
 }
 
