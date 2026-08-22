@@ -46,7 +46,7 @@ export function useFluidInteraction({
   onExternalOpen,
 }: Options) {
   const clickState = useRef<FrontierFluidClickState>({ lastReleaseAt: 0 });
-  const press = useRef<FrontierFluidPress>();
+  const press = useRef<FrontierFluidPress | undefined>(undefined);
   const suppressClick = useRef(false);
 
   const onPointerDown = useCallback((event: ReactPointerEvent<HTMLElement>) => {
@@ -85,8 +85,6 @@ export function useFluidInteraction({
     if (resolved.intent === 'external') {
       onCollapse(item);
       onExternalOpen?.(item);
-      // Must happen synchronously inside the trusted pointer-up gesture or the
-      // popup can be blocked. noopener prevents an opener relationship.
       window.open(item.url, '_blank', 'noopener,noreferrer');
       return;
     }
