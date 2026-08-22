@@ -1,5 +1,5 @@
 const G=window.Sylvaria091;
-const {state,clamp,lerp}=G,F=G.fn;
+const {state,clamp,lerp,FIXED_DT}=G,F=G.fn,BASE_KINETICS=window.SylvariaKinetics;
 
 export const FLOW_VERSION='0.14.0';
 export const FLOW_CONFIG=Object.freeze({
@@ -12,6 +12,11 @@ export const FLOW_CONFIG=Object.freeze({
 
 const q=v=>Math.round(v*100000)/100000;
 const normalize=(x,y)=>{const m=Math.hypot(x,y);return m>1e-7?{x:q(x/m),y:q(y/m),m}:{x:0,y:0,m:0}};
+const solvedOpeningSpeed=(distance,ticks,decay=BASE_KINETICS.config.dashDecay)=>q(distance*(1-decay)/(FIXED_DT*(1-Math.pow(decay,ticks))));
+export const DASH_SPEED_ENVELOPE=Object.freeze({
+  neutralMin:solvedOpeningSpeed(BASE_KINETICS.config.dashDistanceMin,BASE_KINETICS.config.dashTicksMin),
+  neutralMax:solvedOpeningSpeed(BASE_KINETICS.config.dashDistanceMax,BASE_KINETICS.config.dashTicksMax),
+});
 
 function initFlowPlayer(p){
   if(!p)return;
@@ -70,9 +75,18 @@ F.cut=(direction)=>{
 
 const inheritedMovement=F.updateMovement;
 F.updateMovement=(dt)=>{
-  const p=state.player;
+  const p=state.player,dashing=Boolean(p?.dash?.reactive);
   if(p)steerCommittedDash(p);
-  const result=inheritedMovement(dt);
+
+  // The geometric dash solver owns burst magnitude. During a committed dash,
+  // WASD may rotate dash.dir above, but it must not also inject ordinary glide
+  // acceleration into the same tick. On neutral ground this makes the solved
+  // 78–154 px target describe actual path length, not merely an internal scalar.
+  const held=dashing?state.heldMoves:null;
+  if(dashing)state.heldMoves=new Set();
+  let result;
+  try{result=inheritedMovement(dt)}finally{if(dashing)state.heldMoves=held}
+
   if(!p)return result;
   if(p.bladeBuffer>0)p.bladeBuffer=Math.max(0,p.bladeBuffer-dt);
   if(p.bladeBuffer<=0&&!canReleaseQueuedBlade(p)){
@@ -98,6 +112,7 @@ F.updateSlashes=(dt)=>{
 window.SylvariaFlowCombat=Object.freeze({
   version:FLOW_VERSION,
   config:FLOW_CONFIG,
+  dashSpeedEnvelope:DASH_SPEED_ENVELOPE,
   snapshot:()=>({
     version:FLOW_VERSION,
     bladeBuffered:Boolean(state.player?.bladeQueuedDirection&&state.player?.bladeBuffer>0),
@@ -106,5 +121,6 @@ window.SylvariaFlowCombat=Object.freeze({
     dashCommitTicks:FLOW_CONFIG.dashCommitTicks,
     dashSteerBlend:FLOW_CONFIG.dashSteerBlend,
     parryDashRefund:FLOW_CONFIG.parryDashRefund,
+    dashSpeedEnvelope:DASH_SPEED_ENVELOPE,
   }),
 });
