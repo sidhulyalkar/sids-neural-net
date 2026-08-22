@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FRONTIER_MESH_PROFILE_UPDATE_EVENT } from '@/lib/frontier/sync/meshProfileEvents';
 import type { FrontierItem } from '@/lib/frontier/types';
+import { rerankFrontierAntiStaleness } from '@/lib/frontier/vector/antiStalenessReranker';
 import { rerankFrontierItems } from '@/lib/frontier/vector/ranker';
 import {
   listenFrontierSemanticTelemetry,
@@ -78,6 +79,8 @@ export function useSemanticReranker(
     query?: string;
     seedText?: string;
     enabled?: boolean;
+    explorationTemperature?: number;
+    diversityReference?: FrontierItem[];
   } = {}
 ) {
   const { embed, warm, backend } = useVectorWorker();
@@ -90,6 +93,8 @@ export function useSemanticReranker(
   const enabled = options.enabled !== false;
   const query = options.query ?? '';
   const seedText = options.seedText ?? '';
+  const explorationTemperature = Math.max(0, Math.min(1, options.explorationTemperature ?? 0));
+  const diversityReference = options.diversityReference ?? [];
   const vectorsRef = useRef(new Map<string, Float32Array>());
   const telemetryQueue = useRef(Promise.resolve());
   const sequenceHydrationRef = useRef<Promise<FrontierSequenceState | undefined> | undefined>(undefined);
@@ -346,6 +351,18 @@ export function useSemanticReranker(
     if (!enabled || !items.length) return items;
     const enoughVectors = vectorsRef.current.size >= Math.min(6, items.length);
     if (!enoughVectors && !query.trim()) return items;
+    if (explorationTemperature > 0.001) {
+      return rerankFrontierAntiStaleness(
+        items,
+        vectorsRef.current,
+        rankingTarget,
+        sequence?.state,
+        query,
+        diversityReference,
+        explorationTemperature,
+        Date.now()
+      );
+    }
     return rerankFrontierItems(
       items,
       vectorsRef.current,
@@ -355,7 +372,7 @@ export function useSemanticReranker(
       Date.now(),
       `${new Date().toISOString().slice(0, 10)}:${query.toLowerCase()}`
     );
-  }, [enabled, items, query, rankingTarget, vectorVersion]);
+  }, [diversityReference, enabled, explorationTemperature, items, query, rankingTarget, sequence?.state, vectorVersion]);
 
   return {
     items: rankedItems,
