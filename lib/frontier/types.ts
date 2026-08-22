@@ -117,6 +117,8 @@ export type FrontierConvergenceMember = {
   sourceLabel: string;
   sourceKind: FrontierSourceKind;
   publishedAt: string;
+  /** Bounded verbatim source evidence for optional local-only synthesis. */
+  excerpt?: string;
 };
 
 export type FrontierConvergenceSignal = {
