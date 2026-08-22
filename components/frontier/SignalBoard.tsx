@@ -4,6 +4,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import type { ReactNode } from 'react';
 import { ambientExplorationVector, emitFrontierAmbientExploration } from '@/lib/frontier/ambientState';
 import { FRONTIER_PINNED_TOPICS } from '@/lib/frontier/interests';
+import { frontierVisualRole, type FrontierVisualRole } from '@/lib/frontier/presentation/mediaForward';
 import {
   isFrontierTypingTarget,
   resolveFrontierFocalKeyboardIntent,
@@ -13,6 +14,7 @@ import { FRONTIER_CLIENT_QUERY_EVENT, getFrontierClientQuery } from '@/lib/front
 import { useUIFrequencies } from './audio/useUIFrequencies';
 import { FluidSpatialCard } from './FluidSpatialCard';
 import { FrontierIntelligenceBadges } from './FrontierIntelligenceBadges';
+import { canRenderFrontierMedia } from './media/FrontierMediaSurface';
 import { usePredictivePrefetch } from './media/usePredictivePrefetch';
 import { useFrontierSynthesis } from './synthesis/useFrontierSynthesis';
 import { useAdaptiveReadingDensity } from './useAdaptiveReadingDensity';
@@ -45,6 +47,14 @@ const SEMANTIC_COLD_START = FRONTIER_PINNED_TOPICS
   .slice(0, 24)
   .map((topic) => topic.label)
   .join(' · ');
+
+const VISUAL_ROLE_CLASS: Record<FrontierVisualRole, string> = {
+  hero: spatial.heroItem,
+  wide: spatial.wideItem,
+  visual: spatial.visualItem,
+  standard: spatial.standardItem,
+  compact: spatial.compactItem,
+};
 
 function priorityFirst(items: FrontierItem[]): FrontierItem[] {
   const priority = items
@@ -281,29 +291,35 @@ export function SignalBoard({
         </div>
       ) : (
         <div className={`${styles.signalGrid} ${spatial.grid} ${compact ? styles.signalGridCompact : ''}`}>
-          {displayedItems.map((item) => (
-            <FluidSpatialCard
-              key={item.id}
-              item={item}
-              expanded={expandedItemId === item.id}
-              onExpand={expandInline}
-              onCollapse={collapseInline}
-              onExternalOpen={onFluidExternalOpen}
-              className={`${styles.gridItem} ${spatial.item} ${item.highPriority ? spatial.priorityItem : ''} ${item.velocitySignal ? spatial.velocityItem : ''} ${perf.virtualItem}`}
-            >
-              <div
-                data-frontier-priority={item.highPriority ? 'true' : undefined}
-                data-frontier-velocity={item.velocitySignal ? 'true' : undefined}
-                {...hoverProps(item)}
+          {displayedItems.map((item, index) => {
+            const hasMedia = canRenderFrontierMedia(item);
+            const visualRole = frontierVisualRole(item, index, hasMedia);
+            return (
+              <FluidSpatialCard
+                key={item.id}
+                item={item}
+                expanded={expandedItemId === item.id}
+                onExpand={expandInline}
+                onCollapse={collapseInline}
+                onExternalOpen={onFluidExternalOpen}
+                className={`${styles.gridItem} ${spatial.item} ${VISUAL_ROLE_CLASS[visualRole]} ${hasMedia ? spatial.mediaItem : spatial.textItem} ${item.highPriority ? spatial.priorityItem : ''} ${item.velocitySignal ? spatial.velocityItem : ''} ${perf.virtualItem}`}
               >
-                <PriorityMarker item={item} />
-                <VelocityMarker item={item} />
-                <FrontierIntelligenceBadges item={item} />
-                <span className={spatial.focalHint} aria-hidden="true">click focus · 2× source</span>
-                {renderCard(item, 'desk')}
-              </div>
-            </FluidSpatialCard>
-          ))}
+                <div
+                  data-frontier-priority={item.highPriority ? 'true' : undefined}
+                  data-frontier-velocity={item.velocitySignal ? 'true' : undefined}
+                  data-frontier-visual-role={visualRole}
+                  data-frontier-has-media={hasMedia ? 'true' : 'false'}
+                  {...hoverProps(item)}
+                >
+                  <PriorityMarker item={item} />
+                  <VelocityMarker item={item} />
+                  <FrontierIntelligenceBadges item={item} />
+                  <span className={spatial.focalHint} aria-hidden="true">click focus · 2× source</span>
+                  {renderCard(item, 'desk')}
+                </div>
+              </FluidSpatialCard>
+            );
+          })}
           <div ref={endSentinel} aria-hidden="true" style={{ height: 1 }} />
         </div>
       )}
