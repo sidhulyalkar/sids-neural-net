@@ -1,5 +1,10 @@
 /// <reference lib="webworker" />
 
+import {
+  FRONTIER_FORAGED_SOURCE_CHANNEL,
+  readDueFrontierForagedSources,
+  recordFrontierForagedSourceYield,
+} from '@/lib/frontier/forage/sourceRoster';
 import { addFrontierCandidates, readFrontierCandidates } from '@/lib/frontier/live/candidatePool';
 import type {
   FrontierDaemonConfig,
@@ -24,6 +29,7 @@ const CHANNEL_NAME = 'frontier-live-daemon-v1';
 const MIN_WIDE_BATCH = 6;
 const FETCH_TIMEOUT_MS = 28_000;
 const PRESENCE_TTL_MS = 90_000;
+const FORAGED_SOURCES_PER_POLL = 3;
 const instanceId = `daemon-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 9)}`;
 
 type InternalMessage =
@@ -46,6 +52,7 @@ let stopped = false;
 let leadershipController: AbortController | undefined;
 let wakeResolver: (() => void) | undefined;
 let channel: BroadcastChannel | undefined;
+let rosterChannel: BroadcastChannel | undefined;
 let presenceTimer: number | undefined;
 let unsubscribeSeen: (() => void) | undefined;
 const peerPresence = new Map<string, Presence>();
@@ -102,24 +109,56 @@ function mergeSources(left: FrontierSourceStatus[], right: FrontierSourceStatus[
   return Array.from(map.values());
 }
 
-async function fetchFeed(focusSignature: string, leaderSignal: AbortSignal): Promise<FrontierFeedResponse & { error?: string }> {
+async function fetchJsonFeed(url: string, leaderSignal: AbortSignal): Promise<FrontierFeedResponse & { error?: string }> {
   const controller = new AbortController();
   const timer = self.setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
   const onLeaderAbort = () => controller.abort();
   leaderSignal.addEventListener('abort', onLeaderAbort, { once: true });
   try {
-    const params = new URLSearchParams({ fresh: '1' });
-    if (focusSignature) params.set('focus', focusSignature);
-    const response = await fetch(`/api/frontier/feed?${params.toString()}`, {
-      cache: 'no-store',
-      signal: controller.signal,
-    });
+    const response = await fetch(url, { cache: 'no-store', signal: controller.signal });
     if (!response.ok) throw new Error(`live feed returned ${response.status}`);
     return await response.json() as FrontierFeedResponse & { error?: string };
   } finally {
     self.clearTimeout(timer);
     leaderSignal.removeEventListener('abort', onLeaderAbort);
   }
+}
+
+async function fetchFeed(focusSignature: string, leaderSignal: AbortSignal): Promise<FrontierFeedResponse & { error?: string }> {
+  const params = new URLSearchParams({ fresh: '1' });
+  if (focusSignature) params.set('focus', focusSignature);
+  return fetchJsonFeed(`/api/frontier/feed?${params.toString()}`, leaderSignal);
+}
+
+async function fetchForagedFeed(endpoint: string, leaderSignal: AbortSignal): Promise<FrontierFeedResponse & { error?: string }> {
+  const params = new URLSearchParams({ mode: 'feed', url: endpoint });
+  return fetchJsonFeed(`/api/frontier/forage?${params.toString()}`, leaderSignal);
+}
+
+async function pollForagedSources(signal: AbortSignal): Promise<{ items: FrontierItem[]; sources: FrontierSourceStatus[] }> {
+  const due = await readDueFrontierForagedSources(FORAGED_SOURCES_PER_POLL, Date.now());
+  if (!due.length || signal.aborted) return { items: [], sources: [] };
+  const items: FrontierItem[] = [];
+  let sources: FrontierSourceStatus[] = [];
+
+  for (const learned of due) {
+    if (signal.aborted) break;
+    try {
+      const feed = await fetchForagedFeed(learned.endpoint, signal);
+      const discovered = feed.items ?? [];
+      const unseen = await unseenAndAllowed(discovered);
+      items.push(...unseen);
+      sources = mergeSources(sources, feed.sources ?? []);
+      await recordFrontierForagedSourceYield(learned.id, {
+        discovered: discovered.length,
+        unseen: unseen.length,
+        success: !feed.error,
+      });
+    } catch {
+      await recordFrontierForagedSourceYield(learned.id, { discovered: 0, unseen: 0, success: false });
+    }
+  }
+  return { items: dedupe(items), sources };
 }
 
 async function discover(signal: AbortSignal): Promise<void> {
@@ -131,9 +170,14 @@ async function discover(signal: AbortSignal): Promise<void> {
     let sources = focused.sources ?? [];
     let generatedAt = focused.generatedAt ?? new Date().toISOString();
 
-    // If personalization has become too narrow, make one bounded wide request.
-    // This is deliberately not an unbounded retry loop: no upstream content
-    // means FRONTIER stays quiet rather than manufacturing novelty.
+    if (!signal.aborted) {
+      const learned = await pollForagedSources(signal);
+      candidates = dedupe([...candidates, ...learned.items]);
+      sources = mergeSources(sources, learned.sources);
+    }
+
+    // If personalization and learned neighborhoods are still too narrow, make
+    // one bounded wide request. No synthetic filler and no unbounded retries.
     if (candidates.length < MIN_WIDE_BATCH && config.focusSignature && !signal.aborted) {
       const wide = await fetchFeed('', signal);
       const wideCandidates = await unseenAndAllowed(wide.items ?? []);
@@ -169,11 +213,7 @@ async function discover(signal: AbortSignal): Promise<void> {
   } catch (error) {
     if (signal.aborted) return;
     const failures = status.consecutiveFailures + 1;
-    publishStatus({
-      polling: false,
-      lastPollAt: Date.now(),
-      consecutiveFailures: failures,
-    });
+    publishStatus({ polling: false, lastPollAt: Date.now(), consecutiveFailures: failures });
     post({ type: 'error', message: error instanceof Error ? error.message : 'live daemon poll failed' });
   }
 }
@@ -266,25 +306,33 @@ async function relayFresh(message: Extract<InternalMessage, { type: 'fresh' }>):
 }
 
 function ensureChannel(): void {
-  if (channel || typeof BroadcastChannel === 'undefined') return;
-  channel = new BroadcastChannel(CHANNEL_NAME);
-  channel.onmessage = (event: MessageEvent<InternalMessage>) => {
-    const message = event.data;
-    if (!message || message.origin === instanceId) return;
-    if (message.type === 'fresh') {
-      void relayFresh(message);
-      return;
-    }
-    if (message.type === 'poll-request') {
+  if (!channel && typeof BroadcastChannel !== 'undefined') {
+    channel = new BroadcastChannel(CHANNEL_NAME);
+    channel.onmessage = (event: MessageEvent<InternalMessage>) => {
+      const message = event.data;
+      if (!message || message.origin === instanceId) return;
+      if (message.type === 'fresh') {
+        void relayFresh(message);
+        return;
+      }
+      if (message.type === 'poll-request') {
+        if (status.leader) wakeLeader();
+        return;
+      }
+      if (message.type === 'presence') {
+        peerPresence.set(message.origin, { at: message.at, visible: message.visible, heartbeatAt: Date.now() });
+      }
+    };
+    presenceTimer = self.setInterval(broadcastPresence, 30_000);
+    broadcastPresence();
+  }
+  if (!rosterChannel && typeof BroadcastChannel !== 'undefined') {
+    rosterChannel = new BroadcastChannel(FRONTIER_FORAGED_SOURCE_CHANNEL);
+    rosterChannel.onmessage = () => {
       if (status.leader) wakeLeader();
-      return;
-    }
-    if (message.type === 'presence') {
-      peerPresence.set(message.origin, { at: message.at, visible: message.visible, heartbeatAt: Date.now() });
-    }
-  };
-  presenceTimer = self.setInterval(broadcastPresence, 30_000);
-  broadcastPresence();
+      channel?.postMessage({ type: 'poll-request', origin: instanceId, reason: 'source-roster-changed' } satisfies InternalMessage);
+    };
+  }
 }
 
 function ensureLeadership(): void {
@@ -308,12 +356,7 @@ function ensureLeadership(): void {
 
 async function replayCandidatePool(): Promise<void> {
   const items = await unseenAndAllowed(await readFrontierCandidates(96));
-  if (items.length) post({
-    type: 'fresh',
-    items,
-    generatedAt: new Date().toISOString(),
-    sources: [],
-  });
+  if (items.length) post({ type: 'fresh', items, generatedAt: new Date().toISOString(), sources: [] });
 }
 
 function stop(): void {
@@ -325,6 +368,8 @@ function stop(): void {
   presenceTimer = undefined;
   channel?.close();
   channel = undefined;
+  rosterChannel?.close();
+  rosterChannel = undefined;
   unsubscribeSeen?.();
   unsubscribeSeen = undefined;
 }
@@ -337,10 +382,7 @@ self.onmessage = (event: MessageEvent<FrontierDaemonRequest>) => {
     return;
   }
   if (request.type === 'configure') {
-    config = {
-      ...request.config,
-      excludeSignatures: request.config.excludeSignatures.slice(0, 256),
-    };
+    config = { ...request.config, excludeSignatures: request.config.excludeSignatures.slice(0, 256) };
     if (!configured) {
       configured = true;
       ensureLeadership();
