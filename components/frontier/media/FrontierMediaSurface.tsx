@@ -1,6 +1,7 @@
 'use client';
 
 import { useRef } from 'react';
+import { isFrontierGithubSocialPreview } from '@/lib/frontier/media/sourceVisuals';
 import type { FrontierItem } from '@/lib/frontier/types';
 import { AdaptiveVideoSurface } from './AdaptiveVideoSurface';
 import { GpuImageSurface } from './GpuImageSurface';
@@ -43,7 +44,10 @@ export function frontierMediaKey(item: FrontierItem): string {
 export function canRenderFrontierMedia(item: FrontierItem): boolean {
   const media = item.media;
   if (!media || media.type === 'none' || media.type === 'chart') return false;
-  if (item.sourceKind === 'github' && media.type === 'image') return false;
+  // Historical GitHub cards carried owner avatars. Keep rejecting those weak
+  // visuals; only repository-level previews derived from the canonical source
+  // may become project media.
+  if (item.sourceKind === 'github' && media.type === 'image' && !isFrontierGithubSocialPreview(media.url)) return false;
   if (media.type === 'youtube') return isYouTubeId(media.url);
   if (media.type === 'video') return Boolean(isHttpUrl(media.url) || media.streams?.length);
   return isMediaUrl(media.proxyUrl ?? media.url);
