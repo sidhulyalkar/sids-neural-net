@@ -38,6 +38,12 @@ FRONTIER is a request-time discovery system, not a static content build. New sig
 
 These adapters use official/public JSON endpoints, bounded timeouts, per-source pacing, focused-topic filtering, source-specific metadata normalization, and independent status reporting. `expandedSourcesShared.ts` coalesces concurrent identical requests and keeps a two-minute bounded in-process cache, shorter than the normal browser refresh cadence.
 
+### Curated visual discovery
+
+`vimeoSource.ts` optionally adds Vimeo Staff Picks when `FRONTIER_VIMEO_ACCESS_TOKEN` is configured. Vimeo requires an API access token even for public-data requests, so this is intentionally optional rather than pretending to be anonymous zero-config ingestion.
+
+The adapter requests only public Staff Picks metadata, uses content-rating filtering, carries the real first-party Vimeo thumbnail into the media contract, and links playback back to the canonical Vimeo page. It does not request private video-file URLs or attempt to bypass Vimeo playback/auth rules.
+
 ### Existing broad + personal meshes
 
 The integrated feed also retains the existing:
@@ -51,12 +57,12 @@ The integrated feed also retains the existing:
 - public web discovery when an optional search key is configured
 - durable checked-in snapshot as a degraded-mode safety net
 
-## Why some suggested sources are optional rather than hard-coded
+## Why some suggested sources remain optional rather than hard-coded
 
 FRONTIER prefers stable public contracts over brittle scraping.
 
 - **Kaggle:** public datasets/competitions can be integrated where the official API exposes the needed resource, but the feed does not scrape discussion pages as a pretend API.
-- **Vimeo:** public API access requires an access token, so Staff Picks should be added only as an optional authenticated adapter rather than advertised as anonymous zero-config ingestion.
+- **Vimeo:** implemented as an optional authenticated-public-data adapter because Vimeo requires a token for API requests.
 - **SoundCloud / Bandcamp:** when an artist, label, or podcast exposes a stable public RSS/Atom endpoint, add it through `FRONTIER_RSS_FEEDS`. Broad HTML scraping is deliberately avoided.
 - **Unsplash:** image discovery should be added only through its documented API and attribution requirements. NASA APOD already gives the zero-key baseline a first-party high-resolution visual-science source.
 
@@ -172,6 +178,8 @@ Real media is carried through the same `FrontierItem` contract. Media rendering 
 - native video/HLS/MSE playback
 - 300 ms pointer/scroll predictive prefetch
 
+NASA APOD and Vimeo thumbnail hosts are part of the default trusted same-origin media gateway set, so their real imagery can use the GPU path while the proxy remains closed to arbitrary upstream domains.
+
 Separating discovery from rendering keeps source adapters small and keeps media failure from breaking reading.
 
 ## Deployment configuration
@@ -183,6 +191,7 @@ FRONTIER_GITHUB_TOKEN=
 BRAVE_SEARCH_API_KEY=
 FOOTBALL_DATA_API_KEY=
 FRONTIER_NASA_API_KEY=
+FRONTIER_VIMEO_ACCESS_TOKEN=
 OPENALEX_EMAIL=
 OPENALEX_API_KEY=
 FRONTIER_RSS_FEEDS=
