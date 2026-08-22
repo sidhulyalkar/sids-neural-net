@@ -85,9 +85,6 @@ async function loadExtractor(): Promise<FeatureExtractor | undefined> {
   if (extractorPromise) return extractorPromise;
   extractorPromise = (async () => {
     try {
-      // Keeping the inference runtime out of the application bundle avoids
-      // making every FRONTIER visit pay the ONNX/wasm parse cost. The module and
-      // model are public, version-pinned assets; article text never leaves this worker.
       const moduleUrl: string = TRANSFORMERS_MODULE_URL;
       const transformers = await import(/* webpackIgnore: true */ moduleUrl) as TransformersModule;
       if (transformers.env) {
@@ -127,15 +124,33 @@ function tensorToVector(tensor: FeatureTensor): Float32Array | undefined {
   return undefined;
 }
 
-async function embedText(text: string): Promise<Float32Array> {
+async function miniLmEmbedding(extractor: FeatureExtractor, text: string): Promise<Float32Array> {
+  const output = await extractor(text.slice(0, 3_500), { pooling: 'mean', normalize: true });
+  const tensor = Array.isArray(output) ? output[0] : output;
+  const vector = tensorToVector(tensor);
+  if (!vector) throw new Error('MiniLM returned an unreadable vector');
+  return vector;
+}
+
+async function embedBatch(inputs: EmbedInput[]): Promise<{ backend: 'minilm' | 'feature-hash'; vectors: Float32Array[] }> {
   const extractor = await loadExtractor();
-  if (!extractor) return featureHashEmbedding(text);
+  if (!extractor) {
+    backend = 'feature-hash';
+    return { backend, vectors: inputs.map((input) => featureHashEmbedding(input.text)) };
+  }
+
   try {
-    const output = await extractor(text.slice(0, 3_500), { pooling: 'mean', normalize: true });
-    const tensor = Array.isArray(output) ? output[0] : output;
-    return tensorToVector(tensor) ?? featureHashEmbedding(text);
+    const vectors: Float32Array[] = [];
+    for (const input of inputs) vectors.push(await miniLmEmbedding(extractor, input.text));
+    backend = 'minilm';
+    return { backend, vectors };
   } catch {
-    return featureHashEmbedding(text);
+    // Coordinate-space integrity is more important than partial model use. If
+    // one item fails MiniLM inference, recompute the entire request in the
+    // deterministic fallback space and stay there for the worker lifetime.
+    backend = 'feature-hash';
+    extractorPromise = Promise.resolve(undefined);
+    return { backend, vectors: inputs.map((input) => featureHashEmbedding(input.text)) };
   }
 }
 
@@ -148,15 +163,16 @@ async function handle(request: WorkerRequest): Promise<void> {
   }
 
   try {
+    const inputs = request.items.slice(0, 32);
+    const embedded = await embedBatch(inputs);
     const vectors: Array<{ id: string; buffer: ArrayBuffer }> = [];
     const transfers: Transferable[] = [];
-    for (const input of request.items.slice(0, 32)) {
-      const vector = await embedText(input.text);
-      const buffer = vector.buffer as ArrayBuffer;
-      vectors.push({ id: input.id, buffer });
+    for (let index = 0; index < inputs.length; index += 1) {
+      const buffer = embedded.vectors[index].buffer as ArrayBuffer;
+      vectors.push({ id: inputs[index].id, buffer });
       transfers.push(buffer);
     }
-    const response: EmbedResponse = { type: 'embedded', requestId: request.requestId, backend, vectors };
+    const response: EmbedResponse = { type: 'embedded', requestId: request.requestId, backend: embedded.backend, vectors };
     self.postMessage(response, { transfer: transfers });
   } catch (error) {
     const response: ErrorResponse = {
