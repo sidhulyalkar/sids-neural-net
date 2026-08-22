@@ -7,6 +7,7 @@ import type { FrontierItem, FrontierSourceStatus } from '@/lib/frontier/types';
 import { FrontierCommandPalette } from '../FrontierCommandPalette';
 import { useUIFrequencies } from '../audio/useUIFrequencies';
 import { useSourceForager } from '../forage/useSourceForager';
+import { useAvoidIntentEngine } from './useAvoidIntentEngine';
 import { useWatchIntentEngine } from './useWatchIntentEngine';
 
 export const FRONTIER_WATCH_PRIORITY_EVENT = 'frontier:watch-priority';
@@ -42,6 +43,7 @@ export function useFrontierAutonomy(): FrontierAutonomyContextValue {
 
 export function FrontierAutonomyProvider({ children }: { children: ReactNode }) {
   const watch = useWatchIntentEngine();
+  const avoid = useAvoidIntentEngine();
   const { consider } = useSourceForager();
   const { playPrioritySignal } = useUIFrequencies();
   const announcedRef = useRef(new Set<string>());
@@ -96,9 +98,13 @@ export function FrontierAutonomyProvider({ children }: { children: ReactNode }) 
       {children}
       <FrontierCommandPalette
         intents={watch.intents}
+        avoids={avoid.anchors}
         onCreate={watch.createIntent}
         onRemove={watch.removeIntent}
         onSetActive={watch.setIntentActive}
+        onCreateAvoid={avoid.createAnchor}
+        onRemoveAvoid={avoid.removeAnchor}
+        onSetAvoidActive={avoid.setAnchorActive}
       />
     </FrontierAutonomyContext.Provider>
   );
