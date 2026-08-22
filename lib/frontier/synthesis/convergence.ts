@@ -5,6 +5,7 @@ import { cosineSimilarity } from '../vector/math';
 const DEFAULT_WINDOW_HOURS = 72;
 const STRICT_COSINE = 0.83;
 const LOOSE_COSINE = 0.76;
+const MAX_CONVERGENCE_EXCERPT_CHARS = 1_200;
 
 const STOPWORDS = new Set([
   'about', 'after', 'again', 'against', 'also', 'because', 'before', 'being', 'between', 'could', 'first', 'from', 'have', 'into', 'more', 'most', 'new', 'over', 'paper', 'release', 'study', 'that', 'their', 'there', 'these', 'this', 'through', 'using', 'with', 'would',
@@ -36,6 +37,15 @@ function host(item: FrontierItem): string {
   try { return new URL(item.url).hostname.toLowerCase().replace(/^www\./, ''); } catch { return item.source.toLowerCase(); }
 }
 
+export function frontierConvergenceExcerpt(summary: string): string | undefined {
+  const normalized = summary.replace(/\s+/g, ' ').trim();
+  if (!normalized) return undefined;
+  if (normalized.length <= MAX_CONVERGENCE_EXCERPT_CHARS) return normalized;
+  const bounded = normalized.slice(0, MAX_CONVERGENCE_EXCERPT_CHARS + 1);
+  const cut = bounded.lastIndexOf(' ');
+  return `${bounded.slice(0, cut >= 840 ? cut : MAX_CONVERGENCE_EXCERPT_CHARS).trim()}…`;
+}
+
 function member(item: FrontierItem): FrontierConvergenceMember {
   return {
     id: item.id,
@@ -44,6 +54,7 @@ function member(item: FrontierItem): FrontierConvergenceMember {
     sourceLabel: item.sourceLabel,
     sourceKind: item.sourceKind,
     publishedAt: item.publishedAt,
+    excerpt: frontierConvergenceExcerpt(item.summary),
   };
 }
 
