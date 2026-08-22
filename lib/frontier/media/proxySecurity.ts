@@ -11,10 +11,11 @@ const DEFAULT_MEDIA_HOSTS = new Set([
   'cdn.cloudflare.steamstatic.com',
   'shared.fastly.steamstatic.com',
   'steamcdn-a.akamaihd.net',
-  // NASA APOD is a first-party scientific image source. Keeping it in the
-  // trusted set lets wide-gamut/WebGL surfaces use the same-origin gateway
-  // without opening the proxy to arbitrary publisher domains.
+  // First-party curated/scientific visual sources used by optional public
+  // discovery adapters. The gateway still validates protocol, DNS, redirects,
+  // content type, timeout, and payload size before returning any bytes.
   'apod.nasa.gov',
+  'i.vimeocdn.com',
 ]);
 
 function configuredHosts(): Set<string> {
