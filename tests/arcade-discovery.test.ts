@@ -10,6 +10,7 @@ const root = process.cwd();
 const readRepoFile = (path: string) => readFileSync(join(root, path), 'utf8');
 const v091Root = 'public/game-runtimes/mosslight-v2/v091';
 const v011Root = 'public/game-runtimes/mosslight-v2/v011';
+const v012Root = 'public/game-runtimes/mosslight-v2/v012';
 const v091Modules = ['model.js', 'world.js', 'movement.js', 'battle-core.js', 'render.js', 'boot.js', 'fullscreen.js'];
 const gameNetworkSurfaces = [
   'app/page.tsx',
@@ -29,52 +30,69 @@ test('the Game Network exposes every current game as a playable entry', () => {
   }
 });
 
-test('Sylvaria v0.11.1 presents a minimal 30-arena game while Mosslight remains a compatibility alias', () => {
+test('Sylvaria v0.12 presents the frog pond while the ranked engine stays on qualified v0.11.1', () => {
   const sylvaria = arcadeGames.find((game) => game.slug === 'sylvaria');
   assert.ok(sylvaria);
   assert.equal(sylvaria.title, 'Sylvaria');
-  assert.equal(sylvaria.version, 'v0.11.1');
+  assert.equal(sylvaria.version, 'v0.12.0');
+  assert.match(sylvaria.subtitle, /HOP/);
+  assert.match(sylvaria.subtitle, /SLAP/);
   assert.match(sylvaria.subtitle, /REFLECT/);
-  assert.match(sylvaria.subtitle, /USE THE ROOM/);
-  assert.match(sylvaria.description, /30-arena/);
+  assert.match(sylvaria.description, /frog-and-pond/i);
+  assert.match(sylvaria.description, /Thirty fixed pond arenas/i);
   assert.match(sylvaria.description, /120 Hz/);
-  assert.match(sylvaria.description, /server replay verification/);
+  assert.match(sylvaria.description, /server-verified/i);
+  assert.match(sylvaria.description, /WebGL2/i);
   assert.doesNotMatch(`${sylvaria.subtitle} ${sylvaria.description}`, /Sprid|Verdant Flow|Ecological Synergy|PAC-a-Saw/i);
   assert.ok(sylvaria.tags.includes('fixed arenas'));
   assert.ok(sylvaria.tags.includes('deterministic replay'));
-  assert.ok(sylvaria.tags.includes('exploration'));
+  assert.ok(sylvaria.tags.includes('frog'));
+  assert.ok(sylvaria.tags.includes('webgl2'));
   assert.ok(sylvaria.controls.some((control) => control.input === 'W A S D' && /cardinal movement|queued/i.test(control.action)));
-  assert.ok(sylvaria.controls.some((control) => control.input === 'Arrow Keys' && /reflect/i.test(control.action)));
+  assert.ok(sylvaria.controls.some((control) => control.input === 'Arrow Keys' && /tongue|reflect/i.test(control.action)));
   assert.ok(sylvaria.controls.some((control) => control.input === 'Explore' && /optional routes|temporary/i.test(control.action)));
   assert.equal(getArcadeGame('mosslight')?.slug, 'sylvaria');
   assert.equal(getArcadeGame('sylvaria')?.slug, 'sylvaria');
 });
 
-test('v0.11.1 boots authored arenas and minimal presentation over the qualified simulation substrate', () => {
+test('v0.12 boots WebGL frog presentation over the qualified v0.11.1 simulation substrate', () => {
   const runtime = readRepoFile('public/game-runtimes/mosslight-v2/index.html');
-  const entry = readRepoFile('public/game-runtimes/mosslight-v2/v011-entry.js');
+  const entry11 = readRepoFile('public/game-runtimes/mosslight-v2/v011-entry.js');
+  const entry12 = readRepoFile('public/game-runtimes/mosslight-v2/v012-entry.js');
   const rooms = readRepoFile(`${v011Root}/rooms-v011.js`);
   const presentation = readRepoFile(`${v011Root}/presentation-v011.js`);
   const replay = readRepoFile(`${v011Root}/replay-v011.js`);
+  const pondRenderer = readRepoFile(`${v012Root}/webgl-pond-v012.js`);
+  const pondAtlas = readRepoFile(`${v012Root}/art-atlas-v012.js`);
   const synergy = readRepoFile(`${v091Root}/synergy-v010.js`);
-  assert.match(runtime, /<title>Sylvaria<\/title>/);
+  assert.match(runtime, /<title>Sylvaria · Frog Pond<\/title>/);
   assert.match(runtime, /sylvaria-minimal-v011\.css/);
+  assert.match(runtime, /sylvaria-pond-v012\.css/);
   assert.match(runtime, /fieldState/);
   assert.match(runtime, /v091\/fullscreen\.js/);
-  assert.match(runtime, /type="module" src="\.\/v011-entry\.js"/);
+  assert.match(runtime, /type="module" src="\.\/v012-entry\.js"/);
   assert.doesNotMatch(runtime, /type="module" src="\.\/v010-entry\.js"/);
   assert.doesNotMatch(runtime, /type="module" src="\.\/v091\/boot\.js"/);
   assert.doesNotMatch(runtime, /game-v90\.js|visual-system-v9\.js|game-v82\.js|game-v81\.js|input-buffer-v81\.js|game-v8\.js|game-v5\.js/);
   for (const moduleName of v091Modules) assert.ok(existsSync(join(root, v091Root, moduleName)), `missing qualified v0.9.1 module ${moduleName}`);
   for (const fileName of ['rooms-v011.js', 'presentation-v011.js', 'replay-v011.js']) assert.ok(existsSync(join(root, v011Root, fileName)), `missing v0.11.1 module ${fileName}`);
-  assert.match(entry, /import '\.\/v091\/model\.js'/);
-  assert.match(entry, /import\('\.\/v011\/rooms-v011\.js'\)/);
-  assert.match(entry, /import\('\.\/v091\/boot\.js'\)/);
-  assert.match(entry, /import\('\.\/v091\/synergy-v010\.js'\)/);
-  assert.match(entry, /import\('\.\/v011\/presentation-v011\.js'\)/);
-  assert.match(entry, /import\('\.\/v011\/replay-v011\.js'\)/);
-  assert.match(entry, /VERSION='0\.11\.1'/);
-  for (const flag of ['expandedArenas', 'minimalPresentation', 'deterministicReplay', 'ecologicalSynergy', 'hazardAwareAI', 'flow', 'threatPriority', 'bossBulldoze', 'returnEcology', 'gasShear']) assert.match(entry, new RegExp(`${flag}:true`));
+  for (const fileName of ['webgl-pond-v012.js', 'art-atlas-v012.js']) assert.ok(existsSync(join(root, v012Root, fileName)), `missing v0.12 presentation module ${fileName}`);
+  assert.match(entry11, /import '\.\/v091\/model\.js'/);
+  assert.match(entry11, /import\('\.\/v011\/rooms-v011\.js'\)/);
+  assert.match(entry11, /import\('\.\/v091\/boot\.js'\)/);
+  assert.match(entry11, /import\('\.\/v091\/synergy-v010\.js'\)/);
+  assert.match(entry11, /import\('\.\/v011\/presentation-v011\.js'\)/);
+  assert.match(entry11, /import\('\.\/v011\/replay-v011\.js'\)/);
+  assert.match(entry11, /VERSION='0\.11\.1'/);
+  for (const flag of ['expandedArenas', 'minimalPresentation', 'deterministicReplay', 'ecologicalSynergy', 'hazardAwareAI', 'flow', 'threatPriority', 'bossBulldoze', 'returnEcology', 'gasShear']) assert.match(entry11, new RegExp(`${flag}:true`));
+  assert.match(entry12, /import'\.\/v011-entry\.js'/);
+  assert.match(entry12, /PRESENTATION='0\.12\.0',ENGINE='0\.11\.1'/);
+  assert.match(entry12, /createPondRenderer/);
+  assert.match(entry12, /F\.render=/);
+  assert.doesNotMatch(entry12, /F\.(?:update|updateMovement|updateEnemies|updateShots|cut|dashStep|counterShot)\s*=/);
+  assert.match(pondRenderer, /getContext\('webgl2'/);
+  assert.match(pondRenderer, /emit\('tongue'/);
+  assert.match(pondAtlas, /function drawFrog/);
   assert.match(rooms, /ROOMS=Object\.freeze/);
   assert.match(rooms, /bossName:'Surveyor'/);
   assert.match(rooms, /bossName:'Harvester'/);
@@ -165,9 +183,10 @@ test('current Sylvaria player-facing surfaces keep the vocabulary restrained', (
   ].join('\n');
   assert.doesNotMatch(visible, /Sprid|Sprig|Verdant Flow|Ecological Synergy|PAC-a-Saw|Heartleaf|Rush Resin|Barkguard|Edge Stone|Flow Sap/i);
   assert.match(visible, /Sylvaria/);
-  assert.match(visible, /health/i);
+  assert.match(visible, /frog/i);
+  assert.match(visible, /tongue/i);
   assert.match(visible, /reflect/i);
-  assert.match(visible, /explor/i);
+  assert.match(visible, /pond/i);
 });
 
 test('Game Network naming is consistent across every visible discovery surface', () => {
@@ -212,7 +231,7 @@ test('Vercel allows the site to embed its own game runtimes without allowing cro
   }
 });
 
-test('v0.11.1 browser/combat validation keeps the four-engine queue gauntlet and replay parity', () => {
+test('v0.12 browser validation keeps WebGL frog presentation and v0.11.1 replay parity in the same gate', () => {
   const workflow = readRepoFile('.github/workflows/ci.yml');
   const browserTest = readRepoFile('scripts/playtest-sylvaria-browsers.mjs');
   const parityTest = readRepoFile('scripts/playtest-sylvaria-replay-parity.mjs');
@@ -225,7 +244,11 @@ test('v0.11.1 browser/combat validation keeps the four-engine queue gauntlet and
   assert.match(workflow, /playtest-sylvaria-synergy\.mjs/);
   assert.match(browserTest, /name:'chrome-stable'/);
   assert.match(browserTest, /channel:'chrome'/);
+  assert.match(browserTest, /0\.12\.0/);
   assert.match(browserTest, /0\.11\.1/);
+  assert.match(browserTest, /SylvariaPondRenderer/);
+  assert.match(browserTest, /frogPond/);
+  assert.match(browserTest, /tongueAttack/);
   assert.match(browserTest, /bufferedMove/);
   assert.match(browserTest, /ArrowUp/);
   assert.match(browserTest, /expandedArenas/);
