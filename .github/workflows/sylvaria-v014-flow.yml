@@ -4,7 +4,7 @@ on:
   pull_request:
     paths:
       - 'public/game-runtimes/mosslight-v2/v014/**'
-      - 'scripts/playtest-sylvaria-v014-flow.mjs'
+      - 'scripts/playtest-sylvaria-v014-*.mjs'
       - 'tests/sylvaria-v014-*.test.ts'
       - '.github/workflows/sylvaria-v014-flow.yml'
   workflow_dispatch:
@@ -34,7 +34,7 @@ jobs:
         run: npm ci
 
       - name: Validate v0.14 flow source contracts
-        run: node --import tsx --test tests/sylvaria-v014-flow.test.ts tests/sylvaria-v014-enemy-flow.test.ts
+        run: node --import tsx --test tests/sylvaria-v014-*.test.ts
 
       - name: Build deterministic site
         env:
@@ -63,6 +63,12 @@ jobs:
           PW_BIN="$(npm exec --yes --package=playwright@1.55.0 -- which playwright)"
           PW_ROOT="$(cd "$(dirname "$PW_BIN")/.." && pwd)"
           PLAYWRIGHT_MODULE_ROOT="$PW_ROOT" node scripts/playtest-sylvaria-v014-flow.mjs
+
+      - name: Verify physical dash accuracy and combat readability
+        run: |
+          PW_BIN="$(npm exec --yes --package=playwright@1.55.0 -- which playwright)"
+          PW_ROOT="$(cd "$(dirname "$PW_BIN")/.." && pwd)"
+          PLAYWRIGHT_MODULE_ROOT="$PW_ROOT" node scripts/playtest-sylvaria-v014-accuracy.mjs
 
       - name: Upload v0.14 flow artifacts
         if: always()
