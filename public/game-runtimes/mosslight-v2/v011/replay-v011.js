@@ -1,5 +1,5 @@
 const G=window.Sylvaria091,F=G.fn,state=G.state;
-const VERSION='0.11.0',SCHEMA=1,MAX_EVENTS=20000,MAX_TICKS=144000,MAX_BYTES=120*1024,ACTION={w:[0,1],a:[2,3],s:[4,5],d:[6,7],arrowup:8,arrowdown:9,arrowleft:10,arrowright:11};
+const VERSION='0.11.1',SCHEMA=1,MAX_EVENTS=20000,MAX_TICKS=144000,MAX_BYTES=120*1024,ACTION={w:[0,1],a:[2,3],s:[4,5],d:[6,7],arrowup:8,arrowdown:9,arrowleft:10,arrowright:11};
 let tick=0,active=false,eligible=true,overflowReason=null,events=[],finalized=null,runSerial=0;
 const recordedHeld=new Set;
 function invalidate(reason){eligible=false;overflowReason||=reason;active=false}
