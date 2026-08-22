@@ -40,6 +40,14 @@ test('charged dash release honors the last displayed charge vector after movemen
   assert.match(source, /window\.addEventListener\?\.\('keyup',onFlowSpaceUp,true\)/);
 });
 
+test('released dash buffers become real dashes before the movement step that would otherwise inject glide speed', () => {
+  assert.match(source, /function consumeReleasedDashBuffer/);
+  assert.match(source, /const cooldownAfter=Math\.max\(0,\(p\.dashCooldown\|\|0\)-dt\),bufferAfter=Math\.max\(0,p\.dashBuffer-dt\)/);
+  assert.match(source, /if\(cooldownAfter>0\|\|bufferAfter<=0\)return false/);
+  assert.match(source, /p\.dashCharge=Math\.max\(\.18,queued\);F\.releaseDashCharge\(\)/);
+  assert.match(source, /if\(p\)consumeReleasedDashBuffer\(p,dt\)/);
+});
+
 test('committed dash steering rotates direction without injecting ordinary glide speed', () => {
   assert.match(source, /dashSteerBlend:\.055/);
   assert.match(source, /function steerCommittedDash/);
