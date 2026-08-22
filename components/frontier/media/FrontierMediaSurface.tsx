@@ -17,6 +17,10 @@ function isHttpUrl(value?: string): value is string {
   }
 }
 
+function isMediaUrl(value?: string): value is string {
+  return Boolean(value && (value.startsWith('/') || isHttpUrl(value)));
+}
+
 function isYouTubeId(value?: string): value is string {
   return Boolean(value && /^[A-Za-z0-9_-]{6,20}$/.test(value));
 }
@@ -38,7 +42,7 @@ export function canRenderFrontierMedia(item: FrontierItem): boolean {
   if (item.sourceKind === 'github' && media.type === 'image') return false;
   if (media.type === 'youtube') return isYouTubeId(media.url);
   if (media.type === 'video') return Boolean(isHttpUrl(media.url) || media.streams?.length);
-  return isHttpUrl(media.proxyUrl ?? media.url);
+  return isMediaUrl(media.proxyUrl ?? media.url);
 }
 
 function YouTubeSurface({ item, onUnavailable }: { item: FrontierItem; onUnavailable?: () => void }) {
@@ -46,7 +50,7 @@ function YouTubeSurface({ item, onUnavailable }: { item: FrontierItem; onUnavail
   const visibility = useMediaVisibility(ref);
   const media = item.media;
   if (!media || media.type !== 'youtube' || !isYouTubeId(media.url)) return null;
-  const poster = isHttpUrl(media.posterProxyUrl)
+  const poster = isMediaUrl(media.posterProxyUrl)
     ? media.posterProxyUrl
     : isHttpUrl(media.poster)
       ? media.poster
@@ -82,7 +86,7 @@ export function FrontierMediaSurface({
 
   if (media.type === 'image') {
     const src = media.proxyUrl ?? media.url;
-    if (!isHttpUrl(src)) return null;
+    if (!isMediaUrl(src)) return null;
     return (
       <GpuImageSurface
         id={`${item.id}:image`}
@@ -102,7 +106,7 @@ export function FrontierMediaSurface({
       <AdaptiveVideoSurface
         id={`${item.id}:video`}
         url={isHttpUrl(media.url) ? media.url : undefined}
-        poster={isHttpUrl(poster) ? poster : undefined}
+        poster={isMediaUrl(poster) ? poster : undefined}
         streams={media.streams}
         alt={media.alt || item.title}
         onUnavailable={onUnavailable}
