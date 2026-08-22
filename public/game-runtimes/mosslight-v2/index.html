@@ -18,7 +18,7 @@
       <div id="roomCard" class="glass">
         <div id="roomKicker">01 / pond</div>
         <div id="roomTitle">Lily Clearing</div>
-        <div id="roomTask">Glide freely. Mid-swing tongue contact sends attacks back.</div>
+        <div id="roomTask">Glide freely. Catch fire in the opening tongue frames to parry.</div>
         <div id="biomeBadge"></div>
       </div>
       <div id="stats" class="runStats">
@@ -41,7 +41,7 @@
     <div class="panel menuPanel">
       <div class="eyebrow">v0.13 · kinetic arc combat</div>
       <h1><em class="sylvariaWord">Sylvaria</em></h1>
-      <p class="lede narrow">Glide through a hostile pond, charge bursts in any steering direction, and swing the frog's tongue through a broad arc. Catch insect fire near the middle of the sweep to turn it into a faster weapon while evasive enemies try to escape your timing.</p>
+      <p class="lede narrow">Glide through a hostile pond, charge bursts in any steering direction, and swing the frog's tongue through a broad arc. Catch insect fire in the opening edge of the sweep to parry it into a faster weapon while evasive enemies try to escape the rest of your blade path.</p>
       <div class="menuActions">
         <button id="start" class="primary wide">start run</button>
         <button id="explore" class="secondary wide">learn controls</button>
@@ -62,9 +62,9 @@
       <h2>Glide. Charge. Sweep. Return fire.</h2>
       <div class="howGrid">
         <div><b>Glide</b><p>Hold any WASD combination for continuous acceleration and smooth diagonal steering. Release to coast briefly; slick surfaces preserve more momentum.</p></div>
-        <div><b>Charge dash</b><p>Hold Space to store burst energy while you keep steering. Release to launch along the current input vector, or along your existing momentum when no direction is held.</p></div>
-        <div><b>Tongue arc</b><p>Arrow keys choose the direction of a wide tongue sweep. Every swing has a short wind-up, an active moving arc, and recovery. Enemies can read and dodge the wind-up.</p></div>
-        <div><b>Reflect</b><p>Let an incoming projectile meet the moving tongue. Contact near the middle of the active sweep is the sweet spot: the return leaves faster, hits harder, and can pierce.</p></div>
+        <div><b>Charge dash</b><p>Hold Space to store burst energy while you keep steering. Release to launch along the current input vector, or along your existing momentum when no direction is held. Space can also queue just before dash recovery ends.</p></div>
+        <div><b>Tongue arc</b><p>Arrow keys choose the direction of a wide tongue sweep. Every swing has a short wind-up, an active moving arc, and recovery. A committed dash can cancel directly into the blade after its opening burst.</p></div>
+        <div><b>Parry</b><p>The first five active simulation ticks, about 42 ms, are the parry window. Meet incoming fire there to launch a 1160 px/s return that hits harder and can pierce. The later sweep still cuts enemies and the pond, but it does not reflect projectiles.</p></div>
         <div><b>Read enemies</b><p>Skimmers orbit, Striders evade, Dragonflies fire high-speed lanes, and Shellbacks armor their front. Flank, redirect fire, or reposition instead of mashing attacks.</p></div>
         <div><b>Use the pond</b><p>Water currents, mud, reeds, poison, algae, stones, and reflected shots reshape each fight. Strong runs use the environment to split overlapping threats.</p></div>
       </div>
