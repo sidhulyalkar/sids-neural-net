@@ -1,7 +1,7 @@
 import frontierSnapshot from '@/content/frontier/latest.json';
 import { getActiveSportsFeed } from './activeSportsSources';
 import { normalizeFeedToEnglish } from './english';
-import { getExpandedPublicFeed } from './expandedSources';
+import { getSharedExpandedPublicFeed } from './expandedSourcesShared';
 import { getAdaptiveLiveDiscovery } from './liveDiscovery';
 import { getPersonalFrontierFeed } from './personalSources';
 import { getSharedMultiSourceFrontierFeed } from './sourceIngestorShared';
@@ -86,7 +86,7 @@ export async function getIntegratedFrontierFeed(options: IntegratedOptions = {})
     getActiveSportsFeed(),
     focusTopics.length ? getAdaptiveLiveDiscovery(focusTopics) : Promise.resolve({ generatedAt: new Date().toISOString(), items: [], sources: [] }),
     getSharedMultiSourceFrontierFeed(focusTopics),
-    getExpandedPublicFeed(focusTopics),
+    getSharedExpandedPublicFeed(focusTopics),
   ]);
 
   // Focused discovery and research meshes intentionally precede broad sources.
