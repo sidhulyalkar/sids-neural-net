@@ -43,14 +43,16 @@ test('v0.13 Learn Controls is non-ranked and forgiving only until the first succ
   assert.match(competitive, /if\(!practice\)run\.ticketPromise=issueTicket\(run\)/);
 });
 
-test('v0.13 player-facing shell teaches continuous motion and the arc timing hierarchy', () => {
+test('v0.13 player-facing shell teaches continuous motion and the opening parry hierarchy', () => {
   const html = read(`${runtimeRoot}/index.html`);
   assert.match(html, /Glide\. Charge\. Sweep\. Return fire\./);
   assert.match(html, /Hold Space to store burst energy/);
   assert.match(html, /wind-up, an active moving arc, and recovery/);
-  assert.match(html, /middle of the active sweep is the sweet spot/);
-  assert.match(html, /Skimmers orbit, Striders read and evade the sweep/);
-  assert.doesNotMatch(html, /short cardinal burst|One extra direction can stay queued/);
+  assert.match(html, /first five active simulation ticks/i);
+  assert.match(html, /1160 px\/s return/);
+  assert.match(html, /later sweep still cuts enemies/i);
+  assert.match(html, /Skimmers orbit, Striders evade/);
+  assert.doesNotMatch(html, /mid-swing|middle of the active sweep is the sweet spot|short cardinal burst|One extra direction can stay queued/i);
 });
 
 test('current player-facing presentation removes legacy names and reduces decorative lattice contrast', () => {
