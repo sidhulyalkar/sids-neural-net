@@ -3,7 +3,6 @@
   min-width: 0;
   touch-action: manipulation;
   transform-origin: top left;
-  will-change: transform;
 }
 
 .card[data-fluid-expanded='false'] {
@@ -38,8 +37,4 @@
 @media (max-width: 720px) {
   .expanded { grid-column: 1 !important; }
   .expanded::before { inset-inline: -10px; }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .card { will-change: auto; }
 }
