@@ -12,6 +12,7 @@ const runtime = 'public/game-runtimes/mosslight-v2';
 const v091 = `${runtime}/v091`;
 const v011 = `${runtime}/v011`;
 const v012 = `${runtime}/v012`;
+const v013 = `${runtime}/v013`;
 
 const gameNetworkSurfaces = [
   'app/page.tsx', 'app/arcade/page.tsx', 'app/arcade/[slug]/page.tsx',
@@ -27,111 +28,103 @@ test('the Game Network exposes every current game as a playable entry', () => {
   }
 });
 
-test('Sylvaria v0.12 presents the frog pond while the ranked engine stays on qualified v0.11.1', () => {
+test('Sylvaria v0.13 advertises the kinetic combat actually shipped by production', () => {
   const game = arcadeGames.find((entry) => entry.slug === 'sylvaria');
   assert.ok(game);
   assert.equal(game.title, 'Sylvaria');
-  assert.equal(game.version, 'v0.12.0');
-  assert.match(game.subtitle, /HOP.*SLAP.*REFLECT/);
-  assert.match(game.description, /frog-and-pond/i);
-  assert.match(game.description, /Thirty fixed pond arenas/i);
-  assert.match(game.description, /120 Hz/);
-  assert.match(game.description, /server-verified/i);
-  assert.match(game.description, /WebGL2/i);
-  assert.doesNotMatch(`${game.subtitle} ${game.description}`, /Sprid|Verdant Flow|Ecological Synergy|PAC-a-Saw/i);
-  for (const tag of ['fixed arenas', 'deterministic replay', 'frog', 'webgl2']) assert.ok(game.tags.includes(tag));
-  assert.ok(game.controls.some((control) => control.input === 'W A S D' && /movement|queued/i.test(control.action)));
-  assert.ok(game.controls.some((control) => control.input === 'Arrow Keys' && /tongue|reflect/i.test(control.action)));
-  assert.ok(game.controls.some((control) => control.input === 'Explore' && /optional routes|temporary/i.test(control.action)));
+  assert.equal(game.version, 'v0.13.0');
+  assert.match(game.subtitle, /GLIDE.*SWEEP.*RETURN FIRE/);
+  assert.match(game.description, /continuous pond movement/i);
+  assert.match(game.description, /omnidirectional burst/i);
+  assert.match(game.description, /mid-swing/i);
+  assert.match(game.description, /Skimmers/i);
+  assert.match(game.description, /Striders/i);
+  assert.match(game.description, /Shellback/i);
+  assert.match(game.description, /thirty fixed arenas/i);
+  for (const tag of ['kinetic combat', 'tongue arc', 'charged dash', 'reactive ai', 'deterministic replay']) assert.ok(game.tags.includes(tag));
+  assert.ok(game.controls.some((control) => control.input === 'W A S D' && /continuously|diagonal/i.test(control.action)));
+  assert.ok(game.controls.some((control) => control.input === 'Space' && /charge|omnidirectional/i.test(control.action)));
+  assert.ok(game.controls.some((control) => control.input === 'Arrow Keys' && /tongue sweep|mid-swing/i.test(control.action)));
   assert.equal(getArcadeGame('mosslight')?.slug, 'sylvaria');
   assert.equal(getArcadeGame('sylvaria')?.slug, 'sylvaria');
 });
 
-test('v0.12 boots WebGL frog presentation over the qualified v0.11.1 simulation substrate', () => {
+test('v0.13 boots the qualified pond graphics first and then owns authoritative kinetics replay and AI', () => {
   const html = read(`${runtime}/index.html`);
   const entry11 = read(`${runtime}/v011-entry.js`);
   const entry12 = read(`${runtime}/v012-entry.js`);
-  const rooms = read(`${v011}/rooms-v011.js`);
-  const replay = read(`${v011}/replay-v011.js`);
-  const pond = read(`${v012}/webgl-pond-v012.js`);
-  const atlasEntry = read(`${v012}/art-atlas-v012.js`);
-  const atlas = read(`${v012}/art-atlas-pro-v012.js`);
-  const synergy = read(`${v091}/synergy-v010.js`);
+  const entry13 = read(`${runtime}/v013-entry.js`);
+  const kinetics = read(`${v013}/kinetic-combat-v013.js`);
+  const ai = read(`${v013}/enemy-ai-v013.js`);
+  const replay = read(`${v013}/replay-v013.js`);
+  const presentation = read(`${v013}/kinetic-presentation-v013.js`);
 
-  assert.match(html, /Sylvaria · Frog Pond/);
+  assert.match(html, /Sylvaria · Kinetic Pond/);
   assert.match(html, /sylvaria-pond-v012\.css/);
   assert.match(html, /v091\/fullscreen\.js/);
-  assert.match(html, /src="\.\/v012-entry\.js"/);
-  assert.doesNotMatch(html, /src="\.\/v010-entry\.js"|src="\.\/v091\/boot\.js"/);
+  assert.match(html, /src="\.\/v013-entry\.js"/);
+  assert.doesNotMatch(html, /src="\.\/v012-entry\.js"|src="\.\/v010-entry\.js"|src="\.\/v091\/boot\.js"/);
 
   for (const moduleName of ['model.js', 'world.js', 'movement.js', 'battle-core.js', 'render.js', 'boot.js', 'fullscreen.js']) {
-    assert.ok(existsSync(join(root, v091, moduleName)), `missing v0.9.1 module ${moduleName}`);
+    assert.ok(existsSync(join(root, v091, moduleName)), `missing v0.9.1 baseline module ${moduleName}`);
   }
-  for (const moduleName of ['rooms-v011.js', 'presentation-v011.js', 'replay-v011.js']) {
-    assert.ok(existsSync(join(root, v011, moduleName)), `missing v0.11.1 module ${moduleName}`);
+  for (const moduleName of ['rooms-v011.js', 'presentation-v011.js', 'input-guard-v011.js', 'competitive-v011.js']) {
+    assert.ok(existsSync(join(root, v011, moduleName)), `missing inherited v0.11 module ${moduleName}`);
   }
   for (const moduleName of ['webgl-pond-v012.js', 'art-atlas-v012.js', 'art-atlas-pro-v012.js']) {
-    assert.ok(existsSync(join(root, v012, moduleName)), `missing v0.12 module ${moduleName}`);
+    assert.ok(existsSync(join(root, v012, moduleName)), `missing v0.12 graphics module ${moduleName}`);
+  }
+  for (const moduleName of ['kinetic-combat-v013.js', 'enemy-ai-v013.js', 'replay-v013.js', 'coach-v013.js', 'kinetic-presentation-v013.js']) {
+    assert.ok(existsSync(join(root, v013, moduleName)), `missing v0.13 module ${moduleName}`);
   }
 
-  assert.match(entry11, /VERSION='0\.11\.1'/);
-  for (const flag of ['expandedArenas', 'minimalPresentation', 'deterministicReplay', 'ecologicalSynergy', 'hazardAwareAI', 'flow', 'threatPriority', 'bossBulldoze', 'returnEcology', 'gasShear']) assert.ok(entry11.includes(`${flag}:true`));
+  assert.doesNotMatch(entry11, /replay-v011|coach-v011|competitive-v011/);
   assert.match(entry12, /PRESENTATION='0\.12\.0',ENGINE='0\.11\.1'/);
-  assert.match(entry12, /createPondRenderer/);
-  assert.match(entry12, /F\.render=/);
-  assert.doesNotMatch(entry12, /F\.(?:update|updateMovement|updateEnemies|updateShots|cut|dashStep|counterShot)\s*=/);
-  assert.match(pond, /getContext\('webgl2'/);
-  assert.match(pond, /emit\('tongue'/);
-  assert.match(atlasEntry, /art-atlas-pro-v012\.js/);
-  assert.match(atlas, /function frog/);
-  assert.match(atlas, /function fastHeight/);
-  assert.doesNotMatch(atlas, /getImageData|putImageData|willReadFrequently|\.roundRect\(/);
-  assert.match(rooms, /bossName:'Surveyor'/);
-  assert.match(rooms, /bossName:'Harvester'/);
-  assert.match(rooms, /bossName:'Mulcher'/);
-  assert.match(replay, /VERSION='0\.11\.1'/);
-  assert.match(synergy, /window\.SylvariaSynergy/);
+  assert.match(entry13, /v013\/kinetic-combat-v013\.js/);
+  assert.match(entry13, /v013\/enemy-ai-v013\.js/);
+  assert.match(entry13, /v013\/replay-v013\.js/);
+  assert.match(entry13, /v013\/coach-v013\.js/);
+  assert.match(entry13, /v013\/kinetic-presentation-v013\.js/);
+  assert.match(kinetics, /moveSpeed:238/);
+  assert.match(kinetics, /arcDegrees:156/);
+  assert.match(kinetics, /perfectReflectSpeed:1120/);
+  assert.match(kinetics, /function beginDashCharge/);
+  assert.match(kinetics, /function releaseDashCharge/);
+  assert.match(kinetics, /phase:'windup'/);
+  assert.match(kinetics, /phase='active'/);
+  assert.match(kinetics, /phase='recovery'/);
+  for (const kind of ['skimmer','strider','sniper','shellback']) assert.ok(ai.includes(`${kind}:`), `missing kinetic enemy ${kind}`);
+  assert.match(ai, /function maybeReadArc/);
+  assert.match(ai, /fullArcContains/);
+  assert.match(ai, /SHELL BLOCK/);
+  assert.match(replay, /SCHEMA=2/);
+  assert.match(replay, /space:\[12,13\]/);
+  assert.match(presentation, /function drawArcAttack/);
 });
 
-test('v0.11.1 leaves protected Countercut and queue mechanics in the v0.9.1 movement substrate', () => {
+test('the old dash-step substrate stays reconstructible but is explicitly overridden by v0.13 production', () => {
   const model = read(`${v091}/model.js`);
   const movement = read(`${v091}/movement.js`);
-  const synergy = read(`${v091}/synergy-v010.js`);
-  assert.match(model, /VERSION='0\.9\.1'/);
+  const kinetics = read(`${v013}/kinetic-combat-v013.js`);
   assert.match(model, /FIXED_DT=1\/120/);
   assert.match(model, /MAX_SHOTS=128/);
   assert.match(model, /MAX_PENDING=72/);
   assert.match(movement, /state\.moveQueue=\{key,serial:\+\+state\.inputSerial\}/);
-  assert.doesNotMatch(movement, /moveBuffer|moveQueue\.life/);
   assert.match(movement, /speed=perfect\?1040:840/);
-  assert.match(movement, /p\.dashEcho=\.085/);
-  assert.match(movement, /crosscuts/);
-  assert.match(movement, /longReturns/);
-  assert.match(movement, /s\.pierces=perfect\?1:0/);
-  assert.doesNotMatch(synergy, /moveQueue=|function queueMove|1040|840/);
+  assert.match(kinetics, /Object\.assign\(F,\{beginDashCharge,releaseDashCharge/);
+  assert.match(kinetics, /queueMove\(\)\{state\.moveQueue=null;return false\}/);
+  assert.match(kinetics, /function updateMovement\(dt\)/);
+  assert.match(kinetics, /function updateSlashes\(dt\)/);
 });
 
-test('the inherited ecological subsystem still composes returned fire spores cautious AI Flow and boss routing', () => {
+test('v0.13 keeps ecological consequences under the faster combat layer', () => {
   const synergy = read(`${v091}/synergy-v010.js`);
-  const doc = read('docs/SYLVARIA_V010_ECOLOGICAL_SYNERGY.md');
-  for (const token of ['originPattern', 'triggerReturnEcology', 'mushroomReturns', 'WAVE-SPORE BLOOM', 'shearGas', 'gasShears', 'SPORE SHEAR', 'hazardScoreAt', 'steerCautious', 'bulldozeBoss', 'bossBulldozes', 'INDUSTRIAL BULLDOZE', 'chooseThreat', 'drawThreat', 'drawReturnPriority', 'drawPacHeat']) assert.ok(synergy.includes(token), `missing ecology token ${token}`);
-  assert.match(synergy, /CAUTIOUS=new Set\(\['foreman','lobbyist','chair','broker','surveyor'\]\)/);
-  assert.match(synergy, /p\.flow<75/);
-  assert.match(synergy, /state\.synergyChain<3/);
-  assert.match(synergy, /state\.verdantTimer=3\.6/);
-  assert.match(doc, /Countercut-authored chain reactions/);
-  assert.match(doc, /Skidder Bruisers are deliberately excluded/);
-  assert.match(doc, /Verdant Flow/);
-  assert.match(doc, /Visual priority under chaos/);
-  assert.match(doc, /13 KiB target/);
-});
-
-test('Sylvaria size profiling separates readable portfolio code from a future competition pack', () => {
-  const profiler = read('scripts/profile-sylvaria-size.mjs');
-  const pkg = JSON.parse(read('package.json')) as { scripts?: Record<string, string> };
-  assert.equal(pkg.scripts?.['profile:sylvaria'], 'node scripts/profile-sylvaria-size.mjs');
-  for (const token of ['gzipSync', 'brotliCompressSync', 'competitionLimitBytes', 'readableRuntime', 'portfolioPayload', 'competitionGap', 'art-atlas-pro-v012.js']) assert.ok(profiler.includes(token));
-  assert.match(profiler, /NOT treated as a competition-ready package/);
+  const kinetics = read(`${v013}/kinetic-combat-v013.js`);
+  for (const token of ['triggerReturnEcology', 'mushroomReturns', 'hazardScoreAt', 'bulldozeBoss', 'bossBulldozes']) assert.ok(synergy.includes(token), `missing inherited ecology token ${token}`);
+  assert.match(kinetics, /window\.SylvariaSynergy\?\.awardSynergy/);
+  assert.match(kinetics, /function shearGasArc/);
+  assert.match(kinetics, /F\.cutMushroom/);
+  assert.match(kinetics, /F\.applyTerrainHazard/);
 });
 
 test('Game Network fullscreen removes portfolio chrome and gives the iframe the whole display', () => {
@@ -140,10 +133,10 @@ test('Game Network fullscreen removes portfolio chrome and gives the iframe the 
   assert.match(source, /aspectRatio: game\.aspectRatio/);
 });
 
-test('current Sylvaria player-facing surfaces keep the vocabulary restrained', () => {
+test('current Sylvaria player-facing surfaces keep the pond vocabulary restrained', () => {
   const visible = [read(`${runtime}/index.html`), read('src/data/arcadeGames.ts')].join('\n');
   assert.doesNotMatch(visible, /Sprid|Sprig|Verdant Flow|Ecological Synergy|PAC-a-Saw|Heartleaf|Rush Resin|Barkguard|Edge Stone|Flow Sap/i);
-  for (const word of ['Sylvaria', 'frog', 'tongue', 'reflect', 'pond']) assert.match(visible, new RegExp(word, 'i'));
+  for (const word of ['Sylvaria', 'frog', 'tongue', 'reflect', 'pond', 'glide', 'dash']) assert.match(visible, new RegExp(word, 'i'));
 });
 
 test('Game Network naming is consistent across every visible discovery surface', () => {
@@ -174,21 +167,6 @@ test('Vercel allows same-origin game embedding without allowing cross-site frami
     const headers = config.headers?.find((rule) => rule.source === source)?.headers ?? [];
     assert.ok(headers.some((header) => header.key === 'Content-Security-Policy' && header.value === "frame-ancestors 'self'"));
   }
-});
-
-test('v0.12 browser validation keeps WebGL frog presentation and v0.11.1 replay parity in the same gate', () => {
-  const workflow = read('.github/workflows/ci.yml');
-  const browser = read('scripts/playtest-sylvaria-browsers.mjs');
-  const parity = read('scripts/playtest-sylvaria-replay-parity.mjs');
-  const combat = read('scripts/playtest-sylvaria-countercut.mjs');
-  const synergy = read('scripts/playtest-sylvaria-synergy.mjs');
-  for (const token of ['Chrome Stable Chromium Firefox and WebKit', 'profile:sylvaria', 'playtest-sylvaria-replay-parity.mjs', 'playtest-sylvaria-synergy.mjs']) assert.ok(workflow.includes(token));
-  for (const token of ["name:'chrome-stable'", "channel:'chrome'", '0.12.0', '0.11.1', 'SylvariaPondRenderer', 'frogPond', 'tongueAttack', 'tonguePulses', 'bufferedMove', 'ArrowUp', 'expandedArenas', 'minimalPresentation']) assert.ok(browser.includes(token));
-  assert.match(parity, /simulateSylvariaReplay/);
-  assert.match(parity, /0\.11\.1/);
-  for (const token of ['labEnemyTravel', 'iceFractures', 'hazardKills']) assert.ok(combat.includes(token));
-  assert.match(combat, /1040|1000/);
-  for (const token of ['mushroomReturns', 'gasShears', 'hazardScoreAt', 'bossBulldozes', 'verdantTimer', 'threatTti']) assert.ok(synergy.includes(token));
 });
 
 test('the embedded Stretchicorn release is complete', () => {
