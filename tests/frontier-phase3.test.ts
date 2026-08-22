@@ -5,6 +5,7 @@ import {
   quantizeFrontierVector,
   rankFrontierChunkManifests,
   type FrontierChunkManifest,
+  type FrontierChunkVector,
 } from '../lib/frontier/vector/chunkedVectorStore';
 import { cosineSimilarity, normalizeVector } from '../lib/frontier/vector/math';
 import { projectEmbeddingToSequence } from '../lib/frontier/vector/sequenceModel';
@@ -22,6 +23,7 @@ import {
   withChunkRegister,
   withEngagementDelta,
 } from '../lib/frontier/sync/meshSync';
+import { decodeMeshVectorChunk, encodeMeshVectorChunk } from '../lib/frontier/sync/meshChunkCodec';
 
 function basis(index: number, dimension = 384): Float32Array {
   const vector = new Float32Array(dimension);
@@ -103,4 +105,22 @@ test('mesh state merge converges for concurrent chunk and engagement updates', (
   const again = mergeFrontierMeshState(mergedDesktop, mergedMobile);
   assert.deepEqual(again.engagements, mergedDesktop.engagements);
   assert.deepEqual(again.chunks, mergedDesktop.chunks);
+});
+
+test('mesh vector chunk codec preserves quantized semantic neighborhoods', () => {
+  const source: FrontierChunkVector = {
+    id: 'memory-1',
+    vector: normalizeVector(Float32Array.from({ length: 384 }, (_, index) => Math.cos(index * 0.21))),
+    textHash: 'hash',
+    createdAt: 10,
+    lastAccessedAt: 20,
+    title: 'A remembered paper',
+    engagement: 1.2,
+  };
+  const encoded = encodeMeshVectorChunk('mesh:g:2', [source], 30);
+  const decoded = decodeMeshVectorChunk(encoded);
+  assert.equal(decoded.length, 1);
+  assert.equal(decoded[0].id, source.id);
+  assert.equal(decoded[0].title, source.title);
+  assert.ok(cosineSimilarity(source.vector, decoded[0].vector) > 0.9999);
 });
