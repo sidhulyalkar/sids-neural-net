@@ -35,7 +35,8 @@ expect(!files.movement.includes('moveQueue.life') && !files.movement.includes('m
 expect(has(files.movement, 'function resolveDashTarget', 'F.mobilityAt', "['mud','sand'].includes(end.type)"), 'terrain-aware Sprid routing missing');
 expect(has(files.movement, 'function tryDashCutIce', 'function segmentCircleHit', 'p.dashEcho>0', 'p.dashEcho=.085', "type:'shards'", 'state.stats.iceFractures++'), 'live dash-cut ice fracture / echo window missing');
 expect(has(files.movement, 'function counterShot', 'function shotApproachDirection', 'function chooseReturnTarget', 'speed=perfect?1040:840', "s.pattern='return'"), 'protected Countercut routing/speeds changed');
-expect(has(files.movement, 'reflectedTravel', 'crosscuts', 'longReturns', 's.pierces=perfect?1:0', 'ricochets'), 'Crosscut/Long Return/penetration rewards missing');
+expect(has(files.movement, 'reflectedTravel', 'crosscuts', 'longReturns', 's.pierces=perfect?1:0'), 'Crosscut/Long Return/penetration rewards missing');
+expect(files['battle-core'].includes('state.stats.ricochets++'), 'perfect-return penetration bookkeeping missing');
 expect(has(files.movement, 'p.buffs.edge>0?24:0', 'p.buffs.rush>0?1.08:1'), 'field-kit combat benefits are not wired into reach/movement');
 
 for (const pattern of ['straight','zigzag','wave','spiral','swerve','wobble','return']) expect(files['battle-core'].includes(`'${pattern}'`), `missing projectile pattern ${pattern}`);
@@ -64,7 +65,7 @@ for (const name of ['model','world','movement','battle-core','render']) {
   try { new Function(files[name]); } catch (error) { errors.push(`${name}.js does not compile: ${error.message}`); }
 }
 try {
-  const stripped = files.boot.replace(/^import\s+['"][^'"]+['"];?/gm, '');
+  const stripped = files.boot.replace(/import\s+['"][^'"]+['"];?/g, '');
   new Function(stripped);
 } catch (error) { errors.push(`boot.js does not compile after import stripping: ${error.message}`); }
 
