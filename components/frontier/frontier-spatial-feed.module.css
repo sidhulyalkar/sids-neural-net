@@ -1,0 +1,77 @@
+.board {
+  width: 100%;
+  --frontier-column-gap: clamp(24px, 3.2vw, 62px);
+  --frontier-row-gap: clamp(44px, 6.4vw, 98px);
+}
+
+.board .grid {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  column-gap: var(--frontier-column-gap);
+  row-gap: var(--frontier-row-gap);
+  align-items: start;
+}
+
+.board .item {
+  min-width: 0;
+  grid-column: span 4;
+}
+
+/* A quiet editorial cadence. The varying spans create proximity groups without
+   creating boxes or rails, while every three-item phrase still resolves to 12 columns. */
+.board .item:nth-child(9n + 1) { grid-column: span 5; }
+.board .item:nth-child(9n + 2) { grid-column: span 3; }
+.board .item:nth-child(9n + 3) { grid-column: span 4; }
+.board .item:nth-child(9n + 7) { grid-column: span 3; }
+.board .item:nth-child(9n + 8) { grid-column: span 4; }
+.board .item:nth-child(9n + 9) { grid-column: span 5; }
+
+.board .feed {
+  display: grid;
+  width: min(1180px, 100%);
+  gap: clamp(44px, 6vw, 90px);
+  margin-inline: auto;
+}
+
+.board .feedItem {
+  min-width: 0;
+}
+
+.board .feedItem:nth-child(odd) {
+  padding-right: clamp(0px, 5vw, 76px);
+}
+
+.board .feedItem:nth-child(even) {
+  padding-left: clamp(0px, 4vw, 62px);
+}
+
+@media (max-width: 1120px) {
+  .board .grid { grid-template-columns: repeat(8, minmax(0, 1fr)); }
+  .board .item,
+  .board .item:nth-child(9n + 1),
+  .board .item:nth-child(9n + 2),
+  .board .item:nth-child(9n + 3),
+  .board .item:nth-child(9n + 7),
+  .board .item:nth-child(9n + 8),
+  .board .item:nth-child(9n + 9) { grid-column: span 4; }
+}
+
+@media (max-width: 720px) {
+  .board {
+    --frontier-column-gap: 0px;
+    --frontier-row-gap: clamp(38px, 13vw, 62px);
+  }
+
+  .board .grid { grid-template-columns: 1fr; }
+  .board .item,
+  .board .item:nth-child(9n + 1),
+  .board .item:nth-child(9n + 2),
+  .board .item:nth-child(9n + 3),
+  .board .item:nth-child(9n + 7),
+  .board .item:nth-child(9n + 8),
+  .board .item:nth-child(9n + 9) { grid-column: 1; }
+
+  .board .feed { gap: clamp(38px, 13vw, 62px); }
+  .board .feedItem:nth-child(odd),
+  .board .feedItem:nth-child(even) { padding-inline: 0; }
+}
