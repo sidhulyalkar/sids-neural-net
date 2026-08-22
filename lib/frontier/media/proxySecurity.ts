@@ -11,6 +11,10 @@ const DEFAULT_MEDIA_HOSTS = new Set([
   'cdn.cloudflare.steamstatic.com',
   'shared.fastly.steamstatic.com',
   'steamcdn-a.akamaihd.net',
+  // Official GitHub repository social-preview surface. FRONTIER derives this
+  // only from a canonical github.com/owner/repo URL and still subjects it to
+  // the same DNS, redirect, MIME, timeout, and payload-size gateway checks.
+  'opengraph.githubassets.com',
   // First-party curated/scientific visual sources used by optional public
   // discovery adapters. The gateway still validates protocol, DNS, redirects,
   // content type, timeout, and payload size before returning any bytes.
