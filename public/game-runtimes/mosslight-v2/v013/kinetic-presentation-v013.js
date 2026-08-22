@@ -5,7 +5,7 @@ const overlay=document.createElement('canvas');overlay.id='kineticCanvas';overla
 overlay.style.position='absolute';overlay.style.inset='0';overlay.style.width='100%';overlay.style.height='100%';overlay.style.pointerEvents='none';overlay.style.zIndex='4';
 (document.getElementById('pondCanvas')||canvas).insertAdjacentElement('afterend',overlay);
 const ctx=overlay.getContext('2d');
-let renderedArcs=0,renderedTrailSamples=0,lastHitStopSerial=0,holdFrames=0,hitStopsRendered=0;
+let renderedArcs=0,renderedTrailSamples=0,lastHitStopSerial=0,holdFrames=0,hitStopsRendered=0,lastHitStopKind=null,lastHoldFramesApplied=0;
 
 function anglePoint(p,a,r){return{x:p.x+Math.cos(a)*r,y:p.y+Math.sin(a)*r}}
 function curveTongue(p,a,length,alpha=1,trail=false){
@@ -70,7 +70,8 @@ function drawOverlay(){
 
 function syncHitStop(){
   const serial=state.hitStopSerial||0;if(serial===lastHitStopSerial)return;
-  lastHitStopSerial=serial;const kind=state.hitStopKind||'enemy';holdFrames=kind==='parry'?2:1;hitStopsRendered++;
+  lastHitStopSerial=serial;const kind=state.hitStopKind||'enemy';
+  holdFrames=kind==='parry'?3:kind==='armor'?2:1;lastHitStopKind=kind;lastHoldFramesApplied=holdFrames;hitStopsRendered++;
 }
 
 const inheritedRender=F.render;
@@ -84,4 +85,4 @@ F.render=()=>{
 const inheritedHud=F.updateHud;
 F.updateHud=(force=false)=>{inheritedHud?.(force);const p=state.player,d=G.$('dashState');if(!p||!d)return;if(p.dashCharging)d.textContent=`charge ${Math.round((p.dashCharge||0)*100)}%`;else if(p.dashBuffer>0)d.textContent='dash queued';else if(p.dash)d.textContent='burst';else if(p.dashCooldown>0)d.textContent=`dash ${p.dashCooldown.toFixed(1)}s`;else d.textContent='space · dash'};
 
-window.SylvariaKineticPresentation=Object.freeze({version:VERSION,canvas:overlay,snapshot:()=>({version:VERSION,renderedArcs,renderedTrailSamples,overlay:true,chargeRing:Boolean(state.player?.dashCharging),dashBuffered:Boolean(state.player?.dashBuffer>0),hitStopHoldFrames:holdFrames,hitStopsRendered,kineticEnemies:state.enemies.filter(e=>e.kineticType&&!e.dead).length})});
+window.SylvariaKineticPresentation=Object.freeze({version:VERSION,canvas:overlay,snapshot:()=>({version:VERSION,renderedArcs,renderedTrailSamples,overlay:true,chargeRing:Boolean(state.player?.dashCharging),dashBuffered:Boolean(state.player?.dashBuffer>0),hitStopHoldFrames:holdFrames,hitStopsRendered,lastHitStopKind,lastHoldFramesApplied,kineticEnemies:state.enemies.filter(e=>e.kineticType&&!e.dead).length})});
