@@ -90,7 +90,7 @@ jobs:
           cat /tmp/sids-neural-net.log
           exit 1
 
-      - name: Smoke public production routes and Sylvaria v0.13 modules
+      - name: Smoke public production routes and Sylvaria v0.13 Reactive Blade modules
         run: |
           for route in / /neural-net /case-studies /physiology /perceptual-cortex /rotation /sensing-lab /physiology/visual-audit /photography /arcade /arcade/stretchicorn /arcade/unirico /arcade/sylvaria /arcade/mosslight; do
             echo "GET $route"
@@ -103,7 +103,7 @@ jobs:
           curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/game-runtimes/unirico/index.html | grep -q '<canvas id="c"'
           curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/game-runtimes/unirico/runtime/core.js | grep -q 'use strict\|const\|function'
 
-          echo "GET Sylvaria v0.13 kinetic runtime"
+          echo "GET Sylvaria v0.13 Reactive Blade runtime"
           SYL=http://127.0.0.1:3000/game-runtimes/mosslight-v2
           curl --retry 2 --retry-connrefused -fsS "$SYL/index.html" -o /tmp/sylvaria-index.html
           curl --retry 2 --retry-connrefused -fsS "$SYL/v013-entry.js" -o /tmp/sylvaria-v013-entry.js
@@ -123,9 +123,14 @@ jobs:
           done
           grep -q 'v0.13 · kinetic arc combat' /tmp/sylvaria-index.html
           grep -q 'Glide. Charge. Sweep. Return fire.' /tmp/sylvaria-index.html
+          grep -q 'first five active simulation ticks' /tmp/sylvaria-index.html
           grep -q './v013-entry.js' /tmp/sylvaria-index.html
           grep -q 'id="rankPanel"' /tmp/sylvaria-index.html
           grep -q 'id="rankedSubmit"' /tmp/sylvaria-index.html
+          if grep -qi 'mid-swing\|middle of the active sweep is the sweet spot' /tmp/sylvaria-index.html; then
+            echo "v0.13 shell still teaches retired midpoint parry timing" >&2
+            exit 1
+          fi
           if grep -q '<script type="module" src="./v012-entry.js"\|<script type="module" src="./v091/boot.js"' /tmp/sylvaria-index.html; then
             echo "v0.13 shell bypassed its current entrypoint" >&2
             exit 1
@@ -135,15 +140,27 @@ jobs:
           grep -q "v013/replay-v013.js" /tmp/sylvaria-v013-entry.js
           grep -q 'continuousGlide:true' /tmp/sylvaria-v013-entry.js
           grep -q 'chargedOmniDash:true' /tmp/sylvaria-v013-entry.js
+          grep -q 'exponentialDash:true' /tmp/sylvaria-v013-entry.js
+          grep -q 'bufferedDash:true' /tmp/sylvaria-v013-entry.js
+          grep -q 'dashBladeCancel:true' /tmp/sylvaria-v013-entry.js
           grep -q 'kineticTongueArc:true' /tmp/sylvaria-v013-entry.js
+          grep -q 'reactiveBladeParry:true' /tmp/sylvaria-v013-entry.js
+          grep -q 'proceduralBladeTrail:true' /tmp/sylvaria-v013-entry.js
+          grep -q 'selectiveHitStop:true' /tmp/sylvaria-v013-entry.js
           grep -q 'predictiveArcEvasion:true' /tmp/sylvaria-v013-entry.js
           grep -q 'moveSpeed:238' /tmp/sylvaria-kinetics.js
-          grep -q 'dashMaxSpeed:960' /tmp/sylvaria-kinetics.js
+          grep -q 'dashDecay:.90483742' /tmp/sylvaria-kinetics.js
+          grep -q 'dashBuffer:.10' /tmp/sylvaria-kinetics.js
+          grep -q 'dashCancelTicks:4' /tmp/sylvaria-kinetics.js
           grep -q 'arcDegrees:156' /tmp/sylvaria-kinetics.js
-          grep -q 'perfectReflectSpeed:1120' /tmp/sylvaria-kinetics.js
+          grep -q 'parryWindow:5/120' /tmp/sylvaria-kinetics.js
+          grep -q 'perfectReflectSpeed:1160' /tmp/sylvaria-kinetics.js
           grep -q 'function beginDashCharge' /tmp/sylvaria-kinetics.js
+          grep -q 'function cancelDashIntoBlade' /tmp/sylvaria-kinetics.js
           grep -q 'function arcSweepContains' /tmp/sylvaria-kinetics.js
           grep -q 'function counterShotArc' /tmp/sylvaria-kinetics.js
+          grep -q 'state.bladeTrails.push' /tmp/sylvaria-kinetics.js
+          grep -q "signalHitStop('parry',4)" /tmp/sylvaria-kinetics.js
           grep -q 'skimmer:' /tmp/sylvaria-ai.js
           grep -q 'strider:' /tmp/sylvaria-ai.js
           grep -q 'sniper:' /tmp/sylvaria-ai.js
@@ -152,7 +169,10 @@ jobs:
           grep -q 'SCHEMA=2' /tmp/sylvaria-replay-v013.js
           grep -q 'space:\[12,13\]' /tmp/sylvaria-replay-v013.js
           grep -q 'WASD · glide freely' /tmp/sylvaria-coach-v013.js
+          grep -q 'opening blade frames · parry incoming fire' /tmp/sylvaria-coach-v013.js
           grep -q 'function drawArcAttack' /tmp/sylvaria-kinetic-presentation.js
+          grep -q 'function drawBladeTrails' /tmp/sylvaria-kinetic-presentation.js
+          grep -q 'if(holdFrames>0){holdFrames--;return}' /tmp/sylvaria-kinetic-presentation.js
           grep -q "PRESENTATION='0.12.0',ENGINE='0.11.1'" /tmp/sylvaria-v012-entry.js
           grep -q "getContext('webgl2'" /tmp/sylvaria-pond.js
           grep -q 'function frog' /tmp/sylvaria-atlas.js
@@ -195,7 +215,7 @@ jobs:
           PW_ROOT="$(cd "$(dirname "$PW_BIN")/.." && pwd)"
           PLAYWRIGHT_MODULE_ROOT="$PW_ROOT" node --import tsx scripts/playtest-sylvaria-replay-parity.mjs
 
-      - name: Playtest Sylvaria v0.13 kinetic combat
+      - name: Playtest Sylvaria v0.13 Reactive Blade combat
         run: |
           PW_BIN="$(npm exec --yes --package=playwright@1.55.0 -- which playwright)"
           PW_ROOT="$(cd "$(dirname "$PW_BIN")/.." && pwd)"
