@@ -73,14 +73,16 @@ test('dash recovery can cancel into the tongue blade only after minimum commitme
   assert.match(combat, /p\.dashEcho=13\/120/);
 });
 
-test('blade trail and selective hit-stop are procedural presentation feedback, not alternate simulation clocks', () => {
+test('blade trail and three-tier hit-stop are procedural presentation feedback, not alternate simulation clocks', () => {
   assert.match(combat, /state\.bladeTrails\.push/);
   assert.match(combat, /signalHitStop\('parry',4\)/);
   assert.match(combat, /signalHitStop\('enemy',1\)/);
   assert.match(combat, /'armor':'enemy'/);
   assert.match(presentation, /function drawBladeTrails/);
   assert.match(presentation, /ctx\.arc\(t\.x,t\.y,t\.reach\*\.96/);
-  assert.match(presentation, /kind==='parry'\?2:1/);
+  assert.match(presentation, /kind==='parry'\?3:kind==='armor'\?2:1/);
+  assert.match(presentation, /lastHitStopKind/);
+  assert.match(presentation, /lastHoldFramesApplied/);
   assert.match(presentation, /if\(holdFrames>0\)\{holdFrames--;return\}/);
   assert.doesNotMatch(combat, /setTimeout|requestAnimationFrame|performance\.now/);
 });
