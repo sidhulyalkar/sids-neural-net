@@ -28,11 +28,15 @@ function integratedDistance(distance: number, ticks: number) {
 
 test('reactive blade parry is exactly five 120 Hz ticks and replaces midpoint Countercut timing', () => {
   assert.match(combat, /parryWindow:5\/120/);
-  assert.match(combat, /s\.phaseTime>s\.parryWindow/);
+  assert.match(combat, /s\.phaseTime>=s\.parryWindow/);
+  assert.match(presentation, /\(s\.phaseTime\|\|0\)<\(s\.parryWindow\|\|0\)/);
   assert.match(combat, /perfectReflectSpeed:1160/);
   assert.match(combat, /'PARRY'/);
   assert.doesNotMatch(combat, /Math\.abs\(s\.activeProgress-\.5\)/);
   assert.doesNotMatch(combat, /perfectWindow:\.12/);
+
+  const eligibleSamples = Array.from({ length: 7 }, (_, tick) => tick).filter((tick) => tick * DT < 5 * DT);
+  assert.deepEqual(eligibleSamples, [0, 1, 2, 3, 4]);
   assert.equal(5 * DT, 1 / 24);
 });
 
