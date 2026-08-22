@@ -21,6 +21,11 @@ type Props = {
   renderCard: (item: FrontierItem, mode: SignalLayoutMode) => ReactNode;
   empty?: ReactNode;
   compact?: boolean;
+  explorationTemperature?: number;
+  diversityReference?: FrontierItem[];
+  appendStable?: boolean;
+  streamEpoch?: number;
+  onNearEnd?: () => void;
 };
 
 const SEMANTIC_COLD_START = FRONTIER_PINNED_TOPICS
@@ -28,11 +33,25 @@ const SEMANTIC_COLD_START = FRONTIER_PINNED_TOPICS
   .map((topic) => topic.label)
   .join(' · ');
 
-export function SignalBoard({ items, mode, renderCard, empty, compact = false }: Props) {
+export function SignalBoard({
+  items,
+  mode,
+  renderCard,
+  empty,
+  compact = false,
+  explorationTemperature = 0,
+  diversityReference = [],
+  appendStable = false,
+  streamEpoch = 0,
+  onNearEnd,
+}: Props) {
   usePredictivePrefetch();
   const { playSearchResolved } = useUIFrequencies();
   const resolvedSoundQuery = useRef('');
+  const endSentinel = useRef<HTMLDivElement | null>(null);
+  const nearEndAt = useRef(0);
   const [query, setQuery] = useState(() => getFrontierClientQuery());
+  const [stableOrder, setStableOrder] = useState<string[]>([]);
 
   useEffect(() => {
     const update = (event: Event) => setQuery((event as CustomEvent<string>).detail ?? '');
@@ -44,8 +63,37 @@ export function SignalBoard({ items, mode, renderCard, empty, compact = false }:
     query,
     seedText: SEMANTIC_COLD_START,
     enabled: true,
+    explorationTemperature,
+    diversityReference,
   });
-  const displayedItems = semantic.items;
+
+  useEffect(() => {
+    setStableOrder([]);
+  }, [streamEpoch]);
+
+  useEffect(() => {
+    if (!appendStable) {
+      setStableOrder([]);
+      return;
+    }
+    setStableOrder((current) => {
+      const liveIds = new Set(semantic.items.map((item) => item.id));
+      const retained = current.filter((id) => liveIds.has(id));
+      const retainedSet = new Set(retained);
+      const additions = semantic.items.map((item) => item.id).filter((id) => !retainedSet.has(id));
+      const next = [...retained, ...additions];
+      return next.join('|') === current.join('|') ? current : next;
+    });
+  }, [appendStable, semantic.items]);
+
+  const displayedItems = useMemo(() => {
+    if (!appendStable || !stableOrder.length) return semantic.items;
+    const byId = new Map(semantic.items.map((item) => [item.id, item]));
+    const ordered = stableOrder.flatMap((id) => byId.get(id) ? [byId.get(id)!] : []);
+    const included = new Set(ordered.map((item) => item.id));
+    return [...ordered, ...semantic.items.filter((item) => !included.has(item.id))];
+  }, [appendStable, semantic.items, stableOrder]);
+
   const itemSignature = useMemo(() => displayedItems.map((item) => item.id).join('|'), [displayedItems]);
   const explorationVector = useMemo(() => ambientExplorationVector(displayedItems), [displayedItems]);
 
@@ -65,6 +113,20 @@ export function SignalBoard({ items, mode, renderCard, empty, compact = false }:
     }
   }, [displayedItems.length, itemSignature, playSearchResolved, query]);
 
+  useEffect(() => {
+    const node = endSentinel.current;
+    if (!node || !onNearEnd || typeof IntersectionObserver === 'undefined' || !displayedItems.length) return;
+    const observer = new IntersectionObserver((entries) => {
+      if (!entries.some((entry) => entry.isIntersecting)) return;
+      const now = Date.now();
+      if (now - nearEndAt.current < 20_000) return;
+      nearEndAt.current = now;
+      onNearEnd();
+    }, { rootMargin: '720px 0px 720px 0px', threshold: 0 });
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [displayedItems.length, onNearEnd]);
+
   return (
     <div className={`${styles.boardShell} ${spatial.board}`} data-vector-backend={semantic.backend} data-exploration={explorationVector.toFixed(3)}>
       {!displayedItems.length ? empty : mode === 'feed' ? (
@@ -74,6 +136,7 @@ export function SignalBoard({ items, mode, renderCard, empty, compact = false }:
               {renderCard(item, 'feed')}
             </div>
           ))}
+          <div ref={endSentinel} aria-hidden="true" style={{ height: 1 }} />
         </div>
       ) : (
         <div className={`${styles.signalGrid} ${spatial.grid} ${compact ? styles.signalGridCompact : ''}`}>
@@ -82,6 +145,7 @@ export function SignalBoard({ items, mode, renderCard, empty, compact = false }:
               {renderCard(item, 'desk')}
             </div>
           ))}
+          <div ref={endSentinel} aria-hidden="true" style={{ height: 1 }} />
         </div>
       )}
     </div>
