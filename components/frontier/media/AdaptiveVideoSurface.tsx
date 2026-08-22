@@ -7,6 +7,7 @@ import { FrontierMseController } from '@/lib/frontier/media/mse';
 import { frontierMediaTelemetry } from '@/lib/frontier/media/telemetry';
 import type { FrontierVideoStream } from '@/lib/frontier/types';
 import { GpuImageSurface } from './GpuImageSurface';
+import { claimFrontierPlayback, releaseFrontierPlayback } from './playbackCoordinator';
 import { useMediaFlip } from './useMediaFlip';
 import { useMediaVisibility } from './useMediaVisibility';
 import styles from './frontier-media.module.css';
@@ -28,6 +29,16 @@ function orderedStreams(streams: FrontierVideoStream[] | undefined): FrontierVid
     return 2;
   };
   return [...streams].sort((a, b) => rank(a) - rank(b));
+}
+
+function browserOrderedStreams(video: HTMLVideoElement, streams: FrontierVideoStream[]): FrontierVideoStream[] {
+  if (!canPlayNativeHls(video)) return streams;
+  // Safari's native HLS stack already owns mature ABR, hardware decode, captions,
+  // and power behavior. Prefer it to the custom MSE path when available.
+  return [...streams].sort((a, b) => {
+    const rank = (stream: FrontierVideoStream) => stream.kind === 'hls' ? 0 : stream.kind === 'frontier-fmp4' ? 1 : 2;
+    return rank(a) - rank(b);
+  });
 }
 
 type VirtualBoundarySnapshot = {
@@ -126,7 +137,8 @@ export function AdaptiveVideoSurface({ id, url, poster, alt, streams, onUnavaila
     const snapshot = virtualBoundary.current;
     if (snapshot) snapshot.node.style.contentVisibility = snapshot.contentVisibility;
     virtualBoundary.current = undefined;
-  }, [cancelFlip]);
+    if (videoRef.current) releaseFrontierPlayback(id, videoRef.current);
+  }, [cancelFlip, id]);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -139,7 +151,7 @@ export function AdaptiveVideoSurface({ id, url, poster, alt, streams, onUnavaila
       startRecorded.current = false;
       setFailed(false);
 
-      for (const candidate of streamCandidates) {
+      for (const candidate of browserOrderedStreams(video, streamCandidates)) {
         if (disposed) return;
         if (candidate.kind === 'frontier-fmp4') {
           if (!supportsMediaSource()) continue;
@@ -183,6 +195,7 @@ export function AdaptiveVideoSurface({ id, url, poster, alt, streams, onUnavaila
     void attach();
     return () => {
       disposed = true;
+      releaseFrontierPlayback(id, video);
       if (mse) {
         mse.destroy();
       } else {
@@ -193,7 +206,7 @@ export function AdaptiveVideoSurface({ id, url, poster, alt, streams, onUnavaila
         if (objectUrl) URL.revokeObjectURL(objectUrl);
       }
     };
-  }, [mountedPlayer, streamCandidates, url]);
+  }, [id, mountedPlayer, streamCandidates, url]);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -260,8 +273,18 @@ export function AdaptiveVideoSurface({ id, url, poster, alt, streams, onUnavaila
             muted={muted}
             preload={visibility === 'active' ? 'auto' : 'metadata'}
             poster={poster}
-            onPlay={() => setPlaying(true)}
-            onPause={() => setPlaying(false)}
+            onPlay={(event) => {
+              claimFrontierPlayback(id, event.currentTarget);
+              setPlaying(true);
+            }}
+            onPause={(event) => {
+              releaseFrontierPlayback(id, event.currentTarget);
+              setPlaying(false);
+            }}
+            onEnded={(event) => {
+              releaseFrontierPlayback(id, event.currentTarget);
+              setPlaying(false);
+            }}
             onPlaying={() => {
               if (!startRecorded.current && playingStarted.current !== undefined) {
                 startRecorded.current = true;
