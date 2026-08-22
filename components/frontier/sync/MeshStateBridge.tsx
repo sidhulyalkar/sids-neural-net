@@ -4,6 +4,7 @@ import { useEffect, useRef } from 'react';
 import { publishFrontierRuntimeHealth } from '@/lib/frontier/runtime/runtimeHealth';
 import { boundedPeerEngagementDelta, pnCounterValueExcludingActor } from '@/lib/frontier/sync/meshEngagement';
 import { decodeMeshVectorChunk, encodeMeshVectorChunk } from '@/lib/frontier/sync/meshChunkCodec';
+import { publishFrontierMeshProfileUpdate } from '@/lib/frontier/sync/meshProfileEvents';
 import { frontierSpatialGridKey } from '@/lib/frontier/vector/chunkedVectorStore';
 import { listenFrontierSemanticTelemetry, semanticTelemetryWeight } from '@/lib/frontier/vector/telemetryEngine';
 import { frontierVectorStore } from '@/lib/frontier/vector/vectorStore';
@@ -116,6 +117,7 @@ export function MeshStateBridge() {
 
     void (async () => {
       let changed = false;
+      let profileChanged = false;
       for (const [itemId, counter] of Object.entries(state.engagements)) {
         if (cancelled) return;
         const remoteValue = pnCounterValueExcludingActor(counter, state.actorId);
@@ -160,11 +162,13 @@ export function MeshStateBridge() {
           await frontierVectorStore.recordEngagement(itemId, signal, at);
           applied[itemId] = remoteValue;
           changed = true;
+          profileChanged = true;
         } catch {
           // Keep the previous applied value so a later state pass can retry.
         }
       }
       if (!cancelled && changed) persistAppliedPeerEngagement(applied);
+      if (!cancelled && profileChanged) publishFrontierMeshProfileUpdate();
     })();
 
     return () => { cancelled = true; };
