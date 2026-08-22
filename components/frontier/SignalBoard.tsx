@@ -21,7 +21,7 @@ export function SignalBoard({ items, mode, renderCard, empty, compact = false }:
       {!items.length ? empty : mode === 'feed' ? (
         <div className={styles.readingFeed}>
           {items.map((item) => (
-            <div key={item.id} className={`${styles.feedItem} ${perf.virtualItem} ${perf.feedVirtualItem}`}>
+            <div key={item.id} data-frontier-virtual-card className={`${styles.feedItem} ${perf.virtualItem} ${perf.feedVirtualItem}`}>
               {renderCard(item, 'feed')}
             </div>
           ))}
@@ -29,7 +29,7 @@ export function SignalBoard({ items, mode, renderCard, empty, compact = false }:
       ) : (
         <div className={`${styles.signalGrid} ${compact ? styles.signalGridCompact : ''}`}>
           {items.map((item) => (
-            <div key={item.id} className={`${styles.gridItem} ${perf.virtualItem}`}>
+            <div key={item.id} data-frontier-virtual-card className={`${styles.gridItem} ${perf.virtualItem}`}>
               {renderCard(item, 'desk')}
             </div>
           ))}
