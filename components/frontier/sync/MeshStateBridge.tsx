@@ -1,20 +1,40 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
+import { publishFrontierRuntimeHealth } from '@/lib/frontier/runtime/runtimeHealth';
+import { boundedPeerEngagementDelta, pnCounterValueExcludingActor } from '@/lib/frontier/sync/meshEngagement';
+import { decodeMeshVectorChunk, encodeMeshVectorChunk } from '@/lib/frontier/sync/meshChunkCodec';
+import { frontierSpatialGridKey } from '@/lib/frontier/vector/chunkedVectorStore';
 import { listenFrontierSemanticTelemetry, semanticTelemetryWeight } from '@/lib/frontier/vector/telemetryEngine';
 import { frontierVectorStore } from '@/lib/frontier/vector/vectorStore';
-import { frontierSpatialGridKey } from '@/lib/frontier/vector/chunkedVectorStore';
-import { decodeMeshVectorChunk, encodeMeshVectorChunk } from '@/lib/frontier/sync/meshChunkCodec';
 import { useChunkedVectorStore } from '../vector/useChunkedVectorStore';
 import { useFrontierMeshSync } from './useFrontierMeshSync';
 
 export const FRONTIER_MESH_COMMAND_EVENT = 'frontier:mesh-command';
 export const FRONTIER_MESH_RESPONSE_EVENT = 'frontier:mesh-response';
+const APPLIED_PEER_ENGAGEMENT_KEY = 'frontier-mesh-applied-peer-engagement-v1';
 
 type MeshCommand = {
   action: 'create-offer' | 'accept-offer' | 'accept-answer' | 'close';
   payload?: string;
 };
+
+function loadAppliedPeerEngagement(): Record<string, number> {
+  try {
+    const raw = localStorage.getItem(APPLIED_PEER_ENGAGEMENT_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    return Object.fromEntries(Object.entries(parsed).flatMap(([id, value]) => (
+      typeof value === 'number' && Number.isFinite(value) ? [[id, value]] : []
+    )));
+  } catch {
+    return {};
+  }
+}
+
+function persistAppliedPeerEngagement(values: Record<string, number>): void {
+  try { localStorage.setItem(APPLIED_PEER_ENGAGEMENT_KEY, JSON.stringify(values)); } catch {}
+}
 
 /**
  * Keeps the CRDT replica warm without opening a network connection. WebRTC is
@@ -23,7 +43,8 @@ type MeshCommand = {
  */
 export function MeshStateBridge() {
   const importedHashes = useRef(new Set<string>());
-  const { putMany: archivePutMany, neighborhood: archiveNeighborhood } = useChunkedVectorStore();
+  const appliedPeerEngagement = useRef<Record<string, number> | null>(null);
+  const { putMany: archivePutMany, getIds: archiveGetIds, neighborhood: archiveNeighborhood } = useChunkedVectorStore();
   const {
     state,
     status,
@@ -35,6 +56,13 @@ export function MeshStateBridge() {
     publishEngagement,
     publishChunk,
   } = useFrontierMeshSync();
+
+  useEffect(() => {
+    if (status === 'connected') publishFrontierRuntimeHealth('mesh', 'ready');
+    else if (status === 'connecting') publishFrontierRuntimeHealth('mesh', 'starting');
+    else if (status === 'failed') publishFrontierRuntimeHealth('mesh', 'degraded', { message: 'paired peer connection failed; local state retained' });
+    else publishFrontierRuntimeHealth('mesh', 'idle');
+  }, [status]);
 
   useEffect(() => listenFrontierSemanticTelemetry((event) => {
     const weight = semanticTelemetryWeight(event);
@@ -79,6 +107,68 @@ export function MeshStateBridge() {
       }))).catch(() => undefined);
     }
   }, [archivePutMany, state]);
+
+  useEffect(() => {
+    if (!state) return;
+    if (!appliedPeerEngagement.current) appliedPeerEngagement.current = loadAppliedPeerEngagement();
+    const applied = appliedPeerEngagement.current;
+    let cancelled = false;
+
+    void (async () => {
+      let changed = false;
+      for (const [itemId, counter] of Object.entries(state.engagements)) {
+        if (cancelled) return;
+        const remoteValue = pnCounterValueExcludingActor(counter, state.actorId);
+        const previous = applied[itemId] ?? 0;
+        if (Math.abs(remoteValue - previous) < 0.001) continue;
+        const signal = boundedPeerEngagementDelta(remoteValue, previous);
+        if (Math.abs(signal) < 0.001) {
+          applied[itemId] = remoteValue;
+          changed = true;
+          continue;
+        }
+
+        let vector: Float32Array | undefined;
+        try { vector = await frontierVectorStore.get(itemId); } catch {}
+        if (!vector) {
+          try {
+            const archived = (await archiveGetIds([itemId]))[0];
+            if (archived) {
+              vector = archived.vector;
+              await frontierVectorStore.put(
+                archived.id,
+                archived.vector,
+                archived.textHash,
+                Date.now(),
+                {
+                  title: archived.title,
+                  sourceLabel: archived.sourceLabel,
+                  lane: archived.lane,
+                  publishedAt: archived.publishedAt,
+                  engagement: archived.engagement,
+                  lastSignalAt: archived.lastSignalAt,
+                }
+              );
+            }
+          } catch {}
+        }
+        if (!vector) continue;
+
+        try {
+          const at = Date.now();
+          await frontierVectorStore.updateInterest(vector, signal, at);
+          await frontierVectorStore.recordEngagement(itemId, signal, at);
+          applied[itemId] = remoteValue;
+          changed = true;
+        } catch {
+          // Keep the previous applied value so a later state pass can retry.
+        }
+      }
+      if (!cancelled && changed) persistAppliedPeerEngagement(applied);
+    })();
+
+    return () => { cancelled = true; };
+  }, [archiveGetIds, state]);
 
   useEffect(() => {
     const respond = (detail: Record<string, unknown>) => {
