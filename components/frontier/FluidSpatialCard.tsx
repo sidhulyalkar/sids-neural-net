@@ -3,6 +3,7 @@
 import type { ReactNode } from 'react';
 import type { FrontierItem } from '@/lib/frontier/types';
 import { FrontierInlineFocal } from './FrontierInlineFocal';
+import { InlineMediaSurface } from './media/InlineMediaSurface';
 import { useFluidInteraction } from './useFluidInteraction';
 import styles from './frontier-fluid-interaction.module.css';
 
@@ -41,7 +42,7 @@ export function FluidSpatialCard({
       className={`${className} ${styles.card} ${expanded ? styles.expanded : ''}`}
       {...interaction}
     >
-      {children}
+      <InlineMediaSurface expanded={expanded}>{children}</InlineMediaSurface>
       {expanded ? <FrontierInlineFocal item={item} /> : null}
     </div>
   );
