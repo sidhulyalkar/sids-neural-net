@@ -34,7 +34,7 @@
 .board .grid {
   display: grid;
   grid-template-columns: repeat(12, minmax(0, 1fr));
-  grid-auto-flow: dense;
+  grid-auto-flow: row;
   grid-auto-rows: var(--frontier-masonry-row-height);
   column-gap: var(--frontier-column-gap);
   row-gap: var(--frontier-masonry-row-gap);
@@ -73,13 +73,8 @@
   --frontier-masonry-span: 13;
 }
 
-.board .mediaItem {
-  isolation: isolate;
-}
-
-.board .textItem {
-  align-self: start;
-}
+.board .mediaItem { isolation: isolate; }
+.board .textItem { align-self: start; }
 
 .board .priorityItem {
   position: relative;
@@ -199,7 +194,7 @@
   .board .heroItem,
   .board .wideItem,
   .board .visualItem,
-  .board .standardItem { grid-column: span 4; }
+  .board .standardItem,
   .board .compactItem { grid-column: span 4; }
 }
 
