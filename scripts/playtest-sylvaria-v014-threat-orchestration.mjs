@@ -70,22 +70,26 @@ check(bossPhrase.releases.some(r=>r.role==='coverage'),`support coverage never e
 check(bossGap>=bossPhrase.profile.gapMin&&bossGap<=bossPhrase.profile.gapMax,`boss/support telegraphs did not share final-room cadence: ${JSON.stringify({bossGap,bossPhrase})}`);
 check(bossPhrase.releases[0].tick!==bossPhrase.releases[1].tick,'boss and support telegraphed on the same authoritative tick');
 
-// A newly opened post-evade punish window pushes not-yet-released telegraphs beyond its fixed grace edge.
+// A newly opened post-evade punish window gates the live waiting queue once, without erasing pressure already in flight.
 const graceSetup=await page.evaluate(()=>{
   const play=window.__MOSSLIGHT_PLAYTEST__,G=window.Sylvaria091;play.setRoom(28,29);play.labClearGeometry();play.setPlayerPosition(300,330);
   const selected=G.state.enemies.filter(e=>e.kineticType).slice(0,4);for(const e of G.state.enemies){if(!selected.includes(e)){e.dead=true;continue}e.state='move';e.clock=.00001;e.telegraph=0;e.kineticEvade=null;e.evade=null;e.counterStagger=0;e.arcDodgeCooldown=99;e.v014PunishTimer=0}
   return selected.map(e=>e.id);
 });
-const queueBeforeGrace=await waitForValue(()=>{const s=window.SylvariaThreatManager.snapshot();return s.releases.length>=1&&s.queue.length>=2?{tick:s.tick,queue:s.queue,releases:s.releases}:false},null,1600);
+const queueBeforeGrace=await waitForValue(()=>{const s=window.SylvariaThreatManager.snapshot();return s.releases.length>=1&&s.queue.filter(item=>!item.armed).length>=2?{tick:s.tick,gateTick:s.gateTick,queue:s.queue,releases:s.releases}:false},null,1600);
 await page.evaluate(id=>{const e=window.Sylvaria091.state.enemies.find(x=>x.id===id);if(e)e.v014PunishTimer=30/120},graceSetup.at(-1));
-const grace=await waitForValue(()=>{const s=window.SylvariaThreatManager.snapshot();if(!s.punishWindowActive||s.punishGraceUntil<=s.tick||!s.queue.length)return false;return{tick:s.tick,punishGraceUntil:s.punishGraceUntil,queue:s.queue}},null,900);
-check(grace.queue.every(item=>item.slotTick>=grace.punishGraceUntil),`queued telegraph entered fresh punish window: ${JSON.stringify(grace)}`);
+const grace=await waitForValue(base=>{const s=window.SylvariaThreatManager.snapshot();if(!s.punishWindowActive||s.punishGraceUntil<=s.tick||!s.queue.length)return false;return{tick:s.tick,gateTick:s.gateTick,punishGraceUntil:s.punishGraceUntil,queue:s.queue,releases:s.releases,base}},queueBeforeGrace.releases.length,900);
+check(grace.gateTick>=grace.punishGraceUntil,`fresh punish window did not move the threat gate: ${JSON.stringify(grace)}`);
+check(grace.queue.every(item=>!item.armed),`a new queued threat armed inside punish grace: ${JSON.stringify(grace.queue)}`);
+check(grace.releases.length===queueBeforeGrace.releases.length,'punish grace deleted or admitted pressure on its opening edge');
 check((grace.punishGraceUntil-grace.tick)<=mixed.profile.punishGraceTicks+1,'punish grace became a sliding invulnerability window');
+const firstAfterGrace=await waitForValue(base=>{const s=window.SylvariaThreatManager.snapshot();if(s.releases.length<=base.count)return false;return{release:s.releases.at(-1),tick:s.tick,graceUntil:base.graceUntil}}, {count:queueBeforeGrace.releases.length,graceUntil:grace.punishGraceUntil},1800);
+check(firstAfterGrace.release.tick>=grace.punishGraceUntil,`next telegraph escaped punish grace: ${JSON.stringify(firstAfterGrace)}`);
 
 for(const error of pageErrors)failures.push(`pageerror: ${error}`);
 await page.screenshot({path:path.join(outputDir,'rhythmic-threat-orchestration-v014.png'),fullPage:true});
-const report={profiles,mixedSetup,mixed:{...mixed,roles:mixedRoles,gaps:mixedGaps},earlySetup,early:{...early,gaps:earlyGaps},boss:{setup:bossSetup,phrase:bossPhrase,gap:bossGap},grace:{before:queueBeforeGrace,after:grace},failures};
+const report={profiles,mixedSetup,mixed:{...mixed,roles:mixedRoles,gaps:mixedGaps},earlySetup,early:{...early,gaps:earlyGaps},boss:{setup:bossSetup,phrase:bossPhrase,gap:bossGap},grace:{before:queueBeforeGrace,open:grace,firstAfterGrace},failures};
 fs.writeFileSync(path.join(outputDir,'threat-report.json'),JSON.stringify(report,null,2));
 await browser.close();
 if(failures.length){console.error(`Sylvaria v0.14 threat orchestration failed with ${failures.length} issue(s):`);for(const failure of failures)console.error(` - ${failure}`);process.exit(1)}
-console.log(`Sylvaria v0.14 threat orchestration PASS · 30 authored profiles · room 29 ${mixedRoles.join(' → ')} at ${mixedGaps.join('/')} tick gaps · room 1 phrase break ${earlyGaps[1]} ticks · boss/support gap ${bossGap} ticks · punish grace reflow verified.`);
+console.log(`Sylvaria v0.14 threat orchestration PASS · 30 authored profiles · room 29 ${mixedRoles.join(' → ')} at ${mixedGaps.join('/')} tick gaps · room 1 phrase break ${earlyGaps[1]} ticks · boss/support gap ${bossGap} ticks · punish grace gate verified.`);
