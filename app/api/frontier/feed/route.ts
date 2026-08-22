@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getIntegratedFrontierFeed } from '@/lib/frontier/aggregate';
 import { decodeDiscoveryFocus } from '@/lib/frontier/discoveryFocus';
+import { decorateFeedMedia } from '@/lib/frontier/media/proxySecurity';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -9,7 +10,7 @@ export async function GET(request: NextRequest) {
   const focusTopics = decodeDiscoveryFocus(request.nextUrl.searchParams.get('focus'));
   const forceFresh = request.nextUrl.searchParams.get('fresh') === '1';
   try {
-    const feed = await getIntegratedFrontierFeed({ focusTopics });
+    const feed = decorateFeedMedia(await getIntegratedFrontierFeed({ focusTopics }));
     return NextResponse.json(feed, {
       headers: {
         'Cache-Control': forceFresh
