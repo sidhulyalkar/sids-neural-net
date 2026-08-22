@@ -1,10 +1,11 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Bookmark, ChevronDown, ExternalLink, Heart, MessageCircleMore, ThumbsDown, ThumbsUp } from 'lucide-react';
+import { Bookmark, ChevronDown, ExternalLink, MessageCircleMore, ThumbsDown, ThumbsUp } from 'lucide-react';
 import { FRONTIER_LANE_MAP } from '@/lib/frontier/config';
 import type { FrontierItem, FrontierReaction } from '@/lib/frontier/types';
 import { EditorialClip } from './EditorialClip';
+import { canRenderFrontierMedia, FrontierMediaSurface, frontierMediaKey } from './media/FrontierMediaSurface';
 import type { SignalLayoutMode } from './SignalBoard';
 import styles from './frontier-minimal.module.css';
 
@@ -46,82 +47,6 @@ function publishedLabel(value: string): string {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return 'recent';
   return new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', timeZone: 'America/Los_Angeles' }).format(date);
-}
-
-function isHttpUrl(value?: string): value is string {
-  if (!value) return false;
-  try {
-    const parsed = new URL(value);
-    return parsed.protocol === 'https:' || parsed.protocol === 'http:';
-  } catch { return false; }
-}
-
-function isYouTubeId(value?: string): value is string {
-  return Boolean(value && /^[A-Za-z0-9_-]{6,20}$/.test(value));
-}
-
-function mediaKey(item: FrontierItem): string {
-  return [item.id, item.media?.type, item.media?.url, item.media?.poster].join('|');
-}
-
-function hasRenderableMedia(item: FrontierItem): boolean {
-  const media = item.media;
-  if (!media || media.type === 'none' || media.type === 'chart') return false;
-  if (item.sourceKind === 'github' && media.type === 'image') return false;
-  if (media.type === 'youtube') return isYouTubeId(media.url);
-  return isHttpUrl(media.url);
-}
-
-function DiscoveryImage({ src, alt, onUnavailable }: { src: string; alt: string; onUnavailable: () => void }) {
-  return (
-    // Live publisher/community media cannot use a static next/image host allowlist.
-    // eslint-disable-next-line @next/next/no-img-element
-    <img src={src} alt={alt} className={styles.mediaImage} loading="lazy" decoding="async" referrerPolicy="no-referrer" onError={onUnavailable} />
-  );
-}
-
-function RealMedia({ item, interactive = false, onUnavailable }: { item: FrontierItem; interactive?: boolean; onUnavailable: () => void }) {
-  const media = item.media;
-  if (!media || !hasRenderableMedia(item)) return null;
-
-  if (media.type === 'youtube' && isYouTubeId(media.url)) {
-    if (interactive) {
-      return (
-        <div className={styles.realMedia}>
-          <iframe
-            title={`Video: ${item.title}`}
-            src={`https://www.youtube-nocookie.com/embed/${media.url}`}
-            className={styles.mediaImage}
-            loading="lazy"
-            allow="accelerometer; encrypted-media; gyroscope; picture-in-picture"
-            allowFullScreen
-          />
-          <span className={styles.mediaKind}>Video</span>
-        </div>
-      );
-    }
-    const poster = isHttpUrl(media.poster) ? media.poster : `https://i.ytimg.com/vi/${media.url}/hqdefault.jpg`;
-    return <div className={styles.realMedia}><DiscoveryImage src={poster} alt={media.alt || item.title} onUnavailable={onUnavailable} /><span className={styles.mediaKind}>Video</span></div>;
-  }
-
-  if (media.type === 'image' && isHttpUrl(media.url)) {
-    return <div className={styles.realMedia}><DiscoveryImage src={media.url} alt={media.alt || item.title} onUnavailable={onUnavailable} /></div>;
-  }
-
-  if (media.type === 'video' && isHttpUrl(media.url)) {
-    if (!interactive && isHttpUrl(media.poster)) {
-      return <div className={styles.realMedia}><DiscoveryImage src={media.poster} alt={media.alt || item.title} onUnavailable={onUnavailable} /><span className={styles.mediaKind}>Video</span></div>;
-    }
-    return (
-      <div className={styles.realMedia}>
-        <video className={styles.mediaImage} controls preload="metadata" poster={isHttpUrl(media.poster) ? media.poster : undefined} onError={onUnavailable}>
-          <source src={media.url} />
-        </video>
-        <span className={styles.mediaKind}>Video</span>
-      </div>
-    );
-  }
-  return null;
 }
 
 function MetricLine({ item }: { item: FrontierItem }) {
@@ -173,8 +98,8 @@ export function SignalCard({
   const [unavailableMediaKey, setUnavailableMediaKey] = useState<string>();
   const lane = FRONTIER_LANE_MAP[item.lane];
   const feed = presentation === 'feed';
-  const currentMediaKey = mediaKey(item);
-  const hasMedia = unavailableMediaKey !== currentMediaKey && hasRenderableMedia(item);
+  const currentMediaKey = frontierMediaKey(item);
+  const hasMedia = unavailableMediaKey !== currentMediaKey && canRenderFrontierMedia(item);
 
   useEffect(() => {
     const node = ref.current;
@@ -326,14 +251,18 @@ export function SignalCard({
           <div className={styles.feedActions}>{contextButton}{quickActions}</div>
           {contextPanel}
         </div>
-        <div className={styles.feedMediaSlot}><RealMedia item={item} interactive onUnavailable={markMediaUnavailable} /></div>
+        <div className={styles.feedMediaSlot}>
+          <FrontierMediaSurface item={item} onUnavailable={markMediaUnavailable} />
+        </div>
       </article>
     );
   }
 
   return (
     <article ref={ref} className={`${styles.card} ${styles.tileCard} ${styles.tileCardMedia} ${expanded ? styles.cardExpanded : ''}`}>
-      <div className={styles.tileMedia}><RealMedia item={item} interactive={expanded} onUnavailable={markMediaUnavailable} /></div>
+      <div className={styles.tileMedia}>
+        <FrontierMediaSurface item={item} onUnavailable={markMediaUnavailable} />
+      </div>
       <div className={styles.tileBody}>
         {meta}
         <h3 className={styles.cardTitle}>{item.title}</h3>
