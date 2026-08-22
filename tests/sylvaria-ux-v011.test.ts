@@ -31,14 +31,14 @@ test('verified leaderboard state collapses the input form after it has served it
   assert.match(styles, /\.rankForm\[hidden\],\.rankForm \[hidden\]\{display:none!important\}/);
 });
 
-test('v0.13 Learn Controls is non-ranked and forgiving only until the first successful reflect', () => {
+test('v0.13 Learn Controls is non-ranked and forgiving only until the first successful parry', () => {
   const coach = read(`${runtimeRoot}/v013/coach-v013.js`);
   const competitive = read(`${runtimeRoot}/v011/competitive-v011.js`);
   assert.match(coach, /practice&&enabled&&stage<4/);
   assert.match(coach, /p\.hp=p\.maxHp/);
   assert.match(coach, /tree\.alive=true/);
   assert.match(coach, /tree\.hp=tree\.maxHp/);
-  assert.match(coach, /time one clean reflect/);
+  assert.match(coach, /time one clean opening parry/);
   assert.match(coach, /forgiving:practice&&enabled&&stage<4/);
   assert.match(competitive, /if\(!practice\)run\.ticketPromise=issueTicket\(run\)/);
 });
