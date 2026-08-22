@@ -53,6 +53,7 @@ function representativeScore(item: FrontierItem): number {
     + item.importance * 0.2
     + item.novelty * 0.1
     + (item.highPriority ? 0.18 : 0)
+    + (item.velocitySignal ? item.velocitySignal.score * 0.06 : 0)
     + (item.media && item.media.type !== 'none' ? 0.04 : 0);
 }
 
@@ -133,6 +134,12 @@ export function collapseFrontierConvergence(
     if (Math.max(sourceKinds.size, domains.size) < minDistinctSources) continue;
 
     const representative = [...candidates].sort((left, right) => representativeScore(right) - representativeScore(left))[0];
+    const strongestWatch = [...candidates]
+      .filter((item) => item.highPriority && item.watchSignal)
+      .sort((left, right) => (right.watchSignal?.score ?? 0) - (left.watchSignal?.score ?? 0))[0];
+    const strongestVelocity = [...candidates]
+      .filter((item) => item.velocitySignal)
+      .sort((left, right) => (right.velocitySignal?.score ?? 0) - (left.velocitySignal?.score ?? 0))[0];
     const pairValues: number[] = [];
     for (let a = 0; a < indices.length; a += 1) {
       for (let b = a + 1; b < indices.length; b += 1) {
@@ -151,9 +158,17 @@ export function collapseFrontierConvergence(
       .sort((left, right) => representativeScore(right) - representativeScore(left))
       .slice(0, 8)
       .map(member);
+    const artifacts = Array.from(new Map(
+      candidates.flatMap((item) => item.artifacts ?? [])
+        .map((artifact) => [`${artifact.kind}:${artifact.label}:${artifact.value ?? ''}`, artifact])
+    ).values()).slice(0, 5);
 
     replacementById.set(representative.id, {
       ...representative,
+      highPriority: strongestWatch ? true : representative.highPriority,
+      watchSignal: strongestWatch?.watchSignal ?? representative.watchSignal,
+      velocitySignal: strongestVelocity?.velocitySignal ?? representative.velocitySignal,
+      artifacts: artifacts.length ? artifacts : representative.artifacts,
       convergence: {
         members,
         sourceKinds: Array.from(sourceKinds),
