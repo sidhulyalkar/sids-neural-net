@@ -6,6 +6,7 @@ import { markFrontierItemSeen } from '@/lib/frontier/live/seenLedger';
 import { frontierMasonrySpan } from '@/lib/frontier/presentation/mediaForward';
 import { useFrontierStore } from '@/lib/frontier/store';
 import type { FrontierItem } from '@/lib/frontier/types';
+import { useExpandedAudioReactivity } from './audio/useExpandedAudioReactivity';
 import { FrontierInlineFocal } from './FrontierInlineFocal';
 import { InlineMediaSurface } from './media/InlineMediaSurface';
 import { useFluidInteraction } from './useFluidInteraction';
@@ -38,6 +39,7 @@ export function FluidSpatialCard({
   const rootRef = useRef<HTMLDivElement | null>(null);
   const measureRef = useRef<HTMLDivElement | null>(null);
   const recordOpen = useFrontierStore((state) => state.recordOpen);
+  useExpandedAudioReactivity(rootRef, expanded);
   const interaction = useFluidInteraction({
     item,
     expanded,
