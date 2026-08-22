@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Maximize2, Minimize2, Pause, Play, Volume2, VolumeX } from 'lucide-react';
 import { canPlayNativeHls, shouldAutoplayMedia, supportsMediaSource } from '@/lib/frontier/media/capabilities';
 import { FrontierMseController } from '@/lib/frontier/media/mse';
@@ -20,102 +20,180 @@ type Props = {
   onUnavailable?: () => void;
 };
 
-function pickStream(streams: FrontierVideoStream[] | undefined): FrontierVideoStream | undefined {
-  if (!streams?.length) return undefined;
-  return streams.find((stream) => stream.kind === 'frontier-fmp4')
-    ?? streams.find((stream) => stream.kind === 'hls')
-    ?? streams.find((stream) => stream.kind === 'progressive');
+function orderedStreams(streams: FrontierVideoStream[] | undefined): FrontierVideoStream[] {
+  if (!streams?.length) return [];
+  const rank = (stream: FrontierVideoStream) => {
+    if (stream.kind === 'frontier-fmp4') return 0;
+    if (stream.kind === 'hls') return 1;
+    return 2;
+  };
+  return [...streams].sort((a, b) => rank(a) - rank(b));
 }
+
+type VirtualBoundarySnapshot = {
+  node: HTMLElement;
+  contentVisibility: string;
+};
 
 export function AdaptiveVideoSurface({ id, url, poster, alt, streams, onUnavailable }: Props) {
   const shellRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const pendingFlip = useRef(false);
-  const playingStarted = useRef<number>();
+  const playingStarted = useRef<number | undefined>(undefined);
   const startRecorded = useRef(false);
   const lastQuality = useRef({ total: 0, dropped: 0 });
+  const virtualBoundary = useRef<VirtualBoundarySnapshot | undefined>(undefined);
+  const boundaryRestoreTimer = useRef<number | undefined>(undefined);
   const visibility = useMediaVisibility(shellRef);
   const { captureFlip, playFlip, cancelFlip } = useMediaFlip(stageRef);
   const [expanded, setExpanded] = useState(false);
   const [playing, setPlaying] = useState(false);
   const [muted, setMuted] = useState(true);
   const [failed, setFailed] = useState(false);
-  const stream = useMemo(() => pickStream(streams), [streams]);
+  const streamCandidates = useMemo(() => orderedStreams(streams), [streams]);
   const mountedPlayer = visibility !== 'off' || expanded;
+
+  const elevateVirtualBoundary = useCallback(() => {
+    if (boundaryRestoreTimer.current !== undefined) {
+      window.clearTimeout(boundaryRestoreTimer.current);
+      boundaryRestoreTimer.current = undefined;
+    }
+    if (virtualBoundary.current) return;
+    const node = shellRef.current?.closest<HTMLElement>('[data-frontier-virtual-card]');
+    if (!node) return;
+    virtualBoundary.current = { node, contentVisibility: node.style.contentVisibility };
+    // `content-visibility:auto` creates containment that can trap a fixed
+    // descendant. Temporarily disable it so the same playing video can become a
+    // viewport-level FLIP surface without reparenting or remounting.
+    node.style.contentVisibility = 'visible';
+  }, []);
+
+  const restoreVirtualBoundary = useCallback((delayMs = 0) => {
+    if (boundaryRestoreTimer.current !== undefined) window.clearTimeout(boundaryRestoreTimer.current);
+    boundaryRestoreTimer.current = window.setTimeout(() => {
+      boundaryRestoreTimer.current = undefined;
+      const snapshot = virtualBoundary.current;
+      if (!snapshot) return;
+      snapshot.node.style.contentVisibility = snapshot.contentVisibility;
+      virtualBoundary.current = undefined;
+    }, delayMs);
+  }, []);
 
   useEffect(() => {
     if (failed) onUnavailable?.();
   }, [failed, onUnavailable]);
 
   useEffect(() => {
+    setFailed(false);
+  }, [id, streamCandidates, url]);
+
+  useEffect(() => {
+    if (!expanded) return;
+    const root = document.documentElement;
+    const previousOverflow = root.style.overflow;
+    root.style.overflow = 'hidden';
+    return () => { root.style.overflow = previousOverflow; };
+  }, [expanded]);
+
+  const closeExpanded = useCallback(() => {
+    captureFlip();
+    pendingFlip.current = true;
+    setExpanded(false);
+  }, [captureFlip]);
+
+  useEffect(() => {
     if (!expanded) return;
     const keydown = (event: KeyboardEvent) => {
       if (event.key !== 'Escape') return;
       event.preventDefault();
-      captureFlip();
-      pendingFlip.current = true;
-      setExpanded(false);
+      closeExpanded();
     };
     window.addEventListener('keydown', keydown);
     return () => window.removeEventListener('keydown', keydown);
-  }, [captureFlip, expanded]);
+  }, [closeExpanded, expanded]);
 
   useLayoutEffect(() => {
     if (!pendingFlip.current) return;
     pendingFlip.current = false;
     playFlip();
-  }, [expanded, playFlip]);
+    if (!expanded) restoreVirtualBoundary(460);
+  }, [expanded, playFlip, restoreVirtualBoundary]);
 
-  useEffect(() => () => cancelFlip(), [cancelFlip]);
+  useEffect(() => () => {
+    cancelFlip();
+    if (boundaryRestoreTimer.current !== undefined) window.clearTimeout(boundaryRestoreTimer.current);
+    const snapshot = virtualBoundary.current;
+    if (snapshot) snapshot.node.style.contentVisibility = snapshot.contentVisibility;
+    virtualBoundary.current = undefined;
+  }, [cancelFlip]);
 
   useEffect(() => {
     const video = videoRef.current;
     if (!video || !mountedPlayer) return;
     let disposed = false;
     let mse: FrontierMseController | undefined;
-    let objectUrl: string | undefined;
 
     const attach = async () => {
       playingStarted.current = performance.now();
       startRecorded.current = false;
-      try {
-        if (stream?.kind === 'frontier-fmp4' && supportsMediaSource()) {
-          mse = new FrontierMseController(video);
-          await mse.attach({ initUrl: stream.initUrl, variants: stream.variants }, shellRef.current?.clientWidth ?? 960);
+      setFailed(false);
+
+      for (const candidate of streamCandidates) {
+        if (disposed) return;
+        if (candidate.kind === 'frontier-fmp4') {
+          if (!supportsMediaSource()) continue;
+          const controller = new FrontierMseController(video);
+          try {
+            await controller.attach(
+              { initUrl: candidate.initUrl, variants: candidate.variants },
+              shellRef.current?.clientWidth ?? 960
+            );
+            if (disposed) {
+              controller.destroy();
+              return;
+            }
+            mse = controller;
+            return;
+          } catch {
+            controller.destroy();
+            continue;
+          }
+        }
+
+        if (candidate.kind === 'hls') {
+          if (!canPlayNativeHls(video)) continue;
+          video.src = candidate.manifestUrl;
           return;
         }
-        if (stream?.kind === 'hls' && canPlayNativeHls(video)) {
-          video.src = stream.manifestUrl;
+
+        if (candidate.kind === 'progressive') {
+          video.src = candidate.url;
           return;
         }
-        if (stream?.kind === 'progressive') {
-          video.src = stream.url;
-          return;
-        }
-        if (url) {
-          video.src = url;
-          return;
-        }
-        setFailed(true);
-      } catch {
-        if (!disposed) setFailed(true);
       }
+
+      if (url) {
+        video.src = url;
+        return;
+      }
+      if (!disposed) setFailed(true);
     };
 
     void attach();
     return () => {
       disposed = true;
-      mse?.destroy();
-      if (!mse) {
+      if (mse) {
+        mse.destroy();
+      } else {
+        const objectUrl = video.src.startsWith('blob:') ? video.src : undefined;
         video.pause();
-        objectUrl = video.src.startsWith('blob:') ? video.src : undefined;
         video.removeAttribute('src');
         video.load();
         if (objectUrl) URL.revokeObjectURL(objectUrl);
       }
     };
-  }, [mountedPlayer, stream, url]);
+  }, [mountedPlayer, streamCandidates, url]);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -147,9 +225,14 @@ export function AdaptiveVideoSurface({ id, url, poster, alt, streams, onUnavaila
   }, [visibility]);
 
   const toggleExpanded = () => {
+    if (expanded) {
+      closeExpanded();
+      return;
+    }
+    elevateVirtualBoundary();
     captureFlip();
     pendingFlip.current = true;
-    setExpanded((value) => !value);
+    setExpanded(true);
   };
 
   const togglePlaying = () => {
