@@ -16,6 +16,14 @@ const browser = await chromium.launch({ headless: true });
 const page = await browser.newPage({ viewport: { width: 1280, height: 900 }, deviceScaleFactor: 1 });
 page.on('pageerror', (error) => failures.push(`pageerror: ${error.message}`));
 page.on('console', (message) => { if (message.type() === 'error') consoleErrors.push(message.text()); });
+// This gauntlet owns combat mechanics only. Keep ranked networking out of the
+// fixture so an intentionally unconfigured CI leaderboard cannot masquerade as
+// a gameplay console failure. Competitive networking has its own browser gate.
+await page.route('**/api/sylvaria/**', (route) => route.fulfill({
+  status: 200,
+  contentType: 'application/json',
+  body: JSON.stringify({ configured: false, ranked: false, entries: [] }),
+}));
 const snap = () => page.evaluate(() => window.__MOSSLIGHT_PLAYTEST__.snapshot());
 const focus = () => page.locator('#c').focus();
 const api = (fn, arg) => page.evaluate(({ fn, arg }) => window.__MOSSLIGHT_PLAYTEST__[fn](...(Array.isArray(arg) ? arg : arg === undefined ? [] : [arg])), { fn, arg });
@@ -101,11 +109,15 @@ await page.evaluate(() => {
   p.setPlayerPosition(190,320); p.placeTerrain('bramble',535,320,28);
   p.spawnTestEnemy('foreman',760,320,'source-foreman'); p.spawnTestEnemy('surveyor',500,320,'cross-target');
   const target=G.state.enemies.find((enemy)=>enemy.id==='cross-target'); target.state='recover'; target.counterStagger=2; target.clock=2;
-  p.spawnCounterShot('right',82,{ownerId:'source-foreman',speed:245});
+  // Start just beyond slash reach. A 245 px/s shot enters the active slash at
+  // ~122 ms, safely after the <=90 ms perfect window but before slash expiry.
+  p.spawnCounterShot('right',116,{ownerId:'source-foreman',speed:245});
 });
-await focus(); await page.waitForTimeout(40); before = await snap(); await page.keyboard.press('ArrowRight'); await page.waitForTimeout(35); let mid = await snap();
+await focus(); before = await snap(); await page.keyboard.press('ArrowRight');
+await page.waitForFunction(() => window.__MOSSLIGHT_PLAYTEST__.snapshot().shots.some((shot) => shot.friendly), null, { timeout: 260 });
+let mid = await snap();
 const returned = mid.shots.find((shot) => shot.friendly);
-assert(returned && returned.speed >= 800 && returned.speed < 1000 && returned.pattern === 'return', `normal 840 return invalid ${JSON.stringify(returned)}`);
+assert(returned && returned.speed >= 800 && returned.speed < 1000 && returned.pattern === 'return' && returned.counterQuality === 'normal', `normal 840 return invalid ${JSON.stringify(returned)}`);
 assert(returned?.counterTargetId === 'cross-target', `return assist missed cross-target ${returned?.counterTargetId}`);
 await page.waitForTimeout(360); after = await snap();
 assert(after.stats.crosscuts >= 1, 'reflected cross-target hit did not award Crosscut');
