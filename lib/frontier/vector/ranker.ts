@@ -13,6 +13,8 @@ export type FrontierHybridScore = {
   exploration: boolean;
 };
 
+export type FrontierInterestResolver = (item: FrontierItem) => Float32Array | undefined;
+
 function tokenize(value: string): string[] {
   return value
     .toLowerCase()
@@ -92,19 +94,22 @@ export function hybridFrontierScores(
   vectors: Map<string, Float32Array>,
   interestVector: Float32Array | undefined,
   query = '',
-  now = Date.now()
+  now = Date.now(),
+  interestForItem?: FrontierInterestResolver
 ): FrontierHybridScore[] {
   const lexical = bm25Scores(items, query);
   return items.map((item) => {
     const vector = vectors.get(item.id);
-    const cosine = interestVector && vector ? cosineSimilarity(vector, interestVector) : 0;
-    const semantic = interestVector && vector ? (cosine + 1) / 2 : 0.5;
+    const resolvedInterest = interestForItem?.(item) ?? interestVector;
+    const cosine = resolvedInterest && vector ? cosineSimilarity(vector, resolvedInterest) : 0;
+    const semantic = resolvedInterest && vector ? (cosine + 1) / 2 : 0.5;
     const freshness = freshnessDecay(item.publishedAt, now);
     const credibility = Math.max(0, Math.min(1, item.quality));
     const bm25 = lexical.get(item.id) ?? 0;
-    // Product contract: dense preference, recency, source credibility, then
-    // sparse lexical match. Existing FRONTIER scores are retained only as a
-    // stable tie-breaker outside this formula.
+    // Dense preference is resolved per curiosity context when a parallel
+    // trajectory is available. The global target remains only the cold-start
+    // fallback, preventing a deep dive in one domain from becoming the fast
+    // semantic state for every other domain.
     const score = 0.4 * semantic + 0.3 * freshness + 0.2 * credibility + 0.1 * bm25;
     return { item, score, semantic, freshness, credibility, bm25, exploration: false };
   });
@@ -160,9 +165,10 @@ export function rerankFrontierItems(
   query = '',
   epsilon = 0.15,
   now = Date.now(),
-  seed?: string
+  seed?: string,
+  interestForItem?: FrontierInterestResolver
 ): FrontierItem[] {
-  const scores = hybridFrontierScores(items, vectors, interestVector, query, now);
+  const scores = hybridFrontierScores(items, vectors, interestVector, query, now, interestForItem);
   const ranked = scores.sort((left, right) => right.score - left.score || right.item.baseScore - left.item.baseScore);
   return applyEpsilonGreedyExploration(ranked, epsilon, seed).map((entry) => entry.item);
 }
