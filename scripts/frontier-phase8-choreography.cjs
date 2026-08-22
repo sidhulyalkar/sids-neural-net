@@ -78,51 +78,82 @@ async function installTelemetry(page) {
   }, { cardSelector: CARD, videoSelector: VIDEO });
 }
 
+async function motionSample(page) {
+  return page.evaluate((selector) => {
+    const node = document.querySelector(selector);
+    if (!(node instanceof HTMLElement)) throw new Error('Phase 8 audit card disappeared during motion');
+    const visual = node.getBoundingClientRect();
+    const animations = node.getAnimations();
+    const primary = animations[0];
+    return {
+      expanded: node.dataset.fluidExpanded === 'true',
+      animationCount: animations.length,
+      animationCurrentTime: typeof primary?.currentTime === 'number' ? primary.currentTime : null,
+      animationPlayState: primary?.playState ?? null,
+      transform: getComputedStyle(node).transform,
+      layout: {
+        width: node.offsetWidth,
+        height: node.offsetHeight,
+      },
+      visual: {
+        x: visual.x,
+        y: visual.y,
+        width: visual.width,
+        height: visual.height,
+      },
+    };
+  }, CARD);
+}
+
 async function midFlightSample(page) {
   return page.evaluate((selector) => new Promise((resolve) => {
     requestAnimationFrame(() => {
-      const node = document.querySelector(selector);
-      if (!(node instanceof HTMLElement)) throw new Error('Phase 8 audit card disappeared mid-flight');
-      const visual = node.getBoundingClientRect();
-      const animations = node.getAnimations();
-      const primary = animations[0];
-      const transform = getComputedStyle(node).transform;
+      requestAnimationFrame(() => {
+        const node = document.querySelector(selector);
+        if (!(node instanceof HTMLElement)) throw new Error('Phase 8 audit card disappeared mid-flight');
+        const visual = node.getBoundingClientRect();
+        const animations = node.getAnimations();
+        const primary = animations[0];
+        const transform = getComputedStyle(node).transform;
 
-      resolve({
-        expanded: node.dataset.fluidExpanded === 'true',
-        animationCount: animations.length,
-        animationCurrentTime: typeof primary?.currentTime === 'number' ? primary.currentTime : null,
-        animationPlayState: primary?.playState ?? null,
-        transform,
-        layout: {
-          width: node.offsetWidth,
-          height: node.offsetHeight,
-        },
-        visual: {
-          x: visual.x,
-          y: visual.y,
-          width: visual.width,
-          height: visual.height,
-        },
+        resolve({
+          expanded: node.dataset.fluidExpanded === 'true',
+          animationCount: animations.length,
+          animationCurrentTime: typeof primary?.currentTime === 'number' ? primary.currentTime : null,
+          animationPlayState: primary?.playState ?? null,
+          transform,
+          layout: {
+            width: node.offsetWidth,
+            height: node.offsetHeight,
+          },
+          visual: {
+            x: visual.x,
+            y: visual.y,
+            width: visual.width,
+            height: visual.height,
+          },
+        });
       });
     });
   }), CARD);
 }
 
-async function waitForAnimationToSettle(page, expanded) {
+async function waitForAnimationToSettle(page, expanded, requireFreshStart = true) {
   await page.waitForFunction(
     ({ selector, expandedValue }) => document.querySelector(selector)?.getAttribute('data-fluid-expanded') === expandedValue,
     { selector: CARD, expandedValue: expanded ? 'true' : 'false' },
     { polling: 'raf', timeout: 1_000 },
   );
 
-  const started = await page.evaluate((selector) => new Promise((resolve) => {
-    requestAnimationFrame(() => {
-      const node = document.querySelector(selector);
-      resolve(node instanceof HTMLElement ? node.getAnimations().length : -1);
-    });
-  }), CARD);
-  assert(started > 0, `Expected a FLIP animation after ${expanded ? 'expansion' : 'collapse'}, saw ${started}`);
+  if (requireFreshStart) {
+    const started = await page.evaluate((selector) => new Promise((resolve) => {
+      requestAnimationFrame(() => {
+        const node = document.querySelector(selector);
+        resolve(node instanceof HTMLElement ? node.getAnimations().length : -1);
+      });
+    }), CARD);
+    assert(started > 0, `Expected a FLIP animation after ${expanded ? 'expansion' : 'collapse'}, saw ${started}`);
+  }
 
   await page.waitForFunction(
     (selector) => {
@@ -179,24 +210,64 @@ async function runInterruptionCase(page) {
     `Visual FLIP width escaped the origin→layout interval: ${mid.visual.width}`,
   );
 
+  const interruptedVisual = await rect(page, CARD);
   const popupPromise = page.waitForEvent('popup', { timeout: 2_000 })
     .then((popup) => ({ popup }))
     .catch((error) => ({ error }));
   await pointerClickAt(page, hitPoint);
 
-  // Diagnose and enforce the product contract before waiting on popup timing.
-  // Both timestamps are trusted Chromium PointerEvent.timeStamp values.
+  // Enforce the product contract before waiting on popup navigation. Both
+  // timestamps are Chromium PointerEvent.timeStamp values, and the reverse
+  // FLIP is sampled immediately after the second trusted release rather than
+  // after popup IPC has had time to consume the 460 ms animation.
   const releaseTimes = await page.evaluate(() => window.__frontierPhase8Audit?.releases ?? []);
   assert.equal(releaseTimes.length, 2, `Expected two qualified pointer releases, got ${releaseTimes.length}`);
   const releaseDeltaMs = releaseTimes[1] - releaseTimes[0];
   assert(releaseDeltaMs > 0 && releaseDeltaMs < 250, `Second release missed 250ms interruption threshold: ${releaseDeltaMs}ms`);
+
+  await page.waitForFunction(
+    (selector) => {
+      const node = document.querySelector(selector);
+      return node instanceof HTMLElement
+        && node.dataset.fluidExpanded === 'false'
+        && node.getAnimations().length > 0;
+    },
+    CARD,
+    { polling: 'raf', timeout: 500 },
+  );
+  const reverse = await motionSample(page);
+  assert.equal(reverse.expanded, false, 'Second release must synchronously return the card to compact layout state');
+  assert(reverse.animationCount > 0, 'Interrupted expansion must create a reverse FLIP before popup navigation settles');
+  assert(
+    reverse.animationPlayState === 'running' || reverse.animationPlayState === 'pending',
+    `Expected running reverse FLIP, saw ${reverse.animationPlayState}`,
+  );
+  assert(
+    Math.abs(reverse.layout.width - origin.width) < 1,
+    `Reverse FLIP must animate over the restored compact layout width: ${reverse.layout.width} vs ${origin.width}`,
+  );
+  assert(
+    reverse.transform !== 'none' && reverse.transform !== 'matrix(1, 0, 0, 1, 0, 0)',
+    `Reverse FLIP lost the interrupted compositor geometry: ${reverse.transform}`,
+  );
+  assert(
+    reverse.visual.width > origin.width + 1 && reverse.visual.width <= mid.layout.width + 0.5,
+    `Reverse FLIP did not begin from interrupted visual geometry: ${reverse.visual.width}`,
+  );
+  assert(
+    Math.abs(reverse.visual.width - interruptedVisual.width) < Math.max(48, interruptedVisual.width * 0.25),
+    `Reverse FLIP jumped too far from interruption geometry: ${interruptedVisual.width} -> ${reverse.visual.width}`,
+  );
 
   const popupResult = await popupPromise;
   if (popupResult.error) throw popupResult.error;
   const popup = popupResult.popup;
   await popup.waitForURL(/interaction-audit\?popup=1/, { timeout: 2_000 });
 
-  await waitForAnimationToSettle(page, false);
+  // Reverse-start proof is captured above. At this point popup IPC may already
+  // have allowed the 460 ms reverse animation to finish, so only require its
+  // settled compositor state and exact compact dimensions here.
+  await waitForAnimationToSettle(page, false, false);
   const finalRect = await rect(page, CARD);
   assert(Math.abs(finalRect.width - origin.width) < 0.75, `Collapsed width drifted: ${finalRect.width} vs ${origin.width}`);
   assert(Math.abs(finalRect.height - origin.height) < 0.75, `Collapsed height drifted: ${finalRect.height} vs ${origin.height}`);
@@ -205,13 +276,21 @@ async function runInterruptionCase(page) {
   return {
     origin: compactRect(origin),
     midFlightVisual: compactRect(mid.visual),
+    interruptedVisual: compactRect(interruptedVisual),
+    reverseVisual: compactRect(reverse.visual),
+    reverseLayout: reverse.layout,
     expandedLayout: {
       width: mid.layout.width,
       height: mid.layout.height,
     },
     animationCurrentTimeMs: Number(mid.animationCurrentTime.toFixed(3)),
     animationPlayState: mid.animationPlayState,
+    reverseAnimationCurrentTimeMs: typeof reverse.animationCurrentTime === 'number'
+      ? Number(reverse.animationCurrentTime.toFixed(3))
+      : null,
+    reverseAnimationPlayState: reverse.animationPlayState,
     compositorTransform: mid.transform,
+    reverseCompositorTransform: reverse.transform,
     collapsed: compactRect(finalRect),
     releaseDeltaMs: Number(releaseDeltaMs.toFixed(3)),
   };
