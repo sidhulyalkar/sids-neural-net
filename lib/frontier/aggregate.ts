@@ -3,6 +3,7 @@ import { getActiveSportsFeed } from './activeSportsSources';
 import { normalizeFeedToEnglish } from './english';
 import { getSharedExpandedPublicFeed } from './expandedSourcesShared';
 import { getAdaptiveLiveDiscovery } from './liveDiscovery';
+import { enrichFrontierSourceVisual } from './media/sourceVisuals';
 import { getPersonalFrontierFeed } from './personalSources';
 import { getSharedMultiSourceFrontierFeed } from './sourceIngestorShared';
 import { getFrontierFeed } from './sources';
@@ -52,6 +53,10 @@ function enrichFormatSemantics(entry: FrontierItem): FrontierItem {
   return tags.size === entry.tags.length ? entry : { ...entry, tags: [...tags] };
 }
 
+function enrichPresentation(entry: FrontierItem): FrontierItem {
+  return enrichFrontierSourceVisual(enrichFormatSemantics(entry));
+}
+
 function mergeStatuses(statuses: FrontierSourceStatus[]): FrontierSourceStatus[] {
   const merged = new Map<string, FrontierSourceStatus>();
   for (const status of statuses) {
@@ -97,14 +102,14 @@ export async function getIntegratedFrontierFeed(options: IntegratedOptions = {})
   // survives deduplication while weaker duplicates disappear.
   const orderedResults = [adaptiveResult, multiSourceResult, expandedResult, vimeoResult, baseResult, activeSportsResult, personalResult];
   const liveFeeds = orderedResults.flatMap((result) => result.status === 'fulfilled' ? [result.value] : []);
-  const liveItems = dedupe(liveFeeds.flatMap((feed) => feed.items).map(enrichFormatSemantics))
+  const liveItems = dedupe(liveFeeds.flatMap((feed) => feed.items).map(enrichPresentation))
     .sort((a, b) => b.baseScore - a.baseScore);
 
   const liveKeys = new Set(liveItems.flatMap((item) => [canonicalKey(item), item.title.toLowerCase()]));
   const archive = options.includeSnapshot === false
     ? []
     : recentSnapshotItems()
-        .map(enrichFormatSemantics)
+        .map(enrichPresentation)
         .filter((item) => !liveKeys.has(canonicalKey(item)) && !liveKeys.has(item.title.toLowerCase()));
 
   const candidateItems = [...liveItems, ...archive].slice(0, 320);
