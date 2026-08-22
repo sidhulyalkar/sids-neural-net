@@ -1,0 +1,74 @@
+name: Sylvaria v0.14 Flow Lab
+
+on:
+  pull_request:
+    paths:
+      - 'public/game-runtimes/mosslight-v2/v014/**'
+      - 'scripts/playtest-sylvaria-v014-flow.mjs'
+      - 'tests/sylvaria-v014-*.test.ts'
+      - '.github/workflows/sylvaria-v014-flow.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sylvaria-v014-flow-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  browser-flow-lab:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Set up Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Validate v0.14 flow source contracts
+        run: node --import tsx --test tests/sylvaria-v014-flow.test.ts tests/sylvaria-v014-enemy-flow.test.ts
+
+      - name: Build deterministic site
+        env:
+          NEXT_PUBLIC_SITE_URL: https://example.invalid
+          NEXT_PUBLIC_WORLD_LOOM_XR: disabled
+        run: npm run build
+
+      - name: Start built site
+        run: |
+          npx next start -p 3000 > /tmp/sylvaria-v014.log 2>&1 &
+          echo $! > /tmp/sylvaria-v014.pid
+          for attempt in {1..40}; do
+            if curl -fsS http://127.0.0.1:3000/game-runtimes/mosslight-v2/index.html >/dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/sylvaria-v014.log
+          exit 1
+
+      - name: Install Chromium qualification engine
+        run: npx --yes playwright@1.55.0 install --with-deps chromium
+
+      - name: Playtest buffered combat flow and readable evasion
+        run: |
+          PW_BIN="$(npm exec --yes --package=playwright@1.55.0 -- which playwright)"
+          PW_ROOT="$(cd "$(dirname "$PW_BIN")/.." && pwd)"
+          PLAYWRIGHT_MODULE_ROOT="$PW_ROOT" node scripts/playtest-sylvaria-v014-flow.mjs
+
+      - name: Upload v0.14 flow artifacts
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: sylvaria-v014-flow-artifacts
+          path: artifacts/sylvaria-v014-flow
+          if-no-files-found: warn
+          retention-days: 14
