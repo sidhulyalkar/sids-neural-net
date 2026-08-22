@@ -82,11 +82,19 @@ jobs:
           PW_ROOT="$(cd "$(dirname "$PW_BIN")/.." && pwd)"
           PLAYWRIGHT_MODULE_ROOT="$PW_ROOT" node scripts/playtest-sylvaria-v014-buffer-accuracy.mjs
 
-      - name: Upload v0.14 flow artifacts
+      - name: Verify 30-room rhythmic threat orchestration
+        run: |
+          PW_BIN="$(npm exec --yes --package=playwright@1.55.0 -- which playwright)"
+          PW_ROOT="$(cd "$(dirname "$PW_BIN")/.." && pwd)"
+          PLAYWRIGHT_MODULE_ROOT="$PW_ROOT" node scripts/playtest-sylvaria-v014-threat-orchestration.mjs
+
+      - name: Upload v0.14 combat artifacts
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: sylvaria-v014-flow-artifacts
-          path: artifacts/sylvaria-v014-flow
+          name: sylvaria-v014-combat-artifacts
+          path: |
+            artifacts/sylvaria-v014-flow
+            artifacts/sylvaria-v014-threat
           if-no-files-found: warn
           retention-days: 14
