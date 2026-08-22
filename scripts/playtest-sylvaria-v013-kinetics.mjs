@@ -44,8 +44,8 @@ await page.keyboard.press('Space');
 const buffered=await page.evaluate(()=>window.SylvariaKinetics.snapshot());
 check(buffered.dashBuffered===true||buffered.dashBuffer>0,`Space intent did not buffer during recovery: ${JSON.stringify(buffered)}`);
 await page.waitForFunction(base=>window.Sylvaria091.state.stats.dashes===base+1,dashesBeforeBuffer,{timeout:500});
-const bufferedExecuted=await page.evaluate(()=>window.SylvariaKinetics.snapshot());
-check(bufferedExecuted.dashing===true||Math.hypot(window.Sylvaria091?.state?.player?.vx||0,window.Sylvaria091?.state?.player?.vy||0)>238,'buffered dash did not execute when cooldown cleared');
+const bufferedExecuted=await page.evaluate(()=>{const k=window.SylvariaKinetics.snapshot(),p=window.Sylvaria091.state.player;return{...k,liveSpeed:Math.hypot(p.vx,p.vy)}});
+check(bufferedExecuted.dashing===true||bufferedExecuted.liveSpeed>238,`buffered dash did not execute when cooldown cleared: ${JSON.stringify(bufferedExecuted)}`);
 
 // A committed dash can cancel into a faster tongue wind-up after four simulation ticks.
 await page.waitForFunction(()=>!window.Sylvaria091.state.player.dash&&window.Sylvaria091.state.player.dashCooldown<=0,{timeout:1800});
@@ -79,10 +79,10 @@ await page.waitForTimeout(25);
 const lateShot=await page.evaluate(index=>{const s=window.Sylvaria091.state.shots[index];return s?{friendly:s.friendly,dead:s.dead,x:s.x,y:s.y,counterQuality:s.counterQuality}:null},lateShotIndex);
 check(lateShot&&!lateShot.friendly,`late active-sweep projectile incorrectly parried: ${JSON.stringify(lateShot)}`);
 
-// The moving later arc still damages enemies spatially, not by a piston-line proxy.
-await page.evaluate(()=>{const p=window.__MOSSLIGHT_PLAYTEST__;p.setRoom(0,1);p.clearCombatants();p.labClearGeometry();p.setPlayerPosition(300,330);window.Sylvaria091.state.player.cutCooldown=0;const id=p.spawnTestEnemy('foreman',366,330,'arc-hit-target');const e=window.Sylvaria091.state.enemies.find(x=>x.id===id);e.state='recover';e.counterStagger=9});
+// The later moving arc still damages enemies spatially after the five-tick parry window has closed.
+await page.evaluate(()=>{const p=window.__MOSSLIGHT_PLAYTEST__,G=window.Sylvaria091;p.setRoom(0,1);p.clearCombatants();p.labClearGeometry();p.setPlayerPosition(300,330);G.state.player.cutCooldown=0;const angle=1.2,r=70,id=p.spawnTestEnemy('foreman',300+Math.cos(angle)*r,330+Math.sin(angle)*r,'arc-hit-target');const e=G.state.enemies.find(x=>x.id===id);e.state='recover';e.counterStagger=9});
 const hpBefore=await page.evaluate(()=>window.Sylvaria091.state.enemies.find(e=>e.id==='arc-hit-target').hp);await page.keyboard.press('ArrowRight');await page.waitForTimeout(190);const directHit=await page.evaluate(()=>({hp:window.Sylvaria091.state.enemies.find(e=>e.id==='arc-hit-target').hp,hitStop:window.SylvariaKinetics.snapshot().hitStop}));
-check(directHit.hp<hpBefore,`arc sweep did not damage nearby target: ${hpBefore} -> ${directHit.hp}`);
+check(directHit.hp<hpBefore,`later arc sweep did not damage nearby target: ${hpBefore} -> ${directHit.hp}`);
 check(directHit.hitStop?.kind==='enemy'&&directHit.hitStop?.ticks===1,`direct blade hit did not emit light hit-stop signal: ${JSON.stringify(directHit.hitStop)}`);
 
 // Strider sees the authored sweep during wind-up and commits a terrain-safe dodge.
