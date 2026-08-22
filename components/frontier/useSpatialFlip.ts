@@ -6,6 +6,7 @@ import { frontierFlipDelta, frontierSpringTransform } from '@/lib/frontier/inter
 import { prefersReducedMotion } from '@/lib/frontier/media/capabilities';
 
 const CARD_SELECTOR = '[data-frontier-fluid-card]';
+const GPU_SELECTOR = '[data-frontier-gpu-id]';
 const DURATION_MS = 460;
 const FRAME_COUNT = 22;
 const VIEWPORT_MARGIN = 640;
@@ -40,6 +41,28 @@ function springKeyframes(first: DOMRect, last: DOMRect): Keyframe[] {
 export function useSpatialFlip(containerRef: RefObject<HTMLElement | null>) {
   const first = useRef<Snapshot>();
   const animations = useRef(new Map<string, Animation>());
+  const mediaFrame = useRef<number>();
+
+  const stopMediaPulse = useCallback(() => {
+    if (mediaFrame.current !== undefined) cancelAnimationFrame(mediaFrame.current);
+    mediaFrame.current = undefined;
+  }, []);
+
+  const pulseGpuPlane = useCallback((root: HTMLElement) => {
+    if (!root.querySelector(GPU_SELECTOR)) return;
+    stopMediaPulse();
+    const started = performance.now();
+    const tick = (now: number) => {
+      // The shared WebGL plane is viewport-fixed and normally invalidates on a
+      // real viewport change. FLIP is a compositor transform, so explicitly
+      // feed it frame ticks through its existing lightweight scroll invalidator
+      // while cards move. No scroll position or preference signal is changed.
+      window.dispatchEvent(new Event('scroll'));
+      if (now - started <= DURATION_MS + 34) mediaFrame.current = requestAnimationFrame(tick);
+      else mediaFrame.current = undefined;
+    };
+    mediaFrame.current = requestAnimationFrame(tick);
+  }, [stopMediaPulse]);
 
   const capture = useCallback(() => {
     const root = containerRef.current;
@@ -55,8 +78,9 @@ export function useSpatialFlip(containerRef: RefObject<HTMLElement | null>) {
     }
     for (const animation of animations.current.values()) animation.cancel();
     animations.current.clear();
+    stopMediaPulse();
     first.current = snapshot;
-  }, [containerRef]);
+  }, [containerRef, stopMediaPulse]);
 
   const play = useCallback(() => {
     const root = containerRef.current;
@@ -64,6 +88,7 @@ export function useSpatialFlip(containerRef: RefObject<HTMLElement | null>) {
     first.current = undefined;
     if (!root || !snapshot?.size || prefersReducedMotion()) return;
 
+    let animated = false;
     for (const node of root.querySelectorAll<HTMLElement>(CARD_SELECTOR)) {
       const key = cardKey(node);
       const before = key ? snapshot.get(key) : undefined;
@@ -81,6 +106,7 @@ export function useSpatialFlip(containerRef: RefObject<HTMLElement | null>) {
         easing: 'linear',
         fill: 'both',
       });
+      animated = true;
       animations.current.set(key, animation);
       animation.addEventListener('finish', () => {
         if (animations.current.get(key) === animation) {
@@ -92,13 +118,15 @@ export function useSpatialFlip(containerRef: RefObject<HTMLElement | null>) {
         if (animations.current.get(key) === animation) animations.current.delete(key);
       }, { once: true });
     }
-  }, [containerRef]);
+    if (animated) pulseGpuPlane(root);
+  }, [containerRef, pulseGpuPlane]);
 
   const cancel = useCallback(() => {
     for (const animation of animations.current.values()) animation.cancel();
     animations.current.clear();
+    stopMediaPulse();
     first.current = undefined;
-  }, []);
+  }, [stopMediaPulse]);
 
   return { captureSpatialFlip: capture, playSpatialFlip: play, cancelSpatialFlip: cancel };
 }
