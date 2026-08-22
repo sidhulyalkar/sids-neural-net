@@ -24,7 +24,7 @@ export function FrontierLatentCanvas() {
   const [empty, setEmpty] = useState(false);
 
   useEffect(() => {
-    const canvas = canvasRef.current;
+    const canvas = canvasRef.current!;
     if (!canvas) return;
     const gl = canvas.getContext('webgl2', {
       alpha: true,
@@ -33,7 +33,7 @@ export function FrontierLatentCanvas() {
       stencil: false,
       powerPreference: 'low-power',
       preserveDrawingBuffer: false,
-    });
+    })!;
     if (!gl) {
       setEmpty(true);
       return;
