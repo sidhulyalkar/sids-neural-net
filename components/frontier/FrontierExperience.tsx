@@ -10,10 +10,17 @@ import {
 } from '@/lib/frontier/config';
 import { buildDiscoveryFocus, encodeDiscoveryFocus } from '@/lib/frontier/discoveryFocus';
 import { FRONTIER_PINNED_TOPICS } from '@/lib/frontier/interests';
+import { clearFrontierCandidatePool } from '@/lib/frontier/live/candidatePool';
+import {
+  clearFrontierSeenLedger,
+  filterUnseenFrontierItems,
+  frontierItemIdentityKey,
+  frontierSeenSignatures,
+  migrateFrontierHistoryToSeenLedger,
+} from '@/lib/frontier/live/seenLedger';
 import {
   buildDailyQuests,
   explainRecommendation,
-  isDueForResurface,
   rankFrontierItems,
   selectDailyRun,
 } from '@/lib/frontier/scoring';
@@ -34,18 +41,22 @@ import type {
   FrontierView,
 } from '@/lib/frontier/types';
 import { FrontierAccount } from './FrontierAccount';
+import { FrontierStreamPulse } from './FrontierStreamPulse';
 import { FrontierUtilityDock } from './FrontierUtilityDock';
 import { InterestConstellation } from './InterestConstellation';
 import { PreferenceLens } from './PreferenceLens';
 import { SignalBoard } from './SignalBoard';
 import type { SignalLayoutMode } from './SignalBoard';
 import { SignalCard } from './SignalCard';
+import { useLiveDiscoveryDaemon } from './live/useLiveDiscoveryDaemon';
 import { useWaterfallText } from './useWaterfallText';
 import styles from './frontier-experience.module.css';
 
-const LIVE_REFRESH_MS = 4 * 60_000;
 const FEED_CACHE_KEY = 'frontier-live-feed-cache-v1';
 const FEED_CACHE_MAX_AGE_MS = 36 * 60 * 60_000;
+const BASE_EXPLORATION_TEMPERATURE = 0.08;
+const MANUAL_EXPLORATION_TEMPERATURE = 0.82;
+const STREAM_EXPLORATION_TEMPERATURE = 0.62;
 
 type FormatFilter = 'all' | 'papers' | 'code' | 'projects' | 'video' | 'threads' | 'sports' | 'games' | 'music';
 
@@ -92,6 +103,30 @@ function formatMatches(item: FrontierItem, filter: FormatFilter): boolean {
   }
 }
 
+function dedupeCanonical(items: FrontierItem[]): FrontierItem[] {
+  const map = new Map<string, FrontierItem>();
+  for (const item of items) {
+    const key = frontierItemIdentityKey(item);
+    if (!map.has(key)) map.set(key, item);
+  }
+  return Array.from(map.values());
+}
+
+function mergeSourceStatuses(left: FrontierSourceStatus[], right: FrontierSourceStatus[]): FrontierSourceStatus[] {
+  const map = new Map<string, FrontierSourceStatus>();
+  for (const source of [...left, ...right]) {
+    const current = map.get(source.id);
+    if (!current) map.set(source.id, source);
+    else map.set(source.id, {
+      ...current,
+      ok: current.ok || source.ok,
+      count: Math.max(current.count, source.count),
+      message: current.ok ? current.message : source.message,
+    });
+  }
+  return Array.from(map.values());
+}
+
 function LoadingBoard() {
   return (
     <div className={styles.loadingGrid} aria-label="Scanning live sources">
@@ -111,6 +146,7 @@ export function FrontierExperience({ initialDateLabel, initialDayKey }: Props) {
   const store = useFrontierStore();
   const [view, setView] = useState<FrontierView>('today');
   const [items, setItems] = useState<FrontierItem[]>([]);
+  const [streamItems, setStreamItems] = useState<FrontierItem[]>([]);
   const [sources, setSources] = useState<FrontierSourceStatus[]>([]);
   const [generatedAt, setGeneratedAt] = useState<string>();
   const [loading, setLoading] = useState(true);
@@ -123,10 +159,17 @@ export function FrontierExperience({ initialDateLabel, initialDayKey }: Props) {
   const [activeSearch, setActiveSearch] = useState('');
   const [collectionFilter, setCollectionFilter] = useState('inbox');
   const [newCollection, setNewCollection] = useState('');
+  const [explorationTemperature, setExplorationTemperature] = useState(BASE_EXPLORATION_TEMPERATURE);
+  const [diversityReference, setDiversityReference] = useState<FrontierItem[]>([]);
+  const [streamEpoch, setStreamEpoch] = useState(0);
   const fileInput = useRef<HTMLInputElement | null>(null);
   const searchInput = useRef<HTMLInputElement | null>(null);
   const utilityDockRef = useRef<HTMLDivElement | null>(null);
   const requestRef = useRef<AbortController | null>(null);
+  const temperatureTimer = useRef<number | undefined>(undefined);
+  const activeItemsRef = useRef<FrontierItem[]>([]);
+  const nearEndArmed = useRef(false);
+  const migrationStarted = useRef(false);
   const recordLayout = store.recordLayout;
   const { launchWaterfall, waterfallActive } = useWaterfallText(searchInput, { collisionRef: utilityDockRef });
 
@@ -139,6 +182,19 @@ export function FrontierExperience({ initialDateLabel, initialDayKey }: Props) {
     [activeSearch, adaptiveFocus]
   );
   const focusSignature = useMemo(() => encodeDiscoveryFocus(requestFocus), [requestFocus]);
+  const daemonExcludeItems = useMemo(
+    () => dedupeCanonical([...items, ...streamItems]).slice(0, 160),
+    [items, streamItems]
+  );
+  const {
+    pendingCount,
+    status: daemonStatus,
+    generatedAt: daemonGeneratedAt,
+    sources: daemonSources,
+    requestPoll,
+    flush: flushPending,
+    clearPending,
+  } = useLiveDiscoveryDaemon({ focusSignature, excludeItems: daemonExcludeItems });
 
   const searchSuggestions = useMemo(() => {
     const learned = Object.entries(store.profile.topicAffinity)
@@ -152,6 +208,19 @@ export function FrontierExperience({ initialDateLabel, initialDayKey }: Props) {
     ])).slice(0, 28);
   }, [store.profile.topicAffinity]);
 
+  const spikeExploration = useCallback((temperature: number) => {
+    setExplorationTemperature(Math.max(BASE_EXPLORATION_TEMPERATURE, Math.min(1, temperature)));
+    if (temperatureTimer.current !== undefined) window.clearTimeout(temperatureTimer.current);
+    temperatureTimer.current = window.setTimeout(() => {
+      setExplorationTemperature(BASE_EXPLORATION_TEMPERATURE);
+      temperatureTimer.current = undefined;
+    }, 24_000);
+  }, []);
+
+  useEffect(() => () => {
+    if (temperatureTimer.current !== undefined) window.clearTimeout(temperatureTimer.current);
+  }, []);
+
   useEffect(() => {
     const frame = window.requestAnimationFrame(() => {
       const saved = window.localStorage.getItem('frontier-layout-mode');
@@ -164,6 +233,7 @@ export function FrontierExperience({ initialDateLabel, initialDayKey }: Props) {
   }, [recordLayout]);
 
   useEffect(() => {
+    let cancelled = false;
     try {
       const raw = window.localStorage.getItem(FEED_CACHE_KEY);
       if (!raw) return;
@@ -171,13 +241,24 @@ export function FrontierExperience({ initialDateLabel, initialDayKey }: Props) {
       const generated = new Date(cached.generatedAt).getTime();
       if (!Array.isArray(cached.items) || !cached.items.length || !Number.isFinite(generated)) return;
       if (Date.now() - generated > FEED_CACHE_MAX_AGE_MS) return;
-      setItems(cached.items);
-      setSources(Array.isArray(cached.sources) ? cached.sources : []);
-      setGeneratedAt(cached.generatedAt);
+      void filterUnseenFrontierItems(cached.items).then((unseen) => {
+        if (cancelled || !unseen.length) return;
+        setItems(unseen);
+        setSources(Array.isArray(cached.sources) ? cached.sources : []);
+        setGeneratedAt(cached.generatedAt);
+      });
     } catch {
       // Cache is opportunistic. A corrupt browser entry should never block live discovery.
     }
+    return () => { cancelled = true; };
   }, []);
+
+  useEffect(() => {
+    if (!store.hydrated || migrationStarted.current) return;
+    migrationStarted.current = true;
+    const historical = Object.values(store.history).map((entry) => entry.item);
+    void migrateFrontierHistoryToSeenLedger(historical);
+  }, [store.hydrated, store.history]);
 
   const loadFeed = useCallback(async (forceFresh = false) => {
     requestRef.current?.abort();
@@ -185,26 +266,63 @@ export function FrontierExperience({ initialDateLabel, initialDayKey }: Props) {
     requestRef.current = controller;
     setLoading(true);
     setError(undefined);
-    try {
+
+    const fetchPayload = async (focus: string): Promise<FrontierFeedResponse & { error?: string }> => {
       const params = new URLSearchParams();
-      if (focusSignature) params.set('focus', focusSignature);
+      if (focus) params.set('focus', focus);
       if (forceFresh) params.set('fresh', '1');
       const response = await fetch(`/api/frontier/feed${params.size ? `?${params.toString()}` : ''}`, {
         cache: 'no-store',
         signal: controller.signal,
       });
       if (!response.ok) throw new Error(`Feed returned ${response.status}`);
-      const payload = (await response.json()) as FrontierFeedResponse & { error?: string };
-      setItems((current) => payload.error && !(payload.items?.length) ? current : (payload.items ?? []));
-      setSources(payload.sources ?? []);
-      setGeneratedAt(payload.generatedAt);
+      return await response.json() as FrontierFeedResponse & { error?: string };
+    };
+
+    try {
+      const payload = await fetchPayload(focusSignature);
+      let nextItems = await filterUnseenFrontierItems(payload.items ?? []);
+      let nextSources = payload.sources ?? [];
+      let nextGeneratedAt = payload.generatedAt;
+
+      const currentSignatures = new Set(activeItemsRef.current.flatMap((item) => frontierSeenSignatures(item)));
+      if (forceFresh && currentSignatures.size) {
+        nextItems = nextItems.filter((item) => !frontierSeenSignatures(item).some((signature) => currentSignatures.has(signature)));
+      }
+
+      if (!activeSearch && focusSignature && nextItems.length < 8 && !controller.signal.aborted) {
+        const wide = await fetchPayload('');
+        let wideItems = await filterUnseenFrontierItems(wide.items ?? []);
+        if (forceFresh && currentSignatures.size) {
+          wideItems = wideItems.filter((item) => !frontierSeenSignatures(item).some((signature) => currentSignatures.has(signature)));
+        }
+        nextItems = dedupeCanonical([...nextItems, ...wideItems]);
+        nextSources = mergeSourceStatuses(nextSources, wide.sources ?? []);
+        const left = new Date(nextGeneratedAt).getTime();
+        const right = new Date(wide.generatedAt).getTime();
+        if (Number.isFinite(right) && (!Number.isFinite(left) || right > left)) nextGeneratedAt = wide.generatedAt;
+      }
+
+      if (controller.signal.aborted) return;
+      if (nextItems.length) {
+        if (forceFresh) {
+          setDiversityReference(activeItemsRef.current.slice(0, 28));
+          spikeExploration(MANUAL_EXPLORATION_TEMPERATURE);
+          setStreamItems([]);
+          setStreamEpoch((epoch) => epoch + 1);
+          clearPending();
+        }
+        setItems(nextItems);
+      }
+      setSources(nextSources);
+      setGeneratedAt(nextGeneratedAt);
       if (payload.error) setError(payload.error);
-      if (!activeSearch && payload.items?.length) {
+      if (!activeSearch && nextItems.length) {
         try {
           window.localStorage.setItem(FEED_CACHE_KEY, JSON.stringify({
-            generatedAt: payload.generatedAt,
-            items: payload.items.slice(0, 72),
-            sources: payload.sources ?? [],
+            generatedAt: nextGeneratedAt,
+            items: nextItems.slice(0, 72),
+            sources: nextSources,
           } satisfies FrontierFeedResponse));
         } catch {
           // Discovery remains live even if browser storage is unavailable or full.
@@ -217,23 +335,11 @@ export function FrontierExperience({ initialDateLabel, initialDayKey }: Props) {
       if (requestRef.current === controller) requestRef.current = null;
       setLoading(false);
     }
-  }, [activeSearch, focusSignature]);
+  }, [activeSearch, clearPending, focusSignature, spikeExploration]);
 
   useEffect(() => {
     void loadFeed();
-    const tick = () => {
-      if (document.visibilityState === 'visible') void loadFeed();
-    };
-    const timer = window.setInterval(tick, LIVE_REFRESH_MS);
-    const visibilityChanged = () => {
-      if (document.visibilityState === 'visible') void loadFeed();
-    };
-    document.addEventListener('visibilitychange', visibilityChanged);
-    return () => {
-      window.clearInterval(timer);
-      document.removeEventListener('visibilitychange', visibilityChanged);
-      requestRef.current?.abort();
-    };
+    return () => requestRef.current?.abort();
   }, [loadFeed]);
 
   useEffect(() => {
@@ -264,27 +370,34 @@ export function FrontierExperience({ initialDateLabel, initialDayKey }: Props) {
   const recordView = store.recordView;
   useEffect(() => { recordView(view); }, [recordView, view]);
 
-  const resurfacing = useMemo(
-    () => Object.values(store.history)
-      .filter((entry) => isDueForResurface(entry))
-      .map((entry) => ({ ...entry.item, tags: Array.from(new Set(['second-chance', ...entry.item.tags])) })),
-    [store.history]
-  );
-
-  const mergedItems = useMemo(() => {
-    const liveIds = new Set(items.map((item) => item.id));
-    return [...items, ...resurfacing.filter((item) => !liveIds.has(item.id))];
-  }, [items, resurfacing]);
-
+  // Strict Phase 5 live surfaces intentionally exclude the old automatic
+  // second-chance resurfacing path. Seen material remains available in History
+  // and Saved, but never competes with a fresh live rotation.
   const ranked = useMemo(
-    () => rankFrontierItems(mergedItems, store.profile, store.history, new Date(), store.behavior),
-    [mergedItems, store.behavior, store.history, store.profile]
+    () => rankFrontierItems(items, store.profile, store.history, new Date(), store.behavior),
+    [items, store.behavior, store.history, store.profile]
   );
   const realmRanked = useMemo(
     () => ranked.filter((item) => laneMatchesRealm(item.lane, realm)),
     [ranked, realm]
   );
   const dailyRun = useMemo(() => selectDailyRun(realmRanked, store.history, 14), [realmRanked, store.history]);
+  const dailySignatures = useMemo(() => new Set(dailyRun.flatMap((item) => frontierSeenSignatures(item))), [dailyRun]);
+  const streamedToday = useMemo(() => streamItems.filter((item) => (
+    laneMatchesRealm(item.lane, realm)
+    && !frontierSeenSignatures(item).some((signature) => dailySignatures.has(signature))
+  )), [dailySignatures, realm, streamItems]);
+  const todayItems = useMemo(() => dedupeCanonical([...dailyRun, ...streamedToday]), [dailyRun, streamedToday]);
+
+  const exploreRanked = useMemo(
+    () => rankFrontierItems(dedupeCanonical([...items, ...streamItems]), store.profile, store.history, new Date(), store.behavior),
+    [items, store.behavior, store.history, store.profile, streamItems]
+  );
+  const exploreRealmRanked = useMemo(
+    () => exploreRanked.filter((item) => laneMatchesRealm(item.lane, realm)),
+    [exploreRanked, realm]
+  );
+
   const quests = useMemo(() => buildDailyQuests(store.history, initialDayKey), [store.history, initialDayKey]);
   const awardQuest = store.awardQuest;
 
@@ -305,7 +418,7 @@ export function FrontierExperience({ initialDateLabel, initialDayKey }: Props) {
   ], [visibleLanes]);
   const formatOptions = useMemo(() => FORMAT_FILTERS.map((filter) => ({ value: filter.id, label: filter.label })), []);
   const exploreItems = useMemo(() => {
-    const filtered = realmRanked.filter((item) => {
+    const filtered = exploreRealmRanked.filter((item) => {
       if (laneFilter !== 'all' && item.lane !== laneFilter) return false;
       if (!formatMatches(item, formatFilter)) return false;
       if (activeSearch && !topicSearchMatches(item, activeSearch)) return false;
@@ -313,9 +426,71 @@ export function FrontierExperience({ initialDateLabel, initialDayKey }: Props) {
     });
     if (!activeSearch) return filtered;
     return [...filtered].sort((a, b) => topicSearchScore(b, activeSearch) - topicSearchScore(a, activeSearch));
-  }, [activeSearch, formatFilter, laneFilter, realmRanked]);
+  }, [activeSearch, exploreRealmRanked, formatFilter, laneFilter]);
   const historyEntries = Object.values(store.history)
     .sort((a, b) => new Date(b.lastSeenAt).getTime() - new Date(a.lastSeenAt).getTime());
+
+  useEffect(() => {
+    activeItemsRef.current = view === 'explore' ? exploreItems.slice(0, 64) : todayItems.slice(0, 64);
+  }, [exploreItems, todayItems, view]);
+
+  const revealPending = useCallback(async () => {
+    const fresh = await flushPending(24);
+    if (!fresh.length) return;
+    setDiversityReference(activeItemsRef.current.slice(0, 28));
+    spikeExploration(STREAM_EXPLORATION_TEMPERATURE);
+    setStreamItems((current) => dedupeCanonical([...current, ...fresh]).slice(0, 72));
+    if (daemonGeneratedAt) setGeneratedAt(daemonGeneratedAt);
+    if (daemonSources.length) setSources((current) => mergeSourceStatuses(current, daemonSources));
+    if (view !== 'today' && view !== 'explore') setView('today');
+  }, [daemonGeneratedAt, daemonSources, flushPending, spikeExploration, view]);
+
+  const manualRefresh = useCallback(async () => {
+    if (pendingCount > 0) {
+      const fresh = await flushPending(36);
+      if (fresh.length) {
+        setDiversityReference(activeItemsRef.current.slice(0, 28));
+        spikeExploration(MANUAL_EXPLORATION_TEMPERATURE);
+        setItems(fresh);
+        setStreamItems([]);
+        setStreamEpoch((epoch) => epoch + 1);
+        clearPending();
+        if (daemonGeneratedAt) setGeneratedAt(daemonGeneratedAt);
+        if (daemonSources.length) setSources((current) => mergeSourceStatuses(current, daemonSources));
+        return;
+      }
+    }
+    await loadFeed(true);
+  }, [clearPending, daemonGeneratedAt, daemonSources, flushPending, loadFeed, pendingCount, spikeExploration]);
+
+  const handleNearEnd = useCallback(() => {
+    if (pendingCount > 0) {
+      nearEndArmed.current = false;
+      void revealPending();
+      return;
+    }
+    nearEndArmed.current = true;
+    requestPoll('near-end');
+  }, [pendingCount, requestPoll, revealPending]);
+
+  useEffect(() => {
+    if (!nearEndArmed.current || pendingCount <= 0) return;
+    nearEndArmed.current = false;
+    void revealPending();
+  }, [pendingCount, revealPending]);
+
+  useEffect(() => {
+    const shortcut = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      const typing = target?.tagName === 'INPUT' || target?.tagName === 'TEXTAREA' || target?.tagName === 'SELECT' || target?.isContentEditable;
+      if (!typing && event.key.toLowerCase() === 'n' && pendingCount > 0) {
+        event.preventDefault();
+        void revealPending();
+      }
+    };
+    window.addEventListener('keydown', shortcut);
+    return () => window.removeEventListener('keydown', shortcut);
+  }, [pendingCount, revealPending]);
 
   const markSeen = store.markSeen;
   const recordDwell = store.recordDwell;
@@ -352,19 +527,22 @@ export function FrontierExperience({ initialDateLabel, initialDayKey }: Props) {
     const next = normalizeTopicSearch(searchDraft);
     if (!next) return;
 
-    // Capture the real input geometry before React clears it. The animation nodes
-    // then become the visible text while the search immediately transitions to Explore.
     launchWaterfall(searchDraft);
     setSearchDraft('');
     setActiveSearch(next);
     setView('explore');
     setLaneFilter('all');
     setFormatFilter('all');
-  }, [launchWaterfall, searchDraft]);
+    setStreamItems([]);
+    setDiversityReference(activeItemsRef.current.slice(0, 28));
+    spikeExploration(0.5);
+    setStreamEpoch((epoch) => epoch + 1);
+  }, [launchWaterfall, searchDraft, spikeExploration]);
 
   const clearSearch = useCallback(() => {
     setSearchDraft('');
     setActiveSearch('');
+    setStreamEpoch((epoch) => epoch + 1);
     searchInput.current?.focus();
   }, []);
 
@@ -428,6 +606,17 @@ export function FrontierExperience({ initialDateLabel, initialDayKey }: Props) {
     setFormatFilter('all');
   }, []);
 
+  const resetAll = useCallback(() => {
+    store.resetFrontier();
+    clearPending();
+    setStreamItems([]);
+    setDiversityReference([]);
+    setExplorationTemperature(BASE_EXPLORATION_TEMPERATURE);
+    setStreamEpoch((epoch) => epoch + 1);
+    void clearFrontierSeenLedger();
+    void clearFrontierCandidatePool();
+  }, [clearPending, store]);
+
   return (
     <div className={styles.shell}>
       <div className={styles.inner}>
@@ -464,10 +653,10 @@ export function FrontierExperience({ initialDateLabel, initialDayKey }: Props) {
           </form>
 
           <div className={styles.headerActions}>
-            <div className={styles.radarStatus} title={`${onlineSources} live sources${generatedAt ? ` · updated ${humanDate(generatedAt)}` : ''}${requestFocus.length ? ` · focus: ${requestFocus.join(', ')}` : ''}`}>
+            <div className={styles.radarStatus} title={`${onlineSources} live sources${generatedAt ? ` · updated ${humanDate(generatedAt)}` : ''}${requestFocus.length ? ` · focus: ${requestFocus.join(', ')}` : ''}${daemonStatus.leader ? ' · discovery leader' : ' · shared discovery follower'}`}>
               <span className={`${styles.liveDot} ${error ? styles.liveDotDegraded : ''}`} />
-              <span>{loading ? 'scanning' : error ? 'partial' : 'live'}</span>
-              <button type="button" className={styles.refreshIcon} onClick={() => void loadFeed(true)} aria-label="Refresh live feed" title="Refresh live"><RefreshCw size={12} /></button>
+              <span>{loading ? 'scanning' : error ? 'partial' : daemonStatus.polling ? 'streaming' : 'live'}</span>
+              <button type="button" className={styles.refreshIcon} onClick={() => void manualRefresh()} aria-label="Rotate to unseen live feed" title="Fresh unseen rotation"><RefreshCw size={12} /></button>
             </div>
             <FrontierAccount />
           </div>
@@ -476,10 +665,15 @@ export function FrontierExperience({ initialDateLabel, initialDayKey }: Props) {
         {view === 'today' ? (
           <main className={styles.signalStage}>
             <SignalBoard
-              items={dailyRun}
+              items={todayItems}
               mode={layoutMode}
               renderCard={(item, mode) => renderCard(item, mode)}
-              empty={loading ? <LoadingBoard /> : <div className={styles.empty}>Nothing new yet.</div>}
+              empty={loading ? <LoadingBoard /> : <div className={styles.empty}>No unseen signals yet.</div>}
+              explorationTemperature={explorationTemperature}
+              diversityReference={diversityReference}
+              appendStable
+              streamEpoch={streamEpoch}
+              onNearEnd={handleNearEnd}
             />
           </main>
         ) : null}
@@ -487,11 +681,16 @@ export function FrontierExperience({ initialDateLabel, initialDayKey }: Props) {
         {view === 'explore' ? (
           <section className={styles.signalStage}>
             <SignalBoard
-              items={exploreItems.slice(0, 48)}
+              items={exploreItems.slice(0, 96)}
               mode={layoutMode}
               renderCard={(item, mode) => renderCard(item, mode)}
               compact
-              empty={loading ? <LoadingBoard /> : <div className={styles.empty}>{activeSearch ? 'No match. Try a wider phrase.' : 'No signals in this slice.'}</div>}
+              empty={loading ? <LoadingBoard /> : <div className={styles.empty}>{activeSearch ? 'No unseen match. Try a wider phrase.' : 'No unseen signals in this slice.'}</div>}
+              explorationTemperature={explorationTemperature}
+              diversityReference={diversityReference}
+              appendStable
+              streamEpoch={streamEpoch}
+              onNearEnd={handleNearEnd}
             />
           </section>
         ) : null}
@@ -596,7 +795,7 @@ export function FrontierExperience({ initialDateLabel, initialDayKey }: Props) {
                 type="button"
                 className={styles.utilityButton}
                 onClick={() => {
-                  if (window.confirm('Reset local FRONTIER memory, saves, history, and preferences?')) store.resetFrontier();
+                  if (window.confirm('Reset local FRONTIER memory, seen ledger, live queue, saves, history, and preferences?')) resetAll();
                 }}
               >
                 <RotateCcw size={11} /> Reset
@@ -605,6 +804,13 @@ export function FrontierExperience({ initialDateLabel, initialDayKey }: Props) {
           </details>
         </footer>
       </div>
+
+      <FrontierStreamPulse
+        count={pendingCount}
+        leader={daemonStatus.leader}
+        polling={daemonStatus.polling}
+        onReveal={() => void revealPending()}
+      />
 
       <FrontierUtilityDock
         ref={utilityDockRef}
