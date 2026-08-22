@@ -37,7 +37,7 @@ function drawArcAttack(s,p){
   }
   if(s.phase==='active'){
     const prior=s.angle-(s.sweepDir||1)*.07;curveTongue(p,prior,s.reach*.92,.10,true);const tip=curveTongue(p,s.angle,s.reach,1);
-    if((s.phaseTime||0)<=(s.parryWindow||0)){ctx.save();ctx.strokeStyle='rgba(255,250,185,.92)';ctx.lineWidth=2.4;ctx.beginPath();ctx.arc(tip.x,tip.y,13,0,Math.PI*2);ctx.stroke();ctx.restore()}
+    if((s.phaseTime||0)<(s.parryWindow||0)){ctx.save();ctx.strokeStyle='rgba(255,250,185,.92)';ctx.lineWidth=2.4;ctx.beginPath();ctx.arc(tip.x,tip.y,13,0,Math.PI*2);ctx.stroke();ctx.restore()}
     return;
   }
   const t=clamp(s.phaseTime/s.recovery,0,1);curveTongue(p,s.endAngle,s.reach*(1-t)+14,.68*(1-t));
