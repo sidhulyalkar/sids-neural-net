@@ -3,11 +3,17 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 export type FrontierVectorBackend = 'idle' | 'loading' | 'minilm' | 'feature-hash' | 'unavailable';
+export type FrontierEmbeddingBackend = 'minilm' | 'feature-hash';
+
+export type FrontierEmbeddingResult = {
+  vectors: Map<string, Float32Array>;
+  backend: FrontierEmbeddingBackend;
+};
 
 type WorkerVector = { id: string; buffer: ArrayBuffer };
 type WorkerResponse =
-  | { type: 'embedded'; requestId: string; backend: 'minilm' | 'feature-hash'; vectors: WorkerVector[] }
-  | { type: 'ready'; requestId: string; backend: 'minilm' | 'feature-hash' }
+  | { type: 'embedded'; requestId: string; backend: FrontierEmbeddingBackend; vectors: WorkerVector[] }
+  | { type: 'ready'; requestId: string; backend: FrontierEmbeddingBackend }
   | { type: 'error'; requestId: string; message: string };
 
 type Pending = {
@@ -77,13 +83,23 @@ export function useVectorWorker() {
     try { await send({ type: 'warm' }); } catch { setBackend('unavailable'); }
   }, [backend, send]);
 
-  const embed = useCallback(async (items: Array<{ id: string; text: string }>): Promise<Map<string, Float32Array>> => {
-    if (!items.length) return new Map();
+  const embedDetailed = useCallback(async (items: Array<{ id: string; text: string }>): Promise<FrontierEmbeddingResult> => {
+    if (!items.length) {
+      const resolvedBackend: FrontierEmbeddingBackend = backend === 'minilm' ? 'minilm' : 'feature-hash';
+      return { vectors: new Map(), backend: resolvedBackend };
+    }
     setBackend((current) => current === 'idle' ? 'loading' : current);
     const response = await send({ type: 'embed', items: items.slice(0, 32) });
-    if (response.type !== 'embedded') return new Map();
-    return new Map(response.vectors.map((entry) => [entry.id, new Float32Array(entry.buffer)]));
-  }, [send]);
+    if (response.type !== 'embedded') throw new Error('vector worker returned an unexpected response');
+    return {
+      vectors: new Map(response.vectors.map((entry) => [entry.id, new Float32Array(entry.buffer)])),
+      backend: response.backend,
+    };
+  }, [backend, send]);
+
+  const embed = useCallback(async (items: Array<{ id: string; text: string }>): Promise<Map<string, Float32Array>> => {
+    return (await embedDetailed(items)).vectors;
+  }, [embedDetailed]);
 
   useEffect(() => () => {
     workerRef.current?.terminate();
@@ -91,5 +107,5 @@ export function useVectorWorker() {
     failPending('vector worker unmounted');
   }, [failPending]);
 
-  return { embed, warm, backend };
+  return { embed, embedDetailed, warm, backend };
 }
