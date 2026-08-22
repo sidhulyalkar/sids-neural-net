@@ -47,6 +47,40 @@ test('ranked run tickets are signed, current-engine bound and single-use', async
   );
 });
 
+test('fifty simultaneous claims of one valid ticket produce exactly one winner', async () => {
+  const store = new InMemorySylvariaTicketStore();
+  const nonce = '22345678-1234-4234-9234-123456789abc';
+  const issued = await issueSylvariaRunTicket({
+    secret: SECRET,
+    store,
+    now: NOW,
+    ttlMs: 5 * 60_000,
+    buildSha: BUILD_SHA,
+    engineHash: ENGINE_HASH,
+    nonce,
+  });
+
+  const attempts = await Promise.allSettled(
+    Array.from({ length: 50 }, (_, index) => claimSylvariaRunTicket({
+      token: issued.token,
+      secret: SECRET,
+      store,
+      now: NOW + 2000 + index,
+      engineHash: ENGINE_HASH,
+      buildSha: BUILD_SHA,
+    })),
+  );
+
+  const fulfilled = attempts.filter((result) => result.status === 'fulfilled');
+  const rejected = attempts.filter((result) => result.status === 'rejected');
+  assert.equal(fulfilled.length, 1, 'exactly one concurrent request may consume a ticket');
+  assert.equal(rejected.length, 49, 'all duplicate concurrent claims must fail closed');
+  assert.ok(store.peek(nonce)?.usedAt, 'the winning claim must persist the atomic used marker');
+  for (const result of rejected) {
+    assert.match(String(result.reason), /already used/);
+  }
+});
+
 test('ticket verification rejects tampering, expiry and stale engine/build identity', async () => {
   const store = new InMemorySylvariaTicketStore();
   const { token } = await issueSylvariaRunTicket({ secret: SECRET, store, now: NOW, ttlMs: 60_000, buildSha: BUILD_SHA, engineHash: ENGINE_HASH, nonce: NONCE });
