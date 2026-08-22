@@ -9,6 +9,7 @@ import { primaryNavItems, siteNavItems } from '../src/data/siteNav';
 const root = process.cwd();
 const readRepoFile = (path: string) => readFileSync(join(root, path), 'utf8');
 const v091Root = 'public/game-runtimes/mosslight-v2/v091';
+const v011Root = 'public/game-runtimes/mosslight-v2/v011';
 const v091Modules = ['model.js', 'world.js', 'movement.js', 'battle-core.js', 'render.js', 'boot.js', 'fullscreen.js'];
 const gameNetworkSurfaces = [
   'app/page.tsx',
@@ -28,48 +29,63 @@ test('the Game Network exposes every current game as a playable entry', () => {
   }
 });
 
-test('Sylvaria Ecological Synergy v0.10 is canonical while Mosslight remains a compatibility alias', () => {
+test('Sylvaria v0.11.1 presents a minimal 30-arena game while Mosslight remains a compatibility alias', () => {
   const sylvaria = arcadeGames.find((game) => game.slug === 'sylvaria');
   assert.ok(sylvaria);
   assert.equal(sylvaria.title, 'Sylvaria');
-  assert.equal(sylvaria.version, 'v0.10.0');
-  assert.match(sylvaria.subtitle, /COUNTERCUT/);
-  assert.match(sylvaria.subtitle, /VERDANT FLOW/);
-  assert.match(sylvaria.description, /Sprid/);
-  assert.match(sylvaria.description, /840\/1040 px\/s/);
-  assert.match(sylvaria.description, /returned shots can trigger mushrooms/i);
-  assert.match(sylvaria.description, /gas clouds/i);
-  assert.ok(sylvaria.tags.includes('ecological synergy'));
-  assert.ok(sylvaria.tags.includes('verdant flow'));
-  assert.ok(sylvaria.tags.includes('hazard-aware AI'));
-  assert.ok(sylvaria.controls.some((control) => control.input === 'W A S D' && /persistent one-command/i.test(control.action)));
-  assert.ok(sylvaria.controls.some((control) => control.input === 'Arrow Keys' && /arrival-side/i.test(control.action)));
-  assert.ok(sylvaria.controls.some((control) => control.input === 'Returned shots' && /trigger fungi/i.test(control.action)));
-  assert.ok(sylvaria.controls.some((control) => control.input === 'Verdant Flow' && /Crosscuts|Long Returns|terrain routes/i.test(control.action)));
+  assert.equal(sylvaria.version, 'v0.11.1');
+  assert.match(sylvaria.subtitle, /REFLECT/);
+  assert.match(sylvaria.subtitle, /USE THE ROOM/);
+  assert.match(sylvaria.description, /30-arena/);
+  assert.match(sylvaria.description, /120 Hz/);
+  assert.match(sylvaria.description, /server replay verification/);
+  assert.doesNotMatch(`${sylvaria.subtitle} ${sylvaria.description}`, /Sprid|Verdant Flow|Ecological Synergy|PAC-a-Saw/i);
+  assert.ok(sylvaria.tags.includes('fixed arenas'));
+  assert.ok(sylvaria.tags.includes('deterministic replay'));
+  assert.ok(sylvaria.tags.includes('exploration'));
+  assert.ok(sylvaria.controls.some((control) => control.input === 'W A S D' && /cardinal movement|queued/i.test(control.action)));
+  assert.ok(sylvaria.controls.some((control) => control.input === 'Arrow Keys' && /reflect/i.test(control.action)));
+  assert.ok(sylvaria.controls.some((control) => control.input === 'Explore' && /optional routes|temporary/i.test(control.action)));
   assert.equal(getArcadeGame('mosslight')?.slug, 'sylvaria');
   assert.equal(getArcadeGame('sylvaria')?.slug, 'sylvaria');
 });
 
-test('v0.10 boots through an additive entrypoint over the qualified v0.9.1 substrate', () => {
+test('v0.11.1 boots authored arenas and minimal presentation over the qualified simulation substrate', () => {
   const runtime = readRepoFile('public/game-runtimes/mosslight-v2/index.html');
-  const entry = readRepoFile('public/game-runtimes/mosslight-v2/v010-entry.js');
+  const entry = readRepoFile('public/game-runtimes/mosslight-v2/v011-entry.js');
+  const rooms = readRepoFile(`${v011Root}/rooms-v011.js`);
+  const presentation = readRepoFile(`${v011Root}/presentation-v011.js`);
+  const replay = readRepoFile(`${v011Root}/replay-v011.js`);
   const synergy = readRepoFile(`${v091Root}/synergy-v010.js`);
-  assert.match(runtime, /Sylvaria: Ecological Synergy/);
+  assert.match(runtime, /<title>Sylvaria<\/title>/);
+  assert.match(runtime, /sylvaria-minimal-v011\.css/);
   assert.match(runtime, /fieldState/);
   assert.match(runtime, /v091\/fullscreen\.js/);
-  assert.match(runtime, /type="module" src="\.\/v010-entry\.js"/);
+  assert.match(runtime, /type="module" src="\.\/v011-entry\.js"/);
+  assert.doesNotMatch(runtime, /type="module" src="\.\/v010-entry\.js"/);
   assert.doesNotMatch(runtime, /type="module" src="\.\/v091\/boot\.js"/);
   assert.doesNotMatch(runtime, /game-v90\.js|visual-system-v9\.js|game-v82\.js|game-v81\.js|input-buffer-v81\.js|game-v8\.js|game-v5\.js/);
   for (const moduleName of v091Modules) assert.ok(existsSync(join(root, v091Root, moduleName)), `missing qualified v0.9.1 module ${moduleName}`);
-  assert.ok(existsSync(join(root, v091Root, 'synergy-v010.js')));
-  assert.match(entry, /import '\.\/v091\/boot\.js'/);
-  assert.match(entry, /await import\('\.\/v091\/synergy-v010\.js'\)/);
-  assert.match(entry, /VERSION='0\.10\.0'/);
-  for (const flag of ['ecologicalSynergy', 'hazardAwareAI', 'verdantFlow', 'threatPriority', 'pacBulldoze', 'returnEcology', 'gasShear']) assert.match(entry, new RegExp(`${flag}:true`));
+  for (const fileName of ['rooms-v011.js', 'presentation-v011.js', 'replay-v011.js']) assert.ok(existsSync(join(root, v011Root, fileName)), `missing v0.11.1 module ${fileName}`);
+  assert.match(entry, /import '\.\/v091\/model\.js'/);
+  assert.match(entry, /import\('\.\/v011\/rooms-v011\.js'\)/);
+  assert.match(entry, /import\('\.\/v091\/boot\.js'\)/);
+  assert.match(entry, /import\('\.\/v091\/synergy-v010\.js'\)/);
+  assert.match(entry, /import\('\.\/v011\/presentation-v011\.js'\)/);
+  assert.match(entry, /import\('\.\/v011\/replay-v011\.js'\)/);
+  assert.match(entry, /VERSION='0\.11\.1'/);
+  for (const flag of ['expandedArenas', 'minimalPresentation', 'deterministicReplay', 'ecologicalSynergy', 'hazardAwareAI', 'flow', 'threatPriority', 'bossBulldoze', 'returnEcology', 'gasShear']) assert.match(entry, new RegExp(`${flag}:true`));
+  assert.match(rooms, /ROOMS=Object\.freeze/);
+  assert.match(rooms, /bossName:'Surveyor'/);
+  assert.match(rooms, /bossName:'Harvester'/);
+  assert.match(rooms, /bossName:'Mulcher'/);
+  assert.match(presentation, /HEARTLEAF\/gi,'HEAL'/);
+  assert.match(presentation, /PAC-a-Saw\/gi,'BOSS'/);
+  assert.match(replay, /VERSION='0\.11\.1'/);
   assert.match(synergy, /window\.SylvariaSynergy/);
 });
 
-test('v0.10 leaves protected Countercut and queue mechanics in the v0.9.1 movement substrate', () => {
+test('v0.11.1 leaves protected Countercut and queue mechanics in the v0.9.1 movement substrate', () => {
   const model = readRepoFile(`${v091Root}/model.js`);
   const movement = readRepoFile(`${v091Root}/movement.js`);
   const synergy = readRepoFile(`${v091Root}/synergy-v010.js`);
@@ -88,7 +104,7 @@ test('v0.10 leaves protected Countercut and queue mechanics in the v0.9.1 moveme
   assert.doesNotMatch(synergy, /1040|840/);
 });
 
-test('Ecological Synergy composes returned fire, spores, hazard personalities, Flow, and PAC bulldozing', () => {
+test('the inherited ecological subsystem still composes returned fire, spores, cautious AI, Flow, and boss routing', () => {
   const synergy = readRepoFile(`${v091Root}/synergy-v010.js`);
   const doc = readRepoFile('docs/SYLVARIA_V010_ECOLOGICAL_SYNERGY.md');
   assert.match(synergy, /originPattern/);
@@ -142,26 +158,16 @@ test('Game Network fullscreen removes portfolio chrome and gives the iframe the 
   assert.match(playSpace, /style=\{fullscreen \? undefined : \{ aspectRatio: game\.aspectRatio \}\}/);
 });
 
-test('Sprid is the canonical Sylvaria protagonist name', () => {
-  const sylvaria = arcadeGames.find((game) => game.slug === 'sylvaria');
-  assert.ok(sylvaria);
-  assert.match(sylvaria.description, /Sprid/);
-  assert.ok(sylvaria.controls.some((control) => /Sprid/.test(control.action)));
-  for (const path of [
-    'public/game-runtimes/mosslight-v2/index.html',
-    'src/data/arcadeGames.ts',
-    'docs/MOSSLIGHT_MOSSGLINT_RUN_V04.md',
-    'docs/MOSSLIGHT_V02_PLAYABILITY_AND_VISUAL_REVIEW.md',
-    'docs/SYLVARIA_V06_VISUAL_SYSTEM.md',
-    'docs/SYLVARIA_V07_IMMERSION_SYSTEM.md',
-    'docs/SYLVARIA_V08_COUNTERCUT.md',
-    'docs/SYLVARIA_V09_ENVIRONMENTAL_RESONANCE.md',
-    'docs/SYLVARIA_V010_ECOLOGICAL_SYNERGY.md',
-  ]) {
-    const source = readRepoFile(path);
-    assert.match(source, /Sprid/, `${path} should name Sprid`);
-    assert.doesNotMatch(source, /Sprig/, `${path} still contains the retired Sprig name`);
-  }
+test('current Sylvaria player-facing surfaces keep the vocabulary restrained', () => {
+  const visible = [
+    readRepoFile('public/game-runtimes/mosslight-v2/index.html'),
+    readRepoFile('src/data/arcadeGames.ts'),
+  ].join('\n');
+  assert.doesNotMatch(visible, /Sprid|Sprig|Verdant Flow|Ecological Synergy|PAC-a-Saw|Heartleaf|Rush Resin|Barkguard|Edge Stone|Flow Sap/i);
+  assert.match(visible, /Sylvaria/);
+  assert.match(visible, /health/i);
+  assert.match(visible, /reflect/i);
+  assert.match(visible, /explor/i);
 });
 
 test('Game Network naming is consistent across every visible discovery surface', () => {
@@ -206,22 +212,26 @@ test('Vercel allows the site to embed its own game runtimes without allowing cro
   }
 });
 
-test('v0.10 browser/combat validation keeps the four-engine queue gauntlet and adds synergy proofs', () => {
+test('v0.11.1 browser/combat validation keeps the four-engine queue gauntlet and replay parity', () => {
   const workflow = readRepoFile('.github/workflows/ci.yml');
   const browserTest = readRepoFile('scripts/playtest-sylvaria-browsers.mjs');
+  const parityTest = readRepoFile('scripts/playtest-sylvaria-replay-parity.mjs');
   const combatTest = readRepoFile('scripts/playtest-sylvaria-countercut.mjs');
   const synergyTest = readRepoFile('scripts/playtest-sylvaria-synergy.mjs');
   assert.match(workflow, /playwright@1\.55\.0 install chrome/);
   assert.match(workflow, /Chrome Stable Chromium Firefox and WebKit/);
   assert.match(workflow, /profile:sylvaria/);
+  assert.match(workflow, /playtest-sylvaria-replay-parity\.mjs/);
   assert.match(workflow, /playtest-sylvaria-synergy\.mjs/);
   assert.match(browserTest, /name:'chrome-stable'/);
   assert.match(browserTest, /channel:'chrome'/);
-  assert.match(browserTest, /0\.10\.0/);
+  assert.match(browserTest, /0\.11\.1/);
   assert.match(browserTest, /bufferedMove/);
   assert.match(browserTest, /ArrowUp/);
-  assert.match(browserTest, /ecologicalSynergy/);
-  assert.match(browserTest, /verdantFlow/);
+  assert.match(browserTest, /expandedArenas/);
+  assert.match(browserTest, /minimalPresentation/);
+  assert.match(parityTest, /simulateSylvariaReplay/);
+  assert.match(parityTest, /0\.11\.1/);
   assert.match(combatTest, /labEnemyTravel/);
   assert.match(combatTest, /iceFractures/);
   assert.match(combatTest, /hazardKills/);
