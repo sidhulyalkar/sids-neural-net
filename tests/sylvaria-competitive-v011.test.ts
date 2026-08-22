@@ -30,7 +30,7 @@ test('ranked network acquisition is parallel to gameplay and Learn Controls neve
   assert.doesNotMatch(client,/await issueTicket\(run\)/);
 });
 
-test('first-run coaching is action driven and pause/mute repeats are intercepted before game handlers',()=>{
+test('first-run coaching is action driven and keyboard controls are guarded before game handlers',()=>{
   const coach=read('public/game-runtimes/mosslight-v2/v011/coach-v011.js');
   const guard=read('public/game-runtimes/mosslight-v2/v011/input-guard-v011.js');
   assert.match(coach,/stats\.dashes>0/);
@@ -40,7 +40,11 @@ test('first-run coaching is action driven and pause/mute repeats are intercepted
   assert.match(coach,/cut toward incoming shots · reflect/);
   assert.match(guard,/event\.repeat/);
   assert.match(guard,/key==='p'\|\|key==='m'/);
+  assert.match(guard,/key==='enter'/);
+  assert.match(guard,/state\.mode==='menu'/);
+  assert.match(guard,/event\.target\?\.tagName==='BUTTON'/);
   assert.match(guard,/stopImmediatePropagation/);
+  assert.match(guard,/focusedMenuEnter:true/);
 });
 
 test('ranked storage prevents exact replay reuse and submit timing prevents fresh-ticket replay laundering',()=>{
