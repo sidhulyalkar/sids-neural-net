@@ -34,11 +34,15 @@ const EMPTY_STATUS: FrontierDaemonStatus = {
 export function useLiveDiscoveryDaemon(options: {
   focusSignature: string;
   excludeItems: FrontierItem[];
+  prioritizeItems?: (items: FrontierItem[]) => Promise<FrontierItem[]>;
+  onHighPriority?: (items: FrontierItem[], meta: { generatedAt?: string; sources: FrontierSourceStatus[] }) => void;
 }) {
   const workerRef = useRef<Worker | null>(null);
   const exclusionRef = useRef(new Set<string>());
   const exclusionListRef = useRef<string[]>([]);
   const focusRef = useRef(options.focusSignature);
+  const prioritizeRef = useRef(options.prioritizeItems);
+  const highPriorityRef = useRef(options.onHighPriority);
   const pendingRef = useRef(new Map<string, FrontierItem>());
   const lastActivitySent = useRef(0);
   const retryTimer = useRef<number | undefined>(undefined);
@@ -69,8 +73,10 @@ export function useLiveDiscoveryDaemon(options: {
     exclusionRef.current = new Set(excludeSignatures);
     exclusionListRef.current = excludeSignatures;
     focusRef.current = options.focusSignature;
+    prioritizeRef.current = options.prioritizeItems;
+    highPriorityRef.current = options.onHighPriority;
     if (workerRef.current) configureWorker(workerRef.current);
-  }, [configureWorker, excludeSignatures, options.focusSignature]);
+  }, [configureWorker, excludeSignatures, options.focusSignature, options.onHighPriority, options.prioritizeItems]);
 
   const prunePendingForSeen = useCallback((signatures: string[]) => {
     if (!signatures.length || !pendingRef.current.size) return;
@@ -86,10 +92,23 @@ export function useLiveDiscoveryDaemon(options: {
   }, []);
 
   const acceptFresh = useCallback(async (items: FrontierItem[], generatedAt?: string, sources: FrontierSourceStatus[] = []) => {
-    const exact = await filterUnseenFrontierItems(items);
+    let exact = await filterUnseenFrontierItems(items);
+    if (prioritizeRef.current && exact.length) {
+      try { exact = await prioritizeRef.current(exact); } catch { /* priority scoring is additive */ }
+    }
+
+    const allowed = exact.filter((item) => !frontierSeenSignatures(item).some((signature) => exclusionRef.current.has(signature)));
+    const urgent = allowed.filter((item) => item.highPriority && item.watchSignal);
+    const ambient = allowed.filter((item) => !item.highPriority || !item.watchSignal);
+
+    if (urgent.length && highPriorityRef.current) {
+      try { highPriorityRef.current(urgent, { generatedAt, sources }); } catch { /* interruption UI failure cannot drop ambient feed */ }
+    } else if (urgent.length) {
+      ambient.unshift(...urgent);
+    }
+
     let changed = false;
-    for (const item of exact) {
-      if (frontierSeenSignatures(item).some((signature) => exclusionRef.current.has(signature))) continue;
+    for (const item of ambient) {
       const key = frontierItemIdentityKey(item);
       if (!pendingRef.current.has(key)) {
         pendingRef.current.set(key, item);
