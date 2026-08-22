@@ -43,7 +43,7 @@ function readyToRequest(actor){return costFor(actor)>0&&!isBusy(actor)&&actor?.s
 function transitionRank(role){const order=ROLE_TRANSITIONS[lastRole]||ROLE_TRANSITIONS.light;const i=order.indexOf(role);return i<0?order.length:i}
 function candidateSort(a,b){const ar=transitionRank(a.role),br=transitionRank(b.role);if(ar!==br)return ar-br;if(a.requestTick!==b.requestTick)return a.requestTick-b.requestTick;return a.id<b.id?-1:a.id>b.id?1:0}
 function deterministicGap(profile,item){const span=profile.gapMax-profile.gapMin+1;if(span<=1)return profile.gapMin;return profile.gapMin+(hash(`v014-threat:${roomDepth}:${phraseIndex}:${item.id}:${item.serial}`)%span)}
-function resetPhrase(startTick=tick){phraseStartTick=startTick;phraseCost=0;phraseAttacks=0;phraseIndex++}
+function resetPhrase(startTick=tick){phraseStartTick=startTick;phraseCost=0;phraseAttacks=0;phraseIndex++;lastRole='light'}
 function clearActorReservation(actor){if(!actor)return;actor.v014ThreatQueued=false;actor.v014ThreatScheduledTick=null;actor.v014ThreatRole=null;actor.v014ThreatSerial=null}
 
 function enqueueReady(){
@@ -63,8 +63,9 @@ function cancelInvalidRequests(){
   pending=pending.filter(item=>!item.cancelled);
 }
 function beginPhraseRest(profile){resetPhrase(tick+profile.restTicks);gateTick=Math.max(gateTick,punishGraceUntil,tick+profile.restTicks)}
+function resetIdlePhrase(profile){if(phraseAttacks>0&&tick>gateTick+profile.restTicks)resetPhrase(tick)}
 function chooseBeat(){
-  const profile=profileForDepth();if(tick<Math.max(gateTick,punishGraceUntil))return null;
+  const profile=profileForDepth();resetIdlePhrase(profile);if(tick<Math.max(gateTick,punishGraceUntil))return null;
   const waiting=pending.filter(item=>!item.armed&&!item.cancelled);if(!waiting.length)return null;
   if(phraseAttacks>=profile.maxAttacks){beginPhraseRest(profile);return null}
   const remaining=profile.budget-phraseCost;
@@ -121,6 +122,7 @@ window.SylvariaThreatManager=Object.freeze({
   version:THREAT_MANAGER_VERSION,profiles:ROOM_THREAT_PROFILES,roleCost:ROLE_COST,transitions:ROLE_TRANSITIONS,roleFor,
   snapshot:()=>({
     version:THREAT_MANAGER_VERSION,roomDepth,tick,profile:profileForDepth(),gateTick,phraseStartTick,phraseCost,phraseAttacks,phraseIndex,lastRole,punishGraceUntil,punishWindowActive,
+    queuedCost:pending.filter(item=>!item.armed&&!item.cancelled).reduce((sum,item)=>sum+item.cost,0),
     queue:pending.map(item=>({id:item.id,role:item.role,cost:item.cost,requestTick:item.requestTick,armed:item.armed,slotTick:item.slotTick,gapTicks:item.gapTicks,boss:item.actor===state.boss})),
     releases:[...releases],
   }),
