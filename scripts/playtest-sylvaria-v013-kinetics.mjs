@@ -22,30 +22,68 @@ check(movementSamples.at(-1).x-movementSamples[0].x>20,`continuous glide covered
 check(movementSamples.every(sample=>sample.dashes===0),'ordinary held movement incremented dash count');
 check(released>80&&coasted<released,`release drag did not produce a smooth coast: ${released} -> ${coasted}`);
 
-// Diagonal charged dash remains one continuous velocity system rather than a scripted second locomotion mode.
+// Diagonal charged dash uses one exponentially decaying velocity burst rather than a scripted locomotion mode.
 await page.evaluate(()=>window.__MOSSLIGHT_PLAYTEST__.setPlayerPosition(320,390));
 await page.keyboard.down('d');await page.keyboard.down('w');await page.waitForTimeout(85);await page.keyboard.down('Space');await page.waitForTimeout(405);
-const charge=await page.evaluate(()=>window.SylvariaKinetics.snapshot());await page.keyboard.up('Space');await page.waitForTimeout(28);const burst=await page.evaluate(()=>({kinetics:window.SylvariaKinetics.snapshot(),player:{...window.Sylvaria091.state.player},dashes:window.Sylvaria091.state.stats.dashes}));await page.keyboard.up('d');await page.keyboard.up('w');
+const charge=await page.evaluate(()=>window.SylvariaKinetics.snapshot());await page.keyboard.up('Space');await page.waitForTimeout(8);
+const dashDecaySamples=[];
+for(let i=0;i<5;i++){dashDecaySamples.push(await page.evaluate(()=>{const k=window.SylvariaKinetics.snapshot(),p=window.Sylvaria091.state.player;return{speed:k.dash?.speed??null,ticksLeft:k.dash?.ticksLeft??0,vx:p.vx,vy:p.vy,dashes:window.Sylvaria091.state.stats.dashes}}));await page.waitForTimeout(17)}
+const burst=await page.evaluate(()=>({kinetics:window.SylvariaKinetics.snapshot(),player:{...window.Sylvaria091.state.player},dashes:window.Sylvaria091.state.stats.dashes}));await page.keyboard.up('d');await page.keyboard.up('w');
+const liveDecay=dashDecaySamples.filter(sample=>Number.isFinite(sample.speed));
 check(charge.dashCharging&&charge.dashCharge>.48,`dash charge did not accumulate under held steering: ${JSON.stringify(charge)}`);
-check((burst.kinetics.velocity?.speed||0)>520,`charged burst failed to exceed minimum dash velocity: ${JSON.stringify(burst.kinetics)}`);
-check(burst.player.vx>200&&burst.player.vy<-200,`charged diagonal burst lost steering vector: vx=${burst.player.vx}, vy=${burst.player.vy}`);
+check(liveDecay.length>=3,`dash ended before exponential decay could be measured: ${JSON.stringify(dashDecaySamples)}`);
+check(liveDecay.every((sample,index)=>index===0||sample.speed<liveDecay[index-1].speed),`dash speed did not decay monotonically: ${JSON.stringify(liveDecay)}`);
+check((liveDecay[0]?.speed||0)>520,`charged burst failed to create a high-speed opening impulse: ${JSON.stringify(liveDecay)}`);
+check(liveDecay[0]?.vx>200&&liveDecay[0]?.vy<-200,`charged diagonal burst lost steering vector: ${JSON.stringify(liveDecay[0])}`);
 check(burst.dashes===1,`charge/release should create exactly one dash, saw ${burst.dashes}`);
 
-// A real projectile meets the middle of a rightward sweep and returns at the v0.13 perfect speed.
-await page.evaluate(()=>{const p=window.__MOSSLIGHT_PLAYTEST__;p.setRoom(0,1);p.clearCombatants();p.labClearGeometry();p.setPlayerPosition(300,330);p.spawnCounterShot('right',70,{speed:180,pattern:'straight'})});
-await page.keyboard.press('ArrowRight');await page.waitForTimeout(132);
-const reflect=await page.evaluate(()=>({shots:window.__MOSSLIGHT_PLAYTEST__.snapshot().shots,stats:{...window.Sylvaria091.state.stats},arc:window.SylvariaKinetics.snapshot().arc,presentation:window.SylvariaKineticPresentation.snapshot()}));
-const returned=reflect.shots.find(shot=>shot.friendly);
-check(Boolean(returned),`timed tongue sweep did not reflect projectile: ${JSON.stringify(reflect.shots)}`);
-check(returned&&Math.abs(returned.speed-1120)<1,`mid-swing return speed expected 1120, got ${returned?.speed}`);
-check(returned?.counterQuality==='perfect',`mid-swing return was not classified perfect: ${returned?.counterQuality}`);
-check(reflect.stats.perfectCounters>=1,'perfect counter stat did not increment');
-check(reflect.presentation.renderedArcs>0,'kinetic presentation did not observe the active sweep');
+// Space pressed and released inside the final 100 ms of cooldown is buffered, then executes once ready.
+await page.waitForFunction(()=>{const p=window.Sylvaria091.state.player;return !p.dash&&p.dashCooldown>0&&p.dashCooldown<.075},{timeout:1600});
+const dashesBeforeBuffer=await page.evaluate(()=>window.Sylvaria091.state.stats.dashes);
+await page.keyboard.press('Space');
+const buffered=await page.evaluate(()=>window.SylvariaKinetics.snapshot());
+check(buffered.dashBuffered===true||buffered.dashBuffer>0,`Space intent did not buffer during recovery: ${JSON.stringify(buffered)}`);
+await page.waitForFunction(base=>window.Sylvaria091.state.stats.dashes===base+1,dashesBeforeBuffer,{timeout:500});
+const bufferedExecuted=await page.evaluate(()=>window.SylvariaKinetics.snapshot());
+check(bufferedExecuted.dashing===true||Math.hypot(window.Sylvaria091?.state?.player?.vx||0,window.Sylvaria091?.state?.player?.vy||0)>238,'buffered dash did not execute when cooldown cleared');
 
-// The moving arc damages enemies spatially, not by a piston-line proxy.
-await page.evaluate(()=>{const p=window.__MOSSLIGHT_PLAYTEST__;p.setRoom(0,1);p.clearCombatants();p.labClearGeometry();p.setPlayerPosition(300,330);const id=p.spawnTestEnemy('foreman',366,330,'arc-hit-target');const e=window.Sylvaria091.state.enemies.find(x=>x.id===id);e.state='recover';e.counterStagger=9});
-const hpBefore=await page.evaluate(()=>window.Sylvaria091.state.enemies.find(e=>e.id==='arc-hit-target').hp);await page.keyboard.press('ArrowRight');await page.waitForTimeout(190);const hpAfter=await page.evaluate(()=>window.Sylvaria091.state.enemies.find(e=>e.id==='arc-hit-target').hp);
-check(hpAfter<hpBefore,`arc sweep did not damage nearby target: ${hpBefore} -> ${hpAfter}`);
+// A committed dash can cancel into a faster tongue wind-up after four simulation ticks.
+await page.waitForFunction(()=>!window.Sylvaria091.state.player.dash&&window.Sylvaria091.state.player.dashCooldown<=0,{timeout:1800});
+await page.evaluate(()=>{const p=window.__MOSSLIGHT_PLAYTEST__;p.setPlayerPosition(300,330);window.Sylvaria091.state.player.cutCooldown=0});
+await page.keyboard.down('d');await page.keyboard.down('Space');await page.waitForTimeout(280);await page.keyboard.up('Space');await page.waitForTimeout(46);await page.keyboard.press('ArrowRight');await page.keyboard.up('d');
+await page.waitForFunction(()=>window.SylvariaKinetics.snapshot().arc?.dashCancelled===true,{timeout:350});
+const dashCancel=await page.evaluate(()=>({kinetics:window.SylvariaKinetics.snapshot(),player:{dash:Boolean(window.Sylvaria091.state.player.dash),dashEcho:window.Sylvaria091.state.player.dashEcho,vx:window.Sylvaria091.state.player.vx,vy:window.Sylvaria091.state.player.vy}}));
+check(dashCancel.kinetics.arc?.dashCancelled===true,`dash did not cancel into blade: ${JSON.stringify(dashCancel)}`);
+check(dashCancel.player.dash===false&&dashCancel.player.dashEcho>0,`dash cancel did not transition through blade-cancel echo state: ${JSON.stringify(dashCancel.player)}`);
+
+// A real projectile meets the opening five active ticks of a rightward sweep and returns at 1160 px/s.
+await page.evaluate(()=>{const p=window.__MOSSLIGHT_PLAYTEST__;p.setRoom(0,1);p.clearCombatants();p.labClearGeometry();p.setPlayerPosition(300,330);window.Sylvaria091.state.player.cutCooldown=0;p.spawnCounterShot('right',70,{speed:180,pattern:'straight'})});
+const parriesBefore=await page.evaluate(()=>window.Sylvaria091.state.stats.perfectCounters||0);await page.keyboard.press('ArrowRight');
+await page.waitForFunction(base=>(window.Sylvaria091.state.stats.perfectCounters||0)>base,parriesBefore,{timeout:450});await page.waitForTimeout(20);
+const reflect=await page.evaluate(()=>({shots:window.__MOSSLIGHT_PLAYTEST__.snapshot().shots,stats:{...window.Sylvaria091.state.stats},arc:window.SylvariaKinetics.snapshot().arc,presentation:window.SylvariaKineticPresentation.snapshot(),hitStop:window.SylvariaKinetics.snapshot().hitStop}));
+const returned=reflect.shots.find(shot=>shot.friendly);
+check(Boolean(returned),`opening tongue parry did not reflect projectile: ${JSON.stringify(reflect.shots)}`);
+check(returned&&Math.abs(returned.speed-1160)<1,`opening parry return speed expected 1160, got ${returned?.speed}`);
+check(returned?.counterQuality==='perfect',`opening parry return was not classified perfect: ${returned?.counterQuality}`);
+check(reflect.stats.perfectCounters>parriesBefore,'perfect counter stat did not increment');
+check(reflect.presentation.renderedArcs>0||reflect.presentation.renderedTrailSamples>0,'kinetic presentation did not observe the blade sweep');
+check(reflect.hitStop?.kind==='parry'&&reflect.hitStop?.ticks===4,`parry did not emit heavy hit-stop signal: ${JSON.stringify(reflect.hitStop)}`);
+check((reflect.presentation.hitStopsRendered||0)>0,'presentation did not render selective parry hit-stop');
+
+// A projectile placed on the later active sweep must stay hostile: later tongue frames are offense, not a giant parry cone.
+await page.evaluate(()=>{const p=window.__MOSSLIGHT_PLAYTEST__;p.setRoom(0,1);p.clearCombatants();p.labClearGeometry();p.setPlayerPosition(300,330);window.Sylvaria091.state.player.cutCooldown=0});
+await page.keyboard.press('ArrowRight');
+await page.waitForFunction(()=>{const a=window.SylvariaKinetics.snapshot().arc;return a?.phase==='active'&&a.phaseTime>(a.parryWindow+.018)},{timeout:300});
+const lateShotIndex=await page.evaluate(()=>{const p=window.__MOSSLIGHT_PLAYTEST__,G=window.Sylvaria091,a=window.SylvariaKinetics.snapshot().arc,pl=G.state.player,angle=a.angle;p.spawnCounterShot('right',62,{speed:150,pattern:'straight'});const s=G.state.shots.at(-1);s.x=pl.x+Math.cos(angle)*62;s.y=pl.y+Math.sin(angle)*62;s.vx=-Math.cos(angle)*150;s.vy=-Math.sin(angle)*150;s.baseSpeed=150;return G.state.shots.length-1});
+await page.waitForTimeout(25);
+const lateShot=await page.evaluate(index=>{const s=window.Sylvaria091.state.shots[index];return s?{friendly:s.friendly,dead:s.dead,x:s.x,y:s.y,counterQuality:s.counterQuality}:null},lateShotIndex);
+check(lateShot&&!lateShot.friendly,`late active-sweep projectile incorrectly parried: ${JSON.stringify(lateShot)}`);
+
+// The moving later arc still damages enemies spatially, not by a piston-line proxy.
+await page.evaluate(()=>{const p=window.__MOSSLIGHT_PLAYTEST__;p.setRoom(0,1);p.clearCombatants();p.labClearGeometry();p.setPlayerPosition(300,330);window.Sylvaria091.state.player.cutCooldown=0;const id=p.spawnTestEnemy('foreman',366,330,'arc-hit-target');const e=window.Sylvaria091.state.enemies.find(x=>x.id===id);e.state='recover';e.counterStagger=9});
+const hpBefore=await page.evaluate(()=>window.Sylvaria091.state.enemies.find(e=>e.id==='arc-hit-target').hp);await page.keyboard.press('ArrowRight');await page.waitForTimeout(190);const directHit=await page.evaluate(()=>({hp:window.Sylvaria091.state.enemies.find(e=>e.id==='arc-hit-target').hp,hitStop:window.SylvariaKinetics.snapshot().hitStop}));
+check(directHit.hp<hpBefore,`arc sweep did not damage nearby target: ${hpBefore} -> ${directHit.hp}`);
+check(directHit.hitStop?.kind==='enemy'&&directHit.hitStop?.ticks===1,`direct blade hit did not emit light hit-stop signal: ${JSON.stringify(directHit.hitStop)}`);
 
 // Strider sees the authored sweep during wind-up and commits a terrain-safe dodge.
 const striderSetup=await page.evaluate(()=>{const p=window.__MOSSLIGHT_PLAYTEST__;p.setRoom(1,2);p.labClearGeometry();p.setPlayerPosition(300,330);const G=window.Sylvaria091,e=G.state.enemies.find(x=>x.kineticType==='strider');for(const other of G.state.enemies)if(other!==e)other.dead=true;e.x=366;e.y=330;e.state='move';e.arcDodgeCooldown=0;e.kineticEvade=null;for(let seed=1;seed<500;seed++){const probe={rngState:seed};if(G.entityRand(probe)<.5){e.rngState=seed;break}}return{id:e.id,x:e.x,y:e.y,dodges:G.state.stats.enemyArcDodges||0}});await page.keyboard.press('ArrowRight');await page.waitForTimeout(310);const striderAfter=await page.evaluate(id=>{const G=window.Sylvaria091,e=G.state.enemies.find(x=>x.id===id);return{x:e.x,y:e.y,state:e.state,dodges:G.state.stats.enemyArcDodges||0}},striderSetup.id);
@@ -59,7 +97,7 @@ check(shell.flankLoss>.9,`Shellback flank hit unexpectedly reduced: ${JSON.strin
 check(shell.reflectedLoss>shell.flankLoss,`reflected fire should punish Shellback harder than a flank swipe: ${JSON.stringify(shell)}`);
 check(shell.shellBlocks>=1,'Shellback block stat/cue did not register');
 
-// Sniper creates genuinely faster precision lanes, increasing counter timing pressure.
+// Sniper creates genuinely faster precision lanes, increasing parry timing pressure.
 await page.evaluate(()=>{const p=window.__MOSSLIGHT_PLAYTEST__;p.setRoom(3,4);p.labClearGeometry();const G=window.Sylvaria091,e=G.state.enemies.find(x=>x.kineticType==='sniper');for(const other of G.state.enemies)if(other!==e)other.dead=true;e.x=700;e.y=330;e.state='move';e.clock=.001;G.state.player.x=300;G.state.player.y=330});await page.waitForTimeout(470);const sniper=await page.evaluate(()=>window.__MOSSLIGHT_PLAYTEST__.snapshot().shots.map(s=>({speed:s.speed,pattern:s.pattern,kind:s.kind})));
 check(sniper.some(shot=>shot.speed>=530),`Dragonfly sniper did not create high-velocity precision fire: ${JSON.stringify(sniper)}`);
 
@@ -69,8 +107,8 @@ check(Math.hypot(currentAfter.x-currentBefore.x,currentAfter.y-currentBefore.y)>
 check(Math.hypot(currentAfter.x-currentBefore.x,currentAfter.y-currentBefore.y)<25,`water current displaced frog too violently: ${JSON.stringify({currentBefore,currentAfter})}`);
 
 await page.waitForTimeout(220);const final=await page.evaluate(()=>window.__MOSSLIGHT_PLAYTEST__.snapshot());check(final.fps>=42,`kinetic combat lab FPS fell below 42: ${final.fps}`);check(final.shots.length<=128&&final.pendingShots<=72,`projectile caps exceeded: ${final.shots.length}/${final.pendingShots}`);for(const error of pageErrors)failures.push(`pageerror: ${error}`);
-await page.screenshot({path:path.join(outputDir,'kinetic-combat-lab-v013.png'),fullPage:true});
-const report={movementSamples,released,coasted,charge,burst:{speed:burst.kinetics.velocity?.speed,vx:burst.player.vx,vy:burst.player.vy},reflect:{speed:returned?.speed,quality:returned?.counterQuality,perfectCounters:reflect.stats.perfectCounters},enemyArcHit:{hpBefore,hpAfter},strider:{before:striderSetup,after:striderAfter},shellback:shell,sniperShots:sniper,current:{before:currentBefore,after:currentAfter},fps:final.fps,caps:{shots:final.shots.length,pending:final.pendingShots},failures};fs.writeFileSync(path.join(outputDir,'report.json'),JSON.stringify(report,null,2));
+await page.screenshot({path:path.join(outputDir,'reactive-blade-combat-lab-v013.png'),fullPage:true});
+const report={movementSamples,released,coasted,charge,dashDecaySamples,burst:{speed:burst.kinetics.velocity?.speed,vx:burst.player.vx,vy:burst.player.vy},buffered,bufferedExecuted,dashCancel,parry:{speed:returned?.speed,quality:returned?.counterQuality,perfectCounters:reflect.stats.perfectCounters,hitStop:reflect.hitStop,visualHitStops:reflect.presentation.hitStopsRendered},lateShot,directHit:{hpBefore,hpAfter:directHit.hp,hitStop:directHit.hitStop},strider:{before:striderSetup,after:striderAfter},shellback:shell,sniperShots:sniper,current:{before:currentBefore,after:currentAfter},fps:final.fps,caps:{shots:final.shots.length,pending:final.pendingShots},failures};fs.writeFileSync(path.join(outputDir,'report.json'),JSON.stringify(report,null,2));
 await browser.close();
-if(failures.length){console.error(`Sylvaria v0.13 kinetics lab failed with ${failures.length} issue(s):`);for(const failure of failures)console.error(` - ${failure}`);process.exit(1)}
-console.log(`Sylvaria v0.13 kinetics lab PASS · glide coast ${released.toFixed(1)}→${coasted.toFixed(1)} px/s · diagonal burst ${burst.kinetics.velocity.speed.toFixed(1)} px/s · perfect arc return ${returned.speed.toFixed(0)} px/s · Strider dodge ${Math.hypot(striderAfter.x-striderSetup.x,striderAfter.y-striderSetup.y).toFixed(1)} px · Shellback front/flank/return ${shell.frontLoss.toFixed(2)}/${shell.flankLoss.toFixed(2)}/${shell.reflectedLoss.toFixed(2)} · FPS ${final.fps.toFixed(1)}.`);
+if(failures.length){console.error(`Sylvaria v0.13 Reactive Blade kinetics lab failed with ${failures.length} issue(s):`);for(const failure of failures)console.error(` - ${failure}`);process.exit(1)}
+console.log(`Sylvaria v0.13 Reactive Blade lab PASS · glide coast ${released.toFixed(1)}→${coasted.toFixed(1)} px/s · opening dash ${liveDecay[0].speed.toFixed(1)} px/s with monotonic exponential decay · buffered dash executed · dash→blade cancel verified · opening parry ${returned.speed.toFixed(0)} px/s · late projectile stayed hostile · Strider dodge ${Math.hypot(striderAfter.x-striderSetup.x,striderAfter.y-striderSetup.y).toFixed(1)} px · Shellback front/flank/return ${shell.frontLoss.toFixed(2)}/${shell.flankLoss.toFixed(2)}/${shell.reflectedLoss.toFixed(2)} · FPS ${final.fps.toFixed(1)}.`);
