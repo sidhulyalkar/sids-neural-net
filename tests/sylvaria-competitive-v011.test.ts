@@ -34,13 +34,14 @@ test('ranked network acquisition remains parallel to gameplay and Learn Controls
   assert.doesNotMatch(client,/await issueTicket\(run\)/);
 });
 
-test('v0.13 first-run coaching teaches glide charge sweep reflect and keeps keyboard guards',()=>{
+test('v0.13 first-run coaching teaches glide charge sweep opening parry and keeps keyboard guards',()=>{
   const coach=read('public/game-runtimes/mosslight-v2/v013/coach-v013.js');
   const guard=read('public/game-runtimes/mosslight-v2/v011/input-guard-v011.js');
   assert.match(coach,/WASD · glide freely/);
   assert.match(coach,/hold SPACE · charge · release to dash/);
   assert.match(coach,/arrow key · sweep the tongue/);
-  assert.match(coach,/mid-swing · reflect/);
+  assert.match(coach,/opening blade frames · parry incoming fire/);
+  assert.doesNotMatch(coach,/mid-swing/i);
   assert.match(coach,/stats\.dashes>0/);
   assert.match(coach,/stats\.cuts>0/);
   assert.match(coach,/stats\.counters>0/);
