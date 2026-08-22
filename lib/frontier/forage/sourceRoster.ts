@@ -5,6 +5,7 @@ const DB_VERSION = 1;
 const SOURCE_STORE = 'poll_sources';
 const DOMAIN_STORE = 'domain_observations';
 export const FRONTIER_FORAGED_SOURCE_LIMIT = 50;
+export const FRONTIER_FORAGED_SOURCE_CHANNEL = 'frontier-source-roster-v1';
 const BASE_POLL_INTERVAL_MS = 12 * 60_000;
 const DOMAIN_PROBE_INTERVAL_MS = 12 * 60 * 60_000;
 
@@ -51,6 +52,15 @@ function transactionDone(transaction: IDBTransaction): Promise<void> {
     transaction.onabort = () => reject(transaction.error ?? new Error('IndexedDB transaction aborted'));
     transaction.onerror = () => reject(transaction.error ?? new Error('IndexedDB transaction failed'));
   });
+}
+
+function publishRosterChange(): void {
+  if (typeof BroadcastChannel === 'undefined') return;
+  try {
+    const channel = new BroadcastChannel(FRONTIER_FORAGED_SOURCE_CHANNEL);
+    channel.postMessage({ type: 'changed', at: Date.now() });
+    channel.close();
+  } catch {}
 }
 
 let dbPromise: Promise<IDBDatabase> | undefined;
@@ -125,7 +135,7 @@ export function retainFrontierForagedSources(
 async function allSources(db: IDBDatabase): Promise<FrontierForagedSource[]> {
   const transaction = db.transaction(SOURCE_STORE, 'readonly');
   const done = transactionDone(transaction);
-  const records = await requestPromise(transaction.objectStore(SOURCE_STORE).getAll()) as FrontierForagedSource[];
+  const records = await requestPromise(transaction.objectStore(STORE).getAll()) as FrontierForagedSource[];
   await done;
   return records;
 }
@@ -192,6 +202,7 @@ export async function upsertFrontierForagedSources(
     }
     await done;
     await pruneSources(db, now);
+    publishRosterChange();
     return written;
   } catch {
     return [];
@@ -300,5 +311,6 @@ export async function clearFrontierForagedSources(): Promise<void> {
     transaction.objectStore(SOURCE_STORE).clear();
     transaction.objectStore(DOMAIN_STORE).clear();
     await done;
+    publishRosterChange();
   } catch {}
 }
