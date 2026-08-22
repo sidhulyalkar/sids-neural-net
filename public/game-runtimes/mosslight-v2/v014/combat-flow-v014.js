@@ -6,6 +6,7 @@ export const FLOW_CONFIG=Object.freeze({
   bladeBuffer:7/120,
   dashCommitTicks:4,
   dashSteerBlend:.055,
+  dashSteerMaxRadians:.38,
   parryDashRefund:12/120,
   recoveryTicksAtFullFlow:7,
   minimumReleaseCharge:.12,
@@ -14,6 +15,7 @@ export const FLOW_CONFIG=Object.freeze({
 const q=v=>Math.round(v*100000)/100000;
 const normalize=(x,y)=>{const m=Math.hypot(x,y);return m>1e-7?{x:q(x/m),y:q(y/m),m}:{x:0,y:0,m:0}};
 const smoothstep=t=>t*t*(3-2*t);
+const angleDelta=(from,to)=>Math.atan2(Math.sin(to-from),Math.cos(to-from));
 const solvedOpeningSpeed=(distance,ticks,decay=BASE_KINETICS.config.dashDecay)=>q(distance*(1-decay)/(FIXED_DT*(1-Math.pow(decay,ticks))));
 const dashSpecForCharge=charge=>{
   const curve=smoothstep(clamp(charge,0,1)),ticks=Math.round(lerp(BASE_KINETICS.config.dashTicksMin,BASE_KINETICS.config.dashTicksMax,curve)),distance=q(lerp(BASE_KINETICS.config.dashDistanceMin,BASE_KINETICS.config.dashDistanceMax,curve));
@@ -54,9 +56,11 @@ function canReleaseQueuedBlade(p){
 function steerCommittedDash(p){
   if(!p?.dash?.reactive)return;
   const input=F.heldVector?.();if(!input?.m)return;
-  const b=FLOW_CONFIG.dashSteerBlend,d=p.dash.dir;
-  const steered=normalize(d.x*(1-b)+input.x*b,d.y*(1-b)+input.y*b);
-  if(steered.m)p.dash.dir={x:steered.x,y:steered.y};
+  const dash=p.dash,d=dash.dir;
+  if(!dash.v014LaunchDir)dash.v014LaunchDir={x:d.x,y:d.y};
+  const b=FLOW_CONFIG.dashSteerBlend,proposed=normalize(d.x*(1-b)+input.x*b,d.y*(1-b)+input.y*b);if(!proposed.m)return;
+  const launchAngle=Math.atan2(dash.v014LaunchDir.y,dash.v014LaunchDir.x),proposedAngle=Math.atan2(proposed.y,proposed.x),delta=clamp(angleDelta(launchAngle,proposedAngle),-FLOW_CONFIG.dashSteerMaxRadians,FLOW_CONFIG.dashSteerMaxRadians),angle=launchAngle+delta;
+  dash.dir={x:q(Math.cos(angle)),y:q(Math.sin(angle))};
 }
 
 function heldSetForVector(v){
@@ -76,10 +80,6 @@ F.releaseDashCharge=()=>{
   try{return inheritedReleaseDashCharge()}finally{state.heldMoves=realHeld}
 };
 
-// The v0.13 DOM handler closes over its original release function. A window-level
-// capture listener reaches Space-up first and routes it through the v0.14
-// authoritative seam. The inherited document handler then observes an already
-// released charge and becomes a no-op, while replay listeners still receive the event.
 function onFlowSpaceUp(event){
   if(String(event.key||'').toLowerCase()!==' '&&event.code!=='Space')return;
   if(state.mode!=='playing')return;
@@ -125,11 +125,6 @@ F.updateMovement=(dt)=>{
   if(p)steerCommittedDash(p);
   if(dashRef&&!Number.isFinite(dashRef.v014PathTravel))dashRef.v014PathTravel=0;
   const ox=p?.x??0,oy=p?.y??0;
-
-  // The geometric dash solver owns burst magnitude. During a committed dash,
-  // WASD may rotate dash.dir above, but it must not also inject ordinary glide
-  // acceleration into the same tick. On neutral ground this makes the reachable
-  // 81.020544–154 px target describe actual path length, not merely an internal scalar.
   const held=dashRef?state.heldMoves:null;
   if(dashRef)state.heldMoves=new Set();
   let result;
@@ -138,12 +133,7 @@ F.updateMovement=(dt)=>{
   if(dashRef&&p){
     dashRef.v014PathTravel=q((dashRef.v014PathTravel||0)+Math.hypot(p.x-ox,p.y-oy));
     if(!p.dash){
-      p.lastDashAccuracy={
-        distanceTarget:q(dashRef.distanceTarget||0),
-        pathTravel:q(dashRef.v014PathTravel||0),
-        displacement:q(Math.hypot(p.x-dashRef.sx,p.y-dashRef.sy)),
-        totalTicks:dashRef.totalTicks||0,
-      };
+      p.lastDashAccuracy={distanceTarget:q(dashRef.distanceTarget||0),pathTravel:q(dashRef.v014PathTravel||0),displacement:q(Math.hypot(p.x-dashRef.sx,p.y-dashRef.sy)),totalTicks:dashRef.totalTicks||0};
     }
   }
 
@@ -170,21 +160,6 @@ F.updateSlashes=(dt)=>{
 };
 
 window.SylvariaFlowCombat=Object.freeze({
-  version:FLOW_VERSION,
-  config:FLOW_CONFIG,
-  dashDistanceEnvelope:DASH_DISTANCE_ENVELOPE,
-  dashSpeedEnvelope:DASH_SPEED_ENVELOPE,
-  snapshot:()=>({
-    version:FLOW_VERSION,
-    bladeBuffered:Boolean(state.player?.bladeQueuedDirection&&state.player?.bladeBuffer>0),
-    bladeBuffer:state.player?.bladeBuffer||0,
-    bladeQueuedDirection:state.player?.bladeQueuedDirection||null,
-    dashCommitTicks:FLOW_CONFIG.dashCommitTicks,
-    dashSteerBlend:FLOW_CONFIG.dashSteerBlend,
-    parryDashRefund:FLOW_CONFIG.parryDashRefund,
-    dashDistanceEnvelope:DASH_DISTANCE_ENVELOPE,
-    dashSpeedEnvelope:DASH_SPEED_ENVELOPE,
-    dashChargeVector:state.player?.dashChargeVector?{...state.player.dashChargeVector}:null,
-    lastDashAccuracy:state.player?.lastDashAccuracy||null,
-  }),
+  version:FLOW_VERSION,config:FLOW_CONFIG,dashDistanceEnvelope:DASH_DISTANCE_ENVELOPE,dashSpeedEnvelope:DASH_SPEED_ENVELOPE,
+  snapshot:()=>({version:FLOW_VERSION,bladeBuffered:Boolean(state.player?.bladeQueuedDirection&&state.player?.bladeBuffer>0),bladeBuffer:state.player?.bladeBuffer||0,bladeQueuedDirection:state.player?.bladeQueuedDirection||null,dashCommitTicks:FLOW_CONFIG.dashCommitTicks,dashSteerBlend:FLOW_CONFIG.dashSteerBlend,dashSteerMaxRadians:FLOW_CONFIG.dashSteerMaxRadians,parryDashRefund:FLOW_CONFIG.parryDashRefund,dashDistanceEnvelope:DASH_DISTANCE_ENVELOPE,dashSpeedEnvelope:DASH_SPEED_ENVELOPE,dashChargeVector:state.player?.dashChargeVector?{...state.player.dashChargeVector}:null,lastDashAccuracy:state.player?.lastDashAccuracy||null}),
 });
