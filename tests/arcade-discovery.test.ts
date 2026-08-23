@@ -22,7 +22,7 @@ test('the Game Network exposes every current game as a playable entry', () => {
   for (const game of arcadeGames) { assert.equal(game.status, 'playable'); assert.ok(game.launchUrl); }
 });
 
-test('Sylvaria v0.15 advertises the Cutstep forest prototype actually shipped by production', () => {
+test('Sylvaria v0.15 advertises the Cutstep forest alpha actually shipped by production', () => {
   const game = arcadeGames.find((entry) => entry.slug === 'sylvaria');
   assert.ok(game);
   assert.equal(game.title, 'Sylvaria');
@@ -39,7 +39,7 @@ test('Sylvaria v0.15 advertises the Cutstep forest prototype actually shipped by
   assert.equal(getArcadeGame('sylvaria')?.slug, 'sylvaria');
 });
 
-test('v0.15 boots v0.14 as a preserved substrate then owns Cutstep forest play', () => {
+test('v0.15 boots v0.14 as a preserved substrate then owns the polished forest combat alpha', () => {
   const html = read(`${runtime}/index.html`),entry11=read(`${runtime}/v011-entry.js`),entry12=read(`${runtime}/v012-entry.js`),entry13=read(`${runtime}/v013-entry.js`),entry14=read(`${runtime}/v014-entry.js`),entry15=read(`${runtime}/v015-entry.js`);
   assert.match(html, /Sylvaria · Cutstep Forest/);
   assert.match(html, /sylvaria-forest-v015\.css/);
@@ -50,14 +50,15 @@ test('v0.15 boots v0.14 as a preserved substrate then owns Cutstep forest play',
   for (const moduleName of ['webgl-pond-v012.js','art-atlas-v012.js','art-atlas-pro-v012.js']) assert.ok(existsSync(join(root,v012,moduleName)),`missing v0.12 renderer ${moduleName}`);
   for (const moduleName of ['kinetic-combat-v013.js','enemy-ai-v013.js','replay-v013.js','coach-v013.js','kinetic-presentation-v013.js']) assert.ok(existsSync(join(root,v013,moduleName)),`missing v0.13 substrate ${moduleName}`);
   for (const moduleName of ['character-rig-v014.js','combat-flow-v014.js','enemy-flow-v014.js','boss-flow-v014.js','threat-manager-v014.js','flow-presentation-v014.js']) assert.ok(existsSync(join(root,v014,moduleName)),`missing v0.14 substrate ${moduleName}`);
-  for (const moduleName of ['cutstep-v015.js','forest-world-v015.js','cutstep-presentation-v015.js']) assert.ok(existsSync(join(root,v015,moduleName)),`missing v0.15 module ${moduleName}`);
+  for (const moduleName of ['cutstep-v015.js','encounter-director-v015.js','forest-world-v015.js','discoveries-v015.js','forest-actors-v015.js','cutstep-presentation-v015.js']) assert.ok(existsSync(join(root,v015,moduleName)),`missing v0.15 module ${moduleName}`);
   assert.doesNotMatch(entry11,/replay-v011|coach-v011|competitive-v011/);
   assert.match(entry12,/PRESENTATION='0\.12\.0',ENGINE='0\.11\.1'/);
   for(const moduleName of ['kinetic-combat-v013.js','enemy-ai-v013.js','replay-v013.js','coach-v013.js','kinetic-presentation-v013.js'])assert.ok(entry13.includes(moduleName));
   assert.match(entry14,/await import\('\.\/v013-entry\.js'\)/);
   assert.match(entry15,/await import\('\.\/v014-entry\.js'\)/);
-  for(const moduleName of ['cutstep-v015.js','forest-world-v015.js','cutstep-presentation-v015.js'])assert.ok(entry15.includes(moduleName),`v0.15 entry missing ${moduleName}`);
-  assert.match(entry15,/v0\.15 Cutstep prototype · verifier migration required/);
+  for(const moduleName of ['cutstep-v015.js','encounter-director-v015.js','forest-world-v015.js','discoveries-v015.js','forest-actors-v015.js','cutstep-presentation-v015.js'])assert.ok(entry15.includes(moduleName),`v0.15 entry missing ${moduleName}`);
+  assert.match(entry15,/v0\.15 Cutstep alpha · verifier migration required/);
+  assert.match(entry15,/POLISHED FOREST COMBAT ALPHA/);
 });
 
 test('the exact-source v0.13 verifier remains reconstructible beneath v0.15', () => {
