@@ -134,13 +134,14 @@ export function AdaptiveFractalHome() {
   }, [dimensions, sessionSeed]);
 
   useLayoutEffect(() => {
-    setSessionSeed(newSessionSeed());
-
     const container = containerRef.current;
     if (!container) return;
 
     let frame = 0;
     let active = true;
+    const seedFrame = requestAnimationFrame(() => {
+      if (active) setSessionSeed(newSessionSeed());
+    });
     const measure = () => {
       if (!active) return;
       cancelAnimationFrame(frame);
@@ -165,6 +166,7 @@ export function AdaptiveFractalHome() {
 
     return () => {
       active = false;
+      cancelAnimationFrame(seedFrame);
       cancelAnimationFrame(frame);
       observer.disconnect();
       window.removeEventListener('resize', measure);
