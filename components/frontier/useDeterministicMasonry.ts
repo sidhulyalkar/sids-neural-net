@@ -95,16 +95,19 @@ function nearViewport(rect: DOMRect): boolean {
  * live until collapse restores the cached compact geometry.
  */
 export function useDeterministicMasonry({ itemId, expanded, rootRef, measureRef }: Options): void {
-  const pendingKey = useRef<string>();
-  const pendingObserver = useRef<ResizeObserver>();
-  const pendingFrame = useRef<number>();
-  const observedWidth = useRef<number>();
+  const pendingKey = useRef<string | undefined>(undefined);
+  const pendingObserver = useRef<ResizeObserver | undefined>(undefined);
+  const pendingFrame = useRef<number | undefined>(undefined);
+  const pendingRestore = useRef<(() => void) | undefined>(undefined);
+  const observedWidth = useRef<number | undefined>(undefined);
 
   const cancelPending = useCallback(() => {
     pendingObserver.current?.disconnect();
     pendingObserver.current = undefined;
     if (pendingFrame.current !== undefined) cancelAnimationFrame(pendingFrame.current);
     pendingFrame.current = undefined;
+    pendingRestore.current?.();
+    pendingRestore.current = undefined;
     pendingKey.current = undefined;
   }, []);
 
@@ -114,7 +117,7 @@ export function useDeterministicMasonry({ itemId, expanded, rootRef, measureRef 
     if (!root || !measure || root.dataset.fluidExpanded === 'true') return;
 
     const rect = root.getBoundingClientRect();
-    if (rect.width < 2 || (!forceLayout && !nearViewport(rect))) return;
+    if (rect.width < 2) return;
     const density = densityKey(root);
     const key = geometryKey(itemId, rect.width, density);
     const cached = cachedGeometry(key);
@@ -123,11 +126,18 @@ export function useDeterministicMasonry({ itemId, expanded, rootRef, measureRef 
       applyGeometry(root, cached);
       return;
     }
+    if (!forceLayout && !nearViewport(rect)) return;
     if (pendingKey.current === key) return;
 
     cancelPending();
     pendingKey.current = key;
     const previousInlineVisibility = root.style.contentVisibility;
+    const restoreVisibility = () => {
+      if (rootRef.current === root && root.dataset.fluidExpanded !== 'true') {
+        root.style.contentVisibility = previousInlineVisibility;
+      }
+    };
+    pendingRestore.current = restoreVisibility;
     if (getComputedStyle(root).contentVisibility !== 'visible') root.style.contentVisibility = 'visible';
 
     let complete = false;
@@ -145,7 +155,8 @@ export function useDeterministicMasonry({ itemId, expanded, rootRef, measureRef 
       pendingObserver.current = undefined;
       pendingKey.current = undefined;
       pendingFrame.current = undefined;
-      currentRoot.style.contentVisibility = previousInlineVisibility;
+      pendingRestore.current = undefined;
+      restoreVisibility();
     };
 
     if (typeof ResizeObserver !== 'undefined') {
@@ -160,7 +171,7 @@ export function useDeterministicMasonry({ itemId, expanded, rootRef, measureRef 
 
   useLayoutEffect(() => {
     if (expanded) return;
-    lockCompactGeometry(true);
+    lockCompactGeometry(false);
   }, [expanded, lockCompactGeometry]);
 
   useEffect(() => {
@@ -184,7 +195,7 @@ export function useDeterministicMasonry({ itemId, expanded, rootRef, measureRef 
       const width = widthBucket(entry?.contentRect.width ?? root.getBoundingClientRect().width);
       if (width < 2 || observedWidth.current === width) return;
       observedWidth.current = width;
-      lockCompactGeometry(true);
+      lockCompactGeometry(false);
     });
     observer.observe(root);
     return () => observer.disconnect();
