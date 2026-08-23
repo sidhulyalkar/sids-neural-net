@@ -145,6 +145,59 @@ async function testUniRico(page, engineName) {
   return { bridge, initial };
 }
 
+async function testCrownrush(page, engineName) {
+  const response = await page.goto(`${baseUrl}/arcade/crownrush`, { waitUntil: 'networkidle' });
+  if (!response?.ok()) throw new Error(`Crownrush route returned ${response?.status() ?? 'no response'}`);
+
+  const iframe = page.locator('iframe[title="Crownrush game runtime"]');
+  await iframe.waitFor({ state: 'visible' });
+  if ((await iframe.getAttribute('sandbox')) !== null) throw new Error('Crownrush same-origin runtime should not be sandboxed');
+
+  const frame = page.frames().find((candidate) => candidate.url().includes('/game-runtimes/crownrush/'));
+  if (!frame) throw new Error('Crownrush iframe did not attach');
+
+  const bridge = await assertNativeBridge(frame, 'Crownrush');
+  await frame.locator('#c').waitFor({ state: 'visible' });
+  const title = await frame.title();
+  if (!title.includes('Crownrush v0.1.0')) throw new Error(`Crownrush runtime title is stale: ${title}`);
+
+  const initial = await assertPainted(frame, 'Crownrush title', 8, 20);
+  const debug = await frame.evaluate(() => window.CROWNRUSH_DEBUG && ({
+    version: window.CROWNRUSH_DEBUG.version,
+    fixedHz: window.CROWNRUSH_DEBUG.fixedHz,
+    state: window.CROWNRUSH_DEBUG.getState(),
+  }));
+  if (!debug) throw new Error('Crownrush debug contract is unavailable');
+  if (debug.version !== '0.1.0' || debug.fixedHz !== 120) {
+    throw new Error(`Crownrush deterministic contract is stale: ${JSON.stringify(debug)}`);
+  }
+  if (debug.state.mode !== 'title') throw new Error(`Crownrush expected title mode, got ${debug.state.mode}`);
+  if (debug.state.branchCount < 8 || debug.state.knotCount < 1) {
+    throw new Error(`Crownrush procedural route failed to prime: ${JSON.stringify(debug.state)}`);
+  }
+
+  await page.screenshot({ path: path.join(outputDir, `${engineName}-crownrush-title.png`), fullPage: true });
+  await assertGameFocus(page, frame.locator('#c'), 'Crownrush');
+  await assertCanvasKeyboardFocus(frame, 'Crownrush');
+  await page.keyboard.press('Space');
+  await page.waitForTimeout(180);
+  await page.keyboard.down('ArrowRight');
+  await page.waitForTimeout(260);
+  await page.keyboard.up('ArrowRight');
+  const moving = await frame.evaluate(() => window.CROWNRUSH_DEBUG.getState());
+  if (moving.mode !== 'playing') throw new Error(`Crownrush did not enter gameplay after Space: ${JSON.stringify(moving)}`);
+  if (moving.player.vx <= 0) throw new Error(`Crownrush horizontal acceleration did not respond: ${JSON.stringify(moving.player)}`);
+
+  await page.keyboard.press('Space');
+  await page.waitForTimeout(120);
+  const jumping = await frame.evaluate(() => window.CROWNRUSH_DEBUG.getState());
+  if (jumping.player.vy <= 0) throw new Error(`Crownrush jump did not launch upward: ${JSON.stringify(jumping.player)}`);
+
+  const playing = await assertPainted(frame, 'Crownrush playing', 8, 20);
+  await page.screenshot({ path: path.join(outputDir, `${engineName}-crownrush-playing.png`), fullPage: true });
+  return { bridge, title, initial, playing, debug, moving, jumping };
+}
+
 for (const { name: engineName, browserType, launchOptions } of engines) {
   const errors = [];
   let browser;
@@ -169,9 +222,10 @@ for (const { name: engineName, browserType, launchOptions } of engines) {
 
     const stretchicorn = await testStretchicorn(page, engineName);
     const unirico = await testUniRico(page, engineName);
+    const crownrush = await testCrownrush(page, engineName);
 
     if (errors.length) throw new Error(errors.join('\n'));
-    report.push({ engine: engineName, ok: true, stretchicorn, unirico });
+    report.push({ engine: engineName, ok: true, stretchicorn, unirico, crownrush });
   } catch (error) {
     failed = true;
     report.push({
