@@ -38,7 +38,7 @@ function constellationNodes(profile: FrontierProfile): ConstellationNode[] {
     .filter((topic) => !seen.has(topic.label.toLowerCase()))
     .slice(0, 6 - learned.length)
     .map((topic, index) => ({
-      key: topic.slug,
+      key: topic.id,
       label: topic.label,
       strength: 0.42 + index * 0.045,
     }));
