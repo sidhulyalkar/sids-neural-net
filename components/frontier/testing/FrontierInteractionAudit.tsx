@@ -93,16 +93,14 @@ export function FrontierInteractionAudit() {
   const item = useMemo(() => AUDIT_ITEM, []);
 
   const expand = useCallback(() => {
-    if (expanded) return;
     captureSpatialFlip();
     setExpanded(true);
-  }, [captureSpatialFlip, expanded]);
+  }, [captureSpatialFlip]);
 
   const collapse = useCallback(() => {
-    if (!expanded) return;
     captureSpatialFlip();
     setExpanded(false);
-  }, [captureSpatialFlip, expanded]);
+  }, [captureSpatialFlip]);
 
   useLayoutEffect(() => {
     playSpatialFlip();
