@@ -135,7 +135,7 @@ test('Resin Knots communicate predicted release tangent and stored energy withou
   assert.match(sapline,/releaseTangentFor\(pos\)/);
   assert.match(sapline,/saplineCandidateTangent/);
   assert.match(routeRender,/tangentForAnchor/);
-  assert.match(routeRender,/predicted|tangent/i);
+  assert.match(routeRender,/tangent/i);
   assert.match(routeRender,/energy\/120000/);
   assert.match(routeRender,/length=candidate\?23:25\+load\*24/);
   assert.doesNotMatch(routeRender,/route==='safe'|route==='speed'|route==='mastery'/);
@@ -209,10 +209,9 @@ test('enemy pressure escalates from standard combat into spatial interference',(
   for(const draw of ['drawLogger','drawRanger','drawClimber','drawDrone','drawTrapper'])assert.match(motion,new RegExp(draw));
 });
 
-test('the Crown Girdler is a tree-mounted three-phase mastery boss with physical clamp guard',()=>{
+test('the Crown Girdler is a tree-mounted three-phase mastery boss with phase-accurate physical clamps',()=>{
   assert.match(routeEngine,/boss\.name='CROWN GIRDLER'/);
   assert.match(routeEngine,/boss\.machineMounted=true/);
-  assert.match(routeEngine,/boss\.clampCount=3/);
   assert.match(world,/hp:24,maxHp:24/);
   assert.match(engine,/bossPhase\(hp\)\{return hp>16\?1:hp>8\?2:3\}/);
   assert.match(engine,/b\.maxGuard=2\+phase/);
@@ -222,6 +221,8 @@ test('the Crown Girdler is a tree-mounted three-phase mastery boss with physical
   assert.match(engine,/sawWindup/);
   assert.match(feel,/beforeGuard>0&&boss\.guard===0/);
   assert.match(routeRender,/Crown Girdler/);
+  assert.match(routeRender,/clampCount=Math\.max\(3,b\.maxGuard\|\|3\)/);
+  assert.match(routeRender,/i<clampCount/);
   assert.match(routeRender,/intact=i<b\.guard/);
   assert.match(html,/CROWN GIRDLER/);
 });
