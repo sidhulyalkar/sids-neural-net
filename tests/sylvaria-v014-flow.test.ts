@@ -31,12 +31,26 @@ test('late recovery input has a deterministic seven-tick grace window', () => {
   assert.match(source, /p\.bladeQueuedDirection=null;p\.bladeBuffer=0;F\.cut\(direction\)/);
 });
 
-test('charged dash release honors the last displayed charge vector after movement keys are released', () => {
+test('charged dash chord release preserves the last displayed vector without trapping deliberate retargeting', () => {
+  assert.match(source, /chargeReleaseGraceTicks:4/);
+  assert.match(source, /function onFlowMoveKeyUp/);
+  assert.match(source, /p\.v014ChargeReleaseVector=\{x:remembered\.x,y:remembered\.y\};p\.v014ChargeReleaseGrace=FLOW_CONFIG\.chargeReleaseGraceTicks/);
+  assert.match(source, /function onFlowMoveKeyDown/);
+  assert.match(source, /if\(p\?\.dashCharging\)clearChargeReleaseGrace\(p\)/);
+  assert.match(source, /window\.addEventListener\?\.\('keyup',onFlowMoveKeyUp,true\)/);
+  assert.match(source, /window\.addEventListener\?\.\('keydown',onFlowMoveKeyDown,true\)/);
+  assert.match(source, /chargeReleaseVector&&p\?\.dashCharging/);
+  assert.match(source, /p\.dashChargeVector=\{\.\.\.chargeReleaseVector\}/);
+  assert.match(source, /p\.v014ChargeReleaseGrace=Math\.max\(0,\(p\.v014ChargeReleaseGrace\|\|0\)-1\)/);
+  near(4 * DT, 1 / 30);
+});
+
+test('charged dash release honors the remembered vector after movement keys are released', () => {
   assert.match(source, /function heldSetForVector/);
   assert.match(source, /const inheritedReleaseDashCharge=F\.releaseDashCharge/);
   assert.match(source, /p\.dashChargeVector/);
   assert.match(source, /state\.heldMoves=heldSetForVector\(remembered\)/);
-  assert.match(source, /finally\{state\.heldMoves=realHeld\}/);
+  assert.match(source, /finally\{state\.heldMoves=realHeld;clearChargeReleaseGrace\(p\)\}/);
   assert.match(source, /window\.addEventListener\?\.\('keyup',onFlowSpaceUp,true\)/);
 });
 
