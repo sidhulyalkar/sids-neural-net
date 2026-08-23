@@ -1,18 +1,18 @@
 'use client';
 
-import { useCallback, useEffect, useLayoutEffect, useRef } from 'react';
+import { useRef } from 'react';
 import type { ReactNode } from 'react';
 import {
   frontierCanAnalyzeMediaElement,
   primeFrontierAudioReactivity,
 } from '@/lib/frontier/audio/audioReactivity';
 import { markFrontierItemSeen } from '@/lib/frontier/live/seenLedger';
-import { frontierMasonrySpan } from '@/lib/frontier/presentation/mediaForward';
 import { useFrontierStore } from '@/lib/frontier/store';
 import type { FrontierItem } from '@/lib/frontier/types';
 import { useExpandedAudioReactivity } from './audio/useExpandedAudioReactivity';
 import { FrontierInlineFocal } from './FrontierInlineFocal';
 import { InlineMediaSurface } from './media/InlineMediaSurface';
+import { useDeterministicMasonry } from './useDeterministicMasonry';
 import { useFluidInteraction } from './useFluidInteraction';
 import styles from './frontier-fluid-interaction.module.css';
 
@@ -25,11 +25,6 @@ type Props = {
   onCollapse: (item: FrontierItem) => void;
   onExternalOpen?: (item: FrontierItem) => void;
 };
-
-function cssNumber(node: HTMLElement, property: string, fallback: number): number {
-  const parsed = Number.parseFloat(getComputedStyle(node).getPropertyValue(property));
-  return Number.isFinite(parsed) && parsed >= 0 ? parsed : fallback;
-}
 
 function primeSafeNativeMedia(root: HTMLElement | null) {
   if (!root) return;
@@ -54,6 +49,7 @@ export function FluidSpatialCard({
   const measureRef = useRef<HTMLDivElement | null>(null);
   const recordOpen = useFrontierStore((state) => state.recordOpen);
   useExpandedAudioReactivity(rootRef, expanded);
+  useDeterministicMasonry({ itemId: item.id, expanded, rootRef, measureRef });
   const interaction = useFluidInteraction({
     item,
     expanded,
@@ -72,28 +68,6 @@ export function FluidSpatialCard({
       onExternalOpen?.(next);
     },
   });
-
-  const syncMasonrySpan = useCallback(() => {
-    const root = rootRef.current;
-    const measure = measureRef.current;
-    if (!root || !measure) return;
-    const height = Math.max(measure.scrollHeight, measure.getBoundingClientRect().height);
-    const rowHeight = cssNumber(root, '--frontier-masonry-row-height', 8);
-    const rowGap = cssNumber(root, '--frontier-masonry-row-gap', 10);
-    root.style.setProperty('--frontier-masonry-span', String(frontierMasonrySpan(height, rowHeight, rowGap)));
-  }, []);
-
-  useLayoutEffect(() => {
-    syncMasonrySpan();
-  }, [expanded, syncMasonrySpan]);
-
-  useEffect(() => {
-    const measure = measureRef.current;
-    if (!measure || typeof ResizeObserver === 'undefined') return;
-    const observer = new ResizeObserver(() => syncMasonrySpan());
-    observer.observe(measure);
-    return () => observer.disconnect();
-  }, [syncMasonrySpan]);
 
   return (
     <div
