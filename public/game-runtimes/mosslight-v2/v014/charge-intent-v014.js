@@ -2,7 +2,7 @@ const G=window.Sylvaria091;
 const {state}=G,F=G.fn;
 
 export const CHARGE_INTENT_VERSION='0.14.0';
-export const CHARGE_INTENT_CONFIG=Object.freeze({retargetTicks:8});
+export const CHARGE_INTENT_CONFIG=Object.freeze({retargetTicks:24});
 const MOVE_KEYS=new Set(['w','a','s','d']),q=v=>Math.round(v*100000)/100000;
 const norm=(x,y)=>{const m=Math.hypot(x,y);return m>1e-7?{x:q(x/m),y:q(y/m),m}:{x:0,y:0,m:0}};
 const same=(a,b)=>Boolean(a&&b&&Math.abs(a.x-b.x)<.02&&Math.abs(a.y-b.y)<.02);
