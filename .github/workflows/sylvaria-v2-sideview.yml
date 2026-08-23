@@ -1,0 +1,65 @@
+name: Sylvaria v2 Side-View Forest Lab
+
+on:
+  pull_request:
+    paths:
+      - 'public/game-runtimes/sylvaria-v2/**'
+      - 'src/data/arcadeGames.ts'
+      - 'tests/sylvaria-v2-sideview.test.ts'
+      - 'tests/arcade-discovery.test.ts'
+      - 'scripts/playtest-sylvaria-v2-sideview.mjs'
+      - 'vercel.json'
+      - '.github/workflows/sylvaria-v2-sideview.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  sideview-forest-lab:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Validate side-view design contracts
+        run: node --import tsx --test tests/sylvaria-v2-sideview.test.ts tests/arcade-discovery.test.ts
+      - name: Typecheck website integration
+        run: npm run typecheck
+      - name: Lint website integration
+        run: npm run lint
+      - name: Build deterministic site
+        env:
+          NEXT_PUBLIC_SITE_URL: https://example.invalid
+          NEXT_PUBLIC_WORLD_LOOM_XR: disabled
+        run: npm run build
+      - name: Start built site
+        run: |
+          npx next start -p 3000 > /tmp/sylvaria-v2.log 2>&1 &
+          echo $! > /tmp/sylvaria-v2.pid
+          for attempt in {1..40}; do
+            if curl -fsS http://127.0.0.1:3000/game-runtimes/sylvaria-v2/index.html >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/sylvaria-v2.log
+          exit 1
+      - name: Install Chromium qualification engine
+        run: npx --yes playwright@1.55.0 install --with-deps chromium
+      - name: Qualify tree traversal and combat
+        run: |
+          PW_BIN="$(npm exec --yes --package=playwright@1.55.0 -- which playwright)"
+          PW_ROOT="$(cd "$(dirname "$PW_BIN")/.." && pwd)"
+          PLAYWRIGHT_MODULE_ROOT="$PW_ROOT" node scripts/playtest-sylvaria-v2-sideview.mjs
+      - name: Upload side-view playtest artifacts
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: sylvaria-v2-sideview-artifacts
+          path: artifacts/sylvaria-v2
+          if-no-files-found: warn
+          retention-days: 14
