@@ -117,7 +117,12 @@ export class SylvariaEngine extends FeelEngine{
     p.saplineCooldown=Math.max(0,(p.saplineCooldown||0)-dt);
     p.sameAnchorCooldown=Math.max(0,(p.sameAnchorCooldown||0)-dt);
     if(!p.sapline&&this.input.take('tether'))this.startSapline();
+    const tetheredBefore=!!p.sapline,canopyStepBefore=p.airDash;
     super.updatePlayer(dt);
+    // A taut line can skim a ledge for one simulation tick. That contact must not
+    // become a free Canopy Step refill; release the Sapline and make a committed
+    // landing, Bark Grip, or Downstrike rebound to restore aerial mobility.
+    if(tetheredBefore&&p.sapline&&!canopyStepBefore)p.airDash=false;
     if(!p.sapline){if(this.input.is('tether'))this.findSaplineAnchor();else p.saplineCandidate=null;return}
     if(!this.input.is('tether')){this.releaseSapline(true);return}
     this.updateSapline(dt);
