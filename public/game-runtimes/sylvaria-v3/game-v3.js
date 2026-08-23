@@ -1,7 +1,7 @@
 import{VERSION,FIXED_DT,WORLD}from'./config-v3.js';
 import{InputController,prettyKey}from'./input-v3.js';
-import{SylvariaEngine}from'./engine-sapline-v3.js';
-import{SylvariaRenderer}from'./render-motion-v3.js';
+import{SylvariaEngine}from'./engine-routes-v3.js';
+import{SylvariaRenderer}from'./render-routes-v3.js';
 
 const canvas=document.getElementById('game');
 const input=new InputController();
@@ -17,12 +17,12 @@ function tone(freq=300,duration=.05,gain=.022,type='triangle'){
   try{audioCtx??=new AudioContext();const o=audioCtx.createOscillator(),a=audioCtx.createGain();o.type=type;o.frequency.value=freq;a.gain.setValueAtTime(gain,audioCtx.currentTime);a.gain.exponentialRampToValueAtTime(.0001,audioCtx.currentTime+duration);o.connect(a).connect(audioCtx.destination);o.start();o.stop(audioCtx.currentTime+duration)}catch{}
 }
 function feedback(event){
-  const tones={jump:[350,.04,.018],wallLaunch:[410,.04,.02],vineGrab:[285,.035,.018],vineRelease:[430,.05,.02],saplineAttach:[470,.04,.018],saplineLaunch:[590,.06,.025],dash:[525,.04,.022],reflect:[760,.05,.032,'square'],hurt:[92,.12,.05,'sawtooth'],kill:[125,.07,.028,'square'],checkpoint:[650,.09,.024],guardBreak:[185,.08,.035,'square'],bossStart:[72,.28,.035,'sawtooth'],bossPhase:[105,.13,.035,'square'],bossDead:[82,.28,.045,'sawtooth']};
+  const tones={jump:[350,.04,.018],wallLaunch:[410,.04,.02],vineGrab:[285,.035,.018],vineRelease:[430,.05,.02],saplineAttach:[470,.04,.018],saplineLaunch:[590,.06,.025],barkRailLand:[360,.025,.012],dash:[525,.04,.022],reflect:[760,.05,.032,'square'],hurt:[92,.12,.05,'sawtooth'],kill:[125,.07,.028,'square'],checkpoint:[650,.09,.024],guardBreak:[185,.08,.035,'square'],bossStart:[72,.28,.035,'sawtooth'],bossPhase:[105,.13,.035,'square'],bossDead:[82,.28,.045,'sawtooth']};
   if(event.type==='attack'){const map={side:340,up:395,down:285,plunge:230,dash:520,wall:365};tone(map[event.attack]||330,.04,.023);return}
   if(event.type==='impact'){if(event.kind==='heavy')tone(175,.045,.02);return}
   const spec=tones[event.type];if(spec)tone(spec[0],spec[1],spec[2],spec[3]);
   if(event.type==='dead')ui.dead?.classList.remove('hidden');
-  if(event.type==='complete'){ui.complete?.classList.remove('hidden');const s=event.stats;ui.stats.textContent=`${Math.round(s.maxHeight/10)}m ascended · ${s.kills} threats cleared · ${s.reflects} redirects · ${s.saplineLaunches||0} Sapline launches · ${s.downslashes+s.plunges} downward strikes`}
+  if(event.type==='complete'){ui.complete?.classList.remove('hidden');const s=event.stats;ui.stats.textContent=`${Math.round(s.maxHeight/10)}m ascended · ${s.kills} threats cleared · ${s.reflects} redirects · ${s.saplineLaunches||0} Sapline launches · ${s.masteryRailLandings||0} mastery landings · ${s.downslashes+s.plunges} downward strikes`}
 }
 
 const engine=new SylvariaEngine(input,feedback);
@@ -34,9 +34,10 @@ function updateHud(){
   const remaining=engine.world.enemies.filter(e=>!e.dead&&e.y>=zone.top&&e.y<zone.bottom).length;
   ui.health.textContent=`BARK ${'●'.repeat(Math.max(0,p.hp))}${'○'.repeat(Math.max(0,p.maxHp-p.hp))}`;
   ui.zone.textContent=zone.name;ui.altitude.textContent=`${Math.max(0,Math.round((WORLD.h-p.y)/10))} M`;
-  ui.objective.textContent=engine.state.bossActive&&!boss.dead?'BREAK THE CROWN FELLER · DOWNSTRIKE OR DASH THROUGH ITS GUARD':boss.dead?'THE CROWN IS OPEN · ASCEND':`${remaining} THREAT${remaining===1?'':'S'} IN THIS BAND · CLIMB`;
-  ui.airStep.textContent=`CANOPY STEP ${p.airDash?'●':'○'}${p.sapline?' · SAPLINE TENSION':''}`;
-  if(engine.state.bossActive&&!boss.dead){ui.boss?.classList.remove('hidden');ui.bossName.textContent=`${boss.name} · PHASE ${boss.phase}`;ui.bossBar.style.width=`${Math.max(0,Math.min(1,boss.hp/boss.maxHp))*100}%`;ui.bossGuard.textContent=boss.guard>0?`GUARD ${boss.guard}/${boss.maxGuard}`:`CORE OPEN ${engine.state.bossOpenTimer.toFixed(1)}s`}else ui.boss?.classList.add('hidden');
+  ui.objective.textContent=engine.state.bossActive&&!boss.dead?'BREAK THE CROWN GIRDLER CLAMPS · DOWNSTRIKE, PLUNGE, DASH, OR REDIRECT':boss.dead?'THE CROWN IS OPEN · ASCEND':`${remaining} THREAT${remaining===1?'':'S'} IN THIS BAND · CLIMB`;
+  const tension=p.sapline?` · SAP ${Math.round(Math.min(1,(p.sapline.energy||0)/120000)*100)}%`:'';
+  ui.airStep.textContent=`CANOPY STEP ${p.airDash?'●':'○'}${tension}`;
+  if(engine.state.bossActive&&!boss.dead){ui.boss?.classList.remove('hidden');ui.bossName.textContent=`${boss.name} · PHASE ${boss.phase}`;ui.bossBar.style.width=`${Math.max(0,Math.min(1,boss.hp/boss.maxHp))*100}%`;ui.bossGuard.textContent=boss.guard>0?`CLAMPS ${boss.guard}/${boss.maxGuard}`:`CORE OPEN ${engine.state.bossOpenTimer.toFixed(1)}s`}else ui.boss?.classList.add('hidden');
 }
 
 const bindLabels={left:'Move left',right:'Move right',up:'Aim up / grab vine',down:'Aim down / drop',jump:'Jump',attack:'Machete attack',tether:'Sapline',dash:'Canopy Step',interact:'Vine interact',pause:'Pause',restart:'Restart'};
