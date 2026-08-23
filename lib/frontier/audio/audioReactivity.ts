@@ -50,8 +50,6 @@ export function frontierFrequencyBinRange(
 ): FrontierFrequencyBinRange {
   const bins = Math.max(1, Math.floor(fftSize / 2));
   const hzPerBin = Math.max(1e-6, sampleRate / fftSize);
-  // Ceil the lower edge so DC / frequencies below the requested band never
-  // leak into sub-bass energy. End is exclusive.
   const start = Math.max(0, Math.min(bins - 1, Math.ceil(lowHz / hzPerBin)));
   const end = Math.max(start + 1, Math.min(bins, Math.floor(highHz / hzPerBin) + 1));
   return { start, end };
@@ -112,6 +110,18 @@ function registry(): Registry | undefined {
   } catch {
     return undefined;
   }
+}
+
+/**
+ * Resume the shared analysis context while the browser still owns a trusted
+ * user activation. This does not create media-source nodes or begin analysis;
+ * the expanded-card effect owns that later lifecycle.
+ */
+export function primeFrontierAudioReactivity(): boolean {
+  const state = registry();
+  if (!state) return false;
+  if (state.context.state === 'suspended') void state.context.resume().catch(() => undefined);
+  return true;
 }
 
 function publish(bands: FrontierAudioBands) {
@@ -182,8 +192,6 @@ function startBinding(binding: Binding) {
       frontierFrequencyBinRange(state.context.sampleRate, binding.analyser.fftSize, LOW_MID[0], LOW_MID[1]),
     );
     binding.momentum = frontierAudioMomentum(subBass, lowMid, binding.momentum);
-    // Analysis runs at rAF cadence only during playback. Publishing is capped to
-    // meaningful changes or ~10 Hz heartbeats so the window event bus stays quiet.
     if (Math.abs(binding.momentum - binding.lastPublished) >= 0.008 || now - binding.lastPublishedAt >= 96) {
       binding.lastPublished = binding.momentum;
       binding.lastPublishedAt = now;
