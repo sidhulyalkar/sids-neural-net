@@ -99,10 +99,13 @@ test('v0.14 reports the player-reachable dash envelope rather than dormant zero-
   assert.ok(fullSpeed > 1977 && fullSpeed < 1979, `unexpected full opening speed ${fullSpeed}`);
 });
 
-test('Flow improves tempo without widening the five-tick parry window', () => {
+test('Flow improves tempo and a perfect parry subtracts exactly twelve ticks from dash recovery without widening parry timing', () => {
   assert.match(source, /recoveryTicksAtFullFlow:7/);
   assert.match(source, /parryDashRefund:12\/120/);
-  assert.match(source, /state\.player\.dashCooldown=q\(Math\.max\(0,\(state\.player\.dashCooldown\|\|0\)-refund\)\)/);
+  assert.match(source, /beforeCooldown=q\(p\.dashCooldown\|\|0\)/);
+  assert.match(source, /afterCooldown=q\(Math\.max\(0,beforeCooldown-refund\)\)/);
+  assert.match(source, /p\.dashCooldown=afterCooldown/);
+  assert.match(source, /p\.lastParryDashRefund=\{counter:after,count,refund,beforeCooldown,afterCooldown,time:q\(state\.totalTime\),worldDepth:state\.worldDepth,dashing:Boolean\(p\.dash\)\}/);
   assert.doesNotMatch(source, /parryWindow/);
 
   const baseRecovery = 10 * DT;
