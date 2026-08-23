@@ -73,7 +73,7 @@ export const arcadeGames: ArcadeGame[] = [
     title: 'Sylvaria',
     subtitle: 'ROOT · CLIMB · SWING · STRIKE.',
     description: 'A horizontal dark-forest action platformer built around living tree traversal. Run across roots, compress flexible branches into natural launchers, use Bark Grip to cling and wall-launch from living trunks, preserve momentum through hanging vines, rebound from enemies with a downward machete strike, and use one aerial Canopy Step to connect difficult routes. Combat stays deliberately readable: the Clearcut Logger teaches grounded spacing through telegraphed axe swings, while the Nailgun Ranger teaches trunk cover and oversized nail projectiles that can be reflected back into the fight. The first multi-screen Old Growth Trial is intentionally focused on making movement and combat feel excellent before Sylvaria expands into a larger interconnected forest world.',
-    version: 'v2.0.0-alpha.1',
+    version: 'v2.0.0-alpha.2',
     status: 'playable',
     sourceVisibility: 'public',
     repoUrl: 'https://github.com/sidhulyalkar/sids-neural-net',
