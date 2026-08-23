@@ -152,6 +152,12 @@ jobs:
           FRONTIER_MOSAIC_AUDIT_URL: http://127.0.0.1:3000/frontier/mosaic-audit
         run: node scripts/frontier-media-mosaic-audit.cjs
 
+      - name: Audit FRONTIER deterministic scroll geometry
+        env:
+          NODE_PATH: /tmp/frontier-playwright/node_modules
+          FRONTIER_SCROLL_AUDIT_URL: http://127.0.0.1:3000/frontier/mosaic-audit
+        run: node scripts/frontier-scroll-stability-audit.cjs
+
       - name: Capture production browser fixtures
         run: |
           mkdir -p artifacts/browser-smoke
