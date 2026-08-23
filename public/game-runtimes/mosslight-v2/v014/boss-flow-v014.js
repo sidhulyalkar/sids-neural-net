@@ -6,6 +6,7 @@ export const BOSS_FLOW_CONFIG=Object.freeze({
   guardByPhase:Object.freeze({1:3,2:4,3:5}),
   punishTicksByPhase:Object.freeze({1:36,2:30,3:24}),
   bladePunishMultiplier:1.35,
+  guardedHpMultiplier:0,
   perfectReturnGuardDamage:2,
   hazardGuardDamage:1,
   telegraphDashCutGuardDamage:1,
@@ -51,17 +52,23 @@ function damageGuard(b,hit){
   F.addCallout?.(b.x,b.y-b.r-16,`GUARD ${b.v014Guard}/${b.v014GuardMax}`,'#d8ffca');
   return true;
 }
+function rejectGuardedDamage(b,amount){
+  if(!(amount>0))return;
+  b.v014GuardHitFlash=Math.max(b.v014GuardHitFlash||0,.08);b.v014GuardSource='blocked';
+  F.addCallout?.(b.x,b.y-b.r-16,'GUARD · RETURN / ROUTE / DASH-CUT','#d8ffca');
+}
 
 const inheritedDamageBoss=F.damageBoss;
 F.damageBoss=(amount,dir=null,source={})=>{
   const b=state.boss;if(!b||b.dead)return false;
-  const phaseBefore=b.phase,open=b.v014PunishTimer>0,bladePunish=open&&(source.arc||source.melee)&&!source.hazard;
-  const hit=!open?guardDamageFor(b,source):null;
-  const result=inheritedDamageBoss(bladePunish?amount*BOSS_FLOW_CONFIG.bladePunishMultiplier:amount,dir,source);
+  const phaseBefore=b.phase,open=b.v014PunishTimer>0,guarding=!open&&(b.v014Guard??guardMax(b.phase))>0,bladePunish=open&&(source.arc||source.melee)&&!source.hazard;
+  const hit=guarding?guardDamageFor(b,source):null;
+  const hpAmount=guarding?amount*BOSS_FLOW_CONFIG.guardedHpMultiplier:bladePunish?amount*BOSS_FLOW_CONFIG.bladePunishMultiplier:amount;
+  const result=inheritedDamageBoss(hpAmount,dir,source);
   if(!state.boss||state.boss.dead)return result;
   if(state.boss.phase!==phaseBefore){initBossFlow(state.boss);return result}
   if(bladePunish)F.addCallout?.(b.x,b.y-b.r-16,'CORE HIT','#efffc1');
-  if(hit)damageGuard(b,hit);
+  if(hit)damageGuard(b,hit);else if(guarding)rejectGuardedDamage(b,amount);
   return result;
 };
 
