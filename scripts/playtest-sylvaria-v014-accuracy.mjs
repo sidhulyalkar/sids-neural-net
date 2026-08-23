@@ -20,37 +20,40 @@ await page.evaluate(async()=>{
 await page.waitForFunction(()=>window.SylvariaFlowCombat?.version==='0.14.0'&&window.SylvariaEnemyFlow?.version==='0.14.0'&&window.SylvariaFlowPresentation?.version==='0.14.0');
 
 // Reachable metadata must describe the controls players can actually produce, including the 0.12 tap floor.
-const envelopes=await page.evaluate(()=>{const f=window.SylvariaFlowCombat.snapshot();return{speed:f.dashSpeedEnvelope,distance:f.dashDistanceEnvelope}});
+const envelopes=await page.evaluate(()=>{const f=window.SylvariaFlowCombat.snapshot();return{speed:f.dashSpeedEnvelope,distance:f.dashDistanceEnvelope,steerMax:f.dashSteerMaxRadians}});
 check(envelopes.distance.tapMin>81.02&&envelopes.distance.tapMin<81.021,`tap dash distance envelope is stale: ${JSON.stringify(envelopes)}`);
 check(envelopes.distance.fullMax===154,`full dash distance envelope is stale: ${JSON.stringify(envelopes)}`);
 check(envelopes.speed.tapMin>1323&&envelopes.speed.tapMin<1325,`tap dash opening speed is stale: ${JSON.stringify(envelopes)}`);
 check(envelopes.speed.fullMax>1977&&envelopes.speed.fullMax<1979,`full dash opening speed is stale: ${JSON.stringify(envelopes)}`);
+check(near(envelopes.steerMax,.38,.00001),`committed dash steering cap is stale: ${JSON.stringify(envelopes)}`);
 
 async function runNeutralDash(charge,{steerKey=null}={}){
   const start=await page.evaluate(charge=>{const play=window.__MOSSLIGHT_PLAYTEST__,G=window.Sylvaria091,p=G.state.player;play.clearCombatants();play.labClearGeometry();play.setPlayerPosition(360,340);G.state.heldMoves.clear();G.state.heldOrder=[];p.dash=null;p.dashCooldown=0;p.dashCharging=false;p.dashCharge=0;p.vx=0;p.vy=0;p.lastDashAccuracy=null;G.state.heldMoves.add('d');G.fn.beginDashCharge();p.dashCharge=charge;G.fn.releaseDashCharge();const d=p.dash;G.state.heldMoves.delete('d');return{x:p.x,y:p.y,target:d.distanceTarget,speed:d.speed,ticks:d.totalTicks}},charge);
   if(steerKey)await page.evaluate(key=>window.Sylvaria091.state.heldMoves.add(key),steerKey);
-  const mid=steerKey?await waitForValue(()=>{const G=window.Sylvaria091,p=G.state.player,d=p.dash;if(!d||d.elapsedTicks<6)return false;return{dir:{...d.dir},speed:d.speed,vx:p.vx,vy:p.vy,elapsedTicks:d.elapsedTicks}},null,900):null;
-  const end=await waitForValue(()=>{const G=window.Sylvaria091,p=G.state.player,flow=window.SylvariaFlowCombat.snapshot();if(p.dash||!flow.lastDashAccuracy)return false;return{x:p.x,y:p.y,accuracy:flow.lastDashAccuracy}},null,1400);
+  const end=await waitForValue(()=>{const G=window.Sylvaria091,p=G.state.player,flow=window.SylvariaFlowCombat.snapshot();if(p.dash||!flow.lastDashAccuracy)return false;return{x:p.x,y:p.y,accuracy:flow.lastDashAccuracy}},null,1600);
   if(steerKey)await page.evaluate(key=>window.Sylvaria091.state.heldMoves.delete(key),steerKey);
-  return{start,mid,end};
+  return{start,end};
 }
 
 const minimumDash=await runNeutralDash(.12);
 check(near(minimumDash.end.accuracy.distanceTarget,envelopes.distance.tapMin,.02),`tap dash did not use reachable minimum target: ${JSON.stringify(minimumDash)}`);
 check(near(minimumDash.end.accuracy.pathTravel,minimumDash.end.accuracy.distanceTarget,.03),`minimum neutral dash path missed solved target: ${JSON.stringify(minimumDash)}`);
 check(near(minimumDash.end.accuracy.displacement,minimumDash.end.accuracy.distanceTarget,.03),`straight minimum dash displacement missed solved target: ${JSON.stringify(minimumDash)}`);
+check(minimumDash.end.accuracy.maxSteerAngle===0,`straight tap dash accumulated steering: ${JSON.stringify(minimumDash.end.accuracy)}`);
 
 const maximumDash=await runNeutralDash(1);
 check(near(maximumDash.end.accuracy.pathTravel,154,.03),`full neutral dash path should be 154 px: ${JSON.stringify(maximumDash)}`);
 check(near(maximumDash.end.accuracy.displacement,154,.03),`straight full dash displacement should be 154 px: ${JSON.stringify(maximumDash)}`);
+check(maximumDash.end.accuracy.maxSteerAngle===0,`straight full dash accumulated steering: ${JSON.stringify(maximumDash.end.accuracy)}`);
 
-const steeredDash=await runNeutralDash(.42,{steerKey:'w'});
-const velocityMagnitude=Math.hypot(steeredDash.mid.vx,steeredDash.mid.vy),dirAngle=Math.atan2(steeredDash.mid.dir.y,steeredDash.mid.dir.x),velocityAngle=Math.atan2(steeredDash.mid.vy,steeredDash.mid.vx);
-check(near(steeredDash.end.accuracy.pathTravel,steeredDash.end.accuracy.distanceTarget,.04),`steered neutral dash path missed solved target: ${JSON.stringify(steeredDash.end.accuracy)}`);
-check(steeredDash.end.accuracy.displacement<=steeredDash.end.accuracy.pathTravel+.01,'curved dash displacement exceeded path length');
-check(Math.abs(dirAngle)>=.22&&Math.abs(dirAngle)<=.48,`six-tick dash bend left the committed-control envelope: ${dirAngle} rad`);
-check(Math.abs(velocityAngle-dirAngle)<.015,`actual dash velocity diverged from committed dash direction: dir ${dirAngle}, velocity ${velocityAngle}`);
-check(Math.abs(velocityMagnitude-steeredDash.mid.speed)<.15,`WASD injected extra scalar speed during dash: velocity ${velocityMagnitude}, scalar ${steeredDash.mid.speed}`);
+// Hold orthogonal steering for the full burst. The completed authoritative record must show
+// visible course correction, never exceed the 0.38 rad leash, and preserve scalar velocity.
+const steeredDash=await runNeutralDash(.42,{steerKey:'w'}),steeredAccuracy=steeredDash.end.accuracy;
+check(near(steeredAccuracy.pathTravel,steeredAccuracy.distanceTarget,.04),`steered neutral dash path missed solved target: ${JSON.stringify(steeredAccuracy)}`);
+check(steeredAccuracy.displacement<=steeredAccuracy.pathTravel+.01,'curved dash displacement exceeded path length');
+check(steeredAccuracy.maxSteerAngle>=.34&&steeredAccuracy.maxSteerAngle<=envelopes.steerMax+.001,`completed dash escaped committed steering leash: ${JSON.stringify(steeredAccuracy)}`);
+check(steeredAccuracy.maxVelocityAlignmentError<.02,`actual dash velocity diverged from committed dash direction: ${JSON.stringify(steeredAccuracy)}`);
+check(steeredAccuracy.maxScalarSpeedError<.2,`WASD injected extra scalar speed during dash: ${JSON.stringify(steeredAccuracy)}`);
 
 // Measure the parry cooldown refund against authoritative simulation time so natural cooldown decay is separated from the reward.
 const refundBefore=await page.evaluate(()=>{const play=window.__MOSSLIGHT_PLAYTEST__,G=window.Sylvaria091,p=G.state.player;play.setRoom(0,1);play.clearCombatants();play.labClearGeometry();play.setPlayerPosition(300,330);G.state.slashes=[];p.cutCooldown=0;p.flow=0;p.dash=null;p.dashCooldown=2;play.spawnCounterShot('right',70,{speed:180,pattern:'straight'});return{counter:G.state.stats.perfectCounters||0,cooldown:p.dashCooldown,time:G.state.totalTime}});
@@ -70,8 +73,8 @@ check(punishPresentation.presentation.punishCues>=1,`post-evade punish state is 
 await page.screenshot({path:path.join(outputDir,'strider-punish-window-v014.png'),fullPage:true});
 
 for(const error of pageErrors)failures.push(`pageerror: ${error}`);
-const report={envelopes,minimumDash,maximumDash,steeredDash:{...steeredDash,dirAngle,velocityAngle,velocityMagnitude},refund:{before:refundBefore,after:refundAfter,elapsed,expectedRefundCooldown},presentation:{buffer:bufferPresentation,punish:punishPresentation},failures};
+const report={envelopes,minimumDash,maximumDash,steeredDash,refund:{before:refundBefore,after:refundAfter,elapsed,expectedRefundCooldown},presentation:{buffer:bufferPresentation,punish:punishPresentation},failures};
 fs.writeFileSync(path.join(outputDir,'accuracy-report.json'),JSON.stringify(report,null,2));
 await browser.close();
 if(failures.length){console.error(`Sylvaria v0.14 accuracy lab failed with ${failures.length} issue(s):`);for(const failure of failures)console.error(` - ${failure}`);process.exit(1)}
-console.log(`Sylvaria v0.14 accuracy lab PASS · reachable dash envelope ${envelopes.distance.tapMin.toFixed(2)}–${envelopes.distance.fullMax.toFixed(0)} px at ${envelopes.speed.tapMin.toFixed(1)}–${envelopes.speed.fullMax.toFixed(1)} opening px/s · actual minimum/full paths ${minimumDash.end.accuracy.pathTravel.toFixed(2)}/${maximumDash.end.accuracy.pathTravel.toFixed(2)} px · steered path ${steeredDash.end.accuracy.pathTravel.toFixed(2)} px at ${(Math.abs(dirAngle)*180/Math.PI).toFixed(1)}° bend · parry cooldown refund 100 ms · combat-state readability cues verified.`);
+console.log(`Sylvaria v0.14 accuracy lab PASS · reachable dash envelope ${envelopes.distance.tapMin.toFixed(2)}–${envelopes.distance.fullMax.toFixed(0)} px at ${envelopes.speed.tapMin.toFixed(1)}–${envelopes.speed.fullMax.toFixed(1)} opening px/s · actual minimum/full paths ${minimumDash.end.accuracy.pathTravel.toFixed(2)}/${maximumDash.end.accuracy.pathTravel.toFixed(2)} px · steered path ${steeredAccuracy.pathTravel.toFixed(2)} px at ${(steeredAccuracy.maxSteerAngle*180/Math.PI).toFixed(1)}° max bend · velocity alignment/scalar contracts verified · parry cooldown refund 100 ms · combat-state readability cues verified.`);
