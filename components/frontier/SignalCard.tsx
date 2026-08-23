@@ -1,11 +1,12 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Bookmark, ChevronDown, ExternalLink, MessageCircleMore, ThumbsDown, ThumbsUp } from 'lucide-react';
+import { Bookmark, ChevronDown, ExternalLink, MessageCircleMore, ThumbsDown, ThumbsUp, Waypoints } from 'lucide-react';
 import { FRONTIER_LANE_MAP } from '@/lib/frontier/config';
 import { FRONTIER_VIEWPORT_SEEN_MS, markFrontierItemSeen } from '@/lib/frontier/live/seenLedger';
 import type { FrontierItem, FrontierReaction } from '@/lib/frontier/types';
 import { EditorialClip } from './EditorialClip';
+import { frontierRabbitHoleQuery, launchFrontierTopicSearch } from './frontierSearchBridge';
 import { canRenderFrontierMedia, FrontierMediaSurface, frontierMediaKey } from './media/FrontierMediaSurface';
 import type { SignalLayoutMode } from './SignalBoard';
 import mediaForward from './frontier-media-forward-cards.module.css';
@@ -102,6 +103,7 @@ export function SignalCard({
   const feed = presentation === 'feed';
   const currentMediaKey = frontierMediaKey(item);
   const hasMedia = unavailableMediaKey !== currentMediaKey && canRenderFrontierMedia(item);
+  const rabbitHoleQuery = frontierRabbitHoleQuery(item.tags, lane?.label ?? item.title);
 
   useEffect(() => {
     const node = ref.current;
@@ -181,9 +183,20 @@ export function SignalCard({
     recordExplicit('reaction');
     onReact(item, nextReaction);
   };
+  const followRabbitHole = () => {
+    launchFrontierTopicSearch(rabbitHoleQuery);
+  };
 
   const quickActions = (
     <div className={styles.quickActions}>
+      <button
+        type="button"
+        className={styles.iconAction}
+        title={`Rabbit hole · ${rabbitHoleQuery}`}
+        aria-label={`Rabbit hole from ${item.title}`}
+        data-frontier-rabbit-hole
+        onClick={followRabbitHole}
+      ><Waypoints size={13} /></button>
       <button
         type="button"
         className={`${styles.iconAction} ${reaction === 'up' ? styles.actionActive : ''}`}
