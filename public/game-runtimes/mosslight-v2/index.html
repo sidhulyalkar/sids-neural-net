@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover" />
+<meta name="theme-color" content="#07110d" />
+<title>Sylvaria · Cutstep Forest</title>
+<link rel="stylesheet" href="./sylvaria-v8.css" />
+<link rel="stylesheet" href="./sylvaria-minimal-v011.css" />
+<link rel="stylesheet" href="./sylvaria-pond-v012.css" />
+<link rel="stylesheet" href="./sylvaria-forest-v015.css" />
+</head>
+<body>
+<!-- v0.15 Cutstep prototype: dark forest survival, independent aim, immediate geometric movement. -->
+<div id="game">
+  <canvas id="c" width="960" height="640" tabindex="0" aria-label="Sylvaria dark forest Cutstep survival game"></canvas>
+  <div id="hud" class="hidden" aria-hidden="true">
+    <div id="top">
+      <div id="roomCard" class="glass">
+        <div id="roomKicker">01 / forest</div>
+        <div id="roomTitle">Whispering Pine Verge</div>
+        <div id="roomTask">Aim with Arrow keys or mouse. SPACE or click Cutsteps instantly. Carve a sightline before the forest closes around you.</div>
+        <div id="biomeBadge"></div>
+      </div>
+      <div id="stats" class="runStats">
+        <div class="stat glass"><b>score</b><span id="score">0</span></div>
+        <div class="stat glass"><b>time</b><span id="time">0:00.0</span></div>
+        <div class="stat glass"><b>health</b><span id="integrity">◆◆◆◆◆</span></div>
+      </div>
+    </div>
+    <div id="runRail" class="glass">
+      <div><b>canopy</b><span id="treeState">5/5</span></div>
+      <div><b>status</b><span id="fieldState">quiet</span></div>
+      <div id="targetWrap" hidden><b>target</b><span id="targetState"></span></div>
+      <div id="bossWrap" hidden><b>boss</b><span id="bossState"></span></div>
+      <span class="telemetryHidden" aria-hidden="true"><span id="flowState">0%</span><span id="dashState">cutstep</span><span id="terrainState">forest floor</span><span id="counterState">0</span><span id="returnState">0/0</span><span id="grazeState">0</span></span>
+    </div>
+    <div id="toast" class="glass"></div>
+  </div>
+
+  <div id="title" class="screen">
+    <div class="panel menuPanel">
+      <div class="eyebrow">v0.15 · CUTSTEP CLEARING</div>
+      <h1><em class="sylvariaWord">Sylvaria</em></h1>
+      <p class="lede narrow">Survive a living dark forest by drawing lethal movement lines through it. WASD moves your body. Arrow keys or mouse aim independently. SPACE or click instantly Cutsteps through brush, enemy attacks, projectiles, and openings.</p>
+      <div class="menuActions">
+        <button id="start" class="primary wide">enter the forest</button>
+        <button id="explore" class="secondary wide">learn Cutstep</button>
+        <div class="menuGrid"><button id="howBtn" class="ghost">how to play</button><button id="controlsBtn" class="ghost">controls</button></div>
+      </div>
+      <div id="bestRun" class="bestRun">best · no run yet</div>
+      <div id="rankPanel" class="rankPanel" hidden>
+        <div class="rankHead"><span>top verified runs</span><span id="rankSeason">v0.15 prototype</span></div>
+        <ol id="rankRows"></ol>
+      </div>
+      <p class="microcopy">The prototype is deliberately focused: carve short survival lines, chain geometry, clear temporary visibility through regrowing undergrowth, and decide whether dangerous discoveries are worth leaving the safe route. Ranking remains paused while the new physics are qualified.</p>
+    </div>
+  </div>
+
+  <div id="howScreen" class="screen hidden">
+    <div class="panel subPanel">
+      <div class="eyebrow">how to play</div>
+      <h2>Move freely. Aim independently. Draw the next line.</h2>
+      <div class="howGrid">
+        <div><b>Move</b><p>WASD controls body movement only. Keep drifting while you read the forest.</p></div>
+        <div><b>Aim</b><p>Arrow-key chords give crisp 8-way aim. The mouse gives free-angle aim anywhere in the clearing.</p></div>
+        <div><b>Cutstep</b><p>SPACE or left click fires immediately. There is no charge delay. The movement segment itself is the blade.</p></div>
+        <div><b>Chain geometry</b><p>Continue straight for THRUST, turn roughly ninety degrees for CROSSCUT, or reverse sharply for a projectile-clearing REVERSAL.</p></div>
+        <div><b>Three segments</b><p>Cutsteps refill slowly on their own. Counters, kills, and carving dense understory restore them much faster.</p></div>
+        <div><b>Carve visibility</b><p>Dense ferns and grass obscure threats. Cutstep severs them instantly. The forest regrows behind you.</p></div>
+        <div><b>No blanket invulnerability</b><p>The blade protects the line it actually occupies. Bad geometry can still get you hit.</p></div>
+        <div><b>Follow temptation</b><p>Useful discoveries glow through the mist. Reaching one should require leaving a safer line.</p></div>
+      </div>
+      <div class="actions"><button class="secondary" data-back>back</button></div>
+    </div>
+  </div>
+
+  <div id="controlsScreen" class="screen hidden">
+    <div class="panel subPanel controlsPanel">
+      <div class="eyebrow">controls</div>
+      <h2>Movement and aim are independent.</h2>
+      <div class="bindingGrid">
+        <div><span>move north</span><b>W</b></div><div><span>aim north</span><b>↑</b></div>
+        <div><span>move south</span><b>S</b></div><div><span>aim south</span><b>↓</b></div>
+        <div><span>move west</span><b>A</b></div><div><span>aim west</span><b>←</b></div>
+        <div><span>move east</span><b>D</b></div><div><span>aim east</span><b>→</b></div>
+        <div><span>instant Cutstep</span><b>SPACE</b></div><div><span>free aim / Cutstep</span><b>mouse</b></div>
+        <div><span>pause</span><b>P</b></div><div><span>mute</span><b>M</b></div>
+      </div>
+      <p class="microcopy">WASD never changes your aim. Arrow chords or the mouse determine the Cutstep line. Chaining is about drawing geometry through the fight, not charging a dash meter.</p>
+      <div class="actions"><button class="secondary" data-back>back</button></div>
+    </div>
+  </div>
+
+  <div id="pauseScreen" class="screen hidden"><div class="panel subPanel"><div class="eyebrow">paused</div><h2>Forest paused</h2><div class="actions"><button id="resume" class="primary">resume</button></div></div></div>
+  <div id="gameOver" class="screen hidden"><div class="panel subPanel resultPanel"><div class="eyebrow">run complete</div><h2 id="gameOverTitle">the forest took the run</h2><p id="gameOverSummary" class="lede"></p><div id="runDelta" class="runDelta"></div><div id="rankedSubmit" class="rankedSubmit" hidden><span id="rankedState">v0.15 prototype · ranking paused</span><div class="rankForm"><input id="rankName" maxlength="24" autocomplete="nickname" spellcheck="false" aria-label="Leaderboard name" placeholder="name for leaderboard" /><button id="submitRank" class="secondary">post score</button></div></div><div class="actions"><button id="restartRun" class="primary">run again</button><button id="menuFromGameOver" class="secondary">menu</button></div></div></div>
+</div>
+<script src="/game-runtimes/game-network-bridge.js"></script>
+<script src="./render-scale-v7.js"></script>
+<script src="./render-optimizer-v6.js"></script>
+<script src="./v091/fullscreen.js"></script>
+<script type="module" src="./v015-entry.js"></script>
+</body>
+</html>
