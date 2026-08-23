@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="theme-color" content="#06100c" />
+  <title>Sylvaria</title>
+  <link rel="stylesheet" href="./sylvaria-v2.css" />
+</head>
+<body>
+  <main id="gameShell">
+    <canvas id="game" width="1280" height="720" aria-label="Sylvaria side-view forest action platformer"></canvas>
+    <section id="hud" aria-live="polite">
+      <div class="brand"><span>SYLVARIA</span><small>OLD GROWTH TRIAL</small></div>
+      <div class="status"><span id="health">BARK ●●●●●</span><span id="objective">Reach the heartwood gate</span></div>
+      <div class="movement"><span id="moveState">grounded</span><span id="airStep">CANOPY STEP ●</span></div>
+    </section>
+    <section id="intro" class="panel">
+      <p class="eyebrow">SIDE-VIEW COMBAT PROTOTYPE</p>
+      <h1>SYLVARIA</h1>
+      <p>Protect an ancient forest by mastering the tree itself. Run roots, spring from living branches, use Bark Grip to cling and launch from trunks, swing vines, rebound from enemies, and cut through the Clearcut Logger and Nailgun Ranger with your machete.</p>
+      <div class="controls">
+        <span><b>A / D</b> move</span><span><b>SPACE</b> jump / Bark Grip launch</span><span><b>J</b> machete</span><span><b>W/S + J</b> directional slash</span><span><b>SHIFT</b> canopy step</span><span><b>E</b> grab / release vine</span>
+      </div>
+      <button id="start">ENTER THE OLD GROWTH</button>
+      <small>Simple attacks. Complicated terrain.</small>
+    </section>
+    <section id="complete" class="panel hidden">
+      <p class="eyebrow">TRIAL COMPLETE</p><h2>The old growth still stands.</h2><p id="completeStats"></p><button id="restart">RUN IT AGAIN</button>
+    </section>
+    <section id="dead" class="panel hidden">
+      <p class="eyebrow">FELLED</p><h2>The forest remembers the route.</h2><p>Press R or restart and take a cleaner line through the trees.</p><button id="retry">RETRY</button>
+    </section>
+  </main>
+  <script type="module" src="./game-v2.js"></script>
+</body>
+</html>

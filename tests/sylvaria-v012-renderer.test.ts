@@ -70,8 +70,8 @@ test('v0.13 kinetic presentation remains the authoritative Reactive Blade render
   assert.doesNotMatch(presentation,/F\.(?:updateMovement|updateEnemies|updateShots|cut)\s*=/);
 });
 
-test('v0.15 public shell supersedes the old pond grammar while preserving v0.14 beneath it',()=>{
-  const html=read(`${runtime}/index.html`),entry14=read(`${runtime}/v014-entry.js`),entry15=read(`${runtime}/v015-entry.js`),arcade=read('src/data/arcadeGames.ts');
+test('archived v0.15 shell supersedes the old pond grammar while preserving v0.14 beneath it',()=>{
+  const html=read(`${runtime}/index.html`),entry14=read(`${runtime}/v014-entry.js`),entry15=read(`${runtime}/v015-entry.js`);
   assert.match(entry14,/v0\.14 · unified kinetic combat/);
   assert.match(entry14,/Reactive Blade/);
   assert.match(entry14,/boss guard/i);
@@ -85,10 +85,6 @@ test('v0.15 public shell supersedes the old pond grammar while preserving v0.14 
   assert.match(html,/REVERSAL/);
   assert.match(html,/\.\/v015-entry\.js/);
   assert.doesNotMatch(html,/156° tongue sweep|hold \/ release dash|v0\.14 · unified kinetic combat/);
-  assert.match(arcade,/version: 'v0\.15\.0'/);
-  assert.match(arcade,/DRAW THE LINE · SURVIVE THE FOREST/);
-  assert.match(arcade,/regrowing undergrowth/i);
-  assert.match(arcade,/webgl2/);
 });
 
 test('v0.12 graphics documentation remains a historical presentation contract beneath later combat engines',()=>{

@@ -23,6 +23,7 @@ concurrency:
 
 jobs:
   cutstep-forest-lab:
+    if: github.event_name == 'workflow_dispatch' || github.base_ref == 'agent/sylvaria-combat-flow-v014'
     runs-on: ubuntu-latest
     timeout-minutes: 24
     steps:

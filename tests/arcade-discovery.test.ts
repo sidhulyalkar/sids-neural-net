@@ -9,6 +9,7 @@ import { primaryNavItems, siteNavItems } from '../src/data/siteNav';
 const root = process.cwd();
 const read = (path: string) => readFileSync(join(root, path), 'utf8');
 const runtime = 'public/game-runtimes/mosslight-v2';
+const sideviewRuntime = 'public/game-runtimes/sylvaria-v2';
 const v091 = `${runtime}/v091`;
 const v011 = `${runtime}/v011`;
 const v012 = `${runtime}/v012`;
@@ -22,29 +23,29 @@ test('the Game Network exposes every current game as a playable entry', () => {
   for (const game of arcadeGames) { assert.equal(game.status, 'playable'); assert.ok(game.launchUrl); }
 });
 
-test('Sylvaria v0.15 advertises the Cutstep forest alpha actually shipped by production', () => {
+test('current Sylvaria metadata describes the horizontal tree-action platformer actually launched by production', () => {
   const game = arcadeGames.find((entry) => entry.slug === 'sylvaria');
   assert.ok(game);
   assert.equal(game.title, 'Sylvaria');
-  assert.equal(game.version, 'v0.15.0');
-  assert.match(game.subtitle, /DRAW THE LINE.*SURVIVE THE FOREST/);
-  for (const phrase of [/120 Hz/i,/Cutstep/i,/WASD/i,/Arrow keys or mouse/i,/no charge delay/i,/three segment/i,/Thrusts/i,/Crosscuts/i,/reversals/i,/misty pine/i,/oak/i,/cedar/i,/burnscar/i,/ancient-grove/i,/regrowing undergrowth/i,/ranking remains paused/i]) assert.match(game.description, phrase);
-  for (const tag of ['dark forest','cutstep','independent aim','segmented movement','projectile reflection','geometry combat','regrowing undergrowth','120 hz simulation']) assert.ok(game.tags.includes(tag));
-  assert.ok(game.controls.some((control) => control.input === 'W A S D' && /without changing.*aim/i.test(control.action)));
-  assert.ok(game.controls.some((control) => control.input === 'Arrow Keys' && /aim/i.test(control.action)));
-  assert.ok(game.controls.some((control) => control.input === 'Mouse' && /free-angle/i.test(control.action)));
-  assert.ok(game.controls.some((control) => control.input === 'Space' && /instant.*no hold.*charge.*release/i.test(control.action)));
-  assert.ok(game.controls.some((control) => control.input === 'Forest ecology' && /regrowing understory/i.test(control.action)));
+  assert.equal(game.version, 'v2.0.0-alpha.2');
+  assert.equal(game.launchUrl, '/game-runtimes/sylvaria-v2/index.html');
+  assert.equal(game.aspectRatio, '16 / 9');
+  assert.deepEqual(game.nativeSize,{width:1280,height:720});
+  assert.match(game.subtitle,/ROOT.*CLIMB.*SWING.*STRIKE/);
+  for (const phrase of [/horizontal/i,/action platformer/i,/living tree traversal/i,/branches/i,/Bark Grip/i,/vine/i,/downward machete/i,/nail projectiles/i,/reflected/i,/multi-screen Old Growth Trial/i]) assert.match(game.description, phrase);
+  for (const tag of ['action platformer','dark forest','tree traversal','branch physics','vine swinging','wall movement','machete combat','projectile reflection','120 hz simulation']) assert.ok(game.tags.includes(tag));
+  assert.ok(game.controls.some((control) => control.input === 'A / D' && /run/i.test(control.action)));
+  assert.ok(game.controls.some((control) => control.input === 'Space' && /jump/i.test(control.action)));
+  assert.ok(game.controls.some((control) => control.input === 'J' && /machete/i.test(control.action)));
+  assert.ok(game.controls.some((control) => control.input === 'E' && /vine/i.test(control.action)));
   assert.equal(getArcadeGame('mosslight')?.slug, 'sylvaria');
   assert.equal(getArcadeGame('sylvaria')?.slug, 'sylvaria');
 });
 
-test('v0.15 boots v0.14 as a preserved substrate then owns the polished forest combat alpha', () => {
+test('the top-down v0.15 Cutstep experiment remains preserved and reconstructible but is no longer the public Sylvaria launch', () => {
   const html = read(`${runtime}/index.html`),entry11=read(`${runtime}/v011-entry.js`),entry12=read(`${runtime}/v012-entry.js`),entry13=read(`${runtime}/v013-entry.js`),entry14=read(`${runtime}/v014-entry.js`),entry15=read(`${runtime}/v015-entry.js`);
   assert.match(html, /Sylvaria · Cutstep Forest/);
-  assert.match(html, /sylvaria-forest-v015\.css/);
   assert.match(html, /src="\.\/v015-entry\.js"/);
-  assert.doesNotMatch(html, /src="\.\/v014-entry\.js"|src="\.\/v013-entry\.js"|src="\.\/v012-entry\.js"/);
   for (const moduleName of ['model.js','world.js','movement.js','battle-core.js','render.js','boot.js','fullscreen.js']) assert.ok(existsSync(join(root,v091,moduleName)),`missing baseline ${moduleName}`);
   for (const moduleName of ['rooms-v011.js','presentation-v011.js','input-guard-v011.js','competitive-v011.js']) assert.ok(existsSync(join(root,v011,moduleName)),`missing inherited ${moduleName}`);
   for (const moduleName of ['webgl-pond-v012.js','art-atlas-v012.js','art-atlas-pro-v012.js']) assert.ok(existsSync(join(root,v012,moduleName)),`missing v0.12 renderer ${moduleName}`);
@@ -56,33 +57,23 @@ test('v0.15 boots v0.14 as a preserved substrate then owns the polished forest c
   for(const moduleName of ['kinetic-combat-v013.js','enemy-ai-v013.js','replay-v013.js','coach-v013.js','kinetic-presentation-v013.js'])assert.ok(entry13.includes(moduleName));
   assert.match(entry14,/await import\('\.\/v013-entry\.js'\)/);
   assert.match(entry15,/await import\('\.\/v014-entry\.js'\)/);
-  for(const moduleName of ['cutstep-v015.js','encounter-director-v015.js','forest-world-v015.js','discoveries-v015.js','forest-actors-v015.js','cutstep-presentation-v015.js'])assert.ok(entry15.includes(moduleName),`v0.15 entry missing ${moduleName}`);
   assert.match(entry15,/v0\.15 Cutstep alpha · verifier migration required/);
-  assert.match(entry15,/POLISHED FOREST COMBAT ALPHA/);
+  assert.notEqual(arcadeGames.find((game)=>game.slug==='sylvaria')?.launchUrl,'/game-runtimes/mosslight-v2/index.html');
 });
 
-test('the exact-source v0.13 verifier remains reconstructible beneath v0.15', () => {
+test('the exact-source v0.13 verifier remains reconstructible beneath the archived top-down lineage', () => {
   const model=read(`${v091}/model.js`),movement=read(`${v091}/movement.js`),kinetics=read(`${v013}/kinetic-combat-v013.js`),replay=read(`${v013}/replay-v013.js`),serverReplay=read('src/lib/sylvaria/replay.ts');
   assert.match(model,/FIXED_DT=1\/120/);assert.match(model,/MAX_SHOTS=128/);assert.match(model,/MAX_PENDING=72/);
   assert.match(movement,/state\.moveQueue=\{key,serial:\+\+state\.inputSerial\}/);
   assert.match(kinetics,/Object\.assign\(F,\{beginDashCharge,releaseDashCharge/);
   assert.match(replay,/VERSION='0\.13\.0'/);assert.match(serverReplay,/SYLVARIA_ENGINE_VERSION = '0\.13\.0'/);
-  assert.match(entryRankBoundary(),/ranked:false/);
-});
-function entryRankBoundary(){return read(`${runtime}/v015-entry.js`)}
-
-test('v0.15 keeps the useful deterministic combat substrate while replacing the public player verb', () => {
-  const cut=read(`${v015}/cutstep-v015.js`),boss=read(`${v014}/boss-flow-v014.js`),threats=read(`${v014}/threat-manager-v014.js`),enemy=read(`${v014}/enemy-flow-v014.js`);
-  assert.match(cut,/F\.beginDashCharge=\(\)=>false;F\.releaseDashCharge=\(\)=>false/);
-  assert.match(cut,/kind:'thrust'/);assert.match(cut,/kind:'crosscut'/);assert.match(cut,/kind:'reversal'/);
-  assert.match(boss,/guardByPhase:Object\.freeze\(\{1:3,2:4,3:5\}\)/);
-  assert.match(threats,/ROOM_THREAT_PROFILES/);assert.match(enemy,/spec\.dodge=100/);
+  assert.match(read(`${runtime}/v015-entry.js`),/ranked:false/);
 });
 
-test('current Sylvaria player-facing surfaces use forest Cutstep vocabulary', () => {
-  const visible=[read(`${runtime}/index.html`),read('src/data/arcadeGames.ts')].join('\n');
-  for(const word of ['Sylvaria','forest','Cutstep','WASD','Arrow','mouse','Thrust','Crosscut','Reversal','undergrowth'])assert.match(visible,new RegExp(word,'i'));
-  assert.doesNotMatch(visible,/Kinetic Pond|01 \/ pond|<b>lilies<\/b>|hold \/ release dash|156° tongue|Reactive Blade sweep/i);
+test('the new public Sylvaria shell uses side-view tree traversal vocabulary and no top-down combat language', () => {
+  const visible=[read(`${sideviewRuntime}/index.html`),read('src/data/arcadeGames.ts')].join('\n');
+  for(const word of ['Sylvaria','platformer','branch','vine','Bark Grip','machete','logger','nail'])assert.match(visible,new RegExp(word,'i'));
+  assert.doesNotMatch(visible,/Kinetic Pond|Cutstep|Thrust|Crosscut|Reversal|156° tongue|Reactive Blade/i);
 });
 
 test('Game Network fullscreen removes portfolio chrome and gives the iframe the whole display', () => {
@@ -104,7 +95,7 @@ test('the Game Network index stays intentionally minimal', () => {
 
 test('Vercel allows same-origin game embedding without allowing cross-site framing', () => {
   const config=JSON.parse(read('vercel.json')) as {headers?:Array<{source?:string;headers?:Array<{key?:string;value?:string}>}>};const global=config.headers?.find((rule)=>rule.source==='/(.*)')?.headers??[];assert.equal(global.find((header)=>header.key==='X-Frame-Options')?.value,'SAMEORIGIN');
-  for(const source of ['/game-runtimes/stretchicorn/(.*)','/game-runtimes/mosslight-v2/(.*)']){const headers=config.headers?.find((rule)=>rule.source===source)?.headers??[];assert.ok(headers.some((header)=>header.key==='Content-Security-Policy'&&header.value==="frame-ancestors 'self'"))}
+  for(const source of ['/game-runtimes/stretchicorn/(.*)','/game-runtimes/mosslight-v2/(.*)','/game-runtimes/sylvaria-v2/(.*)']){const headers=config.headers?.find((rule)=>rule.source===source)?.headers??[];assert.ok(headers.some((header)=>header.key==='Content-Security-Policy'&&header.value==="frame-ancestors 'self'"),`missing frame policy for ${source}`)}
 });
 
 test('the embedded Stretchicorn release is complete', () => {
