@@ -9,14 +9,14 @@ const css=read('public/game-runtimes/sylvaria-v2/sylvaria-v2.css');
 const game=read('public/game-runtimes/sylvaria-v2/game-v2.js');
 const arcade=read('src/data/arcadeGames.ts');
 
-test('Sylvaria v2 boots a clean horizontal runtime rather than another top-down inheritance layer',()=>{
+test('Sylvaria v2 remains a clean preserved horizontal runtime rather than another top-down inheritance layer',()=>{
   assert.match(html,/<title>Sylvaria<\/title>/);
   assert.match(html,/src="\.\/game-v2\.js"/);
   assert.match(html,/SIDE-VIEW COMBAT PROTOTYPE/);
   assert.match(html,/Simple attacks\. Complicated terrain\./);
-  assert.match(arcade,/launchUrl: '\/game-runtimes\/sylvaria-v2\/index\.html'/);
-  assert.match(arcade,/title: 'Sylvaria'/);
   assert.doesNotMatch(game,/mosslight|v014-entry|v015-entry|Sylvaria091|Cutstep/);
+  assert.doesNotMatch(arcade,/launchUrl: '\/game-runtimes\/sylvaria-v2\/index\.html'/);
+  assert.match(arcade,/launchUrl: '\/game-runtimes\/sylvaria-v3\/index\.html'/);
 });
 
 test('movement foundation is deterministic and tuned for a precision platformer',()=>{
