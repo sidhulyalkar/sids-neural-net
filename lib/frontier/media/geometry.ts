@@ -27,11 +27,12 @@ function clampRatio(value: number): number {
 function closestRatioLabel(value: number): NonNullable<FrontierMedia['aspectRatio']> {
   const ratio = clampRatio(value);
   return (Object.entries(RATIO_BY_LABEL) as Array<[NonNullable<FrontierMedia['aspectRatio']>, number]>)
-    .sort((left, right) => Math.abs(left[1] - ratio) - Math.abs(right[1] - ratio))[0]?.[0] ?? 'square';
+    .sort((left, right) => Math.abs(left[1] - ratio) - Math.abs(right[1] - ratio))[0]?.[0] ?? 'landscape';
 }
 
 export function frontierDefaultMediaAspectRatio(media?: FrontierMedia): NonNullable<FrontierMedia['aspectRatio']> {
   if (media?.type === 'video' || media?.type === 'youtube') return 'wide';
+  if (media?.type === 'image') return 'landscape';
   return 'square';
 }
 
