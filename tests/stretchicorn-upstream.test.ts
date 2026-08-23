@@ -25,27 +25,32 @@ test('Stretchicorn cabinet points at the current public v0.21.1 release', () => 
   assert.equal(game.version, 'v0.21.1');
   assert.equal(game.sourceVisibility, 'public');
   assert.equal(game.repoUrl, 'https://github.com/sidhulyalkar/stretchicorn');
+  assert.equal(game.sourceCommit, EXPECTED_COMMIT);
   assert.equal(game.launchUrl, '/game-runtimes/stretchicorn/index.html');
   assert.ok(game.controls.some((control) => control.input === '1 / 2 / 3 / 4'));
-  assert.match(game.description, /Impossible Encore/);
+  assert.match(game.description, /13 trials and four difficulty modes/);
 });
 
-test('canonical Stretchicorn runtime URLs are shadowed by the pinned upstream proxy', () => {
-  const nextConfig = readRepoFile('next.config.ts');
-  assert.match(nextConfig, /source: '\/game-runtimes\/stretchicorn\/:asset\*'/);
-  assert.match(nextConfig, /destination: '\/game-runtimes\/stretchicorn-upstream\/:asset\*'/);
-  assert.match(nextConfig, /beforeFiles/);
+test('canonical Stretchicorn runtime is served from an exact allowlisted upstream commit', () => {
+  const route = readRepoFile('app/game-runtimes/stretchicorn/[...asset]/route.ts');
+  const gateway = readRepoFile('lib/arcade/pinnedGithubRuntime.ts');
 
-  const proxy = readRepoFile('app/game-runtimes/stretchicorn-upstream/[...asset]/route.ts');
-  assert.match(proxy, new RegExp(EXPECTED_COMMIT));
-  assert.match(proxy, /raw\.githubusercontent\.com\/sidhulyalkar\/stretchicorn/);
-  assert.match(proxy, /game-network-bridge\.js/);
-  assert.match(proxy, /tabindex="0"/);
-  assert.match(proxy, /aria-label="Stretchicorn arcade game"/);
-  assert.match(proxy, /frame-ancestors 'self'/);
-  assert.match(proxy, /max-age=31536000, immutable/);
+  assert.match(route, new RegExp(EXPECTED_COMMIT));
+  assert.match(route, /owner: 'sidhulyalkar'/);
+  assert.match(route, /repo: 'stretchicorn'/);
+  assert.match(route, /servePinnedGithubRuntimeAsset/);
 
   for (const asset of EXPECTED_ASSETS) {
-    assert.match(proxy, new RegExp(asset.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+    assert.match(route, new RegExp(asset.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
   }
+
+  assert.match(gateway, /raw\.githubusercontent\.com\/\$\{runtime\.owner\}\/\$\{runtime\.repo\}/);
+  assert.match(gateway, /game-network-bridge\.js/);
+  assert.match(gateway, /runtime\.allowedAssets\.has\(path\)/);
+  assert.match(gateway, /!path\.includes\('\.\.'\)/);
+  assert.match(gateway, /frame-ancestors 'self'/);
+  assert.match(gateway, /max-age=31536000, immutable/);
+  assert.match(gateway, /X-Arcade-Upstream-Repo/);
+  assert.match(gateway, /X-Arcade-Upstream-Commit/);
+  assert.match(gateway, /AbortSignal\.timeout\(8_000\)/);
 });
