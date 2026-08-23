@@ -1,5 +1,5 @@
 import{SylvariaEngine as SaplineEngine}from'./engine-sapline-v3.js';
-import{BARK_RAIL}from'./config-v3.js';
+import{BARK_RAIL,MOVE}from'./config-v3.js';
 import{BARK_RAILS,ROUTE_ANCHORS}from'./routes-v3.js';
 
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
@@ -11,7 +11,7 @@ export class SylvariaEngine extends SaplineEngine{
   freshStats(){return{...super.freshStats(),barkRailLandings:0,masteryRailLandings:0}}
 
   reset(play=true){
-    const snap=super.reset(play);
+    super.reset(play);
     this.installRouteTopology();
     return this.snapshot();
   }
@@ -55,14 +55,15 @@ export class SylvariaEngine extends SaplineEngine{
     for(const rail of this.world.rails){
       const minX=Math.min(rail.ax,rail.bx)-BARK_RAIL.endpointMargin,maxX=Math.max(rail.ax,rail.bx)+BARK_RAIL.endpointMargin;
       if(p.x<minX||p.x>maxX)continue;
-      const hit=this.railYAtX(rail,clamp(p.x,Math.min(rail.ax,rail.bx),Math.max(rail.ax,rail.bx)));if(!hit)continue;
+      const sampleX=clamp(p.x,Math.min(rail.ax,rail.bx),Math.max(rail.ax,rail.bx));
+      const hit=this.railYAtX(rail,sampleX);if(!hit)continue;
       const surface=hit.y-(rail.thickness||BARK_RAIL.defaultThickness)/2;
       if(prevBottom>surface+BARK_RAIL.landingTolerance||intendedBottom<surface)continue;
       if(surface<bestY){bestY=surface;best=rail}
     }
     if(!best||bestY>inheritedSurface+.5)return inherited;
 
-    p.y=bestY-p.h/2;p.vy=0;p.onGround=true;p.groundId=best.id;p.coyote=this.moveCoyote?.()??.11;p.airDash=true;
+    p.y=bestY-p.h/2;p.vy=0;p.onGround=true;p.groundId=best.id;p.coyote=MOVE.coyote;p.airDash=true;
     if(previousGround!==best.id){
       this.state.stats.barkRailLandings++;
       if(best.route==='mastery')this.state.stats.masteryRailLandings++;
