@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
+  <meta name="theme-color" content="#07110d" />
+  <title>Crownrush v0.1.0</title>
+  <style>
+    :root { color-scheme: dark; }
+    * { box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; background: #020806; }
+    body { display: grid; place-items: center; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
+    #wrap { position: relative; width: 100%; height: 100%; display: grid; place-items: center; background: radial-gradient(circle at 50% 20%, #123021 0%, #07110d 46%, #020806 100%); }
+    #c { display: block; width: min(100vw, calc(100vh * 1.5)); height: min(100vh, calc(100vw / 1.5)); max-width: 100%; max-height: 100%; outline: none; touch-action: none; image-rendering: auto; }
+    #hint { position: absolute; left: 50%; bottom: 12px; transform: translateX(-50%); color: rgba(232,255,239,.42); font-size: 9px; letter-spacing: .14em; text-transform: uppercase; white-space: nowrap; pointer-events: none; transition: opacity .25s ease; }
+    #wrap[data-playing="true"] #hint { opacity: 0; }
+    @media (pointer: coarse) { #hint { bottom: 6px; font-size: 8px; } }
+  </style>
+</head>
+<body>
+  <main id="wrap" data-playing="false">
+    <canvas id="c" width="960" height="640" tabindex="0" aria-label="Crownrush game canvas"></canvas>
+    <div id="hint">A/D move · Space jump · Shift sapline · P pause</div>
+  </main>
+  <script src="../game-network-bridge.js"></script>
+  <script src="./game.js"></script>
+</body>
+</html>
