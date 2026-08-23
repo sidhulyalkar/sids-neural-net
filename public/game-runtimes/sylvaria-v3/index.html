@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="theme-color" content="#040b08" />
+  <title>Sylvaria</title>
+  <link rel="stylesheet" href="./sylvaria-v3.css" />
+</head>
+<body>
+  <main id="gameShell">
+    <canvas id="game" width="1280" height="720" aria-label="Sylvaria ancient tree ascent action platformer"></canvas>
+
+    <section id="hud" aria-live="polite">
+      <div class="brand"><span>SYLVARIA</span><small id="zone">ROOTWARD BASE</small></div>
+      <div class="status"><span id="health">BARK ●●●●●</span><span id="objective">CLIMB THE ANCIENT TREE</span></div>
+      <div class="movement"><span id="altitude">0 M</span><span id="airStep">AIR STEP ●</span><button id="settingsButton" class="iconButton" type="button" aria-label="Controls and settings">⌘</button></div>
+    </section>
+
+    <section id="bossHud" class="bossHud hidden" aria-live="polite">
+      <div class="bossLine"><span id="bossName">CROWN FELLER</span><span id="bossGuard">GUARD 3/3</span></div>
+      <div class="bossTrack"><div id="bossBar"></div></div>
+    </section>
+
+    <section id="intro" class="panel introPanel">
+      <p class="eyebrow">ANCIENT TREE ASCENT</p>
+      <h1>SYLVARIA</h1>
+      <p class="lede">Climb from the roots to the crown of an ancient living tree while mechanized clearcut crews dismantle it around you. The tree is your platforming system: grip bark, spring from flexible limbs, swing vines, break deadwood, strike sap branches, rebound through aerial combat, and fight upward.</p>
+      <div class="controls primaryControls">
+        <span><b>← / →</b> move</span>
+        <span><b>SPACE</b> jump</span>
+        <span><b>D</b> machete</span>
+        <span><b>↑ + D</b> upslash</span>
+        <span><b>↓ + D</b> downslash / plunge</span>
+        <span><b>SHIFT</b> air dash</span>
+      </div>
+      <p class="microcopy">Downward hits rebound. Bark Grip refreshes your air dash. Narrow branches reward momentum, not patience.</p>
+      <button id="start" class="primaryButton" type="button">BEGIN THE ASCENT</button>
+      <button class="textButton" type="button" onclick="document.getElementById('settingsPanel').classList.remove('hidden')">CUSTOMIZE CONTROLS</button>
+    </section>
+
+    <section id="pausePanel" class="panel compact hidden">
+      <p class="eyebrow">PAUSED</p><h2>The canopy waits.</h2>
+      <button id="resume" class="primaryButton" type="button">RESUME</button>
+      <button class="textButton" type="button" onclick="document.getElementById('settingsButton').click()">CONTROLS</button>
+    </section>
+
+    <section id="settingsPanel" class="panel settingsPanel hidden" aria-label="Customize controls">
+      <div class="panelHeader"><div><p class="eyebrow">CONTROLS</p><h2>Make Sylvaria yours.</h2></div><button id="closeSettings" class="iconButton" type="button">×</button></div>
+      <p class="settingsHint">Select an action, then press the key you want. Bindings are saved on this device.</p>
+      <div id="bindList" class="bindList"></div>
+      <button id="resetBindings" class="textButton" type="button">RESET DEFAULTS</button>
+    </section>
+
+    <section id="complete" class="panel hidden">
+      <p class="eyebrow">HEARTWOOD CROWN</p><h2>You reached the top.</h2>
+      <p id="completeStats"></p>
+      <button id="restart" class="primaryButton" type="button">CLIMB AGAIN</button>
+    </section>
+
+    <section id="dead" class="panel hidden">
+      <p class="eyebrow">FELLED</p><h2>The ancient tree remembers the route.</h2>
+      <p>Your last Heartbud remains your checkpoint. Climb cleaner, use the bark, and turn enemy attacks into movement.</p>
+      <button id="retry" class="primaryButton" type="button">RETURN TO THE TREE</button>
+    </section>
+  </main>
+  <script type="module" src="./game-v3.js"></script>
+</body>
+</html>
