@@ -28,7 +28,8 @@ const cleanRuntimeUrl = (value: string | undefined) => {
 const stretchicornRuntime =
   cleanRuntimeUrl(process.env.NEXT_PUBLIC_ARCADE_STRETCHICORN_URL) ?? '/game-runtimes/stretchicorn/index.html';
 const uniricoRuntime = cleanRuntimeUrl(process.env.NEXT_PUBLIC_ARCADE_UNIRICO_URL) ?? '/game-runtimes/unirico/index.html';
-const crownrushRuntime = cleanRuntimeUrl(process.env.NEXT_PUBLIC_ARCADE_CROWNRUSH_URL) ?? '/game-runtimes/crownrush/index.html';
+const sylvariaSequoiaRuntime =
+  cleanRuntimeUrl(process.env.NEXT_PUBLIC_ARCADE_SYLVARIA_SEQUOIA_URL) ?? '/game-runtimes/sylvaria-sequoia/index.html';
 
 export const arcadeGames: ArcadeGame[] = [
   {
@@ -78,26 +79,26 @@ export const arcadeGames: ArcadeGame[] = [
     accent: 'cyan',
   },
   {
-    slug: 'crownrush',
-    title: 'Crownrush',
-    subtitle: 'BANK SPEED · SKIP BARK · CHASE THE CROWN.',
+    slug: 'sylvaria-sequoia',
+    title: 'Sylvaria: Sequoia',
+    subtitle: 'BANK SPEED · READ THE BARK · CHASE THE CROWN.',
     description:
-      'A kinetic twin-sequoia climber where horizontal speed becomes jump height, bark rebounds preserve momentum, and a resin Sapline can be pumped into enormous branch-skipping launches. Chain four multi-floor skips to ignite CROWNVELOCITY, bank combos into Sap Catch rescues, and stay ahead of the rising fire.',
-    version: 'v0.1.0',
+      'A kinetic twin-sequoia climber built around momentum, multi-branch combo skips, tactile bark rebounds, authored procedural route grammars, and an elastic Sapline that converts swing timing into huge launches. Chain four skips to ignite CROWNVELOCITY, bank combos into Sap Catch rescues, and stay ahead of a rubber-banded rising fire.',
+    version: 'v0.2.0',
     status: 'playable',
     sourceVisibility: 'public',
     repoUrl: 'https://github.com/sidhulyalkar/sids-neural-net',
-    launchUrl: crownrushRuntime,
+    launchUrl: sylvariaSequoiaRuntime,
     aspectRatio: '3 / 2',
     nativeSize: { width: 960, height: 640 },
-    tags: ['vertical climber', 'momentum', 'sapline', 'combos', 'procedural', 'canvas'],
+    tags: ['vertical climber', 'momentum', 'sapline', 'combos', 'route grammar', 'telemetry', 'canvas'],
     controls: [
-      { input: 'A / D · ← / →', action: 'Run, steer, and pump Sapline swings' },
-      { input: 'Space · W · ↑', action: 'Jump; speed increases vertical lift' },
+      { input: 'A / D · ← / →', action: 'Run, air-correct, and pump Sapline swings' },
+      { input: 'Space · W · ↑', action: 'Jump; horizontal speed increases lift' },
       { input: 'Shift · E', action: 'Hold to Sapline, release to slingshot' },
-      { input: 'Sequoia bark', action: 'Rebounds preserve most horizontal momentum' },
-      { input: 'P', action: 'Pause / resume' },
-      { input: 'Touch', action: 'Four-zone move, jump, and Sapline controls' },
+      { input: 'Sequoia bark', action: 'Rebound while conserving most momentum' },
+      { input: 'T · J', action: 'Telemetry panel · copy run telemetry JSON' },
+      { input: 'R · N · P', action: 'Retry seed · new route seed · pause' },
     ],
     accent: 'cyan',
   },
