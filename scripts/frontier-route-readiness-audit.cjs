@@ -14,14 +14,16 @@ function explicitTerminalState(text) {
 }
 
 function auditItem(index) {
+  const sourceKinds = ['rss', 'openalex', 'github', 'nasa'];
+  const host = `frontier-audit-${index}.example.invalid`;
   return {
     id: `frontier-mobile-route-audit-${index}`,
     title: `Mobile feed paint audit ${index}`,
     summary: 'Deterministic local content proving that the real FRONTIER mobile feed paints readable cards above the fold.',
-    url: `/frontier?mobile-audit=${index}`,
-    source: 'FRONTIER CI',
-    sourceLabel: 'FRONTIER CI',
-    sourceKind: 'local',
+    url: `https://${host}/item`,
+    source: host,
+    sourceLabel: `FRONTIER CI ${index}`,
+    sourceKind: sourceKinds[index - 1],
     publishedAt: '2026-08-22T00:00:00.000Z',
     lane: index === 1 ? 'creative_tech' : index === 2 ? 'ai_frontier' : 'methods',
     tags: ['mobile-audit', 'deterministic', `fixture-${index}`],
@@ -32,6 +34,46 @@ function auditItem(index) {
     momentum: 0.4,
     why: 'Deterministic CI fixture only.',
   };
+}
+
+async function pageState(page) {
+  return page.evaluate(({ cardSelector, loadingSelector }) => {
+    const board = document.querySelector('[data-vector-backend]');
+    const cards = Array.from(document.querySelectorAll(cardSelector)).slice(0, 6);
+    return {
+      viewport: { width: innerWidth, height: innerHeight },
+      cardCount: document.querySelectorAll(cardSelector).length,
+      loadingVisible: Boolean(document.querySelector(loadingSelector)),
+      bodyText: (document.body?.innerText ?? '').replace(/\s+/g, ' ').trim().slice(0, 4_000),
+      headerStatus: Array.from(document.querySelectorAll('header span'))
+        .map((node) => node.textContent?.trim() ?? '')
+        .find((text) => ['scanning', 'partial', 'streaming', 'live'].includes(text)) ?? null,
+      board: board ? {
+        backend: board.getAttribute('data-vector-backend'),
+        density: board.getAttribute('data-density'),
+        expanded: board.getAttribute('data-fluid-expanded'),
+        childCount: board.children.length,
+        text: (board.textContent ?? '').replace(/\s+/g, ' ').trim().slice(0, 1_200),
+      } : null,
+      cards: cards.map((node) => {
+        const rect = node.getBoundingClientRect();
+        const style = getComputedStyle(node);
+        return {
+          id: node.getAttribute('data-frontier-fluid-card'),
+          text: (node.textContent ?? '').replace(/\s+/g, ' ').trim().slice(0, 220),
+          rect: { x: rect.x, y: rect.y, width: rect.width, height: rect.height },
+          contentVisibility: style.contentVisibility,
+          display: style.display,
+          visibility: style.visibility,
+          opacity: style.opacity,
+        };
+      }),
+      storage: {
+        layout: localStorage.getItem('frontier-layout-mode'),
+        feedCachePresent: Boolean(localStorage.getItem('frontier-live-feed-cache-v1')),
+      },
+    };
+  }, { cardSelector: CARD, loadingSelector: LOADING });
 }
 
 async function auditColdDesktop(browser) {
@@ -63,15 +105,7 @@ async function auditColdDesktop(browser) {
     );
 
     const settledMs = Date.now() - startedAt;
-    const state = await page.evaluate(({ cardSelector, loadingSelector }) => ({
-      cardCount: document.querySelectorAll(cardSelector).length,
-      loadingVisible: Boolean(document.querySelector(loadingSelector)),
-      bodyText: (document.body?.innerText ?? '').slice(0, 3_000),
-      headerStatus: Array.from(document.querySelectorAll('header span'))
-        .map((node) => node.textContent?.trim() ?? '')
-        .find((text) => ['scanning', 'partial', 'streaming', 'live'].includes(text)) ?? null,
-    }), { cardSelector: CARD, loadingSelector: LOADING });
-
+    const state = await pageState(page);
     assert.equal(state.loadingVisible, false, 'FRONTIER must leave the loading skeleton after its bounded request window');
     assert(
       state.cardCount > 0 || explicitTerminalState(state.bodyText),
@@ -85,6 +119,7 @@ async function auditColdDesktop(browser) {
 
     await page.screenshot({ path: path.join(ARTIFACT_DIR, 'frontier-first-useful-paint.png'), fullPage: true });
     return {
+      passed: true,
       settledMs,
       cardCount: state.cardCount,
       headerStatus: state.headerStatus,
@@ -105,18 +140,32 @@ async function auditDeterministicMobile(browser) {
   const page = await context.newPage();
   page.setDefaultTimeout(MAX_USEFUL_PAINT_MS);
   const pageErrors = [];
+  const consoleErrors = [];
+  const frontierRequests = [];
+  let feedFulfillments = 0;
+  let forageFulfillments = 0;
   page.on('pageerror', (error) => pageErrors.push(error.message));
+  page.on('console', (message) => {
+    if (message.type() === 'error') consoleErrors.push(message.text().slice(0, 500));
+  });
+  page.on('request', (request) => {
+    if (request.url().includes('/api/frontier/')) {
+      frontierRequests.push({ method: request.method(), url: request.url().slice(0, 700) });
+    }
+  });
 
   const payload = {
     generatedAt: '2026-08-22T00:00:00.000Z',
     items: [auditItem(1), auditItem(2), auditItem(3), auditItem(4)],
-    sources: [{ id: 'local', label: 'FRONTIER CI', ok: true, count: 4 }],
+    sources: [{ id: 'rss', label: 'FRONTIER CI', ok: true, count: 4 }],
   };
 
   await page.route('**/api/frontier/feed**', async (route) => {
+    feedFulfillments += 1;
     await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(payload) });
   });
   await page.route('**/api/frontier/forage**', async (route) => {
+    forageFulfillments += 1;
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
@@ -135,28 +184,10 @@ async function auditDeterministicMobile(browser) {
     );
 
     const settledMs = Date.now() - startedAt;
-    const state = await page.evaluate((selector) => {
-      const cards = Array.from(document.querySelectorAll(selector)).slice(0, 4);
-      return {
-        viewport: { width: innerWidth, height: innerHeight },
-        cardCount: document.querySelectorAll(selector).length,
-        cards: cards.map((node) => {
-          const rect = node.getBoundingClientRect();
-          const style = getComputedStyle(node);
-          return {
-            text: (node.textContent ?? '').replace(/\s+/g, ' ').trim().slice(0, 180),
-            rect: { x: rect.x, y: rect.y, width: rect.width, height: rect.height },
-            contentVisibility: style.contentVisibility,
-            display: style.display,
-            visibility: style.visibility,
-            opacity: style.opacity,
-          };
-        }),
-      };
-    }, CARD);
-
+    const state = await pageState(page);
     assert.equal(state.viewport.width, 390, 'Mobile route audit must use the intended 390px viewport');
     assert(state.cardCount >= 4, `Expected deterministic mobile cards, saw ${state.cardCount}`);
+    assert(feedFulfillments >= 1, 'Mobile route audit never fulfilled the deterministic feed request');
     assert.deepEqual(pageErrors, [], `Mobile FRONTIER emitted page errors: ${pageErrors.join(' | ')}`);
 
     const firstThree = state.cards.slice(0, 3);
@@ -176,7 +207,35 @@ async function auditDeterministicMobile(browser) {
     );
 
     await page.screenshot({ path: path.join(ARTIFACT_DIR, 'frontier-mobile-deterministic.png'), fullPage: false });
-    return { settledMs, pageErrors, ...state };
+    return {
+      passed: true,
+      settledMs,
+      pageErrors,
+      consoleErrors,
+      network: { feedFulfillments, forageFulfillments, requests: frontierRequests },
+      ...state,
+    };
+  } catch (error) {
+    const elapsedMs = Date.now() - startedAt;
+    let diagnosticState = null;
+    try {
+      diagnosticState = await pageState(page);
+      await page.screenshot({
+        path: path.join(ARTIFACT_DIR, 'frontier-mobile-deterministic-failure.png'),
+        fullPage: false,
+      });
+    } catch (diagnosticError) {
+      consoleErrors.push(`diagnostic failure: ${diagnosticError instanceof Error ? diagnosticError.message : String(diagnosticError)}`);
+    }
+    return {
+      passed: false,
+      elapsedMs,
+      error: error instanceof Error ? error.stack : String(error),
+      pageErrors,
+      consoleErrors,
+      network: { feedFulfillments, forageFulfillments, requests: frontierRequests },
+      diagnosticState,
+    };
   } finally {
     await context.close();
   }
@@ -191,7 +250,7 @@ async function auditDeterministicMobile(browser) {
     desktop = await auditColdDesktop(browser);
     mobile = await auditDeterministicMobile(browser);
     const result = {
-      passed: true,
+      passed: desktop.passed && mobile.passed,
       url: FRONTIER_URL,
       maxUsefulPaintMs: MAX_USEFUL_PAINT_MS,
       desktop,
@@ -201,20 +260,23 @@ async function auditDeterministicMobile(browser) {
       path.join(ARTIFACT_DIR, 'frontier-route-readiness.json'),
       `${JSON.stringify(result, null, 2)}\n`,
     );
+    assert.equal(mobile.passed, true, `Deterministic mobile FRONTIER paint failed: ${mobile.error ?? 'unknown failure'}`);
     console.log('FRONTIER route readiness PASS');
     console.log(JSON.stringify(result, null, 2));
   } catch (error) {
-    fs.writeFileSync(
-      path.join(ARTIFACT_DIR, 'frontier-route-readiness.json'),
-      `${JSON.stringify({
-        passed: false,
-        url: FRONTIER_URL,
-        maxUsefulPaintMs: MAX_USEFUL_PAINT_MS,
-        error: error instanceof Error ? error.stack : String(error),
-        desktop,
-        mobile,
-      }, null, 2)}\n`,
-    );
+    if (!fs.existsSync(path.join(ARTIFACT_DIR, 'frontier-route-readiness.json'))) {
+      fs.writeFileSync(
+        path.join(ARTIFACT_DIR, 'frontier-route-readiness.json'),
+        `${JSON.stringify({
+          passed: false,
+          url: FRONTIER_URL,
+          maxUsefulPaintMs: MAX_USEFUL_PAINT_MS,
+          error: error instanceof Error ? error.stack : String(error),
+          desktop,
+          mobile,
+        }, null, 2)}\n`,
+      );
+    }
     throw error;
   } finally {
     await browser.close();
