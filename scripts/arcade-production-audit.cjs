@@ -4,6 +4,7 @@ const { join } = require('node:path');
 
 const baseUrl = process.env.ARCADE_AUDIT_URL || 'http://127.0.0.1:3000';
 const outputDir = join(process.cwd(), 'artifacts', 'browser-smoke');
+const outputPath = join(outputDir, 'arcade-production-audit.json');
 
 const GAMES = [
   {
@@ -29,122 +30,193 @@ function normalizePath(value) {
   return new URL(value, baseUrl).pathname;
 }
 
+function messageText(error) {
+  return error instanceof Error ? `${error.name}: ${error.message}` : String(error);
+}
+
+function persist(report) {
+  writeFileSync(outputPath, JSON.stringify(report, null, 2));
+}
+
 (async () => {
   mkdirSync(outputDir, { recursive: true });
-  const browser = await chromium.launch({ headless: true });
-  const report = { baseUrl, passed: true, catalog: [], games: [], hiddenRoutes: [] };
+  const report = { baseUrl, passed: true, catalog: [], games: [], hiddenRoutes: [], fatalError: null };
+  let browser;
 
   try {
+    browser = await chromium.launch({ headless: true });
+
     for (const viewport of CATALOG_VIEWPORTS) {
+      const result = {
+        ...viewport,
+        passed: false,
+        paths: [],
+        expectedPaths: GAMES.map((game) => `/arcade/${game.slug}`),
+        pageErrors: [],
+        consoleErrors: [],
+        failedResponses: [],
+        error: null,
+      };
       const context = await browser.newContext({ viewport });
       const page = await context.newPage();
-      const pageErrors = [];
-      const consoleErrors = [];
-      page.on('pageerror', (error) => pageErrors.push(String(error)));
+      page.on('pageerror', (error) => result.pageErrors.push(String(error)));
       page.on('console', (message) => {
-        if (message.type() === 'error') consoleErrors.push(message.text());
+        if (message.type() === 'error') result.consoleErrors.push(message.text());
+      });
+      page.on('response', (response) => {
+        if (response.status() >= 400) {
+          result.failedResponses.push({ status: response.status(), url: response.url() });
+        }
       });
 
-      await page.goto(`${baseUrl}/arcade`, { waitUntil: 'networkidle' });
-
-      const hrefs = await page
-        .locator('main section a[data-gesture-target]')
-        .evaluateAll((nodes) => nodes.map((node) => node.getAttribute('href')).filter(Boolean));
-      const paths = hrefs.map(normalizePath);
-      const expectedPaths = GAMES.map((game) => `/arcade/${game.slug}`);
-      const text = await page.locator('main').innerText();
-      const passed =
-        JSON.stringify(paths) === JSON.stringify(expectedPaths) &&
-        !/Sylvaria|mosslight/i.test(text) &&
-        pageErrors.length === 0 &&
-        consoleErrors.length === 0;
-
-      report.passed = report.passed && passed;
-      report.catalog.push({
-        ...viewport,
-        passed,
-        paths,
-        expectedPaths,
-        pageErrors,
-        consoleErrors,
-      });
-
-      await context.close();
+      try {
+        await page.goto(`${baseUrl}/arcade`, { waitUntil: 'networkidle' });
+        const hrefs = await page
+          .locator('main section a[data-gesture-target]')
+          .evaluateAll((nodes) => nodes.map((node) => node.getAttribute('href')).filter(Boolean));
+        result.paths = hrefs.map(normalizePath);
+        const text = await page.locator('main').innerText();
+        result.passed =
+          JSON.stringify(result.paths) === JSON.stringify(result.expectedPaths) &&
+          !/Sylvaria|mosslight/i.test(text) &&
+          result.pageErrors.length === 0 &&
+          result.consoleErrors.length === 0 &&
+          result.failedResponses.length === 0;
+      } catch (error) {
+        result.error = messageText(error);
+      } finally {
+        report.passed = report.passed && result.passed;
+        report.catalog.push(result);
+        await context.close();
+        persist(report);
+      }
     }
 
     for (const hiddenPath of ['/arcade/sylvaria', '/arcade/mosslight']) {
       const context = await browser.newContext();
-      const response = await context.request.get(`${baseUrl}${hiddenPath}`);
-      const passed = response.status() === 404;
-      report.passed = report.passed && passed;
-      report.hiddenRoutes.push({ path: hiddenPath, status: response.status(), passed });
-      await context.close();
+      const result = { path: hiddenPath, status: null, passed: false, error: null };
+      try {
+        const response = await context.request.get(`${baseUrl}${hiddenPath}`);
+        result.status = response.status();
+        result.passed = result.status === 404;
+      } catch (error) {
+        result.error = messageText(error);
+      } finally {
+        report.passed = report.passed && result.passed;
+        report.hiddenRoutes.push(result);
+        await context.close();
+        persist(report);
+      }
     }
 
     for (const game of GAMES) {
+      const result = {
+        ...game,
+        passed: false,
+        frameUrl: null,
+        frameTitle: null,
+        frameUrls: [],
+        canvas: null,
+        focusAfterPointer: null,
+        focusAfterEscape: null,
+        pageErrors: [],
+        consoleErrors: [],
+        failedResponses: [],
+        error: null,
+      };
       const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
       const page = await context.newPage();
-      const pageErrors = [];
-      const consoleErrors = [];
-      page.on('pageerror', (error) => pageErrors.push(String(error)));
+      page.on('pageerror', (error) => result.pageErrors.push(String(error)));
       page.on('console', (message) => {
-        if (message.type() === 'error') consoleErrors.push(message.text());
+        if (message.type() === 'error') result.consoleErrors.push(message.text());
+      });
+      page.on('response', (response) => {
+        const url = response.url();
+        if (response.status() >= 400 && url.includes('/game-runtimes/')) {
+          result.failedResponses.push({ status: response.status(), url });
+        }
       });
 
-      await page.goto(`${baseUrl}/arcade/${game.slug}`, { waitUntil: 'domcontentloaded' });
-      const iframe = page.locator(`iframe[title="${game.title} game runtime"]`);
-      await iframe.waitFor({ state: 'visible', timeout: 15_000 });
+      try {
+        await page.goto(`${baseUrl}/arcade/${game.slug}`, { waitUntil: 'domcontentloaded' });
+        const iframe = page.locator(`iframe[title="${game.title} game runtime"]`);
+        await iframe.waitFor({ state: 'visible', timeout: 15_000 });
+        await page.waitForTimeout(350);
 
-      const frame = page.frames().find((candidate) =>
-        candidate.url().includes(game.runtimePath)
-      );
-      if (!frame) throw new Error(`Missing runtime frame for ${game.slug}`);
+        result.frameUrls = page.frames().map((candidate) => candidate.url());
+        const frame = page.frames().find((candidate) => candidate.url().includes(game.runtimePath));
+        if (!frame) throw new Error(`Missing runtime frame for ${game.slug}`);
 
-      await frame.waitForSelector('canvas', { state: 'visible', timeout: 15_000 });
-      await page.waitForTimeout(500);
+        result.frameUrl = frame.url();
+        await frame.waitForSelector('canvas', { state: 'visible', timeout: 15_000 });
+        await page.waitForTimeout(700);
+        result.frameTitle = await frame.title();
+        result.canvas = await frame.locator('canvas').first().evaluate((node) => {
+          const rect = node.getBoundingClientRect();
+          return {
+            width: node.width,
+            height: node.height,
+            clientWidth: node.clientWidth,
+            clientHeight: node.clientHeight,
+            rect: { x: rect.x, y: rect.y, width: rect.width, height: rect.height },
+            display: getComputedStyle(node).display,
+            visibility: getComputedStyle(node).visibility,
+          };
+        });
 
-      const frameTitle = await frame.title();
-      const canvas = await frame.locator('canvas').evaluate((node) => ({
-        width: node.width,
-        height: node.height,
-        clientWidth: node.clientWidth,
-        clientHeight: node.clientHeight,
-      }));
+        // Dispatch a real pointer event on the runtime window. This tests the same bridge
+        // event that a user click inside the iframe triggers without depending on whether
+        // an upstream title/menu element currently overlays part of the canvas.
+        await frame.evaluate(() => {
+          window.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, composed: true }));
+        });
+        try {
+          await page.locator('main[data-arcade-focus="true"]').waitFor({ timeout: 5_000 });
+          result.focusAfterPointer = true;
+        } catch {
+          result.focusAfterPointer = false;
+        }
 
-      await frame.locator('canvas').click({ position: { x: 8, y: 8 } });
-      await page.locator('main[data-arcade-focus="true"]').waitFor({ timeout: 5_000 });
-      await page.keyboard.press('Escape');
-      await page.locator('main[data-arcade-focus="false"]').waitFor({ timeout: 5_000 });
+        await frame.evaluate(() => {
+          window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+        });
+        try {
+          await page.locator('main[data-arcade-focus="false"]').waitFor({ timeout: 5_000 });
+          result.focusAfterEscape = true;
+        } catch {
+          result.focusAfterEscape = false;
+        }
 
-      const passed =
-        frameTitle.includes(game.version) &&
-        canvas.width > 0 &&
-        canvas.height > 0 &&
-        canvas.clientWidth > 0 &&
-        canvas.clientHeight > 0 &&
-        pageErrors.length === 0 &&
-        consoleErrors.length === 0;
-
-      report.passed = report.passed && passed;
-      report.games.push({
-        ...game,
-        passed,
-        frameUrl: frame.url(),
-        frameTitle,
-        canvas,
-        pageErrors,
-        consoleErrors,
-      });
-
-      await context.close();
+        result.passed =
+          result.frameTitle.includes(game.version) &&
+          result.canvas.width > 0 &&
+          result.canvas.height > 0 &&
+          result.canvas.clientWidth > 0 &&
+          result.canvas.clientHeight > 0 &&
+          result.focusAfterPointer === true &&
+          result.focusAfterEscape === true &&
+          result.pageErrors.length === 0 &&
+          result.consoleErrors.length === 0 &&
+          result.failedResponses.length === 0;
+      } catch (error) {
+        result.error = messageText(error);
+      } finally {
+        report.passed = report.passed && result.passed;
+        report.games.push(result);
+        await context.close();
+        persist(report);
+      }
     }
+  } catch (error) {
+    report.passed = false;
+    report.fatalError = messageText(error);
   } finally {
-    await browser.close();
+    if (browser) await browser.close();
+    persist(report);
   }
 
-  writeFileSync(join(outputDir, 'arcade-production-audit.json'), JSON.stringify(report, null, 2));
-
   if (!report.passed) {
+    console.error('Game Network production audit failed:');
     console.error(JSON.stringify(report, null, 2));
     process.exit(1);
   }
