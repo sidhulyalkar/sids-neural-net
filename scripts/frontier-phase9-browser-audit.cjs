@@ -3,10 +3,10 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { chromium } = require('playwright');
 
-const AUDIT_URL = process.env.FRONTIER_PHASE9_AUDIT_URL || 'http://127.0.0.1:3000/frontier/interaction-audit';
-const CARD = '[data-frontier-fluid-card="frontier-phase8-browser-audit"]';
-const LINK = '[data-frontier-audit-primary-link="true"]';
-const VIDEO = '[data-frontier-audit-video="true"]';
+const AUDIT_URL = process.env.FRONTIER_PHASE9_AUDIT_URL || 'http://127.0.0.1:3000/frontier/phase9-audit';
+const CARD = '[data-frontier-fluid-card="frontier-phase9-browser-audit"]';
+const LINK = '[data-frontier-phase9-primary-link="true"]';
+const VIDEO = '[data-frontier-phase9-video="true"]';
 const MATH = '[data-frontier-scientific-artifact="math"]';
 const CODE = '[data-frontier-scientific-artifact="code"]';
 const SYNTHESIS = '[data-frontier-local-synthesis="opt-in"]';
@@ -97,6 +97,7 @@ async function pointerClick(page, selector) {
         registryCreated: Boolean(registry),
         activeMatchesVideo: Boolean(registry && video instanceof HTMLVideoElement && registry.active?.element === video),
         fftSize: registry?.active?.analyser?.fftSize ?? null,
+        contextState: registry?.context?.state ?? null,
       };
     }, VIDEO);
 
@@ -105,6 +106,7 @@ async function pointerClick(page, selector) {
     assert.equal(audioState.registryCreated, true, 'Expanded safe native media must initialize the audio-reactivity registry');
     assert.equal(audioState.activeMatchesVideo, true, 'Only the expanded playing media element should own reactive analysis');
     assert.equal(audioState.fftSize, 1024, 'Reactive audio analysis must use the bounded 1024 FFT contract');
+    assert.notEqual(audioState.contextState, 'closed', 'Expanded reactive audio context must remain live');
 
     await page.screenshot({ path: path.join(ARTIFACT_DIR, 'frontier-phase9-expanded.png'), fullPage: true });
 
