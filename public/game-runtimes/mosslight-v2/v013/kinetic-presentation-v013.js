@@ -5,11 +5,13 @@ const overlay=document.createElement('canvas');overlay.id='kineticCanvas';overla
 overlay.style.position='absolute';overlay.style.inset='0';overlay.style.width='100%';overlay.style.height='100%';overlay.style.pointerEvents='none';overlay.style.zIndex='4';
 (document.getElementById('pondCanvas')||canvas).insertAdjacentElement('afterend',overlay);
 const ctx=overlay.getContext('2d');
-let renderedArcs=0,renderedTrailSamples=0,lastHitStopSerial=0,holdFrames=0,hitStopsRendered=0,lastHitStopKind=null,lastHoldFramesApplied=0;
+let renderedArcs=0,renderedTrailSamples=0,lastHitStopSerial=0,holdFrames=0,hitStopsRendered=0,lastHitStopKind=null,lastHoldFramesApplied=0,lastTongueMouth=null,lastTongueTip=null,lastTongueAttachmentError=0;
 
 function anglePoint(p,a,r){return{x:p.x+Math.cos(a)*r,y:p.y+Math.sin(a)*r}}
-function curveTongue(p,a,length,alpha=1,trail=false){
-  const mouth=anglePoint(p,a,Math.max(7,p.r*.48)),tip=anglePoint(p,a,length),tx=-Math.sin(a),ty=Math.cos(a),bend=(trail?5:9)*(p.swingParity%2?1:-1),cx=(mouth.x+tip.x)*.5+tx*bend,cy=(mouth.y+tip.y)*.5+ty*bend;
+function tongueMouth(s,p,a){const rig=window.SylvariaCharacterRig;if(rig?.mouthForAttack)return rig.mouthForAttack(s,p);return anglePoint(p,a,Math.max(7,p.r*.48))}
+function curveTongue(s,p,a,length,alpha=1,trail=false){
+  const root={x:s?.x??p.x,y:s?.y??p.y},mouth=tongueMouth(s,p,a),tip=anglePoint(root,a,length),tx=-Math.sin(a),ty=Math.cos(a),bend=(trail?5:9)*(p.swingParity%2?1:-1),cx=(mouth.x+tip.x)*.5+tx*bend,cy=(mouth.y+tip.y)*.5+ty*bend;
+  lastTongueMouth={x:mouth.x,y:mouth.y};lastTongueTip={x:tip.x,y:tip.y};lastTongueAttachmentError=window.SylvariaCharacterRig?.attachmentError?.(s,p)||Math.hypot(root.x-p.x,root.y-p.y);
   ctx.save();ctx.globalAlpha=alpha;ctx.lineCap='round';ctx.lineJoin='round';
   ctx.strokeStyle='#6e2940';ctx.lineWidth=trail?12:17;ctx.beginPath();ctx.moveTo(mouth.x,mouth.y);ctx.quadraticCurveTo(cx,cy,tip.x,tip.y);ctx.stroke();
   ctx.strokeStyle='#ef7894';ctx.lineWidth=trail?7:11;ctx.beginPath();ctx.moveTo(mouth.x,mouth.y);ctx.quadraticCurveTo(cx,cy,tip.x,tip.y);ctx.stroke();
@@ -33,14 +35,14 @@ function drawBladeTrails(){
 function drawArcAttack(s,p){
   renderedArcs++;
   if(s.phase==='windup'){
-    const t=clamp(s.phaseTime/s.windup,0,1),len=18+t*28;curveTongue(p,s.startAngle,len,.78);return;
+    const t=clamp(s.phaseTime/s.windup,0,1),len=18+t*28;curveTongue(s,p,s.startAngle,len,.78);return;
   }
   if(s.phase==='active'){
-    const prior=s.angle-(s.sweepDir||1)*.07;curveTongue(p,prior,s.reach*.92,.10,true);const tip=curveTongue(p,s.angle,s.reach,1);
+    const prior=s.angle-(s.sweepDir||1)*.07;curveTongue(s,p,prior,s.reach*.92,.10,true);const tip=curveTongue(s,p,s.angle,s.reach,1);
     if((s.phaseTime||0)<(s.parryWindow||0)){ctx.save();ctx.strokeStyle='rgba(255,250,185,.92)';ctx.lineWidth=2.4;ctx.beginPath();ctx.arc(tip.x,tip.y,13,0,Math.PI*2);ctx.stroke();ctx.restore()}
     return;
   }
-  const t=clamp(s.phaseTime/s.recovery,0,1);curveTongue(p,s.endAngle,s.reach*(1-t)+14,.68*(1-t));
+  const t=clamp(s.phaseTime/s.recovery,0,1);curveTongue(s,p,s.endAngle,s.reach*(1-t)+14,.68*(1-t));
 }
 
 function drawDash(p){
@@ -65,7 +67,7 @@ function drawKineticEnemies(){
 
 function drawOverlay(){
   if(overlay.width!==canvas.width||overlay.height!==canvas.height){overlay.width=canvas.width;overlay.height=canvas.height}
-  ctx.clearRect(0,0,overlay.width,overlay.height);renderedArcs=0;if(state.mode!=='playing'&&!state.player)return;drawCurrents();drawBladeTrails();const p=state.player;if(p){drawDash(p);for(const s of state.slashes)if(s.kind==='arc')drawArcAttack(s,p)}drawKineticEnemies();
+  ctx.clearRect(0,0,overlay.width,overlay.height);renderedArcs=0;lastTongueMouth=null;lastTongueTip=null;lastTongueAttachmentError=0;if(state.mode!=='playing'&&!state.player)return;drawCurrents();drawBladeTrails();const p=state.player;if(p){drawDash(p);for(const s of state.slashes)if(s.kind==='arc')drawArcAttack(s,p)}drawKineticEnemies();
 }
 
 function syncHitStop(){
@@ -73,6 +75,12 @@ function syncHitStop(){
   lastHitStopSerial=serial;const kind=state.hitStopKind||'enemy';
   holdFrames=kind==='parry'?3:kind==='armor'?2:1;lastHitStopKind=kind;lastHoldFramesApplied=holdFrames;hitStopsRendered++;
 }
+function resetRoomPresentation(){
+  holdFrames=0;lastHitStopSerial=state.hitStopSerial||0;lastHitStopKind=null;lastHoldFramesApplied=0;renderedArcs=0;renderedTrailSamples=0;lastTongueMouth=null;lastTongueTip=null;lastTongueAttachmentError=0;
+  ctx.clearRect(0,0,overlay.width,overlay.height);
+}
+const inheritedSetup=F.setupRoom;
+F.setupRoom=(...args)=>{const result=inheritedSetup(...args);resetRoomPresentation();return result};
 
 const inheritedRender=F.render;
 F.render=()=>{
@@ -85,4 +93,4 @@ F.render=()=>{
 const inheritedHud=F.updateHud;
 F.updateHud=(force=false)=>{inheritedHud?.(force);const p=state.player,d=G.$('dashState');if(!p||!d)return;if(p.dashCharging)d.textContent=`charge ${Math.round((p.dashCharge||0)*100)}%`;else if(p.dashBuffer>0)d.textContent='dash queued';else if(p.dash)d.textContent='burst';else if(p.dashCooldown>0)d.textContent=`dash ${p.dashCooldown.toFixed(1)}s`;else d.textContent='space · dash'};
 
-window.SylvariaKineticPresentation=Object.freeze({version:VERSION,canvas:overlay,snapshot:()=>({version:VERSION,renderedArcs,renderedTrailSamples,overlay:true,chargeRing:Boolean(state.player?.dashCharging),dashBuffered:Boolean(state.player?.dashBuffer>0),hitStopHoldFrames:holdFrames,hitStopsRendered,lastHitStopKind,lastHoldFramesApplied,kineticEnemies:state.enemies.filter(e=>e.kineticType&&!e.dead).length})});
+window.SylvariaKineticPresentation=Object.freeze({version:VERSION,canvas:overlay,snapshot:()=>({version:VERSION,renderedArcs,renderedTrailSamples,overlay:true,chargeRing:Boolean(state.player?.dashCharging),dashBuffered:Boolean(state.player?.dashBuffer>0),hitStopHoldFrames:holdFrames,hitStopsRendered,lastHitStopKind,lastHoldFramesApplied,kineticEnemies:state.enemies.filter(e=>e.kineticType&&!e.dead).length,tongueMouth:lastTongueMouth,tongueTip:lastTongueTip,tongueAttachmentError:lastTongueAttachmentError,rigVersion:window.SylvariaCharacterRig?.version||null})});

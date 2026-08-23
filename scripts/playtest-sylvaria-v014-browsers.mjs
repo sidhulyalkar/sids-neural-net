@@ -1,0 +1,22 @@
+import fs from 'node:fs';
+import path from 'node:path';
+import { createRequire } from 'node:module';
+
+const root=process.env.PLAYWRIGHT_MODULE_ROOT;if(!root)throw new Error('PLAYWRIGHT_MODULE_ROOT is required');
+const requireFrom=createRequire(path.join(root,'package.json'));const{chromium,firefox,webkit}=requireFrom('playwright');
+const baseUrl=process.env.ARCADE_BASE_URL||'http://127.0.0.1:3000',outputDir=process.env.SYLVARIA_BROWSER_DIR||'artifacts/sylvaria-browser-matrix';fs.mkdirSync(outputDir,{recursive:true});
+const engines=[['chrome-stable',chromium,{channel:'chrome'}],['chromium',chromium,{}],['firefox',firefox,{}],['webkit',webkit,{}]],report=[];let failed=false;
+for(const[name,type,options]of engines){let browser;const errors=[];try{
+  browser=await type.launch({headless:true,...options});const page=await browser.newPage({viewport:{width:1280,height:900},deviceScaleFactor:2});page.on('pageerror',e=>errors.push(e.message));
+  await page.addInitScript(()=>{try{Object.defineProperty(navigator,'hardwareConcurrency',{configurable:true,get:()=>8})}catch{}try{Object.defineProperty(navigator,'deviceMemory',{configurable:true,get:()=>8})}catch{}});
+  const response=await page.goto(`${baseUrl}/game-runtimes/mosslight-v2/index.html?browser=${name}`,{waitUntil:'networkidle'});if(!response?.ok())throw new Error(`HTTP ${response?.status()}`);
+  await page.waitForFunction(()=>window.__MOSSLIGHT_PLAYTEST__?.version==='0.14.0'&&window.SylvariaCombat014?.version==='0.14.0'&&window.SylvariaCharacterRig?.version==='0.14.0'&&window.SylvariaPresentationSpace?.version==='0.14.0',{timeout:30000});
+  await page.click('#start');await page.locator('#c').focus();
+  const sample=await page.evaluate(()=>{const play=window.__MOSSLIGHT_PLAYTEST__,G=window.Sylvaria091,p=G.state.player;play.clearCombatants();play.labClearGeometry();play.setPlayerPosition(420,350);G.state.slashes=[];p.cutCooldown=0;G.fn.cut('right');const s=G.state.slashes.at(-1);s.phase='active';s.phaseTime=s.active*.36;s.activeProgress=.36;s.prevAngle=s.startAngle;s.angle=s.startAngle+(s.endAngle-s.startAngle)*.36;G.fn.render();const rig=window.SylvariaCharacterRig.pose(p,s),kinetic=window.SylvariaKineticPresentation.snapshot(),pond=window.SylvariaPondRenderer?.snapshot?.(),space=window.SylvariaPresentationSpace.snapshot(),pondCanvas=document.getElementById('pondCanvas'),kineticCanvas=document.getElementById('kineticCanvas'),pondRect=pondCanvas.getBoundingClientRect(),kineticRect=kineticCanvas.getBoundingClientRect(),tx=kineticCanvas.getContext('2d').getTransform(),mouth=rig.mouth,pondMouth={x:pondRect.left+mouth.x/G.W*pondRect.width,y:pondRect.top+mouth.y/G.H*pondRect.height},overlayMouth={x:kineticRect.left+(mouth.x*tx.a+tx.e)/kineticCanvas.width*kineticRect.width,y:kineticRect.top+(mouth.y*tx.d+tx.f)/kineticCanvas.height*kineticRect.height};return{version:play.version,rig,kinetic,pond,space,transform:{a:tx.a,d:tx.d},displayScale:window.SylvariaDisplayScale?.scale||null,pondMouth,overlayMouth,ranked:window.SylvariaCompetitive?.snapshot?.().rankedDisabledReason||null}});
+  const mouthError=Math.hypot((sample.kinetic.tongueMouth?.x??999)-sample.rig.mouth.x,(sample.kinetic.tongueMouth?.y??999)-sample.rig.mouth.y),screenError=Math.hypot(sample.pondMouth.x-sample.overlayMouth.x,sample.pondMouth.y-sample.overlayMouth.y);
+  if(sample.version!=='0.14.0'||mouthError>=.01||sample.kinetic.tongueAttachmentError>=.01||screenError>=.75||sample.displayScale<1.9||sample.transform.a<1.9||sample.transform.d<1.9||!sample.ranked)throw new Error(`v0.14 DPR rig contract failed ${JSON.stringify({mouthError,screenError,sample})}`);
+  await page.screenshot({path:path.join(outputDir,`${name}-sylvaria-v014.png`),fullPage:true});report.push({name,ok:true,mouthError,screenError,displayScale:sample.displayScale,transform:sample.transform,pond:sample.pond?.mode||null,errors});
+}catch(error){failed=true;report.push({name,ok:false,error:String(error?.message||error),errors})}finally{await browser?.close()}}
+fs.writeFileSync(path.join(outputDir,'v014-browser-report.json'),JSON.stringify(report,null,2));
+if(failed){console.error('Sylvaria v0.14 browser matrix failed');for(const row of report.filter(r=>!r.ok))console.error(` - ${row.name}: ${row.error}`);process.exit(1)}
+console.log(`Sylvaria v0.14 browser matrix PASS · forced DPR2 screen-space attachment ${report.map(r=>`${r.name}:${r.pond||'fallback'}:${r.screenError.toFixed(3)}px`).join(' · ')}`);
