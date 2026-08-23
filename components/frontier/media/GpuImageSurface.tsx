@@ -13,12 +13,21 @@ type Props = {
   alt: string;
   className?: string;
   placeholderColor?: string;
+  aspectRatio?: string;
   onUnavailable?: () => void;
 };
 
 type SurfaceSize = { width: number; height: number };
 
-export function GpuImageSurface({ id, src, alt, className = '', placeholderColor, onUnavailable }: Props) {
+export function GpuImageSurface({
+  id,
+  src,
+  alt,
+  className = '',
+  placeholderColor,
+  aspectRatio,
+  onUnavailable,
+}: Props) {
   const frameRef = useRef<HTMLDivElement>(null);
   const slotRef = useRef<HTMLDivElement>(null);
   const compactSize = useRef<SurfaceSize | undefined>(undefined);
@@ -26,9 +35,10 @@ export function GpuImageSurface({ id, src, alt, className = '', placeholderColor
   const reactId = useId();
   const [state, setState] = useState<'loading' | 'ready' | 'fallback'>('loading');
   const [fallbackFailed, setFallbackFailed] = useState(false);
-  const surfaceStyle = placeholderColor
-    ? ({ '--frontier-media-placeholder': placeholderColor } as CSSProperties)
-    : undefined;
+  const surfaceStyle = {
+    ...(placeholderColor ? { '--frontier-media-placeholder': placeholderColor } : {}),
+    ...(aspectRatio ? { aspectRatio } : {}),
+  } as CSSProperties;
   const gpuId = `${id}:${reactId}`;
 
   useEffect(() => {
