@@ -1,27 +1,21 @@
 .virtualItem {
   min-width: 0;
-  /* Unknown compact geometry participates in real layout exactly once. The
-     deterministic masonry hook batches that measurement and only then enables
-     virtualization. No guessed offscreen placeholder is allowed to precede the
-     authoritative compact lock. */
+  /* Card geometry is authoritative before interaction. Browser-managed
+     `content-visibility:auto` is intentionally avoided here: Chromium was
+     changing total scroll extent as locked masonry cards crossed its relevance
+     boundary. Expensive media work remains independently culled/warmed by the
+     GPU/native media pipeline, while ordinary offscreen DOM paint is left to
+     the browser's normal viewport culling. */
   content-visibility: visible;
   contain-intrinsic-size: none;
 }
 
 .virtualItem[data-frontier-geometry='locked'] {
-  content-visibility: auto;
-  /* Do not use `auto <length>` here. The remembered-size form lets Chromium
-     replace our cache with a previous rendered subtree size as a card crosses
-     the content-visibility boundary, which can change scroll extent. Width is
-     owned by the grid; only the measured compact block size is substituted. */
-  contain-intrinsic-inline-size: none;
-  contain-intrinsic-block-size: var(--frontier-card-intrinsic-height);
+  content-visibility: visible;
+  contain-intrinsic-size: none;
 }
 
 @media (max-width: 720px) {
-  /* Chromium can keep auto-visibility contents skipped until scrolling even
-     while their intrinsic wrappers occupy the first mobile screen. Guarantee
-     a real above-fold reading surface; later locked cards remain virtualized. */
   .feedVirtualItem:nth-child(-n + 3) {
     content-visibility: visible;
     contain-intrinsic-size: none;
