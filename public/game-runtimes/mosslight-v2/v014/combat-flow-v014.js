@@ -2,7 +2,7 @@ const G=window.Sylvaria091;
 const {state,clamp,lerp,FIXED_DT}=G,F=G.fn,BASE_KINETICS=window.SylvariaKinetics;
 
 export const FLOW_VERSION='0.14.0';
-export const FLOW_CONFIG=Object.freeze({bladeBuffer:7/120,dashCommitTicks:4,dashSteerBlend:.055,dashSteerMaxRadians:.38,parryDashRefund:12/120,recoveryTicksAtFullFlow:7,minimumReleaseCharge:.12});
+export const FLOW_CONFIG=Object.freeze({bladeBuffer:7/120,dashCommitTicks:4,dashSteerBlend:.055,dashSteerMaxRadians:.38,parryDashRefund:12/120,recoveryTicksAtFullFlow:7,minimumReleaseCharge:.12,chargeReleaseGraceTicks:4});
 const q=v=>Math.round(v*100000)/100000;
 const normalize=(x,y)=>{const m=Math.hypot(x,y);return m>1e-7?{x:q(x/m),y:q(y/m),m}:{x:0,y:0,m:0}};
 const smoothstep=t=>t*t*(3-2*t);
@@ -12,8 +12,10 @@ const dashSpecForCharge=charge=>{const curve=smoothstep(clamp(charge,0,1)),ticks
 const TAP_DASH=dashSpecForCharge(FLOW_CONFIG.minimumReleaseCharge),FULL_DASH=dashSpecForCharge(1);
 export const DASH_DISTANCE_ENVELOPE=Object.freeze({tapMin:TAP_DASH.distance,fullMax:FULL_DASH.distance});
 export const DASH_SPEED_ENVELOPE=Object.freeze({tapMin:TAP_DASH.openingSpeed,fullMax:FULL_DASH.openingSpeed});
+const MOVE_KEYS=new Set(['w','a','s','d']);
 
-function initFlowPlayer(p){if(!p)return;p.bladeBuffer=0;p.bladeQueuedDirection=null;p.lastDashAccuracy=null;p.lastParryDashRefund=null}
+function clearChargeReleaseGrace(p){if(!p)return;p.v014ChargeReleaseGrace=0;p.v014ChargeReleaseVector=null}
+function initFlowPlayer(p){if(!p)return;p.bladeBuffer=0;p.bladeQueuedDirection=null;p.lastDashAccuracy=null;p.lastParryDashRefund=null;clearChargeReleaseGrace(p)}
 const inheritedSetup=F.setupRoom;
 F.setupRoom=(...args)=>{const result=inheritedSetup(...args);initFlowPlayer(state.player);return result};
 if(state.player)initFlowPlayer(state.player);
@@ -28,8 +30,25 @@ function steerCommittedDash(p){
   dash.dir={x:q(Math.cos(angle)),y:q(Math.sin(angle))};
 }
 function heldSetForVector(v){const keys=new Set();if(!v)return keys;if(v.x<-.25)keys.add('a');else if(v.x>.25)keys.add('d');if(v.y<-.25)keys.add('w');else if(v.y>.25)keys.add('s');return keys}
+function moveKey(event){const key=String(event.key||'').toLowerCase();return MOVE_KEYS.has(key)?key:null}
+function onFlowMoveKeyUp(event){
+  if(!moveKey(event))return;const p=state.player;if(!p?.dashCharging||p.v014ChargeReleaseGrace>0)return;
+  const remembered=normalize(p.dashChargeVector?.x||0,p.dashChargeVector?.y||0);if(!remembered.m)return;
+  p.v014ChargeReleaseVector={x:remembered.x,y:remembered.y};p.v014ChargeReleaseGrace=FLOW_CONFIG.chargeReleaseGraceTicks;
+}
+function onFlowMoveKeyDown(event){if(!moveKey(event))return;const p=state.player;if(p?.dashCharging)clearChargeReleaseGrace(p)}
+window.addEventListener?.('keyup',onFlowMoveKeyUp,true);
+window.addEventListener?.('keydown',onFlowMoveKeyDown,true);
+
 const inheritedReleaseDashCharge=F.releaseDashCharge;
-F.releaseDashCharge=()=>{const p=state.player;if(!p?.dashCharging)return inheritedReleaseDashCharge();const held=F.heldVector?.();if(held?.m)return inheritedReleaseDashCharge();const remembered=normalize(p.dashChargeVector?.x||0,p.dashChargeVector?.y||0);if(!remembered.m)return inheritedReleaseDashCharge();const realHeld=state.heldMoves;state.heldMoves=heldSetForVector(remembered);try{return inheritedReleaseDashCharge()}finally{state.heldMoves=realHeld}};
+F.releaseDashCharge=()=>{
+  const p=state.player;if(!p?.dashCharging)return inheritedReleaseDashCharge();
+  const held=F.heldVector?.();
+  if(held?.m){const result=inheritedReleaseDashCharge();clearChargeReleaseGrace(p);return result}
+  const remembered=normalize(p.dashChargeVector?.x||0,p.dashChargeVector?.y||0);if(!remembered.m){const result=inheritedReleaseDashCharge();clearChargeReleaseGrace(p);return result}
+  const realHeld=state.heldMoves;state.heldMoves=heldSetForVector(remembered);
+  try{return inheritedReleaseDashCharge()}finally{state.heldMoves=realHeld;clearChargeReleaseGrace(p)}
+};
 function onFlowSpaceUp(event){if(String(event.key||'').toLowerCase()!==' '&&event.code!=='Space')return;if(state.mode!=='playing')return;F.releaseDashCharge()}
 window.addEventListener?.('keyup',onFlowSpaceUp,true);
 function consumeReleasedDashBuffer(p,dt){if(!p||p.dash||p.dashCharging||!p.dashBufferReleased||p.dashBufferHeld||!(p.dashBuffer>0))return false;const cooldownAfter=Math.max(0,(p.dashCooldown||0)-dt),bufferAfter=Math.max(0,p.dashBuffer-dt);if(cooldownAfter>0||bufferAfter<=0)return false;const queued=p.dashQueuedCharge||.18;p.dashCooldown=0;p.dashBuffer=0;p.dashBufferReleased=false;p.dashBufferHeld=false;F.beginDashCharge();if(!p.dashCharging)return false;p.dashCharge=Math.max(.18,queued);F.releaseDashCharge();return Boolean(p.dash)}
@@ -40,9 +59,11 @@ F.cut=(direction)=>{const p=state.player;if(!p||state.mode!=='playing')return fa
 const inheritedMovement=F.updateMovement;
 F.updateMovement=(dt)=>{
   const p=state.player;if(p)consumeReleasedDashBuffer(p,dt);const dashRef=p?.dash?.reactive?p.dash:null;if(p)steerCommittedDash(p);
+  const chargeReleaseVector=p?.dashCharging&&p.v014ChargeReleaseGrace>0&&p.v014ChargeReleaseVector?{...p.v014ChargeReleaseVector}:null;
   if(dashRef&&!Number.isFinite(dashRef.v014PathTravel)){dashRef.v014PathTravel=0;dashRef.v014MaxSteerAngle=0;dashRef.v014MaxVelocityAlignmentError=0;dashRef.v014MaxScalarSpeedError=0}
   const ox=p?.x??0,oy=p?.y??0,expectedSpeed=dashRef?.speed??0,expectedDir=dashRef?{x:dashRef.dir.x,y:dashRef.dir.y}:null;
   const held=dashRef?state.heldMoves:null;if(dashRef)state.heldMoves=new Set();let result;try{result=inheritedMovement(dt)}finally{if(dashRef)state.heldMoves=held}
+  if(chargeReleaseVector&&p?.dashCharging){p.dashChargeVector={...chargeReleaseVector};p.v014ChargeReleaseGrace=Math.max(0,(p.v014ChargeReleaseGrace||0)-1);if(p.v014ChargeReleaseGrace<=0)p.v014ChargeReleaseVector=null}
   if(dashRef&&p){
     dashRef.v014PathTravel=q((dashRef.v014PathTravel||0)+Math.hypot(p.x-ox,p.y-oy));
     if(expectedDir){
@@ -67,4 +88,4 @@ F.updateSlashes=(dt)=>{
   return result;
 };
 
-window.SylvariaFlowCombat=Object.freeze({version:FLOW_VERSION,config:FLOW_CONFIG,dashDistanceEnvelope:DASH_DISTANCE_ENVELOPE,dashSpeedEnvelope:DASH_SPEED_ENVELOPE,snapshot:()=>({version:FLOW_VERSION,bladeBuffered:Boolean(state.player?.bladeQueuedDirection&&state.player?.bladeBuffer>0),bladeBuffer:state.player?.bladeBuffer||0,bladeQueuedDirection:state.player?.bladeQueuedDirection||null,dashCommitTicks:FLOW_CONFIG.dashCommitTicks,dashSteerBlend:FLOW_CONFIG.dashSteerBlend,dashSteerMaxRadians:FLOW_CONFIG.dashSteerMaxRadians,parryDashRefund:FLOW_CONFIG.parryDashRefund,dashDistanceEnvelope:DASH_DISTANCE_ENVELOPE,dashSpeedEnvelope:DASH_SPEED_ENVELOPE,dashChargeVector:state.player?.dashChargeVector?{...state.player.dashChargeVector}:null,lastDashAccuracy:state.player?.lastDashAccuracy||null,lastParryDashRefund:state.player?.lastParryDashRefund||null})});
+window.SylvariaFlowCombat=Object.freeze({version:FLOW_VERSION,config:FLOW_CONFIG,dashDistanceEnvelope:DASH_DISTANCE_ENVELOPE,dashSpeedEnvelope:DASH_SPEED_ENVELOPE,snapshot:()=>({version:FLOW_VERSION,bladeBuffered:Boolean(state.player?.bladeQueuedDirection&&state.player?.bladeBuffer>0),bladeBuffer:state.player?.bladeBuffer||0,bladeQueuedDirection:state.player?.bladeQueuedDirection||null,dashCommitTicks:FLOW_CONFIG.dashCommitTicks,dashSteerBlend:FLOW_CONFIG.dashSteerBlend,dashSteerMaxRadians:FLOW_CONFIG.dashSteerMaxRadians,parryDashRefund:FLOW_CONFIG.parryDashRefund,chargeReleaseGraceTicks:FLOW_CONFIG.chargeReleaseGraceTicks,chargeReleaseGrace:state.player?.v014ChargeReleaseGrace||0,dashDistanceEnvelope:DASH_DISTANCE_ENVELOPE,dashSpeedEnvelope:DASH_SPEED_ENVELOPE,dashChargeVector:state.player?.dashChargeVector?{...state.player.dashChargeVector}:null,lastDashAccuracy:state.player?.lastDashAccuracy||null,lastParryDashRefund:state.player?.lastParryDashRefund||null})});
