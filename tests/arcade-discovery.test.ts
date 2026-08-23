@@ -13,6 +13,7 @@ const v091 = `${runtime}/v091`;
 const v011 = `${runtime}/v011`;
 const v012 = `${runtime}/v012`;
 const v013 = `${runtime}/v013`;
+const v014 = `${runtime}/v014`;
 
 const gameNetworkSurfaces = [
   'app/page.tsx', 'app/arcade/page.tsx', 'app/arcade/[slug]/page.tsx',
@@ -28,44 +29,55 @@ test('the Game Network exposes every current game as a playable entry', () => {
   }
 });
 
-test('Sylvaria v0.13 advertises the reactive blade combat actually shipped by production', () => {
+test('Sylvaria v0.14 advertises the unified combat game actually shipped by production', () => {
   const game = arcadeGames.find((entry) => entry.slug === 'sylvaria');
   assert.ok(game);
   assert.equal(game.title, 'Sylvaria');
-  assert.equal(game.version, 'v0.13.0');
-  assert.match(game.subtitle, /GLIDE.*SWEEP.*RETURN FIRE/);
-  assert.match(game.description, /continuous pond movement/i);
-  assert.match(game.description, /omnidirectional burst/i);
-  assert.match(game.description, /opening five active ticks/i);
-  assert.match(game.description, /1160 px\/s/i);
-  assert.match(game.description, /Skimmers/i);
-  assert.match(game.description, /Striders/i);
-  assert.match(game.description, /Shellback/i);
-  assert.match(game.description, /thirty fixed arenas/i);
+  assert.equal(game.version, 'v0.14.0');
+  assert.match(game.subtitle, /CARVE.*COUNTER.*CREATE THE OPENING/);
+  assert.match(game.description, /120 Hz/i);
+  assert.match(game.description, /one character rig/i);
+  assert.match(game.description, /five active ticks/i);
+  assert.match(game.description, /mobility refunds/i);
+  assert.match(game.description, /Flow/i);
+  assert.match(game.description, /fixed-timing evasions/i);
+  assert.match(game.description, /thirty authored arenas/i);
+  assert.match(game.description, /call-and-response threat phrases/i);
+  assert.match(game.description, /boss guard breaks/i);
+  assert.match(game.description, /ranked submission is temporarily paused/i);
   assert.doesNotMatch(game.description, /mid-swing/i);
-  for (const tag of ['kinetic combat', 'tongue arc', 'charged dash', 'reactive ai', 'deterministic replay']) assert.ok(game.tags.includes(tag));
-  assert.ok(game.controls.some((control) => control.input === 'W A S D' && /continuously|diagonal/i.test(control.action)));
-  assert.ok(game.controls.some((control) => control.input === 'Space' && /charge|omnidirectional|buffer/i.test(control.action)));
-  assert.ok(game.controls.some((control) => control.input === 'Arrow Keys' && /tongue sweep|opening contact|parr/i.test(control.action)));
+  for (const tag of ['counter combat', 'reactive blade', 'charged dash', 'projectile reflection', 'threat orchestration', 'boss guard break', 'environmental combos', '120 hz simulation']) assert.ok(game.tags.includes(tag));
+  assert.ok(game.controls.some((control) => control.input === 'W A S D' && /movement|diagonal|steering/i.test(control.action)));
+  assert.ok(game.controls.some((control) => control.input === 'Space' && /charge|exponential|buffer/i.test(control.action)));
+  assert.ok(game.controls.some((control) => control.input === 'Arrow Keys' && /Reactive Blade|five active ticks|parr/i.test(control.action)));
+  assert.ok(game.controls.some((control) => control.input === 'Enemy openings' && /bait|punish|reposition/i.test(control.action)));
+  assert.ok(game.controls.some((control) => control.input === 'Pond terrain' && /route|brambles|spores|reflected/i.test(control.action)));
   assert.equal(getArcadeGame('mosslight')?.slug, 'sylvaria');
   assert.equal(getArcadeGame('sylvaria')?.slug, 'sylvaria');
 });
 
-test('v0.13 boots the qualified pond graphics first and then owns authoritative kinetics replay and AI', () => {
+test('v0.14 boots the compatibility substrate then owns unified rig combat boss and threat flow', () => {
   const html = read(`${runtime}/index.html`);
   const entry11 = read(`${runtime}/v011-entry.js`);
   const entry12 = read(`${runtime}/v012-entry.js`);
   const entry13 = read(`${runtime}/v013-entry.js`);
+  const entry14 = read(`${runtime}/v014-entry.js`);
   const kinetics = read(`${v013}/kinetic-combat-v013.js`);
   const ai = read(`${v013}/enemy-ai-v013.js`);
   const replay = read(`${v013}/replay-v013.js`);
   const presentation = read(`${v013}/kinetic-presentation-v013.js`);
+  const rig = read(`${v014}/character-rig-v014.js`);
+  const flow = read(`${v014}/combat-flow-v014.js`);
+  const enemyFlow = read(`${v014}/enemy-flow-v014.js`);
+  const bossFlow = read(`${v014}/boss-flow-v014.js`);
+  const threats = read(`${v014}/threat-manager-v014.js`);
+  const flowPresentation = read(`${v014}/flow-presentation-v014.js`);
 
   assert.match(html, /Sylvaria · Kinetic Pond/);
   assert.match(html, /sylvaria-pond-v012\.css/);
   assert.match(html, /v091\/fullscreen\.js/);
-  assert.match(html, /src="\.\/v013-entry\.js"/);
-  assert.doesNotMatch(html, /src="\.\/v012-entry\.js"|src="\.\/v010-entry\.js"|src="\.\/v091\/boot\.js"/);
+  assert.match(html, /src="\.\/v014-entry\.js"/);
+  assert.doesNotMatch(html, /src="\.\/v013-entry\.js"|src="\.\/v012-entry\.js"|src="\.\/v010-entry\.js"|src="\.\/v091\/boot\.js"/);
 
   for (const moduleName of ['model.js', 'world.js', 'movement.js', 'battle-core.js', 'render.js', 'boot.js', 'fullscreen.js']) {
     assert.ok(existsSync(join(root, v091, moduleName)), `missing v0.9.1 baseline module ${moduleName}`);
@@ -77,41 +89,45 @@ test('v0.13 boots the qualified pond graphics first and then owns authoritative 
     assert.ok(existsSync(join(root, v012, moduleName)), `missing v0.12 graphics module ${moduleName}`);
   }
   for (const moduleName of ['kinetic-combat-v013.js', 'enemy-ai-v013.js', 'replay-v013.js', 'coach-v013.js', 'kinetic-presentation-v013.js']) {
-    assert.ok(existsSync(join(root, v013, moduleName)), `missing v0.13 module ${moduleName}`);
+    assert.ok(existsSync(join(root, v013, moduleName)), `missing v0.13 compatibility module ${moduleName}`);
+  }
+  for (const moduleName of ['character-rig-v014.js', 'combat-flow-v014.js', 'enemy-flow-v014.js', 'boss-flow-v014.js', 'threat-manager-v014.js', 'flow-presentation-v014.js']) {
+    assert.ok(existsSync(join(root, v014, moduleName)), `missing playable v0.14 module ${moduleName}`);
   }
 
   assert.doesNotMatch(entry11, /replay-v011|coach-v011|competitive-v011/);
   assert.match(entry12, /PRESENTATION='0\.12\.0',ENGINE='0\.11\.1'/);
-  assert.match(entry13, /v013\/kinetic-combat-v013\.js/);
-  assert.match(entry13, /v013\/enemy-ai-v013\.js/);
-  assert.match(entry13, /v013\/replay-v013\.js/);
-  assert.match(entry13, /v013\/coach-v013\.js/);
-  assert.match(entry13, /v013\/kinetic-presentation-v013\.js/);
+  for (const moduleName of ['kinetic-combat-v013.js', 'enemy-ai-v013.js', 'replay-v013.js', 'coach-v013.js', 'kinetic-presentation-v013.js']) assert.ok(entry13.includes(moduleName), `v0.13 parent missing ${moduleName}`);
+  assert.match(entry14, /window\.SylvariaRankedDisabledReason='v0\.14 replay verifier migration'/);
+  assert.match(entry14, /await import\('\.\/v013-entry\.js'\)/);
+  for (const moduleName of ['character-rig-v014.js', 'combat-flow-v014.js', 'enemy-flow-v014.js', 'boss-flow-v014.js', 'threat-manager-v014.js', 'flow-presentation-v014.js']) assert.ok(entry14.includes(moduleName), `v0.14 production entry missing ${moduleName}`);
+  assert.ok(entry14.indexOf('boss-flow-v014.js') < entry14.indexOf('threat-manager-v014.js'), 'threat manager must wrap the final boss flow');
+
   assert.match(kinetics, /moveSpeed:238/);
   assert.match(kinetics, /arcDegrees:156/);
   assert.match(kinetics, /parryWindow:5\/120/);
   assert.match(kinetics, /perfectReflectSpeed:1160/);
   assert.match(kinetics, /dashDecay:\.90483742/);
-  assert.match(kinetics, /dashBuffer:\.10/);
-  assert.match(kinetics, /function beginDashCharge/);
-  assert.match(kinetics, /function releaseDashCharge/);
-  assert.match(kinetics, /phase:'windup'/);
-  assert.match(kinetics, /phase='active'/);
-  assert.match(kinetics, /phase='recovery'/);
-  for (const kind of ['skimmer','strider','sniper','shellback']) assert.ok(ai.includes(`${kind}:`), `missing kinetic enemy ${kind}`);
-  assert.match(ai, /function maybeReadArc/);
-  assert.match(ai, /fullArcContains/);
-  assert.match(ai, /SHELL BLOCK/);
   assert.match(replay, /SCHEMA=2/);
   assert.match(replay, /space:\[12,13\]/);
-  assert.match(presentation, /function drawArcAttack/);
-  assert.match(presentation, /function drawBladeTrails/);
+  assert.match(rig, /SPRITE_FORWARD_OFFSET=Math\.PI\/2/);
+  assert.match(rig, /mouthForAttack/);
+  assert.match(flow, /parryDashRefund:12\/120/);
+  assert.match(enemyFlow, /spec\.dodge=100/);
+  assert.match(bossFlow, /guardByPhase:Object\.freeze\(\{1:3,2:4,3:5\}\)/);
+  assert.match(threats, /ROOM_THREAT_PROFILES/);
+  assert.match(threats, /actor===state\.boss/);
+  assert.match(flowPresentation, /function drawBossFlow/);
+  assert.match(presentation, /rig\?\.mouthForAttack/);
+  for (const kind of ['skimmer','strider','sniper','shellback']) assert.ok(ai.includes(`${kind}:`), `missing kinetic enemy ${kind}`);
 });
 
-test('the old dash-step substrate stays reconstructible but is explicitly overridden by v0.13 production', () => {
+test('the old dash-step and v0.13 replay substrate stay reconstructible under v0.14 production', () => {
   const model = read(`${v091}/model.js`);
   const movement = read(`${v091}/movement.js`);
   const kinetics = read(`${v013}/kinetic-combat-v013.js`);
+  const replay = read(`${v013}/replay-v013.js`);
+  const serverReplay = read('src/lib/sylvaria/replay.ts');
   assert.match(model, /FIXED_DT=1\/120/);
   assert.match(model, /MAX_SHOTS=128/);
   assert.match(model, /MAX_PENDING=72/);
@@ -121,16 +137,20 @@ test('the old dash-step substrate stays reconstructible but is explicitly overri
   assert.match(kinetics, /queueMove\(\)\{state\.moveQueue=null;return false\}/);
   assert.match(kinetics, /function updateMovement\(dt\)/);
   assert.match(kinetics, /function updateSlashes\(dt\)/);
+  assert.match(replay, /VERSION='0\.13\.0'/);
+  assert.match(serverReplay, /SYLVARIA_ENGINE_VERSION = '0\.13\.0'/);
 });
 
-test('v0.13 keeps ecological consequences under the faster combat layer', () => {
+test('v0.14 keeps ecological consequences under the faster combat layer', () => {
   const synergy = read(`${v091}/synergy-v010.js`);
   const kinetics = read(`${v013}/kinetic-combat-v013.js`);
+  const bossFlow = read(`${v014}/boss-flow-v014.js`);
   for (const token of ['triggerReturnEcology', 'mushroomReturns', 'hazardScoreAt', 'bulldozeBoss', 'bossBulldozes']) assert.ok(synergy.includes(token), `missing inherited ecology token ${token}`);
   assert.match(kinetics, /window\.SylvariaSynergy\?\.awardSynergy/);
   assert.match(kinetics, /function shearGasArc/);
   assert.match(kinetics, /F\.cutMushroom/);
   assert.match(kinetics, /F\.applyTerrainHazard/);
+  assert.match(bossFlow, /if\(source\.hazard\)/);
 });
 
 test('Game Network fullscreen removes portfolio chrome and gives the iframe the whole display', () => {
@@ -139,11 +159,11 @@ test('Game Network fullscreen removes portfolio chrome and gives the iframe the 
   assert.match(source, /aspectRatio: game\.aspectRatio/);
 });
 
-test('current Sylvaria player-facing surfaces keep the pond vocabulary restrained', () => {
+test('current Sylvaria player-facing surfaces use the v0.14 pond combat vocabulary without obsolete prototype naming', () => {
   const visible = [read(`${runtime}/index.html`), read('src/data/arcadeGames.ts')].join('\n');
-  assert.doesNotMatch(visible, /Sprid|Sprig|Verdant Flow|Ecological Synergy|PAC-a-Saw|Heartleaf|Rush Resin|Barkguard|Edge Stone|Flow Sap/i);
+  assert.doesNotMatch(visible, /Sprig|Verdant Flow|Ecological Synergy|PAC-a-Saw|Heartleaf|Rush Resin|Barkguard|Edge Stone|Flow Sap/i);
   assert.doesNotMatch(visible, /mid-swing|middle of the active sweep is the sweet spot/i);
-  for (const word of ['Sylvaria', 'frog', 'tongue', 'reflect', 'pond', 'glide', 'dash', 'parry']) assert.match(visible, new RegExp(word, 'i'));
+  for (const word of ['Sylvaria', 'Sprid', 'frog', 'Reactive Blade', 'reflect', 'pond', 'dash', 'parry', 'boss', 'guard']) assert.match(visible, new RegExp(word, 'i'));
 });
 
 test('Game Network naming is consistent across every visible discovery surface', () => {
