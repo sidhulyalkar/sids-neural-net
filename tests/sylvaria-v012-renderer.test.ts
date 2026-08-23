@@ -62,6 +62,9 @@ test('v0.13 kinetic presentation remains the authoritative Reactive Blade render
   assert.match(presentation,/s\.phase==='active'/);
   assert.match(presentation,/s\.phaseTime\/s\.recovery/);
   assert.match(presentation,/rig\?\.mouthForAttack/);
+  assert.match(presentation,/function resetRoomPresentation/);
+  assert.match(presentation,/holdFrames=0;lastHitStopSerial=state\.hitStopSerial\|\|0/);
+  assert.match(presentation,/F\.setupRoom=\(\.\.\.args\)=>\{const result=inheritedSetup\(\.\.\.args\);resetRoomPresentation\(\);return result\}/);
   assert.match(presentation,/drawDash/);
   assert.match(presentation,/drawKineticEnemies/);
   assert.doesNotMatch(presentation,/F\.(?:updateMovement|updateEnemies|updateShots|cut)\s*=/);
