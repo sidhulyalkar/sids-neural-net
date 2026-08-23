@@ -175,18 +175,20 @@ export function SignalBoard({
     if (expandedItemId && !displayedItems.some((item) => item.id === expandedItemId)) setExpandedItemId(undefined);
   }, [displayedItems, expandedItemId]);
 
+  // The pointer state machine owns intent. These setters are deliberately
+  // idempotent and never reject an intent using render-time expansion state:
+  // the second trusted release can arrive before React has committed a fresh
+  // callback closure for the first release.
   const expandInline = useCallback((item: FrontierItem) => {
-    if (expandedItemId === item.id) return;
     captureSpatialFlip();
     setExpandedItemId(item.id);
     onFluidExpand?.(item);
-  }, [captureSpatialFlip, expandedItemId, onFluidExpand]);
+  }, [captureSpatialFlip, onFluidExpand]);
 
-  const collapseInline = useCallback((item: FrontierItem) => {
-    if (expandedItemId !== item.id) return;
+  const collapseInline = useCallback((_item: FrontierItem) => {
     captureSpatialFlip();
     setExpandedItemId(undefined);
-  }, [captureSpatialFlip, expandedItemId]);
+  }, [captureSpatialFlip]);
 
   useLayoutEffect(() => {
     playSpatialFlip();
