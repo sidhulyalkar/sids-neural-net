@@ -13,8 +13,16 @@ const ui={
 };
 
 let audioCtx=null;
+function ensureAudio(){
+  try{
+    const AudioCtor=window.AudioContext||window.webkitAudioContext;if(!AudioCtor)return null;
+    audioCtx??=new AudioCtor();
+    if(audioCtx.state==='suspended')audioCtx.resume?.().catch(()=>{});
+    return audioCtx;
+  }catch{return null}
+}
 function tone(freq=300,duration=.05,gain=.022,type='triangle'){
-  try{audioCtx??=new AudioContext();const o=audioCtx.createOscillator(),a=audioCtx.createGain();o.type=type;o.frequency.value=freq;a.gain.setValueAtTime(gain,audioCtx.currentTime);a.gain.exponentialRampToValueAtTime(.0001,audioCtx.currentTime+duration);o.connect(a).connect(audioCtx.destination);o.start();o.stop(audioCtx.currentTime+duration)}catch{}
+  try{const ctx=ensureAudio();if(!ctx)return;const o=ctx.createOscillator(),a=ctx.createGain();o.type=type;o.frequency.value=freq;a.gain.setValueAtTime(gain,ctx.currentTime);a.gain.exponentialRampToValueAtTime(.0001,ctx.currentTime+duration);o.connect(a).connect(ctx.destination);o.start();o.stop(ctx.currentTime+duration)}catch{}
 }
 function feedback(event){
   const tones={jump:[350,.04,.018],wallLaunch:[410,.04,.02],vineGrab:[285,.035,.018],vineRelease:[430,.05,.02],saplineAttach:[470,.04,.018],saplineLaunch:[590,.06,.025],barkRailLand:[360,.025,.012],dash:[525,.04,.022],reflect:[760,.05,.032,'square'],hurt:[92,.12,.05,'sawtooth'],kill:[125,.07,.028,'square'],checkpoint:[650,.09,.024],guardBreak:[185,.08,.035,'square'],bossStart:[72,.28,.035,'sawtooth'],bossPhase:[105,.13,.035,'square'],bossDead:[82,.28,.045,'sawtooth']};
@@ -46,7 +54,7 @@ input.subscribe(renderBindings);
 
 function openSettings(){modeBeforeOverlay=engine.state.mode;if(engine.state.mode==='playing')engine.setMode('paused');ui.settings?.classList.remove('hidden')}
 function closeSettings(){ui.settings?.classList.add('hidden');input.cancelCapture();if(engine.state.mode==='paused'&&modeBeforeOverlay==='playing')engine.setMode('playing')}
-function startGame(){audioCtx??=new AudioContext();engine.reset(true);ui.intro?.classList.add('hidden');ui.dead?.classList.add('hidden');ui.complete?.classList.add('hidden');ui.pause?.classList.add('hidden');updateHud()}
+function startGame(){ensureAudio();engine.reset(true);ui.intro?.classList.add('hidden');ui.dead?.classList.add('hidden');ui.complete?.classList.add('hidden');ui.pause?.classList.add('hidden');updateHud()}
 function togglePause(){if(engine.state.mode==='playing'){engine.setMode('paused');ui.pause?.classList.remove('hidden')}else if(engine.state.mode==='paused'&&ui.settings?.classList.contains('hidden')){engine.setMode('playing');ui.pause?.classList.add('hidden')}}
 
 ui.start?.addEventListener('click',startGame);ui.restart?.addEventListener('click',startGame);ui.retry?.addEventListener('click',startGame);ui.resume?.addEventListener('click',togglePause);ui.settingsButton?.addEventListener('click',openSettings);ui.closeSettings?.addEventListener('click',closeSettings);ui.resetBindings?.addEventListener('click',()=>input.reset());
