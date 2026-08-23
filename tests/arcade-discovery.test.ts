@@ -27,7 +27,7 @@ test('current Sylvaria metadata describes the horizontal tree-action platformer 
   const game = arcadeGames.find((entry) => entry.slug === 'sylvaria');
   assert.ok(game);
   assert.equal(game.title, 'Sylvaria');
-  assert.equal(game.version, 'v2.0.0-alpha.1');
+  assert.equal(game.version, 'v2.0.0-alpha.2');
   assert.equal(game.launchUrl, '/game-runtimes/sylvaria-v2/index.html');
   assert.equal(game.aspectRatio, '16 / 9');
   assert.deepEqual(game.nativeSize,{width:1280,height:720});
