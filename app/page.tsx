@@ -1,5 +1,5 @@
 import dynamic from 'next/dynamic';
-import Link from 'next/link';
+import { DendriticPortalLink } from '@/components/home/DendriticPortalLink';
 
 /**
  * Homepage - Minimal Dendritic Landing
@@ -29,14 +29,16 @@ const peripheralLinks = [
   {
     href: '/frontier',
     label: 'FRONTIER',
+    detail: 'live radar',
     ariaLabel: 'Open FRONTIER personal intelligence radar',
-    accentClass: 'hover:border-cyan/35 hover:text-cyan focus-visible:ring-cyan/70',
+    tone: 'cyan' as const,
   },
   {
     href: '/arcade',
     label: 'GAME NETWORK',
+    detail: 'arcade',
     ariaLabel: 'Open the Game Network',
-    accentClass: 'hover:border-violet/35 hover:text-violet focus-visible:ring-violet/70',
+    tone: 'violet' as const,
   },
 ] as const;
 
@@ -47,21 +49,10 @@ export default function HomePage() {
 
       <nav
         aria-label="Homepage peripheral destinations"
-        className="fixed right-4 top-4 z-[70] flex flex-col items-end gap-2 sm:right-7 sm:top-7"
+        className="fixed right-0 top-4 z-[70] flex flex-col items-end gap-1 sm:top-7"
       >
         {peripheralLinks.map((link) => (
-          <Link
-            key={link.href}
-            href={link.href}
-            data-gesture-target
-            aria-label={link.ariaLabel}
-            className={`group inline-flex items-center gap-2 border border-white/12 bg-black/55 px-3 py-2 font-mono text-[9px] uppercase tracking-[0.2em] text-white/55 backdrop-blur-md transition-colors focus-visible:outline-none focus-visible:ring-1 ${link.accentClass}`}
-          >
-            {link.label}
-            <span aria-hidden="true" className="transition-transform group-hover:translate-x-0.5">
-              →
-            </span>
-          </Link>
+          <DendriticPortalLink key={link.href} {...link} />
         ))}
       </nav>
     </>
