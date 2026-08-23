@@ -5,7 +5,7 @@ window.SylvariaRankedDisabledReason='v0.15 Cutstep prototype · verifier migrati
 
 await import('./v014-entry.js');
 await import('./v015/cutstep-v015.js');
-await import('./v015/forest-theme-v015.js');
+await import('./v015/forest-world-v015.js');
 await import('./v015/cutstep-presentation-v015.js');
 
 const G=window.Sylvaria091,F=G.fn,state=G.state,$=G.$;
