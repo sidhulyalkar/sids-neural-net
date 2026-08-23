@@ -1,6 +1,6 @@
 'use client';
 
-import type { ReactNode } from 'react';
+import { createElement, type ReactNode } from 'react';
 import {
   extractFrontierScientificArtifacts,
   parseFrontierMath,
@@ -10,58 +10,74 @@ import {
 } from '@/lib/frontier/synthesis/scientificArtifacts';
 import styles from './frontier-scientific-artifacts.module.css';
 
+// This project deliberately keeps a narrow JSX intrinsic surface. Chromium,
+// Firefox, and Safari support native MathML even though the current React JSX
+// declarations here do not enumerate MathML tags. Build those elements through
+// React itself rather than weakening types globally or injecting HTML strings.
+const createMathElement = createElement as unknown as (
+  type: string,
+  props: Record<string, unknown> | null,
+  ...children: ReactNode[]
+) => ReactNode;
+
+function mathRow(children: ReactNode[], key?: string): ReactNode {
+  return createMathElement('mrow', key ? { key } : null, ...children);
+}
+
 function mathNodes(nodes: FrontierMathNode[], prefix: string): ReactNode[] {
   return nodes.map((node, index) => {
     const key = `${prefix}-${index}`;
-    if (node.kind === 'identifier') return <mi key={key}>{node.value}</mi>;
-    if (node.kind === 'number') return <mn key={key}>{node.value}</mn>;
-    if (node.kind === 'operator') return <mo key={key}>{node.value}</mo>;
-    if (node.kind === 'text') return <mtext key={key}>{node.value}</mtext>;
-    if (node.kind === 'group') return <mrow key={key}>{mathNodes(node.children, key)}</mrow>;
+    if (node.kind === 'identifier') return createMathElement('mi', { key }, node.value);
+    if (node.kind === 'number') return createMathElement('mn', { key }, node.value);
+    if (node.kind === 'operator') return createMathElement('mo', { key }, node.value);
+    if (node.kind === 'text') return createMathElement('mtext', { key }, node.value);
+    if (node.kind === 'group') return mathRow(mathNodes(node.children, key), key);
     if (node.kind === 'fraction') {
-      return (
-        <mfrac key={key}>
-          <mrow>{mathNodes(node.numerator, `${key}-n`)}</mrow>
-          <mrow>{mathNodes(node.denominator, `${key}-d`)}</mrow>
-        </mfrac>
+      return createMathElement(
+        'mfrac',
+        { key },
+        mathRow(mathNodes(node.numerator, `${key}-n`)),
+        mathRow(mathNodes(node.denominator, `${key}-d`)),
       );
     }
+    const base = mathRow(mathNodes([node.base], `${key}-b`));
     if (node.superscript && node.subscript) {
-      return (
-        <msubsup key={key}>
-          <mrow>{mathNodes([node.base], `${key}-b`)}</mrow>
-          <mrow>{mathNodes(node.subscript, `${key}-s`)}</mrow>
-          <mrow>{mathNodes(node.superscript, `${key}-p`)}</mrow>
-        </msubsup>
+      return createMathElement(
+        'msubsup',
+        { key },
+        base,
+        mathRow(mathNodes(node.subscript, `${key}-s`)),
+        mathRow(mathNodes(node.superscript, `${key}-p`)),
       );
     }
     if (node.superscript) {
-      return (
-        <msup key={key}>
-          <mrow>{mathNodes([node.base], `${key}-b`)}</mrow>
-          <mrow>{mathNodes(node.superscript, `${key}-p`)}</mrow>
-        </msup>
+      return createMathElement(
+        'msup',
+        { key },
+        base,
+        mathRow(mathNodes(node.superscript, `${key}-p`)),
       );
     }
-    return (
-      <msub key={key}>
-        <mrow>{mathNodes([node.base], `${key}-b`)}</mrow>
-        <mrow>{mathNodes(node.subscript ?? [], `${key}-s`)}</mrow>
-      </msub>
+    return createMathElement(
+      'msub',
+      { key },
+      base,
+      mathRow(mathNodes(node.subscript ?? [], `${key}-s`)),
     );
   });
 }
 
 function MathPlane({ artifact }: { artifact: FrontierScientificArtifact }) {
   const nodes = parseFrontierMath(artifact.sourceText);
+  const math = createMathElement(
+    'math',
+    { display: 'block', 'aria-label': artifact.sourceText },
+    mathRow(mathNodes(nodes, `math-${artifact.start}`)),
+  );
   return (
     <figure className={styles.mathPlane} data-frontier-scientific-artifact="math">
       <figcaption>Equation · source extract</figcaption>
-      <div className={styles.mathViewport}>
-        <math display="block" aria-label={artifact.sourceText}>
-          <mrow>{mathNodes(nodes, `math-${artifact.start}`)}</mrow>
-        </math>
-      </div>
+      <div className={styles.mathViewport}>{math}</div>
       <code className={styles.mathSource}>{artifact.sourceText}</code>
     </figure>
   );
