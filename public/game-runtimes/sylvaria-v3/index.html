@@ -18,24 +18,24 @@
     </section>
 
     <section id="bossHud" class="bossHud hidden" aria-live="polite">
-      <div class="bossLine"><span id="bossName">CROWN FELLER</span><span id="bossGuard">GUARD 3/3</span></div>
+      <div class="bossLine"><span id="bossName">CROWN GIRDLER</span><span id="bossGuard">CLAMPS 3/3</span></div>
       <div class="bossTrack"><div id="bossBar"></div></div>
     </section>
 
     <section id="intro" class="panel introPanel">
       <p class="eyebrow">ANCIENT TREE ASCENT</p>
       <h1>SYLVARIA</h1>
-      <p class="lede">Climb from Rootreach to the Heartwood Crown while mechanized felling crews dismantle an ancient living tree around you. Movement is the weapon: grip bark, load flexible limbs, swing vines, snap a Sapline between Resin Knots, rebound from downward strikes, redirect gunfire, and keep climbing.</p>
+      <p class="lede">Climb from Rootreach to the Heartwood Crown while the Fellworks cut into an ancient living tree. Movement is the weapon: run sloped BarkRails, grip the trunk, load flexible limbs, swing vines, snap a Sapline between Resin Knots, rebound from downward strikes, redirect gunfire, and keep your momentum alive.</p>
       <div class="controls primaryControls">
         <span><b>← / →</b> move</span>
         <span><b>SPACE</b> jump</span>
         <span><b>W</b> hold Sapline · release to launch</span>
-        <span><b>D</b> machete</span>
+        <span><b>D</b> draw machete / counter</span>
         <span><b>↑ + D</b> upslash</span>
-        <span><b>↓ + D</b> downstrike / plunge</span>
+        <span><b>↓ + D</b> Downstrike / Plunge</span>
         <span><b>SHIFT</b> Canopy Step</span>
       </div>
-      <p class="microcopy">Sapline only catches glowing Resin Knots. The line reels while held, preserves real momentum on release, and does not restore Canopy Step. Downward hits and Bark Grip do.</p>
+      <p class="microcopy">Sapline only catches Resin Knots. The small resin vein points along the predicted release tangent and stretches as the line loads. Every knot obeys the same physics. A real landing, Bark Grip, or Downstrike rebound restores Canopy Step.</p>
       <button id="start" class="primaryButton" type="button">BEGIN THE ASCENT</button>
       <button class="textButton" type="button" onclick="document.getElementById('settingsPanel').classList.remove('hidden')">CUSTOMIZE CONTROLS</button>
     </section>
@@ -54,14 +54,14 @@
     </section>
 
     <section id="complete" class="panel hidden">
-      <p class="eyebrow">HEARTWOOD CROWN</p><h2>You reached the crown.</h2>
+      <p class="eyebrow">HEARTWOOD CROWN</p><h2>The Girdler is broken.</h2>
       <p id="completeStats"></p>
       <button id="restart" class="primaryButton" type="button">CLIMB AGAIN</button>
     </section>
 
     <section id="dead" class="panel hidden">
       <p class="eyebrow">FELLED</p><h2>The tree remembers the route.</h2>
-      <p>Your last Heartbud remains your checkpoint. Preserve momentum, read the Resin Knots, and turn enemy pressure into another way upward.</p>
+      <p>Your last Heartbud remains your checkpoint. Preserve momentum, read Resin Knot tangents, and turn enemy pressure into another way upward.</p>
       <button id="retry" class="primaryButton" type="button">RETURN TO THE TREE</button>
     </section>
   </main>
