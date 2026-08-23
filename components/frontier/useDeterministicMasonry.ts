@@ -75,7 +75,15 @@ function cachedGeometry(key: string): Geometry | undefined {
 function applyGeometry(root: HTMLElement, geometry: Geometry): void {
   root.style.setProperty('--frontier-masonry-span', String(geometry.span));
   root.style.setProperty('--frontier-card-intrinsic-height', `${geometry.height}px`);
-  root.style.containIntrinsicSize = `auto ${geometry.height}px`;
+
+  // `contain-intrinsic-size: auto <length>` is intentionally NOT used here.
+  // Chromium's `auto` form remembers a previously rendered subtree size and
+  // may swap that remembered value in as content-visibility skips/reveals the
+  // card. That makes the browser, rather than the geometry cache, an authority
+  // over scroll extent. Lock only the block axis to our measured compact size;
+  // the masonry/grid continues to own inline width.
+  root.style.setProperty('contain-intrinsic-inline-size', 'none');
+  root.style.setProperty('contain-intrinsic-block-size', `${geometry.height}px`);
   root.dataset.frontierGeometry = 'locked';
   root.dataset.frontierGeometryHeight = geometry.height.toFixed(2);
 }
@@ -84,6 +92,8 @@ function unlockGeometry(root: HTMLElement): void {
   delete root.dataset.frontierGeometry;
   delete root.dataset.frontierGeometryHeight;
   root.style.removeProperty('contain-intrinsic-size');
+  root.style.removeProperty('contain-intrinsic-inline-size');
+  root.style.removeProperty('contain-intrinsic-block-size');
 }
 
 function readGeometry(root: HTMLElement, measure: HTMLElement): Geometry | undefined {
@@ -184,8 +194,9 @@ function cancelCompactMeasurement(token: symbol): void {
  * Compact cards participate in one exact pre-virtualization geometry batch.
  * Until that batch commits, CSS keeps the card paint/layout-visible rather than
  * substituting a guessed contain-intrinsic-size. Once locked, the measured
- * height becomes both its masonry span and virtualization intrinsic height.
- * Async image decode is therefore unable to renegotiate card geometry.
+ * height becomes both its masonry span and fixed block-axis virtualization
+ * intrinsic height. Async image decode is therefore unable to renegotiate card
+ * geometry, and Chromium's remembered-size mode cannot rewrite scroll extent.
  *
  * Expanded cards are intentionally different: they are visible user-intent
  * surfaces and may grow as focal evidence appears, so their grid span stays
