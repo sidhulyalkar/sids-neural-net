@@ -52,6 +52,7 @@ function persist(report) {
         passed: false,
         paths: [],
         expectedPaths: GAMES.map((game) => `/arcade/${game.slug}`),
+        mainLandmarks: null,
         pageErrors: [],
         consoleErrors: [],
         failedResponses: [],
@@ -71,13 +72,17 @@ function persist(report) {
 
       try {
         await page.goto(`${baseUrl}/arcade`, { waitUntil: 'networkidle' });
-        const hrefs = await page
-          .locator('main section a[data-gesture-target]')
+        const catalog = page.locator('[data-arcade-catalog]');
+        await catalog.waitFor({ state: 'visible', timeout: 10_000 });
+        const hrefs = await catalog
+          .locator('section a[data-gesture-target]')
           .evaluateAll((nodes) => nodes.map((node) => node.getAttribute('href')).filter(Boolean));
         result.paths = hrefs.map(normalizePath);
-        const text = await page.locator('main').innerText();
+        result.mainLandmarks = await page.locator('main').count();
+        const text = await catalog.innerText();
         result.passed =
           JSON.stringify(result.paths) === JSON.stringify(result.expectedPaths) &&
+          result.mainLandmarks === 1 &&
           !/Sylvaria|mosslight/i.test(text) &&
           result.pageErrors.length === 0 &&
           result.consoleErrors.length === 0 &&
@@ -116,6 +121,7 @@ function persist(report) {
         frameUrl: null,
         frameTitle: null,
         frameUrls: [],
+        mainLandmarks: null,
         canvas: null,
         focusAfterPointer: null,
         focusAfterEscape: null,
@@ -139,6 +145,9 @@ function persist(report) {
 
       try {
         await page.goto(`${baseUrl}/arcade/${game.slug}`, { waitUntil: 'domcontentloaded' });
+        const shell = page.locator('[data-arcade-shell]');
+        await shell.waitFor({ state: 'visible', timeout: 10_000 });
+        result.mainLandmarks = await page.locator('main').count();
         const iframe = page.locator(`iframe[title="${game.title} game runtime"]`);
         await iframe.waitFor({ state: 'visible', timeout: 15_000 });
         await page.waitForTimeout(350);
@@ -164,14 +173,11 @@ function persist(report) {
           };
         });
 
-        // Dispatch a real pointer event on the runtime window. This tests the same bridge
-        // event that a user click inside the iframe triggers without depending on whether
-        // an upstream title/menu element currently overlays part of the canvas.
         await frame.evaluate(() => {
           window.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, composed: true }));
         });
         try {
-          await page.locator('main[data-arcade-focus="true"]').waitFor({ timeout: 5_000 });
+          await page.locator('[data-arcade-focus="true"]').waitFor({ timeout: 5_000 });
           result.focusAfterPointer = true;
         } catch {
           result.focusAfterPointer = false;
@@ -181,13 +187,14 @@ function persist(report) {
           window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
         });
         try {
-          await page.locator('main[data-arcade-focus="false"]').waitFor({ timeout: 5_000 });
+          await page.locator('[data-arcade-focus="false"]').waitFor({ timeout: 5_000 });
           result.focusAfterEscape = true;
         } catch {
           result.focusAfterEscape = false;
         }
 
         result.passed =
+          result.mainLandmarks === 1 &&
           result.frameTitle.includes(game.version) &&
           result.canvas.width > 0 &&
           result.canvas.height > 0 &&
