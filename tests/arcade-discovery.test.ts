@@ -19,10 +19,10 @@ const gameNetworkSurfaces = [
   'src/data/siteNav.ts',
 ];
 
-test('the Game Network exposes only the currently active games', () => {
+test('the Game Network exposes the three currently active games', () => {
   assert.deepEqual(
     arcadeGames.map((game) => game.slug),
-    ['stretchicorn', 'unirico']
+    ['stretchicorn', 'unirico', 'crownrush']
   );
 
   for (const game of arcadeGames) {
@@ -63,6 +63,32 @@ test('Stretchicorn cabinet points at the current v0.21.1 public release', () => 
   assert.match(game.description, /Impossible Encore/);
 });
 
+test('Crownrush replaces the Sylvaria cabinet without reviving its combat loop', () => {
+  const game = arcadeGames.find((entry) => entry.slug === 'crownrush');
+  assert.ok(game);
+  assert.equal(game.version, 'v0.1.0');
+  assert.equal(game.sourceVisibility, 'public');
+  assert.equal(game.launchUrl, '/game-runtimes/crownrush/index.html');
+  assert.equal(game.nativeSize?.width, 960);
+  assert.equal(game.nativeSize?.height, 640);
+  assert.match(game.description, /Sapline/);
+  assert.match(game.description, /CROWNVELOCITY/);
+  assert.doesNotMatch(game.description, /enemy|damage|attack/i);
+
+  const runtimeRoot = 'public/game-runtimes/crownrush';
+  assert.ok(existsSync(join(root, runtimeRoot, 'index.html')));
+  assert.ok(existsSync(join(root, runtimeRoot, 'game.js')));
+  assert.ok(existsSync(join(root, 'docs/CROWNRUSH_V01_DESIGN.md')));
+  assert.ok(existsSync(join(root, 'scripts/validate-crownrush.mjs')));
+
+  const runtime = readRepoFile(`${runtimeRoot}/game.js`);
+  assert.match(runtime, /const FIXED_DT = 1 \/ 120/);
+  assert.match(runtime, /player\.hyper = player\.combo >= 4/);
+  assert.match(runtime, /function attachSap\(/);
+  assert.match(runtime, /function rescueFromThreat\(/);
+  assert.doesNotMatch(runtime, /\benemy\b|\bdamage\b|\battack\b/i);
+});
+
 test('FRONTIER and Game Network coexist in current navigation', () => {
   assert.ok(siteNavItems.some((item) => item.href === '/frontier' && item.label === 'FRONTIER'));
   assert.ok(siteNavItems.some((item) => item.href === '/arcade' && item.label === 'Game Network'));
@@ -99,7 +125,7 @@ test('the Game Network index stays intentionally minimal', () => {
   assert.doesNotMatch(catalog, /game\.subtitle|game\.version|game\.description|game\.tags/);
 });
 
-test('Game Network browser validation covers the two active cabinets in four engines', () => {
+test('Game Network browser validation covers all three active cabinets in four engines', () => {
   const workflow = readRepoFile('.github/workflows/ci.yml');
   const browserTest = readRepoFile('scripts/playtest-arcade-browsers.mjs');
 
@@ -109,6 +135,7 @@ test('Game Network browser validation covers the two active cabinets in four eng
   assert.match(browserTest, /channel: 'chrome'/);
   assert.match(browserTest, /testStretchicorn\(page, engineName\)/);
   assert.match(browserTest, /testUniRico\(page, engineName\)/);
+  assert.match(browserTest, /testCrownrush\(page, engineName\)/);
   assert.doesNotMatch(browserTest, /testSylvaria/);
 });
 
