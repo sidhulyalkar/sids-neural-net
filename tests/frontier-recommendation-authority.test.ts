@@ -60,3 +60,53 @@ test('daily selection preserves diversity instead of flooding concentrated gener
   assert.equal(new Set(selected.map((entry) => entry.lane)).size, 1);
   assert.equal(new Set(selected.map((entry) => new URL(entry.url).hostname)).size, 1);
 });
+
+test('generic research cannot crowd out explicitly personalized daily lanes', () => {
+  const genericResearch = Array.from({ length: 9 }, (_, index) => item(`paper-${index}`, {
+    lane: index % 2 === 0 ? 'ai_frontier' : 'ml_data',
+    importance: 0.82 - index * 0.01,
+    novelty: 0.66,
+    source: `papers-${index % 3}.example`,
+    sourceLabel: 'Research Feed',
+    url: `https://papers-${index % 3}.example/${index}`,
+  }));
+  const ranked = [
+    ...genericResearch,
+    item('my-team', {
+      lane: 'team_pulse',
+      tags: ['new england patriots', 'active team'],
+      source: 'team.example',
+      sourceLabel: 'Team Feed',
+      url: 'https://team.example/patriots',
+    }),
+    item('active-sport', {
+      lane: 'sports',
+      tags: ['active sport', 'mountain biking'],
+      source: 'mtb.example',
+      sourceLabel: 'MTB',
+      url: 'https://mtb.example/run',
+    }),
+    item('game', {
+      lane: 'gaming',
+      tags: ['hollow knight', 'silksong'],
+      source: 'games.example',
+      sourceLabel: 'Games',
+      url: 'https://games.example/silksong',
+    }),
+    item('music', {
+      lane: 'music',
+      tags: ['dubstep', 'bass music'],
+      source: 'music.example',
+      sourceLabel: 'Music',
+      url: 'https://music.example/set',
+    }),
+  ];
+
+  const selected = selectDailyRun(ranked, {}, 14);
+  const ids = new Set(selected.map((entry) => entry.id));
+
+  assert.ok(ids.has('my-team'), 'favorite-team slot was crowded out by generic research');
+  assert.ok(ids.has('active-sport'), 'active-sport slot was crowded out by generic research');
+  assert.ok(ids.has('game'), 'gaming slot was crowded out by generic research');
+  assert.ok(ids.has('music'), 'music/culture slot was crowded out by generic research');
+});
