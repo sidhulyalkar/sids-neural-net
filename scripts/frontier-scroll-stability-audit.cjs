@@ -33,9 +33,6 @@ async function waitForFixture(page) {
     { polling: 'raf', timeout: 5_000 },
   );
   await page.evaluate(async () => {
-    // The public site intentionally uses smooth anchor navigation. A geometry
-    // stress test needs requested scroll offsets to be synchronous so motion
-    // toward a target is never misclassified as spontaneous layout drift.
     document.documentElement.style.scrollBehavior = 'auto';
     document.body.style.scrollBehavior = 'auto';
     if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
@@ -98,15 +95,34 @@ async function sweep(page) {
     let samples = 0;
     let minDocumentHeight = scroller.scrollHeight;
     let maxDocumentHeight = minDocumentHeight;
+    const trace = [];
 
     const settleAt = async (requested) => {
       const target = Math.max(0, Math.min(maxScrollFor(), requested));
       window.scrollTo({ top: target, left: 0, behavior: 'auto' });
       await twoFrames();
-      maxDrift = Math.max(maxDrift, Math.abs(window.scrollY - target));
+      const actual = window.scrollY;
+      const documentHeight = scroller.scrollHeight;
+      maxDrift = Math.max(maxDrift, Math.abs(actual - target));
       samples += 1;
-      minDocumentHeight = Math.min(minDocumentHeight, scroller.scrollHeight);
-      maxDocumentHeight = Math.max(maxDocumentHeight, scroller.scrollHeight);
+      minDocumentHeight = Math.min(minDocumentHeight, documentHeight);
+      maxDocumentHeight = Math.max(maxDocumentHeight, documentHeight);
+      trace.push({
+        requested,
+        target,
+        actual,
+        documentHeight,
+        maxScroll: maxScrollFor(),
+        cards: Array.from(document.querySelectorAll(selector)).map((node) => {
+          const rect = node.getBoundingClientRect();
+          return {
+            id: node.getAttribute('data-frontier-fluid-card') || '',
+            top: rect.top + window.scrollY,
+            height: rect.height,
+            visibility: getComputedStyle(node).contentVisibility,
+          };
+        }),
+      });
     };
 
     let guard = 0;
@@ -129,6 +145,7 @@ async function sweep(page) {
       lockedCards: document.querySelectorAll(`${selector}[data-frontier-geometry="locked"]`).length,
       documentHeight: scroller.scrollHeight,
       documentHeightRange: maxDocumentHeight - minDocumentHeight,
+      trace,
     };
   }, CARD);
 }
@@ -137,6 +154,7 @@ async function installShiftObserver(page) {
   await page.evaluate(() => {
     window.__frontierLayoutShiftScore = 0;
     window.__frontierLayoutShiftEntries = 0;
+    window.__frontierLayoutShiftSources = [];
     window.__frontierLayoutObserver?.disconnect?.();
     if (typeof PerformanceObserver === 'undefined') return;
     try {
@@ -145,11 +163,32 @@ async function installShiftObserver(page) {
           if (entry.hadRecentInput) continue;
           window.__frontierLayoutShiftScore += entry.value || 0;
           window.__frontierLayoutShiftEntries += 1;
+          const sources = Array.isArray(entry.sources) ? entry.sources : [];
+          window.__frontierLayoutShiftSources.push({
+            value: entry.value || 0,
+            sources: sources.map((source) => {
+              const node = source.node;
+              const element = node instanceof Element ? node : null;
+              const card = element?.closest?.('[data-frontier-fluid-card]');
+              const describe = (target) => target instanceof Element
+                ? `${target.tagName.toLowerCase()}${target.id ? `#${target.id}` : ''}${target.classList?.length ? `.${Array.from(target.classList).slice(0, 3).join('.')}` : ''}`
+                : '';
+              const rect = (value) => value ? {
+                x: value.x,
+                y: value.y,
+                width: value.width,
+                height: value.height,
+              } : null;
+              return {
+                node: describe(element),
+                cardId: card?.getAttribute('data-frontier-fluid-card') || '',
+                previousRect: rect(source.previousRect),
+                currentRect: rect(source.currentRect),
+              };
+            }),
+          });
         }
       });
-      // Do not request historical buffered entries. The lock-in phase is a
-      // pre-interaction measurement pass; this observer measures only layout
-      // shifts caused after compact geometry is authoritative.
       observer.observe({ type: 'layout-shift' });
       window.__frontierLayoutObserver = observer;
     } catch {
@@ -162,6 +201,7 @@ async function readShiftObserver(page) {
   return page.evaluate(() => ({
     score: window.__frontierLayoutShiftScore || 0,
     entries: window.__frontierLayoutShiftEntries || 0,
+    sources: window.__frontierLayoutShiftSources || [],
   }));
 }
 
@@ -190,6 +230,7 @@ async function snapshot(page) {
         height: rect.height,
         lockedHeight: Number.parseFloat(node.getAttribute('data-frontier-geometry-height') || '0'),
         containIntrinsicSize: style.containIntrinsicSize,
+        containIntrinsicBlockSize: style.containIntrinsicBlockSize,
         contentVisibility: style.contentVisibility,
         geometryState: node.getAttribute('data-frontier-geometry') || '',
       };
@@ -350,10 +391,10 @@ async function runViewport(browser, name, viewport) {
       passed: failures.length === 0,
       viewport,
       lockStableFrames,
-      warm: roundObject(warm),
-      warmShift: { score: rounded(warmShift.score), entries: warmShift.entries },
-      repeat: roundObject(repeat),
-      repeatShift: { score: rounded(repeatShift.score), entries: repeatShift.entries },
+      warm,
+      warmShift,
+      repeat,
+      repeatShift,
       stability: roundObject(stability),
       failures,
       before,
