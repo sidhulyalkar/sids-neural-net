@@ -11,7 +11,7 @@ const readRepoFile = (path: string) => readFileSync(join(root, path), 'utf8');
 
 const gameNetworkSurfaces = [
   'app/page.tsx',
-  'components/neural-atlas-canvas/RadialDendriteHome.tsx',
+  'components/home/DendriticPortalLink.tsx',
   'app/arcade/page.tsx',
   'app/arcade/[slug]/page.tsx',
   'components/arcade/ArcadePlaySpace.tsx',
@@ -67,19 +67,25 @@ test('Stretchicorn cabinet points at the current v0.21.1 public release', () => 
   assert.match(game.description, /13 trials and four difficulty modes/);
 });
 
-test('FRONTIER and Game Network coexist in current navigation and the eight-way homepage', () => {
+test('FRONTIER and Game Network coexist with the original dendritic homepage morphology', () => {
   assert.ok(siteNavItems.some((item) => item.href === '/frontier' && item.label === 'FRONTIER'));
   assert.ok(siteNavItems.some((item) => item.href === '/arcade' && item.label === 'Game Network'));
   assert.ok(primaryNavItems.some((item) => item.href === '/frontier'));
   assert.ok(primaryNavItems.some((item) => item.href === '/arcade'));
 
   const home = readRepoFile('app/page.tsx');
-  const radialHome = readRepoFile('components/neural-atlas-canvas/RadialDendriteHome.tsx');
-  assert.match(home, /RadialDendriteHome/);
-  assert.match(radialHome, /id: 'frontier'.*href: '\/frontier'/);
-  assert.match(radialHome, /id: 'games'.*href: '\/arcade'/);
-  assert.match(radialHome, /BRANCH_COUNT = 8/);
-  assert.match(radialHome, /data-dendrite-destination/);
+  const dendrite = readRepoFile('components/neural-atlas-canvas/MinimalDendriteHome.tsx');
+  const portal = readRepoFile('components/home/DendriticPortalLink.tsx');
+
+  assert.match(home, /MinimalDendriteHome/);
+  assert.match(home, /href: '\/frontier'/);
+  assert.match(home, /href: '\/arcade'/);
+  assert.match(home, /Homepage peripheral destinations/);
+  assert.match(dendrite, /const primaryCount = 6/);
+  assert.match(dendrite, /data-home-dendrite="original-six"/);
+  assert.doesNotMatch(dendrite, /FRONTIER|Game Network/i);
+  assert.match(portal, /data-home-portal=\{tone\}/);
+  assert.match(portal, /data-gesture-target/);
 });
 
 test('Game Network naming is consistent across discovery surfaces', () => {
