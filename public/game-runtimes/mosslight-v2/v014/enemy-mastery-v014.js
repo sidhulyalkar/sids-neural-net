@@ -32,12 +32,16 @@ F.updateEnemies=(dt)=>{
 
 const inheritedDamage=F.damageEnemy;
 F.damageEnemy=(e,amount,dir=null,source={})=>{
-  let adjusted=amount;
+  let adjusted=amount,flank=false,restoreArmor=null;
   if(e?.kineticType==='shellback'&&!source.hazard&&!source.counterShot&&(source.arc||source.melee)&&state.player){
     const dx=state.player.x-e.x,dy=state.player.y-e.y,m=Math.hypot(dx,dy)||1,front=Math.cos(e.facingAngle||0)*dx/m+Math.sin(e.facingAngle||0)*dy/m;
-    if(front<ENEMY_MASTERY_CONFIG.shellbackRearDot){adjusted*=ENEMY_MASTERY_CONFIG.shellbackRearMultiplier;e.v014MasteryOpening='rear-flank';F.addCallout?.(e.x,e.y-e.r-15,'FLANK','#f0ffbb')}
+    if(front<ENEMY_MASTERY_CONFIG.shellbackRearDot){
+      flank=true;adjusted*=ENEMY_MASTERY_CONFIG.shellbackRearMultiplier;restoreArmor=e.armor;e.armor=0;
+      e.v014MasteryOpening='rear-flank';F.addCallout?.(e.x,e.y-e.r-15,'FLANK','#f0ffbb');
+    }
   }
-  const hp=e?.hp??0,result=inheritedDamage(e,adjusted,dir,source);
+  const hp=e?.hp??0;let result;
+  try{result=inheritedDamage(e,adjusted,dir,source)}finally{if(flank&&e&&!e.dead)e.armor=restoreArmor}
   if(e?.kineticType==='sniper'&&!e.dead&&source.counterShot&&e.hp<hp){
     e.v014PunishTimer=Math.max(e.v014PunishTimer||0,q(ENEMY_MASTERY_CONFIG.sniperCounterPunishTicks*DT));
     e.v014MasteryOpening='counter-stagger';
