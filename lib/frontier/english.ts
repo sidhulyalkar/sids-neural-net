@@ -91,14 +91,16 @@ async function translateItem(item: FrontierItem): Promise<FrontierItem | null> {
     translateSummary ? translateText(item.summary) : Promise.resolve(item.summary),
   ]);
 
-  // The visible product promise is English-only. If translation is unavailable,
-  // omit the item rather than leaking a language-changing card into the feed.
-  if (!title || !summary || needsEnglishTranslation(title) || needsEnglishTranslation(summary)) return null;
+  // Empty summaries are valid source data. Only a field that actually required
+  // translation is required to come back non-empty; visible foreign text never
+  // leaks through when translation is unavailable.
+  if (!title || (translateSummary && !summary)) return null;
+  if (needsEnglishTranslation(title) || (summary && needsEnglishTranslation(summary))) return null;
 
   return {
     ...item,
     title,
-    summary,
+    summary: summary ?? '',
     tags: Array.from(new Set([...item.tags, 'translated to english'])).slice(0, 9),
     why: item.why ? `${item.why} Visible copy translated to English.` : 'Visible copy translated to English.',
   };
@@ -123,10 +125,9 @@ export async function normalizeFeedToEnglish(items: FrontierItem[]): Promise<Fro
   // foreign items are omitted rather than extending first paint or violating the
   // English-only visible-copy contract.
   const candidateIndexes = new Set(frontierTranslationCandidateIndexes(items));
-  const output: Array<FrontierItem | null> = items.map((item, index) => {
+  const output: Array<FrontierItem | null> = items.map((item) => {
     const foreign = needsEnglishTranslation(item.title) || needsEnglishTranslation(item.summary);
-    if (!foreign) return item;
-    return candidateIndexes.has(index) ? null : null;
+    return foreign ? null : item;
   });
 
   await Promise.all([...candidateIndexes].map(async (index) => {
