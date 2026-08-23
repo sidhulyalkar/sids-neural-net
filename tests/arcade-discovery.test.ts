@@ -22,7 +22,7 @@ const gameNetworkSurfaces = [
 test('the Game Network exposes the three currently active games', () => {
   assert.deepEqual(
     arcadeGames.map((game) => game.slug),
-    ['stretchicorn', 'unirico', 'crownrush']
+    ['stretchicorn', 'unirico', 'sylvaria-sequoia']
   );
 
   for (const game of arcadeGames) {
@@ -32,24 +32,19 @@ test('the Game Network exposes the three currently active games', () => {
 
   assert.equal(getArcadeGame('sylvaria'), undefined);
   assert.equal(getArcadeGame('mosslight'), undefined);
+  assert.equal(getArcadeGame('crownrush'), undefined);
 });
 
-test('paused Sylvaria routes fall through the generic cabinet route to notFound', () => {
+test('the shelved exploration-era Sylvaria and Mosslight cabinets stay inactive', () => {
   const route = readRepoFile('app/arcade/[slug]/page.tsx');
   assert.match(route, /getArcadeGame/);
   assert.match(route, /notFound\(\)/);
 
   const catalog = readRepoFile('src/data/arcadeGames.ts');
-  const sitemap = readRepoFile('app/sitemap.ts');
-  const workflow = readRepoFile('.github/workflows/ci.yml');
-  const browserMatrix = readRepoFile('scripts/playtest-arcade-browsers.mjs');
-
-  for (const source of [catalog, sitemap, workflow, browserMatrix]) {
-    assert.doesNotMatch(source, /\/arcade\/sylvaria|\/arcade\/mosslight/);
-  }
   assert.doesNotMatch(catalog, /slug: 'sylvaria'/);
-  assert.doesNotMatch(catalog, /slug === 'mosslight'/);
-  assert.doesNotMatch(browserMatrix, /testSylvaria|MOSSLIGHT_PLAYTEST|MosslightExpedition/);
+  assert.doesNotMatch(catalog, /slug: 'mosslight'/);
+  assert.doesNotMatch(catalog, /slug: 'crownrush'/);
+  assert.ok(getArcadeGame('sylvaria-sequoia'));
 });
 
 test('Stretchicorn cabinet points at the current v0.21.1 public release', () => {
@@ -63,30 +58,41 @@ test('Stretchicorn cabinet points at the current v0.21.1 public release', () => 
   assert.match(game.description, /Impossible Encore/);
 });
 
-test('Crownrush replaces the Sylvaria cabinet without reviving its combat loop', () => {
-  const game = arcadeGames.find((entry) => entry.slug === 'crownrush');
+test('Sylvaria Sequoia is a traversal-first kinetic cabinet with telemetry', () => {
+  const game = arcadeGames.find((entry) => entry.slug === 'sylvaria-sequoia');
   assert.ok(game);
-  assert.equal(game.version, 'v0.1.0');
+  assert.equal(game.title, 'Sylvaria: Sequoia');
+  assert.equal(game.version, 'v0.2.0');
   assert.equal(game.sourceVisibility, 'public');
-  assert.equal(game.launchUrl, '/game-runtimes/crownrush/index.html');
+  assert.equal(game.launchUrl, '/game-runtimes/sylvaria-sequoia/index.html');
   assert.equal(game.nativeSize?.width, 960);
   assert.equal(game.nativeSize?.height, 640);
   assert.match(game.description, /Sapline/);
   assert.match(game.description, /CROWNVELOCITY/);
+  assert.match(game.description, /route grammars/);
   assert.doesNotMatch(game.description, /enemy|damage|attack/i);
 
-  const runtimeRoot = 'public/game-runtimes/crownrush';
-  assert.ok(existsSync(join(root, runtimeRoot, 'index.html')));
-  assert.ok(existsSync(join(root, runtimeRoot, 'game.js')));
-  assert.ok(existsSync(join(root, 'docs/CROWNRUSH_V01_DESIGN.md')));
-  assert.ok(existsSync(join(root, 'scripts/validate-crownrush.mjs')));
+  const runtimeRoot = 'public/game-runtimes/sylvaria-sequoia';
+  for (const file of ['index.html', '00-core.js', '01-world.js', '02-gameplay.js', '03-render.js', '04-input.js']) {
+    assert.ok(existsSync(join(root, runtimeRoot, file)), `missing Sylvaria Sequoia runtime file: ${file}`);
+  }
+  assert.ok(existsSync(join(root, 'docs/SYLVARIA_SEQUOIA_V02_DESIGN.md')));
+  assert.ok(existsSync(join(root, 'scripts/validate-sylvaria-sequoia.mjs')));
+  assert.ok(!existsSync(join(root, 'public/game-runtimes/crownrush')));
 
-  const runtime = readRepoFile(`${runtimeRoot}/game.js`);
-  assert.match(runtime, /const FIXED_DT = 1 \/ 120/);
-  assert.match(runtime, /player\.hyper = player\.combo >= 4/);
-  assert.match(runtime, /function attachSap\(/);
-  assert.match(runtime, /function rescueFromThreat\(/);
-  assert.doesNotMatch(runtime, /\benemy\b|\bdamage\b|\battack\b/i);
+  const core = readRepoFile(`${runtimeRoot}/00-core.js`);
+  const world = readRepoFile(`${runtimeRoot}/01-world.js`);
+  const gameplay = readRepoFile(`${runtimeRoot}/02-gameplay.js`);
+  const input = readRepoFile(`${runtimeRoot}/04-input.js`);
+  assert.match(core, /FIXED_DT: 1 \/ 120/);
+  assert.match(core, /hyperThreshold: 4/);
+  assert.match(world, /FLOW:/);
+  assert.match(world, /CRUX:/);
+  assert.match(world, /RECOVERY:/);
+  assert.match(world, /SLINGSHOT:/);
+  assert.match(gameplay, /function attachSap\(/);
+  assert.match(gameplay, /function rescueFromThreat\(/);
+  assert.match(input, /window\.SYLVARIA_SEQUOIA_DEBUG/);
 });
 
 test('FRONTIER and Game Network coexist in current navigation', () => {
@@ -135,8 +141,8 @@ test('Game Network browser validation covers all three active cabinets in four e
   assert.match(browserTest, /channel: 'chrome'/);
   assert.match(browserTest, /testStretchicorn\(page, engineName\)/);
   assert.match(browserTest, /testUniRico\(page, engineName\)/);
-  assert.match(browserTest, /testCrownrush\(page, engineName\)/);
-  assert.doesNotMatch(browserTest, /testSylvaria/);
+  assert.match(browserTest, /testSylvariaSequoia\(page, engineName\)/);
+  assert.doesNotMatch(browserTest, /testCrownrush/);
 });
 
 test('the embedded Stretchicorn fallback release remains complete', () => {
