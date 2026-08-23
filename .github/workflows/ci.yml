@@ -94,23 +94,9 @@ jobs:
           done
 
       - name: Verify pinned arcade provenance
-        run: |
-          curl -fsS -D /tmp/stretchicorn-headers.txt http://127.0.0.1:3000/game-runtimes/stretchicorn/index.html -o /tmp/stretchicorn.html
-          grep -qi '^X-Arcade-Upstream-Repo: sidhulyalkar/stretchicorn' /tmp/stretchicorn-headers.txt
-          grep -qi '^X-Arcade-Upstream-Commit: 5635de71cae80a7728a45b11fd660fd87112c351' /tmp/stretchicorn-headers.txt
-          grep -q 'Stretchicorn v0.21.1' /tmp/stretchicorn.html
-          curl -fsS http://127.0.0.1:3000/game-runtimes/stretchicorn/src/00-core.js >/dev/null
-
-          curl -fsS -D /tmp/unirico-headers.txt http://127.0.0.1:3000/game-runtimes/unirico/index.html -o /tmp/unirico.html
-          grep -qi '^X-Arcade-Upstream-Repo: sidhulyalkar/uniRico' /tmp/unirico-headers.txt
-          grep -qi '^X-Arcade-Upstream-Commit: 8dfe88461dd3644d234300ba2e586f46491548a5' /tmp/unirico-headers.txt
-          grep -q 'uniRico v0.18.0' /tmp/unirico.html
-          curl -fsS http://127.0.0.1:3000/game-runtimes/unirico/src/runtime/core.js >/dev/null
-
-          sylvaria_status="$(curl -sS -o /dev/null -w '%{http_code}' http://127.0.0.1:3000/arcade/sylvaria)"
-          mosslight_status="$(curl -sS -o /dev/null -w '%{http_code}' http://127.0.0.1:3000/arcade/mosslight)"
-          test "$sylvaria_status" = "404"
-          test "$mosslight_status" = "404"
+        env:
+          ARCADE_AUDIT_URL: http://127.0.0.1:3000
+        run: node scripts/arcade-provenance-audit.cjs
 
       - name: Smoke FRONTIER privacy boundaries
         run: |
