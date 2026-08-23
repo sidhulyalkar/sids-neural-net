@@ -49,6 +49,12 @@ async function pushMemory(state: FrontierPersistedState, keepalive = false): Pro
   return response.ok;
 }
 
+function navigateToOAuth(path: string): void {
+  // OAuth handoffs intentionally require a full document navigation rather than
+  // a Next client transition because the route immediately leaves the site.
+  window.location.href = path;
+}
+
 export function FrontierAccount() {
   const hydrated = useFrontierStore((state) => state.hydrated);
   const [session, setSession] = useState<SessionState>();
@@ -138,7 +144,7 @@ export function FrontierAccount() {
   }, [hydrated, session?.authenticated, session?.syncConfigured]);
 
   const signIn = () => {
-    window.location.assign('/api/auth/google/start?returnTo=/frontier');
+    navigateToOAuth('/api/auth/google/start?returnTo=/frontier');
   };
 
   const signOut = async () => {
@@ -155,7 +161,7 @@ export function FrontierAccount() {
       const response = await fetch('/api/frontier/google/import', { method: 'POST', cache: 'no-store' });
       const payload = await response.json() as ImportResponse;
       if (payload.needsConsent) {
-        window.location.assign('/api/auth/google/start?intent=youtube&returnTo=/frontier');
+        navigateToOAuth('/api/auth/google/start?intent=youtube&returnTo=/frontier');
         return;
       }
       if (!response.ok || !payload.preferences) {
