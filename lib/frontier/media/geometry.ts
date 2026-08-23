@@ -37,10 +37,13 @@ export function frontierDefaultMediaAspectRatio(media?: FrontierMedia): NonNulla
 
 export function frontierMediaGeometry(media?: FrontierMedia): FrontierMediaGeometry {
   if (media && positiveDimension(media.width) && positiveDimension(media.height)) {
-    const aspectRatio = clampRatio(media.width / media.height);
+    const rawAspectRatio = media.width / media.height;
+    const aspectRatio = clampRatio(rawAspectRatio);
     return {
       aspectRatio,
-      cssAspectRatio: `${media.width} / ${media.height}`,
+      cssAspectRatio: rawAspectRatio === aspectRatio
+        ? `${media.width} / ${media.height}`
+        : `${aspectRatio} / 1`,
       label: media.aspectRatio ?? closestRatioLabel(aspectRatio),
     };
   }
