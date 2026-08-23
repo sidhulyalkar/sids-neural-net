@@ -7,6 +7,8 @@ type ArcadeGamePageProps = {
   params: Promise<{ slug: string }>;
 };
 
+export const dynamicParams = false;
+
 export function generateStaticParams() {
   return arcadeGames.map((game) => ({ slug: game.slug }));
 }

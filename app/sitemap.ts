@@ -12,6 +12,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
   const staticPages = [
     '',
     '/frontier',
+    '/arcade',
     '/neural-net',
     '/projects',
     '/code',
@@ -28,14 +29,20 @@ export default function sitemap(): MetadataRoute.Sitemap {
     '/life',
     '/field-notes',
     '/learning-trails',
-    '/arcade',
   ];
 
   const staticEntries = staticPages.map((route) => ({
     url: `${BASE_URL}${route}`,
     lastModified: new Date(),
     changeFrequency: route === '/frontier' ? 'daily' as const : 'weekly' as const,
-    priority: route === '' ? 1 : route === '/frontier' ? 0.9 : 0.8,
+    priority: route === '' ? 1 : route === '/frontier' ? 0.9 : route === '/arcade' ? 0.85 : 0.8,
+  }));
+
+  const arcadeEntries = arcadeGames.map((game) => ({
+    url: `${BASE_URL}/arcade/${game.slug}`,
+    lastModified: new Date(),
+    changeFrequency: 'weekly' as const,
+    priority: 0.7,
   }));
 
   const projects = graph.nodes.filter((n) => n.type === 'project');
@@ -54,12 +61,5 @@ export default function sitemap(): MetadataRoute.Sitemap {
     priority: 0.7,
   }));
 
-  const arcadeEntries = arcadeGames.map((game) => ({
-    url: `${BASE_URL}/arcade/${game.slug}`,
-    lastModified: new Date(),
-    changeFrequency: 'monthly' as const,
-    priority: 0.7,
-  }));
-
-  return [...staticEntries, ...projectEntries, ...caseStudyEntries, ...arcadeEntries];
+  return [...staticEntries, ...arcadeEntries, ...projectEntries, ...caseStudyEntries];
 }

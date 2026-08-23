@@ -12,6 +12,7 @@ export type ArcadeGame = {
   status: 'playable' | 'preview';
   sourceVisibility: 'public' | 'private';
   repoUrl?: string;
+  sourceCommit?: string;
   launchUrl?: string;
   aspectRatio: `${number} / ${number}`;
   nativeSize?: { width: number; height: number };
@@ -20,59 +21,53 @@ export type ArcadeGame = {
   accent: 'rainbow' | 'cyan';
 };
 
-const cleanRuntimeUrl = (value: string | undefined) => {
-  const url = value?.trim();
-  return url && (/^https:\/\//i.test(url) || /^\/(?!\/)/.test(url)) ? url : undefined;
-};
-
-const stretchicornRuntime =
-  cleanRuntimeUrl(process.env.NEXT_PUBLIC_ARCADE_STRETCHICORN_URL) ?? '/game-runtimes/stretchicorn/index.html';
-const uniricoRuntime = cleanRuntimeUrl(process.env.NEXT_PUBLIC_ARCADE_UNIRICO_URL) ?? '/game-runtimes/unirico/index.html';
-
 export const arcadeGames: ArcadeGame[] = [
   {
     slug: 'stretchicorn',
     title: 'Stretchicorn',
     subtitle: 'STRETCH · SNAP · SHUCK.',
     description:
-      'A compact desktop action game about steering an elastic unicorn from both ends, charging a rainbow spring, and fighting an increasingly unreasonable corn army across 13 trials. v0.21.1 adds four difficulty modes, Splitcorn cleanup chains, Impossible piercing pressure, and a secret three-boss Impossible Encore.',
+      'A 13 KB desktop arcade-action game where you steer an enchanted unicorn from both ends, load a rainbow spring, and fight an increasingly unreasonable corn army across 13 trials and four difficulty modes.',
     version: 'v0.21.1',
     status: 'playable',
     sourceVisibility: 'public',
     repoUrl: 'https://github.com/sidhulyalkar/stretchicorn',
-    launchUrl: stretchicornRuntime,
+    sourceCommit: '5635de71cae80a7728a45b11fd660fd87112c351',
+    launchUrl: '/game-runtimes/stretchicorn/index.html',
     aspectRatio: '960 / 640',
     nativeSize: { width: 960, height: 640 },
-    tags: ['arcade action', 'js13k', 'canvas', 'procedural audio', 'difficulty modes', 'splitcorn'],
+    tags: ['arcade action', 'js13k', 'canvas', 'procedural audio'],
     controls: [
-      { input: '1 / 2 / 3 / 4', action: 'Start Easy / Normal / Hard / Impossible' },
-      { input: 'W A S D', action: 'Move vulnerable body' },
-      { input: 'Arrow Keys', action: 'Aim head / horn' },
+      { input: '1 / 2 / 3 / 4', action: 'Easy / Normal / Hard / Impossible' },
+      { input: 'W A S D', action: 'Move the vulnerable body' },
+      { input: 'Arrow Keys', action: 'Steer the safe head / horn' },
       { input: 'Space', action: 'Horn strike / Rainbow Snap' },
-      { input: 'C', action: 'Controls / rebinding' },
-      { input: 'R', action: 'Rules' },
-      { input: 'S', action: 'Music + SFX settings' },
-      { input: 'P', action: 'Pause / resume' },
-      { input: 'M', action: 'Return to menu' },
+      { input: 'P / M', action: 'Pause / return to menu' },
+      { input: 'C / R / S', action: 'Controls / rules / audio settings' },
     ],
     accent: 'rainbow',
   },
   {
     slug: 'unirico',
     title: 'uniRico',
-    subtitle: 'A tiny rainbow movement experiment.',
+    subtitle: 'AIM THE HORN · BEND THE RAINBOW · FIX THE SKY.',
     description:
-      'A precision canvas game built around movement, momentum, compact level geometry, reactive sound, and a deliberately tiny web-game runtime.',
-    version: 'v0.17.1',
+      'A 13 KB rainbow-ricochet puzzle game where one magical shot bends through prisms, portals, weather, gravity, spin, polarity, and grumpy clouds across a 40-level campaign, with adaptive touch controls and procedural music.',
+    version: 'v0.18.0',
     status: 'playable',
     sourceVisibility: 'public',
     repoUrl: 'https://github.com/sidhulyalkar/uniRico',
-    launchUrl: uniricoRuntime,
+    sourceCommit: '8dfe88461dd3644d234300ba2e586f46491548a5',
+    launchUrl: '/game-runtimes/unirico/index.html',
     aspectRatio: '16 / 10',
-    tags: ['movement', 'js13k', 'canvas', 'level design'],
+    tags: ['puzzle', 'js13k', 'canvas', 'mobile', 'procedural audio'],
     controls: [
-      { input: 'Keyboard', action: 'Move and interact' },
-      { input: 'Game menu', action: 'Rules and controls live inside the game' },
+      { input: 'Mouse / pointer', action: 'Aim the rainbow' },
+      { input: 'Click', action: 'Fire immediately' },
+      { input: 'M / Esc', action: 'Pause / menu' },
+      { input: 'R / H', action: 'Restart / help' },
+      { input: 'P / S', action: 'Path preview / sound' },
+      { input: 'Touch', action: 'Tap to fire or drag + release to aim' },
     ],
     accent: 'cyan',
   },
