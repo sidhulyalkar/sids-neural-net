@@ -1,8 +1,8 @@
 export const ZONES=Object.freeze([
-  {id:'roots',name:'ROOTWARD BASE',top:5200,bottom:6400,fog:0.12,wind:0},
+  {id:'roots',name:'ROOTREACH',top:5200,bottom:6400,fog:0.12,wind:0},
   {id:'sapwood',name:'SAPWOOD SPLIT',top:4050,bottom:5200,fog:0.16,wind:0.05},
   {id:'hollow',name:'HOLLOW SCAR',top:2850,bottom:4050,fog:0.21,wind:-0.08},
-  {id:'canopy',name:'CANOPY GAUNTLET',top:1450,bottom:2850,fog:0.27,wind:0.14},
+  {id:'canopy',name:'STORM CANOPY',top:1450,bottom:2850,fog:0.27,wind:0.14},
   {id:'crown',name:'HEARTWOOD CROWN',top:0,bottom:1450,fog:0.32,wind:-0.12},
 ]);
 
@@ -59,6 +59,49 @@ export const BARK_WALLS=Object.freeze([
   {id:'trunk-crown-b',x:880,y:610,w:168,h:330},
 ]);
 
+// Resin Knots are the only legal Sapline endpoints. Platform-bound knots ride
+// living/spring branches; trunk knots create deliberate alternate ascent arcs.
+export const SAPLINE_ANCHORS=Object.freeze([
+  {id:'knot-root-l1',platform:'root-l1',offsetX:76,offsetY:-20},
+  {id:'knot-root-trunk-a',x:760,y:5840},
+  {id:'knot-root-r1',platform:'root-r1',offsetX:-62,offsetY:-20},
+  {id:'knot-root-trunk-b',x:1000,y:5635},
+  {id:'knot-root-l2',platform:'root-l2',offsetX:48,offsetY:-18},
+  {id:'knot-root-l3',platform:'root-l3',offsetX:58,offsetY:-20},
+
+  {id:'knot-sap-r1',platform:'sap-r1',offsetX:-48,offsetY:-18},
+  {id:'knot-sap-trunk-a',x:1004,y:4770},
+  {id:'knot-sap-l1',platform:'sap-l1',offsetX:42,offsetY:-18},
+  {id:'knot-sap-trunk-b',x:756,y:4385},
+  {id:'knot-sap-r2',platform:'sap-r2',offsetX:-34,offsetY:-17},
+  {id:'knot-sap-l2',platform:'sap-l2',offsetX:30,offsetY:-18},
+
+  {id:'knot-hollow-r1',platform:'hollow-r1',offsetX:-38,offsetY:-18},
+  {id:'knot-hollow-trunk-a',x:744,y:3720},
+  {id:'knot-hollow-l1',platform:'hollow-l1',offsetX:36,offsetY:-18},
+  {id:'knot-hollow-trunk-b',x:1004,y:3325},
+  {id:'knot-hollow-r2',platform:'hollow-r2',offsetX:-44,offsetY:-18},
+  {id:'knot-hollow-mid2',platform:'hollow-mid2',offsetX:0,offsetY:-19},
+
+  {id:'knot-canopy-r1',platform:'canopy-r1',offsetX:-34,offsetY:-18},
+  {id:'knot-canopy-trunk-a',x:770,y:2505},
+  {id:'knot-canopy-l1',platform:'canopy-l1',offsetX:32,offsetY:-18},
+  {id:'knot-canopy-r2',platform:'canopy-r2',offsetX:-34,offsetY:-18},
+  {id:'knot-canopy-trunk-b',x:984,y:2050},
+  {id:'knot-canopy-l2',platform:'canopy-l2',offsetX:24,offsetY:-18},
+  {id:'knot-canopy-r3',platform:'canopy-r3',offsetX:-30,offsetY:-18},
+  {id:'knot-canopy-mid2',platform:'canopy-mid2',offsetX:0,offsetY:-18},
+
+  {id:'knot-crown-l1',platform:'crown-l1',offsetX:28,offsetY:-18},
+  {id:'knot-crown-trunk-a',x:984,y:1215},
+  {id:'knot-crown-r1',platform:'crown-r1',offsetX:-26,offsetY:-18},
+  {id:'knot-crown-mid1',platform:'crown-mid1',offsetX:0,offsetY:-18},
+  {id:'knot-crown-l2',platform:'crown-l2',offsetX:26,offsetY:-18},
+  {id:'knot-crown-r2',platform:'crown-r2',offsetX:-28,offsetY:-18},
+  {id:'knot-crown-perch-l',platform:'crown-perch-l',offsetX:34,offsetY:-18},
+  {id:'knot-crown-perch-r',platform:'crown-perch-r',offsetX:-34,offsetY:-18},
+]);
+
 export const VINES=Object.freeze([
   {id:'vine-root',ax:1290,ay:5630,len:245,angle:-0.42},
   {id:'vine-sap',ax:520,ay:4680,len:235,angle:0.36},
@@ -112,6 +155,7 @@ export function cloneWorld(){
   return{
     platforms:STATIC_PLATFORMS.map(item=>({...item,flex:0,standTime:0,broken:false,breakTimer:0,sapCharged:item.type==='sap'})),
     walls:BARK_WALLS.map(item=>({...item})),
+    anchors:SAPLINE_ANCHORS.map(item=>({...item})),
     vines:VINES.map(item=>({...item,angVel:0})),
     hazards:HAZARDS.map(item=>({...item,x0:item.x,y0:item.y})),
     checkpoints:CHECKPOINTS.map(item=>({...item,lit:false})),
