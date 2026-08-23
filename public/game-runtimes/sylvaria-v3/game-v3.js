@@ -1,6 +1,6 @@
 import{VERSION,FIXED_DT,WORLD}from'./config-v3.js';
 import{InputController,prettyKey}from'./input-v3.js';
-import{SylvariaEngine}from'./engine-v3.js';
+import{SylvariaEngine}from'./engine-feel-v3.js';
 import{SylvariaRenderer}from'./render-v3.js';
 
 const canvas=document.getElementById('game');
