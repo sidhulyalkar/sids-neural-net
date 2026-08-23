@@ -1,0 +1,82 @@
+name: Sylvaria v0.15 Cutstep Forest Lab
+
+on:
+  pull_request:
+    paths:
+      - 'public/game-runtimes/mosslight-v2/**'
+      - 'src/data/arcadeGames.ts'
+      - 'scripts/validate-mosslight.mjs'
+      - 'scripts/playtest-sylvaria-v015-*.mjs'
+      - 'tests/sylvaria-v015-*.test.ts'
+      - 'tests/arcade-discovery.test.ts'
+      - 'tests/sylvaria-ux-v011.test.ts'
+      - 'tests/sylvaria-competitive-v011.test.ts'
+      - '.github/workflows/sylvaria-v015-cutstep.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sylvaria-v015-cutstep-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  cutstep-forest-lab:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Set up Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Validate v0.15 source contracts
+        run: node --import tsx --test tests/sylvaria-v015-*.test.ts tests/arcade-discovery.test.ts tests/sylvaria-ux-v011.test.ts tests/sylvaria-competitive-v011.test.ts
+
+      - name: Validate v0.15 production architecture
+        run: node scripts/validate-mosslight.mjs
+
+      - name: Build deterministic site
+        env:
+          NEXT_PUBLIC_SITE_URL: https://example.invalid
+          NEXT_PUBLIC_WORLD_LOOM_XR: disabled
+        run: npm run build
+
+      - name: Start built site
+        run: |
+          npx next start -p 3000 > /tmp/sylvaria-v015.log 2>&1 &
+          echo $! > /tmp/sylvaria-v015.pid
+          for attempt in {1..40}; do
+            if curl -fsS http://127.0.0.1:3000/game-runtimes/mosslight-v2/index.html >/dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/sylvaria-v015.log
+          exit 1
+
+      - name: Install Chromium qualification engine
+        run: npx --yes playwright@1.55.0 install --with-deps chromium
+
+      - name: Qualify immediate Cutstep and forest geometry
+        run: |
+          PW_BIN="$(npm exec --yes --package=playwright@1.55.0 -- which playwright)"
+          PW_ROOT="$(cd "$(dirname "$PW_BIN")/.." && pwd)"
+          PLAYWRIGHT_MODULE_ROOT="$PW_ROOT" node scripts/playtest-sylvaria-v015-cutstep.mjs
+
+      - name: Upload v0.15 Cutstep artifacts
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: sylvaria-v015-cutstep-artifacts
+          path: artifacts/sylvaria-v015-cutstep
+          if-no-files-found: warn
+          retention-days: 14
