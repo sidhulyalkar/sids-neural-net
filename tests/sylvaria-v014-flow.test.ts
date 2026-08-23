@@ -65,6 +65,20 @@ test('committed dash steering is expressive but hard-capped relative to the laun
   assert.ok(cap * 180 / Math.PI < 22, 'committed dash should never bend 22 degrees or more');
 });
 
+test('full-dash accuracy is recorded authoritatively instead of sampled through browser timing', () => {
+  assert.match(source, /v014MaxSteerAngle=0/);
+  assert.match(source, /v014MaxVelocityAlignmentError=0/);
+  assert.match(source, /v014MaxScalarSpeedError=0/);
+  assert.match(source, /expectedSpeed=dashRef\?\.speed\?\?0/);
+  assert.match(source, /expectedDir=dashRef\?\{x:dashRef\.dir\.x,y:dashRef\.dir\.y\}:null/);
+  assert.match(source, /v014MaxSteerAngle=Math\.max/);
+  assert.match(source, /v014MaxVelocityAlignmentError=Math\.max/);
+  assert.match(source, /v014MaxScalarSpeedError=Math\.max/);
+  assert.match(source, /maxSteerAngle:q\(dashRef\.v014MaxSteerAngle\|\|0\)/);
+  assert.match(source, /maxVelocityAlignmentError:q\(dashRef\.v014MaxVelocityAlignmentError\|\|0\)/);
+  assert.match(source, /maxScalarSpeedError:q\(dashRef\.v014MaxScalarSpeedError\|\|0\)/);
+});
+
 test('v0.14 reports the player-reachable dash envelope rather than dormant zero-charge endpoints', () => {
   assert.match(source, /minimumReleaseCharge:\.12/);
   assert.match(source, /DASH_DISTANCE_ENVELOPE/);
