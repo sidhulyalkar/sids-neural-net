@@ -70,17 +70,17 @@ check(JSON.stringify(roles)===JSON.stringify(['coverage','engage','precision','h
 check(gaps.every(g=>g>=threat.profile.gapMin&&g<=threat.profile.gapMax),`deep threat gaps escaped room cadence: ${JSON.stringify({gaps,profile:threat.profile})}`);
 check(new Set(threat.releases.map(r=>r.tick)).size===4,'heavy commitments collided on the same simulation tick');
 
-// Leave an action-state beauty fixture showing the real production stack.
-// Reacquire p after setRoom because setupRoom intentionally replaces the player object.
-await page.evaluate(()=>{const play=window.__MOSSLIGHT_PLAYTEST__,G=window.Sylvaria091;play.setRoom(1,2);const p=G.state.player;play.labClearGeometry();play.setPlayerPosition(390,350);for(const e of G.state.enemies)if(e.kineticType!=='strider')e.dead=true;G.state.slashes=[];p.cutCooldown=0;p.flow=78;G.fn.cut('right')});
-await page.waitForFunction(()=>window.Sylvaria091.state.slashes.at(-1)?.phase==='active',{timeout:900});
-const beauty=await page.evaluate(()=>{const G=window.Sylvaria091;G.fn.render();const kinetic=window.SylvariaKineticPresentation.snapshot(),flow=window.SylvariaFlowPresentation.snapshot(),s=G.state.slashes.at(-1);return{kinetic,flow,slash:s?{phase:s.phase,reach:s.reach,x:s.x,y:s.y}:null}});
-const beautyTongueLength=beauty.kinetic.tongueMouth&&beauty.kinetic.tongueTip?Math.hypot(beauty.kinetic.tongueTip.x-beauty.kinetic.tongueMouth.x,beauty.kinetic.tongueTip.y-beauty.kinetic.tongueMouth.y):0;
-check(beauty.kinetic.hitStopHoldFrames===0,`old room hit-stop survived into action fixture: ${JSON.stringify(beauty.kinetic)}`);
-check(beauty.kinetic.renderedArcs>=1,`active Reactive Blade produced no rendered arc: ${JSON.stringify(beauty.kinetic)}`);
+// Atomic presentation fixture: moving-attachment qualification above proves the simulation drives the arc.
+// Here we place that real slash at a deterministic early active tick, render it, and inspect it in the
+// same browser task so a 125 ms attack is not judged by Playwright scheduling latency.
+const beauty=await page.evaluate(()=>{const play=window.__MOSSLIGHT_PLAYTEST__,G=window.Sylvaria091;play.setRoom(1,2);const p=G.state.player;play.labClearGeometry();play.setPlayerPosition(390,350);for(const e of G.state.enemies)if(e.kineticType!=='strider')e.dead=true;G.state.slashes=[];p.cutCooldown=0;p.flow=78;G.fn.cut('right');const s=G.state.slashes.at(-1);if(!s)return{error:'slash missing'};s.phase='active';s.phaseTime=1/120;s.activeProgress=s.phaseTime/s.active;s.prevAngle=s.startAngle;s.angle=s.startAngle+(s.endAngle-s.startAngle)*s.activeProgress;s.life=s.active-s.phaseTime+s.recovery;G.fn.render();const kinetic=window.SylvariaKineticPresentation.snapshot(),flow=window.SylvariaFlowPresentation.snapshot();return{kinetic,flow,slash:{phase:s.phase,reach:s.reach,x:s.x,y:s.y,phaseTime:s.phaseTime,active:s.active}}});
+const beautyTongueLength=beauty.kinetic?.tongueMouth&&beauty.kinetic?.tongueTip?Math.hypot(beauty.kinetic.tongueTip.x-beauty.kinetic.tongueMouth.x,beauty.kinetic.tongueTip.y-beauty.kinetic.tongueMouth.y):0;
+check(!beauty.error,`beauty fixture failed to create Reactive Blade: ${JSON.stringify(beauty)}`);
+check(beauty.kinetic?.hitStopHoldFrames===0,`old room hit-stop survived into action fixture: ${JSON.stringify(beauty.kinetic)}`);
+check((beauty.kinetic?.renderedArcs||0)>=1,`active Reactive Blade produced no rendered arc: ${JSON.stringify(beauty.kinetic)}`);
 check(beautyTongueLength>70&&beautyTongueLength<115,`visible tongue length escaped readable attached range: ${beautyTongueLength}`);
-check(beauty.kinetic.tongueAttachmentError<.01,`beauty-frame tongue detached from authoritative frog root: ${beauty.kinetic.tongueAttachmentError}`);
-check(near(beauty.flow.flow,78,.001),`Flow cue belongs to stale player state: ${JSON.stringify(beauty.flow)}`);
+check((beauty.kinetic?.tongueAttachmentError??999)<.01,`beauty-frame tongue detached from authoritative frog root: ${beauty.kinetic?.tongueAttachmentError}`);
+check(near(beauty.flow?.flow||0,78,.001),`Flow cue belongs to stale player state: ${JSON.stringify(beauty.flow)}`);
 await page.screenshot({path:path.join(outputDir,'production-v014-unified-rig.png'),fullPage:true});
 
 for(const error of pageErrors)failures.push(`pageerror: ${error}`);
