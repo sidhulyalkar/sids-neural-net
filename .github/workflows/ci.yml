@@ -182,6 +182,12 @@ jobs:
           FRONTIER_SCROLL_AUDIT_URL: http://127.0.0.1:3000/frontier/mosaic-audit
         run: node scripts/frontier-scroll-stability-audit.cjs
 
+      - name: Audit FRONTIER serendipity and taste constellation
+        env:
+          NODE_PATH: /tmp/frontier-playwright/node_modules
+          FRONTIER_SERENDIPITY_AUDIT_URL: http://127.0.0.1:3000/frontier
+        run: node scripts/frontier-serendipity-audit.cjs
+
       - name: Validate homepage Game Network CTA
         env:
           PLAYWRIGHT_MODULE_ROOT: /tmp/frontier-playwright/node_modules/playwright
