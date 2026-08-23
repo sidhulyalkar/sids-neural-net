@@ -17,6 +17,7 @@
     "check:nature-corpus": "tsx scripts/validate-nature-corpus.ts",
     "check:world3d": "tsx scripts/validate-world3d.ts",
     "check:mosslight": "node scripts/validate-mosslight.mjs",
+    "check:sylvaria": "node --import tsx --test tests/sylvaria-v3-ancient-tree.test.ts tests/sylvaria-v2-sideview.test.ts tests/arcade-discovery.test.ts",
     "profile:sylvaria": "node scripts/profile-sylvaria-size.mjs",
     "check:bundle": "tsx scripts/check-bundle-budget.ts",
     "check:visual-cortex": "python3 scripts/check-visual-archive.py",
