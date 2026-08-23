@@ -1,7 +1,7 @@
 'use client';
 
 import { useRef } from 'react';
-import type { ReactNode } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 import {
   frontierCanAnalyzeMediaElement,
   primeFrontierAudioReactivity,
@@ -20,6 +20,7 @@ type Props = {
   item: FrontierItem;
   expanded: boolean;
   className: string;
+  style?: CSSProperties;
   children: ReactNode;
   onExpand: (item: FrontierItem) => void;
   onCollapse: (item: FrontierItem) => void;
@@ -40,6 +41,7 @@ export function FluidSpatialCard({
   item,
   expanded,
   className,
+  style,
   children,
   onExpand,
   onCollapse,
@@ -76,6 +78,7 @@ export function FluidSpatialCard({
       data-frontier-virtual-card
       data-fluid-expanded={expanded ? 'true' : 'false'}
       className={`${className} ${styles.card} ${expanded ? styles.expanded : ''}`}
+      style={style}
       {...interaction}
     >
       <div ref={measureRef} className={styles.measure}>
