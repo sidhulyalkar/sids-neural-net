@@ -42,8 +42,19 @@ jobs:
       - name: Typecheck website integration
         run: npm run typecheck
 
-      - name: Run repository unit tests
-        run: npm test
+      - name: Run Sylvaria Game Network regression tests
+        run: node --import tsx --test tests/arcade-discovery.test.ts
+
+      - name: Run remaining repository unit tests
+        run: |
+          set -euo pipefail
+          for test_file in tests/*.test.ts; do
+            if [ "$test_file" = "tests/arcade-discovery.test.ts" ]; then
+              continue
+            fi
+            echo "==> $test_file"
+            node --import tsx --test "$test_file"
+          done
 
       - name: Validate Sylvaria Sequoia runtime invariants
         run: npm run check:sylvaria-sequoia
