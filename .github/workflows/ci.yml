@@ -17,80 +17,63 @@ concurrency:
 jobs:
   production-gate:
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 42
     steps:
       - name: Checkout
         uses: actions/checkout@v5
-
       - name: Set up Node
         uses: actions/setup-node@v5
         with:
           node-version: '22'
           cache: npm
-
       - name: Install exact locked dependencies
         run: |
           npm ci
           mkdir -p artifacts/dependency-lock
           cp package-lock.json artifacts/dependency-lock/package-lock.json
-
       - name: Audit dependencies
         run: |
           mkdir -p artifacts/security
           npm audit --json > artifacts/security/npm-audit-all.json || true
           npm audit --omit=dev --json > artifacts/security/npm-audit-production.json || true
           npm audit --omit=dev --audit-level=high
-
       - name: Typecheck
         run: npm run typecheck
-
       - name: Lint
         run: npm run lint
-
       - name: Unit tests
         run: npm test
-
-      - name: Validate playable Sylvaria v0.14 runtime
+      - name: Validate playable Sylvaria v0.15 runtime
         run: npm run check:mosslight
-
-      - name: Profile Sylvaria readable runtime size
+      - name: Profile Sylvaria playable runtime size
         run: npm run profile:sylvaria
-
       - name: Validate deterministic Nature Atlas corpus
         run: npm run check:nature-corpus
-
       - name: Audit 1000 World Loom scenes
         run: npm run check:world3d
-
       - name: Generate Next route and module bundle analysis
         run: |
           npx next experimental-analyze --output
           mkdir -p artifacts/bundle-analyzer
           cp -R .next/diagnostics/analyze/. artifacts/bundle-analyzer/
-
       - name: Build deterministic committed site state
         env:
           NEXT_PUBLIC_SITE_URL: https://example.invalid
           NEXT_PUBLIC_WORLD_LOOM_XR: disabled
         run: npm run build
-
       - name: Enforce emitted JavaScript bundle budget
         run: npm run check:bundle
-
       - name: Start built site
         run: |
           npx next start -p 3000 > /tmp/sids-neural-net.log 2>&1 &
           echo $! > /tmp/sids-neural-net.pid
           for attempt in {1..40}; do
-            if curl -fsS http://127.0.0.1:3000/ >/dev/null; then
-              exit 0
-            fi
+            if curl -fsS http://127.0.0.1:3000/ >/dev/null; then exit 0; fi
             sleep 1
           done
           cat /tmp/sids-neural-net.log
           exit 1
-
-      - name: Smoke public routes and Sylvaria v0.14 production modules
+      - name: Smoke public routes and Sylvaria v0.15 production modules
         run: |
           for route in / /neural-net /case-studies /physiology /perceptual-cortex /rotation /sensing-lab /physiology/visual-audit /photography /arcade /arcade/stretchicorn /arcade/unirico /arcade/sylvaria /arcade/mosslight; do
             echo "GET $route"
@@ -105,53 +88,57 @@ jobs:
 
           SYL=http://127.0.0.1:3000/game-runtimes/mosslight-v2
           curl --retry 2 --retry-connrefused -fsS "$SYL/index.html" -o /tmp/sylvaria-index.html
-          curl --retry 2 --retry-connrefused -fsS "$SYL/v014-entry.js" -o /tmp/sylvaria-v014-entry.js
-          curl --retry 2 --retry-connrefused -fsS "$SYL/v014/character-rig-v014.js" -o /tmp/sylvaria-rig-v014.js
-          curl --retry 2 --retry-connrefused -fsS "$SYL/v014/combat-flow-v014.js" -o /tmp/sylvaria-flow-v014.js
-          curl --retry 2 --retry-connrefused -fsS "$SYL/v014/charge-intent-v014.js" -o /tmp/sylvaria-charge-intent-v014.js
-          curl --retry 2 --retry-connrefused -fsS "$SYL/v014/enemy-flow-v014.js" -o /tmp/sylvaria-enemy-flow-v014.js
-          curl --retry 2 --retry-connrefused -fsS "$SYL/v014/enemy-mastery-v014.js" -o /tmp/sylvaria-enemy-mastery-v014.js
-          curl --retry 2 --retry-connrefused -fsS "$SYL/v014/boss-flow-v014.js" -o /tmp/sylvaria-boss-flow-v014.js
-          curl --retry 2 --retry-connrefused -fsS "$SYL/v014/threat-manager-v014.js" -o /tmp/sylvaria-threat-v014.js
-          curl --retry 2 --retry-connrefused -fsS "$SYL/v014/flow-presentation-v014.js" -o /tmp/sylvaria-presentation-v014.js
+          curl --retry 2 --retry-connrefused -fsS "$SYL/v015-entry.js" -o /tmp/sylvaria-v015-entry.js
+          curl --retry 2 --retry-connrefused -fsS "$SYL/v015/cutstep-v015.js" -o /tmp/sylvaria-cutstep-v015.js
+          curl --retry 2 --retry-connrefused -fsS "$SYL/v015/encounter-director-v015.js" -o /tmp/sylvaria-encounter-v015.js
+          curl --retry 2 --retry-connrefused -fsS "$SYL/v015/forest-world-v015.js" -o /tmp/sylvaria-forest-v015.js
+          curl --retry 2 --retry-connrefused -fsS "$SYL/v015/discoveries-v015.js" -o /tmp/sylvaria-discoveries-v015.js
+          curl --retry 2 --retry-connrefused -fsS "$SYL/v015/forest-actors-v015.js" -o /tmp/sylvaria-actors-v015.js
+          curl --retry 2 --retry-connrefused -fsS "$SYL/v015/cutstep-presentation-v015.js" -o /tmp/sylvaria-cutstep-presentation-v015.js
           curl --retry 2 --retry-connrefused -fsS "$SYL/v014/presentation-space-v014.js" -o /tmp/sylvaria-space-v014.js
-          curl --retry 2 --retry-connrefused -fsS "$SYL/v014/combat-readability-v014.js" -o /tmp/sylvaria-readability-v014.js
-          curl --retry 2 --retry-connrefused -fsS "$SYL/v013/kinetic-presentation-v013.js" -o /tmp/sylvaria-kinetic-presentation.js
-          curl --retry 2 --retry-connrefused -fsS "$SYL/v012/webgl-pond-v012.js" -o /tmp/sylvaria-pond.js
+          curl --retry 2 --retry-connrefused -fsS "$SYL/v014/enemy-flow-v014.js" -o /tmp/sylvaria-enemy-v014.js
+          curl --retry 2 --retry-connrefused -fsS "$SYL/v014/boss-flow-v014.js" -o /tmp/sylvaria-boss-v014.js
+          curl --retry 2 --retry-connrefused -fsS "$SYL/v014/threat-manager-v014.js" -o /tmp/sylvaria-threat-v014.js
           curl --retry 2 --retry-connrefused -fsS "$SYL/v011/competitive-v011.js" -o /tmp/sylvaria-competitive.js
           curl --retry 2 --retry-connrefused -fsS "$SYL/v013/replay-v013.js" -o /tmp/sylvaria-replay-v013.js
 
-          grep -q 'v0.14 · unified kinetic combat' /tmp/sylvaria-index.html
-          grep -q './v014-entry.js' /tmp/sylvaria-index.html
-          grep -q 'break boss guard' /tmp/sylvaria-index.html
-          grep -qi 'ranked submission is intentionally paused' /tmp/sylvaria-index.html
-          if grep -q '<script type="module" src="./v013-entry.js"' /tmp/sylvaria-index.html; then
-            echo "public shell still boots v0.13 directly" >&2
+          grep -q 'Sylvaria · Cutstep Forest' /tmp/sylvaria-index.html
+          grep -q './v015-entry.js' /tmp/sylvaria-index.html
+          grep -q 'SPACE or click instantly Cutsteps' /tmp/sylvaria-index.html
+          grep -q 'There is no charge delay' /tmp/sylvaria-index.html
+          grep -q 'forest regrows behind you' /tmp/sylvaria-index.html
+          if grep -q '<script type="module" src="./v014-entry.js"' /tmp/sylvaria-index.html; then
+            echo "public shell still boots v0.14 directly" >&2
             exit 1
           fi
-          for module in character-rig-v014 combat-flow-v014 charge-intent-v014 enemy-flow-v014 enemy-mastery-v014 boss-flow-v014 threat-manager-v014 flow-presentation-v014 presentation-space-v014 combat-readability-v014; do
-            grep -q "$module.js" /tmp/sylvaria-v014-entry.js
-          done
-          grep -q "SylvariaRankedDisabledReason='v0.14 replay verifier migration'" /tmp/sylvaria-v014-entry.js
-          grep -q 'SPRITE_FORWARD_OFFSET=Math.PI/2' /tmp/sylvaria-rig-v014.js
-          grep -q 'mouthForAttack' /tmp/sylvaria-rig-v014.js
-          grep -q 'lastParryDashRefund' /tmp/sylvaria-flow-v014.js
-          grep -q 'retargetTicks:24' /tmp/sylvaria-charge-intent-v014.js
-          grep -q 'v014ChargeCommittedVector' /tmp/sylvaria-charge-intent-v014.js
-          grep -q 'spec.dodge=100' /tmp/sylvaria-enemy-flow-v014.js
-          grep -q 'striderWhiffPunishTicks:28' /tmp/sylvaria-enemy-mastery-v014.js
-          grep -q 'sniperCounterPunishTicks:32' /tmp/sylvaria-enemy-mastery-v014.js
-          grep -q 'guardByPhase:Object.freeze({1:3,2:4,3:5})' /tmp/sylvaria-boss-flow-v014.js
-          grep -q 'CORE OPEN' /tmp/sylvaria-boss-flow-v014.js
+          for module in cutstep-v015 encounter-director-v015 forest-world-v015 discoveries-v015 forest-actors-v015 cutstep-presentation-v015; do grep -q "$module.js" /tmp/sylvaria-v015-entry.js; done
+          grep -q "SylvariaRankedDisabledReason='v0.15 Cutstep alpha · verifier migration required'" /tmp/sylvaria-v015-entry.js
+          grep -q 'maxSegments:3' /tmp/sylvaria-cutstep-v015.js
+          grep -q 'distance:86' /tmp/sylvaria-cutstep-v015.js
+          grep -q 'bladeLead:14' /tmp/sylvaria-cutstep-v015.js
+          grep -q "kind:'thrust'" /tmp/sylvaria-cutstep-v015.js
+          grep -q "kind:'crosscut'" /tmp/sylvaria-cutstep-v015.js
+          grep -q "kind:'reversal'" /tmp/sylvaria-cutstep-v015.js
+          grep -q 'F.beginDashCharge=()=>false;F.releaseDashCharge=()=>false' /tmp/sylvaria-cutstep-v015.js
+          grep -q "room('The Walking Sawmill'" /tmp/sylvaria-encounter-v015.js
+          grep -q 'state.enemies.length=0' /tmp/sylvaria-encounter-v015.js
+          grep -q 'Math.min(7,4+Math.floor((depth-13)/4))' /tmp/sylvaria-encounter-v015.js
+          grep -q 'moonflower' /tmp/sylvaria-discoveries-v015.js
+          grep -q 'spirit-stag' /tmp/sylvaria-discoveries-v015.js
+          grep -q 'root-shrine' /tmp/sylvaria-discoveries-v015.js
+          grep -q "canvas.id='actorCanvas'" /tmp/sylvaria-actors-v015.js
+          grep -q 'drawGuardian' /tmp/sylvaria-actors-v015.js
+          grep -q 'drawHarvester' /tmp/sylvaria-actors-v015.js
+          grep -q 'mist-pine' /tmp/sylvaria-forest-v015.js
+          grep -q 'oak-hollow' /tmp/sylvaria-forest-v015.js
+          grep -q 'cedar-gloom' /tmp/sylvaria-forest-v015.js
+          grep -q 'ancient-grove' /tmp/sylvaria-forest-v015.js
+          grep -q 'drawBrushFog' /tmp/sylvaria-forest-v015.js
+          grep -q "overlay.id='cutstepCanvas'" /tmp/sylvaria-cutstep-presentation-v015.js
+          grep -q "'forestCanvas','actorCanvas','kineticCanvas','flowCanvas','cutstepCanvas'" /tmp/sylvaria-space-v014.js
+          grep -q 'spec.dodge=100' /tmp/sylvaria-enemy-v014.js
+          grep -q 'guardByPhase:Object.freeze({1:3,2:4,3:5})' /tmp/sylvaria-boss-v014.js
           grep -q 'ROOM_THREAT_PROFILES' /tmp/sylvaria-threat-v014.js
-          grep -q 'actor===state.boss' /tmp/sylvaria-threat-v014.js
-          grep -q 'drawBossFlow' /tmp/sylvaria-presentation-v014.js
-          grep -q 'setTransform(scale,0,0,scale,0,0)' /tmp/sylvaria-space-v014.js
-          grep -q 'logicalToClient' /tmp/sylvaria-space-v014.js
-          grep -q 'saw:Object.freeze({radius:11.5,halo:19' /tmp/sylvaria-readability-v014.js
-          grep -q 'alive.length' /tmp/sylvaria-readability-v014.js
-          grep -q 'SylvariaCharacterRig?.pose?.(p)' /tmp/sylvaria-pond.js
-          grep -q 'rig?.mouthForAttack' /tmp/sylvaria-kinetic-presentation.js
           grep -q 'window.SylvariaRankedDisabledReason' /tmp/sylvaria-competitive.js
           grep -q "VERSION='0.13.0'" /tmp/sylvaria-replay-v013.js
 
@@ -160,30 +147,30 @@ jobs:
           ticket_status="$(curl -sS -o /tmp/sylvaria-ticket.json -w '%{http_code}' -X POST http://127.0.0.1:3000/api/sylvaria/run-ticket)"
           test "$ticket_status" = "503"
           grep -q '"configured":false' /tmp/sylvaria-ticket.json
-
       - name: Install cross-browser smoke engines
         run: |
           npx --yes playwright@1.55.0 install --with-deps chromium firefox webkit
           npx --yes playwright@1.55.0 install chrome
-
       - name: Validate homepage Game Network CTA
         run: |
           PW_BIN="$(npm exec --yes --package=playwright@1.55.0 -- which playwright)"
           PW_ROOT="$(cd "$(dirname "$PW_BIN")/.." && pwd)"
           PLAYWRIGHT_MODULE_ROOT="$PW_ROOT" node scripts/playtest-arcade-home.mjs
-
-      - name: Validate playable Sylvaria v0.14 across Chrome Stable Chromium Firefox and WebKit
+      - name: Validate Sylvaria v0.15 across Chrome Stable Chromium Firefox and WebKit
         run: |
           PW_BIN="$(npm exec --yes --package=playwright@1.55.0 -- which playwright)"
           PW_ROOT="$(cd "$(dirname "$PW_BIN")/.." && pwd)"
-          PLAYWRIGHT_MODULE_ROOT="$PW_ROOT" node scripts/playtest-sylvaria-v014-browsers.mjs
-
-      - name: Playtest Sylvaria v0.14 integrated character combat boss and encounter loop
+          PLAYWRIGHT_MODULE_ROOT="$PW_ROOT" node scripts/playtest-sylvaria-v015-browsers.mjs
+      - name: Playtest Sylvaria v0.15 immediate Cutstep forest loop
         run: |
           PW_BIN="$(npm exec --yes --package=playwright@1.55.0 -- which playwright)"
           PW_ROOT="$(cd "$(dirname "$PW_BIN")/.." && pwd)"
-          PLAYWRIGHT_MODULE_ROOT="$PW_ROOT" node scripts/playtest-sylvaria-v014-production.mjs
-
+          PLAYWRIGHT_MODULE_ROOT="$PW_ROOT" node scripts/playtest-sylvaria-v015-cutstep.mjs
+      - name: Playtest Sylvaria v0.15 escalating combat alpha
+        run: |
+          PW_BIN="$(npm exec --yes --package=playwright@1.55.0 -- which playwright)"
+          PW_ROOT="$(cd "$(dirname "$PW_BIN")/.." && pwd)"
+          PLAYWRIGHT_MODULE_ROOT="$PW_ROOT" node scripts/playtest-sylvaria-v015-alpha-progression.mjs
       - name: Capture production browser fixtures
         run: |
           mkdir -p artifacts/browser-smoke
@@ -197,12 +184,9 @@ jobs:
           npx --yes playwright@1.55.0 screenshot --browser=chromium --viewport-size="1440,1100" --full-page http://127.0.0.1:3000/case-studies artifacts/browser-smoke/case-studies.png
           npx --yes playwright@1.55.0 screenshot --browser=chromium --viewport-size="1440,1100" --full-page http://127.0.0.1:3000/photography artifacts/browser-smoke/visual-cortex.png
           npx --yes playwright@1.55.0 screenshot --browser=chromium --viewport-size="1440,1100" --full-page http://127.0.0.1:3000/arcade artifacts/browser-smoke/game-network.png
-          npx --yes playwright@1.55.0 screenshot --browser=chromium --viewport-size="1440,1000" http://127.0.0.1:3000/arcade/stretchicorn artifacts/browser-smoke/arcade-stretchicorn.png
-          npx --yes playwright@1.55.0 screenshot --browser=chromium --viewport-size="1440,1000" http://127.0.0.1:3000/arcade/unirico artifacts/browser-smoke/arcade-unirico.png
-          npx --yes playwright@1.55.0 screenshot --browser=chromium --viewport-size="1440,1000" http://127.0.0.1:3000/arcade/sylvaria artifacts/browser-smoke/arcade-sylvaria-v014.png
-          npx --yes playwright@1.55.0 screenshot --browser=chromium --viewport-size="1920,1080" http://127.0.0.1:3000/game-runtimes/mosslight-v2/index.html artifacts/browser-smoke/sylvaria-v014-widescreen.png
-          npx --yes playwright@1.55.0 screenshot --browser=chromium --viewport-size="390,844" http://127.0.0.1:3000/game-runtimes/mosslight-v2/index.html artifacts/browser-smoke/sylvaria-v014-portrait.png
-
+          npx --yes playwright@1.55.0 screenshot --browser=chromium --viewport-size="1440,1000" http://127.0.0.1:3000/arcade/sylvaria artifacts/browser-smoke/arcade-sylvaria-v015.png
+          npx --yes playwright@1.55.0 screenshot --browser=chromium --viewport-size="1920,1080" http://127.0.0.1:3000/game-runtimes/mosslight-v2/index.html artifacts/browser-smoke/sylvaria-v015-widescreen.png
+          npx --yes playwright@1.55.0 screenshot --browser=chromium --viewport-size="390,844" http://127.0.0.1:3000/game-runtimes/mosslight-v2/index.html artifacts/browser-smoke/sylvaria-v015-portrait.png
       - name: Upload production audit artifacts
         if: always()
         uses: actions/upload-artifact@v7

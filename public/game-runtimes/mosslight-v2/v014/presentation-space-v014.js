@@ -1,8 +1,8 @@
 const G=window.Sylvaria091;
 const {W,H,canvas}=G,F=G.fn;
 
-export const PRESENTATION_SPACE_VERSION='0.14.0';
-const OVERLAY_IDS=Object.freeze(['kineticCanvas','flowCanvas']);
+export const PRESENTATION_SPACE_VERSION='0.14.2';
+const OVERLAY_IDS=Object.freeze(['forestCanvas','actorCanvas','kineticCanvas','flowCanvas','cutstepCanvas']);
 const finiteScale=()=>{const value=Number(window.SylvariaDisplayScale?.scale||1);return Number.isFinite(value)&&value>0?value:1};
 
 function syncOverlay(overlay){

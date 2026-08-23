@@ -21,7 +21,7 @@ test('v0.12 remains a presentation-only foundation beneath the verified v0.13 co
   assert.match(server,/SYLVARIA_ENGINE_VERSION = '0\.13\.0'/);
 });
 
-test('frog pond art atlas contains readable player insect terrain and tongue assets without CPU pixel readback or filtered preprocessing',()=>{
+test('frog pond art atlas remains available only as inherited rendering substrate',()=>{
   const atlasEntry=read(`${runtime}/v012/art-atlas-v012.js`);
   const art=read(`${runtime}/v012/art-atlas-pro-v012.js`);
   assert.match(atlasEntry,/art-atlas-pro-v012\.js/);
@@ -50,7 +50,7 @@ test('WebGL2 pond renderer still implements height-derived normals bounded light
   assert.doesNotMatch(renderer,/F\.(?:update|cut|dashStep|counterShot)\s*=/);
 });
 
-test('v0.13 kinetic presentation remains the authoritative Reactive Blade renderer and consumes the v0.14 mouth socket when present',()=>{
+test('v0.13 kinetic presentation remains the authoritative Reactive Blade renderer for the preserved v0.14 substrate',()=>{
   const presentation=read(`${runtime}/v013/kinetic-presentation-v013.js`);
   assert.match(presentation,/original\.filter\(s=>s\.kind!=='arc'\)/);
   assert.match(presentation,/state\.slashes=legacy/);
@@ -70,25 +70,24 @@ test('v0.13 kinetic presentation remains the authoritative Reactive Blade render
   assert.doesNotMatch(presentation,/F\.(?:updateMovement|updateEnemies|updateShots|cut)\s*=/);
 });
 
-test('production pond shell teaches the v0.14 attached counter movement terrain and boss grammar',()=>{
-  const html=read(`${runtime}/index.html`);
-  const arcade=read('src/data/arcadeGames.ts');
-  assert.match(html,/v0\.14 · unified kinetic combat/);
-  assert.match(html,/Lily Clearing/);
-  assert.match(html,/156° tongue sweep/);
-  assert.match(html,/physically anchored to Sprid’s mouth|actual mouth/i);
-  assert.match(html,/first five active simulation ticks/);
-  assert.match(html,/glide north/);
-  assert.match(html,/blade up/);
-  assert.match(html,/hold \/ release dash/);
-  assert.match(html,/Break bosses/);
-  assert.match(html,/Read the rhythm/);
-  assert.match(html,/\.\/v014-entry\.js/);
-  assert.match(arcade,/version: 'v0\.14\.0'/);
-  assert.match(arcade,/CARVE · COUNTER · CREATE THE OPENING/);
-  assert.match(arcade,/one character rig/i);
-  assert.match(arcade,/boss guard breaks/i);
-  assert.match(arcade,/call-and-response threat phrases/i);
+test('v0.15 public shell supersedes the old pond grammar while preserving v0.14 beneath it',()=>{
+  const html=read(`${runtime}/index.html`),entry14=read(`${runtime}/v014-entry.js`),entry15=read(`${runtime}/v015-entry.js`),arcade=read('src/data/arcadeGames.ts');
+  assert.match(entry14,/v0\.14 · unified kinetic combat/);
+  assert.match(entry14,/Reactive Blade/);
+  assert.match(entry14,/boss guard/i);
+  assert.match(entry15,/await import\('\.\/v014-entry\.js'\)/);
+  assert.match(html,/v0\.15 · CUTSTEP CLEARING/);
+  assert.match(html,/Whispering Pine Verge/);
+  assert.match(html,/SPACE or left click fires immediately/);
+  assert.match(html,/Arrow-key chords give crisp 8-way aim/);
+  assert.match(html,/THRUST/);
+  assert.match(html,/CROSSCUT/);
+  assert.match(html,/REVERSAL/);
+  assert.match(html,/\.\/v015-entry\.js/);
+  assert.doesNotMatch(html,/156° tongue sweep|hold \/ release dash|v0\.14 · unified kinetic combat/);
+  assert.match(arcade,/version: 'v0\.15\.0'/);
+  assert.match(arcade,/DRAW THE LINE · SURVIVE THE FOREST/);
+  assert.match(arcade,/regrowing undergrowth/i);
   assert.match(arcade,/webgl2/);
 });
 

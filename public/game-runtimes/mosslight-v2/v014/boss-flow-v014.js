@@ -85,7 +85,10 @@ F.updateBoss=(dt)=>{
   return inheritedBoss(dt);
 };
 
+const snapshot=()=>{const b=state.boss;return{version:BOSS_FLOW_VERSION,boss:b&&!b.dead?{phase:b.phase,guard:b.v014Guard??null,guardMax:b.v014GuardMax??null,punishTimer:b.v014PunishTimer||0,punishSerial:b.v014PunishSerial||0,lastGuardSource:b.v014GuardSource||null}:null}};
 window.SylvariaBossFlow=Object.freeze({
-  version:BOSS_FLOW_VERSION,config:BOSS_FLOW_CONFIG,
-  snapshot:()=>{const b=state.boss;return{version:BOSS_FLOW_VERSION,boss:b&&!b.dead?{phase:b.phase,guard:b.v014Guard??null,guardMax:b.v014GuardMax??null,punishTimer:b.v014PunishTimer||0,punishSerial:b.v014PunishSerial||0,lastGuardSource:b.v014GuardSource||null}:null}},
+  version:BOSS_FLOW_VERSION,
+  config:BOSS_FLOW_CONFIG,
+  initialize:(boss=state.boss)=>{initBossFlow(boss);return boss||null},
+  snapshot,
 });

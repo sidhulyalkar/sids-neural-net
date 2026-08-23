@@ -10,13 +10,17 @@ const readability=read('public/game-runtimes/mosslight-v2/v014/combat-readabilit
 const mastery=read('public/game-runtimes/mosslight-v2/v014/enemy-mastery-v014.js');
 const ai=read('public/game-runtimes/mosslight-v2/v013/enemy-ai-v013.js');
 
-test('v0.14 projects every 2D tactical overlay through the same logical 960x640 space as WebGL',()=>{
+test('v0.14 presentation space remains the DPR-safe foundation and permits later overlays to join it',()=>{
   assert.match(entry,/presentation-space-v014\.js/);
   assert.match(space,/window\.SylvariaDisplayScale\?\.scale/);
   assert.match(space,/ctx\?\.setTransform\(scale,0,0,scale,0,0\)/);
   assert.match(space,/logicalToClient/);
   assert.match(space,/clientToLogical/);
-  assert.match(space,/OVERLAY_IDS=Object\.freeze\(\['kineticCanvas','flowCanvas'\]\)/);
+  assert.match(space,/OVERLAY_IDS=Object\.freeze\(\[/);
+  assert.match(space,/'kineticCanvas'/);
+  assert.match(space,/'flowCanvas'/);
+  assert.match(space,/'forestCanvas'/);
+  assert.match(space,/'cutstepCanvas'/);
 });
 
 test('projectile readability grows the visible signal without mutating authoritative projectile radii',()=>{
