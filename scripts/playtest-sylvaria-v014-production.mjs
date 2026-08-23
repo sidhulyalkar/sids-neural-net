@@ -39,8 +39,9 @@ check(Math.hypot(movingSample.slash.x-movingSample.player.x,movingSample.slash.y
 check(Math.hypot(movingSample.visual.tongueMouth.x-movingSample.rig.mouth.x,movingSample.visual.tongueMouth.y-movingSample.rig.mouth.y)<.01,'moving tongue mouth diverged from rig socket');
 
 // Perfect-parry mobility reward is exactly 100 ms at the authoritative reward edge.
+// setupRoom replaces state.player, so always reacquire the authoritative player after setRoom.
 // Keep one inert room guard alive so room-clear progression cannot reset the player underneath the measurement.
-const refundSetup=await page.evaluate(()=>{const play=window.__MOSSLIGHT_PLAYTEST__,G=window.Sylvaria091,p=G.state.player;play.setRoom(0,1);play.clearCombatants();play.labClearGeometry();play.setPlayerPosition(300,330);const guardId=play.spawnTestEnemy('foreman',850,120,'refund-room-guard'),guard=G.state.enemies.find(e=>e.id===guardId);if(guard){guard.state='recover';guard.counterStagger=99;guard.clock=99;guard.evadeCooldown=99}G.state.slashes=[];G.state.heldMoves.clear();G.state.heldOrder=[];p.cutCooldown=0;p.flow=0;p.dash=null;p.dashCharge=0;p.dashCooldown=2;p.dashBuffer=0;p.dashBufferHeld=false;p.dashBufferReleased=false;p.dashQueuedCharge=.18;p.dashCharging=false;p.lastParryDashRefund=null;play.spawnCounterShot('right',70,{speed:180,pattern:'straight'});return{counter:G.state.stats.perfectCounters||0,cooldown:p.dashCooldown,time:G.state.totalTime,room:G.state.worldDepth,guardId}});
+const refundSetup=await page.evaluate(()=>{const play=window.__MOSSLIGHT_PLAYTEST__,G=window.Sylvaria091;play.setRoom(0,1);const p=G.state.player;play.clearCombatants();play.labClearGeometry();play.setPlayerPosition(300,330);const guardId=play.spawnTestEnemy('foreman',850,120,'refund-room-guard'),guard=G.state.enemies.find(e=>e.id===guardId);if(guard){guard.state='recover';guard.counterStagger=99;guard.clock=99;guard.evadeCooldown=99}G.state.slashes=[];G.state.heldMoves.clear();G.state.heldOrder=[];p.cutCooldown=0;p.flow=0;p.dash=null;p.dashCharge=0;p.dashCooldown=2;p.dashBuffer=0;p.dashBufferHeld=false;p.dashBufferReleased=false;p.dashQueuedCharge=.18;p.dashCharging=false;p.lastParryDashRefund=null;play.spawnCounterShot('right',70,{speed:180,pattern:'straight'});return{counter:G.state.stats.perfectCounters||0,cooldown:p.dashCooldown,time:G.state.totalTime,room:G.state.worldDepth,guardId}});
 await page.keyboard.press('ArrowRight');
 const refund=await waitForValue(base=>{const G=window.Sylvaria091,r=G.state.player.lastParryDashRefund;if(!r||r.counter<=base)return false;return{receipt:r,currentCooldown:G.state.player.dashCooldown,room:G.state.worldDepth}},refundSetup.counter,1200);
 const refundElapsed=refund.receipt.time-refundSetup.time,expectedRefundBefore=Math.max(0,refundSetup.cooldown-refundElapsed);
@@ -70,7 +71,8 @@ check(gaps.every(g=>g>=threat.profile.gapMin&&g<=threat.profile.gapMax),`deep th
 check(new Set(threat.releases.map(r=>r.tick)).size===4,'heavy commitments collided on the same simulation tick');
 
 // Leave an action-state beauty fixture showing the real production stack.
-await page.evaluate(()=>{const play=window.__MOSSLIGHT_PLAYTEST__,G=window.Sylvaria091,p=G.state.player;play.setRoom(1,2);play.labClearGeometry();play.setPlayerPosition(390,350);for(const e of G.state.enemies)if(e.kineticType!=='strider')e.dead=true;G.state.slashes=[];p.cutCooldown=0;p.flow=78;G.fn.cut('right')});
+// Reacquire p after setRoom because setupRoom intentionally replaces the player object.
+await page.evaluate(()=>{const play=window.__MOSSLIGHT_PLAYTEST__,G=window.Sylvaria091;play.setRoom(1,2);const p=G.state.player;play.labClearGeometry();play.setPlayerPosition(390,350);for(const e of G.state.enemies)if(e.kineticType!=='strider')e.dead=true;G.state.slashes=[];p.cutCooldown=0;p.flow=78;G.fn.cut('right')});
 await page.waitForFunction(()=>window.Sylvaria091.state.slashes.at(-1)?.phase==='active',{timeout:900});
 await page.evaluate(()=>window.Sylvaria091.fn.render());
 await page.screenshot({path:path.join(outputDir,'production-v014-unified-rig.png'),fullPage:true});
