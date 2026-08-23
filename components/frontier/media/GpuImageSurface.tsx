@@ -99,6 +99,20 @@ export function GpuImageSurface({
   }, [gpuId, src]);
 
   useEffect(() => {
+    const frame = frameRef.current;
+    if (!frame || typeof IntersectionObserver === 'undefined') return;
+    const observer = new IntersectionObserver((entries) => {
+      if (!entries.some((entry) => entry.isIntersecting)) return;
+      // The aspect-ratio box exists before decode, so the shared plane can size
+      // and schedule the correct texture while the card is still two viewports
+      // away. The scheduler/cache remain the authority for actual decode work.
+      warmFrontierGpuImage(gpuId);
+    }, { rootMargin: '200% 0px 200% 0px', threshold: 0 });
+    observer.observe(frame);
+    return () => observer.disconnect();
+  }, [gpuId]);
+
+  useEffect(() => {
     if (fallbackFailed) onUnavailable?.();
   }, [fallbackFailed, onUnavailable]);
 
