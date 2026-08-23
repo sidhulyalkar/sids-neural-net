@@ -18,7 +18,7 @@ test('v0.14 keeps the verified v0.13 competitive substrate available but explici
   assert.match(entry13,/v011\/competitive-v011\.js/);
   assert.ok(entry13.indexOf('v013/replay-v013.js')<entry13.indexOf('v011/competitive-v011.js'),'legacy competitive client must still capture the v0.13 replay implementation');
   assert.match(entry14,/SylvariaRankedDisabledReason='v0\.14 replay verifier migration'/);
-  assert.match(client,/function unrankedReason/);
+  assert.match(client,/const unrankedReason=\(\)=>String\(window\.SylvariaRankedDisabledReason\|\|''\)\.trim\(\)/);
   assert.match(client,/if\(unrankedReason\(\)\)return null/);
   assert.match(client,/development build/);
   assert.match(client,/rankedDisabledReason:unrankedReason\(\)\|\|null/);
