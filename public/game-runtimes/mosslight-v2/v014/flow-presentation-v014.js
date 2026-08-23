@@ -80,6 +80,12 @@ function draw(){
   if(state.mode!=='playing'||!state.player)return;
   drawFlowRing(state.player);drawBufferedBlade(state.player);drawPunishWindows();drawBossFlow();renderedFlowFrames++;
 }
+function resetRoomPresentation(){
+  holdFrames=0;lastHitStopSerial=state.hitStopSerial||0;bufferCues=0;punishCues=0;bossCues=0;
+  ctx.clearRect(0,0,overlay.width,overlay.height);
+}
+const inheritedSetup=F.setupRoom;
+F.setupRoom=(...args)=>{const result=inheritedSetup(...args);resetRoomPresentation();return result};
 
 const inheritedRender=F.render;
 F.render=()=>{
