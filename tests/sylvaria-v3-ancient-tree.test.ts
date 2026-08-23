@@ -9,21 +9,24 @@ const html=read(`${root}/index.html`);
 const config=read(`${root}/config-v3.js`);
 const input=read(`${root}/input-v3.js`);
 const world=read(`${root}/world-v3.js`);
+const routes=read(`${root}/routes-v3.js`);
 const engine=read(`${root}/engine-v3.js`);
 const feel=read(`${root}/engine-feel-v3.js`);
 const sapline=read(`${root}/engine-sapline-v3.js`);
+const routeEngine=read(`${root}/engine-routes-v3.js`);
 const render=read(`${root}/render-v3.js`);
 const motion=read(`${root}/render-motion-v3.js`);
+const routeRender=read(`${root}/render-routes-v3.js`);
 const boot=read(`${root}/game-v3.js`);
 
-test('Sylvaria v3.1 is a clean modular ancient-tree ascent runtime',()=>{
-  for(const moduleName of ['config-v3.js','input-v3.js','world-v3.js','engine-v3.js','engine-feel-v3.js','engine-sapline-v3.js','render-v3.js','render-motion-v3.js','game-v3.js'])assert.ok(read(`${root}/${moduleName}`).length>100,`missing ${moduleName}`);
+test('Sylvaria v3.2 is a clean modular ancient-tree ecosystem runtime',()=>{
+  for(const moduleName of ['config-v3.js','input-v3.js','world-v3.js','routes-v3.js','engine-v3.js','engine-feel-v3.js','engine-sapline-v3.js','engine-routes-v3.js','render-v3.js','render-motion-v3.js','render-routes-v3.js','game-v3.js'])assert.ok(read(`${root}/${moduleName}`).length>100,`missing ${moduleName}`);
   assert.match(html,/ANCIENT TREE ASCENT/);
   assert.match(html,/game-v3\.js/);
-  assert.match(boot,/engine-sapline-v3\.js/);
-  assert.match(boot,/render-motion-v3\.js/);
-  assert.match(config,/VERSION='3\.1\.0-alpha\.1'/);
-  for(const source of [config,input,world,engine,feel,sapline,render,motion,boot])assert.doesNotMatch(source,/mosslight|v015-entry|sylvaria-v2\/|Cutstep/);
+  assert.match(boot,/engine-routes-v3\.js/);
+  assert.match(boot,/render-routes-v3\.js/);
+  assert.match(config,/VERSION='3\.2\.0-alpha\.1'/);
+  for(const source of [config,input,world,routes,engine,feel,sapline,routeEngine,render,motion,routeRender,boot])assert.doesNotMatch(source,/mosslight|v015-entry|sylvaria-v2\/|Cutstep/);
 });
 
 test('movement is fast, deterministic, buffered, and built for upward flow',()=>{
@@ -39,10 +42,10 @@ test('movement is fast, deterministic, buffered, and built for upward flow',()=>
   assert.match(config,/airDashSpeed:825/);
   assert.match(engine,/p\.airDash=true/);
   assert.match(engine,/this\.zone\(\)\.wind\*130\*dt/);
-  for(const source of [config,world,engine,feel,sapline]){assert.doesNotMatch(source,/Math\.random/);assert.doesNotMatch(source,/Date\.now|performance\.now/)}
+  for(const source of [config,world,routes,engine,feel,sapline,routeEngine]){assert.doesNotMatch(source,/Math\.random/);assert.doesNotMatch(source,/Date\.now|performance\.now/)}
 });
 
-test('neutral air preserves earned momentum instead of auto-braking vine, rebound, and Sapline routes',()=>{
+test('neutral air preserves earned momentum instead of auto-braking traversal chains',()=>{
   assert.match(feel,/preserveMomentum=!p\.onGround&&!p\.vineId&&p\.dashTime<=0&&this\.input\.axisX\(\)===0/);
   assert.match(feel,/const retained=Math\.abs\(incomingVx\)\*0\.995/);
   assert.match(feel,/if\(Math\.abs\(p\.vx\)<retained\)p\.vx=Math\.sign\(incomingVx\)\*retained/);
@@ -65,13 +68,13 @@ test('default controls use arrows for movement, D for machete, W for Sapline, an
   assert.match(html,/Bindings are saved on this device/);
 });
 
-test('the ancient tree contains five professionally named vertical regions and precision-scale branches',()=>{
+test('the ancient tree contains five named vertical regions and precision-scale branches',()=>{
   for(const name of ['ROOTREACH','SAPWOOD SPLIT','HOLLOW SCAR','STORM CANOPY','HEARTWOOD CROWN'])assert.match(world,new RegExp(name));
   assert.doesNotMatch(world,/ROOTWARD BASE|CANOPY GAUNTLET/);
   assert.match(config,/WORLD=\{w:1760,h:6400\}/);
   const widths=[...world.matchAll(/w:(\d+),h:(?:1[678]|20|22|24),type:/g)].map(match=>Number(match[1]));
   assert.ok(widths.length>=25,`expected authored narrow platforms, got ${widths.length}`);
-  assert.ok(widths.filter(width=>width<=150).length>=20,'most traversal platforms must stay precision-scale');
+  assert.ok(widths.filter(width=>width<=150).length>=20,'most fallback platforms must stay precision-scale');
   assert.match(world,/type:'spring'/);
   assert.match(world,/type:'dead'/);
   assert.match(world,/type:'sap'/);
@@ -80,35 +83,62 @@ test('the ancient tree contains five professionally named vertical regions and p
   assert.match(engine,/platform\.sapCharged=false/);
 });
 
-test('Sapline uses explicit Resin Knots rather than attaching to arbitrary scenery',()=>{
+test('BarkRails replace shelf-only routing with authoritative safe speed and mastery surfaces',()=>{
+  assert.ok((routes.match(/id:'rail-/g)||[]).length>=17,'expected a dense authored BarkRail network');
+  for(const route of ['safe','speed','mastery'])assert.match(routes,new RegExp(`route:'${route}'`));
+  assert.match(routes,/rail-canopy-master-a/);
+  assert.match(routes,/rail-crown-master-b/);
+  assert.match(routeEngine,/collideVertical\(dy\)/);
+  assert.match(routeEngine,/prevBottom=oldY\+p\.h\/2/);
+  assert.match(routeEngine,/intendedBottom=oldY\+dy\+p\.h\/2/);
+  assert.match(routeEngine,/surface<bestY/);
+  assert.match(routeEngine,/p\.groundId=best\.id/);
+  assert.match(routeEngine,/masteryRailLandings\+\+/);
+  assert.match(routeRender,/drawBarkRail/);
+});
+
+test('Sapline uses explicit Resin Knots including knots mounted on BarkRails',()=>{
   assert.match(world,/SAPLINE_ANCHORS/);
-  assert.ok((world.match(/id:'knot-/g)||[]).length>=30,'expected a deliberately authored Resin Knot route network');
-  assert.match(world,/platform:'root-l1'/);
-  assert.match(world,/platform:'canopy-r2'/);
-  assert.match(world,/platform:'crown-r2'/);
-  assert.match(world,/anchors:SAPLINE_ANCHORS\.map/);
+  assert.ok((world.match(/id:'knot-/g)||[]).length>=30,'expected the base Resin Knot network');
+  assert.ok((routes.match(/id:'knot-route-/g)||[]).length>=12,'expected route-mounted Resin Knots');
+  assert.match(routes,/rail:'rail-canopy-master-a'/);
+  assert.match(routeEngine,/if\(anchor\?\.rail\)/);
+  assert.match(routeEngine,/this\.railPoint\(rail/);
   assert.match(sapline,/for\(const anchor of this\.world\.anchors\|\|\[\]\)/);
   assert.match(sapline,/dist<SAPLINE\.minAttachDistance\|\|dist>SAPLINE\.maxRange/);
   assert.match(sapline,/dot<SAPLINE\.acquireDot/);
 });
 
-test('Sapline physics are fixed-step elastic, damped, reelable, steerable, and velocity capped',()=>{
-  for(const token of ['maxRange:410','attachRestRatio:0.78','minLength:72','reelSpeed:245','spring:23.5','damping:6.6','tangentAccel:1120','maxAccel:5200','maxReleaseSpeed:1120'])assert.ok(config.includes(token),`missing Sapline tuning ${token}`);
-  assert.match(sapline,/tether\.rest=Math\.max\(SAPLINE\.minLength,tether\.rest-SAPLINE\.reelSpeed\*dt\)/);
-  assert.match(sapline,/extension\*SAPLINE\.spring-radialVelocity\*SAPLINE\.damping/);
+test('Sapline damping is adaptive and radial while tangential velocity stays skill-driven',()=>{
+  for(const token of ['maxRange:410','attachRestRatio:0.78','minLength:72','reelSpeed:245','spring:23.5','dampingFree:5.8','dampingSettle:9.1','settleExtension:42','settleRadialSpeed:310','tangentAccel:1120','maxAccel:5200','maxReleaseSpeed:1120'])assert.ok(config.includes(token),`missing Sapline tuning ${token}`);
+  assert.match(sapline,/settleByExtension=1-clamp\(extension\/SAPLINE\.settleExtension,0,1\)/);
+  assert.match(sapline,/settleBySpeed=clamp\(Math\.abs\(radialVelocity\)\/SAPLINE\.settleRadialSpeed,0,1\)/);
+  assert.match(sapline,/lerp\(SAPLINE\.dampingFree,SAPLINE\.dampingSettle/);
+  assert.match(sapline,/extension\*SAPLINE\.spring-radialVelocity\*damping/);
   assert.match(sapline,/tx\*pump\*SAPLINE\.tangentAccel/);
+  assert.match(sapline,/energy=\.5\*SAPLINE\.spring\*extension\*extension/);
   assert.match(sapline,/if\(speed>SAPLINE\.maxReleaseSpeed\)/);
-  assert.match(sapline,/releaseBoostMax/);
-  assert.match(sapline,/sameAnchorCooldown/);
 });
 
-test('Sapline release preserves generated velocity without becoming a free air-dash refresh',()=>{
+test('Sapline release preserves generated velocity and cannot skim-refill Canopy Step',()=>{
   assert.match(sapline,/p\.vx\+=ux\*boost;p\.vy\+=uy\*boost/);
   assert.match(sapline,/this\.state\.stats\.saplineLaunches\+\+/);
   const start=sapline.indexOf('startSapline(){'),end=sapline.indexOf('releaseSapline(',start);
   assert.ok(start>=0&&end>start,'Sapline attach method missing');
   assert.doesNotMatch(sapline.slice(start,end),/airDash\s*=\s*true/);
+  assert.match(sapline,/tetheredBefore=!!p\.sapline,canopyStepBefore=p\.airDash/);
+  assert.match(sapline,/if\(tetheredBefore&&p\.sapline&&!canopyStepBefore\)p\.airDash=false/);
   assert.match(sapline,/startAirDash\(\)\{if\(this\.state\.player\.sapline\)this\.releaseSapline\(false\)/);
+});
+
+test('Resin Knots communicate predicted release tangent and stored energy without route colors',()=>{
+  assert.match(sapline,/releaseTangentFor\(pos\)/);
+  assert.match(sapline,/saplineCandidateTangent/);
+  assert.match(routeRender,/tangentForAnchor/);
+  assert.match(routeRender,/predicted|tangent/i);
+  assert.match(routeRender,/energy\/120000/);
+  assert.match(routeRender,/length=candidate\?23:25\+load\*24/);
+  assert.doesNotMatch(routeRender,/route==='safe'|route==='speed'|route==='mastery'/);
 });
 
 test('tree traversal multiplies mechanics instead of adding a separate button for every verb',()=>{
@@ -121,9 +151,10 @@ test('tree traversal multiplies mechanics instead of adding a separate button fo
   assert.match(engine,/p\.airDash=true/);
   assert.match(engine,/dropTimer=\.18/);
   assert.match(sapline,/this\.input\.take\('tether'\)/);
+  assert.match(routeEngine,/BarkRail/);
 });
 
-test('one D attack button supports grounded, aerial, wall, plunge and dash combat contexts',()=>{
+test('one D attack button supports grounded aerial wall plunge and dash combat contexts',()=>{
   for(const profile of ['side','up','down','wall','dash','plunge'])assert.match(config,new RegExp(`${profile}:\\{startup:`));
   assert.match(engine,/if\(p\.dashTime>0\|\|p\.dashRecover>0\)type='dash'/);
   assert.match(engine,/else if\(p\.wallDir&&!p\.onGround\)type='wall'/);
@@ -142,18 +173,18 @@ test('pressing D creates defensive blade coverage immediately before projectile 
   assert.match(feel,/this\.reflectProjectile\(shot\)/);
 });
 
-test('the machete is shorter and only leaves its scabbard during attack state',()=>{
+test('the guardian is movement-first and the short machete only appears during an attack',()=>{
   assert.match(config,/side:\{startup:0\.028,activeEnd:0\.145,duration:0\.19,damage:1\.0,reach:66/);
-  assert.match(motion,/scabbard/);
-  assert.match(motion,/if\(!attack\)\{ctx\.strokeStyle=/);
-  assert.match(motion,/if\(attack\)\{/);
-  assert.match(motion,/ctx\.lineTo\(45,-4\.8\)/);
-  assert.match(motion,/ctx\.lineTo\(53,-1\)/);
-  const bladeBlock=motion.slice(motion.indexOf('if(attack){'),motion.indexOf('drawLogger'));
-  assert.match(bladeBlock,/COLORS\.blade/);
-  assert.match(motion,/runPhase/);
-  assert.match(motion,/Trailing leaf-cloak/);
-  assert.match(motion,/Tethering visibly reaches/);
+  assert.match(routeRender,/ctx\.scale\(p\.facing\*1\.18,1\.18\)/);
+  assert.match(routeRender,/rawSpeed=Math\.hypot\(p\.vx,p\.vy\)/);
+  assert.match(routeRender,/tailX=-vel\.x/);
+  assert.match(routeRender,/if\(!attack\)/);
+  assert.match(routeRender,/if\(attack\)\{/);
+  assert.match(routeRender,/ctx\.lineTo\(39,-4\)/);
+  assert.match(routeRender,/ctx\.lineTo\(46,-\.8\)/);
+  assert.match(routeRender,/attack\.time<=1\/120\*1\.6/);
+  const attackBlock=routeRender.slice(routeRender.indexOf('if(attack){'),routeRender.indexOf('drawBoss'));
+  assert.match(attackBlock,/COLORS\.blade/);
 });
 
 test('aerial combat turns downward hits into traversal rather than stopping the player',()=>{
@@ -178,8 +209,10 @@ test('enemy pressure escalates from standard combat into spatial interference',(
   for(const draw of ['drawLogger','drawRanger','drawClimber','drawDrone','drawTrapper'])assert.match(motion,new RegExp(draw));
 });
 
-test('the Crown Feller is a real three-phase mastery boss rather than a larger normal enemy',()=>{
-  assert.match(world,/name:'CROWN FELLER'/);
+test('the Crown Girdler is a tree-mounted three-phase mastery boss with physical clamp guard',()=>{
+  assert.match(routeEngine,/boss\.name='CROWN GIRDLER'/);
+  assert.match(routeEngine,/boss\.machineMounted=true/);
+  assert.match(routeEngine,/boss\.clampCount=3/);
   assert.match(world,/hp:24,maxHp:24/);
   assert.match(engine,/bossPhase\(hp\)\{return hp>16\?1:hp>8\?2:3\}/);
   assert.match(engine,/b\.maxGuard=2\+phase/);
@@ -188,21 +221,23 @@ test('the Crown Feller is a real three-phase mastery boss rather than a larger n
   assert.match(engine,/volleyWindup/);
   assert.match(engine,/sawWindup/);
   assert.match(feel,/beforeGuard>0&&boss\.guard===0/);
-  assert.match(html,/bossHud/);
+  assert.match(routeRender,/Crown Girdler/);
+  assert.match(routeRender,/intact=i<b\.guard/);
+  assert.match(html,/CROWN GIRDLER/);
 });
 
-test('presentation follows the approved old-growth target while preserving mechanic readability',()=>{
+test('presentation follows the old-growth target while preserving mechanic readability',()=>{
   assert.match(render,/approved-old-growth-art-direction/);
   assert.match(render,/distantTrees/);
-  assert.match(render,/drawBarkWall/);
-  assert.match(render,/drawPlatform/);
-  assert.match(motion,/drawSapAnchor/);
-  assert.match(motion,/drawSapline/);
-  assert.match(motion,/drawGuardian/);
-  assert.match(motion,/drawBoss/);
-  assert.match(motion,/COLORS\.blade/);
-  assert.match(motion,/COLORS\.sapline/);
+  assert.match(routeRender,/drawBarkRail/);
+  assert.match(routeRender,/drawSapAnchor/);
+  assert.match(routeRender,/drawSapline/);
+  assert.match(routeRender,/drawGuardian/);
+  assert.match(routeRender,/drawBoss/);
+  assert.match(routeRender,/COLORS\.blade/);
+  assert.match(routeRender,/COLORS\.sapline/);
   assert.match(html,/SYLVARIA/);
   assert.match(html,/Sapline/);
+  assert.match(html,/BarkRails/);
   assert.doesNotMatch(html,/Hollow Knight|Silksong|Spider-Man/);
 });
