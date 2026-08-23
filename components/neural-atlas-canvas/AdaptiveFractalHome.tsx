@@ -205,8 +205,6 @@ export function AdaptiveFractalHome() {
     ctx.fillStyle = background;
     ctx.fillRect(0, 0, dimensions.width, dimensions.height);
 
-    // Barely-visible envelope traces reveal the adaptive ellipse without turning
-    // the landing page into a chart.
     ctx.save();
     ctx.translate(tree.center.x, tree.center.y);
     ctx.strokeStyle = 'rgba(113, 210, 229, 0.035)';
@@ -346,28 +344,31 @@ export function AdaptiveFractalHome() {
           </Link>
 
           <div
-            className="pointer-events-none absolute left-1/2 top-4 z-10 -translate-x-1/2 text-center sm:top-5"
+            className="pointer-events-none absolute left-1/2 top-5 z-10 hidden -translate-x-1/2 text-center min-[520px]:block"
             aria-hidden="true"
           >
-            <p className="font-mono text-[7px] uppercase tracking-[0.24em] text-white/18 sm:text-[8px]">
+            <p className="font-mono text-[8px] uppercase tracking-[0.24em] text-white/18">
               DENDRITIC FIELD · {tree.morphology.label} · D≈{tree.theoreticalTerminalDimension.toFixed(2)}
             </p>
           </div>
         </>
       )}
 
-      <div className="pointer-events-none absolute bottom-5 left-1/2 z-20 w-[min(94vw,94rem)] -translate-x-1/2 text-center sm:bottom-7 lg:bottom-8">
+      <div className="pointer-events-none absolute bottom-[4.65rem] left-1/2 z-20 w-[min(94vw,94rem)] -translate-x-1/2 text-center min-[520px]:bottom-5 sm:bottom-7 lg:bottom-8">
         <h1
-          className="font-medium leading-none tracking-[0.18em] text-white/90"
-          style={{ ...CODE_TEXT, fontSize: 'clamp(1.45rem, 2.55vw, 2.8rem)' }}
+          className="font-medium leading-none tracking-[0.16em] text-white/90 min-[520px]:tracking-[0.18em]"
+          style={{ ...CODE_TEXT, fontSize: tree?.compact ? '1.16rem' : 'clamp(1.45rem, 2.55vw, 2.8rem)' }}
         >
           SIDHARTH HULYALKAR
         </h1>
         <p
-          className="mx-auto mt-2 max-w-[78rem] text-[8px] uppercase leading-relaxed tracking-[0.09em] text-white/34 sm:text-[9px] md:text-[10px]"
+          className="mx-auto mt-2 max-w-[78rem] text-[7px] uppercase leading-relaxed tracking-[0.08em] text-white/34 min-[520px]:text-[8px] min-[520px]:tracking-[0.09em] sm:text-[9px] md:text-[10px]"
           style={CODE_TEXT}
         >
-          NEURAL DATA SYSTEMS · MULTIMODAL FOUNDATION MODELING &amp; INTERPRETABILITY · SCIENTIFIC SOFTWARE
+          <span className="min-[520px]:hidden">NEURAL DATA SYSTEMS · SCIENTIFIC SOFTWARE</span>
+          <span className="hidden min-[520px]:inline">
+            NEURAL DATA SYSTEMS · MULTIMODAL FOUNDATION MODELING &amp; INTERPRETABILITY · SCIENTIFIC SOFTWARE
+          </span>
         </p>
       </div>
     </div>
