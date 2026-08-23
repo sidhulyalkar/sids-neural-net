@@ -2,6 +2,8 @@
 
 Sylvaria: Sequoia is the kinetic vertical-climber branch of Sylvaria. The prior Sylvaria/Mosslight exploration and combat work remains preserved in repository history and its existing feature branches. This game does not inherit combat as a primary loop.
 
+> Qualification boundary: v0.2 mechanics, naming, route grammars, telemetry, and Game Network integration are treated as one testable playtest surface. Further feature work should follow empirical feel calibration rather than expand scope.
+
 ## Experience thesis
 
 The game should be legible in seconds and expressive for hundreds of runs.
