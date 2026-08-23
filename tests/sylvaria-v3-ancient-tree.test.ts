@@ -153,7 +153,7 @@ test('the machete is shorter and only leaves its scabbard during attack state',(
   assert.match(bladeBlock,/COLORS\.blade/);
   assert.match(motion,/runPhase/);
   assert.match(motion,/Trailing leaf-cloak/);
-  assert.match(motion,/tethering visibly reaches/);
+  assert.match(motion,/Tethering visibly reaches/);
 });
 
 test('aerial combat turns downward hits into traversal rather than stopping the player',()=>{
