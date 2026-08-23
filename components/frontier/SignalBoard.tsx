@@ -323,9 +323,9 @@ export function SignalBoard({
                 onCollapse={collapseInline}
                 onExternalOpen={onFluidExternalOpen}
                 className={`${styles.gridItem} ${spatial.item} ${VISUAL_ROLE_CLASS[visualRole]} ${hasMedia ? spatial.mediaItem : spatial.textItem} ${item.highPriority ? spatial.priorityItem : ''} ${item.velocitySignal ? spatial.velocityItem : ''} ${perf.virtualItem}`}
+                style={packedStyle}
               >
                 <div
-                  style={packedStyle}
                   data-frontier-priority={item.highPriority ? 'true' : undefined}
                   data-frontier-velocity={item.velocitySignal ? 'true' : undefined}
                   data-frontier-visual-role={visualRole}
