@@ -9,8 +9,7 @@ const browser=await chromium.launch({headless:true});const page=await browser.ne
 async function waitForValue(fn,arg=null,timeout=1200){const h=await page.waitForFunction(fn,arg,{timeout});try{return await h.jsonValue()}finally{await h.dispose()}}
 
 await page.goto(`${baseUrl}/game-runtimes/mosslight-v2/index.html?buffer-accuracy-lab=1`,{waitUntil:'networkidle'});
-await page.waitForFunction(()=>window.__MOSSLIGHT_PLAYTEST__?.version==='0.13.0');await page.click('#start');await page.locator('#c').focus();
-await page.evaluate(async()=>{await import('/game-runtimes/mosslight-v2/v014/combat-flow-v014.js')});await page.waitForFunction(()=>window.SylvariaFlowCombat?.version==='0.14.0');
+await page.waitForFunction(()=>window.__MOSSLIGHT_PLAYTEST__?.version==='0.14.0'&&window.SylvariaCombat014?.version==='0.14.0'&&window.SylvariaFlowCombat?.version==='0.14.0');await page.click('#start');await page.locator('#c').focus();
 
 const setup=await page.evaluate(()=>{const play=window.__MOSSLIGHT_PLAYTEST__,G=window.Sylvaria091,p=G.state.player;play.clearCombatants();play.labClearGeometry();play.setPlayerPosition(360,340);G.state.heldMoves.clear();G.state.heldOrder=[];p.dash=null;p.dashCharging=false;p.dashCharge=0;p.dashCooldown=5/120;p.dashBuffer=0;p.dashBufferHeld=false;p.dashBufferReleased=false;p.vx=0;p.vy=0;p.lastDashAccuracy=null;return{dashes:G.state.stats.dashes}});
 await page.keyboard.down('d');await page.keyboard.press('Space');
