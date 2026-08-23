@@ -39,6 +39,15 @@
       ]
     },
     {
+      "source": "/game-runtimes/sylvaria-v2/(.*)",
+      "headers": [
+        {
+          "key": "Content-Security-Policy",
+          "value": "frame-ancestors 'self'"
+        }
+      ]
+    },
+    {
       "source": "/fonts/(.*)",
       "headers": [
         {
