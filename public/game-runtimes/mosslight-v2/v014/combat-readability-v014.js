@@ -35,12 +35,12 @@ function drawProjectiles(ctx){
 function drawKineticThreats(ctx){
   for(const e of state.enemies){
     if(e.dead||!e.kineticType)continue;const color=KINETIC_RING[e.kineticType]||'#eaffcf',r=e.r+9,telegraph=e.state==='kinetic-telegraph',open=e.v014PunishTimer>0,label=open?'OPEN':KINETIC_LABEL[e.kineticType]||'ELITE';
-    ctx.save();ctx.fillStyle=color;ctx.globalAlpha=open?.13:.055;ctx.beginPath();ctx.arc(e.x,e.y,e.r+5,0,Math.PI*2);ctx.fill();
-    ctx.strokeStyle=color;ctx.globalAlpha=open?.92:telegraph?.82:.34;ctx.lineWidth=open?2.8:telegraph?2.4:1.5;ctx.beginPath();ctx.arc(e.x,e.y,r,0,Math.PI*2);ctx.stroke();
+    ctx.save();ctx.fillStyle=color;ctx.globalAlpha=open ? .13 : .055;ctx.beginPath();ctx.arc(e.x,e.y,e.r+5,0,Math.PI*2);ctx.fill();
+    ctx.strokeStyle=color;ctx.globalAlpha=open ? .92 : telegraph ? .82 : .34;ctx.lineWidth=open ? 2.8 : telegraph ? 2.4 : 1.5;ctx.beginPath();ctx.arc(e.x,e.y,r,0,Math.PI*2);ctx.stroke();
     if(e.kineticType==='sniper'&&telegraph&&state.player){ctx.setLineDash([7,7]);ctx.beginPath();ctx.moveTo(e.x,e.y);ctx.lineTo(state.player.x,state.player.y);ctx.stroke();ctx.setLineDash([])}
     if(e.kineticType==='strider'&&telegraph){const a=e.facingAngle||0,side=Math.PI*.78;ctx.beginPath();ctx.moveTo(e.x+Math.cos(a)*r,e.y+Math.sin(a)*r);ctx.lineTo(e.x+Math.cos(a+side)*(r+8),e.y+Math.sin(a+side)*(r+8));ctx.moveTo(e.x+Math.cos(a)*r,e.y+Math.sin(a)*r);ctx.lineTo(e.x+Math.cos(a-side)*(r+8),e.y+Math.sin(a-side)*(r+8));ctx.stroke()}
     if(e.kineticType==='shellback'){const a=e.facingAngle||0;ctx.lineWidth=4;ctx.globalAlpha=.72;ctx.beginPath();ctx.arc(e.x,e.y,e.r+6,a-.72,a+.72);ctx.stroke()}
-    ctx.globalAlpha=open?.95:.66;ctx.fillStyle=color;ctx.font='700 8px ui-sans-serif,system-ui,sans-serif';ctx.textAlign='center';ctx.textBaseline='bottom';ctx.fillText(label,e.x,e.y-e.r-11);ctx.restore();
+    ctx.globalAlpha=open ? .95 : .66;ctx.fillStyle=color;ctx.font='700 8px ui-sans-serif,system-ui,sans-serif';ctx.textAlign='center';ctx.textBaseline='bottom';ctx.fillText(label,e.x,e.y-e.r-11);ctx.restore();
   }
 }
 function drawReadability(){
