@@ -74,11 +74,17 @@ check(new Set(threat.releases.map(r=>r.tick)).size===4,'heavy commitments collid
 // Reacquire p after setRoom because setupRoom intentionally replaces the player object.
 await page.evaluate(()=>{const play=window.__MOSSLIGHT_PLAYTEST__,G=window.Sylvaria091;play.setRoom(1,2);const p=G.state.player;play.labClearGeometry();play.setPlayerPosition(390,350);for(const e of G.state.enemies)if(e.kineticType!=='strider')e.dead=true;G.state.slashes=[];p.cutCooldown=0;p.flow=78;G.fn.cut('right')});
 await page.waitForFunction(()=>window.Sylvaria091.state.slashes.at(-1)?.phase==='active',{timeout:900});
-await page.evaluate(()=>window.Sylvaria091.fn.render());
+const beauty=await page.evaluate(()=>{const G=window.Sylvaria091;G.fn.render();const kinetic=window.SylvariaKineticPresentation.snapshot(),flow=window.SylvariaFlowPresentation.snapshot(),s=G.state.slashes.at(-1);return{kinetic,flow,slash:s?{phase:s.phase,reach:s.reach,x:s.x,y:s.y}:null}});
+const beautyTongueLength=beauty.kinetic.tongueMouth&&beauty.kinetic.tongueTip?Math.hypot(beauty.kinetic.tongueTip.x-beauty.kinetic.tongueMouth.x,beauty.kinetic.tongueTip.y-beauty.kinetic.tongueMouth.y):0;
+check(beauty.kinetic.hitStopHoldFrames===0,`old room hit-stop survived into action fixture: ${JSON.stringify(beauty.kinetic)}`);
+check(beauty.kinetic.renderedArcs>=1,`active Reactive Blade produced no rendered arc: ${JSON.stringify(beauty.kinetic)}`);
+check(beautyTongueLength>70&&beautyTongueLength<115,`visible tongue length escaped readable attached range: ${beautyTongueLength}`);
+check(beauty.kinetic.tongueAttachmentError<.01,`beauty-frame tongue detached from authoritative frog root: ${beauty.kinetic.tongueAttachmentError}`);
+check(near(beauty.flow.flow,78,.001),`Flow cue belongs to stale player state: ${JSON.stringify(beauty.flow)}`);
 await page.screenshot({path:path.join(outputDir,'production-v014-unified-rig.png'),fullPage:true});
 
 for(const error of pageErrors)failures.push(`pageerror: ${error}`);
-const report={boot,rigDirections,movingSample,refund:{setup:refundSetup,result:refund,elapsed:refundElapsed,expectedBefore:expectedRefundBefore},boss,threat:{...threat,roles,gaps},failures};fs.writeFileSync(path.join(outputDir,'production-report.json'),JSON.stringify(report,null,2));
+const report={boot,rigDirections,movingSample,refund:{setup:refundSetup,result:refund,elapsed:refundElapsed,expectedBefore:expectedRefundBefore},boss,threat:{...threat,roles,gaps},beauty:{...beauty,tongueLength:beautyTongueLength},failures};fs.writeFileSync(path.join(outputDir,'production-report.json'),JSON.stringify(report,null,2));
 await browser.close();
 if(failures.length){console.error(`Sylvaria v0.14 production integration failed with ${failures.length} issue(s):`);for(const failure of failures)console.error(` - ${failure}`);process.exit(1)}
-console.log(`Sylvaria v0.14 production PASS · unified frog/tongue rig in 4 directions and motion · exact ${(refund.receipt.refund*1000).toFixed(0)} ms parry refund · boss guard ${boss.guard.join('→')} with zero HP leak and core punish · room 29 ${roles.join(' → ')} at ${gaps.join('/')} tick gaps · ranked v0.13 submission safely disabled.`);
+console.log(`Sylvaria v0.14 production PASS · unified frog/tongue rig in 4 directions and motion · visible tongue ${beautyTongueLength.toFixed(1)} px · exact ${(refund.receipt.refund*1000).toFixed(0)} ms parry refund · boss guard ${boss.guard.join('→')} with zero HP leak and core punish · room 29 ${roles.join(' → ')} at ${gaps.join('/')} tick gaps · ranked v0.13 submission safely disabled.`);
