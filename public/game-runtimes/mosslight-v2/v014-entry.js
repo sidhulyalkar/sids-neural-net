@@ -5,10 +5,14 @@ window.SylvariaRankedDisabledReason='v0.14 replay verifier migration';
 await import('./v013-entry.js');
 await import('./v014/character-rig-v014.js');
 await import('./v014/combat-flow-v014.js');
+await import('./v014/charge-intent-v014.js');
 await import('./v014/enemy-flow-v014.js');
+await import('./v014/enemy-mastery-v014.js');
 await import('./v014/boss-flow-v014.js');
 await import('./v014/threat-manager-v014.js');
 await import('./v014/flow-presentation-v014.js');
+await import('./v014/presentation-space-v014.js');
+await import('./v014/combat-readability-v014.js');
 
 const G=window.Sylvaria091,F=G.fn,state=G.state,$=G.$;
 const VERSION='0.14.0',PRESENTATION='0.14.0';
@@ -25,7 +29,7 @@ F.updateHud=(force=false)=>{inheritedHud?.(force);const task=$('roomTask');if(ta
 
 const title=document.querySelector('#title .eyebrow');if(title)title.textContent='v0.14 · unified kinetic combat';
 const lede=document.querySelector('#title .lede');if(lede)lede.textContent='A 120 Hz counter-action run through thirty hostile pond arenas. Carve committed dash lines, sweep from Sprid’s actual mouth, redirect enemy fire, bait readable evasions, weaponize terrain, and break boss guard through earned openings.';
-const micro=document.querySelector('#title .microcopy');if(micro)micro.textContent='Thirty authored arenas escalate from readable duets into tightly staggered call-and-response phrases. Every heavy commitment shares one deterministic threat budget, so late rooms become faster and denser without collapsing into simultaneous projectile soup.';
+const micro=document.querySelector('#title .microcopy');if(micro)micro.textContent='Thirty authored arenas escalate from readable duets into tightly staggered call-and-response phrases. Projectiles and elite enemy tells are deliberately enlarged for readability while their collision geometry stays exact. Ranked submission remains paused until the v0.14 verifier is migrated.';
 const season=$('rankSeason');if(season)season.textContent='v0.14 development';
 const rankPanel=$('rankPanel');if(rankPanel)rankPanel.hidden=true;
 
@@ -34,13 +38,13 @@ for(const id of['start','explore'])$(id)?.addEventListener('click',()=>queueMicr
 const playtest=window.__MOSSLIGHT_PLAYTEST__;
 if(playtest){
   const base=playtest.snapshot.bind(playtest);playtest.version=VERSION;playtest.engineVersion=VERSION;playtest.presentationVersion=PRESENTATION;
-  playtest.snapshot=()=>{const snap=base();return{...snap,version:VERSION,engineVersion:VERSION,presentationVersion:PRESENTATION,characterRig:window.SylvariaCharacterRig?.snapshot?.()||null,flowCombat:window.SylvariaFlowCombat?.snapshot?.()||null,enemyFlow:window.SylvariaEnemyFlow?.snapshot?.()||null,bossFlow:window.SylvariaBossFlow?.snapshot?.()||null,threatManager:window.SylvariaThreatManager?.snapshot?.()||null,flowPresentation:window.SylvariaFlowPresentation?.snapshot?.()||null,visual:{...(snap.visual||{}),version:VERSION,presentationVersion:PRESENTATION,unifiedCharacterRig:true,attachedReactiveBlade:true,deterministicThreatOrchestration:true,deterministicEnemyPunish:true,bossGuardBreak:true,environmentalBossRoutes:true,ranked:false}}};
+  playtest.snapshot=()=>{const snap=base();return{...snap,version:VERSION,engineVersion:VERSION,presentationVersion:PRESENTATION,characterRig:window.SylvariaCharacterRig?.snapshot?.()||null,flowCombat:window.SylvariaFlowCombat?.snapshot?.()||null,chargeIntent:window.SylvariaChargeIntent?.snapshot?.()||null,enemyFlow:window.SylvariaEnemyFlow?.snapshot?.()||null,enemyMastery:window.SylvariaEnemyMastery?.snapshot?.()||null,bossFlow:window.SylvariaBossFlow?.snapshot?.()||null,threatManager:window.SylvariaThreatManager?.snapshot?.()||null,flowPresentation:window.SylvariaFlowPresentation?.snapshot?.()||null,presentationSpace:window.SylvariaPresentationSpace?.snapshot?.()||null,combatReadability:window.SylvariaCombatReadability?.snapshot?.()||null,visual:{...(snap.visual||{}),version:VERSION,presentationVersion:PRESENTATION,unifiedCharacterRig:true,attachedReactiveBlade:true,logicalOverlayAlignment:true,largerProjectileReadability:true,advancedEnemyMastery:true,deterministicThreatOrchestration:true,deterministicEnemyPunish:true,bossGuardBreak:true,environmentalBossRoutes:true,ranked:false}}};
 }
 const visual=window.SylvariaVisualSystem;
-if(visual){const base=visual.snapshot.bind(visual);visual.version=VERSION;visual.presentationVersion=PRESENTATION;visual.snapshot=()=>({...base(),version:VERSION,presentationVersion:PRESENTATION,unifiedCharacterRig:true,attachedReactiveBlade:true,deterministicThreatOrchestration:true,bossGuardBreak:true,ranked:false})}
+if(visual){const base=visual.snapshot.bind(visual);visual.version=VERSION;visual.presentationVersion=PRESENTATION;visual.snapshot=()=>({...base(),version:VERSION,presentationVersion:PRESENTATION,unifiedCharacterRig:true,attachedReactiveBlade:true,logicalOverlayAlignment:true,largerProjectileReadability:true,advancedEnemyMastery:true,deterministicThreatOrchestration:true,bossGuardBreak:true,ranked:false})}
 
 window.Sylvaria014=G;
 window.SylvariaCombat014=Object.freeze({
   version:VERSION,presentationVersion:PRESENTATION,ranked:false,
-  rig:window.SylvariaCharacterRig,combat:window.SylvariaFlowCombat,enemies:window.SylvariaEnemyFlow,boss:window.SylvariaBossFlow,threats:window.SylvariaThreatManager,presentation:window.SylvariaFlowPresentation,
+  rig:window.SylvariaCharacterRig,combat:window.SylvariaFlowCombat,chargeIntent:window.SylvariaChargeIntent,enemies:window.SylvariaEnemyFlow,enemyMastery:window.SylvariaEnemyMastery,boss:window.SylvariaBossFlow,threats:window.SylvariaThreatManager,presentation:window.SylvariaFlowPresentation,presentationSpace:window.SylvariaPresentationSpace,readability:window.SylvariaCombatReadability,
 });
