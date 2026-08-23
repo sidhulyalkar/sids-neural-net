@@ -3,6 +3,7 @@ import type { FrontierItem } from './types';
 const NON_LATIN_SCRIPT = /[\p{Script=Cyrillic}\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}\p{Script=Arabic}\p{Script=Hebrew}\p{Script=Devanagari}\p{Script=Thai}]/gu;
 const ACCENTED_LATIN = /[à-ž]/giu;
 const TRANSLATE_TIMEOUT_MS = 2600;
+export const FRONTIER_MAX_TRANSLATED_ITEMS_PER_FEED = 8;
 
 const FOREIGN_HINTS = new Set([
   // Spanish / Portuguese / Italian
@@ -103,13 +104,34 @@ async function translateItem(item: FrontierItem): Promise<FrontierItem | null> {
   };
 }
 
-export async function normalizeFeedToEnglish(items: FrontierItem[]): Promise<FrontierItem[]> {
-  const output: FrontierItem[] = [];
-  const concurrency = 5;
-  for (let index = 0; index < items.length; index += concurrency) {
-    const batch = items.slice(index, index + concurrency);
-    const translated = await Promise.all(batch.map(translateItem));
-    output.push(...translated.filter((item): item is FrontierItem => Boolean(item)));
+export function frontierTranslationCandidateIndexes(
+  items: Pick<FrontierItem, 'title' | 'summary'>[],
+  limit = FRONTIER_MAX_TRANSLATED_ITEMS_PER_FEED,
+): number[] {
+  const boundedLimit = Math.max(0, Math.min(24, Math.floor(limit)));
+  const indexes: number[] = [];
+  for (let index = 0; index < items.length && indexes.length < boundedLimit; index += 1) {
+    const item = items[index];
+    if (needsEnglishTranslation(item.title) || needsEnglishTranslation(item.summary)) indexes.push(index);
   }
-  return output;
+  return indexes;
+}
+
+export async function normalizeFeedToEnglish(items: FrontierItem[]): Promise<FrontierItem[]> {
+  // English items are immediately usable and never wait behind translation.
+  // At most one bounded wave of foreign-language items is translated. Remaining
+  // foreign items are omitted rather than extending first paint or violating the
+  // English-only visible-copy contract.
+  const candidateIndexes = new Set(frontierTranslationCandidateIndexes(items));
+  const output: Array<FrontierItem | null> = items.map((item, index) => {
+    const foreign = needsEnglishTranslation(item.title) || needsEnglishTranslation(item.summary);
+    if (!foreign) return item;
+    return candidateIndexes.has(index) ? null : null;
+  });
+
+  await Promise.all([...candidateIndexes].map(async (index) => {
+    output[index] = await translateItem(items[index]);
+  }));
+
+  return output.filter((item): item is FrontierItem => Boolean(item));
 }
