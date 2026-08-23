@@ -18,6 +18,8 @@ jobs:
   production-gate:
     runs-on: ubuntu-latest
     timeout-minutes: 40
+    env:
+      FRONTIER_INTERACTION_AUDIT: enabled
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -86,23 +88,87 @@ jobs:
 
       - name: Smoke public production routes
         run: |
-          for route in / /neural-net /case-studies /physiology /perceptual-cortex /rotation /sensing-lab /physiology/visual-audit; do
+          for route in / /frontier /api/frontier/feed /api/auth/session /neural-net /case-studies /physiology /perceptual-cortex /rotation /sensing-lab /physiology/visual-audit; do
             echo "GET $route"
             curl --retry 2 --retry-connrefused -fsS "http://127.0.0.1:3000$route" >/dev/null
           done
 
+      - name: Smoke FRONTIER privacy boundaries
+        run: |
+          memory_status="$(curl -sS -o /tmp/frontier-memory.json -w '%{http_code}' http://127.0.0.1:3000/api/frontier/memory)"
+          test "$memory_status" = "401"
+          grep -q 'unauthorized' /tmp/frontier-memory.json
+
+          google_status="$(curl -sS -o /tmp/frontier-google.json -w '%{http_code}' -X POST http://127.0.0.1:3000/api/frontier/google/import)"
+          test "$google_status" = "401"
+          grep -q 'unauthorized' /tmp/frontier-google.json
+
+          session="$(curl -fsS http://127.0.0.1:3000/api/auth/session)"
+          echo "$session" | grep -q '"authenticated":false'
+
+      - name: Smoke FRONTIER media gateway boundaries
+        run: |
+          missing_status="$(curl -sS -o /tmp/frontier-media-missing.json -w '%{http_code}' http://127.0.0.1:3000/api/frontier/media)"
+          test "$missing_status" = "400"
+          grep -q 'missing media url' /tmp/frontier-media-missing.json
+
+          unsafe_status="$(curl -sS -o /tmp/frontier-media-unsafe.json -w '%{http_code}' 'http://127.0.0.1:3000/api/frontier/media?url=http%3A%2F%2F127.0.0.1%2Fprivate.png')"
+          test "$unsafe_status" = "403"
+          grep -q 'not trusted' /tmp/frontier-media-unsafe.json
+
+      - name: Smoke FRONTIER ingestion boundaries
+        run: |
+          unsupported_status="$(curl -sS -o /tmp/frontier-ingest-unsupported.json -w '%{http_code}' 'http://127.0.0.1:3000/api/frontier/ingest?source=not-a-source')"
+          test "$unsupported_status" = "400"
+          grep -q 'unsupported FRONTIER source' /tmp/frontier-ingest-unsupported.json
+
       - name: Install smoke-test browser
-        run: npx --yes playwright@1.55.0 install --with-deps chromium
+        run: |
+          rm -rf /tmp/frontier-playwright
+          npm install --prefix /tmp/frontier-playwright --no-package-lock --no-save playwright@1.55.0
+          /tmp/frontier-playwright/node_modules/.bin/playwright install --with-deps chromium
+
+      - name: Audit FRONTIER bounded first useful paint
+        env:
+          NODE_PATH: /tmp/frontier-playwright/node_modules
+          FRONTIER_ROUTE_AUDIT_URL: http://127.0.0.1:3000/frontier
+        run: node scripts/frontier-route-readiness-audit.cjs
+
+      - name: Choreograph FRONTIER Phase 8 interactions
+        env:
+          NODE_PATH: /tmp/frontier-playwright/node_modules
+          FRONTIER_AUDIT_URL: http://127.0.0.1:3000/frontier/interaction-audit
+        run: node scripts/frontier-phase8-choreography.cjs
+
+      - name: Audit FRONTIER Phase 9 synthesis and reactive artifacts
+        env:
+          NODE_PATH: /tmp/frontier-playwright/node_modules
+          FRONTIER_PHASE9_AUDIT_URL: http://127.0.0.1:3000/frontier/phase9-audit
+        run: node scripts/frontier-phase9-browser-audit.cjs
+
+      - name: Audit FRONTIER Phase 8.1 media mosaic
+        env:
+          NODE_PATH: /tmp/frontier-playwright/node_modules
+          FRONTIER_MOSAIC_AUDIT_URL: http://127.0.0.1:3000/frontier/mosaic-audit
+        run: node scripts/frontier-media-mosaic-audit.cjs
+
+      - name: Audit FRONTIER deterministic scroll geometry
+        env:
+          NODE_PATH: /tmp/frontier-playwright/node_modules
+          FRONTIER_SCROLL_AUDIT_URL: http://127.0.0.1:3000/frontier/mosaic-audit
+        run: node scripts/frontier-scroll-stability-audit.cjs
 
       - name: Capture production browser fixtures
         run: |
           mkdir -p artifacts/browser-smoke
-          npx --yes playwright@1.55.0 screenshot --browser=chromium --viewport-size="1440,1100" --full-page http://127.0.0.1:3000/physiology/visual-audit artifacts/browser-smoke/nature-atlas-desktop.png
-          npx --yes playwright@1.55.0 screenshot --browser=chromium --viewport-size="390,844" --full-page http://127.0.0.1:3000/physiology/visual-audit artifacts/browser-smoke/nature-atlas-mobile.png
-          npx --yes playwright@1.55.0 screenshot --browser=chromium --viewport-size="1440,1000" http://127.0.0.1:3000/neural-net artifacts/browser-smoke/neural-net.png
-          npx --yes playwright@1.55.0 screenshot --browser=chromium --viewport-size="1440,1000" http://127.0.0.1:3000/perceptual-cortex artifacts/browser-smoke/perceptual-cortex.png
-          npx --yes playwright@1.55.0 screenshot --browser=chromium --viewport-size="1440,1000" http://127.0.0.1:3000/rotation artifacts/browser-smoke/rotation.png
-          npx --yes playwright@1.55.0 screenshot --browser=chromium --viewport-size="1440,1000" --full-page http://127.0.0.1:3000/case-studies artifacts/browser-smoke/case-studies.png
+          /tmp/frontier-playwright/node_modules/.bin/playwright screenshot --browser=chromium --wait-for-timeout 9000 --viewport-size="1440,1100" --full-page http://127.0.0.1:3000/frontier artifacts/browser-smoke/frontier-desktop.png
+          /tmp/frontier-playwright/node_modules/.bin/playwright screenshot --browser=chromium --wait-for-timeout 9000 --viewport-size="390,844" --full-page http://127.0.0.1:3000/frontier artifacts/browser-smoke/frontier-mobile.png
+          /tmp/frontier-playwright/node_modules/.bin/playwright screenshot --browser=chromium --viewport-size="1440,1100" --full-page http://127.0.0.1:3000/physiology/visual-audit artifacts/browser-smoke/nature-atlas-desktop.png
+          /tmp/frontier-playwright/node_modules/.bin/playwright screenshot --browser=chromium --viewport-size="390,844" --full-page http://127.0.0.1:3000/physiology/visual-audit artifacts/browser-smoke/nature-atlas-mobile.png
+          /tmp/frontier-playwright/node_modules/.bin/playwright screenshot --browser=chromium --viewport-size="1440,1000" http://127.0.0.1:3000/neural-net artifacts/browser-smoke/neural-net.png
+          /tmp/frontier-playwright/node_modules/.bin/playwright screenshot --browser=chromium --viewport-size="1440,1000" http://127.0.0.1:3000/perceptual-cortex artifacts/browser-smoke/perceptual-cortex.png
+          /tmp/frontier-playwright/node_modules/.bin/playwright screenshot --browser=chromium --viewport-size="1440,1000" http://127.0.0.1:3000/rotation artifacts/browser-smoke/rotation.png
+          /tmp/frontier-playwright/node_modules/.bin/playwright screenshot --browser=chromium --viewport-size="1440,1000" --full-page http://127.0.0.1:3000/case-studies artifacts/browser-smoke/case-studies.png
 
       - name: Upload production audit artifacts
         if: always()

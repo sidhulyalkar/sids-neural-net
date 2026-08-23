@@ -1,0 +1,148 @@
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 190;
+  display: grid;
+  align-items: start;
+  justify-items: center;
+  padding-top: min(18vh, 160px);
+  background: rgba(1, 3, 2, 0.34);
+  backdrop-filter: blur(13px) saturate(108%);
+  -webkit-backdrop-filter: blur(13px) saturate(108%);
+}
+
+.palette {
+  width: min(660px, calc(100vw - 28px));
+  overflow: hidden;
+  border: 0;
+  border-radius: 18px;
+  background: rgba(7, 10, 9, 0.91);
+  box-shadow: 0 30px 110px rgba(0, 0, 0, 0.52);
+  backdrop-filter: blur(28px) saturate(112%);
+  -webkit-backdrop-filter: blur(28px) saturate(112%);
+}
+
+.inputRow {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  padding: 13px 14px 12px;
+  color: rgba(173, 206, 191, 0.7);
+}
+
+.inputRow input {
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: rgba(240, 246, 242, 0.96);
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
+  font-size: clamp(14px, 1.7vw, 18px);
+  font-weight: 420;
+  letter-spacing: -0.015em;
+}
+
+.inputRow input::placeholder { color: rgba(170, 184, 176, 0.35); }
+.inputRow button,
+.watchRow button {
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: rgba(170, 184, 176, 0.46);
+  cursor: pointer;
+}
+.inputRow button:hover,
+.inputRow button:focus-visible,
+.watchRow button:hover,
+.watchRow button:focus-visible { color: rgba(236, 244, 239, 0.92); }
+
+.status {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 30px;
+  padding: 7px 14px 10px 39px;
+  color: rgba(148, 164, 155, 0.55);
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-size: 8px;
+  letter-spacing: 0.02em;
+}
+
+.status kbd {
+  flex: 0 0 auto;
+  color: rgba(165, 213, 193, 0.42);
+  font: inherit;
+}
+
+.watchList {
+  display: grid;
+  max-height: min(38vh, 300px);
+  overflow-y: auto;
+  padding: 2px 10px 10px;
+}
+
+.watchRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  min-width: 0;
+  padding: 5px 4px;
+  opacity: 0.58;
+}
+
+.watchRow[data-active='true'] { opacity: 0.92; }
+
+.watchToggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 5px 0;
+  text-align: left;
+}
+
+.watchToggle span:last-child {
+  min-width: 0;
+  overflow: hidden;
+  color: rgba(204, 215, 209, 0.82);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.watchDot {
+  width: 5px;
+  height: 5px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: rgba(165, 213, 193, 0.66);
+  box-shadow: 0 0 16px rgba(165, 213, 193, 0.22);
+}
+
+.watchRow[data-active='false'] .watchDot {
+  background: rgba(144, 154, 149, 0.22);
+  box-shadow: none;
+}
+
+.removeWatch {
+  width: 28px;
+  height: 28px;
+  font-size: 14px;
+}
+
+@media (max-width: 720px) {
+  .backdrop {
+    align-items: start;
+    padding-top: max(72px, env(safe-area-inset-top));
+  }
+  .palette { border-radius: 15px; }
+  .inputRow { padding: 12px; }
+  .status { padding-left: 35px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .backdrop,
+  .palette { scroll-behavior: auto; }
+}

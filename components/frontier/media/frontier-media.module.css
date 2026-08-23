@@ -1,0 +1,180 @@
+.imageSurface,
+.nativeImageSurface,
+.videoShell,
+.youtubeSurface {
+  position: relative;
+  width: 100%;
+  min-height: 0;
+  overflow: hidden;
+  border-radius: 9px;
+  background: var(--frontier-media-placeholder, #070a09);
+}
+
+.imageSurface {
+  aspect-ratio: 1 / 1;
+}
+
+.primaryImage,
+.nativeImageSurface,
+.posterSurface,
+.videoShell,
+.youtubeSurface {
+  aspect-ratio: 16 / 9;
+}
+
+.imageSurface {
+  isolation: isolate;
+  contain: layout paint style;
+}
+
+.gpuRegistrationSlot {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  transform-origin: top left;
+  pointer-events: none;
+}
+
+.imageFallback,
+.nativeImage,
+.videoElement,
+.youtubeFrame {
+  width: 100%;
+  height: 100%;
+}
+
+.imageFallback,
+.nativeImage,
+.videoElement {
+  display: block;
+  object-fit: cover;
+}
+
+.imageFallback {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+}
+
+.imageSheen {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background: linear-gradient(110deg, rgba(165, 213, 193, 0.015) 20%, rgba(165, 213, 193, 0.055) 46%, rgba(165, 213, 193, 0.015) 72%);
+  background-size: 220% 100%;
+  animation: mediaSheen 1.7s ease-in-out infinite;
+}
+
+.videoShell,
+.youtubeSurface {
+  min-height: 180px;
+}
+
+.videoStage {
+  position: absolute;
+  inset: 0;
+  z-index: 46;
+  overflow: hidden;
+  border-radius: inherit;
+  background: #030504;
+  contain: layout paint style;
+  transform-origin: top left;
+  will-change: transform;
+}
+
+.videoStageExpanded {
+  position: fixed;
+  inset: 0;
+  z-index: 170;
+  width: 100vw;
+  height: 100dvh;
+  border-radius: 0;
+  background: #020302;
+}
+
+.videoElement {
+  position: absolute;
+  inset: 0;
+  background: #020302;
+}
+
+.videoStageExpanded .videoElement {
+  object-fit: contain;
+}
+
+.videoChrome {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  padding: 4px;
+  border: 1px solid rgba(226, 237, 231, 0.1);
+  border-radius: 10px;
+  background: rgba(5, 7, 6, 0.62);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  opacity: 0;
+  transform: translate3d(0, 4px, 0);
+  pointer-events: none;
+  transition: opacity 120ms ease, transform 140ms ease;
+}
+
+.videoStage:hover .videoChrome,
+.videoStage:focus-within .videoChrome,
+.videoStageExpanded .videoChrome {
+  opacity: 1;
+  transform: translate3d(0, 0, 0);
+  pointer-events: auto;
+}
+
+.videoChrome button {
+  display: grid;
+  width: 30px;
+  height: 30px;
+  place-items: center;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: rgba(234, 241, 237, 0.7);
+  cursor: pointer;
+}
+
+.videoChrome button:hover,
+.videoChrome button:focus-visible {
+  outline: 0;
+  background: rgba(255, 255, 255, 0.055);
+  color: #f0f5f2;
+}
+
+.youtubeFrame {
+  display: block;
+  border: 0;
+}
+
+@keyframes mediaSheen {
+  0%, 100% { background-position: 100% 0; opacity: 0.46; }
+  50% { background-position: 0 0; opacity: 0.8; }
+}
+
+@media (max-width: 720px) {
+  .videoShell,
+  .youtubeSurface { min-height: 150px; }
+  .videoChrome {
+    right: 7px;
+    bottom: 7px;
+    opacity: 0.84;
+    transform: none;
+    pointer-events: auto;
+  }
+  .videoChrome button { width: 32px; height: 32px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .imageSheen { animation: none; }
+  .videoChrome { transition: none; }
+}

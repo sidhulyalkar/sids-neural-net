@@ -1,0 +1,151 @@
+.inline {
+  display: grid;
+  grid-template-columns: minmax(0, 1.45fr) minmax(240px, 0.72fr);
+  gap: clamp(24px, 4vw, 64px);
+  padding: clamp(18px, 2.8vw, 34px) clamp(4px, 1vw, 12px) 4px;
+  color: rgba(231, 238, 234, 0.9);
+  opacity: 1;
+}
+
+.copy,
+.evidence {
+  min-width: 0;
+}
+
+.summary {
+  max-width: 900px;
+  margin: 0;
+  color: rgba(211, 222, 216, 0.82);
+  font-size: clamp(14px, 1.2vw, 18px);
+  line-height: 1.72;
+  letter-spacing: -0.012em;
+}
+
+.takeaways {
+  display: grid;
+  gap: 8px;
+  margin-top: 18px;
+}
+
+.takeaways p {
+  position: relative;
+  margin: 0;
+  padding-left: 15px;
+  color: rgba(174, 189, 181, 0.72);
+  font-size: 11px;
+  line-height: 1.58;
+}
+
+.takeaways p::before {
+  position: absolute;
+  top: 0.72em;
+  left: 1px;
+  width: 5px;
+  height: 1px;
+  content: '';
+  background: rgba(165, 213, 193, 0.44);
+}
+
+.sourceLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 20px;
+  color: rgba(174, 205, 192, 0.72);
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-size: 8px;
+  letter-spacing: 0.08em;
+  text-decoration: none;
+  text-transform: uppercase;
+}
+
+.sourceLink:hover,
+.sourceLink:focus-visible { color: rgba(221, 238, 230, 0.96); }
+
+.evidence {
+  display: grid;
+  align-content: start;
+  gap: 20px;
+  padding-top: 2px;
+}
+
+.artifacts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+}
+
+.artifacts > span,
+.artifacts > a {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 5px;
+  color: rgba(159, 174, 166, 0.62);
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-size: 7px;
+  letter-spacing: 0.04em;
+  text-decoration: none;
+}
+
+.artifacts small {
+  color: rgba(130, 144, 137, 0.56);
+  font-size: inherit;
+  text-transform: uppercase;
+}
+
+.artifacts strong {
+  color: rgba(203, 218, 210, 0.82);
+  font-weight: 520;
+}
+
+.sources {
+  display: grid;
+  gap: 9px;
+}
+
+.sectionLabel {
+  color: rgba(127, 143, 135, 0.58);
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-size: 7px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.sources a {
+  display: grid;
+  gap: 2px;
+  color: inherit;
+  text-decoration: none;
+}
+
+.sources a span {
+  color: rgba(145, 160, 152, 0.58);
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-size: 7px;
+  text-transform: uppercase;
+}
+
+.sources a strong {
+  overflow: hidden;
+  color: rgba(188, 201, 194, 0.76);
+  font-size: 10px;
+  font-weight: 470;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+}
+
+.sources a:hover strong,
+.sources a:focus-visible strong { color: rgba(231, 238, 234, 0.96); }
+
+@media (max-width: 760px) {
+  .inline {
+    grid-template-columns: 1fr;
+    gap: 22px;
+    padding-top: 18px;
+  }
+  .summary { font-size: 14px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .inline { scroll-behavior: auto; }
+}

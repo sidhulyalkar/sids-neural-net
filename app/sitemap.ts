@@ -8,9 +8,9 @@ const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://sidsneural.net';
 export default function sitemap(): MetadataRoute.Sitemap {
   const graph = NeuralGraphSchema.parse(graphData);
 
-  // Static pages
   const staticPages = [
     '',
+    '/frontier',
     '/neural-net',
     '/projects',
     '/code',
@@ -32,11 +32,10 @@ export default function sitemap(): MetadataRoute.Sitemap {
   const staticEntries = staticPages.map((route) => ({
     url: `${BASE_URL}${route}`,
     lastModified: new Date(),
-    changeFrequency: 'weekly' as const,
-    priority: route === '' ? 1 : 0.8,
+    changeFrequency: route === '/frontier' ? 'daily' as const : 'weekly' as const,
+    priority: route === '' ? 1 : route === '/frontier' ? 0.9 : 0.8,
   }));
 
-  // Project pages
   const projects = graph.nodes.filter((n) => n.type === 'project');
   const projectEntries = projects.map((project) => ({
     url: `${BASE_URL}/projects/${project.slug}`,
@@ -45,7 +44,6 @@ export default function sitemap(): MetadataRoute.Sitemap {
     priority: 0.6,
   }));
 
-  // Case study pages
   const caseStudySlugs = getCaseStudySlugs();
   const caseStudyEntries = caseStudySlugs.map((slug) => ({
     url: `${BASE_URL}/case-studies/${slug}`,
