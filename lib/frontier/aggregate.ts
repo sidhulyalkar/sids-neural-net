@@ -12,7 +12,9 @@ import type { FrontierFeedResponse, FrontierItem, FrontierSourceStatus } from '.
 import { getVimeoStaffPicksFeed } from './vimeoSource';
 
 const DAY_MS = 86_400_000;
+const MAX_FUTURE_SKEW_MS = 12 * 60 * 60_000;
 const REQUEST_ADAPTER_DEADLINE_MS = 4_500;
+const MAX_INTEGRATED_CANDIDATES = 320;
 
 type IntegratedOptions = {
   includeSnapshot?: boolean;
@@ -24,6 +26,20 @@ type IntegratedOptions = {
    */
   adapterDeadlineMs?: number | false;
 };
+
+export function isPlausibleFrontierCandidate(item: FrontierItem, now = Date.now()): boolean {
+  if (!item.title?.trim()) return false;
+
+  const publishedAt = Date.parse(item.publishedAt);
+  if (!Number.isFinite(publishedAt) || publishedAt > now + MAX_FUTURE_SKEW_MS) return false;
+
+  try {
+    const url = new URL(item.url);
+    return (url.protocol === 'https:' || url.protocol === 'http:') && Boolean(url.hostname);
+  } catch {
+    return false;
+  }
+}
 
 function canonicalKey(item: FrontierItem): string {
   try {
@@ -88,6 +104,7 @@ function recentSnapshotItems(): FrontierItem[] {
   const snapshot = frontierSnapshot as FrontierFeedResponse;
   const now = Date.now();
   return (snapshot.items ?? []).filter((item) => {
+    if (!isPlausibleFrontierCandidate(item, now)) return false;
     const ageDays = (now - new Date(item.publishedAt).getTime()) / DAY_MS;
     return Number.isFinite(ageDays) && ageDays <= 10;
   });
@@ -137,20 +154,28 @@ export async function getIntegratedFrontierFeed(options: IntegratedOptions = {})
 
   // Focused discovery and research meshes intentionally precede broad sources.
   // When adapters converge on one URL, the richer request-time normalization
-  // survives deduplication while weaker duplicates disappear.
+  // survives deduplication while weaker duplicates disappear. Reject malformed
+  // candidates and collapse duplicates before presentation enrichment so media
+  // work can never become a hidden request-time tax on items we will discard.
   const orderedResults = [adaptiveResult, multiSourceResult, expandedResult, vimeoResult, baseResult, activeSportsResult, personalResult];
   const liveFeeds = orderedResults.flatMap((result) => result.status === 'fulfilled' ? [result.value] : []);
-  const liveItems = dedupe(liveFeeds.flatMap((feed) => feed.items).map(enrichPresentation))
-    .sort((a, b) => b.baseScore - a.baseScore);
+  const rawLiveItems = dedupe(
+    liveFeeds
+      .flatMap((feed) => feed.items)
+      .filter((item) => isPlausibleFrontierCandidate(item))
+  )
+    .sort((a, b) => b.baseScore - a.baseScore)
+    .slice(0, MAX_INTEGRATED_CANDIDATES);
+  const liveItems = rawLiveItems.map(enrichPresentation);
 
   const liveKeys = new Set(liveItems.flatMap((item) => [canonicalKey(item), item.title.toLowerCase()]));
   const archive = options.includeSnapshot === false
     ? []
     : recentSnapshotItems()
-        .map(enrichPresentation)
-        .filter((item) => !liveKeys.has(canonicalKey(item)) && !liveKeys.has(item.title.toLowerCase()));
+        .filter((item) => !liveKeys.has(canonicalKey(item)) && !liveKeys.has(item.title.toLowerCase()))
+        .map(enrichPresentation);
 
-  const candidateItems = [...liveItems, ...archive].slice(0, 320);
+  const candidateItems = [...liveItems, ...archive].slice(0, MAX_INTEGRATED_CANDIDATES);
   const items = await normalizeFeedToEnglish(candidateItems);
   const sources = mergeStatuses(liveFeeds.flatMap((feed) => feed.sources));
 
