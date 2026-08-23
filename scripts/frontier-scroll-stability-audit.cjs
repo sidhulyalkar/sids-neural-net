@@ -26,6 +26,13 @@ async function waitForFixture(page) {
     { polling: 'raf', timeout: 5_000 },
   );
   await page.evaluate(async () => {
+    // The public site intentionally uses smooth anchor navigation. A geometry
+    // stress test needs requested scroll offsets to be synchronous so motion
+    // toward a target is never misclassified as spontaneous layout drift.
+    document.documentElement.style.scrollBehavior = 'auto';
+    document.body.style.scrollBehavior = 'auto';
+    if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
     if (document.fonts?.ready) await document.fonts.ready;
     await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
   });
@@ -34,33 +41,34 @@ async function waitForFixture(page) {
 async function sweep(page) {
   return page.evaluate(async (selector) => {
     const twoFrames = () => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    const scroller = document.scrollingElement || document.documentElement;
     const step = Math.max(240, Math.floor(window.innerHeight * 0.72));
+    const maxScrollFor = () => Math.max(0, scroller.scrollHeight - scroller.clientHeight);
     let maxDrift = 0;
     let samples = 0;
-    let minDocumentHeight = document.documentElement.scrollHeight;
+    let minDocumentHeight = scroller.scrollHeight;
     let maxDocumentHeight = minDocumentHeight;
 
     const settleAt = async (requested) => {
-      const maxScroll = Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
-      const target = Math.max(0, Math.min(maxScroll, requested));
-      window.scrollTo(0, target);
+      const target = Math.max(0, Math.min(maxScrollFor(), requested));
+      window.scrollTo({ top: target, left: 0, behavior: 'auto' });
       await twoFrames();
       maxDrift = Math.max(maxDrift, Math.abs(window.scrollY - target));
       samples += 1;
-      minDocumentHeight = Math.min(minDocumentHeight, document.documentElement.scrollHeight);
-      maxDocumentHeight = Math.max(maxDocumentHeight, document.documentElement.scrollHeight);
+      minDocumentHeight = Math.min(minDocumentHeight, scroller.scrollHeight);
+      maxDocumentHeight = Math.max(maxDocumentHeight, scroller.scrollHeight);
     };
 
     let guard = 0;
-    let maxScroll = Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
+    let maxScroll = maxScrollFor();
     for (let y = 0; y < maxScroll && guard < 96; y += step, guard += 1) {
       await settleAt(y);
-      maxScroll = Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
+      maxScroll = maxScrollFor();
     }
     await settleAt(maxScroll);
 
     guard = 0;
-    maxScroll = Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
+    maxScroll = maxScrollFor();
     for (let y = maxScroll; y > 0 && guard < 96; y -= step, guard += 1) await settleAt(y);
     await settleAt(0);
     await twoFrames();
@@ -69,7 +77,7 @@ async function sweep(page) {
       maxScrollDrift: maxDrift,
       samples,
       lockedCards: document.querySelectorAll(`${selector}[data-frontier-geometry="locked"]`).length,
-      documentHeight: document.documentElement.scrollHeight,
+      documentHeight: scroller.scrollHeight,
       documentHeightRange: maxDocumentHeight - minDocumentHeight,
     };
   }, CARD);
@@ -165,7 +173,7 @@ async function snapshot(page) {
     return {
       viewport: { width: window.innerWidth, height: window.innerHeight },
       scrollY: window.scrollY,
-      documentHeight: document.documentElement.scrollHeight,
+      documentHeight: (document.scrollingElement || document.documentElement).scrollHeight,
       gridWidth: grid.getBoundingClientRect().width,
       overflowAnchor: getComputedStyle(grid).overflowAnchor,
       lockedCards: cards.filter((node) => node.getAttribute('data-frontier-geometry') === 'locked').length,
@@ -233,7 +241,7 @@ function compareSnapshots(before, after) {
   };
 }
 
-function validateViewport(name, before, after, repeat, shift, stability) {
+function validateViewport(name, before, after, warm, repeat, shift, stability) {
   const failures = [];
   const check = (condition, message) => { if (!condition) failures.push(message); };
 
@@ -249,6 +257,8 @@ function validateViewport(name, before, after, repeat, shift, stability) {
   check(stability.maxWidthDelta <= 1.25, `${name}: card widths drifted ${rounded(stability.maxWidthDelta)}px, worst=${stability.worstWidthCard}`);
   check(stability.maxMediaHeightDelta <= 1.25, `${name}: media aspect boxes changed height by ${rounded(stability.maxMediaHeightDelta)}px, worst=${stability.worstMediaHeightCard}`);
   check(stability.maxMediaAspectDelta <= 0.01, `${name}: media aspect boxes changed ratio by ${rounded(stability.maxMediaAspectDelta)}, worst=${stability.worstMediaAspectCard}`);
+  check(warm.maxScrollDrift <= 2, `${name}: initial warm sweep drifted ${rounded(warm.maxScrollDrift)}px from requested offsets`);
+  check(warm.documentHeightRange <= 2, `${name}: document height changed by ${rounded(warm.documentHeightRange)}px during the initial geometry warm sweep`);
   check(repeat.maxScrollDrift <= 2, `${name}: scroll position drifted ${rounded(repeat.maxScrollDrift)}px without an explicit scroll command`);
   check(repeat.documentHeightRange <= 2, `${name}: document height changed by ${rounded(repeat.documentHeightRange)}px during the post-warm sweep`);
   check(shift.score <= 0.01, `${name}: layout-shift score regressed to ${rounded(shift.score)}`);
@@ -280,7 +290,7 @@ async function runViewport(browser, name, viewport) {
     const after = await snapshot(page);
     const shift = await readShiftObserver(page);
     const stability = compareSnapshots(before, after);
-    const failures = validateViewport(name, before, after, repeat, shift, stability);
+    const failures = validateViewport(name, before, after, warm, repeat, shift, stability);
 
     await page.screenshot({
       path: path.join(ARTIFACT_DIR, `frontier-scroll-stability-${name}${failures.length ? '-failure' : ''}.png`),
@@ -344,11 +354,13 @@ async function runViewport(browser, name, viewport) {
       desktop: {
         stability: desktop.stability,
         shift: desktop.shift,
+        warm: desktop.warm,
         repeat: desktop.repeat,
       },
       mobile: {
         stability: mobile.stability,
         shift: mobile.shift,
+        warm: mobile.warm,
         repeat: mobile.repeat,
       },
     }, null, 2));
