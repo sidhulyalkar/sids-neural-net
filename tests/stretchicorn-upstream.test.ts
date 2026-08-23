@@ -40,8 +40,8 @@ test('canonical Stretchicorn runtime URLs are shadowed by the pinned upstream pr
   assert.match(proxy, new RegExp(EXPECTED_COMMIT));
   assert.match(proxy, /raw\.githubusercontent\.com\/sidhulyalkar\/stretchicorn/);
   assert.match(proxy, /game-network-bridge\.js/);
-  assert.match(proxy, /tabindex=\\"0\\"/);
-  assert.match(proxy, /aria-label=\\"Stretchicorn arcade game\\"/);
+  assert.match(proxy, /tabindex="0"/);
+  assert.match(proxy, /aria-label="Stretchicorn arcade game"/);
   assert.match(proxy, /frame-ancestors 'self'/);
   assert.match(proxy, /max-age=31536000, immutable/);
 
