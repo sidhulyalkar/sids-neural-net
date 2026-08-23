@@ -137,7 +137,7 @@ jobs:
       - name: Audit FRONTIER Phase 9 synthesis and reactive artifacts
         env:
           NODE_PATH: /tmp/frontier-playwright/node_modules
-          FRONTIER_PHASE9_AUDIT_URL: http://127.0.0.1:3000/frontier/interaction-audit
+          FRONTIER_PHASE9_AUDIT_URL: http://127.0.0.1:3000/frontier/phase9-audit
         run: node scripts/frontier-phase9-browser-audit.cjs
 
       - name: Audit FRONTIER Phase 8.1 media mosaic
