@@ -7,6 +7,7 @@ on:
       - 'src/data/arcadeGames.ts'
       - 'tests/sylvaria-v3-ancient-tree.test.ts'
       - 'tests/arcade-discovery.test.ts'
+      - 'tests/sylvaria-v2-sideview.test.ts'
       - 'scripts/playtest-sylvaria-v3-ascent.mjs'
       - 'vercel.json'
       - '.github/workflows/sylvaria-v3-ascent.yml'
@@ -34,10 +35,11 @@ jobs:
           node --check public/game-runtimes/sylvaria-v3/input-v3.js
           node --check public/game-runtimes/sylvaria-v3/world-v3.js
           node --check public/game-runtimes/sylvaria-v3/engine-v3.js
+          node --check public/game-runtimes/sylvaria-v3/engine-feel-v3.js
           node --check public/game-runtimes/sylvaria-v3/render-v3.js
           node --check public/game-runtimes/sylvaria-v3/game-v3.js
       - name: Validate ancient-tree design contracts
-        run: node --import tsx --test tests/sylvaria-v3-ancient-tree.test.ts tests/arcade-discovery.test.ts
+        run: node --import tsx --test tests/sylvaria-v3-ancient-tree.test.ts tests/sylvaria-v2-sideview.test.ts tests/arcade-discovery.test.ts
       - name: Typecheck website integration
         run: npm run typecheck
       - name: Lint website integration
