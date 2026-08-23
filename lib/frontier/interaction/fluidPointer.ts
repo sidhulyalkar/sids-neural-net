@@ -15,6 +15,12 @@ export type FrontierFluidPress = {
   startedAt: number;
 };
 
+export type FrontierFluidReleasePoint = {
+  x: number;
+  y: number;
+  at: number;
+};
+
 export function resolveFrontierFluidIntent(input: {
   state: FrontierFluidClickState;
   at: number;
@@ -30,6 +36,27 @@ export function resolveFrontierFluidIntent(input: {
     intent: input.expanded ? 'collapse' : 'expand',
     state: { lastReleaseAt: input.at },
   };
+}
+
+/**
+ * Preserve ownership of a deliberately rapid second press even if the first
+ * release has already caused FLIP motion to place a different descendant under
+ * the stationary pointer. Time alone is not sufficient: the press must remain
+ * inside the same small spatial neighborhood, so a newly targeted control away
+ * from the original release keeps its native behavior.
+ */
+export function qualifiesFrontierFluidPairPress(
+  previous: FrontierFluidReleasePoint | undefined,
+  input: { x: number; y: number; at: number; doubleMs?: number; maxDistancePx?: number },
+): boolean {
+  if (!previous || previous.at <= 0 || input.at < previous.at) return false;
+  const threshold = Math.max(120, Math.min(420, input.doubleMs ?? FRONTIER_FLUID_DOUBLE_MS));
+  const maxDistance = Math.max(3, Math.min(24, input.maxDistancePx ?? FRONTIER_FLUID_MOVE_PX));
+  const delta = input.at - previous.at;
+  if (delta > threshold) return false;
+  const dx = input.x - previous.x;
+  const dy = input.y - previous.y;
+  return dx * dx + dy * dy <= maxDistance * maxDistance;
 }
 
 export function qualifiesFrontierFluidRelease(
