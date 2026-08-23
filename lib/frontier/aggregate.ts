@@ -3,6 +3,7 @@ import { getActiveSportsFeed } from './activeSportsSources';
 import { normalizeFeedToEnglish } from './english';
 import { getSharedExpandedPublicFeed } from './expandedSourcesShared';
 import { getAdaptiveLiveDiscovery } from './liveDiscovery';
+import { enrichFrontierMediaGeometry } from './media/geometry';
 import { enrichFrontierSourceVisual } from './media/sourceVisuals';
 import { getPersonalFrontierFeed } from './personalSources';
 import { getSharedMultiSourceFrontierFeed } from './sourceIngestorShared';
@@ -61,7 +62,7 @@ function enrichFormatSemantics(entry: FrontierItem): FrontierItem {
 }
 
 function enrichPresentation(entry: FrontierItem): FrontierItem {
-  return enrichFrontierSourceVisual(enrichFormatSemantics(entry));
+  return enrichFrontierMediaGeometry(enrichFrontierSourceVisual(enrichFormatSemantics(entry)));
 }
 
 function mergeStatuses(statuses: FrontierSourceStatus[]): FrontierSourceStatus[] {
