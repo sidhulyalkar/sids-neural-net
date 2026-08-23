@@ -3,7 +3,13 @@ import { join } from 'node:path';
 import { getIntegratedFrontierFeed } from '../lib/frontier/aggregate';
 
 async function main() {
-  const feed = await getIntegratedFrontierFeed({ includeSnapshot: false });
+  // The daily archive is the deep collection path, not the request-time UI.
+  // Let each adapter use its own bounded transport timeout rather than the
+  // shorter first-paint budget enforced by /api/frontier/feed.
+  const feed = await getIntegratedFrontierFeed({
+    includeSnapshot: false,
+    adapterDeadlineMs: false,
+  });
   if (feed.items.length < 8) {
     throw new Error(`Refusing to replace the FRONTIER archive with only ${feed.items.length} live items.`);
   }
