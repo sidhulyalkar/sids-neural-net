@@ -15,7 +15,10 @@ export const metadata: Metadata = {
 
 export default function ArcadePage() {
   return (
-    <main className="min-h-screen bg-[#020306] px-4 pb-20 pt-20 text-white sm:px-8 sm:pt-28 lg:px-12">
+    <div
+      className="min-h-screen bg-[#020306] px-4 pb-20 pt-20 text-white sm:px-8 sm:pt-28 lg:px-12"
+      data-arcade-catalog
+    >
       <div className="mx-auto max-w-6xl">
         <div className="max-w-2xl">
           <h1 className="font-mono text-[10px] font-normal uppercase tracking-[0.28em] text-white/40">
@@ -31,6 +34,6 @@ export default function ArcadePage() {
           <ArcadeCatalog games={arcadeGames} />
         </section>
       </div>
-    </main>
+    </div>
   );
 }
