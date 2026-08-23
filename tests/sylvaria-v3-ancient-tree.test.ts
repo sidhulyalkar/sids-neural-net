@@ -10,15 +10,17 @@ const config=read(`${root}/config-v3.js`);
 const input=read(`${root}/input-v3.js`);
 const world=read(`${root}/world-v3.js`);
 const engine=read(`${root}/engine-v3.js`);
+const feel=read(`${root}/engine-feel-v3.js`);
 const render=read(`${root}/render-v3.js`);
 const boot=read(`${root}/game-v3.js`);
 
 test('Sylvaria v3 is a clean modular ancient-tree ascent runtime',()=>{
-  for(const moduleName of ['config-v3.js','input-v3.js','world-v3.js','engine-v3.js','render-v3.js','game-v3.js'])assert.ok(read(`${root}/${moduleName}`).length>100,`missing ${moduleName}`);
+  for(const moduleName of ['config-v3.js','input-v3.js','world-v3.js','engine-v3.js','engine-feel-v3.js','render-v3.js','game-v3.js'])assert.ok(read(`${root}/${moduleName}`).length>100,`missing ${moduleName}`);
   assert.match(html,/ANCIENT TREE ASCENT/);
   assert.match(html,/game-v3\.js/);
+  assert.match(boot,/engine-feel-v3\.js/);
   assert.match(config,/VERSION='3\.0\.0-alpha\.1'/);
-  for(const source of [config,input,world,engine,render,boot])assert.doesNotMatch(source,/mosslight|v015-entry|sylvaria-v2\/|Cutstep/);
+  for(const source of [config,input,world,engine,feel,render,boot])assert.doesNotMatch(source,/mosslight|v015-entry|sylvaria-v2\/|Cutstep/);
 });
 
 test('movement is fast, deterministic, buffered, and built for upward flow',()=>{
@@ -34,7 +36,13 @@ test('movement is fast, deterministic, buffered, and built for upward flow',()=>
   assert.match(config,/airDashSpeed:825/);
   assert.match(engine,/p\.airDash=true/);
   assert.match(engine,/this\.zone\(\)\.wind\*130\*dt/);
-  for(const source of [config,world,engine]){assert.doesNotMatch(source,/Math\.random/);assert.doesNotMatch(source,/Date\.now|performance\.now/)}
+  for(const source of [config,world,engine,feel]){assert.doesNotMatch(source,/Math\.random/);assert.doesNotMatch(source,/Date\.now|performance\.now/)}
+});
+
+test('neutral air preserves earned momentum instead of auto-braking vine and rebound routes',()=>{
+  assert.match(feel,/preserveMomentum=!p\.onGround&&!p\.vineId&&p\.dashTime<=0&&this\.input\.axisX\(\)===0/);
+  assert.match(feel,/const retained=Math\.abs\(incomingVx\)\*0\.995/);
+  assert.match(feel,/if\(Math\.abs\(p\.vx\)<retained\)p\.vx=Math\.sign\(incomingVx\)\*retained/);
 });
 
 test('default controls use arrows for movement and D for the machete and are actually rebindable',()=>{
@@ -81,12 +89,19 @@ test('one D attack button supports grounded, aerial, wall, plunge and dash comba
   for(const profile of ['side','up','down','wall','dash','plunge'])assert.match(config,new RegExp(`${profile}:\\{startup:`));
   assert.match(engine,/if\(p\.dashTime>0\|\|p\.dashRecover>0\)type='dash'/);
   assert.match(engine,/else if\(p\.wallDir&&!p\.onGround\)type='wall'/);
-  assert.match(engine,/type=p\.vy>360\?'plunge':'down'/);
-  assert.match(engine,/else if\(this\.input\.is\('up'\)\)type='up'/);
+  assert.match(feel,/type=p\.vy>480\?'plunge':'down'/);
+  assert.match(feel,/else if\(this\.input\.is\('up'\)\)type='up'/);
   assert.match(engine,/projectileDeflectWindow/);
   assert.match(engine,/reflectProjectile/);
   assert.match(engine,/a\.type==='down'\|\|a\.type==='plunge'/);
   assert.match(engine,/a\.type==='side'&&p\.combo===3/);
+});
+
+test('pressing D creates defensive blade coverage immediately before projectile travel advances',()=>{
+  assert.match(feel,/this\.deflectNearbyProjectiles\(\)/);
+  assert.match(feel,/deflectNearbyProjectiles\(\)/);
+  assert.match(feel,/const p=this\.state\.player,box=this\.attackBox\(true\)/);
+  assert.match(feel,/this\.reflectProjectile\(shot\)/);
 });
 
 test('aerial combat turns downward hits into traversal rather than stopping the player',()=>{
@@ -119,6 +134,7 @@ test('the Crown Feller is a real three-phase mastery boss rather than a larger n
   assert.match(engine,/axeWindup/);
   assert.match(engine,/volleyWindup/);
   assert.match(engine,/sawWindup/);
+  assert.match(feel,/beforeGuard>0&&boss\.guard===0/);
   assert.match(html,/bossHud/);
 });
 
@@ -130,7 +146,7 @@ test('presentation follows the approved dark realistic old-growth target while p
   assert.match(render,/drawGuardian/);
   assert.match(render,/drawBoss/);
   assert.match(render,/COLORS\.blade/);
-  assert.match(render,/wrapped handle|machete|blade/i);
+  assert.match(render,/machete|blade/i);
   assert.match(html,/SYLVARIA/);
   assert.doesNotMatch(html,/Hollow Knight|Silksong/);
 });
