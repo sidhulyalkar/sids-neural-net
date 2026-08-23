@@ -73,7 +73,11 @@ export class SylvariaEngine extends SaplineEngine{
   }
 
   snapshot(){
-    const snap=super.snapshot();
-    return{...snap,rails:(this.world.rails||[]).map(rail=>({...rail}))};
+    const snap=super.snapshot(),boss=this.world.boss;
+    return{
+      ...snap,
+      boss:{...snap.boss,name:boss.name,kind:boss.kind,machineMounted:!!boss.machineMounted,clampCount:boss.clampCount||0},
+      rails:(this.world.rails||[]).map(rail=>({...rail})),
+    };
   }
 }
