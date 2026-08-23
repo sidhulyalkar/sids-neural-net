@@ -1,16 +1,21 @@
 .virtualItem {
   min-width: 0;
-  /* Unknown compact geometry must participate in real layout once. The
-     deterministic masonry hook batches that first measurement before paint and
-     only then marks the card locked. This removes guessed 320/380px intrinsic
-     placeholders from the user's first bidirectional scroll. */
+  /* Unknown compact geometry participates in real layout exactly once. The
+     deterministic masonry hook batches that measurement and only then enables
+     virtualization. No guessed offscreen placeholder is allowed to precede the
+     authoritative compact lock. */
   content-visibility: visible;
   contain-intrinsic-size: none;
 }
 
 .virtualItem[data-frontier-geometry='locked'] {
   content-visibility: auto;
-  contain-intrinsic-size: auto var(--frontier-card-intrinsic-height);
+  /* Do not use `auto <length>` here. The remembered-size form lets Chromium
+     replace our cache with a previous rendered subtree size as a card crosses
+     the content-visibility boundary, which can change scroll extent. Width is
+     owned by the grid; only the measured compact block size is substituted. */
+  contain-intrinsic-inline-size: none;
+  contain-intrinsic-block-size: var(--frontier-card-intrinsic-height);
 }
 
 @media (max-width: 720px) {
