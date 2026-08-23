@@ -145,57 +145,74 @@ async function testUniRico(page, engineName) {
   return { bridge, initial };
 }
 
-async function testCrownrush(page, engineName) {
-  const response = await page.goto(`${baseUrl}/arcade/crownrush`, { waitUntil: 'networkidle' });
-  if (!response?.ok()) throw new Error(`Crownrush route returned ${response?.status() ?? 'no response'}`);
+async function testSylvariaSequoia(page, engineName) {
+  const response = await page.goto(`${baseUrl}/arcade/sylvaria-sequoia`, { waitUntil: 'networkidle' });
+  if (!response?.ok()) throw new Error(`Sylvaria: Sequoia route returned ${response?.status() ?? 'no response'}`);
 
-  const iframe = page.locator('iframe[title="Crownrush game runtime"]');
+  const iframe = page.locator('iframe[title="Sylvaria: Sequoia game runtime"]');
   await iframe.waitFor({ state: 'visible' });
-  if ((await iframe.getAttribute('sandbox')) !== null) throw new Error('Crownrush same-origin runtime should not be sandboxed');
+  if ((await iframe.getAttribute('sandbox')) !== null) throw new Error('Sylvaria: Sequoia same-origin runtime should not be sandboxed');
 
-  const frame = page.frames().find((candidate) => candidate.url().includes('/game-runtimes/crownrush/'));
-  if (!frame) throw new Error('Crownrush iframe did not attach');
+  const frame = page.frames().find((candidate) => candidate.url().includes('/game-runtimes/sylvaria-sequoia/'));
+  if (!frame) throw new Error('Sylvaria: Sequoia iframe did not attach');
 
-  const bridge = await assertNativeBridge(frame, 'Crownrush');
+  const bridge = await assertNativeBridge(frame, 'Sylvaria: Sequoia');
   await frame.locator('#c').waitFor({ state: 'visible' });
   const title = await frame.title();
-  if (!title.includes('Crownrush v0.1.0')) throw new Error(`Crownrush runtime title is stale: ${title}`);
+  if (!title.includes('Sylvaria: Sequoia v0.2.0')) throw new Error(`Sylvaria: Sequoia runtime title is stale: ${title}`);
 
-  const initial = await assertPainted(frame, 'Crownrush title', 8, 20);
-  const debug = await frame.evaluate(() => window.CROWNRUSH_DEBUG && ({
-    version: window.CROWNRUSH_DEBUG.version,
-    fixedHz: window.CROWNRUSH_DEBUG.fixedHz,
-    state: window.CROWNRUSH_DEBUG.getState(),
+  const initial = await assertPainted(frame, 'Sylvaria: Sequoia title', 8, 20);
+  const contract = await frame.evaluate(() => window.SYLVARIA_SEQUOIA_DEBUG && ({
+    version: window.SYLVARIA_SEQUOIA_DEBUG.version,
+    fixedHz: window.SYLVARIA_SEQUOIA_DEBUG.fixedHz,
+    state: window.SYLVARIA_SEQUOIA_DEBUG.getState(),
+    tuning: window.SYLVARIA_SEQUOIA_DEBUG.getTuning(),
+    telemetry: window.SYLVARIA_SEQUOIA_DEBUG.getTelemetry(),
   }));
-  if (!debug) throw new Error('Crownrush debug contract is unavailable');
-  if (debug.version !== '0.1.0' || debug.fixedHz !== 120) {
-    throw new Error(`Crownrush deterministic contract is stale: ${JSON.stringify(debug)}`);
+  if (!contract) throw new Error('Sylvaria: Sequoia debug contract is unavailable');
+  if (contract.version !== '0.2.0' || contract.fixedHz !== 120) {
+    throw new Error(`Sylvaria: Sequoia deterministic contract is stale: ${JSON.stringify(contract)}`);
   }
-  if (debug.state.mode !== 'title') throw new Error(`Crownrush expected title mode, got ${debug.state.mode}`);
-  if (debug.state.branchCount < 8 || debug.state.knotCount < 1) {
-    throw new Error(`Crownrush procedural route failed to prime: ${JSON.stringify(debug.state)}`);
+  if (contract.state.mode !== 'title') throw new Error(`Sylvaria: Sequoia expected title mode, got ${contract.state.mode}`);
+  if (contract.state.branchCount < 8 || contract.state.knotCount < 1) {
+    throw new Error(`Sylvaria: Sequoia authored route failed to prime: ${JSON.stringify(contract.state)}`);
+  }
+  if (contract.tuning.combo.hyperThreshold !== 4 || contract.tuning.combo.ascentDecayScale >= 1) {
+    throw new Error(`Sylvaria: Sequoia combo tuning is stale: ${JSON.stringify(contract.tuning.combo)}`);
+  }
+  for (const grammar of ['FLOW', 'CRUX', 'RECOVERY', 'SLINGSHOT']) {
+    if (!contract.telemetry.routeStats[grammar]?.generated) {
+      throw new Error(`Sylvaria: Sequoia did not generate ${grammar} telemetry: ${JSON.stringify(contract.telemetry.routeStats)}`);
+    }
   }
 
-  await page.screenshot({ path: path.join(outputDir, `${engineName}-crownrush-title.png`), fullPage: true });
-  await assertGameFocus(page, frame.locator('#c'), 'Crownrush');
-  await assertCanvasKeyboardFocus(frame, 'Crownrush');
+  await page.screenshot({ path: path.join(outputDir, `${engineName}-sylvaria-sequoia-title.png`), fullPage: true });
+  await assertGameFocus(page, frame.locator('#c'), 'Sylvaria: Sequoia');
+  await assertCanvasKeyboardFocus(frame, 'Sylvaria: Sequoia');
   await page.keyboard.press('Space');
   await page.waitForTimeout(180);
   await page.keyboard.down('ArrowRight');
-  await page.waitForTimeout(260);
+  await page.waitForTimeout(280);
   await page.keyboard.up('ArrowRight');
-  const moving = await frame.evaluate(() => window.CROWNRUSH_DEBUG.getState());
-  if (moving.mode !== 'playing') throw new Error(`Crownrush did not enter gameplay after Space: ${JSON.stringify(moving)}`);
-  if (moving.player.vx <= 0) throw new Error(`Crownrush horizontal acceleration did not respond: ${JSON.stringify(moving.player)}`);
+
+  const moving = await frame.evaluate(() => window.SYLVARIA_SEQUOIA_DEBUG.getState());
+  if (moving.mode !== 'playing') throw new Error(`Sylvaria: Sequoia did not enter gameplay: ${JSON.stringify(moving)}`);
+  if (moving.player.vx <= 0) throw new Error(`Sylvaria: Sequoia horizontal acceleration did not respond: ${JSON.stringify(moving.player)}`);
 
   await page.keyboard.press('Space');
-  await page.waitForTimeout(120);
-  const jumping = await frame.evaluate(() => window.CROWNRUSH_DEBUG.getState());
-  if (jumping.player.vy <= 0) throw new Error(`Crownrush jump did not launch upward: ${JSON.stringify(jumping.player)}`);
+  await page.waitForTimeout(100);
+  const jumping = await frame.evaluate(() => window.SYLVARIA_SEQUOIA_DEBUG.getState());
+  if (jumping.player.vy <= 0) throw new Error(`Sylvaria: Sequoia jump did not launch upward: ${JSON.stringify(jumping.player)}`);
 
-  const playing = await assertPainted(frame, 'Crownrush playing', 8, 20);
-  await page.screenshot({ path: path.join(outputDir, `${engineName}-crownrush-playing.png`), fullPage: true });
-  return { bridge, title, initial, playing, debug, moving, jumping };
+  await page.waitForTimeout(300);
+  const telemetry = await frame.evaluate(() => window.SYLVARIA_SEQUOIA_DEBUG.getTelemetry());
+  if (telemetry.runSeconds <= 0 || telemetry.counters.jumps < 1 || telemetry.movement.peakSpeed <= 0) {
+    throw new Error(`Sylvaria: Sequoia telemetry did not accumulate: ${JSON.stringify(telemetry)}`);
+  }
+
+  const playing = await assertPainted(frame, 'Sylvaria: Sequoia playing', 8, 20);
+  await page.screenshot({ path: path.join(outputDir, `${engineName}-sylvaria-sequoia-playing.png`), fullPage: true });
+  return { bridge, title, initial, playing, contract, moving, jumping, telemetry };
 }
 
 for (const { name: engineName, browserType, launchOptions } of engines) {
@@ -222,10 +239,10 @@ for (const { name: engineName, browserType, launchOptions } of engines) {
 
     const stretchicorn = await testStretchicorn(page, engineName);
     const unirico = await testUniRico(page, engineName);
-    const crownrush = await testCrownrush(page, engineName);
+    const sylvariaSequoia = await testSylvariaSequoia(page, engineName);
 
     if (errors.length) throw new Error(errors.join('\n'));
-    report.push({ engine: engineName, ok: true, stretchicorn, unirico, crownrush });
+    report.push({ engine: engineName, ok: true, stretchicorn, unirico, sylvariaSequoia });
   } catch (error) {
     failed = true;
     report.push({
