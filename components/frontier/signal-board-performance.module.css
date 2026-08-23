@@ -1,17 +1,18 @@
 .virtualItem {
   min-width: 0;
+  --frontier-card-intrinsic-fallback: 380px;
   content-visibility: auto;
-  contain-intrinsic-size: auto 380px;
+  contain-intrinsic-size: auto var(--frontier-card-intrinsic-height, var(--frontier-card-intrinsic-fallback));
 }
 
 .feedVirtualItem {
-  contain-intrinsic-size: auto 260px;
+  --frontier-card-intrinsic-fallback: 260px;
 }
 
 @media (max-width: 720px) {
   .virtualItem,
   .feedVirtualItem {
-    contain-intrinsic-size: auto 320px;
+    --frontier-card-intrinsic-fallback: 320px;
   }
 
   /* Chromium can keep auto-visibility contents skipped until scrolling even
@@ -19,6 +20,6 @@
      a real above-fold reading surface; later cards remain virtualized. */
   .feedVirtualItem:nth-child(-n + 3) {
     content-visibility: visible;
-    contain-intrinsic-size: auto;
+    contain-intrinsic-size: none;
   }
 }
