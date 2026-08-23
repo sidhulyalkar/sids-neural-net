@@ -108,10 +108,14 @@ jobs:
           curl --retry 2 --retry-connrefused -fsS "$SYL/v014-entry.js" -o /tmp/sylvaria-v014-entry.js
           curl --retry 2 --retry-connrefused -fsS "$SYL/v014/character-rig-v014.js" -o /tmp/sylvaria-rig-v014.js
           curl --retry 2 --retry-connrefused -fsS "$SYL/v014/combat-flow-v014.js" -o /tmp/sylvaria-flow-v014.js
+          curl --retry 2 --retry-connrefused -fsS "$SYL/v014/charge-intent-v014.js" -o /tmp/sylvaria-charge-intent-v014.js
           curl --retry 2 --retry-connrefused -fsS "$SYL/v014/enemy-flow-v014.js" -o /tmp/sylvaria-enemy-flow-v014.js
+          curl --retry 2 --retry-connrefused -fsS "$SYL/v014/enemy-mastery-v014.js" -o /tmp/sylvaria-enemy-mastery-v014.js
           curl --retry 2 --retry-connrefused -fsS "$SYL/v014/boss-flow-v014.js" -o /tmp/sylvaria-boss-flow-v014.js
           curl --retry 2 --retry-connrefused -fsS "$SYL/v014/threat-manager-v014.js" -o /tmp/sylvaria-threat-v014.js
           curl --retry 2 --retry-connrefused -fsS "$SYL/v014/flow-presentation-v014.js" -o /tmp/sylvaria-presentation-v014.js
+          curl --retry 2 --retry-connrefused -fsS "$SYL/v014/presentation-space-v014.js" -o /tmp/sylvaria-space-v014.js
+          curl --retry 2 --retry-connrefused -fsS "$SYL/v014/combat-readability-v014.js" -o /tmp/sylvaria-readability-v014.js
           curl --retry 2 --retry-connrefused -fsS "$SYL/v013/kinetic-presentation-v013.js" -o /tmp/sylvaria-kinetic-presentation.js
           curl --retry 2 --retry-connrefused -fsS "$SYL/v012/webgl-pond-v012.js" -o /tmp/sylvaria-pond.js
           curl --retry 2 --retry-connrefused -fsS "$SYL/v011/competitive-v011.js" -o /tmp/sylvaria-competitive.js
@@ -125,19 +129,27 @@ jobs:
             echo "public shell still boots v0.13 directly" >&2
             exit 1
           fi
-          for module in character-rig-v014 combat-flow-v014 enemy-flow-v014 boss-flow-v014 threat-manager-v014 flow-presentation-v014; do
+          for module in character-rig-v014 combat-flow-v014 charge-intent-v014 enemy-flow-v014 enemy-mastery-v014 boss-flow-v014 threat-manager-v014 flow-presentation-v014 presentation-space-v014 combat-readability-v014; do
             grep -q "$module.js" /tmp/sylvaria-v014-entry.js
           done
           grep -q "SylvariaRankedDisabledReason='v0.14 replay verifier migration'" /tmp/sylvaria-v014-entry.js
           grep -q 'SPRITE_FORWARD_OFFSET=Math.PI/2' /tmp/sylvaria-rig-v014.js
           grep -q 'mouthForAttack' /tmp/sylvaria-rig-v014.js
           grep -q 'lastParryDashRefund' /tmp/sylvaria-flow-v014.js
+          grep -q 'retargetTicks:8' /tmp/sylvaria-charge-intent-v014.js
+          grep -q 'v014ChargeCommittedVector' /tmp/sylvaria-charge-intent-v014.js
           grep -q 'spec.dodge=100' /tmp/sylvaria-enemy-flow-v014.js
+          grep -q 'striderWhiffPunishTicks:28' /tmp/sylvaria-enemy-mastery-v014.js
+          grep -q 'sniperCounterPunishTicks:32' /tmp/sylvaria-enemy-mastery-v014.js
           grep -q 'guardByPhase:Object.freeze({1:3,2:4,3:5})' /tmp/sylvaria-boss-flow-v014.js
           grep -q 'CORE OPEN' /tmp/sylvaria-boss-flow-v014.js
           grep -q 'ROOM_THREAT_PROFILES' /tmp/sylvaria-threat-v014.js
           grep -q 'actor===state.boss' /tmp/sylvaria-threat-v014.js
           grep -q 'drawBossFlow' /tmp/sylvaria-presentation-v014.js
+          grep -q 'setTransform(scale,0,0,scale,0,0)' /tmp/sylvaria-space-v014.js
+          grep -q 'logicalToClient' /tmp/sylvaria-space-v014.js
+          grep -q 'saw:Object.freeze({radius:11.5,halo:19' /tmp/sylvaria-readability-v014.js
+          grep -q 'alive.length' /tmp/sylvaria-readability-v014.js
           grep -q 'SylvariaCharacterRig?.pose?.(p)' /tmp/sylvaria-pond.js
           grep -q 'rig?.mouthForAttack' /tmp/sylvaria-kinetic-presentation.js
           grep -q 'window.SylvariaRankedDisabledReason' /tmp/sylvaria-competitive.js
