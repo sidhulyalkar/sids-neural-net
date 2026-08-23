@@ -8,12 +8,13 @@ const entry=readFileSync(join(process.cwd(),'public/game-runtimes/mosslight-v2/v
 
 test('v0.14 keeps released charge chords committed until a reduced vector is deliberately held',()=>{
   assert.match(entry,/charge-intent-v014\.js/);
-  assert.match(source,/retargetTicks:8/);
+  assert.match(source,/retargetTicks:24/);
   assert.match(source,/v014ChargeCommittedVector/);
   assert.match(source,/v014ChargeCandidateVector/);
   assert.match(source,/v014ChargeCandidateTicks/);
   assert.match(source,/if\(!input\?\.m\)/);
   assert.match(source,/if\(p\.v014ChargeCandidateTicks>=CHARGE_INTENT_CONFIG\.retargetTicks\)/);
+  assert.equal(24/120,.2);
 });
 
 test('fresh movement keydown can commit a new charge vector immediately',()=>{
