@@ -1,10 +1,14 @@
 'use client';
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import type { ReactNode } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 import { ambientExplorationVector, emitFrontierAmbientExploration } from '@/lib/frontier/ambientState';
 import { FRONTIER_PINNED_TOPICS } from '@/lib/frontier/interests';
-import { frontierVisualRole, type FrontierVisualRole } from '@/lib/frontier/presentation/mediaForward';
+import {
+  frontierPackedColumnSpans,
+  frontierVisualRole,
+  type FrontierVisualRole,
+} from '@/lib/frontier/presentation/mediaForward';
 import {
   isFrontierTypingTarget,
   resolveFrontierFocalKeyboardIntent,
@@ -171,6 +175,15 @@ export function SignalBoard({
     return priorityFirst(ordered);
   }, [appendStable, presentationItems, stableOrder]);
 
+  const renderableMedia = useMemo(
+    () => displayedItems.map((item) => canRenderFrontierMedia(item)),
+    [displayedItems],
+  );
+  const packedColumns = useMemo(
+    () => frontierPackedColumnSpans(displayedItems, renderableMedia),
+    [displayedItems, renderableMedia],
+  );
+
   useEffect(() => {
     if (expandedItemId && !displayedItems.some((item) => item.id === expandedItemId)) setExpandedItemId(undefined);
   }, [displayedItems, expandedItemId]);
@@ -297,8 +310,10 @@ export function SignalBoard({
       ) : (
         <div className={`${styles.signalGrid} ${spatial.grid} ${compact ? styles.signalGridCompact : ''}`}>
           {displayedItems.map((item, index) => {
-            const hasMedia = canRenderFrontierMedia(item);
+            const hasMedia = renderableMedia[index] ?? false;
             const visualRole = frontierVisualRole(item, index, hasMedia);
+            const packedSpan = packedColumns[index] ?? 4;
+            const packedStyle = { '--frontier-grid-span': String(packedSpan) } as CSSProperties;
             return (
               <FluidSpatialCard
                 key={item.id}
@@ -310,10 +325,12 @@ export function SignalBoard({
                 className={`${styles.gridItem} ${spatial.item} ${VISUAL_ROLE_CLASS[visualRole]} ${hasMedia ? spatial.mediaItem : spatial.textItem} ${item.highPriority ? spatial.priorityItem : ''} ${item.velocitySignal ? spatial.velocityItem : ''} ${perf.virtualItem}`}
               >
                 <div
+                  style={packedStyle}
                   data-frontier-priority={item.highPriority ? 'true' : undefined}
                   data-frontier-velocity={item.velocitySignal ? 'true' : undefined}
                   data-frontier-visual-role={visualRole}
                   data-frontier-has-media={hasMedia ? 'true' : 'false'}
+                  data-frontier-grid-span={packedSpan}
                   {...hoverProps(item)}
                 >
                   <PriorityMarker item={item} />
