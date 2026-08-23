@@ -40,7 +40,8 @@ function rectsOverlap(a, b, padding = 2) {
 
   try {
     for (const viewport of VIEWPORTS) {
-      const page = await browser.newPage({ viewport });
+      const context = await browser.newContext({ viewport });
+      const page = await context.newPage();
       const pageErrors = [];
       const consoleErrors = [];
       page.on('pageerror', (error) => pageErrors.push(String(error)));
@@ -162,7 +163,7 @@ function rectsOverlap(a, b, padding = 2) {
         destinations: state.destinations,
       });
 
-      await page.close();
+      await context.close();
     }
   } finally {
     await browser.close();
