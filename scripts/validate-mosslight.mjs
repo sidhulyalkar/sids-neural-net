@@ -25,20 +25,22 @@ expect(has(kinetics,'moveSpeed:238','acceleration:1880','braking:12.5','turnGrip
 expect(has(flow14,"FLOW_VERSION='0.14.0'",'bladeBuffer:7/120','dashCommitTicks:4','dashSteerBlend:.055','dashSteerMaxRadians:.38','parryDashRefund:12/120','recoveryTicksAtFullFlow:7','minimumReleaseCharge:.12','lastParryDashRefund','maxVelocityAlignmentError','maxScalarSpeedError'),'v0.14 player combat flow incomplete');
 expect(!/requestAnimationFrame|performance\.now|Date\.now|Math\.random/.test(flow14),'v0.14 player mechanics contain non-deterministic clock/random APIs');
 
-// Character presentation must share one authoritative root and one mouth socket.
+// Character presentation must share one authoritative root and reset render-only room state cleanly.
 expect(has(rig14,"CHARACTER_RIG_VERSION='0.14.0'",'SPRITE_FORWARD_OFFSET=Math.PI/2','function poseFor','function mouthForAttack','function attachmentError','mouth:Object.freeze(mouth)','root:Object.freeze({x:q(p.x),y:q(p.y)})'),'shared frog rig incomplete');
 expect(has(pond,'window.SylvariaCharacterRig?.pose?.(p)',"emit('frog',body.x,body.y,body.w,body.h",'rot:body.rotation','foot:body.foot'),'WebGL frog does not consume shared rig');
-expect(has(kineticPresentation,'rig?.mouthForAttack','tip=anglePoint(root,a,length)','tongueAttachmentError:lastTongueAttachmentError'),'Reactive Blade presentation is not attached to shared mouth/root');
+expect(has(kineticPresentation,'rig?.mouthForAttack','tip=anglePoint(root,a,length)','tongueAttachmentError:lastTongueAttachmentError','function resetRoomPresentation','holdFrames=0;lastHitStopSerial=state.hitStopSerial||0'),'Reactive Blade presentation is not attached to shared mouth/root or does not reset per room');
+expect(has(flowPresentation14,'function resetRoomPresentation','holdFrames=0;lastHitStopSerial=state.hitStopSerial||0'),'v0.14 tactical overlay carries stale hit-stop across rooms');
 expect(!/requestAnimationFrame|performance\.now|Date\.now|Math\.random/.test(rig14),'character rig must remain simulation-derived');
 
 // Enemy reactions and encounter cadence are readable deterministic rules.
 expect(has(enemyFlow14,'reactionTicks:12','reactionTicks:9','reactionTicks:14','punishMultiplier:1.35','spec.dodge=100','v014PunishTimer'),'fixed enemy evade/punish grammar incomplete');
 expect(has(threat14,"THREAT_MANAGER_VERSION='0.14.0'",'coverage:2,engage:1,precision:2,heavy:3,support:1,light:0','ROOM_PROFILE_TITLES','ROOM_THREAT_PROFILES','gapMin','gapMax','candidateSort','chooseBeat','holdWaitingThreats','punishGraceUntil','actor===state.boss'),'30-room threat orchestration incomplete');
-expect((threat14.match(/P\(/g)||[]).length>=31,'threat manager does not contain 30 explicit room profiles');
+const explicitThreatProfiles=(threat14.match(/\bP\(/g)||[]).length;
+expect(explicitThreatProfiles===30,`threat manager must contain exactly 30 explicit room profiles, found ${explicitThreatProfiles}`);
 expect(!/requestAnimationFrame|performance\.now|Date\.now|setTimeout|Math\.random/.test(threat14),'threat scheduling must be fixed-step deterministic');
 
 // Boss mastery is earned through counters/routing, not raw HP attrition.
-expect(has(bossFlow14,'guardByPhase:Object.freeze({1:3,2:4,3:5})','punishTicksByPhase:Object.freeze({1:36,2:30,3:24})','bladePunishMultiplier:1.35','perfectReturnGuardDamage:2','hazardGuardDamage:1','telegraphDashCutGuardDamage:1',"'CORE OPEN'",'b.v014PunishTimer','b.telegraph=0'),'boss guard-break loop incomplete');
+expect(has(bossFlow14,'guardByPhase:Object.freeze({1:3,2:4,3:5})','punishTicksByPhase:Object.freeze({1:36,2:30,3:24})','bladePunishMultiplier:1.35','guardedHpMultiplier:0','perfectReturnGuardDamage:2','hazardGuardDamage:1','telegraphDashCutGuardDamage:1',"'CORE OPEN'",'b.v014PunishTimer','b.telegraph=0','function rejectGuardedDamage'),'boss guard-break loop incomplete');
 expect(!/state\.shots\s*=|\.shots\.splice|shot\.dead/.test(bossFlow14),'boss opening must not manufacture safety by deleting bullets');
 expect(has(flowPresentation14,'function drawBossIntent','function drawBossFlow','b.v014GuardMax','b.v014PunishTimer','bossCues'),'boss guard/intent lacks entity-local presentation');
 expect(!/requestAnimationFrame|performance\.now|Date\.now|setTimeout|Math\.random/.test(bossFlow14),'boss flow must remain fixed-step deterministic');
@@ -60,4 +62,4 @@ expect(!/verified leaderboard/.test(arcade.slice(arcade.indexOf("slug: 'sylvaria
 
 const authoritativeHash=crypto.createHash('sha256').update([model,rooms,world,movement,battle,synergy,kinetics,kineticAI,flow14,enemyFlow14,bossFlow14,threat14].join('\n')).digest('hex');
 if(errors.length){console.error(`Sylvaria v0.14 validation failed (${errors.length})`);for(const e of errors)console.error(` - ${e}`);process.exit(1)}
-console.log(`Sylvaria v0.14 production validator PASS · unified rig · 120 Hz combat · deterministic threat/boss flow · authoritative sha256 ${authoritativeHash}`);
+console.log(`Sylvaria v0.14 production validator PASS · unified rig · 120 Hz combat · 30 authored threat profiles · deterministic boss guard · authoritative sha256 ${authoritativeHash}`);
