@@ -24,8 +24,8 @@ type State =
 
 export function LocalConvergenceSynthesis({ item }: { item: FrontierItem }) {
   const evidence = useMemo(() => frontierSynthesisEvidence(item), [item]);
-  const workerRef = useRef<Worker>();
-  const requestRef = useRef<string>();
+  const workerRef = useRef<Worker | undefined>(undefined);
+  const requestRef = useRef<string | undefined>(undefined);
   const [state, setState] = useState<State>({ kind: 'idle' });
   const [capabilityChecked, setCapabilityChecked] = useState(false);
 
