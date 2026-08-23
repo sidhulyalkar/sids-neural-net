@@ -56,13 +56,24 @@ function getViewportDimensions(container: HTMLElement): Dimensions {
   };
 }
 
-function newSessionSeed(): string {
+function entropySeed(): string {
   if (typeof crypto !== 'undefined' && typeof crypto.getRandomValues === 'function') {
     const values = new Uint32Array(2);
     crypto.getRandomValues(values);
     return `${values[0].toString(36)}-${values[1].toString(36)}`;
   }
   return `${Date.now().toString(36)}-${Math.round(performance.now()).toString(36)}`;
+}
+
+function newSessionSeed(): string {
+  const params = new URLSearchParams(window.location.search);
+  const requestedSeed = params.get('seed')?.replace(/[^a-zA-Z0-9._-]/g, '').slice(0, 72);
+  const requestedMorphology = params.get('morph')?.toLowerCase();
+  const base = requestedSeed || entropySeed();
+  if (requestedMorphology && /^[a-z-]+$/.test(requestedMorphology)) {
+    return `force:${requestedMorphology}:${base}`;
+  }
+  return base;
 }
 
 function estimateLabelHalfWidth(destination: Destination, compact: boolean): number {
@@ -108,6 +119,15 @@ function drawSmoothPath(ctx: CanvasRenderingContext2D, points: Vec2[]) {
 
   const last = points[points.length - 1];
   ctx.lineTo(last.x, last.y);
+  if (points.length > 2 && points[0] === last) ctx.closePath();
+}
+
+function drawPolygon(ctx: CanvasRenderingContext2D, points: Vec2[]) {
+  if (points.length < 3) return;
+  ctx.beginPath();
+  ctx.moveTo(points[0].x, points[0].y);
+  for (let index = 1; index < points.length; index += 1) ctx.lineTo(points[index].x, points[index].y);
+  ctx.closePath();
 }
 
 function branchColor(path: FractalPath, active: boolean, alpha: number): string {
@@ -115,6 +135,26 @@ function branchColor(path: FractalPath, active: boolean, alpha: number): string 
   if (path.depth === 0) return `rgba(208, 230, 226, ${alpha})`;
   if (path.depth <= 2) return `rgba(158, 198, 210, ${alpha})`;
   return `rgba(139, 153, 190, ${alpha})`;
+}
+
+function drawStencilPath(ctx: CanvasRenderingContext2D, path: FractalPath) {
+  drawPolygon(ctx, path.points);
+  if (path.depth === 0) {
+    ctx.fillStyle = 'rgba(79, 222, 245, 0.025)';
+    ctx.fill();
+  } else {
+    ctx.save();
+    ctx.globalCompositeOperation = 'destination-out';
+    ctx.fillStyle = `rgba(0, 0, 0, ${clamp(0.76 - path.depth * 0.07, 0.42, 0.76)})`;
+    ctx.fill();
+    ctx.restore();
+  }
+
+  drawPolygon(ctx, path.points);
+  ctx.strokeStyle = `rgba(150, 211, 222, ${path.alpha})`;
+  ctx.lineWidth = path.width;
+  ctx.lineJoin = 'round';
+  ctx.stroke();
 }
 
 export function AdaptiveFractalHome() {
@@ -193,38 +233,82 @@ export function AdaptiveFractalHome() {
     const background = ctx.createRadialGradient(
       tree.center.x,
       tree.center.y,
-      8,
+      tree.morphology.id === 'halo' ? 2 : 8,
       tree.center.x,
       tree.center.y,
       Math.max(dimensions.width, dimensions.height) * 0.74
     );
-    background.addColorStop(0, '#061018');
-    background.addColorStop(0.28, '#03080d');
-    background.addColorStop(0.68, '#020407');
-    background.addColorStop(1, '#010204');
+    if (tree.morphology.id === 'halo') {
+      background.addColorStop(0, '#010204');
+      background.addColorStop(0.38, '#020408');
+      background.addColorStop(0.72, '#061018');
+      background.addColorStop(1, '#010204');
+    } else if (tree.morphology.id === 'pixel-ghost') {
+      background.addColorStop(0, '#040b10');
+      background.addColorStop(0.48, '#020508');
+      background.addColorStop(1, '#010204');
+    } else {
+      background.addColorStop(0, '#061018');
+      background.addColorStop(0.28, '#03080d');
+      background.addColorStop(0.68, '#020407');
+      background.addColorStop(1, '#010204');
+    }
     ctx.fillStyle = background;
     ctx.fillRect(0, 0, dimensions.width, dimensions.height);
 
-    ctx.save();
-    ctx.translate(tree.center.x, tree.center.y);
-    ctx.strokeStyle = 'rgba(113, 210, 229, 0.035)';
-    ctx.lineWidth = 0.65;
-    ctx.setLineDash([1.5, 12]);
-    for (const scale of [0.42, 0.68, 0.93]) {
-      ctx.beginPath();
-      ctx.ellipse(0, 0, tree.radiusX * scale, tree.radiusY * scale, 0, 0, Math.PI * 2);
-      ctx.stroke();
+    if (tree.morphology.id !== 'pixel-ghost' && tree.morphology.id !== 'echo-nest') {
+      ctx.save();
+      ctx.translate(tree.center.x, tree.center.y);
+      ctx.strokeStyle = 'rgba(113, 210, 229, 0.03)';
+      ctx.lineWidth = 0.65;
+      ctx.setLineDash([1.5, 12]);
+      for (const scale of [0.42, 0.68, 0.93]) {
+        ctx.beginPath();
+        ctx.ellipse(0, 0, tree.radiusX * scale, tree.radiusY * scale, 0, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+      ctx.restore();
     }
-    ctx.restore();
 
-    const ordered = [...tree.paths].sort((a, b) => b.depth - a.depth);
-    for (const path of ordered) {
+    const stencils = tree.paths.filter((path) => path.renderMode === 'stencil').sort((a, b) => a.depth - b.depth);
+    const pixels = tree.paths.filter((path) => path.renderMode === 'pixel');
+    const strokes = tree.paths.filter((path) => path.renderMode === 'stroke').sort((a, b) => b.depth - a.depth);
+
+    for (const path of stencils) drawStencilPath(ctx, path);
+
+    for (const path of pixels) {
+      const point = path.points[0];
+      if (!point) continue;
+      const active = hoveredId === path.ownerId;
+      const dimmed = Boolean(hoveredId && !active);
+      const alpha = active ? Math.min(0.92, path.alpha * 1.45) : dimmed ? path.alpha * 0.22 : path.alpha;
+      const size = active ? path.width * 1.08 : path.width;
+      ctx.fillStyle = active ? `rgba(111, 238, 255, ${alpha})` : `rgba(165, 208, 218, ${alpha})`;
+      ctx.fillRect(point.x - size * 0.5, point.y - size * 0.5, size, size);
+      if (path.depth <= 2) {
+        ctx.strokeStyle = `rgba(225, 242, 241, ${alpha * 0.3})`;
+        ctx.lineWidth = 0.5;
+        ctx.strokeRect(point.x - size * 0.5, point.y - size * 0.5, size, size);
+      }
+    }
+
+    for (const path of strokes) {
       const active = hoveredId === path.ownerId;
       const dimmed = Boolean(hoveredId && !active);
       const alpha = active ? Math.min(0.98, path.alpha * 1.55) : dimmed ? path.alpha * 0.24 : path.alpha;
       const width = active ? path.width * 1.12 : path.width;
+      const glow = path.glow ?? 0;
 
-      if (path.depth === 0 && !dimmed) {
+      if (!dimmed && glow > 0) {
+        drawSmoothPath(ctx, path.points);
+        ctx.strokeStyle = active
+          ? `rgba(83, 229, 255, ${Math.min(0.18, 0.055 * glow + 0.04)})`
+          : `rgba(122, 211, 224, ${Math.min(0.11, 0.035 * glow + 0.02)})`;
+        ctx.lineWidth = width + glow * 4.2;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.stroke();
+      } else if (path.depth === 0 && !dimmed) {
         drawSmoothPath(ctx, path.points);
         ctx.strokeStyle = active ? 'rgba(83, 229, 255, 0.12)' : 'rgba(153, 218, 222, 0.055)';
         ctx.lineWidth = width + (active ? 8 : 5);
@@ -236,8 +320,8 @@ export function AdaptiveFractalHome() {
       drawSmoothPath(ctx, path.points);
       ctx.strokeStyle = branchColor(path, active, alpha);
       ctx.lineWidth = width;
-      ctx.lineCap = 'round';
-      ctx.lineJoin = 'round';
+      ctx.lineCap = tree.morphology.id === 'tectonic' ? 'butt' : 'round';
+      ctx.lineJoin = tree.morphology.id === 'tectonic' ? 'miter' : 'round';
       ctx.stroke();
     }
 
@@ -255,13 +339,16 @@ export function AdaptiveFractalHome() {
       ctx.globalAlpha = 1;
     });
 
-    ctx.beginPath();
-    ctx.arc(tree.center.x, tree.center.y, hoveredId ? 3.2 : 2.4, 0, Math.PI * 2);
-    ctx.fillStyle = hoveredId ? 'rgba(224, 247, 248, 0.84)' : 'rgba(202, 224, 225, 0.58)';
-    ctx.fill();
+    if (!['halo', 'mycelial', 'pixel-ghost', 'echo-nest'].includes(tree.morphology.id)) {
+      ctx.beginPath();
+      ctx.arc(tree.center.x, tree.center.y, hoveredId ? 3.2 : 2.4, 0, Math.PI * 2);
+      ctx.fillStyle = hoveredId ? 'rgba(224, 247, 248, 0.84)' : 'rgba(202, 224, 225, 0.58)';
+      ctx.fill();
+    }
   }, [dimensions, hoveredId, tree]);
 
   const isMeasured = Boolean(tree);
+  const showSoma = tree && !['halo', 'mycelial', 'pixel-ghost', 'echo-nest'].includes(tree.morphology.id);
 
   return (
     <div
@@ -270,6 +357,7 @@ export function AdaptiveFractalHome() {
       data-home-branch-count={HOME_BRANCH_COUNT}
       data-fractal-morphology={tree?.morphology.id ?? 'measuring'}
       data-fractal-dimension={tree ? tree.theoreticalTerminalDimension.toFixed(3) : undefined}
+      data-fractal-seed={sessionSeed ?? undefined}
     >
       <canvas ref={canvasRef} className="absolute inset-0" aria-hidden="true" />
       <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_bottom,rgba(1,2,4,0.26),transparent_18%,transparent_76%,rgba(1,2,4,0.82))]" />
@@ -311,28 +399,30 @@ export function AdaptiveFractalHome() {
             })}
           </nav>
 
-          <div
-            className="pointer-events-none absolute z-10 -translate-x-1/2 -translate-y-1/2"
-            style={{ left: tree.center.x, top: tree.center.y }}
-            aria-hidden="true"
-          >
-            <svg width="70" height="70" viewBox="0 0 70 70" className="overflow-visible">
-              <path
-                d="M35 7 L52 15 L61 32 L55 51 L38 62 L19 56 L8 39 L13 20 Z"
-                fill="rgba(255,255,255,0.026)"
-                stroke="rgba(222,241,242,0.17)"
-                strokeWidth="0.8"
-                vectorEffect="non-scaling-stroke"
-              />
-              <path
-                d="M35 14 L48 20 L54 33 L50 46 L37 54 L23 50 L16 38 L20 24 Z"
-                fill="rgba(92,226,255,0.018)"
-                stroke="rgba(92,226,255,0.075)"
-                strokeWidth="0.7"
-                vectorEffect="non-scaling-stroke"
-              />
-            </svg>
-          </div>
+          {showSoma && (
+            <div
+              className="pointer-events-none absolute z-10 -translate-x-1/2 -translate-y-1/2"
+              style={{ left: tree.center.x, top: tree.center.y }}
+              aria-hidden="true"
+            >
+              <svg width="70" height="70" viewBox="0 0 70 70" className="overflow-visible">
+                <path
+                  d="M35 7 L52 15 L61 32 L55 51 L38 62 L19 56 L8 39 L13 20 Z"
+                  fill="rgba(255,255,255,0.026)"
+                  stroke="rgba(222,241,242,0.17)"
+                  strokeWidth="0.8"
+                  vectorEffect="non-scaling-stroke"
+                />
+                <path
+                  d="M35 14 L48 20 L54 33 L50 46 L37 54 L23 50 L16 38 L20 24 Z"
+                  fill="rgba(92,226,255,0.018)"
+                  stroke="rgba(92,226,255,0.075)"
+                  strokeWidth="0.7"
+                  vectorEffect="non-scaling-stroke"
+                />
+              </svg>
+            </div>
+          )}
 
           <Link
             href="/about"
