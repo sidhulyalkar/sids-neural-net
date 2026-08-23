@@ -19,10 +19,20 @@ function roundObject(record) {
 
 async function waitForFixture(page) {
   await page.goto(AUDIT_URL, { waitUntil: 'domcontentloaded' });
-  await page.locator(ROOT).waitFor({ state: 'visible' });
   await page.waitForFunction(
-    ({ selector, expected }) => document.querySelectorAll(selector).length === expected,
-    { selector: CARD, expected: EXPECTED_CARDS },
+    ({ rootSelector, cardSelector, expected }) => {
+      const visibleRoots = Array.from(document.querySelectorAll(rootSelector)).filter((node) => {
+        if (!(node instanceof HTMLElement)) return false;
+        const rect = node.getBoundingClientRect();
+        const style = getComputedStyle(node);
+        return rect.width > 0 && rect.height > 0 && style.display !== 'none' && style.visibility !== 'hidden';
+      });
+      // A transient hidden hydration copy is harmless, but the stress run may
+      // only start once there is one visible fixture and one canonical 12-card
+      // tree. Persistent duplicate cards therefore remain a hard failure.
+      return visibleRoots.length === 1 && document.querySelectorAll(cardSelector).length === expected;
+    },
+    { rootSelector: ROOT, cardSelector: CARD, expected: EXPECTED_CARDS },
     { polling: 'raf', timeout: 5_000 },
   );
   await page.evaluate(async () => {
