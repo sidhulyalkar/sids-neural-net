@@ -11,10 +11,17 @@ import type { FrontierFeedResponse, FrontierItem, FrontierSourceStatus } from '.
 import { getVimeoStaffPicksFeed } from './vimeoSource';
 
 const DAY_MS = 86_400_000;
+const REQUEST_ADAPTER_DEADLINE_MS = 4_500;
 
 type IntegratedOptions = {
   includeSnapshot?: boolean;
   focusTopics?: string[];
+  /**
+   * Request-time source meshes are supplemental and must not hold the reading
+   * surface hostage to one upstream. Daily snapshot generation explicitly sets
+   * this to false so it can wait for adapters' own transport deadlines.
+   */
+  adapterDeadlineMs?: number | false;
 };
 
 function canonicalKey(item: FrontierItem): string {
@@ -85,16 +92,46 @@ function recentSnapshotItems(): FrontierItem[] {
   });
 }
 
+async function withinAdapterDeadline<T>(
+  label: string,
+  task: Promise<T>,
+  deadlineMs: number | false,
+): Promise<T> {
+  if (deadlineMs === false) return task;
+  const boundedMs = Math.max(1_500, Math.min(15_000, deadlineMs));
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      task,
+      new Promise<T>((_, reject) => {
+        timer = setTimeout(
+          () => reject(new Error(`${label} request budget exceeded after ${boundedMs}ms`)),
+          boundedMs,
+        );
+      }),
+    ]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
 export async function getIntegratedFrontierFeed(options: IntegratedOptions = {}): Promise<FrontierFeedResponse> {
   const focusTopics = Array.from(new Set((options.focusTopics ?? []).map((topic) => topic.trim()).filter(Boolean))).slice(0, 10);
+  const deadline = options.adapterDeadlineMs ?? REQUEST_ADAPTER_DEADLINE_MS;
+  const emptyAdaptive: FrontierFeedResponse = { generatedAt: new Date().toISOString(), items: [], sources: [] };
+
   const [baseResult, personalResult, activeSportsResult, adaptiveResult, multiSourceResult, expandedResult, vimeoResult] = await Promise.allSettled([
-    getFrontierFeed(),
-    getPersonalFrontierFeed(),
-    getActiveSportsFeed(),
-    focusTopics.length ? getAdaptiveLiveDiscovery(focusTopics) : Promise.resolve({ generatedAt: new Date().toISOString(), items: [], sources: [] }),
-    getSharedMultiSourceFrontierFeed(focusTopics),
-    getSharedExpandedPublicFeed(focusTopics),
-    getVimeoStaffPicksFeed(),
+    withinAdapterDeadline('core mesh', getFrontierFeed(), deadline),
+    withinAdapterDeadline('personal mesh', getPersonalFrontierFeed(), deadline),
+    withinAdapterDeadline('active sports mesh', getActiveSportsFeed(), deadline),
+    withinAdapterDeadline(
+      'adaptive live mesh',
+      focusTopics.length ? getAdaptiveLiveDiscovery(focusTopics) : Promise.resolve(emptyAdaptive),
+      deadline,
+    ),
+    withinAdapterDeadline('research ingestion mesh', getSharedMultiSourceFrontierFeed(focusTopics), deadline),
+    withinAdapterDeadline('expanded public mesh', getSharedExpandedPublicFeed(focusTopics), deadline),
+    withinAdapterDeadline('Vimeo discovery', getVimeoStaffPicksFeed(), deadline),
   ]);
 
   // Focused discovery and research meshes intentionally precede broad sources.
