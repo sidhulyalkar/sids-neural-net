@@ -1,9 +1,9 @@
-name: Sylvaria v0.14 Flow Lab
+name: Sylvaria v0.14 Production Combat Lab
 
 on:
   pull_request:
     paths:
-      - 'public/game-runtimes/mosslight-v2/v014/**'
+      - 'public/game-runtimes/mosslight-v2/**'
       - 'scripts/playtest-sylvaria-v014-*.mjs'
       - 'tests/sylvaria-v014-*.test.ts'
       - '.github/workflows/sylvaria-v014-flow.yml'
@@ -17,7 +17,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  browser-flow-lab:
+  production-combat-lab:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -33,7 +33,7 @@ jobs:
       - name: Install locked dependencies
         run: npm ci
 
-      - name: Validate v0.14 flow source contracts
+      - name: Validate v0.14 source contracts
         run: node --import tsx --test tests/sylvaria-v014-*.test.ts
 
       - name: Build deterministic site
@@ -58,17 +58,11 @@ jobs:
       - name: Install Chromium qualification engine
         run: npx --yes playwright@1.55.0 install --with-deps chromium
 
-      - name: Playtest buffered combat flow and readable evasion
+      - name: Qualify playable v0.14 character combat boss and threat loop
         run: |
           PW_BIN="$(npm exec --yes --package=playwright@1.55.0 -- which playwright)"
           PW_ROOT="$(cd "$(dirname "$PW_BIN")/.." && pwd)"
-          PLAYWRIGHT_MODULE_ROOT="$PW_ROOT" node scripts/playtest-sylvaria-v014-flow.mjs
-
-      - name: Verify physical dash accuracy and combat readability
-        run: |
-          PW_BIN="$(npm exec --yes --package=playwright@1.55.0 -- which playwright)"
-          PW_ROOT="$(cd "$(dirname "$PW_BIN")/.." && pwd)"
-          PLAYWRIGHT_MODULE_ROOT="$PW_ROOT" node scripts/playtest-sylvaria-v014-accuracy.mjs
+          PLAYWRIGHT_MODULE_ROOT="$PW_ROOT" node scripts/playtest-sylvaria-v014-production.mjs
 
       - name: Verify remembered dash charge direction
         run: |
@@ -82,19 +76,11 @@ jobs:
           PW_ROOT="$(cd "$(dirname "$PW_BIN")/.." && pwd)"
           PLAYWRIGHT_MODULE_ROOT="$PW_ROOT" node scripts/playtest-sylvaria-v014-buffer-accuracy.mjs
 
-      - name: Verify 30-room rhythmic threat orchestration
-        run: |
-          PW_BIN="$(npm exec --yes --package=playwright@1.55.0 -- which playwright)"
-          PW_ROOT="$(cd "$(dirname "$PW_BIN")/.." && pwd)"
-          PLAYWRIGHT_MODULE_ROOT="$PW_ROOT" node scripts/playtest-sylvaria-v014-threat-orchestration.mjs
-
-      - name: Upload v0.14 combat artifacts
+      - name: Upload v0.14 production combat artifacts
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: sylvaria-v014-combat-artifacts
-          path: |
-            artifacts/sylvaria-v014-flow
-            artifacts/sylvaria-v014-threat
+          name: sylvaria-v014-production-combat-artifacts
+          path: artifacts/sylvaria-v014-flow
           if-no-files-found: warn
           retention-days: 14
