@@ -1,0 +1,96 @@
+name: Sylvaria Sequoia CI
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/sylvaria-sequoia-ci.yml'
+      - 'app/arcade/**'
+      - 'components/arcade/**'
+      - 'src/data/arcadeGames.ts'
+      - 'public/game-runtimes/sylvaria-sequoia/**'
+      - 'scripts/validate-sylvaria-sequoia.mjs'
+      - 'scripts/playtest-arcade-browsers.mjs'
+      - 'tests/arcade-discovery.test.ts'
+      - 'package.json'
+      - 'package-lock.json'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sylvaria-sequoia-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  sylvaria-sequoia-gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Set up Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install exact locked dependencies
+        run: npm ci
+
+      - name: Typecheck website integration
+        run: npm run typecheck
+
+      - name: Run repository unit tests
+        run: npm test
+
+      - name: Validate Sylvaria Sequoia runtime invariants
+        run: npm run check:sylvaria-sequoia
+
+      - name: Build production website
+        env:
+          NEXT_PUBLIC_SITE_URL: https://example.invalid
+          NEXT_PUBLIC_WORLD_LOOM_XR: disabled
+        run: npm run build
+
+      - name: Start built website
+        run: |
+          npx next start -p 3000 > /tmp/sylvaria-sequoia-site.log 2>&1 &
+          echo $! > /tmp/sylvaria-sequoia-site.pid
+          for attempt in {1..40}; do
+            if curl -fsS http://127.0.0.1:3000/arcade/sylvaria-sequoia >/dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/sylvaria-sequoia-site.log
+          exit 1
+
+      - name: Smoke Sylvaria Sequoia cabinet and runtime
+        run: |
+          curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/arcade/sylvaria-sequoia >/dev/null
+          curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/game-runtimes/sylvaria-sequoia/index.html | grep -q 'Sylvaria: Sequoia v0.2.0'
+          curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/game-runtimes/sylvaria-sequoia/04-input.js | grep -q 'fixedHz: 120'
+
+      - name: Install browser engines
+        run: |
+          rm -rf /tmp/sylvaria-sequoia-playwright
+          npm install --prefix /tmp/sylvaria-sequoia-playwright --no-package-lock --no-save playwright@1.55.0
+          /tmp/sylvaria-sequoia-playwright/node_modules/.bin/playwright install --with-deps chromium firefox webkit
+          /tmp/sylvaria-sequoia-playwright/node_modules/.bin/playwright install chrome
+
+      - name: Validate Game Network including Sylvaria Sequoia across four engines
+        env:
+          PLAYWRIGHT_MODULE_ROOT: /tmp/sylvaria-sequoia-playwright/node_modules/playwright
+          ARCADE_BROWSER_DIR: artifacts/sylvaria-sequoia-browser-matrix
+        run: node scripts/playtest-arcade-browsers.mjs
+
+      - name: Upload Sylvaria Sequoia browser evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: sylvaria-sequoia-browser-evidence
+          path: artifacts/sylvaria-sequoia-browser-matrix
+          if-no-files-found: warn
+          retention-days: 14
