@@ -22,6 +22,7 @@ type Props = {
   poster?: string;
   alt: string;
   streams?: FrontierVideoStream[];
+  aspectRatio?: string;
   onUnavailable?: () => void;
 };
 
@@ -50,7 +51,7 @@ type VirtualBoundarySnapshot = {
   contentVisibility: string;
 };
 
-export function AdaptiveVideoSurface({ id, url, poster, alt, streams, onUnavailable }: Props) {
+export function AdaptiveVideoSurface({ id, url, poster, alt, streams, aspectRatio, onUnavailable }: Props) {
   const shellRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -271,9 +272,16 @@ export function AdaptiveVideoSurface({ id, url, poster, alt, streams, onUnavaila
   };
 
   return (
-    <div ref={shellRef} className={styles.videoShell}>
+    <div ref={shellRef} className={styles.videoShell} style={aspectRatio ? { aspectRatio } : undefined}>
       {!mountedPlayer && poster ? (
-        <GpuImageSurface id={`${id}:poster`} src={poster} alt={alt} className={styles.posterSurface} onUnavailable={onUnavailable} />
+        <GpuImageSurface
+          id={`${id}:poster`}
+          src={poster}
+          alt={alt}
+          className={styles.posterSurface}
+          aspectRatio={aspectRatio}
+          onUnavailable={onUnavailable}
+        />
       ) : null}
       {mountedPlayer ? (
         <div
