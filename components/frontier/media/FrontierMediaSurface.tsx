@@ -1,6 +1,7 @@
 'use client';
 
 import { useRef } from 'react';
+import { frontierMediaGeometry } from '@/lib/frontier/media/geometry';
 import { isFrontierGithubSocialPreview } from '@/lib/frontier/media/sourceVisuals';
 import type { FrontierItem } from '@/lib/frontier/types';
 import { AdaptiveVideoSurface } from './AdaptiveVideoSurface';
@@ -53,9 +54,19 @@ export function canRenderFrontierMedia(item: FrontierItem): boolean {
   return isMediaUrl(media.proxyUrl ?? media.url);
 }
 
-function NativeImageSurface({ src, alt, onUnavailable }: { src: string; alt: string; onUnavailable?: () => void }) {
+function NativeImageSurface({
+  src,
+  alt,
+  aspectRatio,
+  onUnavailable,
+}: {
+  src: string;
+  alt: string;
+  aspectRatio: string;
+  onUnavailable?: () => void;
+}) {
   return (
-    <div className={styles.nativeImageSurface}>
+    <div className={styles.nativeImageSurface} style={{ aspectRatio }}>
       {/* Cross-origin publisher imagery that is not in FRONTIER's trusted proxy
           set remains a browser-native fallback rather than weakening SSRF/CORS boundaries. */}
       {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -77,6 +88,7 @@ function YouTubeSurface({ item, onUnavailable }: { item: FrontierItem; onUnavail
   const visibility = useMediaVisibility(ref);
   const media = item.media;
   if (!media || media.type !== 'youtube' || !isYouTubeId(media.url)) return null;
+  const aspectRatio = frontierMediaGeometry(media).cssAspectRatio;
   const defaultPoster = `https://i.ytimg.com/vi/${media.url}/hqdefault.jpg`;
   const poster = isMediaUrl(media.posterProxyUrl)
     ? media.posterProxyUrl
@@ -85,7 +97,7 @@ function YouTubeSurface({ item, onUnavailable }: { item: FrontierItem; onUnavail
       : localProxyUrl(defaultPoster);
 
   return (
-    <div ref={ref} className={styles.youtubeSurface}>
+    <div ref={ref} className={styles.youtubeSurface} style={{ aspectRatio }}>
       {visibility === 'active' ? (
         <iframe
           title={`Video: ${item.title}`}
@@ -102,6 +114,7 @@ function YouTubeSurface({ item, onUnavailable }: { item: FrontierItem; onUnavail
           alt={media.alt || item.title}
           className={styles.posterSurface}
           placeholderColor={media.averageColor}
+          aspectRatio={aspectRatio}
           onUnavailable={onUnavailable}
         />
       )}
@@ -118,6 +131,7 @@ export function FrontierMediaSurface({
 }) {
   const media = item.media;
   if (!media || !canRenderFrontierMedia(item)) return null;
+  const aspectRatio = frontierMediaGeometry(media).cssAspectRatio;
 
   if (media.type === 'image') {
     if (isMediaUrl(media.proxyUrl)) {
@@ -128,12 +142,20 @@ export function FrontierMediaSurface({
           alt={media.alt || item.title}
           className={styles.primaryImage}
           placeholderColor={media.averageColor}
+          aspectRatio={aspectRatio}
           onUnavailable={onUnavailable}
         />
       );
     }
     if (!isHttpUrl(media.url)) return null;
-    return <NativeImageSurface src={media.url} alt={media.alt || item.title} onUnavailable={onUnavailable} />;
+    return (
+      <NativeImageSurface
+        src={media.url}
+        alt={media.alt || item.title}
+        aspectRatio={aspectRatio}
+        onUnavailable={onUnavailable}
+      />
+    );
   }
 
   if (media.type === 'youtube') return <YouTubeSurface item={item} onUnavailable={onUnavailable} />;
@@ -147,6 +169,7 @@ export function FrontierMediaSurface({
         poster={isMediaUrl(poster) ? poster : undefined}
         streams={media.streams}
         alt={media.alt || item.title}
+        aspectRatio={aspectRatio}
         onUnavailable={onUnavailable}
       />
     );
