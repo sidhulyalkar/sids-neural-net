@@ -80,7 +80,7 @@ export class SylvariaEngine extends FeelEngine{
   releaseSapline(launch=true){
     const p=this.state.player,tether=p.sapline;if(!tether)return false;
     const anchor=(this.world.anchors||[]).find(item=>item.id===tether.anchorId),pos=this.anchorPosition(anchor);
-    let extension=tether.extension||0,boost=0;
+    let extension=tether.extension||0,boost=0,launched=false;
     if(launch&&pos&&tether.age>=1/30){
       const dx=pos.x-p.x,dy=pos.y-p.y,dist=Math.hypot(dx,dy)||1,ux=dx/dist,uy=dy/dist;
       extension=Math.max(extension,dist-tether.rest);
@@ -91,8 +91,12 @@ export class SylvariaEngine extends FeelEngine{
       if(pos.y<p.y-24&&extension>18)p.vy=Math.min(p.vy,-Math.min(455,SAPLINE.releaseUpFloor+boost*.28));
       const speed=Math.hypot(p.vx,p.vy);
       if(speed>SAPLINE.maxReleaseSpeed){const k=SAPLINE.maxReleaseSpeed/speed;p.vx*=k;p.vy*=k}
-      if(extension>12){this.state.stats.saplineLaunches++;this.emit('saplineLaunch',{anchorId:tether.anchorId,extension,energy:tether.energy||0,speed:Math.hypot(p.vx,p.vy)})}
+      if(extension>12){launched=true;this.state.stats.saplineLaunches++;this.emit('saplineLaunch',{anchorId:tether.anchorId,extension,energy:tether.energy||0,speed:Math.hypot(p.vx,p.vy)})}
     }
+    // A real elastic release owns the next airborne trajectory. A one-tick floor
+    // skim while the line was taut must not leave stale support state behind and
+    // immediately feed the launch into grounded movement/braking.
+    if(launched){p.onGround=false;p.groundId=null;p.coyote=0}
     p.lastSaplineAnchor=tether.anchorId;p.sameAnchorCooldown=SAPLINE.sameAnchorCooldown;p.saplineCooldown=SAPLINE.detachCooldown;p.sapline=null;p.saplineCandidate=null;p.saplineCandidateTangent=null;
     if(launch)this.spawnFx(p.x,p.y,'#9cf0b8',7,100);
     this.emit('saplineRelease',{launch,extension,boost});
