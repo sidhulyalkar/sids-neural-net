@@ -43,7 +43,7 @@ jobs:
         run: npm run lint
       - name: Unit tests
         run: npm test
-      - name: Validate current Sylvaria v3.1 runtime
+      - name: Validate current Sylvaria v3.2 runtime
         run: npm run check:sylvaria
       - name: Profile current Sylvaria playable runtime size
         run: npm run profile:sylvaria
@@ -88,27 +88,36 @@ jobs:
           curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/game-runtimes/unirico/index.html | grep -q '<canvas id="c"'
           curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/game-runtimes/unirico/runtime/core.js | grep -q 'use strict\|const\|function'
 
-          echo "GET current Sylvaria v3.1 runtime"
+          echo "GET current Sylvaria v3.2 runtime"
           SYL=http://127.0.0.1:3000/game-runtimes/sylvaria-v3
-          curl --retry 2 --retry-connrefused -fsS "$SYL/index.html" -o /tmp/sylvaria-v31-index.html
-          curl --retry 2 --retry-connrefused -fsS "$SYL/config-v3.js" -o /tmp/sylvaria-v31-config.js
-          curl --retry 2 --retry-connrefused -fsS "$SYL/world-v3.js" -o /tmp/sylvaria-v31-world.js
-          curl --retry 2 --retry-connrefused -fsS "$SYL/engine-sapline-v3.js" -o /tmp/sylvaria-v31-sapline.js
-          curl --retry 2 --retry-connrefused -fsS "$SYL/render-motion-v3.js" -o /tmp/sylvaria-v31-motion.js
-          curl --retry 2 --retry-connrefused -fsS "$SYL/game-v3.js" -o /tmp/sylvaria-v31-game.js
-          grep -q 'ANCIENT TREE ASCENT' /tmp/sylvaria-v31-index.html
-          grep -q 'hold Sapline' /tmp/sylvaria-v31-index.html
-          grep -q "VERSION='3.1.0-alpha.1'" /tmp/sylvaria-v31-config.js
-          grep -q "tether:'KeyW'" /tmp/sylvaria-v31-config.js
-          grep -q 'spring:23.5' /tmp/sylvaria-v31-config.js
-          grep -q 'SAPLINE_ANCHORS' /tmp/sylvaria-v31-world.js
-          grep -q 'knot-canopy' /tmp/sylvaria-v31-world.js
-          grep -q 'updateSapline' /tmp/sylvaria-v31-sapline.js
-          grep -q 'releaseSapline' /tmp/sylvaria-v31-sapline.js
-          grep -q 'drawSapline' /tmp/sylvaria-v31-motion.js
-          grep -q 'if(!attack)' /tmp/sylvaria-v31-motion.js
-          grep -q 'engine-sapline-v3.js' /tmp/sylvaria-v31-game.js
-          grep -q 'render-motion-v3.js' /tmp/sylvaria-v31-game.js
+          curl --retry 2 --retry-connrefused -fsS "$SYL/index.html" -o /tmp/sylvaria-v32-index.html
+          curl --retry 2 --retry-connrefused -fsS "$SYL/config-v3.js" -o /tmp/sylvaria-v32-config.js
+          curl --retry 2 --retry-connrefused -fsS "$SYL/world-v3.js" -o /tmp/sylvaria-v32-world.js
+          curl --retry 2 --retry-connrefused -fsS "$SYL/routes-v3.js" -o /tmp/sylvaria-v32-routes.js
+          curl --retry 2 --retry-connrefused -fsS "$SYL/engine-sapline-v3.js" -o /tmp/sylvaria-v32-sapline.js
+          curl --retry 2 --retry-connrefused -fsS "$SYL/engine-routes-v3.js" -o /tmp/sylvaria-v32-route-engine.js
+          curl --retry 2 --retry-connrefused -fsS "$SYL/render-routes-v3.js" -o /tmp/sylvaria-v32-route-render.js
+          curl --retry 2 --retry-connrefused -fsS "$SYL/game-v3.js" -o /tmp/sylvaria-v32-game.js
+          grep -q 'ANCIENT TREE ASCENT' /tmp/sylvaria-v32-index.html
+          grep -q 'hold Sapline' /tmp/sylvaria-v32-index.html
+          grep -q 'BarkRails' /tmp/sylvaria-v32-index.html
+          grep -q 'CROWN GIRDLER' /tmp/sylvaria-v32-index.html
+          grep -q "VERSION='3.2.0-alpha.1'" /tmp/sylvaria-v32-config.js
+          grep -q "tether:'KeyW'" /tmp/sylvaria-v32-config.js
+          grep -q 'dampingFree:5.8' /tmp/sylvaria-v32-config.js
+          grep -q 'dampingSettle:9.1' /tmp/sylvaria-v32-config.js
+          grep -q 'SAPLINE_ANCHORS' /tmp/sylvaria-v32-world.js
+          grep -q "route:'mastery'" /tmp/sylvaria-v32-routes.js
+          grep -q 'rail-canopy-master-a' /tmp/sylvaria-v32-routes.js
+          grep -q 'updateSapline' /tmp/sylvaria-v32-sapline.js
+          grep -q 'settleByExtension' /tmp/sylvaria-v32-sapline.js
+          grep -q 'collideVertical' /tmp/sylvaria-v32-route-engine.js
+          grep -q "boss.name='CROWN GIRDLER'" /tmp/sylvaria-v32-route-engine.js
+          grep -q 'drawBarkRail' /tmp/sylvaria-v32-route-render.js
+          grep -q 'drawSapline' /tmp/sylvaria-v32-route-render.js
+          grep -q 'clampCount=Math.max(3,b.maxGuard' /tmp/sylvaria-v32-route-render.js
+          grep -q 'engine-routes-v3.js' /tmp/sylvaria-v32-game.js
+          grep -q 'render-routes-v3.js' /tmp/sylvaria-v32-game.js
 
           echo "GET leaderboard in intentionally unconfigured CI deployment"
           curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/api/sylvaria/leaderboard | grep -q '"configured":false'
@@ -124,12 +133,12 @@ jobs:
           PW_BIN="$(npm exec --yes --package=playwright@1.55.0 -- which playwright)"
           PW_ROOT="$(cd "$(dirname "$PW_BIN")/.." && pwd)"
           PLAYWRIGHT_MODULE_ROOT="$PW_ROOT" node scripts/playtest-arcade-home.mjs
-      - name: Validate Sylvaria v3.1 across Chrome Stable Chromium Firefox and WebKit
+      - name: Validate Sylvaria v3.2 across Chrome Stable Chromium Firefox and WebKit
         run: |
           PW_BIN="$(npm exec --yes --package=playwright@1.55.0 -- which playwright)"
           PW_ROOT="$(cd "$(dirname "$PW_BIN")/.." && pwd)"
           PLAYWRIGHT_MODULE_ROOT="$PW_ROOT" node scripts/playtest-sylvaria-v3-browsers.mjs
-      - name: Playtest Sylvaria v3.1 ancient-tree movement combat and Sapline
+      - name: Playtest Sylvaria v3.2 BarkRail Sapline movement combat and Crown Girdler
         run: |
           PW_BIN="$(npm exec --yes --package=playwright@1.55.0 -- which playwright)"
           PW_ROOT="$(cd "$(dirname "$PW_BIN")/.." && pwd)"
@@ -147,9 +156,9 @@ jobs:
           npx --yes playwright@1.55.0 screenshot --browser=chromium --viewport-size="1440,1100" --full-page http://127.0.0.1:3000/case-studies artifacts/browser-smoke/case-studies.png
           npx --yes playwright@1.55.0 screenshot --browser=chromium --viewport-size="1440,1100" --full-page http://127.0.0.1:3000/photography artifacts/browser-smoke/visual-cortex.png
           npx --yes playwright@1.55.0 screenshot --browser=chromium --viewport-size="1440,1100" --full-page http://127.0.0.1:3000/arcade artifacts/browser-smoke/game-network.png
-          npx --yes playwright@1.55.0 screenshot --browser=chromium --viewport-size="1440,1000" http://127.0.0.1:3000/arcade/sylvaria artifacts/browser-smoke/arcade-sylvaria-v31.png
-          npx --yes playwright@1.55.0 screenshot --browser=chromium --viewport-size="1920,1080" http://127.0.0.1:3000/game-runtimes/sylvaria-v3/index.html artifacts/browser-smoke/sylvaria-v31-widescreen.png
-          npx --yes playwright@1.55.0 screenshot --browser=chromium --viewport-size="390,844" http://127.0.0.1:3000/game-runtimes/sylvaria-v3/index.html artifacts/browser-smoke/sylvaria-v31-portrait.png
+          npx --yes playwright@1.55.0 screenshot --browser=chromium --viewport-size="1440,1000" http://127.0.0.1:3000/arcade/sylvaria artifacts/browser-smoke/arcade-sylvaria-v32.png
+          npx --yes playwright@1.55.0 screenshot --browser=chromium --viewport-size="1920,1080" http://127.0.0.1:3000/game-runtimes/sylvaria-v3/index.html artifacts/browser-smoke/sylvaria-v32-widescreen.png
+          npx --yes playwright@1.55.0 screenshot --browser=chromium --viewport-size="390,844" http://127.0.0.1:3000/game-runtimes/sylvaria-v3/index.html artifacts/browser-smoke/sylvaria-v32-portrait.png
       - name: Upload production audit artifacts
         if: always()
         uses: actions/upload-artifact@v7
