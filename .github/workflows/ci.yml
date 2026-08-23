@@ -120,7 +120,7 @@ jobs:
           grep -q 'v0.14 · unified kinetic combat' /tmp/sylvaria-index.html
           grep -q './v014-entry.js' /tmp/sylvaria-index.html
           grep -q 'break boss guard' /tmp/sylvaria-index.html
-          grep -q 'ranked submission is intentionally paused' /tmp/sylvaria-index.html
+          grep -qi 'ranked submission is intentionally paused' /tmp/sylvaria-index.html
           if grep -q '<script type="module" src="./v013-entry.js"' /tmp/sylvaria-index.html; then
             echo "public shell still boots v0.13 directly" >&2
             exit 1
