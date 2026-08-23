@@ -45,34 +45,18 @@
 .board .item {
   position: relative;
   min-width: 0;
-  grid-column: span 4;
+  grid-column: span var(--frontier-grid-span, 4);
   grid-row-end: span var(--frontier-masonry-span, 16);
 }
 
-.board .heroItem {
-  grid-column: span 6;
-  --frontier-masonry-span: 27;
-}
-
-.board .wideItem {
-  grid-column: span 5;
-  --frontier-masonry-span: 24;
-}
-
-.board .visualItem {
-  grid-column: span 4;
-  --frontier-masonry-span: 22;
-}
-
-.board .standardItem {
-  grid-column: span 4;
-  --frontier-masonry-span: 16;
-}
-
-.board .compactItem {
-  grid-column: span 3;
-  --frontier-masonry-span: 13;
-}
+/* Visual role controls vertical/editorial treatment. Horizontal footprint is
+   assigned by the order-preserving 4/8-column packing plan so complete rows do
+   not develop empty craters and lower-ranked cards never jump ahead. */
+.board .heroItem { --frontier-masonry-span: 27; }
+.board .wideItem { --frontier-masonry-span: 24; }
+.board .visualItem { --frontier-masonry-span: 22; }
+.board .standardItem { --frontier-masonry-span: 16; }
+.board .compactItem { --frontier-masonry-span: 13; }
 
 .board .mediaItem { isolation: isolate; }
 .board .textItem { align-self: start; }
@@ -193,11 +177,7 @@
 
 @media (max-width: 1240px) {
   .board .grid { grid-template-columns: repeat(8, minmax(0, 1fr)); }
-  .board .heroItem,
-  .board .wideItem,
-  .board .visualItem,
-  .board .standardItem,
-  .board .compactItem { grid-column: span 4; }
+  .board .item { grid-column: span 4; }
 }
 
 @media (max-width: 720px) {
