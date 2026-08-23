@@ -1,4 +1,4 @@
-export const VERSION='3.1.0-alpha.1';
+export const VERSION='3.2.0-alpha.1';
 export const VIEW={w:1280,h:720};
 export const WORLD={w:1760,h:6400};
 export const FIXED_DT=1/120;
@@ -43,7 +43,8 @@ export const MOVE=Object.freeze({
 });
 
 // Sapline is an elastic traversal constraint rather than a teleporting grapple.
-// All forces are evaluated on the authoritative 120 Hz fixed step.
+// All forces are evaluated on the authoritative 120 Hz fixed step. Damping only
+// acts radially: tangential velocity is preserved so skilled sling routes stay fast.
 export const SAPLINE=Object.freeze({
   maxRange:410,
   minAttachDistance:88,
@@ -54,7 +55,10 @@ export const SAPLINE=Object.freeze({
   minLength:72,
   reelSpeed:245,
   spring:23.5,
-  damping:6.6,
+  dampingFree:5.8,
+  dampingSettle:9.1,
+  settleExtension:42,
+  settleRadialSpeed:310,
   tangentAccel:1120,
   maxAccel:5200,
   releaseBoostPerPx:1.35,
@@ -63,6 +67,13 @@ export const SAPLINE=Object.freeze({
   maxReleaseSpeed:1120,
   sameAnchorCooldown:0.18,
   detachCooldown:0.09,
+});
+
+export const BARK_RAIL=Object.freeze({
+  landingTolerance:9,
+  endpointMargin:10,
+  defaultThickness:18,
+  mossInset:3,
 });
 
 export const COMBAT=Object.freeze({
