@@ -11,7 +11,6 @@ import type {
 
 const DAY_MS = 86_400_000;
 const RESURFACE_DAYS = [1, 3, 7];
-const VISUAL_MEDIA_TYPES = new Set(['image', 'video', 'youtube']);
 
 export function clamp(value: number, min = 0, max = 1): number {
   return Math.min(max, Math.max(min, value));
@@ -144,20 +143,8 @@ export function rankFrontierItems(
     .map(({ item }) => item);
 }
 
-function hasVisualMedia(item: FrontierItem): boolean {
-  return Boolean(item.media && VISUAL_MEDIA_TYPES.has(item.media.type));
-}
-
-function takeFirst(
-  source: FrontierItem[],
-  used: Set<string>,
-  predicate: (item: FrontierItem) => boolean,
-  preferVisual = true,
-): FrontierItem | undefined {
-  const eligible = (candidate: FrontierItem) => !used.has(candidate.id) && predicate(candidate);
-  const item = preferVisual
-    ? source.find((candidate) => eligible(candidate) && hasVisualMedia(candidate)) ?? source.find(eligible)
-    : source.find(eligible);
+function takeFirst(source: FrontierItem[], used: Set<string>, predicate: (item: FrontierItem) => boolean): FrontierItem | undefined {
+  const item = source.find((candidate) => !used.has(candidate.id) && predicate(candidate));
   if (item) used.add(item.id);
   return item;
 }
@@ -170,14 +157,6 @@ function sourceHost(item: FrontierItem): string {
   try { return new URL(item.url).hostname.replace(/^www\./, ''); } catch { return item.source; }
 }
 
-function passesSoftDiversity(item: FrontierItem, selected: FrontierItem[], limit: number): boolean {
-  const sameLane = selected.filter((candidate) => candidate.lane === item.lane).length;
-  if (sameLane >= Math.max(2, Math.ceil(limit * 0.24))) return false;
-  const host = sourceHost(item);
-  const sameHost = selected.filter((candidate) => sourceHost(candidate) === host).length;
-  return sameHost < 2;
-}
-
 export function selectDailyRun(
   ranked: FrontierItem[],
   history: Record<string, FrontierHistoryEntry>,
@@ -188,9 +167,6 @@ export function selectDailyRun(
   const selected: FrontierItem[] = [];
   const push = (item?: FrontierItem) => { if (item) selected.push(item); };
 
-  // Preserve topic breadth, but when two similarly relevant candidates satisfy
-  // a slot, prefer the one carrying real source media. Media is a presentation
-  // preference here, never an input to personalizedScore/rankFrontierItems.
   push(takeFirst(ranked, used, (item) => item.importance >= 0.76 || item.lane === 'must_know'));
   push(takeFirst(ranked, used, (item) => ['ml_data', 'ai_frontier', 'neuro_frontier', 'broad_science'].includes(item.lane)));
   push(takeFirst(ranked, used, (item) => item.lane === 'builder_signal'));
@@ -203,35 +179,14 @@ export function selectDailyRun(
   push(takeFirst(ranked, used, (item) => isDueForResurface(history[item.id], now)));
   push(takeFirst(ranked, used, (item) => item.novelty >= 0.7 || item.lane === 'wildcards'));
 
-  // Aim for a media-rich main rotation whenever the source mesh actually has
-  // enough real imagery/video. Keep relevance order inside this visual reserve.
-  const availableVisuals = ranked.filter(hasVisualMedia).length;
-  const mediaTarget = Math.min(availableVisuals, Math.ceil(limit * 0.6));
-  let selectedVisuals = selected.filter(hasVisualMedia).length;
-  if (selected.length < limit && selectedVisuals < mediaTarget) {
-    for (const item of ranked) {
-      if (selected.length >= limit || selectedVisuals >= mediaTarget) break;
-      if (used.has(item.id) || !hasVisualMedia(item) || !passesSoftDiversity(item, selected, limit)) continue;
-      selected.push(item);
-      used.add(item.id);
-      selectedVisuals += 1;
-    }
-  }
-
-  // First fill respects source/lane breadth.
-  for (const item of ranked) {
-    if (selected.length >= limit) break;
-    if (used.has(item.id) || !passesSoftDiversity(item, selected, limit)) continue;
-    selected.push(item);
-    used.add(item.id);
-  }
-
-  // Diversity is a quality preference, not permission to leave the viewport
-  // empty. If a fresh unseen pool is concentrated in a few strong lanes/hosts,
-  // finish with the highest-ranked remaining material.
   for (const item of ranked) {
     if (selected.length >= limit) break;
     if (used.has(item.id)) continue;
+    const sameLane = selected.filter((candidate) => candidate.lane === item.lane).length;
+    if (sameLane >= Math.max(2, Math.ceil(limit * 0.24))) continue;
+    const host = sourceHost(item);
+    const sameHost = selected.filter((candidate) => sourceHost(candidate) === host).length;
+    if (sameHost >= 2) continue;
     selected.push(item);
     used.add(item.id);
   }
@@ -258,7 +213,7 @@ export function explainRecommendation(
     const format = formatForItem(item);
     const formatPreference = aggregatePreference(behavior.formatStats[format]);
     if (formatPreference.confidence >= 0.45 && formatPreference.score > 0.24) {
-      return `Your durable behavior suggests a preference for ${format} signals.`;
+      return `Your recent behavior suggests a growing preference for ${format} signals.`;
     }
   }
 
