@@ -49,6 +49,9 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      - name: Report React 19 compiler advisories
+        run: npm run lint:react19
+
       - name: Unit tests
         run: npm test
 
