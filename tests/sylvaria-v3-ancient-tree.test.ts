@@ -122,7 +122,9 @@ test('Sapline damping is adaptive and radial while tangential velocity stays ski
 
 test('Sapline release preserves generated velocity and cannot skim-refill Canopy Step',()=>{
   assert.match(sapline,/p\.vx\+=ux\*boost;p\.vy\+=uy\*boost/);
+  assert.match(sapline,/let extension=tether\.extension\|\|0,boost=0,launched=false/);
   assert.match(sapline,/this\.state\.stats\.saplineLaunches\+\+/);
+  assert.match(sapline,/if\(launched\)\{p\.onGround=false;p\.groundId=null;p\.coyote=0\}/);
   const start=sapline.indexOf('startSapline(){'),end=sapline.indexOf('releaseSapline(',start);
   assert.ok(start>=0&&end>start,'Sapline attach method missing');
   assert.doesNotMatch(sapline.slice(start,end),/airDash\s*=\s*true/);
@@ -212,6 +214,8 @@ test('enemy pressure escalates from standard combat into spatial interference',(
 test('the Crown Girdler is a tree-mounted three-phase mastery boss with phase-accurate physical clamps',()=>{
   assert.match(routeEngine,/boss\.name='CROWN GIRDLER'/);
   assert.match(routeEngine,/boss\.machineMounted=true/);
+  assert.match(routeEngine,/boss\.clampCount=3/);
+  assert.match(routeEngine,/boss:\{\.\.\.snap\.boss,name:boss\.name,kind:boss\.kind,machineMounted:!!boss\.machineMounted,clampCount:boss\.clampCount\|\|0\}/);
   assert.match(world,/hp:24,maxHp:24/);
   assert.match(engine,/bossPhase\(hp\)\{return hp>16\?1:hp>8\?2:3\}/);
   assert.match(engine,/b\.maxGuard=2\+phase/);
