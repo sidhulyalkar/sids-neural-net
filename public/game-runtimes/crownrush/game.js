@@ -17,7 +17,6 @@
 
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
   const lerp = (a, b, t) => a + (b - a) * t;
-  const ease = (t) => 1 - Math.pow(1 - clamp(t, 0, 1), 3);
   const hypot = Math.hypot;
 
   let seed = 0x51a7f00d;
@@ -194,8 +193,10 @@
     const slope = (random() - 0.5) * lerp(0.035, 0.09, difficulty);
     const branch = addBranch(generatedFloor, generatedY, side, length, slope);
 
-    const knotChance = 0.35 + (generatedFloor % 4 === 0 ? 0.3 : 0);
-    if (random() < knotChance) {
+    // Every fourth floor guarantees a readable Sapline option. Additional knots
+    // remain procedural so routes still breathe without making the tutorial seed flaky.
+    const guaranteedKnot = generatedFloor % 4 === 0;
+    if (guaranteedKnot || random() < 0.35) {
       const margin = 30;
       const x = lerp(branch.x1 + margin, branch.x2 - margin, 0.25 + random() * 0.5);
       addKnot(x, generatedY + 92 + random() * 92, generatedFloor);
@@ -576,9 +577,15 @@
     player.py = player.y;
     const previousY = player.y;
 
+    const wasGrounded = Boolean(player.grounded);
+    if (wasGrounded) {
+      player.coyote = 0.09;
+      // Ground contact owns vertical velocity. This prevents gravity from being
+      // invisibly integrated while the branch collision pins the player in place.
+      player.vy = 0;
+    }
+    if (player.jumpBuffer > 0 && (wasGrounded || player.coyote > 0)) doJump();
     const onGround = Boolean(player.grounded);
-    if (onGround) player.coyote = 0.09;
-    if (player.jumpBuffer > 0 && (onGround || player.coyote > 0)) doJump();
 
     const maxSpeed = 520 + Math.min(220, player.combo * 22) + (player.hyper ? 45 : 0);
     const accel = onGround ? 2550 : 1250;
@@ -590,7 +597,7 @@
 
     const sapForce = updateSap(input, dt);
     player.vx += sapForce.ax * dt;
-    player.vy += (GRAVITY + sapForce.ay) * dt;
+    if (!onGround || player.sap) player.vy += (GRAVITY + sapForce.ay) * dt;
 
     if (!player.jumpHeld && player.vy > 280 && !player.sap) player.vy *= Math.pow(0.989, dt * 120);
 
@@ -631,7 +638,9 @@
       tone(110, 0.14, 0.05, 'sawtooth', 0.62);
     }
 
-    if (player.y < threatY - 28 && !rescueFromThreat() && player.y < threatY - 95) endRun();
+    // A Sap Catch is a deep-fall recovery, not something consumed the instant
+    // the player brushes the fire front.
+    if (player.y < threatY - 95 && !rescueFromThreat()) endRun();
 
     const lookAhead = clamp(Math.max(0, player.vy) * 0.085 + Math.abs(player.vx) * 0.018, 0, 92);
     const targetCamera = player.y - 180 - lookAhead;
@@ -1092,8 +1101,10 @@
     ctx.save();
     const speed = hypot(player.vx, player.vy);
     const hyperZoom = reducedMotion ? 1 : 1 + clamp((speed - 720) / 1400, 0, 0.025) + (player.hyper ? 0.018 : 0);
-    const sx = shake > 0 && !reducedMotion ? (random() - 0.5) * shake * 8 : 0;
-    const sy = shake > 0 && !reducedMotion ? (random() - 0.5) * shake * 7 : 0;
+    // Render-only shake derives from wall-clock phase, never the gameplay RNG.
+    // Different refresh rates therefore cannot mutate future procedural routes.
+    const sx = shake > 0 && !reducedMotion ? Math.sin(now * 0.083) * shake * 4 : 0;
+    const sy = shake > 0 && !reducedMotion ? Math.cos(now * 0.071) * shake * 3.5 : 0;
     ctx.translate(W / 2 + sx, H / 2 + sy);
     ctx.scale(hyperZoom, hyperZoom);
     ctx.translate(-W / 2, -H / 2);
@@ -1123,7 +1134,7 @@
 
   function handleKeyDown(event) {
     if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Space'].includes(event.code)) event.preventDefault();
-    if (event.repeat && ['Space', 'ShiftLeft', 'ShiftRight', 'KeyE', 'KeyP'].includes(event.code)) return;
+    if (event.repeat && ['Space', 'ArrowUp', 'KeyW', 'ShiftLeft', 'ShiftRight', 'KeyE', 'KeyP'].includes(event.code)) return;
 
     if (event.code === 'Escape') return;
     if (event.code === 'KeyP') {
