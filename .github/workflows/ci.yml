@@ -140,11 +140,11 @@ jobs:
           /tmp/frontier-playwright/node_modules/.bin/playwright install --with-deps chromium firefox webkit
           /tmp/frontier-playwright/node_modules/.bin/playwright install chrome
 
-      - name: Audit eight-way homepage geometry
+      - name: Audit original dendritic homepage geometry
         env:
           NODE_PATH: /tmp/frontier-playwright/node_modules
-          HOME_RADIAL_AUDIT_URL: http://127.0.0.1:3000/
-        run: node scripts/home-radial-audit.cjs
+          HOME_DENDRITE_AUDIT_URL: http://127.0.0.1:3000/
+        run: node scripts/home-dendrite-audit.cjs
 
       - name: Audit Game Network production builds
         env:
