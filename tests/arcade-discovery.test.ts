@@ -10,6 +10,7 @@ const root = process.cwd();
 const read = (path: string) => readFileSync(join(root, path), 'utf8');
 const runtime = 'public/game-runtimes/mosslight-v2';
 const sideviewRuntime = 'public/game-runtimes/sylvaria-v2';
+const ascentRuntime = 'public/game-runtimes/sylvaria-v3';
 const v091 = `${runtime}/v091`;
 const v011 = `${runtime}/v011`;
 const v012 = `${runtime}/v012`;
@@ -23,21 +24,24 @@ test('the Game Network exposes every current game as a playable entry', () => {
   for (const game of arcadeGames) { assert.equal(game.status, 'playable'); assert.ok(game.launchUrl); }
 });
 
-test('current Sylvaria metadata describes the horizontal tree-action platformer actually launched by production', () => {
+test('current Sylvaria metadata describes the BarkRail and Sapline ancient-tree platformer launched by production', () => {
   const game = arcadeGames.find((entry) => entry.slug === 'sylvaria');
   assert.ok(game);
   assert.equal(game.title, 'Sylvaria');
-  assert.equal(game.version, 'v2.0.0-alpha.2');
-  assert.equal(game.launchUrl, '/game-runtimes/sylvaria-v2/index.html');
+  assert.equal(game.version, 'v3.2.0-alpha.1');
+  assert.equal(game.launchUrl, '/game-runtimes/sylvaria-v3/index.html');
   assert.equal(game.aspectRatio, '16 / 9');
   assert.deepEqual(game.nativeSize,{width:1280,height:720});
-  assert.match(game.subtitle,/ROOT.*CLIMB.*SWING.*STRIKE/);
-  for (const phrase of [/horizontal/i,/action platformer/i,/living tree traversal/i,/branches/i,/Bark Grip/i,/vine/i,/downward machete/i,/nail projectiles/i,/reflected/i,/multi-screen Old Growth Trial/i]) assert.match(game.description, phrase);
-  for (const tag of ['action platformer','dark forest','tree traversal','branch physics','vine swinging','wall movement','machete combat','projectile reflection','120 hz simulation']) assert.ok(game.tags.includes(tag));
-  assert.ok(game.controls.some((control) => control.input === 'A / D' && /run/i.test(control.action)));
+  assert.match(game.subtitle,/ASCEND.*SLING.*HEIGHT/);
+  for (const phrase of [/vertical/i,/ancient tree/i,/Fellworks/i,/Movement is the primary weapon/i,/Arrow keys/i,/Sapline/i,/Resin Knots/i,/BarkRails/i,/adaptive/i,/Canopy Step/i,/compact machete/i,/Bark Grip/i,/Downstrikes/i,/Crown Girdler/i,/120 Hz/i]) assert.match(game.description, phrase);
+  for (const tag of ['action platformer','vertical ascent','dark forest','sapline','elastic tether','barkrail','momentum platforming','tree traversal','branch physics','vine swinging','wall movement','aerial combat','projectile counter','boss combat','custom keybinds','120 hz simulation']) assert.ok(game.tags.includes(tag));
+  assert.ok(game.controls.some((control) => control.input === '← / →' && /run/i.test(control.action)));
   assert.ok(game.controls.some((control) => control.input === 'Space' && /jump/i.test(control.action)));
-  assert.ok(game.controls.some((control) => control.input === 'J' && /machete/i.test(control.action)));
-  assert.ok(game.controls.some((control) => control.input === 'E' && /vine/i.test(control.action)));
+  assert.ok(game.controls.some((control) => control.input === 'W' && /Sapline/i.test(control.action) && /Resin Knot/i.test(control.action)));
+  assert.ok(game.controls.some((control) => control.input === 'D' && /machete/i.test(control.action)));
+  assert.ok(game.controls.some((control) => control.input === '↑ + D' && /upward/i.test(control.action)));
+  assert.ok(game.controls.some((control) => control.input === '↓ + D' && /Downstrike/i.test(control.action)));
+  assert.ok(game.controls.some((control) => control.input === 'Shift' && /Canopy Step/i.test(control.action)));
   assert.equal(getArcadeGame('mosslight')?.slug, 'sylvaria');
   assert.equal(getArcadeGame('sylvaria')?.slug, 'sylvaria');
 });
@@ -61,6 +65,14 @@ test('the top-down v0.15 Cutstep experiment remains preserved and reconstructibl
   assert.notEqual(arcadeGames.find((game)=>game.slug==='sylvaria')?.launchUrl,'/game-runtimes/mosslight-v2/index.html');
 });
 
+test('the side-view v2 Old Growth Trial remains preserved beneath the current ascent runtime',()=>{
+  const html=read(`${sideviewRuntime}/index.html`);
+  assert.match(html,/OLD GROWTH TRIAL/);
+  assert.match(html,/game-v2\.js/);
+  assert.ok(existsSync(join(root,sideviewRuntime,'game-v2.js')));
+  assert.notEqual(arcadeGames.find((game)=>game.slug==='sylvaria')?.launchUrl,'/game-runtimes/sylvaria-v2/index.html');
+});
+
 test('the exact-source v0.13 verifier remains reconstructible beneath the archived top-down lineage', () => {
   const model=read(`${v091}/model.js`),movement=read(`${v091}/movement.js`),kinetics=read(`${v013}/kinetic-combat-v013.js`),replay=read(`${v013}/replay-v013.js`),serverReplay=read('src/lib/sylvaria/replay.ts');
   assert.match(model,/FIXED_DT=1\/120/);assert.match(model,/MAX_SHOTS=128/);assert.match(model,/MAX_PENDING=72/);
@@ -70,9 +82,9 @@ test('the exact-source v0.13 verifier remains reconstructible beneath the archiv
   assert.match(read(`${runtime}/v015-entry.js`),/ranked:false/);
 });
 
-test('the new public Sylvaria shell uses side-view tree traversal vocabulary and no top-down combat language', () => {
-  const visible=[read(`${sideviewRuntime}/index.html`),read('src/data/arcadeGames.ts')].join('\n');
-  for(const word of ['Sylvaria','platformer','branch','vine','Bark Grip','machete','logger','nail'])assert.match(visible,new RegExp(word,'i'));
+test('the public Sylvaria shell uses ascent, Sapline, BarkRail, and directional combat vocabulary with no top-down language', () => {
+  const visible=[read(`${ascentRuntime}/index.html`),read('src/data/arcadeGames.ts')].join('\n');
+  for(const word of ['Sylvaria','ancient tree','Rootreach','BarkRails','Bark Grip','Sapline','Resin Knots','Canopy Step','machete','upslash','Downstrike','Plunge','Crown Girdler'])assert.match(visible,new RegExp(word,'i'));
   assert.doesNotMatch(visible,/Kinetic Pond|Cutstep|Thrust|Crosscut|Reversal|156° tongue|Reactive Blade/i);
 });
 
@@ -95,7 +107,7 @@ test('the Game Network index stays intentionally minimal', () => {
 
 test('Vercel allows same-origin game embedding without allowing cross-site framing', () => {
   const config=JSON.parse(read('vercel.json')) as {headers?:Array<{source?:string;headers?:Array<{key?:string;value?:string}>}>};const global=config.headers?.find((rule)=>rule.source==='/(.*)')?.headers??[];assert.equal(global.find((header)=>header.key==='X-Frame-Options')?.value,'SAMEORIGIN');
-  for(const source of ['/game-runtimes/stretchicorn/(.*)','/game-runtimes/mosslight-v2/(.*)','/game-runtimes/sylvaria-v2/(.*)']){const headers=config.headers?.find((rule)=>rule.source===source)?.headers??[];assert.ok(headers.some((header)=>header.key==='Content-Security-Policy'&&header.value==="frame-ancestors 'self'"),`missing frame policy for ${source}`)}
+  for(const source of ['/game-runtimes/stretchicorn/(.*)','/game-runtimes/mosslight-v2/(.*)','/game-runtimes/sylvaria-v2/(.*)','/game-runtimes/sylvaria-v3/(.*)']){const headers=config.headers?.find((rule)=>rule.source===source)?.headers??[];assert.ok(headers.some((header)=>header.key==='Content-Security-Policy'&&header.value==="frame-ancestors 'self'"),`missing frame policy for ${source}`)}
 });
 
 test('the embedded Stretchicorn release is complete', () => {
