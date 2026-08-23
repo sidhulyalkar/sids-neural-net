@@ -88,10 +88,29 @@ jobs:
 
       - name: Smoke public production routes
         run: |
-          for route in / /frontier /arcade /arcade/stretchicorn /arcade/unirico /arcade/sylvaria /game-runtimes/stretchicorn/index.html /game-runtimes/mosslight-v2/index.html /api/frontier/feed /api/auth/session /neural-net /case-studies /physiology /perceptual-cortex /rotation /sensing-lab /physiology/visual-audit; do
+          for route in / /frontier /arcade /arcade/stretchicorn /arcade/unirico /game-runtimes/stretchicorn/index.html /game-runtimes/unirico/index.html /api/frontier/feed /api/auth/session /neural-net /case-studies /physiology /perceptual-cortex /rotation /sensing-lab /physiology/visual-audit; do
             echo "GET $route"
             curl --retry 2 --retry-connrefused -fsS "http://127.0.0.1:3000$route" >/dev/null
           done
+
+      - name: Verify pinned arcade provenance
+        run: |
+          curl -fsS -D /tmp/stretchicorn-headers.txt http://127.0.0.1:3000/game-runtimes/stretchicorn/index.html -o /tmp/stretchicorn.html
+          grep -qi '^X-Arcade-Upstream-Repo: sidhulyalkar/stretchicorn' /tmp/stretchicorn-headers.txt
+          grep -qi '^X-Arcade-Upstream-Commit: 5635de71cae80a7728a45b11fd660fd87112c351' /tmp/stretchicorn-headers.txt
+          grep -q 'Stretchicorn v0.21.1' /tmp/stretchicorn.html
+          curl -fsS http://127.0.0.1:3000/game-runtimes/stretchicorn/src/00-core.js >/dev/null
+
+          curl -fsS -D /tmp/unirico-headers.txt http://127.0.0.1:3000/game-runtimes/unirico/index.html -o /tmp/unirico.html
+          grep -qi '^X-Arcade-Upstream-Repo: sidhulyalkar/uniRico' /tmp/unirico-headers.txt
+          grep -qi '^X-Arcade-Upstream-Commit: 8dfe88461dd3644d234300ba2e586f46491548a5' /tmp/unirico-headers.txt
+          grep -q 'uniRico v0.18.0' /tmp/unirico.html
+          curl -fsS http://127.0.0.1:3000/game-runtimes/unirico/src/runtime/core.js >/dev/null
+
+          sylvaria_status="$(curl -sS -o /dev/null -w '%{http_code}' http://127.0.0.1:3000/arcade/sylvaria)"
+          mosslight_status="$(curl -sS -o /dev/null -w '%{http_code}' http://127.0.0.1:3000/arcade/mosslight)"
+          test "$sylvaria_status" = "404"
+          test "$mosslight_status" = "404"
 
       - name: Smoke FRONTIER privacy boundaries
         run: |
@@ -134,6 +153,12 @@ jobs:
           HOME_RADIAL_AUDIT_URL: http://127.0.0.1:3000/
         run: node scripts/home-radial-audit.cjs
 
+      - name: Audit Game Network production builds
+        env:
+          NODE_PATH: /tmp/frontier-playwright/node_modules
+          ARCADE_AUDIT_URL: http://127.0.0.1:3000
+        run: node scripts/arcade-production-audit.cjs
+
       - name: Audit FRONTIER bounded first useful paint
         env:
           NODE_PATH: /tmp/frontier-playwright/node_modules
@@ -170,6 +195,10 @@ jobs:
           /tmp/frontier-playwright/node_modules/.bin/playwright screenshot --browser=chromium --wait-for-timeout 600 --viewport-size="1440,900" http://127.0.0.1:3000/ artifacts/browser-smoke/home-desktop.png
           /tmp/frontier-playwright/node_modules/.bin/playwright screenshot --browser=chromium --wait-for-timeout 600 --viewport-size="390,844" http://127.0.0.1:3000/ artifacts/browser-smoke/home-mobile.png
           /tmp/frontier-playwright/node_modules/.bin/playwright screenshot --browser=chromium --wait-for-timeout 600 --viewport-size="1920,1080" http://127.0.0.1:3000/ artifacts/browser-smoke/home-ultrawide.png
+          /tmp/frontier-playwright/node_modules/.bin/playwright screenshot --browser=chromium --wait-for-timeout 1200 --viewport-size="1440,900" http://127.0.0.1:3000/arcade artifacts/browser-smoke/arcade-desktop.png
+          /tmp/frontier-playwright/node_modules/.bin/playwright screenshot --browser=chromium --wait-for-timeout 1200 --viewport-size="390,844" --full-page http://127.0.0.1:3000/arcade artifacts/browser-smoke/arcade-mobile.png
+          /tmp/frontier-playwright/node_modules/.bin/playwright screenshot --browser=chromium --wait-for-timeout 1800 --viewport-size="1440,900" http://127.0.0.1:3000/arcade/stretchicorn artifacts/browser-smoke/stretchicorn-desktop.png
+          /tmp/frontier-playwright/node_modules/.bin/playwright screenshot --browser=chromium --wait-for-timeout 1800 --viewport-size="1440,900" http://127.0.0.1:3000/arcade/unirico artifacts/browser-smoke/unirico-desktop.png
           /tmp/frontier-playwright/node_modules/.bin/playwright screenshot --browser=chromium --wait-for-timeout 9000 --viewport-size="1440,1100" --full-page http://127.0.0.1:3000/frontier artifacts/browser-smoke/frontier-desktop.png
           /tmp/frontier-playwright/node_modules/.bin/playwright screenshot --browser=chromium --wait-for-timeout 9000 --viewport-size="390,844" --full-page http://127.0.0.1:3000/frontier artifacts/browser-smoke/frontier-mobile.png
           /tmp/frontier-playwright/node_modules/.bin/playwright screenshot --browser=chromium --viewport-size="1440,1100" --full-page http://127.0.0.1:3000/physiology/visual-audit artifacts/browser-smoke/nature-atlas-desktop.png
