@@ -7,6 +7,7 @@ const root = process.cwd();
 const home = readFileSync(join(root, 'app/page.tsx'), 'utf8');
 const radial = readFileSync(join(root, 'components/neural-atlas-canvas/RadialDendriteHome.tsx'), 'utf8');
 const nav = readFileSync(join(root, 'src/data/siteNav.ts'), 'utf8');
+const sensingToggle = readFileSync(join(root, 'components/sensing/ui/SensingToggle.tsx'), 'utf8');
 
 test('homepage uses the eight-way radial dendrite renderer', () => {
   assert.match(home, /RadialDendriteHome/);
@@ -50,4 +51,9 @@ test('responsive geometry is viewport-derived and resize-safe', () => {
   assert.match(radial, /const short = dimensions\.height < 620/);
   assert.match(radial, /VISUAL_LIMITS\.dprCap/);
   assert.match(radial, /compactLabel/);
+});
+
+test('homepage keeps global sensing chrome off the landing composition', () => {
+  assert.match(sensingToggle, /usePathname/);
+  assert.match(sensingToggle, /if \(pathname === '\/'\) return null/);
 });
