@@ -2,6 +2,10 @@
 
 import { useCallback, useEffect, useLayoutEffect, useRef } from 'react';
 import type { ReactNode } from 'react';
+import {
+  frontierCanAnalyzeMediaElement,
+  primeFrontierAudioReactivity,
+} from '@/lib/frontier/audio/audioReactivity';
 import { markFrontierItemSeen } from '@/lib/frontier/live/seenLedger';
 import { frontierMasonrySpan } from '@/lib/frontier/presentation/mediaForward';
 import { useFrontierStore } from '@/lib/frontier/store';
@@ -27,6 +31,16 @@ function cssNumber(node: HTMLElement, property: string, fallback: number): numbe
   return Number.isFinite(parsed) && parsed >= 0 ? parsed : fallback;
 }
 
+function primeSafeNativeMedia(root: HTMLElement | null) {
+  if (!root) return;
+  const media = root.querySelectorAll<HTMLMediaElement>('video, audio');
+  for (const element of media) {
+    if (!frontierCanAnalyzeMediaElement(element)) continue;
+    primeFrontierAudioReactivity();
+    return;
+  }
+}
+
 export function FluidSpatialCard({
   item,
   expanded,
@@ -44,14 +58,16 @@ export function FluidSpatialCard({
     item,
     expanded,
     onExpand: (next) => {
+      // This callback still runs inside the trusted pointer release. Unlock the
+      // shared AudioContext here only when the card already owns safe native
+      // media; analyser/source-node wiring remains expansion-scoped in the hook.
+      primeSafeNativeMedia(rootRef.current);
       void markFrontierItemSeen(next, 'expand').catch(() => undefined);
       onExpand(next);
     },
     onCollapse,
     onExternalOpen: (next) => {
       void markFrontierItemSeen(next, 'open').catch(() => undefined);
-      // A canonical external open is explicit behavior authority. The preceding
-      // inline expansion remains presentation-only and never calls recordExpand.
       recordOpen(next);
       onExternalOpen?.(next);
     },
