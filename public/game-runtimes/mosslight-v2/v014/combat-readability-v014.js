@@ -26,16 +26,16 @@ function drawProjectiles(ctx){
   for(const s of state.shots){
     if(s.dead)continue;const style=shotVisual(s),hot=approachingPlayer(s),pulse=1+Math.sin((state.roomTime||0)*15+(s.age||0)*11)*.05;
     ctx.save();ctx.globalCompositeOperation='lighter';ctx.fillStyle=s.friendly?'rgba(220,255,174,.14)':hot?'rgba(255,225,158,.14)':'rgba(255,255,255,.055)';ctx.beginPath();ctx.arc(s.x,s.y,style.halo*pulse,0,Math.PI*2);ctx.fill();ctx.globalCompositeOperation='source-over';
-    ctx.strokeStyle=style.color;ctx.globalAlpha=s.friendly?.95:hot?.92:.68;ctx.lineWidth=s.friendly?2.6:hot?2.2:1.6;ctx.beginPath();ctx.arc(s.x,s.y,style.radius,0,Math.PI*2);ctx.stroke();
-    ctx.fillStyle=style.color;ctx.globalAlpha=s.friendly?1:.86;ctx.beginPath();ctx.arc(s.x,s.y,Math.max(2.8,style.radius*.34),0,Math.PI*2);ctx.fill();
+    ctx.strokeStyle=style.color;ctx.globalAlpha=s.friendly ? .95 : hot ? .92 : .68;ctx.lineWidth=s.friendly ? 2.6 : hot ? 2.2 : 1.6;ctx.beginPath();ctx.arc(s.x,s.y,style.radius,0,Math.PI*2);ctx.stroke();
+    ctx.fillStyle=style.color;ctx.globalAlpha=s.friendly ? 1 : .86;ctx.beginPath();ctx.arc(s.x,s.y,Math.max(2.8,style.radius*.34),0,Math.PI*2);ctx.fill();
     if(hot&&p){ctx.globalAlpha=.35;ctx.setLineDash([4,5]);ctx.beginPath();ctx.arc(s.x,s.y,style.halo+4,0,Math.PI*2);ctx.stroke();ctx.setLineDash([])}ctx.restore();
   }
 }
 function drawKineticThreats(ctx){
   for(const e of state.enemies){
-    if(e.dead||!e.kineticType)continue;const color=KINETIC_RING[e.kineticType]||'#eaffcf',r=e.r+8;
-    ctx.save();ctx.strokeStyle=color;ctx.globalAlpha=e.state==='kinetic-telegraph'?.82:.24;ctx.lineWidth=e.state==='kinetic-telegraph'?2.4:1.25;
-    if(e.kineticType==='sniper'&&e.state==='kinetic-telegraph'&&state.player){ctx.setLineDash([7,7]);ctx.beginPath();ctx.moveTo(e.x,e.y);ctx.lineTo(state.player.x,state.player.y);ctx.stroke();ctx.setLineDash([])}
+    if(e.dead||!e.kineticType)continue;const color=KINETIC_RING[e.kineticType]||'#eaffcf',r=e.r+8,telegraph=e.state==='kinetic-telegraph';
+    ctx.save();ctx.strokeStyle=color;ctx.globalAlpha=telegraph ? .82 : .24;ctx.lineWidth=telegraph ? 2.4 : 1.25;
+    if(e.kineticType==='sniper'&&telegraph&&state.player){ctx.setLineDash([7,7]);ctx.beginPath();ctx.moveTo(e.x,e.y);ctx.lineTo(state.player.x,state.player.y);ctx.stroke();ctx.setLineDash([])}
     ctx.beginPath();ctx.arc(e.x,e.y,r,0,Math.PI*2);ctx.stroke();ctx.restore();
   }
 }
@@ -52,7 +52,7 @@ F.updateHud=(force=false)=>{
   inheritedHud?.(force);const field=G.$('fieldState');if(!field||state.mode!=='playing')return;
   const alive=state.enemies.filter(e=>!e.dead),boss=state.boss&&!state.boss.dead?state.boss:null;
   if(boss){const guard=boss.v014GuardMax?`${boss.v014Guard??boss.v014GuardMax}/${boss.v014GuardMax}`:'active';field.textContent=boss.v014PunishTimer>0?'CORE OPEN':`boss guard ${guard}`}
-  else if(alive.length){const kinetic=alive.filter(e=>e.kineticType).length;field.textContent=kinetic?`${alive.length} threats · ${kinetic} elite`: `${alive.length} threats`}
+  else if(alive.length){const kinetic=alive.filter(e=>e.kineticType).length;field.textContent=kinetic?`${alive.length} threats · ${kinetic} elite`:`${alive.length} threats`}
   else field.textContent='clear';
 };
 
