@@ -46,6 +46,7 @@ jobs:
           lib/home/fractalDendrite.ts
           tests/home-dendrite-regression.test.ts
           scripts/playtest-arcade-home.mjs
+          --no-warn-ignored
           --max-warnings=0
 
       - name: Run fractal geometry regressions
