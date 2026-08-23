@@ -8,6 +8,7 @@
     "start": "next start",
     "preview": "next start",
     "lint": "eslint . --max-warnings=0",
+    "lint:react19": "eslint . --rule \"react-hooks/immutability:warn\" --rule \"react-hooks/purity:warn\" --rule \"react-hooks/refs:warn\" --rule \"react-hooks/set-state-in-effect:warn\" --rule \"react-hooks/static-components:warn\"",
     "typecheck": "tsc --noEmit",
     "test": "node --import tsx --test tests/*.test.ts",
     "refresh-content": "tsx scripts/ingest-github.ts && tsx scripts/build-neural-graph.ts",
