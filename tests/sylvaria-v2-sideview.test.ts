@@ -2,14 +2,16 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {join} from 'node:path';
 import test from 'node:test';
+
 const read=(p:string)=>readFileSync(join(process.cwd(),p),'utf8');
 const html=read('public/game-runtimes/sylvaria-v2/index.html');
 const css=read('public/game-runtimes/sylvaria-v2/sylvaria-v2.css');
-const game=read('public/game-runtimes/sylvaria-v2/sylvaria-v2.js');
+const game=read('public/game-runtimes/sylvaria-v2/game-v2.js');
 const arcade=read('src/data/arcadeGames.ts');
 
-test('Sylvaria v2 is a clean horizontal runtime rather than another top-down inheritance layer',()=>{
+test('Sylvaria v2 boots a clean horizontal runtime rather than another top-down inheritance layer',()=>{
   assert.match(html,/<title>Sylvaria<\/title>/);
+  assert.match(html,/src="\.\/game-v2\.js"/);
   assert.match(html,/SIDE-VIEW COMBAT PROTOTYPE/);
   assert.match(html,/Simple attacks\. Complicated terrain\./);
   assert.match(arcade,/launchUrl: '\/game-runtimes\/sylvaria-v2\/index\.html'/);
@@ -18,70 +20,66 @@ test('Sylvaria v2 is a clean horizontal runtime rather than another top-down inh
 });
 
 test('movement foundation is deterministic and tuned for a precision platformer',()=>{
-  assert.match(game,/DT=1\/120/);
-  assert.match(game,/p\.coyote=\.105/);
-  assert.match(game,/p\.jumpBuffer=\.12/);
-  assert.match(game,/target=move\*285/);
-  assert.match(game,/p\.vy=-590-extra/);
-  assert.match(game,/if\(!keys\.has\('Space'\)&&p\.vy< -180\)/);
+  for(const token of ['FIXED_DT = 1 / 120','runSpeed: 285','gravity: 1850','jumpSpeed: 590','coyote: 0.105','jumpBuffer: 0.12','wallLaunchX: 430','wallLaunchY: 545'])assert.ok(game.includes(token),`missing ${token}`);
+  assert.match(game,/if \(!keys\.has\('Space'\) && player\.vy < -180\)/);
   assert.doesNotMatch(game,/Math\.random/);
 });
 
-test('tree geometry is traversal technology',()=>{
-  assert.match(game,/const trunks=\[/);
-  assert.match(game,/const branches=\[/);
-  assert.match(game,/spring:1\.16/);
-  assert.match(game,/branchTop=b=>b\.baseY\+b\.flex\*17/);
-  assert.match(game,/b\.flex=clamp\(b\.flex\+dt/);
-  assert.match(game,/const gripping=p\.wallDir/);
-  assert.match(game,/p\.vx=-p\.wallDir\*430;p\.vy=-545/);
+test('the guardian starts planted on the first root with no settling drop',()=>{
+  assert.match(game,/x: 150, y: 839/);
+  assert.match(game,/onGround: true, groundId: 'g0'/);
+  assert.match(game,/coyote: MOVE\.coyote/);
+});
+
+test('living branches are stateful moving platforms that carry their supported rider',()=>{
+  for(const token of ['const branches = [','spring: 1.16','const branchTop = (branch) => branch.baseY + branch.flex * 17','const supported = player.onGround && player.groundId === branch.id','const oldTop = branchTop(branch)','const platformMotion = branchTop(branch) - oldTop','if (supported && platformMotion !== 0) player.y += platformMotion'])assert.ok(game.includes(token),`missing ${token}`);
+});
+
+test('Bark Grip and wall launch use tree trunks as traversal technology',()=>{
+  assert.match(game,/function detectWall\(player\)/);
+  assert.match(game,/const gripping = player\.wallDir/);
+  assert.match(game,/player\.vx = -player\.wallDir \* MOVE\.wallLaunchX/);
+  assert.match(game,/player\.vy = -MOVE\.wallLaunchY/);
   assert.match(game,/state\.stats\.wallLaunches\+\+/);
 });
 
 test('vines preserve pendulum momentum and release into traversal',()=>{
-  assert.match(game,/const vines=\[/);
-  assert.match(game,/const torque=Math\.sin\(v\.angle\)\*-2\.15/);
-  assert.match(game,/v\.angVel\+=/);
-  assert.match(game,/const tang=v\.angVel\*v\.len/);
-  assert.match(game,/p\.vx=Math\.cos\(v\.angle\)\*tang/);
+  assert.match(game,/const vines = \[/);
+  assert.match(game,/const torque = -Math\.sin\(vine\.angle\) \* 2\.15/);
+  assert.match(game,/const tangent = vine\.angVel \* vine\.len/);
+  assert.match(game,/player\.vx = Math\.cos\(vine\.angle\) \* tangent/);
   assert.match(game,/state\.stats\.vineSwings\+\+/);
 });
 
-test('combat uses a compact directional machete language with environmental rebound',()=>{
-  assert.match(game,/type='side'/);
-  assert.match(game,/type='up'/);
-  assert.match(game,/type='down'/);
-  assert.match(game,/p\.combo%3/);
-  assert.match(game,/p\.vy=-520;p\.airStep=true/);
-  assert.match(game,/b\.flex=1;p\.vy=-560/);
-  assert.match(game,/reflectNail/);
-  assert.match(game,/n\.friendly=true/);
+test('combat uses directional machete attacks while projectile defense starts earlier than melee damage',()=>{
+  for(const token of ["let type = 'side'","type = 'up'","type = 'down'",'meleeStartup: 0.035','deflectWindow: 0.12','function attackBox(player)','function deflectBox(player)','player.attack.deflected.add(nail)','reflectNail(nail, player, player.attack)'])assert.ok(game.includes(token),`missing ${token}`);
+  assert.match(game,/player\.attack\.time < COMBAT\.meleeStartup/);
+  assert.match(game,/player\.attack\.time > COMBAT\.deflectWindow/);
 });
 
-test('one aerial mobility charge connects routes without replacing platforming',()=>{
-  assert.match(game,/airStep:true/);
-  assert.match(game,/p\.dashTime=\.115/);
-  assert.match(game,/p\.vx=p\.dashDir\.x\*720/);
-  assert.match(game,/p\.airStep=false/);
-  assert.match(game,/p\.airStep=true/);
+test('downslash rebounds from enemies and living branches',()=>{
+  assert.match(game,/player\.vy = -520/);
+  assert.match(game,/branch\.flex = 1/);
+  assert.match(game,/player\.vy = -560/);
+  assert.match(game,/player\.airStep = true/);
+});
+
+test('one aerial Canopy Step connects routes without replacing platforming',()=>{
+  for(const token of ['canopySpeed: 720','canopyTime: 0.115','function startCanopyStep()','player.airStep = false','state.stats.canopySteps++'])assert.ok(game.includes(token),`missing ${token}`);
   assert.match(html,/SHIFT<\/b> canopy step/);
 });
 
-test('first room teaches combat with one logger and one nailgunner',()=>{
-  const enemies=(game.match(/kind:'logger'|kind:'nailgun'/g)||[]);
+test('the first room teaches standard combat with exactly one Logger and one Nailgun Ranger',()=>{
+  const enemies=game.match(/kind: 'logger'|kind: 'nailgun'/g)||[];
   assert.equal(enemies.length,2);
-  assert.match(game,/e\.state='windup';e\.windup=\.34/);
-  assert.match(game,/e\.state='strike';e\.clock=\.12/);
-  assert.match(game,/e\.recover=\.42/);
-  assert.match(game,/e\.state='aim';e\.windup=\.48/);
-  assert.match(game,/s=565/);
-  assert.match(game,/e\.recover=1\.05/);
+  for(const token of ["enemy.state = 'windup'; enemy.windup = 0.34","enemy.state = 'strike'; enemy.clock = 0.12","enemy.recover = 0.42","enemy.state = 'aim'; enemy.windup = 0.48","nailSpeed: 565","enemy.recover = 1.05"])assert.ok(game.includes(token),`missing ${token}`);
 });
 
-test('the Old Growth Trial is genuinely multi-screen and has a clear completion condition',()=>{
-  assert.match(game,/WORLD_W=3600,WORLD_H=1000/);
-  assert.match(game,/const checkpoints=\[/);
-  assert.match(game,/state\.player\.x>3380/);
+test('the Old Growth Trial is multi-screen and has an obvious heartwood completion gate',()=>{
+  assert.match(game,/WORLD_W = 3600/);
+  assert.match(game,/WORLD_H = 1000/);
+  assert.match(game,/const checkpoints = \[/);
+  assert.match(game,/state\.player\.x > 3380/);
   assert.match(game,/HEARTWOOD OPEN/);
   assert.match(css,/width:100vw;height:100vh/);
 });
