@@ -192,14 +192,17 @@ async function auditDeterministicMobile(browser) {
 
     const firstThree = state.cards.slice(0, 3);
     assert.equal(firstThree.length, 3, 'Mobile feed must expose three above-fold paint sentinels');
-    for (const [index, card] of firstThree.entries()) {
-      assert.equal(card.contentVisibility, 'visible', `Mobile card ${index + 1} may not be auto-skipped`);
-      assert.notEqual(card.display, 'none', `Mobile card ${index + 1} is display:none`);
-      assert.notEqual(card.visibility, 'hidden', `Mobile card ${index + 1} is hidden`);
-      assert(Number(card.opacity) > 0.9, `Mobile card ${index + 1} lost opacity`);
-      assert(card.rect.width >= 340, `Mobile card ${index + 1} is too narrow: ${card.rect.width}`);
-      assert(card.rect.height >= 80, `Mobile card ${index + 1} has no readable height: ${card.rect.height}`);
-      assert(card.text.includes(`Mobile feed paint audit ${index + 1}`), `Mobile card ${index + 1} text did not paint`);
+    assert.equal(new Set(firstThree.map((card) => card.id)).size, 3, 'Mobile paint sentinels must be distinct cards');
+    for (const [position, card] of firstThree.entries()) {
+      const fixtureIndex = Number.parseInt(card.id?.match(/(\d+)$/)?.[1] ?? '', 10);
+      assert(Number.isInteger(fixtureIndex) && fixtureIndex >= 1 && fixtureIndex <= 4, `Mobile card ${position + 1} lost its fixture identity`);
+      assert.equal(card.contentVisibility, 'visible', `Mobile card ${position + 1} may not be auto-skipped`);
+      assert.notEqual(card.display, 'none', `Mobile card ${position + 1} is display:none`);
+      assert.notEqual(card.visibility, 'hidden', `Mobile card ${position + 1} is hidden`);
+      assert(Number(card.opacity) > 0.9, `Mobile card ${position + 1} lost opacity`);
+      assert(card.rect.width >= 340, `Mobile card ${position + 1} is too narrow: ${card.rect.width}`);
+      assert(card.rect.height >= 80, `Mobile card ${position + 1} has no readable height: ${card.rect.height}`);
+      assert(card.text.includes(`Mobile feed paint audit ${fixtureIndex}`), `Mobile card ${position + 1} text did not match its rendered fixture ${fixtureIndex}`);
     }
     assert(
       firstThree[0].rect.y < state.viewport.height && firstThree[0].rect.y + firstThree[0].rect.height > 0,
