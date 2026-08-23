@@ -27,9 +27,6 @@ async function waitForFixture(page) {
         const style = getComputedStyle(node);
         return rect.width > 0 && rect.height > 0 && style.display !== 'none' && style.visibility !== 'hidden';
       });
-      // A transient hidden hydration copy is harmless, but the stress run may
-      // only start once there is one visible fixture and one canonical 12-card
-      // tree. Persistent duplicate cards therefore remain a hard failure.
       return visibleRoots.length === 1 && document.querySelectorAll(cardSelector).length === expected;
     },
     { rootSelector: ROOT, cardSelector: CARD, expected: EXPECTED_CARDS },
@@ -46,6 +43,49 @@ async function waitForFixture(page) {
     if (document.fonts?.ready) await document.fonts.ready;
     await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
   });
+}
+
+async function waitForLockedGeometry(page) {
+  await page.waitForFunction(
+    ({ selector, expected }) => document.querySelectorAll(`${selector}[data-frontier-geometry="locked"]`).length === expected,
+    { selector: CARD, expected: EXPECTED_CARDS },
+    { polling: 'raf', timeout: 5_000 },
+  );
+
+  return page.evaluate(({ selector, expected }) => new Promise((resolve, reject) => {
+    let previous = '';
+    let stableFrames = 0;
+    let frames = 0;
+    const tick = () => {
+      frames += 1;
+      const cards = Array.from(document.querySelectorAll(selector));
+      if (cards.length !== expected || cards.some((node) => node.getAttribute('data-frontier-geometry') !== 'locked')) {
+        stableFrames = 0;
+        previous = '';
+      } else {
+        const scroller = document.scrollingElement || document.documentElement;
+        const signature = [
+          scroller.scrollHeight,
+          ...cards.flatMap((node) => {
+            const rect = node.getBoundingClientRect();
+            return [rect.x, rect.y + window.scrollY, rect.width, rect.height].map((value) => Math.round(value * 4) / 4);
+          }),
+        ].join(':');
+        stableFrames = signature === previous ? stableFrames + 1 : 0;
+        previous = signature;
+        if (stableFrames >= 4) {
+          resolve(frames);
+          return;
+        }
+      }
+      if (frames > 180) {
+        reject(new Error('Locked FRONTIER geometry did not settle within 180 animation frames'));
+        return;
+      }
+      requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  }), { selector: CARD, expected: EXPECTED_CARDS });
 }
 
 async function sweep(page) {
@@ -107,9 +147,9 @@ async function installShiftObserver(page) {
           window.__frontierLayoutShiftEntries += 1;
         }
       });
-      // Install only after the warm sweep and intentionally do not request
-      // buffered entries. This gate measures virtualization/decode shifts
-      // caused by the repeat bidirectional sweep, not historical page-load CLS.
+      // Do not request historical buffered entries. The lock-in phase is a
+      // pre-interaction measurement pass; this observer measures only layout
+      // shifts caused after compact geometry is authoritative.
       observer.observe({ type: 'layout-shift' });
       window.__frontierLayoutObserver = observer;
     } catch {
@@ -251,7 +291,7 @@ function compareSnapshots(before, after) {
   };
 }
 
-function validateViewport(name, before, after, warm, repeat, shift, stability) {
+function validateViewport(name, before, after, warm, warmShift, repeat, repeatShift, stability) {
   const failures = [];
   const check = (condition, message) => { if (!condition) failures.push(message); };
 
@@ -267,17 +307,16 @@ function validateViewport(name, before, after, warm, repeat, shift, stability) {
   check(stability.maxWidthDelta <= 1.25, `${name}: card widths drifted ${rounded(stability.maxWidthDelta)}px, worst=${stability.worstWidthCard}`);
   check(stability.maxMediaHeightDelta <= 1.25, `${name}: media aspect boxes changed height by ${rounded(stability.maxMediaHeightDelta)}px, worst=${stability.worstMediaHeightCard}`);
   check(stability.maxMediaAspectDelta <= 0.01, `${name}: media aspect boxes changed ratio by ${rounded(stability.maxMediaAspectDelta)}, worst=${stability.worstMediaAspectCard}`);
-  check(warm.maxScrollDrift <= 2, `${name}: initial warm sweep drifted ${rounded(warm.maxScrollDrift)}px from requested offsets`);
-  check(warm.documentHeightRange <= 2, `${name}: document height changed by ${rounded(warm.documentHeightRange)}px during the initial geometry warm sweep`);
-  check(repeat.maxScrollDrift <= 2, `${name}: scroll position drifted ${rounded(repeat.maxScrollDrift)}px without an explicit scroll command`);
-  check(repeat.documentHeightRange <= 2, `${name}: document height changed by ${rounded(repeat.documentHeightRange)}px during the post-warm sweep`);
-  check(shift.score <= 0.01, `${name}: layout-shift score regressed to ${rounded(shift.score)}`);
+  check(warm.maxScrollDrift <= 2, `${name}: first post-lock sweep drifted ${rounded(warm.maxScrollDrift)}px from requested offsets`);
+  check(warm.documentHeightRange <= 2, `${name}: document height changed by ${rounded(warm.documentHeightRange)}px during the first post-lock sweep`);
+  check(warmShift.score <= 0.01, `${name}: first post-lock sweep layout-shift score regressed to ${rounded(warmShift.score)}`);
+  check(repeat.maxScrollDrift <= 2, `${name}: repeat scroll position drifted ${rounded(repeat.maxScrollDrift)}px without an explicit scroll command`);
+  check(repeat.documentHeightRange <= 2, `${name}: document height changed by ${rounded(repeat.documentHeightRange)}px during the repeat sweep`);
+  check(repeatShift.score <= 0.01, `${name}: repeat sweep layout-shift score regressed to ${rounded(repeatShift.score)}`);
   return failures;
 }
 
 async function runViewport(browser, name, viewport) {
-  // A viewport owns a fresh browser context so desktop responsive state can
-  // never contaminate the mobile proof and vice versa.
   const context = await browser.newContext({
     viewport,
     reducedMotion: 'no-preference',
@@ -288,19 +327,19 @@ async function runViewport(browser, name, viewport) {
 
   try {
     await waitForFixture(page);
+    const lockStableFrames = await waitForLockedGeometry(page);
+
+    await installShiftObserver(page);
     const warm = await sweep(page);
-    await page.waitForFunction(
-      ({ selector, expected }) => document.querySelectorAll(`${selector}[data-frontier-geometry="locked"]`).length === expected,
-      { selector: CARD, expected: EXPECTED_CARDS },
-      { polling: 'raf', timeout: 5_000 },
-    );
+    const warmShift = await readShiftObserver(page);
     const before = await snapshot(page);
+
     await installShiftObserver(page);
     const repeat = await sweep(page);
+    const repeatShift = await readShiftObserver(page);
     const after = await snapshot(page);
-    const shift = await readShiftObserver(page);
     const stability = compareSnapshots(before, after);
-    const failures = validateViewport(name, before, after, warm, repeat, shift, stability);
+    const failures = validateViewport(name, before, after, warm, warmShift, repeat, repeatShift, stability);
 
     await page.screenshot({
       path: path.join(ARTIFACT_DIR, `frontier-scroll-stability-${name}${failures.length ? '-failure' : ''}.png`),
@@ -310,9 +349,11 @@ async function runViewport(browser, name, viewport) {
     return {
       passed: failures.length === 0,
       viewport,
+      lockStableFrames,
       warm: roundObject(warm),
+      warmShift: { score: rounded(warmShift.score), entries: warmShift.entries },
       repeat: roundObject(repeat),
-      shift: { score: rounded(shift.score), entries: shift.entries },
+      repeatShift: { score: rounded(repeatShift.score), entries: repeatShift.entries },
       stability: roundObject(stability),
       failures,
       before,
@@ -362,14 +403,18 @@ async function runViewport(browser, name, viewport) {
     console.log(JSON.stringify({
       passed: true,
       desktop: {
+        lockStableFrames: desktop.lockStableFrames,
         stability: desktop.stability,
-        shift: desktop.shift,
+        warmShift: desktop.warmShift,
+        repeatShift: desktop.repeatShift,
         warm: desktop.warm,
         repeat: desktop.repeat,
       },
       mobile: {
+        lockStableFrames: mobile.lockStableFrames,
         stability: mobile.stability,
-        shift: mobile.shift,
+        warmShift: mobile.warmShift,
+        repeatShift: mobile.repeatShift,
         warm: mobile.warm,
         repeat: mobile.repeat,
       },
@@ -378,7 +423,6 @@ async function runViewport(browser, name, viewport) {
     await browser.close();
   }
 })().catch((error) => {
-  // runViewport writes complete forensic data before this point. Preserve it.
   if (!fs.existsSync(RESULT_PATH)) {
     fs.writeFileSync(RESULT_PATH, `${JSON.stringify({ passed: false, error: error instanceof Error ? error.stack : String(error) }, null, 2)}\n`);
   }
