@@ -10,7 +10,7 @@
 <link rel="stylesheet" href="./sylvaria-pond-v012.css" />
 </head>
 <body>
-<!-- v0.13.0 is a new authoritative combat season: continuous glide, charged omnidirectional dash, kinetic tongue arcs, predictive evasion, and replay schema 2. -->
+<!-- v0.14.0 development runtime: unified frog rig, deterministic combat flow, rhythmic threat orchestration, and earned boss openings. -->
 <div id="game">
   <canvas id="c" width="960" height="640" tabindex="0" aria-label="Sylvaria kinetic frog pond action game"></canvas>
   <div id="hud" class="hidden" aria-hidden="true">
@@ -18,7 +18,7 @@
       <div id="roomCard" class="glass">
         <div id="roomKicker">01 / pond</div>
         <div id="roomTitle">Lily Clearing</div>
-        <div id="roomTask">Glide freely. Catch fire in the opening tongue frames to parry.</div>
+        <div id="roomTask">Read the lead threat. Parry or dash the opening beat, then punish the responder.</div>
         <div id="biomeBadge"></div>
       </div>
       <div id="stats" class="runStats">
@@ -39,9 +39,9 @@
 
   <div id="title" class="screen">
     <div class="panel menuPanel">
-      <div class="eyebrow">v0.13 · kinetic arc combat</div>
+      <div class="eyebrow">v0.14 · unified kinetic combat</div>
       <h1><em class="sylvariaWord">Sylvaria</em></h1>
-      <p class="lede narrow">Glide through a hostile pond, charge bursts in any steering direction, and swing the frog's tongue through a broad arc. Catch insect fire in the opening edge of the sweep to parry it into a faster weapon while evasive enemies try to escape the rest of your blade path.</p>
+      <p class="lede narrow">A 120 Hz counter-action run through thirty hostile pond arenas. Carve committed dash lines, sweep from Sprid’s actual mouth, redirect enemy fire, bait readable evasions, weaponize terrain, and break boss guard through earned openings.</p>
       <div class="menuActions">
         <button id="start" class="primary wide">start run</button>
         <button id="explore" class="secondary wide">learn controls</button>
@@ -49,24 +49,26 @@
       </div>
       <div id="bestRun" class="bestRun">best · no run yet</div>
       <div id="rankPanel" class="rankPanel" hidden>
-        <div class="rankHead"><span>top verified runs</span><span id="rankSeason">ranked</span></div>
+        <div class="rankHead"><span>top verified runs</span><span id="rankSeason">v0.14 development</span></div>
         <ol id="rankRows"></ol>
       </div>
-      <p class="microcopy">Thirty fixed pond arenas now escalate through Skimmers, Striders, precision Dragonflies, armored Shellbacks, legacy insect roles, currents, hazards, and increasingly dense crossfire. The same 120 Hz simulation remains server-replayable, but v0.13 is a new combat season.</p>
+      <p class="microcopy">Thirty authored arenas escalate from readable duets into tightly staggered call-and-response phrases. Every heavy commitment shares one deterministic threat budget, so late rooms become faster and denser without collapsing into simultaneous projectile soup. Ranked submission is intentionally paused until the v0.14 exact-source verifier is migrated.</p>
     </div>
   </div>
 
   <div id="howScreen" class="screen hidden">
     <div class="panel subPanel">
       <div class="eyebrow">how to play</div>
-      <h2>Glide. Charge. Sweep. Return fire.</h2>
+      <h2>Move with intent. Create the opening.</h2>
       <div class="howGrid">
-        <div><b>Glide</b><p>Hold any WASD combination for continuous acceleration and smooth diagonal steering. Release to coast briefly; slick surfaces preserve more momentum.</p></div>
-        <div><b>Charge dash</b><p>Hold Space to store burst energy while you keep steering. Release to launch along the current input vector, or along your existing momentum when no direction is held. Space can also queue just before dash recovery ends.</p></div>
-        <div><b>Tongue arc</b><p>Arrow keys choose the direction of a wide tongue sweep. Every swing has a short wind-up, an active moving arc, and recovery. A committed dash can cancel directly into the blade after its opening burst.</p></div>
-        <div><b>Parry</b><p>The first five active simulation ticks, about 42 ms, are the parry window. Meet incoming fire there to launch a 1160 px/s return that hits harder and can pierce. The later sweep still cuts enemies and the pond, but it does not reflect projectiles.</p></div>
-        <div><b>Read enemies</b><p>Skimmers orbit, Striders evade, Dragonflies fire high-speed lanes, and Shellbacks armor their front. Flank, redirect fire, or reposition instead of mashing attacks.</p></div>
-        <div><b>Use the pond</b><p>Water currents, mud, reeds, poison, algae, stones, and reflected shots reshape each fight. Strong runs use the environment to split overlapping threats.</p></div>
+        <div><b>Carve space</b><p>Hold any WASD combination for continuous acceleration. Momentum matters, but your movement remains fully controllable between committed actions.</p></div>
+        <div><b>Charge dash</b><p>Hold Space while steering, then release into an exponential burst. A committed dash can bend modestly but cannot pivot freely, so choose a line with an exit before launching.</p></div>
+        <div><b>Reactive Blade</b><p>Arrow keys choose the direction of a 156° tongue sweep. The tongue is physically anchored to Sprid’s mouth while its combat geometry remains centered on the authoritative player root.</p></div>
+        <div><b>Perfect parry</b><p>The first five active simulation ticks, about 42 ms, reflect incoming fire at 1160 px/s. Perfect returns hit harder, pierce once, add Flow, and refund 100 ms of dash cooldown.</p></div>
+        <div><b>Bait and punish</b><p>Skimmers, Striders, and Dragonflies react on fixed timings. Force the evade, read the shrinking opening ring, then punish before the next orchestrated threat beat arrives.</p></div>
+        <div><b>Break bosses</b><p>Perfect returns, hazard routes, and dash-cuts through a boss telegraph crack guard segments. A broken guard exposes the core for a short high-damage blade window while existing projectiles remain dangerous.</p></div>
+        <div><b>Use the pond</b><p>Currents, mud, reeds, poison, brambles, shards, deadwood, and reflected shots are combat tools. Strong runs solve positioning puzzles instead of treating the arena as decoration.</p></div>
+        <div><b>Read the rhythm</b><p>Heavy attacks enter a deterministic room-level queue. Learn each room’s call-and-response cadence, identify the lead threat, and choose whether to parry, reposition, bait, or route the response.</p></div>
       </div>
       <div class="actions"><button class="secondary" data-back>back</button></div>
     </div>
@@ -77,25 +79,25 @@
       <div class="eyebrow">controls</div>
       <h2>Nine combat keys.</h2>
       <div class="bindingGrid">
-        <div><span>glide north</span><b>W</b></div><div><span>tongue arc up</span><b>↑</b></div>
-        <div><span>glide south</span><b>S</b></div><div><span>tongue arc down</span><b>↓</b></div>
-        <div><span>glide west</span><b>A</b></div><div><span>tongue arc left</span><b>←</b></div>
-        <div><span>glide east</span><b>D</b></div><div><span>tongue arc right</span><b>→</b></div>
+        <div><span>glide north</span><b>W</b></div><div><span>blade up</span><b>↑</b></div>
+        <div><span>glide south</span><b>S</b></div><div><span>blade down</span><b>↓</b></div>
+        <div><span>glide west</span><b>A</b></div><div><span>blade left</span><b>←</b></div>
+        <div><span>glide east</span><b>D</b></div><div><span>blade right</span><b>→</b></div>
         <div><span>hold / release dash</span><b>Space</b></div><div><span>pause / resume</span><b>P</b></div>
         <div><span>mute / unmute</span><b>M</b></div><div><span>fullscreen</span><b>button</b></div>
       </div>
-      <p class="microcopy">WASD can combine diagonally. Space charging never interrupts steering. Arrow attacks are discrete timed swings, so movement and combat remain independently controllable.</p>
+      <p class="microcopy">WASD and the Arrow keys are independent. Movement chooses your line; the Arrow keys commit a directional counter-sweep. Late blade and dash inputs are buffered for deterministic execution rather than silently dropped.</p>
       <div class="actions"><button class="secondary" data-back>back</button></div>
     </div>
   </div>
 
   <div id="pauseScreen" class="screen hidden"><div class="panel subPanel"><div class="eyebrow">paused</div><h2>Pause</h2><div class="actions"><button id="resume" class="primary">resume</button></div></div></div>
-  <div id="gameOver" class="screen hidden"><div class="panel subPanel resultPanel"><div class="eyebrow">run complete</div><h2 id="gameOverTitle">run over</h2><p id="gameOverSummary" class="lede"></p><div id="runDelta" class="runDelta"></div><div id="rankedSubmit" class="rankedSubmit" hidden><span id="rankedState">ranked replay ready</span><div class="rankForm"><input id="rankName" maxlength="24" autocomplete="nickname" spellcheck="false" aria-label="Leaderboard name" placeholder="name for leaderboard" /><button id="submitRank" class="secondary">post score</button></div></div><div class="actions"><button id="restartRun" class="primary">run again</button><button id="menuFromGameOver" class="secondary">menu</button></div></div></div>
+  <div id="gameOver" class="screen hidden"><div class="panel subPanel resultPanel"><div class="eyebrow">run complete</div><h2 id="gameOverTitle">run over</h2><p id="gameOverSummary" class="lede"></p><div id="runDelta" class="runDelta"></div><div id="rankedSubmit" class="rankedSubmit" hidden><span id="rankedState">development build · ranking paused</span><div class="rankForm"><input id="rankName" maxlength="24" autocomplete="nickname" spellcheck="false" aria-label="Leaderboard name" placeholder="name for leaderboard" /><button id="submitRank" class="secondary">post score</button></div></div><div class="actions"><button id="restartRun" class="primary">run again</button><button id="menuFromGameOver" class="secondary">menu</button></div></div></div>
 </div>
 <script src="/game-runtimes/game-network-bridge.js"></script>
 <script src="./render-scale-v7.js"></script>
 <script src="./render-optimizer-v6.js"></script>
 <script src="./v091/fullscreen.js"></script>
-<script type="module" src="./v013-entry.js"></script>
+<script type="module" src="./v014-entry.js"></script>
 </body>
 </html>
