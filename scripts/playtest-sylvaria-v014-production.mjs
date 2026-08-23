@@ -38,11 +38,15 @@ await page.evaluate(()=>window.Sylvaria091.state.heldMoves.delete('d'));
 check(Math.hypot(movingSample.slash.x-movingSample.player.x,movingSample.slash.y-movingSample.player.y)<.01,`moving arc root lagged behind frog: ${JSON.stringify(movingSample)}`);
 check(Math.hypot(movingSample.visual.tongueMouth.x-movingSample.rig.mouth.x,movingSample.visual.tongueMouth.y-movingSample.rig.mouth.y)<.01,'moving tongue mouth diverged from rig socket');
 
-// Perfect-parry mobility reward is exactly 100 ms at the moment the reward is applied.
-const refundSetup=await page.evaluate(()=>{const play=window.__MOSSLIGHT_PLAYTEST__,G=window.Sylvaria091,p=G.state.player;play.setRoom(0,1);play.labClearGeometry();play.setPlayerPosition(300,330);for(const e of G.state.enemies)e.dead=true;const dummy=play.spawnTestEnemy('drone',850,120,'refund-anchor');const de=G.state.enemies.find(e=>e.id===dummy);if(de){de.clock=99;de.state='move';de.evadeCooldown=99}G.state.slashes=[];G.state.heldMoves.clear();G.state.heldOrder=[];p.cutCooldown=0;p.flow=0;p.dash=null;p.dashCooldown=2;p.dashBuffer=0;p.dashBufferHeld=false;p.dashBufferReleased=false;p.dashCharging=false;p.lastParryDashRefund=null;play.spawnCounterShot('right',70,{speed:180,pattern:'straight'});return{counter:G.state.stats.perfectCounters||0,cooldown:p.dashCooldown}},null);
+// Perfect-parry mobility reward is exactly 100 ms at the authoritative reward edge.
+// Keep one inert room guard alive so room-clear progression cannot reset the player underneath the measurement.
+const refundSetup=await page.evaluate(()=>{const play=window.__MOSSLIGHT_PLAYTEST__,G=window.Sylvaria091,p=G.state.player;play.setRoom(0,1);play.clearCombatants();play.labClearGeometry();play.setPlayerPosition(300,330);const guardId=play.spawnTestEnemy('foreman',850,120,'refund-room-guard'),guard=G.state.enemies.find(e=>e.id===guardId);if(guard){guard.state='recover';guard.counterStagger=99;guard.clock=99;guard.evadeCooldown=99}G.state.slashes=[];G.state.heldMoves.clear();G.state.heldOrder=[];p.cutCooldown=0;p.flow=0;p.dash=null;p.dashCharge=0;p.dashCooldown=2;p.dashBuffer=0;p.dashBufferHeld=false;p.dashBufferReleased=false;p.dashQueuedCharge=.18;p.dashCharging=false;p.lastParryDashRefund=null;play.spawnCounterShot('right',70,{speed:180,pattern:'straight'});return{counter:G.state.stats.perfectCounters||0,cooldown:p.dashCooldown,time:G.state.totalTime,room:G.state.worldDepth,guardId}});
 await page.keyboard.press('ArrowRight');
 const refund=await waitForValue(base=>{const G=window.Sylvaria091,r=G.state.player.lastParryDashRefund;if(!r||r.counter<=base)return false;return{receipt:r,currentCooldown:G.state.player.dashCooldown,room:G.state.worldDepth}},refundSetup.counter,1200);
+const refundElapsed=refund.receipt.time-refundSetup.time,expectedRefundBefore=Math.max(0,refundSetup.cooldown-refundElapsed);
+check(near(refundSetup.cooldown,2,.00001)&&refundSetup.room===1,`refund lab did not begin from stable cooldown state: ${JSON.stringify(refundSetup)}`);
 check(near(refund.receipt.refund,.1,.00001),`parry receipt was not 100 ms: ${JSON.stringify(refund)}`);
+check(near(refund.receipt.beforeCooldown,expectedRefundBefore,.025),`cooldown changed outside fixed-step decay before parry: ${JSON.stringify({refundSetup,refund,refundElapsed,expectedRefundBefore})}`);
 check(near(refund.receipt.beforeCooldown-refund.receipt.afterCooldown,.1,.00001),`parry applied wrong cooldown delta: ${JSON.stringify(refund)}`);
 check(refund.receipt.dashing===false&&refund.room===1,`refund measurement was contaminated by dash or room transition: ${JSON.stringify(refund)}`);
 
@@ -71,7 +75,7 @@ await page.evaluate(()=>window.Sylvaria091.fn.render());
 await page.screenshot({path:path.join(outputDir,'production-v014-unified-rig.png'),fullPage:true});
 
 for(const error of pageErrors)failures.push(`pageerror: ${error}`);
-const report={boot,rigDirections,movingSample,refund:{setup:refundSetup,result:refund},boss,threat:{...threat,roles,gaps},failures};fs.writeFileSync(path.join(outputDir,'production-report.json'),JSON.stringify(report,null,2));
+const report={boot,rigDirections,movingSample,refund:{setup:refundSetup,result:refund,elapsed:refundElapsed,expectedBefore:expectedRefundBefore},boss,threat:{...threat,roles,gaps},failures};fs.writeFileSync(path.join(outputDir,'production-report.json'),JSON.stringify(report,null,2));
 await browser.close();
 if(failures.length){console.error(`Sylvaria v0.14 production integration failed with ${failures.length} issue(s):`);for(const failure of failures)console.error(` - ${failure}`);process.exit(1)}
 console.log(`Sylvaria v0.14 production PASS · unified frog/tongue rig in 4 directions and motion · exact ${(refund.receipt.refund*1000).toFixed(0)} ms parry refund · boss guard ${boss.guard.join('→')} with core punish · room 29 ${roles.join(' → ')} at ${gaps.join('/')} tick gaps · ranked v0.13 submission safely disabled.`);
