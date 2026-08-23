@@ -24,7 +24,7 @@ concurrency:
 jobs:
   cutstep-forest-lab:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 24
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -43,6 +43,9 @@ jobs:
 
       - name: Validate v0.15 production architecture
         run: node scripts/validate-mosslight.mjs
+
+      - name: Profile complete v0.15 runtime
+        run: node scripts/profile-sylvaria-size.mjs
 
       - name: Build deterministic site
         env:
@@ -72,11 +75,20 @@ jobs:
           PW_ROOT="$(cd "$(dirname "$PW_BIN")/.." && pwd)"
           PLAYWRIGHT_MODULE_ROOT="$PW_ROOT" node scripts/playtest-sylvaria-v015-cutstep.mjs
 
+      - name: Qualify escalating alpha progression
+        run: |
+          PW_BIN="$(npm exec --yes --package=playwright@1.55.0 -- which playwright)"
+          PW_ROOT="$(cd "$(dirname "$PW_BIN")/.." && pwd)"
+          PLAYWRIGHT_MODULE_ROOT="$PW_ROOT" node scripts/playtest-sylvaria-v015-alpha-progression.mjs
+
       - name: Upload v0.15 Cutstep artifacts
         if: always()
         uses: actions/upload-artifact@v7
         with:
           name: sylvaria-v015-cutstep-artifacts
-          path: artifacts/sylvaria-v015-cutstep
+          path: |
+            artifacts/sylvaria-v015-cutstep
+            artifacts/sylvaria-v015-alpha
+            artifacts/sylvaria-size
           if-no-files-found: warn
           retention-days: 14
