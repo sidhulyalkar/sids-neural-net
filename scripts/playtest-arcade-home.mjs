@@ -26,26 +26,29 @@ for (const viewport of [
   });
 
   await page.goto(`${baseUrl}/`, { waitUntil: 'networkidle' });
-  const cta = page.getByRole('link', { name: 'Open the Game Network' });
+  const cta = page.locator('a[data-dendrite-destination="games"]');
 
   if ((await cta.count()) !== 1) {
-    failures.push(`${viewport.name}: expected exactly one homepage Game Network CTA`);
+    failures.push(`${viewport.name}: expected exactly one homepage Game Network dendrite CTA`);
   } else {
-    if (!(await cta.isVisible())) failures.push(`${viewport.name}: homepage Game Network CTA is not visible`);
+    if (!(await cta.isVisible())) failures.push(`${viewport.name}: homepage Game Network dendrite CTA is not visible`);
     const href = await cta.getAttribute('href');
     if (href !== '/arcade') failures.push(`${viewport.name}: homepage Game Network CTA href is ${href}`);
 
     const box = await cta.boundingBox();
     if (!box) {
-      failures.push(`${viewport.name}: homepage Game Network CTA has no rendered bounding box`);
+      failures.push(`${viewport.name}: homepage Game Network dendrite CTA has no rendered bounding box`);
     } else {
       const insideViewport =
         box.x >= 0 &&
         box.y >= 0 &&
         box.x + box.width <= viewport.width &&
         box.y + box.height <= viewport.height;
-      if (!insideViewport) failures.push(`${viewport.name}: homepage Game Network CTA is outside the viewport`);
+      if (!insideViewport) failures.push(`${viewport.name}: homepage Game Network dendrite CTA is outside the viewport`);
     }
+
+    const branchCount = await page.locator('[data-home-branch-count]').getAttribute('data-home-branch-count');
+    if (branchCount !== '8') failures.push(`${viewport.name}: expected eight primary homepage dendrites, got ${branchCount}`);
 
     await page.screenshot({ path: path.join(outputDir, `home-${viewport.name}.png`) });
     await cta.click();
@@ -67,4 +70,4 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log('Homepage Game Network CTA is visible, in-viewport, and navigates correctly on desktop and mobile.');
+console.log('Homepage Game Network dendrite is visible, in-viewport, eight-way, and navigates correctly on desktop and mobile.');
