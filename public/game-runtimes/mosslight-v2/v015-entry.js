@@ -6,6 +6,7 @@ window.SylvariaRankedDisabledReason='v0.15 Cutstep alpha · verifier migration r
 await import('./v014-entry.js');
 await import('./v015/cutstep-v015.js');
 await import('./v015/encounter-director-v015.js');
+await import('./v015/boss-bridge-v015.js');
 await import('./v015/forest-world-v015.js');
 await import('./v015/discoveries-v015.js');
 await import('./v015/forest-actors-v015.js');
@@ -67,10 +68,10 @@ const playtest=window.__MOSSLIGHT_PLAYTEST__;
 if(playtest){
   const base=playtest.snapshot.bind(playtest);playtest.version=VERSION;playtest.engineVersion=VERSION;playtest.presentationVersion=PRESENTATION;
   playtest.cutstep=(x=1,y=0)=>{window.SylvariaCutstep?.launch?.({x,y,source:'playtest'});return playtest.snapshot()};
-  playtest.snapshot=()=>{const snap=base();return{...snap,version:VERSION,engineVersion:VERSION,presentationVersion:PRESENTATION,cutstep:window.SylvariaCutstep?.snapshot?.()||null,forest:window.SylvariaForestTheme?.snapshot?.()||null,encounter:window.SylvariaEncounterDirector?.snapshot?.()||null,discoveries:window.SylvariaDiscoveries?.snapshot?.()||null,actors:window.SylvariaForestActors?.snapshot?.()||null,cutstepPresentation:window.SylvariaCutstepPresentation?.snapshot?.()||null,visual:{...(snap.visual||{}),version:VERSION,presentationVersion:PRESENTATION,cutstep:true,instantCutstep:true,independentAim:true,mouseAim:true,arrowAim:true,segmentedMovement:true,geometryTechniques:true,denseForest:true,regrowingUndergrowth:true,forestFog:true,curatedEncounters:true,professionalForestActors:true,meaningfulDiscoveries:true,escalatingDifficulty:true,ranked:false}}};
+  playtest.snapshot=()=>{const snap=base();return{...snap,version:VERSION,engineVersion:VERSION,presentationVersion:PRESENTATION,cutstep:window.SylvariaCutstep?.snapshot?.()||null,forest:window.SylvariaForestTheme?.snapshot?.()||null,encounter:window.SylvariaEncounterDirector?.snapshot?.()||null,bossBridge:window.SylvariaBossBridge?.snapshot?.()||null,discoveries:window.SylvariaDiscoveries?.snapshot?.()||null,actors:window.SylvariaForestActors?.snapshot?.()||null,cutstepPresentation:window.SylvariaCutstepPresentation?.snapshot?.()||null,visual:{...(snap.visual||{}),version:VERSION,presentationVersion:PRESENTATION,cutstep:true,instantCutstep:true,independentAim:true,mouseAim:true,arrowAim:true,segmentedMovement:true,geometryTechniques:true,denseForest:true,regrowingUndergrowth:true,forestFog:true,curatedEncounters:true,walkingSawmillBoss:true,professionalForestActors:true,meaningfulDiscoveries:true,escalatingDifficulty:true,ranked:false}}};
 }
 const visual=window.SylvariaVisualSystem;
-if(visual){const base=visual.snapshot.bind(visual);visual.version=VERSION;visual.presentationVersion=PRESENTATION;visual.snapshot=()=>({...base(),version:VERSION,presentationVersion:PRESENTATION,cutstep:true,instantCutstep:true,independentAim:true,denseForest:true,regrowingUndergrowth:true,forestFog:true,curatedEncounters:true,professionalForestActors:true,meaningfulDiscoveries:true,ranked:false})}
+if(visual){const base=visual.snapshot.bind(visual);visual.version=VERSION;visual.presentationVersion=PRESENTATION;visual.snapshot=()=>({...base(),version:VERSION,presentationVersion:PRESENTATION,cutstep:true,instantCutstep:true,independentAim:true,denseForest:true,regrowingUndergrowth:true,forestFog:true,curatedEncounters:true,walkingSawmillBoss:true,professionalForestActors:true,meaningfulDiscoveries:true,ranked:false})}
 
 window.Sylvaria015=G;
-window.SylvariaCombat015=Object.freeze({version:VERSION,presentationVersion:PRESENTATION,ranked:false,cutstep:window.SylvariaCutstep,forest:window.SylvariaForestTheme,encounter:window.SylvariaEncounterDirector,discoveries:window.SylvariaDiscoveries,actors:window.SylvariaForestActors,presentation:window.SylvariaCutstepPresentation});
+window.SylvariaCombat015=Object.freeze({version:VERSION,presentationVersion:PRESENTATION,ranked:false,cutstep:window.SylvariaCutstep,forest:window.SylvariaForestTheme,encounter:window.SylvariaEncounterDirector,bossBridge:window.SylvariaBossBridge,discoveries:window.SylvariaDiscoveries,actors:window.SylvariaForestActors,presentation:window.SylvariaCutstepPresentation});
