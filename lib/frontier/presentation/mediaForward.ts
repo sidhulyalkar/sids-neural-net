@@ -1,8 +1,10 @@
 import type { FrontierItem } from '../types';
 
 export type FrontierVisualRole = 'hero' | 'wide' | 'visual' | 'standard' | 'compact';
+export type FrontierPackedSpan = 4 | 8;
 
 const VISUAL_MEDIA_TYPES = new Set(['image', 'video', 'youtube']);
+const DESKTOP_COLUMNS = 12;
 
 export function frontierHasPresentationMedia(item: FrontierItem): boolean {
   return Boolean(item.media && VISUAL_MEDIA_TYPES.has(item.media.type));
@@ -21,6 +23,28 @@ export function frontierVisualRole(
 
   if (item.metrics?.length || item.artifacts?.length || item.convergence) return 'standard';
   return 'compact';
+}
+
+/**
+ * Build an order-preserving desktop packing plan. We intentionally do not use
+ * CSS grid-auto-flow:dense because dense backfill can paint lower-ranked cards
+ * above higher-ranked ones. 4/8-column units can fill every complete 12-column
+ * row while still giving strong media an editorially larger footprint.
+ */
+export function frontierPackedColumnSpans(
+  items: FrontierItem[],
+  renderableMedia: boolean[] = items.map(frontierHasPresentationMedia),
+): FrontierPackedSpan[] {
+  let remaining = DESKTOP_COLUMNS;
+  return items.map((item, index) => {
+    const hasMedia = renderableMedia[index] ?? frontierHasPresentationMedia(item);
+    const role = frontierVisualRole(item, index, hasMedia);
+    const preferred: FrontierPackedSpan = hasMedia && (role === 'hero' || role === 'wide') ? 8 : 4;
+    const span: FrontierPackedSpan = preferred <= remaining ? preferred : 4;
+    remaining -= span;
+    if (remaining === 0) remaining = DESKTOP_COLUMNS;
+    return span;
+  });
 }
 
 export function frontierMasonrySpan(
