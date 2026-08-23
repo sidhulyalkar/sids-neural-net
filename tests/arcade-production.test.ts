@@ -19,6 +19,7 @@ const runtimeGateway = readFileSync(
 );
 const arcadePage = readFileSync(join(root, 'app/arcade/page.tsx'), 'utf8');
 const gamePage = readFileSync(join(root, 'app/arcade/[slug]/page.tsx'), 'utf8');
+const playSpace = readFileSync(join(root, 'components/arcade/ArcadePlaySpace.tsx'), 'utf8');
 
 test('production arcade publishes exactly Stretchicorn and uniRico', () => {
   assert.deepEqual(
@@ -34,6 +35,13 @@ test('production arcade publishes exactly Stretchicorn and uniRico', () => {
   assert.doesNotMatch(arcadePage, /Sylvaria/);
   assert.doesNotMatch(gamePage, /mosslight|sylvaria/i);
   assert.match(gamePage, /export const dynamicParams = false/);
+});
+
+test('arcade content respects the global single-main landmark contract', () => {
+  assert.match(arcadePage, /data-arcade-catalog/);
+  assert.match(playSpace, /data-arcade-shell/);
+  assert.doesNotMatch(arcadePage, /<main\b/);
+  assert.doesNotMatch(playSpace, /<main\b/);
 });
 
 test('game metadata pins the current qualified upstream GitHub commits', () => {
