@@ -98,8 +98,8 @@ function trimStats(stats: Record<string, FrontierBehaviorAggregate>, limit = MAX
   if (entries.length <= limit) return stats;
   return Object.fromEntries(entries
     .sort((a, b) => {
-      const left = (a[1].positive * 8) + (a[1].saved * 7) + (a[1].opened * 5) + Math.min(8, a[1].dwellMs / 12_000);
-      const right = (b[1].positive * 8) + (b[1].saved * 7) + (b[1].opened * 5) + Math.min(8, b[1].dwellMs / 12_000);
+      const left = (a[1].positive * 10) + (a[1].saved * 9) + (a[1].opened * 4) + Math.min(10, a[1].dwellMs / 30_000);
+      const right = (b[1].positive * 10) + (b[1].saved * 9) + (b[1].opened * 4) + Math.min(10, b[1].dwellMs / 30_000);
       return right - left;
     })
     .slice(0, limit));
@@ -186,24 +186,45 @@ export function aggregatePreference(
 ): { score: number; confidence: number } {
   if (!aggregate) return { score: 0, confidence: 0 };
   const shown = Math.max(1, aggregate.shown);
-  // Twelve seconds of genuine viewport attention is roughly one soft engagement
-  // unit. Dwell is capped by impressions so a forgotten background tab cannot
-  // overwhelm explicit votes, saves, or opens.
-  const dwellUnits = Math.min(shown * 1.25, aggregate.dwellMs / 12_000);
-  const directEvidence = dwellUnits * 0.65 + aggregate.expanded + aggregate.opened * 2 + aggregate.saved * 3 + aggregate.positive * 3 + aggregate.negative * 3;
-  if (aggregate.shown < 2 && directEvidence < 2.5) return { score: 0, confidence: 0 };
 
-  const engaged = dwellUnits * 0.42 + aggregate.expanded * 0.48 + aggregate.opened * 0.82 + aggregate.saved * 1.05 + aggregate.positive * 1.15;
-  const negative = aggregate.negative * 1.25;
-  const positiveRate = (engaged - negative) / shown;
-  const resolvedEngagements = Math.min(shown, dwellUnits + aggregate.expanded + aggregate.opened + aggregate.saved + aggregate.positive);
-  const quietSkipRate = Math.max(0, (shown - resolvedEngagements) / shown - 0.8);
-  const skipPenalty = shown >= 12 ? quietSkipRate * 0.28 : 0;
-  const score = Math.max(-1, Math.min(1.2, positiveRate - skipPenalty));
-  const evidence = aggregate.shown + Math.min(6, dwellUnits) + aggregate.opened * 2 + aggregate.saved * 3 + aggregate.positive * 3 + aggregate.negative * 3;
+  // Preference is deliberately anchored in absolute durable evidence rather
+  // than tiny-denominator click-through rates. Thirty seconds of real dwell is
+  // one attention unit; explicit saves/likes carry substantially more weight.
+  // Impressions by themselves are neutral and cannot teach dislike.
+  const dwellUnits = Math.min(24, aggregate.dwellMs / 30_000);
+  const positiveEvidence =
+    dwellUnits * 0.95 +
+    aggregate.expanded * 0.55 +
+    aggregate.opened * 1.0 +
+    aggregate.saved * 2.2 +
+    aggregate.positive * 2.8;
+  const negativeEvidence = aggregate.negative * 3.0;
+  const directEvidence = positiveEvidence + negativeEvidence;
+  if (directEvidence < 0.75) return { score: 0, confidence: 0 };
+
+  const absoluteScore = Math.tanh((positiveEvidence - negativeEvidence) / 5);
+
+  // A Bayesian-smoothed rate exists only as a small tie-breaker after durable
+  // evidence is present. Eight neutral pseudo-impressions stop 1/1 or 2/2
+  // interactions from looking like a universal preference.
+  const resolved = Math.min(
+    shown,
+    dwellUnits * 0.55 + aggregate.expanded * 0.45 + aggregate.opened + aggregate.saved + aggregate.positive,
+  );
+  const posteriorEngagement = (resolved + 4) / (shown + 8);
+  const rateSignal = Math.max(-1, Math.min(1, (posteriorEngagement - 0.5) * 2));
+
+  // Quiet glances are weak evidence and only become mildly informative after
+  // substantial repeated exposure. They never overpower accumulated attention.
+  const quietSkipRate = Math.max(0, (shown - resolved) / shown - 0.9);
+  const skipPenalty = shown >= 24 ? Math.min(0.12, quietSkipRate * 0.18) : 0;
+  const score = Math.max(-1, Math.min(1.2, absoluteScore * 0.84 + rateSignal * 0.16 - skipPenalty));
+
+  const evidenceMass = directEvidence + Math.sqrt(shown) * 0.28;
   const ageDays = aggregate.lastAt ? Math.max(0, (date.getTime() - new Date(aggregate.lastAt).getTime()) / DAY_MS) : 0;
-  const recency = Math.max(0.35, Math.exp(-ageDays / 120));
-  return { score, confidence: Math.min(1, evidence / 20) * recency };
+  const recency = Math.max(0.5, Math.exp(-ageDays / 180));
+  const confidence = (1 - Math.exp(-evidenceMass / 8)) * recency;
+  return { score, confidence: Math.min(1, confidence) };
 }
 
 export function behavioralAdjustment(item: FrontierItem, model?: FrontierBehaviorModel, date = new Date()): number {
@@ -214,23 +235,36 @@ export function behavioralAdjustment(item: FrontierItem, model?: FrontierBehavio
   const format = formatForItem(item);
   const novelty = noveltyBucket(item);
   const depth = depthBucket(item);
-  const signals: Array<[FrontierBehaviorAggregate | undefined, number]> = [
-    [memory.laneStats[item.lane], 0.055],
-    [memory.sourceStats[item.sourceKind], 0.018],
-    [memory.sourceStats[item.sourceLabel.toLowerCase()], 0.016],
-    [memory.formatStats[format], 0.025],
-    [memory.contextStats[`${bucket}:${item.lane}`], 0.04],
-    [memory.contextStats[`${weekday}:${item.lane}`], 0.022],
-    [memory.contextStats[`${bucket}:${format}`], 0.018],
-    [memory.contextStats[`novelty:${novelty}`], 0.018],
-    [depth ? memory.contextStats[`depth:${depth}`] : undefined, 0.012],
-  ];
-  for (const tag of item.tags.slice(0, 5)) signals.push([memory.topicStats[tag.toLowerCase()], 0.018]);
 
-  return signals.reduce((sum, [aggregate, weight]) => {
+  // Broad durable taste gets the largest authority. Narrow context slices are
+  // intentionally weak so a short evening/session streak cannot overfit the
+  // feed away from months of lane/topic attention and explicit feedback.
+  const signals: Array<[FrontierBehaviorAggregate | undefined, number]> = [
+    [memory.laneStats[item.lane], 0.062],
+    [memory.sourceStats[item.sourceKind], 0.014],
+    [memory.sourceStats[item.sourceLabel.toLowerCase()], 0.012],
+    [memory.formatStats[format], 0.018],
+    [memory.contextStats[`${bucket}:${item.lane}`], 0.018],
+    [memory.contextStats[`${weekday}:${item.lane}`], 0.008],
+    [memory.contextStats[`${bucket}:${format}`], 0.008],
+    [memory.contextStats[`novelty:${novelty}`], 0.008],
+    [depth ? memory.contextStats[`depth:${depth}`] : undefined, 0.006],
+  ];
+  for (const tag of item.tags.slice(0, 5)) signals.push([memory.topicStats[tag.toLowerCase()], 0.021]);
+
+  const raw = signals.reduce((sum, [aggregate, weight]) => {
     const preference = aggregatePreference(aggregate, date);
     return sum + preference.score * preference.confidence * weight;
   }, 0);
+
+  // Sparse browsing histories should be conservative. As cumulative active
+  // time and independent sessions grow, implicit history earns full authority.
+  // Explicit profile reactions are outside this multiplier and stay immediate.
+  const activeMinutes = Math.max(0, model.totalActiveMs / 60_000);
+  const timeMaturity = 1 - Math.exp(-activeMinutes / 120);
+  const sessionMaturity = 1 - Math.exp(-Math.max(0, model.sessions) / 8);
+  const maturity = Math.min(1, 0.45 + timeMaturity * 0.35 + sessionMaturity * 0.2);
+  return raw * maturity;
 }
 
 export function behavioralExplorationBonus(item: FrontierItem, model?: FrontierBehaviorModel, date = new Date()): number {
