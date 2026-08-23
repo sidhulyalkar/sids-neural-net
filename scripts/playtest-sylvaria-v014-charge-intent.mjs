@@ -9,19 +9,13 @@ const browser=await chromium.launch({headless:true});const page=await browser.ne
 async function waitForValue(fn,arg=null,timeout=1000){const h=await page.waitForFunction(fn,arg,{timeout});try{return await h.jsonValue()}finally{await h.dispose()}}
 
 await page.goto(`${baseUrl}/game-runtimes/mosslight-v2/index.html?charge-intent-lab=1`,{waitUntil:'networkidle'});
-await page.waitForFunction(()=>window.__MOSSLIGHT_PLAYTEST__?.version==='0.13.0');await page.click('#start');await page.locator('#c').focus();
-await page.evaluate(async()=>{await import('/game-runtimes/mosslight-v2/v014/combat-flow-v014.js')});
-await page.waitForFunction(()=>window.SylvariaFlowCombat?.version==='0.14.0');
+await page.waitForFunction(()=>window.__MOSSLIGHT_PLAYTEST__?.version==='0.14.0'&&window.SylvariaCombat014?.version==='0.14.0'&&window.SylvariaFlowCombat?.version==='0.14.0');await page.click('#start');await page.locator('#c').focus();
 
 await page.evaluate(()=>{const play=window.__MOSSLIGHT_PLAYTEST__,G=window.Sylvaria091,p=G.state.player;play.clearCombatants();play.labClearGeometry();play.setPlayerPosition(440,360);G.state.heldMoves.clear();G.state.heldOrder=[];p.dash=null;p.dashCooldown=0;p.vx=210;p.vy=0;p.dashCharging=false;p.dashCharge=0});
-
-// Charge northwest while existing momentum points east. Release movement keys first,
-// then Space. The launched direction must follow the stored charge indicator, not momentum.
 await page.keyboard.down('a');await page.keyboard.down('w');await page.keyboard.down('Space');
 await page.waitForFunction(()=>{const p=window.Sylvaria091.state.player;return p.dashCharging&&p.dashCharge>.28&&p.dashChargeVector.x<-.65&&p.dashChargeVector.y<-.65},{timeout:900});
 const charged=await page.evaluate(()=>({flow:window.SylvariaFlowCombat.snapshot(),velocity:{x:window.Sylvaria091.state.player.vx,y:window.Sylvaria091.state.player.vy}}));
-await page.keyboard.up('a');await page.keyboard.up('w');
-await page.waitForTimeout(18);
+await page.keyboard.up('a');await page.keyboard.up('w');await page.waitForTimeout(18);
 const beforeRelease=await page.evaluate(()=>({flow:window.SylvariaFlowCombat.snapshot(),held:[...window.Sylvaria091.state.heldMoves],velocity:{x:window.Sylvaria091.state.player.vx,y:window.Sylvaria091.state.player.vy}}));
 await page.keyboard.up('Space');
 const launched=await waitForValue(()=>{const p=window.Sylvaria091.state.player,d=p.dash;if(!d)return false;return{dir:{...d.dir},speed:d.speed,charge:d.charge,held:[...window.Sylvaria091.state.heldMoves]}},null,600);
