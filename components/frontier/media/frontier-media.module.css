@@ -10,6 +10,10 @@
   background: var(--frontier-media-placeholder, #070a09);
 }
 
+.imageSurface {
+  aspect-ratio: 1 / 1;
+}
+
 .primaryImage,
 .nativeImageSurface,
 .posterSurface,
@@ -20,6 +24,7 @@
 
 .imageSurface {
   isolation: isolate;
+  contain: layout paint style;
 }
 
 .gpuRegistrationSlot {
