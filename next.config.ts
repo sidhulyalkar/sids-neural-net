@@ -14,6 +14,16 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  async rewrites() {
+    return {
+      beforeFiles: [
+        {
+          source: '/game-runtimes/stretchicorn/:asset*',
+          destination: '/game-runtimes/stretchicorn-upstream/:asset*',
+        },
+      ],
+    };
+  },
 };
 
 export default nextConfig;
