@@ -59,7 +59,7 @@ export const SAPLINE=Object.freeze({
   maxAccel:5200,
   releaseBoostPerPx:1.35,
   releaseBoostMax:225,
-  releaseUpFloor:245,
+  releaseUpFloor:330,
   maxReleaseSpeed:1120,
   sameAnchorCooldown:0.18,
   detachCooldown:0.09,
