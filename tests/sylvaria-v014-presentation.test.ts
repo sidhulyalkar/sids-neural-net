@@ -44,6 +44,13 @@ test('v0.14 hit-stop freezes the world but redraws every immediate tactical cue'
   assert.match(source, /drawFlowRing\(state\.player\);drawBufferedBlade\(state\.player\);drawPunishWindows\(\);drawBossFlow\(\)/);
 });
 
+test('room replacement clears render-only hold state so old impacts cannot suppress new-room cues', () => {
+  assert.match(source, /function resetRoomPresentation/);
+  assert.match(source, /holdFrames=0;lastHitStopSerial=state\.hitStopSerial\|\|0/);
+  assert.match(source, /const inheritedSetup=F\.setupRoom/);
+  assert.match(source, /F\.setupRoom=\(\.\.\.args\)=>\{const result=inheritedSetup\(\.\.\.args\);resetRoomPresentation\(\);return result\}/);
+});
+
 test('presentation does not own authoritative movement or combat simulation', () => {
   assert.doesNotMatch(source, /F\.(?:updateMovement|updateEnemies|updateSlashes|cut)\s*=/);
 });
