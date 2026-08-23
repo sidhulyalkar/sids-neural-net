@@ -72,7 +72,7 @@ export const arcadeGames: ArcadeGame[] = [
     slug: 'sylvaria',
     title: 'Sylvaria',
     subtitle: 'ROOT · CLIMB · SWING · STRIKE.',
-    description: 'A horizontal dark-forest action platformer built around living tree traversal. Run across roots, compress flexible branches into natural launchers, grip and wall-launch from bark, preserve momentum through hanging vines, rebound from enemies with a downward machete strike, and use one aerial Canopy Step to connect difficult routes. Combat stays deliberately readable: a machete handles grounded, upward, and downward attacks while logging crews telegraph axe swings and oversized nail projectiles that can be reflected back into the fight. The first multi-screen Old Growth Trial is intentionally focused on making movement and combat feel excellent before Sylvaria expands into a larger interconnected forest world.',
+    description: 'A horizontal dark-forest action platformer built around living tree traversal. Run across roots, compress flexible branches into natural launchers, use Bark Grip to cling and wall-launch from living trunks, preserve momentum through hanging vines, rebound from enemies with a downward machete strike, and use one aerial Canopy Step to connect difficult routes. Combat stays deliberately readable: a machete handles grounded, upward, and downward attacks while logging crews telegraph axe swings and oversized nail projectiles that can be reflected back into the fight. The first multi-screen Old Growth Trial is intentionally focused on making movement and combat feel excellent before Sylvaria expands into a larger interconnected forest world.',
     version: 'v2.0.0-alpha.1',
     status: 'playable',
     sourceVisibility: 'public',
@@ -83,7 +83,7 @@ export const arcadeGames: ArcadeGame[] = [
     tags: ['action platformer', 'dark forest', 'tree traversal', 'branch physics', 'vine swinging', 'wall movement', 'machete combat', 'projectile reflection', '120 hz simulation'],
     controls: [
       { input: 'A / D', action: 'Run and steer in the air' },
-      { input: 'Space', action: 'Variable jump; jump from bark or release a held vine' },
+      { input: 'Space', action: 'Variable jump; Bark Grip wall launch; release a held vine' },
       { input: 'J', action: 'Machete slash and projectile reflection' },
       { input: 'W / S + J', action: 'Upward slash or aerial downslash rebound' },
       { input: 'Shift', action: 'Spend the current aerial Canopy Step' },
