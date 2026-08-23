@@ -1,4 +1,4 @@
-export const VERSION='3.0.0-alpha.1';
+export const VERSION='3.1.0-alpha.1';
 export const VIEW={w:1280,h:720};
 export const WORLD={w:1760,h:6400};
 export const FIXED_DT=1/120;
@@ -11,6 +11,7 @@ export const DEFAULT_BINDINGS=Object.freeze({
   down:'ArrowDown',
   jump:'Space',
   attack:'KeyD',
+  tether:'KeyW',
   dash:'ShiftLeft',
   interact:'KeyE',
   pause:'Escape',
@@ -41,14 +42,37 @@ export const MOVE=Object.freeze({
   branchCarryEpsilon:0.001,
 });
 
+// Sapline is an elastic traversal constraint rather than a teleporting grapple.
+// All forces are evaluated on the authoritative 120 Hz fixed step.
+export const SAPLINE=Object.freeze({
+  maxRange:410,
+  minAttachDistance:88,
+  acquireDot:-0.08,
+  belowPenalty:0.72,
+  directionPenalty:145,
+  attachRestRatio:0.78,
+  minLength:72,
+  reelSpeed:245,
+  spring:23.5,
+  damping:6.6,
+  tangentAccel:1120,
+  maxAccel:5200,
+  releaseBoostPerPx:1.35,
+  releaseBoostMax:225,
+  releaseUpFloor:245,
+  maxReleaseSpeed:1120,
+  sameAnchorCooldown:0.18,
+  detachCooldown:0.09,
+});
+
 export const COMBAT=Object.freeze({
   attackCooldown:0.085,
-  side:{startup:0.028,activeEnd:0.145,duration:0.19,damage:1.0,reach:74,height:42},
-  up:{startup:0.026,activeEnd:0.16,duration:0.205,damage:1.05,reach:70,width:48},
-  down:{startup:0.02,activeEnd:0.18,duration:0.215,damage:1.15,reach:72,width:44},
-  wall:{startup:0.022,activeEnd:0.15,duration:0.19,damage:1.15,reach:70,height:46},
-  dash:{startup:0.012,activeEnd:0.115,duration:0.145,damage:1.35,reach:88,height:42},
-  plunge:{startup:0.01,activeEnd:0.22,duration:0.245,damage:1.65,reach:84,width:50},
+  side:{startup:0.028,activeEnd:0.145,duration:0.19,damage:1.0,reach:66,height:40},
+  up:{startup:0.026,activeEnd:0.16,duration:0.205,damage:1.05,reach:64,width:46},
+  down:{startup:0.02,activeEnd:0.18,duration:0.215,damage:1.15,reach:66,width:42},
+  wall:{startup:0.022,activeEnd:0.15,duration:0.19,damage:1.15,reach:64,height:44},
+  dash:{startup:0.012,activeEnd:0.115,duration:0.145,damage:1.35,reach:76,height:40},
+  plunge:{startup:0.01,activeEnd:0.22,duration:0.245,damage:1.65,reach:72,width:48},
   projectileDeflectWindow:0.13,
   reflectSpeed:760,
   downBounce:610,
@@ -71,6 +95,8 @@ export const COLORS=Object.freeze({
   guardian:'#173124',
   guardianEdge:'#aee6a2',
   blade:'#eefbd4',
+  sapline:'#9cf0b8',
+  resin:'#d7f5b7',
   industrial:'#d6934f',
   danger:'#ff9a54',
   bark:'#403522',
