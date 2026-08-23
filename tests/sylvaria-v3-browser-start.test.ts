@@ -15,8 +15,15 @@ test('Sylvaria start cannot be blocked by unavailable browser audio',()=>{
   assert.doesNotMatch(boot,/function startGame\(\)\{audioCtx\?\?=new AudioContext/);
 });
 
-test('cross-browser qualification proves the real start control reached playing mode',()=>{
+test('cross-browser qualification proves real controls without depending on headless RAF scheduling',()=>{
   assert.match(matrix,/page\.locator\('#start'\)\.click\(\)/);
   assert.match(matrix,/snapshot\(\)\.mode==='playing'/);
+  assert.match(matrix,/page\.keyboard\.down\('ArrowRight'\)/);
+  assert.match(matrix,/input\.is\('right'\)/);
+  assert.match(matrix,/step\(12\)/);
+  assert.match(matrix,/page\.keyboard\.down\('KeyW'\)/);
+  assert.match(matrix,/input\.is\('tether'\)/);
+  assert.match(matrix,/step\(8\)/);
+  assert.match(matrix,/Headless WebKit may throttle requestAnimationFrame/);
   for(const browser of ["'chrome-stable'","'chromium'","'firefox'","'webkit'"])assert.ok(matrix.includes(browser),`browser matrix missing ${browser}`);
 });
