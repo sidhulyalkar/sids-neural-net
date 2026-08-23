@@ -166,6 +166,7 @@
     }),
     getTelemetry: S.summarizeTelemetry,
     getTuning: () => JSON.parse(JSON.stringify(S.TUNE)),
+    getRouteGrammars: () => Object.keys(S.ROUTE_GRAMMARS),
     setTuning: S.setTuning,
     start: (seed) => S.startRun(Number.isFinite(seed) ? seed : state.runSeed + 1),
     retry: () => S.startRun(state.runSeed),
