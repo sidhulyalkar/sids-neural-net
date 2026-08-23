@@ -136,7 +136,7 @@ jobs:
           grep -q 'SPRITE_FORWARD_OFFSET=Math.PI/2' /tmp/sylvaria-rig-v014.js
           grep -q 'mouthForAttack' /tmp/sylvaria-rig-v014.js
           grep -q 'lastParryDashRefund' /tmp/sylvaria-flow-v014.js
-          grep -q 'retargetTicks:8' /tmp/sylvaria-charge-intent-v014.js
+          grep -q 'retargetTicks:24' /tmp/sylvaria-charge-intent-v014.js
           grep -q 'v014ChargeCommittedVector' /tmp/sylvaria-charge-intent-v014.js
           grep -q 'spec.dodge=100' /tmp/sylvaria-enemy-flow-v014.js
           grep -q 'striderWhiffPunishTicks:28' /tmp/sylvaria-enemy-mastery-v014.js
