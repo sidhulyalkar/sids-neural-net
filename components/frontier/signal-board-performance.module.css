@@ -1,23 +1,22 @@
 .virtualItem {
   min-width: 0;
-  --frontier-card-intrinsic-fallback: 380px;
-  content-visibility: auto;
-  contain-intrinsic-size: auto var(--frontier-card-intrinsic-height, var(--frontier-card-intrinsic-fallback));
+  /* Unknown compact geometry must participate in real layout once. The
+     deterministic masonry hook batches that first measurement before paint and
+     only then marks the card locked. This removes guessed 320/380px intrinsic
+     placeholders from the user's first bidirectional scroll. */
+  content-visibility: visible;
+  contain-intrinsic-size: none;
 }
 
-.feedVirtualItem {
-  --frontier-card-intrinsic-fallback: 260px;
+.virtualItem[data-frontier-geometry='locked'] {
+  content-visibility: auto;
+  contain-intrinsic-size: auto var(--frontier-card-intrinsic-height);
 }
 
 @media (max-width: 720px) {
-  .virtualItem,
-  .feedVirtualItem {
-    --frontier-card-intrinsic-fallback: 320px;
-  }
-
   /* Chromium can keep auto-visibility contents skipped until scrolling even
      while their intrinsic wrappers occupy the first mobile screen. Guarantee
-     a real above-fold reading surface; later cards remain virtualized. */
+     a real above-fold reading surface; later locked cards remain virtualized. */
   .feedVirtualItem:nth-child(-n + 3) {
     content-visibility: visible;
     contain-intrinsic-size: none;
