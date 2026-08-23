@@ -11,7 +11,7 @@ const space=read('public/game-runtimes/mosslight-v2/v014/presentation-space-v014
 
 test('v0.15 boots the polished Cutstep alpha over the qualified v0.14 substrate',()=>{
   assert.match(entry,/await import\('\.\/v014-entry\.js'\)/);
-  for(const module of ['cutstep-v015.js','encounter-director-v015.js','forest-world-v015.js','discoveries-v015.js','forest-actors-v015.js','cutstep-presentation-v015.js'])assert.match(entry,new RegExp(`v015\\/${module.replaceAll('.','\\.')}`));
+  for(const moduleName of ['cutstep-v015.js','encounter-director-v015.js','forest-world-v015.js','discoveries-v015.js','forest-actors-v015.js','cutstep-presentation-v015.js'])assert.match(entry,new RegExp(`v015\\/${moduleName.replaceAll('.','\\.')}`));
   assert.match(html,/src="\.\/v015-entry\.js"/);
   assert.match(html,/Sylvaria · Cutstep Forest/);
   assert.match(entry,/POLISHED FOREST COMBAT ALPHA/);
