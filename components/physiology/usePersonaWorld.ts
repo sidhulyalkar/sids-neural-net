@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useSyncExternalStore } from 'react';
 import type { PersonaMoodSelfReport } from '@/lib/physiology/schema';
 import {
   PERSONA_WORLD_STORAGE_KEY,
@@ -25,12 +25,15 @@ import {
   type NatureAtlasProgress,
 } from '@/lib/physiology/natureWorldsExpanded';
 
-type PersonaWorldState = {
+type PersonaWorldSnapshot = {
   profile: PersonaWorldProfile;
   atlas: NatureAtlasProgress;
   worldId: string;
   activity: PersonaActivity;
   hydrated: boolean;
+};
+
+type PersonaWorldState = PersonaWorldSnapshot & {
   chooseWorld: (worldId: string, mood: PersonaMoodSelfReport) => void;
   toggleFavorite: (worldId: string) => void;
   chooseActivity: (activity: PersonaActivity, mood: PersonaMoodSelfReport) => void;
@@ -39,110 +42,126 @@ type PersonaWorldState = {
   reset: (mood: PersonaMoodSelfReport) => void;
 };
 
+const DEFAULT_WORLD_ID = 'w001-misty-pine-grove';
+const serverSnapshot: PersonaWorldSnapshot = {
+  profile: createDefaultWorldProfile(),
+  atlas: createDefaultAtlasProgress(),
+  worldId: DEFAULT_WORLD_ID,
+  activity: 'explore',
+  hydrated: false,
+};
+
+let browserSnapshot: PersonaWorldSnapshot | null = null;
+const listeners = new Set<() => void>();
+
+function persist(snapshot: PersonaWorldSnapshot) {
+  window.localStorage.setItem(PERSONA_WORLD_STORAGE_KEY, JSON.stringify(snapshot.profile));
+  window.localStorage.setItem(NATURE_ATLAS_STORAGE_KEY, JSON.stringify(snapshot.atlas));
+}
+
+function initializeBrowserSnapshot(mood: PersonaMoodSelfReport): PersonaWorldSnapshot {
+  if (browserSnapshot) return browserSnapshot;
+  const savedProfile = loadWorldProfile(window.localStorage.getItem(PERSONA_WORLD_STORAGE_KEY));
+  const savedAtlas = loadAtlasProgress(window.localStorage.getItem(NATURE_ATLAS_STORAGE_KEY));
+  const profile = incrementVisit(savedProfile);
+  const recommended = suggestNatureWorld(profile, savedAtlas, mood);
+  browserSnapshot = {
+    profile,
+    atlas: recordAtlasVisit(savedAtlas, recommended.id),
+    worldId: recommended.id,
+    activity: suggestWorldActivity(profile, recommended, mood),
+    hydrated: true,
+  };
+  persist(browserSnapshot);
+  return browserSnapshot;
+}
+
+function publish(next: PersonaWorldSnapshot) {
+  browserSnapshot = next;
+  persist(next);
+  for (const listener of listeners) listener();
+}
+
+function subscribe(listener: () => void) {
+  listeners.add(listener);
+  return () => listeners.delete(listener);
+}
+
 export function usePersonaWorld(initialMood: PersonaMoodSelfReport): PersonaWorldState {
-  const [profile, setProfile] = useState<PersonaWorldProfile>(() => createDefaultWorldProfile());
-  const [atlas, setAtlas] = useState<NatureAtlasProgress>(() => createDefaultAtlasProgress());
-  const [worldId, setWorldId] = useState('w001-misty-pine-grove');
-  const [activity, setActivity] = useState<PersonaActivity>('explore');
-  const [hydrated, setHydrated] = useState(false);
-  const wanderIndex = useRef(0);
   const initialMoodRef = useRef(initialMood);
-
-  useEffect(() => {
-    const savedProfile = loadWorldProfile(window.localStorage.getItem(PERSONA_WORLD_STORAGE_KEY));
-    const savedAtlas = loadAtlasProgress(window.localStorage.getItem(NATURE_ATLAS_STORAGE_KEY));
-    const visitedProfile = incrementVisit(savedProfile);
-    const mood = initialMoodRef.current;
-    const recommended = suggestNatureWorld(visitedProfile, savedAtlas, mood);
-
-    setProfile(visitedProfile);
-    setAtlas(recordAtlasVisit(savedAtlas, recommended.id));
-    setWorldId(recommended.id);
-    setActivity(suggestWorldActivity(visitedProfile, recommended, mood));
-    setHydrated(true);
-  }, []);
-
-  useEffect(() => {
-    if (!hydrated) return;
-    window.localStorage.setItem(PERSONA_WORLD_STORAGE_KEY, JSON.stringify(profile));
-  }, [hydrated, profile]);
-
-  useEffect(() => {
-    if (!hydrated) return;
-    window.localStorage.setItem(NATURE_ATLAS_STORAGE_KEY, JSON.stringify(atlas));
-  }, [atlas, hydrated]);
-
-  const chooseWorld = useCallback(
-    (nextWorldId: string, mood: PersonaMoodSelfReport) => {
-      const nextWorld = getNatureWorld(nextWorldId);
-      const nextActivity = suggestWorldActivity(profile, nextWorld, mood);
-      setWorldId(nextWorld.id);
-      setActivity(nextActivity);
-      setAtlas((current) => recordAtlasVisit(current, nextWorld.id));
-      setProfile((current) => recordNatureAdventure(current, nextWorld, nextActivity, mood));
-    },
-    [profile]
+  const wanderIndex = useRef(0);
+  const snapshot = useSyncExternalStore(
+    subscribe,
+    () => initializeBrowserSnapshot(initialMoodRef.current),
+    () => serverSnapshot,
   );
+
+  const chooseWorld = useCallback((nextWorldId: string, mood: PersonaMoodSelfReport) => {
+    const current = initializeBrowserSnapshot(initialMoodRef.current);
+    const nextWorld = getNatureWorld(nextWorldId);
+    const nextActivity = suggestWorldActivity(current.profile, nextWorld, mood);
+    publish({
+      ...current,
+      worldId: nextWorld.id,
+      activity: nextActivity,
+      atlas: recordAtlasVisit(current.atlas, nextWorld.id),
+      profile: recordNatureAdventure(current.profile, nextWorld, nextActivity, mood),
+    });
+  }, []);
 
   const toggleFavorite = useCallback((nextWorldId: string) => {
-    setAtlas((current) => toggleAtlasFavorite(current, nextWorldId));
+    const current = initializeBrowserSnapshot(initialMoodRef.current);
+    publish({ ...current, atlas: toggleAtlasFavorite(current.atlas, nextWorldId) });
   }, []);
 
-  const chooseActivity = useCallback(
-    (nextActivity: PersonaActivity, mood: PersonaMoodSelfReport) => {
-      const world = getNatureWorld(worldId);
-      if (!world.activities.includes(nextActivity)) return;
-      setActivity(nextActivity);
-      setProfile((current) => recordNatureAdventure(current, world, nextActivity, mood));
-    },
-    [worldId]
-  );
+  const chooseActivity = useCallback((nextActivity: PersonaActivity, mood: PersonaMoodSelfReport) => {
+    const current = initializeBrowserSnapshot(initialMoodRef.current);
+    const world = getNatureWorld(current.worldId);
+    if (!world.activities.includes(nextActivity)) return;
+    publish({
+      ...current,
+      activity: nextActivity,
+      profile: recordNatureAdventure(current.profile, world, nextActivity, mood),
+    });
+  }, []);
 
-  const wander = useCallback(
-    (mood: PersonaMoodSelfReport) => {
-      wanderIndex.current += 1;
-      const nextWorld = suggestNatureWorld(profile, atlas, mood, wanderIndex.current);
-      const nextActivity = suggestWorldActivity(profile, nextWorld, mood, wanderIndex.current);
-      setWorldId(nextWorld.id);
-      setActivity(nextActivity);
-      setAtlas((current) => recordAtlasVisit(current, nextWorld.id));
-      // Wandering is algorithm-selected discovery, so it never trains the saved
-      // preference vector. Only explicit world/activity/favorite choices do.
-    },
-    [atlas, profile]
-  );
+  const wander = useCallback((mood: PersonaMoodSelfReport) => {
+    const current = initializeBrowserSnapshot(initialMoodRef.current);
+    wanderIndex.current += 1;
+    const nextWorld = suggestNatureWorld(current.profile, current.atlas, mood, wanderIndex.current);
+    const nextActivity = suggestWorldActivity(current.profile, nextWorld, mood, wanderIndex.current);
+    // Algorithm-selected discovery never trains the saved preference vector.
+    publish({
+      ...current,
+      worldId: nextWorld.id,
+      activity: nextActivity,
+      atlas: recordAtlasVisit(current.atlas, nextWorld.id),
+    });
+  }, []);
 
   const setTrait = useCallback((trait: PersonaTrait, value: number) => {
-    setProfile((current) => setTraitValue(current, trait, value));
+    const current = initializeBrowserSnapshot(initialMoodRef.current);
+    publish({ ...current, profile: setTraitValue(current.profile, trait, value) });
   }, []);
 
   const reset = useCallback((mood: PersonaMoodSelfReport) => {
-    const freshProfile = createDefaultWorldProfile();
-    const freshAtlas = createDefaultAtlasProgress();
-    const nextWorld = suggestNatureWorld(freshProfile, freshAtlas, mood);
-    setProfile(freshProfile);
-    setAtlas(recordAtlasVisit(freshAtlas, nextWorld.id));
-    setWorldId(nextWorld.id);
-    setActivity(suggestWorldActivity(freshProfile, nextWorld, mood));
+    const profile = createDefaultWorldProfile();
+    const atlas = createDefaultAtlasProgress();
+    const nextWorld = suggestNatureWorld(profile, atlas, mood);
     wanderIndex.current = 0;
     window.localStorage.removeItem(PERSONA_WORLD_STORAGE_KEY);
     window.localStorage.removeItem(NATURE_ATLAS_STORAGE_KEY);
+    publish({
+      profile,
+      atlas: recordAtlasVisit(atlas, nextWorld.id),
+      worldId: nextWorld.id,
+      activity: suggestWorldActivity(profile, nextWorld, mood),
+      hydrated: true,
+    });
   }, []);
 
   return useMemo(
-    () => ({
-      profile,
-      atlas,
-      worldId,
-      activity,
-      hydrated,
-      chooseWorld,
-      toggleFavorite,
-      chooseActivity,
-      wander,
-      setTrait,
-      reset,
-    }),
-    [activity, atlas, chooseActivity, chooseWorld, hydrated, profile, reset, setTrait, toggleFavorite, wander, worldId]
+    () => ({ ...snapshot, chooseWorld, toggleFavorite, chooseActivity, wander, setTrait, reset }),
+    [chooseActivity, chooseWorld, reset, setTrait, snapshot, toggleFavorite, wander],
   );
 }

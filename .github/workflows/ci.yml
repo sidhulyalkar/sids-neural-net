@@ -55,7 +55,7 @@ jobs:
       - name: Validate deterministic Nature Atlas corpus
         run: npm run check:nature-corpus
 
-      - name: Audit 900 World Loom scenes
+      - name: Audit 1000 World Loom scenes
         run: npm run check:world3d
 
       - name: Generate Next route and module bundle analysis
@@ -88,10 +88,15 @@ jobs:
 
       - name: Smoke public production routes
         run: |
-          for route in / /frontier /api/frontier/feed /api/auth/session /neural-net /case-studies /physiology /perceptual-cortex /rotation /sensing-lab /physiology/visual-audit; do
+          for route in / /frontier /api/frontier/feed /api/auth/session /neural-net /case-studies /physiology /perceptual-cortex /rotation /sensing-lab /physiology/visual-audit /photography /arcade /arcade/stretchicorn /arcade/unirico; do
             echo "GET $route"
             curl --retry 2 --retry-connrefused -fsS "http://127.0.0.1:3000$route" >/dev/null
           done
+          echo "GET Stretchicorn v0.21.1 runtime"
+          curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/game-runtimes/stretchicorn/index.html | grep -q 'Stretchicorn v0.21.1'
+          curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/game-runtimes/stretchicorn/src/00-core.js | grep -q 'CORE WORLD + GEOMETRY'
+          echo "GET uniRico runtime"
+          curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/game-runtimes/unirico/index.html | grep -q '<canvas id="c"'
 
       - name: Smoke FRONTIER privacy boundaries
         run: |
@@ -122,11 +127,12 @@ jobs:
           test "$unsupported_status" = "400"
           grep -q 'unsupported FRONTIER source' /tmp/frontier-ingest-unsupported.json
 
-      - name: Install smoke-test browser
+      - name: Install browser audit engines
         run: |
           rm -rf /tmp/frontier-playwright
           npm install --prefix /tmp/frontier-playwright --no-package-lock --no-save playwright@1.55.0
-          /tmp/frontier-playwright/node_modules/.bin/playwright install --with-deps chromium
+          /tmp/frontier-playwright/node_modules/.bin/playwright install --with-deps chromium firefox webkit
+          /tmp/frontier-playwright/node_modules/.bin/playwright install chrome
 
       - name: Audit FRONTIER bounded first useful paint
         env:
@@ -158,6 +164,16 @@ jobs:
           FRONTIER_SCROLL_AUDIT_URL: http://127.0.0.1:3000/frontier/mosaic-audit
         run: node scripts/frontier-scroll-stability-audit.cjs
 
+      - name: Validate homepage Game Network CTA
+        env:
+          PLAYWRIGHT_MODULE_ROOT: /tmp/frontier-playwright/node_modules/playwright
+        run: node scripts/playtest-arcade-home.mjs
+
+      - name: Validate Game Network across Chrome Stable Chromium Firefox and WebKit
+        env:
+          PLAYWRIGHT_MODULE_ROOT: /tmp/frontier-playwright/node_modules/playwright
+        run: node scripts/playtest-arcade-browsers.mjs
+
       - name: Capture production browser fixtures
         run: |
           mkdir -p artifacts/browser-smoke
@@ -169,6 +185,10 @@ jobs:
           /tmp/frontier-playwright/node_modules/.bin/playwright screenshot --browser=chromium --viewport-size="1440,1000" http://127.0.0.1:3000/perceptual-cortex artifacts/browser-smoke/perceptual-cortex.png
           /tmp/frontier-playwright/node_modules/.bin/playwright screenshot --browser=chromium --viewport-size="1440,1000" http://127.0.0.1:3000/rotation artifacts/browser-smoke/rotation.png
           /tmp/frontier-playwright/node_modules/.bin/playwright screenshot --browser=chromium --viewport-size="1440,1000" --full-page http://127.0.0.1:3000/case-studies artifacts/browser-smoke/case-studies.png
+          /tmp/frontier-playwright/node_modules/.bin/playwright screenshot --browser=chromium --viewport-size="1440,1100" --full-page http://127.0.0.1:3000/photography artifacts/browser-smoke/visual-cortex.png
+          /tmp/frontier-playwright/node_modules/.bin/playwright screenshot --browser=chromium --viewport-size="1440,1100" --full-page http://127.0.0.1:3000/arcade artifacts/browser-smoke/game-network.png
+          /tmp/frontier-playwright/node_modules/.bin/playwright screenshot --browser=chromium --viewport-size="1440,1000" http://127.0.0.1:3000/arcade/stretchicorn artifacts/browser-smoke/arcade-stretchicorn.png
+          /tmp/frontier-playwright/node_modules/.bin/playwright screenshot --browser=chromium --viewport-size="1440,1000" http://127.0.0.1:3000/arcade/unirico artifacts/browser-smoke/arcade-unirico.png
 
       - name: Upload production audit artifacts
         if: always()

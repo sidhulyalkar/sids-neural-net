@@ -37,6 +37,12 @@ export const siteNavItems: SiteNavItem[] = [
     section: 'portfolio',
   },
   {
+    href: '/arcade',
+    label: 'Game Network',
+    description: 'Playable browser games connected through the neural portfolio.',
+    section: 'portfolio',
+  },
+  {
     href: '/code',
     label: 'Code',
     description: 'GitHub repositories, infrastructure, and code systems.',
@@ -63,7 +69,7 @@ export const siteNavItems: SiteNavItem[] = [
   {
     href: '/photography',
     label: 'Visual Cortex',
-    description: 'Curated field imagery and visual records.',
+    description: 'Curated field imagery, motion studies, and visual records.',
     section: 'personal',
   },
   {
@@ -117,5 +123,5 @@ export const siteNavItems: SiteNavItem[] = [
 ];
 
 export const primaryNavItems = siteNavItems.filter((item) =>
-  ['/', '/frontier', '/about', '/projects', '/code', '/resume', '/publications', '/photography', '/contact'].includes(item.href)
+  ['/', '/frontier', '/about', '/projects', '/arcade', '/code', '/resume', '/publications', '/photography', '/contact'].includes(item.href)
 );

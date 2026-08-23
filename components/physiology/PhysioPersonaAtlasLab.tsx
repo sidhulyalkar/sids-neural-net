@@ -62,7 +62,7 @@ export function PhysioPersonaAtlasLab() {
   const [mood, setMood] = useState<PersonaMoodSelfReport>('curious');
   const [accent, setAccent] = useState(DEFAULT_ACCENT);
   const [renderMode, setRenderMode] = useState<NatureRenderMode>('2d');
-  const startedAt = useRef(Date.now());
+  const startedAt = useRef(0);
   const world = usePersonaWorld('curious');
 
   const currentWorld = getNatureWorld(world.worldId);
@@ -75,7 +75,7 @@ export function PhysioPersonaAtlasLab() {
 
   useEffect(() => {
     if (source !== 'demo') return;
-    const update = () => setSnapshot(createDemoPersonaSnapshot((Date.now() - startedAt.current) / 1000));
+    const update = () => { if (startedAt.current === 0) startedAt.current = Date.now(); setSnapshot(createDemoPersonaSnapshot((Date.now() - startedAt.current) / 1000)); };
     const interval = window.setInterval(update, 650);
     return () => window.clearInterval(interval);
   }, [source]);

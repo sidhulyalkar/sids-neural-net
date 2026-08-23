@@ -64,14 +64,13 @@ export function SensingProvider() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const cameraRef = useRef<CameraSession | null>(null);
   const rafRef = useRef<number | null>(null);
+  const tickRef = useRef<() => void>(() => undefined);
   const smoothedRef = useRef<ExpressionReading>(neutralReading());
   const lastFaceInferRef = useRef(0);
   const lastHandInferRef = useRef(0);
   const gestureTrackerRef = useRef(initialGestureTracker());
   const gestureReadyRef = useRef(false);
-  const gestureEnabledRef = useRef(gestureEnabled);
   const pausedRef = useRef(false);
-  gestureEnabledRef.current = gestureEnabled;
 
   const stopLoop = useCallback(() => {
     if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
@@ -83,42 +82,44 @@ export function SensingProvider() {
     cameraRef.current = null;
   }, []);
 
-  const tick = useCallback(() => {
-    rafRef.current = requestAnimationFrame(tick);
-    const video = videoRef.current;
-    if (!video || pausedRef.current || video.readyState < 2) return;
-    const now = performance.now();
+  useEffect(() => {
+    tickRef.current = () => {
+      rafRef.current = requestAnimationFrame(() => tickRef.current());
+      const video = videoRef.current;
+      if (!video || pausedRef.current || video.readyState < 2) return;
+      const now = performance.now();
 
-    if (now - lastFaceInferRef.current >= FACE_INTERVAL_MS) {
-      const previousAt = lastFaceInferRef.current;
-      lastFaceInferRef.current = now;
-      try {
-        const blendshapes = detectFace(video, now);
-        const frame = blendshapes ? blendshapesToExpression(blendshapes) : neutralReading();
-        const smoothed = smoothReading(smoothedRef.current, frame);
-        smoothedRef.current = smoothed;
-        applyTokens(smoothed);
-        setReading(smoothed);
-        if (previousAt > 0) setFps(Math.round(1000 / (now - previousAt)));
-      } catch (error) {
-        console.error('[sensing] face inference error', error);
+      if (now - lastFaceInferRef.current >= FACE_INTERVAL_MS) {
+        const previousAt = lastFaceInferRef.current;
+        lastFaceInferRef.current = now;
+        try {
+          const blendshapes = detectFace(video, now);
+          const frame = blendshapes ? blendshapesToExpression(blendshapes) : neutralReading();
+          const smoothed = smoothReading(smoothedRef.current, frame);
+          smoothedRef.current = smoothed;
+          applyTokens(smoothed);
+          setReading(smoothed);
+          if (previousAt > 0) setFps(Math.round(1000 / (now - previousAt)));
+        } catch (error) {
+          console.error('[sensing] face inference error', error);
+        }
       }
-    }
 
-    if (gestureEnabledRef.current && gestureReadyRef.current && now - lastHandInferRef.current >= HAND_INTERVAL_MS) {
-      const previousAt = lastHandInferRef.current;
-      lastHandInferRef.current = now;
-      try {
-        const observation = detectGesture(video, now);
-        const update = updateGestureTracker(gestureTrackerRef.current, observation, now);
-        gestureTrackerRef.current = update.tracker;
-        setGestureUpdate(update);
-        if (previousAt > 0) setGestureFps(Math.round(1000 / (now - previousAt)));
-      } catch (error) {
-        console.error('[sensing] gesture inference error', error);
+      if (gestureEnabled && gestureReadyRef.current && now - lastHandInferRef.current >= HAND_INTERVAL_MS) {
+        const previousAt = lastHandInferRef.current;
+        lastHandInferRef.current = now;
+        try {
+          const observation = detectGesture(video, now);
+          const update = updateGestureTracker(gestureTrackerRef.current, observation, now);
+          gestureTrackerRef.current = update.tracker;
+          setGestureUpdate(update);
+          if (previousAt > 0) setGestureFps(Math.round(1000 / (now - previousAt)));
+        } catch (error) {
+          console.error('[sensing] gesture inference error', error);
+        }
       }
-    }
-  }, [detectFace, detectGesture, setReading, setFps, setGestureUpdate, setGestureFps]);
+    };
+  }, [detectFace, detectGesture, gestureEnabled, setReading, setFps, setGestureUpdate, setGestureFps]);
 
   useEffect(() => {
     if (!enabled) return;
@@ -142,7 +143,7 @@ export function SensingProvider() {
         lastFaceInferRef.current = 0;
         pausedRef.current = document.hidden;
         setStatus('running');
-        rafRef.current = requestAnimationFrame(tick);
+        rafRef.current = requestAnimationFrame(() => tickRef.current());
       } catch (error) {
         if (cancelled) return;
         if (isCameraPermissionDenied(error)) setStatus('denied');
@@ -162,7 +163,7 @@ export function SensingProvider() {
       clearTokens();
       reset();
     };
-  }, [enabled, loadFace, closeFace, closeGestures, tick, setStatus, setError, stopCamera, stopLoop, reset]);
+  }, [enabled, loadFace, closeFace, closeGestures, setStatus, setError, stopCamera, stopLoop, reset]);
 
   useEffect(() => {
     if (!gestureEnabled) {

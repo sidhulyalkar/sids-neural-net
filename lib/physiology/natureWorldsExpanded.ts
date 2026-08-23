@@ -17,12 +17,13 @@ import {
   type NatureWorldDefinition,
   type NatureWorldTheme,
 } from './natureWorlds';
+import { NATURE_WORLDS_901_1000 } from './natureWorlds1000Extension';
 
 /**
  * PhysioPersona Nature Atlas v2
  *
  * The first 100 worlds are the hand-authored launch set in natureWorlds.ts.
- * Worlds 101-900 are compiled from a compact, exact manifest into rich scene
+ * Worlds 101-1000 are compiled from compact, exact manifests into rich scene
  * specifications. This keeps the visual system extensible without turning the
  * renderer into 900 copy-pasted JSX branches.
  */
@@ -47,7 +48,9 @@ export type NatureCollectionId =
   | 'ethereal-coast'
   | 'crystal-frost'
   | 'desert-boho'
-  | 'celestial';
+  | 'celestial'
+  | 'living-sanctuaries'
+  | 'geological-wonders';
 
 export type NatureDepthMode = 'intimate' | 'pathway' | 'panorama' | 'vertical' | 'horizon' | 'macro';
 export type NatureAtmosphere =
@@ -102,7 +105,7 @@ export type RichNatureWorldDefinition = NatureWorldDefinition & {
 type ManifestRow = readonly [index: number, icon: string, name: string, collection: Exclude<NatureCollectionId, 'original-atlas'>];
 
 export const NATURE_COLLECTIONS: ReadonlyArray<{ id: NatureCollectionId | 'all'; label: string; icon: string; range: string }> = [
-  { id: 'all', label: 'all worlds', icon: '🗺️', range: '001-900' },
+  { id: 'all', label: 'all worlds', icon: '🗺️', range: '001-1000' },
   { id: 'original-atlas', label: 'original atlas', icon: '🌿', range: '001-100' },
   { id: 'deep-woods', label: 'deep woods + rainforest', icon: '🌳', range: '101-150' },
   { id: 'waters-wetlands', label: 'rivers + oceans + wetlands', icon: '🌊', range: '151-200' },
@@ -120,6 +123,8 @@ export const NATURE_COLLECTIONS: ReadonlyArray<{ id: NatureCollectionId | 'all';
   { id: 'crystal-frost', label: 'crystal + glacial dreams', icon: '💎', range: '751-800' },
   { id: 'desert-boho', label: 'sun-bleached desert', icon: '🌵', range: '801-850' },
   { id: 'celestial', label: 'celestial vistas', icon: '🌌', range: '851-900' },
+  { id: 'living-sanctuaries', label: 'living sanctuaries', icon: '🫶', range: '901-950' },
+  { id: 'geological-wonders', label: 'geological wonders', icon: '🪨', range: '951-1000' },
 ];
 
 const COLLECTION_LABEL: Record<NatureCollectionId, string> = Object.fromEntries(
@@ -927,6 +932,7 @@ const ADDITIONAL_WORLD_ROWS: ManifestRow[] = [
   [898, "☀️", "bright sun flare over water", "celestial"],
   [899, "☁️", "soft purple twilight clouds", "celestial"],
   [900, "🌌", "shimmering red aurora glow", "celestial"],
+  ...NATURE_WORLDS_901_1000,
 ];
 
 const CALM: PersonaMoodSelfReport[] = ['calm'];
@@ -1266,8 +1272,8 @@ export const NATURE_WORLDS: RichNatureWorldDefinition[] = [
   ...ADDITIONAL_WORLD_ROWS.map(compileWorld),
 ];
 
-if (NATURE_WORLDS.length !== 900) {
-  throw new Error(`Nature atlas manifest invariant failed: expected 900 worlds, got ${NATURE_WORLDS.length}`);
+if (NATURE_WORLDS.length !== 1000) {
+  throw new Error(`Nature atlas manifest invariant failed: expected 1000 worlds, got ${NATURE_WORLDS.length}`);
 }
 
 export const NATURE_WORLD_BY_ID: Record<string, RichNatureWorldDefinition> = Object.fromEntries(
