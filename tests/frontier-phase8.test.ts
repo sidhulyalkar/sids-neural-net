@@ -5,6 +5,7 @@ import {
   frontierCriticalSpringProgress,
   frontierFlipDelta,
   frontierSpringTransform,
+  qualifiesFrontierFluidPairPress,
   qualifiesFrontierFluidRelease,
   resolveFrontierFluidIntent,
   type FrontierFluidClickState,
@@ -32,6 +33,14 @@ test('late second release becomes an ordinary collapse instead of an external op
     expanded: true,
   });
   assert.equal(result.intent, 'collapse');
+});
+
+test('armed second press retains card ownership only near the original release and inside 250ms', () => {
+  const release = { x: 140, y: 220, at: 1_000 };
+  assert.equal(qualifiesFrontierFluidPairPress(release, { x: 143, y: 224, at: 1_180 }), true);
+  assert.equal(qualifiesFrontierFluidPairPress(release, { x: 160, y: 220, at: 1_180 }), false);
+  assert.equal(qualifiesFrontierFluidPairPress(release, { x: 140, y: 220, at: 1_251 }), false);
+  assert.equal(qualifiesFrontierFluidPairPress(undefined, { x: 140, y: 220, at: 1_180 }), false);
 });
 
 test('pointer qualification rejects scroll gestures, long presses, and pointer mismatches', () => {
