@@ -144,7 +144,8 @@ test('pressing D creates defensive blade coverage immediately before projectile 
 
 test('the machete is shorter and only leaves its scabbard during attack state',()=>{
   assert.match(config,/side:\{startup:0\.028,activeEnd:0\.145,duration:0\.19,damage:1\.0,reach:66/);
-  assert.match(motion,/if\(!attack\).*scabbard/s);
+  assert.match(motion,/scabbard/);
+  assert.match(motion,/if\(!attack\)\{ctx\.strokeStyle=/);
   assert.match(motion,/if\(attack\)\{/);
   assert.match(motion,/ctx\.lineTo\(45,-4\.8\)/);
   assert.match(motion,/ctx\.lineTo\(53,-1\)/);
