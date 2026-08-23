@@ -29,9 +29,11 @@ test('post-evade punishability has a visible shrinking enemy-space cue', () => {
   assert.match(source, /ctx\.setLineDash\(\[8,5\]\)/);
 });
 
-test('v0.14 presentation mirrors the existing asymmetric hit-stop hierarchy', () => {
+test('v0.14 presentation mirrors asymmetric hit-stop while still acknowledging newly buffered direction', () => {
   assert.match(source, /kind==='parry'\?3:kind==='armor'\?2:1/);
-  assert.match(source, /if\(holding\)\{holdFrames--;return\}/);
+  assert.match(source, /if\(holding\)\{/);
+  assert.match(source, /if\(state\.mode==='playing'&&state\.player\)drawBufferedBlade\(state\.player\)/);
+  assert.match(source, /holdFrames--;return/);
 });
 
 test('presentation does not own authoritative movement or combat simulation', () => {
