@@ -1,15 +1,16 @@
 import dynamic from 'next/dynamic';
+import { DendriticPortalLink } from '@/components/home/DendriticPortalLink';
 
 /**
- * Homepage - Eight-way radial dendritic landing
+ * Homepage - original dendritic specimen, modern product surface.
  *
- * The homepage is the permanent launch surface for the portfolio's eight
- * primary destinations. Every destination owns one evenly spaced primary
- * dendrite and a matched subtree density so the neuron remains balanced
- * across viewport sizes.
+ * The six organic primary dendrites remain the permanent visual identity of
+ * the site. Product surfaces that can evolve independently, such as FRONTIER
+ * and Game Network, attach as small peripheral neural portals instead of
+ * changing the underlying morphology every time the portfolio grows.
  */
-const RadialDendriteHome = dynamic(
-  () => import('@/components/neural-atlas-canvas/RadialDendriteHome').then((module) => module.RadialDendriteHome),
+const MinimalDendriteHome = dynamic(
+  () => import('@/components/neural-atlas-canvas').then((module) => module.MinimalDendriteHome),
   {
     loading: () => (
       <div className="fixed inset-0 flex items-center justify-center bg-[#020306]">
@@ -24,6 +25,37 @@ const RadialDendriteHome = dynamic(
   }
 );
 
+const peripheralLinks = [
+  {
+    href: '/frontier',
+    label: 'FRONTIER',
+    detail: 'radar · drift',
+    ariaLabel: 'Open FRONTIER live discovery with Radar, Signal Drift, Rabbit Holes and waterfall search',
+    tone: 'cyan' as const,
+  },
+  {
+    href: '/arcade',
+    label: 'GAME NETWORK',
+    detail: '2 live builds',
+    ariaLabel: 'Open the Game Network with Stretchicorn and uniRico',
+    tone: 'violet' as const,
+  },
+] as const;
+
 export default function HomePage() {
-  return <RadialDendriteHome />;
+  return (
+    <>
+      <MinimalDendriteHome />
+
+      <nav
+        aria-label="Homepage peripheral destinations"
+        className="fixed right-0 top-4 z-[70] flex flex-col items-end gap-1 sm:top-7"
+        data-home-peripheral-portals
+      >
+        {peripheralLinks.map((link) => (
+          <DendriticPortalLink key={link.href} {...link} />
+        ))}
+      </nav>
+    </>
+  );
 }
