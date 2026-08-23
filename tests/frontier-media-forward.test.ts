@@ -3,6 +3,7 @@ import test from 'node:test';
 import {
   frontierHasPresentationMedia,
   frontierMasonrySpan,
+  frontierPackedColumnSpans,
   frontierVisualRole,
 } from '../lib/frontier/presentation/mediaForward';
 import type { FrontierItem } from '../lib/frontier/types';
@@ -51,6 +52,21 @@ test('structured evidence keeps a standard footprint while plain text stays comp
   assert.equal(frontierVisualRole(item({ metrics: [{ label: 'AUC', value: '0.91' }] }), 4, false), 'standard');
   assert.equal(frontierVisualRole(item({ artifacts: [{ kind: 'benchmark', label: 'AUC', value: '0.91' }] }), 4, false), 'standard');
   assert.equal(frontierVisualRole(item(), 4, false), 'compact');
+});
+
+test('ordered packing fills complete 12-column rows without dense reordering', () => {
+  const items = [
+    item({ id: 'video-a', media: { type: 'video', url: 'https://example.com/a.mp4' } }),
+    item({ id: 'text-a' }),
+    item({ id: 'text-b' }),
+    item({ id: 'image-wide', importance: 0.9, media: { type: 'image', url: 'https://example.com/b.jpg' } }),
+    item({ id: 'video-b', media: { type: 'youtube', url: 'abcdefghi' } }),
+  ];
+  const spans = frontierPackedColumnSpans(items);
+  assert.deepEqual(spans, [8, 4, 4, 8, 8]);
+  assert.equal(spans.slice(0, 2).reduce((sum, span) => sum + span, 0), 12);
+  assert.equal(spans.slice(2, 4).reduce((sum, span) => sum + span, 0), 12);
+  assert.equal(items.map((entry) => entry.id).join('|'), 'video-a|text-a|text-b|image-wide|video-b');
 });
 
 test('masonry span converts measured content height into dense grid rows deterministically', () => {
