@@ -69,7 +69,7 @@ export const siteNavItems: SiteNavItem[] = [
   {
     href: '/photography',
     label: 'Visual Cortex',
-    description: 'Curated field imagery, motion studies, and visual records.',
+    description: 'Curated field imagery and visual records.',
     section: 'personal',
   },
   {

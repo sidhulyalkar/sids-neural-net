@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
 const footerLinks = [
+  { href: '/frontier', label: 'FRONTIER' },
   { href: '/about', label: 'Core' },
   { href: '/projects', label: 'Builds' },
   { href: '/arcade', label: 'Game Network' },

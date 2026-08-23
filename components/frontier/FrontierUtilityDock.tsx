@@ -2,10 +2,12 @@
 
 import { forwardRef, useCallback, useEffect, useRef, useState } from 'react';
 import type { ForwardedRef } from 'react';
-import { ChevronDown, LayoutGrid, Rows3, Volume2, VolumeX, X } from 'lucide-react';
+import { ChevronDown, LayoutGrid, Rows3, Sparkles, Volume2, VolumeX, X } from 'lucide-react';
+import { FRONTIER_PINNED_TOPICS } from '@/lib/frontier/interests';
 import { setFrontierClientQuery } from '@/lib/frontier/vector/clientQuery';
 import type { FrontierLayoutMode, FrontierRealm, FrontierView } from '@/lib/frontier/types';
 import { useUIFrequencies } from './audio/useUIFrequencies';
+import { launchFrontierTopicSearch } from './frontierSearchBridge';
 import styles from './frontier-utility-dock.module.css';
 
 type Option = { value: string; label: string };
@@ -99,6 +101,7 @@ export const FrontierUtilityDock = forwardRef<HTMLDivElement, Props>(function Fr
   const interactingRef = useRef(false);
   const lastScrollYRef = useRef(0);
   const rafRef = useRef<number | undefined>(undefined);
+  const driftIndexRef = useRef(0);
   const [hidden, setHidden] = useState(false);
   const { muted, toggleMuted, playDockClick } = useUIFrequencies();
 
@@ -160,6 +163,21 @@ export const FrontierUtilityDock = forwardRef<HTMLDivElement, Props>(function Fr
     }
   };
 
+  const drift = () => {
+    playDockClick();
+    if (!FRONTIER_PINNED_TOPICS.length) return;
+
+    const current = (activeSearch ?? '').toLowerCase();
+    for (let attempt = 0; attempt < FRONTIER_PINNED_TOPICS.length; attempt += 1) {
+      const index = driftIndexRef.current % FRONTIER_PINNED_TOPICS.length;
+      driftIndexRef.current = (driftIndexRef.current + 7) % FRONTIER_PINNED_TOPICS.length;
+      const candidate = FRONTIER_PINNED_TOPICS[index];
+      if (candidate.label.toLowerCase() === current) continue;
+      launchFrontierTopicSearch(candidate.label);
+      return;
+    }
+  };
+
   return (
     <div
       ref={setDockRef}
@@ -214,11 +232,21 @@ export const FrontierUtilityDock = forwardRef<HTMLDivElement, Props>(function Fr
             onChange={onFormatChange}
             className={styles.formatSelect}
           />
+          <div className={styles.layoutToggle} aria-label="Serendipity controls">
+            <button
+              type="button"
+              className={styles.activeLayout}
+              onClick={drift}
+              aria-label="Signal Drift into a different interest"
+              title="Signal Drift · jump somewhere else in your interest graph"
+              data-frontier-signal-drift
+            ><Sparkles size={13} /></button>
+          </div>
         </>
       ) : null}
 
       {activeSearch && view === 'explore' ? (
-        <span className={styles.queryChip} title={activeSearch}>
+        <span className={styles.queryChip} title={activeSearch} data-frontier-query-chip>
           <span>{activeSearch}</span>
           {onClearSearch ? (
             <button

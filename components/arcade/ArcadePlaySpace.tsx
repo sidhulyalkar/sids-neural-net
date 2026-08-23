@@ -81,12 +81,6 @@ export function ArcadePlaySpace({ game }: { game: ArcadeGame }) {
 
     try {
       const frameDocument = frameWindow.document;
-
-      // Create the listener inside the runtime's own JavaScript realm. Parent-realm
-      // callbacks attached directly to iframe documents are handled differently by
-      // Firefox/WebKit. postMessage is the browser-native cross-realm contract.
-      // The child-window flag makes this injection idempotent without mutating a
-      // DOM object derived from the React ref.
       const bridge = frameDocument.createElement('script');
       bridge.textContent = `(() => {
         if (window.__SIDS_GAME_NETWORK_BRIDGE__) return;
@@ -105,7 +99,7 @@ export function ArcadePlaySpace({ game }: { game: ArcadeGame }) {
       frameDocument.documentElement.appendChild(bridge);
       bridge.remove();
     } catch {
-      // Optional external runtime overrides stay isolated from the host document.
+      // External runtime overrides remain isolated from the host document.
     }
   }, [trustedSameOriginRuntime]);
 
@@ -131,10 +125,11 @@ export function ArcadePlaySpace({ game }: { game: ArcadeGame }) {
   };
 
   return (
-    <main
+    <div
       ref={shellRef}
       tabIndex={-1}
       className={`bg-[#020306] text-white outline-none ${fullscreen ? 'h-screen w-screen overflow-hidden' : 'min-h-screen'}`}
+      data-arcade-shell
       data-arcade-focus={focused ? 'true' : 'false'}
       data-arcade-fullscreen={fullscreen ? 'true' : 'false'}
     >
@@ -150,40 +145,23 @@ export function ArcadePlaySpace({ game }: { game: ArcadeGame }) {
           className={
             fullscreen
               ? 'hidden'
-              : `flex items-center justify-between gap-4 transition-opacity ${
-                  focused ? 'pointer-events-none opacity-20' : 'opacity-100'
-                }`
+              : `flex items-center justify-between gap-4 transition-opacity ${focused ? 'pointer-events-none opacity-20' : 'opacity-100'}`
           }
         >
           <div>
-            <Link
-              href="/arcade"
-              className="font-mono text-[9px] uppercase tracking-[0.22em] text-white/35 transition-colors hover:text-cyan"
-            >
+            <Link href="/arcade" className="font-mono text-[9px] uppercase tracking-[0.22em] text-white/35 transition-colors hover:text-cyan">
               ← game network
             </Link>
             <p className="mt-2 text-lg font-light tracking-tight text-white sm:text-xl">{game.title}</p>
           </div>
-          <span className="font-mono text-[8px] uppercase tracking-[0.16em] text-white/20">
-            {game.version}
-          </span>
+          <span className="font-mono text-[8px] uppercase tracking-[0.16em] text-white/20">{game.version}</span>
         </header>
 
-        <section
-          className={
-            fullscreen
-              ? 'absolute inset-0 flex items-stretch justify-stretch p-0'
-              : 'flex flex-1 items-center justify-center py-6 sm:py-8'
-          }
-        >
+        <section className={fullscreen ? 'absolute inset-0 flex items-stretch justify-stretch p-0' : 'flex flex-1 items-center justify-center py-6 sm:py-8'}>
           <div className={fullscreen ? 'h-full w-full max-w-none' : 'w-full max-w-[1160px]'}>
             <div className={fullscreen ? 'h-full w-full bg-black' : 'border border-white/10 bg-black p-1.5 sm:p-2'}>
               <div
-                className={
-                  fullscreen
-                    ? 'relative h-full w-full overflow-hidden bg-black'
-                    : 'relative mx-auto w-full overflow-hidden bg-black'
-                }
+                className={fullscreen ? 'relative h-full w-full overflow-hidden bg-black' : 'relative mx-auto w-full overflow-hidden bg-black'}
                 style={fullscreen ? undefined : { aspectRatio: game.aspectRatio }}
               >
                 {game.launchUrl ? (
@@ -194,11 +172,7 @@ export function ArcadePlaySpace({ game }: { game: ArcadeGame }) {
                     src={game.launchUrl}
                     className="absolute inset-0 h-full w-full border-0 bg-black"
                     allow="autoplay; fullscreen; gamepad"
-                    sandbox={
-                      trustedSameOriginRuntime
-                        ? undefined
-                        : 'allow-scripts allow-same-origin allow-pointer-lock allow-popups'
-                    }
+                    sandbox={trustedSameOriginRuntime ? undefined : 'allow-scripts allow-same-origin allow-pointer-lock allow-popups'}
                     allowFullScreen
                     referrerPolicy="strict-origin-when-cross-origin"
                     onLoad={connectFrameFocus}
@@ -208,9 +182,7 @@ export function ArcadePlaySpace({ game }: { game: ArcadeGame }) {
                 ) : (
                   <div className="absolute inset-0 grid place-items-center p-6 text-center">
                     <div>
-                      <p className="font-mono text-[9px] uppercase tracking-[0.2em] text-white/30">
-                        runtime unavailable
-                      </p>
+                      <p className="font-mono text-[9px] uppercase tracking-[0.2em] text-white/30">runtime unavailable</p>
                       <p className="mt-2 text-lg font-light text-white/60">{game.title}</p>
                     </div>
                   </div>
@@ -222,42 +194,22 @@ export function ArcadePlaySpace({ game }: { game: ArcadeGame }) {
               <p className="font-mono text-[8px] uppercase tracking-[0.16em] text-white/25">
                 {focused ? 'game focus · escape releases' : 'click inside the game to focus'}
               </p>
-
               <div className="flex items-center gap-1">
                 {game.launchUrl && (
                   <>
-                    <button
-                      type="button"
-                      onClick={() => setFrameKey((value) => value + 1)}
-                      className="flex h-8 items-center gap-2 border border-white/10 px-2.5 font-mono text-[8px] uppercase tracking-[0.12em] text-white/35 transition-colors hover:border-white/25 hover:text-white/65"
-                      aria-label="Reload game"
-                    >
+                    <button type="button" onClick={() => setFrameKey((value) => value + 1)} className="flex h-8 items-center gap-2 border border-white/10 px-2.5 font-mono text-[8px] uppercase tracking-[0.12em] text-white/35 transition-colors hover:border-white/25 hover:text-white/65" aria-label="Reload game">
                       <RefreshCw className="h-3 w-3" />
                       <span className="hidden sm:inline">reload</span>
                     </button>
-                    <button
-                      type="button"
-                      onClick={toggleFocus}
-                      className="flex h-8 items-center gap-2 border border-white/10 px-2.5 font-mono text-[8px] uppercase tracking-[0.12em] text-white/35 transition-colors hover:border-white/25 hover:text-white/65"
-                    >
+                    <button type="button" onClick={toggleFocus} className="flex h-8 items-center gap-2 border border-white/10 px-2.5 font-mono text-[8px] uppercase tracking-[0.12em] text-white/35 transition-colors hover:border-white/25 hover:text-white/65">
                       {focused ? <Minimize2 className="h-3 w-3" /> : <Expand className="h-3 w-3" />}
                       <span className="hidden sm:inline">{focused ? 'release' : 'focus'}</span>
                     </button>
-                    <button
-                      type="button"
-                      onClick={toggleFullscreen}
-                      className="flex h-8 items-center gap-2 border border-white/10 px-2.5 font-mono text-[8px] uppercase tracking-[0.12em] text-white/35 transition-colors hover:border-white/25 hover:text-white/65"
-                      aria-label={fullscreen ? 'Exit fullscreen game' : 'Open fullscreen game'}
-                    >
+                    <button type="button" onClick={toggleFullscreen} className="flex h-8 items-center gap-2 border border-white/10 px-2.5 font-mono text-[8px] uppercase tracking-[0.12em] text-white/35 transition-colors hover:border-white/25 hover:text-white/65" aria-label={fullscreen ? 'Exit fullscreen game' : 'Open fullscreen game'}>
                       {fullscreen ? <Minimize2 className="h-3 w-3" /> : <Maximize2 className="h-3 w-3" />}
                       <span className="hidden sm:inline">fullscreen</span>
                     </button>
-                    <a
-                      href={game.launchUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="flex h-8 items-center gap-2 border border-white/10 px-2.5 font-mono text-[8px] uppercase tracking-[0.12em] text-white/35 transition-colors hover:border-white/25 hover:text-white/65"
-                    >
+                    <a href={game.launchUrl} target="_blank" rel="noreferrer" className="flex h-8 items-center gap-2 border border-white/10 px-2.5 font-mono text-[8px] uppercase tracking-[0.12em] text-white/35 transition-colors hover:border-white/25 hover:text-white/65">
                       <ExternalLink className="h-3 w-3" />
                       <span className="hidden sm:inline">standalone</span>
                     </a>
@@ -268,15 +220,7 @@ export function ArcadePlaySpace({ game }: { game: ArcadeGame }) {
           </div>
         </section>
 
-        <footer
-          className={
-            fullscreen
-              ? 'hidden'
-              : `grid gap-4 border-t border-white/8 pt-4 transition-opacity lg:grid-cols-[1.3fr_1fr] ${
-                  focused ? 'pointer-events-none opacity-15' : 'opacity-100'
-                }`
-          }
-        >
+        <footer className={fullscreen ? 'hidden' : `grid gap-4 border-t border-white/8 pt-4 transition-opacity lg:grid-cols-[1.3fr_1fr] ${focused ? 'pointer-events-none opacity-15' : 'opacity-100'}`}>
           <div>
             <p className="font-mono text-[8px] uppercase tracking-[0.16em] text-white/30">{game.subtitle}</p>
             <p className="mt-1 max-w-3xl text-xs leading-5 text-white/30">{game.description}</p>
@@ -291,6 +235,6 @@ export function ArcadePlaySpace({ game }: { game: ArcadeGame }) {
           </div>
         </footer>
       </div>
-    </main>
+    </div>
   );
 }

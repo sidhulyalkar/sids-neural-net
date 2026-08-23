@@ -173,7 +173,7 @@ export function useWatchIntentEngine() {
         },
       };
     });
-  }, [intents, migrateBackend]);
+  }, [embedDetailed, intents, migrateBackend]);
 
   return {
     intents,
