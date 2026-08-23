@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { isPlausibleFrontierCandidate } from '../lib/frontier/aggregate';
 import {
   dedupeIngestedItems,
   parseArxivAtom,
@@ -11,6 +12,28 @@ import {
   predictPointerIntersection,
   predictViewportIntersection,
 } from '../lib/frontier/media/streamPrefetcher';
+import type { FrontierItem } from '../lib/frontier/types';
+
+function candidate(overrides: Partial<FrontierItem> = {}): FrontierItem {
+  return {
+    id: 'candidate',
+    title: 'Relevant source-backed signal',
+    summary: 'A source-backed candidate used for feed integrity tests.',
+    url: 'https://example.com/signal',
+    source: 'example.com',
+    sourceLabel: 'Example',
+    sourceKind: 'rss',
+    publishedAt: '2026-08-22T12:00:00.000Z',
+    lane: 'wildcards',
+    tags: ['test'],
+    baseScore: 0.7,
+    importance: 0.6,
+    novelty: 0.6,
+    quality: 0.8,
+    momentum: 0.5,
+    ...overrides,
+  };
+}
 
 test('arXiv Atom entries normalize into typed FRONTIER papers', () => {
   const xml = `<?xml version="1.0"?><feed>
@@ -82,6 +105,24 @@ test('ingestion dedupe collapses canonical URL and title duplicates', () => {
     { objectID: '3', title: 'Different title', url: 'https://example.com/a?ref=other' },
   ] });
   assert.equal(dedupeIngestedItems(base).length, 1);
+});
+
+test('integrated candidate integrity rejects malformed and implausibly future source data', () => {
+  const now = Date.parse('2026-08-22T20:00:00.000Z');
+  assert.equal(isPlausibleFrontierCandidate(candidate(), now), true);
+  assert.equal(isPlausibleFrontierCandidate(candidate({ title: '   ' }), now), false);
+  assert.equal(isPlausibleFrontierCandidate(candidate({ url: 'javascript:alert(1)' }), now), false);
+  assert.equal(isPlausibleFrontierCandidate(candidate({ url: 'not a url' }), now), false);
+  assert.equal(isPlausibleFrontierCandidate(candidate({ publishedAt: 'not-a-date' }), now), false);
+  assert.equal(isPlausibleFrontierCandidate(candidate({ publishedAt: '2026-08-24T12:00:00.000Z' }), now), false);
+});
+
+test('integrated candidate integrity allows bounded publication clock skew', () => {
+  const now = Date.parse('2026-08-22T20:00:00.000Z');
+  assert.equal(
+    isPlausibleFrontierCandidate(candidate({ publishedAt: '2026-08-23T06:00:00.000Z' }), now),
+    true,
+  );
 });
 
 test('300ms scroll prediction catches an item moving into the viewport', () => {
