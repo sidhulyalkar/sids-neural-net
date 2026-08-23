@@ -80,9 +80,9 @@ export const FRACTAL_PROFILES: Record<FractalMorphologyId, FractalProfile> = {
     branchPoints: 5,
     terminalShrink: 0.67,
     splitAngle: 0.38,
-    angularNoise: 0.10,
-    sideLengthScale: 0.20,
-    dropout: 0.10,
+    angularNoise: 0.1,
+    sideLengthScale: 0.2,
+    dropout: 0.1,
     centerBias: 0.22,
     pathBudget: 820,
   },
@@ -146,16 +146,12 @@ export function getFractalViewportGeometry(dimensions: Dimensions): FractalViewp
     y: edgeMargin + usableHeight * (portrait ? 0.48 : short ? 0.46 : 0.47),
   };
 
-  // Horizontal and vertical radii are solved independently. The old homepage used
-  // min(width, height), which stranded hundreds of pixels on wide displays.
+  // Independent axes fix the previous min(width, height) bottleneck on 16:9 and ultrawide screens.
   const horizontalReach = Math.max(120, width * 0.5 - edgeMargin);
   const verticalReach = Math.max(
     120,
     Math.min(center.y - edgeMargin, usableBottom - center.y - edgeMargin * 0.35)
   );
-
-  const radiusX = horizontalReach * (compact ? 0.82 : ultrawide ? 0.94 : 0.91);
-  const radiusY = verticalReach * (portrait ? 0.96 : short ? 0.88 : 0.93);
 
   return {
     compact,
@@ -165,8 +161,8 @@ export function getFractalViewportGeometry(dimensions: Dimensions): FractalViewp
     edgeMargin,
     titleBand,
     center,
-    radiusX,
-    radiusY,
+    radiusX: horizontalReach * (compact ? 0.82 : ultrawide ? 0.94 : 0.91),
+    radiusY: verticalReach * (portrait ? 0.96 : short ? 0.88 : 0.93),
     usableBottom,
   };
 }
@@ -176,14 +172,9 @@ function pickFromSeed<T>(items: readonly T[], seed: string): T {
   return items[Math.floor(rng() * items.length)] ?? items[0];
 }
 
-export function chooseFractalMorphology(
-  dimensions: Dimensions,
-  seed: string
-): FractalProfile {
+export function chooseFractalMorphology(dimensions: Dimensions, seed: string): FractalProfile {
   const aspect = dimensions.width / Math.max(dimensions.height, 1);
-  if (dimensions.width < 520) {
-    return FRACTAL_PROFILES.apical;
-  }
+  if (dimensions.width < 520) return FRACTAL_PROFILES.apical;
   if (aspect > 1.95) {
     return pickFromSeed([FRACTAL_PROFILES.fan, FRACTAL_PROFILES.coral] as const, `${seed}:ultrawide`);
   }
@@ -199,13 +190,7 @@ export function chooseFractalMorphology(
   return pickFromSeed([FRACTAL_PROFILES.radial, FRACTAL_PROFILES.coral] as const, `${seed}:balanced`);
 }
 
-function ellipsePoint(
-  center: Vec2,
-  angle: number,
-  radiusX: number,
-  radiusY: number,
-  scale = 1
-): Vec2 {
+function ellipsePoint(center: Vec2, angle: number, radiusX: number, radiusY: number, scale = 1): Vec2 {
   return {
     x: center.x + Math.cos(angle) * radiusX * scale,
     y: center.y + Math.sin(angle) * radiusY * scale,
@@ -235,13 +220,7 @@ function pathDirection(points: Vec2[], t: number): number {
   return Math.atan2(b.y - a.y, b.x - a.x);
 }
 
-function organicPath(
-  start: Vec2,
-  end: Vec2,
-  rng: () => number,
-  segments: number,
-  wobble: number
-): Vec2[] {
+function organicPath(start: Vec2, end: Vec2, rng: () => number, segments: number, wobble: number): Vec2[] {
   const dx = end.x - start.x;
   const dy = end.y - start.y;
   const length = Math.max(1, Math.hypot(dx, dy));
@@ -257,7 +236,6 @@ function organicPath(
       y: start.y + dy * t + normal.y * offset,
     });
   }
-
   return points;
 }
 
@@ -266,6 +244,10 @@ function containPoint(point: Vec2, geometry: FractalViewportGeometry): Vec2 {
     x: clamp(point.x, geometry.edgeMargin, geometry.center.x * 2 - geometry.edgeMargin),
     y: clamp(point.y, geometry.edgeMargin, geometry.usableBottom - geometry.edgeMargin * 0.35),
   };
+}
+
+function containPath(points: Vec2[], geometry: FractalViewportGeometry): Vec2[] {
+  return points.map((point) => containPoint(point, geometry));
 }
 
 function branchWidth(recursionDepth: number, depth: number, primary = false): number {
@@ -282,17 +264,9 @@ function branchAlpha(depth: number, primary = false): number {
 
 function armAngle(index: number, count: number, geometry: FractalViewportGeometry): number {
   const base = PRIMARY_ANGLE_OFFSET + (index / count) * TWO_PI;
-  if (!geometry.ultrawide && !geometry.portrait) return base;
-
-  // A subtle angular warp sends more energy toward the long axis without changing
-  // the eight-way topology or destination order.
-  if (geometry.ultrawide) {
-    const horizontalPull = Math.sin(base * 2) * 0.08;
-    return base - horizontalPull;
-  }
-
-  const verticalPull = Math.sin(base * 2) * 0.055;
-  return base + verticalPull;
+  if (geometry.ultrawide) return base - Math.sin(base * 2) * 0.08;
+  if (geometry.portrait) return base + Math.sin(base * 2) * 0.055;
+  return base;
 }
 
 export function buildAdaptiveFractalTree(
@@ -302,9 +276,14 @@ export function buildAdaptiveFractalTree(
 ): FractalTree {
   const geometry = getFractalViewportGeometry(dimensions);
   const morphology = chooseFractalMorphology(dimensions, seed);
-  const rng = seededRng(`adaptive-fractal-v1:${seed}:${dimensions.width}x${dimensions.height}:${morphology.id}`);
+  const rng = seededRng(`adaptive-fractal-v2:${seed}:${dimensions.width}x${dimensions.height}:${morphology.id}`);
   const paths: FractalPath[] = [];
   const endpoints = new Map<string, Vec2>();
+  const ownerCounts = new Map<string, number>();
+  const ownerBudget = Math.max(
+    12,
+    Math.floor((morphology.pathBudget - destinationIds.length) / Math.max(1, destinationIds.length))
+  );
   let pathCount = 0;
 
   const pushPath = (
@@ -315,17 +294,23 @@ export function buildAdaptiveFractalTree(
     primary = false
   ): boolean => {
     if (pathCount >= morphology.pathBudget) return false;
+    const ownerCount = ownerCounts.get(ownerId) ?? 0;
+    if (!primary && ownerCount >= ownerBudget) return false;
+
     pathCount += 1;
+    ownerCounts.set(ownerId, ownerCount + 1);
     paths.push({
       id,
       ownerId,
       depth,
-      points,
+      points: containPath(points, geometry),
       width: branchWidth(morphology.recursionDepth, depth, primary),
       alpha: branchAlpha(depth, primary),
     });
     return true;
   };
+
+  const hasOwnerBudget = (ownerId: string) => (ownerCounts.get(ownerId) ?? 0) < ownerBudget + 1;
 
   const growRecursive = (
     ownerId: string,
@@ -335,10 +320,16 @@ export function buildAdaptiveFractalTree(
     depth: number,
     branchKey: string
   ): void => {
-    if (depth > morphology.recursionDepth || length < 5 || pathCount >= morphology.pathBudget) return;
+    if (
+      depth > morphology.recursionDepth ||
+      length < 5 ||
+      pathCount >= morphology.pathBudget ||
+      !hasOwnerBudget(ownerId)
+    ) {
+      return;
+    }
 
-    const jitter = (rng() - 0.5) * morphology.angularNoise;
-    const biasedAngle = angle + jitter;
+    const biasedAngle = angle + (rng() - 0.5) * morphology.angularNoise;
     const end = containPoint(
       {
         x: start.x + Math.cos(biasedAngle) * length,
@@ -346,7 +337,6 @@ export function buildAdaptiveFractalTree(
       },
       geometry
     );
-
     const travelled = Math.hypot(end.x - start.x, end.y - start.y);
     if (travelled < Math.max(4, length * 0.36)) return;
 
@@ -364,9 +354,6 @@ export function buildAdaptiveFractalTree(
     if (rng() > morphology.dropout) {
       growRecursive(ownerId, end, biasedAngle + split + straightBias, nextLength, depth + 1, `${branchKey}r`);
     }
-
-    // Coral morphology occasionally keeps a weak central continuation. It creates
-    // DLA-like clumping without allowing an unbounded recursive explosion.
     if (morphology.id === 'coral' && depth < morphology.recursionDepth - 1 && rng() > 0.72) {
       growRecursive(
         ownerId,
@@ -396,6 +383,7 @@ export function buildAdaptiveFractalTree(
       morphology.id === 'coral' ? 0.032 : 0.022
     );
 
+    // Primary paths are inserted first for each owner and therefore cannot be starved by another subtree.
     pushPath(`primary-${ownerId}`, ownerId, 0, primary, true);
     endpoints.set(ownerId, endpoint);
 
@@ -404,9 +392,10 @@ export function buildAdaptiveFractalTree(
     const endT = geometry.compact ? 0.76 : 0.82;
 
     for (let branchIndex = 0; branchIndex < morphology.branchPoints; branchIndex += 1) {
-      const t = morphology.branchPoints === 1
-        ? 0.58
-        : startT + ((endT - startT) * branchIndex) / (morphology.branchPoints - 1);
+      const t =
+        morphology.branchPoints === 1
+          ? 0.58
+          : startT + ((endT - startT) * branchIndex) / (morphology.branchPoints - 1);
       const start = pointOnPath(primary, t);
       const tangent = pathDirection(primary, t);
       const branchLength = branchBaseLength * (1.08 - t * 0.22) * (0.88 + rng() * 0.22);
@@ -415,23 +404,20 @@ export function buildAdaptiveFractalTree(
         if (rng() < morphology.dropout * 0.35) continue;
         const initialAngle =
           tangent +
-          side * (morphology.splitAngle * (0.68 + rng() * 0.20)) +
+          side * (morphology.splitAngle * (0.68 + rng() * 0.2)) +
           (rng() - 0.5) * morphology.angularNoise;
         growRecursive(ownerId, start, initialAngle, branchLength, 1, `b${branchIndex}${side < 0 ? 'l' : 'r'}`);
       }
     }
 
-    // A compact terminal fan makes the primary endpoint read as a true dendritic
-    // growth cone instead of a navigation line with decoration attached.
     const terminalCount = geometry.compact ? 3 : morphology.id === 'fan' ? 5 : 4;
     const terminalLength = branchBaseLength * (geometry.compact ? 0.62 : 0.74);
     for (let terminalIndex = 0; terminalIndex < terminalCount; terminalIndex += 1) {
       const centered = terminalIndex - (terminalCount - 1) / 2;
-      const terminalAngle = angle + centered * morphology.splitAngle * 0.42;
       growRecursive(
         ownerId,
         endpoint,
-        terminalAngle,
+        angle + centered * morphology.splitAngle * 0.42,
         terminalLength * (0.86 + rng() * 0.18),
         2,
         `tip${terminalIndex}`
