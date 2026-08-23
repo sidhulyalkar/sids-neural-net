@@ -5,10 +5,12 @@ import type { MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent }
 import type { FrontierItem } from '@/lib/frontier/types';
 import {
   FRONTIER_FLUID_DOUBLE_MS,
+  qualifiesFrontierFluidPairPress,
   qualifiesFrontierFluidRelease,
   resolveFrontierFluidIntent,
   type FrontierFluidClickState,
   type FrontierFluidPress,
+  type FrontierFluidReleasePoint,
 } from '@/lib/frontier/interaction/fluidPointer';
 
 const INTERACTIVE_SELECTOR = [
@@ -46,26 +48,44 @@ export function useFluidInteraction({
   onExternalOpen,
 }: Options) {
   const clickState = useRef<FrontierFluidClickState>({ lastReleaseAt: 0 });
+  const releasePoint = useRef<FrontierFluidReleasePoint | undefined>(undefined);
   const press = useRef<FrontierFluidPress | undefined>(undefined);
+  const armedPairPress = useRef(false);
   const suppressClick = useRef(false);
 
   const onPointerDown = useCallback((event: ReactPointerEvent<HTMLElement>) => {
-    if (!event.isPrimary || event.button !== 0 || !shouldRouteTarget(event.target)) {
+    const continuingPair = event.isPrimary && event.button === 0 && qualifiesFrontierFluidPairPress(
+      releasePoint.current,
+      {
+        x: event.clientX,
+        y: event.clientY,
+        at: event.timeStamp,
+        doubleMs,
+      },
+    );
+
+    if (!event.isPrimary || event.button !== 0 || (!continuingPair && !shouldRouteTarget(event.target))) {
       press.current = undefined;
+      armedPairPress.current = false;
       return;
     }
+
+    armedPairPress.current = continuingPair;
     press.current = {
       pointerId: event.pointerId,
       x: event.clientX,
       y: event.clientY,
       startedAt: event.timeStamp,
     };
-  }, []);
+  }, [doubleMs]);
 
   const onPointerUp = useCallback((event: ReactPointerEvent<HTMLElement>) => {
     const started = press.current;
+    const ownsPair = armedPairPress.current;
     press.current = undefined;
-    if (!event.isPrimary || event.button !== 0 || !shouldRouteTarget(event.target)) return;
+    armedPairPress.current = false;
+
+    if (!event.isPrimary || event.button !== 0 || (!ownsPair && !shouldRouteTarget(event.target))) return;
     if (!qualifiesFrontierFluidRelease(started, {
       pointerId: event.pointerId,
       x: event.clientX,
@@ -80,29 +100,39 @@ export function useFluidInteraction({
       doubleMs,
     });
     clickState.current = resolved.state;
-    suppressClick.current = Boolean(primaryFluidAnchor(event.target));
+    suppressClick.current = ownsPair || Boolean(primaryFluidAnchor(event.target));
 
     if (resolved.intent === 'external') {
+      releasePoint.current = undefined;
       onCollapse(item);
       onExternalOpen?.(item);
       window.open(item.url, '_blank', 'noopener,noreferrer');
       return;
     }
+
+    releasePoint.current = {
+      x: event.clientX,
+      y: event.clientY,
+      at: event.timeStamp,
+    };
     if (resolved.intent === 'expand') onExpand(item);
     else if (resolved.intent === 'collapse') onCollapse(item);
   }, [doubleMs, expanded, item, onCollapse, onExpand, onExternalOpen]);
 
-  const onPointerCancel = useCallback(() => { press.current = undefined; }, []);
+  const onPointerCancel = useCallback(() => {
+    press.current = undefined;
+    armedPairPress.current = false;
+  }, []);
 
   const onClickCapture = useCallback((event: ReactMouseEvent<HTMLElement>) => {
-    if (!suppressClick.current || !primaryFluidAnchor(event.target)) return;
+    if (!suppressClick.current) return;
     suppressClick.current = false;
     event.preventDefault();
     event.stopPropagation();
   }, []);
 
   const onDoubleClickCapture = useCallback((event: ReactMouseEvent<HTMLElement>) => {
-    if (!shouldRouteTarget(event.target)) return;
+    if (!shouldRouteTarget(event.target) && !releasePoint.current) return;
     event.preventDefault();
   }, []);
 
