@@ -75,6 +75,12 @@ function syncHitStop(){
   lastHitStopSerial=serial;const kind=state.hitStopKind||'enemy';
   holdFrames=kind==='parry'?3:kind==='armor'?2:1;lastHitStopKind=kind;lastHoldFramesApplied=holdFrames;hitStopsRendered++;
 }
+function resetRoomPresentation(){
+  holdFrames=0;lastHitStopSerial=state.hitStopSerial||0;lastHitStopKind=null;lastHoldFramesApplied=0;renderedArcs=0;renderedTrailSamples=0;lastTongueMouth=null;lastTongueTip=null;lastTongueAttachmentError=0;
+  ctx.clearRect(0,0,overlay.width,overlay.height);
+}
+const inheritedSetup=F.setupRoom;
+F.setupRoom=(...args)=>{const result=inheritedSetup(...args);resetRoomPresentation();return result};
 
 const inheritedRender=F.render;
 F.render=()=>{
