@@ -27,9 +27,25 @@ test('FRONTIER and Game Network stay peripheral instead of becoming dendrites', 
   assert.match(home, /href: '\/frontier'/);
   assert.match(home, /href: '\/arcade'/);
   assert.match(home, /Homepage peripheral destinations/);
-  assert.match(home, /fixed right-4 top-4/);
-  assert.match(home, /data-gesture-target/);
+  assert.match(home, /fixed right-0 top-4/);
+  assert.match(home, /DendriticPortalLink/);
 
   assert.doesNotMatch(dendrite, /FRONTIER/i);
   assert.doesNotMatch(dendrite, /Game Network/i);
+});
+
+test('peripheral access points use a shared minimal dendritic visual grammar', () => {
+  const portal = readRepoFile('components/home/DendriticPortalLink.tsx');
+
+  assert.match(portal, /data-gesture-target/);
+  assert.match(portal, /data-home-portal=\{tone\}/);
+  assert.match(portal, /viewBox="0 0 176 52"/);
+  assert.match(portal, /<polygon/);
+  assert.match(portal, /strokeLinecap="round"/);
+  assert.match(portal, /vectorEffect="non-scaling-stroke"/);
+  assert.match(portal, /stroke-cyan\/25/);
+  assert.match(portal, /stroke-violet\/25/);
+
+  assert.doesNotMatch(portal, /animate-ping/);
+  assert.doesNotMatch(portal, /backdrop-blur/);
 });
