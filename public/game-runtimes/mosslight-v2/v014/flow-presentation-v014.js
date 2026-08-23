@@ -86,10 +86,10 @@ F.render=()=>{
   syncHitStop();const holding=holdFrames>0;
   inheritedRender?.();
   if(holding){
-    // Keep the simulated world visually frozen, but acknowledge a newly buffered
-    // direction immediately. Input feedback should not disappear inside a parry hold.
-    bufferCues=0;if(state.mode==='playing'&&state.player)drawBufferedBlade(state.player);
-    holdFrames--;return;
+    // Freeze the underlying world for impact weight, but redraw the tactical overlay.
+    // A parry, punish window, buffered direction, or newly cracked boss core must be
+    // readable on the very frame it is earned instead of appearing after hit-stop.
+    draw();holdFrames--;return;
   }
   draw();
 };
