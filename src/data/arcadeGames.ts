@@ -28,6 +28,7 @@ const cleanRuntimeUrl = (value: string | undefined) => {
 const stretchicornRuntime =
   cleanRuntimeUrl(process.env.NEXT_PUBLIC_ARCADE_STRETCHICORN_URL) ?? '/game-runtimes/stretchicorn/index.html';
 const uniricoRuntime = cleanRuntimeUrl(process.env.NEXT_PUBLIC_ARCADE_UNIRICO_URL) ?? '/game-runtimes/unirico/index.html';
+const crownrushRuntime = cleanRuntimeUrl(process.env.NEXT_PUBLIC_ARCADE_CROWNRUSH_URL) ?? '/game-runtimes/crownrush/index.html';
 
 export const arcadeGames: ArcadeGame[] = [
   {
@@ -73,6 +74,30 @@ export const arcadeGames: ArcadeGame[] = [
     controls: [
       { input: 'Keyboard', action: 'Move and interact' },
       { input: 'Game menu', action: 'Rules and controls live inside the game' },
+    ],
+    accent: 'cyan',
+  },
+  {
+    slug: 'crownrush',
+    title: 'Crownrush',
+    subtitle: 'BANK SPEED · SKIP BARK · CHASE THE CROWN.',
+    description:
+      'A kinetic twin-sequoia climber where horizontal speed becomes jump height, bark rebounds preserve momentum, and a resin Sapline can be pumped into enormous branch-skipping launches. Chain four multi-floor skips to ignite CROWNVELOCITY, bank combos into Sap Catch rescues, and stay ahead of the rising fire.',
+    version: 'v0.1.0',
+    status: 'playable',
+    sourceVisibility: 'public',
+    repoUrl: 'https://github.com/sidhulyalkar/sids-neural-net',
+    launchUrl: crownrushRuntime,
+    aspectRatio: '3 / 2',
+    nativeSize: { width: 960, height: 640 },
+    tags: ['vertical climber', 'momentum', 'sapline', 'combos', 'procedural', 'canvas'],
+    controls: [
+      { input: 'A / D · ← / →', action: 'Run, steer, and pump Sapline swings' },
+      { input: 'Space · W · ↑', action: 'Jump; speed increases vertical lift' },
+      { input: 'Shift · E', action: 'Hold to Sapline, release to slingshot' },
+      { input: 'Sequoia bark', action: 'Rebounds preserve most horizontal momentum' },
+      { input: 'P', action: 'Pause / resume' },
+      { input: 'Touch', action: 'Four-zone move, jump, and Sapline controls' },
     ],
     accent: 'cyan',
   },
