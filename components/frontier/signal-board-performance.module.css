@@ -13,4 +13,12 @@
   .feedVirtualItem {
     contain-intrinsic-size: auto 320px;
   }
+
+  /* Chromium can keep auto-visibility contents skipped until scrolling even
+     while their intrinsic wrappers occupy the first mobile screen. Guarantee
+     a real above-fold reading surface; later cards remain virtualized. */
+  .feedVirtualItem:nth-child(-n + 3) {
+    content-visibility: visible;
+    contain-intrinsic-size: auto;
+  }
 }
