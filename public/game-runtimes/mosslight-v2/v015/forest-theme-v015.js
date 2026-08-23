@@ -78,19 +78,30 @@ F.updateMovement=(dt)=>{
   return result;
 };
 function patchVisibility(patch){const blades=state.foliage.filter(f=>f.patchId===patch.id),uncut=blades.filter(f=>!f.cut).length;return blades.length?uncut/blades.length:0}
-function drawCanopy(biome){
-  ctx.save();
-  for(const t of state.trees){if(!t.alive)continue;const r=t.r||24;
-    if(biome.id==='mist-pine'||biome.id==='cedar-gloom'){
-      ctx.fillStyle='rgba(3,12,8,.28)';ctx.beginPath();ctx.moveTo(t.x,t.y-r*2.2);ctx.lineTo(t.x-r*1.45,t.y+r*.65);ctx.lineTo(t.x+r*1.45,t.y+r*.65);ctx.closePath();ctx.fill();
-      ctx.beginPath();ctx.moveTo(t.x,t.y-r*1.55);ctx.lineTo(t.x-r*1.75,t.y+r*1.05);ctx.lineTo(t.x+r*1.75,t.y+r*1.05);ctx.closePath();ctx.fill();
-    }else{
-      const g=ctx.createRadialGradient(t.x-r*.3,t.y-r*.4,4,t.x,t.y,r*2.15);g.addColorStop(0,'rgba(13,42,24,.16)');g.addColorStop(.62,'rgba(3,16,9,.30)');g.addColorStop(1,'rgba(2,10,6,0)');ctx.fillStyle=g;ctx.beginPath();ctx.arc(t.x,t.y,r*2.15,0,Math.PI*2);ctx.fill();
-    }
-  }
+function drawPine(t,biome,cedar=false){
+  const r=t.r||24,base=t.y+r*.95;
+  ctx.fillStyle=cedar?'rgba(48,42,30,.93)':'rgba(55,39,27,.94)';ctx.fillRect(t.x-r*.12,t.y-r*.35,r*.24,r*1.35);
+  const levels=cedar?4:3;for(let i=0;i<levels;i++){const y=t.y-r*(1.58-i*.42),w=r*(1.15+i*.18);ctx.fillStyle=i%2?`${biome.leaf}e6`:`${biome.leaf}f2`;ctx.beginPath();ctx.moveTo(t.x,y-r*.55);ctx.lineTo(t.x-w,y+r*.72);ctx.lineTo(t.x+w,y+r*.72);ctx.closePath();ctx.fill()}
+  ctx.fillStyle='rgba(5,14,9,.35)';ctx.beginPath();ctx.ellipse(t.x,base,r*1.15,r*.28,0,0,Math.PI*2);ctx.fill();
+}
+function drawOak(t,biome,ancient=false){
+  const r=t.r||24;ctx.save();ctx.translate(t.x,t.y);
+  ctx.strokeStyle=ancient?'rgba(66,55,34,.98)':'rgba(74,52,32,.97)';ctx.lineWidth=r*.34;ctx.lineCap='round';ctx.beginPath();ctx.moveTo(0,r*.92);ctx.lineTo(-r*.04,-r*.62);ctx.stroke();
+  ctx.lineWidth=r*.15;for(const s of[-1,1]){ctx.beginPath();ctx.moveTo(0,-r*.20);ctx.lineTo(s*r*.58,-r*.78);ctx.stroke()}
+  const blobs=[[-.58,-.72,.88],[.42,-.82,.92],[-.02,-1.16,1.05],[-.02,-.46,1.12]];for(const [x,y,z] of blobs){ctx.fillStyle=ancient?'rgba(48,91,55,.96)':`${biome.leaf}ef`;ctx.beginPath();ctx.arc(x*r,y*r,z*r*.68,0,Math.PI*2);ctx.fill()}
+  if(ancient){ctx.strokeStyle='rgba(155,202,111,.42)';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(-r*.12,-r*.4);ctx.quadraticCurveTo(r*.15,r*.2,r*.32,r*.92);ctx.stroke()}
   ctx.restore();
 }
-function drawUndergrowthFog(biome){
+function drawBurnedTree(t){
+  const r=t.r||24;ctx.save();ctx.translate(t.x,t.y);ctx.strokeStyle='rgba(34,25,20,.98)';ctx.lineCap='round';ctx.lineWidth=r*.30;ctx.beginPath();ctx.moveTo(0,r*.92);ctx.lineTo(0,-r*1.15);ctx.stroke();ctx.lineWidth=r*.10;for(const [sx,sy,ex,ey] of[[-.02,-.4,-.7,-.95],[.02,-.65,.62,-1.08],[-.02,-.15,-.55,-.48]]){ctx.beginPath();ctx.moveTo(sx*r,sy*r);ctx.lineTo(ex*r,ey*r);ctx.stroke()}ctx.restore();
+}
+function drawForestTrees(biome){
+  ctx.save();for(const t of state.trees){if(!t.alive)continue;if(biome.id==='mist-pine')drawPine(t,biome,false);else if(biome.id==='cedar-gloom')drawPine(t,biome,true);else if(biome.id==='burnscar')drawBurnedTree(t);else drawOak(t,biome,biome.id==='ancient-grove')}ctx.restore();
+}
+function drawCanopyShadow(biome){
+  ctx.save();for(const t of state.trees){if(!t.alive)continue;const r=t.r||24,g=ctx.createRadialGradient(t.x-r*.2,t.y-r*.35,4,t.x,t.y,r*2.4);g.addColorStop(0,'rgba(2,10,6,.04)');g.addColorStop(.62,'rgba(2,10,6,.20)');g.addColorStop(1,'rgba(2,10,6,0)');ctx.fillStyle=g;ctx.beginPath();ctx.arc(t.x,t.y,r*2.4,0,Math.PI*2);ctx.fill()}ctx.restore();
+}
+function drawUndergrowthFog(){
   for(const p of state.terrain){if(!p.active||p.type!=='grass')continue;const visibility=patchVisibility(p);if(visibility<=.06)continue;
     const r=(p.r||45)*(1.05+.16*visibility),g=ctx.createRadialGradient(p.x,p.y,r*.16,p.x,p.y,r);g.addColorStop(0,`rgba(5,18,10,${.06+.12*visibility})`);g.addColorStop(.58,`rgba(9,29,15,${.10+.18*visibility})`);g.addColorStop(1,'rgba(5,14,9,0)');ctx.fillStyle=g;ctx.fillRect(p.x-r,p.y-r,r*2,r*2);
   }
@@ -103,18 +114,18 @@ function drawMist(biome){
   }
   ctx.restore();
 }
-function drawDiscoveryGlow(biome){
+function drawIndustrialLights(biome){
+  ctx.save();ctx.globalCompositeOperation='screen';for(const e of state.enemies){if(e.dead)continue;const industrial=['feller','foreman','lobbyist','skidder','chair','broker','mech','mulcher'].includes(e.type);if(!industrial)continue;const r=e.type==='mech'||e.type==='mulcher'?48:28,g=ctx.createRadialGradient(e.x,e.y,2,e.x,e.y,r);g.addColorStop(0,'rgba(244,151,82,.22)');g.addColorStop(.45,'rgba(215,112,62,.08)');g.addColorStop(1,'rgba(215,112,62,0)');ctx.fillStyle=g;ctx.fillRect(e.x-r,e.y-r,r*2,r*2)}ctx.restore();
+}
+function drawDiscoveryGlow(){
   ctx.save();ctx.globalCompositeOperation='screen';
   for(const item of state.pickups){if(item.dead)continue;const g=ctx.createRadialGradient(item.x,item.y,2,item.x,item.y,36);g.addColorStop(0,'rgba(225,255,174,.52)');g.addColorStop(.35,'rgba(184,239,135,.20)');g.addColorStop(1,'rgba(184,239,135,0)');ctx.fillStyle=g;ctx.fillRect(item.x-36,item.y-36,72,72)}
-  for(const m of state.mushrooms){if(m.cut)continue;const g=ctx.createRadialGradient(m.x,m.y,2,m.x,m.y,24);g.addColorStop(0,'rgba(189,238,177,.28)');g.addColorStop(1,'rgba(189,238,177,0)');ctx.fillStyle=g;ctx.fillRect(m.x-24,m.y-24,48,48)}
-  ctx.restore();
+  for(const m of state.mushrooms){if(m.cut)continue;const g=ctx.createRadialGradient(m.x,m.y,2,m.x,m.y,24);g.addColorStop(0,'rgba(189,238,177,.28)');g.addColorStop(1,'rgba(189,238,177,0)');ctx.fillStyle=g;ctx.fillRect(m.x-24,m.y-24,48,48)}ctx.restore();
 }
-function drawVignette(biome){
-  ctx.fillStyle=biome.id==='burnscar'?'rgba(25,13,8,.14)':'rgba(2,11,7,.16)';ctx.fillRect(0,0,W,H);
-  const g=ctx.createRadialGradient(W*.5,H*.5,145,W*.5,H*.5,575);g.addColorStop(0,'rgba(0,0,0,0)');g.addColorStop(.72,'rgba(0,0,0,.07)');g.addColorStop(1,'rgba(0,0,0,.47)');ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
-}
+function drawForestFloor(biome){ctx.save();ctx.globalAlpha=biome.id==='burnscar'?.31:.25;ctx.fillStyle=biome.ground;ctx.fillRect(0,0,W,H);ctx.restore()}
+function drawVignette(){const g=ctx.createRadialGradient(W*.5,H*.5,145,W*.5,H*.5,575);g.addColorStop(0,'rgba(0,0,0,0)');g.addColorStop(.72,'rgba(0,0,0,.07)');g.addColorStop(1,'rgba(0,0,0,.52)');ctx.fillStyle=g;ctx.fillRect(0,0,W,H)}
 function drawForest(){
-  const biome=lastBiome||biomeForDepth();ctx.clearRect(0,0,W,H);if(state.mode!=='playing'&&!state.room)return;drawVignette(biome);drawCanopy(biome);drawUndergrowthFog(biome);drawMist(biome);drawDiscoveryGlow(biome);
+  const biome=lastBiome||biomeForDepth();ctx.clearRect(0,0,W,H);if(state.mode!=='playing'&&!state.room)return;drawForestFloor(biome);drawForestTrees(biome);drawCanopyShadow(biome);drawUndergrowthFog();drawMist(biome);drawIndustrialLights(biome);drawDiscoveryGlow();drawVignette();
 }
 const inheritedRender=F.render;
 F.render=()=>{const result=inheritedRender?.();drawForest();return result};
