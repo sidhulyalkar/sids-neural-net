@@ -10,6 +10,14 @@ test('boss guard escalates across phases without becoming a raw HP sponge', () =
   assert.match(boss, /guardByPhase:Object\.freeze\(\{1:3,2:4,3:5\}\)/);
   assert.match(boss, /punishTicksByPhase:Object\.freeze\(\{1:36,2:30,3:24\}\)/);
   assert.match(boss, /bladePunishMultiplier:1\.35/);
+  assert.match(boss, /guardedHpMultiplier:0/);
+});
+
+test('closed guard owns HP admission instead of acting as a decorative second meter', () => {
+  assert.match(boss, /guarding=!open&&\(b\.v014Guard\?\?guardMax\(b\.phase\)\)>0/);
+  assert.match(boss, /hpAmount=guarding\?amount\*BOSS_FLOW_CONFIG\.guardedHpMultiplier/);
+  assert.match(boss, /function rejectGuardedDamage/);
+  assert.match(boss, /GUARD · RETURN \/ ROUTE \/ DASH-CUT/);
 });
 
 test('high-skill interactions crack guard through counters environment and committed dash-cuts', () => {
