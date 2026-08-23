@@ -5,16 +5,27 @@ import test from 'node:test';
 const read=(p:string)=>readFileSync(join(process.cwd(),p),'utf8');
 const cut=read('public/game-runtimes/mosslight-v2/v015/cutstep-v015.js');
 const entry=read('public/game-runtimes/mosslight-v2/v015-entry.js');
+const bossBridge=read('public/game-runtimes/mosslight-v2/v015/boss-bridge-v015.js');
+const bossFlow=read('public/game-runtimes/mosslight-v2/v014/boss-flow-v014.js');
 const html=read('public/game-runtimes/mosslight-v2/index.html');
 const presentation=read('public/game-runtimes/mosslight-v2/v015/cutstep-presentation-v015.js');
 const space=read('public/game-runtimes/mosslight-v2/v014/presentation-space-v014.js');
 
 test('v0.15 boots the polished Cutstep alpha over the qualified v0.14 substrate',()=>{
   assert.match(entry,/await import\('\.\/v014-entry\.js'\)/);
-  for(const moduleName of ['cutstep-v015.js','encounter-director-v015.js','forest-world-v015.js','discoveries-v015.js','forest-actors-v015.js','cutstep-presentation-v015.js'])assert.match(entry,new RegExp(`v015\\/${moduleName.replaceAll('.','\\.')}`));
+  for(const moduleName of ['cutstep-v015.js','encounter-director-v015.js','boss-bridge-v015.js','forest-world-v015.js','discoveries-v015.js','forest-actors-v015.js','cutstep-presentation-v015.js'])assert.match(entry,new RegExp(`v015\\/${moduleName.replaceAll('.','\\.')}`));
   assert.match(html,/src="\.\/v015-entry\.js"/);
   assert.match(html,/Sylvaria · Cutstep Forest/);
   assert.match(entry,/POLISHED FOREST COMBAT ALPHA/);
+});
+
+test('curated boss rooms instantiate through the preserved deterministic boss flow',()=>{
+  assert.match(bossBridge,/BOSS_BRIDGE_VERSION='0\.15\.0'/);
+  assert.match(bossBridge,/name:bp\.bossName\|\|'The Walking Sawmill'/);
+  assert.match(bossBridge,/window\.SylvariaBossFlow\?\.initialize\?\.\(state\.boss\)/);
+  assert.match(bossFlow,/initialize:\(boss=state\.boss\)=>\{initBossFlow\(boss\);return boss\|\|null\}/);
+  assert.match(entry,/walkingSawmillBoss:true/);
+  assert.doesNotMatch(bossBridge,/Math\.random|Date\.now|performance\.now|setTimeout|setInterval/);
 });
 
 test('movement and aim are independent by construction',()=>{
