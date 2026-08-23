@@ -17,10 +17,14 @@ const runtimeFiles = [
   `${runtimeRoot}/v014-entry.js`,
   `${runtimeRoot}/v014/character-rig-v014.js`,
   `${runtimeRoot}/v014/combat-flow-v014.js`,
+  `${runtimeRoot}/v014/charge-intent-v014.js`,
   `${runtimeRoot}/v014/enemy-flow-v014.js`,
+  `${runtimeRoot}/v014/enemy-mastery-v014.js`,
   `${runtimeRoot}/v014/boss-flow-v014.js`,
   `${runtimeRoot}/v014/threat-manager-v014.js`,
   `${runtimeRoot}/v014/flow-presentation-v014.js`,
+  `${runtimeRoot}/v014/presentation-space-v014.js`,
+  `${runtimeRoot}/v014/combat-readability-v014.js`,
   `${runtimeRoot}/v013-entry.js`,
   `${runtimeRoot}/v013/kinetic-combat-v013.js`,
   `${runtimeRoot}/v013/enemy-ai-v013.js`,
@@ -76,7 +80,7 @@ const report = {
   rankedEnabled: false,
   generatedAt: new Date().toISOString(),
   note:
-    'This report measures the actual playable portfolio runtime loaded by v014-entry.js, including the shared frog/tongue character rig, deterministic combat flow, enemy punish layer, boss guard-break loop, 30-room threat manager, WebGL2 pond renderer, and compatibility substrate. Sylvaria is not being optimized against a game-jam byte limit. Payload measurements are used only to track regressions and loading cost while preserving visual and mechanical quality.',
+    'This report measures the actual playable portfolio runtime loaded by v014-entry.js, including the shared frog/tongue rig, DPR-safe logical presentation space, collision-neutral projectile readability, charged dash intent controller, deterministic elite mastery, boss guard-break loop, 30-room threat manager, WebGL2 pond renderer, and compatibility substrate. Sylvaria is not being optimized against a game-jam byte limit. Payload measurements track regressions and loading cost while preserving visual and mechanical quality.',
   runtime,
 };
 
