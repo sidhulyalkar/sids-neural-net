@@ -89,7 +89,10 @@ async function installShiftObserver(page) {
           window.__frontierLayoutShiftEntries += 1;
         }
       });
-      observer.observe({ type: 'layout-shift', buffered: true });
+      // Install only after the warm sweep and intentionally do not request
+      // buffered entries. This gate measures virtualization/decode shifts
+      // caused by the repeat bidirectional sweep, not historical page-load CLS.
+      observer.observe({ type: 'layout-shift' });
       window.__frontierLayoutObserver = observer;
     } catch {
       // LayoutShift is supplemental. DOM geometry comparisons remain the gate.
@@ -107,18 +110,22 @@ async function readShiftObserver(page) {
 async function snapshot(page) {
   return page.evaluate((selector) => {
     const cards = Array.from(document.querySelectorAll(selector));
-    const gridItem = cards[0]?.closest('[data-frontier-visual-role]');
-    const grid = gridItem?.parentElement;
+    const grid = cards[0]?.parentElement;
     if (!(grid instanceof HTMLElement)) throw new Error('Missing deterministic masonry grid');
+
+    const presentationFor = (node) => {
+      const candidate = node.querySelector('[data-frontier-visual-role]');
+      return candidate instanceof HTMLElement ? candidate : null;
+    };
 
     const cardGeometry = cards.map((node) => {
       const rect = node.getBoundingClientRect();
       const style = getComputedStyle(node);
-      const wrapper = node.closest('[data-frontier-visual-role]');
+      const presentation = presentationFor(node);
       return {
         id: node.getAttribute('data-frontier-fluid-card') || '',
-        role: wrapper?.getAttribute('data-frontier-visual-role') || '',
-        hasMedia: wrapper?.getAttribute('data-frontier-has-media') === 'true',
+        role: presentation?.getAttribute('data-frontier-visual-role') || '',
+        hasMedia: presentation?.getAttribute('data-frontier-has-media') === 'true',
         top: rect.top + window.scrollY,
         left: rect.left + window.scrollX,
         width: rect.width,
@@ -131,7 +138,7 @@ async function snapshot(page) {
     });
 
     const media = cards
-      .filter((node) => node.closest('[data-frontier-has-media="true"]'))
+      .filter((node) => presentationFor(node)?.getAttribute('data-frontier-has-media') === 'true')
       .map((node) => {
         const target = node.querySelector('[role="img"], video, iframe, img');
         if (!(target instanceof HTMLElement)) {
