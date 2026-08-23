@@ -33,6 +33,8 @@ test('advanced kinetic enemies reward readable mastery instead of hidden randomn
   assert.match(mastery,/striderWhiffPunishTicks:28/);
   assert.match(mastery,/sniperCounterPunishTicks:32/);
   assert.match(mastery,/shellbackRearMultiplier:1\.35/);
+  assert.match(mastery,/restoreArmor=e\.armor;e\.armor=0/);
+  assert.match(mastery,/finally\{if\(flank&&e&&!e\.dead\)e\.armor=restoreArmor\}/);
   assert.match(mastery,/WHIFF OPEN/);
   assert.match(mastery,/LINE BROKEN/);
   assert.match(mastery,/FLANK/);
