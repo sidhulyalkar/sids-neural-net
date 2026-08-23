@@ -52,6 +52,7 @@ export function useFluidInteraction({
   const press = useRef<FrontierFluidPress | undefined>(undefined);
   const armedPairPress = useRef(false);
   const suppressClick = useRef(false);
+  const suppressDoubleClick = useRef(false);
 
   const onPointerDown = useCallback((event: ReactPointerEvent<HTMLElement>) => {
     const continuingPair = event.isPrimary && event.button === 0 && qualifiesFrontierFluidPairPress(
@@ -103,6 +104,7 @@ export function useFluidInteraction({
     suppressClick.current = ownsPair || Boolean(primaryFluidAnchor(event.target));
 
     if (resolved.intent === 'external') {
+      suppressDoubleClick.current = true;
       releasePoint.current = undefined;
       onCollapse(item);
       onExternalOpen?.(item);
@@ -132,8 +134,10 @@ export function useFluidInteraction({
   }, []);
 
   const onDoubleClickCapture = useCallback((event: ReactMouseEvent<HTMLElement>) => {
-    if (!shouldRouteTarget(event.target) && !releasePoint.current) return;
+    if (!suppressDoubleClick.current && !shouldRouteTarget(event.target)) return;
+    suppressDoubleClick.current = false;
     event.preventDefault();
+    event.stopPropagation();
   }, []);
 
   return {
