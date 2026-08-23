@@ -37,7 +37,7 @@ const peripheralLinks = [
     href: '/arcade',
     label: 'GAME NETWORK',
     detail: '2 live builds',
-    ariaLabel: 'Open the Game Network with Stretchicorn and uniRico',
+    ariaLabel: 'Open the Game Network',
     tone: 'violet' as const,
   },
 ] as const;
