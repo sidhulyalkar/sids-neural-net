@@ -24,6 +24,25 @@ function compactRect(rect) {
   };
 }
 
+async function waitForCanonicalFixture(page) {
+  await page.waitForFunction(
+    ({ rootSelector, cardSelector, expected }) => {
+      const visibleRoots = Array.from(document.querySelectorAll(rootSelector)).filter((node) => {
+        if (!(node instanceof HTMLElement)) return false;
+        const rect = node.getBoundingClientRect();
+        const style = getComputedStyle(node);
+        return rect.width > 0 && rect.height > 0 && style.display !== 'none' && style.visibility !== 'hidden';
+      });
+      // Next/React may briefly retain a hidden hydration copy. It is irrelevant
+      // to visual geometry, but a second visible fixture or duplicate card tree
+      // is not. Match the scroll audit's canonical lifecycle contract.
+      return visibleRoots.length === 1 && document.querySelectorAll(cardSelector).length === expected;
+    },
+    { rootSelector: ROOT, cardSelector: CARD, expected: EXPECTED_CARDS },
+    { polling: 'raf', timeout: 5_000 },
+  );
+}
+
 async function waitForStableGeometry(page) {
   await page.evaluate(async () => {
     if (document.fonts?.ready) await document.fonts.ready;
@@ -68,9 +87,15 @@ async function waitForStableGeometry(page) {
 
 async function analyzeDesktop(page) {
   return page.evaluate(({ rootSelector, cardSelector, mediaSelector, compactSelector }) => {
-    const root = document.querySelector(rootSelector);
+    const roots = Array.from(document.querySelectorAll(rootSelector)).filter((node) => {
+      if (!(node instanceof HTMLElement)) return false;
+      const rect = node.getBoundingClientRect();
+      const style = getComputedStyle(node);
+      return rect.width > 0 && rect.height > 0 && style.display !== 'none' && style.visibility !== 'hidden';
+    });
+    const root = roots[0];
     const cards = Array.from(document.querySelectorAll(cardSelector));
-    if (!(root instanceof HTMLElement) || !cards.length) throw new Error('Missing mosaic fixture');
+    if (!(root instanceof HTMLElement) || roots.length !== 1 || !cards.length) throw new Error('Missing canonical mosaic fixture');
     const grid = cards[0]?.parentElement;
     if (!(grid instanceof HTMLElement)) throw new Error('Missing mosaic grid');
 
@@ -177,7 +202,7 @@ async function analyzeMobile(page) {
 
   try {
     await page.goto(AUDIT_URL, { waitUntil: 'domcontentloaded' });
-    await page.locator(ROOT).waitFor({ state: 'visible' });
+    await waitForCanonicalFixture(page);
     const desktopStableFrames = await waitForStableGeometry(page);
     await page.waitForFunction(
       () => Array.from(document.querySelectorAll('[data-frontier-has-media="true"] [role="img"][data-media-state]'))
@@ -208,7 +233,7 @@ async function analyzeMobile(page) {
 
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto(AUDIT_URL, { waitUntil: 'domcontentloaded' });
-    await page.locator(ROOT).waitFor({ state: 'visible' });
+    await waitForCanonicalFixture(page);
     const mobileStableFrames = await waitForStableGeometry(page);
     const mobile = await analyzeMobile(page);
     assert.equal(mobile.cardCount, EXPECTED_CARDS, 'Mobile fixture lost cards');
