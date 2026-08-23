@@ -12,9 +12,9 @@
     <canvas id="game" width="1280" height="720" aria-label="Sylvaria ancient tree ascent action platformer"></canvas>
 
     <section id="hud" aria-live="polite">
-      <div class="brand"><span>SYLVARIA</span><small id="zone">ROOTWARD BASE</small></div>
+      <div class="brand"><span>SYLVARIA</span><small id="zone">ROOTREACH</small></div>
       <div class="status"><span id="health">BARK ●●●●●</span><span id="objective">CLIMB THE ANCIENT TREE</span></div>
-      <div class="movement"><span id="altitude">0 M</span><span id="airStep">AIR STEP ●</span><button id="settingsButton" class="iconButton" type="button" aria-label="Controls and settings">⌘</button></div>
+      <div class="movement"><span id="altitude">0 M</span><span id="airStep">CANOPY STEP ●</span><button id="settingsButton" class="iconButton" type="button" aria-label="Controls and settings">⌘</button></div>
     </section>
 
     <section id="bossHud" class="bossHud hidden" aria-live="polite">
@@ -25,16 +25,17 @@
     <section id="intro" class="panel introPanel">
       <p class="eyebrow">ANCIENT TREE ASCENT</p>
       <h1>SYLVARIA</h1>
-      <p class="lede">Climb from the roots to the crown of an ancient living tree while mechanized clearcut crews dismantle it around you. The tree is your platforming system: grip bark, spring from flexible limbs, swing vines, break deadwood, strike sap branches, rebound through aerial combat, and fight upward.</p>
+      <p class="lede">Climb from Rootreach to the Heartwood Crown while mechanized felling crews dismantle an ancient living tree around you. Movement is the weapon: grip bark, load flexible limbs, swing vines, snap a Sapline between Resin Knots, rebound from downward strikes, redirect gunfire, and keep climbing.</p>
       <div class="controls primaryControls">
         <span><b>← / →</b> move</span>
         <span><b>SPACE</b> jump</span>
+        <span><b>W</b> hold Sapline · release to launch</span>
         <span><b>D</b> machete</span>
         <span><b>↑ + D</b> upslash</span>
-        <span><b>↓ + D</b> downslash / plunge</span>
-        <span><b>SHIFT</b> air dash</span>
+        <span><b>↓ + D</b> downstrike / plunge</span>
+        <span><b>SHIFT</b> Canopy Step</span>
       </div>
-      <p class="microcopy">Downward hits rebound. Bark Grip refreshes your air dash. Narrow branches reward momentum, not patience.</p>
+      <p class="microcopy">Sapline only catches glowing Resin Knots. The line reels while held, preserves real momentum on release, and does not restore Canopy Step. Downward hits and Bark Grip do.</p>
       <button id="start" class="primaryButton" type="button">BEGIN THE ASCENT</button>
       <button class="textButton" type="button" onclick="document.getElementById('settingsPanel').classList.remove('hidden')">CUSTOMIZE CONTROLS</button>
     </section>
@@ -46,21 +47,21 @@
     </section>
 
     <section id="settingsPanel" class="panel settingsPanel hidden" aria-label="Customize controls">
-      <div class="panelHeader"><div><p class="eyebrow">CONTROLS</p><h2>Make Sylvaria yours.</h2></div><button id="closeSettings" class="iconButton" type="button">×</button></div>
+      <div class="panelHeader"><div><p class="eyebrow">CONTROLS</p><h2>Tune the climb.</h2></div><button id="closeSettings" class="iconButton" type="button">×</button></div>
       <p class="settingsHint">Select an action, then press the key you want. Bindings are saved on this device.</p>
       <div id="bindList" class="bindList"></div>
       <button id="resetBindings" class="textButton" type="button">RESET DEFAULTS</button>
     </section>
 
     <section id="complete" class="panel hidden">
-      <p class="eyebrow">HEARTWOOD CROWN</p><h2>You reached the top.</h2>
+      <p class="eyebrow">HEARTWOOD CROWN</p><h2>You reached the crown.</h2>
       <p id="completeStats"></p>
       <button id="restart" class="primaryButton" type="button">CLIMB AGAIN</button>
     </section>
 
     <section id="dead" class="panel hidden">
-      <p class="eyebrow">FELLED</p><h2>The ancient tree remembers the route.</h2>
-      <p>Your last Heartbud remains your checkpoint. Climb cleaner, use the bark, and turn enemy attacks into movement.</p>
+      <p class="eyebrow">FELLED</p><h2>The tree remembers the route.</h2>
+      <p>Your last Heartbud remains your checkpoint. Preserve momentum, read the Resin Knots, and turn enemy pressure into another way upward.</p>
       <button id="retry" class="primaryButton" type="button">RETURN TO THE TREE</button>
     </section>
   </main>
