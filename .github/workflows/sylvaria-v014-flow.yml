@@ -64,6 +64,12 @@ jobs:
           PW_ROOT="$(cd "$(dirname "$PW_BIN")/.." && pwd)"
           PLAYWRIGHT_MODULE_ROOT="$PW_ROOT" node scripts/playtest-sylvaria-v014-production.mjs
 
+      - name: Verify advanced enemy mastery interactions
+        run: |
+          PW_BIN="$(npm exec --yes --package=playwright@1.55.0 -- which playwright)"
+          PW_ROOT="$(cd "$(dirname "$PW_BIN")/.." && pwd)"
+          PLAYWRIGHT_MODULE_ROOT="$PW_ROOT" node scripts/playtest-sylvaria-v014-enemy-mastery.mjs
+
       - name: Verify remembered dash charge direction
         run: |
           PW_BIN="$(npm exec --yes --package=playwright@1.55.0 -- which playwright)"
