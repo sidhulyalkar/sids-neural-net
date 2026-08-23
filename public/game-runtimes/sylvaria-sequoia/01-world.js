@@ -204,7 +204,9 @@
     state.lastSide = 'left';
     const startChunk = { id: 'start', type: 'RECOVERY', startFloor: 0, endFloor: 0 };
     const start = addBranch(0, 70, 'center', 570, 0, startChunk);
-    generateUntil(H + 1080);
+    // Prime more than a full authored grammar cycle so title-time validation can
+    // verify every route family without affecting the bounded recycling model.
+    generateUntil(H + 3000);
     return start;
   }
 
