@@ -4,9 +4,9 @@ import {join} from 'node:path';
 import test from 'node:test';
 const read=(path:string)=>readFileSync(join(process.cwd(),path),'utf8');
 
-test('v0.15 preserves the verified v0.13 competitive substrate but quarantines Cutstep physics',()=>{
+test('v0.15 preserves the verified v0.13 competitive substrate but quarantines Cutstep alpha physics',()=>{
   const html=read('public/game-runtimes/mosslight-v2/index.html'),client=read('public/game-runtimes/mosslight-v2/v011/competitive-v011.js'),entry13=read('public/game-runtimes/mosslight-v2/v013-entry.js'),entry15=read('public/game-runtimes/mosslight-v2/v015-entry.js');
-  assert.match(html,/id="rankPanel"/);assert.match(html,/id="rankedSubmit"/);assert.match(html,/ranking remains paused/i);assert.match(entry13,/v013\/replay-v013\.js/);assert.match(entry13,/v011\/competitive-v011\.js/);assert.ok(entry13.indexOf('v013/replay-v013.js')<entry13.indexOf('v011/competitive-v011.js'));assert.match(entry15,/SylvariaRankedDisabledReason='v0\.15 Cutstep prototype · verifier migration required'/);assert.match(client,/const unrankedReason=\(\)=>String\(window\.SylvariaRankedDisabledReason\|\|''\)\.trim\(\)/);assert.match(client,/if\(unrankedReason\(\)\)return null/);assert.match(client,/rankedDisabledReason:unrankedReason\(\)\|\|null/);
+  assert.match(html,/id="rankPanel"/);assert.match(html,/id="rankedSubmit"/);assert.match(html,/ranking remains paused/i);assert.match(entry13,/v013\/replay-v013\.js/);assert.match(entry13,/v011\/competitive-v011\.js/);assert.ok(entry13.indexOf('v013/replay-v013.js')<entry13.indexOf('v011/competitive-v011.js'));assert.match(entry15,/SylvariaRankedDisabledReason='v0\.15 Cutstep alpha · verifier migration required'/);assert.match(client,/const unrankedReason=\(\)=>String\(window\.SylvariaRankedDisabledReason\|\|''\)\.trim\(\)/);assert.match(client,/if\(unrankedReason\(\)\)return null/);assert.match(client,/rankedDisabledReason:unrankedReason\(\)\|\|null/);
 });
 
 test('practice and unverified v0.15 runs never acquire ranked tickets',()=>{
