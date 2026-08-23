@@ -6,15 +6,21 @@ const root = process.cwd();
 const artifactDir = path.join(root, 'artifacts', 'sylvaria-size');
 fs.mkdirSync(artifactDir, { recursive: true });
 
-const competitionLimitBytes = 13 * 1024;
 const runtimeRoot = 'public/game-runtimes/mosslight-v2';
-const competitionFiles = [
+const runtimeFiles = [
   `${runtimeRoot}/index.html`,
   `${runtimeRoot}/sylvaria-v8.css`,
   `${runtimeRoot}/sylvaria-minimal-v011.css`,
   `${runtimeRoot}/sylvaria-pond-v012.css`,
   `${runtimeRoot}/render-scale-v7.js`,
   `${runtimeRoot}/render-optimizer-v6.js`,
+  `${runtimeRoot}/v014-entry.js`,
+  `${runtimeRoot}/v014/character-rig-v014.js`,
+  `${runtimeRoot}/v014/combat-flow-v014.js`,
+  `${runtimeRoot}/v014/enemy-flow-v014.js`,
+  `${runtimeRoot}/v014/boss-flow-v014.js`,
+  `${runtimeRoot}/v014/threat-manager-v014.js`,
+  `${runtimeRoot}/v014/flow-presentation-v014.js`,
   `${runtimeRoot}/v013-entry.js`,
   `${runtimeRoot}/v013/kinetic-combat-v013.js`,
   `${runtimeRoot}/v013/enemy-ai-v013.js`,
@@ -38,8 +44,8 @@ const competitionFiles = [
   `${runtimeRoot}/v011/presentation-v011.js`,
   `${runtimeRoot}/v011/input-guard-v011.js`,
   `${runtimeRoot}/v011/competitive-v011.js`,
+  'public/game-runtimes/game-network-bridge.js',
 ];
-const portfolioOnlyFiles = ['public/game-runtimes/game-network-bridge.js'];
 
 function profile(files) {
   const rows = files.map((file) => {
@@ -52,33 +58,38 @@ function profile(files) {
     };
   });
   const joined = Buffer.concat(files.map((file) => fs.readFileSync(path.join(root, file))));
-  const aggregate = {
-    raw: joined.length,
-    gzip: gzipSync(joined, { level: 9 }).length,
-    brotli: brotliCompressSync(joined, { params: { [z.BROTLI_PARAM_QUALITY]: 11 } }).length,
+  return {
+    rows,
+    aggregate: {
+      raw: joined.length,
+      gzip: gzipSync(joined, { level: 9 }).length,
+      brotli: brotliCompressSync(joined, { params: { [z.BROTLI_PARAM_QUALITY]: 11 } }).length,
+    },
   };
-  return { rows, aggregate };
 }
 
-const readableRuntime = profile(competitionFiles);
-const portfolioPayload = profile([...competitionFiles, ...portfolioOnlyFiles]);
+const runtime = profile(runtimeFiles);
 const report = {
-  presentationVersion: '0.13.0',
-  engineVersion: '0.13.0',
+  presentationVersion: '0.14.0',
+  engineVersion: '0.14.0-development',
+  rankedVerifierVersion: '0.13.0',
+  rankedEnabled: false,
   generatedAt: new Date().toISOString(),
-  competitionLimitBytes,
-  note: 'This report measures the readable portfolio runtime that actually ships: the WebGL2 frog/pond presentation plus the v0.13 continuous kinetics, charged dash, kinetic tongue arc, evasive enemy AI, replay recorder and coaching. It is not a JS13k submission artifact. A future competition pack would use a separate minimal renderer and simulation package, omit portfolio leaderboard/networking UX, flatten and minify the required game files, then satisfy the official ZIP cap independently.',
-  readableRuntime,
-  portfolioPayload,
-  competitionGap: {
-    rawBytesOver: Math.max(0, readableRuntime.aggregate.raw - competitionLimitBytes),
-    gzipBytesOver: Math.max(0, readableRuntime.aggregate.gzip - competitionLimitBytes),
-    brotliBytesOver: Math.max(0, readableRuntime.aggregate.brotli - competitionLimitBytes),
-  },
+  note:
+    'This report measures the actual playable portfolio runtime loaded by v014-entry.js, including the shared frog/tongue character rig, deterministic combat flow, enemy punish layer, boss guard-break loop, 30-room threat manager, WebGL2 pond renderer, and compatibility substrate. Sylvaria is not being optimized against a game-jam byte limit. Payload measurements are used only to track regressions and loading cost while preserving visual and mechanical quality.',
+  runtime,
 };
 
 fs.writeFileSync(path.join(artifactDir, 'report.json'), JSON.stringify(report, null, 2));
-console.log('Sylvaria v0.13 kinetic combat runtime size profile');
-console.table(readableRuntime.rows.map((row) => ({ file: row.file.replace(`${runtimeRoot}/`, ''), raw: row.raw, gzip: row.gzip, brotli: row.brotli })));
-console.log(`Readable runtime aggregate: raw ${readableRuntime.aggregate.raw} B · gzip ${readableRuntime.aggregate.gzip} B · brotli ${readableRuntime.aggregate.brotli} B`);
-console.log(`Reference 13 KiB cap: ${competitionLimitBytes} B. Current readable runtime is intentionally NOT treated as a competition-ready package.`);
+console.log('Sylvaria v0.14 playable portfolio runtime size profile');
+console.table(
+  runtime.rows.map((row) => ({
+    file: row.file.replace(`${runtimeRoot}/`, ''),
+    raw: row.raw,
+    gzip: row.gzip,
+    brotli: row.brotli,
+  })),
+);
+console.log(
+  `Playable runtime aggregate: raw ${runtime.aggregate.raw} B · gzip ${runtime.aggregate.gzip} B · brotli ${runtime.aggregate.brotli} B`,
+);
