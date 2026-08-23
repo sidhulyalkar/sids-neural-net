@@ -88,10 +88,15 @@ jobs:
 
       - name: Smoke public production routes
         run: |
-          for route in / /frontier /api/frontier/feed /api/auth/session /neural-net /case-studies /physiology /perceptual-cortex /rotation /sensing-lab /physiology/visual-audit; do
+          for route in / /frontier /arcade /arcade/stretchicorn /arcade/unirico /game-runtimes/stretchicorn/index.html /game-runtimes/unirico/index.html /api/frontier/feed /api/auth/session /neural-net /case-studies /physiology /perceptual-cortex /rotation /sensing-lab /physiology/visual-audit; do
             echo "GET $route"
             curl --retry 2 --retry-connrefused -fsS "http://127.0.0.1:3000$route" >/dev/null
           done
+
+      - name: Verify pinned arcade provenance
+        env:
+          ARCADE_AUDIT_URL: http://127.0.0.1:3000
+        run: node scripts/arcade-provenance-audit.cjs
 
       - name: Smoke FRONTIER privacy boundaries
         run: |
@@ -128,6 +133,18 @@ jobs:
           npm install --prefix /tmp/frontier-playwright --no-package-lock --no-save playwright@1.55.0
           /tmp/frontier-playwright/node_modules/.bin/playwright install --with-deps chromium
 
+      - name: Audit eight-way homepage geometry
+        env:
+          NODE_PATH: /tmp/frontier-playwright/node_modules
+          HOME_RADIAL_AUDIT_URL: http://127.0.0.1:3000/
+        run: node scripts/home-radial-audit.cjs
+
+      - name: Audit Game Network production builds
+        env:
+          NODE_PATH: /tmp/frontier-playwright/node_modules
+          ARCADE_AUDIT_URL: http://127.0.0.1:3000
+        run: node scripts/arcade-production-audit.cjs
+
       - name: Audit FRONTIER bounded first useful paint
         env:
           NODE_PATH: /tmp/frontier-playwright/node_modules
@@ -161,6 +178,13 @@ jobs:
       - name: Capture production browser fixtures
         run: |
           mkdir -p artifacts/browser-smoke
+          /tmp/frontier-playwright/node_modules/.bin/playwright screenshot --browser=chromium --wait-for-timeout 600 --viewport-size="1440,900" http://127.0.0.1:3000/ artifacts/browser-smoke/home-desktop.png
+          /tmp/frontier-playwright/node_modules/.bin/playwright screenshot --browser=chromium --wait-for-timeout 600 --viewport-size="390,844" http://127.0.0.1:3000/ artifacts/browser-smoke/home-mobile.png
+          /tmp/frontier-playwright/node_modules/.bin/playwright screenshot --browser=chromium --wait-for-timeout 600 --viewport-size="1920,1080" http://127.0.0.1:3000/ artifacts/browser-smoke/home-ultrawide.png
+          /tmp/frontier-playwright/node_modules/.bin/playwright screenshot --browser=chromium --wait-for-timeout 1200 --viewport-size="1440,900" http://127.0.0.1:3000/arcade artifacts/browser-smoke/arcade-desktop.png
+          /tmp/frontier-playwright/node_modules/.bin/playwright screenshot --browser=chromium --wait-for-timeout 1200 --viewport-size="390,844" --full-page http://127.0.0.1:3000/arcade artifacts/browser-smoke/arcade-mobile.png
+          /tmp/frontier-playwright/node_modules/.bin/playwright screenshot --browser=chromium --wait-for-timeout 1800 --viewport-size="1440,900" http://127.0.0.1:3000/arcade/stretchicorn artifacts/browser-smoke/stretchicorn-desktop.png
+          /tmp/frontier-playwright/node_modules/.bin/playwright screenshot --browser=chromium --wait-for-timeout 1800 --viewport-size="1440,900" http://127.0.0.1:3000/arcade/unirico artifacts/browser-smoke/unirico-desktop.png
           /tmp/frontier-playwright/node_modules/.bin/playwright screenshot --browser=chromium --wait-for-timeout 9000 --viewport-size="1440,1100" --full-page http://127.0.0.1:3000/frontier artifacts/browser-smoke/frontier-desktop.png
           /tmp/frontier-playwright/node_modules/.bin/playwright screenshot --browser=chromium --wait-for-timeout 9000 --viewport-size="390,844" --full-page http://127.0.0.1:3000/frontier artifacts/browser-smoke/frontier-mobile.png
           /tmp/frontier-playwright/node_modules/.bin/playwright screenshot --browser=chromium --viewport-size="1440,1100" --full-page http://127.0.0.1:3000/physiology/visual-audit artifacts/browser-smoke/nature-atlas-desktop.png

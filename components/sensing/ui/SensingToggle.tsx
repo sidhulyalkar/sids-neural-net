@@ -4,6 +4,7 @@
 // started until the visitor explicitly enables local signal sensing.
 
 import { useState } from 'react';
+import { usePathname } from 'next/navigation';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Sparkles, X, CameraOff, ShieldCheck } from 'lucide-react';
 import { useSensingStore } from '@/lib/stores/sensingStore';
@@ -22,6 +23,7 @@ const SIGNAL_LABELS = {
 } as const;
 
 export function SensingToggle() {
+  const pathname = usePathname();
   const enabled = useSensingStore((state) => state.enabled);
   const status = useSensingStore((state) => state.status);
   const reading = useSensingStore((state) => state.reading);
@@ -30,6 +32,10 @@ export function SensingToggle() {
   const dotColor = rgbToCss(expressionToTokens(reading).primaryRGB);
   const strongest = strongestObservableSignal(reading);
   const label = reading.intensity < 0.08 ? 'Signals quiet' : SIGNAL_LABELS[strongest];
+
+  // Keep the landing page visually quiet. Camera/gesture sensing remains
+  // available everywhere else and can still be entered from its dedicated UI.
+  if (pathname === '/') return null;
 
   return (
     <div className="fixed bottom-4 right-4 z-50 flex flex-col items-end gap-2 print:hidden" data-gesture-ignore>
