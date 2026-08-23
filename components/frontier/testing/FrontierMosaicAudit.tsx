@@ -130,7 +130,7 @@ const NOOP_REACTION = (_item: FrontierItem, _reaction: FrontierReaction) => unde
 
 export function FrontierMosaicAudit() {
   return (
-    <main className={styles.shell} data-frontier-mosaic-audit="true">
+    <div className={styles.shell} data-frontier-mosaic-audit="true">
       <header className={styles.header}>
         <span>FRONTIER</span>
         <span>Phase 8.1 · populated media mosaic</span>
@@ -156,6 +156,6 @@ export function FrontierMosaicAudit() {
           )}
         />
       </section>
-    </main>
+    </div>
   );
 }
