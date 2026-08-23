@@ -7,7 +7,7 @@ const root=process.cwd();
 const runtime='public/game-runtimes/mosslight-v2';
 const read=(path:string)=>readFileSync(join(root,path),'utf8');
 
-test('v0.12 remains a presentation-only foundation even though production advances to the v0.13 engine season',()=>{
+test('v0.12 remains a presentation-only foundation beneath the verified v0.13 compatibility engine',()=>{
   const entry12=read(`${runtime}/v012-entry.js`);
   const entry13=read(`${runtime}/v013-entry.js`);
   const server=read('src/lib/sylvaria/replay.ts');
@@ -33,7 +33,7 @@ test('frog pond art atlas contains readable player insect terrain and tongue ass
   assert.doesNotMatch(art,/Math\.random/);
 });
 
-test('WebGL2 pond renderer still implements height-derived normals bounded lights batching and foot-Y sorting',()=>{
+test('WebGL2 pond renderer still implements height-derived normals bounded lights batching foot-Y sorting and the v0.14 character rig seam',()=>{
   const renderer=read(`${runtime}/v012/webgl-pond-v012.js`);
   assert.match(renderer,/getContext\('webgl2'/);
   assert.match(renderer,/MAX_SPRITES=900,MAX_LIGHTS=6/);
@@ -45,11 +45,12 @@ test('WebGL2 pond renderer still implements height-derived normals bounded light
   assert.match(renderer,/webglcontextlost/);
   assert.match(renderer,/canvas-fallback/);
   assert.match(renderer,/ENEMY_ART=Object\.freeze/);
+  assert.match(renderer,/SylvariaCharacterRig/);
   for(const pair of ["feller:'fly'","foreman:'bee'","lobbyist:'mosquito'","skidder:'beetle'","drone:'dragonfly'","chair:'hornet'","surveyor:'crane'","mech:'divingBeetle'"])assert.ok(renderer.includes(pair),`missing insect mapping ${pair}`);
   assert.doesNotMatch(renderer,/F\.(?:update|cut|dashStep|counterShot)\s*=/);
 });
 
-test('v0.13 kinetic presentation suppresses the old straight tongue and renders the authoritative sweeping arc',()=>{
+test('v0.13 kinetic presentation remains the authoritative Reactive Blade renderer and consumes the v0.14 mouth socket when present',()=>{
   const presentation=read(`${runtime}/v013/kinetic-presentation-v013.js`);
   assert.match(presentation,/original\.filter\(s=>s\.kind!=='arc'\)/);
   assert.match(presentation,/state\.slashes=legacy/);
@@ -60,30 +61,35 @@ test('v0.13 kinetic presentation suppresses the old straight tongue and renders 
   assert.match(presentation,/s\.phase==='windup'/);
   assert.match(presentation,/s\.phase==='active'/);
   assert.match(presentation,/s\.phaseTime\/s\.recovery/);
+  assert.match(presentation,/rig\?\.mouthForAttack/);
   assert.match(presentation,/drawDash/);
   assert.match(presentation,/drawKineticEnemies/);
   assert.doesNotMatch(presentation,/F\.(?:updateMovement|updateEnemies|updateShots|cut)\s*=/);
 });
 
-test('production pond shell teaches v0.13 glide charge opening parry and sweep controls',()=>{
+test('production pond shell teaches the v0.14 attached counter movement terrain and boss grammar',()=>{
   const html=read(`${runtime}/index.html`);
   const arcade=read('src/data/arcadeGames.ts');
-  assert.match(html,/v0\.13 · kinetic arc combat/);
+  assert.match(html,/v0\.14 · unified kinetic combat/);
   assert.match(html,/Lily Clearing/);
-  assert.match(html,/Catch fire in the opening tongue frames to parry/);
+  assert.match(html,/156° tongue sweep/);
+  assert.match(html,/physically anchored to Sprid’s mouth|actual mouth/i);
   assert.match(html,/first five active simulation ticks/);
   assert.match(html,/glide north/);
-  assert.match(html,/tongue arc up/);
+  assert.match(html,/blade up/);
   assert.match(html,/hold \/ release dash/);
-  assert.match(html,/\.\/v013-entry\.js/);
-  assert.match(arcade,/version: 'v0\.13\.0'/);
-  assert.match(arcade,/GLIDE · SWEEP · RETURN FIRE\./);
-  assert.match(arcade,/continuous pond movement/);
-  assert.match(arcade,/opening five active ticks/);
+  assert.match(html,/Break bosses/);
+  assert.match(html,/Read the rhythm/);
+  assert.match(html,/\.\/v014-entry\.js/);
+  assert.match(arcade,/version: 'v0\.14\.0'/);
+  assert.match(arcade,/CARVE · COUNTER · CREATE THE OPENING/);
+  assert.match(arcade,/one character rig/i);
+  assert.match(arcade,/boss guard breaks/i);
+  assert.match(arcade,/call-and-response threat phrases/i);
   assert.match(arcade,/webgl2/);
 });
 
-test('v0.12 graphics documentation remains a historical presentation contract beneath v0.13',()=>{
+test('v0.12 graphics documentation remains a historical presentation contract beneath later combat engines',()=>{
   const doc=read('docs/SYLVARIA_V012_FROG_POND_GRAPHICS.md');
   assert.match(doc,/authoritative game remains the fully qualified v0\.11\.1 engine/);
   assert.match(doc,/120 Hz fixed simulation tick/);
