@@ -10,7 +10,7 @@ import {
 export const metadata: Metadata = {
   title: 'PhysioPersona Nature Atlas | Sidharth Hulyalkar',
   description:
-    'A local-first physiological persona exploring 900 deterministic miniature nature worlds through an illustrated SVG and Canvas renderer, with optional experimental Three.js scenes.',
+    'A local-first physiological persona exploring 1,000 deterministic miniature nature worlds through an illustrated SVG and Canvas renderer, with optional experimental Three.js scenes.',
 };
 
 const layers = [
@@ -49,6 +49,8 @@ const atlasCollections = [
   ['💎 751–800 · crystal + frost', 'Bismuth, quartz, amethyst, glacier ice, snowflakes, geodes, frozen webs, crevasses, mineral colors, and ice tunnels.'],
   ['🌵 801–850 · desert boho', 'Agave, terracotta dunes, desert sun, washed stone, dry roads, yucca, cholla, rock arches, badlands, and twilight.'],
   ['☁️ 851–900 · celestial', 'Milky Way bands, aurora curtains, nebulae, planets, cloud streets, sun halos, meteor streaks, dawn light, and thunderheads.'],
+  ['🫶 901–950 · living sanctuaries', 'Cloud-forest nurseries, mangroves, pollinator corridors, kelp refuges, wetlands, animal habitat, mycelium, migration stops, and ecological relationships.'],
+  ['🪨 951–1000 · geological wonders', 'Travertine terraces, basalt columns, karst towers, cenotes, lava tubes, fumaroles, geodes, glacier structures, dunes, crater rims, and subterranean lakes.'],
 ];
 
 export default function PhysiologyPage() {
@@ -57,7 +59,7 @@ export default function PhysiologyPage() {
       <PageHeader
         eyebrow="experiment · local-first physiological computing"
         title="physio persona · nature atlas"
-        intro="A physiology-reactive tiny explorer living inside a 900-world nature atlas. The production renderer is now 2D-first: layered SVG illustration, deterministic Canvas atmosphere, pointer parallax, and a vector character rig. Every world keeps the same renderer-independent scene blueprint, so the strongest environments can later be promoted into richer Three.js and WebXR spaces without rebuilding the atlas model."
+        intro="A physiology-reactive tiny explorer living inside a 1,000-world nature atlas. The production renderer is now 2D-first: layered SVG illustration, deterministic Canvas atmosphere, pointer parallax, and a vector character rig. Every world keeps the same renderer-independent scene blueprint, so the strongest environments can later be promoted into richer Three.js and WebXR spaces without rebuilding the atlas model."
         actions={
           <>
             <ExternalLinkChip href="https://github.com/sidhulyalkar/WiFisio-Atlas">WiFisio-Atlas</ExternalLinkChip>
@@ -79,7 +81,7 @@ export default function PhysiologyPage() {
           <article className="rounded-xl border border-white/10 bg-white/[0.025] p-5 sm:p-6">
             <h3 className="font-mono text-sm text-text-primary">2 · shared world contract</h3>
             <p className="mt-3 text-xs leading-6 text-text-secondary/70">
-              All 900 worlds still compile into the same focal subject, palette, foreground, midground, backdrop, atmosphere, motion, lighting, depth, camera, interaction, wildlife, activity, and deterministic-seed specification. Rendering is downstream of that contract.
+              All 1,000 worlds still compile into the same focal subject, palette, foreground, midground, backdrop, atmosphere, motion, lighting, depth, camera, interaction, wildlife, activity, and deterministic-seed specification. Rendering is downstream of that contract.
             </p>
           </article>
           <article className="rounded-xl border border-white/10 bg-white/[0.025] p-5 sm:p-6">
@@ -107,7 +109,7 @@ export default function PhysiologyPage() {
         </div>
       </SectionShell>
 
-      <SectionShell eyebrow="field guide" title="seventeen collections, one continuous little universe">
+      <SectionShell eyebrow="field guide" title="nineteen collections, one continuous little universe">
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
           <article className="rounded-xl border border-cyan/20 bg-cyan/[0.035] p-5">
             <h3 className="font-mono text-sm text-text-primary">🌲 001–100 · original atlas</h3>
@@ -139,7 +141,7 @@ export default function PhysiologyPage() {
         </div>
       </SectionShell>
 
-      <SectionShell eyebrow="performance" title="900 worlds without 900 expensive renderers">
+      <SectionShell eyebrow="performance" title="1,000 worlds without 1,000 expensive renderers">
         <div className="grid gap-4 lg:grid-cols-2">
           <article className="rounded-xl border border-white/10 bg-white/[0.025] p-5 sm:p-6">
             <h3 className="font-mono text-sm text-text-primary">2D by default</h3>

@@ -18,23 +18,10 @@ import {
   rootCategoryEdges,
 } from './registry';
 import type { AtlasCategoryId, NeuralAtlasNode } from './registry';
-
-function useReducedMotionPreference() {
-  const [reduced, setReduced] = useState(false);
-
-  useEffect(() => {
-    const query = window.matchMedia('(prefers-reduced-motion: reduce)');
-    setReduced(query.matches);
-    const onChange = () => setReduced(query.matches);
-    query.addEventListener('change', onChange);
-    return () => query.removeEventListener('change', onChange);
-  }, []);
-
-  return reduced;
-}
+import { useMediaQuery } from '@/lib/hooks/useBrowserState';
 
 export function NeuralGraphHome() {
-  const reducedMotion = useReducedMotionPreference();
+  const reducedMotion = useMediaQuery('(prefers-reduced-motion: reduce)');
   const stats = useMemo(() => getAtlasStats(), []);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [activeCategoryId, setActiveCategoryId] = useState<AtlasCategoryId | null>(null);

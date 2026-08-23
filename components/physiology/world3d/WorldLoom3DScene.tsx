@@ -280,7 +280,6 @@ export function WorldLoom3DScene(props: SceneProps) {
     try {
       setXrStatus('entering');
       const session = await xr.requestSession('immersive-vr', { optionalFeatures: ['local-floor', 'bounded-floor', 'hand-tracking'] });
-      renderer.xr.enabled = true;
       renderer.xr.setReferenceSpaceType('local-floor');
       await (renderer.xr as unknown as { setSession: (value: unknown) => Promise<void> }).setSession(session);
       const endAwareSession = session as { addEventListener?: (name: string, callback: () => void) => void };

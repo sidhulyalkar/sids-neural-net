@@ -357,19 +357,19 @@ function WeatherParticles({ world }: { world: RichNatureWorldDefinition }) {
 }
 
 function StylizedWildlife({ world }: { world: RichNatureWorldDefinition }) {
-  if (world.wildlife.length === 0) return null;
-  const label = world.wildlife[0];
+  const label = world.wildlife[0] ?? '';
   const aquatic = /fish|whale|shark|squid|octopus|otter|seal/.test(label);
   const bird = /bird|raptor|macaw|owl|swan|duck|flamingo/.test(label);
   const insect = /insect/.test(label);
   const reptile = /snake|crocod|turtle/.test(label);
   const group = useRef<Group>(null);
   useFrame(({ clock }) => {
-    if (!group.current) return;
+    if (!group.current || !label) return;
     const t = clock.getElapsedTime();
     group.current.position.y = (aquatic ? -0.05 : 0.05) + Math.sin(t * (bird ? 1.1 : insect ? 2.2 : 0.75) + world.seed) * (bird ? 0.18 : insect ? 0.1 : 0.035);
     group.current.position.x = Math.sin(t * 0.22 + world.seed) * (bird ? 0.5 : 0.12);
   });
+  if (!label) return null;
   const palette = NATURE_WORLD_PALETTES[world.palette];
   if (insect) {
     return <group ref={group} position={[1.15, 0.45, -0.3]}><mesh scale={[0.06,0.04,0.09]}><sphereGeometry args={[1,10,8]} /><meshStandardMaterial color={palette.accent} emissive={world.scene.atmosphere === 'glow' ? palette.accent : '#000000'} emissiveIntensity={1.1} /></mesh><mesh position={[-0.07,0.02,0]} scale={[0.08,0.015,0.05]}><sphereGeometry args={[1,8,6]} /><meshBasicMaterial color="#d8f0ee" transparent opacity={0.5} /></mesh><mesh position={[0.07,0.02,0]} scale={[0.08,0.015,0.05]}><sphereGeometry args={[1,8,6]} /><meshBasicMaterial color="#d8f0ee" transparent opacity={0.5} /></mesh></group>;

@@ -4,6 +4,7 @@ import { GeistMono } from 'geist/font/mono';
 import './globals.css';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
+import { ArcadeDiscovery } from '@/components/layout/ArcadeDiscovery';
 import { ModeProvider } from '@/lib/contexts/ModeContext';
 import { NeuronCursor } from '@/components/effects/NeuronCursor';
 import { InteractionCapabilityProvider } from '@/components/sensing/InteractionCapabilityProvider';
@@ -78,7 +79,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               Skip to content
             </a>
             <Header />
-            <main id="main-content" className="flex-1" tabIndex={-1}>{children}</main>
+            <main id="main-content" className="relative flex-1" tabIndex={-1}>
+              <ArcadeDiscovery />
+              {children}
+            </main>
             <Footer />
           </div>
         </ModeProvider>

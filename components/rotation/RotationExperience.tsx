@@ -2,15 +2,16 @@
 
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { advanceWorld, createInputSnapshot, type InputSnapshot } from '../perceptual-cortex/fusionEngine';
 import { silentAudioFeatures } from '../perceptual-cortex/audioFeatures';
 import { usePerceptualStore } from '../perceptual-cortex/perceptualStore';
 import { VisionSignalSource } from '../perceptual-cortex/VisionSignalSource';
 import { sample, timelineFromTrack, type MusicTimeline } from '../perceptual-cortex/musicTimeline';
-import { initialQuality, type QualityTier } from '../perceptual-cortex/quality';
+import { initialQuality } from '../perceptual-cortex/quality';
 import { visualThemeList, type VisualThemeId } from '../perceptual-cortex/visualThemes';
 import { parseManifest, type Track } from '@/lib/spotify/manifest';
+import { useHydrated, useMediaQuery, useViewportWidth } from '@/lib/hooks/useBrowserState';
 import manifestData from '@/content/music/top-tracks.json';
 import { TrackGallery } from './TrackGallery';
 import { SpotifyEmbed } from './SpotifyEmbed';
@@ -24,6 +25,15 @@ type TimelineState = 'none' | 'curated-fallback' | 'analyzed';
 
 export function RotationExperience() {
   const { seed, visualTheme, reducedMotion, start, setReducedMotion, setVisualTheme } = usePerceptualStore();
+  const hydrated = useHydrated();
+  const viewportWidth = useViewportWidth();
+  const systemReducedMotion = useMediaQuery('(prefers-reduced-motion: reduce)');
+  const effectiveReducedMotion = reducedMotion || systemReducedMotion;
+  const quality = useMemo(() => {
+    const memory = hydrated ? (navigator as Navigator & { deviceMemory?: number }).deviceMemory : undefined;
+    return initialQuality(viewportWidth, memory);
+  }, [hydrated, viewportWidth]);
+
   const canvas = useRef<HTMLCanvasElement | null>(null);
   const capture = useRef<(() => string) | null>(null);
   const input = useRef<InputSnapshot>(createInputSnapshot());
@@ -33,18 +43,14 @@ export function RotationExperience() {
   const pointer = useRef({ x: 0, y: 0, time: 0 });
   const visionSource = useRef<VisionSignalSource | null>(null);
   const [selected, setSelected] = useState<Track | null>(null);
-  const [quality, setQuality] = useState<QualityTier>('balanced');
   const [visionState, setVisionState] = useState<'off' | 'requesting' | 'active' | 'error'>('off');
   const [playbackState, setPlaybackState] = useState<PlaybackState>('loading');
   const [playbackError, setPlaybackError] = useState<string | null>(null);
   const [timelineState, setTimelineState] = useState<TimelineState>('none');
 
   useEffect(() => {
-    const memory = (navigator as Navigator & { deviceMemory?: number }).deviceMemory;
-    setQuality(initialQuality(innerWidth, memory));
-    setReducedMotion(matchMedia('(prefers-reduced-motion: reduce)').matches);
     start();
-  }, [setReducedMotion, start]);
+  }, [start]);
 
   const selectTrack = async (track: Track) => {
     setSelected(track);
@@ -161,27 +167,16 @@ export function RotationExperience() {
           <select aria-label="Conceptual color theme" value={visualTheme} onChange={(event) => setVisualTheme(event.target.value as VisualThemeId)} className="rounded-full border border-white/15 bg-black/60 px-3 py-2 font-mono text-[10px] uppercase tracking-[.12em] text-white/65">
             {visualThemeList.map((theme) => <option key={theme.id} value={theme.id}>{theme.label} · {theme.concept}</option>)}
           </select>
-          <label className="flex items-center gap-2 font-mono text-[9px] uppercase tracking-[.14em] text-white/45"><input type="checkbox" checked={reducedMotion} onChange={(event) => setReducedMotion(event.target.checked)} /> reduced motion</label>
-          <button onClick={toggleVision} disabled={visionState === 'requesting'} className={`rounded-full border px-4 py-2 font-mono text-[10px] uppercase tracking-[.18em] backdrop-blur ${visionState === 'active' ? 'border-violet/40 bg-violet/10 text-violet' : 'border-white/15 bg-black/35 text-white/65'}`}>{visionState === 'active' ? '● camera active' : visionState === 'requesting' ? 'loading vision…' : visionState === 'error' ? 'retry camera' : 'enable local camera'}</button>
+          <label className="flex items-center gap-2 font-mono text-[9px] uppercase tracking-[.14em] text-white/45"><input type="checkbox" checked={effectiveReducedMotion} disabled={systemReducedMotion} onChange={(event) => setReducedMotion(event.target.checked)} /> reduced motion{systemReducedMotion ? ' · system' : ''}</label>
+          <button type="button" onClick={toggleVision} disabled={visionState === 'requesting'} className={`rounded-full border px-4 py-2 font-mono text-[10px] uppercase tracking-[.18em] backdrop-blur ${visionState === 'active' ? 'border-violet/40 bg-violet/10 text-violet' : 'border-white/15 bg-black/35 text-white/65'}`}>{visionState === 'active' ? '● camera active' : visionState === 'requesting' ? 'loading vision…' : visionState === 'error' ? 'retry camera' : 'enable local camera'}</button>
         </div>
 
         {selected && (
           <div className="mb-3 rounded-lg border border-white/8 bg-black/20 p-3">
-            <div className="mb-2 flex flex-wrap items-center justify-between gap-2 font-mono text-[9px] uppercase tracking-[.13em]">
-              <span className={playbackState === 'playing' ? 'text-green/80' : playbackState === 'error' ? 'text-rose/80' : 'text-white/45'}>{playbackLabel}</span>
-              <span className="text-white/35">timing: {timelineState === 'analyzed' ? 'analyzed grid' : 'curated tempo fallback'}</span>
-            </div>
+            <div className="mb-2 flex flex-wrap items-center justify-between gap-2 font-mono text-[9px] uppercase tracking-[.13em]"><span className={playbackState === 'playing' ? 'text-green/80' : playbackState === 'error' ? 'text-rose/80' : 'text-white/45'}>{playbackLabel}</span><span className="text-white/35">timing: {timelineState === 'analyzed' ? 'analyzed grid' : 'curated tempo fallback'}</span></div>
             {playbackError ? <p className="mb-2 text-[10px] leading-4 text-rose/80">Spotify could not initialize here. The visual experience and camera/pointer controls still work; use the external Spotify link for playback.</p> : null}
-            <SpotifyEmbed
-              uri={`spotify:track:${selected.spotifyId}`}
-              onController={onController}
-              onStatus={setPlaybackState}
-              onError={(message) => { setPlaybackError(message); setPlaybackState('error'); }}
-            />
-            <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
-              <a href={selected.spotifyUrl} target="_blank" rel="noreferrer" className="font-mono text-[9px] uppercase tracking-[.16em] text-green/70 hover:text-green">Listen on Spotify ↗</a>
-              <span className="font-mono text-[9px] text-white/30">{selected.bpm} BPM · {selected.artist}</span>
-            </div>
+            <SpotifyEmbed uri={`spotify:track:${selected.spotifyId}`} onController={onController} onStatus={setPlaybackState} onError={(message) => { setPlaybackError(message); setPlaybackState('error'); }} />
+            <div className="mt-2 flex flex-wrap items-center justify-between gap-2"><a href={selected.spotifyUrl} target="_blank" rel="noreferrer" className="font-mono text-[9px] uppercase tracking-[.16em] text-green/70 hover:text-green">Listen on Spotify ↗</a><span className="font-mono text-[9px] text-white/30">{selected.bpm} BPM · {selected.artist}</span></div>
           </div>
         )}
 

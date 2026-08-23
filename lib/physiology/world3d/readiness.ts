@@ -1,6 +1,6 @@
 import { WORLD3D_STANDARDS } from './standards';
-import { buildWorldNavigationGeometry, hasPlayerClearance, structureBlocksPlayer, validTeleportPoints } from './navigation';
-import type { World3DPlan, World3DValidationIssue } from './types';
+import { buildWorldNavigationGeometry, findSafeSpawnPosition, validTeleportPoints } from './navigation';
+import type { Vec3, World3DPlan, World3DValidationIssue } from './types';
 
 export type WorldLoomReadiness = {
   desktopReady: boolean;
@@ -9,6 +9,7 @@ export type WorldLoomReadiness = {
   warnings: World3DValidationIssue[];
   corridorCount: number;
   teleportPointCount: number;
+  safeSpawnPosition: Vec3 | null;
 };
 
 function uniqueIssues(issues: World3DValidationIssue[]): World3DValidationIssue[] {
@@ -22,19 +23,21 @@ function uniqueIssues(issues: World3DValidationIssue[]): World3DValidationIssue[
 }
 
 export function auditWorldLoomReadiness(plan: World3DPlan): WorldLoomReadiness {
-  const blockers = plan.diagnostics.issues.filter((issue) => issue.severity === 'error');
-  const warnings = plan.diagnostics.issues.filter((issue) => issue.severity === 'warning');
+  const blockers = [...plan.diagnostics.issues.filter((issue) => issue.severity === 'error')];
+  const warnings = [...plan.diagnostics.issues.filter((issue) => issue.severity === 'warning')];
   const spawn = plan.anchors.find((anchor) => anchor.role === 'spawn');
+  const safeSpawnPosition = findSafeSpawnPosition(plan, WORLD3D_STANDARDS.spawnClearRadius);
 
   if (!spawn) {
     blockers.push({ severity: 'error', code: 'xr-missing-spawn', message: 'XR runtime requires an explicit spawn anchor.' });
-  } else {
-    for (const structure of plan.structures) {
-      if (!structureBlocksPlayer(structure) || structure.id === 'landmark') continue;
-      if (!hasPlayerClearance({ ...plan, structures: [structure] }, spawn.position, WORLD3D_STANDARDS.spawnClearRadius)) {
-        blockers.push({ severity: 'error', code: 'xr-spawn-clearance', message: `Blocking structure ${structure.id} intersects the XR spawn exclusion zone.` });
-      }
-    }
+  } else if (!safeSpawnPosition) {
+    blockers.push({ severity: 'error', code: 'xr-spawn-clearance', message: 'No collision-free XR local-floor station exists near the authored spawn.' });
+  } else if (
+    safeSpawnPosition[0] !== spawn.position[0] ||
+    safeSpawnPosition[1] !== spawn.position[1] ||
+    safeSpawnPosition[2] !== spawn.position[2]
+  ) {
+    warnings.push({ severity: 'warning', code: 'xr-spawn-relocated', message: 'XR runtime uses a deterministic collision-free local-floor station adjacent to the authored spawn.' });
   }
 
   const navigation = buildWorldNavigationGeometry(plan);
@@ -48,8 +51,16 @@ export function auditWorldLoomReadiness(plan: World3DPlan): WorldLoomReadiness {
   }
 
   const teleportPoints = validTeleportPoints(plan);
-  if (navigation.corridors.length > 0 && teleportPoints.length < navigation.corridors.length * 2) {
-    blockers.push({ severity: 'error', code: 'xr-teleport-coverage', message: 'Navigation graph does not expose enough collision-free teleport targets.' });
+  const coverage = new Map<string, number>();
+  for (const point of teleportPoints) coverage.set(point.connectionId, (coverage.get(point.connectionId) ?? 0) + 1);
+  for (const corridor of navigation.corridors) {
+    if ((coverage.get(corridor.connection.id) ?? 0) < 2) {
+      blockers.push({
+        severity: 'error',
+        code: 'xr-teleport-coverage',
+        message: `Connection ${corridor.connection.id} does not expose two collision-free teleport targets across its walkable lanes.`,
+      });
+    }
   }
 
   const uniqueBlockers = uniqueIssues(blockers);
@@ -60,5 +71,6 @@ export function auditWorldLoomReadiness(plan: World3DPlan): WorldLoomReadiness {
     warnings: uniqueIssues(warnings),
     corridorCount: navigation.corridors.length,
     teleportPointCount: teleportPoints.length,
+    safeSpawnPosition,
   };
 }

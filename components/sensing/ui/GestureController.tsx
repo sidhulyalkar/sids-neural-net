@@ -601,7 +601,7 @@ export function GestureController() {
               stepIndex={calibrationStepIndex}
               targetLocked={targetLocked}
               pinching={Boolean(cursor?.pinching)}
-              hasPreviousProfile={Boolean(calibrationFallbackProfileRef.current)}
+              hasPreviousProfile={Boolean(calibrationProfile)}
               onCancel={cancelCalibration}
             />
           ) : panelKind === 'complete' ? (
