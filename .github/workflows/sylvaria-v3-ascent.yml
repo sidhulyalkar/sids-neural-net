@@ -36,7 +36,9 @@ jobs:
           node --check public/game-runtimes/sylvaria-v3/world-v3.js
           node --check public/game-runtimes/sylvaria-v3/engine-v3.js
           node --check public/game-runtimes/sylvaria-v3/engine-feel-v3.js
+          node --check public/game-runtimes/sylvaria-v3/engine-sapline-v3.js
           node --check public/game-runtimes/sylvaria-v3/render-v3.js
+          node --check public/game-runtimes/sylvaria-v3/render-motion-v3.js
           node --check public/game-runtimes/sylvaria-v3/game-v3.js
       - name: Validate ancient-tree design contracts
         run: node --import tsx --test tests/sylvaria-v3-ancient-tree.test.ts tests/sylvaria-v2-sideview.test.ts tests/arcade-discovery.test.ts
@@ -61,7 +63,7 @@ jobs:
           exit 1
       - name: Install Chromium qualification engine
         run: npx --yes playwright@1.55.0 install --with-deps chromium
-      - name: Qualify ancient tree ascent movement and combat
+      - name: Qualify ancient tree movement combat and Sapline
         run: |
           PW_BIN="$(npm exec --yes --package=playwright@1.55.0 -- which playwright)"
           PW_ROOT="$(cd "$(dirname "$PW_BIN")/.." && pwd)"
