@@ -29,11 +29,19 @@ test('post-evade punishability has a visible shrinking enemy-space cue', () => {
   assert.match(source, /ctx\.setLineDash\(\[8,5\]\)/);
 });
 
-test('v0.14 presentation mirrors asymmetric hit-stop while still acknowledging newly buffered direction', () => {
+test('boss guard intent and core openings have direct entity-local presentation', () => {
+  assert.match(source, /function drawBossIntent/);
+  assert.match(source, /function drawBossFlow/);
+  assert.match(source, /b\.v014GuardMax/);
+  assert.match(source, /b\.v014PunishTimer>0/);
+  assert.match(source, /bossCues\+\+/);
+});
+
+test('v0.14 hit-stop freezes the world but redraws every immediate tactical cue', () => {
   assert.match(source, /kind==='parry'\?3:kind==='armor'\?2:1/);
   assert.match(source, /if\(holding\)\{/);
-  assert.match(source, /if\(state\.mode==='playing'&&state\.player\)drawBufferedBlade\(state\.player\)/);
-  assert.match(source, /holdFrames--;return/);
+  assert.match(source, /draw\(\);holdFrames--;return/);
+  assert.match(source, /drawFlowRing\(state\.player\);drawBufferedBlade\(state\.player\);drawPunishWindows\(\);drawBossFlow\(\)/);
 });
 
 test('presentation does not own authoritative movement or combat simulation', () => {
