@@ -57,11 +57,18 @@ async function installTelemetry(page) {
 
     const state = {
       releases: [],
+      releaseTargets: [],
       removedVideoCount: 0,
       videoIdentity: video,
       observer: undefined,
     };
-    card.addEventListener('pointerup', (event) => state.releases.push(event.timeStamp), true);
+    card.addEventListener('pointerup', (event) => {
+      state.releases.push(event.timeStamp);
+      const target = event.target;
+      state.releaseTargets.push(target instanceof Element
+        ? `${target.tagName.toLowerCase()}${target.getAttribute('data-frontier-fluid-primary-link') === 'true' ? '[primary]' : ''}`
+        : 'unknown');
+    }, true);
 
     const observer = new MutationObserver((records) => {
       for (const record of records) {
@@ -85,16 +92,39 @@ async function motionSample(page) {
     const visual = node.getBoundingClientRect();
     const animations = node.getAnimations();
     const primary = animations[0];
+    let firstKeyframeMatrix = null;
+    if (primary?.effect instanceof KeyframeEffect) {
+      const firstFrame = primary.effect.getKeyframes()[0];
+      if (firstFrame && typeof firstFrame.transform === 'string' && firstFrame.transform !== 'none') {
+        const matrix = new DOMMatrixReadOnly(firstFrame.transform);
+        firstKeyframeMatrix = {
+          a: matrix.a,
+          d: matrix.d,
+          e: matrix.e,
+          f: matrix.f,
+        };
+      }
+    }
     return {
       expanded: node.dataset.fluidExpanded === 'true',
       animationCount: animations.length,
       animationCurrentTime: typeof primary?.currentTime === 'number' ? primary.currentTime : null,
       animationPlayState: primary?.playState ?? null,
+      firstKeyframeMatrix,
       transform: getComputedStyle(node).transform,
       layout: { width: node.offsetWidth, height: node.offsetHeight },
       visual: { x: visual.x, y: visual.y, width: visual.width, height: visual.height },
     };
   }, CARD);
+}
+
+function seededRectFromMatrix(layoutRect, matrix) {
+  return {
+    x: layoutRect.x + matrix.e,
+    y: layoutRect.y + matrix.f,
+    width: layoutRect.width * matrix.a,
+    height: layoutRect.height * matrix.d,
+  };
 }
 
 async function twoRafMotionSample(page) {
@@ -130,10 +160,9 @@ async function runInterruptionCase(page) {
 
   const origin = await rect(page, CARD);
 
-  // The hit coordinate is resolved exactly once, before the first release and
-  // before any compositor motion. Both releases therefore exercise Chromium's
-  // trusted PointerEvent clock rather than spending part of the 250 ms product
-  // window on a second locator/bounding-box round trip.
+  // Resolve the trusted hit point once, before motion. The second release uses
+  // this exact viewport coordinate, so the product's 250 ms contract is tested
+  // against Chromium PointerEvent timestamps rather than Playwright locator IPC.
   const hitPoint = await pointerPoint(page, LINK);
   await pointerClickAt(page, hitPoint);
   await waitForExpandedState(page, true);
@@ -169,9 +198,12 @@ async function runInterruptionCase(page) {
 
   await pointerClickAt(page, hitPoint);
 
-  const releaseTimes = await page.evaluate(() => window.__frontierPhase8Audit?.releases ?? []);
-  assert.equal(releaseTimes.length, 2, `Expected two trusted pointer releases, got ${releaseTimes.length}`);
-  const releaseDeltaMs = releaseTimes[1] - releaseTimes[0];
+  const releaseTelemetry = await page.evaluate(() => ({
+    times: window.__frontierPhase8Audit?.releases ?? [],
+    targets: window.__frontierPhase8Audit?.releaseTargets ?? [],
+  }));
+  assert.equal(releaseTelemetry.times.length, 2, `Expected two trusted pointer releases, got ${releaseTelemetry.times.length}`);
+  const releaseDeltaMs = releaseTelemetry.times[1] - releaseTelemetry.times[0];
   assert(
     releaseDeltaMs > 0 && releaseDeltaMs < 250,
     `Second Chromium PointerEvent release missed the 250 ms threshold: ${releaseDeltaMs}ms`,
@@ -185,15 +217,10 @@ async function runInterruptionCase(page) {
     `Compact layout width was not restored: ${reverse.layout.width} vs ${origin.width}`,
   );
 
-  // A critically damped FLIP is intentionally almost stationary at t≈0. If
-  // the second release lands before the visual rectangle has perceptibly left
-  // the compact box, there is no meaningful inverse delta to animate and
-  // useSpatialFlip correctly skips a redundant reverse WAAPI object. Once the
-  // visual has actually travelled, either the reverse animation must be live or
-  // Chromium must already have settled exactly back to the compact geometry.
-  const reverseDistanceFromInterrupted = rectDistance(reverse.visual, interruptedVisual);
   const reverseDistanceFromOrigin = rectDistance(reverse.visual, origin);
   let reverseMode;
+  let reverseSeedVisual = null;
+  let reverseSeedDistance = null;
   if (visibleTravel <= 1) {
     assert(
       reverseDistanceFromOrigin <= 2,
@@ -205,15 +232,20 @@ async function runInterruptionCase(page) {
       reverse.animationPlayState === 'running' || reverse.animationPlayState === 'pending',
       `Expected active reverse FLIP, saw ${reverse.animationPlayState}`,
     );
+    assert(reverse.firstKeyframeMatrix, 'Active reverse FLIP must expose its first compositor keyframe');
+
+    // The current visual rectangle is scheduler-dependent: Chromium may advance
+    // several spring frames before Playwright samples it. The first WAAPI
+    // keyframe is not. Reconstruct the rectangle represented by that immutable
+    // seed and prove it is the actual interrupted visual geometry captured just
+    // before the second trusted release.
+    reverseSeedVisual = seededRectFromMatrix(origin, reverse.firstKeyframeMatrix);
+    reverseSeedDistance = rectDistance(reverseSeedVisual, interruptedVisual);
     assert(
-      reverse.transform !== 'none' && reverse.transform !== 'matrix(1, 0, 0, 1, 0, 0)',
-      `Reverse FLIP lost interrupted compositor geometry: ${reverse.transform}`,
+      reverseSeedDistance <= 2,
+      `Reverse FLIP seed did not preserve interruption geometry: distance=${reverseSeedDistance}`,
     );
-    assert(
-      reverseDistanceFromInterrupted < Math.max(80, visibleTravel * 0.7),
-      `Reverse FLIP jumped away from interruption geometry: ${reverseDistanceFromInterrupted}`,
-    );
-    reverseMode = 'animated';
+    reverseMode = 'animated-from-interruption-keyframe';
   } else {
     assert(
       reverseDistanceFromOrigin <= 2,
@@ -238,11 +270,14 @@ async function runInterruptionCase(page) {
     midFlightVisual: compactRect(mid.visual),
     interruptedVisual: compactRect(interruptedVisual),
     reverseVisual: compactRect(reverse.visual),
+    reverseSeedVisual: reverseSeedVisual ? compactRect(reverseSeedVisual) : null,
+    reverseSeedDistance: reverseSeedDistance === null ? null : Number(reverseSeedDistance.toFixed(3)),
     expandedLayout: mid.layout,
     reverseLayout: reverse.layout,
     visibleTravel: Number(visibleTravel.toFixed(3)),
     reverseMode,
     releaseDeltaMs: Number(releaseDeltaMs.toFixed(3)),
+    releaseTargets: releaseTelemetry.targets,
     animationCurrentTimeMs: Number(mid.animationCurrentTime.toFixed(3)),
     animationPlayState: mid.animationPlayState,
     reverseAnimationCurrentTimeMs: typeof reverse.animationCurrentTime === 'number'
