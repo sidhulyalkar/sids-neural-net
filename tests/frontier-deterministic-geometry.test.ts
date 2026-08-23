@@ -27,13 +27,13 @@ function item(media: FrontierItem['media']): FrontierItem {
   };
 }
 
-test('unknown images reserve a square box while video defaults to wide geometry', () => {
+test('unknown images reserve a landscape box while video defaults to wide geometry', () => {
   const image = frontierMediaGeometry({ type: 'image', url: '/image.webp' });
   const video = frontierMediaGeometry({ type: 'video', url: 'https://example.com/video.mp4' });
 
-  assert.equal(image.label, 'square');
-  assert.equal(image.aspectRatio, 1);
-  assert.equal(image.cssAspectRatio, '1 / 1');
+  assert.equal(image.label, 'landscape');
+  assert.equal(image.aspectRatio, 4 / 3);
+  assert.equal(image.cssAspectRatio, '4 / 3');
   assert.equal(video.label, 'wide');
   assert.equal(video.aspectRatio, 16 / 9);
   assert.equal(video.cssAspectRatio, '16 / 9');
@@ -67,7 +67,7 @@ test('presentation enrichment assigns expected geometry without changing ranking
   const enriched = enrichFrontierMediaGeometry(source);
 
   assert.notEqual(enriched, source);
-  assert.equal(enriched.media?.aspectRatio, 'square');
+  assert.equal(enriched.media?.aspectRatio, 'landscape');
   assert.equal(enriched.baseScore, source.baseScore);
   assert.equal(enriched.importance, source.importance);
   assert.equal(enriched.novelty, source.novelty);
