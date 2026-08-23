@@ -6,17 +6,28 @@ import { FluidSpatialCard } from '../FluidSpatialCard';
 import { useSpatialFlip } from '../useSpatialFlip';
 import styles from './frontier-interaction-audit.module.css';
 
+const AUDIT_VISIBLE_SUMMARY = 'A deterministic browser-only fixture for exercising the production pointer router, critically damped FLIP animation, stable inline media, scientific planes, and lazy local synthesis.';
+
 const AUDIT_ITEM: FrontierItem = {
   id: 'frontier-phase8-browser-audit',
-  title: 'Phase 8 fluid spatial interaction audit',
-  summary: 'A deterministic browser-only fixture for exercising the production pointer router, critically damped FLIP animation, and stable inline media subtree.',
+  title: 'Phase 8 + 9 spatial interaction audit',
+  summary: [
+    AUDIT_VISIBLE_SUMMARY,
+    '',
+    '$$x(t) = (1 + \\omega t)e^{-\\omega t}$$',
+    '',
+    '```ts',
+    'const next = state + alpha * (target - state);',
+    'return Math.min(1, Math.max(0, next));',
+    '```',
+  ].join('\n'),
   url: '/frontier/interaction-audit?popup=1',
   source: 'FRONTIER CI',
   sourceLabel: 'FRONTIER CI',
   sourceKind: 'local',
   publishedAt: '2026-08-22T00:00:00.000Z',
   lane: 'creative_tech',
-  tags: ['phase-8', 'flip', 'browser-audit'],
+  tags: ['phase-8', 'phase-9', 'flip', 'browser-audit'],
   baseScore: 1,
   importance: 1,
   novelty: 1,
@@ -25,6 +36,40 @@ const AUDIT_ITEM: FrontierItem = {
   artifacts: [
     { kind: 'formula', label: 'critical damping', value: 'x(t)=(1+ωt)e^(-ωt)' },
   ],
+  convergence: {
+    confidence: 0.94,
+    windowHours: 72,
+    sourceKinds: ['arxiv', 'github', 'rss'],
+    members: [
+      {
+        id: 'phase9-source-1',
+        title: 'Sparse state-space routing for multimodal systems',
+        url: 'https://arxiv.org/abs/2608.00001',
+        sourceLabel: 'arXiv',
+        sourceKind: 'arxiv',
+        publishedAt: '2026-08-22T00:00:00.000Z',
+        excerpt: 'A sparse recurrent router preserves modality-specific state while sharing a bounded latent interface across asynchronous observations.',
+      },
+      {
+        id: 'phase9-source-2',
+        title: 'Local multimodal router reference implementation',
+        url: 'https://github.com/example/frontier-router',
+        sourceLabel: 'GitHub',
+        sourceKind: 'github',
+        publishedAt: '2026-08-22T00:10:00.000Z',
+        excerpt: 'The implementation uses independent modality queues, explicit backpressure, and a compact recurrent state updated only when new evidence arrives.',
+      },
+      {
+        id: 'phase9-source-3',
+        title: 'Engineering notes on asynchronous multimodal inference',
+        url: 'https://example.com/frontier-audit-source',
+        sourceLabel: 'Engineering Notes',
+        sourceKind: 'rss',
+        publishedAt: '2026-08-22T00:20:00.000Z',
+        excerpt: 'Measured latency improves when expensive inference is isolated from the compositor and evidence is exchanged through bounded message contracts.',
+      },
+    ],
+  },
 };
 
 function AuditVideo() {
@@ -114,7 +159,7 @@ export function FrontierInteractionAudit() {
     <main className={styles.shell} data-frontier-interaction-audit="true">
       <header className={styles.header}>
         <span>FRONTIER</span>
-        <span>Phase 8 · browser choreography</span>
+        <span>Phase 8 + 9 · browser choreography</span>
       </header>
       <div ref={boardRef} className={styles.grid}>
         <FluidSpatialCard
@@ -135,7 +180,7 @@ export function FrontierInteractionAudit() {
             >
               {item.title}
             </a>
-            <p className={styles.summary}>{item.summary}</p>
+            <p className={styles.summary}>{AUDIT_VISIBLE_SUMMARY}</p>
           </article>
         </FluidSpatialCard>
         <div className={styles.neighbor} aria-hidden="true">neighbor surface</div>
