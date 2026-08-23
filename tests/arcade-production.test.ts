@@ -33,6 +33,7 @@ test('production arcade publishes exactly Stretchicorn and uniRico', () => {
   assert.equal(getArcadeGame('mosslight'), undefined);
   assert.doesNotMatch(arcadePage, /Sylvaria/);
   assert.doesNotMatch(gamePage, /mosslight|sylvaria/i);
+  assert.match(gamePage, /export const dynamicParams = false/);
 });
 
 test('game metadata pins the current qualified upstream GitHub commits', () => {
