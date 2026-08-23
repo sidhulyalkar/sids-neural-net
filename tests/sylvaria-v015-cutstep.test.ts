@@ -9,13 +9,12 @@ const html=read('public/game-runtimes/mosslight-v2/index.html');
 const presentation=read('public/game-runtimes/mosslight-v2/v015/cutstep-presentation-v015.js');
 const space=read('public/game-runtimes/mosslight-v2/v014/presentation-space-v014.js');
 
-test('v0.15 boots as a Cutstep layer over the qualified v0.14 substrate',()=>{
+test('v0.15 boots the polished Cutstep alpha over the qualified v0.14 substrate',()=>{
   assert.match(entry,/await import\('\.\/v014-entry\.js'\)/);
-  assert.match(entry,/v015\/cutstep-v015\.js/);
-  assert.match(entry,/v015\/forest-world-v015\.js/);
-  assert.match(entry,/v015\/cutstep-presentation-v015\.js/);
+  for(const module of ['cutstep-v015.js','encounter-director-v015.js','forest-world-v015.js','discoveries-v015.js','forest-actors-v015.js','cutstep-presentation-v015.js'])assert.match(entry,new RegExp(`v015\\/${module.replaceAll('.','\\.')}`));
   assert.match(html,/src="\.\/v015-entry\.js"/);
   assert.match(html,/Sylvaria · Cutstep Forest/);
+  assert.match(entry,/POLISHED FOREST COMBAT ALPHA/);
 });
 
 test('movement and aim are independent by construction',()=>{
@@ -49,7 +48,9 @@ test('three short segments and geometry techniques define the player verb',()=>{
   assert.match(presentation,/REVERSAL|reversal/);
 });
 
-test('an aimed Cutstep owns a fixed line instead of inheriting WASD dash steering',()=>{
+test('an aimed Cutstep owns a fixed line and a visible forward blade cap instead of inheriting WASD dash steering',()=>{
+  assert.match(cut,/bladeLead:14/);
+  assert.match(cut,/tipX=bx\+dash\.dir\.x\*CUTSTEP_CONFIG\.bladeLead/);
   assert.match(cut,/const active=p\.dash\?\.v015Cutstep\?p\.dash:null/);
   assert.match(cut,/if\(active\)state\.heldMoves=new Set\(\)/);
   assert.match(cut,/finally\{if\(active\)state\.heldMoves=held\}/);
@@ -72,18 +73,20 @@ test('one Cutstep can independently return multiple projectiles',()=>{
   assert.doesNotMatch(cut,/`shot:\$\{s\}`/);
 });
 
-test('segment economy rewards ecology and skilled counters rather than waiting only',()=>{
+test('segment economy rewards ecology counters kills and run discoveries rather than waiting only',()=>{
   assert.match(cut,/passiveRefillPerSecond:\.55/);
   assert.match(cut,/brushRefillPerBlade:\.018/);
   assert.match(cut,/brushRefillCap:\.30/);
   assert.match(cut,/counterRefill:\.42/);
   assert.match(cut,/killRefill:\.48/);
-  assert.match(cut,/refill\(p,CUTSTEP_CONFIG\.counterRefill\)/);
+  assert.match(cut,/boons\(\)\.counterRefill/);
+  assert.match(cut,/boons\(\)\.passiveRefill/);
+  assert.match(cut,/boons\(\)\.damage/);
   assert.match(cut,/refill\(p,CUTSTEP_CONFIG\.killRefill\)/);
 });
 
-test('Cutstep presentation shares the same logical screen space as forest and combat overlays',()=>{
-  assert.match(space,/\['forestCanvas','kineticCanvas','flowCanvas','cutstepCanvas'\]/);
+test('Cutstep presentation shares the same logical screen space as forest actors and combat overlays',()=>{
+  assert.match(space,/\['forestCanvas','actorCanvas','kineticCanvas','flowCanvas','cutstepCanvas'\]/);
   assert.match(presentation,/overlay\.id='cutstepCanvas'/);
   assert.match(presentation,/drawAim/);
   assert.match(presentation,/drawSegments/);
