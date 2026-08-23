@@ -149,7 +149,11 @@ export function useDeterministicMasonry({ itemId, expanded, rootRef, measureRef 
       const geometry = readGeometry(currentRoot, currentMeasure);
       if (!geometry) return;
       complete = true;
-      rememberGeometry(key, geometry);
+      // Responsive layout may change between scheduling and this measurement.
+      // Always cache under the geometry we actually measured, never the width
+      // that happened to exist when the observer was armed.
+      const measuredKey = geometryKey(itemId, geometry.width, geometry.density);
+      rememberGeometry(measuredKey, geometry);
       applyGeometry(currentRoot, geometry);
       pendingObserver.current?.disconnect();
       pendingObserver.current = undefined;
