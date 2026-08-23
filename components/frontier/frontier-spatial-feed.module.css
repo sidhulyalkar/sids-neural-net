@@ -39,6 +39,7 @@
   column-gap: var(--frontier-column-gap);
   row-gap: var(--frontier-masonry-row-gap);
   align-items: start;
+  overflow-anchor: none;
 }
 
 .board .item {
@@ -145,6 +146,7 @@
   width: min(1360px, 100%);
   gap: var(--frontier-feed-gap);
   margin-inline: auto;
+  overflow-anchor: none;
 }
 
 .board .feedItem {
