@@ -2,7 +2,7 @@ const G=window.Sylvaria091;
 const {W,H,FIXED_DT,state,clamp}=G,F=G.fn;
 
 export const CUTSTEP_VERSION='0.15.0';
-export const CUTSTEP_CONFIG=Object.freeze({maxSegments:3,segmentCost:1,passiveRefillPerSecond:.55,brushRefillPerBlade:.018,brushRefillCap:.30,counterRefill:.42,killRefill:.48,distance:86,thrustDistance:104,ticks:9,decay:.86,chainWindow:.52,bladeRadius:10,crosscutRadius:17,crosscutHalfSpan:34,reversalBurstRadius:48,grassRegrowSeconds:7.5});
+export const CUTSTEP_CONFIG=Object.freeze({maxSegments:3,segmentCost:1,passiveRefillPerSecond:.55,brushRefillPerBlade:.018,brushRefillCap:.30,counterRefill:.42,killRefill:.48,distance:86,thrustDistance:104,ticks:9,decay:.86,chainWindow:.52,bladeRadius:10,bladeLead:14,crosscutRadius:17,crosscutHalfSpan:34,reversalBurstRadius:48,grassRegrowSeconds:7.5});
 const ARROWS=new Set(['arrowup','arrowdown','arrowleft','arrowright']),heldAim=new Set();
 const q=v=>Math.round(v*100000)/100000;
 const norm=(x,y)=>{const m=Math.hypot(x,y);return m>1e-7?{x:q(x/m),y:q(y/m),m}:{x:0,y:0,m:0}};
@@ -26,7 +26,7 @@ function processLine(p,dash,ax,ay,bx,by,radius){
   for(const r of state.brittle){if(!r.dead&&segmentDistance(r.x,r.y,ax,ay,bx,by)<=radius+(r.r||0)){dash.v015HitIds.add(r.id);r.hp=(r.hp||1)-1;if(r.hp<=0)F.breakBrittle?.(r,true)}}
   for(const m of state.mushrooms)if(!m.cut&&segmentDistance(m.x,m.y,ax,ay,bx,by)<=radius+(m.r||0))F.cutMushroom?.(m)
 }
-function processSweep(p,dash,ax,ay,bx,by){processLine(p,dash,ax,ay,bx,by,dash.v015Radius||CUTSTEP_CONFIG.bladeRadius);if(dash.v015Technique==='crosscut'){const n={x:-dash.dir.y,y:dash.dir.x},h=CUTSTEP_CONFIG.crosscutHalfSpan;processLine(p,dash,bx-n.x*h,by-n.y*h,bx+n.x*h,by+n.y*h,CUTSTEP_CONFIG.bladeRadius)}if(dash.v015Technique==='reversal')reversalBurst(p,dash.dir,dash)}
+function processSweep(p,dash,ax,ay,bx,by){const tipX=bx+dash.dir.x*CUTSTEP_CONFIG.bladeLead,tipY=by+dash.dir.y*CUTSTEP_CONFIG.bladeLead;processLine(p,dash,ax,ay,tipX,tipY,dash.v015Radius||CUTSTEP_CONFIG.bladeRadius);if(dash.v015Technique==='crosscut'){const n={x:-dash.dir.y,y:dash.dir.x},h=CUTSTEP_CONFIG.crosscutHalfSpan;processLine(p,dash,bx-n.x*h,by-n.y*h,bx+n.x*h,by+n.y*h,CUTSTEP_CONFIG.bladeRadius)}if(dash.v015Technique==='reversal')reversalBurst(p,dash.dir,dash)}
 function initPlayer(p){if(!p)return;p.v015Segments=CUTSTEP_CONFIG.maxSegments;p.v015Aim={x:1,y:0};p.v015AimSource='default';p.v015MouseAim=null;p.v015LastCutstepDir=null;p.v015ChainTimer=0;p.v015QueuedCutstep=null;p.v015Technique='carve';p.v015CutstepSerial=0;p.dashCharging=false;p.dashCharge=0;p.dashBuffer=0;p.dashBufferHeld=false;p.dashBufferReleased=false;p.dashCooldown=0;state.v015PathHistory=[]}
 const inheritedSetup=F.setupRoom;F.setupRoom=(...args)=>{const out=inheritedSetup(...args);initPlayer(state.player);return out};if(state.player)initPlayer(state.player);
 function launchCutstep(dir=currentAim()){
