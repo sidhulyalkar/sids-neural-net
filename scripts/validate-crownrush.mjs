@@ -31,6 +31,17 @@ assert.match(game, /function releaseSap\(/);
 assert.match(game, /function rescueFromThreat\(/);
 assert.match(game, /function recycleWorld\(/);
 assert.match(game, /pointerType !== 'touch'/);
+assert.match(game, /const guaranteedKnot = generatedFloor % 4 === 0/);
+assert.match(game, /const wasGrounded = Boolean\(player\.grounded\)/);
+assert.match(game, /if \(wasGrounded\)[\s\S]*?player\.vy = 0/);
+assert.match(game, /if \(!onGround \|\| player\.sap\) player\.vy \+= \(GRAVITY \+ sapForce\.ay\) \* dt/);
+assert.match(game, /if \(player\.y < threatY - 95 && !rescueFromThreat\(\)\) endRun\(\)/);
+assert.match(game, /Math\.sin\(now \* 0\.083\) \* shake/);
+assert.doesNotMatch(
+  game,
+  /function render\([\s\S]*?\(random\(\) - 0\.5\) \* shake/,
+  'render-only camera shake must not consume gameplay RNG'
+);
 assert.doesNotMatch(game, /\benemy\b|\bdamage\b|\battack\b/i, 'Crownrush runtime should not regress into combat');
 assert.match(design, /simple horizontal movement/i);
 assert.match(design, /Sapline is not a generic grapple/i);
@@ -42,5 +53,6 @@ console.log(JSON.stringify({
   version: '0.1.0',
   fixedHz: 120,
   canvas: [960, 640],
+  invariants: ['grounded vertical reset', 'render RNG isolation', 'deep-fall Sap Catch threshold', 'guaranteed knot cadence'],
   mechanics: ['momentum jump', 'bark rebound', 'sapline pump', 'combo skip', 'sap catch'],
 }, null, 2));
