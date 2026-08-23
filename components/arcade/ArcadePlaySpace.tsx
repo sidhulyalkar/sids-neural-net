@@ -125,10 +125,11 @@ export function ArcadePlaySpace({ game }: { game: ArcadeGame }) {
   };
 
   return (
-    <main
+    <div
       ref={shellRef}
       tabIndex={-1}
       className={`bg-[#020306] text-white outline-none ${fullscreen ? 'h-screen w-screen overflow-hidden' : 'min-h-screen'}`}
+      data-arcade-shell
       data-arcade-focus={focused ? 'true' : 'false'}
       data-arcade-fullscreen={fullscreen ? 'true' : 'false'}
     >
@@ -234,6 +235,6 @@ export function ArcadePlaySpace({ game }: { game: ArcadeGame }) {
           </div>
         </footer>
       </div>
-    </main>
+    </div>
   );
 }
