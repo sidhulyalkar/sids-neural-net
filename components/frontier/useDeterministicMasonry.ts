@@ -18,8 +18,24 @@ type Options = {
   measureRef: RefObject<HTMLDivElement | null>;
 };
 
+type PendingCompactMeasurement = {
+  token: symbol;
+  itemId: string;
+  root: HTMLElement;
+  measure: HTMLElement;
+  retries: number;
+};
+
+type ResolvedCompactMeasurement = PendingCompactMeasurement & {
+  geometry: Geometry;
+  key: string;
+};
+
 const MAX_GEOMETRY_CACHE = 768;
+const MAX_MEASUREMENT_RETRIES = 2;
 const geometryCache = new Map<string, Geometry>();
+const pendingCompactMeasurements = new Map<symbol, PendingCompactMeasurement>();
+let compactFlushQueued = false;
 
 function cssNumber(node: HTMLElement, property: string, fallback: number): number {
   const parsed = Number.parseFloat(getComputedStyle(node).getPropertyValue(property));
@@ -64,6 +80,12 @@ function applyGeometry(root: HTMLElement, geometry: Geometry): void {
   root.dataset.frontierGeometryHeight = geometry.height.toFixed(2);
 }
 
+function unlockGeometry(root: HTMLElement): void {
+  delete root.dataset.frontierGeometry;
+  delete root.dataset.frontierGeometryHeight;
+  root.style.removeProperty('contain-intrinsic-size');
+}
+
 function readGeometry(root: HTMLElement, measure: HTMLElement): Geometry | undefined {
   const width = root.getBoundingClientRect().width;
   if (width < 2) return undefined;
@@ -79,135 +101,138 @@ function readGeometry(root: HTMLElement, measure: HTMLElement): Geometry | undef
   };
 }
 
-function nearViewport(rect: DOMRect): boolean {
-  const margin = window.innerHeight * 2;
-  return rect.bottom >= -margin && rect.top <= window.innerHeight + margin;
+function scheduleCompactFlush(): void {
+  if (compactFlushQueued) return;
+  compactFlushQueued = true;
+  const flush = () => {
+    compactFlushQueued = false;
+    const entries = [...pendingCompactMeasurements.values()];
+    pendingCompactMeasurements.clear();
+    if (!entries.length) return;
+
+    // Strict two-phase batch: every layout/computed-style read is completed
+    // before any card receives span/intrinsic-size writes. This prevents the
+    // classic read -> write -> read forced-reflow staircase across a masonry
+    // commit while still locking all compact geometry before first paint.
+    const resolved: ResolvedCompactMeasurement[] = [];
+    const retry: PendingCompactMeasurement[] = [];
+
+    for (const entry of entries) {
+      const { root, measure } = entry;
+      if (!root.isConnected || !measure.isConnected || root.dataset.fluidExpanded === 'true') continue;
+
+      const rect = root.getBoundingClientRect();
+      if (rect.width < 2) {
+        if (entry.retries < MAX_MEASUREMENT_RETRIES) retry.push({ ...entry, retries: entry.retries + 1 });
+        continue;
+      }
+
+      const density = densityKey(root);
+      const key = geometryKey(entry.itemId, rect.width, density);
+      const cached = cachedGeometry(key);
+      if (cached) {
+        resolved.push({ ...entry, geometry: cached, key });
+        continue;
+      }
+
+      const geometry = readGeometry(root, measure);
+      if (!geometry) {
+        if (entry.retries < MAX_MEASUREMENT_RETRIES) retry.push({ ...entry, retries: entry.retries + 1 });
+        continue;
+      }
+      resolved.push({
+        ...entry,
+        geometry,
+        key: geometryKey(entry.itemId, geometry.width, geometry.density),
+      });
+    }
+
+    // Write phase. The CSS virtualization selector only activates after this
+    // data attribute is committed, so there is never a guessed offscreen card
+    // height that later gets replaced as the user scrolls toward it.
+    for (const entry of resolved) {
+      if (!entry.root.isConnected || entry.root.dataset.fluidExpanded === 'true') continue;
+      rememberGeometry(entry.key, entry.geometry);
+      applyGeometry(entry.root, entry.geometry);
+    }
+
+    if (retry.length && typeof window !== 'undefined') {
+      window.requestAnimationFrame(() => {
+        for (const entry of retry) {
+          if (!entry.root.isConnected || entry.root.dataset.fluidExpanded === 'true') continue;
+          pendingCompactMeasurements.set(entry.token, entry);
+        }
+        if (pendingCompactMeasurements.size) scheduleCompactFlush();
+      });
+    }
+  };
+
+  if (typeof queueMicrotask === 'function') queueMicrotask(flush);
+  else void Promise.resolve().then(flush);
+}
+
+function enqueueCompactMeasurement(entry: PendingCompactMeasurement): void {
+  pendingCompactMeasurements.set(entry.token, entry);
+  scheduleCompactFlush();
+}
+
+function cancelCompactMeasurement(token: symbol): void {
+  pendingCompactMeasurements.delete(token);
 }
 
 /**
- * Compact cards are measured once for each real width/density geometry and the
- * result becomes both their masonry span and their exact virtualization
- * intrinsic height. Height-only changes never trigger a compact remeasurement,
- * so async media decode cannot start a ResizeObserver feedback loop.
+ * Compact cards participate in one exact pre-virtualization geometry batch.
+ * Until that batch commits, CSS keeps the card paint/layout-visible rather than
+ * substituting a guessed contain-intrinsic-size. Once locked, the measured
+ * height becomes both its masonry span and virtualization intrinsic height.
+ * Async image decode is therefore unable to renegotiate card geometry.
  *
  * Expanded cards are intentionally different: they are visible user-intent
  * surfaces and may grow as focal evidence appears, so their grid span stays
- * live until collapse restores the cached compact geometry.
+ * live until collapse restores a newly verified compact geometry.
  */
 export function useDeterministicMasonry({ itemId, expanded, rootRef, measureRef }: Options): void {
-  const pendingKey = useRef<string | undefined>(undefined);
-  const pendingObserver = useRef<ResizeObserver | undefined>(undefined);
-  const pendingFrame = useRef<number | undefined>(undefined);
-  const pendingRestore = useRef<(() => void) | undefined>(undefined);
+  const measurementToken = useRef(Symbol(itemId)).current;
   const observedWidth = useRef<number | undefined>(undefined);
 
-  const cancelPending = useCallback(() => {
-    pendingObserver.current?.disconnect();
-    pendingObserver.current = undefined;
-    if (pendingFrame.current !== undefined) cancelAnimationFrame(pendingFrame.current);
-    pendingFrame.current = undefined;
-    pendingRestore.current?.();
-    pendingRestore.current = undefined;
-    pendingKey.current = undefined;
-  }, []);
-
-  const lockCompactGeometry = useCallback((forceLayout = false) => {
+  const queueCompactGeometry = useCallback((invalidate = false) => {
     const root = rootRef.current;
     const measure = measureRef.current;
     if (!root || !measure || root.dataset.fluidExpanded === 'true') return;
-
-    const rect = root.getBoundingClientRect();
-    if (rect.width < 2) return;
-    const density = densityKey(root);
-    const key = geometryKey(itemId, rect.width, density);
-    const cached = cachedGeometry(key);
-    if (cached) {
-      cancelPending();
-      applyGeometry(root, cached);
-      return;
-    }
-    if (!forceLayout && !nearViewport(rect)) return;
-    if (pendingKey.current === key) return;
-
-    cancelPending();
-    pendingKey.current = key;
-    const previousInlineVisibility = root.style.contentVisibility;
-    const restoreVisibility = () => {
-      if (rootRef.current === root && root.dataset.fluidExpanded !== 'true') {
-        root.style.contentVisibility = previousInlineVisibility;
-      }
-    };
-    pendingRestore.current = restoreVisibility;
-    if (getComputedStyle(root).contentVisibility !== 'visible') root.style.contentVisibility = 'visible';
-
-    let complete = false;
-    const finish = () => {
-      if (complete) return;
-      const currentRoot = rootRef.current;
-      const currentMeasure = measureRef.current;
-      if (!currentRoot || !currentMeasure || currentRoot.dataset.fluidExpanded === 'true') return;
-      const geometry = readGeometry(currentRoot, currentMeasure);
-      if (!geometry) return;
-      complete = true;
-      // Responsive layout may change between scheduling and this measurement.
-      // Always cache under the geometry we actually measured, never the width
-      // that happened to exist when the observer was armed.
-      const measuredKey = geometryKey(itemId, geometry.width, geometry.density);
-      rememberGeometry(measuredKey, geometry);
-      applyGeometry(currentRoot, geometry);
-      pendingObserver.current?.disconnect();
-      pendingObserver.current = undefined;
-      pendingKey.current = undefined;
-      pendingFrame.current = undefined;
-      pendingRestore.current = undefined;
-      restoreVisibility();
-    };
-
-    if (typeof ResizeObserver !== 'undefined') {
-      const observer = new ResizeObserver(() => finish());
-      pendingObserver.current = observer;
-      observer.observe(measure);
-    }
-    pendingFrame.current = requestAnimationFrame(() => {
-      pendingFrame.current = requestAnimationFrame(finish);
+    if (invalidate) unlockGeometry(root);
+    enqueueCompactMeasurement({
+      token: measurementToken,
+      itemId,
+      root,
+      measure,
+      retries: 0,
     });
-  }, [cancelPending, itemId, measureRef, rootRef]);
+  }, [itemId, measureRef, measurementToken, rootRef]);
 
   useLayoutEffect(() => {
     if (expanded) return;
-    lockCompactGeometry(false);
-  }, [expanded, lockCompactGeometry]);
-
-  useEffect(() => {
-    if (expanded || typeof IntersectionObserver === 'undefined') return;
-    const root = rootRef.current;
-    if (!root) return;
-    const observer = new IntersectionObserver((entries) => {
-      if (!entries.some((entry) => entry.isIntersecting)) return;
-      lockCompactGeometry(true);
-      observer.disconnect();
-    }, { rootMargin: '200% 0px 200% 0px', threshold: 0 });
-    observer.observe(root);
-    return () => observer.disconnect();
-  }, [expanded, lockCompactGeometry, rootRef]);
+    queueCompactGeometry(false);
+    return () => cancelCompactMeasurement(measurementToken);
+  }, [expanded, measurementToken, queueCompactGeometry]);
 
   useEffect(() => {
     if (expanded || typeof ResizeObserver === 'undefined') return;
     const root = rootRef.current;
     if (!root) return;
+    observedWidth.current = widthBucket(root.getBoundingClientRect().width);
     const observer = new ResizeObserver(([entry]) => {
       const width = widthBucket(entry?.contentRect.width ?? root.getBoundingClientRect().width);
       if (width < 2 || observedWidth.current === width) return;
       observedWidth.current = width;
-      lockCompactGeometry(false);
+      queueCompactGeometry(true);
     });
     observer.observe(root);
     return () => observer.disconnect();
-  }, [expanded, lockCompactGeometry, rootRef]);
+  }, [expanded, queueCompactGeometry, rootRef]);
 
   useLayoutEffect(() => {
     if (!expanded) return;
-    cancelPending();
+    cancelCompactMeasurement(measurementToken);
     const root = rootRef.current;
     const measure = measureRef.current;
     if (!root || !measure) return;
@@ -225,9 +250,9 @@ export function useDeterministicMasonry({ itemId, expanded, rootRef, measureRef 
     const observer = new ResizeObserver(syncExpandedSpan);
     observer.observe(measure);
     return () => observer.disconnect();
-  }, [cancelPending, expanded, measureRef, rootRef]);
+  }, [expanded, measurementToken, measureRef, rootRef]);
 
-  useEffect(() => cancelPending, [cancelPending]);
+  useEffect(() => () => cancelCompactMeasurement(measurementToken), [measurementToken]);
 }
 
 export function frontierMasonryGeometryCacheSize(): number {
