@@ -24,17 +24,17 @@ test('the Game Network exposes every current game as a playable entry', () => {
   for (const game of arcadeGames) { assert.equal(game.status, 'playable'); assert.ok(game.launchUrl); }
 });
 
-test('current Sylvaria metadata describes the Sapline ancient-tree action platformer actually launched by production', () => {
+test('current Sylvaria metadata describes the BarkRail and Sapline ancient-tree platformer launched by production', () => {
   const game = arcadeGames.find((entry) => entry.slug === 'sylvaria');
   assert.ok(game);
   assert.equal(game.title, 'Sylvaria');
-  assert.equal(game.version, 'v3.1.0-alpha.1');
+  assert.equal(game.version, 'v3.2.0-alpha.1');
   assert.equal(game.launchUrl, '/game-runtimes/sylvaria-v3/index.html');
   assert.equal(game.aspectRatio, '16 / 9');
   assert.deepEqual(game.nativeSize,{width:1280,height:720});
   assert.match(game.subtitle,/ASCEND.*SLING.*HEIGHT/);
-  for (const phrase of [/vertical/i,/ancient tree/i,/Rootreach/i,/Movement is the primary weapon/i,/Arrow keys/i,/Sapline/i,/Resin Knots/i,/Canopy Step/i,/short machete/i,/Bark Grip/i,/deadwood/i,/downward enemy hits/i,/Crown Feller/i,/120 Hz/i]) assert.match(game.description, phrase);
-  for (const tag of ['action platformer','vertical ascent','dark forest','sapline','elastic tether','momentum platforming','tree traversal','branch physics','vine swinging','wall movement','aerial combat','projectile counter','boss combat','custom keybinds','120 hz simulation']) assert.ok(game.tags.includes(tag));
+  for (const phrase of [/vertical/i,/ancient tree/i,/Fellworks/i,/Movement is the primary weapon/i,/Arrow keys/i,/Sapline/i,/Resin Knots/i,/BarkRails/i,/adaptive/i,/Canopy Step/i,/compact machete/i,/Bark Grip/i,/Downstrikes/i,/Crown Girdler/i,/120 Hz/i]) assert.match(game.description, phrase);
+  for (const tag of ['action platformer','vertical ascent','dark forest','sapline','elastic tether','barkrail','momentum platforming','tree traversal','branch physics','vine swinging','wall movement','aerial combat','projectile counter','boss combat','custom keybinds','120 hz simulation']) assert.ok(game.tags.includes(tag));
   assert.ok(game.controls.some((control) => control.input === '← / →' && /run/i.test(control.action)));
   assert.ok(game.controls.some((control) => control.input === 'Space' && /jump/i.test(control.action)));
   assert.ok(game.controls.some((control) => control.input === 'W' && /Sapline/i.test(control.action) && /Resin Knot/i.test(control.action)));
@@ -82,9 +82,9 @@ test('the exact-source v0.13 verifier remains reconstructible beneath the archiv
   assert.match(read(`${runtime}/v015-entry.js`),/ranked:false/);
 });
 
-test('the public Sylvaria shell uses ascent, Sapline, and directional combat vocabulary with no top-down combat language', () => {
+test('the public Sylvaria shell uses ascent, Sapline, BarkRail, and directional combat vocabulary with no top-down language', () => {
   const visible=[read(`${ascentRuntime}/index.html`),read('src/data/arcadeGames.ts')].join('\n');
-  for(const word of ['Sylvaria','ancient tree','Rootreach','branch','vine','Bark Grip','Sapline','Resin Knots','Canopy Step','machete','upslash','downstrike','plunge','Crown Feller'])assert.match(visible,new RegExp(word,'i'));
+  for(const word of ['Sylvaria','ancient tree','Rootreach','BarkRails','Bark Grip','Sapline','Resin Knots','Canopy Step','machete','upslash','Downstrike','Plunge','Crown Girdler'])assert.match(visible,new RegExp(word,'i'));
   assert.doesNotMatch(visible,/Kinetic Pond|Cutstep|Thrust|Crosscut|Reversal|156° tongue|Reactive Blade/i);
 });
 
