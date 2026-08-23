@@ -19,8 +19,12 @@ function isHttpUrl(value?: string): value is string {
   }
 }
 
+function isSameOriginMediaPath(value?: string): value is string {
+  return Boolean(value?.startsWith('/'));
+}
+
 function isMediaUrl(value?: string): value is string {
-  return Boolean(value && (value.startsWith('/') || isHttpUrl(value)));
+  return Boolean(value && (isSameOriginMediaPath(value) || isHttpUrl(value)));
 }
 
 function isYouTubeId(value?: string): value is string {
@@ -134,11 +138,21 @@ export function FrontierMediaSurface({
   const aspectRatio = frontierMediaGeometry(media).cssAspectRatio;
 
   if (media.type === 'image') {
-    if (isMediaUrl(media.proxyUrl)) {
+    // Same-origin archive imagery is already inside FRONTIER's trust boundary.
+    // Route it through the GPU plane directly rather than treating it like an
+    // unknown publisher URL. A previous branch accepted these URLs during
+    // presentation classification but then returned null here, leaving a media
+    // card with reserved geometry and no actual visual surface.
+    const gpuSource = isMediaUrl(media.proxyUrl)
+      ? media.proxyUrl
+      : isSameOriginMediaPath(media.url)
+        ? media.url
+        : undefined;
+    if (gpuSource) {
       return (
         <GpuImageSurface
           id={`${item.id}:image`}
-          src={media.proxyUrl}
+          src={gpuSource}
           alt={media.alt || item.title}
           className={styles.primaryImage}
           placeholderColor={media.averageColor}
