@@ -9,7 +9,7 @@ import dynamic from 'next/dynamic';
  * across viewport sizes.
  */
 const RadialDendriteHome = dynamic(
-  () => import('@/components/neural-atlas-canvas').then((module) => module.RadialDendriteHome),
+  () => import('@/components/neural-atlas-canvas/RadialDendriteHome').then((module) => module.RadialDendriteHome),
   {
     loading: () => (
       <div className="fixed inset-0 flex items-center justify-center bg-[#020306]">
