@@ -27,21 +27,15 @@ export function LocalConvergenceSynthesis({ item }: { item: FrontierItem }) {
   const workerRef = useRef<Worker | undefined>(undefined);
   const requestRef = useRef<string | undefined>(undefined);
   const [state, setState] = useState<State>({ kind: 'idle' });
-  const [capabilityChecked, setCapabilityChecked] = useState(false);
 
-  useEffect(() => {
-    setCapabilityChecked(true);
-    if (!frontierLocalSynthesisSupported()) {
-      setState({ kind: 'unsupported', reason: 'WebGPU local inference is unavailable on this browser.' });
+  useEffect(() => () => {
+    const worker = workerRef.current;
+    workerRef.current = undefined;
+    requestRef.current = undefined;
+    if (worker) {
+      try { worker.postMessage({ type: 'dispose' }); } catch { /* worker already gone */ }
+      worker.terminate();
     }
-    return () => {
-      const worker = workerRef.current;
-      workerRef.current = undefined;
-      if (worker) {
-        try { worker.postMessage({ type: 'dispose' }); } catch { /* worker already gone */ }
-        worker.terminate();
-      }
-    };
   }, []);
 
   if (evidence.length < 3) return null;
@@ -135,9 +129,7 @@ export function LocalConvergenceSynthesis({ item }: { item: FrontierItem }) {
         <small>presentation only · never ranking input</small>
       </div>
 
-      {!capabilityChecked ? (
-        <p className={styles.note}>Checking local WebGPU capability…</p>
-      ) : state.kind === 'idle' ? (
+      {state.kind === 'idle' ? (
         <div className={styles.optIn}>
           <p>Compare {evidence.length} grounded sources locally. First use downloads a small quantized model into browser-managed cache.</p>
           <button type="button" onClick={synthesize}>Synthesize locally</button>
