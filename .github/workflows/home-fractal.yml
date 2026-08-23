@@ -44,6 +44,8 @@ jobs:
           npx eslint
           app/page.tsx
           components/neural-atlas-canvas/AdaptiveFractalHome.tsx
+          components/neural-atlas-canvas/AdaptiveFractalStage.tsx
+          components/neural-atlas-canvas/FractalSurfaceEnhancer.tsx
           lib/home/fractalDendrite.ts
           tests/home-dendrite-regression.test.ts
           scripts/playtest-arcade-home.mjs
@@ -80,6 +82,7 @@ jobs:
 
       - name: Audit responsive fractal geometry and navigation
         env:
+          PLAY_PATH: /tmp/home-playwright/node_modules/playwright
           PLAYWRIGHT_MODULE_ROOT: /tmp/home-playwright/node_modules/playwright
           ARCADE_HOME_BASE_URL: http://127.0.0.1:3000
           ARCADE_HOME_PLAYTEST_DIR: artifacts/adaptive-fractal-home
