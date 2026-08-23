@@ -25,8 +25,8 @@ expect(!/Math\.random|Date\.now|performance\.now|setTimeout|setInterval/.test(cu
 
 const authoredRooms=(encounter15.match(/room\('/g)||[]).length;expect(authoredRooms===12,`expected 12 alpha clearings, found ${authoredRooms}`);
 for(const archetype of['Clearcut Scout','Nailgun Ranger','Saw Drone','Brush Hound','Shielded Foreman','Cable Trapper','Lantern Surveyor','Spore Tender','Timber Harvester'])expect(encounter15.includes(archetype),`missing v0.15 enemy archetype ${archetype}`);
-expect(has(encounter15,"room('Burnscar Haul Road'",'miniBoss:true',"room('The Walking Sawmill'",'boss:true',"bossName:'The Walking Sawmill'",'state.enemies.length=0','Math.min(7,4+Math.floor((depth-13)/4))','cadence=Math.max(.40','concurrent=Math.min(3'),'function armReadyEnemies','addWire','addSpore'),'curated difficulty director incomplete');
-expect(has(encounter15,'amount*=.18','amount*=1.45','v015Archetype===\'shield\''),'flankable heavy armor contract incomplete');
+expect(has(encounter15,"room('Burnscar Haul Road'",'miniBoss:true',"room('The Walking Sawmill'",'boss:true',"bossName:'The Walking Sawmill'",'state.enemies.length=0','Math.min(7,4+Math.floor((depth-13)/4))','cadence=Math.max(.40','concurrent=Math.min(3','function armReadyEnemies','addWire','addSpore'),'curated difficulty director incomplete');
+expect(has(encounter15,'amount*=.18','amount*=1.45',"v015Archetype==='shield'"),'flankable heavy armor contract incomplete');
 expect(!/Math\.random|Date\.now|performance\.now|setTimeout|setInterval/.test(encounter15),'encounter director contains wall-clock/random combat scheduling');
 
 for(const biome of['mist-pine','oak-hollow','cedar-gloom','burnscar','ancient-grove'])expect(forest15.includes(biome),`forest biome missing ${biome}`);
