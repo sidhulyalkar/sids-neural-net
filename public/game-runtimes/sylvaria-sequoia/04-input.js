@@ -5,6 +5,7 @@
   const { state, player, canvas, wrap, W } = S;
   const JUMP_KEYS = new Set(['Space', 'ArrowUp', 'KeyW']);
   const SHIFT_KEYS = new Set(['ShiftLeft', 'ShiftRight']);
+  const RESET_KEYS = new Set(['Digit0', 'Numpad0']);
   const START_JUMP_GUARD_MS = 80;
   // WebKit can surface a late same-key edge after a completed keyboard.press()
   // crosses iframe focus boundaries. Keep this per physical code so advanced
@@ -21,8 +22,8 @@
   const suppressedJumpKeys = new Map();
   let rejectedJumpRepresses = 0;
   let rejectedJumpQuarantines = 0;
-  let sapChordCount = 0;
-  let lastSapChordAt = -Infinity;
+  let sapPressCount = 0;
+  let lastSapPressAt = -Infinity;
   let pendingActivation = null;
 
   // Runtime feel telemetry is deliberately tiny and allocation-free in the RAF
@@ -77,11 +78,15 @@
     return state.keys.has('ShiftLeft') || state.keys.has('ShiftRight');
   }
 
-  function triggerSapStick() {
-    sapChordCount += 1;
-    lastSapChordAt = performance.now();
+  function triggerSapStickPress() {
+    sapPressCount += 1;
+    lastSapPressAt = performance.now();
     player.jumpHeld = false;
-    return Boolean(S.castSapStick?.());
+    return Boolean(S.pressSapStick?.());
+  }
+
+  function releaseSapStick(reason) {
+    return Boolean(S.releaseSapStick?.(reason));
   }
 
   function handleKeyDown(event) {
@@ -112,7 +117,7 @@
       void copyTelemetry();
       return;
     }
-    if (event.code === 'KeyR') {
+    if (RESET_KEYS.has(event.code)) {
       S.startRun(state.runSeed);
       return;
     }
@@ -146,20 +151,23 @@
     }
 
     if (SHIFT_KEYS.has(event.code)) {
+      const alreadyHoldingShift = shiftHeld();
       state.keys.add(event.code);
+      // Shift owns the complete Sap Stick lifecycle: keydown fires immediately,
+      // holding keeps the tether alive while A/D shapes the swing, keyup vaults.
+      // Holding both Shift keys still counts as one physical Sap Stick press.
+      if (!alreadyHoldingShift) triggerSapStickPress();
       return;
     }
 
     if (JUMP_KEYS.has(event.code)) {
       state.keys.add(event.code);
-
-      // Canonical v0.4 chord: hold Shift, then tap Space. The chord is consumed
-      // before the jump contract, so one Sap Stick press can never also Air Kick.
-      if (event.code === 'Space' && shiftHeld()) {
-        triggerSapStick();
+      // Do not queue a hidden Air Kick while the player is deliberately shaping a
+      // Sap Stick swing. Release Shift first, then the next Space/W/Up is explicit.
+      if (player.sap?.stickMode) {
+        player.jumpHeld = false;
         return;
       }
-
       S.requestJump();
       return;
     }
@@ -173,6 +181,10 @@
     lastReleasedAt.set(event.code, now);
     state.keys.delete(event.code);
     if (JUMP_KEYS.has(event.code)) player.jumpHeld = false;
+
+    if (SHIFT_KEYS.has(event.code) && !shiftHeld()) {
+      releaseSapStick('SHIFT_RELEASE');
+    }
 
     if (pendingActivation?.code === event.code) {
       const activation = pendingActivation;
@@ -218,17 +230,14 @@
     if ([...state.pointers.values()].includes(action) && (action === 'jump' || action === 'sap')) return;
     state.pointers.set(event.pointerId, action);
     if (action === 'jump') S.requestJump();
-    if (action === 'sap') {
-      sapChordCount += 1;
-      lastSapChordAt = performance.now();
-      S.castSapStick?.();
-    }
+    if (action === 'sap') triggerSapStickPress();
   });
 
   function endPointer(event) {
     const action = state.pointers.get(event.pointerId);
     state.pointers.delete(event.pointerId);
     if (action === 'jump') player.jumpHeld = false;
+    if (action === 'sap') releaseSapStick('POINTER_RELEASE');
   }
 
   canvas.addEventListener('pointerup', endPointer);
@@ -236,6 +245,9 @@
   window.addEventListener('keydown', handleKeyDown, { passive: false });
   window.addEventListener('keyup', handleKeyUp);
   window.addEventListener('blur', () => {
+    // Release any live tether before focus state is cleared. Otherwise a missing
+    // Shift keyup during iframe focus churn could leave Pip attached indefinitely.
+    releaseSapStick('BLUR');
     // Do not clear physicalDown here. Focus churn inside the Game Network iframe
     // must not turn a held Space into another physical press.
     state.keys.clear();
@@ -312,8 +324,11 @@
         })),
         rejectedJumpRepresses,
         rejectedJumpQuarantines,
-        sapChordCount,
-        lastSapChordAgoMs: Number.isFinite(lastSapChordAt) ? Math.max(0, performance.now() - lastSapChordAt) : null,
+        sapPressCount,
+        // Backward-compatible field name for existing telemetry consumers. It now
+        // counts one-button Shift presses rather than a Shift+Space chord.
+        sapChordCount: sapPressCount,
+        lastSapPressAgoMs: Number.isFinite(lastSapPressAt) ? Math.max(0, performance.now() - lastSapPressAt) : null,
       },
       flowAssist: S.flowAssist?.getState() || null,
       controlAuthority: S.controlAuthority?.getState?.() || null,
