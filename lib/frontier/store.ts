@@ -15,6 +15,7 @@ import { clearFrontierForagedSources } from './forage/sourceRoster';
 import { migrateFrontierProfile } from './profileMigration';
 import { applyReactionToProfile } from './scoring';
 import { clearFrontierVelocityHistory } from './synthesis/velocityEngine';
+import { applyImplicitTasteSignal } from './tasteLearning';
 import { clearFrontierTrajectories } from './trajectory/contextTrajectories';
 import type {
   FrontierBehaviorModel,
@@ -34,7 +35,7 @@ import { clearFrontierAvoidAnchors } from './watch/avoidEngine';
 import { clearFrontierWatchIntents } from './watch/intentEngine';
 
 const STORAGE_KEY = 'frontier-personal-radar-v1';
-const STATE_VERSION = 3;
+const STATE_VERSION = 4;
 
 function localDayKey(date = new Date()): string {
   const year = date.getFullYear();
@@ -108,7 +109,7 @@ function initialGame(): FrontierGameState {
 
 function initialState(): FrontierPersistedState {
   return {
-    version: 3,
+    version: 4,
     profile: createInitialProfile(),
     behavior: createInitialBehaviorModel(),
     saved: {},
@@ -132,7 +133,7 @@ function migrateState(payload: unknown): FrontierPersistedState | null {
   const history = candidate.history as FrontierPersistedState['history'];
   for (const entry of Object.values(history)) if (entry.dwellMs === undefined) entry.dwellMs = 0;
   return {
-    version: 3,
+    version: 4,
     profile: migrateFrontierProfile(candidate.profile as FrontierProfile),
     behavior: (candidate.behavior as FrontierBehaviorModel | undefined) ?? createInitialBehaviorModel(),
     saved: candidate.saved as FrontierPersistedState['saved'],
@@ -170,6 +171,9 @@ export const useFrontierStore = create<FrontierStore>()(
         const current = get();
         const previous = current.history[item.id] ?? historyEntry(item);
         set({
+          profile: current.behavior.implicitLearning
+            ? applyImplicitTasteSignal(current.profile, item, 'dwell', bounded)
+            : current.profile,
           history: {
             ...current.history,
             [item.id]: { ...previous, item, lastSeenAt: new Date().toISOString(), dwellMs: (previous.dwellMs ?? 0) + bounded },
@@ -181,7 +185,12 @@ export const useFrontierStore = create<FrontierStore>()(
 
       recordExpand: (item) => {
         const current = get();
-        set({ behavior: applyBehaviorEvent(current.behavior, item, { kind: 'expand' }) });
+        set({
+          profile: current.behavior.implicitLearning
+            ? applyImplicitTasteSignal(current.profile, item, 'expand')
+            : current.profile,
+          behavior: applyBehaviorEvent(current.behavior, item, { kind: 'expand' }),
+        });
         if (current.behavior.implicitLearning) emitFrontierSemanticTelemetry({ kind: 'expand', item });
       },
 
@@ -190,6 +199,9 @@ export const useFrontierStore = create<FrontierStore>()(
         const now = new Date().toISOString();
         const previous = current.history[item.id] ?? historyEntry(item);
         set({
+          profile: current.behavior.implicitLearning
+            ? applyImplicitTasteSignal(current.profile, item, 'open')
+            : current.profile,
           history: { ...current.history, [item.id]: { ...previous, item, openedAt: now, lastSeenAt: now } },
           behavior: applyBehaviorEvent(current.behavior, item, { kind: 'open' }),
           game: updateStreak(current.game),
@@ -231,7 +243,14 @@ export const useFrontierStore = create<FrontierStore>()(
           saved[item.id] = item;
           if (inbox && !inbox.itemIds.includes(item.id)) inbox.itemIds.push(item.id);
         }
-        set({ saved, collections, behavior: wasSaved ? current.behavior : applyBehaviorEvent(current.behavior, item, { kind: 'save' }) });
+        set({
+          profile: !wasSaved && current.behavior.implicitLearning
+            ? applyImplicitTasteSignal(current.profile, item, 'save')
+            : current.profile,
+          saved,
+          collections,
+          behavior: wasSaved ? current.behavior : applyBehaviorEvent(current.behavior, item, { kind: 'save' }),
+        });
         if (!wasSaved && current.behavior.implicitLearning) emitFrontierSemanticTelemetry({ kind: 'save', item });
       },
 
@@ -342,7 +361,7 @@ export const useFrontierStore = create<FrontierStore>()(
 
 export function frontierBackup(state: FrontierStore): FrontierPersistedState {
   return {
-    version: 3,
+    version: 4,
     profile: state.profile,
     behavior: state.behavior,
     saved: state.saved,
