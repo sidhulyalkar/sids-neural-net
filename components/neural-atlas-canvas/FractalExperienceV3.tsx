@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
+import { getFractalViewportGeometry } from '@/lib/home/fractalDendrite';
 import { VISUAL_LIMITS } from './visualLimits';
 
 type Vec2 = { x: number; y: number };
@@ -109,17 +110,15 @@ function drawEchoShape(ctx: CanvasRenderingContext2D, shape: EchoShape) {
   const sides = kind === 'triangle' ? 3 : kind === 'hexagon' ? 6 : 4;
   const rx = kind === 'rhombus' ? size * 1.2 : kind === 'triangle' ? size * 1.03 : size * 0.98;
   const ry = kind === 'rhombus' ? size * 0.62 : kind === 'triangle' ? size * 0.86 : size * 0.9;
-  const startAngle = kind === 'triangle' ? 0 : kind === 'rhombus' ? 0 : -Math.PI / 2;
+  const startAngle = kind === 'hexagon' ? -Math.PI / 2 : 0;
   const vertices = orientedPolygonVertices(center, rx, ry, rotation, sides, startAngle);
 
   tracePolygon(ctx, vertices);
   ctx.fillStyle = `rgba(211, 226, 224, ${0.008 + radial * 0.012})`;
   ctx.fill();
-
   if (matte) {
     drawMatteHatch(ctx, vertices, center, Math.max(rx, ry), tangent + Math.PI / 2, 0.018 + radial * 0.02);
   }
-
   tracePolygon(ctx, vertices);
   ctx.strokeStyle = `rgba(139, 210, 217, ${alpha})`;
   ctx.lineWidth = kind === 'hexagon' ? 0.58 : 0.48;
@@ -151,7 +150,7 @@ function buildProtectedRects(root: HTMLElement, padding = 15): Rect[] {
   const rootRect = root.getBoundingClientRect();
   return Array.from(root.querySelectorAll<HTMLElement>('[data-navigation-clearance="protected"]')).map((element) => {
     const rect = element.getBoundingClientRect();
-    const extra = element.getAttribute('href') === '/about' ? padding + 8 : padding;
+    const extra = element.getAttribute('href') === '/about' ? padding + 10 : padding;
     return {
       left: rect.left - rootRect.left - extra,
       top: rect.top - rootRect.top - extra,
@@ -193,7 +192,7 @@ function buildFermatSpiralBand(
   countPerArm: number,
   baseSize: number,
   protectedRects: Rect[],
-  viewport: { width: number; height: number; usableBottom: number },
+  viewport: { width: number; usableBottom: number },
   phaseOffset: number,
   arms = FERMAT_SPIRAL_ARMS
 ): EchoShape[][] {
@@ -245,7 +244,6 @@ function buildFermatSpiralBand(
     }
     shapeArms.push(shapes);
   }
-
   return shapeArms;
 }
 
@@ -257,17 +255,14 @@ function drawFermatSpiralBand(ctx: CanvasRenderingContext2D, shapeArms: EchoShap
       if (Math.hypot(current.center.x - previous.center.x, current.center.y - previous.center.y) > current.size * 4.8) {
         continue;
       }
-      const tangent = current.tangent;
       const bend = {
-        x: (previous.center.x + current.center.x) * 0.5 + Math.cos(tangent) * current.size * 0.16,
-        y: (previous.center.y + current.center.y) * 0.5 + Math.sin(tangent) * current.size * 0.16,
+        x: (previous.center.x + current.center.x) * 0.5 + Math.cos(current.tangent) * current.size * 0.16,
+        y: (previous.center.y + current.center.y) * 0.5 + Math.sin(current.tangent) * current.size * 0.16,
       };
       drawBridge(ctx, previous.center, current.center, bend, 0.035 + current.radial * 0.025, 0.28);
     }
   }
-
-  const ordered = shapeArms.flat().sort((a, b) => a.radial - b.radial);
-  for (const shape of ordered) drawEchoShape(ctx, shape);
+  for (const shape of shapeArms.flat().sort((a, b) => a.radial - b.radial)) drawEchoShape(ctx, shape);
 }
 
 function drawExpandedEchoNest(
@@ -277,24 +272,18 @@ function drawExpandedEchoNest(
   seed: string,
   root: HTMLElement
 ) {
-  const rng = seededRng(`echo-nest-v9-fermat:${seed}:${width}x${height}`);
-  const titleBand = clamp(height * 0.14, 86, 138);
-  const usableBottom = height - titleBand;
-  const compact = width < 620;
+  const rng = seededRng(`echo-nest-v11-core-centered:${seed}:${width}x${height}`);
+  const geometry = getFractalViewportGeometry({ width, height });
+  const center = geometry.center;
+  const compact = geometry.compact;
   const aspect = width / Math.max(height, 1);
-  const center = {
-    x: width * (compact ? 0.5 : 0.485 + (rng() - 0.5) * 0.018),
-    y: usableBottom * (compact ? 0.44 : 0.465 + (rng() - 0.5) * 0.018),
-  };
-  const radiusX = width * (aspect > 2 ? 0.39 : compact ? 0.31 : 0.355);
-  const radiusY = usableBottom * (compact ? 0.34 : 0.365);
+  const radiusX = geometry.radiusX * (aspect > 2 ? 0.82 : compact ? 0.74 : 0.78);
+  const radiusY = geometry.radiusY * (compact ? 0.78 : 0.84);
   const baseSize = Math.min(width, height) * (compact ? 0.033 : 0.036);
   const countPerArm = compact ? 14 : aspect > 2 ? 34 : 27;
   const protectedRects = buildProtectedRects(root, compact ? 10 : 16);
-  const viewport = { width, height, usableBottom };
+  const viewport = { width, usableBottom: geometry.usableBottom };
 
-  // The main lattice follows three coherent Fermat spiral arms. Every polygon is rotated to
-  // the local analytical tangent, so rhombi, triangles, hatching, and bridges share one flow field.
   const primary = buildFermatSpiralBand(
     rng,
     center,
@@ -309,10 +298,9 @@ function drawExpandedEchoNest(
   );
   drawFermatSpiralBand(ctx, primary);
 
-  // A tighter counter-phased nucleus adds depth without returning to random cloud placement.
   const nucleus = buildFermatSpiralBand(
     rng,
-    { x: center.x + radiusX * 0.015, y: center.y - radiusY * 0.02 },
+    center,
     radiusX * 0.27,
     radiusY * 0.28,
     compact ? 7 : 11,
@@ -324,8 +312,6 @@ function drawExpandedEchoNest(
   );
   drawFermatSpiralBand(ctx, nucleus);
 
-  // A small child spiral keeps the asymmetric satellite motif from the reference image,
-  // while using exactly the same orientation grammar as the main nest.
   if (width >= 760) {
     const satelliteCenter = {
       x: center.x + radiusX * (aspect > 1.8 ? 0.82 : 0.72),
@@ -347,97 +333,21 @@ function drawExpandedEchoNest(
   }
 }
 
-function candidateDensity(canvases: HTMLCanvasElement[], x: number, y: number, boxW: number, boxH: number): number {
-  let density = 0;
-  let samples = 0;
-  const step = 12;
-  for (const canvas of canvases) {
-    const rect = canvas.getBoundingClientRect();
-    if (rect.width <= 0 || rect.height <= 0 || canvas.width <= 0 || canvas.height <= 0) continue;
-    const ctx = canvas.getContext('2d', { willReadFrequently: true });
-    if (!ctx) continue;
-    const scaleX = canvas.width / rect.width;
-    const scaleY = canvas.height / rect.height;
-    for (let sy = y - boxH * 0.5; sy <= y + boxH * 0.5; sy += step) {
-      for (let sx = x - boxW * 0.5; sx <= x + boxW * 0.5; sx += step) {
-        const px = clamp(Math.round((sx - rect.left) * scaleX), 0, canvas.width - 1);
-        const py = clamp(Math.round((sy - rect.top) * scaleY), 0, canvas.height - 1);
-        const data = ctx.getImageData(px, py, 1, 1).data;
-        const brightness = Math.max(data[0], data[1], data[2]);
-        const visibleInk = (data[3] / 255) * Math.max(0, brightness - 18);
-        density += visibleInk;
-        samples += 1;
-      }
-    }
-  }
-  return samples ? density / samples : 0;
-}
-
-function rectContainsPoint(rect: Rect, point: Vec2, padding = 0): boolean {
-  return (
-    point.x >= rect.left - padding &&
-    point.x <= rect.right + padding &&
-    point.y >= rect.top - padding &&
-    point.y <= rect.bottom + padding
-  );
-}
-
-function placeCoreInQuietPocket(root: HTMLElement) {
+function lockCoreToTreeCenter(root: HTMLElement, width: number, height: number) {
   const core = Array.from(root.querySelectorAll<HTMLAnchorElement>('a[href="/about"]')).find(
     (link) => link.textContent?.trim().toLowerCase() === 'core'
   );
   if (!core) return;
-
-  const rect = root.getBoundingClientRect();
-  const width = rect.width;
-  const height = rect.height;
-  if (width <= 0 || height <= 0) return;
-
-  const canvases = Array.from(document.querySelectorAll<HTMLCanvasElement>('canvas')).filter((canvas) => {
-    const box = canvas.getBoundingClientRect();
-    return box.width >= width * 0.75 && box.height >= height * 0.7;
-  });
-  const compact = width < 620;
-  const centerX = width * 0.5;
-  const centerY = height * (compact ? 0.42 : 0.405);
-  const searchRadiusX = width * (compact ? 0.18 : 0.245);
-  const searchRadiusY = height * (compact ? 0.15 : 0.205);
-  const boxW = compact ? 94 : 122;
-  const boxH = compact ? 52 : 62;
-  const protectedRects = buildProtectedRects(root, compact ? 12 : 18).filter((protectedRect) => {
-    const coreRect = core.getBoundingClientRect();
-    const coreCenter = {
-      x: coreRect.left - rect.left + coreRect.width * 0.5,
-      y: coreRect.top - rect.top + coreRect.height * 0.5,
-    };
-    return !rectContainsPoint(protectedRect, coreCenter, 2);
-  });
-  let best = { x: centerX, y: centerY, score: Number.POSITIVE_INFINITY, density: Number.POSITIVE_INFINITY };
-
-  for (let gy = -3; gy <= 3; gy += 1) {
-    for (let gx = -4; gx <= 4; gx += 1) {
-      const x = centerX + (gx / 4) * searchRadiusX;
-      const y = centerY + (gy / 3) * searchRadiusY;
-      const point = { x, y };
-      if (protectedRects.some((protectedRect) => rectContainsPoint(protectedRect, point, Math.max(boxW, boxH) * 0.32))) {
-        continue;
-      }
-      const density = candidateDensity(canvases, x, y, boxW, boxH);
-      const radialPenalty = Math.hypot((x - centerX) / searchRadiusX, (y - centerY) / searchRadiusY) * 7.5;
-      const lowerPenalty = y > height * 0.64 ? 24 : 0;
-      const score = density + radialPenalty + lowerPenalty;
-      if (score < best.score) best = { x, y, score, density };
-    }
-  }
-
-  core.style.left = `${best.x}px`;
-  core.style.top = `${best.y}px`;
+  const center = getFractalViewportGeometry({ width, height }).center;
+  core.style.left = `${center.x}px`;
+  core.style.top = `${center.y}px`;
   core.style.transform = 'translate(-50%, -50%)';
-  core.style.background = 'rgba(2, 8, 12, 0.94)';
-  core.style.boxShadow = '0 0 0 1px rgba(215,240,240,0.08), 0 0 30px rgba(1,4,7,0.9)';
-  core.dataset.corePlacement = 'quiet-pocket-v1';
-  core.dataset.coreDensity = best.density.toFixed(2);
-  core.setAttribute('aria-label', 'Open core / about');
+  core.dataset.corePlacement = 'fixed-center-circle-v1';
+  core.dataset.coreShape = 'circle';
+  core.dataset.coreAnchor = 'tree-center';
+  root.dataset.coreRouting = 'fixed-center-circle-v1';
+  root.dataset.coreAnchorX = center.x.toFixed(2);
+  root.dataset.coreAnchorY = center.y.toFixed(2);
 }
 
 export function FractalExperienceV3() {
@@ -447,7 +357,6 @@ export function FractalExperienceV3() {
     const canvas = canvasRef.current;
     if (!canvas) return;
     let frame = 0;
-    let placementFrame = 0;
     let lastSignature = '';
     let redirecting = false;
 
@@ -469,8 +378,10 @@ export function FractalExperienceV3() {
       }
 
       const rect = root.getBoundingClientRect();
-      const width = Math.round(rect.width || window.innerWidth);
-      const height = Math.round(rect.height || window.innerHeight);
+      const width = Math.max(1, Math.round(rect.width || window.innerWidth));
+      const height = Math.max(1, Math.round(rect.height || window.innerHeight));
+      lockCoreToTreeCenter(root, width, height);
+
       const protectedSignature = Array.from(root.querySelectorAll<HTMLElement>('[data-navigation-clearance="protected"]'))
         .map((element) => {
           const box = element.getBoundingClientRect();
@@ -478,28 +389,25 @@ export function FractalExperienceV3() {
         })
         .join('|');
       const signature = `${morphology}:${seed}:${width}x${height}:${protectedSignature}`;
-      if (signature !== lastSignature) {
-        lastSignature = signature;
-        const dpr = Math.min(window.devicePixelRatio || 1, VISUAL_LIMITS.dprCap);
-        canvas.width = Math.max(1, Math.round(width * dpr));
-        canvas.height = Math.max(1, Math.round(height * dpr));
-        canvas.style.width = `${width}px`;
-        canvas.style.height = `${height}px`;
-        const ctx = canvas.getContext('2d');
-        if (ctx) {
-          ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-          ctx.clearRect(0, 0, width, height);
-          if (morphology === 'echo-nest') {
-            drawExpandedEchoNest(ctx, width, height, seed, root);
-            canvas.dataset.echoNestLayout = 'fermat-spiral-v1';
-          } else {
-            canvas.dataset.echoNestLayout = 'inactive';
-          }
-        }
-      }
+      if (signature === lastSignature) return;
+      lastSignature = signature;
 
-      cancelAnimationFrame(placementFrame);
-      placementFrame = requestAnimationFrame(() => requestAnimationFrame(() => placeCoreInQuietPocket(root)));
+      const dpr = Math.min(window.devicePixelRatio || 1, VISUAL_LIMITS.dprCap);
+      canvas.width = Math.max(1, Math.round(width * dpr));
+      canvas.height = Math.max(1, Math.round(height * dpr));
+      canvas.style.width = `${width}px`;
+      canvas.style.height = `${height}px`;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.clearRect(0, 0, width, height);
+
+      if (morphology === 'echo-nest') {
+        drawExpandedEchoNest(ctx, width, height, seed, root);
+        canvas.dataset.echoNestLayout = 'fermat-core-centered-v2';
+      } else {
+        canvas.dataset.echoNestLayout = 'inactive';
+      }
     };
 
     const schedule = () => {
@@ -520,7 +428,6 @@ export function FractalExperienceV3() {
 
     return () => {
       cancelAnimationFrame(frame);
-      cancelAnimationFrame(placementFrame);
       observer.disconnect();
       window.removeEventListener('resize', schedule);
       window.visualViewport?.removeEventListener('resize', schedule);
