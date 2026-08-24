@@ -69,13 +69,17 @@ export const FRONTIER_NETFLIX_SCREEN_FAVORITES = [
   'Big Mouth',
   'Homeland',
   'Cobra Kai',
+  'Death Note',
   'Inside Job',
+  'DAN DA DAN',
   'Happy Gilmore 2',
   'Black Mirror',
   'Stranger Things',
   'Paradise PD',
   'Balls of Fury',
   'The Midnight Gospel',
+  'The Summer Hikaru Died',
+  'Scissor Seven',
   'Trailer Park Boys: The Animated Series',
   'Fixed',
   'Dead to Me',
@@ -212,7 +216,6 @@ function textHasAny(text: string, terms: readonly string[]): boolean {
 
 export function screenTasteTags(text: string): string[] {
   const matched = matchedScreenFavorites(text);
-  const matchedSet = new Set(matched);
   const tags = new Set<string>();
   if (matched.length) {
     tags.add('screen orbit');
