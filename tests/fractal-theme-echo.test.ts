@@ -14,15 +14,15 @@ import {
 const root = process.cwd();
 const readRepoFile = (path: string) => readFileSync(join(root, path), 'utf8');
 
-test('theme echo only accepts the active homepage morphologies', () => {
-  assert.equal(CURATED_FRACTAL_THEME_IDS.length, 10);
-  assert.equal(isCuratedFractalThemeId('tectonic'), false);
+test('theme echo only accepts the six active homepage morphologies', () => {
+  assert.deepEqual(CURATED_FRACTAL_THEME_IDS, ['radial', 'coral', 'fan', 'apical', 'spiraloid', 'echo-nest']);
+  for (const morphology of ['tectonic', 'aurora', 'mycelial', 'halo', 'pixel-ghost', 'echidna']) {
+    assert.equal(isCuratedFractalThemeId(morphology), false);
+  }
   assert.equal(isCuratedFractalThemeId('echo-nest'), true);
-  assert.equal(isCuratedFractalThemeId('aurora'), false);
-  assert.equal(isCuratedFractalThemeId('mycelial'), false);
 });
 
-test('persisted themes strip force prefixes and reject removed morphologies', () => {
+test('persisted themes strip force prefixes and reject every retired morphology', () => {
   assert.equal(stripForcedMorphology('force:tectonic:review-17'), 'review-17');
   const theme = createFractalTheme('coral', 'force:coral:organic-session', 1234);
   assert.deepEqual(parseFractalTheme(serializeFractalTheme(theme)), {
@@ -31,7 +31,7 @@ test('persisted themes strip force prefixes and reject removed morphologies', ()
     seed: 'organic-session',
     savedAt: 1234,
   });
-  for (const morphology of ['mycelial', 'aurora', 'tectonic']) {
+  for (const morphology of ['mycelial', 'aurora', 'tectonic', 'halo', 'pixel-ghost', 'echidna']) {
     assert.equal(
       parseFractalTheme(JSON.stringify({ version: 1, morphology, seed: 'x', savedAt: 1234 })),
       null
@@ -52,6 +52,21 @@ test('homepage records its theme and subpages consume the echo consistently', ()
   assert.match(pageShell, /ThemedNeuralBackground/);
   assert.match(echo, /data-fractal-theme-echo="background"/);
   assert.match(echo, /force:\$\{theme\.morphology\}/);
+});
+
+test('public curation v14 removes weak variants and masks every destination interior', () => {
+  const stage = readRepoFile('components/neural-atlas-canvas/AdaptiveFractalStage.tsx');
+  const curation = readRepoFile('components/neural-atlas-canvas/FractalPublicCurationV14.tsx');
+
+  assert.match(stage, /FractalPublicCurationV14/);
+  assert.match(curation, /'halo'/);
+  assert.match(curation, /'pixel-ghost'/);
+  assert.match(curation, /'echidna'/);
+  assert.match(curation, /window\.location\.replace/);
+  assert.match(curation, /data-destination-clearance-layer="v14"/);
+  assert.match(curation, /data-destination-clearance-mask/);
+  assert.match(curation, /background-color: #010406 !important/);
+  assert.match(curation, /destinationClearance = 'opaque-edge-mask-v14'/);
 });
 
 test('Echo Nest theme echoes reuse the Fermat orientation grammar', () => {
