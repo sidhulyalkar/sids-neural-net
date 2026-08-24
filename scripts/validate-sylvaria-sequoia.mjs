@@ -131,13 +131,14 @@ for (const pattern of [
 assert.doesNotMatch(stick, /charge(?:Seconds|Time)|holdToCharge/i, 'Sap Stick must not require charging');
 
 for (const pattern of [
-  /velocity-authority-v1/,
+  /velocity-authority-v2/,
   /groundReverseAssist: 1120/,
   /airReverseAssist: 920/,
-  /function restorePlayerOwnedLaunch\(/,
+  /function prepareStrideHeightCarry\(/,
+  /function restoreStrideHeightCarry\(/,
   /function applyReverseAuthority\(/,
-  /launch-velocity-authority/,
-  /Stride is allowed to preserve \*jump height\*/,
+  /stride-height-carry/,
+  /vertical energy is restored/,
   /S\.update = update/,
 ]) assert.match(control, pattern);
 
