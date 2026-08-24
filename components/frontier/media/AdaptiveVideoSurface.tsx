@@ -20,6 +20,8 @@ type Props = {
   id: string;
   url?: string;
   poster?: string;
+  /** Browser-native poster used when the optimized/proxied poster path fails. */
+  posterFallback?: string;
   alt: string;
   streams?: FrontierVideoStream[];
   aspectRatio?: string;
@@ -51,7 +53,16 @@ type VirtualBoundarySnapshot = {
   contentVisibility: string;
 };
 
-export function AdaptiveVideoSurface({ id, url, poster, alt, streams, aspectRatio, onUnavailable }: Props) {
+export function AdaptiveVideoSurface({
+  id,
+  url,
+  poster,
+  posterFallback,
+  alt,
+  streams,
+  aspectRatio,
+  onUnavailable,
+}: Props) {
   const shellRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -90,9 +101,10 @@ export function AdaptiveVideoSurface({ id, url, poster, alt, streams, aspectRati
     const node = shellRef.current?.closest<HTMLElement>('[data-frontier-virtual-card]');
     if (!node) return;
     virtualBoundary.current = { node, contentVisibility: node.style.contentVisibility };
-    // `content-visibility:auto` creates containment that can trap a fixed
-    // descendant. Temporarily disable it so the same playing video can become a
-    // viewport-level FLIP surface without reparenting or remounting.
+    // Historical FRONTIER builds used `content-visibility:auto` on card roots.
+    // Keep this defensive elevation for old cached markup while current cards
+    // remain layout-visible; the same playing video can still FLIP fullscreen
+    // without reparenting or remounting.
     node.style.contentVisibility = 'visible';
   }, []);
 
@@ -277,6 +289,7 @@ export function AdaptiveVideoSurface({ id, url, poster, alt, streams, aspectRati
         <GpuImageSurface
           id={`${id}:poster`}
           src={poster}
+          fallbackSrc={posterFallback || poster}
           alt={alt}
           className={styles.posterSurface}
           aspectRatio={aspectRatio}
@@ -295,7 +308,7 @@ export function AdaptiveVideoSurface({ id, url, poster, alt, streams, aspectRati
             playsInline
             muted={muted}
             preload={visibility === 'active' ? 'auto' : 'metadata'}
-            poster={poster}
+            poster={posterFallback || poster}
             onPlay={(event) => {
               claimFrontierPlayback(id, event.currentTarget);
               setPlaying(true);
