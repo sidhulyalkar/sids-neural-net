@@ -6,6 +6,7 @@ import {
   strongestPersonalTasteLabel,
 } from './personalTaste';
 import { isFrontierSourceAdmitted, sourceTrustRankingPrior } from './sourceTrust';
+import { applyExplicitPairSignal, pairAffinityForItem } from './tasteLearning';
 import type {
   FrontierBehaviorModel,
   FrontierHistoryEntry,
@@ -49,6 +50,7 @@ export function applyReactionToProfile(profile: FrontierProfile, item: FrontierI
     laneAffinity: { ...profile.laneAffinity },
     topicAffinity: { ...profile.topicAffinity },
     sourceAffinity: { ...profile.sourceAffinity },
+    interestPairs: { ...profile.interestPairs },
     knownTopics: { ...profile.knownTopics },
     curiosity: profile.curiosity,
     meaningfulInteractions: profile.meaningfulInteractions + (reaction === 'read' ? 0 : 1),
@@ -73,7 +75,7 @@ export function applyReactionToProfile(profile: FrontierProfile, item: FrontierI
 
   if (reaction === 'surprise') next.curiosity = clamp(next.curiosity + 0.035, 0.08, 0.55);
   if (reaction === 'hide' || reaction === 'down') next.curiosity = clamp(next.curiosity - 0.01, 0.08, 0.55);
-  return next;
+  return applyExplicitPairSignal(next, item, value);
 }
 
 export function resurfaceBonus(entry: FrontierHistoryEntry | undefined, now = new Date()): number {
@@ -107,6 +109,7 @@ export function personalizedScore(
   const topicSignal = item.tags.length
     ? item.tags.reduce((sum, tag) => sum + (profile.topicAffinity[tag.toLowerCase()] ?? 0), 0) / item.tags.length
     : 0;
+  const pairSignal = pairAffinityForItem(item, profile);
   const knownness = item.tags.length
     ? item.tags.reduce((sum, tag) => sum + (profile.knownTopics[tag.toLowerCase()] ?? 0), 0) / item.tags.length
     : 0;
@@ -131,6 +134,7 @@ export function personalizedScore(
     freshness * 0.08 +
     laneAffinity * 0.09 +
     topicSignal * 0.08 +
+    pairSignal * 0.045 +
     sourceAffinity * 0.03 +
     usefulSurprise * profile.curiosity * 0.12 -
     knownness * 0.08 +
@@ -161,6 +165,10 @@ function takeFirst(source: FrontierItem[], used: Set<string>, predicate: (item: 
   const item = source.find((candidate) => !used.has(candidate.id) && predicate(candidate));
   if (item) used.add(item.id);
   return item;
+}
+
+function isSportsStateSignal(item: FrontierItem): boolean {
+  return item.sourceKind === 'sports_state' || Boolean(item.sportsState);
 }
 
 function isActiveSportSignal(item: FrontierItem): boolean {
@@ -198,29 +206,25 @@ export function selectDailyRun(
   push(takeFirst(ranked, used, (item) => item.importance >= 0.76 || item.lane === 'must_know'));
   push(takeFirst(ranked, used, (item) => ['ml_data', 'ai_frontier', 'neuro_frontier', 'broad_science'].includes(item.lane)));
 
+  // Live league state is a utility signal, not another sports article. Reserve
+  // one finite slot when scores, fixtures, or standings are available.
+  push(takeFirst(ranked, used, (item) => isSportsStateSignal(item)));
+
   // NFL, fantasy decisions, and broader sports-data work are separate appetites.
-  // If all three exist, none should disappear merely because another sports
-  // card ranked slightly higher.
   push(takeFirst(ranked, used, (item) => matchesPersonalTasteTopic(item, ['nfl-analytics'])));
   push(takeFirst(ranked, used, (item) => matchesPersonalTasteTopic(item, ['fantasy-football'])));
   push(takeFirst(ranked, used, (item) => matchesPersonalTasteTopic(item, ['sports-data'])));
 
   push(takeFirst(ranked, used, (item) => matchesPersonalTasteTopic(item, ['scientific-visualization', 'neuro-data-systems', 'computational-imaging', 'space-imaging'])));
-  // Builder, methods, and creative-tech are all project-fuel variants. Keep one
-  // reserved project-fuel slot so active sports and soccer retain independent
-  // representation in the finite 14-card run.
   push(takeFirst(ranked, used, (item) => ['builder_signal', 'methods', 'creative_tech'].includes(item.lane)));
   push(takeFirst(ranked, used, (item) => item.lane === 'team_pulse'));
   push(takeFirst(ranked, used, (item) => isActiveSportSignal(item)));
   push(takeFirst(ranked, used, (item) => isSoccerSignal(item)));
   push(takeFirst(ranked, used, (item) => item.lane === 'gaming'));
-  // Video selection is semantic, via the targeted `watchable` tag, rather than
-  // presentation media presence. A thumbnail appearing/disappearing therefore
-  // still cannot change recommendation authority.
+  // Watchable is semantic. A thumbnail or media failure can never decide which
+  // recommendation wins, and external social clips can satisfy this slot too.
   push(takeFirst(ranked, used, (item) => isWatchableTasteSignal(item)));
   push(takeFirst(ranked, used, (item) => item.lane === 'music' || item.lane === 'internet_culture' || item.lane === 'life'));
-  push(takeFirst(ranked, used, (item) => isDueForResurface(history[item.id], now)));
-  push(takeFirst(ranked, used, (item) => item.novelty >= 0.7 || item.lane === 'wildcards'));
 
   for (const item of ranked) {
     if (selected.length >= limit) break;
@@ -248,6 +252,8 @@ export function explainRecommendation(
   const strongestTag = item.tags
     .map((tag) => ({ tag, affinity: profile.topicAffinity[tag.toLowerCase()] ?? 0 }))
     .sort((a, b) => b.affinity - a.affinity)[0];
+
+  if (item.sportsState) return `Live ${item.sportsState.leagueLabel} state stays in your finite run without displacing the deeper sports analysis.`;
 
   if (behavior?.implicitLearning) {
     const bucket = timeBucket(now);
