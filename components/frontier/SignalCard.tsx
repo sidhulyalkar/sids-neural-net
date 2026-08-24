@@ -101,7 +101,12 @@ export function SignalCard({
   const lane = FRONTIER_LANE_MAP[item.lane];
   const feed = presentation === 'feed';
   const currentMediaKey = frontierMediaKey(item);
-  const hasMedia = unavailableMediaKey !== currentMediaKey && canRenderFrontierMedia(item);
+  // Structural media eligibility is decided once from source metadata. Runtime
+  // decode/network failure may change pixels inside the reserved media box, but
+  // it must never swap this card to the text-only DOM variant after masonry has
+  // measured it. SignalBoard and SignalCard therefore share one authority.
+  const hasMedia = canRenderFrontierMedia(item);
+  const mediaUnavailable = unavailableMediaKey === currentMediaKey;
 
   useEffect(() => {
     const node = ref.current;
@@ -290,7 +295,11 @@ export function SignalCard({
 
   if (feed) {
     return (
-      <article ref={ref} className={`${styles.card} ${styles.feedCard} ${styles.feedCardMedia} ${mediaForward.card} ${mediaForward.feedCard} ${mediaForward.feedMedia}`}>
+      <article
+        ref={ref}
+        className={`${styles.card} ${styles.feedCard} ${styles.feedCardMedia} ${mediaForward.card} ${mediaForward.feedCard} ${mediaForward.feedMedia}`}
+        data-frontier-media-unavailable={mediaUnavailable ? 'true' : undefined}
+      >
         <div className={`${styles.feedCopy} ${mediaForward.feedCopy}`}>
           {meta}
           <h3 className={`${styles.cardTitle} ${mediaForward.title}`}>{item.title}</h3>
@@ -306,7 +315,11 @@ export function SignalCard({
   }
 
   return (
-    <article ref={ref} className={`${styles.card} ${styles.tileCard} ${styles.tileCardMedia} ${mediaForward.card} ${mediaForward.tileCard} ${mediaForward.tileMediaCard} ${expanded ? styles.cardExpanded : ''}`}>
+    <article
+      ref={ref}
+      className={`${styles.card} ${styles.tileCard} ${styles.tileCardMedia} ${mediaForward.card} ${mediaForward.tileCard} ${mediaForward.tileMediaCard} ${expanded ? styles.cardExpanded : ''}`}
+      data-frontier-media-unavailable={mediaUnavailable ? 'true' : undefined}
+    >
       <div className={`${styles.tileMedia} ${mediaForward.mediaSlot}`}>
         <FrontierMediaSurface item={item} onUnavailable={markMediaUnavailable} />
       </div>
