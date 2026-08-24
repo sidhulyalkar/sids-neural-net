@@ -3,6 +3,7 @@
 import { Brain, RotateCcw } from 'lucide-react';
 import { aggregatePreference, summarizeHabits } from '@/lib/frontier/behavior';
 import { FRONTIER_LANE_MAP } from '@/lib/frontier/config';
+import { useFrontierStore } from '@/lib/frontier/store';
 import type { FrontierBehaviorModel, FrontierLaneId } from '@/lib/frontier/types';
 import styles from './frontier-minimal.module.css';
 
@@ -16,14 +17,33 @@ function engagementEvidence(behavior: FrontierBehaviorModel): number {
   return Object.values(behavior.laneStats).reduce((sum, stats) => sum + stats.shown + stats.opened * 2 + stats.saved * 3 + stats.positive * 3, 0);
 }
 
+function pairLabel(pair: string): string {
+  return pair.split(' × ').map((part) => part.trim()).filter(Boolean).join(' + ');
+}
+
 export function PreferenceLens({ behavior, onToggleLearning, onResetBehavior }: Props) {
+  const profile = useFrontierStore((state) => state.profile);
   const insights = summarizeHabits(behavior).slice(0, 6);
   const lanes = Object.entries(behavior.laneStats)
     .map(([lane, stats]) => ({ lane: lane as FrontierLaneId, pref: aggregatePreference(stats) }))
     .filter((entry) => entry.pref.confidence >= 0.12)
     .sort((a, b) => (b.pref.score * b.pref.confidence) - (a.pref.score * a.pref.confidence))
     .slice(0, 7);
+  const pairings = Object.entries(profile.interestPairs)
+    .filter(([, score]) => score > 0.012)
+    .sort((left, right) => right[1] - left[1])
+    .slice(0, 6);
   const evidence = engagementEvidence(behavior);
+
+  const forgetHabits = () => {
+    // Pair memory is inferred from implicit/explicit co-interest evidence and is
+    // deliberately separable from direct topic likes/dislikes. Forgetting
+    // habits clears this derived layer without erasing explicit preferences.
+    useFrontierStore.setState((state) => ({
+      profile: { ...state.profile, interestPairs: {} },
+    }));
+    onResetBehavior();
+  };
 
   return (
     <div className={styles.learningLens}>
@@ -45,6 +65,7 @@ export function PreferenceLens({ behavior, onToggleLearning, onResetBehavior }: 
       <div className={styles.learningSummary}>
         <span>{behavior.sessions} sessions</span>
         <span>{evidence} signals</span>
+        {pairings.length ? <span>{pairings.length} combinations</span> : null}
       </div>
 
       {insights.length ? (
@@ -61,6 +82,23 @@ export function PreferenceLens({ behavior, onToggleLearning, onResetBehavior }: 
         </div>
       ) : null}
 
+      {pairings.length ? (
+        <div className={styles.habitGrid} aria-label="Learned interest combinations">
+          {pairings.map(([pair, score]) => {
+            const strength = Math.min(100, Math.round((score / 0.3) * 100));
+            return (
+              <div className={styles.habitCard} key={pair}>
+                <span>Combination</span>
+                <strong>{pairLabel(pair)}</strong>
+                <div className={styles.confidenceTrack} title={`${strength}% co-interest signal`}>
+                  <div style={{ width: `${strength}%` }} />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      ) : null}
+
       {lanes.length ? (
         <div className={styles.learnedLanes}>
           {lanes.map(({ lane, pref }) => (
@@ -74,7 +112,7 @@ export function PreferenceLens({ behavior, onToggleLearning, onResetBehavior }: 
       ) : null}
 
       <div className={styles.learningFoot}>
-        <button type="button" className={styles.utilityButton} onClick={onResetBehavior}><RotateCcw size={11} /> Forget habits</button>
+        <button type="button" className={styles.utilityButton} onClick={forgetHabits}><RotateCcw size={11} /> Forget habits</button>
       </div>
     </div>
   );
