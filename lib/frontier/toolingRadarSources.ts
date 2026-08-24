@@ -2,7 +2,7 @@ import type { FrontierFeedResponse, FrontierItem, FrontierLaneId, FrontierSource
 
 const USER_AGENT = 'sids-neural-net-frontier-tooling-radar/1.0 (+https://sidhulyalkar.com/frontier)';
 const DAY_MS = 86_400_000;
-const FETCH_TIMEOUT_MS = 3_800;
+const FETCH_TIMEOUT_MS = 2_200;
 
 type ToolingProject = {
   id: string;
@@ -187,7 +187,14 @@ async function githubJson<T>(path: string): Promise<T> {
 }
 
 async function projectItems(project: ToolingProject): Promise<FrontierItem[]> {
-  const releases = await githubJson<GitHubRelease[]>(`/repos/${project.repo}/releases?per_page=3`).catch(() => []);
+  let releaseReachable = true;
+  let releases: GitHubRelease[] = [];
+  try {
+    releases = await githubJson<GitHubRelease[]>(`/repos/${project.repo}/releases?per_page=3`);
+  } catch {
+    releaseReachable = false;
+  }
+
   const releaseItems = releases.flatMap((release) => {
     const parsed = releaseItem(project, release);
     return parsed ? [parsed] : [];
@@ -196,7 +203,17 @@ async function projectItems(project: ToolingProject): Promise<FrontierItem[]> {
 
   // Some excellent scientific tools publish continuously without GitHub
   // Releases. Fall back to a tiny recent-commit view, filtering maintenance.
-  const commits = await githubJson<GitHubCommit[]>(`/repos/${project.repo}/commits?per_page=6`).catch(() => []);
+  let commitReachable = true;
+  let commits: GitHubCommit[] = [];
+  try {
+    commits = await githubJson<GitHubCommit[]>(`/repos/${project.repo}/commits?per_page=6`);
+  } catch {
+    commitReachable = false;
+  }
+  if (!releaseReachable && !commitReachable) {
+    throw new Error(`GitHub unavailable for ${project.repo}`);
+  }
+
   return commits.flatMap((entry) => {
     const parsed = commitItem(project, entry);
     return parsed ? [parsed] : [];
@@ -212,7 +229,7 @@ export async function getToolingRadarFeed(): Promise<FrontierFeedResponse> {
     label: 'Visualization tooling radar',
     ok: items.length > 0 || failures < runs.length,
     count: items.length,
-    message: failures > 0 && items.length === 0 ? 'visualization tooling radar unavailable' : undefined,
+    message: failures > 0 && items.length === 0 ? 'visualization tooling radar partially unavailable' : undefined,
   };
   return { generatedAt: new Date().toISOString(), items, sources: [status] };
 }
