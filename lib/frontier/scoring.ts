@@ -163,10 +163,12 @@ function takeFirst(source: FrontierItem[], used: Set<string>, predicate: (item: 
   return item;
 }
 
-function isMotionOrSoccerSignal(item: FrontierItem): boolean {
-  return item.tags.includes('active sport')
-    || item.tags.includes('active sports')
-    || ['premier_league', 'world_soccer'].includes(item.lane);
+function isActiveSportSignal(item: FrontierItem): boolean {
+  return item.tags.includes('active sport') || item.tags.includes('active sports');
+}
+
+function isSoccerSignal(item: FrontierItem): boolean {
+  return ['premier_league', 'world_soccer'].includes(item.lane);
 }
 
 function isWatchableTasteSignal(item: FrontierItem): boolean {
@@ -204,10 +206,13 @@ export function selectDailyRun(
   push(takeFirst(ranked, used, (item) => matchesPersonalTasteTopic(item, ['sports-data'])));
 
   push(takeFirst(ranked, used, (item) => matchesPersonalTasteTopic(item, ['scientific-visualization', 'neuro-data-systems', 'computational-imaging', 'space-imaging'])));
-  push(takeFirst(ranked, used, (item) => item.lane === 'builder_signal'));
-  push(takeFirst(ranked, used, (item) => item.lane === 'methods' || item.lane === 'creative_tech'));
+  // Builder, methods, and creative-tech are all project-fuel variants. Keep one
+  // reserved project-fuel slot so active sports and soccer retain independent
+  // representation in the finite 14-card run.
+  push(takeFirst(ranked, used, (item) => ['builder_signal', 'methods', 'creative_tech'].includes(item.lane)));
   push(takeFirst(ranked, used, (item) => item.lane === 'team_pulse'));
-  push(takeFirst(ranked, used, (item) => isMotionOrSoccerSignal(item)));
+  push(takeFirst(ranked, used, (item) => isActiveSportSignal(item)));
+  push(takeFirst(ranked, used, (item) => isSoccerSignal(item)));
   push(takeFirst(ranked, used, (item) => item.lane === 'gaming'));
   // Video selection is semantic, via the targeted `watchable` tag, rather than
   // presentation media presence. A thumbnail appearing/disappearing therefore
