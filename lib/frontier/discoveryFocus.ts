@@ -1,4 +1,5 @@
 import { aggregatePreference } from './behavior';
+import { FRONTIER_DISCOVERY_SEEDS } from './personalTaste';
 import type { FrontierBehaviorModel, FrontierProfile } from './types';
 
 const TOPIC_ALIASES: Record<string, string> = {
@@ -43,10 +44,33 @@ function behaviorScore(model: FrontierBehaviorModel | undefined, topic: string):
   return aliased.score * aliased.confidence;
 }
 
+function hashString(value: string): number {
+  let hash = 2166136261;
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return hash >>> 0;
+}
+
+function rotatedDiscoverySeeds(now: Date): string[] {
+  const dayKey = now.toISOString().slice(0, 10);
+  const start = hashString(`${dayKey}-frontier-taste`) % FRONTIER_DISCOVERY_SEEDS.length;
+  return Array.from(
+    { length: FRONTIER_DISCOVERY_SEEDS.length },
+    (_, index) => normalizeTopic(FRONTIER_DISCOVERY_SEEDS[(start + index) % FRONTIER_DISCOVERY_SEEDS.length])
+  );
+}
+
+function overlapsExisting(selected: readonly string[], topic: string): boolean {
+  return selected.some((existing) => existing.includes(topic) || topic.includes(existing));
+}
+
 export function buildDiscoveryFocus(
   profile: FrontierProfile,
   behavior?: FrontierBehaviorModel,
-  limit = 7
+  limit = 7,
+  now = new Date()
 ): string[] {
   const scores = new Map<string, number>();
 
@@ -76,10 +100,31 @@ export function buildDiscoveryFocus(
     .filter(([, score]) => Number.isFinite(score) && score > 0.08)
     .sort((a, b) => b[1] - a[1]);
 
+  const cap = Math.max(1, Math.min(10, limit));
+  // Keep part of every adaptive search budget anchored to explicit interests.
+  // Early profiles reserve three slots; mature profiles still reserve two so a
+  // burst of generic engagement cannot erase the long-term taste map.
+  const seedReserve = Math.min(cap, profile.meaningfulInteractions < 20 ? 3 : 2);
+  const learnedCap = Math.max(0, cap - seedReserve);
   const selected: string[] = [];
+
   for (const [topic] of ranked) {
-    if (selected.length >= Math.max(1, Math.min(10, limit))) break;
-    if (selected.some((existing) => existing.includes(topic) || topic.includes(existing))) continue;
+    if (selected.length >= learnedCap) break;
+    if (overlapsExisting(selected, topic)) continue;
+    selected.push(topic.slice(0, 64));
+  }
+
+  for (const topic of rotatedDiscoverySeeds(now)) {
+    if (selected.length >= cap) break;
+    if (overlapsExisting(selected, topic)) continue;
+    selected.push(topic.slice(0, 64));
+  }
+
+  // If a seed collided with a learned topic, use the remaining budget for the
+  // next learned preference rather than returning an unnecessarily short focus.
+  for (const [topic] of ranked) {
+    if (selected.length >= cap) break;
+    if (overlapsExisting(selected, topic)) continue;
     selected.push(topic.slice(0, 64));
   }
 
