@@ -1,13 +1,13 @@
 'use client';
 
 import { AdaptiveFractalHome as AdaptiveFractalHomeBase } from './AdaptiveFractalHome';
-import { FractalSurfaceEnhancer } from './FractalSurfaceEnhancer';
+import { FractalSurfaceEnhancerV2 } from './FractalSurfaceEnhancerV2';
 
 export function AdaptiveFractalStage() {
   return (
     <>
       <AdaptiveFractalHomeBase />
-      <FractalSurfaceEnhancer />
+      <FractalSurfaceEnhancerV2 />
     </>
   );
 }
