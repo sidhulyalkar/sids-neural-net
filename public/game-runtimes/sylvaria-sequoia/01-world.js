@@ -3,51 +3,53 @@
   const S = window.SylvariaSequoia;
   const { state, player, TUNE, W, H, clamp, lerp, routeStat, recordEvent } = S;
 
-  // Give the twin-sequoia arena more breathing room. The physical bark walls
-  // remain honest collision surfaces, but the interior now reads as a forest
-  // shaft rather than a narrow pinball lane.
-  state.LEFT_WALL = 118;
-  state.RIGHT_WALL = 842;
+  // v0.4 gives the climb genuine negative space. These are honest collision
+  // surfaces; the sparse route grammars below decide when branches exist at all.
+  state.LEFT_WALL = 100;
+  state.RIGHT_WALL = 860;
 
   const ROUTE_GRAMMARS = {
     FLOW: [
-      { dy: 58, side: 'center', length: 520, launch: true },
-      { dy: 70, side: 'same', length: 405, ring: 'lane' },
-      { dy: 68, side: 'swap', length: 390 },
-      { dy: 80, side: 'center', length: 455, knot: 'center' },
-      { dy: 76, side: 'same', length: 370, ring: 'cross', knot: 'center' },
-    ],
-    GROVE: [
-      { dy: 64, side: 'center', length: 610, launch: true },
-      { dy: 94, side: 'left', length: 300, ring: 'cross' },
-      { dy: 102, side: 'right', length: 300, knot: 'cross' },
-      { dy: 84, side: 'center', length: 560, ring: 'crown', knot: 'center' },
-    ],
-    CRUX: [
-      { dy: 82, side: 'same', length: 350, ring: 'lane' },
-      { dy: 96, side: 'swap', length: 315, knot: 'center', launch: true },
-      { dy: 110, side: 'center', length: 335, ring: 'crown', knot: 'cross' },
-      { dy: 98, side: 'same', length: 295, knot: 'center' },
+      { dy: 60, side: 'center', length: 540, launch: true, knot: 'center' },
+      { dy: 86, side: 'same', length: 365, ring: 'lane' },
+      { dy: 98, side: 'swap', length: 330 },
     ],
     RECOVERY: [
-      { dy: 56, side: 'center', length: 560, launch: true },
-      { dy: 64, side: 'same', length: 430, ring: 'lane' },
-      { dy: 62, side: 'center', length: 510, knot: 'center' },
+      { dy: 56, side: 'center', length: 620, launch: true, knot: 'center' },
+      { dy: 72, side: 'center', length: 560, ring: 'lane' },
+    ],
+    GROVE: [
+      { dy: 72, side: 'center', length: 630, launch: true, knot: 'center' },
+      { dy: 138, side: 'left', branch: false, anchor: 'left', ring: 'anchor' },
+      { dy: 148, side: 'right', branch: false, anchor: 'right' },
+      { dy: 124, side: 'center', length: 500, knot: 'center', ring: 'crown' },
+    ],
+    SAPRUN: [
+      { dy: 64, side: 'center', length: 555, launch: true, knot: 'center' },
+      { dy: 148, side: 'left', branch: false, anchor: 'left' },
+      { dy: 156, side: 'right', branch: false, anchor: 'right', ring: 'anchor' },
+      { dy: 164, side: 'left', branch: false, anchor: 'left' },
+      { dy: 132, side: 'center', length: 430, knot: 'center', ring: 'crown' },
     ],
     SLINGSHOT: [
-      { dy: 74, side: 'same', length: 385, knot: 'center', ring: 'lane' },
-      { dy: 90, side: 'swap', length: 335, knot: 'cross', launch: true },
-      { dy: 104, side: 'center', length: 350, knot: 'center', ring: 'crown' },
-      { dy: 92, side: 'same', length: 325, knot: 'cross', ring: 'lane' },
+      { dy: 72, side: 'same', length: 370, knot: 'center', launch: true },
+      { dy: 150, side: 'swap', branch: false, anchor: 'cross', ring: 'anchor' },
+      { dy: 160, side: 'same', branch: false, anchor: 'cross' },
+      { dy: 124, side: 'center', length: 335, knot: 'center' },
+    ],
+    CRUX: [
+      { dy: 90, side: 'same', length: 325, ring: 'lane' },
+      { dy: 118, side: 'swap', length: 285, knot: 'cross', launch: true },
+      { dy: 126, side: 'center', length: 300, knot: 'center', ring: 'crown' },
     ],
   };
 
   const PHASES = [
-    { name: 'ROOTWAYS', floor: 0, geometry: 0.04, pressure: 0.72, sequence: ['FLOW', 'RECOVERY', 'FLOW', 'GROVE'] },
-    { name: 'REDWOOD RUN', floor: 30, geometry: 0.22, pressure: 0.90, sequence: ['FLOW', 'GROVE', 'SLINGSHOT', 'RECOVERY', 'CRUX'] },
-    { name: 'SAPWORK', floor: 70, geometry: 0.44, pressure: 1.00, sequence: ['GROVE', 'SLINGSHOT', 'FLOW', 'CRUX', 'RECOVERY', 'SLINGSHOT'] },
-    { name: 'HIGH CANOPY', floor: 115, geometry: 0.70, pressure: 1.12, sequence: ['CRUX', 'GROVE', 'SLINGSHOT', 'CRUX', 'RECOVERY', 'FLOW'] },
-    { name: 'CROWNLINE', floor: 165, geometry: 1.00, pressure: 1.24, sequence: ['CRUX', 'SLINGSHOT', 'GROVE', 'CRUX', 'SLINGSHOT', 'RECOVERY'] },
+    { name: 'ROOTWAYS', floor: 0, geometry: 0.04, pressure: 0.72, sequence: ['FLOW', 'RECOVERY', 'GROVE', 'FLOW', 'SAPRUN'] },
+    { name: 'REDWOOD RUN', floor: 30, geometry: 0.22, pressure: 0.90, sequence: ['FLOW', 'GROVE', 'SAPRUN', 'RECOVERY', 'SLINGSHOT', 'CRUX'] },
+    { name: 'SAPWORK', floor: 70, geometry: 0.44, pressure: 1.00, sequence: ['SAPRUN', 'GROVE', 'SLINGSHOT', 'FLOW', 'CRUX', 'RECOVERY'] },
+    { name: 'HIGH CANOPY', floor: 115, geometry: 0.70, pressure: 1.12, sequence: ['CRUX', 'SAPRUN', 'GROVE', 'SLINGSHOT', 'CRUX', 'RECOVERY'] },
+    { name: 'CROWNLINE', floor: 165, geometry: 1.00, pressure: 1.24, sequence: ['SAPRUN', 'CRUX', 'SLINGSHOT', 'GROVE', 'CRUX', 'SAPRUN'] },
   ];
 
   function phaseForFloor(floor) {
@@ -76,68 +78,97 @@
     branch.launch = Boolean(launch);
     if (side === 'left') {
       branch.x1 = state.LEFT_WALL - 3;
-      branch.x2 = Math.min(state.RIGHT_WALL - 62, state.LEFT_WALL + length);
+      branch.x2 = Math.min(state.RIGHT_WALL - 70, state.LEFT_WALL + length);
       branch.launchX = branch.x2 - 40;
     } else if (side === 'right') {
       branch.x2 = state.RIGHT_WALL + 3;
-      branch.x1 = Math.max(state.LEFT_WALL + 62, state.RIGHT_WALL - length);
+      branch.x1 = Math.max(state.LEFT_WALL + 70, state.RIGHT_WALL - length);
       branch.launchX = branch.x1 + 40;
     } else {
-      const half = Math.min(length, state.RIGHT_WALL - state.LEFT_WALL - 28) * 0.5;
+      const half = Math.min(length, state.RIGHT_WALL - state.LEFT_WALL - 30) * 0.5;
       branch.x1 = W / 2 - half;
       branch.x2 = W / 2 + half;
-      branch.launchX = W / 2 + (state.routeRng.next() - 0.5) * Math.min(120, half * 0.45);
+      branch.launchX = W / 2 + (state.routeRng.next() - 0.5) * Math.min(130, half * 0.45);
     }
     state.branches.push(branch);
     return branch;
   }
 
-  function knotPosition(role, side, branch) {
-    const jitter = (state.routeRng.next() - 0.5) * 32;
-    if (role === 'cross') {
-      return {
-        x: side === 'left' ? state.RIGHT_WALL - 104 + jitter : state.LEFT_WALL + 104 + jitter,
-        y: branch.y + 112 + state.routeRng.next() * 28,
-      };
-    }
-    if (role === 'center') {
-      return { x: W / 2 + jitter * 1.8, y: branch.y + 94 + state.routeRng.next() * 30 };
-    }
-    return { x: side === 'right' ? branch.x2 - 52 : branch.x1 + 52, y: branch.y + 90 };
-  }
-
-  function addKnot(x, y, floor, chunk, role) {
+  function addKnot(x, y, floor, chunk, role, anchorKind = 'branch') {
     const knot = takeKnot();
     Object.assign(knot, {
-      x, y, floor, chunkId: chunk.id, chunkType: chunk.type, role,
+      x,
+      y,
+      floor,
+      chunkId: chunk.id,
+      chunkType: chunk.type,
+      role,
+      anchorKind,
       pulse: state.routeRng.next() * Math.PI * 2,
     });
     state.knots.push(knot);
+    return knot;
+  }
+
+  function addRing(x, y, floor, chunk, role, difficulty) {
+    const ring = takeRing();
+    Object.assign(ring, {
+      x,
+      y,
+      floor,
+      chunkId: chunk.id,
+      chunkType: chunk.type,
+      role,
+      hit: false,
+      pulse: state.routeRng.next() * Math.PI * 2,
+      radius: lerp(TUNE.ring.baseRadius, TUNE.ring.minRadius, difficulty),
+    });
+    state.rings.push(ring);
+    return ring;
+  }
+
+  function knotPosition(role, side, branch) {
+    const jitter = (state.routeRng.next() - 0.5) * 28;
+    if (role === 'cross') {
+      return {
+        x: side === 'left' ? state.RIGHT_WALL - 94 + jitter : state.LEFT_WALL + 94 + jitter,
+        y: branch.y + 104 + state.routeRng.next() * 24,
+      };
+    }
+    if (role === 'center') {
+      return { x: W / 2 + jitter * 1.45, y: branch.y + 92 + state.routeRng.next() * 24 };
+    }
+    return { x: side === 'right' ? branch.x2 - 48 : branch.x1 + 48, y: branch.y + 88 };
+  }
+
+  function airAnchorPosition(role, side, y) {
+    const jitter = (state.routeRng.next() - 0.5) * 34;
+    const inset = 98;
+    if (role === 'left') return { x: state.LEFT_WALL + inset + jitter, y };
+    if (role === 'right') return { x: state.RIGHT_WALL - inset + jitter, y };
+    if (role === 'center') return { x: W / 2 + jitter * 1.3, y };
+    if (role === 'cross') {
+      return {
+        x: side === 'left' ? state.RIGHT_WALL - inset + jitter : state.LEFT_WALL + inset + jitter,
+        y,
+      };
+    }
+    return { x: W / 2 + jitter, y };
   }
 
   function ringPosition(role, side, branch) {
     const jitter = (state.routeRng.next() - 0.5) * 28;
     if (role === 'cross') {
       return {
-        x: side === 'left' ? state.RIGHT_WALL - 155 + jitter : state.LEFT_WALL + 155 + jitter,
-        y: branch.y + 64 + state.routeRng.next() * 18,
+        x: side === 'left' ? state.RIGHT_WALL - 145 + jitter : state.LEFT_WALL + 145 + jitter,
+        y: branch.y + 62 + state.routeRng.next() * 16,
       };
     }
     if (role === 'crown') {
-      return { x: W / 2 + jitter * 1.7, y: branch.y + 78 + state.routeRng.next() * 20 };
+      return { x: W / 2 + jitter * 1.5, y: branch.y + 74 + state.routeRng.next() * 18 };
     }
-    const freeX = side === 'left' ? branch.x2 - 82 : side === 'right' ? branch.x1 + 82 : W / 2;
-    return { x: freeX + jitter, y: branch.y + 56 + state.routeRng.next() * 14 };
-  }
-
-  function addRing(x, y, floor, chunk, role, difficulty) {
-    const ring = takeRing();
-    Object.assign(ring, {
-      x, y, floor, chunkId: chunk.id, chunkType: chunk.type, role, hit: false,
-      pulse: state.routeRng.next() * Math.PI * 2,
-      radius: lerp(TUNE.ring.baseRadius, TUNE.ring.minRadius, difficulty),
-    });
-    state.rings.push(ring);
+    const freeX = side === 'left' ? branch.x2 - 78 : side === 'right' ? branch.x1 + 78 : W / 2;
+    return { x: freeX + jitter, y: branch.y + 54 + state.routeRng.next() * 12 };
   }
 
   function resolveSide(token) {
@@ -183,25 +214,39 @@
     for (const step of grammar) {
       state.generatedFloor += 1;
       const phase = phaseForFloor(state.generatedFloor);
-      const difficulty = clamp(Math.max(0, state.generatedFloor - 26) / 160, 0, 1);
+      const difficulty = clamp(Math.max(0, state.generatedFloor - 24) / 160, 0, 1);
       const geometry = Math.max(difficulty, phase.geometry * 0.82);
-      const dyScale = 1 + geometry * 0.12;
-      const lengthScale = 1 - geometry * 0.16;
-      const yJitter = (state.routeRng.next() - 0.5) * lerp(3, 12, geometry);
-      const lengthJitter = (state.routeRng.next() - 0.5) * lerp(10, 24, geometry);
+      const dyScale = 1 + geometry * 0.10;
+      const lengthScale = 1 - geometry * 0.14;
+      const yJitter = (state.routeRng.next() - 0.5) * lerp(2, 10, geometry);
+      const lengthJitter = (state.routeRng.next() - 0.5) * lerp(8, 22, geometry);
       state.generatedY += step.dy * dyScale + yJitter;
       const side = resolveSide(step.side);
-      const slope = (state.routeRng.next() - 0.5) * lerp(0.022, 0.095, geometry);
-      const minLength = side === 'center' ? lerp(390, 275, geometry) : lerp(270, 185, geometry);
-      const length = Math.max(minLength, step.length * lengthScale + lengthJitter);
-      const branch = addBranch(state.generatedFloor, state.generatedY, side, length, slope, chunk, step.launch);
-      if (step.knot) {
-        const pos = knotPosition(step.knot, side, branch);
-        addKnot(pos.x, pos.y, state.generatedFloor, chunk, step.knot);
+      const slope = (state.routeRng.next() - 0.5) * lerp(0.018, 0.085, geometry);
+      let branch = null;
+
+      if (step.branch !== false) {
+        const minLength = side === 'center' ? lerp(400, 280, geometry) : lerp(260, 185, geometry);
+        const length = Math.max(minLength, step.length * lengthScale + lengthJitter);
+        branch = addBranch(state.generatedFloor, state.generatedY, side, length, slope, chunk, step.launch);
       }
+
+      let airAnchor = null;
+      if (step.anchor) {
+        const pos = airAnchorPosition(step.anchor, side, state.generatedY + 12);
+        airAnchor = addKnot(pos.x, pos.y, state.generatedFloor, chunk, step.anchor, 'sap-stick');
+      } else if (step.knot && branch) {
+        const pos = knotPosition(step.knot, side, branch);
+        addKnot(pos.x, pos.y, state.generatedFloor, chunk, step.knot, 'branch');
+      }
+
       if (step.ring) {
-        const pos = ringPosition(step.ring, side, branch);
-        addRing(pos.x, pos.y, state.generatedFloor, chunk, step.ring, geometry);
+        if (step.ring === 'anchor' && airAnchor) {
+          addRing(airAnchor.x + (side === 'left' ? 64 : side === 'right' ? -64 : 0), airAnchor.y - 14, state.generatedFloor, chunk, 'anchor', geometry);
+        } else if (branch) {
+          const pos = ringPosition(step.ring, side, branch);
+          addRing(pos.x, pos.y, state.generatedFloor, chunk, step.ring, geometry);
+        }
       }
     }
     chunk.endY = state.generatedY;
@@ -265,7 +310,7 @@
     state.routeChunkIndex = 0;
     state.lastSide = 'left';
     const startChunk = { id: 'start', type: 'RECOVERY', phase: 'ROOTWAYS', startFloor: 0, endFloor: 0 };
-    const start = addBranch(0, 70, 'center', 560, 0, startChunk, true);
+    const start = addBranch(0, 70, 'center', 620, 0, startChunk, true);
     generateUntil(H + 3600);
     return start;
   }
