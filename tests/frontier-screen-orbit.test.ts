@@ -89,16 +89,16 @@ test('screen taste participates in the same personalized prior as technical and 
   assert.ok(personalTasteRankingPrior(exact) > personalTasteRankingPrior(adjacent));
 });
 
-test('finite daily run reserves Screen Orbit independently of gaming and internet culture', () => {
+test('production-sized daily run reserves Screen Orbit independently of gaming and internet culture', () => {
   const ranked = [
     item('important', 'Major security release', 'must_know', ['security']),
     item('learn', 'Neural decoding benchmark', 'neuro_frontier', ['neural decoding']),
     item('game', 'New metroidvania release', 'gaming', ['metroidvania']),
     item('internet', 'Funny internet clip', 'internet_culture', ['meme']),
     item('screen', 'Re:ZERO anniversary and season update', 'screen', ['anime', 're zero']),
-    ...Array.from({ length: 12 }, (_, index) => item(`filler-${index}`, `Filler ${index}`, 'wildcards', [`filler-${index}`])),
+    ...Array.from({ length: 16 }, (_, index) => item(`filler-${index}`, `Filler ${index}`, 'wildcards', [`filler-${index}`])),
   ];
-  const selected = selectDailyRun(ranked, {}, 8, new Date('2026-08-24T06:00:00.000Z'));
+  const selected = selectDailyRun(ranked, {}, 14, new Date('2026-08-24T06:00:00.000Z'));
   assert.ok(selected.some((entry) => entry.id === 'screen'));
   assert.ok(selected.some((entry) => entry.id === 'game'));
 });
@@ -119,7 +119,7 @@ test('Screen Orbit motif RSS requires returned evidence rather than query labels
       <link>https://news.google.com/rss/articles/accounting</link>
       <pubDate>Sun, 23 Aug 2026 17:00:00 GMT</pubDate>
       <source url="https://unknown-screen-blog.invalid">Unknown Blog</source>
-      <description>Quarterly accounting details with no anime or story signal.</description>
+      <description>Quarterly accounting details and unrelated distribution metrics.</description>
     </item>
   </channel></rss>`;
   const parsed = parseScreenNewsRss(rss, spec!, Date.parse('2026-08-24T06:00:00Z'));
