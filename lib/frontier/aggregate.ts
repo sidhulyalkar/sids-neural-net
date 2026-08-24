@@ -6,9 +6,11 @@ import { getAdaptiveLiveDiscovery } from './liveDiscovery';
 import { enrichFrontierMediaGeometry } from './media/geometry';
 import { enrichFrontierSourceVisual } from './media/sourceVisuals';
 import { getPersonalFrontierFeed } from './personalSources';
+import { personalTasteTags } from './personalTaste';
 import { getPersonalTasteFrontierFeed } from './personalTasteSources';
 import { getSharedMultiSourceFrontierFeed } from './sourceIngestorShared';
 import { getFrontierFeed } from './sources';
+import { getSportsAnalyticsFeed } from './sportsAnalyticsSources';
 import { vetFrontierItems } from './sourceTrust';
 import type { FrontierFeedResponse, FrontierItem, FrontierSourceStatus } from './types';
 import { getVimeoStaffPicksFeed } from './vimeoSource';
@@ -76,7 +78,15 @@ function enrichFormatSemantics(entry: FrontierItem): FrontierItem {
   if (entry.sourceKind === 'lobsters') tags.add('thread');
   if (entry.sourceKind === 'nasa') tags.add('visual science');
   if (entry.sourceKind === 'vimeo') tags.add('video');
-  return tags.size === entry.tags.length ? entry : { ...entry, tags: [...tags] };
+
+  // Every adapter gets the same semantic personalization pass. This prevents a
+  // useful sports/statistics, Neuroglancer, imaging, or neuroscience item from
+  // losing ranking authority merely because its source adapter emitted generic
+  // tags. These tags are semantic only and never depend on presentation media.
+  const tasteText = [entry.title, entry.summary, entry.sourceLabel, ...entry.tags].filter(Boolean).join(' ');
+  for (const tag of personalTasteTags(tasteText)) tags.add(tag);
+
+  return tags.size === entry.tags.length ? entry : { ...entry, tags: [...tags].slice(0, 14) };
 }
 
 function enrichPresentation(entry: FrontierItem): FrontierItem {
@@ -149,11 +159,22 @@ export async function getIntegratedFrontierFeed(options: IntegratedOptions = {})
     ? getPersonalTasteFrontierFeed()
     : Promise.resolve(emptyAdaptive);
 
-  const [baseResult, personalResult, tasteResult, activeSportsResult, adaptiveResult, multiSourceResult, expandedResult, vimeoResult] = await Promise.allSettled([
+  const [
+    baseResult,
+    personalResult,
+    tasteResult,
+    activeSportsResult,
+    sportsAnalyticsResult,
+    adaptiveResult,
+    multiSourceResult,
+    expandedResult,
+    vimeoResult,
+  ] = await Promise.allSettled([
     withinAdapterDeadline('core mesh', getFrontierFeed(), deadline),
     withinAdapterDeadline('personal mesh', getPersonalFrontierFeed(), deadline),
     withinAdapterDeadline('personal taste mesh', tasteDiscoveryTask, deadline),
     withinAdapterDeadline('active sports mesh', getActiveSportsFeed(), deadline),
+    withinAdapterDeadline('sports analytics mesh', getSportsAnalyticsFeed(), deadline),
     withinAdapterDeadline(
       'adaptive live mesh',
       focusTopics.length ? getAdaptiveLiveDiscovery(focusTopics) : Promise.resolve(emptyAdaptive),
@@ -170,7 +191,17 @@ export async function getIntegratedFrontierFeed(options: IntegratedOptions = {})
   // candidates, apply destination-aware source vetting, and collapse duplicates
   // before presentation enrichment so neither novelty nor an aggregator can
   // promote an unvetted publisher into the candidate pool.
-  const orderedResults = [adaptiveResult, multiSourceResult, expandedResult, tasteResult, vimeoResult, baseResult, activeSportsResult, personalResult];
+  const orderedResults = [
+    sportsAnalyticsResult,
+    adaptiveResult,
+    multiSourceResult,
+    expandedResult,
+    tasteResult,
+    vimeoResult,
+    baseResult,
+    activeSportsResult,
+    personalResult,
+  ];
   const liveFeeds = orderedResults.flatMap((result) => result.status === 'fulfilled' ? [result.value] : []);
   const rawLiveItems = vetFrontierItems(dedupe(
     liveFeeds
@@ -196,6 +227,7 @@ export async function getIntegratedFrontierFeed(options: IntegratedOptions = {})
   if (personalResult.status === 'rejected') sources.push({ id: 'local', label: 'Personal mesh', ok: false, count: 0, message: 'personal live source mesh unavailable' });
   if (tasteResult.status === 'rejected') sources.push({ id: 'brave_web', label: 'Personal taste search', ok: false, count: 0, message: 'targeted personal taste discovery unavailable' });
   if (activeSportsResult.status === 'rejected') sources.push({ id: 'local', label: 'Active sports mesh', ok: false, count: 0, message: 'active sports source mesh unavailable' });
+  if (sportsAnalyticsResult.status === 'rejected') sources.push({ id: 'rss', label: 'Sports analytics radar', ok: false, count: 0, message: 'sports analytics source mesh unavailable' });
   if (adaptiveResult.status === 'rejected' && focusTopics.length) sources.push({ id: 'gdelt', label: 'Adaptive live mesh', ok: false, count: 0, message: 'focused request-time discovery unavailable' });
   if (multiSourceResult.status === 'rejected') sources.push({ id: 'local', label: 'Research ingestion mesh', ok: false, count: 0, message: 'multi-source ingestion unavailable' });
   if (expandedResult.status === 'rejected') sources.push({ id: 'local', label: 'Expanded public mesh', ok: false, count: 0, message: 'expanded public discovery unavailable' });
