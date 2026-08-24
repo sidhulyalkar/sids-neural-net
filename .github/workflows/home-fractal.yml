@@ -4,15 +4,20 @@ on:
   pull_request:
     paths:
       - 'app/page.tsx'
+      - 'components/layout/Header.tsx'
+      - 'components/neural-atlas/**'
       - 'components/neural-atlas-canvas/**'
+      - 'components/portfolio/PageShell.tsx'
       - 'lib/home/fractalDendrite.ts'
       - 'lib/home/fractalDendriteV4.ts'
       - 'lib/home/fractalDendriteV5.ts'
       - 'lib/home/fractalDendriteV6.ts'
+      - 'lib/home/fractalTheme.ts'
       - 'tests/home-dendrite-regression.test.ts'
       - 'tests/home-dendrite-v4-regression.test.ts'
       - 'tests/home-dendrite-v5-regression.test.ts'
       - 'tests/home-dendrite-v6-regression.test.ts'
+      - 'tests/fractal-theme-echo.test.ts'
       - 'scripts/playtest-arcade-home.mjs'
       - 'scripts/fractal-home-gallery.mjs'
       - 'tsconfig.json'
@@ -50,17 +55,24 @@ jobs:
         run: >-
           npx eslint
           app/page.tsx
+          components/layout/Header.tsx
+          components/neural-atlas/ComicSectionLayout.tsx
+          components/neural-atlas/FractalThemeEcho.tsx
+          components/neural-atlas/ThemedNeuralBackground.tsx
           components/neural-atlas-canvas/AdaptiveFractalHome.tsx
           components/neural-atlas-canvas/AdaptiveFractalStage.tsx
           components/neural-atlas-canvas/FractalSurfaceEnhancerV2.tsx
+          components/portfolio/PageShell.tsx
           lib/home/fractalDendrite.ts
           lib/home/fractalDendriteV4.ts
           lib/home/fractalDendriteV5.ts
           lib/home/fractalDendriteV6.ts
+          lib/home/fractalTheme.ts
           tests/home-dendrite-regression.test.ts
           tests/home-dendrite-v4-regression.test.ts
           tests/home-dendrite-v5-regression.test.ts
           tests/home-dendrite-v6-regression.test.ts
+          tests/fractal-theme-echo.test.ts
           scripts/playtest-arcade-home.mjs
           scripts/fractal-home-gallery.mjs
           --no-warn-ignored
@@ -73,6 +85,7 @@ jobs:
           tests/home-dendrite-v4-regression.test.ts
           tests/home-dendrite-v5-regression.test.ts
           tests/home-dendrite-v6-regression.test.ts
+          tests/fractal-theme-echo.test.ts
 
       - name: Build production site
         env:
