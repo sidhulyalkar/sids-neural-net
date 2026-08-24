@@ -13,6 +13,7 @@ const modules = [
   '02-jump-contract.js',
   '02-flow-assist.js',
   '03-render.js',
+  '03-stride-hud.js',
   '04-input.js',
 ];
 const indexPath = join(runtimeRoot, 'index.html');
@@ -33,13 +34,15 @@ const gameplay = readFileSync(join(runtimeRoot, '02-gameplay.js'), 'utf8');
 const jumpContract = readFileSync(join(runtimeRoot, '02-jump-contract.js'), 'utf8');
 const flowAssist = readFileSync(join(runtimeRoot, '02-flow-assist.js'), 'utf8');
 const render = readFileSync(join(runtimeRoot, '03-render.js'), 'utf8');
+const strideHud = readFileSync(join(runtimeRoot, '03-stride-hud.js'), 'utf8');
 const input = readFileSync(join(runtimeRoot, '04-input.js'), 'utf8');
-const runtime = [core, feel, world, gameplay, jumpContract, flowAssist, render, input].join('\n');
+const runtime = [core, feel, world, gameplay, jumpContract, flowAssist, render, strideHud, input].join('\n');
 const design = readFileSync(designPath, 'utf8');
 
 assert.match(index, /<title>Sylvaria: Sequoia v0\.3\.0<\/title>/);
 assert.match(index, /<canvas id="c" width="960" height="640"/);
-assert.match(index, /00-core\.js[\s\S]*00-feel-tuning\.js[\s\S]*01-world\.js[\s\S]*02-gameplay\.js[\s\S]*02-jump-contract\.js[\s\S]*02-flow-assist\.js[\s\S]*03-render\.js[\s\S]*04-input\.js/);
+assert.match(index, /00-core\.js[\s\S]*00-feel-tuning\.js[\s\S]*01-world\.js[\s\S]*02-gameplay\.js[\s\S]*02-jump-contract\.js[\s\S]*02-flow-assist\.js[\s\S]*03-render\.js[\s\S]*03-stride-hud\.js[\s\S]*04-input\.js/);
+assert.match(index, /Run to build Stride/i);
 assert.match(index, /air kick/i);
 assert.match(index, /Sap Snap/i);
 assert.match(index, /Bark Kick/i);
@@ -61,9 +64,12 @@ assert.match(feel, /groundAccel: 3680/);
 assert.match(feel, /airAccel: 1760/);
 assert.match(feel, /maxSpeed: 700/);
 assert.match(feel, /groundFriction60Hz: 0\.91/);
+assert.match(feel, /airDrag120Hz: 0\.9990/);
 assert.match(feel, /burstChargeSeconds: 0\.18/);
 assert.match(feel, /burstMinSpeed: 175/);
+assert.match(feel, /comboAccelPerLink: 0\.055/);
 assert.match(feel, /comboCarryBase: 34/);
+assert.match(feel, /strideMemoryDecay: 68/);
 assert.match(feel, /strideLaunchCarry: 0\.90/);
 assert.match(feel, /strideMax: 760/);
 assert.match(feel, /base: 650/);
@@ -165,6 +171,15 @@ assert.match(render, /drawTelemetry/);
 assert.match(render, /SYLVARIA: SEQUOIA/);
 assert.match(render, /sceneScale = state\.reducedMotion \? 1 : 1 - speedWide - hyperWide/);
 
+assert.match(strideHud, /function drawStrideHud\(/);
+assert.match(strideHud, /strideMomentum/);
+assert.match(strideHud, /RUSH I/);
+assert.match(strideHud, /RUSH II/);
+assert.match(strideHud, /RUSH III/);
+assert.match(strideHud, /CROWN RUSH/);
+assert.match(strideHud, /FLOW CARRY/);
+assert.match(strideHud, /S\.render = render/);
+
 assert.match(input, /window\.SYLVARIA_SEQUOIA_DEBUG/);
 assert.match(input, /version: '0\.3\.0'/);
 assert.match(input, /fixedHz: 120/);
@@ -206,5 +221,6 @@ console.log(JSON.stringify({
   traversalAssists: ['Momentum Burst', 'Air Kick', 'Sap Snap', 'Quick Sling', 'Bark Kick'],
   aerialLoop: ['2+ floor skip', 'combo carry', 'wall recovery', 'Sap refresh', 'CROWNVELOCITY'],
   jumpInput: ['start-key quarantine', '28ms duplicate guard', 'unique request id', 'single action consumption'],
+  hud: ['Stride', 'Rush I', 'Rush II', 'Rush III', 'Crown Rush', 'Flow Carry'],
   telemetry: ['airtime', 'double jump', 'refreshes', 'speed', 'rebound', 'rings', 'burls', 'sapline', 'combo', 'threat', 'route completion'],
 }, null, 2));
