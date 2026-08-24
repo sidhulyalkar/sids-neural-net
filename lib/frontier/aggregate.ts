@@ -8,6 +8,7 @@ import { enrichFrontierSourceVisual } from './media/sourceVisuals';
 import { getPersonalFrontierFeed } from './personalSources';
 import { getSharedMultiSourceFrontierFeed } from './sourceIngestorShared';
 import { getFrontierFeed } from './sources';
+import { vetFrontierItems } from './sourceTrust';
 import type { FrontierFeedResponse, FrontierItem, FrontierSourceStatus } from './types';
 import { getVimeoStaffPicksFeed } from './vimeoSource';
 
@@ -155,15 +156,16 @@ export async function getIntegratedFrontierFeed(options: IntegratedOptions = {})
   // Focused discovery and research meshes intentionally precede broad sources.
   // When adapters converge on one URL, the richer request-time normalization
   // survives deduplication while weaker duplicates disappear. Reject malformed
-  // candidates and collapse duplicates before presentation enrichment so media
-  // work can never become a hidden request-time tax on items we will discard.
+  // candidates, apply destination-aware source vetting, and collapse duplicates
+  // before presentation enrichment so neither novelty nor an aggregator can
+  // promote an unvetted publisher into the candidate pool.
   const orderedResults = [adaptiveResult, multiSourceResult, expandedResult, vimeoResult, baseResult, activeSportsResult, personalResult];
   const liveFeeds = orderedResults.flatMap((result) => result.status === 'fulfilled' ? [result.value] : []);
-  const rawLiveItems = dedupe(
+  const rawLiveItems = vetFrontierItems(dedupe(
     liveFeeds
       .flatMap((feed) => feed.items)
       .filter((item) => isPlausibleFrontierCandidate(item))
-  )
+  ))
     .sort((a, b) => b.baseScore - a.baseScore)
     .slice(0, MAX_INTEGRATED_CANDIDATES);
   const liveItems = rawLiveItems.map(enrichPresentation);
@@ -171,8 +173,8 @@ export async function getIntegratedFrontierFeed(options: IntegratedOptions = {})
   const liveKeys = new Set(liveItems.flatMap((item) => [canonicalKey(item), item.title.toLowerCase()]));
   const archive = options.includeSnapshot === false
     ? []
-    : recentSnapshotItems()
-        .filter((item) => !liveKeys.has(canonicalKey(item)) && !liveKeys.has(item.title.toLowerCase()))
+    : vetFrontierItems(recentSnapshotItems()
+        .filter((item) => !liveKeys.has(canonicalKey(item)) && !liveKeys.has(item.title.toLowerCase())))
         .map(enrichPresentation);
 
   const candidateItems = [...liveItems, ...archive].slice(0, MAX_INTEGRATED_CANDIDATES);

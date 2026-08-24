@@ -1,5 +1,6 @@
 import { behavioralAdjustment, behavioralExplorationBonus, formatForItem, aggregatePreference, timeBucket } from './behavior';
 import { FRONTIER_LANE_MAP } from './config';
+import { isFrontierSourceAdmitted, sourceTrustRankingPrior } from './sourceTrust';
 import type {
   FrontierBehaviorModel,
   FrontierHistoryEntry,
@@ -110,6 +111,7 @@ export function personalizedScore(
   const usefulSurprise = 1 - Math.min(1, Math.abs(item.novelty - surpriseTarget) / surpriseTarget);
   const learnedBehavior = behavioralAdjustment(item, behavior, now);
   const exploration = behavioralExplorationBonus(item, behavior, now) * (0.65 + profile.curiosity);
+  const sourceTrustPrior = sourceTrustRankingPrior(item);
 
   const score =
     item.baseScore * 0.28 +
@@ -124,6 +126,7 @@ export function personalizedScore(
     knownness * 0.08 +
     learnedBehavior +
     exploration +
+    sourceTrustPrior +
     resurfaceBonus(historyEntry, now);
 
   return clamp(score, -1, 1.5);
@@ -137,7 +140,7 @@ export function rankFrontierItems(
   behavior?: FrontierBehaviorModel
 ): FrontierItem[] {
   return items
-    .filter((item) => history[item.id]?.reaction !== 'hide')
+    .filter((item) => history[item.id]?.reaction !== 'hide' && isFrontierSourceAdmitted(item))
     .map((item) => ({ item, score: personalizedScore(item, profile, history[item.id], now, behavior) }))
     .sort((a, b) => b.score - a.score)
     .map(({ item }) => item);
