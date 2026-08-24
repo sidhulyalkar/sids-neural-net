@@ -98,7 +98,7 @@ function mediaFromBlock(block: string, title: string): FrontierMedia | undefined
   const enclosureType = attr(enclosure, 'type').toLowerCase();
 
   const mediaIsVideo = Boolean(mediaUrl && (mediaKind === 'video' || mediaType.startsWith('video/') || VIDEO_EXT.test(mediaUrl)));
-  if (mediaIsVideo) {
+  if (mediaIsVideo && mediaUrl) {
     return {
       type: 'video',
       url: mediaUrl,
@@ -110,13 +110,27 @@ function mediaFromBlock(block: string, title: string): FrontierMedia | undefined
     };
   }
 
+  // A playable enclosure is the structural media authority. Any source image
+  // carried beside it is a poster, never a reason to demote the item to an
+  // image-only card. This keeps feed semantics and card geometry stable.
+  const enclosureIsVideo = Boolean(enclosureUrl && (enclosureType.startsWith('video/') || VIDEO_EXT.test(enclosureUrl)));
+  if (enclosureIsVideo && enclosureUrl) {
+    const mediaIsImage = Boolean(mediaUrl && (mediaKind === 'image' || mediaType.startsWith('image/') || IMAGE_EXT.test(mediaUrl)));
+    return {
+      type: 'video',
+      url: enclosureUrl,
+      poster: thumbnail ?? (mediaIsImage ? mediaUrl : undefined),
+      alt: title,
+      aspectRatio: 'wide',
+      width: numericAttr(enclosure, 'width'),
+      height: numericAttr(enclosure, 'height'),
+    };
+  }
+
   const mediaIsImage = Boolean(mediaUrl && (mediaKind === 'image' || mediaType.startsWith('image/') || IMAGE_EXT.test(mediaUrl)));
   if (mediaIsImage && mediaUrl) return imageMedia(mediaUrl, title, mediaContent);
   if (thumbnail) return imageMedia(thumbnail, title, thumbnailTag);
 
-  if (enclosureUrl && (enclosureType.startsWith('video/') || VIDEO_EXT.test(enclosureUrl))) {
-    return { type: 'video', url: enclosureUrl, poster: thumbnail, alt: title, aspectRatio: 'wide' };
-  }
   if (enclosureUrl && (enclosureType.startsWith('image/') || IMAGE_EXT.test(enclosureUrl))) {
     return imageMedia(enclosureUrl, title, enclosure);
   }
