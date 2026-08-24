@@ -9,71 +9,101 @@
 
   const TUNE = {
     run: {
-      groundAccel: 2700,
-      airAccel: 1180,
-      maxSpeed: 570,
+      groundAccel: 2740,
+      airAccel: 1240,
+      maxSpeed: 585,
       groundFriction60Hz: 0.82,
-      airDrag120Hz: 0.997,
-      reverseAirScale: 0.72,
+      airDrag120Hz: 0.9975,
+      reverseAirScale: 0.74,
     },
     jump: {
-      base: 555,
-      momentumGain: 0.50,
-      momentumCap: 325,
-      comboLift: 9,
+      base: 548,
+      momentumGain: 0.48,
+      momentumCap: 310,
+      comboLift: 6,
       cutDrag120Hz: 0.989,
-      bufferSeconds: 0.10,
-      coyoteSeconds: 0.09,
+      bufferSeconds: 0.11,
+      coyoteSeconds: 0.095,
+      airJumps: 1,
+      doubleBase: 438,
+      doubleMomentumGain: 0.22,
+      doubleMomentumCap: 125,
+      doubleHorizontalImpulse: 112,
+      doubleMaxVy: 775,
+      wallRefreshSpeed: 245,
+      sapRefreshGain: 26,
+      burlBoost: 108,
+      burlHorizontalBoost: 42,
+      burlRadius: 68,
     },
     rebound: {
-      retention: 0.915,
-      horizontalBonus: 34,
-      verticalBase: 175,
-      verticalGain: 0.37,
-      verticalCap: 305,
+      retention: 0.92,
+      horizontalBonus: 38,
+      verticalBase: 188,
+      verticalGain: 0.39,
+      verticalCap: 318,
       sweetSpotAmplitude: 0.085,
+      comboSpeed: 225,
     },
     sap: {
-      attachMax: 365,
+      attachMax: 382,
       restRatio: 0.72,
-      restMin: 90,
+      restMin: 88,
       restMax: 205,
-      springK: 24,
-      radialDamping: 5.1,
-      pumpAccel: 1490,
-      hyperPumpAccel: 1810,
-      releaseStretchGain: 2.18,
-      releaseCap: 265,
-      releaseUpFraction: 0.30,
+      springK: 24.5,
+      radialDamping: 5.0,
+      pumpAccel: 1510,
+      hyperPumpAccel: 1940,
+      releaseStretchGain: 2.20,
+      releaseCap: 302,
+      releaseUpFraction: 0.31,
+      comboReleaseGain: 25,
+      surgeStretch: 46,
+      surgeMultiplier: 1.30,
+      hyperReleaseMultiplier: 1.17,
+      surgeUpBonus: 78,
     },
     combo: {
-      window: 2.72,
-      ascentDecayScale: 0.52,
-      hesitationSpeed: 135,
-      hesitationDecayScale: 1.90,
-      hyperThreshold: 4,
+      window: 2.95,
+      ascentDecayScale: 0.42,
+      saplineDecayScale: 0.36,
+      highMomentumDecayScale: 0.72,
+      hesitationSpeed: 132,
+      hesitationDecayScale: 2.0,
+      landingGrace: 1.12,
+      recoveryBankDelay: 0.72,
+      duplicateLinkCooldown: 0.11,
+      sapSurgeThreshold: 5,
+      hyperThreshold: 7,
+      hyperVariety: 3,
+    },
+    ring: {
+      baseRadius: 27,
+      minRadius: 19,
+      speedBonusStart: 300,
+      score: 72,
     },
     threat: {
-      baseSpeed: 37,
-      timeGain: 0.48,
-      floorGain: 0.22,
-      targetGap: 455,
-      rubberGain: 74,
-      minSpeed: 26,
-      maxSpeed: 172,
-      burnGap: 48,
+      baseSpeed: 35,
+      timeGain: 0.46,
+      floorGain: 0.23,
+      targetGap: 470,
+      rubberGain: 72,
+      minSpeed: 24,
+      maxSpeed: 184,
+      burnGap: 47,
       rescueDepth: 74,
-      deathDepth: 102,
+      deathDepth: 104,
       burnCooldown: 0.72,
     },
     camera: {
-      verticalAnchor: 182,
-      verticalLookahead: 0.088,
-      horizontalLookahead: 0.020,
-      maxLookahead: 96,
-      follow: 4.8,
-      hyperWideView: 0.028,
-      speedWideView: 0.022,
+      verticalAnchor: 184,
+      verticalLookahead: 0.092,
+      horizontalLookahead: 0.022,
+      maxLookahead: 108,
+      follow: 4.9,
+      hyperWideView: 0.032,
+      speedWideView: 0.024,
     },
   };
 
@@ -83,27 +113,27 @@
   const round = (value, digits = 2) => Number(value.toFixed(digits));
 
   function makeRng(seed) {
-    let state = seed >>> 0 || 1;
+    let value = seed >>> 0 || 1;
     return {
       next() {
-        state ^= state << 13;
-        state ^= state >>> 17;
-        state ^= state << 5;
-        return (state >>> 0) / 4294967296;
+        value ^= value << 13;
+        value ^= value >>> 17;
+        value ^= value << 5;
+        return (value >>> 0) / 4294967296;
       },
       get seed() {
-        return state >>> 0;
+        return value >>> 0;
       },
     };
   }
 
   const visualRng = makeRng(0x7193bd1);
-  const stars = Array.from({ length: 96 }, () => ({
+  const stars = Array.from({ length: 118 }, () => ({
     x: visualRng.next() * W,
     y: visualRng.next() * H,
-    r: 0.35 + visualRng.next() * 1.35,
-    alpha: 0.12 + visualRng.next() * 0.58,
-    parallax: 0.12 + visualRng.next() * 0.42,
+    r: 0.35 + visualRng.next() * 1.45,
+    alpha: 0.10 + visualRng.next() * 0.58,
+    parallax: 0.10 + visualRng.next() * 0.45,
   }));
 
   const state = {
@@ -139,10 +169,12 @@
     pointers: new Map(),
     branches: [],
     knots: [],
+    rings: [],
     particles: [],
     messages: [],
     branchPool: [],
     knotPool: [],
+    ringPool: [],
     chunks: [],
     stars,
   };
@@ -156,9 +188,11 @@
     vy: 0,
     facing: 1,
     grounded: null,
+    groundedTime: 0,
     coyote: 0,
     jumpBuffer: 0,
     jumpHeld: false,
+    airJumps: TUNE.jump.airJumps,
     sapHeld: false,
     sap: null,
     wallTimer: 0,
@@ -173,6 +207,9 @@
     comboFloors: 0,
     comboTimer: 0,
     comboStartedAt: 0,
+    comboLastLinkAt: -99,
+    comboLastLinkType: '',
+    comboKindsMask: 0,
     hyper: false,
     hyperStartedAt: 0,
     resin: 0,
@@ -183,18 +220,24 @@
   function freshTelemetry(seed) {
     return {
       seed,
-      version: '0.2.0',
+      version: '0.3.0',
       startedAt: performance.now(),
       finishedAt: null,
       counters: {
         jumps: 0,
+        doubleJumps: 0,
+        airJumpRefreshes: 0,
         landings: 0,
         multiFloorSkips: 0,
         wallBounces: 0,
+        launchBurls: 0,
+        ringsThreaded: 0,
         sapAttempts: 0,
         sapAttaches: 0,
         sapReleases: 0,
         sapMisses: 0,
+        sapSurges: 0,
+        comboLinks: 0,
         comboBanks: 0,
         comboTimeouts: 0,
         comboDrops: 0,
@@ -226,6 +269,7 @@
       samples: {
         airtimeDurations: [],
         jumpLaunchSpeeds: [],
+        airKickLaunchSpeeds: [],
         reboundRetention: [],
         reboundVerticalLift: [],
         sapReleaseGain: [],
@@ -233,11 +277,13 @@
         sapDurations: [],
         branchSkips: [],
         comboDurations: [],
+        comboLinkIntervals: [],
       },
       routeStats: {},
       events: [],
       lastGrounded: true,
       airborneStartedAt: null,
+      lastComboLinkAt: null,
       minThreatGap: Infinity,
     };
   }
@@ -251,7 +297,7 @@
 
   function recordEvent(type, data = {}) {
     telemetry.events.push({ t: round(state.elapsed, 3), type, ...data });
-    if (telemetry.events.length > 320) telemetry.events.shift();
+    if (telemetry.events.length > 360) telemetry.events.shift();
   }
 
   function routeStat(type) {
@@ -311,6 +357,7 @@
       combo: {
         avgSkipFloors: round(mean(telemetry.samples.branchSkips), 2),
         avgComboSeconds: round(mean(telemetry.samples.comboDurations), 3),
+        avgLinkInterval: round(mean(telemetry.samples.comboLinkIntervals), 3),
         maxCombo: telemetry.maxima.combo,
       },
       routeStats,
@@ -343,9 +390,10 @@
   }
 
   function crownDrop() {
-    tone(74, 0.24, 0.07, 'sine', 0.62);
-    setTimeout(() => tone(148, 0.13, 0.045, 'triangle', 1.35), 35);
-    setTimeout(() => tone(296, 0.10, 0.028, 'sine', 1.15), 80);
+    tone(72, 0.26, 0.07, 'sine', 0.60);
+    setTimeout(() => tone(144, 0.14, 0.047, 'triangle', 1.38), 34);
+    setTimeout(() => tone(288, 0.11, 0.03, 'sine', 1.18), 78);
+    setTimeout(() => tone(432, 0.08, 0.022, 'triangle', 1.10), 118);
   }
 
   function announce(text, life = 1.0, size = 18) {
@@ -368,7 +416,7 @@
         kind,
       });
     }
-    if (state.particles.length > 280) state.particles.splice(0, state.particles.length - 280);
+    if (state.particles.length > 320) state.particles.splice(0, state.particles.length - 320);
   }
 
   function setTuning(section, key, value) {
