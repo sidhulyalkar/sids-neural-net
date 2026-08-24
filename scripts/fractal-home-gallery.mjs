@@ -29,6 +29,21 @@ const browser = await chromium.launch({ headless: true });
 const failures = [];
 const reports = [];
 
+async function waitForThemeRecorder(page, morph) {
+  await page.waitForFunction(
+    ({ expectedMorph, key }) => {
+      const value = window.sessionStorage.getItem(key);
+      if (!value) return false;
+      try {
+        return JSON.parse(value)?.morphology === expectedMorph;
+      } catch {
+        return false;
+      }
+    },
+    { expectedMorph: morph, key: 'sid:fractal-theme:v1' }
+  );
+}
+
 for (const testCase of cases) {
   const page = await browser.newPage({
     viewport: { width: testCase.width, height: testCase.height },
@@ -49,6 +64,7 @@ for (const testCase of cases) {
     (morph) => document.querySelector('[data-fractal-morphology]')?.getAttribute('data-fractal-morphology') === morph,
     testCase.morph
   );
+  await waitForThemeRecorder(page, testCase.morph);
 
   const actualMorph = await root.getAttribute('data-fractal-morphology');
   const links = page.locator('[data-dendrite-destination]');
@@ -97,6 +113,48 @@ for (const removedMorph of removedMorphologies) {
   await page.close();
 }
 
+const echoCases = [
+  { morph: 'tectonic', path: '/contact', width: 1440, height: 900, filename: 'theme-echo-contact-tectonic.png', expectNoFrontier: true },
+  { morph: 'echo-nest', path: '/projects', width: 1440, height: 900, filename: 'theme-echo-projects-echo-nest.png', expectNoFrontier: false },
+];
+
+for (const echoCase of echoCases) {
+  const page = await browser.newPage({ viewport: { width: echoCase.width, height: echoCase.height }, deviceScaleFactor: 1 });
+  const pageErrors = [];
+  page.on('pageerror', (error) => pageErrors.push(error.message));
+
+  await page.goto(`${baseUrl}/?morph=${echoCase.morph}&seed=theme-echo-browser`, { waitUntil: 'networkidle' });
+  await page.waitForFunction(
+    (morph) => document.querySelector('[data-fractal-morphology]')?.getAttribute('data-fractal-morphology') === morph,
+    echoCase.morph
+  );
+  await waitForThemeRecorder(page, echoCase.morph);
+  await page.goto(`${baseUrl}${echoCase.path}`, { waitUntil: 'domcontentloaded' });
+
+  const background = page.locator(
+    `[data-fractal-theme-echo="background"][data-fractal-theme-morphology="${echoCase.morph}"]`
+  );
+  await background.waitFor({ state: 'visible' });
+  const glyph = page.locator('[data-fractal-theme-echo="glyph"]');
+  await glyph.waitFor({ state: 'visible' });
+
+  if (echoCase.expectNoFrontier && (await page.locator('a[href="/frontier"]').count()) !== 0) {
+    failures.push(`${echoCase.path}: redundant FRONTIER shortcut remained visible`);
+  }
+  if (pageErrors.length) failures.push(`${echoCase.path}: page errors: ${pageErrors.join(' | ')}`);
+
+  await page.screenshot({ path: path.join(outputDir, echoCase.filename) });
+  reports.push({
+    morph: echoCase.morph,
+    path: echoCase.path,
+    themeEcho: true,
+    backgroundMorphology: await background.getAttribute('data-fractal-theme-morphology'),
+    glyphCount: await glyph.count(),
+    filename: echoCase.filename,
+  });
+  await page.close();
+}
+
 await browser.close();
 fs.writeFileSync(
   path.join(outputDir, 'gallery-report.json'),
@@ -108,4 +166,6 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log(`Captured ${cases.length} curated fractal morphology fixtures and verified ${removedMorphologies.length} removals.`);
+console.log(
+  `Captured ${cases.length} curated fractal fixtures, verified ${removedMorphologies.length} removals, and audited ${echoCases.length} themed subpages.`
+);
