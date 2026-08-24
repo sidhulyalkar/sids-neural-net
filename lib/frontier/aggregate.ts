@@ -11,6 +11,8 @@ import { getPersonalTasteFrontierFeed } from './personalTasteSources';
 import { getSharedMultiSourceFrontierFeed } from './sourceIngestorShared';
 import { getFrontierFeed } from './sources';
 import { getSportsAnalyticsFeed } from './sportsAnalyticsSources';
+import { getSportsClipFeed } from './sportsClipSources';
+import { getSportsStateFeed } from './sportsStateSources';
 import { vetFrontierItems } from './sourceTrust';
 import { getToolingRadarFeed } from './toolingRadarSources';
 import type { FrontierFeedResponse, FrontierItem, FrontierSourceStatus } from './types';
@@ -46,6 +48,12 @@ export function isPlausibleFrontierCandidate(item: FrontierItem, now = Date.now(
   } catch {
     return false;
   }
+}
+
+function isRightsFragileNflYoutube(item: FrontierItem): boolean {
+  if (item.sourceKind !== 'youtube' && item.media?.type !== 'youtube') return false;
+  const text = [item.title, item.summary, item.sourceLabel, ...item.tags].join(' ').toLowerCase();
+  return /\bnfl\b|new england patriots|patriots/.test(text);
 }
 
 function canonicalKey(item: FrontierItem): string {
@@ -86,6 +94,7 @@ export function enrichFrontierSemantics(entry: FrontierItem): FrontierItem {
   if (entry.sourceKind === 'lobsters') tags.add('thread');
   if (entry.sourceKind === 'nasa') tags.add('visual science');
   if (entry.sourceKind === 'vimeo' || entry.sourceKind === 'youtube') tags.add('video');
+  if (entry.sourceKind === 'sports_state') tags.add('sports state');
 
   const tasteText = [entry.title, entry.summary, entry.sourceLabel, ...entry.tags].filter(Boolean).join(' ');
   for (const tag of personalTasteTags(tasteText)) tags.add(tag);
@@ -105,7 +114,7 @@ export function frontierCandidatePriority(item: FrontierItem): number {
 function prepareCandidatePool(items: FrontierItem[]): FrontierItem[] {
   return vetFrontierItems(dedupe(
     items
-      .filter((item) => isPlausibleFrontierCandidate(item))
+      .filter((item) => isPlausibleFrontierCandidate(item) && !isRightsFragileNflYoutube(item))
       .map(enrichFrontierSemantics)
   ))
     .sort((a, b) => frontierCandidatePriority(b) - frontierCandidatePriority(a))
@@ -139,7 +148,7 @@ function recentSnapshotItems(): FrontierItem[] {
   const snapshot = frontierSnapshot as FrontierFeedResponse;
   const now = Date.now();
   return (snapshot.items ?? []).filter((item) => {
-    if (!isPlausibleFrontierCandidate(item, now)) return false;
+    if (!isPlausibleFrontierCandidate(item, now) || isRightsFragileNflYoutube(item)) return false;
     const ageDays = (now - new Date(item.publishedAt).getTime()) / DAY_MS;
     return Number.isFinite(ageDays) && ageDays <= 10;
   });
@@ -187,7 +196,9 @@ export async function getIntegratedFrontierFeed(options: IntegratedOptions = {})
     personalResult,
     tasteResult,
     activeSportsResult,
+    sportsStateResult,
     sportsAnalyticsResult,
+    sportsClipResult,
     watchableResult,
     toolingResult,
     adaptiveResult,
@@ -199,7 +210,9 @@ export async function getIntegratedFrontierFeed(options: IntegratedOptions = {})
     withinAdapterDeadline('personal mesh', getPersonalFrontierFeed(), deadline),
     withinAdapterDeadline('personal taste mesh', tasteDiscoveryTask, deadline),
     withinAdapterDeadline('active sports mesh', getActiveSportsFeed(), deadline),
+    withinAdapterDeadline('live sports state', getSportsStateFeed(), deadline),
     withinAdapterDeadline('sports analytics mesh', getSportsAnalyticsFeed(), deadline),
+    withinAdapterDeadline('sports clip radar', getSportsClipFeed(), deadline),
     withinAdapterDeadline('watch radar', getWatchableFrontierFeed(), deadline),
     withinAdapterDeadline('visualization tooling radar', getToolingRadarFeed(), deadline),
     withinAdapterDeadline(
@@ -212,12 +225,13 @@ export async function getIntegratedFrontierFeed(options: IntegratedOptions = {})
     withinAdapterDeadline('Vimeo discovery', getVimeoStaffPicksFeed(), deadline),
   ]);
 
-  // Focused discovery meshes intentionally precede broad sources for dedupe
-  // authority. Semantic enrichment then occurs before the bounded inventory
-  // cut, and presentation enrichment remains after it so media can never buy a
-  // candidate slot.
+  // Utility sports state and focused personal discovery precede broad sources
+  // for dedupe authority. Presentation enrichment remains after inventory
+  // selection so a poster or video can never purchase a recommendation slot.
   const orderedResults = [
+    sportsStateResult,
     sportsAnalyticsResult,
+    sportsClipResult,
     watchableResult,
     toolingResult,
     adaptiveResult,
@@ -248,7 +262,9 @@ export async function getIntegratedFrontierFeed(options: IntegratedOptions = {})
   if (personalResult.status === 'rejected') sources.push({ id: 'local', label: 'Personal mesh', ok: false, count: 0, message: 'personal live source mesh unavailable' });
   if (tasteResult.status === 'rejected') sources.push({ id: 'brave_web', label: 'Personal taste search', ok: false, count: 0, message: 'targeted personal taste discovery unavailable' });
   if (activeSportsResult.status === 'rejected') sources.push({ id: 'local', label: 'Active sports mesh', ok: false, count: 0, message: 'active sports source mesh unavailable' });
+  if (sportsStateResult.status === 'rejected') sources.push({ id: 'sports_state', label: 'Live sports state', ok: false, count: 0, message: 'live sports state unavailable' });
   if (sportsAnalyticsResult.status === 'rejected') sources.push({ id: 'rss', label: 'Sports analytics radar', ok: false, count: 0, message: 'sports analytics source mesh unavailable' });
+  if (sportsClipResult.status === 'rejected') sources.push({ id: 'social', label: 'Sports clip radar', ok: false, count: 0, message: 'sports clip discovery unavailable' });
   if (watchableResult.status === 'rejected') sources.push({ id: 'youtube', label: 'Watch radar', ok: false, count: 0, message: 'watch radar unavailable' });
   if (toolingResult.status === 'rejected') sources.push({ id: 'github', label: 'Visualization tooling radar', ok: false, count: 0, message: 'visualization tooling radar unavailable' });
   if (adaptiveResult.status === 'rejected' && focusTopics.length) sources.push({ id: 'gdelt', label: 'Adaptive live mesh', ok: false, count: 0, message: 'focused request-time discovery unavailable' });
