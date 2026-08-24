@@ -12,6 +12,7 @@ import { getSharedMultiSourceFrontierFeed } from './sourceIngestorShared';
 import { getFrontierFeed } from './sources';
 import { getSportsAnalyticsFeed } from './sportsAnalyticsSources';
 import { vetFrontierItems } from './sourceTrust';
+import { getToolingRadarFeed } from './toolingRadarSources';
 import type { FrontierFeedResponse, FrontierItem, FrontierSourceStatus } from './types';
 import { getVimeoStaffPicksFeed } from './vimeoSource';
 import { getWatchableFrontierFeed } from './watchableSources';
@@ -188,6 +189,7 @@ export async function getIntegratedFrontierFeed(options: IntegratedOptions = {})
     activeSportsResult,
     sportsAnalyticsResult,
     watchableResult,
+    toolingResult,
     adaptiveResult,
     multiSourceResult,
     expandedResult,
@@ -199,6 +201,7 @@ export async function getIntegratedFrontierFeed(options: IntegratedOptions = {})
     withinAdapterDeadline('active sports mesh', getActiveSportsFeed(), deadline),
     withinAdapterDeadline('sports analytics mesh', getSportsAnalyticsFeed(), deadline),
     withinAdapterDeadline('watch radar', getWatchableFrontierFeed(), deadline),
+    withinAdapterDeadline('visualization tooling radar', getToolingRadarFeed(), deadline),
     withinAdapterDeadline(
       'adaptive live mesh',
       focusTopics.length ? getAdaptiveLiveDiscovery(focusTopics) : Promise.resolve(emptyAdaptive),
@@ -216,6 +219,7 @@ export async function getIntegratedFrontierFeed(options: IntegratedOptions = {})
   const orderedResults = [
     sportsAnalyticsResult,
     watchableResult,
+    toolingResult,
     adaptiveResult,
     multiSourceResult,
     expandedResult,
@@ -246,6 +250,7 @@ export async function getIntegratedFrontierFeed(options: IntegratedOptions = {})
   if (activeSportsResult.status === 'rejected') sources.push({ id: 'local', label: 'Active sports mesh', ok: false, count: 0, message: 'active sports source mesh unavailable' });
   if (sportsAnalyticsResult.status === 'rejected') sources.push({ id: 'rss', label: 'Sports analytics radar', ok: false, count: 0, message: 'sports analytics source mesh unavailable' });
   if (watchableResult.status === 'rejected') sources.push({ id: 'youtube', label: 'Watch radar', ok: false, count: 0, message: 'watch radar unavailable' });
+  if (toolingResult.status === 'rejected') sources.push({ id: 'github', label: 'Visualization tooling radar', ok: false, count: 0, message: 'visualization tooling radar unavailable' });
   if (adaptiveResult.status === 'rejected' && focusTopics.length) sources.push({ id: 'gdelt', label: 'Adaptive live mesh', ok: false, count: 0, message: 'focused request-time discovery unavailable' });
   if (multiSourceResult.status === 'rejected') sources.push({ id: 'local', label: 'Research ingestion mesh', ok: false, count: 0, message: 'multi-source ingestion unavailable' });
   if (expandedResult.status === 'rejected') sources.push({ id: 'local', label: 'Expanded public mesh', ok: false, count: 0, message: 'expanded public discovery unavailable' });
