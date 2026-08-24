@@ -91,17 +91,22 @@ test('learned negative preferences can suppress the explicit seed prior', () => 
   assert.ok(suppressed < seeded - 0.08);
 });
 
-test('daily run reserves semantic slots for sports data, visualization tools, and watchable taste signals', () => {
-  const generic = Array.from({ length: 14 }, (_, index) => item(`generic-${index}`, {
+test('daily run reserves distinct fantasy/NFL, sports-data, visualization, and watchable slots', () => {
+  const generic = Array.from({ length: 18 }, (_, index) => item(`generic-${index}`, {
     lane: index % 2 ? 'ai_frontier' : 'ml_data',
     title: `Generic signal ${index}`,
     tags: ['generic'],
     importance: index === 0 ? 0.9 : 0.58,
   }));
+  const fantasy = item('fantasy', {
+    title: 'Superflex ADP and route participation model update',
+    lane: 'sports',
+    tags: ['fantasy football', 'superflex', '2qb', 'player usage'],
+  });
   const sportsData = item('sports-data', {
     title: 'nflverse player tracking EPA visualization',
     lane: 'sports',
-    tags: ['nfl', 'sports analytics', 'player tracking'],
+    tags: ['sports analytics', 'sports data', 'player tracking'],
   });
   const visualization = item('visualization', {
     title: 'Neuroglancer and napari connectomics viewer release',
@@ -118,11 +123,35 @@ test('daily run reserves semantic slots for sports data, visualization tools, an
     tags: ['webgpu', 'game design', 'watchable', 'video'],
   });
 
-  const run = selectDailyRun([...generic, sportsData, visualization, watchable], {}, 14, new Date('2026-08-23T20:00:00.000Z'));
+  const run = selectDailyRun(
+    [...generic, fantasy, sportsData, visualization, watchable],
+    {},
+    14,
+    new Date('2026-08-23T20:00:00.000Z')
+  );
   const ids = new Set(run.map((entry) => entry.id));
+  assert.ok(ids.has('fantasy'));
   assert.ok(ids.has('sports-data'));
   assert.ok(ids.has('visualization'));
   assert.ok(ids.has('watchable'));
+});
+
+test('generic AI cannot fill multiple fallback slots when higher-fit material exists', () => {
+  const genericAi = Array.from({ length: 8 }, (_, index) => item(`generic-ai-${index}`, {
+    lane: 'ai_frontier',
+    title: `Generic model release ${index}`,
+    tags: ['language model', 'release'],
+    baseScore: 0.96 - index * 0.01,
+  }));
+  const alternatives = Array.from({ length: 8 }, (_, index) => item(`method-${index}`, {
+    lane: index % 2 ? 'methods' : 'creative_tech',
+    title: `Useful project method ${index}`,
+    tags: ['methods'],
+    baseScore: 0.7 - index * 0.01,
+  }));
+
+  const run = selectDailyRun([...genericAi, ...alternatives], {}, 8, new Date('2026-08-23T20:00:00.000Z'));
+  assert.ok(run.filter((entry) => entry.lane === 'ai_frontier').length <= 1);
 });
 
 test('adaptive discovery keeps explicit taste seeds in sparse profiles', () => {
