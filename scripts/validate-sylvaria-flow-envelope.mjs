@@ -124,11 +124,12 @@ assert.ok(numberIn(run, 'comboAccelCap') <= 0.18, 'Flow acceleration cap is too 
 assert.ok(numberIn(combo, 'window') >= 3.1 && numberIn(combo, 'window') <= 3.6, 'Flow timing window left the responsive target band');
 assert.ok(numberIn(threat, 'baseSpeed') <= 22, 'Rootways pressure is crowding out movement learning');
 assert.match(assist, /passiveBarkRedirects/);
-assert.match(control, /velocity-authority-v1/);
-assert.match(control, /launch-velocity-authority/);
+assert.match(control, /velocity-authority-v2/);
+assert.match(control, /stride-height-carry/);
 assert.match(control, /groundReverseAssist: 1120/);
 assert.match(control, /airReverseAssist: 920/);
-assert.match(control, /Stride is allowed to preserve \*jump height\*/);
+assert.match(control, /vertical energy is restored/);
+assert.match(control, /player-owned horizontal velocity; Stride carries vertical opportunity only/);
 
 const branchRatio = (route) => route.filter((step) => step.branch).length / route.length;
 assert.equal(grove.filter((step) => step.branch).length, 2, 'GROVE should have exactly two real branch tiers');
