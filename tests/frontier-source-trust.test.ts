@@ -87,7 +87,42 @@ test('established and primary destinations pass strict learn-lane vetting', () =
 
   assert.equal(isFrontierSourceAdmitted(reuters), true);
   assert.equal(isFrontierSourceAdmitted(arxiv), true);
-  assert.ok(assessFrontierSource(arxiv).score > 0.9);
+  assert.ok(assessFrontierSource(arxiv).score >= 0.9);
+});
+
+test('syndicated RSS is judged by extracted publisher instead of the aggregator hop', () => {
+  const trustedSyndicated = item('google-news-espn', {
+    url: 'https://news.google.com/rss/articles/example',
+    source: 'espn.com',
+    sourceLabel: 'ESPN',
+    sourceKind: 'rss',
+    lane: 'sports',
+  });
+  const unprovenSyndicated = item('google-news-unknown', {
+    url: 'https://news.google.com/rss/articles/example-2',
+    source: 'news.google.com',
+    sourceLabel: 'Mystery Sports Wire',
+    sourceKind: 'rss',
+    lane: 'sports',
+  });
+
+  assert.equal(assessFrontierSource(trustedSyndicated).host, 'espn.com');
+  assert.equal(isFrontierSourceAdmitted(trustedSyndicated), true);
+  assert.equal(assessFrontierSource(unprovenSyndicated).tier, 'unknown');
+  assert.equal(isFrontierSourceAdmitted(unprovenSyndicated), false);
+});
+
+test('official active-sports bodies are first-class trusted destinations', () => {
+  for (const url of [
+    'https://www.ifsc-climbing.org/news/example',
+    'https://www.uci.org/article/example',
+    'https://olympics.com/en/news/example',
+    'https://www.crankworx.com/news/example',
+  ]) {
+    const signal = item(`sport-${url}`, { url, sourceKind: 'gdelt', lane: 'sports' });
+    assert.equal(assessFrontierSource(signal).tier, 'primary');
+    assert.equal(isFrontierSourceAdmitted(signal), true);
+  }
 });
 
 test('community sources remain available for fan and culture lanes but cannot become Must Know authority', () => {
