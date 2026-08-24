@@ -3,6 +3,7 @@
 import { ExternalLink } from 'lucide-react';
 import { FRONTIER_LANE_MAP } from '@/lib/frontier/config';
 import { deriveEditorialClip } from '@/lib/frontier/editorialClip';
+import { assessFrontierSource } from '@/lib/frontier/sourceTrust';
 import type { FrontierItem } from '@/lib/frontier/types';
 import styles from './editorial-clip.module.css';
 
@@ -26,6 +27,12 @@ function publishedLabel(value: string): string {
   }).format(date);
 }
 
+function provenanceLabel(item: FrontierItem, host: string): string {
+  const label = item.sourceLabel.trim() || host;
+  if (!host || label.toLowerCase().includes(host.toLowerCase())) return label;
+  return `${label} · ${host}`;
+}
+
 type Props = {
   item: FrontierItem;
   presentation: 'grid' | 'list';
@@ -36,6 +43,8 @@ type Props = {
 export function EditorialClip({ item, presentation, resurfaced = false, onOpen }: Props) {
   const clip = deriveEditorialClip(item);
   const lane = FRONTIER_LANE_MAP[item.lane];
+  const trust = assessFrontierSource(item);
+  const sourceLabel = provenanceLabel(item, trust.host);
   const highlightRepeatsTitle = clip.highlight.toLocaleLowerCase() === item.title.trim().toLocaleLowerCase();
 
   return (
@@ -43,10 +52,14 @@ export function EditorialClip({ item, presentation, resurfaced = false, onOpen }
       className={`${styles.clip} ${VARIANT_CLASS[clip.variant]} ${presentation === 'list' ? styles.list : styles.grid}`}
       data-kind={clip.kind}
       data-variant={clip.variant}
+      data-source-trust={trust.tier}
     >
       <div className={styles.masthead}>
         <span className={styles.section}>{resurfaced ? '↺ ' : ''}{lane.shortLabel}</span>
-        <span className={styles.source}>{item.sourceLabel} · {publishedLabel(item.publishedAt)}</span>
+        <span
+          className={styles.source}
+          title={`Source provenance: ${trust.tier}. ${trust.reason}.`}
+        >{sourceLabel} · {publishedLabel(item.publishedAt)}</span>
       </div>
 
       <a
@@ -56,7 +69,7 @@ export function EditorialClip({ item, presentation, resurfaced = false, onOpen }
         className={styles.storyLink}
         data-frontier-fluid-primary-link="true"
         onClick={onOpen}
-        aria-label={`Read ${item.title} on ${item.sourceLabel}`}
+        aria-label={`Read ${item.title} on ${sourceLabel}`}
       >
         <div className={styles.headlineBlock}>
           <span className={styles.clipLabel}>{clip.label}</span>
