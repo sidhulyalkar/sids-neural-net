@@ -105,9 +105,6 @@
     stickMinDistance: 62,
     stickMaxBelow: 72,
     stickMaxAbove: 455,
-    // Compatibility-only telemetry field for the existing four-browser matrix.
-    // The runtime no longer reads this value; player release is controlled by Shift.
-    stickHoldSeconds: 0.22,
     stickAcquireBufferSeconds: 0.18,
     stickMinHoldSeconds: 0.075,
     stickMaxHoldSeconds: 1.35,
