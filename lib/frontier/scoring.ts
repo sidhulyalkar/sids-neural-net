@@ -163,8 +163,10 @@ function takeFirst(source: FrontierItem[], used: Set<string>, predicate: (item: 
   return item;
 }
 
-function isActiveSportSignal(item: FrontierItem): boolean {
-  return item.tags.includes('active sport') || item.tags.includes('active sports');
+function isMotionOrSoccerSignal(item: FrontierItem): boolean {
+  return item.tags.includes('active sport')
+    || item.tags.includes('active sports')
+    || ['premier_league', 'world_soccer'].includes(item.lane);
 }
 
 function isWatchableTasteSignal(item: FrontierItem): boolean {
@@ -194,17 +196,18 @@ export function selectDailyRun(
   push(takeFirst(ranked, used, (item) => item.importance >= 0.76 || item.lane === 'must_know'));
   push(takeFirst(ranked, used, (item) => ['ml_data', 'ai_frontier', 'neuro_frontier', 'broad_science'].includes(item.lane)));
 
-  // Treat NFL/fantasy decision information and broader sports-data work as two
-  // distinct appetites. A single generic sports card should not satisfy both.
-  push(takeFirst(ranked, used, (item) => matchesPersonalTasteTopic(item, ['nfl-analytics', 'fantasy-football'])));
+  // NFL, fantasy decisions, and broader sports-data work are separate appetites.
+  // If all three exist, none should disappear merely because another sports
+  // card ranked slightly higher.
+  push(takeFirst(ranked, used, (item) => matchesPersonalTasteTopic(item, ['nfl-analytics'])));
+  push(takeFirst(ranked, used, (item) => matchesPersonalTasteTopic(item, ['fantasy-football'])));
   push(takeFirst(ranked, used, (item) => matchesPersonalTasteTopic(item, ['sports-data'])));
 
   push(takeFirst(ranked, used, (item) => matchesPersonalTasteTopic(item, ['scientific-visualization', 'neuro-data-systems', 'computational-imaging', 'space-imaging'])));
   push(takeFirst(ranked, used, (item) => item.lane === 'builder_signal'));
   push(takeFirst(ranked, used, (item) => item.lane === 'methods' || item.lane === 'creative_tech'));
   push(takeFirst(ranked, used, (item) => item.lane === 'team_pulse'));
-  push(takeFirst(ranked, used, (item) => isActiveSportSignal(item)));
-  push(takeFirst(ranked, used, (item) => ['premier_league', 'world_soccer', 'sports'].includes(item.lane)));
+  push(takeFirst(ranked, used, (item) => isMotionOrSoccerSignal(item)));
   push(takeFirst(ranked, used, (item) => item.lane === 'gaming'));
   // Video selection is semantic, via the targeted `watchable` tag, rather than
   // presentation media presence. A thumbnail appearing/disappearing therefore
