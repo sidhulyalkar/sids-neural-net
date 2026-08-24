@@ -116,6 +116,21 @@ const HOST_RULES: readonly HostRule[] = [
     reason: 'first-party organization, project, or product source',
   },
   {
+    domains: ['crunchyroll.com', 'netflix.com', 'adultswim.com'],
+    tier: 'primary',
+    score: 0.84,
+    reason: 'first-party streaming network, slate, or release source',
+  },
+  {
+    domains: [
+      'animenewsnetwork.com', 'variety.com', 'deadline.com', 'hollywoodreporter.com',
+      'vulture.com', 'avclub.com', 'indiewire.com', 'collider.com',
+    ],
+    tier: 'established',
+    score: 0.78,
+    reason: 'established film, television, anime, or entertainment publication',
+  },
+  {
     domains: [
       'premierleague.com', 'uefa.com', 'fifa.com', 'nfl.com', 'nba.com', 'patriots.com',
       'warriors.com', 'chelseafc.com', 'mancity.com', 'ifsc-climbing.org', 'uci.org',
@@ -365,7 +380,7 @@ function minimumTrustScore(item: FrontierItem): number {
   const realm = FRONTIER_LANE_MAP[item.lane].realm;
   if (realm === 'learn') return 0.68;
   if (['premier_league', 'world_soccer', 'team_pulse', 'sports'].includes(item.lane)) return 0.44;
-  if (['gaming', 'music'].includes(item.lane)) return 0.4;
+  if (['gaming', 'screen', 'music'].includes(item.lane)) return 0.4;
   return 0.3;
 }
 
