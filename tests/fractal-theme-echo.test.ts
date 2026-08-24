@@ -55,7 +55,7 @@ test('homepage records its theme and subpages consume the echo consistently', ()
   assert.match(echo, /force:\$\{theme\.morphology\}/);
 });
 
-test('homepage v3 relocates CORE into a quiet pocket and expands Echo Nest', () => {
+test('homepage relocates CORE into a quiet pocket and expands Echo Nest', () => {
   const stage = readRepoFile('components/neural-atlas-canvas/AdaptiveFractalStage.tsx');
   const experience = readRepoFile('components/neural-atlas-canvas/FractalExperienceV3.tsx');
   assert.match(stage, /FractalExperienceV3/);
@@ -65,6 +65,23 @@ test('homepage v3 relocates CORE into a quiet pocket and expands Echo Nest', () 
   assert.match(experience, /drawExpandedEchoNest/);
   assert.match(experience, /morphology === 'tectonic'/);
   assert.match(experience, /url\.searchParams\.set\('morph', 'echo-nest'\)/);
+});
+
+test('homepage v4 routes major connectors as angular protected signal paths', () => {
+  const home = readRepoFile('components/neural-atlas-canvas/AdaptiveFractalHome.tsx');
+  const stage = readRepoFile('components/neural-atlas-canvas/AdaptiveFractalStage.tsx');
+  const clearance = readRepoFile('components/neural-atlas-canvas/FractalNavigationClearanceV4.tsx');
+
+  assert.match(home, /buildProtectedPrimaryRoute/);
+  assert.match(home, /connector-v4:/);
+  assert.match(home, /routeCollisionScore/);
+  assert.match(home, /data-primary-routing="angular-obstacle-v1"/);
+  assert.match(home, /data-navigation-clearance="protected"/);
+  assert.match(home, /RETIRED_MORPHOLOGIES/);
+  assert.match(home, /'tectonic', 'aurora', 'mycelial'/);
+  assert.match(stage, /FractalNavigationClearanceV4/);
+  assert.match(clearance, /data-fractal-navigation-clearance="v1"/);
+  assert.match(clearance, /querySelectorAll<HTMLElement>\('\[data-navigation-clearance=/);
 });
 
 test('contact suppresses the redundant frontier shortcut while other comic pages retain it', () => {
