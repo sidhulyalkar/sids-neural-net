@@ -97,12 +97,18 @@
     quickForwardImpulse: 80,
     releaseFloorVy: 500,
 
-    // Sap Stick remains a one-chord traversal tool with no charge mechanic.
+    // Sap Stick is now one-button press -> hold -> release. Shift immediately
+    // fires at the best reachable amber anchor, A/D owns the swing while held,
+    // and releasing Shift vaults. A short acquisition buffer forgives slightly
+    // early presses without turning the tool into an automatic grappling hook.
     stickRange: 640,
     stickMinDistance: 62,
     stickMaxBelow: 72,
     stickMaxAbove: 455,
-    stickHoldSeconds: 0.22,
+    stickAcquireBufferSeconds: 0.18,
+    stickMinHoldSeconds: 0.075,
+    stickMaxHoldSeconds: 1.35,
+    stickSteerAccel: 2450,
     stickCooldownSeconds: 0.11,
     stickReuseLockSeconds: 0.82,
     stickRestRatio: 0.48,
