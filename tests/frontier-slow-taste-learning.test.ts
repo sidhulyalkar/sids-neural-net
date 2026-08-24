@@ -29,37 +29,38 @@ function signal(id = 'nfl-viz', tags = ['nfl', 'sports analytics', 'player track
   };
 }
 
-test('brief incidental dwell cannot mutate durable taste', () => {
+test('brief incidental dwell cannot mutate durable pair memory', () => {
   const profile = createInitialProfile();
   const next = applyImplicitTasteSignal(profile, signal(), 'dwell', 2_000);
   assert.strictEqual(next, profile);
 });
 
-test('meaningful attention produces only a small bounded durable nudge', () => {
+test('meaningful attention learns only a small co-interest nudge, not duplicate topic or lane evidence', () => {
   const profile = createInitialProfile();
   const item = signal();
-  const before = profile.topicAffinity.nfl;
   const next = applyImplicitTasteSignal(profile, item, 'dwell', 30_000);
-  assert.ok(next.topicAffinity.nfl > before);
-  assert.ok(next.topicAffinity.nfl - before < 0.03);
-  assert.ok(next.laneAffinity.sports > profile.laneAffinity.sports);
-  assert.ok(next.sourceAffinity.rss > (profile.sourceAffinity.rss ?? 0));
-  assert.ok(next.interestPairs[canonicalTastePair('nfl', 'sports analytics')] > 0);
+  const pair = canonicalTastePair('nfl', 'sports analytics');
+  assert.ok(next.interestPairs[pair] > 0);
+  assert.ok(next.interestPairs[pair] < 0.02);
+  assert.equal(next.topicAffinity.nfl, profile.topicAffinity.nfl);
+  assert.equal(next.laneAffinity.sports, profile.laneAffinity.sports);
+  assert.deepEqual(next.sourceAffinity, profile.sourceAffinity);
 });
 
-test('open and save are stronger implicit evidence than dwell but remain weaker than explicit feedback', () => {
+test('open and save strengthen pair evidence more than dwell while explicit negative feedback can reverse it', () => {
   const profile = createInitialProfile();
   const item = signal();
+  const pair = canonicalTastePair('nfl', 'sports analytics');
   const dwell = applyImplicitTasteSignal(profile, item, 'dwell', 30_000);
   const opened = applyImplicitTasteSignal(profile, item, 'open');
   const saved = applyImplicitTasteSignal(profile, item, 'save');
-  assert.ok(opened.topicAffinity.nfl - profile.topicAffinity.nfl > dwell.topicAffinity.nfl - profile.topicAffinity.nfl);
-  assert.ok(saved.topicAffinity.nfl - profile.topicAffinity.nfl > opened.topicAffinity.nfl - profile.topicAffinity.nfl);
+  assert.ok(opened.interestPairs[pair] > dwell.interestPairs[pair]);
+  assert.ok(saved.interestPairs[pair] > opened.interestPairs[pair]);
 
   const afterAttention = applyImplicitTasteSignal(profile, item, 'dwell', 60_000);
   const explicitlyDown = applyReactionToProfile(afterAttention, item, 'down');
+  assert.ok(explicitlyDown.interestPairs[pair] < 0);
   assert.ok(explicitlyDown.topicAffinity.nfl < profile.topicAffinity.nfl);
-  assert.ok(explicitlyDown.laneAffinity.sports < afterAttention.laneAffinity.sports);
 });
 
 test('pair memory recognizes repeated intersections without becoming recommendation authority by itself', () => {
