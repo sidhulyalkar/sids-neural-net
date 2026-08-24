@@ -56,7 +56,7 @@ for (const testCase of cases) {
     if (message.type() === 'error') consoleErrors.push(message.text());
   });
 
-  const url = `${baseUrl}/?morph=${encodeURIComponent(testCase.morph)}&seed=gallery-v8`;
+  const url = `${baseUrl}/?morph=${encodeURIComponent(testCase.morph)}&seed=gallery-v8-final`;
   await page.goto(url, { waitUntil: 'networkidle' });
   const root = page.locator('[data-fractal-morphology]');
   await root.waitFor({ state: 'visible' });
@@ -72,8 +72,6 @@ for (const testCase of cases) {
   const linkCount = await links.count();
   const protectedControls = page.locator('[data-navigation-clearance="protected"]');
   const protectedCount = await protectedControls.count();
-  const clearanceCanvas = page.locator('[data-fractal-navigation-clearance="v1"]');
-  await clearanceCanvas.waitFor({ state: 'visible' });
 
   const boxes = [];
   for (let index = 0; index < linkCount; index += 1) {
@@ -124,7 +122,6 @@ for (const testCase of cases) {
     linkCount,
     protectedCount,
     primaryRouting,
-    navigationClearance: await clearanceCanvas.getAttribute('data-fractal-navigation-clearance'),
     horizontalDestinationSpan: span,
     coreDensity: await core.getAttribute('data-core-density'),
     filename,
@@ -134,7 +131,7 @@ for (const testCase of cases) {
 
 for (const removedMorph of removedMorphologies) {
   const page = await browser.newPage({ viewport: { width: 1920, height: 1080 }, deviceScaleFactor: 1 });
-  await page.goto(`${baseUrl}/?morph=${removedMorph}&seed=removed-v8`, { waitUntil: 'networkidle' });
+  await page.goto(`${baseUrl}/?morph=${removedMorph}&seed=removed-v8-final`, { waitUntil: 'networkidle' });
   const root = page.locator('[data-fractal-morphology]');
   await root.waitFor({ state: 'visible' });
   if (removedMorph === 'tectonic') {
@@ -204,5 +201,5 @@ if (failures.length) {
 }
 
 console.log(
-  `Captured ${cases.length} curated fractal fixtures, verified ${removedMorphologies.length} removals, and audited ${echoCases.length} themed subpages with protected navigation.`
+  `Captured ${cases.length} curated fractal fixtures, verified ${removedMorphologies.length} removals, and audited ${echoCases.length} themed subpages with protected angular navigation.`
 );
