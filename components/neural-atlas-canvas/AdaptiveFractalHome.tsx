@@ -6,8 +6,10 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
   buildAdaptiveFractalTree,
   clamp,
+  seededRng,
   unitVectorFromCenter,
   type Dimensions,
+  type FractalMorphologyId,
   type FractalPath,
   type FractalTree,
   type Vec2,
@@ -27,6 +29,21 @@ type LabelPosition = {
   y: number;
 };
 
+type ObstacleRect = {
+  id: string;
+  left: number;
+  top: number;
+  right: number;
+  bottom: number;
+};
+
+type RouteProfile = {
+  bends: number;
+  amplitude: number;
+  tangentJitter: number;
+  orthogonalBias: number;
+};
+
 const DESTINATIONS: Destination[] = [
   { id: 'frontier', label: 'FRONTIER', compactLabel: 'FRONTIER', href: '/frontier', color: '#78ebff' },
   { id: 'games', label: 'Game Network', compactLabel: 'Games', href: '/arcade', color: '#a2e8dc' },
@@ -40,6 +57,8 @@ const DESTINATIONS: Destination[] = [
 
 const INITIAL_DIMENSIONS: Dimensions = { width: 0, height: 0 };
 const HOME_BRANCH_COUNT = DESTINATIONS.length;
+const RETIRED_MORPHOLOGIES = new Set<FractalMorphologyId>(['tectonic', 'aurora', 'mycelial']);
+const RETIRED_FALLBACKS: FractalMorphologyId[] = ['echo-nest', 'coral', 'fan'];
 const CODE_TEXT: CSSProperties = {
   fontFamily:
     '"Roboto Mono", "IBM Plex Mono", "Berkeley Mono", "Aptos Mono", "Cascadia Mono", "SFMono-Regular", Consolas, "Liberation Mono", var(--font-geist-mono), monospace',
@@ -65,15 +84,37 @@ function entropySeed(): string {
   return `${Date.now().toString(36)}-${Math.round(performance.now()).toString(36)}`;
 }
 
+function safeForcedMorphology(requested: string | null): string | null {
+  if (!requested || !/^[a-z-]+$/.test(requested)) return null;
+  if (RETIRED_MORPHOLOGIES.has(requested as FractalMorphologyId)) return 'echo-nest';
+  return requested;
+}
+
 function newSessionSeed(): string {
   const params = new URLSearchParams(window.location.search);
   const requestedSeed = params.get('seed')?.replace(/[^a-zA-Z0-9._-]/g, '').slice(0, 72);
-  const requestedMorphology = params.get('morph')?.toLowerCase();
+  const requestedMorphology = safeForcedMorphology(params.get('morph')?.toLowerCase() ?? null);
   const base = requestedSeed || entropySeed();
-  if (requestedMorphology && /^[a-z-]+$/.test(requestedMorphology)) {
-    return `force:${requestedMorphology}:${base}`;
-  }
+  if (requestedMorphology) return `force:${requestedMorphology}:${base}`;
   return base;
+}
+
+function resolvePublicTree(dimensions: Dimensions, seed: string): FractalTree {
+  const initial = buildAdaptiveFractalTree(
+    dimensions,
+    seed,
+    DESTINATIONS.map((destination) => destination.id)
+  );
+  if (!RETIRED_MORPHOLOGIES.has(initial.morphology.id)) return initial;
+
+  const fallbackRng = seededRng(`retired-home-morphology:${seed}:${dimensions.width}x${dimensions.height}`);
+  const fallback = RETIRED_FALLBACKS[Math.floor(fallbackRng() * RETIRED_FALLBACKS.length)] ?? 'echo-nest';
+  const entropy = seed.replace(/^force:[a-z-]+:/, '').replace(/[^a-zA-Z0-9._-]/g, '').slice(0, 72) || 'retired';
+  return buildAdaptiveFractalTree(
+    dimensions,
+    `force:${fallback}:${entropy}`,
+    DESTINATIONS.map((destination) => destination.id)
+  );
 }
 
 function estimateLabelHalfWidth(destination: Destination, compact: boolean): number {
@@ -102,6 +143,182 @@ function getLabelPosition(
   };
 }
 
+function buildNavigationObstacles(tree: FractalTree, dimensions: Dimensions): ObstacleRect[] {
+  const padding = tree.compact ? 8 : 12;
+  const halfHeight = tree.compact ? 15 : 18;
+  return DESTINATIONS.flatMap((destination) => {
+    const endpoint = tree.endpoints.get(destination.id);
+    if (!endpoint) return [];
+    const position = getLabelPosition(destination, endpoint, tree, dimensions);
+    const halfWidth = estimateLabelHalfWidth(destination, tree.compact) + padding;
+    return [{
+      id: destination.id,
+      left: position.x - halfWidth,
+      right: position.x + halfWidth,
+      top: position.y - halfHeight - padding,
+      bottom: position.y + halfHeight + padding,
+    }];
+  });
+}
+
+function pointInsideRect(point: Vec2, rect: ObstacleRect): boolean {
+  return point.x >= rect.left && point.x <= rect.right && point.y >= rect.top && point.y <= rect.bottom;
+}
+
+function orientation(a: Vec2, b: Vec2, c: Vec2): number {
+  return (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x);
+}
+
+function segmentsIntersect(a: Vec2, b: Vec2, c: Vec2, d: Vec2): boolean {
+  const o1 = orientation(a, b, c);
+  const o2 = orientation(a, b, d);
+  const o3 = orientation(c, d, a);
+  const o4 = orientation(c, d, b);
+  return o1 * o2 <= 0 && o3 * o4 <= 0;
+}
+
+function segmentIntersectsRect(a: Vec2, b: Vec2, rect: ObstacleRect): boolean {
+  if (pointInsideRect(a, rect) || pointInsideRect(b, rect)) return true;
+  const topLeft = { x: rect.left, y: rect.top };
+  const topRight = { x: rect.right, y: rect.top };
+  const bottomRight = { x: rect.right, y: rect.bottom };
+  const bottomLeft = { x: rect.left, y: rect.bottom };
+  return (
+    segmentsIntersect(a, b, topLeft, topRight) ||
+    segmentsIntersect(a, b, topRight, bottomRight) ||
+    segmentsIntersect(a, b, bottomRight, bottomLeft) ||
+    segmentsIntersect(a, b, bottomLeft, topLeft)
+  );
+}
+
+function routeProfile(morphology: FractalMorphologyId): RouteProfile {
+  switch (morphology) {
+    case 'echo-nest':
+      return { bends: 5, amplitude: 0.082, tangentJitter: 0.018, orthogonalBias: 0.36 };
+    case 'pixel-ghost':
+      return { bends: 5, amplitude: 0.058, tangentJitter: 0.012, orthogonalBias: 0.78 };
+    case 'echidna':
+      return { bends: 4, amplitude: 0.052, tangentJitter: 0.016, orthogonalBias: 0.3 };
+    case 'fan':
+      return { bends: 4, amplitude: 0.044, tangentJitter: 0.015, orthogonalBias: 0.22 };
+    case 'coral':
+      return { bends: 4, amplitude: 0.04, tangentJitter: 0.018, orthogonalBias: 0.14 };
+    case 'apical':
+      return { bends: 3, amplitude: 0.036, tangentJitter: 0.014, orthogonalBias: 0.18 };
+    case 'spiraloid':
+      return { bends: 4, amplitude: 0.032, tangentJitter: 0.016, orthogonalBias: 0.08 };
+    default:
+      return { bends: 3, amplitude: 0.028, tangentJitter: 0.012, orthogonalBias: 0.08 };
+  }
+}
+
+function connectorTerminal(start: Vec2, obstacle: ObstacleRect): Vec2 {
+  const center = { x: (obstacle.left + obstacle.right) * 0.5, y: (obstacle.top + obstacle.bottom) * 0.5 };
+  const dx = start.x - center.x;
+  const dy = start.y - center.y;
+  const length = Math.max(1, Math.hypot(dx, dy));
+  const ux = dx / length;
+  const uy = dy / length;
+  const halfWidth = (obstacle.right - obstacle.left) * 0.5;
+  const halfHeight = (obstacle.bottom - obstacle.top) * 0.5;
+  const tx = Math.abs(ux) > 1e-5 ? halfWidth / Math.abs(ux) : Number.POSITIVE_INFINITY;
+  const ty = Math.abs(uy) > 1e-5 ? halfHeight / Math.abs(uy) : Number.POSITIVE_INFINITY;
+  const radius = Math.min(tx, ty) + 5;
+  return { x: center.x + ux * radius, y: center.y + uy * radius };
+}
+
+function polylineLength(points: Vec2[]): number {
+  let length = 0;
+  for (let index = 1; index < points.length; index += 1) {
+    length += Math.hypot(points[index].x - points[index - 1].x, points[index].y - points[index - 1].y);
+  }
+  return length;
+}
+
+function routeCollisionScore(points: Vec2[], obstacles: ObstacleRect[], ownerId: string): number {
+  let score = polylineLength(points) * 0.018;
+  for (let index = 1; index < points.length; index += 1) {
+    const a = points[index - 1];
+    const b = points[index];
+    for (const obstacle of obstacles) {
+      if (obstacle.id === ownerId && index === points.length - 1) continue;
+      if (segmentIntersectsRect(a, b, obstacle)) score += 10000;
+    }
+    if (index >= 2) {
+      const previous = points[index - 2];
+      const ax = a.x - previous.x;
+      const ay = a.y - previous.y;
+      const bx = b.x - a.x;
+      const by = b.y - a.y;
+      const denom = Math.max(1, Math.hypot(ax, ay) * Math.hypot(bx, by));
+      const cosine = (ax * bx + ay * by) / denom;
+      if (cosine < -0.2) score += 250;
+    }
+  }
+  return score;
+}
+
+function buildProtectedPrimaryRoute(
+  path: FractalPath,
+  tree: FractalTree,
+  dimensions: Dimensions,
+  sessionSeed: string,
+  obstacles: ObstacleRect[]
+): Vec2[] {
+  const start = path.points[0];
+  const originalEnd = path.points[path.points.length - 1];
+  if (!start || !originalEnd) return path.points;
+  const ownObstacle = obstacles.find((obstacle) => obstacle.id === path.ownerId);
+  const target = ownObstacle ? connectorTerminal(start, ownObstacle) : originalEnd;
+
+  if (tree.morphology.id === 'radial' || tree.morphology.id === 'halo') {
+    if (path.points.length <= 2) return [start, target];
+    return [...path.points.slice(0, -1), target];
+  }
+
+  const profile = routeProfile(tree.morphology.id);
+  const dx = target.x - start.x;
+  const dy = target.y - start.y;
+  const length = Math.max(1, Math.hypot(dx, dy));
+  const tangent = { x: dx / length, y: dy / length };
+  const normal = { x: -tangent.y, y: tangent.x };
+  const rng = seededRng(`connector-v4:${sessionSeed}:${tree.morphology.id}:${path.ownerId}`);
+  let best = [start, target];
+  let bestScore = Number.POSITIVE_INFINITY;
+
+  for (let candidateIndex = 0; candidateIndex < 36; candidateIndex += 1) {
+    const points: Vec2[] = [start];
+    const sideSeed = rng() < 0.5 ? -1 : 1;
+    for (let bendIndex = 1; bendIndex <= profile.bends; bendIndex += 1) {
+      const t = bendIndex / (profile.bends + 1);
+      const envelope = Math.sin(Math.PI * t);
+      const alternating = bendIndex % 2 === 0 ? -sideSeed : sideSeed;
+      let normalOffset =
+        alternating * length * profile.amplitude * envelope * (0.48 + rng() * 0.92) +
+        (rng() - 0.5) * length * profile.amplitude * 0.55;
+      let tangentOffset = (rng() - 0.5) * length * profile.tangentJitter;
+
+      if (profile.orthogonalBias > 0.4 && bendIndex % 2 === 0) {
+        normalOffset *= 1 + profile.orthogonalBias * 0.35;
+        tangentOffset *= 0.35;
+      }
+
+      points.push({
+        x: clamp(start.x + dx * t + normal.x * normalOffset + tangent.x * tangentOffset, 10, dimensions.width - 10),
+        y: clamp(start.y + dy * t + normal.y * normalOffset + tangent.y * tangentOffset, 10, tree.usableBottom - 10),
+      });
+    }
+    points.push(target);
+    const score = routeCollisionScore(points, obstacles, path.ownerId) + candidateIndex * 0.002;
+    if (score < bestScore) {
+      best = points;
+      bestScore = score;
+    }
+  }
+
+  return best;
+}
+
 function drawSmoothPath(ctx: CanvasRenderingContext2D, points: Vec2[]) {
   if (points.length < 2) return;
   ctx.beginPath();
@@ -120,6 +337,13 @@ function drawSmoothPath(ctx: CanvasRenderingContext2D, points: Vec2[]) {
   const last = points[points.length - 1];
   ctx.lineTo(last.x, last.y);
   if (points.length > 2 && points[0] === last) ctx.closePath();
+}
+
+function drawAngularPath(ctx: CanvasRenderingContext2D, points: Vec2[]) {
+  if (points.length < 2) return;
+  ctx.beginPath();
+  ctx.moveTo(points[0].x, points[0].y);
+  for (let index = 1; index < points.length; index += 1) ctx.lineTo(points[index].x, points[index].y);
 }
 
 function drawPolygon(ctx: CanvasRenderingContext2D, points: Vec2[]) {
@@ -166,11 +390,7 @@ export function AdaptiveFractalHome() {
 
   const tree = useMemo(() => {
     if (!sessionSeed || dimensions.width <= 0 || dimensions.height <= 0) return null;
-    return buildAdaptiveFractalTree(
-      dimensions,
-      sessionSeed,
-      DESTINATIONS.map((destination) => destination.id)
-    );
+    return resolvePublicTree(dimensions, sessionSeed);
   }, [dimensions, sessionSeed]);
 
   useLayoutEffect(() => {
@@ -217,7 +437,7 @@ export function AdaptiveFractalHome() {
 
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas || !tree) return;
+    if (!canvas || !tree || !sessionSeed) return;
 
     const dpr = Math.min(window.devicePixelRatio || 1, VISUAL_LIMITS.dprCap);
     canvas.width = Math.max(1, Math.round(dimensions.width * dpr));
@@ -273,6 +493,8 @@ export function AdaptiveFractalHome() {
     const stencils = tree.paths.filter((path) => path.renderMode === 'stencil').sort((a, b) => a.depth - b.depth);
     const pixels = tree.paths.filter((path) => path.renderMode === 'pixel');
     const strokes = tree.paths.filter((path) => path.renderMode === 'stroke').sort((a, b) => b.depth - a.depth);
+    const obstacles = buildNavigationObstacles(tree, dimensions);
+    const primaryRoutes = new Map<string, Vec2[]>();
 
     for (const path of stencils) drawStencilPath(ctx, path);
 
@@ -298,57 +520,66 @@ export function AdaptiveFractalHome() {
       const alpha = active ? Math.min(0.98, path.alpha * 1.55) : dimmed ? path.alpha * 0.24 : path.alpha;
       const width = active ? path.width * 1.12 : path.width;
       const glow = path.glow ?? 0;
+      const isPrimary = path.depth === 0 && path.ownerId !== '__ambient__';
+      const routedPoints = isPrimary
+        ? buildProtectedPrimaryRoute(path, tree, dimensions, sessionSeed, obstacles)
+        : path.points;
+      if (isPrimary) primaryRoutes.set(path.ownerId, routedPoints);
+      const angularPrimary = isPrimary && tree.morphology.id !== 'radial' && tree.morphology.id !== 'halo';
+      const beginPath = () => (angularPrimary ? drawAngularPath(ctx, routedPoints) : drawSmoothPath(ctx, routedPoints));
 
       if (!dimmed && glow > 0) {
-        drawSmoothPath(ctx, path.points);
+        beginPath();
         ctx.strokeStyle = active
           ? `rgba(83, 229, 255, ${Math.min(0.18, 0.055 * glow + 0.04)})`
           : `rgba(122, 211, 224, ${Math.min(0.11, 0.035 * glow + 0.02)})`;
         ctx.lineWidth = width + glow * 4.2;
-        ctx.lineCap = 'round';
-        ctx.lineJoin = 'round';
+        ctx.lineCap = angularPrimary ? 'butt' : 'round';
+        ctx.lineJoin = angularPrimary ? 'miter' : 'round';
         ctx.stroke();
       } else if (path.depth === 0 && !dimmed) {
-        drawSmoothPath(ctx, path.points);
+        beginPath();
         ctx.strokeStyle = active ? 'rgba(83, 229, 255, 0.12)' : 'rgba(153, 218, 222, 0.055)';
         ctx.lineWidth = width + (active ? 8 : 5);
-        ctx.lineCap = 'round';
-        ctx.lineJoin = 'round';
+        ctx.lineCap = angularPrimary ? 'butt' : 'round';
+        ctx.lineJoin = angularPrimary ? 'miter' : 'round';
         ctx.stroke();
       }
 
-      drawSmoothPath(ctx, path.points);
+      beginPath();
       ctx.strokeStyle = branchColor(path, active, alpha);
       ctx.lineWidth = width;
-      ctx.lineCap = tree.morphology.id === 'tectonic' ? 'butt' : 'round';
-      ctx.lineJoin = tree.morphology.id === 'tectonic' ? 'miter' : 'round';
+      ctx.lineCap = angularPrimary ? 'butt' : 'round';
+      ctx.lineJoin = angularPrimary ? 'miter' : 'round';
       ctx.stroke();
     }
 
     DESTINATIONS.forEach((destination) => {
       const endpoint = tree.endpoints.get(destination.id);
       if (!endpoint) return;
+      const route = primaryRoutes.get(destination.id);
+      const terminal = route?.[route.length - 1] ?? endpoint;
       const active = hoveredId === destination.id;
       const dimmed = Boolean(hoveredId && !active);
 
       ctx.beginPath();
-      ctx.arc(endpoint.x, endpoint.y, active ? 3.8 : 2.4, 0, Math.PI * 2);
+      ctx.arc(terminal.x, terminal.y, active ? 3.8 : 2.4, 0, Math.PI * 2);
       ctx.fillStyle = destination.color;
       ctx.globalAlpha = active ? 0.96 : dimmed ? 0.22 : 0.64;
       ctx.fill();
       ctx.globalAlpha = 1;
     });
 
-    if (!['halo', 'mycelial', 'pixel-ghost', 'echo-nest'].includes(tree.morphology.id)) {
+    if (!['halo', 'pixel-ghost', 'echo-nest'].includes(tree.morphology.id)) {
       ctx.beginPath();
       ctx.arc(tree.center.x, tree.center.y, hoveredId ? 3.2 : 2.4, 0, Math.PI * 2);
       ctx.fillStyle = hoveredId ? 'rgba(224, 247, 248, 0.84)' : 'rgba(202, 224, 225, 0.58)';
       ctx.fill();
     }
-  }, [dimensions, hoveredId, tree]);
+  }, [dimensions, hoveredId, sessionSeed, tree]);
 
   const isMeasured = Boolean(tree);
-  const showSoma = tree && !['halo', 'mycelial', 'pixel-ghost', 'echo-nest'].includes(tree.morphology.id);
+  const showSoma = tree && !['halo', 'pixel-ghost', 'echo-nest'].includes(tree.morphology.id);
 
   return (
     <div
@@ -358,6 +589,7 @@ export function AdaptiveFractalHome() {
       data-fractal-morphology={tree?.morphology.id ?? 'measuring'}
       data-fractal-dimension={tree ? tree.theoreticalTerminalDimension.toFixed(3) : undefined}
       data-fractal-seed={sessionSeed ?? undefined}
+      data-primary-routing="angular-obstacle-v1"
     >
       <canvas ref={canvasRef} className="absolute inset-0" aria-hidden="true" />
       <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_bottom,rgba(1,2,4,0.26),transparent_18%,transparent_76%,rgba(1,2,4,0.82))]" />
@@ -379,12 +611,13 @@ export function AdaptiveFractalHome() {
                   key={destination.id}
                   href={destination.href}
                   data-dendrite-destination={destination.id}
+                  data-navigation-clearance="protected"
                   data-gesture-target
                   aria-label={`Open ${destination.label}`}
                   className={`absolute -translate-x-1/2 -translate-y-1/2 whitespace-nowrap rounded-[2px] border px-2.5 py-1.5 text-[9px] uppercase tracking-[0.12em] transition-all duration-200 sm:px-3 sm:py-2 sm:text-[10px] lg:text-[11px] ${
                     active
-                      ? 'scale-[1.035] border-cyan-300/45 bg-[#041016]/92 text-cyan-200 shadow-[0_0_24px_rgba(92,229,255,0.14)]'
-                      : 'border-white/10 bg-black/58 text-white/62 hover:border-white/25 hover:bg-black/76 hover:text-white/92'
+                      ? 'scale-[1.035] border-cyan-300/45 bg-[#041016]/96 text-cyan-200 shadow-[0_0_0_8px_rgba(1,2,4,0.86),0_0_28px_rgba(92,229,255,0.12)]'
+                      : 'border-white/12 bg-[#010406]/94 text-white/66 shadow-[0_0_0_8px_rgba(1,2,4,0.82),0_0_20px_rgba(1,2,4,0.72)] hover:border-white/25 hover:bg-[#02070a]/98 hover:text-white/92'
                   }`}
                   style={{ ...CODE_TEXT, left: position.x, top: position.y }}
                   onMouseEnter={() => setHoveredId(destination.id)}
@@ -426,8 +659,9 @@ export function AdaptiveFractalHome() {
 
           <Link
             href="/about"
+            data-navigation-clearance="protected"
             data-gesture-target
-            className="absolute z-30 -translate-x-1/2 rounded-[2px] border border-white/12 bg-black/68 px-3 py-1.5 font-mono text-[9px] uppercase tracking-[0.16em] text-white/72 transition-all hover:border-cyan-300/35 hover:text-cyan-100 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyan-300/60 sm:text-[10px]"
+            className="absolute z-30 -translate-x-1/2 rounded-[2px] border border-white/16 bg-[#010407]/96 px-3 py-1.5 font-mono text-[9px] uppercase tracking-[0.16em] text-white/80 shadow-[0_0_0_10px_rgba(1,2,4,0.86),0_0_28px_rgba(1,2,4,0.82)] transition-all hover:border-cyan-300/35 hover:text-cyan-100 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyan-300/60 sm:text-[10px]"
             style={{ left: tree.center.x, top: tree.center.y + (tree.compact ? 42 : 48) }}
           >
             Core
