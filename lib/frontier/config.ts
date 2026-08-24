@@ -19,7 +19,7 @@ export const FRONTIER_REALMS: Array<{
 }> = [
   { id: 'all', label: 'For You', glyph: '✦', description: 'The useful + the fun, in one finite run.' },
   { id: 'learn', label: 'Brainfood', glyph: '⌁', description: 'Papers, code, methods, science, and project fuel.' },
-  { id: 'play', label: 'After Hours', glyph: '◉', description: 'Teams, highlights, active sports, games, music, and internet gold.' },
+  { id: 'play', label: 'After Hours', glyph: '◉', description: 'Teams, highlights, active sports, games, anime + TV, music, and internet gold.' },
 ];
 
 export const FRONTIER_LANES: FrontierLaneDefinition[] = [
@@ -99,6 +99,11 @@ export const FRONTIER_LANES: FrontierLaneDefinition[] = [
     keywords: ['elden ring', 'hollow knight', 'silksong', 'ender lilies', 'ender magnolia', 'nine sols', 'dead cells', 'celeste', 'tunic', 'rain world', 'outer wilds', 'metroidvania', 'roguelike', 'roguelite', 'indie game', 'steam', 'gameplay', 'dlc', 'patch notes', 'video game'],
   },
   {
+    id: 'screen', label: 'Screen Orbit', shortLabel: 'Anime + TV', glyph: '◫',
+    description: 'Story-rich anime, dark and animated comedy, clever satire, mystery, thrillers, and adjacent shows worth knowing about.', weight: 1.08, realm: 'play',
+    keywords: ['anime', 'manga', 'crunchyroll', 'adult animation', 'animated comedy', 'dark comedy', 'black comedy', 'satire', 'absurdist comedy', 'psychological thriller', 'mystery series', 'dark fantasy', 'isekai', 'supernatural action', 'season renewal', 'series premiere', 'anime adaptation', 're zero', 'frieren', 'jujutsu kaisen', 'dandadan', 'solo leveling', 'bojack horseman', 'inside job', 'black mirror', 'arrested development'],
+  },
+  {
     id: 'music', label: 'Bass Orbit', shortLabel: 'Music', glyph: '♫',
     description: 'Dubstep, bass music, EDM releases, live sets, festival signal, remixes, and artists already in heavy rotation.', weight: 1.04, realm: 'play',
     keywords: ['dubstep', 'edm', 'bass music', 'illenium', 'virtual riot', 'seven lions', 'skrillex', 'subtronics', 'zeds dead', 'knock2', 'rl grime', 'griz', 'porter robinson', 'madeon', 'soundcloud', 'festival', 'remix'],
@@ -155,7 +160,7 @@ export const FRONTIER_IMPORTANCE_TERMS = [
   'randomized trial', 'systematic review', 'meta-analysis', 'open source', 'dataset', 'standard', 'release',
   'foundation model', 'mechanistic interpretability', 'neural decoding', 'brain computer interface', 'agent', 'inference',
   'nfl', 'fantasy football', 'injury', 'depth chart', 'player tracking', 'premier league', 'transfer', 'trade', 'signing',
-  'release date', 'dlc', 'major update', 'world championship', 'final', 'record',
+  'release date', 'dlc', 'major update', 'world championship', 'final', 'record', 'season renewal', 'series premiere',
 ];
 
 export const DEFAULT_COLLECTIONS: FrontierCollection[] = [
@@ -165,6 +170,7 @@ export const DEFAULT_COLLECTIONS: FrontierCollection[] = [
   { id: 'ml-data', name: 'ML + data', description: 'Methods, tools, benchmarks, and analysis ideas.', itemIds: [], createdAt: '2026-08-20T00:00:00.000Z' },
   { id: 'football', name: 'Football', description: 'NFL/fantasy edges plus soccer tactics, analytics, and matchday context.', itemIds: [], createdAt: '2026-08-20T00:00:00.000Z' },
   { id: 'clubhouse', name: 'Clubhouse', description: 'Favorite teams, active sports, highlights, fan threads, and motion rabbit holes.', itemIds: [], createdAt: '2026-08-20T00:00:00.000Z' },
+  { id: 'screen-orbit', name: 'Screen Orbit', description: 'Anime, animated comedy, dark humor, clever TV, and gripping story worlds.', itemIds: [], createdAt: '2026-08-20T00:00:00.000Z' },
   { id: 'games-music', name: 'Games + bass', description: 'Game discoveries, releases, sets, tracks, and artists to revisit.', itemIds: [], createdAt: '2026-08-20T00:00:00.000Z' },
 ];
 
@@ -198,6 +204,18 @@ export function createInitialProfile(): FrontierProfile {
       dubstep: 0.34,
       'bass music': 0.28,
       metroidvania: 0.28,
+      anime: 0.36,
+      'fantasy progression': 0.34,
+      'strong worldbuilding': 0.32,
+      'dark action anime': 0.32,
+      'mystery psychological': 0.28,
+      'competition anime': 0.22,
+      'witty anime': 0.28,
+      'animated dark comedy': 0.36,
+      'witty dark comedy': 0.36,
+      'adult animation': 0.32,
+      satire: 0.26,
+      'psychological thriller': 0.26,
       'open source': 0.28,
       'scientific software': 0.3,
       'scientific visualization': 0.34,
