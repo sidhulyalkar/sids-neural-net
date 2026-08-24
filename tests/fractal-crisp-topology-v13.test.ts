@@ -11,7 +11,7 @@ test('v13 replaces the soft base canvas with a crisp topology-preserving rendere
   const renderer = readRepoFile('components/neural-atlas-canvas/FractalCrispTopologyV13.tsx');
 
   assert.match(stage, /FractalCrispTopologyV13/);
-  assert.match(renderer, /data-fractal-crisp-topology="v13"/);
+  assert.match(renderer, /crispCanvas\.dataset\.fractalCrispTopology = 'v13'/);
   assert.match(renderer, /supersededByCrispTopology = 'v13'/);
   assert.match(renderer, /baseCanvas\.style\.opacity = '0'/);
   assert.match(renderer, /renderFidelity = 'crisp-no-glow-v13'/);
