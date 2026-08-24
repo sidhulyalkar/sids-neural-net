@@ -63,6 +63,7 @@ jobs:
           components/neural-atlas-canvas/AdaptiveFractalStage.tsx
           components/neural-atlas-canvas/FractalSurfaceEnhancerV2.tsx
           components/neural-atlas-canvas/FractalExperienceV3.tsx
+          components/neural-atlas-canvas/FractalNavigationClearanceV4.tsx
           components/portfolio/PageShell.tsx
           lib/home/fractalDendrite.ts
           lib/home/fractalDendriteV4.ts
