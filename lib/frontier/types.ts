@@ -1,25 +1,30 @@
-export type FrontierLaneId =
-  | 'must_know'
-  | 'ml_data'
-  | 'ai_frontier'
-  | 'neuro_frontier'
-  | 'methods'
-  | 'builder_signal'
-  | 'competitions'
-  | 'broad_science'
-  | 'creative_tech'
-  | 'world_pulse'
-  | 'premier_league'
-  | 'world_soccer'
-  | 'team_pulse'
-  | 'sports'
-  | 'gaming'
-  | 'music'
-  | 'internet_culture'
-  | 'life'
-  | 'wildcards';
+export const FRONTIER_LANE_IDS = [
+  'must_know',
+  'ml_data',
+  'ai_frontier',
+  'neuro_frontier',
+  'methods',
+  'builder_signal',
+  'competitions',
+  'broad_science',
+  'creative_tech',
+  'world_pulse',
+  'premier_league',
+  'world_soccer',
+  'team_pulse',
+  'sports',
+  'gaming',
+  'music',
+  'internet_culture',
+  'life',
+  'wildcards',
+] as const;
+
+export type FrontierLaneId = (typeof FRONTIER_LANE_IDS)[number];
 
 export type FrontierSourceKind =
+  | 'hackernews'
+  | 'github'
   | 'openalex'
   | 'arxiv'
   | 'huggingface'
@@ -27,13 +32,11 @@ export type FrontierSourceKind =
   | 'biorxiv'
   | 'medrxiv'
   | 'openreview'
-  | 'github'
-  | 'hackernews'
   | 'lobsters'
   | 'nasa'
+  | 'vimeo'
   | 'rss'
   | 'youtube'
-  | 'vimeo'
   | 'football_data'
   | 'reddit'
   | 'steam'
@@ -42,24 +45,104 @@ export type FrontierSourceKind =
   | 'gdelt'
   | 'local';
 
-export type FrontierMediaType = 'image' | 'video' | 'youtube';
+export type FrontierSegment = {
+  url: string;
+  duration: number;
+  byteLength?: number;
+};
+
+export type FrontierVideoVariant = {
+  id: string;
+  width: number;
+  height: number;
+  fps?: number;
+  bitrate: number;
+  codec: string;
+  mimeType: string;
+};
+
+export type FrontierVideoStream =
+  | {
+      kind: 'progressive';
+      url: string;
+      mimeType?: string;
+    }
+  | {
+      kind: 'hls';
+      manifestUrl: string;
+    }
+  | {
+      kind: 'frontier-fmp4';
+      initUrl: string;
+      variants: Array<FrontierVideoVariant & { segments: FrontierSegment[] }>;
+    };
 
 export type FrontierMedia = {
-  type: FrontierMediaType;
-  url: string;
-  alt?: string;
+  type: 'image' | 'youtube' | 'video' | 'chart' | 'none';
+  url?: string;
+  /** Optional same-origin or trusted CORS-safe image surface used by the GPU path. */
+  proxyUrl?: string;
   poster?: string;
+  /** Optional same-origin/CORS-safe poster equivalent. */
+  posterProxyUrl?: string;
+  alt?: string;
+  aspectRatio?: 'square' | 'portrait' | 'landscape' | 'wide';
   width?: number;
   height?: number;
-  /** Stable display geometry hint supplied by the adapter or media proxy. */
-  aspectRatio?: 'wide' | 'landscape' | 'square' | 'portrait';
-  /** Independent browser-native fallback used underneath GPU-backed imagery. */
-  fallbackUrl?: string;
+  /** Derived only from the real source image; never synthetic editorial media. */
+  blurHash?: string;
+  averageColor?: string;
+  duration?: number;
+  streams?: FrontierVideoStream[];
 };
 
 export type FrontierMetric = {
   label: string;
   value: string;
+  detail?: string;
+};
+
+export type FrontierWatchSignal = {
+  intentId: string;
+  label: string;
+  /** Normalized semantic match score in [0, 1]. */
+  score: number;
+  triggeredAt: number;
+};
+
+export type FrontierConvergenceMember = {
+  id: string;
+  title: string;
+  url: string;
+  sourceLabel: string;
+  sourceKind: FrontierSourceKind;
+  publishedAt: string;
+  /** Bounded verbatim source evidence for optional local-only synthesis. */
+  excerpt?: string;
+};
+
+export type FrontierConvergenceSignal = {
+  /** Real corroborating source items collapsed behind the representative card. */
+  members: FrontierConvergenceMember[];
+  sourceKinds: FrontierSourceKind[];
+  confidence: number;
+  windowHours: number;
+};
+
+export type FrontierArtifact = {
+  kind: 'formula' | 'benchmark' | 'repository' | 'release' | 'tracklist';
+  label: string;
+  value?: string;
+  url?: string;
+};
+
+export type FrontierVelocitySignal = {
+  concept: string;
+  score: number;
+  recentCount: number;
+  baselineRate: number;
+  sourceCount: number;
+  detectedAt: number;
 };
 
 export type FrontierItem = {
@@ -73,14 +156,23 @@ export type FrontierItem = {
   publishedAt: string;
   lane: FrontierLaneId;
   tags: string[];
+  authors?: string[];
   media?: FrontierMedia;
   metrics?: FrontierMetric[];
+  baseScore: number;
   importance: number;
+  novelty: number;
   quality: number;
   momentum: number;
-  novelty: number;
-  baseScore: number;
+  readMinutes?: number;
   why?: string;
+  /** Phase 6 interruption metadata. Only explicit Watch Intents can set this. */
+  highPriority?: boolean;
+  watchSignal?: FrontierWatchSignal;
+  /** Phase 7 synthesis metadata. Members always point to real source items. */
+  convergence?: FrontierConvergenceSignal;
+  artifacts?: FrontierArtifact[];
+  velocitySignal?: FrontierVelocitySignal;
 };
 
 export type FrontierSourceStatus = {
@@ -194,13 +286,6 @@ export type FrontierBehaviorModel = {
   layoutUses: Record<FrontierLayoutMode, number>;
   viewUses: Record<FrontierView, number>;
   rankingSnapshot?: FrontierBehaviorSnapshot;
-};
-
-export type FrontierGameState = {
-  xp: number;
-  streak: number;
-  lastActiveDay?: string;
-  completedQuestDays: Record<string, string[]>;
 };
 
 export type FrontierPersistedState = {
