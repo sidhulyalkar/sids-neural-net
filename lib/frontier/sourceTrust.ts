@@ -129,7 +129,7 @@ const HOST_RULES: readonly HostRule[] = [
   {
     domains: [
       'espn.com', 'theathletic.com', 'skysports.com', 'cbssports.com', 'nbcsports.com',
-      'foxsports.com', 'sports.yahoo.com', 'goal.com',
+      'foxsports.com', 'sports.yahoo.com', 'goal.com', 'bleacherreport.com',
     ],
     tier: 'established',
     score: 0.82,
@@ -149,6 +149,12 @@ const HOST_RULES: readonly HostRule[] = [
     tier: 'platform',
     score: 0.78,
     reason: 'specialized sports data or open analytics project',
+  },
+  {
+    domains: ['sleeper.com'],
+    tier: 'platform',
+    score: 0.68,
+    reason: 'established fantasy-sports platform and community source',
   },
   {
     domains: [
@@ -199,7 +205,7 @@ const HOST_RULES: readonly HostRule[] = [
     reason: 'established media platform with creator-dependent credibility',
   },
   {
-    domains: ['reddit.com', 'news.ycombinator.com', 'lobste.rs', 'threads.net', 'x.com', 'twitter.com'],
+    domains: ['reddit.com', 'news.ycombinator.com', 'lobste.rs', 'threads.net', 'threads.com', 'x.com', 'twitter.com', 'tiktok.com'],
     tier: 'community',
     score: 0.5,
     reason: 'community or social discussion source',
@@ -223,6 +229,7 @@ const DIRECT_KIND_FLOORS: Partial<Record<FrontierSourceKind, FrontierSourceTrust
   github: { host: '', tier: 'platform', score: 0.78, reason: 'direct GitHub repository adapter' },
   nasa: { host: '', tier: 'institutional', score: 0.95, reason: 'direct NASA adapter' },
   football_data: { host: '', tier: 'primary', score: 0.9, reason: 'structured football data provider' },
+  sports_state: { host: '', tier: 'established', score: 0.86, reason: 'structured live sports state adapter' },
   steam: { host: '', tier: 'primary', score: 0.82, reason: 'first-party Steam news adapter' },
   youtube: { host: '', tier: 'platform', score: 0.57, reason: 'direct YouTube adapter' },
   vimeo: { host: '', tier: 'platform', score: 0.57, reason: 'direct Vimeo adapter' },
