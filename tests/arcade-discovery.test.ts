@@ -58,7 +58,7 @@ test('Stretchicorn cabinet points at the current v0.21.1 public release', () => 
   assert.match(game.description, /Impossible Encore/);
 });
 
-test('Sylvaria Sequoia exposes the Icy-flow Stride and aerial combo contract', () => {
+test('Sylvaria Sequoia exposes the deliberate skill-flow Grove contract', () => {
   const game = arcadeGames.find((entry) => entry.slug === 'sylvaria-sequoia');
   assert.ok(game);
   assert.equal(game.title, 'Sylvaria: Sequoia');
@@ -67,14 +67,16 @@ test('Sylvaria Sequoia exposes the Icy-flow Stride and aerial combo contract', (
   assert.equal(game.launchUrl, '/game-runtimes/sylvaria-sequoia/index.html');
   assert.equal(game.nativeSize?.width, 960);
   assert.equal(game.nativeSize?.height, 640);
-  assert.match(game.description, /Stride/);
-  assert.match(game.description, /2\+ floor clear/);
-  assert.match(game.description, /Air Kick/);
+  assert.match(game.description, /Grove Chambers/);
+  assert.match(game.description, /route grammars/);
+  assert.match(game.description, /passive bark/);
+  assert.match(game.description, /Bark Cling/);
   assert.match(game.description, /Bark Kick/);
+  assert.match(game.description, /Air Kicks/);
+  assert.match(game.description, /Resin Rings/);
   assert.match(game.description, /Sap Snap/);
   assert.match(game.description, /Quick Sling/);
   assert.match(game.description, /SAP SURGE/);
-  assert.match(game.description, /pure 6× Flow/);
   assert.match(game.description, /CROWNVELOCITY/);
   assert.doesNotMatch(game.description, /enemy|damage|attack/i);
 
@@ -89,12 +91,14 @@ test('Sylvaria Sequoia exposes the Icy-flow Stride and aerial combo contract', (
     '02-flow-assist.js',
     '03-render.js',
     '03-stride-hud.js',
+    '03-render-skill-pass.js',
     '04-input.js',
   ];
   for (const file of runtimeFiles) {
     assert.ok(existsSync(join(root, runtimeRoot, file)), `missing Sylvaria Sequoia runtime file: ${file}`);
   }
   assert.ok(existsSync(join(root, 'docs/SYLVARIA_SEQUOIA_V03_AERIAL_COMBO_DESIGN.md')));
+  assert.ok(existsSync(join(root, 'docs/SYLVARIA_SEQUOIA_V03_SKILL_FLOW_GROVE_PASS.md')));
   assert.ok(existsSync(join(root, 'scripts/validate-sylvaria-sequoia.mjs')));
   assert.ok(existsSync(join(root, 'scripts/validate-sylvaria-flow-envelope.mjs')));
   assert.ok(!existsSync(join(root, 'public/game-runtimes/crownrush')));
@@ -105,26 +109,37 @@ test('Sylvaria Sequoia exposes the Icy-flow Stride and aerial combo contract', (
   const gameplay = readRepoFile(`${runtimeRoot}/02-gameplay.js`);
   const flowAssist = readRepoFile(`${runtimeRoot}/02-flow-assist.js`);
   const strideHud = readRepoFile(`${runtimeRoot}/03-stride-hud.js`);
-  const render = readRepoFile(`${runtimeRoot}/03-render.js`);
+  const skillRender = readRepoFile(`${runtimeRoot}/03-render-skill-pass.js`);
   const input = readRepoFile(`${runtimeRoot}/04-input.js`);
 
   assert.match(core, /FIXED_DT: 1 \/ 120/);
   assert.match(core, /airJumps: 1/);
-  assert.match(feel, /maxSpeed: 700/);
-  assert.match(feel, /momentumGain: 0\.65/);
-  assert.match(feel, /strideLaunchCarry: 0\.90/);
-  assert.match(feel, /easyHyperThreshold: 6/);
-  assert.match(feel, /hyperVarietyThreshold: 4/);
+  assert.match(feel, /maxSpeed: 625/);
+  assert.match(feel, /momentumGain: 0\.54/);
+  assert.match(feel, /strideLaunchCarry: 0\.62/);
+  assert.match(feel, /comboCarryBase: 10/);
+  assert.match(feel, /comboCarryCap: 28/);
+  assert.match(feel, /wallRefreshSpeed: 99999/);
+  assert.match(feel, /comboSpeed: 99999/);
+  assert.match(feel, /clingHold: 0\.26/);
+  assert.match(feel, /easyHyperThreshold: 10/);
+  assert.match(feel, /hyperVarietyThreshold: 6/);
   assert.match(feel, /sapSurgeThreshold: 5/);
   assert.match(feel, /hyperThreshold: 7/);
   assert.match(feel, /hyperVariety: 3/);
 
-  for (const grammar of ['FLOW', 'CRUX', 'RECOVERY', 'SLINGSHOT']) assert.match(world, new RegExp(`${grammar}:`));
-  for (const phase of ['ROOTWAYS', 'REDWOOD RUN', 'SAPWORK', 'HIGH CANOPY', 'CROWNLINE']) assert.match(world, new RegExp(phase));
-  assert.match(world, /floor: 44/);
-  assert.match(world, /floor: 90/);
-  assert.match(world, /floor: 145/);
-  assert.match(world, /floor: 205/);
+  for (const grammar of ['FLOW', 'GROVE', 'CRUX', 'RECOVERY', 'SLINGSHOT']) {
+    assert.match(world, new RegExp(`${grammar}:`));
+  }
+  for (const phase of ['ROOTWAYS', 'REDWOOD RUN', 'SAPWORK', 'HIGH CANOPY', 'CROWNLINE']) {
+    assert.match(world, new RegExp(phase));
+  }
+  assert.match(world, /state\.LEFT_WALL = 118/);
+  assert.match(world, /state\.RIGHT_WALL = 842/);
+  assert.match(world, /floor: 30/);
+  assert.match(world, /floor: 70/);
+  assert.match(world, /floor: 115/);
+  assert.match(world, /floor: 165/);
   assert.match(world, /step\.ring/);
   assert.match(world, /step\.launch/);
 
@@ -136,23 +151,28 @@ test('Sylvaria Sequoia exposes the Icy-flow Stride and aerial combo contract', (
   assert.match(gameplay, /function attachSap\(/);
   assert.match(gameplay, /function rescueFromThreat\(/);
 
-  assert.match(flowAssist, /strideMomentum/);
+  assert.match(flowAssist, /function skillSpeedCap\(/);
+  assert.match(flowAssist, /function beginCling\(/);
+  assert.match(flowAssist, /function maintainCling\(/);
+  assert.match(flowAssist, /!player\.clingActive/);
+  assert.match(flowAssist, /passiveBarkRedirects/);
   assert.match(flowAssist, /stride-launch-carry/);
   assert.match(flowAssist, /combo-speed-carry/);
   assert.match(flowAssist, /easyHyperThreshold/);
-  assert.match(flowAssist, /'ICY_FLOW'/);
-  assert.match(flowAssist, /SAP SNAP ↑/);
-  assert.match(flowAssist, /QUICK SLING ↑/);
-  assert.match(flowAssist, /BARK KICK ↑/);
+  assert.match(flowAssist, /'PURE_FLOW'/);
+  assert.match(flowAssist, /SAP SNAP/);
+  assert.match(flowAssist, /QUICK SLING/);
+  assert.match(flowAssist, /BARK CLING · JUMP TO KICK/);
+  assert.match(flowAssist, /BARK KICK · AIR KICK READY/);
 
-  assert.match(strideHud, /RUSH I/);
-  assert.match(strideHud, /RUSH II/);
-  assert.match(strideHud, /RUSH III/);
-  assert.match(strideHud, /CROWN RUSH/);
-  assert.match(strideHud, /FLOW CARRY/);
+  assert.match(strideHud, /strideMomentum/);
+  assert.match(skillRender, /function drawSequoia\(/);
+  assert.match(skillRender, /function drawPlayer\(/);
+  assert.match(skillRender, /GROVE/);
+  assert.match(skillRender, /BARK GRIP/);
+  assert.match(skillRender, /passive bark does not score/);
+  assert.match(skillRender, /S\.render = render/);
 
-  assert.match(render, /function drawRing\(/);
-  assert.match(render, /function drawLaunchBurl\(/);
   assert.match(input, /window\.SYLVARIA_SEQUOIA_DEBUG/);
   assert.match(input, /version: '0\.3\.0'/);
   assert.match(input, /airJumps: player\.airJumps/);
