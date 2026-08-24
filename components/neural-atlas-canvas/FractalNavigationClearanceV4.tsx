@@ -65,7 +65,7 @@ export function FractalNavigationClearanceV4() {
       subtree: true,
       childList: true,
       attributes: true,
-      attributeFilter: ['data-fractal-morphology', 'data-fractal-seed', 'data-core-placement', 'style'],
+      attributeFilter: ['data-fractal-morphology', 'data-fractal-seed', 'data-core-placement'],
     });
     window.addEventListener('resize', schedule);
     window.visualViewport?.addEventListener('resize', schedule);
