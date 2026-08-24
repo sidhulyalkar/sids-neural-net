@@ -16,7 +16,7 @@
 
   function handleKeyDown(event) {
     if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Space'].includes(event.code)) event.preventDefault();
-    if (event.repeat && ['Space', 'ShiftLeft', 'ShiftRight', 'KeyE', 'KeyP', 'KeyR', 'KeyN', 'KeyT', 'KeyJ'].includes(event.code)) return;
+    if (event.repeat && ['Space', 'ArrowUp', 'KeyW', 'ShiftLeft', 'ShiftRight', 'KeyE', 'KeyP', 'KeyR', 'KeyN', 'KeyT', 'KeyJ'].includes(event.code)) return;
     if (event.code === 'Escape') return;
 
     if (event.code === 'KeyT') {
@@ -147,19 +147,23 @@
 
   S.resetRun(state.runSeed);
   window.SYLVARIA_SEQUOIA_DEBUG = {
-    version: '0.2.0',
+    version: '0.3.0',
     fixedHz: 120,
     getState: () => ({
       mode: state.mode,
       seed: state.runSeed,
       floor: player.highestFloor,
+      phase: S.phaseForFloor(player.highestFloor).name,
       score: Math.floor(player.score),
       combo: player.combo,
       comboTimer: player.comboTimer,
+      comboVariety: player.comboKindsMask,
       hyper: player.hyper,
+      airJumps: player.airJumps,
       saves: player.saves,
       branchCount: state.branches.length,
       knotCount: state.knots.length,
+      ringCount: state.rings.filter((ring) => !ring.hit).length,
       route: S.activeRouteChunk()?.type || null,
       player: { x: player.x, y: player.y, vx: player.vx, vy: player.vy, state: player.state },
       threat: { y: state.threatY, gap: player.y - state.threatY, speed: S.threatSpeed() },
@@ -167,6 +171,7 @@
     getTelemetry: S.summarizeTelemetry,
     getTuning: () => JSON.parse(JSON.stringify(S.TUNE)),
     getRouteGrammars: () => Object.keys(S.ROUTE_GRAMMARS),
+    getPhases: () => S.PHASES.map((phase) => ({ name: phase.name, floor: phase.floor })),
     setTuning: S.setTuning,
     start: (seed) => S.startRun(Number.isFinite(seed) ? seed : state.runSeed + 1),
     retry: () => S.startRun(state.runSeed),
