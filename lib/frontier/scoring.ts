@@ -121,8 +121,6 @@ export function personalizedScore(
   const exploration = behavioralExplorationBonus(item, behavior, now) * (0.65 + profile.curiosity);
   const sourceTrustPrior = sourceTrustRankingPrior(item);
   const explicitTaste = personalTasteRankingPrior(item);
-  // The seed profile is intentionally strong enough to shape cold start, but a
-  // learned negative lane/topic preference can substantially suppress it.
   const tasteSuppression = laneAffinity <= -0.15 || topicSignal <= -0.12 ? 0.25 : 1;
   const tastePrior = explicitTaste * tasteSuppression;
 
@@ -210,9 +208,14 @@ export function selectDailyRun(
   push(takeFirst(ranked, used, (item) => item.importance >= 0.76 || item.lane === 'must_know'));
   push(takeFirst(ranked, used, (item) => ['ml_data', 'ai_frontier', 'neuro_frontier', 'broad_science'].includes(item.lane)));
 
-  // Live league state is a utility signal, not another sports article. Reserve
-  // one finite slot when scores, fixtures, or standings are available.
+  // Live league state is utility rather than editorial sports content.
   push(takeFirst(ranked, used, (item) => isSportsStateSignal(item)));
+
+  // Screen Orbit owns its semantic slot before the broader taste predicates can
+  // consume an anime/comedy item through an overlapping tag. This guarantees a
+  // finite single screen signal when relevant material exists without allowing
+  // entertainment to flood the run.
+  push(takeFirst(ranked, used, (item) => isScreenOrbitSignal(item)));
 
   // NFL, fantasy decisions, and broader sports-data work are separate appetites.
   push(takeFirst(ranked, used, (item) => matchesPersonalTasteTopic(item, ['nfl-analytics'])));
@@ -225,10 +228,7 @@ export function selectDailyRun(
   push(takeFirst(ranked, used, (item) => isActiveSportSignal(item)));
   push(takeFirst(ranked, used, (item) => isSoccerSignal(item)));
   push(takeFirst(ranked, used, (item) => item.lane === 'gaming'));
-  // Screen Orbit is semantic rather than poster-driven. A current release,
-  // renewal, trailer, creator update, or adjacent discovery earns the slot from
-  // title/story taste and behavior, never because it happens to carry art.
-  push(takeFirst(ranked, used, (item) => isScreenOrbitSignal(item)));
+
   // Watchable is semantic. A thumbnail or media failure can never decide which
   // recommendation wins, and external social clips can satisfy this slot too.
   push(takeFirst(ranked, used, (item) => isWatchableTasteSignal(item)));
