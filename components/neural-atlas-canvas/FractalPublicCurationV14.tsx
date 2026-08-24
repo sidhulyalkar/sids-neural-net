@@ -48,9 +48,18 @@ function cleanSeed(seed: string | undefined): string {
   );
 }
 
+function hideAuxiliaryFractalLayers() {
+  document
+    .querySelectorAll<HTMLElement>('[data-fractal-surface-enhancer], [data-fractal-experience]')
+    .forEach((element) => {
+      element.style.visibility = 'hidden';
+    });
+}
+
 function rewriteRetiredMorphology(root: HTMLElement, morphology: string) {
   const fallback = RETIRED_FALLBACKS[morphology] ?? 'coral';
   root.style.visibility = 'hidden';
+  hideAuxiliaryFractalLayers();
   const url = new URL(window.location.href);
   url.searchParams.set('morph', fallback);
   url.searchParams.set('seed', cleanSeed(root.dataset.fractalSeed));
