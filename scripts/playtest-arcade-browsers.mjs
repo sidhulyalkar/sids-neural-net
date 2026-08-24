@@ -159,7 +159,7 @@ async function testSylvariaSequoia(page, engineName) {
   const bridge = await assertNativeBridge(frame, 'Sylvaria: Sequoia');
   await frame.locator('#c').waitFor({ state: 'visible' });
   const title = await frame.title();
-  if (!title.includes('Sylvaria: Sequoia v0.2.0')) throw new Error(`Sylvaria: Sequoia runtime title is stale: ${title}`);
+  if (!title.includes('Sylvaria: Sequoia v0.3.0')) throw new Error(`Sylvaria: Sequoia runtime title is stale: ${title}`);
 
   const initial = await assertPainted(frame, 'Sylvaria: Sequoia title', 8, 20);
   const contract = await frame.evaluate(() => window.SYLVARIA_SEQUOIA_DEBUG && ({
@@ -168,16 +168,20 @@ async function testSylvariaSequoia(page, engineName) {
     state: window.SYLVARIA_SEQUOIA_DEBUG.getState(),
     tuning: window.SYLVARIA_SEQUOIA_DEBUG.getTuning(),
     telemetry: window.SYLVARIA_SEQUOIA_DEBUG.getTelemetry(),
+    phases: window.SYLVARIA_SEQUOIA_DEBUG.getPhases(),
   }));
   if (!contract) throw new Error('Sylvaria: Sequoia debug contract is unavailable');
-  if (contract.version !== '0.2.0' || contract.fixedHz !== 120) {
+  if (contract.version !== '0.3.0' || contract.fixedHz !== 120) {
     throw new Error(`Sylvaria: Sequoia deterministic contract is stale: ${JSON.stringify(contract)}`);
   }
   if (contract.state.mode !== 'title') throw new Error(`Sylvaria: Sequoia expected title mode, got ${contract.state.mode}`);
-  if (contract.state.branchCount < 8 || contract.state.knotCount < 1) {
-    throw new Error(`Sylvaria: Sequoia authored route failed to prime: ${JSON.stringify(contract.state)}`);
+  if (contract.state.branchCount < 8 || contract.state.knotCount < 1 || contract.state.ringCount < 1) {
+    throw new Error(`Sylvaria: Sequoia authored aerial route failed to prime: ${JSON.stringify(contract.state)}`);
   }
-  if (contract.tuning.combo.hyperThreshold !== 4 || contract.tuning.combo.ascentDecayScale >= 1) {
+  if (contract.state.airJumps !== 1 || contract.tuning.jump.airJumps !== 1) {
+    throw new Error(`Sylvaria: Sequoia Air Kick contract is stale: ${JSON.stringify({ state: contract.state, jump: contract.tuning.jump })}`);
+  }
+  if (contract.tuning.combo.sapSurgeThreshold !== 5 || contract.tuning.combo.hyperThreshold !== 7 || contract.tuning.combo.hyperVariety !== 3) {
     throw new Error(`Sylvaria: Sequoia combo tuning is stale: ${JSON.stringify(contract.tuning.combo)}`);
   }
   for (const grammar of ['FLOW', 'CRUX', 'RECOVERY', 'SLINGSHOT']) {
@@ -185,34 +189,67 @@ async function testSylvariaSequoia(page, engineName) {
       throw new Error(`Sylvaria: Sequoia did not generate ${grammar} telemetry: ${JSON.stringify(contract.telemetry.routeStats)}`);
     }
   }
+  const expectedPhases = ['ROOTWAYS', 'REDWOOD RUN', 'SAPWORK', 'HIGH CANOPY', 'CROWNLINE'];
+  if (JSON.stringify(contract.phases.map((phase) => phase.name)) !== JSON.stringify(expectedPhases)) {
+    throw new Error(`Sylvaria: Sequoia progression phases are stale: ${JSON.stringify(contract.phases)}`);
+  }
 
   await page.screenshot({ path: path.join(outputDir, `${engineName}-sylvaria-sequoia-title.png`), fullPage: true });
   await assertGameFocus(page, frame.locator('#c'), 'Sylvaria: Sequoia');
   await assertCanvasKeyboardFocus(frame, 'Sylvaria: Sequoia');
+
+  // First Space starts the run from title. It deliberately does not consume a jump.
   await page.keyboard.press('Space');
-  await page.waitForTimeout(180);
+  await page.waitForTimeout(100);
   await page.keyboard.down('ArrowRight');
-  await page.waitForTimeout(280);
+  await page.waitForTimeout(220);
   await page.keyboard.up('ArrowRight');
 
   const moving = await frame.evaluate(() => window.SYLVARIA_SEQUOIA_DEBUG.getState());
   if (moving.mode !== 'playing') throw new Error(`Sylvaria: Sequoia did not enter gameplay: ${JSON.stringify(moving)}`);
   if (moving.player.vx <= 0) throw new Error(`Sylvaria: Sequoia horizontal acceleration did not respond: ${JSON.stringify(moving.player)}`);
 
+  // Ground jump: Air Kick must remain available.
   await page.keyboard.press('Space');
-  await page.waitForTimeout(100);
-  const jumping = await frame.evaluate(() => window.SYLVARIA_SEQUOIA_DEBUG.getState());
-  if (jumping.player.vy <= 0) throw new Error(`Sylvaria: Sequoia jump did not launch upward: ${JSON.stringify(jumping.player)}`);
+  await page.waitForTimeout(70);
+  const firstJump = await frame.evaluate(() => window.SYLVARIA_SEQUOIA_DEBUG.getState());
+  if (firstJump.player.vy <= 0 || firstJump.player.state === 'grounded') {
+    throw new Error(`Sylvaria: Sequoia ground jump did not launch: ${JSON.stringify(firstJump.player)}`);
+  }
+  if (firstJump.airJumps !== 1) {
+    throw new Error(`Sylvaria: Sequoia ground jump incorrectly consumed Air Kick: ${JSON.stringify(firstJump)}`);
+  }
 
-  await page.waitForTimeout(300);
+  // Second press while airborne is the v0.3 Air Kick and must consume exactly one charge.
+  const vyBeforeAirKick = firstJump.player.vy;
+  await page.keyboard.press('Space');
+  await page.waitForTimeout(55);
+  const airKick = await frame.evaluate(() => window.SYLVARIA_SEQUOIA_DEBUG.getState());
+  if (airKick.airJumps !== 0) {
+    throw new Error(`Sylvaria: Sequoia airborne second jump did not consume Air Kick: ${JSON.stringify(airKick)}`);
+  }
+  if (airKick.player.vy <= 0 || airKick.combo < 1) {
+    throw new Error(`Sylvaria: Sequoia Air Kick failed to extend aerial flow: ${JSON.stringify(airKick)}`);
+  }
+  if (airKick.player.vy <= vyBeforeAirKick * 0.45) {
+    throw new Error(`Sylvaria: Sequoia Air Kick lost too much upward energy: before=${vyBeforeAirKick}, after=${airKick.player.vy}`);
+  }
+
+  await page.waitForTimeout(220);
   const telemetry = await frame.evaluate(() => window.SYLVARIA_SEQUOIA_DEBUG.getTelemetry());
-  if (telemetry.runSeconds <= 0 || telemetry.counters.jumps < 1 || telemetry.movement.peakSpeed <= 0) {
-    throw new Error(`Sylvaria: Sequoia telemetry did not accumulate: ${JSON.stringify(telemetry)}`);
+  if (
+    telemetry.runSeconds <= 0 ||
+    telemetry.counters.jumps < 1 ||
+    telemetry.counters.doubleJumps < 1 ||
+    telemetry.counters.comboLinks < 1 ||
+    telemetry.movement.peakSpeed <= 0
+  ) {
+    throw new Error(`Sylvaria: Sequoia aerial telemetry did not accumulate: ${JSON.stringify(telemetry)}`);
   }
 
   const playing = await assertPainted(frame, 'Sylvaria: Sequoia playing', 8, 20);
   await page.screenshot({ path: path.join(outputDir, `${engineName}-sylvaria-sequoia-playing.png`), fullPage: true });
-  return { bridge, title, initial, playing, contract, moving, jumping, telemetry };
+  return { bridge, title, initial, playing, contract, moving, firstJump, airKick, telemetry };
 }
 
 for (const { name: engineName, browserType, launchOptions } of engines) {
