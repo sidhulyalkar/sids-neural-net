@@ -140,10 +140,19 @@ export async function getIntegratedFrontierFeed(options: IntegratedOptions = {})
   const deadline = options.adapterDeadlineMs ?? REQUEST_ADAPTER_DEADLINE_MS;
   const emptyAdaptive: FrontierFeedResponse = { generatedAt: new Date().toISOString(), items: [], sources: [] };
 
+  // The explicit taste map affects every request through adaptive focus and
+  // ranking. The deeper Brave taste crawl is intentionally different: it fans
+  // out several targeted searches and belongs in the archive-building path,
+  // never in the user's first-paint critical path. The snapshot builder is the
+  // one caller that opts out of request deadlines (`adapterDeadlineMs: false`).
+  const tasteDiscoveryTask = options.adapterDeadlineMs === false
+    ? getPersonalTasteFrontierFeed()
+    : Promise.resolve(emptyAdaptive);
+
   const [baseResult, personalResult, tasteResult, activeSportsResult, adaptiveResult, multiSourceResult, expandedResult, vimeoResult] = await Promise.allSettled([
     withinAdapterDeadline('core mesh', getFrontierFeed(), deadline),
     withinAdapterDeadline('personal mesh', getPersonalFrontierFeed(), deadline),
-    withinAdapterDeadline('personal taste mesh', getPersonalTasteFrontierFeed(), deadline),
+    withinAdapterDeadline('personal taste mesh', tasteDiscoveryTask, deadline),
     withinAdapterDeadline('active sports mesh', getActiveSportsFeed(), deadline),
     withinAdapterDeadline(
       'adaptive live mesh',
