@@ -99,8 +99,9 @@ test('production-sized daily run reserves Screen Orbit independently of gaming a
     ...Array.from({ length: 16 }, (_, index) => item(`filler-${index}`, `Filler ${index}`, 'wildcards', [`filler-${index}`])),
   ];
   const selected = selectDailyRun(ranked, {}, 14, new Date('2026-08-24T06:00:00.000Z'));
-  assert.ok(selected.some((entry) => entry.id === 'screen'));
-  assert.ok(selected.some((entry) => entry.id === 'game'));
+  const diagnostic = selected.map((entry) => `${entry.id}:${entry.lane}`).join(', ');
+  assert.ok(selected.some((entry) => entry.id === 'screen'), `Screen Orbit missing from [${diagnostic}]`);
+  assert.ok(selected.some((entry) => entry.id === 'game'), `Gaming missing from [${diagnostic}]`);
 });
 
 test('Screen Orbit motif RSS requires returned evidence rather than query labels', () => {
