@@ -18,10 +18,10 @@ const atom = `<?xml version="1.0" encoding="UTF-8"?>
   </entry>
 </feed>`;
 
-test('curated watch radar stays intentionally small and covers analysis plus active sports', () => {
-  assert.equal(FRONTIER_WATCH_CHANNELS.length, 4);
-  assert.equal(new Set(FRONTIER_WATCH_CHANNELS.map((channel) => channel.channelId)).size, 4);
-  assert.ok(FRONTIER_WATCH_CHANNELS.some((channel) => channel.id === 'nfl'));
+test('curated YouTube watch radar stays small and excludes leagues with known embed blocking', () => {
+  assert.equal(FRONTIER_WATCH_CHANNELS.length, 3);
+  assert.equal(new Set(FRONTIER_WATCH_CHANNELS.map((channel) => channel.channelId)).size, 3);
+  assert.ok(!FRONTIER_WATCH_CHANNELS.some((channel) => /nfl/i.test(`${channel.id} ${channel.label}`)));
   assert.ok(FRONTIER_WATCH_CHANNELS.some((channel) => channel.id === 'thinking-basketball'));
   assert.ok(FRONTIER_WATCH_CHANNELS.some((channel) => channel.id === 'world-climbing'));
   assert.ok(FRONTIER_WATCH_CHANNELS.some((channel) => channel.id === 'red-bull-bike'));
