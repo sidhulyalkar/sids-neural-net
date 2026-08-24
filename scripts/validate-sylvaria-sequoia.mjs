@@ -15,6 +15,8 @@ const modules = [
   '02-sap-stick.js',
   '03-render-canopy.js',
   '03-render-reference-pass.js',
+  '03-render-altitude-realism.js',
+  '03-title-focus-guard.js',
   '04-input.js',
 ];
 const indexPath = join(runtimeRoot, 'index.html');
@@ -38,15 +40,17 @@ const assist = read('02-flow-assist.js');
 const stick = read('02-sap-stick.js');
 const render = read('03-render-canopy.js');
 const referenceRender = read('03-render-reference-pass.js');
+const altitudeRender = read('03-render-altitude-realism.js');
+const focusGuard = read('03-title-focus-guard.js');
 const input = read('04-input.js');
-const runtime = [core, feel, world, gameplay, jumpContract, assist, stick, render, referenceRender, input].join('\n');
+const runtime = [core, feel, world, gameplay, jumpContract, assist, stick, render, referenceRender, altitudeRender, focusGuard, input].join('\n');
 const design = readFileSync(designPath, 'utf8');
 
 assert.match(index, /<title>Sylvaria: Sequoia v0\.4\.0<\/title>/);
-assert.match(index, /02-flow-assist\.js[\s\S]*02-sap-stick\.js[\s\S]*03-render-canopy\.js[\s\S]*03-render-reference-pass\.js[\s\S]*04-input\.js/);
+assert.match(index, /02-flow-assist\.js[\s\S]*02-sap-stick\.js[\s\S]*03-render-canopy\.js[\s\S]*03-render-reference-pass\.js[\s\S]*03-render-altitude-realism\.js[\s\S]*03-title-focus-guard\.js[\s\S]*04-input\.js/);
 assert.doesNotMatch(index, /03-render\.js|03-stride-hud\.js|03-render-skill-pass\.js/);
 assert.match(index, /hold Shift \+ tap Space = Sap Stick/i);
-assert.match(index, /sparse branches \+ amber anchor gaps/i);
+assert.match(index, /humid rootways into the exposed crown/i);
 
 assert.match(core, /FIXED_DT: 1 \/ 120/);
 assert.match(core, /routeRng: makeRng/);
@@ -158,6 +162,38 @@ for (const pattern of [
   /S\.render = render/,
 ]) assert.match(referenceRender, pattern);
 
+assert.doesNotMatch(altitudeRender, /routeRng\.next\(/, 'altitude renderer must never consume route RNG');
+for (const pattern of [
+  /altitude-realism-v1/,
+  /humid understory/,
+  /sunlit trunk corridor/,
+  /amber resin belt/,
+  /cold blue windline/,
+  /open crown and cloud sea/,
+  /function profileForFloor\(/,
+  /function drawAtmosphericGrade\(/,
+  /function drawTrunkEcology\(/,
+  /function drawBranchEcology\(/,
+  /function drawAirborneMaterial\(/,
+  /function drawUpperCanopyLife\(/,
+  /humidity haze falls with altitude/,
+  /wind rises with altitude/,
+  /moss yields to lichen and needles/,
+  /continuousBlendFloors: BLEND_FLOORS/,
+  /collisionHonest: true/,
+  /baseRender\(alpha, now\)/,
+  /S\.render = render/,
+]) assert.match(altitudeRender, pattern);
+
+for (const pattern of [
+  /desktop-focus-v1/,
+  /function guardDesktopTitleFocus\(/,
+  /event\.pointerType === 'touch'/,
+  /event\.stopImmediatePropagation\(\)/,
+  /desktopActivation: 'Space-or-Enter'/,
+  /touchActivation: 'tap'/,
+]) assert.match(focusGuard, pattern);
+
 for (const pattern of [
   /const SHIFT_KEYS = new Set/,
   /function triggerSapStick\(/,
@@ -186,7 +222,7 @@ for (const pattern of [
 console.log(JSON.stringify({
   ok: true,
   runtime: 'sylvaria-sequoia',
-  version: '0.4.0-sapstick-reference-art',
+  version: '0.4.0-sapstick-reference-art-altitude',
   fixedHz: 120,
   modules,
   grammars: ['FLOW', 'RECOVERY', 'GROVE', 'SAPRUN', 'SLINGSHOT', 'CRUX'],
@@ -194,5 +230,16 @@ console.log(JSON.stringify({
   sapStick: ['Shift+Space', 'no charge', '0.22s tether', 'auto-vault', 'anchor reuse lock'],
   topology: ['sparse branches', 'branchless amber tiers', 'open Grove chambers'],
   bark: 'shared-vertex puzzle lattice plus pre-rendered production flake overlay',
-  art: ['bright valley composition', 'deep sequoia bark', 'organic moss branches', 'amber cavities', 'mascot Pip', 'reference HUD'],
+  art: [
+    'bright valley composition',
+    'deep sequoia bark',
+    'organic moss branches',
+    'amber cavities',
+    'mascot Pip',
+    'reference HUD',
+    'altitude humidity and sun scattering',
+    'moss-to-lichen ecology progression',
+    'Sapwork resin sheen',
+    'high-canopy wind, cloud and bird layers',
+  ],
 }, null, 2));
