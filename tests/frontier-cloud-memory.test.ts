@@ -35,7 +35,7 @@ function item(id: string, title: string): FrontierItem {
 
 function state(): FrontierPersistedState {
   return {
-    version: 2,
+    version: 3,
     profile: createInitialProfile(),
     behavior: createInitialBehaviorModel(),
     saved: {},
@@ -135,6 +135,7 @@ test('cloud-memory merge preserves useful state from both devices', () => {
 
   const merged = mergeFrontierMemory(left, right);
   assert.deepEqual(Object.keys(merged.saved).sort(), ['a', 'b']);
+  assert.equal(merged.version, 3);
   assert.equal(merged.profile.topicAffinity.neuroai, 0.8);
   assert.equal(merged.profile.topicAffinity['mountain biking'], 0.9);
   assert.equal(merged.history.a.dwellMs, 24_000);
