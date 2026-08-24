@@ -83,7 +83,7 @@ export const arcadeGames: ArcadeGame[] = [
     title: 'Sylvaria: Sequoia',
     subtitle: 'RUN · STICK · VAULT THE CANOPY.',
     description:
-      'A kinetic sequoia climber rebuilt around sparse routes, open Grove Chambers, and branchless amber-anchor runs. Running still converts earned momentum into jump height, while passive bark remains a low-energy redirect and deliberate Bark Cling → Bark Kick is the wall skill. The new no-charge Sap Stick is the central navigation tool: hold Shift to preview an amber lock, tap Space to tether for a fixed 0.22-second beat, then auto-vault with preserved momentum and a refreshed Air Kick. Harder SAPRUN and SLINGSHOT terrain deliberately removes branches so clean Sap Stick timing can save runs and cross open canopy gaps. v0.4 also introduces a deterministic puzzle-fit sequoia bark model and a cuter mascot-style Pip with expressive eyes, leaf hood, scarf, oversized boots, tiny satchel, and visible amber stick.',
+      'A kinetic sequoia climber rebuilt around sparse routes, open Grove Chambers, and branchless amber-anchor runs. Running converts earned momentum into jump height, passive bark remains a low-energy redirect, and deliberate Bark Cling → Bark Kick is the wall skill. The no-charge Sap Stick is the central navigation tool: hold Shift to preview an amber lock, tap Space to tether for a fixed 0.22-second beat, then auto-vault with preserved momentum and a refreshed Air Kick. The forest now changes continuously with altitude rather than behaving like one repeated backdrop: humid mossy ROOTWAYS open into sunlit REDWOOD RUN trunks, SAPWORK gains glowing resin sheen, HIGH CANOPY becomes colder, clearer and windier with lichen and drifting needles, and CROWNLINE breaks into exposed sky, cloud wisps and distant birds. The production art stack combines deterministic puzzle-fit sequoia bark, deep flake shadows, organic branch ecology, volumetric-looking light, atmospheric haze and a mascot-style Pip while keeping collision geometry exact.',
     version: 'v0.4.0',
     status: 'playable',
     sourceVisibility: 'public',
@@ -91,7 +91,7 @@ export const arcadeGames: ArcadeGame[] = [
     launchUrl: sylvariaSequoiaRuntime,
     aspectRatio: '3 / 2',
     nativeSize: { width: 960, height: 640 },
-    tags: ['vertical climber', 'sap stick', 'branchless routes', 'procedural bark', 'aerial combos', 'double jump', 'bark cling', 'grove chambers', 'momentum', 'route grammar', 'telemetry', 'canvas'],
+    tags: ['vertical climber', 'sap stick', 'branchless routes', 'procedural bark', 'altitude biomes', 'atmospheric lighting', 'aerial combos', 'double jump', 'bark cling', 'grove chambers', 'momentum', 'route grammar', 'telemetry', 'canvas'],
     controls: [
       { input: 'A / D · ← / →', action: 'Run to build real momentum; committed movement still powers jump height' },
       { input: 'Space · W · ↑', action: 'Jump; a separate airborne press uses the renewable Air Kick' },
