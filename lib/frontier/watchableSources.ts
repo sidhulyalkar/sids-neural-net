@@ -14,17 +14,10 @@ type WatchChannel = {
 
 /**
  * Stable public YouTube channel IDs. This source is deliberately tiny and
- * high-fit: it exists to make the finite run more watchable, not to recreate a
- * general video feed.
+ * high-fit. Leagues known to block website playback, notably the NFL, are kept
+ * out entirely and are supplied by source-hosted highlight/social clip radars.
  */
 export const FRONTIER_WATCH_CHANNELS: readonly WatchChannel[] = [
-  {
-    id: 'nfl',
-    label: 'NFL',
-    channelId: 'UCDVYQ4Zhbm3S2dlz7P1GBDg',
-    tags: ['nfl', 'football', 'highlights', 'watchable'],
-    importance: 0.72,
-  },
   {
     id: 'thinking-basketball',
     label: 'Thinking Basketball',
