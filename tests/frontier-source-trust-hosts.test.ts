@@ -26,6 +26,13 @@ test('vetted sports-data and visualization destinations are admitted as known pr
   assert.notEqual(assessFrontierHost('https://observablehq.com/').tier, 'unknown');
 });
 
+test('Screen Orbit first-party and established entertainment sources have explicit provenance', () => {
+  assert.equal(assessFrontierHost('https://www.crunchyroll.com/news/latest').tier, 'primary');
+  assert.equal(assessFrontierHost('https://about.netflix.com/en/news/example').tier, 'primary');
+  assert.equal(assessFrontierHost('https://www.animenewsnetwork.com/news/example').tier, 'established');
+  assert.equal(assessFrontierHost('https://variety.com/tv/news/example').tier, 'established');
+});
+
 test('requested sports clip hosts have explicit bounded trust tiers', () => {
   assert.equal(assessFrontierHost('https://bleacherreport.com/articles/example').tier, 'established');
   assert.equal(assessFrontierHost('https://sleeper.com/news/example').tier, 'platform');
