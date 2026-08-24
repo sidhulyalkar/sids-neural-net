@@ -20,7 +20,6 @@ type Props = {
   id: string;
   url?: string;
   poster?: string;
-  /** Browser-native poster used when the optimized/proxied poster path fails. */
   posterFallback?: string;
   alt: string;
   streams?: FrontierVideoStream[];
@@ -40,8 +39,6 @@ function orderedStreams(streams: FrontierVideoStream[] | undefined): FrontierVid
 
 function browserOrderedStreams(video: HTMLVideoElement, streams: FrontierVideoStream[]): FrontierVideoStream[] {
   if (!canPlayNativeHls(video)) return streams;
-  // Safari's native HLS stack already owns mature ABR, hardware decode, captions,
-  // and power behavior. Prefer it to the custom MSE path when available.
   return [...streams].sort((a, b) => {
     const rank = (stream: FrontierVideoStream) => stream.kind === 'hls' ? 0 : stream.kind === 'frontier-fmp4' ? 1 : 2;
     return rank(a) - rank(b);
@@ -53,16 +50,7 @@ type VirtualBoundarySnapshot = {
   contentVisibility: string;
 };
 
-export function AdaptiveVideoSurface({
-  id,
-  url,
-  poster,
-  posterFallback,
-  alt,
-  streams,
-  aspectRatio,
-  onUnavailable,
-}: Props) {
+export function AdaptiveVideoSurface({ id, url, poster, posterFallback, alt, streams, aspectRatio, onUnavailable }: Props) {
   const shellRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -101,10 +89,6 @@ export function AdaptiveVideoSurface({
     const node = shellRef.current?.closest<HTMLElement>('[data-frontier-virtual-card]');
     if (!node) return;
     virtualBoundary.current = { node, contentVisibility: node.style.contentVisibility };
-    // Historical FRONTIER builds used `content-visibility:auto` on card roots.
-    // Keep this defensive elevation for old cached markup while current cards
-    // remain layout-visible; the same playing video can still FLIP fullscreen
-    // without reparenting or remounting.
     node.style.contentVisibility = 'visible';
   }, []);
 
@@ -122,10 +106,6 @@ export function AdaptiveVideoSurface({
   useEffect(() => {
     if (failed) onUnavailable?.();
   }, [failed, onUnavailable]);
-
-  useEffect(() => {
-    setFailed(false);
-  }, [id, streamCandidates, url]);
 
   useEffect(() => {
     if (!expanded) return;
@@ -185,14 +165,8 @@ export function AdaptiveVideoSurface({
           if (!supportsMediaSource()) continue;
           const controller = new FrontierMseController(video);
           try {
-            await controller.attach(
-              { initUrl: candidate.initUrl, variants: candidate.variants },
-              shellRef.current?.clientWidth ?? 960
-            );
-            if (disposed) {
-              controller.destroy();
-              return;
-            }
+            await controller.attach({ initUrl: candidate.initUrl, variants: candidate.variants }, shellRef.current?.clientWidth ?? 960);
+            if (disposed) { controller.destroy(); return; }
             mse = controller;
             return;
           } catch {
@@ -200,19 +174,16 @@ export function AdaptiveVideoSurface({
             continue;
           }
         }
-
         if (candidate.kind === 'hls') {
           if (!canPlayNativeHls(video)) continue;
           video.src = candidate.manifestUrl;
           return;
         }
-
         if (candidate.kind === 'progressive') {
           video.src = candidate.url;
           return;
         }
       }
-
       if (url) {
         video.src = url;
         return;
@@ -242,9 +213,7 @@ export function AdaptiveVideoSurface({
     if (visibility === 'active' && shouldAutoplayMedia()) {
       video.muted = muted;
       void video.play().catch(() => undefined);
-    } else if (!expanded) {
-      video.pause();
-    }
+    } else if (!expanded) video.pause();
   }, [expanded, muted, visibility]);
 
   useEffect(() => {
@@ -259,17 +228,11 @@ export function AdaptiveVideoSurface({
       if (total || dropped) frontierMediaTelemetry.playbackFrames(total, dropped);
     };
     const timer = window.setInterval(sample, 5_000);
-    return () => {
-      window.clearInterval(timer);
-      sample();
-    };
+    return () => { window.clearInterval(timer); sample(); };
   }, [visibility]);
 
   const toggleExpanded = () => {
-    if (expanded) {
-      closeExpanded();
-      return;
-    }
+    if (expanded) { closeExpanded(); return; }
     elevateVirtualBoundary();
     captureFlip();
     pendingFlip.current = true;
@@ -286,22 +249,10 @@ export function AdaptiveVideoSurface({
   return (
     <div ref={shellRef} className={styles.videoShell} style={aspectRatio ? { aspectRatio } : undefined}>
       {!mountedPlayer && poster ? (
-        <GpuImageSurface
-          id={`${id}:poster`}
-          src={poster}
-          fallbackSrc={posterFallback || poster}
-          alt={alt}
-          className={styles.posterSurface}
-          aspectRatio={aspectRatio}
-          onUnavailable={onUnavailable}
-        />
+        <GpuImageSurface id={`${id}:poster`} src={poster} fallbackSrc={posterFallback || poster} alt={alt} className={styles.posterSurface} aspectRatio={aspectRatio} onUnavailable={onUnavailable} />
       ) : null}
       {mountedPlayer ? (
-        <div
-          ref={stageRef}
-          className={`${styles.videoStage} ${expanded ? styles.videoStageExpanded : ''}`}
-          data-expanded={expanded ? 'true' : 'false'}
-        >
+        <div ref={stageRef} className={`${styles.videoStage} ${expanded ? styles.videoStageExpanded : ''}`} data-expanded={expanded ? 'true' : 'false'}>
           <video
             ref={videoRef}
             className={styles.videoElement}
@@ -309,18 +260,9 @@ export function AdaptiveVideoSurface({
             muted={muted}
             preload={visibility === 'active' ? 'auto' : 'metadata'}
             poster={posterFallback || poster}
-            onPlay={(event) => {
-              claimFrontierPlayback(id, event.currentTarget);
-              setPlaying(true);
-            }}
-            onPause={(event) => {
-              releaseFrontierPlayback(id, event.currentTarget);
-              setPlaying(false);
-            }}
-            onEnded={(event) => {
-              releaseFrontierPlayback(id, event.currentTarget);
-              setPlaying(false);
-            }}
+            onPlay={(event) => { claimFrontierPlayback(id, event.currentTarget); setPlaying(true); }}
+            onPause={(event) => { releaseFrontierPlayback(id, event.currentTarget); setPlaying(false); }}
+            onEnded={(event) => { releaseFrontierPlayback(id, event.currentTarget); setPlaying(false); }}
             onPlaying={() => {
               if (!startRecorded.current && playingStarted.current !== undefined) {
                 startRecorded.current = true;
@@ -331,23 +273,11 @@ export function AdaptiveVideoSurface({
             onError={() => setFailed(true)}
           />
           <div className={styles.videoChrome}>
-            <button type="button" onClick={togglePlaying} aria-label={playing ? 'Pause video' : 'Play video'}>
-              {playing ? <Pause size={14} /> : <Play size={14} />}
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                const next = !muted;
-                setMuted(next);
-                if (videoRef.current) videoRef.current.muted = next;
-              }}
-              aria-label={muted ? 'Unmute video' : 'Mute video'}
-            >
+            <button type="button" onClick={togglePlaying} aria-label={playing ? 'Pause video' : 'Play video'}>{playing ? <Pause size={14} /> : <Play size={14} />}</button>
+            <button type="button" onClick={() => { const next = !muted; setMuted(next); if (videoRef.current) videoRef.current.muted = next; }} aria-label={muted ? 'Unmute video' : 'Mute video'}>
               {muted ? <VolumeX size={14} /> : <Volume2 size={14} />}
             </button>
-            <button type="button" onClick={toggleExpanded} aria-label={expanded ? 'Close media view' : 'Expand media'}>
-              {expanded ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
-            </button>
+            <button type="button" onClick={toggleExpanded} aria-label={expanded ? 'Close media view' : 'Expand media'}>{expanded ? <Minimize2 size={14} /> : <Maximize2 size={14} />}</button>
           </div>
         </div>
       ) : null}
