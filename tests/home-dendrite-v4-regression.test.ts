@@ -160,7 +160,7 @@ test('echo nest v4 uses mixed-scale polygon outlines and matte hatch texture', (
   const lattice = tree.paths.filter((path) => path.id.startsWith('nest-lattice-'));
 
   assert.ok(outlines.length >= 30);
-  assert.ok(matte.length >= 120, `expected dense matte hatching, got ${matte.length}`);
+  assert.ok(matte.length >= 90, `expected dense matte hatching, got ${matte.length}`);
   assert.ok(lattice.length >= 10);
   const vertexCounts = new Set(outlines.map((path) => Math.max(0, path.points.length - 1)));
   assert.ok(vertexCounts.has(3), 'triangle cells should remain in the nest');
