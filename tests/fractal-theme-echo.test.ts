@@ -61,7 +61,7 @@ test('homepage v3 relocates CORE into a quiet pocket and expands Echo Nest', () 
   assert.match(stage, /FractalExperienceV3/);
   assert.match(experience, /placeCoreInQuietPocket/);
   assert.match(experience, /candidateDensity/);
-  assert.match(experience, /data\.corePlacement = 'quiet-pocket-v1'/);
+  assert.match(experience, /dataset\.corePlacement = 'quiet-pocket-v1'/);
   assert.match(experience, /drawExpandedEchoNest/);
   assert.match(experience, /morphology === 'tectonic'/);
   assert.match(experience, /url\.searchParams\.set\('morph', 'echo-nest'\)/);
