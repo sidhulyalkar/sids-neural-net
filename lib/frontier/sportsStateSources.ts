@@ -175,12 +175,18 @@ function recordForCompetitor(competitor: EspnCompetitor): string | undefined {
     ?? competitor.records?.[0]?.summary;
 }
 
-function competitorForState(config: FrontierSportsLeagueConfig, competitor: EspnCompetitor, showScore: boolean): FrontierSportsCompetitor {
+function competitorForState(
+  config: FrontierSportsLeagueConfig,
+  competitor: EspnCompetitor,
+  showScore: boolean,
+): FrontierSportsCompetitor {
   const abbreviation = competitor.team?.abbreviation ?? '';
+  const name = (competitor.team?.displayName ?? competitor.team?.name ?? abbreviation) || 'Team';
+  const shortName = (competitor.team?.shortDisplayName ?? competitor.team?.name ?? abbreviation) || 'Team';
   return {
     id: competitor.id ?? competitor.team?.id,
-    name: competitor.team?.displayName ?? competitor.team?.name ?? abbreviation || 'Team',
-    shortName: competitor.team?.shortDisplayName ?? competitor.team?.name ?? abbreviation || 'Team',
+    name,
+    shortName,
     abbreviation,
     score: showScore ? competitor.score : undefined,
     record: recordForCompetitor(competitor),
@@ -242,7 +248,11 @@ function summarizeGames(games: FrontierSportsGame[]): string {
   return `${parts.join(' · ') || 'Current slate'} · ${matchup} ${favorite.status}`;
 }
 
-export function parseSportsScoreboard(payload: EspnScoreboard, config: FrontierSportsLeagueConfig, now = Date.now()): FrontierItem[] {
+export function parseSportsScoreboard(
+  payload: EspnScoreboard,
+  config: FrontierSportsLeagueConfig,
+  now = Date.now(),
+): FrontierItem[] {
   const rankedEvents = [...(payload.events ?? [])]
     .filter((event) => event.id && event.competitions?.[0])
     .sort((left, right) => gamePriority(config, right, now) - gamePriority(config, left, now));
@@ -318,20 +328,24 @@ function standingRecord(entry: EspnStandingEntry): string | undefined {
   return [wins ?? '0', losses ?? '0', ...(ties && ties !== '0' ? [ties] : [])].join('-');
 }
 
+function standingRank(entry: EspnStandingEntry, fallback: number): number {
+  const rankStat = stat(entry, ['rank', 'playoffseed', 'playoff seed', 'seed']);
+  const candidate = rankStat?.value ?? Number(rankStat?.displayValue);
+  return Math.max(1, Math.round(Number.isFinite(candidate) && candidate > 0 ? candidate : fallback));
+}
+
 export function parseSportsStandings(payload: EspnStandingNode, config: FrontierSportsLeagueConfig): FrontierItem[] {
   const entries = collectStandingEntries(payload);
   const seen = new Set<string>();
   const rows: FrontierSportsStanding[] = entries.flatMap((entry, index) => {
     const abbreviation = entry.team?.abbreviation ?? '';
-    const name = entry.team?.displayName ?? entry.team?.name ?? abbreviation;
-    const key = entry.team?.id ?? abbreviation ?? name;
+    const name = (entry.team?.displayName ?? entry.team?.name ?? abbreviation) || '';
+    const key = entry.team?.id || abbreviation || name;
     if (!name || !key || seen.has(key)) return [];
     seen.add(key);
-    const rankStat = stat(entry, ['rank', 'playoffseed', 'playoff seed', 'seed']);
-    const rank = Math.max(1, Math.round(rankStat?.value ?? Number(rankStat?.displayValue) || index + 1));
     const points = stat(entry, ['points', 'pts'])?.displayValue;
     return [{
-      rank,
+      rank: standingRank(entry, index + 1),
       team: name,
       abbreviation,
       record: standingRecord(entry),
@@ -384,7 +398,11 @@ function isHighlightExpired(highlight: EspnHighlight, now: number): boolean {
   return Boolean(expiration && Number.isFinite(Date.parse(expiration)) && Date.parse(expiration) <= now);
 }
 
-export function parseSportsHighlights(payload: EspnScoreboard, config: FrontierSportsLeagueConfig, now = Date.now()): FrontierItem[] {
+export function parseSportsHighlights(
+  payload: EspnScoreboard,
+  config: FrontierSportsLeagueConfig,
+  now = Date.now(),
+): FrontierItem[] {
   const candidates = (payload.events ?? []).flatMap((event) => {
     const competition = event.competitions?.[0];
     const favoriteTags = favoriteTagsForEvent(config, competition);
