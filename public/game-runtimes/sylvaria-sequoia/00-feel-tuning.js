@@ -98,9 +98,10 @@
     hesitationDecayScale: 1.30,
     landingGrace: 1.75,
     recoveryBankDelay: 1.15,
-    sapSurgeThreshold: 4,
-    hyperThreshold: 6,
+    sapSurgeThreshold: 5,
+    hyperThreshold: 7,
     hyperVariety: 3,
+    easyHyperThreshold: 6,
     hyperVarietyThreshold: 4,
   });
 
