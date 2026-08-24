@@ -16,10 +16,29 @@ import {
 } from '@/lib/home/fractalTheme';
 
 const ECHO_DESTINATIONS = ['frontier', 'games', 'builds', 'systems', 'contact', 'visuals', 'research', 'papers'];
+const FERMAT_ECHO_STEP = 0.5;
+const TWO_PI = Math.PI * 2;
 
 type FractalThemeEchoProps = {
   variant?: 'background' | 'glyph';
 };
+
+type EchoShapeKind = 'triangle' | 'rhombus' | 'hexagon';
+
+function seededRng(seed: string) {
+  let state = 2166136261;
+  for (let index = 0; index < seed.length; index += 1) {
+    state ^= seed.charCodeAt(index);
+    state = Math.imul(state, 16777619);
+  }
+  return () => {
+    state += 0x6d2b79f5;
+    let value = state;
+    value = Math.imul(value ^ (value >>> 15), value | 1);
+    value ^= value + Math.imul(value ^ (value >>> 7), value | 61);
+    return ((value ^ (value >>> 14)) >>> 0) / 4294967296;
+  };
+}
 
 function drawPath(ctx: CanvasRenderingContext2D, points: Vec2[], smooth: boolean) {
   if (points.length < 2) return;
@@ -45,6 +64,125 @@ function drawPolygon(ctx: CanvasRenderingContext2D, points: Vec2[]) {
   ctx.moveTo(points[0].x, points[0].y);
   for (let index = 1; index < points.length; index += 1) ctx.lineTo(points[index].x, points[index].y);
   ctx.closePath();
+}
+
+function orientedPolygonVertices(
+  center: Vec2,
+  rx: number,
+  ry: number,
+  rotation: number,
+  sides: number,
+  startAngle: number
+): Vec2[] {
+  const cosRotation = Math.cos(rotation);
+  const sinRotation = Math.sin(rotation);
+  return Array.from({ length: sides }, (_, index) => {
+    const angle = startAngle + (index / sides) * TWO_PI;
+    const localX = Math.cos(angle) * rx;
+    const localY = Math.sin(angle) * ry;
+    return {
+      x: center.x + localX * cosRotation - localY * sinRotation,
+      y: center.y + localX * sinRotation + localY * cosRotation,
+    };
+  });
+}
+
+function fermatEchoTangent(theta: number, phase: number, radiusX: number, radiusY: number, thetaMax: number): number {
+  const radial = Math.sqrt(theta / thetaMax);
+  const derivativeRadius = 1 / (2 * Math.sqrt(theta * thetaMax));
+  const angle = theta + phase;
+  const dx = radiusX * (derivativeRadius * Math.cos(angle) - radial * Math.sin(angle));
+  const dy = radiusY * (derivativeRadius * Math.sin(angle) + radial * Math.cos(angle));
+  return Math.atan2(dy, dx);
+}
+
+function pickEchoKind(rng: () => number): EchoShapeKind {
+  const sample = rng();
+  if (sample < 0.45) return 'rhombus';
+  if (sample < 0.8) return 'triangle';
+  return 'hexagon';
+}
+
+function renderEchoNestFermatEcho(
+  ctx: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  seed: string,
+  variant: 'background' | 'glyph'
+) {
+  const rng = seededRng(`theme-echo-fermat:${seed}:${width}x${height}:${variant}`);
+  const background = variant === 'background';
+  const arms = background ? 3 : 2;
+  const countPerArm = background ? Math.max(13, Math.min(24, Math.round(width / 76))) : 7;
+  const center = { x: width * 0.5, y: height * (background ? 0.43 : 0.5) };
+  const radiusX = width * (background ? 0.42 : 0.39);
+  const radiusY = height * (background ? 0.34 : 0.39);
+  const baseSize = Math.min(width, height) * (background ? 0.024 : 0.095);
+  const thetaStart = 0.72;
+  const thetaMax = thetaStart + Math.max(1, countPerArm - 1) * FERMAT_ECHO_STEP;
+
+  for (let arm = 0; arm < arms; arm += 1) {
+    const phase = -0.31 + (arm / arms) * TWO_PI + (rng() - 0.5) * 0.05;
+    let previous: Vec2 | null = null;
+    for (let index = 0; index < countPerArm; index += 1) {
+      const theta = thetaStart + index * FERMAT_ECHO_STEP;
+      const radial = Math.sqrt(theta / thetaMax);
+      const angle = theta + phase;
+      const point = {
+        x: center.x + Math.cos(angle) * radiusX * radial,
+        y: center.y + Math.sin(angle) * radiusY * radial,
+      };
+      const tangent = fermatEchoTangent(theta, phase, radiusX, radiusY, thetaMax);
+      const kind = pickEchoKind(rng);
+      const pulse = index % 5 === 0 ? 1.16 : 1;
+      const size = baseSize * (0.6 + radial * 0.66) * pulse * (0.94 + rng() * 0.12);
+      const sides = kind === 'triangle' ? 3 : kind === 'hexagon' ? 6 : 4;
+      const rx = kind === 'rhombus' ? size * 1.18 : size;
+      const ry = kind === 'rhombus' ? size * 0.62 : kind === 'triangle' ? size * 0.86 : size * 0.92;
+      const bias = kind === 'triangle' ? Math.PI / 18 : kind === 'hexagon' ? Math.PI / 24 : 0;
+      const rotation = tangent + bias + (rng() - 0.5) * (background ? 0.13 : 0.09);
+      const vertices = orientedPolygonVertices(point, rx, ry, rotation, sides, kind === 'hexagon' ? -Math.PI / 2 : 0);
+
+      if (previous) {
+        ctx.beginPath();
+        ctx.moveTo(previous.x, previous.y);
+        const bend = {
+          x: (previous.x + point.x) * 0.5 + Math.cos(tangent) * size * 0.13,
+          y: (previous.y + point.y) * 0.5 + Math.sin(tangent) * size * 0.13,
+        };
+        ctx.lineTo(bend.x, bend.y);
+        ctx.lineTo(point.x, point.y);
+        ctx.strokeStyle = background ? 'rgba(132,205,214,0.035)' : 'rgba(170,224,226,0.23)';
+        ctx.lineWidth = background ? 0.3 : 0.75;
+        ctx.lineJoin = 'miter';
+        ctx.stroke();
+      }
+
+      drawPolygon(ctx, vertices);
+      ctx.fillStyle = background ? 'rgba(229,235,229,0.012)' : 'rgba(226,239,234,0.055)';
+      ctx.fill();
+      drawPolygon(ctx, vertices);
+      ctx.strokeStyle = background
+        ? `rgba(172,218,218,${0.055 + radial * 0.055})`
+        : `rgba(200,238,235,${0.26 + radial * 0.18})`;
+      ctx.lineWidth = background ? 0.42 : 0.9;
+      ctx.lineJoin = 'miter';
+      ctx.stroke();
+
+      if (kind === 'hexagon' || index % 4 === 0) {
+        const inner = vertices.map((vertex) => ({
+          x: point.x + (vertex.x - point.x) * 0.64,
+          y: point.y + (vertex.y - point.y) * 0.64,
+        }));
+        drawPolygon(ctx, inner);
+        ctx.strokeStyle = background ? 'rgba(216,233,229,0.045)' : 'rgba(221,242,237,0.24)';
+        ctx.lineWidth = background ? 0.3 : 0.65;
+        ctx.stroke();
+      }
+
+      previous = point;
+    }
+  }
 }
 
 function renderEcho(
@@ -181,11 +319,19 @@ export function FractalThemeEcho({ variant = 'background' }: FractalThemeEchoPro
       if (!theme) return;
 
       const routeSeed = (pathname || 'page').replace(/[^a-zA-Z0-9_-]/g, '-').slice(0, 48);
+      const echoSeed = `${theme.seed}-echo-${routeSeed}`;
+      if (theme.morphology === 'echo-nest') {
+        renderEchoNestFermatEcho(ctx, width, height, echoSeed, variant);
+        canvas.dataset.fractalThemeLayout = 'fermat-spiral-v1';
+        return;
+      }
+      canvas.dataset.fractalThemeLayout = 'tree-echo-v1';
+
       const virtualWidth = variant === 'background' ? width : 320;
       const virtualHeight = variant === 'background' ? height : 210;
       const tree = buildAdaptiveFractalTree(
         { width: virtualWidth, height: virtualHeight },
-        `force:${theme.morphology}:${theme.seed}-echo-${routeSeed}`,
+        `force:${theme.morphology}:${echoSeed}`,
         ECHO_DESTINATIONS
       );
 
