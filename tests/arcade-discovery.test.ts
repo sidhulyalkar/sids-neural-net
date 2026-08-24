@@ -95,6 +95,7 @@ test('Sylvaria Sequoia exposes the v0.4 Sapstick Canopy contract', () => {
     '02-flow-assist.js',
     '02-sap-stick.js',
     '03-render-canopy.js',
+    '03-render-reference-pass.js',
     '04-input.js',
   ];
   for (const file of runtimeFiles) {
@@ -113,11 +114,12 @@ test('Sylvaria Sequoia exposes the v0.4 Sapstick Canopy contract', () => {
   const flowAssist = readRepoFile(`${runtimeRoot}/02-flow-assist.js`);
   const sapStick = readRepoFile(`${runtimeRoot}/02-sap-stick.js`);
   const canopyRender = readRepoFile(`${runtimeRoot}/03-render-canopy.js`);
+  const referenceRender = readRepoFile(`${runtimeRoot}/03-render-reference-pass.js`);
   const input = readRepoFile(`${runtimeRoot}/04-input.js`);
 
   assert.match(index, /v0\.4\.0/);
   assert.match(index, /02-sap-stick\.js/);
-  assert.match(index, /03-render-canopy\.js/);
+  assert.match(index, /03-render-canopy\.js[\s\S]*03-render-reference-pass\.js[\s\S]*04-input\.js/);
   assert.doesNotMatch(index, /03-render-skill-pass\.js|03-stride-hud\.js/);
 
   assert.match(core, /FIXED_DT: 1 \/ 120/);
@@ -143,7 +145,7 @@ test('Sylvaria Sequoia exposes the v0.4 Sapstick Canopy contract', () => {
   assert.match(world, /state\.LEFT_WALL = 100/);
   assert.match(world, /state\.RIGHT_WALL = 860/);
   assert.match(world, /branch: false/);
-  assert.match(world, /anchorKind: 'sap-stick'/);
+  assert.match(world, /addKnot\([^\n]+, 'sap-stick'\)/);
   assert.match(world, /SAPRUN[\s\S]*branch: false[\s\S]*branch: false[\s\S]*branch: false/);
 
   assert.match(gameplay, /function doAirJump\(/);
@@ -177,6 +179,19 @@ test('Sylvaria Sequoia exposes the v0.4 Sapstick Canopy contract', () => {
   assert.match(canopyRender, /SAP STICK/);
   assert.match(canopyRender, /S\.render = render/);
   assert.doesNotMatch(canopyRender, /routeRng\.next\(/);
+
+  assert.match(referenceRender, /reference-production-v1/);
+  assert.match(referenceRender, /function makeBarkTile\(/);
+  assert.match(referenceRender, /function drawReferenceTrunk\(/);
+  assert.match(referenceRender, /function drawReferenceBranch\(/);
+  assert.match(referenceRender, /function drawReferenceKnot\(/);
+  assert.match(referenceRender, /function drawReferenceSapline\(/);
+  assert.match(referenceRender, /function drawReferencePlayer\(/);
+  assert.match(referenceRender, /function drawReferenceHud\(/);
+  assert.match(referenceRender, /cinematic twin-sequoia reference layout/);
+  assert.match(referenceRender, /collisionHonest: true/);
+  assert.match(referenceRender, /S\.render = render/);
+  assert.doesNotMatch(referenceRender, /routeRng\.next\(/);
 
   assert.match(input, /version: '0\.4\.0'/);
   assert.match(input, /const SHIFT_KEYS/);
@@ -236,10 +251,11 @@ test('Game Network browser validation covers all three active cabinets in four e
   assert.match(browserTest, /testStretchicorn\(page, engineName\)/);
   assert.match(browserTest, /testUniRico\(page, engineName\)/);
   assert.match(browserTest, /testSylvariaSequoia\(page, engineName\)/);
-  assert.match(browserTest, /doubleJumps/);
+  assert.match(browserTest, /consumedJumpRequestId/);
   assert.match(browserTest, /airJumps/);
   assert.match(browserTest, /sapChordCount/);
   assert.match(browserTest, /sapStickVaults/);
+  assert.match(browserTest, /getSapTarget/);
   assert.doesNotMatch(browserTest, /testCrownrush/);
 });
 
