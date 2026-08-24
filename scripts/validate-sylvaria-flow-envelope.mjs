@@ -87,6 +87,10 @@ const standingTeachingGap = Math.max(flow[0].dy, ...recovery.filter((step) => st
 const laterFlowGap = Math.max(...flow.slice(1).filter((step) => step.branch).map((step) => step.dy));
 const twoFloorTarget = sum(flow.slice(0, 2).map((step) => step.dy));
 const threeFloorTarget = sum(flow.slice(0, 3).map((step) => step.dy));
+// A developed run should feel materially stronger than the two-tier combo
+// threshold, while leaving the full three-tier transfer for a second technique.
+const developedRunFloor = twoFloorTarget * 1.30;
+const developedRunCeiling = threeFloorTarget * 0.92;
 const samples = [
   { label: 'standing', speed: 0, flow: 0 },
   { label: 'burst-entry', speed: burstMinSpeed, flow: 0 },
@@ -100,7 +104,8 @@ const by = Object.fromEntries(samples.map((sample) => [sample.label, sample]));
 assert.ok(by.standing.apex >= standingTeachingGap * 1.10, `standing jump lost teaching margin: ${by.standing.apex.toFixed(1)} vs ${standingTeachingGap}`);
 assert.ok(by.standing.apex < laterFlowGap * 1.08, 'standing jump is beginning to erase the momentum requirement from later FLOW transfers');
 assert.ok(by['burst-entry'].apex >= twoFloorTarget * 0.96, `burst entry lost two-floor utility: ${by['burst-entry'].apex.toFixed(1)} vs ${twoFloorTarget}`);
-assert.ok(by['developed-run'].apex >= threeFloorTarget * 0.92, `developed run lost FLOW utility: ${by['developed-run'].apex.toFixed(1)} vs ${threeFloorTarget}`);
+assert.ok(by['developed-run'].apex >= developedRunFloor, `developed run lost strong two-tier FLOW utility: ${by['developed-run'].apex.toFixed(1)} vs ${developedRunFloor.toFixed(1)}`);
+assert.ok(by['developed-run'].apex < developedRunCeiling, `developed run is beginning to solve the full three-tier FLOW transfer: ${by['developed-run'].apex.toFixed(1)} vs ${developedRunCeiling.toFixed(1)}`);
 assert.ok(by['full-stride'].apex < threeFloorTarget + 145, 'ground movement is becoming a route solver again');
 
 const passiveWallVy = numberIn(rebound, 'verticalBase') + Math.min(numberIn(rebound, 'verticalCap'), maxSpeed * numberIn(rebound, 'verticalGain'));
@@ -159,7 +164,7 @@ console.log(JSON.stringify({
     saprun: { branches: saprun.filter((s) => s.branch).length, tiers: saprun.length },
     slingshot: { branches: slingshot.filter((s) => s.branch).length, tiers: slingshot.length },
   },
-  teaching: { standingGap: standingTeachingGap, laterFlowGap },
+  teaching: { standingGap: standingTeachingGap, laterFlowGap, developedRunFloor, developedRunCeiling },
   jumpEnvelope: samples.map(({ label, speed, flow: flowCount, vy, apex: height }) => ({ label, speed, flow: flowCount, launchVy: Number(vy.toFixed(1)), ballisticApex: Number(height.toFixed(1)) })),
   sapStick: { range: stickRange, tetherSeconds: stickHold, reuseLockSeconds: stickReuse, releaseApex: Number(apex(stickReleaseVy).toFixed(1)) },
 }, null, 2));
