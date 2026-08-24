@@ -1,5 +1,6 @@
 import { createInitialBehaviorModel } from './behavior';
 import { createInitialProfile, DEFAULT_COLLECTIONS } from './config';
+import { migrateFrontierProfile } from './profileMigration';
 import type {
   FrontierBehaviorAggregate,
   FrontierBehaviorModel,
@@ -22,8 +23,8 @@ export function parseFrontierPersistedState(value: unknown): FrontierPersistedSt
   if (!objectRecord(value.saved) || !objectRecord(value.history)) return null;
   if (!Array.isArray(value.collections) || !objectRecord(value.game)) return null;
   return {
-    version: 2,
-    profile: value.profile as FrontierProfile,
+    version: 3,
+    profile: migrateFrontierProfile(value.profile as FrontierProfile),
     behavior: value.behavior as FrontierBehaviorModel,
     saved: value.saved as FrontierPersistedState['saved'],
     collections: value.collections as FrontierCollection[],
@@ -44,14 +45,14 @@ function mergeNumericMap(left: Record<string, number>, right: Record<string, num
 }
 
 function mergeProfile(left: FrontierProfile, right: FrontierProfile): FrontierProfile {
-  return {
+  return migrateFrontierProfile({
     laneAffinity: mergeNumericMap(left.laneAffinity, right.laneAffinity) as FrontierProfile['laneAffinity'],
     topicAffinity: mergeNumericMap(left.topicAffinity, right.topicAffinity),
     sourceAffinity: mergeNumericMap(left.sourceAffinity, right.sourceAffinity),
     knownTopics: mergeNumericMap(left.knownTopics, right.knownTopics),
     curiosity: Math.max(left.curiosity, right.curiosity),
     meaningfulInteractions: Math.max(left.meaningfulInteractions, right.meaningfulInteractions),
-  };
+  });
 }
 
 function mergeAggregate(left?: FrontierBehaviorAggregate, right?: FrontierBehaviorAggregate): FrontierBehaviorAggregate | undefined {
@@ -171,7 +172,7 @@ export function mergeFrontierMemory(
   rightValue: FrontierPersistedState | null | undefined
 ): FrontierPersistedState {
   const initial: FrontierPersistedState = {
-    version: 2,
+    version: 3,
     profile: createInitialProfile(),
     behavior: createInitialBehaviorModel(),
     saved: {},
@@ -190,7 +191,7 @@ export function mergeFrontierMemory(
     if (entry) history[key] = entry;
   }
   return {
-    version: 2,
+    version: 3,
     profile: mergeProfile(left.profile, right.profile),
     behavior: mergeBehavior(left.behavior, right.behavior),
     saved: { ...left.saved, ...right.saved },
