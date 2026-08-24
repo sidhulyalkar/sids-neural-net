@@ -6,7 +6,11 @@
   const JUMP_KEYS = new Set(['Space', 'ArrowUp', 'KeyW']);
   const SHIFT_KEYS = new Set(['ShiftLeft', 'ShiftRight']);
   const START_JUMP_GUARD_MS = 80;
-  const MIN_JUMP_REPRESS_MS = 48;
+  // WebKit can surface a late same-key edge after a completed keyboard.press()
+  // crosses iframe focus boundaries. Keep this per physical code so advanced
+  // players may still alternate jump keys rapidly without an artificial global
+  // Air Kick cooldown.
+  const SAME_KEY_JUMP_REARM_MS = 82;
   const PHYSICAL_STALE_MS = 900;
 
   // state.keys is allowed to clear on iframe blur for movement safety. physicalDown
@@ -15,6 +19,8 @@
   const physicalDown = new Map();
   const lastReleasedAt = new Map();
   const suppressedJumpKeys = new Map();
+  let rejectedJumpRepresses = 0;
+  let rejectedJumpQuarantines = 0;
   let sapChordCount = 0;
   let lastSapChordAt = -Infinity;
   let pendingActivation = null;
@@ -53,7 +59,7 @@
 
   function isTooSoonAfterRelease(code, now = performance.now()) {
     const releasedAt = lastReleasedAt.get(code);
-    return releasedAt != null && now - releasedAt < MIN_JUMP_REPRESS_MS;
+    return releasedAt != null && now - releasedAt < SAME_KEY_JUMP_REARM_MS;
   }
 
   function shiftHeld() {
@@ -72,6 +78,19 @@
     if (event.repeat) return;
     if (event.code === 'Escape') return;
     const now = performance.now();
+
+    // Sanitize a completed physical jump edge before admitting it into
+    // physicalDown. Doing this first is important: a rejected browser echo must
+    // never poison the held-key map and suppress the player's next real tap.
+    const gameplayJump = state.mode === 'playing' && JUMP_KEYS.has(event.code);
+    if (gameplayJump && isJumpQuarantined(event.code, now)) {
+      rejectedJumpQuarantines += 1;
+      return;
+    }
+    if (gameplayJump && isTooSoonAfterRelease(event.code, now)) {
+      rejectedJumpRepresses += 1;
+      return;
+    }
     if (!acceptPhysicalDown(event.code, now)) return;
 
     if (event.code === 'KeyT') {
@@ -121,7 +140,6 @@
     }
 
     if (JUMP_KEYS.has(event.code)) {
-      if (isJumpQuarantined(event.code, now) || isTooSoonAfterRelease(event.code, now)) return;
       state.keys.add(event.code);
 
       // Canonical v0.4 chord: hold Shift, then tap Space. The chord is consumed
@@ -248,12 +266,14 @@
       inputGate: {
         startJumpGuardMs: START_JUMP_GUARD_MS,
         pendingActivation: pendingActivation ? { ...pendingActivation } : null,
-        minJumpRepressMs: MIN_JUMP_REPRESS_MS,
+        sameKeyJumpRearmMs: SAME_KEY_JUMP_REARM_MS,
         physicalDown: [...physicalDown.keys()],
         suppressedJumpKeys: [...suppressedJumpKeys.entries()].map(([code, until]) => ({
           code,
           remainingMs: Math.max(0, until - performance.now()),
         })),
+        rejectedJumpRepresses,
+        rejectedJumpQuarantines,
         sapChordCount,
         lastSapChordAgoMs: Number.isFinite(lastSapChordAt) ? Math.max(0, performance.now() - lastSapChordAt) : null,
       },
