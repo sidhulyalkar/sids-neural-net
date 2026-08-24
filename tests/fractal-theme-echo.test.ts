@@ -14,8 +14,9 @@ import {
 const root = process.cwd();
 const readRepoFile = (path: string) => readFileSync(join(root, path), 'utf8');
 
-test('theme echo only accepts the curated homepage morphologies', () => {
-  assert.equal(CURATED_FRACTAL_THEME_IDS.length, 9);
+test('theme echo only accepts the active homepage morphologies', () => {
+  // Tectonic remains in the renderer compatibility union but is retired by the runtime guard.
+  assert.equal(CURATED_FRACTAL_THEME_IDS.length, 10);
   assert.equal(isCuratedFractalThemeId('tectonic'), false);
   assert.equal(isCuratedFractalThemeId('echo-nest'), true);
   assert.equal(isCuratedFractalThemeId('aurora'), false);
