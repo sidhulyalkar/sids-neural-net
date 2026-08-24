@@ -14,6 +14,7 @@ const modules = [
   '02-flow-assist.js',
   '02-sap-stick.js',
   '03-render-canopy.js',
+  '03-render-reference-pass.js',
   '04-input.js',
 ];
 const indexPath = join(runtimeRoot, 'index.html');
@@ -36,12 +37,13 @@ const jumpContract = read('02-jump-contract.js');
 const assist = read('02-flow-assist.js');
 const stick = read('02-sap-stick.js');
 const render = read('03-render-canopy.js');
+const referenceRender = read('03-render-reference-pass.js');
 const input = read('04-input.js');
-const runtime = [core, feel, world, gameplay, jumpContract, assist, stick, render, input].join('\n');
+const runtime = [core, feel, world, gameplay, jumpContract, assist, stick, render, referenceRender, input].join('\n');
 const design = readFileSync(designPath, 'utf8');
 
 assert.match(index, /<title>Sylvaria: Sequoia v0\.4\.0<\/title>/);
-assert.match(index, /02-flow-assist\.js[\s\S]*02-sap-stick\.js[\s\S]*03-render-canopy\.js[\s\S]*04-input\.js/);
+assert.match(index, /02-flow-assist\.js[\s\S]*02-sap-stick\.js[\s\S]*03-render-canopy\.js[\s\S]*03-render-reference-pass\.js[\s\S]*04-input\.js/);
 assert.doesNotMatch(index, /03-render\.js|03-stride-hud\.js|03-render-skill-pass\.js/);
 assert.match(index, /hold Shift \+ tap Space = Sap Stick/i);
 assert.match(index, /sparse branches \+ amber anchor gaps/i);
@@ -82,7 +84,7 @@ for (const phase of ['ROOTWAYS', 'REDWOOD RUN', 'SAPWORK', 'HIGH CANOPY', 'CROWN
 assert.match(world, /state\.LEFT_WALL = 100/);
 assert.match(world, /state\.RIGHT_WALL = 860/);
 assert.match(world, /branch: false/);
-assert.match(world, /anchorKind: 'sap-stick'/);
+assert.match(world, /addKnot\([^\n]+, 'sap-stick'\)/);
 assert.match(world, /function airAnchorPosition\(/);
 assert.match(world, /SAPRUN[\s\S]*branch: false[\s\S]*branch: false[\s\S]*branch: false/);
 assert.match(world, /ROOTWAYS[\s\S]*SAPRUN/);
@@ -120,7 +122,7 @@ for (const pattern of [
 ]) assert.match(stick, pattern);
 assert.doesNotMatch(stick, /charge(?:Seconds|Time)|holdToCharge/i, 'Sap Stick must not require charging');
 
-assert.doesNotMatch(render, /routeRng\.next\(/, 'renderer must never consume route RNG');
+assert.doesNotMatch(render, /routeRng\.next\(/, 'canopy renderer must never consume route RNG');
 for (const pattern of [
   /function hash3\(/,
   /function barkVertex\(/,
@@ -136,6 +138,25 @@ for (const pattern of [
   /S\.render = render/,
   /version: '0\.4\.0'/,
 ]) assert.match(render, pattern);
+
+assert.doesNotMatch(referenceRender, /routeRng\.next\(/, 'reference renderer must never consume route RNG');
+for (const pattern of [
+  /reference-production-v1/,
+  /function makeBarkTile\(/,
+  /pre-rendered layered puzzle flakes with longitudinal microfibers/,
+  /function drawReferenceBackground\(/,
+  /function drawReferenceTrunk\(/,
+  /function drawReferenceBranch\(/,
+  /function drawReferenceKnot\(/,
+  /function drawReferenceSapline\(/,
+  /function drawReferencePlayer\(/,
+  /function drawReferenceHud\(/,
+  /cinematic twin-sequoia reference layout/,
+  /mascot-scale expressive vector climber/,
+  /collisionHonest: true/,
+  /baseRender\(alpha, now\)/,
+  /S\.render = render/,
+]) assert.match(referenceRender, pattern);
 
 for (const pattern of [
   /const SHIFT_KEYS = new Set/,
@@ -165,12 +186,13 @@ for (const pattern of [
 console.log(JSON.stringify({
   ok: true,
   runtime: 'sylvaria-sequoia',
-  version: '0.4.0-sapstick-canopy',
+  version: '0.4.0-sapstick-reference-art',
   fixedHz: 120,
   modules,
   grammars: ['FLOW', 'RECOVERY', 'GROVE', 'SAPRUN', 'SLINGSHOT', 'CRUX'],
   corridorWidth: 760,
   sapStick: ['Shift+Space', 'no charge', '0.22s tether', 'auto-vault', 'anchor reuse lock'],
   topology: ['sparse branches', 'branchless amber tiers', 'open Grove chambers'],
-  bark: 'shared-vertex anisotropic puzzle lattice',
+  bark: 'shared-vertex puzzle lattice plus pre-rendered production flake overlay',
+  art: ['bright valley composition', 'deep sequoia bark', 'organic moss branches', 'amber cavities', 'mascot Pip', 'reference HUD'],
 }, null, 2));
