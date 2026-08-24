@@ -6,9 +6,12 @@ on:
       - 'app/page.tsx'
       - 'components/neural-atlas-canvas/**'
       - 'lib/home/fractalDendrite.ts'
+      - 'lib/home/fractalDendriteV4.ts'
       - 'tests/home-dendrite-regression.test.ts'
+      - 'tests/home-dendrite-v4-regression.test.ts'
       - 'scripts/playtest-arcade-home.mjs'
       - 'scripts/fractal-home-gallery.mjs'
+      - 'tsconfig.json'
       - '.github/workflows/home-fractal.yml'
   workflow_dispatch:
 
@@ -47,14 +50,19 @@ jobs:
           components/neural-atlas-canvas/AdaptiveFractalStage.tsx
           components/neural-atlas-canvas/FractalSurfaceEnhancer.tsx
           lib/home/fractalDendrite.ts
+          lib/home/fractalDendriteV4.ts
           tests/home-dendrite-regression.test.ts
+          tests/home-dendrite-v4-regression.test.ts
           scripts/playtest-arcade-home.mjs
           scripts/fractal-home-gallery.mjs
           --no-warn-ignored
           --max-warnings=0
 
       - name: Run fractal geometry regressions
-        run: node --import tsx --test tests/home-dendrite-regression.test.ts
+        run: >-
+          node --import tsx --test
+          tests/home-dendrite-regression.test.ts
+          tests/home-dendrite-v4-regression.test.ts
 
       - name: Build production site
         env:
