@@ -35,7 +35,7 @@ function item(id: string, title: string): FrontierItem {
 
 function state(): FrontierPersistedState {
   return {
-    version: 3,
+    version: 4,
     profile: createInitialProfile(),
     behavior: createInitialBehaviorModel(),
     saved: {},
@@ -103,7 +103,7 @@ test('Google account seeds never override explicit negative preference evidence'
   assert.equal(next.sourceAffinity.youtube, -0.2);
 });
 
-test('cloud-memory merge preserves useful state from both devices', () => {
+test('cloud-memory merge preserves useful state and co-interest memory from both devices', () => {
   const left = state();
   const right = state();
   const a = item('a', 'A');
@@ -112,6 +112,8 @@ test('cloud-memory merge preserves useful state from both devices', () => {
   right.saved[b.id] = b;
   left.profile.topicAffinity.neuroai = 0.8;
   right.profile.topicAffinity['mountain biking'] = 0.9;
+  left.profile.interestPairs['nfl × sports analytics'] = 0.32;
+  right.profile.interestPairs['neuroglancer × scientific visualization'] = 0.41;
   left.history[a.id] = {
     item: a,
     firstSeenAt: '2026-08-20T10:00:00.000Z',
@@ -135,9 +137,11 @@ test('cloud-memory merge preserves useful state from both devices', () => {
 
   const merged = mergeFrontierMemory(left, right);
   assert.deepEqual(Object.keys(merged.saved).sort(), ['a', 'b']);
-  assert.equal(merged.version, 3);
+  assert.equal(merged.version, 4);
   assert.equal(merged.profile.topicAffinity.neuroai, 0.8);
   assert.equal(merged.profile.topicAffinity['mountain biking'], 0.9);
+  assert.equal(merged.profile.interestPairs['nfl × sports analytics'], 0.32);
+  assert.equal(merged.profile.interestPairs['neuroglancer × scientific visualization'], 0.41);
   assert.equal(merged.history.a.dwellMs, 24_000);
   assert.equal(merged.history.a.reaction, 'up');
   assert.equal(merged.history.a.resurfacedCount, 1);
