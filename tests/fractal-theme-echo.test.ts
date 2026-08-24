@@ -55,6 +55,16 @@ test('homepage records its theme and subpages consume the echo consistently', ()
   assert.match(echo, /force:\$\{theme\.morphology\}/);
 });
 
+test('Echo Nest theme echoes reuse the Fermat orientation grammar', () => {
+  const echo = readRepoFile('components/neural-atlas/FractalThemeEcho.tsx');
+
+  assert.match(echo, /FERMAT_ECHO_STEP/);
+  assert.match(echo, /fermatEchoTangent/);
+  assert.match(echo, /renderEchoNestFermatEcho/);
+  assert.match(echo, /theme\.morphology === 'echo-nest'/);
+  assert.match(echo, /dataset\.fractalThemeLayout = 'fermat-spiral-v1'/);
+});
+
 test('homepage relocates CORE into a quiet pocket and expands Echo Nest', () => {
   const stage = readRepoFile('components/neural-atlas-canvas/AdaptiveFractalStage.tsx');
   const experience = readRepoFile('components/neural-atlas-canvas/FractalExperienceV3.tsx');
