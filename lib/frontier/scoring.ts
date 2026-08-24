@@ -175,6 +175,12 @@ function sourceHost(item: FrontierItem): string {
   try { return new URL(item.url).hostname.replace(/^www\./, ''); } catch { return item.source; }
 }
 
+function isGenericAiSignal(item: FrontierItem): boolean {
+  return item.lane === 'ai_frontier'
+    && personalTasteRankingPrior(item) <= 0.04
+    && item.importance < 0.82;
+}
+
 export function selectDailyRun(
   ranked: FrontierItem[],
   history: Record<string, FrontierHistoryEntry>,
@@ -187,7 +193,12 @@ export function selectDailyRun(
 
   push(takeFirst(ranked, used, (item) => item.importance >= 0.76 || item.lane === 'must_know'));
   push(takeFirst(ranked, used, (item) => ['ml_data', 'ai_frontier', 'neuro_frontier', 'broad_science'].includes(item.lane)));
-  push(takeFirst(ranked, used, (item) => matchesPersonalTasteTopic(item, ['nfl-analytics', 'fantasy-football', 'sports-data'])));
+
+  // Treat NFL/fantasy decision information and broader sports-data work as two
+  // distinct appetites. A single generic sports card should not satisfy both.
+  push(takeFirst(ranked, used, (item) => matchesPersonalTasteTopic(item, ['nfl-analytics', 'fantasy-football'])));
+  push(takeFirst(ranked, used, (item) => matchesPersonalTasteTopic(item, ['sports-data'])));
+
   push(takeFirst(ranked, used, (item) => matchesPersonalTasteTopic(item, ['scientific-visualization', 'neuro-data-systems', 'computational-imaging', 'space-imaging'])));
   push(takeFirst(ranked, used, (item) => item.lane === 'builder_signal'));
   push(takeFirst(ranked, used, (item) => item.lane === 'methods' || item.lane === 'creative_tech'));
@@ -207,6 +218,8 @@ export function selectDailyRun(
     if (selected.length >= limit) break;
     if (used.has(item.id)) continue;
     const sameLane = selected.filter((candidate) => candidate.lane === item.lane).length;
+    const laneCap = item.lane === 'ai_frontier' ? 1 : Math.max(2, Math.ceil(limit * 0.24));
+    if (sameLane >= laneCap && isGenericAiSignal(item)) continue;
     if (sameLane >= Math.max(2, Math.ceil(limit * 0.24))) continue;
     const host = sourceHost(item);
     const sameHost = selected.filter((candidate) => sourceHost(candidate) === host).length;
