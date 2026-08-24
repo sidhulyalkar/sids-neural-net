@@ -102,7 +102,7 @@ export function applyImplicitTasteSignal(
     ...profile.laneAffinity,
     [item.lane]: clamp((profile.laneAffinity[item.lane] ?? 0) + strength * 0.45, -0.75, 1.25),
   };
-  const sourceKey = item.sourceLabel.trim().toLowerCase() || item.sourceKind;
+  const sourceKey = item.sourceKind;
   const sourceAffinity = {
     ...profile.sourceAffinity,
     [sourceKey]: clamp((profile.sourceAffinity[sourceKey] ?? 0) + strength * 0.3, -0.5, 0.8),
