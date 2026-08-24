@@ -25,6 +25,13 @@ function numberIn(source, key) {
   return Number(match[1]);
 }
 
+function assignmentNumber(source, expression) {
+  const escaped = expression.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const match = source.match(new RegExp(`${escaped}\\s*=\\s*(-?\\d+(?:\\.\\d+)?)`));
+  assert.ok(match, `missing assignment ${expression}`);
+  return Number(match[1]);
+}
+
 function grammarBody(name) {
   const marker = `${name}: [`;
   const start = world.indexOf(marker);
@@ -44,7 +51,7 @@ function grammarBody(name) {
   return world.slice(bodyStart, cursor);
 }
 
-const gaps = (name) => [...grammarBody(name).matchAll(/\bdy:\s*(\d+(?:\.\d+)?)/g)].map((m) => Number(m[1]));
+const gaps = (name) => [...grammarBody(name).matchAll(/\bdy:\s*(\d+(?:\.\d+)?)/g)].map((match) => Number(match[1]));
 const sum = (values, count) => values.slice(0, count).reduce((total, value) => total + value, 0);
 
 const run = section(feel, 'run');
@@ -83,15 +90,13 @@ const samples = [
 });
 const by = Object.fromEntries(samples.map((sample) => [sample.label, sample]));
 
-// Easy to enter, but not self-driving: one floor is generous, two floors are
-// earned with speed, and three floors arrive only after a developed run.
+// Easy to enter, but not self-driving.
 assert.ok(by.standing.apex >= maxTeachingGap * 1.15, `standing jump lost one-floor safety margin: ${by.standing.apex.toFixed(1)} vs ${maxTeachingGap}`);
 assert.ok(by['burst-entry'].apex >= twoFloorTarget * 1.12, `burst-entry should support a deliberate 2-floor clear: ${by['burst-entry'].apex.toFixed(1)} vs ${twoFloorTarget}`);
 assert.ok(by['developed-run'].apex >= threeFloorTarget, `developed run should just reach a 3-floor FLOW clear: ${by['developed-run'].apex.toFixed(1)} vs ${threeFloorTarget}`);
 assert.ok(by['full-stride'].apex < sum(flow, 4), 'ground movement alone should not automatically clear four FLOW floors');
 
-// The passive wall redirect must not be an elevator. Manual Bark Kick is the
-// strong wall action and must buy much more height than an automatic collision.
+// Passive bark is a redirect. Deliberate Bark Kick is the wall reward.
 const passiveWallVy = numberIn(rebound, 'verticalBase') + Math.min(numberIn(rebound, 'verticalCap'), maxSpeed * numberIn(rebound, 'verticalGain'));
 const barkKickVy = numberIn(rebound, 'kickVertical');
 assert.ok(apex(passiveWallVy) < Math.min(...recovery) * 0.55, `passive bark redirect climbs too much: ${apex(passiveWallVy).toFixed(1)}px`);
@@ -102,12 +107,12 @@ assert.match(assist, /function beginCling\(/);
 assert.match(assist, /BARK CLING · JUMP TO KICK/);
 assert.match(assist, /passiveBarkRedirects/);
 
-// Recovery tools stay useful without becoming automatic tower skips.
+// Recovery tools are useful, not automatic multi-floor solvers.
 assert.ok(apex(numberIn(jump, 'doubleBase')) >= Math.min(...recovery) * 0.9, 'Air Kick base lift lost single-floor utility');
 assert.ok(apex(numberIn(sap, 'quickMinVy')) >= Math.min(...recovery) * 1.5, 'Quick Sling needs obvious upward value');
 assert.ok(apex(numberIn(sap, 'quickMinVy')) < threeFloorTarget, 'Quick Sling should not independently solve a three-floor route');
 
-// Explicit anti-runaway envelope based on the latest recorded failure mode.
+// Anti-runaway envelope based on the 371x recording failure.
 assert.ok(numberIn(run, 'strideLaunchCarry') <= 0.65, 'Stride turnaround carry is too automatic');
 assert.ok(numberIn(run, 'comboCarryBase') <= 12, 'combo carry is compounding too aggressively');
 assert.ok(numberIn(run, 'comboCarryCap') <= 30, 'combo carry cap is too high');
@@ -119,9 +124,12 @@ assert.ok(numberIn(threat, 'baseSpeed') >= 22, 'Rootways pressure has become neg
 assert.match(assist, /function skillSpeedCap\(/);
 assert.match(assist, /player\.vx = clamp\(player\.vx, -skillSpeedCap\(\), skillSpeedCap\(\)\)/);
 
-// Wider chambers must be real topology, not merely art.
-assert.equal(numberIn(world, 'LEFT_WALL'), 118);
-assert.equal(numberIn(world, 'RIGHT_WALL'), 842);
+// Grove Chambers must be real topology rather than painted scenery.
+const leftWall = assignmentNumber(world, 'state.LEFT_WALL');
+const rightWall = assignmentNumber(world, 'state.RIGHT_WALL');
+assert.equal(leftWall, 118);
+assert.equal(rightWall, 842);
+assert.equal(rightWall - leftWall, 724);
 assert.ok(grove.some((gap) => gap >= 100), 'GROVE needs a genuinely open vertical beat');
 assert.match(world, /GROVE:/);
 const phaseFloors = [...world.matchAll(/\{ name: '[^']+', floor: (\d+)/g)].map((match) => Number(match[1]));
@@ -130,7 +138,7 @@ assert.deepEqual(phaseFloors, [0, 30, 70, 115, 165], 'difficulty phase boundarie
 console.log(JSON.stringify({
   ok: true,
   mode: 'skill-flow-not-autopilot',
-  corridor: { left: 118, right: 842, width: 724 },
+  corridor: { left: leftWall, right: rightWall, width: rightWall - leftWall },
   rootways: { flow, recovery, grove, maxTeachingGap, twoFloorTarget, threeFloorTarget },
   jumpEnvelope: samples.map(({ label, speed, flow: flowCount, vy, apex: height }) => ({ label, speed, flow: flowCount, launchVy: Number(vy.toFixed(1)), ballisticApex: Number(height.toFixed(1)) })),
   wallEnvelope: { passiveApex: Number(apex(passiveWallVy).toFixed(1)), barkKickApex: Number(apex(barkKickVy).toFixed(1)) },
