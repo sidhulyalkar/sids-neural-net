@@ -1,3 +1,8 @@
+import {
+  screenTastePrior,
+  screenTasteTags,
+  strongestScreenTasteLabel,
+} from './screenTaste';
 import type { FrontierItem, FrontierLaneId } from './types';
 
 export type FrontierPersonalTasteTopic = {
@@ -171,6 +176,8 @@ export const FRONTIER_DISCOVERY_SEEDS = [
   'recommendation systems',
   'WebGPU',
   'game design',
+  'anime releases',
+  'dark comedy TV',
 ] as const;
 
 /** Targeted web/video searches used by the personal taste discovery mesh. */
@@ -221,10 +228,14 @@ export const FRONTIER_TASTE_DISCOVERY_QUERIES: readonly FrontierTasteDiscoveryQu
     tags: ['webgpu', 'webxr', 'game design'],
   },
   {
-    query: 'site:youtube.com NFL film room analytics player tracking EPA breakdown',
-    lane: 'sports',
-    tags: ['nfl', 'sports analytics', 'watchable'],
-    video: true,
+    query: 'anime new season trailer renewal Re:ZERO Frieren Jujutsu Kaisen DAN DA DAN Solo Leveling',
+    lane: 'screen',
+    tags: ['screen orbit', 'anime', 'story rich'],
+  },
+  {
+    query: 'dark comedy adult animation new series BoJack Horseman Inside Job Black Mirror Arrested Development',
+    lane: 'screen',
+    tags: ['screen orbit', 'animated dark comedy', 'witty dark comedy'],
   },
   {
     query: 'site:youtube.com Neuroglancer connectomics neuroscience visualization demo',
@@ -261,18 +272,33 @@ function itemText(item: FrontierItem): string {
   return [item.title, item.summary, item.sourceLabel, item.source, ...item.tags].filter(Boolean).join(' ').toLowerCase();
 }
 
+function screenTopic(text: string): FrontierPersonalTasteTopic | undefined {
+  const prior = screenTastePrior(text);
+  if (prior <= 0) return undefined;
+  return {
+    id: 'screen-orbit',
+    label: strongestScreenTasteLabel(text) ?? 'Screen Orbit',
+    aliases: [],
+    tags: screenTasteTags(text),
+    prior,
+  };
+}
+
 export function matchedPersonalTasteTopics(item: FrontierItem): FrontierPersonalTasteTopic[] {
   const text = itemText(item);
-  return FRONTIER_PERSONAL_TASTE_TOPICS
-    .filter((topic) => includesAlias(text, topic.aliases))
-    .sort((a, b) => b.prior - a.prior);
+  const matches = FRONTIER_PERSONAL_TASTE_TOPICS
+    .filter((topic) => includesAlias(text, topic.aliases));
+  const screen = screenTopic(text);
+  if (screen) matches.push(screen);
+  return matches.sort((a, b) => b.prior - a.prior);
 }
 
 export function personalTasteTags(text: string): string[] {
   const tags = FRONTIER_PERSONAL_TASTE_TOPICS.flatMap((topic) =>
     includesAlias(text, topic.aliases) ? [...topic.tags] : []
   );
-  return Array.from(new Set(tags)).slice(0, 12);
+  tags.push(...screenTasteTags(text));
+  return Array.from(new Set(tags)).slice(0, 14);
 }
 
 export function personalTasteRankingPrior(item: FrontierItem): number {
