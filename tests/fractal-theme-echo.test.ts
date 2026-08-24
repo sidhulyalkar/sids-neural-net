@@ -69,8 +69,6 @@ test('homepage relocates CORE into a quiet pocket and expands Echo Nest', () => 
 
 test('homepage v4 routes major connectors as angular protected signal paths', () => {
   const home = readRepoFile('components/neural-atlas-canvas/AdaptiveFractalHome.tsx');
-  const stage = readRepoFile('components/neural-atlas-canvas/AdaptiveFractalStage.tsx');
-  const clearance = readRepoFile('components/neural-atlas-canvas/FractalNavigationClearanceV4.tsx');
 
   assert.match(home, /buildProtectedPrimaryRoute/);
   assert.match(home, /connector-v4:/);
@@ -79,9 +77,8 @@ test('homepage v4 routes major connectors as angular protected signal paths', ()
   assert.match(home, /data-navigation-clearance="protected"/);
   assert.match(home, /RETIRED_MORPHOLOGIES/);
   assert.match(home, /'tectonic', 'aurora', 'mycelial'/);
-  assert.match(stage, /FractalNavigationClearanceV4/);
-  assert.match(clearance, /data-fractal-navigation-clearance="v1"/);
-  assert.match(clearance, /data-dendrite-destination.*data-navigation-clearance/);
+  assert.match(home, /connectorTerminal/);
+  assert.match(home, /segmentIntersectsRect/);
 });
 
 test('contact suppresses the redundant frontier shortcut while other comic pages retain it', () => {
