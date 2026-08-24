@@ -12,16 +12,15 @@ const modules = [
   '02-gameplay.js',
   '02-jump-contract.js',
   '02-flow-assist.js',
-  '03-render.js',
-  '03-stride-hud.js',
-  '03-render-skill-pass.js',
+  '02-sap-stick.js',
+  '03-render-canopy.js',
   '04-input.js',
 ];
 const indexPath = join(runtimeRoot, 'index.html');
-const designPath = join(root, 'docs/SYLVARIA_SEQUOIA_V03_AERIAL_COMBO_DESIGN.md');
+const designPath = join(root, 'docs/SYLVARIA_SEQUOIA_V04_SAPSTICK_CANOPY_PASS.md');
 
 for (const path of [indexPath, designPath, ...modules.map((name) => join(runtimeRoot, name))]) {
-  assert.ok(existsSync(path), `missing Sylvaria: Sequoia artifact: ${path}`);
+  assert.ok(existsSync(path), `missing Sylvaria: Sequoia v0.4 artifact: ${path}`);
 }
 for (const moduleName of modules) {
   execFileSync(process.execPath, ['--check', join(runtimeRoot, moduleName)], { stdio: 'pipe' });
@@ -35,139 +34,142 @@ const world = read('01-world.js');
 const gameplay = read('02-gameplay.js');
 const jumpContract = read('02-jump-contract.js');
 const assist = read('02-flow-assist.js');
-const legacyRender = read('03-render.js');
-const strideHud = read('03-stride-hud.js');
-const skillRender = read('03-render-skill-pass.js');
+const stick = read('02-sap-stick.js');
+const render = read('03-render-canopy.js');
 const input = read('04-input.js');
-const runtime = [core, feel, world, gameplay, jumpContract, assist, legacyRender, strideHud, skillRender, input].join('\n');
+const runtime = [core, feel, world, gameplay, jumpContract, assist, stick, render, input].join('\n');
 const design = readFileSync(designPath, 'utf8');
 
-assert.match(index, /<title>Sylvaria: Sequoia v0\.3\.0<\/title>/);
-assert.match(index, /03-render\.js[\s\S]*03-stride-hud\.js[\s\S]*03-render-skill-pass\.js[\s\S]*04-input\.js/);
-assert.match(index, /hold into bark to cling/i);
-assert.match(index, /Grove Chambers/i);
-assert.doesNotMatch(index, /crownrush|\.\/game\.js/i);
+assert.match(index, /<title>Sylvaria: Sequoia v0\.4\.0<\/title>/);
+assert.match(index, /02-flow-assist\.js[\s\S]*02-sap-stick\.js[\s\S]*03-render-canopy\.js[\s\S]*04-input\.js/);
+assert.doesNotMatch(index, /03-render\.js|03-stride-hud\.js|03-render-skill-pass\.js/);
+assert.match(index, /hold Shift \+ tap Space = Sap Stick/i);
+assert.match(index, /sparse branches \+ amber anchor gaps/i);
 
 assert.match(core, /FIXED_DT: 1 \/ 120/);
 assert.match(core, /routeRng: makeRng/);
 assert.match(core, /fxRng: makeRng/);
 assert.match(core, /airJumps: 1/);
 
-// Skill-flow tuning: useful speed without runaway assistance.
 for (const pattern of [
-  /groundAccel: 3250/,
-  /airAccel: 1480/,
-  /maxSpeed: 625/,
-  /groundFriction60Hz: 0\.885/,
-  /airDrag120Hz: 0\.9978/,
-  /burstChargeSeconds: 0\.28/,
-  /comboAccelCap: 0\.10/,
-  /comboCarryBase: 10/,
-  /comboCarryCap: 28/,
-  /strideMemoryDecay: 176/,
-  /strideLaunchCarry: 0\.62/,
-  /strideMax: 660/,
-  /skillSpeedBonusCap: 82/,
-  /base: 610/,
-  /momentumGain: 0\.54/,
-  /doubleBase: 480/,
+  /groundAccel: 3220/,
+  /maxSpeed: 630/,
+  /comboAccelCap: 0\.095/,
+  /comboCarryCap: 26/,
+  /strideLaunchCarry: 0\.61/,
+  /base: 612/,
+  /doubleBase: 485/,
   /wallRefreshSpeed: 99999/,
-  /retention: 0\.56/,
-  /verticalBase: 155/,
+  /retention: 0\.55/,
   /comboSpeed: 99999/,
-  /clingHold: 0\.26/,
-  /kickVertical: 690/,
-  /attachMax: 430/,
-  /quickMinVy: 610/,
-  /window: 2\.85/,
-  /landingGrace: 0\.92/,
+  /stickRange: 640/,
+  /stickHoldSeconds: 0\.22/,
+  /stickCooldownSeconds: 0\.11/,
+  /stickReuseLockSeconds: 0\.82/,
+  /stickReleaseMinVy: 610/,
+  /stickReleaseForward: 116/,
+  /stickAnchorPriority: 108/,
+  /window: 2\.80/,
   /easyHyperThreshold: 10/,
-  /hyperVarietyThreshold: 6/,
-  /baseSpeed: 25/,
 ]) assert.match(feel, pattern);
 
-for (const grammar of ['FLOW', 'GROVE', 'CRUX', 'RECOVERY', 'SLINGSHOT']) {
+for (const grammar of ['FLOW', 'RECOVERY', 'GROVE', 'SAPRUN', 'SLINGSHOT', 'CRUX']) {
   assert.match(world, new RegExp(`${grammar}: \\[`), `missing ${grammar} route grammar`);
 }
 for (const phase of ['ROOTWAYS', 'REDWOOD RUN', 'SAPWORK', 'HIGH CANOPY', 'CROWNLINE']) {
   assert.match(world, new RegExp(phase), `missing ${phase} phase`);
 }
-assert.match(world, /state\.LEFT_WALL = 118/);
-assert.match(world, /state\.RIGHT_WALL = 842/);
-assert.match(world, /ROOTWAYS[\s\S]*floor: 0[\s\S]*pressure: 0\.72/);
-assert.match(world, /REDWOOD RUN[\s\S]*floor: 30/);
-assert.match(world, /SAPWORK[\s\S]*floor: 70/);
-assert.match(world, /HIGH CANOPY[\s\S]*floor: 115/);
-assert.match(world, /CROWNLINE[\s\S]*floor: 165/);
-assert.match(world, /\{ dy: 102, side: 'right', length: 300, knot: 'cross' \}/);
-assert.match(world, /difficulty = clamp\(Math\.max\(0, state\.generatedFloor - 26\) \/ 160/);
+assert.match(world, /state\.LEFT_WALL = 100/);
+assert.match(world, /state\.RIGHT_WALL = 860/);
+assert.match(world, /branch: false/);
+assert.match(world, /anchorKind: 'sap-stick'/);
+assert.match(world, /function airAnchorPosition\(/);
+assert.match(world, /SAPRUN[\s\S]*branch: false[\s\S]*branch: false[\s\S]*branch: false/);
+assert.match(world, /ROOTWAYS[\s\S]*SAPRUN/);
 
 assert.match(gameplay, /function doAirJump\(/);
 assert.match(gameplay, /function bounceFromWall\(/);
-assert.match(gameplay, /if \(incoming >= TUNE\.rebound\.comboSpeed\) addComboLink\('BARK'/);
-assert.match(gameplay, /if \(incoming >= TUNE\.jump\.wallRefreshSpeed\) refreshAirJump\('BARK'\)/);
-assert.match(gameplay, /function threadRings\(/);
+assert.match(gameplay, /function updateSap\(/);
 assert.match(gameplay, /function attachSap\(/);
 
-assert.match(jumpContract, /duplicateEdgeMs = 28/);
+assert.match(jumpContract, /duplicateEdgeMs = 48/);
 assert.match(jumpContract, /player\.consumedJumpRequestId = activeRequestId/);
 assert.match(jumpContract, /action: airJumped \? 'AIR_KICK' : 'GROUND_JUMP'/);
 
 for (const pattern of [
   /function skillSpeedCap\(/,
   /function beginCling\(/,
-  /function maintainCling\(/,
   /function barkKick\(/,
-  /BARK CLING · JUMP TO KICK/,
-  /BARK KICK · AIR KICK READY/,
   /passiveBarkRedirects/,
   /function updateMomentumBurst\(/,
-  /function preUpdateStride\(/,
-  /player\.strideMomentum \* TUNE\.run\.strideLaunchCarry/,
-  /function applyComboCarry\(/,
   /function maybeEnterCrownvelocity\(/,
-  /TUNE\.combo\.easyHyperThreshold/,
-  /TUNE\.combo\.hyperVarietyThreshold/,
-  /player\.vx = clamp\(player\.vx, -skillSpeedCap\(\), skillSpeedCap\(\)\)/,
 ]) assert.match(assist, pattern);
 
-assert.doesNotMatch(skillRender, /routeRng\.next\(/, 'final renderer must never consume route RNG');
 for (const pattern of [
-  /function drawSequoia\(/,
-  /function drawPlayer\(/,
-  /function drawRing\(/,
-  /function drawLaunchBurl\(/,
-  /GROVE/,
-  /BARK GRIP/,
-  /passive bark does not score/,
-  /Grove Chambers open the tower/,
-  /const sceneScale = state\.reducedMotion \? 1 : 1 - speedWide - hyperWide/,
-  /S\.render = render/,
-]) assert.match(skillRender, pattern);
-assert.match(strideHud, /strideMomentum/);
-assert.match(strideHud, /S\.render = render/);
+  /function findTarget\(/,
+  /function castSapStick\(/,
+  /function releaseStick\(/,
+  /stickMode: true/,
+  /TUNE\.sap\.stickHoldSeconds/,
+  /anchorLockouts\.set/,
+  /SAP STICK SAVE!/,
+  /SAP STICK VAULT · AIR KICK READY/,
+  /sapStickCasts/,
+  /sapStickVaults/,
+  /getTargetPreview/,
+]) assert.match(stick, pattern);
+assert.doesNotMatch(stick, /charge(?:Seconds|Time)|holdToCharge/i, 'Sap Stick must not require charging');
 
-assert.match(input, /window\.SYLVARIA_SEQUOIA_DEBUG/);
-assert.match(input, /version: '0\.3\.0'/);
-assert.match(input, /fixedHz: 120/);
-assert.match(input, /function quarantineStartKey\(/);
-assert.match(input, /flowAssist: S\.flowAssist\?\.getState\(\) \|\| null/);
+assert.doesNotMatch(render, /routeRng\.next\(/, 'renderer must never consume route RNG');
+for (const pattern of [
+  /function hash3\(/,
+  /function barkVertex\(/,
+  /function traceCell\(/,
+  /function drawBarkCell\(/,
+  /shared-vertex anisotropic puzzle lattice/,
+  /longitudinal tear pattern/,
+  /function drawPlayer\(/,
+  /Leaf hood/,
+  /Big mascot head/,
+  /SAP STICK/,
+  /hold Shift · tap Space/,
+  /S\.render = render/,
+  /version: '0\.4\.0'/,
+]) assert.match(render, pattern);
+
+for (const pattern of [
+  /const SHIFT_KEYS = new Set/,
+  /function triggerSapStick\(/,
+  /event\.code === 'Space' && shiftHeld\(\)/,
+  /S\.castSapStick\?\.\(\)/,
+  /const physicalDown = new Map\(\)/,
+  /START_JUMP_GUARD_MS = 240/,
+  /MIN_JUMP_REPRESS_MS = 48/,
+  /sapChordCount/,
+  /version: '0\.4\.0'/,
+  /sapAnchorCount/,
+  /renderer: S\.canopyRenderer/,
+]) assert.match(input, pattern);
+assert.doesNotMatch(input, /KeyE|SAP_KEYS/, 'v0.4 canonical Sap Stick input must be Shift+Space');
 
 assert.doesNotMatch(runtime, /\benemy\b|\bdamage\b|\battack\b/i, 'Sequoia runtime should remain traversal-first');
-assert.match(design, /renewable Air Kick/i);
-assert.match(design, /SAP SURGE/);
-assert.match(design, /same-seed comparisons/i);
-assert.ok(!existsSync(join(root, 'public/game-runtimes/crownrush')));
+for (const pattern of [
+  /Shift \+ Space/i,
+  /no charge/i,
+  /branchless/i,
+  /shared-vertex anisotropic puzzle lattice/i,
+  /same-seed/i,
+]) assert.match(design, pattern);
 
 console.log(JSON.stringify({
   ok: true,
   runtime: 'sylvaria-sequoia',
-  version: '0.3.0-skill-flow-grove-pass',
+  version: '0.4.0-sapstick-canopy',
   fixedHz: 120,
   modules,
-  grammars: ['FLOW', 'GROVE', 'CRUX', 'RECOVERY', 'SLINGSHOT'],
-  corridorWidth: 724,
-  passiveBark: ['redirect only', 'no Flow', 'no Air Kick refresh'],
-  deliberateBark: ['hold toward wall', 'short cling', 'Jump for Bark Kick'],
-  art: ['forest depth', 'bark plates', 'moss and fungi', 'new Pip climber', 'collision edge readability'],
+  grammars: ['FLOW', 'RECOVERY', 'GROVE', 'SAPRUN', 'SLINGSHOT', 'CRUX'],
+  corridorWidth: 760,
+  sapStick: ['Shift+Space', 'no charge', '0.22s tether', 'auto-vault', 'anchor reuse lock'],
+  topology: ['sparse branches', 'branchless amber tiers', 'open Grove chambers'],
+  bark: 'shared-vertex anisotropic puzzle lattice',
 }, null, 2));
