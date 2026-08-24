@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useLayoutEffect, useRef } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { RefObject } from 'react';
 import { frontierMasonrySpan } from '@/lib/frontier/presentation/mediaForward';
 
@@ -157,9 +157,6 @@ function scheduleCompactFlush(): void {
       });
     }
 
-    // Write phase. The CSS virtualization selector only activates after this
-    // data attribute is committed, so there is never a guessed offscreen card
-    // height that later gets replaced as the user scrolls toward it.
     for (const entry of resolved) {
       if (!entry.root.isConnected || entry.root.dataset.fluidExpanded === 'true') continue;
       rememberGeometry(entry.key, entry.geometry);
@@ -197,13 +194,12 @@ function cancelCompactMeasurement(token: symbol): void {
  * height becomes both its masonry span and fixed block-axis virtualization
  * intrinsic height. Async image decode is therefore unable to renegotiate card
  * geometry, and Chromium's remembered-size mode cannot rewrite scroll extent.
- *
- * Expanded cards are intentionally different: they are visible user-intent
- * surfaces and may grow as focal evidence appears, so their grid span stays
- * live until collapse restores a newly verified compact geometry.
  */
 export function useDeterministicMasonry({ itemId, expanded, rootRef, measureRef }: Options): void {
-  const measurementToken = useRef(Symbol(itemId)).current;
+  // A state initializer gives this hook one stable opaque token for its lifetime
+  // without reading a ref during render. The token is operational identity only
+  // and never participates in visual output.
+  const [measurementToken] = useState(() => Symbol(itemId));
   const observedWidth = useRef<number | undefined>(undefined);
 
   const queueCompactGeometry = useCallback((invalidate = false) => {
@@ -211,13 +207,7 @@ export function useDeterministicMasonry({ itemId, expanded, rootRef, measureRef 
     const measure = measureRef.current;
     if (!root || !measure || root.dataset.fluidExpanded === 'true') return;
     if (invalidate) unlockGeometry(root);
-    enqueueCompactMeasurement({
-      token: measurementToken,
-      itemId,
-      root,
-      measure,
-      retries: 0,
-    });
+    enqueueCompactMeasurement({ token: measurementToken, itemId, root, measure, retries: 0 });
   }, [itemId, measureRef, measurementToken, rootRef]);
 
   useLayoutEffect(() => {
