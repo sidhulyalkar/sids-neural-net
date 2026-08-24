@@ -90,15 +90,34 @@ test('screen taste participates in the same personalized prior as technical and 
 });
 
 test('production-sized daily run reserves Screen Orbit independently of gaming and internet culture', () => {
+  const at = new Date('2026-08-24T06:00:00.000Z');
+  const screenCard = item('screen', 'Re:ZERO anniversary and season update', 'screen', ['anime', 're zero']);
+  const importantCard = item('important', 'Major security release', 'must_know', ['security']);
+
+  assert.equal(screenCard.lane, 'screen');
+
+  const screenOnly = selectDailyRun([screenCard], {}, 14, at);
+  assert.deepEqual(
+    screenOnly.map((entry) => entry.id),
+    ['screen'],
+    `Single Screen Orbit card was not selected: [${screenOnly.map((entry) => `${entry.id}:${entry.lane}`).join(', ')}]`,
+  );
+
+  const screenPlusImportant = selectDailyRun([importantCard, screenCard], {}, 14, at);
+  assert.ok(
+    screenPlusImportant.some((entry) => entry.id === 'screen'),
+    `Screen Orbit disappeared beside Must Know: [${screenPlusImportant.map((entry) => `${entry.id}:${entry.lane}`).join(', ')}]`,
+  );
+
   const ranked = [
-    item('important', 'Major security release', 'must_know', ['security']),
+    importantCard,
     item('learn', 'Neural decoding benchmark', 'neuro_frontier', ['neural decoding']),
     item('game', 'New metroidvania release', 'gaming', ['metroidvania']),
     item('internet', 'Funny internet clip', 'internet_culture', ['meme']),
-    item('screen', 'Re:ZERO anniversary and season update', 'screen', ['anime', 're zero']),
+    screenCard,
     ...Array.from({ length: 16 }, (_, index) => item(`filler-${index}`, `Filler ${index}`, 'wildcards', [`filler-${index}`])),
   ];
-  const selected = selectDailyRun(ranked, {}, 14, new Date('2026-08-24T06:00:00.000Z'));
+  const selected = selectDailyRun(ranked, {}, 14, at);
   const diagnostic = selected.map((entry) => `${entry.id}:${entry.lane}`).join(', ');
   assert.ok(selected.some((entry) => entry.id === 'screen'), `Screen Orbit missing from [${diagnostic}]`);
   assert.ok(selected.some((entry) => entry.id === 'game'), `Gaming missing from [${diagnostic}]`);
