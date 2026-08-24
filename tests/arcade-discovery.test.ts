@@ -58,16 +58,18 @@ test('Stretchicorn cabinet points at the current v0.21.1 public release', () => 
   assert.match(game.description, /Impossible Encore/);
 });
 
-test('Sylvaria Sequoia is a traversal-first kinetic cabinet with telemetry', () => {
+test('Sylvaria Sequoia is a traversal-first aerial combo cabinet with telemetry', () => {
   const game = arcadeGames.find((entry) => entry.slug === 'sylvaria-sequoia');
   assert.ok(game);
   assert.equal(game.title, 'Sylvaria: Sequoia');
-  assert.equal(game.version, 'v0.2.0');
+  assert.equal(game.version, 'v0.3.0');
   assert.equal(game.sourceVisibility, 'public');
   assert.equal(game.launchUrl, '/game-runtimes/sylvaria-sequoia/index.html');
   assert.equal(game.nativeSize?.width, 960);
   assert.equal(game.nativeSize?.height, 640);
-  assert.match(game.description, /Sapline/);
+  assert.match(game.description, /Air Kicks/);
+  assert.match(game.description, /Resin Rings/);
+  assert.match(game.description, /SAP SURGE/);
   assert.match(game.description, /CROWNVELOCITY/);
   assert.match(game.description, /route grammars/);
   assert.doesNotMatch(game.description, /enemy|damage|attack/i);
@@ -76,23 +78,36 @@ test('Sylvaria Sequoia is a traversal-first kinetic cabinet with telemetry', () 
   for (const file of ['index.html', '00-core.js', '01-world.js', '02-gameplay.js', '03-render.js', '04-input.js']) {
     assert.ok(existsSync(join(root, runtimeRoot, file)), `missing Sylvaria Sequoia runtime file: ${file}`);
   }
-  assert.ok(existsSync(join(root, 'docs/SYLVARIA_SEQUOIA_V02_DESIGN.md')));
+  assert.ok(existsSync(join(root, 'docs/SYLVARIA_SEQUOIA_V03_AERIAL_COMBO_DESIGN.md')));
   assert.ok(existsSync(join(root, 'scripts/validate-sylvaria-sequoia.mjs')));
   assert.ok(!existsSync(join(root, 'public/game-runtimes/crownrush')));
 
   const core = readRepoFile(`${runtimeRoot}/00-core.js`);
   const world = readRepoFile(`${runtimeRoot}/01-world.js`);
   const gameplay = readRepoFile(`${runtimeRoot}/02-gameplay.js`);
+  const render = readRepoFile(`${runtimeRoot}/03-render.js`);
   const input = readRepoFile(`${runtimeRoot}/04-input.js`);
   assert.match(core, /FIXED_DT: 1 \/ 120/);
-  assert.match(core, /hyperThreshold: 4/);
-  assert.match(world, /FLOW:/);
-  assert.match(world, /CRUX:/);
-  assert.match(world, /RECOVERY:/);
-  assert.match(world, /SLINGSHOT:/);
+  assert.match(core, /airJumps: 1/);
+  assert.match(core, /sapSurgeThreshold: 5/);
+  assert.match(core, /hyperThreshold: 7/);
+  assert.match(core, /hyperVariety: 3/);
+  for (const grammar of ['FLOW', 'CRUX', 'RECOVERY', 'SLINGSHOT']) assert.match(world, new RegExp(`${grammar}:`));
+  for (const phase of ['ROOTWAYS', 'REDWOOD RUN', 'SAPWORK', 'HIGH CANOPY', 'CROWNLINE']) assert.match(world, new RegExp(phase));
+  assert.match(world, /step\.ring/);
+  assert.match(world, /step\.launch/);
+  assert.match(gameplay, /function doAirJump\(/);
+  assert.match(gameplay, /function refreshAirJump\(/);
+  assert.match(gameplay, /function addComboLink\(/);
+  assert.match(gameplay, /function threadRings\(/);
+  assert.match(gameplay, /const surge = player\.combo >= TUNE\.combo\.sapSurgeThreshold/);
   assert.match(gameplay, /function attachSap\(/);
   assert.match(gameplay, /function rescueFromThreat\(/);
+  assert.match(render, /function drawRing\(/);
+  assert.match(render, /function drawLaunchBurl\(/);
   assert.match(input, /window\.SYLVARIA_SEQUOIA_DEBUG/);
+  assert.match(input, /version: '0\.3\.0'/);
+  assert.match(input, /airJumps: player\.airJumps/);
 });
 
 test('FRONTIER and Game Network coexist in current navigation', () => {
@@ -143,6 +158,8 @@ test('Game Network browser validation covers all three active cabinets in four e
   assert.match(browserTest, /testStretchicorn\(page, engineName\)/);
   assert.match(browserTest, /testUniRico\(page, engineName\)/);
   assert.match(browserTest, /testSylvariaSequoia\(page, engineName\)/);
+  assert.match(browserTest, /doubleJumps/);
+  assert.match(browserTest, /airJumps/);
   assert.doesNotMatch(browserTest, /testCrownrush/);
 });
 
