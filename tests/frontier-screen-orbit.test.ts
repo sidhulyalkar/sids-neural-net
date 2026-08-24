@@ -91,30 +91,38 @@ test('screen taste participates in the same personalized prior as technical and 
 
 test('production-sized daily run reserves Screen Orbit independently of gaming and internet culture', () => {
   const at = new Date('2026-08-24T06:00:00.000Z');
-  const screenCard = item('screen', 'Re:ZERO anniversary and season update', 'screen', ['anime', 're zero']);
+  const screenCard = item('screen-isolated', 'Re:ZERO anniversary and season update', 'screen', ['anime', 're zero']);
   const importantCard = item('important', 'Major security release', 'must_know', ['security']);
 
   assert.equal(screenCard.lane, 'screen');
+  assert.match(
+    selectDailyRun.toString(),
+    /isScreenOrbitSignal|lane\s*===\s*["']screen["']/,
+    `Runtime selectDailyRun lacks a Screen Orbit reservation: ${selectDailyRun.toString()}`,
+  );
 
   const screenOnly = selectDailyRun([screenCard], {}, 14, at);
   assert.deepEqual(
     screenOnly.map((entry) => entry.id),
-    ['screen'],
+    ['screen-isolated'],
     `Single Screen Orbit card was not selected: [${screenOnly.map((entry) => `${entry.id}:${entry.lane}`).join(', ')}]`,
   );
 
   const screenPlusImportant = selectDailyRun([importantCard, screenCard], {}, 14, at);
   assert.ok(
-    screenPlusImportant.some((entry) => entry.id === 'screen'),
+    screenPlusImportant.some((entry) => entry.id === 'screen-isolated'),
     `Screen Orbit disappeared beside Must Know: [${screenPlusImportant.map((entry) => `${entry.id}:${entry.lane}`).join(', ')}]`,
   );
 
+  // Use a fresh object here so any accidental selection-time mutation of the
+  // isolated probe above cannot make the production-sized assertion ambiguous.
+  const productionScreenCard = item('screen', 'Re:ZERO anniversary and season update', 'screen', ['anime', 're zero']);
   const ranked = [
     importantCard,
     item('learn', 'Neural decoding benchmark', 'neuro_frontier', ['neural decoding']),
     item('game', 'New metroidvania release', 'gaming', ['metroidvania']),
     item('internet', 'Funny internet clip', 'internet_culture', ['meme']),
-    screenCard,
+    productionScreenCard,
     ...Array.from({ length: 16 }, (_, index) => item(`filler-${index}`, `Filler ${index}`, 'wildcards', [`filler-${index}`])),
   ];
   const selected = selectDailyRun(ranked, {}, 14, at);
