@@ -18,6 +18,11 @@ const DEFAULT_MEDIA_HOSTS = new Set([
   // Official Hugging Face social-thumbnail CDN. Paper URLs are derived only
   // from canonical huggingface.co/papers/<arxiv-id> identities.
   'cdn-thumbnails.huggingface.co',
+  // Guardian's first-party image transform/original media hosts. RSS entries
+  // carry these URLs directly; the gateway still validates DNS, MIME, size,
+  // redirects and timeout before exposing same-origin bytes to the GPU worker.
+  'i.guim.co.uk',
+  'media.guim.co.uk',
   // First-party curated/scientific visual sources used by optional public
   // discovery adapters. The gateway still validates protocol, DNS, redirects,
   // content type, timeout, and payload size before returning any bytes.
