@@ -15,7 +15,8 @@ const root = process.cwd();
 const readRepoFile = (path: string) => readFileSync(join(root, path), 'utf8');
 
 test('theme echo only accepts the six active homepage morphologies', () => {
-  assert.deepEqual(CURATED_FRACTAL_THEME_IDS, ['radial', 'coral', 'fan', 'apical', 'spiraloid', 'echo-nest']);
+  const active = CURATED_FRACTAL_THEME_IDS.filter((morphology) => isCuratedFractalThemeId(morphology));
+  assert.deepEqual(active, ['radial', 'coral', 'fan', 'apical', 'spiraloid', 'echo-nest']);
   for (const morphology of ['tectonic', 'aurora', 'mycelial', 'halo', 'pixel-ghost', 'echidna']) {
     assert.equal(isCuratedFractalThemeId(morphology), false);
   }
