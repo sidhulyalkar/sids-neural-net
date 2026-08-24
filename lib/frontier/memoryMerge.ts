@@ -23,7 +23,7 @@ export function parseFrontierPersistedState(value: unknown): FrontierPersistedSt
   if (!objectRecord(value.saved) || !objectRecord(value.history)) return null;
   if (!Array.isArray(value.collections) || !objectRecord(value.game)) return null;
   return {
-    version: 3,
+    version: 4,
     profile: migrateFrontierProfile(value.profile as FrontierProfile),
     behavior: value.behavior as FrontierBehaviorModel,
     saved: value.saved as FrontierPersistedState['saved'],
@@ -49,6 +49,7 @@ function mergeProfile(left: FrontierProfile, right: FrontierProfile): FrontierPr
     laneAffinity: mergeNumericMap(left.laneAffinity, right.laneAffinity) as FrontierProfile['laneAffinity'],
     topicAffinity: mergeNumericMap(left.topicAffinity, right.topicAffinity),
     sourceAffinity: mergeNumericMap(left.sourceAffinity, right.sourceAffinity),
+    interestPairs: mergeNumericMap(left.interestPairs ?? {}, right.interestPairs ?? {}),
     knownTopics: mergeNumericMap(left.knownTopics, right.knownTopics),
     curiosity: Math.max(left.curiosity, right.curiosity),
     meaningfulInteractions: Math.max(left.meaningfulInteractions, right.meaningfulInteractions),
@@ -172,7 +173,7 @@ export function mergeFrontierMemory(
   rightValue: FrontierPersistedState | null | undefined
 ): FrontierPersistedState {
   const initial: FrontierPersistedState = {
-    version: 3,
+    version: 4,
     profile: createInitialProfile(),
     behavior: createInitialBehaviorModel(),
     saved: {},
@@ -191,7 +192,7 @@ export function mergeFrontierMemory(
     if (entry) history[key] = entry;
   }
   return {
-    version: 3,
+    version: 4,
     profile: mergeProfile(left.profile, right.profile),
     behavior: mergeBehavior(left.behavior, right.behavior),
     saved: { ...left.saved, ...right.saved },
