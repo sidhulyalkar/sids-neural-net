@@ -100,8 +100,9 @@ jobs:
           curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/game-runtimes/stretchicorn/src/00-core.js | grep -q 'CORE WORLD + GEOMETRY'
           echo "GET uniRico runtime"
           curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/game-runtimes/unirico/index.html | grep -q '<canvas id="c"'
-          echo "GET Sylvaria: Sequoia v0.2.0 runtime"
-          curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/game-runtimes/sylvaria-sequoia/index.html | grep -q 'Sylvaria: Sequoia v0.2.0'
+          echo "GET Sylvaria: Sequoia v0.3.0 runtime"
+          curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/game-runtimes/sylvaria-sequoia/index.html | grep -q 'Sylvaria: Sequoia v0.3.0'
+          curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/game-runtimes/sylvaria-sequoia/02-gameplay.js | grep -q 'function doAirJump'
           curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/game-runtimes/sylvaria-sequoia/04-input.js | grep -q 'fixedHz: 120'
 
       - name: Smoke FRONTIER privacy boundaries
