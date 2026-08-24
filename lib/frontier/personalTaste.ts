@@ -269,7 +269,11 @@ function includesAlias(text: string, aliases: readonly string[]): boolean {
 }
 
 function itemText(item: FrontierItem): string {
-  return [item.title, item.summary, item.sourceLabel, item.source, ...item.tags].filter(Boolean).join(' ').toLowerCase();
+  // Topic meaning must come from the content itself. Publisher/source identity
+  // is provenance evidence and belongs in source trust, not semantic taste.
+  // Otherwise a generic item from Crunchyroll could look like anime, an NFL.com
+  // item could look like NFL analysis, etc., even when the article says no such thing.
+  return [item.title, item.summary, ...item.tags].filter(Boolean).join(' ').toLowerCase();
 }
 
 function screenTopic(text: string): FrontierPersonalTasteTopic | undefined {
