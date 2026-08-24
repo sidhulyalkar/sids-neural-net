@@ -8,6 +8,7 @@ import { enrichFrontierSourceVisual } from './media/sourceVisuals';
 import { getPersonalFrontierFeed } from './personalSources';
 import { personalTasteRankingPrior, personalTasteTags } from './personalTaste';
 import { getPersonalTasteFrontierFeed } from './personalTasteSources';
+import { getScreenOrbitFeed } from './screenSources';
 import { getSharedMultiSourceFrontierFeed } from './sourceIngestorShared';
 import { getFrontierFeed } from './sources';
 import { getSportsAnalyticsFeed } from './sportsAnalyticsSources';
@@ -82,7 +83,8 @@ function dedupe(items: FrontierItem[]): FrontierItem[] {
 /**
  * Semantic enrichment is intentionally presentation-independent and runs before
  * candidate truncation. Otherwise a broad research flood can evict a smaller
- * NFL/fantasy/visualization signal before the personalized recommender sees it.
+ * NFL/fantasy/visualization/screen signal before the personalized recommender
+ * sees it.
  */
 export function enrichFrontierSemantics(entry: FrontierItem): FrontierItem {
   const tags = new Set(entry.tags);
@@ -95,6 +97,7 @@ export function enrichFrontierSemantics(entry: FrontierItem): FrontierItem {
   if (entry.sourceKind === 'nasa') tags.add('visual science');
   if (entry.sourceKind === 'vimeo' || entry.sourceKind === 'youtube') tags.add('video');
   if (entry.sourceKind === 'sports_state') tags.add('sports state');
+  if (entry.lane === 'screen') tags.add('screen orbit');
 
   const tasteText = [entry.title, entry.summary, entry.sourceLabel, ...entry.tags].filter(Boolean).join(' ');
   for (const tag of personalTasteTags(tasteText)) tags.add(tag);
@@ -190,6 +193,7 @@ export async function getIntegratedFrontierFeed(options: IntegratedOptions = {})
   const tasteDiscoveryTask = options.adapterDeadlineMs === false
     ? getPersonalTasteFrontierFeed()
     : Promise.resolve(emptyAdaptive);
+  const deepScreenOrbit = options.adapterDeadlineMs === false;
 
   const [
     baseResult,
@@ -199,6 +203,7 @@ export async function getIntegratedFrontierFeed(options: IntegratedOptions = {})
     sportsStateResult,
     sportsAnalyticsResult,
     sportsClipResult,
+    screenResult,
     watchableResult,
     toolingResult,
     adaptiveResult,
@@ -213,6 +218,7 @@ export async function getIntegratedFrontierFeed(options: IntegratedOptions = {})
     withinAdapterDeadline('live sports state', getSportsStateFeed(), deadline),
     withinAdapterDeadline('sports analytics mesh', getSportsAnalyticsFeed(), deadline),
     withinAdapterDeadline('sports clip radar', getSportsClipFeed(), deadline),
+    withinAdapterDeadline('Screen Orbit radar', getScreenOrbitFeed({ deep: deepScreenOrbit }), deadline),
     withinAdapterDeadline('watch radar', getWatchableFrontierFeed(), deadline),
     withinAdapterDeadline('visualization tooling radar', getToolingRadarFeed(), deadline),
     withinAdapterDeadline(
@@ -232,6 +238,7 @@ export async function getIntegratedFrontierFeed(options: IntegratedOptions = {})
     sportsStateResult,
     sportsAnalyticsResult,
     sportsClipResult,
+    screenResult,
     watchableResult,
     toolingResult,
     adaptiveResult,
@@ -265,6 +272,7 @@ export async function getIntegratedFrontierFeed(options: IntegratedOptions = {})
   if (sportsStateResult.status === 'rejected') sources.push({ id: 'sports_state', label: 'Live sports state', ok: false, count: 0, message: 'live sports state unavailable' });
   if (sportsAnalyticsResult.status === 'rejected') sources.push({ id: 'rss', label: 'Sports analytics radar', ok: false, count: 0, message: 'sports analytics source mesh unavailable' });
   if (sportsClipResult.status === 'rejected') sources.push({ id: 'social', label: 'Sports clip radar', ok: false, count: 0, message: 'sports clip discovery unavailable' });
+  if (screenResult.status === 'rejected') sources.push({ id: 'rss', label: 'Screen Orbit radar', ok: false, count: 0, message: 'screen discovery unavailable' });
   if (watchableResult.status === 'rejected') sources.push({ id: 'youtube', label: 'Watch radar', ok: false, count: 0, message: 'watch radar unavailable' });
   if (toolingResult.status === 'rejected') sources.push({ id: 'github', label: 'Visualization tooling radar', ok: false, count: 0, message: 'visualization tooling radar unavailable' });
   if (adaptiveResult.status === 'rejected' && focusTopics.length) sources.push({ id: 'gdelt', label: 'Adaptive live mesh', ok: false, count: 0, message: 'focused request-time discovery unavailable' });
