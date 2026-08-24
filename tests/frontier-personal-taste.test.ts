@@ -91,22 +91,27 @@ test('learned negative preferences can suppress the explicit seed prior', () => 
   assert.ok(suppressed < seeded - 0.08);
 });
 
-test('daily run reserves distinct fantasy/NFL, sports-data, visualization, and watchable slots', () => {
+test('daily run reserves separate NFL, fantasy, sports-data, visualization, and watchable slots', () => {
   const generic = Array.from({ length: 18 }, (_, index) => item(`generic-${index}`, {
     lane: index % 2 ? 'ai_frontier' : 'ml_data',
     title: `Generic signal ${index}`,
     tags: ['generic'],
     importance: index === 0 ? 0.9 : 0.58,
   }));
+  const nfl = item('nfl', {
+    title: 'NFL player tracking EPA and CPOE state model',
+    lane: 'sports',
+    tags: ['nfl', 'player tracking', 'epa', 'cpoe'],
+  });
   const fantasy = item('fantasy', {
     title: 'Superflex ADP and route participation model update',
     lane: 'sports',
     tags: ['fantasy football', 'superflex', '2qb', 'player usage'],
   });
   const sportsData = item('sports-data', {
-    title: 'nflverse player tracking EPA visualization',
+    title: 'NBA and soccer tracking-data visualization toolkit',
     lane: 'sports',
-    tags: ['sports analytics', 'sports data', 'player tracking'],
+    tags: ['sports analytics', 'sports data', 'visualization'],
   });
   const visualization = item('visualization', {
     title: 'Neuroglancer and napari connectomics viewer release',
@@ -124,12 +129,13 @@ test('daily run reserves distinct fantasy/NFL, sports-data, visualization, and w
   });
 
   const run = selectDailyRun(
-    [...generic, fantasy, sportsData, visualization, watchable],
+    [...generic, nfl, fantasy, sportsData, visualization, watchable],
     {},
     14,
     new Date('2026-08-23T20:00:00.000Z')
   );
   const ids = new Set(run.map((entry) => entry.id));
+  assert.ok(ids.has('nfl'));
   assert.ok(ids.has('fantasy'));
   assert.ok(ids.has('sports-data'));
   assert.ok(ids.has('visualization'));
