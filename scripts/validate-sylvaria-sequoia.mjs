@@ -20,6 +20,7 @@ const modules = [
   '03-render-reference-handoff.js',
   '03-render-altitude-realism.js',
   '03-render-performance.js',
+  '03-sap-stick-control-hud.js',
   '03-title-focus-guard.js',
   '04-input.js',
 ];
@@ -49,14 +50,17 @@ const referenceRender = read('03-render-reference-pass.js');
 const handoff = read('03-render-reference-handoff.js');
 const altitudeRender = read('03-render-altitude-realism.js');
 const performanceRender = read('03-render-performance.js');
+const sapHud = read('03-sap-stick-control-hud.js');
 const focusGuard = read('03-title-focus-guard.js');
 const input = read('04-input.js');
-const runtime = [core, feel, world, gameplay, jumpContract, assist, stick, control, canopy, underpaint, referenceRender, handoff, altitudeRender, performanceRender, focusGuard, input].join('\n');
+const runtime = [core, feel, world, gameplay, jumpContract, assist, stick, control, canopy, underpaint, referenceRender, handoff, altitudeRender, performanceRender, sapHud, focusGuard, input].join('\n');
 const design = readFileSync(designPath, 'utf8');
 
 assert.match(index, /<title>Sylvaria: Sequoia v0\.4\.0<\/title>/);
-assert.match(index, /02-flow-assist\.js[\s\S]*02-sap-stick\.js[\s\S]*02-control-authority\.js[\s\S]*03-render-canopy\.js[\s\S]*03-render-fast-underpaint\.js[\s\S]*03-render-reference-pass\.js[\s\S]*03-render-reference-handoff\.js[\s\S]*03-render-altitude-realism\.js[\s\S]*03-render-performance\.js[\s\S]*03-title-focus-guard\.js[\s\S]*04-input\.js/);
-assert.match(index, /hold Shift \+ tap Space = Sap Stick/i);
+assert.match(index, /02-flow-assist\.js[\s\S]*02-sap-stick\.js[\s\S]*02-control-authority\.js/);
+assert.match(index, /03-render-performance\.js[\s\S]*03-sap-stick-control-hud\.js[\s\S]*03-title-focus-guard\.js[\s\S]*04-input\.js/);
+assert.match(index, /Shift fires Sap Stick, hold \+ A\/D to swing, release to vault/i);
+assert.match(index, /0 resets/i);
 
 assert.match(core, /FIXED_DT: 1 \/ 120/);
 assert.match(core, /MAX_STEPS: 8/);
@@ -79,12 +83,16 @@ for (const pattern of [
   /retention: 0\.78/,
   /kickVertical: 710/,
   /stickRange: 640/,
-  /stickHoldSeconds: 0\.22/,
+  /stickAcquireBufferSeconds: 0\.18/,
+  /stickMinHoldSeconds: 0\.075/,
+  /stickMaxHoldSeconds: 1\.35/,
+  /stickSteerAccel: 2450/,
   /stickReuseLockSeconds: 0\.82/,
   /stickReleaseMinVy: 630/,
   /window: 3\.35/,
   /baseSpeed: 20/,
 ]) assert.match(feel, pattern);
+assert.doesNotMatch(feel, /stickHoldSeconds: 0\.22/);
 
 for (const grammar of ['FLOW', 'RECOVERY', 'GROVE', 'SAPRUN', 'SLINGSHOT', 'CRUX']) {
   assert.match(world, new RegExp(`${grammar}: \\[`), `missing ${grammar} route grammar`);
@@ -118,17 +126,26 @@ for (const pattern of [
 for (const pattern of [
   /function findTarget\(/,
   /function castSapStick\(/,
-  /function releaseStick\(/,
+  /function pressSapStick\(/,
+  /function releaseSapStickInput\(/,
+  /function applyHeldScreenSteering\(/,
   /stickMode: true/,
-  /TUNE\.sap\.stickHoldSeconds/,
+  /stickHeld = true/,
+  /acquireBuffer = TUNE\.sap\.stickAcquireBufferSeconds/,
+  /TUNE\.sap\.stickMinHoldSeconds/,
+  /TUNE\.sap\.stickMaxHoldSeconds/,
+  /suppressLegacyPump/,
   /anchorLockouts\.set/,
-  /SAP STICK SAVE!/,
-  /SAP STICK VAULT · AIR KICK READY/,
+  /SAP STICK · HOLD TO SWING/,
+  /SAP VAULT · AIR KICK READY/,
   /sapStickCasts/,
+  /sapStickBufferedLocks/,
+  /sapStickHoldReleases/,
   /sapStickVaults/,
   /getTargetPreview/,
 ]) assert.match(stick, pattern);
-assert.doesNotMatch(stick, /charge(?:Seconds|Time)|holdToCharge/i, 'Sap Stick must not require charging');
+assert.doesNotMatch(stick, /charge(?:Seconds|Time)|holdToCharge/i, 'Sap Stick must remain no-charge');
+assert.doesNotMatch(stick, /sap\.age >= TUNE\.sap\.stickHoldSeconds/);
 
 for (const pattern of [
   /velocity-authority-v2/,
@@ -197,6 +214,15 @@ for (const pattern of [
 ]) assert.match(performanceRender, pattern);
 
 for (const pattern of [
+  /shift-hold-v1/,
+  /PRESS = FIRE/,
+  /HOLD \+ A\/D = SWING/,
+  /RELEASE = VAULT/,
+  /resetKey: '0'/,
+  /S\.render = render/,
+]) assert.match(sapHud, pattern);
+
+for (const pattern of [
   /desktop-focus-v1/,
   /function guardDesktopTitleFocus\(/,
   /event\.pointerType === 'touch'/,
@@ -205,33 +231,43 @@ for (const pattern of [
 
 for (const pattern of [
   /const SHIFT_KEYS = new Set/,
-  /function triggerSapStick\(/,
-  /event\.code === 'Space' && shiftHeld\(\)/,
-  /S\.castSapStick\?\.\(\)/,
+  /const RESET_KEYS = new Set\(\['Digit0', 'Numpad0'\]\)/,
+  /function triggerSapStickPress\(/,
+  /S\.pressSapStick\?\.\(\)/,
+  /releaseSapStick\('SHIFT_RELEASE'\)/,
+  /releaseSapStick\('POINTER_RELEASE'\)/,
+  /releaseSapStick\('BLUR'\)/,
   /START_JUMP_GUARD_MS = 80/,
   /SAME_KEY_JUMP_REARM_MS = 82/,
+  /sapPressCount/,
   /pendingActivation/,
   /version: '0\.4\.0'/,
 ]) assert.match(input, pattern);
-assert.doesNotMatch(input, /KeyE|SAP_KEYS/, 'v0.4 canonical Sap Stick input must be Shift+Space');
+assert.doesNotMatch(input, /event\.code === 'KeyR'/, 'R must not reset near the movement cluster');
+assert.doesNotMatch(input, /event\.code === 'Space' && shiftHeld\(\)/, 'Sap Stick must not require a Shift+Space chord');
+assert.doesNotMatch(input, /KeyE|SAP_KEYS/);
 
 assert.doesNotMatch(runtime, /\benemy\b|\bdamage\b|\battack\b/i, 'Sequoia runtime should remain traversal-first');
 for (const pattern of [
-  /Shift \+ Space/i,
+  /press Shift/i,
+  /hold Shift/i,
+  /release Shift/i,
   /no charge/i,
   /branchless/i,
   /same-seed/i,
+  /0 key/i,
 ]) assert.match(design, pattern);
 
 console.log(JSON.stringify({
   ok: true,
   runtime: 'sylvaria-sequoia',
-  version: '0.4.0-feel-recovery-single-paint',
+  version: '0.4.0-shift-hold-feel-recovery',
   fixedHz: 120,
   modules,
   grammars: ['FLOW', 'RECOVERY', 'GROVE', 'SAPRUN', 'SLINGSHOT', 'CRUX'],
   corridorWidth: 760,
   feel: ['responsive acceleration', 'strong air steering', 'player-owned reversals', 'Stride height memory without hidden horizontal snaps'],
-  render: ['single production scene paint', 'reference-first active gameplay', 'budget-gated altitude ecology'],
-  sapStick: ['Shift+Space', 'no charge', '0.22s tether', 'auto-vault', 'anchor reuse lock'],
+  render: ['single production scene paint', 'reference-first active gameplay', 'budget-gated altitude ecology', 'final one-button control HUD'],
+  sapStick: ['press Shift to fire', '180ms acquisition buffer', 'hold plus A/D to swing', 'release Shift to vault', '1.35s safety ceiling', 'anchor reuse lock'],
+  reset: '0 / Numpad0',
 }, null, 2));
