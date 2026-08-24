@@ -83,8 +83,8 @@ const recovery = steps('RECOVERY');
 const grove = steps('GROVE');
 const saprun = steps('SAPRUN');
 const slingshot = steps('SLINGSHOT');
-const branchGaps = [...flow, ...recovery].filter((step) => step.branch).map((step) => step.dy);
-const maxTeachingGap = Math.max(...branchGaps);
+const standingTeachingGap = Math.max(flow[0].dy, ...recovery.filter((step) => step.branch).map((step) => step.dy));
+const laterFlowGap = Math.max(...flow.slice(1).filter((step) => step.branch).map((step) => step.dy));
 const twoFloorTarget = sum(flow.slice(0, 2).map((step) => step.dy));
 const threeFloorTarget = sum(flow.slice(0, 3).map((step) => step.dy));
 const samples = [
@@ -95,7 +95,10 @@ const samples = [
 ].map((sample) => ({ ...sample, vy: jumpVy(sample.speed, sample.flow), apex: apex(jumpVy(sample.speed, sample.flow)) }));
 const by = Object.fromEntries(samples.map((sample) => [sample.label, sample]));
 
-assert.ok(by.standing.apex >= maxTeachingGap * 1.10, `standing jump lost teaching margin: ${by.standing.apex.toFixed(1)} vs ${maxTeachingGap}`);
+// A stationary player gets a real safety margin only on the introductory and
+// recovery tiers. Later FLOW shelves intentionally require earned momentum.
+assert.ok(by.standing.apex >= standingTeachingGap * 1.10, `standing jump lost teaching margin: ${by.standing.apex.toFixed(1)} vs ${standingTeachingGap}`);
+assert.ok(by.standing.apex < laterFlowGap * 1.08, 'standing jump is beginning to erase the momentum requirement from later FLOW transfers');
 assert.ok(by['burst-entry'].apex >= twoFloorTarget * 0.96, `burst entry lost two-floor utility: ${by['burst-entry'].apex.toFixed(1)} vs ${twoFloorTarget}`);
 assert.ok(by['developed-run'].apex >= threeFloorTarget * 0.92, `developed run lost FLOW utility: ${by['developed-run'].apex.toFixed(1)} vs ${threeFloorTarget}`);
 assert.ok(by['full-stride'].apex < threeFloorTarget + 145, 'ground movement is becoming a route solver again');
@@ -156,6 +159,7 @@ console.log(JSON.stringify({
     saprun: { branches: saprun.filter((s) => s.branch).length, tiers: saprun.length },
     slingshot: { branches: slingshot.filter((s) => s.branch).length, tiers: slingshot.length },
   },
+  teaching: { standingGap: standingTeachingGap, laterFlowGap },
   jumpEnvelope: samples.map(({ label, speed, flow: flowCount, vy, apex: height }) => ({ label, speed, flow: flowCount, launchVy: Number(vy.toFixed(1)), ballisticApex: Number(height.toFixed(1)) })),
   sapStick: { range: stickRange, tetherSeconds: stickHold, reuseLockSeconds: stickReuse, releaseApex: Number(apex(stickReleaseVy).toFixed(1)) },
 }, null, 2));
