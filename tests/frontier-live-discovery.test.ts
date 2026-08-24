@@ -1,8 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { FRONTIER_SOURCE_WEIGHTS } from '../lib/frontier/config';
 import { parseGdeltArticles } from '../lib/frontier/liveDiscovery';
+import { assessFrontierHost } from '../lib/frontier/sourceTrust';
 
-test('GDELT live discovery keeps real source media and limits one domain from flooding results', () => {
+test('GDELT live discovery keeps real source media, central trust, and per-domain diversity', () => {
   const items = parseGdeltArticles({
     articles: [
       {
@@ -33,7 +35,10 @@ test('GDELT live discovery keeps real source media and limits one domain from fl
   assert.equal(items[0].sourceLabel, 'reuters.com');
   assert.equal(items[0].media?.type, 'image');
   assert.equal(items[0].summary, '');
-  assert.ok(items[0].quality > 0.85);
+
+  const expectedQuality = assessFrontierHost('reuters.com').score * FRONTIER_SOURCE_WEIGHTS.gdelt;
+  assert.ok(Math.abs(items[0].quality - expectedQuality) < 1e-9);
+  assert.equal(assessFrontierHost('reuters.com').tier, 'established');
   assert.ok(items[0].tags.includes('mountain biking'));
 });
 
@@ -50,4 +55,6 @@ test('GDELT parser never invents an article body when the API only supplies a ti
   assert.equal(item.title, 'A real headline from the live source');
   assert.equal(item.summary, '');
   assert.match(item.why ?? '', /Live web discovery/);
+  assert.equal(assessFrontierHost('example.org').tier, 'unknown');
+  assert.ok(item.quality < 0.4, 'unknown publisher quality must stay weak before the central admission gate rejects it');
 });
