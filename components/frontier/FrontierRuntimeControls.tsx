@@ -33,9 +33,13 @@ export function FrontierRuntimeControls() {
   }, [healthVersion]);
 
   useEffect(() => {
-    const config = readFrontierSignalBridgeConfig();
-    setSignalEnabled(Boolean(config.enabled));
-    if (config.url) setSignalUrl(config.url);
+    let cancelled = false;
+    queueMicrotask(() => {
+      if (cancelled) return;
+      const config = readFrontierSignalBridgeConfig();
+      setSignalEnabled(Boolean(config.enabled));
+      if (config.url) setSignalUrl(config.url);
+    });
 
     const onHealth = (_event: Event) => setHealthVersion((version) => version + 1);
     const onMeshResponse = (event: Event) => {
@@ -55,6 +59,7 @@ export function FrontierRuntimeControls() {
     window.addEventListener(FRONTIER_RUNTIME_HEALTH_EVENT, onHealth);
     window.addEventListener(FRONTIER_MESH_RESPONSE_EVENT, onMeshResponse);
     return () => {
+      cancelled = true;
       window.removeEventListener(FRONTIER_RUNTIME_HEALTH_EVENT, onHealth);
       window.removeEventListener(FRONTIER_MESH_RESPONSE_EVENT, onMeshResponse);
     };
