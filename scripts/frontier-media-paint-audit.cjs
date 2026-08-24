@@ -94,6 +94,32 @@ async function cardRect(page, id) {
   }, { selector: CARD, id });
 }
 
+async function mediaStateSnapshot(page, id) {
+  return page.evaluate((id) => {
+    const card = document.querySelector(`[data-frontier-fluid-card="${CSS.escape(id)}"]`);
+    if (!(card instanceof HTMLElement)) return { missing: true };
+    const surfaces = Array.from(card.querySelectorAll('[data-media-state]'));
+    const images = Array.from(card.querySelectorAll('img'));
+    return {
+      missing: false,
+      unavailable: card.getAttribute('data-frontier-media-unavailable') === 'true',
+      mediaDeclared: Boolean(card.querySelector('[data-frontier-has-media="true"]')),
+      surfaces: surfaces.map((surface) => ({
+        state: surface.getAttribute('data-media-state'),
+        nativeReady: surface.getAttribute('data-media-native-ready'),
+        expanded: surface.getAttribute('data-inline-expanded'),
+      })),
+      images: images.map((image) => ({
+        src: image.getAttribute('src'),
+        currentSrc: image.currentSrc,
+        complete: image.complete,
+        naturalWidth: image.naturalWidth,
+        naturalHeight: image.naturalHeight,
+      })),
+    };
+  }, id);
+}
+
 async function visitMediaCard(page, id) {
   const locator = page.locator(`${CARD}[data-frontier-fluid-card="${id}"]`);
   await locator.scrollIntoViewIfNeeded();
@@ -186,6 +212,8 @@ async function failureStabilityProof(browser) {
   let failuresReleased = false;
   let blockedRequests = 0;
   const blockedRequestKinds = [];
+  const responses = [];
+  const failedRequests = [];
   const failureBarrier = new Promise((resolve) => {
     releaseFailures = resolve;
   });
@@ -195,9 +223,10 @@ async function failureStabilityProof(browser) {
 
   // Route at browser-context scope so worker fetches and the native <img>
   // safety layer share the same fault boundary. Hold every matching request
-  // until after masonry has settled and the baseline geometry is recorded;
-  // then fail all paths together. A fixed delay here is racy because the GPU
-  // worker can otherwise populate HTTP cache before the native image fails.
+  // until after masonry has settled and the baseline geometry is recorded.
+  // Then return deliberately invalid image bytes to every path together. A
+  // deterministic HTTP response is preferable to abort(), whose network-error
+  // delivery can vary between Chromium's worker fetch and image loader.
   await context.route(targetMediaPattern, async (route) => {
     blockedRequests += 1;
     blockedRequestKinds.push({
@@ -206,15 +235,32 @@ async function failureStabilityProof(browser) {
     });
     signalFirstBlockedRequest();
     await failureBarrier;
-    await route.abort('failed').catch(() => undefined);
+    await route.fulfill({
+      status: 503,
+      contentType: 'text/plain',
+      headers: { 'Cache-Control': 'no-store' },
+      body: 'frontier forced media failure',
+    }).catch(() => undefined);
   });
 
   const page = await context.newPage();
   page.setDefaultTimeout(7_000);
+  page.on('response', (response) => {
+    if (response.url().includes('/visual-archive/thumbs/photo-004-thumb.webp')) {
+      responses.push({ url: response.url(), status: response.status() });
+    }
+  });
+  page.on('requestfailed', (request) => {
+    if (request.url().includes('/visual-archive/thumbs/photo-004-thumb.webp')) {
+      failedRequests.push({ url: request.url(), failure: request.failure() });
+    }
+  });
 
+  let settledAfterFrames = 0;
+  let before;
   try {
-    const settledAfterFrames = await waitForFixture(page);
-    const before = await cardRect(page, targetId);
+    settledAfterFrames = await waitForFixture(page);
+    before = await cardRect(page, targetId);
     assert.equal(before.mediaDeclared, true, 'Failure fixture did not start as a structural media card');
 
     // Bring the target into the active media window only after capturing its
@@ -230,13 +276,32 @@ async function failureStabilityProof(browser) {
     failuresReleased = true;
     releaseFailures();
 
-    await page.waitForFunction((id) => {
-      const card = document.querySelector(`[data-frontier-fluid-card="${CSS.escape(id)}"]`);
-      return card?.getAttribute('data-frontier-media-unavailable') === 'true';
-    }, targetId, { polling: 'raf', timeout: 6_000 });
+    try {
+      await page.waitForFunction((id) => {
+        const card = document.querySelector(`[data-frontier-fluid-card="${CSS.escape(id)}"]`);
+        return card?.getAttribute('data-frontier-media-unavailable') === 'true';
+      }, targetId, { polling: 'raf', timeout: 6_000 });
+    } catch (error) {
+      const snapshot = await mediaStateSnapshot(page, targetId).catch(() => ({ snapshotFailed: true }));
+      const failure = {
+        passed: false,
+        targetId,
+        settledAfterFrames,
+        blockedRequests,
+        blockedRequestKinds,
+        responses,
+        failedRequests,
+        before,
+        snapshot,
+      };
+      writeResult({ ...auditProgress, failure, passed: false, error: error instanceof Error ? error.stack : String(error) });
+      throw error;
+    }
+
     await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
 
     const after = await cardRect(page, targetId);
+    const snapshot = await mediaStateSnapshot(page, targetId);
     assert.equal(after.unavailable, true, 'Failed media did not expose the diagnostic state');
     assert.equal(after.mediaDeclared, true, 'Runtime failure structurally demoted the media card');
     assert(Math.abs(after.height - before.height) <= 1.25, `Failed media changed card height by ${Math.abs(after.height - before.height)}px`);
@@ -250,8 +315,11 @@ async function failureStabilityProof(browser) {
       targetId,
       blockedRequests,
       blockedRequestKinds,
+      responses,
+      failedRequests,
       before,
       after,
+      snapshot,
     };
   } finally {
     if (!failuresReleased) releaseFailures();
@@ -277,8 +345,9 @@ async function failureStabilityProof(browser) {
     await browser.close();
   }
 })().catch((error) => {
+  const existing = fs.existsSync(RESULT_PATH) ? JSON.parse(fs.readFileSync(RESULT_PATH, 'utf8')) : auditProgress;
   writeResult({
-    ...auditProgress,
+    ...existing,
     passed: false,
     error: error instanceof Error ? error.stack : String(error),
   });
