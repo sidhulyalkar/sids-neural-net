@@ -67,10 +67,6 @@ async function waitForFixture(page) {
     document.body.style.scrollBehavior = 'auto';
     if (document.fonts?.ready) await document.fonts.ready;
   });
-  // Stable-looking rectangles are not enough: deterministic masonry marks the
-  // exact moment each compact card's measured height and virtualization
-  // intrinsic size become authoritative. Baselines must wait for that product
-  // contract rather than racing the layout-effect measurement batch.
   await page.waitForFunction(
     ({ selector, expected }) => {
       const cards = Array.from(document.querySelectorAll(selector));
@@ -103,7 +99,7 @@ async function cardRect(page, id) {
       geometryLocked: node.getAttribute('data-frontier-geometry') === 'locked',
       geometryHeight: node.getAttribute('data-frontier-geometry-height'),
       mediaDeclared: Boolean(node.querySelector('[data-frontier-has-media="true"]')),
-      unavailable: node.getAttribute('data-frontier-media-unavailable') === 'true',
+      unavailable: Boolean(node.querySelector('[data-frontier-media-unavailable="true"]')),
     };
   }, { selector: CARD, id });
 }
@@ -116,7 +112,7 @@ async function mediaStateSnapshot(page, id) {
     const images = Array.from(card.querySelectorAll('img'));
     return {
       missing: false,
-      unavailable: card.getAttribute('data-frontier-media-unavailable') === 'true',
+      unavailable: Boolean(card.querySelector('[data-frontier-media-unavailable="true"]')),
       mediaDeclared: Boolean(card.querySelector('[data-frontier-has-media="true"]')),
       geometryLocked: card.getAttribute('data-frontier-geometry') === 'locked',
       geometryHeight: card.getAttribute('data-frontier-geometry-height'),
@@ -247,18 +243,9 @@ async function failureStabilityProof(browser) {
     signalFirstBlockedRequest = resolve;
   });
 
-  // Route at browser-context scope so worker fetches and the native <img>
-  // safety layer share the same fault boundary. Hold every matching request
-  // until after masonry has settled and the baseline geometry is recorded.
-  // Then return deliberately invalid image bytes to every path together. A
-  // deterministic HTTP response is preferable to abort(), whose network-error
-  // delivery can vary between Chromium's worker fetch and image loader.
   await context.route(targetMediaPattern, async (route) => {
     blockedRequests += 1;
-    blockedRequestKinds.push({
-      resourceType: route.request().resourceType(),
-      url: route.request().url(),
-    });
+    blockedRequestKinds.push({ resourceType: route.request().resourceType(), url: route.request().url() });
     signalFirstBlockedRequest();
     await failureBarrier;
     await route.fulfill({
@@ -272,14 +259,10 @@ async function failureStabilityProof(browser) {
   const page = await context.newPage();
   page.setDefaultTimeout(7_000);
   page.on('response', (response) => {
-    if (response.url().includes('/visual-archive/thumbs/photo-004-thumb.webp')) {
-      responses.push({ url: response.url(), status: response.status() });
-    }
+    if (response.url().includes('/visual-archive/thumbs/photo-004-thumb.webp')) responses.push({ url: response.url(), status: response.status() });
   });
   page.on('requestfailed', (request) => {
-    if (request.url().includes('/visual-archive/thumbs/photo-004-thumb.webp')) {
-      failedRequests.push({ url: request.url(), failure: request.failure() });
-    }
+    if (request.url().includes('/visual-archive/thumbs/photo-004-thumb.webp')) failedRequests.push({ url: request.url(), failure: request.failure() });
   });
 
   let settledAfterFrames = 0;
@@ -289,9 +272,6 @@ async function failureStabilityProof(browser) {
     before = await cardRect(page, targetId);
     assert.equal(before.mediaDeclared, true, 'Failure fixture did not start as a structural media card');
 
-    // Bring the target into the active media window only after capturing its
-    // document-space geometry. The route barrier prevents either decoder path
-    // from winning the race and warming the cache before failure is released.
     await page.locator(`${CARD}[data-frontier-fluid-card="${targetId}"]`).scrollIntoViewIfNeeded();
     await Promise.race([
       firstBlockedRequest,
@@ -305,21 +285,11 @@ async function failureStabilityProof(browser) {
     try {
       await page.waitForFunction((id) => {
         const card = document.querySelector(`[data-frontier-fluid-card="${CSS.escape(id)}"]`);
-        return card?.getAttribute('data-frontier-media-unavailable') === 'true';
+        return Boolean(card?.querySelector('[data-frontier-media-unavailable="true"]'));
       }, targetId, { polling: 'raf', timeout: 6_000 });
     } catch (error) {
       const snapshot = await mediaStateSnapshot(page, targetId).catch(() => ({ snapshotFailed: true }));
-      const failure = {
-        passed: false,
-        targetId,
-        settledAfterFrames,
-        blockedRequests,
-        blockedRequestKinds,
-        responses,
-        failedRequests,
-        before,
-        snapshot,
-      };
+      const failure = { passed: false, targetId, settledAfterFrames, blockedRequests, blockedRequestKinds, responses, failedRequests, before, snapshot };
       writeResult({ ...auditProgress, failure, passed: false, error: error instanceof Error ? error.stack : String(error) });
       throw error;
     }
@@ -334,19 +304,7 @@ async function failureStabilityProof(browser) {
     assert(Math.abs(after.top - before.top) <= 1.25, `Failed media changed card position by ${Math.abs(after.top - before.top)}px`);
 
     await page.screenshot({ path: path.join(ARTIFACT_DIR, 'frontier-media-paint-failure-stable.png'), fullPage: true });
-    return {
-      passed: true,
-      settledAfterFrames,
-      resettledAfterFrames,
-      targetId,
-      blockedRequests,
-      blockedRequestKinds,
-      responses,
-      failedRequests,
-      before,
-      after,
-      snapshot,
-    };
+    return { passed: true, settledAfterFrames, resettledAfterFrames, targetId, blockedRequests, blockedRequestKinds, responses, failedRequests, before, after, snapshot };
   } finally {
     if (!failuresReleased) releaseFailures();
     await context.close();
@@ -372,11 +330,7 @@ async function failureStabilityProof(browser) {
   }
 })().catch((error) => {
   const existing = fs.existsSync(RESULT_PATH) ? JSON.parse(fs.readFileSync(RESULT_PATH, 'utf8')) : auditProgress;
-  writeResult({
-    ...existing,
-    passed: false,
-    error: error instanceof Error ? error.stack : String(error),
-  });
+  writeResult({ ...existing, passed: false, error: error instanceof Error ? error.stack : String(error) });
   console.error(error);
   process.exitCode = 1;
 });
