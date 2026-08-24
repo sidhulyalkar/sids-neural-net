@@ -123,12 +123,10 @@ export function useLiveDiscoveryDaemon(options: {
 
   const acceptFresh = useCallback(async (items: FrontierItem[], generatedAt?: string, sources: FrontierSourceStatus[] = []) => {
     // The server feed already applies destination-aware provenance vetting, but
-    // the daemon can trigger high-priority notifications before normal page
-    // ranking. Recheck admission here so a malformed/stale worker payload or a
-    // future alternate transport can never turn an unvetted source into an
-    // alert. Do not call vetFrontierItems here because that would apply the
-    // ranking prior twice to already-vetted server items.
-    let exact = (await filterUnseenFrontierItems(items)).filter(isFrontierSourceAdmitted);
+    // the daemon can emit high-priority notifications before the normal page
+    // ranking pass. Recheck admission here so stale/malformed worker payloads or
+    // future transports cannot turn an unvetted publisher into an alert.
+    let exact = (await filterUnseenFrontierItems(items)).filter((item) => isFrontierSourceAdmitted(item));
     if (prioritizeRef.current && exact.length) {
       try { exact = await prioritizeRef.current(exact); } catch { /* priority scoring is additive */ }
     }
@@ -266,25 +264,44 @@ export function useLiveDiscoveryDaemon(options: {
 
   useEffect(() => () => {
     if (retryTimer.current !== undefined) window.clearTimeout(retryTimer.current);
-    retryTimer.current = undefined;
     publishFrontierRuntimeHealth('live-daemon', 'idle');
   }, []);
 
-  const consume = useCallback(() => {
-    const items = Array.from(pendingRef.current.values());
-    pendingRef.current.clear();
-    if (items.length) setPendingCount(0);
-    return { items, generatedAt: meta.generatedAt, sources: meta.sources };
-  }, [meta.generatedAt, meta.sources]);
+  const requestPoll = useCallback((reason: 'manual' | 'near-end' | 'visibility' = 'manual') => {
+    try { workerRef.current?.postMessage({ type: 'poll-now', reason } satisfies FrontierDaemonRequest); } catch {}
+  }, []);
 
-  const pollNow = useCallback(() => {
-    try { workerRef.current?.postMessage({ type: 'poll-now', reason: 'manual' } satisfies FrontierDaemonRequest); } catch {}
+  const flush = useCallback(async (limit = 24): Promise<FrontierItem[]> => {
+    const snapshot = Array.from(pendingRef.current.values());
+    const exact = (await filterUnseenFrontierItems(snapshot)).filter((item) => isFrontierSourceAdmitted(item));
+    const allowed = exact.filter((item) => !frontierSeenSignatures(item).some((signature) => exclusionRef.current.has(signature)));
+    const allowedKeys = new Set(allowed.map((item) => frontierItemIdentityKey(item)));
+    for (const key of pendingRef.current.keys()) {
+      if (!allowedKeys.has(key)) pendingRef.current.delete(key);
+    }
+    const prioritized = [
+      ...allowed.filter((item) => item.highPriority && item.watchSignal),
+      ...allowed.filter((item) => !item.highPriority || !item.watchSignal),
+    ];
+    const selected = prioritized.slice(0, Math.max(1, Math.min(MAX_PENDING, limit)));
+    for (const item of selected) pendingRef.current.delete(frontierItemIdentityKey(item));
+    if (snapshot.length !== pendingRef.current.size) setPendingCount(pendingRef.current.size);
+    return selected;
+  }, []);
+
+  const clearPending = useCallback(() => {
+    if (!pendingRef.current.size) return;
+    pendingRef.current.clear();
+    setPendingCount(0);
   }, []);
 
   return {
     pendingCount,
     status,
-    consume,
-    pollNow,
+    generatedAt: meta.generatedAt,
+    sources: meta.sources,
+    requestPoll,
+    flush,
+    clearPending,
   };
 }
