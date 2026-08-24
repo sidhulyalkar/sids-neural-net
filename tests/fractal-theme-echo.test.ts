@@ -55,19 +55,23 @@ test('homepage records its theme and subpages consume the echo consistently', ()
   assert.match(echo, /force:\$\{theme\.morphology\}/);
 });
 
-test('public curation v14 removes weak variants and masks every destination interior', () => {
+test('public curation v14 removes weak variants and keeps every destination interior opaque', () => {
   const stage = readRepoFile('components/neural-atlas-canvas/AdaptiveFractalStage.tsx');
   const curation = readRepoFile('components/neural-atlas-canvas/FractalPublicCurationV14.tsx');
 
   assert.match(stage, /FractalPublicCurationV14/);
+  assert.match(curation, /ACTIVE_PUBLIC_MORPHOLOGIES = \['radial', 'coral', 'fan', 'apical', 'spiraloid', 'echo-nest'\]/);
   assert.match(curation, /'halo'/);
   assert.match(curation, /'pixel-ghost'/);
   assert.match(curation, /'echidna'/);
+  assert.match(curation, /curateLocationBeforeGeneration/);
+  assert.match(curation, /window\.history\.replaceState/);
   assert.match(curation, /window\.location\.replace/);
-  assert.match(curation, /data-destination-clearance-layer="v14"/);
-  assert.match(curation, /data-destination-clearance-mask/);
   assert.match(curation, /background-color: #010406 !important/);
-  assert.match(curation, /destinationClearance = 'opaque-edge-mask-v14'/);
+  assert.match(curation, /isolation: isolate/);
+  assert.match(curation, /destinationClearance = 'opaque-card-v14'/);
+  assert.match(curation, /destinationEdgeClearance = 'v14'/);
+  assert.doesNotMatch(curation, /data-destination-clearance-mask/);
 });
 
 test('Echo Nest theme echoes reuse the Fermat orientation grammar', () => {
