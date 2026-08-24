@@ -73,12 +73,11 @@ test('exact favorites resolve into distinct story and humor motifs', () => {
   assert.ok(blackMirror.includes('story rich'));
 });
 
-test('aliases match stylized anime titles without broad substring leakage', () => {
+test('aliases match stylized anime titles while ambiguous entertainment titles require context', () => {
   assert.deepEqual(matchedScreenFavorites('Dandadan announces a new season'), ['DAN DA DAN']);
   assert.ok(matchedScreenFavorites('JJK movie update').includes('JUJUTSU KAISEN'));
-  assert.equal(matchedScreenFavorites('A chef explains how to cook beef stock').includes('BEEF'), true);
-  // Short/generic exact titles can be noisy, but motif-only text remains weaker
-  // than an exact screen favorite and therefore cannot dominate cold start.
+  assert.equal(matchedScreenFavorites('A chef explains how to cook beef stock').includes('BEEF'), false);
+  assert.equal(matchedScreenFavorites('Netflix BEEF series season update').includes('BEEF'), true);
   assert.ok(screenTastePrior('new dark fantasy anime with strong worldbuilding') < screenTastePrior('Frieren season 3'));
 });
 
@@ -104,7 +103,7 @@ test('finite daily run reserves Screen Orbit independently of gaming and interne
   assert.ok(selected.some((entry) => entry.id === 'game'));
 });
 
-test('Screen Orbit RSS parser uses returned article evidence rather than query labels', () => {
+test('Screen Orbit motif RSS requires returned evidence rather than query labels', () => {
   const spec = screenDiscoveryQueries('2026-08-24').find((query) => query.id === 'story-anime');
   assert.ok(spec);
   const rss = `<?xml version="1.0"?><rss><channel>
@@ -120,18 +119,31 @@ test('Screen Orbit RSS parser uses returned article evidence rather than query l
       <link>https://news.google.com/rss/articles/accounting</link>
       <pubDate>Sun, 23 Aug 2026 17:00:00 GMT</pubDate>
       <source url="https://unknown-screen-blog.invalid">Unknown Blog</source>
-      <description>No favorite title appears in the returned evidence.</description>
+      <description>Quarterly accounting details with no anime or story signal.</description>
     </item>
   </channel></rss>`;
   const parsed = parseScreenNewsRss(rss, spec!, Date.parse('2026-08-24T06:00:00Z'));
-  assert.equal(parsed.length, 2);
+  assert.equal(parsed.length, 1);
   const favorite = parsed[0];
   assert.equal(favorite.lane, 'screen');
   assert.ok(favorite.tags.includes('screen favorite'));
   assert.ok(favorite.tags.includes('anime'));
   assert.equal(isFrontierSourceAdmitted(favorite), true);
-  assert.equal(parsed[1].tags.includes('screen favorite'), false);
-  assert.equal(isFrontierSourceAdmitted(parsed[1]), false);
+});
+
+test('rotating favorite-title searches discard fuzzy results that never mention a favorite', () => {
+  const spec = screenDiscoveryQueries('2026-08-24').find((query) => query.id.startsWith('favorites-'));
+  assert.ok(spec);
+  const rss = `<?xml version="1.0"?><rss><channel>
+    <item>
+      <title>Streaming platforms publish quarterly release calendars</title>
+      <link>https://news.google.com/rss/articles/generic-release</link>
+      <pubDate>Sun, 23 Aug 2026 18:00:00 GMT</pubDate>
+      <source url="https://variety.com/tv/news/">Variety</source>
+      <description>General entertainment news without any title from the requested bundle.</description>
+    </item>
+  </channel></rss>`;
+  assert.deepEqual(parseScreenNewsRss(rss, spec!, Date.parse('2026-08-24T06:00:00Z')), []);
 });
 
 test('profile migration backfills Screen Orbit lane and broad motifs without overriding negatives', () => {
