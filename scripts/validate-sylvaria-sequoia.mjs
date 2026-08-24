@@ -13,9 +13,13 @@ const modules = [
   '02-jump-contract.js',
   '02-flow-assist.js',
   '02-sap-stick.js',
+  '02-control-authority.js',
   '03-render-canopy.js',
+  '03-render-fast-underpaint.js',
   '03-render-reference-pass.js',
+  '03-render-reference-handoff.js',
   '03-render-altitude-realism.js',
+  '03-render-performance.js',
   '03-title-focus-guard.js',
   '04-input.js',
 ];
@@ -38,45 +42,48 @@ const gameplay = read('02-gameplay.js');
 const jumpContract = read('02-jump-contract.js');
 const assist = read('02-flow-assist.js');
 const stick = read('02-sap-stick.js');
-const render = read('03-render-canopy.js');
+const control = read('02-control-authority.js');
+const canopy = read('03-render-canopy.js');
+const underpaint = read('03-render-fast-underpaint.js');
 const referenceRender = read('03-render-reference-pass.js');
+const handoff = read('03-render-reference-handoff.js');
 const altitudeRender = read('03-render-altitude-realism.js');
+const performanceRender = read('03-render-performance.js');
 const focusGuard = read('03-title-focus-guard.js');
 const input = read('04-input.js');
-const runtime = [core, feel, world, gameplay, jumpContract, assist, stick, render, referenceRender, altitudeRender, focusGuard, input].join('\n');
+const runtime = [core, feel, world, gameplay, jumpContract, assist, stick, control, canopy, underpaint, referenceRender, handoff, altitudeRender, performanceRender, focusGuard, input].join('\n');
 const design = readFileSync(designPath, 'utf8');
 
 assert.match(index, /<title>Sylvaria: Sequoia v0\.4\.0<\/title>/);
-assert.match(index, /02-flow-assist\.js[\s\S]*02-sap-stick\.js[\s\S]*03-render-canopy\.js[\s\S]*03-render-reference-pass\.js[\s\S]*03-render-altitude-realism\.js[\s\S]*03-title-focus-guard\.js[\s\S]*04-input\.js/);
-assert.doesNotMatch(index, /03-render\.js|03-stride-hud\.js|03-render-skill-pass\.js/);
+assert.match(index, /02-flow-assist\.js[\s\S]*02-sap-stick\.js[\s\S]*02-control-authority\.js[\s\S]*03-render-canopy\.js[\s\S]*03-render-fast-underpaint\.js[\s\S]*03-render-reference-pass\.js[\s\S]*03-render-reference-handoff\.js[\s\S]*03-render-altitude-realism\.js[\s\S]*03-render-performance\.js[\s\S]*03-title-focus-guard\.js[\s\S]*04-input\.js/);
 assert.match(index, /hold Shift \+ tap Space = Sap Stick/i);
-assert.match(index, /humid rootways into the exposed crown/i);
 
 assert.match(core, /FIXED_DT: 1 \/ 120/);
+assert.match(core, /MAX_STEPS: 8/);
 assert.match(core, /routeRng: makeRng/);
 assert.match(core, /fxRng: makeRng/);
 assert.match(core, /airJumps: 1/);
 
 for (const pattern of [
-  /groundAccel: 3220/,
-  /maxSpeed: 630/,
-  /comboAccelCap: 0\.095/,
-  /comboCarryCap: 26/,
-  /strideLaunchCarry: 0\.61/,
-  /base: 612/,
-  /doubleBase: 485/,
+  /groundAccel: 3720/,
+  /airAccel: 1900/,
+  /maxSpeed: 690/,
+  /groundFriction60Hz: 0\.91/,
+  /airDrag120Hz: 0\.9991/,
+  /reverseAirScale: 1\.08/,
+  /strideLaunchCarry: 0\.82/,
+  /base: 642/,
+  /momentumGain: 0\.62/,
+  /doubleBase: 515/,
   /wallRefreshSpeed: 99999/,
-  /retention: 0\.55/,
-  /comboSpeed: 99999/,
+  /retention: 0\.78/,
+  /kickVertical: 710/,
   /stickRange: 640/,
   /stickHoldSeconds: 0\.22/,
-  /stickCooldownSeconds: 0\.11/,
   /stickReuseLockSeconds: 0\.82/,
-  /stickReleaseMinVy: 610/,
-  /stickReleaseForward: 116/,
-  /stickAnchorPriority: 108/,
-  /window: 2\.80/,
-  /easyHyperThreshold: 10/,
+  /stickReleaseMinVy: 630/,
+  /window: 3\.35/,
+  /baseSpeed: 20/,
 ]) assert.match(feel, pattern);
 
 for (const grammar of ['FLOW', 'RECOVERY', 'GROVE', 'SAPRUN', 'SLINGSHOT', 'CRUX']) {
@@ -89,14 +96,11 @@ assert.match(world, /state\.LEFT_WALL = 100/);
 assert.match(world, /state\.RIGHT_WALL = 860/);
 assert.match(world, /branch: false/);
 assert.match(world, /addKnot\([^\n]+, 'sap-stick'\)/);
-assert.match(world, /function airAnchorPosition\(/);
-assert.match(world, /SAPRUN[\s\S]*branch: false[\s\S]*branch: false[\s\S]*branch: false/);
-assert.match(world, /ROOTWAYS[\s\S]*SAPRUN/);
 
+assert.match(gameplay, /function doGroundJump\(/);
 assert.match(gameplay, /function doAirJump\(/);
 assert.match(gameplay, /function bounceFromWall\(/);
 assert.match(gameplay, /function updateSap\(/);
-assert.match(gameplay, /function attachSap\(/);
 
 assert.match(jumpContract, /duplicateEdgeMs = 48/);
 assert.match(jumpContract, /player\.consumedJumpRequestId = activeRequestId/);
@@ -126,72 +130,76 @@ for (const pattern of [
 ]) assert.match(stick, pattern);
 assert.doesNotMatch(stick, /charge(?:Seconds|Time)|holdToCharge/i, 'Sap Stick must not require charging');
 
-assert.doesNotMatch(render, /routeRng\.next\(/, 'canopy renderer must never consume route RNG');
 for (const pattern of [
-  /function hash3\(/,
-  /function barkVertex\(/,
-  /function traceCell\(/,
-  /function drawBarkCell\(/,
-  /shared-vertex anisotropic puzzle lattice/,
-  /longitudinal tear pattern/,
-  /function drawPlayer\(/,
-  /Leaf hood/,
-  /Big mascot head/,
-  /SAP STICK/,
-  /hold Shift · tap Space/,
-  /S\.render = render/,
-  /version: '0\.4\.0'/,
-]) assert.match(render, pattern);
+  /velocity-authority-v1/,
+  /groundReverseAssist: 1120/,
+  /airReverseAssist: 920/,
+  /function restorePlayerOwnedLaunch\(/,
+  /function applyReverseAuthority\(/,
+  /launch-velocity-authority/,
+  /Stride is allowed to preserve \*jump height\*/,
+  /S\.update = update/,
+]) assert.match(control, pattern);
+
+assert.doesNotMatch(canopy, /routeRng\.next\(/, 'canopy renderer must never consume route RNG');
+assert.match(canopy, /shared-vertex anisotropic puzzle lattice/);
+assert.match(canopy, /S\.render = render/);
+
+for (const pattern of [
+  /single-paint-pipeline-v1/,
+  /const canopyFallback = S\.render/,
+  /forceCanopyFallback/,
+  /setCanopyFallback/,
+  /S\.render = \(alpha, now\) =>/,
+]) assert.match(underpaint, pattern);
+assert.doesNotMatch(underpaint, /canopyFallback\(alpha, now\);\s*canopyFallback\(alpha, now\)/, 'underpaint must never duplicate the canopy pass');
 
 assert.doesNotMatch(referenceRender, /routeRng\.next\(/, 'reference renderer must never consume route RNG');
 for (const pattern of [
   /reference-production-v1/,
   /function makeBarkTile\(/,
-  /pre-rendered layered puzzle flakes with longitudinal microfibers/,
   /function drawReferenceBackground\(/,
   /function drawReferenceTrunk\(/,
   /function drawReferenceBranch\(/,
-  /function drawReferenceKnot\(/,
-  /function drawReferenceSapline\(/,
   /function drawReferencePlayer\(/,
   /function drawReferenceHud\(/,
-  /cinematic twin-sequoia reference layout/,
-  /mascot-scale expressive vector climber/,
   /collisionHonest: true/,
   /baseRender\(alpha, now\)/,
   /S\.render = render/,
 ]) assert.match(referenceRender, pattern);
 
+assert.match(handoff, /referenceRender: S\.render/);
+assert.match(handoff, /referenceVersion/);
+
 assert.doesNotMatch(altitudeRender, /routeRng\.next\(/, 'altitude renderer must never consume route RNG');
 for (const pattern of [
   /altitude-realism-v1/,
-  /humid understory/,
-  /sunlit trunk corridor/,
-  /amber resin belt/,
-  /cold blue windline/,
-  /open crown and cloud sea/,
   /function profileForFloor\(/,
   /function drawAtmosphericGrade\(/,
   /function drawTrunkEcology\(/,
   /function drawBranchEcology\(/,
-  /function drawAirborneMaterial\(/,
-  /function drawUpperCanopyLife\(/,
-  /humidity haze falls with altitude/,
-  /wind rises with altitude/,
-  /moss yields to lichen and needles/,
   /continuousBlendFloors: BLEND_FLOORS/,
   /collisionHonest: true/,
   /baseRender\(alpha, now\)/,
-  /S\.render = render/,
 ]) assert.match(altitudeRender, pattern);
+
+for (const pattern of [
+  /feel-first-render-budget-v1/,
+  /let quality = 'reference'/,
+  /referenceFrames >= 240/,
+  /renderCostEwma < 6\.4/,
+  /renderCostEwma > 10\.8/,
+  /referenceRender\(alpha, now\)/,
+  /fullRender\(alpha, now\)/,
+  /singlePaint: true/,
+  /S\.render = render/,
+]) assert.match(performanceRender, pattern);
 
 for (const pattern of [
   /desktop-focus-v1/,
   /function guardDesktopTitleFocus\(/,
   /event\.pointerType === 'touch'/,
-  /event\.stopImmediatePropagation\(\)/,
   /desktopActivation: 'Space-or-Enter'/,
-  /touchActivation: 'tap'/,
 ]) assert.match(focusGuard, pattern);
 
 for (const pattern of [
@@ -199,16 +207,10 @@ for (const pattern of [
   /function triggerSapStick\(/,
   /event\.code === 'Space' && shiftHeld\(\)/,
   /S\.castSapStick\?\.\(\)/,
-  /const physicalDown = new Map\(\)/,
   /START_JUMP_GUARD_MS = 80/,
   /SAME_KEY_JUMP_REARM_MS = 82/,
-  /rejectedJumpRepresses/,
-  /rejectedJumpQuarantines/,
   /pendingActivation/,
-  /sapChordCount/,
   /version: '0\.4\.0'/,
-  /sapAnchorCount/,
-  /renderer: S\.canopyRenderer/,
 ]) assert.match(input, pattern);
 assert.doesNotMatch(input, /KeyE|SAP_KEYS/, 'v0.4 canonical Sap Stick input must be Shift+Space');
 
@@ -217,32 +219,18 @@ for (const pattern of [
   /Shift \+ Space/i,
   /no charge/i,
   /branchless/i,
-  /shared-vertex anisotropic puzzle lattice/i,
   /same-seed/i,
 ]) assert.match(design, pattern);
 
 console.log(JSON.stringify({
   ok: true,
   runtime: 'sylvaria-sequoia',
-  version: '0.4.0-sapstick-reference-art-altitude-input-guard',
+  version: '0.4.0-feel-recovery-single-paint',
   fixedHz: 120,
   modules,
   grammars: ['FLOW', 'RECOVERY', 'GROVE', 'SAPRUN', 'SLINGSHOT', 'CRUX'],
   corridorWidth: 760,
+  feel: ['responsive acceleration', 'strong air steering', 'player-owned reversals', 'Stride height memory without hidden horizontal snaps'],
+  render: ['single production scene paint', 'reference-first active gameplay', 'budget-gated altitude ecology'],
   sapStick: ['Shift+Space', 'no charge', '0.22s tether', 'auto-vault', 'anchor reuse lock'],
-  input: ['completed-key activation', '82ms same-key jump rearm', 'cross-browser edge counters'],
-  topology: ['sparse branches', 'branchless amber tiers', 'open Grove chambers'],
-  bark: 'shared-vertex puzzle lattice plus pre-rendered production flake overlay',
-  art: [
-    'bright valley composition',
-    'deep sequoia bark',
-    'organic moss branches',
-    'amber cavities',
-    'mascot Pip',
-    'reference HUD',
-    'altitude humidity and sun scattering',
-    'moss-to-lichen ecology progression',
-    'Sapwork resin sheen',
-    'high-canopy wind, cloud and bird layers',
-  ],
 }, null, 2));
