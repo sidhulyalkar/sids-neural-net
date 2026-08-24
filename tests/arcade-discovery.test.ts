@@ -58,7 +58,7 @@ test('Stretchicorn cabinet points at the current v0.21.1 public release', () => 
   assert.match(game.description, /Impossible Encore/);
 });
 
-test('Sylvaria Sequoia is a traversal-first aerial combo cabinet with telemetry', () => {
+test('Sylvaria Sequoia exposes the Icy-flow Stride and aerial combo contract', () => {
   const game = arcadeGames.find((entry) => entry.slug === 'sylvaria-sequoia');
   assert.ok(game);
   assert.equal(game.title, 'Sylvaria: Sequoia');
@@ -67,35 +67,67 @@ test('Sylvaria Sequoia is a traversal-first aerial combo cabinet with telemetry'
   assert.equal(game.launchUrl, '/game-runtimes/sylvaria-sequoia/index.html');
   assert.equal(game.nativeSize?.width, 960);
   assert.equal(game.nativeSize?.height, 640);
-  assert.match(game.description, /Air Kicks/);
-  assert.match(game.description, /Resin Rings/);
+  assert.match(game.description, /Stride/);
+  assert.match(game.description, /2\+ floor clear/);
+  assert.match(game.description, /Air Kick/);
+  assert.match(game.description, /Bark Kick/);
+  assert.match(game.description, /Sap Snap/);
+  assert.match(game.description, /Quick Sling/);
   assert.match(game.description, /SAP SURGE/);
+  assert.match(game.description, /pure 6× Flow/);
   assert.match(game.description, /CROWNVELOCITY/);
-  assert.match(game.description, /route grammars/);
   assert.doesNotMatch(game.description, /enemy|damage|attack/i);
 
   const runtimeRoot = 'public/game-runtimes/sylvaria-sequoia';
-  for (const file of ['index.html', '00-core.js', '01-world.js', '02-gameplay.js', '03-render.js', '04-input.js']) {
+  const runtimeFiles = [
+    'index.html',
+    '00-core.js',
+    '00-feel-tuning.js',
+    '01-world.js',
+    '02-gameplay.js',
+    '02-jump-contract.js',
+    '02-flow-assist.js',
+    '03-render.js',
+    '03-stride-hud.js',
+    '04-input.js',
+  ];
+  for (const file of runtimeFiles) {
     assert.ok(existsSync(join(root, runtimeRoot, file)), `missing Sylvaria Sequoia runtime file: ${file}`);
   }
   assert.ok(existsSync(join(root, 'docs/SYLVARIA_SEQUOIA_V03_AERIAL_COMBO_DESIGN.md')));
   assert.ok(existsSync(join(root, 'scripts/validate-sylvaria-sequoia.mjs')));
+  assert.ok(existsSync(join(root, 'scripts/validate-sylvaria-flow-envelope.mjs')));
   assert.ok(!existsSync(join(root, 'public/game-runtimes/crownrush')));
 
   const core = readRepoFile(`${runtimeRoot}/00-core.js`);
+  const feel = readRepoFile(`${runtimeRoot}/00-feel-tuning.js`);
   const world = readRepoFile(`${runtimeRoot}/01-world.js`);
   const gameplay = readRepoFile(`${runtimeRoot}/02-gameplay.js`);
+  const flowAssist = readRepoFile(`${runtimeRoot}/02-flow-assist.js`);
+  const strideHud = readRepoFile(`${runtimeRoot}/03-stride-hud.js`);
   const render = readRepoFile(`${runtimeRoot}/03-render.js`);
   const input = readRepoFile(`${runtimeRoot}/04-input.js`);
+
   assert.match(core, /FIXED_DT: 1 \/ 120/);
   assert.match(core, /airJumps: 1/);
-  assert.match(core, /sapSurgeThreshold: 5/);
-  assert.match(core, /hyperThreshold: 7/);
-  assert.match(core, /hyperVariety: 3/);
+  assert.match(feel, /maxSpeed: 700/);
+  assert.match(feel, /momentumGain: 0\.65/);
+  assert.match(feel, /strideLaunchCarry: 0\.90/);
+  assert.match(feel, /easyHyperThreshold: 6/);
+  assert.match(feel, /hyperVarietyThreshold: 4/);
+  assert.match(feel, /sapSurgeThreshold: 5/);
+  assert.match(feel, /hyperThreshold: 7/);
+  assert.match(feel, /hyperVariety: 3/);
+
   for (const grammar of ['FLOW', 'CRUX', 'RECOVERY', 'SLINGSHOT']) assert.match(world, new RegExp(`${grammar}:`));
   for (const phase of ['ROOTWAYS', 'REDWOOD RUN', 'SAPWORK', 'HIGH CANOPY', 'CROWNLINE']) assert.match(world, new RegExp(phase));
+  assert.match(world, /floor: 44/);
+  assert.match(world, /floor: 90/);
+  assert.match(world, /floor: 145/);
+  assert.match(world, /floor: 205/);
   assert.match(world, /step\.ring/);
   assert.match(world, /step\.launch/);
+
   assert.match(gameplay, /function doAirJump\(/);
   assert.match(gameplay, /function refreshAirJump\(/);
   assert.match(gameplay, /function addComboLink\(/);
@@ -103,11 +135,28 @@ test('Sylvaria Sequoia is a traversal-first aerial combo cabinet with telemetry'
   assert.match(gameplay, /const surge = player\.combo >= TUNE\.combo\.sapSurgeThreshold/);
   assert.match(gameplay, /function attachSap\(/);
   assert.match(gameplay, /function rescueFromThreat\(/);
+
+  assert.match(flowAssist, /strideMomentum/);
+  assert.match(flowAssist, /stride-launch-carry/);
+  assert.match(flowAssist, /combo-speed-carry/);
+  assert.match(flowAssist, /easyHyperThreshold/);
+  assert.match(flowAssist, /'ICY_FLOW'/);
+  assert.match(flowAssist, /SAP SNAP ↑/);
+  assert.match(flowAssist, /QUICK SLING ↑/);
+  assert.match(flowAssist, /BARK KICK ↑/);
+
+  assert.match(strideHud, /RUSH I/);
+  assert.match(strideHud, /RUSH II/);
+  assert.match(strideHud, /RUSH III/);
+  assert.match(strideHud, /CROWN RUSH/);
+  assert.match(strideHud, /FLOW CARRY/);
+
   assert.match(render, /function drawRing\(/);
   assert.match(render, /function drawLaunchBurl\(/);
   assert.match(input, /window\.SYLVARIA_SEQUOIA_DEBUG/);
   assert.match(input, /version: '0\.3\.0'/);
   assert.match(input, /airJumps: player\.airJumps/);
+  assert.match(input, /flowAssist: S\.flowAssist/);
 });
 
 test('FRONTIER and Game Network coexist in current navigation', () => {
