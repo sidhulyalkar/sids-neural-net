@@ -78,10 +78,12 @@ jobs:
           cat /tmp/sylvaria-sequoia-site.log
           exit 1
 
-      - name: Smoke Sylvaria Sequoia cabinet and runtime
+      - name: Smoke Sylvaria Sequoia cabinet and v0.3 runtime
         run: |
           curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/arcade/sylvaria-sequoia >/dev/null
-          curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/game-runtimes/sylvaria-sequoia/index.html | grep -q 'Sylvaria: Sequoia v0.2.0'
+          curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/game-runtimes/sylvaria-sequoia/index.html | grep -q 'Sylvaria: Sequoia v0.3.0'
+          curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/game-runtimes/sylvaria-sequoia/02-gameplay.js | grep -q 'function doAirJump'
+          curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/game-runtimes/sylvaria-sequoia/04-input.js | grep -q "version: '0.3.0'"
           curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/game-runtimes/sylvaria-sequoia/04-input.js | grep -q 'fixedHz: 120'
 
       - name: Install browser engines
