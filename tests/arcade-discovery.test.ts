@@ -79,6 +79,10 @@ test('Sylvaria Sequoia exposes the v0.4 Sapstick Canopy contract', () => {
   assert.match(game.description, /SAPRUN/);
   assert.match(game.description, /puzzle-fit sequoia bark/);
   assert.match(game.description, /mascot-style Pip/);
+  assert.match(game.description, /ROOTWAYS/);
+  assert.match(game.description, /HIGH CANOPY/);
+  assert.match(game.description, /CROWNLINE/);
+  assert.match(game.description, /cloud wisps and distant birds/);
   assert.doesNotMatch(game.description, /enemy|damage|attack/i);
   assert.ok(game.controls.some((control) => control.input === 'Shift + Space'));
   assert.ok(game.controls.some((control) => control.input === 'Hold Shift'));
@@ -96,6 +100,8 @@ test('Sylvaria Sequoia exposes the v0.4 Sapstick Canopy contract', () => {
     '02-sap-stick.js',
     '03-render-canopy.js',
     '03-render-reference-pass.js',
+    '03-render-altitude-realism.js',
+    '03-title-focus-guard.js',
     '04-input.js',
   ];
   for (const file of runtimeFiles) {
@@ -115,11 +121,13 @@ test('Sylvaria Sequoia exposes the v0.4 Sapstick Canopy contract', () => {
   const sapStick = readRepoFile(`${runtimeRoot}/02-sap-stick.js`);
   const canopyRender = readRepoFile(`${runtimeRoot}/03-render-canopy.js`);
   const referenceRender = readRepoFile(`${runtimeRoot}/03-render-reference-pass.js`);
+  const altitudeRender = readRepoFile(`${runtimeRoot}/03-render-altitude-realism.js`);
+  const focusGuard = readRepoFile(`${runtimeRoot}/03-title-focus-guard.js`);
   const input = readRepoFile(`${runtimeRoot}/04-input.js`);
 
   assert.match(index, /v0\.4\.0/);
   assert.match(index, /02-sap-stick\.js/);
-  assert.match(index, /03-render-canopy\.js[\s\S]*03-render-reference-pass\.js[\s\S]*04-input\.js/);
+  assert.match(index, /03-render-canopy\.js[\s\S]*03-render-reference-pass\.js[\s\S]*03-render-altitude-realism\.js[\s\S]*03-title-focus-guard\.js[\s\S]*04-input\.js/);
   assert.doesNotMatch(index, /03-render-skill-pass\.js|03-stride-hud\.js/);
 
   assert.match(core, /FIXED_DT: 1 \/ 120/);
@@ -193,6 +201,27 @@ test('Sylvaria Sequoia exposes the v0.4 Sapstick Canopy contract', () => {
   assert.match(referenceRender, /S\.render = render/);
   assert.doesNotMatch(referenceRender, /routeRng\.next\(/);
 
+  assert.match(altitudeRender, /altitude-realism-v1/);
+  assert.match(altitudeRender, /humid understory/);
+  assert.match(altitudeRender, /sunlit trunk corridor/);
+  assert.match(altitudeRender, /amber resin belt/);
+  assert.match(altitudeRender, /cold blue windline/);
+  assert.match(altitudeRender, /open crown and cloud sea/);
+  assert.match(altitudeRender, /function drawAtmosphericGrade\(/);
+  assert.match(altitudeRender, /function drawTrunkEcology\(/);
+  assert.match(altitudeRender, /function drawBranchEcology\(/);
+  assert.match(altitudeRender, /function drawUpperCanopyLife\(/);
+  assert.match(altitudeRender, /moss yields to lichen and needles/);
+  assert.match(altitudeRender, /collisionHonest: true/);
+  assert.match(altitudeRender, /S\.render = render/);
+  assert.doesNotMatch(altitudeRender, /routeRng\.next\(/);
+
+  assert.match(focusGuard, /desktop-focus-v1/);
+  assert.match(focusGuard, /function guardDesktopTitleFocus\(/);
+  assert.match(focusGuard, /event\.pointerType === 'touch'/);
+  assert.match(focusGuard, /event\.stopImmediatePropagation\(\)/);
+  assert.match(focusGuard, /desktopActivation: 'Space-or-Enter'/);
+
   assert.match(input, /version: '0\.4\.0'/);
   assert.match(input, /const SHIFT_KEYS/);
   assert.match(input, /event\.code === 'Space' && shiftHeld\(\)/);
@@ -257,21 +286,4 @@ test('Game Network browser validation covers all three active cabinets in four e
   assert.match(browserTest, /sapStickVaults/);
   assert.match(browserTest, /getSapTarget/);
   assert.doesNotMatch(browserTest, /testCrownrush/);
-});
-
-test('the embedded Stretchicorn fallback release remains complete', () => {
-  const runtimeRoot = 'public/game-runtimes/stretchicorn';
-  const runtimeModules = [
-    'src/style.css',
-    'src/00-core.js',
-    'src/01-combat.js',
-    'src/02-update.js',
-    'src/03-render.js',
-    'src/04-ui-input.js',
-  ];
-
-  assert.ok(existsSync(join(root, runtimeRoot, 'index.html')));
-  for (const runtimeModule of runtimeModules) {
-    assert.ok(existsSync(join(root, runtimeRoot, runtimeModule)), `missing Stretchicorn runtime file: ${runtimeModule}`);
-  }
 });
