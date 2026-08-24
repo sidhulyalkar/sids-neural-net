@@ -1,6 +1,6 @@
 'use client';
 
-import { useLayoutEffect, useState } from 'react';
+import { useLayoutEffect } from 'react';
 
 const DESTINATION_IDS = [
   'frontier',
@@ -30,14 +30,6 @@ const RETIRED_FALLBACKS: Record<string, string> = {
   halo: 'apical',
   'pixel-ghost': 'echo-nest',
   echidna: 'fan',
-};
-
-type MaskRect = {
-  id: string;
-  left: number;
-  top: number;
-  width: number;
-  height: number;
 };
 
 type WeightedMorphology = readonly [(typeof ACTIVE_PUBLIC_MORPHOLOGIES)[number], number];
@@ -159,14 +151,12 @@ function rewriteRetiredMorphology(root: HTMLElement, morphology: string) {
 }
 
 export function FractalPublicCurationV14() {
-  const [masks, setMasks] = useState<MaskRect[]>([]);
-
   useLayoutEffect(() => {
     curateLocationBeforeGeneration();
     let frame = 0;
     let redirecting = false;
 
-    const measure = () => {
+    const apply = () => {
       if (redirecting) return;
       const root = document.querySelector<HTMLElement>('[data-fractal-morphology]');
       if (!root) return;
@@ -181,29 +171,16 @@ export function FractalPublicCurationV14() {
 
       root.style.visibility = '';
       root.dataset.publicCuration = 'v14';
-      root.dataset.destinationClearance = 'opaque-edge-mask-v14';
-
-      const next: MaskRect[] = [];
+      root.dataset.destinationClearance = 'opaque-card-v14';
       for (const id of DESTINATION_IDS) {
         const link = document.querySelector<HTMLElement>(`[data-dendrite-destination="${id}"]`);
-        if (!link) continue;
-        link.dataset.destinationEdgeClearance = 'v14';
-        const rect = link.getBoundingClientRect();
-        if (rect.width <= 0 || rect.height <= 0) continue;
-        next.push({
-          id,
-          left: rect.left + 0.75,
-          top: rect.top + 0.75,
-          width: Math.max(0, rect.width - 1.5),
-          height: Math.max(0, rect.height - 1.5),
-        });
+        if (link) link.dataset.destinationEdgeClearance = 'v14';
       }
-      setMasks(next);
     };
 
     const schedule = () => {
       if (frame) cancelAnimationFrame(frame);
-      frame = requestAnimationFrame(measure);
+      frame = requestAnimationFrame(apply);
     };
 
     schedule();
@@ -213,41 +190,27 @@ export function FractalPublicCurationV14() {
       attributes: true,
       attributeFilter: ['data-fractal-morphology', 'data-fractal-seed'],
     });
-    const resizeObserver = new ResizeObserver(schedule);
-    document.querySelectorAll<HTMLElement>('[data-dendrite-destination]').forEach((link) => resizeObserver.observe(link));
     window.addEventListener('resize', schedule);
     window.visualViewport?.addEventListener('resize', schedule);
 
     return () => {
       if (frame) cancelAnimationFrame(frame);
       mutationObserver.disconnect();
-      resizeObserver.disconnect();
       window.removeEventListener('resize', schedule);
       window.visualViewport?.removeEventListener('resize', schedule);
     };
   }, []);
 
   return (
-    <>
-      <style>{`
-        [data-dendrite-destination] {
-          background-color: #010406 !important;
-        }
-        [data-dendrite-destination]:hover,
-        [data-dendrite-destination]:focus-visible {
-          background-color: #02070a !important;
-        }
-      `}</style>
-      <div className="pointer-events-none fixed inset-0 z-[19]" aria-hidden="true" data-destination-clearance-layer="v14">
-        {masks.map((mask) => (
-          <div
-            key={mask.id}
-            data-destination-clearance-mask={mask.id}
-            className="fixed rounded-[2px] bg-[#010406]"
-            style={{ left: mask.left, top: mask.top, width: mask.width, height: mask.height }}
-          />
-        ))}
-      </div>
-    </>
+    <style>{`
+      [data-dendrite-destination] {
+        background-color: #010406 !important;
+        isolation: isolate;
+      }
+      [data-dendrite-destination]:hover,
+      [data-dendrite-destination]:focus-visible {
+        background-color: #02070a !important;
+      }
+    `}</style>
   );
 }
