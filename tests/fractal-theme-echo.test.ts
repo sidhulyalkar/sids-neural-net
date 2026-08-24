@@ -65,7 +65,7 @@ test('Echo Nest theme echoes reuse the Fermat orientation grammar', () => {
   assert.match(echo, /dataset\.fractalThemeLayout = 'fermat-spiral-v1'/);
 });
 
-test('homepage relocates CORE into a quiet pocket and expands Echo Nest', () => {
+test('homepage retains quiet-pocket fallback and expands Echo Nest', () => {
   const stage = readRepoFile('components/neural-atlas-canvas/AdaptiveFractalStage.tsx');
   const experience = readRepoFile('components/neural-atlas-canvas/FractalExperienceV3.tsx');
   assert.match(stage, /FractalExperienceV3/);
@@ -75,6 +75,21 @@ test('homepage relocates CORE into a quiet pocket and expands Echo Nest', () => 
   assert.match(experience, /drawExpandedEchoNest/);
   assert.match(experience, /morphology === 'tectonic'/);
   assert.match(experience, /url\.searchParams\.set\('morph', 'echo-nest'\)/);
+});
+
+test('Echo Nest CORE is re-anchored to the tree nucleus and gains central root trunks', () => {
+  const stage = readRepoFile('components/neural-atlas-canvas/AdaptiveFractalStage.tsx');
+  const nucleus = readRepoFile('components/neural-atlas-canvas/FractalCoreNucleusV10.tsx');
+
+  assert.match(stage, /FractalCoreNucleusV10/);
+  assert.match(nucleus, /nucleusGeometry/);
+  assert.match(nucleus, /PRIMARY_ANGLE_OFFSET/);
+  assert.match(nucleus, /drawAngularTrunk/);
+  assert.match(nucleus, /drawInnerFermatOrbit/);
+  assert.match(nucleus, /data-fractal-core-nucleus="v2"/);
+  assert.match(nucleus, /dataset\.corePlacement = 'central-nucleus-v2'/);
+  assert.match(nucleus, /dataset\.coreRouting = 'central-nucleus-v2'/);
+  assert.match(nucleus, /dataset\.coreAnchor = 'tree-center'/);
 });
 
 test('Echo Nest uses an oriented Fermat spiral instead of random polygon clouds', () => {
