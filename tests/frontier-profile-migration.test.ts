@@ -42,10 +42,10 @@ test('mature profiles keep learned lane affinities while still receiving missing
 });
 
 test('legacy profiles without pair memory receive an empty v4 pair map without losing learned evidence', () => {
-  const legacy = createInitialProfile() as FrontierProfile & { interestPairs?: Record<string, number> };
-  legacy.topicAffinity.nfl = 0.73;
-  delete legacy.interestPairs;
-  const migrated = migrateFrontierProfile(legacy as FrontierProfile);
+  const current = createInitialProfile();
+  current.topicAffinity.nfl = 0.73;
+  const { interestPairs: _v4PairMemory, ...legacyShape } = current;
+  const migrated = migrateFrontierProfile(legacyShape as unknown as FrontierProfile);
   assert.deepEqual(migrated.interestPairs, {});
   assert.equal(migrated.topicAffinity.nfl, 0.73);
 });
