@@ -15,6 +15,9 @@ const DEFAULT_MEDIA_HOSTS = new Set([
   // only from a canonical github.com/owner/repo URL and still subjects it to
   // the same DNS, redirect, MIME, timeout, and payload-size gateway checks.
   'opengraph.githubassets.com',
+  // Official Hugging Face social-thumbnail CDN. Paper URLs are derived only
+  // from canonical huggingface.co/papers/<arxiv-id> identities.
+  'cdn-thumbnails.huggingface.co',
   // First-party curated/scientific visual sources used by optional public
   // discovery adapters. The gateway still validates protocol, DNS, redirects,
   // content type, timeout, and payload size before returning any bytes.
