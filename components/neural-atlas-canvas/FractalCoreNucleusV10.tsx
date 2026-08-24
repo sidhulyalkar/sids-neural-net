@@ -201,6 +201,17 @@ function drawNucleusOverlay(
     const endpoint = ellipsePoint(geometry.center, angle, geometry.radiusX, geometry.radiusY, innerScale);
     drawAngularTrunk(ctx, geometry.center, endpoint, rng, index);
   }
+
+  // The nucleus overlay sits above the homepage stacking context. Cut a transparent window
+  // after all orbit/trunk painting so the actual interactive CORE card remains crisp and readable.
+  const cutoutWidth = geometry.compact ? 94 : 126;
+  const cutoutHeight = geometry.compact ? 54 : 72;
+  ctx.clearRect(
+    geometry.center.x - cutoutWidth * 0.5,
+    geometry.center.y - cutoutHeight * 0.5,
+    cutoutWidth,
+    cutoutHeight
+  );
 }
 
 function enforceCoreNucleus(root: HTMLElement, geometry: NucleusGeometry) {
@@ -225,6 +236,7 @@ function enforceCoreNucleus(root: HTMLElement, geometry: NucleusGeometry) {
   core.setAttribute('aria-label', 'Open core / about');
 
   root.dataset.coreRouting = 'central-nucleus-v2';
+  root.dataset.coreVisibility = 'nucleus-cutout-v1';
   root.dataset.coreAnchorX = geometry.center.x.toFixed(2);
   root.dataset.coreAnchorY = geometry.center.y.toFixed(2);
 }
