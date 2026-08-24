@@ -10,7 +10,7 @@ import styles from './frontier-media.module.css';
 type Props = {
   id: string;
   src: string;
-  /** Native safety-net source. Prefer the original upstream URL when `src` is a local proxy. */
+  /** Native safety-net source used only if the optimized `src` itself fails. */
   fallbackSrc?: string;
   alt: string;
   className?: string;
@@ -39,12 +39,12 @@ export function GpuImageSurface({
   const [state, setState] = useState<'loading' | 'ready' | 'fallback'>('loading');
   const [fallbackFailed, setFallbackFailed] = useState(false);
   const [nativeReady, setNativeReady] = useState(false);
+  const [nativeSrc, setNativeSrc] = useState(src);
   const surfaceStyle = {
     ...(placeholderColor ? { '--frontier-media-placeholder': placeholderColor } : {}),
     ...(aspectRatio ? { aspectRatio } : {}),
   } as CSSProperties;
   const gpuId = `${id}:${reactId}`;
-  const nativeSrc = fallbackSrc || src;
 
   useEffect(() => {
     const frame = frameRef.current;
@@ -86,6 +86,7 @@ export function GpuImageSurface({
     setState('loading');
     setFallbackFailed(false);
     setNativeReady(false);
+    setNativeSrc(src);
     const unregisterGpu = registerFrontierGpuImage({
       id: gpuId,
       node: slot,
@@ -123,6 +124,15 @@ export function GpuImageSurface({
     if (fallbackFailed) onUnavailable?.();
   }, [fallbackFailed, onUnavailable]);
 
+  const handleNativeError = () => {
+    if (fallbackSrc && fallbackSrc !== nativeSrc) {
+      setNativeReady(false);
+      setNativeSrc(fallbackSrc);
+      return;
+    }
+    setFallbackFailed(true);
+  };
+
   return (
     <div
       ref={frameRef}
@@ -135,9 +145,9 @@ export function GpuImageSurface({
       style={surfaceStyle}
     >
       {/* Keep the browser-native image mounted beneath the fixed WebGL plane.
-          `loading=lazy` prevents a long document from eagerly decoding every
-          asset, while visible/re-entering cards always retain a durable pixel
-          source if the worker, proxy, context, or texture cache is unavailable. */}
+          It starts on the same optimized URL as the GPU fetch, so both paths
+          share HTTP cache bytes. Only an actual optimized-source error switches
+          the browser layer to the independent upstream fallback. */}
       {!fallbackFailed ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img
@@ -150,7 +160,7 @@ export function GpuImageSurface({
           fetchPriority="auto"
           referrerPolicy="no-referrer"
           onLoad={() => setNativeReady(true)}
-          onError={() => setFallbackFailed(true)}
+          onError={handleNativeError}
         />
       ) : null}
       <div ref={slotRef} className={styles.gpuRegistrationSlot} aria-hidden="true" />
