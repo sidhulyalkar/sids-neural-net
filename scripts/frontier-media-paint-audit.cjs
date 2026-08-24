@@ -9,9 +9,15 @@ const EXPECTED_CARDS = 12;
 const EXPECTED_MEDIA = 8;
 const ARTIFACT_DIR = path.resolve('artifacts/browser-smoke');
 const RESULT_PATH = path.join(ARTIFACT_DIR, 'frontier-media-paint-audit.json');
+let auditProgress = { passed: false, auditUrl: AUDIT_URL };
 
 function rounded(value) {
   return Number(value.toFixed(3));
+}
+
+function writeResult(result) {
+  fs.mkdirSync(ARTIFACT_DIR, { recursive: true });
+  fs.writeFileSync(RESULT_PATH, `${JSON.stringify(result, null, 2)}\n`);
 }
 
 async function waitForStableGeometry(page) {
@@ -173,19 +179,56 @@ async function normalPaintProof(browser) {
 
 async function failureStabilityProof(browser) {
   const context = await browser.newContext({ viewport: { width: 1440, height: 1100 }, colorScheme: 'dark' });
+  const targetId = 'mosaic-outdoors';
+  const targetMediaPattern = '**/visual-archive/thumbs/photo-004-thumb.webp';
+  let releaseFailures;
+  let signalFirstBlockedRequest;
+  let failuresReleased = false;
+  let blockedRequests = 0;
+  const blockedRequestKinds = [];
+  const failureBarrier = new Promise((resolve) => {
+    releaseFailures = resolve;
+  });
+  const firstBlockedRequest = new Promise((resolve) => {
+    signalFirstBlockedRequest = resolve;
+  });
+
+  // Route at browser-context scope so worker fetches and the native <img>
+  // safety layer share the same fault boundary. Hold every matching request
+  // until after masonry has settled and the baseline geometry is recorded;
+  // then fail all paths together. A fixed delay here is racy because the GPU
+  // worker can otherwise populate HTTP cache before the native image fails.
+  await context.route(targetMediaPattern, async (route) => {
+    blockedRequests += 1;
+    blockedRequestKinds.push({
+      resourceType: route.request().resourceType(),
+      url: route.request().url(),
+    });
+    signalFirstBlockedRequest();
+    await failureBarrier;
+    await route.abort('failed').catch(() => undefined);
+  });
+
   const page = await context.newPage();
   page.setDefaultTimeout(7_000);
-  const targetId = 'mosaic-outdoors';
-
-  await page.route('**/visual-archive/thumbs/photo-004-thumb.webp', async (route) => {
-    await new Promise((resolve) => setTimeout(resolve, 900));
-    await route.abort('failed');
-  });
 
   try {
     const settledAfterFrames = await waitForFixture(page);
     const before = await cardRect(page, targetId);
     assert.equal(before.mediaDeclared, true, 'Failure fixture did not start as a structural media card');
+
+    // Bring the target into the active media window only after capturing its
+    // document-space geometry. The route barrier prevents either decoder path
+    // from winning the race and warming the cache before failure is released.
+    await page.locator(`${CARD}[data-frontier-fluid-card="${targetId}"]`).scrollIntoViewIfNeeded();
+    await Promise.race([
+      firstBlockedRequest,
+      new Promise((_, reject) => setTimeout(() => reject(new Error('Forced-failure route never intercepted target media')), 4_000)),
+    ]);
+    assert(blockedRequests >= 1, 'Forced-failure route did not observe the target media request');
+
+    failuresReleased = true;
+    releaseFailures();
 
     await page.waitForFunction((id) => {
       const card = document.querySelector(`[data-frontier-fluid-card="${CSS.escape(id)}"]`);
@@ -201,8 +244,17 @@ async function failureStabilityProof(browser) {
     assert(Math.abs(after.top - before.top) <= 1.25, `Failed media changed card position by ${Math.abs(after.top - before.top)}px`);
 
     await page.screenshot({ path: path.join(ARTIFACT_DIR, 'frontier-media-paint-failure-stable.png'), fullPage: true });
-    return { passed: true, settledAfterFrames, targetId, before, after };
+    return {
+      passed: true,
+      settledAfterFrames,
+      targetId,
+      blockedRequests,
+      blockedRequestKinds,
+      before,
+      after,
+    };
   } finally {
+    if (!failuresReleased) releaseFailures();
     await context.close();
   }
 }
@@ -212,19 +264,24 @@ async function failureStabilityProof(browser) {
   const browser = await chromium.launch({ headless: true });
   try {
     const normal = await normalPaintProof(browser);
+    auditProgress = { ...auditProgress, normal };
+    writeResult(auditProgress);
+
     const failure = await failureStabilityProof(browser);
     const result = { passed: normal.passed && failure.passed, auditUrl: AUDIT_URL, normal, failure };
-    fs.writeFileSync(RESULT_PATH, `${JSON.stringify(result, null, 2)}\n`);
+    auditProgress = result;
+    writeResult(result);
     console.log('FRONTIER actual media paint PASS');
     console.log(JSON.stringify(result, null, 2));
   } finally {
     await browser.close();
   }
 })().catch((error) => {
-  fs.mkdirSync(ARTIFACT_DIR, { recursive: true });
-  if (!fs.existsSync(RESULT_PATH)) {
-    fs.writeFileSync(RESULT_PATH, `${JSON.stringify({ passed: false, error: error instanceof Error ? error.stack : String(error) }, null, 2)}\n`);
-  }
+  writeResult({
+    ...auditProgress,
+    passed: false,
+    error: error instanceof Error ? error.stack : String(error),
+  });
   console.error(error);
   process.exitCode = 1;
 });
