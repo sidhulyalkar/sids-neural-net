@@ -7,16 +7,25 @@
     return H - (worldY - state.cameraBottom);
   }
 
-  function drawBackground() {
-    const heightFactor = clamp(player.highestFloor / 180, 0, 1);
+  function phasePalette() {
+    const phase = S.phaseForFloor(player.highestFloor).name;
+    if (phase === 'ROOTWAYS') return ['#07140d', '#020705', '#4f815b'];
+    if (phase === 'REDWOOD RUN') return ['#071714', '#030806', '#4c8b72'];
+    if (phase === 'SAPWORK') return ['#081625', '#030710', '#5b80a7'];
+    if (phase === 'HIGH CANOPY') return ['#10162c', '#050713', '#7c7ab6'];
+    return ['#15132b', '#060711', '#a16d9e'];
+  }
+
+  function drawBackground(now) {
+    const [top, bottom, glowColor] = phasePalette();
+    const heightFactor = clamp(player.highestFloor / 175, 0, 1);
     const gradient = ctx.createLinearGradient(0, 0, 0, H);
-    gradient.addColorStop(0, `rgb(${Math.round(5 + heightFactor * 7)},${Math.round(17 + heightFactor * 8)},${Math.round(18 + heightFactor * 20)})`);
-    gradient.addColorStop(0.56, '#08150f');
-    gradient.addColorStop(1, '#030806');
+    gradient.addColorStop(0, top);
+    gradient.addColorStop(1, bottom);
     ctx.fillStyle = gradient;
     ctx.fillRect(0, 0, W, H);
 
-    const starAlpha = clamp((player.highestFloor - 28) / 110, 0.02, 0.88);
+    const starAlpha = clamp((player.highestFloor - 18) / 115, 0.02, 0.90);
     for (const star of state.stars) {
       const y = (star.y + state.cameraBottom * star.parallax * 0.08) % H;
       ctx.globalAlpha = star.alpha * starAlpha;
@@ -27,18 +36,34 @@
     }
     ctx.globalAlpha = 1;
 
-    const fog = ctx.createRadialGradient(W / 2, H * 0.78, 40, W / 2, H * 0.78, 430);
-    fog.addColorStop(0, `rgba(63,116,78,${0.10 * (1 - heightFactor)})`);
+    const fog = ctx.createRadialGradient(W / 2, H * 0.72, 30, W / 2, H * 0.72, 440);
+    fog.addColorStop(0, `${glowColor}${Math.round((0.10 + heightFactor * 0.04) * 255).toString(16).padStart(2, '0')}`);
     fog.addColorStop(1, 'rgba(0,0,0,0)');
     ctx.fillStyle = fog;
     ctx.fillRect(0, 0, W, H);
+
+    if (heightFactor > 0.25) {
+      ctx.save();
+      ctx.globalAlpha = 0.08 + heightFactor * 0.07;
+      ctx.strokeStyle = '#c5ffe1';
+      ctx.lineWidth = 1;
+      for (let i = 0; i < 12; i += 1) {
+        const x = (i * 83 + now * (5 + i % 3) + state.cameraBottom * 0.06) % (W + 100) - 50;
+        const y = (i * 57 + state.cameraBottom * 0.12) % (H + 80) - 40;
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        ctx.lineTo(x + 18, y + 30);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
   }
 
   function drawTrunk(x, width, flip = 1) {
     const gradient = ctx.createLinearGradient(x, 0, x + width * flip, 0);
     gradient.addColorStop(0, '#150c08');
     gradient.addColorStop(0.22, '#4a2415');
-    gradient.addColorStop(0.5, '#6f351d');
+    gradient.addColorStop(0.5, '#71371e');
     gradient.addColorStop(0.78, '#32170f');
     gradient.addColorStop(1, '#110a07');
     ctx.fillStyle = gradient;
@@ -59,26 +84,35 @@
       }
       ctx.stroke();
     }
-
-    ctx.globalAlpha = 0.20;
-    ctx.fillStyle = '#f0a957';
-    for (let y = -60; y < H + 80; y += 96) {
-      const worldY = state.cameraBottom + H - y;
-      const side = flip > 0 ? 'left' : 'right';
-      if (S.barkSweetness(worldY, side) < 1.045) continue;
-      const px = flip > 0 ? width - 12 : W - width + 12;
-      ctx.beginPath();
-      ctx.ellipse(px, y, 6, 15, 0, 0, Math.PI * 2);
-      ctx.fill();
-    }
     ctx.restore();
   }
 
   function routeColor(type) {
-    if (type === 'CRUX') return '#ba6d34';
-    if (type === 'RECOVERY') return '#8a5a31';
-    if (type === 'SLINGSHOT') return '#a05d2f';
-    return '#96502a';
+    if (type === 'CRUX') return '#c16d35';
+    if (type === 'RECOVERY') return '#845936';
+    if (type === 'SLINGSHOT') return '#ad6230';
+    return '#98512a';
+  }
+
+  function drawLaunchBurl(branch, y) {
+    if (!branch.launch) return;
+    const x = branch.launchX;
+    const pulse = 0.92 + Math.sin(state.elapsed * 4 + branch.floor) * 0.08;
+    ctx.save();
+    ctx.shadowColor = '#ffc56e';
+    ctx.shadowBlur = 14;
+    ctx.fillStyle = 'rgba(255,190,90,.18)';
+    ctx.beginPath();
+    ctx.arc(x, y, 15 * pulse, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#d68a42';
+    ctx.beginPath();
+    ctx.ellipse(x, y - 1, 8 * pulse, 5 * pulse, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255,236,173,.72)';
+    ctx.lineWidth = 1.3;
+    ctx.stroke();
+    ctx.restore();
   }
 
   function drawBranch(branch) {
@@ -109,6 +143,8 @@
     ctx.moveTo(branch.x1 + 4, y1 - 2);
     ctx.lineTo(branch.x2 - 4, y2 - 2);
     ctx.stroke();
+    const launchY = worldToScreenY(S.branchYAt(branch, branch.launchX));
+    drawLaunchBurl(branch, launchY);
     if (branch.floor > 0 && branch.floor % 10 === 0) {
       ctx.fillStyle = 'rgba(205,255,210,.28)';
       ctx.font = '9px ui-monospace,monospace';
@@ -139,6 +175,40 @@
     ctx.stroke();
   }
 
+  function drawRing(ring, time) {
+    if (ring.hit) return;
+    const y = worldToScreenY(ring.y);
+    if (y < -55 || y > H + 55) return;
+    const pulse = 1 + Math.sin(time * 4.1 + ring.pulse) * 0.075;
+    const r = ring.radius * pulse;
+    ctx.save();
+    ctx.translate(ring.x, y);
+    ctx.rotate(time * 0.34 + ring.pulse);
+    ctx.shadowColor = '#9effbe';
+    ctx.shadowBlur = 14;
+    ctx.strokeStyle = 'rgba(156,255,190,.78)';
+    ctx.lineWidth = 3.2;
+    ctx.beginPath();
+    ctx.arc(0, 0, r, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+    ctx.strokeStyle = 'rgba(255,220,129,.58)';
+    ctx.lineWidth = 1.2;
+    ctx.setLineDash([5, 7]);
+    ctx.beginPath();
+    ctx.arc(0, 0, r - 5, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = 'rgba(214,255,224,.55)';
+    for (let i = 0; i < 4; i += 1) {
+      const a = i * Math.PI * 0.5;
+      ctx.beginPath();
+      ctx.arc(Math.cos(a) * r, Math.sin(a) * r, 2.2, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
   function drawSapline(alpha) {
     if (!player.sap) return;
     const sx = lerp(player.px, player.x, alpha);
@@ -150,10 +220,10 @@
     const midY = sy + dy * 0.5 + dx * 0.04;
     ctx.save();
     ctx.lineCap = 'round';
-    ctx.shadowColor = '#ffbd55';
-    ctx.shadowBlur = 12;
-    ctx.strokeStyle = 'rgba(255,201,99,.88)';
-    ctx.lineWidth = 3;
+    ctx.shadowColor = player.combo >= TUNE.combo.sapSurgeThreshold ? '#a0ffbe' : '#ffbd55';
+    ctx.shadowBlur = player.combo >= TUNE.combo.sapSurgeThreshold ? 18 : 12;
+    ctx.strokeStyle = player.combo >= TUNE.combo.sapSurgeThreshold ? 'rgba(159,255,189,.92)' : 'rgba(255,201,99,.88)';
+    ctx.lineWidth = player.hyper ? 4.2 : 3;
     ctx.beginPath();
     ctx.moveTo(sx, sy);
     ctx.quadraticCurveTo(midX, midY, player.sap.knot.x, ky);
@@ -176,6 +246,17 @@
     const sx = 1 + squash - stretch * 0.4;
     const sy = 1 - squash + stretch;
 
+    if (airborne && player.airJumps > 0) {
+      ctx.save();
+      ctx.globalAlpha = 0.18 + Math.sin(time * 7) * 0.03;
+      ctx.strokeStyle = '#b1ffd0';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(x, y, 24, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+    }
+
     ctx.save();
     ctx.translate(x, y);
     ctx.rotate(tilt);
@@ -183,7 +264,7 @@
 
     if (player.hyper && !state.reducedMotion) {
       ctx.globalAlpha = 0.15;
-      for (let i = 1; i <= 4; i += 1) {
+      for (let i = 1; i <= 5; i += 1) {
         ctx.fillStyle = '#93ffbe';
         ctx.beginPath();
         ctx.ellipse(-player.facing * i * 11, i * 3, 14, 19, 0, 0, Math.PI * 2);
@@ -287,16 +368,17 @@
   function drawSpeedLines() {
     if (state.reducedMotion) return;
     const speed = Math.hypot(player.vx, player.vy);
-    const intensity = clamp((speed - 610) / 520 + (player.hyper ? 0.46 : 0), 0, 1);
+    const intensity = clamp((speed - 560) / 520 + (player.hyper ? 0.52 : 0), 0, 1);
     if (intensity <= 0) return;
     ctx.save();
-    ctx.globalAlpha = intensity * 0.22;
+    ctx.globalAlpha = intensity * 0.24;
     ctx.strokeStyle = '#c8ffe0';
-    ctx.lineWidth = 1;
-    for (let i = 0; i < 22; i += 1) {
-      const x = (i * 73 + state.cameraBottom * 0.17) % W;
-      const y = (i * 41 + state.elapsed * 440) % H;
-      const length = 20 + intensity * 72;
+    ctx.lineWidth = 1.2;
+    for (let i = 0; i < 24; i += 1) {
+      const seed = state.stars[i];
+      const x = seed.x;
+      const y = (seed.y + state.elapsed * 190 * seed.parallax) % H;
+      const length = 18 + intensity * 58;
       ctx.beginPath();
       ctx.moveTo(x, y);
       ctx.lineTo(x - player.vx * 0.025, y + Math.sign(player.vy || 1) * length);
@@ -309,28 +391,42 @@
     ctx.save();
     ctx.textBaseline = 'top';
     ctx.font = '10px ui-monospace,SFMono-Regular,Menlo,monospace';
-    ctx.fillStyle = 'rgba(235,255,239,.48)';
+    ctx.fillStyle = 'rgba(235,255,239,.52)';
     ctx.fillText(`FLOOR ${player.highestFloor}`, 22, 18);
     ctx.fillText(`SCORE ${Math.floor(player.score).toString().padStart(6, '0')}`, 22, 35);
     ctx.fillText(`BEST ${Math.floor(state.highScore).toString().padStart(6, '0')}`, 22, 52);
     const route = S.activeRouteChunk();
-    if (route) {
-      ctx.fillStyle = 'rgba(235,255,239,.25)';
-      ctx.font = '8px ui-monospace,monospace';
-      ctx.fillText(route.type, 22, 70);
-    }
+    const phase = S.phaseForFloor(player.highestFloor);
+    ctx.fillStyle = 'rgba(235,255,239,.28)';
+    ctx.font = '8px ui-monospace,monospace';
+    ctx.fillText(`${phase.name}${route ? ` · ${route.type}` : ''}`, 22, 70);
+
+    ctx.fillStyle = player.airJumps > 0 ? '#b8ffd1' : 'rgba(235,255,239,.25)';
+    ctx.font = '9px ui-monospace,monospace';
+    ctx.fillText(`AIR KICK ${player.airJumps > 0 ? 'READY' : 'SPENT'}`, 22, 84);
 
     if (player.combo > 0) {
       ctx.textAlign = 'right';
-      ctx.fillStyle = player.hyper ? '#a8ffc9' : 'rgba(255,232,164,.88)';
-      ctx.font = `${player.hyper ? 22 : 17}px ui-monospace,monospace`;
-      ctx.fillText(`${player.combo}× COMBO`, W - 22, 18);
-      const width = 122;
-      const normalized = clamp(player.comboTimer / (TUNE.combo.window + 0.38), 0, 1);
+      ctx.fillStyle = player.hyper ? '#a8ffc9' : 'rgba(255,232,164,.92)';
+      ctx.font = `${player.hyper ? 24 : 18}px ui-monospace,monospace`;
+      ctx.fillText(`${player.combo}× FLOW`, W - 22, 18);
+      const width = 146;
+      const normalized = clamp(player.comboTimer / (TUNE.combo.window + 0.34), 0, 1);
       ctx.fillStyle = 'rgba(255,255,255,.12)';
-      ctx.fillRect(W - 22 - width, 47, width, 3);
+      ctx.fillRect(W - 22 - width, 49, width, 3);
       ctx.fillStyle = player.hyper ? '#8dffb8' : '#f1c66a';
-      ctx.fillRect(W - 22 - width, 47, width * normalized, 3);
+      ctx.fillRect(W - 22 - width, 49, width * normalized, 3);
+      ctx.font = '8px ui-monospace,monospace';
+      if (!player.hyper && player.combo >= TUNE.combo.sapSurgeThreshold) {
+        ctx.fillStyle = '#a8ffc9';
+        ctx.fillText('SAP SURGE ARMED', W - 22, 58);
+      } else if (!player.hyper) {
+        ctx.fillStyle = 'rgba(235,255,239,.34)';
+        ctx.fillText(`${Math.max(0, TUNE.combo.sapSurgeThreshold - player.combo)} TO SAP SURGE`, W - 22, 58);
+      } else {
+        ctx.fillStyle = '#b8ffd1';
+        ctx.fillText('CROWNVELOCITY · RELEASE HOT', W - 22, 58);
+      }
     }
 
     ctx.textAlign = 'left';
@@ -360,31 +456,31 @@
     const summary = S.summarizeTelemetry();
     const route = S.activeRouteChunk();
     const lines = [
-      `seed ${summary.seed} · ${S.round(summary.runSeconds, 1)}s · route ${route?.type || '-'}`,
+      `seed ${summary.seed} · ${S.round(summary.runSeconds, 1)}s · ${S.phaseForFloor(player.highestFloor).name} / ${route?.type || '-'}`,
       `air ${Math.round(summary.movement.airborneRatio * 100)}% · ground ${Math.round(summary.movement.groundedRatio * 100)}% · low-vx ${Math.round(summary.movement.lowMomentumRatio * 100)}%`,
       `speed avg ${summary.movement.avgSpeed} · peak ${summary.movement.peakSpeed} · vx peak ${summary.movement.peakAbsVx}`,
-      `airtime ${summary.movement.avgAirtimeSeconds}s · threat min ${summary.movement.minThreatGap} · near ${Math.round(summary.movement.nearThreatRatio * 100)}%`,
-      `bounce n${summary.counters.wallBounces} · keep ${summary.rebound.avgRetention} · lift ${summary.rebound.avgVerticalLift}`,
-      `sap ${summary.counters.sapAttaches}/${summary.counters.sapAttempts} · gain ${summary.sapline.avgReleaseSpeedGain} · stretch ${summary.sapline.avgMaxStretch}`,
-      `skips ${summary.counters.multiFloorSkips} · avg +${summary.combo.avgSkipFloors} · combo max ${summary.combo.maxCombo}`,
+      `airtime ${summary.movement.avgAirtimeSeconds}s · kick ${summary.counters.doubleJumps} · refresh ${summary.counters.airJumpRefreshes}`,
+      `bark ${summary.counters.wallBounces} · burls ${summary.counters.launchBurls} · rings ${summary.counters.ringsThreaded}`,
+      `sap ${summary.counters.sapAttaches}/${summary.counters.sapAttempts} · surge ${summary.counters.sapSurges} · gain ${summary.sapline.avgReleaseSpeedGain}`,
+      `combo links ${summary.counters.comboLinks} · max ${summary.combo.maxCombo} · link Δ ${summary.combo.avgLinkInterval}s`,
       `crown ${summary.counters.crownvelocityEntries} · burns ${summary.counters.momentumBurns} · catches ${summary.counters.sapCatches}`,
     ];
     ctx.save();
-    ctx.fillStyle = 'rgba(2,8,5,.78)';
-    ctx.fillRect(14, 92, 360, 146);
+    ctx.fillStyle = 'rgba(2,8,5,.80)';
+    ctx.fillRect(14, 104, 390, 146);
     ctx.strokeStyle = 'rgba(159,255,187,.18)';
-    ctx.strokeRect(14.5, 92.5, 359, 145);
+    ctx.strokeRect(14.5, 104.5, 389, 145);
     ctx.font = '9px ui-monospace,monospace';
     ctx.textBaseline = 'top';
     lines.forEach((line, index) => {
-      ctx.fillStyle = index === 0 ? 'rgba(188,255,205,.75)' : 'rgba(230,255,237,.48)';
-      ctx.fillText(line, 25, 103 + index * 15);
+      ctx.fillStyle = index === 0 ? 'rgba(188,255,205,.78)' : 'rgba(230,255,237,.50)';
+      ctx.fillText(line, 25, 115 + index * 15);
     });
     ctx.restore();
   }
 
   function drawMessages() {
-    let y = H * 0.25;
+    let y = H * 0.23;
     for (const message of state.messages.slice(-3)) {
       const t = message.life / message.maxLife;
       ctx.save();
@@ -426,7 +522,7 @@
 
   function drawOverlay() {
     if (state.mode === 'playing') return;
-    ctx.fillStyle = 'rgba(2,7,5,.60)';
+    ctx.fillStyle = 'rgba(2,7,5,.62)';
     ctx.fillRect(0, 0, W, H);
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
@@ -438,14 +534,15 @@
       gradient.addColorStop(1, '#ffbc62');
       ctx.fillStyle = gradient;
       ctx.font = '700 50px ui-monospace,monospace';
-      ctx.fillText('SYLVARIA: SEQUOIA', W / 2, H * 0.33);
+      ctx.fillText('SYLVARIA: SEQUOIA', W / 2, H * 0.29);
       ctx.fillStyle = 'rgba(232,255,239,.62)';
       ctx.font = '12px ui-monospace,monospace';
-      ctx.fillText('TWIN SEQUOIA KINETIC CLIMBER', W / 2, H * 0.41);
-      ctx.fillStyle = 'rgba(232,255,239,.43)';
-      ctx.font = '11px ui-monospace,monospace';
-      ctx.fillText('run · rebound · skip · pump the Sapline · keep the rhythm alive', W / 2, H * 0.51);
-      ctx.fillText('4 consecutive multi-floor skips ignite CROWNVELOCITY', W / 2, H * 0.555);
+      ctx.fillText('AERIAL FLOW CLIMBER · v0.3', W / 2, H * 0.37);
+      ctx.fillStyle = 'rgba(232,255,239,.48)';
+      ctx.font = '10px ui-monospace,monospace';
+      ctx.fillText('jump again in air for AIR KICK · rings + strong bark + Sap releases refresh it', W / 2, H * 0.47);
+      ctx.fillText('5× flow arms SAP SURGE · 7× with 3 move types ignites CROWNVELOCITY', W / 2, H * 0.515);
+      ctx.fillText('glowing branch burls are launch pads · recovery shelves bank long chains', W / 2, H * 0.56);
       ctx.fillStyle = '#dfffe7';
       ctx.font = '700 13px ui-monospace,monospace';
       ctx.fillText(state.touchMode ? 'TAP TO CLIMB' : 'SPACE TO CLIMB', W / 2, H * 0.67);
@@ -466,10 +563,10 @@
       ctx.fillText('FALL ENDS. RHYTHM DOESN’T.', W / 2, H * 0.35);
       ctx.fillStyle = 'rgba(232,255,239,.72)';
       ctx.font = '14px ui-monospace,monospace';
-      ctx.fillText(`floor ${player.highestFloor} · score ${Math.floor(player.score)} · best combo ${player.bestCombo}×`, W / 2, H * 0.45);
+      ctx.fillText(`floor ${player.highestFloor} · score ${Math.floor(player.score)} · best flow ${player.bestCombo}×`, W / 2, H * 0.45);
       ctx.fillStyle = 'rgba(232,255,239,.45)';
       ctx.font = '10px ui-monospace,monospace';
-      ctx.fillText(`air ${Math.round(summary.movement.airborneRatio * 100)}% · peak ${summary.movement.peakSpeed} · burns ${summary.counters.momentumBurns} · catches ${summary.counters.sapCatches}`, W / 2, H * 0.51);
+      ctx.fillText(`air ${Math.round(summary.movement.airborneRatio * 100)}% · kicks ${summary.counters.doubleJumps} · rings ${summary.counters.ringsThreaded} · surges ${summary.counters.sapSurges}`, W / 2, H * 0.51);
       ctx.fillStyle = '#dfffe7';
       ctx.font = '700 13px ui-monospace,monospace';
       ctx.fillText(state.touchMode ? 'TAP TO RUN AGAIN' : 'SPACE TO RUN AGAIN', W / 2, H * 0.62);
@@ -479,7 +576,7 @@
   function render(alpha, now) {
     ctx.save();
     const speed = Math.hypot(player.vx, player.vy);
-    const speedWide = clamp((speed - 690) / 1150, 0, 1) * TUNE.camera.speedWideView;
+    const speedWide = clamp((speed - 640) / 1120, 0, 1) * TUNE.camera.speedWideView;
     const hyperWide = player.hyper ? TUNE.camera.hyperWideView : 0;
     const sceneScale = state.reducedMotion ? 1 : 1 - speedWide - hyperWide;
     const shakePhase = now * 0.021 + state.elapsed * 7.3;
@@ -488,11 +585,12 @@
     ctx.translate(W / 2 + sx, H / 2 + sy);
     ctx.scale(sceneScale, sceneScale);
     ctx.translate(-W / 2, -H / 2);
-    drawBackground();
+    drawBackground(now * 0.001);
     drawSpeedLines();
     drawTrunk(0, state.LEFT_WALL, 1);
     drawTrunk(W, W - state.RIGHT_WALL, -1);
     for (const branch of state.branches) drawBranch(branch);
+    for (const ring of state.rings) drawRing(ring, now * 0.001);
     for (const knot of state.knots) drawKnot(knot, now * 0.001);
     drawThreat(now * 0.001);
     drawSapline(alpha);
