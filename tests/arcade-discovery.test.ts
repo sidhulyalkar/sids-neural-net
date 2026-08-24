@@ -58,7 +58,7 @@ test('Stretchicorn cabinet points at the current v0.21.1 public release', () => 
   assert.match(game.description, /Impossible Encore/);
 });
 
-test('Sylvaria Sequoia exposes the v0.4 Sapstick Canopy contract', () => {
+test('Sylvaria Sequoia exposes the v0.4 one-button Sap Stick feel contract', () => {
   const game = arcadeGames.find((entry) => entry.slug === 'sylvaria-sequoia');
   assert.ok(game);
   assert.equal(game.title, 'Sylvaria: Sequoia');
@@ -72,9 +72,11 @@ test('Sylvaria Sequoia exposes the v0.4 Sapstick Canopy contract', () => {
   assert.match(game.description, /branchless amber-anchor/);
   assert.match(game.description, /Bark Cling/);
   assert.match(game.description, /Bark Kick/);
-  assert.match(game.description, /no-charge Sap Stick/);
-  assert.match(game.description, /Shift/);
-  assert.match(game.description, /0\.22-second/);
+  assert.match(game.description, /one-button movement tool/);
+  assert.match(game.description, /press Shift/);
+  assert.match(game.description, /hold Shift/);
+  assert.match(game.description, /release Shift/);
+  assert.match(game.description, /short acquisition buffer/);
   assert.match(game.description, /Air Kick/);
   assert.match(game.description, /SAPRUN/);
   assert.match(game.description, /puzzle-fit sequoia bark/);
@@ -84,9 +86,11 @@ test('Sylvaria Sequoia exposes the v0.4 Sapstick Canopy contract', () => {
   assert.match(game.description, /CROWNLINE/);
   assert.match(game.description, /cloud wisps and distant birds/);
   assert.doesNotMatch(game.description, /enemy|damage|attack/i);
-  assert.ok(game.controls.some((control) => control.input === 'Shift + Space'));
-  assert.ok(game.controls.some((control) => control.input === 'Hold Shift'));
-  assert.ok(!game.controls.some((control) => /Shift · E/.test(control.input)));
+  assert.ok(game.controls.some((control) => control.input === 'Press Shift'));
+  assert.ok(game.controls.some((control) => control.input === 'Hold Shift + steer'));
+  assert.ok(game.controls.some((control) => control.input === 'Release Shift'));
+  assert.ok(game.controls.some((control) => control.input === '0 · N · P'));
+  assert.ok(!game.controls.some((control) => /Shift \+ Space|Shift · E/.test(control.input)));
 
   const runtimeRoot = 'public/game-runtimes/sylvaria-sequoia';
   const runtimeFiles = [
@@ -105,6 +109,7 @@ test('Sylvaria Sequoia exposes the v0.4 Sapstick Canopy contract', () => {
     '03-render-reference-handoff.js',
     '03-render-altitude-realism.js',
     '03-render-performance.js',
+    '03-sap-stick-control-hud.js',
     '03-title-focus-guard.js',
     '04-input.js',
   ];
@@ -130,12 +135,14 @@ test('Sylvaria Sequoia exposes the v0.4 Sapstick Canopy contract', () => {
   const referenceHandoff = readRepoFile(`${runtimeRoot}/03-render-reference-handoff.js`);
   const altitudeRender = readRepoFile(`${runtimeRoot}/03-render-altitude-realism.js`);
   const performanceRender = readRepoFile(`${runtimeRoot}/03-render-performance.js`);
+  const sapHud = readRepoFile(`${runtimeRoot}/03-sap-stick-control-hud.js`);
   const focusGuard = readRepoFile(`${runtimeRoot}/03-title-focus-guard.js`);
   const input = readRepoFile(`${runtimeRoot}/04-input.js`);
 
   assert.match(index, /v0\.4\.0/);
+  assert.match(index, /Shift fires Sap Stick, hold \+ A\/D to swing, release to vault/);
   assert.match(index, /02-sap-stick\.js[\s\S]*02-control-authority\.js/);
-  assert.match(index, /03-render-canopy\.js[\s\S]*03-render-fast-underpaint\.js[\s\S]*03-render-reference-pass\.js[\s\S]*03-render-reference-handoff\.js[\s\S]*03-render-altitude-realism\.js[\s\S]*03-render-performance\.js[\s\S]*03-title-focus-guard\.js[\s\S]*04-input\.js/);
+  assert.match(index, /03-render-performance\.js[\s\S]*03-sap-stick-control-hud\.js[\s\S]*03-title-focus-guard\.js[\s\S]*04-input\.js/);
   assert.doesNotMatch(index, /03-render-skill-pass\.js|03-stride-hud\.js/);
 
   assert.match(core, /FIXED_DT: 1 \/ 120/);
@@ -153,11 +160,15 @@ test('Sylvaria Sequoia exposes the v0.4 Sapstick Canopy contract', () => {
   assert.match(feel, /wallRefreshSpeed: 99999/);
   assert.match(feel, /comboSpeed: 99999/);
   assert.match(feel, /stickRange: 640/);
-  assert.match(feel, /stickHoldSeconds: 0\.22/);
+  assert.match(feel, /stickAcquireBufferSeconds: 0\.18/);
+  assert.match(feel, /stickMinHoldSeconds: 0\.075/);
+  assert.match(feel, /stickMaxHoldSeconds: 1\.35/);
+  assert.match(feel, /stickSteerAccel: 2450/);
   assert.match(feel, /stickReuseLockSeconds: 0\.82/);
   assert.match(feel, /stickReleaseMinVy: 630/);
   assert.match(feel, /window: 3\.35/);
   assert.match(feel, /baseSpeed: 20/);
+  assert.doesNotMatch(feel, /stickHoldSeconds: 0\.22/);
 
   for (const grammar of ['FLOW', 'RECOVERY', 'GROVE', 'SAPRUN', 'SLINGSHOT', 'CRUX']) {
     assert.match(world, new RegExp(`${grammar}:`));
@@ -185,13 +196,18 @@ test('Sylvaria Sequoia exposes the v0.4 Sapstick Canopy contract', () => {
   assert.match(flowAssist, /combo-speed-carry/);
 
   assert.match(sapStick, /function findTarget\(/);
-  assert.match(sapStick, /function castSapStick\(/);
-  assert.match(sapStick, /function releaseStick\(/);
+  assert.match(sapStick, /function pressSapStick\(/);
+  assert.match(sapStick, /function releaseSapStickInput\(/);
+  assert.match(sapStick, /function applyHeldScreenSteering\(/);
+  assert.match(sapStick, /stickHeld = true/);
+  assert.match(sapStick, /acquireBuffer = TUNE\.sap\.stickAcquireBufferSeconds/);
+  assert.match(sapStick, /suppressLegacyPump/);
+  assert.match(sapStick, /SHIFT_RELEASE/);
+  assert.match(sapStick, /sapStickBufferedLocks/);
+  assert.match(sapStick, /sapStickHoldReleases/);
   assert.match(sapStick, /stickMode: true/);
-  assert.match(sapStick, /sapStickCasts/);
-  assert.match(sapStick, /sapStickVaults/);
   assert.match(sapStick, /anchorLockouts/);
-  assert.doesNotMatch(sapStick, /holdToCharge|chargeSeconds/i);
+  assert.doesNotMatch(sapStick, /holdToCharge|chargeSeconds|AUTO'\)/i);
 
   assert.match(control, /velocity-authority-v2/);
   assert.match(control, /groundReverseAssist: 1120/);
@@ -255,6 +271,13 @@ test('Sylvaria Sequoia exposes the v0.4 Sapstick Canopy contract', () => {
   assert.match(performanceRender, /referenceRender\(alpha, now\)/);
   assert.match(performanceRender, /singlePaint: true/);
 
+  assert.match(sapHud, /shift-hold-v1/);
+  assert.match(sapHud, /PRESS = FIRE/);
+  assert.match(sapHud, /HOLD \+ A\/D = SWING/);
+  assert.match(sapHud, /RELEASE = VAULT/);
+  assert.match(sapHud, /resetKey: '0'/);
+  assert.match(sapHud, /S\.render = render/);
+
   assert.match(focusGuard, /desktop-focus-v1/);
   assert.match(focusGuard, /function guardDesktopTitleFocus\(/);
   assert.match(focusGuard, /event\.pointerType === 'touch'/);
@@ -263,11 +286,15 @@ test('Sylvaria Sequoia exposes the v0.4 Sapstick Canopy contract', () => {
 
   assert.match(input, /version: '0\.4\.0'/);
   assert.match(input, /const SHIFT_KEYS/);
-  assert.match(input, /event\.code === 'Space' && shiftHeld\(\)/);
-  assert.match(input, /const physicalDown = new Map\(\)/);
-  assert.match(input, /sapChordCount/);
+  assert.match(input, /const RESET_KEYS = new Set\(\['Digit0', 'Numpad0'\]\)/);
+  assert.match(input, /function triggerSapStickPress\(/);
+  assert.match(input, /S\.pressSapStick/);
+  assert.match(input, /releaseSapStick\('SHIFT_RELEASE'\)/);
+  assert.match(input, /releaseSapStick\('BLUR'\)/);
+  assert.match(input, /sapPressCount/);
   assert.match(input, /sapAnchorCount/);
-  assert.match(input, /S\.castSapStick/);
+  assert.doesNotMatch(input, /event\.code === 'KeyR'/);
+  assert.doesNotMatch(input, /event\.code === 'Space' && shiftHeld\(\)/);
   assert.doesNotMatch(input, /KeyE|SAP_KEYS/);
 });
 
