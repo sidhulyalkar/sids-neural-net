@@ -5,7 +5,7 @@ import { join } from 'node:path';
 
 const root = process.cwd();
 const runtimeRoot = join(root, 'public/game-runtimes/sylvaria-sequoia');
-const modules = ['00-core.js', '01-world.js', '02-gameplay.js', '03-render.js', '04-input.js'];
+const modules = ['00-core.js', '01-world.js', '02-gameplay.js', '02-jump-contract.js', '03-render.js', '04-input.js'];
 const indexPath = join(runtimeRoot, 'index.html');
 const designPath = join(root, 'docs/SYLVARIA_SEQUOIA_V03_AERIAL_COMBO_DESIGN.md');
 
@@ -20,14 +20,15 @@ const index = readFileSync(indexPath, 'utf8');
 const core = readFileSync(join(runtimeRoot, '00-core.js'), 'utf8');
 const world = readFileSync(join(runtimeRoot, '01-world.js'), 'utf8');
 const gameplay = readFileSync(join(runtimeRoot, '02-gameplay.js'), 'utf8');
+const jumpContract = readFileSync(join(runtimeRoot, '02-jump-contract.js'), 'utf8');
 const render = readFileSync(join(runtimeRoot, '03-render.js'), 'utf8');
 const input = readFileSync(join(runtimeRoot, '04-input.js'), 'utf8');
-const runtime = [core, world, gameplay, render, input].join('\n');
+const runtime = [core, world, gameplay, jumpContract, render, input].join('\n');
 const design = readFileSync(designPath, 'utf8');
 
 assert.match(index, /<title>Sylvaria: Sequoia v0\.3\.0<\/title>/);
 assert.match(index, /<canvas id="c" width="960" height="640"/);
-assert.match(index, /00-core\.js[\s\S]*01-world\.js[\s\S]*02-gameplay\.js[\s\S]*03-render\.js[\s\S]*04-input\.js/);
+assert.match(index, /00-core\.js[\s\S]*01-world\.js[\s\S]*02-gameplay\.js[\s\S]*02-jump-contract\.js[\s\S]*03-render\.js[\s\S]*04-input\.js/);
 assert.match(index, /air kick/i);
 assert.doesNotMatch(index, /crownrush|\.\/game\.js/i);
 
@@ -78,6 +79,16 @@ assert.match(gameplay, /boundedPush\(telemetry\.samples\.sapReleaseGain/);
 assert.match(gameplay, /telemetry\.counters\.sapCatches \+= 1/);
 assert.match(gameplay, /if \(!player\.grounded\) player\.vy \+= \(state\.GRAVITY \+ sapForce\.ay\) \* dt/);
 
+assert.match(jumpContract, /duplicateEdgeMs = 48/);
+assert.match(jumpContract, /player\.jumpRequestId > player\.consumedJumpRequestId/);
+assert.match(jumpContract, /player\.jumpRequestId === player\.consumedJumpRequestId/);
+assert.match(jumpContract, /telemetry\.counters\.jumps > beforeGroundJumps/);
+assert.match(jumpContract, /telemetry\.counters\.doubleJumps > beforeAirJumps/);
+assert.match(jumpContract, /player\.consumedJumpRequestId = activeRequestId/);
+assert.match(jumpContract, /action: airJumped \? 'AIR_KICK' : 'GROUND_JUMP'/);
+assert.match(jumpContract, /S\.requestJump = requestJump/);
+assert.match(jumpContract, /S\.update = update/);
+
 assert.doesNotMatch(render, /routeRng\.next\(/, 'rendering must never consume route RNG');
 assert.match(render, /function drawRing\(/);
 assert.match(render, /function drawLaunchBurl\(/);
@@ -91,7 +102,10 @@ assert.match(render, /sceneScale = state\.reducedMotion \? 1 : 1 - speedWide - h
 assert.match(input, /window\.SYLVARIA_SEQUOIA_DEBUG/);
 assert.match(input, /version: '0\.3\.0'/);
 assert.match(input, /fixedHz: 120/);
+assert.match(input, /const wasDown = state\.keys\.has\(event\.code\)/);
+assert.match(input, /JUMP_KEYS\.has\(event\.code\) && !wasDown/);
 assert.match(input, /airJumps: player\.airJumps/);
+assert.match(input, /jumpInput: S\.jumpInputContract\?\.getState\(\) \|\| null/);
 assert.match(input, /getPhases:/);
 assert.match(input, /getTelemetry: S\.summarizeTelemetry/);
 assert.match(input, /setTuning: S\.setTuning/);
@@ -120,5 +134,6 @@ console.log(JSON.stringify({
   grammars: ['FLOW', 'CRUX', 'RECOVERY', 'SLINGSHOT'],
   phases: ['ROOTWAYS', 'REDWOOD RUN', 'SAPWORK', 'HIGH CANOPY', 'CROWNLINE'],
   aerialLoop: ['Air Kick', 'Bark refresh', 'Resin Ring refresh', 'Sap refresh', 'SAP SURGE', 'CROWNVELOCITY'],
+  jumpInput: ['physical edge debounce', 'unique request id', 'single action consumption'],
   telemetry: ['airtime', 'double jump', 'refreshes', 'speed', 'rebound', 'rings', 'burls', 'sapline', 'combo', 'threat', 'route completion'],
 }, null, 2));
