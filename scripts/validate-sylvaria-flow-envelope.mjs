@@ -8,6 +8,7 @@ const feel = readFileSync(join(runtimeRoot, '00-feel-tuning.js'), 'utf8');
 const core = readFileSync(join(runtimeRoot, '00-core.js'), 'utf8');
 const world = readFileSync(join(runtimeRoot, '01-world.js'), 'utf8');
 const assist = readFileSync(join(runtimeRoot, '02-flow-assist.js'), 'utf8');
+const control = readFileSync(join(runtimeRoot, '02-control-authority.js'), 'utf8');
 const stick = readFileSync(join(runtimeRoot, '02-sap-stick.js'), 'utf8');
 
 function section(source, name) {
@@ -87,10 +88,8 @@ const standingTeachingGap = Math.max(flow[0].dy, ...recovery.filter((step) => st
 const laterFlowGap = Math.max(...flow.slice(1).filter((step) => step.branch).map((step) => step.dy));
 const twoFloorTarget = sum(flow.slice(0, 2).map((step) => step.dy));
 const threeFloorTarget = sum(flow.slice(0, 3).map((step) => step.dy));
-// A developed run should feel materially stronger than the two-tier combo
-// threshold, while leaving the full three-tier transfer for a second technique.
-const developedRunFloor = twoFloorTarget * 1.30;
-const developedRunCeiling = threeFloorTarget * 0.92;
+const developedRunFloor = twoFloorTarget * 1.34;
+const developedRunCeiling = threeFloorTarget * 1.05;
 const samples = [
   { label: 'standing', speed: 0, flow: 0 },
   { label: 'burst-entry', speed: burstMinSpeed, flow: 0 },
@@ -99,28 +98,37 @@ const samples = [
 ].map((sample) => ({ ...sample, vy: jumpVy(sample.speed, sample.flow), apex: apex(jumpVy(sample.speed, sample.flow)) }));
 const by = Object.fromEntries(samples.map((sample) => [sample.label, sample]));
 
-// A stationary player gets a real safety margin only on the introductory and
-// recovery tiers. Later FLOW shelves intentionally require earned momentum.
+// Feel recovery contract: early movement is generous and speed materially buys
+// height, but one ordinary developed run still does not erase the route system.
 assert.ok(by.standing.apex >= standingTeachingGap * 1.10, `standing jump lost teaching margin: ${by.standing.apex.toFixed(1)} vs ${standingTeachingGap}`);
-assert.ok(by.standing.apex < laterFlowGap * 1.08, 'standing jump is beginning to erase the momentum requirement from later FLOW transfers');
+assert.ok(by.standing.apex < laterFlowGap * 1.15, 'standing jump is erasing later FLOW spacing');
 assert.ok(by['burst-entry'].apex >= twoFloorTarget * 0.96, `burst entry lost two-floor utility: ${by['burst-entry'].apex.toFixed(1)} vs ${twoFloorTarget}`);
-assert.ok(by['developed-run'].apex >= developedRunFloor, `developed run lost strong two-tier FLOW utility: ${by['developed-run'].apex.toFixed(1)} vs ${developedRunFloor.toFixed(1)}`);
-assert.ok(by['developed-run'].apex < developedRunCeiling, `developed run is beginning to solve the full three-tier FLOW transfer: ${by['developed-run'].apex.toFixed(1)} vs ${developedRunCeiling.toFixed(1)}`);
-assert.ok(by['full-stride'].apex < threeFloorTarget + 145, 'ground movement is becoming a route solver again');
+assert.ok(by['developed-run'].apex >= developedRunFloor, `developed run no longer feels substantially stronger: ${by['developed-run'].apex.toFixed(1)} vs ${developedRunFloor.toFixed(1)}`);
+assert.ok(by['developed-run'].apex < developedRunCeiling, `developed run is solving too much FLOW geometry: ${by['developed-run'].apex.toFixed(1)} vs ${developedRunCeiling.toFixed(1)}`);
+assert.ok(by['full-stride'].apex < threeFloorTarget + 90, 'full Stride is becoming a route solver again');
 
 const passiveWallVy = numberIn(rebound, 'verticalBase') + Math.min(numberIn(rebound, 'verticalCap'), maxSpeed * numberIn(rebound, 'verticalGain'));
-assert.ok(apex(passiveWallVy) < Math.min(...recovery.map((step) => step.dy)) * 0.55, 'passive bark redirect climbs too much');
+assert.ok(apex(passiveWallVy) < Math.min(...recovery.map((step) => step.dy)) * 0.95, 'passive bark redirect climbs too much');
+assert.ok(numberIn(rebound, 'retention') >= 0.74, 'passive bark deletes too much earned horizontal speed');
 assert.ok(numberIn(rebound, 'comboSpeed') > 10000, 'passive bark must never score');
 assert.ok(numberIn(jump, 'wallRefreshSpeed') > 10000, 'passive bark must never refresh Air Kick');
 assert.ok(apex(numberIn(rebound, 'kickVertical')) >= twoFloorTarget * 0.85, 'Bark Kick lost meaningful rescue height');
 
-assert.ok(numberIn(run, 'strideLaunchCarry') <= 0.65, 'Stride carry is too automatic');
-assert.ok(numberIn(run, 'comboCarryCap') <= 30, 'combo carry cap is too high');
-assert.ok(numberIn(run, 'comboAccelCap') <= 0.12, 'Flow acceleration cap is too high');
-assert.ok(numberIn(combo, 'window') <= 3.0, 'Flow timeout is too forgiving');
-assert.ok(numberIn(combo, 'easyHyperThreshold') >= 9, 'pure-flow crown ignites too early');
-assert.ok(numberIn(threat, 'baseSpeed') >= 22, 'Rootways pressure vanished');
+assert.ok(numberIn(run, 'groundAccel') >= 3500, 'ground acceleration no longer feels immediate');
+assert.ok(numberIn(run, 'airAccel') >= 1750, 'air steering authority regressed');
+assert.ok(numberIn(run, 'reverseAirScale') >= 1.0, 'air reversal is being penalized instead of respecting user input');
+assert.ok(numberIn(run, 'maxSpeed') >= 660 && numberIn(run, 'maxSpeed') <= 720, 'base run-speed envelope drifted');
+assert.ok(numberIn(run, 'strideLaunchCarry') >= 0.78, 'Stride no longer preserves earned launch height');
+assert.ok(numberIn(run, 'comboCarryCap') <= 55, 'combo carry is overpowering direct velocity control');
+assert.ok(numberIn(run, 'comboAccelCap') <= 0.18, 'Flow acceleration cap is too high');
+assert.ok(numberIn(combo, 'window') >= 3.1 && numberIn(combo, 'window') <= 3.6, 'Flow timing window left the responsive target band');
+assert.ok(numberIn(threat, 'baseSpeed') <= 22, 'Rootways pressure is crowding out movement learning');
 assert.match(assist, /passiveBarkRedirects/);
+assert.match(control, /velocity-authority-v1/);
+assert.match(control, /launch-velocity-authority/);
+assert.match(control, /groundReverseAssist: 1120/);
+assert.match(control, /airReverseAssist: 920/);
+assert.match(control, /Stride is allowed to preserve \*jump height\*/);
 
 const branchRatio = (route) => route.filter((step) => step.branch).length / route.length;
 assert.equal(grove.filter((step) => step.branch).length, 2, 'GROVE should have exactly two real branch tiers');
@@ -144,7 +152,7 @@ const stickReleaseVy = numberIn(sap, 'stickReleaseMinVy');
 assert.ok(stickRange >= 600 && stickRange <= 680, 'Sap Stick target range drifted');
 assert.ok(stickHold >= 0.18 && stickHold <= 0.25, 'Sap Stick tether should stay a quick rhythmic beat');
 assert.ok(stickReuse >= 0.6, 'Sap Stick anchors can be farmed too quickly');
-assert.ok(apex(stickReleaseVy) >= 90, 'Sap Stick vault lost meaningful vertical rescue');
+assert.ok(apex(stickReleaseVy) >= 100, 'Sap Stick vault lost meaningful vertical rescue');
 assert.ok(numberIn(sap, 'stickAnchorPriority') >= 90, 'authored branchless anchors are not preferred strongly enough');
 assert.match(stick, /function findTarget\(/);
 assert.match(stick, /function castSapStick\(/);
@@ -157,7 +165,7 @@ assert.deepEqual([...world.matchAll(/\{ name: '[^']+', floor: (\d+)/g)].map((mat
 
 console.log(JSON.stringify({
   ok: true,
-  mode: 'sapstick-canopy-sparse-skill-flow',
+  mode: 'sapstick-canopy-responsive-player-owned-flow',
   corridor: { left: leftWall, right: rightWall, width: rightWall - leftWall },
   density: {
     grove: { branches: grove.filter((s) => s.branch).length, tiers: grove.length },
@@ -166,5 +174,6 @@ console.log(JSON.stringify({
   },
   teaching: { standingGap: standingTeachingGap, laterFlowGap, developedRunFloor, developedRunCeiling },
   jumpEnvelope: samples.map(({ label, speed, flow: flowCount, vy, apex: height }) => ({ label, speed, flow: flowCount, launchVy: Number(vy.toFixed(1)), ballisticApex: Number(height.toFixed(1)) })),
+  control: { groundAccel: numberIn(run, 'groundAccel'), airAccel: numberIn(run, 'airAccel'), reverseAirScale: numberIn(run, 'reverseAirScale'), barkRetention: numberIn(rebound, 'retention') },
   sapStick: { range: stickRange, tetherSeconds: stickHold, reuseLockSeconds: stickReuse, releaseApex: Number(apex(stickReleaseVy).toFixed(1)) },
 }, null, 2));
