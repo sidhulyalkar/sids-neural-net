@@ -65,8 +65,6 @@ for (const testCase of cases) {
 
   const crispCanvas = page.locator('[data-fractal-crisp-topology="v13"]');
   await crispCanvas.waitFor({ state: 'visible' });
-  const clearanceLayer = page.locator('[data-destination-clearance-layer="v14"]');
-  await clearanceLayer.waitFor({ state: 'visible' });
   await page.waitForFunction(() => {
     const rootNode = document.querySelector('[data-fractal-morphology]');
     return (
@@ -74,7 +72,7 @@ for (const testCase of cases) {
       rootNode?.getAttribute('data-topology-repair') === 'snap-prune-v13' &&
       rootNode?.getAttribute('data-core-clearance') === 'circle-edge-v13' &&
       rootNode?.getAttribute('data-render-fidelity') === 'crisp-no-glow-v13' &&
-      rootNode?.getAttribute('data-destination-clearance') === 'opaque-edge-mask-v14'
+      rootNode?.getAttribute('data-destination-clearance') === 'opaque-card-v14'
     );
   });
 
@@ -89,8 +87,6 @@ for (const testCase of cases) {
   const linkCount = await links.count();
   const protectedControls = page.locator('[data-navigation-clearance="protected"]');
   const protectedCount = await protectedControls.count();
-  const clearanceMasks = page.locator('[data-destination-clearance-mask]');
-  const clearanceMaskCount = await clearanceMasks.count();
 
   const boxes = [];
   for (let index = 0; index < linkCount; index += 1) {
@@ -114,6 +110,8 @@ for (const testCase of cases) {
     if (!background.startsWith('rgb(1, 4, 6)')) {
       failures.push(`${testCase.morph}: destination ${index} background not opaque (${background})`);
     }
+    const label = (await link.textContent())?.trim();
+    if (!label) failures.push(`${testCase.morph}: destination ${index} label text disappeared`);
   }
 
   if (actualMorph !== testCase.morph) failures.push(`${testCase.morph}: rendered ${actualMorph}`);
@@ -121,11 +119,10 @@ for (const testCase of cases) {
   if (topologyRepair !== 'snap-prune-v13') failures.push(`${testCase.morph}: topology snap/prune repair missing`);
   if (coreClearance !== 'circle-edge-v13') failures.push(`${testCase.morph}: circular CORE clearance missing`);
   if (renderFidelity !== 'crisp-no-glow-v13') failures.push(`${testCase.morph}: crisp no-glow renderer missing`);
-  if (destinationClearance !== 'opaque-edge-mask-v14') failures.push(`${testCase.morph}: opaque destination clearance missing`);
+  if (destinationClearance !== 'opaque-card-v14') failures.push(`${testCase.morph}: opaque destination card clearance missing`);
   if (coreRouting !== 'fixed-center-circle-v1') failures.push(`${testCase.morph}: fixed center CORE routing missing`);
   if (linkCount !== 8) failures.push(`${testCase.morph}: expected 8 destinations, got ${linkCount}`);
   if (protectedCount !== 9) failures.push(`${testCase.morph}: expected 9 protected controls, got ${protectedCount}`);
-  if (clearanceMaskCount !== 8) failures.push(`${testCase.morph}: expected 8 destination masks, got ${clearanceMaskCount}`);
   if (pageErrors.length) failures.push(`${testCase.morph}: page errors: ${pageErrors.join(' | ')}`);
   if (consoleErrors.length) failures.push(`${testCase.morph}: console errors: ${consoleErrors.join(' | ')}`);
 
@@ -199,7 +196,6 @@ for (const testCase of cases) {
     actualMorph,
     linkCount,
     protectedCount,
-    clearanceMaskCount,
     primaryRouting,
     coreRouting,
     topologyRepair,
@@ -286,5 +282,5 @@ if (failures.length) {
 }
 
 console.log(
-  `Captured ${cases.length} curated fractal fixtures, verified ${removedMorphologies.length} removals, and audited ${echoCases.length} themed subpages with opaque destination-edge clearance, exact CORE/label termination, topology repair, and crisp dendrites.`
+  `Captured ${cases.length} curated fractal fixtures, verified ${removedMorphologies.length} removals, and audited ${echoCases.length} themed subpages with opaque destination cards, exact CORE/label termination, topology repair, and crisp dendrites.`
 );
