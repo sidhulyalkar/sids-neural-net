@@ -15,8 +15,8 @@ const root = process.cwd();
 const readRepoFile = (path: string) => readFileSync(join(root, path), 'utf8');
 
 test('theme echo only accepts the curated homepage morphologies', () => {
-  assert.equal(CURATED_FRACTAL_THEME_IDS.length, 10);
-  assert.equal(isCuratedFractalThemeId('tectonic'), true);
+  assert.equal(CURATED_FRACTAL_THEME_IDS.length, 9);
+  assert.equal(isCuratedFractalThemeId('tectonic'), false);
   assert.equal(isCuratedFractalThemeId('echo-nest'), true);
   assert.equal(isCuratedFractalThemeId('aurora'), false);
   assert.equal(isCuratedFractalThemeId('mycelial'), false);
@@ -31,10 +31,12 @@ test('persisted themes strip force prefixes and reject removed morphologies', ()
     seed: 'organic-session',
     savedAt: 1234,
   });
-  assert.equal(
-    parseFractalTheme(JSON.stringify({ version: 1, morphology: 'mycelial', seed: 'x', savedAt: 1234 })),
-    null
-  );
+  for (const morphology of ['mycelial', 'aurora', 'tectonic']) {
+    assert.equal(
+      parseFractalTheme(JSON.stringify({ version: 1, morphology, seed: 'x', savedAt: 1234 })),
+      null
+    );
+  }
 });
 
 test('homepage records its theme and subpages consume the echo consistently', () => {
@@ -50,6 +52,18 @@ test('homepage records its theme and subpages consume the echo consistently', ()
   assert.match(pageShell, /ThemedNeuralBackground/);
   assert.match(echo, /data-fractal-theme-echo="background"/);
   assert.match(echo, /force:\$\{theme\.morphology\}/);
+});
+
+test('homepage v3 relocates CORE into a quiet pocket and expands Echo Nest', () => {
+  const stage = readRepoFile('components/neural-atlas-canvas/AdaptiveFractalStage.tsx');
+  const experience = readRepoFile('components/neural-atlas-canvas/FractalExperienceV3.tsx');
+  assert.match(stage, /FractalExperienceV3/);
+  assert.match(experience, /placeCoreInQuietPocket/);
+  assert.match(experience, /candidateDensity/);
+  assert.match(experience, /data\.corePlacement = 'quiet-pocket-v1'/);
+  assert.match(experience, /drawExpandedEchoNest/);
+  assert.match(experience, /morphology === 'tectonic'/);
+  assert.match(experience, /url\.searchParams\.set\('morph', 'echo-nest'\)/);
 });
 
 test('contact suppresses the redundant frontier shortcut while other comic pages retain it', () => {
