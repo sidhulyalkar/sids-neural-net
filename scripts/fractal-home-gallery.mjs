@@ -115,7 +115,7 @@ for (const removedMorph of removedMorphologies) {
 
 const echoCases = [
   { morph: 'tectonic', path: '/contact', width: 1440, height: 900, filename: 'theme-echo-contact-tectonic.png', expectNoFrontier: true },
-  { morph: 'echo-nest', path: '/projects', width: 1440, height: 900, filename: 'theme-echo-projects-echo-nest.png', expectNoFrontier: false },
+  { morph: 'echo-nest', path: '/archive', width: 1440, height: 900, filename: 'theme-echo-archive-echo-nest.png', expectNoFrontier: false },
 ];
 
 for (const echoCase of echoCases) {
