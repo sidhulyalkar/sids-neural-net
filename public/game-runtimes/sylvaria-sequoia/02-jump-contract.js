@@ -7,7 +7,7 @@
   const baseUpdate = S.update;
   const baseResetRun = S.resetRun;
   const baseStartRun = S.startRun;
-  const duplicateEdgeMs = 28;
+  const duplicateEdgeMs = 48;
   let nextRequestId = 0;
   let lastRequestAt = -Infinity;
 
@@ -25,9 +25,9 @@
       player.jumpRequestId > player.consumedJumpRequestId &&
       player.jumpBuffer > 0;
 
-    // One physical press may surface twice through focus/iframe/browser plumbing.
-    // Start-key quarantine now handles the old title-screen leak, so this guard can
-    // stay short enough that a deliberately fast second tap still becomes Air Kick.
+    // Physical-key deduplication lives in 04-input. This final contract still
+    // rejects same-edge echoes that can cross the iframe boundary a few frames
+    // apart, while preserving deliberate fast Air Kick taps.
     if (hasPendingRequest || now - lastRequestAt < duplicateEdgeMs) {
       return player.jumpRequestId;
     }
@@ -41,7 +41,6 @@
   }
 
   function update(dt) {
-    // A consumed request must never survive as a buffered request into another 120 Hz tick.
     if (
       player.jumpBuffer > 0 &&
       player.jumpRequestId > 0 &&
