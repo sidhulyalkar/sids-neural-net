@@ -1,0 +1,127 @@
+.panel {
+  margin-top: 0.9rem;
+  border-top: 1px solid color-mix(in srgb, currentColor 18%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, currentColor 12%, transparent);
+  font-variant-numeric: tabular-nums;
+}
+
+.panelHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.52rem 0;
+  font-size: 0.58rem;
+  letter-spacing: 0.16em;
+  opacity: 0.56;
+}
+
+.games {
+  display: grid;
+}
+
+.game {
+  display: grid;
+  grid-template-columns: minmax(5.7rem, 0.8fr) minmax(0, 2.2fr);
+  gap: 0.65rem;
+  padding: 0.52rem 0;
+  border-top: 1px solid color-mix(in srgb, currentColor 9%, transparent);
+}
+
+.game[data-favorite='true'] {
+  font-weight: 520;
+}
+
+.gameState {
+  align-self: center;
+  font-size: 0.66rem;
+  line-height: 1.25;
+  opacity: 0.52;
+}
+
+.game[data-live='true'] .gameState {
+  opacity: 0.92;
+}
+
+.teams {
+  display: grid;
+  gap: 0.22rem;
+}
+
+.team {
+  display: grid;
+  grid-template-columns: 2.4rem minmax(0, 1fr) auto auto;
+  align-items: baseline;
+  gap: 0.42rem;
+  min-width: 0;
+  font-size: 0.73rem;
+}
+
+.team[data-favorite='true'] {
+  font-weight: 650;
+}
+
+.abbreviation {
+  font-size: 0.64rem;
+  letter-spacing: 0.08em;
+  opacity: 0.64;
+}
+
+.teamName {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.record {
+  font-size: 0.62rem;
+  opacity: 0.46;
+}
+
+.score {
+  min-width: 1.25rem;
+  text-align: right;
+  font-size: 0.8rem;
+}
+
+.table {
+  display: grid;
+  padding-bottom: 0.38rem;
+}
+
+.tableRow {
+  display: grid;
+  grid-template-columns: 1.5rem minmax(4rem, 1fr) minmax(3rem, auto) minmax(2rem, auto);
+  gap: 0.6rem;
+  align-items: baseline;
+  padding: 0.34rem 0;
+  border-top: 1px solid color-mix(in srgb, currentColor 8%, transparent);
+  font-size: 0.69rem;
+}
+
+.tableRow[data-favorite='true'] {
+  font-weight: 680;
+}
+
+.tableHeader {
+  font-size: 0.54rem;
+  letter-spacing: 0.12em;
+  opacity: 0.46;
+}
+
+.standingTeam {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 640px) {
+  .game {
+    grid-template-columns: 1fr;
+    gap: 0.3rem;
+  }
+
+  .gameState {
+    font-size: 0.6rem;
+  }
+}
