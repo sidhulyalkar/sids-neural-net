@@ -1,35 +1,30 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getIntegratedFrontierFeed } from '@/lib/frontier/aggregate';
 import { decodeDiscoveryFocus } from '@/lib/frontier/discoveryFocus';
-import { FRONTIER_PINNED_TOPICS } from '@/lib/frontier/interests';
+import { FRONTIER_TEAMS } from '@/lib/frontier/interests';
+import { FRONTIER_DISCOVERY_SEEDS } from '@/lib/frontier/personalTaste';
 import { decorateFeedMedia } from '@/lib/frontier/media/proxySecurity';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-const DEFAULT_FOCUS_IDS = [
-  'patriots',
-  'warriors',
-  'chelsea',
-  'man-city',
-  'active-sports',
-  'bass',
-  'games',
-  'neuroai',
-  'open-source',
-  'ml-data',
-] as const;
-
 function defaultPersonalFocus(): string[] {
-  const byId = new Map(FRONTIER_PINNED_TOPICS.map((topic) => [topic.id, topic.label]));
-  return DEFAULT_FOCUS_IDS.flatMap((id) => byId.get(id) ? [byId.get(id)!] : []);
+  // Cold-start requests should spend their scarce adaptive-search budget on the
+  // owner's strongest explicit interests, not generic technology news. Keep the
+  // first six slots research/analysis-heavy, then preserve all four favorite
+  // teams. Once the client has a behavior profile it sends its own adaptive
+  // focus and this fallback disappears from authority.
+  return Array.from(new Set([
+    ...FRONTIER_DISCOVERY_SEEDS.slice(0, 6),
+    ...FRONTIER_TEAMS.map((team) => team.label),
+  ])).slice(0, 10);
 }
 
 export async function GET(request: NextRequest) {
   const requestedFocus = decodeDiscoveryFocus(request.nextUrl.searchParams.get('focus'));
   // FRONTIER is a personal surface. An omitted focus must never silently become
   // a generic-news authority path, because the client may use this endpoint as
-  // a sparse-feed fallback. Default to a balanced owner-interest seed instead.
+  // a sparse-feed fallback. Default to the explicit owner taste map instead.
   const focusTopics = requestedFocus.length ? requestedFocus : defaultPersonalFocus();
   const forceFresh = request.nextUrl.searchParams.get('fresh') === '1';
   try {
