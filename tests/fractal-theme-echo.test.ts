@@ -81,7 +81,7 @@ test('homepage v4 routes major connectors as angular protected signal paths', ()
   assert.match(home, /'tectonic', 'aurora', 'mycelial'/);
   assert.match(stage, /FractalNavigationClearanceV4/);
   assert.match(clearance, /data-fractal-navigation-clearance="v1"/);
-  assert.match(clearance, /querySelectorAll<HTMLElement>\('\[data-navigation-clearance=/);
+  assert.match(clearance, /data-dendrite-destination.*data-navigation-clearance/);
 });
 
 test('contact suppresses the redundant frontier shortcut while other comic pages retain it', () => {
