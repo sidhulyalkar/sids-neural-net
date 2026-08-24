@@ -6,20 +6,20 @@
 
   const { state, player, TUNE, clamp } = S;
   const baseUpdate = S.update;
-  const CONTROL_VERSION = 'velocity-authority-v1';
+  const CONTROL_VERSION = 'velocity-authority-v2';
 
   const CONTROL = {
     groundReverseAssist: 1120,
     airReverseAssist: 920,
     reverseDeadzone: 38,
-    launchSnapThreshold: 125,
-    launchSteerCap: 96,
+    strideTriggerMargin: 90,
   };
 
-  let correctedLaunchSnaps = 0;
+  let strideHeightCarries = 0;
+  let preventedDirectionSnaps = 0;
   let groundReverseSeconds = 0;
   let airReverseSeconds = 0;
-  let peakCorrection = 0;
+  let maxAddedLaunchVy = 0;
 
   function inputAxis() {
     let axis = 0;
@@ -41,43 +41,48 @@
     return Math.abs(value) < 0.0001 ? 0 : Math.sign(value);
   }
 
-  function launchBurlImpulse(branch, x, vx, axis) {
-    if (!branch?.launch || Math.abs(x - branch.launchX) > TUNE.jump.burlRadius) return 0;
-    const direction = sign(vx) || axis || (branch.side === 'right' ? -1 : 1);
-    return direction * TUNE.jump.burlHorizontalBoost;
+  function prepareStrideHeightCarry(before) {
+    if (!before.grounded || !before.jumpBuffered) return null;
+    if (before.stride <= Math.abs(before.vx) + CONTROL.strideTriggerMargin) return null;
+
+    const rememberedSpeed = Math.min(TUNE.run.strideMax, before.stride) * TUNE.run.strideLaunchCarry;
+    const currentSpeed = Math.abs(before.vx);
+    const currentMomentum = Math.min(TUNE.jump.momentumCap, currentSpeed * TUNE.jump.momentumGain);
+    const rememberedMomentum = Math.min(TUNE.jump.momentumCap, rememberedSpeed * TUNE.jump.momentumGain);
+    const addedVy = Math.max(0, rememberedMomentum - currentMomentum);
+    if (addedVy <= 0) return null;
+
+    // 02-flow-assist historically preserved Stride by rewriting vx before the
+    // ground jump. Suppress that branch for this one simulation step. The
+    // vertical energy is restored after the authoritative update below, so
+    // Stride still rewards a successful run without owning left/right movement.
+    player.strideMomentum = currentSpeed + CONTROL.strideTriggerMargin - 1;
+    return {
+      addedVy,
+      rememberedStride: before.stride,
+      beforeVx: before.vx,
+    };
   }
 
-  function restorePlayerOwnedLaunch(before, axis, dt) {
-    if (!before.grounded || !before.jumpBuffered || player.grounded || player.vy <= 0) return;
-    if (before.stride <= Math.abs(before.vx) + 90) return;
+  function restoreStrideHeightCarry(plan, dt) {
+    if (!plan) return;
 
-    // Stride is allowed to preserve *jump height*, but it must not silently flip
-    // horizontal velocity to the newly pressed direction. The player should feel
-    // the reversal they actually authored, not a hidden 500 px/s teleport across zero.
-    const expected = before.vx
-      + axis * TUNE.run.groundAccel * dt
-      + launchBurlImpulse(before.branch, before.x, before.vx, axis);
-    const artificialSignFlip = sign(before.vx) !== 0
-      && axis !== 0
-      && sign(before.vx) !== axis
-      && sign(player.vx) === axis;
-    const correction = player.vx - expected;
-    const artificialSnap = Math.abs(correction) > CONTROL.launchSnapThreshold;
-    if (!artificialSignFlip && !artificialSnap) return;
+    const launched = !player.grounded && player.vy > 0;
+    const naturalDecay = Math.max(0, plan.rememberedStride - TUNE.run.strideMemoryDecay * dt);
+    player.strideMomentum = Math.max(player.strideMomentum || 0, naturalDecay);
+    if (!launched) return;
 
-    const boundedExpected = clamp(
-      expected,
-      before.vx - CONTROL.launchSteerCap,
-      before.vx + CONTROL.launchSteerCap
-    );
-    const previous = player.vx;
-    player.vx = clamp(boundedExpected, -velocityCap(), velocityCap());
-    correctedLaunchSnaps += 1;
-    peakCorrection = Math.max(peakCorrection, Math.abs(previous - player.vx));
-    S.recordEvent?.('launch-velocity-authority', {
-      beforeVx: S.round?.(before.vx, 1) ?? before.vx,
-      hiddenVx: S.round?.(previous, 1) ?? previous,
-      controlledVx: S.round?.(player.vx, 1) ?? player.vx,
+    player.vy += plan.addedVy;
+    strideHeightCarries += 1;
+    maxAddedLaunchVy = Math.max(maxAddedLaunchVy, plan.addedVy);
+
+    const flippedAcrossZero = sign(plan.beforeVx) !== 0 && sign(player.vx) !== 0 && sign(plan.beforeVx) !== sign(player.vx);
+    if (flippedAcrossZero) preventedDirectionSnaps += 1;
+
+    S.recordEvent?.('stride-height-carry', {
+      rememberedStride: S.round?.(plan.rememberedStride, 1) ?? plan.rememberedStride,
+      addedVy: S.round?.(plan.addedVy, 1) ?? plan.addedVy,
+      vx: S.round?.(player.vx, 1) ?? player.vx,
     });
   }
 
@@ -85,9 +90,9 @@
     if (axis === 0 || Math.abs(player.vx) < CONTROL.reverseDeadzone) return;
     if (sign(player.vx) === axis) return;
 
-    // Reversing is a deliberate braking action. Give it *more* authority than
-    // same-direction acceleration so the player can place Pip precisely without
-    // making ordinary forward acceleration twitchy.
+    // Opposite input is a deliberate brake. It gets extra authority only while
+    // velocity still points the other way, which makes corrections crisp without
+    // inflating ordinary forward acceleration or changing the base speed cap.
     const grounded = Boolean(player.grounded);
     const assist = grounded ? CONTROL.groundReverseAssist : CONTROL.airReverseAssist;
     player.vx += axis * assist * dt;
@@ -99,30 +104,30 @@
   function update(dt) {
     const axis = inputAxis();
     const before = {
-      x: player.x,
       vx: player.vx,
       grounded: Boolean(player.grounded),
-      branch: player.grounded,
       jumpBuffered: player.jumpBuffer > 0,
       stride: player.strideMomentum || 0,
     };
+    const stridePlan = prepareStrideHeightCarry(before);
 
     baseUpdate(dt);
     if (state.mode !== 'playing') return;
 
-    restorePlayerOwnedLaunch(before, axis, dt);
+    restoreStrideHeightCarry(stridePlan, dt);
     applyReverseAuthority(axis, dt);
   }
 
   S.update = update;
   S.controlAuthority = {
     version: CONTROL_VERSION,
-    model: 'player-owned horizontal velocity; Stride boosts height without hidden direction snaps',
+    model: 'player-owned horizontal velocity; Stride carries vertical opportunity only',
     getState: () => ({
-      correctedLaunchSnaps,
+      strideHeightCarries,
+      preventedDirectionSnaps,
       groundReverseSeconds,
       airReverseSeconds,
-      peakCorrection,
+      maxAddedLaunchVy,
       reverseDeadzone: CONTROL.reverseDeadzone,
       groundReverseAssist: CONTROL.groundReverseAssist,
       airReverseAssist: CONTROL.airReverseAssist,
