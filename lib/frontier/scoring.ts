@@ -1,5 +1,10 @@
 import { behavioralAdjustment, behavioralExplorationBonus, formatForItem, aggregatePreference, timeBucket } from './behavior';
 import { FRONTIER_LANE_MAP } from './config';
+import {
+  matchesPersonalTasteTopic,
+  personalTasteRankingPrior,
+  strongestPersonalTasteLabel,
+} from './personalTaste';
 import { isFrontierSourceAdmitted, sourceTrustRankingPrior } from './sourceTrust';
 import type {
   FrontierBehaviorModel,
@@ -112,6 +117,11 @@ export function personalizedScore(
   const learnedBehavior = behavioralAdjustment(item, behavior, now);
   const exploration = behavioralExplorationBonus(item, behavior, now) * (0.65 + profile.curiosity);
   const sourceTrustPrior = sourceTrustRankingPrior(item);
+  const explicitTaste = personalTasteRankingPrior(item);
+  // The seed profile is intentionally strong enough to shape cold start, but a
+  // learned negative lane/topic preference can substantially suppress it.
+  const tasteSuppression = laneAffinity <= -0.15 || topicSignal <= -0.12 ? 0.25 : 1;
+  const tastePrior = explicitTaste * tasteSuppression;
 
   const score =
     item.baseScore * 0.28 +
@@ -127,6 +137,7 @@ export function personalizedScore(
     learnedBehavior +
     exploration +
     sourceTrustPrior +
+    tastePrior +
     resurfaceBonus(historyEntry, now);
 
   return clamp(score, -1, 1.5);
@@ -156,6 +167,10 @@ function isActiveSportSignal(item: FrontierItem): boolean {
   return item.tags.includes('active sport') || item.tags.includes('active sports');
 }
 
+function isWatchableTasteSignal(item: FrontierItem): boolean {
+  return item.tags.includes('watchable') && personalTasteRankingPrior(item) > 0.06;
+}
+
 function sourceHost(item: FrontierItem): string {
   try { return new URL(item.url).hostname.replace(/^www\./, ''); } catch { return item.source; }
 }
@@ -172,12 +187,18 @@ export function selectDailyRun(
 
   push(takeFirst(ranked, used, (item) => item.importance >= 0.76 || item.lane === 'must_know'));
   push(takeFirst(ranked, used, (item) => ['ml_data', 'ai_frontier', 'neuro_frontier', 'broad_science'].includes(item.lane)));
+  push(takeFirst(ranked, used, (item) => matchesPersonalTasteTopic(item, ['nfl-analytics', 'fantasy-football', 'sports-data'])));
+  push(takeFirst(ranked, used, (item) => matchesPersonalTasteTopic(item, ['scientific-visualization', 'neuro-data-systems', 'computational-imaging', 'space-imaging'])));
   push(takeFirst(ranked, used, (item) => item.lane === 'builder_signal'));
   push(takeFirst(ranked, used, (item) => item.lane === 'methods' || item.lane === 'creative_tech'));
   push(takeFirst(ranked, used, (item) => item.lane === 'team_pulse'));
   push(takeFirst(ranked, used, (item) => isActiveSportSignal(item)));
   push(takeFirst(ranked, used, (item) => ['premier_league', 'world_soccer', 'sports'].includes(item.lane)));
   push(takeFirst(ranked, used, (item) => item.lane === 'gaming'));
+  // Video selection is semantic, via the targeted `watchable` tag, rather than
+  // presentation media presence. A thumbnail appearing/disappearing therefore
+  // still cannot change recommendation authority.
+  push(takeFirst(ranked, used, (item) => isWatchableTasteSignal(item)));
   push(takeFirst(ranked, used, (item) => item.lane === 'music' || item.lane === 'internet_culture' || item.lane === 'life'));
   push(takeFirst(ranked, used, (item) => isDueForResurface(history[item.id], now)));
   push(takeFirst(ranked, used, (item) => item.novelty >= 0.7 || item.lane === 'wildcards'));
@@ -222,6 +243,8 @@ export function explainRecommendation(
 
   if (resurfaceLike(item)) return 'Second chance: this signal was worth keeping in orbit.';
   if (item.importance >= 0.8) return 'High global importance, promoted even beyond your normal taste profile.';
+  const personalLabel = strongestPersonalTasteLabel(item);
+  if (personalLabel && personalTasteRankingPrior(item) >= 0.09) return `Strong fit with your ${personalLabel} radar.`;
   if (strongestTag && strongestTag.affinity > 0.08) return `Your interest in ${strongestTag.tag} pulled this into range.`;
   if ((profile.laneAffinity[item.lane] ?? 0) > 0.12) return `Your ${FRONTIER_LANE_MAP[item.lane].shortLabel} signal has been strengthening.`;
   if (item.novelty > 0.72) return 'Exploration slot: adjacent enough to matter, different enough to expand the map.';
