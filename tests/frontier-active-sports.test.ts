@@ -108,17 +108,18 @@ test('professional sports RSS becomes a provenance-rich active sport signal', ()
   const climbing = sport('rock-climbing');
   const xml = `<?xml version="1.0"?><rss><channel><item>
     <title>Climber wins a dramatic bouldering final</title>
-    <link>https://example.com/climbing-final</link>
+    <link>https://news.google.com/rss/articles/example</link>
     <description><![CDATA[A close competition with a decisive final problem.]]></description>
     <pubDate>Thu, 20 Aug 2026 10:00:00 GMT</pubDate>
-    <source>Example Sports</source>
+    <source url="https://www.ifsc-climbing.org/">IFSC</source>
   </item></channel></rss>`;
   const parsed = parseActiveSportNewsRss(xml, climbing);
   assert.equal(parsed.length, 1);
   assert.equal(parsed[0].lane, 'sports');
   assert.ok(parsed[0].tags.includes('rock climbing'));
   assert.ok(parsed[0].tags.includes('professional news'));
-  assert.equal(parsed[0].sourceLabel, 'Example Sports');
+  assert.equal(parsed[0].sourceLabel, 'IFSC');
+  assert.equal(parsed[0].source, 'ifsc-climbing.org');
 });
 
 test('top community video posts become playable active sport clips', () => {
