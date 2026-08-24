@@ -179,6 +179,10 @@ function isSoccerSignal(item: FrontierItem): boolean {
   return ['premier_league', 'world_soccer'].includes(item.lane);
 }
 
+function isScreenOrbitSignal(item: FrontierItem): boolean {
+  return item.lane === 'screen' || matchesPersonalTasteTopic(item, ['screen-orbit']);
+}
+
 function isWatchableTasteSignal(item: FrontierItem): boolean {
   return item.tags.includes('watchable') && personalTasteRankingPrior(item) > 0.06;
 }
@@ -221,6 +225,10 @@ export function selectDailyRun(
   push(takeFirst(ranked, used, (item) => isActiveSportSignal(item)));
   push(takeFirst(ranked, used, (item) => isSoccerSignal(item)));
   push(takeFirst(ranked, used, (item) => item.lane === 'gaming'));
+  // Screen Orbit is semantic rather than poster-driven. A current release,
+  // renewal, trailer, creator update, or adjacent discovery earns the slot from
+  // title/story taste and behavior, never because it happens to carry art.
+  push(takeFirst(ranked, used, (item) => isScreenOrbitSignal(item)));
   // Watchable is semantic. A thumbnail or media failure can never decide which
   // recommendation wins, and external social clips can satisfy this slot too.
   push(takeFirst(ranked, used, (item) => isWatchableTasteSignal(item)));
@@ -292,7 +300,7 @@ export function buildDailyQuests(history: Record<string, FrontierHistoryEntry>, 
 
   return [
     { id: 'brainfood', label: 'Brainfood', description: 'Resolve one paper, codebase, method, or science signal.', current: Number(hasBrainfood), target: 1, complete: hasBrainfood, xp: 14 },
-    { id: 'clubhouse', label: 'Clubhouse', description: 'Catch one team, active sport, game, music, or culture signal.', current: Number(hasAfterHours), target: 1, complete: hasAfterHours, xp: 12 },
+    { id: 'clubhouse', label: 'Clubhouse', description: 'Catch one team, active sport, game, Screen Orbit, music, or culture signal.', current: Number(hasAfterHours), target: 1, complete: hasAfterHours, xp: 12 },
     { id: 'second-wind', label: 'Second Wind', description: 'Resolve something the radar brought back for another look.', current: Math.min(1, secondChances), target: 1, complete: secondChances >= 1, xp: 12 },
     { id: 'curiosity', label: 'Useful Surprise', description: 'Mark one discovery as genuinely surprising.', current: Math.min(1, surprises), target: 1, complete: surprises >= 1, xp: 12 },
   ];
