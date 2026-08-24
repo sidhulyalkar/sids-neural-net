@@ -25,6 +25,17 @@
   let lastSapChordAt = -Infinity;
   let pendingActivation = null;
 
+  // Runtime feel telemetry is deliberately tiny and allocation-free in the RAF
+  // path. It tells browser evidence whether a bad-feeling run came from physics,
+  // input gating, rendering cost, or repeated simulation catch-up.
+  let frameCount = 0;
+  let frameMsEwma = 16.67;
+  let maxFrameMs = 0;
+  let longFrameCount = 0;
+  let catchupFrameCount = 0;
+  let accumulatorDropCount = 0;
+  let maxStepsInFrame = 0;
+
   async function copyTelemetry() {
     const text = JSON.stringify(S.summarizeTelemetry(), null, 2);
     try {
@@ -233,8 +244,15 @@
   });
 
   function frame(now) {
-    const frameDt = Math.min(0.05, Math.max(0, (now - state.lastTime) / 1000));
+    const rawFrameMs = Math.max(0, now - state.lastTime);
+    const frameDt = Math.min(0.05, rawFrameMs / 1000);
     state.lastTime = now;
+
+    frameCount += 1;
+    frameMsEwma += (Math.min(120, rawFrameMs || 16.67) - frameMsEwma) * 0.06;
+    maxFrameMs = Math.max(maxFrameMs, rawFrameMs);
+    if (rawFrameMs > 25) longFrameCount += 1;
+
     state.accumulator += frameDt;
     let steps = 0;
     while (state.accumulator >= state.FIXED_DT && steps < state.MAX_STEPS) {
@@ -242,9 +260,29 @@
       state.accumulator -= state.FIXED_DT;
       steps += 1;
     }
-    if (steps === state.MAX_STEPS) state.accumulator = 0;
+    maxStepsInFrame = Math.max(maxStepsInFrame, steps);
+    if (steps > 2) catchupFrameCount += 1;
+    if (steps === state.MAX_STEPS) {
+      state.accumulator = 0;
+      accumulatorDropCount += 1;
+    }
     S.render(state.accumulator / state.FIXED_DT, now);
     requestAnimationFrame(frame);
+  }
+
+  function framePacingState() {
+    return {
+      frames: frameCount,
+      frameMs: Number(frameMsEwma.toFixed(2)),
+      estimatedFps: Number((1000 / Math.max(1, frameMsEwma)).toFixed(1)),
+      maxFrameMs: Number(maxFrameMs.toFixed(2)),
+      longFrameCount,
+      longFrameRatio: frameCount ? Number((longFrameCount / frameCount).toFixed(4)) : 0,
+      catchupFrameCount,
+      catchupFrameRatio: frameCount ? Number((catchupFrameCount / frameCount).toFixed(4)) : 0,
+      accumulatorDropCount,
+      maxStepsInFrame,
+    };
   }
 
   S.resetRun(state.runSeed);
@@ -278,8 +316,11 @@
         lastSapChordAgoMs: Number.isFinite(lastSapChordAt) ? Math.max(0, performance.now() - lastSapChordAt) : null,
       },
       flowAssist: S.flowAssist?.getState() || null,
+      controlAuthority: S.controlAuthority?.getState?.() || null,
       sapStick: S.sapStick?.getState?.() || null,
       renderer: S.canopyRenderer || null,
+      renderPerformance: S.renderPerformance?.getState?.() || null,
+      framePacing: framePacingState(),
       saves: player.saves,
       branchCount: state.branches.length,
       knotCount: state.knots.length,
