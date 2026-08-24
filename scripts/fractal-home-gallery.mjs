@@ -56,7 +56,7 @@ for (const testCase of cases) {
     if (message.type() === 'error') consoleErrors.push(message.text());
   });
 
-  const url = `${baseUrl}/?morph=${encodeURIComponent(testCase.morph)}&seed=gallery-v9-fermat`;
+  const url = `${baseUrl}/?morph=${encodeURIComponent(testCase.morph)}&seed=gallery-v10-core-nucleus`;
   await page.goto(url, { waitUntil: 'networkidle' });
   const root = page.locator('[data-fractal-morphology]');
   await root.waitFor({ state: 'visible' });
@@ -97,10 +97,11 @@ for (const testCase of cases) {
   if (pageErrors.length) failures.push(`${testCase.morph}: page errors: ${pageErrors.join(' | ')}`);
   if (consoleErrors.length) failures.push(`${testCase.morph}: console errors: ${consoleErrors.join(' | ')}`);
 
-  const core = page.locator('a[href="/about"][data-core-placement="quiet-pocket-v1"]');
+  const corePlacement = testCase.morph === 'echo-nest' ? 'central-nucleus-v2' : 'quiet-pocket-v1';
+  const core = page.locator(`a[href="/about"][data-core-placement="${corePlacement}"]`);
   await core.waitFor({ state: 'visible' });
   const coreBox = await core.boundingBox();
-  if (!coreBox) failures.push(`${testCase.morph}: CORE quiet-pocket placement missing`);
+  if (!coreBox) failures.push(`${testCase.morph}: CORE ${corePlacement} placement missing`);
 
   const minX = boxes.length ? Math.min(...boxes.map((box) => box.x)) : 0;
   const maxX = boxes.length ? Math.max(...boxes.map((box) => box.x + box.width)) : 0;
@@ -110,6 +111,8 @@ for (const testCase of cases) {
   }
 
   let echoNestLayout = null;
+  let coreRouting = null;
+  let coreAnchorError = null;
   if (testCase.morph === 'echo-nest') {
     const experience = page.locator('[data-fractal-experience="v3"]');
     await experience.waitFor({ state: 'visible' });
@@ -119,6 +122,25 @@ for (const testCase of cases) {
     echoNestLayout = await experience.getAttribute('data-echo-nest-layout');
     if (echoNestLayout !== 'fermat-spiral-v1') {
       failures.push(`${testCase.morph}: expected Fermat spiral layout, got ${echoNestLayout}`);
+    }
+
+    const nucleus = page.locator('[data-fractal-core-nucleus="v2"]');
+    await nucleus.waitFor({ state: 'visible' });
+    await page.waitForFunction(
+      () => document.querySelector('[data-fractal-morphology]')?.getAttribute('data-core-routing') === 'central-nucleus-v2'
+    );
+    coreRouting = await root.getAttribute('data-core-routing');
+    const anchorX = Number(await root.getAttribute('data-core-anchor-x'));
+    const anchorY = Number(await root.getAttribute('data-core-anchor-y'));
+    if (coreBox && Number.isFinite(anchorX) && Number.isFinite(anchorY)) {
+      const coreCenterX = coreBox.x + coreBox.width * 0.5;
+      const coreCenterY = coreBox.y + coreBox.height * 0.5;
+      coreAnchorError = Math.hypot(coreCenterX - anchorX, coreCenterY - anchorY);
+      if (coreAnchorError > 2.5) {
+        failures.push(`${testCase.morph}: CORE drifted ${coreAnchorError.toFixed(2)}px from the tree nucleus`);
+      }
+    } else {
+      failures.push(`${testCase.morph}: central nucleus anchor metadata missing`);
     }
   }
 
@@ -131,6 +153,9 @@ for (const testCase of cases) {
     protectedCount,
     primaryRouting,
     echoNestLayout,
+    corePlacement,
+    coreRouting,
+    coreAnchorError,
     horizontalDestinationSpan: span,
     coreDensity: await core.getAttribute('data-core-density'),
     filename,
@@ -140,7 +165,7 @@ for (const testCase of cases) {
 
 for (const removedMorph of removedMorphologies) {
   const page = await browser.newPage({ viewport: { width: 1920, height: 1080 }, deviceScaleFactor: 1 });
-  await page.goto(`${baseUrl}/?morph=${removedMorph}&seed=removed-v9-fermat`, { waitUntil: 'networkidle' });
+  await page.goto(`${baseUrl}/?morph=${removedMorph}&seed=removed-v10-core-nucleus`, { waitUntil: 'networkidle' });
   const root = page.locator('[data-fractal-morphology]');
   await root.waitFor({ state: 'visible' });
   if (removedMorph === 'tectonic') {
@@ -210,5 +235,5 @@ if (failures.length) {
 }
 
 console.log(
-  `Captured ${cases.length} curated fractal fixtures, verified ${removedMorphologies.length} removals, and audited ${echoCases.length} themed subpages with protected angular navigation and Fermat Echo Nest organization.`
+  `Captured ${cases.length} curated fractal fixtures, verified ${removedMorphologies.length} removals, and audited ${echoCases.length} themed subpages with protected angular navigation, Fermat organization, and a central Echo Nest nucleus.`
 );
