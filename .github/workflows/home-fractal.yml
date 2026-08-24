@@ -8,9 +8,11 @@ on:
       - 'lib/home/fractalDendrite.ts'
       - 'lib/home/fractalDendriteV4.ts'
       - 'lib/home/fractalDendriteV5.ts'
+      - 'lib/home/fractalDendriteV6.ts'
       - 'tests/home-dendrite-regression.test.ts'
       - 'tests/home-dendrite-v4-regression.test.ts'
       - 'tests/home-dendrite-v5-regression.test.ts'
+      - 'tests/home-dendrite-v6-regression.test.ts'
       - 'scripts/playtest-arcade-home.mjs'
       - 'scripts/fractal-home-gallery.mjs'
       - 'tsconfig.json'
@@ -54,9 +56,11 @@ jobs:
           lib/home/fractalDendrite.ts
           lib/home/fractalDendriteV4.ts
           lib/home/fractalDendriteV5.ts
+          lib/home/fractalDendriteV6.ts
           tests/home-dendrite-regression.test.ts
           tests/home-dendrite-v4-regression.test.ts
           tests/home-dendrite-v5-regression.test.ts
+          tests/home-dendrite-v6-regression.test.ts
           scripts/playtest-arcade-home.mjs
           scripts/fractal-home-gallery.mjs
           --no-warn-ignored
@@ -68,6 +72,7 @@ jobs:
           tests/home-dendrite-regression.test.ts
           tests/home-dendrite-v4-regression.test.ts
           tests/home-dendrite-v5-regression.test.ts
+          tests/home-dendrite-v6-regression.test.ts
 
       - name: Build production site
         env:
