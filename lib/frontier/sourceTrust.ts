@@ -65,8 +65,9 @@ const HOST_RULES: readonly HostRule[] = [
   },
   {
     domains: [
-      'nasa.gov', 'nih.gov', 'cdc.gov', 'noaa.gov', 'nist.gov', 'nsf.gov', 'data.gov',
-      'who.int', 'esa.int', 'cern.ch', 'gov.uk',
+      'nasa.gov', 'nih.gov', 'cdc.gov', 'fda.gov', 'noaa.gov', 'nist.gov', 'nsf.gov', 'data.gov',
+      'who.int', 'esa.int', 'cern.ch', 'gov.uk', 'alleninstitute.org', 'brain-map.org',
+      'janelia.org', 'dandiarchive.org',
     ],
     tier: 'institutional',
     score: 0.94,
@@ -136,6 +137,21 @@ const HOST_RULES: readonly HostRule[] = [
   },
   {
     domains: [
+      'pro-football-reference.com', 'basketball-reference.com', 'fbref.com', 'statsbomb.com',
+      'pff.com', 'fantasypros.com', 'rotowire.com', 'establishtherun.com', '4for4.com',
+    ],
+    tier: 'established',
+    score: 0.76,
+    reason: 'established sports statistics or specialist analysis source',
+  },
+  {
+    domains: ['nflverse.nflverse.com', 'nflfastr.com', 'rbsdm.com'],
+    tier: 'platform',
+    score: 0.78,
+    reason: 'specialized sports data or open analytics project',
+  },
+  {
+    domains: [
       'pinkbike.com', 'cyclingnews.com', 'climbing.com', 'gripped.com', 'powder.com',
       'outsideonline.com', 'redbull.com',
     ],
@@ -160,6 +176,15 @@ const HOST_RULES: readonly HostRule[] = [
     tier: 'established',
     score: 0.78,
     reason: 'established music publication or catalog',
+  },
+  {
+    domains: [
+      'napari.org', 'plotly.com', 'observablehq.com', 'd3js.org', 'deck.gl', 'threejs.org',
+      'neuroglancer-demo.appspot.com',
+    ],
+    tier: 'platform',
+    score: 0.8,
+    reason: 'first-party scientific visualization or developer-tool project',
   },
   {
     domains: ['github.com', 'huggingface.co', 'paperswithcode.com', 'semanticscholar.org'],
@@ -226,7 +251,15 @@ function hostFromValue(value: string): string {
 
 function isPrivateOrLocalHost(host: string): boolean {
   if (!host || host === 'localhost' || host.endsWith('.localhost') || host.endsWith('.local')) return true;
-  if (host === '::1' || host.startsWith('fc') || host.startsWith('fd') || host.startsWith('fe80:')) return true;
+
+  // Only interpret fc/fd/fe80 prefixes as private/link-local when this is
+  // actually an IPv6 literal. Ordinary DNS names such as fda.gov must never be
+  // mistaken for IPv6 merely because they begin with "fd".
+  if (host.includes(':')) {
+    if (host === '::' || host === '::1' || host.startsWith('fc') || host.startsWith('fd') || host.startsWith('fe80:')) return true;
+    if (host.startsWith('::ffff:')) return isPrivateOrLocalHost(host.slice('::ffff:'.length));
+    return false;
+  }
 
   const octets = host.split('.').map((value) => Number(value));
   if (octets.length !== 4 || octets.some((value) => !Number.isInteger(value) || value < 0 || value > 255)) return false;
