@@ -135,7 +135,7 @@ for (const testCase of cases) {
     if (Number(opacity) > 0.001) failures.push(`${testCase.morph}: legacy renderer opacity remained ${opacity}`);
   }
 
-  const core = page.locator('a[href="/about"][data-core-placement="fixed-center-circle-v1"][data-core-shape="circle"]');
+  const core = page.locator('a[href="/about"][data-core-proxy="v13"]');
   await core.waitFor({ state: 'visible' });
   const coreMask = page.locator('[data-core-clearance-mask="circle-edge-v13"]');
   await coreMask.waitFor({ state: 'visible' });
