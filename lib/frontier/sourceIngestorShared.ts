@@ -1,5 +1,5 @@
 import { frontierRssMediaForUrl, frontierRssSourceMedia } from './media/rssSourceMedia';
-import { FrontierSourceIngestor, parseRss } from './sourceIngestor';
+import { dedupeIngestedItems, FrontierSourceIngestor, parseRss } from './sourceIngestor';
 import type { FrontierFeedResponse, FrontierItem, FrontierSourceStatus } from './types';
 
 // Module lifetime is the correct scope for server-side source pacing. Creating a
@@ -85,9 +85,12 @@ export async function getSharedMultiSourceFrontierFeed(focusTopics: string[] = [
     visualRssFeed(limit),
   ]);
 
+  // Splitting RSS into its own media-enrichment fetch must not weaken the old
+  // ingestMany contract: duplicates are still removed across every source by
+  // canonical URL and normalized title before the final score sort.
   return {
     generatedAt: new Date().toISOString(),
-    items: [...research.items, ...rss.items]
+    items: dedupeIngestedItems([...research.items, ...rss.items])
       .sort((left, right) => right.baseScore - left.baseScore)
       .slice(0, 120),
     sources: [...research.sources, ...rss.sources],
