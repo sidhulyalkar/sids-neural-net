@@ -3,16 +3,16 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no" />
-  <meta name="theme-color" content="#07120d" />
-  <title>Sylvaria: Sequoia v0.3.0</title>
+  <meta name="theme-color" content="#3b2019" />
+  <title>Sylvaria: Sequoia v0.4.0</title>
   <style>
-    *{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#020604;color:#eaffef;font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace}body{display:grid;place-items:center;overscroll-behavior:none}#wrap{position:relative;width:min(100vw,calc(100vh * 1.5));aspect-ratio:3/2;background:#020604;overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none}#c{display:block;width:100%;height:100%;outline:0;background:#020604;image-rendering:auto}#hint{position:absolute;right:10px;bottom:7px;font-size:8px;letter-spacing:.08em;text-transform:uppercase;color:rgba(234,255,239,.22);pointer-events:none;transition:opacity .25s}#wrap[data-playing="true"] #hint{opacity:.08}@media(pointer:coarse){#hint{display:none}}
+    *{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#10241f;color:#fff3cf;font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace}body{display:grid;place-items:center;overscroll-behavior:none}#wrap{position:relative;width:min(100vw,calc(100vh * 1.5));aspect-ratio:3/2;background:#10241f;overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none}#c{display:block;width:100%;height:100%;outline:0;background:#10241f;image-rendering:auto}#hint{position:absolute;right:10px;bottom:7px;font-size:8px;letter-spacing:.08em;text-transform:uppercase;color:rgba(255,244,216,.24);pointer-events:none;transition:opacity .25s}#wrap[data-playing="true"] #hint{opacity:.08}@media(pointer:coarse){#hint{display:none}}
   </style>
 </head>
 <body>
   <div id="wrap" data-playing="false">
     <canvas id="c" width="960" height="640" tabindex="0" aria-label="Sylvaria: Sequoia game canvas"></canvas>
-    <div id="hint">Run for height · Space/W/↑ Air Kick · hold into bark to cling, then Jump to Bark Kick · Shift/E Sap · Grove Chambers widen the route</div>
+    <div id="hint">Run for height · Space/W/↑ Air Kick · hold Shift + tap Space = Sap Stick · sparse branches + amber anchor gaps · hold into bark then Jump = Bark Kick</div>
   </div>
   <script src="../game-network-bridge.js"></script>
   <script src="./00-core.js"></script>
@@ -21,9 +21,8 @@
   <script src="./02-gameplay.js"></script>
   <script src="./02-jump-contract.js"></script>
   <script src="./02-flow-assist.js"></script>
-  <script src="./03-render.js"></script>
-  <script src="./03-stride-hud.js"></script>
-  <script src="./03-render-skill-pass.js"></script>
+  <script src="./02-sap-stick.js"></script>
+  <script src="./03-render-canopy.js"></script>
   <script src="./04-input.js"></script>
 </body>
 </html>
