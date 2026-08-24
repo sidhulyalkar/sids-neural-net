@@ -1,5 +1,7 @@
 'use client';
 
+import Link from 'next/link';
+import type { CSSProperties } from 'react';
 import { useEffect, useRef } from 'react';
 import {
   buildAdaptiveFractalTree,
@@ -22,6 +24,12 @@ const DESTINATION_IDS = [
 ] as const;
 
 const RETIRED = new Set(['aurora', 'mycelial', 'tectonic']);
+const CORE_TEXT_STYLE: CSSProperties = {
+  fontFamily:
+    '"Roboto Mono", "IBM Plex Mono", "Berkeley Mono", "Aptos Mono", "Cascadia Mono", "SFMono-Regular", Consolas, "Liberation Mono", var(--font-geist-mono), monospace',
+  fontFeatureSettings: '"zero" 1, "ss02" 1, "calt" 1',
+  textRendering: 'geometricPrecision',
+};
 
 type Rect = {
   id: string;
@@ -34,6 +42,15 @@ type Rect = {
 type ParentPath = {
   depth: number;
   points: Vec2[];
+};
+
+type SavedCoreAttributes = {
+  placement: string | null;
+  shape: string | null;
+  clearance: string | null;
+  gestureTarget: string | null;
+  opacity: string;
+  pointerEvents: string;
 };
 
 function distance(a: Vec2, b: Vec2): number {
@@ -101,14 +118,14 @@ function orientFromCore(points: Vec2[], center: Vec2): Vec2[] {
 function trimPrimaryToCoreEdge(points: Vec2[], center: Vec2, radius: number): Vec2[] {
   if (points.length < 2) return points;
   let outsideIndex = 1;
-  while (outsideIndex < points.length && distance(points[outsideIndex], center) <= radius + 0.5) outsideIndex += 1;
+  while (outsideIndex < points.length && distance(points[outsideIndex], center) <= radius + 0.25) outsideIndex += 1;
   if (outsideIndex >= points.length) return [];
 
   const outside = points[outsideIndex];
   const direction = normalize(outside.x - center.x, outside.y - center.y);
   const edge = {
-    x: center.x + direction.x * (radius + 0.35),
-    y: center.y + direction.y * (radius + 0.35),
+    x: center.x + direction.x * (radius + 0.2),
+    y: center.y + direction.y * (radius + 0.2),
   };
   return [edge, ...points.slice(outsideIndex)];
 }
@@ -213,18 +230,26 @@ function measuredDestinationRects(rootRect: DOMRect): Map<string, Rect> {
   return result;
 }
 
+function setOrRemoveAttribute(element: HTMLElement, name: string, value: string | null) {
+  if (value === null) element.removeAttribute(name);
+  else element.setAttribute(name, value);
+}
+
 export function FractalCrispTopologyV13() {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
   const coreMaskRef = useRef<HTMLDivElement>(null);
+  const coreProxyRef = useRef<HTMLAnchorElement>(null);
 
   useEffect(() => {
-    const canvas = canvasRef.current;
     const coreMask = coreMaskRef.current;
-    if (!canvas || !coreMask) return;
+    const coreProxy = coreProxyRef.current;
+    if (!coreMask || !coreProxy) return;
 
     let animationFrame = 0;
+    let crispCanvas: HTMLCanvasElement | null = null;
     let hiddenBaseCanvas: HTMLCanvasElement | null = null;
     let previousBaseOpacity = '';
+    let hiddenOriginalCore: HTMLAnchorElement | null = null;
+    let savedCoreAttributes: SavedCoreAttributes | null = null;
 
     const render = () => {
       animationFrame = 0;
@@ -247,36 +272,83 @@ export function FractalCrispTopologyV13() {
         baseCanvas.dataset.supersededByCrispTopology = 'v13';
       }
 
+      if (!crispCanvas || crispCanvas.parentElement !== root) {
+        crispCanvas?.remove();
+        crispCanvas = document.createElement('canvas');
+        crispCanvas.setAttribute('aria-hidden', 'true');
+        crispCanvas.dataset.fractalCrispTopology = 'v13';
+        crispCanvas.style.position = 'absolute';
+        crispCanvas.style.inset = '0';
+        crispCanvas.style.zIndex = '6';
+        crispCanvas.style.pointerEvents = 'none';
+        root.appendChild(crispCanvas);
+      }
+
+      const originalCore = root.querySelector<HTMLAnchorElement>('a[href="/about"][data-core-shape="circle"]');
+      if (originalCore && originalCore !== hiddenOriginalCore) {
+        if (hiddenOriginalCore && savedCoreAttributes) {
+          hiddenOriginalCore.style.opacity = savedCoreAttributes.opacity;
+          hiddenOriginalCore.style.pointerEvents = savedCoreAttributes.pointerEvents;
+          setOrRemoveAttribute(hiddenOriginalCore, 'data-core-placement', savedCoreAttributes.placement);
+          setOrRemoveAttribute(hiddenOriginalCore, 'data-core-shape', savedCoreAttributes.shape);
+          setOrRemoveAttribute(hiddenOriginalCore, 'data-navigation-clearance', savedCoreAttributes.clearance);
+          setOrRemoveAttribute(hiddenOriginalCore, 'data-gesture-target', savedCoreAttributes.gestureTarget);
+        }
+        hiddenOriginalCore = originalCore;
+        savedCoreAttributes = {
+          placement: originalCore.getAttribute('data-core-placement'),
+          shape: originalCore.getAttribute('data-core-shape'),
+          clearance: originalCore.getAttribute('data-navigation-clearance'),
+          gestureTarget: originalCore.getAttribute('data-gesture-target'),
+          opacity: originalCore.style.opacity,
+          pointerEvents: originalCore.style.pointerEvents,
+        };
+        originalCore.style.opacity = '0';
+        originalCore.style.pointerEvents = 'none';
+        originalCore.removeAttribute('data-core-placement');
+        originalCore.removeAttribute('data-core-shape');
+        originalCore.removeAttribute('data-navigation-clearance');
+        originalCore.removeAttribute('data-gesture-target');
+        originalCore.dataset.supersededByCoreProxy = 'v13';
+      }
+
+      const coreRect = hiddenOriginalCore?.getBoundingClientRect();
+      const coreCenter = coreRect
+        ? {
+            x: coreRect.left - rootRect.left + coreRect.width * 0.5,
+            y: coreRect.top - rootRect.top + coreRect.height * 0.5,
+          }
+        : tree.center;
+      const coreDiameter = coreRect ? Math.min(coreRect.width, coreRect.height) : tree.compact ? 46 : 54;
+      const coreRadius = coreDiameter * 0.5;
+
+      coreMask.style.display = 'block';
+      coreMask.style.left = `${rootRect.left + coreCenter.x}px`;
+      coreMask.style.top = `${rootRect.top + coreCenter.y}px`;
+      coreMask.style.width = `${coreDiameter}px`;
+      coreMask.style.height = `${coreDiameter}px`;
+
+      coreProxy.style.opacity = '1';
+      coreProxy.style.left = `${rootRect.left + coreCenter.x}px`;
+      coreProxy.style.top = `${rootRect.top + coreCenter.y}px`;
+      coreProxy.style.width = `${coreDiameter}px`;
+      coreProxy.style.height = `${coreDiameter}px`;
+
       const dpr = Math.min(window.devicePixelRatio || 1, VISUAL_LIMITS.dprCap);
-      canvas.width = Math.max(1, Math.round(width * dpr));
-      canvas.height = Math.max(1, Math.round(height * dpr));
-      canvas.style.width = `${width}px`;
-      canvas.style.height = `${height}px`;
-      const ctx = canvas.getContext('2d');
+      crispCanvas.width = Math.max(1, Math.round(width * dpr));
+      crispCanvas.height = Math.max(1, Math.round(height * dpr));
+      crispCanvas.style.width = `${width}px`;
+      crispCanvas.style.height = `${height}px`;
+      const ctx = crispCanvas.getContext('2d');
       if (!ctx) return;
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       ctx.clearRect(0, 0, width, height);
       drawBackground(ctx, tree, width, height);
 
       const destinationRects = measuredDestinationRects(rootRect);
-      const coreLink = document.querySelector<HTMLElement>('[data-core-shape="circle"]');
-      const coreRect = coreLink?.getBoundingClientRect();
-      const coreCenter = coreRect
-        ? { x: coreRect.left - rootRect.left + coreRect.width * 0.5, y: coreRect.top - rootRect.top + coreRect.height * 0.5 }
-        : tree.center;
-      const coreRadius = coreRect ? Math.min(coreRect.width, coreRect.height) * 0.5 : tree.compact ? 23 : 27;
+      for (const path of tree.paths.filter((candidate) => candidate.renderMode === 'stencil')) drawStencil(ctx, path);
 
-      coreMask.style.display = 'block';
-      coreMask.style.left = `${rootRect.left + coreCenter.x}px`;
-      coreMask.style.top = `${rootRect.top + coreCenter.y}px`;
-      coreMask.style.width = `${coreRadius * 2 + 2}px`;
-      coreMask.style.height = `${coreRadius * 2 + 2}px`;
-
-      const stencils = tree.paths.filter((path) => path.renderMode === 'stencil');
-      for (const path of stencils) drawStencil(ctx, path);
-
-      const pixels = tree.paths.filter((path) => path.renderMode === 'pixel');
-      for (const path of pixels) {
+      for (const path of tree.paths.filter((candidate) => candidate.renderMode === 'pixel')) {
         const point = path.points[0];
         if (!point) continue;
         const size = Math.max(1, path.width * 0.9);
@@ -300,7 +372,6 @@ export function FractalCrispTopologyV13() {
           const ownerParents = parentsByOwner.get(path.ownerId) ?? [];
           ownerParents.push({ depth: 0, points: oriented });
           parentsByOwner.set(path.ownerId, ownerParents);
-
           points = trimPrimaryToCoreEdge(oriented, coreCenter, coreRadius);
           points = appendExactLabelTerminal(points, destinationRects.get(path.ownerId));
         } else if (path.ownerId !== '__ambient__') {
@@ -364,27 +435,46 @@ export function FractalCrispTopologyV13() {
       observer.disconnect();
       window.removeEventListener('resize', schedule);
       window.visualViewport?.removeEventListener('resize', schedule);
+      crispCanvas?.remove();
       if (hiddenBaseCanvas) {
         hiddenBaseCanvas.style.opacity = previousBaseOpacity;
         delete hiddenBaseCanvas.dataset.supersededByCrispTopology;
+      }
+      if (hiddenOriginalCore && savedCoreAttributes) {
+        hiddenOriginalCore.style.opacity = savedCoreAttributes.opacity;
+        hiddenOriginalCore.style.pointerEvents = savedCoreAttributes.pointerEvents;
+        setOrRemoveAttribute(hiddenOriginalCore, 'data-core-placement', savedCoreAttributes.placement);
+        setOrRemoveAttribute(hiddenOriginalCore, 'data-core-shape', savedCoreAttributes.shape);
+        setOrRemoveAttribute(hiddenOriginalCore, 'data-navigation-clearance', savedCoreAttributes.clearance);
+        setOrRemoveAttribute(hiddenOriginalCore, 'data-gesture-target', savedCoreAttributes.gestureTarget);
+        delete hiddenOriginalCore.dataset.supersededByCoreProxy;
       }
     };
   }, []);
 
   return (
     <>
-      <canvas
-        ref={canvasRef}
-        className="pointer-events-none fixed inset-0 z-[6]"
-        aria-hidden="true"
-        data-fractal-crisp-topology="v13"
-      />
       <div
         ref={coreMaskRef}
         className="pointer-events-none fixed z-[19] hidden -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#010204]"
         aria-hidden="true"
         data-core-clearance-mask="circle-edge-v13"
       />
+      <Link
+        ref={coreProxyRef}
+        href="/about"
+        data-navigation-clearance="protected"
+        data-gesture-target
+        data-core-placement="fixed-center-circle-v1"
+        data-core-shape="circle"
+        data-core-anchor="tree-center"
+        data-core-proxy="v13"
+        aria-label="Open core / about"
+        className="fixed z-[30] flex -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-white/28 bg-[#02080c] p-0 text-[9px] uppercase tracking-[0.14em] text-white/88 opacity-0 shadow-[0_0_0_5px_rgba(1,2,4,0.9),0_0_18px_rgba(95,222,238,0.055)] transition-all hover:border-cyan-300/42 hover:bg-[#041016] hover:text-cyan-100 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyan-300/60 sm:text-[10px] lg:text-[11px]"
+        style={CORE_TEXT_STYLE}
+      >
+        Core
+      </Link>
     </>
   );
 }
