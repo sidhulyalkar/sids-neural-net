@@ -31,6 +31,11 @@ const DISCOVERY_DESTINATION_KINDS = new Set<FrontierSourceKind>([
   'gdelt',
 ]);
 
+const SYNDICATION_HOSTS = [
+  'news.google.com',
+  'news.yahoo.com',
+] as const;
+
 const OPAQUE_REDIRECT_DOMAINS = [
   'bit.ly',
   'tinyurl.com',
@@ -51,9 +56,11 @@ const HOST_RULES: readonly HostRule[] = [
     domains: [
       'arxiv.org', 'export.arxiv.org', 'openreview.net', 'biorxiv.org', 'medrxiv.org',
       'pubmed.ncbi.nlm.nih.gov', 'ncbi.nlm.nih.gov', 'clinicaltrials.gov', 'doi.org',
+      'proceedings.neurips.cc', 'icml.cc', 'jmlr.org', 'aaai.org', 'openaccess.thecvf.com',
+      'osf.io', 'zenodo.org',
     ],
     tier: 'primary',
-    score: 0.93,
+    score: 0.9,
     reason: 'direct research record or primary scholarly index',
   },
   {
@@ -100,20 +107,23 @@ const HOST_RULES: readonly HostRule[] = [
     domains: [
       'openai.com', 'anthropic.com', 'deepmind.google', 'research.google', 'ai.google',
       'microsoft.com', 'research.microsoft.com', 'meta.com', 'ai.meta.com', 'apple.com',
-      'nvidia.com', 'github.blog',
+      'nvidia.com', 'github.blog', 'aws.amazon.com', 'cloudflare.com', 'mozilla.org',
+      'pytorch.org', 'tensorflow.org', 'kaggle.com', 'vercel.com', 'nextjs.org',
     ],
     tier: 'primary',
     score: 0.85,
-    reason: 'first-party organization or product source',
+    reason: 'first-party organization, project, or product source',
   },
   {
     domains: [
       'premierleague.com', 'uefa.com', 'fifa.com', 'nfl.com', 'nba.com', 'patriots.com',
-      'warriors.com', 'chelseafc.com', 'mancity.com',
+      'warriors.com', 'chelseafc.com', 'mancity.com', 'ifsc-climbing.org', 'uci.org',
+      'olympics.com', 'crankworx.com', 'fis-ski.com', 'worldskate.org',
+      'usskiandsnowboard.org',
     ],
     tier: 'primary',
     score: 0.88,
-    reason: 'official league, team, or governing-body source',
+    reason: 'official league, team, federation, or governing-body source',
   },
   {
     domains: [
@@ -123,6 +133,15 @@ const HOST_RULES: readonly HostRule[] = [
     tier: 'established',
     score: 0.82,
     reason: 'established sports newsroom',
+  },
+  {
+    domains: [
+      'pinkbike.com', 'cyclingnews.com', 'climbing.com', 'gripped.com', 'powder.com',
+      'outsideonline.com', 'redbull.com',
+    ],
+    tier: 'established',
+    score: 0.76,
+    reason: 'established specialist active-sports publication',
   },
   {
     domains: [
@@ -143,7 +162,7 @@ const HOST_RULES: readonly HostRule[] = [
     reason: 'established music publication or catalog',
   },
   {
-    domains: ['github.com', 'huggingface.co', 'paperswithcode.com'],
+    domains: ['github.com', 'huggingface.co', 'paperswithcode.com', 'semanticscholar.org'],
     tier: 'platform',
     score: 0.78,
     reason: 'direct project or research platform',
@@ -169,11 +188,11 @@ const HOST_RULES: readonly HostRule[] = [
 ];
 
 const DIRECT_KIND_FLOORS: Partial<Record<FrontierSourceKind, FrontierSourceTrust>> = {
-  arxiv: { host: '', tier: 'primary', score: 0.93, reason: 'direct arXiv adapter' },
-  biorxiv: { host: '', tier: 'primary', score: 0.88, reason: 'direct bioRxiv adapter' },
-  medrxiv: { host: '', tier: 'primary', score: 0.86, reason: 'direct medRxiv adapter' },
-  openreview: { host: '', tier: 'primary', score: 0.87, reason: 'direct OpenReview adapter' },
-  openalex: { host: '', tier: 'established', score: 0.86, reason: 'OpenAlex scholarly metadata record' },
+  arxiv: { host: '', tier: 'primary', score: 0.9, reason: 'direct arXiv adapter' },
+  biorxiv: { host: '', tier: 'primary', score: 0.86, reason: 'direct bioRxiv adapter' },
+  medrxiv: { host: '', tier: 'primary', score: 0.84, reason: 'direct medRxiv adapter' },
+  openreview: { host: '', tier: 'primary', score: 0.86, reason: 'direct OpenReview adapter' },
+  openalex: { host: '', tier: 'established', score: 0.78, reason: 'OpenAlex scholarly metadata record' },
   paperswithcode: { host: '', tier: 'platform', score: 0.82, reason: 'Papers with Code research index' },
   huggingface: { host: '', tier: 'platform', score: 0.8, reason: 'Hugging Face research platform' },
   github: { host: '', tier: 'platform', score: 0.78, reason: 'direct GitHub repository adapter' },
@@ -250,8 +269,25 @@ function classifyHost(host: string): FrontierSourceTrust {
   return { host, tier: 'unknown', score: 0.34, reason: 'publisher is not yet in FRONTIER source registry' };
 }
 
+export function assessFrontierHost(value: string): FrontierSourceTrust {
+  return classifyHost(hostFromValue(value));
+}
+
+function publisherHostForItem(item: FrontierItem): string {
+  const linkHost = hostFromValue(item.url);
+  const declaredHost = hostFromValue(item.source);
+  const syndicated = item.sourceKind === 'rss'
+    && SYNDICATION_HOSTS.some((domain) => hostMatches(linkHost, domain));
+
+  // Syndication URLs are transport, not provenance. Only use the publisher host
+  // when the adapter extracted it from source metadata; otherwise the item stays
+  // unknown and will be rejected rather than granting the aggregator authority.
+  if (syndicated && declaredHost && declaredHost !== linkHost) return declaredHost;
+  return linkHost || declaredHost;
+}
+
 export function assessFrontierSource(item: FrontierItem): FrontierSourceTrust {
-  const host = hostFromValue(item.url) || hostFromValue(item.source);
+  const host = publisherHostForItem(item);
   const hostTrust = classifyHost(host);
   if (hostTrust.tier === 'blocked') return hostTrust;
 
