@@ -56,7 +56,7 @@ for (const testCase of cases) {
     if (message.type() === 'error') consoleErrors.push(message.text());
   });
 
-  const url = `${baseUrl}/?morph=${encodeURIComponent(testCase.morph)}&seed=gallery-v8-final`;
+  const url = `${baseUrl}/?morph=${encodeURIComponent(testCase.morph)}&seed=gallery-v9-fermat`;
   await page.goto(url, { waitUntil: 'networkidle' });
   const root = page.locator('[data-fractal-morphology]');
   await root.waitFor({ state: 'visible' });
@@ -109,9 +109,17 @@ for (const testCase of cases) {
     failures.push(`${testCase.morph}: horizontal destination span only ${Math.round(span)}px`);
   }
 
+  let echoNestLayout = null;
   if (testCase.morph === 'echo-nest') {
     const experience = page.locator('[data-fractal-experience="v3"]');
     await experience.waitFor({ state: 'visible' });
+    await page.waitForFunction(
+      () => document.querySelector('[data-fractal-experience="v3"]')?.getAttribute('data-echo-nest-layout') === 'fermat-spiral-v1'
+    );
+    echoNestLayout = await experience.getAttribute('data-echo-nest-layout');
+    if (echoNestLayout !== 'fermat-spiral-v1') {
+      failures.push(`${testCase.morph}: expected Fermat spiral layout, got ${echoNestLayout}`);
+    }
   }
 
   const filename = `${testCase.morph}-${testCase.width}x${testCase.height}.png`;
@@ -122,6 +130,7 @@ for (const testCase of cases) {
     linkCount,
     protectedCount,
     primaryRouting,
+    echoNestLayout,
     horizontalDestinationSpan: span,
     coreDensity: await core.getAttribute('data-core-density'),
     filename,
@@ -131,7 +140,7 @@ for (const testCase of cases) {
 
 for (const removedMorph of removedMorphologies) {
   const page = await browser.newPage({ viewport: { width: 1920, height: 1080 }, deviceScaleFactor: 1 });
-  await page.goto(`${baseUrl}/?morph=${removedMorph}&seed=removed-v8-final`, { waitUntil: 'networkidle' });
+  await page.goto(`${baseUrl}/?morph=${removedMorph}&seed=removed-v9-fermat`, { waitUntil: 'networkidle' });
   const root = page.locator('[data-fractal-morphology]');
   await root.waitFor({ state: 'visible' });
   if (removedMorph === 'tectonic') {
@@ -201,5 +210,5 @@ if (failures.length) {
 }
 
 console.log(
-  `Captured ${cases.length} curated fractal fixtures, verified ${removedMorphologies.length} removals, and audited ${echoCases.length} themed subpages with protected angular navigation.`
+  `Captured ${cases.length} curated fractal fixtures, verified ${removedMorphologies.length} removals, and audited ${echoCases.length} themed subpages with protected angular navigation and Fermat Echo Nest organization.`
 );
