@@ -18,6 +18,7 @@ on:
       - 'tests/home-dendrite-v5-regression.test.ts'
       - 'tests/home-dendrite-v6-regression.test.ts'
       - 'tests/fractal-theme-echo.test.ts'
+      - 'tests/fractal-crisp-topology-v13.test.ts'
       - 'scripts/playtest-arcade-home.mjs'
       - 'scripts/fractal-home-gallery.mjs'
       - 'tsconfig.json'
@@ -61,6 +62,7 @@ jobs:
           components/neural-atlas/ThemedNeuralBackground.tsx
           components/neural-atlas-canvas/AdaptiveFractalHome.tsx
           components/neural-atlas-canvas/AdaptiveFractalStage.tsx
+          components/neural-atlas-canvas/FractalCrispTopologyV13.tsx
           components/neural-atlas-canvas/FractalSurfaceEnhancerV2.tsx
           components/neural-atlas-canvas/FractalExperienceV3.tsx
           components/portfolio/PageShell.tsx
@@ -74,6 +76,7 @@ jobs:
           tests/home-dendrite-v5-regression.test.ts
           tests/home-dendrite-v6-regression.test.ts
           tests/fractal-theme-echo.test.ts
+          tests/fractal-crisp-topology-v13.test.ts
           scripts/playtest-arcade-home.mjs
           scripts/fractal-home-gallery.mjs
           --no-warn-ignored
@@ -87,6 +90,7 @@ jobs:
           tests/home-dendrite-v5-regression.test.ts
           tests/home-dendrite-v6-regression.test.ts
           tests/fractal-theme-echo.test.ts
+          tests/fractal-crisp-topology-v13.test.ts
 
       - name: Build production site
         env:
