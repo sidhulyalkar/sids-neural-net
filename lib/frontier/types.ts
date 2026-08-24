@@ -38,6 +38,7 @@ export type FrontierSourceKind =
   | 'rss'
   | 'youtube'
   | 'football_data'
+  | 'sports_state'
   | 'reddit'
   | 'steam'
   | 'social'
@@ -102,6 +103,52 @@ export type FrontierMetric = {
   detail?: string;
 };
 
+export type FrontierSportsCompetitor = {
+  id?: string;
+  name: string;
+  shortName: string;
+  abbreviation: string;
+  score?: string;
+  record?: string;
+  homeAway?: 'home' | 'away';
+  favorite?: boolean;
+  winner?: boolean;
+};
+
+export type FrontierSportsGame = {
+  id: string;
+  date: string;
+  status: string;
+  detail?: string;
+  live: boolean;
+  completed: boolean;
+  competitors: FrontierSportsCompetitor[];
+  url?: string;
+};
+
+export type FrontierSportsStanding = {
+  rank: number;
+  team: string;
+  abbreviation: string;
+  record?: string;
+  points?: string;
+  favorite?: boolean;
+};
+
+export type FrontierSportsState =
+  | {
+      kind: 'scoreboard';
+      league: string;
+      leagueLabel: string;
+      games: FrontierSportsGame[];
+    }
+  | {
+      kind: 'standings';
+      league: string;
+      leagueLabel: string;
+      standings: FrontierSportsStanding[];
+    };
+
 export type FrontierWatchSignal = {
   intentId: string;
   label: string;
@@ -159,6 +206,9 @@ export type FrontierItem = {
   authors?: string[];
   media?: FrontierMedia;
   metrics?: FrontierMetric[];
+  sportsState?: FrontierSportsState;
+  /** Optional user-facing action hint for source-hosted media that should open externally. */
+  actionLabel?: string;
   baseScore: number;
   importance: number;
   novelty: number;
@@ -209,6 +259,8 @@ export type FrontierProfile = {
   laneAffinity: Record<FrontierLaneId, number>;
   topicAffinity: Record<string, number>;
   sourceAffinity: Record<string, number>;
+  /** Slow co-interest memory. Keys are canonical sorted tag pairs joined by ` × `. */
+  interestPairs: Record<string, number>;
   knownTopics: Record<string, number>;
   curiosity: number;
   meaningfulInteractions: number;
@@ -289,7 +341,7 @@ export type FrontierBehaviorModel = {
 };
 
 export type FrontierPersistedState = {
-  version: 3;
+  version: 4;
   profile: FrontierProfile;
   behavior: FrontierBehaviorModel;
   saved: Record<string, FrontierItem>;
