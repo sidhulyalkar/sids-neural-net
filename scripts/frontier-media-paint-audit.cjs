@@ -46,7 +46,7 @@ async function waitForStableGeometry(page) {
         return;
       }
       if (frames > 180) {
-        reject(new Error('Media-paint baseline geometry did not settle within 180 animation frames'));
+        reject(new Error('Media-paint geometry did not settle within 180 animation frames'));
         return;
       }
       requestAnimationFrame(tick);
@@ -67,6 +67,18 @@ async function waitForFixture(page) {
     document.body.style.scrollBehavior = 'auto';
     if (document.fonts?.ready) await document.fonts.ready;
   });
+  // Stable-looking rectangles are not enough: deterministic masonry marks the
+  // exact moment each compact card's measured height and virtualization
+  // intrinsic size become authoritative. Baselines must wait for that product
+  // contract rather than racing the layout-effect measurement batch.
+  await page.waitForFunction(
+    ({ selector, expected }) => {
+      const cards = Array.from(document.querySelectorAll(selector));
+      return cards.length === expected && cards.every((card) => card.getAttribute('data-frontier-geometry') === 'locked');
+    },
+    { selector: CARD, expected: EXPECTED_CARDS },
+    { polling: 'raf', timeout: 6_000 },
+  );
   return waitForStableGeometry(page);
 }
 
@@ -88,6 +100,8 @@ async function cardRect(page, id) {
       left: rect.left + window.scrollX,
       width: rect.width,
       height: rect.height,
+      geometryLocked: node.getAttribute('data-frontier-geometry') === 'locked',
+      geometryHeight: node.getAttribute('data-frontier-geometry-height'),
       mediaDeclared: Boolean(node.querySelector('[data-frontier-has-media="true"]')),
       unavailable: node.getAttribute('data-frontier-media-unavailable') === 'true',
     };
@@ -104,6 +118,8 @@ async function mediaStateSnapshot(page, id) {
       missing: false,
       unavailable: card.getAttribute('data-frontier-media-unavailable') === 'true',
       mediaDeclared: Boolean(card.querySelector('[data-frontier-has-media="true"]')),
+      geometryLocked: card.getAttribute('data-frontier-geometry') === 'locked',
+      geometryHeight: card.getAttribute('data-frontier-geometry-height'),
       surfaces: surfaces.map((surface) => ({
         state: surface.getAttribute('data-media-state'),
         nativeReady: surface.getAttribute('data-media-native-ready'),
@@ -168,19 +184,37 @@ async function normalPaintProof(browser) {
     const visits = [];
     for (const id of ids) visits.push(await visitMediaCard(page, id));
     await page.evaluate(() => window.scrollTo({ top: 0, left: 0, behavior: 'auto' }));
-    await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+    const resettledAfterFrames = await waitForStableGeometry(page);
 
     let maxHeightDelta = 0;
     let maxWidthDelta = 0;
     let maxTopDelta = 0;
+    const comparisons = [];
     for (const id of ids) {
       const prior = before.get(id);
       const after = await cardRect(page, id);
       assert.equal(after.mediaDeclared, true, `${id} lost its structural media role after viewport traversal`);
-      maxHeightDelta = Math.max(maxHeightDelta, Math.abs(after.height - prior.height));
-      maxWidthDelta = Math.max(maxWidthDelta, Math.abs(after.width - prior.width));
-      maxTopDelta = Math.max(maxTopDelta, Math.abs(after.top - prior.top));
+      const heightDelta = Math.abs(after.height - prior.height);
+      const widthDelta = Math.abs(after.width - prior.width);
+      const topDelta = Math.abs(after.top - prior.top);
+      maxHeightDelta = Math.max(maxHeightDelta, heightDelta);
+      maxWidthDelta = Math.max(maxWidthDelta, widthDelta);
+      maxTopDelta = Math.max(maxTopDelta, topDelta);
+      comparisons.push({ id, before: prior, after, heightDelta: rounded(heightDelta), widthDelta: rounded(widthDelta), topDelta: rounded(topDelta) });
     }
+
+    const diagnostic = {
+      passed: maxHeightDelta <= 1.25 && maxWidthDelta <= 1.25 && maxTopDelta <= 1.25,
+      settledAfterFrames,
+      resettledAfterFrames,
+      ids,
+      visits,
+      comparisons,
+      maxHeightDelta: rounded(maxHeightDelta),
+      maxWidthDelta: rounded(maxWidthDelta),
+      maxTopDelta: rounded(maxTopDelta),
+    };
+    if (!diagnostic.passed) writeResult({ ...auditProgress, normal: diagnostic, passed: false });
 
     assert(maxHeightDelta <= 1.25, `Media card height changed by ${maxHeightDelta}px after actual paint traversal`);
     assert(maxWidthDelta <= 1.25, `Media card width changed by ${maxWidthDelta}px after actual paint traversal`);
@@ -189,15 +223,7 @@ async function normalPaintProof(browser) {
       'At least one visited media card never acquired a real pixel path');
 
     await page.screenshot({ path: path.join(ARTIFACT_DIR, 'frontier-media-paint-normal.png'), fullPage: true });
-    return {
-      passed: true,
-      settledAfterFrames,
-      ids,
-      visits,
-      maxHeightDelta: rounded(maxHeightDelta),
-      maxWidthDelta: rounded(maxWidthDelta),
-      maxTopDelta: rounded(maxTopDelta),
-    };
+    return { ...diagnostic, passed: true };
   } finally {
     await context.close();
   }
@@ -298,8 +324,7 @@ async function failureStabilityProof(browser) {
       throw error;
     }
 
-    await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
-
+    const resettledAfterFrames = await waitForStableGeometry(page);
     const after = await cardRect(page, targetId);
     const snapshot = await mediaStateSnapshot(page, targetId);
     assert.equal(after.unavailable, true, 'Failed media did not expose the diagnostic state');
@@ -312,6 +337,7 @@ async function failureStabilityProof(browser) {
     return {
       passed: true,
       settledAfterFrames,
+      resettledAfterFrames,
       targetId,
       blockedRequests,
       blockedRequestKinds,
