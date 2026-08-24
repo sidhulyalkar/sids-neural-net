@@ -98,9 +98,13 @@ test('Sylvaria Sequoia exposes the v0.4 Sapstick Canopy contract', () => {
     '02-jump-contract.js',
     '02-flow-assist.js',
     '02-sap-stick.js',
+    '02-control-authority.js',
     '03-render-canopy.js',
+    '03-render-fast-underpaint.js',
     '03-render-reference-pass.js',
+    '03-render-reference-handoff.js',
     '03-render-altitude-realism.js',
+    '03-render-performance.js',
     '03-title-focus-guard.js',
     '04-input.js',
   ];
@@ -119,30 +123,41 @@ test('Sylvaria Sequoia exposes the v0.4 Sapstick Canopy contract', () => {
   const gameplay = readRepoFile(`${runtimeRoot}/02-gameplay.js`);
   const flowAssist = readRepoFile(`${runtimeRoot}/02-flow-assist.js`);
   const sapStick = readRepoFile(`${runtimeRoot}/02-sap-stick.js`);
+  const control = readRepoFile(`${runtimeRoot}/02-control-authority.js`);
   const canopyRender = readRepoFile(`${runtimeRoot}/03-render-canopy.js`);
+  const fastUnderpaint = readRepoFile(`${runtimeRoot}/03-render-fast-underpaint.js`);
   const referenceRender = readRepoFile(`${runtimeRoot}/03-render-reference-pass.js`);
+  const referenceHandoff = readRepoFile(`${runtimeRoot}/03-render-reference-handoff.js`);
   const altitudeRender = readRepoFile(`${runtimeRoot}/03-render-altitude-realism.js`);
+  const performanceRender = readRepoFile(`${runtimeRoot}/03-render-performance.js`);
   const focusGuard = readRepoFile(`${runtimeRoot}/03-title-focus-guard.js`);
   const input = readRepoFile(`${runtimeRoot}/04-input.js`);
 
   assert.match(index, /v0\.4\.0/);
-  assert.match(index, /02-sap-stick\.js/);
-  assert.match(index, /03-render-canopy\.js[\s\S]*03-render-reference-pass\.js[\s\S]*03-render-altitude-realism\.js[\s\S]*03-title-focus-guard\.js[\s\S]*04-input\.js/);
+  assert.match(index, /02-sap-stick\.js[\s\S]*02-control-authority\.js/);
+  assert.match(index, /03-render-canopy\.js[\s\S]*03-render-fast-underpaint\.js[\s\S]*03-render-reference-pass\.js[\s\S]*03-render-reference-handoff\.js[\s\S]*03-render-altitude-realism\.js[\s\S]*03-render-performance\.js[\s\S]*03-title-focus-guard\.js[\s\S]*04-input\.js/);
   assert.doesNotMatch(index, /03-render-skill-pass\.js|03-stride-hud\.js/);
 
   assert.match(core, /FIXED_DT: 1 \/ 120/);
   assert.match(core, /airJumps: 1/);
-  assert.match(feel, /maxSpeed: 630/);
-  assert.match(feel, /momentumGain: 0\.54/);
-  assert.match(feel, /strideLaunchCarry: 0\.61/);
-  assert.match(feel, /comboCarryCap: 26/);
+  assert.match(feel, /groundAccel: 3720/);
+  assert.match(feel, /airAccel: 1900/);
+  assert.match(feel, /maxSpeed: 690/);
+  assert.match(feel, /groundFriction60Hz: 0\.91/);
+  assert.match(feel, /airDrag120Hz: 0\.9991/);
+  assert.match(feel, /reverseAirScale: 1\.08/);
+  assert.match(feel, /momentumGain: 0\.62/);
+  assert.match(feel, /strideLaunchCarry: 0\.82/);
+  assert.match(feel, /comboCarryCap: 48/);
+  assert.match(feel, /retention: 0\.78/);
   assert.match(feel, /wallRefreshSpeed: 99999/);
   assert.match(feel, /comboSpeed: 99999/);
   assert.match(feel, /stickRange: 640/);
   assert.match(feel, /stickHoldSeconds: 0\.22/);
   assert.match(feel, /stickReuseLockSeconds: 0\.82/);
-  assert.match(feel, /stickReleaseMinVy: 610/);
-  assert.match(feel, /easyHyperThreshold: 10/);
+  assert.match(feel, /stickReleaseMinVy: 630/);
+  assert.match(feel, /window: 3\.35/);
+  assert.match(feel, /baseSpeed: 20/);
 
   for (const grammar of ['FLOW', 'RECOVERY', 'GROVE', 'SAPRUN', 'SLINGSHOT', 'CRUX']) {
     assert.match(world, new RegExp(`${grammar}:`));
@@ -178,6 +193,13 @@ test('Sylvaria Sequoia exposes the v0.4 Sapstick Canopy contract', () => {
   assert.match(sapStick, /anchorLockouts/);
   assert.doesNotMatch(sapStick, /holdToCharge|chargeSeconds/i);
 
+  assert.match(control, /velocity-authority-v1/);
+  assert.match(control, /groundReverseAssist: 1120/);
+  assert.match(control, /airReverseAssist: 920/);
+  assert.match(control, /function restorePlayerOwnedLaunch\(/);
+  assert.match(control, /launch-velocity-authority/);
+  assert.match(control, /S\.update = update/);
+
   assert.match(canopyRender, /function hash3\(/);
   assert.match(canopyRender, /function barkVertex\(/);
   assert.match(canopyRender, /function drawBarkCell\(/);
@@ -187,6 +209,11 @@ test('Sylvaria Sequoia exposes the v0.4 Sapstick Canopy contract', () => {
   assert.match(canopyRender, /SAP STICK/);
   assert.match(canopyRender, /S\.render = render/);
   assert.doesNotMatch(canopyRender, /routeRng\.next\(/);
+
+  assert.match(fastUnderpaint, /single-paint-pipeline-v1/);
+  assert.match(fastUnderpaint, /const canopyFallback = S\.render/);
+  assert.match(fastUnderpaint, /forceCanopyFallback/);
+  assert.match(fastUnderpaint, /setCanopyFallback/);
 
   assert.match(referenceRender, /reference-production-v1/);
   assert.match(referenceRender, /function makeBarkTile\(/);
@@ -200,6 +227,8 @@ test('Sylvaria Sequoia exposes the v0.4 Sapstick Canopy contract', () => {
   assert.match(referenceRender, /collisionHonest: true/);
   assert.match(referenceRender, /S\.render = render/);
   assert.doesNotMatch(referenceRender, /routeRng\.next\(/);
+
+  assert.match(referenceHandoff, /referenceRender: S\.render/);
 
   assert.match(altitudeRender, /altitude-realism-v1/);
   assert.match(altitudeRender, /humid understory/);
@@ -215,6 +244,14 @@ test('Sylvaria Sequoia exposes the v0.4 Sapstick Canopy contract', () => {
   assert.match(altitudeRender, /collisionHonest: true/);
   assert.match(altitudeRender, /S\.render = render/);
   assert.doesNotMatch(altitudeRender, /routeRng\.next\(/);
+
+  assert.match(performanceRender, /feel-first-render-budget-v1/);
+  assert.match(performanceRender, /let quality = 'reference'/);
+  assert.match(performanceRender, /referenceFrames >= 240/);
+  assert.match(performanceRender, /renderCostEwma < 6\.4/);
+  assert.match(performanceRender, /renderCostEwma > 10\.8/);
+  assert.match(performanceRender, /referenceRender\(alpha, now\)/);
+  assert.match(performanceRender, /singlePaint: true/);
 
   assert.match(focusGuard, /desktop-focus-v1/);
   assert.match(focusGuard, /function guardDesktopTitleFocus\(/);
