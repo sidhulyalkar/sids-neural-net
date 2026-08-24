@@ -159,6 +159,7 @@
     player.clingTimer = Math.max(0, player.clingTimer - dt);
     if (player.clingTimer <= 0 || !towardWall(axis, player.clingSide) || player.sap || player.grounded) {
       player.clingActive = false;
+      player.barkGrace = 0;
       return;
     }
 
@@ -167,14 +168,14 @@
       : state.RIGHT_WALL - state.PLAYER_R - 2;
     player.x = edge;
     player.vx = 0;
-    player.vy = Math.max(player.vy, -TUNE.rebound.clingFallCap);
+    player.vy = clamp(player.vy, -TUNE.rebound.clingFallCap, 80);
     player.state = 'wall-cling';
     player.barkGrace = Math.max(player.barkGrace, player.clingTimer);
   }
 
   function barkKick() {
-    if (player.barkGrace <= 0 || player.grounded || player.sap) return false;
-    const side = player.clingSide || player.barkSide || (player.x < W / 2 ? 'left' : 'right');
+    if (!player.clingActive || player.barkGrace <= 0 || player.grounded || player.sap) return false;
+    const side = player.clingSide;
     const direction = side === 'left' ? 1 : -1;
     player.jumpHeld = true;
     player.vx = direction * TUNE.rebound.kickHorizontal;
@@ -238,8 +239,6 @@
     }
     if (axis !== 0 && player.wallRecovery > 0) player.vx += axis * TUNE.run.wallRecoveryAccel * dt;
 
-    // Stride only softens a turnaround. It no longer restores almost all of an
-    // earlier sprint, which was the main source of self-driving back-and-forth.
     if (player.grounded && player.jumpBuffer > 0 && player.strideMomentum > Math.abs(player.vx) + 90) {
       const direction = axis || Math.sign(player.vx || player.facing || 1);
       const carried = Math.min(TUNE.run.strideMax, player.strideMomentum * TUNE.run.strideLaunchCarry);
@@ -314,13 +313,12 @@
 
     if (telemetry.counters.wallBounces > wallBefore) {
       const side = player.x < W / 2 ? 'left' : 'right';
-      player.barkGrace = TUNE.rebound.clingGrace;
       player.barkSide = side;
       player.wallRecovery = 0;
-      // Passive bark contact spends momentum rather than multiplying it.
       player.strideMomentum = Math.min(player.strideMomentum, Math.abs(player.vx) + 45);
       bumpCounter('passiveBarkRedirects');
       if (towardWall(axis, side)) beginCling(side);
+      else player.barkGrace = 0;
     }
 
     maintainCling(dt, axis);
