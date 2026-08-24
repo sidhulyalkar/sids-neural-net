@@ -10,6 +10,8 @@ import styles from './frontier-media.module.css';
 type Props = {
   id: string;
   src: string;
+  /** Native safety-net source. Prefer the original upstream URL when `src` is a local proxy. */
+  fallbackSrc?: string;
   alt: string;
   className?: string;
   placeholderColor?: string;
@@ -22,6 +24,7 @@ type SurfaceSize = { width: number; height: number };
 export function GpuImageSurface({
   id,
   src,
+  fallbackSrc,
   alt,
   className = '',
   placeholderColor,
@@ -35,11 +38,13 @@ export function GpuImageSurface({
   const reactId = useId();
   const [state, setState] = useState<'loading' | 'ready' | 'fallback'>('loading');
   const [fallbackFailed, setFallbackFailed] = useState(false);
+  const [nativeReady, setNativeReady] = useState(false);
   const surfaceStyle = {
     ...(placeholderColor ? { '--frontier-media-placeholder': placeholderColor } : {}),
     ...(aspectRatio ? { aspectRatio } : {}),
   } as CSSProperties;
   const gpuId = `${id}:${reactId}`;
+  const nativeSrc = fallbackSrc || src;
 
   useEffect(() => {
     const frame = frameRef.current;
@@ -80,6 +85,7 @@ export function GpuImageSurface({
     if (!slot || !frame || !src) return;
     setState('loading');
     setFallbackFailed(false);
+    setNativeReady(false);
     const unregisterGpu = registerFrontierGpuImage({
       id: gpuId,
       node: slot,
@@ -103,9 +109,10 @@ export function GpuImageSurface({
     if (!frame || typeof IntersectionObserver === 'undefined') return;
     const observer = new IntersectionObserver((entries) => {
       if (!entries.some((entry) => entry.isIntersecting)) return;
-      // The aspect-ratio box exists before decode, so the shared plane can size
-      // and schedule the correct texture while the card is still two viewports
-      // away. The scheduler/cache remain the authority for actual decode work.
+      // Reserve geometry immediately and ask the shared plane to begin decode
+      // before the visual enters the viewport. The native image below is an
+      // independent safety layer, so a delayed/evicted GPU texture is never a
+      // reason for the card to become visually empty.
       warmFrontierGpuImage(gpuId);
     }, { rootMargin: '200% 0px 200% 0px', threshold: 0 });
     observer.observe(frame);
@@ -123,26 +130,31 @@ export function GpuImageSurface({
       role="img"
       aria-label={alt}
       data-media-state={state}
+      data-media-native-ready={nativeReady ? 'true' : 'false'}
       data-inline-expanded={expanded ? 'true' : 'false'}
       style={surfaceStyle}
     >
-      <div ref={slotRef} className={styles.gpuRegistrationSlot} aria-hidden="true" />
-      {state === 'fallback' && !fallbackFailed ? (
-        // The native element exists only after the GPU/worker path declines the
-        // asset, avoiding two simultaneous decodes for every successful image.
+      {/* Keep the browser-native image mounted beneath the fixed WebGL plane.
+          `loading=lazy` prevents a long document from eagerly decoding every
+          asset, while visible/re-entering cards always retain a durable pixel
+          source if the worker, proxy, context, or texture cache is unavailable. */}
+      {!fallbackFailed ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img
-          src={src}
+          src={nativeSrc}
           alt=""
           aria-hidden="true"
           className={styles.imageFallback}
           loading="lazy"
           decoding="async"
+          fetchPriority="auto"
           referrerPolicy="no-referrer"
+          onLoad={() => setNativeReady(true)}
           onError={() => setFallbackFailed(true)}
         />
       ) : null}
-      {state === 'loading' ? <span className={styles.imageSheen} aria-hidden="true" /> : null}
+      <div ref={slotRef} className={styles.gpuRegistrationSlot} aria-hidden="true" />
+      {state === 'loading' && !nativeReady ? <span className={styles.imageSheen} aria-hidden="true" /> : null}
     </div>
   );
 }
