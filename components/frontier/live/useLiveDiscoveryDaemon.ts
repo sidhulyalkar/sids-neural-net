@@ -39,31 +39,40 @@ export function useLiveDiscoveryDaemon(options: {
   prioritizeItems?: (items: FrontierItem[]) => Promise<FrontierItem[]>;
   onHighPriority?: (items: FrontierItem[], meta: { generatedAt?: string; sources: FrontierSourceStatus[] }) => void;
 }) {
-  const autonomy = useFrontierAutonomy();
+  const {
+    activeWatchLabels,
+    prioritizeItems: autonomyPrioritizeItems,
+    announceHighPriority,
+  } = useFrontierAutonomy();
+  const {
+    focusSignature,
+    excludeItems,
+    prioritizeItems,
+    onHighPriority,
+  } = options;
   const workerRef = useRef<Worker | null>(null);
   const exclusionRef = useRef(new Set<string>());
   const exclusionListRef = useRef<string[]>([]);
   const focusRef = useRef('');
-  const prioritizeRef = useRef<(items: FrontierItem[]) => Promise<FrontierItem[]>>(autonomy.prioritizeItems);
-  const highPriorityRef = useRef<(items: FrontierItem[], meta: { generatedAt?: string; sources: FrontierSourceStatus[] }) => void>(autonomy.announceHighPriority);
+  const prioritizeRef = useRef<(items: FrontierItem[]) => Promise<FrontierItem[]>>(autonomyPrioritizeItems);
+  const highPriorityRef = useRef<(items: FrontierItem[], meta: { generatedAt?: string; sources: FrontierSourceStatus[] }) => void>(announceHighPriority);
   const pendingRef = useRef(new Map<string, FrontierItem>());
   const lastActivitySent = useRef(0);
   const retryTimer = useRef<number | undefined>(undefined);
   const failures = useRef(0);
-  const [pendingVersion, setPendingVersion] = useState(0);
+  const [pendingCount, setPendingCount] = useState(0);
   const [status, setStatus] = useState<FrontierDaemonStatus>(EMPTY_STATUS);
   const [meta, setMeta] = useState<PendingMeta>({ sources: [] });
   const [workerGeneration, setWorkerGeneration] = useState(0);
 
-  const watchFocusKey = autonomy.activeWatchLabels.join('|');
   const combinedFocusSignature = useMemo(() => encodeDiscoveryFocus(Array.from(new Set([
-    ...decodeDiscoveryFocus(options.focusSignature),
-    ...autonomy.activeWatchLabels,
-  ])).slice(0, 10)), [autonomy.activeWatchLabels, options.focusSignature]);
+    ...decodeDiscoveryFocus(focusSignature),
+    ...activeWatchLabels,
+  ])).slice(0, 10)), [activeWatchLabels, focusSignature]);
 
   const excludeSignatures = useMemo(() => Array.from(new Set(
-    options.excludeItems.flatMap((item) => frontierSeenSignatures(item))
-  )).slice(0, 256), [options.excludeItems]);
+    excludeItems.flatMap((item) => frontierSeenSignatures(item))
+  )).slice(0, 256), [excludeItems]);
 
   const configureWorker = useCallback((worker: Worker) => {
     const request: FrontierDaemonRequest = {
@@ -82,21 +91,20 @@ export function useLiveDiscoveryDaemon(options: {
     exclusionRef.current = new Set(excludeSignatures);
     exclusionListRef.current = excludeSignatures;
     focusRef.current = combinedFocusSignature;
-    prioritizeRef.current = options.prioritizeItems ?? autonomy.prioritizeItems;
-    highPriorityRef.current = (items, meta) => {
-      autonomy.announceHighPriority(items, meta);
-      if (options.onHighPriority) options.onHighPriority(items, meta);
+    prioritizeRef.current = prioritizeItems ?? autonomyPrioritizeItems;
+    highPriorityRef.current = (items, pendingMeta) => {
+      announceHighPriority(items, pendingMeta);
+      onHighPriority?.(items, pendingMeta);
     };
     if (workerRef.current) configureWorker(workerRef.current);
   }, [
-    autonomy.announceHighPriority,
-    autonomy.prioritizeItems,
+    announceHighPriority,
+    autonomyPrioritizeItems,
     combinedFocusSignature,
     configureWorker,
     excludeSignatures,
-    options.onHighPriority,
-    options.prioritizeItems,
-    watchFocusKey,
+    onHighPriority,
+    prioritizeItems,
   ]);
 
   const prunePendingForSeen = useCallback((signatures: string[]) => {
@@ -109,7 +117,7 @@ export function useLiveDiscoveryDaemon(options: {
         changed = true;
       }
     }
-    if (changed) setPendingVersion((version) => version + 1);
+    if (changed) setPendingCount(pendingRef.current.size);
   }, []);
 
   const acceptFresh = useCallback(async (items: FrontierItem[], generatedAt?: string, sources: FrontierSourceStatus[] = []) => {
@@ -144,7 +152,7 @@ export function useLiveDiscoveryDaemon(options: {
       changed = true;
     }
     if (generatedAt || sources.length) setMeta({ generatedAt, sources });
-    if (changed) setPendingVersion((version) => version + 1);
+    if (changed) setPendingCount(pendingRef.current.size);
   }, []);
 
   useEffect(() => {
@@ -272,19 +280,18 @@ export function useLiveDiscoveryDaemon(options: {
     ];
     const selected = prioritized.slice(0, Math.max(1, Math.min(MAX_PENDING, limit)));
     for (const item of selected) pendingRef.current.delete(frontierItemIdentityKey(item));
-    if (snapshot.length !== pendingRef.current.size) setPendingVersion((version) => version + 1);
+    if (snapshot.length !== pendingRef.current.size) setPendingCount(pendingRef.current.size);
     return selected;
   }, []);
 
   const clearPending = useCallback(() => {
     if (!pendingRef.current.size) return;
     pendingRef.current.clear();
-    setPendingVersion((version) => version + 1);
+    setPendingCount(0);
   }, []);
 
-  void pendingVersion;
   return {
-    pendingCount: pendingRef.current.size,
+    pendingCount,
     status,
     generatedAt: meta.generatedAt,
     sources: meta.sources,

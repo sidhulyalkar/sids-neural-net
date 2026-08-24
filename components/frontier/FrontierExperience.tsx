@@ -338,8 +338,13 @@ export function FrontierExperience({ initialDateLabel, initialDayKey }: Props) {
   }, [activeSearch, clearPending, focusSignature, spikeExploration]);
 
   useEffect(() => {
-    void loadFeed();
-    return () => requestRef.current?.abort();
+    const frame = window.requestAnimationFrame(() => {
+      void loadFeed();
+    });
+    return () => {
+      window.cancelAnimationFrame(frame);
+      requestRef.current?.abort();
+    };
   }, [loadFeed]);
 
   useEffect(() => {

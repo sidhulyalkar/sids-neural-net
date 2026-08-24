@@ -49,6 +49,20 @@ type Props = {
   onFluidExternalOpen?: (item: FrontierItem) => void;
 };
 
+type StableOrderState = {
+  streamEpoch: number;
+  appendStable: boolean;
+  signature: string;
+  order: string[];
+};
+
+type ExpandedState = {
+  streamEpoch: number;
+  itemId?: string;
+};
+
+const EMPTY_DIVERSITY_REFERENCE: FrontierItem[] = [];
+
 const SEMANTIC_COLD_START = FRONTIER_PINNED_TOPICS
   .slice(0, 24)
   .map((topic) => topic.label)
@@ -101,7 +115,7 @@ export function SignalBoard({
   empty,
   compact = false,
   explorationTemperature = 0,
-  diversityReference = [],
+  diversityReference = EMPTY_DIVERSITY_REFERENCE,
   appendStable = false,
   streamEpoch = 0,
   onNearEnd,
@@ -120,8 +134,13 @@ export function SignalBoard({
   const nearEndAt = useRef(0);
   const hoveredRef = useRef<FrontierItem | undefined>(undefined);
   const [query, setQuery] = useState(() => getFrontierClientQuery());
-  const [stableOrder, setStableOrder] = useState<string[]>([]);
-  const [expandedItemId, setExpandedItemId] = useState<string>();
+  const [stableState, setStableState] = useState<StableOrderState>(() => ({
+    streamEpoch,
+    appendStable,
+    signature: '',
+    order: [],
+  }));
+  const [expandedState, setExpandedState] = useState<ExpandedState>(() => ({ streamEpoch }));
 
   useEffect(() => {
     const update = (event: Event) => setQuery((event as CustomEvent<string>).detail ?? '');
@@ -141,26 +160,38 @@ export function SignalBoard({
     enabled: synthesisEnabled,
     vectorEpoch: semantic.indexed,
   });
+  const presentationSignature = useMemo(
+    () => presentationItems.map((item) => item.id).join('|'),
+    [presentationItems],
+  );
 
-  useEffect(() => {
-    setStableOrder([]);
-    setExpandedItemId(undefined);
-  }, [streamEpoch]);
-
-  useEffect(() => {
-    if (!appendStable) {
-      setStableOrder([]);
-      return;
-    }
-    setStableOrder((current) => {
+  if (
+    stableState.streamEpoch !== streamEpoch
+    || stableState.appendStable !== appendStable
+    || stableState.signature !== presentationSignature
+  ) {
+    let nextOrder: string[] = [];
+    if (appendStable) {
       const liveIds = new Set(presentationItems.map((item) => item.id));
-      const retained = current.filter((id) => liveIds.has(id));
+      const retained = stableState.streamEpoch === streamEpoch
+        ? stableState.order.filter((id) => liveIds.has(id))
+        : [];
       const retainedSet = new Set(retained);
       const additions = presentationItems.map((item) => item.id).filter((id) => !retainedSet.has(id));
-      const next = [...retained, ...additions];
-      return next.join('|') === current.join('|') ? current : next;
+      nextOrder = [...retained, ...additions];
+    }
+    setStableState({
+      streamEpoch,
+      appendStable,
+      signature: presentationSignature,
+      order: nextOrder,
     });
-  }, [appendStable, presentationItems]);
+  }
+
+  const stableOrder = stableState.streamEpoch === streamEpoch && appendStable
+    ? stableState.order
+    : EMPTY_DIVERSITY_REFERENCE.map((item) => item.id);
+  const expandedItemId = expandedState.streamEpoch === streamEpoch ? expandedState.itemId : undefined;
 
   const displayedItems = useMemo(() => {
     let ordered: FrontierItem[];
@@ -183,10 +214,9 @@ export function SignalBoard({
     () => frontierPackedColumnSpans(displayedItems, renderableMedia),
     [displayedItems, renderableMedia],
   );
-
-  useEffect(() => {
-    if (expandedItemId && !displayedItems.some((item) => item.id === expandedItemId)) setExpandedItemId(undefined);
-  }, [displayedItems, expandedItemId]);
+  const visibleExpandedItemId = expandedItemId && displayedItems.some((item) => item.id === expandedItemId)
+    ? expandedItemId
+    : undefined;
 
   // The pointer state machine owns intent. These setters are deliberately
   // idempotent and never reject an intent using render-time expansion state:
@@ -194,18 +224,18 @@ export function SignalBoard({
   // callback closure for the first release.
   const expandInline = useCallback((item: FrontierItem) => {
     captureSpatialFlip();
-    setExpandedItemId(item.id);
+    setExpandedState({ streamEpoch, itemId: item.id });
     onFluidExpand?.(item);
-  }, [captureSpatialFlip, onFluidExpand]);
+  }, [captureSpatialFlip, onFluidExpand, streamEpoch]);
 
   const collapseInline = useCallback((_item: FrontierItem) => {
     captureSpatialFlip();
-    setExpandedItemId(undefined);
-  }, [captureSpatialFlip]);
+    setExpandedState({ streamEpoch });
+  }, [captureSpatialFlip, streamEpoch]);
 
   useLayoutEffect(() => {
     playSpatialFlip();
-  }, [expandedItemId, playSpatialFlip]);
+  }, [playSpatialFlip, visibleExpandedItemId]);
 
   useEffect(() => cancelSpatialFlip, [cancelSpatialFlip]);
 
@@ -213,7 +243,7 @@ export function SignalBoard({
     const onKey = (event: KeyboardEvent) => {
       const action = resolveFrontierFocalKeyboardIntent({
         key: event.key,
-        open: Boolean(expandedItemId),
+        open: Boolean(visibleExpandedItemId),
         hasHoveredItem: Boolean(hoveredRef.current),
         typing: isFrontierTypingTarget(event.target),
         metaKey: event.metaKey,
@@ -223,15 +253,15 @@ export function SignalBoard({
       if (action === 'open' && hoveredRef.current) {
         event.preventDefault();
         expandInline(hoveredRef.current);
-      } else if (action === 'close' && expandedItemId) {
+      } else if (action === 'close' && visibleExpandedItemId) {
         event.preventDefault();
-        const item = displayedItems.find((candidate) => candidate.id === expandedItemId);
+        const item = displayedItems.find((candidate) => candidate.id === visibleExpandedItemId);
         if (item) collapseInline(item);
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [collapseInline, displayedItems, expandInline, expandedItemId]);
+  }, [collapseInline, displayedItems, expandInline, visibleExpandedItemId]);
 
   const itemSignature = useMemo(() => displayedItems.map((item) => item.id).join('|'), [displayedItems]);
   const explorationVector = useMemo(() => ambientExplorationVector(displayedItems), [displayedItems]);
@@ -278,7 +308,7 @@ export function SignalBoard({
       data-vector-backend={semantic.backend}
       data-exploration={explorationVector.toFixed(3)}
       data-density={density}
-      data-fluid-expanded={expandedItemId ? 'true' : 'false'}
+      data-fluid-expanded={visibleExpandedItemId ? 'true' : 'false'}
     >
       {!displayedItems.length ? empty : mode === 'feed' ? (
         <div className={`${styles.readingFeed} ${spatial.feed}`}>
@@ -286,7 +316,7 @@ export function SignalBoard({
             <FluidSpatialCard
               key={item.id}
               item={item}
-              expanded={expandedItemId === item.id}
+              expanded={visibleExpandedItemId === item.id}
               onExpand={expandInline}
               onCollapse={collapseInline}
               onExternalOpen={onFluidExternalOpen}
@@ -318,7 +348,7 @@ export function SignalBoard({
               <FluidSpatialCard
                 key={item.id}
                 item={item}
-                expanded={expandedItemId === item.id}
+                expanded={visibleExpandedItemId === item.id}
                 onExpand={expandInline}
                 onCollapse={collapseInline}
                 onExternalOpen={onFluidExternalOpen}

@@ -39,6 +39,12 @@ import { useVectorWorker } from './useVectorWorker';
 const INDEX_BATCH = 12;
 const ACTIVE_INDEX_LIMIT = 96;
 const RESIDENT_VECTOR_LIMIT = 320;
+const EMPTY_DIVERSITY_REFERENCE: FrontierItem[] = [];
+
+type MemoryNeighborhoodState = {
+  target: Float32Array;
+  centroid?: Float32Array;
+};
 
 function embeddingText(item: FrontierItem): string {
   return `${item.title}\n${item.summary}\n${item.tags.join(' · ')}`.slice(0, 3_500);
@@ -108,16 +114,22 @@ export function useSemanticReranker(
   const query = options.query ?? '';
   const seedText = options.seedText ?? '';
   const explorationTemperature = Math.max(0, Math.min(1, options.explorationTemperature ?? 0));
-  const diversityReference = options.diversityReference ?? [];
+  const diversityReference = options.diversityReference ?? EMPTY_DIVERSITY_REFERENCE;
   const vectorsRef = useRef(new Map<string, Float32Array>());
   const telemetryQueue = useRef(Promise.resolve());
   const sequenceHydrationRef = useRef<Promise<FrontierSequenceState | undefined> | undefined>(undefined);
-  const [vectorVersion, setVectorVersion] = useState(0);
+  const [vectorSnapshot, setVectorSnapshot] = useState<Map<string, Float32Array>>(() => new Map());
+  const [rankingNow, setRankingNow] = useState<number>();
   const [interest, setInterest] = useState<FrontierInterestState>();
   const [sequence, setSequence] = useState<FrontierSequenceState>();
-  const [memoryCentroid, setMemoryCentroid] = useState<Float32Array>();
+  const [memoryNeighborhood, setMemoryNeighborhood] = useState<MemoryNeighborhoodState>();
   const [trajectories, setTrajectories] = useState<FrontierTrajectoryMap>({});
   const [avoidAnchors, setAvoidAnchors] = useState<FrontierAvoidAnchor[]>([]);
+
+  const publishVectorSnapshot = useCallback(() => {
+    setVectorSnapshot(new Map(vectorsRef.current));
+    setRankingNow(Date.now());
+  }, []);
 
   const ensureSequenceHydrated = useCallback(() => {
     if (!sequenceHydrationRef.current) {
@@ -135,6 +147,15 @@ export function useSemanticReranker(
     }
     return sequenceHydrationRef.current;
   }, [sequenceWorker]);
+
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(() => setRankingNow(Date.now()));
+    const interval = window.setInterval(() => setRankingNow(Date.now()), 60_000);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.clearInterval(interval);
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -229,7 +250,7 @@ export function useSemanticReranker(
       }
 
       trimResidentVectors(vectorsRef.current, protectedIds);
-      if (cached.size || candidates.some((item) => vectorsRef.current.has(item.id))) setVectorVersion((version) => version + 1);
+      if (cached.size || candidates.some((item) => vectorsRef.current.has(item.id))) publishVectorSnapshot();
 
       if (cancelled) return;
       try {
@@ -253,7 +274,7 @@ export function useSemanticReranker(
 
     void index();
     return () => { cancelled = true; };
-  }, [archiveGetIds, archivePutMany, embed, enabled, ensureSequenceHydrated, itemSignature, items, seedText, warm]);
+  }, [archiveGetIds, archivePutMany, embed, enabled, ensureSequenceHydrated, itemSignature, items, publishVectorSnapshot, seedText, warm]);
 
   useEffect(() => {
     if (!enabled) return;
@@ -290,14 +311,24 @@ export function useSemanticReranker(
       if (Math.abs(signal) < 0.001) return;
       telemetryQueue.current = telemetryQueue.current.then(async () => {
         let vector = vectorsRef.current.get(event.item.id);
+        let vectorChanged = false;
         if (!vector) {
-          try { vector = await frontierVectorStore.get(event.item.id); } catch { vector = undefined; }
+          try {
+            vector = await frontierVectorStore.get(event.item.id);
+            if (vector) {
+              vectorsRef.current.set(event.item.id, vector);
+              vectorChanged = true;
+            }
+          } catch { vector = undefined; }
         }
         if (!vector) {
           try {
             const archived = await archiveGetIds([event.item.id]);
             vector = archived[0]?.vector;
-            if (vector) vectorsRef.current.set(event.item.id, vector);
+            if (vector) {
+              vectorsRef.current.set(event.item.id, vector);
+              vectorChanged = true;
+            }
           } catch {}
         }
         if (!vector) {
@@ -306,6 +337,7 @@ export function useSemanticReranker(
             vector = embedded.get(event.item.id);
             if (vector) {
               vectorsRef.current.set(event.item.id, vector);
+              vectorChanged = true;
               const record = {
                 id: event.item.id,
                 vector,
@@ -315,13 +347,13 @@ export function useSemanticReranker(
               };
               try { await frontierVectorStore.put(record.id, record.vector, record.textHash, event.at, record.metadata); } catch {}
               void archivePutMany([record]).catch(() => undefined);
-              setVectorVersion((version) => version + 1);
             }
           } catch {
             return;
           }
         }
         if (!vector) return;
+        if (vectorChanged) publishVectorSnapshot();
 
         try {
           const nextInterest = await frontierVectorStore.updateInterest(vector, signal, event.at);
@@ -358,7 +390,7 @@ export function useSemanticReranker(
         }
       }).catch(() => undefined);
     });
-  }, [archiveGetIds, archivePutMany, embed, enabled, ensureSequenceHydrated, sequenceWorker]);
+  }, [archiveGetIds, archivePutMany, embed, enabled, ensureSequenceHydrated, publishVectorSnapshot, sequenceWorker]);
 
   const sequenceTarget = useMemo(
     () => blendSequenceWithLongTerm(sequence?.target, interest?.vector, sequence?.interactions ?? 0),
@@ -366,39 +398,42 @@ export function useSemanticReranker(
   );
 
   useEffect(() => {
-    if (!enabled || !sequenceTarget?.length) {
-      setMemoryCentroid(undefined);
-      return;
-    }
+    if (!enabled || !sequenceTarget?.length) return;
     let cancelled = false;
     void archiveNeighborhood(sequenceTarget, { maxChunks: 6, maxItems: 144 })
       .then((entries) => {
         if (cancelled) return;
-        setMemoryCentroid(neighborhoodCentroid(entries, sequenceTarget));
+        setMemoryNeighborhood({
+          target: sequenceTarget,
+          centroid: neighborhoodCentroid(entries, sequenceTarget),
+        });
         for (const entry of entries) vectorsRef.current.set(entry.id, entry.vector);
         trimResidentVectors(vectorsRef.current, new Set(items.slice(0, ACTIVE_INDEX_LIMIT).map((item) => item.id)));
+        publishVectorSnapshot();
       })
       .catch(() => undefined);
     return () => { cancelled = true; };
-  }, [archiveNeighborhood, enabled, items, sequenceTarget]);
+  }, [archiveNeighborhood, enabled, items, publishVectorSnapshot, sequenceTarget]);
 
+  const memoryCentroid = memoryNeighborhood?.target === sequenceTarget
+    ? memoryNeighborhood.centroid
+    : undefined;
   const rankingTarget = useMemo(
     () => blendMemoryTarget(sequenceTarget, memoryCentroid),
     [memoryCentroid, sequenceTarget]
   );
 
   const rankedItems = useMemo(() => {
-    void vectorVersion;
-    if (!enabled || !items.length) return items;
-    const enoughVectors = vectorsRef.current.size >= Math.min(6, items.length);
+    if (!enabled || !items.length || rankingNow === undefined) return items;
+    const enoughVectors = vectorSnapshot.size >= Math.min(6, items.length);
     if (!enoughVectors && !query.trim()) return items;
 
-    const now = Date.now();
+    const now = rankingNow;
     const compatibleAvoids = avoidAnchors.filter((anchor) => anchor.active && anchor.embeddingBackend === backend);
     const targetForItem = (item: FrontierItem) => frontierTrajectoryTarget(item, trajectories, rankingTarget, now);
     const stateForItem = (item: FrontierItem) => frontierTrajectoryState(item, trajectories, sequence?.state, now);
     const penaltyForItem = (item: FrontierItem) => {
-      const vector = vectorsRef.current.get(item.id);
+      const vector = vectorSnapshot.get(item.id);
       if (!vector || !compatibleAvoids.length) return 0;
       return bestFrontierAvoidMatch(vector, compatibleAvoids)?.penalty ?? 0;
     };
@@ -406,7 +441,7 @@ export function useSemanticReranker(
     if (explorationTemperature > 0.001) {
       return rerankFrontierAntiStaleness(
         items,
-        vectorsRef.current,
+        vectorSnapshot,
         rankingTarget,
         sequence?.state,
         query,
@@ -420,7 +455,7 @@ export function useSemanticReranker(
     }
     return rerankFrontierItems(
       items,
-      vectorsRef.current,
+      vectorSnapshot,
       rankingTarget,
       query,
       0.15,
@@ -437,16 +472,17 @@ export function useSemanticReranker(
     explorationTemperature,
     items,
     query,
+    rankingNow,
     rankingTarget,
     sequence?.state,
     trajectories,
-    vectorVersion,
+    vectorSnapshot,
   ]);
 
   return {
     items: rankedItems,
     backend,
-    indexed: vectorsRef.current.size,
+    indexed: vectorSnapshot.size,
     interestReady: Boolean(interest),
     sequenceReady: Boolean(sequence?.interactions),
     sequenceInteractions: sequence?.interactions ?? 0,
