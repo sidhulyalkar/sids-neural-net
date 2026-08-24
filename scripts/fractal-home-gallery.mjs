@@ -12,7 +12,6 @@ const outputDir = process.env.FRACTAL_HOME_GALLERY_DIR || 'artifacts/adaptive-fr
 fs.mkdirSync(outputDir, { recursive: true });
 
 const cases = [
-  { morph: 'tectonic', width: 2560, height: 1080 },
   { morph: 'radial', width: 1920, height: 1080 },
   { morph: 'coral', width: 1920, height: 1080 },
   { morph: 'fan', width: 2560, height: 1080 },
@@ -22,9 +21,10 @@ const cases = [
   { morph: 'apical', width: 430, height: 932 },
   { morph: 'pixel-ghost', width: 800, height: 800 },
   { morph: 'echo-nest', width: 1440, height: 900 },
+  { morph: 'echo-nest', width: 2560, height: 1080 },
 ];
 
-const removedMorphologies = ['aurora', 'mycelial'];
+const removedMorphologies = ['aurora', 'mycelial', 'tectonic'];
 const browser = await chromium.launch({ headless: true });
 const failures = [];
 const reports = [];
@@ -56,7 +56,7 @@ for (const testCase of cases) {
     if (message.type() === 'error') consoleErrors.push(message.text());
   });
 
-  const url = `${baseUrl}/?morph=${encodeURIComponent(testCase.morph)}&seed=gallery-v4`;
+  const url = `${baseUrl}/?morph=${encodeURIComponent(testCase.morph)}&seed=gallery-v7`;
   await page.goto(url, { waitUntil: 'networkidle' });
   const root = page.locator('[data-fractal-morphology]');
   await root.waitFor({ state: 'visible' });
@@ -87,6 +87,11 @@ for (const testCase of cases) {
   if (pageErrors.length) failures.push(`${testCase.morph}: page errors: ${pageErrors.join(' | ')}`);
   if (consoleErrors.length) failures.push(`${testCase.morph}: console errors: ${consoleErrors.join(' | ')}`);
 
+  const core = page.locator('a[href="/about"][data-core-placement="quiet-pocket-v1"]');
+  await core.waitFor({ state: 'visible' });
+  const coreBox = await core.boundingBox();
+  if (!coreBox) failures.push(`${testCase.morph}: CORE quiet-pocket placement missing`);
+
   const minX = boxes.length ? Math.min(...boxes.map((box) => box.x)) : 0;
   const maxX = boxes.length ? Math.max(...boxes.map((box) => box.x + box.width)) : 0;
   const span = maxX - minX;
@@ -94,17 +99,34 @@ for (const testCase of cases) {
     failures.push(`${testCase.morph}: horizontal destination span only ${Math.round(span)}px`);
   }
 
+  if (testCase.morph === 'echo-nest') {
+    const experience = page.locator('[data-fractal-experience="v3"]');
+    await experience.waitFor({ state: 'visible' });
+  }
+
   const filename = `${testCase.morph}-${testCase.width}x${testCase.height}.png`;
   await page.screenshot({ path: path.join(outputDir, filename) });
-  reports.push({ ...testCase, actualMorph, linkCount, horizontalDestinationSpan: span, filename });
+  reports.push({
+    ...testCase,
+    actualMorph,
+    linkCount,
+    horizontalDestinationSpan: span,
+    coreDensity: await core.getAttribute('data-core-density'),
+    filename,
+  });
   await page.close();
 }
 
 for (const removedMorph of removedMorphologies) {
   const page = await browser.newPage({ viewport: { width: 1920, height: 1080 }, deviceScaleFactor: 1 });
-  await page.goto(`${baseUrl}/?morph=${removedMorph}&seed=removed-v4`, { waitUntil: 'networkidle' });
+  await page.goto(`${baseUrl}/?morph=${removedMorph}&seed=removed-v7`, { waitUntil: 'networkidle' });
   const root = page.locator('[data-fractal-morphology]');
   await root.waitFor({ state: 'visible' });
+  if (removedMorph === 'tectonic') {
+    await page.waitForFunction(
+      () => document.querySelector('[data-fractal-morphology]')?.getAttribute('data-fractal-morphology') === 'echo-nest'
+    );
+  }
   const actualMorph = await root.getAttribute('data-fractal-morphology');
   if (!actualMorph || actualMorph === removedMorph) {
     failures.push(`${removedMorph}: removed morphology remained publicly renderable`);
@@ -114,8 +136,8 @@ for (const removedMorph of removedMorphologies) {
 }
 
 const echoCases = [
-  { morph: 'tectonic', path: '/contact', width: 1440, height: 900, filename: 'theme-echo-contact-tectonic.png', expectNoFrontier: true },
-  { morph: 'echo-nest', path: '/archive', width: 1440, height: 900, filename: 'theme-echo-archive-echo-nest.png', expectNoFrontier: false },
+  { morph: 'echo-nest', path: '/contact', width: 1440, height: 900, filename: 'theme-echo-contact-echo-nest.png', expectNoFrontier: true },
+  { morph: 'fan', path: '/archive', width: 1440, height: 900, filename: 'theme-echo-archive-fan.png', expectNoFrontier: false },
 ];
 
 for (const echoCase of echoCases) {
