@@ -30,4 +30,4 @@ Runtime metadata used by browser qualification:
 
 ## Qualification boundary
 
-Runtime head `ee6a09b7ead82862f0c3a5f34f844cd36412dc73` passed the dedicated Adaptive Fractal Home CI and the full Website CI production gate. The deterministic browser gallery verifies all six active morphologies, rejects all six retired morphologies, confirms eight protected destination controls plus CORE, confirms opaque destination interiors, checks CORE centering/diameter and validates the Echo Nest Fermat layout.
+Runtime head `ee6a09b7ead82862f0c3a5f34f844cd36412dc73` passed Adaptive Fractal Home CI run `32789288246` and Website CI run `32789288251` end-to-end. The deterministic browser gallery verifies all six active morphologies, rejects all six retired morphologies, confirms eight protected destination controls plus CORE, confirms visible opaque destination labels, checks CORE centering/diameter, and validates the Echo Nest Fermat layout.
