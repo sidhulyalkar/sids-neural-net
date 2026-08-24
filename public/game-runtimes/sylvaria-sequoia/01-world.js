@@ -3,39 +3,41 @@
   const S = window.SylvariaSequoia;
   const { state, player, TUNE, W, H, clamp, lerp, routeStat, recordEvent } = S;
 
+  // Rootways is intentionally runway-heavy. The player should learn that speed
+  // creates height before the tower asks for precision or advanced mechanics.
   const ROUTE_GRAMMARS = {
     FLOW: [
-      { dy: 60, side: 'same', length: 470, launch: true },
-      { dy: 64, side: 'center', length: 500, ring: 'lane' },
-      { dy: 66, side: 'swap', length: 430, knot: 'center' },
-      { dy: 68, side: 'same', length: 420, launch: true },
-      { dy: 72, side: 'swap', length: 400, ring: 'cross', knot: 'center' },
+      { dy: 54, side: 'center', length: 620, launch: true },
+      { dy: 58, side: 'center', length: 600, ring: 'lane' },
+      { dy: 60, side: 'same', length: 535 },
+      { dy: 62, side: 'center', length: 590, knot: 'center' },
+      { dy: 64, side: 'same', length: 510, ring: 'cross', knot: 'center' },
     ],
     CRUX: [
-      { dy: 76, side: 'swap', length: 350, ring: 'lane' },
-      { dy: 92, side: 'center', length: 360, knot: 'center', launch: true },
-      { dy: 102, side: 'swap', length: 282, ring: 'crown', knot: 'cross' },
-      { dy: 92, side: 'same', length: 310, knot: 'center' },
+      { dy: 72, side: 'same', length: 405, ring: 'lane' },
+      { dy: 82, side: 'swap', length: 380, knot: 'center', launch: true },
+      { dy: 94, side: 'center', length: 390, ring: 'crown', knot: 'cross' },
+      { dy: 86, side: 'same', length: 350, knot: 'center' },
     ],
     RECOVERY: [
-      { dy: 56, side: 'center', length: 560, launch: true },
-      { dy: 60, side: 'same', length: 485, ring: 'lane' },
-      { dy: 64, side: 'swap', length: 455, knot: 'center' },
+      { dy: 52, side: 'center', length: 640, launch: true },
+      { dy: 56, side: 'center', length: 610, ring: 'lane' },
+      { dy: 60, side: 'same', length: 550, knot: 'center' },
     ],
     SLINGSHOT: [
-      { dy: 70, side: 'same', length: 390, knot: 'center', ring: 'lane' },
-      { dy: 86, side: 'swap', length: 330, knot: 'cross', launch: true },
-      { dy: 96, side: 'center', length: 340, knot: 'center', ring: 'crown' },
-      { dy: 82, side: 'swap', length: 332, knot: 'cross', ring: 'lane' },
+      { dy: 64, side: 'same', length: 440, knot: 'center', ring: 'lane' },
+      { dy: 76, side: 'center', length: 430, knot: 'center', launch: true },
+      { dy: 88, side: 'swap', length: 370, knot: 'cross', ring: 'crown' },
+      { dy: 80, side: 'same', length: 380, knot: 'center', ring: 'lane' },
     ],
   };
 
   const PHASES = [
-    { name: 'ROOTWAYS', floor: 0, geometry: 0.00, pressure: 0.72, sequence: ['FLOW', 'RECOVERY', 'FLOW', 'FLOW'] },
-    { name: 'REDWOOD RUN', floor: 36, geometry: 0.18, pressure: 0.88, sequence: ['FLOW', 'FLOW', 'SLINGSHOT', 'RECOVERY', 'CRUX'] },
-    { name: 'SAPWORK', floor: 75, geometry: 0.40, pressure: 1.00, sequence: ['FLOW', 'SLINGSHOT', 'CRUX', 'FLOW', 'RECOVERY', 'SLINGSHOT'] },
-    { name: 'HIGH CANOPY', floor: 120, geometry: 0.68, pressure: 1.12, sequence: ['CRUX', 'SLINGSHOT', 'FLOW', 'CRUX', 'RECOVERY', 'SLINGSHOT'] },
-    { name: 'CROWNLINE', floor: 170, geometry: 1.00, pressure: 1.23, sequence: ['CRUX', 'SLINGSHOT', 'CRUX', 'SLINGSHOT', 'FLOW', 'CRUX', 'RECOVERY'] },
+    { name: 'ROOTWAYS', floor: 0, geometry: 0.00, pressure: 0.58, sequence: ['FLOW', 'RECOVERY', 'FLOW', 'FLOW', 'RECOVERY'] },
+    { name: 'REDWOOD RUN', floor: 44, geometry: 0.16, pressure: 0.80, sequence: ['FLOW', 'FLOW', 'RECOVERY', 'SLINGSHOT', 'FLOW', 'CRUX'] },
+    { name: 'SAPWORK', floor: 90, geometry: 0.38, pressure: 0.96, sequence: ['FLOW', 'SLINGSHOT', 'FLOW', 'CRUX', 'RECOVERY', 'SLINGSHOT'] },
+    { name: 'HIGH CANOPY', floor: 145, geometry: 0.66, pressure: 1.10, sequence: ['CRUX', 'SLINGSHOT', 'FLOW', 'CRUX', 'RECOVERY', 'SLINGSHOT'] },
+    { name: 'CROWNLINE', floor: 205, geometry: 1.00, pressure: 1.23, sequence: ['CRUX', 'SLINGSHOT', 'CRUX', 'SLINGSHOT', 'FLOW', 'CRUX', 'RECOVERY'] },
   ];
 
   function phaseForFloor(floor) {
@@ -72,14 +74,14 @@
     branch.launch = Boolean(launch);
     if (side === 'left') {
       branch.x1 = state.LEFT_WALL - 2;
-      branch.x2 = Math.min(state.RIGHT_WALL - 48, state.LEFT_WALL + length);
-      branch.launchX = branch.x2 - 32;
+      branch.x2 = Math.min(state.RIGHT_WALL - 34, state.LEFT_WALL + length);
+      branch.launchX = branch.x2 - 42;
     } else if (side === 'right') {
       branch.x2 = state.RIGHT_WALL + 2;
-      branch.x1 = Math.max(state.LEFT_WALL + 48, state.RIGHT_WALL - length);
-      branch.launchX = branch.x1 + 32;
+      branch.x1 = Math.max(state.LEFT_WALL + 34, state.RIGHT_WALL - length);
+      branch.launchX = branch.x1 + 42;
     } else {
-      const half = length * 0.5;
+      const half = Math.min(length, state.RIGHT_WALL - state.LEFT_WALL - 14) * 0.5;
       branch.x1 = W / 2 - half;
       branch.x2 = W / 2 + half;
       branch.launchX = W / 2;
@@ -89,22 +91,22 @@
   }
 
   function knotPosition(role, side, branch) {
-    const jitter = (state.routeRng.next() - 0.5) * 28;
+    const jitter = (state.routeRng.next() - 0.5) * 24;
     if (role === 'cross') {
       return {
-        x: side === 'left' ? state.RIGHT_WALL - 76 + jitter : state.LEFT_WALL + 76 + jitter,
-        y: branch.y + 104 + state.routeRng.next() * 24,
+        x: side === 'left' ? state.RIGHT_WALL - 84 + jitter : state.LEFT_WALL + 84 + jitter,
+        y: branch.y + 100 + state.routeRng.next() * 22,
       };
     }
     if (role === 'center') {
       return {
-        x: W / 2 + jitter * 1.7,
-        y: branch.y + 92 + state.routeRng.next() * 28,
+        x: W / 2 + jitter * 1.55,
+        y: branch.y + 88 + state.routeRng.next() * 24,
       };
     }
     return {
-      x: side === 'right' ? branch.x2 - 42 : branch.x1 + 42,
-      y: branch.y + 86,
+      x: side === 'right' ? branch.x2 - 48 : branch.x1 + 48,
+      y: branch.y + 84,
     };
   }
 
@@ -121,21 +123,21 @@
   }
 
   function ringPosition(role, side, branch) {
-    const jitter = (state.routeRng.next() - 0.5) * 22;
+    const jitter = (state.routeRng.next() - 0.5) * 20;
     if (role === 'cross') {
       return {
-        x: side === 'left' ? state.RIGHT_WALL - 130 + jitter : state.LEFT_WALL + 130 + jitter,
-        y: branch.y + 58 + state.routeRng.next() * 16,
+        x: side === 'left' ? state.RIGHT_WALL - 138 + jitter : state.LEFT_WALL + 138 + jitter,
+        y: branch.y + 56 + state.routeRng.next() * 14,
       };
     }
     if (role === 'crown') {
       return {
-        x: W / 2 + jitter * 1.5,
-        y: branch.y + 72 + state.routeRng.next() * 18,
+        x: W / 2 + jitter * 1.4,
+        y: branch.y + 68 + state.routeRng.next() * 16,
       };
     }
-    const freeX = side === 'left' ? branch.x2 - 64 : side === 'right' ? branch.x1 + 64 : W / 2;
-    return { x: freeX + jitter, y: branch.y + 52 + state.routeRng.next() * 12 };
+    const freeX = side === 'left' ? branch.x2 - 76 : side === 'right' ? branch.x1 + 76 : W / 2;
+    return { x: freeX + jitter, y: branch.y + 50 + state.routeRng.next() * 10 };
   }
 
   function addRing(x, y, floor, chunk, role, difficulty) {
@@ -191,16 +193,16 @@
     for (const step of grammar) {
       state.generatedFloor += 1;
       const phase = phaseForFloor(state.generatedFloor);
-      const difficulty = clamp(Math.max(0, state.generatedFloor - 24) / 176, 0, 1);
+      const difficulty = clamp(Math.max(0, state.generatedFloor - 40) / 190, 0, 1);
       const geometry = Math.max(difficulty, phase.geometry * 0.84);
-      const dyScale = 1 + geometry * 0.14;
-      const lengthScale = 1 - geometry * 0.18;
-      const yJitter = (state.routeRng.next() - 0.5) * lerp(3, 11, geometry);
-      const lengthJitter = (state.routeRng.next() - 0.5) * lerp(10, 20, geometry);
+      const dyScale = 1 + geometry * 0.13;
+      const lengthScale = 1 - geometry * 0.17;
+      const yJitter = (state.routeRng.next() - 0.5) * lerp(2, 10, geometry);
+      const lengthJitter = (state.routeRng.next() - 0.5) * lerp(8, 18, geometry);
       state.generatedY += step.dy * dyScale + yJitter;
       const side = resolveSide(step.side);
-      const slope = (state.routeRng.next() - 0.5) * lerp(0.020, 0.084, geometry);
-      const minLength = side === 'center' ? lerp(390, 310, geometry) : lerp(280, 195, geometry);
+      const slope = (state.routeRng.next() - 0.5) * lerp(0.012, 0.082, geometry);
+      const minLength = side === 'center' ? lerp(500, 310, geometry) : lerp(330, 205, geometry);
       const length = Math.max(minLength, step.length * lengthScale + lengthJitter);
       const branch = addBranch(state.generatedFloor, state.generatedY, side, length, slope, chunk, step.launch);
       if (step.knot) {
@@ -273,7 +275,7 @@
     state.routeChunkIndex = 0;
     state.lastSide = 'left';
     const startChunk = { id: 'start', type: 'RECOVERY', phase: 'ROOTWAYS', startFloor: 0, endFloor: 0 };
-    const start = addBranch(0, 70, 'center', 610, 0, startChunk, true);
+    const start = addBranch(0, 70, 'center', 640, 0, startChunk, true);
     generateUntil(H + 3300);
     return start;
   }
