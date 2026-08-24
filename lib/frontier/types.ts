@@ -14,6 +14,7 @@ export const FRONTIER_LANE_IDS = [
   'team_pulse',
   'sports',
   'gaming',
+  'screen',
   'music',
   'internet_culture',
   'life',
