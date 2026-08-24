@@ -56,7 +56,7 @@ for (const testCase of cases) {
     if (message.type() === 'error') consoleErrors.push(message.text());
   });
 
-  const url = `${baseUrl}/?morph=${encodeURIComponent(testCase.morph)}&seed=gallery-v10-core-nucleus`;
+  const url = `${baseUrl}/?morph=${encodeURIComponent(testCase.morph)}&seed=gallery-v12-fixed-core`;
   await page.goto(url, { waitUntil: 'networkidle' });
   const root = page.locator('[data-fractal-morphology]');
   await root.waitFor({ state: 'visible' });
@@ -68,6 +68,7 @@ for (const testCase of cases) {
 
   const actualMorph = await root.getAttribute('data-fractal-morphology');
   const primaryRouting = await root.getAttribute('data-primary-routing');
+  const coreRouting = await root.getAttribute('data-core-routing');
   const links = page.locator('[data-dendrite-destination]');
   const linkCount = await links.count();
   const protectedControls = page.locator('[data-navigation-clearance="protected"]');
@@ -91,17 +92,45 @@ for (const testCase of cases) {
   }
 
   if (actualMorph !== testCase.morph) failures.push(`${testCase.morph}: rendered ${actualMorph}`);
-  if (primaryRouting !== 'angular-obstacle-v1') failures.push(`${testCase.morph}: angular protected primary routing missing`);
+  if (primaryRouting !== 'topology-preserving-v2') {
+    failures.push(`${testCase.morph}: topology-preserving primary routing missing`);
+  }
+  if (coreRouting !== 'fixed-center-circle-v1') {
+    failures.push(`${testCase.morph}: fixed center CORE routing missing`);
+  }
   if (linkCount !== 8) failures.push(`${testCase.morph}: expected 8 destinations, got ${linkCount}`);
   if (protectedCount !== 9) failures.push(`${testCase.morph}: expected 9 protected controls, got ${protectedCount}`);
   if (pageErrors.length) failures.push(`${testCase.morph}: page errors: ${pageErrors.join(' | ')}`);
   if (consoleErrors.length) failures.push(`${testCase.morph}: console errors: ${consoleErrors.join(' | ')}`);
 
-  const corePlacement = testCase.morph === 'echo-nest' ? 'central-nucleus-v2' : 'quiet-pocket-v1';
-  const core = page.locator(`a[href="/about"][data-core-placement="${corePlacement}"]`);
+  const core = page.locator('a[href="/about"][data-core-placement="fixed-center-circle-v1"][data-core-shape="circle"]');
   await core.waitFor({ state: 'visible' });
   const coreBox = await core.boundingBox();
-  if (!coreBox) failures.push(`${testCase.morph}: CORE ${corePlacement} placement missing`);
+  let coreAnchorError = null;
+  let coreDiameter = null;
+  if (!coreBox) {
+    failures.push(`${testCase.morph}: fixed circular CORE missing`);
+  } else {
+    coreDiameter = (coreBox.width + coreBox.height) * 0.5;
+    if (Math.abs(coreBox.width - coreBox.height) > 1.1) {
+      failures.push(`${testCase.morph}: CORE is not circular (${coreBox.width.toFixed(1)}x${coreBox.height.toFixed(1)})`);
+    }
+    if (coreDiameter < 44 || coreDiameter > 58) {
+      failures.push(`${testCase.morph}: CORE diameter ${coreDiameter.toFixed(1)}px outside compact design bounds`);
+    }
+    const anchorX = Number(await root.getAttribute('data-core-anchor-x'));
+    const anchorY = Number(await root.getAttribute('data-core-anchor-y'));
+    if (Number.isFinite(anchorX) && Number.isFinite(anchorY)) {
+      const coreCenterX = coreBox.x + coreBox.width * 0.5;
+      const coreCenterY = coreBox.y + coreBox.height * 0.5;
+      coreAnchorError = Math.hypot(coreCenterX - anchorX, coreCenterY - anchorY);
+      if (coreAnchorError > 2.5) {
+        failures.push(`${testCase.morph}: CORE drifted ${coreAnchorError.toFixed(2)}px from tree center`);
+      }
+    } else {
+      failures.push(`${testCase.morph}: CORE center metadata missing`);
+    }
+  }
 
   const minX = boxes.length ? Math.min(...boxes.map((box) => box.x)) : 0;
   const maxX = boxes.length ? Math.max(...boxes.map((box) => box.x + box.width)) : 0;
@@ -111,36 +140,15 @@ for (const testCase of cases) {
   }
 
   let echoNestLayout = null;
-  let coreRouting = null;
-  let coreAnchorError = null;
   if (testCase.morph === 'echo-nest') {
     const experience = page.locator('[data-fractal-experience="v3"]');
     await experience.waitFor({ state: 'visible' });
     await page.waitForFunction(
-      () => document.querySelector('[data-fractal-experience="v3"]')?.getAttribute('data-echo-nest-layout') === 'fermat-spiral-v1'
+      () => document.querySelector('[data-fractal-experience="v3"]')?.getAttribute('data-echo-nest-layout') === 'fermat-core-centered-v2'
     );
     echoNestLayout = await experience.getAttribute('data-echo-nest-layout');
-    if (echoNestLayout !== 'fermat-spiral-v1') {
-      failures.push(`${testCase.morph}: expected Fermat spiral layout, got ${echoNestLayout}`);
-    }
-
-    const nucleus = page.locator('[data-fractal-core-nucleus="v2"]');
-    await nucleus.waitFor({ state: 'visible' });
-    await page.waitForFunction(
-      () => document.querySelector('[data-fractal-morphology]')?.getAttribute('data-core-routing') === 'central-nucleus-v2'
-    );
-    coreRouting = await root.getAttribute('data-core-routing');
-    const anchorX = Number(await root.getAttribute('data-core-anchor-x'));
-    const anchorY = Number(await root.getAttribute('data-core-anchor-y'));
-    if (coreBox && Number.isFinite(anchorX) && Number.isFinite(anchorY)) {
-      const coreCenterX = coreBox.x + coreBox.width * 0.5;
-      const coreCenterY = coreBox.y + coreBox.height * 0.5;
-      coreAnchorError = Math.hypot(coreCenterX - anchorX, coreCenterY - anchorY);
-      if (coreAnchorError > 2.5) {
-        failures.push(`${testCase.morph}: CORE drifted ${coreAnchorError.toFixed(2)}px from the tree nucleus`);
-      }
-    } else {
-      failures.push(`${testCase.morph}: central nucleus anchor metadata missing`);
+    if (echoNestLayout !== 'fermat-core-centered-v2') {
+      failures.push(`${testCase.morph}: expected CORE-centered Fermat layout, got ${echoNestLayout}`);
     }
   }
 
@@ -152,12 +160,11 @@ for (const testCase of cases) {
     linkCount,
     protectedCount,
     primaryRouting,
-    echoNestLayout,
-    corePlacement,
     coreRouting,
     coreAnchorError,
+    coreDiameter,
+    echoNestLayout,
     horizontalDestinationSpan: span,
-    coreDensity: await core.getAttribute('data-core-density'),
     filename,
   });
   await page.close();
@@ -165,7 +172,7 @@ for (const testCase of cases) {
 
 for (const removedMorph of removedMorphologies) {
   const page = await browser.newPage({ viewport: { width: 1920, height: 1080 }, deviceScaleFactor: 1 });
-  await page.goto(`${baseUrl}/?morph=${removedMorph}&seed=removed-v10-core-nucleus`, { waitUntil: 'networkidle' });
+  await page.goto(`${baseUrl}/?morph=${removedMorph}&seed=removed-v12-fixed-core`, { waitUntil: 'networkidle' });
   const root = page.locator('[data-fractal-morphology]');
   await root.waitFor({ state: 'visible' });
   if (removedMorph === 'tectonic') {
@@ -224,10 +231,7 @@ for (const echoCase of echoCases) {
 }
 
 await browser.close();
-fs.writeFileSync(
-  path.join(outputDir, 'gallery-report.json'),
-  `${JSON.stringify({ failures, reports }, null, 2)}\n`
-);
+fs.writeFileSync(path.join(outputDir, 'gallery-report.json'), `${JSON.stringify({ failures, reports }, null, 2)}\n`);
 
 if (failures.length) {
   console.error(failures.join('\n'));
@@ -235,5 +239,5 @@ if (failures.length) {
 }
 
 console.log(
-  `Captured ${cases.length} curated fractal fixtures, verified ${removedMorphologies.length} removals, and audited ${echoCases.length} themed subpages with protected angular navigation, Fermat organization, and a central Echo Nest nucleus.`
+  `Captured ${cases.length} curated fractal fixtures, verified ${removedMorphologies.length} removals, and audited ${echoCases.length} themed subpages with a fixed circular CORE and topology-preserving dendrites.`
 );
