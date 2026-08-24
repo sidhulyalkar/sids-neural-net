@@ -15,7 +15,6 @@ const root = process.cwd();
 const readRepoFile = (path: string) => readFileSync(join(root, path), 'utf8');
 
 test('theme echo only accepts the active homepage morphologies', () => {
-  // Tectonic remains in the renderer compatibility union but is retired by the runtime guard.
   assert.equal(CURATED_FRACTAL_THEME_IDS.length, 10);
   assert.equal(isCuratedFractalThemeId('tectonic'), false);
   assert.equal(isCuratedFractalThemeId('echo-nest'), true);
@@ -57,42 +56,42 @@ test('homepage records its theme and subpages consume the echo consistently', ()
 
 test('Echo Nest theme echoes reuse the Fermat orientation grammar', () => {
   const echo = readRepoFile('components/neural-atlas/FractalThemeEcho.tsx');
-
   assert.match(echo, /FERMAT_ECHO_STEP/);
   assert.match(echo, /fermatEchoTangent/);
   assert.match(echo, /renderEchoNestFermatEcho/);
   assert.match(echo, /theme\.morphology === 'echo-nest'/);
-  assert.match(echo, /dataset\.fractalThemeLayout = 'fermat-spiral-v1'/);
 });
 
-test('homepage retains quiet-pocket fallback and expands Echo Nest', () => {
+test('CORE is one fixed circular center control for every homepage morphology', () => {
+  const home = readRepoFile('components/neural-atlas-canvas/AdaptiveFractalHome.tsx');
   const stage = readRepoFile('components/neural-atlas-canvas/AdaptiveFractalStage.tsx');
   const experience = readRepoFile('components/neural-atlas-canvas/FractalExperienceV3.tsx');
-  assert.match(stage, /FractalExperienceV3/);
-  assert.match(experience, /placeCoreInQuietPocket/);
-  assert.match(experience, /candidateDensity/);
-  assert.match(experience, /dataset\.corePlacement = 'quiet-pocket-v1'/);
-  assert.match(experience, /drawExpandedEchoNest/);
-  assert.match(experience, /morphology === 'tectonic'/);
-  assert.match(experience, /url\.searchParams\.set\('morph', 'echo-nest'\)/);
+
+  assert.match(home, /data-core-placement="fixed-center-circle-v1"/);
+  assert.match(home, /data-core-shape="circle"/);
+  assert.match(home, /data-core-anchor="tree-center"/);
+  assert.match(home, /rounded-full/);
+  assert.match(home, /coreDiameter = tree\?\.compact \? 46 : 54/);
+  assert.match(home, /data-core-routing="fixed-center-circle-v1"/);
+  assert.match(experience, /lockCoreToTreeCenter/);
+  assert.match(experience, /getFractalViewportGeometry/);
+  assert.doesNotMatch(experience, /candidateDensity/);
+  assert.doesNotMatch(experience, /placeCoreInQuietPocket/);
+  assert.doesNotMatch(stage, /FractalCoreNucleusV10/);
 });
 
-test('Echo Nest CORE is re-anchored to the tree nucleus and gains central root trunks', () => {
-  const stage = readRepoFile('components/neural-atlas-canvas/AdaptiveFractalStage.tsx');
-  const nucleus = readRepoFile('components/neural-atlas-canvas/FractalCoreNucleusV10.tsx');
+test('primary navigation preserves generated branch topology instead of rerouting trunks away from their children', () => {
+  const home = readRepoFile('components/neural-atlas-canvas/AdaptiveFractalHome.tsx');
 
-  assert.match(stage, /FractalCoreNucleusV10/);
-  assert.match(nucleus, /nucleusGeometry/);
-  assert.match(nucleus, /PRIMARY_ANGLE_OFFSET/);
-  assert.match(nucleus, /drawAngularTrunk/);
-  assert.match(nucleus, /drawInnerFermatOrbit/);
-  assert.match(nucleus, /data-fractal-core-nucleus="v2"/);
-  assert.match(nucleus, /dataset\.corePlacement = 'central-nucleus-v2'/);
-  assert.match(nucleus, /dataset\.coreRouting = 'central-nucleus-v2'/);
-  assert.match(nucleus, /dataset\.coreAnchor = 'tree-center'/);
+  assert.match(home, /orientPrimaryFromCore/);
+  assert.match(home, /buildTopologyPreservingPrimaryRoute/);
+  assert.match(home, /data-primary-routing="topology-preserving-v2"/);
+  assert.match(home, /buildProtectedTerminalTail/);
+  assert.match(home, /return \[\.\.\.ordered, \.\.\.tail\.slice\(1\)\]/);
+  assert.doesNotMatch(home, /connector-v4:/);
 });
 
-test('Echo Nest uses an oriented Fermat spiral instead of random polygon clouds', () => {
+test('Echo Nest is centered on CORE and keeps tangent-oriented Fermat geometry', () => {
   const experience = readRepoFile('components/neural-atlas-canvas/FractalExperienceV3.tsx');
 
   assert.match(experience, /FERMAT_SPIRAL_STEP/);
@@ -103,22 +102,8 @@ test('Echo Nest uses an oriented Fermat spiral instead of random polygon clouds'
   assert.match(experience, /rotation: tangent \+ shapeBias \+ rotationJitter/);
   assert.match(experience, /drawMatteHatch/);
   assert.match(experience, /shapeIntersectsProtected/);
-  assert.match(experience, /dataset\.echoNestLayout = 'fermat-spiral-v1'/);
-  assert.doesNotMatch(experience, /drawCellCloud/);
-});
-
-test('homepage v4 routes major connectors as angular protected signal paths', () => {
-  const home = readRepoFile('components/neural-atlas-canvas/AdaptiveFractalHome.tsx');
-
-  assert.match(home, /buildProtectedPrimaryRoute/);
-  assert.match(home, /connector-v4:/);
-  assert.match(home, /routeCollisionScore/);
-  assert.match(home, /data-primary-routing="angular-obstacle-v1"/);
-  assert.match(home, /data-navigation-clearance="protected"/);
-  assert.match(home, /RETIRED_MORPHOLOGIES/);
-  assert.match(home, /'tectonic', 'aurora', 'mycelial'/);
-  assert.match(home, /connectorTerminal/);
-  assert.match(home, /segmentIntersectsRect/);
+  assert.match(experience, /const center = geometry\.center/);
+  assert.match(experience, /dataset\.echoNestLayout = 'fermat-core-centered-v2'/);
 });
 
 test('contact suppresses the redundant frontier shortcut while other comic pages retain it', () => {
