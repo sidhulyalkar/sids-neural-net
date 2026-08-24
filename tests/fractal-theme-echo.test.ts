@@ -67,6 +67,21 @@ test('homepage relocates CORE into a quiet pocket and expands Echo Nest', () => 
   assert.match(experience, /url\.searchParams\.set\('morph', 'echo-nest'\)/);
 });
 
+test('Echo Nest uses an oriented Fermat spiral instead of random polygon clouds', () => {
+  const experience = readRepoFile('components/neural-atlas-canvas/FractalExperienceV3.tsx');
+
+  assert.match(experience, /FERMAT_SPIRAL_STEP/);
+  assert.match(experience, /FERMAT_SPIRAL_ARMS/);
+  assert.match(experience, /fermatTangentAngle/);
+  assert.match(experience, /buildFermatSpiralBand/);
+  assert.match(experience, /drawFermatSpiralBand/);
+  assert.match(experience, /rotation: tangent \+ shapeBias \+ rotationJitter/);
+  assert.match(experience, /drawMatteHatch/);
+  assert.match(experience, /shapeIntersectsProtected/);
+  assert.match(experience, /dataset\.echoNestLayout = 'fermat-spiral-v1'/);
+  assert.doesNotMatch(experience, /drawCellCloud/);
+});
+
 test('homepage v4 routes major connectors as angular protected signal paths', () => {
   const home = readRepoFile('components/neural-atlas-canvas/AdaptiveFractalHome.tsx');
 
