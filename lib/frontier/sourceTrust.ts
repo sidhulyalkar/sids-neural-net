@@ -257,7 +257,9 @@ function isPrivateOrLocalHost(host: string): boolean {
   // mistaken for IPv6 merely because they begin with "fd".
   if (host.includes(':')) {
     if (host === '::' || host === '::1' || host.startsWith('fc') || host.startsWith('fd') || host.startsWith('fe80:')) return true;
-    if (host.startsWith('::ffff:')) return isPrivateOrLocalHost(host.slice('::ffff:'.length));
+    // IPv4-mapped literals are not useful publisher identities and can disguise
+    // private endpoints after URL canonicalization (for example ::ffff:7f00:1).
+    if (host.startsWith('::ffff:')) return true;
     return false;
   }
 
