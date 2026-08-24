@@ -415,7 +415,7 @@ export function useSemanticReranker(
     return () => { cancelled = true; };
   }, [archiveNeighborhood, enabled, items, publishVectorSnapshot, sequenceTarget]);
 
-  const memoryCentroid = memoryNeighborhood?.target === sequenceTarget
+  const memoryCentroid = memoryNeighborhood && memoryNeighborhood.target === sequenceTarget
     ? memoryNeighborhood.centroid
     : undefined;
   const rankingTarget = useMemo(
