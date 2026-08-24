@@ -18,6 +18,7 @@
     "check:world3d": "tsx scripts/validate-world3d.ts",
     "check:mosslight": "node scripts/validate-mosslight.mjs",
     "check:sylvaria-sequoia": "node scripts/validate-sylvaria-sequoia.mjs",
+    "check:sylvaria-flow": "node scripts/validate-sylvaria-flow-envelope.mjs",
     "check:bundle": "tsx scripts/check-bundle-budget.ts",
     "check:visual-cortex": "python3 scripts/check-visual-archive.py",
     "check:visual-archive": "python3 scripts/check-visual-archive.py",
