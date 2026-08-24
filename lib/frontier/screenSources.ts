@@ -120,12 +120,21 @@ export function parseScreenNewsRss(xml: string, spec: ScreenQuery, now = Date.no
     const source = host(publisherUrl) || 'news.google.com';
     const summary = summarize(xmlTag(block, 'description') || `${spec.label} update.`);
     const evidenceText = `${title} ${summary} ${sourceLabel}`;
-    const tasteText = `${evidenceText} ${spec.tags.join(' ')}`;
+    const evidenceTags = screenTasteTags(evidenceText);
     const exactFavorite = matchedScreenFavorites(evidenceText).length > 0;
-    const tasteTags = screenTasteTags(tasteText);
+    const exactBundle = spec.id.startsWith('favorites-');
+
+    // Search-engine query expansion is only retrieval assistance. Returned
+    // evidence must independently establish relevance before a card enters the
+    // candidate pool. Exact-title bundles require an actual favorite-title hit;
+    // motif searches require a real screen-taste motif in title/summary/source.
+    if (exactBundle && !exactFavorite) return [];
+    if (!exactBundle && !evidenceTags.length) return [];
+
+    const tasteText = `${evidenceText} ${spec.tags.join(' ')}`;
     const tags = Array.from(new Set([
       ...spec.tags,
-      ...tasteTags,
+      ...evidenceTags,
       ...(exactFavorite ? ['screen favorite'] : []),
       'screen orbit',
       'targeted discovery',
