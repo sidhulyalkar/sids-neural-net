@@ -5,6 +5,13 @@
   const JUMP_KEYS = new Set(['Space', 'ArrowUp', 'KeyW']);
   const SAP_KEYS = new Set(['ShiftLeft', 'ShiftRight', 'KeyE']);
 
+  // Starting/restarting focuses the canvas. Some browser + iframe combinations can
+  // surface a delayed duplicate keydown after the original Space keyup. Tracking
+  // only state.keys is therefore insufficient. Keep a short time-based quarantine
+  // that survives focus/blur and expires before a normal first gameplay jump.
+  const START_JUMP_GUARD_MS = 180;
+  const suppressedJumpKeys = new Map();
+
   async function copyTelemetry() {
     const text = JSON.stringify(S.summarizeTelemetry(), null, 2);
     try {
@@ -17,7 +24,17 @@
   }
 
   function quarantineStartKey(code) {
-    if (JUMP_KEYS.has(code)) state.keys.add(code);
+    if (!JUMP_KEYS.has(code)) return;
+    suppressedJumpKeys.set(code, performance.now() + START_JUMP_GUARD_MS);
+    state.keys.add(code);
+  }
+
+  function isJumpQuarantined(code, now = performance.now()) {
+    const until = suppressedJumpKeys.get(code);
+    if (until == null) return false;
+    if (now < until) return true;
+    suppressedJumpKeys.delete(code);
+    return false;
   }
 
   function handleKeyDown(event) {
@@ -66,6 +83,12 @@
         state.mode = 'playing';
         wrap.dataset.playing = 'true';
       }
+      return;
+    }
+
+    if (JUMP_KEYS.has(event.code) && isJumpQuarantined(event.code)) {
+      // Absorb a delayed duplicate start/resume edge without turning it into a
+      // held gameplay key. Keyup may already have occurred on another focus path.
       return;
     }
 
@@ -135,6 +158,8 @@
   window.addEventListener('keydown', handleKeyDown, { passive: false });
   window.addEventListener('keyup', handleKeyUp);
   window.addEventListener('blur', () => {
+    // Keep suppressedJumpKeys intact across focus churn. That persistence is the
+    // whole point of the start-edge quarantine.
     state.keys.clear();
     state.pointers.clear();
     player.jumpHeld = false;
@@ -173,6 +198,13 @@
       hyper: player.hyper,
       airJumps: player.airJumps,
       jumpInput: S.jumpInputContract?.getState() || null,
+      inputGate: {
+        startJumpGuardMs: START_JUMP_GUARD_MS,
+        suppressedJumpKeys: [...suppressedJumpKeys.entries()].map(([code, until]) => ({
+          code,
+          remainingMs: Math.max(0, until - performance.now()),
+        })),
+      },
       flowAssist: S.flowAssist?.getState() || null,
       saves: player.saves,
       branchCount: state.branches.length,
