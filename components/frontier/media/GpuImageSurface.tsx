@@ -87,6 +87,10 @@ export function GpuImageSurface({
     setFallbackFailed(false);
     setNativeReady(false);
     setNativeSrc(src);
+    // The shared WebGL plane owns static viewport proximity. This component
+    // registers one surface and exposes one explicit predictive warm callback;
+    // it does not create a competing IntersectionObserver with a different
+    // root margin.
     const unregisterGpu = registerFrontierGpuImage({
       id: gpuId,
       node: slot,
@@ -104,21 +108,6 @@ export function GpuImageSurface({
       unregisterGpu();
     };
   }, [gpuId, src]);
-
-  useEffect(() => {
-    const frame = frameRef.current;
-    if (!frame || typeof IntersectionObserver === 'undefined') return;
-    const observer = new IntersectionObserver((entries) => {
-      if (!entries.some((entry) => entry.isIntersecting)) return;
-      // Reserve geometry immediately and ask the shared plane to begin decode
-      // before the visual enters the viewport. The native image below is an
-      // independent safety layer, so a delayed/evicted GPU texture is never a
-      // reason for the card to become visually empty.
-      warmFrontierGpuImage(gpuId);
-    }, { rootMargin: '200% 0px 200% 0px', threshold: 0 });
-    observer.observe(frame);
-    return () => observer.disconnect();
-  }, [gpuId]);
 
   useEffect(() => {
     if (fallbackFailed) onUnavailable?.();
