@@ -56,21 +56,34 @@ assert.match(core, /sapSurges/);
 assert.match(core, /comboLinkIntervals/);
 assert.match(core, /routeStats/);
 
-assert.match(feel, /groundAccel: 3300/);
-assert.match(feel, /maxSpeed: 640/);
-assert.match(feel, /burstChargeSeconds: 0\.26/);
-assert.match(feel, /base: 620/);
-assert.match(feel, /doubleBase: 475/);
-assert.match(feel, /retention: 0\.72/);
-assert.match(feel, /verticalBase: 350/);
-assert.match(feel, /clingGrace: 0\.18/);
-assert.match(feel, /attachMax: 440/);
-assert.match(feel, /snapMinVy: 355/);
-assert.match(feel, /quickMinVy: 610/);
-assert.match(feel, /sapSurgeThreshold: 4/);
-assert.match(feel, /hyperThreshold: 6/);
-assert.match(feel, /window: 3\.45/);
-assert.match(feel, /baseSpeed: 24/);
+// Easy-to-enter momentum loop.
+assert.match(feel, /groundAccel: 3680/);
+assert.match(feel, /airAccel: 1760/);
+assert.match(feel, /maxSpeed: 700/);
+assert.match(feel, /groundFriction60Hz: 0\.91/);
+assert.match(feel, /burstChargeSeconds: 0\.18/);
+assert.match(feel, /burstMinSpeed: 175/);
+assert.match(feel, /comboCarryBase: 34/);
+assert.match(feel, /strideLaunchCarry: 0\.90/);
+assert.match(feel, /strideMax: 760/);
+assert.match(feel, /base: 650/);
+assert.match(feel, /momentumGain: 0\.65/);
+assert.match(feel, /momentumCap: 455/);
+assert.match(feel, /cutDrag120Hz: 0\.9993/);
+assert.match(feel, /bufferSeconds: 0\.19/);
+assert.match(feel, /doubleBase: 520/);
+assert.match(feel, /retention: 0\.80/);
+assert.match(feel, /verticalBase: 390/);
+assert.match(feel, /clingGrace: 0\.22/);
+assert.match(feel, /attachMax: 468/);
+assert.match(feel, /snapMinVy: 480/);
+assert.match(feel, /quickMinVy: 690/);
+assert.match(feel, /sapSurgeThreshold: 5/);
+assert.match(feel, /hyperThreshold: 7/);
+assert.match(feel, /easyHyperThreshold: 6/);
+assert.match(feel, /hyperVarietyThreshold: 4/);
+assert.match(feel, /window: 3\.70/);
+assert.match(feel, /baseSpeed: 18/);
 
 for (const grammar of ['FLOW', 'CRUX', 'RECOVERY', 'SLINGSHOT']) {
   assert.match(world, new RegExp(`${grammar}: \\[`), `missing ${grammar} route grammar`);
@@ -78,13 +91,15 @@ for (const grammar of ['FLOW', 'CRUX', 'RECOVERY', 'SLINGSHOT']) {
 for (const phase of ['ROOTWAYS', 'REDWOOD RUN', 'SAPWORK', 'HIGH CANOPY', 'CROWNLINE']) {
   assert.match(world, new RegExp(phase), `missing ${phase} difficulty phase`);
 }
-assert.match(world, /ROOTWAYS[\s\S]*floor: 0[\s\S]*pressure: 0\.72/);
-assert.match(world, /REDWOOD RUN[\s\S]*floor: 36/);
-assert.match(world, /SAPWORK[\s\S]*floor: 75/);
-assert.match(world, /HIGH CANOPY[\s\S]*floor: 120/);
-assert.match(world, /CROWNLINE[\s\S]*floor: 170/);
-assert.match(world, /\{ dy: 60, side: 'same', length: 470, launch: true \}/);
-assert.match(world, /\{ dy: 56, side: 'center', length: 560, launch: true \}/);
+assert.match(world, /ROOTWAYS[\s\S]*floor: 0[\s\S]*pressure: 0\.58/);
+assert.match(world, /REDWOOD RUN[\s\S]*floor: 44/);
+assert.match(world, /SAPWORK[\s\S]*floor: 90/);
+assert.match(world, /HIGH CANOPY[\s\S]*floor: 145/);
+assert.match(world, /CROWNLINE[\s\S]*floor: 205/);
+assert.match(world, /\{ dy: 54, side: 'center', length: 620, launch: true \}/);
+assert.match(world, /\{ dy: 52, side: 'center', length: 640, launch: true \}/);
+assert.match(world, /difficulty = clamp\(Math\.max\(0, state\.generatedFloor - 40\) \/ 190/);
+assert.match(world, /minLength = side === 'center' \? lerp\(500, 310, geometry\) : lerp\(330, 205, geometry\)/);
 assert.match(world, /step\.ring/);
 assert.match(world, /step\.launch/);
 assert.match(world, /ring\.radius = lerp\(TUNE\.ring\.baseRadius, TUNE\.ring\.minRadius, difficulty\)/);
@@ -110,7 +125,8 @@ assert.match(gameplay, /boundedPush\(telemetry\.samples\.sapReleaseGain/);
 assert.match(gameplay, /telemetry\.counters\.sapCatches \+= 1/);
 assert.match(gameplay, /if \(!player\.grounded\) player\.vy \+= \(state\.GRAVITY \+ sapForce\.ay\) \* dt/);
 
-assert.match(jumpContract, /duplicateEdgeMs = 48/);
+assert.match(jumpContract, /duplicateEdgeMs = 28/);
+assert.match(jumpContract, /Start-key quarantine now handles the old title-screen leak/);
 assert.match(jumpContract, /player\.jumpRequestId > player\.consumedJumpRequestId/);
 assert.match(jumpContract, /player\.jumpRequestId === player\.consumedJumpRequestId/);
 assert.match(jumpContract, /telemetry\.counters\.jumps > beforeGroundJumps/);
@@ -121,15 +137,22 @@ assert.match(jumpContract, /S\.requestJump = requestJump/);
 assert.match(jumpContract, /S\.update = update/);
 
 assert.match(flowAssist, /function attachSap\(/);
-assert.match(flowAssist, /sap\.rest = Math\.max\(TUNE\.sap\.restMin, sap\.rest \* TUNE\.sap\.snapRestScale\)/);
-assert.match(flowAssist, /announce\('SAP SNAP'/);
+assert.match(flowAssist, /announce\('SAP SNAP ↑'/);
 assert.match(flowAssist, /function releaseSap\(/);
-assert.match(flowAssist, /quickMinVy/);
-assert.match(flowAssist, /QUICK SLING · AIR KICK READY/);
+assert.match(flowAssist, /QUICK SLING ↑ · AIR KICK READY/);
 assert.match(flowAssist, /function barkKick\(/);
-assert.match(flowAssist, /BARK KICK · AIR KICK READY/);
+assert.match(flowAssist, /BARK KICK ↑ · AIR KICK READY/);
 assert.match(flowAssist, /function updateMomentumBurst\(/);
-assert.match(flowAssist, /MOMENTUM BURST/);
+assert.match(flowAssist, /function rememberStride\(/);
+assert.match(flowAssist, /function preUpdateStride\(/);
+assert.match(flowAssist, /stride-launch-carry/);
+assert.match(flowAssist, /function applyComboCarry\(/);
+assert.match(flowAssist, /combo-speed-carry/);
+assert.match(flowAssist, /function maybeEnterCrownvelocity\(/);
+assert.match(flowAssist, /TUNE\.combo\.easyHyperThreshold/);
+assert.match(flowAssist, /route: variedFlowReady && !pureFlowReady \? 'VARIED' : 'ICY_FLOW'/);
+assert.match(flowAssist, /function primeAllRouteGrammars\(/);
+assert.match(flowAssist, /S\.generateUntil\(5840\)/);
 assert.match(flowAssist, /S\.flowAssist/);
 
 assert.doesNotMatch(render, /routeRng\.next\(/, 'rendering must never consume route RNG');
@@ -174,14 +197,14 @@ console.log(JSON.stringify({
   ok: true,
   runtime: 'sylvaria-sequoia',
   title: 'Sylvaria: Sequoia',
-  version: '0.3.0-feel-pass',
+  version: '0.3.0-icy-flow-pass',
   fixedHz: 120,
   modules,
   grammars: ['FLOW', 'CRUX', 'RECOVERY', 'SLINGSHOT'],
   phases: ['ROOTWAYS', 'REDWOOD RUN', 'SAPWORK', 'HIGH CANOPY', 'CROWNLINE'],
-  accessibility: ['wider Rootways', 'higher base jump', 'shorter wall rebound', 'slower early threat'],
-  traversalAssists: ['Momentum Burst', 'Sap Snap', 'Quick Sling', 'Bark Kick'],
-  aerialLoop: ['Air Kick', 'Bark refresh', 'Resin Ring refresh', 'Sap refresh', 'SAP SURGE', 'CROWNVELOCITY'],
-  jumpInput: ['start-key quarantine', 'physical edge debounce', 'unique request id', 'single action consumption'],
+  accessibility: ['runway Rootways', 'speed-scaled jump', 'stride memory', 'combo carry', 'slow early pressure'],
+  traversalAssists: ['Momentum Burst', 'Air Kick', 'Sap Snap', 'Quick Sling', 'Bark Kick'],
+  aerialLoop: ['2+ floor skip', 'combo carry', 'wall recovery', 'Sap refresh', 'CROWNVELOCITY'],
+  jumpInput: ['start-key quarantine', '28ms duplicate guard', 'unique request id', 'single action consumption'],
   telemetry: ['airtime', 'double jump', 'refreshes', 'speed', 'rebound', 'rings', 'burls', 'sapline', 'combo', 'threat', 'route completion'],
 }, null, 2));
