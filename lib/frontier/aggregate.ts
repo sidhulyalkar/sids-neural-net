@@ -6,7 +6,7 @@ import { getAdaptiveLiveDiscovery } from './liveDiscovery';
 import { enrichFrontierMediaGeometry } from './media/geometry';
 import { enrichFrontierSourceVisual } from './media/sourceVisuals';
 import { getPersonalFrontierFeed } from './personalSources';
-import { personalTasteTags } from './personalTaste';
+import { personalTasteRankingPrior, personalTasteTags } from './personalTaste';
 import { getPersonalTasteFrontierFeed } from './personalTasteSources';
 import { getSharedMultiSourceFrontierFeed } from './sourceIngestorShared';
 import { getFrontierFeed } from './sources';
@@ -14,11 +14,13 @@ import { getSportsAnalyticsFeed } from './sportsAnalyticsSources';
 import { vetFrontierItems } from './sourceTrust';
 import type { FrontierFeedResponse, FrontierItem, FrontierSourceStatus } from './types';
 import { getVimeoStaffPicksFeed } from './vimeoSource';
+import { getWatchableFrontierFeed } from './watchableSources';
 
 const DAY_MS = 86_400_000;
 const MAX_FUTURE_SKEW_MS = 12 * 60 * 60_000;
 const REQUEST_ADAPTER_DEADLINE_MS = 4_500;
 const MAX_INTEGRATED_CANDIDATES = 320;
+const CANDIDATE_TASTE_WEIGHT = 0.55;
 
 type IntegratedOptions = {
   includeSnapshot?: boolean;
@@ -68,7 +70,12 @@ function dedupe(items: FrontierItem[]): FrontierItem[] {
   });
 }
 
-function enrichFormatSemantics(entry: FrontierItem): FrontierItem {
+/**
+ * Semantic enrichment is intentionally presentation-independent and runs before
+ * candidate truncation. Otherwise a broad research flood can evict a smaller
+ * NFL/fantasy/visualization signal before the personalized recommender sees it.
+ */
+export function enrichFrontierSemantics(entry: FrontierItem): FrontierItem {
   const tags = new Set(entry.tags);
   if (['openalex', 'arxiv', 'huggingface', 'paperswithcode', 'biorxiv', 'medrxiv', 'openreview'].includes(entry.sourceKind)) {
     tags.add('paper');
@@ -77,20 +84,35 @@ function enrichFormatSemantics(entry: FrontierItem): FrontierItem {
   if (entry.sourceKind === 'paperswithcode' || entry.sourceKind === 'github') tags.add('code');
   if (entry.sourceKind === 'lobsters') tags.add('thread');
   if (entry.sourceKind === 'nasa') tags.add('visual science');
-  if (entry.sourceKind === 'vimeo') tags.add('video');
+  if (entry.sourceKind === 'vimeo' || entry.sourceKind === 'youtube') tags.add('video');
 
-  // Every adapter gets the same semantic personalization pass. This prevents a
-  // useful sports/statistics, Neuroglancer, imaging, or neuroscience item from
-  // losing ranking authority merely because its source adapter emitted generic
-  // tags. These tags are semantic only and never depend on presentation media.
   const tasteText = [entry.title, entry.summary, entry.sourceLabel, ...entry.tags].filter(Boolean).join(' ');
   for (const tag of personalTasteTags(tasteText)) tags.add(tag);
 
   return tags.size === entry.tags.length ? entry : { ...entry, tags: [...tags].slice(0, 14) };
 }
 
+/**
+ * This is a bounded cold-start inventory prior, not final recommendation score.
+ * Learned behavior still owns final ranking in scoring.ts. The server merely
+ * prevents high-fit candidates from being deleted before that learner runs.
+ */
+export function frontierCandidatePriority(item: FrontierItem): number {
+  return item.baseScore + personalTasteRankingPrior(item) * CANDIDATE_TASTE_WEIGHT;
+}
+
+function prepareCandidatePool(items: FrontierItem[]): FrontierItem[] {
+  return vetFrontierItems(dedupe(
+    items
+      .filter((item) => isPlausibleFrontierCandidate(item))
+      .map(enrichFrontierSemantics)
+  ))
+    .sort((a, b) => frontierCandidatePriority(b) - frontierCandidatePriority(a))
+    .slice(0, MAX_INTEGRATED_CANDIDATES);
+}
+
 function enrichPresentation(entry: FrontierItem): FrontierItem {
-  return enrichFrontierMediaGeometry(enrichFrontierSourceVisual(enrichFormatSemantics(entry)));
+  return enrichFrontierMediaGeometry(enrichFrontierSourceVisual(entry));
 }
 
 function mergeStatuses(statuses: FrontierSourceStatus[]): FrontierSourceStatus[] {
@@ -165,6 +187,7 @@ export async function getIntegratedFrontierFeed(options: IntegratedOptions = {})
     tasteResult,
     activeSportsResult,
     sportsAnalyticsResult,
+    watchableResult,
     adaptiveResult,
     multiSourceResult,
     expandedResult,
@@ -175,6 +198,7 @@ export async function getIntegratedFrontierFeed(options: IntegratedOptions = {})
     withinAdapterDeadline('personal taste mesh', tasteDiscoveryTask, deadline),
     withinAdapterDeadline('active sports mesh', getActiveSportsFeed(), deadline),
     withinAdapterDeadline('sports analytics mesh', getSportsAnalyticsFeed(), deadline),
+    withinAdapterDeadline('watch radar', getWatchableFrontierFeed(), deadline),
     withinAdapterDeadline(
       'adaptive live mesh',
       focusTopics.length ? getAdaptiveLiveDiscovery(focusTopics) : Promise.resolve(emptyAdaptive),
@@ -185,14 +209,13 @@ export async function getIntegratedFrontierFeed(options: IntegratedOptions = {})
     withinAdapterDeadline('Vimeo discovery', getVimeoStaffPicksFeed(), deadline),
   ]);
 
-  // Focused discovery and research meshes intentionally precede broad sources.
-  // When adapters converge on one URL, the richer request-time normalization
-  // survives deduplication while weaker duplicates disappear. Reject malformed
-  // candidates, apply destination-aware source vetting, and collapse duplicates
-  // before presentation enrichment so neither novelty nor an aggregator can
-  // promote an unvetted publisher into the candidate pool.
+  // Focused discovery meshes intentionally precede broad sources for dedupe
+  // authority. Semantic enrichment then occurs before the bounded inventory
+  // cut, and presentation enrichment remains after it so media can never buy a
+  // candidate slot.
   const orderedResults = [
     sportsAnalyticsResult,
+    watchableResult,
     adaptiveResult,
     multiSourceResult,
     expandedResult,
@@ -203,19 +226,13 @@ export async function getIntegratedFrontierFeed(options: IntegratedOptions = {})
     personalResult,
   ];
   const liveFeeds = orderedResults.flatMap((result) => result.status === 'fulfilled' ? [result.value] : []);
-  const rawLiveItems = vetFrontierItems(dedupe(
-    liveFeeds
-      .flatMap((feed) => feed.items)
-      .filter((item) => isPlausibleFrontierCandidate(item))
-  ))
-    .sort((a, b) => b.baseScore - a.baseScore)
-    .slice(0, MAX_INTEGRATED_CANDIDATES);
+  const rawLiveItems = prepareCandidatePool(liveFeeds.flatMap((feed) => feed.items));
   const liveItems = rawLiveItems.map(enrichPresentation);
 
   const liveKeys = new Set(liveItems.flatMap((item) => [canonicalKey(item), item.title.toLowerCase()]));
   const archive = options.includeSnapshot === false
     ? []
-    : vetFrontierItems(recentSnapshotItems()
+    : prepareCandidatePool(recentSnapshotItems()
         .filter((item) => !liveKeys.has(canonicalKey(item)) && !liveKeys.has(item.title.toLowerCase())))
         .map(enrichPresentation);
 
@@ -228,6 +245,7 @@ export async function getIntegratedFrontierFeed(options: IntegratedOptions = {})
   if (tasteResult.status === 'rejected') sources.push({ id: 'brave_web', label: 'Personal taste search', ok: false, count: 0, message: 'targeted personal taste discovery unavailable' });
   if (activeSportsResult.status === 'rejected') sources.push({ id: 'local', label: 'Active sports mesh', ok: false, count: 0, message: 'active sports source mesh unavailable' });
   if (sportsAnalyticsResult.status === 'rejected') sources.push({ id: 'rss', label: 'Sports analytics radar', ok: false, count: 0, message: 'sports analytics source mesh unavailable' });
+  if (watchableResult.status === 'rejected') sources.push({ id: 'youtube', label: 'Watch radar', ok: false, count: 0, message: 'watch radar unavailable' });
   if (adaptiveResult.status === 'rejected' && focusTopics.length) sources.push({ id: 'gdelt', label: 'Adaptive live mesh', ok: false, count: 0, message: 'focused request-time discovery unavailable' });
   if (multiSourceResult.status === 'rejected') sources.push({ id: 'local', label: 'Research ingestion mesh', ok: false, count: 0, message: 'multi-source ingestion unavailable' });
   if (expandedResult.status === 'rejected') sources.push({ id: 'local', label: 'Expanded public mesh', ok: false, count: 0, message: 'expanded public discovery unavailable' });
