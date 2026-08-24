@@ -85,9 +85,11 @@ function implicitStrength(kind: FrontierImplicitTasteKind, dwellMs = 0): number 
 }
 
 /**
- * Slow memory ratchet for implicit behavior. Impressions never modify durable
- * taste. Meaningful attention nudges the profile by tiny bounded amounts, while
- * explicit reactions remain several times stronger and can reverse the trend.
+ * The existing persisted behavior model already learns individual lane, source,
+ * topic, format, and time preferences. This second memory layer therefore owns
+ * only co-interest structure. Keeping those responsibilities separate avoids
+ * double-counting the same click and makes the inferred intersections easy to
+ * inspect or forget without erasing explicit likes/dislikes.
  */
 export function applyImplicitTasteSignal(
   profile: FrontierProfile,
@@ -97,28 +99,9 @@ export function applyImplicitTasteSignal(
 ): FrontierProfile {
   const strength = implicitStrength(kind, dwellMs);
   if (!strength || item.sourceKind === 'local') return profile;
-
-  const laneAffinity = {
-    ...profile.laneAffinity,
-    [item.lane]: clamp((profile.laneAffinity[item.lane] ?? 0) + strength * 0.45, -0.75, 1.25),
-  };
-  const sourceKey = item.sourceKind;
-  const sourceAffinity = {
-    ...profile.sourceAffinity,
-    [sourceKey]: clamp((profile.sourceAffinity[sourceKey] ?? 0) + strength * 0.3, -0.5, 0.8),
-  };
-  const topicAffinity = { ...profile.topicAffinity };
-  for (const tag of meaningfulTags(item)) {
-    topicAffinity[tag] = clamp((topicAffinity[tag] ?? 0) + strength, -0.8, 1.4);
-  }
-
-  return {
-    ...profile,
-    laneAffinity,
-    sourceAffinity,
-    topicAffinity,
-    interestPairs: updatePairs(profile, item, strength * 0.52),
-  };
+  const nextPairs = updatePairs(profile, item, strength * 0.52);
+  if (nextPairs === profile.interestPairs) return profile;
+  return { ...profile, interestPairs: nextPairs };
 }
 
 /** Explicit votes also train pair memory, with substantially higher authority. */
