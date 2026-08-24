@@ -2,6 +2,8 @@
   'use strict';
   const S = window.SylvariaSequoia;
   const { state, player, canvas, wrap, W } = S;
+  const JUMP_KEYS = new Set(['Space', 'ArrowUp', 'KeyW']);
+  const SAP_KEYS = new Set(['ShiftLeft', 'ShiftRight', 'KeyE']);
 
   async function copyTelemetry() {
     const text = JSON.stringify(S.summarizeTelemetry(), null, 2);
@@ -59,9 +61,10 @@
       return;
     }
 
+    const wasDown = state.keys.has(event.code);
     state.keys.add(event.code);
-    if (event.code === 'Space' || event.code === 'ArrowUp' || event.code === 'KeyW') S.requestJump();
-    if (event.code === 'ShiftLeft' || event.code === 'ShiftRight' || event.code === 'KeyE') {
+    if (JUMP_KEYS.has(event.code) && !wasDown) S.requestJump();
+    if (SAP_KEYS.has(event.code) && !wasDown) {
       player.sapHeld = true;
       S.attachSap();
     }
@@ -69,8 +72,8 @@
 
   function handleKeyUp(event) {
     state.keys.delete(event.code);
-    if (event.code === 'Space' || event.code === 'ArrowUp' || event.code === 'KeyW') player.jumpHeld = false;
-    if (event.code === 'ShiftLeft' || event.code === 'ShiftRight' || event.code === 'KeyE') {
+    if (JUMP_KEYS.has(event.code)) player.jumpHeld = false;
+    if (SAP_KEYS.has(event.code)) {
       player.sapHeld = false;
       S.releaseSap();
     }
@@ -100,6 +103,7 @@
     event.preventDefault();
     canvas.setPointerCapture?.(event.pointerId);
     const action = pointerAction(event);
+    if ([...state.pointers.values()].includes(action) && (action === 'jump' || action === 'sap')) return;
     state.pointers.set(event.pointerId, action);
     if (action === 'jump') S.requestJump();
     if (action === 'sap') {
@@ -160,6 +164,7 @@
       comboVariety: player.comboKindsMask,
       hyper: player.hyper,
       airJumps: player.airJumps,
+      jumpInput: S.jumpInputContract?.getState() || null,
       saves: player.saves,
       branchCount: state.branches.length,
       knotCount: state.knots.length,
