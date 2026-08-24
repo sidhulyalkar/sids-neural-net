@@ -12,19 +12,12 @@ type SessionState = {
   configured: boolean;
   authenticated: boolean;
   syncConfigured: boolean;
-  user?: {
-    email: string;
-    name?: string;
-    picture?: string;
-  };
+  user?: { email: string; name?: string; picture?: string };
 };
 
 type MemoryResponse = {
   configured?: boolean;
-  memory?: {
-    state?: unknown;
-    updatedAt?: string;
-  } | null;
+  memory?: { state?: unknown; updatedAt?: string } | null;
   error?: string;
 };
 
@@ -49,6 +42,13 @@ async function pushMemory(state: FrontierPersistedState, keepalive = false): Pro
   return response.ok;
 }
 
+function navigateDocument(path: string): void {
+  // OAuth endpoints deliberately require a document navigation rather than a
+  // client-side route transition. Build an absolute URL so Next's internal-page
+  // navigation rule does not mistake this API redirect for app navigation.
+  window.location.href = new URL(path, window.location.origin).toString();
+}
+
 export function FrontierAccount() {
   const hydrated = useFrontierStore((state) => state.hydrated);
   const [session, setSession] = useState<SessionState>();
@@ -69,7 +69,9 @@ export function FrontierAccount() {
   }, []);
 
   useEffect(() => {
-    void refreshSession();
+    let cancelled = false;
+    queueMicrotask(() => { if (!cancelled) void refreshSession(); });
+    return () => { cancelled = true; };
   }, [refreshSession]);
 
   useEffect(() => {
@@ -79,13 +81,9 @@ export function FrontierAccount() {
 
     const saveSnapshot = async (state: FrontierPersistedState): Promise<boolean> => {
       syncing.current = true;
-      try {
-        return await pushMemory(state);
-      } catch {
-        return false;
-      } finally {
-        syncing.current = false;
-      }
+      try { return await pushMemory(state); }
+      catch { return false; }
+      finally { syncing.current = false; }
     };
 
     const begin = async () => {
@@ -137,9 +135,7 @@ export function FrontierAccount() {
     };
   }, [hydrated, session?.authenticated, session?.syncConfigured]);
 
-  const signIn = () => {
-    window.location.assign('/api/auth/google/start?returnTo=/frontier');
-  };
+  const signIn = () => navigateDocument('/api/auth/google/start?returnTo=/frontier');
 
   const signOut = async () => {
     await fetch('/api/auth/logout', { method: 'POST', cache: 'no-store' });
@@ -155,7 +151,7 @@ export function FrontierAccount() {
       const response = await fetch('/api/frontier/google/import', { method: 'POST', cache: 'no-store' });
       const payload = await response.json() as ImportResponse;
       if (payload.needsConsent) {
-        window.location.assign('/api/auth/google/start?intent=youtube&returnTo=/frontier');
+        navigateDocument('/api/auth/google/start?intent=youtube&returnTo=/frontier');
         return;
       }
       if (!response.ok || !payload.preferences) {
@@ -175,32 +171,18 @@ export function FrontierAccount() {
   };
 
   if (!session) return <div className={styles.placeholder} aria-hidden="true" />;
-
   if (!session.configured) {
-    return (
-      <div className={styles.localOnly} title="Local memory. Configure Google OAuth for cross-device sync.">
-        <CloudOff size={12} /> local
-      </div>
-    );
+    return <div className={styles.localOnly} title="Local memory. Configure Google OAuth for cross-device sync."><CloudOff size={12} /> local</div>;
   }
-
   if (!session.authenticated) {
-    return (
-      <button type="button" className={styles.signIn} onClick={signIn} title="Sign in with Google">
-        <LogIn size={12} /> Sign in
-      </button>
-    );
+    return <button type="button" className={styles.signIn} onClick={signIn} title="Sign in with Google"><LogIn size={12} /> Sign in</button>;
   }
 
   const syncLabel = !session.syncConfigured
     ? 'local only'
-    : syncState === 'loading'
-      ? 'loading'
-      : syncState === 'saving'
-        ? 'saving'
-        : syncState === 'error'
-          ? 'sync issue'
-          : 'synced';
+    : syncState === 'loading' ? 'loading'
+      : syncState === 'saving' ? 'saving'
+        : syncState === 'error' ? 'sync issue' : 'synced';
   const shortName = session.user?.name?.split(/\s+/)[0] ?? session.user?.email.split('@')[0] ?? 'Account';
 
   return (
@@ -215,10 +197,7 @@ export function FrontierAccount() {
         <span className={`${styles.syncDot} ${syncState === 'error' ? styles.syncError : ''}`} aria-label={syncLabel} />
       </summary>
       <div className={styles.menuPanel}>
-        <div className={styles.menuMeta}>
-          <span>{session.user?.email}</span>
-          <strong>{syncLabel}</strong>
-        </div>
+        <div className={styles.menuMeta}><span>{session.user?.email}</span><strong>{syncLabel}</strong></div>
         <button type="button" onClick={() => void importGoogle()} disabled={importing || !session.syncConfigured} title="Learn from consented YouTube subscriptions and liked videos">
           {importing ? <RefreshCw size={12} className={styles.spin} /> : <Youtube size={12} />} YouTube taste
         </button>
