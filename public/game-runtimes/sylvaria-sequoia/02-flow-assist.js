@@ -23,6 +23,9 @@
   function ensureAssistState() {
     player.barkGrace ||= 0;
     player.barkSide ||= '';
+    player.clingTimer ||= 0;
+    player.clingSide ||= '';
+    player.clingActive ||= false;
     player.runCharge ||= 0;
     player.runChargeDirection ||= 0;
     player.lastBurstBranch ||= null;
@@ -49,6 +52,9 @@
   function resetAssist() {
     player.barkGrace = 0;
     player.barkSide = '';
+    player.clingTimer = 0;
+    player.clingSide = '';
+    player.clingActive = false;
     player.runCharge = 0;
     player.runChargeDirection = 0;
     player.lastBurstBranch = null;
@@ -56,11 +62,13 @@
     player.wallRecovery = 0;
   }
 
+  function skillSpeedCap() {
+    const flowBonus = Math.min(TUNE.run.skillSpeedBonusCap, Math.max(0, player.combo - 1) * 4);
+    return TUNE.run.maxSpeed + flowBonus + (player.hyper ? 42 : 0);
+  }
+
   function rememberStride(value = Math.abs(player.vx)) {
-    player.strideMomentum = Math.min(
-      TUNE.run.strideMax,
-      Math.max(player.strideMomentum || 0, Math.abs(value))
-    );
+    player.strideMomentum = Math.min(TUNE.run.strideMax, Math.max(player.strideMomentum || 0, Math.abs(value)));
   }
 
   function attachSap() {
@@ -78,7 +86,7 @@
     const above = clamp(ny, 0, 1);
 
     sap.rest = Math.max(TUNE.sap.restMin, sap.rest * TUNE.sap.snapRestScale);
-    sap.snapEligible = dy > 8;
+    sap.snapEligible = dy > 10;
     sap.snapStartedAt = state.elapsed;
 
     if (sap.snapEligible) {
@@ -87,15 +95,12 @@
         player.vy + Math.max(0, ny * TUNE.sap.snapTowardImpulse),
         TUNE.sap.snapMinVy + above * TUNE.sap.snapLiftBonus
       );
-      rememberStride(Math.max(Math.abs(player.vx), 300));
+      rememberStride(Math.max(Math.abs(player.vx), 285));
       bumpCounter('sapSnaps');
-      recordEvent('sap-snap', {
-        vertical: S.round(player.vy, 1),
-        toward: S.round(nx * TUNE.sap.snapTowardImpulse, 1),
-      });
-      announce('SAP SNAP ↑', 0.42, 12);
-      burst(player.x, player.y, 10, 'resin', 0.58);
-      tone(470, 0.055, 0.028, 'triangle', 1.45);
+      recordEvent('sap-snap', { vertical: S.round(player.vy, 1), toward: S.round(nx * TUNE.sap.snapTowardImpulse, 1) });
+      announce('SAP SNAP', 0.38, 12);
+      burst(player.x, player.y, 9, 'resin', 0.54);
+      tone(470, 0.055, 0.028, 'triangle', 1.4);
     }
   }
 
@@ -113,7 +118,6 @@
     const forward = Math.sign(player.vx || player.facing || 1);
 
     baseReleaseSap();
-
     if (dy > 0) player.vy = Math.max(player.vy, TUNE.sap.releaseFloorVy);
     if (!quick) {
       rememberStride();
@@ -122,37 +126,71 @@
 
     player.vy = Math.max(player.vy, TUNE.sap.quickMinVy);
     player.vx += forward * TUNE.sap.quickForwardImpulse;
+    player.vx = clamp(player.vx, -skillSpeedCap(), skillSpeedCap());
     player.airJumps = TUNE.jump.airJumps;
-    rememberStride(Math.max(Math.abs(player.vx), 360));
+    rememberStride(Math.max(Math.abs(player.vx), 340));
     bumpCounter('quickSlings');
-    S.addComboLink('SAP', 'QUICK SLING', 1, 0.22);
-    recordEvent('sap-quick-sling', {
-      seconds: S.round(age, 3),
-      vx: S.round(player.vx, 1),
-      vy: S.round(player.vy, 1),
-    });
-    announce('QUICK SLING ↑ · AIR KICK READY', 0.58, 13);
-    burst(player.x, player.y, 14, 'resin', 0.78);
-    tone(620, 0.07, 0.032, 'triangle', 1.55);
+    S.addComboLink('SAP', 'QUICK SLING', 1, 0.12);
+    recordEvent('sap-quick-sling', { seconds: S.round(age, 3), vx: S.round(player.vx, 1), vy: S.round(player.vy, 1) });
+    announce('QUICK SLING · AIR KICK READY', 0.50, 13);
+    burst(player.x, player.y, 12, 'resin', 0.70);
+    tone(610, 0.065, 0.03, 'triangle', 1.48);
+  }
+
+  function towardWall(axis, side) {
+    return (side === 'left' && axis < 0) || (side === 'right' && axis > 0);
+  }
+
+  function beginCling(side) {
+    if (player.clingActive && player.clingSide === side) return;
+    player.clingActive = true;
+    player.clingTimer = TUNE.rebound.clingHold;
+    player.clingSide = side;
+    player.barkSide = side;
+    player.barkGrace = Math.max(player.barkGrace, TUNE.rebound.clingGrace);
+    bumpCounter('barkClings');
+    recordEvent('bark-cling', { side });
+    announce('BARK CLING · JUMP TO KICK', 0.34, 10);
+    tone(185, 0.04, 0.018, 'triangle', 0.92);
+  }
+
+  function maintainCling(dt, axis) {
+    if (!player.clingActive) return;
+    player.clingTimer = Math.max(0, player.clingTimer - dt);
+    if (player.clingTimer <= 0 || !towardWall(axis, player.clingSide) || player.sap || player.grounded) {
+      player.clingActive = false;
+      return;
+    }
+
+    const edge = player.clingSide === 'left'
+      ? state.LEFT_WALL + state.PLAYER_R + 2
+      : state.RIGHT_WALL - state.PLAYER_R - 2;
+    player.x = edge;
+    player.vx = 0;
+    player.vy = Math.max(player.vy, -TUNE.rebound.clingFallCap);
+    player.state = 'wall-cling';
+    player.barkGrace = Math.max(player.barkGrace, player.clingTimer);
   }
 
   function barkKick() {
     if (player.barkGrace <= 0 || player.grounded || player.sap) return false;
-    const side = player.barkSide || (player.x < W / 2 ? 'left' : 'right');
+    const side = player.clingSide || player.barkSide || (player.x < W / 2 ? 'left' : 'right');
     const direction = side === 'left' ? 1 : -1;
     player.jumpHeld = true;
-    player.vx = direction * Math.max(Math.abs(player.vx), TUNE.rebound.kickHorizontal);
+    player.vx = direction * TUNE.rebound.kickHorizontal;
     player.vy = Math.max(player.vy, TUNE.rebound.kickVertical);
     player.airJumps = TUNE.jump.airJumps;
     player.barkGrace = 0;
+    player.clingTimer = 0;
+    player.clingActive = false;
     player.wallRecovery = TUNE.run.wallRecoverySeconds;
-    rememberStride(Math.max(Math.abs(player.vx), TUNE.rebound.kickHorizontal + 50));
+    rememberStride(Math.max(Math.abs(player.vx), 410));
     bumpCounter('barkKicks');
-    S.addComboLink('BARK', 'BARK KICK', 1, 0.18);
+    S.addComboLink('BARK', 'BARK KICK', 1, 0.10);
     recordEvent('bark-kick', { side, vx: S.round(player.vx, 1), vy: S.round(player.vy, 1) });
-    announce('BARK KICK ↑ · AIR KICK READY', 0.5, 13);
-    burst(player.x, player.y, 12, 'bark', 0.70);
-    tone(330, 0.065, 0.03, 'square', 1.38);
+    announce('BARK KICK · AIR KICK READY', 0.48, 13);
+    burst(player.x, player.y, 12, 'bark', 0.72);
+    tone(330, 0.065, 0.03, 'square', 1.36);
     return true;
   }
 
@@ -168,7 +206,6 @@
       player.runChargeDirection = axis;
       return;
     }
-
     if (axis !== player.runChargeDirection) {
       player.runCharge = 0;
       player.runChargeDirection = axis;
@@ -181,87 +218,66 @@
       player.lastBurstBranch !== player.grounded
     ) {
       player.vx += axis * TUNE.run.burstImpulse;
-      const maxBurstSpeed = TUNE.run.maxSpeed + TUNE.run.burstImpulse;
-      player.vx = clamp(player.vx, -maxBurstSpeed, maxBurstSpeed);
+      player.vx = clamp(player.vx, -skillSpeedCap(), skillSpeedCap());
       player.lastBurstBranch = player.grounded;
       rememberStride();
       bumpCounter('momentumBursts');
       recordEvent('momentum-burst', { vx: S.round(player.vx, 1), floor: player.grounded.floor });
-      announce('MOMENTUM BURST', 0.34, 11);
-      burst(player.x, player.y - S.state.PLAYER_R, 7, 'leaf', 0.46);
-      tone(285, 0.045, 0.022, 'triangle', 1.2);
+      announce('MOMENTUM BURST', 0.30, 10);
+      burst(player.x, player.y - state.PLAYER_R, 6, 'leaf', 0.42);
+      tone(285, 0.045, 0.021, 'triangle', 1.18);
     }
   }
 
   function preUpdateStride(dt, axis) {
     rememberStride();
-
-    const comboAccel = Math.min(
-      TUNE.run.comboAccelCap,
-      Math.max(0, player.combo) * TUNE.run.comboAccelPerLink
-    );
+    const comboAccel = Math.min(TUNE.run.comboAccelCap, Math.max(0, player.combo) * TUNE.run.comboAccelPerLink);
     const hyperAccel = player.hyper ? TUNE.run.hyperAccelScale - 1 : 0;
     if (axis !== 0 && player.grounded && comboAccel + hyperAccel > 0) {
       player.vx += axis * TUNE.run.groundAccel * (comboAccel + hyperAccel) * dt;
     }
+    if (axis !== 0 && player.wallRecovery > 0) player.vx += axis * TUNE.run.wallRecoveryAccel * dt;
 
-    if (axis !== 0 && player.wallRecovery > 0) {
-      player.vx += axis * TUNE.run.wallRecoveryAccel * dt;
-    }
-
-    // The key Icy-style assist: a successful fast approach remains useful for a
-    // brief turnaround. A queued ground jump may inherit recent legitimate
-    // stride speed instead of being crippled because vx happens to cross zero.
-    if (player.grounded && player.jumpBuffer > 0 && player.strideMomentum > Math.abs(player.vx) + 28) {
+    // Stride only softens a turnaround. It no longer restores almost all of an
+    // earlier sprint, which was the main source of self-driving back-and-forth.
+    if (player.grounded && player.jumpBuffer > 0 && player.strideMomentum > Math.abs(player.vx) + 90) {
       const direction = axis || Math.sign(player.vx || player.facing || 1);
-      const carried = Math.min(
-        TUNE.run.strideMax,
-        player.strideMomentum * TUNE.run.strideLaunchCarry
-      );
+      const carried = Math.min(TUNE.run.strideMax, player.strideMomentum * TUNE.run.strideLaunchCarry);
       player.vx = direction * Math.max(Math.abs(player.vx), carried);
       bumpCounter('strideLaunchCarries');
       recordEvent('stride-launch-carry', { speed: S.round(carried, 1), combo: player.combo });
     }
-
-    const maxAssistSpeed = TUNE.run.maxSpeed + Math.min(260, player.combo * 24) + (player.hyper ? 100 : 0);
-    player.vx = clamp(player.vx, -maxAssistSpeed, maxAssistSpeed);
+    player.vx = clamp(player.vx, -skillSpeedCap(), skillSpeedCap());
   }
 
   function applyComboCarry(axis) {
+    const telemetry = S.getTelemetry();
+    const last = telemetry.events[telemetry.events.length - 1];
+    const floors = last?.type === 'skip' ? Number(last.floors || 2) : 2;
     const direction = axis || Math.sign(player.vx || player.facing || 1);
-    const impulse = Math.min(
-      TUNE.run.comboCarryCap,
-      TUNE.run.comboCarryBase + Math.max(0, player.combo - 1) * TUNE.run.comboCarryPerLink
-    );
+    const impulse = Math.min(TUNE.run.comboCarryCap, TUNE.run.comboCarryBase + Math.max(0, floors - 2) * 5);
     player.vx += direction * impulse;
-    const maxCarrySpeed = TUNE.run.maxSpeed + Math.min(260, player.combo * 24) + (player.hyper ? 100 : 0);
-    player.vx = clamp(player.vx, -maxCarrySpeed, maxCarrySpeed);
-    rememberStride(Math.abs(player.vx) + impulse * 0.35);
+    player.vx = clamp(player.vx, -skillSpeedCap(), skillSpeedCap());
+    rememberStride(Math.abs(player.vx));
     bumpCounter('comboCarries');
-    recordEvent('combo-speed-carry', { combo: player.combo, impulse, vx: S.round(player.vx, 1) });
+    recordEvent('combo-speed-carry', { combo: player.combo, floors, impulse, vx: S.round(player.vx, 1) });
   }
 
   function maybeEnterCrownvelocity() {
     if (player.hyper || player.combo <= 0) return;
     const variety = bitCount(player.comboKindsMask || 0);
-    const pureFlowReady = player.combo >= (TUNE.combo.easyHyperThreshold || TUNE.combo.hyperThreshold);
-    const variedFlowReady =
-      player.combo >= TUNE.combo.hyperVarietyThreshold &&
-      variety >= TUNE.combo.hyperVariety;
+    const pureFlowReady = player.combo >= TUNE.combo.easyHyperThreshold;
+    const variedFlowReady = player.combo >= TUNE.combo.hyperVarietyThreshold && variety >= TUNE.combo.hyperVariety;
     if (!pureFlowReady && !variedFlowReady) return;
 
     player.hyper = true;
     player.hyperStartedAt = state.elapsed;
     player.airJumps = TUNE.jump.airJumps;
-    player.strideMomentum = Math.max(player.strideMomentum || 0, 560);
+    player.strideMomentum = Math.max(player.strideMomentum || 0, 480);
     bumpCounter('crownvelocityEntries');
-    recordEvent('crownvelocity-start', {
-      combo: player.combo,
-      variety,
-      route: variedFlowReady && !pureFlowReady ? 'VARIED' : 'ICY_FLOW',
-    });
-    announce('CROWNVELOCITY · KEEP IT MOVING', 1.0, 25);
-    state.shake = Math.max(state.shake, 0.85);
+    recordEvent('crownvelocity-start', { combo: player.combo, variety, route: variedFlowReady && !pureFlowReady ? 'VARIED' : 'PURE_FLOW' });
+    announce('CROWNVELOCITY', 0.86, 22);
+    state.shake = Math.max(state.shake, 0.66);
     S.crownDrop();
   }
 
@@ -271,18 +287,16 @@
       player.strideMomentum = Math.min(TUNE.run.strideMax, speed);
       return;
     }
-
     let decay = TUNE.run.strideMemoryDecay;
-    if (player.combo > 0) decay *= 0.30;
-    if (player.sap || player.wallRecovery > 0) decay *= 0.20;
-    if (player.grounded && axis === 0 && player.combo <= 0) decay *= 2.1;
+    if (player.combo > 0) decay *= 0.65;
+    if (player.sap) decay *= 0.55;
+    if (player.clingActive) decay *= 0.35;
+    if (player.grounded && axis === 0) decay *= 1.7;
     player.strideMomentum = Math.max(speed, player.strideMomentum - decay * dt);
   }
 
   function primeAllRouteGrammars() {
-    // Browser qualification inspects the telemetry grammar registry at title time.
-    // Generate farther above the camera without changing what the player sees.
-    S.generateUntil(5840);
+    S.generateUntil(7200);
   }
 
   function update(dt) {
@@ -299,17 +313,22 @@
     baseUpdate(dt);
 
     if (telemetry.counters.wallBounces > wallBefore) {
+      const side = player.x < W / 2 ? 'left' : 'right';
       player.barkGrace = TUNE.rebound.clingGrace;
-      player.barkSide = player.x < W / 2 ? 'left' : 'right';
-      player.wallRecovery = TUNE.run.wallRecoverySeconds;
-      rememberStride(Math.abs(player.vx) + 54);
-      bumpCounter('wallStrideCarries');
+      player.barkSide = side;
+      player.wallRecovery = 0;
+      // Passive bark contact spends momentum rather than multiplying it.
+      player.strideMomentum = Math.min(player.strideMomentum, Math.abs(player.vx) + 45);
+      bumpCounter('passiveBarkRedirects');
+      if (towardWall(axis, side)) beginCling(side);
     }
 
+    maintainCling(dt, axis);
     if (telemetry.counters.multiFloorSkips > skipsBefore) applyComboCarry(axis);
     maybeEnterCrownvelocity();
     updateMomentumBurst(dt, axis);
     updateStrideMemory(dt, axis);
+    player.vx = clamp(player.vx, -skillSpeedCap(), skillSpeedCap());
   }
 
   function resetRun(seed) {
@@ -337,10 +356,14 @@
     getState: () => ({
       barkGrace: player.barkGrace || 0,
       barkSide: player.barkSide || '',
+      clingActive: Boolean(player.clingActive),
+      clingTimer: player.clingTimer || 0,
+      clingSide: player.clingSide || '',
       runCharge: player.runCharge || 0,
       burstFloor: player.lastBurstBranch?.floor ?? null,
       strideMomentum: player.strideMomentum || 0,
       wallRecovery: player.wallRecovery || 0,
+      skillSpeedCap: skillSpeedCap(),
     }),
   };
 })();
