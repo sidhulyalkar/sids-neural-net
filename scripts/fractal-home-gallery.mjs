@@ -13,15 +13,18 @@ fs.mkdirSync(outputDir, { recursive: true });
 
 const cases = [
   { morph: 'tectonic', width: 2560, height: 1080 },
-  { morph: 'aurora', width: 2560, height: 1080 },
-  { morph: 'mycelial', width: 1920, height: 1080 },
+  { morph: 'radial', width: 1920, height: 1080 },
+  { morph: 'coral', width: 1920, height: 1080 },
+  { morph: 'fan', width: 2560, height: 1080 },
   { morph: 'spiraloid', width: 1024, height: 1024 },
   { morph: 'halo', width: 390, height: 844 },
   { morph: 'echidna', width: 430, height: 932 },
+  { morph: 'apical', width: 430, height: 932 },
   { morph: 'pixel-ghost', width: 800, height: 800 },
   { morph: 'echo-nest', width: 1440, height: 900 },
 ];
 
+const removedMorphologies = ['aurora', 'mycelial'];
 const browser = await chromium.launch({ headless: true });
 const failures = [];
 const reports = [];
@@ -38,7 +41,7 @@ for (const testCase of cases) {
     if (message.type() === 'error') consoleErrors.push(message.text());
   });
 
-  const url = `${baseUrl}/?morph=${encodeURIComponent(testCase.morph)}&seed=gallery-v1`;
+  const url = `${baseUrl}/?morph=${encodeURIComponent(testCase.morph)}&seed=gallery-v4`;
   await page.goto(url, { waitUntil: 'networkidle' });
   const root = page.locator('[data-fractal-morphology]');
   await root.waitFor({ state: 'visible' });
@@ -81,6 +84,19 @@ for (const testCase of cases) {
   await page.close();
 }
 
+for (const removedMorph of removedMorphologies) {
+  const page = await browser.newPage({ viewport: { width: 1920, height: 1080 }, deviceScaleFactor: 1 });
+  await page.goto(`${baseUrl}/?morph=${removedMorph}&seed=removed-v4`, { waitUntil: 'networkidle' });
+  const root = page.locator('[data-fractal-morphology]');
+  await root.waitFor({ state: 'visible' });
+  const actualMorph = await root.getAttribute('data-fractal-morphology');
+  if (!actualMorph || actualMorph === removedMorph) {
+    failures.push(`${removedMorph}: removed morphology remained publicly renderable`);
+  }
+  reports.push({ morph: removedMorph, removed: true, actualMorph });
+  await page.close();
+}
+
 await browser.close();
 fs.writeFileSync(
   path.join(outputDir, 'gallery-report.json'),
@@ -92,4 +108,4 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log(`Captured ${reports.length} deterministic fractal morphology fixtures.`);
+console.log(`Captured ${cases.length} curated fractal morphology fixtures and verified ${removedMorphologies.length} removals.`);
