@@ -56,7 +56,7 @@ for (const testCase of cases) {
     if (message.type() === 'error') consoleErrors.push(message.text());
   });
 
-  const url = `${baseUrl}/?morph=${encodeURIComponent(testCase.morph)}&seed=gallery-v7`;
+  const url = `${baseUrl}/?morph=${encodeURIComponent(testCase.morph)}&seed=gallery-v8`;
   await page.goto(url, { waitUntil: 'networkidle' });
   const root = page.locator('[data-fractal-morphology]');
   await root.waitFor({ state: 'visible' });
@@ -67,11 +67,18 @@ for (const testCase of cases) {
   await waitForThemeRecorder(page, testCase.morph);
 
   const actualMorph = await root.getAttribute('data-fractal-morphology');
+  const primaryRouting = await root.getAttribute('data-primary-routing');
   const links = page.locator('[data-dendrite-destination]');
   const linkCount = await links.count();
+  const protectedControls = page.locator('[data-navigation-clearance="protected"]');
+  const protectedCount = await protectedControls.count();
+  const clearanceCanvas = page.locator('[data-fractal-navigation-clearance="v1"]');
+  await clearanceCanvas.waitFor({ state: 'visible' });
+
   const boxes = [];
   for (let index = 0; index < linkCount; index += 1) {
-    const box = await links.nth(index).boundingBox();
+    const link = links.nth(index);
+    const box = await link.boundingBox();
     if (!box) continue;
     boxes.push(box);
     const inside =
@@ -80,10 +87,15 @@ for (const testCase of cases) {
       box.x + box.width <= testCase.width + 0.5 &&
       box.y + box.height <= testCase.height + 0.5;
     if (!inside) failures.push(`${testCase.morph}: destination ${index} escaped viewport`);
+    if ((await link.getAttribute('data-navigation-clearance')) !== 'protected') {
+      failures.push(`${testCase.morph}: destination ${index} missing protected clearance`);
+    }
   }
 
   if (actualMorph !== testCase.morph) failures.push(`${testCase.morph}: rendered ${actualMorph}`);
+  if (primaryRouting !== 'angular-obstacle-v1') failures.push(`${testCase.morph}: angular protected primary routing missing`);
   if (linkCount !== 8) failures.push(`${testCase.morph}: expected 8 destinations, got ${linkCount}`);
+  if (protectedCount !== 9) failures.push(`${testCase.morph}: expected 9 protected controls, got ${protectedCount}`);
   if (pageErrors.length) failures.push(`${testCase.morph}: page errors: ${pageErrors.join(' | ')}`);
   if (consoleErrors.length) failures.push(`${testCase.morph}: console errors: ${consoleErrors.join(' | ')}`);
 
@@ -110,6 +122,9 @@ for (const testCase of cases) {
     ...testCase,
     actualMorph,
     linkCount,
+    protectedCount,
+    primaryRouting,
+    navigationClearance: await clearanceCanvas.getAttribute('data-fractal-navigation-clearance'),
     horizontalDestinationSpan: span,
     coreDensity: await core.getAttribute('data-core-density'),
     filename,
@@ -119,7 +134,7 @@ for (const testCase of cases) {
 
 for (const removedMorph of removedMorphologies) {
   const page = await browser.newPage({ viewport: { width: 1920, height: 1080 }, deviceScaleFactor: 1 });
-  await page.goto(`${baseUrl}/?morph=${removedMorph}&seed=removed-v7`, { waitUntil: 'networkidle' });
+  await page.goto(`${baseUrl}/?morph=${removedMorph}&seed=removed-v8`, { waitUntil: 'networkidle' });
   const root = page.locator('[data-fractal-morphology]');
   await root.waitFor({ state: 'visible' });
   if (removedMorph === 'tectonic') {
@@ -189,5 +204,5 @@ if (failures.length) {
 }
 
 console.log(
-  `Captured ${cases.length} curated fractal fixtures, verified ${removedMorphologies.length} removals, and audited ${echoCases.length} themed subpages.`
+  `Captured ${cases.length} curated fractal fixtures, verified ${removedMorphologies.length} removals, and audited ${echoCases.length} themed subpages with protected navigation.`
 );
