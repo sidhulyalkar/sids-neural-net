@@ -70,10 +70,14 @@ test('FRONTIER and Game Network coexist in current navigation', () => {
   assert.ok(primaryNavItems.some((item) => item.href === '/arcade'));
 
   const home = readRepoFile('app/page.tsx');
-  assert.match(home, /href="\/frontier"/);
-  assert.match(home, /href="\/arcade"/);
-  assert.match(home, /aria-label="Open the Game Network"/);
-  assert.match(home, /data-gesture-target/);
+  const portal = readRepoFile('components/home/DendriticPortalLink.tsx');
+  assert.match(home, /href: '\/frontier'/);
+  assert.match(home, /href: '\/arcade'/);
+  assert.match(home, /ariaLabel: 'Open the Game Network'/);
+  assert.match(home, /<DendriticPortalLink key=\{link\.href\} \{\.\.\.link\} \/>/);
+  assert.match(portal, /href=\{href\}/);
+  assert.match(portal, /aria-label=\{ariaLabel\}/);
+  assert.match(portal, /data-gesture-target/);
 });
 
 test('Game Network naming is consistent across discovery surfaces', () => {
