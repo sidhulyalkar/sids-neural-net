@@ -3,6 +3,7 @@ export const CURATED_FRACTAL_THEME_IDS = [
   'coral',
   'fan',
   'apical',
+  'tectonic',
   'spiraloid',
   'halo',
   'pixel-ghost',
@@ -22,9 +23,14 @@ export type PersistedFractalTheme = {
 export const FRACTAL_THEME_STORAGE_KEY = 'sid:fractal-theme:v1';
 export const FRACTAL_THEME_EVENT = 'sid-fractal-theme-change';
 const MAX_LOCAL_THEME_AGE_MS = 12 * 60 * 60 * 1000;
+const RETIRED_THEME_IDS = new Set<CuratedFractalThemeId>(['tectonic']);
 
 export function isCuratedFractalThemeId(value: string | null | undefined): value is CuratedFractalThemeId {
-  return Boolean(value && CURATED_FRACTAL_THEME_IDS.includes(value as CuratedFractalThemeId));
+  return Boolean(
+    value &&
+      CURATED_FRACTAL_THEME_IDS.includes(value as CuratedFractalThemeId) &&
+      !RETIRED_THEME_IDS.has(value as CuratedFractalThemeId)
+  );
 }
 
 export function stripForcedMorphology(seed: string): string {
