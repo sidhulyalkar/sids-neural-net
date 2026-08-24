@@ -193,11 +193,13 @@ test('Sylvaria Sequoia exposes the v0.4 Sapstick Canopy contract', () => {
   assert.match(sapStick, /anchorLockouts/);
   assert.doesNotMatch(sapStick, /holdToCharge|chargeSeconds/i);
 
-  assert.match(control, /velocity-authority-v1/);
+  assert.match(control, /velocity-authority-v2/);
   assert.match(control, /groundReverseAssist: 1120/);
   assert.match(control, /airReverseAssist: 920/);
-  assert.match(control, /function restorePlayerOwnedLaunch\(/);
-  assert.match(control, /launch-velocity-authority/);
+  assert.match(control, /function prepareStrideHeightCarry\(/);
+  assert.match(control, /function restoreStrideHeightCarry\(/);
+  assert.match(control, /stride-height-carry/);
+  assert.match(control, /player-owned horizontal velocity; Stride carries vertical opportunity only/);
   assert.match(control, /S\.update = update/);
 
   assert.match(canopyRender, /function hash3\(/);
