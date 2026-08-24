@@ -72,6 +72,7 @@ async function visitMediaCard(page, id) {
     const card = document.querySelector(`[data-frontier-fluid-card="${CSS.escape(id)}"]`);
     if (!(card instanceof HTMLElement)) throw new Error(`Missing media card ${id}`);
     const surfaces = Array.from(card.querySelectorAll('[data-media-state]'));
+    const round = (value) => Number(value.toFixed(3));
     return {
       id,
       surfaces: surfaces.map((surface) => ({
@@ -79,7 +80,7 @@ async function visitMediaCard(page, id) {
         nativeReady: surface.getAttribute('data-media-native-ready') === 'true',
         rect: (() => {
           const rect = surface.getBoundingClientRect();
-          return { width: rounded(rect.width), height: rounded(rect.height) };
+          return { width: round(rect.width), height: round(rect.height) };
         })(),
       })),
     };
