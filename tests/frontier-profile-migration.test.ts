@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createInitialProfile } from '../lib/frontier/config';
 import { migrateFrontierProfile } from '../lib/frontier/profileMigration';
+import type { FrontierProfile } from '../lib/frontier/types';
 
 test('profile migration backfills new explicit taste topics into old sparse profiles', () => {
   const old = createInitialProfile();
@@ -38,4 +39,13 @@ test('mature profiles keep learned lane affinities while still receiving missing
   assert.equal(migrated.laneAffinity.sports, -0.32);
   assert.equal(migrated.laneAffinity.neuro_frontier, -0.21);
   assert.ok((migrated.topicAffinity['space imaging'] ?? 0) > 0.2);
+});
+
+test('legacy profiles without pair memory receive an empty v4 pair map without losing learned evidence', () => {
+  const legacy = createInitialProfile() as FrontierProfile & { interestPairs?: Record<string, number> };
+  legacy.topicAffinity.nfl = 0.73;
+  delete legacy.interestPairs;
+  const migrated = migrateFrontierProfile(legacy as FrontierProfile);
+  assert.deepEqual(migrated.interestPairs, {});
+  assert.equal(migrated.topicAffinity.nfl, 0.73);
 });
