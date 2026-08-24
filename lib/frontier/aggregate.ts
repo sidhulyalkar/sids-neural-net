@@ -6,6 +6,7 @@ import { getAdaptiveLiveDiscovery } from './liveDiscovery';
 import { enrichFrontierMediaGeometry } from './media/geometry';
 import { enrichFrontierSourceVisual } from './media/sourceVisuals';
 import { getPersonalFrontierFeed } from './personalSources';
+import { getPersonalTasteFrontierFeed } from './personalTasteSources';
 import { getSharedMultiSourceFrontierFeed } from './sourceIngestorShared';
 import { getFrontierFeed } from './sources';
 import { vetFrontierItems } from './sourceTrust';
@@ -139,9 +140,10 @@ export async function getIntegratedFrontierFeed(options: IntegratedOptions = {})
   const deadline = options.adapterDeadlineMs ?? REQUEST_ADAPTER_DEADLINE_MS;
   const emptyAdaptive: FrontierFeedResponse = { generatedAt: new Date().toISOString(), items: [], sources: [] };
 
-  const [baseResult, personalResult, activeSportsResult, adaptiveResult, multiSourceResult, expandedResult, vimeoResult] = await Promise.allSettled([
+  const [baseResult, personalResult, tasteResult, activeSportsResult, adaptiveResult, multiSourceResult, expandedResult, vimeoResult] = await Promise.allSettled([
     withinAdapterDeadline('core mesh', getFrontierFeed(), deadline),
     withinAdapterDeadline('personal mesh', getPersonalFrontierFeed(), deadline),
+    withinAdapterDeadline('personal taste mesh', getPersonalTasteFrontierFeed(), deadline),
     withinAdapterDeadline('active sports mesh', getActiveSportsFeed(), deadline),
     withinAdapterDeadline(
       'adaptive live mesh',
@@ -159,7 +161,7 @@ export async function getIntegratedFrontierFeed(options: IntegratedOptions = {})
   // candidates, apply destination-aware source vetting, and collapse duplicates
   // before presentation enrichment so neither novelty nor an aggregator can
   // promote an unvetted publisher into the candidate pool.
-  const orderedResults = [adaptiveResult, multiSourceResult, expandedResult, vimeoResult, baseResult, activeSportsResult, personalResult];
+  const orderedResults = [adaptiveResult, multiSourceResult, expandedResult, tasteResult, vimeoResult, baseResult, activeSportsResult, personalResult];
   const liveFeeds = orderedResults.flatMap((result) => result.status === 'fulfilled' ? [result.value] : []);
   const rawLiveItems = vetFrontierItems(dedupe(
     liveFeeds
@@ -183,6 +185,7 @@ export async function getIntegratedFrontierFeed(options: IntegratedOptions = {})
 
   if (baseResult.status === 'rejected') sources.push({ id: 'local', label: 'Core mesh', ok: false, count: 0, message: 'core live source mesh unavailable' });
   if (personalResult.status === 'rejected') sources.push({ id: 'local', label: 'Personal mesh', ok: false, count: 0, message: 'personal live source mesh unavailable' });
+  if (tasteResult.status === 'rejected') sources.push({ id: 'brave_web', label: 'Personal taste search', ok: false, count: 0, message: 'targeted personal taste discovery unavailable' });
   if (activeSportsResult.status === 'rejected') sources.push({ id: 'local', label: 'Active sports mesh', ok: false, count: 0, message: 'active sports source mesh unavailable' });
   if (adaptiveResult.status === 'rejected' && focusTopics.length) sources.push({ id: 'gdelt', label: 'Adaptive live mesh', ok: false, count: 0, message: 'focused request-time discovery unavailable' });
   if (multiSourceResult.status === 'rejected') sources.push({ id: 'local', label: 'Research ingestion mesh', ok: false, count: 0, message: 'multi-source ingestion unavailable' });
