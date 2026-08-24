@@ -1,16 +1,22 @@
 (() => {
   'use strict';
+
   const S = window.SylvariaSequoia;
   const { state, player, canvas, wrap, W } = S;
   const JUMP_KEYS = new Set(['Space', 'ArrowUp', 'KeyW']);
-  const SAP_KEYS = new Set(['ShiftLeft', 'ShiftRight', 'KeyE']);
+  const SHIFT_KEYS = new Set(['ShiftLeft', 'ShiftRight']);
+  const START_JUMP_GUARD_MS = 240;
+  const MIN_JUMP_REPRESS_MS = 48;
+  const PHYSICAL_STALE_MS = 900;
 
-  // Starting/restarting focuses the canvas. Some browser + iframe combinations can
-  // surface a delayed duplicate keydown after the original Space keyup. Tracking
-  // only state.keys is therefore insufficient. Keep a short time-based quarantine
-  // that survives focus/blur and expires before a normal first gameplay jump.
-  const START_JUMP_GUARD_MS = 180;
+  // state.keys is allowed to clear on iframe blur for movement safety. physicalDown
+  // is deliberately separate and survives blur, preventing one held key from
+  // resurfacing as a second press when focus moves between host and runtime.
+  const physicalDown = new Map();
+  const lastReleasedAt = new Map();
   const suppressedJumpKeys = new Map();
+  let sapChordCount = 0;
+  let lastSapChordAt = -Infinity;
 
   async function copyTelemetry() {
     const text = JSON.stringify(S.summarizeTelemetry(), null, 2);
@@ -21,6 +27,13 @@
       console.log(text);
       S.announce('TELEMETRY → CONSOLE', 0.9, 15);
     }
+  }
+
+  function acceptPhysicalDown(code, now = performance.now()) {
+    const previous = physicalDown.get(code);
+    if (previous != null && now - previous < PHYSICAL_STALE_MS) return false;
+    physicalDown.set(code, now);
+    return true;
   }
 
   function quarantineStartKey(code) {
@@ -37,10 +50,28 @@
     return false;
   }
 
+  function isTooSoonAfterRelease(code, now = performance.now()) {
+    const releasedAt = lastReleasedAt.get(code);
+    return releasedAt != null && now - releasedAt < MIN_JUMP_REPRESS_MS;
+  }
+
+  function shiftHeld() {
+    return state.keys.has('ShiftLeft') || state.keys.has('ShiftRight');
+  }
+
+  function triggerSapStick() {
+    sapChordCount += 1;
+    lastSapChordAt = performance.now();
+    player.jumpHeld = false;
+    return Boolean(S.castSapStick?.());
+  }
+
   function handleKeyDown(event) {
     if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Space'].includes(event.code)) event.preventDefault();
-    if (event.repeat && ['Space', 'ArrowUp', 'KeyW', 'ShiftLeft', 'ShiftRight', 'KeyE', 'KeyP', 'KeyR', 'KeyN', 'KeyT', 'KeyJ'].includes(event.code)) return;
+    if (event.repeat) return;
     if (event.code === 'Escape') return;
+    const now = performance.now();
+    if (!acceptPhysicalDown(event.code, now)) return;
 
     if (event.code === 'KeyT') {
       state.telemetryVisible = !state.telemetryVisible;
@@ -74,6 +105,8 @@
       if (event.code === 'Space' || event.code === 'Enter') {
         quarantineStartKey(event.code);
         S.startRun(state.runSeed + 1);
+      } else if (SHIFT_KEYS.has(event.code)) {
+        state.keys.add(event.code);
       }
       return;
     }
@@ -82,32 +115,41 @@
         quarantineStartKey(event.code);
         state.mode = 'playing';
         wrap.dataset.playing = 'true';
+      } else if (SHIFT_KEYS.has(event.code)) {
+        state.keys.add(event.code);
       }
       return;
     }
 
-    if (JUMP_KEYS.has(event.code) && isJumpQuarantined(event.code)) {
-      // Absorb a delayed duplicate start/resume edge without turning it into a
-      // held gameplay key. Keyup may already have occurred on another focus path.
+    if (SHIFT_KEYS.has(event.code)) {
+      state.keys.add(event.code);
       return;
     }
 
-    const wasDown = state.keys.has(event.code);
-    state.keys.add(event.code);
-    if (JUMP_KEYS.has(event.code) && !wasDown) S.requestJump();
-    if (SAP_KEYS.has(event.code) && !wasDown) {
-      player.sapHeld = true;
-      S.attachSap();
+    if (JUMP_KEYS.has(event.code)) {
+      if (isJumpQuarantined(event.code, now) || isTooSoonAfterRelease(event.code, now)) return;
+      state.keys.add(event.code);
+
+      // Canonical v0.4 chord: hold Shift, then tap Space. The chord is consumed
+      // before the jump contract, so one Sap Stick press can never also Air Kick.
+      if (event.code === 'Space' && shiftHeld()) {
+        triggerSapStick();
+        return;
+      }
+
+      S.requestJump();
+      return;
     }
+
+    state.keys.add(event.code);
   }
 
   function handleKeyUp(event) {
+    const now = performance.now();
+    physicalDown.delete(event.code);
+    lastReleasedAt.set(event.code, now);
     state.keys.delete(event.code);
     if (JUMP_KEYS.has(event.code)) player.jumpHeld = false;
-    if (SAP_KEYS.has(event.code)) {
-      player.sapHeld = false;
-      S.releaseSap();
-    }
   }
 
   function pointerAction(event) {
@@ -138,8 +180,9 @@
     state.pointers.set(event.pointerId, action);
     if (action === 'jump') S.requestJump();
     if (action === 'sap') {
-      player.sapHeld = true;
-      S.attachSap();
+      sapChordCount += 1;
+      lastSapChordAt = performance.now();
+      S.castSapStick?.();
     }
   });
 
@@ -147,10 +190,6 @@
     const action = state.pointers.get(event.pointerId);
     state.pointers.delete(event.pointerId);
     if (action === 'jump') player.jumpHeld = false;
-    if (action === 'sap' && ![...state.pointers.values()].includes('sap')) {
-      player.sapHeld = false;
-      S.releaseSap();
-    }
   }
 
   canvas.addEventListener('pointerup', endPointer);
@@ -158,13 +197,11 @@
   window.addEventListener('keydown', handleKeyDown, { passive: false });
   window.addEventListener('keyup', handleKeyUp);
   window.addEventListener('blur', () => {
-    // Keep suppressedJumpKeys intact across focus churn. That persistence is the
-    // whole point of the start-edge quarantine.
+    // Do not clear physicalDown here. Focus churn inside the Game Network iframe
+    // must not turn a held Space into another physical press.
     state.keys.clear();
     state.pointers.clear();
     player.jumpHeld = false;
-    if (player.sapHeld) S.releaseSap();
-    player.sapHeld = false;
   });
 
   function frame(now) {
@@ -184,7 +221,7 @@
 
   S.resetRun(state.runSeed);
   window.SYLVARIA_SEQUOIA_DEBUG = {
-    version: '0.3.0',
+    version: '0.4.0',
     fixedHz: 120,
     getState: () => ({
       mode: state.mode,
@@ -200,15 +237,22 @@
       jumpInput: S.jumpInputContract?.getState() || null,
       inputGate: {
         startJumpGuardMs: START_JUMP_GUARD_MS,
+        minJumpRepressMs: MIN_JUMP_REPRESS_MS,
+        physicalDown: [...physicalDown.keys()],
         suppressedJumpKeys: [...suppressedJumpKeys.entries()].map(([code, until]) => ({
           code,
           remainingMs: Math.max(0, until - performance.now()),
         })),
+        sapChordCount,
+        lastSapChordAgoMs: Number.isFinite(lastSapChordAt) ? Math.max(0, performance.now() - lastSapChordAt) : null,
       },
       flowAssist: S.flowAssist?.getState() || null,
+      sapStick: S.sapStick?.getState?.() || null,
+      renderer: S.canopyRenderer || null,
       saves: player.saves,
       branchCount: state.branches.length,
       knotCount: state.knots.length,
+      sapAnchorCount: state.knots.filter((knot) => knot.anchorKind === 'sap-stick').length,
       ringCount: state.rings.filter((ring) => !ring.hit).length,
       route: S.activeRouteChunk()?.type || null,
       player: { x: player.x, y: player.y, vx: player.vx, vy: player.vy, state: player.state },
@@ -218,6 +262,10 @@
     getTuning: () => JSON.parse(JSON.stringify(S.TUNE)),
     getRouteGrammars: () => Object.keys(S.ROUTE_GRAMMARS),
     getPhases: () => S.PHASES.map((phase) => ({ name: phase.name, floor: phase.floor })),
+    getSapTarget: () => {
+      const target = S.sapStick?.getTargetPreview?.();
+      return target ? { x: target.x, y: target.y, floor: target.floor, kind: target.anchorKind || 'branch' } : null;
+    },
     setTuning: S.setTuning,
     start: (seed) => S.startRun(Number.isFinite(seed) ? seed : state.runSeed + 1),
     retry: () => S.startRun(state.runSeed),
