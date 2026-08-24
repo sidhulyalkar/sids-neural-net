@@ -25,10 +25,14 @@ function signal(overrides: Partial<FrontierItem>): FrontierItem {
     id: 'signal',
     title: 'Signal',
     summary: 'A fresh signal.',
-    url: 'https://example.com/signal',
-    source: 'example.com',
-    sourceLabel: 'Example',
-    sourceKind: 'rss',
+    url: 'https://frontier.local.test/signal',
+    source: 'frontier.local',
+    sourceLabel: 'Curated test fixture',
+    // Ranking/slot tests exercise recommendation topology rather than public
+    // publisher discovery. Mark their synthetic fixture as the explicit local
+    // curated path so source-trust policy is tested independently in the
+    // dedicated source-trust suite instead of being bypassed by example.com.
+    sourceKind: 'local',
     publishedAt: new Date().toISOString(),
     lane: 'sports',
     tags: [],
