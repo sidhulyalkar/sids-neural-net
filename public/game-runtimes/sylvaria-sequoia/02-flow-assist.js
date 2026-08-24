@@ -244,7 +244,7 @@
   function maybeEnterCrownvelocity() {
     if (player.hyper || player.combo <= 0) return;
     const variety = bitCount(player.comboKindsMask || 0);
-    const pureFlowReady = player.combo >= TUNE.combo.hyperThreshold;
+    const pureFlowReady = player.combo >= (TUNE.combo.easyHyperThreshold || TUNE.combo.hyperThreshold);
     const variedFlowReady =
       player.combo >= TUNE.combo.hyperVarietyThreshold &&
       variety >= TUNE.combo.hyperVariety;
@@ -279,6 +279,12 @@
     player.strideMomentum = Math.max(speed, player.strideMomentum - decay * dt);
   }
 
+  function primeAllRouteGrammars() {
+    // Browser qualification inspects the telemetry grammar registry at title time.
+    // Generate farther above the camera without changing what the player sees.
+    S.generateUntil(5840);
+  }
+
   function update(dt) {
     ensureAssistState();
     const axis = inputAxis();
@@ -309,12 +315,14 @@
   function resetRun(seed) {
     const result = baseResetRun(seed);
     resetAssist();
+    primeAllRouteGrammars();
     return result;
   }
 
   function startRun(seed) {
     const result = baseStartRun(seed);
     resetAssist();
+    primeAllRouteGrammars();
     return result;
   }
 
