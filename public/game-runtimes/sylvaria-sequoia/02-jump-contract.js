@@ -7,7 +7,7 @@
   const baseUpdate = S.update;
   const baseResetRun = S.resetRun;
   const baseStartRun = S.startRun;
-  const duplicateEdgeMs = 48;
+  const duplicateEdgeMs = 28;
   let nextRequestId = 0;
   let lastRequestAt = -Infinity;
 
@@ -26,8 +26,8 @@
       player.jumpBuffer > 0;
 
     // One physical press may surface twice through focus/iframe/browser plumbing.
-    // Ignore an unresolved duplicate edge, and also reject implausibly-fast duplicate
-    // delivery after the first fixed step has already consumed the request.
+    // Start-key quarantine now handles the old title-screen leak, so this guard can
+    // stay short enough that a deliberately fast second tap still becomes Air Kick.
     if (hasPendingRequest || now - lastRequestAt < duplicateEdgeMs) {
       return player.jumpRequestId;
     }
