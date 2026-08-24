@@ -3,7 +3,6 @@ export const CURATED_FRACTAL_THEME_IDS = [
   'coral',
   'fan',
   'apical',
-  'tectonic',
   'spiraloid',
   'halo',
   'pixel-ghost',
