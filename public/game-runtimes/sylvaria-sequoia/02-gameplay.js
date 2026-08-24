@@ -3,6 +3,17 @@
   const S = window.SylvariaSequoia;
   const { state, player, TUNE, W, clamp, boundedPush, recordEvent, routeStat, tone, crownDrop, announce, burst } = S;
 
+  const COMBO_BITS = { AIR: 1, BARK: 2, SAP: 4, RING: 8, SKIP: 16, BURL: 32 };
+  const bitCount = (value) => {
+    let count = 0;
+    let mask = value >>> 0;
+    while (mask) {
+      count += mask & 1;
+      mask >>>= 1;
+    }
+    return count;
+  };
+
   function resetRun(seed = state.runSeed) {
     state.runSeed = seed >>> 0 || 1;
     state.particles.length = 0;
@@ -24,9 +35,11 @@
       vy: 0,
       facing: 1,
       grounded: null,
+      groundedTime: 0,
       coyote: 0,
       jumpBuffer: 0,
       jumpHeld: false,
+      airJumps: TUNE.jump.airJumps,
       sapHeld: false,
       sap: null,
       wallTimer: 0,
@@ -41,6 +54,9 @@
       comboFloors: 0,
       comboTimer: 0,
       comboStartedAt: 0,
+      comboLastLinkAt: -99,
+      comboLastLinkType: '',
+      comboKindsMask: 0,
       hyper: false,
       hyperStartedAt: 0,
       resin: 0,
@@ -67,7 +83,7 @@
     if (!chunk || !chunk.attempted || chunk.completed || chunk.failed) return;
     chunk.failed = true;
     routeStat(chunk.type).failures += 1;
-    recordEvent('route-fail', { route: chunk.type, id: chunk.id });
+    recordEvent('route-fail', { route: chunk.type, phase: chunk.phase, id: chunk.id });
   }
 
   function endRun() {
@@ -93,15 +109,48 @@
     player.hyper = false;
   }
 
+  function refreshAirJump(reason, loud = false) {
+    if (player.airJumps >= TUNE.jump.airJumps) return false;
+    player.airJumps = TUNE.jump.airJumps;
+    S.getTelemetry().counters.airJumpRefreshes += 1;
+    recordEvent('air-kick-refresh', { reason });
+    if (loud) announce('AIR KICK REFRESH', 0.45, 12);
+    burst(player.x, player.y, 4, 'resin', 0.32);
+    return true;
+  }
+
   function enterHyper() {
     if (player.hyper) return;
     player.hyper = true;
     player.hyperStartedAt = state.elapsed;
     S.getTelemetry().counters.crownvelocityEntries += 1;
-    recordEvent('crownvelocity-start', { combo: player.combo });
+    refreshAirJump('CROWNVELOCITY');
+    recordEvent('crownvelocity-start', { combo: player.combo, variety: bitCount(player.comboKindsMask) });
     announce('CROWNVELOCITY', 1.05, 28);
-    state.shake = Math.max(state.shake, 0.8);
+    state.shake = Math.max(state.shake, 0.9);
     crownDrop();
+  }
+
+  function addComboLink(type, label, value = 1, bonusWindow = 0) {
+    const now = state.elapsed;
+    if (type === player.comboLastLinkType && now - player.comboLastLinkAt < TUNE.combo.duplicateLinkCooldown) return false;
+    const telemetry = S.getTelemetry();
+    if (player.combo === 0) player.comboStartedAt = now;
+    if (telemetry.lastComboLinkAt != null) boundedPush(telemetry.samples.comboLinkIntervals, now - telemetry.lastComboLinkAt);
+    telemetry.lastComboLinkAt = now;
+    player.combo += value;
+    player.comboTimer = Math.max(player.comboTimer, TUNE.combo.window + bonusWindow);
+    player.comboLastLinkAt = now;
+    player.comboLastLinkType = type;
+    player.comboKindsMask |= COMBO_BITS[type] || 0;
+    player.bestCombo = Math.max(player.bestCombo, player.combo);
+    telemetry.counters.comboLinks += value;
+    telemetry.maxima.combo = Math.max(telemetry.maxima.combo, player.combo);
+    player.score += (36 + player.combo * 12) * value;
+    recordEvent('combo-link', { link: type, value, combo: player.combo, variety: bitCount(player.comboKindsMask) });
+    if (label) announce(`${player.combo}× · ${label}`, 0.48, player.hyper ? 16 : 13);
+    if (!player.hyper && player.combo >= TUNE.combo.hyperThreshold && bitCount(player.comboKindsMask) >= TUNE.combo.hyperVariety) enterHyper();
+    return true;
   }
 
   function bankCombo(reason = '') {
@@ -109,7 +158,8 @@
     const telemetry = S.getTelemetry();
     const duration = Math.max(0, state.elapsed - player.comboStartedAt);
     boundedPush(telemetry.samples.comboDurations, duration);
-    const gain = Math.min(0.74, player.comboFloors * 0.034 + player.combo * 0.026);
+    const variety = bitCount(player.comboKindsMask);
+    const gain = Math.min(0.92, player.comboFloors * 0.026 + player.combo * 0.040 + variety * 0.035);
     player.resin += gain;
     while (player.resin >= 1 && player.saves < 2) {
       player.resin -= 1;
@@ -120,19 +170,24 @@
     telemetry.counters.comboBanks += 1;
     if (reason === 'TIME') telemetry.counters.comboTimeouts += 1;
     if (reason === 'DROP') telemetry.counters.comboDrops += 1;
-    recordEvent('combo-bank', { reason, combo: player.combo, floors: player.comboFloors, resin: S.round(gain, 3) });
+    recordEvent('combo-bank', { reason, combo: player.combo, floors: player.comboFloors, variety, resin: S.round(gain, 3) });
     player.bestCombo = Math.max(player.bestCombo, player.combo);
     endHyper();
     player.combo = 0;
     player.comboFloors = 0;
     player.comboTimer = 0;
     player.comboStartedAt = 0;
+    player.comboLastLinkAt = -99;
+    player.comboLastLinkType = '';
+    player.comboKindsMask = 0;
   }
 
   function onLand(branch) {
     const telemetry = S.getTelemetry();
     const delta = branch.floor - player.lastFloor;
     player.grounded = branch;
+    player.groundedTime = 0;
+    player.airJumps = TUNE.jump.airJumps;
     player.coyote = TUNE.jump.coyoteSeconds;
     player.y = S.branchYAt(branch, player.x) + state.PLAYER_R;
     player.vy = 0;
@@ -148,24 +203,17 @@
     }
 
     if (delta >= 2) {
-      if (player.combo === 0) player.comboStartedAt = state.elapsed;
-      player.combo += 1;
       player.comboFloors += delta;
-      player.comboTimer = TUNE.combo.window + Math.min(0.38, delta * 0.045);
-      player.bestCombo = Math.max(player.bestCombo, player.combo);
       telemetry.counters.multiFloorSkips += 1;
-      telemetry.maxima.combo = Math.max(telemetry.maxima.combo, player.combo);
       boundedPush(telemetry.samples.branchSkips, delta);
-      player.score += delta * 46 * (1 + player.combo * 0.45);
-      if (player.combo === 1) announce(`SKIP ${delta}`, 0.56, 15);
-      else announce(`${player.combo}× · +${delta} FLOORS`, 0.56, 15);
-      if (player.combo >= TUNE.combo.hyperThreshold) enterHyper();
-      tone(278 + player.combo * 34, 0.064, 0.03, 'triangle', 1.15);
-      burst(player.x, player.y - state.PLAYER_R, 7 + Math.min(11, player.combo), player.hyper ? 'resin' : 'leaf', 0.55);
+      player.score += delta * 42 * (1 + player.combo * 0.16);
+      addComboLink('SKIP', `+${delta} FLOOR SKIP`, delta >= 4 ? 2 : 1, Math.min(0.34, delta * 0.04));
+      tone(278 + player.combo * 28, 0.064, 0.03, 'triangle', 1.15);
+      burst(player.x, player.y - state.PLAYER_R, 7 + Math.min(12, player.combo), player.hyper ? 'resin' : 'leaf', 0.55);
       recordEvent('skip', { floors: delta, combo: player.combo, route: branch.chunkType });
-    } else if (delta === 1) {
-      bankCombo('BANK');
-      tone(180, 0.045, 0.02, 'triangle', 0.9);
+    } else if (delta === 1 && player.combo > 0) {
+      player.comboTimer = Math.max(player.comboTimer, TUNE.combo.landingGrace);
+      recordEvent('combo-touchdown', { route: branch.chunkType, floor: branch.floor });
     } else if (delta < 0) {
       bankCombo('DROP');
     }
@@ -179,11 +227,11 @@
     for (const knot of state.knots) {
       const dx = knot.x - player.x;
       const dy = knot.y - player.y;
-      if (dy < -28 || dy > 345) continue;
+      if (dy < -36 || dy > 365) continue;
       const distance = Math.hypot(dx, dy);
-      if (distance > TUNE.sap.attachMax || distance < 54) continue;
-      const aboveBias = dy * 0.31;
-      const routeBias = knot.chunkType === 'CRUX' || knot.chunkType === 'SLINGSHOT' ? -16 : 0;
+      if (distance > TUNE.sap.attachMax || distance < 52) continue;
+      const aboveBias = dy * 0.32;
+      const routeBias = knot.chunkType === 'CRUX' || knot.chunkType === 'SLINGSHOT' ? -18 : 0;
       const score = distance - aboveBias + routeBias;
       if (score < bestScore) {
         best = knot;
@@ -212,6 +260,7 @@
       age: 0,
     };
     player.grounded = null;
+    player.groundedTime = 0;
     player.state = 'sapline';
     telemetry.counters.sapAttaches += 1;
     recordEvent('sap-attach', { route: knot.chunkType, role: knot.role, distance: S.round(distance, 1) });
@@ -230,27 +279,38 @@
     const ty = dx / distance;
     const tangentSpeed = player.vx * tx + player.vy * ty;
     const direction = Math.sign(tangentSpeed || player.facing);
-    const stored = clamp(sap.maxStretch * TUNE.sap.releaseStretchGain, 0, TUNE.sap.releaseCap);
+    const surge = player.combo >= TUNE.combo.sapSurgeThreshold && sap.maxStretch >= TUNE.sap.surgeStretch;
+    let stored = clamp(sap.maxStretch * TUNE.sap.releaseStretchGain, 0, TUNE.sap.releaseCap);
+    if (surge) stored *= TUNE.sap.surgeMultiplier;
+    if (player.hyper) stored *= TUNE.sap.hyperReleaseMultiplier;
+    stored = Math.min(stored, TUNE.sap.releaseCap * 1.58);
     const before = Math.hypot(player.vx, player.vy);
     player.vx += tx * direction * stored;
-    player.vy += ty * direction * stored + Math.max(0, stored * TUNE.sap.releaseUpFraction);
+    player.vy += ty * direction * stored + Math.max(0, stored * TUNE.sap.releaseUpFraction) + (surge ? TUNE.sap.surgeUpBonus : 0);
     const after = Math.hypot(player.vx, player.vy);
+    const gain = after - before;
     telemetry.counters.sapReleases += 1;
-    boundedPush(telemetry.samples.sapReleaseGain, after - before);
+    boundedPush(telemetry.samples.sapReleaseGain, gain);
     boundedPush(telemetry.samples.sapStretch, sap.maxStretch);
     boundedPush(telemetry.samples.sapDurations, sap.age);
     recordEvent('sap-release', {
       route: sap.knot.chunkType,
       stored: S.round(sap.maxStretch, 1),
-      speedGain: S.round(after - before, 1),
+      speedGain: S.round(gain, 1),
       seconds: S.round(sap.age, 3),
+      surge,
     });
     player.sap = null;
     player.state = 'airborne-up';
     player.stretch = 1;
+    if (gain >= TUNE.sap.comboReleaseGain || surge) {
+      addComboLink('SAP', surge ? (player.hyper ? 'CROWN SLING' : 'SAP SURGE') : 'SAP SLING', surge ? 2 : 1, surge ? 0.28 : 0.08);
+      if (surge) telemetry.counters.sapSurges += 1;
+      refreshAirJump('SAP', surge);
+    }
     state.shake = Math.max(state.shake, stored / 190);
-    tone(300 + stored, 0.09, 0.035, 'sawtooth', 1.45);
-    burst(player.x, player.y, 8, 'resin', 0.6 + stored / 350);
+    tone(300 + Math.min(360, stored), 0.09, 0.035, 'sawtooth', 1.45);
+    burst(player.x, player.y, surge ? 16 : 8, 'resin', 0.6 + stored / 350);
   }
 
   function requestJump() {
@@ -258,22 +318,57 @@
     player.jumpHeld = true;
   }
 
-  function doJump() {
+  function doGroundJump(branch) {
     const telemetry = S.getTelemetry();
     const speed = Math.abs(player.vx);
     const momentumLift = Math.min(TUNE.jump.momentumCap, speed * TUNE.jump.momentumGain);
-    const comboLift = Math.min(72, player.combo * TUNE.jump.comboLift);
-    player.vy = TUNE.jump.base + momentumLift + comboLift;
+    const comboLift = Math.min(62, player.combo * TUNE.jump.comboLift);
+    const onBurl = Boolean(branch?.launch) && Math.abs(player.x - branch.launchX) <= TUNE.jump.burlRadius;
+    const burlLift = onBurl ? TUNE.jump.burlBoost : 0;
+    player.vy = TUNE.jump.base + momentumLift + comboLift + burlLift;
+    if (onBurl) {
+      const direction = Math.sign(player.vx || (branch.side === 'right' ? -1 : 1));
+      player.vx += direction * TUNE.jump.burlHorizontalBoost;
+      telemetry.counters.launchBurls += 1;
+      addComboLink('BURL', 'LAUNCH BURL', 1, 0.08);
+      burst(branch.launchX, S.branchYAt(branch, branch.launchX), 10, 'resin', 0.62);
+      tone(340, 0.07, 0.03, 'triangle', 1.7);
+    }
     player.grounded = null;
+    player.groundedTime = 0;
     player.coyote = 0;
     player.jumpBuffer = 0;
+    player.airJumps = TUNE.jump.airJumps;
     player.state = 'airborne-up';
     player.stretch = 0.9;
     telemetry.counters.jumps += 1;
     boundedPush(telemetry.samples.jumpLaunchSpeeds, player.vy);
-    recordEvent('jump', { vx: S.round(player.vx, 1), vy: S.round(player.vy, 1) });
+    recordEvent('jump', { vx: S.round(player.vx, 1), vy: S.round(player.vy, 1), burl: onBurl });
     tone(220 + speed * 0.13, 0.055, 0.025, 'triangle', 1.18);
     burst(player.x, player.y - state.PLAYER_R, 6, 'leaf', 0.35);
+  }
+
+  function doAirJump(input) {
+    if (player.airJumps <= 0 || player.sap) return false;
+    const telemetry = S.getTelemetry();
+    const speed = Math.abs(player.vx);
+    const direction = input !== 0 ? input : Math.sign(player.vx || player.facing || 1);
+    const sameDirection = Math.sign(player.vx || direction) === direction;
+    const horizontalImpulse = TUNE.jump.doubleHorizontalImpulse * (sameDirection ? 1 : 0.64);
+    player.vx += direction * horizontalImpulse;
+    const lift = TUNE.jump.doubleBase + Math.min(TUNE.jump.doubleMomentumCap, speed * TUNE.jump.doubleMomentumGain);
+    player.vy = clamp(Math.max(0, player.vy) * 0.34 + lift, lift, TUNE.jump.doubleMaxVy);
+    player.airJumps -= 1;
+    player.jumpBuffer = 0;
+    player.state = 'airborne-up';
+    player.stretch = 1;
+    telemetry.counters.doubleJumps += 1;
+    boundedPush(telemetry.samples.airKickLaunchSpeeds, player.vy);
+    addComboLink('AIR', 'AIR KICK', 1, 0.12);
+    recordEvent('double-jump', { vx: S.round(player.vx, 1), vy: S.round(player.vy, 1) });
+    tone(390 + speed * 0.08, 0.07, 0.034, 'triangle', 1.34);
+    burst(player.x, player.y - 4, 10, 'leaf', 0.62);
+    return true;
   }
 
   function rescueFromThreat() {
@@ -285,6 +380,7 @@
     player.y = state.threatY + 190;
     player.vx = player.x < W / 2 ? 435 : -435;
     player.vy = 655;
+    player.airJumps = TUNE.jump.airJumps;
     player.lastFloor = Math.max(0, player.highestFloor - 3);
     bankCombo('CATCH');
     player.heat = 0;
@@ -330,7 +426,7 @@
     const radialForce = Math.max(0, spring - damping);
     const tangentSpeed = player.vx * tx + player.vy * ty;
     const pumpBase = player.hyper ? TUNE.sap.hyperPumpAccel : TUNE.sap.pumpAccel;
-    const pumpGain = 1 + clamp(Math.abs(tangentSpeed) / 780, 0, 0.18);
+    const pumpGain = 1 + clamp(Math.abs(tangentSpeed) / 780, 0, player.hyper ? 0.28 : 0.18);
     const pump = input * pumpBase * pumpGain;
     return {
       ax: nx * radialForce + tx * pump,
@@ -366,11 +462,14 @@
     player.vy = Math.max(player.vy, verticalLift);
     player.facing = side === 'left' ? 1 : -1;
     player.grounded = null;
+    player.groundedTime = 0;
     player.wallTimer = 0.12;
     player.state = 'wall-bounce';
     telemetry.counters.wallBounces += 1;
     boundedPush(telemetry.samples.reboundRetention, Math.abs(player.vx) / incoming);
     boundedPush(telemetry.samples.reboundVerticalLift, verticalLift);
+    if (incoming >= TUNE.rebound.comboSpeed) addComboLink('BARK', 'BARK REBOUND', 1, 0.06);
+    if (incoming >= TUNE.jump.wallRefreshSpeed) refreshAirJump('BARK');
     recordEvent('wall-bounce', {
       side,
       retention: S.round(Math.abs(player.vx) / incoming, 3),
@@ -391,6 +490,27 @@
     } else if (player.x > right) {
       player.x = right;
       if (player.vx > 70) bounceFromWall('right');
+    }
+  }
+
+  function threadRings() {
+    for (const ring of state.rings) {
+      if (ring.hit) continue;
+      const dx = ring.x - player.x;
+      const dy = ring.y - player.y;
+      if (Math.abs(dy) > ring.radius + 30 || Math.abs(dx) > ring.radius + 30) continue;
+      if (Math.hypot(dx, dy) > ring.radius + state.PLAYER_R * 0.72) continue;
+      ring.hit = true;
+      const telemetry = S.getTelemetry();
+      telemetry.counters.ringsThreaded += 1;
+      const speed = Math.hypot(player.vx, player.vy);
+      const value = speed >= TUNE.ring.speedBonusStart ? 2 : 1;
+      addComboLink('RING', value > 1 ? 'FAST RESIN THREAD' : 'RESIN THREAD', value, value > 1 ? 0.18 : 0.08);
+      refreshAirJump('RING', value > 1);
+      player.score += TUNE.ring.score * value;
+      burst(ring.x, ring.y, 14, 'resin', 0.72 + value * 0.15);
+      tone(520 + Math.min(280, speed * 0.18), 0.075, 0.032, 'sine', 1.42);
+      recordEvent('ring-thread', { floor: ring.floor, route: ring.chunkType, speed: S.round(speed, 1), value });
     }
   }
 
@@ -442,7 +562,10 @@
   }
 
   function comboDecayScale() {
-    if (player.vy > 260) return TUNE.combo.ascentDecayScale;
+    if (player.sap) return TUNE.combo.saplineDecayScale;
+    if (player.vy > 250) return TUNE.combo.ascentDecayScale;
+    if (Math.abs(player.vx) > 360) return TUNE.combo.highMomentumDecayScale;
+    if (player.grounded && player.groundedTime < TUNE.combo.landingGrace) return 0.62;
     if (Math.abs(player.vx) < TUNE.combo.hesitationSpeed && player.vy < 180) return TUNE.combo.hesitationDecayScale;
     return 1;
   }
@@ -452,8 +575,9 @@
     const rubber = clamp((gap - TUNE.threat.targetGap) / TUNE.threat.targetGap, -0.65, 1.45);
     const baseline = TUNE.threat.baseSpeed
       + Math.min(92, state.elapsed * TUNE.threat.timeGain)
-      + Math.min(58, player.highestFloor * TUNE.threat.floorGain);
-    return clamp(baseline + rubber * TUNE.threat.rubberGain, TUNE.threat.minSpeed, TUNE.threat.maxSpeed);
+      + Math.min(62, player.highestFloor * TUNE.threat.floorGain);
+    const phase = S.phaseForFloor(player.highestFloor);
+    return clamp((baseline + rubber * TUNE.threat.rubberGain) * phase.pressure, TUNE.threat.minSpeed, TUNE.threat.maxSpeed);
   }
 
   function update(dt) {
@@ -482,16 +606,27 @@
     player.py = player.y;
     const previousY = player.y;
     const wasGrounded = Boolean(player.grounded);
+    const groundedBranch = player.grounded;
 
     if (wasGrounded) {
+      player.groundedTime += dt;
       player.coyote = TUNE.jump.coyoteSeconds;
       player.vy = 0;
+      if (player.combo > 0 && groundedBranch?.chunkType === 'RECOVERY' && player.groundedTime >= TUNE.combo.recoveryBankDelay) {
+        bankCombo('RECOVERY');
+      }
+    } else {
+      player.groundedTime = 0;
     }
-    if (player.jumpBuffer > 0 && (wasGrounded || player.coyote > 0)) doJump();
 
-    const maxSpeed = TUNE.run.maxSpeed + Math.min(210, player.combo * 21) + (player.hyper ? 45 : 0);
+    if (player.jumpBuffer > 0) {
+      if (wasGrounded || player.coyote > 0) doGroundJump(groundedBranch);
+      else if (player.airJumps > 0 && !player.sap) doAirJump(input);
+    }
+
+    const maxSpeed = TUNE.run.maxSpeed + Math.min(230, player.combo * 18) + (player.hyper ? 58 : 0);
     const speedRatio = clamp(Math.abs(player.vx) / maxSpeed, 0, 1);
-    let accel = player.grounded ? TUNE.run.groundAccel : TUNE.run.airAccel * S.lerp(1, 0.42, speedRatio);
+    let accel = player.grounded ? TUNE.run.groundAccel : TUNE.run.airAccel * S.lerp(1, 0.44, speedRatio);
     if (!player.grounded && input !== 0 && Math.sign(input) !== Math.sign(player.vx) && Math.abs(player.vx) > 40) {
       accel *= TUNE.run.reverseAirScale;
     }
@@ -515,6 +650,7 @@
       const branch = player.grounded;
       if (player.x < branch.x1 - 8 || player.x > branch.x2 + 8) {
         player.grounded = null;
+        player.groundedTime = 0;
         player.state = 'airborne-down';
       } else {
         player.y = S.branchYAt(branch, player.x) + state.PLAYER_R;
@@ -523,6 +659,7 @@
     }
 
     collideWalls();
+    threadRings();
     if (!player.grounded) collideBranches(previousY);
 
     if (!player.grounded && !player.sap && player.state !== 'wall-bounce') {
@@ -531,7 +668,7 @@
     if (player.sap) player.state = 'sapline';
 
     const speed = Math.hypot(player.vx, player.vy);
-    player.score += dt * (1 + speed * 0.0025) * (player.combo > 0 ? 1 + player.combo * 0.08 : 1);
+    player.score += dt * (1 + speed * 0.0025) * (player.combo > 0 ? 1 + player.combo * 0.075 : 1);
     state.threatY += threatSpeed() * dt;
 
     const threatGap = player.y - state.threatY;
@@ -577,6 +714,7 @@
   S.startRun = startRun;
   S.endRun = endRun;
   S.bankCombo = bankCombo;
+  S.addComboLink = addComboLink;
   S.attachSap = attachSap;
   S.releaseSap = releaseSap;
   S.requestJump = requestJump;
