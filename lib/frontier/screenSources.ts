@@ -1,0 +1,196 @@
+import {
+  screenFavoriteDiscoveryBundles,
+  screenTastePrior,
+  screenTasteTags,
+} from './screenTaste';
+import type { FrontierFeedResponse, FrontierItem, FrontierSourceStatus } from './types';
+
+const USER_AGENT = 'sids-neural-net-frontier-screen-orbit/1.0 (+https://sidhulyalkar.com/frontier)';
+const DAY_MS = 86_400_000;
+const QUERY_TIMEOUT_MS = 3_200;
+
+type ScreenQuery = {
+  id: string;
+  label: string;
+  query: string;
+  tags: string[];
+  weight: number;
+};
+
+function clamp(value: number, min = 0, max = 1): number {
+  return Math.min(max, Math.max(min, value));
+}
+
+function stableId(value: string): string {
+  let hash = 2166136261;
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0).toString(36);
+}
+
+function cleanText(value: string | undefined): string {
+  return (value ?? '')
+    .replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, '$1')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function xmlTag(block: string, tag: string): string {
+  const match = block.match(new RegExp(`<${tag}(?:\\s[^>]*)?>([\\s\\S]*?)<\\/${tag}>`, 'i'));
+  return cleanText(match?.[1]);
+}
+
+function xmlTagAttribute(block: string, tag: string, attribute: string): string {
+  const opening = block.match(new RegExp(`<${tag}\\b([^>]*)>`, 'i'))?.[1] ?? '';
+  return cleanText(opening.match(new RegExp(`\\b${attribute}\\s*=\\s*["']([^"']+)["']`, 'i'))?.[1]);
+}
+
+function host(value: string): string {
+  try { return new URL(value).hostname.replace(/^www\./, '').toLowerCase(); } catch { return ''; }
+}
+
+function summarize(value: string, maxLength = 300): string {
+  const text = cleanText(value);
+  if (text.length <= maxLength) return text;
+  const slice = text.slice(0, maxLength);
+  const boundary = Math.max(slice.lastIndexOf('. '), slice.lastIndexOf(' '));
+  return `${slice.slice(0, boundary > 180 ? boundary : maxLength).trim()}…`;
+}
+
+function ageDays(publishedAt: string, now = Date.now()): number {
+  return Math.max(0, (now - Date.parse(publishedAt)) / DAY_MS);
+}
+
+function quotedBundle(titles: string[]): string {
+  return titles.map((title) => `"${title.replace(/"/g, '')}"`).join(' OR ');
+}
+
+export function screenDiscoveryQueries(dayKey = new Date().toISOString().slice(0, 10), deep = false): ScreenQuery[] {
+  const rotating = screenFavoriteDiscoveryBundles(dayKey, deep ? 4 : 2, 5).map((titles, index): ScreenQuery => ({
+    id: `favorites-${index}`,
+    label: 'Favorite-title pulse',
+    query: `(${quotedBundle(titles)}) anime TV season trailer renewal premiere release`,
+    tags: ['screen orbit', 'screen favorite'],
+    weight: 1,
+  }));
+
+  const anchors: ScreenQuery[] = [
+    {
+      id: 'story-anime',
+      label: 'Story-rich anime',
+      query: 'anime dark fantasy action mystery psychological worldbuilding new season trailer renewal premiere Crunchyroll Netflix',
+      tags: ['screen orbit', 'anime', 'story rich', 'strong worldbuilding'],
+      weight: 0.94,
+    },
+    {
+      id: 'dark-comedy',
+      label: 'Witty dark comedy',
+      query: 'dark comedy adult animation animated satire absurdist comedy TV series renewal trailer premiere',
+      tags: ['screen orbit', 'witty dark comedy', 'animated dark comedy'],
+      weight: 0.9,
+    },
+  ];
+
+  return [...anchors, ...rotating];
+}
+
+export function parseScreenNewsRss(xml: string, spec: ScreenQuery, now = Date.now()): FrontierItem[] {
+  const blocks = xml.match(/<item\b[\s\S]*?<\/item>/gi) ?? [];
+  return blocks.slice(0, 8).flatMap((block, index) => {
+    const title = xmlTag(block, 'title');
+    const url = xmlTag(block, 'link') || xmlTag(block, 'guid');
+    if (!title || !url) return [];
+    const publishedRaw = xmlTag(block, 'pubDate');
+    const publishedAt = Number.isNaN(Date.parse(publishedRaw))
+      ? new Date(now).toISOString()
+      : new Date(publishedRaw).toISOString();
+    if (ageDays(publishedAt, now) > 16) return [];
+
+    const sourceLabel = xmlTag(block, 'source') || 'Screen Orbit';
+    const publisherUrl = xmlTagAttribute(block, 'source', 'url');
+    const source = host(publisherUrl) || 'news.google.com';
+    const summary = summarize(xmlTag(block, 'description') || `${spec.label} update.`);
+    const text = `${title} ${summary} ${sourceLabel} ${spec.tags.join(' ')}`;
+    const tasteTags = screenTasteTags(text);
+    const tags = Array.from(new Set([...spec.tags, ...tasteTags, 'screen orbit', 'targeted discovery'])).slice(0, 14);
+    const taste = screenTastePrior(text);
+    const freshness = Math.exp(-ageDays(publishedAt, now) / 5);
+    const exactFavorite = tags.includes('screen favorite');
+    const importance = clamp(0.54 + spec.weight * 0.08 + taste * 0.55 + (exactFavorite ? 0.05 : 0));
+    const quality = 0.72;
+    const momentum = 0.48;
+    const novelty = exactFavorite ? 0.42 : 0.62;
+    const baseScore = clamp(
+      importance * 0.31 + quality * 0.25 + momentum * 0.12 + freshness * 0.22 + novelty * 0.1
+    );
+
+    return [{
+      id: `screen-${spec.id}-${stableId(`${url}-${index}`)}`,
+      title,
+      summary,
+      url,
+      source,
+      sourceLabel,
+      sourceKind: 'rss' as const,
+      publishedAt,
+      lane: 'screen' as const,
+      tags,
+      importance,
+      quality,
+      momentum,
+      novelty,
+      baseScore,
+      why: exactFavorite
+        ? 'A fresh update touched a title already inside your Screen Orbit.'
+        : `${spec.label} is adjacent to your anime/comedy/story preferences without requiring an exact-title match.`,
+    } satisfies FrontierItem];
+  });
+}
+
+async function fetchQuery(spec: ScreenQuery): Promise<FrontierItem[]> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), QUERY_TIMEOUT_MS);
+  try {
+    const url = `https://news.google.com/rss/search?q=${encodeURIComponent(spec.query)}&hl=en-US&gl=US&ceid=US:en`;
+    const response = await fetch(url, {
+      headers: { 'User-Agent': USER_AGENT, Accept: 'application/rss+xml, text/xml' },
+      signal: controller.signal,
+      next: { revalidate: 60 * 35 },
+    });
+    if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
+    return parseScreenNewsRss(await response.text(), spec).slice(0, 3);
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+export async function getScreenOrbitFeed(options: { deep?: boolean } = {}): Promise<FrontierFeedResponse> {
+  const dayKey = new Date().toISOString().slice(0, 10);
+  const queries = screenDiscoveryQueries(dayKey, Boolean(options.deep));
+  const runs = await Promise.allSettled(queries.map(fetchQuery));
+  const seen = new Set<string>();
+  const items = runs.flatMap((run) => run.status === 'fulfilled' ? run.value : [])
+    .filter((item) => {
+      const key = `${item.url.toLowerCase()}|${item.title.toLowerCase()}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  const failures = runs.filter((run) => run.status === 'rejected').length;
+  const status: FrontierSourceStatus = {
+    id: 'rss',
+    label: 'Screen Orbit radar',
+    ok: items.length > 0 || failures < runs.length,
+    count: items.length,
+    message: failures === runs.length ? 'screen discovery unavailable' : undefined,
+  };
+  return { generatedAt: new Date().toISOString(), items, sources: [status] };
+}
