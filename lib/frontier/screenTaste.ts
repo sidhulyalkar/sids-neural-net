@@ -139,6 +139,16 @@ const TITLE_ALIASES: Record<string, readonly string[]> = {
   'jackass 4.5': ['jackass 4.5', 'jackass 4 5'],
 };
 
+const CONTEXTUAL_TITLE_TERMS: Record<string, readonly string[]> = {
+  BEEF: ['netflix', 'series', 'show', 'season', 'comedy', 'television', 'tv'],
+  Fixed: ['netflix', 'animation', 'animated', 'film', 'movie', 'comedy'],
+  Hoops: ['netflix', 'animation', 'animated', 'series', 'show', 'comedy'],
+  Maniac: ['netflix', 'series', 'show', 'television', 'tv'],
+  Blockbuster: ['netflix', 'series', 'show', 'comedy', 'television', 'tv'],
+  'Inside Job': ['netflix', 'animation', 'animated', 'series', 'show', 'comedy'],
+  Homeland: ['series', 'show', 'season', 'television', 'tv'],
+};
+
 const FANTASY_PROGRESSION = new Set([
   'Re:ZERO -Starting Life in Another World-', 'Mushoku Tensei: Jobless Reincarnation', "Frieren: Beyond Journey's End",
   'TSUKIMICHI -Moonlit Fantasy-', 'The Water Magician', 'Shangri-La Frontier', 'Solo Leveling',
@@ -202,16 +212,24 @@ function containsPhrase(text: string, phrase: string): boolean {
   return needle.length > 2 && haystack.includes(needle);
 }
 
+function textHasAny(text: string, terms: readonly string[]): boolean {
+  return terms.some((term) => containsPhrase(text, term));
+}
+
 function aliasesFor(title: string): readonly string[] {
   return [title, ...(TITLE_ALIASES[title] ?? [])];
 }
 
-export function matchedScreenFavorites(text: string): string[] {
-  return ALL_FAVORITES.filter((title) => aliasesFor(title).some((alias) => containsPhrase(text, alias)));
+function hasRequiredTitleContext(title: string, text: string): boolean {
+  const required = CONTEXTUAL_TITLE_TERMS[title];
+  return !required || textHasAny(text, required);
 }
 
-function textHasAny(text: string, terms: readonly string[]): boolean {
-  return terms.some((term) => containsPhrase(text, term));
+export function matchedScreenFavorites(text: string): string[] {
+  return ALL_FAVORITES.filter((title) =>
+    hasRequiredTitleContext(title, text)
+    && aliasesFor(title).some((alias) => containsPhrase(text, alias))
+  );
 }
 
 export function screenTasteTags(text: string): string[] {
@@ -251,7 +269,7 @@ export function screenTasteTags(text: string): string[] {
     tags.add('animated dark comedy');
   }
   if (matched.some((title) => WITTY_DARK_COMEDY.has(title))
-      || textHasAny(text, ['dark comedy', 'black comedy', 'absurdist comedy', 'satirical comedy', 'workplace comedy'])) {
+      || textHasAny(text, ['dark comedy', 'black comedy', 'absurdist comedy', 'satirical comedy', 'workplace comedy', 'comedy satire'])) {
     tags.add('witty dark comedy');
   }
   if (matched.some((title) => CHAOTIC_COMEDY.has(title)) || textHasAny(text, ['absurd comedy', 'chaotic comedy'])) {
