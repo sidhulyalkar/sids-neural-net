@@ -14,7 +14,10 @@ function explicitTerminalState(text) {
 }
 
 function auditItem(index) {
-  const sourceKinds = ['rss', 'openalex', 'github', 'nasa'];
+  // Route-readiness is a render/paint fixture, not a source-provenance fixture.
+  // Keep every synthetic item inside a trusted direct/curated source contract so
+  // the provenance gate does not correctly remove one before paint is measured.
+  const sourceKinds = ['local', 'openalex', 'github', 'nasa'];
   const host = `frontier-audit-${index}.example.invalid`;
   return {
     id: `frontier-mobile-route-audit-${index}`,
@@ -157,7 +160,7 @@ async function auditDeterministicMobile(browser) {
   const payload = {
     generatedAt: '2026-08-22T00:00:00.000Z',
     items: [auditItem(1), auditItem(2), auditItem(3), auditItem(4)],
-    sources: [{ id: 'rss', label: 'FRONTIER CI', ok: true, count: 4 }],
+    sources: [{ id: 'local', label: 'FRONTIER CI', ok: true, count: 4 }],
   };
 
   await page.route('**/api/frontier/feed**', async (route) => {
