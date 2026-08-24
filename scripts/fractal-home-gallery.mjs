@@ -16,15 +16,12 @@ const cases = [
   { morph: 'coral', width: 1920, height: 1080 },
   { morph: 'fan', width: 2560, height: 1080 },
   { morph: 'spiraloid', width: 1024, height: 1024 },
-  { morph: 'halo', width: 390, height: 844 },
-  { morph: 'echidna', width: 430, height: 932 },
   { morph: 'apical', width: 430, height: 932 },
-  { morph: 'pixel-ghost', width: 800, height: 800 },
   { morph: 'echo-nest', width: 1440, height: 900 },
   { morph: 'echo-nest', width: 2560, height: 1080 },
 ];
 
-const removedMorphologies = ['aurora', 'mycelial', 'tectonic'];
+const removedMorphologies = ['aurora', 'mycelial', 'tectonic', 'halo', 'pixel-ghost', 'echidna'];
 const browser = await chromium.launch({ headless: true });
 const failures = [];
 const reports = [];
@@ -56,7 +53,7 @@ for (const testCase of cases) {
     if (message.type() === 'error') consoleErrors.push(message.text());
   });
 
-  const url = `${baseUrl}/?morph=${encodeURIComponent(testCase.morph)}&seed=gallery-v13-crisp-topology`;
+  const url = `${baseUrl}/?morph=${encodeURIComponent(testCase.morph)}&seed=gallery-v14-curated-clearance`;
   await page.goto(url, { waitUntil: 'networkidle' });
   const root = page.locator('[data-fractal-morphology]');
   await root.waitFor({ state: 'visible' });
@@ -68,13 +65,16 @@ for (const testCase of cases) {
 
   const crispCanvas = page.locator('[data-fractal-crisp-topology="v13"]');
   await crispCanvas.waitFor({ state: 'visible' });
+  const clearanceLayer = page.locator('[data-destination-clearance-layer="v14"]');
+  await clearanceLayer.waitFor({ state: 'visible' });
   await page.waitForFunction(() => {
     const rootNode = document.querySelector('[data-fractal-morphology]');
     return (
       rootNode?.getAttribute('data-primary-routing') === 'core-and-label-edge-v13' &&
       rootNode?.getAttribute('data-topology-repair') === 'snap-prune-v13' &&
       rootNode?.getAttribute('data-core-clearance') === 'circle-edge-v13' &&
-      rootNode?.getAttribute('data-render-fidelity') === 'crisp-no-glow-v13'
+      rootNode?.getAttribute('data-render-fidelity') === 'crisp-no-glow-v13' &&
+      rootNode?.getAttribute('data-destination-clearance') === 'opaque-edge-mask-v14'
     );
   });
 
@@ -84,10 +84,13 @@ for (const testCase of cases) {
   const topologyRepair = await root.getAttribute('data-topology-repair');
   const coreClearance = await root.getAttribute('data-core-clearance');
   const renderFidelity = await root.getAttribute('data-render-fidelity');
+  const destinationClearance = await root.getAttribute('data-destination-clearance');
   const links = page.locator('[data-dendrite-destination]');
   const linkCount = await links.count();
   const protectedControls = page.locator('[data-navigation-clearance="protected"]');
   const protectedCount = await protectedControls.count();
+  const clearanceMasks = page.locator('[data-destination-clearance-mask]');
+  const clearanceMaskCount = await clearanceMasks.count();
 
   const boxes = [];
   for (let index = 0; index < linkCount; index += 1) {
@@ -104,26 +107,25 @@ for (const testCase of cases) {
     if ((await link.getAttribute('data-navigation-clearance')) !== 'protected') {
       failures.push(`${testCase.morph}: destination ${index} missing protected clearance`);
     }
+    if ((await link.getAttribute('data-destination-edge-clearance')) !== 'v14') {
+      failures.push(`${testCase.morph}: destination ${index} missing v14 edge clearance`);
+    }
+    const background = await link.evaluate((element) => getComputedStyle(element).backgroundColor);
+    if (!background.startsWith('rgb(1, 4, 6)')) {
+      failures.push(`${testCase.morph}: destination ${index} background not opaque (${background})`);
+    }
   }
 
   if (actualMorph !== testCase.morph) failures.push(`${testCase.morph}: rendered ${actualMorph}`);
-  if (primaryRouting !== 'core-and-label-edge-v13') {
-    failures.push(`${testCase.morph}: exact CORE/label edge routing missing`);
-  }
-  if (topologyRepair !== 'snap-prune-v13') {
-    failures.push(`${testCase.morph}: topology snap/prune repair missing`);
-  }
-  if (coreClearance !== 'circle-edge-v13') {
-    failures.push(`${testCase.morph}: circular CORE clearance missing`);
-  }
-  if (renderFidelity !== 'crisp-no-glow-v13') {
-    failures.push(`${testCase.morph}: crisp no-glow renderer missing`);
-  }
-  if (coreRouting !== 'fixed-center-circle-v1') {
-    failures.push(`${testCase.morph}: fixed center CORE routing missing`);
-  }
+  if (primaryRouting !== 'core-and-label-edge-v13') failures.push(`${testCase.morph}: exact CORE/label edge routing missing`);
+  if (topologyRepair !== 'snap-prune-v13') failures.push(`${testCase.morph}: topology snap/prune repair missing`);
+  if (coreClearance !== 'circle-edge-v13') failures.push(`${testCase.morph}: circular CORE clearance missing`);
+  if (renderFidelity !== 'crisp-no-glow-v13') failures.push(`${testCase.morph}: crisp no-glow renderer missing`);
+  if (destinationClearance !== 'opaque-edge-mask-v14') failures.push(`${testCase.morph}: opaque destination clearance missing`);
+  if (coreRouting !== 'fixed-center-circle-v1') failures.push(`${testCase.morph}: fixed center CORE routing missing`);
   if (linkCount !== 8) failures.push(`${testCase.morph}: expected 8 destinations, got ${linkCount}`);
   if (protectedCount !== 9) failures.push(`${testCase.morph}: expected 9 protected controls, got ${protectedCount}`);
+  if (clearanceMaskCount !== 8) failures.push(`${testCase.morph}: expected 8 destination masks, got ${clearanceMaskCount}`);
   if (pageErrors.length) failures.push(`${testCase.morph}: page errors: ${pageErrors.join(' | ')}`);
   if (consoleErrors.length) failures.push(`${testCase.morph}: console errors: ${consoleErrors.join(' | ')}`);
 
@@ -164,9 +166,7 @@ for (const testCase of cases) {
     const anchorY = Number(await root.getAttribute('data-core-anchor-y'));
     if (Number.isFinite(anchorX) && Number.isFinite(anchorY)) {
       coreAnchorError = Math.hypot(coreCenterX - anchorX, coreCenterY - anchorY);
-      if (coreAnchorError > 2.5) {
-        failures.push(`${testCase.morph}: CORE drifted ${coreAnchorError.toFixed(2)}px from tree center`);
-      }
+      if (coreAnchorError > 2.5) failures.push(`${testCase.morph}: CORE drifted ${coreAnchorError.toFixed(2)}px from tree center`);
     } else {
       failures.push(`${testCase.morph}: CORE center metadata missing`);
     }
@@ -199,11 +199,13 @@ for (const testCase of cases) {
     actualMorph,
     linkCount,
     protectedCount,
+    clearanceMaskCount,
     primaryRouting,
     coreRouting,
     topologyRepair,
     coreClearance,
     renderFidelity,
+    destinationClearance,
     coreAnchorError,
     coreDiameter,
     echoNestLayout,
@@ -215,17 +217,19 @@ for (const testCase of cases) {
 
 for (const removedMorph of removedMorphologies) {
   const page = await browser.newPage({ viewport: { width: 1920, height: 1080 }, deviceScaleFactor: 1 });
-  await page.goto(`${baseUrl}/?morph=${removedMorph}&seed=removed-v13-crisp-topology`, { waitUntil: 'networkidle' });
+  await page.goto(`${baseUrl}/?morph=${removedMorph}&seed=removed-v14-curation`, { waitUntil: 'networkidle' });
   const root = page.locator('[data-fractal-morphology]');
   await root.waitFor({ state: 'visible' });
-  if (removedMorph === 'tectonic') {
-    await page.waitForFunction(
-      () => document.querySelector('[data-fractal-morphology]')?.getAttribute('data-fractal-morphology') === 'echo-nest'
-    );
-  }
+  await page.waitForFunction(
+    (removed) => {
+      const actual = document.querySelector('[data-fractal-morphology]')?.getAttribute('data-fractal-morphology');
+      return Boolean(actual && actual !== 'measuring' && actual !== removed);
+    },
+    removedMorph
+  );
   const actualMorph = await root.getAttribute('data-fractal-morphology');
-  if (!actualMorph || actualMorph === removedMorph) {
-    failures.push(`${removedMorph}: removed morphology remained publicly renderable`);
+  if (!actualMorph || actualMorph === removedMorph || removedMorphologies.includes(actualMorph)) {
+    failures.push(`${removedMorph}: retired morphology remained publicly renderable as ${actualMorph}`);
   }
   reports.push({ morph: removedMorph, removed: true, actualMorph });
   await page.close();
@@ -282,5 +286,5 @@ if (failures.length) {
 }
 
 console.log(
-  `Captured ${cases.length} curated fractal fixtures, verified ${removedMorphologies.length} removals, and audited ${echoCases.length} themed subpages with exact CORE/label edge termination, topology repair, and crisp no-glow dendrites.`
+  `Captured ${cases.length} curated fractal fixtures, verified ${removedMorphologies.length} removals, and audited ${echoCases.length} themed subpages with opaque destination-edge clearance, exact CORE/label termination, topology repair, and crisp dendrites.`
 );
