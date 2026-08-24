@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Bookmark, ChevronDown, ExternalLink, MessageCircleMore, ThumbsDown, ThumbsUp } from 'lucide-react';
 import { FRONTIER_LANE_MAP } from '@/lib/frontier/config';
 import { FRONTIER_VIEWPORT_SEEN_MS, markFrontierItemSeen } from '@/lib/frontier/live/seenLedger';
+import { assessFrontierSource } from '@/lib/frontier/sourceTrust';
 import type { FrontierItem, FrontierReaction } from '@/lib/frontier/types';
 import { EditorialClip } from './EditorialClip';
 import { canRenderFrontierMedia, FrontierMediaSurface, frontierMediaKey } from './media/FrontierMediaSurface';
@@ -43,6 +44,12 @@ type Props = {
 
 function host(url: string): string {
   try { return new URL(url).hostname.replace(/^www\./, ''); } catch { return ''; }
+}
+
+function provenanceLabel(item: FrontierItem, provenanceHost: string): string {
+  const label = item.sourceLabel.trim() || provenanceHost;
+  if (!provenanceHost || label.toLowerCase().includes(provenanceHost.toLowerCase())) return label;
+  return `${label} · ${provenanceHost}`;
 }
 
 function publishedLabel(value: string): string {
@@ -100,6 +107,8 @@ export function SignalCard({
   const [unavailableMediaKey, setUnavailableMediaKey] = useState<string>();
   const lane = FRONTIER_LANE_MAP[item.lane];
   const feed = presentation === 'feed';
+  const sourceTrust = assessFrontierSource(item);
+  const sourceLabel = provenanceLabel(item, sourceTrust.host);
   const currentMediaKey = frontierMediaKey(item);
   // Structural media eligibility is decided once from source metadata. Runtime
   // decode/network failure may change pixels inside the reserved media box, but
@@ -218,7 +227,7 @@ export function SignalCard({
         target="_blank"
         rel="noopener noreferrer"
         onClick={openWithSeen}
-        aria-label={`Open ${item.title} on ${host(item.url) || item.sourceLabel}`}
+        aria-label={`Open ${item.title} on ${sourceLabel || host(item.url)}`}
         title="Open source"
       ><ExternalLink size={13} /></a>
     </div>
@@ -251,9 +260,12 @@ export function SignalCard({
   );
 
   const meta = (
-    <div className={`${styles.cardTopline} ${mediaForward.topline}`}>
+    <div className={`${styles.cardTopline} ${mediaForward.topline}`} data-source-trust={sourceTrust.tier}>
       <span className={styles.laneLabel}>{resurfaced ? '↺ ' : ''}{lane.shortLabel}</span>
-      <span className={styles.sourceLabel}>{item.sourceLabel} · {publishedLabel(item.publishedAt)}</span>
+      <span
+        className={styles.sourceLabel}
+        title={`Source provenance: ${sourceTrust.tier}. ${sourceTrust.reason}.`}
+      >{sourceLabel} · {publishedLabel(item.publishedAt)}</span>
     </div>
   );
 
