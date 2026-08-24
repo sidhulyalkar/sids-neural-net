@@ -212,11 +212,14 @@ function enforceCoreNucleus(root: HTMLElement, geometry: NucleusGeometry) {
 
   const expectedLeft = `${geometry.center.x}px`;
   const expectedTop = `${geometry.center.y}px`;
+  const expectedTransform = 'translate(-50%, -50%)';
+  const expectedBackground = 'rgba(2, 8, 12, 0.97)';
+  const expectedShadow = '0 0 0 1px rgba(220,242,242,0.12), 0 0 0 12px rgba(1,4,7,0.8), 0 0 34px rgba(1,4,7,0.94)';
   if (core.style.left !== expectedLeft) core.style.left = expectedLeft;
   if (core.style.top !== expectedTop) core.style.top = expectedTop;
-  if (core.style.transform !== 'translate(-50%, -50%)') core.style.transform = 'translate(-50%, -50%)';
-  core.style.background = 'rgba(2, 8, 12, 0.97)';
-  core.style.boxShadow = '0 0 0 1px rgba(220,242,242,0.12), 0 0 0 12px rgba(1,4,7,0.8), 0 0 34px rgba(1,4,7,0.94)';
+  if (core.style.transform !== expectedTransform) core.style.transform = expectedTransform;
+  if (core.style.background !== expectedBackground) core.style.background = expectedBackground;
+  if (core.style.boxShadow !== expectedShadow) core.style.boxShadow = expectedShadow;
   core.dataset.corePlacement = 'central-nucleus-v2';
   core.dataset.coreAnchor = 'tree-center';
   core.setAttribute('aria-label', 'Open core / about');
@@ -272,15 +275,17 @@ export function FractalCoreNucleusV10() {
     schedule();
     const observer = new MutationObserver((mutations) => {
       if (enforcing) return;
-      if (
-        mutations.some((mutation) =>
-          mutation.type === 'childList' ||
-          (mutation.type === 'attributes' &&
-            ['style', 'data-fractal-morphology', 'data-fractal-seed'].includes(mutation.attributeName ?? ''))
-        )
-      ) {
-        schedule();
-      }
+      const shouldSchedule = mutations.some((mutation) => {
+        if (mutation.type === 'childList') return true;
+        if (mutation.type !== 'attributes') return false;
+        if (mutation.attributeName === 'data-fractal-morphology' || mutation.attributeName === 'data-fractal-seed') {
+          return true;
+        }
+        if (mutation.attributeName !== 'style') return false;
+        const target = mutation.target;
+        return target instanceof HTMLAnchorElement && target.getAttribute('href') === '/about';
+      });
+      if (shouldSchedule) schedule();
     });
     observer.observe(document.body, {
       subtree: true,
