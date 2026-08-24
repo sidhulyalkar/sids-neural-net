@@ -91,7 +91,7 @@ export const FRONTIER_LANES: FrontierLaneDefinition[] = [
   {
     id: 'sports', label: 'Sports + Motion', shortLabel: 'Sports', glyph: '◍',
     description: 'NFL and fantasy edges, sports data analysis, the sports you do, pro circuits, athlete stories, and standout clips.', weight: 1.12, realm: 'play',
-    keywords: ['rock climbing', 'sport climbing', 'bouldering', 'lead climbing', 'speed climbing', 'ifsc', 'mountain biking', 'mountain bike', 'mtb', 'downhill mtb', 'enduro mtb', 'crankworx', 'skiing', 'freeski', 'freeride', 'freeride world tour', 'skateboarding', 'skateboard', 'street skating', 'longboarding', 'longboard', 'ripstik', 'ripstick', 'caster board', 'ripsurf', 'ripsurfing', 'waveboard', 'nfl', 'nba', 'fantasy football', 'superflex', '2qb', '2 qb', 'adp', 'route participation', 'target share', 'air yards', 'snap share', 'sports analytics', 'sports data', 'player tracking', 'next gen stats', 'nflverse', 'nflfastr', 'play-by-play', 'epa', 'cpoe', 'expected points', 'expected value', 'win probability', 'fourth down', 'highlight'],
+    keywords: ['rock climbing', 'sport climbing', 'bouldering', 'lead climbing', 'speed climbing', 'ifsc', 'mountain biking', 'mountain bike', 'mtb', 'downhill mtb', 'enduro mtb', 'crankworx', 'skiing', 'freeski', 'freeride', 'freeride world tour', 'skateboarding', 'skateboard', 'street skating', 'longboarding', 'longboard', 'ripstik', 'ripstick', 'caster board', 'ripsurf', 'ripsurfing', 'waveboard', 'nfl', 'nba', 'fantasy football', 'superflex', '2qb', '2 qb', 'adp', 'route participation', 'target share', 'air yards', 'snap share', 'sports analytics', 'sports data', 'player tracking', 'next gen stats', 'nflverse', 'nflfastr', 'play-by-play', 'epa', 'cpoe', 'expected points', 'expected value', 'win probability', 'fourth down', 'highlight', 'scoreboard', 'scores', 'standings'],
   },
   {
     id: 'gaming', label: 'Game Radar', shortLabel: 'Games', glyph: '▣',
@@ -141,6 +141,7 @@ export const FRONTIER_SOURCE_WEIGHTS: Record<string, number> = {
   rss: 0.92,
   youtube: 0.98,
   football_data: 1.14,
+  sports_state: 1.12,
   reddit: 0.86,
   steam: 0.92,
   social: 0.78,
@@ -215,6 +216,7 @@ export function createInitialProfile(): FrontierProfile {
       'game design': 0.24,
     },
     sourceAffinity: {},
+    interestPairs: {},
     knownTopics: {},
     curiosity: 0.28,
     meaningfulInteractions: 0,
