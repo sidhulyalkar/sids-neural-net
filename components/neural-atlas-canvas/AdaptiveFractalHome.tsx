@@ -24,10 +24,7 @@ type Destination = {
   color: string;
 };
 
-type LabelPosition = {
-  x: number;
-  y: number;
-};
+type LabelPosition = { x: number; y: number };
 
 type ObstacleRect = {
   id: string;
@@ -35,13 +32,6 @@ type ObstacleRect = {
   top: number;
   right: number;
   bottom: number;
-};
-
-type RouteProfile = {
-  bends: number;
-  amplitude: number;
-  tangentJitter: number;
-  orthogonalBias: number;
 };
 
 const DESTINATIONS: Destination[] = [
@@ -95,26 +85,18 @@ function newSessionSeed(): string {
   const requestedSeed = params.get('seed')?.replace(/[^a-zA-Z0-9._-]/g, '').slice(0, 72);
   const requestedMorphology = safeForcedMorphology(params.get('morph')?.toLowerCase() ?? null);
   const base = requestedSeed || entropySeed();
-  if (requestedMorphology) return `force:${requestedMorphology}:${base}`;
-  return base;
+  return requestedMorphology ? `force:${requestedMorphology}:${base}` : base;
 }
 
 function resolvePublicTree(dimensions: Dimensions, seed: string): FractalTree {
-  const initial = buildAdaptiveFractalTree(
-    dimensions,
-    seed,
-    DESTINATIONS.map((destination) => destination.id)
-  );
+  const ids = DESTINATIONS.map((destination) => destination.id);
+  const initial = buildAdaptiveFractalTree(dimensions, seed, ids);
   if (!RETIRED_MORPHOLOGIES.has(initial.morphology.id)) return initial;
 
   const fallbackRng = seededRng(`retired-home-morphology:${seed}:${dimensions.width}x${dimensions.height}`);
   const fallback = RETIRED_FALLBACKS[Math.floor(fallbackRng() * RETIRED_FALLBACKS.length)] ?? 'echo-nest';
   const entropy = seed.replace(/^force:[a-z-]+:/, '').replace(/[^a-zA-Z0-9._-]/g, '').slice(0, 72) || 'retired';
-  return buildAdaptiveFractalTree(
-    dimensions,
-    `force:${fallback}:${entropy}`,
-    DESTINATIONS.map((destination) => destination.id)
-  );
+  return buildAdaptiveFractalTree(dimensions, `force:${fallback}:${entropy}`, ids);
 }
 
 function estimateLabelHalfWidth(destination: Destination, compact: boolean): number {
@@ -130,16 +112,16 @@ function getLabelPosition(
   dimensions: Dimensions
 ): LabelPosition {
   const direction = unitVectorFromCenter(endpoint, tree.center);
-  const compact = tree.compact;
-  const halfWidth = estimateLabelHalfWidth(destination, compact);
-  const outward = compact ? 19 : 27;
+  const halfWidth = estimateLabelHalfWidth(destination, tree.compact);
+  const outward = tree.compact ? 19 : 27;
   const verticalNudge = Math.abs(direction.y) > 0.74 ? (direction.y < 0 ? -8 : 8) : 0;
-  const x = endpoint.x + direction.x * outward;
-  const y = endpoint.y + direction.y * (compact ? 15 : 20) + verticalNudge;
-
   return {
-    x: clamp(x, halfWidth + 10, dimensions.width - halfWidth - 10),
-    y: clamp(y, 26, tree.usableBottom - 24),
+    x: clamp(endpoint.x + direction.x * outward, halfWidth + 10, dimensions.width - halfWidth - 10),
+    y: clamp(
+      endpoint.y + direction.y * (tree.compact ? 15 : 20) + verticalNudge,
+      26,
+      tree.usableBottom - 24
+    ),
   };
 }
 
@@ -151,13 +133,15 @@ function buildNavigationObstacles(tree: FractalTree, dimensions: Dimensions): Ob
     if (!endpoint) return [];
     const position = getLabelPosition(destination, endpoint, tree, dimensions);
     const halfWidth = estimateLabelHalfWidth(destination, tree.compact) + padding;
-    return [{
-      id: destination.id,
-      left: position.x - halfWidth,
-      right: position.x + halfWidth,
-      top: position.y - halfHeight - padding,
-      bottom: position.y + halfHeight + padding,
-    }];
+    return [
+      {
+        id: destination.id,
+        left: position.x - halfWidth,
+        right: position.x + halfWidth,
+        top: position.y - halfHeight - padding,
+        bottom: position.y + halfHeight + padding,
+      },
+    ];
   });
 }
 
@@ -191,27 +175,6 @@ function segmentIntersectsRect(a: Vec2, b: Vec2, rect: ObstacleRect): boolean {
   );
 }
 
-function routeProfile(morphology: FractalMorphologyId): RouteProfile {
-  switch (morphology) {
-    case 'echo-nest':
-      return { bends: 5, amplitude: 0.082, tangentJitter: 0.018, orthogonalBias: 0.36 };
-    case 'pixel-ghost':
-      return { bends: 5, amplitude: 0.058, tangentJitter: 0.012, orthogonalBias: 0.78 };
-    case 'echidna':
-      return { bends: 4, amplitude: 0.052, tangentJitter: 0.016, orthogonalBias: 0.3 };
-    case 'fan':
-      return { bends: 4, amplitude: 0.044, tangentJitter: 0.015, orthogonalBias: 0.22 };
-    case 'coral':
-      return { bends: 4, amplitude: 0.04, tangentJitter: 0.018, orthogonalBias: 0.14 };
-    case 'apical':
-      return { bends: 3, amplitude: 0.036, tangentJitter: 0.014, orthogonalBias: 0.18 };
-    case 'spiraloid':
-      return { bends: 4, amplitude: 0.032, tangentJitter: 0.016, orthogonalBias: 0.08 };
-    default:
-      return { bends: 3, amplitude: 0.028, tangentJitter: 0.012, orthogonalBias: 0.08 };
-  }
-}
-
 function connectorTerminal(start: Vec2, obstacle: ObstacleRect): Vec2 {
   const center = { x: (obstacle.left + obstacle.right) * 0.5, y: (obstacle.top + obstacle.bottom) * 0.5 };
   const dx = start.x - center.x;
@@ -227,116 +190,105 @@ function connectorTerminal(start: Vec2, obstacle: ObstacleRect): Vec2 {
   return { x: center.x + ux * radius, y: center.y + uy * radius };
 }
 
-function polylineLength(points: Vec2[]): number {
-  let length = 0;
-  for (let index = 1; index < points.length; index += 1) {
-    length += Math.hypot(points[index].x - points[index - 1].x, points[index].y - points[index - 1].y);
-  }
-  return length;
+function distance(a: Vec2, b: Vec2): number {
+  return Math.hypot(a.x - b.x, a.y - b.y);
 }
 
-function routeCollisionScore(points: Vec2[], obstacles: ObstacleRect[], ownerId: string): number {
-  let score = polylineLength(points) * 0.018;
+function orientPrimaryFromCore(path: FractalPath, tree: FractalTree): Vec2[] {
+  if (path.points.length === 0) return [];
+  const points = [...path.points];
+  const first = points[0];
+  const last = points[points.length - 1];
+  if (distance(last, tree.center) < distance(first, tree.center)) points.reverse();
+
+  if (distance(points[0], tree.center) > 1.5) points.unshift(tree.center);
+  else points[0] = tree.center;
+  return points;
+}
+
+function tailCollisionScore(points: Vec2[], obstacles: ObstacleRect[], ownerId: string): number {
+  let score = 0;
   for (let index = 1; index < points.length; index += 1) {
-    const a = points[index - 1];
-    const b = points[index];
     for (const obstacle of obstacles) {
       if (obstacle.id === ownerId && index === points.length - 1) continue;
-      if (segmentIntersectsRect(a, b, obstacle)) score += 10000;
-    }
-    if (index >= 2) {
-      const previous = points[index - 2];
-      const ax = a.x - previous.x;
-      const ay = a.y - previous.y;
-      const bx = b.x - a.x;
-      const by = b.y - a.y;
-      const denom = Math.max(1, Math.hypot(ax, ay) * Math.hypot(bx, by));
-      const cosine = (ax * bx + ay * by) / denom;
-      if (cosine < -0.2) score += 250;
+      if (segmentIntersectsRect(points[index - 1], points[index], obstacle)) score += 10000;
     }
   }
   return score;
 }
 
-function buildProtectedPrimaryRoute(
-  path: FractalPath,
-  tree: FractalTree,
-  dimensions: Dimensions,
+function buildProtectedTerminalTail(
+  endpoint: Vec2,
+  target: Vec2,
+  ownerId: string,
+  morphology: FractalMorphologyId,
   sessionSeed: string,
   obstacles: ObstacleRect[]
 ): Vec2[] {
-  const start = path.points[0];
-  const originalEnd = path.points[path.points.length - 1];
-  if (!start || !originalEnd) return path.points;
-  const ownObstacle = obstacles.find((obstacle) => obstacle.id === path.ownerId);
-  const target = ownObstacle ? connectorTerminal(start, ownObstacle) : originalEnd;
+  const direct = [endpoint, target];
+  if (tailCollisionScore(direct, obstacles, ownerId) === 0) return direct;
 
-  if (tree.morphology.id === 'radial' || tree.morphology.id === 'halo') {
-    if (path.points.length <= 2) return [start, target];
-    return [...path.points.slice(0, -1), target];
-  }
-
-  const profile = routeProfile(tree.morphology.id);
-  const dx = target.x - start.x;
-  const dy = target.y - start.y;
+  const dx = target.x - endpoint.x;
+  const dy = target.y - endpoint.y;
   const length = Math.max(1, Math.hypot(dx, dy));
-  const tangent = { x: dx / length, y: dy / length };
-  const normal = { x: -tangent.y, y: tangent.x };
-  const rng = seededRng(`connector-v4:${sessionSeed}:${tree.morphology.id}:${path.ownerId}`);
-  let best = [start, target];
-  let bestScore = Number.POSITIVE_INFINITY;
+  const normal = { x: -dy / length, y: dx / length };
+  const rng = seededRng(`connector-tail-v2:${sessionSeed}:${morphology}:${ownerId}`);
+  let best = direct;
+  let bestScore = tailCollisionScore(direct, obstacles, ownerId);
 
-  for (let candidateIndex = 0; candidateIndex < 36; candidateIndex += 1) {
-    const points: Vec2[] = [start];
-    const sideSeed = rng() < 0.5 ? -1 : 1;
-    for (let bendIndex = 1; bendIndex <= profile.bends; bendIndex += 1) {
-      const t = bendIndex / (profile.bends + 1);
-      const envelope = Math.sin(Math.PI * t);
-      const alternating = bendIndex % 2 === 0 ? -sideSeed : sideSeed;
-      let normalOffset =
-        alternating * length * profile.amplitude * envelope * (0.48 + rng() * 0.92) +
-        (rng() - 0.5) * length * profile.amplitude * 0.55;
-      let tangentOffset = (rng() - 0.5) * length * profile.tangentJitter;
-
-      if (profile.orthogonalBias > 0.4 && bendIndex % 2 === 0) {
-        normalOffset *= 1 + profile.orthogonalBias * 0.35;
-        tangentOffset *= 0.35;
-      }
-
-      points.push({
-        x: clamp(start.x + dx * t + normal.x * normalOffset + tangent.x * tangentOffset, 10, dimensions.width - 10),
-        y: clamp(start.y + dy * t + normal.y * normalOffset + tangent.y * tangentOffset, 10, tree.usableBottom - 10),
-      });
-    }
-    points.push(target);
-    const score = routeCollisionScore(points, obstacles, path.ownerId) + candidateIndex * 0.002;
+  for (let candidate = 0; candidate < 18; candidate += 1) {
+    const side = candidate % 2 === 0 ? 1 : -1;
+    const amplitude = Math.min(26, length * (0.16 + rng() * 0.3));
+    const bend = {
+      x: endpoint.x + dx * (0.42 + rng() * 0.16) + normal.x * side * amplitude,
+      y: endpoint.y + dy * (0.42 + rng() * 0.16) + normal.y * side * amplitude,
+    };
+    const candidatePoints = [endpoint, bend, target];
+    const score = tailCollisionScore(candidatePoints, obstacles, ownerId) + candidate * 0.001;
     if (score < bestScore) {
-      best = points;
+      best = candidatePoints;
       bestScore = score;
     }
   }
-
   return best;
+}
+
+function buildTopologyPreservingPrimaryRoute(
+  path: FractalPath,
+  tree: FractalTree,
+  sessionSeed: string,
+  obstacles: ObstacleRect[]
+): Vec2[] {
+  const ordered = orientPrimaryFromCore(path, tree);
+  const endpoint = ordered[ordered.length - 1];
+  if (!endpoint) return ordered;
+  const ownObstacle = obstacles.find((obstacle) => obstacle.id === path.ownerId);
+  if (!ownObstacle) return ordered;
+  const target = connectorTerminal(endpoint, ownObstacle);
+  if (distance(endpoint, target) < 1) return ordered;
+  const tail = buildProtectedTerminalTail(
+    endpoint,
+    target,
+    path.ownerId,
+    tree.morphology.id,
+    sessionSeed,
+    obstacles
+  );
+  return [...ordered, ...tail.slice(1)];
 }
 
 function drawSmoothPath(ctx: CanvasRenderingContext2D, points: Vec2[]) {
   if (points.length < 2) return;
   ctx.beginPath();
   ctx.moveTo(points[0].x, points[0].y);
-
   for (let index = 1; index < points.length - 1; index += 1) {
     const current = points[index];
     const next = points[index + 1];
-    const midpoint = {
-      x: (current.x + next.x) * 0.5,
-      y: (current.y + next.y) * 0.5,
-    };
+    const midpoint = { x: (current.x + next.x) * 0.5, y: (current.y + next.y) * 0.5 };
     ctx.quadraticCurveTo(current.x, current.y, midpoint.x, midpoint.y);
   }
-
   const last = points[points.length - 1];
   ctx.lineTo(last.x, last.y);
-  if (points.length > 2 && points[0] === last) ctx.closePath();
 }
 
 function drawAngularPath(ctx: CanvasRenderingContext2D, points: Vec2[]) {
@@ -373,7 +325,6 @@ function drawStencilPath(ctx: CanvasRenderingContext2D, path: FractalPath) {
     ctx.fill();
     ctx.restore();
   }
-
   drawPolygon(ctx, path.points);
   ctx.strokeStyle = `rgba(150, 211, 222, ${path.alpha})`;
   ctx.lineWidth = path.width;
@@ -396,7 +347,6 @@ export function AdaptiveFractalHome() {
   useLayoutEffect(() => {
     const container = containerRef.current;
     if (!container) return;
-
     let frame = 0;
     let active = true;
     const seedFrame = requestAnimationFrame(() => {
@@ -444,7 +394,6 @@ export function AdaptiveFractalHome() {
     canvas.height = Math.max(1, Math.round(dimensions.height * dpr));
     canvas.style.width = `${dimensions.width}px`;
     canvas.style.height = `${dimensions.height}px`;
-
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -522,7 +471,7 @@ export function AdaptiveFractalHome() {
       const glow = path.glow ?? 0;
       const isPrimary = path.depth === 0 && path.ownerId !== '__ambient__';
       const routedPoints = isPrimary
-        ? buildProtectedPrimaryRoute(path, tree, dimensions, sessionSeed, obstacles)
+        ? buildTopologyPreservingPrimaryRoute(path, tree, sessionSeed, obstacles)
         : path.points;
       if (isPrimary) primaryRoutes.set(path.ownerId, routedPoints);
       const angularPrimary = isPrimary && tree.morphology.id !== 'radial' && tree.morphology.id !== 'halo';
@@ -554,32 +503,24 @@ export function AdaptiveFractalHome() {
       ctx.stroke();
     }
 
-    DESTINATIONS.forEach((destination) => {
+    for (const destination of DESTINATIONS) {
       const endpoint = tree.endpoints.get(destination.id);
-      if (!endpoint) return;
+      if (!endpoint) continue;
       const route = primaryRoutes.get(destination.id);
       const terminal = route?.[route.length - 1] ?? endpoint;
       const active = hoveredId === destination.id;
       const dimmed = Boolean(hoveredId && !active);
-
       ctx.beginPath();
       ctx.arc(terminal.x, terminal.y, active ? 3.8 : 2.4, 0, Math.PI * 2);
       ctx.fillStyle = destination.color;
       ctx.globalAlpha = active ? 0.96 : dimmed ? 0.22 : 0.64;
       ctx.fill();
       ctx.globalAlpha = 1;
-    });
-
-    if (!['halo', 'pixel-ghost', 'echo-nest'].includes(tree.morphology.id)) {
-      ctx.beginPath();
-      ctx.arc(tree.center.x, tree.center.y, hoveredId ? 3.2 : 2.4, 0, Math.PI * 2);
-      ctx.fillStyle = hoveredId ? 'rgba(224, 247, 248, 0.84)' : 'rgba(202, 224, 225, 0.58)';
-      ctx.fill();
     }
   }, [dimensions, hoveredId, sessionSeed, tree]);
 
   const isMeasured = Boolean(tree);
-  const showSoma = tree && !['halo', 'pixel-ghost', 'echo-nest'].includes(tree.morphology.id);
+  const coreDiameter = tree?.compact ? 46 : 54;
 
   return (
     <div
@@ -589,7 +530,10 @@ export function AdaptiveFractalHome() {
       data-fractal-morphology={tree?.morphology.id ?? 'measuring'}
       data-fractal-dimension={tree ? tree.theoreticalTerminalDimension.toFixed(3) : undefined}
       data-fractal-seed={sessionSeed ?? undefined}
-      data-primary-routing="angular-obstacle-v1"
+      data-primary-routing="topology-preserving-v2"
+      data-core-routing="fixed-center-circle-v1"
+      data-core-anchor-x={tree ? tree.center.x.toFixed(2) : undefined}
+      data-core-anchor-y={tree ? tree.center.y.toFixed(2) : undefined}
     >
       <canvas ref={canvasRef} className="absolute inset-0" aria-hidden="true" />
       <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_bottom,rgba(1,2,4,0.26),transparent_18%,transparent_76%,rgba(1,2,4,0.82))]" />
@@ -605,7 +549,6 @@ export function AdaptiveFractalHome() {
               if (!endpoint) return null;
               const position = getLabelPosition(destination, endpoint, tree, dimensions);
               const active = hoveredId === destination.id;
-
               return (
                 <Link
                   key={destination.id}
@@ -632,37 +575,22 @@ export function AdaptiveFractalHome() {
             })}
           </nav>
 
-          {showSoma && (
-            <div
-              className="pointer-events-none absolute z-10 -translate-x-1/2 -translate-y-1/2"
-              style={{ left: tree.center.x, top: tree.center.y }}
-              aria-hidden="true"
-            >
-              <svg width="70" height="70" viewBox="0 0 70 70" className="overflow-visible">
-                <path
-                  d="M35 7 L52 15 L61 32 L55 51 L38 62 L19 56 L8 39 L13 20 Z"
-                  fill="rgba(255,255,255,0.026)"
-                  stroke="rgba(222,241,242,0.17)"
-                  strokeWidth="0.8"
-                  vectorEffect="non-scaling-stroke"
-                />
-                <path
-                  d="M35 14 L48 20 L54 33 L50 46 L37 54 L23 50 L16 38 L20 24 Z"
-                  fill="rgba(92,226,255,0.018)"
-                  stroke="rgba(92,226,255,0.075)"
-                  strokeWidth="0.7"
-                  vectorEffect="non-scaling-stroke"
-                />
-              </svg>
-            </div>
-          )}
-
           <Link
             href="/about"
             data-navigation-clearance="protected"
             data-gesture-target
-            className="absolute z-30 -translate-x-1/2 rounded-[2px] border border-white/16 bg-[#010407]/96 px-3 py-1.5 font-mono text-[9px] uppercase tracking-[0.16em] text-white/80 shadow-[0_0_0_10px_rgba(1,2,4,0.86),0_0_28px_rgba(1,2,4,0.82)] transition-all hover:border-cyan-300/35 hover:text-cyan-100 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyan-300/60 sm:text-[10px]"
-            style={{ left: tree.center.x, top: tree.center.y + (tree.compact ? 42 : 48) }}
+            data-core-placement="fixed-center-circle-v1"
+            data-core-shape="circle"
+            data-core-anchor="tree-center"
+            aria-label="Open core / about"
+            className="absolute z-30 flex -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-white/24 bg-[#02080c]/98 p-0 text-[9px] uppercase tracking-[0.14em] text-white/84 shadow-[0_0_0_6px_rgba(1,2,4,0.84),0_0_28px_rgba(95,222,238,0.09)] transition-all hover:border-cyan-300/40 hover:bg-[#041016]/98 hover:text-cyan-100 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyan-300/60 sm:text-[10px] lg:text-[11px]"
+            style={{
+              ...CODE_TEXT,
+              left: tree.center.x,
+              top: tree.center.y,
+              width: coreDiameter,
+              height: coreDiameter,
+            }}
           >
             Core
           </Link>
