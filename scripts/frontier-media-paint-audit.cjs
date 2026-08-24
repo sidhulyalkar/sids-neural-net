@@ -14,6 +14,41 @@ function rounded(value) {
   return Number(value.toFixed(3));
 }
 
+async function waitForStableGeometry(page) {
+  return page.evaluate(({ selector, expected }) => new Promise((resolve, reject) => {
+    let previous = '';
+    let stableFrames = 0;
+    let frames = 0;
+    const tick = () => {
+      frames += 1;
+      const nodes = Array.from(document.querySelectorAll(selector));
+      if (nodes.length !== expected) {
+        if (frames > 180) reject(new Error(`Expected ${expected} cards, found ${nodes.length}`));
+        else requestAnimationFrame(tick);
+        return;
+      }
+      const signature = nodes.map((node) => {
+        const rect = node.getBoundingClientRect();
+        return [rect.x, rect.y, rect.width, rect.height]
+          .map((value) => Math.round(value * 4) / 4)
+          .join(':');
+      }).join('|');
+      stableFrames = signature === previous ? stableFrames + 1 : 0;
+      previous = signature;
+      if (stableFrames >= 4) {
+        resolve(frames);
+        return;
+      }
+      if (frames > 180) {
+        reject(new Error('Media-paint baseline geometry did not settle within 180 animation frames'));
+        return;
+      }
+      requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  }), { selector: CARD, expected: EXPECTED_CARDS });
+}
+
 async function waitForFixture(page) {
   await page.goto(AUDIT_URL, { waitUntil: 'domcontentloaded' });
   await page.waitForFunction(
@@ -25,8 +60,8 @@ async function waitForFixture(page) {
     document.documentElement.style.scrollBehavior = 'auto';
     document.body.style.scrollBehavior = 'auto';
     if (document.fonts?.ready) await document.fonts.ready;
-    await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
   });
+  return waitForStableGeometry(page);
 }
 
 async function mediaCardIds(page) {
@@ -92,7 +127,7 @@ async function normalPaintProof(browser) {
   const page = await context.newPage();
   page.setDefaultTimeout(6_000);
   try {
-    await waitForFixture(page);
+    const settledAfterFrames = await waitForFixture(page);
     const ids = await mediaCardIds(page);
     assert.equal(ids.length, EXPECTED_MEDIA, `Expected ${EXPECTED_MEDIA} media cards, saw ${ids.length}`);
     const before = new Map();
@@ -124,6 +159,7 @@ async function normalPaintProof(browser) {
     await page.screenshot({ path: path.join(ARTIFACT_DIR, 'frontier-media-paint-normal.png'), fullPage: true });
     return {
       passed: true,
+      settledAfterFrames,
       ids,
       visits,
       maxHeightDelta: rounded(maxHeightDelta),
@@ -147,7 +183,7 @@ async function failureStabilityProof(browser) {
   });
 
   try {
-    await waitForFixture(page);
+    const settledAfterFrames = await waitForFixture(page);
     const before = await cardRect(page, targetId);
     assert.equal(before.mediaDeclared, true, 'Failure fixture did not start as a structural media card');
 
@@ -165,7 +201,7 @@ async function failureStabilityProof(browser) {
     assert(Math.abs(after.top - before.top) <= 1.25, `Failed media changed card position by ${Math.abs(after.top - before.top)}px`);
 
     await page.screenshot({ path: path.join(ARTIFACT_DIR, 'frontier-media-paint-failure-stable.png'), fullPage: true });
-    return { passed: true, targetId, before, after };
+    return { passed: true, settledAfterFrames, targetId, before, after };
   } finally {
     await context.close();
   }
