@@ -98,8 +98,6 @@ const samples = [
 ].map((sample) => ({ ...sample, vy: jumpVy(sample.speed, sample.flow), apex: apex(jumpVy(sample.speed, sample.flow)) }));
 const by = Object.fromEntries(samples.map((sample) => [sample.label, sample]));
 
-// Feel recovery contract: early movement is generous and speed materially buys
-// height, but one ordinary developed run still does not erase the route system.
 assert.ok(by.standing.apex >= standingTeachingGap * 1.10, `standing jump lost teaching margin: ${by.standing.apex.toFixed(1)} vs ${standingTeachingGap}`);
 assert.ok(by.standing.apex < laterFlowGap * 1.15, 'standing jump is erasing later FLOW spacing');
 assert.ok(by['burst-entry'].apex >= twoFloorTarget * 0.96, `burst entry lost two-floor utility: ${by['burst-entry'].apex.toFixed(1)} vs ${twoFloorTarget}`);
@@ -147,18 +145,32 @@ assert.equal(rightWall, 860);
 assert.equal(rightWall - leftWall, 760);
 
 const stickRange = numberIn(sap, 'stickRange');
-const stickHold = numberIn(sap, 'stickHoldSeconds');
+const stickAcquire = numberIn(sap, 'stickAcquireBufferSeconds');
+const stickMinHold = numberIn(sap, 'stickMinHoldSeconds');
+const stickMaxHold = numberIn(sap, 'stickMaxHoldSeconds');
+const stickSteer = numberIn(sap, 'stickSteerAccel');
 const stickReuse = numberIn(sap, 'stickReuseLockSeconds');
 const stickReleaseVy = numberIn(sap, 'stickReleaseMinVy');
 assert.ok(stickRange >= 600 && stickRange <= 680, 'Sap Stick target range drifted');
-assert.ok(stickHold >= 0.18 && stickHold <= 0.25, 'Sap Stick tether should stay a quick rhythmic beat');
+assert.ok(stickAcquire >= 0.14 && stickAcquire <= 0.24, 'Sap Stick early-press acquisition buffer left the forgiving range');
+assert.ok(stickMinHold <= 0.09, 'Sap Stick minimum hold reintroduced a timing tax');
+assert.ok(stickMaxHold >= 1.0 && stickMaxHold <= 1.6, 'Sap Stick hold window is too short for swing control or too long for bounded play');
+assert.ok(stickSteer >= 2100, 'Sap Stick A/D swing steering lost direct player authority');
 assert.ok(stickReuse >= 0.6, 'Sap Stick anchors can be farmed too quickly');
 assert.ok(apex(stickReleaseVy) >= 100, 'Sap Stick vault lost meaningful vertical rescue');
 assert.ok(numberIn(sap, 'stickAnchorPriority') >= 90, 'authored branchless anchors are not preferred strongly enough');
 assert.match(stick, /function findTarget\(/);
-assert.match(stick, /function castSapStick\(/);
+assert.match(stick, /function pressSapStick\(/);
+assert.match(stick, /function releaseSapStickInput\(/);
+assert.match(stick, /function applyHeldScreenSteering\(/);
+assert.match(stick, /suppressLegacyPump/);
+assert.match(stick, /sap-stick-press/);
 assert.match(stick, /sap-stick-cast/);
+assert.match(stick, /SHIFT_RELEASE/);
+assert.match(stick, /sapStickBufferedLocks/);
+assert.match(stick, /sapStickHoldReleases/);
 assert.doesNotMatch(stick, /charge(?:Seconds|Time)|holdToCharge/i);
+assert.doesNotMatch(sap, /stickHoldSeconds/);
 
 const branchlessDys = [...grove, ...saprun, ...slingshot].filter((step) => !step.branch).map((step) => step.dy);
 assert.ok(Math.max(...branchlessDys) <= 180, 'branchless anchor spacing exceeds authored Sap Stick rhythm envelope');
@@ -166,7 +178,7 @@ assert.deepEqual([...world.matchAll(/\{ name: '[^']+', floor: (\d+)/g)].map((mat
 
 console.log(JSON.stringify({
   ok: true,
-  mode: 'sapstick-canopy-responsive-player-owned-flow',
+  mode: 'sapstick-shift-hold-responsive-player-owned-flow',
   corridor: { left: leftWall, right: rightWall, width: rightWall - leftWall },
   density: {
     grove: { branches: grove.filter((s) => s.branch).length, tiers: grove.length },
@@ -176,5 +188,13 @@ console.log(JSON.stringify({
   teaching: { standingGap: standingTeachingGap, laterFlowGap, developedRunFloor, developedRunCeiling },
   jumpEnvelope: samples.map(({ label, speed, flow: flowCount, vy, apex: height }) => ({ label, speed, flow: flowCount, launchVy: Number(vy.toFixed(1)), ballisticApex: Number(height.toFixed(1)) })),
   control: { groundAccel: numberIn(run, 'groundAccel'), airAccel: numberIn(run, 'airAccel'), reverseAirScale: numberIn(run, 'reverseAirScale'), barkRetention: numberIn(rebound, 'retention') },
-  sapStick: { range: stickRange, tetherSeconds: stickHold, reuseLockSeconds: stickReuse, releaseApex: Number(apex(stickReleaseVy).toFixed(1)) },
+  sapStick: {
+    range: stickRange,
+    acquisitionBufferSeconds: stickAcquire,
+    minHoldSeconds: stickMinHold,
+    maxHoldSeconds: stickMaxHold,
+    steerAccel: stickSteer,
+    reuseLockSeconds: stickReuse,
+    releaseApex: Number(apex(stickReleaseVy).toFixed(1)),
+  },
 }, null, 2));
