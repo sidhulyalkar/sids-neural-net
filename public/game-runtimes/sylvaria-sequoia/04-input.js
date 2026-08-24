@@ -5,7 +5,7 @@
   const { state, player, canvas, wrap, W } = S;
   const JUMP_KEYS = new Set(['Space', 'ArrowUp', 'KeyW']);
   const SHIFT_KEYS = new Set(['ShiftLeft', 'ShiftRight']);
-  const START_JUMP_GUARD_MS = 240;
+  const START_JUMP_GUARD_MS = 80;
   const MIN_JUMP_REPRESS_MS = 48;
   const PHYSICAL_STALE_MS = 900;
 
@@ -17,6 +17,7 @@
   const suppressedJumpKeys = new Map();
   let sapChordCount = 0;
   let lastSapChordAt = -Infinity;
+  let pendingActivation = null;
 
   async function copyTelemetry() {
     const text = JSON.stringify(S.summarizeTelemetry(), null, 2);
@@ -101,20 +102,13 @@
       return;
     }
 
-    if (state.mode === 'title' || state.mode === 'gameover') {
+    if (state.mode === 'title' || state.mode === 'gameover' || state.mode === 'paused') {
       if (event.code === 'Space' || event.code === 'Enter') {
-        quarantineStartKey(event.code);
-        S.startRun(state.runSeed + 1);
-      } else if (SHIFT_KEYS.has(event.code)) {
-        state.keys.add(event.code);
-      }
-      return;
-    }
-    if (state.mode === 'paused') {
-      if (event.code === 'Space' || event.code === 'Enter') {
-        quarantineStartKey(event.code);
-        state.mode = 'playing';
-        wrap.dataset.playing = 'true';
+        // Activation commits on keyup, after this physical press has ended. Starting
+        // on keydown used to move iframe focus mid-press and could surface a second
+        // Space edge as an unintended Air Kick in some browser engines.
+        pendingActivation = { code: event.code, mode: state.mode };
+        if (JUMP_KEYS.has(event.code)) state.keys.add(event.code);
       } else if (SHIFT_KEYS.has(event.code)) {
         state.keys.add(event.code);
       }
@@ -150,6 +144,22 @@
     lastReleasedAt.set(event.code, now);
     state.keys.delete(event.code);
     if (JUMP_KEYS.has(event.code)) player.jumpHeld = false;
+
+    if (pendingActivation?.code === event.code) {
+      const activation = pendingActivation;
+      pendingActivation = null;
+      if (activation.mode === 'paused' && state.mode === 'paused') {
+        state.mode = state.pausedFrom || 'playing';
+        wrap.dataset.playing = 'true';
+      } else if ((activation.mode === 'title' || activation.mode === 'gameover') && state.mode === activation.mode) {
+        S.startRun(state.runSeed + 1);
+      }
+      // A tiny post-release quarantine rejects a same-press browser echo without
+      // making the first intentional gameplay jump feel laggy.
+      quarantineStartKey(event.code);
+      state.keys.delete(event.code);
+      player.jumpHeld = false;
+    }
   }
 
   function pointerAction(event) {
@@ -237,6 +247,7 @@
       jumpInput: S.jumpInputContract?.getState() || null,
       inputGate: {
         startJumpGuardMs: START_JUMP_GUARD_MS,
+        pendingActivation: pendingActivation ? { ...pendingActivation } : null,
         minJumpRepressMs: MIN_JUMP_REPRESS_MS,
         physicalDown: [...physicalDown.keys()],
         suppressedJumpKeys: [...suppressedJumpKeys.entries()].map(([code, until]) => ({
