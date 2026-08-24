@@ -12,6 +12,7 @@ import {
 } from './behavior';
 import { createInitialProfile, DEFAULT_COLLECTIONS } from './config';
 import { clearFrontierForagedSources } from './forage/sourceRoster';
+import { migrateFrontierProfile } from './profileMigration';
 import { applyReactionToProfile } from './scoring';
 import { clearFrontierVelocityHistory } from './synthesis/velocityEngine';
 import { clearFrontierTrajectories } from './trajectory/contextTrajectories';
@@ -33,7 +34,7 @@ import { clearFrontierAvoidAnchors } from './watch/avoidEngine';
 import { clearFrontierWatchIntents } from './watch/intentEngine';
 
 const STORAGE_KEY = 'frontier-personal-radar-v1';
-const STATE_VERSION = 2;
+const STATE_VERSION = 3;
 
 function localDayKey(date = new Date()): string {
   const year = date.getFullYear();
@@ -107,7 +108,7 @@ function initialGame(): FrontierGameState {
 
 function initialState(): FrontierPersistedState {
   return {
-    version: 2,
+    version: 3,
     profile: createInitialProfile(),
     behavior: createInitialBehaviorModel(),
     saved: {},
@@ -131,8 +132,8 @@ function migrateState(payload: unknown): FrontierPersistedState | null {
   const history = candidate.history as FrontierPersistedState['history'];
   for (const entry of Object.values(history)) if (entry.dwellMs === undefined) entry.dwellMs = 0;
   return {
-    version: 2,
-    profile: candidate.profile as FrontierProfile,
+    version: 3,
+    profile: migrateFrontierProfile(candidate.profile as FrontierProfile),
     behavior: (candidate.behavior as FrontierBehaviorModel | undefined) ?? createInitialBehaviorModel(),
     saved: candidate.saved as FrontierPersistedState['saved'],
     collections: candidate.collections as FrontierCollection[],
@@ -341,7 +342,7 @@ export const useFrontierStore = create<FrontierStore>()(
 
 export function frontierBackup(state: FrontierStore): FrontierPersistedState {
   return {
-    version: 2,
+    version: 3,
     profile: state.profile,
     behavior: state.behavior,
     saved: state.saved,
