@@ -16,6 +16,10 @@
     }
   }
 
+  function quarantineStartKey(code) {
+    if (JUMP_KEYS.has(code)) state.keys.add(code);
+  }
+
   function handleKeyDown(event) {
     if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Space'].includes(event.code)) event.preventDefault();
     if (event.repeat && ['Space', 'ArrowUp', 'KeyW', 'ShiftLeft', 'ShiftRight', 'KeyE', 'KeyP', 'KeyR', 'KeyN', 'KeyT', 'KeyJ'].includes(event.code)) return;
@@ -50,11 +54,15 @@
     }
 
     if (state.mode === 'title' || state.mode === 'gameover') {
-      if (event.code === 'Space' || event.code === 'Enter') S.startRun(state.runSeed + 1);
+      if (event.code === 'Space' || event.code === 'Enter') {
+        quarantineStartKey(event.code);
+        S.startRun(state.runSeed + 1);
+      }
       return;
     }
     if (state.mode === 'paused') {
       if (event.code === 'Space' || event.code === 'Enter') {
+        quarantineStartKey(event.code);
         state.mode = 'playing';
         wrap.dataset.playing = 'true';
       }
@@ -165,6 +173,7 @@
       hyper: player.hyper,
       airJumps: player.airJumps,
       jumpInput: S.jumpInputContract?.getState() || null,
+      flowAssist: S.flowAssist?.getState() || null,
       saves: player.saves,
       branchCount: state.branches.length,
       knotCount: state.knots.length,
