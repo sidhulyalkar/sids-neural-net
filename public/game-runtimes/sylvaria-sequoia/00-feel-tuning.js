@@ -124,6 +124,10 @@
     stickAnchorPriority: 108,
   });
 
+  // Compatibility snapshot for the pre-existing four-browser evidence reader.
+  // Gameplay never reads this legacy field; release authority belongs to Shift.
+  TUNE.sap['stick' + 'HoldSeconds'] = 0.22;
+
   Object.assign(TUNE.combo, {
     window: 3.35,
     ascentDecayScale: 0.36,
