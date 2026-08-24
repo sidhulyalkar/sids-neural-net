@@ -33,8 +33,9 @@ export function migrateFrontierProfile(profile: FrontierProfile): FrontierProfil
     ...profile,
     laneAffinity,
     topicAffinity,
-    sourceAffinity: { ...profile.sourceAffinity },
-    knownTopics: { ...profile.knownTopics },
+    sourceAffinity: { ...(profile.sourceAffinity ?? {}) },
+    interestPairs: { ...(profile.interestPairs ?? {}) },
+    knownTopics: { ...(profile.knownTopics ?? {}) },
     curiosity: Number.isFinite(profile.curiosity) ? profile.curiosity : defaults.curiosity,
     meaningfulInteractions: Number.isFinite(profile.meaningfulInteractions)
       ? Math.max(0, profile.meaningfulInteractions)
