@@ -1,4 +1,5 @@
 import {
+  matchedScreenFavorites,
   screenFavoriteDiscoveryBundles,
   screenTastePrior,
   screenTasteTags,
@@ -78,7 +79,7 @@ export function screenDiscoveryQueries(dayKey = new Date().toISOString().slice(0
     id: `favorites-${index}`,
     label: 'Favorite-title pulse',
     query: `(${quotedBundle(titles)}) anime TV season trailer renewal premiere release`,
-    tags: ['screen orbit', 'screen favorite'],
+    tags: ['screen orbit'],
     weight: 1,
   }));
 
@@ -118,12 +119,19 @@ export function parseScreenNewsRss(xml: string, spec: ScreenQuery, now = Date.no
     const publisherUrl = xmlTagAttribute(block, 'source', 'url');
     const source = host(publisherUrl) || 'news.google.com';
     const summary = summarize(xmlTag(block, 'description') || `${spec.label} update.`);
-    const text = `${title} ${summary} ${sourceLabel} ${spec.tags.join(' ')}`;
-    const tasteTags = screenTasteTags(text);
-    const tags = Array.from(new Set([...spec.tags, ...tasteTags, 'screen orbit', 'targeted discovery'])).slice(0, 14);
-    const taste = screenTastePrior(text);
+    const evidenceText = `${title} ${summary} ${sourceLabel}`;
+    const tasteText = `${evidenceText} ${spec.tags.join(' ')}`;
+    const exactFavorite = matchedScreenFavorites(evidenceText).length > 0;
+    const tasteTags = screenTasteTags(tasteText);
+    const tags = Array.from(new Set([
+      ...spec.tags,
+      ...tasteTags,
+      ...(exactFavorite ? ['screen favorite'] : []),
+      'screen orbit',
+      'targeted discovery',
+    ])).slice(0, 14);
+    const taste = screenTastePrior(tasteText);
     const freshness = Math.exp(-ageDays(publishedAt, now) / 5);
-    const exactFavorite = tags.includes('screen favorite');
     const importance = clamp(0.54 + spec.weight * 0.08 + taste * 0.55 + (exactFavorite ? 0.05 : 0));
     const quality = 0.72;
     const momentum = 0.48;
