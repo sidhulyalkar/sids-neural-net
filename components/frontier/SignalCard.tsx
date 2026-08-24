@@ -9,6 +9,7 @@ import type { FrontierItem, FrontierReaction } from '@/lib/frontier/types';
 import { EditorialClip } from './EditorialClip';
 import { canRenderFrontierMedia, FrontierMediaSurface, frontierMediaKey } from './media/FrontierMediaSurface';
 import type { SignalLayoutMode } from './SignalBoard';
+import { SportsStatePanel } from './SportsStatePanel';
 import mediaForward from './frontier-media-forward-cards.module.css';
 import styles from './frontier-minimal.module.css';
 
@@ -227,8 +228,8 @@ export function SignalCard({
         target="_blank"
         rel="noopener noreferrer"
         onClick={openWithSeen}
-        aria-label={`Open ${item.title} on ${sourceLabel || host(item.url)}`}
-        title="Open source"
+        aria-label={`${item.actionLabel ?? 'Open'}: ${item.title} on ${sourceLabel || host(item.url)}`}
+        title={item.actionLabel ?? 'Open source'}
       ><ExternalLink size={13} /></a>
     </div>
   );
@@ -259,6 +260,8 @@ export function SignalCard({
     </button>
   );
 
+  const sportsStatePanel = item.sportsState ? <SportsStatePanel state={item.sportsState} /> : null;
+
   const meta = (
     <div className={`${styles.cardTopline} ${mediaForward.topline}`} data-source-trust={sourceTrust.tier}>
       <span className={styles.laneLabel}>{resurfaced ? '↺ ' : ''}{lane.shortLabel}</span>
@@ -274,6 +277,7 @@ export function SignalCard({
       <article ref={ref} className={`${styles.card} ${styles.feedCard} ${styles.feedCardText} ${mediaForward.card} ${mediaForward.feedCard}`}>
         <div className={`${styles.feedCopy} ${mediaForward.feedCopy}`}>
           <EditorialClip item={item} presentation="list" resurfaced={resurfaced} onOpen={openWithSeen} />
+          {sportsStatePanel}
           <div className={styles.feedActions}>{contextButton}{quickActions}</div>
           {contextPanel}
         </div>
@@ -297,6 +301,7 @@ export function SignalCard({
             <h3 className={`${styles.cardTitle} ${mediaForward.title}`}>{item.title}</h3>
             <p className={`${styles.cardSummary} ${mediaForward.summary}`}>{item.summary}</p>
           </a>
+          {sportsStatePanel}
           {contextButton}
           {contextPanel}
         </div>
@@ -316,6 +321,7 @@ export function SignalCard({
           {meta}
           <h3 className={`${styles.cardTitle} ${mediaForward.title}`}>{item.title}</h3>
           <p className={`${styles.cardSummary} ${mediaForward.summary} ${mediaForward.feedSummary}`}>{item.summary}</p>
+          {sportsStatePanel}
           <div className={styles.feedActions}>{contextButton}{quickActions}</div>
           {contextPanel}
         </div>
@@ -339,6 +345,7 @@ export function SignalCard({
         {meta}
         <h3 className={`${styles.cardTitle} ${mediaForward.title}`}>{item.title}</h3>
         <p className={`${styles.cardSummary} ${mediaForward.summary}`}>{item.summary}</p>
+        {sportsStatePanel}
         {contextButton}
         {contextPanel}
       </div>
