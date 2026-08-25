@@ -12,7 +12,7 @@
   const baseStartRun = S.startRun;
   const baseSapState = S.sapStick.getState;
 
-  const VERSION = 'nearest-sap-authority-v2';
+  const VERSION = 'nearest-sap-authority-v3';
   const MIN_GROUNDED_REARM_SECONDS = 0.035;
   const MAX_ATTACH_VX_GAIN = 95;
   const MAX_ATTACH_VY_GAIN = 120;
@@ -49,6 +49,7 @@
   let highestPhysicalFloor = 0;
   let lastGroundedBranch = null;
   let activeLeaseId = '';
+  let activeLeaseKnot = null;
   let blockedPresses = 0;
   let nearestSelections = 0;
   let nodeUses = 0;
@@ -65,8 +66,17 @@
     counters[name] = (counters[name] || 0) + 1;
   }
 
+  // Identity is authored topology, never presentation/physics state. Moving
+  // Pendulum/Skyheart anchors can change x/y every frame without becoming a new
+  // authority node. These four fields are assigned when the route step is born
+  // and remain stable for that knot's lifetime.
   function anchorId(knot) {
-    return `${knot?.chunkId || 'route'}:${Number(knot?.floor) || 0}:${Math.round(knot?.x || 0)}:${Math.round(knot?.y || 0)}`;
+    return [
+      String(knot?.chunkId || 'route'),
+      String(Number(knot?.floor) || 0),
+      String(knot?.role || 'anchor'),
+      String(knot?.anchorKind || 'unknown'),
+    ].join(':');
   }
 
   function isAuthoredAnchor(knot) {
@@ -153,6 +163,16 @@
     return false;
   }
 
+  function rejectUnexpectedAttach(reason) {
+    baseRelease('AUTHORITY_REJECT');
+    player.sap = null;
+    activeLeaseId = '';
+    activeLeaseKnot = null;
+    releaseBaseline = null;
+    bumpCounter('sapAuthorityRejectedAttaches');
+    recordEvent('sap-authority-rejected-attach', { reason });
+  }
+
   function pressSapStick() {
     if (state.mode !== 'playing') return false;
     if (player.sap?.stickMode) return true;
@@ -173,6 +193,7 @@
     const id = anchorId(target);
     usedAnchorIds.add(id);
     activeLeaseId = id;
+    activeLeaseKnot = target;
     armed = false;
     spentAtFloor = highestPhysicalFloor;
     nodeUses += 1;
@@ -197,6 +218,7 @@
     capSpeed(leaseSpeedCap + POST_RELEASE_SPEED_ALLOWANCE);
     releaseBaseline = null;
     activeLeaseId = '';
+    activeLeaseKnot = null;
   }
 
   function releaseSapStick(reason = 'SHIFT_RELEASE') {
@@ -238,17 +260,19 @@
     const isActive = Boolean(player.sap?.stickMode);
 
     if (!wasActive && isActive && !activeLeaseId) {
-      baseRelease('AUTHORITY_REJECT');
-      player.sap = null;
-      bumpCounter('sapAuthorityRejectedAttaches');
-      recordEvent('sap-authority-rejected-attach', {});
+      rejectUnexpectedAttach('NO_LEASE');
     } else if (isActive && activeLeaseId) {
-      // Steering can rotate/shape the swing, but repeated fixed updates cannot
-      // pump the tether above the bounded energy budget granted on acquisition.
-      capSpeed(leaseSpeedCap);
+      const attachedKnot = player.sap?.knot || null;
+      if (!attachedKnot || attachedKnot !== activeLeaseKnot || anchorId(attachedKnot) !== activeLeaseId) {
+        rejectUnexpectedAttach('LEASE_NODE_MISMATCH');
+      } else {
+        // Steering can rotate/shape the swing, but repeated fixed updates cannot
+        // pump the tether above the bounded energy budget granted on acquisition.
+        capSpeed(leaseSpeedCap);
+      }
     }
 
-    if (wasActive && !isActive && leaseBefore) {
+    if (wasActive && !player.sap?.stickMode && leaseBefore) {
       finishLeaseRelease(releaseBaseline || velocityBeforeUpdate);
     }
 
@@ -261,6 +285,7 @@
     highestPhysicalFloor = Number(player.grounded?.floor) || 0;
     lastGroundedBranch = player.grounded || null;
     activeLeaseId = '';
+    activeLeaseKnot = null;
     blockedPresses = 0;
     nearestSelections = 0;
     nodeUses = 0;
@@ -310,6 +335,8 @@
         distance: S.round(Math.hypot(nearest.x - player.x, nearest.y - player.y), 1),
       } : null,
       pressTimeAcquisition: true,
+      immutableAnchorIdentity: true,
+      anchorIdentityFields: ['chunkId', 'floor', 'role', 'anchorKind'],
       bufferedAcquisitionSeconds: TUNE.sap.stickAcquireBufferSeconds,
       maxAttachVelocityGain: { x: MAX_ATTACH_VX_GAIN, y: MAX_ATTACH_VY_GAIN },
       maxReleaseVelocityGain: { x: MAX_RELEASE_VX_GAIN, y: MAX_RELEASE_VY_GAIN },
