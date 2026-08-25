@@ -56,7 +56,7 @@ export const FRONTIER_LANES: FrontierLaneDefinition[] = [
   {
     id: 'competitions', label: 'Competition Edge', shortLabel: 'Competition', glyph: '△',
     description: 'Kaggle methods, winning solutions, feature engineering, ensembling, and leaderboard lessons.', weight: 1.04, realm: 'learn',
-    keywords: ['kaggle', 'competition', 'winning solution', 'feature engineering', 'ensemble', 'pseudo label', 'leaderboard', 'cross validation'],
+    keywords: ['kaggle', 'machine learning competition', 'data science competition', 'modeling competition', 'winning solution', 'feature engineering', 'ensemble', 'pseudo label', 'leaderboard', 'cross validation'],
   },
   {
     id: 'broad_science', label: 'Science Frontier', shortLabel: 'Science', glyph: '✦',
