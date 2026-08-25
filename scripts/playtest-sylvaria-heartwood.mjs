@@ -91,10 +91,20 @@ async function runContract(page, engineName) {
     const seed = S.heartwoodQuest.getState().activeSeed;
     S.player.airJumps = 0;
     S.player.saves = 0;
+    S.player.sap = null;
+    // Teleport tests must release the start branch first. Leaving `grounded`
+    // authoritative caused the next fixed step to snap Pip straight back to the
+    // root platform before the Heartseed collector could observe the new pose.
+    S.player.grounded = null;
+    S.player.groundedTime = 0;
+    S.player.coyote = 0;
     S.player.x = seed.x;
     S.player.y = seed.y;
     S.player.px = seed.x;
     S.player.py = seed.y;
+    S.player.vx = 0;
+    S.player.vy = 0;
+    S.state.threatY = Math.min(S.state.threatY, seed.y - 650);
     await new Promise((resolve) => setTimeout(resolve, 55));
     return {
       quest: S.heartwoodQuest.getState(),
