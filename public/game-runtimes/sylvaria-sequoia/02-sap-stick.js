@@ -15,6 +15,9 @@
   let releaseQueuedReason = '';
   let missReportedForHold = false;
   const anchorLockouts = new Map();
+  const CLEAN_VAULT_MIN_HOLD = 0.16;
+  const CLEAN_VAULT_MAX_HOLD = 0.82;
+  const CLEAN_VAULT_MIN_HORIZONTAL = 330;
 
   function bumpCounter(name) {
     const counters = S.getTelemetry().counters;
@@ -194,11 +197,24 @@
     }
 
     const knot = sap.knot;
-    const comboLinksBefore = S.getTelemetry().counters.comboLinks;
     const rescue = isRescueState();
     const away = Math.sign(player.x - knot.x || player.vx || player.facing || 1);
 
-    baseReleaseSap();
+    // The legacy rope release awards SAP Flow whenever its spring gain exceeds a
+    // low threshold. With one-button Sap Stick that turned ordinary locomotion
+    // into 100x+ combos. A normal stick vault should preserve a chain, not mint a
+    // combo link for free. Only a deliberately shaped, fast release earns CLEAN SAP.
+    const legacyComboReleaseGain = TUNE.sap.comboReleaseGain;
+    const legacySurgeThreshold = TUNE.combo.sapSurgeThreshold;
+    TUNE.sap.comboReleaseGain = Number.POSITIVE_INFINITY;
+    TUNE.combo.sapSurgeThreshold = Number.POSITIVE_INFINITY;
+    try {
+      baseReleaseSap();
+    } finally {
+      TUNE.sap.comboReleaseGain = legacyComboReleaseGain;
+      TUNE.combo.sapSurgeThreshold = legacySurgeThreshold;
+    }
+
     player.vx = clamp(
       player.vx + away * TUNE.sap.stickReleaseForward,
       -TUNE.sap.stickReleaseSpeedCap,
@@ -213,8 +229,20 @@
     player.stretch = 1;
     player.strideMomentum = Math.max(player.strideMomentum || 0, Math.min(TUNE.run.strideMax, Math.abs(player.vx) + 70));
 
-    const comboLinksAfter = S.getTelemetry().counters.comboLinks;
-    if (comboLinksAfter === comboLinksBefore) S.addComboLink('SAP', 'SAP STICK', 1, 0.14);
+    const cleanVault = !forceRelease
+      && age >= CLEAN_VAULT_MIN_HOLD
+      && age <= CLEAN_VAULT_MAX_HOLD
+      && Math.abs(player.vx) >= CLEAN_VAULT_MIN_HORIZONTAL;
+    if (cleanVault) {
+      S.addComboLink('SAP', 'CLEAN SAP', 1, 0.10);
+      bumpCounter('sapStickCleanVaults');
+    } else if (player.combo > 0) {
+      // Ordinary grapples are connective tissue. They give the player enough
+      // breathing room to reach the next scoring verb without inflating Flow.
+      player.comboTimer = Math.max(player.comboTimer, 0.42);
+      bumpCounter('sapStickFlowCarries');
+    }
+
     bumpCounter('sapStickVaults');
     if (reason === 'SHIFT_RELEASE' || reason === 'POINTER_RELEASE') bumpCounter('sapStickHoldReleases');
     if (reason === 'SAFETY_MAX') bumpCounter('sapStickSafetyReleases');
@@ -223,12 +251,13 @@
       reason,
       floor: knot.floor,
       holdSeconds: S.round(age, 3),
+      cleanVault,
       vx: S.round(player.vx, 1),
       vy: S.round(player.vy, 1),
     });
-    announce('SAP VAULT · AIR KICK READY', 0.42, 13);
-    burst(player.x, player.y, 12, 'resin', 0.72);
-    tone(660, 0.07, 0.032, 'triangle', 1.5);
+    announce(cleanVault ? 'CLEAN SAP · AIR KICK READY' : 'SAP VAULT · AIR KICK READY', 0.42, cleanVault ? 14 : 12);
+    burst(player.x, player.y, cleanVault ? 16 : 10, 'resin', cleanVault ? 0.86 : 0.66);
+    tone(cleanVault ? 720 : 660, 0.07, 0.032, 'triangle', 1.5);
     return true;
   }
 
@@ -362,6 +391,8 @@
       acquireBufferRemaining: acquireBuffer,
       minHoldSeconds: TUNE.sap.stickMinHoldSeconds,
       maxHoldSeconds: TUNE.sap.stickMaxHoldSeconds,
+      cleanVaultWindow: [CLEAN_VAULT_MIN_HOLD, CLEAN_VAULT_MAX_HOLD],
+      cleanVaultMinHorizontal: CLEAN_VAULT_MIN_HORIZONTAL,
       holdSeconds: player.sap?.stickMode ? player.sap.age || 0 : 0,
       maxHoldRemaining: player.sap?.stickMode ? Math.max(0, TUNE.sap.stickMaxHoldSeconds - (player.sap.age || 0)) : 0,
       releaseQueued: Boolean(releaseQueuedReason),
