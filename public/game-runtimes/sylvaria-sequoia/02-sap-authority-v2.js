@@ -18,8 +18,14 @@
   const MAX_ATTACH_VY_GAIN = 120;
   const MAX_RELEASE_VX_GAIN = 105;
   const MAX_RELEASE_VY_GAIN = 145;
+  const MAX_TETHER_SPEED_GAIN = 120;
+  const MIN_TETHER_SPEED_CAP = 220;
+  const POST_RELEASE_SPEED_ALLOWANCE = 65;
   const BLOCK_NOTICE_SECONDS = 0.36;
 
+  // Sap is a redirect/bridge, not a rocket. The exact target is selected at the
+  // press edge, and the tether is allowed to reshape player-authored velocity but
+  // not mint an unbounded amount of new kinetic energy.
   Object.assign(TUNE.sap, {
     stickAcquireBufferSeconds: 0,
     stickRange: Math.min(TUNE.sap.stickRange, 525),
@@ -49,6 +55,9 @@
   let recharges = 0;
   let noticeCooldown = 0;
   let releaseBaseline = null;
+  let leaseEntrySpeed = 0;
+  let leaseSpeedCap = 0;
+  let energyClamps = 0;
   const usedAnchorIds = new Set();
 
   function bumpCounter(name) {
@@ -115,6 +124,18 @@
     player.vy = before.vy + clamp(player.vy - before.vy, -MAX_RELEASE_VY_GAIN, MAX_RELEASE_VY_GAIN);
   }
 
+  function capSpeed(limit) {
+    if (!(limit > 0)) return false;
+    const speed = Math.hypot(player.vx, player.vy);
+    if (speed <= limit || speed <= 0.001) return false;
+    const scale = limit / speed;
+    player.vx *= scale;
+    player.vy *= scale;
+    energyClamps += 1;
+    bumpCounter('sapAuthorityEnergyClamps');
+    return true;
+  }
+
   function block(reason) {
     blockedPresses += 1;
     bumpCounter('sapAuthorityBlockedPresses');
@@ -145,6 +166,10 @@
     if (!attached || !player.sap?.stickMode) return false;
 
     capAttachImpulse(before);
+    leaseEntrySpeed = Math.hypot(before.vx, before.vy);
+    leaseSpeedCap = Math.min(TUNE.sap.stickReleaseSpeedCap, Math.max(MIN_TETHER_SPEED_CAP, leaseEntrySpeed + MAX_TETHER_SPEED_GAIN));
+    capSpeed(leaseSpeedCap);
+
     const id = anchorId(target);
     usedAnchorIds.add(id);
     activeLeaseId = id;
@@ -159,21 +184,26 @@
       floor: target.floor,
       distance: S.round(Math.hypot(target.x - player.x, target.y - player.y), 1),
       spentAtFloor,
+      entrySpeed: S.round(leaseEntrySpeed, 1),
+      speedCap: S.round(leaseSpeedCap, 1),
       vx: S.round(player.vx, 1),
       vy: S.round(player.vy, 1),
     });
     return true;
   }
 
+  function finishLeaseRelease(before) {
+    capReleaseImpulse(before);
+    capSpeed(leaseSpeedCap + POST_RELEASE_SPEED_ALLOWANCE);
+    releaseBaseline = null;
+    activeLeaseId = '';
+  }
+
   function releaseSapStick(reason = 'SHIFT_RELEASE') {
     if (!player.sap?.stickMode) return false;
     releaseBaseline = { vx: player.vx, vy: player.vy };
     const released = Boolean(baseRelease(reason));
-    if (!player.sap?.stickMode) {
-      capReleaseImpulse(releaseBaseline);
-      releaseBaseline = null;
-      activeLeaseId = '';
-    }
+    if (!player.sap?.stickMode) finishLeaseRelease(releaseBaseline);
     return released;
   }
 
@@ -187,9 +217,6 @@
     const floor = Number(branch.floor) || 0;
     if (floor > highestPhysicalFloor) highestPhysicalFloor = floor;
 
-    // Do not consume the landing edge until it has been physically held for a few
-    // fixed ticks. onLand starts groundedTime at zero, so marking it immediately
-    // would prevent the next frame from ever rearming Sap.
     if (!armed && floor > spentAtFloor && player.groundedTime < MIN_GROUNDED_REARM_SECONDS) return;
     if (branch === lastGroundedBranch) return;
     lastGroundedBranch = branch;
@@ -206,6 +233,7 @@
     noticeCooldown = Math.max(0, noticeCooldown - dt);
     const wasActive = Boolean(player.sap?.stickMode);
     const leaseBefore = activeLeaseId;
+    const velocityBeforeUpdate = wasActive ? { vx: player.vx, vy: player.vy } : null;
     baseUpdate(dt);
     const isActive = Boolean(player.sap?.stickMode);
 
@@ -214,12 +242,14 @@
       player.sap = null;
       bumpCounter('sapAuthorityRejectedAttaches');
       recordEvent('sap-authority-rejected-attach', {});
+    } else if (isActive && activeLeaseId) {
+      // Steering can rotate/shape the swing, but repeated fixed updates cannot
+      // pump the tether above the bounded energy budget granted on acquisition.
+      capSpeed(leaseSpeedCap);
     }
 
     if (wasActive && !isActive && leaseBefore) {
-      capReleaseImpulse(releaseBaseline);
-      releaseBaseline = null;
-      activeLeaseId = '';
+      finishLeaseRelease(releaseBaseline || velocityBeforeUpdate);
     }
 
     observeGrounding();
@@ -237,6 +267,9 @@
     recharges = 0;
     noticeCooldown = 0;
     releaseBaseline = null;
+    leaseEntrySpeed = 0;
+    leaseSpeedCap = 0;
+    energyClamps = 0;
     usedAnchorIds.clear();
   }
 
@@ -266,6 +299,9 @@
       nearestSelections,
       nodeUses,
       recharges,
+      energyClamps,
+      leaseEntrySpeed: S.round(leaseEntrySpeed, 1),
+      leaseSpeedCap: S.round(leaseSpeedCap, 1),
       nearestTarget: nearest ? {
         id: anchorId(nearest),
         floor: nearest.floor,
@@ -277,6 +313,7 @@
       bufferedAcquisitionSeconds: TUNE.sap.stickAcquireBufferSeconds,
       maxAttachVelocityGain: { x: MAX_ATTACH_VX_GAIN, y: MAX_ATTACH_VY_GAIN },
       maxReleaseVelocityGain: { x: MAX_RELEASE_VX_GAIN, y: MAX_RELEASE_VY_GAIN },
+      maxTetherSpeedGain: MAX_TETHER_SPEED_GAIN,
       useInvariant: nodeUses <= recharges + 1,
     };
   }
@@ -285,8 +322,10 @@
   S.resetRun = resetRun;
   S.startRun = startRun;
   S.pressSapStick = pressSapStick;
+  S.castSapStick = pressSapStick;
   S.releaseSapStick = releaseSapStick;
   S.sapAuthority = { version: VERSION, getState, getTargetPreview: nearestEligibleAnchor };
+  S.sapStick.cast = pressSapStick;
   S.sapStick.press = pressSapStick;
   S.sapStick.release = releaseSapStick;
   S.sapStick.getTargetPreview = nearestEligibleAnchor;
