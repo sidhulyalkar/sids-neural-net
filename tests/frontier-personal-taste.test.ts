@@ -54,6 +54,22 @@ test('explicit taste map recognizes NFL/fantasy, Neuroglancer, and neuroscience 
   assert.ok(personalTasteRankingPrior(neuroglancer) >= 0.16);
 });
 
+test('short analytical aliases require token boundaries instead of matching inside ordinary words', () => {
+  const falsePositive = item('separation-paper', {
+    title: 'Adaptive separation methods for long-horizon world models',
+    summary: 'A reinforcement-learning paper about representation quality and remasking.',
+    lane: 'ai_frontier',
+  });
+  const realEpa = item('real-epa', {
+    title: 'NFL EPA model improves fourth-down win probability estimates',
+    lane: 'sports',
+  });
+
+  assert.equal(matchesPersonalTasteTopic(falsePositive, ['nfl-analytics']), false);
+  assert.equal(personalTasteTags(falsePositive.title).includes('nfl'), false);
+  assert.equal(matchesPersonalTasteTopic(realEpa, ['nfl-analytics']), true);
+});
+
 test('explicit taste map recognizes neural foundation models, mechanistic interpretability, and remote sensing', () => {
   const foundationModel = item('foundation-model', {
     title: 'Self-supervised EEG foundation model improves neural decoding transfer',
