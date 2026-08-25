@@ -68,7 +68,13 @@ async function runContract(page, engineName) {
   if (!initial.rhythm.ready || initial.rhythm.minAnchorVerticalSpacing !== 205 || initial.nonExplicit !== 0) {
     throw new Error(`Sparse authored Sap rhythm unavailable: ${JSON.stringify(initial)}`);
   }
-  if (initial.authority?.version !== 'nearest-sap-authority-v2' || !initial.authority.armed || initial.authority.bufferedAcquisitionSeconds !== 0) {
+  if (
+    initial.authority?.version !== 'nearest-sap-authority-v3' ||
+    !initial.authority.armed ||
+    initial.authority.bufferedAcquisitionSeconds !== 0 ||
+    !initial.authority.immutableAnchorIdentity ||
+    JSON.stringify(initial.authority.anchorIdentityFields) !== JSON.stringify(['chunkId', 'floor', 'role', 'anchorKind'])
+  ) {
     throw new Error(`Hard Sap authority unavailable: ${JSON.stringify(initial.authority)}`);
   }
   if (Object.values(initial.routeBalance?.hasConsecutiveAirAnchors || {}).some(Boolean)) {
