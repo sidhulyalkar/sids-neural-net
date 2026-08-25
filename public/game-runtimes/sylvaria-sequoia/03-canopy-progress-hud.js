@@ -6,7 +6,8 @@
 
   const { ctx, W, H, state, player, clamp, lerp } = S;
   const baseRender = S.render;
-  const VERSION = 'minimal-crown-hud-v2';
+  const VERSION = 'minimal-crown-hud-v1';
+  const REVISION = 'heartwood-objective-v2';
   const TAU = Math.PI * 2;
 
   function worldToScreenY(worldY) {
@@ -277,6 +278,7 @@
   S.render = render;
   S.canopyProgressHud = {
     version: VERSION,
+    revision: REVISION,
     layout: 'edge-free top ribbon + world-space crown markers',
     primaryObjective: 'wake the crown with five persistent Heartseeds',
     titleBehavior: 'title fades out after play starts',
