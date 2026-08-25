@@ -33,6 +33,12 @@ test('Screen Orbit first-party and established entertainment sources have explic
   assert.equal(assessFrontierHost('https://variety.com/tv/news/example').tier, 'established');
 });
 
+test('vetted bass and electronic music publications are explicit editorial sources', () => {
+  assert.equal(assessFrontierHost('https://edm.com/music-releases/example').tier, 'established');
+  assert.equal(assessFrontierHost('https://dancingastronaut.com/2026/08/example').tier, 'established');
+  assert.ok(assessFrontierHost('https://edm.com/music-releases/example').score >= 0.75);
+});
+
 test('requested sports clip hosts have explicit bounded trust tiers', () => {
   assert.equal(assessFrontierHost('https://bleacherreport.com/articles/example').tier, 'established');
   assert.equal(assessFrontierHost('https://sleeper.com/news/example').tier, 'platform');
