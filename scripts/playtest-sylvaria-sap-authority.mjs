@@ -71,9 +71,10 @@ async function runContract(page, engineName) {
   if (initial.authority?.version !== 'nearest-sap-authority-v2' || !initial.authority.pressTimeAcquisition || initial.authority.bufferedAcquisitionSeconds !== 0) {
     throw new Error(`Nearest Sap authority unavailable: ${JSON.stringify(initial.authority)}`);
   }
-  if (initial.density >= 0.5) throw new Error(`Generated Sap density is still too high: ${JSON.stringify(initial)}`);
-  if (!initial.routeBalance || Object.values(initial.routeBalance.hasConsecutiveAirAnchors || {}).some(Boolean)) {
-    throw new Error(`A production route still contains consecutive Sap-only floors: ${JSON.stringify(initial.routeBalance)}`);
+  if (initial.authority.maxTetherSpeedGain !== 120) throw new Error(`Sap tether energy budget unavailable: ${JSON.stringify(initial.authority)}`);
+  if (initial.density >= 0.36) throw new Error(`Generated Sap density is still too high: ${JSON.stringify(initial)}`);
+  if (!initial.routeBalance || initial.routeBalance.densityProfile !== 'sparse-one-anchor-v3' || Object.values(initial.routeBalance.hasConsecutiveAirAnchors || {}).some(Boolean)) {
+    throw new Error(`Production Sap route balance is stale: ${JSON.stringify(initial.routeBalance)}`);
   }
 
   const nearest = await frame.evaluate(() => {
@@ -118,7 +119,32 @@ async function runContract(page, engineName) {
     throw new Error(`First Sap use was not atomically spent: ${JSON.stringify(nearest.authority)}`);
   }
 
-  await page.waitForTimeout(120);
+  // Hold and aggressively steer long enough that the old spring/pump model would
+  // have produced a much larger speed. The hard authority must keep kinetic speed
+  // inside the entry-speed budget while still allowing direction shaping.
+  await page.keyboard.down('ArrowRight');
+  await page.waitForTimeout(520);
+  await page.keyboard.up('ArrowRight');
+  const tethered = await frame.evaluate(() => {
+    const S = window.SylvariaSequoia;
+    const authority = S.sapAuthority.getState();
+    return {
+      active: Boolean(S.player.sap?.stickMode),
+      speed: Math.hypot(S.player.vx, S.player.vy),
+      vx: S.player.vx,
+      vy: S.player.vy,
+      authority,
+      counters: S.getTelemetry().counters,
+    };
+  });
+  if (!tethered.active) throw new Error(`Sap released before held-energy test completed: ${JSON.stringify(tethered)}`);
+  if (tethered.speed > tethered.authority.leaseSpeedCap + 2) {
+    throw new Error(`Held Sap steering pumped past the kinetic-energy budget: ${JSON.stringify(tethered)}`);
+  }
+  if (tethered.authority.leaseSpeedCap > tethered.authority.leaseEntrySpeed + 120.5 && tethered.authority.leaseSpeedCap > 221) {
+    throw new Error(`Tether speed cap exceeds the promised slight boost: ${JSON.stringify(tethered.authority)}`);
+  }
+
   const release = await frame.evaluate(() => {
     const S = window.SylvariaSequoia;
     const before = { vx: S.player.vx, vy: S.player.vy };
@@ -129,6 +155,9 @@ async function runContract(page, engineName) {
   if (!release.released || release.active) throw new Error(`Sap did not release cleanly: ${JSON.stringify(release)}`);
   if (Math.abs(release.after.vx - release.before.vx) > 105.5 || Math.abs(release.after.vy - release.before.vy) > 145.5) {
     throw new Error(`Sap release injected more than the bounded momentum nudge: ${JSON.stringify(release)}`);
+  }
+  if (Math.hypot(release.after.vx, release.after.vy) > release.authority.leaseSpeedCap + 67) {
+    throw new Error(`Sap release exceeded the post-tether speed budget: ${JSON.stringify(release)}`);
   }
 
   for (let index = 0; index < 24; index += 1) await shiftTap(page);
@@ -193,7 +222,7 @@ async function runContract(page, engineName) {
   }
 
   await page.screenshot({ path: path.join(outputDir, `${engineName}-nearest-sap-authority.png`), fullPage: true });
-  return { engine: engineName, ok: true, initial, nearest, release, afterSpam, landing, rearmed, second };
+  return { engine: engineName, ok: true, initial, nearest, tethered, release, afterSpam, landing, rearmed, second };
 }
 
 for (const { name, browserType, launchOptions } of engines) {
