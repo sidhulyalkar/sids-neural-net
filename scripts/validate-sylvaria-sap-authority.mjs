@@ -33,6 +33,12 @@ for (const pattern of [
   /MAX_ATTACH_VY_GAIN = 120/,
   /MAX_RELEASE_VX_GAIN = 105/,
   /MAX_RELEASE_VY_GAIN = 145/,
+  /MAX_TETHER_SPEED_GAIN = 120/,
+  /leaseSpeedCap/,
+  /capSpeed\(leaseSpeedCap\)/,
+  /sapAuthorityEnergyClamps/,
+  /S\.castSapStick = pressSapStick/,
+  /S\.sapStick\.cast = pressSapStick/,
   /useInvariant: nodeUses <= recharges \+ 1/,
   /AUTHORITY_REJECT/,
 ]) assert.match(authority, pattern);
@@ -73,6 +79,7 @@ console.log(JSON.stringify({
   directBoostCaps: {
     attach: { vx: 95, vy: 120 },
     release: { vx: 105, vy: 145 },
+    tetherSpeedGain: 120,
   },
   routeDensity: { totalAnchors, totalBranches, ratio: Number((totalAnchors / totalBranches).toFixed(3)) },
 }, null, 2));
