@@ -19,10 +19,10 @@ const gameNetworkSurfaces = [
   'src/data/siteNav.ts',
 ];
 
-test('the Game Network exposes only the currently active games', () => {
+test('the Game Network exposes the three currently active games', () => {
   assert.deepEqual(
     arcadeGames.map((game) => game.slug),
-    ['stretchicorn', 'unirico']
+    ['stretchicorn', 'unirico', 'sylvaria-sequoia']
   );
 
   for (const game of arcadeGames) {
@@ -32,24 +32,19 @@ test('the Game Network exposes only the currently active games', () => {
 
   assert.equal(getArcadeGame('sylvaria'), undefined);
   assert.equal(getArcadeGame('mosslight'), undefined);
+  assert.ok(getArcadeGame('sylvaria-sequoia'));
 });
 
-test('paused Sylvaria routes fall through the generic cabinet route to notFound', () => {
+test('legacy exploration-era Sylvaria and Mosslight routes remain inactive', () => {
   const route = readRepoFile('app/arcade/[slug]/page.tsx');
   assert.match(route, /getArcadeGame/);
   assert.match(route, /notFound\(\)/);
 
   const catalog = readRepoFile('src/data/arcadeGames.ts');
-  const sitemap = readRepoFile('app/sitemap.ts');
-  const workflow = readRepoFile('.github/workflows/ci.yml');
-  const browserMatrix = readRepoFile('scripts/playtest-arcade-browsers.mjs');
-
-  for (const source of [catalog, sitemap, workflow, browserMatrix]) {
-    assert.doesNotMatch(source, /\/arcade\/sylvaria|\/arcade\/mosslight/);
-  }
   assert.doesNotMatch(catalog, /slug: 'sylvaria'/);
+  assert.doesNotMatch(catalog, /slug: 'mosslight'/);
   assert.doesNotMatch(catalog, /slug === 'mosslight'/);
-  assert.doesNotMatch(browserMatrix, /testSylvaria|MOSSLIGHT_PLAYTEST|MosslightExpedition/);
+  assert.match(catalog, /slug: 'sylvaria-sequoia'/);
 });
 
 test('Stretchicorn cabinet points at the current v0.21.1 public release', () => {
@@ -84,6 +79,49 @@ test('uniRico cabinet pins the v0.19.0 release with cache-safe versioned runtime
   assert.match(route, /max-age=31536000, immutable/);
   assert.match(route, /X-UniRico-Version/);
   assert.match(route, /X-UniRico-Source-Commit/);
+});
+
+test('Sylvaria cabinet exposes the v0.5 Living Canopy progression ladder', () => {
+  const game = arcadeGames.find((entry) => entry.slug === 'sylvaria-sequoia');
+  assert.ok(game);
+  assert.equal(game.title, 'Sylvaria: Sequoia');
+  assert.equal(game.version, 'v0.5.0');
+  assert.equal(game.sourceVisibility, 'public');
+  assert.equal(game.launchUrl, '/game-runtimes/sylvaria-sequoia/index.html');
+  assert.deepEqual(game.nativeSize, { width: 960, height: 640 });
+  assert.match(game.subtitle, /HEARTSEEDS/);
+  assert.match(game.subtitle, /WONDERS/);
+  assert.match(game.subtitle, /SKYHEART/);
+  assert.match(game.description, /Living Crown at floor 250/);
+  assert.match(game.description, /six persistent Canopy Wonders/);
+  assert.match(game.description, /Skyheart at floor 360/);
+  assert.match(game.description, /CROWNVELOCITY/);
+  assert.match(game.description, /ELDERSPAN/);
+  assert.match(game.description, /ECHOFLIGHT/);
+  assert.match(game.description, /persistent objectives/i);
+  assert.ok(game.controls.some((control) => control.input === 'Heartseeds 0/5'));
+  assert.ok(game.controls.some((control) => control.input === 'Canopy Wonders 0/6'));
+  assert.ok(game.controls.some((control) => control.input === 'Skyheart · floor 360'));
+
+  const runtimeRoot = 'public/game-runtimes/sylvaria-sequoia';
+  for (const file of [
+    'index.html',
+    '02-heartwood-quest.js',
+    '02-canopy-trials.js',
+    '02-living-canopy.js',
+    '03-heartwood-trials-render.js',
+    '03-living-canopy-render.js',
+    '03-living-objective-hud.js',
+    '05-debug-living-canopy.js',
+  ]) {
+    assert.ok(existsSync(join(root, runtimeRoot, file)), `missing Sylvaria runtime file ${file}`);
+  }
+  assert.ok(existsSync(join(root, 'scripts/validate-sylvaria-flow-envelope.mjs')));
+  assert.ok(existsSync(join(root, 'scripts/validate-sylvaria-heartwood.mjs')));
+  assert.ok(existsSync(join(root, 'scripts/validate-sylvaria-living-canopy.mjs')));
+  assert.ok(existsSync(join(root, 'scripts/playtest-sylvaria-shift-hold.mjs')));
+  assert.ok(existsSync(join(root, 'scripts/playtest-sylvaria-heartwood.mjs')));
+  assert.ok(existsSync(join(root, 'scripts/playtest-sylvaria-living-canopy.mjs')));
 });
 
 test('FRONTIER and Game Network coexist in current navigation', () => {
@@ -126,9 +164,10 @@ test('the Game Network index stays intentionally minimal', () => {
   assert.doesNotMatch(catalog, /game\.subtitle|game\.version|game\.description|game\.tags/);
 });
 
-test('Game Network browser validation covers the two active cabinets in four engines', () => {
+test('Game Network browser validation preserves current cabinets and gives Sylvaria a dedicated matrix', () => {
   const workflow = readRepoFile('.github/workflows/ci.yml');
   const browserTest = readRepoFile('scripts/playtest-arcade-browsers.mjs');
+  const livingTest = readRepoFile('scripts/playtest-sylvaria-living-canopy.mjs');
 
   assert.match(workflow, /install chrome/);
   assert.match(workflow, /Chrome Stable Chromium Firefox and WebKit/);
@@ -138,7 +177,10 @@ test('Game Network browser validation covers the two active cabinets in four eng
   assert.match(browserTest, /testUniRico\(page, engineName\)/);
   assert.match(browserTest, /uniRico v0\.19\.0/);
   assert.match(browserTest, /AIM release fired unexpectedly/);
-  assert.doesNotMatch(browserTest, /testSylvaria/);
+  assert.match(livingTest, /name: 'chrome-stable'/);
+  assert.match(livingTest, /channel: 'chrome'/);
+  assert.match(livingTest, /six-wonder Atlas did not complete/);
+  assert.match(livingTest, /Skyheart did not ring persistently/);
 });
 
 test('the embedded Stretchicorn fallback release remains complete', () => {
