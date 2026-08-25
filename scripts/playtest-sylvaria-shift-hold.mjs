@@ -38,6 +38,34 @@ async function resetSameSeed(frame) {
   await frame.page().waitForTimeout(90);
 }
 
+async function primeAuthoredSapTarget(frame) {
+  return frame.evaluate(() => {
+    const S = window.SylvariaSequoia;
+    S.generateUntil(9000);
+    S.sapRhythm?.pruneSapAnchors?.();
+    const knot = S.state.knots.find((item) => item.anchorKind === 'sap-stick');
+    if (!knot) return null;
+    S.player.sap = null;
+    S.player.grounded = null;
+    S.player.groundedTime = 0;
+    S.player.coyote = 0;
+    S.player.x = knot.x - 84;
+    S.player.px = S.player.x;
+    S.player.y = knot.y - 146;
+    S.player.py = S.player.y;
+    S.player.vx = 230;
+    S.player.vy = 35;
+    S.player.highestFloor = Math.max(0, knot.floor - 2);
+    S.player.lastFloor = Math.max(0, knot.floor - 3);
+    S.state.threatY = Math.min(S.state.threatY, S.player.y - 650);
+    return {
+      knot: { floor: knot.floor, x: knot.x, y: knot.y },
+      target: S.sapStick.getTargetPreview?.() || null,
+      rhythm: S.sapRhythm?.getState?.() || null,
+    };
+  });
+}
+
 async function runtimeContracts(frame) {
   return frame.evaluate(() => {
     const S = window.SylvariaSequoia;
@@ -58,6 +86,8 @@ async function runtimeContracts(frame) {
       escalation: S.canopyEscalation?.getState?.() || null,
       grammars: window.SYLVARIA_SEQUOIA_DEBUG.getRouteGrammars(),
       sap: S.sapStick?.getState?.() || null,
+      sapRhythm: S.sapRhythm?.getState?.() || null,
+      economy: S.canopyEconomy?.getState?.() || null,
       intensities,
     };
   });
@@ -93,6 +123,12 @@ function assertCrownTrailContracts(contract) {
   if (JSON.stringify(contract.sap?.cleanVaultWindow) !== JSON.stringify([0.16, 0.82]) || contract.sap?.cleanVaultMinHorizontal !== 330) {
     throw new Error(`Clean Sap mastery window is stale: ${JSON.stringify(contract.sap)}`);
   }
+  if (!contract.sapRhythm?.ready || contract.sapRhythm?.minAnchorVerticalSpacing !== 205 || !contract.sapRhythm?.successfulUseInvariant) {
+    throw new Error(`Branch-gated Sap rhythm unavailable: ${JSON.stringify(contract.sapRhythm)}`);
+  }
+  if (contract.economy?.currency !== 'CONE TOKENS' || contract.economy?.missions?.length !== 3) {
+    throw new Error(`Canopy Contracts economy unavailable: ${JSON.stringify(contract.economy)}`);
+  }
 }
 
 async function runShiftHoldContract(page, engineName) {
@@ -117,12 +153,13 @@ async function runShiftHoldContract(page, engineName) {
 
   await resetSameSeed(frame);
   await focusRuntime(page, frame);
+  const plainPrime = await primeAuthoredSapTarget(frame);
+  if (!plainPrime?.target) throw new Error(`No sparse authored Sap target for anti-inflation test: ${JSON.stringify(plainPrime)}`);
   const plainBefore = await frame.evaluate(() => ({
     state: window.SYLVARIA_SEQUOIA_DEBUG.getState(),
     telemetry: window.SYLVARIA_SEQUOIA_DEBUG.getTelemetry(),
-    target: window.SYLVARIA_SEQUOIA_DEBUG.getSapTarget(),
+    target: window.SylvariaSequoia.sapStick.getTargetPreview?.() || null,
   }));
-  if (!plainBefore.target) throw new Error(`Authored start has no reachable Sap target for anti-inflation test: ${JSON.stringify(plainBefore.state)}`);
   await page.keyboard.down('Shift');
   await page.waitForTimeout(92);
   await page.keyboard.up('Shift');
@@ -137,16 +174,20 @@ async function runShiftHoldContract(page, engineName) {
   if (plainVault.state.combo !== 0 || (plainVault.telemetry.counters.sapStickCleanVaults || 0) !== 0) {
     throw new Error(`Ordinary Sap vault still manufactured Flow: ${JSON.stringify(plainVault)}`);
   }
+  if (plainVault.state.sapRhythm.ready || plainVault.state.sapRhythm.sapUses !== 1) {
+    throw new Error(`Plain Sap vault did not spend the branch-gated charge: ${JSON.stringify(plainVault.state.sapRhythm)}`);
+  }
 
   await resetSameSeed(frame);
   await focusRuntime(page, frame);
+  const primed = await primeAuthoredSapTarget(frame);
+  if (!primed?.target) throw new Error(`No sparse authored amber target: ${JSON.stringify(primed)}`);
 
   const before = await frame.evaluate(() => ({
     state: window.SYLVARIA_SEQUOIA_DEBUG.getState(),
-    target: window.SYLVARIA_SEQUOIA_DEBUG.getSapTarget(),
+    target: window.SylvariaSequoia.sapStick.getTargetPreview?.() || null,
     telemetry: window.SYLVARIA_SEQUOIA_DEBUG.getTelemetry(),
   }));
-  if (!before.target) throw new Error(`Authored start has no reachable amber target: ${JSON.stringify(before.state)}`);
 
   const requestsBefore = before.state.jumpInput?.nextRequestId ?? -1;
   const pressesBefore = before.state.inputGate?.sapPressCount ?? 0;
@@ -206,6 +247,9 @@ async function runShiftHoldContract(page, engineName) {
   if ((vaulted.state.jumpInput?.nextRequestId ?? -1) !== requestsBefore || vaulted.state.airJumps !== 1 || vaulted.state.player.vy <= 0) {
     throw new Error(`Shift release did not preserve clean vault recovery: ${JSON.stringify(vaulted.state)}`);
   }
+  if (vaulted.state.sapRhythm.ready || vaulted.state.sapRhythm.sapUses !== 1) {
+    throw new Error(`Vault did not leave Sap spent pending a higher log: ${JSON.stringify(vaulted.state.sapRhythm)}`);
+  }
 
   await page.keyboard.down('ArrowRight');
   await page.waitForTimeout(150);
@@ -217,7 +261,7 @@ async function runShiftHoldContract(page, engineName) {
   if (afterZero.state.seed !== beforeZero.state.seed || afterZero.state.mode !== 'playing') {
     throw new Error(`0 did not retry the current seed: before=${JSON.stringify(beforeZero.state)}, after=${JSON.stringify(afterZero.state)}`);
   }
-  if (afterZero.telemetry.runSeconds > 0.18 || afterZero.state.combo !== 0 || Math.abs(afterZero.state.player.x - 480) > 45) {
+  if (afterZero.telemetry.runSeconds > 0.18 || afterZero.state.combo !== 0 || Math.abs(afterZero.state.player.x - 480) > 45 || !afterZero.state.sapRhythm.ready) {
     throw new Error(`0 reset did not restore a fresh run: ${JSON.stringify(afterZero)}`);
   }
 
@@ -240,7 +284,10 @@ async function runShiftHoldContract(page, engineName) {
     engine: engineName,
     ok: true,
     contracts,
+    plainPrime,
+    plainBefore,
     plainVault,
+    primed,
     target: before.target,
     locked,
     afterSpace,
