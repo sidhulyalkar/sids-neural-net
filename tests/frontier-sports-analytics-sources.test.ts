@@ -3,6 +3,7 @@ import test from 'node:test';
 import { isFrontierSourceAdmitted } from '../lib/frontier/sourceTrust';
 import {
   parseSportsAnalyticsNewsRss,
+  sportsAnalyticsEvidenceMatches,
   sportsAnalyticsQueries,
 } from '../lib/frontier/sportsAnalyticsSources';
 
@@ -15,6 +16,18 @@ const rss = `<?xml version="1.0" encoding="UTF-8"?>
     <pubDate>Sun, 23 Aug 2026 18:00:00 GMT</pubDate>
     <description>New ADP and usage analysis for 2QB fantasy football formats.</description>
     <source url="https://www.fantasypros.com/">FantasyPros</source>
+  </item>
+</channel></rss>`;
+
+const fuzzyNflResult = `<?xml version="1.0" encoding="UTF-8"?>
+<rss><channel>
+  <item>
+    <title>Chelsea change course with new tactical shape</title>
+    <link>https://news.google.com/rss/articles/example-chelsea</link>
+    <guid>https://news.google.com/rss/articles/example-chelsea</guid>
+    <pubDate>Sun, 23 Aug 2026 18:00:00 GMT</pubDate>
+    <description>Premier League football analysis of Chelsea's pressing structure.</description>
+    <source url="https://www.theguardian.com/">The Guardian</source>
   </item>
 </channel></rss>`;
 
@@ -53,4 +66,18 @@ test('sports analytics RSS preserves the real syndicated publisher and rich fant
   assert.ok(item.tags.includes('superflex'));
   assert.ok(item.tags.includes('2qb'));
   assert.equal(isFrontierSourceAdmitted(item), true);
+});
+
+test('targeted sports queries require returned evidence before assigning query semantics', () => {
+  const nfl = sportsAnalyticsQueries().find((query) => query.id === 'nfl-analytics');
+  assert.ok(nfl);
+  assert.equal(
+    sportsAnalyticsEvidenceMatches('NFL player tracking analysis compares EPA and CPOE for Patriots drives', nfl!),
+    true,
+  );
+  assert.equal(
+    sportsAnalyticsEvidenceMatches('Adaptive separation for long-horizon world models', nfl!),
+    false,
+  );
+  assert.deepEqual(parseSportsAnalyticsNewsRss(fuzzyNflResult, nfl!), []);
 });
