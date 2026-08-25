@@ -81,25 +81,28 @@ test('uniRico cabinet pins the v0.19.0 release with cache-safe versioned runtime
   assert.match(route, /X-UniRico-Source-Commit/);
 });
 
-test('Sylvaria cabinet exposes the v0.6 branch-Sap rhythm, Canopy Contracts, and Living Canopy', () => {
+test('Sylvaria cabinet exposes v0.6.1 sparse nearest-node Sap, Contracts, and Living Canopy', () => {
   const game = arcadeGames.find((entry) => entry.slug === 'sylvaria-sequoia');
   assert.ok(game);
   assert.equal(game.title, 'Sylvaria: Sequoia');
-  assert.equal(game.version, 'v0.6.0');
+  assert.equal(game.version, 'v0.6.1');
   assert.equal(game.sourceVisibility, 'public');
   assert.equal(game.launchUrl, '/game-runtimes/sylvaria-sequoia/index.html');
   assert.deepEqual(game.nativeSize, { width: 960, height: 640 });
   assert.match(game.subtitle, /LAND HIGHER/);
-  assert.match(game.subtitle, /SPEND SAP/);
+  assert.match(game.subtitle, /BRIDGE WITH SAP/);
   assert.match(game.subtitle, /CONTRACTS/);
-  assert.match(game.description, /land on a new higher log to recharge Sap/i);
+  assert.match(game.description, /strict nearest eligible unused amber node/i);
+  assert.match(game.description, /physically holds a new higher log/i);
+  assert.match(game.description, /only a tightly bounded momentum nudge/i);
   assert.match(game.description, /Cone Tokens/);
-  assert.match(game.description, /TWO-WAY CLIMB/);
   assert.match(game.description, /Extra Life/);
   assert.match(game.description, /Living Crown at floor 250/);
   assert.match(game.description, /Skyheart at floor 360/);
-  assert.match(game.description, /Nothing permanently raises Pip’s base movement stats/);
+  assert.match(game.description, /without permanently raising Pip’s base movement stats/);
   assert.ok(game.controls.some((control) => control.input === 'Land on a new higher log'));
+  assert.ok(game.controls.some((control) => control.input === 'Press Shift' && /strict nearest/.test(control.action)));
+  assert.ok(game.controls.some((control) => control.input === 'Release Shift' && /small bounded momentum nudge/.test(control.action)));
   assert.ok(game.controls.some((control) => control.input === 'Cone Tokens'));
   assert.ok(game.controls.some((control) => control.input === '3 Canopy Contracts'));
   assert.ok(game.controls.some((control) => control.input === 'B · 1 / 2 / 3 / 4'));
@@ -113,8 +116,10 @@ test('Sylvaria cabinet exposes the v0.6 branch-Sap rhythm, Canopy Contracts, and
     '02-heartwood-quest.js',
     '02-canopy-trials.js',
     '02-living-canopy.js',
+    '02-sap-route-balance.js',
     '02-sap-rhythm.js',
     '02-canopy-economy.js',
+    '02-sap-authority-v2.js',
     '03-heartwood-trials-render.js',
     '03-living-canopy-render.js',
     '03-living-objective-hud.js',
@@ -129,10 +134,12 @@ test('Sylvaria cabinet exposes the v0.6 branch-Sap rhythm, Canopy Contracts, and
   assert.ok(existsSync(join(root, 'scripts/validate-sylvaria-heartwood.mjs')));
   assert.ok(existsSync(join(root, 'scripts/validate-sylvaria-living-canopy.mjs')));
   assert.ok(existsSync(join(root, 'scripts/validate-sylvaria-economy.mjs')));
+  assert.ok(existsSync(join(root, 'scripts/validate-sylvaria-sap-authority.mjs')));
   assert.ok(existsSync(join(root, 'scripts/playtest-sylvaria-shift-hold.mjs')));
   assert.ok(existsSync(join(root, 'scripts/playtest-sylvaria-heartwood.mjs')));
   assert.ok(existsSync(join(root, 'scripts/playtest-sylvaria-living-canopy-v2.mjs')));
   assert.ok(existsSync(join(root, 'scripts/playtest-sylvaria-economy.mjs')));
+  assert.ok(existsSync(join(root, 'scripts/playtest-sylvaria-sap-authority.mjs')));
 });
 
 test('FRONTIER and Game Network coexist in current navigation', () => {
@@ -180,6 +187,8 @@ test('Game Network browser validation preserves current cabinets and gives Sylva
   const browserTest = readRepoFile('scripts/playtest-arcade-browsers.mjs');
   const livingTest = readRepoFile('scripts/playtest-sylvaria-living-canopy-v2.mjs');
   const economyTest = readRepoFile('scripts/playtest-sylvaria-economy.mjs');
+  const sapAuthorityTest = readRepoFile('scripts/playtest-sylvaria-sap-authority.mjs');
+  const sylvariaWorkflow = readRepoFile('.github/workflows/sylvaria-sequoia-ci.yml');
 
   assert.match(workflow, /install chrome/);
   assert.match(workflow, /Chrome Stable Chromium Firefox and WebKit/);
@@ -196,6 +205,13 @@ test('Game Network browser validation preserves current cabinets and gives Sylva
   assert.match(economyTest, /name: 'chrome-stable'/);
   assert.match(economyTest, /Sap spam bypassed the higher-log recharge contract/);
   assert.match(economyTest, /Extra Life was not consumed into the next run/);
+  assert.match(sapAuthorityTest, /name: 'chrome-stable'/);
+  assert.match(sapAuthorityTest, /strict nearest eligible node/);
+  assert.match(sapAuthorityTest, /24; index \+= 1/);
+  assert.match(sapAuthorityTest, /single-use Sap lease/);
+  assert.match(sapAuthorityTest, /bounded momentum nudge/);
+  assert.match(sylvariaWorkflow, /check:sylvaria-sap-authority/);
+  assert.match(sylvariaWorkflow, /playtest-sylvaria-sap-authority\.mjs/);
 });
 
 test('the embedded Stretchicorn fallback release remains complete', () => {
