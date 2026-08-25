@@ -55,10 +55,12 @@ assert.doesNotMatch(rhythm, /TUNE\.run\.|TUNE\.jump\./, 'Sap rhythm must not rew
 
 assert.match(routes, /sap-route-balance-v2/);
 assert.match(routes, /every authored Sap anchor is followed by a physical landing opportunity/);
-assert.match(authority, /nearest-sap-authority-v2/);
+assert.match(authority, /nearest-sap-authority-v3/);
 assert.match(authority, /stickAcquireBufferSeconds: 0/);
 assert.match(authority, /nearestEligibleAnchor/);
 assert.match(authority, /usedAnchorIds/);
+assert.match(authority, /immutableAnchorIdentity: true/);
+assert.match(authority, /anchorIdentityFields: \['chunkId', 'floor', 'role', 'anchorKind'\]/);
 assert.match(authority, /useInvariant: nodeUses <= recharges \+ 1/);
 
 for (const pattern of [
@@ -117,6 +119,7 @@ console.log(JSON.stringify({
   runtime: 'sylvaria-sequoia',
   version: '0.6.1-canopy-contracts',
   sapLoop: 'higher log -> nearest unused Sap node -> bounded nudge -> higher log recharge',
+  sapIdentity: 'immutable authored route identity, independent of moving anchor coordinates',
   currency: 'Cone Tokens',
   shop: ['Extra Life', 'Stride Seed', 'Resin Flask', 'Trail Map'],
   missions: ['Two-Way Climb', 'Log Ladder', 'Clean Craft', 'Flow Study', 'High Road', 'No Panic', 'Ring Route'],
