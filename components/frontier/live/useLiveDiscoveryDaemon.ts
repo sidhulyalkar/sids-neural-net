@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { decodeDiscoveryFocus, encodeDiscoveryFocus } from '@/lib/frontier/discoveryFocus';
 import type {
+  FrontierDaemonPollReason,
   FrontierDaemonRequest,
   FrontierDaemonResponse,
   FrontierDaemonStatus,
@@ -267,7 +268,7 @@ export function useLiveDiscoveryDaemon(options: {
     publishFrontierRuntimeHealth('live-daemon', 'idle');
   }, []);
 
-  const requestPoll = useCallback((reason: 'manual' | 'near-end' | 'visibility' = 'manual') => {
+  const requestPoll = useCallback((reason: FrontierDaemonPollReason = 'manual') => {
     try { workerRef.current?.postMessage({ type: 'poll-now', reason } satisfies FrontierDaemonRequest); } catch {}
   }, []);
 
