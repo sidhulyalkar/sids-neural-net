@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getIntegratedFrontierFeed } from '@/lib/frontier/aggregate';
+import { getFrontierSnapshotFeed, getIntegratedFrontierFeed } from '@/lib/frontier/aggregate';
 import { decodeDiscoveryFocus } from '@/lib/frontier/discoveryFocus';
 import { FRONTIER_TEAMS } from '@/lib/frontier/interests';
 import { FRONTIER_DISCOVERY_SEEDS } from '@/lib/frontier/personalTaste';
@@ -9,11 +9,8 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 function defaultPersonalFocus(): string[] {
-  // Cold-start requests should spend their scarce adaptive-search budget on the
-  // owner's strongest explicit interests, not generic technology news. Keep the
-  // first six slots research/analysis-heavy, then preserve all four favorite
-  // teams. Once the client has a behavior profile it sends its own adaptive
-  // focus and this fallback disappears from authority.
+  // Fresh cold-start discovery should spend its scarce adaptive-search budget on
+  // the owner's strongest explicit interests, not generic technology news.
   return Array.from(new Set([
     ...FRONTIER_DISCOVERY_SEEDS.slice(0, 6),
     ...FRONTIER_TEAMS.map((team) => team.label),
@@ -22,12 +19,23 @@ function defaultPersonalFocus(): string[] {
 
 export async function GET(request: NextRequest) {
   const requestedFocus = decodeDiscoveryFocus(request.nextUrl.searchParams.get('focus'));
-  // FRONTIER is a personal surface. An omitted focus must never silently become
-  // a generic-news authority path, because the client may use this endpoint as
-  // a sparse-feed fallback. Default to the explicit owner taste map instead.
-  const focusTopics = requestedFocus.length ? requestedFocus : defaultPersonalFocus();
   const forceFresh = request.nextUrl.searchParams.get('fresh') === '1';
+
   try {
+    // The client intentionally asks without focus when a focused response is too
+    // sparse. That fallback must be instant and genuinely broader, not a second
+    // copy of the same live fan-out. Serve the already-vetted personalized
+    // snapshot unless the caller explicitly requests a fresh live rotation.
+    if (!requestedFocus.length && !forceFresh) {
+      return NextResponse.json(decorateFeedMedia(getFrontierSnapshotFeed()), {
+        headers: {
+          'Cache-Control': 'private, max-age=60, stale-while-revalidate=120',
+          'X-Frontier-Live': 'personal-snapshot',
+        },
+      });
+    }
+
+    const focusTopics = requestedFocus.length ? requestedFocus : defaultPersonalFocus();
     const feed = decorateFeedMedia(await getIntegratedFrontierFeed({ focusTopics }));
     return NextResponse.json(feed, {
       headers: {
