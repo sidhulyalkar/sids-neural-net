@@ -42,6 +42,7 @@ assert.match(authority, /stickTangentBoost: 78/);
 assert.match(authority, /stickReleaseForward: 58/);
 assert.match(authority, /releaseCap: Math\.min\(TUNE\.sap\.releaseCap, 118\)/);
 assert.doesNotMatch(authority, /stickReleaseMinVy: 630/);
+assert.match(routes, /densityProfile: 'sparse-one-anchor-v3'/);
 
 const sandbox = { window: { SylvariaSequoia: { ROUTE_GRAMMARS: {} } } };
 vm.runInNewContext(routes, sandbox, { filename: '02-sap-route-balance.js' });
@@ -51,7 +52,8 @@ for (const name of expected) {
   const steps = grammars[name];
   assert.ok(Array.isArray(steps), `missing balanced Sap route ${name}`);
   const anchors = steps.filter((step) => step.branch === false && step.anchor).length;
-  assert.ok(anchors <= (name === 'SKYHEART' ? 3 : 2), `${name} still contains too many Sap nodes: ${anchors}`);
+  const maxAnchors = name === 'ELDERSPAN' || name === 'SKYHEART' ? 2 : 1;
+  assert.ok(anchors <= maxAnchors, `${name} still contains too many Sap nodes: ${anchors}`);
   for (let index = 0; index < steps.length - 1; index += 1) {
     assert.ok(!(steps[index].branch === false && steps[index + 1].branch === false), `${name} contains consecutive air anchors at ${index}`);
   }
@@ -60,7 +62,7 @@ for (const name of expected) {
 const totalSteps = expected.flatMap((name) => grammars[name]);
 const totalAnchors = totalSteps.filter((step) => step.branch === false && step.anchor).length;
 const totalBranches = totalSteps.filter((step) => step.branch !== false).length;
-assert.ok(totalAnchors / totalBranches < 0.48, `Sap density is still too high: ${totalAnchors}/${totalBranches}`);
+assert.ok(totalAnchors / totalBranches < 0.36, `Sap density is still too high: ${totalAnchors}/${totalBranches}`);
 
 console.log(JSON.stringify({
   ok: true,
