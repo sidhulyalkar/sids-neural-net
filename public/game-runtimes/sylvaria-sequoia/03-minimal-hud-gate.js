@@ -1,0 +1,74 @@
+(() => {
+  'use strict';
+
+  const S = window.SylvariaSequoia;
+  if (!S?.render || !S?.ctx) return;
+
+  const { ctx, state } = S;
+  const baseRender = S.render;
+  const VERSION = 'reference-hud-suppression-v1';
+  const paintMethods = ['fill', 'stroke', 'fillRect', 'strokeRect', 'fillText', 'strokeText'];
+
+  // The reference renderer paints world geometry first and its old HUD last.
+  // Rather than repainting a rectangle over gameplay, this gate mutes only the
+  // legacy HUD draw scope while it is being issued. The unique gameplay-logo
+  // translate begins that scope; save/restore depth gives us an exact end point.
+  // Pixels underneath are therefore never overwritten, so Pip/branches remain
+  // fully visible even when they pass through the former HUD footprint.
+  function render(alpha, now) {
+    let depth = 0;
+    let suppress = false;
+    let hudOuterDepth = -1;
+    const original = {
+      save: ctx.save,
+      restore: ctx.restore,
+      translate: ctx.translate,
+    };
+    const paints = Object.fromEntries(paintMethods.map((name) => [name, ctx[name]]));
+
+    ctx.save = function patchedSave(...args) {
+      const result = original.save.apply(this, args);
+      depth += 1;
+      return result;
+    };
+    ctx.restore = function patchedRestore(...args) {
+      const result = original.restore.apply(this, args);
+      depth = Math.max(0, depth - 1);
+      if (suppress && depth < hudOuterDepth) {
+        suppress = false;
+        hudOuterDepth = -1;
+      }
+      return result;
+    };
+    ctx.translate = function patchedTranslate(x, y, ...rest) {
+      // drawReferenceHud -> drawLogo(22, 18, .92) is unique in playing mode.
+      if (state.mode === 'playing' && !suppress && Math.abs(x - 22) < 0.001 && Math.abs(y - 18) < 0.001 && depth >= 2) {
+        suppress = true;
+        hudOuterDepth = depth - 1;
+      }
+      return original.translate.call(this, x, y, ...rest);
+    };
+    for (const name of paintMethods) {
+      ctx[name] = function patchedPaint(...args) {
+        if (suppress && state.mode === 'playing') return undefined;
+        return paints[name].apply(this, args);
+      };
+    }
+
+    try {
+      baseRender(alpha, now);
+    } finally {
+      ctx.save = original.save;
+      ctx.restore = original.restore;
+      ctx.translate = original.translate;
+      for (const name of paintMethods) ctx[name] = paints[name];
+    }
+  }
+
+  S.render = render;
+  S.minimalHudGate = {
+    version: VERSION,
+    target: 'reference gameplay logo + left rail + old Sap panels',
+    preservesUnderlyingScene: true,
+  };
+})();
