@@ -6,6 +6,7 @@ const GENERIC_PAIR_TAGS = new Set([
   'video', 'watchable', 'research', 'paper', 'code', 'thread', 'web discovery',
   'targeted discovery', 'sports', 'sports state', 'project update',
 ]);
+const DOMAIN_LIKE_TAG = /^(?:[a-z0-9-]+\.)+[a-z]{2,}(?:\/[^\s]*)?$/i;
 
 export type FrontierImplicitTasteKind = 'dwell' | 'expand' | 'open' | 'save';
 
@@ -14,9 +15,17 @@ function clamp(value: number, min: number, max: number): number {
 }
 
 function meaningfulTags(item: FrontierItem): string[] {
+  const source = item.source.trim().toLowerCase().replace(/^https?:\/\//, '').replace(/^www\./, '');
+  const sourceLabel = item.sourceLabel.trim().toLowerCase();
   return Array.from(new Set(item.tags
     .map((tag) => tag.trim().toLowerCase())
-    .filter((tag) => tag && !GENERIC_PAIR_TAGS.has(tag))))
+    .filter((tag) => (
+      tag
+      && !GENERIC_PAIR_TAGS.has(tag)
+      && !DOMAIN_LIKE_TAG.test(tag)
+      && tag !== source
+      && tag !== sourceLabel
+    ))))
     .slice(0, MAX_PAIR_TAGS);
 }
 
