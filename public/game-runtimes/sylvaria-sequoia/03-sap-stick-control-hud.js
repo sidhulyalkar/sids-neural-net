@@ -4,101 +4,70 @@
   const S = window.SylvariaSequoia;
   if (!S?.render) return;
 
-  const { ctx, W, H, state, player } = S;
+  const { ctx, W, H, state } = S;
   const baseRender = S.render;
-  const HUD_VERSION = 'shift-hold-v1';
+  const HUD_VERSION = 'shift-hold-minimal-v2';
 
-  function panel(x, y, w, h, alpha = 0.86) {
+  function pill(x, y, w, text, alpha = 0.72, accent = false) {
+    ctx.save();
+    ctx.globalAlpha = alpha;
     ctx.beginPath();
-    ctx.roundRect(x, y, w, h, 7);
-    ctx.fillStyle = `rgba(8,10,8,${alpha})`;
+    ctx.roundRect(x, y, w, 24, 12);
+    ctx.fillStyle = accent ? 'rgba(84,56,20,.70)' : 'rgba(8,13,10,.48)';
     ctx.fill();
-    ctx.strokeStyle = 'rgba(255,220,157,.22)';
-    ctx.lineWidth = 1.2;
+    ctx.strokeStyle = accent ? 'rgba(255,210,111,.55)' : 'rgba(255,247,220,.16)';
+    ctx.lineWidth = 1;
     ctx.stroke();
-  }
-
-  function keycap(x, y, w, label, active = false) {
-    ctx.beginPath();
-    ctx.roundRect(x, y, w, 24, 4);
-    ctx.fillStyle = active ? 'rgba(122,77,20,.96)' : 'rgba(22,24,21,.96)';
-    ctx.fill();
-    ctx.strokeStyle = active ? '#ffd071' : 'rgba(255,249,230,.58)';
-    ctx.lineWidth = 1.4;
-    ctx.stroke();
-    ctx.fillStyle = '#fff9e8';
-    ctx.font = '800 11px system-ui,sans-serif';
+    ctx.fillStyle = accent ? '#ffe2a0' : 'rgba(255,248,228,.78)';
+    ctx.font = '800 9px system-ui,sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(label, x + w / 2, y + 12);
+    ctx.fillText(text, x + w / 2, y + 12);
+    ctx.restore();
   }
 
-  function drawBottomControl() {
-    const stick = S.sapStick?.getState?.() || {};
-    const x = 18;
-    const y = H - 88;
-    panel(x, y, 246, 68, 0.88);
-    keycap(x + 13, y + 11, 58, 'SHIFT', Boolean(stick.held));
-
-    ctx.textAlign = 'left';
-    ctx.textBaseline = 'alphabetic';
-    ctx.fillStyle = stick.active ? '#fff0a8' : '#ffb74e';
-    ctx.font = '900 12px system-ui,sans-serif';
-    ctx.fillText(stick.active ? 'SAP STICK LOCKED' : 'SAP STICK', x + 82, y + 27);
-
-    ctx.fillStyle = 'rgba(250,244,225,.72)';
-    ctx.font = '700 9px system-ui,sans-serif';
-    if (stick.active) {
-      ctx.fillText('HOLD + A/D = SWING   ·   RELEASE = VAULT', x + 13, y + 50);
-    } else if (stick.acquireBufferRemaining > 0) {
-      ctx.fillText('SEARCHING FOR AMBER LOCK…', x + 13, y + 50);
-    } else {
-      ctx.fillText('PRESS = FIRE   ·   HOLD = SWING   ·   RELEASE = VAULT', x + 13, y + 50);
-    }
-  }
-
-  function drawRouteTutorial() {
+  function drawPlayingCue() {
     if (state.mode !== 'playing') return;
-    const route = S.activeRouteChunk?.();
-    if (!(state.elapsed < 14 || route?.type === 'SAPRUN' || route?.type === 'GROVE' || route?.type === 'SLINGSHOT')) return;
+    const stick = S.sapStick?.getState?.() || {};
 
-    const x = W - 224;
-    const y = 112;
-    panel(x, y, 206, 116, 0.82);
-    ctx.textAlign = 'left';
-    ctx.fillStyle = '#f2bd70';
-    ctx.font = '900 11px system-ui,sans-serif';
-    ctx.fillText('ONE-BUTTON SAP STICK', x + 13, y + 22);
-    ctx.fillStyle = '#fff3d2';
-    ctx.font = '800 9px system-ui,sans-serif';
-    ctx.fillText('SHIFT  →  FIRE AT BEST AMBER KNOT', x + 13, y + 45);
-    ctx.fillText('HOLD + A/D  →  SHAPE THE SWING', x + 13, y + 66);
-    ctx.fillText('RELEASE SHIFT  →  VAULT + AIR KICK', x + 13, y + 87);
-    ctx.fillStyle = 'rgba(242,238,216,.54)';
-    ctx.font = '700 8px system-ui,sans-serif';
-    ctx.fillText('slightly early presses get a short lock buffer', x + 13, y + 105);
+    if (stick.active) {
+      const w = 232;
+      pill((W - w) / 2, H - 41, w, 'A/D SWING  ·  RELEASE SHIFT = VAULT', 0.86, true);
+      return;
+    }
+
+    // Teach once, then get out of the player's way. Reappear briefly when the
+    // player enters an authored open-air route without an active tether.
+    const route = S.activeRouteChunk?.();
+    const routeNeedsSap = route?.type === 'SAPRUN' || route?.type === 'SLINGSHOT' || route?.type === 'SKYHOOK' || route?.type === 'CROWNWEAVE';
+    const early = state.elapsed < 7.5;
+    const contextual = routeNeedsSap && (state.elapsed % 8.5) < 1.8;
+    if (!early && !contextual) return;
+
+    const fade = early ? Math.min(1, Math.max(0, (7.5 - state.elapsed) / 1.9)) : 0.74;
+    const w = 286;
+    pill((W - w) / 2, H - 41, w, 'SHIFT FIRE  ·  HOLD + A/D SWING  ·  RELEASE VAULT', fade * 0.82, false);
   }
 
   function drawTitleInstruction() {
     if (state.mode !== 'title') return;
-    const w = 650;
-    const h = 52;
-    const x = (W - w) / 2;
-    const y = H * 0.485;
-    panel(x, y, w, h, 0.74);
+    ctx.save();
     ctx.textAlign = 'center';
-    ctx.fillStyle = '#fff1c6';
-    ctx.font = '800 11px system-ui,sans-serif';
-    ctx.fillText('Space: jump / Air Kick   ·   Shift: fire Sap Stick   ·   hold + A/D: swing   ·   release Shift: vault', W / 2, y + 22);
-    ctx.fillStyle = 'rgba(255,246,220,.62)';
-    ctx.font = '700 9px system-ui,sans-serif';
-    ctx.fillText('0: reset current seed   ·   N: new route   ·   P: pause', W / 2, y + 40);
+    ctx.textBaseline = 'middle';
+    ctx.shadowColor = 'rgba(24,13,8,.76)';
+    ctx.shadowBlur = 5;
+    ctx.fillStyle = 'rgba(255,244,216,.84)';
+    ctx.font = '800 10px system-ui,sans-serif';
+    ctx.fillText('SPACE jump / Air Kick   ·   SHIFT fire, hold + A/D swing, release to vault', W / 2, H * 0.515);
+    ctx.fillStyle = 'rgba(255,244,216,.50)';
+    ctx.font = '700 8px system-ui,sans-serif';
+    ctx.fillText('0 reset   ·   N new route   ·   P pause', W / 2, H * 0.55);
+    ctx.restore();
   }
 
   function render(alpha, now) {
     baseRender(alpha, now);
-    drawBottomControl();
-    drawRouteTutorial();
+    drawPlayingCue();
     drawTitleInstruction();
   }
 
@@ -106,6 +75,7 @@
   S.sapStickControlHud = {
     version: HUD_VERSION,
     control: 'Shift press -> hold with A/D -> release to vault',
+    teaching: 'transient and contextual; no persistent side panels',
     resetKey: '0',
   };
 })();
