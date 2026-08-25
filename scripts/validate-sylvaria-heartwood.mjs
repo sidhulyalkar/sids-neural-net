@@ -25,9 +25,9 @@ const render = readFileSync(renderPath, 'utf8');
 const progressHud = readFileSync(progressHudPath, 'utf8');
 
 assert.match(index, /02-canopy-progression\.js[\s\S]*02-heartwood-quest\.js[\s\S]*02-canopy-trials\.js/);
-assert.match(index, /03-sap-stick-control-hud\.js[\s\S]*03-heartwood-trials-render\.js[\s\S]*03-canopy-progress-hud\.js/);
-assert.match(index, /Find 5 Heartseeds/i);
-assert.match(index, /Living Crown at 250/i);
+assert.match(index, /03-sap-stick-control-hud\.js[\s\S]*03-heartwood-trials-render\.js[\s\S]*03-living-canopy-render\.js[\s\S]*03-canopy-progress-hud\.js/);
+assert.match(index, /find 5 Heartseeds/i);
+assert.match(index, /wake Crown 250/i);
 
 for (const pattern of [
   /heartwood-quest-v1/,
@@ -97,8 +97,8 @@ for (const pattern of [
 ]) assert.match(progressHud, pattern);
 assert.doesNotMatch(progressHud, /fillText\(`\$\{Math\.floor\(player\.score\)\} PTS`/, 'score must no longer own the primary objective slot');
 
-console.log('Sylvaria Heartwood quest + canopy trial gate passed');
+console.log('Sylvaria Heartwood quest + canopy trial gate passed inside v0.5');
 console.log('  persistent objective: 5 Heartseeds -> Living Crown @ 250');
 console.log('  optional risk: off-line Heartseed positions with immediate mobility/survival refill');
 console.log('  escalation: BREAKAWAY -> PENDULUM -> CONEFALL -> THUNDERCROWN');
-console.log('  hazards: crumbling branches, moving Sap anchors, telegraphed falling cones');
+console.log('  v0.5 continuation: Living Canopy discovery loads after Heartwood without replacing it');
