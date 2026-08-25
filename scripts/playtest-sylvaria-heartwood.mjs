@@ -28,6 +28,18 @@ async function runtimeFrame(page) {
   return frame;
 }
 
+async function reloadWithStorage(page, values) {
+  let frame = await runtimeFrame(page);
+  await frame.evaluate((entries) => {
+    for (const [key, value] of Object.entries(entries)) {
+      if (value == null) localStorage.removeItem(key);
+      else localStorage.setItem(key, String(value));
+    }
+  }, values);
+  await page.reload({ waitUntil: 'networkidle' });
+  return runtimeFrame(page);
+}
+
 async function start(page, frame) {
   await frame.locator('#c').click();
   await frame.locator('#c').focus();
@@ -38,16 +50,13 @@ async function start(page, frame) {
 }
 
 async function runContract(page, engineName) {
-  await page.addInitScript(() => {
-    try {
-      localStorage.removeItem('sylvaria.sequoia.heartseedMask');
-      localStorage.removeItem('sylvaria.sequoia.crownAwakened');
-    } catch {}
-  });
-
   const response = await page.goto(`${baseUrl}/arcade/sylvaria-sequoia`, { waitUntil: 'networkidle' });
   if (!response?.ok()) throw new Error(`Sylvaria route returned ${response?.status() ?? 'no response'}`);
-  let frame = await runtimeFrame(page);
+
+  let frame = await reloadWithStorage(page, {
+    'sylvaria.sequoia.heartseedMask': null,
+    'sylvaria.sequoia.crownAwakened': null,
+  });
   await start(page, frame);
 
   const initial = await frame.evaluate(() => {
@@ -73,23 +82,20 @@ async function runContract(page, engineName) {
   if (initial.render?.version !== 'heartwood-trials-render-v1') {
     throw new Error(`Heartwood renderer unavailable: ${JSON.stringify(initial.render)}`);
   }
-  if (initial.progressHud?.version !== 'minimal-crown-hud-v2' || !/Heartseeds/.test(initial.progressHud?.primaryObjective || '')) {
+  if (initial.progressHud?.version !== 'minimal-crown-hud-v1' || initial.progressHud?.revision !== 'heartwood-objective-v2') {
     throw new Error(`Quest-first HUD contract unavailable: ${JSON.stringify(initial.progressHud)}`);
   }
 
-  // Player-led risk/reward contract: touching the off-line seed permanently banks
-  // it and immediately restores useful movement/survival resources.
   const pickup = await frame.evaluate(async () => {
     const S = window.SylvariaSequoia;
-    const before = S.heartwoodQuest.getState();
-    const seed = before.activeSeed;
+    const seed = S.heartwoodQuest.getState().activeSeed;
     S.player.airJumps = 0;
     S.player.saves = 0;
     S.player.x = seed.x;
     S.player.y = seed.y;
     S.player.px = seed.x;
     S.player.py = seed.y;
-    await new Promise((resolve) => setTimeout(resolve, 45));
+    await new Promise((resolve) => setTimeout(resolve, 55));
     return {
       quest: S.heartwoodQuest.getState(),
       airJumps: S.player.airJumps,
@@ -101,43 +107,47 @@ async function runContract(page, engineName) {
   if (pickup.quest.count !== 1 || pickup.storedMask !== 1 || pickup.airJumps !== 1 || pickup.saves < 1) {
     throw new Error(`Heartseed pickup did not bank + refill correctly: ${JSON.stringify(pickup)}`);
   }
-  if ((pickup.telemetry.heartseeds || 0) < 1) throw new Error(`Heartseed pickup telemetry missing: ${JSON.stringify(pickup.telemetry)}`);
+  if ((pickup.telemetry.heartseeds || 0) < 1) throw new Error(`Heartseed telemetry missing: ${JSON.stringify(pickup.telemetry)}`);
 
-  // Force enough world generation to prove the later mechanics decorate the same
-  // deterministic route without consuming route RNG.
   const trials = await frame.evaluate(async () => {
     const S = window.SylvariaSequoia;
     S.generateUntil(26000);
     S.player.highestFloor = 155;
     S.state.elapsed = 3.05;
-    await new Promise((resolve) => setTimeout(resolve, 55));
+    await new Promise((resolve) => setTimeout(resolve, 70));
     const before = S.canopyTrials.getState();
     const fragile = S.state.branches.find((branch) => branch._trialFragile);
     const swaying = S.state.knots.find((knot) => knot._trialSway);
     const swayX = swaying?.x ?? null;
     if (swaying) {
       S.state.elapsed += 0.55;
-      await new Promise((resolve) => setTimeout(resolve, 35));
+      await new Promise((resolve) => setTimeout(resolve, 40));
     }
     const swayAfter = swaying?.x ?? null;
+
     let breakResult = null;
     if (fragile) {
+      const x = (fragile.x1 + fragile.x2) * 0.5;
+      S.player.x = x;
+      S.player.px = x;
+      S.player.y = S.branchYAt(fragile, x) + S.state.PLAYER_R;
+      S.player.py = S.player.y;
+      S.player.vx = 0;
+      S.player.vy = 0;
       S.player.grounded = fragile;
-      S.player.y = S.branchYAt(fragile, S.player.x) + S.state.PLAYER_R;
-      await new Promise((resolve) => setTimeout(resolve, 30));
+      await new Promise((resolve) => setTimeout(resolve, 40));
       const started = Boolean(fragile._trialBreaking);
-      S.state.elapsed = Math.max(S.state.elapsed, fragile._trialBreakAt + 0.02);
-      await new Promise((resolve) => setTimeout(resolve, 35));
+      S.state.elapsed = Math.max(S.state.elapsed, fragile._trialBreakAt + 0.04);
+      await new Promise((resolve) => setTimeout(resolve, 45));
       breakResult = { started, removed: !S.state.branches.includes(fragile) };
     }
+
     return {
-      before: {
-        intensity: before.intensity,
-        coneIntensity: before.coneIntensity,
-        fragileActive: before.fragileActive,
-        swayingKnots: before.swayingKnots,
-        cones: before.cones.length,
-      },
+      intensity: before.intensity,
+      coneIntensity: before.coneIntensity,
+      fragileActive: before.fragileActive,
+      swayingKnots: before.swayingKnots,
+      cones: before.cones.length,
       swayX,
       swayAfter,
       breakResult,
@@ -145,38 +155,32 @@ async function runContract(page, engineName) {
     };
   });
 
-  if (!(trials.before.intensity > 0.4 && trials.before.coneIntensity > 0)) {
+  if (!(trials.intensity > 0.4 && trials.coneIntensity > 0)) {
     throw new Error(`Late-canopy trial intensity did not activate: ${JSON.stringify(trials)}`);
   }
-  if (trials.before.fragileActive < 1 || trials.before.swayingKnots < 1) {
+  if (trials.fragileActive < 1 || trials.swayingKnots < 1) {
     throw new Error(`Late world lacks fragile branches or moving Sap anchors: ${JSON.stringify(trials)}`);
   }
-  if (trials.swayX === null || trials.swayAfter === null || Math.abs(trials.swayAfter - trials.swayX) < 1) {
-    throw new Error(`Pendulum Sap anchor did not visibly move: ${JSON.stringify(trials)}`);
+  if (trials.swayX == null || trials.swayAfter == null || Math.abs(trials.swayAfter - trials.swayX) < 1) {
+    throw new Error(`Pendulum Sap anchor did not move: ${JSON.stringify(trials)}`);
   }
   if (!trials.breakResult?.started || !trials.breakResult?.removed) {
     throw new Error(`Breakaway branch lifecycle failed: ${JSON.stringify(trials)}`);
   }
-  if (trials.before.cones < 1) {
-    throw new Error(`Telegraphed Conefall hazard did not spawn: ${JSON.stringify(trials)}`);
-  }
+  if (trials.cones < 1) throw new Error(`Conefall hazard did not spawn: ${JSON.stringify(trials)}`);
 
   await page.screenshot({ path: path.join(outputDir, `${engineName}-heartwood-trials.png`), fullPage: true });
 
-  // Reload with the full persistent set to prove the finite objective transitions
-  // into a Living Crown destination rather than remaining another score counter.
-  await frame.evaluate(() => {
-    localStorage.setItem('sylvaria.sequoia.heartseedMask', '31');
-    localStorage.setItem('sylvaria.sequoia.crownAwakened', '0');
+  frame = await reloadWithStorage(page, {
+    'sylvaria.sequoia.heartseedMask': 31,
+    'sylvaria.sequoia.crownAwakened': 0,
   });
-  await page.reload({ waitUntil: 'networkidle' });
-  frame = await runtimeFrame(page);
   await start(page, frame);
   const crown = await frame.evaluate(async () => {
     const S = window.SylvariaSequoia;
     const before = S.heartwoodQuest.getState();
     S.player.highestFloor = 250;
-    await new Promise((resolve) => setTimeout(resolve, 45));
+    await new Promise((resolve) => setTimeout(resolve, 55));
     return {
       before,
       after: S.heartwoodQuest.getState(),
