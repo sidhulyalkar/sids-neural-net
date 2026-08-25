@@ -4,18 +4,20 @@
   const S = window.SylvariaSequoia;
   if (!S?.render || !S?.livingCanopy) return;
 
-  const { ctx, state, player } = S;
+  const { ctx, state } = S;
   const baseRender = S.render;
   const VERSION = 'living-objective-hud-v1';
+  const REVISION = 'traversal-focus-v2';
 
   function drawObjective() {
+    // The run recap owns game-over guidance. Keeping the persistent objective
+    // traversal-only prevents it from colliding with the mastery recap and keeps
+    // one clear attention hierarchy on the playfield.
     if (state.mode !== 'playing') return;
     const objective = S.livingCanopy.getObjective();
     if (!objective) return;
     const right = state.RIGHT_WALL - 12;
 
-    // This small translucent scrub replaces only the old right-side objective
-    // text. It deliberately does not become another panel or cover the playfield.
     ctx.save();
     ctx.fillStyle = 'rgba(16,36,31,.74)';
     ctx.fillRect(right - 205, 25, 208, 22);
@@ -43,30 +45,16 @@
     ctx.restore();
   }
 
-  function drawGameOverObjective() {
-    if (state.mode !== 'gameover') return;
-    const objective = S.livingCanopy.getObjective();
-    if (!objective) return;
-    ctx.save();
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.shadowColor = 'rgba(16,18,12,.84)';
-    ctx.shadowBlur = 6;
-    ctx.fillStyle = 'rgba(234,244,218,.78)';
-    ctx.font = '800 9px system-ui,sans-serif';
-    ctx.fillText(`${objective.text}${objective.detail ? ` · ${objective.detail}` : ''}`, S.W / 2, S.H * 0.64);
-    ctx.restore();
-  }
-
   function render(alpha, now) {
     baseRender(alpha, now);
     drawObjective();
-    drawGameOverObjective();
   }
 
   S.render = render;
   S.livingObjectiveHud = {
     version: VERSION,
+    revision: REVISION,
+    visibleDuring: 'playing-only',
     objectiveLadder: ['Heartseeds', 'Living Crown', 'Canopy Wonders', 'Skyheart', 'Endless Elder Canopy'],
     scoreIsSecondary: true,
   };

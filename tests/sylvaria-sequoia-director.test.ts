@@ -10,6 +10,8 @@ const director = read('public/game-runtimes/sylvaria-sequoia/02-canopy-director.
 const progression = read('public/game-runtimes/sylvaria-sequoia/02-canopy-progression.js');
 const authority = read('public/game-runtimes/sylvaria-sequoia/02-sap-authority-v2.js');
 const recap = read('public/game-runtimes/sylvaria-sequoia/03-run-recap-hud.js');
+const economyHud = read('public/game-runtimes/sylvaria-sequoia/03-canopy-economy-hud.js');
+const objectiveHud = read('public/game-runtimes/sylvaria-sequoia/03-living-objective-hud.js');
 const index = read('public/game-runtimes/sylvaria-sequoia/index.html');
 const heartwoodBrowser = read('scripts/playtest-sylvaria-heartwood.mjs');
 
@@ -29,7 +31,7 @@ test('Sylvaria v0.6.1 pacing director creates deterministic mastery arcs without
   assert.doesNotMatch(director, /routeRng\.next|Math\.random/, 'director must not perturb seeded route generation');
 });
 
-test('Crown cadence now records skill splits and the death screen points directly at the next mastery target', () => {
+test('Crown cadence records skill splits and the death screen points directly at the next mastery target', () => {
   assert.match(progression, /const CROWN_INTERVAL = 25/);
   assert.match(progression, /crown-splits-v2/);
   assert.match(progression, /sylvaria\.sequoia\.crownSplits\.v1/);
@@ -54,6 +56,18 @@ test('Sap recharge requires a held physical landing and no branch graze can adva
 test('runtime load order gives the director final pacing authority and keeps the recap outside gameplay input', () => {
   assert.match(index, /02-canopy-economy\.js[\s\S]*02-canopy-director\.js[\s\S]*02-sap-authority-v2\.js/);
   assert.match(index, /03-economy-input-guard\.js[\s\S]*03-run-recap-hud\.js[\s\S]*04-input\.js/);
+});
+
+test('HUD attention hierarchy keeps traversal primary and meta economy transient', () => {
+  assert.match(economyHud, /focus-pulse-v2/);
+  assert.match(economyHud, /persistentMissionPanel: false/);
+  assert.match(economyHud, /persistentSapPanel: false/);
+  assert.match(economyHud, /run objective > traversal > mastery > economy/);
+  assert.match(economyHud, /const PULSE_SECONDS = 2\.15/);
+  assert.match(objectiveHud, /traversal-focus-v2/);
+  assert.match(objectiveHud, /if \(state\.mode !== 'playing'\) return;/);
+  assert.doesNotMatch(objectiveHud, /drawGameOverObjective/);
+  assert.match(recap, /if \(state\.mode !== 'gameover'\) return;/);
 });
 
 test('Heartwood browser qualification waits for behavior rather than fixed browser timing', () => {
