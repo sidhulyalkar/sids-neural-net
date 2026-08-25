@@ -6,7 +6,7 @@
 
   const { ctx, W, H, state, player, clamp, lerp } = S;
   const baseRender = S.render;
-  const VERSION = 'minimal-crown-hud-v1';
+  const VERSION = 'minimal-crown-hud-v2';
   const TAU = Math.PI * 2;
 
   function worldToScreenY(worldY) {
@@ -112,7 +112,14 @@
     ctx.restore();
   }
 
-  function drawMinimalHud(progress, wind) {
+  function objectiveText(quest) {
+    if (!quest) return null;
+    if (quest.crownAwakened) return 'CROWN AWAKE';
+    if (quest.readyForCrown) return `LIVING CROWN · ${quest.finalCrownFloor}F`;
+    return `HEARTSEEDS ${quest.count}/${quest.total}`;
+  }
+
+  function drawMinimalHud(progress, wind, quest) {
     if (state.mode !== 'playing') return;
     const left = state.LEFT_WALL + 12;
     const right = state.RIGHT_WALL - 12;
@@ -121,6 +128,7 @@
 
     ctx.save();
     ctx.textBaseline = 'top';
+    ctx.font = '10px ui-monospace,SFMono-Regular,Menlo,monospace';
     ctx.shadowColor = 'rgba(13,20,17,.82)';
     ctx.shadowBlur = 5;
 
@@ -136,9 +144,9 @@
     ctx.fillStyle = 'rgba(255,242,206,.86)';
     ctx.font = '900 10px system-ui,sans-serif';
     ctx.fillText(`PB ${progress.bestFloor}`, right, 12);
-    ctx.fillStyle = 'rgba(225,237,215,.56)';
+    ctx.fillStyle = quest?.readyForCrown ? 'rgba(220,255,188,.84)' : 'rgba(225,237,215,.62)';
     ctx.font = '800 8px system-ui,sans-serif';
-    ctx.fillText(`${Math.floor(player.score)} PTS`, right, 29);
+    ctx.fillText(objectiveText(quest) || `${Math.floor(player.score)} PTS`, right, 29);
 
     const barW = Math.min(220, width * 0.32);
     const barX = W / 2 - barW / 2;
@@ -158,20 +166,36 @@
       ctx.fillText(`FLOW ×${player.combo}`, W / 2, 38);
     }
 
+    if (quest?.nextSeed && !quest.crownAwakened) {
+      const delta = quest.nextSeed.floor - player.highestFloor;
+      if (delta >= 0 && delta <= 12) {
+        ctx.fillStyle = 'rgba(255,241,175,.82)';
+        ctx.font = '900 8px system-ui,sans-serif';
+        ctx.fillText(`${quest.nextSeed.name} · ${delta}F ↑`, W / 2, player.combo > 1 ? 53 : 39);
+      }
+    }
+
     if (wind?.intensity > 0.16) {
       const arrow = wind.gust < 0 ? '←' : '→';
       const strength = wind.intensity > 0.72 ? 'HARD WIND' : wind.intensity > 0.42 ? 'GUST' : 'BREEZE';
       ctx.textAlign = 'center';
       ctx.fillStyle = `rgba(226,244,246,${0.42 + wind.intensity * 0.38})`;
       ctx.font = '800 8px system-ui,sans-serif';
-      ctx.fillText(`${arrow} ${strength} ${arrow}`, W / 2, player.combo > 1 ? 53 : 39);
+      const questNear = Boolean(quest?.nextSeed && quest.nextSeed.floor - player.highestFloor >= 0 && quest.nextSeed.floor - player.highestFloor <= 12);
+      const y = player.combo > 1 || questNear ? 54 : 39;
+      ctx.fillText(`${arrow} ${strength} ${arrow}`, W / 2, y + (questNear && player.combo > 1 ? 13 : 0));
     }
     ctx.restore();
   }
 
-  function drawStartFade() {
+  function drawStartFade(quest) {
     if (state.mode !== 'playing' || state.elapsed > 1.65) return;
     const alpha = clamp(1 - state.elapsed / 1.65, 0, 1) * clamp(state.elapsed / 0.18, 0, 1);
+    const subtitle = quest?.crownAwakened
+      ? 'THE CROWN IS AWAKE · HOW HIGH CAN YOU GO?'
+      : quest?.readyForCrown
+        ? `THE LIVING CROWN WAITS AT ${quest.finalCrownFloor}`
+        : `WAKE THE CROWN · HEARTSEEDS ${quest?.count || 0}/${quest?.total || 5}`;
     ctx.save();
     ctx.globalAlpha = alpha;
     ctx.textAlign = 'center';
@@ -183,7 +207,7 @@
     ctx.fillText('SYLVARIA · SEQUOIA', W / 2, H * 0.16);
     ctx.fillStyle = 'rgba(255,244,211,.70)';
     ctx.font = '800 8px system-ui,sans-serif';
-    ctx.fillText('CLIMB THE CROWN', W / 2, H * 0.16 + 18);
+    ctx.fillText(subtitle, W / 2, H * 0.16 + 18);
     ctx.restore();
   }
 
@@ -213,8 +237,15 @@
     ctx.restore();
   }
 
-  function drawGameOverProgress(progress) {
+  function drawGameOverProgress(progress, quest) {
     if (state.mode !== 'gameover') return;
+    const questLine = quest?.crownAwakened
+      ? 'THE LIVING CROWN IS AWAKE · ENDLESS CLIMB UNLOCKED'
+      : quest?.readyForCrown
+        ? `${Math.max(0, quest.finalCrownFloor - player.highestFloor)} FLOORS TO THE LIVING CROWN`
+        : quest?.nextSeed
+          ? `HEARTSEEDS ${quest.count}/${quest.total} · NEXT ${quest.nextSeed.name} @ ${quest.nextSeed.floor}`
+          : `HEARTSEEDS ${quest?.count || 0}/${quest?.total || 5}`;
     ctx.save();
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
@@ -223,9 +254,9 @@
     ctx.shadowColor = 'rgba(31,15,8,.8)';
     ctx.shadowBlur = 5;
     ctx.fillText(`PB ${progress.bestFloor} · ${progress.crownRemaining} FLOORS TO CROWN ${progress.nextCrownFloor}`, W / 2, H * 0.58);
-    ctx.fillStyle = 'rgba(189,235,204,.65)';
-    ctx.font = '700 8px system-ui,sans-serif';
-    ctx.fillText(`run crowns ${progress.runCrownMarks} · best flow ${progress.bestCombo}×`, W / 2, H * 0.61);
+    ctx.fillStyle = 'rgba(189,235,204,.72)';
+    ctx.font = '800 8px system-ui,sans-serif';
+    ctx.fillText(questLine, W / 2, H * 0.61);
     ctx.restore();
   }
 
@@ -233,19 +264,21 @@
     baseRender(alpha, now);
     const progress = S.canopyProgress.getState();
     const wind = S.canopyEscalation?.getState?.() || null;
+    const quest = S.heartwoodQuest?.getState?.() || null;
     const time = now * 0.001;
     drawWind(time);
     drawCrownGate(progress, time);
-    drawMinimalHud(progress, wind);
-    drawStartFade();
+    drawMinimalHud(progress, wind, quest);
+    drawStartFade(quest);
     drawBanner(progress);
-    drawGameOverProgress(progress);
+    drawGameOverProgress(progress, quest);
   }
 
   S.render = render;
   S.canopyProgressHud = {
     version: VERSION,
     layout: 'edge-free top ribbon + world-space crown markers',
+    primaryObjective: 'wake the crown with five persistent Heartseeds',
     titleBehavior: 'title fades out after play starts',
   };
 })();
