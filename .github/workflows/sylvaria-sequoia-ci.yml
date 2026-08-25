@@ -16,6 +16,7 @@ on:
       - 'scripts/playtest-sylvaria-shift-hold.mjs'
       - 'scripts/playtest-sylvaria-heartwood.mjs'
       - 'tests/arcade-discovery.test.ts'
+      - 'tests/sylvaria-heartwood.test.ts'
       - 'package.json'
       - 'package-lock.json'
   workflow_dispatch:
