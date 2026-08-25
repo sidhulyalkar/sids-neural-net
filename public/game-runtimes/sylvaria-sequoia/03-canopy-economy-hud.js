@@ -2,7 +2,7 @@
   'use strict';
 
   const S = window.SylvariaSequoia;
-  if (!S?.render || !S?.canopyEconomy || !S?.sapRhythm) return;
+  if (!S?.render || !S?.canopyEconomy || !S?.sapAuthority) return;
 
   const { ctx, W, H, state, clamp } = S;
   const baseRender = S.render;
@@ -83,18 +83,28 @@
 
   function drawSapRhythm() {
     if (state.mode !== 'playing') return;
-    const rhythm = S.sapRhythm.getState();
-    const text = rhythm.ready ? 'SAP READY · SHIFT' : 'SAP SPENT · LAND ON A HIGHER LOG';
-    const w = rhythm.ready ? 144 : 252;
+    const authority = S.sapAuthority.getState();
+    let text;
+    let w;
+    if (!authority.armed) {
+      text = 'SAP SPENT · LAND ON A HIGHER LOG';
+      w = 252;
+    } else if (authority.nearestTarget) {
+      text = 'SAP READY · SHIFT = NEAREST AMBER';
+      w = 236;
+    } else {
+      text = 'SAP READY · FIND AMBER';
+      w = 174;
+    }
     const x = (W - w) / 2;
     const y = H - 72;
     ctx.save();
     roundRect(x, y, w, 24, 12);
-    ctx.fillStyle = rhythm.ready ? 'rgba(52,48,19,.72)' : 'rgba(12,18,14,.66)';
+    ctx.fillStyle = authority.armed ? 'rgba(52,48,19,.72)' : 'rgba(12,18,14,.66)';
     ctx.fill();
-    ctx.strokeStyle = rhythm.ready ? 'rgba(255,213,103,.48)' : 'rgba(171,229,177,.24)';
+    ctx.strokeStyle = authority.armed ? 'rgba(255,213,103,.48)' : 'rgba(171,229,177,.24)';
     ctx.stroke();
-    ctx.fillStyle = rhythm.ready ? '#ffe39b' : 'rgba(221,243,216,.76)';
+    ctx.fillStyle = authority.armed ? '#ffe39b' : 'rgba(221,243,216,.76)';
     ctx.font = '800 8px ui-monospace,monospace';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
@@ -242,6 +252,7 @@
   S.render = render;
   S.canopyEconomyHud = {
     version: VERSION,
+    sapStatusAuthority: 'nearest-sap-authority-v2',
     shopPanel: { ...SHOP_PANEL },
     shopButton: { ...SHOP_BUTTON },
     getShopRows: shopRows,
