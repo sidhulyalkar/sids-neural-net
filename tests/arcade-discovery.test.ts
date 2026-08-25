@@ -58,7 +58,7 @@ test('Stretchicorn cabinet points at the current v0.21.1 public release', () => 
   assert.match(game.description, /Impossible Encore/);
 });
 
-test('Sylvaria Sequoia exposes the v0.4 one-button Sap Stick feel contract', () => {
+test('Sylvaria Sequoia exposes the v0.4 Crown Trail and one-button Sap Stick contract', () => {
   const game = arcadeGames.find((entry) => entry.slug === 'sylvaria-sequoia');
   assert.ok(game);
   assert.equal(game.title, 'Sylvaria: Sequoia');
@@ -67,7 +67,7 @@ test('Sylvaria Sequoia exposes the v0.4 one-button Sap Stick feel contract', () 
   assert.equal(game.launchUrl, '/game-runtimes/sylvaria-sequoia/index.html');
   assert.equal(game.nativeSize?.width, 960);
   assert.equal(game.nativeSize?.height, 640);
-  assert.match(game.subtitle, /STICK/);
+  assert.match(game.subtitle, /CROWN|STICK/);
   assert.match(game.description, /sparse routes/);
   assert.match(game.description, /branchless amber-anchor/);
   assert.match(game.description, /Bark Cling/);
@@ -78,9 +78,12 @@ test('Sylvaria Sequoia exposes the v0.4 one-button Sap Stick feel contract', () 
   assert.match(game.description, /release Shift/);
   assert.match(game.description, /short acquisition buffer/);
   assert.match(game.description, /Air Kick/);
-  assert.match(game.description, /SAPRUN/);
-  assert.match(game.description, /puzzle-fit sequoia bark/);
-  assert.match(game.description, /mascot-style Pip/);
+  assert.match(game.description, /Crown Mark/i);
+  assert.match(game.description, /personal best|PB/i);
+  assert.match(game.description, /WINDLINE/);
+  assert.match(game.description, /SKYHOOK/);
+  assert.match(game.description, /CROWNWEAVE/);
+  assert.match(game.description, /Clean Sap/i);
   assert.match(game.description, /ROOTWAYS/);
   assert.match(game.description, /HIGH CANOPY/);
   assert.match(game.description, /CROWNLINE/);
@@ -89,6 +92,7 @@ test('Sylvaria Sequoia exposes the v0.4 one-button Sap Stick feel contract', () 
   assert.ok(game.controls.some((control) => control.input === 'Press Shift'));
   assert.ok(game.controls.some((control) => control.input === 'Hold Shift + steer'));
   assert.ok(game.controls.some((control) => control.input === 'Release Shift'));
+  assert.ok(game.controls.some((control) => /Crown/.test(control.input)));
   assert.ok(game.controls.some((control) => control.input === '0 · N · P'));
   assert.ok(!game.controls.some((control) => /Shift \+ Space|Shift · E/.test(control.input)));
 
@@ -103,13 +107,17 @@ test('Sylvaria Sequoia exposes the v0.4 one-button Sap Stick feel contract', () 
     '02-flow-assist.js',
     '02-sap-stick.js',
     '02-control-authority.js',
+    '02-canopy-escalation.js',
+    '02-canopy-progression.js',
     '03-render-canopy.js',
     '03-render-fast-underpaint.js',
     '03-render-reference-pass.js',
     '03-render-reference-handoff.js',
     '03-render-altitude-realism.js',
     '03-render-performance.js',
+    '03-minimal-hud-gate.js',
     '03-sap-stick-control-hud.js',
+    '03-canopy-progress-hud.js',
     '03-title-focus-guard.js',
     '04-input.js',
   ];
@@ -119,6 +127,7 @@ test('Sylvaria Sequoia exposes the v0.4 one-button Sap Stick feel contract', () 
   assert.ok(existsSync(join(root, 'docs/SYLVARIA_SEQUOIA_V04_SAPSTICK_CANOPY_PASS.md')));
   assert.ok(existsSync(join(root, 'scripts/validate-sylvaria-sequoia.mjs')));
   assert.ok(existsSync(join(root, 'scripts/validate-sylvaria-flow-envelope.mjs')));
+  assert.ok(existsSync(join(root, 'scripts/playtest-sylvaria-shift-hold.mjs')));
   assert.ok(!existsSync(join(root, 'public/game-runtimes/crownrush')));
 
   const index = readRepoFile(`${runtimeRoot}/index.html`);
@@ -129,20 +138,25 @@ test('Sylvaria Sequoia exposes the v0.4 one-button Sap Stick feel contract', () 
   const flowAssist = readRepoFile(`${runtimeRoot}/02-flow-assist.js`);
   const sapStick = readRepoFile(`${runtimeRoot}/02-sap-stick.js`);
   const control = readRepoFile(`${runtimeRoot}/02-control-authority.js`);
+  const escalation = readRepoFile(`${runtimeRoot}/02-canopy-escalation.js`);
+  const progression = readRepoFile(`${runtimeRoot}/02-canopy-progression.js`);
   const canopyRender = readRepoFile(`${runtimeRoot}/03-render-canopy.js`);
   const fastUnderpaint = readRepoFile(`${runtimeRoot}/03-render-fast-underpaint.js`);
   const referenceRender = readRepoFile(`${runtimeRoot}/03-render-reference-pass.js`);
   const referenceHandoff = readRepoFile(`${runtimeRoot}/03-render-reference-handoff.js`);
   const altitudeRender = readRepoFile(`${runtimeRoot}/03-render-altitude-realism.js`);
   const performanceRender = readRepoFile(`${runtimeRoot}/03-render-performance.js`);
+  const minimalHudGate = readRepoFile(`${runtimeRoot}/03-minimal-hud-gate.js`);
   const sapHud = readRepoFile(`${runtimeRoot}/03-sap-stick-control-hud.js`);
+  const progressHud = readRepoFile(`${runtimeRoot}/03-canopy-progress-hud.js`);
   const focusGuard = readRepoFile(`${runtimeRoot}/03-title-focus-guard.js`);
   const input = readRepoFile(`${runtimeRoot}/04-input.js`);
 
   assert.match(index, /v0\.4\.0/);
   assert.match(index, /Shift fires Sap Stick, hold \+ A\/D to swing, release to vault/);
-  assert.match(index, /02-sap-stick\.js[\s\S]*02-control-authority\.js/);
-  assert.match(index, /03-render-performance\.js[\s\S]*03-sap-stick-control-hud\.js[\s\S]*03-title-focus-guard\.js[\s\S]*04-input\.js/);
+  assert.match(index, /Crown marks every 25 floors/i);
+  assert.match(index, /02-sap-stick\.js[\s\S]*02-control-authority\.js[\s\S]*02-canopy-escalation\.js[\s\S]*02-canopy-progression\.js/);
+  assert.match(index, /03-render-performance\.js[\s\S]*03-minimal-hud-gate\.js[\s\S]*03-sap-stick-control-hud\.js[\s\S]*03-canopy-progress-hud\.js[\s\S]*03-title-focus-guard\.js[\s\S]*04-input\.js/);
   assert.doesNotMatch(index, /03-render-skill-pass\.js|03-stride-hud\.js/);
 
   assert.match(core, /FIXED_DT: 1 \/ 120/);
@@ -202,6 +216,14 @@ test('Sylvaria Sequoia exposes the v0.4 one-button Sap Stick feel contract', () 
   assert.match(sapStick, /stickHeld = true/);
   assert.match(sapStick, /acquireBuffer = TUNE\.sap\.stickAcquireBufferSeconds/);
   assert.match(sapStick, /suppressLegacyPump/);
+  assert.match(sapStick, /CLEAN_VAULT_MIN_HOLD = 0\.16/);
+  assert.match(sapStick, /CLEAN_VAULT_MAX_HOLD = 0\.82/);
+  assert.match(sapStick, /CLEAN_VAULT_MIN_HORIZONTAL = 330/);
+  assert.match(sapStick, /CLEAN SAP/);
+  assert.match(sapStick, /sapStickCleanVaults/);
+  assert.match(sapStick, /sapStickFlowCarries/);
+  assert.match(sapStick, /Number\.POSITIVE_INFINITY/);
+  assert.doesNotMatch(sapStick, /S\.addComboLink\('SAP', 'SAP STICK'/);
   assert.match(sapStick, /SHIFT_RELEASE/);
   assert.match(sapStick, /sapStickBufferedLocks/);
   assert.match(sapStick, /sapStickHoldReleases/);
@@ -217,6 +239,24 @@ test('Sylvaria Sequoia exposes the v0.4 one-button Sap Stick feel contract', () 
   assert.match(control, /stride-height-carry/);
   assert.match(control, /player-owned horizontal velocity; Stride carries vertical opportunity only/);
   assert.match(control, /S\.update = update/);
+
+  for (const grammar of ['WINDLINE', 'SKYHOOK', 'CROWNWEAVE']) assert.match(escalation, new RegExp(`${grammar}:`));
+  assert.match(escalation, /canopy-escalation-v1/);
+  assert.match(escalation, /floor < 46/);
+  assert.match(escalation, /lerp\(72, 520, intensity\)/);
+  assert.match(escalation, /windReversals/);
+  assert.match(escalation, /windExposure/);
+  assert.match(escalation, /HIGH CANOPY'[\s\S]*geometry = Math\.max\(high\.geometry, 0\.82\)/);
+  assert.match(escalation, /CROWNLINE'[\s\S]*pressure = Math\.max\(crown\.pressure, 1\.34\)/);
+
+  assert.match(progression, /crown-trail-v1/);
+  assert.match(progression, /CROWN_INTERVAL = 25/);
+  assert.match(progression, /sylvaria\.sequoia\.bestFloor/);
+  assert.match(progression, /sylvaria\.sequoia\.bestCombo/);
+  assert.match(progression, /function awardCrownMark\(/);
+  assert.match(progression, /CROWN MARK/);
+  assert.match(progression, /routesCleared/);
+  assert.match(progression, /S\.markRouteProgress = markRouteProgress/);
 
   assert.match(canopyRender, /function hash3\(/);
   assert.match(canopyRender, /function barkVertex\(/);
@@ -271,12 +311,26 @@ test('Sylvaria Sequoia exposes the v0.4 one-button Sap Stick feel contract', () 
   assert.match(performanceRender, /referenceRender\(alpha, now\)/);
   assert.match(performanceRender, /singlePaint: true/);
 
-  assert.match(sapHud, /shift-hold-v1/);
-  assert.match(sapHud, /PRESS = FIRE/);
-  assert.match(sapHud, /HOLD \+ A\/D = SWING/);
-  assert.match(sapHud, /RELEASE = VAULT/);
+  assert.match(minimalHudGate, /reference-hud-suppression-v1/);
+  assert.match(minimalHudGate, /preservesUnderlyingScene: true/);
+  assert.match(minimalHudGate, /translate\(22, 18/);
+  assert.match(minimalHudGate, /finally/);
+
+  assert.match(sapHud, /shift-hold-minimal-v2/);
+  assert.match(sapHud, /SHIFT FIRE/);
+  assert.match(sapHud, /HOLD \+ A\/D SWING/);
+  assert.match(sapHud, /RELEASE VAULT/);
+  assert.match(sapHud, /no persistent side panels/);
   assert.match(sapHud, /resetKey: '0'/);
   assert.match(sapHud, /S\.render = render/);
+
+  assert.match(progressHud, /minimal-crown-hud-v1/);
+  assert.match(progressHud, /CROWN/);
+  assert.match(progressHud, /PB/);
+  assert.match(progressHud, /drawWind/);
+  assert.match(progressHud, /drawCrownGate/);
+  assert.match(progressHud, /title fades out after play starts/);
+  assert.match(progressHud, /edge-free top ribbon \+ world-space crown markers/);
 
   assert.match(focusGuard, /desktop-focus-v1/);
   assert.match(focusGuard, /function guardDesktopTitleFocus\(/);
@@ -338,6 +392,7 @@ test('the Game Network index stays intentionally minimal', () => {
 test('Game Network browser validation covers all three active cabinets in four engines', () => {
   const workflow = readRepoFile('.github/workflows/ci.yml');
   const browserTest = readRepoFile('scripts/playtest-arcade-browsers.mjs');
+  const sylvariaTest = readRepoFile('scripts/playtest-sylvaria-shift-hold.mjs');
 
   assert.match(workflow, /install chrome/);
   assert.match(workflow, /Chrome Stable Chromium Firefox and WebKit/);
@@ -352,4 +407,9 @@ test('Game Network browser validation covers all three active cabinets in four e
   assert.match(browserTest, /sapStickVaults/);
   assert.match(browserTest, /getSapTarget/);
   assert.doesNotMatch(browserTest, /testCrownrush/);
+
+  assert.match(sylvariaTest, /Shift alone/);
+  assert.match(sylvariaTest, /Sap Stick leaked into jump authority/);
+  assert.match(sylvariaTest, /0 did not retry the current seed/);
+  assert.match(sylvariaTest, /R still behaves like a reset/);
 });
