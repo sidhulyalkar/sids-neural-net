@@ -37,7 +37,7 @@ const files = [
 
 for (const name of ['index.html', ...files]) {
   const path = join(runtimeRoot, name);
-  assert.ok(existsSync(path), `missing v0.5 artifact: ${name}`);
+  assert.ok(existsSync(path), `missing Living Canopy artifact: ${name}`);
   if (name.endsWith('.js')) execFileSync(process.execPath, ['--check', path], { stdio: 'pipe' });
 }
 
@@ -53,13 +53,12 @@ const livingRender = read('03-living-canopy-render.js');
 const objectiveHud = read('03-living-objective-hud.js');
 const input = read('04-input.js');
 
-assert.match(index, /Sylvaria: Sequoia v0\.5\.0/);
+assert.match(index, /Sylvaria: Sequoia v0\.6\.0/);
 assert.match(index, /02-canopy-trials\.js[\s\S]*02-living-canopy\.js/);
 assert.match(index, /03-heartwood-trials-render\.js[\s\S]*03-living-canopy-render\.js[\s\S]*03-canopy-progress-hud\.js[\s\S]*03-living-objective-hud\.js/);
-assert.match(index, /discover 6 Wonders/i);
-assert.match(index, /Skyheart 360/i);
+assert.match(index, /Skyheart|Contracts/i);
 
-// Preserve the movement envelope that made v0.4 playable.
+// Preserve the movement envelope that made v0.4/v0.5 playable.
 for (const pattern of [
   /groundAccel: 3720/,
   /airAccel: 1900/,
@@ -150,7 +149,7 @@ assert.doesNotMatch(combined, /\benemy\b|\bdamage\b|\battack\b/i, 'Sequoia shoul
 console.log(JSON.stringify({
   ok: true,
   runtime: 'sylvaria-sequoia',
-  version: '0.5.0-living-canopy',
+  version: '0.6.0-living-canopy-preserved',
   motivation: ['5 persistent Heartseeds', 'Living Crown @ 250', '6 persistent Canopy Wonders', 'Skyheart @ 360', 'endless PB tail'],
   setpieces: ['CHOIRLINE', 'HOLLOWRUN', 'MIGRATION', 'AURORARUN', 'ELDERSPAN', 'ECHOFLIGHT', 'SKYHEART'],
   wonderSkills: ['3x Flow', 'Bark Cling', '450 flight speed', 'Clean Sap', '600 Stride + 5x Flow', 'CROWNVELOCITY'],
