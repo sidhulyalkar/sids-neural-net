@@ -12,10 +12,10 @@
 
   // The reference renderer paints world geometry first and its old HUD last.
   // Rather than repainting a rectangle over gameplay, this gate mutes only the
-  // legacy HUD draw scope while it is being issued. The unique gameplay-logo
-  // translate begins that scope; save/restore depth gives us an exact end point.
-  // Pixels underneath are therefore never overwritten, so Pip/branches remain
-  // fully visible even when they pass through the former HUD footprint.
+  // legacy HUD draw scope while it is being issued. The legacy translate(22, 18)
+  // gameplay-logo anchor begins that scope; save/restore depth gives us an exact
+  // end point. Pixels underneath are therefore never overwritten, so Pip/branches
+  // remain fully visible even when they pass through the former HUD footprint.
   function render(alpha, now) {
     let depth = 0;
     let suppress = false;
