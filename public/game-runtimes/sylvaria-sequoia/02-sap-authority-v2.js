@@ -20,10 +20,6 @@
   const MAX_RELEASE_VY_GAIN = 145;
   const BLOCK_NOTICE_SECONDS = 0.36;
 
-  // Sap is now a redirect/bridge, not a rocket. The spring can still turn
-  // player-authored horizontal speed into an arc, but the button itself adds only
-  // a bounded nudge. Acquisition is intentionally press-time, not buffered, so
-  // the selected node is always the nearest eligible node at that exact moment.
   Object.assign(TUNE.sap, {
     stickAcquireBufferSeconds: 0,
     stickRange: Math.min(TUNE.sap.stickRange, 525),
@@ -72,9 +68,6 @@
     if (!isAuthoredAnchor(knot)) return false;
     const id = anchorId(knot);
     if (usedAnchorIds.has(id)) return false;
-
-    // Never grapple backward into already-cleared altitude. This prevents a
-    // player from bouncing between old nodes even after touching a new branch.
     if ((Number(knot.floor) || 0) <= highestPhysicalFloor) return false;
 
     const dx = knot.x - player.x;
@@ -190,13 +183,18 @@
       lastGroundedBranch = null;
       return;
     }
-    if (branch === lastGroundedBranch) return;
-    lastGroundedBranch = branch;
 
     const floor = Number(branch.floor) || 0;
     if (floor > highestPhysicalFloor) highestPhysicalFloor = floor;
-    if (armed || floor <= spentAtFloor || player.groundedTime < MIN_GROUNDED_REARM_SECONDS) return;
 
+    // Do not consume the landing edge until it has been physically held for a few
+    // fixed ticks. onLand starts groundedTime at zero, so marking it immediately
+    // would prevent the next frame from ever rearming Sap.
+    if (!armed && floor > spentAtFloor && player.groundedTime < MIN_GROUNDED_REARM_SECONDS) return;
+    if (branch === lastGroundedBranch) return;
+    lastGroundedBranch = branch;
+
+    if (armed || floor <= spentAtFloor) return;
     armed = true;
     recharges += 1;
     bumpCounter('sapAuthorityRecharges');
@@ -211,9 +209,6 @@
     baseUpdate(dt);
     const isActive = Boolean(player.sap?.stickMode);
 
-    // A Sap attachment that did not originate from the authority lease is invalid.
-    // Fail closed so debug paths, stale buffered closures, or future callers cannot
-    // accidentally reintroduce a Shift-spam ladder.
     if (!wasActive && isActive && !activeLeaseId) {
       baseRelease('AUTHORITY_REJECT');
       player.sap = null;
