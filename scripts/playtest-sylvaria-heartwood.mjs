@@ -22,10 +22,38 @@ const results = [];
 let failed = false;
 
 async function runtimeFrame(page) {
-  const frame = page.frames().find((candidate) => candidate.url().includes('/game-runtimes/sylvaria-sequoia/'));
-  if (!frame) throw new Error('Sylvaria iframe did not attach');
-  await frame.locator('#c').waitFor({ state: 'visible' });
-  return frame;
+  const deadline = Date.now() + 8000;
+  let observed = [];
+  while (Date.now() < deadline) {
+    const frames = page.frames();
+    observed = frames.map((candidate) => candidate.url());
+    const frame = frames.find((candidate) => candidate.url().includes('/game-runtimes/sylvaria-sequoia/'));
+    if (frame) {
+      try {
+        await frame.locator('#c').waitFor({ state: 'visible', timeout: 750 });
+        return frame;
+      } catch {
+        // WebKit can publish the iframe before the canvas is ready for input.
+      }
+    }
+    await page.waitForTimeout(80);
+  }
+  throw new Error(`Sylvaria iframe did not attach within 8s: ${JSON.stringify(observed)}`);
+}
+
+async function waitUntil(frame, predicate, label, timeoutMs = 1600, arg = null) {
+  const deadline = Date.now() + timeoutMs;
+  let last = null;
+  while (Date.now() < deadline) {
+    try {
+      last = await frame.evaluate(predicate, arg);
+      if (last) return last;
+    } catch {
+      // Reloads can briefly invalidate an execution context. Retry until timeout.
+    }
+    await frame.page().waitForTimeout(24);
+  }
+  throw new Error(`${label} did not settle within ${timeoutMs}ms; last=${JSON.stringify(last)}`);
 }
 
 async function reloadWithStorage(page, values) {
@@ -44,9 +72,7 @@ async function start(page, frame) {
   await frame.locator('#c').click();
   await frame.locator('#c').focus();
   await page.keyboard.press('Space');
-  await page.waitForTimeout(100);
-  const mode = await frame.evaluate(() => window.SylvariaSequoia.state.mode);
-  if (mode !== 'playing') throw new Error(`Sylvaria did not start: ${mode}`);
+  await waitUntil(frame, () => window.SylvariaSequoia?.state?.mode === 'playing', 'Sylvaria start');
 }
 
 async function runContract(page, engineName) {
@@ -58,12 +84,14 @@ async function runContract(page, engineName) {
     'sylvaria.sequoia.crownAwakened': null,
   });
   await start(page, frame);
+  await waitUntil(frame, () => Boolean(window.SylvariaSequoia?.heartwoodQuest?.getState?.().activeSeed), 'ROOTLIGHT resolution');
 
   const initial = await frame.evaluate(() => {
     const S = window.SylvariaSequoia;
     return {
       quest: S.heartwoodQuest?.getState?.(),
       trials: S.canopyTrials?.getState?.(),
+      director: S.canopyDirector?.getState?.() || null,
       render: S.heartwoodTrialsRender || null,
       progressHud: S.canopyProgressHud || null,
       grammars: window.SYLVARIA_SEQUOIA_DEBUG.getRouteGrammars(),
@@ -85,16 +113,16 @@ async function runContract(page, engineName) {
   if (initial.progressHud?.version !== 'minimal-crown-hud-v1' || initial.progressHud?.revision !== 'heartwood-objective-v2') {
     throw new Error(`Quest-first HUD contract unavailable: ${JSON.stringify(initial.progressHud)}`);
   }
+  if (initial.director?.version !== 'canopy-director-v1' || initial.director?.phase !== 'ROOTWAYS') {
+    throw new Error(`Canopy director unavailable at run start: ${JSON.stringify(initial.director)}`);
+  }
 
-  const pickup = await frame.evaluate(async () => {
+  await frame.evaluate(() => {
     const S = window.SylvariaSequoia;
     const seed = S.heartwoodQuest.getState().activeSeed;
     S.player.airJumps = 0;
     S.player.saves = 0;
     S.player.sap = null;
-    // Teleport tests must release the start branch first. Leaving `grounded`
-    // authoritative caused the next fixed step to snap Pip straight back to the
-    // root platform before the Heartseed collector could observe the new pose.
     S.player.grounded = null;
     S.player.groundedTime = 0;
     S.player.coyote = 0;
@@ -105,7 +133,10 @@ async function runContract(page, engineName) {
     S.player.vx = 0;
     S.player.vy = 0;
     S.state.threatY = Math.min(S.state.threatY, seed.y - 650);
-    await new Promise((resolve) => setTimeout(resolve, 55));
+  });
+  await waitUntil(frame, () => window.SylvariaSequoia.heartwoodQuest.getState().count === 1, 'Heartseed pickup');
+  const pickup = await frame.evaluate(() => {
+    const S = window.SylvariaSequoia;
     return {
       quest: S.heartwoodQuest.getState(),
       airJumps: S.player.airJumps,
@@ -119,65 +150,93 @@ async function runContract(page, engineName) {
   }
   if ((pickup.telemetry.heartseeds || 0) < 1) throw new Error(`Heartseed telemetry missing: ${JSON.stringify(pickup.telemetry)}`);
 
-  const trials = await frame.evaluate(async () => {
+  await frame.evaluate(() => {
     const S = window.SylvariaSequoia;
     S.generateUntil(26000);
     S.player.highestFloor = 155;
-    S.state.elapsed = 3.05;
-    await new Promise((resolve) => setTimeout(resolve, 70));
-    const before = S.canopyTrials.getState();
+    S.state.elapsed = Math.max(S.state.elapsed, 3.05);
+  });
+  await waitUntil(frame, () => {
+    const S = window.SylvariaSequoia;
+    const trials = S.canopyTrials.getState();
+    return trials.intensity > 0.4 && trials.fragileActive > 0 && trials.swayingKnots > 0;
+  }, 'late-canopy trial decoration');
+  await waitUntil(frame, () => (window.SylvariaSequoia.getTelemetry().counters.conesSpawned || 0) >= 1, 'Conefall spawn');
+
+  const trialTargets = await frame.evaluate(() => {
+    const S = window.SylvariaSequoia;
     const fragile = S.state.branches.find((branch) => branch._trialFragile);
     const swaying = S.state.knots.find((knot) => knot._trialSway);
-    const swayX = swaying?.x ?? null;
-    if (swaying) {
-      S.state.elapsed += 0.55;
-      await new Promise((resolve) => setTimeout(resolve, 40));
-    }
-    const swayAfter = swaying?.x ?? null;
-
-    let breakResult = null;
-    if (fragile) {
-      const x = (fragile.x1 + fragile.x2) * 0.5;
-      S.player.x = x;
-      S.player.px = x;
-      S.player.y = S.branchYAt(fragile, x) + S.state.PLAYER_R;
-      S.player.py = S.player.y;
-      S.player.vx = 0;
-      S.player.vy = 0;
-      S.player.grounded = fragile;
-      await new Promise((resolve) => setTimeout(resolve, 40));
-      const started = Boolean(fragile._trialBreaking);
-      S.state.elapsed = Math.max(S.state.elapsed, fragile._trialBreakAt + 0.04);
-      await new Promise((resolve) => setTimeout(resolve, 45));
-      breakResult = { started, removed: !S.state.branches.includes(fragile) };
-    }
-
     return {
-      intensity: before.intensity,
-      coneIntensity: before.coneIntensity,
-      fragileActive: before.fragileActive,
-      swayingKnots: before.swayingKnots,
-      cones: before.cones.length,
-      swayX,
-      swayAfter,
-      breakResult,
-      counters: S.getTelemetry().counters,
+      fragileFloor: fragile?.floor ?? null,
+      fragileChunk: fragile?.chunkId ?? null,
+      swayChunk: swaying?.chunkId ?? null,
+      swayFloor: swaying?.floor ?? null,
+      swayX: swaying?.x ?? null,
     };
   });
+  if (!trialTargets.fragileChunk || !trialTargets.swayChunk) {
+    throw new Error(`Trial targets missing after decoration: ${JSON.stringify(trialTargets)}`);
+  }
 
+  await frame.evaluate(({ chunkId, floor }) => {
+    const S = window.SylvariaSequoia;
+    const knot = S.state.knots.find((item) => item.chunkId === chunkId && item.floor === floor);
+    if (knot) knot._probeStartX = knot.x;
+    S.state.elapsed += 0.55;
+  }, { chunkId: trialTargets.swayChunk, floor: trialTargets.swayFloor });
+  await waitUntil(frame, ({ chunkId, floor }) => {
+    const S = window.SylvariaSequoia;
+    const knot = S.state.knots.find((item) => item.chunkId === chunkId && item.floor === floor);
+    return Boolean(knot && Number.isFinite(knot._probeStartX) && Math.abs(knot.x - knot._probeStartX) >= 1);
+  }, 'Pendulum motion', 1600, { chunkId: trialTargets.swayChunk, floor: trialTargets.swayFloor });
+
+  await frame.evaluate(({ chunkId, floor }) => {
+    const S = window.SylvariaSequoia;
+    const fragile = S.state.branches.find((branch) => branch.chunkId === chunkId && branch.floor === floor);
+    if (!fragile) return;
+    const x = (fragile.x1 + fragile.x2) * 0.5;
+    S.player.x = x;
+    S.player.px = x;
+    S.player.y = S.branchYAt(fragile, x) + S.state.PLAYER_R;
+    S.player.py = S.player.y;
+    S.player.vx = 0;
+    S.player.vy = 0;
+    S.player.grounded = fragile;
+    S.player.groundedTime = 0;
+  }, { chunkId: trialTargets.fragileChunk, floor: trialTargets.fragileFloor });
+  await waitUntil(frame, () => Boolean(window.SylvariaSequoia.player.grounded?._trialBreaking), 'Breakaway trigger');
+  await frame.evaluate(() => {
+    const S = window.SylvariaSequoia;
+    const fragile = S.player.grounded;
+    if (fragile?._trialBreaking) S.state.elapsed = Math.max(S.state.elapsed, fragile._trialBreakAt + 0.04);
+  });
+  await waitUntil(frame, ({ chunkId, floor }) => {
+    const S = window.SylvariaSequoia;
+    return !S.state.branches.some((branch) => branch.chunkId === chunkId && branch.floor === floor);
+  }, 'Breakaway removal', 1600, { chunkId: trialTargets.fragileChunk, floor: trialTargets.fragileFloor });
+
+  const trials = await frame.evaluate(() => {
+    const S = window.SylvariaSequoia;
+    const snapshot = S.canopyTrials.getState();
+    return {
+      intensity: snapshot.intensity,
+      coneIntensity: snapshot.coneIntensity,
+      fragileActive: snapshot.fragileActive,
+      swayingKnots: snapshot.swayingKnots,
+      liveCones: snapshot.cones.length,
+      counters: { ...S.getTelemetry().counters },
+    };
+  });
   if (!(trials.intensity > 0.4 && trials.coneIntensity > 0)) {
     throw new Error(`Late-canopy trial intensity did not activate: ${JSON.stringify(trials)}`);
   }
-  if (trials.fragileActive < 1 || trials.swayingKnots < 1) {
-    throw new Error(`Late world lacks fragile branches or moving Sap anchors: ${JSON.stringify(trials)}`);
+  if ((trials.counters.conesSpawned || 0) < 1) {
+    throw new Error(`Conefall hazard never spawned: ${JSON.stringify(trials)}`);
   }
-  if (trials.swayX == null || trials.swayAfter == null || Math.abs(trials.swayAfter - trials.swayX) < 1) {
-    throw new Error(`Pendulum Sap anchor did not move: ${JSON.stringify(trials)}`);
+  if ((trials.counters.fragileBranchesTriggered || 0) < 1 || (trials.counters.fragileBranchesBroken || 0) < 1) {
+    throw new Error(`Breakaway lifecycle telemetry missing: ${JSON.stringify(trials)}`);
   }
-  if (!trials.breakResult?.started || !trials.breakResult?.removed) {
-    throw new Error(`Breakaway branch lifecycle failed: ${JSON.stringify(trials)}`);
-  }
-  if (trials.cones < 1) throw new Error(`Conefall hazard did not spawn: ${JSON.stringify(trials)}`);
 
   await page.screenshot({ path: path.join(outputDir, `${engineName}-heartwood-trials.png`), fullPage: true });
 
@@ -186,21 +245,20 @@ async function runContract(page, engineName) {
     'sylvaria.sequoia.crownAwakened': 0,
   });
   await start(page, frame);
-  const crown = await frame.evaluate(async () => {
+  const beforeCrown = await frame.evaluate(() => window.SylvariaSequoia.heartwoodQuest.getState());
+  if (!beforeCrown.readyForCrown || beforeCrown.count !== 5) {
+    throw new Error(`Five Heartseeds did not unlock the Living Crown: ${JSON.stringify(beforeCrown)}`);
+  }
+  await frame.evaluate(() => { window.SylvariaSequoia.player.highestFloor = 250; });
+  await waitUntil(frame, () => window.SylvariaSequoia.heartwoodQuest.getState().crownAwakened, 'Living Crown awakening');
+  const crown = await frame.evaluate(() => {
     const S = window.SylvariaSequoia;
-    const before = S.heartwoodQuest.getState();
-    S.player.highestFloor = 250;
-    await new Promise((resolve) => setTimeout(resolve, 55));
     return {
-      before,
       after: S.heartwoodQuest.getState(),
       stored: localStorage.getItem('sylvaria.sequoia.crownAwakened'),
       counters: S.getTelemetry().counters,
     };
   });
-  if (!crown.before.readyForCrown || crown.before.count !== 5) {
-    throw new Error(`Five Heartseeds did not unlock the Living Crown: ${JSON.stringify(crown)}`);
-  }
   if (!crown.after.crownAwakened || crown.stored !== '1' || (crown.counters.crownAwakenings || 0) < 1) {
     throw new Error(`Living Crown completion did not persist: ${JSON.stringify(crown)}`);
   }

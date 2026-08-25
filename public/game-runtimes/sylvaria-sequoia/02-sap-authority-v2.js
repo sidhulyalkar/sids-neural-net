@@ -240,18 +240,26 @@
       return;
     }
 
-    const floor = Number(branch.floor) || 0;
-    if (floor > highestPhysicalFloor) highestPhysicalFloor = floor;
-
-    if (!armed && floor > spentAtFloor && player.groundedTime < MIN_GROUNDED_REARM_SECONDS) return;
+    // A collision graze is not a physical landing. Do not advance either the
+    // eligibility floor or the recharge floor until the branch has actually held
+    // Pip for the minimum grounded interval. Keeping lastGroundedBranch unset here
+    // lets the same branch become authoritative once the hold matures.
+    if (player.groundedTime < MIN_GROUNDED_REARM_SECONDS) return;
     if (branch === lastGroundedBranch) return;
     lastGroundedBranch = branch;
 
+    const floor = Number(branch.floor) || 0;
+    if (floor > highestPhysicalFloor) highestPhysicalFloor = floor;
     if (armed || floor <= spentAtFloor) return;
+
     armed = true;
     recharges += 1;
     bumpCounter('sapAuthorityRecharges');
-    recordEvent('sap-authority-recharged', { floor, recharges });
+    recordEvent('sap-authority-recharged', {
+      floor,
+      recharges,
+      groundedSeconds: S.round(player.groundedTime, 3),
+    });
     announce('SAP READY', 0.34, 10);
   }
 
@@ -345,6 +353,7 @@
       immutableAnchorIdentity: true,
       anchorIdentityFields: ['chunkId', 'floor', 'role', 'anchorKind'],
       bufferedAcquisitionSeconds: TUNE.sap.stickAcquireBufferSeconds,
+      minimumGroundedRearmSeconds: MIN_GROUNDED_REARM_SECONDS,
       maxAttachVelocityGain: { x: MAX_ATTACH_VX_GAIN, y: MAX_ATTACH_VY_GAIN },
       maxReleaseVelocityGain: { x: MAX_RELEASE_VX_GAIN, y: MAX_RELEASE_VY_GAIN },
       maxTetherSpeedGain: MAX_TETHER_SPEED_GAIN,

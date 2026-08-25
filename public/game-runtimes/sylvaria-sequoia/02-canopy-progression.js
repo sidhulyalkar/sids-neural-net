@@ -10,7 +10,9 @@
   const baseStartRun = S.startRun;
   const baseMarkRouteProgress = S.markRouteProgress;
   const VERSION = 'crown-trail-v1';
+  const REVISION = 'crown-splits-v2';
   const CROWN_INTERVAL = 25;
+  const SPLIT_KEY = 'sylvaria.sequoia.crownSplits.v1';
 
   const storage = {
     read(key, fallback = 0) {
@@ -21,13 +23,25 @@
         return fallback;
       }
     },
+    readJSON(key, fallback = {}) {
+      try {
+        const value = JSON.parse(localStorage.getItem(key) || 'null');
+        return value && typeof value === 'object' ? value : fallback;
+      } catch {
+        return fallback;
+      }
+    },
     write(key, value) {
       try { localStorage.setItem(key, String(value)); } catch { /* private mode / quota */ }
+    },
+    writeJSON(key, value) {
+      try { localStorage.setItem(key, JSON.stringify(value)); } catch { /* private mode / quota */ }
     },
   };
 
   let bestFloor = storage.read('sylvaria.sequoia.bestFloor', 0);
   let bestCombo = storage.read('sylvaria.sequoia.bestCombo', 0);
+  let bestSplits = storage.readJSON(SPLIT_KEY, {});
   let runCrownMarks = 0;
   let lastCrownFloor = 0;
   let lastPhaseName = 'ROOTWAYS';
@@ -35,6 +49,9 @@
   let crownBanner = null;
   let pbBanner = null;
   let previousFloor = 0;
+  let runStartBestFloor = bestFloor;
+  let runStartBestCombo = bestCombo;
+  let latestSplit = null;
 
   function nextCrownFloor(floor = player.highestFloor) {
     return (Math.floor(Math.max(0, floor) / CROWN_INTERVAL) + 1) * CROWN_INTERVAL;
@@ -47,18 +64,46 @@
     return next ? { name: next.name, floor: next.floor, remaining: Math.max(0, next.floor - player.highestFloor) } : null;
   }
 
+  function recordCrownSplit(floor) {
+    const seconds = S.round(state.elapsed, 3);
+    const previousBestSeconds = Number(bestSplits[floor]) || 0;
+    const isBest = previousBestSeconds <= 0 || seconds < previousBestSeconds;
+    const deltaSeconds = previousBestSeconds > 0 ? S.round(seconds - previousBestSeconds, 3) : null;
+    if (isBest) {
+      bestSplits = { ...bestSplits, [floor]: seconds };
+      storage.writeJSON(SPLIT_KEY, bestSplits);
+    }
+    latestSplit = {
+      floor,
+      seconds,
+      previousBestSeconds: previousBestSeconds || null,
+      deltaSeconds,
+      isBest,
+      bestSeconds: isBest ? seconds : previousBestSeconds,
+    };
+    recordEvent('crown-split', latestSplit);
+    return latestSplit;
+  }
+
   function awardCrownMark(floor) {
     runCrownMarks += 1;
     lastCrownFloor = floor;
-    player.score += 520 + floor * 3.2 + Math.min(620, player.combo * 18);
-    crownBanner = { floor, age: 0, life: 2.2 };
+    const split = recordCrownSplit(floor);
+    player.score += 520 + floor * 3.2 + Math.min(620, player.combo * 18) + (split.isBest ? 120 : 0);
+    crownBanner = { floor, age: 0, life: 2.2, split: { ...split } };
     state.shake = Math.max(state.shake, 0.48);
     crownDrop?.();
     tone(610 + Math.min(180, floor), 0.13, 0.038, 'triangle', 1.42);
-    announce(`CROWN MARK · ${floor}`, 1.0, 18);
+    const splitLabel = split.previousBestSeconds == null
+      ? `${split.seconds.toFixed(1)}s`
+      : split.isBest
+        ? `${Math.abs(split.deltaSeconds).toFixed(1)}s faster`
+        : `${split.seconds.toFixed(1)}s`;
+    announce(`CROWN ${floor} · ${splitLabel}`, 1.0, 18);
     const telemetry = S.getTelemetry();
     telemetry.counters.crownMarks = (telemetry.counters.crownMarks || 0) + 1;
-    recordEvent('crown-mark', { floor, runCrownMarks, score: Math.floor(player.score) });
+    if (split.isBest) telemetry.counters.crownSplitBests = (telemetry.counters.crownSplitBests || 0) + 1;
+    recordEvent('crown-mark', { floor, runCrownMarks, score: Math.floor(player.score), split: split.seconds, splitBest: split.isBest });
   }
 
   function updatePersonalBest() {
@@ -138,6 +183,9 @@
     crownBanner = null;
     pbBanner = null;
     previousFloor = 0;
+    runStartBestFloor = bestFloor;
+    runStartBestCombo = bestCombo;
+    latestSplit = null;
   }
 
   function resetRun(seed) {
@@ -158,19 +206,30 @@
   S.markRouteProgress = markRouteProgress;
   S.canopyProgress = {
     version: VERSION,
+    revision: REVISION,
     crownInterval: CROWN_INTERVAL,
-    getState: () => ({
-      bestFloor,
-      bestCombo,
-      runCrownMarks,
-      lastCrownFloor,
-      nextCrownFloor: nextCrownFloor(),
-      crownRemaining: Math.max(0, nextCrownFloor() - player.highestFloor),
-      phase: S.phaseForFloor(player.highestFloor).name,
-      phaseGoal: phaseGoal(),
-      phaseBanner: phaseBanner ? { ...phaseBanner } : null,
-      crownBanner: crownBanner ? { ...crownBanner } : null,
-      pbBanner: pbBanner ? { ...pbBanner } : null,
-    }),
+    getState: () => {
+      const next = nextCrownFloor();
+      return {
+        bestFloor,
+        bestCombo,
+        runStartBestFloor,
+        runStartBestCombo,
+        runFloorGain: Math.max(0, bestFloor - runStartBestFloor),
+        runComboGain: Math.max(0, bestCombo - runStartBestCombo),
+        runCrownMarks,
+        lastCrownFloor,
+        latestSplit: latestSplit ? { ...latestSplit } : null,
+        bestSplits: { ...bestSplits },
+        nextSplitBestSeconds: Number(bestSplits[next]) || null,
+        nextCrownFloor: next,
+        crownRemaining: Math.max(0, next - player.highestFloor),
+        phase: S.phaseForFloor(player.highestFloor).name,
+        phaseGoal: phaseGoal(),
+        phaseBanner: phaseBanner ? { ...phaseBanner } : null,
+        crownBanner: crownBanner ? { ...crownBanner } : null,
+        pbBanner: pbBanner ? { ...pbBanner } : null,
+      };
+    },
   };
 })();
