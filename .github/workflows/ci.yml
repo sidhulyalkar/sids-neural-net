@@ -52,6 +52,9 @@ jobs:
       - name: Unit tests
         run: npm test
 
+      - name: Validate Sylvaria Sequoia kinetic runtime
+        run: npm run check:sylvaria-sequoia
+
       - name: Validate deterministic Nature Atlas corpus
         run: npm run check:nature-corpus
 
@@ -88,7 +91,7 @@ jobs:
 
       - name: Smoke public production routes
         run: |
-          for route in / /frontier /api/frontier/feed /api/auth/session /neural-net /case-studies /physiology /perceptual-cortex /rotation /sensing-lab /physiology/visual-audit /photography /arcade /arcade/stretchicorn /arcade/unirico; do
+          for route in / /frontier /api/frontier/feed /api/auth/session /neural-net /case-studies /physiology /perceptual-cortex /rotation /sensing-lab /physiology/visual-audit /photography /arcade /arcade/stretchicorn /arcade/unirico /arcade/sylvaria-sequoia; do
             echo "GET $route"
             curl --retry 2 --retry-connrefused -fsS "http://127.0.0.1:3000$route" >/dev/null
           done
@@ -97,6 +100,13 @@ jobs:
           curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/game-runtimes/stretchicorn/src/00-core.js | grep -q 'CORE WORLD + GEOMETRY'
           echo "GET uniRico runtime"
           curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/game-runtimes/unirico/index.html | grep -q '<canvas id="c"'
+          echo "GET Sylvaria: Sequoia v0.4.0 runtime"
+          curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/game-runtimes/sylvaria-sequoia/index.html | grep -q 'Sylvaria: Sequoia v0.4.0'
+          curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/game-runtimes/sylvaria-sequoia/02-gameplay.js | grep -q 'function doAirJump'
+          curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/game-runtimes/sylvaria-sequoia/02-sap-stick.js | grep -q 'function castSapStick'
+          curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/game-runtimes/sylvaria-sequoia/03-render-canopy.js | grep -q 'shared-vertex anisotropic puzzle lattice'
+          curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/game-runtimes/sylvaria-sequoia/04-input.js | grep -q "version: '0.4.0'"
+          curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/game-runtimes/sylvaria-sequoia/04-input.js | grep -q 'fixedHz: 120'
 
       - name: Smoke FRONTIER privacy boundaries
         run: |
@@ -189,6 +199,7 @@ jobs:
           /tmp/frontier-playwright/node_modules/.bin/playwright screenshot --browser=chromium --viewport-size="1440,1100" --full-page http://127.0.0.1:3000/arcade artifacts/browser-smoke/game-network.png
           /tmp/frontier-playwright/node_modules/.bin/playwright screenshot --browser=chromium --viewport-size="1440,1000" http://127.0.0.1:3000/arcade/stretchicorn artifacts/browser-smoke/arcade-stretchicorn.png
           /tmp/frontier-playwright/node_modules/.bin/playwright screenshot --browser=chromium --viewport-size="1440,1000" http://127.0.0.1:3000/arcade/unirico artifacts/browser-smoke/arcade-unirico.png
+          /tmp/frontier-playwright/node_modules/.bin/playwright screenshot --browser=chromium --viewport-size="1440,1000" http://127.0.0.1:3000/arcade/sylvaria-sequoia artifacts/browser-smoke/arcade-sylvaria-sequoia.png
 
       - name: Upload production audit artifacts
         if: always()

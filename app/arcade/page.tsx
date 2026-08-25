@@ -8,7 +8,7 @@ export const metadata: Metadata = {
   alternates: { canonical: '/arcade' },
   openGraph: {
     title: 'Game Network | Sids Neural Net',
-    description: 'Stretchicorn, uniRico, and Sylvaria, playable directly in the browser.',
+    description: 'Stretchicorn, uniRico, and Sylvaria: Sequoia, playable directly in the browser.',
     url: '/arcade',
   },
 };

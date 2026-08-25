@@ -1,0 +1,154 @@
+name: Sylvaria Sequoia CI
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/sylvaria-sequoia-ci.yml'
+      - 'app/arcade/**'
+      - 'components/arcade/**'
+      - 'src/data/arcadeGames.ts'
+      - 'public/game-runtimes/sylvaria-sequoia/**'
+      - 'docs/SYLVARIA_SEQUOIA_V04_SAPSTICK_CANOPY_PASS.md'
+      - 'scripts/validate-sylvaria-sequoia.mjs'
+      - 'scripts/validate-sylvaria-flow-envelope.mjs'
+      - 'scripts/validate-sylvaria-heartwood.mjs'
+      - 'scripts/playtest-arcade-browsers.mjs'
+      - 'scripts/playtest-sylvaria-shift-hold.mjs'
+      - 'scripts/playtest-sylvaria-heartwood.mjs'
+      - 'tests/arcade-discovery.test.ts'
+      - 'package.json'
+      - 'package-lock.json'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sylvaria-sequoia-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  sylvaria-sequoia-gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Set up Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install exact locked dependencies
+        run: npm ci
+
+      - name: Typecheck website integration
+        run: npm run typecheck
+
+      - name: Run Sylvaria Game Network regression tests
+        run: node --import tsx --test tests/arcade-discovery.test.ts
+
+      - name: Run remaining repository unit tests
+        run: |
+          set -euo pipefail
+          for test_file in tests/*.test.ts; do
+            if [ "$test_file" = "tests/arcade-discovery.test.ts" ]; then
+              continue
+            fi
+            echo "==> $test_file"
+            node --import tsx --test "$test_file"
+          done
+
+      - name: Validate Sylvaria Sequoia runtime invariants
+        run: npm run check:sylvaria-sequoia
+
+      - name: Validate playable momentum, Clean Sap, and canopy escalation envelope
+        run: npm run check:sylvaria-flow
+
+      - name: Validate Heartwood objective and canopy trial invariants
+        run: npm run check:sylvaria-heartwood
+
+      - name: Build production website
+        env:
+          NEXT_PUBLIC_SITE_URL: https://example.invalid
+          NEXT_PUBLIC_WORLD_LOOM_XR: disabled
+        run: npm run build
+
+      - name: Start built website
+        run: |
+          npx next start -p 3000 > /tmp/sylvaria-sequoia-site.log 2>&1 &
+          echo $! > /tmp/sylvaria-sequoia-site.pid
+          for attempt in {1..40}; do
+            if curl -fsS http://127.0.0.1:3000/arcade/sylvaria-sequoia >/dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/sylvaria-sequoia-site.log
+          exit 1
+
+      - name: Smoke Sylvaria Sequoia cabinet, Heartwood, and Crown Trail runtime
+        run: |
+          curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/arcade/sylvaria-sequoia >/dev/null
+          curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/game-runtimes/sylvaria-sequoia/index.html | grep -q 'Sylvaria: Sequoia v0.4.0'
+          curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/game-runtimes/sylvaria-sequoia/index.html | grep -q 'Find 5 Heartseeds'
+          curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/game-runtimes/sylvaria-sequoia/02-gameplay.js | grep -q 'function doAirJump'
+          curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/game-runtimes/sylvaria-sequoia/02-flow-assist.js | grep -q 'stride-launch-carry'
+          curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/game-runtimes/sylvaria-sequoia/02-sap-stick.js | grep -q 'CLEAN_VAULT_MIN_HORIZONTAL = 330'
+          curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/game-runtimes/sylvaria-sequoia/02-canopy-escalation.js | grep -q 'canopy-escalation-v1'
+          curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/game-runtimes/sylvaria-sequoia/02-canopy-escalation.js | grep -q 'CROWNWEAVE'
+          curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/game-runtimes/sylvaria-sequoia/02-canopy-progression.js | grep -q 'crown-trail-v1'
+          curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/game-runtimes/sylvaria-sequoia/02-heartwood-quest.js | grep -q 'heartwood-quest-v1'
+          curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/game-runtimes/sylvaria-sequoia/02-heartwood-quest.js | grep -q 'FINAL_CROWN_FLOOR = 250'
+          curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/game-runtimes/sylvaria-sequoia/02-canopy-trials.js | grep -q 'canopy-trials-v1'
+          curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/game-runtimes/sylvaria-sequoia/02-canopy-trials.js | grep -q 'THUNDERCROWN'
+          curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/game-runtimes/sylvaria-sequoia/03-render-canopy.js | grep -q 'shared-vertex anisotropic puzzle lattice'
+          curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/game-runtimes/sylvaria-sequoia/03-render-reference-pass.js | grep -q 'reference-production-v1'
+          curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/game-runtimes/sylvaria-sequoia/03-render-altitude-realism.js | grep -q 'altitude-realism-v1'
+          curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/game-runtimes/sylvaria-sequoia/03-minimal-hud-gate.js | grep -q 'reference-hud-suppression-v1'
+          curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/game-runtimes/sylvaria-sequoia/03-sap-stick-control-hud.js | grep -q 'shift-hold-minimal-v2'
+          curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/game-runtimes/sylvaria-sequoia/03-heartwood-trials-render.js | grep -q 'heartwood-trials-render-v1'
+          curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/game-runtimes/sylvaria-sequoia/03-canopy-progress-hud.js | grep -q 'heartwood-objective-v2'
+          curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/game-runtimes/sylvaria-sequoia/03-title-focus-guard.js | grep -q 'desktop-focus-v1'
+          curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/game-runtimes/sylvaria-sequoia/04-input.js | grep -q "version: '0.4.0'"
+          curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/game-runtimes/sylvaria-sequoia/04-input.js | grep -q "Digit0"
+          curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/game-runtimes/sylvaria-sequoia/04-input.js | grep -q 'fixedHz: 120'
+
+      - name: Install browser engines
+        run: |
+          rm -rf /tmp/sylvaria-sequoia-playwright
+          npm install --prefix /tmp/sylvaria-sequoia-playwright --no-package-lock --no-save playwright@1.55.0
+          /tmp/sylvaria-sequoia-playwright/node_modules/.bin/playwright install --with-deps chromium firefox webkit
+          /tmp/sylvaria-sequoia-playwright/node_modules/.bin/playwright install chrome
+
+      - name: Validate Game Network including Sylvaria Sequoia across four engines
+        env:
+          PLAYWRIGHT_MODULE_ROOT: /tmp/sylvaria-sequoia-playwright/node_modules/playwright
+          ARCADE_BROWSER_DIR: artifacts/sylvaria-sequoia-browser-matrix
+        run: node scripts/playtest-arcade-browsers.mjs
+
+      - name: Validate Crown Trail, minimal HUD, and Shift-hold Sap across four engines
+        env:
+          PLAYWRIGHT_MODULE_ROOT: /tmp/sylvaria-sequoia-playwright/node_modules/playwright
+          SYLVARIA_SHIFT_BROWSER_DIR: artifacts/sylvaria-sequoia-shift-hold
+        run: node scripts/playtest-sylvaria-shift-hold.mjs
+
+      - name: Validate Heartwood quest and canopy trials across four engines
+        env:
+          PLAYWRIGHT_MODULE_ROOT: /tmp/sylvaria-sequoia-playwright/node_modules/playwright
+          SYLVARIA_HEARTWOOD_BROWSER_DIR: artifacts/sylvaria-sequoia-heartwood
+        run: node scripts/playtest-sylvaria-heartwood.mjs
+
+      - name: Upload Sylvaria Sequoia browser evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: sylvaria-sequoia-browser-evidence
+          path: |
+            artifacts/sylvaria-sequoia-browser-matrix
+            artifacts/sylvaria-sequoia-shift-hold
+            artifacts/sylvaria-sequoia-heartwood
+          if-no-files-found: warn
+          retention-days: 14
