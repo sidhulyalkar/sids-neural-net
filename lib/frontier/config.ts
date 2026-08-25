@@ -36,17 +36,17 @@ export const FRONTIER_LANES: FrontierLaneDefinition[] = [
   {
     id: 'ai_frontier', label: 'AI Frontier', shortLabel: 'AI', glyph: '◇',
     description: 'Foundation models, agents, reasoning, evaluation, safety, and interpretability.', weight: 1.08, realm: 'learn',
-    keywords: ['foundation model', 'agent', 'reasoning', 'multimodal', 'mechanistic interpretability', 'alignment', 'inference', 'quantization', 'evaluation', 'language model', 'llm', 'transformer', 'coding agent', 'tool calling'],
+    keywords: ['foundation model', 'agent', 'reasoning', 'multimodal', 'mechanistic interpretability', 'activation patching', 'causal tracing', 'sparse autoencoder', 'alignment', 'inference', 'quantization', 'evaluation', 'language model', 'llm', 'transformer', 'coding agent', 'tool calling'],
   },
   {
     id: 'neuro_frontier', label: 'Neuroscience + NeuroAI', shortLabel: 'NeuroAI', glyph: '⌁',
     description: 'Neural representation, BCI, decoding, multimodal neuroscience, brain atlases, and scientific neuro-data systems.', weight: 1.18, realm: 'learn',
-    keywords: ['neuroscience', 'neural decoding', 'brain computer interface', 'brain-computer interface', 'bci', 'eeg', 'ecog', 'neuropixels', 'calcium imaging', 'two-photon', '2-photon', 'fiber photometry', 'neuroai', 'neural representation', 'neural population dynamics', 'brain imaging', 'fmri', 'connectomics', 'connectome', 'brain atlas', 'neuroglancer', 'napari', 'datajoint', 'deeplabcut', 'facemap', 'spikeinterface', 'nwb', 'dandi'],
+    keywords: ['neuroscience', 'neural decoding', 'brain computer interface', 'brain-computer interface', 'bci', 'eeg', 'eeg foundation model', 'brain foundation model', 'neural foundation model', 'self-supervised eeg', 'ecog', 'neuropixels', 'calcium imaging', 'two-photon', '2-photon', 'fiber photometry', 'neuroai', 'neural representation', 'neural population dynamics', 'brain imaging', 'fmri', 'connectomics', 'connectome', 'brain atlas', 'neuroglancer', 'napari', 'datajoint', 'deeplabcut', 'facemap', 'spikeinterface', 'nwb', 'pynwb', 'dandi'],
   },
   {
     id: 'methods', label: 'Methods Worth Stealing', shortLabel: 'Methods', glyph: '∴',
     description: 'Algorithms and analytical ideas that can transfer into active projects.', weight: 1.14, realm: 'learn',
-    keywords: ['ranking', 'retrieval', 'graph learning', 'contextual bandit', 'active learning', 'calibration', 'tracking', 'spatiotemporal', 'optimization', 'probability', 'information theory', 'representation learning', 'recommendation system', 'recommender system', 'inverse problem', 'inverse problems', 'computational imaging', 'image reconstruction', 'tomography', 'deconvolution', 'compressed sensing', 'phase retrieval'],
+    keywords: ['ranking', 'retrieval', 'graph learning', 'contextual bandit', 'active learning', 'calibration', 'tracking', 'spatiotemporal', 'optimization', 'probability', 'information theory', 'representation learning', 'representation probing', 'mechanistic interpretability', 'activation patching', 'causal tracing', 'sparse autoencoder', 'recommendation system', 'recommender system', 'inverse problem', 'inverse problems', 'computational imaging', 'image reconstruction', 'tomography', 'deconvolution', 'compressed sensing', 'phase retrieval'],
   },
   {
     id: 'builder_signal', label: 'Builder Signal', shortLabel: 'Open Source', glyph: '⌘',
@@ -61,7 +61,7 @@ export const FRONTIER_LANES: FrontierLaneDefinition[] = [
   {
     id: 'broad_science', label: 'Science Frontier', shortLabel: 'Science', glyph: '✦',
     description: 'High-information discoveries across biology, physics, cognition, medicine, astronomy, and computer science.', weight: 1.02, realm: 'learn',
-    keywords: ['biology', 'physics', 'cognition', 'scientific discovery', 'randomized trial', 'meta-analysis', 'replication', 'genomics', 'bioengineering', 'space', 'astronomy', 'space imaging', 'astronomical imaging', 'telescope imaging', 'adaptive optics', 'radio interferometry', 'medicine'],
+    keywords: ['biology', 'physics', 'cognition', 'scientific discovery', 'randomized trial', 'meta-analysis', 'replication', 'genomics', 'bioengineering', 'space', 'astronomy', 'space imaging', 'astronomical imaging', 'telescope imaging', 'adaptive optics', 'radio interferometry', 'satellite imagery', 'earth observation', 'remote sensing', 'synthetic aperture radar', 'sar imagery', 'hyperspectral imaging', 'multispectral imaging', 'medicine'],
   },
   {
     id: 'creative_tech', label: 'Project Design + Creative Tech', shortLabel: 'Project Design', glyph: '✺',
@@ -91,7 +91,7 @@ export const FRONTIER_LANES: FrontierLaneDefinition[] = [
   {
     id: 'sports', label: 'Sports + Motion', shortLabel: 'Sports', glyph: '◍',
     description: 'NFL and fantasy edges, sports data analysis, the sports you do, pro circuits, athlete stories, and standout clips.', weight: 1.12, realm: 'play',
-    keywords: ['rock climbing', 'sport climbing', 'bouldering', 'lead climbing', 'speed climbing', 'ifsc', 'mountain biking', 'mountain bike', 'mtb', 'downhill mtb', 'enduro mtb', 'crankworx', 'skiing', 'freeski', 'freeride', 'freeride world tour', 'skateboarding', 'skateboard', 'street skating', 'longboarding', 'longboard', 'ripstik', 'ripstick', 'caster board', 'ripsurf', 'ripsurfing', 'waveboard', 'nfl', 'nba', 'fantasy football', 'superflex', '2qb', '2 qb', 'adp', 'route participation', 'target share', 'air yards', 'snap share', 'sports analytics', 'sports data', 'player tracking', 'next gen stats', 'nflverse', 'nflfastr', 'play-by-play', 'epa', 'cpoe', 'expected points', 'expected value', 'win probability', 'fourth down', 'highlight', 'scoreboard', 'scores', 'standings'],
+    keywords: ['rock climbing', 'sport climbing', 'bouldering', 'lead climbing', 'speed climbing', 'ifsc', 'mountain biking', 'mountain bike', 'mtb', 'downhill mtb', 'enduro mtb', 'crankworx', 'skiing', 'freeski', 'freeride', 'freeride world tour', 'skateboarding', 'skateboard', 'street skating', 'longboarding', 'longboard', 'ripstik', 'ripstick', 'caster board', 'ripsurf', 'ripsurfing', 'waveboard', 'nfl', 'nba', 'fantasy football', 'superflex', '2qb', '2 qb', 'adp', 'route participation', 'target share', 'air yards', 'snap share', 'depth chart', 'injury', 'sports analytics', 'sports data', 'player tracking', 'next gen stats', 'nflverse', 'nflfastr', 'play-by-play', 'epa', 'cpoe', 'expected points', 'expected value', 'win probability', 'fourth down', 'highlight', 'scoreboard', 'scores', 'standings'],
   },
   {
     id: 'gaming', label: 'Game Radar', shortLabel: 'Games', glyph: '▣',
@@ -158,7 +158,8 @@ export const FRONTIER_SOURCE_WEIGHTS: Record<string, number> = {
 export const FRONTIER_IMPORTANCE_TERMS = [
   'breakthrough', 'state of the art', 'benchmark', 'vulnerability', 'zero-day', 'retraction', 'replication',
   'randomized trial', 'systematic review', 'meta-analysis', 'open source', 'dataset', 'standard', 'release',
-  'foundation model', 'mechanistic interpretability', 'neural decoding', 'brain computer interface', 'agent', 'inference',
+  'foundation model', 'eeg foundation model', 'brain foundation model', 'mechanistic interpretability', 'activation patching',
+  'sparse autoencoder', 'neural decoding', 'brain computer interface', 'agent', 'inference', 'satellite imagery', 'remote sensing',
   'nfl', 'fantasy football', 'injury', 'depth chart', 'player tracking', 'premier league', 'transfer', 'trade', 'signing',
   'release date', 'dlc', 'major update', 'world championship', 'final', 'record', 'season renewal', 'series premiere',
 ];
@@ -222,11 +223,25 @@ export function createInitialProfile(): FrontierProfile {
       neuroglancer: 0.36,
       connectomics: 0.3,
       datajoint: 0.28,
+      spikeinterface: 0.28,
+      deeplabcut: 0.28,
+      facemap: 0.28,
+      nwb: 0.26,
+      pynwb: 0.26,
+      dandi: 0.24,
       'neural decoding': 0.32,
       neuroai: 0.3,
+      'neural foundation model': 0.32,
+      'eeg foundation model': 0.31,
+      'mechanistic interpretability': 0.31,
+      'activation patching': 0.24,
+      'sparse autoencoder': 0.26,
       'inverse problems': 0.3,
       'computational imaging': 0.32,
       'space imaging': 0.28,
+      'satellite imagery': 0.26,
+      'remote sensing': 0.24,
+      'hyperspectral imaging': 0.22,
       'recommendation systems': 0.3,
       'contextual bandit': 0.24,
       webgpu: 0.26,
