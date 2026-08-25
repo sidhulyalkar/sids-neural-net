@@ -14,13 +14,17 @@ const modules = [
   '02-flow-assist.js',
   '02-sap-stick.js',
   '02-control-authority.js',
+  '02-canopy-escalation.js',
+  '02-canopy-progression.js',
   '03-render-canopy.js',
   '03-render-fast-underpaint.js',
   '03-render-reference-pass.js',
   '03-render-reference-handoff.js',
   '03-render-altitude-realism.js',
   '03-render-performance.js',
+  '03-minimal-hud-gate.js',
   '03-sap-stick-control-hud.js',
+  '03-canopy-progress-hud.js',
   '03-title-focus-guard.js',
   '04-input.js',
 ];
@@ -44,22 +48,31 @@ const jumpContract = read('02-jump-contract.js');
 const assist = read('02-flow-assist.js');
 const stick = read('02-sap-stick.js');
 const control = read('02-control-authority.js');
+const escalation = read('02-canopy-escalation.js');
+const progression = read('02-canopy-progression.js');
 const canopy = read('03-render-canopy.js');
 const underpaint = read('03-render-fast-underpaint.js');
 const referenceRender = read('03-render-reference-pass.js');
 const handoff = read('03-render-reference-handoff.js');
 const altitudeRender = read('03-render-altitude-realism.js');
 const performanceRender = read('03-render-performance.js');
+const hudGate = read('03-minimal-hud-gate.js');
 const sapHud = read('03-sap-stick-control-hud.js');
+const progressHud = read('03-canopy-progress-hud.js');
 const focusGuard = read('03-title-focus-guard.js');
 const input = read('04-input.js');
-const runtime = [core, feel, world, gameplay, jumpContract, assist, stick, control, canopy, underpaint, referenceRender, handoff, altitudeRender, performanceRender, sapHud, focusGuard, input].join('\n');
+const runtime = [
+  core, feel, world, gameplay, jumpContract, assist, stick, control, escalation, progression,
+  canopy, underpaint, referenceRender, handoff, altitudeRender, performanceRender, hudGate,
+  sapHud, progressHud, focusGuard, input,
+].join('\n');
 const design = readFileSync(designPath, 'utf8');
 
 assert.match(index, /<title>Sylvaria: Sequoia v0\.4\.0<\/title>/);
-assert.match(index, /02-flow-assist\.js[\s\S]*02-sap-stick\.js[\s\S]*02-control-authority\.js/);
-assert.match(index, /03-render-performance\.js[\s\S]*03-sap-stick-control-hud\.js[\s\S]*03-title-focus-guard\.js[\s\S]*04-input\.js/);
+assert.match(index, /02-flow-assist\.js[\s\S]*02-sap-stick\.js[\s\S]*02-control-authority\.js[\s\S]*02-canopy-escalation\.js[\s\S]*02-canopy-progression\.js/);
+assert.match(index, /03-render-performance\.js[\s\S]*03-minimal-hud-gate\.js[\s\S]*03-sap-stick-control-hud\.js[\s\S]*03-canopy-progress-hud\.js[\s\S]*03-title-focus-guard\.js[\s\S]*04-input\.js/);
 assert.match(index, /Shift fires Sap Stick, hold \+ A\/D to swing, release to vault/i);
+assert.match(index, /Crown marks every 25 floors/i);
 assert.match(index, /0 resets/i);
 
 assert.match(core, /FIXED_DT: 1 \/ 120/);
@@ -138,12 +151,20 @@ for (const pattern of [
   /anchorLockouts\.set/,
   /SAP STICK · HOLD TO SWING/,
   /SAP VAULT · AIR KICK READY/,
+  /CLEAN SAP/,
+  /CLEAN_VAULT_MIN_HOLD = 0\.16/,
+  /CLEAN_VAULT_MAX_HOLD = 0\.82/,
+  /CLEAN_VAULT_MIN_HORIZONTAL = 330/,
+  /Number\.POSITIVE_INFINITY/,
   /sapStickCasts/,
   /sapStickBufferedLocks/,
   /sapStickHoldReleases/,
+  /sapStickCleanVaults/,
+  /sapStickFlowCarries/,
   /sapStickVaults/,
   /getTargetPreview/,
 ]) assert.match(stick, pattern);
+assert.doesNotMatch(stick, /S\.addComboLink\('SAP', 'SAP STICK'/, 'ordinary one-button Sap vaults must not mint Flow');
 assert.doesNotMatch(stick, /charge(?:Seconds|Time)|holdToCharge/i, 'Sap Stick must remain no-charge');
 assert.doesNotMatch(stick, /sap\.age >= TUNE\.sap\.stickHoldSeconds/);
 
@@ -158,6 +179,36 @@ for (const pattern of [
   /vertical energy is restored/,
   /S\.update = update/,
 ]) assert.match(control, pattern);
+
+for (const grammar of ['WINDLINE', 'SKYHOOK', 'CROWNWEAVE']) {
+  assert.match(escalation, new RegExp(`${grammar}: \\[`), `missing late-game ${grammar} grammar`);
+}
+for (const pattern of [
+  /canopy-escalation-v1/,
+  /if \(floor < 46\) return 0/,
+  /lerp\(72, 520, intensity\)/,
+  /windReversals/,
+  /windExposure/,
+  /canopy-wind-reversal/,
+  /high\.geometry = Math\.max\(high\.geometry, 0\.82\)/,
+  /high\.pressure = Math\.max\(high\.pressure, 1\.17\)/,
+  /crown\.geometry = Math\.max\(crown\.geometry, 1\.08\)/,
+  /crown\.pressure = Math\.max\(crown\.pressure, 1\.34\)/,
+]) assert.match(escalation, pattern);
+assert.doesNotMatch(escalation, /state\.routeRng\.next\(/, 'wind must remain deterministic without consuming route RNG');
+
+for (const pattern of [
+  /crown-trail-v1/,
+  /CROWN_INTERVAL = 25/,
+  /sylvaria\.sequoia\.bestFloor/,
+  /sylvaria\.sequoia\.bestCombo/,
+  /function awardCrownMark\(/,
+  /CROWN MARK/,
+  /personalBestFloors/,
+  /routesCleared/,
+  /route-clear-bonus/,
+  /S\.markRouteProgress = markRouteProgress/,
+]) assert.match(progression, pattern);
 
 assert.doesNotMatch(canopy, /routeRng\.next\(/, 'canopy renderer must never consume route RNG');
 assert.match(canopy, /shared-vertex anisotropic puzzle lattice/);
@@ -214,13 +265,35 @@ for (const pattern of [
 ]) assert.match(performanceRender, pattern);
 
 for (const pattern of [
-  /shift-hold-v1/,
-  /PRESS = FIRE/,
-  /HOLD \+ A\/D = SWING/,
-  /RELEASE = VAULT/,
+  /reference-hud-suppression-v1/,
+  /paintMethods/,
+  /translate\(22, 18/,
+  /state\.mode === 'playing'/,
+  /preservesUnderlyingScene: true/,
+  /finally/,
+]) assert.match(hudGate, pattern);
+
+for (const pattern of [
+  /shift-hold-minimal-v2/,
+  /SHIFT FIRE/,
+  /HOLD \+ A\/D SWING/,
+  /RELEASE VAULT/,
+  /no persistent side panels/,
   /resetKey: '0'/,
   /S\.render = render/,
 ]) assert.match(sapHud, pattern);
+
+for (const pattern of [
+  /minimal-crown-hud-v1/,
+  /function drawWind\(/,
+  /function drawCrownGate\(/,
+  /function drawMinimalHud\(/,
+  /CROWN/,
+  /PB/,
+  /title fades out after play starts/,
+  /edge-free top ribbon \+ world-space crown markers/,
+  /S\.render = render/,
+]) assert.match(progressHud, pattern);
 
 for (const pattern of [
   /desktop-focus-v1/,
@@ -256,18 +329,23 @@ for (const pattern of [
   /branchless/i,
   /same-seed/i,
   /0 key/i,
+  /Crown Mark/i,
+  /crosswind/i,
+  /Clean Sap/i,
 ]) assert.match(design, pattern);
 
 console.log(JSON.stringify({
   ok: true,
   runtime: 'sylvaria-sequoia',
-  version: '0.4.0-shift-hold-feel-recovery',
+  version: '0.4.0-crown-trail-canopy-escalation',
   fixedHz: 120,
   modules,
-  grammars: ['FLOW', 'RECOVERY', 'GROVE', 'SAPRUN', 'SLINGSHOT', 'CRUX'],
+  grammars: ['FLOW', 'RECOVERY', 'GROVE', 'SAPRUN', 'SLINGSHOT', 'CRUX', 'WINDLINE', 'SKYHOOK', 'CROWNWEAVE'],
   corridorWidth: 760,
   feel: ['responsive acceleration', 'strong air steering', 'player-owned reversals', 'Stride height memory without hidden horizontal snaps'],
-  render: ['single production scene paint', 'reference-first active gameplay', 'budget-gated altitude ecology', 'final one-button control HUD'],
-  sapStick: ['press Shift to fire', '180ms acquisition buffer', 'hold plus A/D to swing', 'release Shift to vault', '1.35s safety ceiling', 'anchor reuse lock'],
+  progression: ['Crown Mark every 25 floors', 'persistent height PB', 'route-clear bonuses', 'phase-arrival banners'],
+  difficulty: ['shorter late branches', 'branchless anchor chains', 'deterministic altitude crosswind', 'rising pressure'],
+  render: ['single production scene paint', 'legacy gameplay HUD paint suppression', 'minimal top ribbon', 'world-space Crown markers', 'brief title fade'],
+  sapStick: ['press Shift to fire', '180ms acquisition buffer', 'hold plus A/D to swing', 'release Shift to vault', 'Clean Sap earns Flow', 'ordinary Sap only carries Flow'],
   reset: '0 / Numpad0',
 }, null, 2));
