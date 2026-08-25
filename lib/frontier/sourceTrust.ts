@@ -193,6 +193,7 @@ const HOST_RULES: readonly HostRule[] = [
   {
     domains: [
       'billboard.com', 'pitchfork.com', 'residentadvisor.net', 'beatport.com', 'bandcamp.com',
+      'edm.com', 'dancingastronaut.com',
     ],
     tier: 'established',
     score: 0.78,
