@@ -1,6 +1,6 @@
 import frontierSnapshot from '@/content/frontier/latest.json';
 import { getActiveSportsFeed } from './activeSportsSources';
-import { normalizeFeedToEnglish } from './english';
+import { needsEnglishTranslation, normalizeFeedToEnglish } from './english';
 import { getSharedExpandedPublicFeed } from './expandedSourcesShared';
 import { getAdaptiveLiveDiscovery } from './liveDiscovery';
 import { enrichFrontierMediaGeometry } from './media/geometry';
@@ -22,7 +22,7 @@ import { getWatchableFrontierFeed } from './watchableSources';
 
 const DAY_MS = 86_400_000;
 const MAX_FUTURE_SKEW_MS = 12 * 60 * 60_000;
-const REQUEST_ADAPTER_DEADLINE_MS = 4_500;
+const REQUEST_ADAPTER_DEADLINE_MS = 2_400;
 const MAX_INTEGRATED_CANDIDATES = 320;
 const CANDIDATE_TASTE_WEIGHT = 0.55;
 
@@ -180,6 +180,17 @@ async function withinAdapterDeadline<T>(
   }
 }
 
+/**
+ * First-paint requests never make a second network hop merely to translate a
+ * supplemental candidate. The daily archive builder still performs bounded
+ * translation, while request-time foreign copy is omitted until a background
+ * discovery pass can normalize it. This keeps the committed personalized
+ * snapshot available as an immediate English fallback.
+ */
+export function requestTimeEnglishItems(items: FrontierItem[]): FrontierItem[] {
+  return items.filter((item) => !needsEnglishTranslation(item.title) && !needsEnglishTranslation(item.summary));
+}
+
 export async function getIntegratedFrontierFeed(options: IntegratedOptions = {}): Promise<FrontierFeedResponse> {
   const focusTopics = Array.from(new Set((options.focusTopics ?? []).map((topic) => topic.trim()).filter(Boolean))).slice(0, 10);
   const deadline = options.adapterDeadlineMs ?? REQUEST_ADAPTER_DEADLINE_MS;
@@ -262,7 +273,9 @@ export async function getIntegratedFrontierFeed(options: IntegratedOptions = {})
         .map(enrichPresentation);
 
   const candidateItems = [...liveItems, ...archive].slice(0, MAX_INTEGRATED_CANDIDATES);
-  const items = await normalizeFeedToEnglish(candidateItems);
+  const items = deadline === false
+    ? await normalizeFeedToEnglish(candidateItems)
+    : requestTimeEnglishItems(candidateItems);
   const sources = mergeStatuses(liveFeeds.flatMap((feed) => feed.sources));
 
   if (baseResult.status === 'rejected') sources.push({ id: 'local', label: 'Core mesh', ok: false, count: 0, message: 'core live source mesh unavailable' });
