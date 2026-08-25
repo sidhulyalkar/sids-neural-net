@@ -3,6 +3,7 @@ import 'server-only';
 import { lookup } from 'node:dns/promises';
 import { isIP } from 'node:net';
 import type { FrontierFeedResponse, FrontierMedia } from '@/lib/frontier/types';
+import { preferredFrontierImageSource } from './sourceResolution';
 
 const DEFAULT_MEDIA_HOSTS = new Set([
   'i.ytimg.com',
@@ -121,11 +122,16 @@ function proxyPath(value?: string): string | undefined {
 function decorateMedia(media?: FrontierMedia): FrontierMedia | undefined {
   if (!media) return media;
   if (media.type === 'image') {
-    const proxyUrl = proxyPath(media.url);
+    // RSS is allowed to carry a small discovery thumbnail, but FRONTIER's GPU
+    // plane should request the publisher's source-authentic HD transform when
+    // one is safely derivable. Keep media.url untouched as an independent
+    // browser-native fallback if that higher-resolution transform ever fails.
+    const proxyUrl = proxyPath(media.url ? preferredFrontierImageSource(media.url) : undefined);
     return proxyUrl ? { ...media, proxyUrl } : media;
   }
   if (media.type === 'video' || media.type === 'youtube') {
-    const posterProxyUrl = proxyPath(media.poster);
+    const preferredPoster = media.poster ? preferredFrontierImageSource(media.poster) : undefined;
+    const posterProxyUrl = proxyPath(preferredPoster);
     return posterProxyUrl ? { ...media, posterProxyUrl } : media;
   }
   return media;
