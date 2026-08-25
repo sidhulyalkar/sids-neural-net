@@ -54,6 +54,31 @@ test('explicit taste map recognizes NFL/fantasy, Neuroglancer, and neuroscience 
   assert.ok(personalTasteRankingPrior(neuroglancer) >= 0.16);
 });
 
+test('explicit taste map recognizes neural foundation models, mechanistic interpretability, and remote sensing', () => {
+  const foundationModel = item('foundation-model', {
+    title: 'Self-supervised EEG foundation model improves neural decoding transfer',
+    lane: 'neuro_frontier',
+    tags: ['eeg', 'neural decoding'],
+  });
+  const mechInterp = item('mechinterp', {
+    title: 'Mechanistic interpretability with sparse autoencoders and activation patching',
+    lane: 'methods',
+    tags: ['causal tracing'],
+  });
+  const earthObservation = item('earth-observation', {
+    title: 'Satellite imagery inverse problem for SAR and hyperspectral remote sensing',
+    lane: 'broad_science',
+    tags: ['computational imaging'],
+  });
+
+  assert.equal(matchesPersonalTasteTopic(foundationModel, ['neuro-foundation-models']), true);
+  assert.equal(matchesPersonalTasteTopic(mechInterp, ['mechanistic-interpretability']), true);
+  assert.equal(matchesPersonalTasteTopic(earthObservation, ['earth-observation']), true);
+  assert.ok(personalTasteRankingPrior(foundationModel) > 0.1);
+  assert.ok(personalTasteRankingPrior(mechInterp) > 0.1);
+  assert.ok(personalTasteRankingPrior(earthObservation) > 0.09);
+});
+
 test('personal taste prior beats otherwise-comparable generic AI during cold start', () => {
   const profile = createInitialProfile();
   const now = new Date('2026-08-23T20:00:00.000Z');
