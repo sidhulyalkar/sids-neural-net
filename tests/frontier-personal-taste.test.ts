@@ -201,11 +201,21 @@ test('generic AI cannot fill multiple fallback slots when higher-fit material ex
   assert.ok(run.filter((entry) => entry.lane === 'ai_frontier').length <= 1);
 });
 
-test('adaptive discovery keeps explicit taste seeds in sparse profiles', () => {
+test('brand-new browsers use the personalized snapshot before adaptive live fanout', () => {
   const profile = createInitialProfile();
   profile.topicAffinity = {};
   profile.knownTopics = {};
   profile.meaningfulInteractions = 0;
+
+  const focus = buildDiscoveryFocus(profile, undefined, 7, new Date('2026-08-23T12:00:00.000Z'));
+  assert.deepEqual(focus, []);
+});
+
+test('adaptive discovery restores explicit seed anchors once local learning has evidence', () => {
+  const profile = createInitialProfile();
+  profile.topicAffinity = {};
+  profile.knownTopics = {};
+  profile.meaningfulInteractions = 1;
 
   const focus = buildDiscoveryFocus(profile, undefined, 7, new Date('2026-08-23T12:00:00.000Z'));
   const seedSet = new Set(FRONTIER_DISCOVERY_SEEDS.map((seed) => seed.toLowerCase()));
