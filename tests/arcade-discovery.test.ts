@@ -70,10 +70,14 @@ test('FRONTIER and Game Network coexist in current navigation', () => {
   assert.ok(primaryNavItems.some((item) => item.href === '/arcade'));
 
   const home = readRepoFile('app/page.tsx');
-  assert.match(home, /href="\/frontier"/);
-  assert.match(home, /href="\/arcade"/);
-  assert.match(home, /aria-label="Open the Game Network"/);
-  assert.match(home, /data-gesture-target/);
+  const fractalHome = readRepoFile('components/neural-atlas-canvas/AdaptiveFractalHome.tsx');
+
+  assert.match(home, /AdaptiveFractalHome/);
+  assert.match(fractalHome, /id: 'frontier'.*href: '\/frontier'/);
+  assert.match(fractalHome, /id: 'games'.*label: 'Game Network'.*href: '\/arcade'/);
+  assert.match(fractalHome, /aria-label=\{`Open \$\{destination\.label\}`\}/);
+  assert.match(fractalHome, /data-dendrite-destination=\{destination\.id\}/);
+  assert.match(fractalHome, /data-gesture-target/);
 });
 
 test('Game Network naming is consistent across discovery surfaces', () => {

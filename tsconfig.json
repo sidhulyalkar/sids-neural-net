@@ -22,6 +22,9 @@
       }
     ],
     "paths": {
+      "@/lib/home/fractalDendrite": [
+        "./lib/home/fractalDendriteV6.ts"
+      ],
       "@/*": [
         "./*"
       ],
