@@ -33,13 +33,58 @@ async function state(frame) {
   return frame.evaluate(() => window.SYLVARIA_SEQUOIA_DEBUG.getState());
 }
 
-async function telemetry(frame) {
-  return frame.evaluate(() => window.SYLVARIA_SEQUOIA_DEBUG.getTelemetry());
-}
-
 async function resetSameSeed(frame) {
   await frame.evaluate(() => window.SYLVARIA_SEQUOIA_DEBUG.retry());
   await frame.page().waitForTimeout(90);
+}
+
+async function runtimeContracts(frame) {
+  return frame.evaluate(() => {
+    const S = window.SylvariaSequoia;
+    const originalFloor = S.player.highestFloor;
+    const intensities = {};
+    for (const floor of [0, 45, 80, 130, 190]) {
+      S.player.highestFloor = floor;
+      intensities[floor] = S.canopyEscalation?.getState?.().intensity ?? null;
+    }
+    S.player.highestFloor = originalFloor;
+    return {
+      minimalHudGate: S.minimalHudGate || null,
+      progressHud: S.canopyProgressHud || null,
+      sapHud: S.sapStickControlHud || null,
+      progress: S.canopyProgress?.getState?.() || null,
+      escalation: S.canopyEscalation?.getState?.() || null,
+      grammars: window.SYLVARIA_SEQUOIA_DEBUG.getRouteGrammars(),
+      sap: S.sapStick?.getState?.() || null,
+      intensities,
+    };
+  });
+}
+
+function assertCrownTrailContracts(contract) {
+  if (contract.minimalHudGate?.version !== 'reference-hud-suppression-v1' || !contract.minimalHudGate?.preservesUnderlyingScene) {
+    throw new Error(`Minimal HUD gate contract unavailable: ${JSON.stringify(contract.minimalHudGate)}`);
+  }
+  if (contract.progressHud?.version !== 'minimal-crown-hud-v1' || !/fades out/.test(contract.progressHud?.titleBehavior || '')) {
+    throw new Error(`Crown HUD/title-fade contract unavailable: ${JSON.stringify(contract.progressHud)}`);
+  }
+  if (contract.sapHud?.version !== 'shift-hold-minimal-v2' || !/no persistent side panels/.test(contract.sapHud?.teaching || '')) {
+    throw new Error(`Transient Sap HUD contract unavailable: ${JSON.stringify(contract.sapHud)}`);
+  }
+  if (!contract.progress || contract.progress.nextCrownFloor !== 25 || contract.progress.crownRemaining !== 25) {
+    throw new Error(`Initial Crown Trail target is stale: ${JSON.stringify(contract.progress)}`);
+  }
+  for (const grammar of ['WINDLINE', 'SKYHOOK', 'CROWNWEAVE']) {
+    if (!contract.grammars.includes(grammar)) throw new Error(`Missing escalating canopy grammar ${grammar}: ${JSON.stringify(contract.grammars)}`);
+  }
+  const wind = contract.intensities;
+  if (wind[0] !== 0 || wind[45] !== 0) throw new Error(`Wind invaded the teaching zone: ${JSON.stringify(wind)}`);
+  if (!(wind[80] > 0.16 && wind[130] > wind[80] && wind[190] > wind[130])) {
+    throw new Error(`Altitude wind does not escalate monotonically enough: ${JSON.stringify(wind)}`);
+  }
+  if (JSON.stringify(contract.sap?.cleanVaultWindow) !== JSON.stringify([0.16, 0.82]) || contract.sap?.cleanVaultMinHorizontal !== 330) {
+    throw new Error(`Clean Sap mastery window is stale: ${JSON.stringify(contract.sap)}`);
+  }
 }
 
 async function runShiftHoldContract(page, engineName) {
@@ -56,6 +101,38 @@ async function runShiftHoldContract(page, engineName) {
   const started = await state(frame);
   if (started.mode !== 'playing') throw new Error(`Space did not start Sylvaria: ${JSON.stringify(started)}`);
 
+  const contracts = await runtimeContracts(frame);
+  assertCrownTrailContracts(contracts);
+
+  // Let the tiny start mark fade away and capture the uncluttered gameplay field.
+  await page.waitForTimeout(1750);
+  await page.screenshot({ path: path.join(outputDir, `${engineName}-minimal-crown-playfield.png`), fullPage: true });
+
+  // Regression for the uploaded-run combo inflation: a plain short Shift vault
+  // must remain movement only. It cannot manufacture a SAP Flow link.
+  await resetSameSeed(frame);
+  await focusRuntime(page, frame);
+  const plainBefore = await frame.evaluate(() => ({
+    state: window.SYLVARIA_SEQUOIA_DEBUG.getState(),
+    telemetry: window.SYLVARIA_SEQUOIA_DEBUG.getTelemetry(),
+    target: window.SYLVARIA_SEQUOIA_DEBUG.getSapTarget(),
+  }));
+  if (!plainBefore.target) throw new Error(`Authored start has no reachable Sap target for anti-inflation test: ${JSON.stringify(plainBefore.state)}`);
+  await page.keyboard.down('Shift');
+  await page.waitForTimeout(92);
+  await page.keyboard.up('Shift');
+  await page.waitForTimeout(80);
+  const plainVault = await frame.evaluate(() => ({
+    state: window.SYLVARIA_SEQUOIA_DEBUG.getState(),
+    telemetry: window.SYLVARIA_SEQUOIA_DEBUG.getTelemetry(),
+  }));
+  if ((plainVault.telemetry.counters.sapStickVaults || 0) < 1) {
+    throw new Error(`Plain Sap vault did not complete: ${JSON.stringify(plainVault)}`);
+  }
+  if (plainVault.state.combo !== 0 || (plainVault.telemetry.counters.sapStickCleanVaults || 0) !== 0) {
+    throw new Error(`Ordinary Sap vault still manufactured Flow: ${JSON.stringify(plainVault)}`);
+  }
+
   await resetSameSeed(frame);
   await focusRuntime(page, frame);
 
@@ -70,7 +147,7 @@ async function runShiftHoldContract(page, engineName) {
   const pressesBefore = before.state.inputGate?.sapPressCount ?? 0;
   const castsBefore = before.telemetry.counters.sapStickCasts || 0;
 
-  // The entire new contract begins with Shift alone. No Space chord is involved.
+  // The entire current contract begins with Shift alone. No Space chord is involved.
   await page.keyboard.down('Shift');
   await page.waitForTimeout(45);
   const locked = await state(frame);
@@ -93,9 +170,6 @@ async function runShiftHoldContract(page, engineName) {
     throw new Error(`Space leaked through active Sap Stick: ${JSON.stringify(afterSpace)}`);
   }
 
-  // Right then left while Shift remains down must provide observable steering
-  // authority. Comparing opposite inputs is robust against the spring's own
-  // radial motion because the direct steering impulse changes sign with the key.
   await page.keyboard.down('ArrowRight');
   await page.waitForTimeout(105);
   const steeredRight = await state(frame);
@@ -115,7 +189,6 @@ async function runShiftHoldContract(page, engineName) {
     throw new Error(`Opposite A/D steering lacked meaningful swing authority: right=${steeredRight.player.vx}, left=${steeredLeft.player.vx}`);
   }
 
-  // Releasing the same Shift press is the vault command.
   await page.keyboard.up('Shift');
   await page.waitForTimeout(110);
   const vaulted = await frame.evaluate(() => ({
@@ -132,7 +205,6 @@ async function runShiftHoldContract(page, engineName) {
     throw new Error(`Shift release did not preserve clean vault recovery: ${JSON.stringify(vaulted.state)}`);
   }
 
-  // 0 is intentionally far from the movement cluster and retries the same seed.
   await page.keyboard.down('ArrowRight');
   await page.waitForTimeout(150);
   await page.keyboard.up('ArrowRight');
@@ -147,8 +219,6 @@ async function runShiftHoldContract(page, engineName) {
     throw new Error(`0 reset did not restore a fresh run: ${JSON.stringify(afterZero)}`);
   }
 
-  // R is deliberately harmless now. A quick movement beat followed by R should
-  // continue the same run instead of teleporting Pip back to the start.
   await page.keyboard.down('ArrowRight');
   await page.waitForTimeout(150);
   await page.keyboard.up('ArrowRight');
@@ -167,6 +237,8 @@ async function runShiftHoldContract(page, engineName) {
   return {
     engine: engineName,
     ok: true,
+    contracts,
+    plainVault,
     target: before.target,
     locked,
     afterSpace,
