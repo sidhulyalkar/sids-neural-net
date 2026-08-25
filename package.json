@@ -21,6 +21,7 @@
     "check:sylvaria-flow": "node scripts/validate-sylvaria-flow-envelope.mjs",
     "check:sylvaria-heartwood": "node scripts/validate-sylvaria-heartwood.mjs",
     "check:sylvaria-living-canopy": "node scripts/validate-sylvaria-living-canopy.mjs",
+    "check:sylvaria-economy": "node scripts/validate-sylvaria-economy.mjs",
     "check:bundle": "tsx scripts/check-bundle-budget.ts",
     "check:visual-cortex": "python3 scripts/check-visual-archive.py",
     "check:visual-archive": "python3 scripts/check-visual-archive.py",
