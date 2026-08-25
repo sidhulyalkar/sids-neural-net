@@ -5,6 +5,7 @@ const { chromium } = require('playwright');
 
 const FRONTIER_URL = process.env.FRONTIER_ROUTE_AUDIT_URL || 'http://127.0.0.1:3000/frontier';
 const MAX_USEFUL_PAINT_MS = 9_000;
+const SCREENSHOT_TIMEOUT_MS = 4_000;
 const CARD = '[data-frontier-fluid-card]';
 const LOADING = '[aria-label="Scanning live sources"]';
 const ARTIFACT_DIR = path.resolve('artifacts/browser-smoke');
@@ -79,6 +80,33 @@ async function pageState(page) {
   }, { cardSelector: CARD, loadingSelector: LOADING });
 }
 
+/**
+ * Screenshots are diagnostics, never render authority. Playwright may wait on
+ * fonts, animation stabilization, compositor work, or a full-page capture long
+ * after the DOM has already satisfied the useful-paint contract. Bound that
+ * work separately and record any failure without converting healthy paint into
+ * a false production regression. Dedicated screenshot/media audits remain
+ * authoritative for visual qualification later in the workflow.
+ */
+async function captureDiagnosticScreenshot(page, filename, fullPage = false) {
+  try {
+    await page.screenshot({
+      path: path.join(ARTIFACT_DIR, filename),
+      fullPage,
+      animations: 'disabled',
+      caret: 'hide',
+      timeout: SCREENSHOT_TIMEOUT_MS,
+    });
+    return { ok: true, filename };
+  } catch (error) {
+    return {
+      ok: false,
+      filename,
+      error: error instanceof Error ? error.message : String(error),
+    };
+  }
+}
+
 async function auditColdDesktop(browser) {
   const context = await browser.newContext({
     viewport: { width: 1440, height: 1100 },
@@ -120,7 +148,7 @@ async function auditColdDesktop(browser) {
     );
     assert.deepEqual(pageErrors, [], `FRONTIER emitted page errors: ${pageErrors.join(' | ')}`);
 
-    await page.screenshot({ path: path.join(ARTIFACT_DIR, 'frontier-first-useful-paint.png'), fullPage: true });
+    const screenshot = await captureDiagnosticScreenshot(page, 'frontier-first-useful-paint.png', false);
     return {
       passed: true,
       settledMs,
@@ -128,6 +156,7 @@ async function auditColdDesktop(browser) {
       headerStatus: state.headerStatus,
       terminalState: state.cardCount > 0 ? 'cards' : 'explicit-empty',
       pageErrors,
+      screenshot,
     };
   } finally {
     await context.close();
@@ -212,12 +241,13 @@ async function auditDeterministicMobile(browser) {
       `First mobile card is not above fold: y=${firstThree[0].rect.y}, h=${firstThree[0].rect.height}`,
     );
 
-    await page.screenshot({ path: path.join(ARTIFACT_DIR, 'frontier-mobile-deterministic.png'), fullPage: false });
+    const screenshot = await captureDiagnosticScreenshot(page, 'frontier-mobile-deterministic.png', false);
     return {
       passed: true,
       settledMs,
       pageErrors,
       consoleErrors,
+      screenshot,
       network: { feedFulfillments, forageFulfillments, requests: frontierRequests },
       ...state,
     };
@@ -226,24 +256,35 @@ async function auditDeterministicMobile(browser) {
     let diagnosticState = null;
     try {
       diagnosticState = await pageState(page);
-      await page.screenshot({
-        path: path.join(ARTIFACT_DIR, 'frontier-mobile-deterministic-failure.png'),
-        fullPage: false,
-      });
     } catch (diagnosticError) {
-      consoleErrors.push(`diagnostic failure: ${diagnosticError instanceof Error ? diagnosticError.message : String(diagnosticError)}`);
+      consoleErrors.push(`state diagnostic failure: ${diagnosticError instanceof Error ? diagnosticError.message : String(diagnosticError)}`);
     }
+    const screenshot = await captureDiagnosticScreenshot(page, 'frontier-mobile-deterministic-failure.png', false);
+    if (!screenshot.ok) consoleErrors.push(`screenshot diagnostic failure: ${screenshot.error}`);
     return {
       passed: false,
       elapsedMs,
       error: error instanceof Error ? error.stack : String(error),
       pageErrors,
       consoleErrors,
+      screenshot,
       network: { feedFulfillments, forageFulfillments, requests: frontierRequests },
       diagnosticState,
     };
   } finally {
     await context.close();
+  }
+}
+
+async function runAuditSafely(label, audit, browser) {
+  try {
+    return await audit(browser);
+  } catch (error) {
+    return {
+      passed: false,
+      error: error instanceof Error ? error.stack : String(error),
+      label,
+    };
   }
 }
 
@@ -253,12 +294,13 @@ async function auditDeterministicMobile(browser) {
   let desktop;
   let mobile;
   try {
-    desktop = await auditColdDesktop(browser);
-    mobile = await auditDeterministicMobile(browser);
+    desktop = await runAuditSafely('desktop', auditColdDesktop, browser);
+    mobile = await runAuditSafely('mobile', auditDeterministicMobile, browser);
     const result = {
       passed: desktop.passed && mobile.passed,
       url: FRONTIER_URL,
       maxUsefulPaintMs: MAX_USEFUL_PAINT_MS,
+      screenshotTimeoutMs: SCREENSHOT_TIMEOUT_MS,
       desktop,
       mobile,
     };
@@ -266,24 +308,10 @@ async function auditDeterministicMobile(browser) {
       path.join(ARTIFACT_DIR, 'frontier-route-readiness.json'),
       `${JSON.stringify(result, null, 2)}\n`,
     );
+    assert.equal(desktop.passed, true, `Cold desktop FRONTIER paint failed: ${desktop.error ?? 'unknown failure'}`);
     assert.equal(mobile.passed, true, `Deterministic mobile FRONTIER paint failed: ${mobile.error ?? 'unknown failure'}`);
     console.log('FRONTIER route readiness PASS');
     console.log(JSON.stringify(result, null, 2));
-  } catch (error) {
-    if (!fs.existsSync(path.join(ARTIFACT_DIR, 'frontier-route-readiness.json'))) {
-      fs.writeFileSync(
-        path.join(ARTIFACT_DIR, 'frontier-route-readiness.json'),
-        `${JSON.stringify({
-          passed: false,
-          url: FRONTIER_URL,
-          maxUsefulPaintMs: MAX_USEFUL_PAINT_MS,
-          error: error instanceof Error ? error.stack : String(error),
-          desktop,
-          mobile,
-        }, null, 2)}\n`,
-      );
-    }
-    throw error;
   } finally {
     await browser.close();
   }
