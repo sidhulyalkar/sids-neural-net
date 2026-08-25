@@ -6,6 +6,7 @@ import {
   applyImplicitTasteSignal,
   canonicalTastePair,
   pairAffinityForItem,
+  tastePairsForItem,
 } from '../lib/frontier/tasteLearning';
 import type { FrontierItem } from '../lib/frontier/types';
 
@@ -45,6 +46,21 @@ test('meaningful attention learns only a small co-interest nudge, not duplicate 
   assert.equal(next.topicAffinity.nfl, profile.topicAffinity.nfl);
   assert.equal(next.laneAffinity.sports, profile.laneAffinity.sports);
   assert.deepEqual(next.sourceAffinity, profile.sourceAffinity);
+});
+
+test('provenance labels and domain-like tags never become learned co-interests', () => {
+  const item = signal('provenance', [
+    'nfl',
+    'sports analytics',
+    'pro-football-reference.com',
+    'Pro Football Reference',
+    'example.co.uk/path',
+  ]);
+  const pairs = tastePairsForItem(item);
+  assert.ok(pairs.includes(canonicalTastePair('nfl', 'sports analytics')));
+  assert.equal(pairs.some((pair) => pair.includes('pro-football-reference.com')), false);
+  assert.equal(pairs.some((pair) => pair.includes('pro football reference')), false);
+  assert.equal(pairs.some((pair) => pair.includes('example.co.uk')), false);
 });
 
 test('open and save strengthen pair evidence more than dwell while explicit negative feedback can reverse it', () => {
