@@ -4,7 +4,7 @@
   const S = window.SylvariaSequoia;
   if (!S?.ROUTE_GRAMMARS) return;
 
-  const VERSION = 'sap-route-balance-v3';
+  const VERSION = 'sap-route-balance-v2';
 
   // Sap is punctuation between physical movement phrases. Most route families
   // contain exactly one authored air anchor; only the longest Elder/Skyheart
@@ -114,6 +114,7 @@
 
   S.sapRouteBalance = {
     version: VERSION,
+    densityProfile: 'sparse-one-anchor-v3',
     rule: 'Sap is an isolated bridge: physical landing opportunity before every additional Sap anchor',
     balancedRoutes: Object.keys(balanced),
     anchorCounts,
