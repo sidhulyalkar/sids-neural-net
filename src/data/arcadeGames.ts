@@ -29,6 +29,8 @@ const stretchicornRuntime =
   cleanRuntimeUrl(process.env.NEXT_PUBLIC_ARCADE_STRETCHICORN_URL) ?? '/game-runtimes/stretchicorn/index.html';
 const uniricoRuntime =
   cleanRuntimeUrl(process.env.NEXT_PUBLIC_ARCADE_UNIRICO_URL) ?? '/game-runtimes/unirico/v0.19.0/index.html';
+const sylvariaSequoiaRuntime =
+  cleanRuntimeUrl(process.env.NEXT_PUBLIC_ARCADE_SYLVARIA_SEQUOIA_URL) ?? '/game-runtimes/sylvaria-sequoia/index.html';
 
 export const arcadeGames: ArcadeGame[] = [
   {
@@ -82,6 +84,35 @@ export const arcadeGames: ArcadeGame[] = [
       { input: 'H', action: 'Help / deterministic solution demo' },
       { input: 'P / S', action: 'Path preview / music + SFX' },
       { input: 'Space / Enter', action: 'Continue' },
+    ],
+    accent: 'cyan',
+  },
+  {
+    slug: 'sylvaria-sequoia',
+    title: 'Sylvaria: Sequoia',
+    subtitle: 'FIND THE HEARTSEEDS · DISCOVER THE WONDERS · RING THE SKYHEART.',
+    description:
+      'A kinetic sequoia climber where height is only the beginning. Build Stride to turn horizontal momentum into huge jumps, chain Flow through multi-floor skips, Bark Kicks, Rings and Clean Sap, and use one-button Shift Sap Stick to swing through sparse open-air routes. Five persistent Heartseeds tempt you off the safest line and wake the Living Crown at floor 250. Beyond it, six persistent Canopy Wonders turn advanced movement skills into keys: bring Flow to the Wind Choir, cling into the Lightning Hollow, intercept the Sunwing Migration at speed, paint the Resin Aurora with Clean Sap, reach the Elder Bough with deep Stride and Flow, and cross the Crown Echo in CROWNVELOCITY. Discover all six and the Skyheart at floor 360 becomes the game’s ultimate finite destination before the endless mastery climb. Altitude changes the movement vocabulary through BREAKAWAY branches, moving PENDULUM anchors, CONEFALL, deterministic crosswind, pulsing resonance rings, elder-wind pulses, and long set-piece routes including CHOIRLINE, MIGRATION, ELDERSPAN, ECHOFLIGHT and SKYHEART. Persistent objectives provide curiosity and completion without permanent stat grinding, while the forest, route reading, and player-owned momentum remain the center of the game.',
+    version: 'v0.5.0',
+    status: 'playable',
+    sourceVisibility: 'public',
+    repoUrl: 'https://github.com/sidhulyalkar/sids-neural-net',
+    launchUrl: sylvariaSequoiaRuntime,
+    aspectRatio: '3 / 2',
+    nativeSize: { width: 960, height: 640 },
+    tags: ['vertical climber', 'living canopy', 'heartseeds', 'canopy wonders', 'skyheart', 'sap stick', 'momentum', 'aerial combos', 'moving anchors', 'breakaway branches', 'crosswind', 'procedural routes', 'persistent discovery', 'canvas'],
+    controls: [
+      { input: 'A / D · ← / →', action: 'Run to build Stride; while Sap Sticking, steer the swing left or right' },
+      { input: 'Space · W · ↑', action: 'Jump; a separate airborne press spends the renewable Air Kick' },
+      { input: 'Press Shift', action: 'Fire Sap Stick immediately at the best reachable amber knot' },
+      { input: 'Hold Shift + steer', action: 'Stay tethered and shape the swing with screen-horizontal control' },
+      { input: 'Release Shift', action: 'Vault with preserved momentum + Air Kick refresh; a fast shaped release earns Clean Sap' },
+      { input: 'Hold toward bark', action: 'Catch Bark Cling; jump while clinging for Bark Kick + Air Kick refresh' },
+      { input: 'Heartseeds 0/5', action: 'Take optional risky detours; each discovery persists and advances the Living Crown quest' },
+      { input: 'Living Crown · floor 250', action: 'Collect all five Heartseeds, then reach the Crown to awaken the postgame ascent' },
+      { input: 'Canopy Wonders 0/6', action: 'Use Flow, Bark, speed, Clean Sap, Stride and CROWNVELOCITY as six different discovery keys' },
+      { input: 'Skyheart · floor 360', action: 'Awaken the Crown + discover all six Wonders, then survive the Elder Sky to ring the final bell' },
+      { input: '0 · N · P', action: 'Retry current seed · generate a new route seed · pause' },
     ],
     accent: 'cyan',
   },
