@@ -4,8 +4,9 @@ import { createInitialBehaviorModel } from '../lib/frontier/behavior';
 import { createInitialProfile } from '../lib/frontier/config';
 import { buildDiscoveryFocus, decodeDiscoveryFocus, encodeDiscoveryFocus } from '../lib/frontier/discoveryFocus';
 
-test('adaptive focus is seeded by strong explicit interests without duplicate aliases', () => {
+test('adaptive focus is seeded by strong explicit interests without duplicate aliases once learning is active', () => {
   const profile = createInitialProfile();
+  profile.meaningfulInteractions = 1;
   profile.topicAffinity['mountain biking'] = 0.9;
   profile.topicAffinity.mtb = 0.8;
   profile.topicAffinity.neuroai = 0.75;
@@ -16,14 +17,21 @@ test('adaptive focus is seeded by strong explicit interests without duplicate al
   assert.equal(focus.filter((topic) => topic.includes('mountain biking')).length, 1);
 });
 
-test('negative interests do not become live search queries', () => {
+test('negative interests do not become live search queries once adaptive discovery is active', () => {
   const profile = createInitialProfile();
+  profile.meaningfulInteractions = 1;
   profile.topicAffinity.skateboarding = -0.7;
   profile.topicAffinity['mountain biking'] = 0.8;
   const focus = buildDiscoveryFocus(profile, undefined, 8);
 
   assert.ok(focus.includes('mountain biking'));
   assert.ok(!focus.includes('skateboarding'));
+});
+
+test('brand-new profiles deliberately defer adaptive fanout to the committed personalized snapshot', () => {
+  const profile = createInitialProfile();
+  profile.topicAffinity['mountain biking'] = 0.9;
+  assert.deepEqual(buildDiscoveryFocus(profile, createInitialBehaviorModel(), 6), []);
 });
 
 test('focus encoding round trips through the bounded query-string contract', () => {
