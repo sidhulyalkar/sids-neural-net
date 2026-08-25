@@ -50,7 +50,7 @@ async function initialContract(frame) {
 }
 
 function assertInitial(initial) {
-  if (initial.debugVersion !== '0.5.0') throw new Error(`debug contract is stale: ${initial.debugVersion}`);
+  if (initial.debugVersion !== '0.6.1') throw new Error(`debug contract is stale: ${initial.debugVersion}`);
   if (!initial.living || initial.living.count !== 0 || initial.living.total !== 6 || initial.living.skyheartFloor !== 360) {
     throw new Error(`Living Canopy initial state invalid: ${JSON.stringify(initial.living)}`);
   }
@@ -58,11 +58,11 @@ function assertInitial(initial) {
     throw new Error(`Living Canopy render/HUD unavailable: ${JSON.stringify({ render: initial.render, hud: initial.hud })}`);
   }
   for (const grammar of ['CHOIRLINE', 'HOLLOWRUN', 'MIGRATION', 'AURORARUN', 'ELDERSPAN', 'ECHOFLIGHT', 'SKYHEART']) {
-    if (!initial.grammars.includes(grammar)) throw new Error(`missing v0.5 grammar ${grammar}`);
+    if (!initial.grammars.includes(grammar)) throw new Error(`missing Living Canopy grammar ${grammar}`);
   }
   for (const [name, floor] of [['LIVING CROWN', 250], ['ELDER SKY', 320]]) {
     if (!initial.phases.some((entry) => entry.name === name && entry.floor === floor)) {
-      throw new Error(`missing v0.5 phase ${name}: ${JSON.stringify(initial.phases)}`);
+      throw new Error(`missing Living Canopy phase ${name}: ${JSON.stringify(initial.phases)}`);
     }
   }
 }
@@ -90,8 +90,6 @@ async function discoverWonder(frame, wonderId) {
     S.state.keys.delete('KeyA');
     S.state.keys.delete('KeyD');
 
-    // Prime the same states a player must actually earn. Bark uses the real cling
-    // lifecycle with held wall input rather than bypassing the mechanic.
     if (spec.condition === 'flow') {
       S.player.combo = 3;
       S.player.comboTimer = 2.8;
