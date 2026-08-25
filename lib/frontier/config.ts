@@ -86,7 +86,7 @@ export const FRONTIER_LANES: FrontierLaneDefinition[] = [
   {
     id: 'team_pulse', label: 'My Teams', shortLabel: 'My Teams', glyph: '◆',
     description: 'Patriots, Warriors, Chelsea, and Manchester City: results, roster moves, highlights, memes, and fan conversation.', weight: 1.18, realm: 'play',
-    keywords: ['new england patriots', 'patriots', 'golden state warriors', 'dub nation', 'chelsea fc', 'chelsea football club', 'manchester city', 'man city', 'mcfc'],
+    keywords: ['new england patriots', 'patriots', 'golden state warriors', 'dub nation', 'chelsea fc', 'chelsea football club', 'chelsea', 'manchester city', 'man city', 'mcfc'],
   },
   {
     id: 'sports', label: 'Sports + Motion', shortLabel: 'Sports', glyph: '◍',
