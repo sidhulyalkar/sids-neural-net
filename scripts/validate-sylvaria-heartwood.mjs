@@ -87,7 +87,8 @@ for (const pattern of [
 assert.doesNotMatch(render, /routeRng\.next\(/, 'quest/trial rendering must never consume route RNG');
 
 for (const pattern of [
-  /minimal-crown-hud-v2/,
+  /minimal-crown-hud-v1/,
+  /heartwood-objective-v2/,
   /function objectiveText\(/,
   /HEARTSEEDS/,
   /LIVING CROWN/,
