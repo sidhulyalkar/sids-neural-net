@@ -85,10 +85,12 @@ assert.match(world, /state\.RIGHT_WALL = 860/);
 // v0.6.1 deliberately narrows Sap itself without altering normal running/jumping.
 assert.match(sapRoutes, /sap-route-balance-v2/);
 assert.match(sapRoutes, /physical landing opportunity/);
-assert.match(sapAuthority, /nearest-sap-authority-v2/);
+assert.match(sapAuthority, /nearest-sap-authority-v3/);
 assert.match(sapAuthority, /stickAcquireBufferSeconds: 0/);
 assert.match(sapAuthority, /stickPullImpulse: 72/);
 assert.match(sapAuthority, /stickReleaseForward: 58/);
+assert.match(sapAuthority, /immutableAnchorIdentity: true/);
+assert.match(sapAuthority, /anchorIdentityFields: \['chunkId', 'floor', 'role', 'anchorKind'\]/);
 assert.match(sapAuthority, /useInvariant: nodeUses <= recharges \+ 1/);
 
 assert.match(heartwood, /FINAL_CROWN_FLOOR = 250/);
@@ -167,7 +169,7 @@ console.log(JSON.stringify({
   version: '0.6.1-living-canopy-preserved',
   motivation: ['5 persistent Heartseeds', 'Living Crown @ 250', '6 persistent Canopy Wonders', 'Skyheart @ 360', 'Canopy Contracts + Cone Tokens'],
   setpieces: ['CHOIRLINE', 'HOLLOWRUN', 'MIGRATION', 'AURORARUN', 'ELDERSPAN', 'ECHOFLIGHT', 'SKYHEART'],
-  sapContract: 'isolated nearest-node bridges between physical landings',
+  sapContract: 'isolated nearest-node bridges between physical landings with immutable authored identity',
   wonderSkills: ['3x Flow', 'Bark Cling', '450 flight speed', 'Clean Sap', '600 Stride + 5x Flow', 'CROWNVELOCITY'],
   lateSystems: ['fragile footing', 'moving Sap anchors', 'pulsing rings', 'telegraphed elder-wind pulses', 'Conefall', 'crosswind'],
 }, null, 2));
