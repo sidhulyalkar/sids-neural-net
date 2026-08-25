@@ -54,7 +54,7 @@ for (const pattern of [
 assert.doesNotMatch(rhythm, /TUNE\.run\.|TUNE\.jump\./, 'Sap rhythm must not rewrite core movement tuning');
 
 assert.match(routes, /sap-route-balance-v2/);
-assert.match(routes, /every authored Sap anchor is followed by a physical landing opportunity/);
+assert.match(routes, /physical landing opportunity before every additional Sap anchor/);
 assert.match(authority, /nearest-sap-authority-v3/);
 assert.match(authority, /stickAcquireBufferSeconds: 0/);
 assert.match(authority, /nearestEligibleAnchor/);
