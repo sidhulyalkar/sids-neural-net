@@ -41,7 +41,7 @@ export const FRONTIER_LANES: FrontierLaneDefinition[] = [
   {
     id: 'neuro_frontier', label: 'Neuroscience + NeuroAI', shortLabel: 'NeuroAI', glyph: '⌁',
     description: 'Neural representation, BCI, decoding, multimodal neuroscience, brain atlases, and scientific neuro-data systems.', weight: 1.18, realm: 'learn',
-    keywords: ['neuroscience', 'neural decoding', 'brain computer interface', 'brain-computer interface', 'bci', 'eeg', 'eeg foundation model', 'brain foundation model', 'neural foundation model', 'self-supervised eeg', 'ecog', 'neuropixels', 'calcium imaging', 'two-photon', '2-photon', 'fiber photometry', 'neuroai', 'neural representation', 'neural population dynamics', 'brain imaging', 'fmri', 'connectomics', 'connectome', 'brain atlas', 'neuroglancer', 'napari', 'datajoint', 'deeplabcut', 'facemap', 'spikeinterface', 'nwb', 'pynwb', 'dandi'],
+    keywords: ['neuroscience', 'neural decoding', 'brain computer interface', 'brain-computer interface', 'eeg foundation model', 'brain foundation model', 'neural foundation model', 'self-supervised eeg', 'electrocorticography', 'neuropixels', 'calcium imaging', 'two-photon', '2-photon', 'fiber photometry', 'neuroai', 'neural representation', 'neural population dynamics', 'brain imaging', 'fmri', 'connectomics', 'connectome', 'brain atlas', 'neuroglancer', 'napari', 'datajoint', 'deeplabcut', 'facemap', 'spikeinterface', 'pynwb', 'dandi'],
   },
   {
     id: 'methods', label: 'Methods Worth Stealing', shortLabel: 'Methods', glyph: '∴',
@@ -76,7 +76,7 @@ export const FRONTIER_LANES: FrontierLaneDefinition[] = [
   {
     id: 'premier_league', label: 'Premier League', shortLabel: 'Premier League', glyph: '⚽',
     description: 'Fixtures, tactical shifts, injuries, transfers, analytics, and matchday context.', weight: 1.1, realm: 'play',
-    keywords: ['premier league', 'arsenal', 'liverpool', 'manchester united', 'tottenham', 'newcastle', 'aston villa', 'xg', 'xthreat', 'pressing', 'set piece', 'transfer', 'football tactics'],
+    keywords: ['premier league', 'arsenal', 'liverpool', 'manchester united', 'tottenham', 'newcastle', 'aston villa', 'expected goals', 'xthreat', 'pressing', 'set piece', 'transfer', 'football tactics'],
   },
   {
     id: 'world_soccer', label: 'World Soccer', shortLabel: 'World Soccer', glyph: '◉',
@@ -91,7 +91,7 @@ export const FRONTIER_LANES: FrontierLaneDefinition[] = [
   {
     id: 'sports', label: 'Sports + Motion', shortLabel: 'Sports', glyph: '◍',
     description: 'NFL and fantasy edges, sports data analysis, the sports you do, pro circuits, athlete stories, and standout clips.', weight: 1.12, realm: 'play',
-    keywords: ['rock climbing', 'sport climbing', 'bouldering', 'lead climbing', 'speed climbing', 'ifsc', 'mountain biking', 'mountain bike', 'mtb', 'downhill mtb', 'enduro mtb', 'crankworx', 'skiing', 'freeski', 'freeride', 'freeride world tour', 'skateboarding', 'skateboard', 'street skating', 'longboarding', 'longboard', 'ripstik', 'ripstick', 'caster board', 'ripsurf', 'ripsurfing', 'waveboard', 'nfl', 'nba', 'fantasy football', 'superflex', '2qb', '2 qb', 'adp', 'route participation', 'target share', 'air yards', 'snap share', 'depth chart', 'injury', 'sports analytics', 'sports data', 'player tracking', 'next gen stats', 'nflverse', 'nflfastr', 'play-by-play', 'epa', 'cpoe', 'expected points', 'expected value', 'win probability', 'fourth down', 'highlight', 'scoreboard', 'scores', 'standings'],
+    keywords: ['rock climbing', 'sport climbing', 'bouldering', 'lead climbing', 'speed climbing', 'ifsc', 'mountain biking', 'mountain bike', 'downhill mtb', 'enduro mtb', 'crankworx', 'skiing', 'freeski', 'freeride', 'freeride world tour', 'skateboarding', 'skateboard', 'street skating', 'longboarding', 'longboard', 'ripstik', 'ripstick', 'caster board', 'ripsurf', 'ripsurfing', 'waveboard', 'national football league', 'american football', 'football analytics', 'basketball analytics', 'national basketball association', 'fantasy football', 'superflex', '2qb', '2 qb', 'average draft position', 'route participation', 'target share', 'air yards', 'snap share', 'depth chart', 'injury', 'sports analytics', 'sports data', 'player tracking', 'next gen stats', 'nflverse', 'nflfastr', 'play-by-play', 'expected points added', 'completion percentage over expected', 'expected points', 'expected value', 'win probability', 'fourth down', 'highlight', 'scoreboard', 'scores', 'standings'],
   },
   {
     id: 'gaming', label: 'Game Radar', shortLabel: 'Games', glyph: '▣',
@@ -160,7 +160,7 @@ export const FRONTIER_IMPORTANCE_TERMS = [
   'randomized trial', 'systematic review', 'meta-analysis', 'open source', 'dataset', 'standard', 'release',
   'foundation model', 'eeg foundation model', 'brain foundation model', 'mechanistic interpretability', 'activation patching',
   'sparse autoencoder', 'neural decoding', 'brain computer interface', 'agent', 'inference', 'satellite imagery', 'remote sensing',
-  'nfl', 'fantasy football', 'injury', 'depth chart', 'player tracking', 'premier league', 'transfer', 'trade', 'signing',
+  'national football league', 'american football', 'fantasy football', 'injury', 'depth chart', 'player tracking', 'premier league', 'transfer', 'trade', 'signing',
   'release date', 'dlc', 'major update', 'world championship', 'final', 'record', 'season renewal', 'series premiere',
 ];
 
