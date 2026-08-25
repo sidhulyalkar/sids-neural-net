@@ -136,6 +136,17 @@ export function frontierItemIdentityKey(item: Pick<FrontierItem, 'url' | 'title'
   return frontierSeenSignatures(item)[0] ?? `i:${frontierStableHash(item.id)}`;
 }
 
+/**
+ * Playback policy is applied at the client ledger boundary as well as server
+ * aggregation. This prevents a previously cached rights-fragile NFL YouTube
+ * card from flashing for up to 36 hours after the source policy changes.
+ */
+export function isFrontierPlaybackSafe(item: FrontierItem): boolean {
+  if (item.sourceKind !== 'youtube' && item.media?.type !== 'youtube') return true;
+  const text = [item.title, item.summary, item.sourceLabel, ...item.tags].join(' ').toLowerCase();
+  return !/\bnfl\b|new england patriots|patriots/.test(text);
+}
+
 function requestPromise<T>(request: IDBRequest<T>): Promise<T> {
   return new Promise<T>((resolve, reject) => {
     request.onsuccess = () => resolve(request.result);
@@ -241,19 +252,21 @@ async function exactSeenKeys(db: IDBDatabase, keys: string[]): Promise<Set<strin
 }
 
 export async function filterUnseenFrontierItems(items: FrontierItem[]): Promise<FrontierItem[]> {
-  if (!items.length || typeof indexedDB === 'undefined') return items;
+  const playbackSafe = items.filter(isFrontierPlaybackSafe);
+  if (!playbackSafe.length || typeof indexedDB === 'undefined') return playbackSafe;
   try {
     await ensureBloomCurrent();
-    const signatureSets = items.map((item) => frontierSeenSignatures(item));
+    const signatureSets = playbackSafe.map((item) => frontierSeenSignatures(item));
     const maybeKeys = signatureSets.flatMap((keys) => keys.filter((key) => bloom.mightContain(key)));
-    if (!maybeKeys.length) return items;
+    if (!maybeKeys.length) return playbackSafe;
     const db = await openSeenDb();
     const exact = await exactSeenKeys(db, maybeKeys);
-    return items.filter((_item, index) => !signatureSets[index].some((key) => exact.has(key)));
+    return playbackSafe.filter((_item, index) => !signatureSets[index].some((key) => exact.has(key)));
   } catch {
     // Privacy modes can disable IndexedDB. FRONTIER degrades to the existing
-    // in-session history rather than blocking discovery entirely.
-    return items;
+    // in-session history rather than blocking discovery entirely, while still
+    // enforcing presentation/playback safety.
+    return playbackSafe;
   }
 }
 
