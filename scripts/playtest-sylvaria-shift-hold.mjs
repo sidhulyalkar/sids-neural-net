@@ -21,6 +21,26 @@ const engines = [
 const results = [];
 let failed = false;
 
+async function runtimeFrame(page) {
+  const deadline = Date.now() + 8000;
+  let lastFrameUrls = [];
+  while (Date.now() < deadline) {
+    const frames = page.frames();
+    lastFrameUrls = frames.map((candidate) => candidate.url());
+    const frame = frames.find((candidate) => candidate.url().includes('/game-runtimes/sylvaria-sequoia/'));
+    if (frame) {
+      try {
+        await frame.locator('#c').waitFor({ state: 'visible', timeout: 750 });
+        return frame;
+      } catch {
+        // The runtime frame can exist before its canvas is painted, especially in WebKit.
+      }
+    }
+    await page.waitForTimeout(100);
+  }
+  throw new Error(`Sylvaria iframe did not attach within 8s: ${JSON.stringify(lastFrameUrls)}`);
+}
+
 async function focusRuntime(page, frame) {
   await frame.locator('#c').click();
   await frame.locator('#c').focus();
@@ -62,6 +82,7 @@ async function primeAuthoredSapTarget(frame) {
       knot: { floor: knot.floor, x: knot.x, y: knot.y },
       target: S.sapStick.getTargetPreview?.() || null,
       rhythm: S.sapRhythm?.getState?.() || null,
+      authority: S.sapAuthority?.getState?.() || null,
     };
   });
 }
@@ -87,6 +108,7 @@ async function runtimeContracts(frame) {
       grammars: window.SYLVARIA_SEQUOIA_DEBUG.getRouteGrammars(),
       sap: S.sapStick?.getState?.() || null,
       sapRhythm: S.sapRhythm?.getState?.() || null,
+      sapAuthority: S.sapAuthority?.getState?.() || null,
       economy: S.canopyEconomy?.getState?.() || null,
       intensities,
     };
@@ -126,8 +148,50 @@ function assertCrownTrailContracts(contract) {
   if (!contract.sapRhythm?.ready || contract.sapRhythm?.minAnchorVerticalSpacing !== 205 || !contract.sapRhythm?.successfulUseInvariant) {
     throw new Error(`Branch-gated Sap rhythm unavailable: ${JSON.stringify(contract.sapRhythm)}`);
   }
+  if (
+    contract.sapAuthority?.version !== 'nearest-sap-authority-v3' ||
+    !contract.sapAuthority?.armed ||
+    !contract.sapAuthority?.immutableAnchorIdentity ||
+    contract.sapAuthority?.bufferedAcquisitionSeconds !== 0 ||
+    !contract.sapAuthority?.useInvariant
+  ) {
+    throw new Error(`Hard Sap authority unavailable: ${JSON.stringify(contract.sapAuthority)}`);
+  }
   if (contract.economy?.currency !== 'CONE TOKENS' || contract.economy?.missions?.length !== 3) {
     throw new Error(`Canopy Contracts economy unavailable: ${JSON.stringify(contract.economy)}`);
+  }
+}
+
+function assertPostReleaseAuthority(vaulted, requestsBefore) {
+  const { state: snapshot } = vaulted;
+  const authority = snapshot.sapAuthority;
+  const rhythm = snapshot.sapRhythm;
+
+  if ((snapshot.jumpInput?.nextRequestId ?? -1) !== requestsBefore || snapshot.airJumps !== 1) {
+    throw new Error(`Shift release leaked into jump authority: ${JSON.stringify(snapshot.jumpInput)}`);
+  }
+  if (!authority?.useInvariant || authority.nodeUses !== 1 || authority.usedAnchors !== 1) {
+    throw new Error(`Shift release violated Sap lease accounting: ${JSON.stringify(authority)}`);
+  }
+  if (rhythm?.sapUses !== 1 || !rhythm?.successfulUseInvariant) {
+    throw new Error(`Shift release violated Sap rhythm accounting: ${JSON.stringify(rhythm)}`);
+  }
+
+  // With v0.6.1's bounded-energy Sap, Pip is allowed to reach a real higher log
+  // before this observation point. If that happens, Sap should already be armed
+  // again. If it has not happened, Sap must remain spent. Never infer correctness
+  // from vertical velocity at an arbitrary wall-clock delay.
+  if (authority.armed) {
+    if (authority.recharges !== 1 || authority.highestPhysicalFloor <= authority.spentAtFloor) {
+      throw new Error(`Sap rearmed without a genuine higher-log landing: ${JSON.stringify(authority)}`);
+    }
+    if (!rhythm.ready || rhythm.sapCycles < 1 || rhythm.highestLogFloor <= rhythm.spentAtFloor) {
+      throw new Error(`Hard authority rearmed but rhythm observation did not see the higher log: ${JSON.stringify(rhythm)}`);
+    }
+  } else {
+    if (authority.recharges !== 0 || rhythm.ready) {
+      throw new Error(`Sap spent/ready state diverged before a higher-log landing: ${JSON.stringify({ authority, rhythm })}`);
+    }
   }
 }
 
@@ -135,9 +199,7 @@ async function runShiftHoldContract(page, engineName) {
   const response = await page.goto(`${baseUrl}/arcade/sylvaria-sequoia`, { waitUntil: 'networkidle' });
   if (!response?.ok()) throw new Error(`Sylvaria route returned ${response?.status() ?? 'no response'}`);
 
-  const frame = page.frames().find((candidate) => candidate.url().includes('/game-runtimes/sylvaria-sequoia/'));
-  if (!frame) throw new Error('Sylvaria iframe did not attach');
-  await frame.locator('#c').waitFor({ state: 'visible' });
+  const frame = await runtimeFrame(page);
   await focusRuntime(page, frame);
 
   await page.keyboard.press('Space');
@@ -174,8 +236,8 @@ async function runShiftHoldContract(page, engineName) {
   if (plainVault.state.combo !== 0 || (plainVault.telemetry.counters.sapStickCleanVaults || 0) !== 0) {
     throw new Error(`Ordinary Sap vault still manufactured Flow: ${JSON.stringify(plainVault)}`);
   }
-  if (plainVault.state.sapRhythm.ready || plainVault.state.sapRhythm.sapUses !== 1) {
-    throw new Error(`Plain Sap vault did not spend the branch-gated charge: ${JSON.stringify(plainVault.state.sapRhythm)}`);
+  if (plainVault.state.sapAuthority?.nodeUses !== 1 || !plainVault.state.sapAuthority?.useInvariant) {
+    throw new Error(`Plain Sap vault did not consume exactly one authority lease: ${JSON.stringify(plainVault.state.sapAuthority)}`);
   }
 
   await resetSameSeed(frame);
@@ -244,12 +306,7 @@ async function runShiftHoldContract(page, engineName) {
   if ((vaulted.telemetry.counters.sapStickCasts || 0) < castsBefore + 1 || (vaulted.telemetry.counters.sapStickVaults || 0) < 1) {
     throw new Error(`Shift lifecycle did not record cast + vault: ${JSON.stringify(vaulted.telemetry.counters)}`);
   }
-  if ((vaulted.state.jumpInput?.nextRequestId ?? -1) !== requestsBefore || vaulted.state.airJumps !== 1 || vaulted.state.player.vy <= 0) {
-    throw new Error(`Shift release did not preserve clean vault recovery: ${JSON.stringify(vaulted.state)}`);
-  }
-  if (vaulted.state.sapRhythm.ready || vaulted.state.sapRhythm.sapUses !== 1) {
-    throw new Error(`Vault did not leave Sap spent pending a higher log: ${JSON.stringify(vaulted.state.sapRhythm)}`);
-  }
+  assertPostReleaseAuthority(vaulted, requestsBefore);
 
   await page.keyboard.down('ArrowRight');
   await page.waitForTimeout(150);
@@ -261,7 +318,14 @@ async function runShiftHoldContract(page, engineName) {
   if (afterZero.state.seed !== beforeZero.state.seed || afterZero.state.mode !== 'playing') {
     throw new Error(`0 did not retry the current seed: before=${JSON.stringify(beforeZero.state)}, after=${JSON.stringify(afterZero.state)}`);
   }
-  if (afterZero.telemetry.runSeconds > 0.18 || afterZero.state.combo !== 0 || Math.abs(afterZero.state.player.x - 480) > 45 || !afterZero.state.sapRhythm.ready) {
+  if (
+    afterZero.telemetry.runSeconds > 0.18 ||
+    afterZero.state.combo !== 0 ||
+    Math.abs(afterZero.state.player.x - 480) > 45 ||
+    !afterZero.state.sapRhythm.ready ||
+    !afterZero.state.sapAuthority?.armed ||
+    afterZero.state.sapAuthority?.nodeUses !== 0
+  ) {
     throw new Error(`0 reset did not restore a fresh run: ${JSON.stringify(afterZero)}`);
   }
 
