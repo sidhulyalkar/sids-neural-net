@@ -7,8 +7,10 @@ const root = process.cwd();
 const runtimeRoot = join(root, 'public/game-runtimes/sylvaria-sequoia');
 const required = [
   'index.html',
+  '02-sap-route-balance.js',
   '02-sap-rhythm.js',
   '02-canopy-economy.js',
+  '02-sap-authority-v2.js',
   '03-canopy-economy-hud.js',
   '03-economy-input-guard.js',
   '05-debug-canopy-contracts.js',
@@ -22,19 +24,21 @@ for (const name of required) {
 
 const read = (name) => readFileSync(join(runtimeRoot, name), 'utf8');
 const index = read('index.html');
+const routes = read('02-sap-route-balance.js');
 const rhythm = read('02-sap-rhythm.js');
 const economy = read('02-canopy-economy.js');
+const authority = read('02-sap-authority-v2.js');
 const hud = read('03-canopy-economy-hud.js');
 const input = read('03-economy-input-guard.js');
 const debug = read('05-debug-canopy-contracts.js');
 
-assert.match(index, /Sylvaria: Sequoia v0\.6\.0/);
-assert.match(index, /02-living-canopy\.js[\s\S]*02-sap-rhythm\.js[\s\S]*02-canopy-economy\.js/);
+assert.match(index, /Sylvaria: Sequoia v0\.6\.1/);
+assert.match(index, /02-living-canopy\.js[\s\S]*02-sap-route-balance\.js[\s\S]*02-sap-rhythm\.js[\s\S]*02-canopy-economy\.js[\s\S]*02-sap-authority-v2\.js/);
 assert.match(index, /03-canopy-economy-hud\.js[\s\S]*03-economy-input-guard\.js[\s\S]*04-input\.js/);
 assert.match(index, /05-debug-living-canopy\.js[\s\S]*05-debug-canopy-contracts\.js/);
 assert.match(index, /Land higher logs to recharge Sap/i);
 assert.match(index, /Cone Tokens/i);
-assert.match(index, /3 Contracts/i);
+assert.match(index, /nearest unused amber node/i);
 
 for (const pattern of [
   /sap-rhythm-v1/,
@@ -47,8 +51,15 @@ for (const pattern of [
   /SAP SPENT · LAND ON A HIGHER LOG/,
   /SAP READY · HIGHER LOG BANKED/,
 ]) assert.match(rhythm, pattern);
-
 assert.doesNotMatch(rhythm, /TUNE\.run\.|TUNE\.jump\./, 'Sap rhythm must not rewrite core movement tuning');
+
+assert.match(routes, /sap-route-balance-v2/);
+assert.match(routes, /every authored Sap anchor is followed by a physical landing opportunity/);
+assert.match(authority, /nearest-sap-authority-v2/);
+assert.match(authority, /stickAcquireBufferSeconds: 0/);
+assert.match(authority, /nearestEligibleAnchor/);
+assert.match(authority, /usedAnchorIds/);
+assert.match(authority, /useInvariant: nodeUses <= recharges \+ 1/);
 
 for (const pattern of [
   /canopy-contracts-v1/,
@@ -86,13 +97,14 @@ assert.match(input, /KeyB/);
 assert.match(input, /Digit1/);
 assert.match(input, /Digit4/);
 assert.match(input, /stopImmediatePropagation/);
-assert.match(debug, /debug\.version = '0\.6\.0'/);
+assert.match(debug, /debug\.version = '0\.6\.1'/);
 assert.match(debug, /getSapRhythm/);
+assert.match(debug, /getSapAuthority/);
 assert.match(debug, /getEconomy/);
 
 // Shop purchases are intentionally consumable next-run aids. The economy must
-// never mutate the authoritative base acceleration, jump constants, gravity, or
-// route RNG, so currency cannot become permanent movement-stat grinding.
+// never mutate authoritative base acceleration, jump constants, gravity, or route
+// RNG, so currency cannot become permanent movement-stat grinding.
 for (const source of [economy, hud, input]) {
   assert.doesNotMatch(source, /state\.routeRng\.next\(/);
   assert.doesNotMatch(source, /TUNE\.run\.(?:groundAccel|airAccel|maxSpeed)\s*=/);
@@ -103,8 +115,8 @@ for (const source of [economy, hud, input]) {
 console.log(JSON.stringify({
   ok: true,
   runtime: 'sylvaria-sequoia',
-  version: '0.6.0-canopy-contracts',
-  sapLoop: 'higher log -> Sap ready -> one Sap vault -> higher log recharge',
+  version: '0.6.1-canopy-contracts',
+  sapLoop: 'higher log -> nearest unused Sap node -> bounded nudge -> higher log recharge',
   currency: 'Cone Tokens',
   shop: ['Extra Life', 'Stride Seed', 'Resin Flask', 'Trail Map'],
   missions: ['Two-Way Climb', 'Log Ladder', 'Clean Craft', 'Flow Study', 'High Road', 'No Panic', 'Ring Route'],
