@@ -188,6 +188,7 @@ test('Game Network browser validation preserves current cabinets and gives Sylva
   const livingTest = readRepoFile('scripts/playtest-sylvaria-living-canopy-v2.mjs');
   const economyTest = readRepoFile('scripts/playtest-sylvaria-economy.mjs');
   const sapAuthorityTest = readRepoFile('scripts/playtest-sylvaria-sap-authority.mjs');
+  const sapAuthorityRuntime = readRepoFile('public/game-runtimes/sylvaria-sequoia/02-sap-authority-v2.js');
   const sylvariaWorkflow = readRepoFile('.github/workflows/sylvaria-sequoia-ci.yml');
 
   assert.match(workflow, /install chrome/);
@@ -203,13 +204,19 @@ test('Game Network browser validation preserves current cabinets and gives Sylva
   assert.match(livingTest, /six-wonder Atlas did not complete/);
   assert.match(livingTest, /Skyheart did not ring persistently/);
   assert.match(economyTest, /name: 'chrome-stable'/);
-  assert.match(economyTest, /Sap spam bypassed the higher-log recharge contract/);
+  assert.match(economyTest, /nearest-sap-authority-v3/);
+  assert.match(economyTest, /immutableAnchorIdentity/);
+  assert.match(economyTest, /Sap spam bypassed the hard higher-log authority contract/);
   assert.match(economyTest, /Extra Life was not consumed into the next run/);
   assert.match(sapAuthorityTest, /name: 'chrome-stable'/);
   assert.match(sapAuthorityTest, /strict nearest eligible node/);
   assert.match(sapAuthorityTest, /24; index \+= 1/);
   assert.match(sapAuthorityTest, /single-use Sap lease/);
   assert.match(sapAuthorityTest, /bounded momentum nudge/);
+  assert.match(sapAuthorityTest, /Moving Sap anchor changed authority identity/);
+  assert.match(sapAuthorityTest, /Consumed moving Sap anchor became reusable after coordinate motion/);
+  assert.match(sapAuthorityRuntime, /nearest-sap-authority-v3/);
+  assert.match(sapAuthorityRuntime, /anchorIdentityFields: \['chunkId', 'floor', 'role', 'anchorKind'\]/);
   assert.match(sylvariaWorkflow, /check:sylvaria-sap-authority/);
   assert.match(sylvariaWorkflow, /playtest-sylvaria-sap-authority\.mjs/);
 });
