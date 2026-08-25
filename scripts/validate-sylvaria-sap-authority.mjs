@@ -21,7 +21,7 @@ assert.match(index, /02-living-canopy\.js[\s\S]*02-sap-route-balance\.js[\s\S]*0
 assert.match(index, /nearest unused amber node/i);
 
 for (const pattern of [
-  /nearest-sap-authority-v2/,
+  /nearest-sap-authority-v3/,
   /stickAcquireBufferSeconds: 0/,
   /nearestEligibleAnchor/,
   /Math\.hypot\(knot\.x - player\.x, knot\.y - player\.y\)/,
@@ -37,11 +37,25 @@ for (const pattern of [
   /leaseSpeedCap/,
   /capSpeed\(leaseSpeedCap\)/,
   /sapAuthorityEnergyClamps/,
+  /activeLeaseKnot/,
+  /LEASE_NODE_MISMATCH/,
+  /immutableAnchorIdentity: true/,
+  /anchorIdentityFields: \['chunkId', 'floor', 'role', 'anchorKind'\]/,
   /S\.castSapStick = pressSapStick/,
   /S\.sapStick\.cast = pressSapStick/,
   /useInvariant: nodeUses <= recharges \+ 1/,
   /AUTHORITY_REJECT/,
 ]) assert.match(authority, pattern);
+
+// Node identity must be topology-only. Position appears in targeting math, but it
+// must never appear inside anchorId(), otherwise moving Pendulum anchors can be
+// consumed repeatedly as their x coordinate changes.
+const anchorIdBody = authority.match(/function anchorId\(knot\) \{([\s\S]*?)\n  \}/)?.[1] || '';
+assert.match(anchorIdBody, /chunkId/);
+assert.match(anchorIdBody, /floor/);
+assert.match(anchorIdBody, /role/);
+assert.match(anchorIdBody, /anchorKind/);
+assert.doesNotMatch(anchorIdBody, /knot\?\.x|knot\?\.y|Math\.round/);
 
 assert.match(authority, /stickPullImpulse: 72/);
 assert.match(authority, /stickTangentBoost: 78/);
@@ -72,10 +86,11 @@ assert.ok(totalAnchors / totalBranches < 0.36, `Sap density is still too high: $
 
 console.log(JSON.stringify({
   ok: true,
-  version: '0.6.1-nearest-sap-authority',
+  version: '0.6.1-nearest-sap-authority-v3',
   targetRule: 'strict nearest eligible authored node at press time',
+  identityRule: 'route chunk + floor + role + anchor kind; position never participates',
   rechargeRule: 'one Sap use, then a physically held higher-log landing',
-  nodeReuse: 'forbidden within a run',
+  nodeReuse: 'forbidden within a run, including moving anchors',
   directBoostCaps: {
     attach: { vx: 95, vy: 120 },
     release: { vx: 105, vy: 145 },
