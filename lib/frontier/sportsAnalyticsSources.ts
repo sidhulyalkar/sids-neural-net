@@ -16,8 +16,8 @@ const PINNED_QUERIES: readonly SportsAnalyticsQuery[] = [
   {
     id: 'nfl-analytics',
     label: 'NFL analytics',
-    query: 'NFL analytics player tracking EPA CPOE play-by-play fourth down win probability',
-    tags: ['nfl', 'sports analytics', 'player tracking', 'play-by-play', 'epa', 'cpoe'],
+    query: 'NFL Patriots analytics player tracking EPA CPOE play-by-play fourth down win probability',
+    tags: ['nfl', 'patriots', 'sports analytics', 'player tracking', 'play-by-play', 'epa', 'cpoe'],
     weight: 1,
   },
   {
@@ -25,6 +25,13 @@ const PINNED_QUERIES: readonly SportsAnalyticsQuery[] = [
     label: 'Fantasy football models',
     query: 'fantasy football superflex 2QB ADP target share route participation air yards projections analytics',
     tags: ['fantasy football', 'superflex', '2qb', 'adp', 'target share', 'player usage'],
+    weight: 1,
+  },
+  {
+    id: 'nfl-role-news',
+    label: 'NFL role and availability',
+    query: 'NFL fantasy football injury depth chart training camp role change snap share route participation beat reporter',
+    tags: ['nfl', 'fantasy football', 'injury', 'depth chart', 'player usage', 'decision edge'],
     weight: 1,
   },
   {
@@ -39,17 +46,17 @@ const PINNED_QUERIES: readonly SportsAnalyticsQuery[] = [
 const ROTATING_QUERIES: readonly SportsAnalyticsQuery[] = [
   {
     id: 'nba-analytics',
-    label: 'NBA analytics',
-    query: 'NBA analytics lineup tracking shot quality expected value player impact visualization',
-    tags: ['nba', 'sports analytics', 'player tracking', 'visualization'],
-    weight: 0.84,
+    label: 'Warriors and NBA analytics',
+    query: 'Golden State Warriors NBA analytics lineup tracking shot quality expected value player impact visualization',
+    tags: ['warriors', 'nba', 'sports analytics', 'player tracking', 'visualization'],
+    weight: 0.9,
   },
   {
     id: 'soccer-analytics',
-    label: 'Soccer analytics',
-    query: 'soccer analytics xG xThreat tracking pressing set pieces data visualization',
-    tags: ['soccer analytics', 'xg', 'xthreat', 'sports data', 'visualization'],
-    weight: 0.84,
+    label: 'Chelsea, Man City and soccer analytics',
+    query: 'Chelsea Manchester City soccer analytics xG xThreat tracking pressing set pieces data visualization',
+    tags: ['chelsea', 'man city', 'soccer analytics', 'xg', 'xthreat', 'sports data', 'visualization'],
+    weight: 0.9,
   },
 ] as const;
 
