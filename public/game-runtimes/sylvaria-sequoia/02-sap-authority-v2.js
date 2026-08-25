@@ -163,9 +163,13 @@
     return false;
   }
 
-  function rejectUnexpectedAttach(reason) {
+  function rejectUnexpectedAttach(reason, restoreVelocity = null) {
     baseRelease('AUTHORITY_REJECT');
     player.sap = null;
+    if (restoreVelocity) {
+      player.vx = restoreVelocity.vx;
+      player.vy = restoreVelocity.vy;
+    }
     activeLeaseId = '';
     activeLeaseKnot = null;
     releaseBaseline = null;
@@ -255,16 +259,19 @@
     noticeCooldown = Math.max(0, noticeCooldown - dt);
     const wasActive = Boolean(player.sap?.stickMode);
     const leaseBefore = activeLeaseId;
-    const velocityBeforeUpdate = wasActive ? { vx: player.vx, vy: player.vy } : null;
+    const velocityBeforeUpdate = { vx: player.vx, vy: player.vy };
+    let leaseRejected = false;
     baseUpdate(dt);
     const isActive = Boolean(player.sap?.stickMode);
 
     if (!wasActive && isActive && !activeLeaseId) {
-      rejectUnexpectedAttach('NO_LEASE');
+      rejectUnexpectedAttach('NO_LEASE', velocityBeforeUpdate);
+      leaseRejected = true;
     } else if (isActive && activeLeaseId) {
       const attachedKnot = player.sap?.knot || null;
       if (!attachedKnot || attachedKnot !== activeLeaseKnot || anchorId(attachedKnot) !== activeLeaseId) {
-        rejectUnexpectedAttach('LEASE_NODE_MISMATCH');
+        rejectUnexpectedAttach('LEASE_NODE_MISMATCH', velocityBeforeUpdate);
+        leaseRejected = true;
       } else {
         // Steering can rotate/shape the swing, but repeated fixed updates cannot
         // pump the tether above the bounded energy budget granted on acquisition.
@@ -272,7 +279,7 @@
       }
     }
 
-    if (wasActive && !player.sap?.stickMode && leaseBefore) {
+    if (!leaseRejected && wasActive && !player.sap?.stickMode && leaseBefore) {
       finishLeaseRelease(releaseBaseline || velocityBeforeUpdate);
     }
 
