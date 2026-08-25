@@ -1,4 +1,5 @@
 import { FRONTIER_SOURCE_WEIGHTS } from './config';
+import { FRONTIER_MUSIC_ARTISTS } from './interests';
 import {
   FRONTIER_TASTE_DISCOVERY_QUERIES,
   personalTasteTags,
@@ -12,7 +13,9 @@ import type {
   FrontierSourceStatus,
 } from './types';
 
-const USER_AGENT = 'sids-neural-net-frontier/2.0 (+https://sidhulyalkar.com/frontier)';
+const USER_AGENT = 'sids-neural-net-frontier/2.1 (+https://sidhulyalkar.com/frontier)';
+const MUSIC_QUERY_TIMEOUT_MS = 3_800;
+const DAY_MS = 86_400_000;
 
 type BraveResult = {
   title?: string;
@@ -23,6 +26,12 @@ type BraveResult = {
 };
 
 type BravePayload = { web?: { results?: BraveResult[] } };
+
+type MusicQuery = {
+  id: string;
+  query: string;
+  artists: string[];
+};
 
 function clamp(value: number, min = 0, max = 1): number {
   return Math.min(max, Math.max(min, value));
@@ -39,6 +48,7 @@ function stableId(input: string): string {
 
 function cleanText(value: string | undefined): string {
   return (value ?? '')
+    .replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, '$1')
     .replace(/&amp;/g, '&')
     .replace(/&lt;/g, '<')
     .replace(/&gt;/g, '>')
@@ -77,7 +87,7 @@ function sourceKindFromUrl(url: string, videoId?: string): FrontierSourceKind {
   try {
     const host = new URL(url).hostname.replace(/^www\./, '').toLowerCase();
     if (host === 'reddit.com' || host.endsWith('.reddit.com')) return 'reddit';
-    if (['x.com', 'twitter.com', 'threads.net'].includes(host)) return 'social';
+    if (['x.com', 'twitter.com', 'threads.net', 'threads.com', 'tiktok.com'].includes(host)) return 'social';
   } catch {
     return 'brave_web';
   }
@@ -97,6 +107,30 @@ function dayHash(value: string): number {
   return hash >>> 0;
 }
 
+function xmlTag(block: string, tag: string): string {
+  const match = block.match(new RegExp(`<${tag}(?:\\s[^>]*)?>([\\s\\S]*?)<\\/${tag}>`, 'i'));
+  return cleanText(match?.[1]);
+}
+
+function xmlTagAttribute(block: string, tag: string, attribute: string): string {
+  const opening = block.match(new RegExp(`<${tag}\\b([^>]*)>`, 'i'))?.[1] ?? '';
+  return cleanText(opening.match(new RegExp(`\\b${attribute}\\s*=\\s*["']([^"']+)["']`, 'i'))?.[1]);
+}
+
+function publisherHost(value: string): string {
+  try { return new URL(value).hostname.replace(/^www\./, '').toLowerCase(); } catch { return ''; }
+}
+
+function evidenceContains(text: string, term: string): boolean {
+  const lower = text.toLowerCase();
+  const needle = term.trim().toLowerCase();
+  if (!needle) return false;
+  if (/^[a-z0-9]+$/.test(needle) && needle.length <= 4) {
+    return new RegExp(`(^|[^a-z0-9])${needle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}([^a-z0-9]|$)`, 'i').test(lower);
+  }
+  return lower.includes(needle);
+}
+
 /**
  * Keep the highest-value four taste searches always on, then rotate another
  * four. This bounds Brave usage while preventing the discovery mesh from
@@ -114,6 +148,126 @@ export function pickDailyTasteQueries(dayKey: string, limit = 8): FrontierTasteD
     (_, index) => rotation[(start + index) % rotation.length]
   );
   return [...pinned, ...picked];
+}
+
+/**
+ * Bass discovery is intentionally keyless and rotates through the checked-in
+ * taste profile. Query text is retrieval only: returned copy must independently
+ * mention the artist or bass/dubstep evidence before it earns music semantics.
+ */
+export function pickDailyMusicQueries(dayKey: string, artistCount = 4): MusicQuery[] {
+  const artists = Array.from(new Set(FRONTIER_MUSIC_ARTISTS.map((artist) => artist.trim()).filter(Boolean)));
+  const count = Math.max(1, Math.min(6, artistCount, artists.length));
+  const start = artists.length ? dayHash(`${dayKey}-music-radar`) % artists.length : 0;
+  const selected = artists.length
+    ? Array.from({ length: count }, (_, index) => artists[(start + index) % artists.length])
+    : [];
+  return [
+    ...selected.map((artist) => ({
+      id: `artist-${stableId(artist.toLowerCase())}`,
+      query: `"${artist}" new release remix live set dubstep bass music`,
+      artists: [artist],
+    })),
+    {
+      id: 'bass-frontier',
+      query: 'dubstep bass music new release remix live set festival',
+      artists: [],
+    },
+  ];
+}
+
+export function parsePersonalMusicNewsRss(xml: string, spec: MusicQuery, now = Date.now()): FrontierItem[] {
+  const blocks = xml.match(/<item\b[\s\S]*?<\/item>/gi) ?? [];
+  return blocks.slice(0, 8).flatMap((block, index) => {
+    const title = xmlTag(block, 'title');
+    const url = xmlTag(block, 'link') || xmlTag(block, 'guid');
+    if (!title || !url) return [];
+    const description = summarize(xmlTag(block, 'description'));
+    const evidenceText = `${title} ${description}`;
+    const matchedArtists = spec.artists.filter((artist) => evidenceContains(evidenceText, artist));
+    const bassEvidence = ['dubstep', 'bass music', 'melodic bass', 'bass house', 'electronic music', 'remix', 'live set']
+      .some((term) => evidenceContains(evidenceText, term));
+    if (!matchedArtists.length && !bassEvidence) return [];
+
+    const publishedRaw = xmlTag(block, 'pubDate');
+    const publishedAt = Number.isNaN(Date.parse(publishedRaw))
+      ? new Date(now).toISOString()
+      : new Date(publishedRaw).toISOString();
+    const ageDays = Math.max(0, (now - new Date(publishedAt).getTime()) / DAY_MS);
+    if (ageDays > 21) return [];
+
+    const publisherUrl = xmlTagAttribute(block, 'source', 'url');
+    const sourceLabel = xmlTag(block, 'source') || publisherHost(publisherUrl) || 'Music radar';
+    const source = publisherHost(publisherUrl) || 'news.google.com';
+    const freshness = Math.exp(-ageDays / 7);
+    const quality = 0.68;
+    const importance = matchedArtists.length ? 0.58 : 0.5;
+    const novelty = 0.62;
+    const momentum = 0.5;
+    const baseScore = clamp(
+      importance * 0.28 + quality * 0.24 + momentum * 0.14 + freshness * 0.22 + novelty * 0.12
+    );
+    const tags = Array.from(new Set([
+      ...matchedArtists.map((artist) => artist.toLowerCase()),
+      ...(bassEvidence ? ['bass music'] : []),
+      'music discovery',
+    ])).slice(0, 8);
+
+    return [{
+      id: `taste-music-${spec.id}-${stableId(`${url}-${index}`)}`,
+      title,
+      summary: description || 'Fresh release or performance signal from the keyless bass radar.',
+      url,
+      source,
+      sourceLabel,
+      sourceKind: 'rss' as const,
+      publishedAt,
+      lane: 'music' as const,
+      tags,
+      importance,
+      quality,
+      momentum,
+      novelty,
+      baseScore,
+      why: matchedArtists.length
+        ? `Fresh signal for ${matchedArtists.join(' + ')} from the checked-in music taste profile.`
+        : 'Fresh dubstep or bass-music signal from the keyless daily radar.',
+    } satisfies FrontierItem];
+  });
+}
+
+async function fetchMusicQuery(spec: MusicQuery): Promise<FrontierItem[]> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), MUSIC_QUERY_TIMEOUT_MS);
+  try {
+    const url = `https://news.google.com/rss/search?q=${encodeURIComponent(spec.query)}&hl=en-US&gl=US&ceid=US:en`;
+    const response = await fetch(url, {
+      headers: { 'User-Agent': USER_AGENT, Accept: 'application/rss+xml, text/xml' },
+      signal: controller.signal,
+      next: { revalidate: 60 * 45 },
+    });
+    if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
+    return parsePersonalMusicNewsRss(await response.text(), spec).slice(0, 2);
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+async function getKeylessMusicRadar(dayKey: string): Promise<{ items: FrontierItem[]; status: FrontierSourceStatus }> {
+  const queries = pickDailyMusicQueries(dayKey);
+  const runs = await Promise.allSettled(queries.map(fetchMusicQuery));
+  const items = runs.flatMap((run) => run.status === 'fulfilled' ? run.value : []);
+  const failures = runs.filter((run) => run.status === 'rejected').length;
+  return {
+    items,
+    status: {
+      id: 'rss',
+      label: 'Bass music radar',
+      ok: items.length > 0 || failures < runs.length,
+      count: items.length,
+      message: failures > 0 && items.length === 0 ? 'keyless music discovery unavailable' : undefined,
+    },
+  };
 }
 
 async function fetchBrave(query: FrontierTasteDiscoveryQuery, token: string): Promise<FrontierItem[]> {
@@ -192,25 +346,33 @@ async function fetchBrave(query: FrontierTasteDiscoveryQuery, token: string): Pr
 
 export async function getPersonalTasteFrontierFeed(): Promise<FrontierFeedResponse> {
   const token = process.env.BRAVE_SEARCH_API_KEY;
-  const status: FrontierSourceStatus = token
+  const dayKey = new Date().toISOString().slice(0, 10);
+  const music = await getKeylessMusicRadar(dayKey);
+  const braveStatus: FrontierSourceStatus = token
     ? { id: 'brave_web', label: 'Personal taste search', ok: true, count: 0 }
     : { id: 'brave_web', label: 'Personal taste search', ok: false, count: 0, message: 'optional Brave key not configured' };
-  if (!token) return { generatedAt: new Date().toISOString(), items: [], sources: [status] };
 
-  const dayKey = new Date().toISOString().slice(0, 10);
+  if (!token) {
+    return {
+      generatedAt: new Date().toISOString(),
+      items: music.items,
+      sources: [braveStatus, music.status],
+    };
+  }
+
   const queries = pickDailyTasteQueries(dayKey);
   const runs = await Promise.allSettled(queries.map((query) => fetchBrave(query, token)));
-  const items = runs.flatMap((run) => run.status === 'fulfilled' ? run.value : []);
+  const braveItems = runs.flatMap((run) => run.status === 'fulfilled' ? run.value : []);
   const failures = runs.filter((run) => run.status === 'rejected').length;
 
   return {
     generatedAt: new Date().toISOString(),
-    items,
+    items: [...braveItems, ...music.items],
     sources: [{
-      ...status,
-      ok: items.length > 0 || failures < runs.length,
-      count: items.length,
-      message: failures > 0 && items.length === 0 ? 'targeted search providers unavailable' : undefined,
-    }],
+      ...braveStatus,
+      ok: braveItems.length > 0 || failures < runs.length,
+      count: braveItems.length,
+      message: failures > 0 && braveItems.length === 0 ? 'targeted search providers unavailable' : undefined,
+    }, music.status],
   };
 }
