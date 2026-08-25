@@ -1,18 +1,21 @@
-# Sylvaria: Sequoia v0.4 - Sap Stick Canopy + Feel Recovery
+# Sylvaria: Sequoia v0.4 - Crown Trail + Sap Stick Canopy
 
 ## Why this pass exists
 
-The sparse-canopy direction is working, and the latest playtest confirms that the movement recovery made ordinary running, jumping, and velocity correction substantially smoother. The remaining control tax was Sap Stick itself: requiring **Shift + Space** made a route tool that should feel instinctive depend on a precise two-key chord while the player's movement fingers were already busy.
+The sparse-canopy direction is working, and the latest playtests confirm that the movement recovery plus one-button Shift Sap Stick made ordinary climbing substantially smoother. The newest recording also exposed the next two problems clearly:
 
-v0.4 now treats negative space and Sap Stick as one continuous movement language. Branches are runways. Amber knots are airborne handles. The control should feel closer to grabbing a vine than entering a keyboard shortcut.
+1. the permanent left HUD rail, game logo, and repeated control cards consume too much of the actual playfield;
+2. once the player understands Shift, a normal Sap vault can be repeated so often that the Flow counter becomes enormous and stops communicating mastery.
 
-The governing rule is:
+In the uploaded run the visible Flow count climbed past 200. That is not a satisfying long-term reward loop. It means the traversal verb itself was manufacturing score faster than the player was making meaningful decisions.
 
-> Run and jump create the base rhythm. **Press Shift** to fire at a readable amber anchor, **hold Shift while steering** to shape the swing, and **release Shift** to vault. There is **no charge**.
+v0.4 therefore moves toward a clearer identity:
+
+> **The forest is the interface.** The player chases visible Crown milestones through an increasingly exposed canopy. Easy inputs make movement expressive; clean execution, route reading, and altitude pressure make mastery difficult.
 
 ## Canonical Sap Stick input
 
-Desktop input is intentionally one button:
+Desktop input remains intentionally one button:
 
 **Press Shift -> hold + A/D or Left/Right -> release Shift**
 
@@ -30,164 +33,221 @@ Touch uses the same lifecycle: press the Sap region to fire and hold, release th
 
 ## Forgiving acquisition without autopilot
 
-A press that happens a fraction early should not turn into a dead input. The new Sap Stick has a **0.18 s acquisition buffer**. If no knot is reachable on the exact keydown frame, the held input may acquire one that becomes reachable during that short window.
+A press that happens a fraction early should not turn into a dead input. Sap Stick has a **0.18 s acquisition buffer**. If no knot is reachable on the exact keydown frame, the held input may acquire one that becomes reachable during that short window.
 
 This is intentionally bounded. It is not a persistent tractor beam and it does not search indefinitely while Shift is held.
 
-The target score remains deterministic and considers:
-
-- distance
-- vertical advantage
-- current movement direction
-- whether an anchor is behind the player
-- whether the player is falling / close to the threat
-- whether the knot is an authored `sap-stick` route anchor
-- recent-anchor reuse lockout
-
-The route designer still chooses which anchors exist. Target assistance only chooses the most plausible reachable one.
+The target score remains deterministic and considers distance, vertical advantage, movement direction, whether an anchor is behind the player, rescue state, authored `sap-stick` priority, and recent-anchor reuse lockout.
 
 ## Hold-to-swing movement contract
 
-The old fixed 0.22-second auto-vault is removed from player-facing control.
-
-The new lifecycle is:
+The player-facing lifecycle is:
 
 1. Press Shift.
 2. Sap Stick fires immediately when a valid knot exists.
-3. A tiny **0.075 s internal minimum** prevents one-frame press/release jitter from producing inconsistent physics. This is not a timing challenge for the player.
+3. A tiny **0.075 s internal minimum** filters one-frame key jitter. This is not a timing challenge.
 4. Hold Shift and steer with A/D or Left/Right.
-5. Sap Stick temporarily suppresses the legacy tangent-pump input mapping and gives the player direct screen-horizontal steering authority. This prevents the same direction key from feeling inverted as Pip moves around an anchor.
-6. Release Shift when the swing looks right.
-7. The release preserves useful momentum, guarantees a useful upward vault, and refreshes Air Kick.
-8. A **1.35 s safety ceiling** prevents pathological indefinite tethers while still allowing a long, readable swing.
+5. Sap Stick suppresses the old tangent-pump input mapping and gives direct screen-horizontal steering authority, so controls never invert around the anchor.
+6. Release Shift when the line looks right.
+7. The release preserves useful momentum, guarantees useful upward motion, and refreshes Air Kick.
+8. A **1.35 s safety ceiling** prevents pathological indefinite tethers.
 
-Recent anchors keep their reuse lock, so one knot cannot become an infinite elevator.
+Recent anchors retain their reuse lock, so one knot cannot become an infinite elevator.
+
+## Clean Sap instead of free Flow
+
+One-button Sap must stay easy to use without making the combo economy automatic.
+
+A normal Sap vault is now **connective movement**. It preserves a live Flow timer briefly, but does not mint a SAP combo link simply because the player used Shift.
+
+A **Clean Sap** earns the SAP link only when the release demonstrates an intentional swing:
+
+- release is player-authored rather than blur/safety forced;
+- tether age is between **0.16 s and 0.82 s**;
+- horizontal release speed is at least **330 px/s**.
+
+The window is deliberately wide. It rewards shaping a useful launch, not frame-perfect timing. This restores meaning to the Flow counter while keeping Sap Stick forgiving.
 
 ## Reset input safety
 
-`R` is removed as the retry key because it sits directly beside the left-hand movement cluster and can be hit accidentally during fast play.
+`R` is not a retry key. The current-seed reset is **0 / Numpad 0**, deliberately away from A/D, W, Space, and Shift. `N` remains new route and `P` remains pause.
 
-The current-seed reset is now the **0 key**. `N` remains new route and `P` remains pause.
+## The Crown Trail motivation loop
 
-This keeps destructive run control away from A/D, W, Space, and Shift.
+The climb now has a visible short-horizon objective instead of only an abstract high score.
+
+### Crown Marks
+
+Every **25 floors** is a Crown Mark. The next mark appears as a subtle golden world-space gate in the canopy. Crossing it awards score, a brief visual/audio celebration, and increments the run's Crown count.
+
+The intended loop is:
+
+`current floor -> visible next Crown -> cross it -> new Crown appears above -> chase again`
+
+The next target is always close enough to feel attainable, while a strong run naturally chains many milestones.
+
+### Persistent personal best
+
+The game stores:
+
+- highest floor reached;
+- best Flow combo.
+
+The minimal top ribbon shows the current floor, next Crown distance, and persistent PB. Game over also tells the player how many floors remain to the next Crown target. This gives an immediate reason for “one more run” without adding menus, currencies, or upgrade grind.
+
+### Route clear rewards
+
+Finishing a generated route chunk adds a small score bonus and telemetry event. This rewards surviving a whole movement phrase, not just farming one mechanic repeatedly.
 
 ## Branchless route topology
 
-v0.4 adds the `SAPRUN` grammar and allows a route tier to set `branch: false`.
+Base v0.4 route language remains:
 
-A branchless tier creates an amber anchor but no collision platform. The important density contracts are:
+- `GROVE`: broad runway plus branchless amber traversal;
+- `SAPRUN`: three branchless amber tiers between real landing branches;
+- `SLINGSHOT`: alternating open-air Sap line;
+- `CRUX`: tighter conventional precision route.
 
-- `GROVE`: 2 branches across 4 tiers
-- `SAPRUN`: 2 branches across 5 tiers, with 3 branchless amber tiers
-- `SLINGSHOT`: 2 branches across 4 tiers
+The physical corridor remains **760 px** wide (`x=100` to `x=860`).
 
-The physical corridor is **760 px** wide (`x=100` to `x=860`).
-
-This changes the visual/spatial rhythm from:
-
-`branch -> branch -> branch -> branch`
-
-to:
+The visual/spatial rhythm is therefore:
 
 `runway -> open air -> amber swing -> amber swing -> landing`
 
-As difficulty rises, harder phases can use more `SAPRUN`, `SLINGSHOT`, `GROVE`, and `CRUX` without simply filling the viewport with smaller shelves.
+rather than a shelf ladder.
 
-## Anti-autopilot rules remain
+## Canopy escalation: difficulty changes shape with altitude
 
-The earlier runaway Flow failure remains a regression boundary.
+Difficulty should not mean “the same game but everything moves faster.” It now increases across several dimensions.
+
+### 1. Route geometry
+
+The existing geometry scaler shortens branches, increases vertical spacing slightly, and permits stronger slopes as altitude rises. ROOTWAYS stays generous; HIGH CANOPY and CROWNLINE have much less disposable landing surface.
+
+### 2. New expert route families
+
+Three later-canopy grammars are added:
+
+- **WINDLINE**: exposed cross-anchor movement interrupted by a small precision landing;
+- **SKYHOOK**: three branchless anchors with alternating lateral reads before a compact landing;
+- **CROWNWEAVE**: repeated cross-corridor Sap decisions with very little shelf relief.
+
+These enter gradually. They do not replace the teaching routes at floor zero.
+
+### 3. Deterministic crosswind
+
+Crosswind begins only after roughly **floor 46**, after the player has had time to learn running, Air Kick, Bark, and Sap.
+
+Wind strength grows by altitude:
+
+- lower REDWOOD RUN: light breeze;
+- SAPWORK: noticeable correction pressure;
+- HIGH CANOPY: strong gusts that influence open-air trajectories;
+- CROWNLINE: exposed, changing wind requiring active steering.
+
+Wind is deterministic from run seed, floor, and simulation time. It does not consume route RNG. It is strongest while airborne, heavily reduced while tethered, and almost absent while actively moving on the ground. A player who stalls on a high branch becomes more vulnerable to the gust, encouraging forward rhythm without simply stealing control.
+
+The renderer exposes wind with sparse directional streaks and a tiny contextual arrow, so difficulty remains readable rather than invisible.
+
+### 4. Rising canopy pressure
+
+The existing upward threat continues to accelerate with floor/time. HIGH CANOPY and CROWNLINE now apply stronger phase pressure, so late play asks the player to solve harder routes while maintaining cadence.
+
+### 5. Combo discipline
+
+Because ordinary Sap no longer awards free Flow, CROWNVELOCITY and large combo values once again require a mixture of real scoring verbs: multi-floor skips, rings, burls, Bark Kick, Air Kick, and Clean Sap.
+
+## Minimal gameplay HUD
+
+The latest playtest showed the large left rail and permanent title made the playable corridor feel artificially narrow.
+
+During active play:
+
+- the large left COMBO/FLOW/MOMENTUM panel is suppressed;
+- the permanent top-left game logo is suppressed;
+- the old bottom-left Shift + Space panel is suppressed;
+- the old right-side Sap tutorial card is suppressed;
+- no opaque replacement rectangle is painted over those areas, so branches and Pip remain visible underneath.
+
+The replacement is a thin top-edge ribbon:
+
+- current floor + phase on the left;
+- next Crown progress in the center;
+- PB + score on the right;
+- Flow appears only when a chain is active;
+- wind appears only when meaningful.
+
+Sap instructions are transient: a small bottom-center pill teaches the control during the first seconds, reappears briefly on relevant advanced routes, and becomes an active “A/D swing / release Shift” cue only while tethered.
+
+The title screen remains a real title screen. Once play begins, a much smaller **SYLVARIA · SEQUOIA / CLIMB THE CROWN** mark fades away over roughly 1.65 seconds and then leaves the screen entirely.
+
+## Sequoia visual identity
+
+The production renderer continues using deterministic puzzle-fit sequoia bark, deep flake shadows, longitudinal fibers, moss/lichen/resin ecology, atmospheric scattering, cloud wisps, distant birds, and the mascot-scale Pip.
+
+The new progression elements are intentionally diegetic or peripheral:
+
+- Crown targets exist in world space;
+- wind is visible as sparse environmental motion;
+- phase arrival gets a brief typography beat;
+- PB and Crown celebrations fade quickly.
+
+Nothing should sit permanently in the middle of the climb.
+
+## Anti-autopilot regression boundaries
 
 Passive bark:
 
-- does not score Flow
-- does not refresh Air Kick
-- is a low-energy redirect
+- does not score Flow;
+- does not refresh Air Kick;
+- remains a low-energy redirect.
 
-Stride carry and combo acceleration remain bounded. CROWNVELOCITY still requires a meaningful Flow chain. Sap Stick adds route expressiveness rather than restoring automatic ping-pong climbing.
+Ordinary Sap Stick:
 
-## Sequoia bark model
+- does not score Flow automatically;
+- may briefly preserve an existing chain;
+- refreshes Air Kick after the vault;
+- only Clean Sap earns the SAP link.
 
-The production sequoia renderer uses a deterministic **shared-vertex anisotropic puzzle lattice** with weathered gray/mauve exterior flakes, cinnamon-red fibrous core, longitudinal tearing, overlapping curls, and puzzle-like adjacency.
-
-Adjacent bark cells share deterministic vertices, so boundaries fit exactly. Fibers remain mostly vertical, and the bark hash depends only on world-space row, column, and trunk side. It does not consume route RNG.
-
-The exact collision boundary remains readable as a natural crease and warm wood rim rather than a glowing gameplay stripe.
-
-## Pip visual target
-
-Pip remains a mascot rather than a tiny generic climber silhouette:
-
-- oversized expressive head and eyes
-- leaf hood and tiny sprout
-- orange/red speed scarf
-- green leaf tunic
-- small satchel
-- oversized boots
-- visible amber Sap Stick
-- grin / panic expression based on vertical state
-- `GRIP!` cue during Bark Cling
-
-The scarf remains velocity-readable, so personality is also movement feedback.
-
-## HUD and tutorial language
-
-The final control HUD overlays every render tier, including fallback rendering, so old Shift + Space instructions cannot survive visually.
-
-It teaches:
-
-- `SHIFT = FIRE`
-- `HOLD + A/D = SWING`
-- `RELEASE = VAULT`
-- `0 = RESET`
-
-During relevant early routes, a compact tutorial card also explains the 0.18-second early-lock buffer.
+Stride carry and combo acceleration remain bounded. Wind cannot rewrite route generation. Render effects cannot alter collision geometry.
 
 ## Telemetry
 
-Sap Stick now records:
+In addition to existing movement metrics, the current pass records:
 
-- `sapStickPresses`
-- `sapStickCasts`
-- `sapStickBufferedLocks`
-- `sapStickHoldReleases`
-- `sapStickSafetyReleases`
-- `sapStickVaults`
-- `sapStickRescues`
-- `sapStickMisses`
+- `sapStickCleanVaults`;
+- `sapStickFlowCarries`;
+- `crownMarks`;
+- `routesCleared`;
+- `personalBestFloors`;
+- `windReversals`;
+- wind exposure time;
+- maximum experienced wind.
 
-Same-seed playtests should compare:
-
-- branch density visible per camera window
-- Shift press-to-lock success
-- buffered locks vs true misses
-- tether hold duration
-- left/right steering authority while tethered
-- release velocity and upward vault consistency
-- rescue casts vs normal casts
-- Flow chain length
-- peak/average speed
-- Air Kick usage after Sap Stick vaults
-- route completion by grammar
-- RAF frame pacing and render-cost telemetry
+Same-seed playtests should compare Crown cadence, PB progression, late-route completion, Clean Sap rate, combo inflation, wind corrections, Flow chain length, speed, Air Kick use, and failure location by phase.
 
 ## Qualification boundary
 
-A v0.4 head is not qualified until it passes:
+A v0.4 Crown Trail head is not qualified until it passes:
 
-- runtime syntax / deterministic invariants
-- sparse-route density checks
-- anti-autopilot movement envelope
-- Sap Stick no-charge acquisition, hold, release, and anchor-reuse checks
-- production build and runtime smoke
-- one physical Space -> one jump action
-- physical ground jump -> separate Air Kick
-- physical Shift press -> Sap Stick cast without incrementing jump authority
-- Shift held with A/D -> player-owned swing steering
-- Shift release -> Sap Stick vault
-- Space during an active tether -> no hidden queued Air Kick
-- 0 key -> retry current seed
-- R key -> never reset
-- blur / lost focus -> tether safely releases
-- Chrome Stable, Chromium, Firefox, and WebKit
+- runtime syntax and deterministic invariants;
+- early movement/jump envelope;
+- sparse-route density checks;
+- delayed and bounded crosswind checks;
+- late route-family presence;
+- Crown interval and persistent-PB contracts;
+- Clean Sap economy checks proving ordinary Sap cannot manufacture Flow;
+- production build and runtime smoke;
+- one physical Space -> one jump action;
+- ground jump -> separate Air Kick;
+- Shift alone -> Sap Stick cast;
+- held Shift + A/D -> player-owned swing steering;
+- Shift release -> vault + Air Kick refresh;
+- Space during tether -> no hidden Air Kick;
+- 0 -> same-seed retry;
+- R -> harmless;
+- minimal gameplay HUD contract;
+- title fade contract;
+- Chrome Stable, Chromium, Firefox, and WebKit.
 
-The PR remains draft until those exact-head gates are green.
+The PR remains draft while gameplay feel is still being tuned, even when exact-head qualification is green.
