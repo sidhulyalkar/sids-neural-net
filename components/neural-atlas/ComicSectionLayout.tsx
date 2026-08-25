@@ -2,8 +2,9 @@
 
 import type { ReactNode } from 'react';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { motion, useReducedMotion } from 'framer-motion';
-import { NeuralBackground } from './NeuralBackground';
+import { ThemedNeuralBackground } from './ThemedNeuralBackground';
 
 type ComicSectionLayoutProps = {
   eyebrow?: string;
@@ -21,12 +22,14 @@ export function ComicSectionLayout({
   sideNote,
 }: ComicSectionLayoutProps) {
   const reduceMotion = useReducedMotion();
+  const pathname = usePathname();
   const headerInitial = reduceMotion ? false : { opacity: 0, y: 18, scale: 0.98 };
   const enterInitial = reduceMotion ? false : { opacity: 0, y: 24 };
+  const showFrontierShortcut = pathname !== '/contact';
 
   return (
     <div className="relative min-h-screen overflow-hidden pt-16">
-      <NeuralBackground />
+      <ThemedNeuralBackground />
       <div className="relative z-10 mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
         <motion.header
           initial={headerInitial}
@@ -46,17 +49,19 @@ export function ComicSectionLayout({
             {intro && <p className="mt-3 max-w-2xl text-sm leading-6 text-text-secondary/80">{intro}</p>}
           </div>
 
-          <Link
-            href="/frontier"
-            aria-label="Open FRONTIER personal intelligence radar"
-            className="group inline-flex shrink-0 items-center gap-2 rounded-full border border-cyan/15 bg-black/20 px-2.5 py-2 font-mono text-[0.52rem] uppercase tracking-[0.12em] text-cyan/65 transition-all hover:-translate-y-px hover:border-cyan/35 hover:bg-cyan/[0.055] hover:text-cyan sm:px-3 sm:text-[0.56rem] sm:tracking-[0.14em]"
-          >
-            <span className="relative flex h-1.5 w-1.5">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-cyan/45 opacity-60 motion-reduce:animate-none" />
-              <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-cyan" />
-            </span>
-            Frontier
-          </Link>
+          {showFrontierShortcut ? (
+            <Link
+              href="/frontier"
+              aria-label="Open FRONTIER personal intelligence radar"
+              className="group inline-flex shrink-0 items-center gap-2 rounded-full border border-cyan/15 bg-black/20 px-2.5 py-2 font-mono text-[0.52rem] uppercase tracking-[0.12em] text-cyan/65 transition-all hover:-translate-y-px hover:border-cyan/35 hover:bg-cyan/[0.055] hover:text-cyan sm:px-3 sm:text-[0.56rem] sm:tracking-[0.14em]"
+            >
+              <span className="relative flex h-1.5 w-1.5">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-cyan/45 opacity-60 motion-reduce:animate-none" />
+                <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-cyan" />
+              </span>
+              Frontier
+            </Link>
+          ) : null}
         </motion.header>
 
         {sideNote && (

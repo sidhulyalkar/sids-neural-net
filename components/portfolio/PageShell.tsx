@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { ArrowUpRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { NeuralBackground } from '@/components/neural-atlas/NeuralBackground';
+import { ThemedNeuralBackground } from '@/components/neural-atlas/ThemedNeuralBackground';
 
 type PageShellProps = {
   children: React.ReactNode;
@@ -11,7 +11,7 @@ type PageShellProps = {
 export function PageShell({ children, className }: PageShellProps) {
   return (
     <div className={cn('relative min-h-screen overflow-hidden pt-16', className)}>
-      <NeuralBackground />
+      <ThemedNeuralBackground />
       <div className="relative z-10 mx-auto w-full max-w-7xl px-4 py-8 sm:px-6 lg:px-8">{children}</div>
     </div>
   );

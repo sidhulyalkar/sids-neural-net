@@ -27,7 +27,8 @@ const cleanRuntimeUrl = (value: string | undefined) => {
 
 const stretchicornRuntime =
   cleanRuntimeUrl(process.env.NEXT_PUBLIC_ARCADE_STRETCHICORN_URL) ?? '/game-runtimes/stretchicorn/index.html';
-const uniricoRuntime = cleanRuntimeUrl(process.env.NEXT_PUBLIC_ARCADE_UNIRICO_URL) ?? '/game-runtimes/unirico/index.html';
+const uniricoRuntime =
+  cleanRuntimeUrl(process.env.NEXT_PUBLIC_ARCADE_UNIRICO_URL) ?? '/game-runtimes/unirico/v0.19.0/index.html';
 
 export const arcadeGames: ArcadeGame[] = [
   {
@@ -60,19 +61,27 @@ export const arcadeGames: ArcadeGame[] = [
   {
     slug: 'unirico',
     title: 'uniRico',
-    subtitle: 'A tiny rainbow movement experiment.',
+    subtitle: 'RAINBOW RICOCHET · READ · AIM · BOUNCE.',
     description:
-      'A precision canvas game built around movement, momentum, compact level geometry, reactive sound, and a deliberately tiny web-game runtime.',
-    version: 'v0.17.1',
+      'A 40-level rainbow-ricochet puzzle game where a unicorn bends one shot through prisms, portals, weather, gravity, spin, polarity, and increasingly grumpy cloud locks. v0.19.0 adds first-seen mechanic demonstrations plus a precision mobile AIM wheel and separate FIRE button, so learning and touch control use the same deterministic physics as live play.',
+    version: 'v0.19.0',
     status: 'playable',
     sourceVisibility: 'public',
     repoUrl: 'https://github.com/sidhulyalkar/uniRico',
     launchUrl: uniricoRuntime,
     aspectRatio: '16 / 10',
-    tags: ['movement', 'js13k', 'canvas', 'level design'],
+    nativeSize: { width: 960, height: 600 },
+    tags: ['ricochet puzzle', 'js13k', 'canvas', 'procedural audio', 'mobile controls', 'guided tutorials'],
     controls: [
-      { input: 'Keyboard', action: 'Move and interact' },
-      { input: 'Game menu', action: 'Rules and controls live inside the game' },
+      { input: 'Mouse / pointer', action: 'Aim on desktop' },
+      { input: 'Click', action: 'Fire on desktop' },
+      { input: 'AIM wheel', action: 'Choose angle without firing on mobile' },
+      { input: 'FIRE', action: 'Launch the selected angle on mobile' },
+      { input: 'M / Esc', action: 'Pause / menu' },
+      { input: 'R', action: 'Restart level' },
+      { input: 'H', action: 'Help / deterministic solution demo' },
+      { input: 'P / S', action: 'Path preview / music + SFX' },
+      { input: 'Space / Enter', action: 'Continue' },
     ],
     accent: 'cyan',
   },
