@@ -8,9 +8,12 @@ import { decorateFeedMedia } from '@/lib/frontier/media/proxySecurity';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
+const FOCUSED_LIVE_BUDGET_MS = 4_000;
+const MANUAL_REFRESH_BUDGET_MS = 5_500;
+
 function defaultPersonalFocus(): string[] {
-  // Fresh cold-start discovery should spend its scarce adaptive-search budget on
-  // the owner's strongest explicit interests, not generic technology news.
+  // A manual live rotation should spend its bounded Internet-search budget on
+  // the strongest explicit interests rather than generic technology news.
   return Array.from(new Set([
     ...FRONTIER_DISCOVERY_SEEDS.slice(0, 6),
     ...FRONTIER_TEAMS.map((team) => team.label),
@@ -22,10 +25,11 @@ export async function GET(request: NextRequest) {
   const forceFresh = request.nextUrl.searchParams.get('fresh') === '1';
 
   try {
-    // The client intentionally asks without focus when a focused response is too
-    // sparse. That fallback must be instant and genuinely broader, not a second
-    // copy of the same live fan-out. Serve the already-vetted personalized
-    // snapshot unless the caller explicitly requests a fresh live rotation.
+    // Cold navigation is snapshot-first so useful cards paint immediately. A
+    // refresh or focused query is a different product contract: it must search
+    // live adapters and must not silently refill the result set from yesterday's
+    // committed archive. The browser recommendation engine ranks those fresh
+    // candidates after the server has enforced provenance and source policy.
     if (!requestedFocus.length && !forceFresh) {
       return NextResponse.json(decorateFeedMedia(getFrontierSnapshotFeed()), {
         headers: {
@@ -36,13 +40,17 @@ export async function GET(request: NextRequest) {
     }
 
     const focusTopics = requestedFocus.length ? requestedFocus : defaultPersonalFocus();
-    const feed = decorateFeedMedia(await getIntegratedFrontierFeed({ focusTopics }));
+    const feed = decorateFeedMedia(await getIntegratedFrontierFeed({
+      focusTopics,
+      includeSnapshot: false,
+      adapterDeadlineMs: forceFresh ? MANUAL_REFRESH_BUDGET_MS : FOCUSED_LIVE_BUDGET_MS,
+    }));
+    const mode = forceFresh ? 'fresh-live' : 'focused-live';
     return NextResponse.json(feed, {
       headers: {
-        'Cache-Control': forceFresh
-          ? 'no-store'
-          : 'private, max-age=60, stale-while-revalidate=120',
-        'X-Frontier-Live': requestedFocus.length ? 'adaptive' : 'personal-default',
+        'Cache-Control': 'no-store',
+        'X-Frontier-Live': mode,
+        'X-Frontier-Result-Count': String(feed.items.length),
       },
     });
   } catch (error) {
