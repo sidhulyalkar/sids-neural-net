@@ -53,6 +53,8 @@ async function runtimeContracts(frame) {
       progressHud: S.canopyProgressHud || null,
       sapHud: S.sapStickControlHud || null,
       progress: S.canopyProgress?.getState?.() || null,
+      heartwood: S.heartwoodQuest?.getState?.() || null,
+      trials: S.canopyTrials?.getState?.() || null,
       escalation: S.canopyEscalation?.getState?.() || null,
       grammars: window.SYLVARIA_SEQUOIA_DEBUG.getRouteGrammars(),
       sap: S.sapStick?.getState?.() || null,
@@ -68,13 +70,19 @@ function assertCrownTrailContracts(contract) {
   if (contract.progressHud?.version !== 'minimal-crown-hud-v1' || !/fades out/.test(contract.progressHud?.titleBehavior || '')) {
     throw new Error(`Crown HUD/title-fade contract unavailable: ${JSON.stringify(contract.progressHud)}`);
   }
+  if (contract.progressHud?.revision !== 'heartwood-objective-v2' || !/Heartseeds/.test(contract.progressHud?.primaryObjective || '')) {
+    throw new Error(`Heartwood HUD objective unavailable: ${JSON.stringify(contract.progressHud)}`);
+  }
   if (contract.sapHud?.version !== 'shift-hold-minimal-v2' || !/no persistent side panels/.test(contract.sapHud?.teaching || '')) {
     throw new Error(`Transient Sap HUD contract unavailable: ${JSON.stringify(contract.sapHud)}`);
   }
   if (!contract.progress || contract.progress.nextCrownFloor !== 25 || contract.progress.crownRemaining !== 25) {
     throw new Error(`Initial Crown Trail target is stale: ${JSON.stringify(contract.progress)}`);
   }
-  for (const grammar of ['WINDLINE', 'SKYHOOK', 'CROWNWEAVE']) {
+  if (!contract.heartwood || contract.heartwood.total !== 5 || contract.heartwood.finalCrownFloor !== 250) {
+    throw new Error(`Heartwood objective is unavailable: ${JSON.stringify(contract.heartwood)}`);
+  }
+  for (const grammar of ['WINDLINE', 'SKYHOOK', 'CROWNWEAVE', 'BREAKAWAY', 'PENDULUM', 'CONEFALL', 'THUNDERCROWN']) {
     if (!contract.grammars.includes(grammar)) throw new Error(`Missing escalating canopy grammar ${grammar}: ${JSON.stringify(contract.grammars)}`);
   }
   const wind = contract.intensities;
@@ -104,12 +112,9 @@ async function runShiftHoldContract(page, engineName) {
   const contracts = await runtimeContracts(frame);
   assertCrownTrailContracts(contracts);
 
-  // Let the tiny start mark fade away and capture the uncluttered gameplay field.
   await page.waitForTimeout(1750);
   await page.screenshot({ path: path.join(outputDir, `${engineName}-minimal-crown-playfield.png`), fullPage: true });
 
-  // Regression for the uploaded-run combo inflation: a plain short Shift vault
-  // must remain movement only. It cannot manufacture a SAP Flow link.
   await resetSameSeed(frame);
   await focusRuntime(page, frame);
   const plainBefore = await frame.evaluate(() => ({
@@ -147,7 +152,6 @@ async function runShiftHoldContract(page, engineName) {
   const pressesBefore = before.state.inputGate?.sapPressCount ?? 0;
   const castsBefore = before.telemetry.counters.sapStickCasts || 0;
 
-  // The entire current contract begins with Shift alone. No Space chord is involved.
   await page.keyboard.down('Shift');
   await page.waitForTimeout(45);
   const locked = await state(frame);
@@ -161,8 +165,6 @@ async function runShiftHoldContract(page, engineName) {
     throw new Error(`Shift-only Sap Stick leaked into jump authority: ${JSON.stringify(locked.jumpInput)}`);
   }
 
-  // Space while tethered must be inert for jump authority. It must never become
-  // a hidden Air Kick that fires on or after the eventual Shift release.
   await page.keyboard.press('Space');
   await page.waitForTimeout(38);
   const afterSpace = await state(frame);
