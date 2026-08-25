@@ -18,12 +18,27 @@ const rss = `<?xml version="1.0" encoding="UTF-8"?>
   </item>
 </channel></rss>`;
 
-test('sports analytics radar always pins NFL, fantasy, and visualization searches', () => {
+test('sports analytics radar pins NFL, fantasy, role news, and visualization searches', () => {
   const queries = sportsAnalyticsQueries();
-  assert.equal(queries.length, 4);
+  assert.equal(queries.length, 5);
   assert.equal(queries[0].id, 'nfl-analytics');
   assert.equal(queries[1].id, 'fantasy-football');
-  assert.equal(queries[2].id, 'sports-data-viz');
+  assert.equal(queries[2].id, 'nfl-role-news');
+  assert.equal(queries[3].id, 'sports-data-viz');
+  assert.match(queries[0].query, /Patriots/i);
+  assert.match(queries[2].query, /injury/i);
+  assert.match(queries[2].query, /depth chart/i);
+  assert.match(queries[2].query, /beat reporter/i);
+});
+
+test('rotating analytics query stays anchored to a favorite NBA or soccer team orbit', () => {
+  const rotating = sportsAnalyticsQueries()[4];
+  assert.ok(['nba-analytics', 'soccer-analytics'].includes(rotating.id));
+  if (rotating.id === 'nba-analytics') assert.match(rotating.query, /Golden State Warriors/i);
+  if (rotating.id === 'soccer-analytics') {
+    assert.match(rotating.query, /Chelsea/i);
+    assert.match(rotating.query, /Manchester City/i);
+  }
 });
 
 test('sports analytics RSS preserves the real syndicated publisher and rich fantasy tags', () => {
