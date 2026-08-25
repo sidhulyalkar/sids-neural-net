@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no" />
   <meta name="theme-color" content="#3b2019" />
-  <title>Sylvaria: Sequoia v0.5.0</title>
+  <title>Sylvaria: Sequoia v0.6.0</title>
   <style>
     *{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#10241f;color:#fff3cf;font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace}body{display:grid;place-items:center;overscroll-behavior:none}#wrap{position:relative;width:min(100vw,calc(100vh * 1.5));aspect-ratio:3/2;background:#10241f;overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none}#c{display:block;width:100%;height:100%;outline:0;background:#10241f;image-rendering:auto}#hint{position:absolute;right:10px;bottom:7px;font-size:8px;letter-spacing:.08em;text-transform:uppercase;color:rgba(255,244,216,.24);pointer-events:none;transition:opacity .25s}#wrap[data-playing="true"] #hint{opacity:.08}@media(pointer:coarse){#hint{display:none}}
   </style>
@@ -12,7 +12,7 @@
 <body>
   <div id="wrap" data-playing="false">
     <canvas id="c" width="960" height="640" tabindex="0" aria-label="Sylvaria: Sequoia game canvas"></canvas>
-    <div id="hint">Run for height · Space/W/↑ Air Kick · Shift fires Sap Stick, hold + A/D to swing, release to vault · find 5 Heartseeds · wake Crown 250 · discover 6 Wonders · ring Skyheart 360 · 0 resets</div>
+    <div id="hint">Land higher logs to recharge Sap · Shift hold + steer, release to vault · collect Cone Tokens · complete 3 Contracts · B shop between runs · 0 retry · N new route</div>
   </div>
   <script src="../game-network-bridge.js"></script>
   <script src="./00-core.js"></script>
@@ -28,6 +28,8 @@
   <script src="./02-heartwood-quest.js"></script>
   <script src="./02-canopy-trials.js"></script>
   <script src="./02-living-canopy.js"></script>
+  <script src="./02-sap-rhythm.js"></script>
+  <script src="./02-canopy-economy.js"></script>
   <script src="./03-render-canopy.js"></script>
   <script src="./03-render-fast-underpaint.js"></script>
   <script src="./03-render-reference-pass.js"></script>
@@ -41,7 +43,10 @@
   <script src="./03-canopy-progress-hud.js"></script>
   <script src="./03-living-objective-hud.js"></script>
   <script src="./03-title-focus-guard.js"></script>
+  <script src="./03-canopy-economy-hud.js"></script>
+  <script src="./03-economy-input-guard.js"></script>
   <script src="./04-input.js"></script>
   <script src="./05-debug-living-canopy.js"></script>
+  <script src="./05-debug-canopy-contracts.js"></script>
 </body>
 </html>
