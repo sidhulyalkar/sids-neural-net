@@ -40,7 +40,7 @@ export const FRONTIER_PERSONAL_TASTE_TOPICS: readonly FrontierPersonalTasteTopic
   {
     id: 'fantasy-football',
     label: 'fantasy football decision edges',
-    aliases: ['fantasy football', 'superflex', '2qb', '2 qb', 'adp', 'value over replacement', 'vorp', 'route participation', 'target share', 'air yards', 'snap share', 'waiver wire'],
+    aliases: ['fantasy football', 'superflex', '2qb', '2 qb', 'adp', 'value over replacement', 'vorp', 'route participation', 'target share', 'air yards', 'snap share', 'waiver wire', 'depth chart'],
     tags: ['fantasy football', '2qb', 'superflex', 'player usage'],
     prior: 0.16,
   },
@@ -61,7 +61,7 @@ export const FRONTIER_PERSONAL_TASTE_TOPICS: readonly FrontierPersonalTasteTopic
   {
     id: 'neuro-data-systems',
     label: 'neuroscience data systems',
-    aliases: ['datajoint', 'deeplabcut', 'facemap', 'spikeinterface', 'neuropixels', 'calcium imaging', 'two-photon', '2-photon', 'fiber photometry', 'electrophysiology', 'nwb', 'dandi'],
+    aliases: ['datajoint', 'deeplabcut', 'facemap', 'spikeinterface', 'neuropixels', 'calcium imaging', 'two-photon', '2-photon', 'fiber photometry', 'electrophysiology', 'nwb', 'pynwb', 'dandi'],
     tags: ['neuroscience', 'scientific software', 'multimodal data'],
     prior: 0.15,
   },
@@ -70,6 +70,20 @@ export const FRONTIER_PERSONAL_TASTE_TOPICS: readonly FrontierPersonalTasteTopic
     label: 'NeuroAI + neural interfaces',
     aliases: ['neuroai', 'neural decoding', 'brain computer interface', 'brain-computer interface', 'bci', 'neural representation', 'neural population dynamics', 'brain atlas', 'connectome'],
     tags: ['neuroai', 'neural decoding', 'bci'],
+    prior: 0.14,
+  },
+  {
+    id: 'neuro-foundation-models',
+    label: 'neural foundation models',
+    aliases: ['neural foundation model', 'neuroscience foundation model', 'brain foundation model', 'eeg foundation model', 'foundation model for eeg', 'bendr', 'brainiac', 'self-supervised eeg', 'self supervised eeg'],
+    tags: ['neuroai', 'foundation models', 'eeg', 'representation learning'],
+    prior: 0.15,
+  },
+  {
+    id: 'mechanistic-interpretability',
+    label: 'mechanistic interpretability + causal probing',
+    aliases: ['mechanistic interpretability', 'activation patching', 'causal tracing', 'sparse autoencoder', 'sparse autoencoders', 'feature circuit', 'transformer circuit', 'representation probing', 'linear probing', 'causal intervention'],
+    tags: ['mechanistic interpretability', 'causal probing', 'representation analysis'],
     prior: 0.14,
   },
   {
@@ -99,6 +113,13 @@ export const FRONTIER_PERSONAL_TASTE_TOPICS: readonly FrontierPersonalTasteTopic
     aliases: ['space imaging', 'astronomical imaging', 'astronomy', 'telescope imaging', 'radio interferometry', 'exoplanet imaging', 'adaptive optics'],
     tags: ['space imaging', 'astronomy', 'imaging'],
     prior: 0.12,
+  },
+  {
+    id: 'earth-observation',
+    label: 'satellite + remote-sensing imaging',
+    aliases: ['satellite imagery', 'earth observation', 'remote sensing', 'synthetic aperture radar', 'sar imagery', 'hyperspectral imaging', 'multispectral imaging', 'geospatial imaging'],
+    tags: ['satellite imagery', 'remote sensing', 'computational imaging'],
+    prior: 0.11,
   },
   {
     id: 'scientific-software',
@@ -170,8 +191,11 @@ export const FRONTIER_DISCOVERY_SEEDS = [
   'Neuroglancer',
   'scientific visualization',
   'neural decoding',
+  'neural foundation models',
+  'mechanistic interpretability',
   'computational imaging',
   'space imaging',
+  'satellite imagery',
   'scientific software',
   'recommendation systems',
   'WebGPU',
@@ -203,9 +227,19 @@ export const FRONTIER_TASTE_DISCOVERY_QUERIES: readonly FrontierTasteDiscoveryQu
     tags: ['neuroglancer', 'scientific visualization', 'connectomics'],
   },
   {
-    query: 'Neuropixels calcium imaging DeepLabCut Facemap SpikeInterface DataJoint open source',
+    query: 'Neuropixels calcium imaging DeepLabCut Facemap SpikeInterface DataJoint NWB DANDI open source',
     lane: 'neuro_frontier',
     tags: ['neuroscience', 'scientific software', 'multimodal data'],
+  },
+  {
+    query: 'EEG brain foundation model neural decoding self-supervised representation learning open source benchmark',
+    lane: 'neuro_frontier',
+    tags: ['neuroai', 'foundation models', 'eeg', 'neural decoding'],
+  },
+  {
+    query: 'mechanistic interpretability sparse autoencoder causal tracing activation patching representation probing open source',
+    lane: 'methods',
+    tags: ['mechanistic interpretability', 'causal probing', 'representation analysis'],
   },
   {
     query: 'inverse problems computational imaging tomography image reconstruction open source',
@@ -216,6 +250,11 @@ export const FRONTIER_TASTE_DISCOVERY_QUERIES: readonly FrontierTasteDiscoveryQu
     query: 'space imaging astronomy telescope image reconstruction computational imaging',
     lane: 'broad_science',
     tags: ['space imaging', 'astronomy', 'computational imaging'],
+  },
+  {
+    query: 'satellite imagery remote sensing hyperspectral SAR inverse problem open source',
+    lane: 'broad_science',
+    tags: ['satellite imagery', 'remote sensing', 'computational imaging'],
   },
   {
     query: 'recommendation systems contextual bandits graph learning ranking open source',
