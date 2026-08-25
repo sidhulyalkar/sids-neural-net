@@ -14,9 +14,11 @@ type ToolingProject = {
 };
 
 /**
- * Established tools get their own tiny radar because "trending repositories"
+ * Established tools get their own curated radar because "trending repositories"
  * systematically favors newly-created projects and misses meaningful releases
- * from mature software the owner already values.
+ * from mature software the owner already values. This list intentionally spans
+ * visualization, neuroscience data infrastructure, behavior analysis, ephys,
+ * neural decoding, and the open NeuroAI ecosystem.
  */
 export const FRONTIER_TOOLING_PROJECTS: readonly ToolingProject[] = [
   {
@@ -25,7 +27,7 @@ export const FRONTIER_TOOLING_PROJECTS: readonly ToolingProject[] = [
     repo: 'google/neuroglancer',
     lane: 'neuro_frontier',
     tags: ['neuroglancer', 'scientific visualization', 'connectomics', 'volume rendering'],
-    importance: 0.76,
+    importance: 0.78,
   },
   {
     id: 'napari',
@@ -33,7 +35,79 @@ export const FRONTIER_TOOLING_PROJECTS: readonly ToolingProject[] = [
     repo: 'napari/napari',
     lane: 'neuro_frontier',
     tags: ['napari', 'scientific visualization', 'microscopy visualization', 'python library'],
-    importance: 0.72,
+    importance: 0.75,
+  },
+  {
+    id: 'datajoint',
+    label: 'DataJoint',
+    repo: 'datajoint/datajoint-python',
+    lane: 'neuro_frontier',
+    tags: ['datajoint', 'neuroscience data systems', 'data pipeline', 'scientific software'],
+    importance: 0.78,
+  },
+  {
+    id: 'spikeinterface',
+    label: 'SpikeInterface',
+    repo: 'SpikeInterface/spikeinterface',
+    lane: 'neuro_frontier',
+    tags: ['spikeinterface', 'electrophysiology', 'spike sorting', 'neuropixels', 'scientific software'],
+    importance: 0.78,
+  },
+  {
+    id: 'deeplabcut',
+    label: 'DeepLabCut',
+    repo: 'DeepLabCut/DeepLabCut',
+    lane: 'neuro_frontier',
+    tags: ['deeplabcut', 'behavior tracking', 'pose estimation', 'scientific software'],
+    importance: 0.76,
+  },
+  {
+    id: 'facemap',
+    label: 'Facemap',
+    repo: 'MouseLand/facemap',
+    lane: 'neuro_frontier',
+    tags: ['facemap', 'behavior analysis', 'neural behavior', 'scientific software'],
+    importance: 0.75,
+  },
+  {
+    id: 'pynwb',
+    label: 'PyNWB',
+    repo: 'NeurodataWithoutBorders/pynwb',
+    lane: 'neuro_frontier',
+    tags: ['nwb', 'pynwb', 'neuroscience data systems', 'data standard', 'scientific software'],
+    importance: 0.76,
+  },
+  {
+    id: 'dandi',
+    label: 'DANDI CLI',
+    repo: 'dandi/dandi-cli',
+    lane: 'neuro_frontier',
+    tags: ['dandi', 'nwb', 'neuroscience data systems', 'data archive', 'scientific software'],
+    importance: 0.74,
+  },
+  {
+    id: 'mne-python',
+    label: 'MNE-Python',
+    repo: 'mne-tools/mne-python',
+    lane: 'neuro_frontier',
+    tags: ['mne', 'eeg', 'meg', 'neural decoding', 'scientific software'],
+    importance: 0.74,
+  },
+  {
+    id: 'braindecode',
+    label: 'Braindecode',
+    repo: 'braindecode/braindecode',
+    lane: 'neuro_frontier',
+    tags: ['braindecode', 'eeg', 'neural decoding', 'bci', 'deep learning'],
+    importance: 0.74,
+  },
+  {
+    id: 'neuroai',
+    label: 'NeuroAI',
+    repo: 'facebookresearch/neuroai',
+    lane: 'neuro_frontier',
+    tags: ['neuroai', 'neural representation', 'benchmark', 'foundation model', 'open source'],
+    importance: 0.76,
   },
   {
     id: 'deck-gl',
@@ -161,7 +235,7 @@ function commitItem(project: ToolingProject, entry: GitHubCommit): FrontierItem 
     tags: Array.from(new Set([...project.tags, 'scientific software', 'project update'])),
     importance: project.importance * 0.84,
     ...baseScores(project, date, false),
-    why: `${project.label} is an explicitly watched visualization tool; low-information maintenance commits are filtered out.`,
+    why: `${project.label} is an explicitly watched scientific tool; low-information maintenance commits are filtered out.`,
   };
 }
 
@@ -226,10 +300,10 @@ export async function getToolingRadarFeed(): Promise<FrontierFeedResponse> {
   const failures = runs.filter((run) => run.status === 'rejected').length;
   const status: FrontierSourceStatus = {
     id: 'github',
-    label: 'Visualization tooling radar',
+    label: 'Scientific tooling radar',
     ok: items.length > 0 || failures < runs.length,
     count: items.length,
-    message: failures > 0 && items.length === 0 ? 'visualization tooling radar partially unavailable' : undefined,
+    message: failures > 0 && items.length === 0 ? 'scientific tooling radar partially unavailable' : undefined,
   };
   return { generatedAt: new Date().toISOString(), items, sources: [status] };
 }
