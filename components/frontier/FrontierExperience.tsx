@@ -53,7 +53,7 @@ import { useWaterfallText } from './useWaterfallText';
 import styles from './frontier-experience.module.css';
 
 const FEED_CACHE_KEY = 'frontier-live-feed-cache-v1';
-const FEED_CACHE_MAX_AGE_MS = 36 * 60 * 60_000;
+const FEED_CACHE_MAX_AGE_MS = 4 * 60 * 60_000;
 const BASE_EXPLORATION_TEMPERATURE = 0.08;
 const MANUAL_EXPLORATION_TEMPERATURE = 0.82;
 const STREAM_EXPLORATION_TEMPERATURE = 0.62;
@@ -270,7 +270,10 @@ export function FrontierExperience({ initialDateLabel, initialDayKey }: Props) {
     const fetchPayload = async (focus: string): Promise<FrontierFeedResponse & { error?: string }> => {
       const params = new URLSearchParams();
       if (focus) params.set('focus', focus);
-      if (forceFresh) params.set('fresh', '1');
+      if (forceFresh) {
+        params.set('fresh', '1');
+        params.set('request', `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
+      }
       const response = await fetch(`/api/frontier/feed${params.size ? `?${params.toString()}` : ''}`, {
         cache: 'no-store',
         signal: controller.signal,
@@ -290,12 +293,9 @@ export function FrontierExperience({ initialDateLabel, initialDayKey }: Props) {
         nextItems = nextItems.filter((item) => !frontierSeenSignatures(item).some((signature) => currentSignatures.has(signature)));
       }
 
-      if (!activeSearch && focusSignature && nextItems.length < 8 && !controller.signal.aborted) {
+      if (!forceFresh && !activeSearch && focusSignature && nextItems.length < 8 && !controller.signal.aborted) {
         const wide = await fetchPayload('');
-        let wideItems = await filterUnseenFrontierItems(wide.items ?? []);
-        if (forceFresh && currentSignatures.size) {
-          wideItems = wideItems.filter((item) => !frontierSeenSignatures(item).some((signature) => currentSignatures.has(signature)));
-        }
+        const wideItems = await filterUnseenFrontierItems(wide.items ?? []);
         nextItems = dedupeCanonical([...nextItems, ...wideItems]);
         nextSources = mergeSourceStatuses(nextSources, wide.sources ?? []);
         const left = new Date(nextGeneratedAt).getTime();
@@ -451,22 +451,12 @@ export function FrontierExperience({ initialDateLabel, initialDayKey }: Props) {
   }, [daemonGeneratedAt, daemonSources, flushPending, spikeExploration, view]);
 
   const manualRefresh = useCallback(async () => {
-    if (pendingCount > 0) {
-      const fresh = await flushPending(36);
-      if (fresh.length) {
-        setDiversityReference(activeItemsRef.current.slice(0, 28));
-        spikeExploration(MANUAL_EXPLORATION_TEMPERATURE);
-        setItems(fresh);
-        setStreamItems([]);
-        setStreamEpoch((epoch) => epoch + 1);
-        clearPending();
-        if (daemonGeneratedAt) setGeneratedAt(daemonGeneratedAt);
-        if (daemonSources.length) setSources((current) => mergeSourceStatuses(current, daemonSources));
-        return;
-      }
-    }
+    // A deliberate refresh means "go back to the Internet now", not merely
+    // reveal candidates already waiting in this tab's background queue.
+    clearPending();
     await loadFeed(true);
-  }, [clearPending, daemonGeneratedAt, daemonSources, flushPending, loadFeed, pendingCount, spikeExploration]);
+    requestPoll('manual-refresh');
+  }, [clearPending, loadFeed, requestPoll]);
 
   const handleNearEnd = useCallback(() => {
     if (pendingCount > 0) {
@@ -644,7 +634,7 @@ export function FrontierExperience({ initialDateLabel, initialDayKey }: Props) {
                 }
               }}
               list="frontier-topic-suggestions"
-              placeholder="Search any topic…"
+              placeholder="Search any topic live…"
               aria-label="Search FRONTIER topics"
               autoComplete="off"
               spellCheck="false"
@@ -661,7 +651,7 @@ export function FrontierExperience({ initialDateLabel, initialDayKey }: Props) {
             <div className={styles.radarStatus} title={`${onlineSources} live sources${generatedAt ? ` · updated ${humanDate(generatedAt)}` : ''}${requestFocus.length ? ` · focus: ${requestFocus.join(', ')}` : ''}${daemonStatus.leader ? ' · discovery leader' : ' · shared discovery follower'}`}>
               <span className={`${styles.liveDot} ${error ? styles.liveDotDegraded : ''}`} />
               <span>{loading ? 'scanning' : error ? 'partial' : daemonStatus.polling ? 'streaming' : 'live'}</span>
-              <button type="button" className={styles.refreshIcon} onClick={() => void manualRefresh()} aria-label="Rotate to unseen live feed" title="Fresh unseen rotation"><RefreshCw size={12} /></button>
+              <button type="button" className={styles.refreshIcon} onClick={() => void manualRefresh()} aria-label="Full live refresh" title="Pull fresh Internet signals"><RefreshCw size={12} /></button>
             </div>
             <FrontierAccount />
           </div>
