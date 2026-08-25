@@ -172,6 +172,7 @@ export function FractalPublicCurationV14() {
       root.style.visibility = '';
       root.dataset.publicCuration = 'v14';
       root.dataset.destinationClearance = 'opaque-card-v14';
+      root.dataset.homeChrome = 'minimal-v15';
       for (const id of DESTINATION_IDS) {
         const link = document.querySelector<HTMLElement>(`[data-dendrite-destination="${id}"]`);
         if (link) link.dataset.destinationEdgeClearance = 'v14';
@@ -210,6 +211,9 @@ export function FractalPublicCurationV14() {
       [data-dendrite-destination]:hover,
       [data-dendrite-destination]:focus-visible {
         background-color: #02070a !important;
+      }
+      [data-home-chrome="minimal-v15"] > div[aria-hidden="true"].top-5 {
+        display: none !important;
       }
     `}</style>
   );
