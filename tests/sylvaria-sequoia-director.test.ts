@@ -17,14 +17,19 @@ const heartwoodBrowser = read('scripts/playtest-sylvaria-heartwood.mjs');
 
 test('Sylvaria v0.6.1 pacing director creates deterministic mastery arcs without adaptive geometry', () => {
   assert.match(director, /canopy-director-v1/);
+  assert.match(director, /living-setpiece-composition-v2/);
   assert.match(director, /const CROWN_CYCLE = 25/);
   assert.match(director, /BREATHE[\s\S]*BUILD[\s\S]*TEST[\s\S]*CROWN/);
   assert.match(director, /STORM CANOPY[\s\S]*floor: 132/);
-  assert.match(director, /REDWOOD RUN[\s\S]*FLOW[\s\S]*GROVE[\s\S]*WINDLINE[\s\S]*RECOVERY/);
-  assert.match(director, /SAPWORK[\s\S]*SAPRUN[\s\S]*BREAKAWAY/);
-  assert.match(director, /HIGH CANOPY[\s\S]*PENDULUM/);
-  assert.match(director, /STORM CANOPY[\s\S]*CONEFALL/);
-  assert.match(director, /CROWNLINE[\s\S]*THUNDERCROWN/);
+  assert.match(director, /REDWOOD RUN[\s\S]*CHOIRLINE[\s\S]*WINDLINE[\s\S]*RECOVERY/);
+  assert.match(director, /SAPWORK[\s\S]*BREAKAWAY[\s\S]*HOLLOWRUN[\s\S]*RECOVERY[\s\S]*AURORARUN/);
+  assert.match(director, /HIGH CANOPY[\s\S]*PENDULUM[\s\S]*MIGRATION[\s\S]*RECOVERY[\s\S]*ELDERSPAN/);
+  assert.match(director, /STORM CANOPY[\s\S]*CONEFALL[\s\S]*HOLLOWRUN[\s\S]*RECOVERY/);
+  assert.match(director, /CROWNLINE[\s\S]*THUNDERCROWN[\s\S]*ELDERSPAN[\s\S]*RECOVERY[\s\S]*ECHOFLIGHT/);
+  for (const setpiece of ['CHOIRLINE', 'HOLLOWRUN', 'AURORARUN', 'MIGRATION', 'ELDERSPAN', 'ECHOFLIGHT']) {
+    assert.match(director, new RegExp(setpiece), `director dropped Living Canopy set piece ${setpiece}`);
+  }
+  assert.match(director, /preservesLivingSetpieces: verifyLivingSetpieces\(\)/);
   assert.match(director, /CATCH_GRACE_SECONDS = 2\.35/);
   assert.match(director, /sapCatches/);
   assert.match(director, /ownsRouteChoreography: true/);

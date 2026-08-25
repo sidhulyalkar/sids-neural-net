@@ -9,19 +9,28 @@
   const baseResetRun = S.resetRun;
   const baseStartRun = S.startRun;
   const VERSION = 'canopy-director-v1';
+  const REVISION = 'living-setpiece-composition-v2';
   const CROWN_CYCLE = 25;
   const CATCH_GRACE_SECONDS = 2.35;
 
-  // This is the final route-choreography authority. Earlier modules define their
-  // mechanics; the director decides when the player is asked to combine them.
-  // Seeded geometry remains untouched, so same-seed runs stay comparable.
+  // Final choreography authority for the pre-Living-Crown curriculum. This is a
+  // composition table, not a replacement of Living Canopy: every authored v0.5
+  // set piece remains in the lesson/exam sequence where its skill is readable.
+  // No route RNG is consumed here, so same-seed generation stays deterministic.
   const ROUTE_CHOREOGRAPHY = {
     ROOTWAYS: ['FLOW', 'RECOVERY', 'GROVE', 'FLOW', 'SAPRUN'],
-    'REDWOOD RUN': ['FLOW', 'GROVE', 'WINDLINE', 'RECOVERY', 'SLINGSHOT', 'CRUX'],
-    SAPWORK: ['SAPRUN', 'BREAKAWAY', 'GROVE', 'WINDLINE', 'RECOVERY', 'SKYHOOK', 'CRUX'],
-    'HIGH CANOPY': ['PENDULUM', 'GROVE', 'RECOVERY', 'SKYHOOK', 'CRUX', 'CROWNWEAVE', 'WINDLINE'],
-    'STORM CANOPY': ['CONEFALL', 'GROVE', 'PENDULUM', 'RECOVERY', 'SKYHOOK', 'CONEFALL', 'CROWNWEAVE', 'WINDLINE'],
-    CROWNLINE: ['CONEFALL', 'THUNDERCROWN', 'CROWNWEAVE', 'RECOVERY', 'PENDULUM', 'SKYHOOK', 'THUNDERCROWN', 'CRUX', 'WINDLINE', 'SAPRUN'],
+    'REDWOOD RUN': ['FLOW', 'GROVE', 'CHOIRLINE', 'WINDLINE', 'RECOVERY', 'SLINGSHOT', 'CRUX'],
+    SAPWORK: ['SAPRUN', 'BREAKAWAY', 'GROVE', 'HOLLOWRUN', 'WINDLINE', 'RECOVERY', 'AURORARUN', 'SKYHOOK', 'CRUX'],
+    'HIGH CANOPY': ['PENDULUM', 'GROVE', 'MIGRATION', 'RECOVERY', 'SKYHOOK', 'ELDERSPAN', 'CRUX', 'CROWNWEAVE', 'WINDLINE'],
+    'STORM CANOPY': ['CONEFALL', 'HOLLOWRUN', 'GROVE', 'PENDULUM', 'RECOVERY', 'SKYHOOK', 'CONEFALL', 'CROWNWEAVE', 'WINDLINE'],
+    CROWNLINE: ['CONEFALL', 'THUNDERCROWN', 'ELDERSPAN', 'RECOVERY', 'ECHOFLIGHT', 'CROWNWEAVE', 'PENDULUM', 'SKYHOOK', 'THUNDERCROWN', 'CRUX', 'WINDLINE', 'SAPRUN'],
+  };
+
+  const REQUIRED_LIVING_SETPIECES = {
+    'REDWOOD RUN': ['CHOIRLINE'],
+    SAPWORK: ['HOLLOWRUN', 'AURORARUN'],
+    'HIGH CANOPY': ['MIGRATION', 'ELDERSPAN'],
+    CROWNLINE: ['ELDERSPAN', 'ECHOFLIGHT'],
   };
 
   const BASE_PRESSURE = {
@@ -40,9 +49,8 @@
     { id: 'CROWN', start: 22, end: 24, multiplier: 1.13 },
   ];
 
-  // Conefall previously became active at floor 132 while the named phase did not
-  // change until 165. Give the mechanic its own readable band before Crownline
-  // starts combining everything.
+  // Conefall becomes active at floor 132. Give it a named readable band before
+  // Crownline asks the player to combine it with the full expert vocabulary.
   if (!S.PHASES.some((phase) => phase.name === 'STORM CANOPY')) {
     const crownIndex = S.PHASES.findIndex((phase) => phase.name === 'CROWNLINE');
     const storm = {
@@ -54,12 +62,27 @@
     };
     if (crownIndex >= 0) S.PHASES.splice(crownIndex, 0, storm);
     else S.PHASES.push(storm);
+    S.PHASES.sort((a, b) => a.floor - b.floor);
   }
 
-  for (const phase of S.PHASES) {
-    if (ROUTE_CHOREOGRAPHY[phase.name]) phase.sequence = ROUTE_CHOREOGRAPHY[phase.name].slice();
-    if (BASE_PRESSURE[phase.name]) phase.pressure = BASE_PRESSURE[phase.name];
+  function installChoreography() {
+    for (const phase of S.PHASES) {
+      const authored = ROUTE_CHOREOGRAPHY[phase.name];
+      if (authored) phase.sequence = authored.slice();
+      if (BASE_PRESSURE[phase.name]) phase.pressure = BASE_PRESSURE[phase.name];
+    }
   }
+
+  function verifyLivingSetpieces() {
+    for (const [phaseName, grammars] of Object.entries(REQUIRED_LIVING_SETPIECES)) {
+      const phase = S.PHASES.find((entry) => entry.name === phaseName);
+      if (!phase) return false;
+      if (grammars.some((grammar) => !phase.sequence.includes(grammar))) return false;
+    }
+    return true;
+  }
+
+  installChoreography();
 
   let lastStage = '';
   let lastPhase = '';
@@ -81,8 +104,6 @@
   function pressureForFloor(floor = player.highestFloor, graceSeconds = 0) {
     const stage = stageForFloor(floor);
     let multiplier = stage.multiplier;
-    // The first dozen floors are a movement laboratory. New players should be
-    // learning inputs, not discovering the threat wall through a death screen.
     if (floor < 12) multiplier = Math.min(multiplier, 0.88);
     const graceScale = graceSeconds > 0
       ? 0.72 + 0.28 * (1 - clamp(graceSeconds / CATCH_GRACE_SECONDS, 0, 1))
@@ -91,6 +112,9 @@
   }
 
   function applyPressure() {
+    // Restore canonical base values first so a prior stage multiplier never feeds
+    // itself on the next tick. Post-250 Living Crown / Elder Sky retain their own
+    // authored base pressures and still receive the same 25-floor heartbeat.
     for (const phase of S.PHASES) {
       if (BASE_PRESSURE[phase.name]) phase.pressure = BASE_PRESSURE[phase.name];
     }
@@ -99,9 +123,8 @@
   }
 
   function enforceAuthoredTrialMeaning() {
-    // BREAKAWAY is introduced at SAPWORK. Forced BREAKAWAY branches should behave
-    // as advertised immediately rather than waiting for a later global density
-    // threshold. This does not consume RNG or modify geometry.
+    // BREAKAWAY is introduced at SAPWORK. Forced BREAKAWAY branches behave as
+    // advertised immediately rather than waiting for a later density threshold.
     for (const branch of state.branches) {
       if (branch.chunkType === 'BREAKAWAY' && branch.floor >= 70 && branch.floor !== 0) {
         branch._trialFragile = true;
@@ -151,10 +174,7 @@
     observedCatches = 0;
     stageTransitions = 0;
     graceActivations = 0;
-    for (const phase of S.PHASES) {
-      if (ROUTE_CHOREOGRAPHY[phase.name]) phase.sequence = ROUTE_CHOREOGRAPHY[phase.name].slice();
-      if (BASE_PRESSURE[phase.name]) phase.pressure = BASE_PRESSURE[phase.name];
-    }
+    installChoreography();
   }
 
   function resetRun(seed) {
@@ -174,15 +194,18 @@
   S.startRun = startRun;
   S.canopyDirector = {
     version: VERSION,
+    revision: REVISION,
     crownCycle: CROWN_CYCLE,
     catchGraceSeconds: CATCH_GRACE_SECONDS,
     ownsRouteChoreography: true,
+    preservesLivingSetpieces: verifyLivingSetpieces(),
     pressureForFloor: (floor) => pressureForFloor(floor, 0),
     getState: () => {
       const stage = stageForFloor();
       const phase = S.phaseForFloor(player.highestFloor)?.name || 'ROOTWAYS';
       return {
         version: VERSION,
+        revision: REVISION,
         phase,
         stage: stage.id,
         stageFloor: player.highestFloor % CROWN_CYCLE,
@@ -191,6 +214,7 @@
         catchGraceRemaining: S.round(catchGrace, 3),
         stageTransitions,
         graceActivations,
+        preservesLivingSetpieces: verifyLivingSetpieces(),
         choreography: Object.fromEntries(Object.entries(ROUTE_CHOREOGRAPHY).map(([name, sequence]) => [name, sequence.slice()])),
       };
     },
