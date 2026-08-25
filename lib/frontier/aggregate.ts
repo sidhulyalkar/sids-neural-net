@@ -195,16 +195,19 @@ export async function getIntegratedFrontierFeed(options: IntegratedOptions = {})
   const focusTopics = Array.from(new Set((options.focusTopics ?? []).map((topic) => topic.trim()).filter(Boolean))).slice(0, 10);
   const deadline = options.adapterDeadlineMs ?? REQUEST_ADAPTER_DEADLINE_MS;
   const emptyAdaptive: FrontierFeedResponse = { generatedAt: new Date().toISOString(), items: [], sources: [] };
+  const deepDiscovery = options.adapterDeadlineMs === false;
 
   // The explicit taste map affects every request through adaptive focus and
-  // ranking. The deeper Brave taste crawl is intentionally different: it fans
-  // out several targeted searches and belongs in the archive-building path,
-  // never in the user's first-paint critical path. The snapshot builder is the
-  // one caller that opts out of request deadlines (`adapterDeadlineMs: false`).
-  const tasteDiscoveryTask = options.adapterDeadlineMs === false
+  // ranking. Deeper taste and mature-tool radars belong in the archive-building
+  // path: they change on hour/day timescales and should never tax first paint.
+  // The snapshot builder is the one caller that opts out of request deadlines.
+  const tasteDiscoveryTask = deepDiscovery
     ? getPersonalTasteFrontierFeed()
     : Promise.resolve(emptyAdaptive);
-  const deepScreenOrbit = options.adapterDeadlineMs === false;
+  const toolingRadarTask = deepDiscovery
+    ? getToolingRadarFeed()
+    : Promise.resolve(emptyAdaptive);
+  const deepScreenOrbit = deepDiscovery;
 
   const [
     baseResult,
@@ -231,7 +234,7 @@ export async function getIntegratedFrontierFeed(options: IntegratedOptions = {})
     withinAdapterDeadline('sports clip radar', getSportsClipFeed(), deadline),
     withinAdapterDeadline('Screen Orbit radar', getScreenOrbitFeed({ deep: deepScreenOrbit }), deadline),
     withinAdapterDeadline('watch radar', getWatchableFrontierFeed(), deadline),
-    withinAdapterDeadline('visualization tooling radar', getToolingRadarFeed(), deadline),
+    withinAdapterDeadline('scientific tooling radar', toolingRadarTask, deadline),
     withinAdapterDeadline(
       'adaptive live mesh',
       focusTopics.length ? getAdaptiveLiveDiscovery(focusTopics) : Promise.resolve(emptyAdaptive),
@@ -287,7 +290,7 @@ export async function getIntegratedFrontierFeed(options: IntegratedOptions = {})
   if (sportsClipResult.status === 'rejected') sources.push({ id: 'social', label: 'Sports clip radar', ok: false, count: 0, message: 'sports clip discovery unavailable' });
   if (screenResult.status === 'rejected') sources.push({ id: 'rss', label: 'Screen Orbit radar', ok: false, count: 0, message: 'screen discovery unavailable' });
   if (watchableResult.status === 'rejected') sources.push({ id: 'youtube', label: 'Watch radar', ok: false, count: 0, message: 'watch radar unavailable' });
-  if (toolingResult.status === 'rejected') sources.push({ id: 'github', label: 'Visualization tooling radar', ok: false, count: 0, message: 'visualization tooling radar unavailable' });
+  if (toolingResult.status === 'rejected') sources.push({ id: 'github', label: 'Scientific tooling radar', ok: false, count: 0, message: 'scientific tooling radar unavailable' });
   if (adaptiveResult.status === 'rejected' && focusTopics.length) sources.push({ id: 'gdelt', label: 'Adaptive live mesh', ok: false, count: 0, message: 'focused request-time discovery unavailable' });
   if (multiSourceResult.status === 'rejected') sources.push({ id: 'local', label: 'Research ingestion mesh', ok: false, count: 0, message: 'multi-source ingestion unavailable' });
   if (expandedResult.status === 'rejected') sources.push({ id: 'local', label: 'Expanded public mesh', ok: false, count: 0, message: 'expanded public discovery unavailable' });
