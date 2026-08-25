@@ -66,12 +66,29 @@ function overlapsExisting(selected: readonly string[], topic: string): boolean {
   return selected.some((existing) => existing.includes(topic) || topic.includes(existing));
 }
 
+function hasBehaviorEvidence(behavior?: FrontierBehaviorModel): boolean {
+  const snapshot = behavior?.rankingSnapshot;
+  if (!snapshot) return false;
+  return Object.keys(snapshot.topicStats).length > 0
+    || Object.keys(snapshot.laneStats).length > 0
+    || Object.keys(snapshot.sourceStats).length > 0
+    || Object.keys(snapshot.formatStats).length > 0;
+}
+
 export function buildDiscoveryFocus(
   profile: FrontierProfile,
   behavior?: FrontierBehaviorModel,
   limit = 7,
   now = new Date()
 ): string[] {
+  // Explicit cold-start taste already shapes the deeply collected committed
+  // snapshot. Do not pay for a redundant adaptive network fanout before the
+  // local learner has any evidence of its own. As soon as the user reacts or
+  // implicit behavior produces a ranking snapshot, focused live discovery can
+  // take over. Explicit topic search is layered on top by buildTopicSearchFocus
+  // and therefore remains live even during a brand-new browser session.
+  if (profile.meaningfulInteractions <= 0 && !hasBehaviorEvidence(behavior)) return [];
+
   const scores = new Map<string, number>();
 
   for (const [rawTopic, affinity] of Object.entries(profile.topicAffinity)) {
@@ -102,8 +119,8 @@ export function buildDiscoveryFocus(
 
   const cap = Math.max(1, Math.min(10, limit));
   // Keep part of every adaptive search budget anchored to explicit interests.
-  // Early profiles reserve three slots; mature profiles still reserve two so a
-  // burst of generic engagement cannot erase the long-term taste map.
+  // Early learned profiles reserve three slots; mature profiles still reserve
+  // two so a burst of generic engagement cannot erase the long-term taste map.
   const seedReserve = Math.min(cap, profile.meaningfulInteractions < 20 ? 3 : 2);
   const learnedCap = Math.max(0, cap - seedReserve);
   const selected: string[] = [];
