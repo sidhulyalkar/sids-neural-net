@@ -3,6 +3,7 @@ import test from 'node:test';
 import {
   enrichFrontierSemantics,
   frontierCandidatePriority,
+  requestTimeEnglishItems,
 } from '../lib/frontier/aggregate';
 import type { FrontierItem } from '../lib/frontier/types';
 
@@ -52,4 +53,19 @@ test('bounded candidate prior can preserve a high-fit sports signal over slightl
   }));
 
   assert.ok(frontierCandidatePriority(nfl) > frontierCandidatePriority(generic));
+});
+
+test('request-time bootstrap never waits on translation-only candidates', () => {
+  const english = item('english', {
+    title: 'NFL route participation model update',
+    summary: 'A useful English-language analysis item.',
+    lane: 'sports',
+  });
+  const foreign = item('foreign', {
+    title: 'Nuevo modelo para análisis de fútbol',
+    summary: 'Una nueva herramienta para datos deportivos y visualización.',
+    lane: 'sports',
+  });
+
+  assert.deepEqual(requestTimeEnglishItems([foreign, english]).map((entry) => entry.id), ['english']);
 });
