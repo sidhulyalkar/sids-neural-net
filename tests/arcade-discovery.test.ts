@@ -314,6 +314,7 @@ test('Sylvaria Sequoia exposes the v0.4 Crown Trail and one-button Sap Stick con
   assert.match(minimalHudGate, /reference-hud-suppression-v1/);
   assert.match(minimalHudGate, /preservesUnderlyingScene: true/);
   assert.match(minimalHudGate, /translate\(22, 18/);
+  assert.match(minimalHudGate, /staleTitleCopy/);
   assert.match(minimalHudGate, /finally/);
 
   assert.match(sapHud, /shift-hold-minimal-v2/);
@@ -352,18 +353,21 @@ test('Sylvaria Sequoia exposes the v0.4 Crown Trail and one-button Sap Stick con
   assert.doesNotMatch(input, /KeyE|SAP_KEYS/);
 });
 
-test('FRONTIER and Game Network coexist in current navigation', () => {
+test('FRONTIER and Game Network coexist in the adaptive fractal homepage', () => {
   assert.ok(siteNavItems.some((item) => item.href === '/frontier' && item.label === 'FRONTIER'));
   assert.ok(siteNavItems.some((item) => item.href === '/arcade' && item.label === 'Game Network'));
   assert.ok(primaryNavItems.some((item) => item.href === '/frontier'));
   assert.ok(primaryNavItems.some((item) => item.href === '/arcade'));
 
   const home = readRepoFile('app/page.tsx');
-  assert.match(home, /href: '\/frontier'/);
-  assert.match(home, /href: '\/arcade'/);
-  assert.match(home, /ariaLabel: 'Open FRONTIER personal intelligence radar'/);
-  assert.match(home, /ariaLabel: 'Open the Game Network'/);
-  assert.match(home, /DendriticPortalLink/);
+  const fractalHome = readRepoFile('components/neural-atlas-canvas/AdaptiveFractalHome.tsx');
+
+  assert.match(home, /AdaptiveFractalHome/);
+  assert.match(fractalHome, /id: 'frontier'.*href: '\/frontier'/);
+  assert.match(fractalHome, /id: 'games'.*label: 'Game Network'.*href: '\/arcade'/);
+  assert.match(fractalHome, /aria-label=\{`Open \$\{destination\.label\}`\}/);
+  assert.match(fractalHome, /data-dendrite-destination=\{destination\.id\}/);
+  assert.match(fractalHome, /data-gesture-target/);
 });
 
 test('Game Network naming is consistent across discovery surfaces', () => {
@@ -409,7 +413,25 @@ test('Game Network browser validation covers all three active cabinets in four e
   assert.doesNotMatch(browserTest, /testCrownrush/);
 
   assert.match(sylvariaTest, /Shift alone/);
-  assert.match(sylvariaTest, /Sap Stick leaked into jump authority/);
+  assert.match(sylvariaTest, /Ordinary Sap vault still manufactured Flow/);
+  assert.match(sylvariaTest, /Altitude wind does not escalate/);
   assert.match(sylvariaTest, /0 did not retry the current seed/);
   assert.match(sylvariaTest, /R still behaves like a reset/);
+});
+
+test('the embedded Stretchicorn fallback release remains complete', () => {
+  const runtimeRoot = 'public/game-runtimes/stretchicorn';
+  const runtimeModules = [
+    'src/style.css',
+    'src/00-core.js',
+    'src/01-combat.js',
+    'src/02-update.js',
+    'src/03-render.js',
+    'src/04-ui-input.js',
+  ];
+
+  assert.ok(existsSync(join(root, runtimeRoot, 'index.html')));
+  for (const runtimeModule of runtimeModules) {
+    assert.ok(existsSync(join(root, runtimeRoot, runtimeModule)), `missing Stretchicorn runtime file: ${runtimeModule}`);
+  }
 });
