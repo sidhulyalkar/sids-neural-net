@@ -1,253 +1,234 @@
-# Sylvaria: Sequoia v0.4 - Crown Trail + Sap Stick Canopy
+# Sylvaria: Sequoia v0.4 - Heartwood Crown + Sap Stick Canopy
 
 ## Why this pass exists
 
-The sparse-canopy direction is working, and the latest playtests confirm that the movement recovery plus one-button Shift Sap Stick made ordinary climbing substantially smoother. The newest recording also exposed the next two problems clearly:
+The movement is finally becoming fun enough that the next question matters: **why does the player desperately want one more floor?** A personal best and a score are useful feedback, but they are too abstract to carry the whole game. Sylvaria needs visible temptation, finite purpose, and late-game situations that change how the player thinks instead of merely making the same jump smaller.
 
-1. the permanent left HUD rail, game logo, and repeated control cards consume too much of the actual playfield;
-2. once the player understands Shift, a normal Sap vault can be repeated so often that the Flow counter becomes enormous and stops communicating mastery.
+The governing identity is now:
 
-In the uploaded run the visible Flow count climbed past 200. That is not a satisfying long-term reward loop. It means the traversal verb itself was manufacturing score faster than the player was making meaningful decisions.
+> **The forest is the interface, and the crown is a real destination.** Build momentum, leave the safe line for persistent Heartseeds, survive increasingly strange canopy trials, and wake the Living Crown.
 
-v0.4 therefore moves toward a clearer identity:
+The game deliberately layers three appetites:
 
-> **The forest is the interface.** The player chases visible Crown milestones through an increasingly exposed canopy. Easy inputs make movement expressive; clean execution, route reading, and altitude pressure make mastery difficult.
+1. **Immediate:** the next Crown Mark is close and visible.
+2. **Run-level:** a glowing Heartseed or authored trial creates a risky decision right now.
+3. **Long-term:** five persistent Heartseeds unlock the Living Crown at floor 250.
+
+Score and personal-best height remain useful, but they are no longer the only answer to “why climb?”
 
 ## Canonical Sap Stick input
 
 Desktop input remains intentionally one button:
 
-**Press Shift -> hold + A/D or Left/Right -> release Shift**
+**Press Shift -> hold Shift + A/D or Left/Right -> release Shift**
 
-The moment Shift is pressed during gameplay, Sap Stick attempts to acquire the best valid amber knot. There is no second Space press and no chord timing requirement.
+Press Shift to fire immediately at the best valid amber knot. Hold Shift and steer the swing in screen space. Release Shift to vault with useful momentum and a refreshed Air Kick. There is **no charge** requirement and no Shift+Space chord.
 
-While the tether is live:
+A **0.18 s acquisition buffer** forgives a slightly early press without turning Sap Stick into autopilot. A tiny **0.075 s internal minimum** only filters one-frame key jitter. A **1.35 s safety ceiling** prevents pathological indefinite tethers. Recent-anchor reuse lockouts prevent one knot from becoming an infinite elevator.
 
-- Shift keeps the tether engaged.
-- A/D or Left/Right always mean screen-left / screen-right swing steering.
-- Space/W/Up do not queue a hidden Air Kick behind the tether.
-- Releasing Shift releases the tether and vaults.
-- The resulting vault refreshes Air Kick so the player can continue the line deliberately.
-
-Touch uses the same lifecycle: press the Sap region to fire and hold, release the pointer to vault.
-
-## Forgiving acquisition without autopilot
-
-A press that happens a fraction early should not turn into a dead input. Sap Stick has a **0.18 s acquisition buffer**. If no knot is reachable on the exact keydown frame, the held input may acquire one that becomes reachable during that short window.
-
-This is intentionally bounded. It is not a persistent tractor beam and it does not search indefinitely while Shift is held.
-
-The target score remains deterministic and considers distance, vertical advantage, movement direction, whether an anchor is behind the player, rescue state, authored `sap-stick` priority, and recent-anchor reuse lockout.
-
-## Hold-to-swing movement contract
-
-The player-facing lifecycle is:
-
-1. Press Shift.
-2. Sap Stick fires immediately when a valid knot exists.
-3. A tiny **0.075 s internal minimum** filters one-frame key jitter. This is not a timing challenge.
-4. Hold Shift and steer with A/D or Left/Right.
-5. Sap Stick suppresses the old tangent-pump input mapping and gives direct screen-horizontal steering authority, so controls never invert around the anchor.
-6. Release Shift when the line looks right.
-7. The release preserves useful momentum, guarantees useful upward motion, and refreshes Air Kick.
-8. A **1.35 s safety ceiling** prevents pathological indefinite tethers.
-
-Recent anchors retain their reuse lock, so one knot cannot become an infinite elevator.
+Space/W/Up while tethered cannot queue a hidden Air Kick. Touch uses the same press, hold, release lifecycle.
 
 ## Clean Sap instead of free Flow
 
-One-button Sap must stay easy to use without making the combo economy automatic.
+An ordinary Sap vault is connective movement. It may preserve a live Flow timer briefly, but it does not automatically mint a SAP combo link.
 
-A normal Sap vault is now **connective movement**. It preserves a live Flow timer briefly, but does not mint a SAP combo link simply because the player used Shift.
+A **Clean Sap** earns the SAP link only when the player deliberately shapes a useful release:
 
-A **Clean Sap** earns the SAP link only when the release demonstrates an intentional swing:
+- player-authored release;
+- tether age between **0.16 s and 0.82 s**;
+- horizontal release speed at least **330 px/s**.
 
-- release is player-authored rather than blur/safety forced;
-- tether age is between **0.16 s and 0.82 s**;
-- horizontal release speed is at least **330 px/s**.
+This keeps Shift friendly while restoring meaning to Flow. The game rewards execution, not repetitive input spam.
 
-The window is deliberately wide. It rewards shaping a useful launch, not frame-perfect timing. This restores meaning to the Flow counter while keeping Sap Stick forgiving.
+## The Heartwood objective
 
-## Reset input safety
+### Five persistent Heartseeds
 
-`R` is not a retry key. The current-seed reset is **0 / Numpad 0**, deliberately away from A/D, W, Space, and Shift. `N` remains new route and `P` remains pause.
+The canopy now contains five named Heartseeds:
 
-## The Crown Trail motivation loop
+| Heartseed | Floor | Intended feeling |
+| --- | ---: | --- |
+| ROOTLIGHT | 22 | first voluntary departure from the safest line |
+| REDSTAR | 58 | commit to an outer-line catch as wind begins to matter |
+| SAPHEART | 103 | trust open-air Sap movement rather than shelves |
+| SKYSEED | 153 | take the exposed storm-side line |
+| CROWNCORE | 218 | claim a high-canopy prize inside the expert ecology |
 
-The climb now has a visible short-horizon objective instead of only an abstract high score.
+A Heartseed is not ordinary currency. It is a memorable world-space object positioned off the safest traversal line. The player can ignore it and keep climbing, or become greedy and alter the route to take it.
 
-### Crown Marks
+Collected Heartseeds persist between runs in local storage. The persistent reward is **progress toward the finite objective**, not permanent movement-stat power creep.
 
-Every **25 floors** is a Crown Mark. The next mark appears as a subtle golden world-space gate in the canopy. Crossing it awards score, a brief visual/audio celebration, and increments the run's Crown count.
+### Immediate risk/reward
 
-The intended loop is:
+Taking a Heartseed also gives a bounded run-local recovery reward:
 
-`current floor -> visible next Crown -> cross it -> new Crown appears above -> chase again`
+- refresh Air Kick;
+- restore useful Stride opportunity;
+- grant a Sap Catch when possible, otherwise resin.
 
-The next target is always close enough to feel attainable, while a strong run naturally chains many milestones.
+That means the detour can be strategically attractive during a strong run without becoming mandatory progression.
 
-### Persistent personal best
+### The Living Crown
 
-The game stores:
+Collecting all five Heartseeds unlocks **the Living Crown at floor 250**. Reaching floor 250 with the full set awakens it permanently and produces a distinct completion celebration.
 
-- highest floor reached;
-- best Flow combo.
+The primary motivational loop becomes:
 
-The minimal top ribbon shows the current floor, next Crown distance, and persistent PB. Game over also tells the player how many floors remain to the next Crown target. This gives an immediate reason for “one more run” without adding menus, currencies, or upgrade grind.
+`climb -> see a Heartseed off the safe line -> choose risk -> bank permanent progress -> collect all five -> reach floor 250 -> wake the Living Crown`
 
-### Route clear rewards
+After awakening the Crown, endless PB climbing remains available. The finite goal gives the game a destination; the endless climb remains the mastery tail.
 
-Finishing a generated route chunk adds a small score bonus and telemetry event. This rewards surviving a whole movement phrase, not just farming one mechanic repeatedly.
+## Crown Trail: the short-horizon appetite
 
-## Branchless route topology
+Every **25 floors** remains a Crown Mark. The next Crown Mark appears as a restrained golden world-space gate and gives a quick audiovisual punctuation when crossed.
 
-Base v0.4 route language remains:
+The loop is deliberately small:
 
-- `GROVE`: broad runway plus branchless amber traversal;
-- `SAPRUN`: three branchless amber tiers between real landing branches;
-- `SLINGSHOT`: alternating open-air Sap line;
-- `CRUX`: tighter conventional precision route.
+`current floor -> visible Crown Mark -> cross it -> next Crown appears`
 
-The physical corridor remains **760 px** wide (`x=100` to `x=860`).
+The minimal HUD preserves Crown distance and personal-best height, but its secondary objective slot now prioritizes **Heartseeds / Living Crown state instead of score**.
 
-The visual/spatial rhythm is therefore:
+## Difficulty must add vocabulary
 
-`runway -> open air -> amber swing -> amber swing -> landing`
+Late difficulty should not be “ROOTWAYS but meaner.” The player should discover new rules and need new reads.
 
-rather than a shelf ladder.
+The route language now progresses roughly as:
 
-## Canopy escalation: difficulty changes shape with altitude
+`runways -> open Sap lines -> crosswind -> breakaways -> pendulums -> Conefall -> Thundercrown`
 
-Difficulty should not mean “the same game but everything moves faster.” It now increases across several dimensions.
+### Existing expert families
 
-### 1. Route geometry
+- **WINDLINE:** exposed cross-anchor movement with wind correction.
+- **SKYHOOK:** long branchless alternating Sap reads.
+- **CROWNWEAVE:** repeated cross-corridor decisions with minimal shelf relief.
 
-The existing geometry scaler shortens branches, increases vertical spacing slightly, and permits stronger slopes as altitude rises. ROOTWAYS stays generous; HIGH CANOPY and CROWNLINE have much less disposable landing surface.
+### BREAKAWAY
 
-### 2. New expert route families
+BREAKAWAY introduces **fragile branches**. From roughly floor 76 onward, selected branches crack after Pip lands and physically disappear after a readable grace period. BREAKAWAY and THUNDERCROWN routes force the mechanic; other late routes may receive it deterministically at increasing density.
 
-Three later-canopy grammars are added:
+The branch visibly cracks, sheds chips, then falls. The player receives a tiny coyote allowance at the moment of collapse so the mechanic creates urgency rather than cheap input theft.
 
-- **WINDLINE**: exposed cross-anchor movement interrupted by a small precision landing;
-- **SKYHOOK**: three branchless anchors with alternating lateral reads before a compact landing;
-- **CROWNWEAVE**: repeated cross-corridor Sap decisions with very little shelf relief.
+The question changes from “can I land there?” to **“what is my exit before I land?”**
 
-These enter gradually. They do not replace the teaching routes at floor zero.
+### PENDULUM
 
-### 3. Deterministic crosswind
+From roughly floor 92, selected authored Sap Stick anchors sway horizontally. PENDULUM and THUNDERCROWN routes force moving anchors, while other higher routes may receive them at bounded deterministic density.
 
-Crosswind begins only after roughly **floor 46**, after the player has had time to learn running, Air Kick, Bark, and Sap.
+The target itself is now time-dependent. A/D swing steering remains direct and screen-relative, but the player must decide when to cast and release rather than treating every knot as a stationary hook.
 
-Wind strength grows by altitude:
+### CONEFALL
 
-- lower REDWOOD RUN: light breeze;
-- SAPWORK: noticeable correction pressure;
-- HIGH CANOPY: strong gusts that influence open-air trajectories;
-- CROWNLINE: exposed, changing wind requiring active steering.
+From roughly floor 132, high canopy can drop **telegraphed sequoia cones** through the traversal corridor. A clear top-of-screen warning appears before the cone enters the playfield.
 
-Wind is deterministic from run seed, floor, and simulation time. It does not consume route RNG. It is strongest while airborne, heavily reduced while tethered, and almost absent while actively moving on the ground. A player who stalls on a high branch becomes more vulnerable to the gust, encouraging forward rhythm without simply stealing control.
+A hit does not arbitrarily one-shot Pip. It knocks the player off line, forces downward velocity, and damages Flow timing. The hazard therefore creates a recoverable movement problem and an opportunity for Air Kick, Bark, or Sap recovery.
 
-The renderer exposes wind with sparse directional streaks and a tiny contextual arrow, so difficulty remains readable rather than invisible.
+Cone cadence and speed escalate with altitude, but warning time remains readable.
 
-### 4. Rising canopy pressure
+### THUNDERCROWN
 
-The existing upward threat continues to accelerate with floor/time. HIGH CANOPY and CROWNLINE now apply stronger phase pressure, so late play asks the player to solve harder routes while maintaining cadence.
+THUNDERCROWN is the late synthesis scenario:
 
-### 5. Combo discipline
+- long branchless cross-anchor chains;
+- swaying Sap targets;
+- unstable landing branches;
+- strong crosswind;
+- falling Conefall pressure;
+- little disposable shelf relief.
 
-Because ordinary Sap no longer awards free Flow, CROWNVELOCITY and large combo values once again require a mixture of real scoring verbs: multi-floor skips, rings, burls, Bark Kick, Air Kick, and Clean Sap.
+It is not intended for ROOTWAYS. It belongs to CROWNLINE, after the player has learned every movement verb separately.
+
+## Determinism and fairness
+
+Heartseed placement, fragile-branch selection, moving-anchor parameters, and Conefall variation use deterministic hashes of the run seed/floor rather than consuming `state.routeRng`.
+
+That preserves the route-generation stream. The same seed remains meaningfully comparable across playtests, and visual or hazard decoration cannot silently mutate future route geometry.
+
+A **same-seed retry** remains on the **0 key / Numpad 0**. `R` is intentionally harmless near the movement cluster. `N` generates a new route seed and `P` pauses.
+
+## Crosswind and altitude ecology
+
+Deterministic crosswind still begins only after roughly floor 46. It is strongest in open air, heavily reduced while tethered, and nearly absent while actively running on a branch.
+
+Altitude changes visual ecology as well as physics. The production renderer keeps collision geometry exact while adding deterministic sequoia bark, deep flake shadows, moss/lichen/resin treatment, atmospheric scattering, cloud wisps, distant birds, moving amber anchors, Heartseed glows, bark fractures, and telegraphed falling cones.
+
+The new hazards must be readable before they are punishing:
+
+- fragile branches crack before collapse;
+- moving anchors leave subtle motion traces;
+- cones announce their lane before entering the screen;
+- crosswind remains visible as sparse environmental streaks.
 
 ## Minimal gameplay HUD
 
-The latest playtest showed the large left rail and permanent title made the playable corridor feel artificially narrow.
+The large left rail and permanent title remain suppressed during play. No opaque replacement panel consumes the newly recovered playfield.
 
-During active play:
-
-- the large left COMBO/FLOW/MOMENTUM panel is suppressed;
-- the permanent top-left game logo is suppressed;
-- the old bottom-left Shift + Space panel is suppressed;
-- the old right-side Sap tutorial card is suppressed;
-- no opaque replacement rectangle is painted over those areas, so branches and Pip remain visible underneath.
-
-The replacement is a thin top-edge ribbon:
+The thin top-edge ribbon shows only what matters now:
 
 - current floor + phase on the left;
-- next Crown progress in the center;
-- PB + score on the right;
-- Flow appears only when a chain is active;
-- wind appears only when meaningful.
+- next Crown Mark in the center;
+- PB + Heartseed/Living Crown state on the right;
+- Flow only while a chain exists;
+- wind only when meaningful;
+- next Heartseed cue only when it is close enough to matter.
 
-Sap instructions are transient: a small bottom-center pill teaches the control during the first seconds, reappears briefly on relevant advanced routes, and becomes an active “A/D swing / release Shift” cue only while tethered.
+The opening title fades away after roughly 1.65 seconds. Its subtitle now communicates the larger objective: **WAKE THE CROWN · HEARTSEEDS x/5**.
 
-The title screen remains a real title screen. Once play begins, a much smaller **SYLVARIA · SEQUOIA / CLIMB THE CROWN** mark fades away over roughly 1.65 seconds and then leaves the screen entirely.
+Sap instructions remain transient. The playfield, not a dashboard, owns the screen.
 
-## Sequoia visual identity
+## Motivation without grind
 
-The production renderer continues using deterministic puzzle-fit sequoia bark, deep flake shadows, longitudinal fibers, moss/lichen/resin ecology, atmospheric scattering, cloud wisps, distant birds, and the mascot-scale Pip.
+The Heartwood system deliberately avoids an upgrade shop, stat tree, or currency treadmill. The player should want to continue because:
 
-The new progression elements are intentionally diegetic or peripheral:
+- a visible Heartseed is dangerous and tempting;
+- the next Crown Mark is close;
+- a new trial family might appear higher up;
+- the finite Living Crown objective is incomplete;
+- a missed Heartseed creates a clean “I can get that next run” memory;
+- after Crown awakening, PB and Flow mastery remain meaningful expert goals.
 
-- Crown targets exist in world space;
-- wind is visible as sparse environmental motion;
-- phase arrival gets a brief typography beat;
-- PB and Crown celebrations fade quickly.
-
-Nothing should sit permanently in the middle of the climb.
-
-## Anti-autopilot regression boundaries
-
-Passive bark:
-
-- does not score Flow;
-- does not refresh Air Kick;
-- remains a low-energy redirect.
-
-Ordinary Sap Stick:
-
-- does not score Flow automatically;
-- may briefly preserve an existing chain;
-- refreshes Air Kick after the vault;
-- only Clean Sap earns the SAP link.
-
-Stride carry and combo acceleration remain bounded. Wind cannot rewrite route generation. Render effects cannot alter collision geometry.
+This keeps the hunger inside the movement itself instead of outside the game in menus.
 
 ## Telemetry
 
-In addition to existing movement metrics, the current pass records:
+The pass records the previous movement/Flow metrics plus:
 
-- `sapStickCleanVaults`;
-- `sapStickFlowCarries`;
+- `heartseeds`;
+- `crownAwakenings`;
+- `fragileBranchesTriggered`;
+- `fragileBranchesBroken`;
+- `conesSpawned`;
+- `coneHits`;
+- `conesDodged`;
 - `crownMarks`;
 - `routesCleared`;
 - `personalBestFloors`;
-- `windReversals`;
-- wind exposure time;
-- maximum experienced wind.
+- `windReversals` and wind exposure.
 
-Same-seed playtests should compare Crown cadence, PB progression, late-route completion, Clean Sap rate, combo inflation, wind corrections, Flow chain length, speed, Air Kick use, and failure location by phase.
+Events include Heartseed collection, Living Crown unlock/awakening, trial entry, branch cracking/collapse, cone impacts, Crown Marks, and route completion.
+
+Same-seed playtests should compare not just height and score but **which temptations players take**, where they fail, whether trial mechanics are understood before punishment, Heartseed pickup rate, recovery after cone hits, moving-anchor success, and whether the player voluntarily risks a good run for a visible relic.
 
 ## Qualification boundary
 
-A v0.4 Crown Trail head is not qualified until it passes:
+The current head is not qualified until all of the following hold:
 
 - runtime syntax and deterministic invariants;
-- early movement/jump envelope;
-- sparse-route density checks;
-- delayed and bounded crosswind checks;
-- late route-family presence;
-- Crown interval and persistent-PB contracts;
-- Clean Sap economy checks proving ordinary Sap cannot manufacture Flow;
-- production build and runtime smoke;
-- one physical Space -> one jump action;
-- ground jump -> separate Air Kick;
-- Shift alone -> Sap Stick cast;
-- held Shift + A/D -> player-owned swing steering;
-- Shift release -> vault + Air Kick refresh;
-- Space during tether -> no hidden Air Kick;
-- 0 -> same-seed retry;
-- R -> harmless;
-- minimal gameplay HUD contract;
-- title fade contract;
-- Chrome Stable, Chromium, Firefox, and WebKit.
+- movement / jump / Clean Sap envelope;
+- ordinary Sap cannot manufacture Flow;
+- Heartseed mask persists across runs;
+- all five Heartseeds unlock the Living Crown at 250;
+- Heartseed pickup refills bounded run-local movement/survival resources;
+- BREAKAWAY, PENDULUM, CONEFALL, and THUNDERCROWN grammars exist;
+- fragile branches actually trigger and disappear;
+- moving Sap anchors materially move;
+- Conefall warning + spawn lifecycle is active only at appropriate altitude;
+- hazard/quest systems do not consume route RNG;
+- Crown Mark and persistent-PB contracts remain intact;
+- press Shift, hold Shift, release Shift control lifecycle remains intact;
+- Space during tether cannot become a hidden Air Kick;
+- 0 key performs same-seed retry and R remains harmless;
+- minimal HUD and title-fade contracts remain intact;
+- production build and runtime smoke pass;
+- Chrome Stable, Chromium, Firefox, and WebKit pass the existing Game Network matrix, Shift-hold movement matrix, and dedicated Heartwood/trial matrix.
 
-The PR remains draft while gameplay feel is still being tuned, even when exact-head qualification is green.
+The PR remains draft while gameplay feel and difficulty are still being tuned, even when exact-head qualification is green.
