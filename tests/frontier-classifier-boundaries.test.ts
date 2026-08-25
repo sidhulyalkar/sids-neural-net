@@ -15,6 +15,17 @@ test('unambiguous full sports phrases still classify without substring-prone acr
   );
 });
 
+test('sports competition prose cannot consume the Kaggle competition lane', () => {
+  assert.notEqual(
+    classifyFrontierLane('Premier League competition returns with Chelsea and Manchester City fighting for the title'),
+    'competitions',
+  );
+  assert.equal(
+    classifyFrontierLane('Kaggle machine learning competition winning solution with cross validation and ensembling'),
+    'competitions',
+  );
+});
+
 test('RSS football prose cannot manufacture NFL analytics tags from words such as influence', () => {
   const xml = `<?xml version="1.0"?><rss><channel><item>
     <title>Chelsea change course with Alonso primed to banish the chaos of youth</title>
@@ -29,4 +40,5 @@ test('RSS football prose cannot manufacture NFL analytics tags from words such a
   assert.equal(item.tags.includes('nfl'), false);
   assert.equal(item.tags.includes('player tracking'), false);
   assert.equal(item.tags.includes('play-by-play'), false);
+  assert.notEqual(item.lane, 'competitions');
 });
