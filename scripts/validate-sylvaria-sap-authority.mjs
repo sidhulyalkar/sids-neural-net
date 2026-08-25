@@ -1,0 +1,76 @@
+import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import vm from 'node:vm';
+
+const root = process.cwd();
+const runtime = join(root, 'public/game-runtimes/sylvaria-sequoia');
+const read = (name) => readFileSync(join(runtime, name), 'utf8');
+
+for (const name of ['02-sap-route-balance.js', '02-sap-authority-v2.js']) {
+  execFileSync(process.execPath, ['--check', join(runtime, name)], { stdio: 'pipe' });
+}
+
+const index = read('index.html');
+const routes = read('02-sap-route-balance.js');
+const authority = read('02-sap-authority-v2.js');
+
+assert.match(index, /Sylvaria: Sequoia v0\.6\.1/);
+assert.match(index, /02-living-canopy\.js[\s\S]*02-sap-route-balance\.js[\s\S]*02-sap-rhythm\.js[\s\S]*02-canopy-economy\.js[\s\S]*02-sap-authority-v2\.js[\s\S]*04-input\.js/);
+assert.match(index, /nearest unused amber node/i);
+
+for (const pattern of [
+  /nearest-sap-authority-v2/,
+  /stickAcquireBufferSeconds: 0/,
+  /nearestEligibleAnchor/,
+  /Math\.hypot\(knot\.x - player\.x, knot\.y - player\.y\)/,
+  /usedAnchorIds/,
+  /withOnlyTarget/,
+  /if \(!armed\) return block\('SPENT'\)/,
+  /floor > spentAtFloor/,
+  /MAX_ATTACH_VX_GAIN = 95/,
+  /MAX_ATTACH_VY_GAIN = 120/,
+  /MAX_RELEASE_VX_GAIN = 105/,
+  /MAX_RELEASE_VY_GAIN = 145/,
+  /useInvariant: nodeUses <= recharges \+ 1/,
+  /AUTHORITY_REJECT/,
+]) assert.match(authority, pattern);
+
+assert.match(authority, /stickPullImpulse: 72/);
+assert.match(authority, /stickTangentBoost: 78/);
+assert.match(authority, /stickReleaseForward: 58/);
+assert.match(authority, /releaseCap: Math\.min\(TUNE\.sap\.releaseCap, 118\)/);
+assert.doesNotMatch(authority, /stickReleaseMinVy: 630/);
+
+const sandbox = { window: { SylvariaSequoia: { ROUTE_GRAMMARS: {} } } };
+vm.runInNewContext(routes, sandbox, { filename: '02-sap-route-balance.js' });
+const grammars = sandbox.window.SylvariaSequoia.ROUTE_GRAMMARS;
+const expected = ['GROVE', 'SAPRUN', 'SLINGSHOT', 'WINDLINE', 'SKYHOOK', 'CROWNWEAVE', 'PENDULUM', 'THUNDERCROWN', 'MIGRATION', 'AURORARUN', 'ELDERSPAN', 'ECHOFLIGHT', 'SKYHEART'];
+for (const name of expected) {
+  const steps = grammars[name];
+  assert.ok(Array.isArray(steps), `missing balanced Sap route ${name}`);
+  const anchors = steps.filter((step) => step.branch === false && step.anchor).length;
+  assert.ok(anchors <= (name === 'SKYHEART' ? 3 : 2), `${name} still contains too many Sap nodes: ${anchors}`);
+  for (let index = 0; index < steps.length - 1; index += 1) {
+    assert.ok(!(steps[index].branch === false && steps[index + 1].branch === false), `${name} contains consecutive air anchors at ${index}`);
+  }
+}
+
+const totalSteps = expected.flatMap((name) => grammars[name]);
+const totalAnchors = totalSteps.filter((step) => step.branch === false && step.anchor).length;
+const totalBranches = totalSteps.filter((step) => step.branch !== false).length;
+assert.ok(totalAnchors / totalBranches < 0.48, `Sap density is still too high: ${totalAnchors}/${totalBranches}`);
+
+console.log(JSON.stringify({
+  ok: true,
+  version: '0.6.1-nearest-sap-authority',
+  targetRule: 'strict nearest eligible authored node at press time',
+  rechargeRule: 'one Sap use, then a physically held higher-log landing',
+  nodeReuse: 'forbidden within a run',
+  directBoostCaps: {
+    attach: { vx: 95, vy: 120 },
+    release: { vx: 105, vy: 145 },
+  },
+  routeDensity: { totalAnchors, totalBranches, ratio: Number((totalAnchors / totalBranches).toFixed(3)) },
+}, null, 2));
