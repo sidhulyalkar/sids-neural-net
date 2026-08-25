@@ -55,7 +55,7 @@ test('homepage records its theme and subpages consume the echo consistently', ()
   assert.match(echo, /force:\$\{theme\.morphology\}/);
 });
 
-test('public curation v14 removes weak variants and keeps every destination interior opaque', () => {
+test('public curation v14 removes weak variants, keeps destination interiors opaque, and uses minimal chrome', () => {
   const stage = readRepoFile('components/neural-atlas-canvas/AdaptiveFractalStage.tsx');
   const curation = readRepoFile('components/neural-atlas-canvas/FractalPublicCurationV14.tsx');
 
@@ -71,6 +71,10 @@ test('public curation v14 removes weak variants and keeps every destination inte
   assert.match(curation, /isolation: isolate/);
   assert.match(curation, /destinationClearance = 'opaque-card-v14'/);
   assert.match(curation, /destinationEdgeClearance = 'v14'/);
+  assert.match(curation, /homeChrome = 'minimal-v15'/);
+  assert.match(curation, /data-home-chrome="minimal-v15"/);
+  assert.match(curation, /div\[aria-hidden="true"\]\.top-5/);
+  assert.match(curation, /display: none !important/);
   assert.doesNotMatch(curation, /data-destination-clearance-mask/);
 });
 
