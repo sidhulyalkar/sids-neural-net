@@ -68,8 +68,11 @@ async function runContract(page, engineName) {
   });
 
   if (initial.debugVersion !== '0.6.1') throw new Error(`v0.6.1 debug contract unavailable: ${JSON.stringify(initial)}`);
-  if (initial.authority?.version !== 'nearest-sap-authority-v2' || !initial.authority.pressTimeAcquisition || initial.authority.bufferedAcquisitionSeconds !== 0) {
+  if (initial.authority?.version !== 'nearest-sap-authority-v3' || !initial.authority.pressTimeAcquisition || initial.authority.bufferedAcquisitionSeconds !== 0) {
     throw new Error(`Nearest Sap authority unavailable: ${JSON.stringify(initial.authority)}`);
+  }
+  if (!initial.authority.immutableAnchorIdentity || JSON.stringify(initial.authority.anchorIdentityFields) !== JSON.stringify(['chunkId', 'floor', 'role', 'anchorKind'])) {
+    throw new Error(`Immutable Sap anchor identity unavailable: ${JSON.stringify(initial.authority)}`);
   }
   if (initial.authority.maxTetherSpeedGain !== 120) throw new Error(`Sap tether energy budget unavailable: ${JSON.stringify(initial.authority)}`);
   if (initial.density >= 0.36) throw new Error(`Generated Sap density is still too high: ${JSON.stringify(initial)}`);
@@ -90,11 +93,15 @@ async function runContract(page, engineName) {
     S.player.vy = 35;
     S.state.threatY = -10000;
 
-    const far = { x: 292, y: 360, floor: 4, chunkId: 'test-far', chunkType: 'TEST', role: 'test', anchorKind: 'sap-stick', pulse: 0 };
-    const near = { x: 560, y: 320, floor: 3, chunkId: 'test-near', chunkType: 'TEST', role: 'test', anchorKind: 'sap-stick', pulse: 0 };
+    const far = { x: 292, y: 360, floor: 4, chunkId: 'test-far', chunkType: 'TEST', role: 'left', anchorKind: 'sap-stick', pulse: 0 };
+    const near = { x: 560, y: 320, floor: 3, chunkId: 'test-near', chunkType: 'TEST', role: 'right', anchorKind: 'sap-stick', pulse: 0 };
     S.state.knots.splice(0, S.state.knots.length, far, near);
 
     const preview = S.sapStick.getTargetPreview?.();
+    const idBeforeMotion = S.sapAuthority.getState().nearestTarget?.id || null;
+    near.x += 18;
+    near.y += 4;
+    const idAfterMotion = S.sapAuthority.getState().nearestTarget?.id || null;
     const before = { vx: S.player.vx, vy: S.player.vy };
     const attached = S.pressSapStick();
     const after = { vx: S.player.vx, vy: S.player.vy };
@@ -103,6 +110,8 @@ async function runContract(page, engineName) {
       attached,
       preview: preview ? { chunkId: preview.chunkId, floor: preview.floor, x: preview.x, y: preview.y } : null,
       attachedKnot: attachedKnot ? { chunkId: attachedKnot.chunkId, floor: attachedKnot.floor, x: attachedKnot.x, y: attachedKnot.y } : null,
+      idBeforeMotion,
+      idAfterMotion,
       before,
       after,
       authority: S.sapAuthority.getState(),
@@ -111,6 +120,9 @@ async function runContract(page, engineName) {
 
   if (!nearest.attached || nearest.preview?.chunkId !== 'test-near' || nearest.attachedKnot?.chunkId !== 'test-near') {
     throw new Error(`Sap did not choose the strict nearest eligible node: ${JSON.stringify(nearest)}`);
+  }
+  if (!nearest.idBeforeMotion || nearest.idBeforeMotion !== nearest.idAfterMotion || nearest.idAfterMotion !== nearest.authority.activeLeaseId) {
+    throw new Error(`Moving Sap anchor changed authority identity: ${JSON.stringify(nearest)}`);
   }
   if (Math.abs(nearest.after.vx - nearest.before.vx) > 95.5 || Math.abs(nearest.after.vy - nearest.before.vy) > 120.5) {
     throw new Error(`Sap attach injected more than the bounded momentum nudge: ${JSON.stringify(nearest)}`);
@@ -178,7 +190,7 @@ async function runContract(page, engineName) {
     const S = window.SylvariaSequoia;
     const spent = S.sapAuthority.getState().spentAtFloor;
     const branch = {
-      x1: 330, x2: 630, y: S.player.y - 20, slope: 0, floor: Math.max(5, spent + 2),
+      x1: 330, x2: 630, y: S.player.y - 20, slope: 0, floor: Math.max(1, spent + 1),
       chunkId: 'test-log', chunkType: 'TEST', side: 'center', launch: false,
     };
     S.state.branches.push(branch);
@@ -198,6 +210,42 @@ async function runContract(page, engineName) {
     throw new Error(`A physically held higher log did not rearm Sap: ${JSON.stringify({ landing, rearmed })}`);
   }
 
+  // The exact previously consumed node is moved after recharge. Because its
+  // identity is topology-only, changing x/y must not make it eligible again.
+  const movedConsumedNode = await frame.evaluate(() => {
+    const S = window.SylvariaSequoia;
+    const consumed = S.state.knots.find((knot) => knot.chunkId === 'test-near');
+    if (!consumed) return { missing: true };
+    S.player.grounded = null;
+    S.player.groundedTime = 0;
+    S.player.x = 480;
+    S.player.px = 480;
+    S.player.y = 210;
+    S.player.py = 210;
+    S.player.vx = 160;
+    S.player.vy = 30;
+    consumed.x = S.player.x + 70;
+    consumed.y = S.player.y + 105;
+    S.state.knots.splice(0, S.state.knots.length, consumed);
+    const before = S.sapAuthority.getState();
+    const preview = S.sapStick.getTargetPreview?.();
+    const attached = S.pressSapStick();
+    const after = S.sapAuthority.getState();
+    return {
+      missing: false,
+      preview: preview ? { chunkId: preview.chunkId, x: preview.x, y: preview.y } : null,
+      attached,
+      before,
+      after,
+    };
+  });
+  if (movedConsumedNode.missing || movedConsumedNode.preview || movedConsumedNode.attached) {
+    throw new Error(`Consumed moving Sap anchor became reusable after coordinate motion: ${JSON.stringify(movedConsumedNode)}`);
+  }
+  if (!movedConsumedNode.after.armed || movedConsumedNode.after.nodeUses !== 1 || movedConsumedNode.after.usedAnchors !== 1) {
+    throw new Error(`Rejecting the moved consumed anchor corrupted Sap authority state: ${JSON.stringify(movedConsumedNode)}`);
+  }
+
   const second = await frame.evaluate(() => {
     const S = window.SylvariaSequoia;
     S.player.grounded = null;
@@ -205,8 +253,8 @@ async function runContract(page, engineName) {
     S.player.vx = 210;
     S.player.vy = 40;
     const floorBase = S.sapAuthority.getState().highestPhysicalFloor;
-    const far = { x: 300, y: S.player.y + 150, floor: floorBase + 3, chunkId: 'test-far-2', chunkType: 'TEST', role: 'test', anchorKind: 'sap-stick', pulse: 0 };
-    const near = { x: S.player.x + 72, y: S.player.y + 105, floor: floorBase + 2, chunkId: 'test-near-2', chunkType: 'TEST', role: 'test', anchorKind: 'sap-stick', pulse: 0 };
+    const far = { x: 300, y: S.player.y + 150, floor: floorBase + 3, chunkId: 'test-far-2', chunkType: 'TEST', role: 'left', anchorKind: 'sap-stick', pulse: 0 };
+    const near = { x: S.player.x + 72, y: S.player.y + 105, floor: floorBase + 2, chunkId: 'test-near-2', chunkType: 'TEST', role: 'right', anchorKind: 'sap-stick', pulse: 0 };
     S.state.knots.splice(0, S.state.knots.length, far, near);
     const preview = S.sapStick.getTargetPreview?.();
     const attached = S.pressSapStick();
@@ -222,7 +270,7 @@ async function runContract(page, engineName) {
   }
 
   await page.screenshot({ path: path.join(outputDir, `${engineName}-nearest-sap-authority.png`), fullPage: true });
-  return { engine: engineName, ok: true, initial, nearest, tethered, release, afterSpam, landing, rearmed, second };
+  return { engine: engineName, ok: true, initial, nearest, tethered, release, afterSpam, landing, rearmed, movedConsumedNode, second };
 }
 
 for (const { name, browserType, launchOptions } of engines) {
