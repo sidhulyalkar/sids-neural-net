@@ -302,9 +302,25 @@ export const FRONTIER_TASTE_DISCOVERY_QUERIES: readonly FrontierTasteDiscoveryQu
   },
 ];
 
+function escapeRegex(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
+ * Short analytical abbreviations must match as tokens. Raw substring matching
+ * made e.g. "EPA" fire inside ordinary words such as "separation", which then
+ * manufactured an NFL semantic bundle for unrelated research papers.
+ */
 function includesAlias(text: string, aliases: readonly string[]): boolean {
   const lower = text.toLowerCase();
-  return aliases.some((alias) => lower.includes(alias.toLowerCase()));
+  return aliases.some((alias) => {
+    const needle = alias.trim().toLowerCase();
+    if (!needle) return false;
+    if (/^[a-z0-9]+$/.test(needle) && needle.length <= 4) {
+      return new RegExp(`(?:^|[^a-z0-9])${escapeRegex(needle)}(?=$|[^a-z0-9])`, 'i').test(lower);
+    }
+    return lower.includes(needle);
+  });
 }
 
 function itemText(item: FrontierItem): string {
