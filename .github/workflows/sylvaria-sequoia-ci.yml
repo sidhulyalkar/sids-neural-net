@@ -62,7 +62,7 @@ jobs:
       - name: Validate Sylvaria Sequoia runtime invariants
         run: npm run check:sylvaria-sequoia
 
-      - name: Validate playable momentum and Sap Stick envelope
+      - name: Validate playable momentum, Clean Sap, and canopy escalation envelope
         run: npm run check:sylvaria-flow
 
       - name: Build production website
@@ -84,20 +84,22 @@ jobs:
           cat /tmp/sylvaria-sequoia-site.log
           exit 1
 
-      - name: Smoke Sylvaria Sequoia cabinet and v0.4 runtime
+      - name: Smoke Sylvaria Sequoia cabinet and Crown Trail runtime
         run: |
           curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/arcade/sylvaria-sequoia >/dev/null
           curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/game-runtimes/sylvaria-sequoia/index.html | grep -q 'Sylvaria: Sequoia v0.4.0'
           curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/game-runtimes/sylvaria-sequoia/02-gameplay.js | grep -q 'function doAirJump'
           curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/game-runtimes/sylvaria-sequoia/02-flow-assist.js | grep -q 'stride-launch-carry'
-          curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/game-runtimes/sylvaria-sequoia/02-sap-stick.js | grep -q 'function pressSapStick'
-          curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/game-runtimes/sylvaria-sequoia/02-sap-stick.js | grep -q 'function applyHeldScreenSteering'
+          curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/game-runtimes/sylvaria-sequoia/02-sap-stick.js | grep -q 'CLEAN_VAULT_MIN_HORIZONTAL = 330'
+          curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/game-runtimes/sylvaria-sequoia/02-canopy-escalation.js | grep -q 'canopy-escalation-v1'
+          curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/game-runtimes/sylvaria-sequoia/02-canopy-escalation.js | grep -q 'CROWNWEAVE'
+          curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/game-runtimes/sylvaria-sequoia/02-canopy-progression.js | grep -q 'crown-trail-v1'
           curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/game-runtimes/sylvaria-sequoia/03-render-canopy.js | grep -q 'shared-vertex anisotropic puzzle lattice'
           curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/game-runtimes/sylvaria-sequoia/03-render-reference-pass.js | grep -q 'reference-production-v1'
-          curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/game-runtimes/sylvaria-sequoia/03-render-reference-pass.js | grep -q 'cinematic twin-sequoia reference layout'
           curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/game-runtimes/sylvaria-sequoia/03-render-altitude-realism.js | grep -q 'altitude-realism-v1'
-          curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/game-runtimes/sylvaria-sequoia/03-render-altitude-realism.js | grep -q 'moss yields to lichen and needles'
-          curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/game-runtimes/sylvaria-sequoia/03-sap-stick-control-hud.js | grep -q 'shift-hold-v1'
+          curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/game-runtimes/sylvaria-sequoia/03-minimal-hud-gate.js | grep -q 'reference-hud-suppression-v1'
+          curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/game-runtimes/sylvaria-sequoia/03-sap-stick-control-hud.js | grep -q 'shift-hold-minimal-v2'
+          curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/game-runtimes/sylvaria-sequoia/03-canopy-progress-hud.js | grep -q 'minimal-crown-hud-v1'
           curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/game-runtimes/sylvaria-sequoia/03-title-focus-guard.js | grep -q 'desktop-focus-v1'
           curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/game-runtimes/sylvaria-sequoia/04-input.js | grep -q "version: '0.4.0'"
           curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/game-runtimes/sylvaria-sequoia/04-input.js | grep -q "Digit0"
@@ -116,7 +118,7 @@ jobs:
           ARCADE_BROWSER_DIR: artifacts/sylvaria-sequoia-browser-matrix
         run: node scripts/playtest-arcade-browsers.mjs
 
-      - name: Validate Shift-hold Sap Stick controls across four engines
+      - name: Validate Crown Trail, minimal HUD, and Shift-hold Sap across four engines
         env:
           PLAYWRIGHT_MODULE_ROOT: /tmp/sylvaria-sequoia-playwright/node_modules/playwright
           SYLVARIA_SHIFT_BROWSER_DIR: artifacts/sylvaria-sequoia-shift-hold
