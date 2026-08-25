@@ -121,7 +121,7 @@ test('Sylvaria cabinet exposes the v0.5 Living Canopy progression ladder', () =>
   assert.ok(existsSync(join(root, 'scripts/validate-sylvaria-living-canopy.mjs')));
   assert.ok(existsSync(join(root, 'scripts/playtest-sylvaria-shift-hold.mjs')));
   assert.ok(existsSync(join(root, 'scripts/playtest-sylvaria-heartwood.mjs')));
-  assert.ok(existsSync(join(root, 'scripts/playtest-sylvaria-living-canopy.mjs')));
+  assert.ok(existsSync(join(root, 'scripts/playtest-sylvaria-living-canopy-v2.mjs')));
 });
 
 test('FRONTIER and Game Network coexist in current navigation', () => {
@@ -167,7 +167,7 @@ test('the Game Network index stays intentionally minimal', () => {
 test('Game Network browser validation preserves current cabinets and gives Sylvaria a dedicated matrix', () => {
   const workflow = readRepoFile('.github/workflows/ci.yml');
   const browserTest = readRepoFile('scripts/playtest-arcade-browsers.mjs');
-  const livingTest = readRepoFile('scripts/playtest-sylvaria-living-canopy.mjs');
+  const livingTest = readRepoFile('scripts/playtest-sylvaria-living-canopy-v2.mjs');
 
   assert.match(workflow, /install chrome/);
   assert.match(workflow, /Chrome Stable Chromium Firefox and WebKit/);
