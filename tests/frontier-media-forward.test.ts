@@ -48,6 +48,17 @@ test('important visual items become wide without promoting ordinary text cards',
   assert.equal(frontierVisualRole(item({ importance: 0.9 }), 2, false), 'compact');
 });
 
+test('card index alone can never promote an ordinary image into a wide visual slot', () => {
+  const ordinary = item({ importance: 0.6, quality: 0.8, media: { type: 'image', url: 'https://example.com/a.jpg' } });
+  for (const index of [0, 7, 14, 21]) assert.equal(frontierVisualRole(ordinary, index, true), 'visual');
+});
+
+test('high-quality near-top imagery can earn wide treatment without random index promotion', () => {
+  const strong = item({ importance: 0.76, quality: 0.92, media: { type: 'image', url: 'https://example.com/a.jpg' } });
+  assert.equal(frontierVisualRole(strong, 2, true), 'wide');
+  assert.equal(frontierVisualRole(strong, 8, true), 'visual');
+});
+
 test('structured evidence keeps a standard footprint while plain text stays compact', () => {
   assert.equal(frontierVisualRole(item({ metrics: [{ label: 'AUC', value: '0.91' }] }), 4, false), 'standard');
   assert.equal(frontierVisualRole(item({ artifacts: [{ kind: 'benchmark', label: 'AUC', value: '0.91' }] }), 4, false), 'standard');
