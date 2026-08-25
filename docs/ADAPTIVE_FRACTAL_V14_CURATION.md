@@ -1,6 +1,6 @@
 # Adaptive Fractal Home V14 Curation
 
-PR #26 now exposes a deliberately smaller public morphology set and treats navigation readability as a hard rendering constraint.
+PR #26 exposes a deliberately smaller public morphology set and treats navigation readability as a hard rendering constraint.
 
 ## Active homepage families
 
@@ -28,6 +28,12 @@ Runtime metadata used by browser qualification:
 - `data-destination-clearance="opaque-card-v14"`
 - `data-destination-edge-clearance="v14"`
 
-## Qualification boundary
+## Minimal production chrome
 
-Runtime head `ee6a09b7ead82862f0c3a5f34f844cd36412dc73` passed Adaptive Fractal Home CI run `32789288246` and Website CI run `32789288251` end-to-end. The deterministic browser gallery verifies all six active morphologies, rejects all six retired morphologies, confirms eight protected destination controls plus CORE, confirms visible opaque destination labels, checks CORE centering/diameter, and validates the Echo Nest Fermat layout.
+The production homepage deliberately omits the morphology/scientific caption from the top of the viewport. The underlying morphology and dimension remain available as DOM metadata for testing and diagnostics, but the visible landing page is reduced to the fractal field, navigation, CORE, identity lockup, and optional camera-controls affordance. Runtime metadata exposes `data-home-chrome="minimal-v15"`.
+
+## Production qualification boundary
+
+The final feature head `3e4b37e52273cd893bd1592d4f2bc7aca89c51ef` passed Adaptive Fractal Home CI run `32792043754` and Website CI run `32792043755` end-to-end, including the minimal-chrome visual gallery. PR #26 was then merged to `master` as `9f3db1a0fc4932873a68b45e10893fc646b9620b`.
+
+The merge commit independently passed the full Website CI production gate in run `32792411282`, including dependency audit, typecheck, lint, unit tests, deterministic corpus checks, production build and bundle budget, public-route smoke tests, FRONTIER privacy/media/interaction audits, homepage navigation, multi-browser Game Network validation, and production browser captures.
