@@ -19,6 +19,10 @@ const files = [
   '02-heartwood-quest.js',
   '02-canopy-trials.js',
   '02-living-canopy.js',
+  '02-sap-route-balance.js',
+  '02-sap-rhythm.js',
+  '02-canopy-economy.js',
+  '02-sap-authority-v2.js',
   '03-render-canopy.js',
   '03-render-fast-underpaint.js',
   '03-render-reference-pass.js',
@@ -32,6 +36,8 @@ const files = [
   '03-canopy-progress-hud.js',
   '03-living-objective-hud.js',
   '03-title-focus-guard.js',
+  '03-canopy-economy-hud.js',
+  '03-economy-input-guard.js',
   '04-input.js',
 ];
 
@@ -49,16 +55,18 @@ const world = read('01-world.js');
 const heartwood = read('02-heartwood-quest.js');
 const trials = read('02-canopy-trials.js');
 const living = read('02-living-canopy.js');
+const sapRoutes = read('02-sap-route-balance.js');
+const sapAuthority = read('02-sap-authority-v2.js');
 const livingRender = read('03-living-canopy-render.js');
 const objectiveHud = read('03-living-objective-hud.js');
 const input = read('04-input.js');
 
-assert.match(index, /Sylvaria: Sequoia v0\.6\.0/);
-assert.match(index, /02-canopy-trials\.js[\s\S]*02-living-canopy\.js/);
+assert.match(index, /Sylvaria: Sequoia v0\.6\.1/);
+assert.match(index, /02-canopy-trials\.js[\s\S]*02-living-canopy\.js[\s\S]*02-sap-route-balance\.js[\s\S]*02-sap-rhythm\.js[\s\S]*02-canopy-economy\.js[\s\S]*02-sap-authority-v2\.js/);
 assert.match(index, /03-heartwood-trials-render\.js[\s\S]*03-living-canopy-render\.js[\s\S]*03-canopy-progress-hud\.js[\s\S]*03-living-objective-hud\.js/);
-assert.match(index, /Skyheart|Contracts/i);
+assert.match(index, /Skyheart|Contracts|Cone Tokens/i);
 
-// Preserve the movement envelope that made v0.4/v0.5 playable.
+// Preserve the responsive run/jump envelope that made v0.4/v0.5 playable.
 for (const pattern of [
   /groundAccel: 3720/,
   /airAccel: 1900/,
@@ -67,14 +75,22 @@ for (const pattern of [
   /strideLaunchCarry: 0\.82/,
   /base: 642/,
   /momentumGain: 0\.62/,
-  /stickAcquireBufferSeconds: 0\.18/,
   /stickSteerAccel: 2450/,
-  /stickReleaseMinVy: 630/,
   /baseSpeed: 20/,
 ]) assert.match(feel, pattern);
 assert.match(core, /FIXED_DT: 1 \/ 120/);
 assert.match(world, /state\.LEFT_WALL = 100/);
 assert.match(world, /state\.RIGHT_WALL = 860/);
+
+// v0.6.1 deliberately narrows Sap itself without altering normal running/jumping.
+assert.match(sapRoutes, /sap-route-balance-v2/);
+assert.match(sapRoutes, /physical landing opportunity/);
+assert.match(sapAuthority, /nearest-sap-authority-v2/);
+assert.match(sapAuthority, /stickAcquireBufferSeconds: 0/);
+assert.match(sapAuthority, /stickPullImpulse: 72/);
+assert.match(sapAuthority, /stickReleaseForward: 58/);
+assert.match(sapAuthority, /useInvariant: nodeUses <= recharges \+ 1/);
+
 assert.match(heartwood, /FINAL_CROWN_FLOOR = 250/);
 assert.match(heartwood, /sylvaria\.sequoia\.heartseedMask/);
 assert.match(trials, /BREAKAWAY/);
@@ -138,7 +154,6 @@ assert.match(objectiveHud, /Canopy Wonders/);
 assert.match(objectiveHud, /Skyheart/);
 assert.doesNotMatch(objectiveHud, /player\.score/);
 
-// Existing one-button movement language and safe reset remain unchanged.
 assert.match(input, /const SHIFT_KEYS/);
 assert.match(input, /const RESET_KEYS = new Set\(\['Digit0', 'Numpad0'\]\)/);
 assert.doesNotMatch(input, /event\.code === 'KeyR'/);
@@ -149,9 +164,10 @@ assert.doesNotMatch(combined, /\benemy\b|\bdamage\b|\battack\b/i, 'Sequoia shoul
 console.log(JSON.stringify({
   ok: true,
   runtime: 'sylvaria-sequoia',
-  version: '0.6.0-living-canopy-preserved',
-  motivation: ['5 persistent Heartseeds', 'Living Crown @ 250', '6 persistent Canopy Wonders', 'Skyheart @ 360', 'endless PB tail'],
+  version: '0.6.1-living-canopy-preserved',
+  motivation: ['5 persistent Heartseeds', 'Living Crown @ 250', '6 persistent Canopy Wonders', 'Skyheart @ 360', 'Canopy Contracts + Cone Tokens'],
   setpieces: ['CHOIRLINE', 'HOLLOWRUN', 'MIGRATION', 'AURORARUN', 'ELDERSPAN', 'ECHOFLIGHT', 'SKYHEART'],
+  sapContract: 'isolated nearest-node bridges between physical landings',
   wonderSkills: ['3x Flow', 'Bark Cling', '450 flight speed', 'Clean Sap', '600 Stride + 5x Flow', 'CROWNVELOCITY'],
   lateSystems: ['fragile footing', 'moving Sap anchors', 'pulsing rings', 'telegraphed elder-wind pulses', 'Conefall', 'crosswind'],
 }, null, 2));
