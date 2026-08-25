@@ -84,7 +84,8 @@ function dedupe(items: FrontierItem[]): FrontierItem[] {
  * Semantic enrichment is intentionally presentation-independent and runs before
  * candidate truncation. Otherwise a broad research flood can evict a smaller
  * NFL/fantasy/visualization/screen signal before the personalized recommender
- * sees it.
+ * sees it. Publisher identity is deliberately excluded: provenance can affect
+ * trust, but it can never manufacture topic meaning.
  */
 export function enrichFrontierSemantics(entry: FrontierItem): FrontierItem {
   const tags = new Set(entry.tags);
@@ -99,7 +100,7 @@ export function enrichFrontierSemantics(entry: FrontierItem): FrontierItem {
   if (entry.sourceKind === 'sports_state') tags.add('sports state');
   if (entry.lane === 'screen') tags.add('screen orbit');
 
-  const tasteText = [entry.title, entry.summary, entry.sourceLabel, ...entry.tags].filter(Boolean).join(' ');
+  const tasteText = [entry.title, entry.summary, ...entry.tags].filter(Boolean).join(' ');
   for (const tag of personalTasteTags(tasteText)) tags.add(tag);
 
   return tags.size === entry.tags.length ? entry : { ...entry, tags: [...tags].slice(0, 14) };
@@ -189,6 +190,24 @@ async function withinAdapterDeadline<T>(
  */
 export function requestTimeEnglishItems(items: FrontierItem[]): FrontierItem[] {
   return items.filter((item) => !needsEnglishTranslation(item.title) && !needsEnglishTranslation(item.summary));
+}
+
+/**
+ * Fast fallback for cold navigation and sparse focused responses. The committed
+ * snapshot has already paid the expensive discovery cost; we still re-run
+ * plausibility, provenance, semantic, presentation, and English-only gates so
+ * stale or malformed archive rows cannot bypass current policy.
+ */
+export function getFrontierSnapshotFeed(): FrontierFeedResponse {
+  const snapshot = frontierSnapshot as FrontierFeedResponse;
+  const items = requestTimeEnglishItems(
+    prepareCandidatePool(recentSnapshotItems()).map(enrichPresentation)
+  );
+  return {
+    generatedAt: snapshot.generatedAt || new Date().toISOString(),
+    items,
+    sources: Array.isArray(snapshot.sources) ? snapshot.sources : [],
+  };
 }
 
 export async function getIntegratedFrontierFeed(options: IntegratedOptions = {}): Promise<FrontierFeedResponse> {
