@@ -38,6 +38,20 @@ test('semantic enrichment recognizes taste concepts before candidate truncation'
   assert.ok(enriched.tags.includes('neuroglancer'));
 });
 
+test('publisher identity can never manufacture personal topic meaning', () => {
+  const publisherOnly = enrichFrontierSemantics(item('publisher-only', {
+    title: 'Quarterly corporate scheduling update',
+    summary: 'A routine company operations notice with no entertainment subject matter.',
+    source: 'crunchyroll.com',
+    sourceLabel: 'Crunchyroll News',
+    sourceKind: 'rss',
+    lane: 'world_pulse',
+  }));
+
+  assert.equal(publisherOnly.tags.includes('screen orbit'), false);
+  assert.equal(publisherOnly.tags.includes('anime'), false);
+});
+
 test('bounded candidate prior can preserve a high-fit sports signal over slightly higher generic AI inventory', () => {
   const generic = enrichFrontierSemantics(item('generic', {
     title: 'General purpose language model release',
