@@ -8,6 +8,7 @@
   const baseRender = S.render;
   const VERSION = 'reference-hud-suppression-v1';
   const paintMethods = ['fill', 'stroke', 'fillRect', 'strokeRect', 'fillText', 'strokeText'];
+  const staleTitleCopy = /Shift \+ Space|T telemetry · R retry/;
 
   // The reference renderer paints world geometry first and its old HUD last.
   // Rather than repainting a rectangle over gameplay, this gate mutes only the
@@ -51,6 +52,9 @@
     for (const name of paintMethods) {
       ctx[name] = function patchedPaint(...args) {
         if (suppress && state.mode === 'playing') return undefined;
+        if ((name === 'fillText' || name === 'strokeText') && state.mode === 'title' && staleTitleCopy.test(String(args[0] || ''))) {
+          return undefined;
+        }
         return paints[name].apply(this, args);
       };
     }
@@ -68,7 +72,7 @@
   S.render = render;
   S.minimalHudGate = {
     version: VERSION,
-    target: 'reference gameplay logo + left rail + old Sap panels',
+    target: 'reference gameplay logo + left rail + old Sap panels + stale title controls',
     preservesUnderlyingScene: true,
   };
 })();
