@@ -58,7 +58,7 @@ test('Stretchicorn cabinet points at the current v0.21.1 public release', () => 
   assert.match(game.description, /Impossible Encore/);
 });
 
-test('Sylvaria Sequoia exposes the v0.4 Crown Trail and one-button Sap Stick contract', () => {
+test('Sylvaria Sequoia exposes the v0.4 Heartwood Crown and one-button Sap Stick contract', () => {
   const game = arcadeGames.find((entry) => entry.slug === 'sylvaria-sequoia');
   assert.ok(game);
   assert.equal(game.title, 'Sylvaria: Sequoia');
@@ -67,7 +67,8 @@ test('Sylvaria Sequoia exposes the v0.4 Crown Trail and one-button Sap Stick con
   assert.equal(game.launchUrl, '/game-runtimes/sylvaria-sequoia/index.html');
   assert.equal(game.nativeSize?.width, 960);
   assert.equal(game.nativeSize?.height, 640);
-  assert.match(game.subtitle, /CROWN|STICK/);
+  assert.match(game.subtitle, /HEARTSEEDS/);
+  assert.match(game.subtitle, /CROWN/);
   assert.match(game.description, /sparse routes/);
   assert.match(game.description, /branchless amber-anchor/);
   assert.match(game.description, /Bark Cling/);
@@ -80,9 +81,15 @@ test('Sylvaria Sequoia exposes the v0.4 Crown Trail and one-button Sap Stick con
   assert.match(game.description, /Air Kick/);
   assert.match(game.description, /Crown Mark/i);
   assert.match(game.description, /personal best|PB/i);
+  assert.match(game.description, /five persistent Heartseeds/i);
+  assert.match(game.description, /Living Crown at floor 250/i);
   assert.match(game.description, /WINDLINE/);
   assert.match(game.description, /SKYHOOK/);
   assert.match(game.description, /CROWNWEAVE/);
+  assert.match(game.description, /BREAKAWAY/);
+  assert.match(game.description, /PENDULUM/);
+  assert.match(game.description, /CONEFALL/);
+  assert.match(game.description, /THUNDERCROWN/);
   assert.match(game.description, /Clean Sap/i);
   assert.match(game.description, /ROOTWAYS/);
   assert.match(game.description, /HIGH CANOPY/);
@@ -92,6 +99,8 @@ test('Sylvaria Sequoia exposes the v0.4 Crown Trail and one-button Sap Stick con
   assert.ok(game.controls.some((control) => control.input === 'Press Shift'));
   assert.ok(game.controls.some((control) => control.input === 'Hold Shift + steer'));
   assert.ok(game.controls.some((control) => control.input === 'Release Shift'));
+  assert.ok(game.controls.some((control) => control.input === 'Heartseeds'));
+  assert.ok(game.controls.some((control) => control.input === 'Living Crown · floor 250'));
   assert.ok(game.controls.some((control) => /Crown/.test(control.input)));
   assert.ok(game.controls.some((control) => control.input === '0 · N · P'));
   assert.ok(!game.controls.some((control) => /Shift \+ Space|Shift · E/.test(control.input)));
@@ -109,6 +118,8 @@ test('Sylvaria Sequoia exposes the v0.4 Crown Trail and one-button Sap Stick con
     '02-control-authority.js',
     '02-canopy-escalation.js',
     '02-canopy-progression.js',
+    '02-heartwood-quest.js',
+    '02-canopy-trials.js',
     '03-render-canopy.js',
     '03-render-fast-underpaint.js',
     '03-render-reference-pass.js',
@@ -117,6 +128,7 @@ test('Sylvaria Sequoia exposes the v0.4 Crown Trail and one-button Sap Stick con
     '03-render-performance.js',
     '03-minimal-hud-gate.js',
     '03-sap-stick-control-hud.js',
+    '03-heartwood-trials-render.js',
     '03-canopy-progress-hud.js',
     '03-title-focus-guard.js',
     '04-input.js',
@@ -127,7 +139,9 @@ test('Sylvaria Sequoia exposes the v0.4 Crown Trail and one-button Sap Stick con
   assert.ok(existsSync(join(root, 'docs/SYLVARIA_SEQUOIA_V04_SAPSTICK_CANOPY_PASS.md')));
   assert.ok(existsSync(join(root, 'scripts/validate-sylvaria-sequoia.mjs')));
   assert.ok(existsSync(join(root, 'scripts/validate-sylvaria-flow-envelope.mjs')));
+  assert.ok(existsSync(join(root, 'scripts/validate-sylvaria-heartwood.mjs')));
   assert.ok(existsSync(join(root, 'scripts/playtest-sylvaria-shift-hold.mjs')));
+  assert.ok(existsSync(join(root, 'scripts/playtest-sylvaria-heartwood.mjs')));
   assert.ok(!existsSync(join(root, 'public/game-runtimes/crownrush')));
 
   const index = readRepoFile(`${runtimeRoot}/index.html`);
@@ -140,6 +154,8 @@ test('Sylvaria Sequoia exposes the v0.4 Crown Trail and one-button Sap Stick con
   const control = readRepoFile(`${runtimeRoot}/02-control-authority.js`);
   const escalation = readRepoFile(`${runtimeRoot}/02-canopy-escalation.js`);
   const progression = readRepoFile(`${runtimeRoot}/02-canopy-progression.js`);
+  const heartwood = readRepoFile(`${runtimeRoot}/02-heartwood-quest.js`);
+  const trials = readRepoFile(`${runtimeRoot}/02-canopy-trials.js`);
   const canopyRender = readRepoFile(`${runtimeRoot}/03-render-canopy.js`);
   const fastUnderpaint = readRepoFile(`${runtimeRoot}/03-render-fast-underpaint.js`);
   const referenceRender = readRepoFile(`${runtimeRoot}/03-render-reference-pass.js`);
@@ -148,6 +164,7 @@ test('Sylvaria Sequoia exposes the v0.4 Crown Trail and one-button Sap Stick con
   const performanceRender = readRepoFile(`${runtimeRoot}/03-render-performance.js`);
   const minimalHudGate = readRepoFile(`${runtimeRoot}/03-minimal-hud-gate.js`);
   const sapHud = readRepoFile(`${runtimeRoot}/03-sap-stick-control-hud.js`);
+  const heartwoodRender = readRepoFile(`${runtimeRoot}/03-heartwood-trials-render.js`);
   const progressHud = readRepoFile(`${runtimeRoot}/03-canopy-progress-hud.js`);
   const focusGuard = readRepoFile(`${runtimeRoot}/03-title-focus-guard.js`);
   const input = readRepoFile(`${runtimeRoot}/04-input.js`);
@@ -155,8 +172,10 @@ test('Sylvaria Sequoia exposes the v0.4 Crown Trail and one-button Sap Stick con
   assert.match(index, /v0\.4\.0/);
   assert.match(index, /Shift fires Sap Stick, hold \+ A\/D to swing, release to vault/);
   assert.match(index, /Crown marks every 25 floors/i);
-  assert.match(index, /02-sap-stick\.js[\s\S]*02-control-authority\.js[\s\S]*02-canopy-escalation\.js[\s\S]*02-canopy-progression\.js/);
-  assert.match(index, /03-render-performance\.js[\s\S]*03-minimal-hud-gate\.js[\s\S]*03-sap-stick-control-hud\.js[\s\S]*03-canopy-progress-hud\.js[\s\S]*03-title-focus-guard\.js[\s\S]*04-input\.js/);
+  assert.match(index, /find 5 Heartseeds/i);
+  assert.match(index, /Living Crown at 250/i);
+  assert.match(index, /02-sap-stick\.js[\s\S]*02-control-authority\.js[\s\S]*02-canopy-escalation\.js[\s\S]*02-canopy-progression\.js[\s\S]*02-heartwood-quest\.js[\s\S]*02-canopy-trials\.js/);
+  assert.match(index, /03-render-performance\.js[\s\S]*03-minimal-hud-gate\.js[\s\S]*03-sap-stick-control-hud\.js[\s\S]*03-heartwood-trials-render\.js[\s\S]*03-canopy-progress-hud\.js[\s\S]*03-title-focus-guard\.js[\s\S]*04-input\.js/);
   assert.doesNotMatch(index, /03-render-skill-pass\.js|03-stride-hud\.js/);
 
   assert.match(core, /FIXED_DT: 1 \/ 120/);
@@ -254,46 +273,52 @@ test('Sylvaria Sequoia exposes the v0.4 Crown Trail and one-button Sap Stick con
   assert.match(progression, /sylvaria\.sequoia\.bestFloor/);
   assert.match(progression, /sylvaria\.sequoia\.bestCombo/);
   assert.match(progression, /function awardCrownMark\(/);
-  assert.match(progression, /CROWN MARK/);
   assert.match(progression, /routesCleared/);
-  assert.match(progression, /S\.markRouteProgress = markRouteProgress/);
+  assert.match(progression, /personalBestFloors/);
 
-  assert.match(canopyRender, /function hash3\(/);
-  assert.match(canopyRender, /function barkVertex\(/);
-  assert.match(canopyRender, /function drawBarkCell\(/);
+  assert.match(heartwood, /heartwood-quest-v1/);
+  assert.match(heartwood, /FINAL_CROWN_FLOOR = 250/);
+  assert.match(heartwood, /sylvaria\.sequoia\.heartseedMask/);
+  assert.match(heartwood, /sylvaria\.sequoia\.crownAwakened/);
+  assert.match(heartwood, /ROOTLIGHT/);
+  assert.match(heartwood, /CROWNCORE/);
+  assert.match(heartwood, /heartseed-collect/);
+  assert.match(heartwood, /living-crown-awakened/);
+  assert.doesNotMatch(heartwood, /state\.routeRng\.next\(/);
+
+  for (const grammar of ['BREAKAWAY', 'PENDULUM', 'CONEFALL', 'THUNDERCROWN']) assert.match(trials, new RegExp(`${grammar}:`));
+  assert.match(trials, /canopy-trials-v1/);
+  assert.match(trials, /fragile-branch-trigger/);
+  assert.match(trials, /fragile-branch-break/);
+  assert.match(trials, /_trialSway/);
+  assert.match(trials, /function spawnCone\(/);
+  assert.match(trials, /cone-hit/);
+  assert.doesNotMatch(trials, /state\.routeRng\.next\(/);
+
   assert.match(canopyRender, /shared-vertex anisotropic puzzle lattice/);
-  assert.match(canopyRender, /Big mascot head/);
-  assert.match(canopyRender, /Leaf hood/);
-  assert.match(canopyRender, /SAP STICK/);
   assert.match(canopyRender, /S\.render = render/);
   assert.doesNotMatch(canopyRender, /routeRng\.next\(/);
 
   assert.match(fastUnderpaint, /single-paint-pipeline-v1/);
   assert.match(fastUnderpaint, /const canopyFallback = S\.render/);
-  assert.match(fastUnderpaint, /forceCanopyFallback/);
   assert.match(fastUnderpaint, /setCanopyFallback/);
+  assert.match(fastUnderpaint, /S\.render = \(alpha, now\) =>/);
 
   assert.match(referenceRender, /reference-production-v1/);
   assert.match(referenceRender, /function makeBarkTile\(/);
+  assert.match(referenceRender, /function drawReferenceBackground\(/);
   assert.match(referenceRender, /function drawReferenceTrunk\(/);
   assert.match(referenceRender, /function drawReferenceBranch\(/);
-  assert.match(referenceRender, /function drawReferenceKnot\(/);
-  assert.match(referenceRender, /function drawReferenceSapline\(/);
   assert.match(referenceRender, /function drawReferencePlayer\(/);
   assert.match(referenceRender, /function drawReferenceHud\(/);
-  assert.match(referenceRender, /cinematic twin-sequoia reference layout/);
   assert.match(referenceRender, /collisionHonest: true/);
   assert.match(referenceRender, /S\.render = render/);
   assert.doesNotMatch(referenceRender, /routeRng\.next\(/);
 
   assert.match(referenceHandoff, /referenceRender: S\.render/);
+  assert.match(referenceHandoff, /referenceVersion/);
 
   assert.match(altitudeRender, /altitude-realism-v1/);
-  assert.match(altitudeRender, /humid understory/);
-  assert.match(altitudeRender, /sunlit trunk corridor/);
-  assert.match(altitudeRender, /amber resin belt/);
-  assert.match(altitudeRender, /cold blue windline/);
-  assert.match(altitudeRender, /open crown and cloud sea/);
   assert.match(altitudeRender, /function drawAtmosphericGrade\(/);
   assert.match(altitudeRender, /function drawTrunkEcology\(/);
   assert.match(altitudeRender, /function drawBranchEcology\(/);
@@ -325,7 +350,18 @@ test('Sylvaria Sequoia exposes the v0.4 Crown Trail and one-button Sap Stick con
   assert.match(sapHud, /resetKey: '0'/);
   assert.match(sapHud, /S\.render = render/);
 
+  assert.match(heartwoodRender, /heartwood-trials-render-v1/);
+  assert.match(heartwoodRender, /function drawFragileBranches\(/);
+  assert.match(heartwoodRender, /function drawSwayTrails\(/);
+  assert.match(heartwoodRender, /function drawCones\(/);
+  assert.match(heartwoodRender, /function drawHeartseed\(/);
+  assert.match(heartwoodRender, /function drawLivingCrown\(/);
+  assert.doesNotMatch(heartwoodRender, /routeRng\.next\(/);
+
   assert.match(progressHud, /minimal-crown-hud-v1/);
+  assert.match(progressHud, /heartwood-objective-v2/);
+  assert.match(progressHud, /HEARTSEEDS/);
+  assert.match(progressHud, /LIVING CROWN/);
   assert.match(progressHud, /CROWN/);
   assert.match(progressHud, /PB/);
   assert.match(progressHud, /drawWind/);
@@ -397,6 +433,7 @@ test('Game Network browser validation covers all three active cabinets in four e
   const workflow = readRepoFile('.github/workflows/ci.yml');
   const browserTest = readRepoFile('scripts/playtest-arcade-browsers.mjs');
   const sylvariaTest = readRepoFile('scripts/playtest-sylvaria-shift-hold.mjs');
+  const heartwoodTest = readRepoFile('scripts/playtest-sylvaria-heartwood.mjs');
 
   assert.match(workflow, /install chrome/);
   assert.match(workflow, /Chrome Stable Chromium Firefox and WebKit/);
@@ -415,8 +452,13 @@ test('Game Network browser validation covers all three active cabinets in four e
   assert.match(sylvariaTest, /Shift alone/);
   assert.match(sylvariaTest, /Ordinary Sap vault still manufactured Flow/);
   assert.match(sylvariaTest, /Altitude wind does not escalate/);
+  assert.match(sylvariaTest, /Heartwood objective is unavailable/);
   assert.match(sylvariaTest, /0 did not retry the current seed/);
   assert.match(sylvariaTest, /R still behaves like a reset/);
+
+  assert.match(heartwoodTest, /Heartseed pickup did not bank \+ refill correctly/);
+  assert.match(heartwoodTest, /Breakaway branch lifecycle failed/);
+  assert.match(heartwoodTest, /Living Crown completion did not persist/);
 });
 
 test('the embedded Stretchicorn fallback release remains complete', () => {
