@@ -92,6 +92,69 @@ async function assertCanvasKeyboardFocus(frame, label) {
   }
 }
 
+async function assertUniRicoV019Contracts(frame) {
+  const contract = await frame.evaluate(() => {
+    const canvas = document.querySelector('#c');
+    if (!canvas) throw new Error('uniRico canvas missing');
+
+    const readState = () => eval('({ mode: F, touchMode: mo, touchPointer: tc, hasShot: B !== null, aim: $e.slice() })');
+    const dispatchTouch = (type, x, y, pointerId) => {
+      const [scale, offsetX, offsetY] = eval('tr()');
+      const rect = canvas.getBoundingClientRect();
+      canvas.dispatchEvent(new PointerEvent(type, {
+        pointerId,
+        pointerType: 'touch',
+        isPrimary: true,
+        bubbles: true,
+        clientX: rect.left + offsetX + x * scale,
+        clientY: rect.top + offsetY + y * scale,
+      }));
+    };
+
+    eval('V = []; td = 0; $b(0);');
+    const tutorialMode = eval('F');
+
+    eval('V[0] = [1, 0, 0, 0]; td = 1; $b(0); B = null;');
+    const originalCapture = canvas.setPointerCapture;
+    canvas.setPointerCapture = () => {};
+
+    let aimDown;
+    let aimReleased;
+    let fired;
+    try {
+      dispatchTouch('pointerdown', 90, 450, 71);
+      aimDown = readState();
+      dispatchTouch('pointerup', 90, 450, 71);
+      aimReleased = readState();
+      dispatchTouch('pointerdown', 870, 510, 72);
+      fired = readState();
+    } finally {
+      if (originalCapture) canvas.setPointerCapture = originalCapture;
+      else delete canvas.setPointerCapture;
+    }
+
+    return { tutorialMode, aimDown, aimReleased, fired };
+  });
+
+  if (contract.tutorialMode !== 7) {
+    throw new Error(`uniRico v0.19.0 first-seen tutorial did not enter demo mode: ${JSON.stringify(contract)}`);
+  }
+  if (contract.aimDown.touchMode !== 1 || contract.aimDown.touchPointer !== 71 || contract.aimDown.hasShot) {
+    throw new Error(`uniRico AIM touch contract failed: ${JSON.stringify(contract.aimDown)}`);
+  }
+  if (contract.aimReleased.touchPointer !== 0) {
+    throw new Error(`uniRico AIM pointer did not release cleanly: ${JSON.stringify(contract.aimReleased)}`);
+  }
+  if (contract.aimReleased.hasShot) {
+    throw new Error(`uniRico AIM release fired unexpectedly: ${JSON.stringify(contract.aimReleased)}`);
+  }
+  if (!contract.fired.hasShot) {
+    throw new Error(`uniRico FIRE control did not launch the selected angle: ${JSON.stringify(contract.fired)}`);
+  }
+
+  return contract;
+}
+
 async function testStretchicorn(page, engineName) {
   const response = await page.goto(`${baseUrl}/arcade/stretchicorn`, { waitUntil: 'networkidle' });
   if (!response?.ok()) throw new Error(`Stretchicorn route returned ${response?.status() ?? 'no response'}`);
@@ -136,13 +199,20 @@ async function testUniRico(page, engineName) {
 
   const frame = page.frames().find((candidate) => candidate.url().includes('/game-runtimes/unirico/'));
   if (!frame) throw new Error('uniRico iframe did not attach');
+  if (!frame.url().includes('/game-runtimes/unirico/v0.19.0/index.html')) {
+    throw new Error(`uniRico runtime URL is not release-versioned: ${frame.url()}`);
+  }
 
   const bridge = await assertNativeBridge(frame, 'uniRico');
   await frame.locator('#c').waitFor({ state: 'visible' });
+  const title = await frame.title();
+  if (!title.includes('uniRico v0.19.0')) throw new Error(`uniRico runtime title is stale: ${title}`);
+
   const initial = await assertPainted(frame, 'uniRico title', 4, 8);
   await assertGameFocus(page, frame.locator('#c'), 'uniRico');
+  const v019 = await assertUniRicoV019Contracts(frame);
   await page.screenshot({ path: path.join(outputDir, `${engineName}-unirico.png`), fullPage: true });
-  return { bridge, initial };
+  return { bridge, title, runtimeUrl: frame.url(), initial, v019 };
 }
 
 for (const { name: engineName, browserType, launchOptions } of engines) {

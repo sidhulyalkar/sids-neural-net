@@ -63,6 +63,29 @@ test('Stretchicorn cabinet points at the current v0.21.1 public release', () => 
   assert.match(game.description, /Impossible Encore/);
 });
 
+test('uniRico cabinet pins the v0.19.0 release with cache-safe versioned runtime URLs', () => {
+  const game = arcadeGames.find((entry) => entry.slug === 'unirico');
+  assert.ok(game);
+  assert.equal(game.version, 'v0.19.0');
+  assert.equal(game.sourceVisibility, 'public');
+  assert.equal(game.repoUrl, 'https://github.com/sidhulyalkar/uniRico');
+  assert.equal(game.launchUrl, '/game-runtimes/unirico/v0.19.0/index.html');
+  assert.deepEqual(game.nativeSize, { width: 960, height: 600 });
+  assert.ok(game.controls.some((control) => control.input === 'AIM wheel'));
+  assert.ok(game.controls.some((control) => control.input === 'FIRE'));
+  assert.match(game.description, /first-seen mechanic demonstrations/i);
+  assert.match(game.description, /precision mobile AIM wheel/i);
+
+  const route = readRepoFile('app/game-runtimes/unirico/[...asset]/route.ts');
+  assert.match(route, /UNIRICO_VERSION = 'v0\.19\.0'/);
+  assert.match(route, /UNIRICO_SOURCE_COMMIT = '13de2151bb2731557392e3399354ee7e744415f3'/);
+  assert.doesNotMatch(route, /5c3737957f302e9c44917097494684419e58e757/);
+  assert.match(route, /redirectLegacyAsset/);
+  assert.match(route, /max-age=31536000, immutable/);
+  assert.match(route, /X-UniRico-Version/);
+  assert.match(route, /X-UniRico-Source-Commit/);
+});
+
 test('FRONTIER and Game Network coexist in current navigation', () => {
   assert.ok(siteNavItems.some((item) => item.href === '/frontier' && item.label === 'FRONTIER'));
   assert.ok(siteNavItems.some((item) => item.href === '/arcade' && item.label === 'Game Network'));
@@ -113,6 +136,8 @@ test('Game Network browser validation covers the two active cabinets in four eng
   assert.match(browserTest, /channel: 'chrome'/);
   assert.match(browserTest, /testStretchicorn\(page, engineName\)/);
   assert.match(browserTest, /testUniRico\(page, engineName\)/);
+  assert.match(browserTest, /uniRico v0\.19\.0/);
+  assert.match(browserTest, /AIM release fired unexpectedly/);
   assert.doesNotMatch(browserTest, /testSylvaria/);
 });
 
