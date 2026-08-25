@@ -13,7 +13,7 @@ import type {
   FrontierSourceStatus,
 } from './types';
 
-const USER_AGENT = 'sids-neural-net-frontier/2.1 (+https://sidhulyalkar.com/frontier)';
+const USER_AGENT = 'sids-neural-net-frontier/2.2 (+https://sidhulyalkar.com/frontier)';
 const MUSIC_QUERY_TIMEOUT_MS = 3_800;
 const DAY_MS = 86_400_000;
 
@@ -32,6 +32,33 @@ type MusicQuery = {
   query: string;
   artists: string[];
 };
+
+export type DirectMusicFeed = {
+  id: string;
+  label: string;
+  url: string;
+  host: string;
+};
+
+export const FRONTIER_DIRECT_MUSIC_FEEDS: readonly DirectMusicFeed[] = [
+  {
+    id: 'edm-com',
+    label: 'EDM.com',
+    url: 'https://edm.com/.rss/full/',
+    host: 'edm.com',
+  },
+  {
+    id: 'dancing-astronaut',
+    label: 'Dancing Astronaut',
+    url: 'https://dancingastronaut.com/feed',
+    host: 'dancingastronaut.com',
+  },
+] as const;
+
+const BASS_EVIDENCE = [
+  'dubstep', 'bass music', 'melodic bass', 'bass house', 'drum and bass',
+  'electronic music', 'edm', 'remix', 'live set',
+] as const;
 
 function clamp(value: number, min = 0, max = 1): number {
   return Math.min(max, Math.max(min, value));
@@ -108,12 +135,14 @@ function dayHash(value: string): number {
 }
 
 function xmlTag(block: string, tag: string): string {
-  const match = block.match(new RegExp(`<${tag}(?:\\s[^>]*)?>([\\s\\S]*?)<\\/${tag}>`, 'i'));
+  const escaped = tag.replace(':', '\\:');
+  const match = block.match(new RegExp(`<${escaped}(?:\\s[^>]*)?>([\\s\\S]*?)<\\/${escaped}>`, 'i'));
   return cleanText(match?.[1]);
 }
 
 function xmlTagAttribute(block: string, tag: string, attribute: string): string {
-  const opening = block.match(new RegExp(`<${tag}\\b([^>]*)>`, 'i'))?.[1] ?? '';
+  const escaped = tag.replace(':', '\\:');
+  const opening = block.match(new RegExp(`<${escaped}\\b([^>]*)>`, 'i'))?.[1] ?? '';
   return cleanText(opening.match(new RegExp(`\\b${attribute}\\s*=\\s*["']([^"']+)["']`, 'i'))?.[1]);
 }
 
@@ -129,6 +158,37 @@ function evidenceContains(text: string, term: string): boolean {
     return new RegExp(`(^|[^a-z0-9])${needle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}([^a-z0-9]|$)`, 'i').test(lower);
   }
   return lower.includes(needle);
+}
+
+function musicEvidence(text: string, artists: readonly string[] = FRONTIER_MUSIC_ARTISTS): {
+  matchedArtists: string[];
+  bassEvidence: boolean;
+} {
+  return {
+    matchedArtists: artists.filter((artist) => evidenceContains(text, artist)),
+    bassEvidence: BASS_EVIDENCE.some((term) => evidenceContains(text, term)),
+  };
+}
+
+function musicScores(publishedAt: string, matchedArtists: string[], now: number) {
+  const ageDays = Math.max(0, (now - new Date(publishedAt).getTime()) / DAY_MS);
+  const freshness = Math.exp(-ageDays / 7);
+  const quality = 0.68;
+  const importance = matchedArtists.length ? 0.58 : 0.5;
+  const novelty = 0.62;
+  const momentum = 0.5;
+  const baseScore = clamp(
+    importance * 0.28 + quality * 0.24 + momentum * 0.14 + freshness * 0.22 + novelty * 0.12
+  );
+  return { quality, importance, novelty, momentum, baseScore };
+}
+
+function musicTags(matchedArtists: string[], bassEvidence: boolean): string[] {
+  return Array.from(new Set([
+    ...matchedArtists.map((artist) => artist.toLowerCase()),
+    ...(bassEvidence ? ['bass music'] : []),
+    'music discovery',
+  ])).slice(0, 8);
 }
 
 /**
@@ -183,11 +243,8 @@ export function parsePersonalMusicNewsRss(xml: string, spec: MusicQuery, now = D
     const url = xmlTag(block, 'link') || xmlTag(block, 'guid');
     if (!title || !url) return [];
     const description = summarize(xmlTag(block, 'description'));
-    const evidenceText = `${title} ${description}`;
-    const matchedArtists = spec.artists.filter((artist) => evidenceContains(evidenceText, artist));
-    const bassEvidence = ['dubstep', 'bass music', 'melodic bass', 'bass house', 'electronic music', 'remix', 'live set']
-      .some((term) => evidenceContains(evidenceText, term));
-    if (!matchedArtists.length && !bassEvidence) return [];
+    const evidence = musicEvidence(`${title} ${description}`, spec.artists);
+    if (!evidence.matchedArtists.length && !evidence.bassEvidence) return [];
 
     const publishedRaw = xmlTag(block, 'pubDate');
     const publishedAt = Number.isNaN(Date.parse(publishedRaw))
@@ -199,19 +256,6 @@ export function parsePersonalMusicNewsRss(xml: string, spec: MusicQuery, now = D
     const publisherUrl = xmlTagAttribute(block, 'source', 'url');
     const sourceLabel = xmlTag(block, 'source') || publisherHost(publisherUrl) || 'Music radar';
     const source = publisherHost(publisherUrl) || 'news.google.com';
-    const freshness = Math.exp(-ageDays / 7);
-    const quality = 0.68;
-    const importance = matchedArtists.length ? 0.58 : 0.5;
-    const novelty = 0.62;
-    const momentum = 0.5;
-    const baseScore = clamp(
-      importance * 0.28 + quality * 0.24 + momentum * 0.14 + freshness * 0.22 + novelty * 0.12
-    );
-    const tags = Array.from(new Set([
-      ...matchedArtists.map((artist) => artist.toLowerCase()),
-      ...(bassEvidence ? ['bass music'] : []),
-      'music discovery',
-    ])).slice(0, 8);
 
     return [{
       id: `taste-music-${spec.id}-${stableId(`${url}-${index}`)}`,
@@ -223,15 +267,67 @@ export function parsePersonalMusicNewsRss(xml: string, spec: MusicQuery, now = D
       sourceKind: 'rss' as const,
       publishedAt,
       lane: 'music' as const,
-      tags,
-      importance,
-      quality,
-      momentum,
-      novelty,
-      baseScore,
-      why: matchedArtists.length
-        ? `Fresh signal for ${matchedArtists.join(' + ')} from the checked-in music taste profile.`
+      tags: musicTags(evidence.matchedArtists, evidence.bassEvidence),
+      ...musicScores(publishedAt, evidence.matchedArtists, now),
+      why: evidence.matchedArtists.length
+        ? `Fresh signal for ${evidence.matchedArtists.join(' + ')} from the checked-in music taste profile.`
         : 'Fresh dubstep or bass-music signal from the keyless daily radar.',
+    } satisfies FrontierItem];
+  });
+}
+
+/** Direct specialist feeds are preferred because provenance survives intact. */
+export function parseDirectMusicRss(
+  xml: string,
+  feed: DirectMusicFeed,
+  now = Date.now(),
+): FrontierItem[] {
+  const blocks = [
+    ...(xml.match(/<item\b[\s\S]*?<\/item>/gi) ?? []),
+    ...(xml.match(/<entry\b[\s\S]*?<\/entry>/gi) ?? []),
+  ];
+  return blocks.slice(0, 16).flatMap((block, index) => {
+    const title = xmlTag(block, 'title');
+    const url = xmlTag(block, 'link')
+      || xmlTagAttribute(block, 'link', 'href')
+      || xmlTag(block, 'guid')
+      || xmlTag(block, 'id');
+    if (!title || !url) return [];
+
+    const summary = summarize(
+      xmlTag(block, 'description')
+      || xmlTag(block, 'summary')
+      || xmlTag(block, 'content:encoded')
+      || xmlTag(block, 'content')
+    );
+    const evidence = musicEvidence(`${title} ${summary}`);
+    if (!evidence.matchedArtists.length && !evidence.bassEvidence) return [];
+
+    const publishedRaw = xmlTag(block, 'pubDate')
+      || xmlTag(block, 'published')
+      || xmlTag(block, 'updated')
+      || xmlTag(block, 'dc:date');
+    const publishedAt = Number.isNaN(Date.parse(publishedRaw))
+      ? new Date(now).toISOString()
+      : new Date(publishedRaw).toISOString();
+    const ageDays = Math.max(0, (now - new Date(publishedAt).getTime()) / DAY_MS);
+    if (ageDays > 21) return [];
+
+    return [{
+      id: `taste-music-direct-${feed.id}-${stableId(`${url}-${index}`)}`,
+      title,
+      summary: summary || `Fresh electronic-music signal from ${feed.label}.`,
+      url,
+      source: feed.host,
+      sourceLabel: feed.label,
+      sourceKind: 'rss' as const,
+      publishedAt,
+      lane: 'music' as const,
+      tags: musicTags(evidence.matchedArtists, evidence.bassEvidence),
+      ...musicScores(publishedAt, evidence.matchedArtists, now),
+      why: evidence.matchedArtists.length
+        ? `${feed.label} directly mentioned ${evidence.matchedArtists.join(' + ')} from your checked-in music taste profile.`
+        : `${feed.label} directly published a fresh bass or electronic-music signal.`,
     } satisfies FrontierItem];
   });
 }
@@ -253,17 +349,56 @@ async function fetchMusicQuery(spec: MusicQuery): Promise<FrontierItem[]> {
   }
 }
 
+async function fetchDirectMusicFeed(feed: DirectMusicFeed): Promise<FrontierItem[]> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), MUSIC_QUERY_TIMEOUT_MS);
+  try {
+    const response = await fetch(feed.url, {
+      headers: { 'User-Agent': USER_AGENT, Accept: 'application/rss+xml, application/atom+xml, text/xml' },
+      signal: controller.signal,
+      next: { revalidate: 60 * 45 },
+    });
+    if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
+    return parseDirectMusicRss(await response.text(), feed).slice(0, 5);
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+function dedupeMusic(items: FrontierItem[]): FrontierItem[] {
+  const seen = new Set<string>();
+  return items.filter((item) => {
+    let key = item.url.toLowerCase();
+    try {
+      const url = new URL(item.url);
+      url.hash = '';
+      key = url.toString().toLowerCase();
+    } catch {
+      key = item.title.toLowerCase().replace(/\W+/g, ' ').trim();
+    }
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
 async function getKeylessMusicRadar(dayKey: string): Promise<{ items: FrontierItem[]; status: FrontierSourceStatus }> {
   const queries = pickDailyMusicQueries(dayKey);
-  const runs = await Promise.allSettled(queries.map(fetchMusicQuery));
-  const items = runs.flatMap((run) => run.status === 'fulfilled' ? run.value : []);
-  const failures = runs.filter((run) => run.status === 'rejected').length;
+  const [directRuns, searchRuns] = await Promise.all([
+    Promise.allSettled(FRONTIER_DIRECT_MUSIC_FEEDS.map(fetchDirectMusicFeed)),
+    Promise.allSettled(queries.map(fetchMusicQuery)),
+  ]);
+  const directItems = directRuns.flatMap((run) => run.status === 'fulfilled' ? run.value : []);
+  const searchItems = searchRuns.flatMap((run) => run.status === 'fulfilled' ? run.value : []);
+  const items = dedupeMusic([...directItems, ...searchItems]).slice(0, 16);
+  const failures = [...directRuns, ...searchRuns].filter((run) => run.status === 'rejected').length;
+  const totalRuns = directRuns.length + searchRuns.length;
   return {
     items,
     status: {
       id: 'rss',
       label: 'Bass music radar',
-      ok: items.length > 0 || failures < runs.length,
+      ok: items.length > 0 || failures < totalRuns,
       count: items.length,
       message: failures > 0 && items.length === 0 ? 'keyless music discovery unavailable' : undefined,
     },
