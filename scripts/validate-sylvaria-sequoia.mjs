@@ -16,6 +16,8 @@ const modules = [
   '02-control-authority.js',
   '02-canopy-escalation.js',
   '02-canopy-progression.js',
+  '02-heartwood-quest.js',
+  '02-canopy-trials.js',
   '03-render-canopy.js',
   '03-render-fast-underpaint.js',
   '03-render-reference-pass.js',
@@ -24,6 +26,7 @@ const modules = [
   '03-render-performance.js',
   '03-minimal-hud-gate.js',
   '03-sap-stick-control-hud.js',
+  '03-heartwood-trials-render.js',
   '03-canopy-progress-hud.js',
   '03-title-focus-guard.js',
   '04-input.js',
@@ -50,6 +53,8 @@ const stick = read('02-sap-stick.js');
 const control = read('02-control-authority.js');
 const escalation = read('02-canopy-escalation.js');
 const progression = read('02-canopy-progression.js');
+const heartwood = read('02-heartwood-quest.js');
+const trials = read('02-canopy-trials.js');
 const canopy = read('03-render-canopy.js');
 const underpaint = read('03-render-fast-underpaint.js');
 const referenceRender = read('03-render-reference-pass.js');
@@ -58,21 +63,24 @@ const altitudeRender = read('03-render-altitude-realism.js');
 const performanceRender = read('03-render-performance.js');
 const hudGate = read('03-minimal-hud-gate.js');
 const sapHud = read('03-sap-stick-control-hud.js');
+const heartwoodRender = read('03-heartwood-trials-render.js');
 const progressHud = read('03-canopy-progress-hud.js');
 const focusGuard = read('03-title-focus-guard.js');
 const input = read('04-input.js');
 const runtime = [
   core, feel, world, gameplay, jumpContract, assist, stick, control, escalation, progression,
-  canopy, underpaint, referenceRender, handoff, altitudeRender, performanceRender, hudGate,
-  sapHud, progressHud, focusGuard, input,
+  heartwood, trials, canopy, underpaint, referenceRender, handoff, altitudeRender, performanceRender,
+  hudGate, sapHud, heartwoodRender, progressHud, focusGuard, input,
 ].join('\n');
 const design = readFileSync(designPath, 'utf8');
 
 assert.match(index, /<title>Sylvaria: Sequoia v0\.4\.0<\/title>/);
-assert.match(index, /02-flow-assist\.js[\s\S]*02-sap-stick\.js[\s\S]*02-control-authority\.js[\s\S]*02-canopy-escalation\.js[\s\S]*02-canopy-progression\.js/);
-assert.match(index, /03-render-performance\.js[\s\S]*03-minimal-hud-gate\.js[\s\S]*03-sap-stick-control-hud\.js[\s\S]*03-canopy-progress-hud\.js[\s\S]*03-title-focus-guard\.js[\s\S]*04-input\.js/);
+assert.match(index, /02-flow-assist\.js[\s\S]*02-sap-stick\.js[\s\S]*02-control-authority\.js[\s\S]*02-canopy-escalation\.js[\s\S]*02-canopy-progression\.js[\s\S]*02-heartwood-quest\.js[\s\S]*02-canopy-trials\.js/);
+assert.match(index, /03-render-performance\.js[\s\S]*03-minimal-hud-gate\.js[\s\S]*03-sap-stick-control-hud\.js[\s\S]*03-heartwood-trials-render\.js[\s\S]*03-canopy-progress-hud\.js[\s\S]*03-title-focus-guard\.js[\s\S]*04-input\.js/);
 assert.match(index, /Shift fires Sap Stick, hold \+ A\/D to swing, release to vault/i);
 assert.match(index, /Crown marks every 25 floors/i);
+assert.match(index, /find 5 Heartseeds/i);
+assert.match(index, /Living Crown at 250/i);
 assert.match(index, /0 resets/i);
 
 assert.match(core, /FIXED_DT: 1 \/ 120/);
@@ -210,6 +218,30 @@ for (const pattern of [
   /S\.markRouteProgress = markRouteProgress/,
 ]) assert.match(progression, pattern);
 
+for (const pattern of [
+  /heartwood-quest-v1/,
+  /FINAL_CROWN_FLOOR = 250/,
+  /ROOTLIGHT[\s\S]*floor: 22/,
+  /CROWNCORE[\s\S]*floor: 218/,
+  /sylvaria\.sequoia\.heartseedMask/,
+  /living-crown-awakened/,
+  /S\.heartwoodQuest =/,
+]) assert.match(heartwood, pattern);
+assert.doesNotMatch(heartwood, /state\.routeRng\.next\(/, 'Heartseed placement must not consume route RNG');
+
+for (const grammar of ['BREAKAWAY', 'PENDULUM', 'CONEFALL', 'THUNDERCROWN']) {
+  assert.match(trials, new RegExp(`${grammar}: \\[`), `missing canopy trial ${grammar}`);
+}
+for (const pattern of [
+  /canopy-trials-v1/,
+  /fragile-branch-break/,
+  /_trialSway/,
+  /function spawnCone\(/,
+  /cone-hit/,
+  /S\.canopyTrials =/,
+]) assert.match(trials, pattern);
+assert.doesNotMatch(trials, /state\.routeRng\.next\(/, 'canopy trials must not consume route RNG');
+
 assert.doesNotMatch(canopy, /routeRng\.next\(/, 'canopy renderer must never consume route RNG');
 assert.match(canopy, /shared-vertex anisotropic puzzle lattice/);
 assert.match(canopy, /S\.render = render/);
@@ -284,10 +316,24 @@ for (const pattern of [
 ]) assert.match(sapHud, pattern);
 
 for (const pattern of [
+  /heartwood-trials-render-v1/,
+  /function drawFragileBranches\(/,
+  /function drawSwayTrails\(/,
+  /function drawCones\(/,
+  /function drawHeartseed\(/,
+  /function drawLivingCrown\(/,
+  /S\.render = render/,
+]) assert.match(heartwoodRender, pattern);
+assert.doesNotMatch(heartwoodRender, /routeRng\.next\(/, 'Heartwood renderer must not consume route RNG');
+
+for (const pattern of [
   /minimal-crown-hud-v1/,
+  /heartwood-objective-v2/,
   /function drawWind\(/,
   /function drawCrownGate\(/,
   /function drawMinimalHud\(/,
+  /HEARTSEEDS/,
+  /LIVING CROWN/,
   /CROWN/,
   /PB/,
   /title fades out after play starts/,
@@ -332,20 +378,26 @@ for (const pattern of [
   /Crown Mark/i,
   /crosswind/i,
   /Clean Sap/i,
+  /Heartseed/i,
+  /Living Crown/i,
+  /BREAKAWAY/i,
+  /PENDULUM/i,
+  /CONEFALL/i,
+  /THUNDERCROWN/i,
 ]) assert.match(design, pattern);
 
 console.log(JSON.stringify({
   ok: true,
   runtime: 'sylvaria-sequoia',
-  version: '0.4.0-crown-trail-canopy-escalation',
+  version: '0.4.0-heartwood-canopy-trials',
   fixedHz: 120,
   modules,
-  grammars: ['FLOW', 'RECOVERY', 'GROVE', 'SAPRUN', 'SLINGSHOT', 'CRUX', 'WINDLINE', 'SKYHOOK', 'CROWNWEAVE'],
+  grammars: ['FLOW', 'RECOVERY', 'GROVE', 'SAPRUN', 'SLINGSHOT', 'CRUX', 'WINDLINE', 'SKYHOOK', 'CROWNWEAVE', 'BREAKAWAY', 'PENDULUM', 'CONEFALL', 'THUNDERCROWN'],
   corridorWidth: 760,
   feel: ['responsive acceleration', 'strong air steering', 'player-owned reversals', 'Stride height memory without hidden horizontal snaps'],
-  progression: ['Crown Mark every 25 floors', 'persistent height PB', 'route-clear bonuses', 'phase-arrival banners'],
-  difficulty: ['shorter late branches', 'branchless anchor chains', 'deterministic altitude crosswind', 'rising pressure'],
-  render: ['single production scene paint', 'legacy gameplay HUD paint suppression', 'minimal top ribbon', 'world-space Crown markers', 'brief title fade'],
+  progression: ['Crown Mark every 25 floors', 'five persistent Heartseeds', 'Living Crown at floor 250', 'persistent height PB', 'route-clear bonuses'],
+  difficulty: ['shorter late branches', 'branchless anchor chains', 'deterministic altitude crosswind', 'fragile branches', 'moving Sap anchors', 'telegraphed falling cones', 'rising pressure'],
+  render: ['single production scene paint', 'legacy gameplay HUD paint suppression', 'minimal top ribbon', 'world-space Crown markers', 'Heartseed ornaments', 'brief title fade'],
   sapStick: ['press Shift to fire', '180ms acquisition buffer', 'hold plus A/D to swing', 'release Shift to vault', 'Clean Sap earns Flow', 'ordinary Sap only carries Flow'],
   reset: '0 / Numpad0',
 }, null, 2));
