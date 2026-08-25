@@ -10,6 +10,8 @@ type SportsAnalyticsQuery = {
   query: string;
   tags: string[];
   weight: number;
+  /** Every evidence group must contribute at least one returned-text match. */
+  evidenceGroups: readonly (readonly string[])[];
 };
 
 const PINNED_QUERIES: readonly SportsAnalyticsQuery[] = [
@@ -19,6 +21,10 @@ const PINNED_QUERIES: readonly SportsAnalyticsQuery[] = [
     query: 'NFL Patriots analytics player tracking EPA CPOE play-by-play fourth down win probability',
     tags: ['nfl', 'patriots', 'sports analytics', 'player tracking', 'play-by-play', 'epa', 'cpoe'],
     weight: 1,
+    evidenceGroups: [
+      ['nfl', 'patriots', 'quarterback', 'wide receiver', 'running back', 'tight end'],
+      ['analytics', 'epa', 'cpoe', 'player tracking', 'play-by-play', 'fourth down', 'win probability', 'next gen stats', 'nflverse', 'nflfastr'],
+    ],
   },
   {
     id: 'fantasy-football',
@@ -26,6 +32,10 @@ const PINNED_QUERIES: readonly SportsAnalyticsQuery[] = [
     query: 'fantasy football superflex 2QB ADP target share route participation air yards projections analytics',
     tags: ['fantasy football', 'superflex', '2qb', 'adp', 'target share', 'player usage'],
     weight: 1,
+    evidenceGroups: [
+      ['fantasy football', 'fantasy', 'superflex', '2qb', '2 qb', 'adp', 'waiver wire'],
+      ['projection', 'ranking', 'draft', 'target share', 'route participation', 'air yards', 'snap share', 'usage', 'injury', 'depth chart', 'waiver'],
+    ],
   },
   {
     id: 'nfl-role-news',
@@ -33,6 +43,10 @@ const PINNED_QUERIES: readonly SportsAnalyticsQuery[] = [
     query: 'NFL fantasy football injury depth chart training camp role change snap share route participation beat reporter',
     tags: ['nfl', 'fantasy football', 'injury', 'depth chart', 'player usage', 'decision edge'],
     weight: 1,
+    evidenceGroups: [
+      ['nfl', 'fantasy football', 'patriots', 'quarterback', 'wide receiver', 'running back', 'tight end'],
+      ['injury', 'depth chart', 'training camp', 'role', 'snap share', 'route participation', 'beat reporter', 'practice', 'starter'],
+    ],
   },
   {
     id: 'sports-data-viz',
@@ -40,6 +54,10 @@ const PINNED_QUERIES: readonly SportsAnalyticsQuery[] = [
     query: 'sports analytics data visualization player tracking open source football basketball soccer',
     tags: ['sports analytics', 'sports data', 'visualization'],
     weight: 0.92,
+    evidenceGroups: [
+      ['sports', 'football', 'basketball', 'soccer', 'nfl', 'nba'],
+      ['analytics', 'data visualization', 'tracking', 'expected value', 'expected points', 'expected goals', 'xg', 'model'],
+    ],
   },
 ] as const;
 
@@ -50,6 +68,10 @@ const ROTATING_QUERIES: readonly SportsAnalyticsQuery[] = [
     query: 'Golden State Warriors NBA analytics lineup tracking shot quality expected value player impact visualization',
     tags: ['warriors', 'nba', 'sports analytics', 'player tracking', 'visualization'],
     weight: 0.9,
+    evidenceGroups: [
+      ['golden state warriors', 'warriors', 'nba', 'basketball'],
+      ['analytics', 'lineup', 'tracking', 'shot quality', 'expected value', 'player impact', 'visualization'],
+    ],
   },
   {
     id: 'soccer-analytics',
@@ -57,6 +79,10 @@ const ROTATING_QUERIES: readonly SportsAnalyticsQuery[] = [
     query: 'Chelsea Manchester City soccer analytics xG xThreat tracking pressing set pieces data visualization',
     tags: ['chelsea', 'man city', 'soccer analytics', 'xg', 'xthreat', 'sports data', 'visualization'],
     weight: 0.9,
+    evidenceGroups: [
+      ['chelsea', 'manchester city', 'man city', 'soccer', 'premier league', 'football'],
+      ['analytics', 'xg', 'xthreat', 'tracking', 'pressing', 'set piece', 'visualization'],
+    ],
   },
 ] as const;
 
@@ -117,6 +143,24 @@ function dailyRotationIndex(): number {
   return Array.from(day).reduce((hash, char) => Math.imul(hash ^ char.charCodeAt(0), 16777619), 2166136261) >>> 0;
 }
 
+function escapeRegex(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function evidenceTermMatches(text: string, term: string): boolean {
+  const lower = text.toLowerCase();
+  const needle = term.trim().toLowerCase();
+  if (!needle) return false;
+  if (/^[a-z0-9]+$/.test(needle) && needle.length <= 4) {
+    return new RegExp(`(?:^|[^a-z0-9])${escapeRegex(needle)}(?=$|[^a-z0-9])`, 'i').test(lower);
+  }
+  return lower.includes(needle);
+}
+
+export function sportsAnalyticsEvidenceMatches(text: string, spec: SportsAnalyticsQuery): boolean {
+  return spec.evidenceGroups.every((group) => group.some((term) => evidenceTermMatches(text, term)));
+}
+
 export function sportsAnalyticsQueries(): SportsAnalyticsQuery[] {
   const rotating = ROTATING_QUERIES[dailyRotationIndex() % ROTATING_QUERIES.length];
   return [...PINNED_QUERIES, rotating];
@@ -135,10 +179,16 @@ export function parseSportsAnalyticsNewsRss(xml: string, spec: SportsAnalyticsQu
       : new Date(publishedRaw).toISOString();
     if (ageDays(publishedAt) > 10) return [];
 
+    const rawSummary = xmlTag(block, 'description');
+    const summary = summarize(rawSummary || `${spec.label} signal.`);
+    // Search intent is retrieval evidence, not semantic evidence. Google News can
+    // return fuzzy neighbors; never let the query itself stamp NFL/fantasy/etc.
+    // onto a result that does not corroborate the concept in returned content.
+    if (!sportsAnalyticsEvidenceMatches(`${title} ${rawSummary}`, spec)) return [];
+
     const sourceLabel = xmlTag(block, 'source') || 'Sports analytics';
     const publisherUrl = xmlTagAttribute(block, 'source', 'url');
     const source = publisherHost(publisherUrl) || 'news.google.com';
-    const summary = summarize(xmlTag(block, 'description') || `${spec.label} signal.`);
     const freshness = Math.exp(-ageDays(publishedAt) / 4.5);
     const quality = 0.72;
     const importance = 0.6 + spec.weight * 0.08;
