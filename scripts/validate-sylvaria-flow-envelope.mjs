@@ -10,6 +10,8 @@ const world = readFileSync(join(runtimeRoot, '01-world.js'), 'utf8');
 const assist = readFileSync(join(runtimeRoot, '02-flow-assist.js'), 'utf8');
 const control = readFileSync(join(runtimeRoot, '02-control-authority.js'), 'utf8');
 const stick = readFileSync(join(runtimeRoot, '02-sap-stick.js'), 'utf8');
+const escalation = readFileSync(join(runtimeRoot, '02-canopy-escalation.js'), 'utf8');
+const progression = readFileSync(join(runtimeRoot, '02-canopy-progression.js'), 'utf8');
 
 function section(source, name) {
   const marker = `Object.assign(TUNE.${name}, {`;
@@ -29,6 +31,11 @@ function assignmentNumber(source, expression) {
   const escaped = expression.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const match = source.match(new RegExp(`${escaped}\\s*=\\s*(-?\\d+(?:\\.\\d+)?)`));
   assert.ok(match, `missing assignment ${expression}`);
+  return Number(match[1]);
+}
+function constNumber(source, name) {
+  const match = source.match(new RegExp(`const\\s+${name}\\s*=\\s*(-?\\d+(?:\\.\\d+)?)`));
+  assert.ok(match, `missing const ${name}`);
   return Number(match[1]);
 }
 function grammarBody(name) {
@@ -98,6 +105,8 @@ const samples = [
 ].map((sample) => ({ ...sample, vy: jumpVy(sample.speed, sample.flow), apex: apex(jumpVy(sample.speed, sample.flow)) }));
 const by = Object.fromEntries(samples.map((sample) => [sample.label, sample]));
 
+// Rootways remains the friendly laboratory. None of the late-game pressure work
+// is allowed to steal the readable early jump envelope that the playtest liked.
 assert.ok(by.standing.apex >= standingTeachingGap * 1.10, `standing jump lost teaching margin: ${by.standing.apex.toFixed(1)} vs ${standingTeachingGap}`);
 assert.ok(by.standing.apex < laterFlowGap * 1.15, 'standing jump is erasing later FLOW spacing');
 assert.ok(by['burst-entry'].apex >= twoFloorTarget * 0.96, `burst entry lost two-floor utility: ${by['burst-entry'].apex.toFixed(1)} vs ${twoFloorTarget}`);
@@ -151,6 +160,9 @@ const stickMaxHold = numberIn(sap, 'stickMaxHoldSeconds');
 const stickSteer = numberIn(sap, 'stickSteerAccel');
 const stickReuse = numberIn(sap, 'stickReuseLockSeconds');
 const stickReleaseVy = numberIn(sap, 'stickReleaseMinVy');
+const cleanMin = constNumber(stick, 'CLEAN_VAULT_MIN_HOLD');
+const cleanMax = constNumber(stick, 'CLEAN_VAULT_MAX_HOLD');
+const cleanHorizontal = constNumber(stick, 'CLEAN_VAULT_MIN_HORIZONTAL');
 assert.ok(stickRange >= 600 && stickRange <= 680, 'Sap Stick target range drifted');
 assert.ok(stickAcquire >= 0.14 && stickAcquire <= 0.24, 'Sap Stick early-press acquisition buffer left the forgiving range');
 assert.ok(stickMinHold <= 0.09, 'Sap Stick minimum hold reintroduced a timing tax');
@@ -159,33 +171,51 @@ assert.ok(stickSteer >= 2100, 'Sap Stick A/D swing steering lost direct player a
 assert.ok(stickReuse >= 0.6, 'Sap Stick anchors can be farmed too quickly');
 assert.ok(apex(stickReleaseVy) >= 100, 'Sap Stick vault lost meaningful vertical rescue');
 assert.ok(numberIn(sap, 'stickAnchorPriority') >= 90, 'authored branchless anchors are not preferred strongly enough');
-assert.match(stick, /function findTarget\(/);
-assert.match(stick, /function pressSapStick\(/);
-assert.match(stick, /function releaseSapStickInput\(/);
-assert.match(stick, /function applyHeldScreenSteering\(/);
-assert.match(stick, /suppressLegacyPump/);
-assert.match(stick, /sap-stick-press/);
-assert.match(stick, /sap-stick-cast/);
-assert.match(stick, /SHIFT_RELEASE/);
-assert.match(stick, /sapStickBufferedLocks/);
-assert.match(stick, /sapStickHoldReleases/);
+assert.ok(cleanMin >= 0.12 && cleanMin <= 0.22, 'Clean Sap lower bound became a precision tax');
+assert.ok(cleanMax >= 0.65 && cleanMax <= 0.95, 'Clean Sap timing window became too narrow or too automatic');
+assert.ok(cleanHorizontal >= 280 && cleanHorizontal <= 390, 'Clean Sap speed floor left the skillful-but-reachable band');
+assert.match(stick, /Number\.POSITIVE_INFINITY/);
+assert.match(stick, /sapStickFlowCarries/);
+assert.match(stick, /sapStickCleanVaults/);
+assert.doesNotMatch(stick, /S\.addComboLink\('SAP', 'SAP STICK'/, 'ordinary Sap Stick vaults must not manufacture Flow links');
 assert.doesNotMatch(stick, /charge(?:Seconds|Time)|holdToCharge/i);
 assert.doesNotMatch(sap, /stickHoldSeconds/);
 
+// Altitude escalation is bounded and delayed. Wind starts only after the teaching
+// zone and reaches its strongest values where the route grammar is already expert.
+assert.match(escalation, /if \(floor < 46\) return 0/);
+assert.match(escalation, /lerp\(72, 520, intensity\)/);
+assert.match(escalation, /tethered \? 0\.22/);
+assert.match(escalation, /grounded \? \(stall \? 0\.26 : 0\.06\) : 1/);
+assert.match(escalation, /high\.geometry = Math\.max\(high\.geometry, 0\.82\)/);
+assert.match(escalation, /crown\.geometry = Math\.max\(crown\.geometry, 1\.08\)/);
+assert.match(escalation, /crown\.pressure = Math\.max\(crown\.pressure, 1\.34\)/);
+for (const grammar of ['WINDLINE', 'SKYHOOK', 'CROWNWEAVE']) assert.match(escalation, new RegExp(`${grammar}: \\[`));
+const lateBranchless = [...escalation.matchAll(/branch:\s*false/g)].length;
+assert.ok(lateBranchless >= 8, `late canopy lost its open-air density: ${lateBranchless} branchless tiers`);
+assert.doesNotMatch(escalation, /routeRng\.next\(/, 'crosswind may not consume route RNG');
+
+const crownInterval = constNumber(progression, 'CROWN_INTERVAL');
+assert.equal(crownInterval, 25, 'Crown Trail cadence drifted');
+assert.match(progression, /sylvaria\.sequoia\.bestFloor/);
+assert.match(progression, /nextCrownFloor/);
+assert.match(progression, /route-clear-bonus/);
+
 const branchlessDys = [...grove, ...saprun, ...slingshot].filter((step) => !step.branch).map((step) => step.dy);
-assert.ok(Math.max(...branchlessDys) <= 180, 'branchless anchor spacing exceeds authored Sap Stick rhythm envelope');
+assert.ok(Math.max(...branchlessDys) <= 180, 'base branchless anchor spacing exceeds authored Sap Stick rhythm envelope');
 assert.deepEqual([...world.matchAll(/\{ name: '[^']+', floor: (\d+)/g)].map((match) => Number(match[1])), [0, 30, 70, 115, 165]);
 
 console.log(JSON.stringify({
   ok: true,
-  mode: 'sapstick-shift-hold-responsive-player-owned-flow',
+  mode: 'crown-trail-escalating-canopy-player-owned-flow',
   corridor: { left: leftWall, right: rightWall, width: rightWall - leftWall },
   density: {
     grove: { branches: grove.filter((s) => s.branch).length, tiers: grove.length },
     saprun: { branches: saprun.filter((s) => s.branch).length, tiers: saprun.length },
     slingshot: { branches: slingshot.filter((s) => s.branch).length, tiers: slingshot.length },
+    lateBranchlessTiers: lateBranchless,
   },
-  teaching: { standingGap: standingTeachingGap, laterFlowGap, developedRunFloor, developedRunCeiling },
+  teaching: { standingGap: standingTeachingGap, laterFlowGap, developedRunFloor, developedRunCeiling, windStartsAfterFloor: 46 },
   jumpEnvelope: samples.map(({ label, speed, flow: flowCount, vy, apex: height }) => ({ label, speed, flow: flowCount, launchVy: Number(vy.toFixed(1)), ballisticApex: Number(height.toFixed(1)) })),
   control: { groundAccel: numberIn(run, 'groundAccel'), airAccel: numberIn(run, 'airAccel'), reverseAirScale: numberIn(run, 'reverseAirScale'), barkRetention: numberIn(rebound, 'retention') },
   sapStick: {
@@ -196,5 +226,8 @@ console.log(JSON.stringify({
     steerAccel: stickSteer,
     reuseLockSeconds: stickReuse,
     releaseApex: Number(apex(stickReleaseVy).toFixed(1)),
+    cleanVaultWindow: [cleanMin, cleanMax],
+    cleanVaultMinHorizontal: cleanHorizontal,
   },
+  progression: { crownInterval, lateRouteFamilies: ['WINDLINE', 'SKYHOOK', 'CROWNWEAVE'] },
 }, null, 2));
