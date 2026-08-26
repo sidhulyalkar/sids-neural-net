@@ -24,6 +24,7 @@ test('Sylvaria traversal HUD stays panel-free while preserving intentional shop 
 
   assert.match(gate, /new Set\(\['playing', 'gameover'\]\)/);
   assert.match(gate, /duplicate death card/);
+  assert.match(gate, /presentationPolicy: 'world-first'/);
 
   assert.doesNotMatch(objective, /fillRect\(right - 205/);
   assert.match(objective, /panelFree: true/);
