@@ -89,3 +89,38 @@ test('Canopy Contracts qualification separates blocked Sap spam from a legal hig
     'higher-log recharge must be proven by fixed simulation state, not a browser sleep',
   );
 });
+
+test('nearest Sap authority qualification isolates spent spam and authored identity from browser time', () => {
+  const harness = readScript('playtest-sylvaria-sap-authority.mjs');
+  assert.match(harness, /async function runtimeFrame/);
+  assert.match(harness, /async function advanceSimulation/);
+  assert.match(harness, /async function advanceUntil/);
+  assert.match(harness, /for \(let index = 0; index < 24; index \+= 1\) S\.pressSapStick\(\)/);
+  assert.match(harness, /'held higher-log Sap rearm'/);
+  assert.match(harness, /S\.state\.keys\.add\('ArrowRight'\)/);
+  assert.match(harness, /chunkId: 'test-near'/);
+  assert.match(harness, /floor: 3/);
+  assert.match(harness, /role: 'right'/);
+  assert.match(harness, /anchorKind: 'sap-stick'/);
+  assert.match(harness, /Consumed Sap identity became reusable after object replacement\/motion/);
+  assert.doesNotMatch(
+    harness,
+    /state\.knots\.find\(\(knot\) => knot\.chunkId === 'test-near'\)/,
+    'immutable identity qualification must not depend on the original synthetic knot object surviving world pruning',
+  );
+  assert.doesNotMatch(
+    harness,
+    /for \(let index = 0; index < 24; index \+= 1\) await shiftTap\(page\)/,
+    'spent-state spam authority must not advance world time into a legal recharge',
+  );
+  assert.doesNotMatch(
+    harness,
+    /landing[\s\S]{0,500}page\.waitForTimeout\(120\)/,
+    'held-log authority must be proven on fixed simulation time rather than a renderer delay',
+  );
+  assert.doesNotMatch(
+    harness,
+    /page\.waitForTimeout\(520\)/,
+    'tether-energy authority must not depend on browser RAF cadence',
+  );
+});
