@@ -292,24 +292,18 @@ export function FrontierExperience({ initialDateLabel, initialDayKey }: Props) {
     };
 
     try {
-      const payload = await fetchPayload(focusSignature);
+      // Passive navigation must hit the route's snapshot-first path. Adaptive
+      // interests belong to the stage-two live daemon, while explicit searches
+      // and deliberate refreshes are allowed to spend the bounded live budget.
+      const primaryFocus = forceFresh || activeSearch ? focusSignature : '';
+      const payload = await fetchPayload(primaryFocus);
       let nextItems = await filterUnseenFrontierItems(payload.items ?? []);
-      let nextSources = payload.sources ?? [];
-      let nextGeneratedAt = payload.generatedAt;
+      const nextSources = payload.sources ?? [];
+      const nextGeneratedAt = payload.generatedAt;
 
       const currentSignatures = new Set(activeItemsRef.current.flatMap((item) => frontierSeenSignatures(item)));
       if (forceFresh && currentSignatures.size) {
         nextItems = nextItems.filter((item) => !frontierSeenSignatures(item).some((signature) => currentSignatures.has(signature)));
-      }
-
-      if (!forceFresh && !activeSearch && focusSignature && nextItems.length < 8 && !controller.signal.aborted) {
-        const wide = await fetchPayload('');
-        const wideItems = await filterUnseenFrontierItems(wide.items ?? []);
-        nextItems = dedupeCanonical([...nextItems, ...wideItems]);
-        nextSources = mergeSourceStatuses(nextSources, wide.sources ?? []);
-        const left = new Date(nextGeneratedAt).getTime();
-        const right = new Date(wide.generatedAt).getTime();
-        if (Number.isFinite(right) && (!Number.isFinite(left) || right > left)) nextGeneratedAt = wide.generatedAt;
       }
 
       if (controller.signal.aborted) return;
