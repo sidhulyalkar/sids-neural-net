@@ -35,10 +35,17 @@ test('Sap anti-inflation gate distinguishes Sap-awarded Flow from legitimate tra
   assert.match(harness, /plainSapComboLinks/);
   assert.match(harness, /event\.type === 'combo-link' && event\.link === 'SAP'/);
   assert.match(harness, /sapStickCleanVaults/);
+  assert.match(harness, /S\.player\.sap\.age = 0\.100/);
+  assert.match(harness, /plainHold\.holdSeconds >= 0\.16/);
   assert.doesNotMatch(
     harness,
     /plainVault\.state\.combo !== 0/,
     'a normal floor-skip or route combo must not be misclassified as Sap-created Flow',
+  );
+  assert.doesNotMatch(
+    harness,
+    /plain Sap acquisition'[\s\S]{0,200}advanceSimulation\(frame, 12\)/,
+    'the ordinary-vault reward test must not let concurrent RAF move its hold duration into the Clean Sap window',
   );
 });
 
