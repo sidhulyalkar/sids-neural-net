@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect } from 'react';
 import {
   buildAdaptiveFractalTree,
   clamp,
@@ -182,24 +182,45 @@ function resolvedTree(root: HTMLElement, width: number, height: number): Fractal
   return tree;
 }
 
+function identifyResponsiveIdentity(root: HTMLElement) {
+  const heading = root.querySelector('h1');
+  const identity = heading?.parentElement as HTMLElement | null;
+  if (identity) identity.dataset.homeIdentityResponsive = 'v16';
+}
+
 function positionDestinations(root: HTMLElement, tree: FractalTree, width: number, height: number) {
   const dimensions = { width, height };
   const envelope = getResponsiveFractalEnvelope(dimensions);
   root.dataset.fractalNavigationDensity = envelope.compactNavigation ? 'compact-v16' : 'standard-v16';
 
-  for (const destination of DESTINATIONS) {
-    const endpoint = tree.endpoints.get(destination.id);
-    const link = root.querySelector<HTMLElement>(`[data-dendrite-destination="${destination.id}"]`);
+  const links = DESTINATIONS.map((destination) => ({
+    destination,
+    endpoint: tree.endpoints.get(destination.id),
+    link: root.querySelector<HTMLElement>(`[data-dendrite-destination="${destination.id}"]`),
+  }));
+
+  for (const item of links) {
+    if (!item.link) continue;
+    item.link.dataset.responsiveEnvelope = 'v16';
+  }
+
+  void root.offsetWidth;
+
+  for (const { destination, endpoint, link } of links) {
     if (!endpoint || !link) continue;
     const label = envelope.compactNavigation ? destination.compactLabel : destination.label;
-    const halfWidth = estimateResponsiveLabelHalfWidth(label, envelope.compactNavigation);
-    const halfHeight = envelope.tinyViewport ? 13 : envelope.compactNavigation ? 14 : 17;
+    const measured = link.getBoundingClientRect();
+    const halfWidth = Math.max(
+      estimateResponsiveLabelHalfWidth(label, envelope.compactNavigation),
+      measured.width * 0.5
+    );
+    const halfHeight = Math.max(
+      envelope.tinyViewport ? 13 : envelope.compactNavigation ? 14 : 17,
+      measured.height * 0.5
+    );
     const position = responsiveNavigationPosition(endpoint, tree, dimensions, halfWidth, halfHeight);
-    const left = `${position.x.toFixed(2)}px`;
-    const top = `${position.y.toFixed(2)}px`;
-    if (link.style.left !== left) link.style.left = left;
-    if (link.style.top !== top) link.style.top = top;
-    link.dataset.responsiveEnvelope = 'v16';
+    link.style.setProperty('--fractal-v16-left', `${position.x.toFixed(2)}px`);
+    link.style.setProperty('--fractal-v16-top', `${position.y.toFixed(2)}px`);
   }
 }
 
@@ -220,10 +241,36 @@ function measuredDestinationRects(root: HTMLElement, rootRect: DOMRect): Map<str
   return result;
 }
 
-function identifyResponsiveIdentity(root: HTMLElement) {
-  const heading = root.querySelector('h1');
-  const identity = heading?.parentElement as HTMLElement | null;
-  if (identity) identity.dataset.homeIdentityResponsive = 'v16';
+function lockCoreToResponsiveTree(rootRect: DOMRect, tree: FractalTree) {
+  const coreDiameter = tree.compact ? 46 : 54;
+  const left = `${(rootRect.left + tree.center.x).toFixed(2)}px`;
+  const top = `${(rootRect.top + tree.center.y).toFixed(2)}px`;
+  const size = `${coreDiameter}px`;
+
+  const coreProxy = document.querySelector<HTMLElement>('[data-core-proxy="v13"]');
+  const coreMask = document.querySelector<HTMLElement>('[data-core-clearance-mask="circle-edge-v13"]');
+  for (const element of [coreProxy, coreMask]) {
+    if (!element) continue;
+    element.style.setProperty('--fractal-v16-core-left', left);
+    element.style.setProperty('--fractal-v16-core-top', top);
+    element.style.setProperty('--fractal-v16-core-size', size);
+    element.dataset.responsiveCoreAuthority = 'v16';
+  }
+  return { center: tree.center, radius: coreDiameter * 0.5 };
+}
+
+function ensureResponsiveCanvas(root: HTMLElement, current: HTMLCanvasElement | null): HTMLCanvasElement {
+  if (current?.parentElement === root) return current;
+  current?.remove();
+  const canvas = document.createElement('canvas');
+  canvas.setAttribute('aria-hidden', 'true');
+  canvas.dataset.fractalResponsiveCanvas = 'v16';
+  canvas.style.position = 'absolute';
+  canvas.style.inset = '0';
+  canvas.style.zIndex = '7';
+  canvas.style.pointerEvents = 'none';
+  root.appendChild(canvas);
+  return canvas;
 }
 
 function drawStencil(
@@ -246,14 +293,11 @@ function drawStencil(
 }
 
 export function FractalResponsiveEnvelopeV16() {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-
   useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
     let animationFrame = 0;
     let settleFrame = 0;
     let resizeObserver: ResizeObserver | null = null;
+    let responsiveCanvas: HTMLCanvasElement | null = null;
 
     const render = () => {
       animationFrame = 0;
@@ -269,28 +313,21 @@ export function FractalResponsiveEnvelopeV16() {
       const dimensions = { width, height };
       const envelope = getResponsiveFractalEnvelope(dimensions);
 
-      positionDestinations(root, tree, width, height);
+      root.dataset.fractalShortViewport = envelope.shortViewport ? 'true' : 'false';
       identifyResponsiveIdentity(root);
+      positionDestinations(root, tree, width, height);
+      const core = lockCoreToResponsiveTree(rootRect, tree);
 
       const crispCanvas = root.querySelector<HTMLCanvasElement>('[data-fractal-crisp-topology="v13"]');
       if (crispCanvas) crispCanvas.style.opacity = '0';
-
-      const coreProxy = document.querySelector<HTMLElement>('[data-core-proxy="v13"]');
-      const coreRect = coreProxy?.getBoundingClientRect();
-      const coreCenter = coreRect
-        ? {
-            x: coreRect.left - rootRect.left + coreRect.width * 0.5,
-            y: coreRect.top - rootRect.top + coreRect.height * 0.5,
-          }
-        : tree.center;
-      const coreRadius = coreRect ? Math.min(coreRect.width, coreRect.height) * 0.5 : tree.compact ? 23 : 27;
+      responsiveCanvas = ensureResponsiveCanvas(root, responsiveCanvas);
 
       const dpr = Math.min(window.devicePixelRatio || 1, VISUAL_LIMITS.dprCap);
-      canvas.width = Math.max(1, Math.round(width * dpr));
-      canvas.height = Math.max(1, Math.round(height * dpr));
-      canvas.style.width = `${width}px`;
-      canvas.style.height = `${height}px`;
-      const ctx = canvas.getContext('2d');
+      responsiveCanvas.width = Math.max(1, Math.round(width * dpr));
+      responsiveCanvas.height = Math.max(1, Math.round(height * dpr));
+      responsiveCanvas.style.width = `${width}px`;
+      responsiveCanvas.style.height = `${height}px`;
+      const ctx = responsiveCanvas.getContext('2d');
       if (!ctx) return;
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       ctx.clearRect(0, 0, width, height);
@@ -326,7 +363,7 @@ export function FractalResponsiveEnvelopeV16() {
           const ownerParents = parentsByOwner.get(path.ownerId) ?? [];
           ownerParents.push({ depth: 0, points: oriented });
           parentsByOwner.set(path.ownerId, ownerParents);
-          points = trimPrimaryToCoreEdge(oriented, coreCenter, coreRadius);
+          points = trimPrimaryToCoreEdge(oriented, core.center, core.radius);
           points = appendExactLabelTerminal(points, destinationRects.get(path.ownerId));
         } else if (path.ownerId !== '__ambient__') {
           const repaired = snapBranchRoot(
@@ -364,11 +401,11 @@ export function FractalResponsiveEnvelopeV16() {
       }
 
       root.dataset.fractalResponsiveEnvelope = 'v16';
+      root.dataset.fractalResponsiveAuthority = 'v16';
       root.dataset.fractalBoundaryPolicy = 'elliptic-radial-cap-v16';
       root.dataset.fractalFieldScaleX = envelope.fieldScaleX.toFixed(4);
       root.dataset.fractalFieldScaleY = envelope.fieldScaleY.toFixed(4);
       root.dataset.fractalResponsiveViewport = `${width}x${height}`;
-      root.dataset.fractalShortViewport = envelope.shortViewport ? 'true' : 'false';
     };
 
     const schedule = () => {
@@ -405,6 +442,7 @@ export function FractalResponsiveEnvelopeV16() {
       resizeObserver?.disconnect();
       window.removeEventListener('resize', schedule);
       window.visualViewport?.removeEventListener('resize', schedule);
+      responsiveCanvas?.remove();
       const root = document.querySelector<HTMLElement>('[data-fractal-morphology]');
       const crispCanvas = root?.querySelector<HTMLCanvasElement>('[data-fractal-crisp-topology="v13"]');
       if (crispCanvas) crispCanvas.style.opacity = '';
@@ -412,48 +450,55 @@ export function FractalResponsiveEnvelopeV16() {
   }, []);
 
   return (
-    <>
-      <canvas
-        ref={canvasRef}
-        aria-hidden="true"
-        data-fractal-responsive-canvas="v16"
-        className="pointer-events-none fixed inset-0 z-[7]"
-      />
-      <style>{`
-        [data-fractal-navigation-density="compact-v16"] [data-dendrite-destination] > span:first-child {
+    <style>{`
+      [data-responsive-envelope="v16"] {
+        left: var(--fractal-v16-left) !important;
+        top: var(--fractal-v16-top) !important;
+        transition-property: color, background-color, border-color, opacity, box-shadow, transform !important;
+      }
+      [data-responsive-core-authority="v16"] {
+        left: var(--fractal-v16-core-left) !important;
+        top: var(--fractal-v16-core-top) !important;
+        width: var(--fractal-v16-core-size) !important;
+        height: var(--fractal-v16-core-size) !important;
+      }
+      [data-fractal-navigation-density="compact-v16"] [data-dendrite-destination] > span:first-child {
+        display: none !important;
+      }
+      [data-fractal-navigation-density="compact-v16"] [data-dendrite-destination] > span:last-child {
+        display: inline !important;
+      }
+      [data-fractal-navigation-density="compact-v16"] [data-dendrite-destination] {
+        padding: 0.32rem 0.5rem !important;
+        font-size: 8.5px !important;
+        letter-spacing: 0.1em !important;
+      }
+      @media (max-width: 359px) {
+        [data-fractal-navigation-density="compact-v16"] [data-dendrite-destination] {
+          padding: 0.28rem 0.42rem !important;
+          font-size: 7.75px !important;
+          letter-spacing: 0.085em !important;
+        }
+      }
+      [data-fractal-short-viewport="true"] [data-home-identity-responsive="v16"] h1 {
+        font-size: clamp(0.95rem, 3vw, 1.3rem) !important;
+      }
+      [data-fractal-short-viewport="true"] [data-home-identity-responsive="v16"] p {
+        margin-top: 0.3rem !important;
+        font-size: 7px !important;
+      }
+      @media (max-height: 500px) {
+        [data-home-identity-responsive="v16"] {
+          bottom: 0.5rem !important;
+        }
+        [data-home-identity-responsive="v16"] h1 {
+          font-size: clamp(0.82rem, 2.6vw, 1.05rem) !important;
+          letter-spacing: 0.12em !important;
+        }
+        [data-home-identity-responsive="v16"] p {
           display: none !important;
         }
-        [data-fractal-navigation-density="compact-v16"] [data-dendrite-destination] > span:last-child {
-          display: inline !important;
-        }
-        [data-fractal-navigation-density="compact-v16"] [data-dendrite-destination] {
-          padding: 0.32rem 0.5rem !important;
-          font-size: 8.5px !important;
-          letter-spacing: 0.1em !important;
-        }
-        @media (max-width: 359px) {
-          [data-fractal-navigation-density="compact-v16"] [data-dendrite-destination] {
-            padding: 0.28rem 0.42rem !important;
-            font-size: 7.75px !important;
-            letter-spacing: 0.085em !important;
-          }
-        }
-        [data-fractal-short-viewport="true"] [data-home-identity-responsive="v16"] h1 {
-          font-size: clamp(1rem, 3.2vw, 1.35rem) !important;
-        }
-        [data-fractal-short-viewport="true"] [data-home-identity-responsive="v16"] p {
-          margin-top: 0.35rem !important;
-          font-size: 7px !important;
-        }
-        @media (max-height: 500px) {
-          [data-home-identity-responsive="v16"] {
-            bottom: 0.65rem !important;
-          }
-          [data-home-identity-responsive="v16"] p {
-            display: none !important;
-          }
-        }
-      `}</style>
-    </>
+      }
+    `}</style>
   );
 }
