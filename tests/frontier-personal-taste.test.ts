@@ -70,6 +70,31 @@ test('short analytical aliases require token boundaries instead of matching insi
   assert.equal(matchesPersonalTasteTopic(realEpa, ['nfl-analytics']), true);
 });
 
+test('bare NFL context cannot manufacture an NFL analytics recommendation', () => {
+  const genericLeagueNews = item('generic-nfl-news', {
+    title: 'NFL team owner faces unrelated legal proceeding',
+    summary: 'The report concerns an owner and court filing, with no modeling, tracking, play-by-play, fantasy, or performance analysis.',
+    lane: 'life',
+    tags: ['nfl', 'legal news'],
+  });
+  const productionLikeLeak = item('production-like-49ers', {
+    title: 'San Francisco 49ers owner pleads no contest after arrest',
+    summary: 'A legal incident involving the franchise owner.',
+    lane: 'life',
+    tags: ['sport', 'legal news'],
+  });
+  const realAnalytics = item('real-nfl-modeling', {
+    title: 'NFL player tracking model combines CPOE with expected points added',
+    summary: 'Play-state modeling uses Next Gen Stats and fourth-down decisions.',
+    lane: 'sports',
+    tags: ['sports analytics', 'player tracking', 'cpoe'],
+  });
+
+  assert.equal(matchesPersonalTasteTopic(genericLeagueNews, ['nfl-analytics']), false);
+  assert.equal(matchesPersonalTasteTopic(productionLikeLeak, ['nfl-analytics']), false);
+  assert.equal(matchesPersonalTasteTopic(realAnalytics, ['nfl-analytics']), true);
+});
+
 test('explicit taste map recognizes neural foundation models, mechanistic interpretability, and remote sensing', () => {
   const foundationModel = item('foundation-model', {
     title: 'Self-supervised EEG foundation model improves neural decoding transfer',
