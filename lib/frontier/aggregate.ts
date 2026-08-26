@@ -13,6 +13,7 @@ import { getSharedMultiSourceFrontierFeed } from './sourceIngestorShared';
 import { getFrontierFeed } from './sources';
 import { getSportsAnalyticsFeed } from './sportsAnalyticsSources';
 import { getSportsClipFeed } from './sportsClipSources';
+import { getDeepSportsStateFeed } from './sportsStateDeepSources';
 import { getSportsStateFeed } from './sportsStateSources';
 import { vetFrontierItems } from './sourceTrust';
 import { getToolingRadarFeed } from './toolingRadarSources';
@@ -226,7 +227,9 @@ export async function getIntegratedFrontierFeed(options: IntegratedOptions = {})
   const toolingRadarTask = deepDiscovery
     ? getToolingRadarFeed()
     : Promise.resolve(emptyAdaptive);
-  const deepScreenOrbit = deepDiscovery;
+  const sportsStateTask = deepDiscovery
+    ? getDeepSportsStateFeed()
+    : getSportsStateFeed();
 
   const [
     baseResult,
@@ -248,10 +251,10 @@ export async function getIntegratedFrontierFeed(options: IntegratedOptions = {})
     withinAdapterDeadline('personal mesh', getPersonalFrontierFeed(), deadline),
     withinAdapterDeadline('personal taste mesh', tasteDiscoveryTask, deadline),
     withinAdapterDeadline('active sports mesh', getActiveSportsFeed(), deadline),
-    withinAdapterDeadline('live sports state', getSportsStateFeed(), deadline),
-    withinAdapterDeadline('sports analytics mesh', getSportsAnalyticsFeed(), deadline),
+    withinAdapterDeadline('live sports state', sportsStateTask, deadline),
+    withinAdapterDeadline('sports analytics mesh', getSportsAnalyticsFeed({ deep: deepDiscovery }), deadline),
     withinAdapterDeadline('sports clip radar', getSportsClipFeed(), deadline),
-    withinAdapterDeadline('Screen Orbit radar', getScreenOrbitFeed({ deep: deepScreenOrbit }), deadline),
+    withinAdapterDeadline('Screen Orbit radar', getScreenOrbitFeed({ deep: deepDiscovery }), deadline),
     withinAdapterDeadline('watch radar', getWatchableFrontierFeed(), deadline),
     withinAdapterDeadline('scientific tooling radar', toolingRadarTask, deadline),
     withinAdapterDeadline(
