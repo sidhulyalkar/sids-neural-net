@@ -141,9 +141,14 @@ export function useFluidInteraction({
   }, []);
 
   return {
-    onPointerDown,
-    onPointerUp,
-    onPointerCancel,
+    // Pointer ownership is resolved in capture phase. Expansion can move the
+    // original hit coordinate over native video/audio controls before release
+    // two. Those controls must remain fully native for ordinary single clicks,
+    // but an already-qualified pair belongs to the card and cannot be allowed
+    // to disappear inside a child before the state machine sees pointerup.
+    onPointerDownCapture: onPointerDown,
+    onPointerUpCapture: onPointerUp,
+    onPointerCancelCapture: onPointerCancel,
     onClickCapture,
     onDoubleClickCapture,
   };
