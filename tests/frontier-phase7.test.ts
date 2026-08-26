@@ -106,8 +106,9 @@ test('hybrid ranker subtracts Avoid penalties without mutating positive semantic
   const candidate = item('one', 'arxiv');
   const vector = axis(384, 0);
   const vectors = new Map([[candidate.id, vector]]);
-  const clean = hybridFrontierScores([candidate], vectors, vector, '', Date.now())[0];
-  const suppressed = hybridFrontierScores([candidate], vectors, vector, '', Date.now(), undefined, () => 0.3)[0];
+  const now = Date.now();
+  const clean = hybridFrontierScores([candidate], vectors, vector, '', now)[0];
+  const suppressed = hybridFrontierScores([candidate], vectors, vector, '', now, undefined, () => 0.3)[0];
   assert.equal(clean.semantic, suppressed.semantic);
   assert.ok(Math.abs((clean.score - suppressed.score) - 0.3) < 1e-9);
 });
