@@ -81,28 +81,29 @@ test('uniRico cabinet pins the v0.19.0 release with cache-safe versioned runtime
   assert.match(route, /X-UniRico-Source-Commit/);
 });
 
-test('Sylvaria cabinet exposes v0.6.1 sparse nearest-node Sap, Contracts, and Living Canopy', () => {
+test('Sylvaria cabinet exposes v0.6.2 mastery telemetry, sparse nearest-node Sap, and Living Canopy', () => {
   const game = arcadeGames.find((entry) => entry.slug === 'sylvaria-sequoia');
   assert.ok(game);
   assert.equal(game.title, 'Sylvaria: Sequoia');
-  assert.equal(game.version, 'v0.6.1');
+  assert.equal(game.version, 'v0.6.2');
   assert.equal(game.sourceVisibility, 'public');
   assert.equal(game.launchUrl, '/game-runtimes/sylvaria-sequoia/index.html');
   assert.deepEqual(game.nativeSize, { width: 960, height: 640 });
   assert.match(game.subtitle, /LAND HIGHER/);
   assert.match(game.subtitle, /BRIDGE WITH SAP/);
-  assert.match(game.subtitle, /CONTRACTS/);
-  assert.match(game.description, /strict nearest eligible unused amber node/i);
-  assert.match(game.description, /physically holds a new higher log/i);
-  assert.match(game.description, /only a tightly bounded momentum nudge/i);
-  assert.match(game.description, /Cone Tokens/);
-  assert.match(game.description, /Extra Life/);
+  assert.match(game.subtitle, /CROWN LINE/);
+  assert.match(game.description, /deterministic 25-floor mastery rhythm/i);
+  assert.match(game.description, /real near-Crown miss feedback/i);
+  assert.match(game.description, /local-only Mastery Lab/i);
+  assert.match(game.description, /never alter route RNG, phase pressure, or movement tuning/i);
+  assert.match(game.description, /same seed remains the same challenge/i);
+  assert.match(game.description, /one manifest-checked runtime bundle/i);
   assert.match(game.description, /Living Crown at floor 250/);
   assert.match(game.description, /Skyheart at floor 360/);
-  assert.match(game.description, /without permanently raising Pip’s base movement stats/);
   assert.ok(game.controls.some((control) => control.input === 'Land on a new higher log'));
   assert.ok(game.controls.some((control) => control.input === 'Press Shift' && /strict nearest/.test(control.action)));
   assert.ok(game.controls.some((control) => control.input === 'Release Shift' && /small bounded momentum nudge/.test(control.action)));
+  assert.ok(game.controls.some((control) => control.input === 'Crown every 25 floors'));
   assert.ok(game.controls.some((control) => control.input === 'Cone Tokens'));
   assert.ok(game.controls.some((control) => control.input === '3 Canopy Contracts'));
   assert.ok(game.controls.some((control) => control.input === 'B · 1 / 2 / 3 / 4'));
@@ -113,33 +114,43 @@ test('Sylvaria cabinet exposes v0.6.1 sparse nearest-node Sap, Contracts, and Li
   const runtimeRoot = 'public/game-runtimes/sylvaria-sequoia';
   for (const file of [
     'index.html',
+    'runtime-manifest.json',
     '02-heartwood-quest.js',
     '02-canopy-trials.js',
     '02-living-canopy.js',
     '02-sap-route-balance.js',
     '02-sap-rhythm.js',
     '02-canopy-economy.js',
+    '02-canopy-director.js',
+    '02-mastery-lab.js',
     '02-sap-authority-v2.js',
     '03-heartwood-trials-render.js',
     '03-living-canopy-render.js',
     '03-living-objective-hud.js',
     '03-canopy-economy-hud.js',
     '03-economy-input-guard.js',
+    '03-run-recap-hud.js',
     '05-debug-living-canopy.js',
     '05-debug-canopy-contracts.js',
   ]) {
     assert.ok(existsSync(join(root, runtimeRoot, file)), `missing Sylvaria runtime file ${file}`);
   }
-  assert.ok(existsSync(join(root, 'scripts/validate-sylvaria-flow-envelope.mjs')));
-  assert.ok(existsSync(join(root, 'scripts/validate-sylvaria-heartwood.mjs')));
-  assert.ok(existsSync(join(root, 'scripts/validate-sylvaria-living-canopy.mjs')));
-  assert.ok(existsSync(join(root, 'scripts/validate-sylvaria-economy.mjs')));
-  assert.ok(existsSync(join(root, 'scripts/validate-sylvaria-sap-authority.mjs')));
-  assert.ok(existsSync(join(root, 'scripts/playtest-sylvaria-shift-hold.mjs')));
-  assert.ok(existsSync(join(root, 'scripts/playtest-sylvaria-heartwood.mjs')));
-  assert.ok(existsSync(join(root, 'scripts/playtest-sylvaria-living-canopy-v2.mjs')));
-  assert.ok(existsSync(join(root, 'scripts/playtest-sylvaria-economy.mjs')));
-  assert.ok(existsSync(join(root, 'scripts/playtest-sylvaria-sap-authority.mjs')));
+  for (const file of [
+    'scripts/build-sylvaria-runtime.mjs',
+    'scripts/validate-sylvaria-runtime-bundle.mjs',
+    'scripts/validate-sylvaria-mastery.mjs',
+    'scripts/validate-sylvaria-flow-envelope.mjs',
+    'scripts/validate-sylvaria-heartwood.mjs',
+    'scripts/validate-sylvaria-living-canopy.mjs',
+    'scripts/validate-sylvaria-economy.mjs',
+    'scripts/validate-sylvaria-sap-authority.mjs',
+    'scripts/playtest-sylvaria-shift-hold.mjs',
+    'scripts/playtest-sylvaria-heartwood.mjs',
+    'scripts/playtest-sylvaria-living-canopy-v2.mjs',
+    'scripts/playtest-sylvaria-economy.mjs',
+    'scripts/playtest-sylvaria-sap-authority.mjs',
+    'scripts/playtest-sylvaria-mastery.mjs',
+  ]) assert.ok(existsSync(join(root, file)), `missing Sylvaria qualification file ${file}`);
 });
 
 test('FRONTIER and Game Network coexist in current navigation', () => {
@@ -188,7 +199,9 @@ test('Game Network browser validation preserves current cabinets and gives Sylva
   const livingTest = readRepoFile('scripts/playtest-sylvaria-living-canopy-v2.mjs');
   const economyTest = readRepoFile('scripts/playtest-sylvaria-economy.mjs');
   const sapAuthorityTest = readRepoFile('scripts/playtest-sylvaria-sap-authority.mjs');
+  const masteryTest = readRepoFile('scripts/playtest-sylvaria-mastery.mjs');
   const sapAuthorityRuntime = readRepoFile('public/game-runtimes/sylvaria-sequoia/02-sap-authority-v2.js');
+  const masteryRuntime = readRepoFile('public/game-runtimes/sylvaria-sequoia/02-mastery-lab.js');
   const sylvariaWorkflow = readRepoFile('.github/workflows/sylvaria-sequoia-ci.yml');
 
   assert.match(workflow, /install chrome/);
@@ -215,10 +228,17 @@ test('Game Network browser validation preserves current cabinets and gives Sylva
   assert.match(sapAuthorityTest, /bounded momentum nudge/);
   assert.match(sapAuthorityTest, /Moving Sap anchor changed authority identity/);
   assert.match(sapAuthorityTest, /Consumed moving Sap anchor became reusable after coordinate motion/);
+  assert.match(masteryTest, /name: 'chrome-stable'/);
+  assert.match(masteryTest, /2F TO CROWN 50/);
+  assert.match(masteryTest, /difficultyCliff\?\.floor !== 25/);
+  assert.match(masteryTest, /Local run history changed deterministic difficulty pressure/);
   assert.match(sapAuthorityRuntime, /nearest-sap-authority-v3/);
   assert.match(sapAuthorityRuntime, /anchorIdentityFields: \['chunkId', 'floor', 'role', 'anchorKind'\]/);
+  assert.match(masteryRuntime, /adaptsDifficulty: false/);
   assert.match(sylvariaWorkflow, /check:sylvaria-sap-authority/);
+  assert.match(sylvariaWorkflow, /check:sylvaria-mastery/);
   assert.match(sylvariaWorkflow, /playtest-sylvaria-sap-authority\.mjs/);
+  assert.match(sylvariaWorkflow, /playtest-sylvaria-mastery\.mjs/);
 });
 
 test('the embedded Stretchicorn fallback release remains complete', () => {

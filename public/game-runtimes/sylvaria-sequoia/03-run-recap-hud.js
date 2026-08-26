@@ -6,7 +6,7 @@
 
   const { ctx, W, H, state, player, clamp } = S;
   const baseRender = S.render;
-  const VERSION = 'run-recap-v1';
+  const VERSION = 'run-recap-v2';
 
   function formatSplit(split) {
     if (!split) return null;
@@ -26,8 +26,9 @@
   function recapLines() {
     const progress = S.canopyProgress.getState();
     const economy = S.canopyEconomy?.getState?.() || null;
-    const director = S.canopyDirector?.getState?.() || null;
     const contract = closestContract(economy);
+    const mastery = S.masteryLab?.getState?.() || null;
+    const lastRun = mastery?.lastRun || null;
     const heightLine = progress.runFloorGain > 0
       ? `NEW HEIGHT · +${progress.runFloorGain}F THIS RUN`
       : `PEAK ${player.highestFloor}F · PB ${progress.bestFloor}`;
@@ -35,11 +36,13 @@
     const contractLine = contract
       ? `NEXT CONTRACT · ${contract.name} ${Math.round(clamp(contract.ratio || 0, 0, 1) * 100)}%`
       : null;
+    const masteryLine = lastRun?.nextLine || null;
     return {
       heightLine,
+      masteryLine,
       splitLine,
       contractLine,
-      stage: director?.stage || null,
+      difficultyCliff: mastery?.health?.difficultyCliff || null,
       controls: 'SPACE NEW RUN · 0 SAME SEED · B SHOP',
     };
   }
@@ -49,17 +52,17 @@
     if (S.canopyEconomy?.getState?.().shopOpen) return;
 
     const lines = recapLines();
-    const y = H * 0.69;
-    const width = Math.min(510, W * 0.58);
+    const y = H * 0.68;
+    const width = Math.min(540, W * 0.61);
     const x = W / 2 - width / 2;
 
     ctx.save();
-    ctx.fillStyle = 'rgba(16,26,21,.54)';
+    ctx.fillStyle = 'rgba(16,26,21,.56)';
     ctx.strokeStyle = 'rgba(238,224,185,.14)';
     ctx.lineWidth = 1;
     ctx.beginPath();
-    if (ctx.roundRect) ctx.roundRect(x, y - 31, width, 92, 11);
-    else ctx.rect(x, y - 31, width, 92);
+    if (ctx.roundRect) ctx.roundRect(x, y - 34, width, 108, 11);
+    else ctx.rect(x, y - 34, width, 108);
     ctx.fill();
     ctx.stroke();
 
@@ -69,22 +72,28 @@
     ctx.shadowBlur = 5;
     ctx.fillStyle = 'rgba(255,241,201,.94)';
     ctx.font = '900 11px system-ui,sans-serif';
-    ctx.fillText(lines.heightLine, W / 2, y - 12);
+    ctx.fillText(lines.heightLine, W / 2, y - 14);
 
-    const middle = lines.splitLine || lines.contractLine || 'THE NEXT CLEAN LINE IS ALREADY THERE';
-    ctx.fillStyle = lines.splitLine?.includes('FASTER') ? '#c8f4d8' : 'rgba(224,237,211,.76)';
-    ctx.font = '800 9px system-ui,sans-serif';
-    ctx.fillText(middle, W / 2, y + 8);
+    const primary = lines.masteryLine || lines.splitLine || lines.contractLine || 'CHASE THE NEXT CLEAN CROWN SPLIT';
+    const nearCrown = /TO CROWN/.test(primary);
+    ctx.fillStyle = nearCrown ? '#fff0b4' : lines.splitLine?.includes('FASTER') && primary === lines.splitLine ? '#c8f4d8' : 'rgba(224,237,211,.80)';
+    ctx.font = '900 9px system-ui,sans-serif';
+    ctx.fillText(primary, W / 2, y + 7);
 
-    if (lines.splitLine && lines.contractLine) {
-      ctx.fillStyle = 'rgba(204,225,204,.61)';
+    const secondary = lines.masteryLine
+      ? (lines.splitLine || lines.contractLine)
+      : lines.splitLine
+        ? lines.contractLine
+        : null;
+    if (secondary) {
+      ctx.fillStyle = lines.splitLine?.includes('FASTER') && secondary === lines.splitLine ? '#c8f4d8' : 'rgba(204,225,204,.61)';
       ctx.font = '800 8px system-ui,sans-serif';
-      ctx.fillText(lines.contractLine, W / 2, y + 24);
+      ctx.fillText(secondary, W / 2, y + 25);
     }
 
-    ctx.fillStyle = 'rgba(255,230,170,.62)';
+    ctx.fillStyle = 'rgba(255,230,170,.64)';
     ctx.font = '800 8px ui-monospace,SFMono-Regular,Menlo,monospace';
-    ctx.fillText(lines.controls, W / 2, y + 46);
+    ctx.fillText(lines.controls, W / 2, y + 54);
     ctx.restore();
   }
 
@@ -97,6 +106,6 @@
   S.runRecapHud = {
     version: VERSION,
     getState: recapLines,
-    design: 'mastery-first recap: height gain, split delta, closest contract, immediate retry choices',
+    design: 'mastery-first recap: real near-Crown gap, evidence-backed next line, split delta, closest contract, immediate retry choices',
   };
 })();

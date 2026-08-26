@@ -51,6 +51,10 @@ neuron_nmo*.zip
 sid_neural_net_next_steps_guide.docx
 sids.zip
 
+# Generated Sylvaria delivery artifacts
+public/game-runtimes/sylvaria-sequoia/runtime.bundle.js
+public/game-runtimes/sylvaria-sequoia/runtime.bundle.meta.json
+
 # IDE
 .idea
 .vscode

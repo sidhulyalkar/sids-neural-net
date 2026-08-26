@@ -16,8 +16,8 @@ const index = read('index.html');
 const routes = read('02-sap-route-balance.js');
 const authority = read('02-sap-authority-v2.js');
 
-assert.match(index, /Sylvaria: Sequoia v0\.6\.1/);
-assert.match(index, /02-living-canopy\.js[\s\S]*02-sap-route-balance\.js[\s\S]*02-sap-rhythm\.js[\s\S]*02-canopy-economy\.js[\s\S]*02-sap-authority-v2\.js[\s\S]*04-input\.js/);
+assert.match(index, /Sylvaria: Sequoia v0\.6\.2/);
+assert.match(index, /02-living-canopy\.js[\s\S]*02-sap-route-balance\.js[\s\S]*02-sap-rhythm\.js[\s\S]*02-canopy-economy\.js[\s\S]*02-canopy-director\.js[\s\S]*02-mastery-lab\.js[\s\S]*02-sap-authority-v2\.js[\s\S]*04-input\.js/);
 assert.match(index, /nearest unused amber node/i);
 
 for (const pattern of [
@@ -28,7 +28,7 @@ for (const pattern of [
   /usedAnchorIds/,
   /withOnlyTarget/,
   /if \(!armed\) return block\('SPENT'\)/,
-  /floor > spentAtFloor/,
+  /MIN_GROUNDED_REARM_SECONDS = 0\.035/,
   /MAX_ATTACH_VX_GAIN = 95/,
   /MAX_ATTACH_VY_GAIN = 120/,
   /MAX_RELEASE_VX_GAIN = 105/,
@@ -47,9 +47,13 @@ for (const pattern of [
   /AUTHORITY_REJECT/,
 ]) assert.match(authority, pattern);
 
-// Node identity must be topology-only. Position appears in targeting math, but it
-// must never appear inside anchorId(), otherwise moving Pendulum anchors can be
-// consumed repeatedly as their x coordinate changes.
+const holdGate = authority.indexOf('if (player.groundedTime < MIN_GROUNDED_REARM_SECONDS) return;');
+const floorAdvance = authority.indexOf('if (floor > highestPhysicalFloor) highestPhysicalFloor = floor;');
+const rechargeGate = authority.indexOf('if (armed || floor <= spentAtFloor) return;');
+assert.ok(holdGate >= 0, 'missing held-landing Sap authority gate');
+assert.ok(floorAdvance > holdGate, 'physical-floor authority advanced before held landing matured');
+assert.ok(rechargeGate > floorAdvance, 'Sap recharge eligibility was evaluated before physical-floor authority advanced');
+
 const anchorIdBody = authority.match(/function anchorId\(knot\) \{([\s\S]*?)\n  \}/)?.[1] || '';
 assert.match(anchorIdBody, /chunkId/);
 assert.match(anchorIdBody, /floor/);
@@ -86,10 +90,10 @@ assert.ok(totalAnchors / totalBranches < 0.36, `Sap density is still too high: $
 
 console.log(JSON.stringify({
   ok: true,
-  version: '0.6.1-nearest-sap-authority-v3',
+  version: '0.6.2-nearest-sap-authority-v3',
   targetRule: 'strict nearest eligible authored node at press time',
   identityRule: 'route chunk + floor + role + anchor kind; position never participates',
-  rechargeRule: 'one Sap use, then a physically held higher-log landing',
+  rechargeRule: 'one Sap use, then a physically held higher-log landing; geometry grazes do not advance authority',
   nodeReuse: 'forbidden within a run, including moving anchors',
   directBoostCaps: {
     attach: { vx: 95, vy: 120 },
