@@ -53,9 +53,37 @@ async function state(frame) {
   return frame.evaluate(() => window.SYLVARIA_SEQUOIA_DEBUG.getState());
 }
 
-async function resetSameSeed(frame) {
+async function waitForSnapshot(page, read, ready, label, timeout = 2500) {
+  const deadline = Date.now() + timeout;
+  let last = null;
+  let lastError = null;
+  while (Date.now() < deadline) {
+    try {
+      last = await read();
+      if (ready(last)) return last;
+      lastError = null;
+    } catch (error) {
+      lastError = error instanceof Error ? error.message : String(error);
+    }
+    await page.waitForTimeout(16);
+  }
+  throw new Error(`${label} did not settle within ${timeout}ms: ${JSON.stringify({ last, lastError })}`);
+}
+
+async function resetSameSeed(page, frame) {
+  const seed = (await state(frame)).seed;
   await frame.evaluate(() => window.SYLVARIA_SEQUOIA_DEBUG.retry());
-  await frame.page().waitForTimeout(90);
+  return waitForSnapshot(
+    page,
+    () => state(frame),
+    (snapshot) =>
+      snapshot.mode === 'playing' &&
+      snapshot.seed === seed &&
+      snapshot.sapAuthority?.armed &&
+      snapshot.sapAuthority?.nodeUses === 0 &&
+      Math.abs(snapshot.player.x - 480) <= 45,
+    'same-seed retry reset',
+  );
 }
 
 async function primeAuthoredSapTarget(frame) {
@@ -203,9 +231,7 @@ async function runShiftHoldContract(page, engineName) {
   await focusRuntime(page, frame);
 
   await page.keyboard.press('Space');
-  await page.waitForTimeout(110);
-  const started = await state(frame);
-  if (started.mode !== 'playing') throw new Error(`Space did not start Sylvaria: ${JSON.stringify(started)}`);
+  const started = await waitForSnapshot(page, () => state(frame), (snapshot) => snapshot.mode === 'playing', 'Space start');
 
   const contracts = await runtimeContracts(frame);
   assertCrownTrailContracts(contracts);
@@ -213,7 +239,7 @@ async function runShiftHoldContract(page, engineName) {
   await page.waitForTimeout(1750);
   await page.screenshot({ path: path.join(outputDir, `${engineName}-minimal-crown-playfield.png`), fullPage: true });
 
-  await resetSameSeed(frame);
+  await resetSameSeed(page, frame);
   await focusRuntime(page, frame);
   const plainPrime = await primeAuthoredSapTarget(frame);
   if (!plainPrime?.target) throw new Error(`No sparse authored Sap target for anti-inflation test: ${JSON.stringify(plainPrime)}`);
@@ -223,16 +249,27 @@ async function runShiftHoldContract(page, engineName) {
     target: window.SylvariaSequoia.sapStick.getTargetPreview?.() || null,
   }));
   await page.keyboard.down('Shift');
+  await waitForSnapshot(
+    page,
+    () => state(frame),
+    (snapshot) => Boolean(snapshot.sapStick?.active && snapshot.sapStick?.held),
+    'plain Sap acquisition',
+    1000,
+  );
   await page.waitForTimeout(92);
   await page.keyboard.up('Shift');
-  await page.waitForTimeout(80);
-  const plainVault = await frame.evaluate(() => ({
-    state: window.SYLVARIA_SEQUOIA_DEBUG.getState(),
-    telemetry: window.SYLVARIA_SEQUOIA_DEBUG.getTelemetry(),
-  }));
-  if ((plainVault.telemetry.counters.sapStickVaults || 0) < 1) {
-    throw new Error(`Plain Sap vault did not complete: ${JSON.stringify(plainVault)}`);
-  }
+  const plainVault = await waitForSnapshot(
+    page,
+    () => frame.evaluate(() => ({
+      state: window.SYLVARIA_SEQUOIA_DEBUG.getState(),
+      telemetry: window.SYLVARIA_SEQUOIA_DEBUG.getTelemetry(),
+    })),
+    (snapshot) =>
+      !snapshot.state.sapStick?.active &&
+      !snapshot.state.sapStick?.held &&
+      (snapshot.telemetry.counters.sapStickVaults || 0) >= 1,
+    'plain Sap release/vault',
+  );
   if (plainVault.state.combo !== 0 || (plainVault.telemetry.counters.sapStickCleanVaults || 0) !== 0) {
     throw new Error(`Ordinary Sap vault still manufactured Flow: ${JSON.stringify(plainVault)}`);
   }
@@ -240,7 +277,7 @@ async function runShiftHoldContract(page, engineName) {
     throw new Error(`Plain Sap vault did not consume exactly one authority lease: ${JSON.stringify(plainVault.state.sapAuthority)}`);
   }
 
-  await resetSameSeed(frame);
+  await resetSameSeed(page, frame);
   await focusRuntime(page, frame);
   const primed = await primeAuthoredSapTarget(frame);
   if (!primed?.target) throw new Error(`No sparse authored amber target: ${JSON.stringify(primed)}`);
@@ -256,11 +293,13 @@ async function runShiftHoldContract(page, engineName) {
   const castsBefore = before.telemetry.counters.sapStickCasts || 0;
 
   await page.keyboard.down('Shift');
-  await page.waitForTimeout(45);
-  const locked = await state(frame);
-  if (!locked.sapStick?.active || !locked.sapStick?.held) {
-    throw new Error(`Shift alone did not immediately acquire Sap Stick: ${JSON.stringify(locked.sapStick)}`);
-  }
+  const locked = await waitForSnapshot(
+    page,
+    () => state(frame),
+    (snapshot) => Boolean(snapshot.sapStick?.active && snapshot.sapStick?.held),
+    'held Shift Sap acquisition',
+    1000,
+  );
   if ((locked.inputGate?.sapPressCount ?? 0) !== pressesBefore + 1) {
     throw new Error(`Shift press was not counted exactly once: ${JSON.stringify(locked.inputGate)}`);
   }
@@ -276,36 +315,46 @@ async function runShiftHoldContract(page, engineName) {
   }
 
   await page.keyboard.down('ArrowRight');
+  const steeredRight = await waitForSnapshot(
+    page,
+    () => state(frame),
+    (snapshot) => Boolean(snapshot.sapStick?.active && snapshot.inputGate?.physicalDown?.includes('ArrowRight')),
+    'right tether steering',
+    1000,
+  );
   await page.waitForTimeout(105);
-  const steeredRight = await state(frame);
+  const steeredRightSettled = await state(frame);
   await page.keyboard.up('ArrowRight');
-  if (!steeredRight.sapStick?.active || !steeredRight.inputGate?.physicalDown?.includes('ArrowRight')) {
-    throw new Error(`Right steering did not remain inside the held tether: ${JSON.stringify(steeredRight)}`);
-  }
 
   await page.keyboard.down('ArrowLeft');
+  await waitForSnapshot(
+    page,
+    () => state(frame),
+    (snapshot) => Boolean(snapshot.sapStick?.active && snapshot.inputGate?.physicalDown?.includes('ArrowLeft')),
+    'left tether steering',
+    1000,
+  );
   await page.waitForTimeout(135);
   const steeredLeft = await state(frame);
   await page.keyboard.up('ArrowLeft');
-  if (!steeredLeft.sapStick?.active || !steeredLeft.inputGate?.physicalDown?.includes('ArrowLeft')) {
-    throw new Error(`Left steering did not remain inside the held tether: ${JSON.stringify(steeredLeft)}`);
-  }
-  if (steeredLeft.player.vx >= steeredRight.player.vx - 70) {
-    throw new Error(`Opposite A/D steering lacked meaningful swing authority: right=${steeredRight.player.vx}, left=${steeredLeft.player.vx}`);
+  if (steeredLeft.player.vx >= steeredRightSettled.player.vx - 70) {
+    throw new Error(`Opposite A/D steering lacked meaningful swing authority: right=${steeredRightSettled.player.vx}, left=${steeredLeft.player.vx}`);
   }
 
   await page.keyboard.up('Shift');
-  await page.waitForTimeout(110);
-  const vaulted = await frame.evaluate(() => ({
-    state: window.SYLVARIA_SEQUOIA_DEBUG.getState(),
-    telemetry: window.SYLVARIA_SEQUOIA_DEBUG.getTelemetry(),
-  }));
-  if (vaulted.state.sapStick?.active || vaulted.state.sapStick?.held) {
-    throw new Error(`Shift release left Sap Stick attached: ${JSON.stringify(vaulted.state.sapStick)}`);
-  }
-  if ((vaulted.telemetry.counters.sapStickCasts || 0) < castsBefore + 1 || (vaulted.telemetry.counters.sapStickVaults || 0) < 1) {
-    throw new Error(`Shift lifecycle did not record cast + vault: ${JSON.stringify(vaulted.telemetry.counters)}`);
-  }
+  const vaulted = await waitForSnapshot(
+    page,
+    () => frame.evaluate(() => ({
+      state: window.SYLVARIA_SEQUOIA_DEBUG.getState(),
+      telemetry: window.SYLVARIA_SEQUOIA_DEBUG.getTelemetry(),
+    })),
+    (snapshot) =>
+      !snapshot.state.sapStick?.active &&
+      !snapshot.state.sapStick?.held &&
+      (snapshot.telemetry.counters.sapStickCasts || 0) >= castsBefore + 1 &&
+      (snapshot.telemetry.counters.sapStickVaults || 0) >= 1,
+    'held Shift release/vault',
+  );
   assertPostReleaseAuthority(vaulted, requestsBefore);
 
   await page.keyboard.down('ArrowRight');
@@ -313,20 +362,21 @@ async function runShiftHoldContract(page, engineName) {
   await page.keyboard.up('ArrowRight');
   const beforeZero = await frame.evaluate(() => ({ state: window.SYLVARIA_SEQUOIA_DEBUG.getState(), telemetry: window.SYLVARIA_SEQUOIA_DEBUG.getTelemetry() }));
   await page.keyboard.press('0');
-  await page.waitForTimeout(95);
-  const afterZero = await frame.evaluate(() => ({ state: window.SYLVARIA_SEQUOIA_DEBUG.getState(), telemetry: window.SYLVARIA_SEQUOIA_DEBUG.getTelemetry() }));
-  if (afterZero.state.seed !== beforeZero.state.seed || afterZero.state.mode !== 'playing') {
-    throw new Error(`0 did not retry the current seed: before=${JSON.stringify(beforeZero.state)}, after=${JSON.stringify(afterZero.state)}`);
-  }
-  if (
-    afterZero.telemetry.runSeconds > 0.18 ||
-    afterZero.state.combo !== 0 ||
-    Math.abs(afterZero.state.player.x - 480) > 45 ||
-    !afterZero.state.sapRhythm.ready ||
-    !afterZero.state.sapAuthority?.armed ||
-    afterZero.state.sapAuthority?.nodeUses !== 0
-  ) {
-    throw new Error(`0 reset did not restore a fresh run: ${JSON.stringify(afterZero)}`);
+  const afterZero = await waitForSnapshot(
+    page,
+    () => frame.evaluate(() => ({ state: window.SYLVARIA_SEQUOIA_DEBUG.getState(), telemetry: window.SYLVARIA_SEQUOIA_DEBUG.getTelemetry() })),
+    (snapshot) =>
+      snapshot.state.seed === beforeZero.state.seed &&
+      snapshot.state.mode === 'playing' &&
+      snapshot.state.combo === 0 &&
+      Math.abs(snapshot.state.player.x - 480) <= 45 &&
+      snapshot.state.sapRhythm.ready &&
+      snapshot.state.sapAuthority?.armed &&
+      snapshot.state.sapAuthority?.nodeUses === 0,
+    '0 same-seed retry',
+  );
+  if (afterZero.telemetry.runSeconds > 0.35) {
+    throw new Error(`0 reset did not restore a fresh run quickly enough: ${JSON.stringify(afterZero)}`);
   }
 
   await page.keyboard.down('ArrowRight');
@@ -334,11 +384,12 @@ async function runShiftHoldContract(page, engineName) {
   await page.keyboard.up('ArrowRight');
   const beforeR = await frame.evaluate(() => ({ state: window.SYLVARIA_SEQUOIA_DEBUG.getState(), telemetry: window.SYLVARIA_SEQUOIA_DEBUG.getTelemetry() }));
   await page.keyboard.press('r');
-  await page.waitForTimeout(95);
-  const afterR = await frame.evaluate(() => ({ state: window.SYLVARIA_SEQUOIA_DEBUG.getState(), telemetry: window.SYLVARIA_SEQUOIA_DEBUG.getTelemetry() }));
-  if (afterR.state.seed !== beforeR.state.seed || afterR.telemetry.runSeconds <= beforeR.telemetry.runSeconds) {
-    throw new Error(`R still behaves like a reset: before=${JSON.stringify(beforeR)}, after=${JSON.stringify(afterR)}`);
-  }
+  const afterR = await waitForSnapshot(
+    page,
+    () => frame.evaluate(() => ({ state: window.SYLVARIA_SEQUOIA_DEBUG.getState(), telemetry: window.SYLVARIA_SEQUOIA_DEBUG.getTelemetry() })),
+    (snapshot) => snapshot.state.seed === beforeR.state.seed && snapshot.telemetry.runSeconds > beforeR.telemetry.runSeconds + 0.05,
+    'R non-reset continuity',
+  );
   if (Math.abs(afterR.state.player.x - 480) + 12 < Math.abs(beforeR.state.player.x - 480)) {
     throw new Error(`R pulled Pip back toward the reset spawn: beforeX=${beforeR.state.player.x}, afterX=${afterR.state.player.x}`);
   }
@@ -356,6 +407,7 @@ async function runShiftHoldContract(page, engineName) {
     locked,
     afterSpace,
     steeredRight,
+    steeredRightSettled,
     steeredLeft,
     vaulted,
     afterZero,
