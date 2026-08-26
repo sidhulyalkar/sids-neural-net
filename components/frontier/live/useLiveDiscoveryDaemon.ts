@@ -38,6 +38,12 @@ const EMPTY_STATUS: FrontierDaemonStatus = {
 export function useLiveDiscoveryDaemon(options: {
   focusSignature: string;
   excludeItems: FrontierItem[];
+  /**
+   * Keep the worker dormant until the snapshot-backed feed has produced usable
+   * content. Fresh discovery is intentionally stage two so it cannot compete
+   * with first useful paint for network, CPU, or server-function budget.
+   */
+  enabled?: boolean;
   prioritizeItems?: (items: FrontierItem[]) => Promise<FrontierItem[]>;
   onHighPriority?: (items: FrontierItem[], meta: { generatedAt?: string; sources: FrontierSourceStatus[] }) => void;
 }) {
@@ -49,6 +55,7 @@ export function useLiveDiscoveryDaemon(options: {
   const {
     focusSignature,
     excludeItems,
+    enabled = true,
     prioritizeItems,
     onHighPriority,
   } = options;
@@ -162,6 +169,12 @@ export function useLiveDiscoveryDaemon(options: {
   }, []);
 
   useEffect(() => {
+    if (!enabled) {
+      publishFrontierRuntimeHealth('live-daemon', 'idle', { message: 'waiting for first useful feed paint' });
+      setStatus(EMPTY_STATUS);
+      return;
+    }
+
     let worker: Worker;
     try {
       publishFrontierRuntimeHealth('live-daemon', 'starting');
@@ -225,11 +238,12 @@ export function useLiveDiscoveryDaemon(options: {
       worker.terminate();
       if (workerRef.current === worker) workerRef.current = null;
     };
-  }, [acceptFresh, configureWorker, workerGeneration]);
+  }, [acceptFresh, configureWorker, enabled, workerGeneration]);
 
   useEffect(() => listenFrontierSeenSignatures(prunePendingForSeen), [prunePendingForSeen]);
 
   useEffect(() => {
+    if (!enabled) return;
     const sendActivity = (force = false) => {
       const now = Date.now();
       if (!force && now - lastActivitySent.current < ACTIVITY_THROTTLE_MS) return;
@@ -261,7 +275,7 @@ export function useLiveDiscoveryDaemon(options: {
       window.removeEventListener('focus', onActivity);
       document.removeEventListener('visibilitychange', onVisibility);
     };
-  }, [workerGeneration]);
+  }, [enabled, workerGeneration]);
 
   useEffect(() => () => {
     if (retryTimer.current !== undefined) window.clearTimeout(retryTimer.current);
@@ -269,8 +283,9 @@ export function useLiveDiscoveryDaemon(options: {
   }, []);
 
   const requestPoll = useCallback((reason: FrontierDaemonPollReason = 'manual') => {
+    if (!enabled) return;
     try { workerRef.current?.postMessage({ type: 'poll-now', reason } satisfies FrontierDaemonRequest); } catch {}
-  }, []);
+  }, [enabled]);
 
   const flush = useCallback(async (limit = 24): Promise<FrontierItem[]> => {
     const snapshot = Array.from(pendingRef.current.values());
