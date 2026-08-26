@@ -41,3 +41,22 @@ test('Sap anti-inflation gate distinguishes Sap-awarded Flow from legitimate tra
     'a normal floor-skip or route combo must not be misclassified as Sap-created Flow',
   );
 });
+
+test('Living Canopy browser qualification preserves authored progression across reloads', () => {
+  const harness = readScript('playtest-sylvaria-living-canopy-v2.mjs');
+  assert.match(harness, /async function runtimeFrame/);
+  assert.match(harness, /async function reloadWithStorage/);
+  assert.match(harness, /await page\.reload\(\{ waitUntil: 'networkidle' \}\)/);
+  assert.match(harness, /'sylvaria\.sequoia\.wonderMask': '63'/);
+  assert.match(harness, /'sylvaria\.sequoia\.heartseedMask': '31'/);
+  assert.doesNotMatch(
+    harness,
+    /page\.addInitScript\([\s\S]*sylvaria\.sequoia\.wonderMask/,
+    'a permanent init script must not erase the persisted Wonder state being tested on reload',
+  );
+  assert.doesNotMatch(
+    harness,
+    /keyboard\.press\('Space'\);\s*await page\.waitForTimeout\(120\)/,
+    'Living Canopy start authority must be behavior-based rather than a fixed browser delay',
+  );
+});
