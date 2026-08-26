@@ -57,6 +57,10 @@ const FEED_CACHE_MAX_AGE_MS = 4 * 60 * 60_000;
 const BASE_EXPLORATION_TEMPERATURE = 0.08;
 const MANUAL_EXPLORATION_TEMPERATURE = 0.82;
 const STREAM_EXPLORATION_TEMPERATURE = 0.62;
+const INITIAL_BROWSE_TARGET = 48;
+const LIVE_APPEND_BATCH = 16;
+const MAX_STREAM_ITEMS = 96;
+const ACTIVE_ITEM_WINDOW = INITIAL_BROWSE_TARGET + MAX_STREAM_ITEMS;
 
 type FormatFilter = 'all' | 'papers' | 'code' | 'projects' | 'video' | 'threads' | 'sports' | 'games' | 'music';
 
@@ -170,6 +174,7 @@ export function FrontierExperience({ initialDateLabel, initialDayKey }: Props) {
   const activeItemsRef = useRef<FrontierItem[]>([]);
   const nearEndArmed = useRef(false);
   const migrationStarted = useRef(false);
+  const livePrimerArmed = useRef(true);
   const recordLayout = store.recordLayout;
   const { launchWaterfall, waterfallActive } = useWaterfallText(searchInput, { collisionRef: utilityDockRef });
 
@@ -183,7 +188,7 @@ export function FrontierExperience({ initialDateLabel, initialDayKey }: Props) {
   );
   const focusSignature = useMemo(() => encodeDiscoveryFocus(requestFocus), [requestFocus]);
   const daemonExcludeItems = useMemo(
-    () => dedupeCanonical([...items, ...streamItems]).slice(0, 160),
+    () => dedupeCanonical([...items, ...streamItems]).slice(0, ACTIVE_ITEM_WINDOW),
     [items, streamItems]
   );
   const {
@@ -194,7 +199,11 @@ export function FrontierExperience({ initialDateLabel, initialDayKey }: Props) {
     requestPoll,
     flush: flushPending,
     clearPending,
-  } = useLiveDiscoveryDaemon({ focusSignature, excludeItems: daemonExcludeItems });
+  } = useLiveDiscoveryDaemon({
+    focusSignature,
+    excludeItems: daemonExcludeItems,
+    enabled: !loading && items.length > 0,
+  });
 
   const searchSuggestions = useMemo(() => {
     const learned = Object.entries(store.profile.topicAffinity)
@@ -305,6 +314,7 @@ export function FrontierExperience({ initialDateLabel, initialDayKey }: Props) {
 
       if (controller.signal.aborted) return;
       if (nextItems.length) {
+        livePrimerArmed.current = true;
         if (forceFresh) {
           setDiversityReference(activeItemsRef.current.slice(0, 28));
           spikeExploration(MANUAL_EXPLORATION_TEMPERATURE);
@@ -386,7 +396,10 @@ export function FrontierExperience({ initialDateLabel, initialDayKey }: Props) {
     () => ranked.filter((item) => laneMatchesRealm(item.lane, realm)),
     [ranked, realm]
   );
-  const dailyRun = useMemo(() => selectDailyRun(realmRanked, store.history, 14), [realmRanked, store.history]);
+  const dailyRun = useMemo(
+    () => selectDailyRun(realmRanked, store.history, INITIAL_BROWSE_TARGET),
+    [realmRanked, store.history]
+  );
   const dailySignatures = useMemo(() => new Set(dailyRun.flatMap((item) => frontierSeenSignatures(item))), [dailyRun]);
   const streamedToday = useMemo(() => streamItems.filter((item) => (
     laneMatchesRealm(item.lane, realm)
@@ -436,19 +449,34 @@ export function FrontierExperience({ initialDateLabel, initialDayKey }: Props) {
     .sort((a, b) => new Date(b.lastSeenAt).getTime() - new Date(a.lastSeenAt).getTime());
 
   useEffect(() => {
-    activeItemsRef.current = view === 'explore' ? exploreItems.slice(0, 64) : todayItems.slice(0, 64);
+    activeItemsRef.current = view === 'explore'
+      ? exploreItems.slice(0, ACTIVE_ITEM_WINDOW)
+      : todayItems.slice(0, ACTIVE_ITEM_WINDOW);
   }, [exploreItems, todayItems, view]);
 
   const revealPending = useCallback(async () => {
-    const fresh = await flushPending(24);
+    const fresh = await flushPending(LIVE_APPEND_BATCH);
     if (!fresh.length) return;
     setDiversityReference(activeItemsRef.current.slice(0, 28));
     spikeExploration(STREAM_EXPLORATION_TEMPERATURE);
-    setStreamItems((current) => dedupeCanonical([...current, ...fresh]).slice(0, 72));
+    setStreamItems((current) => dedupeCanonical([...current, ...fresh]).slice(0, MAX_STREAM_ITEMS));
     if (daemonGeneratedAt) setGeneratedAt(daemonGeneratedAt);
     if (daemonSources.length) setSources((current) => mergeSourceStatuses(current, daemonSources));
     if (view !== 'today' && view !== 'explore') setView('today');
   }, [daemonGeneratedAt, daemonSources, flushPending, spikeExploration, view]);
+
+  // Prime one bounded live batch once the snapshot-backed surface is usable.
+  // appendStable guarantees this never reshuffles cards the reader is already
+  // looking at; new signals simply extend the river below the current content.
+  useEffect(() => {
+    if (loading || !items.length || pendingCount <= 0 || !livePrimerArmed.current) return;
+    const timer = window.setTimeout(() => {
+      if (!livePrimerArmed.current) return;
+      livePrimerArmed.current = false;
+      void revealPending();
+    }, 320);
+    return () => window.clearTimeout(timer);
+  }, [items.length, loading, pendingCount, revealPending]);
 
   const manualRefresh = useCallback(async () => {
     // A deliberate refresh means "go back to the Internet now", not merely
@@ -608,6 +636,7 @@ export function FrontierExperience({ initialDateLabel, initialDayKey }: Props) {
     setDiversityReference([]);
     setExplorationTemperature(BASE_EXPLORATION_TEMPERATURE);
     setStreamEpoch((epoch) => epoch + 1);
+    livePrimerArmed.current = true;
     void clearFrontierSeenLedger();
     void clearFrontierCandidatePool();
   }, [clearPending, store]);
