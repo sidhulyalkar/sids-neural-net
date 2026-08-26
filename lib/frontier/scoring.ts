@@ -19,6 +19,7 @@ import type {
 const DAY_MS = 86_400_000;
 const RESURFACE_DAYS = [1, 3, 7];
 const EXPLICIT_TASTE_FILL_THRESHOLD = 0.04;
+const CANONICAL_DAILY_RUN_SIZE = 14;
 
 export function clamp(value: number, min = 0, max = 1): number {
   return Math.min(max, Math.max(min, value));
@@ -204,12 +205,14 @@ function isGenericAiSignal(item: FrontierItem): boolean {
     && item.importance < 0.82;
 }
 
-export function selectDailyRun(
+function selectDailyAllocation(
   ranked: FrontierItem[],
   history: Record<string, FrontierHistoryEntry>,
-  limit = 14,
-  now = new Date()
+  limit: number,
+  now: Date
 ): FrontierItem[] {
+  void history;
+  void now;
   const used = new Set<string>();
   const selected: FrontierItem[] = [];
   const push = (item?: FrontierItem) => { if (item) selected.push(item); };
@@ -271,6 +274,32 @@ export function selectDailyRun(
   appendFill(false);
 
   return selected.slice(0, limit);
+}
+
+export function selectDailyRun(
+  ranked: FrontierItem[],
+  history: Record<string, FrontierHistoryEntry>,
+  limit = CANONICAL_DAILY_RUN_SIZE,
+  now = new Date()
+): FrontierItem[] {
+  const boundedLimit = Math.max(0, Math.floor(limit));
+  if (boundedLimit <= CANONICAL_DAILY_RUN_SIZE) {
+    return selectDailyAllocation(ranked, history, boundedLimit, now);
+  }
+
+  // A deeper browse is an extension of the known-good daily run, not a second
+  // opening recommendation. The larger allocator is still authoritative for
+  // what belongs in the tail, but it may reserve additional taste slots because
+  // its lane caps scale with `limit`. Pin the canonical first 14, then append
+  // only the additional members of the expanded allocation. This lets FRONTIER
+  // grow downward without moving cards the reader has already begun scanning.
+  const canonical = selectDailyAllocation(ranked, history, CANONICAL_DAILY_RUN_SIZE, now);
+  const expanded = selectDailyAllocation(ranked, history, boundedLimit, now);
+  const canonicalIds = new Set(canonical.map((item) => item.id));
+  return [
+    ...canonical,
+    ...expanded.filter((item) => !canonicalIds.has(item.id)),
+  ].slice(0, boundedLimit);
 }
 
 export function explainRecommendation(
