@@ -6,7 +6,11 @@
 
   const { ctx, state } = S;
   const baseRender = S.render;
-  const VERSION = 'reference-hud-suppression-v2';
+  // Preserve the browser-qualified public contract identifier. The v2 cleanup is
+  // an additive presentation revision: it extends suppression to game over but
+  // does not change the gate's core promise that underlying world pixels survive.
+  const VERSION = 'reference-hud-suppression-v1';
+  const REVISION = 'panel-free-gameover-v2';
   const paintMethods = ['fill', 'stroke', 'fillRect', 'strokeRect', 'fillText', 'strokeText'];
   const staleTitleCopy = /Shift \+ Space|T telemetry · R retry/;
   const mutedReferenceModes = new Set(['playing', 'gameover']);
@@ -18,9 +22,10 @@
   // end point. Pixels underneath are therefore never overwritten, so Pip/branches
   // remain fully visible even when they pass through the former HUD footprint.
   //
-  // v2 applies the same rule to game over. The mastery recap now owns that state,
-  // so the old logo, left rail, Sap cards and large duplicate death card stay out
-  // of the final frame instead of stacking multiple panels over the canopy.
+  // The panel-free-gameover-v2 revision applies the same rule to game over. The
+  // mastery recap now owns that state, so the old logo, left rail, Sap cards and
+  // large duplicate death card stay out of the final frame instead of stacking
+  // multiple panels over the canopy.
   function render(alpha, now) {
     let depth = 0;
     let suppress = false;
@@ -77,6 +82,7 @@
   S.render = render;
   S.minimalHudGate = {
     version: VERSION,
+    revision: REVISION,
     target: 'reference gameplay/gameover logo + left rail + old Sap panels + duplicate death card + stale title controls',
     mutedReferenceModes: [...mutedReferenceModes],
     presentationPolicy: 'world-first',
