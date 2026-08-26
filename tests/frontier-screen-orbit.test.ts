@@ -95,11 +95,6 @@ test('production-sized daily run reserves Screen Orbit independently of gaming a
   const importantCard = item('important', 'Major security release', 'must_know', ['security']);
 
   assert.equal(screenCard.lane, 'screen');
-  assert.match(
-    selectDailyRun.toString(),
-    /isScreenOrbitSignal|lane\s*===\s*["']screen["']/,
-    `Runtime selectDailyRun lacks a Screen Orbit reservation: ${selectDailyRun.toString()}`,
-  );
 
   const screenOnly = selectDailyRun([screenCard], {}, 14, at);
   assert.deepEqual(
@@ -123,12 +118,22 @@ test('production-sized daily run reserves Screen Orbit independently of gaming a
     item('game', 'New metroidvania release', 'gaming', ['metroidvania']),
     item('internet', 'Funny internet clip', 'internet_culture', ['meme']),
     productionScreenCard,
-    ...Array.from({ length: 16 }, (_, index) => item(`filler-${index}`, `Filler ${index}`, 'wildcards', [`filler-${index}`])),
+    ...Array.from({ length: 44 }, (_, index) => item(`filler-${index}`, `Filler ${index}`, 'wildcards', [`filler-${index}`])),
   ];
-  const selected = selectDailyRun(ranked, {}, 14, at);
-  const diagnostic = selected.map((entry) => `${entry.id}:${entry.lane}`).join(', ');
-  assert.ok(selected.some((entry) => entry.id === 'screen'), `Screen Orbit missing from [${diagnostic}]`);
-  assert.ok(selected.some((entry) => entry.id === 'game'), `Gaming missing from [${diagnostic}]`);
+  const canonical = selectDailyRun(ranked, {}, 14, at);
+  const expanded = selectDailyRun(ranked, {}, 48, at);
+  const canonicalDiagnostic = canonical.map((entry) => `${entry.id}:${entry.lane}`).join(', ');
+  const expandedDiagnostic = expanded.map((entry) => `${entry.id}:${entry.lane}`).join(', ');
+
+  assert.ok(canonical.some((entry) => entry.id === 'screen'), `Screen Orbit missing from canonical run [${canonicalDiagnostic}]`);
+  assert.ok(canonical.some((entry) => entry.id === 'game'), `Gaming missing from canonical run [${canonicalDiagnostic}]`);
+  assert.ok(expanded.some((entry) => entry.id === 'screen'), `Screen Orbit missing from deep browse [${expandedDiagnostic}]`);
+  assert.ok(expanded.some((entry) => entry.id === 'game'), `Gaming missing from deep browse [${expandedDiagnostic}]`);
+  assert.deepEqual(
+    expanded.slice(0, canonical.length).map((entry) => entry.id),
+    canonical.map((entry) => entry.id),
+    'Deep browsing must preserve the Screen Orbit-bearing canonical prefix',
+  );
 });
 
 test('Screen Orbit motif RSS requires returned evidence rather than query labels', () => {
