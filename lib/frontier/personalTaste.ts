@@ -33,7 +33,11 @@ export const FRONTIER_PERSONAL_TASTE_TOPICS: readonly FrontierPersonalTasteTopic
   {
     id: 'nfl-analytics',
     label: 'NFL modeling + player state',
-    aliases: ['nfl', 'player tracking', 'next gen stats', 'nflverse', 'nflfastr', 'play-by-play', 'epa', 'cpoe', 'win probability', 'fourth down'],
+    // A bare league mention is not analytical evidence. Keep this vocabulary
+    // deliberately specific so owner/legal/transactional NFL news cannot claim
+    // the finite modeling slot simply by containing the token "NFL". Broader
+    // football material remains discoverable through sports/team/fantasy lanes.
+    aliases: ['nfl analytics', 'nfl modeling', 'nfl player tracking', 'nfl player state', 'next gen stats', 'nflverse', 'nflfastr', 'cpoe', 'expected points added', 'fourth down', 'fourth-down'],
     tags: ['nfl', 'sports analytics', 'player tracking', 'play-by-play'],
     prior: 0.16,
   },
