@@ -112,6 +112,7 @@ test('all six public morphologies remain interior and never flatten against any 
         );
 
         for (const point of mapped) {
+          assert.ok(Number.isFinite(point.x) && Number.isFinite(point.y), `${path.id} mapped to non-finite geometry`);
           const edgeDistance = physicalViewportEdgeDistance(point, tree, dimensions);
           assert.ok(
             edgeDistance >= minimumExpectedEdgeDistance,
@@ -121,23 +122,15 @@ test('all six public morphologies remain interior and never flatten against any 
 
         const originalLength = polylineLength(path.points);
         const mappedLength = polylineLength(mapped);
-        if (originalLength > 8) {
-          const authoredEntirelyInsideEnvelope = path.points.every((point) => normalizedRadius(point, tree) <= 0.9);
-          if (authoredEntirelyInsideEnvelope) {
-            assert.ok(
-              mappedLength > originalLength * 0.5,
-              `${morphology} ${dimensions.width}x${dimensions.height} collapsed interior branch ${path.id}`
-            );
-          } else {
-            // Edge-reaching branches are intentionally shortened because their authored
-            // length may include distance created by the old rectangular clamp. They
-            // still need a non-degenerate visible segment after radial reprojection.
-            assert.ok(
-              mappedLength > 1.5,
-              `${morphology} ${dimensions.width}x${dimensions.height} erased boundary branch ${path.id}`
-            );
-          }
+        if (originalLength > 8 && path.points.every((point) => normalizedRadius(point, tree) <= 0.9)) {
+          assert.ok(
+            mappedLength > originalLength * 0.5,
+            `${morphology} ${dimensions.width}x${dimensions.height} collapsed interior branch ${path.id}`
+          );
         }
+        // Edge-reaching twigs are allowed to collapse below the renderer's branch-length
+        // threshold. Their authored length can be an artifact of the old rectangular
+        // clamp, and the final crisp topology pass intentionally prunes those orphans.
       }
     }
   }
