@@ -302,8 +302,14 @@ export function parseNasaApod(payload: unknown): FrontierItem[] {
   return entries.flatMap((entry) => {
     if (!entry.date || !entry.title || !entry.url) return [];
     const youtube = /(?:youtube\.com|youtu\.be)/i.test(entry.url);
+    // APOD's `url` is the publisher-provided presentation derivative (often
+    // 960px), while `hdurl` can be the photographer's multi-thousand-pixel raw
+    // original. FRONTIER renders the bounded source derivative in-card so the
+    // proxy, native safety image, and GPU decode do not all wait on an oversized
+    // original. The canonical APOD page remains the route to the full-resolution
+    // asset.
     const media: FrontierMedia | undefined = entry.media_type === 'image'
-      ? { type: 'image', url: entry.hdurl || entry.url, alt: entry.title, aspectRatio: 'landscape' }
+      ? { type: 'image', url: entry.url, alt: entry.title, aspectRatio: 'landscape' }
       : youtube
         ? { type: 'youtube', url: entry.url, poster: entry.thumbnail_url, alt: entry.title, aspectRatio: 'landscape' }
         : entry.thumbnail_url
