@@ -1,9 +1,10 @@
 import type { FrontierFeedResponse, FrontierItem, FrontierSourceStatus } from './types';
 
-const USER_AGENT = 'sids-neural-net-frontier-sports-analytics/1.1 (+https://sidhulyalkar.com/frontier)';
+const USER_AGENT = 'sids-neural-net-frontier-sports-analytics/1.2 (+https://sidhulyalkar.com/frontier)';
 const DAY_MS = 86_400_000;
 const REQUEST_QUERY_TIMEOUT_MS = 3_800;
 const DEEP_QUERY_TIMEOUT_MS = 6_500;
+const FANTASYPROS_FEED_URL = 'https://www.fantasypros.com/feed/';
 
 type SportsAnalyticsQuery = {
   id: string;
@@ -87,6 +88,12 @@ const ROTATING_QUERIES: readonly SportsAnalyticsQuery[] = [
   },
 ] as const;
 
+const FANTASY_DECISION_TERMS = [
+  'fantasy football', 'superflex', '2qb', '2 qb', 'adp', 'mock draft', 'draft',
+  'ranking', 'rankings', 'projection', 'projections', 'sleeper', 'breakout', 'bust',
+  'target share', 'route participation', 'air yards', 'waiver', 'injury', 'depth chart',
+] as const;
+
 function clamp(value: number, min = 0, max = 1): number {
   return Math.min(max, Math.max(min, value));
 }
@@ -135,8 +142,8 @@ function summarize(value: string, maxLength = 280): string {
   return `${slice.slice(0, boundary > 170 ? boundary : maxLength).trim()}…`;
 }
 
-function ageDays(publishedAt: string): number {
-  return Math.max(0, (Date.now() - new Date(publishedAt).getTime()) / DAY_MS);
+function ageDays(publishedAt: string, now = Date.now()): number {
+  return Math.max(0, (now - new Date(publishedAt).getTime()) / DAY_MS);
 }
 
 function dailyRotationIndex(): number {
@@ -221,6 +228,67 @@ export function parseSportsAnalyticsNewsRss(xml: string, spec: SportsAnalyticsQu
   });
 }
 
+export function parseFantasyProsRss(xml: string, now = Date.now()): FrontierItem[] {
+  const blocks = xml.match(/<item\b[\s\S]*?<\/item>/gi) ?? [];
+  return blocks.slice(0, 24).flatMap((block, index) => {
+    const title = xmlTag(block, 'title');
+    const url = xmlTag(block, 'link') || xmlTag(block, 'guid');
+    if (!title || !url || publisherHost(url) !== 'fantasypros.com') return [];
+    const publishedRaw = xmlTag(block, 'pubDate') || xmlTag(block, 'dc:date');
+    const publishedAt = Number.isNaN(Date.parse(publishedRaw))
+      ? new Date(now).toISOString()
+      : new Date(publishedRaw).toISOString();
+    if (ageDays(publishedAt, now) > 10) return [];
+
+    const summary = summarize(xmlTag(block, 'description') || xmlTag(block, 'content:encoded') || 'Fresh FantasyPros analysis.');
+    const evidence = `${title} ${summary}`.toLowerCase();
+    const decisionTerms = FANTASY_DECISION_TERMS.filter((term) => evidenceTermMatches(evidence, term));
+    const footballContext = evidence.includes('fantasy football')
+      || evidence.includes(' nfl ')
+      || evidence.startsWith('nfl ')
+      || evidence.includes(' quarterback')
+      || evidence.includes(' running back')
+      || evidence.includes(' wide receiver')
+      || evidence.includes(' tight end');
+    if (!footballContext || !decisionTerms.length) return [];
+
+    const tags = Array.from(new Set([
+      'fantasy football', 'decision edge', 'player usage',
+      ...decisionTerms.slice(0, 5),
+      ...(evidence.includes('superflex') ? ['superflex'] : []),
+      ...(evidenceTermMatches(evidence, '2qb') || evidence.includes('2 qb') ? ['2qb'] : []),
+    ])).slice(0, 10);
+    const freshness = Math.exp(-ageDays(publishedAt, now) / 4.5);
+    const importance = 0.7;
+    const quality = 0.8;
+    const momentum = 0.55;
+    const novelty = 0.52;
+    const baseScore = clamp(
+      importance * 0.3 + quality * 0.25 + momentum * 0.13 + freshness * 0.23 + novelty * 0.09
+    );
+    return [{
+      id: `fantasypros-${stableId(`${url}-${index}`)}`,
+      title,
+      summary,
+      url,
+      source: 'fantasypros.com',
+      sourceLabel: 'FantasyPros',
+      sourceKind: 'rss' as const,
+      publishedAt,
+      lane: 'sports' as const,
+      tags,
+      importance,
+      quality,
+      momentum,
+      novelty,
+      baseScore,
+      why: 'Fresh publisher-direct fantasy football decision material, independent of the broad search mesh.',
+    } satisfies FrontierItem];
+  })
+    .sort((left, right) => right.baseScore - left.baseScore)
+    .slice(0, 6);
+}
+
 async function fetchQuery(spec: SportsAnalyticsQuery, timeoutMs: number): Promise<FrontierItem[]> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
@@ -238,21 +306,53 @@ async function fetchQuery(spec: SportsAnalyticsQuery, timeoutMs: number): Promis
   }
 }
 
+async function fetchFantasyProsFeed(): Promise<FrontierItem[]> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), DEEP_QUERY_TIMEOUT_MS);
+  try {
+    const response = await fetch(FANTASYPROS_FEED_URL, {
+      headers: { 'User-Agent': USER_AGENT, Accept: 'application/rss+xml, application/xml, text/xml' },
+      signal: controller.signal,
+      redirect: 'follow',
+      next: { revalidate: 60 * 30 },
+    });
+    if (!response.ok) throw new Error(`FantasyPros: ${response.status} ${response.statusText}`);
+    return parseFantasyProsRss(await response.text());
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 export async function getSportsAnalyticsFeed(options: { deep?: boolean } = {}): Promise<FrontierFeedResponse> {
   const deep = Boolean(options.deep);
   const queries = sportsAnalyticsQueries(deep);
   const timeoutMs = deep ? DEEP_QUERY_TIMEOUT_MS : REQUEST_QUERY_TIMEOUT_MS;
-  const runs = await Promise.allSettled(queries.map((spec) => fetchQuery(spec, timeoutMs)));
-  const items = runs.flatMap((run) => run.status === 'fulfilled' ? run.value : []);
-  const failures = runs.filter((run) => run.status === 'rejected').length;
+  const [queryRuns, fantasyRun] = await Promise.all([
+    Promise.allSettled(queries.map((spec) => fetchQuery(spec, timeoutMs))),
+    deep
+      ? fetchFantasyProsFeed().then(
+          (items) => ({ ok: true as const, items }),
+          () => ({ ok: false as const, items: [] as FrontierItem[] }),
+        )
+      : Promise.resolve({ ok: true as const, items: [] as FrontierItem[] }),
+  ]);
+  const searchItems = queryRuns.flatMap((run) => run.status === 'fulfilled' ? run.value : []);
+  const items = Array.from(new Map(
+    [...fantasyRun.items, ...searchItems].map((item) => [item.url.toLowerCase(), item])
+  ).values());
+  const failures = queryRuns.filter((run) => run.status === 'rejected').length;
+  const degradations = [
+    failures ? `${failures}/${queryRuns.length} focused searches degraded` : '',
+    deep && !fantasyRun.ok ? 'FantasyPros direct feed degraded' : '',
+  ].filter(Boolean);
   const status: FrontierSourceStatus = {
     id: 'rss',
-    label: deep ? 'Sports analytics deep radar' : 'Sports analytics radar',
-    ok: items.length > 0 || failures < runs.length,
+    label: deep ? 'Sports analytics + FantasyPros deep radar' : 'Sports analytics radar',
+    ok: items.length > 0 || failures < queryRuns.length || fantasyRun.ok,
     count: items.length,
     message: items.length
-      ? (failures ? `${failures}/${runs.length} focused sports searches degraded` : undefined)
-      : (failures ? `sports analytics discovery yielded no items · ${failures}/${runs.length} searches degraded` : 'sports analytics discovery yielded no relevant items'),
+      ? (degradations.length ? degradations.join(' · ') : undefined)
+      : (degradations.length ? `sports analytics yielded no relevant items · ${degradations.join(' · ')}` : 'sports analytics discovery yielded no relevant items'),
   };
   return { generatedAt: new Date().toISOString(), items, sources: [status] };
 }
