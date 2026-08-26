@@ -79,6 +79,7 @@
     version: VERSION,
     target: 'reference gameplay/gameover logo + left rail + old Sap panels + duplicate death card + stale title controls',
     mutedReferenceModes: [...mutedReferenceModes],
+    presentationPolicy: 'world-first',
     preservesUnderlyingScene: true,
   };
 })();
