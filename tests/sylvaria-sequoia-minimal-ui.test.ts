@@ -22,9 +22,13 @@ test('Sylvaria traversal HUD stays panel-free while preserving intentional shop 
   const recap = readRuntime('03-run-recap-hud.js');
   const index = readRuntime('index.html');
 
+  assert.match(gate, /const VERSION = 'reference-hud-suppression-v1'/);
+  assert.match(gate, /const REVISION = 'panel-free-gameover-v2'/);
+  assert.match(gate, /revision: REVISION/);
   assert.match(gate, /new Set\(\['playing', 'gameover'\]\)/);
   assert.match(gate, /duplicate death card/);
   assert.match(gate, /presentationPolicy: 'world-first'/);
+  assert.match(gate, /preservesUnderlyingScene: true/);
 
   assert.doesNotMatch(objective, /fillRect\(right - 205/);
   assert.match(objective, /panelFree: true/);
