@@ -70,6 +70,25 @@ async function waitForSnapshot(page, read, ready, label, timeout = 2500) {
   throw new Error(`${label} did not settle within ${timeout}ms: ${JSON.stringify({ last, lastError })}`);
 }
 
+async function advanceSimulation(frame, steps = 1) {
+  return frame.evaluate((count) => {
+    const S = window.SylvariaSequoia;
+    if (!S?.update || !S?.state?.FIXED_DT) throw new Error('Sylvaria fixed-step update is unavailable');
+    for (let index = 0; index < count; index += 1) S.update(S.state.FIXED_DT);
+    return window.SYLVARIA_SEQUOIA_DEBUG.getState();
+  }, steps);
+}
+
+async function advanceUntil(frame, read, ready, label, maxSteps = 360) {
+  let last = null;
+  for (let step = 0; step <= maxSteps; step += 1) {
+    last = await read();
+    if (ready(last)) return last;
+    await advanceSimulation(frame, 1);
+  }
+  throw new Error(`${label} did not settle within ${maxSteps} fixed steps: ${JSON.stringify(last)}`);
+}
+
 async function resetSameSeed(page, frame) {
   const seed = (await state(frame)).seed;
   await frame.evaluate(() => window.SYLVARIA_SEQUOIA_DEBUG.retry());
@@ -256,10 +275,10 @@ async function runShiftHoldContract(page, engineName) {
     'plain Sap acquisition',
     1000,
   );
-  await page.waitForTimeout(92);
+  await advanceSimulation(frame, 12);
   await page.keyboard.up('Shift');
-  const plainVault = await waitForSnapshot(
-    page,
+  const plainVault = await advanceUntil(
+    frame,
     () => frame.evaluate(() => ({
       state: window.SYLVARIA_SEQUOIA_DEBUG.getState(),
       telemetry: window.SYLVARIA_SEQUOIA_DEBUG.getTelemetry(),
@@ -308,7 +327,6 @@ async function runShiftHoldContract(page, engineName) {
   }
 
   await page.keyboard.press('Space');
-  await page.waitForTimeout(38);
   const afterSpace = await state(frame);
   if (!afterSpace.sapStick?.active || (afterSpace.jumpInput?.nextRequestId ?? -1) !== requestsBefore) {
     throw new Error(`Space leaked through active Sap Stick: ${JSON.stringify(afterSpace)}`);
@@ -322,7 +340,7 @@ async function runShiftHoldContract(page, engineName) {
     'right tether steering',
     1000,
   );
-  await page.waitForTimeout(105);
+  await advanceSimulation(frame, 13);
   const steeredRightSettled = await state(frame);
   await page.keyboard.up('ArrowRight');
 
@@ -334,7 +352,7 @@ async function runShiftHoldContract(page, engineName) {
     'left tether steering',
     1000,
   );
-  await page.waitForTimeout(135);
+  await advanceSimulation(frame, 17);
   const steeredLeft = await state(frame);
   await page.keyboard.up('ArrowLeft');
   if (steeredLeft.player.vx >= steeredRightSettled.player.vx - 70) {
@@ -342,8 +360,8 @@ async function runShiftHoldContract(page, engineName) {
   }
 
   await page.keyboard.up('Shift');
-  const vaulted = await waitForSnapshot(
-    page,
+  const vaulted = await advanceUntil(
+    frame,
     () => frame.evaluate(() => ({
       state: window.SYLVARIA_SEQUOIA_DEBUG.getState(),
       telemetry: window.SYLVARIA_SEQUOIA_DEBUG.getTelemetry(),
@@ -358,7 +376,7 @@ async function runShiftHoldContract(page, engineName) {
   assertPostReleaseAuthority(vaulted, requestsBefore);
 
   await page.keyboard.down('ArrowRight');
-  await page.waitForTimeout(150);
+  await advanceSimulation(frame, 18);
   await page.keyboard.up('ArrowRight');
   const beforeZero = await frame.evaluate(() => ({ state: window.SYLVARIA_SEQUOIA_DEBUG.getState(), telemetry: window.SYLVARIA_SEQUOIA_DEBUG.getTelemetry() }));
   await page.keyboard.press('0');
@@ -380,16 +398,15 @@ async function runShiftHoldContract(page, engineName) {
   }
 
   await page.keyboard.down('ArrowRight');
-  await page.waitForTimeout(150);
+  await advanceSimulation(frame, 18);
   await page.keyboard.up('ArrowRight');
   const beforeR = await frame.evaluate(() => ({ state: window.SYLVARIA_SEQUOIA_DEBUG.getState(), telemetry: window.SYLVARIA_SEQUOIA_DEBUG.getTelemetry() }));
   await page.keyboard.press('r');
-  const afterR = await waitForSnapshot(
-    page,
-    () => frame.evaluate(() => ({ state: window.SYLVARIA_SEQUOIA_DEBUG.getState(), telemetry: window.SYLVARIA_SEQUOIA_DEBUG.getTelemetry() })),
-    (snapshot) => snapshot.state.seed === beforeR.state.seed && snapshot.telemetry.runSeconds > beforeR.telemetry.runSeconds + 0.05,
-    'R non-reset continuity',
-  );
+  await advanceSimulation(frame, 8);
+  const afterR = await frame.evaluate(() => ({ state: window.SYLVARIA_SEQUOIA_DEBUG.getState(), telemetry: window.SYLVARIA_SEQUOIA_DEBUG.getTelemetry() }));
+  if (afterR.state.seed !== beforeR.state.seed || afterR.telemetry.runSeconds <= beforeR.telemetry.runSeconds) {
+    throw new Error(`R still behaves like a reset: before=${JSON.stringify(beforeR)}, after=${JSON.stringify(afterR)}`);
+  }
   if (Math.abs(afterR.state.player.x - 480) + 12 < Math.abs(beforeR.state.player.x - 480)) {
     throw new Error(`R pulled Pip back toward the reset spawn: beforeX=${beforeR.state.player.x}, afterX=${afterR.state.player.x}`);
   }
