@@ -289,8 +289,11 @@ async function runShiftHoldContract(page, engineName) {
       (snapshot.telemetry.counters.sapStickVaults || 0) >= 1,
     'plain Sap release/vault',
   );
-  if (plainVault.state.combo !== 0 || (plainVault.telemetry.counters.sapStickCleanVaults || 0) !== 0) {
-    throw new Error(`Ordinary Sap vault still manufactured Flow: ${JSON.stringify(plainVault)}`);
+  const plainSapComboLinks = (plainVault.telemetry.events || []).filter(
+    (event) => event.type === 'combo-link' && event.link === 'SAP',
+  );
+  if ((plainVault.telemetry.counters.sapStickCleanVaults || 0) !== 0 || plainSapComboLinks.length !== 0) {
+    throw new Error(`Ordinary Sap vault minted Sap Flow: ${JSON.stringify({ plainSapComboLinks, plainVault })}`);
   }
   if (plainVault.state.sapAuthority?.nodeUses !== 1 || !plainVault.state.sapAuthority?.useInvariant) {
     throw new Error(`Plain Sap vault did not consume exactly one authority lease: ${JSON.stringify(plainVault.state.sapAuthority)}`);
