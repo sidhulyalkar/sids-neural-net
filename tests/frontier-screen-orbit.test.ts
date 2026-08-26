@@ -12,7 +12,7 @@ import {
   screenTastePrior,
   screenTasteTags,
 } from '../lib/frontier/screenTaste';
-import { parseScreenNewsRss, screenDiscoveryQueries } from '../lib/frontier/screenSources';
+import { parseScreenNewsRss, parseScreenPublisherRss, screenDiscoveryQueries } from '../lib/frontier/screenSources';
 import { isFrontierSourceAdmitted } from '../lib/frontier/sourceTrust';
 import type { FrontierItem, FrontierProfile } from '../lib/frontier/types';
 
@@ -157,6 +157,45 @@ test('Screen Orbit motif RSS requires returned evidence rather than query labels
   assert.ok(favorite.tags.includes('screen favorite'));
   assert.ok(favorite.tags.includes('anime'));
   assert.equal(isFrontierSourceAdmitted(favorite), true);
+});
+
+test('publisher-owned anime RSS supplies a keyless Screen Orbit baseline and prioritizes favorites', () => {
+  const feed = {
+    id: 'crunchyroll',
+    label: 'Crunchyroll News',
+    url: 'https://cr-news-api-service.prd.crunchyrollsvc.com/v1/en-US/rss',
+    destinationDomains: ['crunchyroll.com'],
+    tags: ['screen orbit', 'anime', 'primary anime news'],
+    quality: 0.84,
+  };
+  const rss = `<?xml version="1.0"?><rss><channel>
+    <item>
+      <title>Shangri-La Frontier Season 3 reveals a new visual</title>
+      <link>https://www.crunchyroll.com/news/latest/shangri-la-frontier-season-3</link>
+      <pubDate>Tue, 25 Aug 2026 18:00:00 GMT</pubDate>
+      <description>New season details and a fresh visual.</description>
+    </item>
+    <item>
+      <title>Original fantasy series announces its fall premiere</title>
+      <link>https://www.crunchyroll.com/news/latest/original-fantasy-series</link>
+      <pubDate>Tue, 25 Aug 2026 17:00:00 GMT</pubDate>
+      <description>A new show joins the anime slate this fall.</description>
+    </item>
+    <item>
+      <title>Do not launder a different destination through the publisher adapter</title>
+      <link>https://unknown-screen-blog.invalid/story</link>
+      <pubDate>Tue, 25 Aug 2026 16:00:00 GMT</pubDate>
+      <description>Unrelated destination.</description>
+    </item>
+  </channel></rss>`;
+
+  const parsed = parseScreenPublisherRss(rss, feed, Date.parse('2026-08-26T00:00:00Z'));
+  assert.equal(parsed.length, 2);
+  assert.match(parsed[0].title, /Shangri-La Frontier/);
+  assert.ok(parsed[0].tags.includes('screen favorite'));
+  assert.ok(parsed.every((entry) => entry.lane === 'screen' && entry.tags.includes('anime')));
+  assert.ok(parsed.every((entry) => entry.source === 'crunchyroll.com'));
+  assert.ok(parsed.every((entry) => isFrontierSourceAdmitted(entry)));
 });
 
 test('rotating favorite-title searches discard fuzzy results that never mention a favorite', () => {
