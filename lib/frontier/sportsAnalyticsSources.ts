@@ -1,8 +1,9 @@
 import type { FrontierFeedResponse, FrontierItem, FrontierSourceStatus } from './types';
 
-const USER_AGENT = 'sids-neural-net-frontier-sports-analytics/1.0 (+https://sidhulyalkar.com/frontier)';
+const USER_AGENT = 'sids-neural-net-frontier-sports-analytics/1.1 (+https://sidhulyalkar.com/frontier)';
 const DAY_MS = 86_400_000;
-const QUERY_TIMEOUT_MS = 3_800;
+const REQUEST_QUERY_TIMEOUT_MS = 3_800;
+const DEEP_QUERY_TIMEOUT_MS = 6_500;
 
 type SportsAnalyticsQuery = {
   id: string;
@@ -161,7 +162,8 @@ export function sportsAnalyticsEvidenceMatches(text: string, spec: SportsAnalyti
   return spec.evidenceGroups.every((group) => group.some((term) => evidenceTermMatches(text, term)));
 }
 
-export function sportsAnalyticsQueries(): SportsAnalyticsQuery[] {
+export function sportsAnalyticsQueries(deep = false): SportsAnalyticsQuery[] {
+  if (deep) return [...PINNED_QUERIES, ...ROTATING_QUERIES];
   const rotating = ROTATING_QUERIES[dailyRotationIndex() % ROTATING_QUERIES.length];
   return [...PINNED_QUERIES, rotating];
 }
@@ -219,9 +221,9 @@ export function parseSportsAnalyticsNewsRss(xml: string, spec: SportsAnalyticsQu
   });
 }
 
-async function fetchQuery(spec: SportsAnalyticsQuery): Promise<FrontierItem[]> {
+async function fetchQuery(spec: SportsAnalyticsQuery, timeoutMs: number): Promise<FrontierItem[]> {
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), QUERY_TIMEOUT_MS);
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const url = `https://news.google.com/rss/search?q=${encodeURIComponent(spec.query)}&hl=en-US&gl=US&ceid=US:en`;
     const response = await fetch(url, {
@@ -236,17 +238,21 @@ async function fetchQuery(spec: SportsAnalyticsQuery): Promise<FrontierItem[]> {
   }
 }
 
-export async function getSportsAnalyticsFeed(): Promise<FrontierFeedResponse> {
-  const queries = sportsAnalyticsQueries();
-  const runs = await Promise.allSettled(queries.map(fetchQuery));
+export async function getSportsAnalyticsFeed(options: { deep?: boolean } = {}): Promise<FrontierFeedResponse> {
+  const deep = Boolean(options.deep);
+  const queries = sportsAnalyticsQueries(deep);
+  const timeoutMs = deep ? DEEP_QUERY_TIMEOUT_MS : REQUEST_QUERY_TIMEOUT_MS;
+  const runs = await Promise.allSettled(queries.map((spec) => fetchQuery(spec, timeoutMs)));
   const items = runs.flatMap((run) => run.status === 'fulfilled' ? run.value : []);
   const failures = runs.filter((run) => run.status === 'rejected').length;
   const status: FrontierSourceStatus = {
     id: 'rss',
-    label: 'Sports analytics radar',
+    label: deep ? 'Sports analytics deep radar' : 'Sports analytics radar',
     ok: items.length > 0 || failures < runs.length,
     count: items.length,
-    message: failures > 0 && items.length === 0 ? 'sports analytics discovery unavailable' : undefined,
+    message: items.length
+      ? (failures ? `${failures}/${runs.length} focused sports searches degraded` : undefined)
+      : (failures ? `sports analytics discovery yielded no items · ${failures}/${runs.length} searches degraded` : 'sports analytics discovery yielded no relevant items'),
   };
   return { generatedAt: new Date().toISOString(), items, sources: [status] };
 }
