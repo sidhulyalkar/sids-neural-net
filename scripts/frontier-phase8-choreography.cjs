@@ -240,7 +240,11 @@ async function runInterruptionCase(page) {
   // captured by the card's capture-phase pointerup listener below, immediately
   // before React processes the second trusted release.
   const preSecondVisual = await rect(page, CARD);
-  const popupPromise = page.waitForEvent('popup', { timeout: 2_000 })
+  // The production link intentionally opens with noopener/noreferrer. That can
+  // sever opener semantics, so Page's popup event is not an authoritative
+  // observation point. The isolated BrowserContext still owns every new page
+  // and therefore detects the navigation without weakening the product policy.
+  const popupPromise = page.context().waitForEvent('page', { timeout: 2_000 })
     .then((popup) => ({ popup }))
     .catch((error) => ({ error }));
 
