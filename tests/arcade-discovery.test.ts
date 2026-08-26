@@ -223,11 +223,18 @@ test('Game Network browser validation preserves current cabinets and gives Sylva
   assert.match(economyTest, /Extra Life was not consumed into the next run/);
   assert.match(sapAuthorityTest, /name: 'chrome-stable'/);
   assert.match(sapAuthorityTest, /strict nearest eligible node/);
-  assert.match(sapAuthorityTest, /24; index \+= 1/);
-  assert.match(sapAuthorityTest, /single-use Sap lease/);
+  assert.match(sapAuthorityTest, /for \(let index = 0; index < 24; index \+= 1\) S\.pressSapStick\(\)/);
+  assert.match(sapAuthorityTest, /single-use lease before landing/);
+  assert.match(sapAuthorityTest, /held higher-log Sap rearm/);
   assert.match(sapAuthorityTest, /bounded momentum nudge/);
   assert.match(sapAuthorityTest, /Moving Sap anchor changed authority identity/);
-  assert.match(sapAuthorityTest, /Consumed moving Sap anchor became reusable after coordinate motion/);
+  assert.match(sapAuthorityTest, /same authored[\s\S]*topology identity but different coordinates/);
+  assert.match(sapAuthorityTest, /Consumed Sap identity became reusable after object replacement\/motion/);
+  assert.doesNotMatch(
+    sapAuthorityTest,
+    /for \(let index = 0; index < 24; index \+= 1\)[\s\S]*shiftTap\(/,
+    'spent-authority spam qualification must not advance browser time into a legal recharge',
+  );
   assert.match(masteryTest, /name: 'chrome-stable'/);
   assert.match(masteryTest, /2F TO CROWN 50/);
   assert.match(masteryTest, /difficultyCliff\?\.floor !== 25/);
