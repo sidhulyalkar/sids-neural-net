@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { selectDailyRun } from '../lib/frontier/scoring';
-import type { FrontierItem } from '../lib/frontier/types';
+import type { FrontierItem, FrontierLaneId } from '../lib/frontier/types';
 
 function item(id: string, overrides: Partial<FrontierItem> = {}): FrontierItem {
   return {
@@ -98,7 +98,7 @@ test('generic research cannot crowd out explicitly personalized daily lanes', ()
       tags: ['dubstep', 'bass music'],
       source: 'music.example',
       sourceLabel: 'Music',
-      url: 'https://music.example/set',
+      url: 'https://music.example/bass-release',
     }),
   ];
 
@@ -189,4 +189,37 @@ test('taste-matched life material remains eligible for the leisure slot', () => 
 
   const selected = selectDailyRun(ranked, {}, 1);
   assert.deepEqual(selected.map((entry) => entry.id), ['husky-trail']);
+});
+
+test('expanded browse preserves the canonical 14-card prefix while adding a deep diverse tail', () => {
+  const lanes: FrontierLaneId[] = [
+    'wildcards',
+    'broad_science',
+    'methods',
+    'builder_signal',
+    'creative_tech',
+    'neuro_frontier',
+    'ml_data',
+    'gaming',
+  ];
+  const ranked = Array.from({ length: 72 }, (_, index) => item(`browse-${index}`, {
+    lane: lanes[index % lanes.length],
+    source: `source-${index}.example`,
+    sourceLabel: `Source ${index}`,
+    url: `https://source-${index}.example/story`,
+    importance: index === 0 ? 0.9 : 0.55,
+    tags: index % lanes.length === 7 ? ['hollow knight', 'gaming'] : ['frontier-test'],
+  }));
+
+  const canonical = selectDailyRun(ranked, {}, 14);
+  const expanded = selectDailyRun(ranked, {}, 48);
+
+  assert.deepEqual(
+    expanded.slice(0, canonical.length).map((entry) => entry.id),
+    canonical.map((entry) => entry.id),
+    'expanding browse depth must never reshuffle the authoritative first run'
+  );
+  assert.ok(expanded.length >= 40, `expected a deep browse surface, got ${expanded.length}`);
+  assert.equal(new Set(expanded.map((entry) => entry.id)).size, expanded.length, 'expanded browse must remain duplicate-free');
+  assert.ok(new Set(expanded.map((entry) => entry.lane)).size >= 6, 'expanded browse should retain lane diversity');
 });
