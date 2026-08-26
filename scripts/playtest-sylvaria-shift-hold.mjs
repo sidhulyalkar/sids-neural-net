@@ -275,7 +275,12 @@ async function runShiftHoldContract(page, engineName) {
     'plain Sap acquisition',
     1000,
   );
-  await advanceSimulation(frame, 12);
+  const plainHold = await frame.evaluate(() => {
+    const S = window.SylvariaSequoia;
+    if (!S.player.sap?.stickMode) throw new Error('Plain Sap tether disappeared before controlled release');
+    S.player.sap.age = 0.100;
+    return { holdSeconds: S.player.sap.age, minHoldSeconds: S.TUNE.sap.stickMinHoldSeconds };
+  });
   await page.keyboard.up('Shift');
   const plainVault = await advanceUntil(
     frame,
@@ -292,8 +297,11 @@ async function runShiftHoldContract(page, engineName) {
   const plainSapComboLinks = (plainVault.telemetry.events || []).filter(
     (event) => event.type === 'combo-link' && event.link === 'SAP',
   );
+  if (plainHold.holdSeconds < plainHold.minHoldSeconds || plainHold.holdSeconds >= 0.16) {
+    throw new Error(`Ordinary Sap hold escaped the non-clean window: ${JSON.stringify(plainHold)}`);
+  }
   if ((plainVault.telemetry.counters.sapStickCleanVaults || 0) !== 0 || plainSapComboLinks.length !== 0) {
-    throw new Error(`Ordinary Sap vault minted Sap Flow: ${JSON.stringify({ plainSapComboLinks, plainVault })}`);
+    throw new Error(`Ordinary Sap vault minted Sap Flow: ${JSON.stringify({ plainHold, plainSapComboLinks, plainVault })}`);
   }
   if (plainVault.state.sapAuthority?.nodeUses !== 1 || !plainVault.state.sapAuthority?.useInvariant) {
     throw new Error(`Plain Sap vault did not consume exactly one authority lease: ${JSON.stringify(plainVault.state.sapAuthority)}`);
@@ -421,6 +429,7 @@ async function runShiftHoldContract(page, engineName) {
     contracts,
     plainPrime,
     plainBefore,
+    plainHold,
     plainVault,
     primed,
     target: before.target,
