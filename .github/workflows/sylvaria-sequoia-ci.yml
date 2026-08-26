@@ -105,19 +105,27 @@ jobs:
       - name: Smoke v0.6.2 cabinet and generated runtime
         run: |
           set -euo pipefail
-          curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/arcade/sylvaria-sequoia | grep -q 'Sylvaria'
-          curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/game-runtimes/sylvaria-sequoia/index.html | grep -q 'Sylvaria: Sequoia v0.6.2'
-          curl --retry 2 --retry-connrefused -fsS 'http://127.0.0.1:3000/game-runtimes/sylvaria-sequoia/runtime.bundle.js?v=062-mastery' | grep -q 'mastery-lab-v1'
-          curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/game-runtimes/sylvaria-sequoia/runtime.bundle.meta.json | grep -q '"version": "0.6.2"'
-          curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/game-runtimes/sylvaria-sequoia/02-heartwood-quest.js | grep -q 'FINAL_CROWN_FLOOR = 250'
-          curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/game-runtimes/sylvaria-sequoia/02-living-canopy.js | grep -q 'SKYHEART_FLOOR = 360'
-          curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/game-runtimes/sylvaria-sequoia/02-mastery-lab.js | grep -q 'adaptsDifficulty: false'
-          curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/game-runtimes/sylvaria-sequoia/02-sap-authority-v2.js | grep -q 'nearest-sap-authority-v3'
-          curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/game-runtimes/sylvaria-sequoia/02-sap-authority-v2.js | grep -q 'immutableAnchorIdentity: true'
-          curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/game-runtimes/sylvaria-sequoia/02-sap-authority-v2.js | grep -q 'stickAcquireBufferSeconds: 0'
-          curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/game-runtimes/sylvaria-sequoia/02-canopy-economy.js | grep -q 'CONE TOKENS'
-          curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/game-runtimes/sylvaria-sequoia/03-run-recap-hud.js | grep -q 'run-recap-v2'
-          curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/game-runtimes/sylvaria-sequoia/05-debug-canopy-contracts.js | grep -q "debug.version = '0.6.1'"
+          fetch_and_assert() {
+            local url="$1"
+            local pattern="$2"
+            local target="$3"
+            curl --retry 2 --retry-connrefused -fsS "$url" -o "$target"
+            grep -q -- "$pattern" "$target"
+          }
+          fetch_and_assert http://127.0.0.1:3000/arcade/sylvaria-sequoia 'Sylvaria' /tmp/sylvaria-cabinet.html
+          fetch_and_assert http://127.0.0.1:3000/game-runtimes/sylvaria-sequoia/index.html 'Sylvaria: Sequoia v0.6.2' /tmp/sylvaria-index.html
+          fetch_and_assert 'http://127.0.0.1:3000/game-runtimes/sylvaria-sequoia/runtime.bundle.js?v=062-mastery' 'mastery-lab-v1' /tmp/sylvaria-runtime.bundle.js
+          fetch_and_assert http://127.0.0.1:3000/game-runtimes/sylvaria-sequoia/runtime.bundle.meta.json '"version": "0.6.2"' /tmp/sylvaria-runtime.bundle.meta.json
+          fetch_and_assert http://127.0.0.1:3000/game-runtimes/sylvaria-sequoia/02-heartwood-quest.js 'FINAL_CROWN_FLOOR = 250' /tmp/sylvaria-heartwood.js
+          fetch_and_assert http://127.0.0.1:3000/game-runtimes/sylvaria-sequoia/02-living-canopy.js 'SKYHEART_FLOOR = 360' /tmp/sylvaria-living.js
+          fetch_and_assert http://127.0.0.1:3000/game-runtimes/sylvaria-sequoia/02-mastery-lab.js 'adaptsDifficulty: false' /tmp/sylvaria-mastery.js
+          curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/game-runtimes/sylvaria-sequoia/02-sap-authority-v2.js -o /tmp/sylvaria-sap-authority.js
+          grep -q -- 'nearest-sap-authority-v3' /tmp/sylvaria-sap-authority.js
+          grep -q -- 'immutableAnchorIdentity: true' /tmp/sylvaria-sap-authority.js
+          grep -q -- 'stickAcquireBufferSeconds: 0' /tmp/sylvaria-sap-authority.js
+          fetch_and_assert http://127.0.0.1:3000/game-runtimes/sylvaria-sequoia/02-canopy-economy.js 'CONE TOKENS' /tmp/sylvaria-economy.js
+          fetch_and_assert http://127.0.0.1:3000/game-runtimes/sylvaria-sequoia/03-run-recap-hud.js 'run-recap-v2' /tmp/sylvaria-recap.js
+          fetch_and_assert http://127.0.0.1:3000/game-runtimes/sylvaria-sequoia/05-debug-canopy-contracts.js "debug.version = '0.6.1'" /tmp/sylvaria-debug-contracts.js
 
       - name: Install browser engines
         run: |
