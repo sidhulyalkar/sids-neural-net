@@ -6,25 +6,23 @@
 
   const { ctx, state } = S;
   const baseRender = S.render;
-  const VERSION = 'living-objective-hud-v1';
-  const REVISION = 'traversal-focus-v2';
+  const VERSION = 'living-objective-hud-v2';
+  const REVISION = 'panel-free-traversal-v1';
 
   function drawObjective() {
-    // The run recap owns game-over guidance. Keeping the persistent objective
-    // traversal-only prevents it from colliding with the mastery recap and keeps
-    // one clear attention hierarchy on the playfield.
+    // The objective stays readable at the edge of the world, but no longer owns a
+    // rectangular HUD surface. The run recap owns game-over guidance, so this is
+    // traversal-only and deliberately quiet.
     if (state.mode !== 'playing') return;
     const objective = S.livingCanopy.getObjective();
     if (!objective) return;
     const right = state.RIGHT_WALL - 12;
 
     ctx.save();
-    ctx.fillStyle = 'rgba(16,36,31,.74)';
-    ctx.fillRect(right - 205, 25, 208, 22);
     ctx.textAlign = 'right';
     ctx.textBaseline = 'top';
-    ctx.shadowColor = 'rgba(8,18,15,.88)';
-    ctx.shadowBlur = 4;
+    ctx.shadowColor = 'rgba(5,14,12,.94)';
+    ctx.shadowBlur = 6;
     const color = objective.kind === 'skyheart'
       ? '#eacbff'
       : objective.kind === 'wonder'
@@ -36,11 +34,11 @@
             : '#f2e7bf';
     ctx.fillStyle = color;
     ctx.font = '900 8px system-ui,sans-serif';
-    ctx.fillText(objective.text, right, 28);
+    ctx.fillText(objective.text, right, 31);
     if (objective.detail) {
-      ctx.fillStyle = 'rgba(225,237,215,.52)';
+      ctx.fillStyle = 'rgba(225,237,215,.48)';
       ctx.font = '700 7px system-ui,sans-serif';
-      ctx.fillText(objective.detail, right, 38);
+      ctx.fillText(objective.detail, right, 41);
     }
     ctx.restore();
   }
@@ -55,6 +53,7 @@
     version: VERSION,
     revision: REVISION,
     visibleDuring: 'playing-only',
+    panelFree: true,
     objectiveLadder: ['Heartseeds', 'Living Crown', 'Canopy Wonders', 'Skyheart', 'Endless Elder Canopy'],
     scoreIsSecondary: true,
   };

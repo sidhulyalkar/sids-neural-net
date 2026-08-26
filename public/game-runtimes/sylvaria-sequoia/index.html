@@ -6,13 +6,13 @@
   <meta name="theme-color" content="#3b2019" />
   <title>Sylvaria: Sequoia v0.6.2</title>
   <style>
-    *{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#10241f;color:#fff3cf;font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace}body{display:grid;place-items:center;overscroll-behavior:none}#wrap{position:relative;width:min(100vw,calc(100vh * 1.5));aspect-ratio:3/2;background:#10241f;overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none}#c{display:block;width:100%;height:100%;outline:0;background:#10241f;image-rendering:auto}#hint{position:absolute;right:10px;bottom:7px;font-size:8px;letter-spacing:.08em;text-transform:uppercase;color:rgba(255,244,216,.24);pointer-events:none;transition:opacity .25s}#wrap[data-playing="true"] #hint{opacity:.08}@media(pointer:coarse){#hint{display:none}}
+    *{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#10241f;color:#fff3cf;font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace}body{display:grid;place-items:center;overscroll-behavior:none}#wrap{position:relative;width:min(100vw,calc(100vh * 1.5));aspect-ratio:3/2;background:#10241f;overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none}#c{display:block;width:100%;height:100%;outline:0;background:#10241f;image-rendering:auto}#hint{position:absolute;right:10px;bottom:7px;font-size:7px;letter-spacing:.08em;text-transform:uppercase;color:rgba(255,244,216,.18);pointer-events:none;transition:opacity .2s}#wrap[data-playing="true"] #hint{opacity:0}@media(pointer:coarse){#hint{display:none}}
   </style>
 </head>
 <body>
   <div id="wrap" data-playing="false">
     <canvas id="c" width="960" height="640" tabindex="0" aria-label="Sylvaria: Sequoia game canvas"></canvas>
-    <div id="hint">Build momentum on logs · Shift redirects through the nearest unused amber node · Land higher logs to recharge Sap · Crowns every 25 floors · Cone Tokens fund run tools · 0 same seed · B shop</div>
+    <div id="hint">A/D run · Space jump · Shift Sap · Crown every 25 · Cone Tokens · 0 same seed · B shop</div>
   </div>
   <script src="../game-network-bridge.js"></script>
   <!--

@@ -6,8 +6,8 @@
 
   const { ctx, W, H, state, player, clamp, round } = S;
   const baseRender = S.render;
-  const VERSION = 'canopy-contracts-hud-v1';
-  const REVISION = 'focus-pulse-v2';
+  const VERSION = 'canopy-contracts-hud-v2';
+  const REVISION = 'panel-free-focus-pulse-v1';
   const PULSE_SECONDS = 2.15;
 
   let lastMissionSignature = '';
@@ -90,46 +90,29 @@
   }
 
   // Kept as a named contract boundary because the static validator protects the
-  // CANOPY CONTRACTS concept. This is intentionally a transient pulse now, not a
-  // persistent three-card panel competing with traversal information.
+  // CANOPY CONTRACTS concept. v2 makes it a single transient text pulse rather
+  // than a mini-card. The shop remains a deliberate modal because it is only
+  // opened between runs and is not part of the traversal view.
   function missionPanel(economy, nowSeconds) {
     if (state.mode !== 'playing' || nowSeconds >= pulseUntil) return;
     const mission = economy.missions.find((item) => item.id === pulseMissionId) || closestMission(economy.missions);
     if (!mission) return;
 
     const fade = clamp((pulseUntil - nowSeconds) / 0.34, 0, 1);
-    const width = 226;
-    const height = 34;
-    const x = W - width - 12;
-    const y = 58;
+    const right = state.RIGHT_WALL - 12;
+    const label = pulseReason === 'COMPLETE'
+      ? `CONTRACT COMPLETE · ${mission.name}`
+      : `${mission.name} · ${mission.progress}/${mission.target} · TOKENS ${economy.wallet}`;
+
     ctx.save();
     ctx.globalAlpha = fade;
-    ctx.fillStyle = 'rgba(16,26,21,.54)';
-    ctx.strokeStyle = mission.done ? 'rgba(255,216,121,.58)' : 'rgba(210,235,211,.16)';
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    if (ctx.roundRect) ctx.roundRect(x, y, width, height, 8);
-    else ctx.rect(x, y, width, height);
-    ctx.fill();
-    ctx.stroke();
-
-    ctx.textBaseline = 'middle';
-    ctx.textAlign = 'left';
-    ctx.fillStyle = mission.done ? '#ffe09a' : 'rgba(235,244,221,.84)';
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'top';
+    ctx.shadowColor = 'rgba(5,14,12,.96)';
+    ctx.shadowBlur = 6;
+    ctx.fillStyle = mission.done ? '#ffe09a' : 'rgba(229,241,219,.72)';
     ctx.font = '900 7px ui-monospace,SFMono-Regular,Menlo,monospace';
-    const prefix = pulseReason === 'COMPLETE' ? 'CONTRACT COMPLETE' : 'CANOPY CONTRACTS';
-    ctx.fillText(`${prefix} · ${mission.name}`, x + 9, y + 10);
-
-    ctx.fillStyle = 'rgba(221,232,208,.58)';
-    ctx.font = '800 7px ui-monospace,SFMono-Regular,Menlo,monospace';
-    ctx.fillText(`${mission.progress}/${mission.target} · CONE TOKENS ${economy.wallet}`, x + 9, y + 24);
-
-    const barX = x + width - 66;
-    const barY = y + 22;
-    ctx.fillStyle = 'rgba(255,255,255,.09)';
-    ctx.fillRect(barX, barY, 52, 3);
-    ctx.fillStyle = mission.done ? '#f5c06a' : 'rgba(187,225,192,.68)';
-    ctx.fillRect(barX, barY, 52 * clamp(mission.ratio || 0, 0, 1), 3);
+    ctx.fillText(label, right, 56);
     ctx.restore();
   }
 
@@ -216,6 +199,7 @@
     persistentMissionPanel: false,
     persistentSapPanel: false,
     contractPulseSeconds: PULSE_SECONDS,
+    traversalPanelFree: true,
     priority: 'run objective > traversal > mastery > economy',
     sapSpentTeaching: 'SAP SPENT · LAND ON A HIGHER LOG',
     economyPrinciple: 'run-local tools only',
