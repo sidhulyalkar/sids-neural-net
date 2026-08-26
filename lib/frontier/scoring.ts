@@ -18,6 +18,7 @@ import type {
 
 const DAY_MS = 86_400_000;
 const RESURFACE_DAYS = [1, 3, 7];
+const EXPLICIT_TASTE_FILL_THRESHOLD = 0.04;
 
 export function clamp(value: number, min = 0, max = 1): number {
   return Math.min(max, Math.max(min, value));
@@ -185,6 +186,14 @@ function isWatchableTasteSignal(item: FrontierItem): boolean {
   return item.tags.includes('watchable') && personalTasteRankingPrior(item) > 0.06;
 }
 
+function hasExplicitTasteSignal(item: FrontierItem): boolean {
+  return personalTasteRankingPrior(item) > EXPLICIT_TASTE_FILL_THRESHOLD;
+}
+
+function isPersonalLeisureSignal(item: FrontierItem): boolean {
+  return ['music', 'internet_culture', 'life'].includes(item.lane) && hasExplicitTasteSignal(item);
+}
+
 function sourceHost(item: FrontierItem): string {
   try { return new URL(item.url).hostname.replace(/^www\./, ''); } catch { return item.source; }
 }
@@ -232,21 +241,34 @@ export function selectDailyRun(
   // Watchable is semantic. A thumbnail or media failure can never decide which
   // recommendation wins, and external social clips can satisfy this slot too.
   push(takeFirst(ranked, used, (item) => isWatchableTasteSignal(item)));
-  push(takeFirst(ranked, used, (item) => item.lane === 'music' || item.lane === 'internet_culture' || item.lane === 'life'));
 
-  for (const item of ranked) {
-    if (selected.length >= limit) break;
-    if (used.has(item.id)) continue;
-    const sameLane = selected.filter((candidate) => candidate.lane === item.lane).length;
-    const laneCap = item.lane === 'ai_frontier' ? 1 : Math.max(2, Math.ceil(limit * 0.24));
-    if (sameLane >= laneCap && isGenericAiSignal(item)) continue;
-    if (sameLane >= Math.max(2, Math.ceil(limit * 0.24))) continue;
-    const host = sourceHost(item);
-    const sameHost = selected.filter((candidate) => sourceHost(candidate) === host).length;
-    if (sameHost >= 2) continue;
-    selected.push(item);
-    used.add(item.id);
-  }
+  // The leisure reservation must represent a real preference. Previously any
+  // item classified as `life` could claim this scarce slot, which let generic
+  // sports/legal incident coverage displace bass, nature, or other actual taste.
+  push(takeFirst(ranked, used, (item) => isPersonalLeisureSignal(item)));
+
+  const appendFill = (tasteOnly: boolean) => {
+    for (const item of ranked) {
+      if (selected.length >= limit) break;
+      if (used.has(item.id)) continue;
+      if (tasteOnly && !hasExplicitTasteSignal(item)) continue;
+      const sameLane = selected.filter((candidate) => candidate.lane === item.lane).length;
+      const laneCap = item.lane === 'ai_frontier' ? 1 : Math.max(2, Math.ceil(limit * 0.24));
+      if (sameLane >= laneCap && isGenericAiSignal(item)) continue;
+      if (sameLane >= Math.max(2, Math.ceil(limit * 0.24))) continue;
+      const host = sourceHost(item);
+      const sameHost = selected.filter((candidate) => sourceHost(candidate) === host).length;
+      if (sameHost >= 2) continue;
+      selected.push(item);
+      used.add(item.id);
+    }
+  };
+
+  // Explicit personal fit is allocation authority before broad exploration.
+  // Ranking order is preserved inside each pass, so learned preference and
+  // intrinsic quality still decide among equally eligible candidates.
+  appendFill(true);
+  appendFill(false);
 
   return selected.slice(0, limit);
 }
