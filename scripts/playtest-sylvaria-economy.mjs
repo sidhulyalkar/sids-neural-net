@@ -22,16 +22,59 @@ const results = [];
 let failed = false;
 
 async function runtimeFrame(page) {
-  const frame = page.frames().find((candidate) => candidate.url().includes('/game-runtimes/sylvaria-sequoia/'));
-  if (!frame) throw new Error('Sylvaria iframe did not attach');
-  await frame.locator('#c').waitFor({ state: 'visible' });
-  return frame;
+  const deadline = Date.now() + 8000;
+  let observed = [];
+  while (Date.now() < deadline) {
+    const frames = page.frames();
+    observed = frames.map((candidate) => candidate.url());
+    const frame = frames.find((candidate) => candidate.url().includes('/game-runtimes/sylvaria-sequoia/'));
+    if (frame) {
+      try {
+        await frame.locator('#c').waitFor({ state: 'visible', timeout: 750 });
+        return frame;
+      } catch {
+        // Some engines publish the iframe before its runtime canvas is input-ready.
+      }
+    }
+    await page.waitForTimeout(80);
+  }
+  throw new Error(`Sylvaria iframe did not attach within 8s: ${JSON.stringify(observed)}`);
 }
 
 async function focus(page, frame) {
   await frame.locator('#c').click();
   await frame.locator('#c').focus();
   await page.waitForFunction(() => document.documentElement.classList.contains('game-runtime-focused'));
+}
+
+async function waitForSnapshot(page, snapshot, predicate, label, timeoutMs = 1800) {
+  const deadline = Date.now() + timeoutMs;
+  let last = null;
+  while (Date.now() < deadline) {
+    last = await snapshot();
+    if (predicate(last)) return last;
+    await page.waitForTimeout(24);
+  }
+  throw new Error(`${label} did not settle within ${timeoutMs}ms: ${JSON.stringify(last)}`);
+}
+
+async function advanceSimulation(frame, steps = 1) {
+  return frame.evaluate((count) => {
+    const S = window.SylvariaSequoia;
+    for (let index = 0; index < count; index += 1) S.update(S.state.FIXED_DT);
+    return window.SYLVARIA_SEQUOIA_DEBUG.getState();
+  }, steps);
+}
+
+async function advanceUntil(frame, snapshot, predicate, label, maxSteps = 240) {
+  let last = await snapshot();
+  if (predicate(last)) return last;
+  for (let index = 0; index < maxSteps; index += 1) {
+    await advanceSimulation(frame, 1);
+    last = await snapshot();
+    if (predicate(last)) return last;
+  }
+  throw new Error(`${label} did not settle within ${maxSteps} fixed steps: ${JSON.stringify(last)}`);
 }
 
 async function runContract(page, engineName) {
@@ -47,7 +90,12 @@ async function runContract(page, engineName) {
   frame = await runtimeFrame(page);
   await focus(page, frame);
   await page.keyboard.press('Space');
-  await page.waitForTimeout(110);
+  await waitForSnapshot(
+    page,
+    () => frame.evaluate(() => window.SYLVARIA_SEQUOIA_DEBUG.getState()),
+    (snapshot) => snapshot.mode === 'playing',
+    'Sylvaria start',
+  );
 
   const initial = await frame.evaluate(() => {
     const S = window.SylvariaSequoia;
@@ -104,14 +152,27 @@ async function runContract(page, engineName) {
   if (!primed?.target) throw new Error(`Could not prime an authored Sap anchor: ${JSON.stringify(primed)}`);
 
   await page.keyboard.down('Shift');
-  await page.waitForTimeout(105);
+  await waitForSnapshot(
+    page,
+    () => frame.evaluate(() => window.SYLVARIA_SEQUOIA_DEBUG.getState()),
+    (snapshot) => Boolean(snapshot.sapStick?.active && snapshot.sapStick?.held),
+    'authored Sap acquisition',
+    1000,
+  );
+  await advanceSimulation(frame, 12);
   await page.keyboard.up('Shift');
-  await page.waitForTimeout(125);
-
-  const afterFirstSap = await frame.evaluate(() => ({
-    state: window.SYLVARIA_SEQUOIA_DEBUG.getState(),
-    counters: window.SylvariaSequoia.getTelemetry().counters,
-  }));
+  const afterFirstSap = await advanceUntil(
+    frame,
+    () => frame.evaluate(() => ({
+      state: window.SYLVARIA_SEQUOIA_DEBUG.getState(),
+      counters: window.SylvariaSequoia.getTelemetry().counters,
+    })),
+    (snapshot) =>
+      !snapshot.state.sapStick?.active &&
+      !snapshot.state.sapStick?.held &&
+      snapshot.state.sapAuthority?.nodeUses === 1,
+    'first Sap release',
+  );
   if (afterFirstSap.state.sapRhythm.ready || afterFirstSap.state.sapRhythm.sapUses !== 1 || afterFirstSap.state.sapStick?.active) {
     throw new Error(`First Sap did not spend exactly one branch-gated charge: ${JSON.stringify(afterFirstSap)}`);
   }
@@ -119,23 +180,22 @@ async function runContract(page, engineName) {
     throw new Error(`First Sap did not atomically spend hard authority: ${JSON.stringify(afterFirstSap.state.sapAuthority)}`);
   }
 
-  for (let index = 0; index < 16; index += 1) {
-    await page.keyboard.down('Shift');
-    await page.waitForTimeout(14);
-    await page.keyboard.up('Shift');
-    await page.waitForTimeout(14);
-  }
-  await page.waitForTimeout(80);
-
-  const afterSpam = await frame.evaluate(() => ({
-    state: window.SYLVARIA_SEQUOIA_DEBUG.getState(),
-    counters: window.SylvariaSequoia.getTelemetry().counters,
-  }));
+  // The spam contract is authority-local. Do not advance world physics here: a
+  // legitimate higher-log landing is exactly what is allowed to rearm Sap, so a
+  // wall-clock spam loop can accidentally test the post-recharge state instead.
+  const afterSpam = await frame.evaluate(() => {
+    const S = window.SylvariaSequoia;
+    for (let index = 0; index < 16; index += 1) S.pressSapStick();
+    return {
+      state: window.SYLVARIA_SEQUOIA_DEBUG.getState(),
+      counters: S.getTelemetry().counters,
+    };
+  });
   if (afterSpam.state.mode !== 'playing' || afterSpam.state.sapAuthority.nodeUses !== 1 || afterSpam.state.sapAuthority.armed || !afterSpam.state.sapAuthority.useInvariant) {
     throw new Error(`Sap spam bypassed the hard higher-log authority contract: ${JSON.stringify(afterSpam)}`);
   }
-  if ((afterSpam.counters.sapAuthorityBlockedPresses || 0) < 10) {
-    throw new Error(`Rapid blocked Shift presses were not rejected at authority: ${JSON.stringify(afterSpam.counters)}`);
+  if ((afterSpam.counters.sapAuthorityBlockedPresses || 0) < 16) {
+    throw new Error(`Rapid blocked Sap presses were not rejected at authority: ${JSON.stringify(afterSpam.counters)}`);
   }
 
   const rechargeTarget = await frame.evaluate(() => {
@@ -156,13 +216,23 @@ async function runContract(page, engineName) {
     return { floor: branch.floor, spentAtFloor: authority.spentAtFloor };
   });
   if (!rechargeTarget) throw new Error('Could not locate a higher physical log for Sap recharge');
-  await page.waitForTimeout(110);
-  const afterRecharge = await frame.evaluate(() => window.SYLVARIA_SEQUOIA_DEBUG.getState());
+  const afterRecharge = await advanceUntil(
+    frame,
+    () => frame.evaluate(() => window.SYLVARIA_SEQUOIA_DEBUG.getState()),
+    (snapshot) => Boolean(
+      snapshot.sapRhythm?.ready &&
+      snapshot.sapRhythm?.sapCycles >= 1 &&
+      snapshot.sapAuthority?.armed &&
+      snapshot.sapAuthority?.recharges >= 1
+    ),
+    'held higher-log Sap recharge',
+    60,
+  );
   if (!afterRecharge.sapRhythm.ready || afterRecharge.sapRhythm.sapCycles < 1 || afterRecharge.sapRhythm.highestLogFloor <= rechargeTarget.spentAtFloor) {
     throw new Error(`Higher log did not recharge legacy rhythm observation: ${JSON.stringify({ rechargeTarget, afterRecharge })}`);
   }
-  if (!afterRecharge.sapAuthority.armed || afterRecharge.sapAuthority.recharges < 1 || afterRecharge.sapAuthority.highestPhysicalFloor <= rechargeTarget.spentAtFloor) {
-    throw new Error(`Higher physical log did not rearm hard Sap authority: ${JSON.stringify({ rechargeTarget, afterRecharge: afterRecharge.sapAuthority })}`);
+  if (!afterRecharge.sapAuthority.armed || afterRecharge.sapAuthority.recharges !== 1 || afterRecharge.sapAuthority.highestPhysicalFloor <= rechargeTarget.spentAtFloor) {
+    throw new Error(`Higher physical log did not rearm hard Sap authority exactly once: ${JSON.stringify({ rechargeTarget, afterRecharge: afterRecharge.sapAuthority })}`);
   }
 
   const pickup = await frame.evaluate(() => {
@@ -184,8 +254,13 @@ async function runContract(page, engineName) {
     return { token, walletBefore: S.canopyEconomy.getState().wallet };
   });
   if (!pickup) throw new Error('No deterministic log token was available for collection test');
-  await page.waitForTimeout(80);
-  const afterPickup = await frame.evaluate(() => window.SylvariaSequoia.canopyEconomy.getState());
+  const afterPickup = await advanceUntil(
+    frame,
+    () => frame.evaluate(() => window.SylvariaSequoia.canopyEconomy.getState()),
+    (economy) => economy.wallet >= pickup.walletBefore + 1,
+    'Cone Token collection',
+    60,
+  );
   if (afterPickup.wallet < pickup.walletBefore + 1) {
     throw new Error(`Log token did not enter the persistent wallet: ${JSON.stringify({ pickup, afterPickup })}`);
   }
