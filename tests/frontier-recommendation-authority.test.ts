@@ -110,3 +110,83 @@ test('generic research cannot crowd out explicitly personalized daily lanes', ()
   assert.ok(ids.has('game'), 'gaming slot was crowded out by generic research');
   assert.ok(ids.has('music'), 'music/culture slot was crowded out by generic research');
 });
+
+test('generic life incident cannot steal the finite leisure slot from explicit taste', () => {
+  const ranked = [
+    item('generic-nfl-owner-incident', {
+      title: 'NFL team owner faces unrelated legal proceeding',
+      summary: 'A legal incident involving an owner with no football analysis, favorite-team relevance, or fantasy consequence.',
+      lane: 'life',
+      tags: ['sport', 'legal news'],
+      baseScore: 0.91,
+      quality: 0.9,
+      source: 'news.example',
+      sourceLabel: 'News',
+      url: 'https://news.example/unrelated-owner-incident',
+    }),
+    item('bass-release', {
+      title: 'Virtual Riot releases a new bass set',
+      summary: 'A fresh dubstep set with production notes.',
+      lane: 'music',
+      tags: ['virtual riot', 'dubstep', 'bass music'],
+      baseScore: 0.7,
+      source: 'music.example',
+      sourceLabel: 'Music',
+      url: 'https://music.example/bass-release',
+    }),
+  ];
+
+  const selected = selectDailyRun(ranked, {}, 1);
+  assert.deepEqual(selected.map((entry) => entry.id), ['bass-release']);
+});
+
+test('personalized fill runs before generic exploration when scarce slots remain', () => {
+  const ranked = [
+    item('generic-high-score', {
+      lane: 'wildcards',
+      title: 'Broad but weakly personalized story',
+      baseScore: 0.95,
+      quality: 0.92,
+      url: 'https://generic.example/story',
+      source: 'generic.example',
+    }),
+    item('neuroglancer-lower-score', {
+      lane: 'neuro_frontier',
+      title: 'Neuroglancer adds a new volumetric rendering workflow',
+      summary: 'Scientific visualization improvements for connectomics data.',
+      tags: ['neuroglancer', 'scientific visualization', 'connectomics'],
+      baseScore: 0.66,
+      importance: 0.6,
+      url: 'https://neuro.example/neuroglancer',
+      source: 'neuro.example',
+    }),
+  ];
+
+  const selected = selectDailyRun(ranked, {}, 1);
+  assert.deepEqual(selected.map((entry) => entry.id), ['neuroglancer-lower-score']);
+});
+
+test('taste-matched life material remains eligible for the leisure slot', () => {
+  const ranked = [
+    item('generic-life', {
+      lane: 'life',
+      title: 'Generic celebrity lifestyle story',
+      tags: ['culture'],
+      baseScore: 0.9,
+      url: 'https://generic.example/life',
+      source: 'generic.example',
+    }),
+    item('husky-trail', {
+      lane: 'life',
+      title: 'Huskies on an alpine trail',
+      summary: 'Nature photography and a mountain trail field note.',
+      tags: ['huskies', 'nature photography', 'landscape photography'],
+      baseScore: 0.62,
+      url: 'https://outdoors.example/husky-trail',
+      source: 'outdoors.example',
+    }),
+  ];
+
+  const selected = selectDailyRun(ranked, {}, 1);
+  assert.deepEqual(selected.map((entry) => entry.id), ['husky-trail']);
+});
