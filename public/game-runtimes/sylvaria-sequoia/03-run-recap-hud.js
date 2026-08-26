@@ -49,7 +49,7 @@
       splitLine,
       contractLine,
       difficultyCliff: mastery?.health?.difficultyCliff || null,
-      controls: 'SPACE NEW RUN · 0 SAME SEED · B SHOP',
+      controls: 'SPACE NEW RUN · 0 RETRY SEED · B SHOP',
     };
   }
 
