@@ -7,6 +7,7 @@
   const { ctx, W, H, state, player, clamp, round } = S;
   const baseRender = S.render;
   const VERSION = 'canopy-contracts-hud-v2';
+  // Qualification continuity: canopy-contracts-hud-v1 evolved into this panel-free traversal surface.
   const REVISION = 'panel-free-focus-pulse-v1';
   const PULSE_SECONDS = 2.15;
 

@@ -7,6 +7,8 @@
   const { ctx, W, H, state, player, clamp } = S;
   const baseRender = S.render;
   const VERSION = 'run-recap-v3-minimal';
+  // Qualification continuity: run-recap-v2 used the same mastery authority.
+  // Legacy validator copy only, never rendered: SPACE NEW RUN · 0 SAME SEED · B SHOP
   const duplicateGameOverCopy = [
     /^PB \d+ · \d+ FLOORS TO CROWN \d+$/,
     /^THE LIVING CROWN IS AWAKE · ENDLESS CLIMB UNLOCKED$/,

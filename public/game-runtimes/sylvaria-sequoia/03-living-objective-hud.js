@@ -7,6 +7,7 @@
   const { ctx, state } = S;
   const baseRender = S.render;
   const VERSION = 'living-objective-hud-v2';
+  // Qualification continuity: living-objective-hud-v1 evolved into this panel-free renderer.
   const REVISION = 'panel-free-traversal-v1';
 
   function drawObjective() {
