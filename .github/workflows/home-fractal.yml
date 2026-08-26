@@ -26,6 +26,7 @@ on:
       - 'scripts/playtest-arcade-home.mjs'
       - 'scripts/fractal-home-gallery.mjs'
       - 'scripts/fractal-responsive-matrix.mjs'
+      - 'scripts/fractal-density-v17-audit.mjs'
       - 'tsconfig.json'
       - '.github/workflows/home-fractal.yml'
   workflow_dispatch:
@@ -92,6 +93,7 @@ jobs:
           scripts/playtest-arcade-home.mjs
           scripts/fractal-home-gallery.mjs
           scripts/fractal-responsive-matrix.mjs
+          scripts/fractal-density-v17-audit.mjs
           --no-warn-ignored
           --max-warnings=0
 
@@ -145,6 +147,13 @@ jobs:
           FRACTAL_HOME_BASE_URL: http://127.0.0.1:3000
           FRACTAL_RESPONSIVE_MATRIX_DIR: artifacts/adaptive-fractal-home/responsive-matrix
         run: node scripts/fractal-responsive-matrix.mjs
+
+      - name: Audit V17 interior density occupancy
+        env:
+          PLAYWRIGHT_MODULE_ROOT: /tmp/home-playwright/node_modules/playwright
+          FRACTAL_HOME_BASE_URL: http://127.0.0.1:3000
+          FRACTAL_DENSITY_V17_DIR: artifacts/adaptive-fractal-home/density-v17
+        run: node scripts/fractal-density-v17-audit.mjs
 
       - name: Capture deterministic morphology gallery
         env:
