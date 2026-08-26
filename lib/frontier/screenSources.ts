@@ -6,9 +6,11 @@ import {
 } from './screenTaste';
 import type { FrontierFeedResponse, FrontierItem, FrontierSourceStatus } from './types';
 
-const USER_AGENT = 'sids-neural-net-frontier-screen-orbit/1.0 (+https://sidhulyalkar.com/frontier)';
+const USER_AGENT = 'sids-neural-net-frontier-screen-orbit/1.1 (+https://sidhulyalkar.com/frontier)';
 const DAY_MS = 86_400_000;
-const QUERY_TIMEOUT_MS = 3_200;
+const REQUEST_QUERY_TIMEOUT_MS = 3_200;
+const DEEP_QUERY_TIMEOUT_MS = 6_500;
+const PUBLISHER_MAX_AGE_DAYS = 21;
 
 type ScreenQuery = {
   id: string;
@@ -17,6 +19,34 @@ type ScreenQuery = {
   tags: string[];
   weight: number;
 };
+
+type ScreenPublisherFeed = {
+  id: string;
+  label: string;
+  url: string;
+  destinationDomains: readonly string[];
+  tags: readonly string[];
+  quality: number;
+};
+
+const SCREEN_PUBLISHER_FEEDS: readonly ScreenPublisherFeed[] = [
+  {
+    id: 'crunchyroll',
+    label: 'Crunchyroll News',
+    url: 'https://cr-news-api-service.prd.crunchyrollsvc.com/v1/en-US/rss',
+    destinationDomains: ['crunchyroll.com'],
+    tags: ['screen orbit', 'anime', 'primary anime news'],
+    quality: 0.84,
+  },
+  {
+    id: 'ann',
+    label: 'Anime News Network',
+    url: 'https://www.animenewsnetwork.com/all/rss.xml?ann-edition=us',
+    destinationDomains: ['animenewsnetwork.com'],
+    tags: ['screen orbit', 'anime', 'anime news'],
+    quality: 0.78,
+  },
+];
 
 function clamp(value: number, min = 0, max = 1): number {
   return Math.min(max, Math.max(min, value));
@@ -56,6 +86,10 @@ function xmlTagAttribute(block: string, tag: string, attribute: string): string 
 
 function host(value: string): string {
   try { return new URL(value).hostname.replace(/^www\./, '').toLowerCase(); } catch { return ''; }
+}
+
+function hostMatches(hostname: string, domains: readonly string[]): boolean {
+  return domains.some((domain) => hostname === domain || hostname.endsWith(`.${domain}`));
 }
 
 function summarize(value: string, maxLength = 300): string {
@@ -172,9 +206,86 @@ export function parseScreenNewsRss(xml: string, spec: ScreenQuery, now = Date.no
   });
 }
 
-async function fetchQuery(spec: ScreenQuery): Promise<FrontierItem[]> {
+/**
+ * Parse a publisher-owned anime feed. Unlike query search, the feed's declared
+ * editorial category is legitimate adapter metadata: Crunchyroll News and ANN
+ * are explicitly anime-news feeds. That supplies a low baseline anime signal,
+ * while exact favorites and motif evidence still earn the stronger priors.
+ */
+export function parseScreenPublisherRss(
+  xml: string,
+  feed: ScreenPublisherFeed,
+  now = Date.now(),
+): FrontierItem[] {
+  const blocks = xml.match(/<item\b[\s\S]*?<\/item>/gi) ?? [];
+  return blocks.slice(0, 20).flatMap((block, index) => {
+    const title = xmlTag(block, 'title');
+    const url = xmlTag(block, 'link') || xmlTag(block, 'guid');
+    const destination = host(url);
+    if (!title || !url || !hostMatches(destination, feed.destinationDomains)) return [];
+
+    const publishedRaw = xmlTag(block, 'pubDate') || xmlTag(block, 'published') || xmlTag(block, 'dc:date');
+    const publishedAt = Number.isNaN(Date.parse(publishedRaw))
+      ? new Date(now).toISOString()
+      : new Date(publishedRaw).toISOString();
+    if (ageDays(publishedAt, now) > PUBLISHER_MAX_AGE_DAYS) return [];
+
+    const summary = summarize(
+      xmlTag(block, 'description')
+      || xmlTag(block, 'content:encoded')
+      || `${feed.label} anime update.`
+    );
+    const evidenceText = `${title} ${summary}`;
+    const evidenceTags = screenTasteTags(evidenceText);
+    const exactFavorite = matchedScreenFavorites(evidenceText).length > 0;
+    const tags = Array.from(new Set([
+      ...feed.tags,
+      ...evidenceTags,
+      ...(exactFavorite ? ['screen favorite'] : []),
+      'screen orbit',
+      'publisher feed',
+    ])).slice(0, 14);
+    const taste = screenTastePrior(`${evidenceText} ${feed.tags.join(' ')}`);
+    const freshness = Math.exp(-ageDays(publishedAt, now) / 5.5);
+    const importance = clamp(0.5 + taste * 0.72 + (exactFavorite ? 0.06 : 0));
+    const momentum = 0.44;
+    const novelty = exactFavorite ? 0.44 : 0.56;
+    const baseScore = clamp(
+      importance * 0.31 + feed.quality * 0.27 + momentum * 0.12 + freshness * 0.22 + novelty * 0.08
+    );
+
+    return [{
+      id: `screen-publisher-${feed.id}-${stableId(`${url}-${index}`)}`,
+      title,
+      summary,
+      url,
+      source: destination,
+      sourceLabel: feed.label,
+      sourceKind: 'rss' as const,
+      publishedAt,
+      lane: 'screen' as const,
+      tags,
+      importance,
+      quality: feed.quality,
+      momentum,
+      novelty,
+      baseScore,
+      why: exactFavorite
+        ? `${feed.label} published a fresh update about a title already inside your Screen Orbit.`
+        : `${feed.label} supplies a fresh first-party or established anime signal for the broader Screen Orbit.`,
+    } satisfies FrontierItem];
+  })
+    .sort((left, right) => {
+      const leftExact = left.tags.includes('screen favorite') ? 1 : 0;
+      const rightExact = right.tags.includes('screen favorite') ? 1 : 0;
+      return rightExact - leftExact || right.baseScore - left.baseScore;
+    })
+    .slice(0, 5);
+}
+
+async function fetchQuery(spec: ScreenQuery, timeoutMs: number): Promise<FrontierItem[]> {
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), QUERY_TIMEOUT_MS);
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const url = `https://news.google.com/rss/search?q=${encodeURIComponent(spec.query)}&hl=en-US&gl=US&ceid=US:en`;
     const response = await fetch(url, {
@@ -189,25 +300,68 @@ async function fetchQuery(spec: ScreenQuery): Promise<FrontierItem[]> {
   }
 }
 
+async function fetchPublisherFeed(feed: ScreenPublisherFeed, timeoutMs: number): Promise<FrontierItem[]> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetch(feed.url, {
+      headers: { 'User-Agent': USER_AGENT, Accept: 'application/rss+xml, application/xml, text/xml' },
+      signal: controller.signal,
+      next: { revalidate: 60 * 30 },
+    });
+    if (!response.ok) throw new Error(`${feed.label}: ${response.status} ${response.statusText}`);
+    return parseScreenPublisherRss(await response.text(), feed);
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 export async function getScreenOrbitFeed(options: { deep?: boolean } = {}): Promise<FrontierFeedResponse> {
+  const deep = Boolean(options.deep);
   const dayKey = new Date().toISOString().slice(0, 10);
-  const queries = screenDiscoveryQueries(dayKey, Boolean(options.deep));
-  const runs = await Promise.allSettled(queries.map(fetchQuery));
+  const queries = screenDiscoveryQueries(dayKey, deep);
+  const queryTimeout = deep ? DEEP_QUERY_TIMEOUT_MS : REQUEST_QUERY_TIMEOUT_MS;
+
+  // Publisher-owned feeds are archive-building inputs. Keeping them out of the
+  // request-time path protects first useful paint while making the durable daily
+  // snapshot useful even when optional search credentials are absent.
+  const [queryRuns, publisherRuns] = await Promise.all([
+    Promise.allSettled(queries.map((spec) => fetchQuery(spec, queryTimeout))),
+    deep
+      ? Promise.allSettled(SCREEN_PUBLISHER_FEEDS.map((feed) => fetchPublisherFeed(feed, DEEP_QUERY_TIMEOUT_MS)))
+      : Promise.resolve([] as PromiseSettledResult<FrontierItem[]>[]),
+  ]);
+
   const seen = new Set<string>();
-  const items = runs.flatMap((run) => run.status === 'fulfilled' ? run.value : [])
+  const items = [
+    ...publisherRuns.flatMap((run) => run.status === 'fulfilled' ? run.value : []),
+    ...queryRuns.flatMap((run) => run.status === 'fulfilled' ? run.value : []),
+  ]
+    .sort((left, right) => right.baseScore - left.baseScore)
     .filter((item) => {
       const key = `${item.url.toLowerCase()}|${item.title.toLowerCase()}`;
       if (seen.has(key)) return false;
       seen.add(key);
       return true;
-    });
-  const failures = runs.filter((run) => run.status === 'rejected').length;
+    })
+    .slice(0, deep ? 14 : 8);
+
+  const queryFailures = queryRuns.filter((run) => run.status === 'rejected').length;
+  const publisherFailures = publisherRuns.filter((run) => run.status === 'rejected').length;
+  const degradations = [
+    queryFailures ? `${queryFailures}/${queryRuns.length} searches degraded` : '',
+    publisherFailures ? `${publisherFailures}/${publisherRuns.length} publisher feeds degraded` : '',
+  ].filter(Boolean);
+  const someTransportWorked = queryFailures < queryRuns.length
+    || (deep && publisherFailures < publisherRuns.length);
   const status: FrontierSourceStatus = {
     id: 'rss',
-    label: 'Screen Orbit radar',
-    ok: items.length > 0 || failures < runs.length,
+    label: deep ? 'Screen Orbit primary + search radar' : 'Screen Orbit radar',
+    ok: items.length > 0 || someTransportWorked,
     count: items.length,
-    message: failures === runs.length ? 'screen discovery unavailable' : undefined,
+    message: items.length
+      ? (degradations.length ? degradations.join(' · ') : undefined)
+      : (degradations.length ? `no relevant screen items · ${degradations.join(' · ')}` : 'no relevant screen items'),
   };
   return { generatedAt: new Date().toISOString(), items, sources: [status] };
 }
