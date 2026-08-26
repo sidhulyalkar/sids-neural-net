@@ -146,6 +146,10 @@ export function getResponsiveDensityProfile(dimensions: Dimensions): ResponsiveD
  * keeps the navigation trunks authoritative and adds short branch stations much
  * closer to CORE. Constrained displays receive more stations with shorter stems,
  * so density rises while individual segments get cheaper to render.
+ *
+ * Stations are emitted breadth-first across all eight navigation arms. If a
+ * future profile reaches the global path budget, outer detail is what gets
+ * dropped rather than the final navigation directions losing their canopy.
  */
 export function buildResponsiveDensityPaths(
   tree: FractalTree,
@@ -159,9 +163,13 @@ export function buildResponsiveDensityPaths(
   const chirality = rng() < 0.5 ? -1 : 1;
   const effectiveScale = Math.sqrt(Math.max(1, tree.radiusX * tree.radiusY));
   const splitBase = clamp(tree.morphology.splitAngle, 0.34, 0.64);
-  const primaries = tree.paths.filter(
-    (path) => path.depth === 0 && path.renderMode === 'stroke' && path.ownerId !== '__ambient__'
-  );
+  const primaries = tree.paths
+    .filter((path) => path.depth === 0 && path.renderMode === 'stroke' && path.ownerId !== '__ambient__')
+    .map((path) => ({
+      path,
+      mapped: mapPathToResponsiveEnvelope(path.points, tree, dimensions),
+    }))
+    .filter((entry) => entry.mapped.length >= 2);
   const paths: ResponsiveDensityPath[] = [];
 
   const grow = (
@@ -184,11 +192,15 @@ export function buildResponsiveDensityPaths(
     const travelled = Math.hypot(end.x - start.x, end.y - start.y);
     if (travelled < Math.max(6, length * 0.42)) return;
 
+    const polyline = branchPolyline(start, end, tree.morphology.id, depth, rng, chirality).map((point) =>
+      boundedPoint(point, tree, dimensions, profile.safeNormalizedRadius)
+    );
+
     paths.push({
       id: `density-${ownerId}-${key}-${depth}-${paths.length}`,
       ownerId,
       depth,
-      points: branchPolyline(start, end, tree.morphology.id, depth, rng, chirality),
+      points: polyline,
     });
 
     if (depth >= profile.recursionDepth || paths.length >= profile.pathBudget) return;
@@ -198,17 +210,14 @@ export function buildResponsiveDensityPaths(
     grow(ownerId, end, adjustedAngle + split, nextLength, depth + 1, `${key}r`);
   };
 
-  for (const primary of primaries) {
-    if (paths.length >= profile.pathBudget) break;
-    const mappedPrimary = mapPathToResponsiveEnvelope(primary.points, tree, dimensions);
-    if (mappedPrimary.length < 2) continue;
+  for (let station = 0; station < profile.stationCount; station += 1) {
+    const progress = profile.stationCount === 1 ? 0.5 : station / (profile.stationCount - 1);
+    const t = profile.stationStart + (profile.stationEnd - profile.stationStart) * progress;
 
-    for (let station = 0; station < profile.stationCount; station += 1) {
+    for (const { path: primary, mapped } of primaries) {
       if (paths.length >= profile.pathBudget) break;
-      const progress = profile.stationCount === 1 ? 0.5 : station / (profile.stationCount - 1);
-      const t = profile.stationStart + (profile.stationEnd - profile.stationStart) * progress;
-      const start = pointOnPath(mappedPrimary, t);
-      const tangent = pathAngle(mappedPrimary, t);
+      const start = pointOnPath(mapped, t);
+      const tangent = pathAngle(mapped, t);
       const stationLength = clamp(
         effectiveScale * profile.branchLengthFactor * (1.08 - t * 0.24) * (0.88 + rng() * 0.22),
         profile.minimumBranchLength,
@@ -216,11 +225,14 @@ export function buildResponsiveDensityPaths(
       );
 
       for (const side of [-1, 1] as const) {
+        if (paths.length >= profile.pathBudget) break;
         const perpendicularBias = tree.morphology.id === 'apical' ? 0.76 : tree.morphology.id === 'fan' ? 0.66 : 0.72;
         const initialAngle = tangent + side * splitBase * perpendicularBias + (rng() - 0.5) * 0.1;
         grow(primary.ownerId, start, initialAngle, stationLength, 1, `s${station}${side < 0 ? 'l' : 'r'}`);
       }
     }
+
+    if (paths.length >= profile.pathBudget) break;
   }
 
   return paths;
