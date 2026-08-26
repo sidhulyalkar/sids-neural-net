@@ -1,0 +1,227 @@
+import {
+  clamp,
+  seededRng,
+  type Dimensions,
+  type FractalMorphologyId,
+  type FractalTree,
+  type Vec2,
+} from './fractalDendrite';
+import { getResponsiveFractalEnvelope, mapPathToResponsiveEnvelope } from './fractalResponsiveEnvelope';
+
+export type ResponsiveDensityProfile = {
+  stationCount: number;
+  stationStart: number;
+  stationEnd: number;
+  branchLengthFactor: number;
+  minimumBranchLength: number;
+  maximumBranchLength: number;
+  terminalDecay: number;
+  recursionDepth: number;
+  safeNormalizedRadius: number;
+  pathBudget: number;
+  compact: boolean;
+  shortWide: boolean;
+};
+
+export type ResponsiveDensityPath = {
+  id: string;
+  ownerId: string;
+  depth: number;
+  points: Vec2[];
+};
+
+const DENSITY_MORPHOLOGIES = new Set<FractalMorphologyId>([
+  'radial',
+  'coral',
+  'fan',
+  'apical',
+  'spiraloid',
+]);
+
+function pointOnPath(points: readonly Vec2[], t: number): Vec2 {
+  if (points.length === 0) return { x: 0, y: 0 };
+  if (points.length === 1) return { ...points[0] };
+  const scaled = clamp(t, 0, 1) * (points.length - 1);
+  const index = Math.floor(scaled);
+  const nextIndex = Math.min(points.length - 1, index + 1);
+  const local = scaled - index;
+  return {
+    x: points[index].x + (points[nextIndex].x - points[index].x) * local,
+    y: points[index].y + (points[nextIndex].y - points[index].y) * local,
+  };
+}
+
+function pathAngle(points: readonly Vec2[], t: number): number {
+  const a = pointOnPath(points, Math.max(0, t - 0.025));
+  const b = pointOnPath(points, Math.min(1, t + 0.025));
+  return Math.atan2(b.y - a.y, b.x - a.x);
+}
+
+function boundedPoint(
+  point: Vec2,
+  tree: FractalTree,
+  dimensions: Dimensions,
+  safeNormalizedRadius: number
+): Vec2 {
+  const envelope = getResponsiveFractalEnvelope(dimensions);
+  const effectiveRadiusX = Math.max(1, tree.radiusX * envelope.fieldScaleX);
+  const effectiveRadiusY = Math.max(1, tree.radiusY * envelope.fieldScaleY);
+  const nx = (point.x - tree.center.x) / effectiveRadiusX;
+  const ny = (point.y - tree.center.y) / effectiveRadiusY;
+  const radius = Math.hypot(nx, ny);
+  if (radius <= safeNormalizedRadius) return point;
+  const scale = safeNormalizedRadius / Math.max(radius, 1e-6);
+  return {
+    x: tree.center.x + nx * effectiveRadiusX * scale,
+    y: tree.center.y + ny * effectiveRadiusY * scale,
+  };
+}
+
+function branchPolyline(
+  start: Vec2,
+  end: Vec2,
+  morphology: FractalMorphologyId,
+  depth: number,
+  rng: () => number,
+  chirality: number
+): Vec2[] {
+  if (morphology === 'radial' || morphology === 'fan') return [start, end];
+
+  const dx = end.x - start.x;
+  const dy = end.y - start.y;
+  const length = Math.max(1, Math.hypot(dx, dy));
+  const normal = { x: -dy / length, y: dx / length };
+  const curvature =
+    morphology === 'spiraloid'
+      ? chirality * length * (0.055 + depth * 0.012)
+      : morphology === 'coral'
+        ? (rng() - 0.5) * length * 0.11
+        : (rng() - 0.5) * length * 0.055;
+  return [
+    start,
+    {
+      x: start.x + dx * 0.52 + normal.x * curvature,
+      y: start.y + dy * 0.52 + normal.y * curvature,
+    },
+    end,
+  ];
+}
+
+export function getResponsiveDensityProfile(dimensions: Dimensions): ResponsiveDensityProfile {
+  const width = Math.max(280, dimensions.width);
+  const height = Math.max(320, dimensions.height);
+  const aspect = width / Math.max(1, height);
+  const compact = width < 720;
+  const shortWide = height < 700 && aspect > 1.35;
+  const veryShortWide = height < 520 && aspect > 1.7;
+  const ultrawide = aspect > 2;
+
+  let stationCount = compact ? 5 : 4;
+  if (shortWide) stationCount += 2;
+  if (veryShortWide || ultrawide) stationCount += 1;
+
+  return {
+    stationCount: clamp(stationCount, 4, 8),
+    stationStart: veryShortWide ? 0.1 : shortWide ? 0.115 : compact ? 0.13 : 0.145,
+    stationEnd: shortWide ? 0.74 : compact ? 0.72 : 0.76,
+    branchLengthFactor: veryShortWide ? 0.092 : shortWide ? 0.105 : compact ? 0.112 : 0.132,
+    minimumBranchLength: veryShortWide ? 16 : compact ? 18 : 22,
+    maximumBranchLength: veryShortWide ? 54 : shortWide ? 68 : compact ? 58 : 92,
+    terminalDecay: shortWide ? 0.57 : 0.6,
+    recursionDepth: 2,
+    safeNormalizedRadius: shortWide ? 0.79 : compact ? 0.78 : 0.82,
+    pathBudget: shortWide ? 360 : compact ? 300 : 280,
+    compact,
+    shortWide,
+  };
+}
+
+/**
+ * Build a deterministic, interior-only canopy over the public navigation trunks.
+ *
+ * V16 solved clipping by projecting the authored geometry into a safe ellipse,
+ * but it could not change the authored topology. On short/wide displays the old
+ * generator derives every side branch from the viewport's shortest axis, which
+ * leaves long bare primary spokes and tiny clusters near the perimeter. V17
+ * keeps the navigation trunks authoritative and adds short branch stations much
+ * closer to CORE. Constrained displays receive more stations with shorter stems,
+ * so density rises while individual segments get cheaper to render.
+ */
+export function buildResponsiveDensityPaths(
+  tree: FractalTree,
+  dimensions: Dimensions,
+  seed: string
+): ResponsiveDensityPath[] {
+  if (!DENSITY_MORPHOLOGIES.has(tree.morphology.id)) return [];
+
+  const profile = getResponsiveDensityProfile(dimensions);
+  const rng = seededRng(`responsive-density-v17:${seed}:${tree.morphology.id}:${dimensions.width}x${dimensions.height}`);
+  const chirality = rng() < 0.5 ? -1 : 1;
+  const effectiveScale = Math.sqrt(Math.max(1, tree.radiusX * tree.radiusY));
+  const splitBase = clamp(tree.morphology.splitAngle, 0.34, 0.64);
+  const primaries = tree.paths.filter(
+    (path) => path.depth === 0 && path.renderMode === 'stroke' && path.ownerId !== '__ambient__'
+  );
+  const paths: ResponsiveDensityPath[] = [];
+
+  const grow = (
+    ownerId: string,
+    start: Vec2,
+    angle: number,
+    length: number,
+    depth: number,
+    key: string
+  ) => {
+    if (depth > profile.recursionDepth || paths.length >= profile.pathBudget || length < 8) return;
+
+    const angleNoise = (rng() - 0.5) * tree.morphology.angularNoise * 0.7;
+    const adjustedAngle = angle + angleNoise + (tree.morphology.id === 'spiraloid' ? chirality * depth * 0.075 : 0);
+    const candidate = {
+      x: start.x + Math.cos(adjustedAngle) * length,
+      y: start.y + Math.sin(adjustedAngle) * length,
+    };
+    const end = boundedPoint(candidate, tree, dimensions, profile.safeNormalizedRadius);
+    const travelled = Math.hypot(end.x - start.x, end.y - start.y);
+    if (travelled < Math.max(6, length * 0.42)) return;
+
+    paths.push({
+      id: `density-${ownerId}-${key}-${depth}-${paths.length}`,
+      ownerId,
+      depth,
+      points: branchPolyline(start, end, tree.morphology.id, depth, rng, chirality),
+    });
+
+    if (depth >= profile.recursionDepth || paths.length >= profile.pathBudget) return;
+    const nextLength = length * profile.terminalDecay * (0.9 + rng() * 0.14);
+    const split = splitBase * (0.68 + rng() * 0.16);
+    grow(ownerId, end, adjustedAngle - split, nextLength, depth + 1, `${key}l`);
+    grow(ownerId, end, adjustedAngle + split, nextLength, depth + 1, `${key}r`);
+  };
+
+  for (const primary of primaries) {
+    if (paths.length >= profile.pathBudget) break;
+    const mappedPrimary = mapPathToResponsiveEnvelope(primary.points, tree, dimensions);
+    if (mappedPrimary.length < 2) continue;
+
+    for (let station = 0; station < profile.stationCount; station += 1) {
+      if (paths.length >= profile.pathBudget) break;
+      const progress = profile.stationCount === 1 ? 0.5 : station / (profile.stationCount - 1);
+      const t = profile.stationStart + (profile.stationEnd - profile.stationStart) * progress;
+      const start = pointOnPath(mappedPrimary, t);
+      const tangent = pathAngle(mappedPrimary, t);
+      const stationLength = clamp(
+        effectiveScale * profile.branchLengthFactor * (1.08 - t * 0.24) * (0.88 + rng() * 0.22),
+        profile.minimumBranchLength,
+        profile.maximumBranchLength
+      );
+
+      for (const side of [-1, 1] as const) {
+        const perpendicularBias = tree.morphology.id === 'apical' ? 0.76 : tree.morphology.id === 'fan' ? 0.66 : 0.72;
+        const initialAngle = tangent + side * splitBase * perpendicularBias + (rng() - 0.5) * 0.1;
+        grow(primary.ownerId, start, initialAngle, stationLength, 1, `s${station}${side < 0 ? 'l' : 'r'}`);
+      }
+    }
+  }
+
+  return paths;
+}
