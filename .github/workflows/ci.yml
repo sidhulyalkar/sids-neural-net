@@ -125,6 +125,11 @@ jobs:
           test "$unsafe_status" = "403"
           grep -q 'not trusted' /tmp/frontier-media-unsafe.json
 
+      - name: Audit FRONTIER production media resolution
+        env:
+          FRONTIER_MEDIA_RESOLUTION_AUDIT_URL: http://127.0.0.1:3000/api/frontier/feed
+        run: node scripts/frontier-media-resolution-route-audit.cjs
+
       - name: Smoke FRONTIER ingestion boundaries
         run: |
           unsupported_status="$(curl -sS -o /tmp/frontier-ingest-unsupported.json -w '%{http_code}' 'http://127.0.0.1:3000/api/frontier/ingest?source=not-a-source')"
