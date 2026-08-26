@@ -187,6 +187,10 @@ export function FrontierExperience({ initialDateLabel, initialDayKey }: Props) {
     [activeSearch, adaptiveFocus]
   );
   const focusSignature = useMemo(() => encodeDiscoveryFocus(requestFocus), [requestFocus]);
+  const focusSignatureRef = useRef(focusSignature);
+  useEffect(() => {
+    focusSignatureRef.current = focusSignature;
+  }, [focusSignature]);
   const daemonExcludeItems = useMemo(
     () => dedupeCanonical([...items, ...streamItems]).slice(0, ACTIVE_ITEM_WINDOW),
     [items, streamItems]
@@ -269,16 +273,16 @@ export function FrontierExperience({ initialDateLabel, initialDayKey }: Props) {
     void migrateFrontierHistoryToSeenLedger(historical);
   }, [store.hydrated, store.history]);
 
-  const loadFeed = useCallback(async (forceFresh = false) => {
+  const loadFeed = useCallback(async (forceFresh = false, focus = '') => {
     requestRef.current?.abort();
     const controller = new AbortController();
     requestRef.current = controller;
     setLoading(true);
     setError(undefined);
 
-    const fetchPayload = async (focus: string): Promise<FrontierFeedResponse & { error?: string }> => {
+    const fetchPayload = async (requestFocusSignature: string): Promise<FrontierFeedResponse & { error?: string }> => {
       const params = new URLSearchParams();
-      if (focus) params.set('focus', focus);
+      if (requestFocusSignature) params.set('focus', requestFocusSignature);
       if (forceFresh) {
         params.set('fresh', '1');
         params.set('request', `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
@@ -292,11 +296,10 @@ export function FrontierExperience({ initialDateLabel, initialDayKey }: Props) {
     };
 
     try {
-      // Passive navigation must hit the route's snapshot-first path. Adaptive
-      // interests belong to the stage-two live daemon, while explicit searches
-      // and deliberate refreshes are allowed to spend the bounded live budget.
-      const primaryFocus = forceFresh || activeSearch ? focusSignature : '';
-      const payload = await fetchPayload(primaryFocus);
+      // Passive navigation supplies an empty focus and therefore hits the route's
+      // snapshot-first path. Adaptive interests are read through a ref only for
+      // explicit search/refresh work so profile hydration cannot restart cold load.
+      const payload = await fetchPayload(focus);
       let nextItems = await filterUnseenFrontierItems(payload.items ?? []);
       const nextSources = payload.sources ?? [];
       const nextGeneratedAt = payload.generatedAt;
@@ -321,7 +324,7 @@ export function FrontierExperience({ initialDateLabel, initialDayKey }: Props) {
       setSources(nextSources);
       setGeneratedAt(nextGeneratedAt);
       if (payload.error) setError(payload.error);
-      if (!activeSearch && nextItems.length) {
+      if (!focus && !forceFresh && nextItems.length) {
         try {
           window.localStorage.setItem(FEED_CACHE_KEY, JSON.stringify({
             generatedAt: nextGeneratedAt,
@@ -336,20 +339,22 @@ export function FrontierExperience({ initialDateLabel, initialDayKey }: Props) {
       if (controller.signal.aborted) return;
       setError(feedError instanceof Error ? feedError.message : 'Live feed temporarily unavailable');
     } finally {
-      if (requestRef.current === controller) requestRef.current = null;
-      setLoading(false);
+      if (requestRef.current === controller) {
+        requestRef.current = null;
+        setLoading(false);
+      }
     }
-  }, [activeSearch, clearPending, focusSignature, spikeExploration]);
+  }, [clearPending, spikeExploration]);
 
   useEffect(() => {
     const frame = window.requestAnimationFrame(() => {
-      void loadFeed();
+      void loadFeed(false, activeSearch ? focusSignatureRef.current : '');
     });
     return () => {
       window.cancelAnimationFrame(frame);
       requestRef.current?.abort();
     };
-  }, [loadFeed]);
+  }, [activeSearch, loadFeed]);
 
   useEffect(() => {
     const shortcut = (event: KeyboardEvent) => {
@@ -476,7 +481,7 @@ export function FrontierExperience({ initialDateLabel, initialDayKey }: Props) {
     // A deliberate refresh means "go back to the Internet now", not merely
     // reveal candidates already waiting in this tab's background queue.
     clearPending();
-    await loadFeed(true);
+    await loadFeed(true, focusSignatureRef.current);
     requestPoll('manual-refresh');
   }, [clearPending, loadFeed, requestPoll]);
 
