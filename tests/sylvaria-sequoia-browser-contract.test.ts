@@ -60,3 +60,25 @@ test('Living Canopy browser qualification preserves authored progression across 
     'Living Canopy start authority must be behavior-based rather than a fixed browser delay',
   );
 });
+
+test('Canopy Contracts qualification separates blocked Sap spam from a legal higher-log recharge', () => {
+  const harness = readScript('playtest-sylvaria-economy.mjs');
+  assert.match(harness, /async function runtimeFrame/);
+  assert.match(harness, /async function advanceSimulation/);
+  assert.match(harness, /async function advanceUntil/);
+  assert.match(harness, /for \(let index = 0; index < 16; index \+= 1\) S\.pressSapStick\(\)/);
+  assert.match(harness, /sapAuthorityBlockedPresses \|\| 0\) < 16/);
+  assert.match(harness, /'held higher-log Sap recharge'/);
+  assert.match(harness, /afterRecharge\.sapAuthority\.recharges !== 1/);
+  assert.match(harness, /'Cone Token collection'/);
+  assert.doesNotMatch(
+    harness,
+    /for \(let index = 0; index < 16; index \+= 1\)[\s\S]*page\.waitForTimeout\(14\)/,
+    'blocked Sap spam must be observed before world time can create a legitimate recharge',
+  );
+  assert.doesNotMatch(
+    harness,
+    /rechargeTarget[\s\S]{0,500}page\.waitForTimeout\(110\)/,
+    'higher-log recharge must be proven by fixed simulation state, not a browser sleep',
+  );
+});
