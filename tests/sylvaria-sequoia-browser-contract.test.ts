@@ -29,3 +29,15 @@ test('Shift browser qualification advances authoritative fixed-step physics afte
     'Sap release completion must not be inferred from a browser wall-clock sleep',
   );
 });
+
+test('Sap anti-inflation gate distinguishes Sap-awarded Flow from legitimate traversal combos', () => {
+  const harness = readScript('playtest-sylvaria-shift-hold.mjs');
+  assert.match(harness, /plainSapComboLinks/);
+  assert.match(harness, /event\.type === 'combo-link' && event\.link === 'SAP'/);
+  assert.match(harness, /sapStickCleanVaults/);
+  assert.doesNotMatch(
+    harness,
+    /plainVault\.state\.combo !== 0/,
+    'a normal floor-skip or route combo must not be misclassified as Sap-created Flow',
+  );
+});
