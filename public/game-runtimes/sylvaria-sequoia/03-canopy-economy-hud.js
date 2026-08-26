@@ -16,8 +16,12 @@
   let pulseMissionId = '';
   let pulseReason = 'START';
 
+  function worldToScreenY(worldY) {
+    return H - (worldY - state.cameraBottom);
+  }
+
   function tokenToScreen(token) {
-    return { x: token.x, y: S.sy(token.y) };
+    return { x: token.x, y: worldToScreenY(token.y) };
   }
 
   function drawTokens() {
