@@ -8,7 +8,7 @@
   const baseRender = S.render;
   const VERSION = 'living-objective-hud-v2';
   // Qualification continuity: living-objective-hud-v1 evolved into this panel-free renderer.
-  const REVISION = 'panel-free-traversal-v1';
+  const REVISION = 'panel-free-traversal-focus-v2';
 
   function drawObjective() {
     // The objective stays readable at the edge of the world, but no longer owns a
