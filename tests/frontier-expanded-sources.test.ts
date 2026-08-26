@@ -63,20 +63,21 @@ test('Lobsters parser maps discussion momentum and tags', () => {
   assert.ok((items[0]?.momentum ?? 0) > 0.5);
 });
 
-test('NASA APOD uses real source imagery as media', () => {
+test('NASA APOD uses the bounded publisher presentation image instead of the raw hdurl', () => {
   const items = parseNasaApod([{
-    date: '2026-08-20',
-    title: 'A Galactic Arc',
+    date: '2026-08-25',
+    title: "Earth's Shadow Visualized with Lunar Eclipses",
     explanation: 'A real astronomical image and its scientific context.',
     media_type: 'image',
-    url: 'https://apod.nasa.gov/image/example.jpg',
-    hdurl: 'https://apod.nasa.gov/image/example-hd.jpg',
-    copyright: 'Example Observatory',
+    url: 'https://apod.nasa.gov/apod/image/2608/EarthShadow_Martin_960.jpg',
+    hdurl: 'https://apod.nasa.gov/apod/image/2608/EarthShadow_Martin_4000.jpg',
+    copyright: 'Tim Martin',
   }]);
   assert.equal(items.length, 1);
   assert.equal(items[0]?.sourceKind, 'nasa');
   assert.equal(items[0]?.media?.type, 'image');
-  assert.equal(items[0]?.media?.url, 'https://apod.nasa.gov/image/example-hd.jpg');
+  assert.equal(items[0]?.media?.url, 'https://apod.nasa.gov/apod/image/2608/EarthShadow_Martin_960.jpg');
+  assert.notEqual(items[0]?.media?.url, 'https://apod.nasa.gov/apod/image/2608/EarthShadow_Martin_4000.jpg');
   assert.ok(items[0]?.tags.includes('astronomy'));
 });
 
