@@ -13,12 +13,14 @@ on:
       - 'lib/home/fractalDendriteV5.ts'
       - 'lib/home/fractalDendriteV6.ts'
       - 'lib/home/fractalResponsiveEnvelope.ts'
+      - 'lib/home/fractalResponsiveDensity.ts'
       - 'lib/home/fractalTheme.ts'
       - 'tests/home-dendrite-regression.test.ts'
       - 'tests/home-dendrite-v4-regression.test.ts'
       - 'tests/home-dendrite-v5-regression.test.ts'
       - 'tests/home-dendrite-v6-regression.test.ts'
       - 'tests/fractal-responsive-envelope.test.ts'
+      - 'tests/fractal-responsive-density.test.ts'
       - 'tests/fractal-theme-echo.test.ts'
       - 'tests/fractal-crisp-topology-v13.test.ts'
       - 'scripts/playtest-arcade-home.mjs'
@@ -66,6 +68,7 @@ jobs:
           components/neural-atlas-canvas/AdaptiveFractalHome.tsx
           components/neural-atlas-canvas/AdaptiveFractalStage.tsx
           components/neural-atlas-canvas/FractalCrispTopologyV13.tsx
+          components/neural-atlas-canvas/FractalInteriorDensityV17.tsx
           components/neural-atlas-canvas/FractalPublicCurationV14.tsx
           components/neural-atlas-canvas/FractalResponsiveEnvelopeV16.tsx
           components/neural-atlas-canvas/FractalSurfaceEnhancerV2.tsx
@@ -76,12 +79,14 @@ jobs:
           lib/home/fractalDendriteV5.ts
           lib/home/fractalDendriteV6.ts
           lib/home/fractalResponsiveEnvelope.ts
+          lib/home/fractalResponsiveDensity.ts
           lib/home/fractalTheme.ts
           tests/home-dendrite-regression.test.ts
           tests/home-dendrite-v4-regression.test.ts
           tests/home-dendrite-v5-regression.test.ts
           tests/home-dendrite-v6-regression.test.ts
           tests/fractal-responsive-envelope.test.ts
+          tests/fractal-responsive-density.test.ts
           tests/fractal-theme-echo.test.ts
           tests/fractal-crisp-topology-v13.test.ts
           scripts/playtest-arcade-home.mjs
@@ -98,6 +103,7 @@ jobs:
           tests/home-dendrite-v5-regression.test.ts
           tests/home-dendrite-v6-regression.test.ts
           tests/fractal-responsive-envelope.test.ts
+          tests/fractal-responsive-density.test.ts
           tests/fractal-theme-echo.test.ts
           tests/fractal-crisp-topology-v13.test.ts
 
