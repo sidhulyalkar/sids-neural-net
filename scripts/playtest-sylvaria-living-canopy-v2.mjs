@@ -18,21 +18,59 @@ const engines = [
   { name: 'webkit', browserType: webkit, launchOptions: {} },
 ];
 
-async function getFrame(page) {
-  const frame = page.frames().find((candidate) => candidate.url().includes('/game-runtimes/sylvaria-sequoia/'));
-  if (!frame) throw new Error('Sylvaria iframe did not attach');
-  await frame.locator('#c').waitFor({ state: 'visible' });
-  return frame;
+async function runtimeFrame(page) {
+  const deadline = Date.now() + 8000;
+  let observed = [];
+  while (Date.now() < deadline) {
+    const frames = page.frames();
+    observed = frames.map((candidate) => candidate.url());
+    const frame = frames.find((candidate) => candidate.url().includes('/game-runtimes/sylvaria-sequoia/'));
+    if (frame) {
+      try {
+        await frame.locator('#c').waitFor({ state: 'visible', timeout: 750 });
+        return frame;
+      } catch {
+        // WebKit can publish the iframe before its runtime canvas is input-ready.
+      }
+    }
+    await page.waitForTimeout(80);
+  }
+  throw new Error(`Sylvaria iframe did not attach within 8s: ${JSON.stringify(observed)}`);
+}
+
+async function waitUntil(frame, predicate, label, timeoutMs = 1800, arg = null) {
+  const deadline = Date.now() + timeoutMs;
+  let last = null;
+  while (Date.now() < deadline) {
+    try {
+      last = await frame.evaluate(predicate, arg);
+      if (last) return last;
+    } catch {
+      // A reload can briefly invalidate the frame execution context.
+    }
+    await frame.page().waitForTimeout(24);
+  }
+  throw new Error(`${label} did not settle within ${timeoutMs}ms; last=${JSON.stringify(last)}`);
+}
+
+async function reloadWithStorage(page, values) {
+  const frame = await runtimeFrame(page);
+  await frame.evaluate((entries) => {
+    for (const [key, value] of Object.entries(entries)) {
+      if (value == null) localStorage.removeItem(key);
+      else localStorage.setItem(key, String(value));
+    }
+  }, values);
+  await page.reload({ waitUntil: 'networkidle' });
+  return runtimeFrame(page);
 }
 
 async function start(page, frame) {
   await frame.locator('#c').click();
   await frame.locator('#c').focus();
   await page.keyboard.press('Space');
-  await page.waitForTimeout(120);
-  const current = await frame.evaluate(() => window.SYLVARIA_SEQUOIA_DEBUG.getState());
-  if (current.mode !== 'playing') throw new Error(`Sylvaria failed to start: ${JSON.stringify(current)}`);
-  return current;
+  await waitUntil(frame, () => window.SylvariaSequoia?.state?.mode === 'playing', 'Sylvaria start');
+  return frame.evaluate(() => window.SYLVARIA_SEQUOIA_DEBUG.getState());
 }
 
 async function initialContract(frame) {
@@ -141,18 +179,15 @@ async function discoverWonder(frame, wonderId) {
 }
 
 async function runContract(page, engineName) {
-  await page.addInitScript(() => {
-    for (const key of [
-      'sylvaria.sequoia.heartseedMask',
-      'sylvaria.sequoia.crownAwakened',
-      'sylvaria.sequoia.wonderMask',
-      'sylvaria.sequoia.skyheartRung',
-    ]) localStorage.removeItem(key);
-  });
-
   const response = await page.goto(`${baseUrl}/arcade/sylvaria-sequoia`, { waitUntil: 'networkidle' });
   if (!response?.ok()) throw new Error(`Sylvaria route returned ${response?.status() ?? 'no response'}`);
-  let frame = await getFrame(page);
+
+  let frame = await reloadWithStorage(page, {
+    'sylvaria.sequoia.heartseedMask': null,
+    'sylvaria.sequoia.crownAwakened': null,
+    'sylvaria.sequoia.wonderMask': null,
+    'sylvaria.sequoia.skyheartRung': null,
+  });
   const started = await start(page, frame);
   const initial = await initialContract(frame);
   assertInitial(initial);
@@ -205,14 +240,12 @@ async function runContract(page, engineName) {
 
   await page.screenshot({ path: path.join(outputDir, `${engineName}-living-canopy-wonders.png`), fullPage: true });
 
-  await frame.evaluate(() => {
-    localStorage.setItem('sylvaria.sequoia.heartseedMask', '31');
-    localStorage.setItem('sylvaria.sequoia.crownAwakened', '1');
-    localStorage.setItem('sylvaria.sequoia.wonderMask', '63');
-    localStorage.setItem('sylvaria.sequoia.skyheartRung', '0');
+  frame = await reloadWithStorage(page, {
+    'sylvaria.sequoia.heartseedMask': '31',
+    'sylvaria.sequoia.crownAwakened': '1',
+    'sylvaria.sequoia.wonderMask': '63',
+    'sylvaria.sequoia.skyheartRung': '0',
   });
-  await page.reload({ waitUntil: 'networkidle' });
-  frame = await getFrame(page);
   await start(page, frame);
 
   const skyheart = await frame.evaluate(() => {
