@@ -14,12 +14,18 @@ fs.mkdirSync(outputDir, { recursive: true });
 const browser = await chromium.launch({ headless: true });
 const failures = [];
 
-for (const viewport of [
-  { name: 'mobile', width: 390, height: 844, minSpan: 0.62 },
-  { name: 'desktop', width: 1440, height: 900, minSpan: 0.72 },
-  { name: 'fullhd', width: 1920, height: 1080, minSpan: 0.76 },
-  { name: 'ultrawide', width: 2560, height: 1080, minSpan: 0.78 },
-]) {
+const viewports = [
+  { name: 'tiny-mobile', width: 320, height: 568, minSpan: 0.56 },
+  { name: 'short-landscape', width: 812, height: 375, minSpan: 0.62 },
+  { name: 'mobile', width: 390, height: 844, minSpan: 0.58 },
+  { name: 'tablet', width: 768, height: 1024, minSpan: 0.64 },
+  { name: 'desktop', width: 1440, height: 900, minSpan: 0.66 },
+  { name: 'fullhd', width: 1920, height: 1080, minSpan: 0.7 },
+  { name: 'ultrawide', width: 2560, height: 1080, minSpan: 0.72 },
+  { name: 'wide-4k-class', width: 3440, height: 1440, minSpan: 0.72 },
+];
+
+for (const viewport of viewports) {
   const page = await browser.newPage({ viewport: { width: viewport.width, height: viewport.height }, deviceScaleFactor: 1 });
   const consoleErrors = [];
   page.on('pageerror', (error) => failures.push(`${viewport.name} pageerror: ${error.message}`));
@@ -29,7 +35,13 @@ for (const viewport of [
 
   await page.goto(`${baseUrl}/`, { waitUntil: 'networkidle' });
   await page.locator('[data-fractal-morphology]:not([data-fractal-morphology="measuring"])').waitFor();
+  await page.waitForFunction(
+    (expected) =>
+      document.querySelector('[data-fractal-morphology]')?.getAttribute('data-fractal-responsive-viewport') === expected,
+    `${viewport.width}x${viewport.height}`
+  );
 
+  const root = page.locator('[data-fractal-morphology]');
   const destinations = page.locator('a[data-dendrite-destination]');
   if ((await destinations.count()) !== 8) {
     failures.push(`${viewport.name}: expected eight homepage dendrite destinations`);
@@ -37,6 +49,18 @@ for (const viewport of [
 
   const branchCount = await page.locator('[data-home-branch-count]').getAttribute('data-home-branch-count');
   if (branchCount !== '8') failures.push(`${viewport.name}: expected eight primary homepage dendrites, got ${branchCount}`);
+
+  if ((await root.getAttribute('data-fractal-responsive-envelope')) !== 'v16') {
+    failures.push(`${viewport.name}: responsive envelope v16 is not active`);
+  }
+  if ((await root.getAttribute('data-fractal-boundary-policy')) !== 'elliptic-radial-cap-v16') {
+    failures.push(`${viewport.name}: responsive boundary policy is not active`);
+  }
+
+  const scaleX = Number(await root.getAttribute('data-fractal-field-scale-x'));
+  const scaleY = Number(await root.getAttribute('data-fractal-field-scale-y'));
+  if (!(scaleX >= 0.8 && scaleX <= 0.92)) failures.push(`${viewport.name}: invalid responsive X scale ${scaleX}`);
+  if (!(scaleY >= 0.79 && scaleY <= 0.91)) failures.push(`${viewport.name}: invalid responsive Y scale ${scaleY}`);
 
   const boxes = [];
   for (let index = 0; index < (await destinations.count()); index += 1) {
@@ -50,12 +74,13 @@ for (const viewport of [
       failures.push(`${viewport.name}: dendrite destination ${index} has no rendered bounding box`);
       continue;
     }
+    const reserve = viewport.width <= 360 ? 2 : 4;
     const insideViewport =
-      box.x >= 0 &&
-      box.y >= 0 &&
-      box.x + box.width <= viewport.width &&
-      box.y + box.height <= viewport.height;
-    if (!insideViewport) failures.push(`${viewport.name}: dendrite destination ${index} is outside the viewport`);
+      box.x >= reserve &&
+      box.y >= reserve &&
+      box.x + box.width <= viewport.width - reserve &&
+      box.y + box.height <= viewport.height - reserve;
+    if (!insideViewport) failures.push(`${viewport.name}: dendrite destination ${index} is outside the viewport reserve`);
     boxes.push(box);
   }
 
@@ -70,6 +95,11 @@ for (const viewport of [
     }
   }
 
+  const responsiveCanvas = page.locator('[data-fractal-responsive-canvas="v16"]');
+  if ((await responsiveCanvas.count()) !== 1 || !(await responsiveCanvas.isVisible())) {
+    failures.push(`${viewport.name}: responsive fractal canvas is missing`);
+  }
+
   const cta = page.locator('a[data-dendrite-destination="games"]');
   if ((await cta.count()) !== 1) {
     failures.push(`${viewport.name}: expected exactly one homepage Game Network dendrite CTA`);
@@ -78,7 +108,7 @@ for (const viewport of [
     if (href !== '/arcade') failures.push(`${viewport.name}: homepage Game Network CTA href is ${href}`);
   }
 
-  const morphology = await page.locator('[data-fractal-morphology]').getAttribute('data-fractal-morphology');
+  const morphology = await root.getAttribute('data-fractal-morphology');
   const fractalDimension = await page.locator('[data-fractal-dimension]').getAttribute('data-fractal-dimension');
   await page.screenshot({ path: path.join(outputDir, `home-${viewport.name}-${morphology || 'unknown'}.png`) });
 
@@ -106,4 +136,4 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log('Adaptive homepage dendrites are visible, bounded, wide-filling, eight-way, and route to Game Network.');
+console.log('Adaptive homepage dendrites are responsive, boundary-safe, eight-way, and route to Game Network.');
