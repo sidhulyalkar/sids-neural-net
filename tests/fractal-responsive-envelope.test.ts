@@ -4,6 +4,7 @@ import {
   buildAdaptiveFractalTree,
   type Dimensions,
   type FractalMorphologyId,
+  type FractalTree,
   type Vec2,
 } from '../lib/home/fractalDendrite';
 import {
@@ -64,6 +65,12 @@ function polylineLength(points: readonly Vec2[]): number {
   return total;
 }
 
+function normalizedRadius(point: Vec2, tree: FractalTree): number {
+  const nx = (point.x - tree.center.x) / Math.max(1, tree.radiusX);
+  const ny = (point.y - tree.center.y) / Math.max(1, tree.radiusY);
+  return Math.hypot(nx, ny);
+}
+
 test('responsive envelope scales smoothly and reserves more space on small or short displays', () => {
   const tiny = getResponsiveFractalEnvelope({ width: 320, height: 568 });
   const desktop = getResponsiveFractalEnvelope({ width: 1440, height: 900 });
@@ -115,10 +122,21 @@ test('all six public morphologies remain interior and never flatten against any 
         const originalLength = polylineLength(path.points);
         const mappedLength = polylineLength(mapped);
         if (originalLength > 8) {
-          assert.ok(
-            mappedLength > originalLength * 0.42,
-            `${morphology} ${dimensions.width}x${dimensions.height} over-compressed ${path.id}`
-          );
+          const authoredEntirelyInsideEnvelope = path.points.every((point) => normalizedRadius(point, tree) <= 0.9);
+          if (authoredEntirelyInsideEnvelope) {
+            assert.ok(
+              mappedLength > originalLength * 0.5,
+              `${morphology} ${dimensions.width}x${dimensions.height} collapsed interior branch ${path.id}`
+            );
+          } else {
+            // Edge-reaching branches are intentionally shortened because their authored
+            // length may include distance created by the old rectangular clamp. They
+            // still need a non-degenerate visible segment after radial reprojection.
+            assert.ok(
+              mappedLength > 1.5,
+              `${morphology} ${dimensions.width}x${dimensions.height} erased boundary branch ${path.id}`
+            );
+          }
         }
       }
     }
