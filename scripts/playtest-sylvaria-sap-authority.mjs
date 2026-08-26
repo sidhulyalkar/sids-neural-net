@@ -22,10 +22,23 @@ const results = [];
 let failed = false;
 
 async function runtimeFrame(page) {
-  const frame = page.frames().find((candidate) => candidate.url().includes('/game-runtimes/sylvaria-sequoia/'));
-  if (!frame) throw new Error('Sylvaria iframe did not attach');
-  await frame.locator('#c').waitFor({ state: 'visible' });
-  return frame;
+  const deadline = Date.now() + 8000;
+  let observed = [];
+  while (Date.now() < deadline) {
+    const frames = page.frames();
+    observed = frames.map((candidate) => candidate.url());
+    const frame = frames.find((candidate) => candidate.url().includes('/game-runtimes/sylvaria-sequoia/'));
+    if (frame) {
+      try {
+        await frame.locator('#c').waitFor({ state: 'visible', timeout: 750 });
+        return frame;
+      } catch {
+        // Browser engines can publish the iframe before its canvas is input-ready.
+      }
+    }
+    await page.waitForTimeout(80);
+  }
+  throw new Error(`Sylvaria iframe did not attach within 8s: ${JSON.stringify(observed)}`);
 }
 
 async function focus(page, frame) {
@@ -34,11 +47,34 @@ async function focus(page, frame) {
   await page.waitForFunction(() => document.documentElement.classList.contains('game-runtime-focused'));
 }
 
-async function shiftTap(page, downMs = 14, upMs = 14) {
-  await page.keyboard.down('Shift');
-  await page.waitForTimeout(downMs);
-  await page.keyboard.up('Shift');
-  await page.waitForTimeout(upMs);
+async function waitForSnapshot(page, read, predicate, label, timeoutMs = 1800) {
+  const deadline = Date.now() + timeoutMs;
+  let last = null;
+  while (Date.now() < deadline) {
+    last = await read();
+    if (predicate(last)) return last;
+    await page.waitForTimeout(24);
+  }
+  throw new Error(`${label} did not settle within ${timeoutMs}ms: ${JSON.stringify(last)}`);
+}
+
+async function advanceSimulation(frame, steps = 1) {
+  return frame.evaluate((count) => {
+    const S = window.SylvariaSequoia;
+    for (let index = 0; index < count; index += 1) S.update(S.state.FIXED_DT);
+    return window.SYLVARIA_SEQUOIA_DEBUG.getState();
+  }, steps);
+}
+
+async function advanceUntil(frame, read, predicate, label, maxSteps = 120) {
+  let last = await read();
+  if (predicate(last)) return last;
+  for (let index = 0; index < maxSteps; index += 1) {
+    await advanceSimulation(frame, 1);
+    last = await read();
+    if (predicate(last)) return last;
+  }
+  throw new Error(`${label} did not settle within ${maxSteps} fixed steps: ${JSON.stringify(last)}`);
 }
 
 async function runContract(page, engineName) {
@@ -47,7 +83,12 @@ async function runContract(page, engineName) {
   const frame = await runtimeFrame(page);
   await focus(page, frame);
   await page.keyboard.press('Space');
-  await page.waitForTimeout(120);
+  await waitForSnapshot(
+    page,
+    () => frame.evaluate(() => window.SYLVARIA_SEQUOIA_DEBUG.getState()),
+    (snapshot) => snapshot.mode === 'playing',
+    'Sylvaria start',
+  );
 
   const initial = await frame.evaluate(() => {
     const S = window.SylvariaSequoia;
@@ -131,14 +172,17 @@ async function runContract(page, engineName) {
     throw new Error(`First Sap use was not atomically spent: ${JSON.stringify(nearest.authority)}`);
   }
 
-  // Hold and aggressively steer long enough that the old spring/pump model would
-  // have produced a much larger speed. The hard authority must keep kinetic speed
-  // inside the entry-speed budget while still allowing direction shaping.
-  await page.keyboard.down('ArrowRight');
-  await page.waitForTimeout(520);
-  await page.keyboard.up('ArrowRight');
+  // This matrix tests simulation authority, not browser key delivery. The prior
+  // Shift-hold matrix already verifies physical Arrow input in all four engines.
+  // Here direct state-key steering keeps the energy proof on the fixed 120 Hz clock.
   const tethered = await frame.evaluate(() => {
     const S = window.SylvariaSequoia;
+    S.state.keys.add('ArrowRight');
+    try {
+      for (let index = 0; index < 60; index += 1) S.update(S.state.FIXED_DT);
+    } finally {
+      S.state.keys.delete('ArrowRight');
+    }
     const authority = S.sapAuthority.getState();
     return {
       active: Boolean(S.player.sap?.stickMode),
@@ -172,18 +216,22 @@ async function runContract(page, engineName) {
     throw new Error(`Sap release exceeded the post-tether speed budget: ${JSON.stringify(release)}`);
   }
 
-  for (let index = 0; index < 24; index += 1) await shiftTap(page);
-  await page.waitForTimeout(90);
-  const afterSpam = await frame.evaluate(() => ({
-    mode: window.SylvariaSequoia.state.mode,
-    authority: window.SylvariaSequoia.sapAuthority.getState(),
-    counters: window.SylvariaSequoia.getTelemetry().counters,
-  }));
+  // Blocked spam is a spent-authority property. No world time advances here,
+  // because a real higher-log landing is intentionally allowed to rearm Sap.
+  const afterSpam = await frame.evaluate(() => {
+    const S = window.SylvariaSequoia;
+    for (let index = 0; index < 24; index += 1) S.pressSapStick();
+    return {
+      mode: S.state.mode,
+      authority: S.sapAuthority.getState(),
+      counters: S.getTelemetry().counters,
+    };
+  });
   if (afterSpam.mode !== 'playing' || afterSpam.authority.nodeUses !== 1 || afterSpam.authority.armed || !afterSpam.authority.useInvariant) {
-    throw new Error(`Rapid Shift taps bypassed the single-use Sap lease: ${JSON.stringify(afterSpam)}`);
+    throw new Error(`Rapid Sap presses bypassed the single-use lease before landing: ${JSON.stringify(afterSpam)}`);
   }
-  if (afterSpam.authority.blockedPresses < 18 || (afterSpam.counters.sapAuthorityBlockedPresses || 0) < 18) {
-    throw new Error(`Shift spam was not safely rejected at input authority: ${JSON.stringify(afterSpam)}`);
+  if (afterSpam.authority.blockedPresses < 24 || (afterSpam.counters.sapAuthorityBlockedPresses || 0) < 24) {
+    throw new Error(`Spent-state Sap spam was not safely rejected at authority: ${JSON.stringify(afterSpam)}`);
   }
 
   const landing = await frame.evaluate(() => {
@@ -202,20 +250,25 @@ async function runContract(page, engineName) {
     S.player.py = S.player.y;
     S.player.vx = 0;
     S.player.vy = 0;
+    S.state.threatY = Math.min(S.state.threatY, S.player.y - 650);
     return { floor: branch.floor, spent };
   });
-  await page.waitForTimeout(120);
-  const rearmed = await frame.evaluate(() => window.SylvariaSequoia.sapAuthority.getState());
+  const rearmed = await advanceUntil(
+    frame,
+    () => frame.evaluate(() => window.SylvariaSequoia.sapAuthority.getState()),
+    (authority) => Boolean(authority.armed && authority.recharges === 1 && authority.highestPhysicalFloor >= landing.floor),
+    'held higher-log Sap rearm',
+    60,
+  );
   if (!rearmed.armed || rearmed.recharges !== 1 || rearmed.highestPhysicalFloor < landing.floor) {
-    throw new Error(`A physically held higher log did not rearm Sap: ${JSON.stringify({ landing, rearmed })}`);
+    throw new Error(`A physically held higher log did not rearm Sap exactly once: ${JSON.stringify({ landing, rearmed })}`);
   }
 
-  // The exact previously consumed node is moved after recharge. Because its
-  // identity is topology-only, changing x/y must not make it eligible again.
+  // Reconstruct the consumed node as a fresh object with the exact same authored
+  // topology identity but different coordinates. Used-node authority must survive
+  // object replacement and motion; x/y are presentation/physics state only.
   const movedConsumedNode = await frame.evaluate(() => {
     const S = window.SylvariaSequoia;
-    const consumed = S.state.knots.find((knot) => knot.chunkId === 'test-near');
-    if (!consumed) return { missing: true };
     S.player.grounded = null;
     S.player.groundedTime = 0;
     S.player.x = 480;
@@ -224,26 +277,33 @@ async function runContract(page, engineName) {
     S.player.py = 210;
     S.player.vx = 160;
     S.player.vy = 30;
-    consumed.x = S.player.x + 70;
-    consumed.y = S.player.y + 105;
+    const consumed = {
+      x: S.player.x + 70,
+      y: S.player.y + 105,
+      floor: 3,
+      chunkId: 'test-near',
+      chunkType: 'TEST',
+      role: 'right',
+      anchorKind: 'sap-stick',
+      pulse: 0,
+    };
     S.state.knots.splice(0, S.state.knots.length, consumed);
     const before = S.sapAuthority.getState();
     const preview = S.sapStick.getTargetPreview?.();
     const attached = S.pressSapStick();
     const after = S.sapAuthority.getState();
     return {
-      missing: false,
       preview: preview ? { chunkId: preview.chunkId, x: preview.x, y: preview.y } : null,
       attached,
       before,
       after,
     };
   });
-  if (movedConsumedNode.missing || movedConsumedNode.preview || movedConsumedNode.attached) {
-    throw new Error(`Consumed moving Sap anchor became reusable after coordinate motion: ${JSON.stringify(movedConsumedNode)}`);
+  if (movedConsumedNode.preview || movedConsumedNode.attached) {
+    throw new Error(`Consumed Sap identity became reusable after object replacement/motion: ${JSON.stringify(movedConsumedNode)}`);
   }
   if (!movedConsumedNode.after.armed || movedConsumedNode.after.nodeUses !== 1 || movedConsumedNode.after.usedAnchors !== 1) {
-    throw new Error(`Rejecting the moved consumed anchor corrupted Sap authority state: ${JSON.stringify(movedConsumedNode)}`);
+    throw new Error(`Rejecting the reconstructed consumed anchor corrupted Sap authority state: ${JSON.stringify(movedConsumedNode)}`);
   }
 
   const second = await frame.evaluate(() => {
