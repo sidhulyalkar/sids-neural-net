@@ -19,6 +19,14 @@ test('manual live pulls carry an explicit cache-busting request identity', () =>
   assert.match(experience, /cache: 'no-store'/);
 });
 
+test('passive navigation is snapshot-first while explicit search and refresh retain live focus', () => {
+  const block = experience.match(/const loadFeed = useCallback\(async \(forceFresh = false\) => \{([\s\S]*?)\n  \}, \[[^\]]+\]\);/)?.[1] ?? '';
+  assert.match(block, /const primaryFocus = forceFresh \|\| activeSearch \? focusSignature : '';/);
+  assert.match(block, /const payload = await fetchPayload\(primaryFocus\);/);
+  assert.doesNotMatch(block, /const payload = await fetchPayload\(focusSignature\);/);
+  assert.doesNotMatch(block, /const wide = await fetchPayload\(''\);/);
+});
+
 test('opportunistic local feed cache is bounded to hours rather than a day-plus stale window', () => {
   assert.match(experience, /FEED_CACHE_MAX_AGE_MS = 4 \* 60 \* 60_000/);
 });
