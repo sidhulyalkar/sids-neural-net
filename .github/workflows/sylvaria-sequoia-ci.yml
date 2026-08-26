@@ -127,12 +127,33 @@ jobs:
           fetch_and_assert http://127.0.0.1:3000/game-runtimes/sylvaria-sequoia/03-run-recap-hud.js 'run-recap-v2' /tmp/sylvaria-recap.js
           fetch_and_assert http://127.0.0.1:3000/game-runtimes/sylvaria-sequoia/05-debug-canopy-contracts.js "debug.version = '0.6.1'" /tmp/sylvaria-debug-contracts.js
 
+      - name: Cache Playwright browser payload
+        id: playwright-browser-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: sylvaria-playwright-${{ runner.os }}-1.55.0-${{ hashFiles('package-lock.json') }}
+
       - name: Install browser engines
         run: |
+          set -euo pipefail
           rm -rf /tmp/sylvaria-v062-playwright
           npm install --prefix /tmp/sylvaria-v062-playwright --no-package-lock --no-save playwright@1.55.0
-          /tmp/sylvaria-v062-playwright/node_modules/.bin/playwright install --with-deps chromium firefox webkit
-          /tmp/sylvaria-v062-playwright/node_modules/.bin/playwright install chrome
+          PLAYWRIGHT=/tmp/sylvaria-v062-playwright/node_modules/.bin/playwright
+
+          # System libraries are runner state, not cache state. Always ensure them.
+          "$PLAYWRIGHT" install-deps chromium firefox webkit
+
+          # Browser archives are immutable for an exact Playwright version. Reuse
+          # the cached payload when present, but fail-safe by installing any missing
+          # engine so a partial/stale cache can never weaken four-engine coverage.
+          "$PLAYWRIGHT" install chromium firefox webkit
+
+          # GitHub-hosted Ubuntu normally already carries Chrome Stable. Preserve
+          # the explicit Chrome matrix with a safe fallback if the runner image changes.
+          if ! command -v google-chrome >/dev/null 2>&1 && ! command -v google-chrome-stable >/dev/null 2>&1; then
+            "$PLAYWRIGHT" install chrome
+          fi
 
       - name: Validate one-button Sap and movement input across four engines
         env:
