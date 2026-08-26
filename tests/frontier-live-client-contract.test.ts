@@ -7,7 +7,7 @@ const experience = readFileSync(new URL('../components/frontier/FrontierExperien
 test('manual refresh always returns to the live server rather than consuming the pending queue as a substitute', () => {
   const block = experience.match(/const manualRefresh = useCallback\(async \(\) => \{([\s\S]*?)\n  \}, \[[^\]]+\]\);/)?.[1] ?? '';
   assert.match(block, /clearPending\(\)/);
-  assert.match(block, /await loadFeed\(true\)/);
+  assert.match(block, /await loadFeed\(true, focusSignatureRef\.current\)/);
   assert.match(block, /requestPoll\('manual-refresh'\)/);
   assert.doesNotMatch(block, /flushPending/);
   assert.doesNotMatch(block, /pendingCount/);
@@ -19,12 +19,24 @@ test('manual live pulls carry an explicit cache-busting request identity', () =>
   assert.match(experience, /cache: 'no-store'/);
 });
 
-test('passive navigation is snapshot-first while explicit search and refresh retain live focus', () => {
-  const block = experience.match(/const loadFeed = useCallback\(async \(forceFresh = false\) => \{([\s\S]*?)\n  \}, \[[^\]]+\]\);/)?.[1] ?? '';
-  assert.match(block, /const primaryFocus = forceFresh \|\| activeSearch \? focusSignature : '';/);
-  assert.match(block, /const payload = await fetchPayload\(primaryFocus\);/);
-  assert.doesNotMatch(block, /const payload = await fetchPayload\(focusSignature\);/);
-  assert.doesNotMatch(block, /const wide = await fetchPayload\(''\);/);
+test('passive cold load stays snapshot-first across adaptive store hydration', () => {
+  assert.match(experience, /const focusSignatureRef = useRef\(focusSignature\);/);
+  assert.match(experience, /focusSignatureRef\.current = focusSignature;/);
+
+  const loadBlock = experience.match(/const loadFeed = useCallback\(async \(forceFresh = false, focus = ''\) => \{([\s\S]*?)\n  \}, \[clearPending, spikeExploration\]\);/)?.[1] ?? '';
+  assert.match(loadBlock, /const payload = await fetchPayload\(focus\);/);
+  assert.match(loadBlock, /if \(!focus && !forceFresh && nextItems\.length\)/);
+  assert.doesNotMatch(loadBlock, /activeSearch/);
+  assert.doesNotMatch(loadBlock, /focusSignature/);
+
+  assert.match(experience, /void loadFeed\(false, activeSearch \? focusSignatureRef\.current : ''\);/);
+  assert.match(experience, /\}, \[activeSearch, loadFeed\]\);/);
+  assert.doesNotMatch(experience, /\}, \[activeSearch, clearPending, focusSignature, spikeExploration\]\);/);
+});
+
+test('only the authoritative request may settle the loading skeleton', () => {
+  const loadBlock = experience.match(/const loadFeed = useCallback\(async \(forceFresh = false, focus = ''\) => \{([\s\S]*?)\n  \}, \[clearPending, spikeExploration\]\);/)?.[1] ?? '';
+  assert.match(loadBlock, /if \(requestRef\.current === controller\) \{\s*requestRef\.current = null;\s*setLoading\(false\);\s*\}/);
 });
 
 test('opportunistic local feed cache is bounded to hours rather than a day-plus stale window', () => {
