@@ -6,7 +6,7 @@ import {
 } from './sportsStateSources';
 import type { FrontierFeedResponse, FrontierItem, FrontierSourceStatus } from './types';
 
-const USER_AGENT = 'sids-neural-net-frontier-sports-state-deep/1.2 (+https://sidhulyalkar.com/frontier)';
+const USER_AGENT = 'sids-neural-net-frontier-sports-state-deep/1.3 (+https://sidhulyalkar.com/frontier)';
 const DEEP_FETCH_TIMEOUT_MS = 6_500;
 const DEEP_FETCH_ATTEMPTS = 2;
 const RETRY_BACKOFF_MS = 240;
@@ -65,9 +65,6 @@ async function fetchJson<T>(url: string, revalidateSeconds: number): Promise<T> 
       clearTimeout(timer);
     }
 
-    // GitHub-hosted acquisition occasionally gets transient DNS/edge failures
-    // when many requests hit the same ESPN host at once. Retry once with a
-    // small deterministic backoff instead of stretching the request timeout.
     await sleep(RETRY_BACKOFF_MS * (attempt + 1));
   }
 
@@ -87,13 +84,87 @@ function mergeScoreboards(payloads: Array<EspnScoreboard | undefined>): EspnScor
   return events.length ? { events } : undefined;
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
+
+function looksLikeEspnEvent(value: unknown): value is EspnEvent {
+  if (!isRecord(value)) return false;
+  return typeof value.id === 'string' && Array.isArray(value.competitions);
+}
+
+/**
+ * ESPN's CDN envelopes scoreboards and schedules below content.sbData and
+ * schedule-specific containers rather than returning the Site API shape at the
+ * root. Walk only a shallow bounded object graph and recover arrays that are
+ * already made of normal ESPN event objects. This keeps one canonical parser.
+ */
+function scoreboardFromCdnEnvelope(payload: unknown): EspnScoreboard | undefined {
+  const events = new Map<string, EspnEvent>();
+  const seenObjects = new Set<object>();
+
+  const walk = (value: unknown, depth: number): void => {
+    if (depth > 7 || !value) return;
+    if (Array.isArray(value)) {
+      if (value.length && value.every((candidate) => looksLikeEspnEvent(candidate))) {
+        for (const event of value) events.set(event.id as string, event);
+        return;
+      }
+      for (const child of value.slice(0, 80)) walk(child, depth + 1);
+      return;
+    }
+    if (!isRecord(value) || seenObjects.has(value)) return;
+    seenObjects.add(value);
+    for (const child of Object.values(value)) walk(child, depth + 1);
+  };
+
+  walk(payload, 0);
+  return events.size ? { events: Array.from(events.values()) } : undefined;
+}
+
+function cdnLeagueSlug(config: LeagueConfig): string {
+  return config.id === 'premier-league' ? 'soccer' : config.id;
+}
+
+function cdnUrl(config: LeagueConfig, resource: 'scoreboard' | 'schedule', explicitYear = false): string {
+  const url = new URL(`https://cdn.espn.com/core/${cdnLeagueSlug(config)}/${resource}`);
+  url.searchParams.set('xhr', '1');
+  if (config.id === 'premier-league') url.searchParams.set('league', config.league);
+  if (explicitYear) url.searchParams.set('year', String(CURRENT_SEASON));
+  return url.toString();
+}
+
+async function cdnScoreboard(config: LeagueConfig): Promise<EspnScoreboard | undefined> {
+  try {
+    const payload = await fetchJson<unknown>(cdnUrl(config, 'scoreboard'), 60 * 3);
+    return scoreboardFromCdnEnvelope(payload);
+  } catch {
+    return undefined;
+  }
+}
+
+async function cdnSchedule(config: LeagueConfig): Promise<EspnScoreboard | undefined> {
+  try {
+    const current = scoreboardFromCdnEnvelope(
+      await fetchJson<unknown>(cdnUrl(config, 'schedule'), 60 * 15),
+    );
+    if (hasEvents(current)) return current;
+  } catch {
+    // Retry with the explicit calendar year below.
+  }
+
+  try {
+    return scoreboardFromCdnEnvelope(
+      await fetchJson<unknown>(cdnUrl(config, 'schedule', true), 60 * 15),
+    );
+  } catch {
+    return undefined;
+  }
+}
+
 async function preferredTeamSchedule(config: LeagueConfig, teamId: string): Promise<EspnScoreboard | undefined> {
   const base = `https://site.api.espn.com/apis/site/v2/sports/${config.sport}/${config.league}/teams/${teamId}/schedule`;
 
-  // The unqualified endpoint follows ESPN's active-season authority and avoids
-  // edge cases where a calendar-year value maps differently across NFL, NBA,
-  // and European soccer. Keep the explicit year as a bounded fallback for
-  // off-season windows where the default slate can legitimately be empty.
   try {
     const current = await fetchJson<EspnScoreboard>(base, 60 * 15);
     if (hasEvents(current)) return current;
@@ -119,10 +190,16 @@ async function favoriteTeamSchedules(config: LeagueConfig): Promise<{
   const teamIds = FAVORITE_TEAM_IDS[config.id] ?? [];
   if (!teamIds.length) return { successful: 0, attempted: 0 };
 
+  // A league schedule from ESPN's CDN is a different network authority than
+  // site.api.espn.com and already contains the same event objects. Prefer it as
+  // the deployment-safe favorite-team source, then keep the tiny team endpoint
+  // as a precision fallback when the CDN has no schedule payload.
+  const cdn = await cdnSchedule(config);
+  if (hasEvents(cdn)) {
+    return { scoreboard: cdn, successful: teamIds.length, attempted: teamIds.length };
+  }
+
   const payloads: EspnScoreboard[] = [];
-  // Keep this lane deliberately narrow and sequential. Favorite-team state is
-  // more valuable than broad league state, and avoiding a same-host burst makes
-  // it much more reliable on CI/serverless transports.
   for (const teamId of teamIds) {
     const payload = await preferredTeamSchedule(config, teamId);
     if (payload) payloads.push(payload);
@@ -140,10 +217,10 @@ async function deepLeagueFeed(config: LeagueConfig): Promise<{
   scoreboardOk: boolean;
   standingsOk: boolean;
   favoriteScheduleOk: boolean;
+  cdnOk: boolean;
 }> {
-  // Acquire the small personalized lane first. League-wide endpoints are useful
-  // enrichment, but they must not starve Patriots/Warriors/Chelsea/City state.
   const favoriteRun = await favoriteTeamSchedules(config);
+  const cdnBoard = await cdnScoreboard(config);
   const scoreboardEndpoint = `https://site.api.espn.com/apis/site/v2/sports/${config.sport}/${config.league}/scoreboard`;
   const standingsEndpoint = `https://site.api.espn.com/apis/v2/sports/${config.sport}/${config.league}/standings`;
   const [scoreboardRun, standingsRun] = await Promise.all([
@@ -157,9 +234,7 @@ async function deepLeagueFeed(config: LeagueConfig): Promise<{
     ),
   ]);
 
-  // Merge rather than substitute so a successful full slate retains broad
-  // utility while favorite-team schedule events are guaranteed representation.
-  const scoreboard = mergeScoreboards([favoriteRun.scoreboard, scoreboardRun.value]);
+  const scoreboard = mergeScoreboards([favoriteRun.scoreboard, cdnBoard, scoreboardRun.value]);
   const standings = standingsRun.value;
   const rawItems = [
     ...(scoreboard ? parseSportsScoreboard(scoreboard, config) : []),
@@ -170,18 +245,18 @@ async function deepLeagueFeed(config: LeagueConfig): Promise<{
 
   return {
     items,
-    scoreboardOk: scoreboardRun.ok,
+    scoreboardOk: scoreboardRun.ok || Boolean(cdnBoard),
     standingsOk: standingsRun.ok,
     favoriteScheduleOk: favoriteRun.attempted === 0 || favoriteRun.successful > 0,
+    cdnOk: Boolean(cdnBoard || favoriteRun.scoreboard),
   };
 }
 
 /**
- * Archive-only sports acquisition. The request path deliberately keeps the
- * short transport in sportsStateSources.ts; this companion prioritizes small
- * favorite-team schedules, then enriches them with league-wide state. The deep
- * lanes run sequentially so same-host DNS/edge throttling cannot erase every
- * favorite at once during a cold archive build.
+ * Archive-only sports acquisition. ESPN's CDN is the deployment-safe primary
+ * for schedules/scoreboards; Site API calls are retained as enrichment rather
+ * than a single point of failure. All recovered events still flow through the
+ * same tested parser and personalization rules in sportsStateSources.ts.
  */
 export async function getDeepSportsStateFeed(): Promise<FrontierFeedResponse> {
   const fulfilled: Awaited<ReturnType<typeof deepLeagueFeed>>[] = [];
@@ -198,6 +273,7 @@ export async function getDeepSportsStateFeed(): Promise<FrontierFeedResponse> {
   const items = Array.from(new Map(fulfilled.flatMap((run) => run.items).map((item) => [item.id, item])).values());
   const partialTransports = fulfilled.filter((run) => !run.scoreboardOk || !run.standingsOk).length;
   const favoriteFallbackFailures = fulfilled.filter((run) => !run.favoriteScheduleOk).length;
+  const cdnFailures = fulfilled.filter((run) => !run.cdnOk).length;
   const favoritesPresent = items.filter((item) => item.tags.some((tag) => [
     'patriots', 'new england patriots', 'warriors', 'golden state warriors',
     'chelsea', 'chelsea fc', 'manchester city', 'man city',
@@ -212,6 +288,7 @@ export async function getDeepSportsStateFeed(): Promise<FrontierFeedResponse> {
           transportFailures ? `${transportFailures} league transport${transportFailures === 1 ? '' : 's'} failed` : '',
           partialTransports ? `${partialTransports} league${partialTransports === 1 ? '' : 's'} partial` : '',
           favoriteFallbackFailures ? `${favoriteFallbackFailures} favorite schedule fallback${favoriteFallbackFailures === 1 ? '' : 's'} failed` : '',
+          cdnFailures ? `${cdnFailures} ESPN CDN lane${cdnFailures === 1 ? '' : 's'} unavailable` : '',
           favoritesPresent ? `${favoritesPresent} favorite-team state signal${favoritesPresent === 1 ? '' : 's'}` : 'no favorite-team state in current slate',
         ].filter(Boolean).join(' · ') || undefined
       : 'deep sports state acquisition returned no usable ESPN state',
