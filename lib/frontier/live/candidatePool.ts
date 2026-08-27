@@ -99,10 +99,12 @@ async function prune(db: IDBDatabase, now = Date.now()): Promise<void> {
 }
 
 /**
- * The live daemon now writes into a durable validated reservoir rather than a
- * short newest-first queue. Only source-admitted, intrinsically worthwhile
- * candidates persist. Repeated discovery can refresh metadata and validation
- * without causing the same item to be rebroadcast as newly discovered.
+ * Live delivery and durable retention are intentionally separate authorities.
+ * Every genuinely new unseen candidate remains eligible for the normal live
+ * recommender immediately. Only the quality-vetted subset is persisted into
+ * the multi-week reservoir. This prevents a retention threshold from silently
+ * shrinking a real-time discovery batch while still keeping the long-lived
+ * shelf clean.
  */
 export async function addFrontierCandidates(items: FrontierItem[], now = Date.now()): Promise<FrontierItem[]> {
   if (!items.length || typeof indexedDB === 'undefined') return items;
@@ -112,6 +114,7 @@ export async function addFrontierCandidates(items: FrontierItem[], now = Date.no
     const db = await openCandidateDb();
     const records = await allRecords(db);
     const existing = new Map(records.map((record) => [record.key, record]));
+    const liveCandidates = unseen.filter((item) => !existing.has(frontierItemIdentityKey(item)));
     const accepted = new Map<string, { item: FrontierItem; score: number }>();
     for (const item of unseen) {
       const score = frontierReservoirValidationScore(item);
@@ -119,39 +122,37 @@ export async function addFrontierCandidates(items: FrontierItem[], now = Date.no
       const key = frontierItemIdentityKey(item);
       if (!accepted.has(key)) accepted.set(key, { item, score });
     }
-    if (!accepted.size) return [];
 
-    const transaction = db.transaction(STORE, 'readwrite');
-    const done = transactionDone(transaction);
-    const store = transaction.objectStore(STORE);
-    const newlyAccepted: FrontierItem[] = [];
-    for (const [key, { item, score }] of accepted) {
-      const previous = existing.get(key);
-      const record: FrontierCandidateRecord = previous
-        ? {
-            ...previous,
-            item,
-            validationScore: Math.max(previous.validationScore, score),
-          }
-        : {
-            key,
-            item,
-            discoveredAt: now,
-            validationScore: score,
-            lastOfferedAt: 0,
-            offerCount: 0,
-          };
-      store.put(record);
-      if (!previous) newlyAccepted.push(item);
+    if (accepted.size) {
+      const transaction = db.transaction(STORE, 'readwrite');
+      const done = transactionDone(transaction);
+      const store = transaction.objectStore(STORE);
+      for (const [key, { item, score }] of accepted) {
+        const previous = existing.get(key);
+        const record: FrontierCandidateRecord = previous
+          ? {
+              ...previous,
+              item,
+              validationScore: Math.max(previous.validationScore, score),
+            }
+          : {
+              key,
+              item,
+              discoveredAt: now,
+              validationScore: score,
+              lastOfferedAt: 0,
+              offerCount: 0,
+            };
+        store.put(record);
+      }
+      await done;
+      await prune(db, now);
     }
-    await done;
-    await prune(db, now);
-    return newlyAccepted;
+    return liveCandidates;
   } catch {
-    // Persistence is opportunistic. The caller may still broadcast strong live
-    // candidates when IndexedDB is unavailable, but weak material should not be
-    // promoted merely because persistence failed.
-    return unseen.filter((item) => frontierReservoirValidationScore(item) >= FRONTIER_RESERVOIR_MIN_VALIDATION);
+    // Persistence is opportunistic. Failure to maintain the durable shelf may
+    // not suppress otherwise valid real-time discoveries.
+    return unseen;
   }
 }
 
