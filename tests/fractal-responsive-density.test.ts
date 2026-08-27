@@ -231,7 +231,7 @@ test('destination obstacles reject straight, curved-control, and docking-corrido
   );
 });
 
-test('generated V17 canopy never enters destination halos or quiet docking corridors', () => {
+test('generated V17 canopy never enters global label halos or its own quiet docking corridor', () => {
   const fixtures: Array<{ morphology: FractalMorphologyId; dimensions: Dimensions }> = [
     { morphology: 'radial', dimensions: { width: 1440, height: 900 } },
     { morphology: 'coral', dimensions: { width: 896, height: 414 } },
@@ -251,9 +251,9 @@ test('generated V17 canopy never enters destination halos or quiet docking corri
     for (const path of paths) {
       for (const obstacle of obstacles) {
         assert.equal(
-          responsiveDensityPathViolatesObstacle(path.points, obstacle),
+          responsiveDensityPathViolatesObstacle(path.points, obstacle, obstacle.id === path.ownerId),
           false,
-          `${fixture.morphology} ${path.id} entered ${obstacle.id} clearance geometry`
+          `${fixture.morphology} ${path.id} entered ${obstacle.id} protected geometry`
         );
       }
     }
