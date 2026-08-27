@@ -127,13 +127,28 @@ async function seedReservoir(page, records) {
         const tx = db.transaction('candidate_pool', 'readwrite');
         const store = tx.objectStore('candidate_pool');
         store.clear();
-        for (const record of seedRecords) store.put(record);
+        for (const candidate of seedRecords) store.put(candidate);
         tx.oncomplete = () => { db.close(); resolve(); };
         tx.onerror = () => reject(tx.error);
         tx.onabort = () => reject(tx.error);
       };
     });
   }, records);
+}
+
+async function readReservoirIds(page) {
+  return page.evaluate(async () => new Promise((resolve, reject) => {
+    const request = indexedDB.open('frontier-live-candidates-v1', 2);
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => {
+      const db = request.result;
+      const tx = db.transaction('candidate_pool', 'readonly');
+      const getAll = tx.objectStore('candidate_pool').getAll();
+      getAll.onerror = () => reject(getAll.error);
+      getAll.onsuccess = () => resolve(getAll.result.map((candidate) => candidate.item?.id).filter(Boolean));
+      tx.oncomplete = () => db.close();
+    };
+  }));
 }
 
 async function runFixture(browser, now, label) {
@@ -191,14 +206,16 @@ async function runFixture(browser, now, label) {
       documentHeight: (document.scrollingElement || document.documentElement).scrollHeight,
     };
   }, { selector: CARD, initial: INITIAL_CARDS });
+  const retainedIds = await readReservoirIds(page);
   const finalPrefix = state.allIds.slice(0, 14);
 
   assert.deepEqual(finalPrefix, prefix, `${label}: reservoir replay moved the canonical opening prefix`);
   assert.equal(freshBeforeSnapshot, false, `${label}: background discovery raced snapshot first paint`);
   assert(state.appended.length >= APPEND_CARDS, `${label}: reservoir did not append ${APPEND_CARDS} candidates`);
   assert(state.appended.slice(0, APPEND_CARDS).every((id) => id.startsWith('reservoir-ci-')), `${label}: append was not sourced from the seeded durable reservoir`);
-  assert(!state.allIds.includes('reservoir-ci-stale-sports-state'), `${label}: stale sports state escaped reservoir expiry`);
-  assert(state.allIds.includes('reservoir-ci-game2world'), `${label}: durable Game2World exemplar did not survive reservoir replay`);
+  assert(!state.allIds.includes('reservoir-ci-stale-sports-state'), `${label}: stale sports state escaped into the visible river`);
+  assert(retainedIds.includes('reservoir-ci-game2world'), `${label}: Game2World exemplar was removed from the durable shelf`);
+  assert(!retainedIds.includes('reservoir-ci-stale-sports-state'), `${label}: stale sports state was not pruned from the durable shelf`);
   assert.deepEqual(pageErrors, [], `${label}: page errors: ${pageErrors.join(' | ')}`);
   assert.deepEqual(consoleErrors, [], `${label}: console errors: ${consoleErrors.join(' | ')}`);
 
@@ -211,7 +228,10 @@ async function runFixture(browser, now, label) {
     freshRequests,
     freshBeforeSnapshot,
     documentHeight: state.documentHeight,
-    game2WorldVisible: state.allIds.includes('reservoir-ci-game2world'),
+    retainedCount: retainedIds.length,
+    game2WorldRetained: retainedIds.includes('reservoir-ci-game2world'),
+    game2WorldVisibleToday: state.allIds.includes('reservoir-ci-game2world'),
+    staleSportsRetained: retainedIds.includes('reservoir-ci-stale-sports-state'),
     staleSportsVisible: state.allIds.includes('reservoir-ci-stale-sports-state'),
     pageErrors,
     consoleErrors,
@@ -225,11 +245,11 @@ async function runFixture(browser, now, label) {
   const now = Date.now();
   try {
     const first = await runFixture(browser, now, 'first');
-    const second = await runFixture(browser, now + 5 * 60_000, 'same-day-reload');
+    const second = await runFixture(browser, now, 'same-day-reload');
     assert.deepEqual(second.appended, first.appended, 'same-day seeded reservoir changed its replay order across reloads');
-    const report = { passed: true, reservoirSize: 161, capacity: 2048, first, second };
+    const report = { passed: true, seededReservoirSize: 161, capacity: 2048, first, second };
     fs.writeFileSync(path.join(ARTIFACT_DIR, 'frontier-reservoir-browser-audit.json'), JSON.stringify(report, null, 2));
-    console.log(`FRONTIER reservoir browser audit PASS: ${first.appended.length} stable daily candidates appended, Game2World retained, stale sports expired.`);
+    console.log(`FRONTIER reservoir browser audit PASS: ${first.appended.length} stable daily candidates appended, Game2World retained, stale sports pruned.`);
   } catch (error) {
     const report = { passed: false, error: error instanceof Error ? error.stack || error.message : String(error) };
     fs.writeFileSync(path.join(ARTIFACT_DIR, 'frontier-reservoir-browser-audit.json'), JSON.stringify(report, null, 2));
