@@ -2,7 +2,11 @@
 
 import { useEffect } from 'react';
 import { buildAdaptiveFractalTree, type FractalTree } from '@/lib/home/fractalDendrite';
-import { buildResponsiveDensityPaths } from '@/lib/home/fractalResponsiveDensity';
+import {
+  buildResponsiveDensityObstacle,
+  buildResponsiveDensityPaths,
+  type ResponsiveDensityObstacle,
+} from '@/lib/home/fractalResponsiveDensity';
 import { VISUAL_LIMITS } from './visualLimits';
 
 const DESTINATION_IDS = [
@@ -16,6 +20,8 @@ const DESTINATION_IDS = [
   'papers',
 ];
 
+const PRIORITY_CLEARANCE_IDS = new Set(['frontier', 'research', 'visuals']);
+
 function resolvedTree(root: HTMLElement, width: number, height: number): FractalTree | null {
   const seed = root.dataset.fractalSeed;
   const morphology = root.dataset.fractalMorphology;
@@ -27,6 +33,60 @@ function resolvedTree(root: HTMLElement, width: number, height: number): Fractal
     tree = buildAdaptiveFractalTree({ width, height }, `force:${morphology}:${entropy}`, DESTINATION_IDS);
   }
   return tree;
+}
+
+function measuredDestinationObstacles(
+  root: HTMLElement,
+  tree: FractalTree,
+  width: number,
+  height: number
+): ResponsiveDensityObstacle[] {
+  const rootRect = root.getBoundingClientRect();
+  const shortWide = height < 700 && width / Math.max(1, height) > 1.35;
+  const compact = width < 720;
+
+  return Array.from(root.querySelectorAll<HTMLElement>('[data-dendrite-destination]')).flatMap((element) => {
+    const id = element.dataset.dendriteDestination;
+    if (!id || !DESTINATION_IDS.includes(id)) return [];
+    const rect = element.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) return [];
+
+    const priority = PRIORITY_CLEARANCE_IDS.has(id);
+    const paddingX = priority ? (compact ? 20 : 28) : compact ? 16 : 22;
+    const paddingY = priority ? (shortWide ? 13 : 18) : shortWide ? 11 : 15;
+    const corridorLength = priority
+      ? shortWide
+        ? 76
+        : compact
+          ? 82
+          : 108
+      : shortWide
+        ? 64
+        : compact
+          ? 72
+          : 90;
+    const corridorHalfWidth = priority ? (compact ? 18 : 24) : compact ? 15 : 20;
+
+    return [
+      buildResponsiveDensityObstacle(
+        id,
+        {
+          left: rect.left - rootRect.left,
+          top: rect.top - rootRect.top,
+          right: rect.right - rootRect.left,
+          bottom: rect.bottom - rootRect.top,
+        },
+        tree.center,
+        {
+          paddingX,
+          paddingY,
+          corridorLength,
+          corridorHalfWidth,
+          repelDistance: corridorLength + (priority ? 138 : 112),
+        }
+      ),
+    ];
+  });
 }
 
 function ensureCanvas(root: HTMLElement, current: HTMLCanvasElement | null): HTMLCanvasElement {
@@ -80,6 +140,7 @@ export function FractalInteriorDensityV17() {
     let canvas: HTMLCanvasElement | null = null;
     let resizeObserver: ResizeObserver | null = null;
     let mutationObserver: MutationObserver | null = null;
+    const observedDestinationNodes = new Set<Element>();
 
     const render = () => {
       animationFrame = 0;
@@ -93,7 +154,20 @@ export function FractalInteriorDensityV17() {
       const tree = resolvedTree(root, width, height);
       if (!tree) return;
       const seed = root.dataset.fractalSeed ?? 'density-v17';
-      const paths = buildResponsiveDensityPaths(tree, { width, height }, seed);
+
+      if (resizeObserver) {
+        for (const destination of root.querySelectorAll<HTMLElement>('[data-dendrite-destination]')) {
+          if (observedDestinationNodes.has(destination)) continue;
+          observedDestinationNodes.add(destination);
+          resizeObserver.observe(destination);
+        }
+      }
+
+      const obstacles = measuredDestinationObstacles(root, tree, width, height);
+      const destinationsReady = obstacles.length === DESTINATION_IDS.length;
+      const paths = destinationsReady
+        ? buildResponsiveDensityPaths(tree, { width, height }, seed, obstacles)
+        : [];
 
       canvas = ensureCanvas(root, canvas);
       const dpr = Math.min(window.devicePixelRatio || 1, VISUAL_LIMITS.dprCap);
@@ -110,6 +184,8 @@ export function FractalInteriorDensityV17() {
 
       root.dataset.fractalInteriorDensity = paths.length > 0 ? 'adaptive-canopy-v17' : 'native-density-v17';
       root.dataset.fractalInteriorPathCount = String(paths.length);
+      root.dataset.fractalDestinationObstacleCount = String(obstacles.length);
+      root.dataset.fractalDestinationClearance = destinationsReady ? 'hard-exclusion-v17' : 'measuring-v17';
     };
 
     const schedule = () => {
@@ -141,6 +217,7 @@ export function FractalInteriorDensityV17() {
       if (settleFrame) cancelAnimationFrame(settleFrame);
       resizeObserver?.disconnect();
       mutationObserver?.disconnect();
+      observedDestinationNodes.clear();
       window.removeEventListener('resize', schedule);
       window.visualViewport?.removeEventListener('resize', schedule);
       canvas?.remove();
