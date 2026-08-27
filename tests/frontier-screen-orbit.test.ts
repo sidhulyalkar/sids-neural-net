@@ -36,6 +36,16 @@ function item(id: string, title: string, lane: FrontierItem['lane'] = 'screen', 
   };
 }
 
+function syntheticSource(entry: FrontierItem, host: string): FrontierItem {
+  return {
+    ...entry,
+    url: `https://${host}/${entry.id}`,
+    source: host,
+    sourceLabel: host,
+    sourceKind: 'local',
+  };
+}
+
 test('screen catalog preserves the complete supplied anime and Netflix lists', () => {
   assert.equal(FRONTIER_ANIME_FAVORITES.length, 43);
   assert.equal(FRONTIER_NETFLIX_SCREEN_FAVORITES.length, 48);
@@ -89,10 +99,13 @@ test('screen taste participates in the same personalized prior as technical and 
   assert.ok(personalTasteRankingPrior(exact) > personalTasteRankingPrior(adjacent));
 });
 
-test('production-sized daily run reserves Screen Orbit independently of gaming and internet culture', () => {
+test('high-fit Screen Orbit remains competitive inside adaptive culture composition', () => {
   const at = new Date('2026-08-24T06:00:00.000Z');
   const screenCard = item('screen-isolated', 'Re:ZERO anniversary and season update', 'screen', ['anime', 're zero']);
-  const importantCard = item('important', 'Major security release', 'must_know', ['security']);
+  const importantCard = syntheticSource(
+    item('important', 'Major security release', 'must_know', ['security']),
+    'security.frontier.test',
+  );
 
   assert.equal(screenCard.lane, 'screen');
 
@@ -109,16 +122,17 @@ test('production-sized daily run reserves Screen Orbit independently of gaming a
     `Screen Orbit disappeared beside Must Know: [${screenPlusImportant.map((entry) => `${entry.id}:${entry.lane}`).join(', ')}]`,
   );
 
-  // Use a fresh object here so any accidental selection-time mutation of the
-  // isolated probe above cannot make the production-sized assertion ambiguous.
   const productionScreenCard = item('screen', 'Re:ZERO anniversary and season update', 'screen', ['anime', 're zero']);
   const ranked = [
     importantCard,
-    item('learn', 'Neural decoding benchmark', 'neuro_frontier', ['neural decoding']),
-    item('game', 'New metroidvania release', 'gaming', ['metroidvania']),
-    item('internet', 'Funny internet clip', 'internet_culture', ['meme']),
+    syntheticSource(item('learn', 'Neural decoding benchmark', 'neuro_frontier', ['neural decoding']), 'research.frontier.test'),
+    syntheticSource(item('game', 'New metroidvania release', 'gaming', ['metroidvania']), 'games.frontier.test'),
+    syntheticSource(item('internet', 'Funny internet clip', 'internet_culture', ['meme']), 'culture.frontier.test'),
     productionScreenCard,
-    ...Array.from({ length: 44 }, (_, index) => item(`filler-${index}`, `Filler ${index}`, 'wildcards', [`filler-${index}`])),
+    ...Array.from({ length: 44 }, (_, index) => syntheticSource(
+      item(`filler-${index}`, `Filler ${index}`, 'wildcards', [`filler-${index}`]),
+      `filler-${index}.frontier.test`,
+    )),
   ];
   const canonical = selectDailyRun(ranked, {}, 14, at);
   const expanded = selectDailyRun(ranked, {}, 48, at);
