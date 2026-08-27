@@ -41,22 +41,21 @@ for (const fixture of cases) {
     { waitUntil: 'networkidle' }
   );
 
+  // Readiness deliberately waits only for the actual requested morphology and
+  // V17 canvas. Final density, measured-obstacle, and clearance conditions are
+  // assertions below, not prerequisites here, so a failure produces useful
+  // metrics and screenshots instead of an opaque waitForFunction timeout.
   await page.waitForFunction(
-    ({ morphology, minPaths }) => {
+    (morphology) => {
       const root = document.querySelector('[data-fractal-morphology]');
-      const count = Number(root?.getAttribute('data-fractal-interior-path-count') || 0);
       return (
         root?.getAttribute('data-fractal-morphology') === morphology &&
-        root?.getAttribute('data-fractal-interior-density') === 'adaptive-canopy-v17' &&
-        root?.getAttribute('data-fractal-destination-clearance') === 'hard-exclusion-v17' &&
-        Number(root?.getAttribute('data-fractal-destination-obstacle-count') || 0) === 8 &&
-        count >= minPaths &&
         document.querySelector('[data-fractal-interior-density="v17"]') instanceof HTMLCanvasElement
       );
     },
-    { morphology: fixture.morphology, minPaths: fixture.minPaths }
+    fixture.morphology
   );
-  await page.waitForTimeout(120);
+  await page.waitForTimeout(500);
 
   const metrics = await page.evaluate(() => {
     const root = document.querySelector('[data-fractal-morphology]');
