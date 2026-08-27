@@ -25,7 +25,7 @@ type CandidateMeta = {
   index: number;
   family: FrontierEditorialFamily;
   realm: FrontierRealm;
-  host: string;
+  sourceBucket: string;
   taste: number;
   utility: number;
 };
@@ -35,7 +35,7 @@ type SelectionState = {
   used: Set<string>;
   familyCounts: Map<FrontierEditorialFamily, number>;
   laneCounts: Map<FrontierLaneId, number>;
-  hostCounts: Map<string, number>;
+  sourceCounts: Map<string, number>;
   realmCounts: Map<FrontierRealm, number>;
 };
 
@@ -50,7 +50,7 @@ const FAMILIES: FrontierEditorialFamily[] = [
 
 const MAX_FAMILY_SHARE = 0.38;
 const MAX_LANE_SHARE = 0.24;
-const MAX_HOST_ITEMS = 2;
+const MAX_SOURCE_BUCKET_ITEMS = 2;
 const EXPLICIT_TASTE_THRESHOLD = 0.04;
 
 function clamp(value: number, min = 0, max = 1): number {
@@ -93,11 +93,45 @@ export function frontierEditorialFamily(item: FrontierItem): FrontierEditorialFa
   }
 }
 
-function sourceHost(item: FrontierItem): string {
+function normalizedSourceLabel(item: FrontierItem): string {
+  return item.sourceLabel.trim().toLowerCase().replace(/\s+/g, ' ');
+}
+
+/**
+ * A publisher hostname is usually the right diversity identity, but platforms
+ * are ecosystems rather than single editorial desks. Bucket those by a stable
+ * sub-source when the URL/provenance exposes one so "two per source" does not
+ * accidentally mean "two GitHub repositories on the entire page".
+ */
+export function frontierSourceBucket(item: FrontierItem): string {
   try {
-    return new URL(item.url).hostname.replace(/^www\./, '');
+    const url = new URL(item.url);
+    const host = url.hostname.replace(/^www\./, '').toLowerCase();
+    const path = url.pathname.split('/').filter(Boolean);
+
+    if (host === 'github.com' && path[0]) return `github.com/${path[0].toLowerCase()}`;
+    if (host === 'huggingface.co' && path[0]) return `huggingface.co/${path[0].toLowerCase()}`;
+
+    if (host === 'youtube.com' || host === 'youtu.be') {
+      const label = normalizedSourceLabel(item);
+      if (label && !['youtube', 'youtube.com'].includes(label)) return `youtube:${label}`;
+      return 'youtube';
+    }
+
+    if (host === 'reddit.com' || host.endsWith('.reddit.com')) {
+      const subreddit = normalizedSourceLabel(item).match(/^r\/([^\s/]+)/)?.[1];
+      return subreddit ? `reddit:r/${subreddit}` : 'reddit';
+    }
+
+    if (item.sourceKind === 'steam' && path.length) {
+      const appIndex = path.findIndex((segment) => segment === 'app');
+      const appId = appIndex >= 0 ? path[appIndex + 1] : undefined;
+      if (appId) return `steam:app/${appId}`;
+    }
+
+    return host || item.source.toLowerCase();
   } catch {
-    return item.source;
+    return item.source.toLowerCase();
   }
 }
 
@@ -138,7 +172,7 @@ function prepareCandidates(ranked: FrontierItem[]): CandidateMeta[] {
       index,
       family: frontierEditorialFamily(item),
       realm: FRONTIER_LANE_MAP[item.lane].realm,
-      host: sourceHost(item),
+      sourceBucket: frontierSourceBucket(item),
       taste,
       utility: utilityFromEvidence(item, index, taste),
     };
@@ -146,13 +180,13 @@ function prepareCandidates(ranked: FrontierItem[]): CandidateMeta[] {
 }
 
 function familyDemand(candidates: CandidateMeta[], family: FrontierEditorialFamily): number {
-  const uniqueHosts = new Set<string>();
+  const distinctSources = new Set<string>();
   const samples: number[] = [];
 
   for (const candidate of candidates) {
     if (samples.length >= 3) break;
-    if (candidate.family !== family || uniqueHosts.has(candidate.host)) continue;
-    uniqueHosts.add(candidate.host);
+    if (candidate.family !== family || distinctSources.has(candidate.sourceBucket)) continue;
+    distinctSources.add(candidate.sourceBucket);
     samples.push(candidate.utility);
   }
 
@@ -203,7 +237,7 @@ function createSelectionState(): SelectionState {
     used: new Set<string>(),
     familyCounts: new Map(),
     laneCounts: new Map(),
-    hostCounts: new Map(),
+    sourceCounts: new Map(),
     realmCounts: new Map(),
   };
 }
@@ -214,7 +248,7 @@ function addCandidate(state: SelectionState, candidate: CandidateMeta | undefine
   state.used.add(candidate.item.id);
   state.familyCounts.set(candidate.family, count(state.familyCounts, candidate.family) + 1);
   state.laneCounts.set(candidate.item.lane, count(state.laneCounts, candidate.item.lane) + 1);
-  state.hostCounts.set(candidate.host, count(state.hostCounts, candidate.host) + 1);
+  state.sourceCounts.set(candidate.sourceBucket, count(state.sourceCounts, candidate.sourceBucket) + 1);
   state.realmCounts.set(candidate.realm, count(state.realmCounts, candidate.realm) + 1);
 }
 
@@ -230,7 +264,7 @@ function bestEligible(
   let winner: { candidate: CandidateMeta; score: number } | undefined;
 
   for (const candidate of candidates) {
-    const { item, family, host, taste } = candidate;
+    const { item, family, sourceBucket, taste } = candidate;
     if (state.used.has(item.id)) continue;
     if (realm && candidate.realm !== realm) continue;
 
@@ -240,8 +274,8 @@ function bestEligible(
     const sameLane = count(state.laneCounts, item.lane);
     if (sameLane >= laneCap) continue;
 
-    const sameHost = count(state.hostCounts, host);
-    if (sameHost >= MAX_HOST_ITEMS) continue;
+    const sameSource = count(state.sourceCounts, sourceBucket);
+    if (sameSource >= MAX_SOURCE_BUCKET_ITEMS) continue;
 
     // Generic AI gets one easy slot, then must compete as genuinely personalized
     // material. Strong/important AI is not subject to this special brake.
@@ -259,7 +293,7 @@ function bestEligible(
       + deficit * 0.72
       + unseenFamily
       - sameLane * 0.065
-      - sameHost * 0.09;
+      - sameSource * 0.09;
 
     if (!winner || score > winner.score) winner = { candidate, score };
   }
