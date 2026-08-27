@@ -1,6 +1,6 @@
 import { FRONTIER_LANE_MAP } from './config';
 import { personalTasteRankingPrior } from './personalTaste';
-import type { FrontierItem } from './types';
+import type { FrontierItem, FrontierLaneId } from './types';
 
 export type FrontierEditorialFamily =
   | 'consequential'
@@ -16,6 +16,27 @@ export type FrontierSlateFamilyDiagnostic = {
   targetShare: number;
   selected: number;
   realizedShare: number;
+};
+
+type FrontierRealm = 'learn' | 'play';
+
+type CandidateMeta = {
+  item: FrontierItem;
+  index: number;
+  family: FrontierEditorialFamily;
+  realm: FrontierRealm;
+  host: string;
+  taste: number;
+  utility: number;
+};
+
+type SelectionState = {
+  selected: CandidateMeta[];
+  used: Set<string>;
+  familyCounts: Map<FrontierEditorialFamily, number>;
+  laneCounts: Map<FrontierLaneId, number>;
+  hostCounts: Map<string, number>;
+  realmCounts: Map<FrontierRealm, number>;
 };
 
 const FAMILIES: FrontierEditorialFamily[] = [
@@ -34,6 +55,10 @@ const EXPLICIT_TASTE_THRESHOLD = 0.04;
 
 function clamp(value: number, min = 0, max = 1): number {
   return Math.min(max, Math.max(min, value));
+}
+
+function count<K>(map: Map<K, number>, key: K): number {
+  return map.get(key) ?? 0;
 }
 
 export function frontierEditorialFamily(item: FrontierItem): FrontierEditorialFamily {
@@ -83,8 +108,7 @@ function rankSignal(index: number): number {
   return 1 / (1 + index * 0.11);
 }
 
-function candidateUtility(item: FrontierItem, index: number): number {
-  const taste = personalTasteRankingPrior(item);
+function utilityFromEvidence(item: FrontierItem, index: number, taste: number): number {
   const genericLeisurePenalty = ['life', 'internet_culture', 'wildcards'].includes(item.lane)
     && taste <= EXPLICIT_TASTE_THRESHOLD
     ? 0.12
@@ -104,17 +128,32 @@ function candidateUtility(item: FrontierItem, index: number): number {
   );
 }
 
-function familyDemand(ranked: FrontierItem[], family: FrontierEditorialFamily): number {
+function prepareCandidates(ranked: FrontierItem[]): CandidateMeta[] {
+  // Personal-taste classification performs semantic pattern matching. Compute it
+  // exactly once per candidate rather than inside every allocation scan.
+  return ranked.map((item, index) => {
+    const taste = personalTasteRankingPrior(item);
+    return {
+      item,
+      index,
+      family: frontierEditorialFamily(item),
+      realm: FRONTIER_LANE_MAP[item.lane].realm,
+      host: sourceHost(item),
+      taste,
+      utility: utilityFromEvidence(item, index, taste),
+    };
+  });
+}
+
+function familyDemand(candidates: CandidateMeta[], family: FrontierEditorialFamily): number {
   const uniqueHosts = new Set<string>();
   const samples: number[] = [];
 
-  for (let index = 0; index < ranked.length && samples.length < 3; index += 1) {
-    const item = ranked[index];
-    if (frontierEditorialFamily(item) !== family) continue;
-    const host = sourceHost(item);
-    if (uniqueHosts.has(host)) continue;
-    uniqueHosts.add(host);
-    samples.push(candidateUtility(item, index));
+  for (const candidate of candidates) {
+    if (samples.length >= 3) break;
+    if (candidate.family !== family || uniqueHosts.has(candidate.host)) continue;
+    uniqueHosts.add(candidate.host);
+    samples.push(candidate.utility);
   }
 
   if (!samples.length) return 0;
@@ -122,12 +161,16 @@ function familyDemand(ranked: FrontierItem[], family: FrontierEditorialFamily): 
   return samples.reduce((sum, value, index) => sum + value * weights[index], 0);
 }
 
-function familyTargets(ranked: FrontierItem[]): Record<FrontierEditorialFamily, number> {
-  const demand = Object.fromEntries(
-    FAMILIES.map((family) => [family, familyDemand(ranked, family)])
+function familyDemands(candidates: CandidateMeta[]): Record<FrontierEditorialFamily, number> {
+  return Object.fromEntries(
+    FAMILIES.map((family) => [family, familyDemand(candidates, family)])
   ) as Record<FrontierEditorialFamily, number>;
-  const total = Object.values(demand).reduce((sum, value) => sum + value, 0);
+}
 
+function familyTargetsFromDemand(
+  demand: Record<FrontierEditorialFamily, number>,
+): Record<FrontierEditorialFamily, number> {
+  const total = Object.values(demand).reduce((sum, value) => sum + value, 0);
   if (!total) {
     return Object.fromEntries(FAMILIES.map((family) => [family, 0])) as Record<FrontierEditorialFamily, number>;
   }
@@ -154,45 +197,54 @@ function familyTargets(ranked: FrontierItem[]): Record<FrontierEditorialFamily, 
   })) as Record<FrontierEditorialFamily, number>;
 }
 
-function selectedCount(selected: FrontierItem[], family: FrontierEditorialFamily): number {
-  return selected.filter((item) => frontierEditorialFamily(item) === family).length;
+function createSelectionState(): SelectionState {
+  return {
+    selected: [],
+    used: new Set<string>(),
+    familyCounts: new Map(),
+    laneCounts: new Map(),
+    hostCounts: new Map(),
+    realmCounts: new Map(),
+  };
 }
 
-function hasRealm(selected: FrontierItem[], realm: 'learn' | 'play'): boolean {
-  return selected.some((item) => FRONTIER_LANE_MAP[item.lane].realm === realm);
+function addCandidate(state: SelectionState, candidate: CandidateMeta | undefined): void {
+  if (!candidate || state.used.has(candidate.item.id)) return;
+  state.selected.push(candidate);
+  state.used.add(candidate.item.id);
+  state.familyCounts.set(candidate.family, count(state.familyCounts, candidate.family) + 1);
+  state.laneCounts.set(candidate.item.lane, count(state.laneCounts, candidate.item.lane) + 1);
+  state.hostCounts.set(candidate.host, count(state.hostCounts, candidate.host) + 1);
+  state.realmCounts.set(candidate.realm, count(state.realmCounts, candidate.realm) + 1);
 }
 
 function bestEligible(
-  ranked: FrontierItem[],
-  selected: FrontierItem[],
-  used: Set<string>,
+  candidates: CandidateMeta[],
+  state: SelectionState,
   limit: number,
   targetShare: Record<FrontierEditorialFamily, number>,
-  realm?: 'learn' | 'play',
-): FrontierItem | undefined {
+  realm?: FrontierRealm,
+): CandidateMeta | undefined {
   const laneCap = Math.max(2, Math.ceil(limit * MAX_LANE_SHARE));
   const familyCap = Math.max(2, Math.ceil(limit * MAX_FAMILY_SHARE));
-  let winner: { item: FrontierItem; score: number } | undefined;
+  let winner: { candidate: CandidateMeta; score: number } | undefined;
 
-  for (let index = 0; index < ranked.length; index += 1) {
-    const item = ranked[index];
-    if (used.has(item.id)) continue;
-    if (realm && FRONTIER_LANE_MAP[item.lane].realm !== realm) continue;
+  for (const candidate of candidates) {
+    const { item, family, host, taste } = candidate;
+    if (state.used.has(item.id)) continue;
+    if (realm && candidate.realm !== realm) continue;
 
-    const family = frontierEditorialFamily(item);
-    const familyCount = selectedCount(selected, family);
+    const familyCount = count(state.familyCounts, family);
     if (familyCount >= familyCap) continue;
 
-    const sameLane = selected.filter((candidate) => candidate.lane === item.lane).length;
+    const sameLane = count(state.laneCounts, item.lane);
     if (sameLane >= laneCap) continue;
 
-    const host = sourceHost(item);
-    const sameHost = selected.filter((candidate) => sourceHost(candidate) === host).length;
+    const sameHost = count(state.hostCounts, host);
     if (sameHost >= MAX_HOST_ITEMS) continue;
 
     // Generic AI gets one easy slot, then must compete as genuinely personalized
     // material. Strong/important AI is not subject to this special brake.
-    const taste = personalTasteRankingPrior(item);
     if (
       item.lane === 'ai_frontier'
       && taste <= EXPLICIT_TASTE_THRESHOLD
@@ -200,46 +252,37 @@ function bestEligible(
       && sameLane >= 1
     ) continue;
 
-    const currentShare = selected.length ? familyCount / selected.length : 0;
+    const currentShare = state.selected.length ? familyCount / state.selected.length : 0;
     const deficit = Math.max(0, targetShare[family] - currentShare);
     const unseenFamily = familyCount === 0 ? 0.105 : 0;
-    const laneRepeatPenalty = sameLane * 0.065;
-    const hostRepeatPenalty = sameHost * 0.09;
-    const score = candidateUtility(item, index)
+    const score = candidate.utility
       + deficit * 0.72
       + unseenFamily
-      - laneRepeatPenalty
-      - hostRepeatPenalty;
+      - sameLane * 0.065
+      - sameHost * 0.09;
 
-    if (!winner || score > winner.score) winner = { item, score };
+    if (!winner || score > winner.score) winner = { candidate, score };
   }
 
-  return winner?.item;
-}
-
-function add(selected: FrontierItem[], used: Set<string>, item: FrontierItem | undefined): void {
-  if (!item || used.has(item.id)) return;
-  selected.push(item);
-  used.add(item.id);
+  return winner?.candidate;
 }
 
 export function selectAdaptiveDailyAllocation(ranked: FrontierItem[], limit: number): FrontierItem[] {
   const boundedLimit = Math.max(0, Math.floor(limit));
   if (!boundedLimit || !ranked.length) return [];
 
-  const selected: FrontierItem[] = [];
-  const used = new Set<string>();
-  const targets = familyTargets(ranked);
+  const candidates = prepareCandidates(ranked);
+  const state = createSelectionState();
+  const targets = familyTargetsFromDemand(familyDemands(candidates));
 
   // One truly consequential signal is an editorial interrupt, not a taste quota.
   // It may cross the personalization bubble, but only one gets this authority.
-  const consequential = ranked.find((item) => item.lane === 'must_know' || item.importance >= 0.82);
-  add(selected, used, consequential);
+  addCandidate(state, candidates.find(({ item }) => item.lane === 'must_know' || item.importance >= 0.82));
 
   // Live sports state is utility. Preserve at most one compact state signal in a
   // normal finite run, but do not let it force out the only other realm in a tiny run.
-  if (selected.length < boundedLimit && boundedLimit >= 5) {
-    add(selected, used, ranked.find((item) => item.sourceKind === 'sports_state' || Boolean(item.sportsState)));
+  if (state.selected.length < boundedLimit && boundedLimit >= 5) {
+    addCandidate(state, candidates.find(({ item }) => item.sourceKind === 'sports_state' || Boolean(item.sportsState)));
   }
 
   // Broad realm coverage is a product invariant. Micro-topics are not. Once the
@@ -247,33 +290,41 @@ export function selectAdaptiveDailyAllocation(ranked: FrontierItem[], limit: num
   // a chance if qualified supply exists, then let learned demand own the rest.
   if (boundedLimit >= 4) {
     for (const realm of ['learn', 'play'] as const) {
-      if (selected.length >= boundedLimit || hasRealm(selected, realm)) continue;
-      add(selected, used, bestEligible(ranked, selected, used, boundedLimit, targets, realm));
+      if (state.selected.length >= boundedLimit || count(state.realmCounts, realm) > 0) continue;
+      addCandidate(state, bestEligible(candidates, state, boundedLimit, targets, realm));
     }
   }
 
-  while (selected.length < boundedLimit) {
-    const next = bestEligible(ranked, selected, used, boundedLimit, targets);
+  while (state.selected.length < boundedLimit) {
+    const next = bestEligible(candidates, state, boundedLimit, targets);
     if (!next) break;
-    add(selected, used, next);
+    addCandidate(state, next);
   }
 
-  return selected;
+  return state.selected.map(({ item }) => item);
 }
 
 export function slateCompositionDiagnostics(
   ranked: FrontierItem[],
   selected: FrontierItem[],
 ): FrontierSlateFamilyDiagnostic[] {
-  const targets = familyTargets(ranked);
+  const candidates = prepareCandidates(ranked);
+  const demand = familyDemands(candidates);
+  const targets = familyTargetsFromDemand(demand);
+  const selectedCounts = new Map<FrontierEditorialFamily, number>();
+  for (const item of selected) {
+    const family = frontierEditorialFamily(item);
+    selectedCounts.set(family, count(selectedCounts, family) + 1);
+  }
+
   return FAMILIES.map((family) => {
-    const count = selectedCount(selected, family);
+    const selectedCount = count(selectedCounts, family);
     return {
       family,
-      demand: familyDemand(ranked, family),
+      demand: demand[family],
       targetShare: targets[family],
-      selected: count,
-      realizedShare: selected.length ? count / selected.length : 0,
+      selected: selectedCount,
+      realizedShare: selected.length ? selectedCount / selected.length : 0,
     };
   });
 }
