@@ -97,21 +97,20 @@ function dailyUtility(record: FrontierReservoirCandidate, now: number, dayKey: s
   const remainingFreshness = 1 - normalizedAge;
   const tasteCompass = Math.max(0, personalTasteRankingPrior(record.item));
   const random = unitNoise(`${dayKey}:${record.key}`);
-  const fatigue = Math.min(0.08, record.offerCount * 0.006);
   return (
     record.validationScore * 0.55
     + remainingFreshness * 0.16
     + tasteCompass * 0.8
     + random * 0.2
-    - fatigue
   );
 }
 
 /**
  * Produce one stable daily cross-section from the durable shelf. The same local
- * day always yields the same order, so background polling cannot reshuffle the
- * feed. The next day receives a new bounded random draw. Lane/source caps keep
- * a large paper reservoir from swallowing games, sports, music, or visual work.
+ * day always yields the same order, so background polling and repeated reads
+ * cannot reshuffle the feed. The next day receives a new bounded random draw.
+ * Lane/source caps keep a large paper reservoir from swallowing games, sports,
+ * music, or visual work.
  */
 export function sampleFrontierReservoirForDay(
   records: FrontierReservoirCandidate[],
@@ -127,6 +126,7 @@ export function sampleFrontierReservoirForDay(
     .sort((left, right) => right.utility - left.utility || left.record.key.localeCompare(right.record.key));
 
   const selected: FrontierReservoirCandidate[] = [];
+  const selectedKeys = new Set<string>();
   const laneCounts = new Map<string, number>();
   const hostCounts = new Map<string, number>();
   const laneCap = Math.max(3, Math.ceil(boundedLimit * 0.2));
@@ -135,13 +135,14 @@ export function sampleFrontierReservoirForDay(
   const takePass = (relaxLaneCap: boolean) => {
     for (const { record } of eligible) {
       if (selected.length >= boundedLimit) break;
-      if (selected.some((candidate) => candidate.key === record.key)) continue;
+      if (selectedKeys.has(record.key)) continue;
       const laneCount = laneCounts.get(record.item.lane) ?? 0;
       const host = sourceHost(record.item);
       const hostCount = hostCounts.get(host) ?? 0;
       if (!relaxLaneCap && laneCount >= laneCap) continue;
       if (hostCount >= hostCap) continue;
       selected.push(record);
+      selectedKeys.add(record.key);
       laneCounts.set(record.item.lane, laneCount + 1);
       hostCounts.set(host, hostCount + 1);
     }
