@@ -14,6 +14,7 @@ import type {
 const MAX_TOPICS = 96;
 const SESSION_GAP_MS = 30 * 60_000;
 const DAY_MS = 86_400_000;
+const PREFERENCE_PRIOR = 2.4;
 
 export function emptyAggregate(): FrontierBehaviorAggregate {
   return { shown: 0, dwelled: 0, expanded: 0, opened: 0, saved: 0, positive: 0, negative: 0, dwellMs: 0 };
@@ -180,30 +181,76 @@ export function recordViewUse(model: FrontierBehaviorModel, view: FrontierView):
   return { ...model, viewUses: { ...model.viewUses, [view]: model.viewUses[view] + 1 }, lastActiveAt: new Date().toISOString() };
 }
 
+type PreferenceEvidence = {
+  positive: number;
+  negative: number;
+  quietMisses: number;
+  dwellUnits: number;
+  total: number;
+};
+
+/**
+ * Convert heterogeneous behavior into bounded pseudo-counts. Strong explicit
+ * actions carry more authority than dwell, while a quiet impression is only
+ * weak negative evidence after repeated exposure. This prevents both one-click
+ * overfitting and "I scrolled past it once" punishment.
+ */
+function preferenceEvidence(aggregate: FrontierBehaviorAggregate): PreferenceEvidence {
+  const shown = Math.max(0, aggregate.shown);
+  const dwellUnits = Math.min(Math.max(1, shown) * 1.25, aggregate.dwellMs / 12_000);
+  const positive =
+    dwellUnits * 0.45
+    + aggregate.expanded * 0.7
+    + aggregate.opened * 1.4
+    + aggregate.saved * 2.2
+    + aggregate.positive * 2.5;
+  const explicitNegative = aggregate.negative * 2.8;
+  const resolved = Math.min(
+    shown,
+    dwellUnits + aggregate.expanded + aggregate.opened + aggregate.saved + aggregate.positive + aggregate.negative
+  );
+  const unresolved = Math.max(0, shown - resolved);
+  // Silent non-engagement only becomes evidence after enough opportunities.
+  // Its authority grows slowly and is capped far below an explicit dislike.
+  const quietWeight = shown < 10 ? 0 : Math.min(0.1, 0.025 + (shown - 10) * 0.004);
+  const quietMisses = unresolved * quietWeight;
+  const negative = explicitNegative + quietMisses;
+  return { positive, negative, quietMisses, dwellUnits, total: positive + negative };
+}
+
+/**
+ * Empirical-Bayes preference estimate.
+ *
+ * A symmetric prior shrinks low-support observations toward neutral. Confidence
+ * grows with both exposure and meaningful evidence, and decays as an old habit
+ * stops receiving fresh support. The score remains inspectable in [-1, 1.2].
+ */
 export function aggregatePreference(
   aggregate?: FrontierBehaviorAggregate,
   date = new Date()
 ): { score: number; confidence: number } {
   if (!aggregate) return { score: 0, confidence: 0 };
-  const shown = Math.max(1, aggregate.shown);
-  // Twelve seconds of genuine viewport attention is roughly one soft engagement
-  // unit. Dwell is capped by impressions so a forgotten background tab cannot
-  // overwhelm explicit votes, saves, or opens.
-  const dwellUnits = Math.min(shown * 1.25, aggregate.dwellMs / 12_000);
-  const directEvidence = dwellUnits * 0.65 + aggregate.expanded + aggregate.opened * 2 + aggregate.saved * 3 + aggregate.positive * 3 + aggregate.negative * 3;
-  if (aggregate.shown < 2 && directEvidence < 2.5) return { score: 0, confidence: 0 };
+  const evidence = preferenceEvidence(aggregate);
+  if (aggregate.shown < 2 && evidence.total < 2.5) return { score: 0, confidence: 0 };
 
-  const engaged = dwellUnits * 0.42 + aggregate.expanded * 0.48 + aggregate.opened * 0.82 + aggregate.saved * 1.05 + aggregate.positive * 1.15;
-  const negative = aggregate.negative * 1.25;
-  const positiveRate = (engaged - negative) / shown;
-  const resolvedEngagements = Math.min(shown, dwellUnits + aggregate.expanded + aggregate.opened + aggregate.saved + aggregate.positive);
-  const quietSkipRate = Math.max(0, (shown - resolvedEngagements) / shown - 0.8);
-  const skipPenalty = shown >= 12 ? quietSkipRate * 0.28 : 0;
-  const score = Math.max(-1, Math.min(1.2, positiveRate - skipPenalty));
-  const evidence = aggregate.shown + Math.min(6, dwellUnits) + aggregate.opened * 2 + aggregate.saved * 3 + aggregate.positive * 3 + aggregate.negative * 3;
-  const ageDays = aggregate.lastAt ? Math.max(0, (date.getTime() - new Date(aggregate.lastAt).getTime()) / DAY_MS) : 0;
-  const recency = Math.max(0.35, Math.exp(-ageDays / 120));
-  return { score, confidence: Math.min(1, evidence / 20) * recency };
+  const alpha = PREFERENCE_PRIOR + evidence.positive;
+  const beta = PREFERENCE_PRIOR + evidence.negative;
+  const posterior = alpha / Math.max(1e-6, alpha + beta);
+  const score = Math.max(-1, Math.min(1.2, (posterior - 0.5) * 2));
+
+  const support = aggregate.shown * 0.32
+    + Math.min(7, evidence.dwellUnits) * 0.45
+    + aggregate.expanded * 0.8
+    + aggregate.opened * 1.7
+    + aggregate.saved * 2.5
+    + aggregate.positive * 2.8
+    + aggregate.negative * 3;
+  const ageDays = aggregate.lastAt
+    ? Math.max(0, (date.getTime() - new Date(aggregate.lastAt).getTime()) / DAY_MS)
+    : 0;
+  const recency = Math.max(0.25, Math.exp(-ageDays / 90));
+  const confidence = (1 - Math.exp(-support / 10)) * recency;
+  return { score, confidence: Math.max(0, Math.min(1, confidence)) };
 }
 
 export function behavioralAdjustment(item: FrontierItem, model?: FrontierBehaviorModel, date = new Date()): number {
@@ -227,21 +274,40 @@ export function behavioralAdjustment(item: FrontierItem, model?: FrontierBehavio
   ];
   for (const tag of item.tags.slice(0, 5)) signals.push([memory.topicStats[tag.toLowerCase()], 0.018]);
 
+  // Confidence is slightly super-linear so five weak correlations cannot easily
+  // outvote one mature, repeatedly observed preference.
   return signals.reduce((sum, [aggregate, weight]) => {
     const preference = aggregatePreference(aggregate, date);
-    return sum + preference.score * preference.confidence * weight;
+    const calibratedConfidence = Math.pow(preference.confidence, 1.18);
+    return sum + preference.score * calibratedConfidence * weight;
   }, 0);
 }
 
 export function behavioralExplorationBonus(item: FrontierItem, model?: FrontierBehaviorModel, date = new Date()): number {
   if (!model?.implicitLearning || !model.rankingSnapshot || item.sourceKind === 'local') return 0;
   const memory = model.rankingSnapshot;
-  const evidence = [memory.laneStats[item.lane], ...item.tags.slice(0, 4).map((tag) => memory.topicStats[tag.toLowerCase()])]
-    .map((aggregate) => aggregatePreference(aggregate, date).confidence);
-  const meanConfidence = evidence.length ? evidence.reduce((sum, value) => sum + value, 0) / evidence.length : 0;
-  // A tiny UCB-like uncertainty bonus prevents early feedback from collapsing the
-  // world model. It is deliberately much smaller than explicit preference terms.
-  return Math.max(0, Math.min(0.035, (1 - meanConfidence) * item.novelty * 0.035));
+  const estimates = [
+    aggregatePreference(memory.laneStats[item.lane], date),
+    ...item.tags.slice(0, 4).map((tag) => aggregatePreference(memory.topicStats[tag.toLowerCase()], date)),
+  ];
+  const meanConfidence = estimates.length
+    ? estimates.reduce((sum, value) => sum + value.confidence, 0) / estimates.length
+    : 0;
+  const strongestKnownFit = Math.max(0, ...estimates.map((value) => value.score * value.confidence));
+  const uncertainty = Math.max(0, 1 - meanConfidence);
+  const intrinsic =
+    item.quality * 0.34
+    + item.importance * 0.26
+    + item.baseScore * 0.22
+    + item.novelty * 0.18;
+  // Information gain is highest for high-quality uncertain candidates near a
+  // known interest neighborhood. Purely random distant material gets much less
+  // credit than a plausible adjacent discovery.
+  const plausibility = 0.58 + Math.min(0.42, strongestKnownFit * 0.42);
+  return Math.max(
+    0,
+    Math.min(0.045, uncertainty * intrinsic * item.novelty * plausibility * 0.055)
+  );
 }
 
 export type FrontierHabitInsight = { label: string; detail: string; confidence: number };
@@ -299,9 +365,13 @@ export function summarizeHabits(model: FrontierBehaviorModel, date = new Date())
     insights.push({ label: 'Discovery appetite', detail: 'You are currently spending more time on familiar, high-relevance signal.', confidence: familiar.confidence });
   }
 
-  const preferredLayout = model.layoutUses.feed === model.layoutUses.desk ? undefined : model.layoutUses.feed > model.layoutUses.desk ? 'Feed' : 'Desk';
+  const preferredLayout = model.layoutUses.feed === model.layoutUses.desk
+    ? undefined
+    : model.layoutUses.feed > model.layoutUses.desk ? 'Feed' : 'Desk';
   const layoutTotal = model.layoutUses.feed + model.layoutUses.desk;
-  if (preferredLayout && layoutTotal >= 3) insights.push({ label: 'Reading mode', detail: `You use ${preferredLayout} more often.`, confidence: Math.min(1, layoutTotal / 12) });
+  if (preferredLayout && layoutTotal >= 3) {
+    insights.push({ label: 'Reading mode', detail: `You use ${preferredLayout} more often.`, confidence: Math.min(1, layoutTotal / 12) });
+  }
 
   const primaryViews = Object.entries(model.viewUses).sort((a, b) => b[1] - a[1]);
   const totalViews = primaryViews.reduce((sum, [, count]) => sum + count, 0);
@@ -316,7 +386,11 @@ export function summarizeHabits(model: FrontierBehaviorModel, date = new Date())
 
   if (model.sessions >= 2 && model.totalActiveMs > 0) {
     const avgMinutes = Math.max(1, Math.round(model.totalActiveMs / model.sessions / 60_000));
-    insights.push({ label: 'Session shape', detail: `A typical visit is about ${avgMinutes} minute${avgMinutes === 1 ? '' : 's'}.`, confidence: Math.min(1, model.sessions / 10) });
+    insights.push({
+      label: 'Session shape',
+      detail: `A typical visit is about ${avgMinutes} minute${avgMinutes === 1 ? '' : 's'}.`,
+      confidence: Math.min(1, model.sessions / 10),
+    });
   }
   return insights.slice(0, 6);
 }

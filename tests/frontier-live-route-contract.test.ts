@@ -6,7 +6,8 @@ const route = readFileSync(new URL('../app/api/frontier/feed/route.ts', import.m
 
 test('cold FRONTIER navigation remains snapshot-first for bounded useful paint', () => {
   assert.match(route, /!requestedFocus\.length && !forceFresh/);
-  assert.match(route, /getFrontierSnapshotFeed\(\)/);
+  assert.match(route, /getFrontierColdSnapshotFeed\(\)/);
+  assert.match(route, /from '@\/lib\/frontier\/snapshotFeed'/);
   assert.match(route, /X-Frontier-Live': 'personal-snapshot'/);
 });
 

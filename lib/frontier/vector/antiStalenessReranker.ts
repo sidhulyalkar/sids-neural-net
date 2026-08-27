@@ -83,6 +83,59 @@ export function frontierSemanticDistance64(
   return Math.max(0, Math.min(1, (1 - cosine) / 2));
 }
 
+/**
+ * Exploration should probe the boundary of a plausible interest region, not
+ * maximize distance from it. The target moves outward as the user explicitly
+ * raises exploration temperature, while quality/importance still gate the bet.
+ */
+export function frontierExplorationOpportunity(
+  item: FrontierItem,
+  semanticDistance: number,
+  explorationTemperature: number
+): number {
+  const tau = Math.max(0, Math.min(1, explorationTemperature));
+  const targetDistance = 0.28 + tau * 0.31;
+  const sigma = 0.17 + tau * 0.09;
+  const boundary = Math.exp(-Math.pow(semanticDistance - targetDistance, 2) / (2 * sigma * sigma));
+  const intrinsic =
+    item.quality * 0.38
+    + item.importance * 0.24
+    + item.novelty * 0.23
+    + item.baseScore * 0.15;
+  const noveltyGate = 0.68 + 0.32 * Math.max(0, Math.min(1, item.novelty));
+  return Math.max(0, Math.min(1, boundary * intrinsic * noveltyGate));
+}
+
+function tagJaccard(left: FrontierItem, right: FrontierItem): number {
+  const a = new Set(left.tags.slice(0, 8).map(normalizedLabel).filter((tag) => tag.length >= 3));
+  const b = new Set(right.tags.slice(0, 8).map(normalizedLabel).filter((tag) => tag.length >= 3));
+  if (!a.size || !b.size) return 0;
+  let intersection = 0;
+  for (const tag of a) if (b.has(tag)) intersection += 1;
+  return intersection / Math.max(1, a.size + b.size - intersection);
+}
+
+export function frontierSlateSimilarity(
+  left: FrontierItem,
+  right: FrontierItem,
+  vectors: Map<string, Float32Array>
+): number {
+  const leftVector = vectors.get(left.id);
+  const rightVector = vectors.get(right.id);
+  const semantic = leftVector && rightVector
+    ? Math.max(0, Math.min(1, (cosineSimilarity(leftVector, rightVector) + 1) / 2))
+    : 0.5;
+  const tags = tagJaccard(left, right);
+  const sameHost = host(left.url) && host(left.url) === host(right.url) ? 1 : 0;
+  const sameLane = left.lane === right.lane ? 1 : 0;
+  return Math.max(0, Math.min(1,
+    semantic * 0.55
+    + tags * 0.25
+    + sameHost * 0.12
+    + sameLane * 0.08
+  ));
+}
+
 export function scoreFrontierAntiStaleness(
   items: FrontierItem[],
   vectors: Map<string, Float32Array>,
@@ -102,7 +155,7 @@ export function scoreFrontierAntiStaleness(
   return baseline.map((entry) => {
     const resolvedState = contextStateForItem?.(entry.item) ?? contextState;
     const distance = frontierSemanticDistance64(vectors.get(entry.item.id), resolvedState);
-    const exploration = distance * (0.72 + 0.28 * Math.max(0, Math.min(1, entry.item.quality)));
+    const exploration = frontierExplorationOpportunity(entry.item, distance, tau);
     const repetitionPenalty = frontierRepetitionPenalty(entry.item, visibleItems, repetitionAlpha);
     return {
       item: entry.item,
@@ -111,15 +164,62 @@ export function scoreFrontierAntiStaleness(
       semanticDistance: distance,
       repetitionPenalty,
       avoidPenalty: entry.avoidPenalty,
-      // The explicit avoid term survives temperature spikes. It is not diluted
-      // by (1-tau), otherwise high exploration could re-promote exactly the
-      // semantic region the reader asked FRONTIER to suppress.
+      // Explicit avoid authority survives exploration spikes. The positive score
+      // is restored before blending so avoid is subtracted exactly once below.
       finalScore: (1 - tau) * (entry.score + entry.avoidPenalty)
         + tau * exploration
         - repetitionPenalty
         - entry.avoidPenalty,
     };
   });
+}
+
+/**
+ * Greedy MMR-style pass over the already-scored slate. The first three cards are
+ * protected recommendation anchors. After that, highly redundant candidates pay
+ * a small semantic/topic/source penalty so the page explores several interests
+ * instead of repeating the same neighborhood with different headlines.
+ */
+export function diversifyFrontierSlate(
+  scored: FrontierAntiStalenessScore[],
+  vectors: Map<string, Float32Array>,
+  explorationTemperature: number,
+  protectedCount = 3
+): FrontierAntiStalenessScore[] {
+  if (scored.length <= protectedCount + 1) return scored;
+  const sorted = [...scored].sort((left, right) =>
+    right.finalScore - left.finalScore
+    || right.item.baseScore - left.item.baseScore
+    || left.item.id.localeCompare(right.item.id)
+  );
+  const protectedItems = sorted.slice(0, Math.max(0, Math.min(protectedCount, sorted.length)));
+  const pool = sorted.slice(protectedItems.length);
+  const selected = [...protectedItems];
+  const tau = Math.max(0, Math.min(1, explorationTemperature));
+  const diversityWeight = 0.045 + tau * 0.075;
+
+  while (pool.length) {
+    let bestIndex = 0;
+    let bestUtility = Number.NEGATIVE_INFINITY;
+    for (let index = 0; index < pool.length; index += 1) {
+      const candidate = pool[index];
+      const maxSimilarity = selected.length
+        ? Math.max(...selected.map((chosen) => frontierSlateSimilarity(candidate.item, chosen.item, vectors)))
+        : 0;
+      const utility = candidate.finalScore - maxSimilarity * diversityWeight;
+      if (utility > bestUtility + 1e-12) {
+        bestUtility = utility;
+        bestIndex = index;
+      } else if (Math.abs(utility - bestUtility) <= 1e-12) {
+        const current = pool[bestIndex];
+        if (candidate.finalScore > current.finalScore || (
+          candidate.finalScore === current.finalScore && candidate.item.id.localeCompare(current.item.id) < 0
+        )) bestIndex = index;
+      }
+    }
+    selected.push(pool.splice(bestIndex, 1)[0]);
+  }
+  return selected;
 }
 
 export function rerankFrontierAntiStaleness(
@@ -135,7 +235,7 @@ export function rerankFrontierAntiStaleness(
   contextStateForItem?: FrontierContextStateResolver,
   penaltyForItem?: FrontierScorePenaltyResolver
 ): FrontierItem[] {
-  return scoreFrontierAntiStaleness(
+  const scored = scoreFrontierAntiStaleness(
     items,
     vectors,
     rankingTarget,
@@ -148,7 +248,7 @@ export function rerankFrontierAntiStaleness(
     rankingTargetForItem,
     contextStateForItem,
     penaltyForItem
-  )
-    .sort((left, right) => right.finalScore - left.finalScore || right.item.baseScore - left.item.baseScore || left.item.id.localeCompare(right.item.id))
+  );
+  return diversifyFrontierSlate(scored, vectors, explorationTemperature)
     .map((entry) => entry.item);
 }
