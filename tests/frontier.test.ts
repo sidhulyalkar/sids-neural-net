@@ -14,12 +14,13 @@ import { parseFrontierRss, parseYouTubeAtom } from '../lib/frontier/sources';
 import type { FrontierHistoryEntry, FrontierItem } from '../lib/frontier/types';
 
 function item(overrides: Partial<FrontierItem> = {}): FrontierItem {
+  const id = overrides.id ?? 'signal-1';
   return {
-    id: 'signal-1',
+    id,
     title: 'A useful machine learning analysis method',
     summary: 'Technical evidence and implementation details.',
-    url: 'https://example.com/signal-1',
-    source: 'example.com',
+    url: `https://${id}.example.com/signal`,
+    source: `${id}.example.com`,
     sourceLabel: 'Example',
     sourceKind: 'openalex',
     publishedAt: new Date().toISOString(),
@@ -89,7 +90,7 @@ test('unresolved valuable items become due for a second chance after one day', (
   assert.ok(personalizedScore(signal, createInitialProfile(), entry, now) > 0);
 });
 
-test('daily run reserves brainfood, favorite-team, gaming, and broader sports when present', () => {
+test('daily run preserves broad personalized coverage without requiring every micro-topic', () => {
   const signals = [
     item({ id: 'important', lane: 'must_know', importance: 0.95, title: 'Major release' }),
     item({ id: 'ml', lane: 'ml_data', title: 'New data analysis method' }),
@@ -101,13 +102,18 @@ test('daily run reserves brainfood, favorite-team, gaming, and broader sports wh
     item({ id: 'wild', lane: 'wildcards', title: 'Unexpected adjacent idea', novelty: 0.9, tags: ['unexpected'] }),
   ];
   const ranked = rankFrontierItems(signals, createInitialProfile(), {});
-  const run = selectDailyRun(ranked, {}, 8);
-  assert.ok(run.some((signal) => signal.lane === 'ml_data'));
-  assert.ok(run.some((signal) => signal.lane === 'builder_signal'));
-  assert.ok(run.some((signal) => signal.lane === 'team_pulse'));
-  assert.ok(run.some((signal) => signal.lane === 'premier_league'));
-  assert.ok(run.some((signal) => signal.lane === 'gaming'));
-  assert.ok(run.some((signal) => signal.lane === 'music'));
+  const run = selectDailyRun(ranked, {}, 6);
+  const ids = new Set(run.map((signal) => signal.id));
+
+  assert.ok(ids.has('important'));
+  assert.ok(run.some((signal) => ['ml_data', 'builder_signal'].includes(signal.lane)), 'Brainfood disappeared');
+  assert.ok(run.some((signal) => ['team_pulse', 'premier_league'].includes(signal.lane)), 'sports disappeared');
+  assert.ok(run.some((signal) => ['gaming', 'music'].includes(signal.lane)), 'culture disappeared');
+  assert.ok(run.length <= 6);
+  assert.ok(
+    !(['team', 'pl', 'game', 'music'].every((id) => ids.has(id))),
+    'finite slate reverted to hard micro-topic reservations',
+  );
 });
 
 test('daily subreddit rotation always contains the four favorite-team communities', () => {
