@@ -127,14 +127,12 @@ function segmentsIntersect(a: Vec2, b: Vec2, c: Vec2, d: Vec2): boolean {
   const o2 = orientation(a, b, d);
   const o3 = orientation(c, d, a);
   const o4 = orientation(c, d, b);
-
   const crosses =
     ((o1 > GEOMETRY_EPSILON && o2 < -GEOMETRY_EPSILON) ||
       (o1 < -GEOMETRY_EPSILON && o2 > GEOMETRY_EPSILON)) &&
     ((o3 > GEOMETRY_EPSILON && o4 < -GEOMETRY_EPSILON) ||
       (o3 < -GEOMETRY_EPSILON && o4 > GEOMETRY_EPSILON));
   if (crosses) return true;
-
   return (
     (Math.abs(o1) <= GEOMETRY_EPSILON && pointOnSegment(a, b, c)) ||
     (Math.abs(o2) <= GEOMETRY_EPSILON && pointOnSegment(a, b, d)) ||
@@ -202,16 +200,10 @@ function quadraticPoint(start: Vec2, control: Vec2, end: Vec2, t: number): Vec2 
   };
 }
 
-/**
- * Sample the exact path grammar used by FractalInteriorDensityV17.drawPath.
- * Curved morphologies draw each interior point as a quadratic control point to
- * the midpoint between that control point and the next authored point, then
- * finish with a straight segment to the terminal point.
- */
+/** Sample the exact path grammar used by FractalInteriorDensityV17.drawPath. */
 export function sampleResponsiveDensityRenderedPath(points: readonly Vec2[]): Vec2[] {
   if (points.length <= 1) return points.map((point) => ({ ...point }));
   if (points.length === 2) return [{ ...points[0] }, { ...points[1] }];
-
   const sampled: Vec2[] = [{ ...points[0] }];
   let cursor = points[0];
   for (let index = 1; index < points.length - 1; index += 1) {
@@ -228,18 +220,22 @@ export function sampleResponsiveDensityRenderedPath(points: readonly Vec2[]): Ve
   return sampled;
 }
 
+/**
+ * Hard label rectangles are always authoritative. The optional corridor flag
+ * lets callers reserve the quiet docking corridor only for the path owner's
+ * destination instead of turning eight approach corridors into global walls.
+ */
 export function responsiveDensityPathViolatesObstacle(
   points: readonly Vec2[],
-  obstacle: ResponsiveDensityObstacle
+  obstacle: ResponsiveDensityObstacle,
+  includeCorridor = true
 ): boolean {
   if (points.length === 0) return false;
-
-  // Control points are protected explicitly as well as the rendered curve.
   if (
     points.some(
       (point) =>
         pointInsideResponsiveDensityRect(point, obstacle.exclusionRect) ||
-        pointInsideResponsiveDensityCorridor(point, obstacle)
+        (includeCorridor && pointInsideResponsiveDensityCorridor(point, obstacle))
     )
   ) {
     return true;
@@ -250,7 +246,7 @@ export function responsiveDensityPathViolatesObstacle(
     const point = sampled[index];
     if (
       pointInsideResponsiveDensityRect(point, obstacle.exclusionRect) ||
-      pointInsideResponsiveDensityCorridor(point, obstacle)
+      (includeCorridor && pointInsideResponsiveDensityCorridor(point, obstacle))
     ) {
       return true;
     }
@@ -258,7 +254,7 @@ export function responsiveDensityPathViolatesObstacle(
     const previous = sampled[index - 1];
     if (
       segmentIntersectsResponsiveDensityRect(previous, point, obstacle.exclusionRect) ||
-      segmentIntersectsResponsiveDensityCorridor(previous, point, obstacle)
+      (includeCorridor && segmentIntersectsResponsiveDensityCorridor(previous, point, obstacle))
     ) {
       return true;
     }
@@ -300,7 +296,6 @@ export function buildResponsiveDensityObstacle(
     x: corridorStart.x + inward.x * corridorLength,
     y: corridorStart.y + inward.y * corridorLength,
   };
-
   return {
     id,
     labelRect: { ...labelRect },
@@ -313,11 +308,7 @@ export function buildResponsiveDensityObstacle(
   };
 }
 
-function branchPointsTowardObstacle(
-  start: Vec2,
-  angle: number,
-  obstacle: ResponsiveDensityObstacle
-): boolean {
+function branchPointsTowardObstacle(start: Vec2, angle: number, obstacle: ResponsiveDensityObstacle): boolean {
   const toObstacle = { x: obstacle.center.x - start.x, y: obstacle.center.y - start.y };
   const obstacleDistance = Math.hypot(toObstacle.x, toObstacle.y);
   if (obstacleDistance > obstacle.repelDistance || obstacleDistance <= GEOMETRY_EPSILON) return false;
@@ -354,7 +345,6 @@ function branchPolyline(
   chirality: number
 ): Vec2[] {
   if (morphology === 'radial' || morphology === 'fan') return [start, end];
-
   const dx = end.x - start.x;
   const dy = end.y - start.y;
   const length = Math.max(1, Math.hypot(dx, dy));
@@ -383,11 +373,9 @@ export function getResponsiveDensityProfile(dimensions: Dimensions): ResponsiveD
   const shortWide = height < 700 && aspect > 1.35;
   const veryShortWide = height < 520 && aspect > 1.7;
   const ultrawide = aspect > 2;
-
   let stationCount = compact ? 5 : 4;
   if (shortWide) stationCount += 2;
   if (veryShortWide || ultrawide) stationCount += 1;
-
   return {
     stationCount: clamp(stationCount, 4, 8),
     stationStart: veryShortWide ? 0.1 : shortWide ? 0.115 : compact ? 0.13 : 0.145,
@@ -405,27 +393,11 @@ export function getResponsiveDensityProfile(dimensions: Dimensions): ResponsiveD
 }
 
 /**
- * Build a deterministic, interior-only canopy over the public navigation trunks.
- *
- * V16 solved clipping by projecting the authored geometry into a safe ellipse,
- * but it could not change the authored topology. On short/wide displays the old
- * generator derives every side branch from the viewport's shortest axis, which
- * leaves long bare primary spokes and tiny clusters near the perimeter. V17
- * keeps the navigation trunks authoritative and adds short branch stations much
- * closer to CORE. Constrained displays receive more stations with shorter stems,
- * so density rises while individual segments get cheaper to render.
- *
- * Destination obstacles are optional and apply only to this secondary canopy.
- * Primary navigation trunks remain authoritative. Every V17 path is rejected if
- * its rendered curve, authored control points, or root enters a padded label
- * exclusion rectangle or the label's inward docking corridor. Directional
- * repulsion applies only to the branch owner's own destination so unrelated
- * labels cannot erase entire canopy arms. Hard geometry collision rejection
- * still applies against every destination obstacle.
- *
- * Stations are emitted breadth-first across all eight navigation arms. If a
- * future profile reaches the global path budget, outer detail is what gets
- * dropped rather than the final navigation directions losing their canopy.
+ * Build a deterministic interior canopy over the authoritative navigation trunks.
+ * Hard label halos apply globally to every secondary path. Quiet docking corridors
+ * and directional repulsion apply only to the path owner's destination. This
+ * keeps labels clean without carving eight invisible radial trenches through the
+ * canopy on short or narrow viewports.
  */
 export function buildResponsiveDensityPaths(
   tree: FractalTree,
@@ -440,12 +412,10 @@ export function buildResponsiveDensityPaths(
   const chirality = rng() < 0.5 ? -1 : 1;
   const effectiveScale = Math.sqrt(Math.max(1, tree.radiusX * tree.radiusY));
   const splitBase = clamp(tree.morphology.splitAngle, 0.34, 0.64);
+  const obstacleById = new Map(obstacles.map((obstacle) => [obstacle.id, obstacle]));
   const primaries = tree.paths
     .filter((path) => path.depth === 0 && path.renderMode === 'stroke' && path.ownerId !== '__ambient__')
-    .map((path) => ({
-      path,
-      mapped: mapPathToResponsiveEnvelope(path.points, tree, dimensions),
-    }))
+    .map((path) => ({ path, mapped: mapPathToResponsiveEnvelope(path.points, tree, dimensions) }))
     .filter((entry) => entry.mapped.length >= 2);
   const paths: ResponsiveDensityPath[] = [];
 
@@ -458,19 +428,15 @@ export function buildResponsiveDensityPaths(
     key: string
   ) => {
     if (depth > profile.recursionDepth || paths.length >= profile.pathBudget || length < 8) return;
-    if (
-      obstacles.some(
-        (obstacle) =>
-          pointInsideResponsiveDensityRect(start, obstacle.exclusionRect) ||
-          pointInsideResponsiveDensityCorridor(start, obstacle)
-      )
-    ) {
-      return;
-    }
+    const ownerObstacle = obstacleById.get(ownerId);
+
+    // A secondary branch may never start inside any label halo. Only the branch
+    // owner's approach corridor is quiet; other approach corridors are not walls.
+    if (obstacles.some((obstacle) => pointInsideResponsiveDensityRect(start, obstacle.exclusionRect))) return;
+    if (ownerObstacle && pointInsideResponsiveDensityCorridor(start, ownerObstacle)) return;
 
     const angleNoise = (rng() - 0.5) * tree.morphology.angularNoise * 0.7;
     const adjustedAngle = angle + angleNoise + (tree.morphology.id === 'spiraloid' ? chirality * depth * 0.075 : 0);
-    const ownerObstacle = obstacles.find((obstacle) => obstacle.id === ownerId);
     if (ownerObstacle && branchPointsTowardObstacle(start, adjustedAngle, ownerObstacle)) return;
 
     const candidate = {
@@ -484,7 +450,13 @@ export function buildResponsiveDensityPaths(
     const polyline = branchPolyline(start, end, tree.morphology.id, depth, rng, chirality).map((point) =>
       boundedPoint(point, tree, dimensions, profile.safeNormalizedRadius)
     );
-    if (obstacles.some((obstacle) => responsiveDensityPathViolatesObstacle(polyline, obstacle))) return;
+    if (
+      obstacles.some((obstacle) =>
+        responsiveDensityPathViolatesObstacle(polyline, obstacle, obstacle.id === ownerId)
+      )
+    ) {
+      return;
+    }
 
     paths.push({
       id: `density-${ownerId}-${key}-${depth}-${paths.length}`,
@@ -503,7 +475,6 @@ export function buildResponsiveDensityPaths(
   for (let station = 0; station < profile.stationCount; station += 1) {
     const progress = profile.stationCount === 1 ? 0.5 : station / (profile.stationCount - 1);
     const t = profile.stationStart + (profile.stationEnd - profile.stationStart) * progress;
-
     for (const { path: primary, mapped } of primaries) {
       if (paths.length >= profile.pathBudget) break;
       const start = pointOnPath(mapped, t);
@@ -513,7 +484,6 @@ export function buildResponsiveDensityPaths(
         profile.minimumBranchLength,
         profile.maximumBranchLength
       );
-
       for (const side of [-1, 1] as const) {
         if (paths.length >= profile.pathBudget) break;
         const perpendicularBias = tree.morphology.id === 'apical' ? 0.76 : tree.morphology.id === 'fan' ? 0.66 : 0.72;
@@ -521,7 +491,6 @@ export function buildResponsiveDensityPaths(
         grow(primary.ownerId, start, initialAngle, stationLength, 1, `s${station}${side < 0 ? 'l' : 'r'}`);
       }
     }
-
     if (paths.length >= profile.pathBudget) break;
   }
 
