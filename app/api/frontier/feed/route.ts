@@ -1,10 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getFrontierSnapshotFeed, getIntegratedFrontierFeed } from '@/lib/frontier/aggregate';
 import { decodeDiscoveryFocus } from '@/lib/frontier/discoveryFocus';
-import { FRONTIER_TEAMS } from '@/lib/frontier/interests';
-import { FRONTIER_DISCOVERY_SEEDS } from '@/lib/frontier/personalTaste';
 import { decorateFeedMedia } from '@/lib/frontier/media/proxySecurity';
-import { getCdnSportsStateFeed } from '@/lib/frontier/sportsStateCdnRequest';
+import { getFrontierColdSnapshotFeed } from '@/lib/frontier/snapshotFeed';
 import type { FrontierFeedResponse } from '@/lib/frontier/types';
 
 export const runtime = 'nodejs';
@@ -13,12 +10,40 @@ export const dynamic = 'force-dynamic';
 const FOCUSED_LIVE_BUDGET_MS = 4_000;
 const MANUAL_REFRESH_BUDGET_MS = 5_500;
 
-function defaultPersonalFocus(): string[] {
+type LiveDependencies = {
+  getIntegratedFrontierFeed: typeof import('@/lib/frontier/aggregate').getIntegratedFrontierFeed;
+  getCdnSportsStateFeed: typeof import('@/lib/frontier/sportsStateCdnRequest').getCdnSportsStateFeed;
+  teams: typeof import('@/lib/frontier/interests').FRONTIER_TEAMS;
+  discoverySeeds: typeof import('@/lib/frontier/personalTaste').FRONTIER_DISCOVERY_SEEDS;
+};
+
+/**
+ * None of the live discovery graph belongs on passive navigation's module path.
+ * Load it only when the user explicitly asks for focused or fresh Internet
+ * discovery. This turns "snapshot first" into an actual cold-start invariant
+ * instead of merely branching after the expensive modules have initialized.
+ */
+async function loadLiveDependencies(): Promise<LiveDependencies> {
+  const [aggregate, sports, interests, taste] = await Promise.all([
+    import('@/lib/frontier/aggregate'),
+    import('@/lib/frontier/sportsStateCdnRequest'),
+    import('@/lib/frontier/interests'),
+    import('@/lib/frontier/personalTaste'),
+  ]);
+  return {
+    getIntegratedFrontierFeed: aggregate.getIntegratedFrontierFeed,
+    getCdnSportsStateFeed: sports.getCdnSportsStateFeed,
+    teams: interests.FRONTIER_TEAMS,
+    discoverySeeds: taste.FRONTIER_DISCOVERY_SEEDS,
+  };
+}
+
+function defaultPersonalFocus(dependencies: LiveDependencies): string[] {
   // A manual live rotation should spend its bounded Internet-search budget on
   // the strongest explicit interests rather than generic technology news.
   return Array.from(new Set([
-    ...FRONTIER_DISCOVERY_SEEDS.slice(0, 6),
-    ...FRONTIER_TEAMS.map((team) => team.label),
+    ...dependencies.discoverySeeds.slice(0, 6),
+    ...dependencies.teams.map((team) => team.label),
   ])).slice(0, 10);
 }
 
@@ -54,13 +79,12 @@ export async function GET(request: NextRequest) {
   const forceFresh = request.nextUrl.searchParams.get('fresh') === '1';
 
   try {
-    // Cold navigation is snapshot-first so useful cards paint immediately. A
-    // refresh or focused query is a different product contract: it must search
-    // live adapters and must not silently refill the result set from yesterday's
-    // committed archive. The browser recommendation engine ranks those fresh
-    // candidates after the server has enforced provenance and source policy.
+    // Cold navigation is snapshot-first so useful cards paint immediately. The
+    // snapshot module is intentionally independent of every live adapter. A
+    // refresh or focused query has a separate contract and lazy-loads the full
+    // Internet discovery graph only after the request has opted into it.
     if (!requestedFocus.length && !forceFresh) {
-      return NextResponse.json(decorateFeedMedia(getFrontierSnapshotFeed()), {
+      return NextResponse.json(decorateFeedMedia(getFrontierColdSnapshotFeed()), {
         headers: {
           'Cache-Control': 'private, max-age=60, stale-while-revalidate=120',
           'X-Frontier-Live': 'personal-snapshot',
@@ -68,18 +92,19 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    const focusTopics = requestedFocus.length ? requestedFocus : defaultPersonalFocus();
+    const dependencies = await loadLiveDependencies();
+    const focusTopics = requestedFocus.length ? requestedFocus : defaultPersonalFocus(dependencies);
     // The integrated mesh still owns recommendation discovery. Sports state is
     // fetched in parallel from the independently proven CDN transport, so the
-    // failing Site API path cannot erase Patriots/Warriors/Chelsea/City utility
-    // from a manual refresh and cannot lengthen the existing discovery budget.
+    // failing Site API path cannot erase team utility from a manual refresh and
+    // cannot lengthen the existing discovery budget.
     const [integratedFeed, requestSports] = await Promise.all([
-      getIntegratedFrontierFeed({
+      dependencies.getIntegratedFrontierFeed({
         focusTopics,
         includeSnapshot: false,
         adapterDeadlineMs: forceFresh ? MANUAL_REFRESH_BUDGET_MS : FOCUSED_LIVE_BUDGET_MS,
       }),
-      getCdnSportsStateFeed(),
+      dependencies.getCdnSportsStateFeed(),
     ]);
     const feed = decorateFeedMedia(mergeRequestSportsState(integratedFeed, requestSports));
     const mode = forceFresh ? 'fresh-live' : 'focused-live';
