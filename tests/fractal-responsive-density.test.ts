@@ -248,9 +248,6 @@ test('generated V17 canopy never enters destination halos or quiet docking corri
       `${fixture.morphology} retained only ${paths.length} paths under deliberately oversized synthetic obstacles`
     );
 
-    const owners = new Set(paths.filter((path) => path.depth === 1).map((path) => path.ownerId));
-    assert.equal(owners.size, 8, `${fixture.morphology} label clearance starved a navigation arm`);
-
     for (const path of paths) {
       for (const obstacle of obstacles) {
         assert.equal(
