@@ -418,8 +418,10 @@ export function getResponsiveDensityProfile(dimensions: Dimensions): ResponsiveD
  * Destination obstacles are optional and apply only to this secondary canopy.
  * Primary navigation trunks remain authoritative. Every V17 path is rejected if
  * its rendered curve, authored control points, or root enters a padded label
- * exclusion rectangle or the label's inward docking corridor. Nearby branches
- * that aim back toward a destination are rejected before allocation as well.
+ * exclusion rectangle or the label's inward docking corridor. Directional
+ * repulsion applies only to the branch owner's own destination so unrelated
+ * labels cannot erase entire canopy arms. Hard geometry collision rejection
+ * still applies against every destination obstacle.
  *
  * Stations are emitted breadth-first across all eight navigation arms. If a
  * future profile reaches the global path budget, outer detail is what gets
@@ -468,7 +470,8 @@ export function buildResponsiveDensityPaths(
 
     const angleNoise = (rng() - 0.5) * tree.morphology.angularNoise * 0.7;
     const adjustedAngle = angle + angleNoise + (tree.morphology.id === 'spiraloid' ? chirality * depth * 0.075 : 0);
-    if (obstacles.some((obstacle) => branchPointsTowardObstacle(start, adjustedAngle, obstacle))) return;
+    const ownerObstacle = obstacles.find((obstacle) => obstacle.id === ownerId);
+    if (ownerObstacle && branchPointsTowardObstacle(start, adjustedAngle, ownerObstacle)) return;
 
     const candidate = {
       x: start.x + Math.cos(adjustedAngle) * length,
