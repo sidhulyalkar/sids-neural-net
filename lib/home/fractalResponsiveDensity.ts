@@ -30,6 +30,32 @@ export type ResponsiveDensityPath = {
   points: Vec2[];
 };
 
+export type ResponsiveDensityRect = {
+  left: number;
+  top: number;
+  right: number;
+  bottom: number;
+};
+
+export type ResponsiveDensityObstacle = {
+  id: string;
+  labelRect: ResponsiveDensityRect;
+  exclusionRect: ResponsiveDensityRect;
+  center: Vec2;
+  corridorStart: Vec2;
+  corridorEnd: Vec2;
+  corridorHalfWidth: number;
+  repelDistance: number;
+};
+
+export type ResponsiveDensityObstacleOptions = {
+  paddingX?: number;
+  paddingY?: number;
+  corridorLength?: number;
+  corridorHalfWidth?: number;
+  repelDistance?: number;
+};
+
 const DENSITY_MORPHOLOGIES = new Set<FractalMorphologyId>([
   'radial',
   'coral',
@@ -37,6 +63,9 @@ const DENSITY_MORPHOLOGIES = new Set<FractalMorphologyId>([
   'apical',
   'spiraloid',
 ]);
+
+const GEOMETRY_EPSILON = 1e-6;
+const CURVE_COLLISION_STEPS = 14;
 
 function pointOnPath(points: readonly Vec2[], t: number): Vec2 {
   if (points.length === 0) return { x: 0, y: 0 };
@@ -55,6 +84,245 @@ function pathAngle(points: readonly Vec2[], t: number): number {
   const a = pointOnPath(points, Math.max(0, t - 0.025));
   const b = pointOnPath(points, Math.min(1, t + 0.025));
   return Math.atan2(b.y - a.y, b.x - a.x);
+}
+
+function distance(a: Vec2, b: Vec2): number {
+  return Math.hypot(a.x - b.x, a.y - b.y);
+}
+
+function normalize(vector: Vec2): Vec2 {
+  const length = Math.max(GEOMETRY_EPSILON, Math.hypot(vector.x, vector.y));
+  return { x: vector.x / length, y: vector.y / length };
+}
+
+function dot(a: Vec2, b: Vec2): number {
+  return a.x * b.x + a.y * b.y;
+}
+
+export function pointInsideResponsiveDensityRect(point: Vec2, rect: ResponsiveDensityRect): boolean {
+  return (
+    point.x >= rect.left - GEOMETRY_EPSILON &&
+    point.x <= rect.right + GEOMETRY_EPSILON &&
+    point.y >= rect.top - GEOMETRY_EPSILON &&
+    point.y <= rect.bottom + GEOMETRY_EPSILON
+  );
+}
+
+function orientation(a: Vec2, b: Vec2, c: Vec2): number {
+  return (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x);
+}
+
+function pointOnSegment(a: Vec2, b: Vec2, point: Vec2): boolean {
+  return (
+    Math.abs(orientation(a, b, point)) <= GEOMETRY_EPSILON &&
+    point.x >= Math.min(a.x, b.x) - GEOMETRY_EPSILON &&
+    point.x <= Math.max(a.x, b.x) + GEOMETRY_EPSILON &&
+    point.y >= Math.min(a.y, b.y) - GEOMETRY_EPSILON &&
+    point.y <= Math.max(a.y, b.y) + GEOMETRY_EPSILON
+  );
+}
+
+function segmentsIntersect(a: Vec2, b: Vec2, c: Vec2, d: Vec2): boolean {
+  const o1 = orientation(a, b, c);
+  const o2 = orientation(a, b, d);
+  const o3 = orientation(c, d, a);
+  const o4 = orientation(c, d, b);
+
+  const crosses =
+    ((o1 > GEOMETRY_EPSILON && o2 < -GEOMETRY_EPSILON) ||
+      (o1 < -GEOMETRY_EPSILON && o2 > GEOMETRY_EPSILON)) &&
+    ((o3 > GEOMETRY_EPSILON && o4 < -GEOMETRY_EPSILON) ||
+      (o3 < -GEOMETRY_EPSILON && o4 > GEOMETRY_EPSILON));
+  if (crosses) return true;
+
+  return (
+    (Math.abs(o1) <= GEOMETRY_EPSILON && pointOnSegment(a, b, c)) ||
+    (Math.abs(o2) <= GEOMETRY_EPSILON && pointOnSegment(a, b, d)) ||
+    (Math.abs(o3) <= GEOMETRY_EPSILON && pointOnSegment(c, d, a)) ||
+    (Math.abs(o4) <= GEOMETRY_EPSILON && pointOnSegment(c, d, b))
+  );
+}
+
+export function segmentIntersectsResponsiveDensityRect(
+  a: Vec2,
+  b: Vec2,
+  rect: ResponsiveDensityRect
+): boolean {
+  if (pointInsideResponsiveDensityRect(a, rect) || pointInsideResponsiveDensityRect(b, rect)) return true;
+  const topLeft = { x: rect.left, y: rect.top };
+  const topRight = { x: rect.right, y: rect.top };
+  const bottomRight = { x: rect.right, y: rect.bottom };
+  const bottomLeft = { x: rect.left, y: rect.bottom };
+  return (
+    segmentsIntersect(a, b, topLeft, topRight) ||
+    segmentsIntersect(a, b, topRight, bottomRight) ||
+    segmentsIntersect(a, b, bottomRight, bottomLeft) ||
+    segmentsIntersect(a, b, bottomLeft, topLeft)
+  );
+}
+
+function distancePointToSegment(point: Vec2, a: Vec2, b: Vec2): number {
+  const ab = { x: b.x - a.x, y: b.y - a.y };
+  const denominator = ab.x * ab.x + ab.y * ab.y;
+  if (denominator <= GEOMETRY_EPSILON) return distance(point, a);
+  const projection = clamp(((point.x - a.x) * ab.x + (point.y - a.y) * ab.y) / denominator, 0, 1);
+  return distance(point, { x: a.x + ab.x * projection, y: a.y + ab.y * projection });
+}
+
+function segmentDistance(a: Vec2, b: Vec2, c: Vec2, d: Vec2): number {
+  if (segmentsIntersect(a, b, c, d)) return 0;
+  return Math.min(
+    distancePointToSegment(a, c, d),
+    distancePointToSegment(b, c, d),
+    distancePointToSegment(c, a, b),
+    distancePointToSegment(d, a, b)
+  );
+}
+
+export function pointInsideResponsiveDensityCorridor(
+  point: Vec2,
+  obstacle: ResponsiveDensityObstacle
+): boolean {
+  return distancePointToSegment(point, obstacle.corridorStart, obstacle.corridorEnd) <= obstacle.corridorHalfWidth;
+}
+
+function segmentIntersectsResponsiveDensityCorridor(
+  a: Vec2,
+  b: Vec2,
+  obstacle: ResponsiveDensityObstacle
+): boolean {
+  return segmentDistance(a, b, obstacle.corridorStart, obstacle.corridorEnd) <= obstacle.corridorHalfWidth;
+}
+
+function quadraticPoint(start: Vec2, control: Vec2, end: Vec2, t: number): Vec2 {
+  const oneMinusT = 1 - t;
+  return {
+    x: oneMinusT * oneMinusT * start.x + 2 * oneMinusT * t * control.x + t * t * end.x,
+    y: oneMinusT * oneMinusT * start.y + 2 * oneMinusT * t * control.y + t * t * end.y,
+  };
+}
+
+/**
+ * Sample the exact path grammar used by FractalInteriorDensityV17.drawPath.
+ * Curved morphologies draw each interior point as a quadratic control point to
+ * the midpoint between that control point and the next authored point, then
+ * finish with a straight segment to the terminal point.
+ */
+export function sampleResponsiveDensityRenderedPath(points: readonly Vec2[]): Vec2[] {
+  if (points.length <= 1) return points.map((point) => ({ ...point }));
+  if (points.length === 2) return [{ ...points[0] }, { ...points[1] }];
+
+  const sampled: Vec2[] = [{ ...points[0] }];
+  let cursor = points[0];
+  for (let index = 1; index < points.length - 1; index += 1) {
+    const control = points[index];
+    const next = points[index + 1];
+    const midpoint = { x: (control.x + next.x) * 0.5, y: (control.y + next.y) * 0.5 };
+    for (let step = 1; step <= CURVE_COLLISION_STEPS; step += 1) {
+      sampled.push(quadraticPoint(cursor, control, midpoint, step / CURVE_COLLISION_STEPS));
+    }
+    cursor = midpoint;
+  }
+  const terminal = points[points.length - 1];
+  if (distance(cursor, terminal) > GEOMETRY_EPSILON) sampled.push({ ...terminal });
+  return sampled;
+}
+
+export function responsiveDensityPathViolatesObstacle(
+  points: readonly Vec2[],
+  obstacle: ResponsiveDensityObstacle
+): boolean {
+  if (points.length === 0) return false;
+
+  // Control points are protected explicitly as well as the rendered curve.
+  if (
+    points.some(
+      (point) =>
+        pointInsideResponsiveDensityRect(point, obstacle.exclusionRect) ||
+        pointInsideResponsiveDensityCorridor(point, obstacle)
+    )
+  ) {
+    return true;
+  }
+
+  const sampled = sampleResponsiveDensityRenderedPath(points);
+  for (let index = 0; index < sampled.length; index += 1) {
+    const point = sampled[index];
+    if (
+      pointInsideResponsiveDensityRect(point, obstacle.exclusionRect) ||
+      pointInsideResponsiveDensityCorridor(point, obstacle)
+    ) {
+      return true;
+    }
+    if (index === 0) continue;
+    const previous = sampled[index - 1];
+    if (
+      segmentIntersectsResponsiveDensityRect(previous, point, obstacle.exclusionRect) ||
+      segmentIntersectsResponsiveDensityCorridor(previous, point, obstacle)
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
+export function buildResponsiveDensityObstacle(
+  id: string,
+  labelRect: ResponsiveDensityRect,
+  core: Vec2,
+  options: ResponsiveDensityObstacleOptions = {}
+): ResponsiveDensityObstacle {
+  const paddingX = options.paddingX ?? 20;
+  const paddingY = options.paddingY ?? 15;
+  const corridorLength = options.corridorLength ?? 88;
+  const corridorHalfWidth = options.corridorHalfWidth ?? 20;
+  const center = {
+    x: (labelRect.left + labelRect.right) * 0.5,
+    y: (labelRect.top + labelRect.bottom) * 0.5,
+  };
+  const exclusionRect = {
+    left: labelRect.left - paddingX,
+    top: labelRect.top - paddingY,
+    right: labelRect.right + paddingX,
+    bottom: labelRect.bottom + paddingY,
+  };
+  const inward = normalize({ x: core.x - center.x, y: core.y - center.y });
+  const halfWidth = Math.max(1, (exclusionRect.right - exclusionRect.left) * 0.5);
+  const halfHeight = Math.max(1, (exclusionRect.bottom - exclusionRect.top) * 0.5);
+  const tx = Math.abs(inward.x) > GEOMETRY_EPSILON ? halfWidth / Math.abs(inward.x) : Number.POSITIVE_INFINITY;
+  const ty = Math.abs(inward.y) > GEOMETRY_EPSILON ? halfHeight / Math.abs(inward.y) : Number.POSITIVE_INFINITY;
+  const edgeDistance = Math.min(tx, ty);
+  const corridorStart = {
+    x: center.x + inward.x * (edgeDistance + 1),
+    y: center.y + inward.y * (edgeDistance + 1),
+  };
+  const corridorEnd = {
+    x: corridorStart.x + inward.x * corridorLength,
+    y: corridorStart.y + inward.y * corridorLength,
+  };
+
+  return {
+    id,
+    labelRect: { ...labelRect },
+    exclusionRect,
+    center,
+    corridorStart,
+    corridorEnd,
+    corridorHalfWidth,
+    repelDistance: options.repelDistance ?? corridorLength + Math.max(halfWidth, halfHeight) + 72,
+  };
+}
+
+function branchPointsTowardObstacle(
+  start: Vec2,
+  angle: number,
+  obstacle: ResponsiveDensityObstacle
+): boolean {
+  const toObstacle = { x: obstacle.center.x - start.x, y: obstacle.center.y - start.y };
+  const obstacleDistance = Math.hypot(toObstacle.x, toObstacle.y);
+  if (obstacleDistance > obstacle.repelDistance || obstacleDistance <= GEOMETRY_EPSILON) return false;
+  const direction = { x: Math.cos(angle), y: Math.sin(angle) };
+  return dot(direction, normalize(toObstacle)) > 0.14;
 }
 
 function boundedPoint(
@@ -147,6 +415,12 @@ export function getResponsiveDensityProfile(dimensions: Dimensions): ResponsiveD
  * closer to CORE. Constrained displays receive more stations with shorter stems,
  * so density rises while individual segments get cheaper to render.
  *
+ * Destination obstacles are optional and apply only to this secondary canopy.
+ * Primary navigation trunks remain authoritative. Every V17 path is rejected if
+ * its rendered curve, authored control points, or root enters a padded label
+ * exclusion rectangle or the label's inward docking corridor. Nearby branches
+ * that aim back toward a destination are rejected before allocation as well.
+ *
  * Stations are emitted breadth-first across all eight navigation arms. If a
  * future profile reaches the global path budget, outer detail is what gets
  * dropped rather than the final navigation directions losing their canopy.
@@ -154,7 +428,8 @@ export function getResponsiveDensityProfile(dimensions: Dimensions): ResponsiveD
 export function buildResponsiveDensityPaths(
   tree: FractalTree,
   dimensions: Dimensions,
-  seed: string
+  seed: string,
+  obstacles: readonly ResponsiveDensityObstacle[] = []
 ): ResponsiveDensityPath[] {
   if (!DENSITY_MORPHOLOGIES.has(tree.morphology.id)) return [];
 
@@ -181,9 +456,20 @@ export function buildResponsiveDensityPaths(
     key: string
   ) => {
     if (depth > profile.recursionDepth || paths.length >= profile.pathBudget || length < 8) return;
+    if (
+      obstacles.some(
+        (obstacle) =>
+          pointInsideResponsiveDensityRect(start, obstacle.exclusionRect) ||
+          pointInsideResponsiveDensityCorridor(start, obstacle)
+      )
+    ) {
+      return;
+    }
 
     const angleNoise = (rng() - 0.5) * tree.morphology.angularNoise * 0.7;
     const adjustedAngle = angle + angleNoise + (tree.morphology.id === 'spiraloid' ? chirality * depth * 0.075 : 0);
+    if (obstacles.some((obstacle) => branchPointsTowardObstacle(start, adjustedAngle, obstacle))) return;
+
     const candidate = {
       x: start.x + Math.cos(adjustedAngle) * length,
       y: start.y + Math.sin(adjustedAngle) * length,
@@ -195,6 +481,7 @@ export function buildResponsiveDensityPaths(
     const polyline = branchPolyline(start, end, tree.morphology.id, depth, rng, chirality).map((point) =>
       boundedPoint(point, tree, dimensions, profile.safeNormalizedRadius)
     );
+    if (obstacles.some((obstacle) => responsiveDensityPathViolatesObstacle(polyline, obstacle))) return;
 
     paths.push({
       id: `density-${ownerId}-${key}-${depth}-${paths.length}`,
