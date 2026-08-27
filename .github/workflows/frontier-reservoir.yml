@@ -1,0 +1,80 @@
+name: FRONTIER Reservoir CI
+
+on:
+  pull_request:
+    paths:
+      - 'lib/frontier/live/candidatePool.ts'
+      - 'lib/frontier/recommendation/**'
+      - 'tests/frontier-reservoir-policy.test.ts'
+      - 'scripts/frontier-reservoir-browser-audit.cjs'
+      - '.github/workflows/frontier-reservoir.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: frontier-reservoir-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  reservoir-gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Set up Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install exact dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Run reservoir policy regressions
+        run: node --import tsx --test tests/frontier-reservoir-policy.test.ts
+
+      - name: Build production site
+        env:
+          NEXT_PUBLIC_SITE_URL: https://example.invalid
+          NEXT_PUBLIC_WORLD_LOOM_XR: disabled
+        run: npm run build
+
+      - name: Install Chromium audit engine
+        run: |
+          rm -rf /tmp/frontier-reservoir-playwright
+          npm install --prefix /tmp/frontier-reservoir-playwright --no-package-lock --no-save playwright@1.55.0
+          /tmp/frontier-reservoir-playwright/node_modules/.bin/playwright install --with-deps chromium
+
+      - name: Start built site
+        run: |
+          npx next start -p 3000 > /tmp/frontier-reservoir.log 2>&1 &
+          for attempt in {1..40}; do
+            if curl -fsS http://127.0.0.1:3000/ >/dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/frontier-reservoir.log
+          exit 1
+
+      - name: Audit durable daily reservoir replay
+        env:
+          NODE_PATH: /tmp/frontier-reservoir-playwright/node_modules
+          FRONTIER_RESERVOIR_AUDIT_URL: http://127.0.0.1:3000
+        run: node scripts/frontier-reservoir-browser-audit.cjs
+
+      - name: Upload reservoir qualification artifacts
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: frontier-reservoir-audit
+          path: artifacts/browser-smoke/frontier-reservoir-*
+          if-no-files-found: warn
+          retention-days: 14
