@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
   frontierEditorialFamily,
+  frontierSourceBucket,
   selectAdaptiveDailyAllocation,
   slateCompositionDiagnostics,
 } from '../lib/frontier/adaptiveSlate';
@@ -90,7 +91,7 @@ test('a static micro-interest cannot demand a seat after learned rank moves it f
   assert.ok(!selected.some((entry) => entry.id === 'fantasy-low-rank'), 'micro-topic reservation overrode learned rank');
 });
 
-test('same-source volume cannot manufacture additional family demand', () => {
+test('same-publisher volume cannot manufacture additional family demand', () => {
   const first = item('paper-0', {
     lane: 'neuro_frontier',
     url: 'https://papers.example/0',
@@ -112,7 +113,46 @@ test('same-source volume cannot manufacture additional family demand', () => {
   assert.equal(floodedDemand, singleDemand);
 });
 
-test('adaptive composition caps host and family concentration', () => {
+test('platform ecosystems use meaningful sub-sources instead of one global hostname bucket', () => {
+  const repoA = item('repo-a', {
+    lane: 'builder_signal',
+    sourceKind: 'github',
+    url: 'https://github.com/alpha-lab/repo-a',
+    source: 'github.com',
+    sourceLabel: 'alpha-lab/repo-a',
+  });
+  const repoB = item('repo-b', {
+    lane: 'builder_signal',
+    sourceKind: 'github',
+    url: 'https://github.com/beta-lab/repo-b',
+    source: 'github.com',
+    sourceLabel: 'beta-lab/repo-b',
+  });
+  const repoSameOwner = item('repo-c', {
+    lane: 'builder_signal',
+    sourceKind: 'github',
+    url: 'https://github.com/alpha-lab/repo-c',
+    source: 'github.com',
+    sourceLabel: 'alpha-lab/repo-c',
+  });
+
+  assert.equal(frontierSourceBucket(repoA), 'github.com/alpha-lab');
+  assert.equal(frontierSourceBucket(repoSameOwner), 'github.com/alpha-lab');
+  assert.equal(frontierSourceBucket(repoB), 'github.com/beta-lab');
+
+  const selected = selectAdaptiveDailyAllocation([
+    repoA,
+    repoB,
+    repoSameOwner,
+    item('research', { lane: 'neuro_frontier' }),
+    item('game', { lane: 'gaming' }),
+    item('sports', { lane: 'sports' }),
+  ], 6);
+  assert.ok(selected.some((entry) => entry.id === 'repo-a'));
+  assert.ok(selected.some((entry) => entry.id === 'repo-b'));
+});
+
+test('adaptive composition caps publisher and family concentration', () => {
   const researchFlood = Array.from({ length: 18 }, (_, index) => item(`paper-${index}`, {
     lane: index % 2 ? 'ai_frontier' : 'ml_data',
     url: `https://papers.example/${index}`,
@@ -132,7 +172,7 @@ test('adaptive composition caps host and family concentration', () => {
   const paperHostCount = selected.filter((entry) => new URL(entry.url).hostname === 'papers.example').length;
   const researchCount = selected.filter((entry) => frontierEditorialFamily(entry) === 'research').length;
 
-  assert.ok(paperHostCount <= 2, `same host occupied ${paperHostCount} slots`);
+  assert.ok(paperHostCount <= 2, `same publisher occupied ${paperHostCount} slots`);
   assert.ok(researchCount <= 6, `research family occupied ${researchCount} slots`);
   assert.ok(selected.some((entry) => frontierEditorialFamily(entry) === 'culture'));
   assert.ok(selected.some((entry) => frontierEditorialFamily(entry) === 'sports'));
