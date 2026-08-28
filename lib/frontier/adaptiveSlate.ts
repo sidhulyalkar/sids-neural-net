@@ -27,12 +27,14 @@ type CandidateMeta = {
   realm: FrontierRealm;
   sourceBucket: string;
   taste: number;
-  utility: number;
+  allocationUtility: number;
+  isUtility: boolean;
 };
 
 type SelectionState = {
   selected: CandidateMeta[];
   used: Set<string>;
+  editorialSelectedCount: number;
   familyCounts: Map<FrontierEditorialFamily, number>;
   laneCounts: Map<FrontierLaneId, number>;
   sourceCounts: Map<string, number>;
@@ -63,8 +65,12 @@ function count<K>(map: Map<K, number>, key: K): number {
   return map.get(key) ?? 0;
 }
 
+export function isFrontierUtilityItem(item: FrontierItem): boolean {
+  return item.sourceKind === 'sports_state' || Boolean(item.sportsState);
+}
+
 export function frontierEditorialFamily(item: FrontierItem): FrontierEditorialFamily {
-  if (item.sourceKind === 'sports_state' || item.sportsState) return 'sports';
+  if (isFrontierUtilityItem(item)) return 'sports';
   switch (item.lane) {
     case 'must_know':
     case 'world_pulse':
@@ -194,7 +200,8 @@ function prepareCandidates(ranked: FrontierItem[]): CandidateMeta[] {
       realm: FRONTIER_LANE_MAP[item.lane].realm,
       sourceBucket: frontierSourceBucket(item),
       taste,
-      utility: utilityFromEvidence(item, index, taste),
+      allocationUtility: utilityFromEvidence(item, index, taste),
+      isUtility: isFrontierUtilityItem(item),
     };
   });
 }
@@ -205,9 +212,9 @@ function familyDemand(candidates: CandidateMeta[], family: FrontierEditorialFami
 
   for (const candidate of candidates) {
     if (samples.length >= 3) break;
-    if (candidate.family !== family || distinctSources.has(candidate.sourceBucket)) continue;
+    if (candidate.isUtility || candidate.family !== family || distinctSources.has(candidate.sourceBucket)) continue;
     distinctSources.add(candidate.sourceBucket);
-    samples.push(candidate.utility);
+    samples.push(candidate.allocationUtility);
   }
 
   if (!samples.length) return 0;
@@ -255,6 +262,7 @@ function createSelectionState(): SelectionState {
   return {
     selected: [],
     used: new Set<string>(),
+    editorialSelectedCount: 0,
     familyCounts: new Map(),
     laneCounts: new Map(),
     sourceCounts: new Map(),
@@ -266,9 +274,15 @@ function addCandidate(state: SelectionState, candidate: CandidateMeta | undefine
   if (!candidate || state.used.has(candidate.item.id)) return;
   state.selected.push(candidate);
   state.used.add(candidate.item.id);
+
+  // Source concentration describes the actual visible surface, so utility still
+  // counts here. Editorial family/lane/realm accounting intentionally does not.
+  state.sourceCounts.set(candidate.sourceBucket, count(state.sourceCounts, candidate.sourceBucket) + 1);
+  if (candidate.isUtility) return;
+
+  state.editorialSelectedCount += 1;
   state.familyCounts.set(candidate.family, count(state.familyCounts, candidate.family) + 1);
   state.laneCounts.set(candidate.item.lane, count(state.laneCounts, candidate.item.lane) + 1);
-  state.sourceCounts.set(candidate.sourceBucket, count(state.sourceCounts, candidate.sourceBucket) + 1);
   state.realmCounts.set(candidate.realm, count(state.realmCounts, candidate.realm) + 1);
 }
 
@@ -285,7 +299,7 @@ function bestEligible(
 
   for (const candidate of candidates) {
     const { item, family, sourceBucket, taste } = candidate;
-    if (state.used.has(item.id)) continue;
+    if (candidate.isUtility || state.used.has(item.id)) continue;
     if (realm && candidate.realm !== realm) continue;
 
     const familyCount = count(state.familyCounts, family);
@@ -306,10 +320,10 @@ function bestEligible(
       && sameLane >= 1
     ) continue;
 
-    const currentShare = state.selected.length ? familyCount / state.selected.length : 0;
+    const currentShare = state.editorialSelectedCount ? familyCount / state.editorialSelectedCount : 0;
     const deficit = Math.max(0, targetShare[family] - currentShare);
     const unseenFamily = familyCount === 0 ? 0.105 : 0;
-    const score = candidate.utility
+    const score = candidate.allocationUtility
       + deficit * 0.72
       + unseenFamily
       - sameLane * 0.065
@@ -335,16 +349,15 @@ export function selectAdaptiveDailyAllocation(ranked: FrontierItem[], limit: num
   // the local rerank window, but only one gets this authority.
   addCandidate(state, allCandidates.find(({ item }) => item.lane === 'must_know' || item.importance >= 0.82));
 
-  // Live sports state is utility rather than editorial taste. Preserve at most
-  // one compact state signal in a normal finite run even if it sits outside the
-  // local editorial rerank window.
+  // Live sports state is bounded utility, not editorial taste. It remains visible
+  // without consuming sports-family, lane, or After Hours editorial accounting.
   if (state.selected.length < boundedLimit && boundedLimit >= 5) {
-    addCandidate(state, allCandidates.find(({ item }) => item.sourceKind === 'sports_state' || Boolean(item.sportsState)));
+    addCandidate(state, allCandidates.find(({ isUtility }) => isUtility));
   }
 
-  // Broad realm coverage is a product invariant. Micro-topics are not. Once the
-  // slate is large enough to support variety, give both Brainfood and After Hours
-  // a chance from inside the learned frontier, then let learned demand own the rest.
+  // Broad realm coverage is a product invariant. Utility does not satisfy this
+  // requirement by itself. Micro-topics are not quotas: once both editorial
+  // realms have a chance, learned demand owns the rest of the local frontier.
   if (boundedLimit >= 4) {
     for (const realm of ['learn', 'play'] as const) {
       if (state.selected.length >= boundedLimit || count(state.realmCounts, realm) > 0) continue;
@@ -373,9 +386,12 @@ export function slateCompositionDiagnostics(
   const demand = familyDemands(rerankWindow);
   const targets = familyTargetsFromDemand(demand);
   const selectedCounts = new Map<FrontierEditorialFamily, number>();
+  let editorialSelectedCount = 0;
   for (const item of selected) {
+    if (isFrontierUtilityItem(item)) continue;
     const family = frontierEditorialFamily(item);
     selectedCounts.set(family, count(selectedCounts, family) + 1);
+    editorialSelectedCount += 1;
   }
 
   return FAMILIES.map((family) => {
@@ -385,7 +401,7 @@ export function slateCompositionDiagnostics(
       demand: demand[family],
       targetShare: targets[family],
       selected: selectedCount,
-      realizedShare: selected.length ? selectedCount / selected.length : 0,
+      realizedShare: editorialSelectedCount ? selectedCount / editorialSelectedCount : 0,
     };
   });
 }
