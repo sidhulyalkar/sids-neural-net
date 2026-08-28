@@ -52,6 +52,9 @@ jobs:
       - name: Unit tests
         run: npm test
 
+      - name: Audit FRONTIER adaptive slate counterfactual
+        run: npm run frontier:slate-audit -- content/frontier/latest.json
+
       - name: Validate deterministic Nature Atlas corpus
         run: npm run check:nature-corpus
 
