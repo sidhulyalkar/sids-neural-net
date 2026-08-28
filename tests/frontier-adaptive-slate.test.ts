@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
   frontierEditorialFamily,
+  frontierRerankWindowSize,
   frontierSourceBucket,
   selectAdaptiveDailyAllocation,
   slateCompositionDiagnostics,
@@ -64,6 +65,72 @@ test('finite runs preserve Brainfood and After Hours without forcing micro-topic
   assert.ok(lanes.some((lane) => ['neuro_frontier', 'ml_data', 'methods', 'builder_signal'].includes(lane)));
   assert.ok(lanes.some((lane) => ['gaming', 'music'].includes(lane)));
   assert.equal(selected.length, 4);
+});
+
+test('adaptive reranking stays inside a bounded neighborhood of learned rank', () => {
+  assert.equal(frontierRerankWindowSize(14, 100), 21);
+  assert.equal(frontierRerankWindowSize(48, 100), 72);
+  assert.equal(frontierRerankWindowSize(4, 100), 10);
+  assert.equal(frontierRerankWindowSize(14, 9), 9);
+  assert.equal(frontierRerankWindowSize(0, 100), 0);
+});
+
+test('ordinary composition can never resurrect a candidate below the local learned frontier', () => {
+  const ranked = Array.from({ length: 40 }, (_, index) => item(`rank-${index}`, {
+    lane: index < 20 ? (index % 2 ? 'ml_data' : 'methods') : 'sports',
+    tags: index < 20 ? ['method'] : ['fantasy football', 'superflex'],
+  }));
+  const selected = selectAdaptiveDailyAllocation(ranked, 14);
+  const selectedRanks = selected.map((entry) => ranked.findIndex((candidate) => candidate.id === entry.id));
+  assert.ok(selectedRanks.every((rank) => rank >= 0 && rank < 21), `selected ranks escaped frontier: ${selectedRanks.join(',')}`);
+  assert.ok(!selected.some((entry) => entry.id === 'rank-21'));
+});
+
+test('Must Know may interrupt outside the rerank frontier without granting ordinary tail items the same authority', () => {
+  const ranked = Array.from({ length: 30 }, (_, index) => item(`rank-${index}`, {
+    lane: index === 27 ? 'must_know' : index % 2 ? 'ml_data' : 'gaming',
+    importance: index === 27 ? 0.95 : 0.58,
+  }));
+  const selected = selectAdaptiveDailyAllocation(ranked, 14);
+  assert.ok(selected.some((entry) => entry.id === 'rank-27'), 'Must Know interrupt was lost');
+  const ordinaryTail = selected.filter((entry) => {
+    const rank = ranked.findIndex((candidate) => candidate.id === entry.id);
+    return rank >= 21 && entry.id !== 'rank-27';
+  });
+  assert.deepEqual(ordinaryTail, []);
+});
+
+test('live sports state may interrupt outside the rerank frontier as bounded utility', () => {
+  const ranked = Array.from({ length: 30 }, (_, index) => item(`rank-${index}`, {
+    lane: index === 26 ? 'sports' : index % 2 ? 'ml_data' : 'gaming',
+    sourceKind: index === 26 ? 'sports_state' : 'rss',
+    sportsState: index === 26 ? {
+      league: 'nba',
+      leagueLabel: 'NBA',
+      kind: 'scoreboard',
+      headline: 'Live score',
+      status: 'in_progress',
+      updatedAt: '2026-08-27T12:00:00.000Z',
+      entries: [],
+    } : undefined,
+  }));
+  const selected = selectAdaptiveDailyAllocation(ranked, 14);
+  assert.ok(selected.some((entry) => entry.id === 'rank-26'), 'live utility interrupt was lost');
+});
+
+test('a constrained local frontier may return fewer good cards instead of fishing through buried tail inventory', () => {
+  const concentrated = Array.from({ length: 21 }, (_, index) => item(`same-${index}`, {
+    lane: 'ml_data',
+    url: `https://one-publisher.example/${index}`,
+    source: 'one-publisher.example',
+  }));
+  const buriedTail = Array.from({ length: 20 }, (_, index) => item(`tail-${index}`, {
+    lane: index % 2 ? 'gaming' : 'sports',
+  }));
+  const ranked = [...concentrated, ...buriedTail];
+  const selected = selectAdaptiveDailyAllocation(ranked, 14);
+  assert.ok(selected.length < 14, `expected quality-preserving short slate, got ${selected.length}`);
+  assert.ok(selected.every((entry) => !entry.id.startsWith('tail-')), 'allocator filled from buried tail inventory');
 });
 
 test('a static micro-interest cannot demand a seat after learned rank moves it far down', () => {
@@ -187,7 +254,7 @@ test('composition diagnostics expose bounded targets and realized shares', () =>
     item('leisure', { lane: 'life', tags: ['nature photography'] }),
   ];
   const selected = selectAdaptiveDailyAllocation(ranked, 5);
-  const diagnostics = slateCompositionDiagnostics(ranked, selected);
+  const diagnostics = slateCompositionDiagnostics(ranked, selected, 5);
 
   assert.equal(diagnostics.length, 6);
   assert.ok(diagnostics.every((entry) => entry.targetShare <= 0.38 + Number.EPSILON));
