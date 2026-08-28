@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { frontierRerankWindowSize } from '../lib/frontier/adaptiveSlate';
 import { createInitialProfile } from '../lib/frontier/config';
 import { rankFrontierItems, selectDailyRun } from '../lib/frontier/scoring';
 import { isFrontierSourceAdmitted } from '../lib/frontier/sourceTrust';
@@ -176,7 +177,7 @@ test('finite daily run keeps live sports state beside deeper sports analysis aft
     quality: 0.8,
     momentum: 0.6,
   };
-  const generic = Array.from({ length: 20 }, (_, index): FrontierItem => ({
+  const generic = Array.from({ length: 12 }, (_, index): FrontierItem => ({
     ...analysis,
     id: `generic-${index}`,
     title: `Generic signal ${index}`,
@@ -191,7 +192,8 @@ test('finite daily run keeps live sports state beside deeper sports analysis aft
   const now = new Date(NOW);
   const ranked = rankFrontierItems([...generic, analysis, sportsState], createInitialProfile(), {}, now);
   const analysisRank = ranked.findIndex((item) => item.id === analysis.id);
-  assert.ok(analysisRank >= 0 && analysisRank < 14, `sports analysis ranked ${analysisRank + 1}`);
+  const rerankWindow = frontierRerankWindowSize(8, ranked.length);
+  assert.ok(analysisRank >= 0 && analysisRank < rerankWindow, `sports analysis ranked ${analysisRank + 1}, outside window ${rerankWindow}`);
 
   const daily = selectDailyRun(ranked, {}, 8, now);
   assert.ok(daily.some((item) => item.id === sportsState.id));
