@@ -52,6 +52,8 @@ const MAX_FAMILY_SHARE = 0.38;
 const MAX_LANE_SHARE = 0.24;
 const MAX_SOURCE_BUCKET_ITEMS = 2;
 const EXPLICIT_TASTE_THRESHOLD = 0.04;
+const RERANK_WINDOW_MULTIPLIER = 1.5;
+const MIN_RERANK_EXTRA = 6;
 
 function clamp(value: number, min = 0, max = 1): number {
   return Math.min(max, Math.max(min, value));
@@ -133,6 +135,24 @@ export function frontierSourceBucket(item: FrontierItem): string {
   } catch {
     return item.source.toLowerCase();
   }
+}
+
+/**
+ * Composition is a local reranker, not a second recommendation engine. Keep its
+ * authority inside a bounded neighborhood around the learned top-N so diversity
+ * cannot resurrect deeply buried interests. A canonical 14-card run may inspect
+ * the first 21 ranked candidates; a 48-card deep browse may inspect the first 72.
+ */
+export function frontierRerankWindowSize(limit: number, candidateCount: number): number {
+  const boundedLimit = Math.max(0, Math.floor(limit));
+  const boundedCount = Math.max(0, Math.floor(candidateCount));
+  if (!boundedLimit || !boundedCount) return 0;
+  const desired = Math.max(
+    boundedLimit,
+    boundedLimit + MIN_RERANK_EXTRA,
+    Math.ceil(boundedLimit * RERANK_WINDOW_MULTIPLIER),
+  );
+  return Math.min(boundedCount, desired);
 }
 
 function rankSignal(index: number): number {
@@ -305,45 +325,52 @@ export function selectAdaptiveDailyAllocation(ranked: FrontierItem[], limit: num
   const boundedLimit = Math.max(0, Math.floor(limit));
   if (!boundedLimit || !ranked.length) return [];
 
-  const candidates = prepareCandidates(ranked);
+  const allCandidates = prepareCandidates(ranked);
+  const rerankWindow = allCandidates.slice(0, frontierRerankWindowSize(boundedLimit, allCandidates.length));
   const state = createSelectionState();
-  const targets = familyTargetsFromDemand(familyDemands(candidates));
+  const targets = familyTargetsFromDemand(familyDemands(rerankWindow));
 
   // One truly consequential signal is an editorial interrupt, not a taste quota.
-  // It may cross the personalization bubble, but only one gets this authority.
-  addCandidate(state, candidates.find(({ item }) => item.lane === 'must_know' || item.importance >= 0.82));
+  // It may cross the personalization bubble even when the ranker placed it below
+  // the local rerank window, but only one gets this authority.
+  addCandidate(state, allCandidates.find(({ item }) => item.lane === 'must_know' || item.importance >= 0.82));
 
-  // Live sports state is utility. Preserve at most one compact state signal in a
-  // normal finite run, but do not let it force out the only other realm in a tiny run.
+  // Live sports state is utility rather than editorial taste. Preserve at most
+  // one compact state signal in a normal finite run even if it sits outside the
+  // local editorial rerank window.
   if (state.selected.length < boundedLimit && boundedLimit >= 5) {
-    addCandidate(state, candidates.find(({ item }) => item.sourceKind === 'sports_state' || Boolean(item.sportsState)));
+    addCandidate(state, allCandidates.find(({ item }) => item.sourceKind === 'sports_state' || Boolean(item.sportsState)));
   }
 
   // Broad realm coverage is a product invariant. Micro-topics are not. Once the
   // slate is large enough to support variety, give both Brainfood and After Hours
-  // a chance if qualified supply exists, then let learned demand own the rest.
+  // a chance from inside the learned frontier, then let learned demand own the rest.
   if (boundedLimit >= 4) {
     for (const realm of ['learn', 'play'] as const) {
       if (state.selected.length >= boundedLimit || count(state.realmCounts, realm) > 0) continue;
-      addCandidate(state, bestEligible(candidates, state, boundedLimit, targets, realm));
+      addCandidate(state, bestEligible(rerankWindow, state, boundedLimit, targets, realm));
     }
   }
 
   while (state.selected.length < boundedLimit) {
-    const next = bestEligible(candidates, state, boundedLimit, targets);
+    const next = bestEligible(rerankWindow, state, boundedLimit, targets);
     if (!next) break;
     addCandidate(state, next);
   }
 
+  // Returning fewer cards is preferable to violating learned rank authority or
+  // concentration caps simply to hit an arbitrary display count.
   return state.selected.map(({ item }) => item);
 }
 
 export function slateCompositionDiagnostics(
   ranked: FrontierItem[],
   selected: FrontierItem[],
+  limit = selected.length,
 ): FrontierSlateFamilyDiagnostic[] {
   const candidates = prepareCandidates(ranked);
-  const demand = familyDemands(candidates);
+  const rerankWindow = candidates.slice(0, frontierRerankWindowSize(Math.max(limit, selected.length), candidates.length));
+  const demand = familyDemands(rerankWindow);
   const targets = familyTargetsFromDemand(demand);
   const selectedCounts = new Map<FrontierEditorialFamily, number>();
   for (const item of selected) {
