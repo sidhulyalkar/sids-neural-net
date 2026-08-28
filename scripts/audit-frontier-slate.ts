@@ -29,11 +29,15 @@ function validDate(value: string | undefined): Date {
   return Number.isFinite(date.getTime()) ? date : new Date('2026-01-01T00:00:00.000Z');
 }
 
-function policyInterrupt(item: FrontierItem): boolean {
-  return item.lane === 'must_know'
-    || item.importance >= 0.82
-    || item.sourceKind === 'sports_state'
-    || Boolean(item.sportsState);
+function allowedOutsideWindowIds(ranked: FrontierItem[], limit: number): Set<string> {
+  const allowed = new Set<string>();
+  const consequential = ranked.find((item) => item.lane === 'must_know' || item.importance >= 0.82);
+  if (consequential) allowed.add(consequential.id);
+  if (limit >= 5) {
+    const liveState = ranked.find((item) => item.sourceKind === 'sports_state' || Boolean(item.sportsState));
+    if (liveState) allowed.add(liveState.id);
+  }
+  return allowed;
 }
 
 function validateSelection(
@@ -49,13 +53,14 @@ function validateSelection(
 
   const rankById = new Map(ranked.map((item, index) => [item.id, index]));
   const rerankWindow = frontierRerankWindowSize(limit, ranked.length);
+  const allowedOutside = allowedOutsideWindowIds(ranked, limit);
   for (const item of selected) {
     const rank = rankById.get(item.id);
     if (rank === undefined) {
       failures.push({ scope, message: `selected item ${item.id} does not exist in ranked input` });
       continue;
     }
-    if (rank >= rerankWindow && !policyInterrupt(item)) {
+    if (rank >= rerankWindow && !allowedOutside.has(item.id)) {
       failures.push({
         scope,
         message: `ordinary item ${item.id} at rank ${rank + 1} escaped rerank window ${rerankWindow}`,
