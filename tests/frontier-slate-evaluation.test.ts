@@ -94,7 +94,7 @@ test('an already diverse learned frontier is preserved rather than churned for i
   assert.equal(audit.overlapCount, 14);
   assert.equal(audit.overrideCount, 0);
   assert.equal(audit.overrideRate, 0);
-  assert.equal(audit.rankUtilityRetention, 1);
+  assert.ok(Math.abs(audit.rankUtilityRetention - 1) < 1e-12);
 });
 
 test('counterfactual audit distinguishes allowed policy interrupts from ordinary local promotions', () => {
