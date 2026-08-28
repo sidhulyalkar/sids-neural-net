@@ -104,15 +104,6 @@ test('live sports state may interrupt outside the rerank frontier as bounded uti
   const ranked = Array.from({ length: 30 }, (_, index) => item(`rank-${index}`, {
     lane: index === 26 ? 'sports' : index % 2 ? 'ml_data' : 'gaming',
     sourceKind: index === 26 ? 'sports_state' : 'rss',
-    sportsState: index === 26 ? {
-      league: 'nba',
-      leagueLabel: 'NBA',
-      kind: 'scoreboard',
-      headline: 'Live score',
-      status: 'in_progress',
-      updatedAt: '2026-08-27T12:00:00.000Z',
-      entries: [],
-    } : undefined,
   }));
   const selected = selectAdaptiveDailyAllocation(ranked, 14);
   assert.ok(selected.some((entry) => entry.id === 'rank-26'), 'live utility interrupt was lost');
