@@ -25,7 +25,8 @@
     "gestures:analyze": "tsx scripts/analyze-gesture-takes.ts",
     "music:fetch": "tsx scripts/fetch-spotify-top.ts",
     "music:grid": "tsx scripts/build-beatgrid.ts",
-    "frontier:snapshot": "tsx scripts/build-frontier-snapshot.ts"
+    "frontier:snapshot": "tsx scripts/build-frontier-snapshot.ts",
+    "frontier:slate-audit": "tsx scripts/audit-frontier-slate.ts"
   },
   "dependencies": {
     "@mediapipe/tasks-vision": "0.10.17",
