@@ -36,9 +36,9 @@ function canonical(left: string, right: string): string {
 
 /**
  * Portfolio signatures describe the *kind* of connection rather than the item.
- * Exact topic × method edges carry the most weight, while broader domain edges
- * are intentionally weaker so nearby hobbies can diversify one another without
- * being treated as synonyms.
+ * Exact topic × method edges carry the most weight. Parent topics, domain pairs,
+ * and domain-method edges are transfer evidence only, so neighboring interests
+ * can inform one another without becoming repetition-equivalent.
  */
 export function interestConnectionSignatures(item: FrontierItem): FrontierConnectionSignature[] {
   const connection = personalInterestConnection(item);
@@ -58,7 +58,10 @@ export function interestConnectionSignatures(item: FrontierItem): FrontierConnec
   }
   for (let left = 0; left < connection.domains.length; left += 1) {
     for (let right = left + 1; right < connection.domains.length; right += 1) {
-      signatures.set(canonical(`domain:${connection.domains[left]}`, `domain:${connection.domains[right]}`), 0.9);
+      // A domain pair such as motion-sports × science-engineering is valuable
+      // for transfer, but far too broad to mean "you have seen this connection
+      // already." Keep it second-order beside a concrete sport × method edge.
+      signatures.set(canonical(`domain:${connection.domains[left]}`, `domain:${connection.domains[right]}`), 0.28);
     }
   }
   for (const domain of connection.domains) {
