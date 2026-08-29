@@ -4,6 +4,11 @@ import { buildConnectionExposureIndex, connectionPortfolioAdjustment } from './c
 import { FRONTIER_LANE_MAP } from './config';
 import { personalInterestConnection } from './interestGraph';
 import {
+  buildPairEvidenceIndex,
+  effectivePairAffinityForItem,
+  type FrontierPairEvidenceIndex,
+} from './pairEvidence';
+import {
   personalTasteRankingPrior,
   strongestPersonalTasteLabel,
 } from './personalTaste';
@@ -98,12 +103,22 @@ export function isDueForResurface(entry: FrontierHistoryEntry, now = new Date())
   return resurfaceBonus(entry, now) > 0;
 }
 
+function learnedPairAffinity(
+  item: FrontierItem,
+  profile: FrontierProfile,
+  pairEvidence?: FrontierPairEvidenceIndex,
+): number {
+  const legacy = pairAffinityForItem(item, profile);
+  return effectivePairAffinityForItem(item, legacy, pairEvidence);
+}
+
 export function personalizedScore(
   item: FrontierItem,
   profile: FrontierProfile,
   historyEntry?: FrontierHistoryEntry,
   now = new Date(),
-  behavior?: FrontierBehaviorModel
+  behavior?: FrontierBehaviorModel,
+  pairEvidence?: FrontierPairEvidenceIndex,
 ): number {
   if (historyEntry?.reaction === 'hide') return -1;
 
@@ -112,7 +127,7 @@ export function personalizedScore(
   const topicSignal = item.tags.length
     ? item.tags.reduce((sum, tag) => sum + (profile.topicAffinity[tag.toLowerCase()] ?? 0), 0) / item.tags.length
     : 0;
-  const pairSignal = pairAffinityForItem(item, profile);
+  const pairSignal = learnedPairAffinity(item, profile, pairEvidence);
   const knownness = item.tags.length
     ? item.tags.reduce((sum, tag) => sum + (profile.knownTopics[tag.toLowerCase()] ?? 0), 0) / item.tags.length
     : 0;
@@ -127,9 +142,6 @@ export function personalizedScore(
   const tasteSuppression = laneAffinity <= -0.15 || topicSignal <= -0.12 ? 0.25 : 1;
   const tastePrior = explicitTaste * tasteSuppression;
   const connection = personalInterestConnection(item);
-  // Bridge confidence is ranking authority, not display metadata. A candidate
-  // that merely hints at an intersection must not receive the same bonus as one
-  // with independent, high-confidence evidence for the connection.
   const learnedConnectionGate = pairSignal <= -0.15 ? 0.12 : 1;
   const connectionPrior = connection.score * connection.confidence * tasteSuppression * learnedConnectionGate;
 
@@ -160,17 +172,18 @@ export function rankFrontierItems(
   profile: FrontierProfile,
   history: Record<string, FrontierHistoryEntry>,
   now = new Date(),
-  behavior?: FrontierBehaviorModel
+  behavior?: FrontierBehaviorModel,
+  pairEvidence = buildPairEvidenceIndex(history, now),
 ): FrontierItem[] {
   const connectionExposure = buildConnectionExposureIndex(history, now);
   return items
     .filter((item) => history[item.id]?.reaction !== 'hide' && isFrontierSourceAdmitted(item))
     .map((item) => {
-      const learnedPairAffinity = pairAffinityForItem(item, profile);
-      const portfolio = connectionPortfolioAdjustment(item, connectionExposure, learnedPairAffinity);
+      const pairSignal = learnedPairAffinity(item, profile, pairEvidence);
+      const portfolio = connectionPortfolioAdjustment(item, connectionExposure, pairSignal);
       return {
         item,
-        score: personalizedScore(item, profile, history[item.id], now, behavior) + portfolio.net,
+        score: personalizedScore(item, profile, history[item.id], now, behavior, pairEvidence) + portfolio.net,
       };
     })
     .sort((a, b) => b.score - a.score)
@@ -183,10 +196,6 @@ function selectDailyAllocation(
   limit: number,
   now: Date
 ): FrontierItem[] {
-  // Ranking has already absorbed explicit taste, learned behavior, context,
-  // confidence, freshness, trust and exploration. Allocation should not build a
-  // second preference model. It composes that authoritative order into a finite,
-  // diverse slate using soft editorial-family demand.
   void history;
   void now;
   return selectAdaptiveDailyAllocation(ranked, limit);
@@ -203,9 +212,6 @@ export function selectDailyRun(
     return selectDailyAllocation(ranked, history, boundedLimit, now);
   }
 
-  // A deeper browse is an extension of the authoritative daily run, not a
-  // second opening recommendation. Pin the canonical first 14, then append only
-  // additional members from the larger adaptive allocation.
   const canonical = selectDailyAllocation(ranked, history, CANONICAL_DAILY_RUN_SIZE, now);
   const expanded = selectDailyAllocation(ranked, history, boundedLimit, now);
   const canonicalIds = new Set(canonical.map((item) => item.id));
@@ -219,7 +225,8 @@ export function explainRecommendation(
   item: FrontierItem,
   profile: FrontierProfile,
   behavior?: FrontierBehaviorModel,
-  now = new Date()
+  now = new Date(),
+  pairEvidence?: FrontierPairEvidenceIndex,
 ): string {
   const strongestTag = item.tags
     .map((tag) => ({ tag, affinity: profile.topicAffinity[tag.toLowerCase()] ?? 0 }))
@@ -241,7 +248,7 @@ export function explainRecommendation(
   }
 
   const connection = personalInterestConnection(item);
-  const pairSignal = pairAffinityForItem(item, profile);
+  const pairSignal = learnedPairAffinity(item, profile, pairEvidence);
   if (connection.explanation && connection.confidence >= 0.62 && pairSignal > -0.15) return connection.explanation;
   if (resurfaceLike(item)) return 'Second chance: this signal was worth keeping in orbit.';
   if (item.importance >= 0.8) return 'High global importance, promoted even beyond your normal taste profile.';
