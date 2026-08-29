@@ -40,10 +40,46 @@ test('slate shape exposes bounded source family lane and realm concentration', (
   assert.equal(shape.uniqueLanes, 5);
   assert.equal(shape.learnCount, 3);
   assert.equal(shape.playCount, 2);
+  assert.equal(shape.connectedCount, 0);
+  assert.equal(shape.uniqueConnectionSignatures, 0);
+  assert.equal(shape.connectionHhi, 0);
+  assert.equal(shape.meanConnectionConfidence, 0);
   assert.ok(shape.maxSourceShare > 0 && shape.maxSourceShare <= 1);
   assert.ok(shape.sourceHhi > 0 && shape.sourceHhi <= 1);
   assert.ok(shape.maxFamilyShare > 0 && shape.maxFamilyShare <= 1);
   assert.ok(shape.familyHhi > 0 && shape.familyHhi <= 1);
+});
+
+test('slate shape measures exact bridge repertoire instead of treating every personalized card as one bucket', () => {
+  const skate = (id: string) => item(id, 'sports', {
+    title: 'Street skateboarding pose estimation toolkit',
+    summary: 'Open-source biomechanics analysis for skate trick progression.',
+    sourceKind: 'github',
+    source: 'github.com',
+    sourceLabel: `example/${id}`,
+    url: `https://github.com/example/${id}`,
+    tags: ['skateboarding', 'street skating', 'pose estimation', 'biomechanics', 'open source'],
+  });
+  const mtb = item('mtb-telemetry', 'sports', {
+    title: 'Mountain biking trail telemetry dashboard',
+    summary: 'Open-source GPX and IMU analysis for MTB ride data.',
+    sourceKind: 'github',
+    source: 'github.com',
+    sourceLabel: 'example/mtb-telemetry',
+    url: 'https://github.com/example/mtb-telemetry',
+    tags: ['mountain biking', 'mtb', 'telemetry', 'gpx', 'open source'],
+  });
+
+  const repeated = frontierSlateShape([skate('skate-a'), skate('skate-b'), skate('skate-c')]);
+  const mixed = frontierSlateShape([skate('skate-a'), skate('skate-b'), mtb]);
+
+  assert.equal(repeated.connectedCount, 3);
+  assert.equal(mixed.connectedCount, 3);
+  assert.ok(repeated.uniqueConnectionSignatures > 0);
+  assert.ok(mixed.uniqueConnectionSignatures > repeated.uniqueConnectionSignatures);
+  assert.ok(mixed.connectionHhi < repeated.connectionHhi);
+  assert.ok(repeated.meanConnectionConfidence > 0.5);
+  assert.ok(mixed.meanConnectionConfidence > 0.5);
 });
 
 test('adaptive composition measurably reduces a concentrated raw top-N without abandoning learned rank', () => {
@@ -95,6 +131,8 @@ test('an already diverse learned frontier is preserved rather than churned for i
   assert.equal(audit.overrideCount, 0);
   assert.equal(audit.overrideRate, 0);
   assert.ok(Math.abs(audit.rankUtilityRetention - 1) < 1e-12);
+  assert.equal(audit.connectionConcentrationImprovement, 0);
+  assert.equal(audit.connectionBreadthDelta, 0);
 });
 
 test('counterfactual audit distinguishes allowed policy interrupts from ordinary local promotions', () => {
@@ -126,5 +164,7 @@ test('counterfactual metrics are deterministic and never alter selection', () =>
   assert.deepEqual(selected.map((entry) => entry.id), before);
   assert.ok(first.overrideRate >= 0 && first.overrideRate <= 1);
   assert.ok(first.rankUtilityRetention >= 0 && first.rankUtilityRetention <= 1);
+  assert.ok(first.raw.connectionHhi >= 0 && first.raw.connectionHhi <= 1);
+  assert.ok(first.adaptive.connectionHhi >= 0 && first.adaptive.connectionHhi <= 1);
   assert.ok(first.familyDiagnostics.every((entry) => entry.targetShare >= 0 && entry.targetShare <= 0.38 + Number.EPSILON));
 });
