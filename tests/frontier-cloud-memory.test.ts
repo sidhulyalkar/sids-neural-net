@@ -147,6 +147,37 @@ test('cloud-memory merge preserves useful state and co-interest memory from both
   assert.equal(merged.history.a.resurfacedCount, 1);
 });
 
+test('cloud-memory merge gives reaction authority to the newest reactedAt rather than newest impression', () => {
+  const left = state();
+  const right = state();
+  const signal = item('reaction-race', 'Reaction race');
+  left.history[signal.id] = {
+    item: signal,
+    firstSeenAt: '2026-08-20T10:00:00.000Z',
+    lastSeenAt: '2026-08-29T19:00:00.000Z',
+    impressions: 5,
+    reaction: 'up',
+    reactedAt: '2026-08-24T12:00:00.000Z',
+    resurfacedCount: 0,
+    rewarded: false,
+  };
+  right.history[signal.id] = {
+    item: signal,
+    firstSeenAt: '2026-08-20T10:00:00.000Z',
+    lastSeenAt: '2026-08-28T19:00:00.000Z',
+    impressions: 3,
+    reaction: 'down',
+    reactedAt: '2026-08-27T12:00:00.000Z',
+    resurfacedCount: 0,
+    rewarded: false,
+  };
+
+  const merged = mergeFrontierMemory(left, right);
+  assert.equal(merged.history[signal.id].lastSeenAt, '2026-08-29T19:00:00.000Z');
+  assert.equal(merged.history[signal.id].reaction, 'down');
+  assert.equal(merged.history[signal.id].reactedAt, '2026-08-27T12:00:00.000Z');
+});
+
 test('cloud compaction bounds raw history but prioritizes meaningful rows', () => {
   const memory = state();
   for (let index = 0; index < 6; index += 1) {
