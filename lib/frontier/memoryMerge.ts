@@ -120,8 +120,23 @@ function mergeBehavior(left: FrontierBehaviorModel, right: FrontierBehaviorModel
   };
 }
 
+function reactionOwner(left: FrontierHistoryEntry, right: FrontierHistoryEntry): FrontierHistoryEntry | undefined {
+  if (left.reactedAt && right.reactedAt) return right.reactedAt >= left.reactedAt ? right : left;
+  if (left.reactedAt) return left;
+  if (right.reactedAt) return right;
+  // Backward compatibility for older history entries that may carry a reaction
+  // without reactedAt. In that case only, fall back to the most recently seen
+  // copy rather than discarding the reaction entirely.
+  const latest = right.lastSeenAt >= left.lastSeenAt ? right : left;
+  if (latest.reaction) return latest;
+  if (left.reaction) return left;
+  if (right.reaction) return right;
+  return undefined;
+}
+
 function mergeHistoryEntry(left: FrontierHistoryEntry, right: FrontierHistoryEntry): FrontierHistoryEntry {
   const latest = right.lastSeenAt >= left.lastSeenAt ? right : left;
+  const latestReaction = reactionOwner(left, right);
   return {
     ...latest,
     firstSeenAt: left.firstSeenAt <= right.firstSeenAt ? left.firstSeenAt : right.firstSeenAt,
@@ -129,8 +144,8 @@ function mergeHistoryEntry(left: FrontierHistoryEntry, right: FrontierHistoryEnt
     impressions: Math.max(left.impressions, right.impressions),
     dwellMs: Math.max(left.dwellMs ?? 0, right.dwellMs ?? 0) || undefined,
     openedAt: newestOptional(left.openedAt, right.openedAt),
-    reactedAt: newestOptional(left.reactedAt, right.reactedAt),
-    reaction: latest.reaction ?? left.reaction ?? right.reaction,
+    reactedAt: latestReaction?.reactedAt ?? newestOptional(left.reactedAt, right.reactedAt),
+    reaction: latestReaction?.reaction,
     resurfacedCount: Math.max(left.resurfacedCount, right.resurfacedCount),
     rewarded: left.rewarded || right.rewarded,
   };
