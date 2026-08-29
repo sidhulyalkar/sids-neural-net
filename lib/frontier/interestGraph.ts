@@ -189,10 +189,14 @@ export function personalInterestConnection(item: FrontierItem): FrontierInterest
   const facets = matchedFacets(item);
   const methodFacets = facets.filter((facet) => METHOD_FACETS.has(facet));
   const domainSet = new Set(domains);
+  // Child identities improve memory precision, not evidence quantity. Use the
+  // already-established cold-start topic matches for numeric confidence/score
+  // so splitting active-sports into MTB/climbing/skiing cannot inflate ranking.
+  const topicEvidenceCount = tasteTopics.length;
 
   let score = 0;
   if (domains.length >= 2) score += 0.045 + Math.min(0.028, (domains.length - 2) * 0.014);
-  if (topicIds.length >= 3) score += 0.01;
+  if (topicEvidenceCount >= 3) score += 0.01;
 
   // Vertical bridges are especially useful: a concrete hobby plus a method the
   // owner can build with, inspect, or transfer into another project.
@@ -208,7 +212,7 @@ export function personalInterestConnection(item: FrontierItem): FrontierInterest
 
   score = clamp(score, 0, 0.115);
   const confidence = score > 0
-    ? clamp(0.42 + Math.min(0.24, topicIds.length * 0.07) + Math.min(0.22, facets.length * 0.055), 0, 0.94)
+    ? clamp(0.42 + Math.min(0.24, topicEvidenceCount * 0.07) + Math.min(0.22, facets.length * 0.055), 0, 0.94)
     : 0;
 
   let explanation: string | undefined;
