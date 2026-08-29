@@ -5,6 +5,7 @@ import {
   connectionPortfolioAdjustment,
   interestConnectionSignatures,
 } from '../lib/frontier/connectionPortfolio';
+import { personalInterestConnection } from '../lib/frontier/interestGraph';
 import type { FrontierHistoryEntry, FrontierItem } from '../lib/frontier/types';
 
 function item(overrides: Partial<FrontierItem> = {}): FrontierItem {
@@ -43,6 +44,51 @@ test('connection signatures preserve exact topic-method edges and weaker transfe
   const signatures = interestConnectionSignatures(item());
   assert.ok(signatures.some(({ key, weight }) => key.includes('topic:skate-progression') && key.includes('facet:motion-science') && weight === 1));
   assert.ok(signatures.some(({ key, weight }) => key.includes('domain:motion-sports') && key.includes('facet:motion-science') && weight < 1));
+});
+
+test('climbing, MTB, and skiing retain distinct graph identities inside the shared motion-sports domain', () => {
+  const climbing = personalInterestConnection(item({
+    id: 'climb',
+    title: 'Rock climbing biomechanics toolkit',
+    summary: 'Open-source pose estimation for bouldering movement analysis.',
+    tags: ['rock climbing', 'bouldering', 'biomechanics', 'pose estimation', 'open source'],
+  }));
+  const mtb = personalInterestConnection(item({
+    id: 'mtb',
+    title: 'Mountain biking trail telemetry dashboard',
+    summary: 'Open-source GPX and IMU analysis for MTB ride data.',
+    tags: ['mountain biking', 'mtb', 'telemetry', 'gpx', 'open source'],
+  }));
+  const skiing = personalInterestConnection(item({
+    id: 'ski',
+    title: 'Skiing motion analysis',
+    summary: 'Wearable sensor analysis for freeski technique.',
+    tags: ['skiing', 'freeski', 'wearable data', 'analysis'],
+  }));
+
+  assert.ok(climbing.topicIds.includes('rock-climbing'));
+  assert.ok(mtb.topicIds.includes('mountain-biking'));
+  assert.ok(skiing.topicIds.includes('skiing'));
+  assert.deepEqual(climbing.domains, ['motion-sports']);
+  assert.deepEqual(mtb.domains, ['motion-sports']);
+  assert.deepEqual(skiing.domains, ['motion-sports']);
+
+  const climbingKeys = new Set(interestConnectionSignatures(item({
+    id: 'climb-signature',
+    title: 'Rock climbing biomechanics toolkit',
+    summary: 'Pose estimation for bouldering movement analysis.',
+    tags: ['rock climbing', 'bouldering', 'biomechanics', 'pose estimation'],
+  })).map(({ key }) => key));
+  const mtbKeys = new Set(interestConnectionSignatures(item({
+    id: 'mtb-signature',
+    title: 'Mountain biking telemetry toolkit',
+    summary: 'GPX and IMU analysis for MTB rides.',
+    tags: ['mountain biking', 'mtb', 'telemetry', 'gpx'],
+  })).map(({ key }) => key));
+
+  assert.ok(Array.from(climbingKeys).some((key) => key.includes('topic:rock-climbing')));
+  assert.ok(Array.from(mtbKeys).some((key) => key.includes('topic:mountain-biking')));
+  assert.equal(Array.from(climbingKeys).some((key) => key.includes('topic:mountain-biking')), false);
 });
 
 test('recent repetition progressively taxes the same bridge while a fresh bridge earns exploration room', () => {
