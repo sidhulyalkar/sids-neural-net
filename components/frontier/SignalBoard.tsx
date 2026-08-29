@@ -34,7 +34,7 @@ export type SignalLayoutMode = FrontierLayoutMode;
 type Props = {
   items: FrontierItem[];
   mode: SignalLayoutMode;
-  renderCard: (item: FrontierItem, mode: SignalLayoutMode) => ReactNode;
+  renderCard: (item: FrontierItem, mode: SignalLayoutMode, focused: boolean) => ReactNode;
   empty?: ReactNode;
   compact?: boolean;
   explorationTemperature?: number;
@@ -142,7 +142,7 @@ export function SignalBoard({
 
   useEffect(() => {
     const update = (event: Event) => setQuery((event as CustomEvent<string>).detail ?? '');
-    window.addEventListener(FRONTIER_CLIENT_QUERY_EVENT, update);
+    window.addEventListener(FRIER_CLIENT_QUERY_EVENT, update);
     return () => window.removeEventListener(FRONTIER_CLIENT_QUERY_EVENT, update);
   }, []);
 
@@ -220,9 +220,6 @@ export function SignalBoard({
     ? expandedItemId
     : undefined;
 
-  // Expanding a card changes only that card's block footprint. Desktop column
-  // starts remain deterministic, so neighboring cards never jump horizontally
-  // just because one story revealed more evidence.
   const expandInline = useCallback((item: FrontierItem) => {
     setExpandedState({ streamEpoch, itemId: item.id });
     onFluidExpand?.(item);
@@ -304,29 +301,32 @@ export function SignalBoard({
     >
       {!displayedItems.length ? empty : mode === 'feed' ? (
         <div className={`${styles.readingFeed} ${spatial.feed}`}>
-          {displayedItems.map((item) => (
-            <FluidSpatialCard
-              key={item.id}
-              item={item}
-              expanded={visibleExpandedItemId === item.id}
-              onExpand={expandInline}
-              onCollapse={collapseInline}
-              onExternalOpen={onFluidExternalOpen}
-              className={`${styles.feedItem} ${spatial.feedItem} ${item.highPriority ? spatial.priorityFeedItem : ''} ${item.velocitySignal ? spatial.velocityItem : ''} ${perf.virtualItem} ${perf.feedVirtualItem}`}
-            >
-              <div
-                data-frontier-priority={item.highPriority ? 'true' : undefined}
-                data-frontier-velocity={item.velocitySignal ? 'true' : undefined}
-                {...hoverProps(item)}
+          {displayedItems.map((item) => {
+            const focused = visibleExpandedItemId === item.id;
+            return (
+              <FluidSpatialCard
+                key={item.id}
+                item={item}
+                expanded={focused}
+                onExpand={expandInline}
+                onCollapse={collapseInline}
+                onExternalOpen={onFluidExternalOpen}
+                className={`${styles.feedItem} ${spatial.feedItem} ${item.highPriority ? spatial.priorityFeedItem : ''} ${item.velocitySignal ? spatial.velocityItem : ''} ${perf.virtualItem} ${perf.feedVirtualItem}`}
               >
-                <PriorityMarker item={item} />
-                <VelocityMarker item={item} />
-                <FrontierIntelligenceBadges item={item} />
-                <span className={spatial.focalHint} aria-hidden="true">click to expand · 2× source</span>
-                {renderCard(item, 'feed')}
-              </div>
-            </FluidSpatialCard>
-          ))}
+                <div
+                  data-frontier-priority={item.highPriority ? 'true' : undefined}
+                  data-frontier-velocity={item.velocitySignal ? 'true' : undefined}
+                  {...hoverProps(item)}
+                >
+                  <PriorityMarker item={item} />
+                  <VelocityMarker item={item} />
+                  <FrontierIntelligenceBadges item={item} />
+                  <span className={spatial.focalHint} aria-hidden="true">click to expand · 2× source</span>
+                  {renderCard(item, 'feed', focused)}
+                </div>
+              </FluidSpatialCard>
+            );
+          })}
           <div ref={endSentinel} aria-hidden="true" style={{ height: 1 }} />
         </div>
       ) : (
@@ -336,6 +336,7 @@ export function SignalBoard({
             const visualRole = frontierVisualRole(item, index, hasMedia);
             const packedSpan = packedColumns[index] ?? 4;
             const packedStart = packedColumnStarts[index] ?? 1;
+            const focused = visibleExpandedItemId === item.id;
             const packedStyle = {
               '--frontier-grid-span': String(packedSpan),
               '--frontier-grid-column-start': String(packedStart),
@@ -344,7 +345,7 @@ export function SignalBoard({
               <FluidSpatialCard
                 key={item.id}
                 item={item}
-                expanded={visibleExpandedItemId === item.id}
+                expanded={focused}
                 onExpand={expandInline}
                 onCollapse={collapseInline}
                 onExternalOpen={onFluidExternalOpen}
@@ -364,7 +365,7 @@ export function SignalBoard({
                   <VelocityMarker item={item} />
                   <FrontierIntelligenceBadges item={item} />
                   <span className={spatial.focalHint} aria-hidden="true">click to expand · 2× source</span>
-                  {renderCard(item, 'desk')}
+                  {renderCard(item, 'desk', focused)}
                 </div>
               </FluidSpatialCard>
             );
