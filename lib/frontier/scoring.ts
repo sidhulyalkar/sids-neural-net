@@ -1,6 +1,7 @@
 import { selectAdaptiveDailyAllocation } from './adaptiveSlate';
 import { behavioralAdjustment, behavioralExplorationBonus, formatForItem, aggregatePreference, timeBucket } from './behavior';
 import { FRONTIER_LANE_MAP } from './config';
+import { personalInterestConnection } from './interestGraph';
 import {
   personalTasteRankingPrior,
   strongestPersonalTasteLabel,
@@ -124,6 +125,12 @@ export function personalizedScore(
   const explicitTaste = personalTasteRankingPrior(item);
   const tasteSuppression = laneAffinity <= -0.15 || topicSignal <= -0.12 ? 0.25 : 1;
   const tastePrior = explicitTaste * tasteSuppression;
+  const connection = personalInterestConnection(item);
+  // A learned negative intersection gets veto authority over the cold-start
+  // graph. This prevents a clever cross-domain match from repeatedly returning
+  // after the user has shown that the particular combination is unwanted.
+  const learnedConnectionGate = pairSignal <= -0.15 ? 0.12 : 1;
+  const connectionPrior = connection.score * tasteSuppression * learnedConnectionGate;
 
   const score =
     item.baseScore * 0.28 +
@@ -141,6 +148,7 @@ export function personalizedScore(
     exploration +
     sourceTrustPrior +
     tastePrior +
+    connectionPrior +
     resurfaceBonus(historyEntry, now);
 
   return clamp(score, -1, 1.5);
@@ -223,6 +231,9 @@ export function explainRecommendation(
     }
   }
 
+  const connection = personalInterestConnection(item);
+  const pairSignal = pairAffinityForItem(item, profile);
+  if (connection.explanation && pairSignal > -0.15) return connection.explanation;
   if (resurfaceLike(item)) return 'Second chance: this signal was worth keeping in orbit.';
   if (item.importance >= 0.8) return 'High global importance, promoted even beyond your normal taste profile.';
   const personalLabel = strongestPersonalTasteLabel(item);

@@ -199,9 +199,17 @@ async function openAlexTopic(topic: string): Promise<FrontierItem[]> {
   });
 }
 
-function isBuilderFocus(topic: string): boolean {
+const BUILDER_BRIDGE_INTEREST = /\b(?:skate(?:board|boarding)?|mountain bik(?:e|ing)|mtb|rock climb(?:ing)?|boulder(?:ing)?|disc golf|sports?|game development|gaming|music)\b/i;
+const BUILDER_BRIDGE_METHOD = /\b(?:open source|github|code|analytics?|analysis|computer vision|pose estimation|telemetry|gps|biomechanics|kinematics|simulation|physics|visuali[sz]ation|creative coding|dataset|tracking)\b/i;
+
+export function isCrossInterestBuilderFocus(topic: string): boolean {
+  return BUILDER_BRIDGE_INTEREST.test(topic) && BUILDER_BRIDGE_METHOD.test(topic);
+}
+
+export function isBuilderDiscoveryFocus(topic: string): boolean {
   const lane = classifyFrontierLane(topic);
-  return ['ml_data', 'ai_frontier', 'neuro_frontier', 'methods', 'builder_signal', 'creative_tech', 'competitions'].includes(lane);
+  return ['ml_data', 'ai_frontier', 'neuro_frontier', 'methods', 'builder_signal', 'creative_tech', 'competitions'].includes(lane)
+    || isCrossInterestBuilderFocus(topic);
 }
 
 async function githubTopic(topic: string): Promise<FrontierItem[]> {
@@ -254,7 +262,15 @@ export async function getAdaptiveLiveDiscovery(topics: string[]): Promise<Fronti
 
   const gdeltRuns = await Promise.allSettled(focus.map((topic) => gdeltTopic(topic)));
   const researchTopics = focus.filter(isResearchFocus).slice(0, 3);
-  const builderTopics = focus.filter(isBuilderFocus).slice(0, 2);
+  const bridgeBuilder = focus.find(isCrossInterestBuilderFocus);
+  const ordinaryBuilders = focus.filter((topic) => isBuilderDiscoveryFocus(topic) && topic !== bridgeBuilder);
+  // Preserve the historical maximum of two GitHub searches. One intersection
+  // may take the first slot; learned/general builder interests still retain the
+  // second instead of being displaced by a new source fanout.
+  const builderTopics = Array.from(new Set([
+    ...(bridgeBuilder ? [bridgeBuilder] : []),
+    ...ordinaryBuilders,
+  ])).slice(0, 2);
   const [researchRuns, builderRuns] = await Promise.all([
     Promise.allSettled(researchTopics.map((topic) => openAlexTopic(topic))),
     Promise.allSettled(builderTopics.map((topic) => githubTopic(topic))),
