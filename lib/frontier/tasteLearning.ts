@@ -1,7 +1,11 @@
+import { personalInterestConnection } from './interestGraph';
 import type { FrontierItem, FrontierProfile } from './types';
 
-const MAX_INTEREST_PAIRS = 256;
+const MAX_INTEREST_PAIRS = 320;
 const MAX_PAIR_TAGS = 6;
+const MAX_SEMANTIC_PAIRS = 24;
+const SEMANTIC_UPDATE_WEIGHT = 0.46;
+const SEMANTIC_READ_WEIGHT = 0.58;
 const GENERIC_PAIR_TAGS = new Set([
   'video', 'watchable', 'research', 'paper', 'code', 'thread', 'web discovery',
   'targeted discovery', 'sports', 'sports state', 'project update',
@@ -46,6 +50,35 @@ export function tastePairsForItem(item: FrontierItem): string[] {
   return pairs;
 }
 
+function semanticTastePairsForItem(item: FrontierItem): string[] {
+  const connection = personalInterestConnection(item);
+  if (connection.score <= 0) return [];
+
+  const topics = connection.topicIds.map((id) => `topic:${id}`);
+  const domains = connection.domains.map((id) => `domain:${id}`);
+  const facets = connection.facets.map((id) => `facet:${id}`);
+  const pairs: string[] = [];
+
+  for (const topic of topics) {
+    for (const facet of facets) pairs.push(canonicalTastePair(topic, facet));
+  }
+  for (const domain of domains) {
+    for (const facet of facets) pairs.push(canonicalTastePair(domain, facet));
+  }
+  for (let left = 0; left < domains.length; left += 1) {
+    for (let right = left + 1; right < domains.length; right += 1) {
+      pairs.push(canonicalTastePair(domains[left], domains[right]));
+    }
+  }
+  for (let left = 0; left < topics.length; left += 1) {
+    for (let right = left + 1; right < topics.length; right += 1) {
+      pairs.push(canonicalTastePair(topics[left], topics[right]));
+    }
+  }
+
+  return Array.from(new Set(pairs)).slice(0, MAX_SEMANTIC_PAIRS);
+}
+
 function trimPairMap(pairs: Record<string, number>): Record<string, number> {
   const entries = Object.entries(pairs);
   if (entries.length <= MAX_INTEREST_PAIRS) return pairs;
@@ -54,30 +87,50 @@ function trimPairMap(pairs: Record<string, number>): Record<string, number> {
     .slice(0, MAX_INTEREST_PAIRS));
 }
 
+function updateKeySet(next: Record<string, number>, keys: string[], delta: number): void {
+  if (!delta) return;
+  for (const pair of keys) next[pair] = clamp((next[pair] ?? 0) + delta, -0.8, 1.2);
+}
+
 function updatePairs(profile: FrontierProfile, item: FrontierItem, delta: number): Record<string, number> {
   if (!delta) return profile.interestPairs;
   const next = { ...profile.interestPairs };
-  for (const pair of tastePairsForItem(item)) {
-    next[pair] = clamp((next[pair] ?? 0) + delta, -0.8, 1.2);
-  }
+  updateKeySet(next, tastePairsForItem(item), delta);
+  // Hierarchical edges deliberately learn more slowly than literal tag pairs.
+  // They should transfer evidence, not erase the distinction between hobbies.
+  updateKeySet(next, semanticTastePairsForItem(item), delta * SEMANTIC_UPDATE_WEIGHT);
   return trimPairMap(next);
 }
 
-/**
- * Pairwise memory is deliberately weaker than direct topic preference. It lets
- * FRONTIER notice combinations such as NFL + visualization or neuroscience +
- * scientific software without allowing one co-occurrence to dominate ranking.
- */
-export function pairAffinityForItem(item: FrontierItem, profile: FrontierProfile): number {
-  const pairs = tastePairsForItem(item);
-  if (!pairs.length) return 0;
-  const values = pairs
+function affinityForKeys(keys: string[], profile: FrontierProfile): number {
+  if (!keys.length) return 0;
+  const values = keys
     .map((pair) => profile.interestPairs[pair] ?? 0)
     .filter((value) => value !== 0)
     .sort((a, b) => Math.abs(b) - Math.abs(a))
     .slice(0, 4);
   if (!values.length) return 0;
   return clamp(values.reduce((sum, value) => sum + value, 0) / values.length, -0.8, 1.2);
+}
+
+/**
+ * Pairwise memory is deliberately weaker than direct topic preference. Literal
+ * co-occurrence remains the strongest signal. A second, lower-authority layer
+ * learns transferable semantic edges such as motion-sports × motion-science,
+ * so evidence from skate pose analysis can cautiously generalize to climbing
+ * biomechanics without treating skateboarding and climbing as synonyms.
+ */
+export function pairAffinityForItem(item: FrontierItem, profile: FrontierProfile): number {
+  const literal = affinityForKeys(tastePairsForItem(item), profile);
+  const semantic = affinityForKeys(semanticTastePairsForItem(item), profile);
+  if (!literal && !semantic) return 0;
+  if (!literal) return clamp(semantic * SEMANTIC_READ_WEIGHT, -0.8, 1.2);
+  if (!semantic) return literal;
+
+  // When levels disagree, literal evidence owns most of the answer. This is
+  // particularly important for dislikes: a broad positive domain pattern must
+  // not wash out a negative reaction to a specific intersection.
+  return clamp(literal * 0.78 + semantic * 0.22, -0.8, 1.2);
 }
 
 function implicitStrength(kind: FrontierImplicitTasteKind, dwellMs = 0): number {
@@ -95,8 +148,8 @@ function implicitStrength(kind: FrontierImplicitTasteKind, dwellMs = 0): number 
 
 /**
  * The existing persisted behavior model already learns individual lane, source,
- * topic, format, and time preferences. This second memory layer therefore owns
- * only co-interest structure. Keeping those responsibilities separate avoids
+ * topic, format, and time preferences. This memory layer therefore owns only
+ * co-interest structure. Keeping those responsibilities separate avoids
  * double-counting the same click and makes the inferred intersections easy to
  * inspect or forget without erasing explicit likes/dislikes.
  */

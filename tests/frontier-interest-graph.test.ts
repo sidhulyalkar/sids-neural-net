@@ -11,7 +11,11 @@ import {
   isCrossInterestBuilderFocus,
 } from '../lib/frontier/liveDiscovery';
 import { personalizedScore } from '../lib/frontier/scoring';
-import { canonicalTastePair } from '../lib/frontier/tasteLearning';
+import {
+  applyExplicitPairSignal,
+  canonicalTastePair,
+  pairAffinityForItem,
+} from '../lib/frontier/tasteLearning';
 import type { FrontierItem } from '../lib/frontier/types';
 
 function item(overrides: Partial<FrontierItem> = {}): FrontierItem {
@@ -99,6 +103,38 @@ test('positive learned pair memory becomes a retrieval intersection', () => {
   profile.interestPairs[canonicalTastePair('mountain biking', 'telemetry')] = 0.48;
   const focus = buildDiscoveryFocus(profile, undefined, 7, new Date('2026-08-29T12:00:00.000Z'));
   assert.ok(focus.some((topic) => topic.includes('mountain biking') && topic.includes('telemetry')));
+});
+
+test('hierarchical bridge memory transfers cautiously across related methods without equating hobbies', () => {
+  const profile = applyExplicitPairSignal(createInitialProfile(), item(), 1);
+  const climbing = item({
+    id: 'climbing-biomechanics',
+    title: 'Rock climbing biomechanics and movement analysis',
+    summary: 'Kinematics analysis of efficient climbing technique.',
+    url: 'https://example.com/climbing-biomechanics',
+    sourceKind: 'openalex',
+    tags: ['rock climbing', 'biomechanics', 'analysis'],
+  });
+  const unrelated = item({
+    id: 'generic-ml',
+    title: 'Generic machine learning benchmark',
+    summary: 'A model benchmark with no motion-sport application.',
+    url: 'https://example.com/generic-ml',
+    sourceKind: 'openalex',
+    lane: 'ml_data',
+    tags: ['machine learning', 'benchmark'],
+  });
+
+  assert.ok(pairAffinityForItem(climbing, profile) > 0.01);
+  assert.equal(pairAffinityForItem(unrelated, profile), 0);
+});
+
+test('hierarchical memory keys never leak into literal discovery queries', () => {
+  let profile = createInitialProfile();
+  profile = applyExplicitPairSignal(profile, item(), 1);
+  profile.meaningfulInteractions = 8;
+  const focus = buildDiscoveryFocus(profile, undefined, 7, new Date('2026-08-29T12:00:00.000Z'));
+  assert.equal(focus.some((topic) => /(?:topic|domain|facet):/.test(topic)), false);
 });
 
 test('adaptive discovery spends existing focus capacity on one rotating connection probe', () => {

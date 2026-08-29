@@ -27,6 +27,7 @@ const GENERIC = new Set([
   'wildcards',
   'world pulse',
 ]);
+const SEMANTIC_PAIR_PREFIX = /^(?:topic|domain|facet):/;
 
 /**
  * Cross-interest probes deliberately describe intersections instead of adding
@@ -104,7 +105,12 @@ function learnedConnectionTopics(profile: FrontierProfile): Array<[string, numbe
   const learned: Array<[string, number]> = [];
   for (const [pair, affinity] of Object.entries(profile.interestPairs)) {
     if (!Number.isFinite(affinity) || affinity <= 0.08) continue;
-    const parts = pair.split(' × ').map(normalizeTopic).filter(Boolean);
+    const rawParts = pair.split(' × ').map((part) => part.trim().toLowerCase()).filter(Boolean);
+    // Hierarchical topic/domain/facet keys are ranking memory, not literal web
+    // query strings. Exact tag pairs already carry the concrete vocabulary that
+    // should drive retrieval.
+    if (rawParts.some((part) => SEMANTIC_PAIR_PREFIX.test(part))) continue;
+    const parts = rawParts.map(normalizeTopic);
     if (parts.length !== 2 || parts[0] === parts[1]) continue;
     if (parts.some((part) => GENERIC.has(part))) continue;
     if (parts[0].includes(parts[1]) || parts[1].includes(parts[0])) continue;
@@ -151,9 +157,9 @@ export function buildDiscoveryFocus(
     }
   }
 
-  // Positive pair memory becomes a retrieval intersection instead of merely a
-  // ranking afterthought. Negative pairs are intentionally absent here, so a
-  // disliked combination cannot buy another search simply by being memorable.
+  // Positive literal pair memory becomes a retrieval intersection instead of
+  // merely a ranking afterthought. Negative pairs are intentionally absent here,
+  // so a disliked combination cannot buy another search simply by being memorable.
   for (const [topic, score] of learnedConnectionTopics(profile)) {
     scores.set(topic, Math.max(scores.get(topic) ?? -Infinity, score));
   }
