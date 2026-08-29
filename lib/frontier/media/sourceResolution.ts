@@ -1,5 +1,5 @@
 const GUARDIAN_IMAGE_HOST = 'i.guim.co.uk';
-const FRONTIER_HD_TARGET_WIDTH = 1920;
+const FRONTIER_HD_TARGET_WIDTH = 2048;
 const FRONTIER_HD_MIN_QUALITY = 88;
 
 function sourceMasterWidth(pathname: string): number | undefined {
@@ -16,8 +16,9 @@ function sourceMasterWidth(pathname: string): number | undefined {
  *
  * Guardian RSS commonly publishes a 140px thumbnail even when the URL path
  * identifies a multi-thousand-pixel master. FRONTIER may display that image in
- * an 8-column card, so stretching the RSS thumbnail is visibly soft. Request a
- * bounded 1920px first-party transform instead, capped by the master width.
+ * an 8-column high-DPR card, so stretching the RSS thumbnail is visibly soft.
+ * Request a bounded 2048px first-party transform instead, capped by the master
+ * width. The media plane still applies device/network decode limits afterward.
  */
 export function preferredFrontierImageSource(raw: string): string {
   try {
