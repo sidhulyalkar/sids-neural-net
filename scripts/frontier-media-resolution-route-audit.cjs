@@ -6,7 +6,7 @@ const FEED_URL = process.env.FRONTIER_MEDIA_RESOLUTION_AUDIT_URL || 'http://127.
 const ARTIFACT_DIR = path.resolve('artifacts/browser-smoke');
 const RESULT_PATH = path.join(ARTIFACT_DIR, 'frontier-media-resolution.json');
 const GUARDIAN_HOST = 'i.guim.co.uk';
-const HD_TARGET = 1920;
+const HD_TARGET = 2048;
 const MIN_QUALITY = 88;
 
 function masterWidth(url) {
@@ -81,7 +81,7 @@ function writeResult(result) {
     audited,
   };
   writeResult(result);
-  console.log(`FRONTIER production media resolution PASS · ${audited.length} Guardian low-resolution source(s) promoted`);
+  console.log(`FRONTIER production media resolution PASS · ${audited.length} Guardian low-resolution source(s) promoted to bounded ${HD_TARGET}px sources`);
   console.log(JSON.stringify(result, null, 2));
 })().catch((error) => {
   const result = {
