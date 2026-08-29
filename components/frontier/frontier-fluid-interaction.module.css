@@ -11,14 +11,15 @@
 }
 
 .card[data-fluid-expanded='false'] {
-  cursor: default;
+  cursor: pointer;
 }
 
 .expanded {
-  grid-column: 1 / -1 !important;
   padding-inline: 0 !important;
   content-visibility: visible !important;
   contain-intrinsic-size: none !important;
+  container-type: inline-size;
+  scroll-margin-block: 72px;
   z-index: 6;
 }
 
@@ -32,7 +33,7 @@
 }
 
 .expanded [data-frontier-fluid-primary-link='true'] {
-  cursor: zoom-out;
+  cursor: pointer;
 }
 
 .card:not(.expanded) [data-frontier-fluid-primary-link='true'] {
@@ -40,6 +41,5 @@
 }
 
 @media (max-width: 720px) {
-  .expanded { grid-column: 1 !important; }
   .expanded::before { inset-inline: -8px; }
 }
