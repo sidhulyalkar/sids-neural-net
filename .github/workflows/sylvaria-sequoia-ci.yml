@@ -1,0 +1,207 @@
+name: Sylvaria Sequoia v0.6.2 CI
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/sylvaria-sequoia-ci.yml'
+      - 'app/arcade/**'
+      - 'components/arcade/**'
+      - 'src/data/arcadeGames.ts'
+      - 'public/game-runtimes/sylvaria-sequoia/**'
+      - 'docs/SYLVARIA_SEQUOIA_V05_LIVING_CANOPY.md'
+      - 'docs/SYLVARIA_SEQUOIA_V06_CANOPY_CONTRACTS.md'
+      - 'docs/SYLVARIA_SEQUOIA_V061_PACING_DIRECTOR.md'
+      - 'docs/SYLVARIA_SEQUOIA_V062_MASTERY_LAB.md'
+      - 'scripts/build-sylvaria-runtime.mjs'
+      - 'scripts/validate-sylvaria-flow-envelope.mjs'
+      - 'scripts/validate-sylvaria-heartwood.mjs'
+      - 'scripts/validate-sylvaria-living-canopy.mjs'
+      - 'scripts/validate-sylvaria-economy.mjs'
+      - 'scripts/validate-sylvaria-sap-authority.mjs'
+      - 'scripts/validate-sylvaria-runtime-bundle.mjs'
+      - 'scripts/validate-sylvaria-mastery.mjs'
+      - 'scripts/playtest-sylvaria-shift-hold.mjs'
+      - 'scripts/playtest-sylvaria-heartwood.mjs'
+      - 'scripts/playtest-sylvaria-living-canopy-v2.mjs'
+      - 'scripts/playtest-sylvaria-economy.mjs'
+      - 'scripts/playtest-sylvaria-sap-authority.mjs'
+      - 'scripts/playtest-sylvaria-mastery.mjs'
+      - 'tests/arcade-discovery.test.ts'
+      - 'tests/sylvaria-sequoia-director.test.ts'
+      - 'package.json'
+      - 'package-lock.json'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sylvaria-sequoia-v062-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  mastery-contracts-gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Set up Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install exact locked dependencies
+        run: npm ci
+
+      - name: Typecheck current website integration
+        run: npm run typecheck
+
+      - name: Run complete repository unit suite
+        run: npm test
+
+      - name: Validate deterministic runtime bundle budget
+        run: npm run check:sylvaria-runtime-bundle
+
+      - name: Validate preserved movement and Sap envelope
+        run: npm run check:sylvaria-flow
+
+      - name: Validate Heartwood Crown progression
+        run: npm run check:sylvaria-heartwood
+
+      - name: Validate Living Canopy progression and setpieces
+        run: npm run check:sylvaria-living-canopy
+
+      - name: Validate branch-gated Sap and Canopy Contracts economy
+        run: npm run check:sylvaria-economy
+
+      - name: Validate nearest-node Sap authority and held-landing ordering
+        run: npm run check:sylvaria-sap-authority
+
+      - name: Validate local Mastery Lab and deterministic difficulty
+        run: npm run check:sylvaria-mastery
+
+      - name: Build production website
+        env:
+          NEXT_PUBLIC_SITE_URL: https://example.invalid
+          NEXT_PUBLIC_WORLD_LOOM_XR: disabled
+        run: npm run build
+
+      - name: Start built website
+        run: |
+          npx next start -p 3000 > /tmp/sylvaria-v062-site.log 2>&1 &
+          echo $! > /tmp/sylvaria-v062-site.pid
+          for attempt in {1..45}; do
+            if curl -fsS http://127.0.0.1:3000/arcade/sylvaria-sequoia >/dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/sylvaria-v062-site.log
+          exit 1
+
+      - name: Smoke v0.6.2 cabinet and generated runtime
+        run: |
+          set -euo pipefail
+          fetch_and_assert() {
+            local url="$1"
+            local pattern="$2"
+            local target="$3"
+            curl --retry 2 --retry-connrefused -fsS "$url" -o "$target"
+            grep -q -- "$pattern" "$target"
+          }
+          fetch_and_assert http://127.0.0.1:3000/arcade/sylvaria-sequoia 'Sylvaria' /tmp/sylvaria-cabinet.html
+          fetch_and_assert http://127.0.0.1:3000/game-runtimes/sylvaria-sequoia/index.html 'Sylvaria: Sequoia v0.6.2' /tmp/sylvaria-index.html
+          fetch_and_assert 'http://127.0.0.1:3000/game-runtimes/sylvaria-sequoia/runtime.bundle.js?v=062-mastery' 'mastery-lab-v1' /tmp/sylvaria-runtime.bundle.js
+          fetch_and_assert http://127.0.0.1:3000/game-runtimes/sylvaria-sequoia/runtime.bundle.meta.json '"version": "0.6.2"' /tmp/sylvaria-runtime.bundle.meta.json
+          fetch_and_assert http://127.0.0.1:3000/game-runtimes/sylvaria-sequoia/02-heartwood-quest.js 'FINAL_CROWN_FLOOR = 250' /tmp/sylvaria-heartwood.js
+          fetch_and_assert http://127.0.0.1:3000/game-runtimes/sylvaria-sequoia/02-living-canopy.js 'SKYHEART_FLOOR = 360' /tmp/sylvaria-living.js
+          fetch_and_assert http://127.0.0.1:3000/game-runtimes/sylvaria-sequoia/02-mastery-lab.js 'adaptsDifficulty: false' /tmp/sylvaria-mastery.js
+          curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/game-runtimes/sylvaria-sequoia/02-sap-authority-v2.js -o /tmp/sylvaria-sap-authority.js
+          grep -q -- 'nearest-sap-authority-v3' /tmp/sylvaria-sap-authority.js
+          grep -q -- 'immutableAnchorIdentity: true' /tmp/sylvaria-sap-authority.js
+          grep -q -- 'stickAcquireBufferSeconds: 0' /tmp/sylvaria-sap-authority.js
+          fetch_and_assert http://127.0.0.1:3000/game-runtimes/sylvaria-sequoia/02-canopy-economy.js 'CONE TOKENS' /tmp/sylvaria-economy.js
+          fetch_and_assert http://127.0.0.1:3000/game-runtimes/sylvaria-sequoia/03-run-recap-hud.js 'run-recap-v2' /tmp/sylvaria-recap.js
+          fetch_and_assert http://127.0.0.1:3000/game-runtimes/sylvaria-sequoia/05-debug-canopy-contracts.js "debug.version = '0.6.1'" /tmp/sylvaria-debug-contracts.js
+
+      - name: Cache Playwright browser payload
+        id: playwright-browser-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: sylvaria-playwright-${{ runner.os }}-1.55.0-${{ hashFiles('package-lock.json') }}
+
+      - name: Install browser engines
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/sylvaria-v062-playwright
+          npm install --prefix /tmp/sylvaria-v062-playwright --no-package-lock --no-save playwright@1.55.0
+          PLAYWRIGHT=/tmp/sylvaria-v062-playwright/node_modules/.bin/playwright
+
+          # System libraries are runner state, not cache state. Always ensure them.
+          "$PLAYWRIGHT" install-deps chromium firefox webkit
+
+          # Browser archives are immutable for an exact Playwright version. Reuse
+          # the cached payload when present, but fail-safe by installing any missing
+          # engine so a partial/stale cache can never weaken four-engine coverage.
+          "$PLAYWRIGHT" install chromium firefox webkit
+
+          # GitHub-hosted Ubuntu normally already carries Chrome Stable. Preserve
+          # the explicit Chrome matrix with a safe fallback if the runner image changes.
+          if ! command -v google-chrome >/dev/null 2>&1 && ! command -v google-chrome-stable >/dev/null 2>&1; then
+            "$PLAYWRIGHT" install chrome
+          fi
+
+      - name: Validate one-button Sap and movement input across four engines
+        env:
+          PLAYWRIGHT_MODULE_ROOT: /tmp/sylvaria-v062-playwright/node_modules/playwright
+          SYLVARIA_SHIFT_BROWSER_DIR: artifacts/sylvaria-sequoia-shift-hold
+        run: node scripts/playtest-sylvaria-shift-hold.mjs
+
+      - name: Validate Heartwood Crown and canopy trials across four engines
+        env:
+          PLAYWRIGHT_MODULE_ROOT: /tmp/sylvaria-v062-playwright/node_modules/playwright
+          SYLVARIA_HEARTWOOD_BROWSER_DIR: artifacts/sylvaria-sequoia-heartwood
+        run: node scripts/playtest-sylvaria-heartwood.mjs
+
+      - name: Validate Living Canopy Wonders and Skyheart across four engines
+        env:
+          PLAYWRIGHT_MODULE_ROOT: /tmp/sylvaria-v062-playwright/node_modules/playwright
+          SYLVARIA_LIVING_BROWSER_DIR: artifacts/sylvaria-sequoia-living-canopy
+        run: node scripts/playtest-sylvaria-living-canopy-v2.mjs
+
+      - name: Validate tokens missions shop and legacy Sap rhythm across four engines
+        env:
+          PLAYWRIGHT_MODULE_ROOT: /tmp/sylvaria-v062-playwright/node_modules/playwright
+          SYLVARIA_ECONOMY_BROWSER_DIR: artifacts/sylvaria-sequoia-canopy-contracts
+        run: node scripts/playtest-sylvaria-economy.mjs
+
+      - name: Validate nearest-node Sap and Shift-spam resistance across four engines
+        env:
+          PLAYWRIGHT_MODULE_ROOT: /tmp/sylvaria-v062-playwright/node_modules/playwright
+          SYLVARIA_SAP_AUTHORITY_BROWSER_DIR: artifacts/sylvaria-sequoia-sap-authority
+        run: node scripts/playtest-sylvaria-sap-authority.mjs
+
+      - name: Validate mastery telemetry and deterministic difficulty across four engines
+        env:
+          PLAYWRIGHT_MODULE_ROOT: /tmp/sylvaria-v062-playwright/node_modules/playwright
+          SYLVARIA_MASTERY_BROWSER_DIR: artifacts/sylvaria-sequoia-mastery
+        run: node scripts/playtest-sylvaria-mastery.mjs
+
+      - name: Upload Sylvaria v0.6.2 browser evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: sylvaria-sequoia-v062-browser-evidence
+          path: |
+            artifacts/sylvaria-sequoia-shift-hold
+            artifacts/sylvaria-sequoia-heartwood
+            artifacts/sylvaria-sequoia-living-canopy
+            artifacts/sylvaria-sequoia-canopy-contracts
+            artifacts/sylvaria-sequoia-sap-authority
+            artifacts/sylvaria-sequoia-mastery
+          if-no-files-found: warn
+          retention-days: 14
