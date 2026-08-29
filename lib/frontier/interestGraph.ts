@@ -28,12 +28,21 @@ export type FrontierInterestConnection = {
   explanation?: string;
 };
 
+type FrontierGraphIdentity = {
+  id: string;
+  label: string;
+  patterns: readonly RegExp[];
+};
+
 const TOPIC_DOMAIN: Record<string, FrontierInterestDomain> = {
   'nfl-analytics': 'sports-analysis',
   'fantasy-football': 'sports-analysis',
   'sports-data': 'sports-analysis',
   'favorite-teams': 'sports-analysis',
   'active-sports': 'motion-sports',
+  'rock-climbing': 'motion-sports',
+  'mountain-biking': 'motion-sports',
+  skiing: 'motion-sports',
   'disc-golf': 'motion-sports',
   'skate-progression': 'motion-sports',
   'freestyle-scooter': 'motion-sports',
@@ -55,6 +64,29 @@ const TOPIC_DOMAIN: Record<string, FrontierInterestDomain> = {
   'bass-music': 'culture',
   'nature-dogs': 'nature',
 };
+
+// Some broad cold-start topics intentionally remain grouped in personalTaste.ts
+// so they do not receive more ranking authority merely because the taxonomy is
+// more detailed. The connection graph can still preserve identity inside that
+// broad family, which is what lets MTB telemetry and climbing biomechanics learn
+// separately while sharing weaker motion-sports transfer.
+const GRAPH_IDENTITIES: readonly FrontierGraphIdentity[] = [
+  {
+    id: 'rock-climbing',
+    label: 'rock climbing',
+    patterns: [/\brock climb(?:ing|er|ers)?\b/i, /\bbouldering\b/i],
+  },
+  {
+    id: 'mountain-biking',
+    label: 'mountain biking',
+    patterns: [/\bmountain bik(?:e|es|ing|er|ers)\b/i, /\bmtb\b/i],
+  },
+  {
+    id: 'skiing',
+    label: 'skiing',
+    patterns: [/\bskiing\b/i, /\bfreeski(?:ing)?\b/i, /\bbackcountry ski(?:ing)?\b/i],
+  },
+];
 
 const FACET_PATTERNS: ReadonlyArray<{
   id: FrontierConnectionFacet;
@@ -115,6 +147,11 @@ function contentText(item: FrontierItem): string {
   return [item.title, item.summary, ...item.tags].filter(Boolean).join(' ').toLowerCase();
 }
 
+function matchedGraphIdentities(item: FrontierItem): FrontierGraphIdentity[] {
+  const text = contentText(item);
+  return GRAPH_IDENTITIES.filter((identity) => identity.patterns.some((pattern) => pattern.test(text)));
+}
+
 function matchedFacets(item: FrontierItem): FrontierConnectionFacet[] {
   const text = contentText(item);
   const facets = FACET_PATTERNS
@@ -138,17 +175,28 @@ function facetLabel(facet: FrontierConnectionFacet): string {
  * two synonyms from masquerading as interdisciplinary relevance.
  */
 export function personalInterestConnection(item: FrontierItem): FrontierInterestConnection {
-  const topics = matchedPersonalTasteTopics(item);
-  const topicIds = Array.from(new Set(topics.map((topic) => topic.id)));
-  const topicLabels = Array.from(new Set(topics.map((topic) => topic.label)));
+  const tasteTopics = matchedPersonalTasteTopics(item);
+  const graphIdentities = matchedGraphIdentities(item);
+  const topicIds = Array.from(new Set([
+    ...tasteTopics.map((topic) => topic.id),
+    ...graphIdentities.map((identity) => identity.id),
+  ]));
+  const topicLabels = Array.from(new Set([
+    ...tasteTopics.map((topic) => topic.label),
+    ...graphIdentities.map((identity) => identity.label),
+  ]));
   const domains = Array.from(new Set(topicIds.flatMap((id) => TOPIC_DOMAIN[id] ? [TOPIC_DOMAIN[id]] : [])));
   const facets = matchedFacets(item);
   const methodFacets = facets.filter((facet) => METHOD_FACETS.has(facet));
   const domainSet = new Set(domains);
+  // Child identities improve memory precision, not evidence quantity. Use the
+  // already-established cold-start topic matches for numeric confidence/score
+  // so splitting active-sports into MTB/climbing/skiing cannot inflate ranking.
+  const topicEvidenceCount = tasteTopics.length;
 
   let score = 0;
   if (domains.length >= 2) score += 0.045 + Math.min(0.028, (domains.length - 2) * 0.014);
-  if (topicIds.length >= 3) score += 0.01;
+  if (topicEvidenceCount >= 3) score += 0.01;
 
   // Vertical bridges are especially useful: a concrete hobby plus a method the
   // owner can build with, inspect, or transfer into another project.
@@ -164,7 +212,7 @@ export function personalInterestConnection(item: FrontierItem): FrontierInterest
 
   score = clamp(score, 0, 0.115);
   const confidence = score > 0
-    ? clamp(0.42 + Math.min(0.24, topicIds.length * 0.07) + Math.min(0.22, facets.length * 0.055), 0, 0.94)
+    ? clamp(0.42 + Math.min(0.24, topicEvidenceCount * 0.07) + Math.min(0.22, facets.length * 0.055), 0, 0.94)
     : 0;
 
   let explanation: string | undefined;

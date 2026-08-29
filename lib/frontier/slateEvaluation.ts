@@ -1,4 +1,6 @@
 import { FRONTIER_LANE_MAP } from './config';
+import { interestConnectionSignatures } from './connectionPortfolio';
+import { personalInterestConnection } from './interestGraph';
 import {
   frontierEditorialFamily,
   frontierRerankWindowSize,
@@ -19,6 +21,11 @@ export type FrontierSlateShapeMetrics = {
   uniqueLanes: number;
   learnCount: number;
   playCount: number;
+  connectedCount: number;
+  uniqueConnectionSignatures: number;
+  maxConnectionShare: number;
+  connectionHhi: number;
+  meanConnectionConfidence: number;
 };
 
 export type FrontierSlateCounterfactual = {
@@ -38,6 +45,8 @@ export type FrontierSlateCounterfactual = {
   adaptive: FrontierSlateShapeMetrics;
   sourceConcentrationImprovement: number;
   familyConcentrationImprovement: number;
+  connectionConcentrationImprovement: number;
+  connectionBreadthDelta: number;
   laneBreadthDelta: number;
   familyDiagnostics: FrontierSlateFamilyDiagnostic[];
 };
@@ -58,14 +67,32 @@ function shareMetrics(keys: string[]): { unique: number; maxShare: number; hhi: 
   };
 }
 
+function exactConnectionSignatureKeys(item: FrontierItem): string[] {
+  // Audit the exact topic-method and cross-domain repertoire. We intentionally
+  // omit low-weight domain-method transfer signatures here because those are a
+  // learning bridge, not independent evidence that the slate is truly varied.
+  return interestConnectionSignatures(item)
+    .filter(({ weight }) => weight >= 0.9)
+    .map(({ key }) => key);
+}
+
 export function frontierSlateShape(items: FrontierItem[]): FrontierSlateShapeMetrics {
   const sources = shareMetrics(items.map(frontierSourceBucket));
   const families = shareMetrics(items.map((item) => frontierEditorialFamily(item)));
+  const connectionKeys = items.flatMap(exactConnectionSignatureKeys);
+  const connections = shareMetrics(connectionKeys);
   let learnCount = 0;
   let playCount = 0;
+  let connectedCount = 0;
+  let connectionConfidence = 0;
   for (const item of items) {
     if (FRONTIER_LANE_MAP[item.lane].realm === 'learn') learnCount += 1;
     else playCount += 1;
+    const connection = personalInterestConnection(item);
+    if (connection.score >= 0.035 && connection.confidence >= 0.5) {
+      connectedCount += 1;
+      connectionConfidence += connection.confidence;
+    }
   }
   return {
     count: items.length,
@@ -78,6 +105,11 @@ export function frontierSlateShape(items: FrontierItem[]): FrontierSlateShapeMet
     uniqueLanes: new Set(items.map((item) => item.lane)).size,
     learnCount,
     playCount,
+    connectedCount,
+    uniqueConnectionSignatures: connections.unique,
+    maxConnectionShare: connections.maxShare,
+    connectionHhi: connections.hhi,
+    meanConnectionConfidence: connectedCount ? connectionConfidence / connectedCount : 0,
   };
 }
 
@@ -153,6 +185,8 @@ export function evaluateSlateCounterfactual(
     adaptive,
     sourceConcentrationImprovement: raw.sourceHhi - adaptive.sourceHhi,
     familyConcentrationImprovement: raw.familyHhi - adaptive.familyHhi,
+    connectionConcentrationImprovement: raw.connectionHhi - adaptive.connectionHhi,
+    connectionBreadthDelta: adaptive.uniqueConnectionSignatures - raw.uniqueConnectionSignatures,
     laneBreadthDelta: adaptive.uniqueLanes - raw.uniqueLanes,
     familyDiagnostics: slateCompositionDiagnostics(ranked, selected, limit),
   };
