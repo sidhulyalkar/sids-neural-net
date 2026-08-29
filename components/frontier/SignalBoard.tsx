@@ -34,7 +34,7 @@ export type SignalLayoutMode = FrontierLayoutMode;
 type Props = {
   items: FrontierItem[];
   mode: SignalLayoutMode;
-  renderCard: (item: FrontierItem, mode: SignalLayoutMode, focused: boolean) => ReactNode;
+  renderCard: (item: FrontierItem, mode: SignalLayoutMode) => ReactNode;
   empty?: ReactNode;
   compact?: boolean;
   explorationTemperature?: number;
@@ -142,7 +142,7 @@ export function SignalBoard({
 
   useEffect(() => {
     const update = (event: Event) => setQuery((event as CustomEvent<string>).detail ?? '');
-    window.addEventListener(FRIER_CLIENT_QUERY_EVENT, update);
+    window.addEventListener(FRONTIER_CLIENT_QUERY_EVENT, update);
     return () => window.removeEventListener(FRONTIER_CLIENT_QUERY_EVENT, update);
   }, []);
 
@@ -322,7 +322,7 @@ export function SignalBoard({
                   <VelocityMarker item={item} />
                   <FrontierIntelligenceBadges item={item} />
                   <span className={spatial.focalHint} aria-hidden="true">click to expand · 2× source</span>
-                  {renderCard(item, 'feed', focused)}
+                  {renderCard(item, 'feed')}
                 </div>
               </FluidSpatialCard>
             );
@@ -365,7 +365,7 @@ export function SignalBoard({
                   <VelocityMarker item={item} />
                   <FrontierIntelligenceBadges item={item} />
                   <span className={spatial.focalHint} aria-hidden="true">click to expand · 2× source</span>
-                  {renderCard(item, 'desk', focused)}
+                  {renderCard(item, 'desk')}
                 </div>
               </FluidSpatialCard>
             );
