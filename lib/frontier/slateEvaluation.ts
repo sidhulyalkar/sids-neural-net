@@ -67,14 +67,19 @@ function shareMetrics(keys: string[]): { unique: number; maxShare: number; hhi: 
   };
 }
 
-function primaryConnectionSignature(item: FrontierItem): string | undefined {
-  return interestConnectionSignatures(item)[0]?.key;
+function exactConnectionSignatureKeys(item: FrontierItem): string[] {
+  // Audit the exact topic-method and cross-domain repertoire. We intentionally
+  // omit low-weight domain-method transfer signatures here because those are a
+  // learning bridge, not independent evidence that the slate is truly varied.
+  return interestConnectionSignatures(item)
+    .filter(({ weight }) => weight >= 0.9)
+    .map(({ key }) => key);
 }
 
 export function frontierSlateShape(items: FrontierItem[]): FrontierSlateShapeMetrics {
   const sources = shareMetrics(items.map(frontierSourceBucket));
   const families = shareMetrics(items.map((item) => frontierEditorialFamily(item)));
-  const connectionKeys = items.map(primaryConnectionSignature).filter((key): key is string => Boolean(key));
+  const connectionKeys = items.flatMap(exactConnectionSignatureKeys);
   const connections = shareMetrics(connectionKeys);
   let learnCount = 0;
   let playCount = 0;
