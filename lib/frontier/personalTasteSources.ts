@@ -16,6 +16,7 @@ import type {
 const USER_AGENT = 'sids-neural-net-frontier/2.2 (+https://sidhulyalkar.com/frontier)';
 const MUSIC_QUERY_TIMEOUT_MS = 3_800;
 const DAY_MS = 86_400_000;
+const CONNECTION_DISCOVERY_TAG = 'connection discovery';
 
 type BraveResult = {
   title?: string;
@@ -55,9 +56,75 @@ export const FRONTIER_DIRECT_MUSIC_FEEDS: readonly DirectMusicFeed[] = [
   },
 ] as const;
 
+/**
+ * Deep bridge probes live beside acquisition rather than the cold-start taste
+ * map because they are retrieval strategies, not new interests. Exactly one of
+ * these rotates into the normal eight-query daily budget.
+ */
+export const FRONTIER_TASTE_BRIDGE_DISCOVERY_QUERIES: readonly FrontierTasteDiscoveryQuery[] = [
+  {
+    query: 'site:github.com game development WebGPU physics engine procedural generation open source',
+    lane: 'creative_tech',
+    tags: ['game design', 'webgpu', 'simulation', 'open source', CONNECTION_DISCOVERY_TAG],
+  },
+  {
+    query: 'site:github.com skateboarding pose estimation computer vision biomechanics analysis open source',
+    lane: 'sports',
+    tags: ['skateboarding', 'pose estimation', 'biomechanics', 'open source', CONNECTION_DISCOVERY_TAG],
+  },
+  {
+    query: 'site:github.com mountain biking MTB telemetry GPS GPX data visualization analysis open source',
+    lane: 'sports',
+    tags: ['mountain biking', 'mtb', 'telemetry', 'visualization', 'open source', CONNECTION_DISCOVERY_TAG],
+  },
+  {
+    query: 'site:github.com rock climbing bouldering biomechanics pose estimation movement analysis open source',
+    lane: 'sports',
+    tags: ['rock climbing', 'bouldering', 'biomechanics', 'pose estimation', 'open source', CONNECTION_DISCOVERY_TAG],
+  },
+  {
+    query: 'site:github.com disc golf flight simulation trajectory modeling analysis open source',
+    lane: 'sports',
+    tags: ['disc golf', 'simulation', 'trajectory', 'open source', CONNECTION_DISCOVERY_TAG],
+  },
+  {
+    query: 'site:github.com sports analytics visualization player tracking open source repository',
+    lane: 'sports',
+    tags: ['sports analytics', 'visualization', 'player tracking', 'open source', CONNECTION_DISCOVERY_TAG],
+  },
+  {
+    query: 'site:github.com scientific visualization game engine WebGPU interactive open source',
+    lane: 'creative_tech',
+    tags: ['scientific visualization', 'game design', 'webgpu', 'open source', CONNECTION_DISCOVERY_TAG],
+  },
+  {
+    query: 'site:github.com music visualization creative coding WebGPU audio reactive open source',
+    lane: 'creative_tech',
+    tags: ['music', 'visualization', 'creative coding', 'webgpu', 'open source', CONNECTION_DISCOVERY_TAG],
+  },
+] as const;
+
 const BASS_EVIDENCE = [
   'dubstep', 'bass music', 'melodic bass', 'bass house', 'drum and bass',
   'electronic music', 'edm', 'remix', 'live set',
+] as const;
+
+const BRIDGE_INTEREST_EVIDENCE = [
+  'game development', 'game dev', 'game engine', 'webgpu',
+  'skateboard', 'skateboarding', 'street skating',
+  'mountain biking', 'mountain bike', 'mtb',
+  'rock climbing', 'bouldering',
+  'disc golf',
+  'sports analytics', 'player tracking',
+  'scientific visualization', 'neuroglancer',
+  'music visualization', 'audio reactive', 'audio-reactive',
+] as const;
+
+const BRIDGE_METHOD_EVIDENCE = [
+  'analysis', 'analytics', 'pose estimation', 'computer vision', 'biomechanics',
+  'kinematics', 'telemetry', 'gps', 'gpx', 'simulation', 'trajectory',
+  'visualization', 'visualisation', 'creative coding', 'open source', 'open-source',
+  'repository', 'toolkit', 'library', 'physics engine', 'procedural generation',
 ] as const;
 
 function clamp(value: number, min = 0, max = 1): number {
@@ -113,6 +180,8 @@ function sourceKindFromUrl(url: string, videoId?: string): FrontierSourceKind {
   if (videoId) return 'youtube';
   try {
     const host = new URL(url).hostname.replace(/^www\./, '').toLowerCase();
+    if (host === 'github.com') return 'github';
+    if (host === 'paperswithcode.com') return 'paperswithcode';
     if (host === 'reddit.com' || host.endsWith('.reddit.com')) return 'reddit';
     if (['x.com', 'twitter.com', 'threads.net', 'threads.com', 'tiktok.com'].includes(host)) return 'social';
   } catch {
@@ -160,6 +229,22 @@ function evidenceContains(text: string, term: string): boolean {
   return lower.includes(needle);
 }
 
+function bridgeResultHasIndependentEvidence(text: string, url: string): boolean {
+  const interest = BRIDGE_INTEREST_EVIDENCE.some((term) => evidenceContains(text, term));
+  const method = BRIDGE_METHOD_EVIDENCE.some((term) => evidenceContains(text, term))
+    || hostLabel(url) === 'github.com';
+  return interest && method;
+}
+
+function verifiedBridgeQueryTags(query: FrontierTasteDiscoveryQuery, text: string, url: string): string[] {
+  const host = hostLabel(url);
+  return query.tags.filter((tag) => (
+    tag === CONNECTION_DISCOVERY_TAG
+    || evidenceContains(text, tag)
+    || (tag === 'open source' && host === 'github.com')
+  ));
+}
+
 function musicEvidence(text: string, artists: readonly string[] = FRONTIER_MUSIC_ARTISTS): {
   matchedArtists: string[];
   bassEvidence: boolean;
@@ -192,22 +277,30 @@ function musicTags(matchedArtists: string[], bassEvidence: boolean): string[] {
 }
 
 /**
- * Keep the highest-value four taste searches always on, then rotate another
- * four. This bounds Brave usage while preventing the discovery mesh from
- * forgetting NFL/fantasy, sports data, or scientific visualization.
+ * Keep the highest-value four taste searches always on, reserve one rotating
+ * slot for a verified cross-interest bridge, then use the remaining capacity
+ * for ordinary taste rotation. The standard budget remains exactly eight.
  */
 export function pickDailyTasteQueries(dayKey: string, limit = 8): FrontierTasteDiscoveryQuery[] {
   const cap = Math.max(4, Math.min(FRONTIER_TASTE_DISCOVERY_QUERIES.length, limit));
   const pinned = FRONTIER_TASTE_DISCOVERY_QUERIES.slice(0, 4);
   const rotation = FRONTIER_TASTE_DISCOVERY_QUERIES.slice(4);
-  if (cap <= pinned.length || !rotation.length) return pinned.slice(0, cap);
+  if (cap <= pinned.length) return pinned.slice(0, cap);
 
-  const start = dayHash(`${dayKey}-taste-query`) % rotation.length;
-  const picked = Array.from(
-    { length: Math.min(cap - pinned.length, rotation.length) },
-    (_, index) => rotation[(start + index) % rotation.length]
-  );
-  return [...pinned, ...picked];
+  const bridge = FRONTIER_TASTE_BRIDGE_DISCOVERY_QUERIES.length
+    ? FRONTIER_TASTE_BRIDGE_DISCOVERY_QUERIES[
+      dayHash(`${dayKey}-taste-bridge`) % FRONTIER_TASTE_BRIDGE_DISCOVERY_QUERIES.length
+    ]
+    : undefined;
+  const ordinarySlots = Math.max(0, cap - pinned.length - (bridge ? 1 : 0));
+  const start = rotation.length ? dayHash(`${dayKey}-taste-query`) % rotation.length : 0;
+  const picked = rotation.length
+    ? Array.from(
+      { length: Math.min(ordinarySlots, rotation.length) },
+      (_, index) => rotation[(start + index) % rotation.length]
+    )
+    : [];
+  return [...pinned, ...(bridge ? [bridge] : []), ...picked].slice(0, cap);
 }
 
 /**
@@ -433,8 +526,14 @@ async function fetchBrave(query: FrontierTasteDiscoveryQuery, token: string): Pr
       const title = cleanText(result.title);
       const summary = summarize(result.description);
       const text = `${title} ${summary}`;
+      const isConnectionDiscovery = query.tags.includes(CONNECTION_DISCOVERY_TAG);
+      if (isConnectionDiscovery && !bridgeResultHasIndependentEvidence(text, result.url)) return [];
+
+      const queryTags = isConnectionDiscovery
+        ? verifiedBridgeQueryTags(query, text, result.url)
+        : Array.from(query.tags);
       const tags = Array.from(new Set([
-        ...query.tags,
+        ...queryTags,
         ...personalTasteTags(text),
         ...(query.video ? ['watchable', 'video'] : ['targeted discovery']),
       ])).slice(0, 12);
@@ -471,7 +570,9 @@ async function fetchBrave(query: FrontierTasteDiscoveryQuery, token: string): Pr
         baseScore,
         why: query.video
           ? 'A deliberately searched watchable signal from a topic already in your taste map.'
-          : 'A deliberate high-fit search from your explicit personal taste map, still subject to publisher provenance gates.',
+          : isConnectionDiscovery
+            ? 'A verified cross-interest discovery: the returned item independently shows the hobby and a transferable tool or method.'
+            : 'A deliberate high-fit search from your explicit personal taste map, still subject to publisher provenance gates.',
       } satisfies FrontierItem];
     });
   } finally {
