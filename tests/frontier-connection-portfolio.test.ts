@@ -40,9 +40,10 @@ function historyEntry(source: FrontierItem, lastSeenAt: string, impressions = 2)
   };
 }
 
-test('connection signatures preserve exact topic-method edges and weaker transferable domain edges', () => {
+test('connection signatures preserve exact topic-method edges and weaker transferable parent/domain edges', () => {
   const signatures = interestConnectionSignatures(item());
   assert.ok(signatures.some(({ key, weight }) => key.includes('topic:skate-progression') && key.includes('facet:motion-science') && weight === 1));
+  assert.ok(signatures.some(({ key, weight }) => key.includes('topic:active-sports') && key.includes('facet:open-source') && weight <= 0.3));
   assert.ok(signatures.some(({ key, weight }) => key.includes('domain:motion-sports') && key.includes('facet:motion-science') && weight < 0.3));
 });
 
