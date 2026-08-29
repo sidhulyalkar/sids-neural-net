@@ -1,7 +1,7 @@
 import { personalInterestConnection } from './interestGraph';
 import type { FrontierItem, FrontierProfile } from './types';
 
-const MAX_INTEREST_PAIRS = 320;
+const MAX_INTEREST_PAIRS = 256;
 const MAX_PAIR_TAGS = 6;
 const MAX_SEMANTIC_PAIRS = 24;
 const SEMANTIC_UPDATE_WEIGHT = 0.46;
@@ -51,7 +51,11 @@ export function tastePairsForItem(item: FrontierItem): string[] {
 }
 
 function semanticTastePairsForItem(item: FrontierItem): string[] {
-  const connection = personalInterestConnection(item);
+  // Durable hierarchy learns from the normalized semantic evidence layer, not
+  // from arbitrary source prose. Runtime bridge ranking may inspect the full
+  // title/summary, but long-lived memory must require the item's vetted tags so
+  // stale, misleading, or incidental copy cannot create transferable taste.
+  const connection = personalInterestConnection({ ...item, title: '', summary: '' });
   if (connection.score <= 0) return [];
 
   const topics = connection.topicIds.map((id) => `topic:${id}`);
