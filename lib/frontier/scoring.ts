@@ -1,5 +1,6 @@
 import { selectAdaptiveDailyAllocation } from './adaptiveSlate';
 import { behavioralAdjustment, behavioralExplorationBonus, formatForItem, aggregatePreference, timeBucket } from './behavior';
+import { buildConnectionExposureIndex, connectionPortfolioAdjustment } from './connectionPortfolio';
 import { FRONTIER_LANE_MAP } from './config';
 import { personalInterestConnection } from './interestGraph';
 import {
@@ -126,11 +127,11 @@ export function personalizedScore(
   const tasteSuppression = laneAffinity <= -0.15 || topicSignal <= -0.12 ? 0.25 : 1;
   const tastePrior = explicitTaste * tasteSuppression;
   const connection = personalInterestConnection(item);
-  // A learned negative intersection gets veto authority over the cold-start
-  // graph. This prevents a clever cross-domain match from repeatedly returning
-  // after the user has shown that the particular combination is unwanted.
+  // Bridge confidence is ranking authority, not display metadata. A candidate
+  // that merely hints at an intersection must not receive the same bonus as one
+  // with independent, high-confidence evidence for the connection.
   const learnedConnectionGate = pairSignal <= -0.15 ? 0.12 : 1;
-  const connectionPrior = connection.score * tasteSuppression * learnedConnectionGate;
+  const connectionPrior = connection.score * connection.confidence * tasteSuppression * learnedConnectionGate;
 
   const score =
     item.baseScore * 0.28 +
@@ -161,9 +162,16 @@ export function rankFrontierItems(
   now = new Date(),
   behavior?: FrontierBehaviorModel
 ): FrontierItem[] {
+  const connectionExposure = buildConnectionExposureIndex(history, now);
   return items
     .filter((item) => history[item.id]?.reaction !== 'hide' && isFrontierSourceAdmitted(item))
-    .map((item) => ({ item, score: personalizedScore(item, profile, history[item.id], now, behavior) }))
+    .map((item) => {
+      const portfolio = connectionPortfolioAdjustment(item, connectionExposure);
+      return {
+        item,
+        score: personalizedScore(item, profile, history[item.id], now, behavior) + portfolio.net,
+      };
+    })
     .sort((a, b) => b.score - a.score)
     .map(({ item }) => item);
 }
@@ -233,7 +241,7 @@ export function explainRecommendation(
 
   const connection = personalInterestConnection(item);
   const pairSignal = pairAffinityForItem(item, profile);
-  if (connection.explanation && pairSignal > -0.15) return connection.explanation;
+  if (connection.explanation && connection.confidence >= 0.62 && pairSignal > -0.15) return connection.explanation;
   if (resurfaceLike(item)) return 'Second chance: this signal was worth keeping in orbit.';
   if (item.importance >= 0.8) return 'High global importance, promoted even beyond your normal taste profile.';
   const personalLabel = strongestPersonalTasteLabel(item);
