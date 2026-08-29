@@ -5,6 +5,19 @@
   transform-origin: top left;
 }
 
+.card::after {
+  position: absolute;
+  z-index: 8;
+  inset: -2px;
+  border: 1px solid transparent;
+  border-radius: inherit;
+  pointer-events: none;
+  content: '';
+  opacity: 0;
+  box-shadow: 0 0 0 1px transparent, 0 0 0 transparent;
+  transition: border-color 140ms ease, box-shadow 140ms ease, opacity 140ms ease;
+}
+
 .measure {
   min-width: 0;
   width: 100%;
@@ -12,6 +25,19 @@
 
 .card[data-fluid-expanded='false'] {
   cursor: pointer;
+}
+
+.card[data-fluid-expanded='true']::after,
+.card:focus-visible::after {
+  border-color: rgba(246, 210, 78, 0.92);
+  opacity: 1;
+  box-shadow:
+    0 0 0 1px rgba(246, 210, 78, 0.12),
+    0 0 22px rgba(246, 210, 78, 0.09);
+}
+
+.card:focus-visible {
+  outline: none;
 }
 
 .expanded {
