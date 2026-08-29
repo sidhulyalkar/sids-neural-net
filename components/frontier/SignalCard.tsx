@@ -38,6 +38,8 @@ type Props = {
   resurfaced?: boolean;
   onSeen: (item: FrontierItem, resurfaced?: boolean) => void;
   onDwell: (item: FrontierItem, dwellMs: number) => void;
+  /** Legacy caller compatibility. FluidSpatialCard is now the sole expansion authority. */
+  onExpand?: (item: FrontierItem) => void;
   onOpen: (item: FrontierItem) => void;
   onSave: (item: FrontierItem) => void;
   onReact: (item: FrontierItem, reaction: FrontierReaction) => void;
@@ -109,10 +111,6 @@ export function SignalCard({
   const sourceTrust = assessFrontierSource(item);
   const sourceLabel = provenanceLabel(item, sourceTrust.host);
   const currentMediaKey = frontierMediaKey(item);
-  // Structural media eligibility is decided once from source metadata. Runtime
-  // decode/network failure may change pixels inside the reserved media box, but
-  // it must never swap this card to the text-only DOM variant after masonry has
-  // measured it. SignalBoard and SignalCard therefore share one authority.
   const hasMedia = canRenderFrontierMedia(item);
   const mediaUnavailable = unavailableMediaKey === currentMediaKey;
 
