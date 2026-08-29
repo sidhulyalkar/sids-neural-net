@@ -43,7 +43,7 @@ function historyEntry(source: FrontierItem, lastSeenAt: string, impressions = 2)
 test('connection signatures preserve exact topic-method edges and weaker transferable domain edges', () => {
   const signatures = interestConnectionSignatures(item());
   assert.ok(signatures.some(({ key, weight }) => key.includes('topic:skate-progression') && key.includes('facet:motion-science') && weight === 1));
-  assert.ok(signatures.some(({ key, weight }) => key.includes('domain:motion-sports') && key.includes('facet:motion-science') && weight < 1));
+  assert.ok(signatures.some(({ key, weight }) => key.includes('domain:motion-sports') && key.includes('facet:motion-science') && weight < 0.3));
 });
 
 test('climbing, MTB, and skiing retain distinct graph identities inside the shared motion-sports domain', () => {
@@ -69,9 +69,13 @@ test('climbing, MTB, and skiing retain distinct graph identities inside the shar
   assert.ok(climbing.topicIds.includes('rock-climbing'));
   assert.ok(mtb.topicIds.includes('mountain-biking'));
   assert.ok(skiing.topicIds.includes('skiing'));
-  assert.deepEqual(climbing.domains, ['motion-sports']);
-  assert.deepEqual(mtb.domains, ['motion-sports']);
-  assert.deepEqual(skiing.domains, ['motion-sports']);
+  assert.ok(climbing.domains.includes('motion-sports'));
+  assert.ok(mtb.domains.includes('motion-sports'));
+  assert.ok(skiing.domains.includes('motion-sports'));
+
+  // Method-rich hobby items may correctly span science-engineering too. The
+  // contract is identity precision, not artificially forcing one domain label.
+  assert.ok(climbing.domains.includes('science-engineering'));
 
   const climbingKeys = new Set(interestConnectionSignatures(item({
     id: 'climb-signature',
@@ -91,7 +95,7 @@ test('climbing, MTB, and skiing retain distinct graph identities inside the shar
   assert.equal(Array.from(climbingKeys).some((key) => key.includes('topic:mountain-biking')), false);
 });
 
-test('recent repetition progressively taxes the same bridge while a fresh bridge earns exploration room', () => {
+test('recent repetition taxes the exact bridge far more than a fresh neighboring bridge', () => {
   const now = new Date('2026-08-29T18:00:00.000Z');
   const history: Record<string, FrontierHistoryEntry> = {};
   for (let index = 0; index < 4; index += 1) {
@@ -115,9 +119,19 @@ test('recent repetition progressively taxes the same bridge while a fresh bridge
   assert.ok(repeated.exposure > 0.8);
   assert.ok(repeated.penalty > 0);
   assert.ok(repeated.net < 0);
-  assert.equal(fresh.penalty, 0);
-  assert.ok(fresh.bonus > 0);
+  assert.ok(fresh.exposure < repeated.exposure * 0.4);
+  assert.ok(fresh.penalty < repeated.penalty * 0.25);
   assert.ok(fresh.net > repeated.net);
+});
+
+test('learned negative pair evidence vetoes a fresh-bridge exploration bonus', () => {
+  const candidate = item({ id: 'rejected-bridge' });
+  const neutral = connectionPortfolioAdjustment(candidate, new Map(), 0);
+  const rejected = connectionPortfolioAdjustment(candidate, new Map(), -0.3);
+
+  assert.ok(neutral.bonus > 0);
+  assert.equal(rejected.bonus, 0);
+  assert.equal(rejected.net, 0);
 });
 
 test('connection saturation decays instead of becoming a permanent preference penalty', () => {
