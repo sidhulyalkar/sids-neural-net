@@ -1,30 +1,52 @@
 'use client';
 
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { FrontierItem } from '@/lib/frontier/types';
 import { FluidSpatialCard } from '../FluidSpatialCard';
-import { useSpatialFlip } from '../useSpatialFlip';
 import styles from './frontier-interaction-audit.module.css';
 
 const AUDIT_ITEM: FrontierItem = {
   id: 'frontier-phase8-browser-audit',
   title: 'Phase 8 fluid spatial interaction audit',
-  summary: 'A deterministic browser-only fixture for exercising the production pointer router, critically damped FLIP animation, and stable inline media subtree.',
+  summary: 'A deterministic browser-only fixture proving that one click expands a story in its existing spatial slot, preserves the live media subtree, and reveals larger source-backed reading highlights without repacking neighboring tiles.',
   url: '/frontier/interaction-audit?popup=1',
   source: 'FRONTIER CI',
   sourceLabel: 'FRONTIER CI',
   sourceKind: 'local',
   publishedAt: '2026-08-22T00:00:00.000Z',
   lane: 'creative_tech',
-  tags: ['phase-8', 'flip', 'browser-audit'],
+  tags: ['phase-8', 'in-place-expansion', 'browser-audit'],
   baseScore: 1,
   importance: 1,
   novelty: 1,
   quality: 1,
   momentum: 0,
   artifacts: [
-    { kind: 'formula', label: 'critical damping', value: 'x(t)=(1+ωt)e^(-ωt)' },
+    { kind: 'formula', label: 'spatial invariant', value: 'x_before = x_after; width_before = width_after' },
   ],
+  convergence: {
+    concept: 'Stable in-place reading expansion',
+    sourceCount: 2,
+    distinctSourceCount: 2,
+    members: [
+      {
+        id: 'fixture-layout',
+        title: 'Horizontal tile identity remains fixed during expansion',
+        url: '/frontier/interaction-audit?popup=1&source=layout',
+        source: 'FRONTIER CI layout',
+        sourceLabel: 'FRONTIER CI layout',
+        excerpt: 'The expanded card keeps its original column and width while only its vertical reading footprint grows.',
+      },
+      {
+        id: 'fixture-evidence',
+        title: 'Expanded cards expose source-backed evidence',
+        url: '/frontier/interaction-audit?popup=1&source=evidence',
+        source: 'FRONTIER CI evidence',
+        sourceLabel: 'FRONTIER CI evidence',
+        excerpt: 'The reading plane contains a bounded highlight, the original source summary, and provenance-linked corroborating excerpts.',
+      },
+    ],
+  },
 };
 
 function AuditVideo() {
@@ -87,34 +109,18 @@ function AuditVideo() {
 }
 
 export function FrontierInteractionAudit() {
-  const boardRef = useRef<HTMLDivElement | null>(null);
   const [expanded, setExpanded] = useState(false);
-  const { captureSpatialFlip, playSpatialFlip, cancelSpatialFlip } = useSpatialFlip(boardRef);
   const item = useMemo(() => AUDIT_ITEM, []);
-
-  const expand = useCallback(() => {
-    captureSpatialFlip();
-    setExpanded(true);
-  }, [captureSpatialFlip]);
-
-  const collapse = useCallback(() => {
-    captureSpatialFlip();
-    setExpanded(false);
-  }, [captureSpatialFlip]);
-
-  useLayoutEffect(() => {
-    playSpatialFlip();
-  }, [expanded, playSpatialFlip]);
-
-  useEffect(() => cancelSpatialFlip, [cancelSpatialFlip]);
+  const expand = useCallback(() => setExpanded(true), []);
+  const collapse = useCallback(() => setExpanded(false), []);
 
   return (
     <main className={styles.shell} data-frontier-interaction-audit="true">
       <header className={styles.header}>
         <span>FRONTIER</span>
-        <span>Phase 8 · browser choreography</span>
+        <span>Phase 8 · in-place browser interaction</span>
       </header>
-      <div ref={boardRef} className={styles.grid}>
+      <div className={styles.grid} data-frontier-audit-grid="true">
         <FluidSpatialCard
           item={item}
           expanded={expanded}
@@ -136,8 +142,8 @@ export function FrontierInteractionAudit() {
             <p className={styles.summary}>{item.summary}</p>
           </article>
         </FluidSpatialCard>
-        <div className={styles.neighbor} aria-hidden="true">neighbor surface</div>
-        <div className={styles.neighborSecondary} aria-hidden="true">neighbor surface</div>
+        <div className={styles.neighbor} data-frontier-audit-neighbor="primary" aria-hidden="true">neighbor surface</div>
+        <div className={styles.neighborSecondary} data-frontier-audit-neighbor="secondary" aria-hidden="true">neighbor surface</div>
       </div>
     </main>
   );
