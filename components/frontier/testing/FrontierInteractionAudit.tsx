@@ -25,27 +25,29 @@ const AUDIT_ITEM: FrontierItem = {
     { kind: 'formula', label: 'spatial invariant', value: 'x_before = x_after; width_before = width_after' },
   ],
   convergence: {
-    concept: 'Stable in-place reading expansion',
-    sourceCount: 2,
-    distinctSourceCount: 2,
     members: [
       {
         id: 'fixture-layout',
         title: 'Horizontal tile identity remains fixed during expansion',
         url: '/frontier/interaction-audit?popup=1&source=layout',
-        source: 'FRONTIER CI layout',
         sourceLabel: 'FRONTIER CI layout',
+        sourceKind: 'local',
+        publishedAt: '2026-08-22T00:00:00.000Z',
         excerpt: 'The expanded card keeps its original column and width while only its vertical reading footprint grows.',
       },
       {
         id: 'fixture-evidence',
         title: 'Expanded cards expose source-backed evidence',
         url: '/frontier/interaction-audit?popup=1&source=evidence',
-        source: 'FRONTIER CI evidence',
         sourceLabel: 'FRONTIER CI evidence',
+        sourceKind: 'local',
+        publishedAt: '2026-08-22T00:00:00.000Z',
         excerpt: 'The reading plane contains a bounded highlight, the original source summary, and provenance-linked corroborating excerpts.',
       },
     ],
+    sourceKinds: ['local'],
+    confidence: 1,
+    windowHours: 24,
   },
 };
 
