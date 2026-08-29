@@ -166,7 +166,8 @@ export function rankFrontierItems(
   return items
     .filter((item) => history[item.id]?.reaction !== 'hide' && isFrontierSourceAdmitted(item))
     .map((item) => {
-      const portfolio = connectionPortfolioAdjustment(item, connectionExposure);
+      const learnedPairAffinity = pairAffinityForItem(item, profile);
+      const portfolio = connectionPortfolioAdjustment(item, connectionExposure, learnedPairAffinity);
       return {
         item,
         score: personalizedScore(item, profile, history[item.id], now, behavior) + portfolio.net,
