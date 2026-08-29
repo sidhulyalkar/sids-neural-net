@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Bookmark, ChevronDown, ExternalLink, MessageCircleMore, ThumbsDown, ThumbsUp } from 'lucide-react';
+import { Bookmark, ExternalLink, MessageCircleMore, ThumbsDown, ThumbsUp } from 'lucide-react';
 import { FRONTIER_LANE_MAP } from '@/lib/frontier/config';
 import { FRONTIER_VIEWPORT_SEEN_MS, markFrontierItemSeen } from '@/lib/frontier/live/seenLedger';
 import { assessFrontierSource } from '@/lib/frontier/sourceTrust';
@@ -31,13 +31,13 @@ type Props = {
   item: FrontierItem;
   variant?: SignalCardVariant;
   presentation?: SignalLayoutMode | 'library';
+  focused?: boolean;
   saved?: boolean;
   reaction?: FrontierReaction;
   explanation: string;
   resurfaced?: boolean;
   onSeen: (item: FrontierItem, resurfaced?: boolean) => void;
   onDwell: (item: FrontierItem, dwellMs: number) => void;
-  onExpand: (item: FrontierItem) => void;
   onOpen: (item: FrontierItem) => void;
   onSave: (item: FrontierItem) => void;
   onReact: (item: FrontierItem, reaction: FrontierReaction) => void;
@@ -66,7 +66,7 @@ function MetricLine({ item }: { item: FrontierItem }) {
 
 function Feedback({ item, reaction, onReact }: Pick<Props, 'item' | 'reaction' | 'onReact'>) {
   return (
-    <details className={styles.feedbackMenu}>
+    <details className={styles.feedbackMenu} data-frontier-fluid-native="true">
       <summary><MessageCircleMore size={12} /> Feedback</summary>
       <div className={styles.feedbackGrid}>
         {REACTIONS.map((option) => (
@@ -90,21 +90,19 @@ function Feedback({ item, reaction, onReact }: Pick<Props, 'item' | 'reaction' |
 export function SignalCard({
   item,
   presentation = 'library',
+  focused = false,
   saved = false,
   reaction,
   explanation,
   resurfaced = false,
   onSeen,
   onDwell,
-  onExpand,
   onOpen,
   onSave,
   onReact,
 }: Props) {
   const ref = useRef<HTMLElement | null>(null);
   const observed = useRef(false);
-  const expandedRecorded = useRef(false);
-  const [expanded, setExpanded] = useState(false);
   const [unavailableMediaKey, setUnavailableMediaKey] = useState<string>();
   const lane = FRONTIER_LANE_MAP[item.lane];
   const feed = presentation === 'feed';
@@ -181,7 +179,7 @@ export function SignalCard({
   }, [item, onDwell, onSeen, resurfaced]);
 
   const markMediaUnavailable = () => setUnavailableMediaKey(currentMediaKey);
-  const recordExplicit = (reason: 'open' | 'save' | 'reaction' | 'expand') => {
+  const recordExplicit = (reason: 'open' | 'save' | 'reaction') => {
     void markFrontierItemSeen(item, reason).catch(() => undefined);
   };
   const openWithSeen = () => {
@@ -234,31 +232,13 @@ export function SignalCard({
     </div>
   );
 
-  const toggleExpanded = () => {
-    setExpanded((value) => {
-      const next = !value;
-      if (next && !expandedRecorded.current) {
-        expandedRecorded.current = true;
-        recordExplicit('expand');
-        onExpand(item);
-      }
-      return next;
-    });
-  };
-
-  const contextPanel = expanded ? (
-    <div className={styles.expandedPanel}>
+  const contextPanel = focused ? (
+    <div className={styles.expandedPanel} data-frontier-focused-context="true">
       <MetricLine item={item} />
       <p className={styles.reason}>{explanation}</p>
       <Feedback item={item} reaction={reaction} onReact={reactWithSeen} />
     </div>
   ) : null;
-
-  const contextButton = (
-    <button type="button" className={styles.expandCue} aria-expanded={expanded} onClick={toggleExpanded}>
-      {expanded ? 'Less' : 'Context'} <ChevronDown size={12} />
-    </button>
-  );
 
   const sportsStatePanel = item.sportsState ? <SportsStatePanel state={item.sportsState} /> : null;
 
@@ -274,11 +254,11 @@ export function SignalCard({
 
   if (feed && !hasMedia) {
     return (
-      <article ref={ref} className={`${styles.card} ${styles.feedCard} ${styles.feedCardText} ${mediaForward.card} ${mediaForward.feedCard}`}>
+      <article ref={ref} className={`${styles.card} ${styles.feedCard} ${styles.feedCardText} ${mediaForward.card} ${mediaForward.feedCard} ${focused ? styles.cardExpanded : ''}`}>
         <div className={`${styles.feedCopy} ${mediaForward.feedCopy}`}>
           <EditorialClip item={item} presentation="list" resurfaced={resurfaced} onOpen={openWithSeen} />
           {sportsStatePanel}
-          <div className={styles.feedActions}>{contextButton}{quickActions}</div>
+          <div className={styles.feedActions}>{quickActions}</div>
           {contextPanel}
         </div>
       </article>
@@ -287,7 +267,7 @@ export function SignalCard({
 
   if (!feed && !hasMedia) {
     return (
-      <article ref={ref} className={`${styles.card} ${styles.tileCard} ${styles.tileCardText} ${mediaForward.card} ${mediaForward.tileCard} ${mediaForward.tileText} ${expanded ? styles.cardExpanded : ''}`}>
+      <article ref={ref} className={`${styles.card} ${styles.tileCard} ${styles.tileCardText} ${mediaForward.card} ${mediaForward.tileCard} ${mediaForward.tileText} ${focused ? styles.cardExpanded : ''}`}>
         <div className={`${styles.tileBody} ${mediaForward.body}`}>
           {meta}
           <a
@@ -295,14 +275,13 @@ export function SignalCard({
             target="_blank"
             rel="noopener noreferrer"
             className={`${styles.tileStoryLink} ${mediaForward.storyLink}`}
-            data-frontier-fluid-primary-link="true"
+            data-frontier-fluid-primary-link={focused ? undefined : 'true'}
             onClick={openWithSeen}
           >
             <h3 className={`${styles.cardTitle} ${mediaForward.title}`}>{item.title}</h3>
             <p className={`${styles.cardSummary} ${mediaForward.summary}`}>{item.summary}</p>
           </a>
           {sportsStatePanel}
-          {contextButton}
           {contextPanel}
         </div>
         <div className={`${styles.tileFooter} ${mediaForward.footer}`}>{quickActions}</div>
@@ -314,7 +293,7 @@ export function SignalCard({
     return (
       <article
         ref={ref}
-        className={`${styles.card} ${styles.feedCard} ${styles.feedCardMedia} ${mediaForward.card} ${mediaForward.feedCard} ${mediaForward.feedMedia}`}
+        className={`${styles.card} ${styles.feedCard} ${styles.feedCardMedia} ${mediaForward.card} ${mediaForward.feedCard} ${mediaForward.feedMedia} ${focused ? styles.cardExpanded : ''}`}
         data-frontier-media-unavailable={mediaUnavailable ? 'true' : undefined}
       >
         <div className={`${styles.feedCopy} ${mediaForward.feedCopy}`}>
@@ -322,7 +301,7 @@ export function SignalCard({
           <h3 className={`${styles.cardTitle} ${mediaForward.title}`}>{item.title}</h3>
           <p className={`${styles.cardSummary} ${mediaForward.summary} ${mediaForward.feedSummary}`}>{item.summary}</p>
           {sportsStatePanel}
-          <div className={styles.feedActions}>{contextButton}{quickActions}</div>
+          <div className={styles.feedActions}>{quickActions}</div>
           {contextPanel}
         </div>
         <div className={`${styles.feedMediaSlot} ${mediaForward.feedMediaSlot}`}>
@@ -335,7 +314,7 @@ export function SignalCard({
   return (
     <article
       ref={ref}
-      className={`${styles.card} ${styles.tileCard} ${styles.tileCardMedia} ${mediaForward.card} ${mediaForward.tileCard} ${mediaForward.tileMediaCard} ${expanded ? styles.cardExpanded : ''}`}
+      className={`${styles.card} ${styles.tileCard} ${styles.tileCardMedia} ${mediaForward.card} ${mediaForward.tileCard} ${mediaForward.tileMediaCard} ${focused ? styles.cardExpanded : ''}`}
       data-frontier-media-unavailable={mediaUnavailable ? 'true' : undefined}
     >
       <div className={`${styles.tileMedia} ${mediaForward.mediaSlot}`}>
@@ -346,7 +325,6 @@ export function SignalCard({
         <h3 className={`${styles.cardTitle} ${mediaForward.title}`}>{item.title}</h3>
         <p className={`${styles.cardSummary} ${mediaForward.summary}`}>{item.summary}</p>
         {sportsStatePanel}
-        {contextButton}
         {contextPanel}
       </div>
       <div className={`${styles.tileFooter} ${mediaForward.footer}`}>{quickActions}</div>
