@@ -1,11 +1,12 @@
 'use client';
 
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { CSSProperties, ReactNode } from 'react';
 import { ambientExplorationVector, emitFrontierAmbientExploration } from '@/lib/frontier/ambientState';
 import { FRONTIER_PINNED_TOPICS } from '@/lib/frontier/interests';
 import {
   frontierPackedColumnSpans,
+  frontierPackedColumnStarts,
   frontierVisualRole,
   type FrontierVisualRole,
 } from '@/lib/frontier/presentation/mediaForward';
@@ -23,7 +24,6 @@ import { usePredictivePrefetch } from './media/usePredictivePrefetch';
 import { useFrontierSynthesis } from './synthesis/useFrontierSynthesis';
 import { useAdaptiveReadingDensity } from './useAdaptiveReadingDensity';
 import { useSemanticReranker } from './vector/useSemanticReranker';
-import { useSpatialFlip } from './useSpatialFlip';
 import densityStyles from './frontier-adaptive-density.module.css';
 import styles from './frontier-minimal.module.css';
 import spatial from './frontier-spatial-feed.module.css';
@@ -127,8 +127,6 @@ export function SignalBoard({
   usePredictivePrefetch();
   const density = useAdaptiveReadingDensity();
   const { playSearchResolved } = useUIFrequencies();
-  const boardRef = useRef<HTMLDivElement | null>(null);
-  const { captureSpatialFlip, playSpatialFlip, cancelSpatialFlip } = useSpatialFlip(boardRef);
   const resolvedSoundQuery = useRef('');
   const endSentinel = useRef<HTMLDivElement | null>(null);
   const nearEndAt = useRef(0);
@@ -214,30 +212,25 @@ export function SignalBoard({
     () => frontierPackedColumnSpans(displayedItems, renderableMedia),
     [displayedItems, renderableMedia],
   );
+  const packedColumnStarts = useMemo(
+    () => frontierPackedColumnStarts(packedColumns),
+    [packedColumns],
+  );
   const visibleExpandedItemId = expandedItemId && displayedItems.some((item) => item.id === expandedItemId)
     ? expandedItemId
     : undefined;
 
-  // The pointer state machine owns intent. These setters are deliberately
-  // idempotent and never reject an intent using render-time expansion state:
-  // the second trusted release can arrive before React has committed a fresh
-  // callback closure for the first release.
+  // Expanding a card changes only that card's block footprint. Desktop column
+  // starts remain deterministic, so neighboring cards never jump horizontally
+  // just because one story revealed more evidence.
   const expandInline = useCallback((item: FrontierItem) => {
-    captureSpatialFlip();
     setExpandedState({ streamEpoch, itemId: item.id });
     onFluidExpand?.(item);
-  }, [captureSpatialFlip, onFluidExpand, streamEpoch]);
+  }, [onFluidExpand, streamEpoch]);
 
   const collapseInline = useCallback((_item: FrontierItem) => {
-    captureSpatialFlip();
     setExpandedState({ streamEpoch });
-  }, [captureSpatialFlip, streamEpoch]);
-
-  useLayoutEffect(() => {
-    playSpatialFlip();
-  }, [playSpatialFlip, visibleExpandedItemId]);
-
-  useEffect(() => cancelSpatialFlip, [cancelSpatialFlip]);
+  }, [streamEpoch]);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -303,7 +296,6 @@ export function SignalBoard({
 
   return (
     <div
-      ref={boardRef}
       className={`${styles.boardShell} ${spatial.board} ${densityStyles.scope}`}
       data-vector-backend={semantic.backend}
       data-exploration={explorationVector.toFixed(3)}
@@ -330,7 +322,7 @@ export function SignalBoard({
                 <PriorityMarker item={item} />
                 <VelocityMarker item={item} />
                 <FrontierIntelligenceBadges item={item} />
-                <span className={spatial.focalHint} aria-hidden="true">click focus · 2× source</span>
+                <span className={spatial.focalHint} aria-hidden="true">click to expand · 2× source</span>
                 {renderCard(item, 'feed')}
               </div>
             </FluidSpatialCard>
@@ -343,7 +335,11 @@ export function SignalBoard({
             const hasMedia = renderableMedia[index] ?? false;
             const visualRole = frontierVisualRole(item, index, hasMedia);
             const packedSpan = packedColumns[index] ?? 4;
-            const packedStyle = { '--frontier-grid-span': String(packedSpan) } as CSSProperties;
+            const packedStart = packedColumnStarts[index] ?? 1;
+            const packedStyle = {
+              '--frontier-grid-span': String(packedSpan),
+              '--frontier-grid-column-start': String(packedStart),
+            } as CSSProperties;
             return (
               <FluidSpatialCard
                 key={item.id}
@@ -361,12 +357,13 @@ export function SignalBoard({
                   data-frontier-visual-role={visualRole}
                   data-frontier-has-media={hasMedia ? 'true' : 'false'}
                   data-frontier-grid-span={packedSpan}
+                  data-frontier-grid-column-start={packedStart}
                   {...hoverProps(item)}
                 >
                   <PriorityMarker item={item} />
                   <VelocityMarker item={item} />
                   <FrontierIntelligenceBadges item={item} />
-                  <span className={spatial.focalHint} aria-hidden="true">click focus · 2× source</span>
+                  <span className={spatial.focalHint} aria-hidden="true">click to expand · 2× source</span>
                   {renderCard(item, 'desk')}
                 </div>
               </FluidSpatialCard>
