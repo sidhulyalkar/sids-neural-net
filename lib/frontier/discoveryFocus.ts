@@ -1,4 +1,5 @@
 import { aggregatePreference } from './behavior';
+import { positiveLiteralPairEvidence, type FrontierPairEvidenceIndex } from './pairEvidence';
 import { FRONTIER_DISCOVERY_SEEDS } from './personalTaste';
 import type { FrontierBehaviorModel, FrontierProfile } from './types';
 
@@ -82,9 +83,6 @@ function rotatedDiscoverySeeds(now: Date): string[] {
   const connectionStart = hashString(`${dayKey}-frontier-connections`) % FRONTIER_CONNECTION_DISCOVERY_SEEDS.length;
   const taste = rotate(FRONTIER_DISCOVERY_SEEDS, tasteStart).map(normalizeTopic);
   const connections = rotate(FRONTIER_CONNECTION_DISCOVERY_SEEDS, connectionStart).map(normalizeTopic);
-
-  // Put one connection probe first, then retain the full explicit taste orbit.
-  // This is acquisition exploration, not a visible-card quota.
   return [connections[0], ...taste, ...connections.slice(1)].filter(Boolean);
 }
 
@@ -101,36 +99,57 @@ function hasBehaviorEvidence(behavior?: FrontierBehaviorModel): boolean {
     || Object.keys(snapshot.formatStats).length > 0;
 }
 
-function learnedConnectionTopics(profile: FrontierProfile): Array<[string, number]> {
-  const learned: Array<[string, number]> = [];
+function pairQuery(pair: string): string | undefined {
+  const rawParts = pair.split(' × ').map((part) => part.trim().toLowerCase()).filter(Boolean);
+  if (rawParts.some((part) => SEMANTIC_PAIR_PREFIX.test(part))) return undefined;
+  const parts = rawParts.map(normalizeTopic);
+  if (parts.length !== 2 || parts[0] === parts[1]) return undefined;
+  if (parts.some((part) => GENERIC.has(part))) return undefined;
+  if (parts[0].includes(parts[1]) || parts[1].includes(parts[0])) return undefined;
+  return `${parts[0]} ${parts[1]}`.slice(0, 64);
+}
+
+function learnedConnectionTopics(
+  profile: FrontierProfile,
+  pairEvidence?: FrontierPairEvidenceIndex,
+): Array<[string, number]> {
+  const learned = new Map<string, number>();
+
+  // Evidence-backed intersections own acquisition once history can support or
+  // contradict them. Confidence and agreement are required before a bridge can
+  // spend a network search slot.
+  if (pairEvidence) {
+    for (const evidence of positiveLiteralPairEvidence(pairEvidence).slice(0, 16)) {
+      const topic = pairQuery(evidence.key);
+      if (!topic) continue;
+      learned.set(topic, Math.max(learned.get(topic) ?? -Infinity, evidence.affinity + evidence.confidence * 0.18 + 0.08));
+    }
+  }
+
+  // Legacy scalar memory remains a compatibility fallback for old saves,
+  // expansions, and backups. If the history ledger contains any evidence for a
+  // pair, even contradictory evidence, that ledger owns the decision and the
+  // stale scalar cannot resurrect the query.
   for (const [pair, affinity] of Object.entries(profile.interestPairs)) {
     if (!Number.isFinite(affinity) || affinity <= 0.08) continue;
-    const rawParts = pair.split(' × ').map((part) => part.trim().toLowerCase()).filter(Boolean);
-    // Hierarchical topic/domain/facet keys are ranking memory, not literal web
-    // query strings. Exact tag pairs already carry the concrete vocabulary that
-    // should drive retrieval.
-    if (rawParts.some((part) => SEMANTIC_PAIR_PREFIX.test(part))) continue;
-    const parts = rawParts.map(normalizeTopic);
-    if (parts.length !== 2 || parts[0] === parts[1]) continue;
-    if (parts.some((part) => GENERIC.has(part))) continue;
-    if (parts[0].includes(parts[1]) || parts[1].includes(parts[0])) continue;
-    learned.push([`${parts[0]} ${parts[1]}`.slice(0, 64), affinity + 0.1]);
+    if (pairEvidence?.has(pair)) continue;
+    const topic = pairQuery(pair);
+    if (!topic) continue;
+    learned.set(topic, Math.max(learned.get(topic) ?? -Infinity, affinity + 0.1));
   }
-  return learned.sort((left, right) => right[1] - left[1]).slice(0, 12);
+
+  return Array.from(learned.entries())
+    .sort((left, right) => right[1] - left[1])
+    .slice(0, 12);
 }
 
 export function buildDiscoveryFocus(
   profile: FrontierProfile,
   behavior?: FrontierBehaviorModel,
   limit = 7,
-  now = new Date()
+  now = new Date(),
+  pairEvidence?: FrontierPairEvidenceIndex,
 ): string[] {
-  // Explicit cold-start taste already shapes the deeply collected committed
-  // snapshot. Do not pay for a redundant adaptive network fanout before the
-  // local learner has any evidence of its own. As soon as the user reacts or
-  // implicit behavior produces a ranking snapshot, focused live discovery can
-  // take over. Explicit topic search is layered on top by buildTopicSearchFocus
-  // and therefore remains live even during a brand-new browser session.
   if (profile.meaningfulInteractions <= 0 && !hasBehaviorEvidence(behavior)) return [];
 
   const scores = new Map<string, number>();
@@ -157,10 +176,7 @@ export function buildDiscoveryFocus(
     }
   }
 
-  // Positive literal pair memory becomes a retrieval intersection instead of
-  // merely a ranking afterthought. Negative pairs are intentionally absent here,
-  // so a disliked combination cannot buy another search simply by being memorable.
-  for (const [topic, score] of learnedConnectionTopics(profile)) {
+  for (const [topic, score] of learnedConnectionTopics(profile, pairEvidence)) {
     scores.set(topic, Math.max(scores.get(topic) ?? -Infinity, score));
   }
 
@@ -169,9 +185,6 @@ export function buildDiscoveryFocus(
     .sort((a, b) => b[1] - a[1]);
 
   const cap = Math.max(1, Math.min(10, limit));
-  // Keep part of every adaptive search budget anchored to explicit interests.
-  // Early learned profiles reserve three slots; mature profiles still reserve
-  // two so a burst of generic engagement cannot erase the long-term taste map.
   const seedReserve = Math.min(cap, profile.meaningfulInteractions < 20 ? 3 : 2);
   const learnedCap = Math.max(0, cap - seedReserve);
   const selected: string[] = [];
@@ -188,8 +201,6 @@ export function buildDiscoveryFocus(
     selected.push(topic.slice(0, 64));
   }
 
-  // If a seed collided with a learned topic, use the remaining budget for the
-  // next learned preference rather than returning an unnecessarily short focus.
   for (const [topic] of ranked) {
     if (selected.length >= cap) break;
     if (overlapsExisting(selected, topic)) continue;
