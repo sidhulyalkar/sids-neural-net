@@ -13,6 +13,18 @@ const SPECIFIC_MOTION_TOPIC_IDS = new Set([
   'freestyle-scooter',
 ]);
 
+// These taste topics are valuable semantic/method priors, but they are too broad
+// to serve as full-strength repetition identities. A skate pose toolkit and a
+// disc-flight simulator can both be scientific software without representing
+// the same personal connection. Keep these nodes as transfer evidence only.
+const TRANSFER_ONLY_TOPIC_IDS = new Set([
+  'active-sports',
+  'sports-data',
+  'ml-data-methods',
+  'scientific-software',
+  'creative-compute',
+]);
+
 export type FrontierConnectionSignature = {
   key: string;
   weight: number;
@@ -36,9 +48,10 @@ function canonical(left: string, right: string): string {
 
 /**
  * Portfolio signatures describe the *kind* of connection rather than the item.
- * Exact topic × method edges carry the most weight. Parent topics, domain pairs,
- * and domain-method edges are transfer evidence only, so neighboring interests
- * can inform one another without becoming repetition-equivalent.
+ * Concrete interest × method edges carry the most weight. Parent topics,
+ * method-shaped topics, domain pairs, and domain-method edges are transfer
+ * evidence only, so nearby interests can inform one another without becoming
+ * repetition-equivalent.
  */
 export function interestConnectionSignatures(item: FrontierItem): FrontierConnectionSignature[] {
   const connection = personalInterestConnection(item);
@@ -47,11 +60,11 @@ export function interestConnectionSignatures(item: FrontierItem): FrontierConnec
   const signatures = new Map<string, number>();
   const hasSpecificMotionTopic = connection.topicIds.some((topic) => SPECIFIC_MOTION_TOPIC_IDS.has(topic));
   for (const topic of connection.topicIds) {
-    // active-sports is a useful transfer parent, not an exact identity once a
-    // concrete discipline is known. Otherwise four skate cards would create a
-    // full-strength active-sports × open-source exposure that suppresses a new
-    // disc-golf, climbing, MTB, or skiing tool merely because both are sports.
-    const topicWeight = topic === 'active-sports' && hasSpecificMotionTopic ? 0.3 : 1;
+    // A concrete owner-interest identity may carry exact fatigue authority.
+    // Umbrella/method topics stay weak even if they matched literally, because
+    // they explain *how* two cards connect rather than *which interest* it is.
+    let topicWeight = TRANSFER_ONLY_TOPIC_IDS.has(topic) ? 0.28 : 1;
+    if (topic === 'active-sports' && hasSpecificMotionTopic) topicWeight = 0.24;
     for (const facet of connection.facets) {
       signatures.set(canonical(`topic:${topic}`, `facet:${facet}`), topicWeight);
     }
@@ -60,18 +73,14 @@ export function interestConnectionSignatures(item: FrontierItem): FrontierConnec
     for (let right = left + 1; right < connection.domains.length; right += 1) {
       // A domain pair such as motion-sports × science-engineering is valuable
       // for transfer, but far too broad to mean "you have seen this connection
-      // already." Keep it second-order beside a concrete sport × method edge.
-      signatures.set(canonical(`domain:${connection.domains[left]}`, `domain:${connection.domains[right]}`), 0.28);
+      // already." Keep it second-order beside a concrete interest × method edge.
+      signatures.set(canonical(`domain:${connection.domains[left]}`, `domain:${connection.domains[right]}`), 0.24);
     }
   }
   for (const domain of connection.domains) {
     for (const facet of connection.facets) {
       const key = canonical(`domain:${domain}`, `facet:${facet}`);
-      // Broad domain-method overlap is useful for transfer, but it must not
-      // make repeated skate tooling suppress a fresh disc-golf or MTB method.
-      // Because exposure multiplies history and candidate signature weights,
-      // 0.22 makes this deliberately second-order beside exact topic edges.
-      signatures.set(key, Math.max(signatures.get(key) ?? 0, 0.22));
+      signatures.set(key, Math.max(signatures.get(key) ?? 0, 0.2));
     }
   }
 
