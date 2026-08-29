@@ -50,7 +50,11 @@ export function interestConnectionSignatures(item: FrontierItem): FrontierConnec
   for (const domain of connection.domains) {
     for (const facet of connection.facets) {
       const key = canonical(`domain:${domain}`, `facet:${facet}`);
-      signatures.set(key, Math.max(signatures.get(key) ?? 0, 0.45));
+      // Broad domain-method overlap is useful for transfer, but it must not
+      // make repeated skate tooling suppress a fresh disc-golf or MTB method.
+      // Because exposure multiplies history and candidate signature weights,
+      // 0.22 makes this deliberately second-order beside exact topic edges.
+      signatures.set(key, Math.max(signatures.get(key) ?? 0, 0.22));
     }
   }
 
@@ -100,10 +104,13 @@ export function buildConnectionExposureIndex(
  * The portfolio rewards a genuinely fresh, high-confidence bridge a little and
  * progressively taxes an intersection that has already dominated recent cards.
  * Important/watch signals are never suppressed by this personalization brake.
+ * Learned negative pair evidence also vetoes the freshness bonus so exploration
+ * cannot sneak a rejected connection back in through a separate scoring path.
  */
 export function connectionPortfolioAdjustment(
   item: FrontierItem,
   exposureIndex: Map<string, number>,
+  learnedPairAffinity = 0,
 ): FrontierConnectionPortfolioAdjustment {
   const signatures = interestConnectionSignatures(item);
   if (!signatures.length) return { exposure: 0, bonus: 0, penalty: 0, net: 0, signatures };
@@ -121,7 +128,7 @@ export function connectionPortfolioAdjustment(
     return { exposure, bonus: 0, penalty: 0, net: 0, signatures };
   }
 
-  const bonus = exposure < 0.35 && connection.confidence >= 0.6
+  const bonus = learnedPairAffinity > -0.12 && exposure < 0.35 && connection.confidence >= 0.6
     ? Math.min(0.018, connection.score * connection.confidence * 0.17)
     : 0;
   const penalty = exposure > 0.8
