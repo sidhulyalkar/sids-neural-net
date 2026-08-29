@@ -27,6 +27,24 @@ const GENERIC = new Set([
   'wildcards',
   'world pulse',
 ]);
+const SEMANTIC_PAIR_PREFIX = /^(?:topic|domain|facet):/;
+
+/**
+ * Cross-interest probes deliberately describe intersections instead of adding
+ * more standalone hobbies. They consume the same bounded focus budget as the
+ * existing adaptive discovery path, so richer retrieval does not mean more
+ * network fanout.
+ */
+export const FRONTIER_CONNECTION_DISCOVERY_SEEDS = [
+  'game development open source',
+  'sports analytics open source',
+  'skateboarding pose estimation',
+  'mountain biking telemetry',
+  'rock climbing biomechanics',
+  'disc golf simulation',
+  'scientific visualization game',
+  'music visualization code',
+] as const;
 
 function normalizeTopic(value: string): string {
   const cleaned = value.toLowerCase().replace(/[_-]+/g, ' ').replace(/\s+/g, ' ').trim();
@@ -53,13 +71,21 @@ function hashString(value: string): number {
   return hash >>> 0;
 }
 
+function rotate<T>(values: readonly T[], start: number): T[] {
+  if (!values.length) return [];
+  return Array.from({ length: values.length }, (_, index) => values[(start + index) % values.length]);
+}
+
 function rotatedDiscoverySeeds(now: Date): string[] {
   const dayKey = now.toISOString().slice(0, 10);
-  const start = hashString(`${dayKey}-frontier-taste`) % FRONTIER_DISCOVERY_SEEDS.length;
-  return Array.from(
-    { length: FRONTIER_DISCOVERY_SEEDS.length },
-    (_, index) => normalizeTopic(FRONTIER_DISCOVERY_SEEDS[(start + index) % FRONTIER_DISCOVERY_SEEDS.length])
-  );
+  const tasteStart = hashString(`${dayKey}-frontier-taste`) % FRONTIER_DISCOVERY_SEEDS.length;
+  const connectionStart = hashString(`${dayKey}-frontier-connections`) % FRONTIER_CONNECTION_DISCOVERY_SEEDS.length;
+  const taste = rotate(FRONTIER_DISCOVERY_SEEDS, tasteStart).map(normalizeTopic);
+  const connections = rotate(FRONTIER_CONNECTION_DISCOVERY_SEEDS, connectionStart).map(normalizeTopic);
+
+  // Put one connection probe first, then retain the full explicit taste orbit.
+  // This is acquisition exploration, not a visible-card quota.
+  return [connections[0], ...taste, ...connections.slice(1)].filter(Boolean);
 }
 
 function overlapsExisting(selected: readonly string[], topic: string): boolean {
@@ -73,6 +99,24 @@ function hasBehaviorEvidence(behavior?: FrontierBehaviorModel): boolean {
     || Object.keys(snapshot.laneStats).length > 0
     || Object.keys(snapshot.sourceStats).length > 0
     || Object.keys(snapshot.formatStats).length > 0;
+}
+
+function learnedConnectionTopics(profile: FrontierProfile): Array<[string, number]> {
+  const learned: Array<[string, number]> = [];
+  for (const [pair, affinity] of Object.entries(profile.interestPairs)) {
+    if (!Number.isFinite(affinity) || affinity <= 0.08) continue;
+    const rawParts = pair.split(' × ').map((part) => part.trim().toLowerCase()).filter(Boolean);
+    // Hierarchical topic/domain/facet keys are ranking memory, not literal web
+    // query strings. Exact tag pairs already carry the concrete vocabulary that
+    // should drive retrieval.
+    if (rawParts.some((part) => SEMANTIC_PAIR_PREFIX.test(part))) continue;
+    const parts = rawParts.map(normalizeTopic);
+    if (parts.length !== 2 || parts[0] === parts[1]) continue;
+    if (parts.some((part) => GENERIC.has(part))) continue;
+    if (parts[0].includes(parts[1]) || parts[1].includes(parts[0])) continue;
+    learned.push([`${parts[0]} ${parts[1]}`.slice(0, 64), affinity + 0.1]);
+  }
+  return learned.sort((left, right) => right[1] - left[1]).slice(0, 12);
 }
 
 export function buildDiscoveryFocus(
@@ -111,6 +155,13 @@ export function buildDiscoveryFocus(
       const score = preference.score * preference.confidence * 0.9 + (profile.topicAffinity[rawTopic] ?? 0);
       scores.set(topic, Math.max(scores.get(topic) ?? -Infinity, score));
     }
+  }
+
+  // Positive literal pair memory becomes a retrieval intersection instead of
+  // merely a ranking afterthought. Negative pairs are intentionally absent here,
+  // so a disliked combination cannot buy another search simply by being memorable.
+  for (const [topic, score] of learnedConnectionTopics(profile)) {
+    scores.set(topic, Math.max(scores.get(topic) ?? -Infinity, score));
   }
 
   const ranked = Array.from(scores.entries())

@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { selectDailyRun } from '../lib/frontier/scoring';
+import { frontierRerankWindowSize } from '../lib/frontier/adaptiveSlate';
+import { createInitialProfile } from '../lib/frontier/config';
+import { rankFrontierItems, selectDailyRun } from '../lib/frontier/scoring';
 import { isFrontierSourceAdmitted } from '../lib/frontier/sourceTrust';
 import {
   FRONTIER_SPORTS_LEAGUES,
@@ -156,7 +158,7 @@ test('nested standings retain favorite teams even outside the leading rows', () 
   assert.equal(patriots!.favorite, true);
 });
 
-test('finite daily run reserves live sports state separately from deeper sports analysis', () => {
+test('finite daily run keeps live sports state beside deeper sports analysis after authoritative ranking', () => {
   const [sportsState] = parseSportsScoreboard(scoreboardFixture, nfl!, NOW);
   const analysis: FrontierItem = {
     id: 'nfl-analysis',
@@ -175,7 +177,7 @@ test('finite daily run reserves live sports state separately from deeper sports 
     quality: 0.8,
     momentum: 0.6,
   };
-  const generic = Array.from({ length: 20 }, (_, index): FrontierItem => ({
+  const generic = Array.from({ length: 12 }, (_, index): FrontierItem => ({
     ...analysis,
     id: `generic-${index}`,
     title: `Generic signal ${index}`,
@@ -187,7 +189,48 @@ test('finite daily run reserves live sports state separately from deeper sports 
     tags: ['open source'],
     baseScore: 0.95 - index * 0.01,
   }));
-  const daily = selectDailyRun([...generic, analysis, sportsState], {}, 8, new Date(NOW));
+  const now = new Date(NOW);
+  const ranked = rankFrontierItems([...generic, analysis, sportsState], createInitialProfile(), {}, now);
+  const analysisRank = ranked.findIndex((item) => item.id === analysis.id);
+  const rerankWindow = frontierRerankWindowSize(8, ranked.length);
+  assert.ok(analysisRank >= 0 && analysisRank < rerankWindow, `sports analysis ranked ${analysisRank + 1}, outside window ${rerankWindow}`);
+
+  const daily = selectDailyRun(ranked, {}, 8, now);
   assert.ok(daily.some((item) => item.id === sportsState.id));
   assert.ok(daily.some((item) => item.id === analysis.id));
+});
+
+test('live sports utility cannot satisfy After Hours editorial coverage by itself', () => {
+  const [sportsState] = parseSportsScoreboard(scoreboardFixture, nfl!, NOW);
+  const learn = Array.from({ length: 6 }, (_, index): FrontierItem => ({
+    id: `learn-${index}`,
+    title: `Research ${index}`,
+    summary: 'Technical analysis.',
+    url: `https://research-${index}.example/paper`,
+    source: `research-${index}.example`,
+    sourceLabel: `Research ${index}`,
+    sourceKind: 'local',
+    publishedAt: '2026-08-24T04:00:00.000Z',
+    lane: index % 2 ? 'ml_data' : 'methods',
+    tags: ['methods'],
+    baseScore: 0.8,
+    importance: 0.65,
+    novelty: 0.6,
+    quality: 0.8,
+    momentum: 0.6,
+  }));
+  const game: FrontierItem = {
+    ...learn[0],
+    id: 'editorial-play',
+    title: 'A strong game-design analysis',
+    url: 'https://game-design.example/story',
+    source: 'game-design.example',
+    sourceLabel: 'Game Design',
+    lane: 'gaming',
+    tags: ['game design'],
+  };
+
+  const daily = selectDailyRun([sportsState, ...learn, game], {}, 5, new Date(NOW));
+  assert.ok(daily.some((item) => item.id === sportsState.id));
+  assert.ok(daily.some((item) => item.id === game.id), 'utility scoreboard incorrectly satisfied After Hours editorial coverage');
 });

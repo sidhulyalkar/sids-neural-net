@@ -168,6 +168,27 @@ export const FRONTIER_PERSONAL_TASTE_TOPICS: readonly FrontierPersonalTasteTopic
     prior: 0.1,
   },
   {
+    id: 'disc-golf',
+    label: 'disc golf technique + tour',
+    aliases: ['disc golf', 'pdga', 'disc golf putting', 'disc golf driving', 'disc golf approach', 'disc golf form', 'disc golf course', 'disc golf tournament'],
+    tags: ['disc golf', 'active sports', 'outdoor skills'],
+    prior: 0.11,
+  },
+  {
+    id: 'skate-progression',
+    label: 'skate tricks + grind progression',
+    aliases: ['street skating', 'skate grind', 'skateboard grind', '50-50 grind', 'boardslide', 'crooked grind', 'smith grind', 'feeble grind', 'skate rail', 'skate ledge', 'skatepark', 'skate trick', 'skateboarding tutorial'],
+    tags: ['skateboarding', 'trick progression', 'active sports'],
+    prior: 0.11,
+  },
+  {
+    id: 'freestyle-scooter',
+    label: 'freestyle scooter tricks + progression',
+    aliases: ['freestyle scooter', 'scootering', 'pro scooter', 'scooter tricks', 'scooter grind', 'scooter rail', 'street scooter', 'park scooter'],
+    tags: ['freestyle scooter', 'trick progression', 'active sports'],
+    prior: 0.1,
+  },
+  {
     id: 'bass-music',
     label: 'dubstep + bass music',
     aliases: ['dubstep', 'bass music', 'edm', 'illenium', 'subtronics', 'zeds dead', 'virtual riot', 'seven lions', 'skrillex'],
@@ -206,6 +227,9 @@ export const FRONTIER_DISCOVERY_SEEDS = [
   'game design',
   'anime releases',
   'dark comedy TV',
+  'disc golf',
+  'skateboarding tricks',
+  'freestyle scooter',
 ] as const;
 
 /** Targeted web/video searches used by the personal taste discovery mesh. */
@@ -281,6 +305,21 @@ export const FRONTIER_TASTE_DISCOVERY_QUERIES: readonly FrontierTasteDiscoveryQu
     tags: ['screen orbit', 'animated dark comedy', 'witty dark comedy'],
   },
   {
+    query: 'disc golf PDGA putting driving form course design tournament',
+    lane: 'sports',
+    tags: ['disc golf', 'outdoor skills', 'active sports'],
+  },
+  {
+    query: 'skateboarding street skating 50-50 boardslide grind rail ledge trick tutorial',
+    lane: 'sports',
+    tags: ['skateboarding', 'trick progression', 'active sports'],
+  },
+  {
+    query: 'freestyle scooter street park scooter tricks grind rail tutorial',
+    lane: 'sports',
+    tags: ['freestyle scooter', 'trick progression', 'active sports'],
+  },
+  {
     query: 'site:youtube.com Neuroglancer connectomics neuroscience visualization demo',
     lane: 'internet_culture',
     tags: ['neuroglancer', 'scientific visualization', 'watchable'],
@@ -290,6 +329,18 @@ export const FRONTIER_TASTE_DISCOVERY_QUERIES: readonly FrontierTasteDiscoveryQu
     query: 'site:youtube.com mountain biking climbing skiing best runs highlights',
     lane: 'sports',
     tags: ['active sports', 'highlights', 'watchable'],
+    video: true,
+  },
+  {
+    query: 'site:youtube.com disc golf putting form tournament highlights',
+    lane: 'sports',
+    tags: ['disc golf', 'outdoor skills', 'watchable'],
+    video: true,
+  },
+  {
+    query: 'site:youtube.com skateboarding freestyle scooter grind trick tutorial',
+    lane: 'sports',
+    tags: ['skateboarding', 'freestyle scooter', 'trick progression', 'watchable'],
     video: true,
   },
   {

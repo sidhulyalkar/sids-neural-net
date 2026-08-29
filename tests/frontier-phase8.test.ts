@@ -26,13 +26,15 @@ test('second release inside 250ms interrupts expansion and opens externally', ()
   assert.equal(second.state.lastReleaseAt, 0);
 });
 
-test('late second release becomes an ordinary collapse instead of an external open', () => {
+test('late reading clicks keep an expanded card open instead of collapsing it', () => {
+  const at = 1_000 + FRONTIER_FLUID_DOUBLE_MS + 1;
   const result = resolveFrontierFluidIntent({
     state: { lastReleaseAt: 1_000 },
-    at: 1_000 + FRONTIER_FLUID_DOUBLE_MS + 1,
+    at,
     expanded: true,
   });
-  assert.equal(result.intent, 'collapse');
+  assert.equal(result.intent, 'none');
+  assert.equal(result.state.lastReleaseAt, at);
 });
 
 test('armed second press retains card ownership only near the original release and inside 250ms', () => {

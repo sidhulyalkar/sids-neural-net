@@ -16,8 +16,8 @@ function item(id: string, overrides: Partial<FrontierItem> = {}): FrontierItem {
     id,
     title: `${id} title`,
     summary: `${id} summary`,
-    url: `https://example.com/${id}`,
-    source: 'example.com',
+    url: `https://${id}.example.com/story`,
+    source: `${id}.example.com`,
     sourceLabel: 'Example',
     sourceKind: 'local',
     publishedAt: '2026-08-23T12:00:00.000Z',
@@ -157,27 +157,11 @@ test('learned negative preferences can suppress the explicit seed prior', () => 
   assert.ok(suppressed < seeded - 0.08);
 });
 
-test('daily run reserves separate NFL, fantasy, sports-data, visualization, and watchable slots', () => {
-  const generic = Array.from({ length: 18 }, (_, index) => item(`generic-${index}`, {
-    lane: index % 2 ? 'ai_frontier' : 'ml_data',
-    title: `Generic signal ${index}`,
-    tags: ['generic'],
-    importance: index === 0 ? 0.9 : 0.58,
-  }));
+test('adaptive composition preserves strong personalized families without hard-reserving every micro-topic', () => {
   const nfl = item('nfl', {
     title: 'NFL player tracking EPA and CPOE state model',
     lane: 'sports',
     tags: ['nfl', 'player tracking', 'epa', 'cpoe'],
-  });
-  const fantasy = item('fantasy', {
-    title: 'Superflex ADP and route participation model update',
-    lane: 'sports',
-    tags: ['fantasy football', 'superflex', '2qb', 'player usage'],
-  });
-  const sportsData = item('sports-data', {
-    title: 'NBA and soccer tracking-data visualization toolkit',
-    lane: 'sports',
-    tags: ['sports analytics', 'sports data', 'visualization'],
   });
   const visualization = item('visualization', {
     title: 'Neuroglancer and napari connectomics viewer release',
@@ -193,19 +177,41 @@ test('daily run reserves separate NFL, fantasy, sports-data, visualization, and 
     sourceLabel: 'YouTube',
     tags: ['webgpu', 'game design', 'watchable', 'video'],
   });
+  const generic = Array.from({ length: 18 }, (_, index) => item(`generic-${index}`, {
+    lane: index % 2 ? 'ai_frontier' : 'ml_data',
+    title: `Generic signal ${index}`,
+    tags: ['generic'],
+    importance: index === 0 ? 0.9 : 0.58,
+  }));
+  const fantasy = item('fantasy-low-rank', {
+    title: 'Superflex ADP and route participation model update',
+    lane: 'sports',
+    tags: ['fantasy football', 'superflex', '2qb', 'player usage'],
+  });
+  const sportsData = item('sports-data-low-rank', {
+    title: 'NBA and soccer tracking-data visualization toolkit',
+    lane: 'sports',
+    tags: ['sports analytics', 'sports data', 'visualization'],
+  });
 
+  // selectDailyRun receives an already-ranked list. Strong personalized signals
+  // occupy the learned top ranks, while two other valid sports interests are
+  // deliberately placed at the tail to represent learned satiation/disinterest.
   const run = selectDailyRun(
-    [...generic, nfl, fantasy, sportsData, visualization, watchable],
+    [nfl, visualization, watchable, ...generic, fantasy, sportsData],
     {},
     14,
     new Date('2026-08-23T20:00:00.000Z')
   );
   const ids = new Set(run.map((entry) => entry.id));
   assert.ok(ids.has('nfl'));
-  assert.ok(ids.has('fantasy'));
-  assert.ok(ids.has('sports-data'));
   assert.ok(ids.has('visualization'));
   assert.ok(ids.has('watchable'));
+  assert.ok(
+    !(ids.has('fantasy-low-rank') && ids.has('sports-data-low-rank')),
+    'low-ranked micro-topics regained mandatory quota authority',
+  );
+  assert.ok(run.filter((entry) => entry.lane === 'ai_frontier').length <= 1);
 });
 
 test('generic AI cannot fill multiple fallback slots when higher-fit material exists', () => {

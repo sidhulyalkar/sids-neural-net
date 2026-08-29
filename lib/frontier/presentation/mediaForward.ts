@@ -54,6 +54,21 @@ export function frontierPackedColumnSpans(
   });
 }
 
+/**
+ * Convert an order-preserving span plan into stable desktop column starts.
+ * Expansion is allowed to grow downward, but a card's horizontal identity must
+ * not be renegotiated by CSS auto-placement when an earlier card becomes taller.
+ */
+export function frontierPackedColumnStarts(spans: FrontierPackedSpan[]): number[] {
+  let start = 1;
+  return spans.map((span) => {
+    const current = start;
+    start += span;
+    if (start > DESKTOP_COLUMNS) start = 1;
+    return current;
+  });
+}
+
 export function frontierMasonrySpan(
   contentHeight: number,
   rowHeight = 8,

@@ -83,7 +83,7 @@ export function FluidSpatialCard({
     >
       <div ref={measureRef} className={styles.measure}>
         <InlineMediaSurface expanded={expanded}>{children}</InlineMediaSurface>
-        {expanded ? <FrontierInlineFocal item={item} /> : null}
+        {expanded ? <FrontierInlineFocal item={item} onCollapse={() => onCollapse(item)} /> : null}
       </div>
     </div>
   );

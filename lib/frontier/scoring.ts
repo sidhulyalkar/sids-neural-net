@@ -1,7 +1,8 @@
+import { selectAdaptiveDailyAllocation } from './adaptiveSlate';
 import { behavioralAdjustment, behavioralExplorationBonus, formatForItem, aggregatePreference, timeBucket } from './behavior';
 import { FRONTIER_LANE_MAP } from './config';
+import { personalInterestConnection } from './interestGraph';
 import {
-  matchesPersonalTasteTopic,
   personalTasteRankingPrior,
   strongestPersonalTasteLabel,
 } from './personalTaste';
@@ -18,7 +19,6 @@ import type {
 
 const DAY_MS = 86_400_000;
 const RESURFACE_DAYS = [1, 3, 7];
-const EXPLICIT_TASTE_FILL_THRESHOLD = 0.04;
 const CANONICAL_DAILY_RUN_SIZE = 14;
 
 export function clamp(value: number, min = 0, max = 1): number {
@@ -125,6 +125,12 @@ export function personalizedScore(
   const explicitTaste = personalTasteRankingPrior(item);
   const tasteSuppression = laneAffinity <= -0.15 || topicSignal <= -0.12 ? 0.25 : 1;
   const tastePrior = explicitTaste * tasteSuppression;
+  const connection = personalInterestConnection(item);
+  // A learned negative intersection gets veto authority over the cold-start
+  // graph. This prevents a clever cross-domain match from repeatedly returning
+  // after the user has shown that the particular combination is unwanted.
+  const learnedConnectionGate = pairSignal <= -0.15 ? 0.12 : 1;
+  const connectionPrior = connection.score * tasteSuppression * learnedConnectionGate;
 
   const score =
     item.baseScore * 0.28 +
@@ -142,6 +148,7 @@ export function personalizedScore(
     exploration +
     sourceTrustPrior +
     tastePrior +
+    connectionPrior +
     resurfaceBonus(historyEntry, now);
 
   return clamp(score, -1, 1.5);
@@ -161,119 +168,19 @@ export function rankFrontierItems(
     .map(({ item }) => item);
 }
 
-function takeFirst(source: FrontierItem[], used: Set<string>, predicate: (item: FrontierItem) => boolean): FrontierItem | undefined {
-  const item = source.find((candidate) => !used.has(candidate.id) && predicate(candidate));
-  if (item) used.add(item.id);
-  return item;
-}
-
-function isSportsStateSignal(item: FrontierItem): boolean {
-  return item.sourceKind === 'sports_state' || Boolean(item.sportsState);
-}
-
-function isActiveSportSignal(item: FrontierItem): boolean {
-  return item.tags.includes('active sport') || item.tags.includes('active sports');
-}
-
-function isSoccerSignal(item: FrontierItem): boolean {
-  return ['premier_league', 'world_soccer'].includes(item.lane);
-}
-
-function isScreenOrbitSignal(item: FrontierItem): boolean {
-  return item.lane === 'screen' || matchesPersonalTasteTopic(item, ['screen-orbit']);
-}
-
-function isWatchableTasteSignal(item: FrontierItem): boolean {
-  return item.tags.includes('watchable') && personalTasteRankingPrior(item) > 0.06;
-}
-
-function hasExplicitTasteSignal(item: FrontierItem): boolean {
-  return personalTasteRankingPrior(item) > EXPLICIT_TASTE_FILL_THRESHOLD;
-}
-
-function isPersonalLeisureSignal(item: FrontierItem): boolean {
-  return ['music', 'internet_culture', 'life'].includes(item.lane) && hasExplicitTasteSignal(item);
-}
-
-function sourceHost(item: FrontierItem): string {
-  try { return new URL(item.url).hostname.replace(/^www\./, ''); } catch { return item.source; }
-}
-
-function isGenericAiSignal(item: FrontierItem): boolean {
-  return item.lane === 'ai_frontier'
-    && personalTasteRankingPrior(item) <= 0.04
-    && item.importance < 0.82;
-}
-
 function selectDailyAllocation(
   ranked: FrontierItem[],
   history: Record<string, FrontierHistoryEntry>,
   limit: number,
   now: Date
 ): FrontierItem[] {
+  // Ranking has already absorbed explicit taste, learned behavior, context,
+  // confidence, freshness, trust and exploration. Allocation should not build a
+  // second preference model. It composes that authoritative order into a finite,
+  // diverse slate using soft editorial-family demand.
   void history;
   void now;
-  const used = new Set<string>();
-  const selected: FrontierItem[] = [];
-  const push = (item?: FrontierItem) => { if (item) selected.push(item); };
-
-  push(takeFirst(ranked, used, (item) => item.importance >= 0.76 || item.lane === 'must_know'));
-  push(takeFirst(ranked, used, (item) => ['ml_data', 'ai_frontier', 'neuro_frontier', 'broad_science'].includes(item.lane)));
-
-  // Live league state is utility rather than editorial sports content.
-  push(takeFirst(ranked, used, (item) => isSportsStateSignal(item)));
-
-  // Screen Orbit owns its semantic slot before the broader taste predicates can
-  // consume an anime/comedy item through an overlapping tag. This guarantees a
-  // finite single screen signal when relevant material exists without allowing
-  // entertainment to flood the run.
-  push(takeFirst(ranked, used, (item) => isScreenOrbitSignal(item)));
-
-  // NFL, fantasy decisions, and broader sports-data work are separate appetites.
-  push(takeFirst(ranked, used, (item) => matchesPersonalTasteTopic(item, ['nfl-analytics'])));
-  push(takeFirst(ranked, used, (item) => matchesPersonalTasteTopic(item, ['fantasy-football'])));
-  push(takeFirst(ranked, used, (item) => matchesPersonalTasteTopic(item, ['sports-data'])));
-
-  push(takeFirst(ranked, used, (item) => matchesPersonalTasteTopic(item, ['scientific-visualization', 'neuro-data-systems', 'computational-imaging', 'space-imaging'])));
-  push(takeFirst(ranked, used, (item) => ['builder_signal', 'methods', 'creative_tech'].includes(item.lane)));
-  push(takeFirst(ranked, used, (item) => item.lane === 'team_pulse'));
-  push(takeFirst(ranked, used, (item) => isActiveSportSignal(item)));
-  push(takeFirst(ranked, used, (item) => isSoccerSignal(item)));
-  push(takeFirst(ranked, used, (item) => item.lane === 'gaming'));
-
-  // Watchable is semantic. A thumbnail or media failure can never decide which
-  // recommendation wins, and external social clips can satisfy this slot too.
-  push(takeFirst(ranked, used, (item) => isWatchableTasteSignal(item)));
-
-  // The leisure reservation must represent a real preference. Previously any
-  // item classified as `life` could claim this scarce slot, which let generic
-  // sports/legal incident coverage displace bass, nature, or other actual taste.
-  push(takeFirst(ranked, used, (item) => isPersonalLeisureSignal(item)));
-
-  const appendFill = (tasteOnly: boolean) => {
-    for (const item of ranked) {
-      if (selected.length >= limit) break;
-      if (used.has(item.id)) continue;
-      if (tasteOnly && !hasExplicitTasteSignal(item)) continue;
-      const sameLane = selected.filter((candidate) => candidate.lane === item.lane).length;
-      const laneCap = item.lane === 'ai_frontier' ? 1 : Math.max(2, Math.ceil(limit * 0.24));
-      if (sameLane >= laneCap && isGenericAiSignal(item)) continue;
-      if (sameLane >= Math.max(2, Math.ceil(limit * 0.24))) continue;
-      const host = sourceHost(item);
-      const sameHost = selected.filter((candidate) => sourceHost(candidate) === host).length;
-      if (sameHost >= 2) continue;
-      selected.push(item);
-      used.add(item.id);
-    }
-  };
-
-  // Explicit personal fit is allocation authority before broad exploration.
-  // Ranking order is preserved inside each pass, so learned preference and
-  // intrinsic quality still decide among equally eligible candidates.
-  appendFill(true);
-  appendFill(false);
-
-  return selected.slice(0, limit);
+  return selectAdaptiveDailyAllocation(ranked, limit);
 }
 
 export function selectDailyRun(
@@ -287,12 +194,9 @@ export function selectDailyRun(
     return selectDailyAllocation(ranked, history, boundedLimit, now);
   }
 
-  // A deeper browse is an extension of the known-good daily run, not a second
-  // opening recommendation. The larger allocator is still authoritative for
-  // what belongs in the tail, but it may reserve additional taste slots because
-  // its lane caps scale with `limit`. Pin the canonical first 14, then append
-  // only the additional members of the expanded allocation. This lets FRONTIER
-  // grow downward without moving cards the reader has already begun scanning.
+  // A deeper browse is an extension of the authoritative daily run, not a
+  // second opening recommendation. Pin the canonical first 14, then append only
+  // additional members from the larger adaptive allocation.
   const canonical = selectDailyAllocation(ranked, history, CANONICAL_DAILY_RUN_SIZE, now);
   const expanded = selectDailyAllocation(ranked, history, boundedLimit, now);
   const canonicalIds = new Set(canonical.map((item) => item.id));
@@ -327,6 +231,9 @@ export function explainRecommendation(
     }
   }
 
+  const connection = personalInterestConnection(item);
+  const pairSignal = pairAffinityForItem(item, profile);
+  if (connection.explanation && pairSignal > -0.15) return connection.explanation;
   if (resurfaceLike(item)) return 'Second chance: this signal was worth keeping in orbit.';
   if (item.importance >= 0.8) return 'High global importance, promoted even beyond your normal taste profile.';
   const personalLabel = strongestPersonalTasteLabel(item);
