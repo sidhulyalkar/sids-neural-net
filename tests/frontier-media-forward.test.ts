@@ -4,6 +4,7 @@ import {
   frontierHasPresentationMedia,
   frontierMasonrySpan,
   frontierPackedColumnSpans,
+  frontierPackedColumnStarts,
   frontierVisualRole,
 } from '../lib/frontier/presentation/mediaForward';
 import type { FrontierItem } from '../lib/frontier/types';
@@ -65,7 +66,7 @@ test('structured evidence keeps a standard footprint while plain text stays comp
   assert.equal(frontierVisualRole(item(), 4, false), 'compact');
 });
 
-test('ordered packing fills complete 12-column rows without dense reordering', () => {
+test('ordered packing fills complete 12-column rows and locks every card to a deterministic column', () => {
   const items = [
     item({ id: 'video-a', media: { type: 'video', url: 'https://example.com/a.mp4' } }),
     item({ id: 'text-a' }),
@@ -74,7 +75,9 @@ test('ordered packing fills complete 12-column rows without dense reordering', (
     item({ id: 'video-b', media: { type: 'youtube', url: 'abcdefghi' } }),
   ];
   const spans = frontierPackedColumnSpans(items);
+  const starts = frontierPackedColumnStarts(spans);
   assert.deepEqual(spans, [8, 4, 4, 8, 8]);
+  assert.deepEqual(starts, [1, 9, 1, 5, 1]);
   assert.equal(spans.slice(0, 2).reduce((sum, span) => sum + span, 0), 12);
   assert.equal(spans.slice(2, 4).reduce((sum, span) => sum + span, 0), 12);
   assert.equal(items.map((entry) => entry.id).join('|'), 'video-a|text-a|text-b|image-wide|video-b');
