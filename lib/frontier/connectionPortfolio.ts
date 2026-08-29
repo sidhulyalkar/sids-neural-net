@@ -4,6 +4,14 @@ import type { FrontierHistoryEntry, FrontierItem } from './types';
 const DAY_MS = 86_400_000;
 const RECENCY_HALF_LIFE_DAYS = 4.5;
 const MAX_SIGNATURES = 18;
+const SPECIFIC_MOTION_TOPIC_IDS = new Set([
+  'rock-climbing',
+  'mountain-biking',
+  'skiing',
+  'disc-golf',
+  'skate-progression',
+  'freestyle-scooter',
+]);
 
 export type FrontierConnectionSignature = {
   key: string;
@@ -37,9 +45,15 @@ export function interestConnectionSignatures(item: FrontierItem): FrontierConnec
   if (connection.score < 0.035 || connection.confidence < 0.5) return [];
 
   const signatures = new Map<string, number>();
+  const hasSpecificMotionTopic = connection.topicIds.some((topic) => SPECIFIC_MOTION_TOPIC_IDS.has(topic));
   for (const topic of connection.topicIds) {
+    // active-sports is a useful transfer parent, not an exact identity once a
+    // concrete discipline is known. Otherwise four skate cards would create a
+    // full-strength active-sports × open-source exposure that suppresses a new
+    // disc-golf, climbing, MTB, or skiing tool merely because both are sports.
+    const topicWeight = topic === 'active-sports' && hasSpecificMotionTopic ? 0.3 : 1;
     for (const facet of connection.facets) {
-      signatures.set(canonical(`topic:${topic}`, `facet:${facet}`), 1);
+      signatures.set(canonical(`topic:${topic}`, `facet:${facet}`), topicWeight);
     }
   }
   for (let left = 0; left < connection.domains.length; left += 1) {
