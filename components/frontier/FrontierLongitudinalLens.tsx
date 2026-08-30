@@ -13,6 +13,12 @@ import {
   type LongitudinalSummary,
 } from '@/lib/frontier/longitudinal';
 import {
+  inferLongitudinalTopicRates,
+  inferLongitudinalTopicTrends,
+  type LongitudinalRateEstimate,
+  type LongitudinalTopicTrend,
+} from '@/lib/frontier/longitudinalInference';
+import {
   createFrontierLocalArchive,
   parseFrontierLocalArchive,
   restoreFrontierLocalArchive,
@@ -39,6 +45,18 @@ function laneLabel(value: string): string {
   return FRONTIER_LANE_MAP[value as FrontierLaneId]?.shortLabel ?? value.replaceAll('_', ' ');
 }
 
+function evidenceLabel(value: number): string {
+  if (value >= 0.75) return 'strong evidence';
+  if (value >= 0.45) return 'moderate evidence';
+  if (value >= 0.2) return 'early evidence';
+  return 'sparse evidence';
+}
+
+function trendLabel(trend: LongitudinalTopicTrend): string {
+  const arrow = trend.direction === 'rising' ? '↑' : trend.direction === 'cooling' ? '↓' : '·';
+  return `${arrow} ${trend.key} · ${trend.windowDays}d ${trend.direction}`;
+}
+
 function ScaleInput({ label, value, onChange }: {
   label: string;
   value: LongitudinalScale;
@@ -63,6 +81,8 @@ function ScaleInput({ label, value, onChange }: {
 
 export function FrontierLongitudinalLens() {
   const [summary, setSummary] = useState<LongitudinalSummary>();
+  const [rates, setRates] = useState<LongitudinalRateEstimate[]>([]);
+  const [trends, setTrends] = useState<LongitudinalTopicTrend[]>([]);
   const [health, setHealth] = useState<LongitudinalStorageHealth>();
   const [mood, setMood] = useState<LongitudinalScale>(3);
   const [energy, setEnergy] = useState<LongitudinalScale>(3);
@@ -73,12 +93,15 @@ export function FrontierLongitudinalLens() {
 
   const refresh = useCallback(async () => {
     try {
-      const [nextSummary, nextHealth] = await Promise.all([
+      const [nextSummary, nextHealth, archive] = await Promise.all([
         frontierLongitudinalStore.summary(90),
         frontierLongitudinalStore.storageHealth(),
+        frontierLongitudinalStore.exportArchive(),
       ]);
       setSummary(nextSummary);
       setHealth(nextHealth);
+      setRates(inferLongitudinalTopicRates(archive, 90));
+      setTrends(inferLongitudinalTopicTrends(archive, 14));
     } catch {
       setHealth({ supported: false });
     }
@@ -155,7 +178,10 @@ export function FrontierLongitudinalLens() {
 
   const reviewed = summary?.reviewed ?? 0;
   const agreement = summary?.reviewAgreement;
-  const topTopics = summary?.topTopics.slice(0, 6) ?? [];
+  const topTopics = rates.slice(0, 6);
+  const activeTrends = trends
+    .filter((trend) => trend.direction === 'rising' || trend.direction === 'cooling')
+    .slice(0, 4);
   const topLanes = summary?.topLanes.slice(0, 4) ?? [];
   const quotaRatio = health?.usage !== undefined && health.quota
     ? Math.min(1, health.usage / health.quota)
@@ -182,21 +208,33 @@ export function FrontierLongitudinalLens() {
       <div className={styles.grid}>
         <div className={styles.panel}>
           <div className={styles.panelHead}>
-            <div><span>Subinterest reactivity</span><small>90-day exposure-normalized view</small></div>
+            <div><span>Subinterest reactivity</span><small>90-day shrunk rate · approximate 90% uncertainty</small></div>
           </div>
           {topTopics.length ? (
             <div className={styles.topicList}>
               {topTopics.map((topic) => (
                 <div className={styles.topic} key={topic.key}>
-                  <div><strong>{topic.key}</strong><small>{topic.reactions} reactions · {formatMinutes(topic.exposureMs)} qualified exposure</small></div>
-                  <span>{topic.reactivityPer10Min.toFixed(1)} / 10m</span>
+                  <div>
+                    <strong>{topic.key}</strong>
+                    <small>
+                      {topic.reactions} reactions · {formatMinutes(topic.exposureMs)} qualified exposure · {topic.lowerPer10Min.toFixed(1)}–{topic.upperPer10Min.toFixed(1)} band · {evidenceLabel(topic.evidenceStrength)}
+                    </small>
+                  </div>
+                  <span>{topic.ratePer10Min.toFixed(1)} / 10m</span>
                 </div>
               ))}
             </div>
           ) : <p className={styles.empty}>Not enough qualified exposure yet. FRONTIER abstains rather than inventing a pattern.</p>}
+          {activeTrends.length ? (
+            <div className={styles.laneRow} aria-label="Evidence-gated reactivity trends">
+              {activeTrends.map((trend) => <span key={trend.key}>{trendLabel(trend)}</span>)}
+            </div>
+          ) : topTopics.length ? (
+            <p className={styles.help}>No 14-day shift clears the exposure, event-count, effect-size, and uncertainty gates yet.</p>
+          ) : null}
           {topLanes.length ? (
             <div className={styles.laneRow}>
-              {topLanes.map((lane) => <span key={lane.key}>{laneLabel(lane.key)} · {lane.reactivityPer10Min.toFixed(1)}/10m</span>)}
+              {topLanes.map((lane) => <span key={lane.key}>{laneLabel(lane.key)} · {lane.reactivityPer10Min.toFixed(1)}/10m raw</span>)}
             </div>
           ) : null}
         </div>
@@ -236,7 +274,7 @@ export function FrontierLongitudinalLens() {
       </div>
 
       {message ? <p className={styles.message}>{message}</p> : null}
-      <p className={styles.footnote}>Stored camera-derived records contain content context, exposure duration, sparse cue class, confidence, timing, and your correction. Frames, face landmarks, biometric templates, identity embeddings, and raw expression streams are never written to this database or cloud memory.</p>
+      <p className={styles.footnote}>Stored camera-derived records contain content context, exposure duration, sparse cue class, confidence, timing, and your correction. Frames, face landmarks, biometric templates, identity embeddings, and raw expression streams are never written to this database or cloud memory. Reactivity estimates shrink sparse topics toward the observed global baseline; trend labels require qualified exposure in both windows, multiple events, a material effect, and enough posterior separation.</p>
     </section>
   );
 }
