@@ -11,7 +11,7 @@ import {
   startBehaviorSession,
 } from './behavior';
 import { createInitialProfile, DEFAULT_COLLECTIONS } from './config';
-import { clearFrontierDecisionLedger } from './decisionLedger';
+import { clearFrontierDecisionLedger, recordFrontierDecisionVisibility } from './decisionLedger';
 import { clearFrontierForagedSources } from './forage/sourceRoster';
 import { migrateFrontierProfile } from './profileMigration';
 import { applyReactionToProfile } from './scoring';
@@ -164,6 +164,10 @@ export const useFrontierStore = create<FrontierStore>()(
           history: { ...current.history, [item.id]: next },
           behavior: applyBehaviorEvent(current.behavior, item, { kind: 'impression' }),
         });
+        // SignalCard is already the canonical 55% viewport-seen authority.
+        // Attribute that same event to the active decision instead of adding a
+        // second observer solely for causal logging.
+        if (current.behavior.implicitLearning) recordFrontierDecisionVisibility(item.id, 0.55);
       },
 
       recordDwell: (item, dwellMs) => {
