@@ -12,6 +12,8 @@ import {
   scoreReactionCues,
   type FrontierReactionFaceInput,
 } from '../lib/frontier/reaction';
+import { selectReactionTarget } from '../lib/frontier/reactionTarget';
+import { reactionTrustAuthority } from '../lib/frontier/reactionTrust';
 import type { FrontierItem } from '../lib/frontier/types';
 
 const neutralExpressions = {
@@ -67,6 +69,12 @@ test('reaction cue scoring separates positive, surprise, and friction expression
   assert.ok(friction.friction > friction.affinity);
 });
 
+test('neutral forward posture cannot manufacture an interest reaction', () => {
+  const baseline = { ...neutralExpressions };
+  const scores = scoreReactionCues(face({ yaw: 0, pitch: 0, stillness: 1, expressions: { ...baseline } }), baseline);
+  assert.equal(scores.interest, 0);
+});
+
 test('reaction inference requires calibration, sustained evidence, and a per-card cooldown', () => {
   const engine = new ReactionInferenceEngine({
     calibrationMs: 10,
@@ -75,7 +83,9 @@ test('reaction inference requires calibration, sustained evidence, and a per-car
     minConfidence: 0.6,
     minMargin: 0.1,
     minDurationMs: 50,
+    minimumTargetDwellMs: 0,
     cooldownMs: 100,
+    globalCooldownMs: 0,
   });
   const neutral = face();
   const smiling = face({ expressions: { ...neutralExpressions, smile: 0.9, eyeSquint: 0.45 } });
@@ -101,7 +111,9 @@ test('changing cards resets a pending reaction instead of leaking evidence acros
     minConfidence: 0.6,
     minMargin: 0.1,
     minDurationMs: 60,
+    minimumTargetDwellMs: 0,
     cooldownMs: 100,
+    globalCooldownMs: 0,
   });
   const neutral = face();
   const surprised = face({ expressions: { ...neutralExpressions, browRaise: 0.8, eyeWide: 0.9, jawOpen: 0.55 } });
@@ -111,6 +123,76 @@ test('changing cards resets a pending reaction instead of leaking evidence acros
   assert.equal(engine.push(surprised, 'card-b', 50).reaction, undefined);
   assert.equal(engine.push(surprised, 'card-b', 80).reaction, undefined);
   assert.equal(engine.push(surprised, 'card-b', 115).reaction?.kind, 'surprise');
+});
+
+test('a new target must be held before reaction evidence can begin', () => {
+  const engine = new ReactionInferenceEngine({
+    calibrationMs: 1,
+    minimumCalibrationSamples: 1,
+    emaAlpha: 1,
+    minConfidence: 0.6,
+    minMargin: 0.1,
+    minDurationMs: 40,
+    minimumTargetDwellMs: 80,
+    cooldownMs: 0,
+    globalCooldownMs: 0,
+  });
+  const neutral = face();
+  const smiling = face({ expressions: { ...neutralExpressions, smile: 0.95, eyeSquint: 0.45 } });
+
+  engine.push(neutral, 'card-a', 0);
+  assert.equal(engine.push(smiling, 'card-a', 2).reaction, undefined);
+  assert.equal(engine.push(smiling, 'card-a', 70).reaction, undefined);
+  assert.equal(engine.push(smiling, 'card-a', 90).reaction, undefined);
+  assert.equal(engine.push(smiling, 'card-a', 135).reaction?.kind, 'affinity');
+});
+
+test('global cooldown prevents reaction confetti while moving across cards', () => {
+  const engine = new ReactionInferenceEngine({
+    calibrationMs: 1,
+    minimumCalibrationSamples: 1,
+    emaAlpha: 1,
+    minConfidence: 0.6,
+    minMargin: 0.1,
+    minDurationMs: 20,
+    minimumTargetDwellMs: 0,
+    cooldownMs: 0,
+    globalCooldownMs: 100,
+  });
+  const neutral = face();
+  const smiling = face({ expressions: { ...neutralExpressions, smile: 0.95, eyeSquint: 0.45 } });
+
+  engine.push(neutral, 'card-a', 0);
+  engine.push(smiling, 'card-a', 2);
+  assert.equal(engine.push(smiling, 'card-a', 25).reaction?.kind, 'affinity');
+  engine.push(smiling, 'card-b', 30);
+  assert.equal(engine.push(smiling, 'card-b', 55).reaction, undefined);
+  assert.equal(engine.push(smiling, 'card-b', 130).reaction?.kind, 'affinity');
+});
+
+test('reaction target selection rejects ambiguous or barely visible cards', () => {
+  assert.equal(selectReactionTarget([
+    { id: 'a', score: 0.72, visibleFraction: 0.8 },
+    { id: 'b', score: 0.68, visibleFraction: 0.76 },
+  ]), undefined);
+  assert.equal(selectReactionTarget([
+    { id: 'a', score: 0.72, visibleFraction: 0.2 },
+  ]), undefined);
+  assert.equal(selectReactionTarget([
+    { id: 'a', score: 0.78, visibleFraction: 0.85 },
+    { id: 'b', score: 0.55, visibleFraction: 0.5 },
+  ]), 'a');
+});
+
+test('reaction trust begins skeptical, rises with confirmations, and falls with contradictions', () => {
+  const initial = reactionTrustAuthority(undefined);
+  const confirmed = reactionTrustAuthority({ observed: 8, confirmed: 7, contradicted: 1, confidenceSum: 6.8 });
+  const contradicted = reactionTrustAuthority({ observed: 8, confirmed: 1, contradicted: 7, confidenceSum: 6.8 });
+  assert.ok(initial < 1);
+  assert.ok(confirmed > initial);
+  assert.ok(confirmed <= 1.15);
+  assert.ok(contradicted < initial);
+  assert.ok(contradicted >= 0.65);
 });
 
 test('ambient affinity is weak positive evidence while friction alone never becomes dislike', () => {
@@ -134,7 +216,7 @@ test('ambient affinity is weak positive evidence while friction alone never beco
   const frictionPreference = aggregatePreference(frictionModel.topicStats['visual computing'], when);
   assert.ok(affinityPreference.score > 0);
   assert.ok(affinityPreference.score < 0.35);
-  assert.ok(frictionPreference.score >= 0);
+  assert.equal(frictionPreference.score, 0);
 });
 
 test('explicit feedback remains materially stronger than ambient reaction evidence', () => {
