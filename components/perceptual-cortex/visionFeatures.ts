@@ -28,8 +28,13 @@ export function deriveExpressionFeatures(blendshapes: Record<string, number>): F
     mouthPress: pairMean(score('mouthPressLeft'), score('mouthPressRight')),
   };
 }
-export function deriveFaceFeatures(matrix: number[] | undefined, blendshapes: Record<string, number>, previousActivity = 0): FaceFeatures {
-  const values = Object.values(blendshapes); const activity = values.length ? Math.min(1, values.reduce((sum, value) => sum + value, 0) / values.length * 3) : 0;
+export function deriveFaceFeatures(matrix: number[] | undefined, blendshapes: Record<string, number> | number[], previousActivity = 0): FaceFeatures {
+  // Keep the original numeric-array input valid for the Perceptual Cortex visual
+  // instrument while newer callers preserve named categories for reaction cues.
+  const legacyScores = Array.isArray(blendshapes) ? blendshapes : undefined;
+  const namedScores = Array.isArray(blendshapes) ? undefined : blendshapes;
+  const values = legacyScores ?? Object.values(namedScores ?? {});
+  const activity = values.length ? Math.min(1, values.reduce((sum, value) => sum + value, 0) / values.length * 3) : 0;
   const yaw = matrix ? Math.atan2(matrix[8], matrix[10]) : 0; const pitch = matrix ? Math.asin(Math.max(-1, Math.min(1, -matrix[9]))) : 0; const roll = matrix ? Math.atan2(matrix[1], matrix[5]) : 0;
-  return { active: !!matrix || values.length > 0, yaw, pitch, roll, activity, stillness: 1 - Math.min(1, Math.abs(activity - previousActivity) * 5), expressions: values.length ? deriveExpressionFeatures(blendshapes) : zeroExpressions() };
+  return { active: !!matrix || values.length > 0, yaw, pitch, roll, activity, stillness: 1 - Math.min(1, Math.abs(activity - previousActivity) * 5), expressions: namedScores ? deriveExpressionFeatures(namedScores) : zeroExpressions() };
 }
