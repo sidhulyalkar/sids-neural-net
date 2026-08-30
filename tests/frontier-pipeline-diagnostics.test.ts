@@ -8,6 +8,7 @@ import {
   buildFrontierPipelineDiagnostics,
   frontierObservedDrop,
 } from '../lib/frontier/pipelineDiagnostics';
+import { getFrontierColdSnapshotFeed } from '../lib/frontier/snapshotFeed';
 import { vetFrontierItems } from '../lib/frontier/sourceTrust';
 import type { FrontierItem } from '../lib/frontier/types';
 
@@ -94,6 +95,17 @@ test('snapshot callers can record exact drops without claiming a universal stage
     candidateCap: 0,
     nonEnglish: 2,
   });
+});
+
+test('the real cold snapshot never invents original Internet acquisition coverage', () => {
+  const now = new Date('2026-08-30T20:00:00.000Z').getTime();
+  const feed = getFrontierColdSnapshotFeed(now);
+  assert.ok(feed.pipeline);
+  assert.equal(feed.pipeline.mode, 'snapshot');
+  assert.equal(feed.pipeline.coverage.sourceAcquisition, 'offline-unavailable');
+  assert.equal(feed.pipeline.stages.sourceAcquired, null);
+  assert.equal(feed.pipeline.stages.responseReady, feed.items.length);
+  assert.equal(feed.pipeline.stages.candidateRetained, feed.items.length);
 });
 
 test('pipeline diagnostics serialize only anonymous counts and coverage labels', () => {
