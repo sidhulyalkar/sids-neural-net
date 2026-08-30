@@ -20,7 +20,7 @@ async function setRange(locator, value) {
 
 (async () => {
   const browser = await chromium.launch({ headless: true });
-  const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+  const context = await browser.newContext({ viewport: { width: 1280, height: 900 }, acceptDownloads: true });
   await context.addInitScript(() => {
     window.__frontierCameraCalls = 0;
     const mediaDevices = navigator.mediaDevices;
@@ -49,6 +49,7 @@ async function setRange(locator, value) {
   invariant(text.includes('self-report, not facial inference'), 'State labels must be explicitly described as self-report');
   invariant(text.includes('Qualified camera exposure'), 'Qualified exposure denominator is missing from the UI');
   invariant(text.includes('120d high-resolution retention'), 'Retention contract is missing from the UI');
+  invariant(text.includes('shrunk rate'), 'Uncertainty-aware reactivity estimator is missing from the UI');
 
   const sliders = section.locator('input[type="range"]');
   invariant(await sliders.count() === 3, 'Expected mood, energy, and focus self-report controls');
@@ -99,6 +100,23 @@ async function setRange(locator, value) {
     invariant(schema.includes(expected), `Longitudinal IndexedDB is missing ${expected} object store`);
   }
 
+  // The legacy footer surface must now export the same complete private archive
+  // as Radar. This prevents two buttons named Export from having different memory
+  // authority and permanently guards against longitudinal data being omitted.
+  await page.getByText('Data', { exact: true }).click();
+  const downloadPromise = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Export', exact: true }).click();
+  const download = await downloadPromise;
+  const downloadPath = await download.path();
+  invariant(downloadPath, 'FRONTIER archive download did not produce a local file');
+  invariant(download.suggestedFilename().startsWith('frontier-private-archive-'),
+    `Unexpected archive filename: ${download.suggestedFilename()}`);
+  const exportedArchive = JSON.parse(fs.readFileSync(downloadPath, 'utf8'));
+  invariant(exportedArchive.schema === 'frontier-local-archive-v1', 'Data → Export did not use the complete private archive schema');
+  invariant(exportedArchive.longitudinal?.schema === 'frontier-longitudinal-v1', 'Exported archive is missing longitudinal memory');
+  invariant(exportedArchive.longitudinal?.checkins?.length === 1, 'Exported archive omitted the persisted self-report check-in');
+  invariant(exportedArchive.reactionTrust && typeof exportedArchive.reactionTrust === 'object', 'Exported archive is missing reaction calibration state');
+
   fs.mkdirSync(path.join('artifacts', 'browser-smoke'), { recursive: true });
   await page.screenshot({
     path: path.join('artifacts', 'browser-smoke', 'frontier-longitudinal-cortex.png'),
@@ -113,6 +131,8 @@ async function setRange(locator, value) {
     checkins: storedCheckins.length,
     cameraCalls,
     stores: schema,
+    exportSchema: exportedArchive.schema,
+    exportedCheckins: exportedArchive.longitudinal.checkins.length,
     pageErrors,
   }, null, 2));
 })().catch((error) => {
