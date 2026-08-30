@@ -61,17 +61,47 @@ function visibleFraction(element: HTMLElement): number {
   return Math.min(1, (visibleWidth * visibleHeight) / (rect.width * rect.height));
 }
 
-function elementItemId(element: HTMLElement): string | undefined {
-  return element.dataset.frontierItemId || undefined;
+function normalizedUrl(value: string): string {
+  try {
+    const url = new URL(value, window.location.href);
+    url.hash = '';
+    return url.toString().replace(/\/$/, '');
+  } catch {
+    return value.trim().replace(/\/$/, '');
+  }
+}
+
+function historyMaps(history: Record<string, FrontierHistoryEntry>) {
+  const byUrl = new Map<string, FrontierHistoryEntry>();
+  const byTitle = new Map<string, FrontierHistoryEntry>();
+  for (const entry of Object.values(history)) {
+    byUrl.set(normalizedUrl(entry.item.url), entry);
+    byTitle.set(entry.item.title.trim().toLowerCase(), entry);
+  }
+  return { byUrl, byTitle };
+}
+
+function resolveEntry(
+  element: HTMLElement,
+  history: Record<string, FrontierHistoryEntry>,
+  maps: ReturnType<typeof historyMaps>
+): FrontierHistoryEntry | undefined {
+  const explicitId = element.dataset.frontierItemId;
+  if (explicitId && history[explicitId]) return history[explicitId];
+  for (const anchor of element.querySelectorAll<HTMLAnchorElement>('a[href]')) {
+    const matched = maps.byUrl.get(normalizedUrl(anchor.href));
+    if (matched) return matched;
+  }
+  const title = element.querySelector('h3')?.textContent?.trim().toLowerCase();
+  return title ? maps.byTitle.get(title) : undefined;
 }
 
 function renderedTargets(history: Record<string, FrontierHistoryEntry>, visibleOnly = true): RenderedTarget[] {
   const active = document.activeElement;
+  const maps = historyMaps(history);
   const targets: RenderedTarget[] = [];
-  for (const element of document.querySelectorAll<HTMLElement>('[data-frontier-item-id]')) {
-    const id = elementItemId(element);
-    if (!id) continue;
-    const entry = history[id];
+  for (const element of document.querySelectorAll<HTMLElement>('article')) {
+    const entry = resolveEntry(element, history, maps);
     if (!entry) continue;
     const fraction = visibleFraction(element);
     if (visibleOnly && fraction < 0.22) continue;
@@ -119,9 +149,8 @@ function chooseSuggestion(
   return ranked[0]?.item;
 }
 
-function findRenderedElement(itemId: string): HTMLElement | undefined {
-  return Array.from(document.querySelectorAll<HTMLElement>('[data-frontier-item-id]'))
-    .find((element) => elementItemId(element) === itemId);
+function findRenderedElement(itemId: string, history: Record<string, FrontierHistoryEntry>): HTMLElement | undefined {
+  return renderedTargets(history, false).find((candidate) => candidate.item.id === itemId)?.element;
 }
 
 export function FrontierReactionLoop({ feedActive }: Props) {
@@ -221,7 +250,8 @@ export function FrontierReactionLoop({ feedActive }: Props) {
 
   const followSuggestion = () => {
     if (!feedback?.suggestion) return;
-    const element = findRenderedElement(feedback.suggestion.id);
+    const history = useFrontierStore.getState().history;
+    const element = findRenderedElement(feedback.suggestion.id, history);
     if (!element) return;
     const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     element.scrollIntoView({ behavior: reduced ? 'auto' : 'smooth', block: 'center' });
