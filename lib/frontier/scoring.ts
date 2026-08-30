@@ -58,6 +58,13 @@ function reactionValue(reaction: FrontierReaction): number {
   }
 }
 
+function consequentialInterruptPrior(item: FrontierItem): number {
+  if (item.lane !== 'must_know') return 0;
+  const severity = clamp((item.importance - 0.82) / 0.16);
+  const evidenceQuality = clamp((item.quality - 0.72) / 0.26);
+  return Math.min(0.1, severity * evidenceQuality * 0.1);
+}
+
 export function applyReactionToProfile(profile: FrontierProfile, item: FrontierItem, reaction: FrontierReaction): FrontierProfile {
   const value = reactionValue(reaction);
   const next: FrontierProfile = {
@@ -152,6 +159,7 @@ export function personalizedScore(
   const learnedConnectionGate = pairSignal <= -0.15 ? 0.12 : 1;
   const connectionPrior = connection.score * connection.confidence * tasteSuppression * learnedConnectionGate;
   const activeIntent = sessionIntent ? sessionIntentAdjustment(item, sessionIntent).score : 0;
+  const consequentialInterrupt = consequentialInterruptPrior(item);
 
   const score =
     item.baseScore * 0.28 +
@@ -171,6 +179,7 @@ export function personalizedScore(
     tastePrior +
     connectionPrior +
     activeIntent +
+    consequentialInterrupt +
     resurfaceBonus(historyEntry, now);
 
   return clamp(score, -1, 1.5);
