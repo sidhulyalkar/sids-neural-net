@@ -1,3 +1,5 @@
+import type { FrontierFeedResponse } from './types';
+
 export const FRONTIER_PIPELINE_DIAGNOSTICS_SCHEMA = 'frontier-pipeline-v1' as const;
 
 export type FrontierPipelineMode =
@@ -53,6 +55,11 @@ export type FrontierPipelineDiagnostics = {
   adapters: FrontierPipelineAdapters;
   stages: FrontierPipelineStages;
   drops: FrontierPipelineDrops;
+};
+
+/** Backward-compatible feed shape: every existing consumer can ignore diagnostics. */
+export type FrontierObservableFeedResponse = FrontierFeedResponse & {
+  pipeline?: FrontierPipelineDiagnostics;
 };
 
 export function frontierObservedDrop(before: number | null, after: number | null): number | null {
