@@ -6,6 +6,11 @@ import { getAdaptiveLiveDiscovery } from './liveDiscovery';
 import { enrichFrontierMediaGeometry } from './media/geometry';
 import { enrichFrontierSourceVisual } from './media/sourceVisuals';
 import { getPersonalFrontierFeed } from './personalSources';
+import {
+  buildFrontierPipelineDiagnostics,
+  type FrontierObservableFeedResponse,
+  type FrontierPipelineMode,
+} from './pipelineDiagnostics';
 import { personalTasteRankingPrior, personalTasteTags } from './personalTaste';
 import { getPersonalTasteFrontierFeed } from './personalTasteSources';
 import { getScreenOrbitFeed } from './screenSources';
@@ -30,12 +35,28 @@ const CANDIDATE_TASTE_WEIGHT = 0.55;
 type IntegratedOptions = {
   includeSnapshot?: boolean;
   focusTopics?: string[];
+  /** Request routes can label their observable mode without changing discovery. */
+  pipelineMode?: Extract<FrontierPipelineMode, 'focused-live' | 'fresh-live'>;
   /**
    * Request-time source meshes are supplemental and must not hold the reading
    * surface hostage to one upstream. Daily snapshot generation explicitly sets
    * this to false so it can wait for adapters' own transport deadlines.
    */
   adapterDeadlineMs?: number | false;
+};
+
+export type FrontierCandidatePoolStages = {
+  candidateInput: number;
+  plausible: number;
+  rightsSafe: number;
+  deduped: number;
+  sourceAdmitted: number;
+  candidateRetained: number;
+};
+
+export type FrontierCandidatePoolPreparation = {
+  items: FrontierItem[];
+  stages: FrontierCandidatePoolStages;
 };
 
 export function isPlausibleFrontierCandidate(item: FrontierItem, now = Date.now()): boolean {
@@ -116,14 +137,37 @@ export function frontierCandidatePriority(item: FrontierItem): number {
   return item.baseScore + personalTasteRankingPrior(item) * CANDIDATE_TASTE_WEIGHT;
 }
 
-function prepareCandidatePool(items: FrontierItem[]): FrontierItem[] {
-  return vetFrontierItems(dedupe(
-    items
-      .filter((item) => isPlausibleFrontierCandidate(item) && !isRightsFragileNflYoutube(item))
-      .map(enrichFrontierSemantics)
-  ))
+/**
+ * Observes the existing candidate authority path without changing it. The
+ * returned items are semantically identical to the former prepareCandidatePool
+ * result; the stage counts contain no item IDs, titles, URLs, queries, or profile
+ * state and therefore may safely cross the server/client diagnostic boundary.
+ */
+export function prepareFrontierCandidatePool(items: FrontierItem[]): FrontierCandidatePoolPreparation {
+  const plausible = items.filter((item) => isPlausibleFrontierCandidate(item));
+  const rightsSafe = plausible.filter((item) => !isRightsFragileNflYoutube(item));
+  const enriched = rightsSafe.map(enrichFrontierSemantics);
+  const deduped = dedupe(enriched);
+  const admitted = vetFrontierItems(deduped);
+  const retained = admitted
     .sort((a, b) => frontierCandidatePriority(b) - frontierCandidatePriority(a))
     .slice(0, MAX_INTEGRATED_CANDIDATES);
+
+  return {
+    items: retained,
+    stages: {
+      candidateInput: items.length,
+      plausible: plausible.length,
+      rightsSafe: rightsSafe.length,
+      deduped: deduped.length,
+      sourceAdmitted: admitted.length,
+      candidateRetained: retained.length,
+    },
+  };
+}
+
+function prepareCandidatePool(items: FrontierItem[]): FrontierItem[] {
+  return prepareFrontierCandidatePool(items).items;
 }
 
 function enrichPresentation(entry: FrontierItem): FrontierItem {
@@ -211,7 +255,7 @@ export function getFrontierSnapshotFeed(): FrontierFeedResponse {
   };
 }
 
-export async function getIntegratedFrontierFeed(options: IntegratedOptions = {}): Promise<FrontierFeedResponse> {
+export async function getIntegratedFrontierFeed(options: IntegratedOptions = {}): Promise<FrontierObservableFeedResponse> {
   const focusTopics = Array.from(new Set((options.focusTopics ?? []).map((topic) => topic.trim()).filter(Boolean))).slice(0, 10);
   const deadline = options.adapterDeadlineMs ?? REQUEST_ADAPTER_DEADLINE_MS;
   const emptyAdaptive: FrontierFeedResponse = { generatedAt: new Date().toISOString(), items: [], sources: [] };
@@ -287,8 +331,9 @@ export async function getIntegratedFrontierFeed(options: IntegratedOptions = {})
     personalResult,
   ];
   const liveFeeds = orderedResults.flatMap((result) => result.status === 'fulfilled' ? [result.value] : []);
-  const rawLiveItems = prepareCandidatePool(liveFeeds.flatMap((feed) => feed.items));
-  const liveItems = rawLiveItems.map(enrichPresentation);
+  const liveSourceItems = liveFeeds.flatMap((feed) => feed.items);
+  const livePreparation = prepareFrontierCandidatePool(liveSourceItems);
+  const liveItems = livePreparation.items.map(enrichPresentation);
 
   const liveKeys = new Set(liveItems.flatMap((item) => [canonicalKey(item), item.title.toLowerCase()]));
   const archive = options.includeSnapshot === false
@@ -318,5 +363,34 @@ export async function getIntegratedFrontierFeed(options: IntegratedOptions = {})
   if (expandedResult.status === 'rejected') sources.push({ id: 'local', label: 'Expanded public mesh', ok: false, count: 0, message: 'expanded public discovery unavailable' });
   if (vimeoResult.status === 'rejected') sources.push({ id: 'vimeo', label: 'Vimeo Staff Picks', ok: false, count: 0, message: 'Vimeo discovery unavailable' });
 
-  return { generatedAt: new Date().toISOString(), items, sources: mergeStatuses(sources) };
+  const pipeline = options.includeSnapshot === false
+    ? buildFrontierPipelineDiagnostics({
+        mode: options.pipelineMode ?? 'focused-live',
+        sourceAcquisition: 'observed',
+        adapters: {
+          attempted: orderedResults.length,
+          fulfilled: liveFeeds.length,
+          failed: orderedResults.length - liveFeeds.length,
+        },
+        stages: {
+          sourceAcquired: liveSourceItems.length,
+          candidateInput: livePreparation.stages.candidateInput,
+          plausible: livePreparation.stages.plausible,
+          rightsSafe: livePreparation.stages.rightsSafe,
+          recent: null,
+          deduped: livePreparation.stages.deduped,
+          sourceAdmitted: livePreparation.stages.sourceAdmitted,
+          candidateRetained: livePreparation.stages.candidateRetained,
+          englishReady: items.length,
+          responseReady: items.length,
+        },
+      })
+    : undefined;
+
+  return {
+    generatedAt: new Date().toISOString(),
+    items,
+    sources: mergeStatuses(sources),
+    ...(pipeline ? { pipeline } : {}),
+  };
 }
