@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "preview": "next start",
-    "lint": "eslint .",
+    "lint": "eslint . --max-warnings=0",
     "lint:strict": "eslint . --max-warnings=0",
     "typecheck": "tsc --noEmit",
     "test": "node --import tsx --test tests/*.test.ts",

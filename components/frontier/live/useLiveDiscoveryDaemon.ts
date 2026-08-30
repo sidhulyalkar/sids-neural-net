@@ -171,7 +171,6 @@ export function useLiveDiscoveryDaemon(options: {
   useEffect(() => {
     if (!enabled) {
       publishFrontierRuntimeHealth('live-daemon', 'idle', { message: 'waiting for first useful feed paint' });
-      setStatus(EMPTY_STATUS);
       return;
     }
 
@@ -313,7 +312,7 @@ export function useLiveDiscoveryDaemon(options: {
 
   return {
     pendingCount,
-    status,
+    status: enabled ? status : EMPTY_STATUS,
     generatedAt: meta.generatedAt,
     sources: meta.sources,
     requestPoll,
