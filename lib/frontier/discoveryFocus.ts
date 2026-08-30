@@ -1,11 +1,15 @@
 import { aggregatePreference } from './behavior';
 import { positiveLiteralPairEvidence, type FrontierPairEvidenceIndex } from './pairEvidence';
 import { FRONTIER_DISCOVERY_SEEDS } from './personalTaste';
+import type { FrontierSessionIntent } from './sessionIntent';
 import type { FrontierBehaviorModel, FrontierProfile } from './types';
 
 const TOPIC_ALIASES: Record<string, string> = {
   mtb: 'mountain biking',
   climbing: 'rock climbing',
+  'rock climbing': 'rock climbing',
+  'mountain biking': 'mountain biking',
+  'skate progression': 'skateboarding',
   patriots: 'new england patriots',
   warriors: 'golden state warriors',
   chelsea: 'chelsea fc',
@@ -13,6 +17,16 @@ const TOPIC_ALIASES: Record<string, string> = {
   neuroai: 'neuroai neuroscience',
   'bass music': 'dubstep bass music',
   'open source': 'open source machine learning',
+};
+
+const FACET_SEARCH_TERMS: Record<string, string> = {
+  'open-source': 'open source',
+  analysis: 'analysis',
+  'motion-science': 'biomechanics',
+  telemetry: 'telemetry',
+  visualization: 'visualization',
+  simulation: 'simulation',
+  technique: 'technique',
 };
 
 const GENERIC = new Set([
@@ -143,12 +157,28 @@ function learnedConnectionTopics(
     .slice(0, 12);
 }
 
+/**
+ * One high-confidence current-session intersection may replace one ordinary
+ * learned focus slot. It never increases the focus cap, never consumes the
+ * explicit seed reserve, and disappears as session confidence decays.
+ */
+function sessionDiscoveryFocus(intent?: FrontierSessionIntent): string | undefined {
+  if (!intent || intent.confidence < 0.28 || !intent.dominantTopicIds.length) return undefined;
+  const topic = normalizeTopic(intent.dominantTopicIds[0]);
+  if (!topic || GENERIC.has(topic)) return undefined;
+  const facet = intent.dominantFacets
+    .map((value) => FACET_SEARCH_TERMS[value])
+    .find(Boolean);
+  return `${topic}${facet ? ` ${facet}` : ''}`.slice(0, 64);
+}
+
 export function buildDiscoveryFocus(
   profile: FrontierProfile,
   behavior?: FrontierBehaviorModel,
   limit = 7,
   now = new Date(),
   pairEvidence?: FrontierPairEvidenceIndex,
+  sessionIntent?: FrontierSessionIntent,
 ): string[] {
   if (profile.meaningfulInteractions <= 0 && !hasBehaviorEvidence(behavior)) return [];
 
@@ -188,6 +218,11 @@ export function buildDiscoveryFocus(
   const seedReserve = Math.min(cap, profile.meaningfulInteractions < 20 ? 3 : 2);
   const learnedCap = Math.max(0, cap - seedReserve);
   const selected: string[] = [];
+  const activeSession = sessionDiscoveryFocus(sessionIntent);
+
+  // Current intent gets at most one seat inside the learned portion. This is a
+  // retrieval hint, not a quota in the visible slate.
+  if (activeSession && learnedCap > 0) selected.push(activeSession);
 
   for (const [topic] of ranked) {
     if (selected.length >= learnedCap) break;
