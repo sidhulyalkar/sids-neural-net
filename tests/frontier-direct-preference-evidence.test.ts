@@ -73,13 +73,30 @@ test('confirming evidence does not double-amplify an existing direct prior', () 
   );
 });
 
-test('weak contradictory evidence cannot erase a durable prior', () => {
+test('one ambiguous meh remains evidence but stays inside the durable-taste hysteresis dead zone', () => {
   const disliked = item('disliked', ['recommendation systems']);
   const index = buildDirectPreferenceEvidenceIndex({
     [disliked.id]: historyEntry(disliked, '2026-08-30T18:30:00.000Z', 'meh'),
   }, NOW);
-  const effective = effectiveDirectPreferenceAffinity(0.55, 'topic', 'recommendation systems', index);
-  assert.ok(effective > 0.35, `one weak negative overrode durable taste too aggressively: ${effective}`);
+  const evidence = directPreferenceEvidenceFor(index, 'topic', 'recommendation systems');
+  assert.ok(evidence && evidence.confidence > 0, 'ambiguous feedback should still be retained as future evidence');
+  const legacy = 0.55;
+  assert.equal(
+    effectiveDirectPreferenceAffinity(legacy, 'topic', 'recommendation systems', index),
+    legacy,
+    'one ambiguous reaction must not move a durable preference or finite retrieval budget',
+  );
+});
+
+test('one explicit down may attenuate a prior without being strong enough to reverse it', () => {
+  const disliked = item('disliked', ['recommendation systems']);
+  const index = buildDirectPreferenceEvidenceIndex({
+    [disliked.id]: historyEntry(disliked, '2026-08-30T18:30:00.000Z', 'down'),
+  }, NOW);
+  const legacy = 0.55;
+  const effective = effectiveDirectPreferenceAffinity(legacy, 'topic', 'recommendation systems', index);
+  assert.ok(effective > 0 && effective < legacy,
+    `a direct down should attenuate but not instantly reverse established taste: ${effective}`);
 });
 
 test('repeated strong contradictory evidence can reverse a stale positive prior', () => {
