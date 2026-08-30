@@ -271,6 +271,7 @@ export function explainRecommendation(
   pairEvidence?: FrontierPairEvidenceIndex,
   directPreferenceEvidence?: FrontierDirectPreferenceEvidenceIndex,
 ): string {
+  const directSignals = directPreferenceSignalsForItem(item, profile, directPreferenceEvidence);
   const strongestTag = item.tags
     .map((tag) => ({
       tag,
@@ -282,12 +283,7 @@ export function explainRecommendation(
       ),
     }))
     .sort((a, b) => b.affinity - a.affinity)[0];
-  const effectiveLaneAffinity = effectiveDirectPreferenceAffinity(
-    profile.laneAffinity[item.lane] ?? 0,
-    'lane',
-    item.lane,
-    directPreferenceEvidence,
-  );
+  const tasteSuppressed = directSignals.laneAffinity <= -0.15 || directSignals.topicSignal <= -0.12;
 
   if (item.sportsState) return `Live ${item.sportsState.leagueLabel} state stays in your finite run without displacing the deeper sports analysis.`;
 
@@ -306,13 +302,13 @@ export function explainRecommendation(
 
   const connection = personalInterestConnection(item);
   const pairSignal = learnedPairAffinity(item, profile, pairEvidence);
-  if (connection.explanation && connection.confidence >= 0.62 && pairSignal > -0.15) return connection.explanation;
+  if (connection.explanation && connection.confidence >= 0.62 && pairSignal > -0.15 && !tasteSuppressed) return connection.explanation;
   if (resurfaceLike(item)) return 'Second chance: this signal was worth keeping in orbit.';
   if (item.importance >= 0.8) return 'High global importance, promoted even beyond your normal taste profile.';
   const personalLabel = strongestPersonalTasteLabel(item);
-  if (personalLabel && personalTasteRankingPrior(item) >= 0.09) return `Strong fit with your ${personalLabel} radar.`;
+  if (personalLabel && personalTasteRankingPrior(item) >= 0.09 && !tasteSuppressed) return `Strong fit with your ${personalLabel} radar.`;
   if (strongestTag && strongestTag.affinity > 0.08) return `Your interest in ${strongestTag.tag} pulled this into range.`;
-  if (effectiveLaneAffinity > 0.12) return `Your ${FRONTIER_LANE_MAP[item.lane].shortLabel} signal has been strengthening.`;
+  if (directSignals.laneAffinity > 0.12) return `Your ${FRONTIER_LANE_MAP[item.lane].shortLabel} signal has been strengthening.`;
   if (item.novelty > 0.72) return 'Exploration slot: adjacent enough to matter, different enough to expand the map.';
   return item.why || `Strong fit for your ${FRONTIER_LANE_MAP[item.lane].shortLabel} radar.`;
 }
