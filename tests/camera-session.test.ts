@@ -2,18 +2,14 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { CameraSession } from '../lib/media/CameraSession';
 
-type FakeVideo = HTMLVideoElement & { playCalls: number; pauseCalls: number };
-
-function fakeVideo(): FakeVideo {
+function fakeVideo(): HTMLVideoElement {
   return {
     srcObject: null,
     muted: false,
     playsInline: false,
-    playCalls: 0,
-    pauseCalls: 0,
-    async play() { this.playCalls += 1; },
-    pause() { this.pauseCalls += 1; },
-  } as unknown as FakeVideo;
+    async play() {},
+    pause() {},
+  } as unknown as HTMLVideoElement;
 }
 
 test('camera sessions with matching constraints share one physical stream until the final lease releases', async () => {
