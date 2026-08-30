@@ -1,8 +1,11 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import { Brain, RotateCcw } from 'lucide-react';
 import { aggregatePreference, summarizeHabits } from '@/lib/frontier/behavior';
 import { FRONTIER_LANE_MAP } from '@/lib/frontier/config';
+import { readFrontierDecisionLedger } from '@/lib/frontier/decisionLedger';
+import { auditFrontierExposure, type FrontierExposureAudit } from '@/lib/frontier/exposureAudit';
 import { useFrontierStore } from '@/lib/frontier/store';
 import type { FrontierBehaviorModel, FrontierLaneId } from '@/lib/frontier/types';
 import styles from './frontier-minimal.module.css';
@@ -21,8 +24,18 @@ function pairLabel(pair: string): string {
   return pair.split(' × ').map((part) => part.trim()).filter(Boolean).join(' + ');
 }
 
+function maturityLabel(audit: FrontierExposureAudit): string {
+  switch (audit.maturity) {
+    case 'cold': return 'Cold start';
+    case 'warming': return 'Warming up';
+    case 'grounded': return 'Grounded';
+    case 'rich': return 'Well learned';
+  }
+}
+
 export function PreferenceLens({ behavior, onToggleLearning, onResetBehavior }: Props) {
   const profile = useFrontierStore((state) => state.profile);
+  const [exposureAudit, setExposureAudit] = useState<FrontierExposureAudit>();
   const insights = summarizeHabits(behavior).slice(0, 6);
   const lanes = Object.entries(behavior.laneStats)
     .map(([lane, stats]) => ({ lane: lane as FrontierLaneId, pref: aggregatePreference(stats) }))
@@ -34,6 +47,10 @@ export function PreferenceLens({ behavior, onToggleLearning, onResetBehavior }: 
     .sort((left, right) => right[1] - left[1])
     .slice(0, 6);
   const evidence = engagementEvidence(behavior);
+
+  useEffect(() => {
+    setExposureAudit(auditFrontierExposure(readFrontierDecisionLedger()));
+  }, [behavior]);
 
   const forgetHabits = () => {
     // Pair memory is inferred from implicit/explicit co-interest evidence and is
@@ -66,7 +83,33 @@ export function PreferenceLens({ behavior, onToggleLearning, onResetBehavior }: 
         <span>{behavior.sessions} sessions</span>
         <span>{evidence} signals</span>
         {pairings.length ? <span>{pairings.length} combinations</span> : null}
+        {exposureAudit?.decisions ? <span>{maturityLabel(exposureAudit)}</span> : null}
       </div>
+
+      {exposureAudit?.decisions ? (
+        <div className={styles.habitGrid} aria-label="Personalization evidence health">
+          <div className={styles.habitCard}>
+            <span>Learning health</span>
+            <strong>{maturityLabel(exposureAudit)} · {exposureAudit.overall.visible} actually seen</strong>
+            <div
+              className={styles.confidenceTrack}
+              title={`${Math.round(exposureAudit.evidenceScore * 100)}% evidence maturity · ${exposureAudit.sessions} decision sessions`}
+            >
+              <div style={{ width: `${Math.round(exposureAudit.evidenceScore * 100)}%` }} />
+            </div>
+          </div>
+          <div className={styles.habitCard}>
+            <span>After seeing it</span>
+            <strong>{Math.round(exposureAudit.overall.engagementGivenVisible.value * 100)}% meaningful engagement</strong>
+            <div
+              className={styles.confidenceTrack}
+              title={`${exposureAudit.overall.engagementGivenVisible.successes} engaged of ${exposureAudit.overall.engagementGivenVisible.total} seen recommendations`}
+            >
+              <div style={{ width: `${Math.round(exposureAudit.overall.engagementGivenVisible.value * 100)}%` }} />
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {insights.length ? (
         <div className={styles.habitGrid}>
