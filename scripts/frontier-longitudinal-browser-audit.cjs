@@ -8,6 +8,14 @@ function invariant(condition, message) {
   if (!condition) throw new Error(message);
 }
 
+async function setRange(locator, value) {
+  await locator.evaluate((element, nextValue) => {
+    element.value = String(nextValue);
+    element.dispatchEvent(new Event('input', { bubbles: true }));
+    element.dispatchEvent(new Event('change', { bubbles: true }));
+  }, value);
+}
+
 (async () => {
   const browser = await chromium.launch({ headless: true });
   const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
@@ -44,9 +52,9 @@ function invariant(condition, message) {
 
   const sliders = section.locator('input[type="range"]');
   invariant(await sliders.count() === 3, 'Expected mood, energy, and focus self-report controls');
-  await sliders.nth(0).fill('4');
-  await sliders.nth(1).fill('5');
-  await sliders.nth(2).fill('2');
+  await setRange(sliders.nth(0), 4);
+  await setRange(sliders.nth(1), 5);
+  await setRange(sliders.nth(2), 2);
   await section.getByRole('button', { name: 'Save check-in' }).click();
   await section.getByText('Self-report saved locally.', { exact: false }).waitFor();
 
