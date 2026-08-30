@@ -12,13 +12,21 @@ import {
 } from './behavior';
 import { createInitialProfile, DEFAULT_COLLECTIONS } from './config';
 import { clearFrontierForagedSources } from './forage/sourceRoster';
+import {
+  createLongitudinalInteraction,
+  frontierLongitudinalStore,
+  type LongitudinalInteractionKind,
+} from './longitudinal';
 import type { FrontierAmbientReaction } from './reaction';
+import { clearReactionTrust } from './reactionTrust';
 import { applyReactionToProfile } from './scoring';
 import { clearFrontierVelocityHistory } from './synthesis/velocityEngine';
 import { clearFrontierTrajectories } from './trajectory/contextTrajectories';
 import type {
   FrontierAmbientReactionSummary,
+  FrontierBehaviorAggregate,
   FrontierBehaviorModel,
+  FrontierBehaviorSnapshot,
   FrontierCollection,
   FrontierGameState,
   FrontierHistoryEntry,
@@ -100,6 +108,74 @@ function updateAmbientSummary(
   next.evidence += evidence;
   next.lastAt = now;
   return next;
+}
+
+function recordLongitudinal(
+  enabled: boolean,
+  item: FrontierItem,
+  kind: LongitudinalInteractionKind,
+  input: { dwellMs?: number; reaction?: FrontierReaction } = {}
+): void {
+  if (!enabled || item.sourceKind === 'local') return;
+  const event = createLongitudinalInteraction(item, kind, input);
+  void frontierLongitudinalStore.recordInteraction(event).catch(() => undefined);
+}
+
+function stripAmbientAggregate(aggregate: FrontierBehaviorAggregate): FrontierBehaviorAggregate {
+  return {
+    shown: aggregate.shown,
+    dwelled: aggregate.dwelled,
+    expanded: aggregate.expanded,
+    opened: aggregate.opened,
+    saved: aggregate.saved,
+    positive: aggregate.positive,
+    negative: aggregate.negative,
+    dwellMs: aggregate.dwellMs,
+    lastAt: aggregate.lastAt,
+  };
+}
+
+function stripAmbientAggregateMap(map: Record<string, FrontierBehaviorAggregate>): Record<string, FrontierBehaviorAggregate> {
+  return Object.fromEntries(Object.entries(map).map(([key, value]) => [key, stripAmbientAggregate(value)]));
+}
+
+function stripAmbientSnapshot(snapshot: FrontierBehaviorSnapshot | undefined): FrontierBehaviorSnapshot | undefined {
+  if (!snapshot) return undefined;
+  return {
+    laneStats: stripAmbientAggregateMap(snapshot.laneStats),
+    sourceStats: stripAmbientAggregateMap(snapshot.sourceStats),
+    topicStats: stripAmbientAggregateMap(snapshot.topicStats),
+    formatStats: stripAmbientAggregateMap(snapshot.formatStats),
+    contextStats: stripAmbientAggregateMap(snapshot.contextStats),
+    capturedAt: snapshot.capturedAt,
+  };
+}
+
+function stripAmbientBehavior(behavior: FrontierBehaviorModel): FrontierBehaviorModel {
+  return {
+    ...behavior,
+    laneStats: stripAmbientAggregateMap(behavior.laneStats),
+    sourceStats: stripAmbientAggregateMap(behavior.sourceStats),
+    topicStats: stripAmbientAggregateMap(behavior.topicStats),
+    formatStats: stripAmbientAggregateMap(behavior.formatStats),
+    timeStats: stripAmbientAggregateMap(behavior.timeStats),
+    contextStats: stripAmbientAggregateMap(behavior.contextStats),
+    rankingSnapshot: stripAmbientSnapshot(behavior.rankingSnapshot),
+  };
+}
+
+export function sanitizeFrontierCloudMemory(state: FrontierPersistedState): FrontierPersistedState {
+  const history: FrontierPersistedState['history'] = {};
+  for (const [id, entry] of Object.entries(state.history)) {
+    const safe = { ...entry };
+    delete safe.ambientReaction;
+    history[id] = safe;
+  }
+  return {
+    ...state,
+    behavior: stripAmbientBehavior(state.behavior),
+    history,
+  };
 }
 
 export type FrontierStore = FrontierPersistedState & {
@@ -200,12 +276,14 @@ export const useFrontierStore = create<FrontierStore>()(
           },
           behavior: applyBehaviorEvent(current.behavior, item, { kind: 'dwell', dwellMs: bounded }),
         });
+        recordLongitudinal(current.behavior.implicitLearning, item, 'dwell', { dwellMs: bounded });
         if (current.behavior.implicitLearning) emitFrontierSemanticTelemetry({ kind: 'dwell', item, dwellMs: bounded });
       },
 
       recordExpand: (item) => {
         const current = get();
         set({ behavior: applyBehaviorEvent(current.behavior, item, { kind: 'expand' }) });
+        recordLongitudinal(current.behavior.implicitLearning, item, 'expand');
         if (current.behavior.implicitLearning) emitFrontierSemanticTelemetry({ kind: 'expand', item });
       },
 
@@ -218,12 +296,13 @@ export const useFrontierStore = create<FrontierStore>()(
           behavior: applyBehaviorEvent(current.behavior, item, { kind: 'open' }),
           game: updateStreak(current.game),
         });
+        recordLongitudinal(current.behavior.implicitLearning, item, 'open');
         if (current.behavior.implicitLearning) emitFrontierSemanticTelemetry({ kind: 'open', item });
       },
 
       recordAmbientReaction: (item, reaction) => {
         const current = get();
-        if (!current.behavior.implicitLearning || item.sourceKind === 'local') return;
+        if (!current.behavior.implicitLearning || item.sourceKind === 'local' || reaction.kind === 'friction') return;
         const now = new Date().toISOString();
         const previous = current.history[item.id] ?? historyEntry(item);
         set({
@@ -244,8 +323,8 @@ export const useFrontierStore = create<FrontierStore>()(
             },
           },
         });
-        // Deliberately no semantic telemetry here. Ambient face-derived cues remain
-        // local to the browser even when other explicit FRONTIER telemetry is enabled.
+        // Ambient face-derived cues are intentionally excluded from semantic telemetry
+        // and stripped from the authenticated cloud-memory projection.
       },
 
       react: (item, reaction) => {
@@ -266,6 +345,7 @@ export const useFrontierStore = create<FrontierStore>()(
           },
           game: { ...game, xp: game.xp + (firstReward ? xpForReaction(reaction) : 0) },
         });
+        recordLongitudinal(current.behavior.implicitLearning, item, 'reaction', { reaction });
         if (current.behavior.implicitLearning) emitFrontierSemanticTelemetry({ kind: 'reaction', item, reaction });
       },
 
@@ -283,6 +363,7 @@ export const useFrontierStore = create<FrontierStore>()(
           if (inbox && !inbox.itemIds.includes(item.id)) inbox.itemIds.push(item.id);
         }
         set({ saved, collections, behavior: wasSaved ? current.behavior : applyBehaviorEvent(current.behavior, item, { kind: 'save' }) });
+        recordLongitudinal(current.behavior.implicitLearning, item, wasSaved ? 'unsave' : 'save');
         if (!wasSaved && current.behavior.implicitLearning) emitFrontierSemanticTelemetry({ kind: 'save', item });
       },
 
@@ -345,6 +426,8 @@ export const useFrontierStore = create<FrontierStore>()(
         const enabled = get().behavior.implicitLearning;
         const fresh = { ...createInitialBehaviorModel(), implicitLearning: enabled };
         set({ behavior: enabled ? startBehaviorSession(fresh) : fresh });
+        clearReactionTrust();
+        void frontierLongitudinalStore.clear().catch(() => undefined);
         void frontierVectorStore.clear().catch(() => undefined);
         void clearFrontierTrajectories();
         void clearFrontierVelocityHistory();
@@ -355,9 +438,8 @@ export const useFrontierStore = create<FrontierStore>()(
         const parsed = migrateState(payload);
         if (!parsed) return false;
         set({ ...parsed, hydrated: true });
-        // Backups predate the independent fast-trajectory and velocity stores.
-        // Clear inferred derivatives so the imported profile is not combined
-        // with stale local momentum from the previously loaded profile.
+        // Legacy state backups do not contain independent derivative stores. Keep
+        // those stores separate so an import cannot silently mix two timelines.
         void clearFrontierTrajectories();
         void clearFrontierVelocityHistory();
         return true;
@@ -365,6 +447,8 @@ export const useFrontierStore = create<FrontierStore>()(
 
       resetFrontier: () => {
         set({ ...initialState(), hydrated: true });
+        clearReactionTrust();
+        void frontierLongitudinalStore.clear().catch(() => undefined);
         void frontierVectorStore.clear().catch(() => undefined);
         void clearFrontierTrajectories();
         void clearFrontierVelocityHistory();
@@ -401,4 +485,8 @@ export function frontierBackup(state: FrontierStore): FrontierPersistedState {
     history: state.history,
     game: state.game,
   };
+}
+
+export function frontierCloudBackup(state: FrontierStore): FrontierPersistedState {
+  return sanitizeFrontierCloudMemory(frontierBackup(state));
 }
