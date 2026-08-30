@@ -15,6 +15,7 @@ import {
   frontierVisualRole,
   type FrontierVisualRole,
 } from '@/lib/frontier/presentation/mediaForward';
+import { useFrontierStore } from '@/lib/frontier/store';
 import {
   isFrontierTypingTarget,
   resolveFrontierFocalKeyboardIntent,
@@ -131,6 +132,7 @@ export function SignalBoard({
 }: Props) {
   usePredictivePrefetch();
   const density = useAdaptiveReadingDensity();
+  const decisionLoggingEnabled = useFrontierStore((state) => state.behavior.implicitLearning);
   const { playSearchResolved } = useUIFrequencies();
   const resolvedSoundQuery = useRef('');
   const endSentinel = useRef<HTMLDivElement | null>(null);
@@ -267,7 +269,7 @@ export function SignalBoard({
   const explorationVector = useMemo(() => ambientExplorationVector(displayedItems), [displayedItems]);
 
   useEffect(() => {
-    if (!displayedItems.length) return;
+    if (!decisionLoggingEnabled || !displayedItems.length) return;
     recordFrontierDecision({
       policyMode: decisionPolicy,
       semanticEnabled,
@@ -275,9 +277,12 @@ export function SignalBoard({
       upstreamIds: items.map((item) => item.id),
       displayedIds: displayedItems.map((item) => item.id),
     });
-  }, [decisionPolicy, displayedItems, itemSignature, items, semanticEnabled, streamEpoch, upstreamSignature]);
+  }, [decisionLoggingEnabled, decisionPolicy, displayedItems, itemSignature, items, semanticEnabled, streamEpoch, upstreamSignature]);
 
-  useEffect(() => listenFrontierDecisionOutcomes(), []);
+  useEffect(() => {
+    if (!decisionLoggingEnabled) return;
+    return listenFrontierDecisionOutcomes();
+  }, [decisionLoggingEnabled]);
 
   useEffect(() => {
     emitFrontierAmbientExploration(explorationVector);
