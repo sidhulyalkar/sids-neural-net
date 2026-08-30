@@ -1,4 +1,8 @@
 import { aggregatePreference } from './behavior';
+import {
+  effectiveDirectPreferenceAffinity,
+  type FrontierDirectPreferenceEvidenceIndex,
+} from './directPreferenceEvidence';
 import { positiveLiteralPairEvidence, type FrontierPairEvidenceIndex } from './pairEvidence';
 import { FRONTIER_DISCOVERY_SEEDS } from './personalTaste';
 import type { FrontierSessionIntent } from './sessionIntent';
@@ -179,13 +183,20 @@ export function buildDiscoveryFocus(
   now = new Date(),
   pairEvidence?: FrontierPairEvidenceIndex,
   sessionIntent?: FrontierSessionIntent,
+  directPreferenceEvidence?: FrontierDirectPreferenceEvidenceIndex,
 ): string[] {
   if (profile.meaningfulInteractions <= 0 && !hasBehaviorEvidence(behavior)) return [];
 
   const scores = new Map<string, number>();
 
-  for (const [rawTopic, affinity] of Object.entries(profile.topicAffinity)) {
+  for (const [rawTopic, legacyAffinity] of Object.entries(profile.topicAffinity)) {
     const topic = normalizeTopic(rawTopic);
+    const affinity = effectiveDirectPreferenceAffinity(
+      legacyAffinity,
+      'topic',
+      rawTopic,
+      directPreferenceEvidence,
+    );
     if (!topic || GENERIC.has(topic) || affinity <= -0.15) continue;
     const knownPenalty = Math.max(0, profile.knownTopics[rawTopic] ?? profile.knownTopics[topic] ?? 0) * 0.12;
     const preference = behaviorScore(behavior, rawTopic) || behaviorScore(behavior, topic);
@@ -201,7 +212,13 @@ export function buildDiscoveryFocus(
       if (!topic || GENERIC.has(topic)) continue;
       const preference = aggregatePreference(aggregate);
       if (preference.confidence < 0.22 || preference.score <= 0.08) continue;
-      const score = preference.score * preference.confidence * 0.9 + (profile.topicAffinity[rawTopic] ?? 0);
+      const directAffinity = effectiveDirectPreferenceAffinity(
+        profile.topicAffinity[rawTopic] ?? 0,
+        'topic',
+        rawTopic,
+        directPreferenceEvidence,
+      );
+      const score = preference.score * preference.confidence * 0.9 + directAffinity;
       scores.set(topic, Math.max(scores.get(topic) ?? -Infinity, score));
     }
   }
