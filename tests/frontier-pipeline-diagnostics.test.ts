@@ -33,6 +33,19 @@ function item(id: string, overrides: Partial<FrontierItem> = {}): FrontierItem {
   };
 }
 
+function collectObjectKeys(value: unknown, keys = new Set<string>()): Set<string> {
+  if (Array.isArray(value)) {
+    for (const entry of value) collectObjectKeys(entry, keys);
+    return keys;
+  }
+  if (!value || typeof value !== 'object') return keys;
+  for (const [key, child] of Object.entries(value)) {
+    keys.add(key.toLowerCase());
+    collectObjectKeys(child, keys);
+  }
+  return keys;
+}
+
 test('unknown pipeline causality remains unknown instead of becoming zero', () => {
   const diagnostics = buildFrontierPipelineDiagnostics({
     mode: 'snapshot',
@@ -108,7 +121,7 @@ test('the real cold snapshot never invents original Internet acquisition coverag
   assert.equal(feed.pipeline.stages.candidateRetained, feed.items.length);
 });
 
-test('pipeline diagnostics serialize only anonymous counts and coverage labels', () => {
+test('pipeline diagnostics expose only anonymous structural fields and fixed coverage labels', () => {
   const diagnostics = buildFrontierPipelineDiagnostics({
     mode: 'focused-live',
     sourceAcquisition: 'observed',
@@ -125,11 +138,21 @@ test('pipeline diagnostics serialize only anonymous counts and coverage labels',
       englishReady: 154,
       responseReady: 154,
     },
+    drops: {
+      implausible: 10,
+      rightsFragile: 5,
+      duplicate: 20,
+      sourceRejected: 35,
+      candidateCap: 10,
+      nonEnglish: 6,
+    },
   });
-  const serialized = JSON.stringify(diagnostics).toLowerCase();
+
+  const keys = collectObjectKeys(diagnostics);
   for (const forbidden of ['title', 'summary', 'url', 'query', 'itemid', 'profile', 'reaction']) {
-    assert.equal(serialized.includes(forbidden), false, `diagnostics leaked forbidden field ${forbidden}`);
+    assert.equal(keys.has(forbidden), false, `diagnostics leaked forbidden structural field ${forbidden}`);
   }
+  assert.equal(diagnostics.coverage.learnedPersonalFitBeforeResponse, 'unobservable-local-profile');
   assert.deepEqual(diagnostics.drops, {
     implausible: 10,
     rightsFragile: 5,
