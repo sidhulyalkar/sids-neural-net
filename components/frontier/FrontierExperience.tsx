@@ -8,6 +8,10 @@ import {
   FRONTIER_LANE_MAP,
   laneMatchesRealm,
 } from '@/lib/frontier/config';
+import {
+  buildDirectPreferenceEvidenceIndex,
+  effectiveDirectPreferenceAffinity,
+} from '@/lib/frontier/directPreferenceEvidence';
 import { buildDiscoveryFocus, encodeDiscoveryFocus } from '@/lib/frontier/discoveryFocus';
 import { FRONTIER_PINNED_TOPICS } from '@/lib/frontier/interests';
 import { clearFrontierCandidatePool } from '@/lib/frontier/live/candidatePool';
@@ -180,14 +184,27 @@ export function FrontierExperience({ initialDateLabel, initialDayKey }: Props) {
   const recordLayout = store.recordLayout;
   const { launchWaterfall, waterfallActive } = useWaterfallText(searchInput, { collisionRef: utilityDockRef });
 
-  // Derive the two fast-changing personalization layers once from canonical
-  // history and share them across retrieval, ranking, and explanations. Neither
-  // is persisted separately, so there is no second source of memory truth.
+  // Derive the three fast-changing personalization layers once from canonical
+  // history and share them across retrieval, ranking, suggestions, and
+  // explanations. None is persisted separately, so there is no second source
+  // of memory truth or cross-device counter database to reconcile.
   const pairEvidence = useMemo(() => buildPairEvidenceIndex(store.history), [store.history]);
+  const directPreferenceEvidence = useMemo(
+    () => buildDirectPreferenceEvidenceIndex(store.history),
+    [store.history],
+  );
   const sessionIntent = useMemo(() => buildSessionIntent(store.history), [store.history]);
   const adaptiveFocus = useMemo(
-    () => buildDiscoveryFocus(store.profile, store.behavior, 7, new Date(), pairEvidence, sessionIntent),
-    [pairEvidence, sessionIntent, store.behavior, store.profile]
+    () => buildDiscoveryFocus(
+      store.profile,
+      store.behavior,
+      7,
+      new Date(),
+      pairEvidence,
+      sessionIntent,
+      directPreferenceEvidence,
+    ),
+    [directPreferenceEvidence, pairEvidence, sessionIntent, store.behavior, store.profile]
   );
   const requestFocus = useMemo(
     () => buildTopicSearchFocus(activeSearch, adaptiveFocus, 8),
@@ -218,6 +235,15 @@ export function FrontierExperience({ initialDateLabel, initialDayKey }: Props) {
 
   const searchSuggestions = useMemo(() => {
     const learned = Object.entries(store.profile.topicAffinity)
+      .map(([topic, legacyAffinity]) => ([
+        topic,
+        effectiveDirectPreferenceAffinity(
+          legacyAffinity,
+          'topic',
+          topic,
+          directPreferenceEvidence,
+        ),
+      ] as const))
       .filter(([, score]) => score > 0.2)
       .sort((a, b) => b[1] - a[1])
       .slice(0, 12)
@@ -226,7 +252,7 @@ export function FrontierExperience({ initialDateLabel, initialDayKey }: Props) {
       ...FRONTIER_PINNED_TOPICS.map((topic) => topic.label),
       ...learned,
     ])).slice(0, 28);
-  }, [store.profile.topicAffinity]);
+  }, [directPreferenceEvidence, store.profile.topicAffinity]);
 
   const spikeExploration = useCallback((temperature: number) => {
     setExplorationTemperature(Math.max(BASE_EXPLORATION_TEMPERATURE, Math.min(1, temperature)));
@@ -395,8 +421,17 @@ export function FrontierExperience({ initialDateLabel, initialDayKey }: Props) {
   // second-chance resurfacing path. Seen material remains available in History
   // and Saved, but never competes with a fresh live rotation.
   const ranked = useMemo(
-    () => rankFrontierItems(items, store.profile, store.history, new Date(), store.behavior, pairEvidence, sessionIntent),
-    [items, pairEvidence, sessionIntent, store.behavior, store.history, store.profile]
+    () => rankFrontierItems(
+      items,
+      store.profile,
+      store.history,
+      new Date(),
+      store.behavior,
+      pairEvidence,
+      sessionIntent,
+      directPreferenceEvidence,
+    ),
+    [directPreferenceEvidence, items, pairEvidence, sessionIntent, store.behavior, store.history, store.profile]
   );
   const realmRanked = useMemo(
     () => ranked.filter((item) => laneMatchesRealm(item.lane, realm)),
@@ -414,8 +449,17 @@ export function FrontierExperience({ initialDateLabel, initialDayKey }: Props) {
   const todayItems = useMemo(() => dedupeCanonical([...dailyRun, ...streamedToday]), [dailyRun, streamedToday]);
 
   const exploreRanked = useMemo(
-    () => rankFrontierItems(dedupeCanonical([...items, ...streamItems]), store.profile, store.history, new Date(), store.behavior, pairEvidence, sessionIntent),
-    [items, pairEvidence, sessionIntent, store.behavior, store.history, store.profile, streamItems]
+    () => rankFrontierItems(
+      dedupeCanonical([...items, ...streamItems]),
+      store.profile,
+      store.history,
+      new Date(),
+      store.behavior,
+      pairEvidence,
+      sessionIntent,
+      directPreferenceEvidence,
+    ),
+    [directPreferenceEvidence, items, pairEvidence, sessionIntent, store.behavior, store.history, store.profile, streamItems]
   );
   const exploreRealmRanked = useMemo(
     () => exploreRanked.filter((item) => laneMatchesRealm(item.lane, realm)),
@@ -431,7 +475,7 @@ export function FrontierExperience({ initialDateLabel, initialDayKey }: Props) {
 
   const onlineSources = sources.filter((source) => source.ok).length;
   const savedItems = Object.values(store.saved);
-  const activeCollection = store.collections.find((collection) => collection.id === collectionFilter) ?? store.collections[0];
+  const activeCollection = store.collections.find((collection) => collectionFilter) ?? store.collections[0];
   const activeCollectionItems = activeCollection
     ? activeCollection.itemIds.flatMap((id) => store.saved[id] ? [store.saved[id]] : [])
     : savedItems;
@@ -540,7 +584,14 @@ export function FrontierExperience({ initialDateLabel, initialDayKey }: Props) {
       presentation={presentation}
       saved={Boolean(store.saved[item.id])}
       reaction={store.history[item.id]?.reaction}
-      explanation={explainRecommendation(item, store.profile, store.behavior, new Date(), pairEvidence)}
+      explanation={explainRecommendation(
+        item,
+        store.profile,
+        store.behavior,
+        new Date(),
+        pairEvidence,
+        directPreferenceEvidence,
+      )}
       resurfaced={item.tags.includes('second-chance')}
       onSeen={seenCallback}
       onDwell={dwellCallback}
@@ -549,7 +600,7 @@ export function FrontierExperience({ initialDateLabel, initialDayKey }: Props) {
       onSave={saveCallback}
       onReact={reactCallback}
     />
-  ), [dwellCallback, expandCallback, openCallback, pairEvidence, reactCallback, saveCallback, seenCallback, store.behavior, store.history, store.profile, store.saved]);
+  ), [directPreferenceEvidence, dwellCallback, expandCallback, openCallback, pairEvidence, reactCallback, saveCallback, seenCallback, store.behavior, store.history, store.profile, store.saved]);
 
   const submitSearch = useCallback((event?: FormEvent) => {
     event?.preventDefault();
