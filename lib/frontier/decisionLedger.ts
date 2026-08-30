@@ -18,12 +18,14 @@ const LEDGER_WRITE_COALESCE_MS = 120;
 export type FrontierDecisionPolicyMode = 'passive' | 'search' | 'explore';
 
 export type FrontierDecisionExposure = {
+  /** Pseudonymous deterministic item key, never the raw FrontierItem.id. */
   itemId: string;
   upstreamIndex: number;
   displayedIndex: number;
 };
 
 export type FrontierDecisionOutcome = {
+  /** Pseudonymous deterministic item key, never the raw FrontierItem.id. */
   itemId: string;
   firstAt: number;
   lastAt: number;
@@ -59,6 +61,7 @@ export type FrontierDecisionInput = {
 };
 
 type DecisionOutcomeInput = Pick<FrontierSemanticTelemetry, 'kind' | 'at' | 'dwellMs' | 'depth' | 'reaction'> & {
+  /** Raw item ID at the in-memory attribution boundary; it is hashed immediately. */
   itemId: string;
 };
 
@@ -76,6 +79,17 @@ function stableHash(value: string): string {
   return (hash >>> 0).toString(36);
 }
 
+/**
+ * Decision data only needs stable equality, not the source-facing item ID.
+ * Two independently seeded 32-bit hashes make collisions vanishingly unlikely
+ * for the small bounded local ledger while keeping raw identifiers out of disk.
+ */
+export function frontierDecisionItemKey(itemId: string): string {
+  const normalized = String(itemId ?? '').trim();
+  if (!normalized) return '';
+  return `i${stableHash(normalized)}${stableHash(`frontier-decision:${normalized}`)}`;
+}
+
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
 }
@@ -84,10 +98,10 @@ function uniqueIds(ids: string[]): string[] {
   const seen = new Set<string>();
   const output: string[] = [];
   for (const id of ids) {
-    const normalized = String(id ?? '').trim();
-    if (!normalized || seen.has(normalized)) continue;
-    seen.add(normalized);
-    output.push(normalized);
+    const key = frontierDecisionItemKey(id);
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    output.push(key);
     if (output.length >= FRONTIER_DECISION_MAX_EXPOSURES) break;
   }
   return output;
@@ -112,7 +126,8 @@ export function buildFrontierDecision(input: FrontierDecisionInput): FrontierDec
 
   const upstream = new Map<string, number>();
   input.upstreamIds.forEach((id, index) => {
-    if (!upstream.has(id)) upstream.set(id, index);
+    const key = frontierDecisionItemKey(id);
+    if (key && !upstream.has(key)) upstream.set(key, index);
   });
   const exposures = displayedIds.map((itemId, displayedIndex) => ({
     itemId,
@@ -210,17 +225,18 @@ export function attributeFrontierDecisionOutcome(
   input: DecisionOutcomeInput,
   sessionId: string,
 ): FrontierDecisionRecord[] {
-  if (!input.itemId || !Number.isFinite(input.at)) return records;
+  const itemId = frontierDecisionItemKey(input.itemId);
+  if (!itemId || !Number.isFinite(input.at)) return records;
   for (let index = records.length - 1; index >= 0; index -= 1) {
     const decision = records[index];
     if (decision.sessionId !== sessionId) continue;
     if (input.at < decision.at) continue;
     if (input.at - decision.lastSeenAt > FRONTIER_DECISION_ATTRIBUTION_WINDOW_MS) break;
-    if (!decision.exposures.some((entry) => entry.itemId === input.itemId)) continue;
+    if (!decision.exposures.some((entry) => entry.itemId === itemId)) continue;
 
-    const outcomeIndex = decision.outcomes.findIndex((entry) => entry.itemId === input.itemId);
+    const outcomeIndex = decision.outcomes.findIndex((entry) => entry.itemId === itemId);
     const previous = outcomeIndex >= 0 ? decision.outcomes[outcomeIndex] : undefined;
-    const outcome = mergeOutcome(previous, input);
+    const outcome = mergeOutcome(previous, { ...input, itemId });
     const outcomes = [...decision.outcomes];
     if (outcomeIndex >= 0) outcomes[outcomeIndex] = outcome;
     else outcomes.push(outcome);
