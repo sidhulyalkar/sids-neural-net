@@ -74,13 +74,46 @@ test('benchmark: a grounded integrated-interest bridge beats comparable generic 
   );
   const generic = item(
     'generic-ai',
-    'New general-purpose AI agent framework launches',
-    ['machine learning', 'agents', 'open source'],
-    { baseScore: 0.72, momentum: 0.62 },
+    'AI productivity startup announces another general platform update',
+    ['artificial intelligence', 'startup', 'funding'],
+    {
+      source: 'example.com',
+      sourceLabel: 'Example News',
+      sourceKind: 'rss',
+      url: 'https://example.com/generic-ai',
+      lane: 'ai_frontier',
+      baseScore: 0.72,
+      momentum: 0.62,
+    },
   );
 
   const ranked = rankFrontierItems([generic, bridge], profile, {}, NOW);
   assert.equal(ranked[0].id, bridge.id);
+});
+
+test('benchmark: an excellent direct interest is not artificially demoted merely because another item spans more interests', () => {
+  const profile = createInitialProfile();
+  const bridge = item(
+    'mtb-telemetry',
+    'Open-source MTB telemetry visualizer maps GPX traces to suspension and speed data',
+    ['mountain biking', 'telemetry', 'visualization', 'open source'],
+  );
+  const direct = item(
+    'recsys-direct',
+    'Contextual bandit recommender toolkit adds uncertainty-aware retrieval evaluation',
+    ['recommendation systems', 'contextual bandit', 'ranking', 'open source'],
+    {
+      lane: 'ml_data',
+      baseScore: 0.82,
+      importance: 0.7,
+      quality: 0.94,
+      momentum: 0.66,
+    },
+  );
+
+  const ranked = rankFrontierItems([bridge, direct], profile, {}, NOW);
+  assert.equal(ranked[0].id, direct.id,
+    'integrated-interest breadth should not become a blanket bonus over a stronger direct taste match');
 });
 
 test('benchmark: current-session focus changes ordering without erasing the broader taste map', () => {
