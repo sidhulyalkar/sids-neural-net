@@ -43,10 +43,14 @@ test('decision records preserve upstream and displayed rank without content payl
   assert.ok(!serialized.includes('query'));
 });
 
-test('policy mode records only intent class, never raw search text', () => {
+test('policy mode reflects product intent rather than any nonzero exploration coefficient', () => {
   assert.equal(frontierDecisionPolicyMode('', 0), 'passive');
+  assert.equal(frontierDecisionPolicyMode('', 0.08), 'passive', 'normal background exploration is part of passive policy');
+  assert.equal(frontierDecisionPolicyMode('', 0.62), 'explore', 'stream anti-staleness excursion should be observable as exploration');
+  assert.equal(frontierDecisionPolicyMode('', 0.82), 'explore', 'manual exploration should be observable as exploration');
   assert.equal(frontierDecisionPolicyMode('rock climbing biomechanics', 0), 'search');
-  assert.equal(frontierDecisionPolicyMode('anything', 0.2), 'explore');
+  assert.equal(frontierDecisionPolicyMode('rock climbing biomechanics', 0.5), 'search', 'search remains direct intent despite its temporary exploration spike');
+  assert.equal(frontierDecisionPolicyMode('anything', 0.82), 'search', 'explicit query has higher causal authority than exploration temperature');
 });
 
 test('identical decisions within a short window extend exposure instead of duplicating records', () => {
