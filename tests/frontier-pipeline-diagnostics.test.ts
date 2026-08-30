@@ -32,7 +32,7 @@ function item(id: string, overrides: Partial<FrontierItem> = {}): FrontierItem {
   };
 }
 
-test('unknown pipeline stages remain unknown instead of becoming zero', () => {
+test('unknown pipeline causality remains unknown instead of becoming zero', () => {
   const diagnostics = buildFrontierPipelineDiagnostics({
     mode: 'snapshot',
     sourceAcquisition: 'offline-unavailable',
@@ -55,8 +55,45 @@ test('unknown pipeline stages remain unknown instead of becoming zero', () => {
   assert.equal(diagnostics.coverage.sourceAcquisition, 'offline-unavailable');
   assert.equal(diagnostics.coverage.learnedPersonalFitBeforeResponse, 'unobservable-local-profile');
   assert.equal(frontierObservedDrop(null, 12), null);
-  assert.equal(diagnostics.drops.stale, 13);
-  assert.equal(diagnostics.drops.nonEnglish, 2);
+  assert.equal(diagnostics.drops.stale, null);
+  assert.equal(diagnostics.drops.nonEnglish, null);
+});
+
+test('snapshot callers can record exact drops without claiming a universal stage order', () => {
+  const diagnostics = buildFrontierPipelineDiagnostics({
+    mode: 'snapshot',
+    sourceAcquisition: 'offline-unavailable',
+    stages: {
+      sourceAcquired: null,
+      candidateInput: 100,
+      plausible: 95,
+      rightsSafe: 93,
+      recent: 80,
+      englishReady: 78,
+      deduped: 75,
+      sourceAdmitted: 70,
+      candidateRetained: 70,
+      responseReady: 70,
+    },
+    drops: {
+      implausible: 5,
+      rightsFragile: 2,
+      stale: 13,
+      nonEnglish: 2,
+      duplicate: 3,
+      sourceRejected: 5,
+      candidateCap: 0,
+    },
+  });
+  assert.deepEqual(diagnostics.drops, {
+    implausible: 5,
+    rightsFragile: 2,
+    stale: 13,
+    duplicate: 3,
+    sourceRejected: 5,
+    candidateCap: 0,
+    nonEnglish: 2,
+  });
 });
 
 test('pipeline diagnostics serialize only anonymous counts and coverage labels', () => {
