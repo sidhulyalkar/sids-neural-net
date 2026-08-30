@@ -168,7 +168,7 @@ export function FrontierReactionLoop({ feedActive }: Props) {
   const implicitLearning = useFrontierStore((state) => state.behavior.implicitLearning);
   const sourceRef = useRef<VisionSignalSource | null>(null);
   const engineRef = useRef(new ReactionInferenceEngine());
-  const activeExposureRef = useRef<ActiveExposure>();
+  const activeExposureRef = useRef<ActiveExposure | undefined>(undefined);
   const feedActiveRef = useRef(feedActive);
   const lastUiUpdateRef = useRef(0);
   const clearSignalTimerRef = useRef<number | undefined>(undefined);
