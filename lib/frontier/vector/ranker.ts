@@ -6,6 +6,10 @@ const DAY_MS = 86_400_000;
 export type FrontierHybridScore = {
   item: FrontierItem;
   score: number;
+  /** Normalized prior from the already-personalized input order. */
+  authority: number;
+  /** Vector/freshness/credibility/lexical score before authority fusion. */
+  latent: number;
   semantic: number;
   freshness: number;
   credibility: number;
@@ -16,6 +20,10 @@ export type FrontierHybridScore = {
 
 export type FrontierInterestResolver = (item: FrontierItem) => Float32Array | undefined;
 export type FrontierScorePenaltyResolver = (item: FrontierItem) => number;
+
+function clamp(value: number, min = 0, max = 1): number {
+  return Math.min(max, Math.max(min, value));
+}
 
 function tokenize(value: string): string[] {
   return value
@@ -105,6 +113,14 @@ function seededRandom(seed: string): () => number {
   };
 }
 
+/**
+ * The semantic subsystem is a residual ranker, not a second source of personal
+ * truth. Its input order already encodes durable taste, evidence confidence,
+ * session intent, source trust, bridge saturation and slate policy. Preserve
+ * that order as an explicit prior while allowing vectors to refine nearby
+ * choices. An explicit search query deliberately relaxes the prior because the
+ * user has supplied a stronger immediate intent than passive feed context.
+ */
 export function hybridFrontierScores(
   items: FrontierItem[],
   vectors: Map<string, Float32Array>,
@@ -115,17 +131,33 @@ export function hybridFrontierScores(
   penaltyForItem?: FrontierScorePenaltyResolver
 ): FrontierHybridScore[] {
   const lexical = bm25Scores(items, query);
-  return items.map((item) => {
+  const authorityWeight = query.trim() ? 0.2 : 0.48;
+  const denominator = Math.max(1, items.length - 1);
+
+  return items.map((item, index) => {
     const vector = vectors.get(item.id);
     const resolvedInterest = interestForItem?.(item) ?? interestVector;
     const cosine = resolvedInterest && vector ? cosineSimilarity(vector, resolvedInterest) : 0;
     const semantic = resolvedInterest && vector ? (cosine + 1) / 2 : 0.5;
     const freshness = freshnessDecay(item.publishedAt, now, frontierFreshnessHalfLifeDays(item));
-    const credibility = Math.max(0, Math.min(1, item.quality));
+    const credibility = clamp(item.quality);
     const bm25 = lexical.get(item.id) ?? 0;
     const avoidPenalty = Math.max(0, Math.min(0.45, penaltyForItem?.(item) ?? 0));
-    const score = 0.4 * semantic + 0.3 * freshness + 0.2 * credibility + 0.1 * bm25 - avoidPenalty;
-    return { item, score, semantic, freshness, credibility, bm25, avoidPenalty, exploration: false };
+    const authority = items.length <= 1 ? 1 : 1 - index / denominator;
+    const latent = 0.4 * semantic + 0.3 * freshness + 0.2 * credibility + 0.1 * bm25;
+    const score = authorityWeight * authority + (1 - authorityWeight) * latent - avoidPenalty;
+    return {
+      item,
+      score,
+      authority,
+      latent,
+      semantic,
+      freshness,
+      credibility,
+      bm25,
+      avoidPenalty,
+      exploration: false,
+    };
   });
 }
 
