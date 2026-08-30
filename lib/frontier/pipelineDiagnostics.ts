@@ -15,23 +15,28 @@ export type FrontierPipelineCoverage = {
   learnedPersonalFitBeforeResponse: 'unobservable-local-profile';
 };
 
+/**
+ * Named observations, not a universal linear funnel. Some modes perform checks
+ * in a different order, so a null means that stage was not observed on this path.
+ */
 export type FrontierPipelineStages = {
-  /** Items emitted by source adapters before candidate policy. Null for offline snapshots. */
   sourceAcquired: number | null;
-  /** Candidate rows entering the current preparation pass. */
-  candidateInput: number;
-  plausible: number;
-  rightsSafe: number;
-  /** Recency is a cold-snapshot revalidation stage, not a live-discovery stage. */
+  candidateInput: number | null;
+  plausible: number | null;
+  rightsSafe: number | null;
   recent: number | null;
-  deduped: number;
-  sourceAdmitted: number;
-  candidateRetained: number;
-  /** English readiness is measured after final pool composition when available. */
+  deduped: number | null;
+  sourceAdmitted: number | null;
+  candidateRetained: number | null;
   englishReady: number | null;
   responseReady: number;
 };
 
+/**
+ * Drops are recorded only at the exact code boundary that observed the rejection.
+ * They are never reconstructed from two stage counts whose causal ordering may
+ * differ between live discovery and cold-snapshot revalidation.
+ */
 export type FrontierPipelineDrops = {
   implausible: number | null;
   rightsFragile: number | null;
@@ -73,9 +78,8 @@ export function buildFrontierPipelineDiagnostics(input: {
   sourceAcquisition: FrontierPipelineCoverage['sourceAcquisition'];
   adapters?: Partial<FrontierPipelineAdapters>;
   stages: FrontierPipelineStages;
+  drops?: Partial<FrontierPipelineDrops>;
 }): FrontierPipelineDiagnostics {
-  const stages = input.stages;
-  const recentBoundary = stages.recent === null ? stages.rightsSafe : stages.recent;
   return {
     schema: FRONTIER_PIPELINE_DIAGNOSTICS_SCHEMA,
     mode: input.mode,
@@ -88,17 +92,15 @@ export function buildFrontierPipelineDiagnostics(input: {
       fulfilled: input.adapters?.fulfilled ?? null,
       failed: input.adapters?.failed ?? null,
     },
-    stages: { ...stages },
+    stages: { ...input.stages },
     drops: {
-      implausible: frontierObservedDrop(stages.candidateInput, stages.plausible),
-      rightsFragile: frontierObservedDrop(stages.plausible, stages.rightsSafe),
-      stale: stages.recent === null ? null : frontierObservedDrop(stages.rightsSafe, stages.recent),
-      duplicate: frontierObservedDrop(recentBoundary, stages.deduped),
-      sourceRejected: frontierObservedDrop(stages.deduped, stages.sourceAdmitted),
-      candidateCap: frontierObservedDrop(stages.sourceAdmitted, stages.candidateRetained),
-      nonEnglish: stages.englishReady === null
-        ? null
-        : frontierObservedDrop(stages.candidateRetained, stages.englishReady),
+      implausible: input.drops?.implausible ?? null,
+      rightsFragile: input.drops?.rightsFragile ?? null,
+      stale: input.drops?.stale ?? null,
+      duplicate: input.drops?.duplicate ?? null,
+      sourceRejected: input.drops?.sourceRejected ?? null,
+      candidateCap: input.drops?.candidateCap ?? null,
+      nonEnglish: input.drops?.nonEnglish ?? null,
     },
   };
 }
