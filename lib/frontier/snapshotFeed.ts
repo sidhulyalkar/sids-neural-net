@@ -1,5 +1,10 @@
 import frontierSnapshot from '@/content/frontier/latest.json';
 import { needsEnglishTranslation } from './english';
+import {
+  buildFrontierPipelineDiagnostics,
+  frontierObservedDrop,
+  type FrontierObservableFeedResponse,
+} from './pipelineDiagnostics';
 import { vetFrontierItems } from './sourceTrust';
 import type { FrontierFeedResponse, FrontierItem } from './types';
 
@@ -59,20 +64,53 @@ function dedupe(items: FrontierItem[]): FrontierItem[] {
  * transports, or personal search machinery. The browser can paint the qualified
  * snapshot without paying to initialize the Internet-discovery graph first.
  */
-export function getFrontierColdSnapshotFeed(now = Date.now()): FrontierFeedResponse {
+export function getFrontierColdSnapshotFeed(now = Date.now()): FrontierObservableFeedResponse {
   const snapshot = frontierSnapshot as FrontierFeedResponse;
-  const recent = (snapshot.items ?? []).filter((item) => {
-    if (!plausible(item, now) || rightsFragileNflYoutube(item)) return false;
+  const input = snapshot.items ?? [];
+  const plausibleItems = input.filter((item) => plausible(item, now));
+  const rightsSafe = plausibleItems.filter((item) => !rightsFragileNflYoutube(item));
+  const recent = rightsSafe.filter((item) => {
     const publishedAt = Date.parse(item.publishedAt);
     const ageDays = (now - publishedAt) / DAY_MS;
-    if (!Number.isFinite(ageDays) || ageDays > 10) return false;
-    return !needsEnglishTranslation(item.title) && !needsEnglishTranslation(item.summary);
+    return Number.isFinite(ageDays) && ageDays <= 10;
+  });
+  const english = recent.filter((item) => (
+    !needsEnglishTranslation(item.title) && !needsEnglishTranslation(item.summary)
+  ));
+  const deduped = dedupe(english);
+  const admitted = vetFrontierItems(deduped);
+  const items = admitted.slice(0, MAX_SNAPSHOT_CANDIDATES);
+
+  const pipeline = buildFrontierPipelineDiagnostics({
+    mode: 'snapshot',
+    sourceAcquisition: 'offline-unavailable',
+    stages: {
+      sourceAcquired: null,
+      candidateInput: input.length,
+      plausible: plausibleItems.length,
+      rightsSafe: rightsSafe.length,
+      recent: recent.length,
+      englishReady: english.length,
+      deduped: deduped.length,
+      sourceAdmitted: admitted.length,
+      candidateRetained: items.length,
+      responseReady: items.length,
+    },
+    drops: {
+      implausible: frontierObservedDrop(input.length, plausibleItems.length),
+      rightsFragile: frontierObservedDrop(plausibleItems.length, rightsSafe.length),
+      stale: frontierObservedDrop(rightsSafe.length, recent.length),
+      nonEnglish: frontierObservedDrop(recent.length, english.length),
+      duplicate: frontierObservedDrop(english.length, deduped.length),
+      sourceRejected: frontierObservedDrop(deduped.length, admitted.length),
+      candidateCap: frontierObservedDrop(admitted.length, items.length),
+    },
   });
 
-  const items = vetFrontierItems(dedupe(recent)).slice(0, MAX_SNAPSHOT_CANDIDATES);
   return {
     generatedAt: snapshot.generatedAt || new Date(now).toISOString(),
     items,
     sources: Array.isArray(snapshot.sources) ? snapshot.sources : [],
+    pipeline,
   };
 }
