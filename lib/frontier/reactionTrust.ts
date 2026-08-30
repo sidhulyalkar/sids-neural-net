@@ -65,23 +65,6 @@ function writeState(state: ReactionTrustState): void {
   }
 }
 
-export function reactionTrustAuthority(stat: ReactionTrustStat | undefined): number {
-  if (!stat) return 0.85;
-  const confirmed = Math.max(0, stat.confirmed);
-  const contradicted = Math.max(0, stat.contradicted);
-  const reviewed = confirmed + contradicted;
-  if (!reviewed) return 0.85;
-
-  // Beta(2, 3) prior: ambient cues begin skeptical and earn authority only after
-  // explicit confirmation. Once enough reviewed examples show a cue is unreliable
-  // for this person, authority is allowed to collapse toward quarantine instead of
-  // retaining a permanently optimistic floor.
-  const posterior = (2 + confirmed) / (5 + reviewed);
-  const evidence = 1 - Math.exp(-reviewed / 5);
-  const learned = 0.15 + posterior * 1.05;
-  return clamp(0.85 * (1 - evidence) + learned * evidence, 0.15, 1.15);
-}
-
 export function reactionTrustAccuracy(stat: ReactionTrustStat | undefined): number | undefined {
   if (!stat) return undefined;
   const reviewed = Math.max(0, stat.confirmed) + Math.max(0, stat.contradicted);
@@ -94,6 +77,27 @@ export function reactionTrustQuarantined(stat: ReactionTrustStat | undefined): b
   const reviewed = Math.max(0, stat.confirmed) + Math.max(0, stat.contradicted);
   const accuracy = reactionTrustAccuracy(stat);
   return reviewed >= 5 && accuracy !== undefined && accuracy < 0.4;
+}
+
+export function reactionTrustAuthority(stat: ReactionTrustStat | undefined): number {
+  if (!stat) return 0.85;
+  const confirmed = Math.max(0, stat.confirmed);
+  const contradicted = Math.max(0, stat.contradicted);
+  const reviewed = confirmed + contradicted;
+  if (!reviewed) return 0.85;
+
+  // Quarantine is a real authority boundary, not a label. We keep observing and
+  // reviewing the cue locally so it can later recover, but it contributes exactly
+  // zero recommendation evidence while agreement remains below the gate.
+  if (reactionTrustQuarantined(stat)) return 0;
+
+  // Beta(2, 3) prior: ambient cues begin skeptical and earn authority only after
+  // explicit confirmation. Outside quarantine the continuous multiplier remains
+  // tightly bounded and well below the structural authority of explicit actions.
+  const posterior = (2 + confirmed) / (5 + reviewed);
+  const evidence = 1 - Math.exp(-reviewed / 5);
+  const learned = 0.15 + posterior * 1.05;
+  return clamp(0.85 * (1 - evidence) + learned * evidence, 0.15, 1.15);
 }
 
 export function getReactionTrust(kind: FrontierAmbientReactionKind): ReactionTrustStat {
