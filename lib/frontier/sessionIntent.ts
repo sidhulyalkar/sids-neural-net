@@ -9,9 +9,6 @@ const HOUR_MS = 3_600_000;
 const SESSION_HALF_LIFE_HOURS = 2.75;
 const SESSION_MAX_AGE_HOURS = 18;
 
-// These are useful abstractions, but too broad to become the identity of a
-// session merely because one item matched them. Concrete topics retain more
-// authority while these nodes still contribute weak transfer context.
 const TRANSFER_ONLY_TOPIC_IDS = new Set([
   'active-sports',
   'sports-data',
@@ -107,13 +104,6 @@ function dominantKeys<T extends string>(map: Partial<Record<T, number>>, limit: 
     .map(([key]) => key);
 }
 
-/**
- * Build an ephemeral activation map from recent meaningful engagement. The
- * result is derived from canonical history, but it is intentionally never
- * persisted as durable preference state. Long-term taste answers "what does the
- * user generally value?"; session intent answers "which region of that map is
- * active right now?".
- */
 export function buildSessionIntent(
   history: Record<string, FrontierHistoryEntry>,
   now = new Date(),
@@ -168,14 +158,6 @@ function strongestMatch(keys: readonly string[], weights: Record<string, number>
   return keys.reduce((best, key) => Math.max(best, weights[key] ?? 0), 0);
 }
 
-/**
- * Session intent is a bounded reranking feature, not a filter. Direct concrete
- * topic continuity is strongest. Shared domains and methods stay deliberately
- * weaker so a focused session can surface a useful adjacent bridge without
- * allowing a generic abstraction such as "open source" or "scientific software"
- * to impersonate the user's current intent. Durable taste, evidence-aware pair
- * memory, source trust, global importance, and slate allocation stay authoritative.
- */
 export function sessionIntentAdjustment(
   item: FrontierItem,
   intent: FrontierSessionIntent,
@@ -190,13 +172,11 @@ export function sessionIntentAdjustment(
   const domainMatch = strongestMatch(connection.domains, intent.domainWeights);
   const facetMatch = strongestMatch(connection.facets, intent.facetWeights);
 
-  // A broad domain or method alone earns little. Concrete continuity carries
-  // most of the short-term authority, while method overlap is an adjacency hint.
-  const raw = topicMatch * 0.05
-    + domainMatch * 0.009
-    + facetMatch * 0.007
+  const raw = topicMatch * 0.17
+    + domainMatch * 0.008
+    + facetMatch * 0.004
     + (topicMatch >= 0.45 && facetMatch >= 0.35 ? 0.008 : 0);
-  const score = Math.min(0.065, raw * intent.confidence);
+  const score = Math.min(0.105, raw * intent.confidence);
 
   return { score, topicMatch, domainMatch, facetMatch, confidence: intent.confidence };
 }
