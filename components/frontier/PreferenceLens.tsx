@@ -1,10 +1,14 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useMemo, useSyncExternalStore } from 'react';
 import { Brain, RotateCcw } from 'lucide-react';
 import { aggregatePreference, summarizeHabits } from '@/lib/frontier/behavior';
 import { FRONTIER_LANE_MAP } from '@/lib/frontier/config';
-import { readFrontierDecisionLedger } from '@/lib/frontier/decisionLedger';
+import {
+  readFrontierDecisionLedger,
+  readFrontierDecisionLedgerServer,
+  subscribeFrontierDecisionLedger,
+} from '@/lib/frontier/decisionLedger';
 import { auditFrontierExposure, type FrontierExposureAudit } from '@/lib/frontier/exposureAudit';
 import { useFrontierStore } from '@/lib/frontier/store';
 import type { FrontierBehaviorModel, FrontierLaneId } from '@/lib/frontier/types';
@@ -35,7 +39,12 @@ function maturityLabel(audit: FrontierExposureAudit): string {
 
 export function PreferenceLens({ behavior, onToggleLearning, onResetBehavior }: Props) {
   const profile = useFrontierStore((state) => state.profile);
-  const [exposureAudit, setExposureAudit] = useState<FrontierExposureAudit>();
+  const decisionLedger = useSyncExternalStore(
+    subscribeFrontierDecisionLedger,
+    readFrontierDecisionLedger,
+    readFrontierDecisionLedgerServer,
+  );
+  const exposureAudit = useMemo(() => auditFrontierExposure(decisionLedger), [decisionLedger]);
   const insights = summarizeHabits(behavior).slice(0, 6);
   const lanes = Object.entries(behavior.laneStats)
     .map(([lane, stats]) => ({ lane: lane as FrontierLaneId, pref: aggregatePreference(stats) }))
@@ -47,10 +56,6 @@ export function PreferenceLens({ behavior, onToggleLearning, onResetBehavior }: 
     .sort((left, right) => right[1] - left[1])
     .slice(0, 6);
   const evidence = engagementEvidence(behavior);
-
-  useEffect(() => {
-    setExposureAudit(auditFrontierExposure(readFrontierDecisionLedger()));
-  }, [behavior]);
 
   const forgetHabits = () => {
     // Pair memory is inferred from implicit/explicit co-interest evidence and is
@@ -83,10 +88,10 @@ export function PreferenceLens({ behavior, onToggleLearning, onResetBehavior }: 
         <span>{behavior.sessions} sessions</span>
         <span>{evidence} signals</span>
         {pairings.length ? <span>{pairings.length} combinations</span> : null}
-        {exposureAudit?.decisions ? <span>{maturityLabel(exposureAudit)}</span> : null}
+        {exposureAudit.decisions ? <span>{maturityLabel(exposureAudit)}</span> : null}
       </div>
 
-      {exposureAudit?.decisions ? (
+      {exposureAudit.decisions ? (
         <div className={styles.habitGrid} aria-label="Personalization evidence health">
           <div className={styles.habitCard}>
             <span>Learning health</span>
