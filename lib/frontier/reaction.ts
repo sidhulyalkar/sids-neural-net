@@ -44,7 +44,9 @@ export type ReactionInferenceConfig = {
   minConfidence: number;
   minMargin: number;
   minDurationMs: number;
+  minimumTargetDwellMs: number;
   cooldownMs: number;
+  globalCooldownMs: number;
 };
 
 export const DEFAULT_REACTION_INFERENCE_CONFIG: ReactionInferenceConfig = {
@@ -54,7 +56,9 @@ export const DEFAULT_REACTION_INFERENCE_CONFIG: ReactionInferenceConfig = {
   minConfidence: 0.7,
   minMargin: 0.11,
   minDurationMs: 1_000,
+  minimumTargetDwellMs: 700,
   cooldownMs: 9_000,
+  globalCooldownMs: 6_000,
 };
 
 const ZERO_EXPRESSIONS: FrontierExpressionVector = {
@@ -80,6 +84,13 @@ function clamp(value: number, min = 0, max = 1): number {
 
 function mean(left: number, right: number): number {
   return clamp((left + right) * 0.5);
+}
+
+function median(values: number[]): number {
+  if (!values.length) return 0;
+  const ordered = [...values].sort((left, right) => left - right);
+  const middle = Math.floor(ordered.length / 2);
+  return ordered.length % 2 ? ordered[middle] : (ordered[middle - 1] + ordered[middle]) * 0.5;
 }
 
 function mix(previous: number, next: number, alpha: number): number {
@@ -134,7 +145,18 @@ export function scoreReactionCues(
   const affinity = clamp(delta.smile * 2.25 + delta.eyeSquint * 0.55 - delta.mouthPress * 0.25);
   const surprise = clamp(delta.eyeWide * 1.55 + delta.browRaise * 1.2 + delta.jawOpen * 0.72 - delta.smile * 0.12);
   const friction = clamp(delta.browFurrow * 1.7 + delta.mouthPress * 1.2 - delta.smile * 0.35);
-  const interest = clamp(forward * 0.34 + still * 0.28 + delta.browRaise * 0.62 + delta.eyeWide * 0.22 - surprise * 0.14);
+
+  // Head pose is corroborating evidence only. A neutral person looking forward and
+  // sitting still must never be classified as interested just for existing in
+  // front of the camera.
+  const activeAttention = clamp(
+    delta.eyeSquint * 1.05
+      + delta.browRaise * 0.5
+      + delta.eyeWide * 0.16
+      - surprise * 0.18
+  );
+  const postureSupport = activeAttention >= 0.08 ? forward * 0.18 + still * 0.12 : 0;
+  const interest = clamp(activeAttention + postureSupport - affinity * 0.08);
 
   return { affinity, interest, surprise, friction };
 }
@@ -162,11 +184,14 @@ export class ReactionInferenceEngine {
   private config: ReactionInferenceConfig;
   private calibrationStartedAt?: number;
   private calibrationSamples = 0;
+  private calibrationWindow: FrontierExpressionVector[] = [];
   private baseline: FrontierExpressionVector = { ...ZERO_EXPRESSIONS };
   private smoothed: Record<FrontierAmbientReactionKind, number> = { ...ZERO_SCORES };
   private targetId = '';
+  private targetStartedAt?: number;
   private candidate?: FrontierAmbientReactionKind;
   private candidateStartedAt?: number;
+  private lastEmittedAt = -Infinity;
   private lastEmitted = new Map<string, number>();
 
   constructor(config: Partial<ReactionInferenceConfig> = {}) {
@@ -176,24 +201,25 @@ export class ReactionInferenceEngine {
   reset() {
     this.calibrationStartedAt = undefined;
     this.calibrationSamples = 0;
+    this.calibrationWindow = [];
     this.baseline = { ...ZERO_EXPRESSIONS };
     this.smoothed = { ...ZERO_SCORES };
     this.targetId = '';
+    this.targetStartedAt = undefined;
     this.candidate = undefined;
     this.candidateStartedAt = undefined;
+    this.lastEmittedAt = -Infinity;
     this.lastEmitted.clear();
   }
 
   push(face: FrontierReactionFaceInput, targetId: string | undefined, now: number): ReactionInferenceSnapshot {
     if (!face.active) {
-      this.candidate = undefined;
-      this.candidateStartedAt = undefined;
+      this.clearCandidate();
       return { phase: 'idle', calibration: this.calibrationProgress(now), confidence: 0, scores: { ...this.smoothed } };
     }
 
     if (this.calibrationStartedAt === undefined) this.calibrationStartedAt = now;
-    const calibrationComplete = this.isCalibrated(now);
-    if (!calibrationComplete) {
+    if (!this.isCalibrated(now)) {
       this.captureBaseline(face.expressions);
       return {
         phase: 'calibrating',
@@ -204,16 +230,18 @@ export class ReactionInferenceEngine {
     }
 
     if (!targetId) {
-      this.candidate = undefined;
-      this.candidateStartedAt = undefined;
+      this.targetId = '';
+      this.targetStartedAt = undefined;
+      this.smoothed = { ...ZERO_SCORES };
+      this.clearCandidate();
       this.adaptBaseline(face.expressions);
       return { phase: 'listening', calibration: 1, confidence: 0, scores: { ...this.smoothed } };
     }
 
     if (targetId !== this.targetId) {
       this.targetId = targetId;
-      this.candidate = undefined;
-      this.candidateStartedAt = undefined;
+      this.targetStartedAt = now;
+      this.clearCandidate();
       this.smoothed = { ...ZERO_SCORES };
     }
 
@@ -222,11 +250,15 @@ export class ReactionInferenceEngine {
       this.smoothed[kind] = mix(this.smoothed[kind], raw[kind], this.config.emaAlpha);
     }
     const top = strongest(this.smoothed);
-    const qualifies = Boolean(top.kind) && top.score >= this.config.minConfidence && top.margin >= this.config.minMargin;
+    const targetDwellMs = Math.max(0, now - (this.targetStartedAt ?? now));
+    if (targetDwellMs < this.config.minimumTargetDwellMs) {
+      this.clearCandidate();
+      return { phase: 'listening', calibration: 1, dominant: top.kind, confidence: top.score, scores: { ...this.smoothed } };
+    }
 
+    const qualifies = Boolean(top.kind) && top.score >= this.config.minConfidence && top.margin >= this.config.minMargin;
     if (!qualifies || !top.kind) {
-      this.candidate = undefined;
-      this.candidateStartedAt = undefined;
+      this.clearCandidate();
       this.adaptBaseline(face.expressions);
       return { phase: 'listening', calibration: 1, dominant: top.kind, confidence: top.score, scores: { ...this.smoothed } };
     }
@@ -237,8 +269,9 @@ export class ReactionInferenceEngine {
     }
     const durationMs = Math.max(0, now - (this.candidateStartedAt ?? now));
     const cooldownKey = `${targetId}:${top.kind}`;
-    const cooledDown = now - (this.lastEmitted.get(cooldownKey) ?? -Infinity) >= this.config.cooldownMs;
-    const reaction = durationMs >= this.config.minDurationMs && cooledDown
+    const targetCooledDown = now - (this.lastEmitted.get(cooldownKey) ?? -Infinity) >= this.config.cooldownMs;
+    const globallyCooledDown = now - this.lastEmittedAt >= this.config.globalCooldownMs;
+    const reaction = durationMs >= this.config.minDurationMs && targetCooledDown && globallyCooledDown
       ? {
           kind: top.kind,
           confidence: clamp(top.score),
@@ -250,8 +283,8 @@ export class ReactionInferenceEngine {
 
     if (reaction) {
       this.lastEmitted.set(cooldownKey, now);
-      this.candidate = undefined;
-      this.candidateStartedAt = undefined;
+      this.lastEmittedAt = now;
+      this.clearCandidate();
     }
 
     return {
@@ -264,12 +297,18 @@ export class ReactionInferenceEngine {
     };
   }
 
+  private clearCandidate() {
+    this.candidate = undefined;
+    this.candidateStartedAt = undefined;
+  }
+
   private captureBaseline(expressions: FrontierExpressionVector) {
     const next = copyExpressions(expressions);
     this.calibrationSamples += 1;
-    const alpha = 1 / this.calibrationSamples;
+    this.calibrationWindow.push(next);
+    if (this.calibrationWindow.length > 96) this.calibrationWindow.shift();
     for (const key of Object.keys(next) as Array<keyof FrontierExpressionVector>) {
-      this.baseline[key] = mix(this.baseline[key], next[key], alpha);
+      this.baseline[key] = median(this.calibrationWindow.map((sample) => sample[key]));
     }
   }
 
