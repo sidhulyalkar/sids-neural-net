@@ -375,6 +375,15 @@ async function readAll<T>(name: StoreName): Promise<T[]> {
   return records;
 }
 
+async function readRecord<T>(name: StoreName, id: string): Promise<T | undefined> {
+  const db = await openDb();
+  const transaction = db.transaction(name, 'readonly');
+  const done = transactionDone(transaction);
+  const record = await requestPromise(transaction.objectStore(name).get(id)) as T | undefined;
+  await done;
+  return record;
+}
+
 async function putRecord<T>(name: StoreName, record: T): Promise<void> {
   const db = await openDb();
   const transaction = db.transaction(name, 'readwrite');
@@ -389,23 +398,6 @@ function notifyChanged(): void {
 
 function emptyMutableSummary(): MutableSummary {
   return { exposureMs: 0, exposures: 0, reactions: 0, confirmed: 0, contradicted: 0 };
-}
-
-function addDimensions(
-  target: Map<string, MutableSummary>,
-  context: Pick<LongitudinalItemContext, 'lane' | 'tags' | 'format'>,
-  apply: (summary: MutableSummary) => void
-): void {
-  const keys = [
-    `lane:${context.lane}`,
-    `format:${context.format}`,
-    ...context.tags.map((tag) => `topic:${tag}`),
-  ];
-  for (const key of keys) {
-    const summary = target.get(key) ?? emptyMutableSummary();
-    apply(summary);
-    target.set(key, summary);
-  }
 }
 
 export function buildLongitudinalRollups(
@@ -624,18 +616,11 @@ class FrontierLongitudinalStore {
   }
 
   async reviewReaction(id: string, review: LongitudinalReactionReview, reviewedAt = Date.now()): Promise<boolean> {
-    const db = await openDb();
-    const transaction = db.transaction(REACTION_STORE, 'readwrite');
-    const done = transactionDone(transaction);
-    const store = transaction.objectStore(REACTION_STORE);
-    const current = await requestPromise(store.get(id)) as LongitudinalReactionEpisode | undefined;
-    if (!current) {
-      transaction.abort();
-      try { await done; } catch { /* expected abort for missing record */ }
-      return false;
-    }
-    store.put({ ...current, review, reviewedAt });
-    await done;
+    // Keep the readonly lookup and mutation in separate transactions. IndexedDB may
+    // auto-commit a transaction across an await boundary, especially in WebKit.
+    const current = await readRecord<LongitudinalReactionEpisode>(REACTION_STORE, id);
+    if (!current) return false;
+    await putRecord(REACTION_STORE, { ...current, review, reviewedAt });
     notifyChanged();
     return true;
   }
@@ -760,10 +745,18 @@ class FrontierLongitudinalStore {
 
   async storageHealth(): Promise<LongitudinalStorageHealth> {
     if (typeof navigator === 'undefined' || !navigator.storage) return { supported: false };
-    const [estimate, persisted] = await Promise.all([
-      navigator.storage.estimate().catch(() => ({})),
-      navigator.storage.persisted?.().catch(() => undefined),
-    ]);
+    let estimate: StorageEstimate = {};
+    let persisted: boolean | undefined;
+    try {
+      estimate = await navigator.storage.estimate();
+    } catch {
+      // Storage capacity is advisory diagnostics only.
+    }
+    try {
+      persisted = navigator.storage.persisted ? await navigator.storage.persisted() : undefined;
+    } catch {
+      // Persistence reporting is optional and browser-dependent.
+    }
     return {
       supported: true,
       usage: estimate.usage,
