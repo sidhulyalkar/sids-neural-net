@@ -184,7 +184,7 @@ test('reaction target selection rejects ambiguous or barely visible cards', () =
   ]), 'a');
 });
 
-test('reaction trust begins skeptical, rises with confirmations, and falls with contradictions', () => {
+test('reaction trust begins skeptical, rises with confirmations, and can collapse after contradictions', () => {
   const initial = reactionTrustAuthority(undefined);
   const confirmed = reactionTrustAuthority({ observed: 8, confirmed: 7, contradicted: 1, confidenceSum: 6.8 });
   const contradicted = reactionTrustAuthority({ observed: 8, confirmed: 1, contradicted: 7, confidenceSum: 6.8 });
@@ -192,7 +192,7 @@ test('reaction trust begins skeptical, rises with confirmations, and falls with 
   assert.ok(confirmed > initial);
   assert.ok(confirmed <= 1.15);
   assert.ok(contradicted < initial);
-  assert.ok(contradicted >= 0.65);
+  assert.ok(contradicted >= 0.15);
 });
 
 test('ambient affinity is weak positive evidence while friction alone never becomes dislike', () => {
