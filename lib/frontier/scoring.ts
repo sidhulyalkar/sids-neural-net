@@ -12,6 +12,11 @@ import {
   personalTasteRankingPrior,
   strongestPersonalTasteLabel,
 } from './personalTaste';
+import {
+  buildSessionIntent,
+  sessionIntentAdjustment,
+  type FrontierSessionIntent,
+} from './sessionIntent';
 import { isFrontierSourceAdmitted, sourceTrustRankingPrior } from './sourceTrust';
 import { applyExplicitPairSignal, pairAffinityForItem } from './tasteLearning';
 import type {
@@ -119,6 +124,7 @@ export function personalizedScore(
   now = new Date(),
   behavior?: FrontierBehaviorModel,
   pairEvidence?: FrontierPairEvidenceIndex,
+  sessionIntent?: FrontierSessionIntent,
 ): number {
   if (historyEntry?.reaction === 'hide') return -1;
 
@@ -144,6 +150,7 @@ export function personalizedScore(
   const connection = personalInterestConnection(item);
   const learnedConnectionGate = pairSignal <= -0.15 ? 0.12 : 1;
   const connectionPrior = connection.score * connection.confidence * tasteSuppression * learnedConnectionGate;
+  const activeIntent = sessionIntent ? sessionIntentAdjustment(item, sessionIntent).score : 0;
 
   const score =
     item.baseScore * 0.28 +
@@ -162,6 +169,7 @@ export function personalizedScore(
     sourceTrustPrior +
     tastePrior +
     connectionPrior +
+    activeIntent +
     resurfaceBonus(historyEntry, now);
 
   return clamp(score, -1, 1.5);
@@ -174,6 +182,7 @@ export function rankFrontierItems(
   now = new Date(),
   behavior?: FrontierBehaviorModel,
   pairEvidence = buildPairEvidenceIndex(history, now),
+  sessionIntent = buildSessionIntent(history, now),
 ): FrontierItem[] {
   const connectionExposure = buildConnectionExposureIndex(history, now);
   return items
@@ -183,7 +192,7 @@ export function rankFrontierItems(
       const portfolio = connectionPortfolioAdjustment(item, connectionExposure, pairSignal);
       return {
         item,
-        score: personalizedScore(item, profile, history[item.id], now, behavior, pairEvidence) + portfolio.net,
+        score: personalizedScore(item, profile, history[item.id], now, behavior, pairEvidence, sessionIntent) + portfolio.net,
       };
     })
     .sort((a, b) => b.score - a.score)
