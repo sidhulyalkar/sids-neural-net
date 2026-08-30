@@ -53,6 +53,28 @@ export type FrontierPipelineAdapters = {
   failed: number | null;
 };
 
+export type FrontierBootstrapTasteCapAudit = {
+  /** Source-admitted candidates eligible for the fixed-size server cap. */
+  eligible: number;
+  cap: number;
+  retained: number;
+  /** Candidates shared with a baseScore-only cap counterfactual. */
+  sharedWithBaseScore: number;
+  /** Current candidates kept only because the fixed bootstrap taste prior changed cap membership. */
+  tasteProtected: number;
+  /** Base-score candidates displaced by those protected candidates. */
+  tasteDisplaced: number;
+  overlapRate: number;
+};
+
+export type FrontierPipelineAuthorityDiagnostics = {
+  /**
+   * Instrumentation-only static counterfactual. This measures cap membership,
+   * not user utility and not the browser's learned preference model.
+   */
+  bootstrapTasteCandidateCap: FrontierBootstrapTasteCapAudit | null;
+};
+
 export type FrontierPipelineDiagnostics = {
   schema: typeof FRONTIER_PIPELINE_DIAGNOSTICS_SCHEMA;
   mode: FrontierPipelineMode;
@@ -60,6 +82,7 @@ export type FrontierPipelineDiagnostics = {
   adapters: FrontierPipelineAdapters;
   stages: FrontierPipelineStages;
   drops: FrontierPipelineDrops;
+  authority: FrontierPipelineAuthorityDiagnostics;
 };
 
 /** Backward-compatible feed shape: every existing consumer can ignore diagnostics. */
@@ -79,6 +102,7 @@ export function buildFrontierPipelineDiagnostics(input: {
   adapters?: Partial<FrontierPipelineAdapters>;
   stages: FrontierPipelineStages;
   drops?: Partial<FrontierPipelineDrops>;
+  authority?: Partial<FrontierPipelineAuthorityDiagnostics>;
 }): FrontierPipelineDiagnostics {
   const live = input.mode === 'focused-live' || input.mode === 'fresh-live';
   const liveDrops: FrontierPipelineDrops = live
@@ -122,6 +146,9 @@ export function buildFrontierPipelineDiagnostics(input: {
       sourceRejected: input.drops?.sourceRejected ?? liveDrops.sourceRejected,
       candidateCap: input.drops?.candidateCap ?? liveDrops.candidateCap,
       nonEnglish: input.drops?.nonEnglish ?? liveDrops.nonEnglish,
+    },
+    authority: {
+      bootstrapTasteCandidateCap: input.authority?.bootstrapTasteCandidateCap ?? null,
     },
   };
 }
