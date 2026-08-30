@@ -5,6 +5,7 @@ import {
   FRONTIER_DECISION_MAX_RECORDS,
   attributeFrontierDecisionOutcome,
   buildFrontierDecision,
+  frontierDecisionItemKey,
   frontierDecisionPolicyMode,
   upsertFrontierDecision,
   type FrontierDecisionRecord,
@@ -27,20 +28,39 @@ function decision(overrides: Partial<Parameters<typeof buildFrontierDecision>[0]
   return built;
 }
 
-test('decision records preserve upstream and displayed rank without content payloads', () => {
+test('decision records preserve upstream and displayed rank using pseudonymous item keys only', () => {
   const record = decision();
   assert.deepEqual(record.exposures, [
-    { itemId: 'b', upstreamIndex: 1, displayedIndex: 0 },
-    { itemId: 'a', upstreamIndex: 0, displayedIndex: 1 },
-    { itemId: 'x', upstreamIndex: -1, displayedIndex: 2 },
-    { itemId: 'd', upstreamIndex: 3, displayedIndex: 3 },
+    { itemId: frontierDecisionItemKey('b'), upstreamIndex: 1, displayedIndex: 0 },
+    { itemId: frontierDecisionItemKey('a'), upstreamIndex: 0, displayedIndex: 1 },
+    { itemId: frontierDecisionItemKey('x'), upstreamIndex: -1, displayedIndex: 2 },
+    { itemId: frontierDecisionItemKey('d'), upstreamIndex: 3, displayedIndex: 3 },
   ]);
 
-  const serialized = JSON.stringify(record);
+  const sensitive = buildFrontierDecision({
+    sessionId: 'privacy',
+    at: AT,
+    policyMode: 'search',
+    semanticEnabled: true,
+    streamEpoch: 1,
+    upstreamIds: ['github:sidhulyalkar/private-looking-repo-name'],
+    displayedIds: ['github:sidhulyalkar/private-looking-repo-name'],
+  });
+  assert.ok(sensitive);
+  const serialized = JSON.stringify(sensitive);
+  assert.ok(!serialized.includes('private-looking-repo-name'));
+  assert.ok(!serialized.includes('github:sidhulyalkar'));
   assert.ok(!serialized.includes('title'));
   assert.ok(!serialized.includes('summary'));
   assert.ok(!serialized.includes('https://'));
   assert.ok(!serialized.includes('query'));
+});
+
+test('pseudonymous item keys are deterministic and distinct for ordinary inputs', () => {
+  assert.equal(frontierDecisionItemKey('alpha'), frontierDecisionItemKey('alpha'));
+  assert.notEqual(frontierDecisionItemKey('alpha'), frontierDecisionItemKey('beta'));
+  assert.equal(frontierDecisionItemKey(''), '');
+  assert.ok(frontierDecisionItemKey('alpha').startsWith('i'));
 });
 
 test('policy mode reflects product intent rather than any nonzero exploration coefficient', () => {
@@ -73,7 +93,7 @@ test('an outcome attaches to the latest decision that actually exposed the item'
 
   assert.equal(ledger[0].outcomes.length, 0);
   assert.equal(ledger[1].outcomes.length, 1);
-  assert.equal(ledger[1].outcomes[0].itemId, 'b');
+  assert.equal(ledger[1].outcomes[0].itemId, frontierDecisionItemKey('b'));
   assert.equal(ledger[1].outcomes[0].opened, true);
 });
 
@@ -121,7 +141,7 @@ test('reaction/save/open evidence can accumulate on the same exposure record', (
   }, 'session-a');
 
   assert.deepEqual(ledger[0].outcomes[0], {
-    itemId: 'a',
+    itemId: frontierDecisionItemKey('a'),
     firstAt: AT + 1_000,
     lastAt: AT + 3_000,
     opened: true,
