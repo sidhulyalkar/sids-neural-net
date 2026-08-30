@@ -4,6 +4,8 @@ import type { FrontierHistoryEntry, FrontierItem } from './types';
 const DAY_MS = 86_400_000;
 const RECENCY_HALF_LIFE_DAYS = 4.5;
 const MAX_SIGNATURES = 18;
+const EXACT_SIGNATURE_THRESHOLD = 0.8;
+const TRANSFER_EXPOSURE_CAP = 0.22;
 const SPECIFIC_MOTION_TOPIC_IDS = new Set([
   'rock-climbing',
   'mountain-biking',
@@ -109,6 +111,30 @@ export function buildConnectionExposureIndex(
   return exposure;
 }
 
+function weightedExposure(
+  signatures: FrontierConnectionSignature[],
+  exposureIndex: Map<string, number>,
+): number {
+  const rankWeights = [0.55, 0.25, 0.13, 0.07];
+  return signatures
+    .map(({ key, weight }) => (exposureIndex.get(key) ?? 0) * weight)
+    .filter((value) => value > 0)
+    .sort((left, right) => right - left)
+    .slice(0, rankWeights.length)
+    .reduce((sum, value, index) => sum + value * rankWeights[index], 0);
+}
+
+function portfolioExposure(
+  signatures: FrontierConnectionSignature[],
+  exposureIndex: Map<string, number>,
+): number {
+  const exact = signatures.filter(({ weight }) => weight >= EXACT_SIGNATURE_THRESHOLD);
+  const transfer = signatures.filter(({ weight }) => weight < EXACT_SIGNATURE_THRESHOLD);
+  const exactExposure = weightedExposure(exact, exposureIndex);
+  const transferExposure = Math.min(TRANSFER_EXPOSURE_CAP, weightedExposure(transfer, exposureIndex) * 0.35);
+  return exactExposure + transferExposure;
+}
+
 export function connectionPortfolioAdjustment(
   item: FrontierItem,
   exposureIndex: Map<string, number>,
@@ -118,13 +144,7 @@ export function connectionPortfolioAdjustment(
   const signatures = interestConnectionSignatures(item);
   if (!signatures.length) return { exposure: 0, bonus: 0, penalty: 0, net: 0, signatures };
 
-  const matches = signatures
-    .map(({ key, weight }) => (exposureIndex.get(key) ?? 0) * weight)
-    .filter((value) => value > 0)
-    .sort((left, right) => right - left)
-    .slice(0, 4);
-  const weights = [0.55, 0.25, 0.13, 0.07];
-  const exposure = matches.reduce((sum, value, index) => sum + value * weights[index], 0);
+  const exposure = portfolioExposure(signatures, exposureIndex);
   const connection = personalInterestConnection(item);
 
   if (item.highPriority || item.watchSignal || item.importance >= 0.88) {
