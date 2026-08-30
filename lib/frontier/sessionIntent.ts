@@ -148,6 +148,9 @@ export function buildSessionIntent(
   const volumeConfidence = 1 - Math.exp(-totalEvidence / 1.35);
   const breadthPenalty = evidenceCount <= 1 ? 0.82 : 1;
   const confidence = clamp(volumeConfidence * breadthPenalty, 0, 0.92);
+  const concreteTopicWeights = Object.fromEntries(
+    Object.entries(topicWeights).filter(([topic]) => !TRANSFER_ONLY_TOPIC_IDS.has(topic)),
+  );
 
   return {
     topicWeights,
@@ -155,7 +158,7 @@ export function buildSessionIntent(
     facetWeights,
     confidence,
     evidenceCount,
-    dominantTopicIds: dominantKeys(topicWeights, 4),
+    dominantTopicIds: dominantKeys(concreteTopicWeights, 4),
     dominantDomains: dominantKeys(domainWeights, 3),
     dominantFacets: dominantKeys(facetWeights, 3),
   };
@@ -166,11 +169,12 @@ function strongestMatch(keys: readonly string[], weights: Record<string, number>
 }
 
 /**
- * Session intent is a bounded reranking feature, not a filter. Direct topic
- * continuity is strongest; domain and method continuity are weaker so a focused
- * session can still surface a useful adjacent bridge instead of becoming a
- * tunnel. The durable profile, evidence-aware pair memory, source trust, global
- * importance, and slate allocator remain authoritative.
+ * Session intent is a bounded reranking feature, not a filter. Direct concrete
+ * topic continuity is strongest. Shared domains and methods stay deliberately
+ * weaker so a focused session can surface a useful adjacent bridge without
+ * allowing a generic abstraction such as "open source" or "scientific software"
+ * to impersonate the user's current intent. Durable taste, evidence-aware pair
+ * memory, source trust, global importance, and slate allocation stay authoritative.
  */
 export function sessionIntentAdjustment(
   item: FrontierItem,
@@ -181,15 +185,16 @@ export function sessionIntentAdjustment(
   }
 
   const connection = personalInterestConnection(item);
-  const topicMatch = strongestMatch(connection.topicIds, intent.topicWeights);
+  const concreteTopics = connection.topicIds.filter((topic) => !TRANSFER_ONLY_TOPIC_IDS.has(topic));
+  const topicMatch = strongestMatch(concreteTopics, intent.topicWeights);
   const domainMatch = strongestMatch(connection.domains, intent.domainWeights);
   const facetMatch = strongestMatch(connection.facets, intent.facetWeights);
 
-  // A broad domain alone earns very little. We want continuity of a concrete
-  // interest or a concrete transferable method, not "science because science".
+  // A broad domain or method alone earns little. Concrete continuity carries
+  // most of the short-term authority, while method overlap is an adjacency hint.
   const raw = topicMatch * 0.05
-    + domainMatch * 0.012
-    + facetMatch * 0.011
+    + domainMatch * 0.009
+    + facetMatch * 0.007
     + (topicMatch >= 0.45 && facetMatch >= 0.35 ? 0.008 : 0);
   const score = Math.min(0.065, raw * intent.confidence);
 
