@@ -108,6 +108,39 @@ function overlapsExisting(selected: readonly string[], topic: string): boolean {
   return selected.some((existing) => existing.includes(topic) || topic.includes(existing));
 }
 
+function phraseOverlaps(left: string, right: string): boolean {
+  const a = normalizeTopic(left);
+  const b = normalizeTopic(right);
+  return Boolean(a && b && (a === b || a.includes(b) || b.includes(a)));
+}
+
+function seedSuppressedByLearnedDisinterest(
+  seed: string,
+  behavior?: FrontierBehaviorModel,
+  directPreferenceEvidence?: FrontierDirectPreferenceEvidenceIndex,
+): boolean {
+  // Cold-start seeds are allowed to survive ordinary uncertainty. They retire
+  // only after strong direct contradiction or mature repeated passive
+  // disinterest, so a temporary mood cannot erase a long-term exploration
+  // prior while a genuinely rejected topic stops consuming retrieval slots.
+  if (directPreferenceEvidence) {
+    for (const evidence of directPreferenceEvidence.values()) {
+      if (evidence.dimension !== 'topic' || evidence.confidence < 0.45 || evidence.affinity > -0.18) continue;
+      const topic = evidence.key.slice('topic:'.length);
+      if (phraseOverlaps(seed, topic)) return true;
+    }
+  }
+
+  const snapshot = behavior?.rankingSnapshot;
+  if (!snapshot) return false;
+  for (const [topic, aggregate] of Object.entries(snapshot.topicStats)) {
+    const preference = aggregatePreference(aggregate);
+    if (preference.confidence < 0.6 || preference.score > -0.18) continue;
+    if (phraseOverlaps(seed, topic)) return true;
+  }
+  return false;
+}
+
 function hasBehaviorEvidence(behavior?: FrontierBehaviorModel): boolean {
   const snapshot = behavior?.rankingSnapshot;
   if (!snapshot) return false;
@@ -249,6 +282,7 @@ export function buildDiscoveryFocus(
 
   for (const topic of rotatedDiscoverySeeds(now)) {
     if (selected.length >= cap) break;
+    if (seedSuppressedByLearnedDisinterest(topic, behavior, directPreferenceEvidence)) continue;
     if (overlapsExisting(selected, topic)) continue;
     selected.push(topic.slice(0, 64));
   }
