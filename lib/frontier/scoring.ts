@@ -2,6 +2,12 @@ import { selectAdaptiveDailyAllocation } from './adaptiveSlate';
 import { behavioralAdjustment, behavioralExplorationBonus, formatForItem, aggregatePreference, timeBucket } from './behavior';
 import { buildConnectionExposureIndex, connectionPortfolioAdjustment } from './connectionPortfolio';
 import { FRONTIER_LANE_MAP } from './config';
+import {
+  buildDirectPreferenceEvidenceIndex,
+  directPreferenceSignalsForItem,
+  effectiveDirectPreferenceAffinity,
+  type FrontierDirectPreferenceEvidenceIndex,
+} from './directPreferenceEvidence';
 import { personalInterestConnection } from './interestGraph';
 import {
   buildPairEvidenceIndex,
@@ -133,14 +139,15 @@ export function personalizedScore(
   behavior?: FrontierBehaviorModel,
   pairEvidence?: FrontierPairEvidenceIndex,
   sessionIntent?: FrontierSessionIntent,
+  directPreferenceEvidence?: FrontierDirectPreferenceEvidenceIndex,
 ): number {
   if (historyEntry?.reaction === 'hide') return -1;
 
-  const laneAffinity = profile.laneAffinity[item.lane] ?? 0;
-  const sourceAffinity = profile.sourceAffinity[item.sourceKind] ?? 0;
-  const topicSignal = item.tags.length
-    ? item.tags.reduce((sum, tag) => sum + (profile.topicAffinity[tag.toLowerCase()] ?? 0), 0) / item.tags.length
-    : 0;
+  const { laneAffinity, sourceAffinity, topicSignal } = directPreferenceSignalsForItem(
+    item,
+    profile,
+    directPreferenceEvidence,
+  );
   const pairSignal = learnedPairAffinity(item, profile, pairEvidence);
   const knownness = item.tags.length
     ? item.tags.reduce((sum, tag) => sum + (profile.knownTopics[tag.toLowerCase()] ?? 0), 0) / item.tags.length
@@ -193,6 +200,7 @@ export function rankFrontierItems(
   behavior?: FrontierBehaviorModel,
   pairEvidence = buildPairEvidenceIndex(history, now),
   sessionIntent = buildSessionIntent(history, now),
+  directPreferenceEvidence = buildDirectPreferenceEvidenceIndex(history, now),
 ): FrontierItem[] {
   const connectionExposure = buildConnectionExposureIndex(history, now);
   return items
@@ -208,7 +216,16 @@ export function rankFrontierItems(
       );
       return {
         item,
-        score: personalizedScore(item, profile, history[item.id], now, behavior, pairEvidence, sessionIntent) + portfolio.net,
+        score: personalizedScore(
+          item,
+          profile,
+          history[item.id],
+          now,
+          behavior,
+          pairEvidence,
+          sessionIntent,
+          directPreferenceEvidence,
+        ) + portfolio.net,
       };
     })
     .sort((a, b) => b.score - a.score)
@@ -252,10 +269,21 @@ export function explainRecommendation(
   behavior?: FrontierBehaviorModel,
   now = new Date(),
   pairEvidence?: FrontierPairEvidenceIndex,
+  directPreferenceEvidence?: FrontierDirectPreferenceEvidenceIndex,
 ): string {
+  const directSignals = directPreferenceSignalsForItem(item, profile, directPreferenceEvidence);
   const strongestTag = item.tags
-    .map((tag) => ({ tag, affinity: profile.topicAffinity[tag.toLowerCase()] ?? 0 }))
+    .map((tag) => ({
+      tag,
+      affinity: effectiveDirectPreferenceAffinity(
+        profile.topicAffinity[tag.toLowerCase()] ?? 0,
+        'topic',
+        tag,
+        directPreferenceEvidence,
+      ),
+    }))
     .sort((a, b) => b.affinity - a.affinity)[0];
+  const tasteSuppressed = directSignals.laneAffinity <= -0.15 || directSignals.topicSignal <= -0.12;
 
   if (item.sportsState) return `Live ${item.sportsState.leagueLabel} state stays in your finite run without displacing the deeper sports analysis.`;
 
@@ -274,13 +302,13 @@ export function explainRecommendation(
 
   const connection = personalInterestConnection(item);
   const pairSignal = learnedPairAffinity(item, profile, pairEvidence);
-  if (connection.explanation && connection.confidence >= 0.62 && pairSignal > -0.15) return connection.explanation;
+  if (connection.explanation && connection.confidence >= 0.62 && pairSignal > -0.15 && !tasteSuppressed) return connection.explanation;
   if (resurfaceLike(item)) return 'Second chance: this signal was worth keeping in orbit.';
   if (item.importance >= 0.8) return 'High global importance, promoted even beyond your normal taste profile.';
   const personalLabel = strongestPersonalTasteLabel(item);
-  if (personalLabel && personalTasteRankingPrior(item) >= 0.09) return `Strong fit with your ${personalLabel} radar.`;
+  if (personalLabel && personalTasteRankingPrior(item) >= 0.09 && !tasteSuppressed) return `Strong fit with your ${personalLabel} radar.`;
   if (strongestTag && strongestTag.affinity > 0.08) return `Your interest in ${strongestTag.tag} pulled this into range.`;
-  if ((profile.laneAffinity[item.lane] ?? 0) > 0.12) return `Your ${FRONTIER_LANE_MAP[item.lane].shortLabel} signal has been strengthening.`;
+  if (directSignals.laneAffinity > 0.12) return `Your ${FRONTIER_LANE_MAP[item.lane].shortLabel} signal has been strengthening.`;
   if (item.novelty > 0.72) return 'Exploration slot: adjacent enough to matter, different enough to expand the map.';
   return item.why || `Strong fit for your ${FRONTIER_LANE_MAP[item.lane].shortLabel} radar.`;
 }

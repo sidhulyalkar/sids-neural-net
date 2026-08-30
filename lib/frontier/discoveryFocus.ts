@@ -1,4 +1,8 @@
 import { aggregatePreference } from './behavior';
+import {
+  effectiveDirectPreferenceAffinity,
+  type FrontierDirectPreferenceEvidenceIndex,
+} from './directPreferenceEvidence';
 import { positiveLiteralPairEvidence, type FrontierPairEvidenceIndex } from './pairEvidence';
 import { FRONTIER_DISCOVERY_SEEDS } from './personalTaste';
 import type { FrontierSessionIntent } from './sessionIntent';
@@ -104,6 +108,39 @@ function overlapsExisting(selected: readonly string[], topic: string): boolean {
   return selected.some((existing) => existing.includes(topic) || topic.includes(existing));
 }
 
+function phraseOverlaps(left: string, right: string): boolean {
+  const a = normalizeTopic(left);
+  const b = normalizeTopic(right);
+  return Boolean(a && b && (a === b || a.includes(b) || b.includes(a)));
+}
+
+function seedSuppressedByLearnedDisinterest(
+  seed: string,
+  behavior?: FrontierBehaviorModel,
+  directPreferenceEvidence?: FrontierDirectPreferenceEvidenceIndex,
+): boolean {
+  // Cold-start seeds are allowed to survive ordinary uncertainty. They retire
+  // only after strong direct contradiction or mature repeated passive
+  // disinterest, so a temporary mood cannot erase a long-term exploration
+  // prior while a genuinely rejected topic stops consuming retrieval slots.
+  if (directPreferenceEvidence) {
+    for (const evidence of directPreferenceEvidence.values()) {
+      if (evidence.dimension !== 'topic' || evidence.confidence < 0.45 || evidence.affinity > -0.18) continue;
+      const topic = evidence.key.slice('topic:'.length);
+      if (phraseOverlaps(seed, topic)) return true;
+    }
+  }
+
+  const snapshot = behavior?.rankingSnapshot;
+  if (!snapshot) return false;
+  for (const [topic, aggregate] of Object.entries(snapshot.topicStats)) {
+    const preference = aggregatePreference(aggregate);
+    if (preference.confidence < 0.6 || preference.score > -0.18) continue;
+    if (phraseOverlaps(seed, topic)) return true;
+  }
+  return false;
+}
+
 function hasBehaviorEvidence(behavior?: FrontierBehaviorModel): boolean {
   const snapshot = behavior?.rankingSnapshot;
   if (!snapshot) return false;
@@ -179,13 +216,20 @@ export function buildDiscoveryFocus(
   now = new Date(),
   pairEvidence?: FrontierPairEvidenceIndex,
   sessionIntent?: FrontierSessionIntent,
+  directPreferenceEvidence?: FrontierDirectPreferenceEvidenceIndex,
 ): string[] {
   if (profile.meaningfulInteractions <= 0 && !hasBehaviorEvidence(behavior)) return [];
 
   const scores = new Map<string, number>();
 
-  for (const [rawTopic, affinity] of Object.entries(profile.topicAffinity)) {
+  for (const [rawTopic, legacyAffinity] of Object.entries(profile.topicAffinity)) {
     const topic = normalizeTopic(rawTopic);
+    const affinity = effectiveDirectPreferenceAffinity(
+      legacyAffinity,
+      'topic',
+      rawTopic,
+      directPreferenceEvidence,
+    );
     if (!topic || GENERIC.has(topic) || affinity <= -0.15) continue;
     const knownPenalty = Math.max(0, profile.knownTopics[rawTopic] ?? profile.knownTopics[topic] ?? 0) * 0.12;
     const preference = behaviorScore(behavior, rawTopic) || behaviorScore(behavior, topic);
@@ -201,7 +245,13 @@ export function buildDiscoveryFocus(
       if (!topic || GENERIC.has(topic)) continue;
       const preference = aggregatePreference(aggregate);
       if (preference.confidence < 0.22 || preference.score <= 0.08) continue;
-      const score = preference.score * preference.confidence * 0.9 + (profile.topicAffinity[rawTopic] ?? 0);
+      const directAffinity = effectiveDirectPreferenceAffinity(
+        profile.topicAffinity[rawTopic] ?? 0,
+        'topic',
+        rawTopic,
+        directPreferenceEvidence,
+      );
+      const score = preference.score * preference.confidence * 0.9 + directAffinity;
       scores.set(topic, Math.max(scores.get(topic) ?? -Infinity, score));
     }
   }
@@ -232,6 +282,7 @@ export function buildDiscoveryFocus(
 
   for (const topic of rotatedDiscoverySeeds(now)) {
     if (selected.length >= cap) break;
+    if (seedSuppressedByLearnedDisinterest(topic, behavior, directPreferenceEvidence)) continue;
     if (overlapsExisting(selected, topic)) continue;
     selected.push(topic.slice(0, 64));
   }
