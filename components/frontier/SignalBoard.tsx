@@ -3,6 +3,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { CSSProperties, ReactNode } from 'react';
 import { ambientExplorationVector, emitFrontierAmbientExploration } from '@/lib/frontier/ambientState';
+import {
+  frontierDecisionPolicyMode,
+  listenFrontierDecisionOutcomes,
+  recordFrontierDecision,
+} from '@/lib/frontier/decisionLedger';
 import { FRONTIER_PINNED_TOPICS } from '@/lib/frontier/interests';
 import {
   frontierPackedColumnSpans,
@@ -10,6 +15,7 @@ import {
   frontierVisualRole,
   type FrontierVisualRole,
 } from '@/lib/frontier/presentation/mediaForward';
+import { useFrontierStore } from '@/lib/frontier/store';
 import {
   isFrontierTypingTarget,
   resolveFrontierFocalKeyboardIntent,
@@ -126,6 +132,7 @@ export function SignalBoard({
 }: Props) {
   usePredictivePrefetch();
   const density = useAdaptiveReadingDensity();
+  const decisionLoggingEnabled = useFrontierStore((state) => state.behavior.implicitLearning);
   const { playSearchResolved } = useUIFrequencies();
   const resolvedSoundQuery = useRef('');
   const endSentinel = useRef<HTMLDivElement | null>(null);
@@ -254,7 +261,28 @@ export function SignalBoard({
   }, [collapseInline, displayedItems, expandInline, visibleExpandedItemId]);
 
   const itemSignature = useMemo(() => displayedItems.map((item) => item.id).join('|'), [displayedItems]);
+  const upstreamSignature = useMemo(() => items.map((item) => item.id).join('|'), [items]);
+  const decisionPolicy = useMemo(
+    () => frontierDecisionPolicyMode(query, explorationTemperature),
+    [explorationTemperature, query],
+  );
   const explorationVector = useMemo(() => ambientExplorationVector(displayedItems), [displayedItems]);
+
+  useEffect(() => {
+    if (!decisionLoggingEnabled || !displayedItems.length) return;
+    recordFrontierDecision({
+      policyMode: decisionPolicy,
+      semanticEnabled,
+      streamEpoch,
+      upstreamIds: items.map((item) => item.id),
+      displayedIds: displayedItems.map((item) => item.id),
+    });
+  }, [decisionLoggingEnabled, decisionPolicy, displayedItems, itemSignature, items, semanticEnabled, streamEpoch, upstreamSignature]);
+
+  useEffect(() => {
+    if (!decisionLoggingEnabled) return;
+    return listenFrontierDecisionOutcomes();
+  }, [decisionLoggingEnabled]);
 
   useEffect(() => {
     emitFrontierAmbientExploration(explorationVector);

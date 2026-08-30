@@ -11,6 +11,7 @@ import {
   startBehaviorSession,
 } from './behavior';
 import { createInitialProfile, DEFAULT_COLLECTIONS } from './config';
+import { clearFrontierDecisionLedger, recordFrontierDecisionVisibility } from './decisionLedger';
 import { clearFrontierForagedSources } from './forage/sourceRoster';
 import { migrateFrontierProfile } from './profileMigration';
 import { applyReactionToProfile } from './scoring';
@@ -163,6 +164,10 @@ export const useFrontierStore = create<FrontierStore>()(
           history: { ...current.history, [item.id]: next },
           behavior: applyBehaviorEvent(current.behavior, item, { kind: 'impression' }),
         });
+        // SignalCard is already the canonical 55% viewport-seen authority.
+        // Attribute that same event to the active decision instead of adding a
+        // second observer solely for causal logging.
+        if (current.behavior.implicitLearning) recordFrontierDecisionVisibility(item.id, 0.55);
       },
 
       recordDwell: (item, dwellMs) => {
@@ -313,6 +318,7 @@ export const useFrontierStore = create<FrontierStore>()(
         const enabled = get().behavior.implicitLearning;
         const fresh = { ...createInitialBehaviorModel(), implicitLearning: enabled };
         set({ behavior: enabled ? startBehaviorSession(fresh) : fresh });
+        clearFrontierDecisionLedger();
         void frontierVectorStore.clear().catch(() => undefined);
         void clearFrontierTrajectories();
         void clearFrontierVelocityHistory();
@@ -323,9 +329,10 @@ export const useFrontierStore = create<FrontierStore>()(
         const parsed = migrateState(payload);
         if (!parsed) return false;
         set({ ...parsed, hydrated: true });
-        // Backups predate the independent fast-trajectory and velocity stores.
-        // Clear inferred derivatives so the imported profile is not combined
-        // with stale local momentum from the previously loaded profile.
+        // Backups predate the independent fast-trajectory, velocity, and
+        // exposure-attribution stores. Clear inferred derivatives so imported
+        // memory is never combined with stale local momentum or decisions.
+        clearFrontierDecisionLedger();
         void clearFrontierTrajectories();
         void clearFrontierVelocityHistory();
         return true;
@@ -333,6 +340,7 @@ export const useFrontierStore = create<FrontierStore>()(
 
       resetFrontier: () => {
         set({ ...initialState(), hydrated: true });
+        clearFrontierDecisionLedger();
         void frontierVectorStore.clear().catch(() => undefined);
         void clearFrontierTrajectories();
         void clearFrontierVelocityHistory();
