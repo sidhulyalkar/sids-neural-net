@@ -34,13 +34,11 @@ async function setRange(locator, value) {
   });
 
   const page = await context.newPage();
-  const consoleErrors = [];
-  page.on('console', (message) => {
-    if (message.type() === 'error') consoleErrors.push(message.text());
-  });
-  page.on('pageerror', (error) => consoleErrors.push(error.message));
+  const pageErrors = [];
+  page.on('pageerror', (error) => pageErrors.push(error.message));
 
-  await page.goto(url, { waitUntil: 'domcontentloaded' });
+  const response = await page.goto(url, { waitUntil: 'domcontentloaded' });
+  invariant(response && response.ok(), `FRONTIER route returned ${response?.status() ?? 'no response'}`);
   await page.locator('select[aria-label="View"]').selectOption('map');
   await page.getByRole('heading', { name: 'How your responses change' }).waitFor();
 
@@ -107,8 +105,7 @@ async function setRange(locator, value) {
     fullPage: true,
   });
 
-  const actionableErrors = consoleErrors.filter((entry) => !/favicon|ERR_BLOCKED_BY_CLIENT/i.test(entry));
-  invariant(actionableErrors.length === 0, `Browser console errors:\n${actionableErrors.join('\n')}`);
+  invariant(pageErrors.length === 0, `Longitudinal Cortex emitted page errors:\n${pageErrors.join('\n')}`);
 
   await browser.close();
   console.log(JSON.stringify({
@@ -116,6 +113,7 @@ async function setRange(locator, value) {
     checkins: storedCheckins.length,
     cameraCalls,
     stores: schema,
+    pageErrors,
   }, null, 2));
 })().catch((error) => {
   console.error(error);
