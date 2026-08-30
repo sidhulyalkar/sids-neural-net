@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { decodeDiscoveryFocus } from '@/lib/frontier/discoveryFocus';
 import { decorateFeedMedia } from '@/lib/frontier/media/proxySecurity';
+import type { FrontierObservableFeedResponse } from '@/lib/frontier/pipelineDiagnostics';
 import { getFrontierColdSnapshotFeed } from '@/lib/frontier/snapshotFeed';
 import type { FrontierFeedResponse } from '@/lib/frontier/types';
 
@@ -94,6 +95,7 @@ export async function GET(request: NextRequest) {
 
     const dependencies = await loadLiveDependencies();
     const focusTopics = requestedFocus.length ? requestedFocus : defaultPersonalFocus(dependencies);
+    const mode = forceFresh ? 'fresh-live' : 'focused-live';
     // The integrated mesh still owns recommendation discovery. Sports state is
     // fetched in parallel from the independently proven CDN transport, so the
     // failing Site API path cannot erase team utility from a manual refresh and
@@ -102,12 +104,19 @@ export async function GET(request: NextRequest) {
       dependencies.getIntegratedFrontierFeed({
         focusTopics,
         includeSnapshot: false,
+        pipelineMode: mode,
         adapterDeadlineMs: forceFresh ? MANUAL_REFRESH_BUDGET_MS : FOCUSED_LIVE_BUDGET_MS,
       }),
       dependencies.getCdnSportsStateFeed(),
     ]);
-    const feed = decorateFeedMedia(mergeRequestSportsState(integratedFeed, requestSports));
-    const mode = forceFresh ? 'fresh-live' : 'focused-live';
+    const decorated = decorateFeedMedia(mergeRequestSportsState(integratedFeed, requestSports));
+    // Media/sports decorators intentionally operate on the historical base feed
+    // shape. Reattach the optional diagnostic extension explicitly so a future
+    // narrow return type can never erase observability by accident.
+    const feed: FrontierObservableFeedResponse = {
+      ...decorated,
+      ...(integratedFeed.pipeline ? { pipeline: integratedFeed.pipeline } : {}),
+    };
     return NextResponse.json(feed, {
       headers: {
         'Cache-Control': 'no-store',
