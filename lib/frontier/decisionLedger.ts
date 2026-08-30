@@ -295,6 +295,21 @@ export function recordFrontierDecision(
   return decision;
 }
 
+export function recordFrontierDecisionVisibility(
+  itemId: string,
+  depth: number,
+  at = Date.now(),
+): void {
+  const current = readBrowserLedger();
+  const next = attributeFrontierDecisionOutcome(current, {
+    kind: 'visibility-depth',
+    itemId,
+    at,
+    depth,
+  }, getFrontierDecisionSessionId());
+  if (next !== current) writeBrowserLedger(next);
+}
+
 export function recordFrontierDecisionOutcome(event: FrontierSemanticTelemetry): void {
   const current = readBrowserLedger();
   const next = attributeFrontierDecisionOutcome(current, {
