@@ -7,6 +7,7 @@ import {
   frontierDecisionPolicyMode,
   listenFrontierDecisionOutcomes,
   recordFrontierDecision,
+  recordFrontierDecisionVisibility,
 } from '@/lib/frontier/decisionLedger';
 import { FRONTIER_PINNED_TOPICS } from '@/lib/frontier/interests';
 import {
@@ -135,6 +136,7 @@ export function SignalBoard({
   const decisionLoggingEnabled = useFrontierStore((state) => state.behavior.implicitLearning);
   const { playSearchResolved } = useUIFrequencies();
   const resolvedSoundQuery = useRef('');
+  const boardRef = useRef<HTMLDivElement | null>(null);
   const endSentinel = useRef<HTMLDivElement | null>(null);
   const nearEndAt = useRef(0);
   const hoveredRef = useRef<FrontierItem | undefined>(undefined);
@@ -285,6 +287,20 @@ export function SignalBoard({
   }, [decisionLoggingEnabled]);
 
   useEffect(() => {
+    const root = boardRef.current;
+    if (!decisionLoggingEnabled || !root || typeof IntersectionObserver === 'undefined') return;
+    const observer = new IntersectionObserver((entries) => {
+      for (const entry of entries) {
+        if (!entry.isIntersecting || entry.intersectionRatio < 0.55) continue;
+        const itemId = (entry.target as HTMLElement).dataset.frontierDecisionItem;
+        if (itemId) recordFrontierDecisionVisibility(itemId, entry.intersectionRatio);
+      }
+    }, { threshold: [0.55, 0.8] });
+    root.querySelectorAll<HTMLElement>('[data-frontier-decision-item]').forEach((node) => observer.observe(node));
+    return () => observer.disconnect();
+  }, [decisionLoggingEnabled, itemSignature, mode]);
+
+  useEffect(() => {
     emitFrontierAmbientExploration(explorationVector);
   }, [explorationVector]);
 
@@ -321,6 +337,7 @@ export function SignalBoard({
 
   return (
     <div
+      ref={boardRef}
       className={`${styles.boardShell} ${spatial.board} ${densityStyles.scope}`}
       data-vector-backend={semantic.backend}
       data-exploration={explorationVector.toFixed(3)}
@@ -342,6 +359,7 @@ export function SignalBoard({
                 className={`${styles.feedItem} ${spatial.feedItem} ${item.highPriority ? spatial.priorityFeedItem : ''} ${item.velocitySignal ? spatial.velocityItem : ''} ${perf.virtualItem} ${perf.feedVirtualItem}`}
               >
                 <div
+                  data-frontier-decision-item={item.id}
                   data-frontier-priority={item.highPriority ? 'true' : undefined}
                   data-frontier-velocity={item.velocitySignal ? 'true' : undefined}
                   {...hoverProps(item)}
@@ -381,6 +399,7 @@ export function SignalBoard({
                 style={packedStyle}
               >
                 <div
+                  data-frontier-decision-item={item.id}
                   data-frontier-priority={item.highPriority ? 'true' : undefined}
                   data-frontier-velocity={item.velocitySignal ? 'true' : undefined}
                   data-frontier-visual-role={visualRole}
