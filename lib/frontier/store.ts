@@ -12,10 +12,12 @@ import {
 } from './behavior';
 import { createInitialProfile, DEFAULT_COLLECTIONS } from './config';
 import { clearFrontierForagedSources } from './forage/sourceRoster';
+import type { FrontierAmbientReaction } from './reaction';
 import { applyReactionToProfile } from './scoring';
 import { clearFrontierVelocityHistory } from './synthesis/velocityEngine';
 import { clearFrontierTrajectories } from './trajectory/contextTrajectories';
 import type {
+  FrontierAmbientReactionSummary,
   FrontierBehaviorModel,
   FrontierCollection,
   FrontierGameState,
@@ -78,6 +80,28 @@ function behaviorKindForReaction(reaction: FrontierReaction): 'positive' | 'nega
   return undefined;
 }
 
+function ambientWeight(reaction: FrontierAmbientReaction): number {
+  const confidence = Math.max(0, Math.min(1, reaction.confidence));
+  const intensity = Math.max(0, Math.min(1, reaction.intensity));
+  const durationWeight = Math.max(0.55, Math.min(1.25, reaction.durationMs / 1_500));
+  return confidence * (0.55 + intensity * 0.45) * durationWeight;
+}
+
+function updateAmbientSummary(
+  previous: FrontierAmbientReactionSummary | undefined,
+  reaction: FrontierAmbientReaction,
+  now: string
+): FrontierAmbientReactionSummary {
+  const next: FrontierAmbientReactionSummary = previous
+    ? { ...previous }
+    : { affinity: 0, interest: 0, surprise: 0, friction: 0, evidence: 0 };
+  const evidence = ambientWeight(reaction);
+  next[reaction.kind] += evidence;
+  next.evidence += evidence;
+  next.lastAt = now;
+  return next;
+}
+
 export type FrontierStore = FrontierPersistedState & {
   hydrated: boolean;
   setHydrated: (value: boolean) => void;
@@ -89,6 +113,7 @@ export type FrontierStore = FrontierPersistedState & {
   recordDwell: (item: FrontierItem, dwellMs: number) => void;
   recordExpand: (item: FrontierItem) => void;
   recordOpen: (item: FrontierItem) => void;
+  recordAmbientReaction: (item: FrontierItem, reaction: FrontierAmbientReaction) => void;
   react: (item: FrontierItem, reaction: FrontierReaction) => void;
   toggleSave: (item: FrontierItem) => void;
   createCollection: (name: string, description?: string) => string;
@@ -194,6 +219,33 @@ export const useFrontierStore = create<FrontierStore>()(
           game: updateStreak(current.game),
         });
         if (current.behavior.implicitLearning) emitFrontierSemanticTelemetry({ kind: 'open', item });
+      },
+
+      recordAmbientReaction: (item, reaction) => {
+        const current = get();
+        if (!current.behavior.implicitLearning || item.sourceKind === 'local') return;
+        const now = new Date().toISOString();
+        const previous = current.history[item.id] ?? historyEntry(item);
+        set({
+          behavior: applyBehaviorEvent(current.behavior, item, {
+            kind: 'ambient_reaction',
+            ambientReaction: reaction.kind,
+            confidence: reaction.confidence,
+            intensity: reaction.intensity,
+            durationMs: reaction.durationMs,
+          }),
+          history: {
+            ...current.history,
+            [item.id]: {
+              ...previous,
+              item,
+              lastSeenAt: now,
+              ambientReaction: updateAmbientSummary(previous.ambientReaction, reaction, now),
+            },
+          },
+        });
+        // Deliberately no semantic telemetry here. Ambient face-derived cues remain
+        // local to the browser even when other explicit FRONTIER telemetry is enabled.
       },
 
       react: (item, reaction) => {
