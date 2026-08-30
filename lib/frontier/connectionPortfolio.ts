@@ -13,10 +13,6 @@ const SPECIFIC_MOTION_TOPIC_IDS = new Set([
   'freestyle-scooter',
 ]);
 
-// These taste topics are valuable semantic/method priors, but they are too broad
-// to serve as full-strength repetition identities. A skate pose toolkit and a
-// disc-flight simulator can both be scientific software without representing
-// the same personal connection. Keep these nodes as transfer evidence only.
 const TRANSFER_ONLY_TOPIC_IDS = new Set([
   'active-sports',
   'sports-data',
@@ -46,13 +42,6 @@ function canonical(left: string, right: string): string {
   return [left, right].sort((a, b) => a.localeCompare(b)).join(' × ');
 }
 
-/**
- * Portfolio signatures describe the *kind* of connection rather than the item.
- * Concrete interest × method edges carry the most weight. Parent topics,
- * method-shaped topics, domain pairs, and domain-method edges are transfer
- * evidence only, so nearby interests can inform one another without becoming
- * repetition-equivalent.
- */
 export function interestConnectionSignatures(item: FrontierItem): FrontierConnectionSignature[] {
   const connection = personalInterestConnection(item);
   if (connection.score < 0.035 || connection.confidence < 0.5) return [];
@@ -60,27 +49,21 @@ export function interestConnectionSignatures(item: FrontierItem): FrontierConnec
   const signatures = new Map<string, number>();
   const hasSpecificMotionTopic = connection.topicIds.some((topic) => SPECIFIC_MOTION_TOPIC_IDS.has(topic));
   for (const topic of connection.topicIds) {
-    // A concrete owner-interest identity may carry exact fatigue authority.
-    // Umbrella/method topics stay weak even if they matched literally, because
-    // they explain *how* two cards connect rather than *which interest* it is.
-    let topicWeight = TRANSFER_ONLY_TOPIC_IDS.has(topic) ? 0.28 : 1;
-    if (topic === 'active-sports' && hasSpecificMotionTopic) topicWeight = 0.24;
+    let topicWeight = TRANSFER_ONLY_TOPIC_IDS.has(topic) ? 0.14 : 1;
+    if (topic === 'active-sports' && hasSpecificMotionTopic) topicWeight = 0.12;
     for (const facet of connection.facets) {
       signatures.set(canonical(`topic:${topic}`, `facet:${facet}`), topicWeight);
     }
   }
   for (let left = 0; left < connection.domains.length; left += 1) {
     for (let right = left + 1; right < connection.domains.length; right += 1) {
-      // A domain pair such as motion-sports × science-engineering is valuable
-      // for transfer, but far too broad to mean "you have seen this connection
-      // already." Keep it second-order beside a concrete interest × method edge.
-      signatures.set(canonical(`domain:${connection.domains[left]}`, `domain:${connection.domains[right]}`), 0.24);
+      signatures.set(canonical(`domain:${connection.domains[left]}`, `domain:${connection.domains[right]}`), 0.1);
     }
   }
   for (const domain of connection.domains) {
     for (const facet of connection.facets) {
       const key = canonical(`domain:${domain}`, `facet:${facet}`);
-      signatures.set(key, Math.max(signatures.get(key) ?? 0, 0.2));
+      signatures.set(key, Math.max(signatures.get(key) ?? 0, 0.08));
     }
   }
 
@@ -126,14 +109,6 @@ export function buildConnectionExposureIndex(
   return exposure;
 }
 
-/**
- * The portfolio taxes an intersection that has dominated recent cards and uses
- * a very small exploration subsidy only when two different uncertainties line
- * up correctly: the item itself is a high-confidence semantic bridge, but the
- * user's preference for that bridge is not yet well established. This is closer
- * to information-seeking exploration than generic novelty. Important/watch
- * signals bypass fatigue, and negative learned evidence still vetoes discovery.
- */
 export function connectionPortfolioAdjustment(
   item: FrontierItem,
   exposureIndex: Map<string, number>,
@@ -156,10 +131,6 @@ export function connectionPortfolioAdjustment(
     return { exposure, bonus: 0, penalty: 0, net: 0, signatures };
   }
 
-  // Preference uncertainty is high near zero confidence and disappears once the
-  // ledger has enough independent evidence. A known-positive bridge should rank
-  // because it is relevant, not because the exploration system keeps subsidizing
-  // an experiment whose answer we already know.
   const preferenceUncertainty = clamp((0.72 - learnedPairConfidence) / 0.72);
   const bonus = learnedPairAffinity > -0.12
     && exposure < 0.35
