@@ -29,6 +29,18 @@ function item(id: string, overrides: Partial<FrontierItem> = {}): FrontierItem {
   };
 }
 
+function bindingCandidates(): FrontierItem[] {
+  const generic = Array.from({ length: 320 }, (_, index) => item(`generic-${index}`));
+  const nfl = item('nfl-sports-analytics', {
+    title: 'NFL player tracking model combines EPA and CPOE',
+    summary: 'Open sports analytics project for player movement and route efficiency.',
+    lane: 'sports',
+    tags: ['nfl', 'player tracking', 'sports analytics'],
+    baseScore: 0.77,
+  });
+  return [...generic, nfl];
+}
+
 test('non-binding candidate caps report zero bootstrap taste membership leverage', () => {
   const eligible = [item('one'), item('two'), item('three')];
   const retained = [...eligible].sort((a, b) => frontierCandidatePriority(b) - frontierCandidatePriority(a));
@@ -45,21 +57,14 @@ test('non-binding candidate caps report zero bootstrap taste membership leverage
 });
 
 test('binding cap measures membership protected by bootstrap taste without exposing identities', () => {
-  const generic = Array.from({ length: 320 }, (_, index) => item(`generic-${index}`));
-  const nfl = enrichFrontierSemantics(item('nfl-sports-analytics', {
-    title: 'NFL player tracking model combines EPA and CPOE',
-    summary: 'Open sports analytics project for player movement and route efficiency.',
-    lane: 'sports',
-    tags: ['nfl', 'player tracking', 'sports analytics'],
-    baseScore: 0.77,
-  }));
-  const eligible = [...generic, nfl];
+  const eligible = bindingCandidates().map(enrichFrontierSemantics);
+  const nfl = eligible.at(-1)!;
   const retained = [...eligible]
     .sort((a, b) => frontierCandidatePriority(b) - frontierCandidatePriority(a))
     .slice(0, 320);
   const audit = auditBootstrapTasteCandidateCap(eligible, retained, 320);
 
-  assert.equal(frontierCandidatePriority(nfl) > frontierCandidatePriority(generic[0]), true);
+  assert.equal(frontierCandidatePriority(nfl) > frontierCandidatePriority(eligible[0]), true);
   assert.equal(audit.eligible, 321);
   assert.equal(audit.retained, 320);
   assert.equal(audit.tasteProtected, 1);
@@ -77,15 +82,17 @@ test('binding cap measures membership protected by bootstrap taste without expos
   ]);
 });
 
-test('candidate-pool preparation preserves the existing retained ordering before audit wiring', () => {
-  const candidates = Array.from({ length: 327 }, (_, index) => item(`candidate-${index}`, {
-    baseScore: 0.72 + (index % 17) / 100,
-  }));
+test('candidate-pool preparation preserves retained ordering while emitting the same cap audit', () => {
+  const candidates = bindingCandidates();
   const prepared = prepareFrontierCandidatePool(candidates);
-  const expected = candidates
-    .map(enrichFrontierSemantics)
+  const enriched = candidates.map(enrichFrontierSemantics);
+  const expected = [...enriched]
     .sort((a, b) => frontierCandidatePriority(b) - frontierCandidatePriority(a))
-    .slice(0, 320)
-    .map((entry) => entry.id);
-  assert.deepEqual(prepared.items.map((entry) => entry.id), expected);
+    .slice(0, 320);
+  const expectedAudit = auditBootstrapTasteCandidateCap(enriched, expected, 320);
+
+  assert.deepEqual(prepared.items.map((entry) => entry.id), expected.map((entry) => entry.id));
+  assert.deepEqual(prepared.bootstrapTasteCandidateCap, expectedAudit);
+  assert.equal(prepared.bootstrapTasteCandidateCap.tasteProtected, 1);
+  assert.equal(prepared.bootstrapTasteCandidateCap.tasteDisplaced, 1);
 });
