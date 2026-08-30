@@ -4,6 +4,8 @@ import type { FrontierHistoryEntry, FrontierItem } from './types';
 const DAY_MS = 86_400_000;
 const RECENCY_HALF_LIFE_DAYS = 4.5;
 const MAX_SIGNATURES = 18;
+const EXACT_SIGNATURE_THRESHOLD = 0.8;
+const TRANSFER_EXPOSURE_CAP = 0.22;
 const SPECIFIC_MOTION_TOPIC_IDS = new Set([
   'rock-climbing',
   'mountain-biking',
@@ -13,10 +15,6 @@ const SPECIFIC_MOTION_TOPIC_IDS = new Set([
   'freestyle-scooter',
 ]);
 
-// These taste topics are valuable semantic/method priors, but they are too broad
-// to serve as full-strength repetition identities. A skate pose toolkit and a
-// disc-flight simulator can both be scientific software without representing
-// the same personal connection. Keep these nodes as transfer evidence only.
 const TRANSFER_ONLY_TOPIC_IDS = new Set([
   'active-sports',
   'sports-data',
@@ -47,11 +45,10 @@ function canonical(left: string, right: string): string {
 }
 
 /**
- * Portfolio signatures describe the *kind* of connection rather than the item.
- * Concrete interest × method edges carry the most weight. Parent topics,
- * method-shaped topics, domain pairs, and domain-method edges are transfer
- * evidence only, so nearby interests can inform one another without becoming
- * repetition-equivalent.
+ * Portfolio signatures describe the kind of connection rather than the item.
+ * Concrete interest × method edges carry full fatigue authority. Parent topics,
+ * domains, and shared methods are deliberately weak transfer evidence so seeing
+ * five skate-pose projects does not make climbing-biomechanics feel exhausted.
  */
 export function interestConnectionSignatures(item: FrontierItem): FrontierConnectionSignature[] {
   const connection = personalInterestConnection(item);
@@ -60,27 +57,21 @@ export function interestConnectionSignatures(item: FrontierItem): FrontierConnec
   const signatures = new Map<string, number>();
   const hasSpecificMotionTopic = connection.topicIds.some((topic) => SPECIFIC_MOTION_TOPIC_IDS.has(topic));
   for (const topic of connection.topicIds) {
-    // A concrete owner-interest identity may carry exact fatigue authority.
-    // Umbrella/method topics stay weak even if they matched literally, because
-    // they explain *how* two cards connect rather than *which interest* it is.
-    let topicWeight = TRANSFER_ONLY_TOPIC_IDS.has(topic) ? 0.28 : 1;
-    if (topic === 'active-sports' && hasSpecificMotionTopic) topicWeight = 0.24;
+    let topicWeight = TRANSFER_ONLY_TOPIC_IDS.has(topic) ? 0.14 : 1;
+    if (topic === 'active-sports' && hasSpecificMotionTopic) topicWeight = 0.12;
     for (const facet of connection.facets) {
       signatures.set(canonical(`topic:${topic}`, `facet:${facet}`), topicWeight);
     }
   }
   for (let left = 0; left < connection.domains.length; left += 1) {
     for (let right = left + 1; right < connection.domains.length; right += 1) {
-      // A domain pair such as motion-sports × science-engineering is valuable
-      // for transfer, but far too broad to mean "you have seen this connection
-      // already." Keep it second-order beside a concrete interest × method edge.
-      signatures.set(canonical(`domain:${connection.domains[left]}`, `domain:${connection.domains[right]}`), 0.24);
+      signatures.set(canonical(`domain:${connection.domains[left]}`, `domain:${connection.domains[right]}`), 0.1);
     }
   }
   for (const domain of connection.domains) {
     for (const facet of connection.facets) {
       const key = canonical(`domain:${domain}`, `facet:${facet}`);
-      signatures.set(key, Math.max(signatures.get(key) ?? 0, 0.2));
+      signatures.set(key, Math.max(signatures.get(key) ?? 0, 0.08));
     }
   }
 
@@ -126,36 +117,59 @@ export function buildConnectionExposureIndex(
   return exposure;
 }
 
+function weightedExposure(
+  signatures: FrontierConnectionSignature[],
+  exposureIndex: Map<string, number>,
+): number {
+  const rankWeights = [0.55, 0.25, 0.13, 0.07];
+  return signatures
+    .map(({ key, weight }) => (exposureIndex.get(key) ?? 0) * weight)
+    .filter((value) => value > 0)
+    .sort((left, right) => right - left)
+    .slice(0, rankWeights.length)
+    .reduce((sum, value, index) => sum + value * rankWeights[index], 0);
+}
+
 /**
- * The portfolio rewards a genuinely fresh, high-confidence bridge a little and
- * progressively taxes an intersection that has already dominated recent cards.
- * Important/watch signals are never suppressed by this personalization brake.
- * Learned negative pair evidence also vetoes the freshness bonus so exploration
- * cannot sneak a rejected connection back in through a separate scoring path.
+ * Exact repetition and transferable similarity are intentionally different
+ * currencies. An exact concrete-interest × method match can accumulate enough
+ * exposure to suppress another near-duplicate. Parent/domain/method overlap may
+ * only contribute a small capped shadow. This preserves useful transfer without
+ * letting five skate-pose cards make climbing-biomechanics feel already seen.
  */
+function portfolioExposure(
+  signatures: FrontierConnectionSignature[],
+  exposureIndex: Map<string, number>,
+): number {
+  const exact = signatures.filter(({ weight }) => weight >= EXACT_SIGNATURE_THRESHOLD);
+  const transfer = signatures.filter(({ weight }) => weight < EXACT_SIGNATURE_THRESHOLD);
+  const exactExposure = weightedExposure(exact, exposureIndex);
+  const transferExposure = Math.min(TRANSFER_EXPOSURE_CAP, weightedExposure(transfer, exposureIndex) * 0.35);
+  return exactExposure + transferExposure;
+}
+
 export function connectionPortfolioAdjustment(
   item: FrontierItem,
   exposureIndex: Map<string, number>,
   learnedPairAffinity = 0,
+  learnedPairConfidence = 0,
 ): FrontierConnectionPortfolioAdjustment {
   const signatures = interestConnectionSignatures(item);
   if (!signatures.length) return { exposure: 0, bonus: 0, penalty: 0, net: 0, signatures };
 
-  const matches = signatures
-    .map(({ key, weight }) => (exposureIndex.get(key) ?? 0) * weight)
-    .filter((value) => value > 0)
-    .sort((left, right) => right - left)
-    .slice(0, 4);
-  const weights = [0.55, 0.25, 0.13, 0.07];
-  const exposure = matches.reduce((sum, value, index) => sum + value * weights[index], 0);
+  const exposure = portfolioExposure(signatures, exposureIndex);
   const connection = personalInterestConnection(item);
 
   if (item.highPriority || item.watchSignal || item.importance >= 0.88) {
     return { exposure, bonus: 0, penalty: 0, net: 0, signatures };
   }
 
-  const bonus = learnedPairAffinity > -0.12 && exposure < 0.35 && connection.confidence >= 0.6
-    ? Math.min(0.018, connection.score * connection.confidence * 0.17)
+  const preferenceUncertainty = clamp((0.72 - learnedPairConfidence) / 0.72);
+  const bonus = learnedPairAffinity > -0.12
+    && exposure < 0.35
+    && connection.confidence >= 0.6
+    && preferenceUncertainty > 0
+    ? Math.min(0.018, connection.score * connection.confidence * 0.17) * preferenceUncertainty
     : 0;
   const penalty = exposure > 0.8
     ? Math.min(0.075, (exposure - 0.8) * 0.022)

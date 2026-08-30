@@ -49,6 +49,27 @@ test('method applications to a concrete motion sport earn a bounded connection s
   assert.match(connection.explanation ?? '', /Applies|Connects/);
 });
 
+test('graph-only child identities improve memory precision without inflating ranking evidence', () => {
+  const skate = personalInterestConnection(item({
+    id: 'bare-skate',
+    title: 'Skateboarding pose estimation toolkit',
+    summary: 'Open-source biomechanics toolkit.',
+    tags: ['skateboarding', 'pose estimation', 'biomechanics', 'open source'],
+  }));
+  const broadMotion = personalInterestConnection(item({
+    id: 'broad-motion',
+    title: 'Longboarding pose estimation toolkit',
+    summary: 'Open-source biomechanics toolkit.',
+    tags: ['longboarding', 'pose estimation', 'biomechanics', 'open source'],
+  }));
+
+  assert.ok(skate.topicIds.includes('skate-progression'));
+  assert.equal(skate.score, broadMotion.score,
+    'splitting a broad motion-sport identity must not manufacture more bridge score');
+  assert.equal(skate.confidence, broadMotion.confidence,
+    'graph-only identity detail must not manufacture more evidence confidence');
+});
+
 test('true cross-domain candidates outrank same-interest synonym piles in connection depth', () => {
   const crossDomain = personalInterestConnection(item({
     id: 'game-skate',

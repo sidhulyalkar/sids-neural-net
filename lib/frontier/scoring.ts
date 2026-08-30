@@ -6,12 +6,18 @@ import { personalInterestConnection } from './interestGraph';
 import {
   buildPairEvidenceIndex,
   effectivePairAffinityForItem,
+  pairEvidenceForItem,
   type FrontierPairEvidenceIndex,
 } from './pairEvidence';
 import {
   personalTasteRankingPrior,
   strongestPersonalTasteLabel,
 } from './personalTaste';
+import {
+  buildSessionIntent,
+  sessionIntentAdjustment,
+  type FrontierSessionIntent,
+} from './sessionIntent';
 import { isFrontierSourceAdmitted, sourceTrustRankingPrior } from './sourceTrust';
 import { applyExplicitPairSignal, pairAffinityForItem } from './tasteLearning';
 import type {
@@ -50,6 +56,13 @@ function reactionValue(reaction: FrontierReaction): number {
     case 'meh': return -0.45;
     case 'hide': return -1;
   }
+}
+
+function consequentialInterruptPrior(item: FrontierItem): number {
+  if (item.lane !== 'must_know') return 0;
+  const severity = clamp((item.importance - 0.82) / 0.16);
+  const evidenceQuality = clamp((item.quality - 0.72) / 0.26);
+  return Math.min(0.1, severity * evidenceQuality * 0.1);
 }
 
 export function applyReactionToProfile(profile: FrontierProfile, item: FrontierItem, reaction: FrontierReaction): FrontierProfile {
@@ -119,6 +132,7 @@ export function personalizedScore(
   now = new Date(),
   behavior?: FrontierBehaviorModel,
   pairEvidence?: FrontierPairEvidenceIndex,
+  sessionIntent?: FrontierSessionIntent,
 ): number {
   if (historyEntry?.reaction === 'hide') return -1;
 
@@ -144,6 +158,8 @@ export function personalizedScore(
   const connection = personalInterestConnection(item);
   const learnedConnectionGate = pairSignal <= -0.15 ? 0.12 : 1;
   const connectionPrior = connection.score * connection.confidence * tasteSuppression * learnedConnectionGate;
+  const activeIntent = sessionIntent ? sessionIntentAdjustment(item, sessionIntent).score : 0;
+  const consequentialInterrupt = consequentialInterruptPrior(item);
 
   const score =
     item.baseScore * 0.28 +
@@ -162,6 +178,8 @@ export function personalizedScore(
     sourceTrustPrior +
     tastePrior +
     connectionPrior +
+    activeIntent +
+    consequentialInterrupt +
     resurfaceBonus(historyEntry, now);
 
   return clamp(score, -1, 1.5);
@@ -174,16 +192,23 @@ export function rankFrontierItems(
   now = new Date(),
   behavior?: FrontierBehaviorModel,
   pairEvidence = buildPairEvidenceIndex(history, now),
+  sessionIntent = buildSessionIntent(history, now),
 ): FrontierItem[] {
   const connectionExposure = buildConnectionExposureIndex(history, now);
   return items
     .filter((item) => history[item.id]?.reaction !== 'hide' && isFrontierSourceAdmitted(item))
     .map((item) => {
       const pairSignal = learnedPairAffinity(item, profile, pairEvidence);
-      const portfolio = connectionPortfolioAdjustment(item, connectionExposure, pairSignal);
+      const preferenceEvidence = pairEvidenceForItem(item, pairEvidence);
+      const portfolio = connectionPortfolioAdjustment(
+        item,
+        connectionExposure,
+        pairSignal,
+        preferenceEvidence.confidence,
+      );
       return {
         item,
-        score: personalizedScore(item, profile, history[item.id], now, behavior, pairEvidence) + portfolio.net,
+        score: personalizedScore(item, profile, history[item.id], now, behavior, pairEvidence, sessionIntent) + portfolio.net,
       };
     })
     .sort((a, b) => b.score - a.score)

@@ -18,12 +18,14 @@ import {
   frontierSeenSignatures,
   migrateFrontierHistoryToSeenLedger,
 } from '@/lib/frontier/live/seenLedger';
+import { buildPairEvidenceIndex } from '@/lib/frontier/pairEvidence';
 import {
   buildDailyQuests,
   explainRecommendation,
   rankFrontierItems,
   selectDailyRun,
 } from '@/lib/frontier/scoring';
+import { buildSessionIntent } from '@/lib/frontier/sessionIntent';
 import {
   buildTopicSearchFocus,
   normalizeTopicSearch,
@@ -178,9 +180,14 @@ export function FrontierExperience({ initialDateLabel, initialDayKey }: Props) {
   const recordLayout = store.recordLayout;
   const { launchWaterfall, waterfallActive } = useWaterfallText(searchInput, { collisionRef: utilityDockRef });
 
+  // Derive the two fast-changing personalization layers once from canonical
+  // history and share them across retrieval, ranking, and explanations. Neither
+  // is persisted separately, so there is no second source of memory truth.
+  const pairEvidence = useMemo(() => buildPairEvidenceIndex(store.history), [store.history]);
+  const sessionIntent = useMemo(() => buildSessionIntent(store.history), [store.history]);
   const adaptiveFocus = useMemo(
-    () => buildDiscoveryFocus(store.profile, store.behavior, 7),
-    [store.profile, store.behavior]
+    () => buildDiscoveryFocus(store.profile, store.behavior, 7, new Date(), pairEvidence, sessionIntent),
+    [pairEvidence, sessionIntent, store.behavior, store.profile]
   );
   const requestFocus = useMemo(
     () => buildTopicSearchFocus(activeSearch, adaptiveFocus, 8),
@@ -388,8 +395,8 @@ export function FrontierExperience({ initialDateLabel, initialDayKey }: Props) {
   // second-chance resurfacing path. Seen material remains available in History
   // and Saved, but never competes with a fresh live rotation.
   const ranked = useMemo(
-    () => rankFrontierItems(items, store.profile, store.history, new Date(), store.behavior),
-    [items, store.behavior, store.history, store.profile]
+    () => rankFrontierItems(items, store.profile, store.history, new Date(), store.behavior, pairEvidence, sessionIntent),
+    [items, pairEvidence, sessionIntent, store.behavior, store.history, store.profile]
   );
   const realmRanked = useMemo(
     () => ranked.filter((item) => laneMatchesRealm(item.lane, realm)),
@@ -407,8 +414,8 @@ export function FrontierExperience({ initialDateLabel, initialDayKey }: Props) {
   const todayItems = useMemo(() => dedupeCanonical([...dailyRun, ...streamedToday]), [dailyRun, streamedToday]);
 
   const exploreRanked = useMemo(
-    () => rankFrontierItems(dedupeCanonical([...items, ...streamItems]), store.profile, store.history, new Date(), store.behavior),
-    [items, store.behavior, store.history, store.profile, streamItems]
+    () => rankFrontierItems(dedupeCanonical([...items, ...streamItems]), store.profile, store.history, new Date(), store.behavior, pairEvidence, sessionIntent),
+    [items, pairEvidence, sessionIntent, store.behavior, store.history, store.profile, streamItems]
   );
   const exploreRealmRanked = useMemo(
     () => exploreRanked.filter((item) => laneMatchesRealm(item.lane, realm)),
@@ -533,7 +540,7 @@ export function FrontierExperience({ initialDateLabel, initialDayKey }: Props) {
       presentation={presentation}
       saved={Boolean(store.saved[item.id])}
       reaction={store.history[item.id]?.reaction}
-      explanation={explainRecommendation(item, store.profile, store.behavior)}
+      explanation={explainRecommendation(item, store.profile, store.behavior, new Date(), pairEvidence)}
       resurfaced={item.tags.includes('second-chance')}
       onSeen={seenCallback}
       onDwell={dwellCallback}
@@ -542,7 +549,7 @@ export function FrontierExperience({ initialDateLabel, initialDayKey }: Props) {
       onSave={saveCallback}
       onReact={reactCallback}
     />
-  ), [dwellCallback, expandCallback, openCallback, reactCallback, saveCallback, seenCallback, store.behavior, store.history, store.profile, store.saved]);
+  ), [dwellCallback, expandCallback, openCallback, pairEvidence, reactCallback, saveCallback, seenCallback, store.behavior, store.history, store.profile, store.saved]);
 
   const submitSearch = useCallback((event?: FormEvent) => {
     event?.preventDefault();
