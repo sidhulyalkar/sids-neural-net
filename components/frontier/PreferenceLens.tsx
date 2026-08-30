@@ -3,6 +3,11 @@
 import { useMemo, useSyncExternalStore } from 'react';
 import { Brain, RotateCcw } from 'lucide-react';
 import { aggregatePreference, summarizeHabits } from '@/lib/frontier/behavior';
+import {
+  readFrontierClientPipeline,
+  readFrontierClientPipelineServer,
+  subscribeFrontierClientPipeline,
+} from '@/lib/frontier/clientPipelineDiagnostics';
 import { FRONTIER_LANE_MAP } from '@/lib/frontier/config';
 import {
   readFrontierDecisionLedger,
@@ -10,6 +15,7 @@ import {
   subscribeFrontierDecisionLedger,
 } from '@/lib/frontier/decisionLedger';
 import { auditFrontierExposure, type FrontierExposureAudit } from '@/lib/frontier/exposureAudit';
+import { auditFrontierPipelineHealth } from '@/lib/frontier/pipelineHealth';
 import { useFrontierStore } from '@/lib/frontier/store';
 import type { FrontierBehaviorModel, FrontierLaneId } from '@/lib/frontier/types';
 import styles from './frontier-minimal.module.css';
@@ -37,6 +43,18 @@ function maturityLabel(audit: FrontierExposureAudit): string {
   }
 }
 
+function pipelineStatusLabel(status: ReturnType<typeof auditFrontierPipelineHealth>['status']): string {
+  switch (status) {
+    case 'stable': return 'Stable';
+    case 'watch': return 'Needs attention';
+    case 'unobserved': return 'Awaiting evidence';
+  }
+}
+
+function countLabel(value: number | null | undefined): string {
+  return value === null || value === undefined ? '?' : String(value);
+}
+
 export function PreferenceLens({ behavior, onToggleLearning, onResetBehavior }: Props) {
   const profile = useFrontierStore((state) => state.profile);
   const decisionLedger = useSyncExternalStore(
@@ -44,7 +62,16 @@ export function PreferenceLens({ behavior, onToggleLearning, onResetBehavior }: 
     readFrontierDecisionLedger,
     readFrontierDecisionLedgerServer,
   );
+  const clientPipeline = useSyncExternalStore(
+    subscribeFrontierClientPipeline,
+    readFrontierClientPipeline,
+    readFrontierClientPipelineServer,
+  );
   const exposureAudit = useMemo(() => auditFrontierExposure(decisionLedger), [decisionLedger]);
+  const pipelineHealth = useMemo(
+    () => auditFrontierPipelineHealth(clientPipeline, exposureAudit),
+    [clientPipeline, exposureAudit],
+  );
   const insights = summarizeHabits(behavior).slice(0, 6);
   const lanes = Object.entries(behavior.laneStats)
     .map(([lane, stats]) => ({ lane: lane as FrontierLaneId, pref: aggregatePreference(stats) }))
@@ -90,6 +117,61 @@ export function PreferenceLens({ behavior, onToggleLearning, onResetBehavior }: 
         {pairings.length ? <span>{pairings.length} combinations</span> : null}
         {exposureAudit.decisions ? <span>{maturityLabel(exposureAudit)}</span> : null}
       </div>
+
+      {pipelineHealth.status !== 'unobserved' ? (
+        <div className={styles.habitGrid} aria-label="Recommendation pipeline health">
+          <div className={styles.habitCard}>
+            <span>Pipeline health</span>
+            <strong>{pipelineStatusLabel(pipelineHealth.status)} · {pipelineHealth.observedLatestBoundaries} latest boundaries</strong>
+            <div
+              className={styles.confidenceTrack}
+              title={pipelineHealth.warnings.length
+                ? pipelineHealth.warnings.join(' · ')
+                : 'No structural warning fired on the currently observed boundaries.'}
+            >
+              <div style={{ width: `${Math.min(100, Math.round((pipelineHealth.observedLatestBoundaries / 8) * 100))}%` }} />
+            </div>
+          </div>
+          <div className={styles.habitCard}>
+            <span>Latest supply</span>
+            <strong>
+              {clientPipeline.server?.stages.sourceAcquired !== null && clientPipeline.server?.stages.sourceAcquired !== undefined
+                ? `${countLabel(clientPipeline.server?.stages.sourceAcquired)} acquired → ${countLabel(clientPipeline.server?.stages.responseReady)} response-ready`
+                : `${countLabel(clientPipeline.server?.stages.candidateInput)} archive candidates → ${countLabel(clientPipeline.server?.stages.responseReady)} response-ready`}
+            </strong>
+            <div
+              className={styles.confidenceTrack}
+              title={clientPipeline.server?.coverage.sourceAcquisition === 'observed'
+                ? 'Live source acquisition was observed for this request.'
+                : 'Original Internet acquisition is unavailable for this offline snapshot.'}
+            >
+              <div style={{ width: clientPipeline.server ? '100%' : '0%' }} />
+            </div>
+          </div>
+          <div className={styles.habitCard}>
+            <span>Latest local policy</span>
+            <strong>{countLabel(clientPipeline.received)} received → {countLabel(clientPipeline.unseen)} unseen → {countLabel(clientPipeline.selected)} selected</strong>
+            <div
+              className={styles.confidenceTrack}
+              title="Selected means slate-selected; actual display and visibility remain owned by the decision ledger."
+            >
+              <div style={{ width: clientPipeline.selected === null ? '0%' : '100%' }} />
+            </div>
+          </div>
+          {exposureAudit.decisions ? (
+            <div className={styles.habitCard}>
+              <span>Longitudinal exposure</span>
+              <strong>{exposureAudit.overall.offered} offered → {exposureAudit.overall.visible} actually seen</strong>
+              <div
+                className={styles.confidenceTrack}
+                title="This is historical decision-ledger evidence, not the same cohort as the latest request above."
+              >
+                <div style={{ width: `${Math.round(exposureAudit.overall.visibility.value * 100)}%` }} />
+              </div>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
 
       {exposureAudit.decisions ? (
         <div className={styles.habitGrid} aria-label="Personalization evidence health">

@@ -4,6 +4,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import { Download, RefreshCw, RotateCcw, Search, Upload, X } from 'lucide-react';
 import {
+  clearFrontierClientPipeline,
+  recordFrontierClientFeed,
+  recordFrontierClientSelection,
+} from '@/lib/frontier/clientPipelineDiagnostics';
+import {
   FRONTIER_LANES,
   FRONTIER_LANE_MAP,
   laneMatchesRealm,
@@ -23,6 +28,7 @@ import {
   migrateFrontierHistoryToSeenLedger,
 } from '@/lib/frontier/live/seenLedger';
 import { buildPairEvidenceIndex } from '@/lib/frontier/pairEvidence';
+import type { FrontierObservableFeedResponse } from '@/lib/frontier/pipelineDiagnostics';
 import {
   buildDailyQuests,
   explainRecommendation,
@@ -313,7 +319,7 @@ export function FrontierExperience({ initialDateLabel, initialDayKey }: Props) {
     setLoading(true);
     setError(undefined);
 
-    const fetchPayload = async (requestFocusSignature: string): Promise<FrontierFeedResponse & { error?: string }> => {
+    const fetchPayload = async (requestFocusSignature: string): Promise<FrontierObservableFeedResponse & { error?: string }> => {
       const params = new URLSearchParams();
       if (requestFocusSignature) params.set('focus', requestFocusSignature);
       if (forceFresh) {
@@ -325,7 +331,7 @@ export function FrontierExperience({ initialDateLabel, initialDayKey }: Props) {
         signal: controller.signal,
       });
       if (!response.ok) throw new Error(`Feed returned ${response.status}`);
-      return await response.json() as FrontierFeedResponse & { error?: string };
+      return await response.json() as FrontierObservableFeedResponse & { error?: string };
     };
 
     try {
@@ -333,7 +339,9 @@ export function FrontierExperience({ initialDateLabel, initialDayKey }: Props) {
       // snapshot-first path. Adaptive interests are read through a ref only for
       // explicit search/refresh work so profile hydration cannot restart cold load.
       const payload = await fetchPayload(focus);
+      const receivedCount = payload.items?.length ?? 0;
       let nextItems = await filterUnseenFrontierItems(payload.items ?? []);
+      const unseenCount = nextItems.length;
       const nextSources = payload.sources ?? [];
       const nextGeneratedAt = payload.generatedAt;
 
@@ -343,6 +351,12 @@ export function FrontierExperience({ initialDateLabel, initialDayKey }: Props) {
       }
 
       if (controller.signal.aborted) return;
+      recordFrontierClientFeed({
+        server: payload.pipeline,
+        received: receivedCount,
+        unseen: unseenCount,
+        rotationReady: nextItems.length,
+      });
       if (nextItems.length) {
         livePrimerArmed.current = true;
         if (forceFresh) {
@@ -447,6 +461,15 @@ export function FrontierExperience({ initialDateLabel, initialDayKey }: Props) {
     && !frontierSeenSignatures(item).some((signature) => dailySignatures.has(signature))
   )), [dailySignatures, realm, streamItems]);
   const todayItems = useMemo(() => dedupeCanonical([...dailyRun, ...streamedToday]), [dailyRun, streamedToday]);
+
+  useEffect(() => {
+    recordFrontierClientSelection({
+      ranked: ranked.length,
+      realmEligible: realmRanked.length,
+      selected: dailyRun.length,
+      boardInput: todayItems.length,
+    });
+  }, [dailyRun.length, ranked.length, realmRanked.length, todayItems.length]);
 
   const exploreRanked = useMemo(
     () => rankFrontierItems(
@@ -689,6 +712,7 @@ export function FrontierExperience({ initialDateLabel, initialDayKey }: Props) {
   const resetAll = useCallback(() => {
     store.resetFrontier();
     clearPending();
+    clearFrontierClientPipeline();
     setStreamItems([]);
     setDiversityReference([]);
     setExplorationTemperature(BASE_EXPLORATION_TEMPERATURE);
