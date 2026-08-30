@@ -186,8 +186,8 @@ export function FrontierExperience({ initialDateLabel, initialDayKey }: Props) {
   const pairEvidence = useMemo(() => buildPairEvidenceIndex(store.history), [store.history]);
   const sessionIntent = useMemo(() => buildSessionIntent(store.history), [store.history]);
   const adaptiveFocus = useMemo(
-    () => buildDiscoveryFocus(store.profile, store.behavior, 7, new Date(), pairEvidence),
-    [pairEvidence, store.behavior, store.profile]
+    () => buildDiscoveryFocus(store.profile, store.behavior, 7, new Date(), pairEvidence, sessionIntent),
+    [pairEvidence, sessionIntent, store.behavior, store.profile]
   );
   const requestFocus = useMemo(
     () => buildTopicSearchFocus(activeSearch, adaptiveFocus, 8),
