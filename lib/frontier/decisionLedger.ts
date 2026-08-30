@@ -13,6 +13,7 @@ export const FRONTIER_DECISION_ATTRIBUTION_WINDOW_MS = 4 * 60 * 60 * 1000;
 export const FRONTIER_DECISION_EXPLORE_THRESHOLD = 0.55;
 
 const DECISION_REUSE_WINDOW_MS = 15 * 60 * 1000;
+const LEDGER_WRITE_COALESCE_MS = 120;
 
 export type FrontierDecisionPolicyMode = 'passive' | 'search' | 'explore';
 
@@ -62,6 +63,9 @@ type DecisionOutcomeInput = Pick<FrontierSemanticTelemetry, 'kind' | 'at' | 'dwe
 };
 
 let fallbackSessionId: string | undefined;
+let browserLedgerCache: FrontierDecisionRecord[] | undefined;
+let ledgerWriteTimer: number | undefined;
+let ledgerLifecycleBound = false;
 
 function stableHash(value: string): string {
   let hash = 2166136261;
@@ -249,22 +253,67 @@ function parseLedger(value: string | null): FrontierDecisionRecord[] {
   }
 }
 
+function mergeLedgers(
+  stored: FrontierDecisionRecord[],
+  local: FrontierDecisionRecord[],
+): FrontierDecisionRecord[] {
+  const byId = new Map<string, FrontierDecisionRecord>();
+  for (const record of stored) byId.set(record.id, record);
+  for (const record of local) byId.set(record.id, record);
+  return Array.from(byId.values())
+    .sort((left, right) => left.at - right.at || left.id.localeCompare(right.id))
+    .slice(-FRONTIER_DECISION_MAX_RECORDS);
+}
+
 function readBrowserLedger(): FrontierDecisionRecord[] {
   if (typeof window === 'undefined') return [];
+  if (browserLedgerCache) return browserLedgerCache;
   try {
-    return parseLedger(window.localStorage.getItem(FRONTIER_DECISION_LEDGER_KEY));
+    browserLedgerCache = parseLedger(window.localStorage.getItem(FRONTIER_DECISION_LEDGER_KEY));
   } catch {
-    return [];
+    browserLedgerCache = [];
   }
+  bindLedgerLifecycle();
+  return browserLedgerCache;
+}
+
+function flushBrowserLedger(): void {
+  if (typeof window === 'undefined' || !browserLedgerCache) return;
+  if (ledgerWriteTimer !== undefined) {
+    window.clearTimeout(ledgerWriteTimer);
+    ledgerWriteTimer = undefined;
+  }
+  try {
+    // Reconcile with another tab only at the coalesced write boundary. The hot
+    // viewport path never reparses the full persisted ledger.
+    const stored = parseLedger(window.localStorage.getItem(FRONTIER_DECISION_LEDGER_KEY));
+    browserLedgerCache = mergeLedgers(stored, browserLedgerCache);
+    window.localStorage.setItem(FRONTIER_DECISION_LEDGER_KEY, JSON.stringify(browserLedgerCache));
+  } catch {
+    // Private mode, quota pressure, or disabled storage must never affect ranking.
+  }
+}
+
+function bindLedgerLifecycle(): void {
+  if (typeof window === 'undefined' || ledgerLifecycleBound) return;
+  ledgerLifecycleBound = true;
+  window.addEventListener('pagehide', flushBrowserLedger);
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') flushBrowserLedger();
+  });
+  window.addEventListener('storage', (event) => {
+    if (event.key !== FRONTIER_DECISION_LEDGER_KEY) return;
+    const external = parseLedger(event.newValue);
+    browserLedgerCache = browserLedgerCache ? mergeLedgers(external, browserLedgerCache) : external;
+  });
 }
 
 function writeBrowserLedger(records: FrontierDecisionRecord[]): void {
   if (typeof window === 'undefined') return;
-  try {
-    window.localStorage.setItem(FRONTIER_DECISION_LEDGER_KEY, JSON.stringify(records.slice(-FRONTIER_DECISION_MAX_RECORDS)));
-  } catch {
-    // Private mode, quota pressure, or disabled storage must never affect ranking.
-  }
+  browserLedgerCache = records.slice(-FRONTIER_DECISION_MAX_RECORDS);
+  bindLedgerLifecycle();
+  if (ledgerWriteTimer !== undefined) return;
+  ledgerWriteTimer = window.setTimeout(flushBrowserLedger, LEDGER_WRITE_COALESCE_MS);
 }
 
 function newSessionId(now = Date.now()): string {
@@ -338,6 +387,11 @@ export function readFrontierDecisionLedger(): FrontierDecisionRecord[] {
 
 export function clearFrontierDecisionLedger(): void {
   if (typeof window === 'undefined') return;
+  if (ledgerWriteTimer !== undefined) {
+    window.clearTimeout(ledgerWriteTimer);
+    ledgerWriteTimer = undefined;
+  }
+  browserLedgerCache = [];
   try { window.localStorage.removeItem(FRONTIER_DECISION_LEDGER_KEY); } catch {}
 }
 
