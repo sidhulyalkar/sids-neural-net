@@ -204,6 +204,16 @@ export const FRONTIER_REACTIONS = [
 ] as const;
 
 export type FrontierReaction = (typeof FRONTIER_REACTIONS)[number];
+export type FrontierAmbientReactionKind = 'affinity' | 'interest' | 'surprise' | 'friction';
+
+export type FrontierAmbientReactionSummary = {
+  affinity: number;
+  interest: number;
+  surprise: number;
+  friction: number;
+  evidence: number;
+  lastAt?: string;
+};
 
 export type FrontierProfile = {
   laneAffinity: Record<FrontierLaneId, number>;
@@ -223,6 +233,7 @@ export type FrontierHistoryEntry = {
   openedAt?: string;
   reaction?: FrontierReaction;
   reactedAt?: string;
+  ambientReaction?: FrontierAmbientReactionSummary;
   resurfacedCount: number;
   rewarded: boolean;
 };
@@ -254,12 +265,22 @@ export type FrontierBehaviorAggregate = {
   positive: number;
   negative: number;
   dwellMs: number;
+  /** Sparse, privacy-safe reaction evidence. These values are weighted counts, not emotion labels. */
+  ambientAffinity?: number;
+  ambientInterest?: number;
+  ambientSurprise?: number;
+  ambientFriction?: number;
+  ambientEvidence?: number;
   lastAt?: string;
 };
 
 export type FrontierBehaviorEvent = {
-  kind: 'impression' | 'dwell' | 'expand' | 'open' | 'save' | 'positive' | 'negative';
+  kind: 'impression' | 'dwell' | 'expand' | 'open' | 'save' | 'positive' | 'negative' | 'ambient_reaction';
   dwellMs?: number;
+  ambientReaction?: FrontierAmbientReactionKind;
+  confidence?: number;
+  intensity?: number;
+  durationMs?: number;
 };
 
 export type FrontierBehaviorSnapshot = {
