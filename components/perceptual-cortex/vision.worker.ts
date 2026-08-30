@@ -4,7 +4,8 @@ const VERSION = '0.10.17';
 const WASM = `https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${VERSION}/wasm`;
 const HAND_MODEL = 'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task';
 const FACE_MODEL = 'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task';
-type Detector = { detectForVideo(image: ImageBitmap, timestamp: number): { landmarks?: Landmark[][]; facialTransformationMatrixes?: Array<{ data: number[] }>; faceBlendshapes?: Array<{ categories: Array<{ score: number }> }> }; close(): void };
+type BlendshapeCategory = { categoryName?: string; displayName?: string; score: number };
+type Detector = { detectForVideo(image: ImageBitmap, timestamp: number): { landmarks?: Landmark[][]; facialTransformationMatrixes?: Array<{ data: number[] }>; faceBlendshapes?: Array<{ categories: BlendshapeCategory[] }> }; close(): void };
 let hand: Detector | null; let face: Detector | null; let previousPalms: Landmark[] = []; let previousTime = 0; let previousActivity = 0;
 self.onmessage = async (event: MessageEvent) => {
   if (event.data.type === 'init') {
@@ -19,8 +20,11 @@ self.onmessage = async (event: MessageEvent) => {
     try { if (!hand || !face) throw new Error('Vision models are not ready.'); const handsResult = hand.detectForVideo(bitmap, now); const faceResult = face.detectForVideo(bitmap, now); const landmarks = handsResult.landmarks ?? [];
       const palms = landmarks.map((points) => [0, 5, 9, 13, 17].map((id) => points[id]).reduce((sum, p) => ({ x: sum.x + p.x / 5, y: sum.y + p.y / 5, z: sum.z + p.z / 5 }), { x: 0, y: 0, z: 0 }));
       const handFeatures = deriveHandFeatures(landmarks, previousPalms, (now - previousTime) / 1000); previousPalms = palms; previousTime = now;
-      const matrix = faceResult.facialTransformationMatrixes?.[0]?.data as number[] | undefined; const scores = (faceResult.faceBlendshapes?.[0]?.categories ?? []).map((item: { score: number }) => item.score);
-      const faceFeatures = deriveFaceFeatures(matrix, scores, previousActivity); previousActivity = faceFeatures.activity;
+      const matrix = faceResult.facialTransformationMatrixes?.[0]?.data as number[] | undefined;
+      const blendshapes = Object.fromEntries((faceResult.faceBlendshapes?.[0]?.categories ?? [])
+        .map((item) => [item.categoryName || item.displayName || '', item.score] as const)
+        .filter(([name]) => Boolean(name)));
+      const faceFeatures = deriveFaceFeatures(matrix, blendshapes, previousActivity); previousActivity = faceFeatures.activity;
       self.postMessage({ type: 'features', hands: handFeatures, face: faceFeatures });
     } catch (error) { self.postMessage({ type: 'error', message: error instanceof Error ? error.message : 'Vision inference failed.' }); }
     finally { bitmap.close(); self.postMessage({ type: 'consumed' }); }
