@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { createInitialBehaviorModel, startBehaviorSession } from '../lib/frontier/behavior';
+import { aggregatePreference, createInitialBehaviorModel, startBehaviorSession } from '../lib/frontier/behavior';
 import { createInitialProfile } from '../lib/frontier/config';
 import { buildDirectPreferenceEvidenceIndex } from '../lib/frontier/directPreferenceEvidence';
 import { buildDiscoveryFocus } from '../lib/frontier/discoveryFocus';
@@ -29,6 +29,16 @@ function item(id: string, tags: string[], overrides: Partial<FrontierItem> = {})
     momentum: 0.5,
     ...overrides,
   };
+}
+
+function admittedItem(id: string, tags: string[], overrides: Partial<FrontierItem> = {}): FrontierItem {
+  return item(id, tags, {
+    url: `https://github.com/example/${id}`,
+    source: 'github.com',
+    sourceLabel: 'GitHub',
+    sourceKind: 'github',
+    ...overrides,
+  });
 }
 
 function historyEntry(source: FrontierItem, at: string, reaction: FrontierReaction): FrontierHistoryEntry {
@@ -67,8 +77,10 @@ test('ranking no longer lets a stale positive topic scalar independently fight s
   profile.meaningfulInteractions = 30;
   profile.topicAffinity['generic ai startup'] = 0.9;
   const history = contradictoryHistory('generic ai startup');
-  const rejected = item('rejected-current', ['generic ai startup']);
-  const neutral = item('neutral-current', ['distributed systems'], {
+  // Ranking tests must use candidates that survive the production provenance
+  // gate. Otherwise an empty ranking would only prove source admission works.
+  const rejected = admittedItem('rejected-current', ['generic ai startup']);
+  const neutral = admittedItem('neutral-current', ['distributed systems'], {
     lane: 'builder_signal',
     baseScore: 0.71,
   });
@@ -98,6 +110,7 @@ test('ranking no longer lets a stale positive topic scalar independently fight s
   assert.ok(reconciledScore < stalePriorScore - 0.04, `${reconciledScore} did not materially reduce stale prior ${stalePriorScore}`);
 
   const ranked = rankFrontierItems([rejected, neutral], profile, history, NOW, undefined, pairEvidence, undefined, directEvidence);
+  assert.equal(ranked.length, 2, 'ranking fixture must survive source admission before preference order is asserted');
   assert.equal(ranked[0].id, neutral.id, 'confidently rejected topic remained ahead of comparable neutral inventory');
 });
 
@@ -119,25 +132,27 @@ test('adaptive discovery does not spend learned or seed slots on a confidently r
 test('mature passive disinterest can retire a cold-start seed without explicit negative reactions', () => {
   const profile = createInitialProfile();
   profile.meaningfulInteractions = 25;
-  const target = item('ignored', ['game development'], { lane: 'creative_tech' });
   let behavior = createInitialBehaviorModel();
-  for (let index = 0; index < 28; index += 1) {
-    behavior.topicStats['game development'] = {
-      shown: index + 1,
-      dwelled: 0,
-      expanded: 0,
-      opened: 0,
-      saved: 0,
-      positive: 0,
-      negative: 0,
-      dwellMs: 0,
-      lastAt: `2026-08-30T${String(10 + Math.floor(index / 4)).padStart(2, '0')}:00:00.000Z`,
-    };
-  }
+  behavior.topicStats['game development'] = {
+    // Keep passive silence deliberately expensive to learn from. This fixture
+    // sits comfortably above the mature-evidence gate rather than testing a
+    // floating-point boundary around 0.60 confidence.
+    shown: 36,
+    dwelled: 0,
+    expanded: 0,
+    opened: 0,
+    saved: 0,
+    positive: 0,
+    negative: 0,
+    dwellMs: 0,
+    lastAt: '2026-08-30T18:00:00.000Z',
+  };
   // Snapshot is the ranking authority for behavior and intentionally does not
   // mutate during the active session.
   behavior = startBehaviorSession(behavior, NOW);
-  void target;
+  const passive = aggregatePreference(behavior.rankingSnapshot?.topicStats['game development'], NOW);
+  assert.ok(passive.confidence >= 0.6 && passive.score <= -0.18,
+    `fixture never reached mature passive-disinterest policy: score=${passive.score}, confidence=${passive.confidence}`);
 
   const focus = buildDiscoveryFocus(profile, behavior, 7, NOW);
   assert.ok(!focus.some((query) => query.includes('game development')),
@@ -153,9 +168,10 @@ test('low-confidence contradiction does not destabilize acquisition or explanati
     [weakReject.id]: historyEntry(weakReject, '2026-08-30T18:30:00.000Z', 'meh'),
   };
   const directEvidence = buildDirectPreferenceEvidenceIndex(history, NOW);
+  const baselineFocus = buildDiscoveryFocus(profile, undefined, 7, NOW);
   const focus = buildDiscoveryFocus(profile, undefined, 7, NOW, undefined, undefined, directEvidence);
-  assert.ok(focus.some((query) => query.includes('scientific visualization')),
-    'one weak negative should not erase a durable direct preference');
+  assert.deepEqual(focus, baselineFocus,
+    'one weak negative should not perturb the bounded acquisition plan');
 
   const current = item('current', ['scientific visualization'], { lane: 'methods' });
   const explanation = explainRecommendation(current, profile, undefined, NOW, undefined, directEvidence);
