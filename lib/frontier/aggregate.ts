@@ -8,11 +8,13 @@ import { enrichFrontierSourceVisual } from './media/sourceVisuals';
 import { getPersonalFrontierFeed } from './personalSources';
 import {
   buildFrontierPipelineDiagnostics,
+  type FrontierBootstrapTasteCapAudit,
   type FrontierObservableFeedResponse,
   type FrontierPipelineMode,
 } from './pipelineDiagnostics';
 import { personalTasteRankingPrior, personalTasteTags } from './personalTaste';
 import { getPersonalTasteFrontierFeed } from './personalTasteSources';
+import { auditBootstrapTasteCandidateCap } from './preferenceAuthorityAudit';
 import { getScreenOrbitFeed } from './screenSources';
 import { getSharedMultiSourceFrontierFeed } from './sourceIngestorShared';
 import { getFrontierFeed } from './sources';
@@ -57,6 +59,7 @@ export type FrontierCandidatePoolStages = {
 export type FrontierCandidatePoolPreparation = {
   items: FrontierItem[];
   stages: FrontierCandidatePoolStages;
+  bootstrapTasteCandidateCap: FrontierBootstrapTasteCapAudit;
 };
 
 export function isPlausibleFrontierCandidate(item: FrontierItem, now = Date.now()): boolean {
@@ -140,8 +143,8 @@ export function frontierCandidatePriority(item: FrontierItem): number {
 /**
  * Observes the existing candidate authority path without changing it. The
  * returned items are semantically identical to the former prepareCandidatePool
- * result; the stage counts contain no item IDs, titles, URLs, queries, or profile
- * state and therefore may safely cross the server/client diagnostic boundary.
+ * result; stage and authority counts contain no item IDs, titles, URLs, queries,
+ * or profile state and therefore may safely cross the diagnostic boundary.
  */
 export function prepareFrontierCandidatePool(items: FrontierItem[]): FrontierCandidatePoolPreparation {
   const plausible = items.filter((item) => isPlausibleFrontierCandidate(item));
@@ -149,9 +152,14 @@ export function prepareFrontierCandidatePool(items: FrontierItem[]): FrontierCan
   const enriched = rightsSafe.map(enrichFrontierSemantics);
   const deduped = dedupe(enriched);
   const admitted = vetFrontierItems(deduped);
-  const retained = admitted
+  const retained = [...admitted]
     .sort((a, b) => frontierCandidatePriority(b) - frontierCandidatePriority(a))
     .slice(0, MAX_INTEGRATED_CANDIDATES);
+  const bootstrapTasteCandidateCap = auditBootstrapTasteCandidateCap(
+    admitted,
+    retained,
+    MAX_INTEGRATED_CANDIDATES,
+  );
 
   return {
     items: retained,
@@ -163,6 +171,7 @@ export function prepareFrontierCandidatePool(items: FrontierItem[]): FrontierCan
       sourceAdmitted: admitted.length,
       candidateRetained: retained.length,
     },
+    bootstrapTasteCandidateCap,
   };
 }
 
@@ -383,6 +392,9 @@ export async function getIntegratedFrontierFeed(options: IntegratedOptions = {})
           candidateRetained: livePreparation.stages.candidateRetained,
           englishReady: items.length,
           responseReady: items.length,
+        },
+        authority: {
+          bootstrapTasteCandidateCap: livePreparation.bootstrapTasteCandidateCap,
         },
       })
     : undefined;
