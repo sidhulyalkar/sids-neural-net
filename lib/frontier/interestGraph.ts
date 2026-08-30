@@ -65,11 +65,6 @@ const TOPIC_DOMAIN: Record<string, FrontierInterestDomain> = {
   'nature-dogs': 'nature',
 };
 
-// Some broad cold-start topics intentionally remain grouped in personalTaste.ts
-// so they do not receive more ranking authority merely because the taxonomy is
-// more detailed. The connection graph can still preserve identity inside that
-// broad family, which is what lets MTB telemetry and climbing biomechanics learn
-// separately while sharing weaker motion-sports transfer.
 const GRAPH_IDENTITIES: readonly FrontierGraphIdentity[] = [
   {
     id: 'rock-climbing',
@@ -85,6 +80,21 @@ const GRAPH_IDENTITIES: readonly FrontierGraphIdentity[] = [
     id: 'skiing',
     label: 'skiing',
     patterns: [/\bskiing\b/i, /\bfreeski(?:ing)?\b/i, /\bbackcountry ski(?:ing)?\b/i],
+  },
+  {
+    id: 'disc-golf',
+    label: 'disc golf',
+    patterns: [/\bdisc golf\b/i, /\bpdga\b/i],
+  },
+  {
+    id: 'skate-progression',
+    label: 'skateboarding',
+    patterns: [/\bskateboarding\b/i, /\bstreet skating\b/i, /\bskateboard(?:ing)?\b/i],
+  },
+  {
+    id: 'freestyle-scooter',
+    label: 'freestyle scootering',
+    patterns: [/\bfreestyle scooter(?:ing)?\b/i, /\bpro scooter(?:ing)?\b/i, /\bscootering\b/i],
   },
 ];
 
@@ -168,12 +178,6 @@ function facetLabel(facet: FrontierConnectionFacet): string {
   return FACET_PATTERNS.find((entry) => entry.id === facet)?.label ?? facet;
 }
 
-/**
- * A connection is deliberately stricter than a topic match. FRONTIER only
- * earns a bridge bonus when one item either spans distinct owner-interest
- * domains or applies a transferable method to a concrete interest. This keeps
- * two synonyms from masquerading as interdisciplinary relevance.
- */
 export function personalInterestConnection(item: FrontierItem): FrontierInterestConnection {
   const tasteTopics = matchedPersonalTasteTopics(item);
   const graphIdentities = matchedGraphIdentities(item);
@@ -189,17 +193,12 @@ export function personalInterestConnection(item: FrontierItem): FrontierInterest
   const facets = matchedFacets(item);
   const methodFacets = facets.filter((facet) => METHOD_FACETS.has(facet));
   const domainSet = new Set(domains);
-  // Child identities improve memory precision, not evidence quantity. Use the
-  // already-established cold-start topic matches for numeric confidence/score
-  // so splitting active-sports into MTB/climbing/skiing cannot inflate ranking.
   const topicEvidenceCount = tasteTopics.length;
 
   let score = 0;
   if (domains.length >= 2) score += 0.045 + Math.min(0.028, (domains.length - 2) * 0.014);
   if (topicEvidenceCount >= 3) score += 0.01;
 
-  // Vertical bridges are especially useful: a concrete hobby plus a method the
-  // owner can build with, inspect, or transfer into another project.
   if (domainSet.has('motion-sports') && methodFacets.length) score += 0.042;
   if (domainSet.has('creative-systems') && methodFacets.length) score += 0.03;
   if (domainSet.has('sports-analysis') && (facets.includes('open-source') || facets.includes('visualization'))) score += 0.025;
