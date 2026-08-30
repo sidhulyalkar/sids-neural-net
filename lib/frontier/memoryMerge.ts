@@ -1,6 +1,7 @@
 import { createInitialBehaviorModel } from './behavior';
 import { createInitialProfile, DEFAULT_COLLECTIONS } from './config';
 import type {
+  FrontierAmbientReactionSummary,
   FrontierBehaviorAggregate,
   FrontierBehaviorModel,
   FrontierCollection,
@@ -54,6 +55,11 @@ function mergeProfile(left: FrontierProfile, right: FrontierProfile): FrontierPr
   };
 }
 
+function maxOptional(left?: number, right?: number): number | undefined {
+  if (left === undefined && right === undefined) return undefined;
+  return Math.max(left ?? 0, right ?? 0);
+}
+
 function mergeAggregate(left?: FrontierBehaviorAggregate, right?: FrontierBehaviorAggregate): FrontierBehaviorAggregate | undefined {
   if (!left) return right;
   if (!right) return left;
@@ -66,6 +72,11 @@ function mergeAggregate(left?: FrontierBehaviorAggregate, right?: FrontierBehavi
     positive: Math.max(left.positive, right.positive),
     negative: Math.max(left.negative, right.negative),
     dwellMs: Math.max(left.dwellMs, right.dwellMs),
+    ambientAffinity: maxOptional(left.ambientAffinity, right.ambientAffinity),
+    ambientInterest: maxOptional(left.ambientInterest, right.ambientInterest),
+    ambientSurprise: maxOptional(left.ambientSurprise, right.ambientSurprise),
+    ambientFriction: maxOptional(left.ambientFriction, right.ambientFriction),
+    ambientEvidence: maxOptional(left.ambientEvidence, right.ambientEvidence),
     lastAt: [left.lastAt, right.lastAt].filter((value): value is string => Boolean(value)).sort().at(-1),
   };
 }
@@ -85,6 +96,22 @@ function mergeAggregateMap(
 
 function newestOptional(left?: string, right?: string): string | undefined {
   return [left, right].filter((value): value is string => Boolean(value)).sort().at(-1);
+}
+
+function mergeAmbientSummary(
+  left?: FrontierAmbientReactionSummary,
+  right?: FrontierAmbientReactionSummary
+): FrontierAmbientReactionSummary | undefined {
+  if (!left) return right;
+  if (!right) return left;
+  return {
+    affinity: Math.max(left.affinity, right.affinity),
+    interest: Math.max(left.interest, right.interest),
+    surprise: Math.max(left.surprise, right.surprise),
+    friction: Math.max(left.friction, right.friction),
+    evidence: Math.max(left.evidence, right.evidence),
+    lastAt: newestOptional(left.lastAt, right.lastAt),
+  };
 }
 
 function mergeBehavior(left: FrontierBehaviorModel, right: FrontierBehaviorModel): FrontierBehaviorModel {
@@ -129,6 +156,7 @@ function mergeHistoryEntry(left: FrontierHistoryEntry, right: FrontierHistoryEnt
     openedAt: newestOptional(left.openedAt, right.openedAt),
     reactedAt: newestOptional(left.reactedAt, right.reactedAt),
     reaction: latest.reaction ?? left.reaction ?? right.reaction,
+    ambientReaction: mergeAmbientSummary(left.ambientReaction, right.ambientReaction),
     resurfacedCount: Math.max(left.resurfacedCount, right.resurfacedCount),
     rewarded: left.rewarded || right.rewarded,
   };
