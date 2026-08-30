@@ -10,6 +10,7 @@ export const FRONTIER_DECISION_SESSION_KEY = 'frontier-decision-session-v1';
 export const FRONTIER_DECISION_MAX_RECORDS = 128;
 export const FRONTIER_DECISION_MAX_EXPOSURES = 64;
 export const FRONTIER_DECISION_ATTRIBUTION_WINDOW_MS = 4 * 60 * 60 * 1000;
+export const FRONTIER_DECISION_EXPLORE_THRESHOLD = 0.55;
 
 const DECISION_REUSE_WINDOW_MS = 15 * 60 * 1000;
 
@@ -92,8 +93,12 @@ export function frontierDecisionPolicyMode(
   query: string,
   explorationTemperature: number,
 ): FrontierDecisionPolicyMode {
-  if (explorationTemperature > 0.001) return 'explore';
+  // An explicit query is direct intent even when search temporarily raises the
+  // exploration temperature. Normal FRONTIER carries a small background
+  // exploration temperature, so only deliberate high-temperature excursions
+  // receive the `explore` label.
   if (query.trim()) return 'search';
+  if (explorationTemperature >= FRONTIER_DECISION_EXPLORE_THRESHOLD) return 'explore';
   return 'passive';
 }
 
