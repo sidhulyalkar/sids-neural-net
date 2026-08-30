@@ -6,6 +6,7 @@ import { personalInterestConnection } from './interestGraph';
 import {
   buildPairEvidenceIndex,
   effectivePairAffinityForItem,
+  pairEvidenceForItem,
   type FrontierPairEvidenceIndex,
 } from './pairEvidence';
 import {
@@ -189,7 +190,13 @@ export function rankFrontierItems(
     .filter((item) => history[item.id]?.reaction !== 'hide' && isFrontierSourceAdmitted(item))
     .map((item) => {
       const pairSignal = learnedPairAffinity(item, profile, pairEvidence);
-      const portfolio = connectionPortfolioAdjustment(item, connectionExposure, pairSignal);
+      const preferenceEvidence = pairEvidenceForItem(item, pairEvidence);
+      const portfolio = connectionPortfolioAdjustment(
+        item,
+        connectionExposure,
+        pairSignal,
+        preferenceEvidence.confidence,
+      );
       return {
         item,
         score: personalizedScore(item, profile, history[item.id], now, behavior, pairEvidence, sessionIntent) + portfolio.net,
