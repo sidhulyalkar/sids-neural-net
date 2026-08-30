@@ -3,6 +3,7 @@ import { cosineSimilarity } from './math';
 
 const DAY_MS = 86_400_000;
 export const FRONTIER_PASSIVE_SEMANTIC_RANK_WINDOW = 4;
+export const FRONTIER_HARD_AVOID_PENALTY = 0.24;
 
 export type FrontierHybridScore = {
   item: FrontierItem;
@@ -273,6 +274,32 @@ export function constrainFrontierRankDisplacement(
   return output;
 }
 
+function applyHardAvoidAuthority(
+  ranked: FrontierHybridScore[],
+  upstreamItems: FrontierItem[],
+  query: string,
+): FrontierHybridScore[] {
+  const hardAvoided = ranked.filter((entry) => entry.avoidPenalty >= FRONTIER_HARD_AVOID_PENALTY);
+  if (!hardAvoided.length) {
+    return query.trim() ? ranked : constrainFrontierRankDisplacement(ranked, upstreamItems);
+  }
+
+  const hardAvoidIds = new Set(hardAvoided.map((entry) => entry.item.id));
+  const eligible = ranked.filter((entry) => !hardAvoidIds.has(entry.item.id));
+  const eligibleUpstream = upstreamItems.filter((item) => !hardAvoidIds.has(item.id));
+  const positiveOrder = query.trim()
+    ? eligible
+    : constrainFrontierRankDisplacement(eligible, eligibleUpstream);
+
+  // A strong explicit negative is not latent preference refinement. It may break
+  // the passive movement window and sink the matched items below the admissible
+  // positive set. We retain their score order for deterministic diagnostics.
+  return [
+    ...positiveOrder,
+    ...hardAvoided.sort((left, right) => right.score - left.score || right.item.baseScore - left.item.baseScore),
+  ];
+}
+
 export function rerankFrontierItems(
   items: FrontierItem[],
   vectors: Map<string, Float32Array>,
@@ -287,8 +314,5 @@ export function rerankFrontierItems(
   const scores = hybridFrontierScores(items, vectors, interestVector, query, now, interestForItem, penaltyForItem);
   const fused = scores.sort((left, right) => right.score - left.score || right.item.baseScore - left.item.baseScore);
   const explored = applyEpsilonGreedyExploration(fused, epsilon, seed);
-  const ranked = query.trim()
-    ? explored
-    : constrainFrontierRankDisplacement(explored, items);
-  return ranked.map((entry) => entry.item);
+  return applyHardAvoidAuthority(explored, items, query).map((entry) => entry.item);
 }
