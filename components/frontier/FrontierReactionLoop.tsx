@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { ArrowRight, Camera, CameraOff, Sparkles } from 'lucide-react';
+import { ArrowRight, Camera, CameraOff, Check, Sparkles, X } from 'lucide-react';
 import { VisionSignalSource } from '@/components/perceptual-cortex/VisionSignalSource';
 import {
   ReactionInferenceEngine,
@@ -10,17 +10,27 @@ import {
   type FrontierAmbientReactionKind,
   type ReactionInferenceSnapshot,
 } from '@/lib/frontier/reaction';
+import { selectReactionTarget } from '@/lib/frontier/reactionTarget';
+import {
+  applyReactionTrust,
+  reactionTrustAccuracy,
+  recordReactionObservation,
+  recordReactionReview,
+} from '@/lib/frontier/reactionTrust';
 import { useFrontierStore } from '@/lib/frontier/store';
 import type { FrontierHistoryEntry, FrontierItem } from '@/lib/frontier/types';
 import styles from './frontier-reaction-loop.module.css';
 
 type Props = { feedActive: boolean };
 type LoopState = 'off' | 'requesting' | 'calibrating' | 'active' | 'error';
-type RenderedTarget = { item: FrontierItem; element: HTMLElement; score: number };
+type RenderedTarget = { item: FrontierItem; element: HTMLElement; score: number; visibleFraction: number };
 type SignalFeedback = {
   reaction: FrontierAmbientReaction;
   target: FrontierItem;
   suggestion?: FrontierItem;
+  review?: 'confirmed' | 'contradicted';
+  reviewAccuracy?: number;
+  reviewCount?: number;
 };
 
 const EMPTY_SNAPSHOT: ReactionInferenceSnapshot = {
@@ -33,22 +43,22 @@ const EMPTY_SNAPSHOT: ReactionInferenceSnapshot = {
 const SIGNAL_COPY: Record<FrontierAmbientReactionKind, { title: string; detail: string; action: string }> = {
   affinity: {
     title: 'Positive reaction cue',
-    detail: 'This card produced a sustained positive expression cue. It will count as weak evidence, below any click, save, or explicit reaction.',
+    detail: 'A sustained positive expression cue appeared here. It counts only as weak evidence, below any click, save, dwell, or explicit reaction.',
     action: 'Follow the thread',
   },
   interest: {
     title: 'Attention cue',
-    detail: 'A stable, forward-attention cue held here. Repeated signals can gently strengthen this topic in future sessions.',
+    detail: 'An active expression cue plus stable attention held here. Neutral forward posture alone cannot trigger this signal.',
     action: 'Keep exploring',
   },
   surprise: {
     title: 'Novelty cue',
-    detail: 'A brief high-novelty reaction held long enough to clear the confidence gate. It can slightly increase adjacent exploration.',
+    detail: 'A brief novelty cue held long enough to clear the confidence gate. Repeated, confirmed cues can gently broaden adjacent exploration.',
     action: 'Try an adjacent wildcard',
   },
   friction: {
     title: 'Friction cue',
-    detail: 'A friction cue appeared here. FRONTIER records it for context, but it will not treat it as dislike without behavioral or explicit corroboration.',
+    detail: 'A tension cue appeared here. It can guide this local suggestion, but facial tension never becomes dislike or preference-ranking evidence by itself.',
     action: 'Switch angle',
   },
 };
@@ -61,47 +71,13 @@ function visibleFraction(element: HTMLElement): number {
   return Math.min(1, (visibleWidth * visibleHeight) / (rect.width * rect.height));
 }
 
-function normalizedUrl(value: string): string {
-  try {
-    const url = new URL(value, window.location.href);
-    url.hash = '';
-    return url.toString().replace(/\/$/, '');
-  } catch {
-    return value.trim().replace(/\/$/, '');
-  }
-}
-
-function historyMaps(history: Record<string, FrontierHistoryEntry>) {
-  const byUrl = new Map<string, FrontierHistoryEntry>();
-  const byTitle = new Map<string, FrontierHistoryEntry>();
-  for (const entry of Object.values(history)) {
-    byUrl.set(normalizedUrl(entry.item.url), entry);
-    byTitle.set(entry.item.title.trim().toLowerCase(), entry);
-  }
-  return { byUrl, byTitle };
-}
-
-function resolveEntry(
-  element: HTMLElement,
-  history: Record<string, FrontierHistoryEntry>,
-  maps: ReturnType<typeof historyMaps>
-): FrontierHistoryEntry | undefined {
-  const explicitId = element.dataset.frontierItemId;
-  if (explicitId && history[explicitId]) return history[explicitId];
-  for (const anchor of element.querySelectorAll<HTMLAnchorElement>('a[href]')) {
-    const matched = maps.byUrl.get(normalizedUrl(anchor.href));
-    if (matched) return matched;
-  }
-  const title = element.querySelector('h3')?.textContent?.trim().toLowerCase();
-  return title ? maps.byTitle.get(title) : undefined;
-}
-
 function renderedTargets(history: Record<string, FrontierHistoryEntry>, visibleOnly = true): RenderedTarget[] {
   const active = document.activeElement;
-  const maps = historyMaps(history);
   const targets: RenderedTarget[] = [];
-  for (const element of document.querySelectorAll<HTMLElement>('article')) {
-    const entry = resolveEntry(element, history, maps);
+  for (const element of document.querySelectorAll<HTMLElement>('[data-frontier-fluid-card]')) {
+    const id = element.dataset.frontierFluidCard;
+    if (!id) continue;
+    const entry = history[id];
     if (!entry) continue;
     const fraction = visibleFraction(element);
     if (visibleOnly && fraction < 0.22) continue;
@@ -112,9 +88,24 @@ function renderedTargets(history: Record<string, FrontierHistoryEntry>, visibleO
     const hovered = element.matches(':hover') ? 0.18 : 0;
     const focused = active instanceof Node && element.contains(active) ? 0.16 : 0;
     const expanded = element.querySelector('[aria-expanded="true"]') ? 0.12 : 0;
-    targets.push({ item: entry.item, element, score: fraction * 0.55 + centerProximity * 0.35 + hovered + focused + expanded });
+    targets.push({
+      item: entry.item,
+      element,
+      visibleFraction: fraction,
+      score: fraction * 0.55 + centerProximity * 0.35 + hovered + focused + expanded,
+    });
   }
   return targets.sort((left, right) => right.score - left.score);
+}
+
+function dominantRenderedTarget(history: Record<string, FrontierHistoryEntry>): RenderedTarget | undefined {
+  const targets = renderedTargets(history, true);
+  const id = selectReactionTarget(targets.map((target) => ({
+    id: target.item.id,
+    score: target.score,
+    visibleFraction: target.visibleFraction,
+  })));
+  return id ? targets.find((target) => target.item.id === id) : undefined;
 }
 
 function overlap(left: FrontierItem, right: FrontierItem): number {
@@ -211,7 +202,7 @@ export function FrontierReactionLoop({ feedActive }: Props) {
     try {
       await source.enable((_hands, face) => {
         const history = useFrontierStore.getState().history;
-        const target = feedActiveRef.current ? renderedTargets(history, true)[0] : undefined;
+        const target = feedActiveRef.current ? dominantRenderedTarget(history) : undefined;
         const next = engineRef.current.push(face, target?.item.id, performance.now());
         const now = performance.now();
         if (now - lastUiUpdateRef.current >= 140 || next.reaction) {
@@ -220,7 +211,11 @@ export function FrontierReactionLoop({ feedActive }: Props) {
           lastUiUpdateRef.current = now;
         }
         if (next.reaction && target) {
-          useFrontierStore.getState().recordAmbientReaction(target.item, next.reaction);
+          recordReactionObservation(next.reaction);
+          const rankedReaction = applyReactionTrust(next.reaction);
+          if (next.reaction.kind !== 'friction') {
+            useFrontierStore.getState().recordAmbientReaction(target.item, rankedReaction);
+          }
           setFeedback({
             reaction: next.reaction,
             target: target.item,
@@ -246,6 +241,19 @@ export function FrontierReactionLoop({ feedActive }: Props) {
   const toggle = () => {
     if (state === 'off' || state === 'error') void enable();
     else disable();
+  };
+
+  const reviewReaction = (confirmed: boolean) => {
+    if (!feedback || feedback.review) return;
+    const stat = recordReactionReview(feedback.reaction.kind, confirmed);
+    const accuracy = reactionTrustAccuracy(stat);
+    setFeedback((current) => current ? {
+      ...current,
+      review: confirmed ? 'confirmed' : 'contradicted',
+      reviewAccuracy: accuracy,
+      reviewCount: stat.confirmed + stat.contradicted,
+    } : current);
+    clearSignalLater();
   };
 
   const followSuggestion = () => {
@@ -310,7 +318,7 @@ export function FrontierReactionLoop({ feedActive }: Props) {
           {state === 'calibrating' && !feedback ? (
             <>
               <p className={styles.message}>Learning a neutral baseline. Read the feed naturally for a moment.</p>
-              <p className={styles.detail}>Calibration is session-local so the model compares cues with you, now, rather than a generic face template.</p>
+              <p className={styles.detail}>Calibration uses a robust session-local median so one blink or expression cannot define your baseline.</p>
               <div className={styles.progressTrack} aria-label={`Reaction calibration ${Math.round(snapshot.calibration * 100)}%`}>
                 <div className={styles.progress} style={{ transform: `scaleX(${Math.max(0, Math.min(1, snapshot.calibration))})` }} />
               </div>
@@ -329,6 +337,26 @@ export function FrontierReactionLoop({ feedActive }: Props) {
               <p className={styles.message}>{signalCopy.title} · {confidence}% gate confidence</p>
               <p className={styles.detail}>{signalCopy.detail}</p>
               <div className={styles.target}>{feedback.target.title}</div>
+
+              {!feedback.review ? (
+                <div className={styles.reviewRow} aria-label="Correct the reaction cue">
+                  <span className={styles.reviewPrompt}>Was that cue accurate?</span>
+                  <button type="button" className={styles.reviewButton} onClick={() => reviewReaction(true)}>
+                    <Check size={10} aria-hidden="true" /> Yes
+                  </button>
+                  <button type="button" className={styles.reviewButton} onClick={() => reviewReaction(false)}>
+                    <X size={10} aria-hidden="true" /> Not really
+                  </button>
+                </div>
+              ) : (
+                <p className={styles.reviewed}>
+                  {feedback.review === 'confirmed' ? 'Confirmed.' : 'Corrected.'} Cue authority will adjust on future reactions.
+                  {feedback.reviewAccuracy !== undefined && feedback.reviewCount
+                    ? ` ${Math.round(feedback.reviewAccuracy * 100)}% agreement across ${feedback.reviewCount} reviewed ${feedback.reaction.kind} cue${feedback.reviewCount === 1 ? '' : 's'}.`
+                    : ''}
+                </p>
+              )}
+
               {feedback.suggestion ? (
                 <button type="button" className={styles.suggestion} onClick={followSuggestion}>
                   <span>{signalCopy.action}: {feedback.suggestion.title}</span>
@@ -338,7 +366,7 @@ export function FrontierReactionLoop({ feedActive }: Props) {
             </>
           ) : null}
 
-          <p className={styles.privacy}>No video, landmarks, face identity, biometric template, or raw expression stream is stored. Only sparse content-linked reaction aggregates persist locally.</p>
+          <p className={styles.privacy}>No video, landmarks, face identity, biometric template, or raw expression stream is stored. Sparse content-linked aggregates and your cue corrections stay local.</p>
         </aside>,
         document.body
       ) : null}
