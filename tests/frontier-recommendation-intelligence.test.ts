@@ -147,6 +147,8 @@ function hybrid(id: string, score: number, semantic: number, overrides: Partial<
   return {
     item: candidate,
     score,
+    authority: 0.5,
+    latent: score,
     semantic,
     freshness: 0.8,
     credibility: candidate.quality,
