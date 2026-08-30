@@ -5,6 +5,12 @@ const EXPLICIT_HALF_LIFE_DAYS = 120;
 const OPEN_HALF_LIFE_DAYS = 45;
 const DWELL_HALF_LIFE_DAYS = 30;
 const MAX_ITEM_TOPICS = 7;
+// Durable taste should not visibly change because of one ambiguous reaction.
+// A single fresh `meh` produces roughly 0.27 confidence, while a direct `down`
+// is strong enough to cross this boundary. This creates hysteresis between
+// ordinary uncertainty and evidence that is authoritative enough to arbitrate
+// an established prior.
+const MIN_CONTRADICTION_CONFIDENCE = 0.32;
 
 export type FrontierDirectPreferenceDimension = 'lane' | 'topic' | 'source';
 
@@ -204,6 +210,13 @@ export function directPreferenceEvidenceFor(
  * evidence. Confirming history does not amplify them because the behavior model
  * already represents repeated engagement. Only sufficiently confident
  * contradiction attenuates and may eventually reverse the old prior.
+ *
+ * The explicit confidence dead zone is deliberate hysteresis. Evidence inside
+ * it is still retained for learning-health diagnostics and can accumulate with
+ * future observations, but it cannot yet perturb ranking, retrieval, search
+ * suggestions, or explanations. That keeps one ambiguous reaction from moving
+ * a finite recommendation budget while preserving fast response to stronger
+ * explicit rejection and repeated contradiction.
  */
 export function effectiveDirectPreferenceAffinity(
   legacyAffinity: number,
@@ -213,7 +226,9 @@ export function effectiveDirectPreferenceAffinity(
 ): number {
   if (!Number.isFinite(legacyAffinity)) return 0;
   const evidence = directPreferenceEvidenceFor(index, dimension, value);
-  if (!evidence || evidence.confidence < 0.08 || Math.abs(legacyAffinity) < 0.005) return legacyAffinity;
+  if (!evidence || evidence.confidence < MIN_CONTRADICTION_CONFIDENCE || Math.abs(legacyAffinity) < 0.005) {
+    return legacyAffinity;
+  }
   const legacyDirection = Math.sign(legacyAffinity);
   const evidenceDirection = Math.sign(evidence.affinity);
   if (!evidenceDirection || evidenceDirection === legacyDirection) return legacyAffinity;
