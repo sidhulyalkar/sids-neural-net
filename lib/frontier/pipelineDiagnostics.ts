@@ -33,9 +33,9 @@ export type FrontierPipelineStages = {
 };
 
 /**
- * Drops are recorded only at the exact code boundary that observed the rejection.
- * They are never reconstructed from two stage counts whose causal ordering may
- * differ between live discovery and cold-snapshot revalidation.
+ * Drops are recorded only when their causal boundary is known. Live request
+ * modes have one fixed preparation order; snapshot/archive callers with different
+ * ordering must provide their observed drops explicitly.
  */
 export type FrontierPipelineDrops = {
   implausible: number | null;
@@ -80,6 +80,27 @@ export function buildFrontierPipelineDiagnostics(input: {
   stages: FrontierPipelineStages;
   drops?: Partial<FrontierPipelineDrops>;
 }): FrontierPipelineDiagnostics {
+  const live = input.mode === 'focused-live' || input.mode === 'fresh-live';
+  const liveDrops: FrontierPipelineDrops = live
+    ? {
+        implausible: frontierObservedDrop(input.stages.candidateInput, input.stages.plausible),
+        rightsFragile: frontierObservedDrop(input.stages.plausible, input.stages.rightsSafe),
+        stale: null,
+        duplicate: frontierObservedDrop(input.stages.rightsSafe, input.stages.deduped),
+        sourceRejected: frontierObservedDrop(input.stages.deduped, input.stages.sourceAdmitted),
+        candidateCap: frontierObservedDrop(input.stages.sourceAdmitted, input.stages.candidateRetained),
+        nonEnglish: frontierObservedDrop(input.stages.candidateRetained, input.stages.englishReady),
+      }
+    : {
+        implausible: null,
+        rightsFragile: null,
+        stale: null,
+        duplicate: null,
+        sourceRejected: null,
+        candidateCap: null,
+        nonEnglish: null,
+      };
+
   return {
     schema: FRONTIER_PIPELINE_DIAGNOSTICS_SCHEMA,
     mode: input.mode,
@@ -94,13 +115,13 @@ export function buildFrontierPipelineDiagnostics(input: {
     },
     stages: { ...input.stages },
     drops: {
-      implausible: input.drops?.implausible ?? null,
-      rightsFragile: input.drops?.rightsFragile ?? null,
-      stale: input.drops?.stale ?? null,
-      duplicate: input.drops?.duplicate ?? null,
-      sourceRejected: input.drops?.sourceRejected ?? null,
-      candidateCap: input.drops?.candidateCap ?? null,
-      nonEnglish: input.drops?.nonEnglish ?? null,
+      implausible: input.drops?.implausible ?? liveDrops.implausible,
+      rightsFragile: input.drops?.rightsFragile ?? liveDrops.rightsFragile,
+      stale: input.drops?.stale ?? liveDrops.stale,
+      duplicate: input.drops?.duplicate ?? liveDrops.duplicate,
+      sourceRejected: input.drops?.sourceRejected ?? liveDrops.sourceRejected,
+      candidateCap: input.drops?.candidateCap ?? liveDrops.candidateCap,
+      nonEnglish: input.drops?.nonEnglish ?? liveDrops.nonEnglish,
     },
   };
 }
