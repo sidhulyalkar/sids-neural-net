@@ -475,7 +475,7 @@ export function FrontierExperience({ initialDateLabel, initialDayKey }: Props) {
 
   const onlineSources = sources.filter((source) => source.ok).length;
   const savedItems = Object.values(store.saved);
-  const activeCollection = store.collections.find((collection) => collectionFilter) ?? store.collections[0];
+  const activeCollection = store.collections.find((collection) => collection.id === collectionFilter) ?? store.collections[0];
   const activeCollectionItems = activeCollection
     ? activeCollection.itemIds.flatMap((id) => store.saved[id] ? [store.saved[id]] : [])
     : savedItems;
@@ -563,7 +563,7 @@ export function FrontierExperience({ initialDateLabel, initialDayKey }: Props) {
     };
     window.addEventListener('keydown', shortcut);
     return () => window.removeEventListener('keydown', shortcut);
-  }, [pendingCount, revealPending]);
+  }, [pendingCount, requestPoll, revealPending]);
 
   const markSeen = store.markSeen;
   const recordDwell = store.recordDwell;
