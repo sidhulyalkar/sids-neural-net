@@ -175,6 +175,12 @@ function strongestMatch(keys: readonly string[], weights: Record<string, number>
  * allowing a generic abstraction such as "open source" or "scientific software"
  * to impersonate the user's current intent. Durable taste, evidence-aware pair
  * memory, source trust, global importance, and slate allocation stay authoritative.
+ *
+ * A strong recent explicit signal must nevertheless be capable of changing the
+ * order among otherwise credible candidates. If short-term intent can never
+ * overcome a modest cold-start prior gap, it is only decorative telemetry. The
+ * concrete-topic coefficient therefore carries most of the authority while
+ * shared domain/facet overlap remains intentionally tiny.
  */
 export function sessionIntentAdjustment(
   item: FrontierItem,
@@ -190,13 +196,14 @@ export function sessionIntentAdjustment(
   const domainMatch = strongestMatch(connection.domains, intent.domainWeights);
   const facetMatch = strongestMatch(connection.facets, intent.facetWeights);
 
-  // A broad domain or method alone earns little. Concrete continuity carries
-  // most of the short-term authority, while method overlap is an adjacency hint.
-  const raw = topicMatch * 0.05
-    + domainMatch * 0.009
-    + facetMatch * 0.007
+  // Direct identity continuity is the session signal. Broad semantic similarity
+  // is only an adjacency hint, which prevents open-source/analysis overlap from
+  // dragging unrelated durable interests into a focused reading session.
+  const raw = topicMatch * 0.17
+    + domainMatch * 0.008
+    + facetMatch * 0.004
     + (topicMatch >= 0.45 && facetMatch >= 0.35 ? 0.008 : 0);
-  const score = Math.min(0.065, raw * intent.confidence);
+  const score = Math.min(0.105, raw * intent.confidence);
 
   return { score, topicMatch, domainMatch, facetMatch, confidence: intent.confidence };
 }
