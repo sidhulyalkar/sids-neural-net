@@ -10,7 +10,9 @@ function invariant(condition, message) {
 
 async function setRange(locator, value) {
   await locator.evaluate((element, nextValue) => {
-    element.value = String(nextValue);
+    const descriptor = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value');
+    if (!descriptor?.set) throw new Error('Native input value setter is unavailable');
+    descriptor.set.call(element, String(nextValue));
     element.dispatchEvent(new Event('input', { bubbles: true }));
     element.dispatchEvent(new Event('change', { bubbles: true }));
   }, value);
