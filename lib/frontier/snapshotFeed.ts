@@ -72,7 +72,8 @@ export function getFrontierColdSnapshotFeed(now = Date.now()): FrontierObservabl
   const recent = rightsSafe.filter((item) => {
     const publishedAt = Date.parse(item.publishedAt);
     const ageDays = (now - publishedAt) / DAY_MS;
-    return Number.isFinite(ageDays) && ageDays <= 10;
+    if (!Number.isFinite(ageDays) || ageDays > 10) return false;
+    return true;
   });
   const english = recent.filter((item) => (
     !needsEnglishTranslation(item.title) && !needsEnglishTranslation(item.summary)
