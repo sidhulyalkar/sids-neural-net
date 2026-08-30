@@ -82,12 +82,16 @@ async function run() {
 
     const section = page.getByRole('region', { name: 'Longitudinal personal observation' });
     await section.waitFor();
-    const text = await section.innerText();
+    // `innerText` reflects the rendered presentation and can vary with CSS text
+    // transforms. The contract we need here is that the user-facing semantic copy
+    // exists in the DOM, independent of capitalization/style.
+    const text = ((await section.textContent()) ?? '').replace(/\s+/g, ' ').toLowerCase();
     invariant(text.includes('local only'), 'Longitudinal Cortex must identify its local-only privacy boundary');
     invariant(text.includes('self-report, not facial inference'), 'State labels must be explicitly described as self-report');
-    invariant(text.includes('Qualified camera exposure'), 'Qualified exposure denominator is missing from the UI');
+    invariant(text.includes('qualified camera exposure'), 'Qualified exposure denominator is missing from the UI');
     invariant(text.includes('120d high-resolution retention'), 'Retention contract is missing from the UI');
-    invariant(text.includes('shrunk rate'), 'Uncertainty-aware reactivity estimator is missing from the UI');
+    invariant(text.includes('90-day shrunk rate') && text.includes('approximate 90% uncertainty'),
+      'Uncertainty-aware reactivity estimator is missing from the UI');
 
     const sliders = section.locator('input[type="range"]');
     invariant(await sliders.count() === 3, 'Expected mood, energy, and focus self-report controls');
