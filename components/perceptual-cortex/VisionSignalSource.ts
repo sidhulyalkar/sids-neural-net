@@ -1,6 +1,8 @@
 import { CameraSession } from '@/lib/media/CameraSession';
 import type { FaceFeatures, HandFeatures } from './visionFeatures';
 
+export type VisionSignalOptions = { hands?: boolean; face?: boolean };
+
 export class VisionSignalSource {
   private camera = new CameraSession();
   private video: HTMLVideoElement | null = null;
@@ -8,7 +10,11 @@ export class VisionSignalSource {
   private timer = 0;
   private busy = false;
 
-  async enable(onFeatures: (hands: HandFeatures, face: FaceFeatures) => void, onError: (message: string) => void) {
+  async enable(
+    onFeatures: (hands: HandFeatures, face: FaceFeatures) => void,
+    onError: (message: string) => void,
+    options: VisionSignalOptions = {}
+  ) {
     this.video = await this.camera.startDetached({ width: { ideal: 640 }, height: { ideal: 360 }, facingMode: 'user' });
     this.worker = new Worker(new URL('./vision.worker.ts', import.meta.url), { type: 'module' });
     this.worker.onmessage = (event) => {
@@ -16,7 +22,7 @@ export class VisionSignalSource {
       if (event.data.type === 'error') onError(event.data.message);
       if (event.data.type === 'consumed') this.busy = false;
     };
-    this.worker.postMessage({ type: 'init' });
+    this.worker.postMessage({ type: 'init', hands: options.hands !== false, face: options.face !== false });
     this.timer = window.setInterval(async () => {
       if (this.busy || !this.video || this.video.readyState < 2 || document.hidden) return;
       this.busy = true;
