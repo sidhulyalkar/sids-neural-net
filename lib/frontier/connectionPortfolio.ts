@@ -127,16 +127,18 @@ export function buildConnectionExposureIndex(
 }
 
 /**
- * The portfolio rewards a genuinely fresh, high-confidence bridge a little and
- * progressively taxes an intersection that has already dominated recent cards.
- * Important/watch signals are never suppressed by this personalization brake.
- * Learned negative pair evidence also vetoes the freshness bonus so exploration
- * cannot sneak a rejected connection back in through a separate scoring path.
+ * The portfolio taxes an intersection that has dominated recent cards and uses
+ * a very small exploration subsidy only when two different uncertainties line
+ * up correctly: the item itself is a high-confidence semantic bridge, but the
+ * user's preference for that bridge is not yet well established. This is closer
+ * to information-seeking exploration than generic novelty. Important/watch
+ * signals bypass fatigue, and negative learned evidence still vetoes discovery.
  */
 export function connectionPortfolioAdjustment(
   item: FrontierItem,
   exposureIndex: Map<string, number>,
   learnedPairAffinity = 0,
+  learnedPairConfidence = 0,
 ): FrontierConnectionPortfolioAdjustment {
   const signatures = interestConnectionSignatures(item);
   if (!signatures.length) return { exposure: 0, bonus: 0, penalty: 0, net: 0, signatures };
@@ -154,8 +156,16 @@ export function connectionPortfolioAdjustment(
     return { exposure, bonus: 0, penalty: 0, net: 0, signatures };
   }
 
-  const bonus = learnedPairAffinity > -0.12 && exposure < 0.35 && connection.confidence >= 0.6
-    ? Math.min(0.018, connection.score * connection.confidence * 0.17)
+  // Preference uncertainty is high near zero confidence and disappears once the
+  // ledger has enough independent evidence. A known-positive bridge should rank
+  // because it is relevant, not because the exploration system keeps subsidizing
+  // an experiment whose answer we already know.
+  const preferenceUncertainty = clamp((0.72 - learnedPairConfidence) / 0.72);
+  const bonus = learnedPairAffinity > -0.12
+    && exposure < 0.35
+    && connection.confidence >= 0.6
+    && preferenceUncertainty > 0
+    ? Math.min(0.018, connection.score * connection.confidence * 0.17) * preferenceUncertainty
     : 0;
   const penalty = exposure > 0.8
     ? Math.min(0.075, (exposure - 0.8) * 0.022)
