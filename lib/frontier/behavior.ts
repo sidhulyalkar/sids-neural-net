@@ -104,11 +104,18 @@ function touchAggregate(aggregate: FrontierBehaviorAggregate | undefined, event:
     case 'ambient_reaction': {
       const evidence = ambientEvidenceForEvent(event);
       if (!event.ambientReaction || evidence <= 0) break;
+      // Friction stays inspectable for UX diagnostics, but it must never increase
+      // generic recommendation evidence or confidence. This invariant lives here,
+      // beneath all UI/store call paths, so a future caller cannot accidentally
+      // turn facial tension into preference authority.
+      if (event.ambientReaction === 'friction') {
+        next.ambientFriction = (next.ambientFriction ?? 0) + evidence;
+        break;
+      }
       next.ambientEvidence = (next.ambientEvidence ?? 0) + evidence;
       if (event.ambientReaction === 'affinity') next.ambientAffinity = (next.ambientAffinity ?? 0) + evidence;
       if (event.ambientReaction === 'interest') next.ambientInterest = (next.ambientInterest ?? 0) + evidence;
       if (event.ambientReaction === 'surprise') next.ambientSurprise = (next.ambientSurprise ?? 0) + evidence;
-      if (event.ambientReaction === 'friction') next.ambientFriction = (next.ambientFriction ?? 0) + evidence;
       break;
     }
   }
@@ -218,8 +225,8 @@ export function aggregatePreference(
   const ambientPositive = (aggregate.ambientAffinity ?? 0) * 0.18
     + (aggregate.ambientInterest ?? 0) * 0.09
     + (aggregate.ambientSurprise ?? 0) * 0.035;
-  // Ambient face cues are intentionally weak. Friction is recorded for inspection
-  // but never becomes negative preference without an explicit or behavioral signal.
+  // Ambient face cues are intentionally weak. `ambientEvidence` contains only
+  // affinity/interest/surprise; friction is structurally excluded in touchAggregate.
   const directEvidence = dwellUnits * 0.65 + aggregate.expanded + aggregate.opened * 2 + aggregate.saved * 3 + aggregate.positive * 3 + aggregate.negative * 3 + ambientEvidence * 0.16;
   if (aggregate.shown < 2 && directEvidence < 2.5) return { score: 0, confidence: 0 };
 
