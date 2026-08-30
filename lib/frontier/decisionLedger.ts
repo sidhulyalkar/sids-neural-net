@@ -65,10 +65,18 @@ type DecisionOutcomeInput = Pick<FrontierSemanticTelemetry, 'kind' | 'at' | 'dwe
   itemId: string;
 };
 
+const EMPTY_LEDGER: FrontierDecisionRecord[] = [];
+const ledgerListeners = new Set<() => void>();
 let fallbackSessionId: string | undefined;
 let browserLedgerCache: FrontierDecisionRecord[] | undefined;
 let ledgerWriteTimer: number | undefined;
 let ledgerLifecycleBound = false;
+
+function emitLedgerChange(): void {
+  for (const listener of ledgerListeners) {
+    try { listener(); } catch { /* diagnostics must never affect recommendation behavior */ }
+  }
+}
 
 function stableHash(value: string): string {
   let hash = 2166136261;
@@ -282,7 +290,7 @@ function mergeLedgers(
 }
 
 function readBrowserLedger(): FrontierDecisionRecord[] {
-  if (typeof window === 'undefined') return [];
+  if (typeof window === 'undefined') return EMPTY_LEDGER;
   if (browserLedgerCache) return browserLedgerCache;
   try {
     browserLedgerCache = parseLedger(window.localStorage.getItem(FRONTIER_DECISION_LEDGER_KEY));
@@ -321,6 +329,7 @@ function bindLedgerLifecycle(): void {
     if (event.key !== FRONTIER_DECISION_LEDGER_KEY) return;
     const external = parseLedger(event.newValue);
     browserLedgerCache = browserLedgerCache ? mergeLedgers(external, browserLedgerCache) : external;
+    emitLedgerChange();
   });
 }
 
@@ -328,6 +337,7 @@ function writeBrowserLedger(records: FrontierDecisionRecord[]): void {
   if (typeof window === 'undefined') return;
   browserLedgerCache = records.slice(-FRONTIER_DECISION_MAX_RECORDS);
   bindLedgerLifecycle();
+  emitLedgerChange();
   if (ledgerWriteTimer !== undefined) return;
   ledgerWriteTimer = window.setTimeout(flushBrowserLedger, LEDGER_WRITE_COALESCE_MS);
 }
@@ -397,8 +407,19 @@ export function listenFrontierDecisionOutcomes(): () => void {
   return listenFrontierSemanticTelemetry(recordFrontierDecisionOutcome);
 }
 
+export function subscribeFrontierDecisionLedger(listener: () => void): () => void {
+  if (typeof window === 'undefined') return () => {};
+  readBrowserLedger();
+  ledgerListeners.add(listener);
+  return () => ledgerListeners.delete(listener);
+}
+
 export function readFrontierDecisionLedger(): FrontierDecisionRecord[] {
   return readBrowserLedger();
+}
+
+export function readFrontierDecisionLedgerServer(): FrontierDecisionRecord[] {
+  return EMPTY_LEDGER;
 }
 
 export function clearFrontierDecisionLedger(): void {
@@ -409,6 +430,7 @@ export function clearFrontierDecisionLedger(): void {
   }
   browserLedgerCache = [];
   try { window.localStorage.removeItem(FRONTIER_DECISION_LEDGER_KEY); } catch {}
+  emitLedgerChange();
 }
 
 export function frontierDecisionOutcomeKinds(): FrontierSemanticTelemetryKind[] {
