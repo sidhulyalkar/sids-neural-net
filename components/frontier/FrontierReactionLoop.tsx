@@ -5,6 +5,12 @@ import { createPortal } from 'react-dom';
 import { ArrowRight, Camera, CameraOff, Check, Sparkles, X } from 'lucide-react';
 import { VisionSignalSource } from '@/components/perceptual-cortex/VisionSignalSource';
 import {
+  createLongitudinalExposure,
+  createLongitudinalReaction,
+  currentLongitudinalSessionId,
+  frontierLongitudinalStore,
+} from '@/lib/frontier/longitudinal';
+import {
   ReactionInferenceEngine,
   type FrontierAmbientReaction,
   type FrontierAmbientReactionKind,
@@ -14,6 +20,8 @@ import { selectReactionTarget } from '@/lib/frontier/reactionTarget';
 import {
   applyReactionTrust,
   reactionTrustAccuracy,
+  reactionTrustAuthority,
+  reactionTrustQuarantined,
   recordReactionObservation,
   recordReactionReview,
 } from '@/lib/frontier/reactionTrust';
@@ -24,13 +32,25 @@ import styles from './frontier-reaction-loop.module.css';
 type Props = { feedActive: boolean };
 type LoopState = 'off' | 'requesting' | 'calibrating' | 'active' | 'error';
 type RenderedTarget = { item: FrontierItem; element: HTMLElement; score: number; visibleFraction: number };
+type ActiveExposure = {
+  id: string;
+  sessionId: string;
+  item: FrontierItem;
+  startedAt: number;
+  scoreSum: number;
+  visibleSum: number;
+  minScore: number;
+  samples: number;
+};
 type SignalFeedback = {
   reaction: FrontierAmbientReaction;
+  reactionEpisodeId: string;
   target: FrontierItem;
   suggestion?: FrontierItem;
   review?: 'confirmed' | 'contradicted';
   reviewAccuracy?: number;
   reviewCount?: number;
+  quarantined?: boolean;
 };
 
 const EMPTY_SNAPSHOT: ReactionInferenceSnapshot = {
@@ -148,6 +168,7 @@ export function FrontierReactionLoop({ feedActive }: Props) {
   const implicitLearning = useFrontierStore((state) => state.behavior.implicitLearning);
   const sourceRef = useRef<VisionSignalSource | null>(null);
   const engineRef = useRef(new ReactionInferenceEngine());
+  const activeExposureRef = useRef<ActiveExposure>();
   const feedActiveRef = useRef(feedActive);
   const lastUiUpdateRef = useRef(0);
   const clearSignalTimerRef = useRef<number | undefined>(undefined);
@@ -160,6 +181,56 @@ export function FrontierReactionLoop({ feedActive }: Props) {
   useEffect(() => { setMounted(true); }, []);
   useEffect(() => { feedActiveRef.current = feedActive; }, [feedActive]);
 
+  const flushExposure = useCallback((endedAt = Date.now()) => {
+    const active = activeExposureRef.current;
+    activeExposureRef.current = undefined;
+    if (!active) return;
+    const samples = Math.max(1, active.samples);
+    const exposure = createLongitudinalExposure(active.item, {
+      id: active.id,
+      sessionId: active.sessionId,
+      startedAt: active.startedAt,
+      endedAt,
+      attributionMean: active.scoreSum / samples,
+      attributionMin: active.minScore,
+      visibleFractionMean: active.visibleSum / samples,
+    });
+    void frontierLongitudinalStore.recordExposure(exposure).catch(() => undefined);
+  }, []);
+
+  const trackExposure = useCallback((target: RenderedTarget | undefined, now = Date.now()) => {
+    const active = activeExposureRef.current;
+    if (!target) {
+      if (active) flushExposure(now);
+      return;
+    }
+    if (!active || active.item.id !== target.item.id) {
+      if (active) flushExposure(now);
+      const seed = createLongitudinalExposure(target.item, {
+        startedAt: now,
+        endedAt: now,
+        attributionMean: target.score,
+        attributionMin: target.score,
+        visibleFractionMean: target.visibleFraction,
+      });
+      activeExposureRef.current = {
+        id: seed.id,
+        sessionId: seed.sessionId,
+        item: target.item,
+        startedAt: now,
+        scoreSum: target.score,
+        visibleSum: target.visibleFraction,
+        minScore: target.score,
+        samples: 1,
+      };
+      return;
+    }
+    active.scoreSum += target.score;
+    active.visibleSum += target.visibleFraction;
+    active.minScore = Math.min(active.minScore, target.score);
+    active.samples += 1;
+  }, [flushExposure]);
+
   const clearSignalLater = useCallback(() => {
     if (clearSignalTimerRef.current !== undefined) window.clearTimeout(clearSignalTimerRef.current);
     clearSignalTimerRef.current = window.setTimeout(() => {
@@ -169,6 +240,7 @@ export function FrontierReactionLoop({ feedActive }: Props) {
   }, []);
 
   const disable = useCallback(() => {
+    flushExposure();
     sourceRef.current?.disable();
     sourceRef.current = null;
     engineRef.current.reset();
@@ -178,16 +250,31 @@ export function FrontierReactionLoop({ feedActive }: Props) {
     setFeedback(undefined);
     setError('');
     setState('off');
-  }, []);
+  }, [flushExposure]);
 
-  useEffect(() => () => {
-    sourceRef.current?.disable();
-    if (clearSignalTimerRef.current !== undefined) window.clearTimeout(clearSignalTimerRef.current);
-  }, []);
+  useEffect(() => {
+    const closeInactiveExposure = () => {
+      if (document.visibilityState === 'hidden') flushExposure();
+    };
+    const closeOnPageHide = () => flushExposure();
+    document.addEventListener('visibilitychange', closeInactiveExposure);
+    window.addEventListener('pagehide', closeOnPageHide);
+    return () => {
+      document.removeEventListener('visibilitychange', closeInactiveExposure);
+      window.removeEventListener('pagehide', closeOnPageHide);
+      flushExposure();
+      sourceRef.current?.disable();
+      if (clearSignalTimerRef.current !== undefined) window.clearTimeout(clearSignalTimerRef.current);
+    };
+  }, [flushExposure]);
 
   useEffect(() => {
     if (!implicitLearning && state !== 'off') disable();
   }, [disable, implicitLearning, state]);
+
+  useEffect(() => {
+    if (!feedActive) flushExposure();
+  }, [feedActive, flushExposure]);
 
   const enable = useCallback(async () => {
     if (!implicitLearning || sourceRef.current) return;
@@ -202,7 +289,11 @@ export function FrontierReactionLoop({ feedActive }: Props) {
     try {
       await source.enable((_hands, face) => {
         const history = useFrontierStore.getState().history;
-        const target = feedActiveRef.current ? dominantRenderedTarget(history) : undefined;
+        const target = feedActiveRef.current && document.visibilityState === 'visible'
+          ? dominantRenderedTarget(history)
+          : undefined;
+        const wallNow = Date.now();
+        trackExposure(target, wallNow);
         const next = engineRef.current.push(face, target?.item.id, performance.now());
         const now = performance.now();
         if (now - lastUiUpdateRef.current >= 140 || next.reaction) {
@@ -211,19 +302,33 @@ export function FrontierReactionLoop({ feedActive }: Props) {
           lastUiUpdateRef.current = now;
         }
         if (next.reaction && target) {
-          recordReactionObservation(next.reaction);
+          const trustStat = recordReactionObservation(next.reaction);
+          const trustAuthority = reactionTrustAuthority(trustStat);
           const rankedReaction = applyReactionTrust(next.reaction);
           if (next.reaction.kind !== 'friction') {
             useFrontierStore.getState().recordAmbientReaction(target.item, rankedReaction);
           }
+          const activeExposure = activeExposureRef.current;
+          const reactionEpisode = createLongitudinalReaction(target.item, next.reaction, {
+            exposureId: activeExposure?.id ?? `unlinked-${target.item.id}-${wallNow}`,
+            sessionId: activeExposure?.sessionId ?? currentLongitudinalSessionId(),
+            occurredAt: wallNow,
+            latencyMs: activeExposure ? wallNow - activeExposure.startedAt : 0,
+            targetScore: target.score,
+            visibleFraction: target.visibleFraction,
+            trustAuthority,
+          });
+          void frontierLongitudinalStore.recordReaction(reactionEpisode).catch(() => undefined);
           setFeedback({
             reaction: next.reaction,
+            reactionEpisodeId: reactionEpisode.id,
             target: target.item,
             suggestion: chooseSuggestion(target.item, next.reaction.kind, useFrontierStore.getState().history),
           });
           clearSignalLater();
         }
       }, (message) => {
+        flushExposure();
         sourceRef.current?.disable();
         sourceRef.current = null;
         setError(message);
@@ -231,12 +336,13 @@ export function FrontierReactionLoop({ feedActive }: Props) {
       }, { hands: false, face: true });
       if (sourceRef.current === source) setState('calibrating');
     } catch (caught) {
+      flushExposure();
       source.disable();
       if (sourceRef.current === source) sourceRef.current = null;
       setError(caught instanceof Error ? caught.message : 'Camera permission was not granted.');
       setState('error');
     }
-  }, [clearSignalLater, implicitLearning]);
+  }, [clearSignalLater, flushExposure, implicitLearning, trackExposure]);
 
   const toggle = () => {
     if (state === 'off' || state === 'error') void enable();
@@ -247,11 +353,16 @@ export function FrontierReactionLoop({ feedActive }: Props) {
     if (!feedback || feedback.review) return;
     const stat = recordReactionReview(feedback.reaction.kind, confirmed);
     const accuracy = reactionTrustAccuracy(stat);
+    void frontierLongitudinalStore.reviewReaction(
+      feedback.reactionEpisodeId,
+      confirmed ? 'confirmed' : 'contradicted'
+    ).catch(() => false);
     setFeedback((current) => current ? {
       ...current,
       review: confirmed ? 'confirmed' : 'contradicted',
       reviewAccuracy: accuracy,
       reviewCount: stat.confirmed + stat.contradicted,
+      quarantined: reactionTrustQuarantined(stat),
     } : current);
     clearSignalLater();
   };
@@ -350,7 +461,10 @@ export function FrontierReactionLoop({ feedActive }: Props) {
                 </div>
               ) : (
                 <p className={styles.reviewed}>
-                  {feedback.review === 'confirmed' ? 'Confirmed.' : 'Corrected.'} Cue authority will adjust on future reactions.
+                  {feedback.review === 'confirmed' ? 'Confirmed.' : 'Corrected.'}
+                  {feedback.quarantined
+                    ? ' This cue is now quarantined from recommendation authority until its reliability recovers.'
+                    : ' Cue authority will adjust on future reactions.'}
                   {feedback.reviewAccuracy !== undefined && feedback.reviewCount
                     ? ` ${Math.round(feedback.reviewAccuracy * 100)}% agreement across ${feedback.reviewCount} reviewed ${feedback.reaction.kind} cue${feedback.reviewCount === 1 ? '' : 's'}.`
                     : ''}
@@ -366,7 +480,7 @@ export function FrontierReactionLoop({ feedActive }: Props) {
             </>
           ) : null}
 
-          <p className={styles.privacy}>No video, landmarks, face identity, biometric template, or raw expression stream is stored. Sparse content-linked aggregates and your cue corrections stay local.</p>
+          <p className={styles.privacy}>No video, landmarks, face identity, biometric template, or raw expression stream is stored. Qualified exposure durations, sparse content-linked reaction episodes, and your cue corrections stay local.</p>
         </aside>,
         document.body
       ) : null}
