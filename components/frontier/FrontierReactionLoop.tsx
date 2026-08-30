@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { ArrowRight, Camera, CameraOff, Check, Sparkles, X } from 'lucide-react';
 import { VisionSignalSource } from '@/components/perceptual-cortex/VisionSignalSource';
+import { applyBehaviorEvent } from '@/lib/frontier/behavior';
 import {
   createLongitudinalExposure,
   createLongitudinalReaction,
@@ -44,6 +45,8 @@ type ActiveExposure = {
 };
 type SignalFeedback = {
   reaction: FrontierAmbientReaction;
+  /** Exact trust-weighted cue that was admitted to preference aggregates, if any. */
+  admittedReaction?: FrontierAmbientReaction;
   reactionEpisodeId: string;
   target: FrontierItem;
   suggestion?: FrontierItem;
@@ -305,8 +308,11 @@ export function FrontierReactionLoop({ feedActive }: Props) {
           const trustStat = recordReactionObservation(next.reaction);
           const trustAuthority = reactionTrustAuthority(trustStat);
           const rankedReaction = applyReactionTrust(next.reaction);
-          if (next.reaction.kind !== 'friction') {
-            useFrontierStore.getState().recordAmbientReaction(target.item, rankedReaction);
+          const admittedReaction = next.reaction.kind !== 'friction' && rankedReaction.confidence > 0
+            ? rankedReaction
+            : undefined;
+          if (admittedReaction) {
+            useFrontierStore.getState().recordAmbientReaction(target.item, admittedReaction);
           }
           const activeExposure = activeExposureRef.current;
           const reactionEpisode = createLongitudinalReaction(target.item, next.reaction, {
@@ -321,6 +327,7 @@ export function FrontierReactionLoop({ feedActive }: Props) {
           void frontierLongitudinalStore.recordReaction(reactionEpisode).catch(() => undefined);
           setFeedback({
             reaction: next.reaction,
+            admittedReaction,
             reactionEpisodeId: reactionEpisode.id,
             target: target.item,
             suggestion: chooseSuggestion(target.item, next.reaction.kind, useFrontierStore.getState().history),
@@ -351,6 +358,23 @@ export function FrontierReactionLoop({ feedActive }: Props) {
 
   const reviewReaction = (confirmed: boolean) => {
     if (!feedback || feedback.review) return;
+
+    // Raw observation history stays append-only. A contradiction instead posts an
+    // exact compensating debit for the trust-weighted evidence admitted earlier.
+    // This preserves what the camera observed while making model belief revisable.
+    if (!confirmed && feedback.admittedReaction) {
+      const current = useFrontierStore.getState();
+      useFrontierStore.setState({
+        behavior: applyBehaviorEvent(current.behavior, feedback.target, {
+          kind: 'ambient_retraction',
+          ambientReaction: feedback.admittedReaction.kind,
+          confidence: feedback.admittedReaction.confidence,
+          intensity: feedback.admittedReaction.intensity,
+          durationMs: feedback.admittedReaction.durationMs,
+        }),
+      });
+    }
+
     const stat = recordReactionReview(feedback.reaction.kind, confirmed);
     const accuracy = reactionTrustAccuracy(stat);
     void frontierLongitudinalStore.reviewReaction(
