@@ -1,4 +1,4 @@
-import { buildLongitudinalRollups, summarizeLongitudinalData, type LongitudinalSummary } from './longitudinalAggregation';
+import { buildLongitudinalRollups, qualifiedLongitudinalExposureIds, summarizeLongitudinalData, type LongitudinalSummary } from './longitudinalAggregation';
 import { isQualifiedLongitudinalExposure } from './longitudinalEvents';
 import {
   dayKeyInLongitudinalWindow,
@@ -147,8 +147,6 @@ export class FrontierLongitudinalStore {
   }
 
   async reviewReaction(id: string, review: LongitudinalReactionReview, reviewedAt = Date.now()): Promise<boolean> {
-    // Keep lookup and mutation in separate transactions. IndexedDB may auto-commit
-    // across an await boundary, particularly in WebKit.
     const current = await readRecord<LongitudinalReactionEpisode>(REACTION_STORE, id);
     if (!current) return false;
     await putRecord(REACTION_STORE, { ...current, review, reviewedAt });
@@ -195,6 +193,11 @@ export class FrontierLongitudinalStore {
       interactions: archive.interactions.filter((entry) => dayKeyInLongitudinalWindow(entry.dayKey, window)),
       checkins: archive.checkins.filter((entry) => dayKeyInLongitudinalWindow(entry.dayKey, window)),
       rollups: archive.rollups.filter((entry) => dayKeyInLongitudinalWindow(entry.dayKey, window)),
+      // Link against all retained qualified raw exposures, not only exposures whose
+      // start-day is inside this summary window. A reaction shortly after midnight
+      // can therefore retain its real denominator without importing prior-day time
+      // into the displayed exposure total.
+      qualifiedExposureIds: qualifiedLongitudinalExposureIds(archive.exposures),
     });
   }
 
@@ -229,8 +232,6 @@ export class FrontierLongitudinalStore {
     const rollupStore = transaction.objectStore(ROLLUP_STORE);
     for (const rollup of rollups) rollupStore.put(rollup);
     for (const entry of exposures) exposureStore.delete(entry.id);
-    // Orphan reactions are intentionally removed from high-resolution storage at
-    // the retention boundary without gaining aggregate rate authority.
     for (const entry of reactions) reactionStore.delete(entry.id);
     for (const entry of interactions) interactionStore.delete(entry.id);
     await done;
@@ -244,11 +245,6 @@ export class FrontierLongitudinalStore {
     };
   }
 
-  /**
-   * Replace all stores with an already validated canonical archive. Validation is
-   * intentionally not owned by persistence, so arbitrary unknown input can never
-   * be written simply by calling this adapter.
-   */
   async replaceValidatedArchive(archive: LongitudinalArchive): Promise<void> {
     const db = await openDb();
     const transaction = db.transaction(
