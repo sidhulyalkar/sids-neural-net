@@ -1,21 +1,25 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
+  longitudinalDayKey,
+  longitudinalDayWindow,
+  type LongitudinalArchive,
+  type LongitudinalExposure,
+  type LongitudinalReactionEpisode,
+  type LongitudinalRollup,
+} from '../lib/frontier/longitudinal';
+import {
   inferLongitudinalTopicRates,
   inferLongitudinalTopicTrends,
 } from '../lib/frontier/longitudinalInference';
-import type {
-  LongitudinalArchive,
-  LongitudinalExposure,
-  LongitudinalReactionEpisode,
-  LongitudinalRollup,
-} from '../lib/frontier/longitudinal';
 
-const NOW = Date.parse('2026-08-30T12:00:00.000Z');
-const DAY = 86_400_000;
+const NOW = new Date(2026, 7, 30, 12, 0, 0, 0).getTime();
 
-function dayKey(at: number): string {
-  return new Date(at).toISOString().slice(0, 10);
+function localDayOffset(days: number, hour = 12): number {
+  const date = new Date(NOW);
+  date.setDate(date.getDate() + days);
+  date.setHours(hour, 0, 0, 0);
+  return date.getTime();
 }
 
 function archive(overrides: Partial<LongitudinalArchive> = {}): LongitudinalArchive {
@@ -42,7 +46,7 @@ function exposure(id: string, tag: string, at: number, durationMs: number): Long
     format: 'code',
     startedAt: at - durationMs,
     endedAt: at,
-    dayKey: dayKey(at),
+    dayKey: longitudinalDayKey(at),
     durationMs,
     attributionMean: 0.8,
     attributionMin: 0.7,
@@ -66,7 +70,7 @@ function reaction(
     sourceKind: 'github',
     format: 'code',
     occurredAt: at,
-    dayKey: dayKey(at),
+    dayKey: longitudinalDayKey(at),
     kind: 'interest',
     confidence: 0.8,
     intensity: 0.7,
@@ -80,9 +84,53 @@ function reaction(
   };
 }
 
+function topicRollup(
+  id: string,
+  tag: string,
+  at: number,
+  exposureMs: number,
+  reactions: number,
+  confirmed = 0,
+  contradicted = 0,
+): LongitudinalRollup {
+  return {
+    id,
+    batchId: 'batch-test',
+    dayKey: longitudinalDayKey(at),
+    dimension: 'topic',
+    key: tag,
+    exposureMs,
+    exposures: 1,
+    reactions,
+    explicitInteractions: 0,
+    confirmed,
+    contradicted,
+    affinity: 0,
+    interest: reactions,
+    surprise: 0,
+    friction: 0,
+    confidenceSum: reactions * 0.8,
+    intensitySum: reactions * 0.7,
+    compactedAt: NOW,
+  };
+}
+
+test('longitudinal windows are exact local calendar-day cohorts including today', () => {
+  const window = longitudinalDayWindow(90, NOW);
+  assert.equal(window.days, 90);
+  assert.equal(window.startDay, longitudinalDayKey(localDayOffset(-89)));
+  assert.equal(window.endDayExclusive, longitudinalDayKey(localDayOffset(1)));
+
+  const recent = longitudinalDayWindow(14, NOW);
+  const previous = longitudinalDayWindow(14, NOW, -14);
+  assert.equal(previous.endDayExclusive, recent.startDay, 'trend cohorts must be adjacent and non-overlapping');
+  assert.equal(previous.startDay, longitudinalDayKey(localDayOffset(-27)));
+  assert.equal(recent.startDay, longitudinalDayKey(localDayOffset(-13)));
+});
+
 test('sparse reaction rates are shrunk instead of winning on one dramatic event', () => {
-  const sparseAt = NOW - 2 * DAY;
-  const steadyAt = NOW - DAY;
+  const sparseAt = localDayOffset(-2);
+  const steadyAt = localDayOffset(-1);
   const data = archive({
     exposures: [
       exposure('sparse-exposure', 'sparse-topic', sparseAt, 60_000),
@@ -108,8 +156,8 @@ test('sparse reaction rates are shrunk instead of winning on one dramatic event'
 });
 
 test('trend inference requires exposure, event support, and a material rate shift', () => {
-  const previousAt = NOW - 20 * DAY;
-  const recentAt = NOW - 5 * DAY;
+  const previousAt = localDayOffset(-20);
+  const recentAt = localDayOffset(-5);
   const data = archive({
     exposures: [
       exposure('graphics-prev', 'graphics', previousAt, 20 * 60_000),
@@ -135,7 +183,7 @@ test('trend inference requires exposure, event support, and a material rate shif
 });
 
 test('raw and compacted topic observations produce equivalent rate estimates', () => {
-  const at = NOW - 10 * DAY;
+  const at = localDayOffset(-10);
   const raw = archive({
     exposures: [exposure('raw-exposure', 'neuroai', at, 10 * 60_000)],
     reactions: [
@@ -144,27 +192,9 @@ test('raw and compacted topic observations produce equivalent rate estimates', (
     ],
   });
 
-  const rollup: LongitudinalRollup = {
-    id: 'rollup-neuroai',
-    batchId: 'batch-test',
-    dayKey: dayKey(at),
-    dimension: 'topic',
-    key: 'neuroai',
-    exposureMs: 10 * 60_000,
-    exposures: 1,
-    reactions: 2,
-    explicitInteractions: 0,
-    confirmed: 1,
-    contradicted: 1,
-    affinity: 0,
-    interest: 2,
-    surprise: 0,
-    friction: 0,
-    confidenceSum: 1.6,
-    intensitySum: 1.4,
-    compactedAt: NOW,
-  };
-  const compacted = archive({ rollups: [rollup] });
+  const compacted = archive({
+    rollups: [topicRollup('rollup-neuroai', 'neuroai', at, 10 * 60_000, 2, 1, 1)],
+  });
 
   const rawEstimate = inferLongitudinalTopicRates(raw, 90, NOW).find((entry) => entry.key === 'neuroai');
   const compactedEstimate = inferLongitudinalTopicRates(compacted, 90, NOW).find((entry) => entry.key === 'neuroai');
@@ -177,4 +207,38 @@ test('raw and compacted topic observations produce equivalent rate estimates', (
   assert.ok(Math.abs(rawEstimate.ratePer10Min - compactedEstimate.ratePer10Min) < 1e-12);
   assert.ok(Math.abs(rawEstimate.lowerPer10Min - compactedEstimate.lowerPer10Min) < 1e-12);
   assert.ok(Math.abs(rawEstimate.upperPer10Min - compactedEstimate.upperPer10Min) < 1e-12);
+});
+
+test('window-edge membership cannot change when raw observations are compacted', () => {
+  const excludedAt = localDayOffset(-90, 8);
+  const includedAt = localDayOffset(-89, 8);
+
+  const raw = archive({
+    exposures: [
+      exposure('excluded-raw', 'outside-window', excludedAt, 10 * 60_000),
+      exposure('included-raw', 'inside-window', includedAt, 10 * 60_000),
+    ],
+    reactions: [
+      reaction('excluded-r1', 'outside-window', excludedAt, 'confirmed'),
+      reaction('included-r1', 'inside-window', includedAt, 'confirmed'),
+    ],
+  });
+  const compacted = archive({
+    rollups: [
+      topicRollup('excluded-rollup', 'outside-window', excludedAt, 10 * 60_000, 1, 1, 0),
+      topicRollup('included-rollup', 'inside-window', includedAt, 10 * 60_000, 1, 1, 0),
+    ],
+  });
+
+  const rawRates = inferLongitudinalTopicRates(raw, 90, NOW);
+  const compactedRates = inferLongitudinalTopicRates(compacted, 90, NOW);
+  assert.equal(rawRates.some((entry) => entry.key === 'outside-window'), false);
+  assert.equal(compactedRates.some((entry) => entry.key === 'outside-window'), false);
+
+  const rawIncluded = rawRates.find((entry) => entry.key === 'inside-window');
+  const compactedIncluded = compactedRates.find((entry) => entry.key === 'inside-window');
+  assert.ok(rawIncluded && compactedIncluded);
+  assert.equal(rawIncluded.exposureMs, compactedIncluded.exposureMs);
+  assert.equal(rawIncluded.reactions, compactedIncluded.reactions);
+  assert.ok(Math.abs(rawIncluded.ratePer10Min - compactedIncluded.ratePer10Min) < 1e-12);
 });
