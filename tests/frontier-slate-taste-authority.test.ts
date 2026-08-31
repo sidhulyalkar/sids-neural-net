@@ -69,6 +69,9 @@ test('whole-policy taste removal can swap a slate seat without removing learned 
 });
 
 test('disabled policy removes the taste-keyed generic AI brake together with taste penalties', () => {
+  // Keep this fixture intentionally narrow. A richer inventory can legitimately
+  // select another family through demand balancing after the AI gate is removed;
+  // eligibility must not be confused with guaranteed selection.
   const ranked = [
     item('ai-0', {
       lane: 'ai_frontier',
@@ -85,19 +88,19 @@ test('disabled policy removes the taste-keyed generic AI brake together with tas
       importance: 0.69,
     }),
     item('game', { lane: 'gaming', quality: 0.8 }),
-    item('sports', { lane: 'sports', quality: 0.78 }),
-    item('builder', { lane: 'builder_signal', quality: 0.7 }),
   ];
 
-  const production = selectAdaptiveDailyAllocation(ranked, 4);
-  const disabled = selectAdaptiveDailyAllocation(ranked, 4, { tastePolicy: 'disabled' });
+  const production = selectAdaptiveDailyAllocation(ranked, 3);
+  const disabled = selectAdaptiveDailyAllocation(ranked, 3, { tastePolicy: 'disabled' });
   const productionAi = production.filter((entry) => entry.lane === 'ai_frontier').length;
   const disabledAi = disabled.filter((entry) => entry.lane === 'ai_frontier').length;
 
   assert.equal(productionAi, 1);
   assert.equal(disabledAi, 2);
-  assert.ok(production.some((entry) => entry.lane === 'gaming' || entry.lane === 'sports'));
-  assert.ok(disabled.some((entry) => entry.lane === 'gaming' || entry.lane === 'sports'));
+  assert.equal(production.length, 2, 'production prefers fewer cards to violating the low-taste AI brake');
+  assert.equal(disabled.length, 3, 'disabled policy admits the second AI candidate through the same allocator');
+  assert.ok(production.some((entry) => entry.lane === 'gaming'));
+  assert.ok(disabled.some((entry) => entry.lane === 'gaming'));
 });
 
 test('slate taste audit returns only aggregate membership and family diagnostics', () => {
