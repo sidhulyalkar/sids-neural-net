@@ -4,17 +4,63 @@ import {
   restoreArchiveDomainsAtomically,
   type FrontierArchiveRestoreAdapters,
 } from '../lib/frontier/archiveIntegrity';
+import { createInitialBehaviorModel } from '../lib/frontier/behavior';
+import { createInitialProfile, DEFAULT_COLLECTIONS } from '../lib/frontier/config';
+import { parsePrivateFrontierState } from '../lib/frontier/frontierArchiveStateValidation';
 import {
   LONGITUDINAL_ARCHIVE_LIMITS,
   parseLongitudinalArchive,
 } from '../lib/frontier/longitudinalArchiveValidation';
+import { parseFrontierLocalArchive } from '../lib/frontier/localArchive';
 import { parseReactionTrustState } from '../lib/frontier/reactionTrust';
 import type { LongitudinalArchive } from '../lib/frontier/longitudinal';
 import type { ReactionTrustState } from '../lib/frontier/reactionTrust';
-import type { FrontierPersistedState } from '../lib/frontier/types';
+import type { FrontierItem, FrontierPersistedState } from '../lib/frontier/types';
 
 const EXPORTED_AT = '2026-08-31T12:00:00.000Z';
 const DAY_KEY = '2026-08-31';
+
+function validItem(id = 'item-1'): FrontierItem {
+  return {
+    id,
+    title: 'A valid archived signal',
+    summary: 'Archive validation fixture.',
+    url: `https://example.com/${id}`,
+    source: 'example.com',
+    sourceLabel: 'Example',
+    sourceKind: 'rss',
+    publishedAt: EXPORTED_AT,
+    lane: 'creative_tech',
+    tags: ['neuroai'],
+    baseScore: 0.6,
+    importance: 0.7,
+    novelty: 0.8,
+    quality: 0.9,
+    momentum: 0.5,
+  };
+}
+
+function validFrontierState(): FrontierPersistedState {
+  const signal = validItem();
+  return {
+    version: 2,
+    profile: createInitialProfile(),
+    behavior: createInitialBehaviorModel(),
+    saved: { [signal.id]: signal },
+    collections: DEFAULT_COLLECTIONS.map((collection) => ({ ...collection, itemIds: [] })),
+    history: {
+      [signal.id]: {
+        item: signal,
+        firstSeenAt: EXPORTED_AT,
+        lastSeenAt: EXPORTED_AT,
+        impressions: 1,
+        resurfacedCount: 0,
+        rewarded: false,
+      },
+    },
+    game: { xp: 4, streak: 1, lastActiveDay: DAY_KEY, completedQuestDays: {} },
+  };
+}
 
 function validLongitudinalArchive(): LongitudinalArchive {
   return {
@@ -47,6 +93,48 @@ function validLongitudinalArchive(): LongitudinalArchive {
     }],
   };
 }
+
+test('private FRONTIER state parser validates executable fields and returns a deep JSON copy', () => {
+  const input = validFrontierState();
+  const parsed = parsePrivateFrontierState(input);
+  assert.ok(parsed);
+  assert.deepEqual(parsed, input);
+  assert.notEqual(parsed, input);
+  assert.notEqual(parsed.profile, input.profile);
+  assert.notEqual(parsed.saved['item-1'], input.saved['item-1']);
+
+  const badCounter = structuredClone(input) as unknown as Record<string, unknown>;
+  (badCounter.behavior as Record<string, unknown>).sessions = 'many';
+  assert.equal(parsePrivateFrontierState(badCounter), null);
+
+  const badSaved = structuredClone(input) as unknown as Record<string, unknown>;
+  ((badSaved.saved as Record<string, Record<string, unknown>>)['item-1']).url = 'javascript:alert(1)';
+  assert.equal(parsePrivateFrontierState(badSaved), null);
+
+  const mismatchedKey = structuredClone(input) as unknown as Record<string, unknown>;
+  const saved = mismatchedKey.saved as Record<string, unknown>;
+  saved['wrong-key'] = saved['item-1'];
+  delete saved['item-1'];
+  assert.equal(parsePrivateFrontierState(mismatchedKey), null);
+});
+
+test('complete private archive parser fails closed when any one memory domain is malformed', () => {
+  const trust: ReactionTrustState = {
+    interest: { observed: 2, confirmed: 1, contradicted: 0, confidenceSum: 1.5 },
+  };
+  const archive = {
+    schema: 'frontier-local-archive-v1',
+    exportedAt: EXPORTED_AT,
+    frontier: validFrontierState(),
+    reactionTrust: trust,
+    longitudinal: validLongitudinalArchive(),
+  };
+  assert.ok(parseFrontierLocalArchive(archive));
+
+  const broken = structuredClone(archive) as unknown as Record<string, unknown>;
+  (((broken.frontier as Record<string, unknown>).profile as Record<string, unknown>).curiosity) = Number.NaN;
+  assert.equal(parseFrontierLocalArchive(broken), null);
+});
 
 test('longitudinal archive parser accepts a valid private archive and returns canonical copied records', () => {
   const input = validLongitudinalArchive();
