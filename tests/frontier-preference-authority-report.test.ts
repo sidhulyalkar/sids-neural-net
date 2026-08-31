@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import type { FrontierDailyRunTasteAuthorityAudit } from '../lib/frontier/dailyRunTasteAuthorityAudit';
 import { buildFrontierPreferenceAuthorityReport } from '../lib/frontier/preferenceAuthorityReport';
 import type { FrontierRankAuthorityAudit } from '../lib/frontier/rankAuthorityAudit';
 import type { FrontierSlateTasteAuthorityAudit } from '../lib/frontier/slateTasteAuthorityAudit';
@@ -54,6 +55,27 @@ function slateAudit(changed = false): FrontierSlateTasteAuthorityAudit {
   };
 }
 
+function dailyRunAudit(changed = false): FrontierDailyRunTasteAuthorityAudit {
+  return {
+    schema: 'frontier-daily-run-taste-authority-v1',
+    causalScope: 'whole-fixed-taste-daily-run-policy',
+    candidates: 64,
+    limit: 48,
+    canonicalLimit: 14,
+    productionSelected: 48,
+    disabledSelected: 48,
+    productionCanonicalSelected: 14,
+    disabledCanonicalSelected: 14,
+    sharedSelected: changed ? 45 : 48,
+    protectedByTaste: changed ? 3 : 0,
+    displacedWithoutTaste: changed ? 3 : 0,
+    changedMembership: changed ? 6 : 0,
+    selectionCountDelta: 0,
+    overlapRate: changed ? 45 / 48 : 1,
+    familyDeltas: [],
+  };
+}
+
 test('report preserves separate causal scopes and exposes no synthetic overall score', () => {
   const report = buildFrontierPreferenceAuthorityReport({
     server: {
@@ -79,6 +101,19 @@ test('report preserves separate causal scopes and exposes no synthetic overall s
   assert.equal('combinedOverlap' in report, false);
 });
 
+test('composite daily-run audit preserves the same separate slate report boundary', () => {
+  const report = buildFrontierPreferenceAuthorityReport({
+    rank: rankAudit({ 'session-intent': 1 }),
+    slate: dailyRunAudit(true),
+  });
+
+  assert.equal(report.slate.observed, true);
+  assert.equal(report.slate.audit?.causalScope, 'whole-fixed-taste-daily-run-policy');
+  assert.equal(report.slate.audit?.limit, 48);
+  assert.equal(report.activeFixedTasteBoundaries, 1);
+  assert.deepEqual(report.signals, []);
+});
+
 test('fixed taste spanning multiple boundaries is flagged as a review signal, not causal redundancy', () => {
   const report = buildFrontierPreferenceAuthorityReport({
     server: {
@@ -91,12 +126,19 @@ test('fixed taste spanning multiple boundaries is flagged as a review signal, no
       overlapRate: 318 / 320,
     },
     rank: rankAudit({ 'fixed-taste': 1, 'direct-preference-additive': 2 }),
-    slate: slateAudit(true),
+    slate: dailyRunAudit(true),
   });
 
   assert.equal(report.activeFixedTasteBoundaries, 3);
   assert.deepEqual(report.signals, ['fixed-taste-active-at-multiple-boundaries']);
   assert.equal(report.rank.fixedTaste?.protectedTopK, 1);
+});
+
+test('zero-effect rank audit remains observed without inventing a strongest component', () => {
+  const report = buildFrontierPreferenceAuthorityReport({ rank: rankAudit() });
+  assert.equal(report.rank.observed, true);
+  assert.equal(report.rank.strongestComponent, null);
+  assert.equal(report.rank.fixedTaste?.protectedTopK, 0);
 });
 
 test('unobserved boundaries remain explicitly unobserved instead of becoming zero-effect evidence', () => {
@@ -111,7 +153,7 @@ test('unobserved boundaries remain explicitly unobserved instead of becoming zer
 test('report output remains aggregate and contains no item identity surfaces', () => {
   const report = buildFrontierPreferenceAuthorityReport({
     rank: rankAudit({ 'pair-connection-additive': 2 }),
-    slate: slateAudit(true),
+    slate: dailyRunAudit(true),
   });
   const serialized = JSON.stringify(report).toLowerCase();
   for (const forbidden of ['itemid', 'title', 'summary', 'url', 'query', 'profile']) {
