@@ -20,7 +20,10 @@ export type LongitudinalExposure = LongitudinalItemContext & {
   startedAt: number;
   endedAt: number;
   dayKey: string;
+  /** Attributed target time, regardless of whether the face detector had a usable face. */
   durationMs: number;
+  /** Time within durationMs for which the face sensor was actually observable. Undefined means legacy/unknown coverage. */
+  sensorObservableMs?: number;
   attributionMean: number;
   attributionMin: number;
   visibleFractionMean: number;
@@ -69,7 +72,10 @@ export type LongitudinalRollup = {
   dayKey: string;
   dimension: LongitudinalRollupDimension;
   key: string;
+  /** Attributed target exposure represented by this complete-day cell. */
   exposureMs: number;
+  /** Sensor-observable subset. Undefined means at least some source exposure lacked observability instrumentation. */
+  sensorObservableMs?: number;
   exposures: number;
   reactions: number;
   explicitInteractions: number;
