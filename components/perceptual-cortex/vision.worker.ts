@@ -8,22 +8,50 @@ type Detector = { detectForVideo(image: ImageBitmap, timestamp: number): { landm
 let hand: Detector | null; let face: Detector | null; let previousPalms: Landmark[] = []; let previousTime = 0; let previousActivity = 0;
 self.onmessage = async (event: MessageEvent) => {
   if (event.data.type === 'init') {
-    try { const vision = await import('@mediapipe/tasks-vision'); const files = await vision.FilesetResolver.forVisionTasks(WASM);
-      hand = await vision.HandLandmarker.createFromOptions(files, { baseOptions: { modelAssetPath: HAND_MODEL, delegate: 'CPU' }, runningMode: 'VIDEO', numHands: 2 }) as unknown as Detector;
+    try {
+      const vision = await import('@mediapipe/tasks-vision');
+      const files = await vision.FilesetResolver.forVisionTasks(WASM);
+      const wantsHands = event.data.hands !== false;
+      hand = wantsHands
+        ? await vision.HandLandmarker.createFromOptions(files, { baseOptions: { modelAssetPath: HAND_MODEL, delegate: 'CPU' }, runningMode: 'VIDEO', numHands: 2 }) as unknown as Detector
+        : null;
       face = await vision.FaceLandmarker.createFromOptions(files, { baseOptions: { modelAssetPath: FACE_MODEL, delegate: 'CPU' }, runningMode: 'VIDEO', numFaces: 1, outputFaceBlendshapes: true, outputFacialTransformationMatrixes: true }) as unknown as Detector;
       self.postMessage({ type: 'ready' });
-    } catch (error) { self.postMessage({ type: 'error', message: error instanceof Error ? error.message : 'Vision models failed to load.' }); }
+    } catch (error) {
+      self.postMessage({ type: 'error', message: error instanceof Error ? error.message : 'Vision models failed to load.' });
+    }
   }
   if (event.data.type === 'frame') {
-    const bitmap = event.data.bitmap as ImageBitmap; const now = event.data.timestamp as number;
-    try { if (!hand || !face) throw new Error('Vision models are not ready.'); const handsResult = hand.detectForVideo(bitmap, now); const faceResult = face.detectForVideo(bitmap, now); const landmarks = handsResult.landmarks ?? [];
+    const bitmap = event.data.bitmap as ImageBitmap;
+    const now = event.data.timestamp as number;
+    try {
+      if (!face) throw new Error('Vision models are not ready.');
+      const handsResult = hand?.detectForVideo(bitmap, now) ?? { landmarks: [] };
+      const faceResult = face.detectForVideo(bitmap, now);
+      const landmarks = handsResult.landmarks ?? [];
       const palms = landmarks.map((points) => [0, 5, 9, 13, 17].map((id) => points[id]).reduce((sum, p) => ({ x: sum.x + p.x / 5, y: sum.y + p.y / 5, z: sum.z + p.z / 5 }), { x: 0, y: 0, z: 0 }));
-      const handFeatures = deriveHandFeatures(landmarks, previousPalms, (now - previousTime) / 1000); previousPalms = palms; previousTime = now;
-      const matrix = faceResult.facialTransformationMatrixes?.[0]?.data as number[] | undefined; const scores = (faceResult.faceBlendshapes?.[0]?.categories ?? []).map((item: { score: number }) => item.score);
-      const faceFeatures = deriveFaceFeatures(matrix, scores, previousActivity); previousActivity = faceFeatures.activity;
+      const handFeatures = deriveHandFeatures(landmarks, previousPalms, (now - previousTime) / 1000);
+      previousPalms = palms;
+      previousTime = now;
+      const matrix = faceResult.facialTransformationMatrixes?.[0]?.data as number[] | undefined;
+      const scores = (faceResult.faceBlendshapes?.[0]?.categories ?? []).map((item: { score: number }) => item.score);
+      const faceFeatures = deriveFaceFeatures(matrix, scores, previousActivity);
+      previousActivity = faceFeatures.activity;
       self.postMessage({ type: 'features', hands: handFeatures, face: faceFeatures });
-    } catch (error) { self.postMessage({ type: 'error', message: error instanceof Error ? error.message : 'Vision inference failed.' }); }
-    finally { bitmap.close(); self.postMessage({ type: 'consumed' }); }
+    } catch (error) {
+      self.postMessage({ type: 'error', message: error instanceof Error ? error.message : 'Vision inference failed.' });
+    } finally {
+      bitmap.close();
+      self.postMessage({ type: 'consumed' });
+    }
   }
-  if (event.data.type === 'close') { hand?.close(); face?.close(); hand = null; face = null; }
+  if (event.data.type === 'close') {
+    hand?.close();
+    face?.close();
+    hand = null;
+    face = null;
+    previousPalms = [];
+    previousTime = 0;
+    previousActivity = 0;
+  }
 };
