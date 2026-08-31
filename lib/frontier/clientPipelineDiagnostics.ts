@@ -1,3 +1,4 @@
+import type { FrontierDailyRunTasteAuthorityAudit } from './dailyRunTasteAuthorityAudit';
 import type { FrontierPipelineDiagnostics } from './pipelineDiagnostics';
 import type { FrontierRankAuthorityAudit } from './rankAuthorityAudit';
 import type { FrontierSlateTasteAuthorityAudit } from './slateTasteAuthorityAudit';
@@ -24,8 +25,12 @@ export type FrontierClientPipelineSnapshot = {
   boardInput: number | null;
   /** Anonymous, current-cohort rank counterfactual. Never persisted. */
   rankAuthority: FrontierRankAuthorityAudit | null;
-  /** Anonymous, current-cohort fixed-taste slate counterfactual. Never persisted. */
-  slateTasteAuthority: FrontierSlateTasteAuthorityAudit | null;
+  /**
+   * Anonymous, current-cohort fixed-taste counterfactual. v17 can carry the raw
+   * adaptive allocator audit; v18 live Today cohorts use the composite daily-run
+   * audit that also preserves the canonical 14-card prefix. Never persisted.
+   */
+  slateTasteAuthority: FrontierSlateTasteAuthorityAudit | FrontierDailyRunTasteAuthorityAudit | null;
 };
 
 const EMPTY_CLIENT_PIPELINE: FrontierClientPipelineSnapshot = {
@@ -86,7 +91,7 @@ export function recordFrontierClientSelection(input: {
   selected: number;
   boardInput: number;
   rankAuthority?: FrontierRankAuthorityAudit | null;
-  slateTasteAuthority?: FrontierSlateTasteAuthorityAudit | null;
+  slateTasteAuthority?: FrontierSlateTasteAuthorityAudit | FrontierDailyRunTasteAuthorityAudit | null;
   at?: number;
 }): void {
   publish({
