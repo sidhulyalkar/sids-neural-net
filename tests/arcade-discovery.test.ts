@@ -72,6 +72,8 @@ test('Stretchicorn cabinet pins the authoritative v0.38.0 standalone release', (
   assert.match(route, /STRETCHICORN_SOURCE_COMMIT = '07d38322d5b9927a9b9eca6fec38546925801c16'/);
   assert.match(route, /STRETCHICORN_SOURCE_ARTIFACT = 'dist\/stretchicorn-local\.html'/);
   assert.match(route, /Stretchicorn v0\.38\.0 local playtest/);
+  assert.match(route, /canvas id=c tabindex=0/);
+  assert.match(route, /host integration check/);
   assert.match(route, /max-age=31536000, immutable/);
   assert.match(route, /X-Stretchicorn-Version/);
   assert.match(route, /X-Stretchicorn-Source-Commit/);
