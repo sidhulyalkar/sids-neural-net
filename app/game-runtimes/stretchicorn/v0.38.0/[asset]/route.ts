@@ -12,11 +12,14 @@ type StretchicornRuntimeRouteProps = {
 
 export const dynamic = 'force-dynamic';
 
-function injectGameNetworkBridge(html: string) {
-  if (html.includes('/game-runtimes/game-network-bridge.js')) return html;
-  return html.includes('</body>')
-    ? html.replace('</body>', `${GAME_NETWORK_BRIDGE}</body>`)
-    : `${html}\n${GAME_NETWORK_BRIDGE}\n`;
+function prepareForGameNetwork(html: string) {
+  const focusable = html.includes('<canvas id=c tabindex=0')
+    ? html
+    : html.replace('<canvas id=c ', '<canvas id=c tabindex=0 ');
+  if (focusable.includes('/game-runtimes/game-network-bridge.js')) return focusable;
+  return focusable.includes('</body>')
+    ? focusable.replace('</body>', `${GAME_NETWORK_BRIDGE}</body>`)
+    : `${focusable}\n${GAME_NETWORK_BRIDGE}\n`;
 }
 
 export async function GET(_request: Request, { params }: StretchicornRuntimeRouteProps) {
@@ -48,7 +51,7 @@ export async function GET(_request: Request, { params }: StretchicornRuntimeRout
     });
   }
 
-  return new NextResponse(injectGameNetworkBridge(html), {
+  return new NextResponse(prepareForGameNetwork(html), {
     status: 200,
     headers: {
       'Content-Type': 'text/html; charset=utf-8',
