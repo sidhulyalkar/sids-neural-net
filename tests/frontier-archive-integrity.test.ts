@@ -19,6 +19,7 @@ import type { FrontierItem, FrontierPersistedState } from '../lib/frontier/types
 
 const EXPORTED_AT = '2026-08-31T12:00:00.000Z';
 const DAY_KEY = '2026-08-31';
+const ROLLUP_DAY = '2026-07-01';
 
 function validItem(id = 'item-1'): FrontierItem {
   return {
@@ -86,7 +87,7 @@ function validLongitudinalArchive(): LongitudinalArchive {
     }],
     checkins: [{ id: 'checkin-1', at: 40_000, dayKey: DAY_KEY, mood: 4, energy: 3, focus: 5 }],
     rollups: [{
-      id: 'rollup-1', batchId: 'batch-1', dayKey: DAY_KEY, dimension: 'topic', key: 'neuroai',
+      id: 'rollup-1', batchId: 'batch-1', dayKey: ROLLUP_DAY, dimension: 'topic', key: 'neuroai',
       exposureMs: 60_000, exposures: 1, reactions: 1, explicitInteractions: 1,
       confirmed: 1, contradicted: 0, affinity: 0, interest: 1, surprise: 0, friction: 0,
       confidenceSum: 0.8, intensitySum: 0.7, compactedAt: 100_000,
@@ -176,14 +177,24 @@ test('longitudinal archive parser fails closed on malformed semantic invariants'
   assert.equal(parseLongitudinalArchive(reactionWithoutValue), null);
 });
 
-test('longitudinal archive parser rejects duplicate object-store IDs instead of relying on last-write-wins', () => {
+test('longitudinal archive parser rejects duplicate ids and duplicate analytical rollup cells', () => {
   const duplicateExposure = structuredClone(validLongitudinalArchive());
   duplicateExposure.exposures.push({ ...duplicateExposure.exposures[0] });
   assert.equal(parseLongitudinalArchive(duplicateExposure), null);
 
-  const duplicateRollup = structuredClone(validLongitudinalArchive());
-  duplicateRollup.rollups.push({ ...duplicateRollup.rollups[0] });
-  assert.equal(parseLongitudinalArchive(duplicateRollup), null);
+  const duplicateRollupId = structuredClone(validLongitudinalArchive());
+  duplicateRollupId.rollups.push({ ...duplicateRollupId.rollups[0] });
+  assert.equal(parseLongitudinalArchive(duplicateRollupId), null);
+
+  const duplicateAnalyticalCell = structuredClone(validLongitudinalArchive());
+  duplicateAnalyticalCell.rollups.push({ ...duplicateAnalyticalCell.rollups[0], id: 'different-id', batchId: 'different-batch' });
+  assert.equal(parseLongitudinalArchive(duplicateAnalyticalCell), null);
+});
+
+test('longitudinal archive parser rejects raw and compacted observations from the same local day', () => {
+  const mixed = structuredClone(validLongitudinalArchive());
+  mixed.rollups[0].dayKey = DAY_KEY;
+  assert.equal(parseLongitudinalArchive(mixed), null);
 });
 
 test('longitudinal archive parser rejects pathological store sizes before record traversal', () => {

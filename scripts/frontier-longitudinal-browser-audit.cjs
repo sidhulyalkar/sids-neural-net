@@ -45,9 +45,6 @@ async function run() {
     const pageErrors = [];
     page.on('pageerror', (error) => pageErrors.push(error.message));
 
-    // Keep this audit deterministic and use the first client feed request as a
-    // hydration sentinel. Selecting Radar before React owns the SSR <select> can
-    // otherwise mutate only the raw DOM and get reverted during hydration.
     let feedRequests = 0;
     let resolveFirstFeedFulfillment;
     const firstFeedFulfillment = new Promise((resolve) => {
@@ -79,9 +76,6 @@ async function run() {
     const response = await page.goto(url, { waitUntil: 'domcontentloaded' });
     invariant(response && response.ok(), `FRONTIER route returned ${response?.status() ?? 'no response'}`);
     await hydrationRequest;
-    // `waitForRequest` fires when the browser emits the request, before an async
-    // route handler is guaranteed to run. Await fulfillment as the authoritative
-    // hydration boundary so this audit cannot race its own deterministic stub.
     await firstFeedFulfillment;
     invariant(feedRequests >= 1, 'FRONTIER client hydration never issued its feed request');
 
@@ -92,16 +86,15 @@ async function run() {
 
     const section = page.getByRole('region', { name: 'Longitudinal personal observation' });
     await section.waitFor();
-    // `innerText` reflects the rendered presentation and can vary with CSS text
-    // transforms. The contract we need here is that the user-facing semantic copy
-    // exists in the DOM, independent of capitalization/style.
     const text = ((await section.textContent()) ?? '').replace(/\s+/g, ' ').toLowerCase();
     invariant(text.includes('local only'), 'Longitudinal Cortex must identify its local-only privacy boundary');
     invariant(text.includes('self-report, not facial inference'), 'State labels must be explicitly described as self-report');
-    invariant(text.includes('qualified camera exposure'), 'Qualified exposure denominator is missing from the UI');
+    invariant(text.includes('attributed camera-on exposure'), 'Camera-on exposure denominator semantics are missing from the UI');
+    invariant(text.includes('detected-cue precision'), 'Detected-cue validation semantics are missing from the UI');
     invariant(text.includes('120d high-resolution retention'), 'Retention contract is missing from the UI');
-    invariant(text.includes('90-day shrunk rate') && text.includes('approximate 90% uncertainty'),
-      'Uncertainty-aware reactivity estimator is missing from the UI');
+    invariant(text.includes('90-day empirical-bayes rate') && text.includes('95% credible interval'),
+      'Bayesian uncertainty semantics are missing from the UI');
+    invariant(text.includes('descriptive, not causal'), 'Longitudinal rates must be explicitly framed as descriptive rather than causal');
 
     const sliders = section.locator('input[type="range"]');
     invariant(await sliders.count() === 3, 'Expected mood, energy, and focus self-report controls');
@@ -151,9 +144,6 @@ async function run() {
       invariant(schema.includes(expected), `Longitudinal IndexedDB is missing ${expected} object store`);
     }
 
-    // The legacy footer surface must now export the same complete private archive
-    // as Radar. This prevents two buttons named Export from having different memory
-    // authority and permanently guards against longitudinal data being omitted.
     const dataMenu = page.locator('details').filter({ has: page.locator('summary', { hasText: /^Data$/ }) });
     await dataMenu.locator('summary').click();
     const exportButton = dataMenu.getByRole('button', { name: 'Export', exact: true });
@@ -189,8 +179,6 @@ async function run() {
       pageErrors,
     }, null, 2));
   } finally {
-    // Always tear down Playwright so a failing assertion becomes a fast CI failure
-    // rather than a zombie Chromium process that occupies the job until timeout.
     await context?.close().catch(() => undefined);
     await browser?.close().catch(() => undefined);
   }

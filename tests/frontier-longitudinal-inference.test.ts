@@ -9,6 +9,7 @@ import {
   type LongitudinalRollup,
 } from '../lib/frontier/longitudinal';
 import {
+  inferLongitudinalMeasurementQuality,
   inferLongitudinalTopicRates,
   inferLongitudinalTopicTrends,
 } from '../lib/frontier/longitudinalInference';
@@ -35,13 +36,18 @@ function archive(overrides: Partial<LongitudinalArchive> = {}): LongitudinalArch
   };
 }
 
-function exposure(id: string, tag: string, at: number, durationMs: number): LongitudinalExposure {
+function exposure(
+  id: string,
+  tag: string | string[],
+  at: number,
+  durationMs: number,
+): LongitudinalExposure {
   return {
     id,
-    sessionId: 'session-test',
+    sessionId: `session-${longitudinalDayKey(at)}`,
     itemId: id,
     lane: 'creative_tech',
-    tags: [tag],
+    tags: Array.isArray(tag) ? tag : [tag],
     sourceKind: 'github',
     format: 'code',
     startedAt: at - durationMs,
@@ -56,17 +62,17 @@ function exposure(id: string, tag: string, at: number, durationMs: number): Long
 
 function reaction(
   id: string,
-  tag: string,
+  tag: string | string[],
   at: number,
   review?: 'confirmed' | 'contradicted',
 ): LongitudinalReactionEpisode {
   return {
     id,
-    sessionId: 'session-test',
+    sessionId: `session-${longitudinalDayKey(at)}`,
     exposureId: `exposure-${id}`,
     itemId: id,
     lane: 'creative_tech',
-    tags: [tag],
+    tags: Array.isArray(tag) ? tag : [tag],
     sourceKind: 'github',
     format: 'code',
     occurredAt: at,
@@ -84,9 +90,10 @@ function reaction(
   };
 }
 
-function topicRollup(
+function rollup(
   id: string,
-  tag: string,
+  dimension: 'topic' | 'lane',
+  key: string,
   at: number,
   exposureMs: number,
   reactions: number,
@@ -97,8 +104,8 @@ function topicRollup(
     id,
     batchId: 'batch-test',
     dayKey: longitudinalDayKey(at),
-    dimension: 'topic',
-    key: tag,
+    dimension,
+    key,
     exposureMs,
     exposures: 1,
     reactions,
@@ -128,7 +135,7 @@ test('longitudinal windows are exact local calendar-day cohorts including today'
   assert.equal(recent.startDay, longitudinalDayKey(localDayOffset(-13)));
 });
 
-test('sparse reaction rates are shrunk instead of winning on one dramatic event', () => {
+test('sparse detected-cue rates are shrunk and retain wider 95% uncertainty', () => {
   const sparseAt = localDayOffset(-2);
   const steadyAt = localDayOffset(-1);
   const data = archive({
@@ -149,40 +156,113 @@ test('sparse reaction rates are shrunk instead of winning on one dramatic event'
   const sparse = rates.find((entry) => entry.key === 'sparse-topic');
   const steady = rates.find((entry) => entry.key === 'steady-topic');
   assert.ok(sparse && steady);
+  assert.equal(sparse.intervalLevel, 0.95);
   assert.ok(sparse.ratePer10Min < 10, 'one event in one minute must be shrunk below its raw rate');
   assert.ok(sparse.upperPer10Min - sparse.lowerPer10Min > steady.upperPer10Min - steady.lowerPer10Min,
     'sparse topics should retain a wider uncertainty band');
   assert.ok(sparse.evidenceStrength < steady.evidenceStrength);
 });
 
-test('trend inference requires exposure, event support, and a material rate shift', () => {
+test('global shrinkage prior is invariant to how many tags unrelated items carry', () => {
+  const at = localDayOffset(-1);
+  const targetExposure = exposure('target-exposure', 'target-topic', at, 10 * 60_000);
+  const targetReaction = reaction('target-r1', 'target-topic', at);
+
+  const oneTag = archive({
+    exposures: [targetExposure, exposure('other-one', ['other'], at, 10 * 60_000)],
+    reactions: [targetReaction, reaction('other-one-r1', ['other'], at)],
+  });
+  const manyTags = archive({
+    exposures: [targetExposure, exposure('other-many', ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'], at, 10 * 60_000)],
+    reactions: [targetReaction, reaction('other-many-r1', ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'], at)],
+  });
+
+  const first = inferLongitudinalTopicRates(oneTag, 30, NOW).find((entry) => entry.key === 'target-topic');
+  const second = inferLongitudinalTopicRates(manyTags, 30, NOW).find((entry) => entry.key === 'target-topic');
+  assert.ok(first && second);
+  assert.equal(first.baselinePer10Min, second.baselinePer10Min);
+  assert.ok(Math.abs(first.ratePer10Min - second.ratePer10Min) < 1e-12);
+});
+
+test('review agreement estimates detected-cue precision and withholds claims before validation', () => {
   const previousAt = localDayOffset(-20);
   const recentAt = localDayOffset(-5);
   const data = archive({
     exposures: [
-      exposure('graphics-prev', 'graphics', previousAt, 20 * 60_000),
-      exposure('graphics-recent', 'graphics', recentAt, 20 * 60_000),
-      exposure('sparse-prev', 'single-flash', previousAt, 30_000),
-      exposure('sparse-recent', 'single-flash', recentAt, 30_000),
+      exposure('graphics-prev', 'graphics', previousAt, 30 * 60_000),
+      exposure('graphics-prev-2', 'graphics', localDayOffset(-19), 30 * 60_000),
+      exposure('graphics-recent', 'graphics', recentAt, 30 * 60_000),
+      exposure('graphics-recent-2', 'graphics', localDayOffset(-4), 30 * 60_000),
     ],
     reactions: [
       reaction('graphics-prev-r1', 'graphics', previousAt),
-      ...Array.from({ length: 7 }, (_, index) => reaction(`graphics-recent-r${index}`, 'graphics', recentAt + index * 1_000)),
-      reaction('single-flash-r1', 'single-flash', recentAt),
+      ...Array.from({ length: 8 }, (_, index) => reaction(`graphics-recent-r${index}`, 'graphics', recentAt + index * 1_000)),
     ],
   });
 
-  const trends = inferLongitudinalTopicTrends(data, 14, NOW);
-  const graphics = trends.find((entry) => entry.key === 'graphics');
-  const sparse = trends.find((entry) => entry.key === 'single-flash');
-  assert.ok(graphics && sparse);
-  assert.equal(graphics.direction, 'rising');
-  assert.ok(graphics.relativeChange > 0.3);
-  assert.ok(graphics.signalStrength >= 1.15);
-  assert.equal(sparse.direction, 'insufficient');
+  const quality = inferLongitudinalMeasurementQuality(data, 28, NOW);
+  assert.equal(quality.status, 'unvalidated');
+  assert.equal(quality.reviewed, 0);
+  const trend = inferLongitudinalTopicTrends(data, 14, NOW).find((entry) => entry.key === 'graphics');
+  assert.ok(trend);
+  assert.equal(trend.direction, 'insufficient');
+  assert.equal(trend.reason, 'measurement-unvalidated');
 });
 
-test('raw and compacted topic observations produce equivalent rate estimates', () => {
+test('validated trend claims require replication across days and survive multiplicity control', () => {
+  const previousDays = [localDayOffset(-21), localDayOffset(-18)];
+  const recentDays = [localDayOffset(-7), localDayOffset(-4)];
+  const exposures = [
+    ...previousDays.map((at, index) => exposure(`graphics-prev-${index}`, 'graphics', at, 30 * 60_000)),
+    ...recentDays.map((at, index) => exposure(`graphics-recent-${index}`, 'graphics', at, 30 * 60_000)),
+  ];
+  const reactions = [
+    reaction('graphics-prev-r1', 'graphics', previousDays[0], 'confirmed'),
+    reaction('graphics-prev-r2', 'graphics', previousDays[1], 'confirmed'),
+    ...Array.from({ length: 12 }, (_, index) => reaction(
+      `graphics-recent-r${index}`,
+      'graphics',
+      recentDays[index % recentDays.length] + index * 1_000,
+      'confirmed',
+    )),
+  ];
+  const data = archive({ exposures, reactions });
+
+  const quality = inferLongitudinalMeasurementQuality(data, 28, NOW);
+  assert.equal(quality.status, 'supported');
+  assert.equal(quality.reviewAgreement, 1);
+  const graphics = inferLongitudinalTopicTrends(data, 14, NOW).find((entry) => entry.key === 'graphics');
+  assert.ok(graphics);
+  assert.equal(graphics.direction, 'rising');
+  assert.equal(graphics.reason, 'detected');
+  assert.ok(graphics.recent.observedDays >= 2);
+  assert.ok(graphics.previous.observedDays >= 2);
+  assert.ok(graphics.relativeChange > 0.35);
+  assert.ok(graphics.qValue <= 0.1);
+});
+
+test('a one-day burst is not promoted into a longitudinal change claim', () => {
+  const previousAt = localDayOffset(-20);
+  const recentAt = localDayOffset(-5);
+  const reactions = [
+    ...Array.from({ length: 4 }, (_, index) => reaction(`prev-${index}`, 'burst', previousAt + index * 1_000, 'confirmed')),
+    ...Array.from({ length: 10 }, (_, index) => reaction(`recent-${index}`, 'burst', recentAt + index * 1_000, 'confirmed')),
+  ];
+  const data = archive({
+    exposures: [
+      exposure('burst-prev', 'burst', previousAt, 45 * 60_000),
+      exposure('burst-recent', 'burst', recentAt, 45 * 60_000),
+    ],
+    reactions,
+  });
+  const trend = inferLongitudinalTopicTrends(data, 14, NOW).find((entry) => entry.key === 'burst');
+  assert.ok(trend);
+  assert.equal(trend.measurement.status, 'supported');
+  assert.equal(trend.direction, 'insufficient');
+  assert.equal(trend.reason, 'single-day');
+});
+
+test('raw and compacted topic observations produce equivalent rate estimates with unique lane baseline', () => {
   const at = localDayOffset(-10);
   const raw = archive({
     exposures: [exposure('raw-exposure', 'neuroai', at, 10 * 60_000)],
@@ -193,17 +273,22 @@ test('raw and compacted topic observations produce equivalent rate estimates', (
   });
 
   const compacted = archive({
-    rollups: [topicRollup('rollup-neuroai', 'neuroai', at, 10 * 60_000, 2, 1, 1)],
+    rollups: [
+      rollup('rollup-neuroai', 'topic', 'neuroai', at, 10 * 60_000, 2, 1, 1),
+      rollup('rollup-lane', 'lane', 'creative_tech', at, 10 * 60_000, 2, 1, 1),
+    ],
   });
 
   const rawEstimate = inferLongitudinalTopicRates(raw, 90, NOW).find((entry) => entry.key === 'neuroai');
   const compactedEstimate = inferLongitudinalTopicRates(compacted, 90, NOW).find((entry) => entry.key === 'neuroai');
   assert.ok(rawEstimate && compactedEstimate);
   assert.equal(rawEstimate.exposureMs, compactedEstimate.exposureMs);
+  assert.equal(rawEstimate.exposures, compactedEstimate.exposures);
   assert.equal(rawEstimate.reactions, compactedEstimate.reactions);
   assert.equal(rawEstimate.confirmed, compactedEstimate.confirmed);
   assert.equal(rawEstimate.contradicted, compactedEstimate.contradicted);
   assert.equal(rawEstimate.reviewAgreement, 0.5);
+  assert.equal(rawEstimate.baselinePer10Min, compactedEstimate.baselinePer10Min);
   assert.ok(Math.abs(rawEstimate.ratePer10Min - compactedEstimate.ratePer10Min) < 1e-12);
   assert.ok(Math.abs(rawEstimate.lowerPer10Min - compactedEstimate.lowerPer10Min) < 1e-12);
   assert.ok(Math.abs(rawEstimate.upperPer10Min - compactedEstimate.upperPer10Min) < 1e-12);
@@ -225,8 +310,10 @@ test('window-edge membership cannot change when raw observations are compacted',
   });
   const compacted = archive({
     rollups: [
-      topicRollup('excluded-rollup', 'outside-window', excludedAt, 10 * 60_000, 1, 1, 0),
-      topicRollup('included-rollup', 'inside-window', includedAt, 10 * 60_000, 1, 1, 0),
+      rollup('excluded-topic', 'topic', 'outside-window', excludedAt, 10 * 60_000, 1, 1, 0),
+      rollup('excluded-lane', 'lane', 'creative_tech', excludedAt, 10 * 60_000, 1, 1, 0),
+      rollup('included-topic', 'topic', 'inside-window', includedAt, 10 * 60_000, 1, 1, 0),
+      rollup('included-lane', 'lane', 'creative_tech', includedAt, 10 * 60_000, 1, 1, 0),
     ],
   });
 
@@ -240,5 +327,6 @@ test('window-edge membership cannot change when raw observations are compacted',
   assert.ok(rawIncluded && compactedIncluded);
   assert.equal(rawIncluded.exposureMs, compactedIncluded.exposureMs);
   assert.equal(rawIncluded.reactions, compactedIncluded.reactions);
+  assert.equal(rawIncluded.baselinePer10Min, compactedIncluded.baselinePer10Min);
   assert.ok(Math.abs(rawIncluded.ratePer10Min - compactedIncluded.ratePer10Min) < 1e-12);
 });
