@@ -1,4 +1,4 @@
-name: FRONTIER v18 Render Hardening
+name: FRONTIER v18 Render Hardening Cleanup
 
 on:
   push:
@@ -9,44 +9,18 @@ permissions:
   contents: write
 
 jobs:
-  patch:
-    if: github.event.head_commit.message == 'Apply deferred authority render hardening'
+  cleanup:
+    if: github.event.head_commit.message == 'Finalize deferred authority hardening'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.sha }}
           fetch-depth: 0
-      - name: Patch authority diagnostics off the render path
-        run: |
-          python - <<'PY'
-          from pathlib import Path
-
-          path = Path('components/frontier/FrontierExperience.tsx')
-          text = path.read_text()
-
-          old_import = """import {\n  clearFrontierClientPipeline,\n  recordFrontierClientFeed,\n  recordFrontierClientSelection,\n} from '@/lib/frontier/clientPipelineDiagnostics';"""
-          new_import = """import {\n  clearFrontierClientPipeline,\n  recordFrontierClientAuthority,\n  recordFrontierClientFeed,\n  recordFrontierClientSelection,\n} from '@/lib/frontier/clientPipelineDiagnostics';"""
-          assert text.count(old_import) == 1, 'client diagnostics import drifted'
-          text = text.replace(old_import, new_import)
-
-          anchor = "import { buildDiscoveryFocus, encodeDiscoveryFocus } from '@/lib/frontier/discoveryFocus';"
-          replacement = anchor + "\nimport { scheduleFrontierDiagnostic } from '@/lib/frontier/deferredDiagnostics';"
-          assert text.count(anchor) == 1, 'discovery focus import drifted'
-          text = text.replace(anchor, replacement)
-
-          old_block = """  const liveAuthority = useMemo(() => (\n    realmRanked.length\n      ? buildFrontierLiveAuthorityBridge({\n          realmRanked,\n          profile: store.profile,\n          history: store.history,\n          behavior: store.behavior,\n          limit: INITIAL_BROWSE_TARGET,\n          pairEvidence,\n          sessionIntent,\n          directPreferenceEvidence,\n        })\n      : null\n  ), [\n    directPreferenceEvidence,\n    pairEvidence,\n    realmRanked,\n    sessionIntent,\n    store.behavior,\n    store.history,\n    store.profile,\n  ]);\n\n  useEffect(() => {\n    recordFrontierClientSelection({\n      ranked: ranked.length,\n      realmEligible: realmRanked.length,\n      selected: dailyRun.length,\n      boardInput: todayItems.length,\n      rankAuthority: liveAuthority?.rankAuthority ?? null,\n      slateTasteAuthority: liveAuthority?.slateTasteAuthority ?? null,\n    });\n  }, [dailyRun.length, liveAuthority, ranked.length, realmRanked.length, todayItems.length]);"""
-          new_block = """  useEffect(() => {\n    // Publish the selection boundary immediately. Authority is observational and\n    // deliberately waits until after useful content has had a paint opportunity.\n    const selectionToken = recordFrontierClientSelection({\n      ranked: ranked.length,\n      realmEligible: realmRanked.length,\n      selected: dailyRun.length,\n      boardInput: todayItems.length,\n    });\n    if (!realmRanked.length) return undefined;\n\n    const now = new Date();\n    return scheduleFrontierDiagnostic(() => {\n      const authority = buildFrontierLiveAuthorityBridge({\n        realmRanked,\n        profile: store.profile,\n        history: store.history,\n        behavior: store.behavior,\n        limit: INITIAL_BROWSE_TARGET,\n        now,\n        pairEvidence,\n        sessionIntent,\n        directPreferenceEvidence,\n      });\n      recordFrontierClientAuthority({\n        selectionToken,\n        rankAuthority: authority.rankAuthority,\n        slateTasteAuthority: authority.slateTasteAuthority,\n      });\n    });\n  }, [\n    dailyRun.length,\n    directPreferenceEvidence,\n    pairEvidence,\n    ranked.length,\n    realmRanked,\n    sessionIntent,\n    store.behavior,\n    store.history,\n    store.profile,\n    todayItems.length,\n  ]);"""
-          assert text.count(old_block) == 1, 'live authority render block drifted'
-          text = text.replace(old_block, new_block)
-
-          path.write_text(text)
-          PY
-      - name: Commit transformed component
+      - name: Remove one-shot workflow
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add components/frontier/FrontierExperience.tsx
-          git diff --cached --check
-          git commit -m 'Defer live authority until after useful paint'
+          git rm .github/workflows/frontier-v18-render-hardening.yml
+          git commit -m 'Remove one-shot v18 render transform'
           git push origin HEAD:${{ github.ref_name }}
