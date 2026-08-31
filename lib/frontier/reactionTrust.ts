@@ -2,6 +2,7 @@ import type { FrontierAmbientReaction, FrontierAmbientReactionKind } from './rea
 
 const STORAGE_KEY = 'frontier-reaction-trust-v1';
 const KINDS: FrontierAmbientReactionKind[] = ['affinity', 'interest', 'surprise', 'friction'];
+const MAX_TRUST_COUNT = 10_000_000;
 
 export type ReactionTrustStat = {
   observed: number;
@@ -27,13 +28,14 @@ function clamp(value: number, min: number, max: number): number {
 function sanitizeStat(value: unknown): ReactionTrustStat | undefined {
   if (!value || typeof value !== 'object') return undefined;
   const candidate = value as Partial<ReactionTrustStat>;
-  return {
+  const stat: ReactionTrustStat = {
     observed: Math.max(0, Math.floor(Number(candidate.observed) || 0)),
     confirmed: Math.max(0, Math.floor(Number(candidate.confirmed) || 0)),
     contradicted: Math.max(0, Math.floor(Number(candidate.contradicted) || 0)),
     confidenceSum: Math.max(0, Number(candidate.confidenceSum) || 0),
-    lastAt: Number.isFinite(candidate.lastAt) ? candidate.lastAt : undefined,
   };
+  if (Number.isFinite(candidate.lastAt)) stat.lastAt = candidate.lastAt;
+  return stat;
 }
 
 function sanitizeState(value: unknown): ReactionTrustState {
@@ -47,6 +49,42 @@ function sanitizeState(value: unknown): ReactionTrustState {
   return next;
 }
 
+function strictStat(value: unknown): ReactionTrustStat | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  const candidate = value as Record<string, unknown>;
+  const allowed = new Set(['observed', 'confirmed', 'contradicted', 'confidenceSum', 'lastAt']);
+  if (Object.keys(candidate).some((key) => !allowed.has(key))) return null;
+  const observed = candidate.observed;
+  const confirmed = candidate.confirmed;
+  const contradicted = candidate.contradicted;
+  const confidenceSum = candidate.confidenceSum;
+  if (typeof observed !== 'number' || !Number.isInteger(observed) || observed < 0 || observed > MAX_TRUST_COUNT) return null;
+  if (typeof confirmed !== 'number' || !Number.isInteger(confirmed) || confirmed < 0 || confirmed > MAX_TRUST_COUNT) return null;
+  if (typeof contradicted !== 'number' || !Number.isInteger(contradicted) || contradicted < 0 || contradicted > MAX_TRUST_COUNT) return null;
+  if (confirmed + contradicted > observed) return null;
+  if (typeof confidenceSum !== 'number' || !Number.isFinite(confidenceSum) || confidenceSum < 0 || confidenceSum > observed + 1e-9) return null;
+  const stat: ReactionTrustStat = { observed, confirmed, contradicted, confidenceSum };
+  if (candidate.lastAt !== undefined) {
+    if (typeof candidate.lastAt !== 'number' || !Number.isFinite(candidate.lastAt) || candidate.lastAt < 0) return null;
+    stat.lastAt = candidate.lastAt;
+  }
+  return stat;
+}
+
+export function parseReactionTrustState(value: unknown): ReactionTrustState | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  const candidate = value as Record<string, unknown>;
+  if (Object.keys(candidate).some((key) => !KINDS.includes(key as FrontierAmbientReactionKind))) return null;
+  const next: ReactionTrustState = {};
+  for (const kind of KINDS) {
+    if (candidate[kind] === undefined) continue;
+    const stat = strictStat(candidate[kind]);
+    if (!stat) return null;
+    next[kind] = stat;
+  }
+  return next;
+}
+
 function readState(): ReactionTrustState {
   if (typeof window === 'undefined') return {};
   try {
@@ -56,12 +94,14 @@ function readState(): ReactionTrustState {
   }
 }
 
-function writeState(state: ReactionTrustState): void {
-  if (typeof window === 'undefined') return;
+function writeState(state: ReactionTrustState): boolean {
+  if (typeof window === 'undefined') return false;
   try {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(sanitizeState(state)));
+    return true;
   } catch {
     // Preference learning must never break the feed if storage is unavailable.
+    return false;
   }
 }
 
@@ -109,9 +149,8 @@ export function getReactionTrustState(): ReactionTrustState {
 }
 
 export function importReactionTrustState(value: unknown): boolean {
-  if (!value || typeof value !== 'object') return false;
-  writeState(sanitizeState(value));
-  return true;
+  const parsed = parseReactionTrustState(value);
+  return parsed ? writeState(parsed) : false;
 }
 
 export function recordReactionObservation(reaction: FrontierAmbientReaction): ReactionTrustStat {

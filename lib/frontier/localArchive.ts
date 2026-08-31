@@ -1,7 +1,14 @@
+import { restoreArchiveDomainsAtomically } from './archiveIntegrity';
+import { parsePrivateFrontierState } from './frontierArchiveStateValidation';
 import { frontierLongitudinalStore, type LongitudinalArchive } from './longitudinal';
-import { parseFrontierPersistedState } from './memoryMerge';
-import { getReactionTrustState, importReactionTrustState, type ReactionTrustState } from './reactionTrust';
-import { frontierBackup, type FrontierStore } from './store';
+import { parseLongitudinalArchive } from './longitudinalArchiveValidation';
+import {
+  getReactionTrustState,
+  importReactionTrustState,
+  parseReactionTrustState,
+  type ReactionTrustState,
+} from './reactionTrust';
+import { frontierBackup, useFrontierStore, type FrontierStore } from './store';
 import type { FrontierPersistedState } from './types';
 
 export type FrontierLocalArchive = {
@@ -16,35 +23,49 @@ function isObject(value: unknown): value is Record<string, unknown> {
   return Boolean(value && typeof value === 'object' && !Array.isArray(value));
 }
 
-function validLongitudinalArchive(value: unknown): value is LongitudinalArchive {
-  if (!isObject(value) || value.schema !== 'frontier-longitudinal-v1') return false;
-  return Array.isArray(value.exposures)
-    && Array.isArray(value.reactions)
-    && Array.isArray(value.interactions)
-    && Array.isArray(value.checkins)
-    && Array.isArray(value.rollups);
+function validIso(value: unknown): value is string {
+  return typeof value === 'string' && value.length <= 80 && Number.isFinite(Date.parse(value));
+}
+
+function parseLiveFrontierSnapshot(value: unknown): FrontierPersistedState | null {
+  try {
+    // The persistent file format is JSON. Canonicalize live Zustand objects first
+    // so harmless in-memory `undefined` optionals are treated exactly as they are
+    // once serialized, while cyclic/non-serializable state fails closed.
+    return parsePrivateFrontierState(JSON.parse(JSON.stringify(value)) as unknown);
+  } catch {
+    return null;
+  }
 }
 
 export async function createFrontierLocalArchive(state: FrontierStore): Promise<FrontierLocalArchive> {
+  const frontier = parseLiveFrontierSnapshot(frontierBackup(state));
+  const reactionTrust = parseReactionTrustState(getReactionTrustState());
+  const longitudinal = parseLongitudinalArchive(await frontierLongitudinalStore.exportArchive());
+  if (!frontier || !reactionTrust || !longitudinal) {
+    throw new Error('Current FRONTIER memory failed private archive validation');
+  }
   return {
     schema: 'frontier-local-archive-v1',
     exportedAt: new Date().toISOString(),
-    frontier: frontierBackup(state),
-    reactionTrust: getReactionTrustState(),
-    longitudinal: await frontierLongitudinalStore.exportArchive(),
+    frontier,
+    reactionTrust,
+    longitudinal,
   };
 }
 
 export function parseFrontierLocalArchive(value: unknown): FrontierLocalArchive | null {
-  if (!isObject(value) || value.schema !== 'frontier-local-archive-v1') return null;
-  const frontier = parseFrontierPersistedState(value.frontier);
-  if (!frontier || !isObject(value.reactionTrust) || !validLongitudinalArchive(value.longitudinal)) return null;
+  if (!isObject(value) || value.schema !== 'frontier-local-archive-v1' || !validIso(value.exportedAt)) return null;
+  const frontier = parsePrivateFrontierState(value.frontier);
+  const reactionTrust = parseReactionTrustState(value.reactionTrust);
+  const longitudinal = parseLongitudinalArchive(value.longitudinal);
+  if (!frontier || !reactionTrust || !longitudinal) return null;
   return {
     schema: 'frontier-local-archive-v1',
-    exportedAt: typeof value.exportedAt === 'string' ? value.exportedAt : new Date(0).toISOString(),
+    exportedAt: value.exportedAt,
     frontier,
-    reactionTrust: value.reactionTrust as ReactionTrustState,
-    longitudinal: value.longitudinal,
+    reactionTrust,
+    longitudinal,
   };
 }
 
@@ -52,10 +73,17 @@ export async function restoreFrontierLocalArchive(
   archive: FrontierLocalArchive,
   importFrontier: (payload: unknown) => boolean
 ): Promise<boolean> {
-  // IndexedDB is the most failure-prone persistence surface, so restore it first.
-  // The parser has already validated the Zustand payload and archive shape.
-  const longitudinal = await frontierLongitudinalStore.importArchive(archive.longitudinal);
-  if (!longitudinal) return false;
-  if (!importReactionTrustState(archive.reactionTrust)) return false;
-  return importFrontier(archive.frontier);
+  const result = await restoreArchiveDomainsAtomically(archive, {
+    readFrontier: () => {
+      const snapshot = parseLiveFrontierSnapshot(frontierBackup(useFrontierStore.getState()));
+      if (!snapshot) throw new Error('Current FRONTIER state could not be snapshotted safely');
+      return snapshot;
+    },
+    writeFrontier: (value) => importFrontier(value),
+    readReactionTrust: getReactionTrustState,
+    writeReactionTrust: importReactionTrustState,
+    readLongitudinal: () => frontierLongitudinalStore.exportArchive(),
+    writeLongitudinal: (value) => frontierLongitudinalStore.importArchive(value),
+  });
+  return result.ok;
 }
