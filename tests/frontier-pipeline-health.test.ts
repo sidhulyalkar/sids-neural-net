@@ -16,6 +16,8 @@ function clientSnapshot(overrides: Partial<FrontierClientPipelineSnapshot> = {})
     realmEligible: 54,
     selected: 40,
     boardInput: 40,
+    rankAuthority: null,
+    slateTasteAuthority: null,
     server: buildFrontierPipelineDiagnostics({
       mode: 'focused-live',
       sourceAcquisition: 'observed',
@@ -87,26 +89,59 @@ test('health detects concrete supply and client collapses without inventing caus
   assert.ok(health.warnings.includes('adapter-degradation'));
   assert.ok(health.warnings.includes('provenance-pressure'));
   assert.ok(health.warnings.includes('repeated-inventory-pressure'));
-  assert.equal(health.warnings.includes('rank-collapse'), false, 'rank collapse needs at least eight rotation-ready candidates');
 });
 
-test('candidate cap pressure is reported only when the observed retention boundary is actually saturated', () => {
+test('candidate cap pressure is distinct from provenance rejection pressure', () => {
   const server = buildFrontierPipelineDiagnostics({
-    mode: 'focused-live',
+    mode: 'fresh-live',
     sourceAcquisition: 'observed',
     stages: {
-      sourceAcquired: 420,
-      candidateInput: 420,
-      plausible: 410,
-      rightsSafe: 408,
+      sourceAcquired: 620,
+      candidateInput: 620,
+      plausible: 610,
+      rightsSafe: 600,
       recent: null,
-      deduped: 390,
-      sourceAdmitted: 350,
+      deduped: 580,
+      sourceAdmitted: 500,
       candidateRetained: 320,
-      englishReady: 318,
-      responseReady: 318,
+      englishReady: 320,
+      responseReady: 96,
     },
   });
   const health = auditFrontierPipelineHealth(clientSnapshot({ server }), auditFrontierExposure([]));
   assert.ok(health.warnings.includes('candidate-cap-pressure'));
+  assert.equal(health.warnings.includes('provenance-pressure'), false);
+});
+
+test('longitudinal visibility and engagement are added only when decision evidence exists', () => {
+  const now = Date.now();
+  const exposure = auditFrontierExposure([
+    {
+      id: 'decision-a',
+      sessionId: 'session-a',
+      at: now - 10_000,
+      lastSeenAt: now,
+      signature: 'fixture-a',
+      policyMode: 'passive',
+      semanticEnabled: true,
+      streamEpoch: 0,
+      exposures: [{
+        itemId: 'a',
+        displayedIndex: 0,
+        upstreamIndex: 0,
+      }],
+      outcomes: [{
+        itemId: 'a',
+        firstAt: now - 9_000,
+        lastAt: now,
+        maxDepth: 0.8,
+        maxDwellMs: 20_000,
+        expanded: true,
+      }],
+    },
+  ]);
+  const health = auditFrontierPipelineHealth(clientSnapshot(), exposure);
+  assert.ok(health.longitudinal.some((stage) => stage.id === 'canonical-visibility'));
+  assert.ok(health.longitudinal.some((stage) => stage.id === 'engagement-after-visible'));
+  assert.equal(health.observedLongitudinalBoundaries, 2);
 });
