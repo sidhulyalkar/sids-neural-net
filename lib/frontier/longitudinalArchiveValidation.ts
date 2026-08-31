@@ -169,12 +169,16 @@ function parseReaction(value: unknown): LongitudinalReactionEpisode | null {
   }
   if ((review === undefined) !== (reviewedAt === undefined)) return null;
 
-  return {
+  const parsed: LongitudinalReactionEpisode = {
     id, sessionId, exposureId, ...shared, occurredAt, dayKey,
     kind: kind as FrontierAmbientReactionKind,
     confidence, intensity, durationMs, latencyMs, targetScore, visibleFraction, trustAuthority,
-    review, reviewedAt,
   };
+  if (review !== undefined && reviewedAt !== undefined) {
+    parsed.review = review;
+    parsed.reviewedAt = reviewedAt;
+  }
+  return parsed;
 }
 
 function parseInteraction(value: unknown): LongitudinalInteraction | null {
@@ -198,7 +202,14 @@ function parseInteraction(value: unknown): LongitudinalInteraction | null {
     if (typeof value.reaction !== 'string' || !EXPLICIT_REACTIONS.has(value.reaction)) return null;
     reaction = value.reaction as FrontierReaction;
   }
-  return { id, sessionId, ...shared, at, dayKey, kind: kind as LongitudinalInteractionKind, dwellMs, reaction };
+  const parsedKind = kind as LongitudinalInteractionKind;
+  if ((parsedKind === 'dwell') !== (dwellMs !== undefined)) return null;
+  if ((parsedKind === 'reaction') !== (reaction !== undefined)) return null;
+
+  const parsed: LongitudinalInteraction = { id, sessionId, ...shared, at, dayKey, kind: parsedKind };
+  if (dwellMs !== undefined) parsed.dwellMs = dwellMs;
+  if (reaction !== undefined) parsed.reaction = reaction;
+  return parsed;
 }
 
 function parseCheckin(value: unknown): LongitudinalCheckin | null {
@@ -247,12 +258,18 @@ function parseRollup(value: unknown): LongitudinalRollup | null {
   };
 }
 
-function parseArray<T>(value: unknown, max: number, parser: (entry: unknown) => T | null): T[] | null {
+function parseArray<T extends { id: string }>(
+  value: unknown,
+  max: number,
+  parser: (entry: unknown) => T | null,
+): T[] | null {
   if (!Array.isArray(value) || value.length > max) return null;
   const result: T[] = [];
+  const seenIds = new Set<string>();
   for (const entry of value) {
     const parsed = parser(entry);
-    if (!parsed) return null;
+    if (!parsed || seenIds.has(parsed.id)) return null;
+    seenIds.add(parsed.id);
     result.push(parsed);
   }
   return result;
