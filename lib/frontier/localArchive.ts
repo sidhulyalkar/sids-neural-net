@@ -1,7 +1,7 @@
 import { restoreArchiveDomainsAtomically } from './archiveIntegrity';
+import { parsePrivateFrontierState } from './frontierArchiveStateValidation';
 import { frontierLongitudinalStore, type LongitudinalArchive } from './longitudinal';
 import { parseLongitudinalArchive } from './longitudinalArchiveValidation';
-import { parseFrontierPersistedState } from './memoryMerge';
 import {
   getReactionTrustState,
   importReactionTrustState,
@@ -28,18 +28,24 @@ function validIso(value: unknown): value is string {
 }
 
 export async function createFrontierLocalArchive(state: FrontierStore): Promise<FrontierLocalArchive> {
+  const frontier = parsePrivateFrontierState(frontierBackup(state));
+  const reactionTrust = parseReactionTrustState(getReactionTrustState());
+  const longitudinal = parseLongitudinalArchive(await frontierLongitudinalStore.exportArchive());
+  if (!frontier || !reactionTrust || !longitudinal) {
+    throw new Error('Current FRONTIER memory failed private archive validation');
+  }
   return {
     schema: 'frontier-local-archive-v1',
     exportedAt: new Date().toISOString(),
-    frontier: frontierBackup(state),
-    reactionTrust: getReactionTrustState(),
-    longitudinal: await frontierLongitudinalStore.exportArchive(),
+    frontier,
+    reactionTrust,
+    longitudinal,
   };
 }
 
 export function parseFrontierLocalArchive(value: unknown): FrontierLocalArchive | null {
   if (!isObject(value) || value.schema !== 'frontier-local-archive-v1' || !validIso(value.exportedAt)) return null;
-  const frontier = parseFrontierPersistedState(value.frontier);
+  const frontier = parsePrivateFrontierState(value.frontier);
   const reactionTrust = parseReactionTrustState(value.reactionTrust);
   const longitudinal = parseLongitudinalArchive(value.longitudinal);
   if (!frontier || !reactionTrust || !longitudinal) return null;
@@ -57,7 +63,11 @@ export async function restoreFrontierLocalArchive(
   importFrontier: (payload: unknown) => boolean
 ): Promise<boolean> {
   const result = await restoreArchiveDomainsAtomically(archive, {
-    readFrontier: () => frontierBackup(useFrontierStore.getState()),
+    readFrontier: () => {
+      const snapshot = parsePrivateFrontierState(frontierBackup(useFrontierStore.getState()));
+      if (!snapshot) throw new Error('Current FRONTIER state could not be snapshotted safely');
+      return snapshot;
+    },
     writeFrontier: (value) => importFrontier(value),
     readReactionTrust: getReactionTrustState,
     writeReactionTrust: importReactionTrustState,
