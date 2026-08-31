@@ -9,7 +9,7 @@ import {
   createLongitudinalExposure,
   createLongitudinalReaction,
   currentLongitudinalSessionId,
-  isQualifiedLongitudinalExposure,
+  isSensorObservableLongitudinalExposure,
 } from '@/lib/frontier/longitudinalEvents';
 import { frontierLongitudinalStore } from '@/lib/frontier/longitudinalStore';
 import {
@@ -44,6 +44,7 @@ type ActiveExposure = {
   visibleSum: number;
   minScore: number;
   samples: number;
+  observableSamples: number;
 };
 type SignalFeedback = {
   reaction: FrontierAmbientReaction;
@@ -173,6 +174,7 @@ function materializeExposure(active: ActiveExposure, endedAt: number): Longitudi
     attributionMean: active.scoreSum / samples,
     attributionMin: active.minScore,
     visibleFractionMean: active.visibleSum / samples,
+    sensorObservableFraction: active.observableSamples / samples,
   });
 }
 
@@ -201,7 +203,7 @@ export function FrontierReactionLoop({ feedActive }: Props) {
     void frontierLongitudinalStore.recordExposure(exposure).catch(() => undefined);
   }, []);
 
-  const trackExposure = useCallback((target: RenderedTarget | undefined, now = Date.now()) => {
+  const trackExposure = useCallback((target: RenderedTarget | undefined, sensorObservable: boolean, now = Date.now()) => {
     const active = activeExposureRef.current;
     if (!target) {
       if (active) flushExposure(now);
@@ -215,6 +217,7 @@ export function FrontierReactionLoop({ feedActive }: Props) {
         attributionMean: target.score,
         attributionMin: target.score,
         visibleFractionMean: target.visibleFraction,
+        sensorObservableFraction: sensorObservable ? 1 : 0,
       });
       activeExposureRef.current = {
         id: seed.id,
@@ -225,6 +228,7 @@ export function FrontierReactionLoop({ feedActive }: Props) {
         visibleSum: target.visibleFraction,
         minScore: target.score,
         samples: 1,
+        observableSamples: sensorObservable ? 1 : 0,
       };
       return;
     }
@@ -232,6 +236,7 @@ export function FrontierReactionLoop({ feedActive }: Props) {
     active.visibleSum += target.visibleFraction;
     active.minScore = Math.min(active.minScore, target.score);
     active.samples += 1;
+    active.observableSamples += sensorObservable ? 1 : 0;
   }, [flushExposure]);
 
   const clearSignalLater = useCallback(() => {
@@ -296,7 +301,7 @@ export function FrontierReactionLoop({ feedActive }: Props) {
           ? dominantRenderedTarget(history)
           : undefined;
         const wallNow = Date.now();
-        trackExposure(target, wallNow);
+        trackExposure(target, face.active, wallNow);
         const next = engineRef.current.push(face, target?.item.id, performance.now());
         const monotonicNow = performance.now();
         if (monotonicNow - lastUiUpdateRef.current >= 140 || next.reaction) {
@@ -310,7 +315,9 @@ export function FrontierReactionLoop({ feedActive }: Props) {
           const trustAuthority = reactionTrustAuthority(trustStat);
           const rankedReaction = applyReactionTrust(next.reaction);
           const activeExposure = activeExposureRef.current;
-          const exposureQualified = Boolean(activeExposure && isQualifiedLongitudinalExposure(materializeExposure(activeExposure, wallNow)));
+          const exposureQualified = Boolean(
+            activeExposure && isSensorObservableLongitudinalExposure(materializeExposure(activeExposure, wallNow)),
+          );
           const admittedReaction = exposureQualified && next.reaction.kind !== 'friction' && rankedReaction.confidence > 0
             ? rankedReaction
             : undefined;
@@ -459,7 +466,7 @@ export function FrontierReactionLoop({ feedActive }: Props) {
               <p className={styles.detail}>{signalCopy.detail}</p>
               <div className={styles.target}>{feedback.target.title}</div>
               {!feedback.admittedReaction ? (
-                <p className={styles.reviewed}>Observed locally, but not admitted to preference learning because the exposure/trust authority gate did not clear.</p>
+                <p className={styles.reviewed}>Observed locally, but not admitted to preference learning because the attribution, face-observability, or trust gate did not clear.</p>
               ) : null}
 
               {!feedback.review ? (
@@ -489,7 +496,7 @@ export function FrontierReactionLoop({ feedActive }: Props) {
             </>
           ) : null}
 
-          <p className={styles.privacy}>No video, landmarks, face identity, biometric template, or raw expression stream is stored. Qualified exposure durations, sparse content-linked reaction episodes, and your cue corrections stay local.</p>
+          <p className={styles.privacy}>No video, landmarks, face identity, biometric template, or raw expression stream is stored. Only attributed exposure, sensor-observable coverage, sparse content-linked cue episodes, and your corrections stay local.</p>
         </aside>,
         document.body,
       ) : null}
