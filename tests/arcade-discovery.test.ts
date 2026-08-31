@@ -75,6 +75,12 @@ test('Stretchicorn cabinet pins the authoritative v0.38.0 standalone release', (
   assert.match(route, /X-Stretchicorn-Version/);
   assert.match(route, /X-Stretchicorn-Source-Commit/);
   assert.match(route, /X-Stretchicorn-Source-Artifact/);
+
+  const workflow = readRepoFile('.github/workflows/ci.yml');
+  assert.match(workflow, /game-runtimes\/stretchicorn\/v0\.38\.0\/index\.html/);
+  assert.match(workflow, /x-stretchicorn-version: v0\.38\.0/i);
+  assert.match(workflow, /x-stretchicorn-source-commit: 07d38322d5b9927a9b9eca6fec38546925801c16/i);
+  assert.match(workflow, /COBTOPUS PRIME/);
 });
 
 test('uniRico cabinet pins the v0.20.0 50-level release with cache-safe runtime URLs', () => {
@@ -155,6 +161,7 @@ test('Game Network browser validation covers latest Stretchicorn and uniRico tru
   assert.match(browserTest, /stretchicorn\/v0\.38\.0\/index\.html/);
   assert.match(browserTest, /stageCount/);
   assert.match(browserTest, /COBTOPUS PRIME/);
+  assert.match(browserTest, /Space should start Easy at D=0\.7/);
   assert.match(browserTest, /uniRico v0\.20\.0/);
   assert.match(browserTest, /LEVELS\.length/);
   assert.match(browserTest, /MIRROR FULL SPECTRUM/);
