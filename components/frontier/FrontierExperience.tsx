@@ -5,6 +5,7 @@ import type { FormEvent } from 'react';
 import { Download, RefreshCw, RotateCcw, Search, Upload, X } from 'lucide-react';
 import {
   clearFrontierClientPipeline,
+  recordFrontierClientAuthority,
   recordFrontierClientFeed,
   recordFrontierClientSelection,
 } from '@/lib/frontier/clientPipelineDiagnostics';
@@ -18,6 +19,7 @@ import {
   effectiveDirectPreferenceAffinity,
 } from '@/lib/frontier/directPreferenceEvidence';
 import { buildDiscoveryFocus, encodeDiscoveryFocus } from '@/lib/frontier/discoveryFocus';
+import { scheduleFrontierDiagnostic } from '@/lib/frontier/deferredDiagnostics';
 import { FRONTIER_PINNED_TOPICS } from '@/lib/frontier/interests';
 import { clearFrontierCandidatePool } from '@/lib/frontier/live/candidatePool';
 import {
@@ -462,39 +464,48 @@ export function FrontierExperience({ initialDateLabel, initialDayKey }: Props) {
     && !frontierSeenSignatures(item).some((signature) => dailySignatures.has(signature))
   )), [dailySignatures, realm, streamItems]);
   const todayItems = useMemo(() => dedupeCanonical([...dailyRun, ...streamedToday]), [dailyRun, streamedToday]);
-  const liveAuthority = useMemo(() => (
-    realmRanked.length
-      ? buildFrontierLiveAuthorityBridge({
-          realmRanked,
-          profile: store.profile,
-          history: store.history,
-          behavior: store.behavior,
-          limit: INITIAL_BROWSE_TARGET,
-          pairEvidence,
-          sessionIntent,
-          directPreferenceEvidence,
-        })
-      : null
-  ), [
+  useEffect(() => {
+    // Publish the selection boundary immediately. Authority is observational and
+    // deliberately waits until after useful content has had a paint opportunity.
+    const selectionToken = recordFrontierClientSelection({
+      ranked: ranked.length,
+      realmEligible: realmRanked.length,
+      selected: dailyRun.length,
+      boardInput: todayItems.length,
+    });
+    if (!realmRanked.length) return undefined;
+
+    const now = new Date();
+    return scheduleFrontierDiagnostic(() => {
+      const authority = buildFrontierLiveAuthorityBridge({
+        realmRanked,
+        profile: store.profile,
+        history: store.history,
+        behavior: store.behavior,
+        limit: INITIAL_BROWSE_TARGET,
+        now,
+        pairEvidence,
+        sessionIntent,
+        directPreferenceEvidence,
+      });
+      recordFrontierClientAuthority({
+        selectionToken,
+        rankAuthority: authority.rankAuthority,
+        slateTasteAuthority: authority.slateTasteAuthority,
+      });
+    });
+  }, [
+    dailyRun.length,
     directPreferenceEvidence,
     pairEvidence,
+    ranked.length,
     realmRanked,
     sessionIntent,
     store.behavior,
     store.history,
     store.profile,
+    todayItems.length,
   ]);
-
-  useEffect(() => {
-    recordFrontierClientSelection({
-      ranked: ranked.length,
-      realmEligible: realmRanked.length,
-      selected: dailyRun.length,
-      boardInput: todayItems.length,
-      rankAuthority: liveAuthority?.rankAuthority ?? null,
-      slateTasteAuthority: liveAuthority?.slateTasteAuthority ?? null,
-    });
-  }, [dailyRun.length, liveAuthority, ranked.length, realmRanked.length, todayItems.length]);
 
   const exploreRanked = useMemo(
     () => rankFrontierItems(
