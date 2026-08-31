@@ -33,6 +33,8 @@ export type FrontierClientPipelineSnapshot = {
   slateTasteAuthority: FrontierSlateTasteAuthorityAudit | FrontierDailyRunTasteAuthorityAudit | null;
 };
 
+export type FrontierClientSelectionToken = number;
+
 const EMPTY_CLIENT_PIPELINE: FrontierClientPipelineSnapshot = {
   schema: FRONTIER_CLIENT_PIPELINE_SCHEMA,
   at: 0,
@@ -48,6 +50,8 @@ const EMPTY_CLIENT_PIPELINE: FrontierClientPipelineSnapshot = {
 };
 
 let snapshot: FrontierClientPipelineSnapshot = EMPTY_CLIENT_PIPELINE;
+let generation = 0;
+let activeSelectionToken: FrontierClientSelectionToken | null = null;
 const listeners = new Set<() => void>();
 
 function safeCount(value: number): number {
@@ -62,6 +66,11 @@ function publish(next: FrontierClientPipelineSnapshot): void {
   }
 }
 
+function invalidateSelectionAuthority(): void {
+  generation += 1;
+  activeSelectionToken = null;
+}
+
 export function recordFrontierClientFeed(input: {
   server?: FrontierPipelineDiagnostics;
   received: number;
@@ -69,6 +78,7 @@ export function recordFrontierClientFeed(input: {
   rotationReady: number;
   at?: number;
 }): void {
+  invalidateSelectionAuthority();
   publish({
     schema: FRONTIER_CLIENT_PIPELINE_SCHEMA,
     at: input.at ?? Date.now(),
@@ -85,6 +95,11 @@ export function recordFrontierClientFeed(input: {
   });
 }
 
+/**
+ * Publish the current selection boundary immediately and return an opaque token
+ * that may later attach deferred authority diagnostics to this exact cohort.
+ * A newer feed, selection, or reset invalidates the token.
+ */
 export function recordFrontierClientSelection(input: {
   ranked: number;
   realmEligible: number;
@@ -93,7 +108,9 @@ export function recordFrontierClientSelection(input: {
   rankAuthority?: FrontierRankAuthorityAudit | null;
   slateTasteAuthority?: FrontierSlateTasteAuthorityAudit | FrontierDailyRunTasteAuthorityAudit | null;
   at?: number;
-}): void {
+}): FrontierClientSelectionToken {
+  generation += 1;
+  activeSelectionToken = generation;
   publish({
     ...snapshot,
     at: input.at ?? Date.now(),
@@ -104,6 +121,26 @@ export function recordFrontierClientSelection(input: {
     rankAuthority: input.rankAuthority ?? null,
     slateTasteAuthority: input.slateTasteAuthority ?? null,
   });
+  return activeSelectionToken;
+}
+
+/**
+ * Patch aggregate authority onto the selection that produced it. Stale deferred
+ * work is rejected silently so observability can never misattribute an older
+ * cohort to a newer feed or realm selection.
+ */
+export function recordFrontierClientAuthority(input: {
+  selectionToken: FrontierClientSelectionToken;
+  rankAuthority: FrontierRankAuthorityAudit;
+  slateTasteAuthority: FrontierSlateTasteAuthorityAudit | FrontierDailyRunTasteAuthorityAudit;
+}): boolean {
+  if (activeSelectionToken !== input.selectionToken) return false;
+  publish({
+    ...snapshot,
+    rankAuthority: input.rankAuthority,
+    slateTasteAuthority: input.slateTasteAuthority,
+  });
+  return true;
 }
 
 export function readFrontierClientPipeline(): FrontierClientPipelineSnapshot {
@@ -120,5 +157,6 @@ export function subscribeFrontierClientPipeline(listener: () => void): () => voi
 }
 
 export function clearFrontierClientPipeline(): void {
+  invalidateSelectionAuthority();
   publish(EMPTY_CLIENT_PIPELINE);
 }
