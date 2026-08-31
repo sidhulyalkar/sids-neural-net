@@ -144,7 +144,20 @@ function parseExposure(value: unknown): LongitudinalExposure | null {
     || visibleFractionMean === null || !matchingDay(dayKey, startedAt)) return null;
   const expectedDuration = Math.min(MAX_RAW_EXPOSURE_MS, endedAt - startedAt);
   if (Math.abs(durationMs - expectedDuration) > 1) return null;
-  return { id, sessionId, ...shared, startedAt, endedAt, dayKey, durationMs, attributionMean, attributionMin, visibleFractionMean };
+
+  let sensorObservableMs: number | undefined;
+  if (value.sensorObservableMs !== undefined) {
+    const parsed = finite(value.sensorObservableMs, 0, durationMs);
+    if (parsed === null) return null;
+    sensorObservableMs = parsed;
+  }
+
+  const exposure: LongitudinalExposure = {
+    id, sessionId, ...shared, startedAt, endedAt, dayKey, durationMs,
+    attributionMean, attributionMin, visibleFractionMean,
+  };
+  if (sensorObservableMs !== undefined) exposure.sensorObservableMs = sensorObservableMs;
+  return exposure;
 }
 
 function parseReaction(value: unknown): LongitudinalReactionEpisode | null {
@@ -263,13 +276,23 @@ function parseRollup(value: unknown): LongitudinalRollup | null {
   if (confirmed + contradicted > reactions) return null;
   if (affinity + interest + surprise + friction !== reactions) return null;
   if (confidenceSum > reactions + 1e-9 || intensitySum > reactions + 1e-9) return null;
+
+  let sensorObservableMs: number | undefined;
+  if (value.sensorObservableMs !== undefined) {
+    const parsed = finite(value.sensorObservableMs, 0, exposureMs);
+    if (parsed === null) return null;
+    sensorObservableMs = parsed;
+  }
+
   const key = rawKey.trim().toLowerCase();
   if (!key) return null;
-  return {
+  const rollup: LongitudinalRollup = {
     id, batchId, dayKey, dimension: dimension as LongitudinalRollupDimension, key,
     exposureMs, exposures, reactions, explicitInteractions, confirmed, contradicted,
     affinity, interest, surprise, friction, confidenceSum, intensitySum, compactedAt,
   };
+  if (sensorObservableMs !== undefined) rollup.sensorObservableMs = sensorObservableMs;
+  return rollup;
 }
 
 function parseArray<T extends { id: string }>(
@@ -304,9 +327,6 @@ function analyticallyUnique(
     rollupDays.add(rollup.dayKey);
   }
 
-  // v19 compaction owns complete local-day buckets. Raw and compacted analytical
-  // rows for the same day would double-count history even when every object-store
-  // identifier is unique, so complete archive import fails closed.
   for (const entry of [...exposures, ...reactions, ...interactions]) {
     if (rollupDays.has(entry.dayKey)) return false;
   }
