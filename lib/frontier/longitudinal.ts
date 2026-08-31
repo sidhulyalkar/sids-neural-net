@@ -151,6 +151,12 @@ export type LongitudinalStorageHealth = {
   persisted?: boolean;
 };
 
+export type LongitudinalDayWindow = {
+  days: number;
+  startDay: string;
+  endDayExclusive: string;
+};
+
 type StoreName =
   | typeof EXPOSURE_STORE
   | typeof REACTION_STORE
@@ -181,12 +187,45 @@ function eventId(prefix: string): string {
   return `${prefix}-${random}`;
 }
 
-function dayKey(at: number): string {
+export function longitudinalDayKey(at: number): string {
   const date = new Date(at);
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, '0');
   const day = String(date.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
+}
+
+/**
+ * Return a stable local-calendar window. `days=1` means the current local day,
+ * while larger values include today plus the preceding `days - 1` local days.
+ * `endOffsetDays` shifts the entire window and is useful for adjacent trend
+ * cohorts. Date#setDate is deliberate here: fixed 86,400,000 ms arithmetic is
+ * not equivalent to local calendar days across DST changes.
+ */
+export function longitudinalDayWindow(
+  days: number,
+  now = Date.now(),
+  endOffsetDays = 0,
+): LongitudinalDayWindow {
+  const boundedDays = Math.max(1, Math.min(3650, Math.round(days)));
+  const currentDay = new Date(now);
+  currentDay.setHours(0, 0, 0, 0);
+
+  const endExclusive = new Date(currentDay);
+  endExclusive.setDate(endExclusive.getDate() + 1 + endOffsetDays);
+
+  const start = new Date(endExclusive);
+  start.setDate(start.getDate() - boundedDays);
+
+  return {
+    days: boundedDays,
+    startDay: longitudinalDayKey(start.getTime()),
+    endDayExclusive: longitudinalDayKey(endExclusive.getTime()),
+  };
+}
+
+export function dayKeyInLongitudinalWindow(day: string, window: LongitudinalDayWindow): boolean {
+  return day >= window.startDay && day < window.endDayExclusive;
 }
 
 function normalizeTags(tags: string[]): string[] {
@@ -232,7 +271,7 @@ export function createLongitudinalExposure(
     ...longitudinalItemContext(item),
     startedAt: input.startedAt,
     endedAt,
-    dayKey: dayKey(input.startedAt),
+    dayKey: longitudinalDayKey(input.startedAt),
     durationMs: boundedMs(endedAt - input.startedAt),
     attributionMean: clamp01(input.attributionMean),
     attributionMin: clamp01(input.attributionMin),
@@ -261,7 +300,7 @@ export function createLongitudinalReaction(
     exposureId: input.exposureId,
     ...longitudinalItemContext(item),
     occurredAt,
-    dayKey: dayKey(occurredAt),
+    dayKey: longitudinalDayKey(occurredAt),
     kind: reaction.kind,
     confidence: clamp01(reaction.confidence),
     intensity: clamp01(reaction.intensity),
@@ -284,7 +323,7 @@ export function createLongitudinalInteraction(
     sessionId: currentLongitudinalSessionId(),
     ...longitudinalItemContext(item),
     at,
-    dayKey: dayKey(at),
+    dayKey: longitudinalDayKey(at),
     kind,
     dwellMs: input.dwellMs === undefined ? undefined : boundedMs(input.dwellMs, 120_000),
     reaction: input.reaction,
@@ -297,7 +336,7 @@ export function createLongitudinalCheckin(
   focus: LongitudinalScale,
   at = Date.now()
 ): LongitudinalCheckin {
-  return { id: eventId('checkin'), at, dayKey: dayKey(at), mood, energy, focus };
+  return { id: eventId('checkin'), at, dayKey: longitudinalDayKey(at), mood, energy, focus };
 }
 
 function requestPromise<T>(request: IDBRequest<T>): Promise<T> {
@@ -636,9 +675,7 @@ class FrontierLongitudinalStore {
   }
 
   async summary(days = 90, now = Date.now()): Promise<LongitudinalSummary> {
-    const boundedDays = Math.max(1, Math.min(3650, Math.round(days)));
-    const cutoff = now - boundedDays * 86_400_000;
-    const cutoffDay = dayKey(cutoff);
+    const window = longitudinalDayWindow(days, now);
     const [exposures, reactions, interactions, checkins, rollups] = await Promise.all([
       readAll<LongitudinalExposure>(EXPOSURE_STORE),
       readAll<LongitudinalReactionEpisode>(REACTION_STORE),
@@ -647,25 +684,30 @@ class FrontierLongitudinalStore {
       readAll<LongitudinalRollup>(ROLLUP_STORE),
     ]);
     return summarizeLongitudinalData({
-      days: boundedDays,
-      exposures: exposures.filter((entry) => entry.endedAt >= cutoff),
-      reactions: reactions.filter((entry) => entry.occurredAt >= cutoff),
-      interactions: interactions.filter((entry) => entry.at >= cutoff),
-      checkins: checkins.filter((entry) => entry.at >= cutoff),
-      rollups: rollups.filter((entry) => entry.dayKey >= cutoffDay),
+      days: window.days,
+      // Raw rows and compacted rows must share the same day-bucket admission
+      // semantics, otherwise compaction itself can change a historical answer.
+      exposures: exposures.filter((entry) => dayKeyInLongitudinalWindow(entry.dayKey, window)),
+      reactions: reactions.filter((entry) => dayKeyInLongitudinalWindow(entry.dayKey, window)),
+      interactions: interactions.filter((entry) => dayKeyInLongitudinalWindow(entry.dayKey, window)),
+      checkins: checkins.filter((entry) => dayKeyInLongitudinalWindow(entry.dayKey, window)),
+      rollups: rollups.filter((entry) => dayKeyInLongitudinalWindow(entry.dayKey, window)),
     });
   }
 
   async compact(rawRetentionDays = LONGITUDINAL_RAW_RETENTION_DAYS, now = Date.now()): Promise<{ exposures: number; reactions: number; interactions: number; rollups: number }> {
-    const cutoff = now - Math.max(30, rawRetentionDays) * 86_400_000;
+    const retentionWindow = longitudinalDayWindow(Math.max(30, rawRetentionDays), now);
     const [allExposures, allReactions, allInteractions] = await Promise.all([
       readAll<LongitudinalExposure>(EXPOSURE_STORE),
       readAll<LongitudinalReactionEpisode>(REACTION_STORE),
       readAll<LongitudinalInteraction>(INTERACTION_STORE),
     ]);
-    const exposures = allExposures.filter((entry) => entry.endedAt < cutoff);
-    const reactions = allReactions.filter((entry) => entry.occurredAt < cutoff);
-    const interactions = allInteractions.filter((entry) => entry.at < cutoff);
+    // Compact whole local-day buckets only. This avoids a half-raw/half-rollup day
+    // at the retention edge and keeps the representation independent of DST day
+    // length or the clock time at which maintenance happened to run.
+    const exposures = allExposures.filter((entry) => entry.dayKey < retentionWindow.startDay);
+    const reactions = allReactions.filter((entry) => entry.dayKey < retentionWindow.startDay);
+    const interactions = allInteractions.filter((entry) => entry.dayKey < retentionWindow.startDay);
     if (!exposures.length && !reactions.length && !interactions.length) {
       return { exposures: 0, reactions: 0, interactions: 0, rollups: 0 };
     }
