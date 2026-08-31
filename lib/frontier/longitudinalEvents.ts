@@ -1,5 +1,6 @@
 import { formatForItem } from './behavior';
 import type { FrontierAmbientReaction } from './reaction';
+import { FRONTIER_SENSOR_MEASUREMENT_VERSION } from './sensorObservability';
 import type { FrontierItem, FrontierReaction } from './types';
 import {
   longitudinalDayKey,
@@ -13,8 +14,9 @@ import {
 } from './longitudinalModel';
 
 export const MIN_QUALIFIED_EXPOSURE_MS = 700;
-export const MIN_SENSOR_OBSERVABLE_EXPOSURE_MS = 700;
-export const MIN_SENSOR_OBSERVABILITY_COVERAGE = 0.55;
+export const MIN_SENSOR_SAMPLED_MS = 700;
+export const MIN_SENSOR_SAMPLING_COVERAGE = 0.55;
+export const MIN_FACE_OBSERVABILITY_COVERAGE = 0.55;
 
 function clamp01(value: number): number {
   return Math.max(0, Math.min(1, Number.isFinite(value) ? value : 0));
@@ -61,7 +63,6 @@ export function currentLongitudinalSessionId(): string {
   return sessionId;
 }
 
-/** Test-only seam and explicit session boundary hook. */
 export function resetLongitudinalSessionId(): void {
   sessionId = undefined;
 }
@@ -76,13 +77,21 @@ export function createLongitudinalExposure(
     attributionMean: number;
     attributionMin: number;
     visibleFractionMean: number;
-    /** Fraction of attributed samples where the face sensor produced a usable face. */
-    sensorObservableFraction?: number;
+    sensorSampledMs?: number;
+    faceObservableMs?: number;
   },
 ): LongitudinalExposure {
   const startedAt = Number.isFinite(input.startedAt) ? input.startedAt : Date.now();
   const endedAt = Math.max(startedAt, Number.isFinite(input.endedAt) ? input.endedAt : startedAt);
   const durationMs = boundedMs(endedAt - startedAt);
+  const hasSensorMeasurement = input.sensorSampledMs !== undefined || input.faceObservableMs !== undefined;
+  const sensorSampledMs = hasSensorMeasurement
+    ? Math.min(durationMs, boundedMs(input.sensorSampledMs ?? 0))
+    : undefined;
+  const faceObservableMs = sensorSampledMs === undefined
+    ? undefined
+    : Math.min(sensorSampledMs, boundedMs(input.faceObservableMs ?? 0));
+
   const exposure: LongitudinalExposure = {
     id: input.id ?? eventId('exposure'),
     sessionId: input.sessionId ?? currentLongitudinalSessionId(),
@@ -95,8 +104,10 @@ export function createLongitudinalExposure(
     attributionMin: clamp01(input.attributionMin),
     visibleFractionMean: clamp01(input.visibleFractionMean),
   };
-  if (input.sensorObservableFraction !== undefined) {
-    exposure.sensorObservableMs = durationMs * clamp01(input.sensorObservableFraction);
+  if (sensorSampledMs !== undefined && faceObservableMs !== undefined) {
+    exposure.measurementVersion = FRONTIER_SENSOR_MEASUREMENT_VERSION;
+    exposure.sensorSampledMs = sensorSampledMs;
+    exposure.faceObservableMs = faceObservableMs;
   }
   return exposure;
 }
@@ -108,16 +119,26 @@ export function isQualifiedLongitudinalExposure(exposure: LongitudinalExposure):
     && exposure.visibleFractionMean >= 0.34;
 }
 
-/**
- * Stronger admission gate used only before passive sensor evidence can touch the
- * preference model. Historical storage still retains attributed exposure with low
- * observability so coverage failures remain measurable instead of disappearing.
- */
+export function isSensorMeasuredLongitudinalExposure(exposure: LongitudinalExposure): boolean {
+  return exposure.measurementVersion === FRONTIER_SENSOR_MEASUREMENT_VERSION
+    && Number.isFinite(exposure.sensorSampledMs)
+    && Number.isFinite(exposure.faceObservableMs)
+    && (exposure.sensorSampledMs ?? -1) >= 0
+    && (exposure.faceObservableMs ?? -1) >= 0
+    && (exposure.faceObservableMs ?? 0) <= (exposure.sensorSampledMs ?? 0)
+    && (exposure.sensorSampledMs ?? 0) <= exposure.durationMs;
+}
+
+/** Stronger gate before passive sensor evidence can touch preference memory. */
 export function isSensorObservableLongitudinalExposure(exposure: LongitudinalExposure): boolean {
-  if (!isQualifiedLongitudinalExposure(exposure) || exposure.sensorObservableMs === undefined) return false;
-  const coverage = exposure.durationMs > 0 ? exposure.sensorObservableMs / exposure.durationMs : 0;
-  return exposure.sensorObservableMs >= MIN_SENSOR_OBSERVABLE_EXPOSURE_MS
-    && coverage >= MIN_SENSOR_OBSERVABILITY_COVERAGE;
+  if (!isQualifiedLongitudinalExposure(exposure) || !isSensorMeasuredLongitudinalExposure(exposure)) return false;
+  const sampled = exposure.sensorSampledMs ?? 0;
+  const observable = exposure.faceObservableMs ?? 0;
+  const samplingCoverage = exposure.durationMs > 0 ? sampled / exposure.durationMs : 0;
+  const faceCoverage = sampled > 0 ? observable / sampled : 0;
+  return sampled >= MIN_SENSOR_SAMPLED_MS
+    && samplingCoverage >= MIN_SENSOR_SAMPLING_COVERAGE
+    && faceCoverage >= MIN_FACE_OBSERVABILITY_COVERAGE;
 }
 
 export function createLongitudinalReaction(
