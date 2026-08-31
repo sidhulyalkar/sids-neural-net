@@ -1,11 +1,13 @@
-import type {
-  LongitudinalArchive,
-  LongitudinalExposure,
-  LongitudinalReactionEpisode,
-  LongitudinalRollup,
+import {
+  dayKeyInLongitudinalWindow,
+  longitudinalDayWindow,
+  type LongitudinalArchive,
+  type LongitudinalDayWindow,
+  type LongitudinalExposure,
+  type LongitudinalReactionEpisode,
+  type LongitudinalRollup,
 } from './longitudinal';
 
-const DAY_MS = 86_400_000;
 const TEN_MINUTES_MS = 10 * 60_000;
 const DEFAULT_PRIOR_EXPOSURE_UNITS = 1.5;
 const DEFAULT_MIN_TREND_EXPOSURE_MS = 3 * 60_000;
@@ -52,14 +54,6 @@ type Posterior = {
   variance: number;
 };
 
-function localDayKey(at: number): string {
-  const date = new Date(at);
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-}
-
 function emptyAccumulator(): TopicAccumulator {
   return { exposureMs: 0, reactions: 0, confirmed: 0, contradicted: 0 };
 }
@@ -71,10 +65,6 @@ function touch(map: Map<string, TopicAccumulator>, key: string): TopicAccumulato
   const created = emptyAccumulator();
   map.set(normalized, created);
   return created;
-}
-
-function inWindowDay(dayKey: string, startDay: string, endDay: string): boolean {
-  return dayKey >= startDay && dayKey < endDay;
 }
 
 function addExposure(map: Map<string, TopicAccumulator>, exposure: Pick<LongitudinalExposure, 'tags' | 'durationMs'>): void {
@@ -101,21 +91,21 @@ function addRollup(map: Map<string, TopicAccumulator>, rollup: LongitudinalRollu
 
 function topicWindow(
   archive: LongitudinalArchive,
-  startAt: number,
-  endAt: number,
+  window: LongitudinalDayWindow,
 ): Map<string, TopicAccumulator> {
-  const startDay = localDayKey(startAt);
-  const endDay = localDayKey(endAt);
   const map = new Map<string, TopicAccumulator>();
 
+  // High-resolution rows and compacted rollups are deliberately admitted by the
+  // exact same stored local-calendar key. Compaction therefore changes storage
+  // resolution, never analytical window membership.
   for (const exposure of archive.exposures) {
-    if (exposure.endedAt >= startAt && exposure.endedAt < endAt) addExposure(map, exposure);
+    if (dayKeyInLongitudinalWindow(exposure.dayKey, window)) addExposure(map, exposure);
   }
   for (const reaction of archive.reactions) {
-    if (reaction.occurredAt >= startAt && reaction.occurredAt < endAt) addReaction(map, reaction);
+    if (dayKeyInLongitudinalWindow(reaction.dayKey, window)) addReaction(map, reaction);
   }
   for (const rollup of archive.rollups) {
-    if (inWindowDay(rollup.dayKey, startDay, endDay)) addRollup(map, rollup);
+    if (dayKeyInLongitudinalWindow(rollup.dayKey, window)) addRollup(map, rollup);
   }
   return map;
 }
@@ -189,8 +179,8 @@ export function inferLongitudinalTopicRates(
   days = 90,
   now = Date.now(),
 ): LongitudinalRateEstimate[] {
-  const boundedDays = Math.max(1, Math.min(3650, Math.round(days)));
-  const map = topicWindow(archive, now - boundedDays * DAY_MS, now + 1);
+  const window = longitudinalDayWindow(days, now);
+  const map = topicWindow(archive, window);
   const prior = globalRate(map);
   return Array.from(map.entries())
     .map(([key, value]) => estimate(key, value, prior))
@@ -208,10 +198,10 @@ export function inferLongitudinalTopicTrends(
   minWindowExposureMs = DEFAULT_MIN_TREND_EXPOSURE_MS,
 ): LongitudinalTopicTrend[] {
   const boundedWindow = Math.max(3, Math.min(365, Math.round(windowDays)));
-  const recentStart = now - boundedWindow * DAY_MS;
-  const previousStart = recentStart - boundedWindow * DAY_MS;
-  const recentMap = topicWindow(archive, recentStart, now + 1);
-  const previousMap = topicWindow(archive, previousStart, recentStart);
+  const recentWindow = longitudinalDayWindow(boundedWindow, now);
+  const previousWindow = longitudinalDayWindow(boundedWindow, now, -boundedWindow);
+  const recentMap = topicWindow(archive, recentWindow);
+  const previousMap = topicWindow(archive, previousWindow);
   const combined = new Map<string, TopicAccumulator>();
 
   for (const [key, value] of [...previousMap.entries(), ...recentMap.entries()]) {
