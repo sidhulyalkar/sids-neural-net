@@ -1,5 +1,6 @@
 import { formatForItem } from './behavior';
 import type { FrontierAmbientReaction } from './reaction';
+import { FRONTIER_SENSOR_MEASUREMENT_VERSION } from './sensorObservability';
 import type {
   FrontierAmbientReactionKind,
   FrontierItem,
@@ -24,6 +25,7 @@ export type LongitudinalReactionReview = 'confirmed' | 'contradicted';
 export type LongitudinalInteractionKind = 'dwell' | 'expand' | 'open' | 'save' | 'unsave' | 'reaction';
 export type LongitudinalRollupDimension = 'lane' | 'topic' | 'format';
 export type LongitudinalScale = 1 | 2 | 3 | 4 | 5;
+export type LongitudinalMeasurementVersion = typeof FRONTIER_SENSOR_MEASUREMENT_VERSION;
 
 export type LongitudinalItemContext = {
   itemId: string;
@@ -43,6 +45,12 @@ export type LongitudinalExposure = LongitudinalItemContext & {
   attributionMean: number;
   attributionMin: number;
   visibleFractionMean: number;
+  /** Absent means legacy v1 camera-on denominator semantics. */
+  measurementVersion?: LongitudinalMeasurementVersion;
+  /** Bounded time between actual local vision callbacks while this target was attributable. */
+  sensorSampledMs?: number;
+  /** Subset of sensorSampledMs for which the local face model returned an observable face. */
+  faceObservableMs?: number;
 };
 
 export type LongitudinalReactionEpisode = LongitudinalItemContext & {
@@ -100,6 +108,14 @@ export type LongitudinalRollup = {
   friction: number;
   confidenceSum: number;
   intensitySum: number;
+  /** v2 measurement fields are absent on historical rollups created before observability accounting. */
+  sensorMeasuredWallMs?: number;
+  sensorSampledMs?: number;
+  faceObservableMs?: number;
+  sensorMeasuredExposures?: number;
+  sensorMeasuredReactions?: number;
+  sensorMeasuredConfirmed?: number;
+  sensorMeasuredContradicted?: number;
   compactedAt: number;
 };
 
@@ -134,6 +150,13 @@ export type LongitudinalSummary = {
   confirmed: number;
   contradicted: number;
   reviewAgreement?: number;
+  sensorMeasuredWallMs: number;
+  sensorSampledMs: number;
+  faceObservableMs: number;
+  sensorMeasuredExposures: number;
+  sensorMeasuredReactions: number;
+  sensorSamplingCoverage?: number;
+  faceObservability?: number;
   checkins: number;
   selfReported?: {
     mood: number;
@@ -170,6 +193,16 @@ type MutableSummary = {
   reactions: number;
   confirmed: number;
   contradicted: number;
+};
+
+type SensorTotals = {
+  sensorMeasuredWallMs: number;
+  sensorSampledMs: number;
+  faceObservableMs: number;
+  sensorMeasuredExposures: number;
+  sensorMeasuredReactions: number;
+  sensorMeasuredConfirmed: number;
+  sensorMeasuredContradicted: number;
 };
 
 function clamp01(value: number): number {
@@ -262,9 +295,17 @@ export function createLongitudinalExposure(
     attributionMean: number;
     attributionMin: number;
     visibleFractionMean: number;
+    sensorSampledMs?: number;
+    faceObservableMs?: number;
   }
 ): LongitudinalExposure {
   const endedAt = Math.max(input.startedAt, input.endedAt);
+  const durationMs = boundedMs(endedAt - input.startedAt);
+  const hasSensorMeasurement = input.sensorSampledMs !== undefined || input.faceObservableMs !== undefined;
+  const sensorSampledMs = hasSensorMeasurement ? Math.min(durationMs, boundedMs(input.sensorSampledMs ?? 0)) : undefined;
+  const faceObservableMs = sensorSampledMs === undefined
+    ? undefined
+    : Math.min(sensorSampledMs, boundedMs(input.faceObservableMs ?? 0));
   return {
     id: input.id ?? eventId('exposure'),
     sessionId: input.sessionId ?? currentLongitudinalSessionId(),
@@ -272,10 +313,15 @@ export function createLongitudinalExposure(
     startedAt: input.startedAt,
     endedAt,
     dayKey: longitudinalDayKey(input.startedAt),
-    durationMs: boundedMs(endedAt - input.startedAt),
+    durationMs,
     attributionMean: clamp01(input.attributionMean),
     attributionMin: clamp01(input.attributionMin),
     visibleFractionMean: clamp01(input.visibleFractionMean),
+    ...(sensorSampledMs !== undefined && faceObservableMs !== undefined ? {
+      measurementVersion: FRONTIER_SENSOR_MEASUREMENT_VERSION,
+      sensorSampledMs,
+      faceObservableMs,
+    } : {}),
   };
 }
 
@@ -439,6 +485,24 @@ function emptyMutableSummary(): MutableSummary {
   return { exposureMs: 0, exposures: 0, reactions: 0, confirmed: 0, contradicted: 0 };
 }
 
+function emptySensorTotals(): SensorTotals {
+  return {
+    sensorMeasuredWallMs: 0,
+    sensorSampledMs: 0,
+    faceObservableMs: 0,
+    sensorMeasuredExposures: 0,
+    sensorMeasuredReactions: 0,
+    sensorMeasuredConfirmed: 0,
+    sensorMeasuredContradicted: 0,
+  };
+}
+
+function isSensorMeasuredExposure(exposure: LongitudinalExposure): boolean {
+  return exposure.measurementVersion === FRONTIER_SENSOR_MEASUREMENT_VERSION
+    && Number.isFinite(exposure.sensorSampledMs)
+    && Number.isFinite(exposure.faceObservableMs);
+}
+
 export function buildLongitudinalRollups(
   exposures: LongitudinalExposure[],
   reactions: LongitudinalReactionEpisode[],
@@ -448,6 +512,7 @@ export function buildLongitudinalRollups(
 ): LongitudinalRollup[] {
   type RollupAccumulator = LongitudinalRollup;
   const byKey = new Map<string, RollupAccumulator>();
+  const sensorMeasuredExposureIds = new Set(exposures.filter(isSensorMeasuredExposure).map((exposure) => exposure.id));
 
   const touch = (day: string, dimension: LongitudinalRollupDimension, key: string): RollupAccumulator => {
     const mapKey = `${day}|${dimension}|${key}`;
@@ -471,6 +536,7 @@ export function buildLongitudinalRollups(
       friction: 0,
       confidenceSum: 0,
       intensitySum: 0,
+      ...emptySensorTotals(),
       compactedAt,
     };
     byKey.set(mapKey, created);
@@ -491,9 +557,16 @@ export function buildLongitudinalRollups(
     eachDimension(exposure, exposure.dayKey, (rollup) => {
       rollup.exposureMs += exposure.durationMs;
       rollup.exposures += 1;
+      if (isSensorMeasuredExposure(exposure)) {
+        rollup.sensorMeasuredWallMs = (rollup.sensorMeasuredWallMs ?? 0) + exposure.durationMs;
+        rollup.sensorSampledMs = (rollup.sensorSampledMs ?? 0) + (exposure.sensorSampledMs ?? 0);
+        rollup.faceObservableMs = (rollup.faceObservableMs ?? 0) + (exposure.faceObservableMs ?? 0);
+        rollup.sensorMeasuredExposures = (rollup.sensorMeasuredExposures ?? 0) + 1;
+      }
     });
   }
   for (const reaction of reactions) {
+    const measured = sensorMeasuredExposureIds.has(reaction.exposureId);
     eachDimension(reaction, reaction.dayKey, (rollup) => {
       rollup.reactions += 1;
       rollup[reaction.kind] += 1;
@@ -501,6 +574,11 @@ export function buildLongitudinalRollups(
       rollup.intensitySum += reaction.intensity;
       if (reaction.review === 'confirmed') rollup.confirmed += 1;
       if (reaction.review === 'contradicted') rollup.contradicted += 1;
+      if (measured) {
+        rollup.sensorMeasuredReactions = (rollup.sensorMeasuredReactions ?? 0) + 1;
+        if (reaction.review === 'confirmed') rollup.sensorMeasuredConfirmed = (rollup.sensorMeasuredConfirmed ?? 0) + 1;
+        if (reaction.review === 'contradicted') rollup.sensorMeasuredContradicted = (rollup.sensorMeasuredContradicted ?? 0) + 1;
+      }
     });
   }
   for (const interaction of interactions) {
@@ -536,6 +614,8 @@ export function summarizeLongitudinalData(input: {
 }): LongitudinalSummary {
   const topicMap = new Map<string, MutableSummary>();
   const laneMap = new Map<string, MutableSummary>();
+  const sensorTotals = emptySensorTotals();
+  const sensorMeasuredExposureIds = new Set(input.exposures.filter(isSensorMeasuredExposure).map((exposure) => exposure.id));
   let exposureMs = 0;
   let exposuresCount = 0;
   let reactionsCount = 0;
@@ -552,6 +632,12 @@ export function summarizeLongitudinalData(input: {
   for (const exposure of input.exposures) {
     exposureMs += exposure.durationMs;
     exposuresCount += 1;
+    if (isSensorMeasuredExposure(exposure)) {
+      sensorTotals.sensorMeasuredWallMs += exposure.durationMs;
+      sensorTotals.sensorSampledMs += exposure.sensorSampledMs ?? 0;
+      sensorTotals.faceObservableMs += exposure.faceObservableMs ?? 0;
+      sensorTotals.sensorMeasuredExposures += 1;
+    }
     applyRaw(laneMap, exposure.lane, (summary) => {
       summary.exposureMs += exposure.durationMs;
       summary.exposures += 1;
@@ -563,8 +649,14 @@ export function summarizeLongitudinalData(input: {
   }
   for (const reaction of input.reactions) {
     reactionsCount += 1;
+    const measured = sensorMeasuredExposureIds.has(reaction.exposureId);
     if (reaction.review === 'confirmed') confirmed += 1;
     if (reaction.review === 'contradicted') contradicted += 1;
+    if (measured) {
+      sensorTotals.sensorMeasuredReactions += 1;
+      if (reaction.review === 'confirmed') sensorTotals.sensorMeasuredConfirmed += 1;
+      if (reaction.review === 'contradicted') sensorTotals.sensorMeasuredContradicted += 1;
+    }
     applyRaw(laneMap, reaction.lane, (summary) => {
       summary.reactions += 1;
       if (reaction.review === 'confirmed') summary.confirmed += 1;
@@ -585,6 +677,13 @@ export function summarizeLongitudinalData(input: {
       explicitInteractions += rollup.explicitInteractions;
       confirmed += rollup.confirmed;
       contradicted += rollup.contradicted;
+      sensorTotals.sensorMeasuredWallMs += rollup.sensorMeasuredWallMs ?? 0;
+      sensorTotals.sensorSampledMs += rollup.sensorSampledMs ?? 0;
+      sensorTotals.faceObservableMs += rollup.faceObservableMs ?? 0;
+      sensorTotals.sensorMeasuredExposures += rollup.sensorMeasuredExposures ?? 0;
+      sensorTotals.sensorMeasuredReactions += rollup.sensorMeasuredReactions ?? 0;
+      sensorTotals.sensorMeasuredConfirmed += rollup.sensorMeasuredConfirmed ?? 0;
+      sensorTotals.sensorMeasuredContradicted += rollup.sensorMeasuredContradicted ?? 0;
       applyRaw(laneMap, rollup.key, (summary) => {
         summary.exposureMs += rollup.exposureMs;
         summary.exposures += rollup.exposures;
@@ -634,6 +733,17 @@ export function summarizeLongitudinalData(input: {
     confirmed,
     contradicted,
     reviewAgreement: reviewed ? confirmed / reviewed : undefined,
+    sensorMeasuredWallMs: sensorTotals.sensorMeasuredWallMs,
+    sensorSampledMs: sensorTotals.sensorSampledMs,
+    faceObservableMs: sensorTotals.faceObservableMs,
+    sensorMeasuredExposures: sensorTotals.sensorMeasuredExposures,
+    sensorMeasuredReactions: sensorTotals.sensorMeasuredReactions,
+    sensorSamplingCoverage: sensorTotals.sensorMeasuredWallMs > 0
+      ? clamp01(sensorTotals.sensorSampledMs / sensorTotals.sensorMeasuredWallMs)
+      : undefined,
+    faceObservability: sensorTotals.sensorSampledMs > 0
+      ? clamp01(sensorTotals.faceObservableMs / sensorTotals.sensorSampledMs)
+      : undefined,
     checkins: input.checkins.length,
     selfReported,
     topTopics: rank(Array.from(topicMap.entries())),
