@@ -26,7 +26,7 @@ const cleanRuntimeUrl = (value: string | undefined) => {
 };
 
 const stretchicornRuntime =
-  cleanRuntimeUrl(process.env.NEXT_PUBLIC_ARCADE_STRETCHICORN_URL) ?? '/game-runtimes/stretchicorn/index.html';
+  cleanRuntimeUrl(process.env.NEXT_PUBLIC_ARCADE_STRETCHICORN_URL) ?? '/game-runtimes/stretchicorn/v0.38.0/index.html';
 const uniricoRuntime =
   cleanRuntimeUrl(process.env.NEXT_PUBLIC_ARCADE_UNIRICO_URL) ?? '/game-runtimes/unirico/v0.20.0/index.html';
 
@@ -36,22 +36,21 @@ export const arcadeGames: ArcadeGame[] = [
     title: 'Stretchicorn',
     subtitle: 'STRETCH · SNAP · SHUCK.',
     description:
-      'A compact desktop action game about steering an elastic unicorn from both ends, charging a rainbow spring, and fighting an increasingly unreasonable corn army across 13 trials. v0.21.1 adds four difficulty modes, Splitcorn cleanup chains, Impossible piercing pressure, and a secret three-boss Impossible Encore.',
-    version: 'v0.21.1',
+      'A 13-trial desktop arcade-action game where you control both ends of a living rainbow unicorn, build tension, Snap through corn armies, parry gold kernels, dodge cyan piercing pressure, and fight three authored bosses. v0.38.0 is the current js13k release with four difficulty modes, anti-pin boss Phase Shifts, a split-core Cobtopus Prime finale, and the bounded Impossible Encore.',
+    version: 'v0.38.0',
     status: 'playable',
     sourceVisibility: 'public',
     repoUrl: 'https://github.com/sidhulyalkar/stretchicorn',
     launchUrl: stretchicornRuntime,
     aspectRatio: '960 / 640',
     nativeSize: { width: 960, height: 640 },
-    tags: ['arcade action', 'js13k', 'canvas', 'procedural audio', 'difficulty modes', 'splitcorn'],
+    tags: ['arcade action', 'js13k', '13 trials', 'procedural audio', 'four difficulties', 'authored bosses'],
     controls: [
       { input: '1 / 2 / 3 / 4', action: 'Start Easy / Normal / Hard / Impossible' },
-      { input: 'W A S D', action: 'Move vulnerable body' },
-      { input: 'Arrow Keys', action: 'Aim head / horn' },
-      { input: 'Space', action: 'Horn strike / Rainbow Snap' },
-      { input: 'C', action: 'Controls / rebinding' },
-      { input: 'R', action: 'Rules' },
+      { input: 'W A S D', action: 'Move the vulnerable body / heart' },
+      { input: 'Arrow Keys', action: 'Aim / steer the safe head and horn' },
+      { input: 'Space', action: 'Horn strike / charged Rainbow Snap' },
+      { input: 'C', action: 'Rebind controls' },
       { input: 'S', action: 'Music + SFX settings' },
       { input: 'P', action: 'Pause / resume' },
       { input: 'M', action: 'Return to menu' },
