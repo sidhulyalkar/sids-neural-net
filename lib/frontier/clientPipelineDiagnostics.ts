@@ -1,4 +1,6 @@
 import type { FrontierPipelineDiagnostics } from './pipelineDiagnostics';
+import type { FrontierRankAuthorityAudit } from './rankAuthorityAudit';
+import type { FrontierSlateTasteAuthorityAudit } from './slateTasteAuthorityAudit';
 
 export const FRONTIER_CLIENT_PIPELINE_SCHEMA = 'frontier-client-pipeline-v1' as const;
 
@@ -20,6 +22,10 @@ export type FrontierClientPipelineSnapshot = {
   selected: number | null;
   /** Cards handed to SignalBoard before its presentation-layer ordering. */
   boardInput: number | null;
+  /** Anonymous, current-cohort rank counterfactual. Never persisted. */
+  rankAuthority: FrontierRankAuthorityAudit | null;
+  /** Anonymous, current-cohort fixed-taste slate counterfactual. Never persisted. */
+  slateTasteAuthority: FrontierSlateTasteAuthorityAudit | null;
 };
 
 const EMPTY_CLIENT_PIPELINE: FrontierClientPipelineSnapshot = {
@@ -32,6 +38,8 @@ const EMPTY_CLIENT_PIPELINE: FrontierClientPipelineSnapshot = {
   realmEligible: null,
   selected: null,
   boardInput: null,
+  rankAuthority: null,
+  slateTasteAuthority: null,
 };
 
 let snapshot: FrontierClientPipelineSnapshot = EMPTY_CLIENT_PIPELINE;
@@ -67,6 +75,8 @@ export function recordFrontierClientFeed(input: {
     realmEligible: null,
     selected: null,
     boardInput: null,
+    rankAuthority: null,
+    slateTasteAuthority: null,
   });
 }
 
@@ -75,6 +85,8 @@ export function recordFrontierClientSelection(input: {
   realmEligible: number;
   selected: number;
   boardInput: number;
+  rankAuthority?: FrontierRankAuthorityAudit | null;
+  slateTasteAuthority?: FrontierSlateTasteAuthorityAudit | null;
   at?: number;
 }): void {
   publish({
@@ -84,6 +96,8 @@ export function recordFrontierClientSelection(input: {
     realmEligible: safeCount(input.realmEligible),
     selected: safeCount(input.selected),
     boardInput: safeCount(input.boardInput),
+    rankAuthority: input.rankAuthority ?? null,
+    slateTasteAuthority: input.slateTasteAuthority ?? null,
   });
 }
 
