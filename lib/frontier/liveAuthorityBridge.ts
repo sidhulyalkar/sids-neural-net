@@ -1,8 +1,11 @@
+import {
+  auditFrontierDailyRunTasteAuthority,
+  type FrontierDailyRunTasteAuthorityAudit,
+} from './dailyRunTasteAuthorityAudit';
 import type { FrontierDirectPreferenceEvidenceIndex } from './directPreferenceEvidence';
 import type { FrontierPairEvidenceIndex } from './pairEvidence';
 import { auditFrontierRankAuthority, type FrontierRankAuthorityAudit } from './rankAuthorityAudit';
 import type { FrontierSessionIntent } from './sessionIntent';
-import { auditFrontierSlateTasteAuthority, type FrontierSlateTasteAuthorityAudit } from './slateTasteAuthorityAudit';
 import type {
   FrontierBehaviorModel,
   FrontierHistoryEntry,
@@ -16,7 +19,8 @@ export type FrontierLiveAuthorityBridge = {
   candidates: number;
   limit: number;
   rankAuthority: FrontierRankAuthorityAudit;
-  slateTasteAuthority: FrontierSlateTasteAuthorityAudit;
+  /** Whole fixed-taste counterfactual for the canonical-then-expanded Today run. */
+  slateTasteAuthority: FrontierDailyRunTasteAuthorityAudit;
 };
 
 /**
@@ -26,8 +30,8 @@ export type FrontierLiveAuthorityBridge = {
  * never fed back into recommendation behavior.
  *
  * `realmRanked` must be the production-ranked set after current-realm eligibility
- * filtering and before `selectDailyRun`. That keeps the rank and slate audits on
- * the same real pre-allocation cohort while preserving their different causal
+ * filtering and before `selectDailyRun`. That keeps the rank and daily-run audits
+ * on the same real pre-allocation cohort while preserving their different causal
  * scopes.
  */
 export function buildFrontierLiveAuthorityBridge(input: {
@@ -54,7 +58,7 @@ export function buildFrontierLiveAuthorityBridge(input: {
     input.sessionIntent,
     input.directPreferenceEvidence,
   );
-  const slateTasteAuthority = auditFrontierSlateTasteAuthority(input.realmRanked, limit);
+  const slateTasteAuthority = auditFrontierDailyRunTasteAuthority(input.realmRanked, limit);
 
   return {
     schema: 'frontier-live-authority-bridge-v1',
