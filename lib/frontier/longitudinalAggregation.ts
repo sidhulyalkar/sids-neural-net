@@ -1,3 +1,4 @@
+import { isQualifiedLongitudinalExposure } from './longitudinalEvents';
 import type {
   LongitudinalCheckin,
   LongitudinalExposure,
@@ -54,9 +55,14 @@ function canonicalKeys(values: string[]): string[] {
   return [...new Set(values.map((value) => String(value ?? '').trim().toLowerCase()).filter(Boolean))];
 }
 
+export function qualifiedLongitudinalExposureIds(exposures: LongitudinalExposure[]): Set<string> {
+  return new Set(exposures.filter(isQualifiedLongitudinalExposure).map((exposure) => exposure.id));
+}
+
 /**
- * Pure raw-to-rollup compaction. The function is storage-agnostic so compaction
- * semantics can be tested independently from IndexedDB transactions.
+ * Pure raw-to-rollup compaction. Only reactions attached to qualified exposure
+ * are allowed into aggregate reactivity. Orphans remain observations but cannot
+ * acquire denominator authority by being compacted.
  */
 export function buildLongitudinalRollups(
   exposures: LongitudinalExposure[],
@@ -66,6 +72,7 @@ export function buildLongitudinalRollups(
   batchId = eventId('compact'),
 ): LongitudinalRollup[] {
   const byKey = new Map<string, LongitudinalRollup>();
+  const qualifiedExposureIds = qualifiedLongitudinalExposureIds(exposures);
 
   const touch = (day: string, dimension: LongitudinalRollupDimension, rawKey: string): LongitudinalRollup => {
     const key = rawKey.trim().toLowerCase();
@@ -107,12 +114,14 @@ export function buildLongitudinalRollups(
   };
 
   for (const exposure of exposures) {
+    if (!qualifiedExposureIds.has(exposure.id)) continue;
     eachDimension(exposure, exposure.dayKey, (rollup) => {
       rollup.exposureMs += Math.max(0, exposure.durationMs);
       rollup.exposures += 1;
     });
   }
   for (const reaction of reactions) {
+    if (!qualifiedExposureIds.has(reaction.exposureId)) continue;
     eachDimension(reaction, reaction.dayKey, (rollup) => {
       rollup.reactions += 1;
       rollup[reaction.kind] += 1;
@@ -157,9 +166,12 @@ export function summarizeLongitudinalData(input: {
   interactions: LongitudinalInteraction[];
   checkins: LongitudinalCheckin[];
   rollups: LongitudinalRollup[];
+  /** May include qualified exposures outside the display window for cross-midnight linkage. */
+  qualifiedExposureIds?: ReadonlySet<string>;
 }): LongitudinalSummary {
   const topicMap = new Map<string, MutableSummary>();
   const laneMap = new Map<string, MutableSummary>();
+  const qualifiedIds = input.qualifiedExposureIds ?? qualifiedLongitudinalExposureIds(input.exposures);
   let exposureMs = 0;
   let exposuresCount = 0;
   let reactionsCount = 0;
@@ -176,6 +188,7 @@ export function summarizeLongitudinalData(input: {
   };
 
   for (const exposure of input.exposures) {
+    if (!qualifiedIds.has(exposure.id)) continue;
     exposureMs += exposure.durationMs;
     exposuresCount += 1;
     apply(laneMap, exposure.lane, (summary) => {
@@ -188,6 +201,7 @@ export function summarizeLongitudinalData(input: {
     });
   }
   for (const reaction of input.reactions) {
+    if (!qualifiedIds.has(reaction.exposureId)) continue;
     reactionsCount += 1;
     if (reaction.review === 'confirmed') confirmed += 1;
     if (reaction.review === 'contradicted') contradicted += 1;
