@@ -28,13 +28,14 @@ function clamp(value: number, min: number, max: number): number {
 function sanitizeStat(value: unknown): ReactionTrustStat | undefined {
   if (!value || typeof value !== 'object') return undefined;
   const candidate = value as Partial<ReactionTrustStat>;
-  return {
+  const stat: ReactionTrustStat = {
     observed: Math.max(0, Math.floor(Number(candidate.observed) || 0)),
     confirmed: Math.max(0, Math.floor(Number(candidate.confirmed) || 0)),
     contradicted: Math.max(0, Math.floor(Number(candidate.contradicted) || 0)),
     confidenceSum: Math.max(0, Number(candidate.confidenceSum) || 0),
-    lastAt: Number.isFinite(candidate.lastAt) ? candidate.lastAt : undefined,
   };
+  if (Number.isFinite(candidate.lastAt)) stat.lastAt = candidate.lastAt;
+  return stat;
 }
 
 function sanitizeState(value: unknown): ReactionTrustState {
@@ -62,12 +63,12 @@ function strictStat(value: unknown): ReactionTrustStat | null {
   if (typeof contradicted !== 'number' || !Number.isInteger(contradicted) || contradicted < 0 || contradicted > MAX_TRUST_COUNT) return null;
   if (confirmed + contradicted > observed) return null;
   if (typeof confidenceSum !== 'number' || !Number.isFinite(confidenceSum) || confidenceSum < 0 || confidenceSum > observed + 1e-9) return null;
-  let lastAt: number | undefined;
+  const stat: ReactionTrustStat = { observed, confirmed, contradicted, confidenceSum };
   if (candidate.lastAt !== undefined) {
     if (typeof candidate.lastAt !== 'number' || !Number.isFinite(candidate.lastAt) || candidate.lastAt < 0) return null;
-    lastAt = candidate.lastAt;
+    stat.lastAt = candidate.lastAt;
   }
-  return { observed, confirmed, contradicted, confidenceSum, lastAt };
+  return stat;
 }
 
 export function parseReactionTrustState(value: unknown): ReactionTrustState | null {
