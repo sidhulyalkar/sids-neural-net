@@ -28,7 +28,7 @@ const cleanRuntimeUrl = (value: string | undefined) => {
 const stretchicornRuntime =
   cleanRuntimeUrl(process.env.NEXT_PUBLIC_ARCADE_STRETCHICORN_URL) ?? '/game-runtimes/stretchicorn/index.html';
 const uniricoRuntime =
-  cleanRuntimeUrl(process.env.NEXT_PUBLIC_ARCADE_UNIRICO_URL) ?? '/game-runtimes/unirico/v0.19.0/index.html';
+  cleanRuntimeUrl(process.env.NEXT_PUBLIC_ARCADE_UNIRICO_URL) ?? '/game-runtimes/unirico/v0.20.0/index.html';
 
 export const arcadeGames: ArcadeGame[] = [
   {
@@ -63,18 +63,18 @@ export const arcadeGames: ArcadeGame[] = [
     title: 'uniRico',
     subtitle: 'RAINBOW RICOCHET · READ · AIM · BOUNCE.',
     description:
-      'A 40-level rainbow-ricochet puzzle game where a unicorn bends one shot through prisms, portals, weather, gravity, spin, polarity, and increasingly grumpy cloud locks. v0.19.0 adds first-seen mechanic demonstrations plus a precision mobile AIM wheel and separate FIRE button, so learning and touch control use the same deterministic physics as live play.',
-    version: 'v0.19.0',
+      'A 50-level deterministic rainbow-ricochet puzzle campaign where a unicorn bends one shot through prisms, portals, weather, gravity, spin, polarity, and ordered cloud locks. v0.20.0 adds the ten-level Reflection Gauntlet, preserves the authoritative visible desktop trajectory, and keeps the precision mobile AIM wheel + separate FIRE control.',
+    version: 'v0.20.0',
     status: 'playable',
     sourceVisibility: 'public',
     repoUrl: 'https://github.com/sidhulyalkar/uniRico',
     launchUrl: uniricoRuntime,
     aspectRatio: '16 / 10',
     nativeSize: { width: 960, height: 600 },
-    tags: ['ricochet puzzle', 'js13k', 'canvas', 'procedural audio', 'mobile controls', 'guided tutorials'],
+    tags: ['ricochet puzzle', 'js13k', '50 levels', 'reflection gauntlet', 'procedural audio', 'mobile controls'],
     controls: [
-      { input: 'Mouse / pointer', action: 'Aim on desktop' },
-      { input: 'Click', action: 'Fire on desktop' },
+      { input: 'Mouse / pointer', action: 'Choose the visible trajectory on desktop' },
+      { input: 'Click', action: 'Fire the currently displayed trajectory' },
       { input: 'AIM wheel', action: 'Choose angle without firing on mobile' },
       { input: 'FIRE', action: 'Launch the selected angle on mobile' },
       { input: 'M / Esc', action: 'Pause / menu' },
