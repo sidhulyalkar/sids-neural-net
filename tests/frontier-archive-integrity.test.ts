@@ -104,11 +104,20 @@ test('longitudinal archive parser rejects pathological store sizes before record
   assert.equal(parseLongitudinalArchive(input), null);
 });
 
-test('reaction trust archive parser enforces observed-review and confidence invariants', () => {
+test('reaction trust archive parser enforces invariants and canonical optional fields', () => {
   const valid: ReactionTrustState = {
     interest: { observed: 8, confirmed: 4, contradicted: 2, confidenceSum: 5.6, lastAt: 1234 },
   };
   assert.deepEqual(parseReactionTrustState(valid), valid);
+
+  const withoutLastAt: ReactionTrustState = {
+    surprise: { observed: 2, confirmed: 1, contradicted: 0, confidenceSum: 1.4 },
+  };
+  const parsedWithoutLastAt = parseReactionTrustState(withoutLastAt);
+  assert.deepEqual(parsedWithoutLastAt, withoutLastAt);
+  assert.ok(parsedWithoutLastAt?.surprise);
+  assert.equal(Object.hasOwn(parsedWithoutLastAt.surprise, 'lastAt'), false);
+
   assert.equal(parseReactionTrustState({ interest: { observed: 2, confirmed: 2, contradicted: 1, confidenceSum: 1.5 } }), null);
   assert.equal(parseReactionTrustState({ interest: { observed: 2, confirmed: 1, contradicted: 0, confidenceSum: 2.5 } }), null);
   assert.equal(parseReactionTrustState({ interest: valid.interest, inventedCue: valid.interest }), null);
