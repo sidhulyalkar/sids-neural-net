@@ -11,11 +11,16 @@ import type {
 
 export type LongitudinalTopicSummary = {
   key: string;
+  /** Attributed content exposure. */
   exposureMs: number;
+  /** Sensor-observable subset when every contributing exposure had coverage instrumentation. */
+  sensorObservableMs?: number;
+  observabilityCoverage?: number;
   exposures: number;
   reactions: number;
   confirmed: number;
   contradicted: number;
+  /** Detected-cue rate per ten minutes of sensor-observable time when known, otherwise legacy attributed time. */
   reactivityPer10Min: number;
   reviewAgreement?: number;
 };
@@ -23,6 +28,8 @@ export type LongitudinalTopicSummary = {
 export type LongitudinalSummary = {
   days: number;
   exposureMs: number;
+  sensorObservableMs?: number;
+  observabilityCoverage?: number;
   exposures: number;
   reactions: number;
   explicitInteractions: number;
@@ -38,6 +45,8 @@ export type LongitudinalSummary = {
 
 type MutableSummary = {
   exposureMs: number;
+  sensorObservableMs: number;
+  observabilityKnown: boolean;
   exposures: number;
   reactions: number;
   confirmed: number;
@@ -61,8 +70,8 @@ export function qualifiedLongitudinalExposureIds(exposures: LongitudinalExposure
 
 /**
  * Pure raw-to-rollup compaction. Only reactions attached to qualified exposure
- * are allowed into aggregate reactivity. Orphans remain observations but cannot
- * acquire denominator authority by being compacted.
+ * enter aggregate cue counts. Sensor observability is retained only when every
+ * contributing exposure in a semantic cell had explicit instrumentation.
  */
 export function buildLongitudinalRollups(
   exposures: LongitudinalExposure[],
@@ -72,6 +81,7 @@ export function buildLongitudinalRollups(
   batchId = eventId('compact'),
 ): LongitudinalRollup[] {
   const byKey = new Map<string, LongitudinalRollup>();
+  const observabilityIncomplete = new WeakSet<LongitudinalRollup>();
   const qualifiedExposureIds = qualifiedLongitudinalExposureIds(exposures);
 
   const touch = (day: string, dimension: LongitudinalRollupDimension, rawKey: string): LongitudinalRollup => {
@@ -118,6 +128,13 @@ export function buildLongitudinalRollups(
     eachDimension(exposure, exposure.dayKey, (rollup) => {
       rollup.exposureMs += Math.max(0, exposure.durationMs);
       rollup.exposures += 1;
+      if (exposure.sensorObservableMs === undefined) {
+        observabilityIncomplete.add(rollup);
+        delete rollup.sensorObservableMs;
+      } else if (!observabilityIncomplete.has(rollup)) {
+        rollup.sensorObservableMs = (rollup.sensorObservableMs ?? 0)
+          + Math.max(0, Math.min(exposure.durationMs, exposure.sensorObservableMs));
+      }
     });
   }
   for (const reaction of reactions) {
@@ -140,12 +157,27 @@ export function buildLongitudinalRollups(
 }
 
 function emptyMutableSummary(): MutableSummary {
-  return { exposureMs: 0, exposures: 0, reactions: 0, confirmed: 0, contradicted: 0 };
+  return {
+    exposureMs: 0,
+    sensorObservableMs: 0,
+    observabilityKnown: true,
+    exposures: 0,
+    reactions: 0,
+    confirmed: 0,
+    contradicted: 0,
+  };
+}
+
+function addObservability(summary: MutableSummary, exposureMs: number, sensorObservableMs: number | undefined): void {
+  summary.exposureMs += exposureMs;
+  if (sensorObservableMs === undefined) summary.observabilityKnown = false;
+  else summary.sensorObservableMs += Math.max(0, Math.min(exposureMs, sensorObservableMs));
 }
 
 function topicSummary(key: string, value: MutableSummary): LongitudinalTopicSummary {
   const reviewed = value.confirmed + value.contradicted;
-  const minutes = value.exposureMs / 60_000;
+  const denominatorMs = value.observabilityKnown ? value.sensorObservableMs : value.exposureMs;
+  const minutes = denominatorMs / 60_000;
   const summary: LongitudinalTopicSummary = {
     key,
     exposureMs: value.exposureMs,
@@ -155,6 +187,10 @@ function topicSummary(key: string, value: MutableSummary): LongitudinalTopicSumm
     contradicted: value.contradicted,
     reactivityPer10Min: minutes > 0 ? value.reactions / minutes * 10 : 0,
   };
+  if (value.observabilityKnown) {
+    summary.sensorObservableMs = value.sensorObservableMs;
+    summary.observabilityCoverage = value.exposureMs > 0 ? value.sensorObservableMs / value.exposureMs : 0;
+  }
   if (reviewed) summary.reviewAgreement = value.confirmed / reviewed;
   return summary;
 }
@@ -173,6 +209,8 @@ export function summarizeLongitudinalData(input: {
   const laneMap = new Map<string, MutableSummary>();
   const qualifiedIds = input.qualifiedExposureIds ?? qualifiedLongitudinalExposureIds(input.exposures);
   let exposureMs = 0;
+  let sensorObservableMs = 0;
+  let observabilityKnown = true;
   let exposuresCount = 0;
   let reactionsCount = 0;
   let explicitInteractions = input.interactions.length;
@@ -191,12 +229,14 @@ export function summarizeLongitudinalData(input: {
     if (!qualifiedIds.has(exposure.id)) continue;
     exposureMs += exposure.durationMs;
     exposuresCount += 1;
+    if (exposure.sensorObservableMs === undefined) observabilityKnown = false;
+    else sensorObservableMs += Math.max(0, Math.min(exposure.durationMs, exposure.sensorObservableMs));
     apply(laneMap, exposure.lane, (summary) => {
-      summary.exposureMs += exposure.durationMs;
+      addObservability(summary, exposure.durationMs, exposure.sensorObservableMs);
       summary.exposures += 1;
     });
     for (const tag of canonicalKeys(exposure.tags)) apply(topicMap, tag, (summary) => {
-      summary.exposureMs += exposure.durationMs;
+      addObservability(summary, exposure.durationMs, exposure.sensorObservableMs);
       summary.exposures += 1;
     });
   }
@@ -225,8 +265,10 @@ export function summarizeLongitudinalData(input: {
       explicitInteractions += rollup.explicitInteractions;
       confirmed += rollup.confirmed;
       contradicted += rollup.contradicted;
+      if (rollup.sensorObservableMs === undefined) observabilityKnown = false;
+      else sensorObservableMs += Math.max(0, Math.min(rollup.exposureMs, rollup.sensorObservableMs));
       apply(laneMap, rollup.key, (summary) => {
-        summary.exposureMs += rollup.exposureMs;
+        addObservability(summary, rollup.exposureMs, rollup.sensorObservableMs);
         summary.exposures += rollup.exposures;
         summary.reactions += rollup.reactions;
         summary.confirmed += rollup.confirmed;
@@ -235,7 +277,7 @@ export function summarizeLongitudinalData(input: {
     }
     if (rollup.dimension === 'topic') {
       apply(topicMap, rollup.key, (summary) => {
-        summary.exposureMs += rollup.exposureMs;
+        addObservability(summary, rollup.exposureMs, rollup.sensorObservableMs);
         summary.exposures += rollup.exposures;
         summary.reactions += rollup.reactions;
         summary.confirmed += rollup.confirmed;
@@ -277,6 +319,10 @@ export function summarizeLongitudinalData(input: {
     topTopics: rank(Array.from(topicMap.entries())),
     topLanes: rank(Array.from(laneMap.entries())),
   };
+  if (observabilityKnown) {
+    result.sensorObservableMs = sensorObservableMs;
+    result.observabilityCoverage = exposureMs > 0 ? sensorObservableMs / exposureMs : 0;
+  }
   if (reviewed) result.reviewAgreement = confirmed / reviewed;
   if (selfReported) result.selfReported = selfReported;
   return result;
