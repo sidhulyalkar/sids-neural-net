@@ -48,13 +48,22 @@ function validLongitudinalArchive(): LongitudinalArchive {
   };
 }
 
-test('longitudinal archive parser accepts a valid private archive and returns copied records', () => {
+test('longitudinal archive parser accepts a valid private archive and returns canonical copied records', () => {
   const input = validLongitudinalArchive();
   const parsed = parseLongitudinalArchive(input);
   assert.ok(parsed);
   assert.deepEqual(parsed, input);
   assert.notEqual(parsed.exposures, input.exposures);
   assert.notEqual(parsed.exposures[0], input.exposures[0]);
+  assert.equal(Object.hasOwn(parsed.interactions[0], 'dwellMs'), false);
+
+  const unreviewed = structuredClone(validLongitudinalArchive());
+  delete unreviewed.reactions[0].review;
+  delete unreviewed.reactions[0].reviewedAt;
+  const parsedUnreviewed = parseLongitudinalArchive(unreviewed);
+  assert.ok(parsedUnreviewed);
+  assert.equal(Object.hasOwn(parsedUnreviewed.reactions[0], 'review'), false);
+  assert.equal(Object.hasOwn(parsedUnreviewed.reactions[0], 'reviewedAt'), false);
 });
 
 test('longitudinal archive parser fails closed on malformed semantic invariants', () => {
@@ -73,6 +82,20 @@ test('longitudinal archive parser fails closed on malformed semantic invariants'
   const badNumber = structuredClone(validLongitudinalArchive()) as unknown as Record<string, unknown>;
   (badNumber.reactions as Array<Record<string, unknown>>)[0].confidence = Number.POSITIVE_INFINITY;
   assert.equal(parseLongitudinalArchive(badNumber), null);
+
+  const reactionWithoutValue = structuredClone(validLongitudinalArchive()) as unknown as Record<string, unknown>;
+  delete (reactionWithoutValue.interactions as Array<Record<string, unknown>>)[0].reaction;
+  assert.equal(parseLongitudinalArchive(reactionWithoutValue), null);
+});
+
+test('longitudinal archive parser rejects duplicate object-store IDs instead of relying on last-write-wins', () => {
+  const duplicateExposure = structuredClone(validLongitudinalArchive());
+  duplicateExposure.exposures.push({ ...duplicateExposure.exposures[0] });
+  assert.equal(parseLongitudinalArchive(duplicateExposure), null);
+
+  const duplicateRollup = structuredClone(validLongitudinalArchive());
+  duplicateRollup.rollups.push({ ...duplicateRollup.rollups[0] });
+  assert.equal(parseLongitudinalArchive(duplicateRollup), null);
 });
 
 test('longitudinal archive parser rejects pathological store sizes before record traversal', () => {
