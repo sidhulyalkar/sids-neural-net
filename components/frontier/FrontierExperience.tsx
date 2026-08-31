@@ -10,6 +10,11 @@ import {
 } from '@/lib/frontier/config';
 import { buildDiscoveryFocus, encodeDiscoveryFocus } from '@/lib/frontier/discoveryFocus';
 import { FRONTIER_PINNED_TOPICS } from '@/lib/frontier/interests';
+import {
+  createFrontierLocalArchive,
+  parseFrontierLocalArchive,
+  restoreFrontierLocalArchive,
+} from '@/lib/frontier/localArchive';
 import { clearFrontierCandidatePool } from '@/lib/frontier/live/candidatePool';
 import {
   clearFrontierSeenLedger,
@@ -30,7 +35,7 @@ import {
   topicSearchMatches,
   topicSearchScore,
 } from '@/lib/frontier/topicSearch';
-import { frontierBackup, useFrontierStore } from '@/lib/frontier/store';
+import { useFrontierStore } from '@/lib/frontier/store';
 import type {
   FrontierFeedResponse,
   FrontierItem,
@@ -572,23 +577,39 @@ export function FrontierExperience({ initialDateLabel, initialDayKey }: Props) {
     if (view === 'today' && value !== 'all') setView('explore');
   }, [view]);
 
-  const downloadBackup = useCallback(() => {
-    const blob = new Blob([JSON.stringify(frontierBackup(store), null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement('a');
-    anchor.href = url;
-    anchor.download = `frontier-memory-${initialDayKey}.json`;
-    anchor.click();
-    URL.revokeObjectURL(url);
-  }, [store, initialDayKey]);
+  const downloadBackup = useCallback(async () => {
+    try {
+      const archive = await createFrontierLocalArchive(useFrontierStore.getState());
+      const blob = new Blob([JSON.stringify(archive, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = `frontier-private-archive-${initialDayKey}.json`;
+      anchor.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      window.alert('Could not export the complete private FRONTIER archive.');
+    }
+  }, [initialDayKey]);
 
   const importBackup = useCallback(async (file?: File) => {
     if (!file) return;
     try {
       const parsed = JSON.parse(await file.text()) as unknown;
-      if (!store.importBackup(parsed)) window.alert('That file is not a compatible FRONTIER memory backup.');
+      const archive = parseFrontierLocalArchive(parsed);
+      if (archive) {
+        if (!window.confirm('Replace local FRONTIER profile, reaction calibration, and longitudinal memory with this private archive?')) return;
+        const restored = await restoreFrontierLocalArchive(archive, store.importBackup);
+        if (!restored) window.alert('That private FRONTIER archive failed validation during restore.');
+        return;
+      }
+      // Legacy FRONTIER-only backups remain importable, but every new export uses
+      // the complete private archive so there is one authoritative format forward.
+      if (!store.importBackup(parsed)) window.alert('That file is not a compatible FRONTIER archive or legacy memory backup.');
     } catch {
-      window.alert('Could not read that FRONTIER memory backup.');
+      window.alert('Could not read that FRONTIER archive.');
+    } finally {
+      if (fileInput.current) fileInput.current.value = '';
     }
   }, [store]);
 
@@ -788,7 +809,7 @@ export function FrontierExperience({ initialDateLabel, initialDayKey }: Props) {
             <summary>Data</summary>
             <div className={styles.dataMenuPanel}>
               <span className={styles.micro}>{store.behavior.sessions} sessions · {store.game.streak}d streak</span>
-              <button type="button" className={styles.utilityButton} onClick={downloadBackup}><Download size={11} /> Export</button>
+              <button type="button" className={styles.utilityButton} onClick={() => void downloadBackup()}><Download size={11} /> Export</button>
               <button type="button" className={styles.utilityButton} onClick={() => fileInput.current?.click()}><Upload size={11} /> Import</button>
               <input ref={fileInput} type="file" accept="application/json" hidden onChange={(event) => void importBackup(event.target.files?.[0])} />
               <button

@@ -144,6 +144,12 @@ jobs:
           FRONTIER_ROUTE_AUDIT_URL: http://127.0.0.1:3000/frontier
         run: node scripts/frontier-route-readiness-audit.cjs
 
+      - name: Audit FRONTIER longitudinal cortex
+        env:
+          NODE_PATH: /tmp/frontier-playwright/node_modules
+          FRONTIER_LONGITUDINAL_AUDIT_URL: http://127.0.0.1:3000/frontier
+        run: node scripts/frontier-longitudinal-browser-audit.cjs
+
       - name: Choreograph FRONTIER Phase 8 interactions
         env:
           NODE_PATH: /tmp/frontier-playwright/node_modules

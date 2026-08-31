@@ -88,8 +88,19 @@ function ambientEvidenceForEvent(event: FrontierBehaviorEvent): number {
   return confidence * (0.55 + intensity * 0.45) * durationWeight;
 }
 
+function debit(value: number | undefined, amount: number): number {
+  const next = Math.max(0, (value ?? 0) - amount);
+  return next < 1e-9 ? 0 : next;
+}
+
 function touchAggregate(aggregate: FrontierBehaviorAggregate | undefined, event: FrontierBehaviorEvent, now: string): FrontierBehaviorAggregate {
-  const next = { ...(aggregate ?? emptyAggregate()), lastAt: now };
+  // A correction is a compensating accounting entry, not fresh positive evidence.
+  // Preserve the aggregate's prior recency so retracting a cue cannot accidentally
+  // rejuvenate unrelated old behavior.
+  const next = {
+    ...(aggregate ?? emptyAggregate()),
+    lastAt: event.kind === 'ambient_retraction' ? aggregate?.lastAt : now,
+  };
   switch (event.kind) {
     case 'impression': next.shown += 1; break;
     case 'dwell':
@@ -104,11 +115,31 @@ function touchAggregate(aggregate: FrontierBehaviorAggregate | undefined, event:
     case 'ambient_reaction': {
       const evidence = ambientEvidenceForEvent(event);
       if (!event.ambientReaction || evidence <= 0) break;
+      // Friction stays inspectable for UX diagnostics, but it must never increase
+      // generic recommendation evidence or confidence. This invariant lives here,
+      // beneath all UI/store call paths, so a future caller cannot accidentally
+      // turn facial tension into preference authority.
+      if (event.ambientReaction === 'friction') {
+        next.ambientFriction = (next.ambientFriction ?? 0) + evidence;
+        break;
+      }
       next.ambientEvidence = (next.ambientEvidence ?? 0) + evidence;
       if (event.ambientReaction === 'affinity') next.ambientAffinity = (next.ambientAffinity ?? 0) + evidence;
       if (event.ambientReaction === 'interest') next.ambientInterest = (next.ambientInterest ?? 0) + evidence;
       if (event.ambientReaction === 'surprise') next.ambientSurprise = (next.ambientSurprise ?? 0) + evidence;
-      if (event.ambientReaction === 'friction') next.ambientFriction = (next.ambientFriction ?? 0) + evidence;
+      break;
+    }
+    case 'ambient_retraction': {
+      const evidence = ambientEvidenceForEvent(event);
+      if (!event.ambientReaction || evidence <= 0) break;
+      if (event.ambientReaction === 'friction') {
+        next.ambientFriction = debit(next.ambientFriction, evidence);
+        break;
+      }
+      next.ambientEvidence = debit(next.ambientEvidence, evidence);
+      if (event.ambientReaction === 'affinity') next.ambientAffinity = debit(next.ambientAffinity, evidence);
+      if (event.ambientReaction === 'interest') next.ambientInterest = debit(next.ambientInterest, evidence);
+      if (event.ambientReaction === 'surprise') next.ambientSurprise = debit(next.ambientSurprise, evidence);
       break;
     }
   }
@@ -136,7 +167,12 @@ function updateMap(
   now: string
 ): Record<string, FrontierBehaviorAggregate> {
   const next = { ...map };
-  for (const key of keys) if (key) next[key] = touchAggregate(next[key], event, now);
+  for (const key of keys) {
+    if (!key) continue;
+    // A compensating debit must never manufacture an otherwise nonexistent key.
+    if (event.kind === 'ambient_retraction' && !next[key]) continue;
+    next[key] = touchAggregate(next[key], event, now);
+  }
   return next;
 }
 
@@ -146,7 +182,9 @@ export function applyBehaviorEvent(
   event: FrontierBehaviorEvent,
   date = new Date()
 ): FrontierBehaviorModel {
-  if (!model.implicitLearning || item.sourceKind === 'local') return model;
+  // Corrections remain authoritative even if implicit learning was disabled after
+  // the original cue. Turning learning off must not trap stale ambient evidence.
+  if ((!model.implicitLearning && event.kind !== 'ambient_retraction') || item.sourceKind === 'local') return model;
   const now = date.toISOString();
   const bucket = timeBucket(date);
   const weekday = date.toLocaleDateString('en-US', { weekday: 'short' }).toLowerCase();
@@ -169,7 +207,7 @@ export function applyBehaviorEvent(
       `novelty:${novelty}`,
       depth ? `depth:${depth}` : undefined,
     ], event, now), 128),
-    lastActiveAt: now,
+    lastActiveAt: event.kind === 'ambient_retraction' ? model.lastActiveAt : now,
   };
 }
 
@@ -218,8 +256,8 @@ export function aggregatePreference(
   const ambientPositive = (aggregate.ambientAffinity ?? 0) * 0.18
     + (aggregate.ambientInterest ?? 0) * 0.09
     + (aggregate.ambientSurprise ?? 0) * 0.035;
-  // Ambient face cues are intentionally weak. Friction is recorded for inspection
-  // but never becomes negative preference without an explicit or behavioral signal.
+  // Ambient face cues are intentionally weak. `ambientEvidence` contains only
+  // affinity/interest/surprise; friction is structurally excluded in touchAggregate.
   const directEvidence = dwellUnits * 0.65 + aggregate.expanded + aggregate.opened * 2 + aggregate.saved * 3 + aggregate.positive * 3 + aggregate.negative * 3 + ambientEvidence * 0.16;
   if (aggregate.shown < 2 && directEvidence < 2.5) return { score: 0, confidence: 0 };
 

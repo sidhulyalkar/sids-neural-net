@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Cloud, CloudOff, LogIn, LogOut, RefreshCw, Youtube } from 'lucide-react';
 import { applyPreferenceImportToProfile, type FrontierPreferenceImport } from '@/lib/frontier/googlePreferences';
 import { mergeFrontierMemory, parseFrontierPersistedState } from '@/lib/frontier/memoryMerge';
-import { frontierBackup, useFrontierStore } from '@/lib/frontier/store';
+import { frontierBackup, sanitizeFrontierCloudMemory, useFrontierStore } from '@/lib/frontier/store';
 import type { FrontierPersistedState } from '@/lib/frontier/types';
 import styles from './frontier-account.module.css';
 
@@ -39,10 +39,13 @@ type ImportResponse = {
 type SyncState = 'idle' | 'loading' | 'synced' | 'saving' | 'error';
 
 async function pushMemory(state: FrontierPersistedState, keepalive = false): Promise<boolean> {
+  // Cloud memory is an explicit projection of non-camera preference state. Any
+  // ambient reaction fields from older clients are removed before transmission.
+  const safeState = sanitizeFrontierCloudMemory(state);
   const response = await fetch('/api/frontier/memory', {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ state }),
+    body: JSON.stringify({ state: safeState }),
     cache: 'no-store',
     keepalive,
   });
@@ -99,7 +102,11 @@ export function FrontierAccount() {
           return;
         }
         const local = frontierBackup(useFrontierStore.getState());
-        const remote = parseFrontierPersistedState(payload.memory?.state);
+        const parsedRemote = parseFrontierPersistedState(payload.memory?.state);
+        // Strip ambient fields that may have reached cloud memory from a legacy
+        // client before merging. Local ambient evidence remains in `local` and is
+        // preserved by the merge, while the next save purges the remote copy.
+        const remote = parsedRemote ? sanitizeFrontierCloudMemory(parsedRemote) : null;
         const merged = mergeFrontierMemory(remote, local);
         useFrontierStore.getState().importBackup(merged);
         const saved = await saveSnapshot(merged);

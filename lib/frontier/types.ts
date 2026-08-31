@@ -275,7 +275,7 @@ export type FrontierBehaviorAggregate = {
 };
 
 export type FrontierBehaviorEvent = {
-  kind: 'impression' | 'dwell' | 'expand' | 'open' | 'save' | 'positive' | 'negative' | 'ambient_reaction';
+  kind: 'impression' | 'dwell' | 'expand' | 'open' | 'save' | 'positive' | 'negative' | 'ambient_reaction' | 'ambient_retraction';
   dwellMs?: number;
   ambientReaction?: FrontierAmbientReactionKind;
   confidence?: number;

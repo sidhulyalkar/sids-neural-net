@@ -1,6 +1,7 @@
 import type { FrontierAmbientReaction, FrontierAmbientReactionKind } from './reaction';
 
 const STORAGE_KEY = 'frontier-reaction-trust-v1';
+const KINDS: FrontierAmbientReactionKind[] = ['affinity', 'interest', 'surprise', 'friction'];
 
 export type ReactionTrustStat = {
   observed: number;
@@ -10,7 +11,7 @@ export type ReactionTrustStat = {
   lastAt?: number;
 };
 
-type ReactionTrustState = Partial<Record<FrontierAmbientReactionKind, ReactionTrustStat>>;
+export type ReactionTrustState = Partial<Record<FrontierAmbientReactionKind, ReactionTrustStat>>;
 
 const EMPTY_STAT: ReactionTrustStat = {
   observed: 0,
@@ -23,11 +24,33 @@ function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, Number.isFinite(value) ? value : min));
 }
 
+function sanitizeStat(value: unknown): ReactionTrustStat | undefined {
+  if (!value || typeof value !== 'object') return undefined;
+  const candidate = value as Partial<ReactionTrustStat>;
+  return {
+    observed: Math.max(0, Math.floor(Number(candidate.observed) || 0)),
+    confirmed: Math.max(0, Math.floor(Number(candidate.confirmed) || 0)),
+    contradicted: Math.max(0, Math.floor(Number(candidate.contradicted) || 0)),
+    confidenceSum: Math.max(0, Number(candidate.confidenceSum) || 0),
+    lastAt: Number.isFinite(candidate.lastAt) ? candidate.lastAt : undefined,
+  };
+}
+
+function sanitizeState(value: unknown): ReactionTrustState {
+  if (!value || typeof value !== 'object') return {};
+  const candidate = value as Record<string, unknown>;
+  const next: ReactionTrustState = {};
+  for (const kind of KINDS) {
+    const stat = sanitizeStat(candidate[kind]);
+    if (stat) next[kind] = stat;
+  }
+  return next;
+}
+
 function readState(): ReactionTrustState {
   if (typeof window === 'undefined') return {};
   try {
-    const parsed = JSON.parse(window.localStorage.getItem(STORAGE_KEY) ?? '{}') as ReactionTrustState;
-    return parsed && typeof parsed === 'object' ? parsed : {};
+    return sanitizeState(JSON.parse(window.localStorage.getItem(STORAGE_KEY) ?? '{}'));
   } catch {
     return {};
   }
@@ -36,21 +59,10 @@ function readState(): ReactionTrustState {
 function writeState(state: ReactionTrustState): void {
   if (typeof window === 'undefined') return;
   try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(sanitizeState(state)));
   } catch {
     // Preference learning must never break the feed if storage is unavailable.
   }
-}
-
-export function reactionTrustAuthority(stat: ReactionTrustStat | undefined): number {
-  if (!stat) return 0.85;
-  const reviewed = Math.max(0, stat.confirmed) + Math.max(0, stat.contradicted);
-  if (!reviewed) return 0.85;
-  // Beta(2, 3) prior: ambient cues begin skeptical and earn authority only after
-  // explicit confirmation. Even a perfect history remains far below explicit
-  // click/save/reaction authority because this multiplier is tightly bounded.
-  const posterior = (2 + Math.max(0, stat.confirmed)) / (5 + reviewed);
-  return clamp(0.55 + posterior * 0.75, 0.65, 1.15);
 }
 
 export function reactionTrustAccuracy(stat: ReactionTrustStat | undefined): number | undefined {
@@ -60,8 +72,46 @@ export function reactionTrustAccuracy(stat: ReactionTrustStat | undefined): numb
   return Math.max(0, stat.confirmed) / reviewed;
 }
 
+export function reactionTrustQuarantined(stat: ReactionTrustStat | undefined): boolean {
+  if (!stat) return false;
+  const reviewed = Math.max(0, stat.confirmed) + Math.max(0, stat.contradicted);
+  const accuracy = reactionTrustAccuracy(stat);
+  return reviewed >= 5 && accuracy !== undefined && accuracy < 0.4;
+}
+
+export function reactionTrustAuthority(stat: ReactionTrustStat | undefined): number {
+  if (!stat) return 0.85;
+  const confirmed = Math.max(0, stat.confirmed);
+  const contradicted = Math.max(0, stat.contradicted);
+  const reviewed = confirmed + contradicted;
+  if (!reviewed) return 0.85;
+
+  // Quarantine is a real authority boundary, not a label. We keep observing and
+  // reviewing the cue locally so it can later recover, but it contributes exactly
+  // zero recommendation evidence while agreement remains below the gate.
+  if (reactionTrustQuarantined(stat)) return 0;
+
+  // Beta(2, 3) prior: ambient cues begin skeptical and earn authority only after
+  // explicit confirmation. Outside quarantine the continuous multiplier remains
+  // tightly bounded and well below the structural authority of explicit actions.
+  const posterior = (2 + confirmed) / (5 + reviewed);
+  const evidence = 1 - Math.exp(-reviewed / 5);
+  const learned = 0.15 + posterior * 1.05;
+  return clamp(0.85 * (1 - evidence) + learned * evidence, 0.15, 1.15);
+}
+
 export function getReactionTrust(kind: FrontierAmbientReactionKind): ReactionTrustStat {
   return { ...EMPTY_STAT, ...readState()[kind] };
+}
+
+export function getReactionTrustState(): ReactionTrustState {
+  return readState();
+}
+
+export function importReactionTrustState(value: unknown): boolean {
+  if (!value || typeof value !== 'object') return false;
+  writeState(sanitizeState(value));
+  return true;
 }
 
 export function recordReactionObservation(reaction: FrontierAmbientReaction): ReactionTrustStat {
