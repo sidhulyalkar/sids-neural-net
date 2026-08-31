@@ -42,3 +42,20 @@ test('only the authoritative request may settle the loading skeleton', () => {
 test('opportunistic local feed cache is bounded to hours rather than a day-plus stale window', () => {
   assert.match(experience, /FEED_CACHE_MAX_AGE_MS = 4 \* 60 \* 60_000/);
 });
+
+test('Today authority is audited from the real realm-ranked production cohort and remains aggregate-only', () => {
+  assert.match(experience, /buildFrontierLiveAuthorityBridge/);
+  const authorityBlock = experience.match(/const liveAuthority = useMemo\(\(\) => \(([\s\S]*?)\n  \), \[/)?.[1] ?? '';
+  assert.match(authorityBlock, /realmRanked\.length/);
+  assert.match(authorityBlock, /realmRanked,/);
+  assert.match(authorityBlock, /limit: INITIAL_BROWSE_TARGET/);
+  assert.match(authorityBlock, /pairEvidence,/);
+  assert.match(authorityBlock, /sessionIntent,/);
+  assert.match(authorityBlock, /directPreferenceEvidence,/);
+
+  const selectionBlock = experience.match(/recordFrontierClientSelection\(\{([\s\S]*?)\n    \}\);/)?.[1] ?? '';
+  assert.match(selectionBlock, /rankAuthority: liveAuthority\?\.rankAuthority \?\? null/);
+  assert.match(selectionBlock, /slateTasteAuthority: liveAuthority\?\.slateTasteAuthority \?\? null/);
+  assert.doesNotMatch(selectionBlock, /items:/);
+  assert.doesNotMatch(selectionBlock, /realmRanked:/);
+});
