@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { buildLongitudinalRollups, summarizeLongitudinalData } from '../lib/frontier/longitudinalAggregation';
 import {
   longitudinalDayKey,
   longitudinalDayWindow,
@@ -39,9 +40,15 @@ function exposure(id: string, tag: string, at: number, durationMs: number): Long
   };
 }
 
-function reaction(id: string, tag: string, at: number, review?: 'confirmed' | 'contradicted'): LongitudinalReactionEpisode {
+function reaction(
+  id: string,
+  exposureId: string,
+  tag: string,
+  at: number,
+  review?: 'confirmed' | 'contradicted',
+): LongitudinalReactionEpisode {
   return {
-    id, sessionId: 'session-test', exposureId: `exposure-${id}`, itemId: id, lane: 'creative_tech', tags: [tag],
+    id, sessionId: 'session-test', exposureId, itemId: id, lane: 'creative_tech', tags: [tag],
     sourceKind: 'github', format: 'code', occurredAt: at, dayKey: longitudinalDayKey(at), kind: 'interest',
     confidence: 0.8, intensity: 0.7, durationMs: 1_200, latencyMs: 900, targetScore: 0.8,
     visibleFraction: 0.85, trustAuthority: 0.9, review, reviewedAt: review ? at + 500 : undefined,
@@ -86,11 +93,11 @@ test('sparse reaction rates are shrunk instead of winning on one dramatic event'
       exposure('steady-exposure', 'steady-topic', steadyAt, 20 * 60_000),
     ],
     reactions: [
-      reaction('sparse-r1', 'sparse-topic', sparseAt),
-      reaction('steady-r1', 'steady-topic', steadyAt),
-      reaction('steady-r2', 'steady-topic', steadyAt + 1_000),
-      reaction('steady-r3', 'steady-topic', steadyAt + 2_000),
-      reaction('steady-r4', 'steady-topic', steadyAt + 3_000),
+      reaction('sparse-r1', 'sparse-exposure', 'sparse-topic', sparseAt),
+      reaction('steady-r1', 'steady-exposure', 'steady-topic', steadyAt),
+      reaction('steady-r2', 'steady-exposure', 'steady-topic', steadyAt + 1_000),
+      reaction('steady-r3', 'steady-exposure', 'steady-topic', steadyAt + 2_000),
+      reaction('steady-r4', 'steady-exposure', 'steady-topic', steadyAt + 3_000),
     ],
   });
 
@@ -114,9 +121,14 @@ test('trend inference requires exposure, event support, and a material rate shif
       exposure('sparse-recent', 'single-flash', recentAt, 30_000),
     ],
     reactions: [
-      reaction('graphics-prev-r1', 'graphics', previousAt),
-      ...Array.from({ length: 7 }, (_, index) => reaction(`graphics-recent-r${index}`, 'graphics', recentAt + index * 1_000)),
-      reaction('single-flash-r1', 'single-flash', recentAt),
+      reaction('graphics-prev-r1', 'graphics-prev', 'graphics', previousAt),
+      ...Array.from({ length: 7 }, (_, index) => reaction(
+        `graphics-recent-r${index}`,
+        'graphics-recent',
+        'graphics',
+        recentAt + index * 1_000,
+      )),
+      reaction('single-flash-r1', 'sparse-recent', 'single-flash', recentAt),
     ],
   });
 
@@ -134,7 +146,10 @@ test('raw and compacted topic observations produce equivalent rate estimates', (
   const at = localDayOffset(-10);
   const raw = archive({
     exposures: [exposure('raw-exposure', 'neuroai', at, 10 * 60_000)],
-    reactions: [reaction('raw-r1', 'neuroai', at, 'confirmed'), reaction('raw-r2', 'neuroai', at + 1_000, 'contradicted')],
+    reactions: [
+      reaction('raw-r1', 'raw-exposure', 'neuroai', at, 'confirmed'),
+      reaction('raw-r2', 'raw-exposure', 'neuroai', at + 1_000, 'contradicted'),
+    ],
   });
   const compacted = archive({ rollups: [topicRollup('rollup-neuroai', 'neuroai', at, 10 * 60_000, 2, 1, 1)] });
 
@@ -159,7 +174,10 @@ test('window-edge membership cannot change when raw observations are compacted',
       exposure('excluded-raw', 'outside-window', excludedAt, 10 * 60_000),
       exposure('included-raw', 'inside-window', includedAt, 10 * 60_000),
     ],
-    reactions: [reaction('excluded-r1', 'outside-window', excludedAt, 'confirmed'), reaction('included-r1', 'inside-window', includedAt, 'confirmed')],
+    reactions: [
+      reaction('excluded-r1', 'excluded-raw', 'outside-window', excludedAt, 'confirmed'),
+      reaction('included-r1', 'included-raw', 'inside-window', includedAt, 'confirmed'),
+    ],
   });
   const compacted = archive({
     rollups: [
@@ -178,4 +196,44 @@ test('window-edge membership cannot change when raw observations are compacted',
   assert.equal(rawIncluded.exposureMs, compactedIncluded.exposureMs);
   assert.equal(rawIncluded.reactions, compactedIncluded.reactions);
   assert.ok(Math.abs(rawIncluded.ratePer10Min - compactedIncluded.ratePer10Min) < 1e-12);
+});
+
+test('orphan reactions remain observations but have zero rate and trend authority', () => {
+  const at = localDayOffset(-2);
+  const data = archive({
+    exposures: [exposure('qualified', 'graphics', at, 10 * 60_000)],
+    reactions: [
+      reaction('linked', 'qualified', 'graphics', at, 'confirmed'),
+      reaction('orphan', 'missing-exposure', 'graphics', at + 1_000, 'confirmed'),
+    ],
+  });
+  const estimate = inferLongitudinalTopicRates(data, 30, NOW).find((entry) => entry.key === 'graphics');
+  assert.ok(estimate);
+  assert.equal(estimate.reactions, 1);
+  assert.equal(estimate.confirmed, 1);
+
+  const summary = summarizeLongitudinalData({
+    days: 30,
+    exposures: data.exposures,
+    reactions: data.reactions,
+    interactions: [],
+    checkins: [],
+    rollups: [],
+  });
+  assert.equal(summary.reactions, 1);
+  assert.equal(summary.confirmed, 1);
+});
+
+test('compaction cannot grant an orphan reaction aggregate authority', () => {
+  const at = localDayOffset(-140);
+  const exposures = [exposure('qualified-old', 'neuroai', at, 10 * 60_000)];
+  const reactions = [
+    reaction('linked-old', 'qualified-old', 'neuroai', at, 'confirmed'),
+    reaction('orphan-old', 'missing-old', 'neuroai', at + 1_000, 'confirmed'),
+  ];
+  const rollups = buildLongitudinalRollups(exposures, reactions, [], NOW, 'test-batch');
+  const topic = rollups.find((entry) => entry.dimension === 'topic' && entry.key === 'neuroai');
+  assert.ok(topic);
+  assert.equal(topic.reactions, 1);
+  assert.equal(topic.confirmed, 1);
 });
