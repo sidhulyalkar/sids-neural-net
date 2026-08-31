@@ -62,6 +62,7 @@ test('Stretchicorn cabinet pins the authoritative v0.38.0 standalone release', (
   assert.deepEqual(game.nativeSize, { width: 960, height: 640 });
   assert.ok(game.controls.some((control) => control.input === '1 / 2 / 3 / 4'));
   assert.ok(game.controls.some((control) => control.input === 'Space' && /Rainbow Snap/i.test(control.action)));
+  assert.match(game.description, /current v0\.38\.0 main release/i);
   assert.match(game.description, /13-trial desktop arcade-action/i);
   assert.match(game.description, /three authored bosses/i);
   assert.match(game.description, /Impossible Encore/i);
