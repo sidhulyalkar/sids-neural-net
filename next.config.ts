@@ -18,8 +18,8 @@ const nextConfig: NextConfig = {
     return {
       beforeFiles: [
         {
-          source: '/game-runtimes/stretchicorn/:asset*',
-          destination: '/game-runtimes/stretchicorn-upstream/:asset*',
+          source: '/game-runtimes/stretchicorn/index.html',
+          destination: '/game-runtimes/stretchicorn/v0.38.0/index.html',
         },
       ],
     };
