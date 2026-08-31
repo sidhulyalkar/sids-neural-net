@@ -27,8 +27,19 @@ function validIso(value: unknown): value is string {
   return typeof value === 'string' && value.length <= 80 && Number.isFinite(Date.parse(value));
 }
 
+function parseLiveFrontierSnapshot(value: unknown): FrontierPersistedState | null {
+  try {
+    // The persistent file format is JSON. Canonicalize live Zustand objects first
+    // so harmless in-memory `undefined` optionals are treated exactly as they are
+    // once serialized, while cyclic/non-serializable state fails closed.
+    return parsePrivateFrontierState(JSON.parse(JSON.stringify(value)) as unknown);
+  } catch {
+    return null;
+  }
+}
+
 export async function createFrontierLocalArchive(state: FrontierStore): Promise<FrontierLocalArchive> {
-  const frontier = parsePrivateFrontierState(frontierBackup(state));
+  const frontier = parseLiveFrontierSnapshot(frontierBackup(state));
   const reactionTrust = parseReactionTrustState(getReactionTrustState());
   const longitudinal = parseLongitudinalArchive(await frontierLongitudinalStore.exportArchive());
   if (!frontier || !reactionTrust || !longitudinal) {
@@ -64,7 +75,7 @@ export async function restoreFrontierLocalArchive(
 ): Promise<boolean> {
   const result = await restoreArchiveDomainsAtomically(archive, {
     readFrontier: () => {
-      const snapshot = parsePrivateFrontierState(frontierBackup(useFrontierStore.getState()));
+      const snapshot = parseLiveFrontierSnapshot(frontierBackup(useFrontierStore.getState()));
       if (!snapshot) throw new Error('Current FRONTIER state could not be snapshotted safely');
       return snapshot;
     },
