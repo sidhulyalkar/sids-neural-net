@@ -36,7 +36,7 @@ export const arcadeGames: ArcadeGame[] = [
     title: 'Stretchicorn',
     subtitle: 'STRETCH · SNAP · SHUCK.',
     description:
-      'A 13-trial desktop arcade-action game where you control both ends of a living rainbow unicorn, build tension, Snap through corn armies, parry gold kernels, dodge cyan piercing pressure, and fight three authored bosses. v0.38.0 is the current js13k release with four difficulty modes, anti-pin boss Phase Shifts, a split-core Cobtopus Prime finale, and the bounded Impossible Encore.',
+      'The current v0.38.0 main release: a 13-trial desktop arcade-action game where you control both ends of a living rainbow unicorn, build tension, Snap through corn armies, parry gold kernels, dodge cyan piercing pressure, and fight three authored bosses. Four difficulty modes, anti-pin boss Phase Shifts, a split-core Cobtopus Prime finale, and the bounded Impossible Encore all ship in the pinned standalone build.',
     version: 'v0.38.0',
     status: 'playable',
     sourceVisibility: 'public',
