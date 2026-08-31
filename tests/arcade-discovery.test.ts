@@ -63,23 +63,23 @@ test('Stretchicorn cabinet points at the current v0.21.1 public release', () => 
   assert.match(game.description, /Impossible Encore/);
 });
 
-test('uniRico cabinet pins the v0.19.0 release with cache-safe versioned runtime URLs', () => {
+test('uniRico cabinet pins the v0.19.1 release with cache-safe versioned runtime URLs', () => {
   const game = arcadeGames.find((entry) => entry.slug === 'unirico');
   assert.ok(game);
-  assert.equal(game.version, 'v0.19.0');
+  assert.equal(game.version, 'v0.19.1');
   assert.equal(game.sourceVisibility, 'public');
   assert.equal(game.repoUrl, 'https://github.com/sidhulyalkar/uniRico');
-  assert.equal(game.launchUrl, '/game-runtimes/unirico/v0.19.0/index.html');
+  assert.equal(game.launchUrl, '/game-runtimes/unirico/v0.19.1/index.html');
   assert.deepEqual(game.nativeSize, { width: 960, height: 600 });
   assert.ok(game.controls.some((control) => control.input === 'AIM wheel'));
   assert.ok(game.controls.some((control) => control.input === 'FIRE'));
-  assert.match(game.description, /first-seen mechanic demonstrations/i);
-  assert.match(game.description, /precision mobile AIM wheel/i);
+  assert.ok(game.controls.some((control) => control.input === 'Click' && /currently displayed trajectory/i.test(control.action)));
+  assert.match(game.description, /visible desktop trajectory authoritative/i);
+  assert.match(game.description, /precision mobile AIM \+ FIRE/i);
 
   const route = readRepoFile('app/game-runtimes/unirico/[...asset]/route.ts');
-  assert.match(route, /UNIRICO_VERSION = 'v0\.19\.0'/);
-  assert.match(route, /UNIRICO_SOURCE_COMMIT = '13de2151bb2731557392e3399354ee7e744415f3'/);
-  assert.doesNotMatch(route, /5c3737957f302e9c44917097494684419e58e757/);
+  assert.match(route, /UNIRICO_VERSION = 'v0\.19\.1'/);
+  assert.match(route, /UNIRICO_SOURCE_COMMIT = 'f4f520370c6e8defa263ce6a0520b99c25950acc'/);
   assert.match(route, /redirectLegacyAsset/);
   assert.match(route, /max-age=31536000, immutable/);
   assert.match(route, /X-UniRico-Version/);
@@ -136,8 +136,11 @@ test('Game Network browser validation covers the two active cabinets in four eng
   assert.match(browserTest, /channel: 'chrome'/);
   assert.match(browserTest, /testStretchicorn\(page, engineName\)/);
   assert.match(browserTest, /testUniRico\(page, engineName\)/);
-  assert.match(browserTest, /uniRico v0\.19\.0/);
+  assert.match(browserTest, /uniRico v0\.19\.1/);
   assert.match(browserTest, /AIM release fired unexpectedly/);
+  assert.match(browserTest, /desktop click retargeted away from displayed trajectory/);
+  assert.match(browserTest, /dispatchPointer\('pointermove', 'mouse', 780, 180, 81\)/);
+  assert.match(browserTest, /dispatchPointer\('pointerdown', 'mouse', 260, 520, 82\)/);
   assert.doesNotMatch(browserTest, /testSylvaria/);
 });
 
