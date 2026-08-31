@@ -16,6 +16,8 @@ import {
 } from '@/lib/frontier/decisionLedger';
 import { auditFrontierExposure, type FrontierExposureAudit } from '@/lib/frontier/exposureAudit';
 import { auditFrontierPipelineHealth } from '@/lib/frontier/pipelineHealth';
+import { buildFrontierPreferenceAuthorityReport } from '@/lib/frontier/preferenceAuthorityReport';
+import type { FrontierRankAuthorityComponent } from '@/lib/frontier/rankAuthorityAudit';
 import { useFrontierStore } from '@/lib/frontier/store';
 import type { FrontierBehaviorModel, FrontierLaneId } from '@/lib/frontier/types';
 import styles from './frontier-minimal.module.css';
@@ -51,6 +53,17 @@ function pipelineStatusLabel(status: ReturnType<typeof auditFrontierPipelineHeal
   }
 }
 
+function authorityComponentLabel(component: FrontierRankAuthorityComponent): string {
+  switch (component) {
+    case 'fixed-taste': return 'Fixed taste';
+    case 'direct-preference-additive': return 'Direct preference';
+    case 'pair-connection-additive': return 'Interest connections';
+    case 'implicit-behavior': return 'Behavior';
+    case 'session-intent': return 'Session intent';
+    case 'exploration': return 'Exploration';
+  }
+}
+
 function countLabel(value: number | null | undefined): string {
   return value === null || value === undefined ? '?' : String(value);
 }
@@ -72,6 +85,14 @@ export function PreferenceLens({ behavior, onToggleLearning, onResetBehavior }: 
     () => auditFrontierPipelineHealth(clientPipeline, exposureAudit),
     [clientPipeline, exposureAudit],
   );
+  const authorityReport = useMemo(
+    () => buildFrontierPreferenceAuthorityReport({
+      server: clientPipeline.server?.authority.bootstrapTasteCandidateCap,
+      rank: clientPipeline.rankAuthority,
+      slate: clientPipeline.slateTasteAuthority,
+    }),
+    [clientPipeline.rankAuthority, clientPipeline.server, clientPipeline.slateTasteAuthority],
+  );
   const insights = summarizeHabits(behavior).slice(0, 6);
   const lanes = Object.entries(behavior.laneStats)
     .map(([lane, stats]) => ({ lane: lane as FrontierLaneId, pref: aggregatePreference(stats) }))
@@ -83,6 +104,7 @@ export function PreferenceLens({ behavior, onToggleLearning, onResetBehavior }: 
     .sort((left, right) => right[1] - left[1])
     .slice(0, 6);
   const evidence = engagementEvidence(behavior);
+  const authorityObserved = authorityReport.server.observed || authorityReport.rank.observed || authorityReport.slate.observed;
 
   const forgetHabits = () => {
     // Pair memory is inferred from implicit/explicit co-interest evidence and is
@@ -167,6 +189,65 @@ export function PreferenceLens({ behavior, onToggleLearning, onResetBehavior }: 
                 title="This is historical decision-ledger evidence, not the same cohort as the latest request above."
               >
                 <div style={{ width: `${Math.round(exposureAudit.overall.visibility.value * 100)}%` }} />
+              </div>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+
+      {authorityObserved ? (
+        <div className={styles.habitGrid} aria-label="Preference authority audit">
+          {authorityReport.server.audit ? (
+            <div className={styles.habitCard}>
+              <span>Server taste cap</span>
+              <strong>
+                {authorityReport.server.audit.eligible <= authorityReport.server.audit.cap
+                  ? `Cap inactive · ${authorityReport.server.audit.eligible} eligible`
+                  : `${authorityReport.server.audit.tasteProtected}/${authorityReport.server.audit.retained} retained seats protected`}
+              </strong>
+              <div
+                className={styles.confidenceTrack}
+                title="Server-cap membership counterfactual only. This is not browser rank authority or user utility."
+              >
+                <div style={{ width: `${Math.round((1 - authorityReport.server.audit.overlapRate) * 100)}%` }} />
+              </div>
+            </div>
+          ) : null}
+          {authorityReport.rank.strongestComponent ? (
+            <div className={styles.habitCard}>
+              <span>Rank leverage</span>
+              <strong>
+                {authorityComponentLabel(authorityReport.rank.strongestComponent.component)} · {authorityReport.rank.strongestComponent.protectedTopK}/{authorityReport.rank.strongestComponent.topK} top seats
+              </strong>
+              <div
+                className={styles.confidenceTrack}
+                title="Strongest membership-changing additive component inside the current observed rank gate. This does not undo upstream interaction gates."
+              >
+                <div style={{ width: `${Math.round((1 - authorityReport.rank.strongestComponent.overlapRate) * 100)}%` }} />
+              </div>
+            </div>
+          ) : null}
+          {authorityReport.slate.audit ? (
+            <div className={styles.habitCard}>
+              <span>Slate taste policy</span>
+              <strong>{authorityReport.slate.audit.protectedByTaste} protected · {authorityReport.slate.audit.displacedWithoutTaste} alternate</strong>
+              <div
+                className={styles.confidenceTrack}
+                title="Whole fixed-taste slate policy counterfactual. Rank order, diversity caps, realm coverage, and consequential interrupts remain enabled."
+              >
+                <div style={{ width: `${Math.round((1 - authorityReport.slate.audit.overlapRate) * 100)}%` }} />
+              </div>
+            </div>
+          ) : null}
+          {authorityReport.signals.includes('fixed-taste-active-at-multiple-boundaries') ? (
+            <div className={styles.habitCard}>
+              <span>Repeated fixed taste</span>
+              <strong>{authorityReport.activeFixedTasteBoundaries}/3 observed boundaries changed</strong>
+              <div
+                className={styles.confidenceTrack}
+                title="Review signal only: fixed taste changes outcomes at multiple distinct boundaries. This is not proof that those effects are redundant or additive."
+              >
+                <div style={{ width: `${Math.round((authorityReport.activeFixedTasteBoundaries / 3) * 100)}%` }} />
               </div>
             </div>
           ) : null}
