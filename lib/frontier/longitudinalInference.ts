@@ -1,3 +1,4 @@
+import { qualifiedLongitudinalExposureIds } from './longitudinalAggregation';
 import {
   dayKeyInLongitudinalWindow,
   longitudinalDayWindow,
@@ -19,9 +20,7 @@ export type LongitudinalRateEstimate = {
   confirmed: number;
   contradicted: number;
   reviewAgreement?: number;
-  /** Shrunk reaction rate per ten minutes of qualified exposure. */
   ratePer10Min: number;
-  /** Approximate 90% posterior uncertainty band. */
   lowerPer10Min: number;
   upperPer10Min: number;
   evidenceStrength: number;
@@ -67,12 +66,16 @@ function touch(map: Map<string, TopicAccumulator>, key: string): TopicAccumulato
   return created;
 }
 
+function uniqueTags(tags: string[]): string[] {
+  return [...new Set(tags.map((tag) => tag.trim().toLowerCase()).filter(Boolean))];
+}
+
 function addExposure(map: Map<string, TopicAccumulator>, exposure: Pick<LongitudinalExposure, 'tags' | 'durationMs'>): void {
-  for (const tag of exposure.tags) touch(map, tag).exposureMs += exposure.durationMs;
+  for (const tag of uniqueTags(exposure.tags)) touch(map, tag).exposureMs += exposure.durationMs;
 }
 
 function addReaction(map: Map<string, TopicAccumulator>, reaction: Pick<LongitudinalReactionEpisode, 'tags' | 'review'>): void {
-  for (const tag of reaction.tags) {
+  for (const tag of uniqueTags(reaction.tags)) {
     const value = touch(map, tag);
     value.reactions += 1;
     if (reaction.review === 'confirmed') value.confirmed += 1;
@@ -94,11 +97,16 @@ function topicWindow(
   window: LongitudinalDayWindow,
 ): Map<string, TopicAccumulator> {
   const map = new Map<string, TopicAccumulator>();
+  // Linkage is evaluated against all retained raw exposure rows, not only the
+  // current display window, so an exposure crossing midnight can still authorize
+  // a reaction that belongs to the following local day.
+  const qualifiedIds = qualifiedLongitudinalExposureIds(archive.exposures);
+
   for (const exposure of archive.exposures) {
-    if (dayKeyInLongitudinalWindow(exposure.dayKey, window)) addExposure(map, exposure);
+    if (qualifiedIds.has(exposure.id) && dayKeyInLongitudinalWindow(exposure.dayKey, window)) addExposure(map, exposure);
   }
   for (const reaction of archive.reactions) {
-    if (dayKeyInLongitudinalWindow(reaction.dayKey, window)) addReaction(map, reaction);
+    if (qualifiedIds.has(reaction.exposureId) && dayKeyInLongitudinalWindow(reaction.dayKey, window)) addReaction(map, reaction);
   }
   for (const rollup of archive.rollups) {
     if (dayKeyInLongitudinalWindow(rollup.dayKey, window)) addRollup(map, rollup);
@@ -152,18 +160,19 @@ function estimate(
   const reviewed = safe.confirmed + safe.contradicted;
   const exposureUnits = safe.exposureMs / TEN_MINUTES_MS;
   const evidenceStrength = Math.max(0, Math.min(1, 1 - Math.exp(-(exposureUnits + safe.reactions * 0.7 + reviewed * 0.25) / 4)));
-  return {
+  const result: LongitudinalRateEstimate = {
     key,
     exposureMs: safe.exposureMs,
     reactions: safe.reactions,
     confirmed: safe.confirmed,
     contradicted: safe.contradicted,
-    reviewAgreement: reviewed ? safe.confirmed / reviewed : undefined,
     ratePer10Min: posterior.mean,
     lowerPer10Min: posterior.lower,
     upperPer10Min: posterior.upper,
     evidenceStrength,
   };
+  if (reviewed) result.reviewAgreement = safe.confirmed / reviewed;
+  return result;
 }
 
 export function inferLongitudinalTopicRates(
