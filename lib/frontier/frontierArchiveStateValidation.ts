@@ -236,7 +236,8 @@ function validBehavior(value: unknown): value is FrontierBehaviorModel {
     if (!aggregateMap(value[key])) return false;
   }
   if (!isObject(value.layoutUses) || !integer(value.layoutUses.desk) || !integer(value.layoutUses.feed)) return false;
-  if (!isObject(value.viewUses) || VIEWS.some((view) => !integer(value.viewUses?.[view]))) return false;
+  const viewUses = value.viewUses;
+  if (!isObject(viewUses) || VIEWS.some((view) => !integer(viewUses[view]))) return false;
   return value.rankingSnapshot === undefined || validSnapshot(value.rankingSnapshot);
 }
 
