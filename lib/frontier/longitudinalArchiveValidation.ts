@@ -11,6 +11,7 @@ import type {
   LongitudinalRollupDimension,
   LongitudinalScale,
 } from './longitudinal';
+import { FRONTIER_SENSOR_MEASUREMENT_VERSION } from './sensorObservability';
 import {
   FRONTIER_LANE_IDS,
   FRONTIER_REACTIONS,
@@ -133,7 +134,28 @@ function parseExposure(value: unknown): LongitudinalExposure | null {
   if (!shared || !id || !sessionId || startedAt === null || endedAt === null || endedAt < startedAt || !dayKey
     || durationMs === null || attributionMean === null || attributionMin === null || attributionMin > attributionMean
     || visibleFractionMean === null) return null;
-  return { id, sessionId, ...shared, startedAt, endedAt, dayKey, durationMs, attributionMean, attributionMin, visibleFractionMean };
+
+  const hasMeasurement = value.measurementVersion !== undefined
+    || value.sensorSampledMs !== undefined
+    || value.faceObservableMs !== undefined;
+  let measurement: Pick<LongitudinalExposure, 'measurementVersion' | 'sensorSampledMs' | 'faceObservableMs'> | undefined;
+  if (hasMeasurement) {
+    if (value.measurementVersion !== FRONTIER_SENSOR_MEASUREMENT_VERSION) return null;
+    const sensorSampledMs = finite(value.sensorSampledMs, 0, durationMs);
+    const faceObservableMs = finite(value.faceObservableMs, 0, sensorSampledMs ?? 0);
+    if (sensorSampledMs === null || faceObservableMs === null) return null;
+    measurement = {
+      measurementVersion: FRONTIER_SENSOR_MEASUREMENT_VERSION,
+      sensorSampledMs,
+      faceObservableMs,
+    };
+  }
+
+  return {
+    id, sessionId, ...shared, startedAt, endedAt, dayKey, durationMs,
+    attributionMean, attributionMin, visibleFractionMean,
+    ...(measurement ?? {}),
+  };
 }
 
 function parseReaction(value: unknown): LongitudinalReactionEpisode | null {
@@ -251,10 +273,47 @@ function parseRollup(value: unknown): LongitudinalRollup | null {
   if (confirmed + contradicted > reactions) return null;
   if (affinity + interest + surprise + friction !== reactions) return null;
   if (confidenceSum > reactions + 1e-9 || intensitySum > reactions + 1e-9) return null;
+
+  const sensorKeys = [
+    'sensorMeasuredWallMs', 'sensorSampledMs', 'faceObservableMs',
+    'sensorMeasuredExposures', 'sensorMeasuredReactions',
+    'sensorMeasuredConfirmed', 'sensorMeasuredContradicted',
+  ] as const;
+  const hasSensorRollup = sensorKeys.some((sensorKey) => value[sensorKey] !== undefined);
+  let sensor: Pick<LongitudinalRollup,
+    'sensorMeasuredWallMs' | 'sensorSampledMs' | 'faceObservableMs'
+    | 'sensorMeasuredExposures' | 'sensorMeasuredReactions'
+    | 'sensorMeasuredConfirmed' | 'sensorMeasuredContradicted'> | undefined;
+  if (hasSensorRollup) {
+    if (sensorKeys.some((sensorKey) => value[sensorKey] === undefined)) return null;
+    const sensorMeasuredWallMs = finite(value.sensorMeasuredWallMs, 0, exposureMs);
+    const sensorSampledMs = finite(value.sensorSampledMs, 0, sensorMeasuredWallMs ?? 0);
+    const faceObservableMs = finite(value.faceObservableMs, 0, sensorSampledMs ?? 0);
+    const sensorMeasuredExposures = integer(value.sensorMeasuredExposures, 0, exposures);
+    const sensorMeasuredReactions = integer(value.sensorMeasuredReactions, 0, reactions);
+    const sensorMeasuredConfirmed = integer(value.sensorMeasuredConfirmed, 0, confirmed);
+    const sensorMeasuredContradicted = integer(value.sensorMeasuredContradicted, 0, contradicted);
+    if (sensorMeasuredWallMs === null || sensorSampledMs === null || faceObservableMs === null
+      || sensorMeasuredExposures === null || sensorMeasuredReactions === null
+      || sensorMeasuredConfirmed === null || sensorMeasuredContradicted === null) return null;
+    if (sensorMeasuredConfirmed + sensorMeasuredContradicted > sensorMeasuredReactions) return null;
+    sensor = {
+      sensorMeasuredWallMs,
+      sensorSampledMs,
+      faceObservableMs,
+      sensorMeasuredExposures,
+      sensorMeasuredReactions,
+      sensorMeasuredConfirmed,
+      sensorMeasuredContradicted,
+    };
+  }
+
   return {
     id, batchId, dayKey, dimension: dimension as LongitudinalRollupDimension, key,
     exposureMs, exposures, reactions, explicitInteractions, confirmed, contradicted,
-    affinity, interest, surprise, friction, confidenceSum, intensitySum, compactedAt,
+    affinity, interest, surprise, friction, confidenceSum, intensitySum,
+    ...(sensor ?? {}),
+    compactedAt,
   };
 }
 

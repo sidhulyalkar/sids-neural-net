@@ -7,6 +7,7 @@ import {
   type LongitudinalReactionEpisode,
   type LongitudinalRollup,
 } from './longitudinal';
+import { FRONTIER_SENSOR_MEASUREMENT_VERSION } from './sensorObservability';
 
 const TEN_MINUTES_MS = 10 * 60_000;
 const DEFAULT_PRIOR_EXPOSURE_UNITS = 1.5;
@@ -15,23 +16,29 @@ const DEFAULT_MIN_TREND_DAYS = 2;
 const DEFAULT_MIN_TREND_EVENTS = 4;
 const DEFAULT_MIN_VALIDATION_REVIEWS = 8;
 const DEFAULT_MIN_VALIDATION_AGREEMENT = 0.65;
+const DEFAULT_MIN_SENSOR_SAMPLING_COVERAGE = 0.6;
 const DEFAULT_FDR = 0.1;
 const CREDIBLE_INTERVAL = 0.95;
 
+export type LongitudinalMeasurementBasis = 'legacy-camera-on-v1' | 'sensor-observable-v2';
 export type LongitudinalMeasurementStatus = 'unvalidated' | 'supported' | 'questionable';
 
 export type LongitudinalMeasurementQuality = {
+  basis: LongitudinalMeasurementBasis;
   observed: number;
   reviewed: number;
   confirmed: number;
   contradicted: number;
   reviewCoverage: number;
   reviewAgreement?: number;
+  sensorSamplingCoverage?: number;
+  faceObservability?: number;
   status: LongitudinalMeasurementStatus;
 };
 
 export type LongitudinalRateEstimate = {
   key: string;
+  measurementBasis: LongitudinalMeasurementBasis;
   exposureMs: number;
   exposures: number;
   observedDays: number;
@@ -40,7 +47,9 @@ export type LongitudinalRateEstimate = {
   contradicted: number;
   reviewCoverage: number;
   reviewAgreement?: number;
-  /** Empirical-Bayes detected-cue rate per ten minutes of qualified exposure. */
+  sensorSamplingCoverage?: number;
+  faceObservability?: number;
+  /** Empirical-Bayes detected-cue rate per ten minutes of the active measurement denominator. */
   ratePer10Min: number;
   /** Unique-population baseline used for shrinkage, not a tag-multiplied baseline. */
   baselinePer10Min: number;
@@ -55,8 +64,10 @@ export type LongitudinalRateEstimate = {
 export type LongitudinalTrendDirection = 'rising' | 'cooling' | 'stable' | 'insufficient';
 export type LongitudinalTrendReason =
   | 'detected'
+  | 'measurement-transition'
   | 'measurement-unvalidated'
   | 'measurement-questionable'
+  | 'low-sensor-coverage'
   | 'low-exposure'
   | 'single-day'
   | 'few-events'
@@ -88,6 +99,14 @@ type TopicAccumulator = {
   confirmed: number;
   contradicted: number;
   days: Set<string>;
+  sensorMeasuredWallMs: number;
+  sensorSampledMs: number;
+  faceObservableMs: number;
+  sensorMeasuredExposures: number;
+  sensorMeasuredReactions: number;
+  sensorMeasuredConfirmed: number;
+  sensorMeasuredContradicted: number;
+  sensorDays: Set<string>;
 };
 
 type PopulationAccumulator = {
@@ -95,6 +114,24 @@ type PopulationAccumulator = {
   reactions: number;
   confirmed: number;
   contradicted: number;
+  sensorMeasuredWallMs: number;
+  sensorSampledMs: number;
+  faceObservableMs: number;
+  sensorMeasuredExposures: number;
+  sensorMeasuredReactions: number;
+  sensorMeasuredConfirmed: number;
+  sensorMeasuredContradicted: number;
+};
+
+type BasisValues = {
+  exposureMs: number;
+  exposures: number;
+  reactions: number;
+  confirmed: number;
+  contradicted: number;
+  days: number;
+  sensorSamplingCoverage?: number;
+  faceObservability?: number;
 };
 
 type Posterior = {
@@ -115,12 +152,51 @@ type TrendDraft = {
   eligibleForMultiplicity: boolean;
 };
 
+function clamp01(value: number): number {
+  return Math.max(0, Math.min(1, Number.isFinite(value) ? value : 0));
+}
+
 function emptyAccumulator(): TopicAccumulator {
-  return { exposureMs: 0, exposures: 0, reactions: 0, confirmed: 0, contradicted: 0, days: new Set<string>() };
+  return {
+    exposureMs: 0,
+    exposures: 0,
+    reactions: 0,
+    confirmed: 0,
+    contradicted: 0,
+    days: new Set<string>(),
+    sensorMeasuredWallMs: 0,
+    sensorSampledMs: 0,
+    faceObservableMs: 0,
+    sensorMeasuredExposures: 0,
+    sensorMeasuredReactions: 0,
+    sensorMeasuredConfirmed: 0,
+    sensorMeasuredContradicted: 0,
+    sensorDays: new Set<string>(),
+  };
 }
 
 function emptyPopulation(): PopulationAccumulator {
-  return { exposureMs: 0, reactions: 0, confirmed: 0, contradicted: 0 };
+  return {
+    exposureMs: 0,
+    reactions: 0,
+    confirmed: 0,
+    contradicted: 0,
+    sensorMeasuredWallMs: 0,
+    sensorSampledMs: 0,
+    faceObservableMs: 0,
+    sensorMeasuredExposures: 0,
+    sensorMeasuredReactions: 0,
+    sensorMeasuredConfirmed: 0,
+    sensorMeasuredContradicted: 0,
+  };
+}
+
+function isSensorMeasuredExposure(exposure: LongitudinalExposure): boolean {
+  return exposure.measurementVersion === FRONTIER_SENSOR_MEASUREMENT_VERSION
+    && typeof exposure.sensorSampledMs === 'number'
+    && Number.isFinite(exposure.sensorSampledMs)
+    && typeof exposure.faceObservableMs === 'number'
+    && Number.isFinite(exposure.faceObservableMs);
 }
 
 function touch(map: Map<string, TopicAccumulator>, key: string): TopicAccumulator {
@@ -132,22 +208,40 @@ function touch(map: Map<string, TopicAccumulator>, key: string): TopicAccumulato
   return created;
 }
 
-function addExposure(map: Map<string, TopicAccumulator>, exposure: Pick<LongitudinalExposure, 'tags' | 'durationMs' | 'dayKey'>): void {
+function addExposure(map: Map<string, TopicAccumulator>, exposure: LongitudinalExposure): void {
+  const measured = isSensorMeasuredExposure(exposure);
   for (const tag of exposure.tags) {
     const value = touch(map, tag);
     value.exposureMs += exposure.durationMs;
     value.exposures += 1;
     value.days.add(exposure.dayKey);
+    if (measured) {
+      value.sensorMeasuredWallMs += exposure.durationMs;
+      value.sensorSampledMs += exposure.sensorSampledMs ?? 0;
+      value.faceObservableMs += exposure.faceObservableMs ?? 0;
+      value.sensorMeasuredExposures += 1;
+      value.sensorDays.add(exposure.dayKey);
+    }
   }
 }
 
-function addReaction(map: Map<string, TopicAccumulator>, reaction: Pick<LongitudinalReactionEpisode, 'tags' | 'review' | 'dayKey'>): void {
+function addReaction(
+  map: Map<string, TopicAccumulator>,
+  reaction: LongitudinalReactionEpisode,
+  sensorMeasured: boolean,
+): void {
   for (const tag of reaction.tags) {
     const value = touch(map, tag);
     value.reactions += 1;
     value.days.add(reaction.dayKey);
     if (reaction.review === 'confirmed') value.confirmed += 1;
     if (reaction.review === 'contradicted') value.contradicted += 1;
+    if (sensorMeasured) {
+      value.sensorMeasuredReactions += 1;
+      value.sensorDays.add(reaction.dayKey);
+      if (reaction.review === 'confirmed') value.sensorMeasuredConfirmed += 1;
+      if (reaction.review === 'contradicted') value.sensorMeasuredContradicted += 1;
+    }
   }
 }
 
@@ -160,6 +254,17 @@ function addRollup(map: Map<string, TopicAccumulator>, rollup: LongitudinalRollu
   value.confirmed += rollup.confirmed;
   value.contradicted += rollup.contradicted;
   value.days.add(rollup.dayKey);
+  const measuredExposures = rollup.sensorMeasuredExposures ?? 0;
+  if (measuredExposures > 0 || (rollup.sensorMeasuredWallMs ?? 0) > 0) {
+    value.sensorMeasuredWallMs += rollup.sensorMeasuredWallMs ?? 0;
+    value.sensorSampledMs += rollup.sensorSampledMs ?? 0;
+    value.faceObservableMs += rollup.faceObservableMs ?? 0;
+    value.sensorMeasuredExposures += measuredExposures;
+    value.sensorMeasuredReactions += rollup.sensorMeasuredReactions ?? 0;
+    value.sensorMeasuredConfirmed += rollup.sensorMeasuredConfirmed ?? 0;
+    value.sensorMeasuredContradicted += rollup.sensorMeasuredContradicted ?? 0;
+    value.sensorDays.add(rollup.dayKey);
+  }
 }
 
 function topicWindow(
@@ -167,6 +272,9 @@ function topicWindow(
   window: LongitudinalDayWindow,
 ): Map<string, TopicAccumulator> {
   const map = new Map<string, TopicAccumulator>();
+  const sensorMeasuredExposureIds = new Set(
+    archive.exposures.filter(isSensorMeasuredExposure).map((exposure) => exposure.id),
+  );
 
   // High-resolution rows and compacted rollups use the exact same stored local
   // calendar key. Compaction changes storage resolution, never cohort membership.
@@ -174,7 +282,9 @@ function topicWindow(
     if (dayKeyInLongitudinalWindow(exposure.dayKey, window)) addExposure(map, exposure);
   }
   for (const reaction of archive.reactions) {
-    if (dayKeyInLongitudinalWindow(reaction.dayKey, window)) addReaction(map, reaction);
+    if (dayKeyInLongitudinalWindow(reaction.dayKey, window)) {
+      addReaction(map, reaction, sensorMeasuredExposureIds.has(reaction.exposureId));
+    }
   }
   for (const rollup of archive.rollups) {
     if (dayKeyInLongitudinalWindow(rollup.dayKey, window)) addRollup(map, rollup);
@@ -184,15 +294,29 @@ function topicWindow(
 
 function populationWindow(archive: LongitudinalArchive, window: LongitudinalDayWindow): PopulationAccumulator {
   const population = emptyPopulation();
+  const sensorMeasuredExposureIds = new Set(
+    archive.exposures.filter(isSensorMeasuredExposure).map((exposure) => exposure.id),
+  );
   for (const exposure of archive.exposures) {
     if (!dayKeyInLongitudinalWindow(exposure.dayKey, window)) continue;
     population.exposureMs += exposure.durationMs;
+    if (isSensorMeasuredExposure(exposure)) {
+      population.sensorMeasuredWallMs += exposure.durationMs;
+      population.sensorSampledMs += exposure.sensorSampledMs ?? 0;
+      population.faceObservableMs += exposure.faceObservableMs ?? 0;
+      population.sensorMeasuredExposures += 1;
+    }
   }
   for (const reaction of archive.reactions) {
     if (!dayKeyInLongitudinalWindow(reaction.dayKey, window)) continue;
     population.reactions += 1;
     if (reaction.review === 'confirmed') population.confirmed += 1;
     if (reaction.review === 'contradicted') population.contradicted += 1;
+    if (sensorMeasuredExposureIds.has(reaction.exposureId)) {
+      population.sensorMeasuredReactions += 1;
+      if (reaction.review === 'confirmed') population.sensorMeasuredConfirmed += 1;
+      if (reaction.review === 'contradicted') population.sensorMeasuredContradicted += 1;
+    }
   }
   // A raw observation belongs to exactly one lane but can belong to many tags.
   // Lane rollups therefore recover the unique post-compaction population without
@@ -203,30 +327,104 @@ function populationWindow(archive: LongitudinalArchive, window: LongitudinalDayW
     population.reactions += rollup.reactions;
     population.confirmed += rollup.confirmed;
     population.contradicted += rollup.contradicted;
+    population.sensorMeasuredWallMs += rollup.sensorMeasuredWallMs ?? 0;
+    population.sensorSampledMs += rollup.sensorSampledMs ?? 0;
+    population.faceObservableMs += rollup.faceObservableMs ?? 0;
+    population.sensorMeasuredExposures += rollup.sensorMeasuredExposures ?? 0;
+    population.sensorMeasuredReactions += rollup.sensorMeasuredReactions ?? 0;
+    population.sensorMeasuredConfirmed += rollup.sensorMeasuredConfirmed ?? 0;
+    population.sensorMeasuredContradicted += rollup.sensorMeasuredContradicted ?? 0;
   }
   return population;
 }
 
-function populationRate(population: PopulationAccumulator): number {
-  const exposureUnits = population.exposureMs / TEN_MINUTES_MS;
-  if (exposureUnits <= 0) return 0.2;
-  return Math.max(0.05, Math.min(12, population.reactions / exposureUnits));
+function measurementBasis(population: PopulationAccumulator): LongitudinalMeasurementBasis {
+  return population.sensorMeasuredExposures > 0 || population.sensorMeasuredWallMs > 0
+    ? 'sensor-observable-v2'
+    : 'legacy-camera-on-v1';
 }
 
-function measurementQuality(population: PopulationAccumulator): LongitudinalMeasurementQuality {
-  const reviewed = population.confirmed + population.contradicted;
-  const reviewAgreement = reviewed ? population.confirmed / reviewed : undefined;
+function populationValues(
+  population: PopulationAccumulator,
+  basis: LongitudinalMeasurementBasis,
+): Omit<BasisValues, 'exposures' | 'days'> {
+  if (basis === 'sensor-observable-v2') {
+    return {
+      exposureMs: population.faceObservableMs,
+      reactions: population.sensorMeasuredReactions,
+      confirmed: population.sensorMeasuredConfirmed,
+      contradicted: population.sensorMeasuredContradicted,
+      sensorSamplingCoverage: population.sensorMeasuredWallMs > 0
+        ? clamp01(population.sensorSampledMs / population.sensorMeasuredWallMs)
+        : 0,
+      faceObservability: population.sensorSampledMs > 0
+        ? clamp01(population.faceObservableMs / population.sensorSampledMs)
+        : 0,
+    };
+  }
+  return {
+    exposureMs: population.exposureMs,
+    reactions: population.reactions,
+    confirmed: population.confirmed,
+    contradicted: population.contradicted,
+  };
+}
+
+function topicValues(value: TopicAccumulator, basis: LongitudinalMeasurementBasis): BasisValues {
+  if (basis === 'sensor-observable-v2') {
+    return {
+      exposureMs: value.faceObservableMs,
+      exposures: value.sensorMeasuredExposures,
+      reactions: value.sensorMeasuredReactions,
+      confirmed: value.sensorMeasuredConfirmed,
+      contradicted: value.sensorMeasuredContradicted,
+      days: value.sensorDays.size,
+      sensorSamplingCoverage: value.sensorMeasuredWallMs > 0
+        ? clamp01(value.sensorSampledMs / value.sensorMeasuredWallMs)
+        : 0,
+      faceObservability: value.sensorSampledMs > 0
+        ? clamp01(value.faceObservableMs / value.sensorSampledMs)
+        : 0,
+    };
+  }
+  return {
+    exposureMs: value.exposureMs,
+    exposures: value.exposures,
+    reactions: value.reactions,
+    confirmed: value.confirmed,
+    contradicted: value.contradicted,
+    days: value.days.size,
+  };
+}
+
+function populationRate(population: PopulationAccumulator, basis: LongitudinalMeasurementBasis): number {
+  const selected = populationValues(population, basis);
+  const exposureUnits = selected.exposureMs / TEN_MINUTES_MS;
+  if (exposureUnits <= 0) return 0.2;
+  return Math.max(0.05, Math.min(12, selected.reactions / exposureUnits));
+}
+
+function measurementQuality(
+  population: PopulationAccumulator,
+  basis: LongitudinalMeasurementBasis,
+): LongitudinalMeasurementQuality {
+  const selected = populationValues(population, basis);
+  const reviewed = selected.confirmed + selected.contradicted;
+  const reviewAgreement = reviewed ? selected.confirmed / reviewed : undefined;
   let status: LongitudinalMeasurementStatus = 'unvalidated';
   if (reviewed >= DEFAULT_MIN_VALIDATION_REVIEWS && reviewAgreement !== undefined) {
     status = reviewAgreement >= DEFAULT_MIN_VALIDATION_AGREEMENT ? 'supported' : 'questionable';
   }
   return {
-    observed: population.reactions,
+    basis,
+    observed: selected.reactions,
     reviewed,
-    confirmed: population.confirmed,
-    contradicted: population.contradicted,
-    reviewCoverage: population.reactions ? Math.min(1, reviewed / population.reactions) : 0,
+    confirmed: selected.confirmed,
+    contradicted: selected.contradicted,
+    reviewCoverage: selected.reactions ? Math.min(1, reviewed / selected.reactions) : 0,
     reviewAgreement,
+    sensorSamplingCoverage: selected.sensorSamplingCoverage,
+    faceObservability: selected.faceObservability,
     status,
   };
 }
@@ -332,24 +530,29 @@ function estimate(
   key: string,
   value: TopicAccumulator | undefined,
   priorRate: number,
+  basis: LongitudinalMeasurementBasis,
 ): LongitudinalRateEstimate {
   const safe = value ?? emptyAccumulator();
-  const posterior = posteriorRate(safe.reactions, safe.exposureMs, priorRate);
-  const reviewed = safe.confirmed + safe.contradicted;
-  const exposureUnits = safe.exposureMs / TEN_MINUTES_MS;
+  const selected = topicValues(safe, basis);
+  const posterior = posteriorRate(selected.reactions, selected.exposureMs, priorRate);
+  const reviewed = selected.confirmed + selected.contradicted;
+  const exposureUnits = selected.exposureMs / TEN_MINUTES_MS;
   const evidenceStrength = Math.max(0, Math.min(1,
-    1 - Math.exp(-(exposureUnits + safe.reactions * 0.55 + safe.days.size * 0.8 + reviewed * 0.2) / 6),
+    1 - Math.exp(-(exposureUnits + selected.reactions * 0.55 + selected.days * 0.8 + reviewed * 0.2) / 6),
   ));
   return {
     key,
-    exposureMs: safe.exposureMs,
-    exposures: safe.exposures,
-    observedDays: safe.days.size,
-    reactions: safe.reactions,
-    confirmed: safe.confirmed,
-    contradicted: safe.contradicted,
-    reviewCoverage: safe.reactions ? Math.min(1, reviewed / safe.reactions) : 0,
-    reviewAgreement: reviewed ? safe.confirmed / reviewed : undefined,
+    measurementBasis: basis,
+    exposureMs: selected.exposureMs,
+    exposures: selected.exposures,
+    observedDays: selected.days,
+    reactions: selected.reactions,
+    confirmed: selected.confirmed,
+    contradicted: selected.contradicted,
+    reviewCoverage: selected.reactions ? Math.min(1, reviewed / selected.reactions) : 0,
+    reviewAgreement: reviewed ? selected.confirmed / reviewed : undefined,
+    sensorSamplingCoverage: selected.sensorSamplingCoverage,
+    faceObservability: selected.faceObservability,
     ratePer10Min: posterior.mean,
     baselinePer10Min: priorRate,
     rateRatio: priorRate > 0 ? posterior.mean / priorRate : 1,
@@ -395,7 +598,9 @@ export function inferLongitudinalMeasurementQuality(
   now = Date.now(),
 ): LongitudinalMeasurementQuality {
   const window = longitudinalDayWindow(days, now);
-  return measurementQuality(populationWindow(archive, window));
+  const population = populationWindow(archive, window);
+  const basis = measurementBasis(population);
+  return measurementQuality(population, basis);
 }
 
 export function inferLongitudinalTopicRates(
@@ -405,9 +610,11 @@ export function inferLongitudinalTopicRates(
 ): LongitudinalRateEstimate[] {
   const window = longitudinalDayWindow(days, now);
   const map = topicWindow(archive, window);
-  const prior = populationRate(populationWindow(archive, window));
+  const population = populationWindow(archive, window);
+  const basis = measurementBasis(population);
+  const prior = populationRate(population, basis);
   return Array.from(map.entries())
-    .map(([key, value]) => estimate(key, value, prior))
+    .map(([key, value]) => estimate(key, value, prior, basis))
     .filter((entry) => entry.exposureMs >= 30_000)
     .sort((left, right) => (
       right.evidenceStrength - left.evidenceStrength
@@ -427,23 +634,30 @@ export function inferLongitudinalTopicTrends(
   const previousWindow = longitudinalDayWindow(boundedWindow, now, -boundedWindow);
   const recentMap = topicWindow(archive, recentWindow);
   const previousMap = topicWindow(archive, previousWindow);
+  const recentPopulation = populationWindow(archive, recentWindow);
+  const previousPopulation = populationWindow(archive, previousWindow);
   const combinedPopulation = populationWindow(archive, {
     days: boundedWindow * 2,
     startDay: previousWindow.startDay,
     endDayExclusive: recentWindow.endDayExclusive,
   });
-  const prior = populationRate(combinedPopulation);
-  const measurement = measurementQuality(combinedPopulation);
+  const basis = measurementBasis(combinedPopulation);
+  const prior = populationRate(combinedPopulation, basis);
+  const measurement = measurementQuality(combinedPopulation, basis);
+  const globalMeasurementTransition = basis === 'sensor-observable-v2'
+    && (recentPopulation.sensorMeasuredExposures === 0 || previousPopulation.sensorMeasuredExposures === 0);
   const keys = new Set([...recentMap.keys(), ...previousMap.keys()]);
   const drafts: TrendDraft[] = [];
 
   for (const key of keys) {
     const recentValue = recentMap.get(key) ?? emptyAccumulator();
     const previousValue = previousMap.get(key) ?? emptyAccumulator();
-    const recent = estimate(key, recentValue, prior);
-    const previous = estimate(key, previousValue, prior);
-    const recentPosterior = posteriorRate(recentValue.reactions, recentValue.exposureMs, prior);
-    const previousPosterior = posteriorRate(previousValue.reactions, previousValue.exposureMs, prior);
+    const recentSelected = topicValues(recentValue, basis);
+    const previousSelected = topicValues(previousValue, basis);
+    const recent = estimate(key, recentValue, prior, basis);
+    const previous = estimate(key, previousValue, prior, basis);
+    const recentPosterior = posteriorRate(recentSelected.reactions, recentSelected.exposureMs, prior);
+    const previousPosterior = posteriorRate(previousSelected.reactions, previousSelected.exposureMs, prior);
     const delta = recentPosterior.mean - previousPosterior.mean;
     const scale = Math.max(0.2, (recentPosterior.mean + previousPosterior.mean) / 2);
     const relativeChange = delta / scale;
@@ -452,9 +666,14 @@ export function inferLongitudinalTopicTrends(
     const pValue = twoSidedNormalP(signalStrength);
 
     let prelimReason: LongitudinalTrendReason = 'stable';
-    if (measurement.status === 'unvalidated') prelimReason = 'measurement-unvalidated';
+    if (globalMeasurementTransition) prelimReason = 'measurement-transition';
+    else if (measurement.status === 'unvalidated') prelimReason = 'measurement-unvalidated';
     else if (measurement.status === 'questionable') prelimReason = 'measurement-questionable';
-    else if (recent.exposureMs < minWindowExposureMs || previous.exposureMs < minWindowExposureMs) prelimReason = 'low-exposure';
+    else if (basis === 'sensor-observable-v2'
+      && ((recent.sensorSamplingCoverage ?? 0) < DEFAULT_MIN_SENSOR_SAMPLING_COVERAGE
+        || (previous.sensorSamplingCoverage ?? 0) < DEFAULT_MIN_SENSOR_SAMPLING_COVERAGE)) {
+      prelimReason = 'low-sensor-coverage';
+    } else if (recent.exposureMs < minWindowExposureMs || previous.exposureMs < minWindowExposureMs) prelimReason = 'low-exposure';
     else if (recent.observedDays < DEFAULT_MIN_TREND_DAYS || previous.observedDays < DEFAULT_MIN_TREND_DAYS) prelimReason = 'single-day';
     else if (recent.reactions + previous.reactions < DEFAULT_MIN_TREND_EVENTS) prelimReason = 'few-events';
     else if (Math.abs(relativeChange) < 0.35) prelimReason = 'small-effect';
