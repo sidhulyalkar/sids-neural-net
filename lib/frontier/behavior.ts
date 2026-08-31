@@ -189,21 +189,34 @@ type PreferenceEvidence = {
   total: number;
 };
 
+type AmbientPreferenceFields = {
+  ambientAffinity?: number;
+  ambientInterest?: number;
+  ambientSurprise?: number;
+  ambientEvidence?: number;
+};
+
 /**
  * Convert heterogeneous behavior into bounded pseudo-counts. Strong explicit
  * actions carry more authority than dwell, while a quiet impression is only
- * weak negative evidence after repeated exposure. This prevents both one-click
- * overfitting and "I scrolled past it once" punishment.
+ * weak negative evidence after repeated exposure. Sparse ambient cues are
+ * admitted only as tiny positive pseudo-counts; friction is absent by design.
  */
 function preferenceEvidence(aggregate: FrontierBehaviorAggregate): PreferenceEvidence {
   const shown = Math.max(0, aggregate.shown);
   const dwellUnits = Math.min(Math.max(1, shown) * 1.25, aggregate.dwellMs / 12_000);
+  const ambient = aggregate as FrontierBehaviorAggregate & AmbientPreferenceFields;
+  const ambientPositive =
+    (ambient.ambientAffinity ?? 0) * 0.1
+    + (ambient.ambientInterest ?? 0) * 0.05
+    + (ambient.ambientSurprise ?? 0) * 0.02;
   const positive =
     dwellUnits * 0.45
     + aggregate.expanded * 0.7
     + aggregate.opened * 1.4
     + aggregate.saved * 2.2
-    + aggregate.positive * 2.5;
+    + aggregate.positive * 2.5
+    + ambientPositive;
   const explicitNegative = aggregate.negative * 2.8;
   const resolved = Math.min(
     shown,
@@ -237,6 +250,7 @@ export function aggregatePreference(
   const beta = PREFERENCE_PRIOR + evidence.negative;
   const posterior = alpha / Math.max(1e-6, alpha + beta);
   const score = Math.max(-1, Math.min(1.2, (posterior - 0.5) * 2));
+  const ambient = aggregate as FrontierBehaviorAggregate & AmbientPreferenceFields;
 
   const support = aggregate.shown * 0.32
     + Math.min(7, evidence.dwellUnits) * 0.45
@@ -244,7 +258,8 @@ export function aggregatePreference(
     + aggregate.opened * 1.7
     + aggregate.saved * 2.5
     + aggregate.positive * 2.8
-    + aggregate.negative * 3;
+    + aggregate.negative * 3
+    + (ambient.ambientEvidence ?? 0) * 0.12;
   const ageDays = aggregate.lastAt
     ? Math.max(0, (date.getTime() - new Date(aggregate.lastAt).getTime()) / DAY_MS)
     : 0;
