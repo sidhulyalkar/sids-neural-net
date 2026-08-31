@@ -195,8 +195,9 @@ function evidenceAffinity(keys: string[], index: FrontierPairEvidenceIndex): { a
 
 export function pairEvidenceForItem(
   item: FrontierItem,
-  index: FrontierPairEvidenceIndex,
+  index?: FrontierPairEvidenceIndex,
 ): { affinity: number; confidence: number } {
+  if (!index) return { affinity: 0, confidence: 0 };
   const literal = evidenceAffinity(tastePairsForItem(item), index);
   const semantic = evidenceAffinity(semanticPairsForItem(item), index);
   if (!literal.confidence && !semantic.confidence) return { affinity: 0, confidence: 0 };
