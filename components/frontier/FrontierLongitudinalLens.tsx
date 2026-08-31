@@ -43,6 +43,10 @@ function formatMinutes(ms: number): string {
   return `${(minutes / 60).toFixed(1)}h`;
 }
 
+function formatPercent(value?: number): string {
+  return value === undefined || !Number.isFinite(value) ? '—' : `${Math.round(value * 100)}%`;
+}
+
 function laneLabel(value: string): string {
   return FRONTIER_LANE_MAP[value as FrontierLaneId]?.shortLabel ?? value.replaceAll('_', ' ');
 }
@@ -62,12 +66,12 @@ function trendLabel(trend: LongitudinalTopicTrend): string {
 function measurementLabel(measurement?: LongitudinalMeasurementQuality): string {
   if (!measurement) return 'not evaluated';
   if (measurement.status === 'supported') {
-    return `${Math.round((measurement.reviewAgreement ?? 0) * 100)}% agreement · ${measurement.reviewed} reviewed`;
+    return `${Math.round((measurement.reviewAgreement ?? 0) * 100)}% · ${measurement.reviewed} reviewed`;
   }
   if (measurement.status === 'questionable') {
-    return `precision gate failed · ${measurement.reviewed} reviewed`;
+    return `gate failed · ${measurement.reviewed} reviewed`;
   }
-  return `${measurement.reviewed}/8 reviews before trend claims`;
+  return `${measurement.reviewed}/8 reviews`;
 }
 
 function ScaleInput({ label, value, onChange }: {
@@ -191,6 +195,7 @@ export function FrontierLongitudinalLens() {
     }
   };
 
+  const sensorV2 = measurement?.basis === 'sensor-observable-v2';
   const topTopics = rates.slice(0, 6);
   const activeTrends = trends
     .filter((trend) => trend.direction === 'rising' || trend.direction === 'cooling')
@@ -199,11 +204,16 @@ export function FrontierLongitudinalLens() {
   const quotaRatio = health?.usage !== undefined && health.quota
     ? Math.min(1, health.usage / health.quota)
     : undefined;
-  const noTrendExplanation = measurement?.status === 'unvalidated'
-    ? 'Change claims are withheld until at least 8 detected cues are reviewed. Agreement estimates detected-cue precision only; it cannot measure reactions the camera missed.'
-    : measurement?.status === 'questionable'
-      ? 'Change claims are withheld because reviewed detected cues do not currently clear the 65% precision gate.'
-      : 'No 14-day detected-cue shift clears 10m exposure per window, two-day replication, four events, a 35% effect, and Benjamini–Hochberg q ≤ 0.10.';
+  const blocker = trends.find((trend) => trend.direction === 'insufficient')?.reason;
+  const noTrendExplanation = blocker === 'measurement-transition'
+    ? 'Trend claims are paused across the v1 → v2 measurement boundary. Legacy camera-on history is retained, but it is never mixed with face-observable v2 evidence to manufacture a change.'
+    : blocker === 'low-sensor-coverage'
+      ? 'Trend claims are withheld because local vision callbacks covered less than 60% of target-attributed wall time in at least one comparison window.'
+      : measurement?.status === 'unvalidated'
+        ? 'Change claims are withheld until at least 8 detected cues in the active measurement regime are reviewed. Agreement estimates detected-cue precision only; it cannot measure reactions the camera missed.'
+        : measurement?.status === 'questionable'
+          ? 'Change claims are withheld because reviewed detected cues do not currently clear the 65% precision gate.'
+          : 'No 14-day detected-cue shift clears measurement continuity, 10m exposure per window, two-day replication, four events, a 35% effect, and Benjamini–Hochberg q ≤ 0.10.';
 
   return (
     <section className={styles.lens} aria-label="Longitudinal personal observation">
@@ -217,16 +227,25 @@ export function FrontierLongitudinalLens() {
       </div>
 
       <div className={styles.metrics}>
-        <div><span>Attributed camera-on exposure</span><strong>{formatMinutes(summary?.exposureMs ?? 0)}</strong></div>
-        <div><span>Detected cue episodes</span><strong>{summary?.reactions ?? 0}</strong></div>
+        <div>
+          <span>{sensorV2 ? 'Face-observable exposure' : 'Legacy camera-on exposure'}</span>
+          <strong>{formatMinutes(sensorV2 ? summary?.faceObservableMs ?? 0 : summary?.exposureMs ?? 0)}</strong>
+        </div>
+        <div><span>Detected cue episodes</span><strong>{sensorV2 ? summary?.sensorMeasuredReactions ?? 0 : summary?.reactions ?? 0}</strong></div>
         <div><span>Detected-cue precision</span><strong>{measurementLabel(measurement)}</strong></div>
-        <div><span>Explicit interactions</span><strong>{summary?.explicitInteractions ?? 0}</strong></div>
+        <div>
+          <span>{sensorV2 ? 'Sampling / face coverage' : 'Measurement regime'}</span>
+          <strong>{sensorV2 ? `${formatPercent(summary?.sensorSamplingCoverage)} / ${formatPercent(summary?.faceObservability)}` : 'v1 legacy'}</strong>
+        </div>
       </div>
 
       <div className={styles.grid}>
         <div className={styles.panel}>
           <div className={styles.panelHead}>
-            <div><span>Subinterest detected-cue rate</span><small>90-day empirical-Bayes rate · 95% credible interval · descriptive, not causal</small></div>
+            <div>
+              <span>Subinterest detected-cue rate</span>
+              <small>{sensorV2 ? '90-day face-observable empirical-Bayes rate' : '90-day legacy camera-on empirical-Bayes rate'} · 95% credible interval · descriptive, not causal</small>
+            </div>
           </div>
           {topTopics.length ? (
             <div className={styles.topicList}>
@@ -235,14 +254,15 @@ export function FrontierLongitudinalLens() {
                   <div>
                     <strong>{topic.key}</strong>
                     <small>
-                      {topic.reactions} detected cues · {formatMinutes(topic.exposureMs)} attributed exposure across {topic.observedDays}d · 95% CI {topic.lowerPer10Min.toFixed(1)}–{topic.upperPer10Min.toFixed(1)}/10m · {samplingLabel(topic.evidenceStrength)}
+                      {topic.reactions} detected cues · {formatMinutes(topic.exposureMs)} {topic.measurementBasis === 'sensor-observable-v2' ? 'face-observable' : 'legacy camera-on'} exposure across {topic.observedDays}d · 95% CI {topic.lowerPer10Min.toFixed(1)}–{topic.upperPer10Min.toFixed(1)}/10m · {samplingLabel(topic.evidenceStrength)}
+                      {topic.measurementBasis === 'sensor-observable-v2' ? ` · callback coverage ${formatPercent(topic.sensorSamplingCoverage)} · face observable ${formatPercent(topic.faceObservability)}` : ''}
                     </small>
                   </div>
                   <span>{topic.ratePer10Min.toFixed(1)} / 10m</span>
                 </div>
               ))}
             </div>
-          ) : <p className={styles.empty}>Not enough attributed exposure yet. FRONTIER abstains rather than inventing a pattern.</p>}
+          ) : <p className={styles.empty}>{sensorV2 ? 'Not enough face-observable exposure yet.' : 'Not enough legacy camera-on exposure yet.'} FRONTIER abstains rather than inventing a pattern.</p>}
           {activeTrends.length ? (
             <div className={styles.laneRow} aria-label="Multiplicity-controlled detected cue trends">
               {activeTrends.map((trend) => <span key={trend.key}>{trendLabel(trend)}</span>)}
@@ -250,7 +270,7 @@ export function FrontierLongitudinalLens() {
           ) : topTopics.length ? <p className={styles.help}>{noTrendExplanation}</p> : null}
           {topLanes.length ? (
             <div className={styles.laneRow}>
-              {topLanes.map((lane) => <span key={lane.key}>{laneLabel(lane.key)} · {lane.reactivityPer10Min.toFixed(1)}/10m raw detected cues</span>)}
+              {topLanes.map((lane) => <span key={lane.key}>{laneLabel(lane.key)} · {lane.reactivityPer10Min.toFixed(1)}/10m raw all-era detected cues</span>)}
             </div>
           ) : null}
         </div>
@@ -290,7 +310,7 @@ export function FrontierLongitudinalLens() {
       </div>
 
       {message ? <p className={styles.message}>{message}</p> : null}
-      <p className={styles.footnote}>Stored camera-derived records contain content context, attributed camera-on exposure, sparse cue class, confidence, timing, and your correction. Frames, face landmarks, biometric templates, identity embeddings, and raw expression streams are never written to this database or cloud memory. Topic rates use a unique-population empirical prior rather than multiplying observations by tag count. Trend claims require reviewed detected-cue precision, exposure in both windows, replication across days, event support, a material effect, and multiplicity control. These are observational associations, not latent-interest estimates or causal claims; the next measurement tranche will separately quantify sensor-observable face time so camera occlusion cannot masquerade as reduced reactivity.</p>
+      <p className={styles.footnote}>Measurement versioning is explicit. Legacy v1 records use target-attributed camera-on duration. Sensor-observable v2 records separately preserve target-attributed wall time, bounded local vision-callback time, and face-observable time; v2 scientific rates use only face-observable exposure and v2-linked cue episodes. v1 and v2 are never blended into a trend, so an instrumentation upgrade cannot masquerade as a personal change. Callback gaps are capped before time is credited, making stalls and background suspension missing data rather than negative reactions. Frames, face landmarks, biometric templates, identity embeddings, and raw expression streams are never written to this database or cloud memory. Topic rates remain observational associations, not latent-interest estimates or causal claims.</p>
     </section>
   );
 }
