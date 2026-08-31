@@ -16,6 +16,9 @@ function prepareForGameNetwork(html: string) {
   const focusable = html.includes('<canvas id=c tabindex=0')
     ? html
     : html.replace('<canvas id=c ', '<canvas id=c tabindex=0 ');
+  if (!focusable.includes('<canvas id=c tabindex=0')) {
+    throw new Error('Pinned Stretchicorn artifact no longer exposes the expected canvas shell.');
+  }
   if (focusable.includes('/game-runtimes/game-network-bridge.js')) return focusable;
   return focusable.includes('</body>')
     ? focusable.replace('</body>', `${GAME_NETWORK_BRIDGE}</body>`)
@@ -51,7 +54,17 @@ export async function GET(_request: Request, { params }: StretchicornRuntimeRout
     });
   }
 
-  return new NextResponse(prepareForGameNetwork(html), {
+  let body: string;
+  try {
+    body = prepareForGameNetwork(html);
+  } catch {
+    return new NextResponse('Pinned Stretchicorn runtime artifact failed its host integration check.', {
+      status: 502,
+      headers: { 'Cache-Control': 'no-store' },
+    });
+  }
+
+  return new NextResponse(body, {
     status: 200,
     headers: {
       'Content-Type': 'text/html; charset=utf-8',
