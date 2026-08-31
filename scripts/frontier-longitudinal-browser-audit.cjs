@@ -49,6 +49,10 @@ async function run() {
     // hydration sentinel. Selecting Radar before React owns the SSR <select> can
     // otherwise mutate only the raw DOM and get reverted during hydration.
     let feedRequests = 0;
+    let resolveFirstFeedFulfillment;
+    const firstFeedFulfillment = new Promise((resolve) => {
+      resolveFirstFeedFulfillment = resolve;
+    });
     await page.route('**/api/frontier/feed**', async (route) => {
       feedRequests += 1;
       await route.fulfill({
@@ -60,6 +64,8 @@ async function run() {
           sources: [{ id: 'rss', label: 'Longitudinal CI', ok: true, count: 0 }],
         }),
       });
+      resolveFirstFeedFulfillment?.();
+      resolveFirstFeedFulfillment = undefined;
     });
     await page.route('**/api/frontier/forage**', async (route) => {
       await route.fulfill({
@@ -73,6 +79,10 @@ async function run() {
     const response = await page.goto(url, { waitUntil: 'domcontentloaded' });
     invariant(response && response.ok(), `FRONTIER route returned ${response?.status() ?? 'no response'}`);
     await hydrationRequest;
+    // `waitForRequest` fires when the browser emits the request, before an async
+    // route handler is guaranteed to run. Await fulfillment as the authoritative
+    // hydration boundary so this audit cannot race its own deterministic stub.
+    await firstFeedFulfillment;
     invariant(feedRequests >= 1, 'FRONTIER client hydration never issued its feed request');
 
     const viewSelect = page.locator('select[aria-label="View"]');
