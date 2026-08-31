@@ -10,6 +10,12 @@ export type FrontierEditorialFamily =
   | 'culture'
   | 'leisure';
 
+export type FrontierSlateTastePolicy = 'production' | 'disabled';
+
+export type FrontierAdaptiveSlateOptions = {
+  tastePolicy?: FrontierSlateTastePolicy;
+};
+
 export type FrontierSlateFamilyDiagnostic = {
   family: FrontierEditorialFamily;
   demand: number;
@@ -168,31 +174,46 @@ function rankSignal(index: number): number {
   return 1 / (1 + index * 0.11);
 }
 
-function utilityFromEvidence(item: FrontierItem, index: number, taste: number): number {
-  const genericLeisurePenalty = ['life', 'internet_culture', 'wildcards'].includes(item.lane)
+function utilityFromEvidence(
+  item: FrontierItem,
+  index: number,
+  taste: number,
+  tastePolicy: FrontierSlateTastePolicy,
+): number {
+  const tasteEnabled = tastePolicy === 'production';
+  const genericLeisurePenalty = tasteEnabled
+    && ['life', 'internet_culture', 'wildcards'].includes(item.lane)
     && taste <= EXPLICIT_TASTE_THRESHOLD
     ? 0.12
     : 0;
-  const genericAiPenalty = item.lane === 'ai_frontier' && taste <= EXPLICIT_TASTE_THRESHOLD && item.importance < 0.82
+  const genericAiPenalty = tasteEnabled
+    && item.lane === 'ai_frontier'
+    && taste <= EXPLICIT_TASTE_THRESHOLD
+    && item.importance < 0.82
     ? 0.08
     : 0;
+  const tasteUtility = tasteEnabled ? clamp(taste, 0, 0.3) * 0.42 : 0;
 
   return (
     rankSignal(index) * 0.62
     + item.quality * 0.11
     + item.importance * 0.11
-    + clamp(taste, 0, 0.3) * 0.42
+    + tasteUtility
     + item.novelty * 0.035
     - genericLeisurePenalty
     - genericAiPenalty
   );
 }
 
-function prepareCandidates(ranked: FrontierItem[]): CandidateMeta[] {
+function prepareCandidates(
+  ranked: FrontierItem[],
+  tastePolicy: FrontierSlateTastePolicy,
+): CandidateMeta[] {
   // Personal-taste classification performs semantic pattern matching. Compute it
-  // exactly once per candidate rather than inside every allocation scan.
+  // exactly once per candidate in production; the disabled diagnostic path does
+  // not need to evaluate fixed taste at all.
   return ranked.map((item, index) => {
-    const taste = personalTasteRankingPrior(item);
+    const taste = tastePolicy === 'production' ? personalTasteRankingPrior(item) : 0;
     return {
       item,
       index,
@@ -200,7 +221,7 @@ function prepareCandidates(ranked: FrontierItem[]): CandidateMeta[] {
       realm: FRONTIER_LANE_MAP[item.lane].realm,
       sourceBucket: frontierSourceBucket(item),
       taste,
-      allocationUtility: utilityFromEvidence(item, index, taste),
+      allocationUtility: utilityFromEvidence(item, index, taste, tastePolicy),
       isUtility: isFrontierUtilityItem(item),
     };
   });
@@ -291,6 +312,7 @@ function bestEligible(
   state: SelectionState,
   limit: number,
   targetShare: Record<FrontierEditorialFamily, number>,
+  tastePolicy: FrontierSlateTastePolicy,
   realm?: FrontierRealm,
 ): CandidateMeta | undefined {
   const laneCap = Math.max(2, Math.ceil(limit * MAX_LANE_SHARE));
@@ -312,9 +334,12 @@ function bestEligible(
     if (sameSource >= MAX_SOURCE_BUCKET_ITEMS) continue;
 
     // Generic AI gets one easy slot, then must compete as genuinely personalized
-    // material. Strong/important AI is not subject to this special brake.
+    // material. Strong/important AI is not subject to this special brake. The
+    // diagnostic disabled path removes this taste-keyed gate together with the
+    // taste utility and generic-content penalties.
     if (
-      item.lane === 'ai_frontier'
+      tastePolicy === 'production'
+      && item.lane === 'ai_frontier'
       && taste <= EXPLICIT_TASTE_THRESHOLD
       && item.importance < 0.82
       && sameLane >= 1
@@ -335,11 +360,16 @@ function bestEligible(
   return winner?.candidate;
 }
 
-export function selectAdaptiveDailyAllocation(ranked: FrontierItem[], limit: number): FrontierItem[] {
+export function selectAdaptiveDailyAllocation(
+  ranked: FrontierItem[],
+  limit: number,
+  options: FrontierAdaptiveSlateOptions = {},
+): FrontierItem[] {
   const boundedLimit = Math.max(0, Math.floor(limit));
   if (!boundedLimit || !ranked.length) return [];
+  const tastePolicy = options.tastePolicy ?? 'production';
 
-  const allCandidates = prepareCandidates(ranked);
+  const allCandidates = prepareCandidates(ranked, tastePolicy);
   const rerankWindow = allCandidates.slice(0, frontierRerankWindowSize(boundedLimit, allCandidates.length));
   const state = createSelectionState();
   const targets = familyTargetsFromDemand(familyDemands(rerankWindow));
@@ -361,12 +391,12 @@ export function selectAdaptiveDailyAllocation(ranked: FrontierItem[], limit: num
   if (boundedLimit >= 4) {
     for (const realm of ['learn', 'play'] as const) {
       if (state.selected.length >= boundedLimit || count(state.realmCounts, realm) > 0) continue;
-      addCandidate(state, bestEligible(rerankWindow, state, boundedLimit, targets, realm));
+      addCandidate(state, bestEligible(rerankWindow, state, boundedLimit, targets, tastePolicy, realm));
     }
   }
 
   while (state.selected.length < boundedLimit) {
-    const next = bestEligible(rerankWindow, state, boundedLimit, targets);
+    const next = bestEligible(rerankWindow, state, boundedLimit, targets, tastePolicy);
     if (!next) break;
     addCandidate(state, next);
   }
@@ -380,8 +410,10 @@ export function slateCompositionDiagnostics(
   ranked: FrontierItem[],
   selected: FrontierItem[],
   limit = selected.length,
+  options: FrontierAdaptiveSlateOptions = {},
 ): FrontierSlateFamilyDiagnostic[] {
-  const candidates = prepareCandidates(ranked);
+  const tastePolicy = options.tastePolicy ?? 'production';
+  const candidates = prepareCandidates(ranked, tastePolicy);
   const rerankWindow = candidates.slice(0, frontierRerankWindowSize(Math.max(limit, selected.length), candidates.length));
   const demand = familyDemands(rerankWindow);
   const targets = familyTargetsFromDemand(demand);
