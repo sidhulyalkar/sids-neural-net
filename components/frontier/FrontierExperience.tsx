@@ -27,6 +27,7 @@ import {
   frontierSeenSignatures,
   migrateFrontierHistoryToSeenLedger,
 } from '@/lib/frontier/live/seenLedger';
+import { buildFrontierLiveAuthorityBridge } from '@/lib/frontier/liveAuthorityBridge';
 import { buildPairEvidenceIndex } from '@/lib/frontier/pairEvidence';
 import type { FrontierObservableFeedResponse } from '@/lib/frontier/pipelineDiagnostics';
 import {
@@ -461,6 +462,28 @@ export function FrontierExperience({ initialDateLabel, initialDayKey }: Props) {
     && !frontierSeenSignatures(item).some((signature) => dailySignatures.has(signature))
   )), [dailySignatures, realm, streamItems]);
   const todayItems = useMemo(() => dedupeCanonical([...dailyRun, ...streamedToday]), [dailyRun, streamedToday]);
+  const liveAuthority = useMemo(() => (
+    realmRanked.length
+      ? buildFrontierLiveAuthorityBridge({
+          realmRanked,
+          profile: store.profile,
+          history: store.history,
+          behavior: store.behavior,
+          limit: INITIAL_BROWSE_TARGET,
+          pairEvidence,
+          sessionIntent,
+          directPreferenceEvidence,
+        })
+      : null
+  ), [
+    directPreferenceEvidence,
+    pairEvidence,
+    realmRanked,
+    sessionIntent,
+    store.behavior,
+    store.history,
+    store.profile,
+  ]);
 
   useEffect(() => {
     recordFrontierClientSelection({
@@ -468,8 +491,10 @@ export function FrontierExperience({ initialDateLabel, initialDayKey }: Props) {
       realmEligible: realmRanked.length,
       selected: dailyRun.length,
       boardInput: todayItems.length,
+      rankAuthority: liveAuthority?.rankAuthority ?? null,
+      slateTasteAuthority: liveAuthority?.slateTasteAuthority ?? null,
     });
-  }, [dailyRun.length, ranked.length, realmRanked.length, todayItems.length]);
+  }, [dailyRun.length, liveAuthority, ranked.length, realmRanked.length, todayItems.length]);
 
   const exploreRanked = useMemo(
     () => rankFrontierItems(
