@@ -289,6 +289,30 @@ function parseArray<T extends { id: string }>(
   return result;
 }
 
+function analyticallyUnique(
+  exposures: LongitudinalExposure[],
+  reactions: LongitudinalReactionEpisode[],
+  interactions: LongitudinalInteraction[],
+  rollups: LongitudinalRollup[],
+): boolean {
+  const semanticRollups = new Set<string>();
+  const rollupDays = new Set<string>();
+  for (const rollup of rollups) {
+    const semanticKey = `${rollup.dayKey}|${rollup.dimension}|${rollup.key}`;
+    if (semanticRollups.has(semanticKey)) return false;
+    semanticRollups.add(semanticKey);
+    rollupDays.add(rollup.dayKey);
+  }
+
+  // v19 compaction owns complete local-day buckets. Raw and compacted analytical
+  // rows for the same day would double-count history even when every object-store
+  // identifier is unique, so complete archive import fails closed.
+  for (const entry of [...exposures, ...reactions, ...interactions]) {
+    if (rollupDays.has(entry.dayKey)) return false;
+  }
+  return true;
+}
+
 export function parseLongitudinalArchive(value: unknown): LongitudinalArchive | null {
   if (!isObject(value) || value.schema !== 'frontier-longitudinal-v1') return null;
   const exportedAt = iso(value.exportedAt);
@@ -304,5 +328,6 @@ export function parseLongitudinalArchive(value: unknown): LongitudinalArchive | 
   const checkins = parseArray(value.checkins, LONGITUDINAL_ARCHIVE_LIMITS.checkins, parseCheckin);
   const rollups = parseArray(value.rollups, LONGITUDINAL_ARCHIVE_LIMITS.rollups, parseRollup);
   if (!exposures || !reactions || !interactions || !checkins || !rollups) return null;
+  if (!analyticallyUnique(exposures, reactions, interactions, rollups)) return null;
   return { schema: 'frontier-longitudinal-v1', exportedAt, exposures, reactions, interactions, checkins, rollups };
 }
