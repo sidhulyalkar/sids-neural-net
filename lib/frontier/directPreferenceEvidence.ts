@@ -68,6 +68,19 @@ function normalize(value: string): string {
   return String(value ?? '').toLowerCase().trim();
 }
 
+function normalizedUniqueTopics(tags: string[], limit = MAX_ITEM_TOPICS): string[] {
+  const unique: string[] = [];
+  const seen = new Set<string>();
+  for (const tag of tags) {
+    const normalized = normalize(tag);
+    if (!normalized || seen.has(normalized)) continue;
+    seen.add(normalized);
+    unique.push(normalized);
+    if (unique.length >= limit) break;
+  }
+  return unique;
+}
+
 function evidenceKey(dimension: FrontierDirectPreferenceDimension, value: string): string {
   return `${dimension}:${normalize(value)}`;
 }
@@ -190,8 +203,8 @@ export function buildDirectPreferenceEvidenceIndex(
     if (!evidence) continue;
     addEvidence(raw, 'lane', entry.item.lane, evidence.signed, evidence.timestamp);
     addEvidence(raw, 'source', entry.item.sourceKind, evidence.signed, evidence.timestamp);
-    for (const tag of entry.item.tags.slice(0, MAX_ITEM_TOPICS)) {
-      addEvidence(raw, 'topic', tag, evidence.signed, evidence.timestamp);
+    for (const topic of normalizedUniqueTopics(entry.item.tags)) {
+      addEvidence(raw, 'topic', topic, evidence.signed, evidence.timestamp);
     }
   }
   return new Map(Array.from(raw.entries()).map(([key, value]) => [key, finalizeEvidence(key, value)]));
@@ -258,13 +271,14 @@ export function directPreferenceSignalsForItem(
     item.sourceKind,
     index,
   );
-  const topicSignal = item.tags.length
-    ? item.tags.reduce((sum, tag) => sum + effectiveDirectPreferenceAffinity(
-      profile.topicAffinity[tag.toLowerCase()] ?? 0,
+  const topics = normalizedUniqueTopics(item.tags);
+  const topicSignal = topics.length
+    ? topics.reduce((sum, topic) => sum + effectiveDirectPreferenceAffinity(
+      profile.topicAffinity[topic] ?? 0,
       'topic',
-      tag,
+      topic,
       index,
-    ), 0) / item.tags.length
+    ), 0) / topics.length
     : 0;
   return { laneAffinity, sourceAffinity, topicSignal };
 }
