@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 
-const UNIRICO_VERSION = 'v0.19.0';
-const UNIRICO_SOURCE_COMMIT = '13de2151bb2731557392e3399354ee7e744415f3';
+const UNIRICO_VERSION = 'v0.20.0';
+const UNIRICO_SOURCE_COMMIT = 'a9350c6a47d5fa2cac85ffb8e4874cffc87ef2a2';
 const SOURCE_ROOT = `https://raw.githubusercontent.com/sidhulyalkar/uniRico/${UNIRICO_SOURCE_COMMIT}/src`;
 const GAME_NETWORK_BRIDGE = '<script src="/game-runtimes/game-network-bridge.js"></script>';
 
