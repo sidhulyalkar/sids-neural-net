@@ -1,10 +1,12 @@
 import type { FrontierAmbientReactionKind } from './reaction';
+import { FRONTIER_SENSOR_MEASUREMENT_VERSION } from './sensorObservability';
 import type { FrontierLaneId, FrontierReaction, FrontierSourceKind } from './types';
 
 export type LongitudinalReactionReview = 'confirmed' | 'contradicted';
 export type LongitudinalInteractionKind = 'dwell' | 'expand' | 'open' | 'save' | 'unsave' | 'reaction';
 export type LongitudinalRollupDimension = 'lane' | 'topic' | 'format';
 export type LongitudinalScale = 1 | 2 | 3 | 4 | 5;
+export type LongitudinalMeasurementVersion = typeof FRONTIER_SENSOR_MEASUREMENT_VERSION;
 
 export type LongitudinalItemContext = {
   itemId: string;
@@ -20,13 +22,17 @@ export type LongitudinalExposure = LongitudinalItemContext & {
   startedAt: number;
   endedAt: number;
   dayKey: string;
-  /** Attributed target time, regardless of whether the face detector had a usable face. */
+  /** Target-attributed wall duration. */
   durationMs: number;
-  /** Time within durationMs for which the face sensor was actually observable. Undefined means legacy/unknown coverage. */
-  sensorObservableMs?: number;
   attributionMean: number;
   attributionMin: number;
   visibleFractionMean: number;
+  /** Absent means legacy v1 camera-on denominator semantics. */
+  measurementVersion?: LongitudinalMeasurementVersion;
+  /** Bounded time between actual local vision callbacks while this target was attributable. */
+  sensorSampledMs?: number;
+  /** Subset of sensorSampledMs for which the local face model returned a usable face. */
+  faceObservableMs?: number;
 };
 
 export type LongitudinalReactionEpisode = LongitudinalItemContext & {
@@ -72,10 +78,7 @@ export type LongitudinalRollup = {
   dayKey: string;
   dimension: LongitudinalRollupDimension;
   key: string;
-  /** Attributed target exposure represented by this complete-day cell. */
   exposureMs: number;
-  /** Sensor-observable subset. Undefined means at least some source exposure lacked observability instrumentation. */
-  sensorObservableMs?: number;
   exposures: number;
   reactions: number;
   explicitInteractions: number;
@@ -87,6 +90,14 @@ export type LongitudinalRollup = {
   friction: number;
   confidenceSum: number;
   intensitySum: number;
+  /** v2 measurement subset. Undefined means historical rollup predating observability accounting. */
+  sensorMeasuredWallMs?: number;
+  sensorSampledMs?: number;
+  faceObservableMs?: number;
+  sensorMeasuredExposures?: number;
+  sensorMeasuredReactions?: number;
+  sensorMeasuredConfirmed?: number;
+  sensorMeasuredContradicted?: number;
   compactedAt: number;
 };
 
@@ -114,10 +125,7 @@ export function longitudinalDayKey(at: number): string {
   return `${year}-${month}-${day}`;
 }
 
-/**
- * Stable local-calendar window. Local Date#setDate is intentional because fixed
- * millisecond arithmetic is not equivalent to calendar days across DST changes.
- */
+/** Stable local-calendar window. Date#setDate is intentional across DST changes. */
 export function longitudinalDayWindow(
   days: number,
   now = Date.now(),
@@ -126,12 +134,10 @@ export function longitudinalDayWindow(
   const boundedDays = Math.max(1, Math.min(3650, Math.round(days)));
   const currentDay = new Date(now);
   currentDay.setHours(0, 0, 0, 0);
-
   const endExclusive = new Date(currentDay);
   endExclusive.setDate(endExclusive.getDate() + 1 + endOffsetDays);
   const start = new Date(endExclusive);
   start.setDate(start.getDate() - boundedDays);
-
   return {
     days: boundedDays,
     startDay: longitudinalDayKey(start.getTime()),
