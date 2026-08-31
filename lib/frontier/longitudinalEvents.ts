@@ -13,6 +13,8 @@ import {
 } from './longitudinalModel';
 
 export const MIN_QUALIFIED_EXPOSURE_MS = 700;
+export const MIN_SENSOR_OBSERVABLE_EXPOSURE_MS = 700;
+export const MIN_SENSOR_OBSERVABILITY_COVERAGE = 0.55;
 
 function clamp01(value: number): number {
   return Math.max(0, Math.min(1, Number.isFinite(value) ? value : 0));
@@ -74,22 +76,29 @@ export function createLongitudinalExposure(
     attributionMean: number;
     attributionMin: number;
     visibleFractionMean: number;
+    /** Fraction of attributed samples where the face sensor produced a usable face. */
+    sensorObservableFraction?: number;
   },
 ): LongitudinalExposure {
   const startedAt = Number.isFinite(input.startedAt) ? input.startedAt : Date.now();
   const endedAt = Math.max(startedAt, Number.isFinite(input.endedAt) ? input.endedAt : startedAt);
-  return {
+  const durationMs = boundedMs(endedAt - startedAt);
+  const exposure: LongitudinalExposure = {
     id: input.id ?? eventId('exposure'),
     sessionId: input.sessionId ?? currentLongitudinalSessionId(),
     ...longitudinalItemContext(item),
     startedAt,
     endedAt,
     dayKey: longitudinalDayKey(startedAt),
-    durationMs: boundedMs(endedAt - startedAt),
+    durationMs,
     attributionMean: clamp01(input.attributionMean),
     attributionMin: clamp01(input.attributionMin),
     visibleFractionMean: clamp01(input.visibleFractionMean),
   };
+  if (input.sensorObservableFraction !== undefined) {
+    exposure.sensorObservableMs = durationMs * clamp01(input.sensorObservableFraction);
+  }
+  return exposure;
 }
 
 export function isQualifiedLongitudinalExposure(exposure: LongitudinalExposure): boolean {
@@ -97,6 +106,18 @@ export function isQualifiedLongitudinalExposure(exposure: LongitudinalExposure):
     && exposure.attributionMean >= 0.38
     && exposure.attributionMin >= 0.2
     && exposure.visibleFractionMean >= 0.34;
+}
+
+/**
+ * Stronger admission gate used only before passive sensor evidence can touch the
+ * preference model. Historical storage still retains attributed exposure with low
+ * observability so coverage failures remain measurable instead of disappearing.
+ */
+export function isSensorObservableLongitudinalExposure(exposure: LongitudinalExposure): boolean {
+  if (!isQualifiedLongitudinalExposure(exposure) || exposure.sensorObservableMs === undefined) return false;
+  const coverage = exposure.durationMs > 0 ? exposure.sensorObservableMs / exposure.durationMs : 0;
+  return exposure.sensorObservableMs >= MIN_SENSOR_OBSERVABLE_EXPOSURE_MS
+    && coverage >= MIN_SENSOR_OBSERVABILITY_COVERAGE;
 }
 
 export function createLongitudinalReaction(
