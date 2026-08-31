@@ -1,3 +1,4 @@
+import type { FrontierDailyRunTasteAuthorityAudit } from './dailyRunTasteAuthorityAudit';
 import type { FrontierBootstrapTasteCapAudit } from './pipelineDiagnostics';
 import type {
   FrontierRankAuthorityAudit,
@@ -28,10 +29,14 @@ export type FrontierPreferenceAuthorityRank = {
   fixedTaste: FrontierRankAuthorityComponentAudit | null;
 };
 
+export type FrontierPreferenceAuthoritySlateAudit =
+  | FrontierSlateTasteAuthorityAudit
+  | FrontierDailyRunTasteAuthorityAudit;
+
 export type FrontierPreferenceAuthoritySlate = {
   scope: 'slate-whole-fixed-taste-policy';
   observed: boolean;
-  audit: FrontierSlateTasteAuthorityAudit | null;
+  audit: FrontierPreferenceAuthoritySlateAudit | null;
 };
 
 export type FrontierPreferenceAuthorityReport = {
@@ -52,11 +57,21 @@ function membershipChanged(component: FrontierRankAuthorityComponentAudit | null
   return Boolean(component && (component.protectedTopK > 0 || component.displacedTopK > 0));
 }
 
+function rankComponentActive(component: FrontierRankAuthorityComponentAudit): boolean {
+  return component.protectedTopK > 0
+    || component.displacedTopK > 0
+    || component.meanAbsoluteRankMovement > 1e-9
+    || component.maxAbsoluteRankMovement > 0
+    || component.meanAbsoluteScoreContribution > 1e-9
+    || component.maxAbsoluteScoreContribution > 1e-9;
+}
+
 function strongestRankComponent(
   audit: FrontierRankAuthorityAudit | null | undefined,
 ): FrontierRankAuthorityComponentAudit | null {
-  if (!audit?.components.length) return null;
-  return [...audit.components].sort((left, right) => (
+  const active = audit?.components.filter(rankComponentActive) ?? [];
+  if (!active.length) return null;
+  return [...active].sort((left, right) => (
     right.protectedTopK - left.protectedTopK
     || right.displacedTopK - left.displacedTopK
     || right.meanAbsoluteRankMovement - left.meanAbsoluteRankMovement
@@ -75,12 +90,14 @@ function component(
 /**
  * Compose existing anonymous audits without changing their causal scope. Server
  * survival, browser additive rank movement and whole-policy slate composition
- * are deliberately not normalized, summed or averaged.
+ * are deliberately not normalized, summed or averaged. The slate input may be
+ * the qualified raw allocator audit or the v18 composite daily-run audit; both
+ * expose the same aggregate membership contract while naming their causal scope.
  */
 export function buildFrontierPreferenceAuthorityReport(input: {
   server?: FrontierBootstrapTasteCapAudit | null;
   rank?: FrontierRankAuthorityAudit | null;
-  slate?: FrontierSlateTasteAuthorityAudit | null;
+  slate?: FrontierPreferenceAuthoritySlateAudit | null;
 }): FrontierPreferenceAuthorityReport {
   const serverAudit = input.server ?? null;
   const rankAudit = input.rank ?? null;

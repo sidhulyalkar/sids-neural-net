@@ -1,3 +1,4 @@
+import type { FrontierDailyRunTasteAuthorityAudit } from './dailyRunTasteAuthorityAudit';
 import type { FrontierPipelineDiagnostics } from './pipelineDiagnostics';
 import type { FrontierRankAuthorityAudit } from './rankAuthorityAudit';
 import type { FrontierSlateTasteAuthorityAudit } from './slateTasteAuthorityAudit';
@@ -24,9 +25,15 @@ export type FrontierClientPipelineSnapshot = {
   boardInput: number | null;
   /** Anonymous, current-cohort rank counterfactual. Never persisted. */
   rankAuthority: FrontierRankAuthorityAudit | null;
-  /** Anonymous, current-cohort fixed-taste slate counterfactual. Never persisted. */
-  slateTasteAuthority: FrontierSlateTasteAuthorityAudit | null;
+  /**
+   * Anonymous, current-cohort fixed-taste counterfactual. v17 can carry the raw
+   * adaptive allocator audit; v18 live Today cohorts use the composite daily-run
+   * audit that also preserves the canonical 14-card prefix. Never persisted.
+   */
+  slateTasteAuthority: FrontierSlateTasteAuthorityAudit | FrontierDailyRunTasteAuthorityAudit | null;
 };
+
+export type FrontierClientSelectionToken = number;
 
 const EMPTY_CLIENT_PIPELINE: FrontierClientPipelineSnapshot = {
   schema: FRONTIER_CLIENT_PIPELINE_SCHEMA,
@@ -43,6 +50,8 @@ const EMPTY_CLIENT_PIPELINE: FrontierClientPipelineSnapshot = {
 };
 
 let snapshot: FrontierClientPipelineSnapshot = EMPTY_CLIENT_PIPELINE;
+let generation = 0;
+let activeSelectionToken: FrontierClientSelectionToken | null = null;
 const listeners = new Set<() => void>();
 
 function safeCount(value: number): number {
@@ -57,6 +66,11 @@ function publish(next: FrontierClientPipelineSnapshot): void {
   }
 }
 
+function invalidateSelectionAuthority(): void {
+  generation += 1;
+  activeSelectionToken = null;
+}
+
 export function recordFrontierClientFeed(input: {
   server?: FrontierPipelineDiagnostics;
   received: number;
@@ -64,6 +78,7 @@ export function recordFrontierClientFeed(input: {
   rotationReady: number;
   at?: number;
 }): void {
+  invalidateSelectionAuthority();
   publish({
     schema: FRONTIER_CLIENT_PIPELINE_SCHEMA,
     at: input.at ?? Date.now(),
@@ -80,15 +95,22 @@ export function recordFrontierClientFeed(input: {
   });
 }
 
+/**
+ * Publish the current selection boundary immediately and return an opaque token
+ * that may later attach deferred authority diagnostics to this exact cohort.
+ * A newer feed, selection, or reset invalidates the token.
+ */
 export function recordFrontierClientSelection(input: {
   ranked: number;
   realmEligible: number;
   selected: number;
   boardInput: number;
   rankAuthority?: FrontierRankAuthorityAudit | null;
-  slateTasteAuthority?: FrontierSlateTasteAuthorityAudit | null;
+  slateTasteAuthority?: FrontierSlateTasteAuthorityAudit | FrontierDailyRunTasteAuthorityAudit | null;
   at?: number;
-}): void {
+}): FrontierClientSelectionToken {
+  generation += 1;
+  activeSelectionToken = generation;
   publish({
     ...snapshot,
     at: input.at ?? Date.now(),
@@ -99,6 +121,26 @@ export function recordFrontierClientSelection(input: {
     rankAuthority: input.rankAuthority ?? null,
     slateTasteAuthority: input.slateTasteAuthority ?? null,
   });
+  return activeSelectionToken;
+}
+
+/**
+ * Patch aggregate authority onto the selection that produced it. Stale deferred
+ * work is rejected silently so observability can never misattribute an older
+ * cohort to a newer feed or realm selection.
+ */
+export function recordFrontierClientAuthority(input: {
+  selectionToken: FrontierClientSelectionToken;
+  rankAuthority: FrontierRankAuthorityAudit;
+  slateTasteAuthority: FrontierSlateTasteAuthorityAudit | FrontierDailyRunTasteAuthorityAudit;
+}): boolean {
+  if (activeSelectionToken !== input.selectionToken) return false;
+  publish({
+    ...snapshot,
+    rankAuthority: input.rankAuthority,
+    slateTasteAuthority: input.slateTasteAuthority,
+  });
+  return true;
 }
 
 export function readFrontierClientPipeline(): FrontierClientPipelineSnapshot {
@@ -115,5 +157,6 @@ export function subscribeFrontierClientPipeline(listener: () => void): () => voi
 }
 
 export function clearFrontierClientPipeline(): void {
+  invalidateSelectionAuthority();
   publish(EMPTY_CLIENT_PIPELINE);
 }

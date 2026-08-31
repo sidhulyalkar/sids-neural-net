@@ -42,3 +42,32 @@ test('only the authoritative request may settle the loading skeleton', () => {
 test('opportunistic local feed cache is bounded to hours rather than a day-plus stale window', () => {
   assert.match(experience, /FEED_CACHE_MAX_AGE_MS = 4 \* 60 \* 60_000/);
 });
+
+test('Today authority stays on the real realm-ranked cohort but runs after the useful-paint path', () => {
+  assert.match(experience, /buildFrontierLiveAuthorityBridge/);
+  assert.doesNotMatch(experience, /const liveAuthority = useMemo/);
+  assert.match(experience, /const selectionToken = recordFrontierClientSelection\(\{/);
+  assert.match(experience, /return scheduleFrontierDiagnostic\(\(\) => \{/);
+
+  const schedulerIndex = experience.indexOf('return scheduleFrontierDiagnostic(() => {');
+  const auditIndex = experience.indexOf('const authority = buildFrontierLiveAuthorityBridge({');
+  assert(schedulerIndex >= 0 && auditIndex > schedulerIndex, 'authority counterfactual must remain inside the deferred scheduler');
+
+  const authorityBlock = experience.slice(auditIndex, experience.indexOf('recordFrontierClientAuthority({', auditIndex));
+  assert.match(authorityBlock, /realmRanked,/);
+  assert.match(authorityBlock, /limit: INITIAL_BROWSE_TARGET/);
+  assert.match(authorityBlock, /now,/);
+  assert.match(authorityBlock, /pairEvidence,/);
+  assert.match(authorityBlock, /sessionIntent,/);
+  assert.match(authorityBlock, /directPreferenceEvidence,/);
+
+  const patchBlock = experience.slice(
+    experience.indexOf('recordFrontierClientAuthority({', auditIndex),
+    experience.indexOf('});', experience.indexOf('recordFrontierClientAuthority({', auditIndex)) + 3,
+  );
+  assert.match(patchBlock, /selectionToken,/);
+  assert.match(patchBlock, /rankAuthority: authority\.rankAuthority/);
+  assert.match(patchBlock, /slateTasteAuthority: authority\.slateTasteAuthority/);
+  assert.doesNotMatch(patchBlock, /items:/);
+  assert.doesNotMatch(patchBlock, /realmRanked:/);
+});

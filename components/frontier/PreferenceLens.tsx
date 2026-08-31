@@ -16,7 +16,10 @@ import {
 } from '@/lib/frontier/decisionLedger';
 import { auditFrontierExposure, type FrontierExposureAudit } from '@/lib/frontier/exposureAudit';
 import { auditFrontierPipelineHealth } from '@/lib/frontier/pipelineHealth';
-import { buildFrontierPreferenceAuthorityReport } from '@/lib/frontier/preferenceAuthorityReport';
+import {
+  buildFrontierPreferenceAuthorityReport,
+  type FrontierPreferenceAuthoritySlateAudit,
+} from '@/lib/frontier/preferenceAuthorityReport';
 import type { FrontierRankAuthorityComponent } from '@/lib/frontier/rankAuthorityAudit';
 import { useFrontierStore } from '@/lib/frontier/store';
 import type { FrontierBehaviorModel, FrontierLaneId } from '@/lib/frontier/types';
@@ -62,6 +65,19 @@ function authorityComponentLabel(component: FrontierRankAuthorityComponent): str
     case 'session-intent': return 'Session intent';
     case 'exploration': return 'Exploration';
   }
+}
+
+function slateAuthorityLabel(audit: FrontierPreferenceAuthoritySlateAudit): string {
+  return audit.causalScope === 'whole-fixed-taste-daily-run-policy'
+    ? 'Daily-run taste policy'
+    : 'Allocator taste policy';
+}
+
+function slateAuthorityTitle(audit: FrontierPreferenceAuthoritySlateAudit): string {
+  if (audit.causalScope === 'whole-fixed-taste-daily-run-policy') {
+    return 'Whole fixed-taste Today-run counterfactual. The production canonical 14-card allocation is preserved first, then the same expanded allocation fills toward the requested run size. Rank order, diversity caps, realm coverage, and consequential interrupts remain enabled.';
+  }
+  return 'Raw adaptive-allocator fixed-taste counterfactual. Rank order, diversity caps, realm coverage, and consequential interrupts remain enabled.';
 }
 
 function countLabel(value: number | null | undefined): string {
@@ -175,7 +191,7 @@ export function PreferenceLens({ behavior, onToggleLearning, onResetBehavior }: 
             <strong>{countLabel(clientPipeline.received)} received → {countLabel(clientPipeline.unseen)} unseen → {countLabel(clientPipeline.selected)} selected</strong>
             <div
               className={styles.confidenceTrack}
-              title="Selected means slate-selected; actual display and visibility remain owned by the decision ledger."
+              title="Selected means daily-run selected; actual display and visibility remain owned by the decision ledger."
             >
               <div style={{ width: clientPipeline.selected === null ? '0%' : '100%' }} />
             </div>
@@ -221,7 +237,7 @@ export function PreferenceLens({ behavior, onToggleLearning, onResetBehavior }: 
               </strong>
               <div
                 className={styles.confidenceTrack}
-                title="Strongest membership-changing additive component inside the current observed rank gate. This does not undo upstream interaction gates."
+                title="Strongest active additive component inside the current observed rank gate. This does not undo upstream interaction gates."
               >
                 <div style={{ width: `${Math.round((1 - authorityReport.rank.strongestComponent.overlapRate) * 100)}%` }} />
               </div>
@@ -229,11 +245,11 @@ export function PreferenceLens({ behavior, onToggleLearning, onResetBehavior }: 
           ) : null}
           {authorityReport.slate.audit ? (
             <div className={styles.habitCard}>
-              <span>Slate taste policy</span>
+              <span>{slateAuthorityLabel(authorityReport.slate.audit)}</span>
               <strong>{authorityReport.slate.audit.protectedByTaste} protected · {authorityReport.slate.audit.displacedWithoutTaste} alternate</strong>
               <div
                 className={styles.confidenceTrack}
-                title="Whole fixed-taste slate policy counterfactual. Rank order, diversity caps, realm coverage, and consequential interrupts remain enabled."
+                title={slateAuthorityTitle(authorityReport.slate.audit)}
               >
                 <div style={{ width: `${Math.round((1 - authorityReport.slate.audit.overlapRate) * 100)}%` }} />
               </div>
