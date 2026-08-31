@@ -13,8 +13,10 @@ import {
   type LongitudinalSummary,
 } from '@/lib/frontier/longitudinal';
 import {
+  inferLongitudinalMeasurementQuality,
   inferLongitudinalTopicRates,
   inferLongitudinalTopicTrends,
+  type LongitudinalMeasurementQuality,
   type LongitudinalRateEstimate,
   type LongitudinalTopicTrend,
 } from '@/lib/frontier/longitudinalInference';
@@ -45,16 +47,27 @@ function laneLabel(value: string): string {
   return FRONTIER_LANE_MAP[value as FrontierLaneId]?.shortLabel ?? value.replaceAll('_', ' ');
 }
 
-function evidenceLabel(value: number): string {
-  if (value >= 0.75) return 'strong evidence';
-  if (value >= 0.45) return 'moderate evidence';
-  if (value >= 0.2) return 'early evidence';
-  return 'sparse evidence';
+function samplingLabel(value: number): string {
+  if (value >= 0.75) return 'well sampled';
+  if (value >= 0.45) return 'moderately sampled';
+  if (value >= 0.2) return 'early sample';
+  return 'sparse sample';
 }
 
 function trendLabel(trend: LongitudinalTopicTrend): string {
   const arrow = trend.direction === 'rising' ? '↑' : trend.direction === 'cooling' ? '↓' : '·';
-  return `${arrow} ${trend.key} · ${trend.windowDays}d ${trend.direction}`;
+  return `${arrow} ${trend.key} · ${trend.windowDays}d detected-cue shift · q=${trend.qValue.toFixed(2)}`;
+}
+
+function measurementLabel(measurement?: LongitudinalMeasurementQuality): string {
+  if (!measurement) return 'not evaluated';
+  if (measurement.status === 'supported') {
+    return `${Math.round((measurement.reviewAgreement ?? 0) * 100)}% agreement · ${measurement.reviewed} reviewed`;
+  }
+  if (measurement.status === 'questionable') {
+    return `precision gate failed · ${measurement.reviewed} reviewed`;
+  }
+  return `${measurement.reviewed}/8 reviews before trend claims`;
 }
 
 function ScaleInput({ label, value, onChange }: {
@@ -83,6 +96,7 @@ export function FrontierLongitudinalLens() {
   const [summary, setSummary] = useState<LongitudinalSummary>();
   const [rates, setRates] = useState<LongitudinalRateEstimate[]>([]);
   const [trends, setTrends] = useState<LongitudinalTopicTrend[]>([]);
+  const [measurement, setMeasurement] = useState<LongitudinalMeasurementQuality>();
   const [health, setHealth] = useState<LongitudinalStorageHealth>();
   const [mood, setMood] = useState<LongitudinalScale>(3);
   const [energy, setEnergy] = useState<LongitudinalScale>(3);
@@ -102,6 +116,7 @@ export function FrontierLongitudinalLens() {
       setHealth(nextHealth);
       setRates(inferLongitudinalTopicRates(archive, 90));
       setTrends(inferLongitudinalTopicTrends(archive, 14));
+      setMeasurement(inferLongitudinalMeasurementQuality(archive, 90));
     } catch {
       setHealth({ supported: false });
     }
@@ -176,8 +191,6 @@ export function FrontierLongitudinalLens() {
     }
   };
 
-  const reviewed = summary?.reviewed ?? 0;
-  const agreement = summary?.reviewAgreement;
   const topTopics = rates.slice(0, 6);
   const activeTrends = trends
     .filter((trend) => trend.direction === 'rising' || trend.direction === 'cooling')
@@ -186,6 +199,11 @@ export function FrontierLongitudinalLens() {
   const quotaRatio = health?.usage !== undefined && health.quota
     ? Math.min(1, health.usage / health.quota)
     : undefined;
+  const noTrendExplanation = measurement?.status === 'unvalidated'
+    ? 'Change claims are withheld until at least 8 detected cues are reviewed. Agreement estimates detected-cue precision only; it cannot measure reactions the camera missed.'
+    : measurement?.status === 'questionable'
+      ? 'Change claims are withheld because reviewed detected cues do not currently clear the 65% precision gate.'
+      : 'No 14-day detected-cue shift clears 10m exposure per window, two-day replication, four events, a 35% effect, and Benjamini–Hochberg q ≤ 0.10.';
 
   return (
     <section className={styles.lens} aria-label="Longitudinal personal observation">
@@ -193,22 +211,22 @@ export function FrontierLongitudinalLens() {
         <div>
           <span className={styles.eyebrow}><Database size={12} /> Longitudinal cortex</span>
           <h2>How your responses change</h2>
-          <p>Observable patterns over time. Facial cues are treated as noisy measurements, never as ground-truth mood or personality labels.</p>
+          <p>Descriptive measurements over time. Facial cues are noisy observables, never ground-truth mood, personality, preference, or causal evidence.</p>
         </div>
         <span className={styles.local}><ShieldCheck size={11} /> local only</span>
       </div>
 
       <div className={styles.metrics}>
-        <div><span>Qualified camera exposure</span><strong>{formatMinutes(summary?.exposureMs ?? 0)}</strong></div>
-        <div><span>Reaction episodes</span><strong>{summary?.reactions ?? 0}</strong></div>
-        <div><span>Cue agreement</span><strong>{reviewed ? `${Math.round((agreement ?? 0) * 100)}%` : 'unrated'}</strong></div>
+        <div><span>Attributed camera-on exposure</span><strong>{formatMinutes(summary?.exposureMs ?? 0)}</strong></div>
+        <div><span>Detected cue episodes</span><strong>{summary?.reactions ?? 0}</strong></div>
+        <div><span>Detected-cue precision</span><strong>{measurementLabel(measurement)}</strong></div>
         <div><span>Explicit interactions</span><strong>{summary?.explicitInteractions ?? 0}</strong></div>
       </div>
 
       <div className={styles.grid}>
         <div className={styles.panel}>
           <div className={styles.panelHead}>
-            <div><span>Subinterest reactivity</span><small>90-day shrunk rate · approximate 90% uncertainty</small></div>
+            <div><span>Subinterest detected-cue rate</span><small>90-day empirical-Bayes rate · 95% credible interval · descriptive, not causal</small></div>
           </div>
           {topTopics.length ? (
             <div className={styles.topicList}>
@@ -217,24 +235,22 @@ export function FrontierLongitudinalLens() {
                   <div>
                     <strong>{topic.key}</strong>
                     <small>
-                      {topic.reactions} reactions · {formatMinutes(topic.exposureMs)} qualified exposure · {topic.lowerPer10Min.toFixed(1)}–{topic.upperPer10Min.toFixed(1)} band · {evidenceLabel(topic.evidenceStrength)}
+                      {topic.reactions} detected cues · {formatMinutes(topic.exposureMs)} attributed exposure across {topic.observedDays}d · 95% CI {topic.lowerPer10Min.toFixed(1)}–{topic.upperPer10Min.toFixed(1)}/10m · {samplingLabel(topic.evidenceStrength)}
                     </small>
                   </div>
                   <span>{topic.ratePer10Min.toFixed(1)} / 10m</span>
                 </div>
               ))}
             </div>
-          ) : <p className={styles.empty}>Not enough qualified exposure yet. FRONTIER abstains rather than inventing a pattern.</p>}
+          ) : <p className={styles.empty}>Not enough attributed exposure yet. FRONTIER abstains rather than inventing a pattern.</p>}
           {activeTrends.length ? (
-            <div className={styles.laneRow} aria-label="Evidence-gated reactivity trends">
+            <div className={styles.laneRow} aria-label="Multiplicity-controlled detected cue trends">
               {activeTrends.map((trend) => <span key={trend.key}>{trendLabel(trend)}</span>)}
             </div>
-          ) : topTopics.length ? (
-            <p className={styles.help}>No 14-day shift clears the exposure, event-count, effect-size, and uncertainty gates yet.</p>
-          ) : null}
+          ) : topTopics.length ? <p className={styles.help}>{noTrendExplanation}</p> : null}
           {topLanes.length ? (
             <div className={styles.laneRow}>
-              {topLanes.map((lane) => <span key={lane.key}>{laneLabel(lane.key)} · {lane.reactivityPer10Min.toFixed(1)}/10m raw</span>)}
+              {topLanes.map((lane) => <span key={lane.key}>{laneLabel(lane.key)} · {lane.reactivityPer10Min.toFixed(1)}/10m raw detected cues</span>)}
             </div>
           ) : null}
         </div>
@@ -252,7 +268,7 @@ export function FrontierLongitudinalLens() {
           {summary && summary.checkins >= 3 && summary.selfReported ? (
             <p className={styles.selfReport}>90d self-report mean · mood {summary.selfReported.mood.toFixed(1)} · energy {summary.selfReported.energy.toFixed(1)} · focus {summary.selfReported.focus.toFixed(1)}</p>
           ) : (
-            <p className={styles.help}>After several check-ins, we can compare your own labels with content choices and reactivity without pretending the camera knows your internal state.</p>
+            <p className={styles.help}>After several check-ins, FRONTIER can compare your own labels with observable behavior. It will not infer an internal state from facial motion.</p>
           )}
         </div>
       </div>
@@ -274,7 +290,7 @@ export function FrontierLongitudinalLens() {
       </div>
 
       {message ? <p className={styles.message}>{message}</p> : null}
-      <p className={styles.footnote}>Stored camera-derived records contain content context, exposure duration, sparse cue class, confidence, timing, and your correction. Frames, face landmarks, biometric templates, identity embeddings, and raw expression streams are never written to this database or cloud memory. Reactivity estimates shrink sparse topics toward the observed global baseline; trend labels require qualified exposure in both windows, multiple events, a material effect, and enough posterior separation.</p>
+      <p className={styles.footnote}>Stored camera-derived records contain content context, attributed camera-on exposure, sparse cue class, confidence, timing, and your correction. Frames, face landmarks, biometric templates, identity embeddings, and raw expression streams are never written to this database or cloud memory. Topic rates use a unique-population empirical prior rather than multiplying observations by tag count. Trend claims require reviewed detected-cue precision, exposure in both windows, replication across days, event support, a material effect, and multiplicity control. These are observational associations, not latent-interest estimates or causal claims; the next measurement tranche will separately quantify sensor-observable face time so camera occlusion cannot masquerade as reduced reactivity.</p>
     </section>
   );
 }
