@@ -2,6 +2,7 @@
 
 import { type ChangeEvent, useCallback, useEffect, useRef, useState } from 'react';
 import { Camera, FileJson, FlaskConical, RotateCcw, ShieldCheck, Upload } from 'lucide-react';
+import { CameraSession } from '@/lib/media/CameraSession';
 import {
   PersonaSnapshotSchema,
   dominantSleepStage,
@@ -91,13 +92,11 @@ export function PersonaEvidencePanel({ snapshot, sourceLabel, accent, onAccent, 
   const [loadError, setLoadError] = useState<string | null>(null);
   const [cameraState, setCameraState] = useState<'off' | 'active' | 'error'>('off');
   const [cameraMessage, setCameraMessage] = useState('camera is off');
-  const streamRef = useRef<MediaStream | null>(null);
+  const cameraRef = useRef<CameraSession | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
 
   const stopCamera = useCallback(() => {
-    streamRef.current?.getTracks().forEach((track) => track.stop());
-    streamRef.current = null;
-    if (videoRef.current) videoRef.current.srcObject = null;
+    cameraRef.current?.stop();
     setCameraState('off');
     setCameraMessage('camera is off');
   }, []);
@@ -105,14 +104,17 @@ export function PersonaEvidencePanel({ snapshot, sourceLabel, accent, onAccent, 
   useEffect(() => stopCamera, [stopCamera]);
 
   const startCamera = async () => {
+    const video = videoRef.current;
+    if (!video) {
+      setCameraState('error');
+      setCameraMessage('camera surface is unavailable');
+      return;
+    }
     setCameraMessage('requesting local camera permission...');
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: false, video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: 'user' } });
-      streamRef.current = stream;
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        await videoRef.current.play();
-      }
+      const camera = cameraRef.current ?? new CameraSession();
+      cameraRef.current = camera;
+      await camera.start(video, { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: 'user' });
       setCameraState('active');
       setCameraMessage('local camera active; frames are not uploaded');
     } catch (error) {
