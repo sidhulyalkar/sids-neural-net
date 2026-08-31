@@ -3,7 +3,7 @@ import test from 'node:test';
 import { buildConnectionExposureIndex } from '../lib/frontier/connectionPortfolio';
 import { createInitialProfile } from '../lib/frontier/config';
 import { buildDirectPreferenceEvidenceIndex } from '../lib/frontier/directPreferenceEvidence';
-import { buildPairEvidenceIndex } from '../lib/frontier/pairEvidence';
+import { buildPairEvidenceIndex, pairEvidenceForItem } from '../lib/frontier/pairEvidence';
 import { auditFrontierRankAuthority } from '../lib/frontier/rankAuthorityAudit';
 import {
   frontierPersonalizedScoreBreakdown,
@@ -46,6 +46,11 @@ function neutralProfile() {
   profile.curiosity = 0.08;
   return profile;
 }
+
+test('missing pair evidence is a zero-confidence observation, not a type hole', () => {
+  const evidence = pairEvidenceForItem(item('no-pair-evidence'));
+  assert.deepEqual(evidence, { affinity: 0, confidence: 0 });
+});
 
 test('production personalized score equals the exact ordered component sum', () => {
   const now = new Date('2026-08-30T20:00:00.000Z');
