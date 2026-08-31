@@ -52,15 +52,29 @@ test('paused Sylvaria routes fall through the generic cabinet route to notFound'
   assert.doesNotMatch(browserMatrix, /testSylvaria|MOSSLIGHT_PLAYTEST|MosslightExpedition/);
 });
 
-test('Stretchicorn cabinet points at the current v0.21.1 public release', () => {
+test('Stretchicorn cabinet pins the authoritative v0.38.0 standalone release', () => {
   const game = arcadeGames.find((entry) => entry.slug === 'stretchicorn');
   assert.ok(game);
-  assert.equal(game.version, 'v0.21.1');
+  assert.equal(game.version, 'v0.38.0');
   assert.equal(game.sourceVisibility, 'public');
   assert.equal(game.repoUrl, 'https://github.com/sidhulyalkar/stretchicorn');
-  assert.equal(game.launchUrl, '/game-runtimes/stretchicorn/index.html');
+  assert.equal(game.launchUrl, '/game-runtimes/stretchicorn/v0.38.0/index.html');
+  assert.deepEqual(game.nativeSize, { width: 960, height: 640 });
   assert.ok(game.controls.some((control) => control.input === '1 / 2 / 3 / 4'));
-  assert.match(game.description, /Impossible Encore/);
+  assert.ok(game.controls.some((control) => control.input === 'Space' && /Rainbow Snap/i.test(control.action)));
+  assert.match(game.description, /13-trial desktop arcade-action/i);
+  assert.match(game.description, /three authored bosses/i);
+  assert.match(game.description, /Impossible Encore/i);
+
+  const route = readRepoFile('app/game-runtimes/stretchicorn/v0.38.0/[asset]/route.ts');
+  assert.match(route, /STRETCHICORN_VERSION = 'v0\.38\.0'/);
+  assert.match(route, /STRETCHICORN_SOURCE_COMMIT = '07d38322d5b9927a9b9eca6fec38546925801c16'/);
+  assert.match(route, /STRETCHICORN_SOURCE_ARTIFACT = 'dist\/stretchicorn-local\.html'/);
+  assert.match(route, /Stretchicorn v0\.38\.0 local playtest/);
+  assert.match(route, /max-age=31536000, immutable/);
+  assert.match(route, /X-Stretchicorn-Version/);
+  assert.match(route, /X-Stretchicorn-Source-Commit/);
+  assert.match(route, /X-Stretchicorn-Source-Artifact/);
 });
 
 test('uniRico cabinet pins the v0.20.0 50-level release with cache-safe runtime URLs', () => {
@@ -127,7 +141,7 @@ test('the Game Network index stays intentionally minimal', () => {
   assert.doesNotMatch(catalog, /game\.subtitle|game\.version|game\.description|game\.tags/);
 });
 
-test('Game Network browser validation covers v0.20.0 aim and campaign truth in four engines', () => {
+test('Game Network browser validation covers latest Stretchicorn and uniRico truth in four engines', () => {
   const workflow = readRepoFile('.github/workflows/ci.yml');
   const browserTest = readRepoFile('scripts/playtest-arcade-browsers.mjs');
 
@@ -137,6 +151,10 @@ test('Game Network browser validation covers v0.20.0 aim and campaign truth in f
   assert.match(browserTest, /channel: 'chrome'/);
   assert.match(browserTest, /testStretchicorn\(page, engineName\)/);
   assert.match(browserTest, /testUniRico\(page, engineName\)/);
+  assert.match(browserTest, /Stretchicorn v0\.38\.0/);
+  assert.match(browserTest, /stretchicorn\/v0\.38\.0\/index\.html/);
+  assert.match(browserTest, /stageCount/);
+  assert.match(browserTest, /COBTOPUS PRIME/);
   assert.match(browserTest, /uniRico v0\.20\.0/);
   assert.match(browserTest, /LEVELS\.length/);
   assert.match(browserTest, /MIRROR FULL SPECTRUM/);
@@ -148,7 +166,7 @@ test('Game Network browser validation covers v0.20.0 aim and campaign truth in f
   assert.doesNotMatch(browserTest, /testSylvaria/);
 });
 
-test('the embedded Stretchicorn fallback release remains complete', () => {
+test('the legacy embedded Stretchicorn copy remains isolated as a fallback only', () => {
   const runtimeRoot = 'public/game-runtimes/stretchicorn';
   const runtimeModules = [
     'src/style.css',
@@ -161,6 +179,9 @@ test('the embedded Stretchicorn fallback release remains complete', () => {
 
   assert.ok(existsSync(join(root, runtimeRoot, 'index.html')));
   for (const runtimeModule of runtimeModules) {
-    assert.ok(existsSync(join(root, runtimeRoot, runtimeModule)), `missing Stretchicorn runtime file: ${runtimeModule}`);
+    assert.ok(existsSync(join(root, runtimeRoot, runtimeModule)), `missing Stretchicorn fallback runtime file: ${runtimeModule}`);
   }
+
+  const catalog = readRepoFile('src/data/arcadeGames.ts');
+  assert.doesNotMatch(catalog, /ARCADE_STRETCHICORN_URL\) \?\? '\/game-runtimes\/stretchicorn\/index\.html'/);
 });
