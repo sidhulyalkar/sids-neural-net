@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { createPortal } from 'react-dom';
 import { Activity, Download, Play, Square, Trash2, X } from 'lucide-react';
 import {
@@ -47,6 +47,10 @@ const TRIAL_LABELS: Record<SensorQcTrialLabel, string> = {
   natural_browsing: 'Natural browsing',
 };
 
+const subscribeHydration = () => () => undefined;
+const hydratedClientSnapshot = () => true;
+const hydratedServerSnapshot = () => false;
+
 function pct(value?: number): string {
   return value === undefined || !Number.isFinite(value) ? '—' : `${Math.round(value * 100)}%`;
 }
@@ -57,7 +61,7 @@ function duration(ms: number): string {
 }
 
 export function FrontierSensorQcControl({ feedActive }: { feedActive: boolean }) {
-  const [mounted, setMounted] = useState(false);
+  const mounted = useSyncExternalStore(subscribeHydration, hydratedClientSnapshot, hydratedServerSnapshot);
   const [open, setOpen] = useState(false);
   const [selected, setSelected] = useState<SensorQcTrialLabel>('neutral_reading');
   const [snapshot, setSnapshot] = useState<SensorQcSnapshot>(() => getSensorQcSnapshot());
@@ -102,9 +106,7 @@ export function FrontierSensorQcControl({ feedActive }: { feedActive: boolean })
   }, []);
 
   useEffect(() => {
-    setMounted(true);
     const refresh = () => setSnapshot(getSensorQcSnapshot());
-    refresh();
     const unsubscribe = subscribeSensorQc(refresh);
     const timer = window.setInterval(refresh, 500);
     const visibility = () => {
