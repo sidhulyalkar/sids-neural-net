@@ -12,15 +12,18 @@ on:
       - 'lib/home/fractalDendriteV4.ts'
       - 'lib/home/fractalDendriteV5.ts'
       - 'lib/home/fractalDendriteV6.ts'
+      - 'lib/home/fractalResponsiveEnvelope.ts'
       - 'lib/home/fractalTheme.ts'
       - 'tests/home-dendrite-regression.test.ts'
       - 'tests/home-dendrite-v4-regression.test.ts'
       - 'tests/home-dendrite-v5-regression.test.ts'
       - 'tests/home-dendrite-v6-regression.test.ts'
+      - 'tests/fractal-responsive-envelope.test.ts'
       - 'tests/fractal-theme-echo.test.ts'
       - 'tests/fractal-crisp-topology-v13.test.ts'
       - 'scripts/playtest-arcade-home.mjs'
       - 'scripts/fractal-home-gallery.mjs'
+      - 'scripts/fractal-responsive-matrix.mjs'
       - 'tsconfig.json'
       - '.github/workflows/home-fractal.yml'
   workflow_dispatch:
@@ -35,7 +38,7 @@ concurrency:
 jobs:
   fractal-home-gate:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 35
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -64,6 +67,7 @@ jobs:
           components/neural-atlas-canvas/AdaptiveFractalStage.tsx
           components/neural-atlas-canvas/FractalCrispTopologyV13.tsx
           components/neural-atlas-canvas/FractalPublicCurationV14.tsx
+          components/neural-atlas-canvas/FractalResponsiveEnvelopeV16.tsx
           components/neural-atlas-canvas/FractalSurfaceEnhancerV2.tsx
           components/neural-atlas-canvas/FractalExperienceV3.tsx
           components/portfolio/PageShell.tsx
@@ -71,15 +75,18 @@ jobs:
           lib/home/fractalDendriteV4.ts
           lib/home/fractalDendriteV5.ts
           lib/home/fractalDendriteV6.ts
+          lib/home/fractalResponsiveEnvelope.ts
           lib/home/fractalTheme.ts
           tests/home-dendrite-regression.test.ts
           tests/home-dendrite-v4-regression.test.ts
           tests/home-dendrite-v5-regression.test.ts
           tests/home-dendrite-v6-regression.test.ts
+          tests/fractal-responsive-envelope.test.ts
           tests/fractal-theme-echo.test.ts
           tests/fractal-crisp-topology-v13.test.ts
           scripts/playtest-arcade-home.mjs
           scripts/fractal-home-gallery.mjs
+          scripts/fractal-responsive-matrix.mjs
           --no-warn-ignored
           --max-warnings=0
 
@@ -90,6 +97,7 @@ jobs:
           tests/home-dendrite-v4-regression.test.ts
           tests/home-dendrite-v5-regression.test.ts
           tests/home-dendrite-v6-regression.test.ts
+          tests/fractal-responsive-envelope.test.ts
           tests/fractal-theme-echo.test.ts
           tests/fractal-crisp-topology-v13.test.ts
 
@@ -124,6 +132,13 @@ jobs:
           ARCADE_HOME_BASE_URL: http://127.0.0.1:3000
           ARCADE_HOME_PLAYTEST_DIR: artifacts/adaptive-fractal-home
         run: node scripts/playtest-arcade-home.mjs
+
+      - name: Audit all public morphologies through live resize matrix
+        env:
+          PLAYWRIGHT_MODULE_ROOT: /tmp/home-playwright/node_modules/playwright
+          FRACTAL_HOME_BASE_URL: http://127.0.0.1:3000
+          FRACTAL_RESPONSIVE_MATRIX_DIR: artifacts/adaptive-fractal-home/responsive-matrix
+        run: node scripts/fractal-responsive-matrix.mjs
 
       - name: Capture deterministic morphology gallery
         env:

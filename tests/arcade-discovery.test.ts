@@ -52,34 +52,58 @@ test('paused Sylvaria routes fall through the generic cabinet route to notFound'
   assert.doesNotMatch(browserMatrix, /testSylvaria|MOSSLIGHT_PLAYTEST|MosslightExpedition/);
 });
 
-test('Stretchicorn cabinet points at the current v0.21.1 public release', () => {
+test('Stretchicorn cabinet pins the authoritative v0.38.0 standalone release', () => {
   const game = arcadeGames.find((entry) => entry.slug === 'stretchicorn');
   assert.ok(game);
-  assert.equal(game.version, 'v0.21.1');
+  assert.equal(game.version, 'v0.38.0');
   assert.equal(game.sourceVisibility, 'public');
   assert.equal(game.repoUrl, 'https://github.com/sidhulyalkar/stretchicorn');
-  assert.equal(game.launchUrl, '/game-runtimes/stretchicorn/index.html');
+  assert.equal(game.launchUrl, '/game-runtimes/stretchicorn/v0.38.0/index.html');
+  assert.deepEqual(game.nativeSize, { width: 960, height: 640 });
   assert.ok(game.controls.some((control) => control.input === '1 / 2 / 3 / 4'));
-  assert.match(game.description, /Impossible Encore/);
+  assert.ok(game.controls.some((control) => control.input === 'Space' && /Rainbow Snap/i.test(control.action)));
+  assert.match(game.description, /current v0\.38\.0 main release/i);
+  assert.match(game.description, /13-trial desktop arcade-action/i);
+  assert.match(game.description, /three authored bosses/i);
+  assert.match(game.description, /Impossible Encore/i);
+
+  const route = readRepoFile('app/game-runtimes/stretchicorn/v0.38.0/[asset]/route.ts');
+  assert.match(route, /STRETCHICORN_VERSION = 'v0\.38\.0'/);
+  assert.match(route, /STRETCHICORN_SOURCE_COMMIT = '07d38322d5b9927a9b9eca6fec38546925801c16'/);
+  assert.match(route, /STRETCHICORN_SOURCE_ARTIFACT = 'dist\/stretchicorn-local\.html'/);
+  assert.match(route, /Stretchicorn v0\.38\.0 local playtest/);
+  assert.match(route, /canvas id=c tabindex=0/);
+  assert.match(route, /host integration check/);
+  assert.match(route, /max-age=31536000, immutable/);
+  assert.match(route, /X-Stretchicorn-Version/);
+  assert.match(route, /X-Stretchicorn-Source-Commit/);
+  assert.match(route, /X-Stretchicorn-Source-Artifact/);
+
+  const workflow = readRepoFile('.github/workflows/ci.yml');
+  assert.match(workflow, /game-runtimes\/stretchicorn\/v0\.38\.0\/index\.html/);
+  assert.match(workflow, /x-stretchicorn-version: v0\.38\.0/i);
+  assert.match(workflow, /x-stretchicorn-source-commit: 07d38322d5b9927a9b9eca6fec38546925801c16/i);
+  assert.match(workflow, /COBTOPUS PRIME/);
 });
 
-test('uniRico cabinet pins the v0.19.0 release with cache-safe versioned runtime URLs', () => {
+test('uniRico cabinet pins the v0.20.0 50-level release with cache-safe runtime URLs', () => {
   const game = arcadeGames.find((entry) => entry.slug === 'unirico');
   assert.ok(game);
-  assert.equal(game.version, 'v0.19.0');
+  assert.equal(game.version, 'v0.20.0');
   assert.equal(game.sourceVisibility, 'public');
   assert.equal(game.repoUrl, 'https://github.com/sidhulyalkar/uniRico');
-  assert.equal(game.launchUrl, '/game-runtimes/unirico/v0.19.0/index.html');
+  assert.equal(game.launchUrl, '/game-runtimes/unirico/v0.20.0/index.html');
   assert.deepEqual(game.nativeSize, { width: 960, height: 600 });
   assert.ok(game.controls.some((control) => control.input === 'AIM wheel'));
   assert.ok(game.controls.some((control) => control.input === 'FIRE'));
-  assert.match(game.description, /first-seen mechanic demonstrations/i);
-  assert.match(game.description, /precision mobile AIM wheel/i);
+  assert.ok(game.controls.some((control) => control.input === 'Click' && /currently displayed trajectory/i.test(control.action)));
+  assert.match(game.description, /50-level deterministic/i);
+  assert.match(game.description, /Reflection Gauntlet/i);
+  assert.match(game.description, /authoritative visible desktop trajectory/i);
 
   const route = readRepoFile('app/game-runtimes/unirico/[...asset]/route.ts');
-  assert.match(route, /UNIRICO_VERSION = 'v0\.19\.0'/);
-  assert.match(route, /UNIRICO_SOURCE_COMMIT = '13de2151bb2731557392e3399354ee7e744415f3'/);
-  assert.doesNotMatch(route, /5c3737957f302e9c44917097494684419e58e757/);
+  assert.match(route, /UNIRICO_VERSION = 'v0\.20\.0'/);
+  assert.match(route, /UNIRICO_SOURCE_COMMIT = 'a9350c6a47d5fa2cac85ffb8e4874cffc87ef2a2'/);
   assert.match(route, /redirectLegacyAsset/);
   assert.match(route, /max-age=31536000, immutable/);
   assert.match(route, /X-UniRico-Version/);
@@ -126,7 +150,7 @@ test('the Game Network index stays intentionally minimal', () => {
   assert.doesNotMatch(catalog, /game\.subtitle|game\.version|game\.description|game\.tags/);
 });
 
-test('Game Network browser validation covers the two active cabinets in four engines', () => {
+test('Game Network browser validation covers latest Stretchicorn and uniRico truth in four engines', () => {
   const workflow = readRepoFile('.github/workflows/ci.yml');
   const browserTest = readRepoFile('scripts/playtest-arcade-browsers.mjs');
 
@@ -136,12 +160,23 @@ test('Game Network browser validation covers the two active cabinets in four eng
   assert.match(browserTest, /channel: 'chrome'/);
   assert.match(browserTest, /testStretchicorn\(page, engineName\)/);
   assert.match(browserTest, /testUniRico\(page, engineName\)/);
-  assert.match(browserTest, /uniRico v0\.19\.0/);
+  assert.match(browserTest, /Stretchicorn v0\.38\.0/);
+  assert.match(browserTest, /stretchicorn\/v0\.38\.0\/index\.html/);
+  assert.match(browserTest, /stageCount/);
+  assert.match(browserTest, /COBTOPUS PRIME/);
+  assert.match(browserTest, /Space should start Easy at D=0\.7/);
+  assert.match(browserTest, /uniRico v0\.20\.0/);
+  assert.match(browserTest, /LEVELS\.length/);
+  assert.match(browserTest, /MIRROR FULL SPECTRUM/);
+  assert.match(browserTest, /finaleTargets !== 6/);
   assert.match(browserTest, /AIM release fired unexpectedly/);
+  assert.match(browserTest, /desktop click retargeted away from displayed trajectory/);
+  assert.match(browserTest, /dispatchPointer\('pointermove', 'mouse', 780, 180, 81\)/);
+  assert.match(browserTest, /dispatchPointer\('pointerdown', 'mouse', 260, 520, 82\)/);
   assert.doesNotMatch(browserTest, /testSylvaria/);
 });
 
-test('the embedded Stretchicorn fallback release remains complete', () => {
+test('the legacy embedded Stretchicorn copy remains isolated as a fallback only', () => {
   const runtimeRoot = 'public/game-runtimes/stretchicorn';
   const runtimeModules = [
     'src/style.css',
@@ -154,6 +189,9 @@ test('the embedded Stretchicorn fallback release remains complete', () => {
 
   assert.ok(existsSync(join(root, runtimeRoot, 'index.html')));
   for (const runtimeModule of runtimeModules) {
-    assert.ok(existsSync(join(root, runtimeRoot, runtimeModule)), `missing Stretchicorn runtime file: ${runtimeModule}`);
+    assert.ok(existsSync(join(root, runtimeRoot, runtimeModule)), `missing Stretchicorn fallback runtime file: ${runtimeModule}`);
   }
+
+  const catalog = readRepoFile('src/data/arcadeGames.ts');
+  assert.doesNotMatch(catalog, /ARCADE_STRETCHICORN_URL\) \?\? '\/game-runtimes\/stretchicorn\/index\.html'/);
 });
