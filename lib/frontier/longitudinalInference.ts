@@ -1,7 +1,7 @@
 import {
   inferLongitudinalMeasurementQuality,
   inferLongitudinalTopicRates,
-  inferLongitudinalTopicTrends as inferV19BaseTopicTrends,
+  inferLongitudinalTopicTrends as inferCohortBaseTopicTrends,
   type LongitudinalMeasurementMode,
   type LongitudinalMeasurementQuality,
   type LongitudinalMeasurementStatus,
@@ -9,7 +9,7 @@ import {
   type LongitudinalTopicTrend,
   type LongitudinalTrendDirection,
   type LongitudinalTrendReason,
-} from './longitudinalInferenceV19Base';
+} from './longitudinalInferenceCohortBase';
 import {
   benjaminiHochbergQValues,
   exactConditionalPoissonRatePValue,
@@ -19,10 +19,12 @@ import type { LongitudinalArchive } from './longitudinalModel';
 /**
  * FRONTIER v20 public longitudinal-inference facade.
  *
- * The byte-frozen v19 base remains responsible for descriptive Gamma-Poisson
- * estimates, credible intervals, cohort construction and evidence strength.
- * v20 replaces only the hypothesis-test layer: exact conditional rate tests,
- * a measurement-eligible BH family, then post-BH materiality/event gates.
+ * The cohort-integrity base is retained byte-for-byte from the qualified v20a
+ * reconciliation for descriptive Gamma-Poisson estimates, credible intervals,
+ * cohort construction and evidence strength. Its provisional p/q/direction
+ * fields are intentionally ignored here. v20 replaces only the public
+ * hypothesis-test layer: exact conditional rate tests, a measurement-eligible
+ * BH family, then post-BH event-count and materiality gates.
  */
 
 export type {
@@ -81,7 +83,7 @@ export function inferLongitudinalTopicTrends(
   now = Date.now(),
   minWindowExposureMs = DEFAULT_MIN_TREND_EXPOSURE_MS,
 ): LongitudinalTopicTrend[] {
-  const baseTrends = inferV19BaseTopicTrends(archive, windowDays, now, minWindowExposureMs);
+  const baseTrends = inferCohortBaseTopicTrends(archive, windowDays, now, minWindowExposureMs);
   const drafts: CalibratedDraft[] = baseTrends.map((base) => {
     const eligibilityReason = multiplicityEligibilityReason(base, minWindowExposureMs);
     return {
