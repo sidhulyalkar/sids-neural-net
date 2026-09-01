@@ -8,9 +8,10 @@ import { ArcadeDiscovery } from '@/components/layout/ArcadeDiscovery';
 import { ModeProvider } from '@/lib/contexts/ModeContext';
 import { NeuronCursor } from '@/components/effects/NeuronCursor';
 import { InteractionCapabilityProvider } from '@/components/sensing/InteractionCapabilityProvider';
+import { CANONICAL_SITE_URL } from '@/lib/siteAuthority';
 
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'https://sidsneural.net'),
+  metadataBase: new URL(CANONICAL_SITE_URL),
   title: {
     default: 'Sids Neural Net | Sidharth Hulyalkar',
     template: '%s | Sids Neural Net',
