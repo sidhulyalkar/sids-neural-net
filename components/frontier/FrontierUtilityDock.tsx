@@ -6,6 +6,7 @@ import { ChevronDown, LayoutGrid, Rows3, Volume2, VolumeX, X } from 'lucide-reac
 import { setFrontierClientQuery } from '@/lib/frontier/vector/clientQuery';
 import type { FrontierLayoutMode, FrontierRealm, FrontierView } from '@/lib/frontier/types';
 import { useUIFrequencies } from './audio/useUIFrequencies';
+import { FrontierReactionLoop } from './FrontierReactionLoop';
 import styles from './frontier-utility-dock.module.css';
 
 type Option = { value: string; label: string };
@@ -262,6 +263,8 @@ export const FrontierUtilityDock = forwardRef<HTMLDivElement, Props>(function Fr
           </div>
         </>
       ) : null}
+
+      <FrontierReactionLoop feedActive={feedView} />
 
       <button
         type="button"

@@ -76,6 +76,18 @@ function captureRankingSnapshot(model: FrontierBehaviorModel, date = new Date())
   };
 }
 
+function bounded(value: number | undefined): number {
+  return Math.max(0, Math.min(1, value ?? 0));
+}
+
+function ambientEvidenceForEvent(event: FrontierBehaviorEvent): number {
+  const confidence = bounded(event.confidence);
+  const intensity = bounded(event.intensity);
+  const duration = Math.max(0, Math.min(4_000, event.durationMs ?? 0));
+  const durationWeight = Math.max(0.55, Math.min(1.25, duration / 1_500));
+  return confidence * (0.55 + intensity * 0.45) * durationWeight;
+}
+
 function touchAggregate(aggregate: FrontierBehaviorAggregate | undefined, event: FrontierBehaviorEvent, now: string): FrontierBehaviorAggregate {
   const next = { ...(aggregate ?? emptyAggregate()), lastAt: now };
   switch (event.kind) {
@@ -89,6 +101,16 @@ function touchAggregate(aggregate: FrontierBehaviorAggregate | undefined, event:
     case 'save': next.saved += 1; break;
     case 'positive': next.positive += 1; break;
     case 'negative': next.negative += 1; break;
+    case 'ambient_reaction': {
+      const evidence = ambientEvidenceForEvent(event);
+      if (!event.ambientReaction || evidence <= 0) break;
+      next.ambientEvidence = (next.ambientEvidence ?? 0) + evidence;
+      if (event.ambientReaction === 'affinity') next.ambientAffinity = (next.ambientAffinity ?? 0) + evidence;
+      if (event.ambientReaction === 'interest') next.ambientInterest = (next.ambientInterest ?? 0) + evidence;
+      if (event.ambientReaction === 'surprise') next.ambientSurprise = (next.ambientSurprise ?? 0) + evidence;
+      if (event.ambientReaction === 'friction') next.ambientFriction = (next.ambientFriction ?? 0) + evidence;
+      break;
+    }
   }
   return next;
 }
@@ -98,8 +120,10 @@ function trimStats(stats: Record<string, FrontierBehaviorAggregate>, limit = MAX
   if (entries.length <= limit) return stats;
   return Object.fromEntries(entries
     .sort((a, b) => {
-      const left = (a[1].positive * 8) + (a[1].saved * 7) + (a[1].opened * 5) + Math.min(8, a[1].dwellMs / 12_000);
-      const right = (b[1].positive * 8) + (b[1].saved * 7) + (b[1].opened * 5) + Math.min(8, b[1].dwellMs / 12_000);
+      const left = (a[1].positive * 8) + (a[1].saved * 7) + (a[1].opened * 5) + Math.min(8, a[1].dwellMs / 12_000)
+        + (a[1].ambientAffinity ?? 0) * 0.8 + (a[1].ambientInterest ?? 0) * 0.35 + (a[1].ambientSurprise ?? 0) * 0.15;
+      const right = (b[1].positive * 8) + (b[1].saved * 7) + (b[1].opened * 5) + Math.min(8, b[1].dwellMs / 12_000)
+        + (b[1].ambientAffinity ?? 0) * 0.8 + (b[1].ambientInterest ?? 0) * 0.35 + (b[1].ambientSurprise ?? 0) * 0.15;
       return right - left;
     })
     .slice(0, limit));
@@ -190,17 +214,23 @@ export function aggregatePreference(
   // unit. Dwell is capped by impressions so a forgotten background tab cannot
   // overwhelm explicit votes, saves, or opens.
   const dwellUnits = Math.min(shown * 1.25, aggregate.dwellMs / 12_000);
-  const directEvidence = dwellUnits * 0.65 + aggregate.expanded + aggregate.opened * 2 + aggregate.saved * 3 + aggregate.positive * 3 + aggregate.negative * 3;
+  const ambientEvidence = aggregate.ambientEvidence ?? 0;
+  const ambientPositive = (aggregate.ambientAffinity ?? 0) * 0.18
+    + (aggregate.ambientInterest ?? 0) * 0.09
+    + (aggregate.ambientSurprise ?? 0) * 0.035;
+  // Ambient face cues are intentionally weak. Friction is recorded for inspection
+  // but never becomes negative preference without an explicit or behavioral signal.
+  const directEvidence = dwellUnits * 0.65 + aggregate.expanded + aggregate.opened * 2 + aggregate.saved * 3 + aggregate.positive * 3 + aggregate.negative * 3 + ambientEvidence * 0.16;
   if (aggregate.shown < 2 && directEvidence < 2.5) return { score: 0, confidence: 0 };
 
-  const engaged = dwellUnits * 0.42 + aggregate.expanded * 0.48 + aggregate.opened * 0.82 + aggregate.saved * 1.05 + aggregate.positive * 1.15;
+  const engaged = dwellUnits * 0.42 + aggregate.expanded * 0.48 + aggregate.opened * 0.82 + aggregate.saved * 1.05 + aggregate.positive * 1.15 + ambientPositive;
   const negative = aggregate.negative * 1.25;
   const positiveRate = (engaged - negative) / shown;
-  const resolvedEngagements = Math.min(shown, dwellUnits + aggregate.expanded + aggregate.opened + aggregate.saved + aggregate.positive);
+  const resolvedEngagements = Math.min(shown, dwellUnits + aggregate.expanded + aggregate.opened + aggregate.saved + aggregate.positive + ambientPositive * 0.35);
   const quietSkipRate = Math.max(0, (shown - resolvedEngagements) / shown - 0.8);
   const skipPenalty = shown >= 12 ? quietSkipRate * 0.28 : 0;
   const score = Math.max(-1, Math.min(1.2, positiveRate - skipPenalty));
-  const evidence = aggregate.shown + Math.min(6, dwellUnits) + aggregate.opened * 2 + aggregate.saved * 3 + aggregate.positive * 3 + aggregate.negative * 3;
+  const evidence = aggregate.shown + Math.min(6, dwellUnits) + aggregate.opened * 2 + aggregate.saved * 3 + aggregate.positive * 3 + aggregate.negative * 3 + ambientEvidence * 0.22;
   const ageDays = aggregate.lastAt ? Math.max(0, (date.getTime() - new Date(aggregate.lastAt).getTime()) / DAY_MS) : 0;
   const recency = Math.max(0.35, Math.exp(-ageDays / 120));
   return { score, confidence: Math.min(1, evidence / 20) * recency };
@@ -289,6 +319,17 @@ export function summarizeHabits(model: FrontierBehaviorModel, date = new Date())
   if (time) {
     const pref = aggregatePreference(time[1], date);
     insights.push({ label: 'Rhythm', detail: `${time[0]} is becoming a high-engagement FRONTIER window.`, confidence: pref.confidence });
+  }
+
+  const reactionTopic = Object.entries(model.topicStats)
+    .filter(([, aggregate]) => (aggregate.ambientEvidence ?? 0) >= 2.5)
+    .sort((a, b) => (b[1].ambientEvidence ?? 0) - (a[1].ambientEvidence ?? 0))[0];
+  if (reactionTopic) {
+    insights.push({
+      label: 'Reaction signal',
+      detail: `Your opt-in local reaction loop is repeatedly lighting up around ${reactionTopic[0]}.`,
+      confidence: Math.min(0.72, (reactionTopic[1].ambientEvidence ?? 0) / 10),
+    });
   }
 
   const highNovelty = aggregatePreference(model.contextStats['novelty:high'], date);
