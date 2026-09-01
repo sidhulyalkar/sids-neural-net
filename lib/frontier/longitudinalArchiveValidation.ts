@@ -1,4 +1,5 @@
 import { FRONTIER_AMBIENT_REACTION_KINDS, type FrontierAmbientReactionKind } from './reaction';
+import { FRONTIER_SENSOR_MEASUREMENT_VERSION } from './sensorObservability';
 import {
   longitudinalDayKey,
   type LongitudinalArchive,
@@ -37,6 +38,7 @@ const MAX_REACTION_DURATION_MS = 30_000;
 const MAX_REACTION_LATENCY_MS = 30 * 60_000;
 const MAX_INTERACTION_DWELL_MS = 120_000;
 const MAX_ROLLUP_EXPOSURE_MS = 7 * 24 * 60 * 60_000;
+const MAX_ROLLUP_COUNT = 1_000_000;
 
 const LANE_IDS = new Set<string>(FRONTIER_LANE_IDS);
 const EXPLICIT_REACTIONS = new Set<string>(FRONTIER_REACTIONS);
@@ -145,18 +147,25 @@ function parseExposure(value: unknown): LongitudinalExposure | null {
   const expectedDuration = Math.min(MAX_RAW_EXPOSURE_MS, endedAt - startedAt);
   if (Math.abs(durationMs - expectedDuration) > 1) return null;
 
-  let sensorObservableMs: number | undefined;
-  if (value.sensorObservableMs !== undefined) {
-    const parsed = finite(value.sensorObservableMs, 0, durationMs);
-    if (parsed === null) return null;
-    sensorObservableMs = parsed;
-  }
+  const hasVersion = value.measurementVersion !== undefined;
+  const hasSampled = value.sensorSampledMs !== undefined;
+  const hasObservable = value.faceObservableMs !== undefined;
+  if (!hasVersion && (hasSampled || hasObservable)) return null;
+  if (hasVersion && (!hasSampled || !hasObservable)) return null;
 
   const exposure: LongitudinalExposure = {
     id, sessionId, ...shared, startedAt, endedAt, dayKey, durationMs,
     attributionMean, attributionMin, visibleFractionMean,
   };
-  if (sensorObservableMs !== undefined) exposure.sensorObservableMs = sensorObservableMs;
+  if (hasVersion) {
+    if (value.measurementVersion !== FRONTIER_SENSOR_MEASUREMENT_VERSION) return null;
+    const sensorSampledMs = finite(value.sensorSampledMs, 0, durationMs);
+    const faceObservableMs = finite(value.faceObservableMs, 0, durationMs);
+    if (sensorSampledMs === null || faceObservableMs === null || faceObservableMs > sensorSampledMs) return null;
+    exposure.measurementVersion = FRONTIER_SENSOR_MEASUREMENT_VERSION;
+    exposure.sensorSampledMs = sensorSampledMs;
+    exposure.faceObservableMs = faceObservableMs;
+  }
   return exposure;
 }
 
@@ -249,6 +258,50 @@ function parseCheckin(value: unknown): LongitudinalCheckin | null {
   return { id, at, dayKey, mood, energy, focus };
 }
 
+type SensorRollupFields = Pick<LongitudinalRollup,
+  | 'sensorMeasuredWallMs'
+  | 'sensorSampledMs'
+  | 'faceObservableMs'
+  | 'sensorMeasuredExposures'
+  | 'sensorMeasuredReactions'
+  | 'sensorMeasuredConfirmed'
+  | 'sensorMeasuredContradicted'
+>;
+
+function parseSensorRollup(value: Record<string, unknown>, exposureMs: number, exposures: number, reactions: number, confirmed: number, contradicted: number): SensorRollupFields | null | undefined {
+  const keys = [
+    'sensorMeasuredWallMs', 'sensorSampledMs', 'faceObservableMs', 'sensorMeasuredExposures',
+    'sensorMeasuredReactions', 'sensorMeasuredConfirmed', 'sensorMeasuredContradicted',
+  ] as const;
+  const present = keys.filter((key) => value[key] !== undefined);
+  if (!present.length) return undefined;
+  if (present.length !== keys.length) return null;
+
+  const sensorMeasuredWallMs = finite(value.sensorMeasuredWallMs, 0, exposureMs);
+  const sensorSampledMs = finite(value.sensorSampledMs, 0, exposureMs);
+  const faceObservableMs = finite(value.faceObservableMs, 0, exposureMs);
+  const sensorMeasuredExposures = integer(value.sensorMeasuredExposures, 0, exposures);
+  const sensorMeasuredReactions = integer(value.sensorMeasuredReactions, 0, reactions);
+  const sensorMeasuredConfirmed = integer(value.sensorMeasuredConfirmed, 0, confirmed);
+  const sensorMeasuredContradicted = integer(value.sensorMeasuredContradicted, 0, contradicted);
+  if (sensorMeasuredWallMs === null || sensorSampledMs === null || faceObservableMs === null
+    || sensorMeasuredExposures === null || sensorMeasuredReactions === null
+    || sensorMeasuredConfirmed === null || sensorMeasuredContradicted === null) return null;
+  if (sensorSampledMs > sensorMeasuredWallMs || faceObservableMs > sensorSampledMs) return null;
+  if (sensorMeasuredConfirmed + sensorMeasuredContradicted > sensorMeasuredReactions) return null;
+  if (sensorMeasuredExposures === 0 && (sensorMeasuredWallMs > 0 || sensorSampledMs > 0 || faceObservableMs > 0 || sensorMeasuredReactions > 0)) return null;
+
+  return {
+    sensorMeasuredWallMs,
+    sensorSampledMs,
+    faceObservableMs,
+    sensorMeasuredExposures,
+    sensorMeasuredReactions,
+    sensorMeasuredConfirmed,
+    sensorMeasuredContradicted,
+  };
+}
+
 function parseRollup(value: unknown): LongitudinalRollup | null {
   if (!isObject(value)) return null;
   const id = text(value.id);
@@ -257,17 +310,17 @@ function parseRollup(value: unknown): LongitudinalRollup | null {
   const dimension = text(value.dimension, 32);
   const rawKey = text(value.key);
   const exposureMs = finite(value.exposureMs, 0, MAX_ROLLUP_EXPOSURE_MS);
-  const exposures = integer(value.exposures, 0, 1_000_000);
-  const reactions = integer(value.reactions, 0, 1_000_000);
-  const explicitInteractions = integer(value.explicitInteractions, 0, 1_000_000);
-  const confirmed = integer(value.confirmed, 0, 1_000_000);
-  const contradicted = integer(value.contradicted, 0, 1_000_000);
-  const affinity = integer(value.affinity, 0, 1_000_000);
-  const interest = integer(value.interest, 0, 1_000_000);
-  const surprise = integer(value.surprise, 0, 1_000_000);
-  const friction = integer(value.friction, 0, 1_000_000);
-  const confidenceSum = finite(value.confidenceSum, 0, 1_000_000);
-  const intensitySum = finite(value.intensitySum, 0, 1_000_000);
+  const exposures = integer(value.exposures, 0, MAX_ROLLUP_COUNT);
+  const reactions = integer(value.reactions, 0, MAX_ROLLUP_COUNT);
+  const explicitInteractions = integer(value.explicitInteractions, 0, MAX_ROLLUP_COUNT);
+  const confirmed = integer(value.confirmed, 0, MAX_ROLLUP_COUNT);
+  const contradicted = integer(value.contradicted, 0, MAX_ROLLUP_COUNT);
+  const affinity = integer(value.affinity, 0, MAX_ROLLUP_COUNT);
+  const interest = integer(value.interest, 0, MAX_ROLLUP_COUNT);
+  const surprise = integer(value.surprise, 0, MAX_ROLLUP_COUNT);
+  const friction = integer(value.friction, 0, MAX_ROLLUP_COUNT);
+  const confidenceSum = finite(value.confidenceSum, 0, MAX_ROLLUP_COUNT);
+  const intensitySum = finite(value.intensitySum, 0, MAX_ROLLUP_COUNT);
   const compactedAt = finite(value.compactedAt);
   if (!id || !batchId || !dayKey || !dimension || !ROLLUP_DIMENSIONS.has(dimension as LongitudinalRollupDimension) || !rawKey
     || exposureMs === null || exposures === null || reactions === null || explicitInteractions === null
@@ -277,22 +330,17 @@ function parseRollup(value: unknown): LongitudinalRollup | null {
   if (affinity + interest + surprise + friction !== reactions) return null;
   if (confidenceSum > reactions + 1e-9 || intensitySum > reactions + 1e-9) return null;
 
-  let sensorObservableMs: number | undefined;
-  if (value.sensorObservableMs !== undefined) {
-    const parsed = finite(value.sensorObservableMs, 0, exposureMs);
-    if (parsed === null) return null;
-    sensorObservableMs = parsed;
-  }
-
+  const sensor = parseSensorRollup(value, exposureMs, exposures, reactions, confirmed, contradicted);
+  if (sensor === null) return null;
   const key = rawKey.trim().toLowerCase();
   if (!key) return null;
-  const rollup: LongitudinalRollup = {
+  return {
     id, batchId, dayKey, dimension: dimension as LongitudinalRollupDimension, key,
     exposureMs, exposures, reactions, explicitInteractions, confirmed, contradicted,
-    affinity, interest, surprise, friction, confidenceSum, intensitySum, compactedAt,
+    affinity, interest, surprise, friction, confidenceSum, intensitySum,
+    ...(sensor ?? {}),
+    compactedAt,
   };
-  if (sensorObservableMs !== undefined) rollup.sensorObservableMs = sensorObservableMs;
-  return rollup;
 }
 
 function parseArray<T extends { id: string }>(
@@ -326,7 +374,6 @@ function analyticallyUnique(
     semanticRollups.add(semanticKey);
     rollupDays.add(rollup.dayKey);
   }
-
   for (const entry of [...exposures, ...reactions, ...interactions]) {
     if (rollupDays.has(entry.dayKey)) return false;
   }
