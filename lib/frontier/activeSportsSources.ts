@@ -161,6 +161,16 @@ function xmlTag(block: string, tag: string): string {
   return cleanText(match?.[1] ?? '');
 }
 
+function xmlTagAttribute(block: string, tag: string, attribute: string): string {
+  const opening = block.match(new RegExp(`<${tag}\\b([^>]*)>`, 'i'))?.[1] ?? '';
+  const match = opening.match(new RegExp(`\\b${attribute}\\s*=\\s*["']([^"']+)["']`, 'i'));
+  return cleanText(match?.[1] ?? '');
+}
+
+function sourceHost(value: string, fallback = ''): string {
+  try { return new URL(value).hostname.replace(/^www\./, '').toLowerCase(); } catch { return fallback; }
+}
+
 function tagsForSport(sport: FrontierActiveSport, extra: string[] = []): string[] {
   return Array.from(new Set([...sport.tags, sport.label.toLowerCase(), ...extra])).slice(0, 9);
 }
@@ -172,7 +182,12 @@ export function parseActiveSportNewsRss(xml: string, sport: FrontierActiveSport)
     const url = xmlTag(block, 'link') || xmlTag(block, 'guid');
     if (!title || !url) return [];
     const description = xmlTag(block, 'description');
-    const source = xmlTag(block, 'source') || 'Sports news';
+    const sourceLabel = xmlTag(block, 'source') || 'Sports news';
+    // Google News RSS is only the syndication hop. Preserve the publisher URL
+    // carried by <source url="…"> so the central trust gate can judge the
+    // actual outlet instead of trusting or rejecting news.google.com wholesale.
+    const publisherUrl = xmlTagAttribute(block, 'source', 'url');
+    const publisherHost = sourceHost(publisherUrl);
     const publishedRaw = xmlTag(block, 'pubDate');
     const publishedAt = Number.isNaN(Date.parse(publishedRaw))
       ? new Date().toISOString()
@@ -184,8 +199,8 @@ export function parseActiveSportNewsRss(xml: string, sport: FrontierActiveSport)
       title,
       summary: summarize(description || `Fresh professional ${sport.label} news and athlete story.`),
       url,
-      source: 'news.google.com',
-      sourceLabel: source,
+      source: publisherHost || 'news.google.com',
+      sourceLabel,
       sourceKind: 'rss' as const,
       publishedAt,
       lane: sport.lane,

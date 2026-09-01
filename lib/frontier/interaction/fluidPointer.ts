@@ -32,18 +32,23 @@ export function resolveFrontierFluidIntent(input: {
   if (delta >= 0 && delta <= threshold) {
     return { intent: 'external', state: { lastReleaseAt: 0 } };
   }
+
+  // The first clean release owns expansion immediately. Once open, ordinary
+  // clicks belong to the reading surface so selecting text, following evidence,
+  // or interacting with media cannot accidentally collapse the card. Closing is
+  // explicit through the focal close control or Escape.
   return {
-    intent: input.expanded ? 'collapse' : 'expand',
+    intent: input.expanded ? 'none' : 'expand',
     state: { lastReleaseAt: input.at },
   };
 }
 
 /**
  * Preserve ownership of a deliberately rapid second press even if the first
- * release has already caused FLIP motion to place a different descendant under
- * the stationary pointer. Time alone is not sufficient: the press must remain
- * inside the same small spatial neighborhood, so a newly targeted control away
- * from the original release keeps its native behavior.
+ * release has already changed the card's contents under the stationary pointer.
+ * Time alone is not sufficient: the press must remain inside the same small
+ * spatial neighborhood, so a newly targeted control away from the original
+ * release keeps its native behavior.
  */
 export function qualifiesFrontierFluidPairPress(
   previous: FrontierFluidReleasePoint | undefined,

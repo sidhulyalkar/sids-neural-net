@@ -21,6 +21,7 @@ import type {
 
 const DAY_MS = 86_400_000;
 const USER_AGENT = 'sids-neural-net-frontier/2.0 (+https://sidhulyalkar.com/frontier)';
+const CURATED_SPORTS_COMMUNITIES = ['nfl', 'fantasyfootball', 'DynastyFF'] as const;
 
 type SourceRun = { items: FrontierItem[]; status: FrontierSourceStatus };
 
@@ -196,7 +197,7 @@ function redditLane(subreddit: string, text: string): FrontierLaneId {
   const lower = subreddit.toLowerCase();
   if (['patriots', 'warriors', 'chelseafc', 'mcfc'].includes(lower)) return 'team_pulse';
   if (['soccer'].includes(lower)) return 'world_soccer';
-  if (['nba', 'sports'].includes(lower)) return 'sports';
+  if (['nba', 'sports', 'nfl', 'fantasyfootball', 'dynastyff'].includes(lower)) return 'sports';
   if (['eldenring', 'hollowknight', 'silksong', 'silksongisntreal', 'deadcells', 'astroneer', 'pcmasterrace', 'clashofclans'].includes(lower)) return 'gaming';
   if (['dubstep', 'edm', 'illenium', 'electricdaisycarnival', 'listentothis', 'music'].includes(lower)) return 'music';
   if (['programmerhumor', 'damnthatsinteresting', 'interestingasfuck', 'sipstea', 'brandnewsentence', 'nottheonion', 'showerthoughts', 'funny', 'gifs', 'mildlyinteresting', 'nextfuckinglevel', 'thatsinsane'].includes(lower)) return 'internet_culture';
@@ -262,13 +263,16 @@ async function redditItems(): Promise<FrontierItem[]> {
     .map((value) => value.trim().replace(/^r\//i, ''))
     .filter(Boolean);
   const dayKey = new Date().toISOString().slice(0, 10);
-  const subreddits = pickDailySubreddits(dayKey, custom);
-  const payloads = await Promise.all(subreddits.map(async (subreddit) => {
+  const subreddits = Array.from(new Set([
+    ...CURATED_SPORTS_COMMUNITIES,
+    ...pickDailySubreddits(dayKey, custom),
+  ])).slice(0, 15);
+  const payloads = await Promise.allSettled(subreddits.map(async (subreddit) => {
     const url = `https://www.reddit.com/r/${encodeURIComponent(subreddit)}/top.json?t=day&limit=5&raw_json=1`;
     const payload = await fetchJson<RedditListing>(url, { next: { revalidate: 60 * 20 } });
     return parseRedditListing(payload, subreddit).slice(0, 2);
   }));
-  return payloads.flat().slice(0, 30);
+  return payloads.flatMap((result) => result.status === 'fulfilled' ? result.value : []).slice(0, 30);
 }
 
 function imageFromHtml(html: string | undefined): string | undefined {
@@ -280,7 +284,7 @@ function imageFromHtml(html: string | undefined): string | undefined {
 async function steamItems(): Promise<FrontierItem[]> {
   const dayKey = new Date().toISOString().slice(0, 10);
   const games = pickDailySteamGames(dayKey);
-  const payloads = await Promise.all(games.map(async (game) => {
+  const payloads = await Promise.allSettled(games.map(async (game) => {
     const appId = game.steamAppId!;
     const payload = await fetchJson<{ appnews?: { newsitems?: SteamNewsItem[] } }>(
       `https://api.steampowered.com/ISteamNews/GetNewsForApp/v2/?appid=${appId}&count=4&maxlength=900&format=json`,
@@ -312,7 +316,7 @@ async function steamItems(): Promise<FrontierItem[]> {
       }];
     }).slice(0, 2);
   }));
-  return payloads.flat().slice(0, 16);
+  return payloads.flatMap((result) => result.status === 'fulfilled' ? result.value : []).slice(0, 16);
 }
 
 function youtubeVideoId(url: string): string | undefined {

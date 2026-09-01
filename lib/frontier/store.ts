@@ -11,9 +11,12 @@ import {
   startBehaviorSession,
 } from './behavior';
 import { createInitialProfile, DEFAULT_COLLECTIONS } from './config';
+import { clearFrontierDecisionLedger, recordFrontierDecisionVisibility } from './decisionLedger';
 import { clearFrontierForagedSources } from './forage/sourceRoster';
+import { migrateFrontierProfile } from './profileMigration';
 import { applyReactionToProfile } from './scoring';
 import { clearFrontierVelocityHistory } from './synthesis/velocityEngine';
+import { applyImplicitTasteSignal } from './tasteLearning';
 import { clearFrontierTrajectories } from './trajectory/contextTrajectories';
 import type {
   FrontierBehaviorModel,
@@ -33,7 +36,7 @@ import { clearFrontierAvoidAnchors } from './watch/avoidEngine';
 import { clearFrontierWatchIntents } from './watch/intentEngine';
 
 const STORAGE_KEY = 'frontier-personal-radar-v1';
-const STATE_VERSION = 2;
+const STATE_VERSION = 4;
 
 function localDayKey(date = new Date()): string {
   const year = date.getFullYear();
@@ -107,7 +110,7 @@ function initialGame(): FrontierGameState {
 
 function initialState(): FrontierPersistedState {
   return {
-    version: 2,
+    version: 4,
     profile: createInitialProfile(),
     behavior: createInitialBehaviorModel(),
     saved: {},
@@ -131,8 +134,8 @@ function migrateState(payload: unknown): FrontierPersistedState | null {
   const history = candidate.history as FrontierPersistedState['history'];
   for (const entry of Object.values(history)) if (entry.dwellMs === undefined) entry.dwellMs = 0;
   return {
-    version: 2,
-    profile: candidate.profile as FrontierProfile,
+    version: 4,
+    profile: migrateFrontierProfile(candidate.profile as FrontierProfile),
     behavior: (candidate.behavior as FrontierBehaviorModel | undefined) ?? createInitialBehaviorModel(),
     saved: candidate.saved as FrontierPersistedState['saved'],
     collections: candidate.collections as FrontierCollection[],
@@ -161,6 +164,10 @@ export const useFrontierStore = create<FrontierStore>()(
           history: { ...current.history, [item.id]: next },
           behavior: applyBehaviorEvent(current.behavior, item, { kind: 'impression' }),
         });
+        // SignalCard is already the canonical 55% viewport-seen authority.
+        // Attribute that same event to the active decision instead of adding a
+        // second observer solely for causal logging.
+        if (current.behavior.implicitLearning) recordFrontierDecisionVisibility(item.id, 0.55);
       },
 
       recordDwell: (item, dwellMs) => {
@@ -169,6 +176,9 @@ export const useFrontierStore = create<FrontierStore>()(
         const current = get();
         const previous = current.history[item.id] ?? historyEntry(item);
         set({
+          profile: current.behavior.implicitLearning
+            ? applyImplicitTasteSignal(current.profile, item, 'dwell', bounded)
+            : current.profile,
           history: {
             ...current.history,
             [item.id]: { ...previous, item, lastSeenAt: new Date().toISOString(), dwellMs: (previous.dwellMs ?? 0) + bounded },
@@ -180,7 +190,12 @@ export const useFrontierStore = create<FrontierStore>()(
 
       recordExpand: (item) => {
         const current = get();
-        set({ behavior: applyBehaviorEvent(current.behavior, item, { kind: 'expand' }) });
+        set({
+          profile: current.behavior.implicitLearning
+            ? applyImplicitTasteSignal(current.profile, item, 'expand')
+            : current.profile,
+          behavior: applyBehaviorEvent(current.behavior, item, { kind: 'expand' }),
+        });
         if (current.behavior.implicitLearning) emitFrontierSemanticTelemetry({ kind: 'expand', item });
       },
 
@@ -189,6 +204,9 @@ export const useFrontierStore = create<FrontierStore>()(
         const now = new Date().toISOString();
         const previous = current.history[item.id] ?? historyEntry(item);
         set({
+          profile: current.behavior.implicitLearning
+            ? applyImplicitTasteSignal(current.profile, item, 'open')
+            : current.profile,
           history: { ...current.history, [item.id]: { ...previous, item, openedAt: now, lastSeenAt: now } },
           behavior: applyBehaviorEvent(current.behavior, item, { kind: 'open' }),
           game: updateStreak(current.game),
@@ -230,7 +248,14 @@ export const useFrontierStore = create<FrontierStore>()(
           saved[item.id] = item;
           if (inbox && !inbox.itemIds.includes(item.id)) inbox.itemIds.push(item.id);
         }
-        set({ saved, collections, behavior: wasSaved ? current.behavior : applyBehaviorEvent(current.behavior, item, { kind: 'save' }) });
+        set({
+          profile: !wasSaved && current.behavior.implicitLearning
+            ? applyImplicitTasteSignal(current.profile, item, 'save')
+            : current.profile,
+          saved,
+          collections,
+          behavior: wasSaved ? current.behavior : applyBehaviorEvent(current.behavior, item, { kind: 'save' }),
+        });
         if (!wasSaved && current.behavior.implicitLearning) emitFrontierSemanticTelemetry({ kind: 'save', item });
       },
 
@@ -293,6 +318,7 @@ export const useFrontierStore = create<FrontierStore>()(
         const enabled = get().behavior.implicitLearning;
         const fresh = { ...createInitialBehaviorModel(), implicitLearning: enabled };
         set({ behavior: enabled ? startBehaviorSession(fresh) : fresh });
+        clearFrontierDecisionLedger();
         void frontierVectorStore.clear().catch(() => undefined);
         void clearFrontierTrajectories();
         void clearFrontierVelocityHistory();
@@ -303,9 +329,10 @@ export const useFrontierStore = create<FrontierStore>()(
         const parsed = migrateState(payload);
         if (!parsed) return false;
         set({ ...parsed, hydrated: true });
-        // Backups predate the independent fast-trajectory and velocity stores.
-        // Clear inferred derivatives so the imported profile is not combined
-        // with stale local momentum from the previously loaded profile.
+        // Backups predate the independent fast-trajectory, velocity, and
+        // exposure-attribution stores. Clear inferred derivatives so imported
+        // memory is never combined with stale local momentum or decisions.
+        clearFrontierDecisionLedger();
         void clearFrontierTrajectories();
         void clearFrontierVelocityHistory();
         return true;
@@ -313,6 +340,7 @@ export const useFrontierStore = create<FrontierStore>()(
 
       resetFrontier: () => {
         set({ ...initialState(), hydrated: true });
+        clearFrontierDecisionLedger();
         void frontierVectorStore.clear().catch(() => undefined);
         void clearFrontierTrajectories();
         void clearFrontierVelocityHistory();
@@ -341,7 +369,7 @@ export const useFrontierStore = create<FrontierStore>()(
 
 export function frontierBackup(state: FrontierStore): FrontierPersistedState {
   return {
-    version: 2,
+    version: 4,
     profile: state.profile,
     behavior: state.behavior,
     saved: state.saved,

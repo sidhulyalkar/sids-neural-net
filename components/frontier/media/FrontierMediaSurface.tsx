@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import { frontierMediaGeometry } from '@/lib/frontier/media/geometry';
 import { isFrontierGithubSocialPreview } from '@/lib/frontier/media/sourceVisuals';
 import type { FrontierItem } from '@/lib/frontier/types';
@@ -69,20 +69,35 @@ function NativeImageSurface({
   aspectRatio: string;
   onUnavailable?: () => void;
 }) {
+  const [failed, setFailed] = useState(false);
   return (
-    <div className={styles.nativeImageSurface} style={{ aspectRatio }}>
-      {/* Cross-origin publisher imagery that is not in FRONTIER's trusted proxy
-          set remains a browser-native fallback rather than weakening SSRF/CORS boundaries. */}
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src={src}
-        alt={alt}
-        className={styles.nativeImage}
-        loading="lazy"
-        decoding="async"
-        referrerPolicy="no-referrer"
-        onError={onUnavailable}
-      />
+    <div
+      className={styles.nativeImageSurface}
+      style={{ aspectRatio }}
+      data-media-state={failed ? 'fallback' : 'native'}
+    >
+      {!failed ? (
+        // Cross-origin publisher imagery outside FRONTIER's trusted proxy set
+        // remains browser-native rather than weakening SSRF/CORS boundaries.
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={src}
+          alt={alt}
+          className={styles.nativeImage}
+          loading="lazy"
+          decoding="async"
+          fetchPriority="auto"
+          referrerPolicy="no-referrer"
+          onError={() => {
+            setFailed(true);
+            onUnavailable?.();
+          }}
+        />
+      ) : (
+        <span className={styles.imageUnavailable} aria-label={`Visual unavailable: ${alt}`}>
+          source visual unavailable
+        </span>
+      )}
     </div>
   );
 }
@@ -93,12 +108,8 @@ function YouTubeSurface({ item, onUnavailable }: { item: FrontierItem; onUnavail
   const media = item.media;
   if (!media || media.type !== 'youtube' || !isYouTubeId(media.url)) return null;
   const aspectRatio = frontierMediaGeometry(media).cssAspectRatio;
-  const defaultPoster = `https://i.ytimg.com/vi/${media.url}/hqdefault.jpg`;
-  const poster = isMediaUrl(media.posterProxyUrl)
-    ? media.posterProxyUrl
-    : isHttpUrl(media.poster)
-      ? media.poster
-      : localProxyUrl(defaultPoster);
+  const maxResPoster = localProxyUrl(`https://i.ytimg.com/vi/${media.url}/maxresdefault.jpg`);
+  const hqPoster = localProxyUrl(`https://i.ytimg.com/vi/${media.url}/hqdefault.jpg`);
 
   return (
     <div ref={ref} className={styles.youtubeSurface} style={{ aspectRatio }}>
@@ -114,7 +125,8 @@ function YouTubeSurface({ item, onUnavailable }: { item: FrontierItem; onUnavail
       ) : (
         <GpuImageSurface
           id={`${item.id}:youtube`}
-          src={poster}
+          src={maxResPoster}
+          fallbackSrc={hqPoster}
           alt={media.alt || item.title}
           className={styles.posterSurface}
           placeholderColor={media.averageColor}
@@ -138,11 +150,9 @@ export function FrontierMediaSurface({
   const aspectRatio = frontierMediaGeometry(media).cssAspectRatio;
 
   if (media.type === 'image') {
-    // Same-origin archive imagery is already inside FRONTIER's trust boundary.
-    // Route it through the GPU plane directly rather than treating it like an
-    // unknown publisher URL. A previous branch accepted these URLs during
-    // presentation classification but then returned null here, leaving a media
-    // card with reserved geometry and no actual visual surface.
+    // Same-origin archive imagery and trusted proxy URLs use the GPU plane. A
+    // browser-native copy of the original source remains underneath so worker,
+    // proxy, context, or texture-cache failure can never leave a black card.
     const gpuSource = isMediaUrl(media.proxyUrl)
       ? media.proxyUrl
       : isSameOriginMediaPath(media.url)
@@ -153,6 +163,7 @@ export function FrontierMediaSurface({
         <GpuImageSurface
           id={`${item.id}:image`}
           src={gpuSource}
+          fallbackSrc={isHttpUrl(media.url) ? media.url : gpuSource}
           alt={media.alt || item.title}
           className={styles.primaryImage}
           placeholderColor={media.averageColor}
@@ -181,6 +192,7 @@ export function FrontierMediaSurface({
         id={`${item.id}:video`}
         url={isHttpUrl(media.url) ? media.url : undefined}
         poster={isMediaUrl(poster) ? poster : undefined}
+        posterFallback={isHttpUrl(media.poster) ? media.poster : undefined}
         streams={media.streams}
         alt={media.alt || item.title}
         aspectRatio={aspectRatio}

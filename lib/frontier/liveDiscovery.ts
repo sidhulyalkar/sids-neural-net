@@ -1,19 +1,10 @@
 import { FRONTIER_SOURCE_WEIGHTS } from './config';
 import { classifyFrontierLane } from './sources';
+import { assessFrontierHost } from './sourceTrust';
 import type { FrontierFeedResponse, FrontierItem, FrontierLaneId, FrontierMedia } from './types';
 
 const USER_AGENT = 'sids-neural-net-frontier/2.0 (+https://sidhulyalkar.com/frontier)';
 const DAY_MS = 86_400_000;
-
-const HIGH_TRUST_DOMAINS = [
-  'reuters.com', 'apnews.com', 'bbc.com', 'bbc.co.uk', 'nature.com', 'science.org', 'cell.com', 'nih.gov',
-  'nfl.com', 'nba.com', 'premierleague.com', 'chelseafc.com', 'mancity.com', 'patriots.com', 'nba.com/warriors',
-  'ifsc-climbing.org', 'uci.org', 'olympics.com', 'fifa.com', 'crankworx.com',
-];
-const STRONG_DOMAINS = [
-  'theguardian.com', 'npr.org', 'espn.com', 'skysports.com', 'theathletic.com', 'wired.com', 'arstechnica.com',
-  'technologyreview.com', 'techcrunch.com', 'theverge.com', 'scientificamerican.com',
-];
 
 type GdeltArticle = {
   url?: string;
@@ -65,14 +56,6 @@ function stableId(input: string): string {
     hash = Math.imul(hash, 16777619);
   }
   return (hash >>> 0).toString(36);
-}
-
-function domainTrust(domain: string): number {
-  const normalized = domain.toLowerCase().replace(/^www\./, '');
-  if (HIGH_TRUST_DOMAINS.some((candidate) => normalized === candidate || normalized.endsWith(`.${candidate}`))) return 0.94;
-  if (STRONG_DOMAINS.some((candidate) => normalized === candidate || normalized.endsWith(`.${candidate}`))) return 0.84;
-  if (/\.gov$|\.edu$/.test(normalized)) return 0.9;
-  return 0.64;
 }
 
 function parseGdeltDate(value?: string): string {
@@ -131,7 +114,9 @@ export function parseGdeltArticles(payload: GdeltPayload, topic: string): Fronti
 
     const publishedAt = parseGdeltDate(article.seendate);
     const lane = laneForTopic(topic, article.title);
-    const trust = domainTrust(domain);
+    // GDELT does discovery, not source certification. Use the same publisher
+    // registry as the server feed gate so scoring and admission cannot drift.
+    const trust = assessFrontierHost(domain).score;
     const quality = clamp(trust * (FRONTIER_SOURCE_WEIGHTS.gdelt ?? 1));
     const relevance = article.title.toLowerCase().includes(topic.toLowerCase()) ? 0.92 : 0.72;
     const media: FrontierMedia | undefined = article.socialimage?.startsWith('http')
@@ -154,7 +139,7 @@ export function parseGdeltArticles(payload: GdeltPayload, topic: string): Fronti
         ...(article.sourcecountry ? [{ label: 'source', value: article.sourcecountry }] : []),
       ],
       ...liveScores(publishedAt, quality, relevance),
-      why: `Live web discovery for ${topic}; source quality and recency are included in ranking.`,
+      why: `Live web discovery for ${topic}; publisher trust and recency are included in ranking.`,
     }];
   });
 }
@@ -194,7 +179,7 @@ async function openAlexTopic(topic: string): Promise<FrontierItem[]> {
     const target = work.open_access?.oa_url || work.primary_location?.landing_page_url || work.doi || work.id;
     const citations = work.cited_by_count ?? 0;
     const lane = laneForTopic(topic, title);
-    const quality = clamp(0.86 * (FRONTIER_SOURCE_WEIGHTS.openalex ?? 1));
+    const quality = clamp(0.78 * (FRONTIER_SOURCE_WEIGHTS.openalex ?? 1));
     return [{
       id: `oa-live-${stableId(work.id)}`,
       title,
@@ -214,9 +199,17 @@ async function openAlexTopic(topic: string): Promise<FrontierItem[]> {
   });
 }
 
-function isBuilderFocus(topic: string): boolean {
+const BUILDER_BRIDGE_INTEREST = /\b(?:skate(?:board|boarding)?|mountain bik(?:e|ing)|mtb|rock climb(?:ing)?|boulder(?:ing)?|disc golf|sports?|game development|gaming|music)\b/i;
+const BUILDER_BRIDGE_METHOD = /\b(?:open source|github|code|analytics?|analysis|computer vision|pose estimation|telemetry|gps|biomechanics|kinematics|simulation|physics|visuali[sz]ation|creative coding|dataset|tracking)\b/i;
+
+export function isCrossInterestBuilderFocus(topic: string): boolean {
+  return BUILDER_BRIDGE_INTEREST.test(topic) && BUILDER_BRIDGE_METHOD.test(topic);
+}
+
+export function isBuilderDiscoveryFocus(topic: string): boolean {
   const lane = classifyFrontierLane(topic);
-  return ['ml_data', 'ai_frontier', 'neuro_frontier', 'methods', 'builder_signal', 'creative_tech', 'competitions'].includes(lane);
+  return ['ml_data', 'ai_frontier', 'neuro_frontier', 'methods', 'builder_signal', 'creative_tech', 'competitions'].includes(lane)
+    || isCrossInterestBuilderFocus(topic);
 }
 
 async function githubTopic(topic: string): Promise<FrontierItem[]> {
@@ -269,7 +262,15 @@ export async function getAdaptiveLiveDiscovery(topics: string[]): Promise<Fronti
 
   const gdeltRuns = await Promise.allSettled(focus.map((topic) => gdeltTopic(topic)));
   const researchTopics = focus.filter(isResearchFocus).slice(0, 3);
-  const builderTopics = focus.filter(isBuilderFocus).slice(0, 2);
+  const bridgeBuilder = focus.find(isCrossInterestBuilderFocus);
+  const ordinaryBuilders = focus.filter((topic) => isBuilderDiscoveryFocus(topic) && topic !== bridgeBuilder);
+  // Preserve the historical maximum of two GitHub searches. One intersection
+  // may take the first slot; learned/general builder interests still retain the
+  // second instead of being displaced by a new source fanout.
+  const builderTopics = Array.from(new Set([
+    ...(bridgeBuilder ? [bridgeBuilder] : []),
+    ...ordinaryBuilders,
+  ])).slice(0, 2);
   const [researchRuns, builderRuns] = await Promise.all([
     Promise.allSettled(researchTopics.map((topic) => openAlexTopic(topic))),
     Promise.allSettled(builderTopics.map((topic) => githubTopic(topic))),

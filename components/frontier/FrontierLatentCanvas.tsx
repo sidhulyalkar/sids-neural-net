@@ -26,6 +26,7 @@ export function FrontierLatentCanvas() {
   useEffect(() => {
     const canvas = canvasRef.current!;
     if (!canvas) return;
+    const scheduleStartupFailure = () => window.setTimeout(() => setEmpty(true), 0);
     const gl = canvas.getContext('webgl2', {
       alpha: true,
       antialias: false,
@@ -35,20 +36,20 @@ export function FrontierLatentCanvas() {
       preserveDrawingBuffer: false,
     })!;
     if (!gl) {
-      setEmpty(true);
-      return;
+      const timer = scheduleStartupFailure();
+      return () => window.clearTimeout(timer);
     }
 
     let shaderProgram: WebGLProgram;
     try { shaderProgram = compileLatentProgram(gl); } catch {
-      setEmpty(true);
-      return;
+      const timer = scheduleStartupFailure();
+      return () => window.clearTimeout(timer);
     }
     const buffer = gl.createBuffer();
     if (!buffer) {
       gl.deleteProgram(shaderProgram);
-      setEmpty(true);
-      return;
+      const timer = scheduleStartupFailure();
+      return () => window.clearTimeout(timer);
     }
 
     const uniforms = {

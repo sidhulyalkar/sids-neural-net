@@ -1,19 +1,32 @@
+import { sharedCameraBroker, type CameraLease } from './CameraBroker';
+
 export class CameraSession {
-  private stream: MediaStream | null = null;
+  private lease: CameraLease | null = null;
   private video: HTMLVideoElement | null = null;
+  private generation = 0;
 
   async start(video: HTMLVideoElement, constraints: MediaTrackConstraints): Promise<HTMLVideoElement> {
-    if (typeof navigator === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
-      throw new Error('Camera access is unavailable in this browser.');
+    const generation = ++this.generation;
+    this.stopCurrentLease();
+
+    const lease = await sharedCameraBroker.acquire(constraints);
+    if (generation !== this.generation) {
+      lease.release();
+      throw new Error('Camera session was superseded before it became active.');
     }
-    this.stop();
-    const stream = await navigator.mediaDevices.getUserMedia({ video: constraints, audio: false });
-    this.stream = stream;
+
+    this.lease = lease;
     this.video = video;
-    video.srcObject = stream;
+    video.srcObject = lease.stream;
     video.muted = true;
     video.playsInline = true;
-    await video.play();
+
+    try {
+      await video.play();
+    } catch (error) {
+      if (generation === this.generation) this.stop();
+      throw error;
+    }
     return video;
   }
 
@@ -23,16 +36,22 @@ export class CameraSession {
   }
 
   stop(): void {
-    this.stream?.getTracks().forEach((track) => track.stop());
-    this.stream = null;
-    if (this.video) {
-      this.video.pause();
-      this.video.srcObject = null;
-    }
+    this.generation += 1;
+    this.stopCurrentLease();
+  }
+
+  private stopCurrentLease(): void {
+    const video = this.video;
     this.video = null;
+    if (video) {
+      video.pause();
+      video.srcObject = null;
+    }
+    this.lease?.release();
+    this.lease = null;
   }
 
   get active(): boolean {
-    return Boolean(this.stream?.active);
+    return Boolean(this.lease?.stream.active);
   }
 }

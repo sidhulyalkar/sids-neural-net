@@ -10,6 +10,8 @@ import styles from './frontier-media.module.css';
 type Props = {
   id: string;
   src: string;
+  /** Native safety-net source used only if the optimized `src` itself fails. */
+  fallbackSrc?: string;
   alt: string;
   className?: string;
   placeholderColor?: string;
@@ -22,6 +24,7 @@ type SurfaceSize = { width: number; height: number };
 export function GpuImageSurface({
   id,
   src,
+  fallbackSrc,
   alt,
   className = '',
   placeholderColor,
@@ -35,6 +38,8 @@ export function GpuImageSurface({
   const reactId = useId();
   const [state, setState] = useState<'loading' | 'ready' | 'fallback'>('loading');
   const [fallbackFailed, setFallbackFailed] = useState(false);
+  const [nativeReady, setNativeReady] = useState(false);
+  const [nativeSrc, setNativeSrc] = useState(src);
   const surfaceStyle = {
     ...(placeholderColor ? { '--frontier-media-placeholder': placeholderColor } : {}),
     ...(aspectRatio ? { aspectRatio } : {}),
@@ -80,6 +85,12 @@ export function GpuImageSurface({
     if (!slot || !frame || !src) return;
     setState('loading');
     setFallbackFailed(false);
+    setNativeReady(false);
+    setNativeSrc(src);
+    // The shared WebGL plane owns static viewport proximity. This component
+    // registers one surface and exposes one explicit predictive warm callback;
+    // it does not create a competing IntersectionObserver with a different
+    // root margin.
     const unregisterGpu = registerFrontierGpuImage({
       id: gpuId,
       node: slot,
@@ -99,22 +110,17 @@ export function GpuImageSurface({
   }, [gpuId, src]);
 
   useEffect(() => {
-    const frame = frameRef.current;
-    if (!frame || typeof IntersectionObserver === 'undefined') return;
-    const observer = new IntersectionObserver((entries) => {
-      if (!entries.some((entry) => entry.isIntersecting)) return;
-      // The aspect-ratio box exists before decode, so the shared plane can size
-      // and schedule the correct texture while the card is still two viewports
-      // away. The scheduler/cache remain the authority for actual decode work.
-      warmFrontierGpuImage(gpuId);
-    }, { rootMargin: '200% 0px 200% 0px', threshold: 0 });
-    observer.observe(frame);
-    return () => observer.disconnect();
-  }, [gpuId]);
-
-  useEffect(() => {
     if (fallbackFailed) onUnavailable?.();
   }, [fallbackFailed, onUnavailable]);
+
+  const handleNativeError = () => {
+    if (fallbackSrc && fallbackSrc !== nativeSrc) {
+      setNativeReady(false);
+      setNativeSrc(fallbackSrc);
+      return;
+    }
+    setFallbackFailed(true);
+  };
 
   return (
     <div
@@ -123,26 +129,31 @@ export function GpuImageSurface({
       role="img"
       aria-label={alt}
       data-media-state={state}
+      data-media-native-ready={nativeReady ? 'true' : 'false'}
       data-inline-expanded={expanded ? 'true' : 'false'}
       style={surfaceStyle}
     >
-      <div ref={slotRef} className={styles.gpuRegistrationSlot} aria-hidden="true" />
-      {state === 'fallback' && !fallbackFailed ? (
-        // The native element exists only after the GPU/worker path declines the
-        // asset, avoiding two simultaneous decodes for every successful image.
+      {/* Keep the browser-native image mounted beneath the fixed WebGL plane.
+          It starts on the same optimized URL as the GPU fetch, so both paths
+          share HTTP cache bytes. Only an actual optimized-source error switches
+          the browser layer to the independent upstream fallback. */}
+      {!fallbackFailed ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img
-          src={src}
+          src={nativeSrc}
           alt=""
           aria-hidden="true"
           className={styles.imageFallback}
           loading="lazy"
           decoding="async"
+          fetchPriority="auto"
           referrerPolicy="no-referrer"
-          onError={() => setFallbackFailed(true)}
+          onLoad={() => setNativeReady(true)}
+          onError={handleNativeError}
         />
       ) : null}
-      {state === 'loading' ? <span className={styles.imageSheen} aria-hidden="true" /> : null}
+      <div ref={slotRef} className={styles.gpuRegistrationSlot} aria-hidden="true" />
+      {state === 'loading' && !nativeReady ? <span className={styles.imageSheen} aria-hidden="true" /> : null}
     </div>
   );
 }

@@ -29,10 +29,11 @@ export function useFrontierSynthesis(
   }));
 
   useEffect(() => {
-    if (!enabled || !artifactEnriched.length) {
-      setSynthesized({ inputSignature: itemSignature, items: artifactEnriched });
-      return;
-    }
+    // The presentation selector below already returns authoritative current
+    // items when synthesis is disabled or when a snapshot signature is stale.
+    // Do not mirror those current items into state just to trigger another
+    // render; only async enrichment needs to publish synthesized state.
+    if (!enabled || !artifactEnriched.length) return;
     let cancelled = false;
     const run = async () => {
       let vectors = new Map<string, Float32Array>();

@@ -17,7 +17,14 @@ export function frontierVisualRole(
 ): FrontierVisualRole {
   if (hasRenderableMedia) {
     if (item.highPriority || item.media?.type === 'video' || item.media?.type === 'youtube') return 'hero';
-    if (item.importance >= 0.8 || index % 7 === 0) return 'wide';
+
+    // Card size is presentation only, but it still controls visual attention.
+    // Never promote an arbitrary image merely because it landed at index 0/7/14.
+    // Wide treatment is reserved for intrinsically important signals or a very
+    // high-quality signal already ranked near the top by the recommendation
+    // engine. Media presence itself can never purchase either condition.
+    if (item.importance >= 0.82) return 'wide';
+    if (index < 6 && item.importance >= 0.74 && item.quality >= 0.86) return 'wide';
     return 'visual';
   }
 
@@ -44,6 +51,21 @@ export function frontierPackedColumnSpans(
     remaining -= span;
     if (remaining === 0) remaining = DESKTOP_COLUMNS;
     return span;
+  });
+}
+
+/**
+ * Convert an order-preserving span plan into stable desktop column starts.
+ * Expansion is allowed to grow downward, but a card's horizontal identity must
+ * not be renegotiated by CSS auto-placement when an earlier card becomes taller.
+ */
+export function frontierPackedColumnStarts(spans: FrontierPackedSpan[]): number[] {
+  let start = 1;
+  return spans.map((span) => {
+    const current = start;
+    start += span;
+    if (start > DESKTOP_COLUMNS) start = 1;
+    return current;
   });
 }
 

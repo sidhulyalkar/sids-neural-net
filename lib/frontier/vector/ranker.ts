@@ -2,10 +2,16 @@ import type { FrontierItem } from '@/lib/frontier/types';
 import { cosineSimilarity } from './math';
 
 const DAY_MS = 86_400_000;
+export const FRONTIER_PASSIVE_SEMANTIC_RANK_WINDOW = 4;
+export const FRONTIER_HARD_AVOID_PENALTY = 0.24;
 
 export type FrontierHybridScore = {
   item: FrontierItem;
   score: number;
+  /** Normalized prior from the already-personalized input order. */
+  authority: number;
+  /** Vector/freshness/credibility/lexical score before authority fusion. */
+  latent: number;
   semantic: number;
   freshness: number;
   credibility: number;
@@ -16,6 +22,10 @@ export type FrontierHybridScore = {
 
 export type FrontierInterestResolver = (item: FrontierItem) => Float32Array | undefined;
 export type FrontierScorePenaltyResolver = (item: FrontierItem) => number;
+
+function clamp(value: number, min = 0, max = 1): number {
+  return Math.min(max, Math.max(min, value));
+}
 
 function tokenize(value: string): string[] {
   return value
@@ -76,6 +86,20 @@ export function freshnessDecay(publishedAt: string, now = Date.now(), halfLifeDa
   return Math.pow(0.5, ageDays / halfLifeDays);
 }
 
+/**
+ * Different information classes age on different clocks. A live score becomes
+ * stale in hours, while a strong paper, repository, or scientific tool can stay
+ * useful for weeks. This keeps freshness from silently becoming a news bias.
+ */
+export function frontierFreshnessHalfLifeDays(item: FrontierItem): number {
+  if (item.sourceKind === 'sports_state' || item.sportsState) return 0.55;
+  if (item.lane === 'must_know') return 1.5;
+  if (['sports', 'team_pulse', 'premier_league', 'world_soccer'].includes(item.lane)) return 2.75;
+  if (['screen', 'music', 'gaming', 'internet_culture'].includes(item.lane)) return 6;
+  if (['ml_data', 'ai_frontier', 'neuro_frontier', 'broad_science', 'methods', 'builder_signal', 'creative_tech'].includes(item.lane)) return 12;
+  return 5;
+}
+
 function seededRandom(seed: string): () => number {
   let state = 2166136261;
   for (let index = 0; index < seed.length; index += 1) {
@@ -91,6 +115,14 @@ function seededRandom(seed: string): () => number {
   };
 }
 
+/**
+ * The semantic subsystem is a residual ranker, not a second source of personal
+ * truth. Its input order already encodes durable taste, evidence confidence,
+ * session intent, source trust, bridge saturation and slate policy. Preserve
+ * that order as an explicit prior while allowing vectors to refine nearby
+ * choices. An explicit search query deliberately relaxes the prior because the
+ * user has supplied a stronger immediate intent than passive feed context.
+ */
 export function hybridFrontierScores(
   items: FrontierItem[],
   vectors: Map<string, Float32Array>,
@@ -101,24 +133,58 @@ export function hybridFrontierScores(
   penaltyForItem?: FrontierScorePenaltyResolver
 ): FrontierHybridScore[] {
   const lexical = bm25Scores(items, query);
-  return items.map((item) => {
+  const authorityWeight = query.trim() ? 0.2 : 0.48;
+  const denominator = Math.max(1, items.length - 1);
+
+  return items.map((item, index) => {
     const vector = vectors.get(item.id);
     const resolvedInterest = interestForItem?.(item) ?? interestVector;
     const cosine = resolvedInterest && vector ? cosineSimilarity(vector, resolvedInterest) : 0;
     const semantic = resolvedInterest && vector ? (cosine + 1) / 2 : 0.5;
-    const freshness = freshnessDecay(item.publishedAt, now);
-    const credibility = Math.max(0, Math.min(1, item.quality));
+    const freshness = freshnessDecay(item.publishedAt, now, frontierFreshnessHalfLifeDays(item));
+    const credibility = clamp(item.quality);
     const bm25 = lexical.get(item.id) ?? 0;
     const avoidPenalty = Math.max(0, Math.min(0.45, penaltyForItem?.(item) ?? 0));
-    // Explicit negative anchors subtract from the final candidate score rather
-    // than training the positive profile backwards. That keeps "avoid X"
-    // immediately reversible and prevents negative topics from contaminating
-    // unrelated positive trajectories.
-    const score = 0.4 * semantic + 0.3 * freshness + 0.2 * credibility + 0.1 * bm25 - avoidPenalty;
-    return { item, score, semantic, freshness, credibility, bm25, avoidPenalty, exploration: false };
+    const authority = items.length <= 1 ? 1 : 1 - index / denominator;
+    const latent = 0.4 * semantic + 0.3 * freshness + 0.2 * credibility + 0.1 * bm25;
+    const score = authorityWeight * authority + (1 - authorityWeight) * latent - avoidPenalty;
+    return {
+      item,
+      score,
+      authority,
+      latent,
+      semantic,
+      freshness,
+      credibility,
+      bm25,
+      avoidPenalty,
+      exploration: false,
+    };
   });
 }
 
+function explorationValue(entry: FrontierHybridScore, jitter: number): number {
+  const sigma = 0.2;
+  const boundary = Math.exp(-Math.pow(entry.semantic - 0.58, 2) / (2 * sigma * sigma));
+  const intrinsic =
+    entry.item.quality * 0.36
+    + entry.item.importance * 0.25
+    + entry.item.baseScore * 0.19
+    + entry.item.novelty * 0.2;
+  const qualityFloorPenalty = Math.max(0, 0.68 - entry.item.quality) * 0.8;
+  return intrinsic * 0.46
+    + boundary * 0.27
+    + entry.item.novelty * 0.22
+    + jitter * 0.05
+    - entry.avoidPenalty * 1.8
+    - qualityFloorPenalty;
+}
+
+/**
+ * Kept under the historical export name for API compatibility, but this is no
+ * longer blind epsilon-greedy exploration. It inserts only a few deterministic,
+ * high-quality boundary probes so exploration buys information instead of noise.
+ */
 export function applyEpsilonGreedyExploration(
   ranked: FrontierHybridScore[],
   epsilon = 0.15,
@@ -126,33 +192,33 @@ export function applyEpsilonGreedyExploration(
 ): FrontierHybridScore[] {
   if (ranked.length < 8 || epsilon <= 0) return ranked;
   const sorted = [...ranked].sort((left, right) => right.score - left.score || right.item.baseScore - left.item.baseScore);
-  const exploreCount = Math.max(1, Math.min(Math.floor(sorted.length * 0.25), Math.round(sorted.length * epsilon)));
-  const protectedCount = Math.min(3, sorted.length);
-  const selected = new Set(sorted.slice(0, protectedCount).map((entry) => entry.item.id));
+  const protectedCount = Math.min(4, sorted.length);
   const random = seededRandom(seed);
+  const exploreCount = Math.max(1, Math.min(3, Math.round(sorted.length * epsilon * 0.45)));
 
   const candidates = sorted
     .slice(protectedCount)
-    .map((entry) => ({
-      entry,
-      // Avoided material is not allowed to sneak back through the exploration
-      // lane simply because it is distant from the current context.
-      noveltyScore: entry.item.novelty * 0.5 + (1 - entry.semantic) * 0.3 + random() * 0.2 - entry.avoidPenalty,
-    }))
-    .sort((left, right) => right.noveltyScore - left.noveltyScore)
+    .filter((entry) => entry.item.quality >= 0.56 && entry.item.baseScore >= 0.42 && entry.avoidPenalty < 0.2)
+    .map((entry) => ({ entry, value: explorationValue(entry, random()) }))
+    .sort((left, right) => right.value - left.value || right.entry.score - left.entry.score)
     .slice(0, exploreCount)
     .map(({ entry }) => ({ ...entry, exploration: true }));
 
-  const explorations = new Map(candidates.map((entry) => [entry.item.id, entry]));
-  const base = sorted.filter((entry) => !explorations.has(entry.item.id));
+  if (!candidates.length) return sorted;
+  const explorationIds = new Set(candidates.map((entry) => entry.item.id));
+  const base = sorted.filter((entry) => !explorationIds.has(entry.item.id));
   const output: FrontierHybridScore[] = [];
   let exploreIndex = 0;
-  const interval = Math.max(4, Math.round(1 / Math.max(0.01, epsilon)));
+  const bodyLength = Math.max(1, base.length - protectedCount);
+  const interval = Math.max(5, Math.floor(bodyLength / Math.max(1, candidates.length)));
 
   for (const entry of base) {
     output.push(entry);
-    selected.add(entry.item.id);
-    if (output.length >= protectedCount && (output.length - protectedCount + 1) % interval === 0 && exploreIndex < candidates.length) {
+    if (
+      output.length >= protectedCount
+      && (output.length - protectedCount + 1) % interval === 0
+      && exploreIndex < candidates.length
+    ) {
       output.push(candidates[exploreIndex]);
       exploreIndex += 1;
     }
@@ -162,6 +228,76 @@ export function applyEpsilonGreedyExploration(
     exploreIndex += 1;
   }
   return output.slice(0, ranked.length);
+}
+
+/**
+ * Passive semantic refinement is intentionally local. A linear authority prior
+ * alone becomes weaker per rank as a board grows, so a 96-item surface would
+ * otherwise allow a semantically perfect tail item to leap far more positions
+ * than the same model allows on a two-item test. This constraint makes policy
+ * authority invariant to board length: no passive semantic result may move more
+ * than `maxDisplacement` positions in either direction.
+ *
+ * Explicit search bypasses this function, and the separate anti-staleness path
+ * used by manual exploration temperature remains the deliberate wide-movement
+ * escape hatch.
+ */
+export function constrainFrontierRankDisplacement(
+  ranked: FrontierHybridScore[],
+  upstreamItems: FrontierItem[],
+  maxDisplacement = FRONTIER_PASSIVE_SEMANTIC_RANK_WINDOW,
+): FrontierHybridScore[] {
+  if (ranked.length <= 1 || maxDisplacement < 0) return ranked;
+  const window = Math.floor(maxDisplacement);
+  const upstreamIndex = new Map(upstreamItems.map((item, index) => [item.id, index]));
+  const preferenceIndex = new Map(ranked.map((entry, index) => [entry.item.id, index]));
+  const remaining = [...ranked];
+  const output: FrontierHybridScore[] = [];
+
+  for (let position = 0; position < ranked.length; position += 1) {
+    const overdue = remaining
+      .filter((entry) => (upstreamIndex.get(entry.item.id) ?? position) + window <= position)
+      .sort((left, right) =>
+        (upstreamIndex.get(left.item.id) ?? position) - (upstreamIndex.get(right.item.id) ?? position)
+        || (preferenceIndex.get(left.item.id) ?? 0) - (preferenceIndex.get(right.item.id) ?? 0));
+
+    const eligible = remaining
+      .filter((entry) => (upstreamIndex.get(entry.item.id) ?? position) <= position + window)
+      .sort((left, right) =>
+        (preferenceIndex.get(left.item.id) ?? 0) - (preferenceIndex.get(right.item.id) ?? 0));
+
+    const choice = overdue[0] ?? eligible[0] ?? remaining[0];
+    output.push(choice);
+    remaining.splice(remaining.indexOf(choice), 1);
+  }
+
+  return output;
+}
+
+function applyHardAvoidAuthority(
+  ranked: FrontierHybridScore[],
+  upstreamItems: FrontierItem[],
+  query: string,
+): FrontierHybridScore[] {
+  const hardAvoided = ranked.filter((entry) => entry.avoidPenalty >= FRONTIER_HARD_AVOID_PENALTY);
+  if (!hardAvoided.length) {
+    return query.trim() ? ranked : constrainFrontierRankDisplacement(ranked, upstreamItems);
+  }
+
+  const hardAvoidIds = new Set(hardAvoided.map((entry) => entry.item.id));
+  const eligible = ranked.filter((entry) => !hardAvoidIds.has(entry.item.id));
+  const eligibleUpstream = upstreamItems.filter((item) => !hardAvoidIds.has(item.id));
+  const positiveOrder = query.trim()
+    ? eligible
+    : constrainFrontierRankDisplacement(eligible, eligibleUpstream);
+
+  // A strong explicit negative is not latent preference refinement. It may break
+  // the passive movement window and sink the matched items below the admissible
+  // positive set. We retain their score order for deterministic diagnostics.
+  return [
+    ...positiveOrder,
+    ...hardAvoided.sort((left, right) => right.score - left.score || right.item.baseScore - left.item.baseScore),
+  ];
 }
 
 export function rerankFrontierItems(
@@ -176,6 +312,7 @@ export function rerankFrontierItems(
   penaltyForItem?: FrontierScorePenaltyResolver
 ): FrontierItem[] {
   const scores = hybridFrontierScores(items, vectors, interestVector, query, now, interestForItem, penaltyForItem);
-  const ranked = scores.sort((left, right) => right.score - left.score || right.item.baseScore - left.item.baseScore);
-  return applyEpsilonGreedyExploration(ranked, epsilon, seed).map((entry) => entry.item);
+  const fused = scores.sort((left, right) => right.score - left.score || right.item.baseScore - left.item.baseScore);
+  const explored = applyEpsilonGreedyExploration(fused, epsilon, seed);
+  return applyHardAvoidAuthority(explored, items, query).map((entry) => entry.item);
 }

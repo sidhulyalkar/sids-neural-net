@@ -101,7 +101,13 @@ export function useFluidInteraction({
       doubleMs,
     });
     clickState.current = resolved.state;
-    suppressClick.current = ownsPair || Boolean(primaryFluidAnchor(event.target));
+
+    // The first primary-link click belongs to expansion rather than navigation.
+    // Once the card is already open, a later ordinary click resolves to `none`
+    // and must remain a native link interaction. A qualified rapid pair still
+    // belongs to the card so the second release can open externally exactly once.
+    suppressClick.current = ownsPair
+      || (Boolean(primaryFluidAnchor(event.target)) && resolved.intent !== 'none');
 
     if (resolved.intent === 'external') {
       suppressDoubleClick.current = true;
@@ -141,9 +147,14 @@ export function useFluidInteraction({
   }, []);
 
   return {
-    onPointerDown,
-    onPointerUp,
-    onPointerCancel,
+    // Pointer ownership is resolved in capture phase. Expansion can move the
+    // original hit coordinate over native video/audio controls before release
+    // two. Those controls must remain fully native for ordinary single clicks,
+    // but an already-qualified pair belongs to the card and cannot be allowed
+    // to disappear inside a child before the state machine sees pointerup.
+    onPointerDownCapture: onPointerDown,
+    onPointerUpCapture: onPointerUp,
+    onPointerCancelCapture: onPointerCancel,
     onClickCapture,
     onDoubleClickCapture,
   };

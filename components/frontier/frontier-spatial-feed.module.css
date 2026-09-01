@@ -45,7 +45,8 @@
 .board .item {
   position: relative;
   min-width: 0;
-  grid-column: span var(--frontier-grid-span, 4);
+  grid-column-start: var(--frontier-grid-column-start, auto);
+  grid-column-end: span var(--frontier-grid-span, 4);
   grid-row-end: span var(--frontier-masonry-span, 16);
 }
 
@@ -177,7 +178,10 @@
 
 @media (max-width: 1240px) {
   .board .grid { grid-template-columns: repeat(8, minmax(0, 1fr)); }
-  .board .item { grid-column: span 4; }
+  .board .item {
+    grid-column-start: auto;
+    grid-column-end: span 4;
+  }
 }
 
 @media (max-width: 720px) {

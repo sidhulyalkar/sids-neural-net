@@ -1,0 +1,336 @@
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const { chromium } = require('playwright');
+
+const AUDIT_URL = process.env.FRONTIER_MEDIA_PAINT_AUDIT_URL || 'http://127.0.0.1:3000/frontier/mosaic-audit';
+const CARD = '[data-frontier-fluid-card]';
+const EXPECTED_CARDS = 12;
+const EXPECTED_MEDIA = 8;
+const ARTIFACT_DIR = path.resolve('artifacts/browser-smoke');
+const RESULT_PATH = path.join(ARTIFACT_DIR, 'frontier-media-paint-audit.json');
+let auditProgress = { passed: false, auditUrl: AUDIT_URL };
+
+function rounded(value) {
+  return Number(value.toFixed(3));
+}
+
+function writeResult(result) {
+  fs.mkdirSync(ARTIFACT_DIR, { recursive: true });
+  fs.writeFileSync(RESULT_PATH, `${JSON.stringify(result, null, 2)}\n`);
+}
+
+async function waitForStableGeometry(page) {
+  return page.evaluate(({ selector, expected }) => new Promise((resolve, reject) => {
+    let previous = '';
+    let stableFrames = 0;
+    let frames = 0;
+    const tick = () => {
+      frames += 1;
+      const nodes = Array.from(document.querySelectorAll(selector));
+      if (nodes.length !== expected) {
+        if (frames > 180) reject(new Error(`Expected ${expected} cards, found ${nodes.length}`));
+        else requestAnimationFrame(tick);
+        return;
+      }
+      const signature = nodes.map((node) => {
+        const rect = node.getBoundingClientRect();
+        return [rect.x, rect.y, rect.width, rect.height]
+          .map((value) => Math.round(value * 4) / 4)
+          .join(':');
+      }).join('|');
+      stableFrames = signature === previous ? stableFrames + 1 : 0;
+      previous = signature;
+      if (stableFrames >= 4) {
+        resolve(frames);
+        return;
+      }
+      if (frames > 180) {
+        reject(new Error('Media-paint geometry did not settle within 180 animation frames'));
+        return;
+      }
+      requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  }), { selector: CARD, expected: EXPECTED_CARDS });
+}
+
+async function waitForFixture(page) {
+  await page.goto(AUDIT_URL, { waitUntil: 'domcontentloaded' });
+  await page.waitForFunction(
+    ({ selector, expected }) => document.querySelectorAll(selector).length === expected,
+    { selector: CARD, expected: EXPECTED_CARDS },
+    { polling: 'raf', timeout: 6_000 },
+  );
+  await page.evaluate(async () => {
+    document.documentElement.style.scrollBehavior = 'auto';
+    document.body.style.scrollBehavior = 'auto';
+    if (document.fonts?.ready) await document.fonts.ready;
+  });
+  await page.waitForFunction(
+    ({ selector, expected }) => {
+      const cards = Array.from(document.querySelectorAll(selector));
+      return cards.length === expected && cards.every((card) => card.getAttribute('data-frontier-geometry') === 'locked');
+    },
+    { selector: CARD, expected: EXPECTED_CARDS },
+    { polling: 'raf', timeout: 6_000 },
+  );
+  return waitForStableGeometry(page);
+}
+
+async function mediaCardIds(page) {
+  return page.evaluate((selector) => Array.from(document.querySelectorAll(selector)).flatMap((node) => {
+    const presentation = node.querySelector('[data-frontier-has-media="true"]');
+    const id = node.getAttribute('data-frontier-fluid-card');
+    return presentation && id ? [id] : [];
+  }), CARD);
+}
+
+async function cardRect(page, id) {
+  return page.evaluate(({ selector, id }) => {
+    const node = Array.from(document.querySelectorAll(selector)).find((candidate) => candidate.getAttribute('data-frontier-fluid-card') === id);
+    if (!(node instanceof HTMLElement)) throw new Error(`Missing card ${id}`);
+    const rect = node.getBoundingClientRect();
+    return {
+      top: rect.top + window.scrollY,
+      left: rect.left + window.scrollX,
+      width: rect.width,
+      height: rect.height,
+      geometryLocked: node.getAttribute('data-frontier-geometry') === 'locked',
+      geometryHeight: node.getAttribute('data-frontier-geometry-height'),
+      mediaDeclared: Boolean(node.querySelector('[data-frontier-has-media="true"]')),
+      unavailable: Boolean(node.querySelector('[data-frontier-media-unavailable="true"]')),
+    };
+  }, { selector: CARD, id });
+}
+
+async function mediaStateSnapshot(page, id) {
+  return page.evaluate((id) => {
+    const card = document.querySelector(`[data-frontier-fluid-card="${CSS.escape(id)}"]`);
+    if (!(card instanceof HTMLElement)) return { missing: true };
+    const surfaces = Array.from(card.querySelectorAll('[data-media-state]'));
+    const images = Array.from(card.querySelectorAll('img'));
+    return {
+      missing: false,
+      unavailable: Boolean(card.querySelector('[data-frontier-media-unavailable="true"]')),
+      mediaDeclared: Boolean(card.querySelector('[data-frontier-has-media="true"]')),
+      geometryLocked: card.getAttribute('data-frontier-geometry') === 'locked',
+      geometryHeight: card.getAttribute('data-frontier-geometry-height'),
+      surfaces: surfaces.map((surface) => ({
+        state: surface.getAttribute('data-media-state'),
+        nativeReady: surface.getAttribute('data-media-native-ready'),
+        expanded: surface.getAttribute('data-inline-expanded'),
+      })),
+      images: images.map((image) => ({
+        src: image.getAttribute('src'),
+        currentSrc: image.currentSrc,
+        complete: image.complete,
+        naturalWidth: image.naturalWidth,
+        naturalHeight: image.naturalHeight,
+      })),
+    };
+  }, id);
+}
+
+async function visitMediaCard(page, id) {
+  const locator = page.locator(`${CARD}[data-frontier-fluid-card="${id}"]`);
+  await locator.scrollIntoViewIfNeeded();
+  await page.waitForFunction((id) => {
+    const card = document.querySelector(`[data-frontier-fluid-card="${CSS.escape(id)}"]`);
+    if (!(card instanceof HTMLElement)) return false;
+    const surfaces = Array.from(card.querySelectorAll('[data-media-state]'));
+    if (!surfaces.length) return false;
+    return surfaces.some((surface) =>
+      surface.getAttribute('data-media-native-ready') === 'true' ||
+      surface.getAttribute('data-media-state') === 'ready' ||
+      surface.getAttribute('data-media-state') === 'native'
+    );
+  }, id, { polling: 'raf', timeout: 4_000 });
+
+  return page.evaluate((id) => {
+    const card = document.querySelector(`[data-frontier-fluid-card="${CSS.escape(id)}"]`);
+    if (!(card instanceof HTMLElement)) throw new Error(`Missing media card ${id}`);
+    const surfaces = Array.from(card.querySelectorAll('[data-media-state]'));
+    const round = (value) => Number(value.toFixed(3));
+    return {
+      id,
+      surfaces: surfaces.map((surface) => ({
+        state: surface.getAttribute('data-media-state'),
+        nativeReady: surface.getAttribute('data-media-native-ready') === 'true',
+        rect: (() => {
+          const rect = surface.getBoundingClientRect();
+          return { width: round(rect.width), height: round(rect.height) };
+        })(),
+      })),
+    };
+  }, id);
+}
+
+async function normalPaintProof(browser) {
+  const context = await browser.newContext({ viewport: { width: 1440, height: 1100 }, colorScheme: 'dark' });
+  const page = await context.newPage();
+  page.setDefaultTimeout(6_000);
+  try {
+    const settledAfterFrames = await waitForFixture(page);
+    const ids = await mediaCardIds(page);
+    assert.equal(ids.length, EXPECTED_MEDIA, `Expected ${EXPECTED_MEDIA} media cards, saw ${ids.length}`);
+    const before = new Map();
+    for (const id of ids) before.set(id, await cardRect(page, id));
+
+    const visits = [];
+    for (const id of ids) visits.push(await visitMediaCard(page, id));
+    await page.evaluate(() => window.scrollTo({ top: 0, left: 0, behavior: 'auto' }));
+    const resettledAfterFrames = await waitForStableGeometry(page);
+
+    let maxHeightDelta = 0;
+    let maxWidthDelta = 0;
+    let maxTopDelta = 0;
+    const comparisons = [];
+    for (const id of ids) {
+      const prior = before.get(id);
+      const after = await cardRect(page, id);
+      assert.equal(after.mediaDeclared, true, `${id} lost its structural media role after viewport traversal`);
+      const heightDelta = Math.abs(after.height - prior.height);
+      const widthDelta = Math.abs(after.width - prior.width);
+      const topDelta = Math.abs(after.top - prior.top);
+      maxHeightDelta = Math.max(maxHeightDelta, heightDelta);
+      maxWidthDelta = Math.max(maxWidthDelta, widthDelta);
+      maxTopDelta = Math.max(maxTopDelta, topDelta);
+      comparisons.push({ id, before: prior, after, heightDelta: rounded(heightDelta), widthDelta: rounded(widthDelta), topDelta: rounded(topDelta) });
+    }
+
+    const diagnostic = {
+      passed: maxHeightDelta <= 1.25 && maxWidthDelta <= 1.25 && maxTopDelta <= 1.25,
+      settledAfterFrames,
+      resettledAfterFrames,
+      ids,
+      visits,
+      comparisons,
+      maxHeightDelta: rounded(maxHeightDelta),
+      maxWidthDelta: rounded(maxWidthDelta),
+      maxTopDelta: rounded(maxTopDelta),
+    };
+    if (!diagnostic.passed) writeResult({ ...auditProgress, normal: diagnostic, passed: false });
+
+    assert(maxHeightDelta <= 1.25, `Media card height changed by ${maxHeightDelta}px after actual paint traversal`);
+    assert(maxWidthDelta <= 1.25, `Media card width changed by ${maxWidthDelta}px after actual paint traversal`);
+    assert(maxTopDelta <= 1.25, `Media card document position changed by ${maxTopDelta}px after actual paint traversal`);
+    assert(visits.every((visit) => visit.surfaces.some((surface) => surface.nativeReady || surface.state === 'ready' || surface.state === 'native')),
+      'At least one visited media card never acquired a real pixel path');
+
+    await page.screenshot({ path: path.join(ARTIFACT_DIR, 'frontier-media-paint-normal.png'), fullPage: true });
+    return { ...diagnostic, passed: true };
+  } finally {
+    await context.close();
+  }
+}
+
+async function failureStabilityProof(browser) {
+  const context = await browser.newContext({ viewport: { width: 1440, height: 1100 }, colorScheme: 'dark' });
+  const targetId = 'mosaic-outdoors';
+  const targetMediaPattern = '**/visual-archive/thumbs/photo-004-thumb.webp';
+  let releaseFailures;
+  let signalFirstBlockedRequest;
+  let failuresReleased = false;
+  let blockedRequests = 0;
+  const blockedRequestKinds = [];
+  const responses = [];
+  const failedRequests = [];
+  const failureBarrier = new Promise((resolve) => {
+    releaseFailures = resolve;
+  });
+  const firstBlockedRequest = new Promise((resolve) => {
+    signalFirstBlockedRequest = resolve;
+  });
+
+  await context.route(targetMediaPattern, async (route) => {
+    blockedRequests += 1;
+    blockedRequestKinds.push({ resourceType: route.request().resourceType(), url: route.request().url() });
+    signalFirstBlockedRequest();
+    await failureBarrier;
+    await route.fulfill({
+      status: 503,
+      contentType: 'text/plain',
+      headers: { 'Cache-Control': 'no-store' },
+      body: 'frontier forced media failure',
+    }).catch(() => undefined);
+  });
+
+  const page = await context.newPage();
+  page.setDefaultTimeout(7_000);
+  page.on('response', (response) => {
+    if (response.url().includes('/visual-archive/thumbs/photo-004-thumb.webp')) responses.push({ url: response.url(), status: response.status() });
+  });
+  page.on('requestfailed', (request) => {
+    if (request.url().includes('/visual-archive/thumbs/photo-004-thumb.webp')) failedRequests.push({ url: request.url(), failure: request.failure() });
+  });
+
+  let settledAfterFrames = 0;
+  let before;
+  try {
+    settledAfterFrames = await waitForFixture(page);
+    before = await cardRect(page, targetId);
+    assert.equal(before.mediaDeclared, true, 'Failure fixture did not start as a structural media card');
+
+    await page.locator(`${CARD}[data-frontier-fluid-card="${targetId}"]`).scrollIntoViewIfNeeded();
+    await Promise.race([
+      firstBlockedRequest,
+      new Promise((_, reject) => setTimeout(() => reject(new Error('Forced-failure route never intercepted target media')), 4_000)),
+    ]);
+    assert(blockedRequests >= 1, 'Forced-failure route did not observe the target media request');
+
+    failuresReleased = true;
+    releaseFailures();
+
+    try {
+      await page.waitForFunction((id) => {
+        const card = document.querySelector(`[data-frontier-fluid-card="${CSS.escape(id)}"]`);
+        return Boolean(card?.querySelector('[data-frontier-media-unavailable="true"]'));
+      }, targetId, { polling: 'raf', timeout: 6_000 });
+    } catch (error) {
+      const snapshot = await mediaStateSnapshot(page, targetId).catch(() => ({ snapshotFailed: true }));
+      const failure = { passed: false, targetId, settledAfterFrames, blockedRequests, blockedRequestKinds, responses, failedRequests, before, snapshot };
+      writeResult({ ...auditProgress, failure, passed: false, error: error instanceof Error ? error.stack : String(error) });
+      throw error;
+    }
+
+    const resettledAfterFrames = await waitForStableGeometry(page);
+    const after = await cardRect(page, targetId);
+    const snapshot = await mediaStateSnapshot(page, targetId);
+    assert.equal(after.unavailable, true, 'Failed media did not expose the diagnostic state');
+    assert.equal(after.mediaDeclared, true, 'Runtime failure structurally demoted the media card');
+    assert(Math.abs(after.height - before.height) <= 1.25, `Failed media changed card height by ${Math.abs(after.height - before.height)}px`);
+    assert(Math.abs(after.width - before.width) <= 1.25, `Failed media changed card width by ${Math.abs(after.width - before.width)}px`);
+    assert(Math.abs(after.top - before.top) <= 1.25, `Failed media changed card position by ${Math.abs(after.top - before.top)}px`);
+
+    await page.screenshot({ path: path.join(ARTIFACT_DIR, 'frontier-media-paint-failure-stable.png'), fullPage: true });
+    return { passed: true, settledAfterFrames, resettledAfterFrames, targetId, blockedRequests, blockedRequestKinds, responses, failedRequests, before, after, snapshot };
+  } finally {
+    if (!failuresReleased) releaseFailures();
+    await context.close();
+  }
+}
+
+(async () => {
+  fs.mkdirSync(ARTIFACT_DIR, { recursive: true });
+  const browser = await chromium.launch({ headless: true });
+  try {
+    const normal = await normalPaintProof(browser);
+    auditProgress = { ...auditProgress, normal };
+    writeResult(auditProgress);
+
+    const failure = await failureStabilityProof(browser);
+    const result = { passed: normal.passed && failure.passed, auditUrl: AUDIT_URL, normal, failure };
+    auditProgress = result;
+    writeResult(result);
+    console.log('FRONTIER actual media paint PASS');
+    console.log(JSON.stringify(result, null, 2));
+  } finally {
+    await browser.close();
+  }
+})().catch((error) => {
+  const existing = fs.existsSync(RESULT_PATH) ? JSON.parse(fs.readFileSync(RESULT_PATH, 'utf8')) : auditProgress;
+  writeResult({ ...existing, passed: false, error: error instanceof Error ? error.stack : String(error) });
+  console.error(error);
+  process.exitCode = 1;
+});

@@ -4,11 +4,22 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import { Download, RefreshCw, RotateCcw, Search, Upload, X } from 'lucide-react';
 import {
+  clearFrontierClientPipeline,
+  recordFrontierClientAuthority,
+  recordFrontierClientFeed,
+  recordFrontierClientSelection,
+} from '@/lib/frontier/clientPipelineDiagnostics';
+import {
   FRONTIER_LANES,
   FRONTIER_LANE_MAP,
   laneMatchesRealm,
 } from '@/lib/frontier/config';
+import {
+  buildDirectPreferenceEvidenceIndex,
+  effectiveDirectPreferenceAffinity,
+} from '@/lib/frontier/directPreferenceEvidence';
 import { buildDiscoveryFocus, encodeDiscoveryFocus } from '@/lib/frontier/discoveryFocus';
+import { scheduleFrontierDiagnostic } from '@/lib/frontier/deferredDiagnostics';
 import { FRONTIER_PINNED_TOPICS } from '@/lib/frontier/interests';
 import { clearFrontierCandidatePool } from '@/lib/frontier/live/candidatePool';
 import {
@@ -18,12 +29,16 @@ import {
   frontierSeenSignatures,
   migrateFrontierHistoryToSeenLedger,
 } from '@/lib/frontier/live/seenLedger';
+import { buildFrontierLiveAuthorityBridge } from '@/lib/frontier/liveAuthorityBridge';
+import { buildPairEvidenceIndex } from '@/lib/frontier/pairEvidence';
+import type { FrontierObservableFeedResponse } from '@/lib/frontier/pipelineDiagnostics';
 import {
   buildDailyQuests,
   explainRecommendation,
   rankFrontierItems,
   selectDailyRun,
 } from '@/lib/frontier/scoring';
+import { buildSessionIntent } from '@/lib/frontier/sessionIntent';
 import {
   buildTopicSearchFocus,
   normalizeTopicSearch,
@@ -53,10 +68,14 @@ import { useWaterfallText } from './useWaterfallText';
 import styles from './frontier-experience.module.css';
 
 const FEED_CACHE_KEY = 'frontier-live-feed-cache-v1';
-const FEED_CACHE_MAX_AGE_MS = 36 * 60 * 60_000;
+const FEED_CACHE_MAX_AGE_MS = 4 * 60 * 60_000;
 const BASE_EXPLORATION_TEMPERATURE = 0.08;
 const MANUAL_EXPLORATION_TEMPERATURE = 0.82;
 const STREAM_EXPLORATION_TEMPERATURE = 0.62;
+const INITIAL_BROWSE_TARGET = 48;
+const LIVE_APPEND_BATCH = 16;
+const MAX_STREAM_ITEMS = 96;
+const ACTIVE_ITEM_WINDOW = INITIAL_BROWSE_TARGET + MAX_STREAM_ITEMS;
 
 type FormatFilter = 'all' | 'papers' | 'code' | 'projects' | 'video' | 'threads' | 'sports' | 'games' | 'music';
 
@@ -170,20 +189,43 @@ export function FrontierExperience({ initialDateLabel, initialDayKey }: Props) {
   const activeItemsRef = useRef<FrontierItem[]>([]);
   const nearEndArmed = useRef(false);
   const migrationStarted = useRef(false);
+  const livePrimerArmed = useRef(true);
   const recordLayout = store.recordLayout;
   const { launchWaterfall, waterfallActive } = useWaterfallText(searchInput, { collisionRef: utilityDockRef });
 
+  // Derive the three fast-changing personalization layers once from canonical
+  // history and share them across retrieval, ranking, suggestions, and
+  // explanations. None is persisted separately, so there is no second source
+  // of memory truth or cross-device counter database to reconcile.
+  const pairEvidence = useMemo(() => buildPairEvidenceIndex(store.history), [store.history]);
+  const directPreferenceEvidence = useMemo(
+    () => buildDirectPreferenceEvidenceIndex(store.history),
+    [store.history],
+  );
+  const sessionIntent = useMemo(() => buildSessionIntent(store.history), [store.history]);
   const adaptiveFocus = useMemo(
-    () => buildDiscoveryFocus(store.profile, store.behavior, 7),
-    [store.profile, store.behavior]
+    () => buildDiscoveryFocus(
+      store.profile,
+      store.behavior,
+      7,
+      new Date(),
+      pairEvidence,
+      sessionIntent,
+      directPreferenceEvidence,
+    ),
+    [directPreferenceEvidence, pairEvidence, sessionIntent, store.behavior, store.profile]
   );
   const requestFocus = useMemo(
     () => buildTopicSearchFocus(activeSearch, adaptiveFocus, 8),
     [activeSearch, adaptiveFocus]
   );
   const focusSignature = useMemo(() => encodeDiscoveryFocus(requestFocus), [requestFocus]);
+  const focusSignatureRef = useRef(focusSignature);
+  useEffect(() => {
+    focusSignatureRef.current = focusSignature;
+  }, [focusSignature]);
   const daemonExcludeItems = useMemo(
-    () => dedupeCanonical([...items, ...streamItems]).slice(0, 160),
+    () => dedupeCanonical([...items, ...streamItems]).slice(0, ACTIVE_ITEM_WINDOW),
     [items, streamItems]
   );
   const {
@@ -194,10 +236,23 @@ export function FrontierExperience({ initialDateLabel, initialDayKey }: Props) {
     requestPoll,
     flush: flushPending,
     clearPending,
-  } = useLiveDiscoveryDaemon({ focusSignature, excludeItems: daemonExcludeItems });
+  } = useLiveDiscoveryDaemon({
+    focusSignature,
+    excludeItems: daemonExcludeItems,
+    enabled: !loading && items.length > 0,
+  });
 
   const searchSuggestions = useMemo(() => {
     const learned = Object.entries(store.profile.topicAffinity)
+      .map(([topic, legacyAffinity]) => ([
+        topic,
+        effectiveDirectPreferenceAffinity(
+          legacyAffinity,
+          'topic',
+          topic,
+          directPreferenceEvidence,
+        ),
+      ] as const))
       .filter(([, score]) => score > 0.2)
       .sort((a, b) => b[1] - a[1])
       .slice(0, 12)
@@ -206,7 +261,7 @@ export function FrontierExperience({ initialDateLabel, initialDayKey }: Props) {
       ...FRONTIER_PINNED_TOPICS.map((topic) => topic.label),
       ...learned,
     ])).slice(0, 28);
-  }, [store.profile.topicAffinity]);
+  }, [directPreferenceEvidence, store.profile.topicAffinity]);
 
   const spikeExploration = useCallback((temperature: number) => {
     setExplorationTemperature(Math.max(BASE_EXPLORATION_TEMPERATURE, Math.min(1, temperature)));
@@ -260,51 +315,53 @@ export function FrontierExperience({ initialDateLabel, initialDayKey }: Props) {
     void migrateFrontierHistoryToSeenLedger(historical);
   }, [store.hydrated, store.history]);
 
-  const loadFeed = useCallback(async (forceFresh = false) => {
+  const loadFeed = useCallback(async (forceFresh = false, focus = '') => {
     requestRef.current?.abort();
     const controller = new AbortController();
     requestRef.current = controller;
     setLoading(true);
     setError(undefined);
 
-    const fetchPayload = async (focus: string): Promise<FrontierFeedResponse & { error?: string }> => {
+    const fetchPayload = async (requestFocusSignature: string): Promise<FrontierObservableFeedResponse & { error?: string }> => {
       const params = new URLSearchParams();
-      if (focus) params.set('focus', focus);
-      if (forceFresh) params.set('fresh', '1');
+      if (requestFocusSignature) params.set('focus', requestFocusSignature);
+      if (forceFresh) {
+        params.set('fresh', '1');
+        params.set('request', `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
+      }
       const response = await fetch(`/api/frontier/feed${params.size ? `?${params.toString()}` : ''}`, {
         cache: 'no-store',
         signal: controller.signal,
       });
       if (!response.ok) throw new Error(`Feed returned ${response.status}`);
-      return await response.json() as FrontierFeedResponse & { error?: string };
+      return await response.json() as FrontierObservableFeedResponse & { error?: string };
     };
 
     try {
-      const payload = await fetchPayload(focusSignature);
+      // Passive navigation supplies an empty focus and therefore hits the route's
+      // snapshot-first path. Adaptive interests are read through a ref only for
+      // explicit search/refresh work so profile hydration cannot restart cold load.
+      const payload = await fetchPayload(focus);
+      const receivedCount = payload.items?.length ?? 0;
       let nextItems = await filterUnseenFrontierItems(payload.items ?? []);
-      let nextSources = payload.sources ?? [];
-      let nextGeneratedAt = payload.generatedAt;
+      const unseenCount = nextItems.length;
+      const nextSources = payload.sources ?? [];
+      const nextGeneratedAt = payload.generatedAt;
 
       const currentSignatures = new Set(activeItemsRef.current.flatMap((item) => frontierSeenSignatures(item)));
       if (forceFresh && currentSignatures.size) {
         nextItems = nextItems.filter((item) => !frontierSeenSignatures(item).some((signature) => currentSignatures.has(signature)));
       }
 
-      if (!activeSearch && focusSignature && nextItems.length < 8 && !controller.signal.aborted) {
-        const wide = await fetchPayload('');
-        let wideItems = await filterUnseenFrontierItems(wide.items ?? []);
-        if (forceFresh && currentSignatures.size) {
-          wideItems = wideItems.filter((item) => !frontierSeenSignatures(item).some((signature) => currentSignatures.has(signature)));
-        }
-        nextItems = dedupeCanonical([...nextItems, ...wideItems]);
-        nextSources = mergeSourceStatuses(nextSources, wide.sources ?? []);
-        const left = new Date(nextGeneratedAt).getTime();
-        const right = new Date(wide.generatedAt).getTime();
-        if (Number.isFinite(right) && (!Number.isFinite(left) || right > left)) nextGeneratedAt = wide.generatedAt;
-      }
-
       if (controller.signal.aborted) return;
+      recordFrontierClientFeed({
+        server: payload.pipeline,
+        received: receivedCount,
+        unseen: unseenCount,
+        rotationReady: nextItems.length,
+      });
       if (nextItems.length) {
+        livePrimerArmed.current = true;
         if (forceFresh) {
           setDiversityReference(activeItemsRef.current.slice(0, 28));
           spikeExploration(MANUAL_EXPLORATION_TEMPERATURE);
@@ -317,7 +374,7 @@ export function FrontierExperience({ initialDateLabel, initialDayKey }: Props) {
       setSources(nextSources);
       setGeneratedAt(nextGeneratedAt);
       if (payload.error) setError(payload.error);
-      if (!activeSearch && nextItems.length) {
+      if (!focus && !forceFresh && nextItems.length) {
         try {
           window.localStorage.setItem(FEED_CACHE_KEY, JSON.stringify({
             generatedAt: nextGeneratedAt,
@@ -332,15 +389,22 @@ export function FrontierExperience({ initialDateLabel, initialDayKey }: Props) {
       if (controller.signal.aborted) return;
       setError(feedError instanceof Error ? feedError.message : 'Live feed temporarily unavailable');
     } finally {
-      if (requestRef.current === controller) requestRef.current = null;
-      setLoading(false);
+      if (requestRef.current === controller) {
+        requestRef.current = null;
+        setLoading(false);
+      }
     }
-  }, [activeSearch, clearPending, focusSignature, spikeExploration]);
+  }, [clearPending, spikeExploration]);
 
   useEffect(() => {
-    void loadFeed();
-    return () => requestRef.current?.abort();
-  }, [loadFeed]);
+    const frame = window.requestAnimationFrame(() => {
+      void loadFeed(false, activeSearch ? focusSignatureRef.current : '');
+    });
+    return () => {
+      window.cancelAnimationFrame(frame);
+      requestRef.current?.abort();
+    };
+  }, [activeSearch, loadFeed]);
 
   useEffect(() => {
     const shortcut = (event: KeyboardEvent) => {
@@ -374,24 +438,87 @@ export function FrontierExperience({ initialDateLabel, initialDayKey }: Props) {
   // second-chance resurfacing path. Seen material remains available in History
   // and Saved, but never competes with a fresh live rotation.
   const ranked = useMemo(
-    () => rankFrontierItems(items, store.profile, store.history, new Date(), store.behavior),
-    [items, store.behavior, store.history, store.profile]
+    () => rankFrontierItems(
+      items,
+      store.profile,
+      store.history,
+      new Date(),
+      store.behavior,
+      pairEvidence,
+      sessionIntent,
+      directPreferenceEvidence,
+    ),
+    [directPreferenceEvidence, items, pairEvidence, sessionIntent, store.behavior, store.history, store.profile]
   );
   const realmRanked = useMemo(
     () => ranked.filter((item) => laneMatchesRealm(item.lane, realm)),
     [ranked, realm]
   );
-  const dailyRun = useMemo(() => selectDailyRun(realmRanked, store.history, 14), [realmRanked, store.history]);
+  const dailyRun = useMemo(
+    () => selectDailyRun(realmRanked, store.history, INITIAL_BROWSE_TARGET),
+    [realmRanked, store.history]
+  );
   const dailySignatures = useMemo(() => new Set(dailyRun.flatMap((item) => frontierSeenSignatures(item))), [dailyRun]);
   const streamedToday = useMemo(() => streamItems.filter((item) => (
     laneMatchesRealm(item.lane, realm)
     && !frontierSeenSignatures(item).some((signature) => dailySignatures.has(signature))
   )), [dailySignatures, realm, streamItems]);
   const todayItems = useMemo(() => dedupeCanonical([...dailyRun, ...streamedToday]), [dailyRun, streamedToday]);
+  useEffect(() => {
+    // Publish the selection boundary immediately. Authority is observational and
+    // deliberately waits until after useful content has had a paint opportunity.
+    const selectionToken = recordFrontierClientSelection({
+      ranked: ranked.length,
+      realmEligible: realmRanked.length,
+      selected: dailyRun.length,
+      boardInput: todayItems.length,
+    });
+    if (!realmRanked.length) return undefined;
+
+    const now = new Date();
+    return scheduleFrontierDiagnostic(() => {
+      const authority = buildFrontierLiveAuthorityBridge({
+        realmRanked,
+        profile: store.profile,
+        history: store.history,
+        behavior: store.behavior,
+        limit: INITIAL_BROWSE_TARGET,
+        now,
+        pairEvidence,
+        sessionIntent,
+        directPreferenceEvidence,
+      });
+      recordFrontierClientAuthority({
+        selectionToken,
+        rankAuthority: authority.rankAuthority,
+        slateTasteAuthority: authority.slateTasteAuthority,
+      });
+    });
+  }, [
+    dailyRun.length,
+    directPreferenceEvidence,
+    pairEvidence,
+    ranked.length,
+    realmRanked,
+    sessionIntent,
+    store.behavior,
+    store.history,
+    store.profile,
+    todayItems.length,
+  ]);
 
   const exploreRanked = useMemo(
-    () => rankFrontierItems(dedupeCanonical([...items, ...streamItems]), store.profile, store.history, new Date(), store.behavior),
-    [items, store.behavior, store.history, store.profile, streamItems]
+    () => rankFrontierItems(
+      dedupeCanonical([...items, ...streamItems]),
+      store.profile,
+      store.history,
+      new Date(),
+      store.behavior,
+      pairEvidence,
+      sessionIntent,
+      directPreferenceEvidence,
+    ),
+    [directPreferenceEvidence, items, pairEvidence, sessionIntent, store.behavior, store.history, store.profile, streamItems]
   );
   const exploreRealmRanked = useMemo(
     () => exploreRanked.filter((item) => laneMatchesRealm(item.lane, realm)),
@@ -431,37 +558,42 @@ export function FrontierExperience({ initialDateLabel, initialDayKey }: Props) {
     .sort((a, b) => new Date(b.lastSeenAt).getTime() - new Date(a.lastSeenAt).getTime());
 
   useEffect(() => {
-    activeItemsRef.current = view === 'explore' ? exploreItems.slice(0, 64) : todayItems.slice(0, 64);
+    activeItemsRef.current = view === 'explore'
+      ? exploreItems.slice(0, ACTIVE_ITEM_WINDOW)
+      : todayItems.slice(0, ACTIVE_ITEM_WINDOW);
   }, [exploreItems, todayItems, view]);
 
   const revealPending = useCallback(async () => {
-    const fresh = await flushPending(24);
+    const fresh = await flushPending(LIVE_APPEND_BATCH);
     if (!fresh.length) return;
     setDiversityReference(activeItemsRef.current.slice(0, 28));
     spikeExploration(STREAM_EXPLORATION_TEMPERATURE);
-    setStreamItems((current) => dedupeCanonical([...current, ...fresh]).slice(0, 72));
+    setStreamItems((current) => dedupeCanonical([...current, ...fresh]).slice(0, MAX_STREAM_ITEMS));
     if (daemonGeneratedAt) setGeneratedAt(daemonGeneratedAt);
     if (daemonSources.length) setSources((current) => mergeSourceStatuses(current, daemonSources));
     if (view !== 'today' && view !== 'explore') setView('today');
   }, [daemonGeneratedAt, daemonSources, flushPending, spikeExploration, view]);
 
+  // Prime one bounded live batch once the snapshot-backed surface is usable.
+  // appendStable guarantees this never reshuffles cards the reader is already
+  // looking at; new signals simply extend the river below the current content.
+  useEffect(() => {
+    if (loading || !items.length || pendingCount <= 0 || !livePrimerArmed.current) return;
+    const timer = window.setTimeout(() => {
+      if (!livePrimerArmed.current) return;
+      livePrimerArmed.current = false;
+      void revealPending();
+    }, 320);
+    return () => window.clearTimeout(timer);
+  }, [items.length, loading, pendingCount, revealPending]);
+
   const manualRefresh = useCallback(async () => {
-    if (pendingCount > 0) {
-      const fresh = await flushPending(36);
-      if (fresh.length) {
-        setDiversityReference(activeItemsRef.current.slice(0, 28));
-        spikeExploration(MANUAL_EXPLORATION_TEMPERATURE);
-        setItems(fresh);
-        setStreamItems([]);
-        setStreamEpoch((epoch) => epoch + 1);
-        clearPending();
-        if (daemonGeneratedAt) setGeneratedAt(daemonGeneratedAt);
-        if (daemonSources.length) setSources((current) => mergeSourceStatuses(current, daemonSources));
-        return;
-      }
-    }
-    await loadFeed(true);
-  }, [clearPending, daemonGeneratedAt, daemonSources, flushPending, loadFeed, pendingCount, spikeExploration]);
+    // A deliberate refresh means "go back to the Internet now", not merely
+    // reveal candidates already waiting in this tab's background queue.
+    clearPending();
+    await loadFeed(true, focusSignatureRef.current);
+    requestPoll('manual-refresh');
+  }, [clearPending, loadFeed, requestPoll]);
 
   const handleNearEnd = useCallback(() => {
     if (pendingCount > 0) {
@@ -490,7 +622,7 @@ export function FrontierExperience({ initialDateLabel, initialDayKey }: Props) {
     };
     window.addEventListener('keydown', shortcut);
     return () => window.removeEventListener('keydown', shortcut);
-  }, [pendingCount, revealPending]);
+  }, [pendingCount, requestPoll, revealPending]);
 
   const markSeen = store.markSeen;
   const recordDwell = store.recordDwell;
@@ -511,7 +643,14 @@ export function FrontierExperience({ initialDateLabel, initialDayKey }: Props) {
       presentation={presentation}
       saved={Boolean(store.saved[item.id])}
       reaction={store.history[item.id]?.reaction}
-      explanation={explainRecommendation(item, store.profile, store.behavior)}
+      explanation={explainRecommendation(
+        item,
+        store.profile,
+        store.behavior,
+        new Date(),
+        pairEvidence,
+        directPreferenceEvidence,
+      )}
       resurfaced={item.tags.includes('second-chance')}
       onSeen={seenCallback}
       onDwell={dwellCallback}
@@ -520,7 +659,7 @@ export function FrontierExperience({ initialDateLabel, initialDayKey }: Props) {
       onSave={saveCallback}
       onReact={reactCallback}
     />
-  ), [dwellCallback, expandCallback, openCallback, reactCallback, saveCallback, seenCallback, store.behavior, store.history, store.profile, store.saved]);
+  ), [directPreferenceEvidence, dwellCallback, expandCallback, openCallback, pairEvidence, reactCallback, saveCallback, seenCallback, store.behavior, store.history, store.profile, store.saved]);
 
   const submitSearch = useCallback((event?: FormEvent) => {
     event?.preventDefault();
@@ -609,10 +748,12 @@ export function FrontierExperience({ initialDateLabel, initialDayKey }: Props) {
   const resetAll = useCallback(() => {
     store.resetFrontier();
     clearPending();
+    clearFrontierClientPipeline();
     setStreamItems([]);
     setDiversityReference([]);
     setExplorationTemperature(BASE_EXPLORATION_TEMPERATURE);
     setStreamEpoch((epoch) => epoch + 1);
+    livePrimerArmed.current = true;
     void clearFrontierSeenLedger();
     void clearFrontierCandidatePool();
   }, [clearPending, store]);
@@ -639,7 +780,7 @@ export function FrontierExperience({ initialDateLabel, initialDayKey }: Props) {
                 }
               }}
               list="frontier-topic-suggestions"
-              placeholder="Search any topic…"
+              placeholder="Search any topic live…"
               aria-label="Search FRONTIER topics"
               autoComplete="off"
               spellCheck="false"
@@ -656,7 +797,7 @@ export function FrontierExperience({ initialDateLabel, initialDayKey }: Props) {
             <div className={styles.radarStatus} title={`${onlineSources} live sources${generatedAt ? ` · updated ${humanDate(generatedAt)}` : ''}${requestFocus.length ? ` · focus: ${requestFocus.join(', ')}` : ''}${daemonStatus.leader ? ' · discovery leader' : ' · shared discovery follower'}`}>
               <span className={`${styles.liveDot} ${error ? styles.liveDotDegraded : ''}`} />
               <span>{loading ? 'scanning' : error ? 'partial' : daemonStatus.polling ? 'streaming' : 'live'}</span>
-              <button type="button" className={styles.refreshIcon} onClick={() => void manualRefresh()} aria-label="Rotate to unseen live feed" title="Fresh unseen rotation"><RefreshCw size={12} /></button>
+              <button type="button" className={styles.refreshIcon} onClick={() => void manualRefresh()} aria-label="Full live refresh" title="Pull fresh Internet signals"><RefreshCw size={12} /></button>
             </div>
             <FrontierAccount />
           </div>

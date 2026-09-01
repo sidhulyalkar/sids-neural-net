@@ -152,6 +152,7 @@ export function useWaterfallText(
         border: '0',
         whiteSpace: 'pre',
         pointerEvents: 'none',
+        transform: `translate3d(${rect.left}px, ${rect.top}px, 0)`,
         transformOrigin: '50% 50%',
         willChange: 'transform, opacity',
         backfaceVisibility: 'hidden',
@@ -207,10 +208,6 @@ export function useWaterfallText(
       rafRef.current = window.requestAnimationFrame(frame);
     };
 
-    // Paint the particles at their measured coordinates before physics advances.
-    for (const particle of particlesRef.current) {
-      particle.node.style.transform = `translate3d(${particle.x}px, ${particle.y}px, 0)`;
-    }
     rafRef.current = window.requestAnimationFrame(frame);
     return true;
   }, [cleanup, collisionRef, durationMs, inputRef]);

@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "preview": "next start",
-    "lint": "eslint .",
+    "lint": "eslint . --max-warnings=0",
     "lint:strict": "eslint . --max-warnings=0",
     "typecheck": "tsc --noEmit",
     "test": "node --import tsx --test tests/*.test.ts",
@@ -25,7 +25,8 @@
     "gestures:analyze": "tsx scripts/analyze-gesture-takes.ts",
     "music:fetch": "tsx scripts/fetch-spotify-top.ts",
     "music:grid": "tsx scripts/build-beatgrid.ts",
-    "frontier:snapshot": "tsx scripts/build-frontier-snapshot.ts"
+    "frontier:snapshot": "tsx scripts/build-frontier-snapshot.ts",
+    "frontier:slate-audit": "tsx scripts/audit-frontier-slate.ts"
   },
   "dependencies": {
     "@mediapipe/tasks-vision": "0.10.17",

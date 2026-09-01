@@ -4,6 +4,7 @@ import {
   frontierHasPresentationMedia,
   frontierMasonrySpan,
   frontierPackedColumnSpans,
+  frontierPackedColumnStarts,
   frontierVisualRole,
 } from '../lib/frontier/presentation/mediaForward';
 import type { FrontierItem } from '../lib/frontier/types';
@@ -48,13 +49,24 @@ test('important visual items become wide without promoting ordinary text cards',
   assert.equal(frontierVisualRole(item({ importance: 0.9 }), 2, false), 'compact');
 });
 
+test('card index alone can never promote an ordinary image into a wide visual slot', () => {
+  const ordinary = item({ importance: 0.6, quality: 0.8, media: { type: 'image', url: 'https://example.com/a.jpg' } });
+  for (const index of [0, 7, 14, 21]) assert.equal(frontierVisualRole(ordinary, index, true), 'visual');
+});
+
+test('high-quality near-top imagery can earn wide treatment without random index promotion', () => {
+  const strong = item({ importance: 0.76, quality: 0.92, media: { type: 'image', url: 'https://example.com/a.jpg' } });
+  assert.equal(frontierVisualRole(strong, 2, true), 'wide');
+  assert.equal(frontierVisualRole(strong, 8, true), 'visual');
+});
+
 test('structured evidence keeps a standard footprint while plain text stays compact', () => {
   assert.equal(frontierVisualRole(item({ metrics: [{ label: 'AUC', value: '0.91' }] }), 4, false), 'standard');
   assert.equal(frontierVisualRole(item({ artifacts: [{ kind: 'benchmark', label: 'AUC', value: '0.91' }] }), 4, false), 'standard');
   assert.equal(frontierVisualRole(item(), 4, false), 'compact');
 });
 
-test('ordered packing fills complete 12-column rows without dense reordering', () => {
+test('ordered packing fills complete 12-column rows and locks every card to a deterministic column', () => {
   const items = [
     item({ id: 'video-a', media: { type: 'video', url: 'https://example.com/a.mp4' } }),
     item({ id: 'text-a' }),
@@ -63,7 +75,9 @@ test('ordered packing fills complete 12-column rows without dense reordering', (
     item({ id: 'video-b', media: { type: 'youtube', url: 'abcdefghi' } }),
   ];
   const spans = frontierPackedColumnSpans(items);
+  const starts = frontierPackedColumnStarts(spans);
   assert.deepEqual(spans, [8, 4, 4, 8, 8]);
+  assert.deepEqual(starts, [1, 9, 1, 5, 1]);
   assert.equal(spans.slice(0, 2).reduce((sum, span) => sum + span, 0), 12);
   assert.equal(spans.slice(2, 4).reduce((sum, span) => sum + span, 0), 12);
   assert.equal(items.map((entry) => entry.id).join('|'), 'video-a|text-a|text-b|image-wide|video-b');

@@ -4,12 +4,21 @@ on:
   schedule:
     - cron: '17 14 * * *'
   workflow_dispatch:
+  pull_request:
+    paths:
+      - 'lib/frontier/**'
+      - 'scripts/build-frontier-snapshot.ts'
+      - 'scripts/audit-frontier-slate.ts'
+      - 'content/music/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/frontier-refresh.yml'
 
 permissions:
   contents: write
 
 concurrency:
-  group: frontier-daily-refresh
+  group: frontier-daily-refresh-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -56,6 +65,19 @@ jobs:
           FRONTIER_SUBREDDITS: ${{ vars.FRONTIER_SUBREDDITS }}
           FRONTIER_MUSIC_ARTISTS: ${{ vars.FRONTIER_MUSIC_ARTISTS }}
         run: npm run frontier:snapshot
+
+      - name: Audit candidate slate counterfactual
+        run: npm run frontier:slate-audit -- content/frontier/latest.json
+
+      - name: Upload candidate snapshot and slate audit for PR inspection
+        if: github.event_name == 'pull_request'
+        uses: actions/upload-artifact@v7
+        with:
+          name: frontier-snapshot-candidate
+          path: |
+            content/frontier/latest.json
+            artifacts/frontier-slate/counterfactual.json
+          retention-days: 7
 
       - name: Commit refreshed signal archive
         run: |

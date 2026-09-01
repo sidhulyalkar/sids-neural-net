@@ -43,6 +43,7 @@ const LANE_CONTEXT: Record<FrontierLaneId, FrontierTrajectoryContext> = {
   team_pulse: 'spectator-sports',
   sports: 'outdoor-motion',
   gaming: 'games',
+  screen: 'culture',
   music: 'music',
   internet_culture: 'culture',
   life: 'outdoor-motion',

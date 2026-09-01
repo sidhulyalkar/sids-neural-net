@@ -33,8 +33,13 @@ export function useAvoidIntentEngine() {
   }, []);
 
   useEffect(() => {
-    void refresh();
-    return listenFrontierAvoidChanges(() => void refresh());
+    let cancelled = false;
+    queueMicrotask(() => { if (!cancelled) void refresh(); });
+    const stop = listenFrontierAvoidChanges(() => void refresh());
+    return () => {
+      cancelled = true;
+      stop();
+    };
   }, [refresh]);
 
   useEffect(() => {

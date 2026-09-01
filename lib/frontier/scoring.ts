@@ -1,5 +1,31 @@
+import { selectAdaptiveDailyAllocation } from './adaptiveSlate';
 import { behavioralAdjustment, behavioralExplorationBonus, formatForItem, aggregatePreference, timeBucket } from './behavior';
+import { buildConnectionExposureIndex, connectionPortfolioAdjustment } from './connectionPortfolio';
 import { FRONTIER_LANE_MAP } from './config';
+import {
+  buildDirectPreferenceEvidenceIndex,
+  directPreferenceSignalsForItem,
+  effectiveDirectPreferenceAffinity,
+  type FrontierDirectPreferenceEvidenceIndex,
+} from './directPreferenceEvidence';
+import { personalInterestConnection } from './interestGraph';
+import {
+  buildPairEvidenceIndex,
+  effectivePairAffinityForItem,
+  pairEvidenceForItem,
+  type FrontierPairEvidenceIndex,
+} from './pairEvidence';
+import {
+  personalTasteRankingPrior,
+  strongestPersonalTasteLabel,
+} from './personalTaste';
+import {
+  buildSessionIntent,
+  sessionIntentAdjustment,
+  type FrontierSessionIntent,
+} from './sessionIntent';
+import { isFrontierSourceAdmitted, sourceTrustRankingPrior } from './sourceTrust';
+import { applyExplicitPairSignal, pairAffinityForItem } from './tasteLearning';
 import type {
   FrontierBehaviorModel,
   FrontierHistoryEntry,
@@ -11,6 +37,7 @@ import type {
 
 const DAY_MS = 86_400_000;
 const RESURFACE_DAYS = [1, 3, 7];
+const CANONICAL_DAILY_RUN_SIZE = 14;
 
 export function clamp(value: number, min = 0, max = 1): number {
   return Math.min(max, Math.max(min, value));
@@ -37,12 +64,20 @@ function reactionValue(reaction: FrontierReaction): number {
   }
 }
 
+function consequentialInterruptPrior(item: FrontierItem): number {
+  if (item.lane !== 'must_know') return 0;
+  const severity = clamp((item.importance - 0.82) / 0.16);
+  const evidenceQuality = clamp((item.quality - 0.72) / 0.26);
+  return Math.min(0.1, severity * evidenceQuality * 0.1);
+}
+
 export function applyReactionToProfile(profile: FrontierProfile, item: FrontierItem, reaction: FrontierReaction): FrontierProfile {
   const value = reactionValue(reaction);
   const next: FrontierProfile = {
     laneAffinity: { ...profile.laneAffinity },
     topicAffinity: { ...profile.topicAffinity },
     sourceAffinity: { ...profile.sourceAffinity },
+    interestPairs: { ...profile.interestPairs },
     knownTopics: { ...profile.knownTopics },
     curiosity: profile.curiosity,
     meaningfulInteractions: profile.meaningfulInteractions + (reaction === 'read' ? 0 : 1),
@@ -67,7 +102,7 @@ export function applyReactionToProfile(profile: FrontierProfile, item: FrontierI
 
   if (reaction === 'surprise') next.curiosity = clamp(next.curiosity + 0.035, 0.08, 0.55);
   if (reaction === 'hide' || reaction === 'down') next.curiosity = clamp(next.curiosity - 0.01, 0.08, 0.55);
-  return next;
+  return applyExplicitPairSignal(next, item, value);
 }
 
 export function resurfaceBonus(entry: FrontierHistoryEntry | undefined, now = new Date()): number {
@@ -87,20 +122,127 @@ export function isDueForResurface(entry: FrontierHistoryEntry, now = new Date())
   return resurfaceBonus(entry, now) > 0;
 }
 
-export function personalizedScore(
+function learnedPairAffinity(
   item: FrontierItem,
   profile: FrontierProfile,
-  historyEntry?: FrontierHistoryEntry,
-  now = new Date(),
-  behavior?: FrontierBehaviorModel
+  pairEvidence?: FrontierPairEvidenceIndex,
 ): number {
-  if (historyEntry?.reaction === 'hide') return -1;
+  const legacy = pairAffinityForItem(item, profile);
+  return effectivePairAffinityForItem(item, legacy, pairEvidence);
+}
 
-  const laneAffinity = profile.laneAffinity[item.lane] ?? 0;
-  const sourceAffinity = profile.sourceAffinity[item.sourceKind] ?? 0;
-  const topicSignal = item.tags.length
-    ? item.tags.reduce((sum, tag) => sum + (profile.topicAffinity[tag.toLowerCase()] ?? 0), 0) / item.tags.length
-    : 0;
+/**
+ * Every numeric term is kept separate and in the exact order used by the
+ * production score. This makes diagnostic ablations possible without creating a
+ * shadow scorer or regrouping floating-point arithmetic.
+ */
+export type FrontierPersonalizedScoreComponents = {
+  baseScore: number;
+  importance: number;
+  quality: number;
+  momentum: number;
+  freshness: number;
+  laneAffinity: number;
+  topicSignal: number;
+  pairSignal: number;
+  sourceAffinity: number;
+  curiosity: number;
+  knownnessPenalty: number;
+  learnedBehavior: number;
+  exploration: number;
+  sourceTrustPrior: number;
+  tastePrior: number;
+  connectionPrior: number;
+  sessionIntent: number;
+  consequentialInterrupt: number;
+  resurfacing: number;
+};
+
+export type FrontierPersonalizedScoreBreakdown = {
+  hidden: boolean;
+  components: FrontierPersonalizedScoreComponents;
+  rawScore: number;
+  score: number;
+};
+
+export type FrontierRankScoreBreakdown = {
+  personalized: FrontierPersonalizedScoreBreakdown;
+  connectionPortfolio: number;
+  score: number;
+};
+
+function zeroScoreComponents(): FrontierPersonalizedScoreComponents {
+  return {
+    baseScore: 0,
+    importance: 0,
+    quality: 0,
+    momentum: 0,
+    freshness: 0,
+    laneAffinity: 0,
+    topicSignal: 0,
+    pairSignal: 0,
+    sourceAffinity: 0,
+    curiosity: 0,
+    knownnessPenalty: 0,
+    learnedBehavior: 0,
+    exploration: 0,
+    sourceTrustPrior: 0,
+    tastePrior: 0,
+    connectionPrior: 0,
+    sessionIntent: 0,
+    consequentialInterrupt: 0,
+    resurfacing: 0,
+  };
+}
+
+export function sumFrontierPersonalizedScoreComponents(
+  components: FrontierPersonalizedScoreComponents,
+  omitted: ReadonlySet<keyof FrontierPersonalizedScoreComponents> = new Set(),
+): number {
+  let score = 0;
+  if (!omitted.has('baseScore')) score += components.baseScore;
+  if (!omitted.has('importance')) score += components.importance;
+  if (!omitted.has('quality')) score += components.quality;
+  if (!omitted.has('momentum')) score += components.momentum;
+  if (!omitted.has('freshness')) score += components.freshness;
+  if (!omitted.has('laneAffinity')) score += components.laneAffinity;
+  if (!omitted.has('topicSignal')) score += components.topicSignal;
+  if (!omitted.has('pairSignal')) score += components.pairSignal;
+  if (!omitted.has('sourceAffinity')) score += components.sourceAffinity;
+  if (!omitted.has('curiosity')) score += components.curiosity;
+  if (!omitted.has('knownnessPenalty')) score += components.knownnessPenalty;
+  if (!omitted.has('learnedBehavior')) score += components.learnedBehavior;
+  if (!omitted.has('exploration')) score += components.exploration;
+  if (!omitted.has('sourceTrustPrior')) score += components.sourceTrustPrior;
+  if (!omitted.has('tastePrior')) score += components.tastePrior;
+  if (!omitted.has('connectionPrior')) score += components.connectionPrior;
+  if (!omitted.has('sessionIntent')) score += components.sessionIntent;
+  if (!omitted.has('consequentialInterrupt')) score += components.consequentialInterrupt;
+  if (!omitted.has('resurfacing')) score += components.resurfacing;
+  return score;
+}
+
+function computePersonalizedScoreBreakdown(
+  item: FrontierItem,
+  profile: FrontierProfile,
+  historyEntry: FrontierHistoryEntry | undefined,
+  now: Date,
+  behavior: FrontierBehaviorModel | undefined,
+  pairEvidence: FrontierPairEvidenceIndex | undefined,
+  sessionIntent: FrontierSessionIntent | undefined,
+  directPreferenceEvidence: FrontierDirectPreferenceEvidenceIndex | undefined,
+  precomputedPairSignal?: number,
+): FrontierPersonalizedScoreBreakdown {
+  if (historyEntry?.reaction === 'hide') {
+    return { hidden: true, components: zeroScoreComponents(), rawScore: -1, score: -1 };
+  }
+
+  const { laneAffinity, sourceAffinity, topicSignal } = directPreferenceSignalsForItem(
+    item,
+    profile,
+    directPreferenceEvidence,
+  );
+  const pairSignal = precomputedPairSignal ?? learnedPairAffinity(item, profile, pairEvidence);
   const knownness = item.tags.length
     ? item.tags.reduce((sum, tag) => sum + (profile.knownTopics[tag.toLowerCase()] ?? 0), 0) / item.tags.length
     : 0;
@@ -110,23 +252,125 @@ export function personalizedScore(
   const usefulSurprise = 1 - Math.min(1, Math.abs(item.novelty - surpriseTarget) / surpriseTarget);
   const learnedBehavior = behavioralAdjustment(item, behavior, now);
   const exploration = behavioralExplorationBonus(item, behavior, now) * (0.65 + profile.curiosity);
+  const sourceTrustPrior = sourceTrustRankingPrior(item);
+  const explicitTaste = personalTasteRankingPrior(item);
+  const tasteSuppression = laneAffinity <= -0.15 || topicSignal <= -0.12 ? 0.25 : 1;
+  const tastePrior = explicitTaste * tasteSuppression;
+  const connection = personalInterestConnection(item);
+  const learnedConnectionGate = pairSignal <= -0.15 ? 0.12 : 1;
+  const connectionPrior = connection.score * connection.confidence * tasteSuppression * learnedConnectionGate;
+  const activeIntent = sessionIntent ? sessionIntentAdjustment(item, sessionIntent).score : 0;
+  const consequentialInterrupt = consequentialInterruptPrior(item);
 
-  const score =
-    item.baseScore * 0.28 +
-    item.importance * 0.2 +
-    item.quality * 0.12 +
-    item.momentum * 0.08 +
-    freshness * 0.08 +
-    laneAffinity * 0.09 +
-    topicSignal * 0.08 +
-    sourceAffinity * 0.03 +
-    usefulSurprise * profile.curiosity * 0.12 -
-    knownness * 0.08 +
-    learnedBehavior +
-    exploration +
-    resurfaceBonus(historyEntry, now);
+  const components: FrontierPersonalizedScoreComponents = {
+    baseScore: item.baseScore * 0.28,
+    importance: item.importance * 0.2,
+    quality: item.quality * 0.12,
+    momentum: item.momentum * 0.08,
+    freshness: freshness * 0.08,
+    laneAffinity: laneAffinity * 0.09,
+    topicSignal: topicSignal * 0.08,
+    pairSignal: pairSignal * 0.045,
+    sourceAffinity: sourceAffinity * 0.03,
+    curiosity: usefulSurprise * profile.curiosity * 0.12,
+    knownnessPenalty: -knownness * 0.08,
+    learnedBehavior,
+    exploration,
+    sourceTrustPrior,
+    tastePrior,
+    connectionPrior,
+    sessionIntent: activeIntent,
+    consequentialInterrupt,
+    resurfacing: resurfaceBonus(historyEntry, now),
+  };
+  const rawScore = sumFrontierPersonalizedScoreComponents(components);
+  return {
+    hidden: false,
+    components,
+    rawScore,
+    score: clamp(rawScore, -1, 1.5),
+  };
+}
 
-  return clamp(score, -1, 1.5);
+export function frontierPersonalizedScoreBreakdown(
+  item: FrontierItem,
+  profile: FrontierProfile,
+  historyEntry?: FrontierHistoryEntry,
+  now = new Date(),
+  behavior?: FrontierBehaviorModel,
+  pairEvidence?: FrontierPairEvidenceIndex,
+  sessionIntent?: FrontierSessionIntent,
+  directPreferenceEvidence?: FrontierDirectPreferenceEvidenceIndex,
+): FrontierPersonalizedScoreBreakdown {
+  return computePersonalizedScoreBreakdown(
+    item,
+    profile,
+    historyEntry,
+    now,
+    behavior,
+    pairEvidence,
+    sessionIntent,
+    directPreferenceEvidence,
+  );
+}
+
+export function personalizedScore(
+  item: FrontierItem,
+  profile: FrontierProfile,
+  historyEntry?: FrontierHistoryEntry,
+  now = new Date(),
+  behavior?: FrontierBehaviorModel,
+  pairEvidence?: FrontierPairEvidenceIndex,
+  sessionIntent?: FrontierSessionIntent,
+  directPreferenceEvidence?: FrontierDirectPreferenceEvidenceIndex,
+): number {
+  return frontierPersonalizedScoreBreakdown(
+    item,
+    profile,
+    historyEntry,
+    now,
+    behavior,
+    pairEvidence,
+    sessionIntent,
+    directPreferenceEvidence,
+  ).score;
+}
+
+export function frontierRankScoreBreakdown(
+  item: FrontierItem,
+  profile: FrontierProfile,
+  historyEntry: FrontierHistoryEntry | undefined,
+  connectionExposure: Map<string, number>,
+  now = new Date(),
+  behavior?: FrontierBehaviorModel,
+  pairEvidence?: FrontierPairEvidenceIndex,
+  sessionIntent?: FrontierSessionIntent,
+  directPreferenceEvidence?: FrontierDirectPreferenceEvidenceIndex,
+): FrontierRankScoreBreakdown {
+  const pairSignal = learnedPairAffinity(item, profile, pairEvidence);
+  const preferenceEvidence = pairEvidenceForItem(item, pairEvidence);
+  const portfolio = connectionPortfolioAdjustment(
+    item,
+    connectionExposure,
+    pairSignal,
+    preferenceEvidence.confidence,
+  );
+  const personalized = computePersonalizedScoreBreakdown(
+    item,
+    profile,
+    historyEntry,
+    now,
+    behavior,
+    pairEvidence,
+    sessionIntent,
+    directPreferenceEvidence,
+    pairSignal,
+  );
+  return {
+    personalized,
+    connectionPortfolio: portfolio.net,
+    score: personalized.score + portfolio.net,
+  };
 }
 
 export function rankFrontierItems(
@@ -134,75 +378,86 @@ export function rankFrontierItems(
   profile: FrontierProfile,
   history: Record<string, FrontierHistoryEntry>,
   now = new Date(),
-  behavior?: FrontierBehaviorModel
+  behavior?: FrontierBehaviorModel,
+  pairEvidence = buildPairEvidenceIndex(history, now),
+  sessionIntent = buildSessionIntent(history, now),
+  directPreferenceEvidence = buildDirectPreferenceEvidenceIndex(history, now),
 ): FrontierItem[] {
+  const connectionExposure = buildConnectionExposureIndex(history, now);
   return items
-    .filter((item) => history[item.id]?.reaction !== 'hide')
-    .map((item) => ({ item, score: personalizedScore(item, profile, history[item.id], now, behavior) }))
+    .filter((item) => history[item.id]?.reaction !== 'hide' && isFrontierSourceAdmitted(item))
+    .map((item) => ({
+      item,
+      score: frontierRankScoreBreakdown(
+        item,
+        profile,
+        history[item.id],
+        connectionExposure,
+        now,
+        behavior,
+        pairEvidence,
+        sessionIntent,
+        directPreferenceEvidence,
+      ).score,
+    }))
     .sort((a, b) => b.score - a.score)
     .map(({ item }) => item);
 }
 
-function takeFirst(source: FrontierItem[], used: Set<string>, predicate: (item: FrontierItem) => boolean): FrontierItem | undefined {
-  const item = source.find((candidate) => !used.has(candidate.id) && predicate(candidate));
-  if (item) used.add(item.id);
-  return item;
-}
-
-function isActiveSportSignal(item: FrontierItem): boolean {
-  return item.tags.includes('active sport') || item.tags.includes('active sports');
-}
-
-function sourceHost(item: FrontierItem): string {
-  try { return new URL(item.url).hostname.replace(/^www\./, ''); } catch { return item.source; }
+function selectDailyAllocation(
+  ranked: FrontierItem[],
+  history: Record<string, FrontierHistoryEntry>,
+  limit: number,
+  now: Date
+): FrontierItem[] {
+  void history;
+  void now;
+  return selectAdaptiveDailyAllocation(ranked, limit);
 }
 
 export function selectDailyRun(
   ranked: FrontierItem[],
   history: Record<string, FrontierHistoryEntry>,
-  limit = 14,
+  limit = CANONICAL_DAILY_RUN_SIZE,
   now = new Date()
 ): FrontierItem[] {
-  const used = new Set<string>();
-  const selected: FrontierItem[] = [];
-  const push = (item?: FrontierItem) => { if (item) selected.push(item); };
-
-  push(takeFirst(ranked, used, (item) => item.importance >= 0.76 || item.lane === 'must_know'));
-  push(takeFirst(ranked, used, (item) => ['ml_data', 'ai_frontier', 'neuro_frontier', 'broad_science'].includes(item.lane)));
-  push(takeFirst(ranked, used, (item) => item.lane === 'builder_signal'));
-  push(takeFirst(ranked, used, (item) => item.lane === 'methods' || item.lane === 'creative_tech'));
-  push(takeFirst(ranked, used, (item) => item.lane === 'team_pulse'));
-  push(takeFirst(ranked, used, (item) => isActiveSportSignal(item)));
-  push(takeFirst(ranked, used, (item) => ['premier_league', 'world_soccer', 'sports'].includes(item.lane)));
-  push(takeFirst(ranked, used, (item) => item.lane === 'gaming'));
-  push(takeFirst(ranked, used, (item) => item.lane === 'music' || item.lane === 'internet_culture' || item.lane === 'life'));
-  push(takeFirst(ranked, used, (item) => isDueForResurface(history[item.id], now)));
-  push(takeFirst(ranked, used, (item) => item.novelty >= 0.7 || item.lane === 'wildcards'));
-
-  for (const item of ranked) {
-    if (selected.length >= limit) break;
-    if (used.has(item.id)) continue;
-    const sameLane = selected.filter((candidate) => candidate.lane === item.lane).length;
-    if (sameLane >= Math.max(2, Math.ceil(limit * 0.24))) continue;
-    const host = sourceHost(item);
-    const sameHost = selected.filter((candidate) => sourceHost(candidate) === host).length;
-    if (sameHost >= 2) continue;
-    selected.push(item);
-    used.add(item.id);
+  const boundedLimit = Math.max(0, Math.floor(limit));
+  if (boundedLimit <= CANONICAL_DAILY_RUN_SIZE) {
+    return selectDailyAllocation(ranked, history, boundedLimit, now);
   }
 
-  return selected.slice(0, limit);
+  const canonical = selectDailyAllocation(ranked, history, CANONICAL_DAILY_RUN_SIZE, now);
+  const expanded = selectDailyAllocation(ranked, history, boundedLimit, now);
+  const canonicalIds = new Set(canonical.map((item) => item.id));
+  return [
+    ...canonical,
+    ...expanded.filter((item) => !canonicalIds.has(item.id)),
+  ].slice(0, boundedLimit);
 }
 
 export function explainRecommendation(
   item: FrontierItem,
   profile: FrontierProfile,
   behavior?: FrontierBehaviorModel,
-  now = new Date()
+  now = new Date(),
+  pairEvidence?: FrontierPairEvidenceIndex,
+  directPreferenceEvidence?: FrontierDirectPreferenceEvidenceIndex,
 ): string {
+  const directSignals = directPreferenceSignalsForItem(item, profile, directPreferenceEvidence);
   const strongestTag = item.tags
-    .map((tag) => ({ tag, affinity: profile.topicAffinity[tag.toLowerCase()] ?? 0 }))
+    .map((tag) => ({
+      tag,
+      affinity: effectiveDirectPreferenceAffinity(
+        profile.topicAffinity[tag.toLowerCase()] ?? 0,
+        'topic',
+        tag,
+        directPreferenceEvidence,
+      ),
+    }))
     .sort((a, b) => b.affinity - a.affinity)[0];
+  const tasteSuppressed = directSignals.laneAffinity <= -0.15 || directSignals.topicSignal <= -0.12;
+
+  if (item.sportsState) return `Live ${item.sportsState.leagueLabel} state stays in your finite run without displacing the deeper sports analysis.`;
 
   if (behavior?.implicitLearning) {
     const bucket = timeBucket(now);
@@ -217,10 +472,15 @@ export function explainRecommendation(
     }
   }
 
+  const connection = personalInterestConnection(item);
+  const pairSignal = learnedPairAffinity(item, profile, pairEvidence);
+  if (connection.explanation && connection.confidence >= 0.62 && pairSignal > -0.15 && !tasteSuppressed) return connection.explanation;
   if (resurfaceLike(item)) return 'Second chance: this signal was worth keeping in orbit.';
   if (item.importance >= 0.8) return 'High global importance, promoted even beyond your normal taste profile.';
+  const personalLabel = strongestPersonalTasteLabel(item);
+  if (personalLabel && personalTasteRankingPrior(item) >= 0.09 && !tasteSuppressed) return `Strong fit with your ${personalLabel} radar.`;
   if (strongestTag && strongestTag.affinity > 0.08) return `Your interest in ${strongestTag.tag} pulled this into range.`;
-  if ((profile.laneAffinity[item.lane] ?? 0) > 0.12) return `Your ${FRONTIER_LANE_MAP[item.lane].shortLabel} signal has been strengthening.`;
+  if (directSignals.laneAffinity > 0.12) return `Your ${FRONTIER_LANE_MAP[item.lane].shortLabel} signal has been strengthening.`;
   if (item.novelty > 0.72) return 'Exploration slot: adjacent enough to matter, different enough to expand the map.';
   return item.why || `Strong fit for your ${FRONTIER_LANE_MAP[item.lane].shortLabel} radar.`;
 }
@@ -239,7 +499,7 @@ export function buildDailyQuests(history: Record<string, FrontierHistoryEntry>, 
 
   return [
     { id: 'brainfood', label: 'Brainfood', description: 'Resolve one paper, codebase, method, or science signal.', current: Number(hasBrainfood), target: 1, complete: hasBrainfood, xp: 14 },
-    { id: 'clubhouse', label: 'Clubhouse', description: 'Catch one team, active sport, game, music, or culture signal.', current: Number(hasAfterHours), target: 1, complete: hasAfterHours, xp: 12 },
+    { id: 'clubhouse', label: 'Clubhouse', description: 'Catch one team, active sport, game, Screen Orbit, music, or culture signal.', current: Number(hasAfterHours), target: 1, complete: hasAfterHours, xp: 12 },
     { id: 'second-wind', label: 'Second Wind', description: 'Resolve something the radar brought back for another look.', current: Math.min(1, secondChances), target: 1, complete: secondChances >= 1, xp: 12 },
     { id: 'curiosity', label: 'Useful Surprise', description: 'Mark one discovery as genuinely surprising.', current: Math.min(1, surprises), target: 1, complete: surprises >= 1, xp: 12 },
   ];

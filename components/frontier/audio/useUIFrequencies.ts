@@ -73,24 +73,19 @@ function searchThud(): void {
   const ctx = ensureContext();
   if (!ctx || !masterGain) return;
   resumeContext(ctx);
-
   const now = ctx.currentTime + 0.006;
   const oscillator = ctx.createOscillator();
   const filter = ctx.createBiquadFilter();
   const gain = ctx.createGain();
-
   oscillator.type = 'sine';
   oscillator.frequency.setValueAtTime(78, now);
   oscillator.frequency.exponentialRampToValueAtTime(43, now + 0.115);
-
   filter.type = 'lowpass';
   filter.frequency.setValueAtTime(150, now);
   filter.Q.setValueAtTime(0.72, now);
-
   gain.gain.setValueAtTime(0.0001, now);
   gain.gain.exponentialRampToValueAtTime(0.16, now + 0.009);
   gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.24);
-
   oscillator.connect(filter);
   filter.connect(gain);
   gain.connect(masterGain);
@@ -108,13 +103,11 @@ function mechanicalClick(): void {
   const ctx = ensureContext();
   if (!ctx || !masterGain) return;
   resumeContext(ctx);
-
   const now = ctx.currentTime + 0.003;
   const source = ctx.createBufferSource();
   const highpass = ctx.createBiquadFilter();
   const lowpass = ctx.createBiquadFilter();
   const gain = ctx.createGain();
-
   source.buffer = noiseBuffer(ctx);
   highpass.type = 'highpass';
   highpass.frequency.setValueAtTime(2_300, now);
@@ -122,10 +115,8 @@ function mechanicalClick(): void {
   lowpass.type = 'lowpass';
   lowpass.frequency.setValueAtTime(8_500, now);
   lowpass.Q.setValueAtTime(0.45, now);
-
   gain.gain.setValueAtTime(0.058, now);
   gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.028);
-
   source.connect(highpass);
   highpass.connect(lowpass);
   lowpass.connect(gain);
@@ -140,17 +131,11 @@ function mechanicalClick(): void {
   }, { once: true });
 }
 
-/**
- * A short, bright Watch Intent transient. It is intentionally separate from
- * the soft stream pulse, but still obeys the global mute and browser activation
- * policy. An autonomous discovery never earns permission to create sound.
- */
 function prioritySignal(): void {
   if (engineMuted) return;
   const ctx = ensureContext();
   if (!ctx || !masterGain) return;
   resumeContext(ctx);
-
   const now = ctx.currentTime + 0.005;
   const tone = ctx.createOscillator();
   const overtone = ctx.createOscillator();
@@ -159,28 +144,24 @@ function prioritySignal(): void {
   const source = ctx.createBufferSource();
   const noiseHighpass = ctx.createBiquadFilter();
   const noiseGain = ctx.createGain();
-
   tone.type = 'sine';
   tone.frequency.setValueAtTime(1_920, now);
   tone.frequency.exponentialRampToValueAtTime(1_260, now + 0.13);
   toneGain.gain.setValueAtTime(0.0001, now);
   toneGain.gain.exponentialRampToValueAtTime(0.09, now + 0.004);
   toneGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.145);
-
   overtone.type = 'triangle';
   overtone.frequency.setValueAtTime(3_840, now);
   overtone.frequency.exponentialRampToValueAtTime(2_520, now + 0.075);
   overtoneGain.gain.setValueAtTime(0.0001, now);
   overtoneGain.gain.exponentialRampToValueAtTime(0.024, now + 0.003);
   overtoneGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.082);
-
   source.buffer = noiseBuffer(ctx);
   noiseHighpass.type = 'highpass';
   noiseHighpass.frequency.setValueAtTime(5_200, now);
   noiseHighpass.Q.setValueAtTime(0.55, now);
   noiseGain.gain.setValueAtTime(0.024, now);
   noiseGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.025);
-
   tone.connect(toneGain);
   overtone.connect(overtoneGain);
   source.connect(noiseHighpass);
@@ -188,7 +169,6 @@ function prioritySignal(): void {
   toneGain.connect(masterGain);
   overtoneGain.connect(masterGain);
   noiseGain.connect(masterGain);
-
   tone.start(now);
   overtone.start(now);
   source.start(now);
@@ -210,9 +190,10 @@ export function useUIFrequencies() {
   const [muted, setMuted] = useState(false);
 
   useEffect(() => {
+    let cancelled = false;
     const initial = persistedMuted();
-    setMuted(initial);
     setEngineMuted(initial);
+    queueMicrotask(() => { if (!cancelled) setMuted(initial); });
 
     const unlock = () => {
       userActivated = true;
@@ -235,6 +216,7 @@ export function useUIFrequencies() {
     window.addEventListener(MUTE_EVENT, onMute);
 
     return () => {
+      cancelled = true;
       window.removeEventListener('pointerdown', unlock);
       window.removeEventListener('keydown', unlock);
       window.removeEventListener(MUTE_EVENT, onMute);

@@ -3,6 +3,7 @@ import 'server-only';
 import { lookup } from 'node:dns/promises';
 import { isIP } from 'node:net';
 import type { FrontierFeedResponse, FrontierMedia } from '@/lib/frontier/types';
+import { preferredFrontierImageSource } from './sourceResolution';
 
 const DEFAULT_MEDIA_HOSTS = new Set([
   'i.ytimg.com',
@@ -15,6 +16,14 @@ const DEFAULT_MEDIA_HOSTS = new Set([
   // only from a canonical github.com/owner/repo URL and still subjects it to
   // the same DNS, redirect, MIME, timeout, and payload-size gateway checks.
   'opengraph.githubassets.com',
+  // Official Hugging Face social-thumbnail CDN. Paper URLs are derived only
+  // from canonical huggingface.co/papers/<arxiv-id> identities.
+  'cdn-thumbnails.huggingface.co',
+  // Guardian's first-party image transform/original media hosts. RSS entries
+  // carry these URLs directly; the gateway still validates DNS, MIME, size,
+  // redirects and timeout before exposing same-origin bytes to the GPU worker.
+  'i.guim.co.uk',
+  'media.guim.co.uk',
   // First-party curated/scientific visual sources used by optional public
   // discovery adapters. The gateway still validates protocol, DNS, redirects,
   // content type, timeout, and payload size before returning any bytes.
@@ -113,11 +122,16 @@ function proxyPath(value?: string): string | undefined {
 function decorateMedia(media?: FrontierMedia): FrontierMedia | undefined {
   if (!media) return media;
   if (media.type === 'image') {
-    const proxyUrl = proxyPath(media.url);
+    // RSS is allowed to carry a small discovery thumbnail, but FRONTIER's GPU
+    // plane should request the publisher's source-authentic HD transform when
+    // one is safely derivable. Keep media.url untouched as an independent
+    // browser-native fallback if that higher-resolution transform ever fails.
+    const proxyUrl = proxyPath(media.url ? preferredFrontierImageSource(media.url) : undefined);
     return proxyUrl ? { ...media, proxyUrl } : media;
   }
   if (media.type === 'video' || media.type === 'youtube') {
-    const posterProxyUrl = proxyPath(media.poster);
+    const preferredPoster = media.poster ? preferredFrontierImageSource(media.poster) : undefined;
+    const posterProxyUrl = proxyPath(preferredPoster);
     return posterProxyUrl ? { ...media, posterProxyUrl } : media;
   }
   return media;

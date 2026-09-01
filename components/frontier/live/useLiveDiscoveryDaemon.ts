@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { decodeDiscoveryFocus, encodeDiscoveryFocus } from '@/lib/frontier/discoveryFocus';
 import type {
+  FrontierDaemonPollReason,
   FrontierDaemonRequest,
   FrontierDaemonResponse,
   FrontierDaemonStatus,
@@ -14,6 +15,7 @@ import {
   listenFrontierSeenSignatures,
 } from '@/lib/frontier/live/seenLedger';
 import { publishFrontierRuntimeHealth } from '@/lib/frontier/runtime/runtimeHealth';
+import { isFrontierSourceAdmitted } from '@/lib/frontier/sourceTrust';
 import type { FrontierItem, FrontierSourceStatus } from '@/lib/frontier/types';
 import { useFrontierAutonomy } from '../watch/FrontierAutonomyProvider';
 
@@ -36,34 +38,50 @@ const EMPTY_STATUS: FrontierDaemonStatus = {
 export function useLiveDiscoveryDaemon(options: {
   focusSignature: string;
   excludeItems: FrontierItem[];
+  /**
+   * Keep the worker dormant until the snapshot-backed feed has produced usable
+   * content. Fresh discovery is intentionally stage two so it cannot compete
+   * with first useful paint for network, CPU, or server-function budget.
+   */
+  enabled?: boolean;
   prioritizeItems?: (items: FrontierItem[]) => Promise<FrontierItem[]>;
   onHighPriority?: (items: FrontierItem[], meta: { generatedAt?: string; sources: FrontierSourceStatus[] }) => void;
 }) {
-  const autonomy = useFrontierAutonomy();
+  const {
+    activeWatchLabels,
+    prioritizeItems: autonomyPrioritizeItems,
+    announceHighPriority,
+  } = useFrontierAutonomy();
+  const {
+    focusSignature,
+    excludeItems,
+    enabled = true,
+    prioritizeItems,
+    onHighPriority,
+  } = options;
   const workerRef = useRef<Worker | null>(null);
   const exclusionRef = useRef(new Set<string>());
   const exclusionListRef = useRef<string[]>([]);
   const focusRef = useRef('');
-  const prioritizeRef = useRef<(items: FrontierItem[]) => Promise<FrontierItem[]>>(autonomy.prioritizeItems);
-  const highPriorityRef = useRef<(items: FrontierItem[], meta: { generatedAt?: string; sources: FrontierSourceStatus[] }) => void>(autonomy.announceHighPriority);
+  const prioritizeRef = useRef<(items: FrontierItem[]) => Promise<FrontierItem[]>>(autonomyPrioritizeItems);
+  const highPriorityRef = useRef<(items: FrontierItem[], meta: { generatedAt?: string; sources: FrontierSourceStatus[] }) => void>(announceHighPriority);
   const pendingRef = useRef(new Map<string, FrontierItem>());
   const lastActivitySent = useRef(0);
   const retryTimer = useRef<number | undefined>(undefined);
   const failures = useRef(0);
-  const [pendingVersion, setPendingVersion] = useState(0);
+  const [pendingCount, setPendingCount] = useState(0);
   const [status, setStatus] = useState<FrontierDaemonStatus>(EMPTY_STATUS);
   const [meta, setMeta] = useState<PendingMeta>({ sources: [] });
   const [workerGeneration, setWorkerGeneration] = useState(0);
 
-  const watchFocusKey = autonomy.activeWatchLabels.join('|');
   const combinedFocusSignature = useMemo(() => encodeDiscoveryFocus(Array.from(new Set([
-    ...decodeDiscoveryFocus(options.focusSignature),
-    ...autonomy.activeWatchLabels,
-  ])).slice(0, 10)), [autonomy.activeWatchLabels, options.focusSignature]);
+    ...decodeDiscoveryFocus(focusSignature),
+    ...activeWatchLabels,
+  ])).slice(0, 10)), [activeWatchLabels, focusSignature]);
 
   const excludeSignatures = useMemo(() => Array.from(new Set(
-    options.excludeItems.flatMap((item) => frontierSeenSignatures(item))
-  )).slice(0, 256), [options.excludeItems]);
+    excludeItems.flatMap((item) => frontierSeenSignatures(item))
+  )).slice(0, 256), [excludeItems]);
 
   const configureWorker = useCallback((worker: Worker) => {
     const request: FrontierDaemonRequest = {
@@ -82,21 +100,20 @@ export function useLiveDiscoveryDaemon(options: {
     exclusionRef.current = new Set(excludeSignatures);
     exclusionListRef.current = excludeSignatures;
     focusRef.current = combinedFocusSignature;
-    prioritizeRef.current = options.prioritizeItems ?? autonomy.prioritizeItems;
-    highPriorityRef.current = (items, meta) => {
-      autonomy.announceHighPriority(items, meta);
-      if (options.onHighPriority) options.onHighPriority(items, meta);
+    prioritizeRef.current = prioritizeItems ?? autonomyPrioritizeItems;
+    highPriorityRef.current = (items, pendingMeta) => {
+      announceHighPriority(items, pendingMeta);
+      onHighPriority?.(items, pendingMeta);
     };
     if (workerRef.current) configureWorker(workerRef.current);
   }, [
-    autonomy.announceHighPriority,
-    autonomy.prioritizeItems,
+    announceHighPriority,
+    autonomyPrioritizeItems,
     combinedFocusSignature,
     configureWorker,
     excludeSignatures,
-    options.onHighPriority,
-    options.prioritizeItems,
-    watchFocusKey,
+    onHighPriority,
+    prioritizeItems,
   ]);
 
   const prunePendingForSeen = useCallback((signatures: string[]) => {
@@ -109,11 +126,15 @@ export function useLiveDiscoveryDaemon(options: {
         changed = true;
       }
     }
-    if (changed) setPendingVersion((version) => version + 1);
+    if (changed) setPendingCount(pendingRef.current.size);
   }, []);
 
   const acceptFresh = useCallback(async (items: FrontierItem[], generatedAt?: string, sources: FrontierSourceStatus[] = []) => {
-    let exact = await filterUnseenFrontierItems(items);
+    // The server feed already applies destination-aware provenance vetting, but
+    // the daemon can emit high-priority notifications before the normal page
+    // ranking pass. Recheck admission here so stale/malformed worker payloads or
+    // future transports cannot turn an unvetted publisher into an alert.
+    let exact = (await filterUnseenFrontierItems(items)).filter((item) => isFrontierSourceAdmitted(item));
     if (prioritizeRef.current && exact.length) {
       try { exact = await prioritizeRef.current(exact); } catch { /* priority scoring is additive */ }
     }
@@ -144,10 +165,15 @@ export function useLiveDiscoveryDaemon(options: {
       changed = true;
     }
     if (generatedAt || sources.length) setMeta({ generatedAt, sources });
-    if (changed) setPendingVersion((version) => version + 1);
+    if (changed) setPendingCount(pendingRef.current.size);
   }, []);
 
   useEffect(() => {
+    if (!enabled) {
+      publishFrontierRuntimeHealth('live-daemon', 'idle', { message: 'waiting for first useful feed paint' });
+      return;
+    }
+
     let worker: Worker;
     try {
       publishFrontierRuntimeHealth('live-daemon', 'starting');
@@ -211,11 +237,12 @@ export function useLiveDiscoveryDaemon(options: {
       worker.terminate();
       if (workerRef.current === worker) workerRef.current = null;
     };
-  }, [acceptFresh, configureWorker, workerGeneration]);
+  }, [acceptFresh, configureWorker, enabled, workerGeneration]);
 
   useEffect(() => listenFrontierSeenSignatures(prunePendingForSeen), [prunePendingForSeen]);
 
   useEffect(() => {
+    if (!enabled) return;
     const sendActivity = (force = false) => {
       const now = Date.now();
       if (!force && now - lastActivitySent.current < ACTIVITY_THROTTLE_MS) return;
@@ -247,20 +274,21 @@ export function useLiveDiscoveryDaemon(options: {
       window.removeEventListener('focus', onActivity);
       document.removeEventListener('visibilitychange', onVisibility);
     };
-  }, [workerGeneration]);
+  }, [enabled, workerGeneration]);
 
   useEffect(() => () => {
     if (retryTimer.current !== undefined) window.clearTimeout(retryTimer.current);
     publishFrontierRuntimeHealth('live-daemon', 'idle');
   }, []);
 
-  const requestPoll = useCallback((reason: 'manual' | 'near-end' | 'visibility' = 'manual') => {
+  const requestPoll = useCallback((reason: FrontierDaemonPollReason = 'manual') => {
+    if (!enabled) return;
     try { workerRef.current?.postMessage({ type: 'poll-now', reason } satisfies FrontierDaemonRequest); } catch {}
-  }, []);
+  }, [enabled]);
 
   const flush = useCallback(async (limit = 24): Promise<FrontierItem[]> => {
     const snapshot = Array.from(pendingRef.current.values());
-    const exact = await filterUnseenFrontierItems(snapshot);
+    const exact = (await filterUnseenFrontierItems(snapshot)).filter((item) => isFrontierSourceAdmitted(item));
     const allowed = exact.filter((item) => !frontierSeenSignatures(item).some((signature) => exclusionRef.current.has(signature)));
     const allowedKeys = new Set(allowed.map((item) => frontierItemIdentityKey(item)));
     for (const key of pendingRef.current.keys()) {
@@ -272,20 +300,19 @@ export function useLiveDiscoveryDaemon(options: {
     ];
     const selected = prioritized.slice(0, Math.max(1, Math.min(MAX_PENDING, limit)));
     for (const item of selected) pendingRef.current.delete(frontierItemIdentityKey(item));
-    if (snapshot.length !== pendingRef.current.size) setPendingVersion((version) => version + 1);
+    if (snapshot.length !== pendingRef.current.size) setPendingCount(pendingRef.current.size);
     return selected;
   }, []);
 
   const clearPending = useCallback(() => {
     if (!pendingRef.current.size) return;
     pendingRef.current.clear();
-    setPendingVersion((version) => version + 1);
+    setPendingCount(0);
   }, []);
 
-  void pendingVersion;
   return {
-    pendingCount: pendingRef.current.size,
-    status,
+    pendingCount,
+    status: enabled ? status : EMPTY_STATUS,
     generatedAt: meta.generatedAt,
     sources: meta.sources,
     requestPoll,

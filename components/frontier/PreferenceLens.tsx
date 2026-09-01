@@ -1,8 +1,27 @@
 'use client';
 
+import { useMemo, useSyncExternalStore } from 'react';
 import { Brain, RotateCcw } from 'lucide-react';
 import { aggregatePreference, summarizeHabits } from '@/lib/frontier/behavior';
+import {
+  readFrontierClientPipeline,
+  readFrontierClientPipelineServer,
+  subscribeFrontierClientPipeline,
+} from '@/lib/frontier/clientPipelineDiagnostics';
 import { FRONTIER_LANE_MAP } from '@/lib/frontier/config';
+import {
+  readFrontierDecisionLedger,
+  readFrontierDecisionLedgerServer,
+  subscribeFrontierDecisionLedger,
+} from '@/lib/frontier/decisionLedger';
+import { auditFrontierExposure, type FrontierExposureAudit } from '@/lib/frontier/exposureAudit';
+import { auditFrontierPipelineHealth } from '@/lib/frontier/pipelineHealth';
+import {
+  buildFrontierPreferenceAuthorityReport,
+  type FrontierPreferenceAuthoritySlateAudit,
+} from '@/lib/frontier/preferenceAuthorityReport';
+import type { FrontierRankAuthorityComponent } from '@/lib/frontier/rankAuthorityAudit';
+import { useFrontierStore } from '@/lib/frontier/store';
 import type { FrontierBehaviorModel, FrontierLaneId } from '@/lib/frontier/types';
 import styles from './frontier-minimal.module.css';
 
@@ -16,14 +35,102 @@ function engagementEvidence(behavior: FrontierBehaviorModel): number {
   return Object.values(behavior.laneStats).reduce((sum, stats) => sum + stats.shown + stats.opened * 2 + stats.saved * 3 + stats.positive * 3, 0);
 }
 
+function pairLabel(pair: string): string {
+  return pair.split(' × ').map((part) => part.trim()).filter(Boolean).join(' + ');
+}
+
+function maturityLabel(audit: FrontierExposureAudit): string {
+  switch (audit.maturity) {
+    case 'cold': return 'Cold start';
+    case 'warming': return 'Warming up';
+    case 'grounded': return 'Grounded';
+    case 'rich': return 'Well learned';
+  }
+}
+
+function pipelineStatusLabel(status: ReturnType<typeof auditFrontierPipelineHealth>['status']): string {
+  switch (status) {
+    case 'stable': return 'Stable';
+    case 'watch': return 'Needs attention';
+    case 'unobserved': return 'Awaiting evidence';
+  }
+}
+
+function authorityComponentLabel(component: FrontierRankAuthorityComponent): string {
+  switch (component) {
+    case 'fixed-taste': return 'Fixed taste';
+    case 'direct-preference-additive': return 'Direct preference';
+    case 'pair-connection-additive': return 'Interest connections';
+    case 'implicit-behavior': return 'Behavior';
+    case 'session-intent': return 'Session intent';
+    case 'exploration': return 'Exploration';
+  }
+}
+
+function slateAuthorityLabel(audit: FrontierPreferenceAuthoritySlateAudit): string {
+  return audit.causalScope === 'whole-fixed-taste-daily-run-policy'
+    ? 'Daily-run taste policy'
+    : 'Allocator taste policy';
+}
+
+function slateAuthorityTitle(audit: FrontierPreferenceAuthoritySlateAudit): string {
+  if (audit.causalScope === 'whole-fixed-taste-daily-run-policy') {
+    return 'Whole fixed-taste Today-run counterfactual. The production canonical 14-card allocation is preserved first, then the same expanded allocation fills toward the requested run size. Rank order, diversity caps, realm coverage, and consequential interrupts remain enabled.';
+  }
+  return 'Raw adaptive-allocator fixed-taste counterfactual. Rank order, diversity caps, realm coverage, and consequential interrupts remain enabled.';
+}
+
+function countLabel(value: number | null | undefined): string {
+  return value === null || value === undefined ? '?' : String(value);
+}
+
 export function PreferenceLens({ behavior, onToggleLearning, onResetBehavior }: Props) {
+  const profile = useFrontierStore((state) => state.profile);
+  const decisionLedger = useSyncExternalStore(
+    subscribeFrontierDecisionLedger,
+    readFrontierDecisionLedger,
+    readFrontierDecisionLedgerServer,
+  );
+  const clientPipeline = useSyncExternalStore(
+    subscribeFrontierClientPipeline,
+    readFrontierClientPipeline,
+    readFrontierClientPipelineServer,
+  );
+  const exposureAudit = useMemo(() => auditFrontierExposure(decisionLedger), [decisionLedger]);
+  const pipelineHealth = useMemo(
+    () => auditFrontierPipelineHealth(clientPipeline, exposureAudit),
+    [clientPipeline, exposureAudit],
+  );
+  const authorityReport = useMemo(
+    () => buildFrontierPreferenceAuthorityReport({
+      server: clientPipeline.server?.authority.bootstrapTasteCandidateCap,
+      rank: clientPipeline.rankAuthority,
+      slate: clientPipeline.slateTasteAuthority,
+    }),
+    [clientPipeline.rankAuthority, clientPipeline.server, clientPipeline.slateTasteAuthority],
+  );
   const insights = summarizeHabits(behavior).slice(0, 6);
   const lanes = Object.entries(behavior.laneStats)
     .map(([lane, stats]) => ({ lane: lane as FrontierLaneId, pref: aggregatePreference(stats) }))
     .filter((entry) => entry.pref.confidence >= 0.12)
     .sort((a, b) => (b.pref.score * b.pref.confidence) - (a.pref.score * a.pref.confidence))
     .slice(0, 7);
+  const pairings = Object.entries(profile.interestPairs)
+    .filter(([, score]) => score > 0.012)
+    .sort((left, right) => right[1] - left[1])
+    .slice(0, 6);
   const evidence = engagementEvidence(behavior);
+  const authorityObserved = authorityReport.server.observed || authorityReport.rank.observed || authorityReport.slate.observed;
+
+  const forgetHabits = () => {
+    // Pair memory is inferred from implicit/explicit co-interest evidence and is
+    // deliberately separable from direct topic likes/dislikes. Forgetting
+    // habits clears this derived layer without erasing explicit preferences.
+    useFrontierStore.setState((state) => ({
+      profile: { ...state.profile, interestPairs: {} },
+    }));
+    onResetBehavior();
+  };
 
   return (
     <div className={styles.learningLens}>
@@ -45,7 +152,148 @@ export function PreferenceLens({ behavior, onToggleLearning, onResetBehavior }: 
       <div className={styles.learningSummary}>
         <span>{behavior.sessions} sessions</span>
         <span>{evidence} signals</span>
+        {pairings.length ? <span>{pairings.length} combinations</span> : null}
+        {exposureAudit.decisions ? <span>{maturityLabel(exposureAudit)}</span> : null}
       </div>
+
+      {pipelineHealth.status !== 'unobserved' ? (
+        <div className={styles.habitGrid} aria-label="Recommendation pipeline health">
+          <div className={styles.habitCard}>
+            <span>Pipeline health</span>
+            <strong>{pipelineStatusLabel(pipelineHealth.status)} · {pipelineHealth.observedLatestBoundaries} latest boundaries</strong>
+            <div
+              className={styles.confidenceTrack}
+              title={pipelineHealth.warnings.length
+                ? pipelineHealth.warnings.join(' · ')
+                : 'No structural warning fired on the currently observed boundaries.'}
+            >
+              <div style={{ width: `${Math.min(100, Math.round((pipelineHealth.observedLatestBoundaries / 8) * 100))}%` }} />
+            </div>
+          </div>
+          <div className={styles.habitCard}>
+            <span>Latest supply</span>
+            <strong>
+              {clientPipeline.server?.stages.sourceAcquired !== null && clientPipeline.server?.stages.sourceAcquired !== undefined
+                ? `${countLabel(clientPipeline.server?.stages.sourceAcquired)} acquired → ${countLabel(clientPipeline.server?.stages.responseReady)} response-ready`
+                : `${countLabel(clientPipeline.server?.stages.candidateInput)} archive candidates → ${countLabel(clientPipeline.server?.stages.responseReady)} response-ready`}
+            </strong>
+            <div
+              className={styles.confidenceTrack}
+              title={clientPipeline.server?.coverage.sourceAcquisition === 'observed'
+                ? 'Live source acquisition was observed for this request.'
+                : 'Original Internet acquisition is unavailable for this offline snapshot.'}
+            >
+              <div style={{ width: clientPipeline.server ? '100%' : '0%' }} />
+            </div>
+          </div>
+          <div className={styles.habitCard}>
+            <span>Latest local policy</span>
+            <strong>{countLabel(clientPipeline.received)} received → {countLabel(clientPipeline.unseen)} unseen → {countLabel(clientPipeline.selected)} selected</strong>
+            <div
+              className={styles.confidenceTrack}
+              title="Selected means daily-run selected; actual display and visibility remain owned by the decision ledger."
+            >
+              <div style={{ width: clientPipeline.selected === null ? '0%' : '100%' }} />
+            </div>
+          </div>
+          {exposureAudit.decisions ? (
+            <div className={styles.habitCard}>
+              <span>Longitudinal exposure</span>
+              <strong>{exposureAudit.overall.offered} offered → {exposureAudit.overall.visible} actually seen</strong>
+              <div
+                className={styles.confidenceTrack}
+                title="This is historical decision-ledger evidence, not the same cohort as the latest request above."
+              >
+                <div style={{ width: `${Math.round(exposureAudit.overall.visibility.value * 100)}%` }} />
+              </div>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+
+      {authorityObserved ? (
+        <div className={styles.habitGrid} aria-label="Preference authority audit">
+          {authorityReport.server.audit ? (
+            <div className={styles.habitCard}>
+              <span>Server taste cap</span>
+              <strong>
+                {authorityReport.server.audit.eligible <= authorityReport.server.audit.cap
+                  ? `Cap inactive · ${authorityReport.server.audit.eligible} eligible`
+                  : `${authorityReport.server.audit.tasteProtected}/${authorityReport.server.audit.retained} retained seats protected`}
+              </strong>
+              <div
+                className={styles.confidenceTrack}
+                title="Server-cap membership counterfactual only. This is not browser rank authority or user utility."
+              >
+                <div style={{ width: `${Math.round((1 - authorityReport.server.audit.overlapRate) * 100)}%` }} />
+              </div>
+            </div>
+          ) : null}
+          {authorityReport.rank.strongestComponent ? (
+            <div className={styles.habitCard}>
+              <span>Rank leverage</span>
+              <strong>
+                {authorityComponentLabel(authorityReport.rank.strongestComponent.component)} · {authorityReport.rank.strongestComponent.protectedTopK}/{authorityReport.rank.strongestComponent.topK} top seats
+              </strong>
+              <div
+                className={styles.confidenceTrack}
+                title="Strongest active additive component inside the current observed rank gate. This does not undo upstream interaction gates."
+              >
+                <div style={{ width: `${Math.round((1 - authorityReport.rank.strongestComponent.overlapRate) * 100)}%` }} />
+              </div>
+            </div>
+          ) : null}
+          {authorityReport.slate.audit ? (
+            <div className={styles.habitCard}>
+              <span>{slateAuthorityLabel(authorityReport.slate.audit)}</span>
+              <strong>{authorityReport.slate.audit.protectedByTaste} protected · {authorityReport.slate.audit.displacedWithoutTaste} alternate</strong>
+              <div
+                className={styles.confidenceTrack}
+                title={slateAuthorityTitle(authorityReport.slate.audit)}
+              >
+                <div style={{ width: `${Math.round((1 - authorityReport.slate.audit.overlapRate) * 100)}%` }} />
+              </div>
+            </div>
+          ) : null}
+          {authorityReport.signals.includes('fixed-taste-active-at-multiple-boundaries') ? (
+            <div className={styles.habitCard}>
+              <span>Repeated fixed taste</span>
+              <strong>{authorityReport.activeFixedTasteBoundaries}/3 observed boundaries changed</strong>
+              <div
+                className={styles.confidenceTrack}
+                title="Review signal only: fixed taste changes outcomes at multiple distinct boundaries. This is not proof that those effects are redundant or additive."
+              >
+                <div style={{ width: `${Math.round((authorityReport.activeFixedTasteBoundaries / 3) * 100)}%` }} />
+              </div>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+
+      {exposureAudit.decisions ? (
+        <div className={styles.habitGrid} aria-label="Personalization evidence health">
+          <div className={styles.habitCard}>
+            <span>Learning health</span>
+            <strong>{maturityLabel(exposureAudit)} · {exposureAudit.overall.visible} actually seen</strong>
+            <div
+              className={styles.confidenceTrack}
+              title={`${Math.round(exposureAudit.evidenceScore * 100)}% evidence maturity · ${exposureAudit.sessions} decision sessions`}
+            >
+              <div style={{ width: `${Math.round(exposureAudit.evidenceScore * 100)}%` }} />
+            </div>
+          </div>
+          <div className={styles.habitCard}>
+            <span>After seeing it</span>
+            <strong>{Math.round(exposureAudit.overall.engagementGivenVisible.value * 100)}% meaningful engagement</strong>
+            <div
+              className={styles.confidenceTrack}
+              title={`${exposureAudit.overall.engagementGivenVisible.successes} engaged of ${exposureAudit.overall.engagementGivenVisible.total} seen recommendations`}
+            >
+              <div style={{ width: `${Math.round(exposureAudit.overall.engagementGivenVisible.value * 100)}%` }} />
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {insights.length ? (
         <div className={styles.habitGrid}>
@@ -58,6 +306,23 @@ export function PreferenceLens({ behavior, onToggleLearning, onResetBehavior }: 
               </div>
             </div>
           ))}
+        </div>
+      ) : null}
+
+      {pairings.length ? (
+        <div className={styles.habitGrid} aria-label="Learned interest combinations">
+          {pairings.map(([pair, score]) => {
+            const strength = Math.min(100, Math.round((score / 0.3) * 100));
+            return (
+              <div className={styles.habitCard} key={pair}>
+                <span>Combination</span>
+                <strong>{pairLabel(pair)}</strong>
+                <div className={styles.confidenceTrack} title={`${strength}% co-interest signal`}>
+                  <div style={{ width: `${strength}%` }} />
+                </div>
+              </div>
+            );
+          })}
         </div>
       ) : null}
 
@@ -74,7 +339,7 @@ export function PreferenceLens({ behavior, onToggleLearning, onResetBehavior }: 
       ) : null}
 
       <div className={styles.learningFoot}>
-        <button type="button" className={styles.utilityButton} onClick={onResetBehavior}><RotateCcw size={11} /> Forget habits</button>
+        <button type="button" className={styles.utilityButton} onClick={forgetHabits}><RotateCcw size={11} /> Forget habits</button>
       </div>
     </div>
   );

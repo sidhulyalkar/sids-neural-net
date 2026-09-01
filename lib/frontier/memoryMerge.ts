@@ -1,5 +1,6 @@
 import { createInitialBehaviorModel } from './behavior';
 import { createInitialProfile, DEFAULT_COLLECTIONS } from './config';
+import { migrateFrontierProfile } from './profileMigration';
 import type {
   FrontierBehaviorAggregate,
   FrontierBehaviorModel,
@@ -22,8 +23,8 @@ export function parseFrontierPersistedState(value: unknown): FrontierPersistedSt
   if (!objectRecord(value.saved) || !objectRecord(value.history)) return null;
   if (!Array.isArray(value.collections) || !objectRecord(value.game)) return null;
   return {
-    version: 2,
-    profile: value.profile as FrontierProfile,
+    version: 4,
+    profile: migrateFrontierProfile(value.profile as FrontierProfile),
     behavior: value.behavior as FrontierBehaviorModel,
     saved: value.saved as FrontierPersistedState['saved'],
     collections: value.collections as FrontierCollection[],
@@ -44,14 +45,15 @@ function mergeNumericMap(left: Record<string, number>, right: Record<string, num
 }
 
 function mergeProfile(left: FrontierProfile, right: FrontierProfile): FrontierProfile {
-  return {
+  return migrateFrontierProfile({
     laneAffinity: mergeNumericMap(left.laneAffinity, right.laneAffinity) as FrontierProfile['laneAffinity'],
     topicAffinity: mergeNumericMap(left.topicAffinity, right.topicAffinity),
     sourceAffinity: mergeNumericMap(left.sourceAffinity, right.sourceAffinity),
+    interestPairs: mergeNumericMap(left.interestPairs ?? {}, right.interestPairs ?? {}),
     knownTopics: mergeNumericMap(left.knownTopics, right.knownTopics),
     curiosity: Math.max(left.curiosity, right.curiosity),
     meaningfulInteractions: Math.max(left.meaningfulInteractions, right.meaningfulInteractions),
-  };
+  });
 }
 
 function mergeAggregate(left?: FrontierBehaviorAggregate, right?: FrontierBehaviorAggregate): FrontierBehaviorAggregate | undefined {
@@ -118,8 +120,23 @@ function mergeBehavior(left: FrontierBehaviorModel, right: FrontierBehaviorModel
   };
 }
 
+function reactionOwner(left: FrontierHistoryEntry, right: FrontierHistoryEntry): FrontierHistoryEntry | undefined {
+  if (left.reactedAt && right.reactedAt) return right.reactedAt >= left.reactedAt ? right : left;
+  if (left.reactedAt) return left;
+  if (right.reactedAt) return right;
+  // Backward compatibility for older history entries that may carry a reaction
+  // without reactedAt. In that case only, fall back to the most recently seen
+  // copy rather than discarding the reaction entirely.
+  const latest = right.lastSeenAt >= left.lastSeenAt ? right : left;
+  if (latest.reaction) return latest;
+  if (left.reaction) return left;
+  if (right.reaction) return right;
+  return undefined;
+}
+
 function mergeHistoryEntry(left: FrontierHistoryEntry, right: FrontierHistoryEntry): FrontierHistoryEntry {
   const latest = right.lastSeenAt >= left.lastSeenAt ? right : left;
+  const latestReaction = reactionOwner(left, right);
   return {
     ...latest,
     firstSeenAt: left.firstSeenAt <= right.firstSeenAt ? left.firstSeenAt : right.firstSeenAt,
@@ -127,8 +144,8 @@ function mergeHistoryEntry(left: FrontierHistoryEntry, right: FrontierHistoryEnt
     impressions: Math.max(left.impressions, right.impressions),
     dwellMs: Math.max(left.dwellMs ?? 0, right.dwellMs ?? 0) || undefined,
     openedAt: newestOptional(left.openedAt, right.openedAt),
-    reactedAt: newestOptional(left.reactedAt, right.reactedAt),
-    reaction: latest.reaction ?? left.reaction ?? right.reaction,
+    reactedAt: latestReaction?.reactedAt ?? newestOptional(left.reactedAt, right.reactedAt),
+    reaction: latestReaction?.reaction,
     resurfacedCount: Math.max(left.resurfacedCount, right.resurfacedCount),
     rewarded: left.rewarded || right.rewarded,
   };
@@ -171,7 +188,7 @@ export function mergeFrontierMemory(
   rightValue: FrontierPersistedState | null | undefined
 ): FrontierPersistedState {
   const initial: FrontierPersistedState = {
-    version: 2,
+    version: 4,
     profile: createInitialProfile(),
     behavior: createInitialBehaviorModel(),
     saved: {},
@@ -190,7 +207,7 @@ export function mergeFrontierMemory(
     if (entry) history[key] = entry;
   }
   return {
-    version: 2,
+    version: 4,
     profile: mergeProfile(left.profile, right.profile),
     behavior: mergeBehavior(left.behavior, right.behavior),
     saved: { ...left.saved, ...right.saved },

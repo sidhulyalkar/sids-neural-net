@@ -7,10 +7,12 @@ export type FrontierDaemonConfig = {
   excludeSignatures: string[];
 };
 
+export type FrontierDaemonPollReason = 'manual' | 'manual-refresh' | 'near-end' | 'visibility';
+
 export type FrontierDaemonRequest =
   | { type: 'configure'; config: FrontierDaemonConfig }
   | { type: 'activity'; at: number; visible: boolean }
-  | { type: 'poll-now'; reason: 'manual' | 'near-end' | 'visibility' }
+  | { type: 'poll-now'; reason: FrontierDaemonPollReason }
   | { type: 'stop' };
 
 export type FrontierDaemonStatus = {

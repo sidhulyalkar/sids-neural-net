@@ -1,5 +1,6 @@
 import type { FrontierProfile } from '@/lib/frontier/types';
 import { FrontierLatentCanvas } from './FrontierLatentCanvas';
+import { FrontierMeasurementHealth } from './FrontierMeasurementHealth';
 
 /**
  * Compatibility wrapper for the existing Radar route. The old lane-orbit SVG
@@ -8,5 +9,10 @@ import { FrontierLatentCanvas } from './FrontierLatentCanvas';
  */
 export function InterestConstellation({ profile }: { profile: FrontierProfile }) {
   void profile;
-  return <FrontierLatentCanvas />;
+  return (
+    <>
+      <FrontierLatentCanvas />
+      <FrontierMeasurementHealth />
+    </>
+  );
 }

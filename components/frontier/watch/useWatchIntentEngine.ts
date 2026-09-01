@@ -55,8 +55,13 @@ export function useWatchIntentEngine() {
   }, []);
 
   useEffect(() => {
-    void refresh();
-    return listenFrontierWatchIntentChanges(() => void refresh());
+    let cancelled = false;
+    queueMicrotask(() => { if (!cancelled) void refresh(); });
+    const stop = listenFrontierWatchIntentChanges(() => void refresh());
+    return () => {
+      cancelled = true;
+      stop();
+    };
   }, [refresh]);
 
   const createIntent = useCallback(async (raw: string): Promise<FrontierWatchIntent> => {
@@ -173,7 +178,7 @@ export function useWatchIntentEngine() {
         },
       };
     });
-  }, [intents, migrateBackend]);
+  }, [embedDetailed, intents, migrateBackend]);
 
   return {
     intents,

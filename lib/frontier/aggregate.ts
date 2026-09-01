@@ -1,30 +1,65 @@
 import frontierSnapshot from '@/content/frontier/latest.json';
 import { getActiveSportsFeed } from './activeSportsSources';
-import { normalizeFeedToEnglish } from './english';
+import { needsEnglishTranslation, normalizeFeedToEnglish } from './english';
 import { getSharedExpandedPublicFeed } from './expandedSourcesShared';
 import { getAdaptiveLiveDiscovery } from './liveDiscovery';
 import { enrichFrontierMediaGeometry } from './media/geometry';
 import { enrichFrontierSourceVisual } from './media/sourceVisuals';
 import { getPersonalFrontierFeed } from './personalSources';
+import {
+  buildFrontierPipelineDiagnostics,
+  type FrontierBootstrapTasteCapAudit,
+  type FrontierObservableFeedResponse,
+  type FrontierPipelineMode,
+} from './pipelineDiagnostics';
+import { personalTasteRankingPrior, personalTasteTags } from './personalTaste';
+import { getPersonalTasteFrontierFeed } from './personalTasteSources';
+import { auditBootstrapTasteCandidateCap } from './preferenceAuthorityAudit';
+import { getScreenOrbitFeed } from './screenSources';
 import { getSharedMultiSourceFrontierFeed } from './sourceIngestorShared';
 import { getFrontierFeed } from './sources';
+import { getSportsAnalyticsFeed } from './sportsAnalyticsSources';
+import { getSportsClipFeed } from './sportsClipSources';
+import { getDeepSportsStateFeed } from './sportsStateDeepSources';
+import { getSportsStateFeed } from './sportsStateSources';
+import { vetFrontierItems } from './sourceTrust';
+import { getToolingRadarFeed } from './toolingRadarSources';
 import type { FrontierFeedResponse, FrontierItem, FrontierSourceStatus } from './types';
 import { getVimeoStaffPicksFeed } from './vimeoSource';
+import { getWatchableFrontierFeed } from './watchableSources';
 
 const DAY_MS = 86_400_000;
 const MAX_FUTURE_SKEW_MS = 12 * 60 * 60_000;
-const REQUEST_ADAPTER_DEADLINE_MS = 4_500;
+const REQUEST_ADAPTER_DEADLINE_MS = 2_400;
 const MAX_INTEGRATED_CANDIDATES = 320;
+const CANDIDATE_TASTE_WEIGHT = 0.55;
 
 type IntegratedOptions = {
   includeSnapshot?: boolean;
   focusTopics?: string[];
+  /** Request routes can label their observable mode without changing discovery. */
+  pipelineMode?: Extract<FrontierPipelineMode, 'focused-live' | 'fresh-live'>;
   /**
    * Request-time source meshes are supplemental and must not hold the reading
    * surface hostage to one upstream. Daily snapshot generation explicitly sets
    * this to false so it can wait for adapters' own transport deadlines.
    */
   adapterDeadlineMs?: number | false;
+};
+
+export type FrontierCandidatePoolStages = {
+  candidateInput: number;
+  plausible: number;
+  rightsSafe: number;
+  deduped: number;
+  sourceAdmitted: number;
+  candidateRetained: number;
+};
+
+export type FrontierCandidatePoolPreparation = {
+  items: FrontierItem[];
+  stages: FrontierCandidatePoolStages;
+  bootstrapTasteCandidateCap: FrontierBootstrapTasteCapAudit;
 };
 
 export function isPlausibleFrontierCandidate(item: FrontierItem, now = Date.now()): boolean {
@@ -39,6 +74,12 @@ export function isPlausibleFrontierCandidate(item: FrontierItem, now = Date.now(
   } catch {
     return false;
   }
+}
+
+function isRightsFragileNflYoutube(item: FrontierItem): boolean {
+  if (item.sourceKind !== 'youtube' && item.media?.type !== 'youtube') return false;
+  const text = [item.title, item.summary, item.sourceLabel, ...item.tags].join(' ').toLowerCase();
+  return /\bnfl\b|new england patriots|patriots/.test(text);
 }
 
 function canonicalKey(item: FrontierItem): string {
@@ -64,7 +105,14 @@ function dedupe(items: FrontierItem[]): FrontierItem[] {
   });
 }
 
-function enrichFormatSemantics(entry: FrontierItem): FrontierItem {
+/**
+ * Semantic enrichment is intentionally presentation-independent and runs before
+ * candidate truncation. Otherwise a broad research flood can evict a smaller
+ * NFL/fantasy/visualization/screen signal before the personalized recommender
+ * sees it. Publisher identity is deliberately excluded: provenance can affect
+ * trust, but it can never manufacture topic meaning.
+ */
+export function enrichFrontierSemantics(entry: FrontierItem): FrontierItem {
   const tags = new Set(entry.tags);
   if (['openalex', 'arxiv', 'huggingface', 'paperswithcode', 'biorxiv', 'medrxiv', 'openreview'].includes(entry.sourceKind)) {
     tags.add('paper');
@@ -73,12 +121,66 @@ function enrichFormatSemantics(entry: FrontierItem): FrontierItem {
   if (entry.sourceKind === 'paperswithcode' || entry.sourceKind === 'github') tags.add('code');
   if (entry.sourceKind === 'lobsters') tags.add('thread');
   if (entry.sourceKind === 'nasa') tags.add('visual science');
-  if (entry.sourceKind === 'vimeo') tags.add('video');
-  return tags.size === entry.tags.length ? entry : { ...entry, tags: [...tags] };
+  if (entry.sourceKind === 'vimeo' || entry.sourceKind === 'youtube') tags.add('video');
+  if (entry.sourceKind === 'sports_state') tags.add('sports state');
+  if (entry.lane === 'screen') tags.add('screen orbit');
+
+  const tasteText = [entry.title, entry.summary, ...entry.tags].filter(Boolean).join(' ');
+  for (const tag of personalTasteTags(tasteText)) tags.add(tag);
+
+  return tags.size === entry.tags.length ? entry : { ...entry, tags: [...tags].slice(0, 14) };
+}
+
+/**
+ * This is a bounded cold-start inventory prior, not final recommendation score.
+ * Learned behavior still owns final ranking in scoring.ts. The server merely
+ * prevents high-fit candidates from being deleted before that learner runs.
+ */
+export function frontierCandidatePriority(item: FrontierItem): number {
+  return item.baseScore + personalTasteRankingPrior(item) * CANDIDATE_TASTE_WEIGHT;
+}
+
+/**
+ * Observes the existing candidate authority path without changing it. The
+ * returned items are semantically identical to the former prepareCandidatePool
+ * result; stage and authority counts contain no item IDs, titles, URLs, queries,
+ * or profile state and therefore may safely cross the diagnostic boundary.
+ */
+export function prepareFrontierCandidatePool(items: FrontierItem[]): FrontierCandidatePoolPreparation {
+  const plausible = items.filter((item) => isPlausibleFrontierCandidate(item));
+  const rightsSafe = plausible.filter((item) => !isRightsFragileNflYoutube(item));
+  const enriched = rightsSafe.map(enrichFrontierSemantics);
+  const deduped = dedupe(enriched);
+  const admitted = vetFrontierItems(deduped);
+  const retained = [...admitted]
+    .sort((a, b) => frontierCandidatePriority(b) - frontierCandidatePriority(a))
+    .slice(0, MAX_INTEGRATED_CANDIDATES);
+  const bootstrapTasteCandidateCap = auditBootstrapTasteCandidateCap(
+    admitted,
+    retained,
+    MAX_INTEGRATED_CANDIDATES,
+  );
+
+  return {
+    items: retained,
+    stages: {
+      candidateInput: items.length,
+      plausible: plausible.length,
+      rightsSafe: rightsSafe.length,
+      deduped: deduped.length,
+      sourceAdmitted: admitted.length,
+      candidateRetained: retained.length,
+    },
+    bootstrapTasteCandidateCap,
+  };
+}
+
+function prepareCandidatePool(items: FrontierItem[]): FrontierItem[] {
+  return prepareFrontierCandidatePool(items).items;
 }
 
 function enrichPresentation(entry: FrontierItem): FrontierItem {
-  return enrichFrontierMediaGeometry(enrichFrontierSourceVisual(enrichFormatSemantics(entry)));
+  return enrichFrontierMediaGeometry(enrichFrontierSourceVisual(entry));
 }
 
 function mergeStatuses(statuses: FrontierSourceStatus[]): FrontierSourceStatus[] {
@@ -104,7 +206,7 @@ function recentSnapshotItems(): FrontierItem[] {
   const snapshot = frontierSnapshot as FrontierFeedResponse;
   const now = Date.now();
   return (snapshot.items ?? []).filter((item) => {
-    if (!isPlausibleFrontierCandidate(item, now)) return false;
+    if (!isPlausibleFrontierCandidate(item, now) || isRightsFragileNflYoutube(item)) return false;
     const ageDays = (now - new Date(item.publishedAt).getTime()) / DAY_MS;
     return Number.isFinite(ageDays) && ageDays <= 10;
   });
@@ -133,15 +235,81 @@ async function withinAdapterDeadline<T>(
   }
 }
 
-export async function getIntegratedFrontierFeed(options: IntegratedOptions = {}): Promise<FrontierFeedResponse> {
+/**
+ * First-paint requests never make a second network hop merely to translate a
+ * supplemental candidate. The daily archive builder still performs bounded
+ * translation, while request-time foreign copy is omitted until a background
+ * discovery pass can normalize it. This keeps the committed personalized
+ * snapshot available as an immediate English fallback.
+ */
+export function requestTimeEnglishItems(items: FrontierItem[]): FrontierItem[] {
+  return items.filter((item) => !needsEnglishTranslation(item.title) && !needsEnglishTranslation(item.summary));
+}
+
+/**
+ * Fast fallback for cold navigation and sparse focused responses. The committed
+ * snapshot has already paid the expensive discovery cost; we still re-run
+ * plausibility, provenance, semantic, presentation, and English-only gates so
+ * stale or malformed archive rows cannot bypass current policy.
+ */
+export function getFrontierSnapshotFeed(): FrontierFeedResponse {
+  const snapshot = frontierSnapshot as FrontierFeedResponse;
+  const items = requestTimeEnglishItems(
+    prepareCandidatePool(recentSnapshotItems()).map(enrichPresentation)
+  );
+  return {
+    generatedAt: snapshot.generatedAt || new Date().toISOString(),
+    items,
+    sources: Array.isArray(snapshot.sources) ? snapshot.sources : [],
+  };
+}
+
+export async function getIntegratedFrontierFeed(options: IntegratedOptions = {}): Promise<FrontierObservableFeedResponse> {
   const focusTopics = Array.from(new Set((options.focusTopics ?? []).map((topic) => topic.trim()).filter(Boolean))).slice(0, 10);
   const deadline = options.adapterDeadlineMs ?? REQUEST_ADAPTER_DEADLINE_MS;
   const emptyAdaptive: FrontierFeedResponse = { generatedAt: new Date().toISOString(), items: [], sources: [] };
+  const deepDiscovery = options.adapterDeadlineMs === false;
 
-  const [baseResult, personalResult, activeSportsResult, adaptiveResult, multiSourceResult, expandedResult, vimeoResult] = await Promise.allSettled([
+  // The explicit taste map affects every request through adaptive focus and
+  // ranking. Deeper taste and mature-tool radars belong in the archive-building
+  // path: they change on hour/day timescales and should never tax first paint.
+  // The snapshot builder is the one caller that opts out of request deadlines.
+  const tasteDiscoveryTask = deepDiscovery
+    ? getPersonalTasteFrontierFeed()
+    : Promise.resolve(emptyAdaptive);
+  const toolingRadarTask = deepDiscovery
+    ? getToolingRadarFeed()
+    : Promise.resolve(emptyAdaptive);
+  const sportsStateTask = deepDiscovery
+    ? getDeepSportsStateFeed()
+    : getSportsStateFeed();
+
+  const [
+    baseResult,
+    personalResult,
+    tasteResult,
+    activeSportsResult,
+    sportsStateResult,
+    sportsAnalyticsResult,
+    sportsClipResult,
+    screenResult,
+    watchableResult,
+    toolingResult,
+    adaptiveResult,
+    multiSourceResult,
+    expandedResult,
+    vimeoResult,
+  ] = await Promise.allSettled([
     withinAdapterDeadline('core mesh', getFrontierFeed(), deadline),
     withinAdapterDeadline('personal mesh', getPersonalFrontierFeed(), deadline),
+    withinAdapterDeadline('personal taste mesh', tasteDiscoveryTask, deadline),
     withinAdapterDeadline('active sports mesh', getActiveSportsFeed(), deadline),
+    withinAdapterDeadline('live sports state', sportsStateTask, deadline),
+    withinAdapterDeadline('sports analytics mesh', getSportsAnalyticsFeed({ deep: deepDiscovery }), deadline),
+    withinAdapterDeadline('sports clip radar', getSportsClipFeed(), deadline),
+    withinAdapterDeadline('Screen Orbit radar', getScreenOrbitFeed({ deep: deepDiscovery }), deadline),
+    withinAdapterDeadline('watch radar', getWatchableFrontierFeed(), deadline),
+    withinAdapterDeadline('scientific tooling radar', toolingRadarTask, deadline),
     withinAdapterDeadline(
       'adaptive live mesh',
       focusTopics.length ? getAdaptiveLiveDiscovery(focusTopics) : Promise.resolve(emptyAdaptive),
@@ -152,40 +320,89 @@ export async function getIntegratedFrontierFeed(options: IntegratedOptions = {})
     withinAdapterDeadline('Vimeo discovery', getVimeoStaffPicksFeed(), deadline),
   ]);
 
-  // Focused discovery and research meshes intentionally precede broad sources.
-  // When adapters converge on one URL, the richer request-time normalization
-  // survives deduplication while weaker duplicates disappear. Reject malformed
-  // candidates and collapse duplicates before presentation enrichment so media
-  // work can never become a hidden request-time tax on items we will discard.
-  const orderedResults = [adaptiveResult, multiSourceResult, expandedResult, vimeoResult, baseResult, activeSportsResult, personalResult];
+  // Utility sports state and focused personal discovery precede broad sources
+  // for dedupe authority. Presentation enrichment remains after inventory
+  // selection so a poster or video can never purchase a recommendation slot.
+  const orderedResults = [
+    sportsStateResult,
+    sportsAnalyticsResult,
+    sportsClipResult,
+    screenResult,
+    watchableResult,
+    toolingResult,
+    adaptiveResult,
+    multiSourceResult,
+    expandedResult,
+    tasteResult,
+    vimeoResult,
+    baseResult,
+    activeSportsResult,
+    personalResult,
+  ];
   const liveFeeds = orderedResults.flatMap((result) => result.status === 'fulfilled' ? [result.value] : []);
-  const rawLiveItems = dedupe(
-    liveFeeds
-      .flatMap((feed) => feed.items)
-      .filter((item) => isPlausibleFrontierCandidate(item))
-  )
-    .sort((a, b) => b.baseScore - a.baseScore)
-    .slice(0, MAX_INTEGRATED_CANDIDATES);
-  const liveItems = rawLiveItems.map(enrichPresentation);
+  const liveSourceItems = liveFeeds.flatMap((feed) => feed.items);
+  const livePreparation = prepareFrontierCandidatePool(liveSourceItems);
+  const liveItems = livePreparation.items.map(enrichPresentation);
 
   const liveKeys = new Set(liveItems.flatMap((item) => [canonicalKey(item), item.title.toLowerCase()]));
   const archive = options.includeSnapshot === false
     ? []
-    : recentSnapshotItems()
-        .filter((item) => !liveKeys.has(canonicalKey(item)) && !liveKeys.has(item.title.toLowerCase()))
+    : prepareCandidatePool(recentSnapshotItems()
+        .filter((item) => !liveKeys.has(canonicalKey(item)) && !liveKeys.has(item.title.toLowerCase())))
         .map(enrichPresentation);
 
   const candidateItems = [...liveItems, ...archive].slice(0, MAX_INTEGRATED_CANDIDATES);
-  const items = await normalizeFeedToEnglish(candidateItems);
+  const items = deadline === false
+    ? await normalizeFeedToEnglish(candidateItems)
+    : requestTimeEnglishItems(candidateItems);
   const sources = mergeStatuses(liveFeeds.flatMap((feed) => feed.sources));
 
   if (baseResult.status === 'rejected') sources.push({ id: 'local', label: 'Core mesh', ok: false, count: 0, message: 'core live source mesh unavailable' });
   if (personalResult.status === 'rejected') sources.push({ id: 'local', label: 'Personal mesh', ok: false, count: 0, message: 'personal live source mesh unavailable' });
+  if (tasteResult.status === 'rejected') sources.push({ id: 'brave_web', label: 'Personal taste search', ok: false, count: 0, message: 'targeted personal taste discovery unavailable' });
   if (activeSportsResult.status === 'rejected') sources.push({ id: 'local', label: 'Active sports mesh', ok: false, count: 0, message: 'active sports source mesh unavailable' });
+  if (sportsStateResult.status === 'rejected') sources.push({ id: 'sports_state', label: 'Live sports state', ok: false, count: 0, message: 'live sports state unavailable' });
+  if (sportsAnalyticsResult.status === 'rejected') sources.push({ id: 'rss', label: 'Sports analytics radar', ok: false, count: 0, message: 'sports analytics source mesh unavailable' });
+  if (sportsClipResult.status === 'rejected') sources.push({ id: 'social', label: 'Sports clip radar', ok: false, count: 0, message: 'sports clip discovery unavailable' });
+  if (screenResult.status === 'rejected') sources.push({ id: 'rss', label: 'Screen Orbit radar', ok: false, count: 0, message: 'screen discovery unavailable' });
+  if (watchableResult.status === 'rejected') sources.push({ id: 'youtube', label: 'Watch radar', ok: false, count: 0, message: 'watch radar unavailable' });
+  if (toolingResult.status === 'rejected') sources.push({ id: 'github', label: 'Scientific tooling radar', ok: false, count: 0, message: 'scientific tooling radar unavailable' });
   if (adaptiveResult.status === 'rejected' && focusTopics.length) sources.push({ id: 'gdelt', label: 'Adaptive live mesh', ok: false, count: 0, message: 'focused request-time discovery unavailable' });
   if (multiSourceResult.status === 'rejected') sources.push({ id: 'local', label: 'Research ingestion mesh', ok: false, count: 0, message: 'multi-source ingestion unavailable' });
   if (expandedResult.status === 'rejected') sources.push({ id: 'local', label: 'Expanded public mesh', ok: false, count: 0, message: 'expanded public discovery unavailable' });
   if (vimeoResult.status === 'rejected') sources.push({ id: 'vimeo', label: 'Vimeo Staff Picks', ok: false, count: 0, message: 'Vimeo discovery unavailable' });
 
-  return { generatedAt: new Date().toISOString(), items, sources: mergeStatuses(sources) };
+  const pipeline = options.includeSnapshot === false
+    ? buildFrontierPipelineDiagnostics({
+        mode: options.pipelineMode ?? 'focused-live',
+        sourceAcquisition: 'observed',
+        adapters: {
+          attempted: orderedResults.length,
+          fulfilled: liveFeeds.length,
+          failed: orderedResults.length - liveFeeds.length,
+        },
+        stages: {
+          sourceAcquired: liveSourceItems.length,
+          candidateInput: livePreparation.stages.candidateInput,
+          plausible: livePreparation.stages.plausible,
+          rightsSafe: livePreparation.stages.rightsSafe,
+          recent: null,
+          deduped: livePreparation.stages.deduped,
+          sourceAdmitted: livePreparation.stages.sourceAdmitted,
+          candidateRetained: livePreparation.stages.candidateRetained,
+          englishReady: items.length,
+          responseReady: items.length,
+        },
+        authority: {
+          bootstrapTasteCandidateCap: livePreparation.bootstrapTasteCandidateCap,
+        },
+      })
+    : undefined;
+
+  return {
+    generatedAt: new Date().toISOString(),
+    items,
+    sources: mergeStatuses(sources),
+    ...(pipeline ? { pipeline } : {}),
+  };
 }

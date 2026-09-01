@@ -21,14 +21,19 @@ function sport(id: string) {
 }
 
 function signal(overrides: Partial<FrontierItem>): FrontierItem {
+  const id = overrides.id ?? 'signal';
   return {
-    id: 'signal',
+    id,
     title: 'Signal',
     summary: 'A fresh signal.',
-    url: 'https://example.com/signal',
-    source: 'example.com',
-    sourceLabel: 'Example',
-    sourceKind: 'rss',
+    url: `https://${id}.frontier.test/signal`,
+    source: `${id}.frontier.test`,
+    sourceLabel: 'Curated test fixture',
+    // Ranking/slot tests exercise recommendation topology rather than public
+    // publisher discovery. Mark their synthetic fixture as the explicit local
+    // curated path so source-trust policy is tested independently in the
+    // dedicated source-trust suite instead of being bypassed by example.com.
+    sourceKind: 'local',
     publishedAt: new Date().toISOString(),
     lane: 'sports',
     tags: [],
@@ -84,37 +89,64 @@ test('personal classification recognizes ride and climb vocabulary', () => {
   assert.ok(tags.includes('active sport'));
 });
 
-test('daily run reserves an active sport separately from favorite-team and soccer slots', () => {
+test('active sport signals remain competitive without forcing every sports micro-topic into a finite slate', () => {
   const signals = [
-    signal({ id: 'brainfood', lane: 'ml_data', title: 'New ML method', tags: ['machine learning'] }),
+    signal({ id: 'active', lane: 'sports', title: 'Downhill MTB race run', tags: ['active sport', 'mountain biking', 'mtb'] }),
     signal({ id: 'team', lane: 'team_pulse', title: 'Warriors update', tags: ['warriors'] }),
     signal({ id: 'soccer', lane: 'premier_league', title: 'Premier League update', tags: ['premier league'] }),
-    signal({ id: 'active', lane: 'sports', title: 'Downhill MTB race run', tags: ['active sport', 'mountain biking', 'mtb'] }),
+    signal({ id: 'brainfood', lane: 'ml_data', title: 'New ML method', tags: ['machine learning'] }),
     signal({ id: 'game', lane: 'gaming', title: 'Indie game update', tags: ['indie game'] }),
     signal({ id: 'music', lane: 'music', title: 'Bass release', tags: ['dubstep'] }),
   ];
-  const ranked = rankFrontierItems(signals, createInitialProfile(), {});
-  const daily = selectDailyRun(ranked, {}, 6);
+
+  // Use the supplied order as the learned desirability order. Composition should
+  // keep the high-ranked active-sport signal and broad Brainfood coverage while
+  // refusing to turn team + soccer + active sport into three mandatory quotas.
+  const daily = selectDailyRun(signals, {}, 4);
   assert.ok(daily.some((item) => item.id === 'active'));
-  assert.ok(daily.some((item) => item.id === 'team'));
-  assert.ok(daily.some((item) => item.id === 'soccer'));
+  assert.ok(daily.some((item) => item.id === 'brainfood'));
+  const sportsMicrotopics = daily.filter((item) => ['active', 'team', 'soccer'].includes(item.id));
+  assert.ok(sportsMicrotopics.length <= 2);
+
+  // The ranking path still recognizes the same signals as personalized sports
+  // candidates; only the finite-slate reservation policy changed.
+  const ranked = rankFrontierItems(signals, createInitialProfile(), {});
+  assert.ok(ranked.some((item) => item.id === 'active'));
+  assert.ok(ranked.some((item) => item.id === 'team'));
+  assert.ok(ranked.some((item) => item.id === 'soccer'));
 });
 
 test('professional sports RSS becomes a provenance-rich active sport signal', () => {
   const climbing = sport('rock-climbing');
+  const freshPublishedAt = new Date(Date.now() - 86_400_000).toUTCString();
   const xml = `<?xml version="1.0"?><rss><channel><item>
     <title>Climber wins a dramatic bouldering final</title>
-    <link>https://example.com/climbing-final</link>
+    <link>https://news.google.com/rss/articles/example</link>
     <description><![CDATA[A close competition with a decisive final problem.]]></description>
-    <pubDate>Thu, 20 Aug 2026 10:00:00 GMT</pubDate>
-    <source>Example Sports</source>
+    <pubDate>${freshPublishedAt}</pubDate>
+    <source url="https://www.ifsc-climbing.org/">IFSC</source>
   </item></channel></rss>`;
   const parsed = parseActiveSportNewsRss(xml, climbing);
   assert.equal(parsed.length, 1);
   assert.equal(parsed[0].lane, 'sports');
   assert.ok(parsed[0].tags.includes('rock climbing'));
   assert.ok(parsed[0].tags.includes('professional news'));
-  assert.equal(parsed[0].sourceLabel, 'Example Sports');
+  assert.equal(parsed[0].sourceLabel, 'IFSC');
+  assert.equal(parsed[0].source, 'ifsc-climbing.org');
+});
+
+test('professional sports RSS still rejects sources older than the 12-day freshness contract', () => {
+  const climbing = sport('rock-climbing');
+  const stalePublishedAt = new Date(Date.now() - 13 * 86_400_000).toUTCString();
+  const xml = `<?xml version="1.0"?><rss><channel><item>
+    <title>Old climbing competition recap</title>
+    <link>https://news.google.com/rss/articles/stale-example</link>
+    <description><![CDATA[An otherwise valid source that is outside the active-sports freshness window.]]></description>
+    <pubDate>${stalePublishedAt}</pubDate>
+    <source url="https://www.ifsc-climbing.org/">IFSC</source>
+  </item></channel></rss>`;
+
+  assert.equal(parseActiveSportNewsRss(xml, climbing).length, 0);
 });
 
 test('top community video posts become playable active sport clips', () => {
