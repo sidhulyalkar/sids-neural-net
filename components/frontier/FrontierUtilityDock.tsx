@@ -7,6 +7,7 @@ import { setFrontierClientQuery } from '@/lib/frontier/vector/clientQuery';
 import type { FrontierLayoutMode, FrontierRealm, FrontierView } from '@/lib/frontier/types';
 import { useUIFrequencies } from './audio/useUIFrequencies';
 import { FrontierReactionLoop } from './FrontierReactionLoop';
+import { FrontierSensorQcControl } from './FrontierSensorQcControl';
 import styles from './frontier-utility-dock.module.css';
 
 type Option = { value: string; label: string };
@@ -265,6 +266,7 @@ export const FrontierUtilityDock = forwardRef<HTMLDivElement, Props>(function Fr
       ) : null}
 
       <FrontierReactionLoop feedActive={feedView} />
+      <FrontierSensorQcControl feedActive={feedView} />
 
       <button
         type="button"
