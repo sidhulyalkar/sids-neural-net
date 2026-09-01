@@ -96,12 +96,13 @@ The dev server uses the checked-in generated files under `data/generated`, so yo
 Start from `.env.example`:
 
 ```bash
-NEXT_PUBLIC_SITE_URL=https://sidsneural.net
 NEXT_PUBLIC_GITHUB_USERNAME=sidhulyalkar
 GITHUB_TOKEN=
 OPENALEX_EMAIL=
 SEMANTIC_SCHOLAR_API_KEY=
 ```
+
+The canonical production origin is deliberately code-owned in `lib/siteAuthority.ts` and is fixed to `https://sidhulyalkar.com`. Preview or local environment variables cannot silently change canonical, OpenGraph, robots, or sitemap identity.
 
 `GITHUB_TOKEN` is optional, but recommended when refreshing repository data so the GitHub API has a higher rate limit.
 
