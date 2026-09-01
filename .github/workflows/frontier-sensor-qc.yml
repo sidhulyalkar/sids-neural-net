@@ -18,7 +18,7 @@ concurrency:
 jobs:
   literal-head-qc:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 35
     env:
       TARGET_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
     steps:
@@ -53,6 +53,9 @@ jobs:
       - name: Full unit suite
         run: npm test
 
+      - name: Audit FRONTIER adaptive slate counterfactual
+        run: npm run frontier:slate-audit -- content/frontier/latest.json
+
       - name: Build production site
         env:
           NEXT_PUBLIC_SITE_URL: https://example.invalid
@@ -75,11 +78,22 @@ jobs:
           cat /tmp/frontier-sensor-qc-site.log
           exit 1
 
+      - name: Audit FRONTIER production media resolution
+        env:
+          FRONTIER_MEDIA_RESOLUTION_AUDIT_URL: http://127.0.0.1:3000/api/frontier/feed
+        run: node scripts/frontier-media-resolution-route-audit.cjs
+
       - name: Install Chromium audit engine
         run: |
           rm -rf /tmp/frontier-qc-playwright
           npm install --prefix /tmp/frontier-qc-playwright --no-package-lock --no-save playwright@1.55.0
           /tmp/frontier-qc-playwright/node_modules/.bin/playwright install --with-deps chromium
+
+      - name: Audit FRONTIER actual media paint and failure stability
+        env:
+          NODE_PATH: /tmp/frontier-qc-playwright/node_modules
+          FRONTIER_MEDIA_PAINT_AUDIT_URL: http://127.0.0.1:3000/frontier/mosaic-audit
+        run: node scripts/frontier-media-paint-audit.cjs
 
       - name: Audit Sensor QC privacy, persistence, and missingness
         env:
