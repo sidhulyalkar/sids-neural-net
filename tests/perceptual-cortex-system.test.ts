@@ -34,9 +34,21 @@ test('two hands produce separation, symmetry, and bilateral fusion', () => {
   const input = createInputSnapshot(); input.hands = { ...features, speed: .8, symmetry: .9 }; const world = createWorldState(); advanceWorld(world, input, 500, .2); assert.ok(world.bilateralStrength > 0);
 });
 
-test('face features expose continuous activity and bounded stillness without labels', () => {
-  const matrix = [1, 0, 0, 0, 0, 1, 0, 0, .1, -.1, 1, 0, 0, 0, 0, 1]; const result = deriveFaceFeatures(matrix, [.2, .4, .1], .15);
-  assert.equal(result.active, true); assert.ok(result.activity > 0); assert.ok(result.stillness >= 0 && result.stillness <= 1); assert.equal('emotion' in result, false);
+test('face features expose continuous activity, named expression features, and no emotion labels', () => {
+  const matrix = [1, 0, 0, 0, 0, 1, 0, 0, .1, -.1, 1, 0, 0, 0, 0, 1];
+  const result = deriveFaceFeatures(matrix, {
+    mouthSmileLeft: .4,
+    mouthSmileRight: .2,
+    browInnerUp: .1,
+    eyeWideLeft: .15,
+    eyeWideRight: .05,
+  }, .15);
+  assert.equal(result.active, true);
+  assert.ok(result.activity > 0);
+  assert.ok(result.stillness >= 0 && result.stillness <= 1);
+  assert.ok(Math.abs(result.expressions.smile - .3) < 1e-12);
+  assert.ok(result.expressions.eyeWide > 0);
+  assert.equal('emotion' in result, false);
 });
 
 test('synthetic bilateral preset drives stable visual-regression controls', () => {
