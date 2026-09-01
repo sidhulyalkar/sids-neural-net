@@ -1,6 +1,5 @@
 import { MetadataRoute } from 'next';
-
-const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://sidsneural.net';
+import { canonicalSiteUrl } from '@/lib/siteAuthority';
 
 export default function robots(): MetadataRoute.Robots {
   return {
@@ -9,6 +8,6 @@ export default function robots(): MetadataRoute.Robots {
       allow: '/',
       disallow: ['/api/', '/_next/'],
     },
-    sitemap: `${BASE_URL}/sitemap.xml`,
+    sitemap: canonicalSiteUrl('/sitemap.xml'),
   };
 }
