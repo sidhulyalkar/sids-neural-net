@@ -6,7 +6,7 @@ const { chromium } = require('playwright');
 const BASE_URL = process.env.FRONTIER_RESERVOIR_AUDIT_URL || 'http://127.0.0.1:3000';
 const FRONTIER_URL = `${BASE_URL.replace(/\/$/, '')}/frontier`;
 const CARD = '[data-frontier-fluid-card]';
-const INITIAL_CARDS = 48;
+const STABLE_PREFIX = 14;
 const APPEND_CARDS = 16;
 const ARTIFACT_DIR = path.resolve('artifacts/browser-smoke');
 const DAY_MS = 86_400_000;
@@ -151,8 +151,76 @@ async function readReservoirIds(page) {
   }));
 }
 
+async function captureBoundaryState(page) {
+  return page.evaluate(({ selector }) => {
+    const ids = Array.from(document.querySelectorAll(selector)).map((node) => node.getAttribute('data-frontier-fluid-card') || '');
+    const snapshotIds = ids.filter((id) => id.startsWith('reservoir-snapshot-'));
+    const reservoirIds = ids.filter((id) => id.startsWith('reservoir-ci-'));
+    const firstReservoirIndex = ids.findIndex((id) => id.startsWith('reservoir-ci-'));
+    const trace = window.__frontierReservoirTrace || { workers: [], posts: [], messages: [], errors: [] };
+    return {
+      count: ids.length,
+      allIds: ids,
+      snapshotCount: snapshotIds.length,
+      snapshotIds,
+      reservoirCount: reservoirIds.length,
+      reservoirIds,
+      firstReservoirIndex,
+      documentHeight: (document.scrollingElement || document.documentElement).scrollHeight,
+      trace,
+      streamPulseText: Array.from(document.querySelectorAll('button, [role="button"]'))
+        .map((node) => (node.textContent || '').replace(/\s+/g, ' ').trim())
+        .filter((value) => /new|signal|stream|reveal/i.test(value))
+        .slice(0, 12),
+    };
+  }, { selector: CARD });
+}
+
 async function runFixture(browser, now, label) {
   const context = await browser.newContext({ viewport: { width: 390, height: 844 }, colorScheme: 'dark', reducedMotion: 'reduce' });
+  await context.addInitScript(() => {
+    const trace = { workers: [], posts: [], messages: [], errors: [] };
+    Object.defineProperty(window, '__frontierReservoirTrace', { value: trace, configurable: false, writable: false });
+    const NativeWorker = window.Worker;
+    window.Worker = new Proxy(NativeWorker, {
+      construct(target, args, newTarget) {
+        const worker = Reflect.construct(target, args, newTarget);
+        const workerIndex = trace.workers.push({ url: String(args[0] || '') }) - 1;
+        const nativePostMessage = worker.postMessage.bind(worker);
+        worker.postMessage = (message, ...rest) => {
+          trace.posts.push({
+            workerIndex,
+            type: message?.type || typeof message,
+            excludeCount: Array.isArray(message?.config?.excludeSignatures) ? message.config.excludeSignatures.length : undefined,
+            reason: message?.reason,
+          });
+          return nativePostMessage(message, ...rest);
+        };
+        worker.addEventListener('message', (event) => {
+          const data = event.data;
+          trace.messages.push({
+            workerIndex,
+            type: data?.type || typeof data,
+            itemCount: Array.isArray(data?.items) ? data.items.length : undefined,
+            itemIds: Array.isArray(data?.items) ? data.items.slice(0, 20).map((item) => item?.id).filter(Boolean) : undefined,
+            status: data?.status ? {
+              leader: data.status.leader,
+              polling: data.status.polling,
+              consecutiveFailures: data.status.consecutiveFailures,
+              consecutiveEmpty: data.status.consecutiveEmpty,
+              mode: data.status.mode,
+            } : undefined,
+            message: data?.message,
+          });
+        });
+        worker.addEventListener('error', (event) => {
+          trace.errors.push({ workerIndex, message: event.message || 'worker error' });
+        });
+        return worker;
+      },
+    });
+  });
+
   const page = await context.newPage();
   const pageErrors = [];
   const consoleErrors = [];
@@ -193,26 +261,51 @@ async function runFixture(browser, now, label) {
   ]);
 
   await page.goto(FRONTIER_URL, { waitUntil: 'domcontentloaded' });
-  await page.waitForFunction(({ selector, expected }) => document.querySelectorAll(selector).length >= expected, { selector: CARD, expected: INITIAL_CARDS }, { timeout: 9000, polling: 'raf' });
-  const prefix = await page.evaluate(({ selector, take }) => Array.from(document.querySelectorAll(selector)).slice(0, take).map((node) => node.getAttribute('data-frontier-fluid-card')), { selector: CARD, take: 14 });
-
-  await page.waitForFunction(({ selector, expected }) => document.querySelectorAll(selector).length >= expected, { selector: CARD, expected: INITIAL_CARDS + APPEND_CARDS }, { timeout: 12000, polling: 'raf' });
-  const state = await page.evaluate(({ selector, initial }) => {
+  await page.waitForFunction(({ selector, stablePrefix }) => {
     const ids = Array.from(document.querySelectorAll(selector)).map((node) => node.getAttribute('data-frontier-fluid-card') || '');
-    return {
-      count: ids.length,
-      allIds: ids,
-      appended: ids.slice(initial),
-      documentHeight: (document.scrollingElement || document.documentElement).scrollHeight,
+    return ids.length >= stablePrefix && ids.slice(0, stablePrefix).every((id) => id.startsWith('reservoir-snapshot-'));
+  }, { selector: CARD, stablePrefix: STABLE_PREFIX }, { timeout: 9000, polling: 'raf' });
+  const prefix = await page.evaluate(({ selector, take }) => Array.from(document.querySelectorAll(selector)).slice(0, take).map((node) => node.getAttribute('data-frontier-fluid-card')), { selector: CARD, take: STABLE_PREFIX });
+
+  try {
+    await page.waitForFunction(({ selector, expected }) => {
+      const ids = Array.from(document.querySelectorAll(selector)).map((node) => node.getAttribute('data-frontier-fluid-card') || '');
+      return ids.filter((id) => id.startsWith('reservoir-ci-') && id !== 'reservoir-ci-stale-sports-state').length >= expected;
+    }, { selector: CARD, expected: APPEND_CARDS }, { timeout: 12000, polling: 'raf' });
+  } catch (error) {
+    const boundary = await captureBoundaryState(page);
+    const retainedIds = await readReservoirIds(page);
+    const diagnostic = {
+      passed: false,
+      label,
+      phase: 'append-boundary',
+      expectedReservoirCards: APPEND_CARDS,
+      boundary,
+      retainedCount: retainedIds.length,
+      retainedSample: retainedIds.slice(0, 30),
+      game2WorldRetained: retainedIds.includes('reservoir-ci-game2world'),
+      staleSportsRetained: retainedIds.includes('reservoir-ci-stale-sports-state'),
+      freshRequests,
+      freshBeforeSnapshot,
+      pageErrors,
+      consoleErrors,
+      error: error instanceof Error ? error.stack || error.message : String(error),
     };
-  }, { selector: CARD, initial: INITIAL_CARDS });
+    fs.writeFileSync(path.join(ARTIFACT_DIR, `frontier-reservoir-${label}-diagnostic.json`), JSON.stringify(diagnostic, null, 2));
+    throw new Error(`${label}: reservoir append boundary timed out; visible=${boundary.reservoirCount}, worker messages=${boundary.trace.messages.length}, last=${JSON.stringify(boundary.trace.messages.slice(-4))}`);
+  }
+
+  const state = await captureBoundaryState(page);
   const retainedIds = await readReservoirIds(page);
-  const finalPrefix = state.allIds.slice(0, 14);
+  const finalPrefix = state.allIds.slice(0, STABLE_PREFIX);
 
   assert.deepEqual(finalPrefix, prefix, `${label}: reservoir replay moved the canonical opening prefix`);
   assert.equal(freshBeforeSnapshot, false, `${label}: background discovery raced snapshot first paint`);
-  assert(state.appended.length >= APPEND_CARDS, `${label}: reservoir did not append ${APPEND_CARDS} candidates`);
-  assert(state.appended.slice(0, APPEND_CARDS).every((id) => id.startsWith('reservoir-ci-')), `${label}: append was not sourced from the seeded durable reservoir`);
+  assert(state.snapshotCount >= STABLE_PREFIX, `${label}: snapshot did not establish a stable canonical prefix`);
+  assert(state.reservoirCount >= APPEND_CARDS, `${label}: reservoir did not append ${APPEND_CARDS} candidates`);
+  assert(state.reservoirIds.slice(0, APPEND_CARDS).every((id) => id.startsWith('reservoir-ci-')), `${label}: append was not sourced from the seeded durable reservoir`);
+  assert(state.firstReservoirIndex >= STABLE_PREFIX, `${label}: durable replay entered ahead of the canonical snapshot prefix`);
+  assert(!state.allIds.slice(state.firstReservoirIndex).some((id) => id.startsWith('reservoir-snapshot-')), `${label}: reservoir replay interleaved into the established snapshot instead of appending`);
   assert(!state.allIds.includes('reservoir-ci-stale-sports-state'), `${label}: stale sports state escaped into the visible river`);
   assert(retainedIds.includes('reservoir-ci-game2world'), `${label}: Game2World exemplar was removed from the durable shelf`);
   assert(!retainedIds.includes('reservoir-ci-stale-sports-state'), `${label}: stale sports state was not pruned from the durable shelf`);
@@ -223,7 +316,8 @@ async function runFixture(browser, now, label) {
   const result = {
     label,
     cardCount: state.count,
-    appended: state.appended.slice(0, APPEND_CARDS),
+    snapshotCount: state.snapshotCount,
+    appended: state.reservoirIds.slice(0, APPEND_CARDS),
     stablePrefix: prefix,
     freshRequests,
     freshBeforeSnapshot,
@@ -233,6 +327,7 @@ async function runFixture(browser, now, label) {
     game2WorldVisibleToday: state.allIds.includes('reservoir-ci-game2world'),
     staleSportsRetained: retainedIds.includes('reservoir-ci-stale-sports-state'),
     staleSportsVisible: state.allIds.includes('reservoir-ci-stale-sports-state'),
+    workerTrace: state.trace,
     pageErrors,
     consoleErrors,
   };
@@ -249,7 +344,7 @@ async function runFixture(browser, now, label) {
     assert.deepEqual(second.appended, first.appended, 'same-day seeded reservoir changed its replay order across reloads');
     const report = { passed: true, seededReservoirSize: 161, capacity: 2048, first, second };
     fs.writeFileSync(path.join(ARTIFACT_DIR, 'frontier-reservoir-browser-audit.json'), JSON.stringify(report, null, 2));
-    console.log(`FRONTIER reservoir browser audit PASS: ${first.appended.length} stable daily candidates appended, Game2World retained, stale sports pruned.`);
+    console.log(`FRONTIER reservoir browser audit PASS: ${first.appended.length} stable daily candidates appended after ${first.snapshotCount} quality-qualified snapshot cards, Game2World retained, stale sports pruned.`);
   } catch (error) {
     const report = { passed: false, error: error instanceof Error ? error.stack || error.message : String(error) };
     fs.writeFileSync(path.join(ARTIFACT_DIR, 'frontier-reservoir-browser-audit.json'), JSON.stringify(report, null, 2));

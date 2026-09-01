@@ -1,6 +1,15 @@
 name: FRONTIER Reservoir CI
 
 on:
+  push:
+    branches:
+      - release/frontier-live-sensor-qc
+    paths:
+      - 'lib/frontier/live/candidatePool.ts'
+      - 'lib/frontier/recommendation/**'
+      - 'tests/frontier-reservoir-policy.test.ts'
+      - 'scripts/frontier-reservoir-browser-audit.cjs'
+      - '.github/workflows/frontier-reservoir.yml'
   pull_request:
     paths:
       - 'lib/frontier/live/candidatePool.ts'
@@ -14,16 +23,25 @@ permissions:
   contents: read
 
 concurrency:
-  group: frontier-reservoir-${{ github.ref }}
+  group: frontier-reservoir-${{ github.event.pull_request.head.sha || github.sha }}
   cancel-in-progress: true
 
 jobs:
   reservoir-gate:
     runs-on: ubuntu-latest
     timeout-minutes: 25
+    env:
+      TARGET_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
     steps:
-      - name: Checkout
+      - name: Checkout literal candidate
         uses: actions/checkout@v5
+        with:
+          ref: ${{ env.TARGET_SHA }}
+
+      - name: Prove exact checkout provenance
+        run: |
+          test "$(git rev-parse HEAD)" = "$TARGET_SHA"
+          printf 'qualified_sha=%s\n' "$TARGET_SHA" | tee /tmp/frontier-reservoir-qualified-sha.txt
 
       - name: Set up Node
         uses: actions/setup-node@v5
@@ -75,6 +93,9 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: frontier-reservoir-audit
-          path: artifacts/browser-smoke/frontier-reservoir-*
+          path: |
+            /tmp/frontier-reservoir-qualified-sha.txt
+            /tmp/frontier-reservoir.log
+            artifacts/browser-smoke/frontier-reservoir-*
           if-no-files-found: warn
           retention-days: 14

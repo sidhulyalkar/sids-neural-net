@@ -118,11 +118,12 @@ test('active sport signals remain competitive without forcing every sports micro
 
 test('professional sports RSS becomes a provenance-rich active sport signal', () => {
   const climbing = sport('rock-climbing');
+  const freshPublishedAt = new Date(Date.now() - 86_400_000).toUTCString();
   const xml = `<?xml version="1.0"?><rss><channel><item>
     <title>Climber wins a dramatic bouldering final</title>
     <link>https://news.google.com/rss/articles/example</link>
     <description><![CDATA[A close competition with a decisive final problem.]]></description>
-    <pubDate>Thu, 20 Aug 2026 10:00:00 GMT</pubDate>
+    <pubDate>${freshPublishedAt}</pubDate>
     <source url="https://www.ifsc-climbing.org/">IFSC</source>
   </item></channel></rss>`;
   const parsed = parseActiveSportNewsRss(xml, climbing);
@@ -132,6 +133,20 @@ test('professional sports RSS becomes a provenance-rich active sport signal', ()
   assert.ok(parsed[0].tags.includes('professional news'));
   assert.equal(parsed[0].sourceLabel, 'IFSC');
   assert.equal(parsed[0].source, 'ifsc-climbing.org');
+});
+
+test('professional sports RSS still rejects sources older than the 12-day freshness contract', () => {
+  const climbing = sport('rock-climbing');
+  const stalePublishedAt = new Date(Date.now() - 13 * 86_400_000).toUTCString();
+  const xml = `<?xml version="1.0"?><rss><channel><item>
+    <title>Old climbing competition recap</title>
+    <link>https://news.google.com/rss/articles/stale-example</link>
+    <description><![CDATA[An otherwise valid source that is outside the active-sports freshness window.]]></description>
+    <pubDate>${stalePublishedAt}</pubDate>
+    <source url="https://www.ifsc-climbing.org/">IFSC</source>
+  </item></channel></rss>`;
+
+  assert.equal(parseActiveSportNewsRss(xml, climbing).length, 0);
 });
 
 test('top community video posts become playable active sport clips', () => {
