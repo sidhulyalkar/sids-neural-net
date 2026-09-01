@@ -3,6 +3,13 @@ import type { FaceFeatures, HandFeatures } from './visionFeatures';
 
 export type VisionSignalOptions = { hands?: boolean; face?: boolean };
 
+export const FRONTIER_FACE_ONLY_VISION_SAMPLE_EVENT = 'frontier:face-only-vision-sample';
+export type FrontierFaceOnlyVisionSample = {
+  sampleAt: number;
+  wallAt: number;
+  faceObservable: boolean;
+};
+
 export class VisionSignalSource {
   private camera = new CameraSession();
   private video: HTMLVideoElement | null = null;
@@ -17,8 +24,19 @@ export class VisionSignalSource {
   ) {
     this.video = await this.camera.startDetached({ width: { ideal: 640 }, height: { ideal: 360 }, facingMode: 'user' });
     this.worker = new Worker(new URL('./vision.worker.ts', import.meta.url), { type: 'module' });
+    const faceOnly = options.hands === false && options.face !== false;
     this.worker.onmessage = (event) => {
-      if (event.data.type === 'features') onFeatures(event.data.hands, event.data.face);
+      if (event.data.type === 'features') {
+        onFeatures(event.data.hands, event.data.face);
+        if (faceOnly) {
+          const detail: FrontierFaceOnlyVisionSample = {
+            sampleAt: performance.now(),
+            wallAt: Date.now(),
+            faceObservable: Boolean(event.data.face?.active),
+          };
+          window.dispatchEvent(new CustomEvent(FRONTIER_FACE_ONLY_VISION_SAMPLE_EVENT, { detail }));
+        }
+      }
       if (event.data.type === 'error') onError(event.data.message);
       if (event.data.type === 'consumed') this.busy = false;
     };
