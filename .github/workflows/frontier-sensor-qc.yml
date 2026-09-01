@@ -56,6 +56,12 @@ jobs:
       - name: Audit FRONTIER adaptive slate counterfactual
         run: npm run frontier:slate-audit -- content/frontier/latest.json
 
+      - name: Generate Next route and module bundle analysis
+        run: |
+          npx next experimental-analyze --output
+          mkdir -p artifacts/bundle-analyzer
+          cp -R .next/diagnostics/analyze/. artifacts/bundle-analyzer/
+
       - name: Build production site
         env:
           NEXT_PUBLIC_SITE_URL: https://example.invalid
