@@ -72,6 +72,8 @@ jobs:
         run: npm run check:bundle
 
       - name: Start built site
+        env:
+          FRONTIER_INTERACTION_AUDIT: enabled
         run: |
           npx next start -p 3000 > /tmp/frontier-sensor-qc-site.log 2>&1 &
           echo $! > /tmp/frontier-sensor-qc-site.pid
@@ -83,6 +85,9 @@ jobs:
           done
           cat /tmp/frontier-sensor-qc-site.log
           exit 1
+
+      - name: Prove gated mosaic audit fixture is reachable
+        run: curl -fsS http://127.0.0.1:3000/frontier/mosaic-audit >/dev/null
 
       - name: Audit FRONTIER production media resolution
         env:
