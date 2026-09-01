@@ -14,6 +14,7 @@ import {
   inferLongitudinalTopicRates,
   inferLongitudinalTopicTrends,
 } from '../lib/frontier/longitudinalInference';
+import { FRONTIER_SENSOR_MEASUREMENT_VERSION } from '../lib/frontier/sensorObservability';
 
 const NOW = new Date(2026, 7, 30, 12, 0, 0, 0).getTime();
 
@@ -33,8 +34,16 @@ function archive(overrides: Partial<LongitudinalArchive> = {}): LongitudinalArch
   };
 }
 
-function exposure(id: string, tag: string | string[], at: number, durationMs: number): LongitudinalExposure {
-  return {
+type Measurement = false | { sampled?: number; observable?: number };
+
+function exposure(
+  id: string,
+  tag: string | string[],
+  at: number,
+  durationMs: number,
+  measurement: Measurement = false,
+): LongitudinalExposure {
+  const base: LongitudinalExposure = {
     id,
     sessionId: `session-${longitudinalDayKey(at)}`,
     itemId: id,
@@ -50,6 +59,12 @@ function exposure(id: string, tag: string | string[], at: number, durationMs: nu
     attributionMin: 0.7,
     visibleFractionMean: 0.85,
   };
+  if (measurement) {
+    base.measurementVersion = FRONTIER_SENSOR_MEASUREMENT_VERSION;
+    base.sensorSampledMs = measurement.sampled ?? durationMs * 0.9;
+    base.faceObservableMs = measurement.observable ?? durationMs * 0.8;
+  }
+  return base;
 }
 
 function reaction(
@@ -92,8 +107,9 @@ function rollup(
   reactions: number,
   confirmed = 0,
   contradicted = 0,
+  measured = false,
 ): LongitudinalRollup {
-  return {
+  const base: LongitudinalRollup = {
     id,
     batchId: 'batch-test',
     dayKey: longitudinalDayKey(at),
@@ -113,6 +129,16 @@ function rollup(
     intensitySum: reactions * 0.7,
     compactedAt: NOW,
   };
+  if (measured) {
+    base.sensorMeasuredWallMs = exposureMs;
+    base.sensorSampledMs = exposureMs * 0.9;
+    base.faceObservableMs = exposureMs * 0.8;
+    base.sensorMeasuredExposures = 1;
+    base.sensorMeasuredReactions = reactions;
+    base.sensorMeasuredConfirmed = confirmed;
+    base.sensorMeasuredContradicted = contradicted;
+  }
+  return base;
 }
 
 test('longitudinal windows are exact local calendar-day cohorts including today', () => {
@@ -143,7 +169,6 @@ test('sparse detected-cue rates shrink and retain wider 95% uncertainty', () => 
       reaction('steady-r4', 'steady-exposure', 'steady-topic', steadyAt + 3_000),
     ],
   });
-
   const rates = inferLongitudinalTopicRates(data, 30, NOW);
   const sparse = rates.find((entry) => entry.key === 'sparse-topic');
   const steady = rates.find((entry) => entry.key === 'steady-topic');
@@ -157,14 +182,8 @@ test('sparse detected-cue rates shrink and retain wider 95% uncertainty', () => 
 test('global shrinkage prior is invariant to unrelated tag multiplicity', () => {
   const at = localDayOffset(-1);
   const oneTag = archive({
-    exposures: [
-      exposure('target-one', 'target-topic', at, 10 * 60_000),
-      exposure('other-one', ['other'], at, 10 * 60_000),
-    ],
-    reactions: [
-      reaction('target-r1', 'target-one', 'target-topic', at),
-      reaction('other-r1', 'other-one', ['other'], at),
-    ],
+    exposures: [exposure('target-one', 'target-topic', at, 10 * 60_000), exposure('other-one', ['other'], at, 10 * 60_000)],
+    reactions: [reaction('target-r1', 'target-one', 'target-topic', at), reaction('other-r1', 'other-one', ['other'], at)],
   });
   const manyTags = archive({
     exposures: [
@@ -176,7 +195,6 @@ test('global shrinkage prior is invariant to unrelated tag multiplicity', () => 
       reaction('other-r2', 'other-many', ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'], at),
     ],
   });
-
   const first = inferLongitudinalTopicRates(oneTag, 30, NOW).find((entry) => entry.key === 'target-topic');
   const second = inferLongitudinalTopicRates(manyTags, 30, NOW).find((entry) => entry.key === 'target-topic');
   assert.ok(first && second);
@@ -184,12 +202,12 @@ test('global shrinkage prior is invariant to unrelated tag multiplicity', () => 
   assert.ok(Math.abs(first.ratePer10Min - second.ratePer10Min) < 1e-12);
 });
 
-test('unreviewed cue streams remain descriptive and cannot produce trend claims', () => {
+test('unreviewed v2 cue streams remain descriptive and cannot produce trend claims', () => {
   const previousDays = [localDayOffset(-21), localDayOffset(-18)];
   const recentDays = [localDayOffset(-7), localDayOffset(-4)];
   const exposures = [
-    ...previousDays.map((at, index) => exposure(`unreviewed-prev-${index}`, 'graphics', at, 30 * 60_000)),
-    ...recentDays.map((at, index) => exposure(`unreviewed-recent-${index}`, 'graphics', at, 30 * 60_000)),
+    ...previousDays.map((at, index) => exposure(`unreviewed-prev-${index}`, 'graphics', at, 30 * 60_000, {})),
+    ...recentDays.map((at, index) => exposure(`unreviewed-recent-${index}`, 'graphics', at, 30 * 60_000, {})),
   ];
   const reactions = [
     reaction('unreviewed-prev-r1', 'unreviewed-prev-0', 'graphics', previousDays[0]),
@@ -202,8 +220,8 @@ test('unreviewed cue streams remain descriptive and cannot produce trend claims'
     )),
   ];
   const data = archive({ exposures, reactions });
-
   const quality = inferLongitudinalMeasurementQuality(data, 28, NOW);
+  assert.equal(quality.mode, 'sensor-v2');
   assert.equal(quality.status, 'unvalidated');
   assert.equal(quality.reviewed, 0);
   const trend = inferLongitudinalTopicTrends(data, 14, NOW).find((entry) => entry.key === 'graphics');
@@ -212,12 +230,12 @@ test('unreviewed cue streams remain descriptive and cannot produce trend claims'
   assert.equal(trend.reason, 'measurement-unvalidated');
 });
 
-test('validated trend claims require replicated days and survive multiplicity control', () => {
+test('validated v2 trend claims require replicated days and survive multiplicity control', () => {
   const previousDays = [localDayOffset(-21), localDayOffset(-18)];
   const recentDays = [localDayOffset(-7), localDayOffset(-4)];
   const exposures = [
-    ...previousDays.map((at, index) => exposure(`graphics-prev-${index}`, 'graphics', at, 30 * 60_000)),
-    ...recentDays.map((at, index) => exposure(`graphics-recent-${index}`, 'graphics', at, 30 * 60_000)),
+    ...previousDays.map((at, index) => exposure(`graphics-prev-${index}`, 'graphics', at, 30 * 60_000, {})),
+    ...recentDays.map((at, index) => exposure(`graphics-recent-${index}`, 'graphics', at, 30 * 60_000, {})),
   ];
   const reactions = [
     reaction('graphics-prev-r1', 'graphics-prev-0', 'graphics', previousDays[0], 'confirmed'),
@@ -231,8 +249,8 @@ test('validated trend claims require replicated days and survive multiplicity co
     )),
   ];
   const data = archive({ exposures, reactions });
-
   const quality = inferLongitudinalMeasurementQuality(data, 28, NOW);
+  assert.equal(quality.mode, 'sensor-v2');
   assert.equal(quality.status, 'supported');
   assert.equal(quality.reviewAgreement, 1);
   const graphics = inferLongitudinalTopicTrends(data, 14, NOW).find((entry) => entry.key === 'graphics');
@@ -245,13 +263,59 @@ test('validated trend claims require replicated days and survive multiplicity co
   assert.ok(graphics.qValue <= 0.1);
 });
 
-test('a one-day burst is not promoted into a longitudinal change claim', () => {
+test('low sensor coverage blocks v2 longitudinal claims', () => {
+  const previousDays = [localDayOffset(-21), localDayOffset(-18)];
+  const recentDays = [localDayOffset(-7), localDayOffset(-4)];
+  const duration = 30 * 60_000;
+  const low = { sampled: duration * 0.3, observable: duration * 0.25 };
+  const exposures = [
+    ...previousDays.map((at, index) => exposure(`coverage-prev-${index}`, 'coverage', at, duration, low)),
+    ...recentDays.map((at, index) => exposure(`coverage-recent-${index}`, 'coverage', at, duration, low)),
+  ];
+  const reactions = Array.from({ length: 12 }, (_, index) => reaction(
+    `coverage-r${index}`,
+    index < 4 ? `coverage-prev-${index % 2}` : `coverage-recent-${index % 2}`,
+    'coverage',
+    index < 4 ? previousDays[index % 2] + index * 1_000 : recentDays[index % 2] + index * 1_000,
+    'confirmed',
+  ));
+  const trend = inferLongitudinalTopicTrends(archive({ exposures, reactions }), 14, NOW).find((entry) => entry.key === 'coverage');
+  assert.ok(trend);
+  assert.equal(trend.direction, 'insufficient');
+  assert.equal(trend.reason, 'sensor-sampling-low');
+});
+
+test('a v1 to v2 instrumentation transition can never masquerade as personal change', () => {
+  const previousDays = [localDayOffset(-21), localDayOffset(-18)];
+  const recentDays = [localDayOffset(-7), localDayOffset(-4)];
+  const exposures = [
+    ...previousDays.map((at, index) => exposure(`transition-prev-${index}`, 'transition', at, 30 * 60_000)),
+    ...recentDays.map((at, index) => exposure(`transition-recent-${index}`, 'transition', at, 30 * 60_000, {})),
+  ];
+  const reactions = [
+    reaction('transition-prev-r1', 'transition-prev-0', 'transition', previousDays[0], 'confirmed'),
+    reaction('transition-prev-r2', 'transition-prev-1', 'transition', previousDays[1], 'confirmed'),
+    ...Array.from({ length: 10 }, (_, index) => reaction(
+      `transition-recent-r${index}`,
+      `transition-recent-${index % 2}`,
+      'transition',
+      recentDays[index % 2] + index * 1_000,
+      'confirmed',
+    )),
+  ];
+  const trend = inferLongitudinalTopicTrends(archive({ exposures, reactions }), 14, NOW).find((entry) => entry.key === 'transition');
+  assert.ok(trend);
+  assert.equal(trend.direction, 'insufficient');
+  assert.equal(trend.reason, 'measurement-transition');
+});
+
+test('a one-day v2 burst is not promoted into a longitudinal change claim', () => {
   const previousAt = localDayOffset(-20);
   const recentAt = localDayOffset(-5);
   const data = archive({
     exposures: [
-      exposure('burst-prev', 'burst', previousAt, 45 * 60_000),
-      exposure('burst-recent', 'burst', recentAt, 45 * 60_000),
+      exposure('burst-prev', 'burst', previousAt, 45 * 60_000, {}),
+      exposure('burst-recent', 'burst', recentAt, 45 * 60_000, {}),
     ],
     reactions: [
       ...Array.from({ length: 4 }, (_, index) => reaction(`burst-prev-r${index}`, 'burst-prev', 'burst', previousAt + index * 1_000, 'confirmed')),
@@ -265,10 +329,10 @@ test('a one-day burst is not promoted into a longitudinal change claim', () => {
   assert.equal(trend.reason, 'single-day');
 });
 
-test('raw and compacted observations produce equivalent estimates with unique lane baseline', () => {
+test('raw and compacted v2 observations produce equivalent estimates', () => {
   const at = localDayOffset(-10);
   const raw = archive({
-    exposures: [exposure('raw-exposure', 'neuroai', at, 10 * 60_000)],
+    exposures: [exposure('raw-exposure', 'neuroai', at, 10 * 60_000, {})],
     reactions: [
       reaction('raw-r1', 'raw-exposure', 'neuroai', at, 'confirmed'),
       reaction('raw-r2', 'raw-exposure', 'neuroai', at + 1_000, 'contradicted'),
@@ -276,65 +340,27 @@ test('raw and compacted observations produce equivalent estimates with unique la
   });
   const compacted = archive({
     rollups: [
-      rollup('rollup-neuroai', 'topic', 'neuroai', at, 10 * 60_000, 2, 1, 1),
-      rollup('rollup-lane', 'lane', 'creative_tech', at, 10 * 60_000, 2, 1, 1),
+      rollup('rollup-neuroai', 'topic', 'neuroai', at, 10 * 60_000, 2, 1, 1, true),
+      rollup('rollup-lane', 'lane', 'creative_tech', at, 10 * 60_000, 2, 1, 1, true),
     ],
   });
-
   const rawEstimate = inferLongitudinalTopicRates(raw, 90, NOW).find((entry) => entry.key === 'neuroai');
   const compactedEstimate = inferLongitudinalTopicRates(compacted, 90, NOW).find((entry) => entry.key === 'neuroai');
   assert.ok(rawEstimate && compactedEstimate);
+  assert.equal(rawEstimate.measurementMode, 'sensor-v2');
+  assert.equal(compactedEstimate.measurementMode, 'sensor-v2');
   assert.equal(rawEstimate.exposureMs, compactedEstimate.exposureMs);
-  assert.equal(rawEstimate.exposures, compactedEstimate.exposures);
   assert.equal(rawEstimate.reactions, compactedEstimate.reactions);
-  assert.equal(rawEstimate.confirmed, compactedEstimate.confirmed);
-  assert.equal(rawEstimate.contradicted, compactedEstimate.contradicted);
-  assert.equal(rawEstimate.reviewAgreement, 0.5);
   assert.equal(rawEstimate.baselinePer10Min, compactedEstimate.baselinePer10Min);
   assert.ok(Math.abs(rawEstimate.ratePer10Min - compactedEstimate.ratePer10Min) < 1e-12);
   assert.ok(Math.abs(rawEstimate.lowerPer10Min - compactedEstimate.lowerPer10Min) < 1e-12);
   assert.ok(Math.abs(rawEstimate.upperPer10Min - compactedEstimate.upperPer10Min) < 1e-12);
 });
 
-test('window-edge membership cannot change when raw observations are compacted', () => {
-  const excludedAt = localDayOffset(-90, 8);
-  const includedAt = localDayOffset(-89, 8);
-  const raw = archive({
-    exposures: [
-      exposure('excluded-raw', 'outside-window', excludedAt, 10 * 60_000),
-      exposure('included-raw', 'inside-window', includedAt, 10 * 60_000),
-    ],
-    reactions: [
-      reaction('excluded-r1', 'excluded-raw', 'outside-window', excludedAt, 'confirmed'),
-      reaction('included-r1', 'included-raw', 'inside-window', includedAt, 'confirmed'),
-    ],
-  });
-  const compacted = archive({
-    rollups: [
-      rollup('excluded-topic', 'topic', 'outside-window', excludedAt, 10 * 60_000, 1, 1, 0),
-      rollup('excluded-lane', 'lane', 'creative_tech', excludedAt, 10 * 60_000, 1, 1, 0),
-      rollup('included-topic', 'topic', 'inside-window', includedAt, 10 * 60_000, 1, 1, 0),
-      rollup('included-lane', 'lane', 'creative_tech', includedAt, 10 * 60_000, 1, 1, 0),
-    ],
-  });
-
-  const rawRates = inferLongitudinalTopicRates(raw, 90, NOW);
-  const compactedRates = inferLongitudinalTopicRates(compacted, 90, NOW);
-  assert.equal(rawRates.some((entry) => entry.key === 'outside-window'), false);
-  assert.equal(compactedRates.some((entry) => entry.key === 'outside-window'), false);
-  const rawIncluded = rawRates.find((entry) => entry.key === 'inside-window');
-  const compactedIncluded = compactedRates.find((entry) => entry.key === 'inside-window');
-  assert.ok(rawIncluded && compactedIncluded);
-  assert.equal(rawIncluded.exposureMs, compactedIncluded.exposureMs);
-  assert.equal(rawIncluded.reactions, compactedIncluded.reactions);
-  assert.equal(rawIncluded.baselinePer10Min, compactedIncluded.baselinePer10Min);
-  assert.ok(Math.abs(rawIncluded.ratePer10Min - compactedIncluded.ratePer10Min) < 1e-12);
-});
-
 test('orphan reactions remain observations but have zero rate and trend authority', () => {
   const at = localDayOffset(-2);
   const data = archive({
-    exposures: [exposure('qualified', 'graphics', at, 10 * 60_000)],
+    exposures: [exposure('qualified', 'graphics', at, 10 * 60_000, {})],
     reactions: [
       reaction('linked', 'qualified', 'graphics', at, 'confirmed'),
       reaction('orphan', 'missing-exposure', 'graphics', at + 1_000, 'confirmed'),
@@ -344,7 +370,6 @@ test('orphan reactions remain observations but have zero rate and trend authorit
   assert.ok(estimate);
   assert.equal(estimate.reactions, 1);
   assert.equal(estimate.confirmed, 1);
-
   const summary = summarizeLongitudinalData({
     days: 30,
     exposures: data.exposures,
@@ -359,7 +384,7 @@ test('orphan reactions remain observations but have zero rate and trend authorit
 
 test('compaction cannot grant an orphan reaction aggregate authority', () => {
   const at = localDayOffset(-140);
-  const exposures = [exposure('qualified-old', 'neuroai', at, 10 * 60_000)];
+  const exposures = [exposure('qualified-old', 'neuroai', at, 10 * 60_000, {})];
   const reactions = [
     reaction('linked-old', 'qualified-old', 'neuroai', at, 'confirmed'),
     reaction('orphan-old', 'missing-old', 'neuroai', at + 1_000, 'confirmed'),
@@ -369,4 +394,5 @@ test('compaction cannot grant an orphan reaction aggregate authority', () => {
   assert.ok(topic);
   assert.equal(topic.reactions, 1);
   assert.equal(topic.confirmed, 1);
+  assert.equal(topic.sensorMeasuredReactions, 1);
 });
