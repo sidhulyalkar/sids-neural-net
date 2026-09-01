@@ -126,8 +126,7 @@ async function run() {
     invariant(qcText.includes('you declare the condition'), 'QC must make trial truth explicitly user-declared');
     invariant(qcText.includes('zero recommendation authority'), 'QC must state its non-authoritative boundary');
     invariant(qcText.includes('starting qc never requests camera permission'), 'QC must state that it never auto-starts camera access');
-    invariant(qcText.includes('no content ids') && qcText.includes('no content ids') || qcText.includes('no content ids,'),
-      'QC export must declare that content identifiers are excluded');
+    invariant(qcText.includes('no content ids'), 'QC export must declare that content identifiers are excluded');
 
     await qc.getByRole('button', { name: 'Start QC' }).click();
     await qc.getByRole('button', { name: 'Begin trial' }).click();
@@ -157,7 +156,7 @@ async function run() {
     invariant(qcReport.privacy?.contentIdentifiersIncluded === false, 'Sensor QC export must exclude content identifiers');
     invariant(qcReport.privacy?.rawCameraDataIncluded === false, 'Sensor QC export must exclude raw camera data');
     const serializedQc = JSON.stringify(qcReport).toLowerCase();
-    for (const forbidden of ['itemid', 'cardid', 'contentid', '"title":', '"url":', 'landmark', 'blendshape', 'embedding', 'biometrictemplate']) {
+    for (const forbidden of ['"itemid":', '"cardid":', '"contentid":', '"title":', '"url":', 'landmark', 'blendshape', 'embedding', 'biometrictemplate']) {
       invariant(!serializedQc.includes(forbidden), `Sensor QC export leaked forbidden field ${forbidden}`);
     }
 
