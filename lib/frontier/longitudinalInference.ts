@@ -180,16 +180,21 @@ function addExposure(target: ObservationAccumulator, exposure: LongitudinalExpos
   target.measuredDays.add(exposure.dayKey);
 }
 
-function addReaction(target: ObservationAccumulator, reaction: LongitudinalReactionEpisode, measured: boolean): void {
+function addReaction(
+  target: ObservationAccumulator,
+  reaction: LongitudinalReactionEpisode,
+  measured: boolean,
+  analyticDayKey: string,
+): void {
   target.totalReactions += 1;
   if (reaction.review === 'confirmed') target.totalConfirmed += 1;
   if (reaction.review === 'contradicted') target.totalContradicted += 1;
-  target.days.add(reaction.dayKey);
+  target.days.add(analyticDayKey);
   if (!measured) return;
   target.measuredReactions += 1;
   if (reaction.review === 'confirmed') target.measuredConfirmed += 1;
   if (reaction.review === 'contradicted') target.measuredContradicted += 1;
-  target.measuredDays.add(reaction.dayKey);
+  target.measuredDays.add(analyticDayKey);
 }
 
 function addRollup(target: ObservationAccumulator, rollup: LongitudinalRollup): void {
@@ -229,18 +234,31 @@ function effectiveReactions(value: ObservationAccumulator): number {
   return mode === 'sensor-v2' || mode === 'mixed' ? value.measuredReactions : value.totalReactions;
 }
 
+function qualifiedExposureMap(
+  archive: LongitudinalArchive,
+  qualified: Set<string>,
+): Map<string, LongitudinalExposure> {
+  return new Map(archive.exposures
+    .filter((exposure) => qualified.has(exposure.id))
+    .map((exposure) => [exposure.id, exposure]));
+}
+
 function topicWindow(archive: LongitudinalArchive, window: LongitudinalDayWindow): Map<string, ObservationAccumulator> {
   const map = new Map<string, ObservationAccumulator>();
   const qualified = qualifiedLongitudinalExposureIds(archive.exposures);
   const measured = sensorMeasuredLongitudinalExposureIds(archive.exposures);
+  const exposureById = qualifiedExposureMap(archive, qualified);
 
   for (const exposure of archive.exposures) {
     if (!qualified.has(exposure.id) || !dayKeyInLongitudinalWindow(exposure.dayKey, window)) continue;
     for (const tag of uniqueTags(exposure.tags)) addExposure(touch(map, tag), exposure, measured.has(exposure.id));
   }
   for (const reaction of archive.reactions) {
-    if (!qualified.has(reaction.exposureId) || !dayKeyInLongitudinalWindow(reaction.dayKey, window)) continue;
-    for (const tag of uniqueTags(reaction.tags)) addReaction(touch(map, tag), reaction, measured.has(reaction.exposureId));
+    const linkedExposure = exposureById.get(reaction.exposureId);
+    if (!linkedExposure || !dayKeyInLongitudinalWindow(linkedExposure.dayKey, window)) continue;
+    for (const tag of uniqueTags(reaction.tags)) {
+      addReaction(touch(map, tag), reaction, measured.has(reaction.exposureId), linkedExposure.dayKey);
+    }
   }
   for (const rollup of archive.rollups) {
     if (rollup.dimension === 'topic' && dayKeyInLongitudinalWindow(rollup.dayKey, window)) addRollup(touch(map, rollup.key), rollup);
@@ -252,14 +270,16 @@ function populationWindow(archive: LongitudinalArchive, window: LongitudinalDayW
   const population = emptyAccumulator();
   const qualified = qualifiedLongitudinalExposureIds(archive.exposures);
   const measured = sensorMeasuredLongitudinalExposureIds(archive.exposures);
+  const exposureById = qualifiedExposureMap(archive, qualified);
 
   for (const exposure of archive.exposures) {
     if (!qualified.has(exposure.id) || !dayKeyInLongitudinalWindow(exposure.dayKey, window)) continue;
     addExposure(population, exposure, measured.has(exposure.id));
   }
   for (const reaction of archive.reactions) {
-    if (!qualified.has(reaction.exposureId) || !dayKeyInLongitudinalWindow(reaction.dayKey, window)) continue;
-    addReaction(population, reaction, measured.has(reaction.exposureId));
+    const linkedExposure = exposureById.get(reaction.exposureId);
+    if (!linkedExposure || !dayKeyInLongitudinalWindow(linkedExposure.dayKey, window)) continue;
+    addReaction(population, reaction, measured.has(reaction.exposureId), linkedExposure.dayKey);
   }
   for (const rollup of archive.rollups) {
     if (rollup.dimension === 'lane' && dayKeyInLongitudinalWindow(rollup.dayKey, window)) addRollup(population, rollup);
