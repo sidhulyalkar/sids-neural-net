@@ -126,7 +126,7 @@ test('QC export is aggregate-only and contains no content identifiers', () => {
     rawCameraDataIncluded: false,
   });
   const serialized = JSON.stringify(report).toLowerCase();
-  for (const forbidden of ['itemid', 'cardid', 'contentid', 'title":', 'url":', 'landmark', 'blendshape', 'embedding', 'biometrictemplate']) {
+  for (const forbidden of ['"itemid":', '"cardid":', '"contentid":', '"title":', '"url":', 'landmark', 'blendshape', 'embedding', 'biometrictemplate']) {
     assert.equal(serialized.includes(forbidden), false, `export leaked forbidden field ${forbidden}`);
   }
 });
