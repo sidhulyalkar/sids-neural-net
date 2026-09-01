@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { createPortal } from 'react-dom';
 import { ArrowRight, Camera, CameraOff, Check, Sparkles, X } from 'lucide-react';
 import { VisionSignalSource } from '@/components/perceptual-cortex/VisionSignalSource';
@@ -93,6 +93,10 @@ const SIGNAL_COPY: Record<FrontierAmbientReactionKind, { title: string; detail: 
     action: 'Switch angle',
   },
 };
+
+const subscribeHydration = () => () => undefined;
+const hydratedClientSnapshot = () => true;
+const hydratedServerSnapshot = () => false;
 
 function visibleFraction(element: HTMLElement): number {
   const rect = element.getBoundingClientRect();
@@ -192,19 +196,18 @@ function materializeExposure(active: ActiveExposure, endedAt: number): Longitudi
 
 export function FrontierReactionLoop({ feedActive }: Props) {
   const implicitLearning = useFrontierStore((state) => state.behavior.implicitLearning);
+  const mounted = useSyncExternalStore(subscribeHydration, hydratedClientSnapshot, hydratedServerSnapshot);
   const sourceRef = useRef<VisionSignalSource | null>(null);
   const engineRef = useRef(new ReactionInferenceEngine());
   const activeExposureRef = useRef<ActiveExposure | undefined>(undefined);
   const feedActiveRef = useRef(feedActive);
   const lastUiUpdateRef = useRef(0);
   const clearSignalTimerRef = useRef<number | undefined>(undefined);
-  const [mounted, setMounted] = useState(false);
   const [state, setState] = useState<LoopState>('off');
   const [error, setError] = useState('');
   const [snapshot, setSnapshot] = useState<ReactionInferenceSnapshot>(EMPTY_SNAPSHOT);
   const [feedback, setFeedback] = useState<SignalFeedback>();
 
-  useEffect(() => { setMounted(true); }, []);
   useEffect(() => { feedActiveRef.current = feedActive; }, [feedActive]);
 
   const flushExposure = useCallback((endedAt = Date.now()) => {
@@ -294,9 +297,9 @@ export function FrontierReactionLoop({ feedActive }: Props) {
     };
   }, [flushExposure]);
 
-  useEffect(() => {
-    if (!implicitLearning && state !== 'off') disable();
-  }, [disable, implicitLearning, state]);
+  useEffect(() => useFrontierStore.subscribe((current, previous) => {
+    if (previous.behavior.implicitLearning && !current.behavior.implicitLearning) disable();
+  }), [disable]);
 
   useEffect(() => {
     if (!feedActive) flushExposure();
