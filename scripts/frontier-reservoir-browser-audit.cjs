@@ -151,8 +151,69 @@ async function readReservoirIds(page) {
   }));
 }
 
+async function captureBoundaryState(page) {
+  return page.evaluate(({ selector, initial }) => {
+    const ids = Array.from(document.querySelectorAll(selector)).map((node) => node.getAttribute('data-frontier-fluid-card') || '');
+    const trace = window.__frontierReservoirTrace || { workers: [], posts: [], messages: [], errors: [] };
+    return {
+      count: ids.length,
+      allIds: ids,
+      appended: ids.slice(initial),
+      documentHeight: (document.scrollingElement || document.documentElement).scrollHeight,
+      trace,
+      streamPulseText: Array.from(document.querySelectorAll('button, [role="button"]'))
+        .map((node) => (node.textContent || '').replace(/\s+/g, ' ').trim())
+        .filter((value) => /new|signal|stream|reveal/i.test(value))
+        .slice(0, 12),
+    };
+  }, { selector: CARD, initial: INITIAL_CARDS });
+}
+
 async function runFixture(browser, now, label) {
   const context = await browser.newContext({ viewport: { width: 390, height: 844 }, colorScheme: 'dark', reducedMotion: 'reduce' });
+  await context.addInitScript(() => {
+    const trace = { workers: [], posts: [], messages: [], errors: [] };
+    Object.defineProperty(window, '__frontierReservoirTrace', { value: trace, configurable: false, writable: false });
+    const NativeWorker = window.Worker;
+    window.Worker = new Proxy(NativeWorker, {
+      construct(target, args, newTarget) {
+        const worker = Reflect.construct(target, args, newTarget);
+        const workerIndex = trace.workers.push({ url: String(args[0] || '') }) - 1;
+        const nativePostMessage = worker.postMessage.bind(worker);
+        worker.postMessage = (message, ...rest) => {
+          trace.posts.push({
+            workerIndex,
+            type: message?.type || typeof message,
+            excludeCount: Array.isArray(message?.config?.excludeSignatures) ? message.config.excludeSignatures.length : undefined,
+            reason: message?.reason,
+          });
+          return nativePostMessage(message, ...rest);
+        };
+        worker.addEventListener('message', (event) => {
+          const data = event.data;
+          trace.messages.push({
+            workerIndex,
+            type: data?.type || typeof data,
+            itemCount: Array.isArray(data?.items) ? data.items.length : undefined,
+            itemIds: Array.isArray(data?.items) ? data.items.slice(0, 20).map((item) => item?.id).filter(Boolean) : undefined,
+            status: data?.status ? {
+              leader: data.status.leader,
+              polling: data.status.polling,
+              consecutiveFailures: data.status.consecutiveFailures,
+              consecutiveEmpty: data.status.consecutiveEmpty,
+              mode: data.status.mode,
+            } : undefined,
+            message: data?.message,
+          });
+        });
+        worker.addEventListener('error', (event) => {
+          trace.errors.push({ workerIndex, message: event.message || 'worker error' });
+        });
+        return worker;
+      },
+    });
+  });
+
   const page = await context.newPage();
   const pageErrors = [];
   const consoleErrors = [];
@@ -196,16 +257,32 @@ async function runFixture(browser, now, label) {
   await page.waitForFunction(({ selector, expected }) => document.querySelectorAll(selector).length >= expected, { selector: CARD, expected: INITIAL_CARDS }, { timeout: 9000, polling: 'raf' });
   const prefix = await page.evaluate(({ selector, take }) => Array.from(document.querySelectorAll(selector)).slice(0, take).map((node) => node.getAttribute('data-frontier-fluid-card')), { selector: CARD, take: 14 });
 
-  await page.waitForFunction(({ selector, expected }) => document.querySelectorAll(selector).length >= expected, { selector: CARD, expected: INITIAL_CARDS + APPEND_CARDS }, { timeout: 12000, polling: 'raf' });
-  const state = await page.evaluate(({ selector, initial }) => {
-    const ids = Array.from(document.querySelectorAll(selector)).map((node) => node.getAttribute('data-frontier-fluid-card') || '');
-    return {
-      count: ids.length,
-      allIds: ids,
-      appended: ids.slice(initial),
-      documentHeight: (document.scrollingElement || document.documentElement).scrollHeight,
+  try {
+    await page.waitForFunction(({ selector, expected }) => document.querySelectorAll(selector).length >= expected, { selector: CARD, expected: INITIAL_CARDS + APPEND_CARDS }, { timeout: 12000, polling: 'raf' });
+  } catch (error) {
+    const boundary = await captureBoundaryState(page);
+    const retainedIds = await readReservoirIds(page);
+    const diagnostic = {
+      passed: false,
+      label,
+      phase: 'append-boundary',
+      expectedCards: INITIAL_CARDS + APPEND_CARDS,
+      boundary,
+      retainedCount: retainedIds.length,
+      retainedSample: retainedIds.slice(0, 30),
+      game2WorldRetained: retainedIds.includes('reservoir-ci-game2world'),
+      staleSportsRetained: retainedIds.includes('reservoir-ci-stale-sports-state'),
+      freshRequests,
+      freshBeforeSnapshot,
+      pageErrors,
+      consoleErrors,
+      error: error instanceof Error ? error.stack || error.message : String(error),
     };
-  }, { selector: CARD, initial: INITIAL_CARDS });
+    fs.writeFileSync(path.join(ARTIFACT_DIR, `frontier-reservoir-${label}-diagnostic.json`), JSON.stringify(diagnostic, null, 2));
+    throw new Error(`${label}: reservoir append boundary timed out; worker messages=${boundary.trace.messages.length}, last=${JSON.stringify(boundary.trace.messages.slice(-4))}`);
+  }
+
+  const state = await captureBoundaryState(page);
   const retainedIds = await readReservoirIds(page);
   const finalPrefix = state.allIds.slice(0, 14);
 
@@ -233,6 +310,7 @@ async function runFixture(browser, now, label) {
     game2WorldVisibleToday: state.allIds.includes('reservoir-ci-game2world'),
     staleSportsRetained: retainedIds.includes('reservoir-ci-stale-sports-state'),
     staleSportsVisible: state.allIds.includes('reservoir-ci-stale-sports-state'),
+    workerTrace: state.trace,
     pageErrors,
     consoleErrors,
   };
