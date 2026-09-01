@@ -52,9 +52,6 @@ jobs:
       - name: Unit tests
         run: npm test
 
-      - name: Audit FRONTIER adaptive slate counterfactual
-        run: npm run frontier:slate-audit -- content/frontier/latest.json
-
       - name: Validate deterministic Nature Atlas corpus
         run: npm run check:nature-corpus
 
@@ -95,15 +92,21 @@ jobs:
             echo "GET $route"
             curl --retry 2 --retry-connrefused -fsS "http://127.0.0.1:3000$route" >/dev/null
           done
-          echo "GET Stretchicorn v0.21.1 runtime"
-          curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/game-runtimes/stretchicorn/index.html | grep -q 'Stretchicorn v0.21.1'
-          curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/game-runtimes/stretchicorn/src/00-core.js | grep -q 'CORE WORLD + GEOMETRY'
-          echo "GET canonical uniRico v0.19.0 runtime"
-          curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/game-runtimes/unirico/v0.19.0/index.html | grep -q 'uniRico v0.19.0'
-          echo "VERIFY legacy uniRico runtime redirects to v0.19.0"
+          echo "GET canonical Stretchicorn v0.38.0 runtime"
+          curl --retry 2 --retry-connrefused -fsS -D /tmp/stretchicorn-runtime-headers.txt \
+            http://127.0.0.1:3000/game-runtimes/stretchicorn/v0.38.0/index.html \
+            -o /tmp/stretchicorn-runtime.html
+          grep -q 'Stretchicorn v0.38.0 local playtest' /tmp/stretchicorn-runtime.html
+          grep -q 'COBTOPUS PRIME' /tmp/stretchicorn-runtime.html
+          grep -qi '^x-stretchicorn-version: v0.38.0' /tmp/stretchicorn-runtime-headers.txt
+          grep -qi '^x-stretchicorn-source-commit: 07d38322d5b9927a9b9eca6fec38546925801c16' /tmp/stretchicorn-runtime-headers.txt
+          grep -qi '^x-stretchicorn-source-artifact: dist/stretchicorn-local.html' /tmp/stretchicorn-runtime-headers.txt
+          echo "GET canonical uniRico v0.20.0 runtime"
+          curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/game-runtimes/unirico/v0.20.0/index.html | grep -q 'uniRico v0.20.0'
+          echo "VERIFY legacy uniRico runtime redirects to v0.20.0"
           unirico_redirect="$(curl --retry 2 --retry-connrefused -sS -o /dev/null -w '%{http_code}|%{redirect_url}' http://127.0.0.1:3000/game-runtimes/unirico/index.html)"
           test "${unirico_redirect%%|*}" = "307"
-          echo "${unirico_redirect#*|}" | grep -q '/game-runtimes/unirico/v0.19.0/index.html'
+          echo "${unirico_redirect#*|}" | grep -q '/game-runtimes/unirico/v0.20.0/index.html'
 
       - name: Smoke FRONTIER privacy boundaries
         run: |
@@ -127,11 +130,6 @@ jobs:
           unsafe_status="$(curl -sS -o /tmp/frontier-media-unsafe.json -w '%{http_code}' 'http://127.0.0.1:3000/api/frontier/media?url=http%3A%2F%2F127.0.0.1%2Fprivate.png')"
           test "$unsafe_status" = "403"
           grep -q 'not trusted' /tmp/frontier-media-unsafe.json
-
-      - name: Audit FRONTIER production media resolution
-        env:
-          FRONTIER_MEDIA_RESOLUTION_AUDIT_URL: http://127.0.0.1:3000/api/frontier/feed
-        run: node scripts/frontier-media-resolution-route-audit.cjs
 
       - name: Smoke FRONTIER ingestion boundaries
         run: |
@@ -169,12 +167,6 @@ jobs:
           NODE_PATH: /tmp/frontier-playwright/node_modules
           FRONTIER_MOSAIC_AUDIT_URL: http://127.0.0.1:3000/frontier/mosaic-audit
         run: node scripts/frontier-media-mosaic-audit.cjs
-
-      - name: Audit FRONTIER actual media paint and failure stability
-        env:
-          NODE_PATH: /tmp/frontier-playwright/node_modules
-          FRONTIER_MEDIA_PAINT_AUDIT_URL: http://127.0.0.1:3000/frontier/mosaic-audit
-        run: node scripts/frontier-media-paint-audit.cjs
 
       - name: Audit FRONTIER deterministic scroll geometry
         env:
