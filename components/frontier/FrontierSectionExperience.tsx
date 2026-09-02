@@ -3,11 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import { Download, RefreshCw, RotateCcw, Search, Upload, X } from 'lucide-react';
-import {
-  FRONTIER_LANES,
-  FRONTIER_LANE_MAP,
-  laneMatchesRealm,
-} from '@/lib/frontier/config';
+import { FRONTIER_LANES, FRONTIER_LANE_MAP, laneMatchesRealm } from '@/lib/frontier/config';
 import {
   buildDirectPreferenceEvidenceIndex,
   effectiveDirectPreferenceAffinity,
@@ -21,11 +17,7 @@ import {
   migrateFrontierHistoryToSeenLedger,
 } from '@/lib/frontier/live/seenLedger';
 import { buildPairEvidenceIndex } from '@/lib/frontier/pairEvidence';
-import {
-  explainRecommendation,
-  rankFrontierItems,
-  selectDailyRun,
-} from '@/lib/frontier/scoring';
+import { explainRecommendation, rankFrontierItems, selectDailyRun } from '@/lib/frontier/scoring';
 import { buildSessionIntent } from '@/lib/frontier/sessionIntent';
 import {
   buildTopicSearchFocus,
@@ -56,6 +48,7 @@ const INITIAL_BROWSE_TARGET = 48;
 const MAX_CLIENT_ITEMS = 72;
 
 type FormatFilter = 'all' | 'papers' | 'code' | 'projects' | 'video' | 'threads' | 'sports' | 'games' | 'music';
+type FeedScope = 'edition' | 'search';
 
 const FORMAT_FILTERS: Array<{ id: FormatFilter; label: string }> = [
   { id: 'all', label: 'All formats' },
@@ -102,28 +95,38 @@ function formatMatches(item: FrontierItem, filter: FormatFilter): boolean {
   }
 }
 
-function LoadingBoard() {
-  return (
-    <div className={styles.loadingGrid} aria-label="Scanning live sources">
-      {Array.from({ length: 4 }, (_, index) => (
-        <div className={styles.loadingCard} key={index} aria-hidden="true">
-          <span className={styles.loadingMeta} />
-          <span className={styles.loadingHeadline} />
-          <span className={styles.loadingHeadlineShort} />
-          <span className={styles.loadingLine} />
-        </div>
-      ))}
-    </div>
-  );
-}
-
 export function FrontierSectionExperience({ initialDateLabel, initialDayKey, initialFeed }: Props) {
   const store = useFrontierStore();
+  const {
+    profile,
+    behavior,
+    history,
+    saved,
+    collections,
+    game,
+    hydrated,
+    beginSession,
+    endSession,
+    recordView,
+    recordLayout,
+    markSeen,
+    recordDwell,
+    recordOpen,
+    toggleSave,
+    react,
+    setImplicitLearning,
+    resetBehavior,
+    importBackup,
+    createCollection: createStoreCollection,
+    resetFrontier,
+  } = store;
+
+  const initialItems = useMemo(() => initialFeed.items.slice(0, MAX_CLIENT_ITEMS), [initialFeed.items]);
   const [view, setView] = useState<FrontierView>('today');
-  const [items, setItems] = useState<FrontierItem[]>(() => initialFeed.items.slice(0, MAX_CLIENT_ITEMS));
-  const [sources, setSources] = useState<FrontierSourceStatus[]>(() => initialFeed.sources ?? []);
+  const [editionItems, setEditionItems] = useState<FrontierItem[]>(initialItems);
+  const [searchItems, setSearchItems] = useState<FrontierItem[]>();
+  const [sources, setSources] = useState<FrontierSourceStatus[]>(initialFeed.sources ?? []);
   const [generatedAt, setGeneratedAt] = useState<string | undefined>(initialFeed.generatedAt);
-  const [loading, setLoading] = useState(initialFeed.items.length === 0);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string>();
   const [realm, setRealm] = useState<FrontierRealm>('all');
@@ -137,27 +140,16 @@ export function FrontierSectionExperience({ initialDateLabel, initialDayKey, ini
   const [editionEpoch, setEditionEpoch] = useState(0);
   const fileInput = useRef<HTMLInputElement | null>(null);
   const searchInput = useRef<HTMLInputElement | null>(null);
-  const utilityDockRef = useRef<HTMLDivElement | null>(null);
   const requestRef = useRef<AbortController | null>(null);
   const migrationStarted = useRef(false);
 
-  const pairEvidence = useMemo(() => buildPairEvidenceIndex(store.history), [store.history]);
-  const directPreferenceEvidence = useMemo(
-    () => buildDirectPreferenceEvidenceIndex(store.history),
-    [store.history],
-  );
-  const sessionIntent = useMemo(() => buildSessionIntent(store.history), [store.history]);
+  const items = activeSearch && searchItems !== undefined ? searchItems : editionItems;
+  const pairEvidence = useMemo(() => buildPairEvidenceIndex(history), [history]);
+  const directPreferenceEvidence = useMemo(() => buildDirectPreferenceEvidenceIndex(history), [history]);
+  const sessionIntent = useMemo(() => buildSessionIntent(history), [history]);
   const adaptiveFocus = useMemo(
-    () => buildDiscoveryFocus(
-      store.profile,
-      store.behavior,
-      7,
-      new Date(),
-      pairEvidence,
-      sessionIntent,
-      directPreferenceEvidence,
-    ),
-    [directPreferenceEvidence, pairEvidence, sessionIntent, store.behavior, store.profile],
+    () => buildDiscoveryFocus(profile, behavior, 7, new Date(), pairEvidence, sessionIntent, directPreferenceEvidence),
+    [behavior, directPreferenceEvidence, pairEvidence, profile, sessionIntent],
   );
   const manualFocusSignature = useMemo(
     () => encodeDiscoveryFocus(buildTopicSearchFocus(activeSearch, adaptiveFocus, 8)),
@@ -165,7 +157,7 @@ export function FrontierSectionExperience({ initialDateLabel, initialDayKey, ini
   );
 
   const searchSuggestions = useMemo(() => {
-    const learned = Object.entries(store.profile.topicAffinity)
+    const learned = Object.entries(profile.topicAffinity)
       .map(([topic, legacyAffinity]) => ([
         topic,
         effectiveDirectPreferenceAffinity(legacyAffinity, 'topic', topic, directPreferenceEvidence),
@@ -178,29 +170,27 @@ export function FrontierSectionExperience({ initialDateLabel, initialDayKey, ini
       ...FRONTIER_PINNED_TOPICS.map((topic) => topic.label),
       ...learned,
     ])).slice(0, 28);
-  }, [directPreferenceEvidence, store.profile.topicAffinity]);
+  }, [directPreferenceEvidence, profile.topicAffinity]);
 
   useEffect(() => {
     const frame = window.requestAnimationFrame(() => {
-      const saved = window.localStorage.getItem('frontier-layout-mode');
-      const preferred: FrontierLayoutMode = saved === 'feed' || saved === 'desk' ? saved : 'desk';
+      const savedLayout = window.localStorage.getItem('frontier-layout-mode');
+      const preferred: FrontierLayoutMode = savedLayout === 'feed' || savedLayout === 'desk' ? savedLayout : 'desk';
       const resolved: FrontierLayoutMode = window.innerWidth < 720 ? 'feed' : preferred;
       setLayoutMode(resolved);
-      store.recordLayout(resolved);
+      recordLayout(resolved);
     });
     return () => window.cancelAnimationFrame(frame);
-  }, [store.recordLayout]);
+  }, [recordLayout]);
 
   useEffect(() => {
-    if (!store.hydrated || migrationStarted.current) return;
+    if (!hydrated || migrationStarted.current) return;
     migrationStarted.current = true;
-    const historical = Object.values(store.history).map((entry) => entry.item);
+    const historical = Object.values(history).map((entry) => entry.item);
     void migrateFrontierHistoryToSeenLedger(historical);
-  }, [store.hydrated, store.history]);
+  }, [hydrated, history]);
 
   useEffect(() => {
-    const beginSession = store.beginSession;
-    const endSession = store.endSession;
     beginSession();
     const finish = () => endSession();
     window.addEventListener('pagehide', finish);
@@ -208,19 +198,18 @@ export function FrontierSectionExperience({ initialDateLabel, initialDayKey, ini
       window.removeEventListener('pagehide', finish);
       endSession();
     };
-  }, [store.beginSession, store.endSession]);
+  }, [beginSession, endSession]);
 
   useEffect(() => {
-    store.recordView(view);
-  }, [store.recordView, view]);
+    recordView(view);
+  }, [recordView, view]);
 
   useEffect(() => () => requestRef.current?.abort(), []);
 
-  const requestFeed = useCallback(async (options: { fresh?: boolean; focus?: string } = {}) => {
+  const requestFeed = useCallback(async (options: { fresh?: boolean; focus?: string; scope?: FeedScope } = {}) => {
     requestRef.current?.abort();
     const controller = new AbortController();
     requestRef.current = controller;
-    if (!items.length) setLoading(true);
     setRefreshing(true);
     setError(undefined);
 
@@ -239,10 +228,11 @@ export function FrontierSectionExperience({ initialDateLabel, initialDayKey, ini
       const payload = await response.json() as FrontierFeedResponse & { error?: string };
       const unseen = await filterUnseenFrontierItems(payload.items ?? []);
       if (controller.signal.aborted) return;
-      if (unseen.length) {
-        setItems(unseen.slice(0, MAX_CLIENT_ITEMS));
-        setEditionEpoch((epoch) => epoch + 1);
-      }
+
+      const bounded = unseen.slice(0, MAX_CLIENT_ITEMS);
+      if ((options.scope ?? 'edition') === 'search') setSearchItems(bounded);
+      else setEditionItems(bounded);
+      setEditionEpoch((epoch) => epoch + 1);
       setSources(payload.sources ?? []);
       setGeneratedAt(payload.generatedAt);
       if (payload.error) setError(payload.error);
@@ -253,32 +243,16 @@ export function FrontierSectionExperience({ initialDateLabel, initialDayKey, ini
       if (requestRef.current === controller) {
         requestRef.current = null;
         setRefreshing(false);
-        setLoading(false);
       }
     }
-  }, [items.length]);
+  }, []);
 
   const ranked = useMemo(
-    () => rankFrontierItems(
-      items,
-      store.profile,
-      store.history,
-      new Date(),
-      store.behavior,
-      pairEvidence,
-      sessionIntent,
-      directPreferenceEvidence,
-    ),
-    [directPreferenceEvidence, items, pairEvidence, sessionIntent, store.behavior, store.history, store.profile],
+    () => rankFrontierItems(items, profile, history, new Date(), behavior, pairEvidence, sessionIntent, directPreferenceEvidence),
+    [behavior, directPreferenceEvidence, history, items, pairEvidence, profile, sessionIntent],
   );
-  const realmRanked = useMemo(
-    () => ranked.filter((item) => laneMatchesRealm(item.lane, realm)),
-    [ranked, realm],
-  );
-  const todayItems = useMemo(
-    () => selectDailyRun(realmRanked, store.history, INITIAL_BROWSE_TARGET),
-    [realmRanked, store.history],
-  );
+  const realmRanked = useMemo(() => ranked.filter((item) => laneMatchesRealm(item.lane, realm)), [ranked, realm]);
+  const todayItems = useMemo(() => selectDailyRun(realmRanked, history, INITIAL_BROWSE_TARGET), [history, realmRanked]);
   const exploreItems = useMemo(() => {
     const filtered = realmRanked.filter((item) => {
       if (laneFilter !== 'all' && item.lane !== laneFilter) return false;
@@ -290,28 +264,20 @@ export function FrontierSectionExperience({ initialDateLabel, initialDayKey, ini
     return [...filtered].sort((a, b) => topicSearchScore(b, activeSearch) - topicSearchScore(a, activeSearch));
   }, [activeSearch, formatFilter, laneFilter, realmRanked]);
 
-  const savedItems = Object.values(store.saved);
-  const activeCollection = store.collections.find((collection) => collection.id === collectionFilter) ?? store.collections[0];
+  const savedItems = Object.values(saved);
+  const activeCollection = collections.find((collection) => collection.id === collectionFilter) ?? collections[0];
   const activeCollectionItems = activeCollection
-    ? activeCollection.itemIds.flatMap((id) => store.saved[id] ? [store.saved[id]] : [])
+    ? activeCollection.itemIds.flatMap((id) => saved[id] ? [saved[id]] : [])
     : savedItems;
-  const historyEntries = Object.values(store.history)
+  const historyEntries = Object.values(history)
     .sort((a, b) => new Date(b.lastSeenAt).getTime() - new Date(a.lastSeenAt).getTime());
   const visibleLanes = FRONTIER_LANES.filter((lane) => laneMatchesRealm(lane.id, realm));
   const categoryOptions = useMemo(() => [
     { value: 'all', label: 'All categories' },
     ...visibleLanes.map((lane) => ({ value: lane.id, label: lane.shortLabel })),
   ], [visibleLanes]);
-  const formatOptions = useMemo(
-    () => FORMAT_FILTERS.map((filter) => ({ value: filter.id, label: filter.label })),
-    [],
-  );
+  const formatOptions = useMemo(() => FORMAT_FILTERS.map((filter) => ({ value: filter.id, label: filter.label })), []);
 
-  const markSeen = store.markSeen;
-  const recordDwell = store.recordDwell;
-  const recordOpen = store.recordOpen;
-  const toggleSave = store.toggleSave;
-  const react = store.react;
   const seenCallback = useCallback((item: FrontierItem, resurfaced?: boolean) => markSeen(item, resurfaced), [markSeen]);
   const dwellCallback = useCallback((item: FrontierItem, dwellMs: number) => recordDwell(item, dwellMs), [recordDwell]);
   const openCallback = useCallback((item: FrontierItem) => recordOpen(item), [recordOpen]);
@@ -322,16 +288,9 @@ export function FrontierSectionExperience({ initialDateLabel, initialDayKey, ini
     <SignalCard
       item={item}
       presentation={presentation}
-      saved={Boolean(store.saved[item.id])}
-      reaction={store.history[item.id]?.reaction}
-      explanation={explainRecommendation(
-        item,
-        store.profile,
-        store.behavior,
-        new Date(),
-        pairEvidence,
-        directPreferenceEvidence,
-      )}
+      saved={Boolean(saved[item.id])}
+      reaction={history[item.id]?.reaction}
+      explanation={explainRecommendation(item, profile, behavior, new Date(), pairEvidence, directPreferenceEvidence)}
       resurfaced={item.tags.includes('second-chance')}
       onSeen={seenCallback}
       onDwell={dwellCallback}
@@ -339,7 +298,7 @@ export function FrontierSectionExperience({ initialDateLabel, initialDayKey, ini
       onSave={saveCallback}
       onReact={reactCallback}
     />
-  ), [directPreferenceEvidence, dwellCallback, openCallback, pairEvidence, reactCallback, saveCallback, seenCallback, store.behavior, store.history, store.profile, store.saved]);
+  ), [behavior, directPreferenceEvidence, dwellCallback, history, openCallback, pairEvidence, profile, reactCallback, saveCallback, saved, seenCallback]);
 
   const submitSearch = useCallback((event?: FormEvent) => {
     event?.preventDefault();
@@ -348,16 +307,18 @@ export function FrontierSectionExperience({ initialDateLabel, initialDayKey, ini
     const focus = encodeDiscoveryFocus(buildTopicSearchFocus(next, adaptiveFocus, 8));
     setSearchDraft('');
     setActiveSearch(next);
+    setSearchItems(undefined);
     setView('explore');
     setLaneFilter('all');
     setFormatFilter('all');
     setEditionEpoch((epoch) => epoch + 1);
-    void requestFeed({ focus });
+    void requestFeed({ focus, scope: 'search' });
   }, [adaptiveFocus, requestFeed, searchDraft]);
 
   const clearSearch = useCallback(() => {
     setSearchDraft('');
     setActiveSearch('');
+    setSearchItems(undefined);
     setEditionEpoch((epoch) => epoch + 1);
     searchInput.current?.focus();
   }, []);
@@ -367,6 +328,7 @@ export function FrontierSectionExperience({ initialDateLabel, initialDayKey, ini
     if (next === 'today') {
       setSearchDraft('');
       setActiveSearch('');
+      setSearchItems(undefined);
       setLaneFilter('all');
       setFormatFilter('all');
     }
@@ -376,9 +338,9 @@ export function FrontierSectionExperience({ initialDateLabel, initialDayKey, ini
   const changeLayout = useCallback((next: FrontierLayoutMode) => {
     setLayoutMode(next);
     window.localStorage.setItem('frontier-layout-mode', next);
-    store.recordLayout(next);
+    recordLayout(next);
     setEditionEpoch((epoch) => epoch + 1);
-  }, [store.recordLayout]);
+  }, [recordLayout]);
 
   const changeCategory = useCallback((value: string) => {
     setLaneFilter(value as 'all' | FrontierLaneId);
@@ -399,6 +361,14 @@ export function FrontierSectionExperience({ initialDateLabel, initialDayKey, ini
     setEditionEpoch((epoch) => epoch + 1);
   }, []);
 
+  const manualRefresh = useCallback(() => {
+    void requestFeed({
+      fresh: true,
+      focus: activeSearch ? manualFocusSignature : undefined,
+      scope: activeSearch ? 'search' : 'edition',
+    });
+  }, [activeSearch, manualFocusSignature, requestFeed]);
+
   const downloadBackup = useCallback(() => {
     const blob = new Blob([JSON.stringify(frontierBackup(store), null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -409,27 +379,28 @@ export function FrontierSectionExperience({ initialDateLabel, initialDayKey, ini
     URL.revokeObjectURL(url);
   }, [initialDayKey, store]);
 
-  const importBackup = useCallback(async (file?: File) => {
+  const importBackupFile = useCallback(async (file?: File) => {
     if (!file) return;
     try {
       const parsed = JSON.parse(await file.text()) as unknown;
-      if (!store.importBackup(parsed)) window.alert('That file is not a compatible FRONTIER memory backup.');
+      if (!importBackup(parsed)) window.alert('That file is not a compatible FRONTIER memory backup.');
     } catch {
       window.alert('Could not read that FRONTIER memory backup.');
     }
-  }, [store]);
+  }, [importBackup]);
 
   const createCollection = useCallback(() => {
-    const id = store.createCollection(newCollection);
+    const id = createStoreCollection(newCollection);
     if (id) {
       setCollectionFilter(id);
       setNewCollection('');
     }
-  }, [newCollection, store]);
+  }, [createStoreCollection, newCollection]);
 
   const resetAll = useCallback(() => {
-    store.resetFrontier();
-    setItems(initialFeed.items.slice(0, MAX_CLIENT_ITEMS));
+    resetFrontier();
+    setEditionItems(initialItems);
+    setSearchItems(undefined);
     setSources(initialFeed.sources ?? []);
     setGeneratedAt(initialFeed.generatedAt);
     setActiveSearch('');
@@ -437,11 +408,12 @@ export function FrontierSectionExperience({ initialDateLabel, initialDayKey, ini
     setEditionEpoch((epoch) => epoch + 1);
     void clearFrontierSeenLedger();
     void clearFrontierCandidatePool();
-  }, [initialFeed.generatedAt, initialFeed.items, initialFeed.sources, store]);
+  }, [initialFeed.generatedAt, initialFeed.sources, initialItems, resetFrontier]);
 
   const onlineSources = sources.filter((source) => source.ok).length;
   const status = refreshing ? 'refreshing' : error ? 'partial' : 'edition';
   const activeFeedItems = view === 'explore' ? exploreItems : todayItems;
+  const deckKey = `${view}:${realm}:${laneFilter}:${formatFilter}:${activeSearch}:${editionEpoch}`;
 
   return (
     <div className={styles.shell} data-frontier-v21-newspaper="true">
@@ -484,7 +456,7 @@ export function FrontierSectionExperience({ initialDateLabel, initialDayKey, ini
               <button
                 type="button"
                 className={styles.refreshIcon}
-                onClick={() => void requestFeed({ fresh: true, focus: manualFocusSignature })}
+                onClick={manualRefresh}
                 aria-label="Full live refresh"
                 title="Pull a fresh edition from the Internet"
                 disabled={refreshing}
@@ -497,11 +469,11 @@ export function FrontierSectionExperience({ initialDateLabel, initialDayKey, ini
         {view === 'today' || view === 'explore' ? (
           <main className={styles.signalStage}>
             <FrontierSectionDeck
+              key={deckKey}
               items={activeFeedItems}
               layoutMode={layoutMode}
               renderCard={renderCard}
-              editionKey={`${view}:${realm}:${laneFilter}:${formatFilter}:${activeSearch}:${editionEpoch}`}
-              empty={loading ? <LoadingBoard /> : <div className={styles.empty}>{activeSearch ? 'No unseen match. Try a wider phrase.' : 'No unseen signals in this edition.'}</div>}
+              empty={<div className={styles.empty}>{activeSearch ? 'No unseen match. Try a wider phrase.' : 'No unseen signals in this edition.'}</div>}
             />
           </main>
         ) : null}
@@ -510,7 +482,7 @@ export function FrontierSectionExperience({ initialDateLabel, initialDayKey, ini
           <section className={styles.section}>
             <div className={styles.libraryLayout}>
               <aside className={styles.collectionRail}>
-                {store.collections.map((collection) => (
+                {collections.map((collection) => (
                   <button
                     type="button"
                     key={collection.id}
@@ -533,10 +505,10 @@ export function FrontierSectionExperience({ initialDateLabel, initialDayKey, ini
                 </div>
               </aside>
               <FrontierSectionDeck
+                key={`saved:${collectionFilter}:${editionEpoch}`}
                 items={activeCollectionItems}
                 layoutMode={layoutMode}
                 renderCard={renderCard}
-                editionKey={`saved:${collectionFilter}:${editionEpoch}`}
                 empty={<div className={styles.empty}>{savedItems.length ? 'Empty group.' : 'Nothing saved yet.'}</div>}
               />
             </div>
@@ -565,14 +537,14 @@ export function FrontierSectionExperience({ initialDateLabel, initialDayKey, ini
         {view === 'map' ? (
           <section className={styles.section}>
             <PreferenceLens
-              behavior={store.behavior}
-              onToggleLearning={store.setImplicitLearning}
+              behavior={behavior}
+              onToggleLearning={setImplicitLearning}
               onResetBehavior={() => {
-                if (window.confirm('Forget learned habits while keeping saves, reactions, and history?')) store.resetBehavior();
+                if (window.confirm('Forget learned habits while keeping saves, reactions, and history?')) resetBehavior();
               }}
             />
             <div className={styles.radarMapSection}>
-              <InterestConstellation profile={store.profile} />
+              <InterestConstellation profile={profile} />
             </div>
           </section>
         ) : null}
@@ -581,10 +553,10 @@ export function FrontierSectionExperience({ initialDateLabel, initialDayKey, ini
           <details className={styles.dataMenu}>
             <summary>Data</summary>
             <div className={styles.dataMenuPanel}>
-              <span className={styles.micro}>{store.behavior.sessions} sessions · {store.game.streak}d streak</span>
+              <span className={styles.micro}>{behavior.sessions} sessions · {game.streak}d streak</span>
               <button type="button" className={styles.utilityButton} onClick={downloadBackup}><Download size={11} /> Export</button>
               <button type="button" className={styles.utilityButton} onClick={() => fileInput.current?.click()}><Upload size={11} /> Import</button>
-              <input ref={fileInput} type="file" accept="application/json" hidden onChange={(event) => void importBackup(event.target.files?.[0])} />
+              <input ref={fileInput} type="file" accept="application/json" hidden onChange={(event) => void importBackupFile(event.target.files?.[0])} />
               <button
                 type="button"
                 className={styles.utilityButton}
@@ -598,7 +570,6 @@ export function FrontierSectionExperience({ initialDateLabel, initialDayKey, ini
       </div>
 
       <FrontierUtilityDock
-        ref={utilityDockRef}
         view={view}
         realm={realm}
         layoutMode={layoutMode}
