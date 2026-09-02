@@ -1,3 +1,4 @@
+import { frontierAcquisitionFromQuery, mergeFrontierAcquisition } from './acquisitionProvenance';
 import { FRONTIER_IMPORTANCE_TERMS, FRONTIER_LANES, FRONTIER_SOURCE_WEIGHTS } from './config';
 import type {
   FrontierFeedResponse,
@@ -319,6 +320,72 @@ async function githubItems(): Promise<FrontierItem[]> {
   }));
 }
 
+export type FrontierOpenAlexSearchPayload = {
+  query: string;
+  results?: OpenAlexWork[];
+};
+
+export function buildOpenAlexItemsFromSearchPayloads(
+  payloads: FrontierOpenAlexSearchPayload[],
+): FrontierItem[] {
+  const merged = new Map<string, {
+    work: OpenAlexWork;
+    acquisition: ReturnType<typeof frontierAcquisitionFromQuery>;
+  }>();
+
+  for (const payload of payloads) {
+    const observed = frontierAcquisitionFromQuery('openalex-static-search', payload.query);
+    for (const work of payload.results ?? []) {
+      if (!work.id || !work.title) continue;
+      const existing = merged.get(work.id);
+      if (existing) {
+        existing.acquisition = mergeFrontierAcquisition(existing.acquisition, observed);
+        continue;
+      }
+      merged.set(work.id, { work, acquisition: observed });
+    }
+  }
+
+  return Array.from(merged.values()).map(({ work, acquisition }) => {
+    const publishedAt = work.publication_date
+      ? new Date(`${work.publication_date}T12:00:00Z`).toISOString()
+      : new Date().toISOString();
+    const topics = (work.topics ?? [])
+      .filter((topic) => topic.display_name)
+      .sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
+    const abstract = abstractFromIndex(work.abstract_inverted_index);
+    const text = `${work.title} ${abstract} ${topics.map((topic) => topic.display_name).join(' ')}`;
+    const lane = classifyFrontierLane(text);
+    const citations = work.cited_by_count ?? 0;
+    const scores = scoreItem(text, 'openalex', publishedAt, clamp(0.35 + Math.log10(citations + 1) / 5), 0.82);
+    const sourceName = work.primary_location?.source?.display_name || 'OpenAlex';
+    return {
+      id: `oa-${stableId(work.id)}`,
+      title: cleanText(work.title),
+      summary: summarize(abstract || 'Recent scholarly work indexed by OpenAlex. Open the primary source for methods, evidence, and limitations.'),
+      url: work.open_access?.oa_url || work.primary_location?.landing_page_url || work.doi || work.id,
+      source: sourceName,
+      sourceLabel: sourceName,
+      sourceKind: 'openalex' as const,
+      publishedAt,
+      lane,
+      acquisition,
+      authors: (work.authorships ?? []).flatMap((authorship) =>
+        authorship.author?.display_name ? [authorship.author.display_name] : []
+      ).slice(0, 5),
+      tags: inferTags(
+        text,
+        lane,
+        topics.flatMap((topic) => topic.display_name ? [topic.display_name] : []).slice(0, 4)
+      ),
+      metrics: [{ label: 'citations', value: citations.toLocaleString() }],
+      ...scores,
+      readMinutes: 12,
+      why: 'Primary scholarly evidence close to your active technical and scientific frontier.',
+    };
+  });
+}
+
 async function openAlexItems(): Promise<FrontierItem[]> {
   const from = new Date(Date.now() - 8 * DAY_MS).toISOString().slice(0, 10);
   const queries = [
@@ -336,50 +403,12 @@ async function openAlexItems(): Promise<FrontierItem[]> {
     url.searchParams.set('per-page', '6');
     if (mailto) url.searchParams.set('mailto', mailto);
     if (process.env.OPENALEX_API_KEY) url.searchParams.set('api_key', process.env.OPENALEX_API_KEY);
-    return fetchJson<{ results?: OpenAlexWork[] }>(url.toString(), { next: { revalidate: 60 * 60 } })
+    const payload = await fetchJson<{ results?: OpenAlexWork[] }>(url.toString(), { next: { revalidate: 60 * 60 } })
       .catch(() => ({ results: [] }));
+    return { query, results: payload.results ?? [] };
   }));
 
-  const seen = new Set<string>();
-  return payloads.flatMap((payload) => (payload.results ?? []).flatMap((work) => {
-    if (!work.id || !work.title || seen.has(work.id)) return [];
-    seen.add(work.id);
-    const publishedAt = work.publication_date
-      ? new Date(`${work.publication_date}T12:00:00Z`).toISOString()
-      : new Date().toISOString();
-    const topics = (work.topics ?? [])
-      .filter((topic) => topic.display_name)
-      .sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
-    const abstract = abstractFromIndex(work.abstract_inverted_index);
-    const text = `${work.title} ${abstract} ${topics.map((topic) => topic.display_name).join(' ')}`;
-    const lane = classifyFrontierLane(text);
-    const citations = work.cited_by_count ?? 0;
-    const scores = scoreItem(text, 'openalex', publishedAt, clamp(0.35 + Math.log10(citations + 1) / 5), 0.82);
-    const sourceName = work.primary_location?.source?.display_name || 'OpenAlex';
-    return [{
-      id: `oa-${stableId(work.id)}`,
-      title: cleanText(work.title),
-      summary: summarize(abstract || 'Recent scholarly work indexed by OpenAlex. Open the primary source for methods, evidence, and limitations.'),
-      url: work.open_access?.oa_url || work.primary_location?.landing_page_url || work.doi || work.id,
-      source: sourceName,
-      sourceLabel: sourceName,
-      sourceKind: 'openalex' as const,
-      publishedAt,
-      lane,
-      authors: (work.authorships ?? []).flatMap((authorship) =>
-        authorship.author?.display_name ? [authorship.author.display_name] : []
-      ).slice(0, 5),
-      tags: inferTags(
-        text,
-        lane,
-        topics.flatMap((topic) => topic.display_name ? [topic.display_name] : []).slice(0, 4)
-      ),
-      metrics: [{ label: 'citations', value: citations.toLocaleString() }],
-      ...scores,
-      readMinutes: 12,
-      why: 'Primary scholarly evidence close to your active technical and scientific frontier.',
-    }];
-  }));
+  return buildOpenAlexItemsFromSearchPayloads(payloads);
 }
 
 function xmlTag(block: string, tag: string): string {
