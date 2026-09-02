@@ -27,23 +27,40 @@ function item(id: string, overrides: Partial<FrontierItem> = {}): FrontierItem {
   };
 }
 
-test('OpenAlex suppresses a one-keyword lane collision even when provenance is scholarly', () => {
-  const weak = item('allyship-affect', {
+function allyshipPaper(): FrontierItem {
+  return item('allyship-affect', {
     title: 'Allyship and Affect: Qualitative Investigations into Social Transformation',
     summary: 'A dissertation about feminist philosophy, political interests, social privilege, and transformation.',
     lane: 'broad_science',
     tags: ['space', 'feminist epistemology and gender studies', 'paper', 'research'],
     metrics: [{ label: 'citations', value: '0' }],
   });
+}
 
+test('OpenAlex lane collision demotes rather than deletes when acquisition intent is unobserved', () => {
+  const weak = allyshipPaper();
   const evidence = assessFrontierCandidateEvidence(weak);
-  assert.equal(evidence.disposition, 'suppress');
+
+  assert.equal(evidence.disposition, 'demote');
   assert.deepEqual(evidence.distinctLaneHits, ['space']);
+  assert.deepEqual(evidence.discoveryQueryTerms, []);
   assert.ok(evidence.score < 0.6);
-  assert.equal(candidateEvidenceShadowAdjustment(weak), -1);
+  assert.equal(candidateEvidenceShadowAdjustment(weak), -0.14);
+  assert.match(evidence.reasons.join(' '), /cannot justify deletion/i);
 });
 
-test('OpenAlex suppresses generic statistics collision from an unrelated education paper', () => {
+test('OpenAlex may suppress a weak lane collision only when the actual discovery query is observed and unsupported', () => {
+  const weak = allyshipPaper();
+  const context = { discoveryQuery: 'machine learning data analysis causal inference' };
+  const evidence = assessFrontierCandidateEvidence(weak, context);
+
+  assert.equal(evidence.disposition, 'suppress');
+  assert.ok(evidence.discoveryQueryTerms.includes('machine'));
+  assert.deepEqual(evidence.discoveryQueryHits, []);
+  assert.equal(candidateEvidenceShadowAdjustment(weak, context), -1);
+});
+
+test('OpenAlex generic statistics collision stays a demotion without query provenance', () => {
   const weak = item('desmos', {
     title: 'Shifting to Using Desmos or GeoGebra Graphing Calculators in High School Mathematics Classrooms',
     summary: 'A study of calculator adoption and mathematics teaching in high school classrooms.',
@@ -53,8 +70,56 @@ test('OpenAlex suppresses generic statistics collision from an unrelated educati
   });
 
   const evidence = assessFrontierCandidateEvidence(weak);
-  assert.equal(evidence.disposition, 'suppress');
+  assert.equal(evidence.disposition, 'demote');
   assert.deepEqual(evidence.distinctLaneHits, ['statistics']);
+});
+
+test('query evidence prevents hard suppression of a football paper even when its assigned lane is weak', () => {
+  const paper = item('football-analysis', {
+    title: 'Applied performance analysts in association football: A scoping review of roles, challenges, and opportunities',
+    summary: 'This scoping review maps the work of applied performance analysts in association football.',
+    lane: 'sports',
+    tags: ['highlight', 'sport psychology and performance', 'paper', 'research'],
+    metrics: [{ label: 'citations', value: '0' }],
+  });
+
+  const evidence = assessFrontierCandidateEvidence(paper, {
+    discoveryQuery: 'football soccer analytics tracking expected goals',
+  });
+
+  assert.equal(evidence.disposition, 'demote');
+  assert.ok(evidence.discoveryQueryHits.includes('football'));
+  assert.match(evidence.reasons.join(' '), /actual discovery query/i);
+});
+
+test('lane mismatch alone cannot hard-suppress valid exercise physiology', () => {
+  const paper = item('cold-water', {
+    title: 'The cold-water immersion recovery-adaptation paradox',
+    summary: 'A review of acute parasympathetic and analgesic benefits and chronic hypertrophy attenuation in exercise recovery.',
+    lane: 'builder_signal',
+    tags: ['framework', 'exercise and physiological responses', 'paper', 'research'],
+    metrics: [{ label: 'citations', value: '0' }],
+  });
+
+  const evidence = assessFrontierCandidateEvidence(paper);
+  assert.equal(evidence.disposition, 'demote');
+  assert.deepEqual(evidence.distinctLaneHits, ['framework']);
+});
+
+test('known acquisition mismatch can suppress valid scholarship that does not answer that query', () => {
+  const paper = item('cold-water-query-mismatch', {
+    title: 'The cold-water immersion recovery-adaptation paradox',
+    summary: 'A review of acute parasympathetic and analgesic benefits and chronic hypertrophy attenuation in exercise recovery.',
+    lane: 'builder_signal',
+    tags: ['framework', 'exercise and physiological responses', 'paper', 'research'],
+    metrics: [{ label: 'citations', value: '0' }],
+  });
+
+  const evidence = assessFrontierCandidateEvidence(paper, {
+    discoveryQuery: 'artificial intelligence agents interpretability reasoning',
+  });
+  assert.equal(evidence.disposition, 'suppress');
+  assert.deepEqual(evidence.discoveryQueryHits, []);
 });
 
 test('OpenAlex retains fresh zero-citation work with coherent independent semantic evidence', () => {
