@@ -86,7 +86,7 @@ function durationLabel(ms: number): string {
 }
 
 function rateLabel(rate: LongitudinalRateEstimate): string {
-  return `${rate.ratePer10Min.toFixed(2)} cues / 10m · 95% CI ${rate.lowerPer10Min.toFixed(2)}–${rate.upperPer10Min.toFixed(2)}`;
+  return `${rate.ratePer10Min.toFixed(2)} cues / 10m · 95% CrI ${rate.lowerPer10Min.toFixed(2)}–${rate.upperPer10Min.toFixed(2)}`;
 }
 
 function measurementLabel(quality: LongitudinalMeasurementQuality): string {
@@ -100,7 +100,7 @@ function measurementLabel(quality: LongitudinalMeasurementQuality): string {
 
 function reasonLabel(reason: LongitudinalTrendReason): string {
   switch (reason) {
-    case 'detected': return 'Multiplicity-controlled change detected';
+    case 'detected': return 'BH-screened Poisson-rate change detected';
     case 'sensor-uninstrumented': return 'Waiting for v2 sensor measurement';
     case 'measurement-transition': return 'Waiting for one consistent v2 measurement era';
     case 'sensor-sampling-low': return 'Inference callback coverage is too sparse';
@@ -111,7 +111,7 @@ function reasonLabel(reason: LongitudinalTrendReason): string {
     case 'single-day': return 'Evidence has not replicated across days';
     case 'few-events': return 'Too few detected cue episodes';
     case 'small-effect': return 'Observed shift is below the material-effect gate';
-    case 'multiplicity': return 'Shift did not survive false-discovery control';
+    case 'multiplicity': return 'Shift did not survive the BH multiplicity screen';
     case 'stable': return 'No material detected-cue shift';
   }
 }
@@ -175,7 +175,7 @@ export function FrontierMeasurementHealth() {
           <strong>{detectedTrend
             ? `${detectedTrend.key} · cue rate ${detectedTrend.direction}`
             : blocker ? reasonLabel(blocker.reason) : 'Awaiting enough measured history'}</strong>
-          <div className={styles.confidenceTrack} title="Rising/cooling is a detected-cue-rate comparison under measured exposure. It is not a causal claim that your underlying preference changed.">
+          <div className={styles.confidenceTrack} title="Exact conditional Poisson rate comparison with Benjamini-Hochberg adjustment across measurement-eligible topics. Calibration assumes Poisson-like cue counts; bursty overdispersion is a model limitation, not evidence of preference change.">
             <div style={{ width: detectedTrend ? percent(detectedTrend.evidenceStrength) : '0%' }} />
           </div>
         </div>
@@ -187,7 +187,7 @@ export function FrontierMeasurementHealth() {
             <div className={styles.habitCard} key={`cue-rate-${rate.key}`}>
               <span>{rate.key}</span>
               <strong>{rateLabel(rate)}</strong>
-              <div className={styles.confidenceTrack} title={`Descriptive ${rate.measurementMode} estimate. Zero ranking authority.`}>
+              <div className={styles.confidenceTrack} title={`Descriptive ${rate.measurementMode} Bayesian estimate. Zero ranking authority.`}>
                 <div style={{ width: percent(rate.evidenceStrength) }} />
               </div>
             </div>
@@ -196,7 +196,7 @@ export function FrontierMeasurementHealth() {
       ) : null}
 
       <p className={styles.micro} style={{ marginTop: 10 }}>
-        Detected-cue rates are descriptive observations under measured exposure, not emotion, personality, or latent-preference estimates. This longitudinal panel has zero recommendation-ranking authority.
+        Detected-cue rates are descriptive observations under measured exposure, not emotion, personality, or latent-preference estimates. Change flags use an exact conditional Poisson rate screen with BH adjustment after measurement-only eligibility; event-count and material-effect gates are applied afterward. Poisson calibration is not guaranteed for bursty overdispersed cues. This panel has zero recommendation-ranking authority.
       </p>
     </section>
   );
