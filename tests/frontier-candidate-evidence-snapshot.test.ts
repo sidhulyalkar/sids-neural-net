@@ -16,7 +16,22 @@ const shadowCensus = evaluated.reduce<Record<string, Record<string, number>>>((s
   return sources;
 }, {});
 
+const suppressedOpenAlex = evaluated
+  .filter(({ item, evidence }) => item.sourceKind === 'openalex' && evidence.disposition === 'suppress')
+  .map(({ item, evidence }) => ({
+    id: item.id,
+    title: item.title,
+    lane: item.lane,
+    baseScore: Number(item.baseScore.toFixed(4)),
+    laneHits: evidence.distinctLaneHits,
+    specificHits: evidence.specificLaneHits,
+    titleHits: evidence.titleHits,
+    summaryHits: evidence.summaryHits,
+    tagHits: evidence.tagHits,
+  }));
+
 console.info(`FRONTIER candidate-evidence shadow census ${JSON.stringify(shadowCensus)}`);
+console.info(`FRONTIER candidate-evidence suppressed OpenAlex ${JSON.stringify(suppressedOpenAlex)}`);
 
 test('candidate-evidence shadow never suppresses GitHub and never touches unrelated source kinds', () => {
   for (const entry of evaluated.filter(({ item }) => item.sourceKind === 'github')) {
