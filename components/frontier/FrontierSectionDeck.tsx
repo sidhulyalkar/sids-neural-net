@@ -203,7 +203,13 @@ export function FrontierSectionDeck({
         <div className={`${styles.page} ${turning === 'forward' ? styles.turnForward : ''} ${turning === 'backward' ? styles.turnBackward : ''}`}>
           <div className={layoutMode === 'feed' ? styles.feed : styles.grid}>
             {currentPage.items.map((item) => (
-              <div className={styles.card} key={item.id}>
+              <div
+                className={styles.card}
+                key={item.id}
+                data-frontier-fluid-card={item.id}
+                data-frontier-virtual-card="true"
+                data-fluid-expanded="false"
+              >
                 {renderCard(item, layoutMode)}
               </div>
             ))}
