@@ -49,7 +49,7 @@ export function FrontierSectionDeck({
   const [pageIndex, setPageIndex] = useState(0);
   const [turning, setTurning] = useState<TurnDirection>();
   const turnTimer = useRef<number | undefined>(undefined);
-  const swipeStart = useRef<{ x: number; y: number }>();
+  const swipeStart = useRef<{ x: number; y: number } | undefined>(undefined);
   const editionSignature = `${editionKey}:${items[0]?.id ?? 'empty'}:${items.length}:${pageSize}`;
 
   useEffect(() => {
