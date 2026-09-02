@@ -9,6 +9,15 @@ const evaluated = (snapshot.items ?? [])
   .filter((item) => item.sourceKind === 'github' || item.sourceKind === 'openalex')
   .map((item) => ({ item, evidence: assessFrontierCandidateEvidence(item) }));
 
+const shadowCensus = evaluated.reduce<Record<string, Record<string, number>>>((sources, { item, evidence }) => {
+  const bucket = sources[item.sourceKind] ?? { retain: 0, demote: 0, suppress: 0 };
+  bucket[evidence.disposition] = (bucket[evidence.disposition] ?? 0) + 1;
+  sources[item.sourceKind] = bucket;
+  return sources;
+}, {});
+
+console.info(`FRONTIER candidate-evidence shadow census ${JSON.stringify(shadowCensus)}`);
+
 test('candidate-evidence shadow never suppresses GitHub and never touches unrelated source kinds', () => {
   for (const entry of evaluated.filter(({ item }) => item.sourceKind === 'github')) {
     assert.notEqual(entry.evidence.disposition, 'suppress', `${entry.item.id} must remain demotion-only in shadow v1`);
