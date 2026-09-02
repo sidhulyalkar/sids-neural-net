@@ -16,7 +16,6 @@ type Props = {
   layoutMode: FrontierLayoutMode;
   renderCard: (item: FrontierItem, mode: FrontierLayoutMode) => ReactNode;
   empty?: ReactNode;
-  editionKey?: string | number;
 };
 
 type TurnDirection = 'forward' | 'backward';
@@ -37,27 +36,13 @@ function mediaWarmUrl(item: FrontierItem): string | undefined {
   return media.proxyUrl ?? media.posterProxyUrl ?? media.url ?? media.poster;
 }
 
-export function FrontierSectionDeck({
-  items,
-  layoutMode,
-  renderCard,
-  empty,
-  editionKey = 'edition',
-}: Props) {
+export function FrontierSectionDeck({ items, layoutMode, renderCard, empty }: Props) {
   const pageSize = layoutMode === 'feed' ? FRONTIER_SECTION_FEED_PAGE_SIZE : FRONTIER_SECTION_PAGE_SIZE;
   const pages = useMemo(() => buildFrontierSectionPages(items, pageSize), [items, pageSize]);
   const [pageIndex, setPageIndex] = useState(0);
   const [turning, setTurning] = useState<TurnDirection>();
   const turnTimer = useRef<number | undefined>(undefined);
   const swipeStart = useRef<{ x: number; y: number } | undefined>(undefined);
-  const editionSignature = `${editionKey}:${items[0]?.id ?? 'empty'}:${items.length}:${pageSize}`;
-
-  useEffect(() => {
-    setPageIndex(0);
-    setTurning(undefined);
-    if (turnTimer.current !== undefined) window.clearTimeout(turnTimer.current);
-    turnTimer.current = undefined;
-  }, [editionSignature]);
 
   useEffect(() => () => {
     if (turnTimer.current !== undefined) window.clearTimeout(turnTimer.current);
@@ -139,9 +124,7 @@ export function FrontierSectionDeck({
     navigate(event.deltaX > 0 ? pageIndex + 1 : pageIndex - 1);
   };
 
-  if (!currentPage) {
-    return <div className={styles.empty}>{empty}</div>;
-  }
+  if (!currentPage) return <div className={styles.empty}>{empty}</div>;
 
   return (
     <section
@@ -217,9 +200,7 @@ export function FrontierSectionDeck({
         </div>
       </div>
 
-      <div className={styles.hint}>
-        ← → / horizontal swipe · next section media warms during idle
-      </div>
+      <div className={styles.hint}>← → / horizontal swipe · next section media warms during idle</div>
     </section>
   );
 }
