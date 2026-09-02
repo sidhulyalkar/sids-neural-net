@@ -7,13 +7,18 @@ import {
   sportsAnalyticsQueries,
 } from '../lib/frontier/sportsAnalyticsSources';
 
+// These fixtures exercise publisher/evidence semantics, not the independent
+// 10-day freshness gate. Keep them fresh relative to the test clock so their
+// semantic assertions cannot silently expire as the calendar advances.
+const freshPublishedAt = new Date(Date.now() - 24 * 60 * 60 * 1_000).toUTCString();
+
 const rss = `<?xml version="1.0" encoding="UTF-8"?>
 <rss><channel>
   <item>
     <title>Superflex draft values shift after target-share and route-participation update</title>
     <link>https://news.google.com/rss/articles/example-fantasy</link>
     <guid>https://news.google.com/rss/articles/example-fantasy</guid>
-    <pubDate>Sun, 23 Aug 2026 18:00:00 GMT</pubDate>
+    <pubDate>${freshPublishedAt}</pubDate>
     <description>New ADP and usage analysis for 2QB fantasy football formats.</description>
     <source url="https://www.fantasypros.com/">FantasyPros</source>
   </item>
@@ -25,7 +30,7 @@ const fuzzyNflResult = `<?xml version="1.0" encoding="UTF-8"?>
     <title>Chelsea change course with new tactical shape</title>
     <link>https://news.google.com/rss/articles/example-chelsea</link>
     <guid>https://news.google.com/rss/articles/example-chelsea</guid>
-    <pubDate>Sun, 23 Aug 2026 18:00:00 GMT</pubDate>
+    <pubDate>${freshPublishedAt}</pubDate>
     <description>Premier League football analysis of Chelsea's pressing structure.</description>
     <source url="https://www.theguardian.com/">The Guardian</source>
   </item>
