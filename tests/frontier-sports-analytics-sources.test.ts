@@ -7,29 +7,39 @@ import {
   sportsAnalyticsQueries,
 } from '../lib/frontier/sportsAnalyticsSources';
 
-const rss = `<?xml version="1.0" encoding="UTF-8"?>
+const DAY_MS = 86_400_000;
+
+function rssDate(daysAgo = 0): string {
+  return new Date(Date.now() - daysAgo * DAY_MS).toUTCString();
+}
+
+function fantasyRss(pubDate = rssDate(1)): string {
+  return `<?xml version="1.0" encoding="UTF-8"?>
 <rss><channel>
   <item>
     <title>Superflex draft values shift after target-share and route-participation update</title>
     <link>https://news.google.com/rss/articles/example-fantasy</link>
     <guid>https://news.google.com/rss/articles/example-fantasy</guid>
-    <pubDate>Sun, 23 Aug 2026 18:00:00 GMT</pubDate>
+    <pubDate>${pubDate}</pubDate>
     <description>New ADP and usage analysis for 2QB fantasy football formats.</description>
     <source url="https://www.fantasypros.com/">FantasyPros</source>
   </item>
 </channel></rss>`;
+}
 
-const fuzzyNflResult = `<?xml version="1.0" encoding="UTF-8"?>
+function fuzzyNflRss(pubDate = rssDate(1)): string {
+  return `<?xml version="1.0" encoding="UTF-8"?>
 <rss><channel>
   <item>
     <title>Chelsea change course with new tactical shape</title>
     <link>https://news.google.com/rss/articles/example-chelsea</link>
     <guid>https://news.google.com/rss/articles/example-chelsea</guid>
-    <pubDate>Sun, 23 Aug 2026 18:00:00 GMT</pubDate>
+    <pubDate>${pubDate}</pubDate>
     <description>Premier League football analysis of Chelsea's pressing structure.</description>
     <source url="https://www.theguardian.com/">The Guardian</source>
   </item>
 </channel></rss>`;
+}
 
 test('sports analytics radar pins NFL, fantasy, role news, and visualization searches', () => {
   const queries = sportsAnalyticsQueries();
@@ -57,7 +67,7 @@ test('rotating analytics query stays anchored to a favorite NBA or soccer team o
 test('sports analytics RSS preserves the real syndicated publisher and rich fantasy tags', () => {
   const spec = sportsAnalyticsQueries().find((query) => query.id === 'fantasy-football');
   assert.ok(spec);
-  const [item] = parseSportsAnalyticsNewsRss(rss, spec!);
+  const [item] = parseSportsAnalyticsNewsRss(fantasyRss(), spec!);
   assert.ok(item);
   assert.equal(item.source, 'fantasypros.com');
   assert.equal(item.sourceKind, 'rss');
@@ -66,6 +76,12 @@ test('sports analytics RSS preserves the real syndicated publisher and rich fant
   assert.ok(item.tags.includes('superflex'));
   assert.ok(item.tags.includes('2qb'));
   assert.equal(isFrontierSourceAdmitted(item), true);
+});
+
+test('sports analytics RSS keeps the ten-day freshness gate fail-closed', () => {
+  const spec = sportsAnalyticsQueries().find((query) => query.id === 'fantasy-football');
+  assert.ok(spec);
+  assert.deepEqual(parseSportsAnalyticsNewsRss(fantasyRss(rssDate(11)), spec!), []);
 });
 
 test('targeted sports queries require returned evidence before assigning query semantics', () => {
@@ -79,5 +95,5 @@ test('targeted sports queries require returned evidence before assigning query s
     sportsAnalyticsEvidenceMatches('Adaptive separation for long-horizon world models', nfl!),
     false,
   );
-  assert.deepEqual(parseSportsAnalyticsNewsRss(fuzzyNflResult, nfl!), []);
+  assert.deepEqual(parseSportsAnalyticsNewsRss(fuzzyNflRss(), nfl!), []);
 });
