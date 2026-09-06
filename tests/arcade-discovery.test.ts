@@ -22,7 +22,7 @@ const gameNetworkSurfaces = [
 test('the Game Network exposes only the currently active games', () => {
   assert.deepEqual(
     arcadeGames.map((game) => game.slug),
-    ['stretchicorn', 'unirico']
+    ['stretchicorn', 'unirico', 'unicorn-stampede']
   );
 
   for (const game of arcadeGames) {
@@ -108,6 +108,36 @@ test('uniRico cabinet pins the v0.20.0 50-level release with cache-safe runtime 
   assert.match(route, /max-age=31536000, immutable/);
   assert.match(route, /X-UniRico-Version/);
   assert.match(route, /X-UniRico-Source-Commit/);
+});
+
+test('Unicorn Stampede cabinet tracks live main dist/local.html', () => {
+  const game = arcadeGames.find((entry) => entry.slug === 'unicorn-stampede');
+  assert.ok(game);
+  assert.equal(game.version, 'v0.20.0');
+  assert.equal(game.sourceVisibility, 'public');
+  assert.equal(game.repoUrl, 'https://github.com/sidhulyalkar/unicorn-stampede');
+  assert.equal(game.launchUrl, '/game-runtimes/unicorn-stampede/index.html');
+  assert.deepEqual(game.nativeSize, { width: 1280, height: 720 });
+  assert.ok(game.controls.some((control) => control.input === 'W A S D'));
+  assert.ok(game.controls.some((control) => /Rainbow Whip/i.test(control.action)));
+  assert.ok(game.controls.some((control) => control.input === 'Space'));
+  assert.match(game.description, /six-unicorn arcade-strategy/i);
+  assert.match(game.description, /js13kGames 2026/i);
+  assert.match(game.description, /dist\/local\.html/i);
+
+  const route = readRepoFile('app/game-runtimes/unicorn-stampede/[asset]/route.ts');
+  assert.match(route, /UNICORN_STAMPEDE_SOURCE_REF = 'main'/);
+  assert.match(route, /UNICORN_STAMPEDE_SOURCE_ARTIFACT = 'dist\/local\.html'/);
+  assert.match(route, /unicorn-stampede\/\$\{UNICORN_STAMPEDE_SOURCE_REF\}/);
+  assert.match(route, /tabindex=0/);
+  assert.match(route, /host integration check/);
+  assert.match(route, /X-Unicorn-Stampede-Source-Ref/);
+  assert.match(route, /X-Unicorn-Stampede-Source-Artifact/);
+  assert.match(route, /revalidate: 300/);
+
+  const workflow = readRepoFile('.github/workflows/ci.yml');
+  assert.match(workflow, /arcade\/unicorn-stampede/);
+  assert.match(workflow, /game-runtimes\/unicorn-stampede\/index\.html/);
 });
 
 test('FRONTIER and Game Network coexist in current navigation', () => {
