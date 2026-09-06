@@ -26,9 +26,14 @@ const cleanRuntimeUrl = (value: string | undefined) => {
 };
 
 const stretchicornRuntime =
-  cleanRuntimeUrl(process.env.NEXT_PUBLIC_ARCADE_STRETCHICORN_URL) ?? '/game-runtimes/stretchicorn/v0.38.0/index.html';
+  cleanRuntimeUrl(process.env.NEXT_PUBLIC_ARCADE_STRETCHICORN_URL) ??
+  '/game-runtimes/stretchicorn/v0.38.0/index.html';
 const uniricoRuntime =
-  cleanRuntimeUrl(process.env.NEXT_PUBLIC_ARCADE_UNIRICO_URL) ?? '/game-runtimes/unirico/v0.20.0/index.html';
+  cleanRuntimeUrl(process.env.NEXT_PUBLIC_ARCADE_UNIRICO_URL) ??
+  '/game-runtimes/unirico/v0.20.0/index.html';
+const unicornStampedeRuntime =
+  cleanRuntimeUrl(process.env.NEXT_PUBLIC_ARCADE_UNICORN_STAMPEDE_URL) ??
+  '/game-runtimes/unicorn-stampede/v0.20.0/index.html';
 
 export const arcadeGames: ArcadeGame[] = [
   {
@@ -83,6 +88,31 @@ export const arcadeGames: ArcadeGame[] = [
       { input: 'Space / Enter', action: 'Continue' },
     ],
     accent: 'cyan',
+  },
+  {
+    slug: 'unicorn-stampede',
+    title: 'Unicorn Stampede',
+    subtitle: 'STEER · RELEASE · WHIP · SWITCH.',
+    description:
+      'The current v0.20.0 main release: a six-unicorn arcade-strategy campaign built for js13kGames 2026. You directly control only two unicorns at a time while the other four keep running the routes and impulses you leave behind. Crack the Rainbow Whip for Prism chains, smash four landmarks to drop the Town Hall shield, and unlock Stampede+ with optional Prism Gates after conquering Cloudtop Heights.',
+    version: 'v0.20.0',
+    status: 'playable',
+    sourceVisibility: 'public',
+    repoUrl: 'https://github.com/sidhulyalkar/unicorn-stampede',
+    launchUrl: unicornStampedeRuntime,
+    aspectRatio: '1280 / 720',
+    nativeSize: { width: 1280, height: 720 },
+    tags: ['arcade strategy', 'js13k', 'six unicorns', 'prism chains', 'campaign worlds', 'stampede+'],
+    controls: [
+      { input: 'W A S D', action: 'Steer the current Blue unicorn; release to leave its route running' },
+      { input: 'Mouse + click', action: 'Aim the Rainbow Whip beside Yellow and crack it' },
+      { input: 'Space', action: 'Dash both currently controlled unicorns' },
+      { input: 'A / D (title)', action: 'Choose an unlocked campaign world' },
+      { input: 'P / Esc', action: 'Pause' },
+      { input: 'M', action: 'Mute / unmute' },
+      { input: 'T (title)', action: 'Replay the Little Cross tutorial' },
+    ],
+    accent: 'rainbow',
   },
 ];
 

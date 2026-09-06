@@ -21,6 +21,10 @@ const nextConfig: NextConfig = {
           source: '/game-runtimes/stretchicorn/index.html',
           destination: '/game-runtimes/stretchicorn/v0.38.0/index.html',
         },
+        {
+          source: '/game-runtimes/unicorn-stampede/index.html',
+          destination: '/game-runtimes/unicorn-stampede/v0.20.0/index.html',
+        },
       ],
     };
   },
