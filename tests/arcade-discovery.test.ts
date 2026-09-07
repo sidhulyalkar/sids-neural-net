@@ -206,24 +206,15 @@ test('Game Network browser validation covers live-main Stretchicorn and uniRico 
   assert.doesNotMatch(browserTest, /testSylvaria/);
 });
 
-test('the legacy embedded Stretchicorn copy remains isolated as a fallback only', () => {
-  const runtimeRoot = 'public/game-runtimes/stretchicorn';
-  const runtimeModules = [
-    'src/style.css',
-    'src/00-core.js',
-    'src/01-combat.js',
-    'src/02-update.js',
-    'src/03-render.js',
-    'src/04-ui-input.js',
-  ];
+test('static Stretchicorn public files do not shadow the live-main route handler', () => {
+  // public/game-runtimes/stretchicorn/* would win over app/game-runtimes/stretchicorn/[asset]/route.ts
+  assert.equal(existsSync(join(root, 'public/game-runtimes/stretchicorn')), false);
 
-  assert.ok(existsSync(join(root, runtimeRoot, 'index.html')));
-  for (const runtimeModule of runtimeModules) {
-    assert.ok(existsSync(join(root, runtimeRoot, runtimeModule)), `missing Stretchicorn fallback runtime file: ${runtimeModule}`);
-  }
-
-  // Catalog must launch the live-main route handler, not a version-pinned path.
   const catalog = readRepoFile('src/data/arcadeGames.ts');
   assert.match(catalog, /game-runtimes\/stretchicorn\/index\.html/);
   assert.doesNotMatch(catalog, /game-runtimes\/stretchicorn\/v0\.38\.0/);
+
+  const route = readRepoFile('app/game-runtimes/stretchicorn/[asset]/route.ts');
+  assert.match(route, /STRETCHICORN_SOURCE_REF = 'main'/);
+  assert.match(route, /dist\/stretchicorn-local\.html/);
 });

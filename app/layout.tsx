@@ -6,7 +6,7 @@ import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
 import { ArcadeDiscovery } from '@/components/layout/ArcadeDiscovery';
 import { ModeProvider } from '@/lib/contexts/ModeContext';
-import { NeuronCursor } from '@/components/effects/NeuronCursor';
+import { SiteNeuronCursor } from '@/components/effects/SiteNeuronCursor';
 import { InteractionCapabilityProvider } from '@/components/sensing/InteractionCapabilityProvider';
 import { CANONICAL_SITE_URL } from '@/lib/siteAuthority';
 
@@ -71,7 +71,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="min-h-screen bg-bg-deep text-text-primary antialiased" suppressHydrationWarning>
         <ModeProvider>
           <div className="relative flex min-h-screen flex-col">
-            <NeuronCursor />
+            <SiteNeuronCursor />
             <InteractionCapabilityProvider />
             <a
               href="#main-content"

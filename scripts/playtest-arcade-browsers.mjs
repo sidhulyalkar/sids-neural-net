@@ -164,7 +164,10 @@ async function assertUniRicoCampaignContracts(frame) {
       else delete canvas.setPointerCapture;
     }
 
-    eval('V[0] = [1, 0, 0, 0]; td = 1; $b(0); B = null; mo = 0; tc = 0;');
+    // Desktop click-to-fire is gated behind click-mode (cm). Default uniRico
+    // desktop is keyboard aim + Space; enable cm explicitly before the click
+    // trajectory contract so CI tracks the intended click-mode behavior.
+    eval('V[0] = [1, 0, 0, 0]; td = 1; $b(0); B = null; mo = 0; tc = 0; cm = 1;');
     dispatchPointer('pointermove', 'mouse', 780, 180, 81);
     const desktopAimBeforeClick = readState();
     dispatchPointer('pointerdown', 'mouse', 260, 520, 82);
