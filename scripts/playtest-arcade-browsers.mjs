@@ -92,7 +92,7 @@ async function assertCanvasKeyboardFocus(frame, label) {
   }
 }
 
-async function assertStretchicornV038Contracts(frame) {
+async function assertStretchicornCampaignContracts(frame) {
   const contract = await frame.evaluate(() => eval(`({
     stageCount: ST.length,
     stageNameCount: SN.length,
@@ -105,14 +105,14 @@ async function assertStretchicornV038Contracts(frame) {
   })`));
 
   if (contract.stageCount !== 13 || contract.stageNameCount !== 13 || contract.maxTrials !== 13) {
-    throw new Error(`Stretchicorn v0.38.0 campaign authority failed: ${JSON.stringify(contract)}`);
+    throw new Error(`Stretchicorn campaign authority failed: ${JSON.stringify(contract)}`);
   }
   if (
     contract.bosses[0] !== 'HIDEAWAY HUSK'
     || contract.bosses[1] !== 'THE KERNEL COLONEL'
     || contract.bosses[2] !== 'COBTOPUS PRIME'
   ) {
-    throw new Error(`Stretchicorn v0.38.0 boss roster is stale: ${JSON.stringify(contract)}`);
+    throw new Error(`Stretchicorn boss roster is stale: ${JSON.stringify(contract)}`);
   }
   if (contract.initialMode !== 0) {
     throw new Error(`Stretchicorn expected title mode 0 before launch: ${JSON.stringify(contract)}`);
@@ -121,7 +121,7 @@ async function assertStretchicornV038Contracts(frame) {
   return contract;
 }
 
-async function assertUniRicoV020Contracts(frame) {
+async function assertUniRicoCampaignContracts(frame) {
   const contract = await frame.evaluate(() => {
     const canvas = document.querySelector('#c');
     if (!canvas) throw new Error('uniRico canvas missing');
@@ -174,7 +174,7 @@ async function assertUniRicoV020Contracts(frame) {
   });
 
   if (contract.campaign.count !== 50) {
-    throw new Error(`uniRico v0.20.0 did not load the 50-level campaign: ${JSON.stringify(contract.campaign)}`);
+    throw new Error(`uniRico did not load the 50-level campaign: ${JSON.stringify(contract.campaign)}`);
   }
   if (contract.campaign.reflectedStart !== 'MIRROR SPECTRUM SHIFT') {
     throw new Error(`uniRico Reflection Gauntlet start is stale: ${JSON.stringify(contract.campaign)}`);
@@ -183,7 +183,7 @@ async function assertUniRicoV020Contracts(frame) {
     throw new Error(`uniRico level 50 finale contract failed: ${JSON.stringify(contract.campaign)}`);
   }
   if (contract.tutorialMode !== 7) {
-    throw new Error(`uniRico v0.20.0 first-seen tutorial did not enter demo mode: ${JSON.stringify(contract)}`);
+    throw new Error(`uniRico first-seen tutorial did not enter demo mode: ${JSON.stringify(contract)}`);
   }
   if (contract.aimDown.touchMode !== 1 || contract.aimDown.touchPointer !== 71 || contract.aimDown.hasShot) {
     throw new Error(`uniRico AIM touch contract failed: ${JSON.stringify(contract.aimDown)}`);
@@ -225,17 +225,17 @@ async function testStretchicorn(page, engineName) {
 
   const frame = page.frames().find((candidate) => candidate.url().includes('/game-runtimes/stretchicorn/'));
   if (!frame) throw new Error('Stretchicorn iframe did not attach');
-  if (!frame.url().includes('/game-runtimes/stretchicorn/v0.38.0/index.html')) {
-    throw new Error(`Stretchicorn runtime URL is not pinned to v0.38.0: ${frame.url()}`);
+  if (!frame.url().includes('/game-runtimes/stretchicorn/index.html')) {
+    throw new Error(`Stretchicorn runtime URL is not the live-main path: ${frame.url()}`);
   }
 
   const bridge = await assertNativeBridge(frame, 'Stretchicorn');
   await frame.locator('#c').waitFor({ state: 'visible' });
   const title = await frame.title();
-  if (!title.includes('Stretchicorn v0.38.0')) throw new Error(`Stretchicorn runtime title is stale: ${title}`);
+  if (!/Stretchicorn/i.test(title)) throw new Error(`Stretchicorn runtime title is missing: ${title}`);
 
   const initial = await assertPainted(frame, 'Stretchicorn title');
-  const release = await assertStretchicornV038Contracts(frame);
+  const release = await assertStretchicornCampaignContracts(frame);
 
   await page.screenshot({ path: path.join(outputDir, `${engineName}-stretchicorn-title.png`), fullPage: true });
   await assertGameFocus(page, frame.locator('#c'), 'Stretchicorn');
@@ -245,7 +245,7 @@ async function testStretchicorn(page, engineName) {
 
   const playing = await frame.evaluate(() => eval('({ mode, wave, difficulty: D, hearts })'));
   if (playing.mode !== 1 || playing.wave !== 1) {
-    throw new Error(`Stretchicorn v0.38.0 did not enter Trial 1 after Space: ${JSON.stringify(playing)}`);
+    throw new Error(`Stretchicorn did not enter Trial 1 after Space: ${JSON.stringify(playing)}`);
   }
   if (Math.abs(playing.difficulty - 0.7) > 1e-9) {
     throw new Error(`Stretchicorn Space should start Easy at D=0.7: ${JSON.stringify(playing)}`);
@@ -266,20 +266,20 @@ async function testUniRico(page, engineName) {
 
   const frame = page.frames().find((candidate) => candidate.url().includes('/game-runtimes/unirico/'));
   if (!frame) throw new Error('uniRico iframe did not attach');
-  if (!frame.url().includes('/game-runtimes/unirico/v0.20.0/index.html')) {
-    throw new Error(`uniRico runtime URL is not release-versioned: ${frame.url()}`);
+  if (!frame.url().includes('/game-runtimes/unirico/index.html')) {
+    throw new Error(`uniRico runtime URL is not the live-main path: ${frame.url()}`);
   }
 
   const bridge = await assertNativeBridge(frame, 'uniRico');
   await frame.locator('#c').waitFor({ state: 'visible' });
   const title = await frame.title();
-  if (!title.includes('uniRico v0.20.0')) throw new Error(`uniRico runtime title is stale: ${title}`);
+  if (!/uniRico/i.test(title)) throw new Error(`uniRico runtime title is missing: ${title}`);
 
   const initial = await assertPainted(frame, 'uniRico title', 4, 8);
   await assertGameFocus(page, frame.locator('#c'), 'uniRico');
-  const v020 = await assertUniRicoV020Contracts(frame);
+  const campaign = await assertUniRicoCampaignContracts(frame);
   await page.screenshot({ path: path.join(outputDir, `${engineName}-unirico.png`), fullPage: true });
-  return { bridge, title, runtimeUrl: frame.url(), initial, v020 };
+  return { bridge, title, runtimeUrl: frame.url(), initial, campaign };
 }
 
 for (const { name: engineName, browserType, launchOptions } of engines) {
