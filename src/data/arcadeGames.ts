@@ -26,9 +26,10 @@ const cleanRuntimeUrl = (value: string | undefined) => {
 };
 
 const stretchicornRuntime =
-  cleanRuntimeUrl(process.env.NEXT_PUBLIC_ARCADE_STRETCHICORN_URL) ?? '/game-runtimes/stretchicorn/v0.38.0/index.html';
+  cleanRuntimeUrl(process.env.NEXT_PUBLIC_ARCADE_STRETCHICORN_URL) ??
+  '/game-runtimes/stretchicorn/index.html';
 const uniricoRuntime =
-  cleanRuntimeUrl(process.env.NEXT_PUBLIC_ARCADE_UNIRICO_URL) ?? '/game-runtimes/unirico/v0.20.0/index.html';
+  cleanRuntimeUrl(process.env.NEXT_PUBLIC_ARCADE_UNIRICO_URL) ?? '/game-runtimes/unirico/index.html';
 const unicornStampedeRuntime =
   cleanRuntimeUrl(process.env.NEXT_PUBLIC_ARCADE_UNICORN_STAMPEDE_URL) ??
   '/game-runtimes/unicorn-stampede/index.html';
@@ -39,8 +40,8 @@ export const arcadeGames: ArcadeGame[] = [
     title: 'Stretchicorn',
     subtitle: 'STRETCH · SNAP · SHUCK.',
     description:
-      'The current v0.38.0 main release: a 13-trial desktop arcade-action game where you control both ends of a living rainbow unicorn, build tension, Snap through corn armies, parry gold kernels, dodge cyan piercing pressure, and fight three authored bosses. Four difficulty modes, anti-pin boss Phase Shifts, a split-core Cobtopus Prime finale, and the bounded Impossible Encore all ship in the pinned standalone build.',
-    version: 'v0.38.0',
+      'Live main build: a 13-trial desktop arcade-action game where you control both ends of a living rainbow unicorn, build tension, Snap through corn armies, parry gold kernels, dodge cyan piercing pressure, and fight three authored bosses. Four difficulty modes, anti-pin boss Phase Shifts, a split-core Cobtopus Prime finale, and the bounded Impossible Encore ship from stretchicorn main (dist/stretchicorn-local.html).',
+    version: 'main',
     status: 'playable',
     sourceVisibility: 'public',
     repoUrl: 'https://github.com/sidhulyalkar/stretchicorn',
@@ -65,8 +66,8 @@ export const arcadeGames: ArcadeGame[] = [
     title: 'uniRico',
     subtitle: 'RAINBOW RICOCHET · READ · AIM · BOUNCE.',
     description:
-      'A 50-level deterministic rainbow-ricochet puzzle campaign where a unicorn bends one shot through prisms, portals, weather, gravity, spin, polarity, and ordered cloud locks. v0.20.0 adds the ten-level Reflection Gauntlet, preserves the authoritative visible desktop trajectory, and keeps the precision mobile AIM wheel + separate FIRE control.',
-    version: 'v0.20.0',
+      'Live main build: a 50-level deterministic rainbow-ricochet puzzle campaign where a unicorn bends one shot through prisms, portals, weather, gravity, spin, polarity, and ordered cloud locks. Includes the Reflection Gauntlet, the authoritative visible desktop trajectory, and precision mobile AIM wheel + separate FIRE control — served from uniRico main src/.',
+    version: 'main',
     status: 'playable',
     sourceVisibility: 'public',
     repoUrl: 'https://github.com/sidhulyalkar/uniRico',
@@ -93,7 +94,7 @@ export const arcadeGames: ArcadeGame[] = [
     subtitle: 'STEER · RELEASE · WHIP · SWITCH.',
     description:
       'A six-unicorn arcade-strategy riot for js13kGames 2026. Directly control only two unicorns at a time while the rest keep running the routes and impulses you leave behind — steer Blue with WASD and release to leave them working, crack the Rainbow Whip on Yellow for vector launches and Prism chains, then switch attention as the town fights your rainbow catastrophe. Campaign worlds, Smart Attention Director, and Stampede+ encore all ship in the live main dist/local.html build.',
-    version: 'v0.20.0',
+    version: 'main',
     status: 'playable',
     sourceVisibility: 'public',
     repoUrl: 'https://github.com/sidhulyalkar/unicorn-stampede',
