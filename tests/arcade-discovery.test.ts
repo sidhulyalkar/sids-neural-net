@@ -222,6 +222,8 @@ test('the legacy embedded Stretchicorn copy remains isolated as a fallback only'
     assert.ok(existsSync(join(root, runtimeRoot, runtimeModule)), `missing Stretchicorn fallback runtime file: ${runtimeModule}`);
   }
 
+  // Catalog must launch the live-main route handler, not a version-pinned path.
   const catalog = readRepoFile('src/data/arcadeGames.ts');
-  assert.doesNotMatch(catalog, /ARCADE_STRETCHICORN_URL\) \?\? '\/game-runtimes\/stretchicorn\/index\.html'/);
+  assert.match(catalog, /game-runtimes\/stretchicorn\/index\.html/);
+  assert.doesNotMatch(catalog, /game-runtimes\/stretchicorn\/v0\.38\.0/);
 });
