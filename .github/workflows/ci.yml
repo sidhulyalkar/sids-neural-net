@@ -88,25 +88,39 @@ jobs:
 
       - name: Smoke public production routes
         run: |
-          for route in / /frontier /api/frontier/feed /api/auth/session /neural-net /case-studies /physiology /perceptual-cortex /rotation /sensing-lab /physiology/visual-audit /photography /arcade /arcade/stretchicorn /arcade/unirico; do
+          for route in / /frontier /api/frontier/feed /api/auth/session /neural-net /case-studies /physiology /perceptual-cortex /rotation /sensing-lab /physiology/visual-audit /photography /arcade /arcade/stretchicorn /arcade/unirico /arcade/unicorn-stampede; do
             echo "GET $route"
             curl --retry 2 --retry-connrefused -fsS "http://127.0.0.1:3000$route" >/dev/null
           done
-          echo "GET canonical Stretchicorn v0.38.0 runtime"
+          echo "GET live Stretchicorn runtime from main"
           curl --retry 2 --retry-connrefused -fsS -D /tmp/stretchicorn-runtime-headers.txt \
-            http://127.0.0.1:3000/game-runtimes/stretchicorn/v0.38.0/index.html \
+            http://127.0.0.1:3000/game-runtimes/stretchicorn/index.html \
             -o /tmp/stretchicorn-runtime.html
-          grep -q 'Stretchicorn v0.38.0 local playtest' /tmp/stretchicorn-runtime.html
+          grep -qi 'Stretchicorn' /tmp/stretchicorn-runtime.html
           grep -q 'COBTOPUS PRIME' /tmp/stretchicorn-runtime.html
-          grep -qi '^x-stretchicorn-version: v0.38.0' /tmp/stretchicorn-runtime-headers.txt
-          grep -qi '^x-stretchicorn-source-commit: 07d38322d5b9927a9b9eca6fec38546925801c16' /tmp/stretchicorn-runtime-headers.txt
+          grep -qi '^x-stretchicorn-source-ref: main' /tmp/stretchicorn-runtime-headers.txt
           grep -qi '^x-stretchicorn-source-artifact: dist/stretchicorn-local.html' /tmp/stretchicorn-runtime-headers.txt
-          echo "GET canonical uniRico v0.20.0 runtime"
-          curl --retry 2 --retry-connrefused -fsS http://127.0.0.1:3000/game-runtimes/unirico/v0.20.0/index.html | grep -q 'uniRico v0.20.0'
-          echo "VERIFY legacy uniRico runtime redirects to v0.20.0"
-          unirico_redirect="$(curl --retry 2 --retry-connrefused -sS -o /dev/null -w '%{http_code}|%{redirect_url}' http://127.0.0.1:3000/game-runtimes/unirico/index.html)"
+          echo "VERIFY legacy Stretchicorn versioned path redirects to live main"
+          stretchicorn_redirect="$(curl --retry 2 --retry-connrefused -sS -o /dev/null -w '%{http_code}|%{redirect_url}' http://127.0.0.1:3000/game-runtimes/stretchicorn/v0.38.0/index.html)"
+          test "${stretchicorn_redirect%%|*}" = "307"
+          echo "${stretchicorn_redirect#*|}" | grep -q '/game-runtimes/stretchicorn/index.html'
+          echo "GET live uniRico runtime from main"
+          curl --retry 2 --retry-connrefused -fsS -D /tmp/unirico-runtime-headers.txt \
+            http://127.0.0.1:3000/game-runtimes/unirico/index.html \
+            -o /tmp/unirico-runtime.html
+          grep -qi 'uniRico' /tmp/unirico-runtime.html
+          grep -qi '^x-unirico-source-ref: main' /tmp/unirico-runtime-headers.txt
+          echo "VERIFY legacy uniRico versioned path redirects to live main"
+          unirico_redirect="$(curl --retry 2 --retry-connrefused -sS -o /dev/null -w '%{http_code}|%{redirect_url}' http://127.0.0.1:3000/game-runtimes/unirico/v0.20.0/index.html)"
           test "${unirico_redirect%%|*}" = "307"
-          echo "${unirico_redirect#*|}" | grep -q '/game-runtimes/unirico/v0.20.0/index.html'
+          echo "${unirico_redirect#*|}" | grep -q '/game-runtimes/unirico/index.html'
+          echo "GET live Unicorn Stampede runtime from main"
+          curl --retry 2 --retry-connrefused -fsS -D /tmp/unicorn-stampede-runtime-headers.txt \
+            http://127.0.0.1:3000/game-runtimes/unicorn-stampede/index.html \
+            -o /tmp/unicorn-stampede-runtime.html
+          grep -q 'Unicorn Stampede' /tmp/unicorn-stampede-runtime.html
+          grep -qi '^x-unicorn-stampede-source-ref: main' /tmp/unicorn-stampede-runtime-headers.txt
+          grep -qi '^x-unicorn-stampede-source-artifact: dist/local.html' /tmp/unicorn-stampede-runtime-headers.txt
 
       - name: Smoke FRONTIER privacy boundaries
         run: |
@@ -199,6 +213,7 @@ jobs:
           /tmp/frontier-playwright/node_modules/.bin/playwright screenshot --browser=chromium --viewport-size="1440,1100" --full-page http://127.0.0.1:3000/arcade artifacts/browser-smoke/game-network.png
           /tmp/frontier-playwright/node_modules/.bin/playwright screenshot --browser=chromium --viewport-size="1440,1000" http://127.0.0.1:3000/arcade/stretchicorn artifacts/browser-smoke/arcade-stretchicorn.png
           /tmp/frontier-playwright/node_modules/.bin/playwright screenshot --browser=chromium --viewport-size="1440,1000" http://127.0.0.1:3000/arcade/unirico artifacts/browser-smoke/arcade-unirico.png
+          /tmp/frontier-playwright/node_modules/.bin/playwright screenshot --browser=chromium --viewport-size="1440,1000" http://127.0.0.1:3000/arcade/unicorn-stampede artifacts/browser-smoke/arcade-unicorn-stampede.png
 
       - name: Upload production audit artifacts
         if: always()
