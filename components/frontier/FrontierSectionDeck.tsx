@@ -131,11 +131,7 @@ export function FrontierSectionDeck({ items, layoutMode, renderCard, empty }: Pr
   const revealFrame = useRef<number | undefined>(undefined);
   const swipeStart = useRef<{ x: number; y: number } | undefined>(undefined);
   const swipeWarmDirection = useRef<TurnDirection | undefined>(undefined);
-
-  useEffect(() => {
-    setTurn(undefined);
-    setPageIndex((index) => pages.length ? Math.min(index, pages.length - 1) : 0);
-  }, [pages.length]);
+  const activePageIndex = pages.length ? Math.min(pageIndex, pages.length - 1) : 0;
 
   useEffect(() => () => {
     if (turnFallback.current !== undefined) window.clearTimeout(turnFallback.current);
@@ -154,9 +150,9 @@ export function FrontierSectionDeck({ items, layoutMode, renderCard, empty }: Pr
     const run = () => {
       const budget = warmBudget('idle');
       if (budget <= 0) return;
-      warmIndex(pageIndex + 1, 'idle', budget);
-      warmIndex(pageIndex - 1, 'idle', Math.min(3, budget));
-      warmIndex(pageIndex + 2, 'idle', Math.min(3, budget));
+      warmIndex(activePageIndex + 1, 'idle', budget);
+      warmIndex(activePageIndex - 1, 'idle', Math.min(3, budget));
+      warmIndex(activePageIndex + 2, 'idle', Math.min(3, budget));
     };
 
     const idleWindow = window as Window & {
@@ -169,7 +165,7 @@ export function FrontierSectionDeck({ items, layoutMode, renderCard, empty }: Pr
     }
     const id = window.setTimeout(run, 360);
     return () => window.clearTimeout(id);
-  }, [pageIndex, pages.length, warmIndex]);
+  }, [activePageIndex, pages.length, warmIndex]);
 
   useEffect(() => {
     if (turn?.phase !== 'prepare') return;
@@ -210,8 +206,8 @@ export function FrontierSectionDeck({ items, layoutMode, renderCard, empty }: Pr
   const navigate = useCallback((nextIndex: number) => {
     if (turn || !pages.length) return;
     const clamped = Math.max(0, Math.min(pages.length - 1, nextIndex));
-    if (clamped === pageIndex) return;
-    const direction: TurnDirection = clamped > pageIndex ? 'forward' : 'backward';
+    if (clamped === activePageIndex) return;
+    const direction: TurnDirection = clamped > activePageIndex ? 'forward' : 'backward';
     warmIndex(clamped, 'immediate');
 
     if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
@@ -220,24 +216,24 @@ export function FrontierSectionDeck({ items, layoutMode, renderCard, empty }: Pr
     }
 
     setTurn({ targetIndex: clamped, direction, phase: 'prepare' });
-  }, [pageIndex, pages.length, turn, warmIndex]);
+  }, [activePageIndex, pages.length, turn, warmIndex]);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (isTypingTarget(event.target)) return;
       if (event.key === 'ArrowRight') {
         event.preventDefault();
-        navigate(pageIndex + 1);
+        navigate(activePageIndex + 1);
       } else if (event.key === 'ArrowLeft') {
         event.preventDefault();
-        navigate(pageIndex - 1);
+        navigate(activePageIndex - 1);
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [navigate, pageIndex]);
+  }, [activePageIndex, navigate]);
 
-  const currentPage = pages[pageIndex];
+  const currentPage = pages[activePageIndex];
   const targetPage = turn ? pages[turn.targetIndex] : undefined;
 
   const onPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
@@ -255,7 +251,7 @@ export function FrontierSectionDeck({ items, layoutMode, renderCard, empty }: Pr
     const direction: TurnDirection = dx < 0 ? 'forward' : 'backward';
     if (swipeWarmDirection.current === direction) return;
     swipeWarmDirection.current = direction;
-    warmIndex(direction === 'forward' ? pageIndex + 1 : pageIndex - 1, 'immediate');
+    warmIndex(direction === 'forward' ? activePageIndex + 1 : activePageIndex - 1, 'immediate');
   };
 
   const onPointerUp = (event: ReactPointerEvent<HTMLDivElement>) => {
@@ -266,7 +262,7 @@ export function FrontierSectionDeck({ items, layoutMode, renderCard, empty }: Pr
     const dx = event.clientX - start.x;
     const dy = event.clientY - start.y;
     if (Math.abs(dx) < 58 || Math.abs(dx) < Math.abs(dy) * 1.2) return;
-    navigate(dx < 0 ? pageIndex + 1 : pageIndex - 1);
+    navigate(dx < 0 ? activePageIndex + 1 : activePageIndex - 1);
   };
 
   const cancelPointer = () => {
@@ -277,7 +273,7 @@ export function FrontierSectionDeck({ items, layoutMode, renderCard, empty }: Pr
   const onWheel = (event: ReactWheelEvent<HTMLDivElement>) => {
     if (Math.abs(event.deltaX) < 44 || Math.abs(event.deltaX) < Math.abs(event.deltaY) * 1.15) return;
     event.preventDefault();
-    navigate(event.deltaX > 0 ? pageIndex + 1 : pageIndex - 1);
+    navigate(event.deltaX > 0 ? activePageIndex + 1 : activePageIndex - 1);
   };
 
   if (!currentPage) return <div className={styles.empty}>{empty}</div>;
@@ -297,7 +293,6 @@ export function FrontierSectionDeck({ items, layoutMode, renderCard, empty }: Pr
       ))}
     </div>
   );
-
   return (
     <section
       className={styles.deck}
@@ -311,7 +306,7 @@ export function FrontierSectionDeck({ items, layoutMode, renderCard, empty }: Pr
     >
       <div className={styles.navBar}>
         <div className={styles.sectionIdentity}>
-          <span className={styles.eyebrow}>Daily edition · section {pageIndex + 1}</span>
+          <span className={styles.eyebrow}>Daily edition · section {activePageIndex + 1}</span>
           <h2 className={styles.sectionTitle}>{currentPage.title}</h2>
           <div className={styles.kicker}>{currentPage.kicker}</div>
         </div>
@@ -319,20 +314,20 @@ export function FrontierSectionDeck({ items, layoutMode, renderCard, empty }: Pr
           <button
             type="button"
             className={styles.controlButton}
-            onClick={() => navigate(pageIndex - 1)}
-            onPointerEnter={() => warmIndex(pageIndex - 1, 'immediate')}
-            onFocus={() => warmIndex(pageIndex - 1, 'immediate')}
-            disabled={pageIndex === 0 || Boolean(turn)}
+            onClick={() => navigate(activePageIndex - 1)}
+            onPointerEnter={() => warmIndex(activePageIndex - 1, 'immediate')}
+            onFocus={() => warmIndex(activePageIndex - 1, 'immediate')}
+            disabled={activePageIndex === 0 || Boolean(turn)}
             aria-label="Previous section"
           ><ChevronLeft size={15} /></button>
-          <span className={styles.pageCount}>{pageIndex + 1} / {pages.length}</span>
+          <span className={styles.pageCount}>{activePageIndex + 1} / {pages.length}</span>
           <button
             type="button"
             className={styles.controlButton}
-            onClick={() => navigate(pageIndex + 1)}
-            onPointerEnter={() => warmIndex(pageIndex + 1, 'immediate')}
-            onFocus={() => warmIndex(pageIndex + 1, 'immediate')}
-            disabled={pageIndex >= pages.length - 1 || Boolean(turn)}
+            onClick={() => navigate(activePageIndex + 1)}
+            onPointerEnter={() => warmIndex(activePageIndex + 1, 'immediate')}
+            onFocus={() => warmIndex(activePageIndex + 1, 'immediate')}
+            disabled={activePageIndex >= pages.length - 1 || Boolean(turn)}
             aria-label="Next section"
           ><ChevronRight size={15} /></button>
         </div>
@@ -344,11 +339,11 @@ export function FrontierSectionDeck({ items, layoutMode, renderCard, empty }: Pr
             <button
               type="button"
               key={page.id}
-              className={`${styles.railButton} ${index === pageIndex ? styles.railActive : ''}`}
+              className={`${styles.railButton} ${index === activePageIndex ? styles.railActive : ''}`}
               onClick={() => navigate(index)}
               onPointerEnter={() => warmIndex(index, 'idle')}
               onFocus={() => warmIndex(index, 'idle')}
-              aria-current={index === pageIndex ? 'page' : undefined}
+              aria-current={index === activePageIndex ? 'page' : undefined}
             >
               {index + 1}. {page.title}
             </button>
