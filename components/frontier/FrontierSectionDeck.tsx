@@ -133,8 +133,11 @@ export function FrontierSectionDeck({ items, layoutMode, renderCard, empty }: Pr
   const swipeWarmDirection = useRef<TurnDirection | undefined>(undefined);
 
   useEffect(() => {
-    setTurn(undefined);
-    setPageIndex((index) => pages.length ? Math.min(index, pages.length - 1) : 0);
+    const frame = window.requestAnimationFrame(() => {
+      setTurn(undefined);
+      setPageIndex((index) => pages.length ? Math.min(index, pages.length - 1) : 0);
+    });
+    return () => window.cancelAnimationFrame(frame);
   }, [pages.length]);
 
   useEffect(() => () => {
