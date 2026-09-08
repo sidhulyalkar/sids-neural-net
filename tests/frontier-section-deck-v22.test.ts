@@ -14,6 +14,7 @@ const deckSource = readFileSync(new URL('../components/frontier/FrontierSectionD
 const deckCss = readFileSync(new URL('../components/frontier/frontier-section-deck.module.css', import.meta.url), 'utf8');
 const holoCss = readFileSync(new URL('../app/frontier/frontier-holographic-panels.css', import.meta.url), 'utf8');
 const holoRules = holoCss.replace(/\/\*[\s\S]*?\*\//g, '');
+const headerSource = readFileSync(new URL('../components/layout/Header.tsx', import.meta.url), 'utf8');
 const cursorSource = readFileSync(new URL('../components/effects/SiteNeuronCursor.tsx', import.meta.url), 'utf8');
 const sensingSource = readFileSync(new URL('../components/sensing/InteractionCapabilityProvider.tsx', import.meta.url), 'utf8');
 
@@ -104,7 +105,10 @@ test('holographic material is bounded, readable, and avoids expensive idle effec
   assert.doesNotMatch(holoRules, /<canvas|three|WebGL/i);
 });
 
-test('FRONTIER route excludes decorative cursor and sensing/camera shells', () => {
+test('FRONTIER route excludes decorative cursor, sensing, and fractal back-button rendering', () => {
   assert.match(cursorSource, /pathname\?\.startsWith\('\/frontier'\)/);
   assert.match(sensingSource, /pathname\?\.startsWith\('\/frontier'\)/);
+  assert.match(headerSource, /const frontierFastPath = pathname\?\.startsWith\('\/frontier'\)/);
+  assert.match(headerSource, /data-frontier-static-back=\{frontierFastPath \? 'true' : undefined\}/);
+  assert.match(headerSource, /!frontierFastPath \? \([\s\S]*<FractalThemeEcho variant="glyph"/);
 });
