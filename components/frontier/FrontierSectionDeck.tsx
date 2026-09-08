@@ -60,9 +60,10 @@ function mediaWarmUrls(item: FrontierItem): string[] {
     return validWarmUrl(poster) ? [poster] : [];
   }
 
-  if (media.type === 'youtube' && /^[A-Za-z0-9_-]{6,20}$/.test(media.url)) {
-    const maxRes = `https://i.ytimg.com/vi/${media.url}/maxresdefault.jpg`;
-    const hq = `https://i.ytimg.com/vi/${media.url}/hqdefault.jpg`;
+  const youtubeId = media.type === 'youtube' ? media.url : undefined;
+  if (youtubeId && /^[A-Za-z0-9_-]{6,20}$/.test(youtubeId)) {
+    const maxRes = `https://i.ytimg.com/vi/${youtubeId}/maxresdefault.jpg`;
+    const hq = `https://i.ytimg.com/vi/${youtubeId}/hqdefault.jpg`;
     return [
       `/api/frontier/media?url=${encodeURIComponent(maxRes)}`,
       `/api/frontier/media?url=${encodeURIComponent(hq)}`,
