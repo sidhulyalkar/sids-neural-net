@@ -12,14 +12,15 @@ const pageSource = readFileSync(new URL('../app/frontier/page.tsx', import.meta.
 const experienceSource = readFileSync(new URL('../components/frontier/FrontierSectionExperience.tsx', import.meta.url), 'utf8');
 const deckSource = readFileSync(new URL('../components/frontier/FrontierSectionDeck.tsx', import.meta.url), 'utf8');
 const deckCss = readFileSync(new URL('../components/frontier/frontier-section-deck.module.css', import.meta.url), 'utf8');
+const holoCss = readFileSync(new URL('../app/frontier/frontier-holographic-panels.css', import.meta.url), 'utf8');
 const cursorSource = readFileSync(new URL('../components/effects/SiteNeuronCursor.tsx', import.meta.url), 'utf8');
 const sensingSource = readFileSync(new URL('../components/sensing/InteractionCapabilityProvider.tsx', import.meta.url), 'utf8');
 
 function item(index: number): FrontierItem {
   return {
-    id: `section-v22-${index}`,
-    title: `Section v22 ${index}`,
-    summary: 'Predictive newspaper section test fixture.',
+    id: `section-v23-${index}`,
+    title: `Section v23 ${index}`,
+    summary: 'Predictive holographic section test fixture.',
     url: `https://example.invalid/${index}`,
     source: 'example.invalid',
     sourceLabel: 'Fixture',
@@ -35,7 +36,7 @@ function item(index: number): FrontierItem {
   };
 }
 
-test('v22 keeps edition data bounded while sectioning desktop and mobile pages', () => {
+test('v23 keeps edition data bounded while sectioning desktop and mobile pages', () => {
   const items = Array.from({ length: 48 }, (_, index) => item(index + 1));
   const desktop = buildFrontierSectionPages(items, FRONTIER_SECTION_PAGE_SIZE);
   const mobile = buildFrontierSectionPages(items, FRONTIER_SECTION_FEED_PAGE_SIZE);
@@ -51,6 +52,7 @@ test('FRONTIER first paint comes from the bounded server snapshot and omits ambi
   assert.match(pageSource, /snapshot\.items\.slice\(0, 72\)/);
   assert.match(pageSource, /<FrontierSectionExperience/);
   assert.match(pageSource, /data-frontier-performance-route="true"/);
+  assert.match(pageSource, /frontier-holographic-panels\.css/);
   assert.doesNotMatch(pageSource, /BackgroundCanvas|DeferredFrontierAmbient|SignalTelemetryBridge|MeshStateBridge|FrontierRuntimeControls|FrontierAutonomyProvider/);
 });
 
@@ -76,17 +78,29 @@ test('page navigation is data-local and predictively decodes bounded adjacent me
   assert.match(deckSource, /media\.posterProxyUrl \?\? media\.poster/);
 });
 
-test('3D turn prepares the target sheet before a GPU-only reveal', () => {
+test('v23 geometric turn uses stronger depth while the final material stays compositor-first', () => {
   assert.match(deckSource, /type TurnPhase = 'prepare' \| 'turn'/);
   assert.match(deckSource, /requestAnimationFrame\(\(\) => \{[\s\S]*requestAnimationFrame/);
   assert.match(deckSource, /data-frontier-page-role="incoming"/);
   assert.match(deckSource, /data-frontier-page-role="current"/);
   assert.match(deckSource, /data-frontier-turning=\{turn\?\.phase \?\? 'idle'\}/);
-  assert.match(deckCss, /perspective: 1850px/);
-  assert.match(deckCss, /rotateY\(-86deg\)/);
-  assert.match(deckCss, /rotateY\(86deg\)/);
-  assert.match(deckCss, /will-change: transform/);
-  assert.doesNotMatch(deckCss, /will-change: transform, opacity/);
+  assert.match(deckCss, /perspective: clamp\(900px, 70vw, 1220px\)/);
+  assert.match(deckCss, /translate3d\(-12\.8%, -5\.3%, -535px\).*rotateY\(-96deg\)/);
+  assert.match(deckCss, /translate3d\(12\.8%, -5\.3%, -535px\).*rotateY\(96deg\)/);
+  assert.match(holoCss, /clip-path: none !important/);
+  assert.match(holoCss, /will-change: transform, opacity !important/);
+  assert.match(holoCss, /content-visibility: visible/);
+});
+
+test('holographic material is bounded, readable, and avoids expensive idle effects', () => {
+  assert.match(holoCss, /repeating-linear-gradient/);
+  assert.match(holoCss, /data-frontier-virtual-card/);
+  assert.match(holoCss, /@media \(max-width: 720px\)/);
+  assert.match(holoCss, /prefers-reduced-motion: reduce/);
+  assert.doesNotMatch(holoCss, /backdrop-filter/);
+  assert.doesNotMatch(holoCss, /filter:\s*blur/);
+  assert.doesNotMatch(holoCss, /animation:\s*[^;]*infinite/);
+  assert.doesNotMatch(holoCss, /<canvas|three|WebGL/i);
 });
 
 test('FRONTIER route excludes decorative cursor and sensing/camera shells', () => {
