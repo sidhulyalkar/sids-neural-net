@@ -13,6 +13,7 @@ const experienceSource = readFileSync(new URL('../components/frontier/FrontierSe
 const deckSource = readFileSync(new URL('../components/frontier/FrontierSectionDeck.tsx', import.meta.url), 'utf8');
 const deckCss = readFileSync(new URL('../components/frontier/frontier-section-deck.module.css', import.meta.url), 'utf8');
 const holoCss = readFileSync(new URL('../app/frontier/frontier-holographic-panels.css', import.meta.url), 'utf8');
+const holoRules = holoCss.replace(/\/\*[\s\S]*?\*\//g, '');
 const cursorSource = readFileSync(new URL('../components/effects/SiteNeuronCursor.tsx', import.meta.url), 'utf8');
 const sensingSource = readFileSync(new URL('../components/sensing/InteractionCapabilityProvider.tsx', import.meta.url), 'utf8');
 
@@ -87,20 +88,20 @@ test('v23 geometric turn uses stronger depth while the final material stays comp
   assert.match(deckCss, /perspective: clamp\(900px, 70vw, 1220px\)/);
   assert.match(deckCss, /translate3d\(-12\.8%, -5\.3%, -535px\).*rotateY\(-96deg\)/);
   assert.match(deckCss, /translate3d\(12\.8%, -5\.3%, -535px\).*rotateY\(96deg\)/);
-  assert.match(holoCss, /clip-path: none !important/);
-  assert.match(holoCss, /will-change: transform, opacity !important/);
-  assert.match(holoCss, /content-visibility: visible/);
+  assert.match(holoRules, /clip-path: none !important/);
+  assert.match(holoRules, /will-change: transform, opacity !important/);
+  assert.match(holoRules, /content-visibility: visible/);
 });
 
 test('holographic material is bounded, readable, and avoids expensive idle effects', () => {
-  assert.match(holoCss, /repeating-linear-gradient/);
-  assert.match(holoCss, /data-frontier-virtual-card/);
-  assert.match(holoCss, /@media \(max-width: 720px\)/);
-  assert.match(holoCss, /prefers-reduced-motion: reduce/);
-  assert.doesNotMatch(holoCss, /backdrop-filter/);
-  assert.doesNotMatch(holoCss, /filter:\s*blur/);
-  assert.doesNotMatch(holoCss, /animation:\s*[^;]*infinite/);
-  assert.doesNotMatch(holoCss, /<canvas|three|WebGL/i);
+  assert.match(holoRules, /repeating-linear-gradient/);
+  assert.match(holoRules, /data-frontier-virtual-card/);
+  assert.match(holoRules, /@media \(max-width: 720px\)/);
+  assert.match(holoRules, /prefers-reduced-motion: reduce/);
+  assert.doesNotMatch(holoRules, /backdrop-filter/);
+  assert.doesNotMatch(holoRules, /filter:\s*blur/);
+  assert.doesNotMatch(holoRules, /animation:\s*[^;]*infinite/);
+  assert.doesNotMatch(holoRules, /<canvas|three|WebGL/i);
 });
 
 test('FRONTIER route excludes decorative cursor and sensing/camera shells', () => {
