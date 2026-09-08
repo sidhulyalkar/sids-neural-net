@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { FrontierSectionExperience } from '@/components/frontier/FrontierSectionExperience';
 import { getFrontierColdSnapshotFeed } from '@/lib/frontier/snapshotFeed';
 import spatial from '@/components/frontier/frontier-spatial.module.css';
+import './frontier-holographic-panels.css';
 
 export const metadata: Metadata = {
   title: 'FRONTIER · Personal Intelligence Radar',
