@@ -14,6 +14,7 @@ const experienceSource = readFileSync(new URL('../components/frontier/FrontierSe
 const deckSource = readFileSync(new URL('../components/frontier/FrontierSectionDeck.tsx', import.meta.url), 'utf8');
 const deckCss = readFileSync(new URL('../components/frontier/frontier-section-deck.module.css', import.meta.url), 'utf8');
 const mediaSource = readFileSync(new URL('../components/frontier/media/FrontierMediaSurface.tsx', import.meta.url), 'utf8');
+const richMediaSource = readFileSync(new URL('../components/frontier/media/RichFrontierMediaSurface.tsx', import.meta.url), 'utf8');
 const focalSource = readFileSync(new URL('../components/frontier/FrontierFocalPlane.tsx', import.meta.url), 'utf8');
 const headerSource = readFileSync(new URL('../components/layout/Header.tsx', import.meta.url), 'utf8');
 const cursorSource = readFileSync(new URL('../components/effects/SiteNeuronCursor.tsx', import.meta.url), 'utf8');
@@ -96,13 +97,16 @@ test('v24 daily deck is a one-screen layout with no transition paint loop', () =
   assert.doesNotMatch(deckCss, /content-visibility:/);
 });
 
-test('feed cards default to lightweight native media while focused detail retains rich media', () => {
-  assert.match(mediaSource, /type MediaRenderMode = 'lightweight' \| 'rich'/);
-  assert.match(mediaSource, /mode = 'lightweight'/);
-  assert.match(mediaSource, /function LightweightMediaSurface/);
+test('feed media is a lightweight-only module and rich GPU/video dependencies stay isolated', () => {
+  assert.match(mediaSource, /export function FrontierMediaSurface/);
   assert.match(mediaSource, /loading="lazy"/);
   assert.match(mediaSource, /decoding="async"/);
-  assert.match(focalSource, /<FrontierMediaSurface item=\{item\} mode="rich"/);
+  assert.doesNotMatch(mediaSource, /GpuImageSurface|AdaptiveVideoSurface|useMediaVisibility|<iframe/);
+  assert.match(richMediaSource, /GpuImageSurface/);
+  assert.match(richMediaSource, /AdaptiveVideoSurface/);
+  assert.match(richMediaSource, /useMediaVisibility/);
+  assert.match(focalSource, /RichFrontierMediaSurface/);
+  assert.doesNotMatch(focalSource, /FrontierMediaSurface item=\{item\}/);
 });
 
 test('FRONTIER route excludes decorative cursor, sensing, and fractal back-button rendering', () => {
