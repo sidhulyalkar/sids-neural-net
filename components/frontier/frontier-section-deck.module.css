@@ -160,6 +160,15 @@
     rgba(4, 9, 8, 0.96);
 }
 
+.currentPage {
+  --frontier-enter-x: 11px;
+  animation: frontier-page-reveal 150ms cubic-bezier(0.2, 0.72, 0.28, 1) both;
+}
+
+.currentPage[data-frontier-page-direction='backward'] {
+  --frontier-enter-x: -11px;
+}
+
 .grid,
 .feed {
   display: grid;
@@ -172,19 +181,18 @@
 }
 
 .grid {
-  grid-template-columns: repeat(12, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   grid-template-rows: repeat(2, minmax(0, 1fr));
 }
 
 .feed {
   grid-template-columns: minmax(0, 1fr);
-  grid-template-rows: repeat(2, minmax(0, 1fr));
+  grid-template-rows: repeat(3, minmax(0, 1fr));
 }
 
 .card {
   min-width: 0;
   min-height: 0;
-  grid-column: span 4;
   overflow: hidden;
   contain: layout paint style;
   background:
@@ -198,18 +206,6 @@
   overflow: hidden;
 }
 
-.card:nth-child(1),
-.card:nth-child(6) {
-  grid-column: span 6;
-}
-
-.card:nth-child(2),
-.card:nth-child(3),
-.card:nth-child(4),
-.card:nth-child(5) {
-  grid-column: span 3;
-}
-
 .feed .card {
   grid-column: 1;
 }
@@ -220,19 +216,21 @@
   place-items: center;
 }
 
-@media (max-width: 1024px) {
-  .card,
-  .card:nth-child(1),
-  .card:nth-child(2),
-  .card:nth-child(3),
-  .card:nth-child(4),
-  .card:nth-child(5),
-  .card:nth-child(6) {
-    grid-column: span 6;
+@keyframes frontier-page-reveal {
+  from {
+    opacity: 0.82;
+    transform: translate3d(var(--frontier-enter-x), 0, 0) scale(0.996);
   }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
 
+@media (max-width: 1024px) {
   .grid {
-    grid-template-rows: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-rows: repeat(4, minmax(0, 1fr));
   }
 }
 
@@ -252,20 +250,14 @@
     font-size: 0.9rem;
   }
 
-  .grid,
-  .feed {
-    grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: repeat(2, minmax(0, 1fr));
+  .grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-rows: repeat(4, minmax(0, 1fr));
   }
 
-  .card,
-  .card:nth-child(1),
-  .card:nth-child(2),
-  .card:nth-child(3),
-  .card:nth-child(4),
-  .card:nth-child(5),
-  .card:nth-child(6) {
-    grid-column: 1;
+  .feed {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: repeat(3, minmax(0, 1fr));
   }
 }
 
@@ -289,4 +281,5 @@
 
 @media (prefers-reduced-motion: reduce) {
   .rail { scroll-behavior: auto; }
+  .currentPage { animation: none; }
 }
