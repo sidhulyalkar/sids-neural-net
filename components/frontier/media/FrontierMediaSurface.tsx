@@ -1,15 +1,10 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 import { frontierMediaGeometry } from '@/lib/frontier/media/geometry';
 import { isFrontierGithubSocialPreview } from '@/lib/frontier/media/sourceVisuals';
 import type { FrontierItem } from '@/lib/frontier/types';
-import { AdaptiveVideoSurface } from './AdaptiveVideoSurface';
-import { GpuImageSurface } from './GpuImageSurface';
-import { useMediaVisibility } from './useMediaVisibility';
 import styles from './frontier-media.module.css';
-
-type MediaRenderMode = 'lightweight' | 'rich';
 
 function isHttpUrl(value?: string): value is string {
   if (!value) return false;
@@ -110,43 +105,13 @@ function LightweightVideoPlaceholder({ item }: { item: FrontierItem }) {
   );
 }
 
-function YouTubeSurface({ item, onUnavailable }: { item: FrontierItem; onUnavailable?: () => void }) {
-  const ref = useRef<HTMLDivElement>(null);
-  const visibility = useMediaVisibility(ref);
-  const media = item.media;
-  if (!media || media.type !== 'youtube' || !isYouTubeId(media.url)) return null;
-  const aspectRatio = frontierMediaGeometry(media).cssAspectRatio;
-  const maxResPoster = localProxyUrl(`https://i.ytimg.com/vi/${media.url}/maxresdefault.jpg`);
-  const hqPoster = localProxyUrl(`https://i.ytimg.com/vi/${media.url}/hqdefault.jpg`);
-
-  return (
-    <div ref={ref} className={styles.youtubeSurface} style={{ aspectRatio }}>
-      {visibility === 'active' ? (
-        <iframe
-          title={`Video: ${item.title}`}
-          src={`https://www.youtube-nocookie.com/embed/${media.url}?rel=0&modestbranding=1`}
-          className={styles.youtubeFrame}
-          loading="lazy"
-          allow="accelerometer; encrypted-media; gyroscope; picture-in-picture"
-          allowFullScreen
-        />
-      ) : (
-        <GpuImageSurface
-          id={`${item.id}:youtube`}
-          src={maxResPoster}
-          fallbackSrc={hqPoster}
-          alt={media.alt || item.title}
-          className={styles.posterSurface}
-          placeholderColor={media.averageColor}
-          aspectRatio={aspectRatio}
-          onUnavailable={onUnavailable}
-        />
-      )}
-    </div>
-  );
-}
-
-function LightweightMediaSurface({ item, onUnavailable }: { item: FrontierItem; onUnavailable?: () => void }) {
+export function FrontierMediaSurface({
+  item,
+  onUnavailable,
+}: {
+  item: FrontierItem;
+  onUnavailable?: () => void;
+}) {
   const media = item.media;
   if (!media || !canRenderFrontierMedia(item)) return null;
   const aspectRatio = frontierMediaGeometry(media).cssAspectRatio;
@@ -189,73 +154,6 @@ function LightweightMediaSurface({ item, onUnavailable }: { item: FrontierItem; 
       );
     }
     return <LightweightVideoPlaceholder item={item} />;
-  }
-
-  return null;
-}
-
-export function FrontierMediaSurface({
-  item,
-  onUnavailable,
-  mode = 'lightweight',
-}: {
-  item: FrontierItem;
-  onUnavailable?: () => void;
-  mode?: MediaRenderMode;
-}) {
-  if (mode === 'lightweight') return <LightweightMediaSurface item={item} onUnavailable={onUnavailable} />;
-
-  const media = item.media;
-  if (!media || !canRenderFrontierMedia(item)) return null;
-  const aspectRatio = frontierMediaGeometry(media).cssAspectRatio;
-
-  if (media.type === 'image') {
-    const gpuSource = isMediaUrl(media.proxyUrl)
-      ? media.proxyUrl
-      : isSameOriginMediaPath(media.url)
-        ? media.url
-        : undefined;
-    if (gpuSource) {
-      return (
-        <GpuImageSurface
-          id={`${item.id}:image`}
-          src={gpuSource}
-          fallbackSrc={isHttpUrl(media.url) ? media.url : gpuSource}
-          alt={media.alt || item.title}
-          className={styles.primaryImage}
-          placeholderColor={media.averageColor}
-          aspectRatio={aspectRatio}
-          onUnavailable={onUnavailable}
-        />
-      );
-    }
-    if (!isHttpUrl(media.url)) return null;
-    return (
-      <NativeImageSurface
-        src={media.url}
-        alt={media.alt || item.title}
-        aspectRatio={aspectRatio}
-        onUnavailable={onUnavailable}
-      />
-    );
-  }
-
-  if (media.type === 'youtube') return <YouTubeSurface item={item} onUnavailable={onUnavailable} />;
-
-  if (media.type === 'video') {
-    const poster = media.posterProxyUrl ?? media.poster;
-    return (
-      <AdaptiveVideoSurface
-        id={`${item.id}:video`}
-        url={isHttpUrl(media.url) ? media.url : undefined}
-        poster={isMediaUrl(poster) ? poster : undefined}
-        posterFallback={isHttpUrl(media.poster) ? media.poster : undefined}
-        streams={media.streams}
-        alt={media.alt || item.title}
-        aspectRatio={aspectRatio}
-        onUnavailable={onUnavailable}
-      />
-    );
   }
 
   return null;
