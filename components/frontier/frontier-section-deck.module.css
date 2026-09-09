@@ -95,7 +95,11 @@
   margin: 0 0 7px;
   overflow-x: auto;
   overflow-y: hidden;
+  overscroll-behavior-inline: contain;
+  scroll-behavior: smooth;
+  scroll-snap-type: x proximity;
   scrollbar-width: none;
+  touch-action: pan-x pinch-zoom;
 }
 
 .rail::-webkit-scrollbar {
@@ -114,6 +118,7 @@
   font-family: var(--font-geist-mono), ui-monospace, monospace;
   font-size: 0.49rem;
   letter-spacing: 0.045em;
+  scroll-snap-align: start;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -138,8 +143,8 @@
   contain: layout paint style;
   isolation: isolate;
   overflow: hidden;
-  overscroll-behavior: none;
-  touch-action: none;
+  overscroll-behavior: contain;
+  touch-action: pan-y pinch-zoom;
 }
 
 .page,
@@ -150,7 +155,9 @@
   min-height: 0;
   overflow: hidden;
   border-radius: 10px;
-  background: rgba(4, 9, 8, 0.96);
+  background:
+    radial-gradient(120% 90% at 12% 6%, rgba(92, 154, 137, 0.045), transparent 52%),
+    rgba(4, 9, 8, 0.96);
 }
 
 .grid,
@@ -179,7 +186,9 @@
   min-height: 0;
   grid-column: span 4;
   overflow: hidden;
-  background: rgba(4, 9, 8, 0.94);
+  contain: layout paint style;
+  background:
+    linear-gradient(145deg, rgba(11, 20, 17, 0.98), rgba(4, 9, 8, 0.96));
 }
 
 .card > * {
@@ -276,4 +285,8 @@
   .railButton {
     padding-block: 3px;
   }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rail { scroll-behavior: auto; }
 }
