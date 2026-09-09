@@ -9,6 +9,8 @@ import { GpuImageSurface } from './GpuImageSurface';
 import { useMediaVisibility } from './useMediaVisibility';
 import styles from './frontier-media.module.css';
 
+type MediaRenderMode = 'lightweight' | 'rich';
+
 function isHttpUrl(value?: string): value is string {
   if (!value) return false;
   try {
@@ -49,9 +51,6 @@ export function frontierMediaKey(item: FrontierItem): string {
 export function canRenderFrontierMedia(item: FrontierItem): boolean {
   const media = item.media;
   if (!media || media.type === 'none' || media.type === 'chart') return false;
-  // Historical GitHub cards carried owner avatars. Keep rejecting those weak
-  // visuals; only repository-level previews derived from the canonical source
-  // may become project media.
   if (item.sourceKind === 'github' && media.type === 'image' && !isFrontierGithubSocialPreview(media.url)) return false;
   if (media.type === 'youtube') return isYouTubeId(media.url);
   if (media.type === 'video') return Boolean(isHttpUrl(media.url) || media.streams?.length);
@@ -77,8 +76,6 @@ function NativeImageSurface({
       data-media-state={failed ? 'fallback' : 'native'}
     >
       {!failed ? (
-        // Cross-origin publisher imagery outside FRONTIER's trusted proxy set
-        // remains browser-native rather than weakening SSRF/CORS boundaries.
         // eslint-disable-next-line @next/next/no-img-element
         <img
           src={src}
@@ -98,6 +95,17 @@ function NativeImageSurface({
           source visual unavailable
         </span>
       )}
+    </div>
+  );
+}
+
+function LightweightVideoPlaceholder({ item }: { item: FrontierItem }) {
+  const media = item.media;
+  if (!media || media.type !== 'video') return null;
+  const aspectRatio = frontierMediaGeometry(media).cssAspectRatio;
+  return (
+    <div className={styles.nativeImageSurface} style={{ aspectRatio }} data-media-state="poster-unavailable">
+      <span className={styles.imageUnavailable}>video · open source</span>
     </div>
   );
 }
@@ -138,21 +146,70 @@ function YouTubeSurface({ item, onUnavailable }: { item: FrontierItem; onUnavail
   );
 }
 
-export function FrontierMediaSurface({
-  item,
-  onUnavailable,
-}: {
-  item: FrontierItem;
-  onUnavailable?: () => void;
-}) {
+function LightweightMediaSurface({ item, onUnavailable }: { item: FrontierItem; onUnavailable?: () => void }) {
   const media = item.media;
   if (!media || !canRenderFrontierMedia(item)) return null;
   const aspectRatio = frontierMediaGeometry(media).cssAspectRatio;
 
   if (media.type === 'image') {
-    // Same-origin archive imagery and trusted proxy URLs use the GPU plane. A
-    // browser-native copy of the original source remains underneath so worker,
-    // proxy, context, or texture-cache failure can never leave a black card.
+    const src = media.proxyUrl ?? media.url;
+    if (!isMediaUrl(src)) return null;
+    return (
+      <NativeImageSurface
+        src={src}
+        alt={media.alt || item.title}
+        aspectRatio={aspectRatio}
+        onUnavailable={onUnavailable}
+      />
+    );
+  }
+
+  if (media.type === 'youtube' && isYouTubeId(media.url)) {
+    const poster = localProxyUrl(`https://i.ytimg.com/vi/${media.url}/hqdefault.jpg`);
+    return (
+      <NativeImageSurface
+        src={poster}
+        alt={media.alt || item.title}
+        aspectRatio={aspectRatio}
+        onUnavailable={onUnavailable}
+      />
+    );
+  }
+
+  if (media.type === 'video') {
+    const poster = media.posterProxyUrl ?? media.poster;
+    if (isMediaUrl(poster)) {
+      return (
+        <NativeImageSurface
+          src={poster}
+          alt={media.alt || item.title}
+          aspectRatio={aspectRatio}
+          onUnavailable={onUnavailable}
+        />
+      );
+    }
+    return <LightweightVideoPlaceholder item={item} />;
+  }
+
+  return null;
+}
+
+export function FrontierMediaSurface({
+  item,
+  onUnavailable,
+  mode = 'lightweight',
+}: {
+  item: FrontierItem;
+  onUnavailable?: () => void;
+  mode?: MediaRenderMode;
+}) {
+  if (mode === 'lightweight') return <LightweightMediaSurface item={item} onUnavailable={onUnavailable} />;
+
+  const media = item.media;
+  if (!media || !canRenderFrontierMedia(item)) return null;
+  const aspectRatio = frontierMediaGeometry(media).cssAspectRatio;
+
+  if (media.type === 'image') {
     const gpuSource = isMediaUrl(media.proxyUrl)
       ? media.proxyUrl
       : isSameOriginMediaPath(media.url)
