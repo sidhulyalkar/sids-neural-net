@@ -15,8 +15,9 @@ test('secondary map graphics are separate client chunks', () => {
   assert.doesNotMatch(constellationSource, /import \{ FrontierMeasurementHealth \}/);
 });
 
-test('feed graphics remain native and rich media stays outside the feed surface', () => {
-  assert.match(mediaSource, /loading="lazy"/);
+test('feed graphics stay native while lead media can opt into eager high priority', () => {
+  assert.match(mediaSource, /loading=\{priority === 'primary' \? 'eager' : 'lazy'\}/);
+  assert.match(mediaSource, /fetchPriority=\{priority === 'primary' \? 'high' : 'low'\}/);
   assert.match(mediaSource, /decoding="async"/);
   assert.doesNotMatch(mediaSource, /GpuImageSurface|AdaptiveVideoSurface|useMediaVisibility|<iframe/);
   assert.match(richMediaSource, /GpuImageSurface/);
