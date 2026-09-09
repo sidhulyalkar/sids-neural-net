@@ -75,7 +75,7 @@ function warmBudget(priority: WarmPriority): number {
   if (connection?.saveData) return priority === 'immediate' ? 1 : 0;
   if (connection?.effectiveType === 'slow-2g' || connection?.effectiveType === '2g') return 1;
   if (connection?.effectiveType === '3g') return priority === 'immediate' ? 2 : 1;
-  return 2;
+  return priority === 'immediate' ? 3 : 2;
 }
 
 function rememberDecodedImage(url: string, image: HTMLImageElement) {
@@ -117,6 +117,7 @@ export function FrontierSectionDeck({ items, layoutMode, renderCard, empty }: Pr
   const [pageIndex, setPageIndex] = useState(0);
   const swipeStart = useRef<{ x: number; y: number } | undefined>(undefined);
   const swipeWarmDirection = useRef<TurnDirection | undefined>(undefined);
+  const lastNavigateDirection = useRef<TurnDirection>('forward');
   const wheelDelta = useRef(0);
   const wheelDirection = useRef(0);
   const wheelResetTimer = useRef<number | undefined>(undefined);
@@ -131,6 +132,8 @@ export function FrontierSectionDeck({ items, layoutMode, renderCard, empty }: Pr
 
   useEffect(() => {
     if (!pages.length) return;
+    warmIndex(activePageIndex, 'immediate', Math.min(2, warmBudget('immediate')));
+
     const run = () => {
       const budget = warmBudget('idle');
       if (budget <= 0) return;
@@ -158,7 +161,8 @@ export function FrontierSectionDeck({ items, layoutMode, renderCard, empty }: Pr
     if (!pages.length) return;
     const clamped = Math.max(0, Math.min(pages.length - 1, nextIndex));
     if (clamped === activePageIndex) return;
-    warmIndex(clamped, 'immediate', 2);
+    lastNavigateDirection.current = clamped > activePageIndex ? 'forward' : 'backward';
+    warmIndex(clamped, 'immediate', 3);
     setPageIndex(clamped);
   }, [activePageIndex, pages.length, warmIndex]);
 
@@ -193,7 +197,7 @@ export function FrontierSectionDeck({ items, layoutMode, renderCard, empty }: Pr
     const direction: TurnDirection = dx < 0 ? 'forward' : 'backward';
     if (swipeWarmDirection.current === direction) return;
     swipeWarmDirection.current = direction;
-    warmIndex(direction === 'forward' ? activePageIndex + 1 : activePageIndex - 1, 'immediate', 2);
+    warmIndex(direction === 'forward' ? activePageIndex + 1 : activePageIndex - 1, 'immediate', 3);
   };
 
   const onPointerUp = (event: ReactPointerEvent<HTMLDivElement>) => {
@@ -251,8 +255,9 @@ export function FrontierSectionDeck({ items, layoutMode, renderCard, empty }: Pr
       data-frontier-turning="idle"
       data-frontier-page-cache="decoded-media"
       data-frontier-prefetch-depth="adjacent"
-      data-frontier-prefetch-budget="2-next-1-prev"
+      data-frontier-prefetch-budget="3-intent-2-next-1-prev"
       data-frontier-fast-swap="true"
+      data-frontier-transition="single-plane"
       data-frontier-wheel-coalescing="true"
     >
       <div className={styles.navBar}>
@@ -266,8 +271,8 @@ export function FrontierSectionDeck({ items, layoutMode, renderCard, empty }: Pr
             type="button"
             className={styles.controlButton}
             onClick={() => navigate(activePageIndex - 1)}
-            onPointerEnter={() => warmIndex(activePageIndex - 1, 'immediate', 2)}
-            onFocus={() => warmIndex(activePageIndex - 1, 'immediate', 2)}
+            onPointerEnter={() => warmIndex(activePageIndex - 1, 'immediate', 3)}
+            onFocus={() => warmIndex(activePageIndex - 1, 'immediate', 3)}
             disabled={activePageIndex === 0}
             aria-label="Previous section"
           ><ChevronLeft size={15} /></button>
@@ -276,8 +281,8 @@ export function FrontierSectionDeck({ items, layoutMode, renderCard, empty }: Pr
             type="button"
             className={styles.controlButton}
             onClick={() => navigate(activePageIndex + 1)}
-            onPointerEnter={() => warmIndex(activePageIndex + 1, 'immediate', 2)}
-            onFocus={() => warmIndex(activePageIndex + 1, 'immediate', 2)}
+            onPointerEnter={() => warmIndex(activePageIndex + 1, 'immediate', 3)}
+            onFocus={() => warmIndex(activePageIndex + 1, 'immediate', 3)}
             disabled={activePageIndex >= pages.length - 1}
             aria-label="Next section"
           ><ChevronRight size={15} /></button>
@@ -310,12 +315,18 @@ export function FrontierSectionDeck({ items, layoutMode, renderCard, empty }: Pr
         onPointerCancel={cancelPointer}
         onWheel={onWheel}
       >
-        <div className={`${styles.page} ${styles.currentPage}`} data-frontier-page-role="current">
+        <div
+          key={currentPage.id}
+          className={`${styles.page} ${styles.currentPage}`}
+          data-frontier-page-role="current"
+          data-frontier-page-direction={lastNavigateDirection.current}
+        >
           <div className={layoutMode === 'feed' ? styles.feed : styles.grid}>
             {currentPage.items.map((item, index) => (
               <div
                 className={styles.card}
                 key={item.id}
+                data-frontier-card-rank={index + 1}
                 data-frontier-fluid-card={item.id}
                 data-frontier-virtual-card="true"
                 data-fluid-expanded="false"
