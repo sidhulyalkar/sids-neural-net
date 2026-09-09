@@ -64,22 +64,35 @@ function NativeImageSurface({
   onUnavailable?: () => void;
 }) {
   const [failed, setFailed] = useState(false);
+  const [ready, setReady] = useState(false);
+
+  const finishDecode = (image: HTMLImageElement) => {
+    if (typeof image.decode !== 'function') {
+      setReady(true);
+      return;
+    }
+    void image.decode()
+      .catch(() => undefined)
+      .finally(() => setReady(true));
+  };
+
   return (
     <div
       className={styles.nativeImageSurface}
       style={{ aspectRatio }}
-      data-media-state={failed ? 'fallback' : 'native'}
+      data-media-state={failed ? 'fallback' : ready ? 'ready' : 'loading'}
     >
       {!failed ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img
           src={src}
           alt={alt}
-          className={styles.nativeImage}
+          className={`${styles.nativeImage} ${ready ? styles.nativeImageReady : ''}`}
           loading="lazy"
           decoding="async"
           fetchPriority="auto"
           referrerPolicy="no-referrer"
+          onLoad={(event) => finishDecode(event.currentTarget)}
           onError={() => {
             setFailed(true);
             onUnavailable?.();
