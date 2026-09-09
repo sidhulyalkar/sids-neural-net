@@ -19,17 +19,10 @@ type Props = {
 };
 
 type TurnDirection = 'forward' | 'backward';
-type TurnPhase = 'prepare' | 'turn';
-type TurnState = {
-  targetIndex: number;
-  direction: TurnDirection;
-  phase: TurnPhase;
-};
 type WarmPriority = 'idle' | 'immediate';
 type ConnectionHint = { saveData?: boolean; effectiveType?: string };
 
-const TURN_FALLBACK_MS = 640;
-const MAX_DECODED_MEDIA = 32;
+const MAX_DECODED_MEDIA = 18;
 const decodedMediaCache = new Map<string, HTMLImageElement>();
 
 function isTypingTarget(target: EventTarget | null): boolean {
@@ -62,12 +55,8 @@ function mediaWarmUrls(item: FrontierItem): string[] {
 
   const youtubeId = media.type === 'youtube' ? media.url : undefined;
   if (youtubeId && /^[A-Za-z0-9_-]{6,20}$/.test(youtubeId)) {
-    const maxRes = `https://i.ytimg.com/vi/${youtubeId}/maxresdefault.jpg`;
     const hq = `https://i.ytimg.com/vi/${youtubeId}/hqdefault.jpg`;
-    return [
-      `/api/frontier/media?url=${encodeURIComponent(maxRes)}`,
-      `/api/frontier/media?url=${encodeURIComponent(hq)}`,
-    ];
+    return [`/api/frontier/media?url=${encodeURIComponent(hq)}`];
   }
 
   return [];
@@ -80,12 +69,10 @@ function connectionHint(): ConnectionHint | undefined {
 
 function warmBudget(priority: WarmPriority): number {
   const connection = connectionHint();
-  if (connection?.saveData) return priority === 'immediate' ? 2 : 0;
-  if (connection?.effectiveType === 'slow-2g' || connection?.effectiveType === '2g') {
-    return priority === 'immediate' ? 3 : 1;
-  }
-  if (connection?.effectiveType === '3g') return priority === 'immediate' ? 6 : 4;
-  return priority === 'immediate' ? 10 : 8;
+  if (connection?.saveData) return priority === 'immediate' ? 1 : 0;
+  if (connection?.effectiveType === 'slow-2g' || connection?.effectiveType === '2g') return 1;
+  if (connection?.effectiveType === '3g') return priority === 'immediate' ? 3 : 2;
+  return priority === 'immediate' ? 6 : 4;
 }
 
 function rememberDecodedImage(url: string, image: HTMLImageElement) {
@@ -125,19 +112,9 @@ export function FrontierSectionDeck({ items, layoutMode, renderCard, empty }: Pr
   const pageSize = layoutMode === 'feed' ? FRONTIER_SECTION_FEED_PAGE_SIZE : FRONTIER_SECTION_PAGE_SIZE;
   const pages = useMemo(() => buildFrontierSectionPages(items, pageSize), [items, pageSize]);
   const [pageIndex, setPageIndex] = useState(0);
-  const [turn, setTurn] = useState<TurnState>();
-  const turnFallback = useRef<number | undefined>(undefined);
-  const prepareFrame = useRef<number | undefined>(undefined);
-  const revealFrame = useRef<number | undefined>(undefined);
   const swipeStart = useRef<{ x: number; y: number } | undefined>(undefined);
   const swipeWarmDirection = useRef<TurnDirection | undefined>(undefined);
   const activePageIndex = pages.length ? Math.min(pageIndex, pages.length - 1) : 0;
-
-  useEffect(() => () => {
-    if (turnFallback.current !== undefined) window.clearTimeout(turnFallback.current);
-    if (prepareFrame.current !== undefined) window.cancelAnimationFrame(prepareFrame.current);
-    if (revealFrame.current !== undefined) window.cancelAnimationFrame(revealFrame.current);
-  }, []);
 
   const warmIndex = useCallback((index: number, priority: WarmPriority, requestedLimit?: number) => {
     const page = pages[index];
@@ -151,8 +128,7 @@ export function FrontierSectionDeck({ items, layoutMode, renderCard, empty }: Pr
       const budget = warmBudget('idle');
       if (budget <= 0) return;
       warmIndex(activePageIndex + 1, 'idle', budget);
-      warmIndex(activePageIndex - 1, 'idle', Math.min(3, budget));
-      warmIndex(activePageIndex + 2, 'idle', Math.min(3, budget));
+      warmIndex(activePageIndex - 1, 'idle', Math.min(2, budget));
     };
 
     const idleWindow = window as Window & {
@@ -160,63 +136,20 @@ export function FrontierSectionDeck({ items, layoutMode, renderCard, empty }: Pr
       cancelIdleCallback?: (id: number) => void;
     };
     if (idleWindow.requestIdleCallback) {
-      const id = idleWindow.requestIdleCallback(run, { timeout: 900 });
+      const id = idleWindow.requestIdleCallback(run, { timeout: 1200 });
       return () => idleWindow.cancelIdleCallback?.(id);
     }
-    const id = window.setTimeout(run, 360);
+    const id = window.setTimeout(run, 500);
     return () => window.clearTimeout(id);
   }, [activePageIndex, pages.length, warmIndex]);
 
-  useEffect(() => {
-    if (turn?.phase !== 'prepare') return;
-    prepareFrame.current = window.requestAnimationFrame(() => {
-      revealFrame.current = window.requestAnimationFrame(() => {
-        setTurn((active) => active?.phase === 'prepare' ? { ...active, phase: 'turn' } : active);
-        revealFrame.current = undefined;
-      });
-      prepareFrame.current = undefined;
-    });
-    return () => {
-      if (prepareFrame.current !== undefined) window.cancelAnimationFrame(prepareFrame.current);
-      if (revealFrame.current !== undefined) window.cancelAnimationFrame(revealFrame.current);
-      prepareFrame.current = undefined;
-      revealFrame.current = undefined;
-    };
-  }, [turn?.phase]);
-
-  const completeTurn = useCallback(() => {
-    if (!turn) return;
-    if (turnFallback.current !== undefined) {
-      window.clearTimeout(turnFallback.current);
-      turnFallback.current = undefined;
-    }
-    setPageIndex(turn.targetIndex);
-    setTurn(undefined);
-  }, [turn]);
-
-  useEffect(() => {
-    if (turn?.phase !== 'turn') return;
-    turnFallback.current = window.setTimeout(completeTurn, TURN_FALLBACK_MS);
-    return () => {
-      if (turnFallback.current !== undefined) window.clearTimeout(turnFallback.current);
-      turnFallback.current = undefined;
-    };
-  }, [completeTurn, turn?.phase]);
-
   const navigate = useCallback((nextIndex: number) => {
-    if (turn || !pages.length) return;
+    if (!pages.length) return;
     const clamped = Math.max(0, Math.min(pages.length - 1, nextIndex));
     if (clamped === activePageIndex) return;
-    const direction: TurnDirection = clamped > activePageIndex ? 'forward' : 'backward';
     warmIndex(clamped, 'immediate');
-
-    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
-      setPageIndex(clamped);
-      return;
-    }
-
-    setTurn({ targetIndex: clamped, direction, phase: 'prepare' });
-  }, [activePageIndex, pages.length, turn, warmIndex]);
+    setPageIndex(clamped);
+  }, [activePageIndex, pages.length, warmIndex]);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -234,17 +167,15 @@ export function FrontierSectionDeck({ items, layoutMode, renderCard, empty }: Pr
   }, [activePageIndex, navigate]);
 
   const currentPage = pages[activePageIndex];
-  const targetPage = turn ? pages[turn.targetIndex] : undefined;
 
   const onPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
-    if (turn) return;
     swipeStart.current = { x: event.clientX, y: event.clientY };
     swipeWarmDirection.current = undefined;
   };
 
   const onPointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
     const start = swipeStart.current;
-    if (!start || turn) return;
+    if (!start) return;
     const dx = event.clientX - start.x;
     const dy = event.clientY - start.y;
     if (Math.abs(dx) < 18 || Math.abs(dx) < Math.abs(dy) * 1.15) return;
@@ -278,21 +209,6 @@ export function FrontierSectionDeck({ items, layoutMode, renderCard, empty }: Pr
 
   if (!currentPage) return <div className={styles.empty}>{empty}</div>;
 
-  const pageContents = (page: typeof currentPage) => (
-    <div className={layoutMode === 'feed' ? styles.feed : styles.grid}>
-      {page.items.map((item) => (
-        <div
-          className={styles.card}
-          key={item.id}
-          data-frontier-fluid-card={item.id}
-          data-frontier-virtual-card="true"
-          data-fluid-expanded="false"
-        >
-          {renderCard(item, layoutMode)}
-        </div>
-      ))}
-    </div>
-  );
   return (
     <section
       className={styles.deck}
@@ -300,9 +216,10 @@ export function FrontierSectionDeck({ items, layoutMode, renderCard, empty }: Pr
       data-frontier-mounted-cards={currentPage.items.length}
       data-frontier-total-items={items.length}
       data-frontier-page-count={pages.length}
-      data-frontier-turning={turn?.phase ?? 'idle'}
-      data-frontier-page-cache="memory+decoded-media"
-      data-frontier-prefetch-depth="next-prev-plus-one"
+      data-frontier-turning="idle"
+      data-frontier-page-cache="decoded-media"
+      data-frontier-prefetch-depth="adjacent"
+      data-frontier-fast-swap="true"
     >
       <div className={styles.navBar}>
         <div className={styles.sectionIdentity}>
@@ -317,7 +234,7 @@ export function FrontierSectionDeck({ items, layoutMode, renderCard, empty }: Pr
             onClick={() => navigate(activePageIndex - 1)}
             onPointerEnter={() => warmIndex(activePageIndex - 1, 'immediate')}
             onFocus={() => warmIndex(activePageIndex - 1, 'immediate')}
-            disabled={activePageIndex === 0 || Boolean(turn)}
+            disabled={activePageIndex === 0}
             aria-label="Previous section"
           ><ChevronLeft size={15} /></button>
           <span className={styles.pageCount}>{activePageIndex + 1} / {pages.length}</span>
@@ -327,7 +244,7 @@ export function FrontierSectionDeck({ items, layoutMode, renderCard, empty }: Pr
             onClick={() => navigate(activePageIndex + 1)}
             onPointerEnter={() => warmIndex(activePageIndex + 1, 'immediate')}
             onFocus={() => warmIndex(activePageIndex + 1, 'immediate')}
-            disabled={activePageIndex >= pages.length - 1 || Boolean(turn)}
+            disabled={activePageIndex >= pages.length - 1}
             aria-label="Next section"
           ><ChevronRight size={15} /></button>
         </div>
@@ -359,30 +276,22 @@ export function FrontierSectionDeck({ items, layoutMode, renderCard, empty }: Pr
         onPointerCancel={cancelPointer}
         onWheel={onWheel}
       >
-        <div className={styles.pageEdge} aria-hidden="true" />
-
-        {targetPage ? (
-          <div
-            className={`${styles.page} ${styles.incomingPage} ${turn?.phase === 'prepare' ? styles.incomingPrepared : ''} ${turn?.phase === 'turn' && turn.direction === 'forward' ? styles.incomingForward : ''} ${turn?.phase === 'turn' && turn.direction === 'backward' ? styles.incomingBackward : ''}`}
-            data-frontier-page-role="incoming"
-            aria-hidden="true"
-          >
-            {pageContents(targetPage)}
+        <div className={`${styles.page} ${styles.currentPage}`} data-frontier-page-role="current">
+          <div className={layoutMode === 'feed' ? styles.feed : styles.grid}>
+            {currentPage.items.map((item) => (
+              <div
+                className={styles.card}
+                key={item.id}
+                data-frontier-fluid-card={item.id}
+                data-frontier-virtual-card="true"
+                data-fluid-expanded="false"
+              >
+                {renderCard(item, layoutMode)}
+              </div>
+            ))}
           </div>
-        ) : null}
-
-        <div
-          className={`${styles.page} ${styles.currentPage} ${turn?.phase === 'turn' && turn.direction === 'forward' ? styles.turnForward : ''} ${turn?.phase === 'turn' && turn.direction === 'backward' ? styles.turnBackward : ''}`}
-          data-frontier-page-role="current"
-          onAnimationEnd={(event) => {
-            if (event.target === event.currentTarget && turn?.phase === 'turn') completeTurn();
-          }}
-        >
-          {pageContents(currentPage)}
         </div>
       </div>
-
-      <div className={styles.hint}>← → / horizontal swipe · adjacent pages and media are warmed before the turn</div>
     </section>
   );
 }
