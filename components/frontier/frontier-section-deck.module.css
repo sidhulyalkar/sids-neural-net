@@ -180,14 +180,21 @@
   background: rgba(207, 235, 227, 0.04);
 }
 
+/* Six columns give the lead pair room to breathe while the lower six signals
+   stay compact. Ten stories still fit in exactly two rows. */
 .grid {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(6, minmax(0, 1fr));
   grid-template-rows: repeat(2, minmax(0, 1fr));
+}
+
+.grid > .card:nth-child(1),
+.grid > .card:nth-child(2) {
+  grid-column: span 2;
 }
 
 .feed {
   grid-template-columns: minmax(0, 1fr);
-  grid-template-rows: repeat(3, minmax(0, 1fr));
+  grid-template-rows: repeat(4, minmax(0, 1fr));
 }
 
 .card {
@@ -204,6 +211,31 @@
   height: 100%;
   min-height: 0 !important;
   overflow: hidden;
+}
+
+.card[data-frontier-card-tier='feature'],
+.card[data-frontier-card-tier='wide'] {
+  background:
+    linear-gradient(145deg, rgba(14, 25, 21, 0.99), rgba(5, 11, 9, 0.97));
+}
+
+.card[data-frontier-card-tier='compact'] {
+  background:
+    linear-gradient(145deg, rgba(8, 16, 14, 0.99), rgba(3, 8, 7, 0.98));
+}
+
+.card[data-frontier-card-tier='compact'] h3 {
+  font-size: clamp(0.7rem, 0.78vw, 0.86rem) !important;
+  line-height: 1.18 !important;
+}
+
+.card[data-frontier-card-tier='compact'] p {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  font-size: clamp(0.58rem, 0.64vw, 0.7rem) !important;
+  line-height: 1.32 !important;
 }
 
 .feed .card {
@@ -227,10 +259,22 @@
   }
 }
 
+@media (max-width: 1280px) {
+  .grid {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    grid-template-rows: repeat(2, minmax(0, 1fr));
+  }
+
+  .grid > .card:nth-child(1),
+  .grid > .card:nth-child(2) {
+    grid-column: span 1;
+  }
+}
+
 @media (max-width: 1024px) {
   .grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    grid-template-rows: repeat(4, minmax(0, 1fr));
+    grid-template-rows: repeat(5, minmax(0, 1fr));
   }
 }
 
@@ -252,12 +296,20 @@
 
   .grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    grid-template-rows: repeat(4, minmax(0, 1fr));
+    grid-template-rows: repeat(5, minmax(0, 1fr));
   }
 
   .feed {
     grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: repeat(3, minmax(0, 1fr));
+    grid-template-rows: repeat(4, minmax(0, 1fr));
+  }
+
+  .card[data-frontier-card-tier='compact'] h3 {
+    font-size: 0.72rem !important;
+  }
+
+  .card[data-frontier-card-tier='compact'] p {
+    font-size: 0.6rem !important;
   }
 }
 
