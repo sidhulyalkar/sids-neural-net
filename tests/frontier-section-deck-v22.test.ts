@@ -14,6 +14,7 @@ const experienceSource = readFileSync(new URL('../components/frontier/FrontierSe
 const deckSource = readFileSync(new URL('../components/frontier/FrontierSectionDeck.tsx', import.meta.url), 'utf8');
 const deckCss = readFileSync(new URL('../components/frontier/frontier-section-deck.module.css', import.meta.url), 'utf8');
 const mediaSource = readFileSync(new URL('../components/frontier/media/FrontierMediaSurface.tsx', import.meta.url), 'utf8');
+const mediaCss = readFileSync(new URL('../components/frontier/media/frontier-media.module.css', import.meta.url), 'utf8');
 const richMediaSource = readFileSync(new URL('../components/frontier/media/RichFrontierMediaSurface.tsx', import.meta.url), 'utf8');
 const focalSource = readFileSync(new URL('../components/frontier/FrontierFocalPlane.tsx', import.meta.url), 'utf8');
 const headerSource = readFileSync(new URL('../components/layout/Header.tsx', import.meta.url), 'utf8');
@@ -71,36 +72,56 @@ test('bounded section experience keeps explicit refresh authority but no passive
   assert.match(experienceSource, /<FrontierSectionDeck/);
 });
 
-test('page navigation is data-local, instant, and warms only adjacent media', () => {
+test('page navigation is data-local, instant, and warms only a tiny adjacent media budget', () => {
   assert.doesNotMatch(deckSource, /fetch\s*\(/);
   assert.match(deckSource, /const MAX_DECODED_MEDIA = 18/);
+  assert.match(deckSource, /return 2;/);
   assert.match(deckSource, /decodedMediaCache = new Map/);
   assert.match(deckSource, /image\.decode\(\)\.catch/);
   assert.match(deckSource, /requestIdleCallback/);
-  assert.match(deckSource, /warmIndex\(activePageIndex \+ 1, 'idle'/);
-  assert.match(deckSource, /warmIndex\(activePageIndex - 1, 'idle'/);
+  assert.match(deckSource, /warmIndex\(activePageIndex \+ 1, 'idle', Math\.min\(2, budget\)\)/);
+  assert.match(deckSource, /warmIndex\(activePageIndex - 1, 'idle', Math\.min\(1, budget\)\)/);
   assert.doesNotMatch(deckSource, /activePageIndex \+ 2/);
   assert.match(deckSource, /setPageIndex\(clamped\)/);
   assert.match(deckSource, /data-frontier-fast-swap="true"/);
   assert.match(deckSource, /data-frontier-prefetch-depth="adjacent"/);
+  assert.match(deckSource, /data-frontier-prefetch-budget="2-next-1-prev"/);
   assert.doesNotMatch(deckSource, /TurnPhase|incomingPage|requestAnimationFrame|onAnimationEnd/);
 });
 
-test('v24 daily deck is a one-screen layout with no transition paint loop', () => {
+test('high-resolution wheel gestures are coalesced into one bounded page movement', () => {
+  assert.match(deckSource, /const WHEEL_NAV_THRESHOLD = 72/);
+  assert.match(deckSource, /const WHEEL_GESTURE_RESET_MS = 170/);
+  assert.match(deckSource, /const WHEEL_NAV_LOCK_MS = 420/);
+  assert.match(deckSource, /wheelDelta\.current \+= event\.deltaX/);
+  assert.match(deckSource, /wheelLockedUntil\.current = now \+ WHEEL_NAV_LOCK_MS/);
+  assert.match(deckSource, /data-frontier-wheel-coalescing="true"/);
+});
+
+test('v24 daily deck is a one-screen layout with isolated paints and native touch movement', () => {
   assert.match(fastCss, /height: 100dvh/);
   assert.match(fastCss, /body:has\([\s\S]*overflow: hidden/);
   assert.match(fastCss, /> main \{[\s\S]*min-height: 0;[\s\S]*overflow: hidden/);
-  assert.match(deckCss, /touch-action: none/);
+  assert.match(deckCss, /touch-action: pan-y pinch-zoom/);
+  assert.match(deckCss, /overscroll-behavior: contain/);
+  assert.match(deckCss, /scroll-snap-type: x proximity/);
+  assert.match(deckCss, /\.card \{[\s\S]*contain: layout paint style/);
   assert.match(deckCss, /grid-template-rows: repeat\(2, minmax\(0, 1fr\)\)/);
   assert.match(deckCss, /\.card > \* \{[\s\S]*height: 100%/);
   assert.doesNotMatch(deckCss, /@keyframes|perspective:|clip-path:|will-change:/);
   assert.doesNotMatch(deckCss, /content-visibility:/);
 });
 
-test('feed media is a lightweight-only module and rich GPU/video dependencies stay isolated', () => {
+test('feed media stays lazy, reserves geometry, and reveals only after decode', () => {
   assert.match(mediaSource, /export function FrontierMediaSurface/);
   assert.match(mediaSource, /loading="lazy"/);
   assert.match(mediaSource, /decoding="async"/);
+  assert.match(mediaSource, /image\.decode\(\)/);
+  assert.match(mediaSource, /data-media-state=\{failed \? 'fallback' : ready \? 'ready' : 'loading'\}/);
+  assert.match(mediaCss, /\.nativeImageSurface \{[\s\S]*contain: layout paint style/);
+  assert.match(mediaCss, /\.nativeImage \{[\s\S]*opacity: 0/);
+  assert.match(mediaCss, /\.nativeImageReady \{[\s\S]*opacity: 1/);
+  assert.match(mediaCss, /@media \(prefers-reduced-motion: reduce\)/);
   assert.doesNotMatch(mediaSource, /GpuImageSurface|AdaptiveVideoSurface|useMediaVisibility|<iframe/);
   assert.match(richMediaSource, /GpuImageSurface/);
   assert.match(richMediaSource, /AdaptiveVideoSurface/);
