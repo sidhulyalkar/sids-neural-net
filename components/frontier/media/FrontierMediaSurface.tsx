@@ -6,6 +6,8 @@ import { isFrontierGithubSocialPreview } from '@/lib/frontier/media/sourceVisual
 import type { FrontierItem } from '@/lib/frontier/types';
 import styles from './frontier-media.module.css';
 
+type FrontierMediaPriority = 'primary' | 'secondary';
+
 function isHttpUrl(value?: string): value is string {
   if (!value) return false;
   try {
@@ -56,11 +58,13 @@ function NativeImageSurface({
   src,
   alt,
   aspectRatio,
+  priority,
   onUnavailable,
 }: {
   src: string;
   alt: string;
   aspectRatio: string;
+  priority: FrontierMediaPriority;
   onUnavailable?: () => void;
 }) {
   const [failed, setFailed] = useState(false);
@@ -81,6 +85,7 @@ function NativeImageSurface({
       className={styles.nativeImageSurface}
       style={{ aspectRatio }}
       data-media-state={failed ? 'fallback' : ready ? 'ready' : 'loading'}
+      data-media-priority={priority}
     >
       {!failed ? (
         // eslint-disable-next-line @next/next/no-img-element
@@ -88,9 +93,9 @@ function NativeImageSurface({
           src={src}
           alt={alt}
           className={`${styles.nativeImage} ${ready ? styles.nativeImageReady : ''}`}
-          loading="lazy"
+          loading={priority === 'primary' ? 'eager' : 'lazy'}
           decoding="async"
-          fetchPriority="auto"
+          fetchPriority={priority === 'primary' ? 'high' : 'low'}
           referrerPolicy="no-referrer"
           onLoad={(event) => finishDecode(event.currentTarget)}
           onError={() => {
@@ -120,9 +125,11 @@ function LightweightVideoPlaceholder({ item }: { item: FrontierItem }) {
 
 export function FrontierMediaSurface({
   item,
+  priority = 'secondary',
   onUnavailable,
 }: {
   item: FrontierItem;
+  priority?: FrontierMediaPriority;
   onUnavailable?: () => void;
 }) {
   const media = item.media;
@@ -137,6 +144,7 @@ export function FrontierMediaSurface({
         src={src}
         alt={media.alt || item.title}
         aspectRatio={aspectRatio}
+        priority={priority}
         onUnavailable={onUnavailable}
       />
     );
@@ -149,6 +157,7 @@ export function FrontierMediaSurface({
         src={poster}
         alt={media.alt || item.title}
         aspectRatio={aspectRatio}
+        priority={priority}
         onUnavailable={onUnavailable}
       />
     );
@@ -162,6 +171,7 @@ export function FrontierMediaSurface({
           src={poster}
           alt={media.alt || item.title}
           aspectRatio={aspectRatio}
+          priority={priority}
           onUnavailable={onUnavailable}
         />
       );
