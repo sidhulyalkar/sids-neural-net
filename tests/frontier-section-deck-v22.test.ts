@@ -41,14 +41,14 @@ function item(index: number): FrontierItem {
   };
 }
 
-test('v24 shrinks the mounted section working set while preserving the complete bounded run', () => {
+test('v24 raises page density while preserving a single bounded mounted page', () => {
   const items = Array.from({ length: 48 }, (_, index) => item(index + 1));
   const desktop = buildFrontierSectionPages(items, FRONTIER_SECTION_PAGE_SIZE);
   const mobile = buildFrontierSectionPages(items, FRONTIER_SECTION_FEED_PAGE_SIZE);
-  assert.equal(FRONTIER_SECTION_PAGE_SIZE, 6);
-  assert.equal(FRONTIER_SECTION_FEED_PAGE_SIZE, 2);
-  assert(desktop.every((page) => page.items.length <= 6));
-  assert(mobile.every((page) => page.items.length <= 2));
+  assert.equal(FRONTIER_SECTION_PAGE_SIZE, 8);
+  assert.equal(FRONTIER_SECTION_FEED_PAGE_SIZE, 3);
+  assert(desktop.every((page) => page.items.length <= 8));
+  assert(mobile.every((page) => page.items.length <= 3));
   assert.deepEqual(desktop.flatMap((page) => page.items.map((entry) => entry.id)), items.map((entry) => entry.id));
   assert.deepEqual(mobile.flatMap((page) => page.items.map((entry) => entry.id)), items.map((entry) => entry.id));
 });
@@ -72,20 +72,23 @@ test('bounded section experience keeps explicit refresh authority but no passive
   assert.match(experienceSource, /<FrontierSectionDeck/);
 });
 
-test('page navigation is data-local, instant, and warms only a tiny adjacent media budget', () => {
+test('page navigation stays data-local and budgets current plus adjacent media warming', () => {
   assert.doesNotMatch(deckSource, /fetch\s*\(/);
   assert.match(deckSource, /const MAX_DECODED_MEDIA = 18/);
-  assert.match(deckSource, /return 2;/);
+  assert.match(deckSource, /return priority === 'immediate' \? 3 : 2/);
   assert.match(deckSource, /decodedMediaCache = new Map/);
   assert.match(deckSource, /image\.decode\(\)\.catch/);
   assert.match(deckSource, /requestIdleCallback/);
+  assert.match(deckSource, /warmIndex\(activePageIndex, 'immediate', Math\.min\(2, warmBudget\('immediate'\)\)\)/);
   assert.match(deckSource, /warmIndex\(activePageIndex \+ 1, 'idle', Math\.min\(2, budget\)\)/);
   assert.match(deckSource, /warmIndex\(activePageIndex - 1, 'idle', Math\.min\(1, budget\)\)/);
+  assert.match(deckSource, /warmIndex\(clamped, 'immediate', 3\)/);
   assert.doesNotMatch(deckSource, /activePageIndex \+ 2/);
   assert.match(deckSource, /setPageIndex\(clamped\)/);
   assert.match(deckSource, /data-frontier-fast-swap="true"/);
+  assert.match(deckSource, /data-frontier-transition="single-plane"/);
   assert.match(deckSource, /data-frontier-prefetch-depth="adjacent"/);
-  assert.match(deckSource, /data-frontier-prefetch-budget="2-next-1-prev"/);
+  assert.match(deckSource, /data-frontier-prefetch-budget="3-intent-2-next-1-prev"/);
   assert.doesNotMatch(deckSource, /TurnPhase|incomingPage|requestAnimationFrame|onAnimationEnd/);
 });
 
@@ -98,7 +101,7 @@ test('high-resolution wheel gestures are coalesced into one bounded page movemen
   assert.match(deckSource, /data-frontier-wheel-coalescing="true"/);
 });
 
-test('v24 daily deck is a one-screen layout with isolated paints and native touch movement', () => {
+test('v24 daily deck fits eight desk tiles or three feed tiles with one compositor-only reveal', () => {
   assert.match(fastCss, /height: 100dvh/);
   assert.match(fastCss, /body:has\([\s\S]*overflow: hidden/);
   assert.match(fastCss, /> main \{[\s\S]*min-height: 0;[\s\S]*overflow: hidden/);
@@ -106,10 +109,12 @@ test('v24 daily deck is a one-screen layout with isolated paints and native touc
   assert.match(deckCss, /overscroll-behavior: contain/);
   assert.match(deckCss, /scroll-snap-type: x proximity/);
   assert.match(deckCss, /\.card \{[\s\S]*contain: layout paint style/);
-  assert.match(deckCss, /grid-template-rows: repeat\(2, minmax\(0, 1fr\)\)/);
+  assert.match(deckCss, /grid-template-columns: repeat\(4, minmax\(0, 1fr\)\)/);
+  assert.match(deckCss, /grid-template-rows: repeat\(3, minmax\(0, 1fr\)\)/);
+  assert.match(deckCss, /@keyframes frontier-page-reveal/);
+  assert.match(deckCss, /transform: translate3d\(var\(--frontier-enter-x\), 0, 0\) scale\(0\.996\)/);
   assert.match(deckCss, /\.card > \* \{[\s\S]*height: 100%/);
-  assert.doesNotMatch(deckCss, /@keyframes|perspective:|clip-path:|will-change:/);
-  assert.doesNotMatch(deckCss, /content-visibility:/);
+  assert.doesNotMatch(deckCss, /perspective:|clip-path:|will-change:|content-visibility:/);
 });
 
 test('feed media stays lazy, reserves geometry, and reveals only after decode', () => {
