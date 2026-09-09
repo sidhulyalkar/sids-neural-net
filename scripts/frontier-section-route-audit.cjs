@@ -67,6 +67,7 @@ async function state(page) {
       turn: deck?.getAttribute('data-frontier-turning') || '',
       cache: deck?.getAttribute('data-frontier-page-cache') || '',
       prefetch: deck?.getAttribute('data-frontier-prefetch-depth') || '',
+      transition: deck?.getAttribute('data-frontier-transition') || '',
       fastSwap: deck?.getAttribute('data-frontier-fast-swap') || '',
       performanceRoute: Boolean(document.querySelector('[data-frontier-performance-route="true"]')),
       ambientCanvases: document.querySelectorAll('canvas[data-frontier-audio-reactive="true"]').length,
@@ -134,6 +135,7 @@ async function auditViewport(browser, viewport, maxCards, label) {
     assert.equal(first.turn, 'idle', `${label} first useful paint was not settled`);
     assert.equal(first.cache, 'decoded-media', `${label} decoded-media cache contract missing`);
     assert.equal(first.prefetch, 'adjacent', `${label} adjacent prefetch contract missing`);
+    assert.equal(first.transition, 'single-plane', `${label} bounded single-plane transition contract missing`);
     assert.equal(first.fastSwap, 'true', `${label} fast-swap runtime contract missing`);
     assert(first.scrollRange <= 2, `${label} daily deck still creates document scroll: ${first.scrollRange}px`);
     assert.equal(first.bodyOverflowY, 'hidden', `${label} body vertical overflow is not locked`);
@@ -172,7 +174,7 @@ async function auditExplicitRefresh(browser) {
   const refreshRequests = [];
   try {
     await page.goto(FRONTIER_URL, { waitUntil: 'domcontentloaded' });
-    await waitForSettledDeck(page, 6);
+    await waitForSettledDeck(page, 8);
     await page.route('**/api/frontier/feed**', async (route) => {
       const url = new URL(route.request().url());
       refreshRequests.push(url.toString());
@@ -199,7 +201,7 @@ async function auditExplicitRefresh(browser) {
     assert.equal(refreshUrl.searchParams.get('fresh'), '1', 'explicit refresh must request fresh=1');
     assert(refreshUrl.searchParams.get('request'), 'explicit refresh must include cache-busting request identity');
     assert.equal(refreshed.totalItems, 18, 'explicit refresh should replace rather than append the edition');
-    assert(refreshed.currentCount <= 6, `explicit refresh broke desktop page budget: ${refreshed.currentCount}`);
+    assert(refreshed.currentCount <= 8, `explicit refresh broke desktop page budget: ${refreshed.currentCount}`);
     assert.equal(refreshed.domCardCount, refreshed.currentCount, 'explicit refresh should still mount one page only');
     return { refreshed, refreshRequests };
   } finally {
@@ -213,8 +215,8 @@ async function auditExplicitRefresh(browser) {
   try {
     report = {
       passed: true,
-      desktop: await auditViewport(browser, { width: 1440, height: 1000 }, 6, 'desktop'),
-      mobile: await auditViewport(browser, { width: 390, height: 844 }, 2, 'mobile'),
+      desktop: await auditViewport(browser, { width: 1440, height: 1000 }, 8, 'desktop'),
+      mobile: await auditViewport(browser, { width: 390, height: 844 }, 3, 'mobile'),
       refresh: await auditExplicitRefresh(browser),
     };
   } catch (error) {
