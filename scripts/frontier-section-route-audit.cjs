@@ -69,6 +69,9 @@ async function state(page) {
       prefetch: deck?.getAttribute('data-frontier-prefetch-depth') || '',
       transition: deck?.getAttribute('data-frontier-transition') || '',
       fastSwap: deck?.getAttribute('data-frontier-fast-swap') || '',
+      mediaConcurrency: Number(deck?.getAttribute('data-frontier-media-concurrency') || 0),
+      mediaActiveCards: Number(deck?.getAttribute('data-frontier-media-active-cards') || 0),
+      compactCards: document.querySelectorAll('[data-frontier-card-tier="compact"]').length,
       performanceRoute: Boolean(document.querySelector('[data-frontier-performance-route="true"]')),
       ambientCanvases: document.querySelectorAll('canvas[data-frontier-audio-reactive="true"]').length,
       workers: Array.isArray(window.__frontierV24Workers) ? window.__frontierV24Workers.slice() : [],
@@ -105,7 +108,7 @@ async function swapForward(page, beforeIds, maxCards) {
   return Date.now() - started;
 }
 
-async function auditViewport(browser, viewport, maxCards, label) {
+async function auditViewport(browser, viewport, maxCards, expectedMediaCards, label) {
   const context = await browser.newContext({ viewport, colorScheme: 'dark' });
   await installRuntimeProbe(context);
   const page = await context.newPage();
@@ -137,6 +140,9 @@ async function auditViewport(browser, viewport, maxCards, label) {
     assert.equal(first.prefetch, 'adjacent', `${label} adjacent prefetch contract missing`);
     assert.equal(first.transition, 'single-plane', `${label} bounded single-plane transition contract missing`);
     assert.equal(first.fastSwap, 'true', `${label} fast-swap runtime contract missing`);
+    assert.equal(first.mediaConcurrency, 2, `${label} media warming must remain capped at two active jobs`);
+    assert.equal(first.mediaActiveCards, expectedMediaCards, `${label} media-bearing card tier budget drifted`);
+    assert(first.compactCards >= Math.max(0, first.currentCount - expectedMediaCards), `${label} lower-ranked cards did not enter compact tier`);
     assert(first.scrollRange <= 2, `${label} daily deck still creates document scroll: ${first.scrollRange}px`);
     assert.equal(first.bodyOverflowY, 'hidden', `${label} body vertical overflow is not locked`);
     assert(usefulPaintMs <= MAX_USEFUL_PAINT_MS, `${label} useful paint exceeded ${MAX_USEFUL_PAINT_MS}ms: ${usefulPaintMs}ms`);
@@ -155,6 +161,8 @@ async function auditViewport(browser, viewport, maxCards, label) {
       assert(after.currentCount <= maxCards, `${label} settled swap exceeded current-card budget`);
       assert.equal(after.domCardCount, after.currentCount, `${label} swap mounted more than one page`);
       assert.equal(after.totalItems, first.totalItems, `${label} page swap changed retained edition size`);
+      assert.equal(after.mediaConcurrency, 2, `${label} swap changed media concurrency contract`);
+      assert.equal(after.mediaActiveCards, expectedMediaCards, `${label} swap changed media tier budget`);
       assert(after.scrollRange <= 2, `${label} page swap introduced document scroll: ${after.scrollRange}px`);
       assert(swapMs <= MAX_SWAP_SETTLE_MS, `${label} page swap took ${swapMs}ms to settle`);
       assert.deepEqual(apiRequests, [], `${label} page swap triggered live data fetch: ${apiRequests.join(' | ')}`);
@@ -174,7 +182,7 @@ async function auditExplicitRefresh(browser) {
   const refreshRequests = [];
   try {
     await page.goto(FRONTIER_URL, { waitUntil: 'domcontentloaded' });
-    await waitForSettledDeck(page, 8);
+    await waitForSettledDeck(page, 10);
     await page.route('**/api/frontier/feed**', async (route) => {
       const url = new URL(route.request().url());
       refreshRequests.push(url.toString());
@@ -201,8 +209,9 @@ async function auditExplicitRefresh(browser) {
     assert.equal(refreshUrl.searchParams.get('fresh'), '1', 'explicit refresh must request fresh=1');
     assert(refreshUrl.searchParams.get('request'), 'explicit refresh must include cache-busting request identity');
     assert.equal(refreshed.totalItems, 18, 'explicit refresh should replace rather than append the edition');
-    assert(refreshed.currentCount <= 8, `explicit refresh broke desktop page budget: ${refreshed.currentCount}`);
+    assert(refreshed.currentCount <= 10, `explicit refresh broke desktop page budget: ${refreshed.currentCount}`);
     assert.equal(refreshed.domCardCount, refreshed.currentCount, 'explicit refresh should still mount one page only');
+    assert.equal(refreshed.mediaConcurrency, 2, 'explicit refresh changed media concurrency contract');
     return { refreshed, refreshRequests };
   } finally {
     await context.close();
@@ -215,8 +224,8 @@ async function auditExplicitRefresh(browser) {
   try {
     report = {
       passed: true,
-      desktop: await auditViewport(browser, { width: 1440, height: 1000 }, 8, 'desktop'),
-      mobile: await auditViewport(browser, { width: 390, height: 844 }, 3, 'mobile'),
+      desktop: await auditViewport(browser, { width: 1440, height: 1000 }, 10, 4, 'desktop'),
+      mobile: await auditViewport(browser, { width: 390, height: 844 }, 4, 2, 'mobile'),
       refresh: await auditExplicitRefresh(browser),
     };
   } catch (error) {
