@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { cloneElement, isValidElement, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { PointerEvent as ReactPointerEvent, ReactNode, WheelEvent as ReactWheelEvent } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import {
@@ -20,13 +20,19 @@ type Props = {
 
 type TurnDirection = 'forward' | 'backward';
 type WarmPriority = 'idle' | 'immediate';
+type CardVariant = 'feature' | 'wide' | 'standard' | 'compact';
 type ConnectionHint = { saveData?: boolean; effectiveType?: string };
+type WarmRequest = { url: string; priority: WarmPriority };
 
 const MAX_DECODED_MEDIA = 18;
+const MAX_CONCURRENT_MEDIA_WARMS = 2;
 const WHEEL_NAV_THRESHOLD = 72;
 const WHEEL_GESTURE_RESET_MS = 170;
 const WHEEL_NAV_LOCK_MS = 420;
 const decodedMediaCache = new Map<string, HTMLImageElement>();
+const pendingWarmUrls = new Set<string>();
+const mediaWarmQueue: WarmRequest[] = [];
+let activeMediaWarms = 0;
 
 function isTypingTarget(target: EventTarget | null): boolean {
   const node = target as HTMLElement | null;
@@ -78,6 +84,22 @@ function warmBudget(priority: WarmPriority): number {
   return priority === 'immediate' ? 3 : 2;
 }
 
+function cardVariant(layoutMode: FrontierLayoutMode, index: number): CardVariant {
+  if (layoutMode === 'feed') {
+    if (index === 0) return 'feature';
+    if (index === 1) return 'standard';
+    return 'compact';
+  }
+  if (index === 0) return 'feature';
+  if (index === 1) return 'wide';
+  if (index <= 3) return 'standard';
+  return 'compact';
+}
+
+function mediaBearingItemLimit(layoutMode: FrontierLayoutMode): number {
+  return layoutMode === 'feed' ? 2 : 4;
+}
+
 function rememberDecodedImage(url: string, image: HTMLImageElement) {
   decodedMediaCache.delete(url);
   decodedMediaCache.set(url, image);
@@ -88,15 +110,13 @@ function rememberDecodedImage(url: string, image: HTMLImageElement) {
   }
 }
 
-function warmPageMedia(items: FrontierItem[], priority: WarmPriority, requestedLimit?: number) {
-  if (typeof window === 'undefined' || typeof Image === 'undefined') return;
-  const urls = Array.from(new Set(items.flatMap(mediaWarmUrls)));
-  const limit = Math.max(0, Math.min(urls.length, requestedLimit ?? warmBudget(priority)));
-
-  for (const url of urls.slice(0, limit)) {
-    const cached = decodedMediaCache.get(url);
-    if (cached) {
-      rememberDecodedImage(url, cached);
+function pumpMediaWarmQueue() {
+  if (typeof Image === 'undefined') return;
+  while (activeMediaWarms < MAX_CONCURRENT_MEDIA_WARMS && mediaWarmQueue.length) {
+    const request = mediaWarmQueue.shift();
+    if (!request) break;
+    if (decodedMediaCache.has(request.url)) {
+      pendingWarmUrls.delete(request.url);
       continue;
     }
 
@@ -104,11 +124,60 @@ function warmPageMedia(items: FrontierItem[], priority: WarmPriority, requestedL
     image.decoding = 'async';
     image.loading = 'eager';
     image.referrerPolicy = 'no-referrer';
-    image.setAttribute('fetchpriority', priority === 'immediate' ? 'high' : 'low');
-    image.src = url;
-    rememberDecodedImage(url, image);
-    if (typeof image.decode === 'function') void image.decode().catch(() => undefined);
+    image.setAttribute('fetchpriority', request.priority === 'immediate' ? 'high' : 'low');
+    activeMediaWarms += 1;
+    let settled = false;
+
+    const finish = (decoded: boolean) => {
+      if (settled) return;
+      settled = true;
+      if (decoded) rememberDecodedImage(request.url, image);
+      pendingWarmUrls.delete(request.url);
+      activeMediaWarms = Math.max(0, activeMediaWarms - 1);
+      pumpMediaWarmQueue();
+    };
+
+    if (typeof image.decode === 'function') {
+      image.src = request.url;
+      void image.decode().then(() => finish(true)).catch(() => finish(false));
+    } else {
+      image.onload = () => finish(true);
+      image.onerror = () => finish(false);
+      image.src = request.url;
+    }
   }
+}
+
+function scheduleMediaWarm(url: string, priority: WarmPriority) {
+  const cached = decodedMediaCache.get(url);
+  if (cached) {
+    rememberDecodedImage(url, cached);
+    return;
+  }
+
+  if (pendingWarmUrls.has(url)) {
+    if (priority === 'immediate') {
+      const queuedIndex = mediaWarmQueue.findIndex((request) => request.url === url);
+      if (queuedIndex > 0) {
+        const [request] = mediaWarmQueue.splice(queuedIndex, 1);
+        mediaWarmQueue.unshift({ ...request, priority: 'immediate' });
+      }
+    }
+    return;
+  }
+
+  pendingWarmUrls.add(url);
+  const request = { url, priority } satisfies WarmRequest;
+  if (priority === 'immediate') mediaWarmQueue.unshift(request);
+  else mediaWarmQueue.push(request);
+  pumpMediaWarmQueue();
+}
+
+function warmPageMedia(items: FrontierItem[], priority: WarmPriority, requestedLimit?: number) {
+  if (typeof window === 'undefined' || typeof Image === 'undefined') return;
+  const urls = Array.from(new Set(items.flatMap(mediaWarmUrls)));
+  const limit = Math.max(0, Math.min(urls.length, requestedLimit ?? warmBudget(priority)));
+  for (const url of urls.slice(0, limit)) scheduleMediaWarm(url, priority);
 }
 
 export function FrontierSectionDeck({ items, layoutMode, renderCard, empty }: Props) {
@@ -127,8 +196,8 @@ export function FrontierSectionDeck({ items, layoutMode, renderCard, empty }: Pr
   const warmIndex = useCallback((index: number, priority: WarmPriority, requestedLimit?: number) => {
     const page = pages[index];
     if (!page) return;
-    warmPageMedia(page.items, priority, requestedLimit);
-  }, [pages]);
+    warmPageMedia(page.items.slice(0, mediaBearingItemLimit(layoutMode)), priority, requestedLimit);
+  }, [layoutMode, pages]);
 
   useEffect(() => {
     if (!pages.length) return;
@@ -256,6 +325,8 @@ export function FrontierSectionDeck({ items, layoutMode, renderCard, empty }: Pr
       data-frontier-page-cache="decoded-media"
       data-frontier-prefetch-depth="adjacent"
       data-frontier-prefetch-budget="3-intent-2-next-1-prev"
+      data-frontier-media-concurrency={MAX_CONCURRENT_MEDIA_WARMS}
+      data-frontier-media-active-cards={mediaBearingItemLimit(layoutMode)}
       data-frontier-fast-swap="true"
       data-frontier-transition="single-plane"
       data-frontier-wheel-coalescing="true"
@@ -322,18 +393,26 @@ export function FrontierSectionDeck({ items, layoutMode, renderCard, empty }: Pr
           data-frontier-page-direction={pageDirection}
         >
           <div className={layoutMode === 'feed' ? styles.feed : styles.grid}>
-            {currentPage.items.map((item, index) => (
-              <div
-                className={styles.card}
-                key={item.id}
-                data-frontier-card-rank={index + 1}
-                data-frontier-fluid-card={item.id}
-                data-frontier-virtual-card="true"
-                data-fluid-expanded="false"
-              >
-                {renderCard(item, layoutMode, index)}
-              </div>
-            ))}
+            {currentPage.items.map((item, index) => {
+              const variant = cardVariant(layoutMode, index);
+              const renderedCard = renderCard(item, layoutMode, index);
+              const tieredCard = isValidElement<{ variant?: CardVariant }>(renderedCard)
+                ? cloneElement(renderedCard, { variant })
+                : renderedCard;
+              return (
+                <div
+                  className={styles.card}
+                  key={item.id}
+                  data-frontier-card-rank={index + 1}
+                  data-frontier-card-tier={variant}
+                  data-frontier-fluid-card={item.id}
+                  data-frontier-virtual-card="true"
+                  data-fluid-expanded="false"
+                >
+                  {tieredCard}
+                </div>
+              );
+            })}
           </div>
         </div>
       </div>
