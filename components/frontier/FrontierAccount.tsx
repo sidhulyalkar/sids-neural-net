@@ -43,9 +43,6 @@ async function pushMemory(state: FrontierPersistedState, keepalive = false): Pro
 }
 
 function navigateDocument(path: string): void {
-  // OAuth endpoints deliberately require a document navigation rather than a
-  // client-side route transition. Build an absolute URL so Next's internal-page
-  // navigation rule does not mistake this API redirect for app navigation.
   window.location.href = new URL(path, window.location.origin).toString();
 }
 
@@ -70,8 +67,25 @@ export function FrontierAccount() {
 
   useEffect(() => {
     let cancelled = false;
-    queueMicrotask(() => { if (!cancelled) void refreshSession(); });
-    return () => { cancelled = true; };
+    const run = () => { if (!cancelled) void refreshSession(); };
+    const idleWindow = window as Window & {
+      requestIdleCallback?: (callback: () => void, options?: { timeout: number }) => number;
+      cancelIdleCallback?: (id: number) => void;
+    };
+
+    if (idleWindow.requestIdleCallback) {
+      const id = idleWindow.requestIdleCallback(run, { timeout: 1_400 });
+      return () => {
+        cancelled = true;
+        idleWindow.cancelIdleCallback?.(id);
+      };
+    }
+
+    const id = window.setTimeout(run, 700);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(id);
+    };
   }, [refreshSession]);
 
   useEffect(() => {
@@ -189,7 +203,6 @@ export function FrontierAccount() {
     <details className={styles.accountMenu}>
       <summary className={styles.account} title={`${session.user?.email ?? shortName} · ${syncLabel}`}>
         {session.user?.picture ? (
-          // Google profile image is identity UI, not editorial feed media.
           // eslint-disable-next-line @next/next/no-img-element
           <img src={session.user.picture} alt="" className={styles.avatar} referrerPolicy="no-referrer" />
         ) : <Cloud size={12} />}
