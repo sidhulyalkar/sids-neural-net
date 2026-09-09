@@ -115,9 +115,9 @@ export function FrontierSectionDeck({ items, layoutMode, renderCard, empty }: Pr
   const pageSize = layoutMode === 'feed' ? FRONTIER_SECTION_FEED_PAGE_SIZE : FRONTIER_SECTION_PAGE_SIZE;
   const pages = useMemo(() => buildFrontierSectionPages(items, pageSize), [items, pageSize]);
   const [pageIndex, setPageIndex] = useState(0);
+  const [pageDirection, setPageDirection] = useState<TurnDirection>('forward');
   const swipeStart = useRef<{ x: number; y: number } | undefined>(undefined);
   const swipeWarmDirection = useRef<TurnDirection | undefined>(undefined);
-  const lastNavigateDirection = useRef<TurnDirection>('forward');
   const wheelDelta = useRef(0);
   const wheelDirection = useRef(0);
   const wheelResetTimer = useRef<number | undefined>(undefined);
@@ -161,7 +161,7 @@ export function FrontierSectionDeck({ items, layoutMode, renderCard, empty }: Pr
     if (!pages.length) return;
     const clamped = Math.max(0, Math.min(pages.length - 1, nextIndex));
     if (clamped === activePageIndex) return;
-    lastNavigateDirection.current = clamped > activePageIndex ? 'forward' : 'backward';
+    setPageDirection(clamped > activePageIndex ? 'forward' : 'backward');
     warmIndex(clamped, 'immediate', 3);
     setPageIndex(clamped);
   }, [activePageIndex, pages.length, warmIndex]);
@@ -319,7 +319,7 @@ export function FrontierSectionDeck({ items, layoutMode, renderCard, empty }: Pr
           key={currentPage.id}
           className={`${styles.page} ${styles.currentPage}`}
           data-frontier-page-role="current"
-          data-frontier-page-direction={lastNavigateDirection.current}
+          data-frontier-page-direction={pageDirection}
         >
           <div className={layoutMode === 'feed' ? styles.feed : styles.grid}>
             {currentPage.items.map((item, index) => (
