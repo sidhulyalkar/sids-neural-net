@@ -1,8 +1,8 @@
 import { FRONTIER_LANE_MAP } from './config';
 import type { FrontierItem, FrontierLaneId } from './types';
 
-export const FRONTIER_SECTION_PAGE_SIZE = 6;
-export const FRONTIER_SECTION_FEED_PAGE_SIZE = 2;
+export const FRONTIER_SECTION_PAGE_SIZE = 8;
+export const FRONTIER_SECTION_FEED_PAGE_SIZE = 3;
 
 export type FrontierSectionPage = {
   id: string;
