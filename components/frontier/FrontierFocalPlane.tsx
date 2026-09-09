@@ -106,7 +106,7 @@ export function FrontierFocalPlane({ item, onClose }: Props) {
 
           {hasMedia ? (
             <div className={styles.media}>
-              <FrontierMediaSurface item={item} />
+              <FrontierMediaSurface item={item} mode="rich" />
             </div>
           ) : null}
         </div>
