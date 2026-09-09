@@ -8,20 +8,21 @@ const FRONTIER_URL = `${BASE_URL.replace(/\/$/, '')}/frontier`;
 const DECK = '[data-frontier-section-deck="true"]';
 const CARD = '[data-frontier-fluid-card]';
 const ARTIFACT_DIR = path.resolve('artifacts/browser-smoke');
+const MAX_DESKTOP_CARDS = 6;
 fs.mkdirSync(ARTIFACT_DIR, { recursive: true });
 
 function candidate() {
   return {
-    id: 'reservoir-v21-durable-candidate',
+    id: 'reservoir-v24-durable-candidate',
     title: 'Durable reservoir candidate remains dormant until explicit discovery work',
-    summary: 'The v21 newspaper keeps candidate-pool persistence without granting it passive page-growth authority.',
-    url: 'https://github.com/example/frontier-v21-reservoir',
+    summary: 'The render-fast newspaper keeps candidate-pool persistence without granting it passive page-growth authority.',
+    url: 'https://github.com/example/frontier-v24-reservoir',
     source: 'github.com',
     sourceLabel: 'GitHub',
     sourceKind: 'github',
-    publishedAt: '2026-09-02T16:00:00.000Z',
+    publishedAt: '2026-09-08T16:00:00.000Z',
     lane: 'builder_signal',
-    tags: ['frontier v21', 'reservoir'],
+    tags: ['frontier v24', 'reservoir'],
     baseScore: 0.86,
     importance: 0.76,
     novelty: 0.8,
@@ -104,15 +105,15 @@ async function reservoirIds(page) {
     await page.goto(BASE_URL, { waitUntil: 'domcontentloaded' });
     await seedReservoir(page);
     const seeded = await reservoirIds(page);
-    assert(seeded.includes('reservoir-v21-durable-candidate'), 'failed to seed durable reservoir fixture');
+    assert(seeded.includes('reservoir-v24-durable-candidate'), 'failed to seed durable reservoir fixture');
 
     const response = await page.goto(FRONTIER_URL, { waitUntil: 'domcontentloaded' });
     assert(response && response.ok(), `FRONTIER route returned ${response?.status() ?? 'no response'}`);
-    await page.waitForFunction(({ deck, card }) => {
+    await page.waitForFunction(({ deck, card, max }) => {
       const root = document.querySelector(deck);
       const count = document.querySelectorAll(card).length;
-      return Boolean(root) && count > 0 && count <= 10;
-    }, { deck: DECK, card: CARD }, { timeout: 9000, polling: 'raf' });
+      return Boolean(root) && count > 0 && count <= max;
+    }, { deck: DECK, card: CARD, max: MAX_DESKTOP_CARDS }, { timeout: 9000, polling: 'raf' });
 
     const initial = await page.evaluate(({ deck, card }) => {
       const root = document.querySelector(deck);
@@ -121,16 +122,17 @@ async function reservoirIds(page) {
         total: Number(root?.getAttribute('data-frontier-total-items') || 0),
         pages: Number(root?.getAttribute('data-frontier-page-count') || 0),
         workers: window.__frontierReservoirWorkers.slice(),
+        scrollRange: Math.max(0, document.documentElement.scrollHeight - document.documentElement.clientHeight),
       };
     }, { deck: DECK, card: CARD });
 
     await page.waitForTimeout(2800);
     if (initial.pages > 1) {
       await page.getByRole('button', { name: 'Next section' }).click();
-      await page.waitForTimeout(500);
+      await page.waitForTimeout(250);
     }
     await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
-    await page.waitForTimeout(900);
+    await page.waitForTimeout(500);
 
     const after = await page.evaluate(({ deck, card }) => {
       const root = document.querySelector(deck);
@@ -139,15 +141,17 @@ async function reservoirIds(page) {
         total: Number(root?.getAttribute('data-frontier-total-items') || 0),
         pages: Number(root?.getAttribute('data-frontier-page-count') || 0),
         workers: window.__frontierReservoirWorkers.slice(),
+        scrollRange: Math.max(0, document.documentElement.scrollHeight - document.documentElement.clientHeight),
       };
     }, { deck: DECK, card: CARD });
     const retained = await reservoirIds(page);
 
-    assert(initial.mounted <= 10 && after.mounted <= 10, `newspaper mount budget exceeded: initial=${initial.mounted}, after=${after.mounted}`);
-    assert.equal(after.total, initial.total, 'page turns/scrolling may not grow the passive edition');
-    assert.deepEqual(requests, [], `passive v21 newspaper unexpectedly activated discovery APIs: ${requests.join(' | ')}`);
-    assert(!after.workers.some((url) => /liveDaemonWorker/i.test(url)), `passive v21 newspaper started live daemon worker: ${after.workers.join(' | ')}`);
-    assert(retained.includes('reservoir-v21-durable-candidate'), 'passive navigation must not consume durable reservoir candidates');
+    assert(initial.mounted <= MAX_DESKTOP_CARDS && after.mounted <= MAX_DESKTOP_CARDS, `newspaper mount budget exceeded: initial=${initial.mounted}, after=${after.mounted}`);
+    assert.equal(after.total, initial.total, 'page swaps/scrolling may not grow the passive edition');
+    assert(initial.scrollRange <= 2 && after.scrollRange <= 2, `render-fast daily deck should not create document scroll: initial=${initial.scrollRange}, after=${after.scrollRange}`);
+    assert.deepEqual(requests, [], `passive render-fast newspaper unexpectedly activated discovery APIs: ${requests.join(' | ')}`);
+    assert(!after.workers.some((url) => /liveDaemonWorker/i.test(url)), `passive render-fast newspaper started live daemon worker: ${after.workers.join(' | ')}`);
+    assert(retained.includes('reservoir-v24-durable-candidate'), 'passive navigation must not consume durable reservoir candidates');
     assert.deepEqual(pageErrors, [], `page errors: ${pageErrors.join(' | ')}`);
 
     report = {
@@ -156,7 +160,7 @@ async function reservoirIds(page) {
       after,
       requests,
       retained,
-      invariant: 'reservoir persists but has zero passive append authority in v21 newspaper mode',
+      invariant: 'reservoir persists while the single-page fast deck has zero passive append authority',
     };
     await context.close();
   } catch (error) {
