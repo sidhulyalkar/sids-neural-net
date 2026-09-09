@@ -9,20 +9,21 @@ import {
 import type { FrontierItem } from '../lib/frontier/types';
 
 const pageSource = readFileSync(new URL('../app/frontier/page.tsx', import.meta.url), 'utf8');
+const fastCss = readFileSync(new URL('../app/frontier/frontier-render-fast.css', import.meta.url), 'utf8');
 const experienceSource = readFileSync(new URL('../components/frontier/FrontierSectionExperience.tsx', import.meta.url), 'utf8');
 const deckSource = readFileSync(new URL('../components/frontier/FrontierSectionDeck.tsx', import.meta.url), 'utf8');
 const deckCss = readFileSync(new URL('../components/frontier/frontier-section-deck.module.css', import.meta.url), 'utf8');
-const holoCss = readFileSync(new URL('../app/frontier/frontier-holographic-panels.css', import.meta.url), 'utf8');
-const holoRules = holoCss.replace(/\/\*[\s\S]*?\*\//g, '');
+const mediaSource = readFileSync(new URL('../components/frontier/media/FrontierMediaSurface.tsx', import.meta.url), 'utf8');
+const focalSource = readFileSync(new URL('../components/frontier/FrontierFocalPlane.tsx', import.meta.url), 'utf8');
 const headerSource = readFileSync(new URL('../components/layout/Header.tsx', import.meta.url), 'utf8');
 const cursorSource = readFileSync(new URL('../components/effects/SiteNeuronCursor.tsx', import.meta.url), 'utf8');
 const sensingSource = readFileSync(new URL('../components/sensing/InteractionCapabilityProvider.tsx', import.meta.url), 'utf8');
 
 function item(index: number): FrontierItem {
   return {
-    id: `section-v23-${index}`,
-    title: `Section v23 ${index}`,
-    summary: 'Predictive holographic section test fixture.',
+    id: `section-v24-${index}`,
+    title: `Section v24 ${index}`,
+    summary: 'Render-fast section test fixture.',
     url: `https://example.invalid/${index}`,
     source: 'example.invalid',
     sourceLabel: 'Fixture',
@@ -38,27 +39,29 @@ function item(index: number): FrontierItem {
   };
 }
 
-test('v23 keeps edition data bounded while sectioning desktop and mobile pages', () => {
+test('v24 shrinks the mounted section working set while preserving the complete bounded run', () => {
   const items = Array.from({ length: 48 }, (_, index) => item(index + 1));
   const desktop = buildFrontierSectionPages(items, FRONTIER_SECTION_PAGE_SIZE);
   const mobile = buildFrontierSectionPages(items, FRONTIER_SECTION_FEED_PAGE_SIZE);
-  assert.equal(FRONTIER_SECTION_PAGE_SIZE, 10);
-  assert.equal(FRONTIER_SECTION_FEED_PAGE_SIZE, 8);
-  assert(desktop.every((page) => page.items.length <= 10));
-  assert(mobile.every((page) => page.items.length <= 8));
+  assert.equal(FRONTIER_SECTION_PAGE_SIZE, 6);
+  assert.equal(FRONTIER_SECTION_FEED_PAGE_SIZE, 2);
+  assert(desktop.every((page) => page.items.length <= 6));
+  assert(mobile.every((page) => page.items.length <= 2));
   assert.deepEqual(desktop.flatMap((page) => page.items.map((entry) => entry.id)), items.map((entry) => entry.id));
+  assert.deepEqual(mobile.flatMap((page) => page.items.map((entry) => entry.id)), items.map((entry) => entry.id));
 });
 
-test('FRONTIER first paint comes from the bounded server snapshot and omits ambient GPU extras', () => {
+test('FRONTIER first paint ships a smaller server snapshot and no holographic transition stylesheet', () => {
   assert.match(pageSource, /getFrontierColdSnapshotFeed/);
-  assert.match(pageSource, /snapshot\.items\.slice\(0, 72\)/);
+  assert.match(pageSource, /snapshot\.items\.slice\(0, 48\)/);
   assert.match(pageSource, /<FrontierSectionExperience/);
   assert.match(pageSource, /data-frontier-performance-route="true"/);
-  assert.match(pageSource, /frontier-holographic-panels\.css/);
+  assert.match(pageSource, /frontier-render-fast\.css/);
+  assert.doesNotMatch(pageSource, /frontier-holographic-panels\.css/);
   assert.doesNotMatch(pageSource, /BackgroundCanvas|DeferredFrontierAmbient|SignalTelemetryBridge|MeshStateBridge|FrontierRuntimeControls|FrontierAutonomyProvider/);
 });
 
-test('bounded section experience has no passive discovery daemon or infinite append authority', () => {
+test('bounded section experience keeps explicit refresh authority but no passive discovery daemon', () => {
   assert.doesNotMatch(experienceSource, /useLiveDiscoveryDaemon/);
   assert.doesNotMatch(experienceSource, /FrontierStreamPulse/);
   assert.doesNotMatch(experienceSource, /onNearEnd|revealPending/);
@@ -67,42 +70,39 @@ test('bounded section experience has no passive discovery daemon or infinite app
   assert.match(experienceSource, /<FrontierSectionDeck/);
 });
 
-test('page navigation is data-local and predictively decodes bounded adjacent media', () => {
-  assert.doesNotMatch(deckSource, /fetch\(['"`]\/api\/frontier\/feed/);
-  assert.match(deckSource, /const MAX_DECODED_MEDIA = 32/);
+test('page navigation is data-local, instant, and warms only adjacent media', () => {
+  assert.doesNotMatch(deckSource, /fetch\s*\(/);
+  assert.match(deckSource, /const MAX_DECODED_MEDIA = 18/);
   assert.match(deckSource, /decodedMediaCache = new Map/);
   assert.match(deckSource, /image\.decode\(\)\.catch/);
   assert.match(deckSource, /requestIdleCallback/);
-  assert.match(deckSource, /warmIndex\(pageIndex \+ 1, 'idle'/);
-  assert.match(deckSource, /warmIndex\(pageIndex - 1, 'idle'/);
-  assert.match(deckSource, /warmIndex\(pageIndex \+ 2, 'idle'/);
-  assert.match(deckSource, /connection\?\.saveData/);
-  assert.match(deckSource, /media\.posterProxyUrl \?\? media\.poster/);
+  assert.match(deckSource, /warmIndex\(activePageIndex \+ 1, 'idle'/);
+  assert.match(deckSource, /warmIndex\(activePageIndex - 1, 'idle'/);
+  assert.doesNotMatch(deckSource, /activePageIndex \+ 2/);
+  assert.match(deckSource, /setPageIndex\(clamped\)/);
+  assert.match(deckSource, /data-frontier-fast-swap="true"/);
+  assert.match(deckSource, /data-frontier-prefetch-depth="adjacent"/);
+  assert.doesNotMatch(deckSource, /TurnPhase|incomingPage|requestAnimationFrame|onAnimationEnd/);
 });
 
-test('v23 geometric turn uses stronger depth while the final material stays compositor-first', () => {
-  assert.match(deckSource, /type TurnPhase = 'prepare' \| 'turn'/);
-  assert.match(deckSource, /requestAnimationFrame\(\(\) => \{[\s\S]*requestAnimationFrame/);
-  assert.match(deckSource, /data-frontier-page-role="incoming"/);
-  assert.match(deckSource, /data-frontier-page-role="current"/);
-  assert.match(deckSource, /data-frontier-turning=\{turn\?\.phase \?\? 'idle'\}/);
-  assert.match(deckCss, /perspective: clamp\(900px, 70vw, 1220px\)/);
-  assert.match(deckCss, /translate3d\(-12\.8%, -5\.3%, -535px\).*rotateY\(-96deg\)/);
-  assert.match(deckCss, /translate3d\(12\.8%, -5\.3%, -535px\).*rotateY\(96deg\)/);
-  assert.match(holoRules, /clip-path: none !important/);
-  assert.match(holoRules, /will-change: transform, opacity !important/);
-  assert.match(holoRules, /content-visibility: visible/);
+test('v24 daily deck is a one-screen layout with no transition paint loop', () => {
+  assert.match(fastCss, /height: 100dvh/);
+  assert.match(fastCss, /body:has\([\s\S]*overflow: hidden/);
+  assert.match(fastCss, /> main \{[\s\S]*min-height: 0;[\s\S]*overflow: hidden/);
+  assert.match(deckCss, /touch-action: none/);
+  assert.match(deckCss, /grid-template-rows: repeat\(2, minmax\(0, 1fr\)\)/);
+  assert.match(deckCss, /\.card > \* \{[\s\S]*height: 100%/);
+  assert.doesNotMatch(deckCss, /@keyframes|perspective:|clip-path:|will-change:/);
+  assert.doesNotMatch(deckCss, /content-visibility:/);
 });
 
-test('holographic material is bounded, readable, and avoids expensive idle effects', () => {
-  assert.match(holoRules, /repeating-linear-gradient/);
-  assert.match(holoRules, /data-frontier-virtual-card/);
-  assert.match(holoRules, /@media \(max-width: 720px\)/);
-  assert.match(holoRules, /prefers-reduced-motion: reduce/);
-  assert.doesNotMatch(holoRules, /backdrop-filter/);
-  assert.doesNotMatch(holoRules, /filter:\s*blur/);
-  assert.doesNotMatch(holoRules, /animation:\s*[^;]*infinite/);
-  assert.doesNotMatch(holoRules, /<canvas|three|WebGL/i);
+test('feed cards default to lightweight native media while focused detail retains rich media', () => {
+  assert.match(mediaSource, /type MediaRenderMode = 'lightweight' \| 'rich'/);
+  assert.match(mediaSource, /mode = 'lightweight'/);
+  assert.match(mediaSource, /function LightweightMediaSurface/);
+  assert.match(mediaSource, /loading="lazy"/);
+  assert.match(mediaSource, /decoding="async"/);
+  assert.match(focalSource, /<FrontierMediaSurface item=\{item\} mode="rich"/);
 });
 
 test('FRONTIER route excludes decorative cursor, sensing, and fractal back-button rendering', () => {
