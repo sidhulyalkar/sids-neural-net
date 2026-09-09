@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { FrontierSectionExperience } from '@/components/frontier/FrontierSectionExperience';
 import { getFrontierColdSnapshotFeed } from '@/lib/frontier/snapshotFeed';
 import spatial from '@/components/frontier/frontier-spatial.module.css';
-import './frontier-holographic-panels.css';
+import './frontier-render-fast.css';
 
 export const metadata: Metadata = {
   title: 'FRONTIER · Personal Intelligence Radar',
@@ -34,7 +34,7 @@ export default function FrontierPage() {
   const snapshot = getFrontierColdSnapshotFeed(now.getTime());
   const initialFeed = {
     generatedAt: snapshot.generatedAt,
-    items: snapshot.items.slice(0, 72),
+    items: snapshot.items.slice(0, 48),
     sources: snapshot.sources,
   };
 
