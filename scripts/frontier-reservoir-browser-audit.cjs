@@ -8,7 +8,7 @@ const FRONTIER_URL = `${BASE_URL.replace(/\/$/, '')}/frontier`;
 const DECK = '[data-frontier-section-deck="true"]';
 const CARD = '[data-frontier-fluid-card]';
 const ARTIFACT_DIR = path.resolve('artifacts/browser-smoke');
-const MAX_DESKTOP_CARDS = 6;
+const MAX_DESKTOP_CARDS = 10;
 fs.mkdirSync(ARTIFACT_DIR, { recursive: true });
 
 function candidate() {
