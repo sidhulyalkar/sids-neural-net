@@ -5,6 +5,8 @@ const STRETCHICORN_SOURCE_REF = 'main';
 const STRETCHICORN_SOURCE_ARTIFACT = 'dist/stretchicorn-local.html';
 const SOURCE_URL = `https://raw.githubusercontent.com/sidhulyalkar/stretchicorn/${STRETCHICORN_SOURCE_REF}/${STRETCHICORN_SOURCE_ARTIFACT}`;
 const GAME_NETWORK_BRIDGE = '<script src="/game-runtimes/game-network-bridge.js"></script>';
+const FILL_SHELL_STYLE =
+  '<style data-sids-game-network-fill>html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#000}body{display:block}canvas{width:100%!important;height:100%!important;max-width:none!important;display:block;cursor:crosshair}</style>';
 
 /**
  * Packed js13k builds decompress via eval(r). Without 'unsafe-eval' the browser
@@ -31,12 +33,25 @@ function ensureStretchicornTitle(html: string) {
 function prepareForGameNetwork(html: string) {
   const titled = ensureStretchicornTitle(html);
 
+  // Pack builds center a max-960px canvas on a full-viewport body, which leaves
+  // grey letterbox bars inside a larger host iframe. Force the canvas to fill.
+  let shell = titled;
+  if (!shell.includes('data-sids-game-network-fill')) {
+    if (/<head[^>]*>/i.test(shell)) {
+      shell = shell.replace(/<head[^>]*>/i, (m) => `${m}${FILL_SHELL_STYLE}`);
+    } else if (/<!doctype html>/i.test(shell)) {
+      shell = shell.replace(/<!doctype html>/i, (m) => `${m}${FILL_SHELL_STYLE}`);
+    } else {
+      shell = `${FILL_SHELL_STYLE}${shell}`;
+    }
+  }
+
   // Ensure the canvas can receive keyboard focus inside the Game Network shell.
-  let focusable = titled;
-  if (titled.includes('<canvas id=c ') && !titled.includes('<canvas id=c tabindex=')) {
-    focusable = titled.replace('<canvas id=c ', '<canvas id=c tabindex=0 ');
-  } else if (/<canvas id="c"/i.test(titled) && !/tabindex=/i.test(titled)) {
-    focusable = titled.replace(/<canvas id="c"([^>]*)>/i, '<canvas id="c"$1 tabindex="0">');
+  let focusable = shell;
+  if (shell.includes('<canvas id=c ') && !shell.includes('<canvas id=c tabindex=')) {
+    focusable = shell.replace('<canvas id=c ', '<canvas id=c tabindex=0 ');
+  } else if (/<canvas id="c"/i.test(shell) && !/tabindex=/i.test(shell)) {
+    focusable = shell.replace(/<canvas id="c"([^>]*)>/i, '<canvas id="c"$1 tabindex="0">');
   }
 
   if (!/<canvas[^>]*\sid=['"]?c['"]?/i.test(focusable)) {
