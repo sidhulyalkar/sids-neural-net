@@ -8,6 +8,7 @@ import {
   type Vec2,
 } from '../lib/home/fractalDendrite';
 import {
+  getResponsiveDecorativeClipRadius,
   getResponsiveFractalEnvelope,
   getResponsiveNavigationRadiusCap,
   hasViewportBoundaryFlattening,
@@ -146,7 +147,7 @@ test('all six public morphologies remain interior and never flatten against any 
   }
 });
 
-test('navigation ring is the hard outer authority for all mapped fractal geometry', () => {
+test('navigation ring is the hard normalized authority for mapped source geometry', () => {
   for (const morphology of ACTIVE_MORPHOLOGIES) {
     for (const dimensions of VIEWPORTS) {
       const tree = buildAdaptiveFractalTree(
@@ -163,7 +164,7 @@ test('navigation ring is the hard outer authority for all mapped fractal geometr
       const expectedCap = Math.min(envelope.normalizedRadiusCap, innermostAuthoredEndpoint);
       assert.ok(
         Math.abs(radiusCap - expectedCap) <= 1e-9,
-        `${morphology} ${dimensions.width}x${dimensions.height} did not bind the field to the navigation ring`
+        `${morphology} ${dimensions.width}x${dimensions.height} did not bind the field to the normalized navigation ring`
       );
 
       const mappedEndpointRadii = [...tree.endpoints.values()].map((endpoint) =>
@@ -177,10 +178,39 @@ test('navigation ring is the hard outer authority for all mapped fractal geometr
           const radius = mappedNormalizedRadius(point, tree, dimensions);
           assert.ok(
             radius <= innermostMappedEndpoint + 1e-7,
-            `${morphology} ${dimensions.width}x${dimensions.height} ${path.id} escaped the navigation ring (${radius.toFixed(5)} > ${innermostMappedEndpoint.toFixed(5)})`
+            `${morphology} ${dimensions.width}x${dimensions.height} ${path.id} escaped the normalized navigation ring (${radius.toFixed(5)} > ${innermostMappedEndpoint.toFixed(5)})`
           );
         }
       }
+    }
+  }
+});
+
+test('decorative clip circle stays inside every physical navigation endpoint', () => {
+  for (const morphology of ACTIVE_MORPHOLOGIES) {
+    for (const dimensions of VIEWPORTS) {
+      const tree = buildAdaptiveFractalTree(
+        dimensions,
+        `force:${morphology}:decorative-circle`,
+        DESTINATION_IDS
+      );
+      const envelope = getResponsiveFractalEnvelope(dimensions);
+      const clipRadius = getResponsiveDecorativeClipRadius(tree, dimensions);
+      const expectedGutter = envelope.tinyViewport ? 7 : envelope.compactNavigation ? 10 : 14;
+      const mappedEndpointRadii = [...tree.endpoints.values()].map((endpoint) =>
+        distance(mapPointToResponsiveEnvelope(endpoint, tree, dimensions), tree.center)
+      );
+      const nearestEndpoint = Math.min(...mappedEndpointRadii);
+
+      assert.ok(Number.isFinite(clipRadius) && clipRadius > 0);
+      assert.ok(
+        clipRadius <= nearestEndpoint - expectedGutter + 1e-7,
+        `${morphology} ${dimensions.width}x${dimensions.height} decorative circle reached outside its navigation gutter`
+      );
+      assert.ok(
+        clipRadius >= (tree.compact ? 50 : 64),
+        `${morphology} ${dimensions.width}x${dimensions.height} decorative circle collapsed below its safe minimum`
+      );
     }
   }
 });
