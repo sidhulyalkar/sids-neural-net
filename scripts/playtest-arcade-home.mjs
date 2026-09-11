@@ -62,6 +62,10 @@ for (const viewport of viewports) {
     failures.push(`${viewport.name}: invalid decorative clip radius ${decorativeClipRadius}`);
   }
 
+  if ((await page.locator('[data-fractal-theme-echo="background"]').count()) !== 0) {
+    failures.push(`${viewport.name}: persisted theme echo must not render behind the homepage fractal`);
+  }
+
   const scaleX = Number(await root.getAttribute('data-fractal-field-scale-x'));
   const scaleY = Number(await root.getAttribute('data-fractal-field-scale-y'));
   if (!(scaleX >= 0.8 && scaleX <= 0.92)) failures.push(`${viewport.name}: invalid responsive X scale ${scaleX}`);
