@@ -272,12 +272,19 @@ export function ArcadePlaySpace({ game }: { game: ArcadeGame }) {
               : 'flex flex-1 items-center justify-center py-6 sm:py-8'
           }
         >
-          <div className={fullscreen ? 'h-full w-full max-w-none' : 'w-full max-w-[1160px]'}>
+          <div
+            className={fullscreen ? 'h-full w-full max-w-none' : 'mx-auto w-full'}
+            style={
+              fullscreen || !game.nativeSize
+                ? undefined
+                : { maxWidth: game.nativeSize.width }
+            }
+          >
             <div
               className={
                 fullscreen
                   ? 'h-full w-full bg-black'
-                  : `border bg-black p-1.5 sm:p-2 transition-[border-color,box-shadow] duration-300 ${
+                  : `border bg-black transition-[border-color,box-shadow] duration-300 ${
                       focused
                         ? 'border-cyan/45 shadow-[0_0_28px_rgba(102,227,255,0.14)]'
                         : 'border-cyan/25 shadow-[0_0_18px_rgba(102,227,255,0.07)]'
