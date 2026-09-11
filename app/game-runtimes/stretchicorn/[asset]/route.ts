@@ -6,6 +6,13 @@ const STRETCHICORN_SOURCE_ARTIFACT = 'dist/stretchicorn-local.html';
 const SOURCE_URL = `https://raw.githubusercontent.com/sidhulyalkar/stretchicorn/${STRETCHICORN_SOURCE_REF}/${STRETCHICORN_SOURCE_ARTIFACT}`;
 const GAME_NETWORK_BRIDGE = '<script src="/game-runtimes/game-network-bridge.js"></script>';
 
+/**
+ * Packed js13k builds decompress via eval(r). Without 'unsafe-eval' the browser
+ * blocks bootstrap and the cabinet shows a blank canvas.
+ */
+const STRETCHICORN_CSP =
+  "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; media-src 'none'; connect-src 'none'; font-src 'none'; frame-ancestors 'self';";
+
 type StretchicornRuntimeRouteProps = {
   params: Promise<{ asset: string }>;
 };
@@ -94,8 +101,7 @@ export async function GET(_request: Request, { params }: StretchicornRuntimeRout
       'Content-Type': 'text/html; charset=utf-8',
       // Short private browser cache only — never pin a long-lived edge copy of main.
       'Cache-Control': 'private, max-age=30, must-revalidate',
-      'Content-Security-Policy':
-        "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; media-src 'none'; connect-src 'none'; font-src 'none'; frame-ancestors 'self';",
+      'Content-Security-Policy': STRETCHICORN_CSP,
       'X-Content-Type-Options': 'nosniff',
       'Cross-Origin-Resource-Policy': 'same-origin',
       'X-Stretchicorn-Source-Ref': STRETCHICORN_SOURCE_REF,
