@@ -12,6 +12,51 @@ type GameNetworkBridgeMessage = {
   kind?: 'focus' | 'escape';
 };
 
+function focusRuntimeWindow(iframe: HTMLIFrameElement | null) {
+  if (!iframe) return;
+  try {
+    iframe.focus();
+  } catch {
+    // ignore host focus failures
+  }
+  try {
+    const canvas = iframe.contentDocument?.querySelector('canvas');
+    if (canvas instanceof HTMLElement) {
+      // Stretchicorn / packed runtimes bind onkeydown on window, but also pause on
+      // window blur. Keeping the canvas focused keeps key events inside the frame.
+      canvas.focus({ preventScroll: true });
+    } else {
+      iframe.contentWindow?.focus();
+    }
+  } catch {
+    // cross-origin / not ready yet
+  }
+}
+
+function forwardKeyToRuntime(iframe: HTMLIFrameElement | null, event: KeyboardEvent) {
+  if (!iframe) return;
+  try {
+    const targetWindow = iframe.contentWindow;
+    if (!targetWindow) return;
+    const init: KeyboardEventInit = {
+      key: event.key,
+      code: event.code,
+      location: event.location,
+      ctrlKey: event.ctrlKey,
+      shiftKey: event.shiftKey,
+      altKey: event.altKey,
+      metaKey: event.metaKey,
+      repeat: event.repeat,
+      bubbles: true,
+      cancelable: true,
+    };
+    targetWindow.dispatchEvent(new KeyboardEvent(event.type, init));
+    targetWindow.document.dispatchEvent(new KeyboardEvent(event.type, init));
+  } catch {
+    // ignore
+  }
+}
+
 export function ArcadePlaySpace({ game }: { game: ArcadeGame }) {
   const shellRef = useRef<HTMLDivElement | null>(null);
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
@@ -23,6 +68,9 @@ export function ArcadePlaySpace({ game }: { game: ArcadeGame }) {
   const engageFocus = useCallback(() => {
     document.documentElement.classList.add('game-runtime-focused');
     setFocused(true);
+    // Critical: UI "game focus" must also move real keyboard focus into the runtime.
+    // Mouse still hits the iframe without this; WASD/arrows/space do not.
+    window.requestAnimationFrame(() => focusRuntimeWindow(iframeRef.current));
   }, []);
 
   const leaveFocus = useCallback(() => {
@@ -41,12 +89,46 @@ export function ArcadePlaySpace({ game }: { game: ArcadeGame }) {
       setFullscreen(active);
       if (active) {
         engageFocus();
-        window.requestAnimationFrame(() => iframeRef.current?.focus());
+        window.requestAnimationFrame(() => focusRuntimeWindow(iframeRef.current));
       }
     };
+
     const onParentKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && focused && !document.fullscreenElement) leaveFocus();
+      if (!focused) return;
+
+      if (event.key === 'Escape' && !document.fullscreenElement) {
+        leaveFocus();
+        return;
+      }
+
+      // If the host document still owns keyboard focus (e.g. user pressed FOCUS
+      // button, or a control stole focus), reclaim the runtime and forward the
+      // key so the first WASD press is not dropped.
+      const iframe = iframeRef.current;
+      if (!iframe) return;
+      if (document.activeElement !== iframe) {
+        const isModifierOnly = event.metaKey || event.ctrlKey || event.altKey;
+        if (!isModifierOnly) {
+          event.preventDefault();
+          focusRuntimeWindow(iframe);
+          forwardKeyToRuntime(iframe, event);
+        }
+      }
     };
+
+    const onParentKeyUp = (event: KeyboardEvent) => {
+      if (!focused) return;
+      const iframe = iframeRef.current;
+      if (!iframe) return;
+      if (document.activeElement !== iframe) {
+        const isModifierOnly = event.metaKey || event.ctrlKey || event.altKey;
+        if (!isModifierOnly) {
+          event.preventDefault();
+          forwardKeyToRuntime(iframe, event);
+        }
+      }
+    };
+
     const onWindowBlur = () => {
       window.requestAnimationFrame(() => {
         if (document.activeElement === iframeRef.current) engageFocus();
@@ -62,13 +144,15 @@ export function ArcadePlaySpace({ game }: { game: ArcadeGame }) {
     };
 
     document.addEventListener('fullscreenchange', onFullscreen);
-    window.addEventListener('keydown', onParentKeyDown);
+    window.addEventListener('keydown', onParentKeyDown, true);
+    window.addEventListener('keyup', onParentKeyUp, true);
     window.addEventListener('blur', onWindowBlur);
     window.addEventListener('message', onRuntimeMessage);
 
     return () => {
       document.removeEventListener('fullscreenchange', onFullscreen);
-      window.removeEventListener('keydown', onParentKeyDown);
+      window.removeEventListener('keydown', onParentKeyDown, true);
+      window.removeEventListener('keyup', onParentKeyUp, true);
       window.removeEventListener('blur', onWindowBlur);
       window.removeEventListener('message', onRuntimeMessage);
     };
@@ -85,8 +169,6 @@ export function ArcadePlaySpace({ game }: { game: ArcadeGame }) {
       // Create the listener inside the runtime's own JavaScript realm. Parent-realm
       // callbacks attached directly to iframe documents are handled differently by
       // Firefox/WebKit. postMessage is the browser-native cross-realm contract.
-      // The child-window flag makes this injection idempotent without mutating a
-      // DOM object derived from the React ref.
       const bridge = frameDocument.createElement('script');
       bridge.textContent = `(() => {
         if (window.__SIDS_GAME_NETWORK_BRIDGE__) return;
@@ -96,14 +178,28 @@ export function ArcadePlaySpace({ game }: { game: ArcadeGame }) {
             window.parent.postMessage({ source: '${GAME_NETWORK_BRIDGE_SOURCE}', kind }, window.location.origin);
           } catch (_) {}
         };
-        window.addEventListener('pointerdown', () => notify('focus'), true);
-        window.addEventListener('mousedown', () => notify('focus'), true);
-        window.addEventListener('touchstart', () => notify('focus'), { capture: true, passive: true });
+        const focusCanvas = () => {
+          const canvas = document.querySelector('canvas');
+          if (canvas) {
+            try { canvas.focus({ preventScroll: true }); } catch (_) { try { canvas.focus(); } catch (_) {} }
+          } else {
+            try { window.focus(); } catch (_) {}
+          }
+        };
+        window.addEventListener('pointerdown', () => { focusCanvas(); notify('focus'); }, true);
+        window.addEventListener('mousedown', () => { focusCanvas(); notify('focus'); }, true);
+        window.addEventListener('touchstart', () => { focusCanvas(); notify('focus'); }, { capture: true, passive: true });
         window.addEventListener('focusin', () => notify('focus'), true);
-        window.addEventListener('keydown', (event) => notify(event.key === 'Escape' ? 'escape' : 'focus'), true);
+        window.addEventListener('keydown', (event) => {
+          if (event.key === 'Escape') notify('escape');
+          else notify('focus');
+        }, true);
+        // Ensure the first keyboard event after load has a focused target inside the frame.
+        focusCanvas();
       })();`;
       frameDocument.documentElement.appendChild(bridge);
       bridge.remove();
+      focusRuntimeWindow(iframeRef.current);
     } catch {
       // Optional external runtime overrides stay isolated from the host document.
     }
@@ -118,7 +214,7 @@ export function ArcadePlaySpace({ game }: { game: ArcadeGame }) {
       else {
         await shell.requestFullscreen({ navigationUI: 'hide' });
         engageFocus();
-        window.requestAnimationFrame(() => iframeRef.current?.focus());
+        window.requestAnimationFrame(() => focusRuntimeWindow(iframeRef.current));
       }
     } catch {
       engageFocus();
@@ -203,6 +299,7 @@ export function ArcadePlaySpace({ game }: { game: ArcadeGame }) {
                     referrerPolicy="strict-origin-when-cross-origin"
                     onLoad={connectFrameFocus}
                     onFocus={engageFocus}
+                    onPointerDown={engageFocus}
                     tabIndex={0}
                   />
                 ) : (
