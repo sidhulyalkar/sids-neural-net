@@ -9,6 +9,7 @@ import {
 } from '../lib/home/fractalDendrite';
 import {
   getResponsiveFractalEnvelope,
+  getResponsiveNavigationRadiusCap,
   hasViewportBoundaryFlattening,
   mapPathToResponsiveEnvelope,
   mapPointToResponsiveEnvelope,
@@ -68,6 +69,15 @@ function polylineLength(points: readonly Vec2[]): number {
 function normalizedRadius(point: Vec2, tree: FractalTree): number {
   const nx = (point.x - tree.center.x) / Math.max(1, tree.radiusX);
   const ny = (point.y - tree.center.y) / Math.max(1, tree.radiusY);
+  return Math.hypot(nx, ny);
+}
+
+function mappedNormalizedRadius(point: Vec2, tree: FractalTree, dimensions: Dimensions): number {
+  const envelope = getResponsiveFractalEnvelope(dimensions);
+  const radiusX = Math.max(1, tree.radiusX * envelope.fieldScaleX);
+  const radiusY = Math.max(1, tree.radiusY * envelope.fieldScaleY);
+  const nx = (point.x - tree.center.x) / radiusX;
+  const ny = (point.y - tree.center.y) / radiusY;
   return Math.hypot(nx, ny);
 }
 
@@ -131,6 +141,45 @@ test('all six public morphologies remain interior and never flatten against any 
         // Edge-reaching twigs are allowed to collapse below the renderer's branch-length
         // threshold. Their authored length can be an artifact of the old rectangular
         // clamp, and the final crisp topology pass intentionally prunes those orphans.
+      }
+    }
+  }
+});
+
+test('navigation ring is the hard outer authority for all mapped fractal geometry', () => {
+  for (const morphology of ACTIVE_MORPHOLOGIES) {
+    for (const dimensions of VIEWPORTS) {
+      const tree = buildAdaptiveFractalTree(
+        dimensions,
+        `force:${morphology}:navigation-boundary`,
+        DESTINATION_IDS
+      );
+      const envelope = getResponsiveFractalEnvelope(dimensions);
+      const authoredEndpointRadii = [...tree.endpoints.values()].map((endpoint) => normalizedRadius(endpoint, tree));
+      assert.equal(authoredEndpointRadii.length, DESTINATION_IDS.length);
+
+      const innermostAuthoredEndpoint = Math.min(...authoredEndpointRadii);
+      const radiusCap = getResponsiveNavigationRadiusCap(tree, dimensions);
+      const expectedCap = Math.min(envelope.normalizedRadiusCap, innermostAuthoredEndpoint);
+      assert.ok(
+        Math.abs(radiusCap - expectedCap) <= 1e-9,
+        `${morphology} ${dimensions.width}x${dimensions.height} did not bind the field to the navigation ring`
+      );
+
+      const mappedEndpointRadii = [...tree.endpoints.values()].map((endpoint) =>
+        mappedNormalizedRadius(mapPointToResponsiveEnvelope(endpoint, tree, dimensions), tree, dimensions)
+      );
+      const innermostMappedEndpoint = Math.min(...mappedEndpointRadii);
+
+      for (const path of tree.paths) {
+        const mapped = mapPathToResponsiveEnvelope(path.points, tree, dimensions);
+        for (const point of mapped) {
+          const radius = mappedNormalizedRadius(point, tree, dimensions);
+          assert.ok(
+            radius <= innermostMappedEndpoint + 1e-7,
+            `${morphology} ${dimensions.width}x${dimensions.height} ${path.id} escaped the navigation ring (${radius.toFixed(5)} > ${innermostMappedEndpoint.toFixed(5)})`
+          );
+        }
       }
     }
   }
