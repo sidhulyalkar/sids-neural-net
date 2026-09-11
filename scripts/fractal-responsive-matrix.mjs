@@ -89,6 +89,7 @@ for (const morph of morphologies) {
     const fieldScaleX = Number(await root.getAttribute('data-fractal-field-scale-x'));
     const fieldScaleY = Number(await root.getAttribute('data-fractal-field-scale-y'));
     const boundaryPolicy = await root.getAttribute('data-fractal-boundary-policy');
+    const decorativeClipRadius = Number(await root.getAttribute('data-fractal-decorative-clip-radius'));
     const navigationDensity = await root.getAttribute('data-fractal-navigation-density');
     if (!(fieldScaleX >= 0.8 && fieldScaleX <= 0.92)) {
       failures.push(`${morph} ${viewport.name}: invalid fieldScaleX ${fieldScaleX}`);
@@ -96,8 +97,11 @@ for (const morph of morphologies) {
     if (!(fieldScaleY >= 0.79 && fieldScaleY <= 0.91)) {
       failures.push(`${morph} ${viewport.name}: invalid fieldScaleY ${fieldScaleY}`);
     }
-    if (boundaryPolicy !== 'elliptic-radial-cap-v16') {
+    if (boundaryPolicy !== 'circular-navigation-clip-v17') {
       failures.push(`${morph} ${viewport.name}: boundary policy is ${boundaryPolicy}`);
+    }
+    if (!(decorativeClipRadius >= 50 && Number.isFinite(decorativeClipRadius))) {
+      failures.push(`${morph} ${viewport.name}: invalid decorative clip radius ${decorativeClipRadius}`);
     }
     const shouldCompact = viewport.width < 720 || viewport.height < 620;
     if ((navigationDensity === 'compact-v16') !== shouldCompact) {
@@ -174,6 +178,8 @@ for (const morph of morphologies) {
       ...viewport,
       fieldScaleX,
       fieldScaleY,
+      boundaryPolicy,
+      decorativeClipRadius,
       navigationDensity,
       coreCenter: coreBox ? center(coreBox) : null,
       linkCenters: boxes.map(center),
