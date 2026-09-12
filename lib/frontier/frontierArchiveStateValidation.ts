@@ -1,4 +1,5 @@
 import {
+  FRONTIER_ACQUISITION_QUERY_KINDS,
   FRONTIER_LANE_IDS,
   FRONTIER_REACTIONS,
   type FrontierBehaviorAggregate,
@@ -21,6 +22,8 @@ const MAX_COLLECTIONS = 1_000;
 const MAX_MAP_KEYS = 20_000;
 const MAX_ITEM_TAGS = 64;
 const MAX_ITEM_AUTHORS = 128;
+const MAX_ITEM_ACQUISITION_QUERIES = 8;
+const MAX_ITEM_ACQUISITION_QUERY_LENGTH = 2_048;
 const MAX_COLLECTION_ITEMS = 20_000;
 const MAX_STRING = 100_000;
 const MAX_KEY = 512;
@@ -33,6 +36,7 @@ const MAX_MEDIA_SEGMENTS = 20_000;
 
 const LANE_IDS = new Set<string>(FRONTIER_LANE_IDS);
 const REACTIONS = new Set<string>(FRONTIER_REACTIONS);
+const ACQUISITION_QUERY_KINDS = new Set<string>(FRONTIER_ACQUISITION_QUERY_KINDS);
 const SOURCE_KINDS = new Set<FrontierSourceKind>([
   'hackernews', 'github', 'openalex', 'arxiv', 'huggingface', 'paperswithcode',
   'biorxiv', 'medrxiv', 'openreview', 'lobsters', 'nasa', 'vimeo', 'rss',
@@ -198,6 +202,28 @@ function validSportsState(value: unknown): boolean {
   return false;
 }
 
+function validAcquisition(value: unknown): boolean {
+  if (!isObject(value)) return false;
+  const rootKeys = Object.keys(value);
+  if (rootKeys.length !== 1 || rootKeys[0] !== 'queries') return false;
+  if (!Array.isArray(value.queries) || value.queries.length === 0 || value.queries.length > MAX_ITEM_ACQUISITION_QUERIES) return false;
+
+  const unique = new Set<string>();
+  for (const observation of value.queries) {
+    if (!isObject(observation)) return false;
+    const keys = Object.keys(observation);
+    if (keys.length !== 2 || keys.some((key) => key !== 'kind' && key !== 'query')) return false;
+    if (typeof observation.kind !== 'string' || !ACQUISITION_QUERY_KINDS.has(observation.kind)) return false;
+    if (!nonEmptyText(observation.query, MAX_ITEM_ACQUISITION_QUERY_LENGTH)) return false;
+    const canonical = observation.query.normalize('NFKC').replace(/\s+/g, ' ').trim();
+    if (canonical !== observation.query) return false;
+    const identity = `${observation.kind}\u0000${canonical.toLocaleLowerCase('en-US')}`;
+    if (unique.has(identity)) return false;
+    unique.add(identity);
+  }
+  return true;
+}
+
 function validItem(value: unknown): value is FrontierItem {
   if (!isObject(value)) return false;
   const sourceKind = value.sourceKind;
@@ -212,6 +238,7 @@ function validItem(value: unknown): value is FrontierItem {
   for (const key of ['baseScore', 'importance', 'novelty', 'quality', 'momentum'] as const) {
     if (!finite(value[key], -100, 100)) return false;
   }
+  if (value.acquisition !== undefined && (sourceKind !== 'openalex' || !validAcquisition(value.acquisition))) return false;
   if (value.authors !== undefined && !stringArray(value.authors, MAX_ITEM_AUTHORS)) return false;
   if (value.media !== undefined && !validMedia(value.media)) return false;
   if (value.metrics !== undefined) {

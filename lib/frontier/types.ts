@@ -193,6 +193,27 @@ export type FrontierVelocitySignal = {
   detectedAt: number;
 };
 
+export const FRONTIER_ACQUISITION_QUERY_KINDS = [
+  'openalex-static-search',
+  'openalex-adaptive-search',
+] as const;
+
+export type FrontierAcquisitionQueryKind = (typeof FRONTIER_ACQUISITION_QUERY_KINDS)[number];
+
+export type FrontierAcquisitionQuery = {
+  kind: FrontierAcquisitionQueryKind;
+  /** Canonical query text actually sent to the acquisition source. */
+  query: string;
+};
+
+export type FrontierAcquisitionProvenance = {
+  /**
+   * Observation-only acquisition facts. This metadata has no ranking,
+   * admission, or recommendation authority by itself.
+   */
+  queries: FrontierAcquisitionQuery[];
+};
+
 export type FrontierItem = {
   id: string;
   title: string;
@@ -204,6 +225,7 @@ export type FrontierItem = {
   publishedAt: string;
   lane: FrontierLaneId;
   tags: string[];
+  acquisition?: FrontierAcquisitionProvenance;
   authors?: string[];
   media?: FrontierMedia;
   metrics?: FrontierMetric[];

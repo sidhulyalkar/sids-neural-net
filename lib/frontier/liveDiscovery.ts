@@ -1,3 +1,4 @@
+import { frontierAcquisitionFromQuery, mergeFrontierAcquisition } from './acquisitionProvenance';
 import { FRONTIER_SOURCE_WEIGHTS } from './config';
 import { classifyFrontierLane } from './sources';
 import { assessFrontierHost } from './sourceTrust';
@@ -161,17 +162,12 @@ function isResearchFocus(topic: string): boolean {
   return ['ml_data', 'ai_frontier', 'neuro_frontier', 'methods', 'broad_science', 'competitions'].includes(lane);
 }
 
-async function openAlexTopic(topic: string): Promise<FrontierItem[]> {
-  const from = new Date(Date.now() - 12 * DAY_MS).toISOString().slice(0, 10);
-  const url = new URL('https://api.openalex.org/works');
-  url.searchParams.set('search', topic);
-  url.searchParams.set('filter', `from_publication_date:${from}`);
-  url.searchParams.set('sort', 'publication_date:desc,cited_by_count:desc');
-  url.searchParams.set('per-page', '5');
-  if (process.env.OPENALEX_EMAIL) url.searchParams.set('mailto', process.env.OPENALEX_EMAIL);
-  if (process.env.OPENALEX_API_KEY) url.searchParams.set('api_key', process.env.OPENALEX_API_KEY);
-  const payload = await fetchJson<{ results?: AdaptiveOpenAlexWork[] }>(url.toString());
-  return (payload.results ?? []).flatMap((work) => {
+export function parseAdaptiveOpenAlexWorks(
+  results: AdaptiveOpenAlexWork[],
+  topic: string,
+): FrontierItem[] {
+  const acquisition = frontierAcquisitionFromQuery('openalex-adaptive-search', topic);
+  return results.flatMap((work) => {
     const title = work.display_name || work.title;
     if (!work.id || !title) return [];
     const publishedAt = work.publication_date ? new Date(`${work.publication_date}T12:00:00Z`).toISOString() : new Date().toISOString();
@@ -190,6 +186,7 @@ async function openAlexTopic(topic: string): Promise<FrontierItem[]> {
       sourceKind: 'openalex' as const,
       publishedAt,
       lane,
+      acquisition,
       tags: Array.from(new Set([topic.toLowerCase(), lane.replaceAll('_', ' '), ...(work.topics ?? []).slice(0, 3).flatMap((entry) => entry.display_name ? [entry.display_name.toLowerCase()] : [])])),
       authors: (work.authorships ?? []).slice(0, 5).flatMap((entry) => entry.author?.display_name ? [entry.author.display_name] : []),
       metrics: [{ label: 'citations', value: String(citations) }],
@@ -197,6 +194,19 @@ async function openAlexTopic(topic: string): Promise<FrontierItem[]> {
       why: `Fresh scholarly search matching ${topic}.`,
     }];
   });
+}
+
+async function openAlexTopic(topic: string): Promise<FrontierItem[]> {
+  const from = new Date(Date.now() - 12 * DAY_MS).toISOString().slice(0, 10);
+  const url = new URL('https://api.openalex.org/works');
+  url.searchParams.set('search', topic);
+  url.searchParams.set('filter', `from_publication_date:${from}`);
+  url.searchParams.set('sort', 'publication_date:desc,cited_by_count:desc');
+  url.searchParams.set('per-page', '5');
+  if (process.env.OPENALEX_EMAIL) url.searchParams.set('mailto', process.env.OPENALEX_EMAIL);
+  if (process.env.OPENALEX_API_KEY) url.searchParams.set('api_key', process.env.OPENALEX_API_KEY);
+  const payload = await fetchJson<{ results?: AdaptiveOpenAlexWork[] }>(url.toString());
+  return parseAdaptiveOpenAlexWorks(payload.results ?? [], topic);
 }
 
 const BUILDER_BRIDGE_INTEREST = /\b(?:skate(?:board|boarding)?|mountain bik(?:e|ing)|mtb|rock climb(?:ing)?|boulder(?:ing)?|disc golf|sports?|game development|gaming|music)\b/i;
@@ -246,14 +256,18 @@ async function githubTopic(topic: string): Promise<FrontierItem[]> {
   });
 }
 
-function dedupe(items: FrontierItem[]): FrontierItem[] {
-  const seen = new Set<string>();
-  return items.filter((item) => {
+export function dedupeFrontierLiveItems(items: FrontierItem[]): FrontierItem[] {
+  const seen = new Map<string, FrontierItem>();
+  for (const item of items) {
     const key = item.url.toLowerCase().replace(/[?#].*$/, '');
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
+    const existing = seen.get(key);
+    if (existing) {
+      existing.acquisition = mergeFrontierAcquisition(existing.acquisition, item.acquisition);
+      continue;
+    }
+    seen.set(key, { ...item });
+  }
+  return Array.from(seen.values());
 }
 
 export async function getAdaptiveLiveDiscovery(topics: string[]): Promise<FrontierFeedResponse> {
@@ -279,7 +293,7 @@ export async function getAdaptiveLiveDiscovery(topics: string[]): Promise<Fronti
   const gdeltItems = gdeltRuns.flatMap((result) => result.status === 'fulfilled' ? result.value : []);
   const researchItems = researchRuns.flatMap((result) => result.status === 'fulfilled' ? result.value : []);
   const builderItems = builderRuns.flatMap((result) => result.status === 'fulfilled' ? result.value : []);
-  const items = dedupe([...researchItems, ...builderItems, ...gdeltItems])
+  const items = dedupeFrontierLiveItems([...researchItems, ...builderItems, ...gdeltItems])
     .sort((a, b) => b.baseScore - a.baseScore)
     .slice(0, 72);
 
