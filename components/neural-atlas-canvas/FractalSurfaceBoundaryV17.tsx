@@ -3,14 +3,29 @@
 import { useEffect } from 'react';
 
 const BOUNDARY_POLICY = 'circular-navigation-clip-v17';
-const SURFACE_BOUNDARY = 'navigation-circle-v17';
+const DECORATIVE_BOUNDARY = 'navigation-circle-v17';
+const DECORATIVE_CANVAS_SELECTOR =
+  '[data-fractal-surface-enhancer="v2"], [data-fractal-experience="v3"]';
+
+function decorativeCanvases(): HTMLCanvasElement[] {
+  return Array.from(document.querySelectorAll<HTMLCanvasElement>(DECORATIVE_CANVAS_SELECTOR));
+}
 
 function clearBoundary(canvas: HTMLCanvasElement) {
-  delete canvas.dataset.fractalSurfaceBoundary;
-  delete canvas.dataset.fractalSurfaceClipRadius;
-  delete canvas.dataset.fractalSurfaceClipCenter;
+  delete canvas.dataset.fractalDecorativeBoundary;
+  delete canvas.dataset.fractalDecorativeClipRadius;
+  delete canvas.dataset.fractalDecorativeClipCenter;
   canvas.style.clipPath = '';
   canvas.style.removeProperty('-webkit-clip-path');
+}
+
+function applyCanvasBoundary(canvas: HTMLCanvasElement, radius: number, centerX: number, centerY: number) {
+  const clip = `circle(${radius.toFixed(2)}px at ${centerX.toFixed(2)}px ${centerY.toFixed(2)}px)`;
+  canvas.style.clipPath = clip;
+  canvas.style.setProperty('-webkit-clip-path', clip);
+  canvas.dataset.fractalDecorativeBoundary = DECORATIVE_BOUNDARY;
+  canvas.dataset.fractalDecorativeClipRadius = radius.toFixed(2);
+  canvas.dataset.fractalDecorativeClipCenter = `${centerX.toFixed(2)},${centerY.toFixed(2)}`;
 }
 
 export function FractalSurfaceBoundaryV17() {
@@ -20,8 +35,8 @@ export function FractalSurfaceBoundaryV17() {
     const applyBoundary = () => {
       frame = 0;
       const root = document.querySelector<HTMLElement>('[data-fractal-morphology]');
-      const canvas = document.querySelector<HTMLCanvasElement>('[data-fractal-surface-enhancer="v2"]');
-      if (!root || !canvas) return;
+      const canvases = decorativeCanvases();
+      if (!root || !canvases.length) return;
 
       const rect = root.getBoundingClientRect();
       const width = Math.round(rect.width || window.innerWidth);
@@ -39,16 +54,12 @@ export function FractalSurfaceBoundaryV17() {
         Number.isFinite(centerY);
 
       if (!ready) {
-        clearBoundary(canvas);
+        for (const canvas of canvases) clearBoundary(canvas);
         return;
       }
 
-      const clip = `circle(${radius.toFixed(2)}px at ${centerX.toFixed(2)}px ${centerY.toFixed(2)}px)`;
-      canvas.style.clipPath = clip;
-      canvas.style.setProperty('-webkit-clip-path', clip);
-      canvas.dataset.fractalSurfaceBoundary = SURFACE_BOUNDARY;
-      canvas.dataset.fractalSurfaceClipRadius = radius.toFixed(2);
-      canvas.dataset.fractalSurfaceClipCenter = `${centerX.toFixed(2)},${centerY.toFixed(2)}`;
+      for (const canvas of canvases) applyCanvasBoundary(canvas, radius, centerX, centerY);
+      root.dataset.fractalDecorativeBoundary = DECORATIVE_BOUNDARY;
     };
 
     const schedule = () => {
@@ -80,17 +91,20 @@ export function FractalSurfaceBoundaryV17() {
       observer.disconnect();
       window.removeEventListener('resize', schedule);
       window.visualViewport?.removeEventListener('resize', schedule);
-      const canvas = document.querySelector<HTMLCanvasElement>('[data-fractal-surface-enhancer="v2"]');
-      if (canvas) clearBoundary(canvas);
+      for (const canvas of decorativeCanvases()) clearBoundary(canvas);
+      const root = document.querySelector<HTMLElement>('[data-fractal-morphology]');
+      if (root) delete root.dataset.fractalDecorativeBoundary;
     };
   }, []);
 
   return (
     <style>{`
-      [data-fractal-surface-enhancer="v2"] {
+      [data-fractal-surface-enhancer="v2"],
+      [data-fractal-experience="v3"] {
         opacity: 0 !important;
       }
-      [data-fractal-surface-enhancer="v2"][data-fractal-surface-boundary="navigation-circle-v17"] {
+      [data-fractal-surface-enhancer="v2"][data-fractal-decorative-boundary="navigation-circle-v17"],
+      [data-fractal-experience="v3"][data-fractal-decorative-boundary="navigation-circle-v17"] {
         opacity: 1 !important;
       }
     `}</style>
