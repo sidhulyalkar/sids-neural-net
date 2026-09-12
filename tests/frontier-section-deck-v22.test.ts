@@ -67,7 +67,8 @@ test('page navigation is data-local and predictively decodes bounded adjacent me
   assert.doesNotMatch(deckSource, /fetch\(['"`]\/api\/frontier\/feed/);
   assert.match(deckSource, /const MAX_DECODED_MEDIA = 32/);
   assert.match(deckSource, /decodedMediaCache = new Map/);
-  assert.match(deckSource, /image\.decode\(\)\.catch/);
+  assert.match(deckSource, /image\.decode\(\)\.then/);
+  assert.match(deckSource, /Promise\.allSettled/);
   assert.match(deckSource, /requestIdleCallback/);
   assert.match(deckSource, /warmIndex\(pageIndex \+ 1, 'idle'/);
   assert.match(deckSource, /warmIndex\(pageIndex - 1, 'idle'/);
@@ -76,13 +77,21 @@ test('page navigation is data-local and predictively decodes bounded adjacent me
   assert.match(deckSource, /media\.posterProxyUrl \?\? media\.poster/);
 });
 
-test('3D turn prepares the target sheet before a GPU-only reveal', () => {
+test('3D turn pre-lays out the target sheet and bounds readiness before a GPU-only reveal', () => {
   assert.match(deckSource, /type TurnPhase = 'prepare' \| 'turn'/);
-  assert.match(deckSource, /requestAnimationFrame\(\(\) => \{[\s\S]*requestAnimationFrame/);
+  assert.match(deckSource, /const TARGET_READY_BUDGET_MS = 96/);
+  assert.match(deckSource, /Promise\.race\(\[/);
+  assert.match(deckSource, /warmIndex\(turn\.targetIndex, 'immediate'\)/);
+  assert.match(deckSource, /requestAnimationFrame/);
+  assert.match(deckSource, /data-frontier-readiness-gate/);
+  assert.match(deckSource, /setPointerCapture/);
+  assert.match(deckSource, /releasePointerCapture/);
   assert.match(deckSource, /data-frontier-page-role="incoming"/);
   assert.match(deckSource, /data-frontier-page-role="current"/);
   assert.match(deckSource, /data-frontier-turning=\{turn\?\.phase \?\? 'idle'\}/);
   assert.match(deckCss, /perspective: 1850px/);
+  assert.match(deckCss, /\.incomingPrepared \{[\s\S]*visibility: hidden;[\s\S]*opacity: 0;/);
+  assert.doesNotMatch(deckCss, /\.incomingPrepared \{[\s\S]*display: none;/);
   assert.match(deckCss, /rotateY\(-86deg\)/);
   assert.match(deckCss, /rotateY\(86deg\)/);
   assert.match(deckCss, /will-change: transform/);
