@@ -8,7 +8,9 @@ const ARTIFACT_DIR = path.resolve('artifacts/browser-smoke');
 const DECK = '[data-frontier-section-deck="true"]';
 const CURRENT_CARD = '[data-frontier-page-role="current"] [data-frontier-fluid-card]';
 const ALL_CARD = '[data-frontier-fluid-card]';
+const INCOMING_PAGE = '[data-frontier-page-role="incoming"]';
 const MAX_USEFUL_PAINT_MS = 9_000;
+const MAX_PREPARE_MS = 180;
 const MAX_TURN_SETTLE_MS = 1_400;
 const PASSIVE_QUIET_MS = 2_000;
 fs.mkdirSync(ARTIFACT_DIR, { recursive: true });
@@ -63,6 +65,7 @@ async function state(page) {
       turn: deck?.getAttribute('data-frontier-turning') || '',
       cache: deck?.getAttribute('data-frontier-page-cache') || '',
       prefetch: deck?.getAttribute('data-frontier-prefetch-depth') || '',
+      readinessGate: deck?.getAttribute('data-frontier-readiness-gate') || '',
       performanceRoute: Boolean(document.querySelector('[data-frontier-performance-route="true"]')),
       ambientCanvases: document.querySelectorAll('canvas[data-frontier-audio-reactive="true"]').length,
       workers: Array.isArray(window.__frontierV22Workers) ? window.__frontierV22Workers.slice() : [],
@@ -82,7 +85,43 @@ async function waitForSettledDeck(page, maxCards) {
   }, { deckSelector: DECK, currentCardSelector: CURRENT_CARD, max: maxCards }, { polling: 'raf', timeout: MAX_USEFUL_PAINT_MS });
 }
 
+async function armTurnProbe(page) {
+  await page.evaluate(({ deckSelector, incomingSelector, allCardSelector }) => {
+    const deck = document.querySelector(deckSelector);
+    if (!deck) throw new Error('FRONTIER deck missing while arming turn probe');
+    window.__frontierTurnProbe?.observer?.disconnect?.();
+    const startedAt = performance.now();
+    const events = [];
+    const sample = () => {
+      const phase = deck.getAttribute('data-frontier-turning') || '';
+      const incoming = document.querySelector(incomingSelector);
+      events.push({
+        phase,
+        atMs: performance.now() - startedAt,
+        domCardCount: document.querySelectorAll(allCardSelector).length,
+        incomingPresent: Boolean(incoming),
+        incomingVisibility: incoming ? getComputedStyle(incoming).visibility : null,
+      });
+    };
+    const observer = new MutationObserver((mutations) => {
+      if (mutations.some((mutation) => mutation.type === 'attributes' && mutation.attributeName === 'data-frontier-turning')) sample();
+    });
+    observer.observe(deck, { attributes: true, attributeFilter: ['data-frontier-turning'] });
+    window.__frontierTurnProbe = { startedAt, events, observer };
+  }, { deckSelector: DECK, incomingSelector: INCOMING_PAGE, allCardSelector: ALL_CARD });
+}
+
+async function readTurnProbe(page) {
+  return page.evaluate(() => {
+    const probe = window.__frontierTurnProbe;
+    if (!probe) return [];
+    probe.observer?.disconnect?.();
+    return Array.isArray(probe.events) ? probe.events.slice() : [];
+  });
+}
+
 async function turnForward(page, beforeIds, maxCards) {
+  await armTurnProbe(page);
   const started = Date.now();
   await page.getByRole('button', { name: 'Next section' }).click();
   await page.waitForFunction(({ deckSelector, currentCardSelector, prior, max }) => {
@@ -94,7 +133,31 @@ async function turnForward(page, beforeIds, maxCards) {
       && ids.length <= max
       && ids.join('|') !== prior.join('|');
   }, { deckSelector: DECK, currentCardSelector: CURRENT_CARD, prior: beforeIds, max: maxCards }, { polling: 'raf', timeout: MAX_TURN_SETTLE_MS });
-  return Date.now() - started;
+
+  const totalMs = Date.now() - started;
+  const events = await readTurnProbe(page);
+  const prepareEvent = events.find((event) => event.phase === 'prepare');
+  const turnEvent = events.find((event) => event.phase === 'turn');
+  const settledEvent = [...events].reverse().find((event) => event.phase === 'idle');
+
+  assert(prepareEvent, 'page turn never exposed its prepare phase');
+  assert(turnEvent, 'page turn never entered the compositor turn phase');
+  assert(settledEvent, 'page turn never returned to idle');
+  assert(prepareEvent.incomingPresent, 'incoming sheet was not mounted during prepare');
+  assert.equal(prepareEvent.incomingVisibility, 'hidden', 'incoming sheet must be pre-laid-out but visually hidden during prepare');
+  assert(turnEvent.incomingPresent, 'incoming sheet disappeared before compositor turn');
+  assert(prepareEvent.atMs <= MAX_PREPARE_MS, `prepare phase began too late: ${prepareEvent.atMs.toFixed(1)}ms`);
+  assert(turnEvent.atMs <= MAX_PREPARE_MS, `media readiness gate exceeded bounded prepare window: ${turnEvent.atMs.toFixed(1)}ms`);
+  assert(turnEvent.domCardCount <= maxCards * 2, `turn mounted ${turnEvent.domCardCount} cards; two-sheet budget=${maxCards * 2}`);
+  assert(totalMs <= MAX_TURN_SETTLE_MS, `page turn took ${totalMs}ms to settle`);
+
+  return {
+    totalMs,
+    prepareMs: prepareEvent.atMs,
+    compositorStartMs: turnEvent.atMs,
+    compositorSettleMs: settledEvent.atMs,
+    events,
+  };
 }
 
 async function auditViewport(browser, viewport, maxCards, label) {
@@ -126,6 +189,7 @@ async function auditViewport(browser, viewport, maxCards, label) {
     assert.equal(first.turn, 'idle', `${label} first useful paint was not settled`);
     assert.equal(first.cache, 'memory+decoded-media', `${label} predictive page cache contract missing`);
     assert.equal(first.prefetch, 'next-prev-plus-one', `${label} predictive prefetch depth contract missing`);
+    assert.equal(first.readinessGate, 'decode-or-96ms', `${label} readiness gate contract missing`);
     assert(usefulPaintMs <= MAX_USEFUL_PAINT_MS, `${label} useful paint exceeded ${MAX_USEFUL_PAINT_MS}ms: ${usefulPaintMs}ms`);
     assert.deepEqual(apiRequests, [], `${label} cold load unexpectedly called live feed APIs: ${apiRequests.join(' | ')}`);
 
@@ -135,20 +199,19 @@ async function auditViewport(browser, viewport, maxCards, label) {
     assert.equal(quiet.ambientCanvases, 0, `${label} ambient canvas should be absent on the performance route`);
     assert(!quiet.workers.some((url) => /liveDaemonWorker|semantic|rerank/i.test(url)), `${label} started a heavy feed worker: ${quiet.workers.join(' | ')}`);
 
-    let turnMs = null;
+    let turnMetrics = null;
     if (first.pageCount > 1) {
-      turnMs = await turnForward(page, first.currentIds, maxCards);
+      turnMetrics = await turnForward(page, first.currentIds, maxCards);
       const after = await state(page);
       assert(after.currentCount <= maxCards, `${label} settled page turn exceeded current-card budget`);
       assert(after.domCardCount <= maxCards, `${label} incoming sheet was not released after turn settle`);
       assert.equal(after.totalItems, first.totalItems, `${label} page turn changed retained edition size`);
-      assert(turnMs <= MAX_TURN_SETTLE_MS, `${label} page turn took ${turnMs}ms to settle`);
       assert.deepEqual(apiRequests, [], `${label} page turn triggered live data fetch: ${apiRequests.join(' | ')}`);
     }
 
     assert.deepEqual(pageErrors, [], `${label} emitted page errors: ${pageErrors.join(' | ')}`);
     assert.deepEqual(consoleErrors, [], `${label} emitted console errors: ${consoleErrors.join(' | ')}`);
-    return { usefulPaintMs, turnMs, first, quiet };
+    return { usefulPaintMs, turnMetrics, first, quiet };
   } finally {
     await context.close();
   }
