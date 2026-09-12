@@ -70,14 +70,14 @@ function normalizeTopic(value: string): string {
   return TOPIC_ALIASES[cleaned] ?? cleaned;
 }
 
-function behaviorScore(model: FrontierBehaviorModel | undefined, topic: string): number {
+function behaviorScore(model: FrontierBehaviorModel | undefined, topic: string, now: Date): number {
   if (!model?.rankingSnapshot) return 0;
-  const direct = aggregatePreference(model.rankingSnapshot.topicStats[topic]);
+  const direct = aggregatePreference(model.rankingSnapshot.topicStats[topic], now);
   if (direct.confidence > 0) return direct.score * direct.confidence;
 
   const alias = Object.entries(TOPIC_ALIASES).find(([, canonical]) => canonical === topic)?.[0];
   if (!alias) return 0;
-  const aliased = aggregatePreference(model.rankingSnapshot.topicStats[alias]);
+  const aliased = aggregatePreference(model.rankingSnapshot.topicStats[alias], now);
   return aliased.score * aliased.confidence;
 }
 
@@ -116,6 +116,7 @@ function phraseOverlaps(left: string, right: string): boolean {
 
 function seedSuppressedByLearnedDisinterest(
   seed: string,
+  now: Date,
   behavior?: FrontierBehaviorModel,
   directPreferenceEvidence?: FrontierDirectPreferenceEvidenceIndex,
 ): boolean {
@@ -134,7 +135,7 @@ function seedSuppressedByLearnedDisinterest(
   const snapshot = behavior?.rankingSnapshot;
   if (!snapshot) return false;
   for (const [topic, aggregate] of Object.entries(snapshot.topicStats)) {
-    const preference = aggregatePreference(aggregate);
+    const preference = aggregatePreference(aggregate, now);
     if (preference.confidence < 0.6 || preference.score > -0.18) continue;
     if (phraseOverlaps(seed, topic)) return true;
   }
@@ -232,7 +233,7 @@ export function buildDiscoveryFocus(
     );
     if (!topic || GENERIC.has(topic) || affinity <= -0.15) continue;
     const knownPenalty = Math.max(0, profile.knownTopics[rawTopic] ?? profile.knownTopics[topic] ?? 0) * 0.12;
-    const preference = behaviorScore(behavior, rawTopic) || behaviorScore(behavior, topic);
+    const preference = behaviorScore(behavior, rawTopic, now) || behaviorScore(behavior, topic, now);
     const exposure = behavior?.topicStats[rawTopic]?.shown ?? behavior?.topicStats[topic]?.shown ?? 0;
     const underexposedBonus = exposure < 3 ? 0.05 : 0;
     const score = affinity + preference * 0.8 + underexposedBonus - knownPenalty;
@@ -243,7 +244,7 @@ export function buildDiscoveryFocus(
     for (const [rawTopic, aggregate] of Object.entries(behavior.rankingSnapshot.topicStats)) {
       const topic = normalizeTopic(rawTopic);
       if (!topic || GENERIC.has(topic)) continue;
-      const preference = aggregatePreference(aggregate);
+      const preference = aggregatePreference(aggregate, now);
       if (preference.confidence < 0.22 || preference.score <= 0.08) continue;
       const directAffinity = effectiveDirectPreferenceAffinity(
         profile.topicAffinity[rawTopic] ?? 0,
@@ -282,7 +283,7 @@ export function buildDiscoveryFocus(
 
   for (const topic of rotatedDiscoverySeeds(now)) {
     if (selected.length >= cap) break;
-    if (seedSuppressedByLearnedDisinterest(topic, behavior, directPreferenceEvidence)) continue;
+    if (seedSuppressedByLearnedDisinterest(topic, now, behavior, directPreferenceEvidence)) continue;
     if (overlapsExisting(selected, topic)) continue;
     selected.push(topic.slice(0, 64));
   }
