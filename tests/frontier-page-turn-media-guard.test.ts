@@ -12,10 +12,10 @@ test('FRONTIER page turns yield fixed GPU media to native sheet geometry', () =>
 
   assert.match(route, /<FrontierPageTurnMediaGuard\s*\/>/);
   assert.match(guard, /data-frontier-page-turn-media-guard="native-sheet"/);
-  assert.match(guard, /data-frontier-turning=\\"prepare\\"/);
-  assert.match(guard, /data-frontier-turning=\\"turn\\"/);
-  assert.match(guard, /canvas\[aria-hidden=\\"true\\"\]\[style\*=\\"z-index: 42\\"\]/);
+  assert.match(guard, /data-frontier-turning="prepare"/);
+  assert.match(guard, /data-frontier-turning="turn"/);
+  assert.match(guard, /canvas\[aria-hidden="true"\]\[style\*="z-index: 42"\]/);
   assert.match(guard, /opacity:\s*0\s*!important/);
   assert.match(guard, /visibility:\s*hidden\s*!important/);
-  assert.doesNotMatch(guard, /data-frontier-turning=\\"idle\\"[\s\S]*opacity:\s*0/);
+  assert.doesNotMatch(guard, /data-frontier-turning="idle"[\s\S]*opacity:\s*0/);
 });
