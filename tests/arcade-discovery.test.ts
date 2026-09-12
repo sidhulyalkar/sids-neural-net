@@ -72,7 +72,7 @@ test('Stretchicorn cabinet tracks live main dist/stretchicorn-local.html', () =>
   assert.match(route, /STRETCHICORN_SOURCE_ARTIFACT = 'dist\/stretchicorn-local\.html'/);
   assert.match(route, /tabindex=0/);
   assert.match(route, /host integration check/);
-  assert.match(route, /revalidate: 300/);
+  assert.match(route, /cache: 'no-store'/);
   assert.match(route, /X-Stretchicorn-Source-Ref/);
   assert.match(route, /X-Stretchicorn-Source-Artifact/);
 
@@ -103,7 +103,7 @@ test('uniRico cabinet tracks live main src/ assets', () => {
   const route = readRepoFile('app/game-runtimes/unirico/[...asset]/route.ts');
   assert.match(route, /UNIRICO_SOURCE_REF = 'main'/);
   assert.match(route, /redirectToCanonical/);
-  assert.match(route, /revalidate: 300/);
+  assert.match(route, /cache: 'no-store'/);
   assert.match(route, /X-UniRico-Source-Ref/);
 
   const workflow = readRepoFile('.github/workflows/ci.yml');
@@ -134,7 +134,7 @@ test('Unicorn Stampede cabinet tracks live main dist/local.html', () => {
   assert.match(route, /host integration check/);
   assert.match(route, /X-Unicorn-Stampede-Source-Ref/);
   assert.match(route, /X-Unicorn-Stampede-Source-Artifact/);
-  assert.match(route, /revalidate: 300/);
+  assert.match(route, /cache: 'no-store'/);
 
   const workflow = readRepoFile('.github/workflows/ci.yml');
   assert.match(workflow, /arcade\/unicorn-stampede/);

@@ -41,9 +41,11 @@ export async function GET(_request: Request, { params }: UnicornStampedeRuntimeR
   }
 
   const upstream = await fetch(SOURCE_URL, {
-    headers: { Accept: 'text/html,text/plain;q=0.9,*/*;q=0.8' },
-    // Revalidate frequently so Game Network stays close to unicorn-stampede main.
-    next: { revalidate: 300 },
+    headers: {
+      Accept: 'text/html,text/plain;q=0.9,*/*;q=0.8',
+      'Cache-Control': 'no-cache',
+    },
+    cache: 'no-store',
   });
 
   if (!upstream.ok) {
@@ -75,14 +77,14 @@ export async function GET(_request: Request, { params }: UnicornStampedeRuntimeR
     status: 200,
     headers: {
       'Content-Type': 'text/html; charset=utf-8',
-      // Short browser cache; server revalidates against main every 5 minutes.
-      'Cache-Control': 'public, max-age=60, s-maxage=300, stale-while-revalidate=3600',
+      'Cache-Control': 'private, max-age=30, must-revalidate',
       'Content-Security-Policy':
         "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; media-src 'none'; connect-src 'none'; font-src 'none'; frame-ancestors 'self';",
       'X-Content-Type-Options': 'nosniff',
       'Cross-Origin-Resource-Policy': 'same-origin',
       'X-Unicorn-Stampede-Source-Ref': UNICORN_STAMPEDE_SOURCE_REF,
       'X-Unicorn-Stampede-Source-Artifact': UNICORN_STAMPEDE_SOURCE_ARTIFACT,
+      'X-Unicorn-Stampede-Upstream-Bytes': String(html.length),
     },
   });
 }

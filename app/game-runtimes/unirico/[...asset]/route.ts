@@ -40,7 +40,7 @@ function injectGameNetworkBridge(html: string) {
 function redirectToCanonical(request: Request, path: string) {
   const target = new URL(`/game-runtimes/unirico/${path}`, request.url);
   const response = NextResponse.redirect(target, 307);
-  response.headers.set('Cache-Control', 'public, max-age=300');
+  response.headers.set('Cache-Control', 'public, max-age=60');
   return response;
 }
 
@@ -58,8 +58,11 @@ export async function GET(request: Request, { params }: RuntimeAssetRouteProps) 
   if (requestedVersion) return redirectToCanonical(request, path);
 
   const upstream = await fetch(`${SOURCE_ROOT}/${path}`, {
-    headers: { Accept: 'text/plain,*/*;q=0.8' },
-    next: { revalidate: 300 },
+    headers: {
+      Accept: 'text/plain,*/*;q=0.8',
+      'Cache-Control': 'no-cache',
+    },
+    cache: 'no-store',
   });
 
   if (!upstream.ok) {
@@ -88,7 +91,7 @@ export async function GET(request: Request, { params }: RuntimeAssetRouteProps) 
     status: 200,
     headers: {
       'Content-Type': CONTENT_TYPES[extension] ?? 'text/plain; charset=utf-8',
-      'Cache-Control': 'public, max-age=60, s-maxage=300, stale-while-revalidate=3600',
+      'Cache-Control': 'private, max-age=30, must-revalidate',
       'Content-Security-Policy':
         "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; media-src 'none'; connect-src 'none'; font-src 'none'; frame-ancestors 'self';",
       'X-Content-Type-Options': 'nosniff',
