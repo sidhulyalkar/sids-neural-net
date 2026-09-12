@@ -27,10 +27,15 @@ type TurnState = {
 };
 type WarmPriority = 'idle' | 'immediate';
 type ConnectionHint = { saveData?: boolean; effectiveType?: string };
+type WarmRecord = {
+  image: HTMLImageElement;
+  ready: Promise<void>;
+};
 
 const TURN_FALLBACK_MS = 640;
+const TARGET_READY_BUDGET_MS = 96;
 const MAX_DECODED_MEDIA = 32;
-const decodedMediaCache = new Map<string, HTMLImageElement>();
+const decodedMediaCache = new Map<string, WarmRecord>();
 
 function isTypingTarget(target: EventTarget | null): boolean {
   const node = target as HTMLElement | null;
@@ -88,9 +93,9 @@ function warmBudget(priority: WarmPriority): number {
   return priority === 'immediate' ? 10 : 8;
 }
 
-function rememberDecodedImage(url: string, image: HTMLImageElement) {
+function rememberDecodedImage(url: string, record: WarmRecord) {
   decodedMediaCache.delete(url);
-  decodedMediaCache.set(url, image);
+  decodedMediaCache.set(url, record);
   while (decodedMediaCache.size > MAX_DECODED_MEDIA) {
     const oldest = decodedMediaCache.keys().next().value as string | undefined;
     if (!oldest) break;
@@ -98,27 +103,56 @@ function rememberDecodedImage(url: string, image: HTMLImageElement) {
   }
 }
 
-function warmPageMedia(items: FrontierItem[], priority: WarmPriority, requestedLimit?: number) {
-  if (typeof window === 'undefined' || typeof Image === 'undefined') return;
+function beginMediaWarm(url: string, priority: WarmPriority): Promise<void> {
+  const cached = decodedMediaCache.get(url);
+  if (cached) {
+    cached.image.setAttribute('fetchpriority', priority === 'immediate' ? 'high' : 'low');
+    rememberDecodedImage(url, cached);
+    return cached.ready;
+  }
+
+  const image = new Image();
+  image.decoding = 'async';
+  image.loading = 'eager';
+  image.referrerPolicy = 'no-referrer';
+  image.setAttribute('fetchpriority', priority === 'immediate' ? 'high' : 'low');
+
+  let settle: (() => void) | undefined;
+  let settled = false;
+  const ready = new Promise<void>((resolve) => {
+    settle = () => {
+      if (settled) return;
+      settled = true;
+      image.onload = null;
+      image.onerror = null;
+      resolve();
+    };
+  });
+  const finish = () => settle?.();
+  image.onload = finish;
+  image.onerror = finish;
+  image.src = url;
+
+  const record: WarmRecord = { image, ready };
+  rememberDecodedImage(url, record);
+
+  if (typeof image.decode === 'function') {
+    void image.decode().then(finish).catch(() => {
+      if (image.complete) finish();
+    });
+  } else if (image.complete) {
+    queueMicrotask(finish);
+  }
+
+  return ready;
+}
+
+function warmPageMedia(items: FrontierItem[], priority: WarmPriority, requestedLimit?: number): Promise<void> {
+  if (typeof window === 'undefined' || typeof Image === 'undefined') return Promise.resolve();
   const urls = Array.from(new Set(items.flatMap(mediaWarmUrls)));
   const limit = Math.max(0, Math.min(urls.length, requestedLimit ?? warmBudget(priority)));
-
-  for (const url of urls.slice(0, limit)) {
-    const cached = decodedMediaCache.get(url);
-    if (cached) {
-      rememberDecodedImage(url, cached);
-      continue;
-    }
-
-    const image = new Image();
-    image.decoding = 'async';
-    image.loading = 'eager';
-    image.referrerPolicy = 'no-referrer';
-    image.setAttribute('fetchpriority', priority === 'immediate' ? 'high' : 'low');
-    image.src = url;
-    rememberDecodedImage(url, image);
-    if (typeof image.decode === 'function') void image.decode().catch(() => undefined);
-  }
+  if (limit === 0) return Promise.resolve();
+  return Promise.allSettled(urls.slice(0, limit).map((url) => beginMediaWarm(url, priority))).then(() => undefined);
 }
 
 export function FrontierSectionDeck({ items, layoutMode, renderCard, empty }: Props) {
@@ -128,8 +162,7 @@ export function FrontierSectionDeck({ items, layoutMode, renderCard, empty }: Pr
   const [turn, setTurn] = useState<TurnState>();
   const turnFallback = useRef<number | undefined>(undefined);
   const prepareFrame = useRef<number | undefined>(undefined);
-  const revealFrame = useRef<number | undefined>(undefined);
-  const swipeStart = useRef<{ x: number; y: number } | undefined>(undefined);
+  const swipeStart = useRef<{ x: number; y: number; pointerId: number } | undefined>(undefined);
   const swipeWarmDirection = useRef<TurnDirection | undefined>(undefined);
 
   useEffect(() => {
@@ -143,13 +176,12 @@ export function FrontierSectionDeck({ items, layoutMode, renderCard, empty }: Pr
   useEffect(() => () => {
     if (turnFallback.current !== undefined) window.clearTimeout(turnFallback.current);
     if (prepareFrame.current !== undefined) window.cancelAnimationFrame(prepareFrame.current);
-    if (revealFrame.current !== undefined) window.cancelAnimationFrame(revealFrame.current);
   }, []);
 
-  const warmIndex = useCallback((index: number, priority: WarmPriority, requestedLimit?: number) => {
+  const warmIndex = useCallback((index: number, priority: WarmPriority, requestedLimit?: number): Promise<void> => {
     const page = pages[index];
-    if (!page) return;
-    warmPageMedia(page.items, priority, requestedLimit);
+    if (!page) return Promise.resolve();
+    return warmPageMedia(page.items, priority, requestedLimit);
   }, [pages]);
 
   useEffect(() => {
@@ -157,9 +189,9 @@ export function FrontierSectionDeck({ items, layoutMode, renderCard, empty }: Pr
     const run = () => {
       const budget = warmBudget('idle');
       if (budget <= 0) return;
-      warmIndex(pageIndex + 1, 'idle', budget);
-      warmIndex(pageIndex - 1, 'idle', Math.min(3, budget));
-      warmIndex(pageIndex + 2, 'idle', Math.min(3, budget));
+      void warmIndex(pageIndex + 1, 'idle', budget);
+      void warmIndex(pageIndex - 1, 'idle', Math.min(3, budget));
+      void warmIndex(pageIndex + 2, 'idle', Math.min(3, budget));
     };
 
     const idleWindow = window as Window & {
@@ -176,20 +208,33 @@ export function FrontierSectionDeck({ items, layoutMode, renderCard, empty }: Pr
 
   useEffect(() => {
     if (turn?.phase !== 'prepare') return;
-    prepareFrame.current = window.requestAnimationFrame(() => {
-      revealFrame.current = window.requestAnimationFrame(() => {
-        setTurn((active) => active?.phase === 'prepare' ? { ...active, phase: 'turn' } : active);
-        revealFrame.current = undefined;
-      });
-      prepareFrame.current = undefined;
+    let cancelled = false;
+    let readinessTimer: number | undefined;
+
+    const timeout = new Promise<void>((resolve) => {
+      readinessTimer = window.setTimeout(resolve, TARGET_READY_BUDGET_MS);
     });
+
+    void Promise.race([
+      warmIndex(turn.targetIndex, 'immediate'),
+      timeout,
+    ]).then(() => {
+      if (cancelled) return;
+      if (readinessTimer !== undefined) window.clearTimeout(readinessTimer);
+      prepareFrame.current = window.requestAnimationFrame(() => {
+        if (cancelled) return;
+        setTurn((active) => active?.phase === 'prepare' ? { ...active, phase: 'turn' } : active);
+        prepareFrame.current = undefined;
+      });
+    });
+
     return () => {
+      cancelled = true;
+      if (readinessTimer !== undefined) window.clearTimeout(readinessTimer);
       if (prepareFrame.current !== undefined) window.cancelAnimationFrame(prepareFrame.current);
-      if (revealFrame.current !== undefined) window.cancelAnimationFrame(revealFrame.current);
       prepareFrame.current = undefined;
-      revealFrame.current = undefined;
     };
-  }, [turn?.phase]);
+  }, [turn?.phase, turn?.targetIndex, warmIndex]);
 
   const completeTurn = useCallback(() => {
     if (!turn) return;
@@ -215,7 +260,7 @@ export function FrontierSectionDeck({ items, layoutMode, renderCard, empty }: Pr
     const clamped = Math.max(0, Math.min(pages.length - 1, nextIndex));
     if (clamped === pageIndex) return;
     const direction: TurnDirection = clamped > pageIndex ? 'forward' : 'backward';
-    warmIndex(clamped, 'immediate');
+    void warmIndex(clamped, 'immediate');
 
     if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
       setPageIndex(clamped);
@@ -244,37 +289,40 @@ export function FrontierSectionDeck({ items, layoutMode, renderCard, empty }: Pr
   const targetPage = turn ? pages[turn.targetIndex] : undefined;
 
   const onPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
-    if (turn) return;
-    swipeStart.current = { x: event.clientX, y: event.clientY };
+    if (turn || event.button !== 0) return;
+    swipeStart.current = { x: event.clientX, y: event.clientY, pointerId: event.pointerId };
     swipeWarmDirection.current = undefined;
+    try { event.currentTarget.setPointerCapture(event.pointerId); } catch { /* Pointer capture is best-effort. */ }
   };
 
   const onPointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
     const start = swipeStart.current;
-    if (!start || turn) return;
+    if (!start || start.pointerId !== event.pointerId || turn) return;
     const dx = event.clientX - start.x;
     const dy = event.clientY - start.y;
     if (Math.abs(dx) < 18 || Math.abs(dx) < Math.abs(dy) * 1.15) return;
     const direction: TurnDirection = dx < 0 ? 'forward' : 'backward';
     if (swipeWarmDirection.current === direction) return;
     swipeWarmDirection.current = direction;
-    warmIndex(direction === 'forward' ? pageIndex + 1 : pageIndex - 1, 'immediate');
+    void warmIndex(direction === 'forward' ? pageIndex + 1 : pageIndex - 1, 'immediate');
   };
 
   const onPointerUp = (event: ReactPointerEvent<HTMLDivElement>) => {
     const start = swipeStart.current;
     swipeStart.current = undefined;
     swipeWarmDirection.current = undefined;
-    if (!start) return;
+    try { event.currentTarget.releasePointerCapture(event.pointerId); } catch { /* No active capture. */ }
+    if (!start || start.pointerId !== event.pointerId) return;
     const dx = event.clientX - start.x;
     const dy = event.clientY - start.y;
     if (Math.abs(dx) < 58 || Math.abs(dx) < Math.abs(dy) * 1.2) return;
     navigate(dx < 0 ? pageIndex + 1 : pageIndex - 1);
   };
 
-  const cancelPointer = () => {
+  const cancelPointer = (event: ReactPointerEvent<HTMLDivElement>) => {
     swipeStart.current = undefined;
     swipeWarmDirection.current = undefined;
+    try { event.currentTarget.releasePointerCapture(event.pointerId); } catch { /* No active capture. */ }
   };
 
   const onWheel = (event: ReactWheelEvent<HTMLDivElement>) => {
@@ -311,6 +359,7 @@ export function FrontierSectionDeck({ items, layoutMode, renderCard, empty }: Pr
       data-frontier-turning={turn?.phase ?? 'idle'}
       data-frontier-page-cache="memory+decoded-media"
       data-frontier-prefetch-depth="next-prev-plus-one"
+      data-frontier-readiness-gate={`decode-or-${TARGET_READY_BUDGET_MS}ms`}
     >
       <div className={styles.navBar}>
         <div className={styles.sectionIdentity}>
@@ -323,8 +372,8 @@ export function FrontierSectionDeck({ items, layoutMode, renderCard, empty }: Pr
             type="button"
             className={styles.controlButton}
             onClick={() => navigate(pageIndex - 1)}
-            onPointerEnter={() => warmIndex(pageIndex - 1, 'immediate')}
-            onFocus={() => warmIndex(pageIndex - 1, 'immediate')}
+            onPointerEnter={() => { void warmIndex(pageIndex - 1, 'immediate'); }}
+            onFocus={() => { void warmIndex(pageIndex - 1, 'immediate'); }}
             disabled={pageIndex === 0 || Boolean(turn)}
             aria-label="Previous section"
           ><ChevronLeft size={15} /></button>
@@ -333,8 +382,8 @@ export function FrontierSectionDeck({ items, layoutMode, renderCard, empty }: Pr
             type="button"
             className={styles.controlButton}
             onClick={() => navigate(pageIndex + 1)}
-            onPointerEnter={() => warmIndex(pageIndex + 1, 'immediate')}
-            onFocus={() => warmIndex(pageIndex + 1, 'immediate')}
+            onPointerEnter={() => { void warmIndex(pageIndex + 1, 'immediate'); }}
+            onFocus={() => { void warmIndex(pageIndex + 1, 'immediate'); }}
             disabled={pageIndex >= pages.length - 1 || Boolean(turn)}
             aria-label="Next section"
           ><ChevronRight size={15} /></button>
@@ -349,8 +398,8 @@ export function FrontierSectionDeck({ items, layoutMode, renderCard, empty }: Pr
               key={page.id}
               className={`${styles.railButton} ${index === pageIndex ? styles.railActive : ''}`}
               onClick={() => navigate(index)}
-              onPointerEnter={() => warmIndex(index, 'idle')}
-              onFocus={() => warmIndex(index, 'idle')}
+              onPointerEnter={() => { void warmIndex(index, 'idle'); }}
+              onFocus={() => { void warmIndex(index, 'idle'); }}
               aria-current={index === pageIndex ? 'page' : undefined}
             >
               {index + 1}. {page.title}
