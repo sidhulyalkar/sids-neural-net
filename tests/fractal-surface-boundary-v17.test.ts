@@ -20,6 +20,7 @@ test('every decorative canvas is gated by the same circular navigation authority
   assert.ok(source.includes('canvas.style.clipPath = clip'));
   assert.ok(source.includes("-webkit-clip-path"));
   assert.ok(source.includes('fractalDecorativeBoundary'));
+  assert.ok(source.includes('delete root.dataset.fractalDecorativeBoundary'));
   assert.ok(source.includes('opacity: 0 !important'));
   assert.ok(source.includes('[data-fractal-decorative-boundary="navigation-circle-v17"]'));
 });
