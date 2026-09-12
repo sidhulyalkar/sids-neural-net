@@ -55,6 +55,7 @@ export function FractalSurfaceBoundaryV17() {
 
       if (!ready) {
         for (const canvas of canvases) clearBoundary(canvas);
+        delete root.dataset.fractalDecorativeBoundary;
         return;
       }
 
