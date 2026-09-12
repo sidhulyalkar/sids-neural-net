@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { FrontierPageTurnMediaGuard } from '@/components/frontier/FrontierPageTurnMediaGuard';
 import { FrontierSectionExperience } from '@/components/frontier/FrontierSectionExperience';
 import { getFrontierColdSnapshotFeed } from '@/lib/frontier/snapshotFeed';
 import spatial from '@/components/frontier/frontier-spatial.module.css';
@@ -39,6 +40,7 @@ export default function FrontierPage() {
 
   return (
     <div className={spatial.root} data-frontier-performance-route="true">
+      <FrontierPageTurnMediaGuard />
       <FrontierSectionExperience
         initialDateLabel={initialDateLabel}
         initialDayKey={initialDayKey}
