@@ -53,8 +53,17 @@ for (const viewport of viewports) {
   if ((await root.getAttribute('data-fractal-responsive-envelope')) !== 'v16') {
     failures.push(`${viewport.name}: responsive envelope v16 is not active`);
   }
-  if ((await root.getAttribute('data-fractal-boundary-policy')) !== 'elliptic-radial-cap-v16') {
-    failures.push(`${viewport.name}: responsive boundary policy is not active`);
+  if ((await root.getAttribute('data-fractal-boundary-policy')) !== 'circular-navigation-clip-v17') {
+    failures.push(`${viewport.name}: circular navigation boundary policy v17 is not active`);
+  }
+
+  const decorativeClipRadius = Number(await root.getAttribute('data-fractal-decorative-clip-radius'));
+  if (!(decorativeClipRadius >= 50 && Number.isFinite(decorativeClipRadius))) {
+    failures.push(`${viewport.name}: invalid decorative clip radius ${decorativeClipRadius}`);
+  }
+
+  if ((await page.locator('[data-fractal-theme-echo="background"]').count()) !== 0) {
+    failures.push(`${viewport.name}: persisted theme echo must not render behind the homepage fractal`);
   }
 
   const scaleX = Number(await root.getAttribute('data-fractal-field-scale-x'));
@@ -136,4 +145,4 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log('Adaptive homepage dendrites are responsive, boundary-safe, eight-way, and route to Game Network.');
+console.log('Adaptive homepage dendrites are responsive, circle-bounded, eight-way, and route to Game Network.');

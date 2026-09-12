@@ -29,12 +29,20 @@ function normalizedProgress(value: number, min: number, max: number): number {
   return clamp((value - min) / (max - min), 0, 1);
 }
 
+function authoredNormalizedRadius(point: Vec2, tree: FractalTree): number {
+  const radiusX = Math.max(1, tree.radiusX);
+  const radiusY = Math.max(1, tree.radiusY);
+  const nx = (point.x - tree.center.x) / radiusX;
+  const ny = (point.y - tree.center.y) / radiusY;
+  return Math.hypot(nx, ny);
+}
+
 /**
  * Responsive envelope for the public homepage field.
  *
  * The original morphology engines intentionally generate generously and may
- * touch their rectangular safety bounds.  The public renderer then maps that
- * geometry through this smaller elliptical envelope.  Two things happen at
+ * touch their rectangular safety bounds. The public renderer then maps that
+ * geometry through this smaller elliptical envelope. Two things happen at
  * once: the navigation ring moves modestly closer to CORE, and any points that
  * were hard-clamped against a viewport edge are re-projected by angle instead
  * of being allowed to form a flat line along the browser boundary.
@@ -76,20 +84,36 @@ export function getResponsiveFractalEnvelope(dimensions: Dimensions): Responsive
 }
 
 /**
- * Map one authored/generated point into the responsive public envelope.
- *
- * A radial power slightly above 1 compresses the inner third more than the
- * outer ring, which makes secondary protrusions begin closer to CORE without
- * changing their angular topology.  Points outside the nominal ellipse are
- * capped radially, so rectangular clamping from the underlying generator can
- * never become a flat viewport-edge segment in the final renderer.
+ * The generated morphologies are allowed to create ambient geometry outside
+ * their navigation endpoints. On the public homepage that can leave isolated
+ * polygons or twigs visibly beyond the link ring. Use the innermost authored
+ * navigation endpoint as a second radial authority so oversized source
+ * geometry is compressed before the final renderer applies its circular mask.
  */
-export function mapPointToResponsiveEnvelope(
-  point: Vec2,
+export function getResponsiveNavigationRadiusCap(
   tree: FractalTree,
   dimensions: Dimensions
-): Vec2 {
+): number {
   const envelope = getResponsiveFractalEnvelope(dimensions);
+  let navigationRadius = Number.POSITIVE_INFINITY;
+
+  for (const endpoint of tree.endpoints.values()) {
+    const radius = authoredNormalizedRadius(endpoint, tree);
+    if (Number.isFinite(radius) && radius > 1e-7) {
+      navigationRadius = Math.min(navigationRadius, radius);
+    }
+  }
+
+  if (!Number.isFinite(navigationRadius)) return envelope.normalizedRadiusCap;
+  return Math.min(envelope.normalizedRadiusCap, navigationRadius);
+}
+
+function mapPointWithEnvelope(
+  point: Vec2,
+  tree: FractalTree,
+  envelope: ResponsiveFractalEnvelope,
+  normalizedRadiusCap: number
+): Vec2 {
   const radiusX = Math.max(1, tree.radiusX);
   const radiusY = Math.max(1, tree.radiusY);
   const nx = (point.x - tree.center.x) / radiusX;
@@ -98,7 +122,7 @@ export function mapPointToResponsiveEnvelope(
 
   if (normalizedRadius < 1e-7) return { ...tree.center };
 
-  const cappedRadius = Math.min(normalizedRadius, envelope.normalizedRadiusCap);
+  const cappedRadius = Math.min(normalizedRadius, normalizedRadiusCap);
   const mappedRadius = Math.pow(cappedRadius, envelope.radialExponent);
   const radialScale = mappedRadius / normalizedRadius;
 
@@ -108,12 +132,67 @@ export function mapPointToResponsiveEnvelope(
   };
 }
 
+/**
+ * Map one authored/generated point into the responsive public envelope.
+ *
+ * A radial power slightly above 1 compresses the inner third more than the
+ * outer ring, which makes secondary protrusions begin closer to CORE without
+ * changing their angular topology. The normalized cap prevents old viewport
+ * clamps from reappearing as flat browser-edge geometry.
+ */
+export function mapPointToResponsiveEnvelope(
+  point: Vec2,
+  tree: FractalTree,
+  dimensions: Dimensions
+): Vec2 {
+  const envelope = getResponsiveFractalEnvelope(dimensions);
+  const normalizedRadiusCap = getResponsiveNavigationRadiusCap(tree, dimensions);
+  return mapPointWithEnvelope(point, tree, envelope, normalizedRadiusCap);
+}
+
 export function mapPathToResponsiveEnvelope(
   points: readonly Vec2[],
   tree: FractalTree,
   dimensions: Dimensions
 ): Vec2[] {
-  return points.map((point) => mapPointToResponsiveEnvelope(point, tree, dimensions));
+  const envelope = getResponsiveFractalEnvelope(dimensions);
+  const normalizedRadiusCap = getResponsiveNavigationRadiusCap(tree, dimensions);
+  return points.map((point) => mapPointWithEnvelope(point, tree, envelope, normalizedRadiusCap));
+}
+
+/**
+ * Pixel-space radius used by the final renderer for decorative geometry.
+ *
+ * Wide viewports make the responsive field elliptical. A normalized ellipse
+ * cap alone therefore cannot guarantee that a diagonal polygon is visually
+ * inside the apparent circular navigation ring. This authority intentionally
+ * uses the nearest mapped navigation endpoint in physical pixels and reserves
+ * a small gutter. Primary CORE-to-link connectors are rendered outside this
+ * mask, so only decorative topology is constrained.
+ */
+export function getResponsiveDecorativeClipRadius(
+  tree: FractalTree,
+  dimensions: Dimensions
+): number {
+  const envelope = getResponsiveFractalEnvelope(dimensions);
+  let nearestEndpoint = Number.POSITIVE_INFINITY;
+
+  for (const endpoint of tree.endpoints.values()) {
+    const mapped = mapPointToResponsiveEnvelope(endpoint, tree, dimensions);
+    const radius = Math.hypot(mapped.x - tree.center.x, mapped.y - tree.center.y);
+    if (Number.isFinite(radius) && radius > 1e-7) {
+      nearestEndpoint = Math.min(nearestEndpoint, radius);
+    }
+  }
+
+  const fallback = Math.min(
+    Math.max(1, tree.radiusX * envelope.fieldScaleX),
+    Math.max(1, tree.radiusY * envelope.fieldScaleY)
+  ) * 0.82;
+  const navigationRadius = Number.isFinite(nearestEndpoint) ? nearestEndpoint : fallback;
+  const gutter = envelope.tinyViewport ? 7 : envelope.compactNavigation ? 10 : 14;
+  const minimumRadius = tree.compact ? 50 : 64;
+  return Math.max(minimumRadius, navigationRadius - gutter);
 }
 
 export function estimateResponsiveLabelHalfWidth(label: string, compact: boolean): number {
