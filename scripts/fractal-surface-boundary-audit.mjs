@@ -34,11 +34,14 @@ for (const testCase of cases) {
     ({ morph, expectedViewport }) => {
       const root = document.querySelector('[data-fractal-morphology]');
       const surface = document.querySelector('[data-fractal-surface-enhancer="v2"]');
+      const experience = document.querySelector('[data-fractal-experience="v3"]');
       return (
         root?.getAttribute('data-fractal-morphology') === morph &&
         root?.getAttribute('data-fractal-boundary-policy') === 'circular-navigation-clip-v17' &&
         root?.getAttribute('data-fractal-responsive-viewport') === expectedViewport &&
-        surface?.getAttribute('data-fractal-surface-boundary') === 'navigation-circle-v17'
+        root?.getAttribute('data-fractal-decorative-boundary') === 'navigation-circle-v17' &&
+        surface?.getAttribute('data-fractal-decorative-boundary') === 'navigation-circle-v17' &&
+        experience?.getAttribute('data-fractal-decorative-boundary') === 'navigation-circle-v17'
       );
     },
     { morph: testCase.morph, expectedViewport }
@@ -46,22 +49,26 @@ for (const testCase of cases) {
 
   const audit = await page.evaluate(() => {
     const root = document.querySelector('[data-fractal-morphology]');
-    const canvas = document.querySelector('[data-fractal-surface-enhancer="v2"]');
-    if (!(root instanceof HTMLElement) || !(canvas instanceof HTMLCanvasElement)) {
-      return { error: 'missing root or surface enhancer canvas' };
+    const surface = document.querySelector('[data-fractal-surface-enhancer="v2"]');
+    const experience = document.querySelector('[data-fractal-experience="v3"]');
+    if (
+      !(root instanceof HTMLElement) ||
+      !(surface instanceof HTMLCanvasElement) ||
+      !(experience instanceof HTMLCanvasElement)
+    ) {
+      return { error: 'missing root or decorative canvas' };
     }
 
+    const canvases = [
+      { name: 'surface', canvas: surface },
+      { name: 'experience', canvas: experience },
+    ];
     const rootRect = root.getBoundingClientRect();
     const radius = Number(root.dataset.fractalDecorativeClipRadius);
     const centerX = Number(root.dataset.coreAnchorX);
     const centerY = Number(root.dataset.coreAnchorY);
-    const surfaceRadius = Number(canvas.dataset.fractalSurfaceClipRadius);
-    const computed = getComputedStyle(canvas);
-    const clipPath = computed.clipPath || computed.getPropertyValue('-webkit-clip-path');
-    const opacity = Number(computed.opacity);
-
-    if (![radius, centerX, centerY, surfaceRadius].every(Number.isFinite)) {
-      return { error: 'non-finite boundary metadata', radius, centerX, centerY, surfaceRadius, clipPath, opacity };
+    if (![radius, centerX, centerY].every(Number.isFinite)) {
+      return { error: 'non-finite root boundary metadata', radius, centerX, centerY };
     }
 
     const absoluteCenterX = rootRect.left + centerX;
@@ -78,44 +85,71 @@ for (const testCase of cases) {
       y: absoluteCenterY + Math.sin(angle) * outsideDistance,
     };
 
-    const previousPointerEvents = canvas.style.pointerEvents;
-    const previousZIndex = canvas.style.zIndex;
-    canvas.style.pointerEvents = 'auto';
-    canvas.style.zIndex = '2147483647';
-    const insideHit = document.elementFromPoint(inside.x, inside.y) === canvas;
-    const outsideHit = document.elementFromPoint(outside.x, outside.y) === canvas;
-    canvas.style.pointerEvents = previousPointerEvents;
-    canvas.style.zIndex = previousZIndex;
+    const canvasReports = canvases.map(({ name, canvas }) => {
+      const canvasRadius = Number(canvas.dataset.fractalDecorativeClipRadius);
+      const computed = getComputedStyle(canvas);
+      const clipPath = computed.clipPath || computed.getPropertyValue('-webkit-clip-path');
+      const opacity = Number(computed.opacity);
+      const prior = canvases.map(({ canvas: peer }) => ({
+        canvas: peer,
+        pointerEvents: peer.style.pointerEvents,
+        zIndex: peer.style.zIndex,
+      }));
+      for (const state of prior) {
+        state.canvas.style.pointerEvents = 'none';
+      }
+      canvas.style.pointerEvents = 'auto';
+      canvas.style.zIndex = '2147483647';
+      const insideHit = document.elementFromPoint(inside.x, inside.y) === canvas;
+      const outsideHit = document.elementFromPoint(outside.x, outside.y) === canvas;
+      for (const state of prior) {
+        state.canvas.style.pointerEvents = state.pointerEvents;
+        state.canvas.style.zIndex = state.zIndex;
+      }
+
+      return {
+        name,
+        canvasRadius,
+        clipPath,
+        opacity,
+        insideHit,
+        outsideHit,
+        boundary: canvas.dataset.fractalDecorativeBoundary,
+        clipCenter: canvas.dataset.fractalDecorativeClipCenter,
+      };
+    });
 
     return {
       radius,
-      surfaceRadius,
       centerX,
       centerY,
-      clipPath,
-      opacity,
-      insideHit,
-      outsideHit,
-      boundary: canvas.dataset.fractalSurfaceBoundary,
+      rootBoundary: root.dataset.fractalDecorativeBoundary,
       rootPolicy: root.dataset.fractalBoundaryPolicy,
       viewport: root.dataset.fractalResponsiveViewport,
+      canvases: canvasReports,
     };
   });
 
   const label = `${testCase.morph}-${testCase.width}x${testCase.height}`;
   if (audit.error) failures.push(`${label}: ${audit.error}`);
   if (audit.rootPolicy !== 'circular-navigation-clip-v17') failures.push(`${label}: wrong root boundary policy ${audit.rootPolicy}`);
-  if (audit.boundary !== 'navigation-circle-v17') failures.push(`${label}: surface boundary is ${audit.boundary}`);
-  if (audit.viewport !== expectedViewport) failures.push(`${label}: surface viewport is ${audit.viewport}`);
-  if (!(audit.radius > 1) || Math.abs(audit.radius - audit.surfaceRadius) > 0.51) {
-    failures.push(`${label}: surface radius ${audit.surfaceRadius} does not match root radius ${audit.radius}`);
+  if (audit.rootBoundary !== 'navigation-circle-v17') failures.push(`${label}: root decorative boundary is ${audit.rootBoundary}`);
+  if (audit.viewport !== expectedViewport) failures.push(`${label}: decorative viewport is ${audit.viewport}`);
+  if (!(audit.radius > 1)) failures.push(`${label}: invalid root radius ${audit.radius}`);
+
+  for (const canvas of audit.canvases || []) {
+    if (canvas.boundary !== 'navigation-circle-v17') failures.push(`${label} ${canvas.name}: boundary is ${canvas.boundary}`);
+    if (Math.abs(audit.radius - canvas.canvasRadius) > 0.51) {
+      failures.push(`${label} ${canvas.name}: radius ${canvas.canvasRadius} does not match root radius ${audit.radius}`);
+    }
+    if (!canvas.clipPath || canvas.clipPath === 'none' || !canvas.clipPath.startsWith('circle(')) {
+      failures.push(`${label} ${canvas.name}: CSS clip-path is not a circle (${canvas.clipPath})`);
+    }
+    if (canvas.opacity < 0.99) failures.push(`${label} ${canvas.name}: canvas remained hidden at opacity ${canvas.opacity}`);
+    if (!canvas.insideHit) failures.push(`${label} ${canvas.name}: clip-path rejected a safely interior point`);
+    if (canvas.outsideHit) failures.push(`${label} ${canvas.name}: clip-path accepts a point outside the navigation circle`);
   }
-  if (!audit.clipPath || audit.clipPath === 'none' || !audit.clipPath.startsWith('circle(')) {
-    failures.push(`${label}: CSS clip-path is not a circle (${audit.clipPath})`);
-  }
-  if (audit.opacity < 0.99) failures.push(`${label}: surface enhancer remained hidden at opacity ${audit.opacity}`);
-  if (!audit.insideHit) failures.push(`${label}: clip-path rejected a point safely inside the navigation circle`);
-  if (audit.outsideHit) failures.push(`${label}: clip-path still accepts a point outside the navigation circle`);
+  if ((audit.canvases || []).length !== 2) failures.push(`${label}: expected two decorative canvases in boundary audit`);
 
   await page.screenshot({ path: path.join(outputDir, `${label}.png`) });
   reports.push({ ...testCase, ...audit });
@@ -130,4 +164,4 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log('Surface enhancer is clipped to the responsive navigation circle across audited morphologies and viewports.');
+console.log('All decorative homepage canvases are clipped to the responsive navigation circle.');
