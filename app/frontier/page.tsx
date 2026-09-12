@@ -1,9 +1,6 @@
 import type { Metadata } from 'next';
-import { BackgroundCanvas } from '@/components/frontier/BackgroundCanvas';
+import { FrontierDeferredExtras } from '@/components/frontier/FrontierDeferredExtras';
 import { FrontierExperience } from '@/components/frontier/FrontierExperience';
-import { FrontierRuntimeControls } from '@/components/frontier/FrontierRuntimeControls';
-import { SignalTelemetryBridge } from '@/components/frontier/signals/SignalTelemetryBridge';
-import { MeshStateBridge } from '@/components/frontier/sync/MeshStateBridge';
 import { FrontierAutonomyProvider } from '@/components/frontier/watch/FrontierAutonomyProvider';
 import spatial from '@/components/frontier/frontier-spatial.module.css';
 
@@ -37,13 +34,10 @@ export default function FrontierPage() {
 
   return (
     <div className={spatial.root}>
-      <BackgroundCanvas />
-      <SignalTelemetryBridge />
-      <MeshStateBridge />
       <FrontierAutonomyProvider>
         <FrontierExperience initialDateLabel={initialDateLabel} initialDayKey={initialDayKey} />
       </FrontierAutonomyProvider>
-      <FrontierRuntimeControls />
+      <FrontierDeferredExtras />
     </div>
   );
 }
