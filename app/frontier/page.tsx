@@ -1,11 +1,8 @@
 import type { Metadata } from 'next';
-import { BackgroundCanvas } from '@/components/frontier/BackgroundCanvas';
-import { FrontierExperience } from '@/components/frontier/FrontierExperience';
-import { FrontierRuntimeControls } from '@/components/frontier/FrontierRuntimeControls';
-import { SignalTelemetryBridge } from '@/components/frontier/signals/SignalTelemetryBridge';
-import { MeshStateBridge } from '@/components/frontier/sync/MeshStateBridge';
-import { FrontierAutonomyProvider } from '@/components/frontier/watch/FrontierAutonomyProvider';
+import { FrontierSectionExperience } from '@/components/frontier/FrontierSectionExperience';
+import { getFrontierColdSnapshotFeed } from '@/lib/frontier/snapshotFeed';
 import spatial from '@/components/frontier/frontier-spatial.module.css';
+import './frontier-render-fast.css';
 
 export const metadata: Metadata = {
   title: 'FRONTIER · Personal Intelligence Radar',
@@ -34,16 +31,20 @@ export default function FrontierPage() {
     month: '2-digit',
     day: '2-digit',
   }).format(now);
+  const snapshot = getFrontierColdSnapshotFeed(now.getTime());
+  const initialFeed = {
+    generatedAt: snapshot.generatedAt,
+    items: snapshot.items.slice(0, 48),
+    sources: snapshot.sources,
+  };
 
   return (
-    <div className={spatial.root}>
-      <BackgroundCanvas />
-      <SignalTelemetryBridge />
-      <MeshStateBridge />
-      <FrontierAutonomyProvider>
-        <FrontierExperience initialDateLabel={initialDateLabel} initialDayKey={initialDayKey} />
-      </FrontierAutonomyProvider>
-      <FrontierRuntimeControls />
+    <div className={spatial.root} data-frontier-performance-route="true">
+      <FrontierSectionExperience
+        initialDateLabel={initialDateLabel}
+        initialDayKey={initialDayKey}
+        initialFeed={initialFeed}
+      />
     </div>
   );
 }
