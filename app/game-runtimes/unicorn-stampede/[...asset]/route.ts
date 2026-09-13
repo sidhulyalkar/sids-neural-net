@@ -21,6 +21,8 @@ const ALLOWED_ASSETS = new Set([
   'src/expansion.js',
   'src/showcase.js',
   'src/showcase-world-motion.js',
+  'src/showcase-world-systems.js',
+  'src/showcase-building-detail.js',
   'src/showcase-settings.js',
   'src/showcase-audio.js',
   'src/showcase-input.js',
