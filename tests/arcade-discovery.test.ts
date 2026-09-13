@@ -111,7 +111,7 @@ test('uniRico cabinet tracks live main src/ assets', () => {
   assert.match(workflow, /x-unirico-source-ref: main/i);
 });
 
-test('Unicorn Stampede cabinet tracks live main dist/local.html', () => {
+test('Unicorn Stampede cabinet tracks the readable post-js13k showcase on main', () => {
   const game = arcadeGames.find((entry) => entry.slug === 'unicorn-stampede');
   assert.ok(game);
   assert.equal(game.version, 'main');
@@ -120,25 +120,34 @@ test('Unicorn Stampede cabinet tracks live main dist/local.html', () => {
   assert.equal(game.launchUrl, '/game-runtimes/unicorn-stampede/index.html');
   assert.deepEqual(game.nativeSize, { width: 1280, height: 720 });
   assert.ok(game.controls.some((control) => control.input === 'W A S D'));
-  assert.ok(game.controls.some((control) => /Rainbow Whip/i.test(control.action)));
-  assert.ok(game.controls.some((control) => control.input === 'Space'));
-  assert.match(game.description, /six-unicorn arcade-strategy/i);
-  assert.match(game.description, /js13kGames 2026/i);
-  assert.match(game.description, /dist\/local\.html/i);
+  assert.ok(game.controls.some((control) => control.input === 'Shift' && /Smart-switch/i.test(control.action)));
+  assert.ok(game.controls.some((control) => control.input === 'Click near unicorn' && /Rainbow Whip/i.test(control.action)));
+  assert.ok(game.controls.some((control) => control.input === 'Gamepad / Touch'));
+  assert.ok(game.controls.some((control) => control.input === 'O' && /options/i.test(control.action)));
+  assert.match(game.description, /post-js13k showcase/i);
+  assert.match(game.description, /Prismborough, Washwater Bay, and Cloudtop Heights/i);
+  assert.match(game.description, /adaptive music/i);
+  assert.match(game.description, /13 KB competition build remains frozen/i);
 
-  const route = readRepoFile('app/game-runtimes/unicorn-stampede/[asset]/route.ts');
+  const route = readRepoFile('app/game-runtimes/unicorn-stampede/[...asset]/route.ts');
   assert.match(route, /UNICORN_STAMPEDE_SOURCE_REF = 'main'/);
-  assert.match(route, /UNICORN_STAMPEDE_SOURCE_ARTIFACT = 'dist\/local\.html'/);
-  assert.match(route, /unicorn-stampede\/\$\{UNICORN_STAMPEDE_SOURCE_REF\}/);
-  assert.match(route, /tabindex=0/);
+  assert.match(route, /SOURCE_ROOT/);
+  assert.match(route, /src\/showcase-world-motion\.js/);
+  assert.match(route, /src\/showcase-settings\.js/);
+  assert.match(route, /src\/showcase-audio\.js/);
+  assert.match(route, /src\/showcase-input\.js/);
+  assert.match(route, /src\/showcase-stats\.js/);
+  assert.match(route, /src\/showcase-shell\.js/);
+  assert.match(route, /tabindex/);
   assert.match(route, /host integration check/);
   assert.match(route, /X-Unicorn-Stampede-Source-Ref/);
-  assert.match(route, /X-Unicorn-Stampede-Source-Artifact/);
+  assert.match(route, /X-Unicorn-Stampede-Source-Asset/);
   assert.match(route, /cache: 'no-store'/);
 
   const workflow = readRepoFile('.github/workflows/ci.yml');
   assert.match(workflow, /arcade\/unicorn-stampede/);
   assert.match(workflow, /game-runtimes\/unicorn-stampede\/index\.html/);
+  assert.match(workflow, /game-runtimes\/unicorn-stampede\/src\/showcase-shell\.js/);
 });
 
 test('FRONTIER and Game Network coexist in current navigation', () => {
@@ -207,7 +216,6 @@ test('Game Network browser validation covers live-main Stretchicorn and uniRico 
 });
 
 test('static Stretchicorn public files do not shadow the live-main route handler', () => {
-  // public/game-runtimes/stretchicorn/* would win over app/game-runtimes/stretchicorn/[asset]/route.ts
   assert.equal(existsSync(join(root, 'public/game-runtimes/stretchicorn')), false);
 
   const catalog = readRepoFile('src/data/arcadeGames.ts');
