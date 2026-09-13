@@ -206,6 +206,11 @@ jobs:
           PLAYWRIGHT_MODULE_ROOT: /tmp/frontier-playwright/node_modules/playwright
         run: node scripts/playtest-arcade-browsers.mjs
 
+      - name: Validate Unicorn Stampede showcase across Chrome Stable Chromium Firefox and WebKit
+        env:
+          PLAYWRIGHT_MODULE_ROOT: /tmp/frontier-playwright/node_modules/playwright
+        run: node scripts/playtest-unicorn-stampede-showcase.mjs
+
       - name: Capture production browser fixtures
         run: |
           mkdir -p artifacts/browser-smoke
