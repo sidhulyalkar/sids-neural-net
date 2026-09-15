@@ -12,6 +12,8 @@ const pageSource = readFileSync(new URL('../app/frontier/page.tsx', import.meta.
 const experienceSource = readFileSync(new URL('../components/frontier/FrontierSectionExperience.tsx', import.meta.url), 'utf8');
 const deckSource = readFileSync(new URL('../components/frontier/FrontierSectionDeck.tsx', import.meta.url), 'utf8');
 const deckCss = readFileSync(new URL('../components/frontier/frontier-section-deck.module.css', import.meta.url), 'utf8');
+const mediaGuardSource = readFileSync(new URL('../components/frontier/FrontierPageTurnMediaGuard.tsx', import.meta.url), 'utf8');
+const gpuImageSource = readFileSync(new URL('../components/frontier/media/GpuImageSurface.tsx', import.meta.url), 'utf8');
 const cursorSource = readFileSync(new URL('../components/effects/SiteNeuronCursor.tsx', import.meta.url), 'utf8');
 const sensingSource = readFileSync(new URL('../components/sensing/InteractionCapabilityProvider.tsx', import.meta.url), 'utf8');
 
@@ -77,7 +79,7 @@ test('page navigation is data-local and predictively decodes bounded adjacent me
   assert.match(deckSource, /media\.posterProxyUrl \?\? media\.poster/);
 });
 
-test('3D turn pre-lays out the target sheet and bounds readiness before a GPU-only reveal', () => {
+test('3D turn pre-lays out the target sheet and bounds readiness before the physical reveal', () => {
   assert.match(deckSource, /type TurnPhase = 'prepare' \| 'turn'/);
   assert.match(deckSource, /const TARGET_READY_BUDGET_MS = 96/);
   assert.match(deckSource, /Promise\.race\(\[/);
@@ -96,6 +98,21 @@ test('3D turn pre-lays out the target sheet and bounds readiness before a GPU-on
   assert.match(deckCss, /rotateY\(86deg\)/);
   assert.match(deckCss, /will-change: transform/);
   assert.doesNotMatch(deckCss, /will-change: transform, opacity/);
+});
+
+test('page turns hand media authority from the fixed GPU plane to the rotating native sheet', () => {
+  assert.match(mediaGuardSource, /data-frontier-turning="prepare"/);
+  assert.match(mediaGuardSource, /data-frontier-turning="turn"/);
+  assert.match(mediaGuardSource, /canvas\[aria-hidden="true"\]\[style\*="z-index: 42"\]/);
+  assert.match(mediaGuardSource, /visibility: hidden !important/);
+  assert.match(mediaGuardSource, /opacity: 0 !important/);
+  assert.match(gpuImageSource, /data-media-native-ready/);
+  assert.match(gpuImageSource, /closest\('\[data-frontier-page-role="incoming"\]'\)/);
+  assert.match(gpuImageSource, /image\.loading = 'eager'/);
+  assert.match(gpuImageSource, /image\.fetchPriority = 'high'/);
+  assert.match(gpuImageSource, /frontierTurnPriority = 'high'/);
+  assert.match(gpuImageSource, /loading="lazy"/);
+  assert.match(gpuImageSource, /fetchPriority="auto"/);
 });
 
 test('FRONTIER route excludes decorative cursor and sensing/camera shells', () => {
