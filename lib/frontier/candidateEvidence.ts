@@ -29,6 +29,8 @@ export type FrontierCandidateEvidence = {
   reasons: string[];
 };
 
+const CONTEXTLESS_OPENALEX_PROTECTION_SCORE = 0.75;
+
 const GENERIC_LANE_TERMS = new Set([
   'agent',
   'alignment',
@@ -165,6 +167,8 @@ function assessOpenAlex(
   const coherent = semantic.distinctLaneHits.length >= 2 || strongTextHit;
   const queryObserved = queryEvidence.terms.length > 0;
   const queryMismatch = queryObserved && queryEvidence.hits.length === 0;
+  const protectedContextlessScholarship = !queryObserved
+    && item.baseScore >= CONTEXTLESS_OPENALEX_PROTECTION_SCORE;
 
   // Citations are deliberately not an admission requirement. Newly published
   // work starts at zero by construction. They provide only a tiny corroborating
@@ -181,12 +185,17 @@ function assessOpenAlex(
   if (!coherent) {
     // A weak lane assignment is evidence for caution, not deletion. Hard
     // suppression requires the stronger fact that the *actual acquisition
-    // query* is known and has no returned-copy support at all.
-    disposition = queryMismatch ? 'suppress' : 'demote';
+    // query* is known and has no returned-copy support at all. In a cold
+    // snapshot, the secondary lane classifier also must not demote scholarship
+    // that the upstream qualified pipeline already scored strongly when the
+    // original acquisition intent is unavailable.
+    if (queryMismatch) disposition = 'suppress';
+    else if (!protectedContextlessScholarship) disposition = 'demote';
   }
 
   const reasons: string[] = [];
   if (coherent) reasons.push('multiple or specific lane signals support the scholarly match');
+  else if (protectedContextlessScholarship) reasons.push('strong upstream scholarly score is preserved while original acquisition intent is unobserved');
   else reasons.push('scholarly provenance is strong but lane support is ambiguous, so shadow v1 demotes by default');
   if (queryObserved && queryEvidence.hits.length > 0) reasons.push('returned copy contains evidence from the actual discovery query');
   if (queryMismatch) reasons.push('known acquisition intent has no support in returned title, summary, or substantive tags');
