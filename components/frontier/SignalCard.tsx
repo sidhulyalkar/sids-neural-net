@@ -25,6 +25,12 @@ const REACTIONS: Array<{ id: FrontierReaction; glyph: string; label: string }> =
   { id: 'hide', glyph: '×', label: 'Hide' },
 ];
 
+const PUBLISHED_DATE_FORMATTER = new Intl.DateTimeFormat('en-US', {
+  month: 'short',
+  day: 'numeric',
+  timeZone: 'America/Los_Angeles',
+});
+
 export type SignalCardVariant = 'feature' | 'wide' | 'standard' | 'compact';
 
 type Props = {
@@ -58,7 +64,7 @@ function provenanceLabel(item: FrontierItem, provenanceHost: string): string {
 function publishedLabel(value: string): string {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return 'recent';
-  return new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', timeZone: 'America/Los_Angeles' }).format(date);
+  return PUBLISHED_DATE_FORMATTER.format(date);
 }
 
 function MetricLine({ item }: { item: FrontierItem }) {
@@ -91,6 +97,7 @@ function Feedback({ item, reaction, onReact }: Pick<Props, 'item' | 'reaction' |
 
 export function SignalCard({
   item,
+  variant = 'standard',
   presentation = 'library',
   focused = false,
   saved = false,
@@ -108,10 +115,13 @@ export function SignalCard({
   const [unavailableMediaKey, setUnavailableMediaKey] = useState<string>();
   const lane = FRONTIER_LANE_MAP[item.lane];
   const feed = presentation === 'feed';
+  const compact = variant === 'compact';
+  const primaryMedia = variant === 'feature' || variant === 'wide';
   const sourceTrust = assessFrontierSource(item);
   const sourceLabel = provenanceLabel(item, sourceTrust.host);
   const currentMediaKey = frontierMediaKey(item);
   const hasMedia = canRenderFrontierMedia(item);
+  const renderMedia = hasMedia && !compact;
   const mediaUnavailable = unavailableMediaKey === currentMediaKey;
 
   useEffect(() => {
@@ -193,7 +203,28 @@ export function SignalCard({
     onReact(item, nextReaction);
   };
 
-  const quickActions = (
+  const compactActions = (
+    <div className={styles.quickActions}>
+      <button
+        type="button"
+        className={`${styles.iconAction} ${saved ? styles.actionActive : ''}`}
+        title={saved ? 'Saved' : 'Save'}
+        aria-label={`${saved ? 'Saved' : 'Save'} ${item.title}`}
+        onClick={saveWithSeen}
+      ><Bookmark size={12} fill={saved ? 'currentColor' : 'none'} /></button>
+      <a
+        className={styles.iconAction}
+        href={item.url}
+        target="_blank"
+        rel="noopener noreferrer"
+        onClick={openWithSeen}
+        aria-label={`${item.actionLabel ?? 'Open'}: ${item.title} on ${sourceLabel || host(item.url)}`}
+        title={item.actionLabel ?? 'Open source'}
+      ><ExternalLink size={12} /></a>
+    </div>
+  );
+
+  const fullActions = (
     <div className={styles.quickActions}>
       <button
         type="button"
@@ -230,6 +261,8 @@ export function SignalCard({
     </div>
   );
 
+  const quickActions = compact ? compactActions : fullActions;
+
   const contextPanel = focused ? (
     <div className={styles.expandedPanel} data-frontier-focused-context="true">
       <MetricLine item={item} />
@@ -250,9 +283,13 @@ export function SignalCard({
     </div>
   );
 
-  if (feed && !hasMedia) {
+  if (feed && !renderMedia) {
     return (
-      <article ref={ref} className={`${styles.card} ${styles.feedCard} ${styles.feedCardText} ${mediaForward.card} ${mediaForward.feedCard} ${focused ? styles.cardExpanded : ''}`}>
+      <article
+        ref={ref}
+        className={`${styles.card} ${styles.feedCard} ${styles.feedCardText} ${mediaForward.card} ${mediaForward.feedCard} ${focused ? styles.cardExpanded : ''}`}
+        data-frontier-card-variant={variant}
+      >
         <div className={`${styles.feedCopy} ${mediaForward.feedCopy}`}>
           <EditorialClip item={item} presentation="list" resurfaced={resurfaced} onOpen={openWithSeen} />
           {sportsStatePanel}
@@ -263,9 +300,13 @@ export function SignalCard({
     );
   }
 
-  if (!feed && !hasMedia) {
+  if (!feed && !renderMedia) {
     return (
-      <article ref={ref} className={`${styles.card} ${styles.tileCard} ${styles.tileCardText} ${mediaForward.card} ${mediaForward.tileCard} ${mediaForward.tileText} ${focused ? styles.cardExpanded : ''}`}>
+      <article
+        ref={ref}
+        className={`${styles.card} ${styles.tileCard} ${styles.tileCardText} ${mediaForward.card} ${mediaForward.tileCard} ${mediaForward.tileText} ${focused ? styles.cardExpanded : ''}`}
+        data-frontier-card-variant={variant}
+      >
         <div className={`${styles.tileBody} ${mediaForward.body}`}>
           {meta}
           <a
@@ -292,6 +333,7 @@ export function SignalCard({
       <article
         ref={ref}
         className={`${styles.card} ${styles.feedCard} ${styles.feedCardMedia} ${mediaForward.card} ${mediaForward.feedCard} ${mediaForward.feedMedia} ${focused ? styles.cardExpanded : ''}`}
+        data-frontier-card-variant={variant}
         data-frontier-media-unavailable={mediaUnavailable ? 'true' : undefined}
       >
         <div className={`${styles.feedCopy} ${mediaForward.feedCopy}`}>
@@ -303,7 +345,7 @@ export function SignalCard({
           {contextPanel}
         </div>
         <div className={`${styles.feedMediaSlot} ${mediaForward.feedMediaSlot}`}>
-          <FrontierMediaSurface item={item} onUnavailable={markMediaUnavailable} />
+          <FrontierMediaSurface item={item} priority={primaryMedia ? 'primary' : 'secondary'} onUnavailable={markMediaUnavailable} />
         </div>
       </article>
     );
@@ -313,10 +355,11 @@ export function SignalCard({
     <article
       ref={ref}
       className={`${styles.card} ${styles.tileCard} ${styles.tileCardMedia} ${mediaForward.card} ${mediaForward.tileCard} ${mediaForward.tileMediaCard} ${focused ? styles.cardExpanded : ''}`}
+      data-frontier-card-variant={variant}
       data-frontier-media-unavailable={mediaUnavailable ? 'true' : undefined}
     >
       <div className={`${styles.tileMedia} ${mediaForward.mediaSlot}`}>
-        <FrontierMediaSurface item={item} onUnavailable={markMediaUnavailable} />
+        <FrontierMediaSurface item={item} priority={primaryMedia ? 'primary' : 'secondary'} onUnavailable={markMediaUnavailable} />
       </div>
       <div className={`${styles.tileBody} ${mediaForward.body}`}>
         {meta}
