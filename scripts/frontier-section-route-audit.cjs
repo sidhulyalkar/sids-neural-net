@@ -9,6 +9,9 @@ const DECK = '[data-frontier-section-deck="true"]';
 const CURRENT_CARD = '[data-frontier-page-role="current"] [data-frontier-fluid-card]';
 const ALL_CARD = '[data-frontier-fluid-card]';
 const INCOMING_PAGE = '[data-frontier-page-role="incoming"]';
+const GPU_MEDIA_CANVAS = 'body > canvas[aria-hidden="true"][style*="z-index: 42"]';
+const NATIVE_GPU_SURFACE = '[data-media-native-ready]';
+const TURN_PRIORITY_IMAGE = 'img[data-frontier-turn-priority="high"]';
 const MAX_USEFUL_PAINT_MS = 9_000;
 const MAX_PREPARE_MS = 180;
 const MAX_TURN_SETTLE_MS = 1_400;
@@ -50,10 +53,12 @@ async function installRuntimeProbe(context) {
 }
 
 async function state(page) {
-  return page.evaluate(({ deckSelector, currentCardSelector, allCardSelector }) => {
+  return page.evaluate(({ deckSelector, currentCardSelector, allCardSelector, gpuCanvasSelector }) => {
     const deck = document.querySelector(deckSelector);
     const currentIds = Array.from(document.querySelectorAll(currentCardSelector))
       .map((node) => node.getAttribute('data-frontier-fluid-card') || '');
+    const gpuCanvas = document.querySelector(gpuCanvasSelector);
+    const gpuStyle = gpuCanvas ? getComputedStyle(gpuCanvas) : null;
     return {
       exists: Boolean(deck),
       currentIds,
@@ -68,10 +73,18 @@ async function state(page) {
       readinessGate: deck?.getAttribute('data-frontier-readiness-gate') || '',
       performanceRoute: Boolean(document.querySelector('[data-frontier-performance-route="true"]')),
       ambientCanvases: document.querySelectorAll('canvas[data-frontier-audio-reactive="true"]').length,
+      gpuMediaCanvasPresent: Boolean(gpuCanvas),
+      gpuMediaCanvasVisibility: gpuStyle?.visibility ?? null,
+      gpuMediaCanvasOpacity: gpuStyle?.opacity ?? null,
       workers: Array.isArray(window.__frontierV22Workers) ? window.__frontierV22Workers.slice() : [],
       bodyText: (document.body?.innerText || '').replace(/\s+/g, ' ').trim().slice(0, 2500),
     };
-  }, { deckSelector: DECK, currentCardSelector: CURRENT_CARD, allCardSelector: ALL_CARD });
+  }, {
+    deckSelector: DECK,
+    currentCardSelector: CURRENT_CARD,
+    allCardSelector: ALL_CARD,
+    gpuCanvasSelector: GPU_MEDIA_CANVAS,
+  });
 }
 
 async function waitForSettledDeck(page, maxCards) {
@@ -86,37 +99,106 @@ async function waitForSettledDeck(page, maxCards) {
 }
 
 async function armTurnProbe(page) {
-  await page.evaluate(({ deckSelector, incomingSelector, allCardSelector }) => {
+  await page.evaluate(({
+    deckSelector,
+    incomingSelector,
+    allCardSelector,
+    gpuCanvasSelector,
+    nativeSurfaceSelector,
+    turnPrioritySelector,
+  }) => {
     const deck = document.querySelector(deckSelector);
     if (!deck) throw new Error('FRONTIER deck missing while arming turn probe');
     window.__frontierTurnProbe?.observer?.disconnect?.();
+    if (window.__frontierTurnProbe?.rafId) cancelAnimationFrame(window.__frontierTurnProbe.rafId);
+    window.__frontierTurnProbe?.layoutObserver?.disconnect?.();
+
     const startedAt = performance.now();
     const events = [];
+    const frameGaps = [];
+    const layoutShifts = [];
+    let previousFrameAt = startedAt;
+    let rafId = 0;
+    let layoutObserver = null;
+
     const sample = () => {
       const phase = deck.getAttribute('data-frontier-turning') || '';
       const incoming = document.querySelector(incomingSelector);
+      const gpuCanvas = document.querySelector(gpuCanvasSelector);
+      const gpuStyle = gpuCanvas ? getComputedStyle(gpuCanvas) : null;
+      const incomingNativeSurfaces = incoming
+        ? Array.from(incoming.querySelectorAll(nativeSurfaceSelector))
+        : [];
+      const incomingReady = incomingNativeSurfaces
+        .filter((surface) => surface.getAttribute('data-media-native-ready') === 'true').length;
+      const incomingPriority = incoming
+        ? incoming.querySelectorAll(turnPrioritySelector).length
+        : 0;
       events.push({
         phase,
         atMs: performance.now() - startedAt,
         domCardCount: document.querySelectorAll(allCardSelector).length,
         incomingPresent: Boolean(incoming),
         incomingVisibility: incoming ? getComputedStyle(incoming).visibility : null,
+        incomingNativeCount: incomingNativeSurfaces.length,
+        incomingNativeReadyCount: incomingReady,
+        incomingTurnPriorityCount: incomingPriority,
+        gpuCanvasPresent: Boolean(gpuCanvas),
+        gpuCanvasVisibility: gpuStyle?.visibility ?? null,
+        gpuCanvasOpacity: gpuStyle?.opacity ?? null,
       });
     };
+
+    const frame = (now) => {
+      frameGaps.push(now - previousFrameAt);
+      previousFrameAt = now;
+      rafId = requestAnimationFrame(frame);
+      if (window.__frontierTurnProbe) window.__frontierTurnProbe.rafId = rafId;
+    };
+    rafId = requestAnimationFrame(frame);
+
+    if (typeof PerformanceObserver !== 'undefined'
+      && Array.isArray(PerformanceObserver.supportedEntryTypes)
+      && PerformanceObserver.supportedEntryTypes.includes('layout-shift')) {
+      layoutObserver = new PerformanceObserver((list) => {
+        for (const entry of list.getEntries()) {
+          layoutShifts.push({
+            atMs: entry.startTime - startedAt,
+            value: entry.value,
+            hadRecentInput: entry.hadRecentInput,
+          });
+        }
+      });
+      layoutObserver.observe({ type: 'layout-shift', buffered: false });
+    }
+
     const observer = new MutationObserver((mutations) => {
       if (mutations.some((mutation) => mutation.type === 'attributes' && mutation.attributeName === 'data-frontier-turning')) sample();
     });
     observer.observe(deck, { attributes: true, attributeFilter: ['data-frontier-turning'] });
-    window.__frontierTurnProbe = { startedAt, events, observer };
-  }, { deckSelector: DECK, incomingSelector: INCOMING_PAGE, allCardSelector: ALL_CARD });
+    window.__frontierTurnProbe = { startedAt, events, frameGaps, layoutShifts, observer, layoutObserver, rafId };
+  }, {
+    deckSelector: DECK,
+    incomingSelector: INCOMING_PAGE,
+    allCardSelector: ALL_CARD,
+    gpuCanvasSelector: GPU_MEDIA_CANVAS,
+    nativeSurfaceSelector: NATIVE_GPU_SURFACE,
+    turnPrioritySelector: TURN_PRIORITY_IMAGE,
+  });
 }
 
 async function readTurnProbe(page) {
   return page.evaluate(() => {
     const probe = window.__frontierTurnProbe;
-    if (!probe) return [];
+    if (!probe) return { events: [], frameGaps: [], layoutShifts: [] };
     probe.observer?.disconnect?.();
-    return Array.isArray(probe.events) ? probe.events.slice() : [];
+    probe.layoutObserver?.disconnect?.();
+    if (probe.rafId) cancelAnimationFrame(probe.rafId);
+    return {
+      events: Array.isArray(probe.events) ? probe.events.slice() : [],
+      frameGaps: Array.isArray(probe.frameGaps) ? probe.frameGaps.slice() : [],
+      layoutShifts: Array.isArray(probe.layoutShifts) ? probe.layoutShifts.slice() : [],
+    };
   });
 }
 
@@ -135,7 +217,8 @@ async function turnForward(page, beforeIds, maxCards) {
   }, { deckSelector: DECK, currentCardSelector: CURRENT_CARD, prior: beforeIds, max: maxCards }, { polling: 'raf', timeout: MAX_TURN_SETTLE_MS });
 
   const totalMs = Date.now() - started;
-  const events = await readTurnProbe(page);
+  const probe = await readTurnProbe(page);
+  const events = probe.events;
   const prepareEvent = events.find((event) => event.phase === 'prepare');
   const turnEvent = events.find((event) => event.phase === 'turn');
   const settledEvent = [...events].reverse().find((event) => event.phase === 'idle');
@@ -151,11 +234,71 @@ async function turnForward(page, beforeIds, maxCards) {
   assert(turnEvent.domCardCount <= maxCards * 2, `turn mounted ${turnEvent.domCardCount} cards; two-sheet budget=${maxCards * 2}`);
   assert(totalMs <= MAX_TURN_SETTLE_MS, `page turn took ${totalMs}ms to settle`);
 
+  for (const event of [prepareEvent, turnEvent]) {
+    if (event.gpuCanvasPresent) {
+      assert.equal(event.gpuCanvasVisibility, 'hidden', `fixed GPU media plane remained visible during ${event.phase}`);
+      assert.equal(event.gpuCanvasOpacity, '0', `fixed GPU media plane retained opacity during ${event.phase}`);
+    }
+    if (event.incomingNativeCount > 0) {
+      assert.equal(
+        event.incomingTurnPriorityCount,
+        event.incomingNativeCount,
+        `incoming native turn media was not fully promoted during ${event.phase}`,
+      );
+    }
+  }
+
+  if (settledEvent.gpuCanvasPresent) {
+    assert.notEqual(settledEvent.gpuCanvasVisibility, 'hidden', 'fixed GPU media plane did not resume after turn settle');
+    assert.notEqual(settledEvent.gpuCanvasOpacity, '0', 'fixed GPU media plane remained transparent after turn settle');
+  }
+
+  const frameGaps = probe.frameGaps.filter((gap) => Number.isFinite(gap) && gap >= 0);
+  const maxFrameGapMs = frameGaps.length ? Math.max(...frameGaps) : 0;
+  const over32ms = frameGaps.filter((gap) => gap > 32).length;
+  const over50ms = frameGaps.filter((gap) => gap > 50).length;
+  const rawLayoutShift = probe.layoutShifts.reduce((sum, entry) => sum + (Number(entry.value) || 0), 0);
+
   return {
     totalMs,
     prepareMs: prepareEvent.atMs,
     compositorStartMs: turnEvent.atMs,
     compositorSettleMs: settledEvent.atMs,
+    incomingNativeAtPrepare: {
+      total: prepareEvent.incomingNativeCount,
+      ready: prepareEvent.incomingNativeReadyCount,
+      highPriority: prepareEvent.incomingTurnPriorityCount,
+    },
+    incomingNativeAtTurn: {
+      total: turnEvent.incomingNativeCount,
+      ready: turnEvent.incomingNativeReadyCount,
+      highPriority: turnEvent.incomingTurnPriorityCount,
+    },
+    gpuHandoff: {
+      prepare: {
+        present: prepareEvent.gpuCanvasPresent,
+        visibility: prepareEvent.gpuCanvasVisibility,
+        opacity: prepareEvent.gpuCanvasOpacity,
+      },
+      turn: {
+        present: turnEvent.gpuCanvasPresent,
+        visibility: turnEvent.gpuCanvasVisibility,
+        opacity: turnEvent.gpuCanvasOpacity,
+      },
+      settled: {
+        present: settledEvent.gpuCanvasPresent,
+        visibility: settledEvent.gpuCanvasVisibility,
+        opacity: settledEvent.gpuCanvasOpacity,
+      },
+    },
+    frameTelemetry: {
+      samples: frameGaps.length,
+      maxFrameGapMs,
+      over32ms,
+      over50ms,
+    },
+    rawLayoutShift,
+    layoutShifts: probe.layoutShifts,
     events,
   };
 }
