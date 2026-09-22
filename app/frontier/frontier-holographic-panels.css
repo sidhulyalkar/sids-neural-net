@@ -1,0 +1,133 @@
+/* FRONTIER holographic panel treatment.
+   Keep idle reading cheap: no blur, backdrop-filter, canvas, or infinite animation.
+   Motion remains bounded to the existing page-turn interval. */
+
+[data-frontier-section-deck] {
+  --frontier-holo-cyan: rgba(102, 227, 255, 0.38);
+  --frontier-holo-mint: rgba(165, 213, 193, 0.28);
+  --frontier-holo-blue: rgba(88, 147, 255, 0.16);
+  --frontier-holo-surface: rgba(3, 10, 10, 0.9);
+  --frontier-holo-card: rgba(4, 13, 13, 0.82);
+}
+
+/* The information plane is dark enough for long-form reading, while the
+   material itself gets a thin holographic spectral signature. */
+[data-frontier-section-deck] [data-frontier-page-role] {
+  background:
+    radial-gradient(ellipse at 82% 7%, rgba(102, 227, 255, 0.055), transparent 34%),
+    radial-gradient(ellipse at 9% 88%, rgba(165, 213, 193, 0.045), transparent 38%),
+    repeating-linear-gradient(180deg, rgba(143, 240, 255, 0.009) 0 1px, transparent 1px 7px),
+    linear-gradient(115deg, rgba(255, 255, 255, 0.012), transparent 22%, rgba(102, 227, 255, 0.01) 74%, transparent),
+    var(--frontier-holo-surface) !important;
+}
+
+/* Border-color is intentionally not used because FRONTIER's spatial shell
+   suppresses decorative borders. Painted one-pixel gradients remain cheap and
+   keep the panel readable as a projected plane. */
+[data-frontier-section-deck] [data-frontier-page-role]::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 7;
+  pointer-events: none;
+  background:
+    linear-gradient(90deg, transparent 0%, var(--frontier-holo-mint) 14%, var(--frontier-holo-cyan) 52%, rgba(88, 147, 255, 0.16) 84%, transparent 100%) top / 100% 1px no-repeat,
+    linear-gradient(180deg, rgba(102, 227, 255, 0.2), transparent 18%, transparent 76%, rgba(165, 213, 193, 0.14)) left / 1px 100% no-repeat,
+    linear-gradient(180deg, rgba(88, 147, 255, 0.14), transparent 24%, transparent 72%, rgba(102, 227, 255, 0.16)) right / 1px 100% no-repeat,
+    linear-gradient(90deg, transparent 6%, rgba(165, 213, 193, 0.09) 30%, rgba(102, 227, 255, 0.13) 70%, transparent 94%) bottom / 100% 1px no-repeat,
+    radial-gradient(ellipse at 78% 12%, rgba(102, 227, 255, 0.035), transparent 26%);
+  opacity: 0.42;
+}
+
+/* Wrappers stay translucent enough to reveal the panel material without
+   compromising text contrast. No backdrop blur is used. */
+[data-frontier-section-deck] [data-frontier-virtual-card] {
+  background:
+    linear-gradient(135deg, rgba(102, 227, 255, 0.016), transparent 34%, rgba(165, 213, 193, 0.012) 72%, transparent),
+    var(--frontier-holo-card) !important;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  [data-frontier-section-deck] [data-frontier-virtual-card]:hover {
+    background:
+      linear-gradient(135deg, rgba(102, 227, 255, 0.03), transparent 32%, rgba(165, 213, 193, 0.022) 74%, transparent),
+      rgba(5, 15, 15, 0.87) !important;
+  }
+}
+
+/* v23 originally animated clip-path to prototype the contracting spine.
+   Locking it off here keeps the final motion on transform + opacity paths,
+   which is much friendlier to the compositor across browser engines. The
+   parent 3D rotation plus the narrow spine pseudo-element preserve the depth
+   illusion without repainting a polygon each frame. */
+[data-frontier-section-deck][data-frontier-turning='turn'] [data-frontier-page-role='current'] {
+  clip-path: none !important;
+  will-change: transform, opacity !important;
+}
+
+[data-frontier-section-deck]:not([data-frontier-turning='turn']) [data-frontier-page-role='current'] {
+  clip-path: none !important;
+  will-change: auto !important;
+}
+
+/* Make the prewarmed target unequivocally paintable during the short turn.
+   Only two information planes exist during this interval. */
+[data-frontier-section-deck][data-frontier-turning='turn'] [data-frontier-page-role='incoming'] [data-frontier-virtual-card] {
+  content-visibility: visible;
+}
+
+/* The moving plane gets a brief spectral phase shift. The existing bounded
+   foldShade/incomingShade opacity animation drives this static gradient, so
+   there is no independent paint-loop animation. */
+[data-frontier-section-deck][data-frontier-turning='turn'] [data-frontier-page-role='current']::after {
+  background:
+    linear-gradient(90deg, rgba(3, 8, 9, 0.52), transparent 16%, rgba(102, 227, 255, 0.08) 55%, rgba(165, 213, 193, 0.04) 76%, rgba(2, 7, 8, 0.3)),
+    linear-gradient(90deg, transparent 0%, var(--frontier-holo-mint) 14%, var(--frontier-holo-cyan) 52%, rgba(88, 147, 255, 0.2) 84%, transparent 100%) top / 100% 1px no-repeat,
+    linear-gradient(180deg, rgba(102, 227, 255, 0.24), transparent 18%, transparent 76%, rgba(165, 213, 193, 0.18)) left / 1px 100% no-repeat,
+    linear-gradient(180deg, rgba(88, 147, 255, 0.18), transparent 24%, transparent 72%, rgba(102, 227, 255, 0.2)) right / 1px 100% no-repeat;
+}
+
+[data-frontier-section-deck][data-frontier-turning='turn'] [data-frontier-page-role='incoming']::after {
+  background:
+    radial-gradient(ellipse at 50% 42%, rgba(102, 227, 255, 0.045), transparent 48%),
+    linear-gradient(90deg, rgba(0, 0, 0, 0.24), transparent 24%, transparent 76%, rgba(0, 0, 0, 0.12)),
+    linear-gradient(90deg, transparent 0%, rgba(165, 213, 193, 0.16) 20%, rgba(102, 227, 255, 0.25) 56%, transparent 94%) top / 100% 1px no-repeat;
+}
+
+/* A small mobile simplification reduces gradient layers and keeps the same
+   material language on weaker GPUs. */
+@media (max-width: 720px) {
+  [data-frontier-section-deck] [data-frontier-page-role] {
+    background:
+      radial-gradient(ellipse at 82% 8%, rgba(102, 227, 255, 0.045), transparent 34%),
+      linear-gradient(115deg, rgba(255, 255, 255, 0.01), transparent 28%, rgba(102, 227, 255, 0.008) 76%, transparent),
+      rgba(3, 10, 10, 0.94) !important;
+  }
+
+  [data-frontier-section-deck] [data-frontier-virtual-card],
+  [data-frontier-section-deck] [data-frontier-virtual-card]:hover {
+    background: rgba(4, 13, 13, 0.9) !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-frontier-section-deck] [data-frontier-page-role]::after {
+    opacity: 0.34;
+  }
+
+  [data-frontier-section-deck] [data-frontier-page-role='current'] {
+    clip-path: none !important;
+    will-change: auto !important;
+  }
+}
+
+@media (prefers-contrast: more) {
+  [data-frontier-section-deck] [data-frontier-page-role] {
+    --frontier-holo-surface: rgba(2, 7, 7, 0.98);
+    --frontier-holo-card: rgba(2, 9, 9, 0.94);
+  }
+
+  [data-frontier-section-deck] [data-frontier-page-role]::after {
+    opacity: 0.58;
+  }
+}
