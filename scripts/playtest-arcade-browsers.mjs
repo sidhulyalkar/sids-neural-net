@@ -262,6 +262,7 @@ async function testStretchicorn(page, engineName) {
   if (!frame.url().includes('/game-runtimes/stretchicorn/index.html')) {
     throw new Error(`Stretchicorn runtime URL is not the live-main path: ${frame.url()}`);
   }
+  const runtimeUrl = frame.url();
 
   const bridge = await assertNativeBridge(frame, 'Stretchicorn');
   await frame.locator('#c').waitFor({ state: 'visible' });
@@ -311,7 +312,7 @@ async function testStretchicorn(page, engineName) {
   return {
     bridge,
     title,
-    runtimeUrl: frame.url(),
+    runtimeUrl,
     initial,
     release,
     playing,
