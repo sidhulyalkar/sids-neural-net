@@ -136,6 +136,7 @@ async function auditViewport(browser, viewport, maxCards, label) {
   await installProbe(context);
   const page = await context.newPage();
   const discoveryRequests = [];
+  const accountRequests = [];
   const mediaRequests = [];
   const pageErrors = [];
   const consoleErrors = [];
@@ -144,6 +145,13 @@ async function auditViewport(browser, viewport, maxCards, label) {
     const url = request.url();
     if (url.includes('/api/frontier/feed') || url.includes('/api/frontier/forage')) {
       discoveryRequests.push({ url, at: Date.now() });
+    }
+    if (
+      url.includes('/api/auth/session')
+      || url.includes('/api/frontier/memory')
+      || url.includes('/api/frontier/google/import')
+    ) {
+      accountRequests.push({ url, at: Date.now() });
     }
     if (request.resourceType() === 'image' || url.includes('/api/frontier/media')) {
       mediaRequests.push({ url, at: Date.now() });
@@ -180,10 +188,12 @@ async function auditViewport(browser, viewport, maxCards, label) {
     assert.equal(first.bodyOverflowY, 'hidden', `${label}: body overflow must remain locked`);
     assert(usefulPaintMs <= MAX_USEFUL_PAINT_MS, `${label}: useful paint exceeded ${MAX_USEFUL_PAINT_MS}ms: ${usefulPaintMs}`);
     assert.deepEqual(discoveryRequests, [], `${label}: cold load called discovery APIs`);
+    assert.deepEqual(accountRequests, [], `${label}: cold load called account/cloud APIs`);
 
     await page.waitForTimeout(PASSIVE_QUIET_MS);
     const quiet = await state(page);
     assert.deepEqual(discoveryRequests, [], `${label}: passive runtime called discovery APIs`);
+    assert.deepEqual(accountRequests, [], `${label}: passive runtime called account/cloud APIs`);
     assert(!quiet.workers.some((url) => /liveDaemonWorker|semantic|rerank/i.test(url)), `${label}: heavy worker started: ${quiet.workers.join(' | ')}`);
 
     const turnResults = [];
@@ -219,6 +229,7 @@ async function auditViewport(browser, viewport, maxCards, label) {
       quiet,
       mediaRequestCount: mediaRequests.length,
       discoveryRequests,
+      accountRequests,
     };
   } finally {
     await context.close();
