@@ -5,8 +5,10 @@ const STRETCHICORN_SOURCE_REF = 'main';
 const STRETCHICORN_SOURCE_ARTIFACT = 'dist/stretchicorn-local.html';
 const SOURCE_URL = `https://raw.githubusercontent.com/sidhulyalkar/stretchicorn/${STRETCHICORN_SOURCE_REF}/${STRETCHICORN_SOURCE_ARTIFACT}`;
 const GAME_NETWORK_BRIDGE = '<script src="/game-runtimes/game-network-bridge.js"></script>';
-const FILL_SHELL_STYLE =
-  '<style data-sids-game-network-fill>html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#000}body{display:block}canvas{width:100%!important;height:100%!important;max-width:none!important;display:block;cursor:crosshair}</style>';
+const FIT_SHELL_STYLE =
+  '<style data-sids-game-network-fit>html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#000}body{display:grid;place-items:center}canvas#c{width:min(100vw,150vh)!important;height:auto!important;max-width:100vw!important;max-height:100vh!important;aspect-ratio:3/2;display:block;cursor:crosshair;touch-action:none}</style>';
+const VIEWPORT_META =
+  '<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">';
 
 /**
  * Packed js13k builds decompress via eval(r). Without 'unsafe-eval' the browser
@@ -33,16 +35,31 @@ function ensureStretchicornTitle(html: string) {
 function prepareForGameNetwork(html: string) {
   const titled = ensureStretchicornTitle(html);
 
-  // Pack builds center a max-960px canvas on a full-viewport body, which leaves
-  // grey letterbox bars inside a larger host iframe. Force the canvas to fill.
+  // The game is authored at 960x640 (3:2). Fit that surface inside any host
+  // viewport without stretching it. This is the same contract for the cabinet,
+  // browser fullscreen, and the direct standalone runtime URL.
   let shell = titled;
-  if (!shell.includes('data-sids-game-network-fill')) {
+  if (!/<meta[^>]+name=["']viewport["']/i.test(shell)) {
     if (/<head[^>]*>/i.test(shell)) {
-      shell = shell.replace(/<head[^>]*>/i, (m) => `${m}${FILL_SHELL_STYLE}`);
+      shell = shell.replace(/<head[^>]*>/i, (m) => `${m}${VIEWPORT_META}`);
+    } else if (/<meta[^>]+charset/i.test(shell)) {
+      shell = shell.replace(/(<meta[^>]+charset[^>]*>)/i, `$1${VIEWPORT_META}`);
     } else if (/<!doctype html>/i.test(shell)) {
-      shell = shell.replace(/<!doctype html>/i, (m) => `${m}${FILL_SHELL_STYLE}`);
+      shell = shell.replace(/<!doctype html>/i, (m) => `${m}${VIEWPORT_META}`);
     } else {
-      shell = `${FILL_SHELL_STYLE}${shell}`;
+      shell = `${VIEWPORT_META}${shell}`;
+    }
+  }
+
+  if (!shell.includes('data-sids-game-network-fit')) {
+    if (/<head[^>]*>/i.test(shell)) {
+      shell = shell.replace(/<head[^>]*>/i, (m) => `${m}${FIT_SHELL_STYLE}`);
+    } else if (/<meta[^>]+charset/i.test(shell)) {
+      shell = shell.replace(/(<meta[^>]+charset[^>]*>)/i, `$1${FIT_SHELL_STYLE}`);
+    } else if (/<!doctype html>/i.test(shell)) {
+      shell = shell.replace(/<!doctype html>/i, (m) => `${m}${FIT_SHELL_STYLE}`);
+    } else {
+      shell = `${FIT_SHELL_STYLE}${shell}`;
     }
   }
 
