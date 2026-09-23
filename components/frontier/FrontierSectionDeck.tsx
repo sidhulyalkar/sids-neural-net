@@ -94,7 +94,6 @@ function cardVariant(layoutMode: FrontierLayoutMode, index: number): CardVariant
   }
   if (index === 0) return 'feature';
   if (index === 1) return 'wide';
-  if (index <= 3) return 'standard';
   return 'compact';
 }
 
@@ -416,6 +415,7 @@ export function FrontierSectionDeck({ items, layoutMode, renderCard, empty }: Pr
                   data-frontier-card-rank={index + 1}
                   data-frontier-card-tier={variant}
                   data-frontier-virtual-card="true"
+                  data-frontier-fluid-card={item.id}
                 >
                   {tieredCard}
                 </div>
