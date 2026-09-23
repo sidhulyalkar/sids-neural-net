@@ -92,6 +92,37 @@ async function assertCanvasKeyboardFocus(frame, label) {
   }
 }
 
+async function assertCanvasContained(frame, label, expectedAspect) {
+  const metrics = await frame.evaluate(() => {
+    const canvas = document.querySelector('#c');
+    if (!canvas) return null;
+    const rect = canvas.getBoundingClientRect();
+    return {
+      width: rect.width,
+      height: rect.height,
+      viewportWidth: window.innerWidth,
+      viewportHeight: window.innerHeight,
+    };
+  });
+
+  if (!metrics || metrics.width <= 0 || metrics.height <= 0) {
+    throw new Error(`${label}: canvas has no measurable layout box: ${JSON.stringify(metrics)}`);
+  }
+
+  const actualAspect = metrics.width / metrics.height;
+  if (Math.abs(actualAspect - expectedAspect) > 0.01) {
+    throw new Error(
+      `${label}: canvas aspect ratio distorted: ${JSON.stringify({ ...metrics, actualAspect, expectedAspect })}`
+    );
+  }
+
+  if (metrics.width > metrics.viewportWidth + 1 || metrics.height > metrics.viewportHeight + 1) {
+    throw new Error(`${label}: canvas overflows viewport: ${JSON.stringify(metrics)}`);
+  }
+
+  return { ...metrics, aspect: actualAspect };
+}
+
 async function assertStretchicornCampaignContracts(frame) {
   const contract = await frame.evaluate(() => eval(`({
     stageCount: ST.length,
@@ -234,6 +265,7 @@ async function testStretchicorn(page, engineName) {
 
   const bridge = await assertNativeBridge(frame, 'Stretchicorn');
   await frame.locator('#c').waitFor({ state: 'visible' });
+  const cabinetFit = await assertCanvasContained(frame, 'Stretchicorn cabinet', 960 / 640);
   const title = await frame.title();
   if (!/Stretchicorn/i.test(title)) throw new Error(`Stretchicorn runtime title is missing: ${title}`);
 
@@ -256,7 +288,38 @@ async function testStretchicorn(page, engineName) {
 
   const playingPaint = await assertPainted(frame, 'Stretchicorn playing');
   await page.screenshot({ path: path.join(outputDir, `${engineName}-stretchicorn-playing.png`), fullPage: true });
-  return { bridge, title, runtimeUrl: frame.url(), initial, release, playing, playingPaint };
+
+  const standaloneResponse = await page.goto(`${baseUrl}/game-runtimes/stretchicorn/index.html`, {
+    waitUntil: 'domcontentloaded',
+  });
+  if (!standaloneResponse?.ok()) {
+    throw new Error(`Stretchicorn standalone returned ${standaloneResponse?.status() ?? 'no response'}`);
+  }
+  const standaloneFrame = page.mainFrame();
+  await standaloneFrame.locator('#c').waitFor({ state: 'visible' });
+  const standaloneFit = await assertCanvasContained(
+    standaloneFrame,
+    'Stretchicorn standalone',
+    960 / 640
+  );
+  const standalonePaint = await assertPainted(standaloneFrame, 'Stretchicorn standalone');
+  await page.screenshot({
+    path: path.join(outputDir, `${engineName}-stretchicorn-standalone.png`),
+    fullPage: true,
+  });
+
+  return {
+    bridge,
+    title,
+    runtimeUrl: frame.url(),
+    initial,
+    release,
+    playing,
+    playingPaint,
+    cabinetFit,
+    standaloneFit,
+    standalonePaint,
+  };
 }
 
 async function testUniRico(page, engineName) {
