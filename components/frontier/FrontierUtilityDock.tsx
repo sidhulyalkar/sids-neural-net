@@ -1,14 +1,16 @@
 'use client';
 
-import { forwardRef, useCallback, useEffect, useRef, useState } from 'react';
-import type { ForwardedRef } from 'react';
-import { ChevronDown, LayoutGrid, Rows3, Volume2, VolumeX, X } from 'lucide-react';
+import dynamic from 'next/dynamic';
+import { forwardRef, useEffect, useState } from 'react';
+import { ChevronDown, FlaskConical, LayoutGrid, Rows3, X } from 'lucide-react';
 import { setFrontierClientQuery } from '@/lib/frontier/vector/clientQuery';
 import type { FrontierLayoutMode, FrontierRealm, FrontierView } from '@/lib/frontier/types';
-import { useUIFrequencies } from './audio/useUIFrequencies';
-import { FrontierReactionLoop } from './FrontierReactionLoop';
-import { FrontierSensorQcControl } from './FrontierSensorQcControl';
 import styles from './frontier-utility-dock.module.css';
+
+const FrontierExperimentalControls = dynamic(
+  () => import('./FrontierExperimentalControls').then((module) => module.FrontierExperimentalControls),
+  { ssr: false },
+);
 
 type Option = { value: string; label: string };
 
@@ -48,14 +50,12 @@ function DockSelect({
   options,
   label,
   onChange,
-  onInteraction,
   className = '',
 }: {
   value: string;
   options: Option[];
   label: string;
   onChange: (value: string) => void;
-  onInteraction?: () => void;
   className?: string;
 }) {
   return (
@@ -64,10 +64,7 @@ function DockSelect({
       <select
         value={value}
         aria-label={label}
-        onChange={(event) => {
-          onInteraction?.();
-          onChange(event.target.value);
-        }}
+        onChange={(event) => onChange(event.target.value)}
       >
         {options.map((option) => <option value={option.value} key={option.value}>{option.label}</option>)}
       </select>
@@ -76,11 +73,14 @@ function DockSelect({
   );
 }
 
-function assignRef<T>(ref: ForwardedRef<T>, value: T | null) {
-  if (typeof ref === 'function') ref(value);
-  else if (ref) ref.current = value;
-}
-
+/**
+ * The reader dock intentionally contains only cheap controls.
+ *
+ * Camera/reaction inference, Sensor QC polling, and WebAudio live in the
+ * dynamically loaded Lab chunk and do not enter the cold reading lifecycle.
+ * The finite reader has no document scroll, so the old scroll/pointermove
+ * auto-hide loop is deliberately absent as well.
+ */
 export const FrontierUtilityDock = forwardRef<HTMLDivElement, Props>(function FrontierUtilityDock({
   view,
   realm,
@@ -97,17 +97,7 @@ export const FrontierUtilityDock = forwardRef<HTMLDivElement, Props>(function Fr
   onFormatChange,
   onClearSearch,
 }, forwardedRef) {
-  const dockRef = useRef<HTMLDivElement | null>(null);
-  const interactingRef = useRef(false);
-  const lastScrollYRef = useRef(0);
-  const rafRef = useRef<number | undefined>(undefined);
-  const [hidden, setHidden] = useState(false);
-  const { muted, toggleMuted, playDockClick } = useUIFrequencies();
-
-  const setDockRef = useCallback((node: HTMLDivElement | null) => {
-    dockRef.current = node;
-    assignRef(forwardedRef, node);
-  }, [forwardedRef]);
+  const [labOpen, setLabOpen] = useState(false);
 
   useEffect(() => {
     setFrontierClientQuery(view === 'explore' ? (activeSearch ?? '') : '');
@@ -115,76 +105,21 @@ export const FrontierUtilityDock = forwardRef<HTMLDivElement, Props>(function Fr
 
   useEffect(() => () => setFrontierClientQuery(''), []);
 
-  useEffect(() => {
-    lastScrollYRef.current = window.scrollY;
-
-    const revealNearEdge = (event: PointerEvent) => {
-      if (event.clientY >= window.innerHeight - 96) setHidden(false);
-    };
-
-    const onScroll = () => {
-      if (rafRef.current !== undefined) return;
-      rafRef.current = window.requestAnimationFrame(() => {
-        rafRef.current = undefined;
-        const nextY = window.scrollY;
-        const delta = nextY - lastScrollYRef.current;
-        lastScrollYRef.current = nextY;
-
-        if (nextY < 100) {
-          setHidden(false);
-          return;
-        }
-        if (interactingRef.current) return;
-        if (delta > 7) setHidden(true);
-        else if (delta < -5) setHidden(false);
-      });
-    };
-
-    window.addEventListener('scroll', onScroll, { passive: true });
-    window.addEventListener('pointermove', revealNearEdge, { passive: true });
-    return () => {
-      window.removeEventListener('scroll', onScroll);
-      window.removeEventListener('pointermove', revealNearEdge);
-      if (rafRef.current !== undefined) window.cancelAnimationFrame(rafRef.current);
-    };
-  }, []);
-
   const feedView = view === 'today' || view === 'explore';
   const layoutView = feedView || view === 'saved';
 
-  const toggleAudio = () => {
-    if (muted) {
-      toggleMuted();
-      playDockClick();
-    } else {
-      playDockClick();
-      toggleMuted();
-    }
-  };
-
   return (
     <div
-      ref={setDockRef}
-      className={`${styles.dock} ${hidden ? styles.dockHidden : ''}`}
+      ref={forwardedRef}
+      className={styles.dock}
       aria-label="FRONTIER utility dock"
-      onPointerEnter={() => {
-        interactingRef.current = true;
-        setHidden(false);
-      }}
-      onPointerLeave={() => { interactingRef.current = false; }}
-      onFocusCapture={() => {
-        interactingRef.current = true;
-        setHidden(false);
-      }}
-      onBlurCapture={(event) => {
-        if (!dockRef.current?.contains(event.relatedTarget as Node | null)) interactingRef.current = false;
-      }}
+      data-frontier-dock-runtime="reader-core"
+      data-frontier-lab-mounted={labOpen ? 'true' : 'false'}
     >
       <DockSelect
         value={view}
         label="View"
         options={VIEW_OPTIONS}
-        onInteraction={playDockClick}
         onChange={(value) => onViewChange(value as FrontierView)}
         className={styles.viewSelect}
       />
@@ -196,7 +131,6 @@ export const FrontierUtilityDock = forwardRef<HTMLDivElement, Props>(function Fr
             value={realm}
             label="Perspective"
             options={REALM_OPTIONS}
-            onInteraction={playDockClick}
             onChange={(value) => onRealmChange(value as FrontierRealm)}
             className={styles.realmSelect}
           />
@@ -204,7 +138,6 @@ export const FrontierUtilityDock = forwardRef<HTMLDivElement, Props>(function Fr
             value={category}
             label="Category"
             options={categoryOptions}
-            onInteraction={playDockClick}
             onChange={onCategoryChange}
             className={styles.categorySelect}
           />
@@ -212,7 +145,6 @@ export const FrontierUtilityDock = forwardRef<HTMLDivElement, Props>(function Fr
             value={format}
             label="Format"
             options={formatOptions}
-            onInteraction={playDockClick}
             onChange={onFormatChange}
             className={styles.formatSelect}
           />
@@ -225,10 +157,7 @@ export const FrontierUtilityDock = forwardRef<HTMLDivElement, Props>(function Fr
           {onClearSearch ? (
             <button
               type="button"
-              onClick={() => {
-                playDockClick();
-                onClearSearch();
-              }}
+              onClick={onClearSearch}
               aria-label={`Clear search ${activeSearch}`}
             ><X size={10} /></button>
           ) : null}
@@ -242,10 +171,7 @@ export const FrontierUtilityDock = forwardRef<HTMLDivElement, Props>(function Fr
             <button
               type="button"
               className={layoutMode === 'desk' ? styles.activeLayout : ''}
-              onClick={() => {
-                playDockClick();
-                onLayoutChange('desk');
-              }}
+              onClick={() => onLayoutChange('desk')}
               aria-label="Grid layout"
               aria-pressed={layoutMode === 'desk'}
               title="Grid"
@@ -253,10 +179,7 @@ export const FrontierUtilityDock = forwardRef<HTMLDivElement, Props>(function Fr
             <button
               type="button"
               className={layoutMode === 'feed' ? styles.activeLayout : ''}
-              onClick={() => {
-                playDockClick();
-                onLayoutChange('feed');
-              }}
+              onClick={() => onLayoutChange('feed')}
               aria-label="List layout"
               aria-pressed={layoutMode === 'feed'}
               title="List"
@@ -265,19 +188,20 @@ export const FrontierUtilityDock = forwardRef<HTMLDivElement, Props>(function Fr
         </>
       ) : null}
 
-      <FrontierReactionLoop feedActive={feedView} />
-      <FrontierSensorQcControl feedActive={feedView} />
-
+      <span className={styles.airGap} aria-hidden="true" />
       <button
         type="button"
-        className={styles.audioToggle}
-        onClick={toggleAudio}
-        aria-label={muted ? 'Enable FRONTIER interface audio' : 'Mute FRONTIER interface audio'}
-        aria-pressed={muted}
-        title={muted ? 'Audio off' : 'Audio on'}
+        className={`${styles.labToggle} ${labOpen ? styles.labToggleActive : ''}`}
+        onClick={() => setLabOpen((open) => !open)}
+        aria-label={labOpen ? 'Close FRONTIER Lab' : 'Open FRONTIER Lab'}
+        aria-expanded={labOpen}
+        title="Experimental controls"
       >
-        {muted ? <VolumeX size={12} /> : <Volume2 size={12} />}
+        <FlaskConical size={12} aria-hidden="true" />
+        <span>Lab</span>
       </button>
+
+      {labOpen ? <FrontierExperimentalControls feedActive={feedView} /> : null}
     </div>
   );
 });

@@ -16,7 +16,7 @@ const footerLinks = [
 export function Footer() {
   const pathname = usePathname();
 
-  if (pathname === '/') return null;
+  if (pathname === '/' || pathname?.startsWith('/frontier')) return null;
 
   return (
     <footer className="relative z-10 border-t border-white/8 px-4 py-4">

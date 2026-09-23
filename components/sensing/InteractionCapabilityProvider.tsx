@@ -28,7 +28,7 @@ export function InteractionCapabilityProvider() {
   const pathname = usePathname();
   const enabled = useSensingStore((state) => state.enabled);
 
-  if (pathname?.startsWith('/sensing-lab') || isArcadeGamePath(pathname)) return null;
+  if (pathname?.startsWith('/sensing-lab') || pathname?.startsWith('/frontier') || isArcadeGamePath(pathname)) return null;
 
   return (
     <>

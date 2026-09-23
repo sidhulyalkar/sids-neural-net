@@ -49,6 +49,12 @@ async function run() {
     const response = await page.goto(url, { waitUntil: 'domcontentloaded' });
     invariant(response && response.ok(), `FRONTIER returned ${response?.status() ?? 'no response'}`);
 
+    const labTrigger = page.getByRole('button', { name: 'Open FRONTIER Lab' });
+    await labTrigger.waitFor();
+    const cameraCallsBeforeLab = await page.evaluate(() => window.__frontierCameraCalls || 0);
+    invariant(cameraCallsBeforeLab === 0, 'Cold reader requested camera access before Lab opt-in');
+    await labTrigger.click();
+
     const trigger = page.getByRole('button', { name: 'Open Sensor QC' });
     await trigger.waitFor();
     await trigger.click();

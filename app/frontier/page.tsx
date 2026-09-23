@@ -1,19 +1,16 @@
 import type { Metadata } from 'next';
-import { BackgroundCanvas } from '@/components/frontier/BackgroundCanvas';
-import { FrontierExperience } from '@/components/frontier/FrontierExperience';
-import { FrontierRuntimeControls } from '@/components/frontier/FrontierRuntimeControls';
-import { SignalTelemetryBridge } from '@/components/frontier/signals/SignalTelemetryBridge';
-import { MeshStateBridge } from '@/components/frontier/sync/MeshStateBridge';
-import { FrontierAutonomyProvider } from '@/components/frontier/watch/FrontierAutonomyProvider';
+import { FrontierSectionExperience } from '@/components/frontier/FrontierSectionExperience';
+import { getFrontierColdSnapshotFeed } from '@/lib/frontier/snapshotFeed';
 import spatial from '@/components/frontier/frontier-spatial.module.css';
+import './frontier-render-fast.css';
 
 export const metadata: Metadata = {
   title: 'FRONTIER · Personal Intelligence Radar',
-  description: 'A live, adaptive personal radar for novel research, public code, project design, science, favorite teams, sports highlights, games, dubstep, Reddit, video, and internet culture.',
+  description: 'A fast, adaptive personal radar for research, public code, project design, science, sports, games, music, video, and useful surprise.',
   alternates: { canonical: '/frontier' },
   openGraph: {
     title: 'FRONTIER · Personal Intelligence Radar',
-    description: 'Brainfood and After Hours in one finite daily run: studies, code, teams, games, music, community signal, and useful surprise.',
+    description: 'A finite daily edition of studies, code, teams, games, music, community signal, and useful surprise.',
     url: '/frontier',
     type: 'website',
   },
@@ -34,16 +31,25 @@ export default function FrontierPage() {
     month: '2-digit',
     day: '2-digit',
   }).format(now);
+  const snapshot = getFrontierColdSnapshotFeed(now.getTime());
+  const initialFeed = {
+    generatedAt: snapshot.generatedAt,
+    items: snapshot.items.slice(0, 40),
+    sources: snapshot.sources,
+  };
 
   return (
-    <div className={spatial.root}>
-      <BackgroundCanvas />
-      <SignalTelemetryBridge />
-      <MeshStateBridge />
-      <FrontierAutonomyProvider>
-        <FrontierExperience initialDateLabel={initialDateLabel} initialDayKey={initialDayKey} />
-      </FrontierAutonomyProvider>
-      <FrontierRuntimeControls />
+    <div
+      className={spatial.root}
+      data-frontier-performance-route="true"
+      data-frontier-data-authority="server-snapshot"
+      data-frontier-passive-discovery="off"
+    >
+      <FrontierSectionExperience
+        initialDateLabel={initialDateLabel}
+        initialDayKey={initialDayKey}
+        initialFeed={initialFeed}
+      />
     </div>
   );
 }

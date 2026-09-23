@@ -10,12 +10,12 @@ const NeuronCursor = dynamic(
 );
 
 /**
- * Keep the decorative neural cursor off interactive game routes entirely.
- * Games need the browser's ordinary pointer and should not spend work on a
- * second site-level pointer renderer while an iframe owns interaction.
+ * Keep the decorative neural cursor off performance-isolated experiences.
+ * FRONTIER reserves interaction budget for reading and compositor page swaps;
+ * games reserve it for their own input runtimes.
  */
 export function SiteNeuronCursor() {
   const pathname = usePathname();
-  if (isArcadeGamePath(pathname)) return null;
+  if (pathname?.startsWith('/frontier') || isArcadeGamePath(pathname)) return null;
   return <NeuronCursor />;
 }
