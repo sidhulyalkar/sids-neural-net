@@ -1,13 +1,40 @@
 'use client';
 
+import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { FractalThemeEcho } from '@/components/neural-atlas/FractalThemeEcho';
+
+const FractalThemeEcho = dynamic(
+  () => import('@/components/neural-atlas/FractalThemeEcho').then((module) => module.FractalThemeEcho),
+  { ssr: false },
+);
 
 export function Header() {
   const pathname = usePathname();
 
   if (pathname === '/') return null;
+
+  if (pathname?.startsWith('/frontier')) {
+    return (
+      <Link
+        href="/"
+        aria-label="Return home"
+        data-frontier-minimal-chrome="true"
+        className="fixed left-4 top-4 z-50 flex h-10 w-10 items-center justify-center text-cyan/75 transition-colors hover:text-cyan focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyan/60"
+      >
+        <svg aria-hidden="true" viewBox="0 0 44 44" className="absolute inset-0 h-full w-full" fill="none">
+          <polygon
+            points="22 2 39 12 39 32 22 42 5 32 5 12"
+            fill="rgba(2,3,6,0.72)"
+            stroke="currentColor"
+            strokeOpacity="0.52"
+            strokeWidth="1"
+          />
+        </svg>
+        <span aria-hidden="true" className="relative z-10 -translate-x-px font-mono text-lg">‹</span>
+      </Link>
+    );
+  }
 
   return (
     <Link
