@@ -37,7 +37,6 @@ import type {
   FrontierSourceStatus,
   FrontierView,
 } from '@/lib/frontier/types';
-import { FrontierAccount } from './FrontierAccount';
 import { FrontierSectionDeck } from './FrontierSectionDeck';
 import { FrontierUtilityDock } from './FrontierUtilityDock';
 import { SignalCard } from './SignalCard';
@@ -49,6 +48,7 @@ const MAX_CLIENT_ITEMS = 48;
 type FormatFilter = 'all' | 'papers' | 'code' | 'projects' | 'video' | 'threads' | 'sports' | 'games' | 'music';
 type FeedScope = 'edition' | 'search';
 
+const FrontierAccount = dynamic(() => import('./FrontierAccount').then((module) => module.FrontierAccount), { ssr: false });
 const InterestConstellation = dynamic(() => import('./InterestConstellation').then((module) => module.InterestConstellation));
 const PreferenceLens = dynamic(() => import('./PreferenceLens').then((module) => module.PreferenceLens));
 
@@ -130,6 +130,7 @@ export function FrontierSectionExperience({ initialDateLabel, initialDayKey, ini
   const [sources, setSources] = useState<FrontierSourceStatus[]>(initialFeed.sources ?? []);
   const [generatedAt, setGeneratedAt] = useState<string | undefined>(initialFeed.generatedAt);
   const [refreshing, setRefreshing] = useState(false);
+  const [accountOpen, setAccountOpen] = useState(false);
   const [error, setError] = useState<string>();
   const [realm, setRealm] = useState<FrontierRealm>('all');
   const [laneFilter, setLaneFilter] = useState<'all' | FrontierLaneId>('all');
@@ -464,7 +465,16 @@ export function FrontierSectionExperience({ initialDateLabel, initialDayKey, ini
                 disabled={refreshing}
               ><RefreshCw size={12} /></button>
             </div>
-            <FrontierAccount />
+            <button
+              type="button"
+              className={styles.utilityButton}
+              onClick={() => setAccountOpen((open) => !open)}
+              aria-expanded={accountOpen}
+              aria-label="Account and cloud sync"
+            >
+              Account
+            </button>
+            {accountOpen ? <FrontierAccount /> : null}
           </div>
         </header>
 
