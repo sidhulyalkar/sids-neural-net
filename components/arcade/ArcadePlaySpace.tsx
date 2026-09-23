@@ -12,6 +12,22 @@ type GameNetworkBridgeMessage = {
   kind?: 'focus' | 'escape';
 };
 
+function getFullscreenFrameStyle(game: ArcadeGame) {
+  if (!game.nativeSize) return { width: '100%', height: '100%' };
+
+  const { width, height } = game.nativeSize;
+  const viewportWidthInVh = Number(((width / height) * 100).toFixed(6));
+  const viewportHeightInVw = Number(((height / width) * 100).toFixed(6));
+
+  return {
+    aspectRatio: game.aspectRatio,
+    width: `min(100vw, ${viewportWidthInVh}vh)`,
+    height: `min(100vh, ${viewportHeightInVw}vw)`,
+    maxWidth: '100vw',
+    maxHeight: '100vh',
+  };
+}
+
 function focusRuntimeWindow(iframe: HTMLIFrameElement | null) {
   if (!iframe) return;
   try {
@@ -64,6 +80,7 @@ export function ArcadePlaySpace({ game }: { game: ArcadeGame }) {
   const [focused, setFocused] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
   const trustedSameOriginRuntime = Boolean(game.launchUrl?.startsWith('/'));
+  const fullscreenFrameStyle = getFullscreenFrameStyle(game);
 
   const engageFocus = useCallback(() => {
     document.documentElement.classList.add('game-runtime-focused');
@@ -268,12 +285,12 @@ export function ArcadePlaySpace({ game }: { game: ArcadeGame }) {
         <section
           className={
             fullscreen
-              ? 'absolute inset-0 flex items-stretch justify-stretch p-0'
+              ? 'absolute inset-0 grid place-items-center overflow-hidden bg-black p-0'
               : 'flex flex-1 items-center justify-center py-6 sm:py-8'
           }
         >
           <div
-            className={fullscreen ? 'h-full w-full max-w-none' : 'mx-auto w-full'}
+            className={fullscreen ? 'grid h-full w-full max-w-none place-items-center overflow-hidden bg-black' : 'mx-auto w-full'}
             style={
               fullscreen || !game.nativeSize
                 ? undefined
@@ -283,7 +300,7 @@ export function ArcadePlaySpace({ game }: { game: ArcadeGame }) {
             <div
               className={
                 fullscreen
-                  ? 'h-full w-full bg-black'
+                  ? 'grid h-full w-full place-items-center bg-black'
                   : `border bg-black transition-[border-color,box-shadow] duration-300 ${
                       focused
                         ? 'border-cyan/45 shadow-[0_0_28px_rgba(102,227,255,0.14)]'
@@ -294,10 +311,11 @@ export function ArcadePlaySpace({ game }: { game: ArcadeGame }) {
               <div
                 className={
                   fullscreen
-                    ? 'relative h-full w-full overflow-hidden bg-black'
+                    ? 'relative overflow-hidden bg-black'
                     : 'relative mx-auto w-full overflow-hidden bg-black'
                 }
-                style={fullscreen ? undefined : { aspectRatio: game.aspectRatio }}
+                data-arcade-game-frame
+                style={fullscreen ? fullscreenFrameStyle : { aspectRatio: game.aspectRatio }}
               >
                 {game.launchUrl ? (
                   <iframe
