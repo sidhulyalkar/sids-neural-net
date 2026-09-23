@@ -33,6 +33,7 @@ export function GpuImageSurface({
 }: Props) {
   const frameRef = useRef<HTMLDivElement>(null);
   const slotRef = useRef<HTMLDivElement>(null);
+  const nativeImageRef = useRef<HTMLImageElement>(null);
   const compactSize = useRef<SurfaceSize | undefined>(undefined);
   const expanded = useInlineMediaExpansion();
   const reactId = useId();
@@ -78,6 +79,28 @@ export function GpuImageSurface({
     slot.style.height = `${base.height}px`;
     slot.style.transform = `scale(${target.width / base.width}, ${target.height / base.height})`;
   }, [expanded]);
+
+  useLayoutEffect(() => {
+    const frame = frameRef.current;
+    const image = nativeImageRef.current;
+    if (!frame || !image) return;
+    if (!frame.closest('[data-frontier-page-role="incoming"]')) return;
+
+    // During a page turn the browser-native image, not the fixed WebGL plane,
+    // becomes the physical sheet surface. Promote only that prepared incoming
+    // copy so visibility:hidden cannot leave its lazy image unscheduled while
+    // the detached warm cache reports the same URL ready.
+    image.loading = 'eager';
+    image.fetchPriority = 'high';
+    image.dataset.frontierTurnPriority = 'high';
+
+    return () => {
+      if (image.dataset.frontierTurnPriority !== 'high') return;
+      delete image.dataset.frontierTurnPriority;
+      image.loading = 'lazy';
+      image.fetchPriority = 'auto';
+    };
+  }, [nativeSrc]);
 
   useEffect(() => {
     const slot = slotRef.current;
@@ -140,6 +163,7 @@ export function GpuImageSurface({
       {!fallbackFailed ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img
+          ref={nativeImageRef}
           src={nativeSrc}
           alt=""
           aria-hidden="true"
