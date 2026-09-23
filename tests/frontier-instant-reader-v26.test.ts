@@ -53,3 +53,32 @@ test('browse media remains native and rich media is explicit-only', () => {
   assert.match(card, /const compact = variant === 'compact'/);
   assert.match(card, /const renderMedia = hasMedia && !compact/);
 });
+
+
+test('cold reader keeps account, sensors, QC, and audio behind explicit interaction', () => {
+  const experience = read('components/frontier/FrontierSectionExperience.tsx');
+  const dock = read('components/frontier/FrontierUtilityDock.tsx');
+  const lab = read('components/frontier/FrontierExperimentalControls.tsx');
+  const qc = read('components/frontier/FrontierSensorQcControl.tsx');
+  const header = read('components/layout/Header.tsx');
+  const footer = read('components/layout/Footer.tsx');
+
+  assert.match(experience, /dynamic\(\(\) => import\('\.\/FrontierAccount'\)/);
+  assert.match(experience, /accountOpen \? <FrontierAccount \/> : null/);
+
+  assert.match(dock, /dynamic\([\s\S]*FrontierExperimentalControls/);
+  assert.match(dock, /labOpen \? <FrontierExperimentalControls feedActive=\{feedView\} \/> : null/);
+  assert.doesNotMatch(dock, /from '\.\/FrontierReactionLoop'/);
+  assert.doesNotMatch(dock, /from '\.\/FrontierSensorQcControl'/);
+  assert.doesNotMatch(dock, /from '\.\/audio\/useUIFrequencies'/);
+  assert.doesNotMatch(dock, /addEventListener\('scroll'|addEventListener\('pointermove'/);
+
+  assert.match(lab, /FrontierReactionLoop/);
+  assert.match(lab, /FrontierSensorQcControl/);
+  assert.match(lab, /useUIFrequencies/);
+  assert.match(qc, /setInterval\(refresh, 500\)/);
+
+  assert.match(header, /dynamic\([\s\S]*FractalThemeEcho/);
+  assert.match(header, /data-frontier-minimal-chrome="true"/);
+  assert.match(footer, /pathname\?\.startsWith\('\/frontier'\)/);
+});
