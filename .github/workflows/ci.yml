@@ -97,7 +97,9 @@ jobs:
             http://127.0.0.1:3000/game-runtimes/stretchicorn/index.html \
             -o /tmp/stretchicorn-runtime.html
           grep -qi 'Stretchicorn' /tmp/stretchicorn-runtime.html
-          grep -q 'COBTOPUS PRIME' /tmp/stretchicorn-runtime.html
+          # The js13k local artifact is packed; authored boss names are not guaranteed
+          # to remain plaintext in the served HTML. The browser matrix below evaluates
+          # the runtime and verifies the full 13-stage roster, including COBTOPUS PRIME.
           grep -qi '^x-stretchicorn-source-ref: main' /tmp/stretchicorn-runtime-headers.txt
           grep -qi '^x-stretchicorn-source-artifact: dist/stretchicorn-local.html' /tmp/stretchicorn-runtime-headers.txt
           echo "VERIFY legacy Stretchicorn versioned path redirects to live main"
