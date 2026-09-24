@@ -268,14 +268,36 @@ export function ArcadePlaySpace({ game }: { game: ArcadeGame }) {
                 }`
           }
         >
-          <div>
+          <div className="flex items-center gap-3">
             <Link
               href="/arcade"
-              className="font-mono text-[9px] uppercase tracking-[0.22em] text-white/35 transition-colors hover:text-cyan"
+              aria-label="Back to Game Network"
+              data-arcade-back-control="hex"
+              className="group grid h-10 w-10 shrink-0 place-items-center text-white/45 transition-colors hover:text-cyan"
             >
-              ← game network
+              <svg
+                viewBox="0 0 44 48"
+                aria-hidden="true"
+                className="h-9 w-[33px] overflow-visible"
+              >
+                <polygon
+                  points="22 2 40 12.5 40 35.5 22 46 4 35.5 4 12.5"
+                  fill="rgba(2,3,6,0.9)"
+                  stroke="currentColor"
+                  strokeWidth="1.25"
+                  className="transition-[stroke-width] group-hover:[stroke-width:1.8]"
+                />
+                <path
+                  d="M25 15.5 17 24l8 8.5"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
             </Link>
-            <p className="mt-2 text-lg font-light tracking-tight text-white sm:text-xl">{game.title}</p>
+            <p className="text-lg font-light tracking-tight text-white sm:text-xl">{game.title}</p>
           </div>
           <span className="font-mono text-[8px] uppercase tracking-[0.16em] text-white/20">
             {game.version}
