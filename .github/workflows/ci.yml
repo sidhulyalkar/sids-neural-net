@@ -30,19 +30,6 @@ jobs:
           node-version: '22'
           cache: npm
 
-      - name: Refresh security-patched lock candidate
-        run: |
-          npm install --package-lock-only --ignore-scripts
-          npm audit fix --package-lock-only --ignore-scripts || true
-
-      - name: Upload refreshed dependency lock
-        uses: actions/upload-artifact@v7
-        with:
-          name: refreshed-dependency-lock
-          path: package-lock.json
-          if-no-files-found: error
-          retention-days: 1
-
       - name: Install exact locked dependencies
         run: |
           npm ci
