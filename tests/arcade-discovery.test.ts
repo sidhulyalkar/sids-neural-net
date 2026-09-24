@@ -202,9 +202,11 @@ test('Game Network browser validation covers live-main Stretchicorn and uniRico 
   assert.match(browserTest, /testStretchicorn\(page, engineName\)/);
   assert.match(browserTest, /testUniRico\(page, engineName\)/);
   assert.match(browserTest, /stretchicorn\/index\.html/);
-  assert.match(browserTest, /stageCount/);
-  assert.match(browserTest, /COBTOPUS PRIME/);
-  assert.match(browserTest, /Space should start Easy at D=0\.7/);
+  assert.match(browserTest, /assertCanvasContained/);
+  assert.match(browserTest, /assertCanvasTransition/);
+  assert.match(browserTest, /Stretchicorn standalone/);
+  assert.match(browserTest, /launchTransition/);
+  assert.doesNotMatch(browserTest, /stageCount: ST\.length/);
   assert.match(browserTest, /unirico\/index\.html/);
   assert.match(browserTest, /LEVELS\.length/);
   assert.match(browserTest, /MIRROR FULL SPECTRUM/);
