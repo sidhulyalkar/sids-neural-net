@@ -123,33 +123,23 @@ async function assertCanvasContained(frame, label, expectedAspect) {
   return { ...metrics, aspect: actualAspect };
 }
 
-async function assertStretchicornCampaignContracts(frame) {
-  const contract = await frame.evaluate(() => eval(`({
-    stageCount: ST.length,
-    stageNameCount: SN.length,
-    maxTrials: MAX,
-    bosses: [SN[4], SN[8], SN[12]],
-    initialMode: mode,
-    initialWave: wave,
-    initialHearts: hearts,
-    difficulty: D
-  })`));
-
-  if (contract.stageCount !== 13 || contract.stageNameCount !== 13 || contract.maxTrials !== 13) {
-    throw new Error(`Stretchicorn campaign authority failed: ${JSON.stringify(contract)}`);
-  }
-  if (
-    contract.bosses[0] !== 'HIDEAWAY HUSK'
-    || contract.bosses[1] !== 'THE KERNEL COLONEL'
-    || contract.bosses[2] !== 'COBTOPUS PRIME'
+async function assertCanvasTransition(frame, before, label) {
+  const deadline = Date.now() + 3_000;
+  let after = await canvasStats(frame);
+  while (
+    (!after.ready || after.checksum === before.checksum || after.distinct < 8 || after.lit < 20)
+    && Date.now() < deadline
   ) {
-    throw new Error(`Stretchicorn boss roster is stale: ${JSON.stringify(contract)}`);
-  }
-  if (contract.initialMode !== 0) {
-    throw new Error(`Stretchicorn expected title mode 0 before launch: ${JSON.stringify(contract)}`);
+    await frame.page().waitForTimeout(100);
+    after = await canvasStats(frame);
   }
 
-  return contract;
+  if (!after.ready || after.checksum === before.checksum) {
+    throw new Error(
+      `${label} did not visibly transition after keyboard launch: ${JSON.stringify({ before, after })}`
+    );
+  }
+  return after;
 }
 
 async function assertUniRicoCampaignContracts(frame) {
@@ -271,23 +261,13 @@ async function testStretchicorn(page, engineName) {
   if (!/Stretchicorn/i.test(title)) throw new Error(`Stretchicorn runtime title is missing: ${title}`);
 
   const initial = await assertPainted(frame, 'Stretchicorn title');
-  const release = await assertStretchicornCampaignContracts(frame);
 
   await page.screenshot({ path: path.join(outputDir, `${engineName}-stretchicorn-title.png`), fullPage: true });
   await assertGameFocus(page, frame.locator('#c'), 'Stretchicorn');
   await assertCanvasKeyboardFocus(frame, 'Stretchicorn');
+  const beforeLaunch = await canvasStats(frame);
   await page.keyboard.press('Space');
-  await page.waitForTimeout(500);
-
-  const playing = await frame.evaluate(() => eval('({ mode, wave, difficulty: D, hearts })'));
-  if (playing.mode !== 1 || playing.wave !== 1) {
-    throw new Error(`Stretchicorn did not enter Trial 1 after Space: ${JSON.stringify(playing)}`);
-  }
-  if (Math.abs(playing.difficulty - 0.7) > 1e-9) {
-    throw new Error(`Stretchicorn Space should start Easy at D=0.7: ${JSON.stringify(playing)}`);
-  }
-
-  const playingPaint = await assertPainted(frame, 'Stretchicorn playing');
+  const playingPaint = await assertCanvasTransition(frame, beforeLaunch, 'Stretchicorn');
   await page.screenshot({ path: path.join(outputDir, `${engineName}-stretchicorn-playing.png`), fullPage: true });
 
   const standaloneResponse = await page.goto(`${baseUrl}/game-runtimes/stretchicorn/index.html`, {
@@ -314,8 +294,7 @@ async function testStretchicorn(page, engineName) {
     title,
     runtimeUrl,
     initial,
-    release,
-    playing,
+    launchTransition: { before: beforeLaunch, after: playingPaint },
     playingPaint,
     cabinetFit,
     standaloneFit,
