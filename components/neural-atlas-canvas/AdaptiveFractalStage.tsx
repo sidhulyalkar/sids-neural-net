@@ -6,6 +6,7 @@ import { FractalCrispTopologyV13 } from './FractalCrispTopologyV13';
 import { FractalExperienceV3 } from './FractalExperienceV3';
 import { FractalPublicCurationV14 } from './FractalPublicCurationV14';
 import { FractalResponsiveEnvelopeV16 } from './FractalResponsiveEnvelopeV16';
+import { FractalSurfaceBoundaryV17 } from './FractalSurfaceBoundaryV17';
 import { FractalSurfaceEnhancerV2 } from './FractalSurfaceEnhancerV2';
 
 export function AdaptiveFractalStage() {
@@ -17,6 +18,7 @@ export function AdaptiveFractalStage() {
       <FractalExperienceV3 />
       <FractalPublicCurationV14 />
       <FractalResponsiveEnvelopeV16 />
+      <FractalSurfaceBoundaryV17 />
       <FractalThemeRecorder />
     </>
   );

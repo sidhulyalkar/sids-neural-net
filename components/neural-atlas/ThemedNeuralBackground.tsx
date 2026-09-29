@@ -1,11 +1,17 @@
+'use client';
+
+import { usePathname } from 'next/navigation';
 import { FractalThemeEcho } from './FractalThemeEcho';
 import { NeuralBackground } from './NeuralBackground';
 
 export function ThemedNeuralBackground() {
+  const pathname = usePathname();
+  const showFractalThemeEcho = pathname !== '/';
+
   return (
     <>
       <NeuralBackground />
-      <FractalThemeEcho variant="background" />
+      {showFractalThemeEcho ? <FractalThemeEcho variant="background" /> : null}
     </>
   );
 }

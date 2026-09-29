@@ -12,9 +12,50 @@
     } catch {}
   };
 
-  window.addEventListener('pointerdown', () => notify('focus'), true);
-  window.addEventListener('mousedown', () => notify('focus'), true);
-  window.addEventListener('touchstart', () => notify('focus'), { capture: true, passive: true });
+  const focusCanvas = () => {
+    const canvas = document.querySelector('canvas');
+    if (canvas) {
+      try {
+        canvas.focus({ preventScroll: true });
+      } catch {
+        try {
+          canvas.focus();
+        } catch {}
+      }
+    } else {
+      try {
+        window.focus();
+      } catch {}
+    }
+  };
+
+  window.addEventListener(
+    'pointerdown',
+    () => {
+      focusCanvas();
+      notify('focus');
+    },
+    true
+  );
+  window.addEventListener(
+    'mousedown',
+    () => {
+      focusCanvas();
+      notify('focus');
+    },
+    true
+  );
+  window.addEventListener('touchstart', () => {
+    focusCanvas();
+    notify('focus');
+  }, { capture: true, passive: true });
   window.addEventListener('focusin', () => notify('focus'), true);
-  window.addEventListener('keydown', (event) => notify(event.key === 'Escape' ? 'escape' : 'focus'), true);
+  window.addEventListener(
+    'keydown',
+    (event) => notify(event.key === 'Escape' ? 'escape' : 'focus'),
+    true
+  );
+
+  // Prefer an explicit keyboard target inside the frame as soon as the bridge loads.
+  focusCanvas();
 })();

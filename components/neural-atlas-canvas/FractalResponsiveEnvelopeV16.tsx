@@ -10,6 +10,7 @@ import {
 } from '@/lib/home/fractalDendrite';
 import {
   estimateResponsiveLabelHalfWidth,
+  getResponsiveDecorativeClipRadius,
   getResponsiveFractalEnvelope,
   mapPathToResponsiveEnvelope,
   responsiveNavigationPosition,
@@ -273,15 +274,27 @@ function ensureResponsiveCanvas(root: HTMLElement, current: HTMLCanvasElement | 
   return canvas;
 }
 
+function isInsideCircle(point: Vec2, center: Vec2, radius: number, tolerance = 0.5): boolean {
+  return distance(point, center) <= radius + tolerance;
+}
+
+function applyCircularClip(ctx: CanvasRenderingContext2D, center: Vec2, radius: number) {
+  ctx.beginPath();
+  ctx.arc(center.x, center.y, Math.max(1, radius), 0, Math.PI * 2);
+  ctx.clip();
+}
+
 function drawStencil(
   ctx: CanvasRenderingContext2D,
   path: FractalPath,
   tree: FractalTree,
   width: number,
-  height: number
+  height: number,
+  clipRadius: number
 ) {
   const points = mapPathToResponsiveEnvelope(path.points, tree, { width, height });
   if (points.length < 3) return;
+  if (points.some((point) => !isInsideCircle(point, tree.center, clipRadius))) return;
   ctx.beginPath();
   ctx.moveTo(points[0].x, points[0].y);
   for (let index = 1; index < points.length; index += 1) ctx.lineTo(points[index].x, points[index].y);
@@ -312,6 +325,7 @@ export function FractalResponsiveEnvelopeV16() {
       if (!tree) return;
       const dimensions = { width, height };
       const envelope = getResponsiveFractalEnvelope(dimensions);
+      const decorativeClipRadius = getResponsiveDecorativeClipRadius(tree, dimensions);
 
       root.dataset.fractalShortViewport = envelope.shortViewport ? 'true' : 'false';
       identifyResponsiveIdentity(root);
@@ -334,12 +348,12 @@ export function FractalResponsiveEnvelopeV16() {
       drawBackground(ctx, tree, width, height);
 
       for (const path of tree.paths.filter((candidate) => candidate.renderMode === 'stencil')) {
-        drawStencil(ctx, path, tree, width, height);
+        drawStencil(ctx, path, tree, width, height, decorativeClipRadius);
       }
 
       for (const path of tree.paths.filter((candidate) => candidate.renderMode === 'pixel')) {
         const point = mapPathToResponsiveEnvelope(path.points.slice(0, 1), tree, dimensions)[0];
-        if (!point) continue;
+        if (!point || !isInsideCircle(point, tree.center, decorativeClipRadius)) continue;
         const size = Math.max(1, path.width * 0.9);
         ctx.fillStyle = `rgba(160, 204, 214, ${Math.min(0.42, path.alpha * 0.8)})`;
         ctx.fillRect(point.x - size * 0.5, point.y - size * 0.5, size, size);
@@ -388,6 +402,10 @@ export function FractalResponsiveEnvelopeV16() {
         const alpha = isPrimary ? primaryAlpha : branchAlpha;
         const widthScale = isPrimary ? 0.94 : path.depth >= 3 ? 0.82 : 0.9;
 
+        if (!isPrimary) {
+          ctx.save();
+          applyCircularClip(ctx, tree.center, decorativeClipRadius);
+        }
         drawPolyline(ctx, points);
         ctx.strokeStyle = isPrimary
           ? `rgba(205, 226, 223, ${alpha})`
@@ -398,11 +416,13 @@ export function FractalResponsiveEnvelopeV16() {
         ctx.lineCap = 'round';
         ctx.lineJoin = 'round';
         ctx.stroke();
+        if (!isPrimary) ctx.restore();
       }
 
       root.dataset.fractalResponsiveEnvelope = 'v16';
       root.dataset.fractalResponsiveAuthority = 'v16';
-      root.dataset.fractalBoundaryPolicy = 'elliptic-radial-cap-v16';
+      root.dataset.fractalBoundaryPolicy = 'circular-navigation-clip-v17';
+      root.dataset.fractalDecorativeClipRadius = decorativeClipRadius.toFixed(2);
       root.dataset.fractalFieldScaleX = envelope.fieldScaleX.toFixed(4);
       root.dataset.fractalFieldScaleY = envelope.fieldScaleY.toFixed(4);
       root.dataset.fractalResponsiveViewport = `${width}x${height}`;

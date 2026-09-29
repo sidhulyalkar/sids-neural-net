@@ -71,8 +71,12 @@ test('Stretchicorn cabinet tracks live main dist/stretchicorn-local.html', () =>
   assert.match(route, /STRETCHICORN_SOURCE_REF = 'main'/);
   assert.match(route, /STRETCHICORN_SOURCE_ARTIFACT = 'dist\/stretchicorn-local\.html'/);
   assert.match(route, /tabindex=0/);
+  assert.match(route, /data-sids-game-network-fit/);
+  assert.match(route, /width:min\(100vw,150vh\)!important/);
+  assert.match(route, /height:auto!important/);
+  assert.doesNotMatch(route, /width:100%!important;height:100%!important/);
   assert.match(route, /host integration check/);
-  assert.match(route, /revalidate: 300/);
+  assert.match(route, /cache: 'no-store'/);
   assert.match(route, /X-Stretchicorn-Source-Ref/);
   assert.match(route, /X-Stretchicorn-Source-Artifact/);
 
@@ -103,7 +107,7 @@ test('uniRico cabinet tracks live main src/ assets', () => {
   const route = readRepoFile('app/game-runtimes/unirico/[...asset]/route.ts');
   assert.match(route, /UNIRICO_SOURCE_REF = 'main'/);
   assert.match(route, /redirectToCanonical/);
-  assert.match(route, /revalidate: 300/);
+  assert.match(route, /cache: 'no-store'/);
   assert.match(route, /X-UniRico-Source-Ref/);
 
   const workflow = readRepoFile('.github/workflows/ci.yml');
@@ -134,7 +138,7 @@ test('Unicorn Stampede cabinet tracks live main dist/local.html', () => {
   assert.match(route, /host integration check/);
   assert.match(route, /X-Unicorn-Stampede-Source-Ref/);
   assert.match(route, /X-Unicorn-Stampede-Source-Artifact/);
-  assert.match(route, /revalidate: 300/);
+  assert.match(route, /cache: 'no-store'/);
 
   const workflow = readRepoFile('.github/workflows/ci.yml');
   assert.match(workflow, /arcade\/unicorn-stampede/);
@@ -184,6 +188,12 @@ test('the Game Network index stays intentionally minimal', () => {
 test('Game Network browser validation covers live-main Stretchicorn and uniRico contracts', () => {
   const workflow = readRepoFile('.github/workflows/ci.yml');
   const browserTest = readRepoFile('scripts/playtest-arcade-browsers.mjs');
+  const playSpace = readRepoFile('components/arcade/ArcadePlaySpace.tsx');
+
+  assert.match(playSpace, /getFullscreenFrameStyle/);
+  assert.match(playSpace, /data-arcade-game-frame/);
+  assert.match(playSpace, /min\(100vw, \$\{viewportWidthInVh\}vh\)/);
+  assert.match(playSpace, /min\(100vh, \$\{viewportHeightInVw\}vw\)/);
 
   assert.match(workflow, /install chrome/);
   assert.match(workflow, /Chrome Stable Chromium Firefox and WebKit/);
@@ -192,9 +202,11 @@ test('Game Network browser validation covers live-main Stretchicorn and uniRico 
   assert.match(browserTest, /testStretchicorn\(page, engineName\)/);
   assert.match(browserTest, /testUniRico\(page, engineName\)/);
   assert.match(browserTest, /stretchicorn\/index\.html/);
-  assert.match(browserTest, /stageCount/);
-  assert.match(browserTest, /COBTOPUS PRIME/);
-  assert.match(browserTest, /Space should start Easy at D=0\.7/);
+  assert.match(browserTest, /assertCanvasContained/);
+  assert.match(browserTest, /assertCanvasTransition/);
+  assert.match(browserTest, /Stretchicorn standalone/);
+  assert.match(browserTest, /launchTransition/);
+  assert.doesNotMatch(browserTest, /stageCount: ST\.length/);
   assert.match(browserTest, /unirico\/index\.html/);
   assert.match(browserTest, /LEVELS\.length/);
   assert.match(browserTest, /MIRROR FULL SPECTRUM/);

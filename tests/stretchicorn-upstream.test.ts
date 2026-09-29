@@ -34,9 +34,14 @@ test('live Stretchicorn runtime fetches main without a version rewrite', () => {
   assert.match(route, /game-network-bridge\.js/);
   assert.match(route, /canvas id=c tabindex=0/);
   assert.match(route, /frame-ancestors 'self'/);
-  assert.match(route, /revalidate: 300/);
+  // Packed main bootstrap ends with eval(r); CSP must permit it or the cabinet is blank.
+  assert.match(route, /unsafe-eval/);
+  assert.match(route, /cache: 'no-store'/);
   assert.match(route, /X-Stretchicorn-Source-Ref/);
   assert.match(route, /X-Stretchicorn-Source-Artifact/);
+  assert.match(route, /X-Stretchicorn-Upstream-Bytes/);
+  // Packed builds may omit <title>; route accepts canvas#c identity.
+  assert.match(route, /hasCanvas/);
 
   const legacy = readRepoFile('app/game-runtimes/stretchicorn/v0.38.0/[asset]/route.ts');
   assert.match(legacy, /redirect/);

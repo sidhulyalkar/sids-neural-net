@@ -21,9 +21,11 @@ on:
       - 'tests/fractal-responsive-envelope.test.ts'
       - 'tests/fractal-theme-echo.test.ts'
       - 'tests/fractal-crisp-topology-v13.test.ts'
+      - 'tests/fractal-surface-boundary-v17.test.ts'
       - 'scripts/playtest-arcade-home.mjs'
       - 'scripts/fractal-home-gallery.mjs'
       - 'scripts/fractal-responsive-matrix.mjs'
+      - 'scripts/fractal-surface-boundary-audit.mjs'
       - 'tsconfig.json'
       - '.github/workflows/home-fractal.yml'
   workflow_dispatch:
@@ -68,6 +70,7 @@ jobs:
           components/neural-atlas-canvas/FractalCrispTopologyV13.tsx
           components/neural-atlas-canvas/FractalPublicCurationV14.tsx
           components/neural-atlas-canvas/FractalResponsiveEnvelopeV16.tsx
+          components/neural-atlas-canvas/FractalSurfaceBoundaryV17.tsx
           components/neural-atlas-canvas/FractalSurfaceEnhancerV2.tsx
           components/neural-atlas-canvas/FractalExperienceV3.tsx
           components/portfolio/PageShell.tsx
@@ -84,9 +87,11 @@ jobs:
           tests/fractal-responsive-envelope.test.ts
           tests/fractal-theme-echo.test.ts
           tests/fractal-crisp-topology-v13.test.ts
+          tests/fractal-surface-boundary-v17.test.ts
           scripts/playtest-arcade-home.mjs
           scripts/fractal-home-gallery.mjs
           scripts/fractal-responsive-matrix.mjs
+          scripts/fractal-surface-boundary-audit.mjs
           --no-warn-ignored
           --max-warnings=0
 
@@ -100,6 +105,7 @@ jobs:
           tests/fractal-responsive-envelope.test.ts
           tests/fractal-theme-echo.test.ts
           tests/fractal-crisp-topology-v13.test.ts
+          tests/fractal-surface-boundary-v17.test.ts
 
       - name: Build production site
         env:
@@ -139,6 +145,13 @@ jobs:
           FRACTAL_HOME_BASE_URL: http://127.0.0.1:3000
           FRACTAL_RESPONSIVE_MATRIX_DIR: artifacts/adaptive-fractal-home/responsive-matrix
         run: node scripts/fractal-responsive-matrix.mjs
+
+      - name: Audit decorative surface boundary in browser
+        env:
+          PLAYWRIGHT_MODULE_ROOT: /tmp/home-playwright/node_modules/playwright
+          FRACTAL_HOME_BASE_URL: http://127.0.0.1:3000
+          FRACTAL_SURFACE_BOUNDARY_DIR: artifacts/adaptive-fractal-home/surface-boundary
+        run: node scripts/fractal-surface-boundary-audit.mjs
 
       - name: Capture deterministic morphology gallery
         env:
