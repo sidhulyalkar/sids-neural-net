@@ -17,7 +17,7 @@ import {
   migrateFrontierHistoryToSeenLedger,
 } from '@/lib/frontier/live/seenLedger';
 import { buildPairEvidenceIndex } from '@/lib/frontier/pairEvidence';
-import { explainRecommendation, rankFrontierItems, selectDailyRun } from '@/lib/frontier/scoring';
+import { rankFrontierItems, selectDailyRun } from '@/lib/frontier/scoring';
 import { buildSessionIntent } from '@/lib/frontier/sessionIntent';
 import {
   buildTopicSearchFocus,
@@ -290,7 +290,7 @@ export function FrontierSectionExperience({ initialDateLabel, initialDayKey, ini
       presentation={presentation}
       saved={Boolean(saved[item.id])}
       reaction={history[item.id]?.reaction}
-      explanation={explainRecommendation(item, profile, behavior, new Date(), pairEvidence, directPreferenceEvidence)}
+      explanation=""
       resurfaced={item.tags.includes('second-chance')}
       onSeen={seenCallback}
       onDwell={dwellCallback}
@@ -298,7 +298,7 @@ export function FrontierSectionExperience({ initialDateLabel, initialDayKey, ini
       onSave={saveCallback}
       onReact={reactCallback}
     />
-  ), [behavior, directPreferenceEvidence, dwellCallback, history, openCallback, pairEvidence, profile, reactCallback, saveCallback, saved, seenCallback]);
+  ), [dwellCallback, history, openCallback, reactCallback, saveCallback, saved, seenCallback]);
 
   const submitSearch = useCallback((event?: FormEvent) => {
     event?.preventDefault();
