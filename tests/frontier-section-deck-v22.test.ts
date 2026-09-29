@@ -153,7 +153,7 @@ test('feed media reserves geometry and applies explicit primary versus secondary
   assert.match(richMediaSource, /AdaptiveVideoSurface/);
   assert.match(richMediaSource, /useMediaVisibility/);
   assert.match(focalSource, /RichFrontierMediaSurface/);
-  assert.doesNotMatch(focalSource, /FrontierMediaSurface item=\{item\}/);
+  assert.doesNotMatch(focalSource, /<FrontierMediaSurface\s+item=\{item\}/);
 });
 
 test('FRONTIER route excludes decorative cursor, sensing, and fractal back-button rendering', () => {
