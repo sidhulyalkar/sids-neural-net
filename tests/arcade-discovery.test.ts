@@ -154,7 +154,11 @@ test('FRONTIER and Game Network coexist in current navigation', () => {
   const home = readRepoFile('app/page.tsx');
   const fractalHome = readRepoFile('components/neural-atlas-canvas/AdaptiveFractalHome.tsx');
 
-  assert.match(home, /AdaptiveFractalHome/);
+  assert.match(home, /WorldHome/);
+  const world = readRepoFile('components/world/WorldHome.tsx');
+  assert.match(world, /['\"]\/frontier['\"]/);
+  assert.match(world, /['\"]\/arcade['\"]/);
+  assert.match(readRepoFile('app/atlas/page.tsx'), /AdaptiveFractalHome/);
   assert.match(fractalHome, /id: 'frontier'.*href: '\/frontier'/);
   assert.match(fractalHome, /id: 'games'.*label: 'Game Network'.*href: '\/arcade'/);
   assert.match(fractalHome, /aria-label=\{`Open \$\{destination\.label\}`\}/);

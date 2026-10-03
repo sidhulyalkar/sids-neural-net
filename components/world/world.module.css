@@ -1,0 +1,606 @@
+.world {
+  position: relative;
+  isolation: isolate;
+  min-height: 100svh;
+  height: 100svh;
+  overflow: hidden;
+  background: #263f42;
+  color: #fff7e7;
+  font-family: var(--font-geist-sans), sans-serif;
+}
+.backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background:
+    linear-gradient(90deg, rgba(13, 32, 36, 0.8), rgba(13, 32, 36, 0.25)),
+    url("/visual-archive/web/photo-001.webp") center/cover;
+}
+.world canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+  outline: none;
+}
+.scene {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+}
+.world button,
+.world a {
+  -webkit-tap-highlight-color: transparent;
+}
+.world button:focus-visible,
+.world a:focus-visible {
+  outline: 2px solid #ffdc8f;
+  outline-offset: 6px;
+}
+.header {
+  position: absolute;
+  inset: 0 0 auto;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 32px 42px;
+  z-index: 2;
+  background: linear-gradient(#132e3b66, transparent);
+}
+.wordmark {
+  font-size: 14px;
+  letter-spacing: 0.13em;
+  font-weight: 600;
+  text-shadow: 0 2px 8px #102926;
+}
+.wordmark span {
+  display: block;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  font-weight: 400;
+  margin-top: 5px;
+  opacity: 0.75;
+}
+.menuButton {
+  display: flex;
+  gap: 17px;
+  align-items: center;
+  background: #142d35b8;
+  border: 1px solid #ffffff38;
+  border-radius: 100px;
+  padding: 12px 19px;
+  font-size: 14px;
+  backdrop-filter: blur(12px);
+}
+.welcome {
+  position: absolute;
+  left: 7%;
+  bottom: 20%;
+  max-width: 720px;
+  filter: drop-shadow(0 2px 20px #18323655);
+}
+.eyebrow {
+  font-size: 12px;
+  letter-spacing: 0.15em;
+  font-weight: 500;
+  line-height: 1.6;
+}
+.welcome .eyebrow {
+  margin-bottom: 24px;
+}
+.welcome h1 {
+  font-family: Georgia, "Times New Roman", serif;
+  font-weight: 400;
+  font-size: clamp(50px, 6vw, 94px);
+  line-height: 1.04;
+  letter-spacing: -0.035em;
+}
+.welcome h1 em {
+  font-weight: 400;
+  color: #f8d19d;
+}
+.introduction {
+  font-size: 17px;
+  line-height: 1.7;
+  margin: 26px 0;
+  color: #fff7e7e6;
+}
+.actions {
+  display: flex;
+  gap: 27px;
+  align-items: center;
+}
+.primary {
+  background: #fff4dc;
+  color: #233b37;
+  padding: 16px 25px;
+  border-radius: 100px;
+  font-size: 15px;
+  font-weight: 500;
+  display: flex;
+  gap: 30px;
+  align-items: center;
+  box-shadow: 0 5px 28px #001b1920;
+}
+.primary:hover {
+  background: white;
+  transform: translateY(-2px);
+}
+.workLink {
+  font-size: 15px;
+  border-bottom: 1px solid #fff7e775;
+  padding: 8px 0;
+}
+.smallNote {
+  margin-top: 27px;
+  font-size: 12px;
+  letter-spacing: 0.015em;
+  color: #ffffffb0;
+}
+.homeFooter {
+  position: absolute;
+  bottom: 28px;
+  left: 42px;
+  right: 42px;
+  display: flex;
+  justify-content: space-between;
+  gap: 24px;
+  font-size: 12px;
+  letter-spacing: 0.035em;
+  color: #fff7e7ca;
+}
+.homeFooter a {
+  border-bottom: 1px solid #fff7e760;
+  padding-bottom: 4px;
+}
+.location {
+  position: absolute;
+  left: 36px;
+  bottom: 56px;
+  text-shadow: 0 2px 9px #142a32;
+}
+.location p {
+  font-family: Georgia, serif;
+  font-size: 28px;
+  margin-top: 4px;
+}
+.location .eyebrow {
+  opacity: 0.7;
+}
+.controls,
+.touchHelp {
+  position: absolute;
+  bottom: 20px;
+  left: 36px;
+  font-size: 12px;
+  color: #fff9e6bf;
+  text-shadow: 0 1px 5px #112533;
+}
+.controls span {
+  margin: 0 9px;
+}
+.touchHelp {
+  display: none;
+}
+.discovery {
+  position: absolute;
+  bottom: 66px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 28px;
+  white-space: nowrap;
+  padding: 17px 22px;
+  background: #16343fe8;
+  border: 1px solid #fff8dd55;
+  border-radius: 8px;
+  backdrop-filter: blur(14px);
+  font-size: 15px;
+  box-shadow: 0 10px 35px #002c3b33;
+}
+.key {
+  border: 1px solid #fff8dd55;
+  border-radius: 4px;
+  font-size: 12px;
+  padding: 3px 6px;
+  opacity: 0.8;
+}
+.loading {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 20px;
+  background: #193b42c0;
+}
+.loading button {
+  border-bottom: 1px solid;
+  font-size: 14px;
+}
+.fallbackText {
+  max-width: 350px;
+  font-size: 14px;
+  margin-top: 24px;
+}
+.dialog {
+  padding: 0;
+  border: 1px solid #e9e6d636;
+  border-radius: 18px;
+  max-width: 850px;
+  width: calc(100% - 40px);
+  max-height: 85svh;
+  margin: auto;
+  background: #f5f1e7;
+  color: #243d3b;
+  box-shadow: 0 30px 100px #081e3666;
+  overscroll-behavior: contain;
+}
+.dialog::backdrop {
+  background: #071e2d94;
+  backdrop-filter: blur(9px);
+}
+.dialogBody {
+  padding: 48px;
+  position: relative;
+}
+.close {
+  position: absolute;
+  top: 17px;
+  right: 20px;
+  font-size: 28px;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: #17382b09;
+}
+.dialog h2 {
+  font-family: Georgia, serif;
+  font-size: 48px;
+  line-height: 1.15;
+  letter-spacing: -0.04em;
+  margin: 10px 0 30px;
+}
+.dialog .eyebrow {
+  color: #65766b;
+}
+.dialog h3 {
+  font-size: 15px;
+  font-weight: 500;
+}
+.menuColumns {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr;
+  gap: 50px;
+}
+.menuColumns h3 {
+  margin-bottom: 13px;
+  color: #6f7f74;
+  font-size: 13px;
+}
+.destinations {
+  display: grid;
+}
+.destinations button {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  text-align: left;
+  padding: 17px 0;
+  border-top: 1px solid #1a382c20;
+  font-size: 17px;
+}
+.destinations button:hover {
+  color: #ab5428;
+}
+.destinations button > span:last-child {
+  margin-left: auto;
+}
+.destinationNumber {
+  font-family: Georgia, serif;
+  font-size: 14px;
+  color: #809187;
+}
+.destinations small {
+  display: block;
+  font-size: 12px;
+  color: #61736b;
+  margin-top: 4px;
+}
+.siteLinks {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px 20px;
+  font-size: 15px;
+  padding-top: 15px;
+}
+.siteLinks a:hover,
+.panelLinks a:hover {
+  text-decoration: underline;
+}
+.menuFooter {
+  border-top: 1px solid #1a382c20;
+  display: flex;
+  gap: 24px;
+  margin-top: 26px;
+  padding-top: 22px;
+  font-size: 13px;
+  flex-wrap: wrap;
+}
+.menuFooter button {
+  margin-left: auto;
+}
+.menuHint {
+  font-size: 12px;
+  line-height: 1.7;
+  margin-top: 24px;
+  color: #61736b;
+}
+.panelIntro {
+  font-size: 16px;
+  line-height: 1.8;
+  margin: -10px 0 26px;
+  max-width: 720px;
+  color: #50665e;
+}
+.projectList {
+  display: grid;
+}
+.projectList > a {
+  display: block;
+  padding: 20px 0;
+  border-top: 1px solid #1a382c20;
+}
+.projectList h3 {
+  font-size: 18px;
+  line-height: 1.5;
+}
+.projectList p {
+  font-size: 14px;
+  line-height: 1.65;
+  color: #61736b;
+  margin: 8px 0 12px;
+}
+.projectList span {
+  font-size: 12px;
+  color: #846644;
+}
+.panelLinks {
+  display: flex;
+  gap: 25px;
+  flex-wrap: wrap;
+  margin-top: 25px;
+  font-size: 14px;
+}
+.panelLinks a {
+  border-bottom: 1px solid #304b3860;
+  padding-bottom: 5px;
+}
+.memoryList {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+}
+.memoryList button {
+  text-align: left;
+  font-size: 13px;
+}
+.memoryList img {
+  width: 100%;
+  height: 125px;
+  object-fit: cover;
+  border-radius: 6px;
+  margin-bottom: 10px;
+}
+.photoDialog {
+  max-width: 1100px;
+}
+.memoryPhoto {
+  max-height: 60svh;
+  width: 100%;
+  object-fit: contain;
+  border-radius: 5px;
+  animation: memoryIn 0.9s ease both;
+}
+.photoCaption {
+  font-size: 13px;
+  color: #61736b;
+  line-height: 1.7;
+  margin: 16px 0;
+}
+.secretPhoto {
+  max-height: 45svh;
+  object-fit: contain;
+  width: 100%;
+  margin: 20px auto;
+}
+.dialogBody > a {
+  font-size: 14px;
+  text-decoration: underline;
+}
+.noScript {
+  position: absolute;
+  inset: auto 25px 25px;
+  z-index: 4;
+  background: #183b3b;
+  padding: 25px;
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+.noScript p {
+  width: 100%;
+}
+.dialog button:focus-visible,
+.dialog a:focus-visible {
+  outline-color: #547e6a;
+}
+.scene:focus-visible {
+  outline: 2px solid #ffdc8f;
+  outline-offset: -3px;
+}
+@keyframes memoryIn {
+  from {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+@media (max-width: 760px) {
+  .header {
+    padding: 23px;
+  }
+  .wordmark {
+    font-size: 12px;
+  }
+  .wordmark span {
+    font-size: 12px;
+  }
+  .welcome {
+    left: 26px;
+    right: 26px;
+    bottom: 19%;
+  }
+  .welcome .eyebrow {
+    font-size: 11px;
+    max-width: 280px;
+  }
+  .welcome h1 {
+    font-size: clamp(45px, 9vw, 66px);
+  }
+  .introduction {
+    font-size: 16px;
+  }
+  .homeFooter {
+    left: 25px;
+    right: 25px;
+    bottom: 23px;
+  }
+  .homeFooter > span {
+    max-width: 150px;
+    line-height: 1.6;
+  }
+  .actions {
+    flex-direction: row-reverse;
+    justify-content: flex-end;
+    gap: 22px;
+  }
+  .desktopBreak {
+    display: none;
+  }
+  .smallNote {
+    max-width: 240px;
+    line-height: 1.6;
+  }
+  .controls {
+    display: none;
+  }
+  .touchHelp {
+    display: block;
+    left: 20px;
+    font-size: 11px;
+  }
+  .location {
+    left: 22px;
+    bottom: 135px;
+  }
+  .location p {
+    font-size: 23px;
+  }
+  .discovery {
+    bottom: 59px;
+    max-width: 90%;
+    gap: 20px;
+    font-size: 14px;
+  }
+  .key {
+    display: none;
+  }
+  .dialogBody {
+    padding: 42px 24px 28px;
+  }
+  .dialog h2 {
+    font-size: 37px;
+    margin-bottom: 25px;
+  }
+  .menuColumns {
+    grid-template-columns: 1fr;
+    gap: 30px;
+  }
+  .siteLinks {
+    grid-template-columns: repeat(3, 1fr);
+    font-size: 14px;
+  }
+  .destinations button {
+    padding: 13px 0;
+  }
+  .menuFooter {
+    gap: 18px;
+  }
+  .memoryList {
+    grid-template-columns: 1fr;
+  }
+  .memoryList img {
+    height: 155px;
+  }
+  .photoDialog .dialogBody {
+    padding: 42px 15px 25px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .memoryPhoto {
+    animation: none;
+  }
+  .primary:hover {
+    transform: none;
+  }
+}
+
+.world[data-world-state="welcome"]::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    linear-gradient(
+      90deg,
+      rgba(17, 38, 43, 0.78),
+      rgba(17, 38, 43, 0.16) 65%,
+      transparent
+    ),
+    linear-gradient(0deg, rgba(17, 38, 43, 0.4), transparent 25%);
+}
+
+@media (max-height: 650px) {
+  .welcome {
+    top: 115px;
+    bottom: 70px;
+    overflow-y: auto;
+    padding-bottom: 10px;
+  }
+  .welcome h1 {
+    font-size: 48px;
+  }
+  .welcome .eyebrow {
+    margin-bottom: 14px;
+  }
+  .introduction {
+    margin: 15px 0;
+    font-size: 15px;
+  }
+  .smallNote {
+    display: none;
+  }
+  .homeFooter {
+    bottom: 18px;
+  }
+  .location {
+    bottom: 115px;
+  }
+}
