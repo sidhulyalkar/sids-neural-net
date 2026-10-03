@@ -1,0 +1,24 @@
+{
+  "results": [
+    "Keyboard walking changes player position",
+    "Landmark, discovery, and dismissal: 01 Sequoia grove A little about me",
+    "Landmark, discovery, and dismissal: 02 Granite overlook Things I build",
+    "Landmark, discovery, and dismissal: 03 Strange grove Things I explore",
+    "Landmark, discovery, and dismissal: 04 Wild coast Life outside the screen",
+    "Menu keeps keyboard focus and supports Escape",
+    "Context loss preserves conventional navigation",
+    "Reduced motion starts without WebGL",
+    "Mobile opts into rendered 3D; touch walking works without overflow",
+    "No-JavaScript navigation is visible",
+    "Original eight-destination neural atlas remains available"
+  ],
+  "diagnostics": {
+    "engine": "three.js r184",
+    "fps": "11",
+    "drawCalls": "37",
+    "triangles": "48060",
+    "player": "-29.0,16.0",
+    "dpr": "0.75"
+  },
+  "errors": []
+}

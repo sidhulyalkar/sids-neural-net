@@ -54,7 +54,7 @@ for (const morph of morphologies) {
     if (message.type() === 'error') consoleErrors.push(message.text());
   });
 
-  await page.goto(`${baseUrl}/?morph=${morph}&seed=responsive-v16-browser-matrix`, { waitUntil: 'networkidle' });
+  await page.goto(`${baseUrl}/atlas?morph=${morph}&seed=responsive-v16-browser-matrix`, { waitUntil: 'networkidle' });
 
   for (const viewport of viewports) {
     await page.setViewportSize({ width: viewport.width, height: viewport.height });

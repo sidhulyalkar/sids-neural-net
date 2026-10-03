@@ -63,3 +63,6 @@ Thumbs.db
 
 # Generated data (keep tracked for now, can add to CI later)
 # data/generated/
+
+# Generated browser and bundle audit output
+artifacts/
