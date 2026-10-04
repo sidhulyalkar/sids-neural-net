@@ -5,7 +5,11 @@ import { createWorld, type WorldRuntime } from "./worldRenderer";
 import type { RegionId, WorldCommand } from "@/lib/world/model";
 import styles from "./world.module.css";
 
+import type { Activity } from "@/lib/world/activities";
+
 type Props = {
+  activity: Activity;
+  actionSerial: number;
   entered: boolean;
   paused: boolean;
   command: WorldCommand | null;

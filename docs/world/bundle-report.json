@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-03T16:27:11.142Z",
+  "generatedAt": "2026-10-04T05:03:46.132Z",
   "source": "Next.js 16 Turbopack experimental-analyze",
   "thresholds": {
     "maxClientChunkRawBytes": 500000,
@@ -9,8 +9,8 @@
   },
   "client": {
     "chunks": 24,
-    "totalRawBytes": 1417932,
-    "totalCompressedBytes": 521393,
+    "totalRawBytes": 1431105,
+    "totalCompressedBytes": 526547,
     "largestChunks": [
       {
         "filename": "[client-fs]/_next/static/chunks/209n1ydajcs9k.js",
@@ -55,16 +55,22 @@
         "parts": 1
       },
       {
+        "filename": "[client-fs]/_next/static/chunks/2zwwmkl2h4na5.js",
+        "rawBytes": 43456,
+        "compressedBytes": 18141,
+        "parts": 22
+      },
+      {
         "filename": "[client-fs]/_next/static/chunks/34zvtwm2biqve.js",
         "rawBytes": 39496,
         "compressedBytes": 12917,
         "parts": 13
       },
       {
-        "filename": "[client-fs]/_next/static/chunks/3a871o-b28-h5.js",
-        "rawBytes": 35933,
-        "compressedBytes": 15283,
-        "parts": 21
+        "filename": "[client-fs]/_next/static/chunks/1zvi2ypppjcb1.js",
+        "rawBytes": 35689,
+        "compressedBytes": 15381,
+        "parts": 17
       },
       {
         "filename": "[client-fs]/_next/static/chunks/1_q5fsxx_zk8q.js",
@@ -77,12 +83,6 @@
         "rawBytes": 31856,
         "compressedBytes": 14213,
         "parts": 31
-      },
-      {
-        "filename": "[client-fs]/_next/static/chunks/1j5dbeysiibaj.js",
-        "rawBytes": 30039,
-        "compressedBytes": 13086,
-        "parts": 15
       },
       {
         "filename": "[client-fs]/_next/static/chunks/2pb7xgf0nluvc.js",
@@ -145,9 +145,9 @@
         "parts": 2
       },
       {
-        "filename": "[client-fs]/_next/static/chunks/3x6_c1pb0z4id.js",
+        "filename": "[client-fs]/_next/static/chunks/0o2rfy1elsxpn.js",
         "rawBytes": 324,
-        "compressedBytes": 238,
+        "compressedBytes": 239,
         "parts": 1
       },
       {

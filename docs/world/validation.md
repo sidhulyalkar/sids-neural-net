@@ -73,3 +73,18 @@ browser audit now requires valid timing diagnostics as well as the original flow
 Publication is authorized by Sid's follow-up request. Shell push has no GitHub
 credentials; publication uses the connected GitHub account. This remains a draft
 until the final production browser and hardware qualification gates pass.
+
+## Coastal expansion (2026-10-04 UTC)
+
+- Previous revision `2bf34bb80a747c34cc9a9e09d111fd5883abdb93` completed Website CI,
+  Adaptive Fractal Home CI, and FRONTIER Sensor QC successfully. Its final browser
+  gate is therefore no longer blocked by the earlier local IPC limitation.
+- Expanded revision: 637 tests, TypeScript, lint, production build, and unchanged
+  bundle budget passed locally. Sixteen tests specifically cover world behavior.
+- Local browser installation is unavailable in this environment: agent-browser's
+  Chrome metadata request failed certificate validation; the installed Playwright
+  package received an invalid browser archive. No certificate checks were disabled.
+- The expanded production browser audit is committed for CI. Seven-region visual
+  review and physical-device comfort/performance remain release checks.
+- Feature scope, source references, palette limitations, and exact controls are in
+  `coastal-expansion-spec.md`. No production dependencies were added.

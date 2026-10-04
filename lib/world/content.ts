@@ -1,3 +1,4 @@
+import { arcadeGames } from "@/src/data/arcadeGames";
 import graphData from "@/data/generated/neural-graph.json";
 import { visualArchive } from "@/src/data/visualArchive";
 import { MEMORY_POINTS, type RegionId, type WorldContent } from "./model";
@@ -13,6 +14,7 @@ const FEATURED: { slug: string; region: RegionId }[] = [
 ];
 export function getWorldContent(): WorldContent {
   return {
+    games: arcadeGames.filter(game => game.status === "playable").map(game => ({ title: game.title, subtitle: game.subtitle, href: `/arcade/${game.slug}` })),
     projects: FEATURED.flatMap(({ slug, region }) => {
       const p = graphData.nodes.find(
         (n) => n.slug === slug && n.type === "project",

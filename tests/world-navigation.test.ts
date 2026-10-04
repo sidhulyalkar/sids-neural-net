@@ -8,9 +8,11 @@ import {
   REGIONS,
   SECRET,
   terrainHeight,
+  WORLD_BOUNDS,
 } from "../lib/world/model";
 import { getWorldContent } from "../lib/world/content";
 import { existsSync } from "node:fs";
+import { arcadeGames } from "../src/data/arcadeGames";
 import graph from "../data/generated/neural-graph.json";
 import { isProfessionalProject } from "../lib/graph/professional-projects";
 import { NeuralGraphSchema } from "../lib/data/schemas";
@@ -30,7 +32,7 @@ test("viewpoints and hidden discovery take precedence over surrounding region", 
 test("movement stays on land and resolves trunk collision including a zero-distance contact", () => {
   assert.deepEqual(constrainMove({ x: 0, z: 0 }, { x: -100, z: 100 }, []), {
     x: -34,
-    z: 36,
+    z: WORLD_BOUNDS.maxZ,
   });
   const obstacle = { x: 0, z: 0, radius: 2 };
   const contact = constrainMove({ x: 4, z: 0 }, { x: 0, z: 0 }, [obstacle]);
@@ -81,4 +83,12 @@ test("successive corner movements remain outside all trunks and within map bound
     for (const trunk of trunks) assert.ok(distance(point, trunk) >= 2.45 - 1e-8);
     assert.ok(point.x >= -34 && point.x <= 42 && point.z >= -40 && point.z <= 36);
   }
+});
+
+
+test("arcade cavern exposes the same playable games as the established arcade", () => {
+  const games = getWorldContent().games;
+  assert.deepEqual(games.map(g => g.href), arcadeGames.filter(g => g.status === "playable").map(g => `/arcade/${g.slug}`));
+  assert.equal(games[0].title, "Stretchicorn");
+  assert.equal(REGIONS.find(r => r.id === "cavern")?.href, "/arcade");
 });

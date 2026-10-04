@@ -1,5 +1,5 @@
 /** Small, deterministic geography shared by the renderer, navigation and tests. */
-export type RegionId = "grove" | "mountain" | "neural" | "coast";
+export type RegionId = "grove" | "mountain" | "neural" | "coast" | "waterfall" | "canyon" | "cavern";
 export type Point = { x: number; z: number };
 export const REGIONS: {
   id: RegionId;
@@ -10,7 +10,7 @@ export const REGIONS: {
 }[] = [
   {
     id: "grove",
-    name: "Sequoia grove",
+    name: "Redwood grove",
     meaning: "A little about me",
     point: { x: 0, z: 8 },
     href: "/about",
@@ -36,7 +36,11 @@ export const REGIONS: {
     point: { x: -29, z: 13 },
     href: "/photography",
   },
+  { id: "waterfall", name: "Fern falls", meaning: "Follow the water", point: { x: -20, z: -24 }, href: "/photography" },
+  { id: "canyon", name: "Moss canyon", meaning: "A quieter trail", point: { x: 29, z: 34 }, href: "/about" },
+  { id: "cavern", name: "Arcade cavern", meaning: "Play my games", point: { x: 44, z: -9 }, href: "/arcade" },
 ];
+export const WORLD_BOUNDS = { minX: -34, maxX: 56, minZ: -44, maxZ: 48 } as const;
 export const MEMORY_POINTS = [
   {
     id: "lake",
@@ -80,8 +84,8 @@ export function nearbyDiscovery(point: Point): string | null {
 }
 export type Obstacle = Point & { radius: number };
 const clampToLand = (p: Point): Point => ({
-  x: Math.max(-34, Math.min(42, p.x)),
-  z: Math.max(-40, Math.min(36, p.z)),
+  x: Math.max(WORLD_BOUNDS.minX, Math.min(WORLD_BOUNDS.maxX, p.x)),
+  z: Math.max(WORLD_BOUNDS.minZ, Math.min(WORLD_BOUNDS.maxZ, p.z)),
 });
 /** Sweep the whole movement segment, then slide along the first trunk hit.
  * Callers supply an unoccupied starting point (spawn/jump clearings guarantee it).
@@ -135,5 +139,5 @@ export type WorldPhoto = {
   width: number;
   height: number;
 };
-export type WorldContent = { projects: WorldProject[]; photos: WorldPhoto[] };
-export type WorldCommand = { region: RegionId; serial: number };
+export type WorldContent = { projects: WorldProject[]; photos: WorldPhoto[]; games: { title: string; subtitle: string; href: string }[] };
+export type WorldCommand = { region: RegionId; serial: number; activity?: import("./activities").Activity };

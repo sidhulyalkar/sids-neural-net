@@ -18,6 +18,8 @@ import {
   type WorldCommand,
   type WorldContent,
 } from "@/lib/world/model";
+import { ACTIVITIES, activityConfig, type Activity } from "@/lib/world/activities";
+import { COASTAL_FLORA } from "@/lib/world/ecology";
 import styles from "./world.module.css";
 
 const WorldScene = dynamic(() => import("./WorldScene"), { ssr: false });
@@ -48,9 +50,12 @@ const LINKS = [
   ["Contact", "/contact"],
 ];
 const INTRO: Record<RegionId, { title: string; text: string }> = {
+  waterfall: { title: "Follow the water.", text: "A trail under the falls. More places I’ve stopped to look." },
+  canyon: { title: "Take the long way.", text: "Cool rock, moss, and a trail out of sight. A little more about the person behind the work." },
+  cavern: { title: "One more round.", text: "Stretchicorn, uniRico, and Unicorn Stampede. Built to play." },
   grove: {
     title: "Hi, I’m Sid.",
-    text: "I build systems for understanding brains, behavior, and the world around us. My work connects neuroscience, machine learning, and scientific infrastructure. Away from the screen, you’ll often find me on a trail with Shasta.",
+    text: "Neuroscience, machine learning, and the infrastructure between them. Off-screen: trails with Shasta.",
   },
   mountain: {
     title: "Things I build.",
@@ -62,7 +67,7 @@ const INTRO: Record<RegionId, { title: string; text: string }> = {
   },
   coast: {
     title: "Outside the screen.",
-    text: "Mountains, coastal trails, small adventures, and a husky named Shasta. Find the three viewpoint stones to see a few photographs from my archive.",
+    text: "Coastal trails, mountain days, and Shasta. A few photographs from along the way.",
   },
 };
 
@@ -71,6 +76,8 @@ export function WorldHome({ content }: { content: WorldContent }) {
   const [entered, setEntered] = useState(false);
   const [ready, setReady] = useState(false);
   const [failed, setFailed] = useState(false);
+  const [activity, setActivity] = useState<Activity>("run");
+  const [actionSerial, setActionSerial] = useState(0);
   const [quiet, setQuiet] = useState(false);
   const [region, setRegion] = useState<RegionId>("grove");
   const [nearby, setNearby] = useState<string | null>(null);
@@ -146,6 +153,12 @@ export function WorldHome({ content }: { content: WorldContent }) {
     window.addEventListener("keydown", key);
     return () => window.removeEventListener("keydown", key);
   }, [open, panel]);
+  function chooseActivity(next: Activity) {
+    setActivity(next);
+    if (next === "ski" || next === "boulder") {
+      setCommand(previous => ({ region: "mountain", serial: (previous?.serial ?? 0) + 1, activity: next }));
+    }
+  }
   function enter() {
     setEnabled(true);
     setEntered(true);
@@ -184,6 +197,8 @@ export function WorldHome({ content }: { content: WorldContent }) {
             entered={entered}
             paused={!!panel || quiet}
             command={command}
+            activity={activity}
+            actionSerial={actionSerial}
             onReady={onReady}
             onError={onError}
             onLocation={onLocation}
@@ -193,7 +208,7 @@ export function WorldHome({ content }: { content: WorldContent }) {
       )}
       <header className={styles.header}>
         <Link href="/" className={styles.wordmark} prefetch={false}>
-          SID HULYALKAR<span> A small world, by Sid.</span>
+          SID HULYALKAR<span> Neuroscience & engineering</span>
         </Link>
         <button
           className={styles.menuButton}
@@ -207,32 +222,18 @@ export function WorldHome({ content }: { content: WorldContent }) {
       </header>
       {!entered || failed ? (
         <section className={styles.welcome} aria-labelledby="world-title">
-          <p className={styles.eyebrow}>
-            NEUROSCIENCE · ENGINEERING · THE OUTDOORS
-          </p>
-          <h1 id="world-title">
-            A little world.
-            <br />
-            <em>A curious mind.</em>
-          </h1>
-          <p className={styles.introduction}>
-            I’m Sid. I build systems to understand brains,
-            <br className={styles.desktopBreak} /> explore ideas, and make
-            things that work.
-          </p>
+          <p className={styles.eyebrow}>CALIFORNIA, IN MIND</p>
+          <h1 id="world-title">Brains, machines,<br /><em>open trails.</em></h1>
+          <p className={styles.introduction}>I’m Sid. Engineer, neuroscience researcher, usually outside.</p>
           <div className={styles.actions}>
+            <Link href="/atlas" prefetch={false} className={styles.primary}>
+              View site <span aria-hidden="true">↗</span>
+            </Link>
             {!failed && (
-              <button
-                ref={enterButton}
-                className={styles.primary}
-                onClick={enter}
-              >
-                Enter world <span aria-hidden="true">↗</span>
+              <button ref={enterButton} className={styles.exploreButton} onClick={enter}>
+                Explore world <span aria-hidden="true">→</span>
               </button>
             )}
-            <Link href="/projects" prefetch={false} className={styles.workLink}>
-              View my work
-            </Link>
           </div>
           {failed && (
             <p role="status" className={styles.fallbackText}>
@@ -241,20 +242,20 @@ export function WorldHome({ content }: { content: WorldContent }) {
             </p>
           )}
           <p className={styles.smallNote}>
-            A grove, a mountain, a strange forest, and the sea.
+            The work, directly. Or the scenic route.
           </p>
         </section>
       ) : (
         <>
           {!ready && (
             <div className={styles.loading} role="status">
-              Finding the clearing…{" "}
+              Loading world…{" "}
               <button onClick={() => open("menu")}>Browse the site</button>
             </div>
           )}
           <div className={styles.location}>
             <span className={styles.eyebrow}>
-              {String(REGIONS.indexOf(current) + 1).padStart(2, "0")} / 04
+              {String(REGIONS.indexOf(current) + 1).padStart(2, "0")} / {String(REGIONS.length).padStart(2, "0")}
             </span>
             <p>{current.name}</p>
           </div>
@@ -264,18 +265,30 @@ export function WorldHome({ content }: { content: WorldContent }) {
               <span className={styles.key}>Enter</span>
             </button>
           )}
+          <div className={styles.activityDock}>
+            <div className={styles.activityButtons} role="group" aria-label="Movement activity">
+              {ACTIVITIES.map(item => (
+                <button key={item.id} aria-label={item.name} aria-pressed={activity === item.id}
+                  onClick={() => chooseActivity(item.id)}>{item.label}</button>
+              ))}
+              <button className={styles.actionButton} disabled={!ready || quiet} onClick={() => setActionSerial(n => n + 1)}>
+                {activityConfig(activity).action}
+              </button>
+            </div>
+            <p aria-live="polite">{activityConfig(activity).hint}</p>
+          </div>
           <p className={styles.controls}>
-            WASD / arrows to walk <span>·</span> Drag to look <span>·</span>{" "}
-            Click to move <span>·</span> M for menu
+            WASD / arrows to move <span>·</span> Drag to look <span>·</span>{" "}
+            Space to {activityConfig(activity).action.toLowerCase()} <span>·</span> M for menu
           </p>
           <div className={styles.touchHelp}>
-            Tap the ground to walk · Drag to look · Menu to jump
+            Tap ground to move · Drag to look
           </div>
         </>
       )}
       {!entered && (
         <footer className={styles.homeFooter}>
-          <span>Scientist at heart. Builder by nature.</span>
+          <span>Built by Sid. Accompanied by Shasta.</span>
           <Link href="/about" prefetch={false}>
             Get to know me
           </Link>
@@ -320,7 +333,7 @@ export function WorldHome({ content }: { content: WorldContent }) {
           </button>
           {panel === "menu" && (
             <>
-              <p className={styles.eyebrow}>TAKE YOUR OWN PATH</p>
+              <p className={styles.eyebrow}>NAVIGATION</p>
               <h2 id="world-panel-title">Where to?</h2>
               <div className={styles.menuColumns}>
                 <section>
@@ -341,7 +354,7 @@ export function WorldHome({ content }: { content: WorldContent }) {
                   </div>
                 </section>
                 <nav aria-label="Portfolio">
-                  <h3>Go straight there</h3>
+                  <h3>Browse the site</h3>
                   <div className={styles.siteLinks}>
                     {LINKS.map(([label, href]) => (
                       <Link prefetch={false} key={href} href={href}>
@@ -352,9 +365,10 @@ export function WorldHome({ content }: { content: WorldContent }) {
                 </nav>
               </div>
               <div className={styles.menuFooter}>
+                <button onClick={() => setPanel("field-notes")}>Field notes</button>
                 <a href="https://github.com/sidhulyalkar">GitHub</a>
                 <Link href="/atlas" prefetch={false}>
-                  Neural atlas
+                  View site · Fractal menu
                 </Link>
                 {enabled && (
                   <button
@@ -368,10 +382,20 @@ export function WorldHome({ content }: { content: WorldContent }) {
                 )}
               </div>
               <p className={styles.menuHint}>
-                Walk with WASD or the arrow keys. Drag to look around. Click the
-                ground to walk there. Enter opens a nearby discovery. Escape
-                closes a panel.
+                Move with WASD, arrows, or a tap on the ground. Drag to look. Space jumps; Enter opens discoveries. Ski and Boulder take you to their terrain. Escape closes panels.
               </p>
+            </>
+          )}
+          {panel === "field-notes" && (
+            <>
+              <p className={styles.eyebrow}>CALIFORNIA COAST</p>
+              <h2 id="world-panel-title">Field notes</h2>
+              <p className={styles.panelIntro}>Coastal scrub on exposed bluffs. Redwoods in the sheltered grove. The snowy ridge is a separate mountain memory, folded into this small world.</p>
+              <div className={styles.projectList}>
+                {COASTAL_FLORA.map(plant => <a key={plant.scientific} href={plant.source} target="_blank" rel="noreferrer">
+                  <h3>{plant.common}</h3><p><i>{plant.scientific}</i> · {plant.habitat}</p><span>National Park Service ↗</span>
+                </a>)}
+              </div>
             </>
           )}
           {selected && (
@@ -379,6 +403,12 @@ export function WorldHome({ content }: { content: WorldContent }) {
               <p className={styles.eyebrow}>{selected.name}</p>
               <h2 id="world-panel-title">{INTRO[selected.id].title}</h2>
               <p className={styles.panelIntro}>{INTRO[selected.id].text}</p>
+              {selected.id === "cavern" && <div className={styles.projectList}>
+                {content.games.map((game, index) => <Link key={game.href} href={game.href} prefetch={false}>
+                  {index === 0 && <span>FEATURED GAME</span>}
+                  <h3>{game.title}</h3><p>{game.subtitle}</p><span>Play game ↗</span>
+                </Link>)}
+              </div>}
               <div className={styles.projectList}>
                 {content.projects
                   .filter((p) => p.region === selected.id)
@@ -457,17 +487,16 @@ export function WorldHome({ content }: { content: WorldContent }) {
           {panel === "secret" && (
             <>
               <p className={styles.eyebrow}>A GOOD GUIDE</p>
-              <h2 id="world-panel-title">Shasta’s favorite detour.</h2>
+              <h2 id="world-panel-title">Shasta.</h2>
               <p className={styles.panelIntro}>
-                Sometimes the best thing to find is a reason to stay outside a
-                little longer.
+                Coastal trail. Last light.
               </p>
               <Image
                 className={styles.secretPhoto}
                 src="/visual-archive/web/photo-042.webp"
                 alt="White dog sitting at a sunset overlook above dark hills and coastline."
                 width={1800}
-                height={2400}
+                height={1350}
                 sizes="(max-width: 600px) 85vw, 400px"
               />
               <Link prefetch={false} href="/photography">

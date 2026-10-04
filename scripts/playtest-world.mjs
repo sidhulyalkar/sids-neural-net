@@ -25,17 +25,23 @@ async function waitForScene(page) {
 try {
   const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
   page.on('pageerror', error => errors.push(error.message));
-  await page.goto(base); await waitForScene(page); await screenshot(page, 'desktop-welcome');
-  await page.getByRole('button', { name: 'Enter world', exact: true }).click();
+  await page.goto(base);
+  assert.equal(await page.getByRole('link', { name: 'View site', exact: true }).getAttribute('href'), '/atlas');
+  assert.equal(await page.getByRole('link', { name: 'Get to know me', exact: true }).getAttribute('href'), '/about');
+  await waitForScene(page); await screenshot(page, 'desktop-welcome');
+  await page.getByRole('button', { name: 'Explore world', exact: true }).click();
   const before = await page.locator('canvas').getAttribute('data-player');
   await page.keyboard.down('w'); await page.waitForTimeout(1200); await page.keyboard.up('w');
   await page.waitForFunction(old => document.querySelector('canvas')?.dataset.player !== old, before);
   results.push('Keyboard walking changes player position');
   for (const [name, prompt, title] of [
-    ['01 Sequoia grove A little about me', 'A little about me', 'Hi, I’m Sid.'],
+    ['01 Redwood grove A little about me', 'A little about me', 'Hi, I’m Sid.'],
     ['02 Granite overlook Things I build', 'Things I build', 'Things I build.'],
     ['03 Strange grove Things I explore', 'Things I explore', 'Things I explore.'],
     ['04 Wild coast Life outside the screen', 'Life outside the screen', 'Outside the screen.'],
+    ['05 Fern falls Follow the water', 'Follow the water', 'Follow the water.'],
+    ['06 Moss canyon A quieter trail', 'A quieter trail', 'Take the long way.'],
+    ['07 Arcade cavern Play my games', 'Play my games', 'One more round.'],
   ]) {
     await page.getByRole('button', { name: 'Open navigation menu' }).click();
     await page.getByRole('button', { name, exact: true }).click();
@@ -49,6 +55,12 @@ try {
       assert.equal(hrefs.length, 3);
       for (const href of hrefs) assert.equal((await page.request.get(`${base}${href}`)).status(), 200, href);
     }
+    if (name.startsWith('07')) {
+      const games = await page.locator('dialog a[href^="/arcade/"]').evaluateAll(links => links.map(a => a.getAttribute('href')));
+      assert.equal(games.length, 3);
+      for (const href of games) assert.equal((await page.request.get(`${base}${href}`)).status(), 200);
+      results.push('Arcade cavern links to all three playable games');
+    }
     if (name.startsWith('04')) for (const memory of ['Higher ground', 'The last light', 'Along the coast']) {
       await page.getByRole('button', { name: new RegExp(memory) }).click();
       await page.getByRole('heading', { name: memory, exact: true }).waitFor();
@@ -60,6 +72,26 @@ try {
     assert.equal(await page.locator('dialog').evaluate(d => d.open), false);
     results.push(`Landmark, discovery, and dismissal: ${name}`);
   }
+  for (const [name, mode] of [['Trail running', 'run'], ['Skateboarding', 'skate'], ['Mountain biking', 'bike'], ['Skiing', 'ski'], ['Bouldering', 'boulder']]) {
+    await page.getByRole('button', { name, exact: true }).click();
+    await page.waitForFunction(mode => document.querySelector('canvas')?.dataset.activity === mode, mode);
+    await screenshot(page, `activity-${mode}`);
+    if (mode === 'boulder') {
+      const beforeHeight = Number(await page.locator('canvas').getAttribute('data-height'));
+      await page.getByRole('button', { name: 'Climb', exact: true }).click();
+      await page.waitForFunction(h => Number(document.querySelector('canvas')?.dataset.height) > h + 0.8, beforeHeight);
+      results.push('Boulder action climbs a real ledge');
+    } else {
+      await page.keyboard.press('Space');
+      await page.waitForFunction(() => document.querySelector('canvas')?.dataset.airborne === 'true');
+      await page.waitForFunction(() => document.querySelector('canvas')?.dataset.airborne === 'false');
+    }
+  }
+  results.push('Five activity modes equip correctly; their actions work');
+  await page.getByRole('button', { name: 'Open navigation menu' }).click();
+  await page.getByRole('button', { name: 'Field notes', exact: true }).click();
+  assert.equal(await page.locator('dialog a[href^="https://www.nps.gov"]').count(), 4);
+  await page.keyboard.press('Escape');
   await page.getByRole('button', { name: 'Open navigation menu' }).click();
   for (let i = 0; i < 24; i++) { await page.keyboard.press('Tab'); assert.equal(await page.evaluate(() => !!document.activeElement.closest('dialog')), true); }
   await page.keyboard.press('Escape'); results.push('Menu keeps keyboard focus and supports Escape');
@@ -72,7 +104,7 @@ try {
   results.push('Bounded renderer diagnostics include active-frame percentiles');
   await page.locator('canvas').evaluate(c => c.getContext('webgl2').getExtension('WEBGL_lose_context').loseContext());
   await page.getByText('The 3D world couldn’t open on this device.').waitFor();
-  assert.equal(await page.getByRole('link', { name: 'View my work' }).count(), 1);
+  assert.equal(await page.getByRole('link', { name: 'View site' }).count(), 1);
   results.push('Context loss preserves conventional navigation'); await page.close();
 
   const reduced = await browser.newPage({ reducedMotion: 'reduce' });
@@ -85,7 +117,7 @@ try {
   assert.equal(await mobile.locator('canvas').count(), 0); await screenshot(mobile, 'mobile-menu');
   await mobile.keyboard.press('Escape'); await screenshot(mobile, 'mobile-welcome');
   assert.equal(await mobile.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
-  await mobile.getByRole('button', { name: 'Enter world', exact: true }).click(); await waitForScene(mobile);
+  await mobile.getByRole('button', { name: 'Explore world', exact: true }).click(); await waitForScene(mobile);
   await screenshot(mobile, 'mobile-world');
   const mobileBefore = await mobile.locator('canvas').getAttribute('data-player');
   await mobile.touchscreen.tap(195, 580);

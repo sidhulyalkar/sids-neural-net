@@ -1,3 +1,5 @@
+import { activityLanding, BOULDER_HOLDS, effectiveActivity, groundHeight, nextHold, onSnow, stepTravel, type Activity, type Travel } from "@/lib/world/activities";
+import { SHASTA_COAT } from "@/lib/world/ecology";
 import { FrameSampler, QualityController } from "@/lib/world/performance";
 import * as THREE from "three/src/Three.Core.js";
 import type { WebGLRenderer } from "three/src/renderers/WebGLRenderer.js";
@@ -11,6 +13,7 @@ import {
   SECRET,
   SPAWN,
   terrainHeight,
+  WORLD_BOUNDS,
   type Obstacle,
   type Point,
   type RegionId,
@@ -24,6 +27,8 @@ type Callbacks = {
   onInteract: (d: string) => void;
 };
 type State = {
+  activity: Activity;
+  actionSerial: number;
   entered: boolean;
   paused: boolean;
   command: WorldCommand | null;
@@ -47,7 +52,7 @@ export function createWorld(
   });
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.25;
+  renderer.toneMappingExposure = 1.05;
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   let dpr = Math.min(window.devicePixelRatio || 1, 1.5);
@@ -57,18 +62,18 @@ export function createWorld(
   canvas.setAttribute("role", "application");
   canvas.setAttribute(
     "aria-label",
-    "Explore Sid’s world. Use arrow keys or WASD to walk, drag to look, Enter to discover, and M for the menu.",
+    "Explore Sid’s world. Use arrows or WASD to move, Shift to sprint, Space for your activity action, drag to look, Enter to discover, and M for the menu.",
   );
   host.appendChild(canvas);
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color("#a3bfbc");
-  scene.fog = new THREE.Fog("#a3bfbc", 45, 185);
+  scene.background = new THREE.Color("#67b7ef");
+  scene.fog = new THREE.Fog("#c4e2f1", 85, 270);
   const camera = new THREE.PerspectiveCamera(47, 1, 0.15, 360);
-  camera.position.set(46, 32, 62);
-  const look = new THREE.Vector3(-1, 7, -5);
+  camera.position.set(42, 36, 86);
+  const look = new THREE.Vector3(-12, 6, -12);
   camera.lookAt(look);
-  scene.add(new THREE.HemisphereLight("#e6f3dc", "#435a62", 2.3));
-  const sun = new THREE.DirectionalLight("#ffe0a0", 3.4);
+  scene.add(new THREE.HemisphereLight("#d9edff", "#a48c64", 2.0));
+  const sun = new THREE.DirectionalLight("#fff0cf", 2.8);
   sun.position.set(-40, 65, 15);
   sun.castShadow = true;
   sun.shadow.mapSize.set(1024, 1024);
@@ -217,10 +222,11 @@ export function createWorld(
       ),
     );
     groundColor.set(
-      x < -29 ? "#b7b39a" : y > 6 ? "#8c9b86" : x > 21 ? "#426960" : "#6e8460",
+      x < -29 ? "#d5bd87" : y > 6 ? "#939685" : x > 21 ? "#527466" : "#a8a064",
     );
     if (trail < 1.7 || distance({ x, z }, REGIONS[0].point) < 4)
       groundColor.set("#b6a684");
+    if (onSnow({ x, z })) groundColor.set("#edf3f2");
     groundColor.multiplyScalar(0.94 + random() * 0.12);
     colors.push(groundColor.r, groundColor.g, groundColor.b);
   }
@@ -236,7 +242,7 @@ export function createWorld(
   // Ocean and a few quiet, moving tide lines.
   const water = mesh(
     geo(new THREE.PlaneGeometry(430, 420)),
-    mat("#5f9faa", { roughness: 0.5, metalness: 0.15 }),
+    mat("#218ba8", { roughness: 0.38, metalness: 0.15 }),
     [-140, -1.4, -90],
     [1, 1, 1],
   );
@@ -286,6 +292,7 @@ export function createWorld(
     const x = -34 + random() * 75,
       z = -43 + random() * 79;
     if (
+      BOULDER_HOLDS.some(h => distance(h, { x, z }) < 5) ||
       REGIONS.some((r) => distance(r.point, { x, z }) < 7) ||
       MEMORY_POINTS.some((m) => distance(m.point, { x, z }) < 4)
     )
@@ -301,6 +308,14 @@ export function createWorld(
       ry: random() * 6,
     });
   }
+  // Authored climbable ledges use the same footprint and top height as navigation.
+  const climbRocks: THREE.Mesh[] = [];
+  const ledgeGeometry = geo(new THREE.CylinderGeometry(1, 1.15, 1, 8));
+  for (const hold of BOULDER_HOLDS) {
+    const y = terrainHeight(hold.x, hold.z);
+    climbRocks.push(mesh(ledgeGeometry, rockMat, [hold.x, y + hold.height / 2, hold.z], [hold.radius, hold.height, hold.radius]));
+    mesh(boxGeo, mat("#e7b574"), [hold.x, y + hold.height + 0.03, hold.z], [0.35, 0.04, 0.35]);
+  }
   // Decorative boulders are low enough to step over; tree trunks have collision.
   instances(rockGeo, rockMat, boulders);
   const trunks: Instance[] = [],
@@ -309,16 +324,18 @@ export function createWorld(
     roots: Instance[] = [];
   const obstacles: Obstacle[] = [];
   const trees = [
-    { x: -10, z: 6, h: 31, r: 1.8 },
-    { x: 9, z: 1, h: 35, r: 2 },
-    { x: -5, z: -7, h: 38, r: 2.1 },
-    { x: 17, z: 15, h: 27, r: 1.5 },
-    { x: -13, z: 23, h: 30, r: 1.7 },
+    { x: -10, z: 6, h: 24, r: 1.4 },
+    { x: 9, z: 1, h: 27, r: 1.5 },
+    { x: -5, z: -7, h: 29, r: 1.7 },
+    { x: 17, z: 15, h: 20, r: 1.1 },
+    { x: -13, z: 23, h: 21, r: 1.2 },
   ];
-  for (let i = 0; i < 34; i++) {
+  for (let i = 0; i < 27; i++) {
     const x = -25 + random() * 71,
       z = -40 + random() * 80;
     if (
+      x < -17 || z < -15 ||
+      BOULDER_HOLDS.some(h => distance(h, { x, z }) < 6) ||
       REGIONS.some((r) => distance(r.point, { x, z }) < 9) ||
       distance({ x, z }, SPAWN) < 8 ||
       distance({ x, z }, SECRET) < 5
@@ -381,7 +398,7 @@ export function createWorld(
     });
   });
   instances(cylinder, trunkMat, [...trunks, ...branches, ...roots]);
-  instances(rockGeo, leafMat, crowns);
+  instances(cone, leafMat, crowns);
   // Small grasses share one geometry and one draw call.
   const grasses: Instance[] = [];
   for (let i = 0; i < 750; i++) {
@@ -403,6 +420,29 @@ export function createWorld(
     });
   }
   const grassMesh = instances(cone, mat("#8ca474"), grasses, false);
+  // Coastal scrub replaces trees on the exposed bluffs. Species are documented in Field notes.
+  const coyote: Instance[] = [], sage: Instance[] = [], stems: Instance[] = [], poppies: Instance[] = [];
+  for (let i = 0; i < 160; i++) {
+    const x = -33 + random() * 14, z = -25 + random() * 58;
+    if (REGIONS.some(r => distance(r.point, { x, z }) < 4) || MEMORY_POINTS.some(m => distance(m.point, { x, z }) < 3) ||
+        REGIONS.slice(1).some(r => lineDistance(x, z, REGIONS[0].point, r.point) < 2)) continue;
+    const y = terrainHeight(x, z), size = 0.4 + random() * 0.6;
+    if (i % 2) coyote.push({ x, y: y + size * 0.45, z, sx: size, sy: size * 0.65, sz: size * 0.8 });
+    else for (let k = 0; k < 4; k++) sage.push({ x: x + Math.cos(k * 1.6) * 0.22, y: y + size * 0.5, z: z + Math.sin(k * 1.6) * 0.22, sx: size * 0.28, sy: size, sz: size * 0.28 });
+  }
+  for (let i = 0; i < 140; i++) {
+    const x = -30 + random() * 13, z = 9 + random() * 23;
+    if (MEMORY_POINTS.some(m => distance(m.point, { x, z }) < 2) || distance(REGIONS[3].point, { x, z }) < 3) continue;
+    const y = terrainHeight(x, z), h = 0.2 + random() * 0.2;
+    stems.push({ x, y: y + h / 2, z, sx: 0.025, sy: h, sz: 0.025 });
+    poppies.push({ x, y: y + h, z, sx: 0.12, sy: 0.13, sz: 0.12 });
+  }
+  instances(rockGeo, mat("#687b3d"), coyote, false);
+  instances(cone, mat("#9da68b"), sage, false);
+  instances(cylinder, mat("#779174"), stems, false);
+  const poppyCup = geo(new THREE.ConeGeometry(1, 1, 4, 1, true));
+  poppyCup.rotateX(Math.PI);
+  instances(poppyCup, mat("#ffa82e", { side: THREE.DoubleSide }), poppies, false);
   // Dendrites grow naturally out of the eastern grove. Quiet, sparse, no bloom pass.
   const dendrites: Instance[] = [],
     synapses: Instance[] = [];
@@ -504,19 +544,109 @@ export function createWorld(
   const arms = [-1, 1].map((side) =>
     mesh(cylinder, jacket, [side * 0.38, 1.03, 0], [0.12, 0.6, 0.12], explorer),
   );
-  // Shasta: pale coat, pointed ears, darker saddle and a curled tail.
+  // A side canyon and waterfall make the expanded loop readable from a distance.
+  const canyonStone: Instance[] = [], canyonMoss: Instance[] = [], fernFronds: Instance[] = [];
+  for (const side of [-1, 1]) for (let i = 0; i < 8; i++) {
+    const x = 29 + side * (4.6 + Math.sin(i) * 0.5), z = 24 + i * 2.8;
+    const y = terrainHeight(x, z), h = 3.8 + Math.sin(i * 0.8) * 1.3;
+    canyonStone.push({ x, y: y + h * 0.45, z, sx: 1.8, sy: h, sz: 2.1, ry: i });
+    obstacles.push({ x, z, radius: 1.3 });
+    canyonMoss.push({ x: x - side * 0.8, y: y + h * 0.65, z, sx: 1.2, sy: 0.4, sz: 1.5 });
+    for (let j = 0; j < 3; j++) fernFronds.push({ x: x - side * 1.9, y: y + 0.45, z: z + j * 0.3, sx: 0.1, sy: 0.65, sz: 0.55, ry: j * 1.7 });
+  }
+  instances(rockGeo, mat("#687b75"), canyonStone);
+  instances(rockGeo, mat("#648d3d"), canyonMoss, false);
+  instances(cone, mat("#4d875d"), fernFronds, false); // Stylized fern forms; no species claim.
+  const falls = REGIONS.find(r => r.id === "waterfall")!.point;
+  const fallsY = terrainHeight(falls.x, falls.z);
+  const cliff: Instance[] = [];
+  for (let i = 0; i < 7; i++) {
+    const x = falls.x - 6 + i * 2, z = falls.z - 5;
+    cliff.push({ x, y: fallsY + 4.2, z, sx: 2, sy: 6.1, sz: 1.8 });
+    obstacles.push({ x, z, radius: 1.3 });
+  }
+  instances(rockGeo, mat("#698983"), cliff);
+  const waterfall = mesh(boxGeo, mat("#c9f1f6", { transparent: true, opacity: 0.75, emissive: "#6babb7", emissiveIntensity: 0.15 }), [falls.x, fallsY + 4, falls.z - 2.9], [2.5, 8.4, 0.1]);
+  waterfall.castShadow = false;
+  const pool = mesh(geo(new THREE.CircleGeometry(4.2, 24)), mat("#399eaa", { transparent: true, opacity: 0.85, roughness: 0.3 }), [falls.x, fallsY + 0.09, falls.z - 1], [1, 0.65, 1]);
+  pool.rotation.x = -Math.PI / 2;
+  pool.castShadow = false;
+  const fallingWater = instances(boxGeo, mat("#efffff", { transparent: true, opacity: 0.55 }), Array.from({ length: 20 }, (_, i) => ({ x: falls.x - 1.1 + (i % 5) * 0.53, y: fallsY + (i / 20) * 8, z: falls.z - 2.8, sx: 0.045, sy: 0.65, sz: 0.03 })), false);
+  const splash = mesh(geo(new THREE.TorusGeometry(2.1, 0.055, 4, 24)), mat("#d6f6ec"), [falls.x, fallsY + 0.12, falls.z - 1], [1, 1, 1]);
+  splash.rotation.x = -Math.PI / 2;
+  splash.castShadow = false;
+  // A walk-in rock arch frames a physical cabinet; the actual games use their existing routes.
+  const arcade = REGIONS.find(r => r.id === "cavern")!.point;
+  const arcadeY = terrainHeight(arcade.x, arcade.z);
+  const cave: Instance[] = [];
+  for (let i = 0; i < 9; i++) {
+    const a = i * Math.PI / 8;
+    cave.push({ x: arcade.x + Math.cos(a) * 4.2, y: arcadeY + Math.sin(a) * 5.8, z: arcade.z - 2.5, sx: 1.9, sy: 1.65, sz: 3.2, ry: i });
+  }
+  instances(rockGeo, mat("#354d58"), cave);
+  for (const side of [-1, 1]) obstacles.push({ x: arcade.x + side * 4.2, z: arcade.z - 2.5, radius: 1.7 });
+  const cabinet = new THREE.Group();
+  cabinet.position.set(arcade.x, arcadeY, arcade.z);
+  scene.add(cabinet);
+  const shell = mesh(boxGeo, mat("#192a3f"), [0, 1.1, 0], [1.55, 2.2, 1], cabinet);
+  shell.userData.discovery = "cavern";
+  markerObjects.push(shell);
+  const screen = mesh(boxGeo, mat("#8dbde0", { emissive: "#5f7fd1", emissiveIntensity: 1.5 }), [0, 1.5, 0.52], [1.21, 0.8, 0.04], cabinet);
+  screen.castShadow = false;
+  // Tiny geometric unicorn emblem rather than a heavy video/iframe running in the scene.
+  mesh(boxGeo, mat("#f3e8f1"), [0, 1.5, 0.56], [0.64, 0.19, 0.02], cabinet);
+  mesh(cone, mat("#f4d076"), [0.24, 1.8, 0.56], [0.09, 0.25, 0.03], cabinet);
+  for (let i = 0; i < 3; i++) mesh(boxGeo, mat(["#f396b3", "#a58aff", "#88d4d2"][i]), [-0.4, 1.6 - i * 0.1, 0.56], [0.2, 0.06, 0.02], cabinet);
+  mesh(boxGeo, mat("#7285a4"), [0, 0.94, 0.65], [1.45, 0.14, 0.5], cabinet);
+  // Lightweight sport silhouettes share the explorer transform and geometry pool.
+  const board = new THREE.Group(), bike = new THREE.Group(), skis = new THREE.Group();
+  explorer.add(board, bike, skis);
+  const equipment = mat("#e78948"), rubber = mat("#243337"), metal = mat("#c1d5d8");
+  mesh(boxGeo, equipment, [0, 0.1, 0], [0.55, 0.12, 1.55], board);
+  const wheelGeo = geo(new THREE.TorusGeometry(0.43, 0.075, 5, 12));
+  for (const side of [-1, 1]) for (const end of [-1, 1]) {
+    const wheel = mesh(wheelGeo, rubber, [side * 0.27, 0, end * 0.5], [0.23, 0.23, 0.23], board);
+    wheel.rotation.y = Math.PI / 2;
+  }
+  const bikeWheels = [-1, 1].map(end => {
+    const wheel = mesh(wheelGeo, rubber, [0, 0.4, end * 0.78], [1, 1, 1], bike);
+    wheel.rotation.y = Math.PI / 2;
+    return wheel;
+  });
+  const framePoints = [[0, 0.42, -0.78], [0, 0.45, 0], [0, 1.04, -0.2], [0, 1.08, 0.5], [0, 0.42, 0.78]];
+  for (const [a, b] of [[0, 1], [1, 2], [2, 0], [2, 3], [3, 1], [3, 4]]) {
+    const part = segment(new THREE.Vector3(...framePoints[a]), new THREE.Vector3(...framePoints[b]), 0.045);
+    const tube = mesh(cylinder, equipment, [part.x, part.y, part.z], [part.sx, part.sy, part.sz], bike);
+    tube.quaternion.copy(part.q!);
+  }
+  mesh(boxGeo, rubber, [0, 1.1, -0.2], [0.28, 0.1, 0.4], bike);
+  mesh(boxGeo, metal, [0, 1.2, 0.55], [0.75, 0.05, 0.08], bike);
+  for (const side of [-1, 1]) {
+    mesh(boxGeo, equipment, [side * 0.23, 0.02, 0.2], [0.18, 0.07, 2.4], skis);
+    const tip = mesh(boxGeo, equipment, [side * 0.23, 0.13, 1.42], [0.18, 0.06, 0.3], skis);
+    tip.rotation.x = -0.4;
+    mesh(cylinder, metal, [side * 0.6, 0.6, 0], [0.025, 1.1, 0.025], skis);
+  }
+  const chalk = mesh(rockGeo, mat("#c4836d"), [0, 0.83, -0.35], [0.2, 0.2, 0.14], explorer);
+  board.visible = bike.visible = skis.visible = chalk.visible = false;
+  // Shasta: white face/legs, warm tan-gold topcoat, rust at the tail root.
   const shasta = new THREE.Group();
   scene.add(shasta);
-  const fur = mat("#eee9d7"),
-    saddle = mat("#839493"),
-    nose = mat("#263c43");
+  const fur = mat(SHASTA_COAT.white),
+    saddle = mat(SHASTA_COAT.topcoat),
+    gold = mat(SHASTA_COAT.gold),
+    rust = mat(SHASTA_COAT.tailBase),
+    nose = mat(SHASTA_COAT.nose);
   mesh(rockGeo, fur, [0, 0.65, 0], [0.36, 0.43, 0.65], shasta);
-  mesh(rockGeo, saddle, [0, 0.85, -0.08], [0.32, 0.22, 0.5], shasta);
+  mesh(rockGeo, saddle, [0, 0.85, -0.08], [0.34, 0.21, 0.54], shasta);
+  mesh(rockGeo, gold, [0, 0.79, 0.31], [0.34, 0.28, 0.32], shasta);
+  mesh(rockGeo, rust, [0, 0.87, -0.56], [0.24, 0.18, 0.19], shasta);
   mesh(rockGeo, fur, [0, 1.01, 0.6], [0.32, 0.35, 0.3], shasta);
   mesh(rockGeo, fur, [0, 0.91, 0.87], [0.22, 0.17, 0.26], shasta);
   mesh(rockGeo, nose, [0, 0.94, 1.06], [0.1, 0.08, 0.06], shasta);
   [-1, 1].forEach((s) => {
-    mesh(cone, saddle, [s * 0.22, 1.36, 0.53], [0.17, 0.4, 0.2], shasta);
+    mesh(cone, gold, [s * 0.22, 1.36, 0.53], [0.17, 0.4, 0.2], shasta);
+    mesh(rockGeo, gold, [s * 0.22, 1.12, 0.57], [0.14, 0.2, 0.23], shasta);
     mesh(rockGeo, nose, [s * 0.17, 1.08, 0.83], [0.035, 0.035, 0.035], shasta);
   });
   const paws = [-1, 1].flatMap((x) =>
@@ -554,7 +684,7 @@ export function createWorld(
   }
   instances(rockGeo, mat("#718266"), prints, false);
 
-  let state: State = { entered: false, paused: false, command: null };
+  let state: State = { entered: false, paused: false, command: null, activity: "run", actionSerial: 0 };
   let disposed = false,
     raf = 0,
     last = 0,
@@ -567,6 +697,10 @@ export function createWorld(
     zoom = 19;
   let player: Point = { ...SPAWN },
     destination: Point | null = null;
+  let travel: Travel = { point: player, speed: 0, heading: { x: 0, z: -1 } };
+  let airHeight = 0, verticalSpeed = 0, lastAction = 0;
+  let climb: { from: Point; to: Point; fromY: number; toY: number; progress: number } | null = null;
+  let playerY = groundHeight(player);
   let dog: Point = { x: 3, z: 12 };
   let locationKey = "",
     discovery: string | null = null;
@@ -666,11 +800,11 @@ export function createWorld(
       else destination = { ...point.point };
       return;
     }
-    const hit = ray.intersectObject(ground)[0];
+    const hit = ray.intersectObjects([ground, ...climbRocks])[0];
     if (hit)
       destination = {
-        x: THREE.MathUtils.clamp(hit.point.x, -34, 42),
-        z: THREE.MathUtils.clamp(hit.point.z, -40, 36),
+        x: THREE.MathUtils.clamp(hit.point.x, WORLD_BOUNDS.minX, WORLD_BOUNDS.maxX),
+        z: THREE.MathUtils.clamp(hit.point.z, WORLD_BOUNDS.minZ, WORLD_BOUNDS.maxZ),
       };
   }
   function cancelPointer() {
@@ -684,7 +818,10 @@ export function createWorld(
   function onKey(e: KeyboardEvent) {
     if (!state.entered || state.paused || e.metaKey || e.ctrlKey || e.altKey)
       return;
+    if (e.target !== canvas) return;
     const key = e.key.toLowerCase();
+    if (key === "shift") keys.add(key);
+    if (key === " " && !e.repeat) { e.preventDefault(); performAction(); }
     if (
       [
         "w",
@@ -701,7 +838,7 @@ export function createWorld(
       destination = null;
       e.preventDefault();
     }
-    if ((key === "enter" || key === " ") && e.target === canvas && discovery) {
+    if (key === "enter" && !e.repeat && discovery) {
       e.preventDefault();
       callbacks.onInteract(discovery);
     }
@@ -709,8 +846,22 @@ export function createWorld(
   function keyUp(e: KeyboardEvent) {
     keys.delete(e.key.toLowerCase());
   }
+  function performAction() {
+    if (!state.entered || state.paused || document.hidden || climb || airHeight > 0.01) return;
+    if (state.activity === "boulder") {
+      const hold = nextHold(player);
+      if (hold) {
+        climb = { from: { ...player }, to: hold, fromY: groundHeight(player), toY: groundHeight(hold), progress: 0 };
+        destination = null;
+        travel.speed = 0;
+        return;
+      }
+    }
+    verticalSpeed = state.activity === "boulder" ? 7 : 5;
+  }
   function clearInput() {
     keys.clear();
+    travel.speed = 0;
     drag = null;
     destination = null;
   }
@@ -767,34 +918,49 @@ export function createWorld(
         dz = destination.z - player.z;
         if (Math.hypot(dx, dz) < 0.3) {
           destination = null;
+          travel.speed = 0;
           dx = 0;
           dz = 0;
         }
       }
-      const length = Math.hypot(dx, dz);
-      if (length > 0.01) {
-        const next = constrainMove(
-          player,
-          {
-            x: player.x + (dx / length) * dt * 4.7,
-            z: player.z + (dz / length) * dt * 4.7,
-          },
-          obstacles,
-        );
-        if (destination && distance(next, player) < 0.003) destination = null;
-        player = next;
-        explorer.rotation.y = Math.atan2(dx, dz);
+      if (climb) {
+        climb.progress = Math.min(1, climb.progress + dt * 1.25);
+        const t = climb.progress * climb.progress * (3 - 2 * climb.progress);
+        player = { x: climb.from.x + (climb.to.x - climb.from.x) * t, z: climb.from.z + (climb.to.z - climb.from.z) * t };
+        playerY = climb.fromY + (climb.toY - climb.fromY) * t + Math.sin(t * Math.PI) * 0.7;
+        explorer.rotation.y = Math.atan2(climb.to.x - climb.from.x, climb.to.z - climb.from.z);
+        if (climb.progress === 1) climb = null;
+        travel = { ...travel, point: player, speed: 0 };
+      } else {
+        travel = stepTravel({ ...travel, point: player }, { x: dx, z: dz }, dt, state.activity, obstacles, keys.has("shift"), destination, airHeight);
+        if (destination && (distance(travel.point, destination) < 0.3 || (travel.speed === 0 && distance(player, destination) > 0.3))) destination = null;
+        player = travel.point;
+        if (travel.speed > 0.05) explorer.rotation.y = Math.atan2(travel.heading.x, travel.heading.z);
+        verticalSpeed -= dt * 14;
+        airHeight = Math.max(0, airHeight + verticalSpeed * dt);
+        if (airHeight === 0) verticalSpeed = 0;
+        playerY = groundHeight(player) + airHeight;
       }
-      const walking = length > 0.01 ? Math.sin(elapsed * 11) : 0;
-      legs[0].rotation.x = walking * 0.5;
-      legs[1].rotation.x = -walking * 0.5;
-      arms[0].rotation.x = -walking * 0.35;
-      arms[1].rotation.x = walking * 0.35;
-      explorer.position.set(
-        player.x,
-        terrainHeight(player.x, player.z) + Math.abs(walking) * 0.04,
-        player.z,
-      );
+      const mode = effectiveActivity(state.activity, player);
+      const walking = travel.speed > 0.05 ? Math.sin(elapsed * (mode === "run" ? 14 : 10)) : 0;
+      board.visible = mode === "skate";
+      bike.visible = mode === "bike";
+      skis.visible = mode === "ski";
+      chalk.visible = mode === "boulder";
+      const running = mode === "run" || mode === "boulder";
+      legs[0].rotation.x = running ? walking * 0.6 : mode === "bike" ? 0.5 + walking * 0.3 : 0.2;
+      legs[1].rotation.x = running ? -walking * 0.6 : mode === "bike" ? 0.5 - walking * 0.3 : 0.2;
+      arms[0].rotation.x = climb ? -2 : running ? -walking * 0.4 : -0.75;
+      arms[1].rotation.x = climb ? -1.6 : running ? walking * 0.4 : -0.75;
+      const incline = terrainHeight(player.x + travel.heading.x, player.z + travel.heading.z) - terrainHeight(player.x, player.z);
+      explorer.rotation.x = running ? 0 : -Math.atan(incline);
+      explorer.rotation.z = mode === "skate" ? Math.sin(elapsed * 2) * Math.min(travel.speed * 0.006, 0.06) : 0;
+      bikeWheels.forEach(wheel => wheel.rotation.z += travel.speed * dt / 0.43);
+      explorer.position.set(player.x, playerY + (mode === "skate" ? 0.18 : mode === "bike" ? 0.18 : 0) + (running ? Math.abs(walking) * 0.045 : 0), player.z);
+      canvas.dataset.activity = mode;
+      canvas.dataset.speed = travel.speed.toFixed(2);
+      canvas.dataset.height = playerY.toFixed(2);
+      canvas.dataset.airborne = String(airHeight > 0 || !!climb);
       const r = nearestRegion(player);
       discovery = nearbyDiscovery(player);
       const nextKey = `${r}:${discovery}`;
@@ -804,7 +970,7 @@ export function createWorld(
       }
       targetLook.set(
         player.x,
-        terrainHeight(player.x, player.z) + 2.8,
+        playerY + 2.8,
         player.z,
       );
       targetCamera.set(
@@ -835,8 +1001,8 @@ export function createWorld(
     } else {
       explorer.position.set(SPAWN.x, terrainHeight(SPAWN.x, SPAWN.z), SPAWN.z);
       explorer.rotation.y = -0.5;
-      targetCamera.set(46 + Math.sin(elapsed * 0.035) * 1.5, 32, 62);
-      targetLook.set(-1, 7, -5);
+      targetCamera.set(42 + Math.sin(elapsed * 0.035) * 1.5, 36, 86);
+      targetLook.set(-12, 6, -12);
     }
     const dogTarget = state.entered
       ? distance(player, SECRET) < 13
@@ -845,7 +1011,7 @@ export function createWorld(
       : { x: 4 + Math.sin(elapsed * 0.13) * 2, z: 12 };
     const dogDelta = distance(dog, dogTarget);
     if (dogDelta > 0.7) {
-      const speed = Math.min(dt * 4, dogDelta);
+      const speed = Math.min(dt * Math.max(6, travel.speed + 2), dogDelta);
       const angle = Math.atan2(dogTarget.x - dog.x, dogTarget.z - dog.z);
       dog = constrainMove(
         dog,
@@ -860,7 +1026,7 @@ export function createWorld(
     shasta.position.set(dog.x, terrainHeight(dog.x, dog.z), dog.z);
     explorerContact.position.set(
       explorer.position.x,
-      terrainHeight(explorer.position.x, explorer.position.z) + 0.04,
+      groundHeight(player) + 0.04,
       explorer.position.z,
     );
     dogContact.position.set(dog.x, terrainHeight(dog.x, dog.z) + 0.04, dog.z);
@@ -880,6 +1046,9 @@ export function createWorld(
     neuralMat.emissiveIntensity = 0.4 + Math.sin(elapsed * 0.65) * 0.18;
     particleMat.opacity = 0.48 + Math.sin(elapsed) * 0.17;
     tides.position.x = Math.sin(elapsed * 0.2) * 0.5;
+    fallingWater.position.y = -(elapsed * 3.5 % 0.4);
+    splash.scale.setScalar(1 + Math.sin(elapsed * 2) * 0.05);
+    waterfall.scale.x = 2.5 + Math.sin(elapsed * 3) * 0.06;
     renderer.render(scene, camera);
     const metrics = frameSampler.add(rawDelta);
     if (metrics) {
@@ -916,13 +1085,27 @@ export function createWorld(
     setState(next) {
       const wasEntered = state.entered,
         wasPaused = state.paused;
+      const changedActivity = next.activity !== state.activity;
+      const requestedAction = next.actionSerial !== lastAction;
+      if (changedActivity) {
+        clearInput();
+        climb = null;
+        airHeight = verticalSpeed = 0;
+      }
       state = next;
+      if (next.entered && !next.paused && (changedActivity || requestedAction)) canvas.focus({ preventScroll: true });
+      if (next.actionSerial !== lastAction) { lastAction = next.actionSerial; performAction(); }
       if (next.entered && (!wasEntered || (wasPaused && !next.paused)))
         canvas.focus({ preventScroll: true });
       if (next.command && next.command.serial !== lastSerial) {
         lastSerial = next.command.serial;
         const r = REGIONS.find((r) => r.id === next.command!.region)!;
-        player = { x: r.point.x, z: r.point.z + 3 };
+        player = (next.command.activity && activityLanding(next.command.activity)) || { x: r.point.x, z: r.point.z + 3 };
+        clearInput();
+        travel = { point: player, speed: 0, heading: { x: 0, z: -1 } };
+        airHeight = verticalSpeed = 0;
+        climb = null;
+        playerY = groundHeight(player);
         dog = { x: player.x + 2, z: player.z - 2 };
         destination = null;
         yaw = r.id === "coast" ? 1.15 : r.id === "neural" ? -0.6 : 0.25;
