@@ -112,3 +112,10 @@ The multi-gigabyte source files do **not** enter Git, `public/`, or Vercel.
 The gallery is poster-first. Before a visitor clicks a film, the page requests only a Mux thumbnail. On click it mounts Mux Player in an iframe. Mux then chooses an adaptive HLS rendition for the current display and connection, with the built-in quality selector available on platforms that expose it.
 
 For 4K source material the uploader explicitly requests a Mux `max_resolution_tier` of `2160p`; 1440p inputs request 1440p and smaller inputs request 1080p. High-resolution inputs are first converted to a temporary standards-safe H.264 mezzanine capped at 4096 px, 60 fps, 18 Mbps and a closed 2-second GOP, then deleted after a successful ingest unless `--keep-mezzanine` is set. The original file is never modified. HDR sources are rejected by the automatic mezzanine path instead of being silently tone-mapped; prepare an SDR master deliberately before publishing HDR footage.
+
+
+## Curated presentation metadata
+
+Raw source filenames and ingest provenance stay in `visualMotionManifest.json`. Public-facing titles, short descriptions, alt text, tags, and gallery order live separately in `src/data/visualMotionCuration.json`.
+
+That separation keeps the archive auditable while allowing the public gallery to use concise editorial names. A matching curation record is applied automatically at render time and during future ingests; an explicit CLI `--title`, `--description`, or `--alt` still takes precedence for one-off uploads.
