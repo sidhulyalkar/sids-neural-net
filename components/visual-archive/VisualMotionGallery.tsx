@@ -52,9 +52,14 @@ function MotionCard({ entry }: { entry: VisualMotionEntry }) {
         )}
       </div>
 
-      <div className="mt-2.5 flex items-baseline justify-between gap-4">
-        <p className="truncate text-sm font-normal tracking-tight text-white/68">{entry.title}</p>
-        <p className="shrink-0 font-mono text-[8px] uppercase tracking-[0.12em] text-white/28">
+      <div className="mt-3 flex items-start justify-between gap-5">
+        <div className="min-w-0">
+          <p className="text-sm font-normal tracking-tight text-white/72">{entry.title}</p>
+          {entry.description && (
+            <p className="mt-1 max-w-xl text-[11px] leading-5 text-white/38">{entry.description}</p>
+          )}
+        </div>
+        <p className="mt-0.5 shrink-0 font-mono text-[8px] uppercase tracking-[0.12em] text-white/28">
           {entry.resolutionLabel} · {formatDuration(entry.durationSeconds)}
         </p>
       </div>
