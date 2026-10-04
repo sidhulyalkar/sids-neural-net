@@ -324,7 +324,7 @@ function prepareMuxInput(meta) {
     return target;
   }
 
-  const partial = target + '.partial';
+  const partial = target.replace(/\.mp4$/i, '.partial.mp4');
   const fps = Math.min(Math.max(meta.fps || 30, 5), 60);
   const gop = Math.max(10, Math.round(fps * 2));
   const filters = [];
@@ -355,6 +355,7 @@ function prepareMuxInput(meta) {
     '-c:a', 'aac',
     '-b:a', '192k',
     '-movflags', '+faststart',
+    '-f', 'mp4',
     partial,
   ], { stdio: 'inherit' });
 
