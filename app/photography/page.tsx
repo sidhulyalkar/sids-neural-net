@@ -24,7 +24,7 @@ export default function PhotographyPage() {
       <section className="mb-14 max-w-3xl border-l border-cyan/25 pl-5 sm:mb-20">
         <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-cyan/70">still light · moving light</p>
         <p className="mt-3 text-sm leading-7 text-text-secondary">
-          Photography remains the fast first layer. Motion is poster-first and only loads when requested, preserving room for high-bitrate DJI footage without making every visit download a film reel.
+          Photography stays immediate. Motion loads only when requested, then streams adaptively from Mux up to the resolution preserved from the source footage.
         </p>
       </section>
 
@@ -34,7 +34,7 @@ export default function PhotographyPage() {
             <p className="font-mono text-[9px] uppercase tracking-[0.18em] text-cyan/55">motion studies</p>
             <h2 id="visual-motion-heading" className="mt-2 text-2xl font-light tracking-tight text-white">Action-camera records</h2>
           </div>
-          <p className="hidden font-mono text-[8px] uppercase tracking-[0.16em] text-white/25 sm:block">manual quality · fullscreen · lazy load</p>
+          <p className="hidden font-mono text-[8px] uppercase tracking-[0.16em] text-white/25 sm:block">adaptive 4K · fullscreen · lazy load</p>
         </div>
         <VisualMotionGallery entries={visualMotion} />
       </section>
