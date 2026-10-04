@@ -9,6 +9,8 @@ import { fileURLToPath } from 'node:url';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const MANIFEST_PATH = path.join(ROOT, 'src/data/visualMotionManifest.json');
 const CACHE_DIR = path.join(ROOT, '.cache/mux-video');
+const PREPARED_DIR = path.join(CACHE_DIR, 'prepared');
+const CHUNK_SIZE = 20 * 1024 * 1024;
 const VIDEO_EXTENSIONS = new Set(['.mp4', '.mov', '.m4v', '.webm', '.mkv']);
 
 function loadEnvFile(filePath) {
@@ -41,6 +43,7 @@ Options:
   --featured                    Mark the entry as featured
   --recursive                   Recurse into directories
   --dry-run                     Probe/hash only; do not contact Mux
+  --keep-mezzanine              Keep temporary Mux-ready files after success
   --title <text>                Title override (single-file uploads only)
   --description <text>          Description
   --collection <text>           Collection label, e.g. Moorea
@@ -67,7 +70,7 @@ Validation:
 function parseArgs(argv) {
   const options = {};
   const positional = [];
-  const booleanFlags = new Set(['publish', 'featured', 'recursive', 'dry-run']);
+  const booleanFlags = new Set(['publish', 'featured', 'recursive', 'dry-run', 'keep-mezzanine']);
   const valueFlags = new Set([
     'title',
     'description',
@@ -195,7 +198,7 @@ function probeVideo(filePath) {
       '-select_streams',
       'v:0',
       '-show_entries',
-      'stream=width,height,codec_name,r_frame_rate,color_space,color_transfer,color_primaries,pix_fmt:format=duration',
+      'stream=width,height,codec_name,r_frame_rate,color_space,color_transfer,color_primaries,pix_fmt:format=duration,bit_rate',
       '-of',
       'json',
       filePath,
@@ -213,6 +216,8 @@ function probeVideo(filePath) {
     throw new Error(`Could not read usable video metadata from ${filePath}`);
   }
 
+  const bitRate = Number(payload.format?.bit_rate);
+
   return {
     width: Number(stream.width),
     height: Number(stream.height),
@@ -223,6 +228,7 @@ function probeVideo(filePath) {
     colorSpace: stream.color_space || undefined,
     colorTransfer: stream.color_transfer || undefined,
     colorPrimaries: stream.color_primaries || undefined,
+    bitRateMbps: Number.isFinite(bitRate) && bitRate > 0 ? Number((bitRate / 1_000_000).toFixed(3)) : undefined,
   };
 }
 
@@ -236,10 +242,16 @@ async function sha256File(filePath) {
   });
 }
 
-function resolutionTier(height) {
-  if (height >= 2160) return '2160p';
-  if (height >= 1440) return '1440p';
+function resolutionTier(width, height) {
+  const longEdge = Math.max(width, height);
+  const shortEdge = Math.min(width, height);
+  if (longEdge >= 3840 || shortEdge >= 2160) return '2160p';
+  if (longEdge >= 2560 || shortEdge >= 1440) return '1440p';
   return '1080p';
+}
+
+function isHdr(meta) {
+  return ['smpte2084', 'arib-std-b67'].includes(String(meta.technical?.colorTransfer || '').toLowerCase());
 }
 
 function requireMuxCredentials() {
@@ -277,7 +289,7 @@ async function createDirectUpload(meta, quality) {
       new_asset_settings: {
         playback_policies: ['public'],
         video_quality: quality,
-        max_resolution_tier: resolutionTier(meta.height),
+        max_resolution_tier: resolutionTier(meta.width, meta.height),
         passthrough: meta.id,
         meta: {
           title: meta.title,
@@ -288,30 +300,130 @@ async function createDirectUpload(meta, quality) {
   });
 }
 
-function uploadFileWithCurl(filePath, uploadUrl) {
-  requireBinary('curl');
-  const result = spawnSync(
-    'curl',
-    [
-      '--fail-with-body',
-      '--location',
-      '--retry',
-      '5',
-      '--retry-delay',
-      '2',
-      '--retry-all-errors',
-      '--connect-timeout',
-      '30',
-      '--progress-bar',
-      '--request',
-      'PUT',
-      '--upload-file',
-      filePath,
-      uploadUrl,
-    ],
-    { stdio: 'inherit' }
-  );
-  if (result.status !== 0) throw new Error(`Upload failed for ${filePath}`);
+function preparedPathFor(meta) {
+  return path.join(PREPARED_DIR, meta.source.sha256.slice(0, 20) + '-mux.mp4');
+}
+
+function prepareMuxInput(meta) {
+  const tier = resolutionTier(meta.width, meta.height);
+  if (tier === '1080p') {
+    meta.ingest = { standardizedLocally: false, uploadResolutionTier: tier };
+    return meta.filePath;
+  }
+
+  if (isHdr(meta)) {
+    throw new Error(meta.source.name + ' appears to be HDR (' + meta.technical.colorTransfer + '). Automatic HDR tone-mapping is intentionally disabled. Export an SDR master first so the site does not silently alter the image.');
+  }
+
+  requireBinary('ffmpeg');
+  fs.mkdirSync(PREPARED_DIR, { recursive: true });
+  const target = preparedPathFor(meta);
+  if (fs.existsSync(target) && fs.statSync(target).size > 0) {
+    console.log('Reusing cached Mux-ready mezzanine: ' + path.relative(ROOT, target));
+    meta.ingest = { standardizedLocally: true, uploadResolutionTier: tier, codec: 'h264', maxBitrateMbps: 18, keyframeIntervalSeconds: 2 };
+    return target;
+  }
+
+  const partial = target + '.partial';
+  const fps = Math.min(Math.max(meta.fps || 30, 5), 60);
+  const gop = Math.max(10, Math.round(fps * 2));
+  const filters = ['scale=4096:4096:force_original_aspect_ratio=decrease:force_divisible_by=2'];
+  if ((meta.fps || 0) > 60) filters.push('fps=60');
+
+  console.log('Preparing Mux-standard ' + tier + ' mezzanine for ' + meta.source.name + ' (H.264, <=18 Mbps, closed 2s GOP). Original remains untouched.');
+  const result = spawnSync('ffmpeg', [
+    '-hide_banner', '-loglevel', 'warning', '-y',
+    '-i', meta.filePath,
+    '-map_metadata', '-1',
+    '-map', '0:v:0',
+    '-map', '0:a?',
+    '-vf', filters.join(','),
+    '-c:v', 'libx264',
+    '-preset', 'medium',
+    '-profile:v', 'high',
+    '-pix_fmt', 'yuv420p',
+    '-crf', '18',
+    '-maxrate', '18M',
+    '-bufsize', '36M',
+    '-g', String(gop),
+    '-keyint_min', String(gop),
+    '-sc_threshold', '0',
+    '-flags', '+cgop',
+    '-c:a', 'aac',
+    '-b:a', '192k',
+    '-movflags', '+faststart',
+    partial,
+  ], { stdio: 'inherit' });
+
+  if (result.status !== 0) {
+    if (fs.existsSync(partial)) fs.unlinkSync(partial);
+    throw new Error('ffmpeg failed while preparing ' + meta.source.name);
+  }
+  fs.renameSync(partial, target);
+  meta.ingest = { standardizedLocally: true, uploadResolutionTier: tier, codec: 'h264', maxBitrateMbps: 18, keyframeIntervalSeconds: 2 };
+  return target;
+}
+
+function parseServerRange(rangeHeader) {
+  if (!rangeHeader) return undefined;
+  const match = rangeHeader.match(/(?:bytes=)?\\d+-(\\d+)/i);
+  return match ? Number(match[1]) + 1 : undefined;
+}
+
+async function uploadFileInChunks(filePath, uploadUrl, uploadId, checkpoint) {
+  const totalBytes = fs.statSync(filePath).size;
+  let nextByte = Math.min(Number(checkpoint.nextByte || 0), totalBytes);
+  const file = fs.openSync(filePath, 'r');
+  let lastPrintedBucket = -1;
+  try {
+    while (nextByte < totalBytes) {
+      const size = Math.min(CHUNK_SIZE, totalBytes - nextByte);
+      const endByte = nextByte + size - 1;
+      const buffer = Buffer.allocUnsafe(size);
+      const bytesRead = fs.readSync(file, buffer, 0, size, nextByte);
+      if (bytesRead !== size) throw new Error('Could not read expected upload chunk from ' + filePath);
+
+      let accepted = false;
+      let lastError;
+      for (let attempt = 1; attempt <= 5 && !accepted; attempt += 1) {
+        try {
+          const response = await fetch(uploadUrl, {
+            method: 'PUT',
+            headers: {
+              'Content-Length': String(size),
+              'Content-Range': 'bytes ' + nextByte + '-' + endByte + '/' + totalBytes,
+            },
+            body: buffer,
+          });
+          if (response.ok || response.status === 308) {
+            const serverNext = parseServerRange(response.headers.get('range'));
+            nextByte = Math.max(endByte + 1, serverNext || 0);
+            checkpoint.nextByte = nextByte;
+            checkpoint.totalBytes = totalBytes;
+            saveCheckpoint(uploadId, checkpoint);
+            accepted = true;
+          } else {
+            const body = await response.text();
+            throw new Error('chunk returned HTTP ' + response.status + (body ? ': ' + body.slice(0, 300) : ''));
+          }
+        } catch (error) {
+          lastError = error;
+          if (attempt < 5) await sleep(1000 * 2 ** (attempt - 1));
+        }
+      }
+      if (!accepted) throw lastError || new Error('chunk upload failed');
+
+      const percent = totalBytes ? (nextByte / totalBytes) * 100 : 100;
+      const bucket = Math.floor(percent / 2);
+      if (bucket !== lastPrintedBucket || nextByte >= totalBytes) {
+        process.stdout.write('\\rUploading ' + path.basename(filePath) + ': ' + percent.toFixed(1) + '%');
+        lastPrintedBucket = bucket;
+      }
+    }
+  } finally {
+    fs.closeSync(file);
+  }
+  process.stdout.write('\\n');
 }
 
 function sleep(ms) {
@@ -368,7 +480,7 @@ function removeCheckpoint(uploadId) {
   if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
 }
 
-function finalizeManifestEntry(meta, uploadId, asset) {
+function finalizeManifestEntry(meta, uploadId, asset, uploadPath) {
   const playbackId = asset.playback_ids?.find((item) => item.policy === 'public')?.id || asset.playback_ids?.[0]?.id;
   if (!playbackId) throw new Error(`Mux asset ${asset.id} is ready but has no playback ID`);
 
@@ -400,11 +512,12 @@ function finalizeManifestEntry(meta, uploadId, asset) {
       uploadId,
       assetId: asset.id,
       playbackId,
-      resolutionTier: asset.resolution_tier || resolutionTier(meta.height),
+      resolutionTier: asset.resolution_tier || resolutionTier(meta.width, meta.height),
       videoQuality: asset.video_quality || meta.videoQuality,
     },
     source: meta.source,
     technical: meta.technical,
+    ingest: { ...(meta.ingest || {}), uploadedBytes: uploadPath && fs.existsSync(uploadPath) ? fs.statSync(uploadPath).size : undefined },
   });
 
   entries.sort((a, b) => Number(Boolean(b.featured)) - Number(Boolean(a.featured)) || a.title.localeCompare(b.title));
@@ -468,6 +581,7 @@ async function buildMeta(filePath, options, entries, usedSlugs) {
       ...(probe.colorSpace ? { colorSpace: probe.colorSpace } : {}),
       ...(probe.colorTransfer ? { colorTransfer: probe.colorTransfer } : {}),
       ...(probe.colorPrimaries ? { colorPrimaries: probe.colorPrimaries } : {}),
+      ...(probe.bitRateMbps ? { bitRateMbps: probe.bitRateMbps } : {}),
     },
     filePath,
   };
@@ -502,11 +616,11 @@ async function uploadCommand(argv) {
     }
     prepared.push(meta);
     const gb = (meta.source.bytes / 1024 ** 3).toFixed(2);
-    console.log(`READY ${meta.id}: ${meta.width}x${meta.height}, ${meta.durationSeconds}s, ${gb} GiB -> Mux ${resolutionTier(meta.height)}`);
+    console.log(`READY ${meta.id}: ${meta.width}x${meta.height}, ${meta.durationSeconds}s, ${gb} GiB -> Mux ${resolutionTier(meta.width, meta.height)}${resolutionTier(meta.width, meta.height) === '1080p' ? '' : ' via local standards-safe mezzanine'}`);
   }
 
   if (options['dry-run']) {
-    console.log('\nDry run complete; no files were uploaded.');
+    console.log('\nDry run complete; no files were encoded or uploaded.');
     return;
   }
   if (!prepared.length) {
@@ -515,21 +629,23 @@ async function uploadCommand(argv) {
   }
 
   requireMuxCredentials();
-  requireBinary('curl');
 
   for (const meta of prepared) {
+    const uploadPath = prepareMuxInput(meta);
     console.log(`\nCreating Mux direct upload for ${meta.id}...`);
     const directUpload = await createDirectUpload(meta, quality);
-    saveCheckpoint(directUpload.id, { meta });
+    const checkpoint = { meta, uploadPath, uploadUrl: directUpload.url, nextByte: 0, keepMezzanine: Boolean(options['keep-mezzanine']) };
+    saveCheckpoint(directUpload.id, checkpoint);
 
-    console.log(`Uploading ${meta.source.name} directly to Mux...`);
-    uploadFileWithCurl(meta.filePath, directUpload.url);
+    console.log(`Uploading ${path.basename(uploadPath)} to Mux in 20 MiB resumable chunks...`);
+    await uploadFileInChunks(uploadPath, directUpload.url, directUpload.id, checkpoint);
 
     console.log('Upload complete. Waiting for Mux ingest...');
     try {
       const assetId = await waitForUpload(directUpload.id);
       const asset = await waitForAsset(assetId);
-      finalizeManifestEntry(meta, directUpload.id, asset);
+      finalizeManifestEntry(meta, directUpload.id, asset, uploadPath);
+      if (!checkpoint.keepMezzanine && uploadPath !== meta.filePath && uploadPath.startsWith(PREPARED_DIR) && fs.existsSync(uploadPath)) fs.unlinkSync(uploadPath);
     } catch (error) {
       console.error(`\nMux is still processing or the poll failed. Checkpoint kept at ${path.relative(ROOT, checkpointPath(directUpload.id))}`);
       console.error(`Resume with: npm run motion:resume -- ${directUpload.id}`);
@@ -589,12 +705,34 @@ function validateManifest() {
 async function resumeCommand(uploadId) {
   if (!uploadId) throw new Error('Provide the Mux upload ID to resume.');
   const filePath = checkpointPath(uploadId);
-  if (!fs.existsSync(filePath)) throw new Error(`No checkpoint found for upload ${uploadId}`);
+  if (!fs.existsSync(filePath)) throw new Error('No checkpoint found for upload ' + uploadId);
   const checkpoint = JSON.parse(fs.readFileSync(filePath, 'utf8'));
   requireMuxCredentials();
-  const assetId = await waitForUpload(uploadId);
+
+  let activeUploadId = uploadId;
+  let upload = await muxRequest('/uploads/' + activeUploadId);
+  if (!upload.asset_id && ['errored', 'timed_out', 'cancelled'].includes(upload.status)) {
+    console.log('Previous upload is ' + upload.status + '; creating a fresh resumable URL.');
+    const replacement = await createDirectUpload(checkpoint.meta, checkpoint.meta.videoQuality || 'basic');
+    removeCheckpoint(activeUploadId);
+    activeUploadId = replacement.id;
+    checkpoint.uploadUrl = replacement.url;
+    checkpoint.nextByte = 0;
+    saveCheckpoint(activeUploadId, checkpoint);
+    upload = replacement;
+  }
+
+  if (!upload.asset_id) {
+    if (!checkpoint.uploadPath || !fs.existsSync(checkpoint.uploadPath)) throw new Error('Checkpoint upload file is missing. Re-run motion:upload for the original source.');
+    if (!checkpoint.uploadUrl) throw new Error('Checkpoint is missing the resumable upload URL.');
+    console.log('Resuming upload ' + activeUploadId + ' from byte ' + (checkpoint.nextByte || 0) + '...');
+    await uploadFileInChunks(checkpoint.uploadPath, checkpoint.uploadUrl, activeUploadId, checkpoint);
+  }
+
+  const assetId = upload.asset_id || await waitForUpload(activeUploadId);
   const asset = await waitForAsset(assetId);
-  finalizeManifestEntry(checkpoint.meta, uploadId, asset);
+  finalizeManifestEntry(checkpoint.meta, activeUploadId, asset, checkpoint.uploadPath);
+  if (!checkpoint.keepMezzanine && checkpoint.uploadPath !== checkpoint.meta.filePath && checkpoint.uploadPath.startsWith(PREPARED_DIR) && fs.existsSync(checkpoint.uploadPath)) fs.unlinkSync(checkpoint.uploadPath);
 }
 
 async function main() {
