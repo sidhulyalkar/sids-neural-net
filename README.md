@@ -119,7 +119,7 @@ npm run motion:publish -- <slug>
 npm run motion:check
 ```
 
-The uploader probes source resolution with `ffprobe`, hashes each file for duplicate protection, explicitly enables Mux 2160p ingest for 4K material, waits for the public playback ID, and writes compact metadata to `src/data/visualMotionManifest.json`. See `docs/VISUAL_MOTION_MUX.md` for the complete batch-upload and recovery workflow.
+The uploader probes source resolution with `ffprobe`, hashes each file for duplicate protection, prepares Mux-safe high-resolution mezzanines when needed, uploads in resumable 20 MiB chunks, explicitly enables 2160p ingest for 4K material, waits for the public playback ID, and writes compact metadata to `src/data/visualMotionManifest.json`. See `docs/VISUAL_MOTION_MUX.md` for the complete batch-upload and recovery workflow.
 
 ## Data Pipeline
 
