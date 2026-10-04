@@ -8,6 +8,8 @@ import { fileURLToPath } from 'node:url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const MANIFEST_PATH = path.join(ROOT, 'src/data/visualMotionManifest.json');
+const CURATION_PATH = path.join(ROOT, 'src/data/visualMotionCuration.json');
+const CURATION = JSON.parse(fs.readFileSync(CURATION_PATH, 'utf8'));
 const CACHE_DIR = path.join(ROOT, '.cache/mux-video');
 const PREPARED_DIR = path.join(CACHE_DIR, 'prepared');
 const CHUNK_SIZE = 20 * 1024 * 1024;
@@ -263,22 +265,47 @@ function requireMuxCredentials() {
   return { tokenId, tokenSecret };
 }
 
-async function muxRequest(endpoint, init = {}) {
+async function muxRequest(endpoint, init = {}, maxAttempts = 5) {
   const { tokenId, tokenSecret } = requireMuxCredentials();
-  const response = await fetch(`https://api.mux.com/video/v1${endpoint}`, {
-    ...init,
-    headers: {
-      Authorization: `Basic ${Buffer.from(`${tokenId}:${tokenSecret}`).toString('base64')}`,
-      ...(init.body ? { 'Content-Type': 'application/json' } : {}),
-      ...(init.headers || {}),
-    },
-  });
-  const text = await response.text();
-  const payload = text ? JSON.parse(text) : {};
-  if (!response.ok) {
-    throw new Error(`Mux API ${response.status}: ${payload?.error?.messages?.join?.('; ') || payload?.error?.message || text || response.statusText}`);
+  let lastError;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    try {
+      const response = await fetch(`https://api.mux.com/video/v1${endpoint}`, {
+        ...init,
+        signal: init.signal ?? AbortSignal.timeout(30_000),
+        headers: {
+          Authorization: `Basic ${Buffer.from(`${tokenId}:${tokenSecret}`).toString('base64')}`,
+          ...(init.body ? { 'Content-Type': 'application/json' } : {}),
+          ...(init.headers || {}),
+        },
+      });
+
+      const text = await response.text();
+      const payload = text ? JSON.parse(text) : {};
+      if (response.ok) return payload.data;
+
+      const retryable = response.status === 429 || response.status >= 500;
+      if (!retryable || attempt === maxAttempts) {
+        throw new Error(`Mux API ${response.status}: ${payload?.error?.messages?.join?.('; ') || payload?.error?.message || text || response.statusText}`);
+      }
+
+      const retryAfter = Number(response.headers.get('retry-after'));
+      const delayMs = Number.isFinite(retryAfter) && retryAfter > 0
+        ? retryAfter * 1000
+        : Math.min(1000 * 2 ** (attempt - 1), 12_000);
+      console.warn(`Mux API ${response.status}; retrying in ${Math.round(delayMs / 1000)}s (attempt ${attempt}/${maxAttempts})...`);
+      await sleep(delayMs);
+    } catch (error) {
+      lastError = error;
+      if (attempt === maxAttempts) break;
+      const delayMs = Math.min(1000 * 2 ** (attempt - 1), 12_000);
+      console.warn(`Mux request interrupted; retrying in ${Math.round(delayMs / 1000)}s (attempt ${attempt}/${maxAttempts})...`);
+      await sleep(delayMs);
+    }
   }
-  return payload.data;
+
+  throw lastError instanceof Error ? lastError : new Error('Mux request failed after retries');
 }
 
 async function createDirectUpload(meta, quality) {
@@ -544,10 +571,13 @@ async function buildMeta(filePath, options, entries, usedSlugs) {
     return { duplicate, filePath, probe, sha256 };
   }
 
-  const title = options.title || humanizeFilename(filePath);
-  const baseSlug = slugify(title);
-  let id = uniqueSlug(baseSlug, [...entries, ...[...usedSlugs].map((slug) => ({ id: slug }))]);
+  const fallbackTitle = humanizeFilename(filePath);
+  const requestedTitle = options.title || fallbackTitle;
+  const baseSlug = slugify(requestedTitle);
+  const id = uniqueSlug(baseSlug, [...entries, ...[...usedSlugs].map((slug) => ({ id: slug }))]);
   usedSlugs.add(id);
+  const curation = CURATION[id] || {};
+  const title = options.title || curation.title || fallbackTitle;
 
   const posterTimeCandidate = options['poster-time'] === undefined
     ? Math.min(Math.max(probe.durationSeconds * 0.12, 0.25), Math.max(probe.durationSeconds - 0.1, 0.25))
@@ -560,14 +590,15 @@ async function buildMeta(filePath, options, entries, usedSlugs) {
   return {
     id,
     title,
-    description: options.description,
-    alt: options.alt,
+    description: options.description || curation.description,
+    alt: options.alt || curation.alt,
     collection: options.collection,
     location: options.location,
     capturedWith: options['captured-with'],
     date: options.date,
     featured: Boolean(options.featured),
     published: Boolean(options.publish),
+    tags: Array.isArray(curation.tags) ? curation.tags : [],
     width: probe.width,
     height: probe.height,
     durationSeconds: probe.durationSeconds,
