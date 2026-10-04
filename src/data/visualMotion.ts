@@ -1,4 +1,13 @@
+import curationManifest from './visualMotionCuration.json';
 import manifest from './visualMotionManifest.json';
+
+type VisualMotionCurationEntry = {
+  title?: string;
+  description?: string;
+  alt?: string;
+  tags?: string[];
+  order?: number;
+};
 
 type VisualMotionManifestEntry = {
   id: string;
@@ -39,6 +48,7 @@ export type VisualMotionEntry = {
   date?: string;
   tags?: string[];
   featured?: boolean;
+  order?: number;
 };
 
 function resolutionLabel(width: number, height: number) {
@@ -81,14 +91,15 @@ export const visualMotion: VisualMotionEntry[] = (manifest as VisualMotionManife
   .filter((entry) => entry.published && entry.mux?.playbackId)
   .map((entry) => {
     const playbackId = entry.mux!.playbackId!;
+    const curation = (curationManifest as Record<string, VisualMotionCurationEntry>)[entry.id];
     const width = Math.max(1, Number(entry.width));
     const height = Math.max(1, Number(entry.height));
     return {
       id: entry.id,
-      title: entry.title,
-      description: entry.description,
+      title: curation?.title ?? entry.title,
+      description: curation?.description ?? entry.description,
       posterSrc: muxPosterUrl(playbackId, entry.posterTimeSeconds ?? 0),
-      alt: entry.alt ?? `${entry.title} video still${entry.location ? ` from ${entry.location}` : ''}`,
+      alt: curation?.alt ?? entry.alt ?? `${curation?.title ?? entry.title} video still${entry.location ? ` from ${entry.location}` : ''}`,
       durationSeconds: entry.durationSeconds,
       aspectRatio: `${width} / ${height}` as `${number} / ${number}`,
       width,
@@ -99,11 +110,14 @@ export const visualMotion: VisualMotionEntry[] = (manifest as VisualMotionManife
       location: entry.location,
       collection: entry.collection,
       date: entry.date,
-      tags: entry.tags,
+      tags: curation?.tags ?? entry.tags,
       featured: entry.featured,
+      order: curation?.order,
     };
   })
   .sort((a, b) => {
+    const orderDelta = (a.order ?? Number.MAX_SAFE_INTEGER) - (b.order ?? Number.MAX_SAFE_INTEGER);
+    if (orderDelta) return orderDelta;
     const featuredDelta = Number(Boolean(b.featured)) - Number(Boolean(a.featured));
     if (featuredDelta) return featuredDelta;
     if (a.date && b.date && a.date !== b.date) return b.date.localeCompare(a.date);
