@@ -287,7 +287,9 @@ async function muxRequest(endpoint, init = {}, maxAttempts = 5) {
 
       const retryable = response.status === 429 || response.status >= 500;
       if (!retryable || attempt === maxAttempts) {
-        throw new Error(`Mux API ${response.status}: ${payload?.error?.messages?.join?.('; ') || payload?.error?.message || text || response.statusText}`);
+        const error = new Error(`Mux API ${response.status}: ${payload?.error?.messages?.join?.('; ') || payload?.error?.message || text || response.statusText}`);
+        error.nonRetryable = !retryable;
+        throw error;
       }
 
       const retryAfter = Number(response.headers.get('retry-after'));
@@ -298,6 +300,7 @@ async function muxRequest(endpoint, init = {}, maxAttempts = 5) {
       await sleep(delayMs);
     } catch (error) {
       lastError = error;
+      if (error?.nonRetryable) throw error;
       if (attempt === maxAttempts) break;
       const delayMs = Math.min(1000 * 2 ** (attempt - 1), 12_000);
       console.warn(`Mux request interrupted; retrying in ${Math.round(delayMs / 1000)}s (attempt ${attempt}/${maxAttempts})...`);
