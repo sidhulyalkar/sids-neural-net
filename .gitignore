@@ -37,6 +37,9 @@ coverage
 __pycache__/
 *.pyc
 
+# Local video ingestion checkpoints
+.cache/mux-video/
+
 # Local photo sources
 photo-input/
 visual_archive/
