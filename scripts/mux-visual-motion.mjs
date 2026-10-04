@@ -327,7 +327,10 @@ function prepareMuxInput(meta) {
   const partial = target + '.partial';
   const fps = Math.min(Math.max(meta.fps || 30, 5), 60);
   const gop = Math.max(10, Math.round(fps * 2));
-  const filters = ['scale=4096:4096:force_original_aspect_ratio=decrease:force_divisible_by=2'];
+  const filters = [];
+  if (Math.max(meta.width, meta.height) > 4096) {
+    filters.push("scale='min(4096,iw)':'min(4096,ih)':force_original_aspect_ratio=decrease:force_divisible_by=2");
+  }
   if ((meta.fps || 0) > 60) filters.push('fps=60');
 
   console.log('Preparing Mux-standard ' + tier + ' mezzanine for ' + meta.source.name + ' (H.264, <=18 Mbps, closed 2s GOP). Original remains untouched.');
@@ -337,7 +340,7 @@ function prepareMuxInput(meta) {
     '-map_metadata', '-1',
     '-map', '0:v:0',
     '-map', '0:a?',
-    '-vf', filters.join(','),
+    ...(filters.length ? ['-vf', filters.join(',')] : []),
     '-c:v', 'libx264',
     '-preset', 'medium',
     '-profile:v', 'high',
