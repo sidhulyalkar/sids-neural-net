@@ -26,7 +26,7 @@ Install ffmpeg so `ffprobe` is available:
 brew install ffmpeg
 ```
 
-The upload path also uses the `curl` binary that ships with macOS.
+The uploader sends large files to Mux itself in sequential 20 MiB resumable chunks. Each chunk is retried independently, so a brief network failure does not restart a multi-gigabyte transfer.
 
 ## Upload a single video
 
@@ -54,7 +54,7 @@ npm run motion:upload -- "/absolute/path/to/selected vids" \
 
 Use `--recursive` to descend into subfolders.
 
-Before a large batch, verify discovery and metadata without uploading:
+Before a large batch, verify discovery and metadata without encoding or uploading:
 
 ```bash
 npm run motion:upload -- "/absolute/path/to/selected vids" --dry-run
@@ -73,7 +73,7 @@ Then commit `src/data/visualMotionManifest.json`.
 
 ## Resuming after ingest
 
-If the file reaches Mux but the local process exits while Mux is still processing it, the uploader writes a small local checkpoint under `.cache/mux-video/`.
+If an upload or Mux ingest is interrupted, the uploader writes a local checkpoint under `.cache/mux-video/`. The checkpoint records the byte offset, temporary upload path, and the expiring Direct Upload URL so `motion:resume` can continue the same large transfer.
 
 Resume with:
 
@@ -81,7 +81,7 @@ Resume with:
 npm run motion:resume -- <mux-upload-id>
 ```
 
-The checkpoint never stores API credentials or a signed upload URL.
+The checkpoint never stores the Mux API token and the entire cache directory is Git-ignored. Its Direct Upload URL is temporary, so treat the cache as local state rather than something to copy or commit.
 
 ## Validation
 
@@ -111,4 +111,4 @@ The multi-gigabyte source files do **not** enter Git, `public/`, or Vercel.
 
 The gallery is poster-first. Before a visitor clicks a film, the page requests only a Mux thumbnail. On click it mounts Mux Player in an iframe. Mux then chooses an adaptive HLS rendition for the current display and connection, with the built-in quality selector available on platforms that expose it.
 
-For 4K source material the uploader explicitly requests a Mux `max_resolution_tier` of `2160p`; 1440p inputs request 1440p and smaller inputs request 1080p. It never upscales the source.
+For 4K source material the uploader explicitly requests a Mux `max_resolution_tier` of `2160p`; 1440p inputs request 1440p and smaller inputs request 1080p. High-resolution inputs are first converted to a temporary standards-safe H.264 mezzanine capped at 4096 px, 60 fps, 18 Mbps and a closed 2-second GOP, then deleted after a successful ingest unless `--keep-mezzanine` is set. The original file is never modified. HDR sources are rejected by the automatic mezzanine path instead of being silently tone-mapped; prepare an SDR master deliberately before publishing HDR footage.
