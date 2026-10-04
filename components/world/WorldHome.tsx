@@ -83,6 +83,7 @@ export function WorldHome({ content }: { content: WorldContent }) {
   const [nearby, setNearby] = useState<string | null>(null);
   const [panel, setPanel] = useState<string | null>(null);
   const [command, setCommand] = useState<WorldCommand | null>(null);
+  const worldRoot = useRef<HTMLDivElement>(null);
   const dialog = useRef<HTMLDialogElement>(null);
   const enterButton = useRef<HTMLButtonElement>(null);
   const trigger = useRef<HTMLElement | null>(null);
@@ -155,6 +156,9 @@ export function WorldHome({ content }: { content: WorldContent }) {
   }, [open, panel]);
   function chooseActivity(next: Activity) {
     setActivity(next);
+    // A selected mode can be activated again without a React state change.
+    // Restore movement focus on every activation, including that case.
+    requestAnimationFrame(() => worldRoot.current?.querySelector("canvas")?.focus({ preventScroll: true }));
     if (next === "ski" || next === "boulder") {
       setCommand(previous => ({ region: "mountain", serial: (previous?.serial ?? 0) + 1, activity: next }));
     }
@@ -187,6 +191,7 @@ export function WorldHome({ content }: { content: WorldContent }) {
 
   return (
     <div
+      ref={worldRoot}
       className={styles.world}
       data-world-state={failed ? "fallback" : entered ? "exploring" : "welcome"}
     >

@@ -17,13 +17,14 @@ const browser = await chromium.launch({
 });
 const results = [], errors = [];
 let diagnostics;
+let activePage;
 async function screenshot(page, name) { await page.screenshot({ path: path.join(output, `${name}.png`) }); }
 async function waitForScene(page) {
   // A canvas element alone is insufficient evidence that the scene has rendered.
   await page.waitForFunction(() => Number(document.querySelector('canvas')?.dataset.drawCalls) > 0);
 }
 try {
-  const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+  const page = activePage = await browser.newPage({ viewport: { width: 1440, height: 900 } });
   page.on('pageerror', error => errors.push(error.message));
   await page.goto(base);
   assert.equal(await page.getByRole('link', { name: 'View site', exact: true }).getAttribute('href'), '/atlas');
@@ -74,6 +75,8 @@ try {
   }
   for (const [name, mode] of [['Trail running', 'run'], ['Skateboarding', 'skate'], ['Mountain biking', 'bike'], ['Skiing', 'ski'], ['Bouldering', 'boulder']]) {
     await page.getByRole('button', { name, exact: true }).click();
+    await page.waitForFunction(() => document.activeElement?.tagName === 'CANVAS');
+    console.log(`Checking activity: ${mode}`);
     await page.waitForFunction(mode => document.querySelector('canvas')?.dataset.activity === mode, mode);
     await screenshot(page, `activity-${mode}`);
     if (mode === 'boulder') {
@@ -132,4 +135,12 @@ try {
   assert.deepEqual(errors, []);
   fs.writeFileSync(path.join(output, 'report.json'), JSON.stringify({ results, diagnostics, errors }, null, 2));
   console.log(JSON.stringify({ results, diagnostics, errors }, null, 2));
+} catch (error) {
+  if (activePage && !activePage.isClosed()) {
+    diagnostics = await activePage.locator('canvas').evaluateAll(canvases => canvases.map(c => ({ ...c.dataset }))).catch(() => null);
+    await screenshot(activePage, 'failure').catch(() => {});
+  }
+  fs.writeFileSync(path.join(output, 'report.json'), JSON.stringify({ results, diagnostics, errors, failure: String(error) }, null, 2));
+  console.error(JSON.stringify({ results, diagnostics, errors, failure: String(error) }, null, 2));
+  throw error;
 } finally { await browser.close(); }
