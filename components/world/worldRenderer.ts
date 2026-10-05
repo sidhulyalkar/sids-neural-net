@@ -707,7 +707,14 @@ export function createWorld(
       }));
     });
   });
-  instances(boxGeo, mat("#b8a77f", { emissive: "#55472e", emissiveIntensity: 0.12 }), carvingPoints, false);
+  const carvingMesh = instances(
+    boxGeo,
+    mat("#b8a77f", { emissive: "#55472e", emissiveIntensity: 0.12 }),
+    carvingPoints,
+    false,
+  );
+  carvingMesh.userData.discovery = "cavern";
+  markerObjects.push(carvingMesh);
   // Three abstract glyphs flank the names: horn, branching neuron, and mountain.
   const caveRunes = [
     segment(new THREE.Vector3(arcade.x - 3.25, arcadeY + 1.5, arcade.z - 4.92), new THREE.Vector3(arcade.x - 2.7, arcadeY + 2.2, arcade.z - 4.92), 0.06),
