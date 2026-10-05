@@ -122,6 +122,50 @@ try {
   }
   results.push('Five activity modes equip correctly; their actions work');
 
+  // Qualify the authored grove log through the real locomotion/action path.
+  await page.getByRole('button', { name: 'Open navigation menu' }).click();
+  await page.getByRole('button', { name: '01 Redwood grove A little about me', exact: true }).click();
+  await page.getByRole('button', { name: 'Skateboarding', exact: true }).click();
+  await page.waitForFunction(() => document.activeElement?.tagName === 'CANVAS');
+  await page.keyboard.down('w');
+  try {
+    await page.waitForFunction(
+      () => document.querySelector('canvas')?.dataset.grindReady === 'true',
+      null,
+      { timeout: 15000 },
+    );
+    await page.keyboard.press('Space');
+    await page.waitForFunction(
+      () => document.querySelector('canvas')?.dataset.grinding === 'true',
+      null,
+      { timeout: 4000 },
+    );
+  } finally {
+    await page.keyboard.up('w');
+  }
+  assert.equal(await page.locator('canvas').getAttribute('data-grind-id'), 'grove-log');
+  await screenshot(page, 'activity-grind');
+  results.push('Skateboard acquires and grinds the authored fallen redwood');
+
+  // Granite Ridge lands just above the authored ski kicker, so a normal downhill
+  // approach must trigger the shared ramp mechanic without a synthetic jump.
+  await page.getByRole('button', { name: 'Open navigation menu' }).click();
+  await page.getByRole('button', { name: '02 Granite ridge Things I build', exact: true }).click();
+  await page.getByRole('button', { name: 'Skiing', exact: true }).click();
+  await page.waitForFunction(() => document.activeElement?.tagName === 'CANVAS');
+  await page.keyboard.down('w');
+  try {
+    await page.waitForFunction(
+      () => document.querySelector('canvas')?.dataset.rampId === 'ski-kicker',
+      null,
+      { timeout: 12000 },
+    );
+    await page.waitForFunction(() => document.querySelector('canvas')?.dataset.airborne === 'true');
+  } finally {
+    await page.keyboard.up('w');
+  }
+  results.push('Skiing launches from the authored Granite Ridge kicker');
+
   // Reproduce the original steep-terrain failure mode on Granite Ridge. The rendered
   // gear root must stay above support terrain while pitch/roll remain finite.
   await page.getByRole('button', { name: 'Mountain biking', exact: true }).click();
