@@ -2114,7 +2114,12 @@ export function createWorld(
       Math.sin(desiredDogYaw - dogYaw),
       Math.cos(desiredDogYaw - dogYaw),
     );
-    dogYaw += yawDelta * (1 - Math.exp(-dt * 8));
+    // Bound actual angular velocity rather than only easing toward the target.
+    // This stays visually continuous even when a slow frame or obstacle causes
+    // the desired heading to flip sharply.
+    const maxDogTurnStep = 4.2 * dt;
+    dogYaw += THREE.MathUtils.clamp(yawDelta, -maxDogTurnStep, maxDogTurnStep);
+    dogYaw = Math.atan2(Math.sin(dogYaw), Math.cos(dogYaw));
     shasta.rotation.y = dogYaw;
     const dogStep = distance(dogBefore, dog);
     dogGaitPhase += dogStep * 5.4;
