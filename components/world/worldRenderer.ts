@@ -1633,12 +1633,22 @@ export function createWorld(
         : explorer.rotation.y;
 
       if (swimming) {
-        legs[0].rotation.x = walking * 0.55;
-        legs[1].rotation.x = -walking * 0.55;
-        arms[0].rotation.x = -1.25 + walking * 0.42;
-        arms[1].rotation.x = -1.25 - walking * 0.42;
-        explorer.rotation.set(aquatic === "dive" ? -1.0 : -0.72, headingYaw, Math.sin(elapsed * 1.2) * 0.05);
-        explorer.position.set(player.x, playerY, player.z);
+        const kick = travel.speed > 0.05 ? Math.sin(elapsed * 8.5) : 0;
+        legs[0].rotation.x = 0.18 + kick * 0.42;
+        legs[1].rotation.x = 0.18 - kick * 0.42;
+        arms[0].rotation.x = -1.45 + walking * 0.34;
+        arms[1].rotation.x = -1.45 - walking * 0.34;
+        const pronePitch = aquatic === "dive" ? -1.42 : -1.18;
+        explorer.rotation.set(
+          pronePitch,
+          headingYaw,
+          Math.sin(elapsed * 1.2) * (aquatic === "dive" ? 0.035 : 0.055),
+        );
+        explorer.position.set(
+          player.x,
+          playerY + (aquatic === "surface" ? Math.sin(elapsed * 2.1) * 0.035 : 0),
+          player.z,
+        );
       } else {
         legs[0].rotation.x = running ? walking * 0.6 : mode === "bike" ? 0.5 + walking * 0.3 : 0.2;
         legs[1].rotation.x = running ? -walking * 0.6 : mode === "bike" ? 0.5 - walking * 0.3 : 0.2;
@@ -1693,10 +1703,11 @@ export function createWorld(
         locationKey = nextKey;
         callbacks.onLocation(r, discovery);
       }
+      const aquaticLookAhead = aquatic === "land" ? 0 : aquatic === "dive" ? 3.2 : 2.2;
       targetLook.set(
-        player.x,
-        playerY + (aquatic === "dive" ? 0.75 : aquatic === "surface" ? 1.4 : 2.8),
-        player.z,
+        player.x + travel.heading.x * aquaticLookAhead,
+        playerY + (aquatic === "dive" ? 0.55 : aquatic === "surface" ? 1.2 : 2.8),
+        player.z + travel.heading.z * aquaticLookAhead,
       );
       const cameraZoom =
         aquatic === "dive"
