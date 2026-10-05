@@ -193,10 +193,13 @@ export function WorldHome({ content }: { content: WorldContent }) {
       worldRoot.current?.querySelector("canvas")?.focus({ preventScroll: true }),
     );
   }
+  const nearbyGameIndex = nearby?.startsWith("game:") ? Number(nearby.slice(5)) : -1;
+  const nearbyGame = Number.isInteger(nearbyGameIndex) ? content.games[nearbyGameIndex] : undefined;
   const discoveryTitle =
     nearby === "secret"
       ? "Shasta found something"
-      : (MEMORY_POINTS.find((m) => m.id === nearby)?.title ??
+      : (nearbyGame?.title ??
+        MEMORY_POINTS.find((m) => m.id === nearby)?.title ??
         REGIONS.find((r) => r.id === nearby)?.meaning);
   const current = REGIONS.find((r) => r.id === region)!;
   const selected = REGIONS.find((r) => r.id === panel);
