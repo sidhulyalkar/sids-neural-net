@@ -203,10 +203,16 @@ export function createWorld(
     parent.add(object);
     return object;
   }
-  // A continuous walkable patch: vertex colors draw trails into the terrain itself.
-  const terrain = geo(new THREE.PlaneGeometry(124, 128, 90, 90));
+  // One continuous finite surface covers land, shoreline and the underwater shelf.
+  const terrainWidth = WORLD_BOUNDS.maxX - WORLD_BOUNDS.minX;
+  const terrainDepth = WORLD_BOUNDS.maxZ - WORLD_BOUNDS.minZ;
+  const terrain = geo(new THREE.PlaneGeometry(terrainWidth, terrainDepth, 118, 110));
   terrain.rotateX(-Math.PI / 2);
-  terrain.translate(13, 0, -10);
+  terrain.translate(
+    (WORLD_BOUNDS.minX + WORLD_BOUNDS.maxX) / 2,
+    0,
+    (WORLD_BOUNDS.minZ + WORLD_BOUNDS.maxZ) / 2,
+  );
   const pos = terrain.attributes.position;
   const colors: number[] = [];
   const groundColor = new THREE.Color();
@@ -223,8 +229,8 @@ export function createWorld(
   for (let i = 0; i < pos.count; i++) {
     const x = pos.getX(i),
       z = pos.getZ(i);
-    let y = terrainHeight(x, z);
-    if (x < -35) y -= Math.pow((-35 - x) * 0.28, 1.4);
+    const wet = isWater({ x, z });
+    const y = worldFloorHeight(x, z);
     pos.setY(i, y);
     const trail = Math.min(
       ...REGIONS.slice(1).map((r) =>
@@ -232,9 +238,17 @@ export function createWorld(
       ),
     );
     groundColor.set(
-      x < -29 ? "#d5bd87" : y > 6 ? "#939685" : x > 21 ? "#527466" : "#a8a064",
+      wet
+        ? "#526d61"
+        : x < coastlineX(z) + 5
+          ? "#d5bd87"
+          : y > 10
+            ? "#7d8585"
+            : x > 21
+              ? "#527466"
+              : "#a8a064",
     );
-    if (trail < 1.7 || distance({ x, z }, REGIONS[0].point) < 4)
+    if (!wet && (trail < 1.7 || distance({ x, z }, REGIONS[0].point) < 4))
       groundColor.set("#b6a684");
     if (onSnow({ x, z })) groundColor.set("#edf3f2");
     groundColor.multiplyScalar(0.94 + random() * 0.12);
@@ -269,13 +283,13 @@ export function createWorld(
       sz: 0.1 + random() * 0.1,
     });
   const tides = instances(boxGeo, mat("#a4ccca"), waves, false);
-  // Far granite silhouettes and snowcaps: shapes remain legible through the haze.
+  // Far granite silhouettes echo the playable ridge without competing with it.
   const peaks: Instance[] = [],
     snow: Instance[] = [];
-  for (let i = 0; i < 12; i++) {
-    const x = -35 + i * 10,
-      z = -108 - random() * 35,
-      h = 20 + random() * 27;
+  for (let i = 0; i < 15; i++) {
+    const x = -58 + i * 11,
+      z = -150 - random() * 38,
+      h = 28 + random() * 38;
     peaks.push({
       x,
       y: h / 2 - 4,
