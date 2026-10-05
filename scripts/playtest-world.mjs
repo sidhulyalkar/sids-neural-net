@@ -29,7 +29,9 @@ try {
   await page.goto(base);
   assert.equal(await page.getByRole('link', { name: 'View site', exact: true }).getAttribute('href'), '/atlas');
   assert.equal(await page.getByRole('link', { name: 'Get to know me', exact: true }).getAttribute('href'), '/about');
-  await waitForScene(page); await screenshot(page, 'desktop-welcome');
+  await waitForScene(page);
+  assert.equal(await page.locator('canvas').getAttribute('data-carved-games'), '3');
+  await screenshot(page, 'desktop-welcome');
   await page.getByRole('button', { name: 'Explore world', exact: true }).click();
   const before = await page.locator('canvas').getAttribute('data-player');
   await page.keyboard.down('w'); await page.waitForTimeout(1200); await page.keyboard.up('w');
@@ -114,6 +116,7 @@ try {
   await page.getByRole('button', { name: 'Dive', exact: true }).click();
   await page.waitForFunction(() => document.querySelector('canvas')?.dataset.aquatic === 'dive');
   await page.waitForFunction(() => document.querySelector('canvas')?.dataset.cameraWater === 'true');
+  await page.waitForFunction(() => Number(document.querySelector('canvas')?.dataset.cameraDistance) >= 6);
   await page.waitForFunction(() => Number(document.querySelector('canvas')?.dataset.depth) > 0.45);
   const initialDepth = Number(await page.locator('canvas').getAttribute('data-depth'));
   const initialMaxDepth = Number(await page.locator('canvas').getAttribute('data-max-depth'));
