@@ -154,6 +154,7 @@ export function createWorld(
     m: THREE.Material,
     points: Instance[],
     shadow = true,
+    parent: THREE.Object3D = scene,
   ) {
     const mesh = new THREE.InstancedMesh(g, m, points.length);
     points.forEach((p, i) => {
@@ -168,7 +169,7 @@ export function createWorld(
     mesh.castShadow = shadow;
     mesh.receiveShadow = shadow;
     mesh.computeBoundingSphere();
-    scene.add(mesh);
+    parent.add(mesh);
     return mesh;
   }
   function segment(
@@ -264,10 +265,17 @@ export function createWorld(
   );
   ground.castShadow = false;
   // Ocean and a few quiet, moving tide lines.
+  const waterMaterial = mat("#218ba8", {
+    roughness: 0.38,
+    metalness: 0.12,
+    transparent: true,
+    opacity: 0.76,
+    side: THREE.DoubleSide,
+  });
   const water = mesh(
     geo(new THREE.PlaneGeometry(430, 420)),
-    mat("#218ba8", { roughness: 0.38, metalness: 0.15 }),
-    [-140, -1.4, -90],
+    waterMaterial,
+    [-140, SEA_SURFACE, -90],
     [1, 1, 1],
   );
   water.rotation.x = -Math.PI / 2;
@@ -858,6 +866,11 @@ export function createWorld(
   instances(rockGeo, mat("#718266"), prints, false);
 
   // --- Cold-water kelp forest -------------------------------------------------
+  // Reparent all submerged detail under one visibility gate so land scenes do not
+  // pay for hidden reef draw calls.
+  const reefRoot = new THREE.Group();
+  reefRoot.visible = false;
+  scene.add(reefRoot);
   const reefRockMat = mat("#53645f");
   const kelpStemMat = mat("#726d2f");
   const kelpBladeMat = mat("#8a8135", { side: THREE.DoubleSide });
@@ -867,7 +880,7 @@ export function createWorld(
     const floor = seaFloorHeight(x, z), size = 0.35 + random() * 1.45;
     reefRocks.push({ x, y: floor + size * 0.35, z, sx: size, sy: size * 0.7, sz: size * 1.2, ry: random() * 6 });
   }
-  instances(rockGeo, reefRockMat, reefRocks, false);
+  instances(rockGeo, reefRockMat, reefRocks, false, reefRoot);
 
   const kelpStems: Instance[] = [], kelpBlades: Instance[] = [];
   for (let i = 0; i < 34; i++) {
@@ -892,9 +905,9 @@ export function createWorld(
       });
     }
   }
-  instances(cylinder, kelpStemMat, kelpStems, false);
+  instances(cylinder, kelpStemMat, kelpStems, false, reefRoot);
   const kelpBladeGeo = geo(new THREE.ConeGeometry(1, 1, 5, 1, true));
-  instances(kelpBladeGeo, kelpBladeMat, kelpBlades, false);
+  instances(kelpBladeGeo, kelpBladeMat, kelpBlades, false, reefRoot);
 
   function makeFish(color: string, size: number) {
     const group = new THREE.Group();
@@ -902,7 +915,7 @@ export function createWorld(
     mesh(rockGeo, bodyMat, [0, 0, 0], [size * 0.38, size * 0.24, size], group);
     const tailFin = mesh(cone, bodyMat, [0, 0, -size * 0.95], [size * 0.28, size * 0.42, size * 0.12], group);
     tailFin.rotation.x = Math.PI / 2;
-    scene.add(group);
+    reefRoot.add(group);
     return group;
   }
   const reefSwimmers: { object: THREE.Group; radius: number; speed: number; phase: number; baseY: number }[] = [];
@@ -925,7 +938,7 @@ export function createWorld(
     }
     const tailFin = mesh(cone, sharkMat, [0, 0, -1.75], [0.45, 0.7, 0.14], shark);
     tailFin.rotation.x = Math.PI / 2;
-    scene.add(shark);
+    reefRoot.add(shark);
     sharks.push(shark);
   }
   // Rays use four-sided discs and a long tapered tail.
@@ -938,7 +951,7 @@ export function createWorld(
     const rayTail = segment(new THREE.Vector3(0, 0, -0.6), new THREE.Vector3(0, 0, -2), 0.035);
     const tailMesh = mesh(cylinder, mat("#566d68"), [rayTail.x, rayTail.y, rayTail.z], [rayTail.sx, rayTail.sy, rayTail.sz], rayGroup);
     tailMesh.quaternion.copy(rayTail.q!);
-    scene.add(rayGroup);
+    reefRoot.add(rayGroup);
     rays.push(rayGroup);
   }
 
@@ -956,7 +969,7 @@ export function createWorld(
     }
     const px = -58 - i * 7, pz = 5 + i * 14;
     o.position.set(px, seaFloorHeight(px, pz) + 0.32, pz);
-    scene.add(o); octopuses.push(o);
+    reefRoot.add(o); octopuses.push(o);
   }
   const eels: THREE.Group[] = [];
   for (let i = 0; i < 1; i++) {
@@ -966,7 +979,7 @@ export function createWorld(
       mesh(rockGeo, eelMat, [0, 0, segIndex * 0.34], [0.16, 0.12, 0.28], eel);
     const px = -64 + i * 5, pz = -10 + i * 16;
     eel.position.set(px, seaFloorHeight(px, pz) + 0.4, pz);
-    scene.add(eel); eels.push(eel);
+    reefRoot.add(eel); eels.push(eel);
   }
   const jellyGeo = geo(new THREE.SphereGeometry(1, 8, 5, 0, Math.PI * 2, 0, Math.PI / 2));
   const jellies: THREE.Group[] = [];
@@ -975,7 +988,7 @@ export function createWorld(
     const jellyMat = mat("#a7cad1", { transparent: true, opacity: 0.62, emissive: "#79aebd", emissiveIntensity: 0.12 });
     mesh(jellyGeo, jellyMat, [0, 0, 0], [0.42, 0.28, 0.42], jelly);
     for (let t = -1; t <= 1; t++) mesh(cylinder, jellyMat, [t * 0.12, -0.38, 0], [0.018, 0.72, 0.018], jelly);
-    scene.add(jelly); jellies.push(jelly);
+    reefRoot.add(jelly); jellies.push(jelly);
   }
 
   // Purple urchins and two distinct cold-water coral-like formations.
@@ -984,7 +997,7 @@ export function createWorld(
     const x = -72 + random() * 26, z = -21 + random() * 57;
     urchins.push({ x, y: seaFloorHeight(x, z) + 0.15, z, sx: 0.18, sy: 0.18, sz: 0.18 });
   }
-  instances(rockGeo, mat("#72527e"), urchins, false);
+  instances(rockGeo, mat("#72527e"), urchins, false, reefRoot);
 
   const seaFans: Instance[] = [], cupCorals: Instance[] = [];
   for (let i = 0; i < 16; i++) {
@@ -1000,8 +1013,8 @@ export function createWorld(
     }
     cupCorals.push({ x: x + 0.8, y: floor + 0.18, z: z + 0.6, sx: 0.18, sy: 0.35, sz: 0.18, ry: i });
   }
-  instances(cylinder, mat("#b25f4e"), seaFans, false);
-  instances(poppyCup, mat("#e6a264", { side: THREE.DoubleSide }), cupCorals, false);
+  instances(cylinder, mat("#b25f4e"), seaFans, false, reefRoot);
+  instances(poppyCup, mat("#e6a264", { side: THREE.DoubleSide }), cupCorals, false, reefRoot);
 
   // One draw call of local snowfall follows the player whenever ski mode is equipped.
   const snowPositions = new Float32Array(220 * 3);
@@ -1598,6 +1611,8 @@ export function createWorld(
 
     // Underwater color and fog are stateful atmosphere, not a separate scene.
     const underwater = aquatic === "dive";
+    reefRoot.visible = aquatic !== "land";
+    waterMaterial.opacity = underwater ? 0.42 : aquatic === "surface" ? 0.58 : 0.76;
     if (scene.background instanceof THREE.Color) scene.background.set(underwater ? "#0b6170" : "#67b7ef");
     if (scene.fog instanceof THREE.Fog) {
       scene.fog.color.set(underwater ? "#196b72" : "#c4e2f1");
