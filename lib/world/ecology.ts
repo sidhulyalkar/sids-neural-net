@@ -16,6 +16,8 @@ export const MARINE_LIFE = [
   { common: "Leopard shark", note: "Shallow-water shark that can patrol kelp forest", source: "https://www.montereybayaquarium.org/visit/exhibits/kelp-forest/" },
   { common: "Wolf-eel", note: "Crevice-dwelling fish of rocky kelp habitat", source: "https://www.montereybayaquarium.org/visit/exhibits/kelp-forest/" },
   { common: "Red octopus", note: "Octopus represented around the rocky reef", source: "https://www.montereybayaquarium.org/visit/exhibits/kelp-forest/" },
+  { common: "Bat ray", note: "California ray represented gliding above reef and sandy shelf", source: "https://www.montereybayaquarium.org/animals-the-ocean/animals-a-to-z/bat-ray" },
+  { common: "Pacific sea nettle", note: "Coastal jelly represented drifting beyond the kelp", source: "https://www.montereybayaquarium.org/animals-the-ocean/animals-a-to-z/sea-nettle" },
   { common: "Purple sea urchin", note: "Kelp grazer represented on the seafloor", source: "https://www.montereybayaquarium.org/animals-the-ocean/ecosystems/kelp-forest" },
   { common: "Rockfish and anchovies", note: "Midwater fish and schooling prey", source: "https://www.montereybayaquarium.org/animals-the-ocean/ecosystems/kelp-forest" },
 ] as const;
