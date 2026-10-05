@@ -1209,7 +1209,7 @@ export function createWorld(
     if (aquatic === "land") return;
     const available = maxDiveDepth(player);
     if (action === "dive" && aquatic === "surface" && available > 0.8) {
-      targetDepth = Math.min(2.2, available);
+      targetDepth = Math.min(1.1, available);
       setAquaticMode("dive");
     } else if (action === "deeper" && aquatic === "dive") {
       targetDepth = Math.min(available, targetDepth + 1.35);
