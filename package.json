@@ -31,7 +31,9 @@
     "music:fetch": "tsx scripts/fetch-spotify-top.ts",
     "music:grid": "tsx scripts/build-beatgrid.ts",
     "frontier:snapshot": "tsx scripts/build-frontier-snapshot.ts",
-    "frontier:slate-audit": "tsx scripts/audit-frontier-slate.ts"
+    "frontier:slate-audit": "tsx scripts/audit-frontier-slate.ts",
+    "motion:retire": "node scripts/mux-visual-motion.mjs retire",
+    "motion:slots": "node scripts/mux-visual-motion.mjs slots"
   },
   "dependencies": {
     "@mediapipe/tasks-vision": "0.10.17",
