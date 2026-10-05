@@ -722,34 +722,68 @@ export function createWorld(
   mesh(cone, mat("#f4d076"), [0.24, 1.8, 0.56], [0.09, 0.25, 0.03], cabinet);
   for (let i = 0; i < 3; i++) mesh(boxGeo, mat(["#f396b3", "#a58aff", "#88d4d2"][i]), [-0.4, 1.6 - i * 0.1, 0.56], [0.2, 0.06, 0.02], cabinet);
   mesh(boxGeo, mat("#7285a4"), [0, 0.94, 0.65], [1.45, 0.14, 0.5], cabinet);
-  // Lightweight sport silhouettes share the explorer transform and geometry pool.
+  // Sport equipment stays lightweight but uses recognizable proportions and materials.
   const board = new THREE.Group(), bike = new THREE.Group(), skis = new THREE.Group();
   explorer.add(board, bike, skis);
-  const equipment = mat("#e78948"), rubber = mat("#243337"), metal = mat("#c1d5d8");
-  mesh(boxGeo, equipment, [0, 0.1, 0], [0.55, 0.12, 1.55], board);
+  const rubber = mat("#20282b"),
+    metal = mat("#b7c3c5"),
+    charcoal = mat("#303638"),
+    forkGold = mat("#c69b38"),
+    boardDeck = mat("#334047"),
+    boardEdge = mat("#c07b3d"),
+    skiMat = mat("#38586f");
+
+  // Skateboard: concave deck silhouette, trucks and four distinct wheels.
+  mesh(boxGeo, boardDeck, [0, 0.12, 0], [0.58, 0.1, 1.9], board);
+  for (const end of [-1, 1]) {
+    const kick = mesh(boxGeo, boardEdge, [0, 0.2, end * 1.04], [0.52, 0.08, 0.34], board);
+    kick.rotation.x = -end * 0.28;
+    const axle = mesh(cylinder, metal, [0, 0.02, end * 0.63], [0.035, 0.62, 0.035], board);
+    axle.rotation.z = Math.PI / 2;
+  }
   const wheelGeo = geo(new THREE.TorusGeometry(0.43, 0.075, 5, 12));
   for (const side of [-1, 1]) for (const end of [-1, 1]) {
-    const wheel = mesh(wheelGeo, rubber, [side * 0.27, 0, end * 0.5], [0.23, 0.23, 0.23], board);
+    const wheel = mesh(wheelGeo, rubber, [side * 0.33, -0.02, end * 0.63], [0.22, 0.22, 0.22], board);
     wheel.rotation.y = Math.PI / 2;
   }
+
+  // Stumpjumper-inspired trail bike: charcoal frame, large tires and gold fork/dropper accents.
   const bikeWheels = [-1, 1].map(end => {
-    const wheel = mesh(wheelGeo, rubber, [0, 0.4, end * 0.78], [1, 1, 1], bike);
+    const wheel = mesh(wheelGeo, rubber, [0, 0.5, end * 0.96], [1.16, 1.16, 1.16], bike);
     wheel.rotation.y = Math.PI / 2;
+    const rim = mesh(wheelGeo, metal, [0, 0.5, end * 0.96], [0.94, 0.94, 0.94], bike);
+    rim.rotation.y = Math.PI / 2;
     return wheel;
   });
-  const framePoints = [[0, 0.42, -0.78], [0, 0.45, 0], [0, 1.04, -0.2], [0, 1.08, 0.5], [0, 0.42, 0.78]];
-  for (const [a, b] of [[0, 1], [1, 2], [2, 0], [2, 3], [3, 1], [3, 4]]) {
-    const part = segment(new THREE.Vector3(...framePoints[a]), new THREE.Vector3(...framePoints[b]), 0.045);
-    const tube = mesh(cylinder, equipment, [part.x, part.y, part.z], [part.sx, part.sy, part.sz], bike);
+  const framePoints = [
+    [0, 0.5, -0.96], [0, 0.56, -0.08], [0, 1.22, -0.4],
+    [0, 1.12, 0.56], [0, 0.5, 0.96],
+  ];
+  for (const [a, b] of [[0,1],[1,2],[2,0],[2,3],[3,1]]) {
+    const part = segment(new THREE.Vector3(...framePoints[a]), new THREE.Vector3(...framePoints[b]), 0.055);
+    const tube = mesh(cylinder, charcoal, [part.x, part.y, part.z], [part.sx, part.sy, part.sz], bike);
     tube.quaternion.copy(part.q!);
   }
-  mesh(boxGeo, rubber, [0, 1.1, -0.2], [0.28, 0.1, 0.4], bike);
-  mesh(boxGeo, metal, [0, 1.2, 0.55], [0.75, 0.05, 0.08], bike);
   for (const side of [-1, 1]) {
-    mesh(boxGeo, equipment, [side * 0.23, 0.02, 0.2], [0.18, 0.07, 2.4], skis);
-    const tip = mesh(boxGeo, equipment, [side * 0.23, 0.13, 1.42], [0.18, 0.06, 0.3], skis);
-    tip.rotation.x = -0.4;
-    mesh(cylinder, metal, [side * 0.6, 0.6, 0], [0.025, 1.1, 0.025], skis);
+    const fork = segment(
+      new THREE.Vector3(side * 0.08, 1.12, 0.56),
+      new THREE.Vector3(side * 0.08, 0.5, 0.96),
+      0.035,
+    );
+    const tube = mesh(cylinder, forkGold, [fork.x, fork.y, fork.z], [fork.sx, fork.sy, fork.sz], bike);
+    tube.quaternion.copy(fork.q!);
+  }
+  mesh(cylinder, forkGold, [0, 1.27, -0.4], [0.045, 0.34, 0.045], bike);
+  mesh(boxGeo, rubber, [0, 1.45, -0.42], [0.34, 0.09, 0.42], bike);
+  mesh(boxGeo, metal, [0, 1.34, 0.62], [0.86, 0.055, 0.075], bike);
+  mesh(cylinder, metal, [0, 0.55, -0.08], [0.04, 0.46, 0.04], bike).rotation.z = Math.PI / 2;
+
+  // Skis read as separate planks with upturned tips and poles.
+  for (const side of [-1, 1]) {
+    mesh(boxGeo, skiMat, [side * 0.23, 0.02, 0.1], [0.19, 0.065, 2.55], skis);
+    const tip = mesh(boxGeo, skiMat, [side * 0.23, 0.15, 1.48], [0.19, 0.06, 0.34], skis);
+    tip.rotation.x = -0.42;
+    mesh(cylinder, metal, [side * 0.61, 0.6, 0], [0.024, 1.15, 0.024], skis);
   }
   const chalk = mesh(rockGeo, mat("#c4836d"), [0, 0.83, -0.35], [0.2, 0.2, 0.14], explorer);
   board.visible = bike.visible = skis.visible = chalk.visible = false;
