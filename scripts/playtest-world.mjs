@@ -141,6 +141,7 @@ try {
   await page.waitForFunction(() => document.querySelector('canvas')?.dataset.aquatic === 'dive');
   await page.waitForFunction(() => document.querySelector('canvas')?.dataset.cameraWater === 'true');
   await page.waitForFunction(() => Number(document.querySelector('canvas')?.dataset.cameraDistance) >= 6);
+  await page.waitForFunction(() => Number(document.querySelector('canvas')?.dataset.surfacePitch) < -1.2);
   await page.waitForFunction(() => Number(document.querySelector('canvas')?.dataset.depth) > 0.45);
   const initialDepth = Number(await page.locator('canvas').getAttribute('data-depth'));
   const initialMaxDepth = Number(await page.locator('canvas').getAttribute('data-max-depth'));
@@ -164,7 +165,11 @@ try {
     initialDepth,
     { timeout: 8000 },
   );
+  await page.waitForFunction(() => Number(document.querySelector('canvas')?.dataset.drawCalls) > 0);
+  const diveDrawCalls = Number(await page.locator('canvas').getAttribute('data-draw-calls'));
+  assert.ok(diveDrawCalls < 100, `underwater draw calls ${diveDrawCalls}`);
   await screenshot(page, 'activity-dive');
+  results.push('Dive pose, framing, reef density and renderer budget stay bounded');
   await page.getByRole('button', { name: 'Surface', exact: true }).click();
   await page.waitForFunction(() => document.querySelector('canvas')?.dataset.aquatic === 'surface');
   await page.keyboard.down('s');
