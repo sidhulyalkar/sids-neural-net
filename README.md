@@ -100,11 +100,26 @@ NEXT_PUBLIC_GITHUB_USERNAME=sidhulyalkar
 GITHUB_TOKEN=
 OPENALEX_EMAIL=
 SEMANTIC_SCHOLAR_API_KEY=
+MUX_TOKEN_ID=
+MUX_TOKEN_SECRET=
 ```
 
 The canonical production origin is deliberately code-owned in `lib/siteAuthority.ts` and is fixed to `https://sidhulyalkar.com`. Preview or local environment variables cannot silently change canonical, OpenGraph, robots, or sitemap identity.
 
 `GITHUB_TOKEN` is optional, but recommended when refreshing repository data so the GitHub API has a higher rate limit.
+
+
+### Visual Cortex video ingestion
+
+Large motion files are uploaded directly to Mux and never committed to Git or served from Vercel. Uploads are drafts by default:
+
+```bash
+npm run motion:upload -- "/path/to/video-or-folder" --collection "Moorea"
+npm run motion:publish -- <slug>
+npm run motion:check
+```
+
+The uploader probes source resolution with `ffprobe`, hashes each file for duplicate protection, prepares Mux-safe high-resolution mezzanines when needed, uploads in resumable 20 MiB chunks, explicitly enables 2160p ingest for 4K material, waits for the public playback ID, and writes compact metadata to `src/data/visualMotionManifest.json`. See `docs/VISUAL_MOTION_MUX.md` for the complete batch-upload and recovery workflow.
 
 ## Data Pipeline
 
@@ -171,6 +186,7 @@ Key documentation files:
 - `docs/ATLAS_QA_CHECKLIST.md` - Manual QA verification checklist
 - `docs/SITE_QA_CHECKLIST.md` - Portfolio shell routing, accessibility, responsive, and content QA checklist
 - `docs/ATLAS_STORYTELLING_POLISH.md` - Copy and design brief
+- `docs/VISUAL_MOTION_MUX.md` - Mux-backed video ingestion, curation, and recovery workflow
 
 ## Project Structure
 

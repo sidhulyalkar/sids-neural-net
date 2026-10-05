@@ -1,0 +1,138 @@
+{
+  "manta-ray-pet": {
+    "title": "Manta Ray Encounter",
+    "description": "A close encounter with a manta ray moving through the clear lagoon water of Moorea.",
+    "alt": "Manta ray swimming through clear blue water in Moorea.",
+    "tags": [
+      "manta ray",
+      "reef",
+      "underwater",
+      "Moorea"
+    ],
+    "order": 1
+  },
+  "eagle-rays-3": {
+    "title": "Eagle Rays",
+    "description": "Eagle rays gliding through open blue water above the reef.",
+    "alt": "Eagle rays gliding through blue water above a reef in Moorea.",
+    "tags": [
+      "eagle rays",
+      "reef",
+      "underwater",
+      "Moorea"
+    ],
+    "order": 2
+  },
+  "close-up-sharks": {
+    "title": "Sharks on the Reef",
+    "description": "Close views of sharks cruising above the reef and sandy bottom.",
+    "alt": "Sharks swimming above reef and sand in clear tropical water.",
+    "tags": [
+      "sharks",
+      "reef",
+      "underwater",
+      "Moorea"
+    ],
+    "order": 3
+  },
+  "moorea-coral-garden-with-turtle": {
+    "title": "Coral Garden & Sea Turtle",
+    "description": "A sea turtle moving through a broad coral garden in Moorea.",
+    "alt": "Sea turtle swimming through a coral garden in Moorea.",
+    "tags": [
+      "sea turtle",
+      "coral",
+      "reef",
+      "underwater",
+      "Moorea"
+    ],
+    "order": 4
+  },
+  "manta-w-angelfish": {
+    "title": "Manta Ray & Angelfish",
+    "description": "A manta ray passing through the reef with angelfish and other tropical fish in the scene.",
+    "alt": "Manta ray and tropical reef fish in clear blue water.",
+    "tags": [
+      "manta ray",
+      "angelfish",
+      "reef fish",
+      "underwater",
+      "Moorea"
+    ],
+    "order": 5
+  },
+  "moorea-fish-schools": {
+    "title": "Schools of Reef Fish",
+    "description": "Large schools of reef fish shifting across coral habitat in clear lagoon water.",
+    "alt": "Schools of reef fish moving above coral habitat in Moorea.",
+    "tags": [
+      "reef fish",
+      "schooling fish",
+      "coral",
+      "underwater",
+      "Moorea"
+    ],
+    "order": 6
+  },
+  "aquarium-school-w-needles": {
+    "title": "Needlefish School",
+    "description": "A school of needlefish moving over coral in the shallow, clear water of Moorea.",
+    "alt": "School of needlefish above coral in shallow blue water.",
+    "tags": [
+      "needlefish",
+      "reef fish",
+      "coral",
+      "underwater",
+      "Moorea"
+    ],
+    "order": 7
+  },
+  "moorea-sting-ray": {
+    "title": "Stingray",
+    "description": "A stingray crossing shallow reef habitat and sandy bottom.",
+    "alt": "Stingray moving across shallow reef habitat in Moorea.",
+    "tags": [
+      "stingray",
+      "reef",
+      "underwater",
+      "Moorea"
+    ],
+    "order": 8
+  },
+  "coral-garden-aquariam": {
+    "title": "Coral Garden",
+    "description": "A compact reef scene with layered coral structure and scattered tropical fish.",
+    "alt": "Layered coral formations and tropical reef fish in Moorea.",
+    "tags": [
+      "coral",
+      "reef fish",
+      "underwater",
+      "Moorea"
+    ],
+    "order": 9
+  },
+  "coral-garden-2": {
+    "title": "Coral Garden I",
+    "description": "A long drift across dense coral formations and the small reef fish moving between them.",
+    "alt": "Dense coral garden with small reef fish moving between formations.",
+    "tags": [
+      "coral",
+      "reef fish",
+      "underwater",
+      "Moorea"
+    ],
+    "order": 10
+  },
+  "coral-garden2-part": {
+    "title": "Coral Garden II",
+    "description": "An extended pass through a varied coral garden, with branching colonies, reef fish, and open sand.",
+    "alt": "Branching coral colonies, reef fish, and open sand in Moorea.",
+    "tags": [
+      "coral",
+      "reef fish",
+      "underwater",
+      "Moorea"
+    ],
+    "order": 11
+  }
+}
