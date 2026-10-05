@@ -2120,11 +2120,10 @@ export function createWorld(
     // Bound actual angular velocity rather than only easing toward the target.
     // This stays visually continuous even when a slow frame or obstacle causes
     // the desired heading to flip sharply.
-    const maxDogTurnStep = 4.2 * dt;
-    const appliedDogYawStep = THREE.MathUtils.clamp(
-      yawDelta,
+    const maxDogTurnStep = Math.min(0.18, 4.2 * Math.max(0, Math.min(dt, 0.05)));
+    const appliedDogYawStep = Math.max(
       -maxDogTurnStep,
-      maxDogTurnStep,
+      Math.min(maxDogTurnStep, yawDelta),
     );
     dogYaw += appliedDogYawStep;
     dogYaw = Math.atan2(Math.sin(dogYaw), Math.cos(dogYaw));
@@ -2135,7 +2134,12 @@ export function createWorld(
     const movingTarget = dogStep > 0.001 ? 1 : 0;
     dogMoveBlend += (movingTarget - dogMoveBlend) * (1 - Math.exp(-dt * 7));
     const targetDogY = terrainHeight(dog.x, dog.z);
-    dogGroundY += (targetDogY - dogGroundY) * (1 - Math.exp(-dt * 10));
+    const dogGroundError = targetDogY - dogGroundY;
+    const maxDogGroundStep = Math.min(0.1, 2.4 * Math.max(0, Math.min(dt, 0.05)));
+    dogGroundY += Math.max(
+      -maxDogGroundStep,
+      Math.min(maxDogGroundStep, dogGroundError),
+    );
     const dogBob = Math.sin(dogGaitPhase * 2) * 0.022 * dogMoveBlend;
     const dogRenderY = dogGroundY + dogBob;
     dogMaxYStep = Math.max(dogMaxYStep, Math.abs(dogRenderY - lastDogRenderY));
