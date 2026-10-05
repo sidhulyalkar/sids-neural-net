@@ -57,8 +57,11 @@ Options:
   --quality <basic|plus|premium> Mux video quality, default basic
 
 Curation:
-  npm run motion:publish -- <slug>
-  npm run motion:unpublish -- <slug>
+  npm run motion:publish -- <slug>        Show an uploaded asset on the site
+  npm run motion:unpublish -- <slug>      Hide it without freeing a Mux slot
+  npm run motion:retire -- <slug>         Preview removal from Mux
+  npm run motion:retire -- <slug> --confirm-delete
+  npm run motion:slots                     Show current Mux asset count
 
 Recovery:
   npm run motion:resume -- <mux-upload-id>
@@ -72,7 +75,7 @@ Validation:
 function parseArgs(argv) {
   const options = {};
   const positional = [];
-  const booleanFlags = new Set(['publish', 'featured', 'recursive', 'dry-run', 'keep-mezzanine']);
+  const booleanFlags = new Set(['publish', 'featured', 'recursive', 'dry-run', 'keep-mezzanine', 'confirm-delete']);
   const valueFlags = new Set([
     'title',
     'description',
@@ -519,13 +522,14 @@ function finalizeManifestEntry(meta, uploadId, asset, uploadPath) {
   if (!playbackId) throw new Error(`Mux asset ${asset.id} is ready but has no playback ID`);
 
   const entries = readManifest();
-  if (entries.some((entry) => entry.source?.sha256 === meta.source.sha256)) {
-    console.log(`Skipping duplicate source already present in manifest: ${meta.source.name}`);
+  const existing = entries.find((entry) => entry.source?.sha256 === meta.source.sha256);
+  if (existing?.mux?.assetId) {
+    console.log(`Skipping duplicate source already active in Mux: ${meta.source.name}`);
     removeCheckpoint(uploadId);
     return;
   }
 
-  entries.push({
+  const nextEntry = {
     id: meta.id,
     title: meta.title,
     ...(meta.description ? { description: meta.description } : {}),
@@ -552,7 +556,14 @@ function finalizeManifestEntry(meta, uploadId, asset, uploadPath) {
     source: meta.source,
     technical: meta.technical,
     ingest: { ...(meta.ingest || {}), uploadedBytes: uploadPath && fs.existsSync(uploadPath) ? fs.statSync(uploadPath).size : undefined },
-  });
+    retired: false,
+  };
+
+  if (existing) {
+    Object.assign(existing, nextEntry);
+  } else {
+    entries.push(nextEntry);
+  }
 
   entries.sort((a, b) => Number(Boolean(b.featured)) - Number(Boolean(a.featured)) || a.title.localeCompare(b.title));
   writeManifest(entries);
@@ -569,18 +580,18 @@ async function buildMeta(filePath, options, entries, usedSlugs) {
   console.log(`Hashing ${path.basename(filePath)}...`);
   const sha256 = await sha256File(filePath);
 
-  const duplicate = entries.find((entry) => entry.source?.sha256 === sha256);
-  if (duplicate) {
-    return { duplicate, filePath, probe, sha256 };
+  const existing = entries.find((entry) => entry.source?.sha256 === sha256);
+  if (existing?.mux?.assetId) {
+    return { duplicate: existing, filePath, probe, sha256 };
   }
 
   const fallbackTitle = humanizeFilename(filePath);
   const requestedTitle = options.title || fallbackTitle;
   const baseSlug = slugify(requestedTitle);
-  const id = uniqueSlug(baseSlug, [...entries, ...[...usedSlugs].map((slug) => ({ id: slug }))]);
+  const id = existing?.id || uniqueSlug(baseSlug, [...entries, ...[...usedSlugs].map((slug) => ({ id: slug }))]);
   usedSlugs.add(id);
   const curation = CURATION[id] || {};
-  const title = options.title || curation.title || fallbackTitle;
+  const title = options.title || curation.title || existing?.title || fallbackTitle;
 
   const posterTimeCandidate = options['poster-time'] === undefined
     ? Math.min(Math.max(probe.durationSeconds * 0.12, 0.25), Math.max(probe.durationSeconds - 0.1, 0.25))
@@ -593,10 +604,10 @@ async function buildMeta(filePath, options, entries, usedSlugs) {
   return {
     id,
     title,
-    description: options.description || curation.description,
-    alt: options.alt || curation.alt,
-    collection: options.collection,
-    location: options.location,
+    description: options.description || curation.description || existing?.description,
+    alt: options.alt || curation.alt || existing?.alt,
+    collection: options.collection || existing?.collection,
+    location: options.location || existing?.location,
     capturedWith: options['captured-with'],
     date: options.date,
     featured: Boolean(options.featured),
@@ -702,6 +713,56 @@ function setPublished(slug, published) {
   console.log(`${slug}: published=${published}`);
 }
 
+async function showMuxSlots() {
+  requireMuxCredentials();
+  const assets = await muxRequest('/assets?limit=100');
+  const count = Array.isArray(assets) ? assets.length : 0;
+  console.log(`Mux currently stores ${count} asset${count === 1 ? '' : 's'}.`);
+  if (count >= 10) {
+    console.log('Your current Free plan shelf is full at 10 assets. Retire one asset before uploading another.');
+  }
+}
+
+async function retireCommand(argv) {
+  const { options, positional } = parseArgs(argv);
+  if (positional.length !== 1) usage(1);
+
+  const slug = positional[0];
+  const entries = readManifest();
+  const entry = entries.find((item) => item.id === slug);
+  if (!entry) throw new Error(`Unknown visual motion slug: ${slug}`);
+  if (!entry.mux?.assetId) {
+    console.log(`${slug} is already retired from Mux; no slot is in use.`);
+    return;
+  }
+
+  const assetId = entry.mux.assetId;
+  if (!options['confirm-delete']) {
+    console.log(`Retire preview: ${slug}`);
+    console.log(`Mux asset: ${assetId}`);
+    console.log('This will hide the video, delete its Mux asset, and free one storage slot.');
+    console.log('The local source remains your archive and can be re-uploaded later with the same slug.');
+    console.log(`To proceed: npm run motion:retire -- ${slug} --confirm-delete`);
+    return;
+  }
+
+  requireMuxCredentials();
+  await muxRequest(`/assets/${assetId}`, { method: 'DELETE' });
+
+  entry.published = false;
+  entry.retired = true;
+  entry.muxHistory = [
+    ...(Array.isArray(entry.muxHistory) ? entry.muxHistory : []),
+    { ...entry.mux, retiredAt: new Date().toISOString() },
+  ];
+  delete entry.mux;
+  writeManifest(entries);
+
+  console.log(`Retired ${slug} from Mux and freed one asset slot.`);
+  console.log('Its manifest record and source SHA remain intact for future restoration.');
+  console.log('Re-upload the original source later with motion:upload to restore this same gallery item.');
+}
+
 function validateManifest() {
   const entries = readManifest();
   const errors = [];
@@ -786,6 +847,8 @@ async function main() {
     if (argv.length !== 1) usage(1);
     return setPublished(argv[0], false);
   }
+  if (command === 'retire') return await retireCommand(argv);
+  if (command === 'slots') return await showMuxSlots();
   if (command === 'resume') {
     if (argv.length !== 1) usage(1);
     return await resumeCommand(argv[0]);
