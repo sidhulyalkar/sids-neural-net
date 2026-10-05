@@ -658,7 +658,8 @@ export function createWorld(
     ...MEMORY_POINTS.map((m) => ({ id: m.id, point: m.point })),
   ];
   const markerObjects: THREE.Mesh[] = [];
-  const cairnPieces: Instance[] = [];
+  const cairnPieces: Instance[] = [], markerHitVolumes: Instance[] = [];
+  const markerIds: string[] = [];
   const markerHitMat = mat("#ffffff", {
     transparent: true,
     opacity: 0,
@@ -676,17 +677,19 @@ export function createWorld(
       { x: x + 0.05 * scale, y: y + 0.47 * scale, z: z - 0.02 * scale, sx: 0.46 * scale, sy: 0.23 * scale, sz: 0.4 * scale, ry: twist + 0.7 },
       { x: x - 0.04 * scale, y: y + 0.7 * scale, z: z + 0.03 * scale, sx: 0.31 * scale, sy: 0.19 * scale, sz: 0.29 * scale, ry: twist + 1.4 },
     );
-    const hit = mesh(
-      boxGeo,
-      markerHitMat,
-      [x, y + 0.52 * scale, z],
-      [1.25 * scale, 1.35 * scale, 1.1 * scale],
-    );
-    hit.castShadow = false;
-    hit.receiveShadow = false;
-    hit.userData.discovery = m.id;
-    markerObjects.push(hit);
+    markerHitVolumes.push({
+      x,
+      y: y + 0.52 * scale,
+      z,
+      sx: 1.25 * scale,
+      sy: 1.35 * scale,
+      sz: 1.1 * scale,
+    });
+    markerIds.push(m.id);
   });
+  const markerHitMesh = instances(boxGeo, markerHitMat, markerHitVolumes, false);
+  markerHitMesh.userData.discoveryByInstance = markerIds;
+  markerObjects.push(markerHitMesh);
   instances(rockGeo, mat("#8d9185"), cairnPieces, false);
   // Explorer silhouette: ochre jacket, little backpack, dark cap. No skeletal payload.
   const explorer = new THREE.Group();
@@ -782,18 +785,17 @@ export function createWorld(
   // The cavern wall is the game selector: broad recessed bands carry carved names.
   mesh(boxGeo, mat("#314850"), [arcade.x, arcadeY + 3.15, arcade.z - 6.75], [10.1, 6.45, 0.72]);
   const carvingBandMaterial = mat("#24363d");
-  for (let row = 0; row < 3; row++) {
-    const band = mesh(
-      boxGeo,
-      carvingBandMaterial,
-      [arcade.x, arcadeY + 4.42 - row * 1.42, arcade.z - 6.37],
-      [8.35, 1.08, 0.06],
-    );
-    band.castShadow = false;
-    band.receiveShadow = false;
-    band.userData.discovery = `game:${row}`;
-    markerObjects.push(band);
-  }
+  const carvingBands: Instance[] = Array.from({ length: 3 }, (_, row) => ({
+    x: arcade.x,
+    y: arcadeY + 4.42 - row * 1.42,
+    z: arcade.z - 6.37,
+    sx: 8.35,
+    sy: 1.08,
+    sz: 0.06,
+  }));
+  const carvingBandMesh = instances(boxGeo, carvingBandMaterial, carvingBands, false);
+  carvingBandMesh.userData.discoveryByInstance = ["game:0", "game:1", "game:2"];
+  markerObjects.push(carvingBandMesh);
   const glyphs: Record<string, string[]> = {
     A: ["010","101","111","101","101"], C: ["111","100","100","100","111"],
     D: ["110","101","101","101","110"], E: ["111","100","110","100","111"],
@@ -806,10 +808,10 @@ export function createWorld(
   const carvingTitles = (gameTitles.length ? gameTitles : ["Stretchicorn", "uniRico", "Unicorn Stampede"]).slice(0, 3);
   canvas.dataset.carvedGames = String(carvingTitles.length);
   const carvingMaterial = mat("#dec995", { emissive: "#9b7741", emissiveIntensity: 0.62, roughness: 0.85 });
+  const carvingGlyphs: Instance[] = [];
   carvingTitles.forEach((title, row) => {
-    const carvingPoints: Instance[] = [];
     const text = title.toUpperCase();
-    const scale = Math.min(0.14, 6.8 / Math.max(4, text.length * 4));
+    const scale = Math.min(0.12, 6.8 / Math.max(4, text.length * 4));
     const width = text.length * 4 * scale;
     const startX = arcade.x - width / 2 + scale * 0.5;
     const baseline = arcadeY + 4.6 - row * 1.42;
@@ -818,7 +820,7 @@ export function createWorld(
       if (!pattern) return;
       pattern.forEach((bits, py) => [...bits].forEach((bit, px) => {
         if (bit !== "1") return;
-        carvingPoints.push({
+        carvingGlyphs.push({
           x: startX + index * 4 * scale + px * scale,
           y: baseline - py * scale,
           z: arcade.z - 6.34,
@@ -828,10 +830,8 @@ export function createWorld(
         });
       }));
     });
-    const carvingMesh = instances(boxGeo, carvingMaterial, carvingPoints, false);
-    carvingMesh.userData.discovery = `game:${row}`;
-    markerObjects.push(carvingMesh);
   });
+  instances(boxGeo, carvingMaterial, carvingGlyphs, false);
   // A lower frieze keeps three abstract carved glyphs distinct from the game names:
   // a horn, a branching neuron, and a mountain.
   const runeZ = arcade.z - 6.31;
@@ -1325,6 +1325,13 @@ export function createWorld(
   const ray = new THREE.Raycaster(),
     pointer = new THREE.Vector2(),
     gazePointer = new THREE.Vector2(0, 0);
+  function discoveryForHit(hit: { object: THREE.Object3D; instanceId?: number }) {
+    const direct = hit.object.userData.discovery as string | undefined;
+    const byInstance = hit.object.userData.discoveryByInstance as string[] | undefined;
+    return typeof hit.instanceId === "number"
+      ? (byInstance?.[hit.instanceId] ?? direct)
+      : direct;
+  }
   let drag: {
     x: number;
     y: number;
@@ -1386,7 +1393,7 @@ export function createWorld(
     ray.setFromCamera(pointer, camera);
     const marker = ray.intersectObjects(markerObjects)[0];
     if (marker && marker.distance < 55) {
-      const discoveryId = marker.object.userData.discovery as string | undefined;
+      const discoveryId = discoveryForHit(marker);
       if (discoveryId?.startsWith("game:")) {
         if (distance(player, arcade) < 8) callbacks.onInteract(discoveryId);
         else destination = { ...arcade };
@@ -1789,9 +1796,9 @@ export function createWorld(
         ray.setFromCamera(gazePointer, camera);
         const gazeHit = ray
           .intersectObjects(markerObjects, false)
-          .find(hit => String(hit.object.userData.discovery ?? "").startsWith("game:"));
+          .find(hit => String(discoveryForHit(hit) ?? "").startsWith("game:"));
         if (gazeHit && gazeHit.distance < 45)
-          rawGazeGame = String(gazeHit.object.userData.discovery);
+          rawGazeGame = discoveryForHit(gazeHit) ?? null;
       }
       if (rawGazeGame !== gazeCandidate) {
         gazeCandidate = rawGazeGame;
@@ -1838,10 +1845,11 @@ export function createWorld(
               : mode === "boulder"
                 ? Math.min(zoom, 15)
                 : zoom;
+      const cameraYaw = aquatic === "dive" ? yaw + 0.28 : yaw;
       targetCamera.set(
-        player.x + Math.sin(yaw) * cameraZoom * Math.cos(pitch),
+        player.x + Math.sin(cameraYaw) * cameraZoom * Math.cos(pitch),
         targetLook.y + cameraZoom * Math.sin(pitch),
-        player.z + Math.cos(yaw) * cameraZoom * Math.cos(pitch),
+        player.z + Math.cos(cameraYaw) * cameraZoom * Math.cos(pitch),
       );
       // Keep a trunk from obscuring the explorer on land.
       if (aquatic === "land") {
