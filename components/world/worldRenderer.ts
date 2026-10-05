@@ -1595,8 +1595,71 @@ export function createWorld(
     camera.position.lerp(targetCamera, 1 - Math.exp(-dt * 3.6));
     look.lerp(targetLook, 1 - Math.exp(-dt * 4));
     camera.lookAt(look);
+
+    // Underwater color and fog are stateful atmosphere, not a separate scene.
+    const underwater = aquatic === "dive";
+    if (scene.background instanceof THREE.Color) scene.background.set(underwater ? "#0b6170" : "#67b7ef");
+    if (scene.fog instanceof THREE.Fog) {
+      scene.fog.color.set(underwater ? "#196b72" : "#c4e2f1");
+      scene.fog.near = underwater ? 7 : 85;
+      scene.fog.far = underwater ? 58 : 270;
+    }
+
+    // Ski-mode snowfall follows the player anywhere in the world.
+    snowfall.visible = state.activity === "ski" && aquatic !== "dive";
+    if (snowfall.visible) {
+      snowfall.position.set(player.x, playerY - 4, player.z);
+      const snowAttribute = snowGeo.attributes.position as THREE.BufferAttribute;
+      for (let i = 0; i < snowAttribute.count; i++) {
+        let y = snowAttribute.getY(i) - dt * (3.8 + (i % 7) * 0.42);
+        if (y < 0) y += 25;
+        snowAttribute.setY(i, y);
+      }
+      snowAttribute.needsUpdate = true;
+    }
+
+    // Reef animals move on simple deterministic paths so the coast feels alive.
+    reefSwimmers.forEach((swimmer, i) => {
+      const a = elapsed * swimmer.speed + swimmer.phase;
+      swimmer.object.position.set(
+        -59 + Math.cos(a) * swimmer.radius,
+        swimmer.baseY + Math.sin(a * 1.8 + i) * 0.55,
+        7 + Math.sin(a) * swimmer.radius * 0.72,
+      );
+      swimmer.object.rotation.y = -a + Math.PI / 2;
+    });
+    sharks.forEach((shark, i) => {
+      const a = elapsed * (0.1 + i * 0.018) + i * 2.2;
+      shark.position.set(-60 + Math.cos(a) * (13 + i * 3), -4.2 - i * 1.1, 6 + Math.sin(a) * (18 + i * 2));
+      shark.rotation.y = -a + Math.PI / 2;
+      shark.rotation.z = Math.sin(a * 2) * 0.04;
+    });
+    rays.forEach((rayGroup, i) => {
+      const a = elapsed * (0.08 + i * 0.012) + i * 1.7;
+      rayGroup.position.set(-57 + Math.cos(a) * (8 + i * 2.2), -5.4 - i * 0.5 + Math.sin(a * 2) * 0.35, 9 + Math.sin(a) * 12);
+      rayGroup.rotation.y = -a + Math.PI / 2;
+      rayGroup.rotation.z = Math.sin(elapsed * 1.7 + i) * 0.09;
+    });
+    octopuses.forEach((o, i) => {
+      o.rotation.y = Math.sin(elapsed * 0.42 + i) * 0.28;
+      o.position.y += Math.sin(elapsed * 0.9 + i) * 0.0008;
+    });
+    eels.forEach((eel, i) => {
+      eel.rotation.y = Math.sin(elapsed * 1.25 + i * 1.8) * 0.28;
+      eel.rotation.x = Math.sin(elapsed * 0.8 + i) * 0.05;
+    });
+    jellies.forEach((jelly, i) => {
+      const a = i * 1.9;
+      jelly.position.set(
+        -57 - (i % 3) * 5 + Math.sin(elapsed * 0.19 + a) * 2,
+        -3.2 - (i % 2) * 2 + Math.sin(elapsed * 0.65 + a) * 0.75,
+        -8 + i * 7,
+      );
+      jelly.scale.y = 0.92 + Math.sin(elapsed * 1.8 + i) * 0.08;
+    });
+
     // Detail culling: distant grass and synaptic particles need no GPU work.
-    grassMesh.visible = camera.position.y < 45;
+    grassMesh.visible = camera.position.y < 45 && aquatic === "land";
     fireflies.visible = !state.entered || player.x > 8;
     fireflies.position.y = Math.sin(elapsed * 0.4) * 0.12;
     neuralMat.emissiveIntensity = 0.4 + Math.sin(elapsed * 0.65) * 0.18;
