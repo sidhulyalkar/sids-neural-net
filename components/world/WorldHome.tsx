@@ -294,6 +294,7 @@ export function WorldHome({ content }: { content: WorldContent }) {
           </div>
           {aquatic !== "land" && (
             <div className={styles.waterDock} role="group" aria-label="Swimming depth controls">
+              <span className={styles.waterMode}>{aquatic === "surface" ? "Snorkeling" : "Diving"}</span>
               {aquatic === "surface" ? (
                 <button onClick={() => waterControl("dive")}>Dive</button>
               ) : (
