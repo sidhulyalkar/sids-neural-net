@@ -6,6 +6,7 @@ import {
   BOULDER_HOLDS,
   effectiveActivity,
   FALLEN_LOGS,
+  grindStyleForApproach,
   groundHeight,
   nearestGrind,
   nextHold,
@@ -171,4 +172,19 @@ test("ski landing is upstream of the Granite Ridge kicker and approaches it from
   assert.ok(groundHeight(landing) > groundHeight(kicker.point));
   const launch = rampImpulseAt(kicker.point, heading, "ski", 8);
   assert.equal(launch?.id, "ski-kicker");
+});
+
+
+test("rail grind style follows landing angle for both skateboard and skis", () => {
+  const log = FALLEN_LOGS[0];
+  const dx = log.b.x - log.a.x;
+  const dz = log.b.z - log.a.z;
+  const length = Math.hypot(dx, dz);
+  const along = { x: dx / length, z: dz / length };
+  const across = { x: -along.z, z: along.x };
+
+  assert.equal(grindStyleForApproach(along, log), "fifty-fifty");
+  assert.equal(grindStyleForApproach({ x: -along.x, z: -along.z }, log), "fifty-fifty");
+  assert.equal(grindStyleForApproach(across, log), "boardslide");
+  assert.equal(grindStyleForApproach({ x: -across.x, z: -across.z }, log), "boardslide");
 });
