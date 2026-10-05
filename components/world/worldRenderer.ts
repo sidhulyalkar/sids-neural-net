@@ -1765,6 +1765,10 @@ export function createWorld(
         dog = { x: player.x + 2, z: player.z - 2 };
         destination = null;
         yaw = r.id === "coast" ? 1.15 : r.id === "neural" ? -0.6 : 0.25;
+        // Menu-driven semantic travel closes a dialog whose focus-restoration
+        // target is the menu trigger. Exploration should immediately regain
+        // keyboard authority after the jump.
+        if (next.entered && !next.paused) canvas.focus({ preventScroll: true });
       }
       if (state.paused) {
         clearInput();
