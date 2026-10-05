@@ -250,7 +250,34 @@ try {
   const mobileBefore = await mobile.locator('canvas').getAttribute('data-player');
   await mobile.touchscreen.tap(195, 580);
   await mobile.waitForFunction(old => document.querySelector('canvas')?.dataset.player !== old, mobileBefore);
-  results.push('Mobile opts into rendered 3D; touch walking works without overflow'); await mobile.close();
+
+  // Phone-width aquatic controls must remain visible and tappable, not just fit CSS.
+  await mobile.getByRole('button', { name: 'Open navigation menu' }).tap();
+  await mobile.getByRole('button', { name: '04 Wild coast Life outside the screen', exact: true }).tap();
+  await mobile.waitForFunction(() => document.querySelector('canvas')?.dataset.aquatic === 'land');
+  await mobile.keyboard.down('w');
+  try {
+    await mobile.waitForFunction(
+      () => document.querySelector('canvas')?.dataset.aquatic === 'surface',
+      null,
+      { timeout: 12000 },
+    );
+  } finally {
+    await mobile.keyboard.up('w');
+  }
+  const diveButton = mobile.getByRole('button', { name: 'Dive', exact: true });
+  assert.equal(await diveButton.isVisible(), true);
+  await diveButton.tap();
+  await mobile.waitForFunction(() => document.querySelector('canvas')?.dataset.aquatic === 'dive');
+  const mobileDepth = Number(await mobile.locator('canvas').getAttribute('data-depth'));
+  const mobileMaxDepth = Number(await mobile.locator('canvas').getAttribute('data-max-depth'));
+  assert.ok(mobileMaxDepth >= mobileDepth);
+  const surfaceButton = mobile.getByRole('button', { name: 'Surface', exact: true });
+  assert.equal(await surfaceButton.isVisible(), true);
+  await surfaceButton.tap();
+  await mobile.waitForFunction(() => document.querySelector('canvas')?.dataset.aquatic === 'surface');
+  assert.equal(await mobile.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
+  results.push('Mobile touch walking and aquatic controls work without overflow'); await mobile.close();
   const plain = await browser.newPage({ javaScriptEnabled: false }); await plain.goto(base);
   assert.ok(await plain.getByRole('navigation', { name: 'Browse without JavaScript' }).isVisible());
   results.push('No-JavaScript navigation is visible'); await plain.close();
