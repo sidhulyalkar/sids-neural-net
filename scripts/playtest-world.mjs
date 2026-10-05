@@ -144,8 +144,9 @@ try {
     await page.keyboard.up('w');
   }
   assert.equal(await page.locator('canvas').getAttribute('data-grind-id'), 'grove-log');
+  assert.equal(await page.locator('canvas').getAttribute('data-grind-style'), 'boardslide');
   await screenshot(page, 'activity-grind');
-  results.push('Skateboard acquires and grinds the authored fallen redwood');
+  results.push('Skateboard acquires the fallen redwood as an angle-selected boardslide');
 
   // Granite Ridge lands just above the authored ski kicker, so a normal downhill
   // approach must trigger the shared ramp mechanic without a synthetic jump.
@@ -182,10 +183,13 @@ try {
       clearance: Number(c.dataset.gearClearance),
       pitch: Number(c.dataset.surfacePitch),
       roll: Number(c.dataset.surfaceRoll),
+      riderSeatError: Number(c.dataset.riderSeatError),
     }));
     assert.ok(contact.clearance >= 0.05, `${mode} clearance ${contact.clearance}`);
     assert.ok(Number.isFinite(contact.pitch) && Math.abs(contact.pitch) < 1.2, `${mode} pitch ${contact.pitch}`);
     assert.ok(Number.isFinite(contact.roll) && Math.abs(contact.roll) < 1.2, `${mode} roll ${contact.roll}`);
+    if (mode === 'bike')
+      assert.ok(contact.riderSeatError < 0.03, `bike rider seat error ${contact.riderSeatError}`);
   }
   results.push('Bike and skateboard stay surface-supported on Granite Ridge');
 
@@ -218,7 +222,7 @@ try {
   await page.waitForFunction(() => document.querySelector('canvas')?.dataset.aquatic === 'dive');
   await page.waitForFunction(() => document.querySelector('canvas')?.dataset.cameraWater === 'true');
   await page.waitForFunction(() => Number(document.querySelector('canvas')?.dataset.cameraDistance) >= 6);
-  await page.waitForFunction(() => Number(document.querySelector('canvas')?.dataset.surfacePitch) < -1.2);
+  await page.waitForFunction(() => Number(document.querySelector('canvas')?.dataset.surfacePitch) > 1.2);
   await page.waitForFunction(() => Number(document.querySelector('canvas')?.dataset.depth) > 0.45);
   const initialDepth = Number(await page.locator('canvas').getAttribute('data-depth'));
   const initialMaxDepth = Number(await page.locator('canvas').getAttribute('data-max-depth'));
