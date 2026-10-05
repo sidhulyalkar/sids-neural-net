@@ -200,6 +200,8 @@ export function WorldHome({ content }: { content: WorldContent }) {
         REGIONS.find((r) => r.id === nearby)?.meaning);
   const current = REGIONS.find((r) => r.id === region)!;
   const selected = REGIONS.find((r) => r.id === panel);
+  const carvedGameIndex = panel?.startsWith("game:") ? Number(panel.slice(5)) : -1;
+  const carvedGame = Number.isInteger(carvedGameIndex) ? content.games[carvedGameIndex] : undefined;
   const photo = content.photos.find((p) => p.id === panel);
   const caption = MEMORY_POINTS.find((m) => m.id === panel);
 
@@ -439,6 +441,19 @@ export function WorldHome({ content }: { content: WorldContent }) {
                 {MARINE_LIFE.map(animal => <a key={animal.common} href={animal.source} target="_blank" rel="noreferrer">
                   <h3>{animal.common}</h3><p>{animal.note}</p><span>Monterey Bay Aquarium ↗</span>
                 </a>)}
+              </div>
+            </>
+          )}
+          {carvedGame && (
+            <>
+              <p className={styles.eyebrow}>ARCADE CAVERN · CARVED GAME</p>
+              <h2 id="world-panel-title">{carvedGame.title}</h2>
+              <p className={styles.panelIntro}>{carvedGame.subtitle}</p>
+              <div className={styles.panelLinks}>
+                <Link href={carvedGame.href} prefetch={false}>
+                  Play {carvedGame.title}
+                </Link>
+                <button onClick={() => setPanel("cavern")}>All games</button>
               </div>
             </>
           )}
