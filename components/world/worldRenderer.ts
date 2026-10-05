@@ -1704,7 +1704,7 @@ export function createWorld(
         const gazeHit = ray
           .intersectObjects(markerObjects, false)
           .find(hit => String(hit.object.userData.discovery ?? "").startsWith("game:"));
-        if (gazeHit && gazeHit.distance < 24)
+        if (gazeHit && gazeHit.distance < 45)
           gazeGame = String(gazeHit.object.userData.discovery);
       }
       canvas.dataset.gazeGame = gazeGame ?? "";
