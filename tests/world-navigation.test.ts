@@ -1,12 +1,17 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
+  coastlineX,
   constrainMove,
   distance,
+  isWater,
+  maxDiveDepth,
   MEMORY_POINTS,
   nearbyDiscovery,
   REGIONS,
   SECRET,
+  seaFloorHeight,
+  SEA_SURFACE,
   terrainHeight,
   WORLD_BOUNDS,
 } from "../lib/world/model";
@@ -29,9 +34,9 @@ test("viewpoints and hidden discovery take precedence over surrounding region", 
   assert.equal(nearbyDiscovery(SECRET), "secret");
   assert.equal(nearbyDiscovery({ x: 40, z: 35 }), null);
 });
-test("movement stays on land and resolves trunk collision including a zero-distance contact", () => {
-  assert.deepEqual(constrainMove({ x: 0, z: 0 }, { x: -100, z: 100 }, []), {
-    x: -34,
+test("movement stays inside the finite world and resolves trunk collision including a zero-distance contact", () => {
+  assert.deepEqual(constrainMove({ x: 0, z: 0 }, { x: -1000, z: 1000 }, []), {
+    x: WORLD_BOUNDS.minX,
     z: WORLD_BOUNDS.maxZ,
   });
   const obstacle = { x: 0, z: 0, radius: 2 };
@@ -70,9 +75,13 @@ test("oblique movement slides and boundary trunks never push the player off land
   const result = constrainMove(start, { x: 4, z: 1 }, [trunk]);
   assert.ok(result.x > start.x && result.z > start.z);
   assert.ok(distance(result, trunk) >= 2.45 - 1e-8);
-  const edge = { x: -34, z: 0, radius: 2 };
-  const boundary = constrainMove({ x: -30, z: 0 }, { x: -50, z: 0 }, [edge]);
-  assert.ok(boundary.x >= -34 && distance(boundary, edge) >= 2.45 - 1e-8);
+  const edge = { x: WORLD_BOUNDS.minX, z: 0, radius: 2 };
+  const boundary = constrainMove(
+    { x: WORLD_BOUNDS.minX + 4, z: 0 },
+    { x: WORLD_BOUNDS.minX - 20, z: 0 },
+    [edge],
+  );
+  assert.ok(boundary.x >= WORLD_BOUNDS.minX && distance(boundary, edge) >= 2.45 - 1e-8);
 });
 
 test("successive corner movements remain outside all trunks and within map bounds", () => {
@@ -81,10 +90,30 @@ test("successive corner movements remain outside all trunks and within map bound
   for (let i = 0; i < 100; i++) {
     point = constrainMove(point, { x: point.x + 0.03, z: point.z + 0.25 }, trunks);
     for (const trunk of trunks) assert.ok(distance(point, trunk) >= 2.45 - 1e-8);
-    assert.ok(point.x >= -34 && point.x <= 42 && point.z >= -40 && point.z <= 36);
+    assert.ok(
+      point.x >= WORLD_BOUNDS.minX &&
+      point.x <= WORLD_BOUNDS.maxX &&
+      point.z >= WORLD_BOUNDS.minZ &&
+      point.z <= WORLD_BOUNDS.maxZ,
+    );
   }
 });
 
+
+
+test("coastline separates land from a finite dive shelf with a safe depth envelope", () => {
+  for (const z of [-30, 0, 25]) {
+    const shore = coastlineX(z);
+    const land = { x: shore + 2, z };
+    const water = { x: shore - 10, z };
+    assert.equal(isWater(land), false);
+    assert.equal(isWater(water), true);
+    assert.ok(seaFloorHeight(water.x, water.z) < SEA_SURFACE - 1);
+    const depth = maxDiveDepth(water);
+    assert.ok(depth > 0 && depth <= 10);
+    assert.equal(maxDiveDepth(land), 0);
+  }
+});
 
 test("arcade cavern exposes the same playable games as the established arcade", () => {
   const games = getWorldContent().games;
