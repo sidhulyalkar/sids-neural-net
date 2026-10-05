@@ -1571,7 +1571,16 @@ export function createWorld(
         playerY + (aquatic === "dive" ? 0.75 : aquatic === "surface" ? 1.4 : 2.8),
         player.z,
       );
-      const cameraZoom = aquatic === "dive" ? Math.min(zoom, 13.5) : zoom;
+      const cameraZoom =
+        aquatic === "dive"
+          ? Math.min(zoom, 13.5)
+          : aquatic === "surface"
+            ? Math.min(zoom, 14)
+            : mode === "bike" || mode === "skate"
+              ? Math.min(zoom, 16)
+              : mode === "boulder"
+                ? Math.min(zoom, 15)
+                : zoom;
       targetCamera.set(
         player.x + Math.sin(yaw) * cameraZoom * Math.cos(pitch),
         targetLook.y + cameraZoom * Math.sin(pitch),
@@ -1597,6 +1606,8 @@ export function createWorld(
           targetCamera.y,
           worldFloorHeight(targetCamera.x, targetCamera.z) + 3.5,
         );
+      } else if (aquatic === "surface") {
+        targetCamera.y = Math.min(targetCamera.y, SEA_SURFACE + 4.8);
       } else if (aquatic === "dive") {
         // Preserve a useful third-person boom underwater. If the requested orbit
         // places the camera beneath the beach, mirror that horizontal boom offshore
