@@ -317,7 +317,8 @@
   padding-top: 15px;
 }
 .siteLinks a:hover,
-.panelLinks a:hover {
+.panelLinks a:hover,
+.panelLinks button:hover {
   text-decoration: underline;
 }
 .menuFooter {
@@ -374,7 +375,8 @@
   margin-top: 25px;
   font-size: 14px;
 }
-.panelLinks a {
+.panelLinks a,
+.panelLinks button {
   border-bottom: 1px solid #304b3860;
   padding-bottom: 5px;
 }
