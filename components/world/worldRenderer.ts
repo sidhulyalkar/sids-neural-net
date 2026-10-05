@@ -857,7 +857,173 @@ export function createWorld(
   }
   instances(rockGeo, mat("#718266"), prints, false);
 
-  let state: State = { entered: false, paused: false, command: null, activity: "run", actionSerial: 0 };
+  // --- Cold-water kelp forest -------------------------------------------------
+  const reefRockMat = mat("#53645f");
+  const kelpStemMat = mat("#726d2f");
+  const kelpBladeMat = mat("#8a8135", { side: THREE.DoubleSide });
+  const reefRocks: Instance[] = [];
+  for (let i = 0; i < 58; i++) {
+    const x = -74 + random() * 29, z = -24 + random() * 63;
+    const floor = seaFloorHeight(x, z), size = 0.35 + random() * 1.45;
+    reefRocks.push({ x, y: floor + size * 0.35, z, sx: size, sy: size * 0.7, sz: size * 1.2, ry: random() * 6 });
+  }
+  instances(rockGeo, reefRockMat, reefRocks, false);
+
+  const kelpStems: Instance[] = [], kelpBlades: Instance[] = [];
+  for (let i = 0; i < 34; i++) {
+    const x = -70 + random() * 25, z = -22 + random() * 58;
+    const floor = seaFloorHeight(x, z);
+    const height = Math.max(2.3, SEA_SURFACE - floor - 0.5 - random() * 1.2);
+    kelpStems.push({
+      x, y: floor + height / 2, z,
+      sx: 0.055, sy: height, sz: 0.055,
+    });
+    for (let blade = 0; blade < 4; blade++) {
+      const y = floor + height * (0.42 + blade * 0.15);
+      const a = blade * 1.7 + i;
+      kelpBlades.push({
+        x: x + Math.cos(a) * 0.22,
+        y,
+        z: z + Math.sin(a) * 0.22,
+        sx: 0.22,
+        sy: 0.8 + random() * 0.6,
+        sz: 0.13,
+        ry: a,
+      });
+    }
+  }
+  instances(cylinder, kelpStemMat, kelpStems, false);
+  const kelpBladeGeo = geo(new THREE.ConeGeometry(1, 1, 5, 1, true));
+  instances(kelpBladeGeo, kelpBladeMat, kelpBlades, false);
+
+  function makeFish(color: string, size: number) {
+    const group = new THREE.Group();
+    const bodyMat = mat(color);
+    mesh(rockGeo, bodyMat, [0, 0, 0], [size * 0.38, size * 0.24, size], group);
+    const tailFin = mesh(cone, bodyMat, [0, 0, -size * 0.95], [size * 0.28, size * 0.42, size * 0.12], group);
+    tailFin.rotation.x = Math.PI / 2;
+    scene.add(group);
+    return group;
+  }
+  const reefSwimmers: { object: THREE.Group; radius: number; speed: number; phase: number; baseY: number }[] = [];
+  for (let i = 0; i < 22; i++) {
+    const fish = makeFish(i % 5 === 0 ? "#d07c3b" : i % 3 === 0 ? "#c6b05c" : "#7ca5a0", 0.34 + random() * 0.22);
+    const radius = 5 + random() * 17, phase = random() * Math.PI * 2;
+    reefSwimmers.push({ object: fish, radius, speed: 0.16 + random() * 0.16, phase, baseY: -3.2 - random() * 4.2 });
+  }
+  // Leopard-shark silhouettes: long body, dorsal fin and forked tail.
+  const sharks: THREE.Group[] = [];
+  for (let i = 0; i < 3; i++) {
+    const shark = new THREE.Group();
+    const sharkMat = mat("#7f8f86");
+    mesh(rockGeo, sharkMat, [0, 0, 0], [0.46, 0.32, 1.9], shark);
+    const dorsal = mesh(cone, sharkMat, [0, 0.38, -0.1], [0.22, 0.55, 0.2], shark);
+    dorsal.rotation.x = -0.18;
+    for (const side of [-1, 1]) {
+      const fin = mesh(cone, sharkMat, [side * 0.48, -0.04, 0.2], [0.18, 0.7, 0.12], shark);
+      fin.rotation.z = side * 1.2;
+    }
+    const tailFin = mesh(cone, sharkMat, [0, 0, -1.75], [0.45, 0.7, 0.14], shark);
+    tailFin.rotation.x = Math.PI / 2;
+    scene.add(shark);
+    sharks.push(shark);
+  }
+  // Rays use four-sided discs and a long tapered tail.
+  const rayGeo = geo(new THREE.CircleGeometry(1, 4));
+  const rays: THREE.Group[] = [];
+  for (let i = 0; i < 4; i++) {
+    const rayGroup = new THREE.Group();
+    const rayBody = mesh(rayGeo, mat("#687d78", { side: THREE.DoubleSide }), [0, 0, 0], [1.2, 0.65, 1], rayGroup);
+    rayBody.rotation.x = Math.PI / 2;
+    const rayTail = segment(new THREE.Vector3(0, 0, -0.6), new THREE.Vector3(0, 0, -2), 0.035);
+    const tailMesh = mesh(cylinder, mat("#566d68"), [rayTail.x, rayTail.y, rayTail.z], [rayTail.sx, rayTail.sy, rayTail.sz], rayGroup);
+    tailMesh.quaternion.copy(rayTail.q!);
+    scene.add(rayGroup);
+    rays.push(rayGroup);
+  }
+
+  // Octopuses, eels and jellies sit close to the rocky shelf.
+  const octopuses: THREE.Group[] = [];
+  for (let i = 0; i < 2; i++) {
+    const o = new THREE.Group();
+    const octMat = mat(i ? "#9b5b4f" : "#b66c58");
+    mesh(rockGeo, octMat, [0, 0.35, 0], [0.42, 0.5, 0.4], o);
+    for (let arm = 0; arm < 8; arm++) {
+      const a = arm * Math.PI / 4;
+      const tentacle = segment(new THREE.Vector3(0, 0.12, 0), new THREE.Vector3(Math.cos(a) * 0.72, -0.05, Math.sin(a) * 0.72), 0.055);
+      const limb = mesh(cylinder, octMat, [tentacle.x, tentacle.y, tentacle.z], [tentacle.sx, tentacle.sy, tentacle.sz], o);
+      limb.quaternion.copy(tentacle.q!);
+    }
+    const px = -58 - i * 7, pz = 5 + i * 14;
+    o.position.set(px, seaFloorHeight(px, pz) + 0.32, pz);
+    scene.add(o); octopuses.push(o);
+  }
+  const eels: THREE.Group[] = [];
+  for (let i = 0; i < 3; i++) {
+    const eel = new THREE.Group();
+    const eelMat = mat("#5b6c4c");
+    for (let segIndex = 0; segIndex < 5; segIndex++)
+      mesh(rockGeo, eelMat, [0, 0, segIndex * 0.34], [0.16, 0.12, 0.28], eel);
+    const px = -64 + i * 5, pz = -10 + i * 16;
+    eel.position.set(px, seaFloorHeight(px, pz) + 0.4, pz);
+    scene.add(eel); eels.push(eel);
+  }
+  const jellyGeo = geo(new THREE.SphereGeometry(1, 8, 5, 0, Math.PI * 2, 0, Math.PI / 2));
+  const jellies: THREE.Group[] = [];
+  for (let i = 0; i < 6; i++) {
+    const jelly = new THREE.Group();
+    const jellyMat = mat("#a7cad1", { transparent: true, opacity: 0.62, emissive: "#79aebd", emissiveIntensity: 0.12 });
+    mesh(jellyGeo, jellyMat, [0, 0, 0], [0.42, 0.28, 0.42], jelly);
+    for (let t = -1; t <= 1; t++) mesh(cylinder, jellyMat, [t * 0.12, -0.38, 0], [0.018, 0.72, 0.018], jelly);
+    scene.add(jelly); jellies.push(jelly);
+  }
+
+  // Purple urchins and two distinct cold-water coral-like formations.
+  const urchins: Instance[] = [];
+  for (let i = 0; i < 28; i++) {
+    const x = -72 + random() * 26, z = -21 + random() * 57;
+    urchins.push({ x, y: seaFloorHeight(x, z) + 0.15, z, sx: 0.18, sy: 0.18, sz: 0.18 });
+  }
+  instances(rockGeo, mat("#72527e"), urchins, false);
+
+  const seaFans: Instance[] = [], cupCorals: Instance[] = [];
+  for (let i = 0; i < 16; i++) {
+    const x = -68 + random() * 20, z = -18 + random() * 52;
+    const floor = seaFloorHeight(x, z);
+    for (let branch = 0; branch < 4; branch++) {
+      const a = (branch - 1.5) * 0.35;
+      seaFans.push(segment(
+        new THREE.Vector3(x, floor + 0.05, z),
+        new THREE.Vector3(x + Math.sin(a) * 0.8, floor + 0.8 + random() * 0.55, z + Math.cos(a) * 0.15),
+        0.035,
+      ));
+    }
+    cupCorals.push({ x: x + 0.8, y: floor + 0.18, z: z + 0.6, sx: 0.18, sy: 0.35, sz: 0.18, ry: i });
+  }
+  instances(cylinder, mat("#b25f4e"), seaFans, false);
+  instances(poppyCup, mat("#e6a264", { side: THREE.DoubleSide }), cupCorals, false);
+
+  // One draw call of local snowfall follows the player whenever ski mode is equipped.
+  const snowPositions = new Float32Array(220 * 3);
+  for (let i = 0; i < 220; i++)
+    snowPositions.set([(random() - 0.5) * 46, random() * 25, (random() - 0.5) * 46], i * 3);
+  const snowGeo = geo(new THREE.BufferGeometry());
+  snowGeo.setAttribute("position", new THREE.BufferAttribute(snowPositions, 3));
+  const snowMat = new THREE.PointsMaterial({ color: "#ffffff", size: 0.16, transparent: true, opacity: 0.82 });
+  materials.add(snowMat);
+  const snowfall = new THREE.Points(snowGeo, snowMat);
+  snowfall.visible = false;
+  scene.add(snowfall);
+
+  let state: State = {
+    entered: false,
+    paused: false,
+    command: null,
+    activity: "run",
+    actionSerial: 0,
+    waterAction: "dive",
+    waterActionSerial: 0,
+  };
   let disposed = false,
     raf = 0,
     last = 0,
