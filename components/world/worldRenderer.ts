@@ -292,6 +292,32 @@ export function createWorld(
       sz: 0.1 + random() * 0.1,
     });
   const tides = instances(boxGeo, mat("#a4ccca"), waves, false);
+
+  // A single instanced foam ribbon follows the same mathematical coastline used
+  // by movement and swimming transitions, so the visible shore and gameplay shore
+  // cannot drift apart.
+  const shoreFoamPieces: Instance[] = [];
+  for (let z = WORLD_BOUNDS.minZ + 8; z <= WORLD_BOUNDS.maxZ - 3; z += 2.4) {
+    const x = coastlineX(z) - 0.42;
+    const tangentX = coastlineX(z + 0.7) - coastlineX(z - 0.7);
+    shoreFoamPieces.push({
+      x,
+      y: SEA_SURFACE + 0.035,
+      z,
+      sx: 0.16,
+      sy: 0.025,
+      sz: 1.35,
+      ry: Math.atan2(tangentX, 1.4),
+    });
+  }
+  const shoreFoamMat = mat("#d9f1ee", {
+    transparent: true,
+    opacity: 0.62,
+    emissive: "#8ebfbd",
+    emissiveIntensity: 0.08,
+  });
+  const shoreFoam = instances(boxGeo, shoreFoamMat, shoreFoamPieces, false);
+
   // Far granite silhouettes echo the playable ridge without competing with it.
   const peaks: Instance[] = [],
     snow: Instance[] = [];
@@ -2021,6 +2047,9 @@ export function createWorld(
     neuralMat.emissiveIntensity = 0.4 + Math.sin(elapsed * 0.65) * 0.18;
     particleMat.opacity = 0.48 + Math.sin(elapsed) * 0.17;
     tides.position.x = Math.sin(elapsed * 0.2) * 0.5;
+    shoreFoam.position.x = Math.sin(elapsed * 0.7) * 0.11;
+    shoreFoam.position.y = Math.sin(elapsed * 1.25) * 0.018;
+    shoreFoamMat.opacity = 0.52 + Math.sin(elapsed * 0.9) * 0.08;
     fallingWater.position.y = -(elapsed * 3.5 % 0.4);
     splash.scale.setScalar(1 + Math.sin(elapsed * 2) * 0.05);
     waterfall.scale.x = 2.5 + Math.sin(elapsed * 3) * 0.06;
