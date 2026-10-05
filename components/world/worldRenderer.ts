@@ -370,6 +370,7 @@ export function createWorld(
       x < -17 || z < -15 ||
       BOULDER_HOLDS.some(h => distance(h, { x, z }) < 6) ||
       REGIONS.some((r) => distance(r.point, { x, z }) < 9) ||
+      (x > 35 && x < 54 && z > -12 && z < 22) ||
       distance({ x, z }, SPAWN) < 8 ||
       distance({ x, z }, SECRET) < 5
     )
@@ -688,8 +689,17 @@ export function createWorld(
   instances(rockGeo, mat("#354d58"), cave);
   for (const side of [-1, 1]) obstacles.push({ x: arcade.x + side * 4.2, z: arcade.z - 2.5, radius: 1.7 });
 
-  // A real back wall carries readable game-name carvings made from tiny stone insets.
-  mesh(boxGeo, mat("#2d424b"), [arcade.x, arcadeY + 2.9, arcade.z - 5.3], [8.4, 5.8, 0.65]);
+  // The cavern wall is the game selector: broad recessed bands carry carved names.
+  mesh(boxGeo, mat("#2d424b"), [arcade.x, arcadeY + 3.05, arcade.z - 5.3], [9.2, 6.2, 0.65]);
+  const carvingBands: Instance[] = Array.from({ length: 3 }, (_, row) => ({
+    x: arcade.x,
+    y: arcadeY + 4.72 - row * 1.48,
+    z: arcade.z - 4.93,
+    sx: 7.5,
+    sy: 1.05,
+    sz: 0.055,
+  }));
+  instances(boxGeo, mat("#263b44"), carvingBands, false);
   const glyphs: Record<string, string[]> = {
     A: ["010","101","111","101","101"], C: ["111","100","100","100","111"],
     D: ["110","101","101","101","110"], E: ["111","100","110","100","111"],
@@ -703,10 +713,10 @@ export function createWorld(
   const carvingTitles = (gameTitles.length ? gameTitles : ["Stretchicorn", "uniRico", "Unicorn Stampede"]).slice(0, 3);
   carvingTitles.forEach((title, row) => {
     const text = title.toUpperCase();
-    const scale = row === 2 ? 0.075 : 0.09;
+    const scale = Math.min(0.14, 6.8 / Math.max(4, text.length * 4));
     const width = text.length * 4 * scale;
-    const startX = arcade.x - width / 2;
-    const baseline = arcadeY + 4.55 - row * 1.35;
+    const startX = arcade.x - width / 2 + scale * 0.5;
+    const baseline = arcadeY + 4.98 - row * 1.48;
     [...text].forEach((letter, index) => {
       const pattern = letter === " " ? [] : glyphs[letter];
       if (!pattern) return;
@@ -740,19 +750,7 @@ export function createWorld(
   ];
   instances(cylinder, mat("#a58f68"), caveRunes, false);
 
-  const cabinet = new THREE.Group();
-  cabinet.position.set(arcade.x, arcadeY, arcade.z);
-  scene.add(cabinet);
-  const shell = mesh(boxGeo, mat("#192a3f"), [0, 1.1, 0], [1.55, 2.2, 1], cabinet);
-  shell.userData.discovery = "cavern";
-  markerObjects.push(shell);
-  const screen = mesh(boxGeo, mat("#8dbde0", { emissive: "#5f7fd1", emissiveIntensity: 1.5 }), [0, 1.5, 0.52], [1.21, 0.8, 0.04], cabinet);
-  screen.castShadow = false;
-  // Tiny geometric unicorn emblem rather than a heavy video/iframe running in the scene.
-  mesh(boxGeo, mat("#f3e8f1"), [0, 1.5, 0.56], [0.64, 0.19, 0.02], cabinet);
-  mesh(cone, mat("#f4d076"), [0.24, 1.8, 0.56], [0.09, 0.25, 0.03], cabinet);
-  for (let i = 0; i < 3; i++) mesh(boxGeo, mat(["#f396b3", "#a58aff", "#88d4d2"][i]), [-0.4, 1.6 - i * 0.1, 0.56], [0.2, 0.06, 0.02], cabinet);
-  mesh(boxGeo, mat("#7285a4"), [0, 0.94, 0.65], [1.45, 0.14, 0.5], cabinet);
+  // No arcade cabinet is duplicated here; the wall itself is the portfolio/game interface.
   // Sport equipment stays lightweight but uses recognizable proportions and materials.
   const board = new THREE.Group(), bike = new THREE.Group(), skis = new THREE.Group();
   explorer.add(board, bike, skis);
