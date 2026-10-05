@@ -1788,12 +1788,16 @@ export function createWorld(
         : explorer.rotation.y;
 
       if (swimming) {
+        bodyRoot.position.set(0, 0, 0);
+        bodyRoot.rotation.set(0, 0, 0);
         const kick = travel.speed > 0.05 ? Math.sin(elapsed * 8.5) : 0;
         legs[0].rotation.x = 0.18 + kick * 0.42;
         legs[1].rotation.x = 0.18 - kick * 0.42;
         arms[0].rotation.x = -1.45 + walking * 0.34;
         arms[1].rotation.x = -1.45 - walking * 0.34;
-        const pronePitch = aquatic === "dive" ? -1.42 : -1.18;
+        // Local +Z is the explorer's forward direction. Positive X pitch points
+        // the face/mask toward the ocean floor; the previous negative sign looked skyward.
+        const pronePitch = aquatic === "dive" ? 1.42 : 1.18;
         explorer.rotation.set(
           pronePitch,
           headingYaw,
@@ -1805,10 +1809,17 @@ export function createWorld(
           player.z,
         );
       } else {
-        legs[0].rotation.x = running ? walking * 0.6 : mode === "bike" ? 0.5 + walking * 0.3 : 0.2;
-        legs[1].rotation.x = running ? -walking * 0.6 : mode === "bike" ? 0.5 - walking * 0.3 : 0.2;
-        arms[0].rotation.x = climb ? -2 : running ? -walking * 0.4 : -0.75;
-        arms[1].rotation.x = climb ? -1.6 : running ? walking * 0.4 : -0.75;
+        const bikePose = mode === "bike";
+        bodyRoot.position.set(
+          0,
+          bikePose ? bikeSeatLocal.y - riderHipLocal.y : 0,
+          bikePose ? bikeSeatLocal.z - riderHipLocal.z : 0,
+        );
+        bodyRoot.rotation.set(bikePose ? 0.16 : 0, 0, 0);
+        legs[0].rotation.x = running ? walking * 0.6 : bikePose ? 0.58 + walking * 0.28 : 0.2;
+        legs[1].rotation.x = running ? -walking * 0.6 : bikePose ? 0.58 - walking * 0.28 : 0.2;
+        arms[0].rotation.x = climb ? -2 : running ? -walking * 0.4 : bikePose ? 0.82 : -0.75;
+        arms[1].rotation.x = climb ? -1.6 : running ? walking * 0.4 : bikePose ? 0.82 : -0.75;
         const footprint = mode === "bike"
           ? { length: 1.05, width: 0.55 }
           : mode === "skate"
@@ -1860,6 +1871,14 @@ export function createWorld(
       canvas.dataset.gearClearance = (
         aquatic === "land"
           ? explorer.position.y - groundHeight(player)
+          : 0
+      ).toFixed(3);
+      canvas.dataset.riderSeatError = (
+        mode === "bike"
+          ? Math.hypot(
+              bodyRoot.position.y + riderHipLocal.y - bikeSeatLocal.y,
+              bodyRoot.position.z + riderHipLocal.z - bikeSeatLocal.z,
+            )
           : 0
       ).toFixed(3);
       const r: RegionId = isWater(player) ? "coast" : nearestRegion(player);
