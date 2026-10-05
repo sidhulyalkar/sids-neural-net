@@ -2085,10 +2085,9 @@ export function createWorld(
         adaptiveShadows = shouldUseShadows;
         renderer.shadowMap.enabled = adaptiveShadows;
         sun.castShadow = adaptiveShadows;
+        if (adaptiveShadows) renderer.shadowMap.needsUpdate = true;
       }
       canvas.dataset.shadows = adaptiveShadows ? "on" : "off";
-      if (nextDpr !== dpr) {
-      }
       canvas.dataset.dpr = dpr.toFixed(2);
     }
     raf = requestAnimationFrame(frame);
