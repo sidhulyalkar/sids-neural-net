@@ -1366,6 +1366,9 @@ export function createWorld(
   let dogGroundY = terrainHeight(dog.x, dog.z);
   let dogGaitPhase = 0;
   let dogMoveBlend = 0;
+  let dogMaxYawStep = 0;
+  let dogMaxYStep = 0;
+  let lastDogRenderY = dogGroundY;
   let locationKey = "",
     discovery: string | null = null,
     gazeCandidate: string | null = null,
@@ -2118,8 +2121,14 @@ export function createWorld(
     // This stays visually continuous even when a slow frame or obstacle causes
     // the desired heading to flip sharply.
     const maxDogTurnStep = 4.2 * dt;
-    dogYaw += THREE.MathUtils.clamp(yawDelta, -maxDogTurnStep, maxDogTurnStep);
+    const appliedDogYawStep = THREE.MathUtils.clamp(
+      yawDelta,
+      -maxDogTurnStep,
+      maxDogTurnStep,
+    );
+    dogYaw += appliedDogYawStep;
     dogYaw = Math.atan2(Math.sin(dogYaw), Math.cos(dogYaw));
+    dogMaxYawStep = Math.max(dogMaxYawStep, Math.abs(appliedDogYawStep));
     shasta.rotation.y = dogYaw;
     const dogStep = distance(dogBefore, dog);
     dogGaitPhase += dogStep * 5.4;
@@ -2128,11 +2137,16 @@ export function createWorld(
     const targetDogY = terrainHeight(dog.x, dog.z);
     dogGroundY += (targetDogY - dogGroundY) * (1 - Math.exp(-dt * 10));
     const dogBob = Math.sin(dogGaitPhase * 2) * 0.022 * dogMoveBlend;
-    shasta.position.set(dog.x, dogGroundY + dogBob, dog.z);
+    const dogRenderY = dogGroundY + dogBob;
+    dogMaxYStep = Math.max(dogMaxYStep, Math.abs(dogRenderY - lastDogRenderY));
+    lastDogRenderY = dogRenderY;
+    shasta.position.set(dog.x, dogRenderY, dog.z);
     canvas.dataset.dogYaw = dogYaw.toFixed(3);
-    canvas.dataset.dogY = (dogGroundY + dogBob).toFixed(3);
+    canvas.dataset.dogY = dogRenderY.toFixed(3);
     canvas.dataset.dogMoveBlend = dogMoveBlend.toFixed(3);
     canvas.dataset.dogGaitPhase = dogGaitPhase.toFixed(3);
+    canvas.dataset.dogMaxYawStep = dogMaxYawStep.toFixed(3);
+    canvas.dataset.dogMaxYStep = dogMaxYStep.toFixed(3);
     explorerContact.visible = aquatic === "land";
     explorerContact.position.set(
       explorer.position.x,
@@ -2366,6 +2380,9 @@ export function createWorld(
         dog = { x: player.x + 2, z: player.z - 2 };
         dogGroundY = terrainHeight(dog.x, dog.z);
         dogMoveBlend = 0;
+        dogMaxYawStep = 0;
+        dogMaxYStep = 0;
+        lastDogRenderY = dogGroundY;
         destination = null;
         if (next.command.activity === "ski") {
           const kicker = RIDE_RAMPS.find((ramp) => ramp.id === "ski-kicker")!;
