@@ -123,7 +123,7 @@ try {
   await page.getByRole('button', { name: 'Open navigation menu' }).click();
   await page.getByRole('button', { name: 'Field notes', exact: true }).click();
   assert.equal(await page.locator('dialog a[href^="https://www.nps.gov"]').count(), 4);
-  assert.equal(await page.locator('dialog a[href^="https://www.montereybayaquarium.org"]').count(), 6);
+  assert.equal(await page.locator('dialog a[href^="https://www.montereybayaquarium.org"]').count(), 8);
   await page.keyboard.press('Escape');
   await page.getByRole('button', { name: 'Open navigation menu' }).click();
   for (let i = 0; i < 24; i++) { await page.keyboard.press('Tab'); assert.equal(await page.evaluate(() => !!document.activeElement.closest('dialog')), true); }
