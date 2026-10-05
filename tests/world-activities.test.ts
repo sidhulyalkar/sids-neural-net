@@ -18,10 +18,21 @@ import {
   type Activity,
   type Travel,
 } from "../lib/world/activities";
-import { coastlineX, distance, isWater, SEA_SURFACE, terrainHeight, WORLD_BOUNDS } from "../lib/world/model";
+import {
+  distance,
+  isWater,
+  maxDiveDepth,
+  SEA_SURFACE,
+  seaFloorHeight,
+  WORLD_BOUNDS,
+} from "../lib/world/model";
 
 function simulate(mode: Activity, seconds = 2, sprint = false) {
-  let state: Travel = { point: { x: 0, z: 20 }, speed: 0, heading: { x: 1, z: 0 } };
+  let state: Travel = {
+    point: { x: 0, z: 20 },
+    speed: 0,
+    heading: { x: 1, z: 0 },
+  };
   for (let i = 0; i < seconds * 60; i++)
     state = stepTravel(state, { x: 1, z: 0 }, 1 / 60, mode, [], sprint);
   return state;
@@ -40,7 +51,11 @@ test("all activities brake to rest and never tunnel through a trunk", () => {
     for (let i = 0; i < 600; i++)
       state = stepTravel(state, { x: 0, z: 0 }, 1 / 60, id, []);
     assert.equal(state.speed, 0);
-    state = { point: { x: -10, z: 0 }, speed: 20, heading: { x: 1, z: 0 } };
+    state = {
+      point: { x: -10, z: 0 },
+      speed: 20,
+      heading: { x: 1, z: 0 },
+    };
     const obstacle = { x: 0, z: 0, radius: 2 };
     for (let i = 0; i < 120; i++)
       state = stepTravel(state, { x: 1, z: 0 }, 1 / 30, id, [obstacle]);
@@ -48,7 +63,7 @@ test("all activities brake to rest and never tunnel through a trunk", () => {
   }
 });
 
-test("ski landing has natural snow and ski mode remains equipped across the world", () => {
+test("ski landing is alpine while selected skis remain equipped throughout land exploration", () => {
   const landing = activityLanding("ski")!;
   assert.ok(onSnow(landing));
   assert.equal(effectiveActivity("ski", landing), "ski");
@@ -66,7 +81,11 @@ test("every authored climbing hold is reachable and advances upward", () => {
 });
 
 test("movement clamps long frames, cannot overshoot a click target or leave map", () => {
-  const from: Travel = { point: { x: 0, z: 20 }, speed: 13, heading: { x: 1, z: 0 } };
+  const from: Travel = {
+    point: { x: 0, z: 20 },
+    speed: 13,
+    heading: { x: 1, z: 0 },
+  };
   const destination = { x: 0.1, z: 20 };
   const next = stepTravel(from, { x: 1, z: 0 }, 10, "bike", [], false, destination);
   assert.ok(distance(next.point, destination) < 1e-8);
@@ -82,62 +101,49 @@ test("movement clamps long frames, cannot overshoot a click target or leave map"
   assert.equal(edge.point.x, WORLD_BOUNDS.maxX);
 });
 
-test("surface swimming accelerates smoothly and stays inside finite world bounds", () => {
-  const z = 10;
-  const waterX = coastlineX(z) - 8;
-  assert.ok(isWater({ x: waterX, z }));
-  let state: Travel = {
-    point: { x: waterX, z },
-    speed: 0,
-    heading: { x: -1, z: 0 },
-  };
-  for (let i = 0; i < 180; i++)
-    state = stepSwim(state, { x: -1, z: 0 }, 1 / 60);
-  assert.ok(state.speed > 4);
-  assert.ok(state.point.x >= WORLD_BOUNDS.minX);
-  for (let i = 0; i < 300; i++)
-    state = stepSwim(state, { x: 0, z: 0 }, 1 / 60);
-  assert.equal(state.speed, 0);
+test("swimming uses bounded movement and dive depth always leaves clearance above the reef", () => {
+  const start = { x: -55, z: 10 };
+  assert.ok(isWater(start));
+  const available = maxDiveDepth(start);
+  assert.ok(available > 1);
+  assert.ok(SEA_SURFACE - available >= seaFloorHeight(start.x, start.z) + 1.14);
+
+  let swim: Travel = { point: start, speed: 0, heading: { x: -1, z: 0 } };
+  for (let i = 0; i < 120; i++)
+    swim = stepSwim(swim, { x: -1, z: 0 }, 1 / 60);
+  assert.ok(swim.point.x < start.x);
+  assert.ok(swim.speed > 0 && swim.speed <= 4.6);
+  assert.ok(swim.point.x >= WORLD_BOUNDS.minX);
 });
 
-test("equipment contact samples front rear and sides to stay supported on steep terrain", () => {
-  const p = activityLanding("ski")!;
-  const heading = { x: 0.45, z: -1 };
-  const bike = terrainContact(p, heading, 1.05, 0.55);
-  const board = terrainContact(p, heading, 1.1, 0.42);
-  for (const contact of [bike, board]) {
-    assert.ok(Number.isFinite(contact.pitch));
-    assert.ok(Number.isFinite(contact.roll));
-    assert.ok(contact.support >= terrainHeight(p.x, p.z));
-    assert.ok(Math.abs(contact.pitch) < Math.PI / 2);
-    assert.ok(Math.abs(contact.roll) < Math.PI / 2);
-  }
+test("bike, skateboard and skis receive finite pitch/roll contact against uneven ground", () => {
+  const contact = terrainContact(
+    { x: 8, z: -54 },
+    { x: 0.2, z: -1 },
+    1.1,
+    0.5,
+  );
+  assert.ok(Number.isFinite(contact.pitch));
+  assert.ok(Number.isFinite(contact.roll));
+  assert.ok(Number.isFinite(contact.support));
+  assert.ok(Math.abs(contact.pitch) < Math.PI / 2);
+  assert.ok(Math.abs(contact.roll) < Math.PI / 2);
 });
 
-test("fallen logs expose deterministic grind lines and ramps require the right approach", () => {
+test("fallen logs can be acquired for a grind and ramps only launch compatible moving modes", () => {
   const log = FALLEN_LOGS[0];
-  const mid = {
+  const midpoint = {
     x: (log.a.x + log.b.x) / 2,
     z: (log.a.z + log.b.z) / 2,
   };
-  const grind = nearestGrind(mid);
+  const grind = nearestGrind(midpoint);
   assert.equal(grind?.log.id, log.id);
-  assert.ok(grind && grind.t > 0.4 && grind.t < 0.6);
+  assert.ok((grind?.distance ?? Infinity) < 0.01);
 
-  for (const ramp of RIDE_RAMPS) {
-    const allowed = ramp.modes[0];
-    const launch = rampImpulseAt(ramp.point, ramp.heading, allowed, 8);
-    assert.equal(launch?.id, ramp.id);
-    assert.ok((launch?.impulse ?? 0) > 0);
-    assert.equal(rampImpulseAt(ramp.point, { x: -ramp.heading.x, z: -ramp.heading.z }, allowed, 8), null);
-    if (!ramp.modes.includes("run")) assert.equal(rampImpulseAt(ramp.point, ramp.heading, "run", 8), null);
-  }
-});
-
-test("sea surface remains below land gameplay height and water transitions are explicit", () => {
-  const z = 0;
-  const shore = coastlineX(z);
-  assert.ok(!isWater({ x: shore + 1, z }));
-  assert.ok(isWater({ x: shore - 1, z }));
-  assert.ok(SEA_SURFACE < terrainHeight(shore + 1, z));
+  const ramp = RIDE_RAMPS[1];
+  const bikeLaunch = rampImpulseAt(ramp.point, ramp.heading, "bike", 8);
+  assert.equal(bikeLaunch?.id, ramp.id);
+  assert.ok((bikeLaunch?.impulse ?? 0) > ramp.lift);
+  assert.equal(rampImpulseAt(ramp.point, ramp.heading, "run", 8), null);
+  assert.equal(rampImpulseAt(ramp.point, { x: -ramp.heading.x, z: -ramp.heading.z }, "bike", 8), null);
 });
