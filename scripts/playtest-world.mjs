@@ -116,8 +116,27 @@ try {
   await page.waitForFunction(() => document.querySelector('canvas')?.dataset.cameraWater === 'true');
   await page.waitForFunction(() => Number(document.querySelector('canvas')?.dataset.depth) > 0.45);
   const initialDepth = Number(await page.locator('canvas').getAttribute('data-depth'));
+  const initialMaxDepth = Number(await page.locator('canvas').getAttribute('data-max-depth'));
+  assert.ok(initialMaxDepth >= initialDepth);
+
+  // The entry shelf is intentionally shallow. Swim offshore until local bathymetry
+  // actually permits a deeper dive, then qualify the Deeper control.
+  await page.keyboard.down('w');
+  try {
+    await page.waitForFunction(
+      depth => Number(document.querySelector('canvas')?.dataset.maxDepth) > depth + 0.45,
+      initialDepth,
+      { timeout: 12000 },
+    );
+  } finally {
+    await page.keyboard.up('w');
+  }
   await page.getByRole('button', { name: 'Deeper', exact: true }).click();
-  await page.waitForFunction(depth => Number(document.querySelector('canvas')?.dataset.depth) > depth + 0.2, initialDepth);
+  await page.waitForFunction(
+    depth => Number(document.querySelector('canvas')?.dataset.depth) > depth + 0.2,
+    initialDepth,
+    { timeout: 8000 },
+  );
   await screenshot(page, 'activity-dive');
   await page.getByRole('button', { name: 'Surface', exact: true }).click();
   await page.waitForFunction(() => document.querySelector('canvas')?.dataset.aquatic === 'surface');
