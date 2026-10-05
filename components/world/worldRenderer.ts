@@ -663,6 +663,52 @@ export function createWorld(
   }
   instances(rockGeo, mat("#354d58"), cave);
   for (const side of [-1, 1]) obstacles.push({ x: arcade.x + side * 4.2, z: arcade.z - 2.5, radius: 1.7 });
+
+  // A real back wall carries readable game-name carvings made from tiny stone insets.
+  mesh(boxGeo, mat("#2d424b"), [arcade.x, arcadeY + 2.9, arcade.z - 5.3], [8.4, 5.8, 0.65]);
+  const glyphs: Record<string, string[]> = {
+    A: ["010","101","111","101","101"], C: ["111","100","100","100","111"],
+    D: ["110","101","101","101","110"], E: ["111","100","110","100","111"],
+    H: ["101","101","111","101","101"], I: ["111","010","010","010","111"],
+    M: ["101","111","111","101","101"], N: ["101","111","111","111","101"],
+    O: ["111","101","101","101","111"], P: ["110","101","110","100","100"],
+    R: ["110","101","110","101","101"], S: ["111","100","111","001","111"],
+    T: ["111","010","010","010","010"], U: ["101","101","101","101","111"],
+  };
+  const carvingPoints: Instance[] = [];
+  const carvingTitles = (gameTitles.length ? gameTitles : ["Stretchicorn", "uniRico", "Unicorn Stampede"]).slice(0, 3);
+  carvingTitles.forEach((title, row) => {
+    const text = title.toUpperCase();
+    const scale = row === 2 ? 0.075 : 0.09;
+    const width = text.length * 4 * scale;
+    const startX = arcade.x - width / 2;
+    const baseline = arcadeY + 4.55 - row * 1.35;
+    [...text].forEach((letter, index) => {
+      const pattern = letter === " " ? [] : glyphs[letter];
+      if (!pattern) return;
+      pattern.forEach((bits, py) => [...bits].forEach((bit, px) => {
+        if (bit !== "1") return;
+        carvingPoints.push({
+          x: startX + index * 4 * scale + px * scale,
+          y: baseline - py * scale,
+          z: arcade.z - 4.94,
+          sx: scale * 0.74,
+          sy: scale * 0.74,
+          sz: 0.045,
+        });
+      }));
+    });
+  });
+  instances(boxGeo, mat("#b8a77f", { emissive: "#55472e", emissiveIntensity: 0.12 }), carvingPoints, false);
+  // Three abstract glyphs flank the names: horn, branching neuron, and mountain.
+  const caveRunes = [
+    segment(new THREE.Vector3(arcade.x - 3.25, arcadeY + 1.5, arcade.z - 4.92), new THREE.Vector3(arcade.x - 2.7, arcadeY + 2.2, arcade.z - 4.92), 0.06),
+    segment(new THREE.Vector3(arcade.x - 2.7, arcadeY + 2.2, arcade.z - 4.92), new THREE.Vector3(arcade.x - 2.95, arcadeY + 2.65, arcade.z - 4.92), 0.045),
+    segment(new THREE.Vector3(arcade.x + 2.55, arcadeY + 1.5, arcade.z - 4.92), new THREE.Vector3(arcade.x + 3.15, arcadeY + 2.35, arcade.z - 4.92), 0.055),
+    segment(new THREE.Vector3(arcade.x + 3.15, arcadeY + 2.35, arcade.z - 4.92), new THREE.Vector3(arcade.x + 3.55, arcadeY + 1.5, arcade.z - 4.92), 0.055),
+  ];
+  instances(cylinder, mat("#a58f68"), caveRunes, false);
+
   const cabinet = new THREE.Group();
   cabinet.position.set(arcade.x, arcadeY, arcade.z);
   scene.add(cabinet);
