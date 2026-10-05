@@ -787,45 +787,60 @@ export function createWorld(
   }
   const chalk = mesh(rockGeo, mat("#c4836d"), [0, 0.83, -0.35], [0.2, 0.2, 0.14], explorer);
   board.visible = bike.visible = skis.visible = chalk.visible = false;
-  // Shasta: white face/legs, warm tan-gold topcoat, rust at the tail root.
+  // Shasta uses a husky silhouette: deep chest, tapered muzzle, upright ears and curled plume tail.
   const shasta = new THREE.Group();
   scene.add(shasta);
   const fur = mat(SHASTA_COAT.white),
     saddle = mat(SHASTA_COAT.topcoat),
     gold = mat(SHASTA_COAT.gold),
     rust = mat(SHASTA_COAT.tailBase),
-    nose = mat(SHASTA_COAT.nose);
-  mesh(rockGeo, fur, [0, 0.65, 0], [0.36, 0.43, 0.65], shasta);
-  mesh(rockGeo, saddle, [0, 0.85, -0.08], [0.34, 0.21, 0.54], shasta);
-  mesh(rockGeo, gold, [0, 0.79, 0.31], [0.34, 0.28, 0.32], shasta);
-  mesh(rockGeo, rust, [0, 0.87, -0.56], [0.24, 0.18, 0.19], shasta);
-  mesh(rockGeo, fur, [0, 1.01, 0.6], [0.32, 0.35, 0.3], shasta);
-  mesh(rockGeo, fur, [0, 0.91, 0.87], [0.22, 0.17, 0.26], shasta);
-  mesh(rockGeo, nose, [0, 0.94, 1.06], [0.1, 0.08, 0.06], shasta);
-  [-1, 1].forEach((s) => {
-    mesh(cone, gold, [s * 0.22, 1.36, 0.53], [0.17, 0.4, 0.2], shasta);
-    mesh(rockGeo, gold, [s * 0.22, 1.12, 0.57], [0.14, 0.2, 0.23], shasta);
-    mesh(rockGeo, nose, [s * 0.17, 1.08, 0.83], [0.035, 0.035, 0.035], shasta);
-  });
-  const paws = [-1, 1].flatMap((x) =>
-    [-1, 1].map((z) =>
-      mesh(
-        cylinder,
-        fur,
-        [x * 0.22, 0.28, z * 0.4],
-        [0.085, 0.5, 0.085],
-        shasta,
-      ),
-    ),
-  );
+    mask = mat(SHASTA_COAT.mask),
+    nose = mat(SHASTA_COAT.nose),
+    eye = mat(SHASTA_COAT.eye, { emissive: SHASTA_COAT.eye, emissiveIntensity: 0.08 });
+
+  // Torso volumes establish the characteristic athletic, double-coated husky proportions.
+  mesh(rockGeo, fur, [0, 0.78, -0.05], [0.4, 0.46, 0.74], shasta);
+  mesh(rockGeo, saddle, [0, 0.98, -0.08], [0.38, 0.23, 0.68], shasta);
+  mesh(rockGeo, gold, [0, 0.86, 0.42], [0.39, 0.42, 0.38], shasta);
+  mesh(rockGeo, rust, [0, 0.91, -0.63], [0.31, 0.27, 0.28], shasta);
+  // White chest/ruff projects forward instead of reading as a generic quadruped blob.
+  mesh(rockGeo, fur, [0, 1.08, 0.48], [0.43, 0.48, 0.4], shasta);
+  mesh(rockGeo, gold, [0, 1.28, 0.56], [0.34, 0.36, 0.32], shasta);
+  mesh(rockGeo, fur, [0, 1.43, 0.7], [0.32, 0.33, 0.3], shasta);
+  // Long wedge-like muzzle with a dark nose.
+  mesh(rockGeo, fur, [0, 1.36, 0.96], [0.27, 0.2, 0.36], shasta);
+  mesh(rockGeo, nose, [0, 1.34, 1.24], [0.11, 0.08, 0.08], shasta);
+  // Symmetric husky mask, blue-gray eyes and tall triangular ears.
+  for (const side of [-1, 1]) {
+    mesh(rockGeo, mask, [side * 0.19, 1.53, 0.83], [0.12, 0.16, 0.12], shasta);
+    mesh(rockGeo, eye, [side * 0.14, 1.52, 1.04], [0.04, 0.035, 0.028], shasta);
+    const ear = mesh(cone, gold, [side * 0.2, 1.82, 0.65], [0.18, 0.48, 0.2], shasta);
+    ear.rotation.z = -side * 0.08;
+    mesh(cone, mask, [side * 0.2, 1.81, 0.69], [0.09, 0.29, 0.1], shasta);
+  }
+
+  // Four legs taper to bright white socks and broad paws.
+  const paws: THREE.Mesh[] = [];
+  for (const x of [-1, 1]) for (const z of [-1, 1]) {
+    const forward = z > 0;
+    mesh(cylinder, forward ? gold : saddle, [x * 0.24, 0.54, z * 0.42], [0.1, 0.38, 0.1], shasta);
+    const lower = mesh(cylinder, fur, [x * 0.24, 0.25, z * 0.46], [0.085, 0.36, 0.085], shasta);
+    mesh(rockGeo, fur, [x * 0.24, 0.07, z * 0.5 + 0.04], [0.13, 0.08, 0.18], shasta);
+    paws.push(lower);
+  }
+
+  // A high, curled plume tail is one of the strongest instantly-readable husky cues.
+  const tailBase = mesh(cylinder, rust, [0, 1.08, -0.72], [0.11, 0.34, 0.11], shasta);
+  tailBase.rotation.x = -0.7;
   const tail = mesh(
-    geo(new THREE.TorusGeometry(0.27, 0.1, 5, 9, Math.PI * 1.5)),
+    geo(new THREE.TorusGeometry(0.39, 0.13, 6, 14, Math.PI * 1.62)),
     fur,
-    [0, 0.95, -0.66],
+    [0, 1.32, -0.76],
     [1, 1, 1],
     shasta,
   );
   tail.rotation.y = Math.PI / 2;
+  tail.rotation.z = 0.2;
   // A barely visible paw-print detour; the dog heads here when you approach.
   const prints: Instance[] = [];
   for (let i = 0; i < 14; i++) {
