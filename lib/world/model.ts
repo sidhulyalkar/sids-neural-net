@@ -82,6 +82,19 @@ export function nearbyDiscovery(point: Point): string | null {
   return region?.id ?? null;
 }
 
+/**
+ * Deterministic semantic landing points keep menu travel useful as geography evolves.
+ * The coast landing sits just inland of the shoreline so entering the water remains
+ * an immediate, discoverable action instead of a hidden cross-country walk.
+ */
+export function regionLanding(region: RegionId): Point {
+  const target = REGIONS.find((r) => r.id === region)!;
+  const z = target.point.z + 3;
+  if (region === "coast")
+    return { x: coastlineX(z) + 1.35, z };
+  return { x: target.point.x, z };
+}
+
 export type Obstacle = Point & { radius: number };
 
 const clampToWorld = (p: Point): Point => ({
