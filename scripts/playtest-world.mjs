@@ -255,6 +255,8 @@ try {
   await mobile.getByRole('button', { name: 'Open navigation menu' }).tap();
   await mobile.getByRole('button', { name: '04 Wild coast Life outside the screen', exact: true }).tap();
   await mobile.waitForFunction(() => document.querySelector('canvas')?.dataset.aquatic === 'land');
+  await mobile.locator('canvas').focus();
+  await mobile.waitForFunction(() => document.activeElement?.tagName === 'CANVAS');
   await mobile.keyboard.down('w');
   try {
     await mobile.waitForFunction(
