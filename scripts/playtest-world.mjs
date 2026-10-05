@@ -229,7 +229,10 @@ try {
   assert.ok(Number(diagnostics.frameP95) >= Number(diagnostics.frameP50));
   assert.ok(Number(diagnostics.sampleFrames) > 0);
   assert.ok(Number(diagnostics.dpr) >= 0.75 && Number(diagnostics.dpr) <= 1.5);
-  results.push('Bounded renderer diagnostics include active-frame percentiles');
+  assert.ok(Number(diagnostics.visibleRenderables) > 0);
+  if (Number(diagnostics.dpr) <= 0.75 && Number(diagnostics.fps) < 24)
+    assert.equal(diagnostics.shadows, 'off');
+  results.push('Bounded renderer diagnostics include active-frame percentiles and adaptive quality state');
   await page.locator('canvas').evaluate(c => c.getContext('webgl2').getExtension('WEBGL_lose_context').loseContext());
   await page.getByText('The 3D world couldn’t open on this device.').waitFor();
   assert.equal(await page.getByRole('link', { name: 'View site' }).count(), 1);
