@@ -57,8 +57,9 @@ try {
       const gazeIndex = Number(gazeId?.slice(5));
       assert.ok(Number.isInteger(gazeIndex) && carvedTitles[gazeIndex]);
       const gazeTitle = carvedTitles[gazeIndex];
-      await page.getByRole('button', { name: gazeTitle, exact: true }).waitFor();
-      await page.waitForTimeout(1800);
+      await page.waitForFunction(() => document.activeElement?.tagName === 'CANVAS');
+      await page.waitForTimeout(350); // Dwell long enough to prove the selection is stable.
+      assert.equal(await page.locator('canvas').getAttribute('data-gaze-game'), gazeId);
       await screenshot(page, `region-${name.slice(0, 2)}`);
       await page.keyboard.press('Enter');
       await page.getByRole('heading', { name: gazeTitle, exact: true }).waitFor();
