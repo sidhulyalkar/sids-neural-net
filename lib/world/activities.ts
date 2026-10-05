@@ -10,9 +10,9 @@ import {
 
 export const ACTIVITIES = [
   { id: "run", label: "Run", name: "Trail running", speed: 6.6, acceleration: 20, braking: 24, action: "Jump", hint: "Shift to sprint · Space to jump" },
-  { id: "skate", label: "Skate", name: "Skateboarding", speed: 11, acceleration: 8, braking: 5, action: "Ollie", hint: "Coast between pushes · Space near a fallen log to grind" },
+  { id: "skate", label: "Skate", name: "Skateboarding", speed: 11, acceleration: 8, braking: 5, action: "Ollie", hint: "Space near logs · Approach straight for 50-50, crosswise for boardslide" },
   { id: "bike", label: "Bike", name: "Mountain biking", speed: 13, acceleration: 12, braking: 9, action: "Hop", hint: "Ride the trails and hit the timber ramps" },
-  { id: "ski", label: "Ski", name: "Skiing", speed: 15, acceleration: 7, braking: 4, action: "Hop", hint: "Snow follows ski mode · Explore the full world" },
+  { id: "ski", label: "Ski", name: "Skiing", speed: 15, acceleration: 7, braking: 4, action: "Hop", hint: "Snow follows ski mode · Space near fallen logs to slide" },
   { id: "boulder", label: "Boulder", name: "Bouldering", speed: 4.8, acceleration: 20, braking: 24, action: "Climb", hint: "Travels to the rocks · Space to climb" },
 ] as const;
 
