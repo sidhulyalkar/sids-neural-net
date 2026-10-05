@@ -49,6 +49,34 @@ try {
   ]) {
     await page.getByRole('button', { name: 'Open navigation menu' }).click();
     await page.getByRole('button', { name, exact: true }).click();
+
+    if (name.startsWith('07')) {
+      const carvedTitles = ['Stretchicorn', 'uniRico', 'Unicorn Stampede'];
+      await page.waitForFunction(() => document.querySelector('canvas')?.dataset.gazeGame?.startsWith('game:'), null, { timeout: 8000 });
+      const gazeId = await page.locator('canvas').getAttribute('data-gaze-game');
+      const gazeIndex = Number(gazeId?.slice(5));
+      assert.ok(Number.isInteger(gazeIndex) && carvedTitles[gazeIndex]);
+      const gazeTitle = carvedTitles[gazeIndex];
+      await page.getByRole('button', { name: gazeTitle, exact: true }).waitFor();
+      await page.waitForTimeout(1800);
+      await screenshot(page, `region-${name.slice(0, 2)}`);
+      await page.keyboard.press('Enter');
+      await page.getByRole('heading', { name: gazeTitle, exact: true }).waitFor();
+      const directHref = await page.getByRole('link', { name: new RegExp(`Play ${gazeTitle}`) }).getAttribute('href');
+      assert.ok(directHref?.startsWith('/arcade/'));
+      assert.equal((await page.request.get(`${base}${directHref}`)).status(), 200);
+      await page.getByRole('button', { name: 'All games', exact: true }).click();
+      await page.getByRole('heading', { name: 'Arcade cavern.', exact: true }).waitFor();
+      const games = await page.locator('dialog a[href^="/arcade/"]').evaluateAll(links => links.map(a => a.getAttribute('href')));
+      assert.equal(games.length, 3);
+      for (const href of games) assert.equal((await page.request.get(`${base}${href}`)).status(), 200);
+      await page.keyboard.press('Escape');
+      assert.equal(await page.locator('dialog').evaluate(d => d.open), false);
+      results.push('Arcade cavern gaze-selects a carved game and links all three playable games');
+      results.push(`Landmark, discovery, and dismissal: ${name}`);
+      continue;
+    }
+
     await page.getByRole('button', { name: new RegExp(prompt) }).waitFor();
     await page.waitForTimeout(1800); // Allow the semantic camera transition to settle for visual review.
     await screenshot(page, `region-${name.slice(0, 2)}`);
@@ -58,12 +86,6 @@ try {
       const hrefs = await page.locator('dialog a[href^="/projects/"]').evaluateAll(links => links.map(link => link.getAttribute('href')));
       assert.equal(hrefs.length, 3);
       for (const href of hrefs) assert.equal((await page.request.get(`${base}${href}`)).status(), 200, href);
-    }
-    if (name.startsWith('07')) {
-      const games = await page.locator('dialog a[href^="/arcade/"]').evaluateAll(links => links.map(a => a.getAttribute('href')));
-      assert.equal(games.length, 3);
-      for (const href of games) assert.equal((await page.request.get(`${base}${href}`)).status(), 200);
-      results.push('Arcade cavern links to all three playable games');
     }
     if (name.startsWith('04')) for (const memory of ['Higher ground', 'The last light', 'Along the coast']) {
       await page.getByRole('button', { name: new RegExp(memory) }).click();
