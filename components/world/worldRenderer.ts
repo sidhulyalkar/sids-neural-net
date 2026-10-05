@@ -630,6 +630,21 @@ export function createWorld(
   const arms = [-1, 1].map((side) =>
     mesh(cylinder, jacket, [side * 0.38, 1.03, 0], [0.12, 0.6, 0.12], explorer),
   );
+  // Lightweight snorkel kit appears only in water so swimming reads immediately.
+  const snorkel = new THREE.Group();
+  explorer.add(snorkel);
+  const maskGlass = mat("#b7e5eb", { transparent: true, opacity: 0.72, roughness: 0.2 });
+  const snorkelRubber = mat("#20373c");
+  mesh(boxGeo, maskGlass, [0, 1.7, 0.24], [0.42, 0.18, 0.05], snorkel);
+  const snorkelTube = mesh(cylinder, snorkelRubber, [0.31, 1.8, 0.16], [0.035, 0.5, 0.035], snorkel);
+  snorkelTube.rotation.z = -0.08;
+  const snorkelTop = mesh(cylinder, snorkelRubber, [0.31, 2.04, 0.12], [0.035, 0.18, 0.035], snorkel);
+  snorkelTop.rotation.x = Math.PI / 2;
+  for (const side of [-1, 1]) {
+    const fin = mesh(boxGeo, dark, [side * 0.17, -0.01, 0.35], [0.18, 0.07, 0.62], snorkel);
+    fin.rotation.x = -0.12;
+  }
+  snorkel.visible = false;
   // A side canyon and waterfall make the expanded loop readable from a distance.
   const canyonStone: Instance[] = [], canyonMoss: Instance[] = [], fernFronds: Instance[] = [];
   for (const side of [-1, 1]) for (let i = 0; i < 8; i++) {
@@ -1469,6 +1484,7 @@ export function createWorld(
       bike.visible = !swimming && mode === "bike";
       skis.visible = !swimming && mode === "ski";
       chalk.visible = !swimming && mode === "boulder";
+      snorkel.visible = swimming;
       const running = !swimming && (mode === "run" || mode === "boulder");
       const headingYaw = travel.speed > 0.05
         ? Math.atan2(travel.heading.x, travel.heading.z)
