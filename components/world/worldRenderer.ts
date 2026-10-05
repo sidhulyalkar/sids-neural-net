@@ -13,6 +13,7 @@ import {
   maxDiveDepth,
   nearestRegion,
   nearbyDiscovery,
+  regionLanding,
   REGIONS,
   SECRET,
   SPAWN,
@@ -1772,7 +1773,7 @@ export function createWorld(
         const r = REGIONS.find((r) => r.id === next.command!.region)!;
         player =
           (next.command.activity && activityLanding(next.command.activity)) ||
-          { x: r.point.x, z: r.point.z + 3 };
+          regionLanding(r.id);
         clearInput();
         travel = { point: player, speed: 0, heading: { x: 0, z: -1 } };
         airHeight = verticalSpeed = swimDepth = targetDepth = 0;
