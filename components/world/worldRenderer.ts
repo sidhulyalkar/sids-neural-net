@@ -1309,40 +1309,190 @@ export function createWorld(
           dz = 0;
         }
       }
+      const previousPoint = { ...player };
+      const previousY = playerY;
       if (climb) {
         climb.progress = Math.min(1, climb.progress + dt * 1.25);
         const t = climb.progress * climb.progress * (3 - 2 * climb.progress);
-        player = { x: climb.from.x + (climb.to.x - climb.from.x) * t, z: climb.from.z + (climb.to.z - climb.from.z) * t };
+        player = {
+          x: climb.from.x + (climb.to.x - climb.from.x) * t,
+          z: climb.from.z + (climb.to.z - climb.from.z) * t,
+        };
         playerY = climb.fromY + (climb.toY - climb.fromY) * t + Math.sin(t * Math.PI) * 0.7;
         explorer.rotation.y = Math.atan2(climb.to.x - climb.from.x, climb.to.z - climb.from.z);
         if (climb.progress === 1) climb = null;
         travel = { ...travel, point: player, speed: 0 };
+      } else if (grind) {
+        const dxLog = grind.log.b.x - grind.log.a.x;
+        const dzLog = grind.log.b.z - grind.log.a.z;
+        const logLength = Math.hypot(dxLog, dzLog);
+        const grindSpeed = Math.max(4.2, travel.speed);
+        grind.t += grind.direction * grindSpeed * dt / logLength;
+        const finished = grind.t <= 0 || grind.t >= 1;
+        grind.t = THREE.MathUtils.clamp(grind.t, 0, 1);
+        player = {
+          x: grind.log.a.x + dxLog * grind.t,
+          z: grind.log.a.z + dzLog * grind.t,
+        };
+        const headingSign = grind.direction;
+        travel = {
+          point: player,
+          speed: grindSpeed * 0.995,
+          heading: { x: (dxLog / logLength) * headingSign, z: (dzLog / logLength) * headingSign },
+        };
+        const railGround =
+          terrainHeight(grind.log.a.x, grind.log.a.z) * (1 - grind.t) +
+          terrainHeight(grind.log.b.x, grind.log.b.z) * grind.t;
+        playerY = railGround + grind.log.lift + 0.16;
+        if (finished) {
+          grind = null;
+          airHeight = 0.08;
+          verticalSpeed = 2.5;
+        }
+      } else if (aquatic !== "land") {
+        const nextTravel = stepSwim(
+          { ...travel, point: player },
+          { x: dx, z: dz },
+          dt,
+          destination,
+        );
+        if (!isWater(nextTravel.point)) {
+          if (aquatic === "surface") {
+            travel = nextTravel;
+            player = nextTravel.point;
+            swimDepth = targetDepth = 0;
+            setAquaticMode("land");
+            playerY = groundHeight(player);
+          } else {
+            travel = { ...travel, point: player, speed: 0 };
+            targetDepth = 0;
+          }
+        } else {
+          travel = nextTravel;
+          player = travel.point;
+          const availableDepth = maxDiveDepth(player);
+          targetDepth = THREE.MathUtils.clamp(targetDepth, 0, availableDepth);
+          if (aquatic === "dive") {
+            const depthStep = 2.1 * dt;
+            swimDepth += THREE.MathUtils.clamp(targetDepth - swimDepth, -depthStep, depthStep);
+            if (targetDepth <= 0.05 && swimDepth <= 0.12) {
+              swimDepth = 0;
+              setAquaticMode("surface");
+            }
+          } else {
+            swimDepth = targetDepth = 0;
+          }
+          playerY = SEA_SURFACE - (aquatic === "dive" ? Math.max(0.52, swimDepth) : 0.42);
+        }
       } else {
-        travel = stepTravel({ ...travel, point: player }, { x: dx, z: dz }, dt, state.activity, obstacles, keys.has("shift"), destination, airHeight);
-        if (destination && (distance(travel.point, destination) < 0.3 || (travel.speed === 0 && distance(player, destination) > 0.3))) destination = null;
+        travel = stepTravel(
+          { ...travel, point: player },
+          { x: dx, z: dz },
+          dt,
+          state.activity,
+          obstacles,
+          keys.has("shift"),
+          destination,
+          airHeight,
+        );
+        if (
+          destination &&
+          (distance(travel.point, destination) < 0.3 ||
+            (travel.speed === 0 && distance(player, destination) > 0.3))
+        ) destination = null;
         player = travel.point;
-        if (travel.speed > 0.05) explorer.rotation.y = Math.atan2(travel.heading.x, travel.heading.z);
-        verticalSpeed -= dt * 14;
-        airHeight = Math.max(0, airHeight + verticalSpeed * dt);
-        if (airHeight === 0) verticalSpeed = 0;
-        playerY = groundHeight(player) + airHeight;
+
+        if (isWater(player)) {
+          const steppedIn = !isWater(previousPoint) && airHeight < 0.12;
+          if (steppedIn) {
+            setAquaticMode("surface");
+            swimDepth = targetDepth = 0;
+            airHeight = verticalSpeed = 0;
+            playerY = SEA_SURFACE - 0.42;
+          } else {
+            verticalSpeed -= dt * 12;
+            playerY = previousY + verticalSpeed * dt;
+            airHeight = Math.max(0, playerY - SEA_SURFACE);
+            if (playerY <= SEA_SURFACE - 0.05) {
+              setAquaticMode("surface");
+              swimDepth = targetDepth = 0;
+              airHeight = verticalSpeed = 0;
+              playerY = SEA_SURFACE - 0.42;
+            }
+          }
+        } else {
+          verticalSpeed -= dt * 14;
+          airHeight = Math.max(0, airHeight + verticalSpeed * dt);
+          if (airHeight === 0) verticalSpeed = 0;
+          playerY = groundHeight(player) + airHeight;
+          const modeForRamp = effectiveActivity(state.activity, player);
+          if (airHeight === 0 && elapsed - lastRampAt > 1.1) {
+            const ramp = rampImpulseAt(player, travel.heading, modeForRamp, travel.speed);
+            if (ramp && ramp.id !== lastRampId) {
+              lastRampAt = elapsed;
+              lastRampId = ramp.id;
+              verticalSpeed = ramp.impulse;
+              airHeight = 0.03;
+            } else if (!ramp) {
+              lastRampId = "";
+            }
+          }
+        }
       }
+
       const mode = effectiveActivity(state.activity, player);
-      const walking = travel.speed > 0.05 ? Math.sin(elapsed * (mode === "run" ? 14 : 10)) : 0;
-      board.visible = mode === "skate";
-      bike.visible = mode === "bike";
-      skis.visible = mode === "ski";
-      chalk.visible = mode === "boulder";
-      const running = mode === "run" || mode === "boulder";
-      legs[0].rotation.x = running ? walking * 0.6 : mode === "bike" ? 0.5 + walking * 0.3 : 0.2;
-      legs[1].rotation.x = running ? -walking * 0.6 : mode === "bike" ? 0.5 - walking * 0.3 : 0.2;
-      arms[0].rotation.x = climb ? -2 : running ? -walking * 0.4 : -0.75;
-      arms[1].rotation.x = climb ? -1.6 : running ? walking * 0.4 : -0.75;
-      const incline = terrainHeight(player.x + travel.heading.x, player.z + travel.heading.z) - terrainHeight(player.x, player.z);
-      explorer.rotation.x = running ? 0 : -Math.atan(incline);
-      explorer.rotation.z = mode === "skate" ? Math.sin(elapsed * 2) * Math.min(travel.speed * 0.006, 0.06) : 0;
-      bikeWheels.forEach(wheel => wheel.rotation.z += travel.speed * dt / 0.43);
-      explorer.position.set(player.x, playerY + (mode === "skate" ? 0.18 : mode === "bike" ? 0.18 : 0) + (running ? Math.abs(walking) * 0.045 : 0), player.z);
+      const swimming = aquatic !== "land";
+      const walking = travel.speed > 0.05
+        ? Math.sin(elapsed * (swimming ? 9 : mode === "run" ? 14 : 10))
+        : 0;
+      board.visible = !swimming && mode === "skate";
+      bike.visible = !swimming && mode === "bike";
+      skis.visible = !swimming && mode === "ski";
+      chalk.visible = !swimming && mode === "boulder";
+      const running = !swimming && (mode === "run" || mode === "boulder");
+      const headingYaw = travel.speed > 0.05
+        ? Math.atan2(travel.heading.x, travel.heading.z)
+        : explorer.rotation.y;
+
+      if (swimming) {
+        legs[0].rotation.x = walking * 0.55;
+        legs[1].rotation.x = -walking * 0.55;
+        arms[0].rotation.x = -1.25 + walking * 0.42;
+        arms[1].rotation.x = -1.25 - walking * 0.42;
+        explorer.rotation.set(aquatic === "dive" ? -1.0 : -0.72, headingYaw, Math.sin(elapsed * 1.2) * 0.05);
+        explorer.position.set(player.x, playerY, player.z);
+      } else {
+        legs[0].rotation.x = running ? walking * 0.6 : mode === "bike" ? 0.5 + walking * 0.3 : 0.2;
+        legs[1].rotation.x = running ? -walking * 0.6 : mode === "bike" ? 0.5 - walking * 0.3 : 0.2;
+        arms[0].rotation.x = climb ? -2 : running ? -walking * 0.4 : -0.75;
+        arms[1].rotation.x = climb ? -1.6 : running ? walking * 0.4 : -0.75;
+        const footprint = mode === "bike"
+          ? { length: 1.05, width: 0.55 }
+          : mode === "skate"
+            ? { length: 1.1, width: 0.42 }
+            : mode === "ski"
+              ? { length: 1.35, width: 0.46 }
+              : { length: 0.25, width: 0.2 };
+        const contact = terrainContact(player, travel.heading, footprint.length, footprint.width);
+        const gearMode = mode === "bike" || mode === "skate" || mode === "ski";
+        const supportLift =
+          gearMode && airHeight <= 0.001 && !climb && !grind
+            ? Math.max(0, contact.support - terrainHeight(player.x, player.z))
+            : 0;
+        const pitchAngle = running || climb ? 0 : contact.pitch;
+        const rollAngle =
+          (gearMode ? contact.roll : 0) +
+          (mode === "skate" ? Math.sin(elapsed * 2) * Math.min(travel.speed * 0.006, 0.06) : 0);
+        explorer.rotation.set(pitchAngle, headingYaw, rollAngle);
+        bikeWheels.forEach(wheel => wheel.rotation.z += travel.speed * dt / 0.43);
+        explorer.position.set(
+          player.x,
+          playerY + supportLift +
+            (mode === "skate" ? 0.18 : mode === "bike" ? 0.2 : mode === "ski" ? 0.08 : 0) +
+            (running ? Math.abs(walking) * 0.045 : 0),
+          player.z,
+        );
+      }
       canvas.dataset.activity = mode;
       canvas.dataset.speed = travel.speed.toFixed(2);
       canvas.dataset.height = playerY.toFixed(2);
