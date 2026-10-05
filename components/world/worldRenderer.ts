@@ -709,9 +709,10 @@ export function createWorld(
     R: ["110","101","110","101","101"], S: ["111","100","111","001","111"],
     T: ["111","010","010","010","010"], U: ["101","101","101","101","111"],
   };
-  const carvingPoints: Instance[] = [];
   const carvingTitles = (gameTitles.length ? gameTitles : ["Stretchicorn", "uniRico", "Unicorn Stampede"]).slice(0, 3);
+  const carvingMaterial = mat("#c6b58a", { emissive: "#55472e", emissiveIntensity: 0.14 });
   carvingTitles.forEach((title, row) => {
+    const carvingPoints: Instance[] = [];
     const text = title.toUpperCase();
     const scale = Math.min(0.14, 6.8 / Math.max(4, text.length * 4));
     const width = text.length * 4 * scale;
@@ -726,21 +727,16 @@ export function createWorld(
           x: startX + index * 4 * scale + px * scale,
           y: baseline - py * scale,
           z: arcade.z - 4.94,
-          sx: scale * 0.74,
-          sy: scale * 0.74,
-          sz: 0.045,
+          sx: scale * 0.78,
+          sy: scale * 0.78,
+          sz: 0.05,
         });
       }));
     });
+    const carvingMesh = instances(boxGeo, carvingMaterial, carvingPoints, false);
+    carvingMesh.userData.discovery = `game:${row}`;
+    markerObjects.push(carvingMesh);
   });
-  const carvingMesh = instances(
-    boxGeo,
-    mat("#b8a77f", { emissive: "#55472e", emissiveIntensity: 0.12 }),
-    carvingPoints,
-    false,
-  );
-  carvingMesh.userData.discovery = "cavern";
-  markerObjects.push(carvingMesh);
   // Three abstract glyphs flank the names: horn, branching neuron, and mountain.
   const caveRunes = [
     segment(new THREE.Vector3(arcade.x - 3.25, arcadeY + 1.5, arcade.z - 4.92), new THREE.Vector3(arcade.x - 2.7, arcadeY + 2.2, arcade.z - 4.92), 0.06),
@@ -1170,12 +1166,18 @@ export function createWorld(
     ray.setFromCamera(pointer, camera);
     const marker = ray.intersectObjects(markerObjects)[0];
     if (marker && marker.distance < 55) {
-      const point = markerData.find(
-        (m) => m.id === marker.object.userData.discovery,
-      )!;
-      if (distance(player, point.point) < 7) callbacks.onInteract(point.id);
-      else destination = { ...point.point };
-      return;
+      const discoveryId = marker.object.userData.discovery as string | undefined;
+      if (discoveryId?.startsWith("game:")) {
+        if (distance(player, arcade) < 8) callbacks.onInteract(discoveryId);
+        else destination = { ...arcade };
+        return;
+      }
+      const point = markerData.find((m) => m.id === discoveryId);
+      if (point) {
+        if (distance(player, point.point) < 7) callbacks.onInteract(point.id);
+        else destination = { ...point.point };
+        return;
+      }
     }
     const hit = ray.intersectObjects([ground, ...climbRocks])[0];
     if (hit)
