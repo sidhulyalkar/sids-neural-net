@@ -1834,6 +1834,17 @@ export function createWorld(
       canvas.dataset.aquatic = aquatic;
       canvas.dataset.depth = swimDepth.toFixed(2);
       canvas.dataset.maxDepth = maxDiveDepth(player).toFixed(2);
+      const grindCandidate =
+        aquatic === "land" &&
+        mode === "skate" &&
+        !grind &&
+        airHeight < 0.1 &&
+        travel.speed > 2.2
+          ? nearestGrind(player)
+          : undefined;
+      canvas.dataset.grindReady = String(!!grindCandidate);
+      canvas.dataset.grindId = grind?.log.id ?? "";
+      canvas.dataset.rampId = lastRampId;
       canvas.dataset.grinding = String(!!grind);
       canvas.dataset.surfacePitch = explorer.rotation.x.toFixed(3);
       canvas.dataset.surfaceRoll = explorer.rotation.z.toFixed(3);
