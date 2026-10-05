@@ -1992,62 +1992,70 @@ export function createWorld(
     // Skip all aquatic animation work while the reef group is hidden on land.
     if (reefRoot.visible) {
       reefSwimmers.forEach((swimmer, i) => {
-      const a = elapsed * swimmer.speed + swimmer.phase;
-      swimmer.object.position.set(
-        -51 + Math.cos(a) * swimmer.radius * 0.72,
-        swimmer.baseY + Math.sin(a * 1.8 + i) * 0.55,
-        10 + Math.sin(a) * swimmer.radius * 0.58,
-      );
-      swimmer.object.rotation.y = -a + Math.PI / 2;
-    });
-    sharks.forEach((shark, i) => {
-      const a = elapsed * (0.1 + i * 0.018) + i * 2.2;
-      const centerX = i === 0 ? -49 : -57;
-      const radiusX = i === 0 ? 8.5 : 11.5;
-      const radiusZ = i === 0 ? 11 : 17;
-      shark.position.set(centerX + Math.cos(a) * radiusX, -4.2 - i * 1.1, 10 + Math.sin(a) * radiusZ);
-      shark.rotation.y = -a + Math.PI / 2;
-      shark.rotation.z = Math.sin(a * 2) * 0.04;
-    });
-    rays.forEach((rayGroup, i) => {
-      const a = elapsed * (0.08 + i * 0.012) + i * 1.7;
-      const centerX = i === 0 ? -47 : -55;
-      const radiusX = i === 0 ? 6 : 9;
-      const radiusZ = i === 0 ? 8 : 12;
-      rayGroup.position.set(centerX + Math.cos(a) * radiusX, -5.1 - i * 0.6 + Math.sin(a * 2) * 0.35, 11 + Math.sin(a) * radiusZ);
-      rayGroup.rotation.y = -a + Math.PI / 2;
-      rayGroup.rotation.z = Math.sin(elapsed * 1.7 + i) * 0.09;
-    });
-    octopuses.forEach((o, i) => {
-      o.rotation.y = Math.sin(elapsed * 0.42 + i) * 0.28;
-      o.position.y += Math.sin(elapsed * 0.9 + i) * 0.0008;
-    });
-    eels.forEach((eel, i) => {
-      eel.rotation.y = Math.sin(elapsed * 1.25 + i * 1.8) * 0.28;
-      eel.rotation.x = Math.sin(elapsed * 0.8 + i) * 0.05;
-    });
-    jellies.forEach((jelly, i) => {
-      const a = i * 1.9;
-      jelly.position.set(
-        -45 - (i % 3) * 4 + Math.sin(elapsed * 0.19 + a) * 2,
-        -3.2 - (i % 2) * 2 + Math.sin(elapsed * 0.65 + a) * 0.75,
-        5 + i * 6,
-      );
-      jelly.scale.y = 0.92 + Math.sin(elapsed * 1.8 + i) * 0.08;
-    });
+        const a = elapsed * swimmer.speed + swimmer.phase;
+        swimmer.object.position.set(
+          -51 + Math.cos(a) * swimmer.radius * 0.72,
+          swimmer.baseY + Math.sin(a * 1.8 + i) * 0.55,
+          10 + Math.sin(a) * swimmer.radius * 0.58,
+        );
+        swimmer.object.rotation.y = -a + Math.PI / 2;
+      });
+      sharks.forEach((shark, i) => {
+        const a = elapsed * (0.1 + i * 0.018) + i * 2.2;
+        const centerX = i === 0 ? -49 : -57;
+        const radiusX = i === 0 ? 8.5 : 11.5;
+        const radiusZ = i === 0 ? 11 : 17;
+        shark.position.set(
+          centerX + Math.cos(a) * radiusX,
+          -4.2 - i * 1.1,
+          10 + Math.sin(a) * radiusZ,
+        );
+        shark.rotation.y = -a + Math.PI / 2;
+        shark.rotation.z = Math.sin(a * 2) * 0.04;
+      });
+      rays.forEach((rayGroup, i) => {
+        const a = elapsed * (0.08 + i * 0.012) + i * 1.7;
+        const centerX = i === 0 ? -47 : -55;
+        const radiusX = i === 0 ? 6 : 9;
+        const radiusZ = i === 0 ? 8 : 12;
+        rayGroup.position.set(
+          centerX + Math.cos(a) * radiusX,
+          -5.1 - i * 0.6 + Math.sin(a * 2) * 0.35,
+          11 + Math.sin(a) * radiusZ,
+        );
+        rayGroup.rotation.y = -a + Math.PI / 2;
+        rayGroup.rotation.z = Math.sin(elapsed * 1.7 + i) * 0.09;
+      });
+      octopuses.forEach((o, i) => {
+        o.rotation.y = Math.sin(elapsed * 0.42 + i) * 0.28;
+        o.position.y += Math.sin(elapsed * 0.9 + i) * 0.0008;
+      });
+      eels.forEach((eel, i) => {
+        eel.rotation.y = Math.sin(elapsed * 1.25 + i * 1.8) * 0.28;
+        eel.rotation.x = Math.sin(elapsed * 0.8 + i) * 0.05;
+      });
+      jellies.forEach((jelly, i) => {
+        const a = i * 1.9;
+        jelly.position.set(
+          -45 - (i % 3) * 4 + Math.sin(elapsed * 0.19 + a) * 2,
+          -3.2 - (i % 2) * 2 + Math.sin(elapsed * 0.65 + a) * 0.75,
+          5 + i * 6,
+        );
+        jelly.scale.y = 0.92 + Math.sin(elapsed * 1.8 + i) * 0.08;
+      });
 
-    reefMotes.rotation.y = Math.sin(elapsed * 0.08) * 0.018;
-    reefMotes.position.y = Math.sin(elapsed * 0.22) * 0.05;
-    const bubbleAttribute = bubbleGeo.attributes.position;
-    for (let i = 0; i < bubbleAttribute.count; i++) {
-      const rise = (elapsed * 0.72 + bubblePhase[i]) % 2.8;
-      bubbleAttribute.setXYZ(
-        i,
-        player.x + bubbleOffset[i].x,
-        playerY + 1.15 + rise,
-        player.z + bubbleOffset[i].z,
-      );
-    }
+      reefMotes.rotation.y = Math.sin(elapsed * 0.08) * 0.018;
+      reefMotes.position.y = Math.sin(elapsed * 0.22) * 0.05;
+      const bubbleAttribute = bubbleGeo.attributes.position;
+      for (let i = 0; i < bubbleAttribute.count; i++) {
+        const rise = (elapsed * 0.72 + bubblePhase[i]) % 2.8;
+        bubbleAttribute.setXYZ(
+          i,
+          player.x + bubbleOffset[i].x,
+          playerY + 1.15 + rise,
+          player.z + bubbleOffset[i].z,
+        );
+      }
       bubbleAttribute.needsUpdate = true;
     }
     bubbles.visible = reefRoot.visible;
