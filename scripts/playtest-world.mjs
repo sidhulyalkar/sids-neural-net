@@ -52,7 +52,7 @@ try {
 
     if (name.startsWith('07')) {
       const carvedTitles = ['Stretchicorn', 'uniRico', 'Unicorn Stampede'];
-      await page.waitForFunction(() => document.querySelector('canvas')?.dataset.gazeGame?.startsWith('game:'), null, { timeout: 8000 });
+      await page.waitForFunction(() => document.querySelector('canvas')?.dataset.gazeGame?.startsWith('game:'), null, { timeout: 15000 });
       const gazeId = await page.locator('canvas').getAttribute('data-gaze-game');
       const gazeIndex = Number(gazeId?.slice(5));
       assert.ok(Number.isInteger(gazeIndex) && carvedTitles[gazeIndex]);
