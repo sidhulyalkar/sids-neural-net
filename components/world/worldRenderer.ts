@@ -906,14 +906,14 @@ export function createWorld(
     return group;
   }
   const reefSwimmers: { object: THREE.Group; radius: number; speed: number; phase: number; baseY: number }[] = [];
-  for (let i = 0; i < 22; i++) {
+  for (let i = 0; i < 6; i++) {
     const fish = makeFish(i % 5 === 0 ? "#d07c3b" : i % 3 === 0 ? "#c6b05c" : "#7ca5a0", 0.34 + random() * 0.22);
     const radius = 5 + random() * 17, phase = random() * Math.PI * 2;
     reefSwimmers.push({ object: fish, radius, speed: 0.16 + random() * 0.16, phase, baseY: -3.2 - random() * 4.2 });
   }
   // Leopard-shark silhouettes: long body, dorsal fin and forked tail.
   const sharks: THREE.Group[] = [];
-  for (let i = 0; i < 3; i++) {
+  for (let i = 0; i < 2; i++) {
     const shark = new THREE.Group();
     const sharkMat = mat("#7f8f86");
     mesh(rockGeo, sharkMat, [0, 0, 0], [0.46, 0.32, 1.9], shark);
@@ -931,7 +931,7 @@ export function createWorld(
   // Rays use four-sided discs and a long tapered tail.
   const rayGeo = geo(new THREE.CircleGeometry(1, 4));
   const rays: THREE.Group[] = [];
-  for (let i = 0; i < 4; i++) {
+  for (let i = 0; i < 2; i++) {
     const rayGroup = new THREE.Group();
     const rayBody = mesh(rayGeo, mat("#687d78", { side: THREE.DoubleSide }), [0, 0, 0], [1.2, 0.65, 1], rayGroup);
     rayBody.rotation.x = Math.PI / 2;
@@ -944,7 +944,7 @@ export function createWorld(
 
   // Octopuses, eels and jellies sit close to the rocky shelf.
   const octopuses: THREE.Group[] = [];
-  for (let i = 0; i < 2; i++) {
+  for (let i = 0; i < 1; i++) {
     const o = new THREE.Group();
     const octMat = mat(i ? "#9b5b4f" : "#b66c58");
     mesh(rockGeo, octMat, [0, 0.35, 0], [0.42, 0.5, 0.4], o);
@@ -959,7 +959,7 @@ export function createWorld(
     scene.add(o); octopuses.push(o);
   }
   const eels: THREE.Group[] = [];
-  for (let i = 0; i < 3; i++) {
+  for (let i = 0; i < 1; i++) {
     const eel = new THREE.Group();
     const eelMat = mat("#5b6c4c");
     for (let segIndex = 0; segIndex < 5; segIndex++)
@@ -970,7 +970,7 @@ export function createWorld(
   }
   const jellyGeo = geo(new THREE.SphereGeometry(1, 8, 5, 0, Math.PI * 2, 0, Math.PI / 2));
   const jellies: THREE.Group[] = [];
-  for (let i = 0; i < 6; i++) {
+  for (let i = 0; i < 3; i++) {
     const jelly = new THREE.Group();
     const jellyMat = mat("#a7cad1", { transparent: true, opacity: 0.62, emissive: "#79aebd", emissiveIntensity: 0.12 });
     mesh(jellyGeo, jellyMat, [0, 0, 0], [0.42, 0.28, 0.42], jelly);
