@@ -44,6 +44,7 @@ export const RIDE_RAMPS = [
 ] as const;
 
 export type AquaticMode = "land" | "surface" | "dive";
+export type GrindStyle = "fifty-fifty" | "boardslide";
 export const SWIM_SPEED = 4.6;
 
 export function groundHeight(p: Point) {
@@ -186,6 +187,22 @@ export function nearestGrind(point: Point, maxDistance = 1.45) {
       best = { log, t, point: closest, distance: d };
   }
   return best;
+}
+
+export function grindStyleForApproach(
+  heading: Point,
+  log: typeof FALLEN_LOGS[number],
+): GrindStyle {
+  const headingLength = Math.max(1e-6, Math.hypot(heading.x, heading.z));
+  const logX = log.b.x - log.a.x;
+  const logZ = log.b.z - log.a.z;
+  const logLength = Math.max(1e-6, Math.hypot(logX, logZ));
+  const alignment = Math.abs(
+    (heading.x * logX + heading.z * logZ) / (headingLength * logLength),
+  );
+  // Within 45° of the log stays longitudinal; a more crosswise landing becomes
+  // a boardslide/side-slide. This is shared by skateboard and skis.
+  return alignment >= Math.SQRT1_2 ? "fifty-fifty" : "boardslide";
 }
 
 export function rampImpulseAt(
