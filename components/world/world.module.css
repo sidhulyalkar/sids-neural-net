@@ -641,6 +641,30 @@
 .activityDock p { font-size: 11px; color: #eee5d4; padding: 6px 8px 2px; }
 .waterDock {
   position: absolute;
+  right: 28px;
+  top: 204px;
+  display: flex;
+  gap: 6px;
+  padding: 7px;
+  border: 1px solid #bdeaf066;
+  border-radius: 14px;
+  background: #0d4d5bd9;
+  backdrop-filter: blur(10px);
+}
+.waterDock button {
+  min-height: 42px;
+  padding: 8px 13px;
+  border-radius: 9px;
+  font-size: 12px;
+}
+.waterDock button:hover,
+.waterDock button:focus-visible { background: #d9f2ef1f; }
+.waterDock .surfaceButton {
+  background: #e9f4e8;
+  color: #123f48;
+}
+.waterDock {
+  position: absolute;
   top: 190px;
   right: 28px;
   display: flex;
@@ -694,6 +718,8 @@
   .activityButtons { gap: 2px; }
   .activityButtons button { flex: 1; padding: 8px 5px; font-size: 12px; }
   .activityDock p { font-size: 10px; }
+  .waterDock { top: 190px; left: 16px; right: auto; }
+  .waterDock button { min-height: 40px; padding: 7px 10px; }
   .actions { flex-direction: row; flex-wrap: wrap; gap: 12px; }
   .primary, .exploreButton { padding: 14px 18px; font-size: 14px; gap: 14px; }
   .welcome { bottom: 20%; }
