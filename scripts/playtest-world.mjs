@@ -37,12 +37,12 @@ try {
   results.push('Keyboard walking changes player position');
   for (const [name, prompt, title] of [
     ['01 Redwood grove A little about me', 'A little about me', 'Hi, I’m Sid.'],
-    ['02 Granite overlook Things I build', 'Things I build', 'Things I build.'],
+    ['02 Granite ridge Things I build', 'Things I build', 'Things I build.'],
     ['03 Strange grove Things I explore', 'Things I explore', 'Things I explore.'],
     ['04 Wild coast Life outside the screen', 'Life outside the screen', 'Outside the screen.'],
-    ['05 Fern falls Follow the water', 'Follow the water', 'Follow the water.'],
-    ['06 Moss canyon A quieter trail', 'A quieter trail', 'Take the long way.'],
-    ['07 Arcade cavern Play my games', 'Play my games', 'One more round.'],
+    ['05 Fern falls Follow the water', 'Follow the water', 'Fern falls.'],
+    ['06 Moss canyon A quieter trail', 'A quieter trail', 'Moss canyon.'],
+    ['07 Arcade cavern Play my games', 'Play my games', 'Arcade cavern.'],
   ]) {
     await page.getByRole('button', { name: 'Open navigation menu' }).click();
     await page.getByRole('button', { name, exact: true }).click();
@@ -91,9 +91,33 @@ try {
     }
   }
   results.push('Five activity modes equip correctly; their actions work');
+
+  // Qualify the full land -> surface snorkel -> dive -> surface -> shore loop.
+  await page.getByRole('button', { name: 'Trail running', exact: true }).click();
+  await page.getByRole('button', { name: 'Open navigation menu' }).click();
+  await page.getByRole('button', { name: '04 Wild coast Life outside the screen', exact: true }).click();
+  await page.waitForFunction(() => document.querySelector('canvas')?.dataset.aquatic === 'land');
+  await page.keyboard.down('w'); await page.waitForTimeout(2200); await page.keyboard.up('w');
+  await page.waitForFunction(() => document.querySelector('canvas')?.dataset.aquatic === 'surface', null, { timeout: 5000 });
+  await page.getByText('Snorkeling', { exact: true }).waitFor();
+  await screenshot(page, 'activity-snorkel');
+  await page.getByRole('button', { name: 'Dive', exact: true }).click();
+  await page.waitForFunction(() => document.querySelector('canvas')?.dataset.aquatic === 'dive');
+  await page.waitForFunction(() => Number(document.querySelector('canvas')?.dataset.depth) > 0.45);
+  const initialDepth = Number(await page.locator('canvas').getAttribute('data-depth'));
+  await page.getByRole('button', { name: 'Deeper', exact: true }).click();
+  await page.waitForFunction(depth => Number(document.querySelector('canvas')?.dataset.depth) > depth + 0.2, initialDepth);
+  await screenshot(page, 'activity-dive');
+  await page.getByRole('button', { name: 'Surface', exact: true }).click();
+  await page.waitForFunction(() => document.querySelector('canvas')?.dataset.aquatic === 'surface');
+  await page.keyboard.down('s'); await page.waitForTimeout(2500); await page.keyboard.up('s');
+  await page.waitForFunction(() => document.querySelector('canvas')?.dataset.aquatic === 'land', null, { timeout: 5000 });
+  results.push('Land, snorkeling, dive depth, surfacing, and shore return all transition cleanly');
+
   await page.getByRole('button', { name: 'Open navigation menu' }).click();
   await page.getByRole('button', { name: 'Field notes', exact: true }).click();
   assert.equal(await page.locator('dialog a[href^="https://www.nps.gov"]').count(), 4);
+  assert.equal(await page.locator('dialog a[href^="https://www.montereybayaquarium.org"]').count(), 6);
   await page.keyboard.press('Escape');
   await page.getByRole('button', { name: 'Open navigation menu' }).click();
   for (let i = 0; i < 24; i++) { await page.keyboard.press('Tab'); assert.equal(await page.evaluate(() => !!document.activeElement.closest('dialog')), true); }
