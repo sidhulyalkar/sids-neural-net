@@ -982,10 +982,10 @@ export function createWorld(
   function makeFish(kind: "anchovy" | "rockfish", color: string, size: number) {
     const group = new THREE.Group();
     const bodyMat = mat(color);
-    const bodyScale =
+    const bodyScale: number[] =
       kind === "anchovy"
-        ? [size * 0.2, size * 0.13, size * 1.2] as const
-        : [size * 0.42, size * 0.3, size * 0.88] as const;
+        ? [size * 0.2, size * 0.13, size * 1.2]
+        : [size * 0.42, size * 0.3, size * 0.88];
     mesh(rockGeo, bodyMat, [0, 0, 0], bodyScale, group);
     const tailFin = mesh(
       cone,
