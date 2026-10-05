@@ -113,6 +113,7 @@ try {
   await screenshot(page, 'activity-snorkel');
   await page.getByRole('button', { name: 'Dive', exact: true }).click();
   await page.waitForFunction(() => document.querySelector('canvas')?.dataset.aquatic === 'dive');
+  await page.waitForFunction(() => document.querySelector('canvas')?.dataset.cameraWater === 'true');
   await page.waitForFunction(() => Number(document.querySelector('canvas')?.dataset.depth) > 0.45);
   const initialDepth = Number(await page.locator('canvas').getAttribute('data-depth'));
   await page.getByRole('button', { name: 'Deeper', exact: true }).click();
