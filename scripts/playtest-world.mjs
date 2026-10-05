@@ -35,9 +35,32 @@ try {
   await screenshot(page, 'desktop-welcome');
   await page.getByRole('button', { name: 'Explore world', exact: true }).click();
   const before = await page.locator('canvas').getAttribute('data-player');
-  await page.keyboard.down('w'); await page.waitForTimeout(1200); await page.keyboard.up('w');
+  const dogSamples = [];
+  await page.keyboard.down('w');
+  try {
+    for (let i = 0; i < 10; i++) {
+      await page.waitForTimeout(140);
+      dogSamples.push(await page.locator('canvas').evaluate(c => ({
+        yaw: Number(c.dataset.dogYaw),
+        y: Number(c.dataset.dogY),
+        blend: Number(c.dataset.dogMoveBlend),
+        phase: Number(c.dataset.dogGaitPhase),
+      })));
+    }
+  } finally {
+    await page.keyboard.up('w');
+  }
   await page.waitForFunction(old => document.querySelector('canvas')?.dataset.player !== old, before);
+  const angularDelta = (a, b) => Math.abs(Math.atan2(Math.sin(a - b), Math.cos(a - b)));
+  const yawSteps = dogSamples.slice(1).map((sample, i) => angularDelta(sample.yaw, dogSamples[i].yaw));
+  const ySteps = dogSamples.slice(1).map((sample, i) => Math.abs(sample.y - dogSamples[i].y));
+  assert.ok(Math.max(...yawSteps) < 0.7, `Shasta yaw step ${Math.max(...yawSteps)}`);
+  assert.ok(Math.max(...ySteps) < 0.45, `Shasta height step ${Math.max(...ySteps)}`);
+  assert.ok(Math.max(...dogSamples.map(sample => sample.blend)) > 0.15);
+  for (let i = 1; i < dogSamples.length; i++)
+    assert.ok(dogSamples[i].phase >= dogSamples[i - 1].phase);
   results.push('Keyboard walking changes player position');
+  results.push('Shasta follow gait stays height/yaw-continuous and distance-phased');
   for (const [name, prompt, title] of [
     ['01 Redwood grove A little about me', 'A little about me', 'Hi, I’m Sid.'],
     ['02 Granite ridge Things I build', 'Things I build', 'Things I build.'],
@@ -244,6 +267,7 @@ try {
     await page.keyboard.up('w');
   }
   results.push('Jumping from shore transitions cleanly into snorkeling');
+  await page.waitForFunction(() => Number(document.querySelector('canvas')?.dataset.surfacePitch) > 1.42);
   assert.equal(await page.locator('canvas').getAttribute('data-reef'), 'true');
   await page.getByText('Snorkeling', { exact: true }).waitFor();
   await screenshot(page, 'activity-snorkel');
@@ -251,7 +275,7 @@ try {
   await page.waitForFunction(() => document.querySelector('canvas')?.dataset.aquatic === 'dive');
   await page.waitForFunction(() => document.querySelector('canvas')?.dataset.cameraWater === 'true');
   await page.waitForFunction(() => Number(document.querySelector('canvas')?.dataset.cameraDistance) >= 6);
-  await page.waitForFunction(() => Number(document.querySelector('canvas')?.dataset.surfacePitch) > 1.2);
+  await page.waitForFunction(() => Number(document.querySelector('canvas')?.dataset.surfacePitch) > 1.25);
   await page.waitForFunction(() => Number(document.querySelector('canvas')?.dataset.depth) > 0.45);
   const initialDepth = Number(await page.locator('canvas').getAttribute('data-depth'));
   const initialMaxDepth = Number(await page.locator('canvas').getAttribute('data-max-depth'));
