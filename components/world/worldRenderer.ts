@@ -2016,7 +2016,18 @@ export function createWorld(
         playerY = groundHeight(player);
         dog = { x: player.x + 2, z: player.z - 2 };
         destination = null;
-        yaw = r.id === "coast" ? 1.15 : r.id === "neural" ? -0.6 : 0.25;
+        yaw =
+          r.id === "cavern"
+            ? 0
+            : r.id === "coast"
+              ? 1.15
+              : r.id === "neural"
+                ? -0.6
+                : 0.25;
+        if (r.id === "cavern") {
+          pitch = 0.22;
+          zoom = Math.min(zoom, 16);
+        }
         // Menu-driven semantic travel closes a dialog whose focus-restoration
         // target is the menu trigger. Exploration should immediately regain
         // keyboard authority after the jump.
