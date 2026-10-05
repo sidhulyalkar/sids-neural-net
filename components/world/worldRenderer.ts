@@ -1536,6 +1536,7 @@ export function createWorld(
       canvas.dataset.airborne = String(airHeight > 0 || !!climb || !!grind);
       canvas.dataset.aquatic = aquatic;
       canvas.dataset.depth = swimDepth.toFixed(2);
+      canvas.dataset.maxDepth = maxDiveDepth(player).toFixed(2);
       canvas.dataset.grinding = String(!!grind);
       canvas.dataset.cameraWater = String(
         aquatic !== "dive" || isWater({ x: targetCamera.x, z: targetCamera.z }),
