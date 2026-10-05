@@ -1245,7 +1245,8 @@ export function createWorld(
   );
   dogContact.castShadow = false;
   const ray = new THREE.Raycaster(),
-    pointer = new THREE.Vector2();
+    pointer = new THREE.Vector2(),
+    gazePointer = new THREE.Vector2(0, 0);
   let drag: {
     x: number;
     y: number;
@@ -1697,7 +1698,17 @@ export function createWorld(
           : 0
       ).toFixed(3);
       const r: RegionId = isWater(player) ? "coast" : nearestRegion(player);
-      discovery = aquatic === "land" ? nearbyDiscovery(player) : null;
+      let gazeGame: string | null = null;
+      if (aquatic === "land" && r === "cavern" && distance(player, arcade) < 10) {
+        ray.setFromCamera(gazePointer, camera);
+        const gazeHit = ray
+          .intersectObjects(markerObjects, false)
+          .find(hit => String(hit.object.userData.discovery ?? "").startsWith("game:"));
+        if (gazeHit && gazeHit.distance < 24)
+          gazeGame = String(gazeHit.object.userData.discovery);
+      }
+      canvas.dataset.gazeGame = gazeGame ?? "";
+      discovery = aquatic === "land" ? (gazeGame ?? nearbyDiscovery(player)) : null;
       const nextKey = `${r}:${discovery}`;
       if (nextKey !== locationKey) {
         locationKey = nextKey;
