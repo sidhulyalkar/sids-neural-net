@@ -1703,7 +1703,15 @@ export function createWorld(
       ).toFixed(3);
       const r: RegionId = isWater(player) ? "coast" : nearestRegion(player);
       let rawGazeGame: string | null = null;
-      if (aquatic === "land" && r === "cavern" && distance(player, arcade) < 10) {
+      const cavernCameraSettled =
+        camera.position.distanceTo(targetCamera) < 1.35 &&
+        look.distanceTo(targetLook) < 0.65;
+      if (
+        aquatic === "land" &&
+        r === "cavern" &&
+        distance(player, arcade) < 10 &&
+        cavernCameraSettled
+      ) {
         ray.setFromCamera(gazePointer, camera);
         const gazeHit = ray
           .intersectObjects(markerObjects, false)
