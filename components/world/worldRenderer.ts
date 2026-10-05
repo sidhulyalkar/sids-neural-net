@@ -787,7 +787,9 @@ export function createWorld(
     skiMat = mat("#38586f");
 
   // Skateboard: concave deck silhouette, trucks and four distinct wheels.
-  mesh(boxGeo, boardDeck, [0, 0.12, 0], [0.58, 0.1, 1.9], board);
+  mesh(boxGeo, boardEdge, [0, 0.08, 0], [0.6, 0.08, 1.94], board);
+  mesh(boxGeo, boardDeck, [0, 0.15, 0], [0.56, 0.035, 1.86], board);
+  mesh(boxGeo, mat("#171d1f"), [0, 0.172, 0], [0.5, 0.012, 1.72], board);
   for (const end of [-1, 1]) {
     const kick = mesh(boxGeo, boardEdge, [0, 0.2, end * 1.04], [0.52, 0.08, 0.34], board);
     kick.rotation.x = -end * 0.28;
@@ -830,6 +832,29 @@ export function createWorld(
   mesh(boxGeo, rubber, [0, 1.45, -0.42], [0.34, 0.09, 0.42], bike);
   mesh(boxGeo, metal, [0, 1.34, 0.62], [0.86, 0.055, 0.075], bike);
   mesh(cylinder, metal, [0, 0.55, -0.08], [0.04, 0.46, 0.04], bike).rotation.z = Math.PI / 2;
+  // Rear suspension, linkage and drivetrain give the silhouette a modern trail-bike read.
+  const shock = segment(
+    new THREE.Vector3(0, 1.16, -0.28),
+    new THREE.Vector3(0, 0.72, 0.04),
+    0.045,
+  );
+  const shockMesh = mesh(cylinder, forkGold, [shock.x, shock.y, shock.z], [shock.sx, shock.sy, shock.sz], bike);
+  shockMesh.quaternion.copy(shock.q!);
+  const chainStay = segment(
+    new THREE.Vector3(0, 0.55, -0.08),
+    new THREE.Vector3(0, 0.5, -0.96),
+    0.035,
+  );
+  const chainStayMesh = mesh(cylinder, charcoal, [chainStay.x, chainStay.y, chainStay.z], [chainStay.sx, chainStay.sy, chainStay.sz], bike);
+  chainStayMesh.quaternion.copy(chainStay.q!);
+  const chainring = mesh(geo(new THREE.TorusGeometry(0.18, 0.025, 5, 14)), metal, [0, 0.56, -0.08], [1, 1, 1], bike);
+  chainring.rotation.y = Math.PI / 2;
+  for (const side of [-1, 1])
+    mesh(boxGeo, rubber, [side * 0.28, 0.55, -0.08], [0.28, 0.035, 0.12], bike);
+  for (const end of [-1, 1]) {
+    const rotor = mesh(geo(new THREE.TorusGeometry(0.23, 0.018, 4, 14)), metal, [0, 0.5, end * 0.96], [1, 1, 1], bike);
+    rotor.rotation.y = Math.PI / 2;
+  }
 
   // Skis read as separate planks with upturned tips and poles.
   for (const side of [-1, 1]) {
@@ -1590,6 +1615,13 @@ export function createWorld(
       canvas.dataset.depth = swimDepth.toFixed(2);
       canvas.dataset.maxDepth = maxDiveDepth(player).toFixed(2);
       canvas.dataset.grinding = String(!!grind);
+      canvas.dataset.surfacePitch = explorer.rotation.x.toFixed(3);
+      canvas.dataset.surfaceRoll = explorer.rotation.z.toFixed(3);
+      canvas.dataset.gearClearance = (
+        aquatic === "land"
+          ? explorer.position.y - groundHeight(player)
+          : 0
+      ).toFixed(3);
       const r: RegionId = isWater(player) ? "coast" : nearestRegion(player);
       discovery = aquatic === "land" ? nearbyDiscovery(player) : null;
       const nextKey = `${r}:${discovery}`;
