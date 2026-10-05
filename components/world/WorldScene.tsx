@@ -5,16 +5,20 @@ import { createWorld, type WorldRuntime } from "./worldRenderer";
 import type { RegionId, WorldCommand } from "@/lib/world/model";
 import styles from "./world.module.css";
 
-import type { Activity } from "@/lib/world/activities";
+import type { Activity, AquaticMode } from "@/lib/world/activities";
 
 type Props = {
   activity: Activity;
   actionSerial: number;
+  waterAction: "dive" | "deeper" | "shallower" | "surface";
+  waterActionSerial: number;
+  gameTitles: string[];
   entered: boolean;
   paused: boolean;
   command: WorldCommand | null;
   onReady: () => void;
   onError: () => void;
+  onAquatic: (mode: AquaticMode) => void;
   onLocation: (region: RegionId, discovery: string | null) => void;
   onInteract: (discovery: string) => void;
 };
@@ -35,9 +39,10 @@ export default function WorldScene(props: Props) {
         runtime.current = createWorld(host.current, {
           onReady: () => callbacks.current.onReady(),
           onError: () => callbacks.current.onError(),
+          onAquatic: (mode) => callbacks.current.onAquatic(mode),
           onLocation: (r, d) => callbacks.current.onLocation(r, d),
           onInteract: (d) => callbacks.current.onInteract(d),
-        }, WebGLRenderer);
+        }, WebGLRenderer, callbacks.current.gameTitles);
         runtime.current.setState(callbacks.current);
       } catch { callbacks.current.onError(); }
     }).catch(() => { if (!cancelled) callbacks.current.onError(); });
