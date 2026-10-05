@@ -1,4 +1,4 @@
-import { activityLanding, BOULDER_HOLDS, effectiveActivity, FALLEN_LOGS, groundHeight, nearestGrind, nextHold, onSnow, rampImpulseAt, RIDE_RAMPS, stepSwim, stepTravel, terrainContact, type Activity, type AquaticMode, type Travel } from "@/lib/world/activities";
+import { activityLanding, BOULDER_HOLDS, effectiveActivity, FALLEN_LOGS, grindStyleForApproach, groundHeight, nearestGrind, nextHold, onSnow, rampImpulseAt, RIDE_RAMPS, stepSwim, stepTravel, terrainContact, type Activity, type AquaticMode, type GrindStyle, type Travel } from "@/lib/world/activities";
 import { SHASTA_COAT } from "@/lib/world/ecology";
 import { FrameSampler, QualityController } from "@/lib/world/performance";
 import * as THREE from "three/src/Three.Core.js";
@@ -692,26 +692,29 @@ export function createWorld(
   markerHitMesh.userData.discoveryByInstance = markerIds;
   markerObjects.push(markerHitMesh);
   instances(rockGeo, mat("#8d9185"), cairnPieces, false);
-  // Explorer silhouette: ochre jacket, little backpack, dark cap. No skeletal payload.
+  // Explorer root carries world/terrain orientation. bodyRoot carries the human pose
+  // independently so swimming and bike seating do not rotate/offset the equipment.
   const explorer = new THREE.Group();
+  const bodyRoot = new THREE.Group();
+  explorer.add(bodyRoot);
   scene.add(explorer);
   const jacket = mat("#d09a4f"),
     dark = mat("#233f48"),
     skin = mat("#b58668"),
     pack = mat("#48685e");
-  mesh(cylinder, jacket, [0, 1.1, 0], [0.34, 0.69, 0.28], explorer);
-  mesh(rockGeo, skin, [0, 1.69, 0], [0.27, 0.31, 0.26], explorer);
-  mesh(cylinder, dark, [0, 1.93, 0], [0.29, 0.13, 0.28], explorer);
-  mesh(boxGeo, pack, [0, 1.16, -0.27], [0.48, 0.54, 0.25], explorer);
+  mesh(cylinder, jacket, [0, 1.1, 0], [0.34, 0.69, 0.28], bodyRoot);
+  mesh(rockGeo, skin, [0, 1.69, 0], [0.27, 0.31, 0.26], bodyRoot);
+  mesh(cylinder, dark, [0, 1.93, 0], [0.29, 0.13, 0.28], bodyRoot);
+  mesh(boxGeo, pack, [0, 1.16, -0.27], [0.48, 0.54, 0.25], bodyRoot);
   const legs = [-1, 1].map((side) =>
-    mesh(boxGeo, dark, [side * 0.16, 0.39, 0], [0.19, 0.72, 0.23], explorer),
+    mesh(boxGeo, dark, [side * 0.16, 0.39, 0], [0.19, 0.72, 0.23], bodyRoot),
   );
   const arms = [-1, 1].map((side) =>
-    mesh(cylinder, jacket, [side * 0.38, 1.03, 0], [0.12, 0.6, 0.12], explorer),
+    mesh(cylinder, jacket, [side * 0.38, 1.03, 0], [0.12, 0.6, 0.12], bodyRoot),
   );
   // Lightweight snorkel kit appears only in water so swimming reads immediately.
   const snorkel = new THREE.Group();
-  explorer.add(snorkel);
+  bodyRoot.add(snorkel);
   const maskGlass = mat("#b7e5eb", { transparent: true, opacity: 0.72, roughness: 0.2 });
   const snorkelRubber = mat("#20373c");
   mesh(boxGeo, maskGlass, [0, 1.7, 0.24], [0.42, 0.18, 0.05], snorkel);
@@ -853,6 +856,8 @@ export function createWorld(
   // Sport equipment stays lightweight but uses recognizable proportions and materials.
   const board = new THREE.Group(), bike = new THREE.Group(), skis = new THREE.Group();
   explorer.add(board, bike, skis);
+  const bikeSeatLocal = { y: 1.45, z: -0.42 };
+  const riderHipLocal = { y: 0.73, z: 0 };
   const rubber = mat("#20282b"),
     metal = mat("#b7c3c5"),
     charcoal = mat("#303638"),
@@ -938,7 +943,7 @@ export function createWorld(
     tip.rotation.x = -0.42;
     mesh(cylinder, metal, [side * 0.61, 0.6, 0], [0.024, 1.15, 0.024], skis);
   }
-  const chalk = mesh(rockGeo, mat("#c4836d"), [0, 0.83, -0.35], [0.2, 0.2, 0.14], explorer);
+  const chalk = mesh(rockGeo, mat("#c4836d"), [0, 0.83, -0.35], [0.2, 0.2, 0.14], bodyRoot);
   board.visible = bike.visible = skis.visible = chalk.visible = false;
   // Shasta uses a husky silhouette: deep chest, tapered muzzle, upright ears and curled plume tail.
   // His many coat-colored subparts are instanced so a recognizable companion does not
