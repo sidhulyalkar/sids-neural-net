@@ -2246,11 +2246,13 @@ export function createWorld(
         yaw =
           r.id === "cavern"
             ? 0
-            : r.id === "coast"
-              ? 1.15
-              : r.id === "neural"
-                ? -0.6
-                : 0.25;
+            : r.id === "mountain"
+              ? -0.24
+              : r.id === "coast"
+                ? 1.15
+                : r.id === "neural"
+                  ? -0.6
+                  : 0.25;
         if (r.id === "cavern") {
           pitch = 0.22;
           zoom = Math.min(zoom, 16);
