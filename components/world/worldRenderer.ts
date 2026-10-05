@@ -478,15 +478,51 @@ export function createWorld(
   instances(cylinder, mat("#744530"), fallenLogVisuals);
 
   // Timber kickers use the same positions/headings as the launch mechanic.
-  const rampObjects: THREE.Mesh[] = [];
+  // Individual planks plus two stringers read as a built feature instead of a
+  // floating brown slab, while remaining only two instanced draw calls.
+  const rampPlanks: Instance[] = [], rampStringers: Instance[] = [];
   for (const ramp of RIDE_RAMPS) {
-    const y = terrainHeight(ramp.point.x, ramp.point.z);
-    const rampMesh = mesh(boxGeo, mat("#765033"), [ramp.point.x, y + 0.28, ramp.point.z], [2.6, 0.38, 4.2]);
-    rampMesh.rotation.order = "YXZ";
-    rampMesh.rotation.y = Math.atan2(ramp.heading.x, ramp.heading.z);
-    rampMesh.rotation.x = -0.18;
-    rampObjects.push(rampMesh);
+    const headingLength = Math.hypot(ramp.heading.x, ramp.heading.z);
+    const forward = {
+      x: ramp.heading.x / headingLength,
+      z: ramp.heading.z / headingLength,
+    };
+    const right = { x: forward.z, z: -forward.x };
+    const yaw = Math.atan2(forward.x, forward.z);
+    const pitch = -0.2;
+    const plankQ = new THREE.Quaternion().setFromEuler(
+      new THREE.Euler(pitch, yaw, 0, "YXZ"),
+    );
+    const baseY = terrainHeight(ramp.point.x, ramp.point.z);
+    for (let plank = 0; plank < 8; plank++) {
+      const t = plank / 7;
+      const along = -1.75 + t * 3.5;
+      rampPlanks.push({
+        x: ramp.point.x + forward.x * along,
+        y: baseY + 0.12 + t * 0.72,
+        z: ramp.point.z + forward.z * along,
+        sx: 2.55,
+        sy: 0.11,
+        sz: 0.48,
+        q: plankQ,
+      });
+    }
+    for (const side of [-1, 1]) {
+      const start = new THREE.Vector3(
+        ramp.point.x - forward.x * 1.9 + right.x * side * 0.92,
+        baseY + 0.08,
+        ramp.point.z - forward.z * 1.9 + right.z * side * 0.92,
+      );
+      const end = new THREE.Vector3(
+        ramp.point.x + forward.x * 1.9 + right.x * side * 0.92,
+        baseY + 0.86,
+        ramp.point.z + forward.z * 1.9 + right.z * side * 0.92,
+      );
+      rampStringers.push(segment(start, end, 0.08));
+    }
   }
+  instances(boxGeo, mat("#815536"), rampPlanks);
+  instances(cylinder, mat("#5e3b28"), rampStringers);
   // Small grasses share one geometry and one draw call.
   const grasses: Instance[] = [];
   for (let i = 0; i < 750; i++) {
