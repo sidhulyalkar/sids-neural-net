@@ -185,7 +185,13 @@ export function WorldHome({ content }: { content: WorldContent }) {
       region: id,
       serial: (previous?.serial ?? 0) + 1,
     }));
+    // A world jump is not a dialog dismissal: do not return focus to the
+    // menu trigger. The renderer/canvas becomes the next interaction target.
+    trigger.current = null;
     close();
+    requestAnimationFrame(() =>
+      worldRoot.current?.querySelector("canvas")?.focus({ preventScroll: true }),
+    );
   }
   const discoveryTitle =
     nearby === "secret"
