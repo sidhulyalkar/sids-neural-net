@@ -941,53 +941,112 @@ export function createWorld(
   const chalk = mesh(rockGeo, mat("#c4836d"), [0, 0.83, -0.35], [0.2, 0.2, 0.14], explorer);
   board.visible = bike.visible = skis.visible = chalk.visible = false;
   // Shasta uses a husky silhouette: deep chest, tapered muzzle, upright ears and curled plume tail.
+  // His many coat-colored subparts are instanced so a recognizable companion does not
+  // cost dozens of persistent draw calls while following the player.
   const shasta = new THREE.Group();
   scene.add(shasta);
-  const fur = mat(SHASTA_COAT.white),
-    saddle = mat(SHASTA_COAT.topcoat),
-    gold = mat(SHASTA_COAT.gold),
-    rust = mat(SHASTA_COAT.tailBase),
-    mask = mat(SHASTA_COAT.mask),
-    nose = mat(SHASTA_COAT.nose),
-    eye = mat(SHASTA_COAT.eye, { emissive: SHASTA_COAT.eye, emissiveIntensity: 0.08 });
-
-  // Torso volumes establish the characteristic athletic, double-coated husky proportions.
-  mesh(rockGeo, fur, [0, 0.78, -0.05], [0.4, 0.46, 0.74], shasta);
-  mesh(rockGeo, saddle, [0, 0.98, -0.08], [0.38, 0.23, 0.68], shasta);
-  mesh(rockGeo, gold, [0, 0.86, 0.42], [0.39, 0.42, 0.38], shasta);
-  mesh(rockGeo, rust, [0, 0.91, -0.63], [0.31, 0.27, 0.28], shasta);
-  // White chest/ruff projects forward instead of reading as a generic quadruped blob.
-  mesh(rockGeo, fur, [0, 1.08, 0.48], [0.43, 0.48, 0.4], shasta);
-  mesh(rockGeo, gold, [0, 1.28, 0.56], [0.34, 0.36, 0.32], shasta);
-  mesh(rockGeo, fur, [0, 1.43, 0.7], [0.32, 0.33, 0.3], shasta);
-  // Long wedge-like muzzle with a dark nose.
-  mesh(rockGeo, fur, [0, 1.36, 0.96], [0.27, 0.2, 0.36], shasta);
-  mesh(rockGeo, nose, [0, 1.34, 1.24], [0.11, 0.08, 0.08], shasta);
-  // Symmetric husky mask, blue-gray eyes and tall triangular ears.
+  const shastaRockMat = mat("#ffffff");
+  const shastaRockParts: Instance[] = [
+    { x: 0, y: 0.78, z: -0.05, sx: 0.4, sy: 0.46, sz: 0.74, color: SHASTA_COAT.white },
+    { x: 0, y: 0.98, z: -0.08, sx: 0.38, sy: 0.23, sz: 0.68, color: SHASTA_COAT.topcoat },
+    { x: 0, y: 0.86, z: 0.42, sx: 0.39, sy: 0.42, sz: 0.38, color: SHASTA_COAT.gold },
+    { x: 0, y: 0.91, z: -0.63, sx: 0.31, sy: 0.27, sz: 0.28, color: SHASTA_COAT.tailBase },
+    { x: 0, y: 1.08, z: 0.48, sx: 0.43, sy: 0.48, sz: 0.4, color: SHASTA_COAT.white },
+    { x: 0, y: 1.28, z: 0.56, sx: 0.34, sy: 0.36, sz: 0.32, color: SHASTA_COAT.gold },
+    { x: 0, y: 1.43, z: 0.7, sx: 0.32, sy: 0.33, sz: 0.3, color: SHASTA_COAT.white },
+    { x: 0, y: 1.36, z: 0.96, sx: 0.27, sy: 0.2, sz: 0.36, color: SHASTA_COAT.white },
+    { x: 0, y: 1.34, z: 1.24, sx: 0.11, sy: 0.08, sz: 0.08, color: SHASTA_COAT.nose },
+  ];
   for (const side of [-1, 1]) {
-    mesh(rockGeo, mask, [side * 0.19, 1.53, 0.83], [0.12, 0.16, 0.12], shasta);
-    mesh(rockGeo, eye, [side * 0.14, 1.52, 1.04], [0.04, 0.035, 0.028], shasta);
-    const ear = mesh(cone, gold, [side * 0.2, 1.82, 0.65], [0.18, 0.48, 0.2], shasta);
-    ear.rotation.z = -side * 0.08;
-    mesh(cone, mask, [side * 0.2, 1.81, 0.69], [0.09, 0.29, 0.1], shasta);
+    shastaRockParts.push(
+      { x: side * 0.19, y: 1.53, z: 0.83, sx: 0.12, sy: 0.16, sz: 0.12, color: SHASTA_COAT.mask },
+      { x: side * 0.14, y: 1.52, z: 1.04, sx: 0.04, sy: 0.035, sz: 0.028, color: SHASTA_COAT.eye },
+    );
   }
+  for (const x of [-1, 1]) for (const z of [-1, 1])
+    shastaRockParts.push({
+      x: x * 0.24,
+      y: 0.07,
+      z: z * 0.5 + 0.04,
+      sx: 0.13,
+      sy: 0.08,
+      sz: 0.18,
+      color: SHASTA_COAT.white,
+    });
+  instances(rockGeo, shastaRockMat, shastaRockParts, true, shasta);
 
-  // Four legs taper to bright white socks and broad paws.
-  const paws: THREE.Mesh[] = [];
+  const shastaEarParts: Instance[] = [];
+  for (const side of [-1, 1]) {
+    shastaEarParts.push(
+      {
+        x: side * 0.2,
+        y: 1.82,
+        z: 0.65,
+        sx: 0.18,
+        sy: 0.48,
+        sz: 0.2,
+        q: new THREE.Quaternion().setFromEuler(new THREE.Euler(0, 0, -side * 0.08)),
+        color: SHASTA_COAT.gold,
+      },
+      {
+        x: side * 0.2,
+        y: 1.81,
+        z: 0.69,
+        sx: 0.09,
+        sy: 0.29,
+        sz: 0.1,
+        color: SHASTA_COAT.mask,
+      },
+    );
+  }
+  instances(cone, mat("#ffffff"), shastaEarParts, true, shasta);
+
+  const shastaCylinderParts: Instance[] = [];
+  const lowerLegInstanceIndices: number[] = [];
   for (const x of [-1, 1]) for (const z of [-1, 1]) {
     const forward = z > 0;
-    mesh(cylinder, forward ? gold : saddle, [x * 0.24, 0.54, z * 0.42], [0.1, 0.38, 0.1], shasta);
-    const lower = mesh(cylinder, fur, [x * 0.24, 0.25, z * 0.46], [0.085, 0.36, 0.085], shasta);
-    mesh(rockGeo, fur, [x * 0.24, 0.07, z * 0.5 + 0.04], [0.13, 0.08, 0.18], shasta);
-    paws.push(lower);
+    shastaCylinderParts.push({
+      x: x * 0.24,
+      y: 0.54,
+      z: z * 0.42,
+      sx: 0.1,
+      sy: 0.38,
+      sz: 0.1,
+      color: forward ? SHASTA_COAT.gold : SHASTA_COAT.topcoat,
+    });
+    lowerLegInstanceIndices.push(shastaCylinderParts.length);
+    shastaCylinderParts.push({
+      x: x * 0.24,
+      y: 0.25,
+      z: z * 0.46,
+      sx: 0.085,
+      sy: 0.36,
+      sz: 0.085,
+      color: SHASTA_COAT.white,
+    });
   }
+  shastaCylinderParts.push({
+    x: 0,
+    y: 1.08,
+    z: -0.72,
+    sx: 0.11,
+    sy: 0.34,
+    sz: 0.11,
+    q: new THREE.Quaternion().setFromEuler(new THREE.Euler(-0.7, 0, 0)),
+    color: SHASTA_COAT.tailBase,
+  });
+  const shastaCylinderMesh = instances(
+    cylinder,
+    mat("#ffffff"),
+    shastaCylinderParts,
+    true,
+    shasta,
+  );
 
-  // A high, curled plume tail is one of the strongest instantly-readable husky cues.
-  const tailBase = mesh(cylinder, rust, [0, 1.08, -0.72], [0.11, 0.34, 0.11], shasta);
-  tailBase.rotation.x = -0.7;
+  // A high, curled plume tail remains independently animated.
   const tail = mesh(
     geo(new THREE.TorusGeometry(0.39, 0.13, 6, 14, Math.PI * 1.62)),
-    fur,
+    mat(SHASTA_COAT.white),
     [0, 1.32, -0.76],
     [1, 1, 1],
     shasta,
@@ -1950,11 +2009,19 @@ export function createWorld(
       explorer.position.z,
     );
     dogContact.position.set(dog.x, terrainHeight(dog.x, dog.z) + 0.04, dog.z);
-    paws.forEach(
-      (p, i) =>
-        (p.rotation.x =
-          dogDelta > 0.7 ? Math.sin(elapsed * 12 + i * Math.PI) * 0.35 : 0),
-    );
+    lowerLegInstanceIndices.forEach((instanceIndex, i) => {
+      const part = shastaCylinderParts[instanceIndex];
+      dummy.position.set(part.x, part.y, part.z);
+      dummy.scale.set(part.sx, part.sy, part.sz);
+      dummy.rotation.set(
+        dogDelta > 0.7 ? Math.sin(elapsed * 12 + i * Math.PI) * 0.35 : 0,
+        0,
+        0,
+      );
+      dummy.updateMatrix();
+      shastaCylinderMesh.setMatrixAt(instanceIndex, dummy.matrix);
+    });
+    shastaCylinderMesh.instanceMatrix.needsUpdate = true;
     tail.rotation.z = Math.sin(elapsed * 4) * 0.15;
     camera.position.lerp(targetCamera, 1 - Math.exp(-dt * 3.6));
     look.lerp(targetLook, 1 - Math.exp(-dt * 4));
