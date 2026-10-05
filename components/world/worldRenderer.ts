@@ -979,18 +979,43 @@ export function createWorld(
   const kelpBladeGeo = geo(new THREE.ConeGeometry(1, 1, 5, 1, true));
   instances(kelpBladeGeo, kelpBladeMat, kelpBlades, false, reefRoot);
 
-  function makeFish(color: string, size: number) {
+  function makeFish(kind: "anchovy" | "rockfish", color: string, size: number) {
     const group = new THREE.Group();
     const bodyMat = mat(color);
-    mesh(rockGeo, bodyMat, [0, 0, 0], [size * 0.38, size * 0.24, size], group);
-    const tailFin = mesh(cone, bodyMat, [0, 0, -size * 0.95], [size * 0.28, size * 0.42, size * 0.12], group);
+    const bodyScale =
+      kind === "anchovy"
+        ? [size * 0.2, size * 0.13, size * 1.2] as const
+        : [size * 0.42, size * 0.3, size * 0.88] as const;
+    mesh(rockGeo, bodyMat, [0, 0, 0], bodyScale, group);
+    const tailFin = mesh(
+      cone,
+      bodyMat,
+      [0, 0, -size * (kind === "anchovy" ? 1.08 : 0.86)],
+      [size * 0.25, size * 0.4, size * 0.11],
+      group,
+    );
     tailFin.rotation.x = Math.PI / 2;
+    if (kind === "rockfish") {
+      const dorsal = mesh(
+        cone,
+        bodyMat,
+        [0, size * 0.28, -size * 0.05],
+        [size * 0.12, size * 0.3, size * 0.14],
+        group,
+      );
+      dorsal.rotation.x = -0.2;
+    }
     reefRoot.add(group);
     return group;
   }
   const reefSwimmers: { object: THREE.Group; radius: number; speed: number; phase: number; baseY: number }[] = [];
   for (let i = 0; i < 6; i++) {
-    const fish = makeFish(i % 5 === 0 ? "#d07c3b" : i % 3 === 0 ? "#c6b05c" : "#7ca5a0", 0.34 + random() * 0.22);
+    const kind = i < 3 ? "anchovy" : "rockfish";
+    const color =
+      kind === "anchovy"
+        ? i % 2 ? "#b7cad0" : "#8fb7c4"
+        : i % 2 ? "#d07c3b" : "#c69b52";
+    const fish = makeFish(kind, color, kind === "anchovy" ? 0.3 + random() * 0.12 : 0.42 + random() * 0.16);
     const radius = 5 + random() * 17, phase = random() * Math.PI * 2;
     reefSwimmers.push({ object: fish, radius, speed: 0.16 + random() * 0.16, phase, baseY: -3.2 - random() * 4.2 });
   }
@@ -1061,13 +1086,31 @@ export function createWorld(
     reefRoot.add(jelly); jellies.push(jelly);
   }
 
-  // Purple urchins and two distinct cold-water coral-like formations.
-  const urchins: Instance[] = [];
+  // Purple urchins get a spherical core plus instanced radial spines so they
+  // read as urchins rather than decorative purple stones.
+  const urchins: Instance[] = [], urchinSpines: Instance[] = [];
   for (let i = 0; i < 28; i++) {
     const x = -72 + random() * 26, z = -21 + random() * 57;
-    urchins.push({ x, y: seaFloorHeight(x, z) + 0.15, z, sx: 0.18, sy: 0.18, sz: 0.18 });
+    const y = seaFloorHeight(x, z) + 0.15;
+    urchins.push({ x, y, z, sx: 0.18, sy: 0.18, sz: 0.18 });
+    for (let spike = 0; spike < 6; spike++) {
+      const angle = (spike / 6) * Math.PI * 2 + i * 0.4;
+      urchinSpines.push(
+        segment(
+          new THREE.Vector3(x, y + 0.03, z),
+          new THREE.Vector3(
+            x + Math.cos(angle) * 0.28,
+            y + (spike % 2 ? 0.22 : 0.1),
+            z + Math.sin(angle) * 0.28,
+          ),
+          0.018,
+        ),
+      );
+    }
   }
-  instances(rockGeo, mat("#72527e"), urchins, false, reefRoot);
+  const urchinMat = mat("#72527e");
+  instances(rockGeo, urchinMat, urchins, false, reefRoot);
+  instances(cylinder, urchinMat, urchinSpines, false, reefRoot);
 
   const seaFans: Instance[] = [], cupCorals: Instance[] = [];
   for (let i = 0; i < 16; i++) {
