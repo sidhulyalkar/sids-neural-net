@@ -952,30 +952,30 @@ export function createWorld(
   scene.add(shasta);
   const shastaRockMat = mat("#ffffff");
   const shastaRockParts: Instance[] = [
-    { x: 0, y: 0.78, z: -0.05, sx: 0.4, sy: 0.46, sz: 0.74, color: SHASTA_COAT.white },
-    { x: 0, y: 0.98, z: -0.08, sx: 0.38, sy: 0.23, sz: 0.68, color: SHASTA_COAT.topcoat },
-    { x: 0, y: 0.86, z: 0.42, sx: 0.39, sy: 0.42, sz: 0.38, color: SHASTA_COAT.gold },
-    { x: 0, y: 0.91, z: -0.63, sx: 0.31, sy: 0.27, sz: 0.28, color: SHASTA_COAT.tailBase },
-    { x: 0, y: 1.08, z: 0.48, sx: 0.43, sy: 0.48, sz: 0.4, color: SHASTA_COAT.white },
-    { x: 0, y: 1.28, z: 0.56, sx: 0.34, sy: 0.36, sz: 0.32, color: SHASTA_COAT.gold },
-    { x: 0, y: 1.43, z: 0.7, sx: 0.32, sy: 0.33, sz: 0.3, color: SHASTA_COAT.white },
-    { x: 0, y: 1.36, z: 0.96, sx: 0.27, sy: 0.2, sz: 0.36, color: SHASTA_COAT.white },
+    { x: 0, y: 0.78, z: -0.08, sx: 0.32, sy: 0.38, sz: 0.8, color: SHASTA_COAT.white },
+    { x: 0, y: 0.97, z: -0.1, sx: 0.31, sy: 0.18, sz: 0.74, color: SHASTA_COAT.topcoat },
+    { x: 0, y: 0.87, z: 0.43, sx: 0.31, sy: 0.34, sz: 0.34, color: SHASTA_COAT.gold },
+    { x: 0, y: 0.91, z: -0.68, sx: 0.27, sy: 0.23, sz: 0.28, color: SHASTA_COAT.tailBase },
+    { x: 0, y: 1.08, z: 0.49, sx: 0.34, sy: 0.4, sz: 0.34, color: SHASTA_COAT.white },
+    { x: 0, y: 1.28, z: 0.58, sx: 0.28, sy: 0.32, sz: 0.28, color: SHASTA_COAT.gold },
+    { x: 0, y: 1.43, z: 0.72, sx: 0.26, sy: 0.3, sz: 0.28, color: SHASTA_COAT.white },
+    { x: 0, y: 1.36, z: 0.99, sx: 0.22, sy: 0.16, sz: 0.34, color: SHASTA_COAT.white },
     { x: 0, y: 1.34, z: 1.24, sx: 0.11, sy: 0.08, sz: 0.08, color: SHASTA_COAT.nose },
   ];
   for (const side of [-1, 1]) {
     shastaRockParts.push(
-      { x: side * 0.19, y: 1.53, z: 0.83, sx: 0.12, sy: 0.16, sz: 0.12, color: SHASTA_COAT.mask },
+      { x: side * 0.16, y: 1.53, z: 0.84, sx: 0.1, sy: 0.14, sz: 0.1, color: SHASTA_COAT.mask },
       { x: side * 0.14, y: 1.52, z: 1.04, sx: 0.04, sy: 0.035, sz: 0.028, color: SHASTA_COAT.eye },
     );
   }
   for (const x of [-1, 1]) for (const z of [-1, 1])
     shastaRockParts.push({
-      x: x * 0.24,
-      y: 0.07,
-      z: z * 0.5 + 0.04,
-      sx: 0.13,
-      sy: 0.08,
-      sz: 0.18,
+      x: x * 0.2,
+      y: 0.06,
+      z: z * 0.52 + 0.04,
+      sx: 0.11,
+      sy: 0.065,
+      sz: 0.16,
       color: SHASTA_COAT.white,
     });
   instances(rockGeo, shastaRockMat, shastaRockParts, true, shasta);
@@ -984,22 +984,22 @@ export function createWorld(
   for (const side of [-1, 1]) {
     shastaEarParts.push(
       {
-        x: side * 0.2,
+        x: side * 0.18,
         y: 1.82,
-        z: 0.65,
-        sx: 0.18,
-        sy: 0.48,
-        sz: 0.2,
+        z: 0.68,
+        sx: 0.14,
+        sy: 0.44,
+        sz: 0.16,
         q: new THREE.Quaternion().setFromEuler(new THREE.Euler(0, 0, -side * 0.08)),
         color: SHASTA_COAT.gold,
       },
       {
-        x: side * 0.2,
+        x: side * 0.18,
         y: 1.81,
-        z: 0.69,
-        sx: 0.09,
-        sy: 0.29,
-        sz: 0.1,
+        z: 0.72,
+        sx: 0.065,
+        sy: 0.24,
+        sz: 0.075,
         color: SHASTA_COAT.mask,
       },
     );
@@ -1011,22 +1011,22 @@ export function createWorld(
   for (const x of [-1, 1]) for (const z of [-1, 1]) {
     const forward = z > 0;
     shastaCylinderParts.push({
-      x: x * 0.24,
+      x: x * 0.2,
       y: 0.54,
-      z: z * 0.42,
-      sx: 0.1,
-      sy: 0.38,
-      sz: 0.1,
+      z: z * 0.44,
+      sx: 0.085,
+      sy: 0.4,
+      sz: 0.085,
       color: forward ? SHASTA_COAT.gold : SHASTA_COAT.topcoat,
     });
     lowerLegInstanceIndices.push(shastaCylinderParts.length);
     shastaCylinderParts.push({
-      x: x * 0.24,
+      x: x * 0.2,
       y: 0.25,
-      z: z * 0.46,
-      sx: 0.085,
+      z: z * 0.48,
+      sx: 0.075,
       sy: 0.36,
-      sz: 0.085,
+      sz: 0.075,
       color: SHASTA_COAT.white,
     });
   }
@@ -1355,6 +1355,10 @@ export function createWorld(
   let playerY = groundHeight(player);
   explorer.rotation.order = "YXZ";
   let dog: Point = { x: 3, z: 12 };
+  let dogYaw = 0;
+  let dogGroundY = terrainHeight(dog.x, dog.z);
+  let dogGaitPhase = 0;
+  let dogMoveBlend = 0;
   let locationKey = "",
     discovery: string | null = null,
     gazeCandidate: string | null = null,
@@ -2003,21 +2007,35 @@ export function createWorld(
           : { x: player.x + 2.7, z: player.z - 2.7 }
       : { x: 4 + Math.sin(elapsed * 0.13) * 2, z: 12 };
     const dogDelta = distance(dog, dogTarget);
+    const dogBefore = { ...dog };
+    let desiredDogYaw = dogYaw;
     if (dogDelta > 0.7) {
       const speed = Math.min(dt * Math.max(6, travel.speed + 2), dogDelta);
-      const angle = Math.atan2(dogTarget.x - dog.x, dogTarget.z - dog.z);
+      desiredDogYaw = Math.atan2(dogTarget.x - dog.x, dogTarget.z - dog.z);
       const candidate = constrainMove(
         dog,
         {
-          x: dog.x + Math.sin(angle) * speed,
-          z: dog.z + Math.cos(angle) * speed,
+          x: dog.x + Math.sin(desiredDogYaw) * speed,
+          z: dog.z + Math.cos(desiredDogYaw) * speed,
         },
         obstacles,
       );
       if (!isWater(candidate)) dog = candidate;
-      shasta.rotation.y = angle;
     }
-    shasta.position.set(dog.x, terrainHeight(dog.x, dog.z), dog.z);
+    const yawDelta = Math.atan2(
+      Math.sin(desiredDogYaw - dogYaw),
+      Math.cos(desiredDogYaw - dogYaw),
+    );
+    dogYaw += yawDelta * (1 - Math.exp(-dt * 8));
+    shasta.rotation.y = dogYaw;
+    const dogStep = distance(dogBefore, dog);
+    dogGaitPhase += dogStep * 5.4;
+    const movingTarget = dogStep > 0.001 ? 1 : 0;
+    dogMoveBlend += (movingTarget - dogMoveBlend) * (1 - Math.exp(-dt * 7));
+    const targetDogY = terrainHeight(dog.x, dog.z);
+    dogGroundY += (targetDogY - dogGroundY) * (1 - Math.exp(-dt * 10));
+    const dogBob = Math.sin(dogGaitPhase * 2) * 0.022 * dogMoveBlend;
+    shasta.position.set(dog.x, dogGroundY + dogBob, dog.z);
     explorerContact.visible = aquatic === "land";
     explorerContact.position.set(
       explorer.position.x,
@@ -2025,12 +2043,13 @@ export function createWorld(
       explorer.position.z,
     );
     dogContact.position.set(dog.x, terrainHeight(dog.x, dog.z) + 0.04, dog.z);
+    const dogLegPhases = [0, Math.PI, Math.PI, 0];
     lowerLegInstanceIndices.forEach((instanceIndex, i) => {
       const part = shastaCylinderParts[instanceIndex];
       dummy.position.set(part.x, part.y, part.z);
       dummy.scale.set(part.sx, part.sy, part.sz);
       dummy.rotation.set(
-        dogDelta > 0.7 ? Math.sin(elapsed * 12 + i * Math.PI) * 0.35 : 0,
+        Math.sin(dogGaitPhase + dogLegPhases[i]) * 0.2 * dogMoveBlend,
         0,
         0,
       );
@@ -2038,7 +2057,8 @@ export function createWorld(
       shastaCylinderMesh.setMatrixAt(instanceIndex, dummy.matrix);
     });
     shastaCylinderMesh.instanceMatrix.needsUpdate = true;
-    tail.rotation.z = Math.sin(elapsed * 4) * 0.15;
+    tail.rotation.z =
+      0.2 + Math.sin(elapsed * 2.2) * 0.07 + Math.sin(dogGaitPhase) * 0.05 * dogMoveBlend;
     camera.position.lerp(targetCamera, 1 - Math.exp(-dt * 3.6));
     look.lerp(targetLook, 1 - Math.exp(-dt * 4));
     camera.lookAt(look);
@@ -2247,6 +2267,8 @@ export function createWorld(
         setAquaticMode("land");
         playerY = groundHeight(player);
         dog = { x: player.x + 2, z: player.z - 2 };
+        dogGroundY = terrainHeight(dog.x, dog.z);
+        dogMoveBlend = 0;
         destination = null;
         if (next.command.activity === "ski") {
           const kicker = RIDE_RAMPS.find((ramp) => ramp.id === "ski-kicker")!;
