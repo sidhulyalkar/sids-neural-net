@@ -639,6 +639,43 @@
 .activityButtons .actionButton { border: 1px solid #e6bf7e99; color: #ffe0a0; }
 .activityButtons button:disabled { opacity: 0.4; }
 .activityDock p { font-size: 11px; color: #eee5d4; padding: 6px 8px 2px; }
+.waterDock {
+  position: absolute;
+  top: 190px;
+  right: 28px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  max-width: calc(100% - 48px);
+  padding: 7px;
+  border: 1px solid #bfe9ec55;
+  border-radius: 14px;
+  background: #0d4b56e8;
+  box-shadow: 0 8px 28px #082a332e;
+  backdrop-filter: blur(10px);
+}
+.waterDock button {
+  min-height: 38px;
+  padding: 7px 11px;
+  border-radius: 8px;
+  border: 1px solid #c7eef044;
+  font-size: 12px;
+}
+.waterDock button:hover,
+.waterDock button:focus-visible {
+  background: #d8f5f1;
+  color: #103b43;
+}
+.waterDock .surfaceButton {
+  border-color: #f3d69f80;
+}
+.waterMode {
+  padding: 0 8px 0 4px;
+  font-size: 11px;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: #d8f5f1;
+}
 .welcome { max-width: 680px; bottom: 22%; }
 .welcome h1 { font-size: clamp(48px, 5.5vw, 80px); }
 .introduction { max-width: 410px; font-size: 16px; margin: 20px 0 26px; }
@@ -646,6 +683,14 @@
 .header > * { pointer-events: auto; }
 @media (max-width: 760px) {
   .activityDock { top: 96px; left: 16px; right: 16px; max-width: none; padding: 6px; }
+  .waterDock {
+    top: 174px;
+    left: 16px;
+    right: auto;
+    max-width: calc(100% - 32px);
+    flex-wrap: wrap;
+  }
+  .waterMode { width: 100%; padding: 0 5px 2px; }
   .activityButtons { gap: 2px; }
   .activityButtons button { flex: 1; padding: 8px 5px; font-size: 12px; }
   .activityDock p { font-size: 10px; }
@@ -656,6 +701,7 @@
 }
 @media (max-height: 650px) {
   .activityDock { top: 78px; }
+  .waterDock { top: 144px; }
   .activityDock p { display: none; }
   .welcome { top: 105px; bottom: 62px; }
   .welcome h1 { font-size: 40px; }
