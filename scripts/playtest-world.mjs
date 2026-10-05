@@ -145,7 +145,9 @@ try {
   await page.waitForFunction(() => document.querySelector('canvas')?.dataset.aquatic === 'surface');
   await page.keyboard.down('s');
   try {
-    await page.waitForFunction(() => document.querySelector('canvas')?.dataset.aquatic === 'land', null, { timeout: 8000 });
+    // SwiftShader can run this scene at ~4 FPS in CI. The transition itself is
+    // still mandatory; allow enough wall time for bounded low-FPS swim stepping.
+    await page.waitForFunction(() => document.querySelector('canvas')?.dataset.aquatic === 'land', null, { timeout: 15000 });
   } finally {
     await page.keyboard.up('s');
   }
