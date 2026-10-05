@@ -2356,6 +2356,14 @@ export function createWorld(
         airHeight = verticalSpeed = 0;
       }
       state = next;
+      if (next.entered && !wasEntered) {
+        // Welcome mode has its own ambient dog wandering. Gait continuity metrics
+        // judge entered-world following, so start that measurement at the moment
+        // exploration begins instead of carrying welcome-transition motion forward.
+        dogMaxYawStep = 0;
+        dogMaxYStep = 0;
+        lastDogRenderY = shasta.position.y;
+      }
       if (next.entered && !next.paused && (changedActivity || requestedAction || requestedWaterAction))
         canvas.focus({ preventScroll: true });
       if (next.actionSerial !== lastAction) {
