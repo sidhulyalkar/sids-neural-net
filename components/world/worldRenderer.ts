@@ -684,22 +684,38 @@ export function createWorld(
   const cave: Instance[] = [];
   for (let i = 0; i < 9; i++) {
     const a = i * Math.PI / 8;
-    cave.push({ x: arcade.x + Math.cos(a) * 4.2, y: arcadeY + Math.sin(a) * 5.8, z: arcade.z - 2.5, sx: 1.9, sy: 1.65, sz: 3.2, ry: i });
+    cave.push({
+      x: arcade.x + Math.cos(a) * 5.55,
+      y: arcadeY + Math.sin(a) * 6.15,
+      z: arcade.z - 3.0,
+      sx: 1.35,
+      sy: 1.25,
+      sz: 2.05,
+      ry: i * 0.74,
+    });
   }
   instances(rockGeo, mat("#354d58"), cave);
-  for (const side of [-1, 1]) obstacles.push({ x: arcade.x + side * 4.2, z: arcade.z - 2.5, radius: 1.7 });
+  for (const side of [-1, 1])
+    obstacles.push({ x: arcade.x + side * 5.35, z: arcade.z - 3.0, radius: 1.25 });
+
+  // A shallow stone floor and warm local light make the wall read as an interior,
+  // not a pile of dark exterior boulders.
+  mesh(boxGeo, mat("#26383e"), [arcade.x, arcadeY + 0.03, arcade.z - 4.8], [10.2, 0.12, 7.6]);
+  const caveLight = new THREE.PointLight("#ffd9a6", 17, 18, 2);
+  caveLight.position.set(arcade.x, arcadeY + 3.4, arcade.z - 4.3);
+  scene.add(caveLight);
 
   // The cavern wall is the game selector: broad recessed bands carry carved names.
-  mesh(boxGeo, mat("#2d424b"), [arcade.x, arcadeY + 3.05, arcade.z - 5.3], [9.2, 6.2, 0.65]);
+  mesh(boxGeo, mat("#314850"), [arcade.x, arcadeY + 3.15, arcade.z - 6.75], [10.1, 6.45, 0.72]);
   const carvingBands: Instance[] = Array.from({ length: 3 }, (_, row) => ({
     x: arcade.x,
-    y: arcadeY + 4.72 - row * 1.48,
-    z: arcade.z - 4.93,
-    sx: 7.5,
-    sy: 1.05,
-    sz: 0.055,
+    y: arcadeY + 4.82 - row * 1.5,
+    z: arcade.z - 6.37,
+    sx: 8.35,
+    sy: 1.08,
+    sz: 0.06,
   }));
-  instances(boxGeo, mat("#263b44"), carvingBands, false);
+  instances(boxGeo, mat("#24363d"), carvingBands, false);
   const glyphs: Record<string, string[]> = {
     A: ["010","101","111","101","101"], C: ["111","100","100","100","111"],
     D: ["110","101","101","101","110"], E: ["111","100","110","100","111"],
@@ -710,7 +726,7 @@ export function createWorld(
     T: ["111","010","010","010","010"], U: ["101","101","101","101","111"],
   };
   const carvingTitles = (gameTitles.length ? gameTitles : ["Stretchicorn", "uniRico", "Unicorn Stampede"]).slice(0, 3);
-  const carvingMaterial = mat("#c6b58a", { emissive: "#55472e", emissiveIntensity: 0.14 });
+  const carvingMaterial = mat("#dec995", { emissive: "#9b7741", emissiveIntensity: 0.62, roughness: 0.85 });
   carvingTitles.forEach((title, row) => {
     const carvingPoints: Instance[] = [];
     const text = title.toUpperCase();
@@ -726,7 +742,7 @@ export function createWorld(
         carvingPoints.push({
           x: startX + index * 4 * scale + px * scale,
           y: baseline - py * scale,
-          z: arcade.z - 4.94,
+          z: arcade.z - 6.34,
           sx: scale * 0.78,
           sy: scale * 0.78,
           sz: 0.05,
@@ -1538,9 +1554,6 @@ export function createWorld(
       canvas.dataset.depth = swimDepth.toFixed(2);
       canvas.dataset.maxDepth = maxDiveDepth(player).toFixed(2);
       canvas.dataset.grinding = String(!!grind);
-      canvas.dataset.cameraWater = String(
-        aquatic !== "dive" || isWater({ x: targetCamera.x, z: targetCamera.z }),
-      );
       const r: RegionId = isWater(player) ? "coast" : nearestRegion(player);
       discovery = aquatic === "land" ? nearbyDiscovery(player) : null;
       const nextKey = `${r}:${discovery}`;
@@ -1580,26 +1593,26 @@ export function createWorld(
           worldFloorHeight(targetCamera.x, targetCamera.z) + 3.5,
         );
       } else if (aquatic === "dive") {
-        // Keep the submerged camera on the water side of the procedural shoreline.
-        // Without this boom clamp a coast-facing camera can end up physically under
-        // the beach, exposing giant shoreline triangles as a fake "wall".
+        // Preserve a useful third-person boom underwater. If the requested orbit
+        // places the camera beneath the beach, mirror that horizontal boom offshore
+        // rather than collapsing it onto the diver.
         const cameraDx = targetCamera.x - player.x;
         const cameraDz = targetCamera.z - player.z;
-        let waterBoom = 1;
         if (!isWater({ x: targetCamera.x, z: targetCamera.z })) {
-          waterBoom = 0.18;
-          for (let t = 0.95; t >= 0.18; t -= 0.055) {
-            const candidate = {
-              x: player.x + cameraDx * t,
-              z: player.z + cameraDz * t,
-            };
-            if (isWater(candidate)) {
-              waterBoom = t;
-              break;
-            }
+          const mirrored = {
+            x: player.x - cameraDx,
+            z: player.z - cameraDz,
+          };
+          if (isWater(mirrored)) {
+            targetCamera.x = mirrored.x;
+            targetCamera.z = mirrored.z;
+          } else {
+            const horizontalBoom = Math.max(7.5, Math.hypot(cameraDx, cameraDz) * 0.88);
+            targetCamera.x = player.x - horizontalBoom;
+            targetCamera.z = player.z + THREE.MathUtils.clamp(cameraDz * 0.2, -3, 3);
           }
-          targetCamera.x = player.x + cameraDx * waterBoom;
-          targetCamera.z = player.z + cameraDz * waterBoom;
+          if (!isWater({ x: targetCamera.x, z: targetCamera.z }))
+            targetCamera.x = coastlineX(targetCamera.z) - 1.3;
         }
         const floor = seaFloorHeight(targetCamera.x, targetCamera.z);
         targetCamera.y = THREE.MathUtils.clamp(
@@ -1608,6 +1621,13 @@ export function createWorld(
           SEA_SURFACE - 0.28,
         );
       }
+      canvas.dataset.cameraWater = String(
+        aquatic !== "dive" || isWater({ x: targetCamera.x, z: targetCamera.z }),
+      );
+      canvas.dataset.cameraDistance = Math.hypot(
+        targetCamera.x - player.x,
+        targetCamera.z - player.z,
+      ).toFixed(2);
     } else {
       explorer.position.set(SPAWN.x, terrainHeight(SPAWN.x, SPAWN.z), SPAWN.z);
       explorer.rotation.y = -0.5;
