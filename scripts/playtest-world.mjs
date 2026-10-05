@@ -102,8 +102,12 @@ try {
   await page.getByRole('button', { name: '04 Wild coast Life outside the screen', exact: true }).click();
   await page.waitForFunction(() => document.querySelector('canvas')?.dataset.aquatic === 'land');
   await page.waitForFunction(() => document.activeElement?.tagName === 'CANVAS');
-  await page.keyboard.down('w'); await page.waitForTimeout(2200); await page.keyboard.up('w');
-  await page.waitForFunction(() => document.querySelector('canvas')?.dataset.aquatic === 'surface', null, { timeout: 5000 });
+  await page.keyboard.down('w');
+  try {
+    await page.waitForFunction(() => document.querySelector('canvas')?.dataset.aquatic === 'surface', null, { timeout: 6000 });
+  } finally {
+    await page.keyboard.up('w');
+  }
   assert.equal(await page.locator('canvas').getAttribute('data-reef'), 'true');
   await page.getByText('Snorkeling', { exact: true }).waitFor();
   await screenshot(page, 'activity-snorkel');
@@ -116,8 +120,12 @@ try {
   await screenshot(page, 'activity-dive');
   await page.getByRole('button', { name: 'Surface', exact: true }).click();
   await page.waitForFunction(() => document.querySelector('canvas')?.dataset.aquatic === 'surface');
-  await page.keyboard.down('s'); await page.waitForTimeout(2500); await page.keyboard.up('s');
-  await page.waitForFunction(() => document.querySelector('canvas')?.dataset.aquatic === 'land', null, { timeout: 5000 });
+  await page.keyboard.down('s');
+  try {
+    await page.waitForFunction(() => document.querySelector('canvas')?.dataset.aquatic === 'land', null, { timeout: 8000 });
+  } finally {
+    await page.keyboard.up('s');
+  }
   results.push('Land, snorkeling, dive depth, surfacing, and shore return all transition cleanly');
 
   await page.getByRole('button', { name: 'Open navigation menu' }).click();
