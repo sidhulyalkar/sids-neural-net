@@ -858,6 +858,7 @@ export function createWorld(
   explorer.add(board, bike, skis);
   const bikeSeatLocal = { y: 1.45, z: -0.42 };
   const riderHipLocal = { y: 0.73, z: 0 };
+  const bikeBodyLean = 0.16;
   const rubber = mat("#20282b"),
     metal = mat("#b7c3c5"),
     charcoal = mat("#303638"),
@@ -1843,10 +1844,16 @@ export function createWorld(
         const bikePose = mode === "bike";
         bodyRoot.position.set(
           0,
-          bikePose ? bikeSeatLocal.y - riderHipLocal.y : 0,
-          bikePose ? bikeSeatLocal.z - riderHipLocal.z : 0,
+          bikePose
+            ? bikeSeatLocal.y - riderHipLocal.y * Math.cos(bikeBodyLean)
+            : 0,
+          bikePose
+            ? bikeSeatLocal.z -
+              (riderHipLocal.y * Math.sin(bikeBodyLean) +
+                riderHipLocal.z * Math.cos(bikeBodyLean))
+            : 0,
         );
-        bodyRoot.rotation.set(bikePose ? 0.16 : 0, 0, 0);
+        bodyRoot.rotation.set(bikePose ? bikeBodyLean : 0, 0, 0);
         legs[0].rotation.x = running ? walking * 0.6 : bikePose ? 0.58 + walking * 0.28 : 0.2;
         legs[1].rotation.x = running ? -walking * 0.6 : bikePose ? 0.58 - walking * 0.28 : 0.2;
         arms[0].rotation.x = climb ? -2 : running ? -walking * 0.4 : bikePose ? 0.82 : -0.75;
@@ -1927,11 +1934,19 @@ export function createWorld(
           ? explorer.position.y - groundHeight(player)
           : 0
       ).toFixed(3);
+      const riderHipY =
+        bodyRoot.position.y +
+        riderHipLocal.y * Math.cos(bodyRoot.rotation.x) -
+        riderHipLocal.z * Math.sin(bodyRoot.rotation.x);
+      const riderHipZ =
+        bodyRoot.position.z +
+        riderHipLocal.y * Math.sin(bodyRoot.rotation.x) +
+        riderHipLocal.z * Math.cos(bodyRoot.rotation.x);
       canvas.dataset.riderSeatError = (
         mode === "bike"
           ? Math.hypot(
-              bodyRoot.position.y + riderHipLocal.y - bikeSeatLocal.y,
-              bodyRoot.position.z + riderHipLocal.z - bikeSeatLocal.z,
+              riderHipY - bikeSeatLocal.y,
+              riderHipZ - bikeSeatLocal.z,
             )
           : 0
       ).toFixed(3);
