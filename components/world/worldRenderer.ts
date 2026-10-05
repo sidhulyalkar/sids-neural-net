@@ -1153,6 +1153,27 @@ export function createWorld(
   reefRoot.add(reefMotes);
   canvas.dataset.reefSpecies = "8";
 
+  // A tiny world-space bubble field follows the swimmer. The points rise independently
+  // of the character's pitch so snorkeling/diving motion reads naturally.
+  const bubblePositions = new Float32Array(36 * 3);
+  const bubblePhase = Array.from({ length: 36 }, () => random() * 3);
+  const bubbleOffset = Array.from({ length: 36 }, () => ({
+    x: (random() - 0.5) * 0.8,
+    z: (random() - 0.5) * 0.8,
+  }));
+  const bubbleGeo = geo(new THREE.BufferGeometry());
+  bubbleGeo.setAttribute("position", new THREE.BufferAttribute(bubblePositions, 3));
+  const bubbleMat = new THREE.PointsMaterial({
+    color: "#e8fbff",
+    size: 0.075,
+    transparent: true,
+    opacity: 0.58,
+    depthWrite: false,
+  });
+  materials.add(bubbleMat);
+  const bubbles = new THREE.Points(bubbleGeo, bubbleMat);
+  reefRoot.add(bubbles);
+
   // One draw call of local snowfall follows the player whenever ski mode is equipped.
   const snowPositions = new Float32Array(220 * 3);
   for (let i = 0; i < 220; i++)
@@ -1876,6 +1897,18 @@ export function createWorld(
 
     reefMotes.rotation.y = Math.sin(elapsed * 0.08) * 0.018;
     reefMotes.position.y = Math.sin(elapsed * 0.22) * 0.05;
+    const bubbleAttribute = bubbleGeo.attributes.position;
+    for (let i = 0; i < bubbleAttribute.count; i++) {
+      const rise = (elapsed * 0.72 + bubblePhase[i]) % 2.8;
+      bubbleAttribute.setXYZ(
+        i,
+        player.x + bubbleOffset[i].x,
+        playerY + 1.15 + rise,
+        player.z + bubbleOffset[i].z,
+      );
+    }
+    bubbleAttribute.needsUpdate = true;
+    bubbles.visible = aquatic !== "land";
 
     // Detail culling: distant grass and synaptic particles need no GPU work.
     grassMesh.visible = camera.position.y < 45 && aquatic === "land";
