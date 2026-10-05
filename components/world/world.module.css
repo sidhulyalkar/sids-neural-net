@@ -643,7 +643,7 @@
 .activityDock p { font-size: 11px; color: #eee5d4; padding: 6px 8px 2px; }
 .waterDock {
   position: absolute;
-  top: 190px;
+  top: 108px;
   right: 28px;
   display: flex;
   align-items: center;
@@ -686,7 +686,7 @@
 @media (max-width: 760px) {
   .activityDock { top: 96px; left: 16px; right: 16px; max-width: none; padding: 6px; }
   .waterDock {
-    top: 174px;
+    top: 96px;
     left: 16px;
     right: auto;
     max-width: calc(100% - 32px);
@@ -704,7 +704,7 @@
 }
 @media (max-height: 650px) {
   .activityDock { top: 78px; }
-  .waterDock { top: 144px; }
+  .waterDock { top: 78px; }
   .activityDock p { display: none; }
   .welcome { top: 105px; bottom: 62px; }
   .welcome h1 { font-size: 40px; }
