@@ -121,3 +121,20 @@ test("arcade cavern exposes the same playable games as the established arcade", 
   assert.equal(games[0].title, "Stretchicorn");
   assert.equal(REGIONS.find(r => r.id === "cavern")?.href, "/arcade");
 });
+
+
+test("the west shelf is swimmable and exposes a finite safe dive envelope", () => {
+  const water = { x: -55, z: 10 };
+  assert.equal(isWater(water), true);
+  const floor = seaFloorHeight(water.x, water.z);
+  assert.ok(floor < SEA_SURFACE - 2);
+  const depth = maxDiveDepth(water);
+  assert.ok(depth > 0);
+  assert.ok(SEA_SURFACE - depth > floor);
+});
+
+test("expanded alpine region remains finite and meaningfully taller than the grove", () => {
+  const mountain = REGIONS.find(r => r.id === "mountain")!;
+  assert.ok(terrainHeight(mountain.point.x, mountain.point.z) > terrainHeight(0, 8) + 7);
+  assert.ok(mountain.point.z > WORLD_BOUNDS.minZ && mountain.point.z < WORLD_BOUNDS.maxZ);
+});
