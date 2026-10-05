@@ -423,6 +423,60 @@ export function createWorld(
   });
   instances(cylinder, trunkMat, [...trunks, ...branches, ...roots]);
   instances(cone, leafMat, crowns);
+
+  // A denser alpine tree run leaves readable lanes between collidable trunks.
+  const skiTrunks: Instance[] = [], skiCrowns: Instance[] = [];
+  for (let i = 0; i < 68; i++) {
+    const x = -25 + random() * 62;
+    const z = -84 + random() * 49;
+    const laneCenter = 7 + Math.sin((z + 60) * 0.13) * 7;
+    if (
+      Math.abs(x - laneCenter) < 3.4 ||
+      distance({ x, z }, REGIONS[1].point) < 7 ||
+      RIDE_RAMPS.some(r => distance({ x, z }, r.point) < 5)
+    ) continue;
+    const y = terrainHeight(x, z);
+    if (y < 7.5) continue;
+    const h = 8 + random() * 8;
+    const r = 0.38 + random() * 0.25;
+    obstacles.push({ x, z, radius: r + 0.08 });
+    skiTrunks.push({ x, y: y + h * 0.44, z, sx: r, sy: h * 0.88, sz: r });
+    for (let layer = 0; layer < 3; layer++) {
+      const width = 2.3 - layer * 0.45;
+      skiCrowns.push({
+        x,
+        y: y + h * (0.52 + layer * 0.15),
+        z,
+        sx: width,
+        sy: h * 0.3,
+        sz: width,
+        ry: i * 0.7 + layer,
+        color: layer === 2 ? "#4e6f63" : "#405f55",
+      });
+    }
+  }
+  instances(cylinder, mat("#6f4936"), skiTrunks);
+  instances(cone, leafMat, skiCrowns);
+
+  // Fallen redwoods double as visible obstacles to jump and deterministic grind rails.
+  const fallenLogVisuals: Instance[] = [];
+  for (const log of FALLEN_LOGS) {
+    const a = new THREE.Vector3(log.a.x, terrainHeight(log.a.x, log.a.z) + log.lift, log.a.z);
+    const b = new THREE.Vector3(log.b.x, terrainHeight(log.b.x, log.b.z) + log.lift, log.b.z);
+    fallenLogVisuals.push(segment(a, b, log.radius));
+  }
+  instances(cylinder, mat("#744530"), fallenLogVisuals);
+
+  // Timber kickers use the same positions/headings as the launch mechanic.
+  const rampObjects: THREE.Mesh[] = [];
+  for (const ramp of RIDE_RAMPS) {
+    const y = terrainHeight(ramp.point.x, ramp.point.z);
+    const rampMesh = mesh(boxGeo, mat("#765033"), [ramp.point.x, y + 0.28, ramp.point.z], [2.6, 0.38, 4.2]);
+    rampMesh.rotation.order = "YXZ";
+    rampMesh.rotation.y = Math.atan2(ramp.heading.x, ramp.heading.z);
+    rampMesh.rotation.x = -0.18;
+    rampObjects.push(rampMesh);
+  }
   // Small grasses share one geometry and one draw call.
   const grasses: Instance[] = [];
   for (let i = 0; i < 750; i++) {
