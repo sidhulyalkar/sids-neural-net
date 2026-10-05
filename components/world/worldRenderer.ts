@@ -1350,7 +1350,13 @@ export function createWorld(
   let airHeight = 0, verticalSpeed = 0, lastAction = 0, lastWaterAction = 0;
   let aquatic: AquaticMode = "land", swimDepth = 0, targetDepth = 0;
   let climb: { from: Point; to: Point; fromY: number; toY: number; progress: number } | null = null;
-  let grind: { log: typeof FALLEN_LOGS[number]; t: number; direction: number } | null = null;
+  let grind: {
+    log: typeof FALLEN_LOGS[number];
+    t: number;
+    direction: number;
+    style: GrindStyle;
+    mode: "skate" | "ski";
+  } | null = null;
   let lastRampAt = -10, lastRampId = "";
   let playerY = groundHeight(player);
   explorer.rotation.order = "YXZ";
@@ -1553,14 +1559,39 @@ export function createWorld(
   }
   function performAction() {
     if (!state.entered || state.paused || document.hidden || aquatic !== "land" || climb || grind || airHeight > 0.01) return;
-    if (state.activity === "skate" && travel.speed > 2.2) {
+    if ((state.activity === "skate" || state.activity === "ski") && travel.speed > 2.2) {
       const candidate = nearestGrind(player);
       if (candidate) {
         const dx = candidate.log.b.x - candidate.log.a.x;
         const dz = candidate.log.b.z - candidate.log.a.z;
-        const direction = travel.heading.x * dx + travel.heading.z * dz >= 0 ? 1 : -1;
+        const lengthSquared = dx * dx + dz * dz;
+        const future = {
+          x: player.x + travel.heading.x,
+          z: player.z + travel.heading.z,
+        };
+        const futureT = THREE.MathUtils.clamp(
+          ((future.x - candidate.log.a.x) * dx +
+            (future.z - candidate.log.a.z) * dz) /
+            lengthSquared,
+          0,
+          1,
+        );
+        const direction =
+          Math.abs(futureT - candidate.t) > 0.01
+            ? futureT >= candidate.t
+              ? 1
+              : -1
+            : travel.heading.x * dx + travel.heading.z * dz >= 0
+              ? 1
+              : -1;
         player = { ...candidate.point };
-        grind = { log: candidate.log, t: candidate.t, direction };
+        grind = {
+          log: candidate.log,
+          t: candidate.t,
+          direction,
+          style: grindStyleForApproach(travel.heading, candidate.log),
+          mode: state.activity,
+        };
         destination = null;
         verticalSpeed = airHeight = 0;
         return;
@@ -1838,6 +1869,25 @@ export function createWorld(
           (gearMode ? contact.roll : 0) +
           (mode === "skate" ? Math.sin(elapsed * 2) * Math.min(travel.speed * 0.006, 0.06) : 0);
         explorer.rotation.set(pitchAngle, headingYaw, rollAngle);
+        if (grind) {
+          const logDx = grind.log.b.x - grind.log.a.x;
+          const logDz = grind.log.b.z - grind.log.a.z;
+          const logLength = Math.max(1e-6, Math.hypot(logDx, logDz));
+          const alongX = (logDx / logLength) * grind.direction;
+          const alongZ = (logDz / logLength) * grind.direction;
+          const logYaw = Math.atan2(alongX, alongZ);
+          const groundA = terrainHeight(grind.log.a.x, grind.log.a.z);
+          const groundB = terrainHeight(grind.log.b.x, grind.log.b.z);
+          const logPitch = -Math.atan2(
+            (groundB - groundA) * grind.direction,
+            logLength,
+          );
+          explorer.rotation.set(
+            logPitch,
+            logYaw + (grind.style === "boardslide" ? Math.PI / 2 : 0),
+            grind.style === "boardslide" ? 0.06 : 0,
+          );
+        }
         bikeWheels.forEach(wheel => wheel.rotation.z += travel.speed * dt / 0.43);
         explorer.position.set(
           player.x,
@@ -1856,14 +1906,18 @@ export function createWorld(
       canvas.dataset.maxDepth = maxDiveDepth(player).toFixed(2);
       const grindCandidate =
         aquatic === "land" &&
-        mode === "skate" &&
+        (mode === "skate" || mode === "ski") &&
         !grind &&
         airHeight < 0.1 &&
         travel.speed > 2.2
           ? nearestGrind(player)
           : undefined;
+      const candidateGrindStyle = grindCandidate
+        ? grindStyleForApproach(travel.heading, grindCandidate.log)
+        : null;
       canvas.dataset.grindReady = String(!!grindCandidate);
       canvas.dataset.grindId = grind?.log.id ?? "";
+      canvas.dataset.grindStyle = grind?.style ?? candidateGrindStyle ?? "";
       canvas.dataset.rampId = lastRampId;
       canvas.dataset.grinding = String(!!grind);
       canvas.dataset.surfacePitch = explorer.rotation.x.toFixed(3);
