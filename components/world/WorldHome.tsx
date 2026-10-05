@@ -288,18 +288,20 @@ export function WorldHome({ content }: { content: WorldContent }) {
               <span className={styles.key}>Enter</span>
             </button>
           )}
-          <div className={styles.activityDock}>
-            <div className={styles.activityButtons} role="group" aria-label="Movement activity">
-              {ACTIVITIES.map(item => (
-                <button key={item.id} aria-label={item.name} aria-pressed={activity === item.id}
-                  onClick={() => chooseActivity(item.id)}>{item.label}</button>
-              ))}
-              <button className={styles.actionButton} disabled={!ready || quiet || aquatic !== "land"} onClick={() => setActionSerial(n => n + 1)}>
-                {activityConfig(activity).action}
-              </button>
+          {aquatic === "land" && (
+            <div className={styles.activityDock}>
+              <div className={styles.activityButtons} role="group" aria-label="Movement activity">
+                {ACTIVITIES.map(item => (
+                  <button key={item.id} aria-label={item.name} aria-pressed={activity === item.id}
+                    onClick={() => chooseActivity(item.id)}>{item.label}</button>
+                ))}
+                <button className={styles.actionButton} disabled={!ready || quiet} onClick={() => setActionSerial(n => n + 1)}>
+                  {activityConfig(activity).action}
+                </button>
+              </div>
+              <p aria-live="polite">{activityConfig(activity).hint}</p>
             </div>
-            <p aria-live="polite">{activityConfig(activity).hint}</p>
-          </div>
+          )}
           {aquatic !== "land" && (
             <div className={styles.waterDock} role="group" aria-label="Swimming depth controls">
               <span className={styles.waterMode}>{aquatic === "surface" ? "Snorkeling" : "Diving"}</span>
