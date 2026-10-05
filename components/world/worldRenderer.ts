@@ -2243,16 +2243,21 @@ export function createWorld(
         playerY = groundHeight(player);
         dog = { x: player.x + 2, z: player.z - 2 };
         destination = null;
-        yaw =
-          r.id === "cavern"
-            ? 0
-            : r.id === "mountain"
-              ? -0.24
+        if (next.command.activity === "ski") {
+          const kicker = RIDE_RAMPS.find((ramp) => ramp.id === "ski-kicker")!;
+          const approachX = kicker.point.x - player.x;
+          const approachZ = kicker.point.z - player.z;
+          yaw = Math.atan2(-approachX, -approachZ);
+        } else {
+          yaw =
+            r.id === "cavern"
+              ? 0
               : r.id === "coast"
                 ? 1.15
                 : r.id === "neural"
                   ? -0.6
                   : 0.25;
+        }
         if (r.id === "cavern") {
           pitch = 0.22;
           zoom = Math.min(zoom, 16);
