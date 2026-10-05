@@ -1574,11 +1574,32 @@ export function createWorld(
           worldFloorHeight(targetCamera.x, targetCamera.z) + 3.5,
         );
       } else if (aquatic === "dive") {
-        const floor = seaFloorHeight(player.x, player.z);
+        // Keep the submerged camera on the water side of the procedural shoreline.
+        // Without this boom clamp a coast-facing camera can end up physically under
+        // the beach, exposing giant shoreline triangles as a fake "wall".
+        const cameraDx = targetCamera.x - player.x;
+        const cameraDz = targetCamera.z - player.z;
+        let waterBoom = 1;
+        if (!isWater({ x: targetCamera.x, z: targetCamera.z })) {
+          waterBoom = 0.18;
+          for (let t = 0.95; t >= 0.18; t -= 0.055) {
+            const candidate = {
+              x: player.x + cameraDx * t,
+              z: player.z + cameraDz * t,
+            };
+            if (isWater(candidate)) {
+              waterBoom = t;
+              break;
+            }
+          }
+          targetCamera.x = player.x + cameraDx * waterBoom;
+          targetCamera.z = player.z + cameraDz * waterBoom;
+        }
+        const floor = seaFloorHeight(targetCamera.x, targetCamera.z);
         targetCamera.y = THREE.MathUtils.clamp(
           targetCamera.y,
           floor + 1.05,
-          SEA_SURFACE - 0.22,
+          SEA_SURFACE - 0.28,
         );
       }
     } else {
@@ -1634,7 +1655,9 @@ export function createWorld(
     // Underwater color and fog are stateful atmosphere, not a separate scene.
     const underwater = aquatic === "dive";
     reefRoot.visible = aquatic !== "land";
-    waterMaterial.opacity = underwater ? 0.42 : aquatic === "surface" ? 0.58 : 0.76;
+    shasta.visible = !underwater;
+    dogContact.visible = !underwater;
+    waterMaterial.opacity = underwater ? 0.48 : aquatic === "surface" ? 0.58 : 0.76;
     if (scene.background instanceof THREE.Color) scene.background.set(underwater ? "#0b6170" : "#67b7ef");
     if (scene.fog instanceof THREE.Fog) {
       scene.fog.color.set(underwater ? "#196b72" : "#c4e2f1");
