@@ -43,12 +43,12 @@ try {
   const dogMotion = await page.locator('canvas').evaluate(c => ({
     maxYawStep: Number(c.dataset.dogMaxYawStep),
     maxYStep: Number(c.dataset.dogMaxYStep),
-    blend: Number(c.dataset.dogMoveBlend),
+    maxBlend: Number(c.dataset.dogMaxMoveBlend),
     phase: Number(c.dataset.dogGaitPhase),
   }));
   assert.ok(dogMotion.maxYawStep <= 0.22, `Shasta max frame yaw step ${dogMotion.maxYawStep}`);
   assert.ok(dogMotion.maxYStep < 0.2, `Shasta max frame height step ${dogMotion.maxYStep}`);
-  assert.ok(dogMotion.blend > 0.15);
+  assert.ok(dogMotion.maxBlend > 0.15, `Shasta max gait blend ${dogMotion.maxBlend}`);
   assert.ok(dogMotion.phase > beforeDogPhase);
   results.push('Keyboard walking changes player position');
   results.push('Shasta follow gait stays per-frame height/yaw-continuous and distance-phased');
