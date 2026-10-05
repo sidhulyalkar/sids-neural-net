@@ -78,6 +78,10 @@ try {
     await page.waitForFunction(() => document.activeElement?.tagName === 'CANVAS');
     console.log(`Checking activity: ${mode}`);
     await page.waitForFunction(mode => document.querySelector('canvas')?.dataset.activity === mode, mode);
+    if (mode === 'ski') {
+      await page.waitForFunction(() => document.querySelector('canvas')?.dataset.snowing === 'true');
+      results.push('Ski mode keeps snowfall active around the explorer');
+    }
     await screenshot(page, `activity-${mode}`);
     if (mode === 'boulder') {
       const beforeHeight = Number(await page.locator('canvas').getAttribute('data-height'));
@@ -100,6 +104,7 @@ try {
   await page.waitForFunction(() => document.activeElement?.tagName === 'CANVAS');
   await page.keyboard.down('w'); await page.waitForTimeout(2200); await page.keyboard.up('w');
   await page.waitForFunction(() => document.querySelector('canvas')?.dataset.aquatic === 'surface', null, { timeout: 5000 });
+  assert.equal(await page.locator('canvas').getAttribute('data-reef'), 'true');
   await page.getByText('Snorkeling', { exact: true }).waitFor();
   await screenshot(page, 'activity-snorkel');
   await page.getByRole('button', { name: 'Dive', exact: true }).click();
