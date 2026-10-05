@@ -1829,7 +1829,7 @@ export function createWorld(
         arms[1].rotation.x = -1.45 - walking * 0.34;
         // Local +Z is the explorer's forward direction. Positive X pitch points
         // the face/mask toward the ocean floor; the previous negative sign looked skyward.
-        const pronePitch = aquatic === "dive" ? 1.42 : 1.18;
+        const pronePitch = aquatic === "dive" ? 1.36 : 1.5;
         explorer.rotation.set(
           pronePitch,
           headingYaw,
@@ -2124,6 +2124,10 @@ export function createWorld(
     dogGroundY += (targetDogY - dogGroundY) * (1 - Math.exp(-dt * 10));
     const dogBob = Math.sin(dogGaitPhase * 2) * 0.022 * dogMoveBlend;
     shasta.position.set(dog.x, dogGroundY + dogBob, dog.z);
+    canvas.dataset.dogYaw = dogYaw.toFixed(3);
+    canvas.dataset.dogY = (dogGroundY + dogBob).toFixed(3);
+    canvas.dataset.dogMoveBlend = dogMoveBlend.toFixed(3);
+    canvas.dataset.dogGaitPhase = dogGaitPhase.toFixed(3);
     explorerContact.visible = aquatic === "land";
     explorerContact.position.set(
       explorer.position.x,
