@@ -8,6 +8,7 @@ import {
   maxDiveDepth,
   MEMORY_POINTS,
   nearbyDiscovery,
+  regionLanding,
   REGIONS,
   SECRET,
   seaFloorHeight,
@@ -24,7 +25,7 @@ import { NeuralGraphSchema } from "../lib/data/schemas";
 
 test("every jump lands within its own discoverable region on finite terrain", () => {
   for (const r of REGIONS) {
-    const landing = { x: r.point.x, z: r.point.z + 3 };
+    const landing = regionLanding(r.id);
     assert.equal(nearbyDiscovery(landing), r.id);
     assert.ok(Number.isFinite(terrainHeight(landing.x, landing.z)));
   }
@@ -137,4 +138,13 @@ test("expanded alpine region remains finite and meaningfully taller than the gro
   const mountain = REGIONS.find(r => r.id === "mountain")!;
   assert.ok(terrainHeight(mountain.point.x, mountain.point.z) > terrainHeight(0, 8) + 7);
   assert.ok(mountain.point.z > WORLD_BOUNDS.minZ && mountain.point.z < WORLD_BOUNDS.maxZ);
+});
+
+
+test("coast semantic landing is dry, discoverable and close enough for immediate water entry", () => {
+  const landing = regionLanding("coast");
+  assert.equal(isWater(landing), false);
+  assert.equal(nearbyDiscovery(landing), "coast");
+  const waterStep = { x: landing.x - 2, z: landing.z };
+  assert.equal(isWater(waterStep), true);
 });
