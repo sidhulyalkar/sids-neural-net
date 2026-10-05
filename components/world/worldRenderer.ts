@@ -2072,6 +2072,14 @@ export function createWorld(
       canvas.dataset.fps = fps.toFixed(0);
       canvas.dataset.drawCalls = String(renderer.info.render.calls);
       canvas.dataset.triangles = String(renderer.info.render.triangles);
+      let visibleRenderables = 0;
+      scene.traverseVisible((object) => {
+        if (object instanceof THREE.Mesh ||
+            object instanceof THREE.InstancedMesh ||
+            object instanceof THREE.Points)
+          visibleRenderables++;
+      });
+      canvas.dataset.visibleRenderables = String(visibleRenderables);
       canvas.dataset.player = `${player.x.toFixed(1)},${player.z.toFixed(1)}`;
       const nextDpr = quality.update(fps, dpr);
       if (nextDpr !== dpr) {
