@@ -712,7 +712,7 @@ export function createWorld(
     const band = mesh(
       boxGeo,
       carvingBandMaterial,
-      [arcade.x, arcadeY + 4.82 - row * 1.5, arcade.z - 6.37],
+      [arcade.x, arcadeY + 4.42 - row * 1.42, arcade.z - 6.37],
       [8.35, 1.08, 0.06],
     );
     band.castShadow = false;
@@ -738,7 +738,7 @@ export function createWorld(
     const scale = Math.min(0.14, 6.8 / Math.max(4, text.length * 4));
     const width = text.length * 4 * scale;
     const startX = arcade.x - width / 2 + scale * 0.5;
-    const baseline = arcadeY + 4.98 - row * 1.48;
+    const baseline = arcadeY + 4.6 - row * 1.42;
     [...text].forEach((letter, index) => {
       const pattern = letter === " " ? [] : glyphs[letter];
       if (!pattern) return;
@@ -758,12 +758,19 @@ export function createWorld(
     carvingMesh.userData.discovery = `game:${row}`;
     markerObjects.push(carvingMesh);
   });
-  // Three abstract glyphs flank the names: horn, branching neuron, and mountain.
+  // A lower frieze keeps three abstract carved glyphs distinct from the game names:
+  // a horn, a branching neuron, and a mountain.
+  const runeZ = arcade.z - 6.31;
   const caveRunes = [
-    segment(new THREE.Vector3(arcade.x - 3.25, arcadeY + 1.5, arcade.z - 4.92), new THREE.Vector3(arcade.x - 2.7, arcadeY + 2.2, arcade.z - 4.92), 0.06),
-    segment(new THREE.Vector3(arcade.x - 2.7, arcadeY + 2.2, arcade.z - 4.92), new THREE.Vector3(arcade.x - 2.95, arcadeY + 2.65, arcade.z - 4.92), 0.045),
-    segment(new THREE.Vector3(arcade.x + 2.55, arcadeY + 1.5, arcade.z - 4.92), new THREE.Vector3(arcade.x + 3.15, arcadeY + 2.35, arcade.z - 4.92), 0.055),
-    segment(new THREE.Vector3(arcade.x + 3.15, arcadeY + 2.35, arcade.z - 4.92), new THREE.Vector3(arcade.x + 3.55, arcadeY + 1.5, arcade.z - 4.92), 0.055),
+    segment(new THREE.Vector3(arcade.x - 3.2, arcadeY + 0.42, runeZ), new THREE.Vector3(arcade.x - 2.72, arcadeY + 0.98, runeZ), 0.05),
+    segment(new THREE.Vector3(arcade.x - 2.72, arcadeY + 0.98, runeZ), new THREE.Vector3(arcade.x - 2.9, arcadeY + 0.68, runeZ), 0.04),
+    segment(new THREE.Vector3(arcade.x, arcadeY + 0.38, runeZ), new THREE.Vector3(arcade.x, arcadeY + 1.02, runeZ), 0.045),
+    segment(new THREE.Vector3(arcade.x, arcadeY + 0.78, runeZ), new THREE.Vector3(arcade.x - 0.42, arcadeY + 1.02, runeZ), 0.04),
+    segment(new THREE.Vector3(arcade.x, arcadeY + 0.78, runeZ), new THREE.Vector3(arcade.x + 0.42, arcadeY + 1.02, runeZ), 0.04),
+    segment(new THREE.Vector3(arcade.x, arcadeY + 0.58, runeZ), new THREE.Vector3(arcade.x - 0.34, arcadeY + 0.42, runeZ), 0.035),
+    segment(new THREE.Vector3(arcade.x, arcadeY + 0.58, runeZ), new THREE.Vector3(arcade.x + 0.34, arcadeY + 0.42, runeZ), 0.035),
+    segment(new THREE.Vector3(arcade.x + 2.55, arcadeY + 0.4, runeZ), new THREE.Vector3(arcade.x + 3.05, arcadeY + 1.04, runeZ), 0.05),
+    segment(new THREE.Vector3(arcade.x + 3.05, arcadeY + 1.04, runeZ), new THREE.Vector3(arcade.x + 3.58, arcadeY + 0.4, runeZ), 0.05),
   ];
   instances(cylinder, mat("#a58f68"), caveRunes, false);
 
