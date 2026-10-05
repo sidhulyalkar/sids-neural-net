@@ -1410,7 +1410,7 @@ export function createWorld(
         const nextTravel = stepSwim(
           { ...travel, point: player },
           { x: dx, z: dz },
-          dt,
+          rawDelta,
           destination,
         );
         if (!isWater(nextTravel.point)) {
