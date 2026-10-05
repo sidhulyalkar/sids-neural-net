@@ -151,12 +151,22 @@ try {
   await page.getByRole('button', { name: '04 Wild coast Life outside the screen', exact: true }).click();
   await page.waitForFunction(() => document.querySelector('canvas')?.dataset.aquatic === 'land');
   await page.waitForFunction(() => document.activeElement?.tagName === 'CANVAS');
+
+  // Enter the ocean through the actual jump path, not only by stepping across the
+  // shoreline. This guards the airborne -> water -> snorkeling transition.
+  await page.keyboard.press('Space');
+  await page.waitForFunction(() => document.querySelector('canvas')?.dataset.airborne === 'true');
   await page.keyboard.down('w');
   try {
-    await page.waitForFunction(() => document.querySelector('canvas')?.dataset.aquatic === 'surface', null, { timeout: 6000 });
+    await page.waitForFunction(
+      () => document.querySelector('canvas')?.dataset.aquatic === 'surface',
+      null,
+      { timeout: 12000 },
+    );
   } finally {
     await page.keyboard.up('w');
   }
+  results.push('Jumping from shore transitions cleanly into snorkeling');
   assert.equal(await page.locator('canvas').getAttribute('data-reef'), 'true');
   await page.getByText('Snorkeling', { exact: true }).waitFor();
   await screenshot(page, 'activity-snorkel');
