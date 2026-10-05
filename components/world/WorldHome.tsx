@@ -18,8 +18,8 @@ import {
   type WorldCommand,
   type WorldContent,
 } from "@/lib/world/model";
-import { ACTIVITIES, activityConfig, type Activity } from "@/lib/world/activities";
-import { COASTAL_FLORA } from "@/lib/world/ecology";
+import { ACTIVITIES, activityConfig, type Activity, type AquaticMode } from "@/lib/world/activities";
+import { COASTAL_FLORA, MARINE_LIFE } from "@/lib/world/ecology";
 import styles from "./world.module.css";
 
 const WorldScene = dynamic(() => import("./WorldScene"), { ssr: false });
@@ -50,9 +50,9 @@ const LINKS = [
   ["Contact", "/contact"],
 ];
 const INTRO: Record<RegionId, { title: string; text: string }> = {
-  waterfall: { title: "Follow the water.", text: "A trail under the falls. More places I’ve stopped to look." },
-  canyon: { title: "Take the long way.", text: "Cool rock, moss, and a trail out of sight. A little more about the person behind the work." },
-  cavern: { title: "One more round.", text: "Stretchicorn, uniRico, and Unicorn Stampede. Built to play." },
+  waterfall: { title: "Fern falls.", text: "A shaded trail below the falls and another route into the photography archive." },
+  canyon: { title: "Moss canyon.", text: "A narrow rock corridor connecting the grove, coast, and inland trails." },
+  cavern: { title: "Arcade cavern.", text: "The playable games are carved into the cavern walls and open through their existing routes." },
   grove: {
     title: "Hi, I’m Sid.",
     text: "Neuroscience, machine learning, and the infrastructure between them. Off-screen: trails with Shasta.",
@@ -78,6 +78,9 @@ export function WorldHome({ content }: { content: WorldContent }) {
   const [failed, setFailed] = useState(false);
   const [activity, setActivity] = useState<Activity>("run");
   const [actionSerial, setActionSerial] = useState(0);
+  const [aquatic, setAquatic] = useState<AquaticMode>("land");
+  const [waterAction, setWaterAction] = useState<"dive" | "deeper" | "shallower" | "surface">("dive");
+  const [waterActionSerial, setWaterActionSerial] = useState(0);
   const [quiet, setQuiet] = useState(false);
   const [region, setRegion] = useState<RegionId>("grove");
   const [nearby, setNearby] = useState<string | null>(null);
@@ -163,6 +166,11 @@ export function WorldHome({ content }: { content: WorldContent }) {
       setCommand(previous => ({ region: "mountain", serial: (previous?.serial ?? 0) + 1, activity: next }));
     }
   }
+  function waterControl(next: "dive" | "deeper" | "shallower" | "surface") {
+    setWaterAction(next);
+    setWaterActionSerial(n => n + 1);
+    requestAnimationFrame(() => worldRoot.current?.querySelector("canvas")?.focus({ preventScroll: true }));
+  }
   function enter() {
     setEnabled(true);
     setEntered(true);
@@ -204,6 +212,10 @@ export function WorldHome({ content }: { content: WorldContent }) {
             command={command}
             activity={activity}
             actionSerial={actionSerial}
+            waterAction={waterAction}
+            waterActionSerial={waterActionSerial}
+            gameTitles={content.games.map(game => game.title)}
+            onAquatic={setAquatic}
             onReady={onReady}
             onError={onError}
             onLocation={onLocation}
@@ -246,9 +258,7 @@ export function WorldHome({ content }: { content: WorldContent }) {
               available in the menu.
             </p>
           )}
-          <p className={styles.smallNote}>
-            The work, directly. Or the scenic route.
-          </p>
+
         </section>
       ) : (
         <>
@@ -276,24 +286,43 @@ export function WorldHome({ content }: { content: WorldContent }) {
                 <button key={item.id} aria-label={item.name} aria-pressed={activity === item.id}
                   onClick={() => chooseActivity(item.id)}>{item.label}</button>
               ))}
-              <button className={styles.actionButton} disabled={!ready || quiet} onClick={() => setActionSerial(n => n + 1)}>
+              <button className={styles.actionButton} disabled={!ready || quiet || aquatic !== "land"} onClick={() => setActionSerial(n => n + 1)}>
                 {activityConfig(activity).action}
               </button>
             </div>
             <p aria-live="polite">{activityConfig(activity).hint}</p>
           </div>
+          {aquatic !== "land" && (
+            <div className={styles.waterDock} role="group" aria-label="Swimming depth controls">
+              {aquatic === "surface" ? (
+                <button onClick={() => waterControl("dive")}>Dive</button>
+              ) : (
+                <>
+                  <button onClick={() => waterControl("deeper")}>Deeper</button>
+                  <button onClick={() => waterControl("shallower")}>Shallower</button>
+                  <button className={styles.surfaceButton} onClick={() => waterControl("surface")}>Surface</button>
+                </>
+              )}
+            </div>
+          )}
           <p className={styles.controls}>
-            WASD / arrows to move <span>·</span> Drag to look <span>·</span>{" "}
-            Space to {activityConfig(activity).action.toLowerCase()} <span>·</span> M for menu
+            {aquatic === "land" ? (
+              <>WASD / arrows to move <span>·</span> Drag to look <span>·</span>{" "}
+                Space to {activityConfig(activity).action.toLowerCase()} <span>·</span> M for menu</>
+            ) : aquatic === "surface" ? (
+              <>WASD / arrows to swim <span>·</span> Drag to look <span>·</span> V to dive <span>·</span> M for menu</>
+            ) : (
+              <>WASD / arrows to swim <span>·</span> Q / E for depth <span>·</span> V to surface <span>·</span> M for menu</>
+            )}
           </p>
           <div className={styles.touchHelp}>
-            Tap ground to move · Drag to look
+            {aquatic === "land" ? "Tap ground to move · Drag to look" : "Tap water to swim · Drag to look"}
           </div>
         </>
       )}
       {!entered && (
         <footer className={styles.homeFooter}>
-          <span>Built by Sid. Accompanied by Shasta.</span>
+          <span>Sid Hulyalkar · Portfolio</span>
           <Link href="/about" prefetch={false}>
             Get to know me
           </Link>
@@ -387,7 +416,7 @@ export function WorldHome({ content }: { content: WorldContent }) {
                 )}
               </div>
               <p className={styles.menuHint}>
-                Move with WASD, arrows, or a tap on the ground. Drag to look. Space jumps; Enter opens discoveries. Ski and Boulder take you to their terrain. Escape closes panels.
+                Move with WASD, arrows, or a tap. Drag to look. Space uses the equipped land action; V dives or surfaces in the ocean. Ski and Boulder take you to their terrain. Escape closes panels.
               </p>
             </>
           )}
@@ -395,10 +424,13 @@ export function WorldHome({ content }: { content: WorldContent }) {
             <>
               <p className={styles.eyebrow}>CALIFORNIA COAST</p>
               <h2 id="world-panel-title">Field notes</h2>
-              <p className={styles.panelIntro}>Coastal scrub on exposed bluffs. Redwoods in the sheltered grove. The snowy ridge is a separate mountain memory, folded into this small world.</p>
+              <p className={styles.panelIntro}>California coastal scrub and redwoods transition into an imagined alpine ridge. Offshore, the swim area is a cold-water kelp and rocky-reef composite rather than a tropical reef.</p>
               <div className={styles.projectList}>
                 {COASTAL_FLORA.map(plant => <a key={plant.scientific} href={plant.source} target="_blank" rel="noreferrer">
                   <h3>{plant.common}</h3><p><i>{plant.scientific}</i> · {plant.habitat}</p><span>National Park Service ↗</span>
+                </a>)}
+                {MARINE_LIFE.map(animal => <a key={animal.common} href={animal.source} target="_blank" rel="noreferrer">
+                  <h3>{animal.common}</h3><p>{animal.note}</p><span>Monterey Bay Aquarium ↗</span>
                 </a>)}
               </div>
             </>
