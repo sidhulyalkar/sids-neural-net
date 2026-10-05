@@ -1037,9 +1037,13 @@ export function createWorld(
   let player: Point = { ...SPAWN },
     destination: Point | null = null;
   let travel: Travel = { point: player, speed: 0, heading: { x: 0, z: -1 } };
-  let airHeight = 0, verticalSpeed = 0, lastAction = 0;
+  let airHeight = 0, verticalSpeed = 0, lastAction = 0, lastWaterAction = 0;
+  let aquatic: AquaticMode = "land", swimDepth = 0, targetDepth = 0;
   let climb: { from: Point; to: Point; fromY: number; toY: number; progress: number } | null = null;
+  let grind: { log: typeof FALLEN_LOGS[number]; t: number; direction: number } | null = null;
+  let lastRampAt = -10, lastRampId = "";
   let playerY = groundHeight(player);
+  explorer.rotation.order = "YXZ";
   let dog: Point = { x: 3, z: 12 };
   let locationKey = "",
     discovery: string | null = null;
@@ -1160,7 +1164,18 @@ export function createWorld(
     if (e.target !== canvas) return;
     const key = e.key.toLowerCase();
     if (key === "shift") keys.add(key);
-    if (key === " " && !e.repeat) { e.preventDefault(); performAction(); }
+    if (key === " " && !e.repeat && aquatic === "land") {
+      e.preventDefault();
+      performAction();
+    }
+    if (key === "v" && !e.repeat && aquatic !== "land") {
+      e.preventDefault();
+      applyWaterAction(aquatic === "dive" ? "surface" : "dive");
+    }
+    if (aquatic === "dive" && !e.repeat && (key === "q" || key === "e")) {
+      e.preventDefault();
+      applyWaterAction(key === "q" ? "deeper" : "shallower");
+    }
     if (
       [
         "w",
@@ -1185,8 +1200,40 @@ export function createWorld(
   function keyUp(e: KeyboardEvent) {
     keys.delete(e.key.toLowerCase());
   }
+  function setAquaticMode(next: AquaticMode) {
+    if (next === aquatic) return;
+    aquatic = next;
+    callbacks.onAquatic(next);
+  }
+  function applyWaterAction(action: State["waterAction"]) {
+    if (aquatic === "land") return;
+    const available = maxDiveDepth(player);
+    if (action === "dive" && aquatic === "surface" && available > 0.8) {
+      targetDepth = Math.min(2.2, available);
+      setAquaticMode("dive");
+    } else if (action === "deeper" && aquatic === "dive") {
+      targetDepth = Math.min(available, targetDepth + 1.35);
+    } else if (action === "shallower" && aquatic === "dive") {
+      targetDepth = Math.max(0.45, targetDepth - 1.35);
+    } else if (action === "surface") {
+      targetDepth = 0;
+    }
+  }
   function performAction() {
-    if (!state.entered || state.paused || document.hidden || climb || airHeight > 0.01) return;
+    if (!state.entered || state.paused || document.hidden || aquatic !== "land" || climb || grind || airHeight > 0.01) return;
+    if (state.activity === "skate" && travel.speed > 2.2) {
+      const candidate = nearestGrind(player);
+      if (candidate) {
+        const dx = candidate.log.b.x - candidate.log.a.x;
+        const dz = candidate.log.b.z - candidate.log.a.z;
+        const direction = travel.heading.x * dx + travel.heading.z * dz >= 0 ? 1 : -1;
+        player = { ...candidate.point };
+        grind = { log: candidate.log, t: candidate.t, direction };
+        destination = null;
+        verticalSpeed = airHeight = 0;
+        return;
+      }
+    }
     if (state.activity === "boulder") {
       const hold = nextHold(player);
       if (hold) {
