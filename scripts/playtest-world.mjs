@@ -97,6 +97,7 @@ try {
   await page.getByRole('button', { name: 'Open navigation menu' }).click();
   await page.getByRole('button', { name: '04 Wild coast Life outside the screen', exact: true }).click();
   await page.waitForFunction(() => document.querySelector('canvas')?.dataset.aquatic === 'land');
+  await page.waitForFunction(() => document.activeElement?.tagName === 'CANVAS');
   await page.keyboard.down('w'); await page.waitForTimeout(2200); await page.keyboard.up('w');
   await page.waitForFunction(() => document.querySelector('canvas')?.dataset.aquatic === 'surface', null, { timeout: 5000 });
   await page.getByText('Snorkeling', { exact: true }).waitFor();
