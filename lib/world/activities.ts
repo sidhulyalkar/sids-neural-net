@@ -40,7 +40,7 @@ export const FALLEN_LOGS = [
 export const RIDE_RAMPS = [
   { id: "skate-ramp", point: { x: -3, z: 13 }, radius: 2.2, heading: { x: 1, z: -0.15 }, lift: 4.1, modes: ["skate", "bike"] as Activity[] },
   { id: "bike-ramp", point: { x: 10, z: -28 }, radius: 2.5, heading: { x: 0.15, z: -1 }, lift: 5.3, modes: ["bike", "skate"] as Activity[] },
-  { id: "ski-kicker", point: { x: 9, z: -55 }, radius: 2.8, heading: { x: -0.08, z: -1 }, lift: 6.1, modes: ["ski", "bike"] as Activity[] },
+  { id: "ski-kicker", point: { x: 15, z: -60 }, radius: 2.8, heading: { x: -0.08, z: -1 }, lift: 6.1, modes: ["ski", "bike"] as Activity[] },
 ] as const;
 
 export type AquaticMode = "land" | "surface" | "dive";
