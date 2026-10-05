@@ -72,7 +72,7 @@ export function createWorld(
   canvas.setAttribute("role", "application");
   canvas.setAttribute(
     "aria-label",
-    "Explore Sid’s world. Use arrows or WASD to move, Shift to sprint, Space for your activity action, drag to look, Enter to discover, and M for the menu.",
+    "Explore Sid’s world. Use arrows or WASD to move, Shift to sprint, Space for your land activity, V to dive or surface, Q and E for dive depth, drag to look, Enter to discover, and M for the menu.",
   );
   host.appendChild(canvas);
   const scene = new THREE.Scene();
@@ -1698,6 +1698,7 @@ export function createWorld(
   renderer.shadowMap.autoUpdate = false;
   renderer.shadowMap.needsUpdate = true;
   renderer.render(scene, camera);
+  callbacks.onAquatic("land");
   callbacks.onReady();
   schedule();
   return {
@@ -1706,24 +1707,38 @@ export function createWorld(
         wasPaused = state.paused;
       const changedActivity = next.activity !== state.activity;
       const requestedAction = next.actionSerial !== lastAction;
+      const requestedWaterAction = next.waterActionSerial !== lastWaterAction;
       if (changedActivity) {
         clearInput();
         climb = null;
+        grind = null;
         airHeight = verticalSpeed = 0;
       }
       state = next;
-      if (next.entered && !next.paused && (changedActivity || requestedAction)) canvas.focus({ preventScroll: true });
-      if (next.actionSerial !== lastAction) { lastAction = next.actionSerial; performAction(); }
+      if (next.entered && !next.paused && (changedActivity || requestedAction || requestedWaterAction))
+        canvas.focus({ preventScroll: true });
+      if (next.actionSerial !== lastAction) {
+        lastAction = next.actionSerial;
+        performAction();
+      }
+      if (next.waterActionSerial !== lastWaterAction) {
+        lastWaterAction = next.waterActionSerial;
+        applyWaterAction(next.waterAction);
+      }
       if (next.entered && (!wasEntered || (wasPaused && !next.paused)))
         canvas.focus({ preventScroll: true });
       if (next.command && next.command.serial !== lastSerial) {
         lastSerial = next.command.serial;
         const r = REGIONS.find((r) => r.id === next.command!.region)!;
-        player = (next.command.activity && activityLanding(next.command.activity)) || { x: r.point.x, z: r.point.z + 3 };
+        player =
+          (next.command.activity && activityLanding(next.command.activity)) ||
+          { x: r.point.x, z: r.point.z + 3 };
         clearInput();
         travel = { point: player, speed: 0, heading: { x: 0, z: -1 } };
-        airHeight = verticalSpeed = 0;
+        airHeight = verticalSpeed = swimDepth = targetDepth = 0;
         climb = null;
+        grind = null;
+        setAquaticMode("land");
         playerY = groundHeight(player);
         dog = { x: player.x + 2, z: player.z - 2 };
         destination = null;
