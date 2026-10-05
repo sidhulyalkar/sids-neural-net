@@ -31,6 +31,7 @@ try {
   assert.equal(await page.getByRole('link', { name: 'Get to know me', exact: true }).getAttribute('href'), '/about');
   await waitForScene(page);
   assert.equal(await page.locator('canvas').getAttribute('data-carved-games'), '3');
+  assert.equal(await page.locator('canvas').getAttribute('data-reef-species'), '8');
   await screenshot(page, 'desktop-welcome');
   await page.getByRole('button', { name: 'Explore world', exact: true }).click();
   const before = await page.locator('canvas').getAttribute('data-player');
