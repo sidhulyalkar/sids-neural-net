@@ -1989,7 +1989,9 @@ export function createWorld(
     }
 
     // Reef animals move on simple deterministic paths so the coast feels alive.
-    reefSwimmers.forEach((swimmer, i) => {
+    // Skip all aquatic animation work while the reef group is hidden on land.
+    if (reefRoot.visible) {
+      reefSwimmers.forEach((swimmer, i) => {
       const a = elapsed * swimmer.speed + swimmer.phase;
       swimmer.object.position.set(
         -51 + Math.cos(a) * swimmer.radius * 0.72,
@@ -2046,8 +2048,9 @@ export function createWorld(
         player.z + bubbleOffset[i].z,
       );
     }
-    bubbleAttribute.needsUpdate = true;
-    bubbles.visible = aquatic !== "land";
+      bubbleAttribute.needsUpdate = true;
+    }
+    bubbles.visible = reefRoot.visible;
 
     // Detail culling: distant grass and synaptic particles need no GPU work.
     grassMesh.visible = camera.position.y < 45 && aquatic === "land";
