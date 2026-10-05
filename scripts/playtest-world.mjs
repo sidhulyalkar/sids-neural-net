@@ -99,6 +99,29 @@ try {
   }
   results.push('Five activity modes equip correctly; their actions work');
 
+  // Reproduce the original steep-terrain failure mode on Granite Ridge. The rendered
+  // gear root must stay above support terrain while pitch/roll remain finite.
+  await page.getByRole('button', { name: 'Mountain biking', exact: true }).click();
+  await page.getByRole('button', { name: 'Open navigation menu' }).click();
+  await page.getByRole('button', { name: '02 Granite ridge Things I build', exact: true }).click();
+  await page.waitForFunction(() => document.activeElement?.tagName === 'CANVAS');
+  for (const [name, mode] of [['Mountain biking', 'bike'], ['Skateboarding', 'skate']]) {
+    await page.getByRole('button', { name, exact: true }).click();
+    await page.waitForFunction(expected => document.querySelector('canvas')?.dataset.activity === expected, mode);
+    await page.keyboard.down('w');
+    await page.waitForTimeout(1000);
+    await page.keyboard.up('w');
+    const contact = await page.locator('canvas').evaluate(c => ({
+      clearance: Number(c.dataset.gearClearance),
+      pitch: Number(c.dataset.surfacePitch),
+      roll: Number(c.dataset.surfaceRoll),
+    }));
+    assert.ok(contact.clearance >= 0.05, `${mode} clearance ${contact.clearance}`);
+    assert.ok(Number.isFinite(contact.pitch) && Math.abs(contact.pitch) < 1.2, `${mode} pitch ${contact.pitch}`);
+    assert.ok(Number.isFinite(contact.roll) && Math.abs(contact.roll) < 1.2, `${mode} roll ${contact.roll}`);
+  }
+  results.push('Bike and skateboard stay surface-supported on Granite Ridge');
+
   // Qualify the full land -> surface snorkel -> dive -> surface -> shore loop.
   await page.getByRole('button', { name: 'Trail running', exact: true }).click();
   await page.getByRole('button', { name: 'Open navigation menu' }).click();
