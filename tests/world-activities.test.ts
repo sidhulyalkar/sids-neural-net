@@ -158,3 +158,17 @@ test("fallen logs can be acquired for a grind and ramps only launch compatible m
   assert.equal(rampImpulseAt(ramp.point, ramp.heading, "run", 8), null);
   assert.equal(rampImpulseAt(ramp.point, { x: -ramp.heading.x, z: -ramp.heading.z }, "bike", 8), null);
 });
+
+
+test("ski landing is upstream of the Granite Ridge kicker and approaches it from the launch side", () => {
+  const landing = activityLanding("ski")!;
+  const kicker = RIDE_RAMPS.find(ramp => ramp.id === "ski-kicker")!;
+  const dx = kicker.point.x - landing.x;
+  const dz = kicker.point.z - landing.z;
+  const length = Math.hypot(dx, dz);
+  const heading = { x: dx / length, z: dz / length };
+
+  assert.ok(groundHeight(landing) > groundHeight(kicker.point));
+  const launch = rampImpulseAt(kicker.point, heading, "ski", 8);
+  assert.equal(launch?.id, "ski-kicker");
+});
