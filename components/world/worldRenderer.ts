@@ -1714,12 +1714,18 @@ export function createWorld(
         locationKey = nextKey;
         callbacks.onLocation(r, discovery);
       }
-      const aquaticLookAhead = aquatic === "land" ? 0 : aquatic === "dive" ? 3.2 : 2.2;
-      targetLook.set(
-        player.x + travel.heading.x * aquaticLookAhead,
-        playerY + (aquatic === "dive" ? 0.55 : aquatic === "surface" ? 1.2 : 2.8),
-        player.z + travel.heading.z * aquaticLookAhead,
-      );
+      const cavernFraming =
+        aquatic === "land" && r === "cavern" && distance(player, arcade) < 10;
+      if (cavernFraming) {
+        targetLook.set(arcade.x, arcadeY + 3.25, arcade.z - 6.3);
+      } else {
+        const aquaticLookAhead = aquatic === "land" ? 0 : aquatic === "dive" ? 3.2 : 2.2;
+        targetLook.set(
+          player.x + travel.heading.x * aquaticLookAhead,
+          playerY + (aquatic === "dive" ? 0.55 : aquatic === "surface" ? 1.2 : 2.8),
+          player.z + travel.heading.z * aquaticLookAhead,
+        );
+      }
       const cameraZoom =
         aquatic === "dive"
           ? Math.min(zoom, 13.5)
