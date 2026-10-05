@@ -113,3 +113,90 @@ loop. It records desktop/mobile/activity/underwater screenshots for visual inspe
 Production build, typecheck, lint, unit tests and the browser audit are required before
 the branch is considered code-qualified. Physical desktop/phone feel and sustained
 hardware frame rate remain a separate visual/performance review before merging.
+
+
+## Stage 3 — alpine, ride and underwater expansion
+
+This revision turns the original small coast-to-hill scene into one continuous
+coast-to-alpine activity world. The renderer still uses deterministic procedural
+geometry and the existing Three.js dependency; no runtime model, texture, physics,
+or postprocessing downloads were added.
+
+### Expanded mountain and skiing
+
+- World bounds now include a broad northern alpine ridge and western ocean shelf.
+- The ski landing sits high on the playable ridge, with a winding tree-run lane
+  through collidable alpine trunks.
+- Selecting Ski keeps skis equipped on land throughout the world instead of silently
+  degrading to Run below an arbitrary snowline.
+- A bounded particle snowfall follows the active explorer in Ski mode, giving the
+  effect of continuous weather without filling the entire GPU scene with particles.
+- Shared timber kicker definitions drive both visible ramps and launch mechanics.
+
+### Equipment contact, jumps and grinds
+
+- Bike, skateboard and ski attitude samples front/rear/left/right terrain support.
+  Pitch and roll therefore follow the local surface instead of rotating from one
+  forward height sample.
+- The trail-bike silhouette uses larger wheels, a compact charcoal frame, fork,
+  handlebar, saddle/dropper and metallic/gold accents for a recognizable modern
+  Stumpjumper-style trail-bike read without loading a branded model.
+- The skateboard has separate deck, kicktails, trucks and four wheels.
+- Fallen redwood logs are authored once and reused by the renderer and grind
+  acquisition logic. Skate action near a log snaps onto the line and exits airborne.
+- Bike/skate/ski ramps require compatible mode, speed and approach direction.
+
+### Water, snorkeling and diving
+
+The ocean is part of the same finite coordinate system as land. A deterministic
+coastline function separates land from water and a seafloor function defines the
+rocky shelf. Entry can happen by walking, riding or jumping from shore.
+
+Aquatic states:
+
+1. **land** — normal equipped activity and jump/climb/grind controls.
+2. **surface** — swimming/snorkeling at the waterline; Dive is available.
+3. **dive** — underwater swimming with Deeper, Shallower and Surface controls.
+
+Dive depth is clamped to the local seafloor with clearance, so the player cannot
+descend through terrain. Surfacing always remains available. Swimming back across
+the shoreline returns to land state. Shasta waits on the dry shoreline instead of
+following the player underwater. A mask, snorkel and fins appear in aquatic states.
+
+The underwater environment is an imagined California cold-water kelp and rocky-reef
+composite. It includes giant kelp, schooling fish, leopard-shark silhouettes, bat
+rays, octopus, wolf-eel-like fish, Pacific-sea-nettle-like jellies, purple urchins,
+and two stylized coral/sea-fan forms. The stylized coral forms are visual motifs,
+not a claim that this is a surveyed shallow tropical coral reef.
+
+### Arcade cavern
+
+The arcade destination now has a rock back wall with procedural stone-carved game
+names derived from the live playable-game catalog. Abstract horn/neural/mountain
+glyphs flank the lettering. Looking/clicking at the carvings opens the existing
+Arcade cavern discovery, where each game links to its established playable route.
+No duplicate game engine or iframe is embedded inside the world.
+
+### Shasta
+
+Shasta's procedural model now prioritizes an instantly readable husky silhouette:
+athletic deep chest, tapered muzzle, tall triangular ears, facial mask, white socks,
+broad paws, saddle/topcoat layers and a high curled plume tail. The same owner-guided
+coat palette remains centralized in `SHASTA_COAT`.
+
+### Qualification additions
+
+Unit coverage now includes:
+
+- expanded alpine geometry;
+- finite underwater shelf and safe dive clearance;
+- swim speed and world bounds;
+- persistent Ski selection;
+- four-point terrain contact;
+- grind acquisition;
+- ramp mode/direction/speed gating.
+
+The production browser audit additionally exercises the real land → snorkeling →
+dive/deeper → surface → shore loop and asserts Ski-mode snowfall. Existing landmark,
+game-link, accessibility, mobile, reduced-motion, no-JavaScript, WebGL-loss and
+renderer-budget checks remain release gates.
