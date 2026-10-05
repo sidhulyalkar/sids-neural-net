@@ -1,4 +1,4 @@
-import { activityLanding, BOULDER_HOLDS, effectiveActivity, groundHeight, nextHold, onSnow, stepTravel, type Activity, type Travel } from "@/lib/world/activities";
+import { activityLanding, BOULDER_HOLDS, effectiveActivity, FALLEN_LOGS, groundHeight, nearestGrind, nextHold, onSnow, rampImpulseAt, RIDE_RAMPS, stepSwim, stepTravel, terrainContact, type Activity, type AquaticMode, type Travel } from "@/lib/world/activities";
 import { SHASTA_COAT } from "@/lib/world/ecology";
 import { FrameSampler, QualityController } from "@/lib/world/performance";
 import * as THREE from "three/src/Three.Core.js";
@@ -7,12 +7,18 @@ import {
   constrainMove,
   distance,
   MEMORY_POINTS,
+  SEA_SURFACE,
+  coastlineX,
+  isWater,
+  maxDiveDepth,
   nearestRegion,
   nearbyDiscovery,
   REGIONS,
   SECRET,
   SPAWN,
+  seaFloorHeight,
   terrainHeight,
+  worldFloorHeight,
   WORLD_BOUNDS,
   type Obstacle,
   type Point,
@@ -23,12 +29,15 @@ import {
 type Callbacks = {
   onReady: () => void;
   onError: () => void;
+  onAquatic: (mode: AquaticMode) => void;
   onLocation: (r: RegionId, d: string | null) => void;
   onInteract: (d: string) => void;
 };
 type State = {
   activity: Activity;
   actionSerial: number;
+  waterAction: "dive" | "deeper" | "shallower" | "surface";
+  waterActionSerial: number;
   entered: boolean;
   paused: boolean;
   command: WorldCommand | null;
@@ -39,11 +48,12 @@ export type WorldRuntime = {
 };
 const UP = new THREE.Vector3(0, 1, 0);
 
-/** All art is deterministic geometry; no texture, model, physics or postprocessing downloads. */
+/** All art is deterministic procedural geometry; no model, texture, physics, or postprocessing downloads. */
 export function createWorld(
   host: HTMLElement,
   callbacks: Callbacks,
   Renderer: typeof WebGLRenderer,
+  gameTitles: string[],
 ): WorldRuntime {
   const renderer = new Renderer({
     antialias: true,
