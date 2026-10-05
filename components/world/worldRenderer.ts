@@ -1012,7 +1012,7 @@ export function createWorld(
       const limb = mesh(cylinder, octMat, [tentacle.x, tentacle.y, tentacle.z], [tentacle.sx, tentacle.sy, tentacle.sz], o);
       limb.quaternion.copy(tentacle.q!);
     }
-    const px = -58 - i * 7, pz = 5 + i * 14;
+    const px = -46 - i * 7, pz = 8 + i * 14;
     o.position.set(px, seaFloorHeight(px, pz) + 0.32, pz);
     reefRoot.add(o); octopuses.push(o);
   }
@@ -1022,7 +1022,7 @@ export function createWorld(
     const eelMat = mat("#5b6c4c");
     for (let segIndex = 0; segIndex < 5; segIndex++)
       mesh(rockGeo, eelMat, [0, 0, segIndex * 0.34], [0.16, 0.12, 0.28], eel);
-    const px = -64 + i * 5, pz = -10 + i * 16;
+    const px = -49 + i * 5, pz = -1 + i * 16;
     eel.position.set(px, seaFloorHeight(px, pz) + 0.4, pz);
     reefRoot.add(eel); eels.push(eel);
   }
@@ -1060,6 +1060,30 @@ export function createWorld(
   }
   instances(cylinder, mat("#b25f4e"), seaFans, false, reefRoot);
   instances(poppyCup, mat("#e6a264", { side: THREE.DoubleSide }), cupCorals, false, reefRoot);
+
+  // One low-cost mote field gives the water column depth and motion without a
+  // postprocessing pass or texture download.
+  const reefMotePositions = new Float32Array(150 * 3);
+  for (let i = 0; i < 150; i++) {
+    const x = -66 + random() * 24;
+    const z = -17 + random() * 48;
+    const floor = seaFloorHeight(x, z);
+    const y = floor + 0.7 + random() * Math.max(0.8, SEA_SURFACE - floor - 1.3);
+    reefMotePositions.set([x, y, z], i * 3);
+  }
+  const reefMoteGeo = geo(new THREE.BufferGeometry());
+  reefMoteGeo.setAttribute("position", new THREE.BufferAttribute(reefMotePositions, 3));
+  const reefMoteMat = new THREE.PointsMaterial({
+    color: "#c9eef0",
+    size: 0.055,
+    transparent: true,
+    opacity: 0.34,
+    depthWrite: false,
+  });
+  materials.add(reefMoteMat);
+  const reefMotes = new THREE.Points(reefMoteGeo, reefMoteMat);
+  reefRoot.add(reefMotes);
+  canvas.dataset.reefSpecies = "8";
 
   // One draw call of local snowfall follows the player whenever ski mode is equipped.
   const snowPositions = new Float32Array(220 * 3);
@@ -1733,21 +1757,27 @@ export function createWorld(
     reefSwimmers.forEach((swimmer, i) => {
       const a = elapsed * swimmer.speed + swimmer.phase;
       swimmer.object.position.set(
-        -59 + Math.cos(a) * swimmer.radius,
+        -51 + Math.cos(a) * swimmer.radius * 0.72,
         swimmer.baseY + Math.sin(a * 1.8 + i) * 0.55,
-        7 + Math.sin(a) * swimmer.radius * 0.72,
+        10 + Math.sin(a) * swimmer.radius * 0.58,
       );
       swimmer.object.rotation.y = -a + Math.PI / 2;
     });
     sharks.forEach((shark, i) => {
       const a = elapsed * (0.1 + i * 0.018) + i * 2.2;
-      shark.position.set(-60 + Math.cos(a) * (13 + i * 3), -4.2 - i * 1.1, 6 + Math.sin(a) * (18 + i * 2));
+      const centerX = i === 0 ? -49 : -57;
+      const radiusX = i === 0 ? 8.5 : 11.5;
+      const radiusZ = i === 0 ? 11 : 17;
+      shark.position.set(centerX + Math.cos(a) * radiusX, -4.2 - i * 1.1, 10 + Math.sin(a) * radiusZ);
       shark.rotation.y = -a + Math.PI / 2;
       shark.rotation.z = Math.sin(a * 2) * 0.04;
     });
     rays.forEach((rayGroup, i) => {
       const a = elapsed * (0.08 + i * 0.012) + i * 1.7;
-      rayGroup.position.set(-57 + Math.cos(a) * (8 + i * 2.2), -5.4 - i * 0.5 + Math.sin(a * 2) * 0.35, 9 + Math.sin(a) * 12);
+      const centerX = i === 0 ? -47 : -55;
+      const radiusX = i === 0 ? 6 : 9;
+      const radiusZ = i === 0 ? 8 : 12;
+      rayGroup.position.set(centerX + Math.cos(a) * radiusX, -5.1 - i * 0.6 + Math.sin(a * 2) * 0.35, 11 + Math.sin(a) * radiusZ);
       rayGroup.rotation.y = -a + Math.PI / 2;
       rayGroup.rotation.z = Math.sin(elapsed * 1.7 + i) * 0.09;
     });
@@ -1762,12 +1792,15 @@ export function createWorld(
     jellies.forEach((jelly, i) => {
       const a = i * 1.9;
       jelly.position.set(
-        -57 - (i % 3) * 5 + Math.sin(elapsed * 0.19 + a) * 2,
+        -45 - (i % 3) * 4 + Math.sin(elapsed * 0.19 + a) * 2,
         -3.2 - (i % 2) * 2 + Math.sin(elapsed * 0.65 + a) * 0.75,
-        -8 + i * 7,
+        5 + i * 6,
       );
       jelly.scale.y = 0.92 + Math.sin(elapsed * 1.8 + i) * 0.08;
     });
+
+    reefMotes.rotation.y = Math.sin(elapsed * 0.08) * 0.018;
+    reefMotes.position.y = Math.sin(elapsed * 0.22) * 0.05;
 
     // Detail culling: distant grass and synaptic particles need no GPU work.
     grassMesh.visible = camera.position.y < 45 && aquatic === "land";
