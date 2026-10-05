@@ -67,6 +67,7 @@ export function createWorld(
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   let dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+  let adaptiveShadows = true;
   renderer.setPixelRatio(dpr);
   const canvas = renderer.domElement;
   canvas.tabIndex = 0;
@@ -2076,6 +2077,17 @@ export function createWorld(
       if (nextDpr !== dpr) {
         dpr = nextDpr;
         renderer.setPixelRatio(dpr);
+      }
+      // DPR reduction is the first quality lever. If sustained load has already
+      // pushed us to the floor, stop paying for the full shadow pass too.
+      const shouldUseShadows = dpr > 0.75 || fps >= 24;
+      if (adaptiveShadows !== shouldUseShadows) {
+        adaptiveShadows = shouldUseShadows;
+        renderer.shadowMap.enabled = adaptiveShadows;
+        sun.castShadow = adaptiveShadows;
+      }
+      canvas.dataset.shadows = adaptiveShadows ? "on" : "off";
+      if (nextDpr !== dpr) {
       }
       canvas.dataset.dpr = dpr.toFixed(2);
     }
