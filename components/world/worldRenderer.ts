@@ -1368,6 +1368,7 @@ export function createWorld(
   let dogMoveBlend = 0;
   let dogMaxYawStep = 0;
   let dogMaxYStep = 0;
+  let dogMaxMoveBlend = 0;
   let lastDogRenderY = dogGroundY;
   let locationKey = "",
     discovery: string | null = null,
@@ -2133,6 +2134,7 @@ export function createWorld(
     dogGaitPhase += dogStep * 5.4;
     const movingTarget = dogStep > 0.001 ? 1 : 0;
     dogMoveBlend += (movingTarget - dogMoveBlend) * (1 - Math.exp(-dt * 7));
+    dogMaxMoveBlend = Math.max(dogMaxMoveBlend, dogMoveBlend);
     const targetDogY = terrainHeight(dog.x, dog.z);
     const dogGroundError = targetDogY - dogGroundY;
     const maxDogGroundStep = Math.min(0.1, 2.4 * Math.max(0, Math.min(dt, 0.05)));
@@ -2151,6 +2153,7 @@ export function createWorld(
     canvas.dataset.dogGaitPhase = dogGaitPhase.toFixed(3);
     canvas.dataset.dogMaxYawStep = dogMaxYawStep.toFixed(3);
     canvas.dataset.dogMaxYStep = dogMaxYStep.toFixed(3);
+    canvas.dataset.dogMaxMoveBlend = dogMaxMoveBlend.toFixed(3);
     explorerContact.visible = aquatic === "land";
     explorerContact.position.set(
       explorer.position.x,
@@ -2362,6 +2365,7 @@ export function createWorld(
         // exploration begins instead of carrying welcome-transition motion forward.
         dogMaxYawStep = 0;
         dogMaxYStep = 0;
+        dogMaxMoveBlend = 0;
         lastDogRenderY = shasta.position.y;
       }
       if (next.entered && !next.paused && (changedActivity || requestedAction || requestedWaterAction))
@@ -2394,6 +2398,7 @@ export function createWorld(
         dogMoveBlend = 0;
         dogMaxYawStep = 0;
         dogMaxYStep = 0;
+        dogMaxMoveBlend = 0;
         lastDogRenderY = dogGroundY;
         destination = null;
         if (next.command.activity === "ski") {
