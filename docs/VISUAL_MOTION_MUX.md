@@ -119,3 +119,32 @@ For 4K source material the uploader explicitly requests a Mux `max_resolution_ti
 Raw source filenames and ingest provenance stay in `visualMotionManifest.json`. Public-facing titles, short descriptions, alt text, tags, and gallery order live separately in `src/data/visualMotionCuration.json`.
 
 That separation keeps the archive auditable while allowing the public gallery to use concise editorial names. A matching curation record is applied automatically at render time and during future ingests; an explicit CLI `--title`, `--description`, or `--alt` still takes precedence for one-off uploads.
+
+
+## Free-plan rotation
+
+Mux's Free plan stores up to 10 video assets. Treat those 10 as the active streaming shelf, not the permanent archive.
+
+- `motion:unpublish` hides a video from the website but keeps its Mux asset and therefore does **not** free a slot.
+- `motion:retire` deletes the Mux asset, hides the video, and preserves the local manifest identity, source SHA, and historical Mux IDs so the item can be restored later.
+- Re-running `motion:upload` on the original source of a retired item restores the same stable gallery slug instead of creating a duplicate record.
+
+Check the current shelf:
+
+```bash
+npm run motion:slots
+```
+
+Preview a retirement without changing anything:
+
+```bash
+npm run motion:retire -- coral-garden-2
+```
+
+After reviewing the preview, explicitly free the slot:
+
+```bash
+npm run motion:retire -- coral-garden-2 --confirm-delete
+```
+
+Then upload the replacement video normally. Keep the original source files as the long-term archive; Mux is the publication/cache layer.
