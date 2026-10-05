@@ -1535,6 +1535,9 @@ export function createWorld(
       canvas.dataset.aquatic = aquatic;
       canvas.dataset.depth = swimDepth.toFixed(2);
       canvas.dataset.grinding = String(!!grind);
+      canvas.dataset.cameraWater = String(
+        aquatic !== "dive" || isWater({ x: targetCamera.x, z: targetCamera.z }),
+      );
       const r: RegionId = isWater(player) ? "coast" : nearestRegion(player);
       discovery = aquatic === "land" ? nearbyDiscovery(player) : null;
       const nextKey = `${r}:${discovery}`;
