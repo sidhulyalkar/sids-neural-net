@@ -1496,9 +1496,12 @@ export function createWorld(
       canvas.dataset.activity = mode;
       canvas.dataset.speed = travel.speed.toFixed(2);
       canvas.dataset.height = playerY.toFixed(2);
-      canvas.dataset.airborne = String(airHeight > 0 || !!climb);
-      const r = nearestRegion(player);
-      discovery = nearbyDiscovery(player);
+      canvas.dataset.airborne = String(airHeight > 0 || !!climb || !!grind);
+      canvas.dataset.aquatic = aquatic;
+      canvas.dataset.depth = swimDepth.toFixed(2);
+      canvas.dataset.grinding = String(!!grind);
+      const r: RegionId = isWater(player) ? "coast" : nearestRegion(player);
+      discovery = aquatic === "land" ? nearbyDiscovery(player) : null;
       const nextKey = `${r}:${discovery}`;
       if (nextKey !== locationKey) {
         locationKey = nextKey;
@@ -1506,50 +1509,65 @@ export function createWorld(
       }
       targetLook.set(
         player.x,
-        playerY + 2.8,
+        playerY + (aquatic === "dive" ? 0.75 : aquatic === "surface" ? 1.4 : 2.8),
         player.z,
       );
+      const cameraZoom = aquatic === "dive" ? Math.min(zoom, 13.5) : zoom;
       targetCamera.set(
-        player.x + Math.sin(yaw) * zoom * Math.cos(pitch),
-        targetLook.y + zoom * Math.sin(pitch),
-        player.z + Math.cos(yaw) * zoom * Math.cos(pitch),
+        player.x + Math.sin(yaw) * cameraZoom * Math.cos(pitch),
+        targetLook.y + cameraZoom * Math.sin(pitch),
+        player.z + Math.cos(yaw) * cameraZoom * Math.cos(pitch),
       );
-      // Keep a trunk from obscuring the explorer: shorten the camera boom at contact.
-      const bx = targetCamera.x - player.x,
-        bz = targetCamera.z - player.z;
-      let boom = 1;
-      for (const o of obstacles) {
-        const t =
-          ((o.x - player.x) * bx + (o.z - player.z) * bz) / (bx * bx + bz * bz);
-        if (
-          t > 0.08 &&
-          t < boom &&
-          Math.hypot(player.x + bx * t - o.x, player.z + bz * t - o.z) <
-            o.radius + 0.75
-        )
-          boom = Math.max(0.25, t - 0.15);
+      // Keep a trunk from obscuring the explorer on land.
+      if (aquatic === "land") {
+        const bx = targetCamera.x - player.x,
+          bz = targetCamera.z - player.z;
+        let boom = 1;
+        for (const o of obstacles) {
+          const t =
+            ((o.x - player.x) * bx + (o.z - player.z) * bz) / (bx * bx + bz * bz);
+          if (
+            t > 0.08 &&
+            t < boom &&
+            Math.hypot(player.x + bx * t - o.x, player.z + bz * t - o.z) <
+              o.radius + 0.75
+          ) boom = Math.max(0.25, t - 0.15);
+        }
+        if (boom < 1) targetCamera.lerpVectors(targetLook, targetCamera, boom);
+        targetCamera.y = Math.max(
+          targetCamera.y,
+          worldFloorHeight(targetCamera.x, targetCamera.z) + 3.5,
+        );
+      } else if (aquatic === "dive") {
+        const floor = seaFloorHeight(player.x, player.z);
+        targetCamera.y = THREE.MathUtils.clamp(
+          targetCamera.y,
+          floor + 1.05,
+          SEA_SURFACE - 0.22,
+        );
       }
-      if (boom < 1) targetCamera.lerpVectors(targetLook, targetCamera, boom);
-      targetCamera.y = Math.max(
-        targetCamera.y,
-        terrainHeight(targetCamera.x, targetCamera.z) + 3.5,
-      );
     } else {
       explorer.position.set(SPAWN.x, terrainHeight(SPAWN.x, SPAWN.z), SPAWN.z);
       explorer.rotation.y = -0.5;
       targetCamera.set(42 + Math.sin(elapsed * 0.035) * 1.5, 36, 86);
       targetLook.set(-12, 6, -12);
     }
+    const shoreWait = {
+      x: coastlineX(player.z) + 2.6,
+      z: THREE.MathUtils.clamp(player.z, WORLD_BOUNDS.minZ + 4, WORLD_BOUNDS.maxZ - 4),
+    };
     const dogTarget = state.entered
-      ? distance(player, SECRET) < 13
-        ? SECRET
-        : { x: player.x + 2.7, z: player.z - 2.7 }
+      ? aquatic !== "land" || isWater(player)
+        ? shoreWait
+        : distance(player, SECRET) < 13
+          ? SECRET
+          : { x: player.x + 2.7, z: player.z - 2.7 }
       : { x: 4 + Math.sin(elapsed * 0.13) * 2, z: 12 };
     const dogDelta = distance(dog, dogTarget);
     if (dogDelta > 0.7) {
       const speed = Math.min(dt * Math.max(6, travel.speed + 2), dogDelta);
       const angle = Math.atan2(dogTarget.x - dog.x, dogTarget.z - dog.z);
-      dog = constrainMove(
+      const candidate = constrainMove(
         dog,
         {
           x: dog.x + Math.sin(angle) * speed,
@@ -1557,12 +1575,14 @@ export function createWorld(
         },
         obstacles,
       );
+      if (!isWater(candidate)) dog = candidate;
       shasta.rotation.y = angle;
     }
     shasta.position.set(dog.x, terrainHeight(dog.x, dog.z), dog.z);
+    explorerContact.visible = aquatic === "land";
     explorerContact.position.set(
       explorer.position.x,
-      groundHeight(player) + 0.04,
+      aquatic === "land" ? groundHeight(player) + 0.04 : SEA_SURFACE,
       explorer.position.z,
     );
     dogContact.position.set(dog.x, terrainHeight(dog.x, dog.z) + 0.04, dog.z);
