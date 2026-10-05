@@ -1645,6 +1645,8 @@ export function createWorld(
 
     // Ski-mode snowfall follows the player anywhere in the world.
     snowfall.visible = state.activity === "ski" && aquatic !== "dive";
+    canvas.dataset.snowing = String(snowfall.visible);
+    canvas.dataset.reef = String(reefRoot.visible);
     if (snowfall.visible) {
       snowfall.position.set(player.x, playerY - 4, player.z);
       const snowAttribute = snowGeo.attributes.position as THREE.BufferAttribute;
