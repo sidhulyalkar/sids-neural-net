@@ -588,33 +588,44 @@ export function createWorld(
   materials.add(particleMat);
   const fireflies = new THREE.Points(particleGeo, particleMat);
   scene.add(fireflies);
-  // Four stone markers, and three low viewpoint stones. Only nearby discoveries show UI.
+  // Natural trail cairns replace the old rectangular waypoint pillars. Invisible
+  // hit volumes preserve the same pointer/discovery semantics without advertising UI
+  // geometry inside the landscape.
   const markerData = [
     ...REGIONS.map((r) => ({ id: r.id, point: r.point })),
     ...MEMORY_POINTS.map((m) => ({ id: m.id, point: m.point })),
   ];
   const markerObjects: THREE.Mesh[] = [];
+  const cairnPieces: Instance[] = [];
+  const markerHitMat = mat("#ffffff", {
+    transparent: true,
+    opacity: 0,
+    depthWrite: false,
+  });
+  markerHitMat.colorWrite = false;
   markerData.forEach((m, i) => {
     const x = m.point.x,
       z = m.point.z,
-      y = terrainHeight(x, z);
-    const stone = mesh(
-      boxGeo,
-      rockMat,
-      [x, y + 0.68, z],
-      [i < 4 ? 0.75 : 0.6, 1.35, 0.55],
+      y = terrainHeight(x, z),
+      scale = i < REGIONS.length ? 1 : 0.72,
+      twist = i * 0.83;
+    cairnPieces.push(
+      { x, y: y + 0.18 * scale, z, sx: 0.62 * scale, sy: 0.28 * scale, sz: 0.52 * scale, ry: twist },
+      { x: x + 0.05 * scale, y: y + 0.47 * scale, z: z - 0.02 * scale, sx: 0.46 * scale, sy: 0.23 * scale, sz: 0.4 * scale, ry: twist + 0.7 },
+      { x: x - 0.04 * scale, y: y + 0.7 * scale, z: z + 0.03 * scale, sx: 0.31 * scale, sy: 0.19 * scale, sz: 0.29 * scale, ry: twist + 1.4 },
     );
-    stone.rotation.y = -0.25;
-    stone.userData.discovery = m.id;
-    markerObjects.push(stone);
-    const inset = mesh(
+    const hit = mesh(
       boxGeo,
-      i === 2 ? neuralMat : lightMat,
-      [x, y + 1.4, z],
-      [0.52, 0.06, 0.4],
+      markerHitMat,
+      [x, y + 0.52 * scale, z],
+      [1.25 * scale, 1.35 * scale, 1.1 * scale],
     );
-    inset.rotation.y = -0.25;
+    hit.castShadow = false;
+    hit.receiveShadow = false;
+    hit.userData.discovery = m.id;
+    markerObjects.push(hit);
   });
+  instances(rockGeo, mat("#8d9185"), cairnPieces, false);
   // Explorer silhouette: ochre jacket, little backpack, dark cap. No skeletal payload.
   const explorer = new THREE.Group();
   scene.add(explorer);
@@ -684,13 +695,14 @@ export function createWorld(
   const cave: Instance[] = [];
   for (let i = 0; i < 9; i++) {
     const a = i * Math.PI / 8;
+    const crown = Math.sin(a) > 0.72;
     cave.push({
       x: arcade.x + Math.cos(a) * 5.55,
-      y: arcadeY + Math.sin(a) * 6.15,
+      y: arcadeY + Math.sin(a) * 6.15 + (crown ? 1.05 : 0),
       z: arcade.z - 3.0,
-      sx: 1.35,
-      sy: 1.25,
-      sz: 2.05,
+      sx: crown ? 1.12 : 1.35,
+      sy: crown ? 0.98 : 1.25,
+      sz: crown ? 1.72 : 2.05,
       ry: i * 0.74,
     });
   }
