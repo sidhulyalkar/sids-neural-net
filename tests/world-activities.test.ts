@@ -101,6 +101,17 @@ test("movement clamps long frames, cannot overshoot a click target or leave map"
   assert.equal(edge.point.x, WORLD_BOUNDS.maxX);
 });
 
+test("swimming keeps bounded wall-clock motion on slow frames", () => {
+  const start: Travel = {
+    point: { x: -55, z: 10 },
+    speed: 4.6,
+    heading: { x: -1, z: 0 },
+  };
+  const next = stepSwim(start, { x: -1, z: 0 }, 10);
+  assert.ok(distance(next.point, start.point) <= 4.6 * 0.12 + 1e-8);
+  assert.ok(distance(next.point, start.point) > 4.6 * 0.1);
+});
+
 test("swimming uses bounded movement and dive depth always leaves clearance above the reef", () => {
   const start = { x: -55, z: 10 };
   assert.ok(isWater(start));
