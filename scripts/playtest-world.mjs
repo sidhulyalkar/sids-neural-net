@@ -35,32 +35,23 @@ try {
   await screenshot(page, 'desktop-welcome');
   await page.getByRole('button', { name: 'Explore world', exact: true }).click();
   const before = await page.locator('canvas').getAttribute('data-player');
-  const dogSamples = [];
+  const beforeDogPhase = Number(await page.locator('canvas').getAttribute('data-dog-gait-phase'));
   await page.keyboard.down('w');
-  try {
-    for (let i = 0; i < 10; i++) {
-      await page.waitForTimeout(140);
-      dogSamples.push(await page.locator('canvas').evaluate(c => ({
-        yaw: Number(c.dataset.dogYaw),
-        y: Number(c.dataset.dogY),
-        blend: Number(c.dataset.dogMoveBlend),
-        phase: Number(c.dataset.dogGaitPhase),
-      })));
-    }
-  } finally {
-    await page.keyboard.up('w');
-  }
+  await page.waitForTimeout(1400);
+  await page.keyboard.up('w');
   await page.waitForFunction(old => document.querySelector('canvas')?.dataset.player !== old, before);
-  const angularDelta = (a, b) => Math.abs(Math.atan2(Math.sin(a - b), Math.cos(a - b)));
-  const yawSteps = dogSamples.slice(1).map((sample, i) => angularDelta(sample.yaw, dogSamples[i].yaw));
-  const ySteps = dogSamples.slice(1).map((sample, i) => Math.abs(sample.y - dogSamples[i].y));
-  assert.ok(Math.max(...yawSteps) < 0.7, `Shasta yaw step ${Math.max(...yawSteps)}`);
-  assert.ok(Math.max(...ySteps) < 0.45, `Shasta height step ${Math.max(...ySteps)}`);
-  assert.ok(Math.max(...dogSamples.map(sample => sample.blend)) > 0.15);
-  for (let i = 1; i < dogSamples.length; i++)
-    assert.ok(dogSamples[i].phase >= dogSamples[i - 1].phase);
+  const dogMotion = await page.locator('canvas').evaluate(c => ({
+    maxYawStep: Number(c.dataset.dogMaxYawStep),
+    maxYStep: Number(c.dataset.dogMaxYStep),
+    blend: Number(c.dataset.dogMoveBlend),
+    phase: Number(c.dataset.dogGaitPhase),
+  }));
+  assert.ok(dogMotion.maxYawStep <= 0.22, `Shasta max frame yaw step ${dogMotion.maxYawStep}`);
+  assert.ok(dogMotion.maxYStep < 0.2, `Shasta max frame height step ${dogMotion.maxYStep}`);
+  assert.ok(dogMotion.blend > 0.15);
+  assert.ok(dogMotion.phase > beforeDogPhase);
   results.push('Keyboard walking changes player position');
-  results.push('Shasta follow gait stays height/yaw-continuous and distance-phased');
+  results.push('Shasta follow gait stays per-frame height/yaw-continuous and distance-phased');
   for (const [name, prompt, title] of [
     ['01 Redwood grove A little about me', 'A little about me', 'Hi, I’m Sid.'],
     ['02 Granite ridge Things I build', 'Things I build', 'Things I build.'],
