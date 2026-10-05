@@ -726,6 +726,7 @@ export function createWorld(
     T: ["111","010","010","010","010"], U: ["101","101","101","101","111"],
   };
   const carvingTitles = (gameTitles.length ? gameTitles : ["Stretchicorn", "uniRico", "Unicorn Stampede"]).slice(0, 3);
+  canvas.dataset.carvedGames = String(carvingTitles.length);
   const carvingMaterial = mat("#dec995", { emissive: "#9b7741", emissiveIntensity: 0.62, roughness: 0.85 });
   carvingTitles.forEach((title, row) => {
     const carvingPoints: Instance[] = [];
