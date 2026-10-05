@@ -148,6 +148,35 @@ try {
   await screenshot(page, 'activity-grind');
   results.push('Skateboard acquires the fallen redwood as an angle-selected boardslide');
 
+  // The Ski landing sits close to the ridge log. Backward travel from the authored
+  // kicker-facing spawn approaches that log nearly parallel, qualifying a 50-50.
+  await page.getByRole('button', { name: 'Skiing', exact: true }).click();
+  await page.waitForFunction(() => document.activeElement?.tagName === 'CANVAS');
+  await page.keyboard.down('s');
+  try {
+    await page.waitForFunction(
+      () => document.querySelector('canvas')?.dataset.grindReady === 'true',
+      null,
+      { timeout: 12000 },
+    );
+    assert.equal(await page.locator('canvas').getAttribute('data-grind-style'), 'fifty-fifty');
+    await page.keyboard.press('Space');
+    await page.waitForFunction(
+      () => document.querySelector('canvas')?.dataset.grinding === 'true',
+      null,
+      { timeout: 4000 },
+    );
+  } finally {
+    await page.keyboard.up('s');
+  }
+  assert.equal(await page.locator('canvas').getAttribute('data-grind-id'), 'ridge-log');
+  assert.equal(await page.locator('canvas').getAttribute('data-grind-style'), 'fifty-fifty');
+  await screenshot(page, 'activity-ski-grind');
+  results.push('Skis acquire the ridge log as an angle-selected 50-50');
+
+  // Reset Ski onto the authored shoulder before qualifying the kicker.
+  await page.getByRole('button', { name: 'Skiing', exact: true }).click();
+
   // Granite Ridge lands just above the authored ski kicker, so a normal downhill
   // approach must trigger the shared ramp mechanic without a synthetic jump.
   await page.getByRole('button', { name: 'Open navigation menu' }).click();
