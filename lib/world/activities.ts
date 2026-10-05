@@ -118,7 +118,10 @@ export function stepSwim(
   dt: number,
   destination?: Point | null,
 ): Travel {
-  dt = Math.max(0, Math.min(dt, 0.05));
+  // Swimming has no trunk/ledge collision and uses swept world-bound clamping,
+  // so it can safely retain more wall-clock time on a slow renderer than land
+  // locomotion. This prevents low-FPS devices from turning the ocean into slow motion.
+  dt = Math.max(0, Math.min(dt, 0.12));
   const length = Math.hypot(input.x, input.z);
   const moving = length > 0.001;
   const heading = moving ? { x: input.x / length, z: input.z / length } : current.heading;
