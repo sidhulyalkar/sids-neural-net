@@ -1217,7 +1217,11 @@ export function createWorld(
   explorer.rotation.order = "YXZ";
   let dog: Point = { x: 3, z: 12 };
   let locationKey = "",
-    discovery: string | null = null;
+    discovery: string | null = null,
+    gazeCandidate: string | null = null,
+    gazeStable: string | null = null,
+    gazeCandidateSince = 0,
+    gazeLastSeen = 0;
   const keys = new Set<string>();
   const targetCamera = new THREE.Vector3(),
     targetLook = new THREE.Vector3();
@@ -1698,15 +1702,31 @@ export function createWorld(
           : 0
       ).toFixed(3);
       const r: RegionId = isWater(player) ? "coast" : nearestRegion(player);
-      let gazeGame: string | null = null;
+      let rawGazeGame: string | null = null;
       if (aquatic === "land" && r === "cavern" && distance(player, arcade) < 10) {
         ray.setFromCamera(gazePointer, camera);
         const gazeHit = ray
           .intersectObjects(markerObjects, false)
           .find(hit => String(hit.object.userData.discovery ?? "").startsWith("game:"));
         if (gazeHit && gazeHit.distance < 45)
-          gazeGame = String(gazeHit.object.userData.discovery);
+          rawGazeGame = String(gazeHit.object.userData.discovery);
       }
+      if (rawGazeGame !== gazeCandidate) {
+        gazeCandidate = rawGazeGame;
+        gazeCandidateSince = now;
+      }
+      if (rawGazeGame) {
+        gazeLastSeen = now;
+        if (now - gazeCandidateSince >= 260)
+          gazeStable = rawGazeGame;
+      } else if (gazeStable && now - gazeLastSeen > 450) {
+        gazeStable = null;
+      }
+      if (r !== "cavern" || aquatic !== "land") {
+        gazeCandidate = gazeStable = null;
+        gazeCandidateSince = gazeLastSeen = now;
+      }
+      const gazeGame = gazeStable;
       canvas.dataset.gazeGame = gazeGame ?? "";
       discovery = aquatic === "land" ? (gazeGame ?? nearbyDiscovery(player)) : null;
       const nextKey = `${r}:${discovery}`;
