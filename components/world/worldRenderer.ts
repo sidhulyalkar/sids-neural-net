@@ -707,15 +707,19 @@ export function createWorld(
 
   // The cavern wall is the game selector: broad recessed bands carry carved names.
   mesh(boxGeo, mat("#314850"), [arcade.x, arcadeY + 3.15, arcade.z - 6.75], [10.1, 6.45, 0.72]);
-  const carvingBands: Instance[] = Array.from({ length: 3 }, (_, row) => ({
-    x: arcade.x,
-    y: arcadeY + 4.82 - row * 1.5,
-    z: arcade.z - 6.37,
-    sx: 8.35,
-    sy: 1.08,
-    sz: 0.06,
-  }));
-  instances(boxGeo, mat("#24363d"), carvingBands, false);
+  const carvingBandMaterial = mat("#24363d");
+  for (let row = 0; row < 3; row++) {
+    const band = mesh(
+      boxGeo,
+      carvingBandMaterial,
+      [arcade.x, arcadeY + 4.82 - row * 1.5, arcade.z - 6.37],
+      [8.35, 1.08, 0.06],
+    );
+    band.castShadow = false;
+    band.receiveShadow = false;
+    band.userData.discovery = `game:${row}`;
+    markerObjects.push(band);
+  }
   const glyphs: Record<string, string[]> = {
     A: ["010","101","111","101","101"], C: ["111","100","100","100","111"],
     D: ["110","101","101","101","110"], E: ["111","100","110","100","111"],
