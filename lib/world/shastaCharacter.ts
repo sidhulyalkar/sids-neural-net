@@ -57,15 +57,16 @@ export const SHASTA_CHARACTER = {
     /**
      * Standing-tail silhouette from the photos: broad base, relaxed plume
      * sweeping backward/down, then a soft outward/upward curl near the tip.
-     * Each point is an instanced ellipsoid so the plume stays one draw call.
+     * These six photo-derived points drive one continuous tapered tube so the
+     * plume stays smooth and remains one draw call.
      */
     plume: [
-      { x: 0.0, y: 1.04, z: -0.76, sx: 0.17, sy: 0.19, sz: 0.24, tone: "warmTan" },
-      { x: 0.025, y: 0.91, z: -0.98, sx: 0.19, sy: 0.2, sz: 0.28, tone: "lightTan" },
-      { x: 0.07, y: 0.8, z: -1.2, sx: 0.21, sy: 0.21, sz: 0.3, tone: "creamWhite" },
-      { x: 0.14, y: 0.76, z: -1.42, sx: 0.225, sy: 0.215, sz: 0.31, tone: "brightWhite" },
-      { x: 0.23, y: 0.81, z: -1.61, sx: 0.215, sy: 0.205, sz: 0.29, tone: "brightWhite" },
-      { x: 0.3, y: 0.92, z: -1.75, sx: 0.18, sy: 0.175, sz: 0.25, tone: "creamWhite" },
+      { x: 0.0, y: 1.03, z: -0.76, sx: 0.17, sy: 0.19, sz: 0.24, tone: "warmTan" },
+      { x: 0.02, y: 0.9, z: -0.98, sx: 0.19, sy: 0.2, sz: 0.28, tone: "lightTan" },
+      { x: 0.06, y: 0.75, z: -1.2, sx: 0.21, sy: 0.21, sz: 0.3, tone: "creamWhite" },
+      { x: 0.12, y: 0.67, z: -1.42, sx: 0.225, sy: 0.215, sz: 0.31, tone: "brightWhite" },
+      { x: 0.2, y: 0.69, z: -1.61, sx: 0.215, sy: 0.205, sz: 0.29, tone: "brightWhite" },
+      { x: 0.27, y: 0.78, z: -1.75, sx: 0.18, sy: 0.175, sz: 0.25, tone: "creamWhite" },
     ] as const,
     restAngleZ: 0.035,
     restAngleY: -0.08,
