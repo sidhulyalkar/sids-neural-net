@@ -1,7 +1,7 @@
 import { arcadeGames } from "@/src/data/arcadeGames";
 import graphData from "@/data/generated/neural-graph.json";
 import { visualArchive } from "@/src/data/visualArchive";
-import { MEMORY_POINTS, type RegionId, type WorldContent } from "./model";
+import { MEMORY_POINTS, SNORKEL_VIDEO_POINTS, type RegionId, type WorldContent } from "./model";
 
 // Select existing records; never maintain a second set of project descriptions.
 const FEATURED: { slug: string; region: RegionId }[] = [
@@ -44,5 +44,12 @@ export function getWorldContent(): WorldContent {
           ]
         : [];
     }),
+    videos: SNORKEL_VIDEO_POINTS.map(({ id, title, detail, src, posterSrc }) => ({
+      id,
+      title,
+      detail,
+      src,
+      ...(posterSrc ? { posterSrc } : {}),
+    })),
   };
 }
