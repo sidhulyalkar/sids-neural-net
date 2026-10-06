@@ -1,5 +1,5 @@
 import { activityLanding, BOULDER_HOLDS, effectiveActivity, FALLEN_LOGS, grindStyleForApproach, groundHeight, nearestGrind, nextHold, onSnow, rampImpulseAt, RIDE_RAMPS, stepSwim, stepTravel, terrainContact, type Activity, type AquaticMode, type GrindStyle, type Travel } from "@/lib/world/activities";
-import { SHASTA_COAT } from "@/lib/world/ecology";
+import { LAND_WILDLIFE, LAND_WILDLIFE_COLORS, SHASTA_COAT } from "@/lib/world/ecology";
 import { FrameSampler, QualityController } from "@/lib/world/performance";
 import * as THREE from "three/src/Three.Core.js";
 import type { WebGLRenderer } from "three/src/renderers/WebGLRenderer.js";
@@ -1079,6 +1079,74 @@ export function createWorld(
     });
   }
   instances(rockGeo, mat("#718266"), prints, false);
+
+  // Small land animals share two instanced meshes. Their behavior can grow without
+  // multiplying persistent draw calls as more species/locations are added.
+  type CritterState = {
+    kind: typeof LAND_WILDLIFE[number]["kind"];
+    home: Point;
+    point: Point;
+    phase: number;
+    heading: number;
+    roam: number;
+    speed: number;
+    bodyScale: { x: number; y: number; z: number };
+    tailLength: number;
+    tailRadius: number;
+  };
+  const critters: CritterState[] = LAND_WILDLIFE.map((animal, i) => {
+    const shape =
+      animal.kind === "lizard"
+        ? { bodyScale: { x: 0.12, y: 0.07, z: 0.34 }, tailLength: 0.55, tailRadius: 0.025 }
+        : animal.kind === "mouse"
+          ? { bodyScale: { x: 0.13, y: 0.11, z: 0.2 }, tailLength: 0.4, tailRadius: 0.018 }
+          : animal.kind === "woodrat"
+            ? { bodyScale: { x: 0.18, y: 0.15, z: 0.25 }, tailLength: 0.48, tailRadius: 0.022 }
+            : animal.kind === "rabbit"
+              ? { bodyScale: { x: 0.24, y: 0.3, z: 0.34 }, tailLength: 0.14, tailRadius: 0.06 }
+              : animal.kind === "quail"
+                ? { bodyScale: { x: 0.2, y: 0.22, z: 0.28 }, tailLength: 0.18, tailRadius: 0.045 }
+                : { bodyScale: { x: 0.2, y: 0.2, z: 0.3 }, tailLength: 0.5, tailRadius: 0.08 };
+    return {
+      kind: animal.kind,
+      home: { ...animal.point },
+      point: { ...animal.point },
+      phase: i * 1.47 + random() * Math.PI,
+      heading: random() * Math.PI * 2,
+      roam: animal.roam,
+      speed: animal.speed,
+      ...shape,
+    };
+  });
+  const critterBodies = instances(
+    rockGeo,
+    mat("#ffffff"),
+    critters.map((critter) => ({
+      x: critter.point.x,
+      y: terrainHeight(critter.point.x, critter.point.z) + critter.bodyScale.y,
+      z: critter.point.z,
+      sx: critter.bodyScale.x,
+      sy: critter.bodyScale.y,
+      sz: critter.bodyScale.z,
+      color: LAND_WILDLIFE_COLORS[critter.kind],
+    })),
+    false,
+  );
+  const critterTails = instances(
+    cylinder,
+    mat("#ffffff"),
+    critters.map((critter) => ({
+      x: critter.point.x,
+      y: terrainHeight(critter.point.x, critter.point.z) + 0.15,
+      z: critter.point.z - 0.25,
+      sx: critter.tailRadius,
+      sy: critter.tailLength,
+      sz: critter.tailRadius,
+      color: LAND_WILDLIFE_COLORS[critter.kind],
+    })),
+    false,
+  );
+  canvas.dataset.landWildlife = String(critters.length);
 
   // --- Cold-water kelp forest -------------------------------------------------
   // Reparent all submerged detail under one visibility gate so land scenes do not
