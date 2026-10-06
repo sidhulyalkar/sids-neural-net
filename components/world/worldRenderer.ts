@@ -9,6 +9,7 @@ import {
   MEMORY_POINTS,
   SEA_SURFACE,
   coastlineX,
+  eastCoastlineX,
   isWater,
   maxDiveDepth,
   nearestRegion,
@@ -19,6 +20,7 @@ import {
   SPAWN,
   seaFloorHeight,
   terrainHeight,
+  waterZone,
   worldFloorHeight,
   WORLD_BOUNDS,
   type Obstacle,
@@ -275,9 +277,9 @@ export function createWorld(
     side: THREE.DoubleSide,
   });
   const water = mesh(
-    geo(new THREE.PlaneGeometry(430, 420)),
+    geo(new THREE.PlaneGeometry(540, 420)),
     waterMaterial,
-    [-140, SEA_SURFACE, -90],
+    [-80, SEA_SURFACE, -90],
     [1, 1, 1],
   );
   water.rotation.x = -Math.PI / 2;
@@ -299,17 +301,20 @@ export function createWorld(
   // cannot drift apart.
   const shoreFoamPieces: Instance[] = [];
   for (let z = WORLD_BOUNDS.minZ + 8; z <= WORLD_BOUNDS.maxZ - 3; z += 2.4) {
-    const x = coastlineX(z) - 0.42;
-    const tangentX = coastlineX(z + 0.7) - coastlineX(z - 0.7);
-    shoreFoamPieces.push({
-      x,
-      y: SEA_SURFACE + 0.035,
-      z,
-      sx: 0.16,
-      sy: 0.025,
-      sz: 1.35,
-      ry: Math.atan2(tangentX, 1.4),
-    });
+    for (const side of ["west", "east"] as const) {
+      const coast = side === "west" ? coastlineX : eastCoastlineX;
+      const x = coast(z) + (side === "west" ? -0.42 : 0.42);
+      const tangentX = coast(z + 0.7) - coast(z - 0.7);
+      shoreFoamPieces.push({
+        x,
+        y: SEA_SURFACE + 0.035,
+        z,
+        sx: 0.16,
+        sy: 0.025,
+        sz: 1.35,
+        ry: Math.atan2(tangentX, 1.4),
+      });
+    }
   }
   const shoreFoamMat = mat("#d9f1ee", {
     transparent: true,
