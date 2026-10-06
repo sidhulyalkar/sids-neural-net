@@ -1,6 +1,7 @@
 import { activityLanding, BOULDER_HOLDS, effectiveActivity, FALLEN_LOGS, grindStyleForApproach, groundHeight, nearestGrind, nextHold, onSnow, rampImpulseAt, RIDE_RAMPS, stepSwim, stepTravel, terrainContact, type Activity, type AquaticMode, type GrindStyle, type Travel } from "@/lib/world/activities";
 import { LAND_WILDLIFE, LAND_WILDLIFE_COLORS, SHASTA_COAT } from "@/lib/world/ecology";
 import { FrameSampler, QualityController } from "@/lib/world/performance";
+import { gaitBlendForSpeed, smoothAngle, smoothPoint, smoothingAlpha, steerShastaVelocity } from "@/lib/world/shastaMotion";
 import * as THREE from "three/src/Three.Core.js";
 import type { WebGLRenderer } from "three/src/renderers/WebGLRenderer.js";
 import {
@@ -955,6 +956,7 @@ export function createWorld(
   // His many coat-colored subparts are instanced so a recognizable companion does not
   // cost dozens of persistent draw calls while following the player.
   const shasta = new THREE.Group();
+  shasta.rotation.order = "YXZ";
   scene.add(shasta);
   const shastaRockMat = mat("#ffffff");
   const shastaRockParts: Instance[] = [
@@ -974,7 +976,9 @@ export function createWorld(
       { x: side * 0.14, y: 1.52, z: 1.04, sx: 0.04, sy: 0.035, sz: 0.028, color: SHASTA_COAT.eye },
     );
   }
-  for (const x of [-1, 1]) for (const z of [-1, 1])
+  const pawInstanceIndices: number[] = [];
+  for (const x of [-1, 1]) for (const z of [-1, 1]) {
+    pawInstanceIndices.push(shastaRockParts.length);
     shastaRockParts.push({
       x: x * 0.2,
       y: 0.06,
@@ -984,7 +988,8 @@ export function createWorld(
       sz: 0.16,
       color: SHASTA_COAT.white,
     });
-  instances(rockGeo, shastaRockMat, shastaRockParts, true, shasta);
+  }
+  const shastaRockMesh = instances(rockGeo, shastaRockMat, shastaRockParts, true, shasta);
 
   const shastaEarParts: Instance[] = [];
   for (const side of [-1, 1]) {
@@ -1013,9 +1018,18 @@ export function createWorld(
   instances(cone, mat("#ffffff"), shastaEarParts, true, shasta);
 
   const shastaCylinderParts: Instance[] = [];
-  const lowerLegInstanceIndices: number[] = [];
+  const shastaLegs: {
+    x: number;
+    z: number;
+    upperIndex: number;
+    lowerIndex: number;
+    pawIndex: number;
+    phase: number;
+  }[] = [];
+  let legIndex = 0;
   for (const x of [-1, 1]) for (const z of [-1, 1]) {
     const forward = z > 0;
+    const upperIndex = shastaCylinderParts.length;
     shastaCylinderParts.push({
       x: x * 0.2,
       y: 0.54,
@@ -1025,7 +1039,7 @@ export function createWorld(
       sz: 0.085,
       color: forward ? SHASTA_COAT.gold : SHASTA_COAT.topcoat,
     });
-    lowerLegInstanceIndices.push(shastaCylinderParts.length);
+    const lowerIndex = shastaCylinderParts.length;
     shastaCylinderParts.push({
       x: x * 0.2,
       y: 0.25,
@@ -1035,6 +1049,15 @@ export function createWorld(
       sz: 0.075,
       color: SHASTA_COAT.white,
     });
+    shastaLegs.push({
+      x: x * 0.2,
+      z: z * 0.44,
+      upperIndex,
+      lowerIndex,
+      pawIndex: pawInstanceIndices[legIndex],
+      phase: legIndex === 0 || legIndex === 3 ? 0 : Math.PI,
+    });
+    legIndex++;
   }
   shastaCylinderParts.push({
     x: 0,
