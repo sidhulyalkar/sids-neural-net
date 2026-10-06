@@ -1538,7 +1538,8 @@ export function createWorld(
   });
   materials.add(bubbleMat);
   const bubbles = new THREE.Points(bubbleGeo, bubbleMat);
-  reefRoot.add(bubbles);
+  scene.add(bubbles);
+  bubbles.visible = false;
 
   // One draw call of local snowfall follows the player whenever ski mode is equipped.
   const snowPositions = new Float32Array(220 * 3);
@@ -2407,23 +2408,33 @@ export function createWorld(
     look.lerp(targetLook, 1 - Math.exp(-dt * 4));
     camera.lookAt(look);
 
-    // Underwater color and fog are stateful atmosphere, not a separate scene.
+    // Underwater atmosphere and biome work are keyed by the water zone. The cold
+    // kelp shelf and warm lagoon never render/animate together.
     const underwater = aquatic === "dive";
-    reefRoot.visible = aquatic !== "land";
+    const currentWaterZone = waterZone(player);
+    reefRoot.visible = aquatic !== "land" && currentWaterZone === "kelp";
+    tropicalReefRoot.visible = aquatic !== "land" && currentWaterZone === "lagoon";
+    bubbles.visible = aquatic !== "land";
     shasta.visible = !underwater;
     dogContact.visible = !underwater;
     waterMaterial.opacity = underwater ? 0.48 : aquatic === "surface" ? 0.58 : 0.76;
-    if (scene.background instanceof THREE.Color) scene.background.set(underwater ? "#0b6170" : "#67b7ef");
+    const underwaterColor =
+      currentWaterZone === "lagoon" ? "#167f91" : "#0b6170";
+    const underwaterFog =
+      currentWaterZone === "lagoon" ? "#2f8f91" : "#196b72";
+    if (scene.background instanceof THREE.Color)
+      scene.background.set(underwater ? underwaterColor : "#67b7ef");
     if (scene.fog instanceof THREE.Fog) {
-      scene.fog.color.set(underwater ? "#196b72" : "#c4e2f1");
+      scene.fog.color.set(underwater ? underwaterFog : "#c4e2f1");
       scene.fog.near = underwater ? 7 : 85;
-      scene.fog.far = underwater ? 58 : 270;
+      scene.fog.far = underwater ? (currentWaterZone === "lagoon" ? 70 : 58) : 270;
     }
 
     // Ski-mode snowfall follows the player anywhere in the world.
     snowfall.visible = state.activity === "ski" && aquatic !== "dive";
     canvas.dataset.snowing = String(snowfall.visible);
-    canvas.dataset.reef = String(reefRoot.visible);
+    canvas.dataset.reef = String(reefRoot.visible || tropicalReefRoot.visible);
+    canvas.dataset.reefZone = currentWaterZone ?? "";
     if (snowfall.visible) {
       snowfall.position.set(player.x, playerY - 4, player.z);
       const snowAttribute = snowGeo.attributes.position as THREE.BufferAttribute;
@@ -2493,6 +2504,69 @@ export function createWorld(
 
       reefMotes.rotation.y = Math.sin(elapsed * 0.08) * 0.018;
       reefMotes.position.y = Math.sin(elapsed * 0.22) * 0.05;
+    }
+
+    if (tropicalReefRoot.visible) {
+      tropicalFishStates.forEach((fish, i) => {
+        const a = elapsed * fish.speed + fish.phase;
+        const x = fish.centerX + Math.cos(a) * fish.radiusX;
+        const z = fish.centerZ + Math.sin(a) * fish.radiusZ;
+        const y = fish.baseY + Math.sin(a * 1.7 + i * 0.4) * 0.34;
+        const tx = -Math.sin(a) * fish.radiusX;
+        const tz = Math.cos(a) * fish.radiusZ;
+        const yawFish = Math.atan2(tx, tz);
+        const forwardX = Math.sin(yawFish);
+        const forwardZ = Math.cos(yawFish);
+
+        dummy.position.set(x, y, z);
+        dummy.rotation.set(0, yawFish, Math.sin(a * 2 + i) * 0.035);
+        dummy.scale.set(fish.size * 0.42, fish.size * 0.26, fish.size * 0.9);
+        dummy.updateMatrix();
+        tropicalFishBodies.setMatrixAt(i, dummy.matrix);
+
+        dummy.position.set(
+          x - forwardX * fish.size * 0.82,
+          y,
+          z - forwardZ * fish.size * 0.82,
+        );
+        dummy.rotation.set(Math.PI / 2, yawFish, 0);
+        dummy.scale.set(fish.size * 0.24, fish.size * 0.4, fish.size * 0.12);
+        dummy.updateMatrix();
+        tropicalFishTails.setMatrixAt(i, dummy.matrix);
+      });
+      tropicalFishBodies.instanceMatrix.needsUpdate = true;
+      tropicalFishTails.instanceMatrix.needsUpdate = true;
+
+      tropicalRays.forEach((rayState, i) => {
+        const a = elapsed * rayState.speed + rayState.phase;
+        const centerZ = 9 + (i - 1) * 5;
+        const centerX = eastCoastlineX(centerZ) + 11 + i * 1.6;
+        rayState.object.position.set(
+          centerX + Math.cos(a) * rayState.radiusX,
+          rayState.baseY + Math.sin(a * 1.6 + i) * 0.4,
+          centerZ + Math.sin(a) * rayState.radiusZ,
+        );
+        rayState.object.rotation.y = -a + Math.PI / 2;
+        rayState.object.rotation.z = Math.sin(elapsed * 1.5 + i) * 0.08;
+      });
+
+      tropicalSharks.forEach((shark, i) => {
+        const a = elapsed * (0.075 + i * 0.012) + i * 2.0;
+        const centerZ = -3 + i * 12;
+        const centerX = eastCoastlineX(centerZ) + 12 + i * 1.4;
+        shark.position.set(
+          centerX + Math.cos(a) * (7.5 + i * 2),
+          -3.8 - i * 0.65,
+          centerZ + Math.sin(a) * (10 + i * 2.2),
+        );
+        shark.rotation.y = -a + Math.PI / 2;
+        shark.rotation.z = Math.sin(a * 2) * 0.035;
+      });
+      tropicalMotes.rotation.y = Math.sin(elapsed * 0.07) * 0.015;
+      tropicalMotes.position.y = Math.sin(elapsed * 0.2) * 0.045;
+    }
+
+    if (bubbles.visible) {
       const bubbleAttribute = bubbleGeo.attributes.position;
       for (let i = 0; i < bubbleAttribute.count; i++) {
         const rise = (elapsed * 0.72 + bubblePhase[i]) % 2.8;
@@ -2505,7 +2579,6 @@ export function createWorld(
       }
       bubbleAttribute.needsUpdate = true;
     }
-    bubbles.visible = reefRoot.visible;
 
     // Detail culling: distant grass and synaptic particles need no GPU work.
     grassMesh.visible = camera.position.y < 45 && aquatic === "land";
