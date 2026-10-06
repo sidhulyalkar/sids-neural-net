@@ -1,5 +1,6 @@
 import { activityLanding, BOULDER_HOLDS, effectiveActivity, FALLEN_LOGS, grindStyleForApproach, groundHeight, nearestGrind, nextHold, onSnow, rampImpulseAt, RIDE_RAMPS, stepSwim, stepTravel, terrainContact, type Activity, type AquaticMode, type GrindStyle, type Travel } from "@/lib/world/activities";
-import { LAND_WILDLIFE, LAND_WILDLIFE_COLORS, SHASTA_COAT } from "@/lib/world/ecology";
+import { LAND_WILDLIFE, LAND_WILDLIFE_COLORS } from "@/lib/world/ecology";
+import { SHASTA_CHARACTER, type ShastaPaletteKey } from "@/lib/world/shastaCharacter";
 import { FrameSampler, QualityController } from "@/lib/world/performance";
 import { gaitBlendForSpeed, smoothAngle, smoothPoint, smoothingAlpha, steerShastaVelocity } from "@/lib/world/shastaMotion";
 import * as THREE from "three/src/Three.Core.js";
@@ -952,30 +953,49 @@ export function createWorld(
   }
   const chalk = mesh(rockGeo, mat("#c4836d"), [0, 0.83, -0.35], [0.2, 0.2, 0.14], bodyRoot);
   board.visible = bike.visible = skis.visible = chalk.visible = false;
-  // Shasta uses a husky silhouette: deep chest, tapered muzzle, upright ears and curled plume tail.
-  // His many coat-colored subparts are instanced so a recognizable companion does not
-  // cost dozens of persistent draw calls while following the player.
+  // Shasta is defined from Sid's supplied photo set rather than a generic husky palette.
+  // Keep the character-specific appearance data in shastaCharacter.ts so geometry,
+  // texture blocking and future model upgrades share one source of truth.
   const shasta = new THREE.Group();
   shasta.rotation.order = "YXZ";
   scene.add(shasta);
-  const shastaRockMat = mat("#ffffff");
+  const shastaPalette = SHASTA_CHARACTER.palette;
+  const shastaRockMat = mat(shastaPalette.creamWhite);
+  const colorFor = (key: ShastaPaletteKey) => shastaPalette[key];
+  const p = SHASTA_CHARACTER.proportions;
+  const coat = SHASTA_CHARACTER.coat;
+  const face = SHASTA_CHARACTER.face;
+
   const shastaRockParts: Instance[] = [
-    { x: 0, y: 0.78, z: -0.08, sx: 0.32, sy: 0.38, sz: 0.8, color: SHASTA_COAT.white },
-    { x: 0, y: 0.97, z: -0.1, sx: 0.31, sy: 0.18, sz: 0.74, color: SHASTA_COAT.topcoat },
-    { x: 0, y: 0.87, z: 0.43, sx: 0.31, sy: 0.34, sz: 0.34, color: SHASTA_COAT.gold },
-    { x: 0, y: 0.91, z: -0.68, sx: 0.27, sy: 0.23, sz: 0.28, color: SHASTA_COAT.tailBase },
-    { x: 0, y: 1.08, z: 0.49, sx: 0.34, sy: 0.4, sz: 0.34, color: SHASTA_COAT.white },
-    { x: 0, y: 1.28, z: 0.58, sx: 0.28, sy: 0.32, sz: 0.28, color: SHASTA_COAT.gold },
-    { x: 0, y: 1.43, z: 0.72, sx: 0.26, sy: 0.3, sz: 0.28, color: SHASTA_COAT.white },
-    { x: 0, y: 1.36, z: 0.99, sx: 0.22, sy: 0.16, sz: 0.34, color: SHASTA_COAT.white },
-    { x: 0, y: 1.34, z: 1.24, sx: 0.11, sy: 0.08, sz: 0.08, color: SHASTA_COAT.nose },
+    // Cream-white base coat and underside.
+    { x: 0, y: 0.78, z: -0.08, sx: p.torso.x, sy: p.torso.y, sz: p.torso.z, color: shastaPalette.creamWhite },
+    { x: 0, y: 0.87, z: 0.43, sx: p.chest.x, sy: p.chest.y, sz: p.chest.z, color: shastaPalette.brightWhite },
+    { x: 0, y: 1.08, z: 0.49, sx: 0.33, sy: 0.39, sz: 0.33, color: shastaPalette.brightWhite },
+    { x: 0, y: 1.28, z: 0.59, sx: p.neck.x, sy: p.neck.y, sz: p.neck.z, color: shastaPalette.creamWhite },
+    { x: 0, y: 1.43, z: 0.73, sx: p.head.x, sy: p.head.y, sz: p.head.z, color: shastaPalette.creamWhite },
+    { x: 0, y: 1.36, z: 0.995, sx: p.muzzle.x, sy: p.muzzle.y, sz: p.muzzle.z, color: shastaPalette.brightWhite },
+
+    // Shasta's warm saddle is concentrated along the upper back rather than
+    // forming a dark generic husky mask across the whole body.
+    { x: coat.saddleCenter.x, y: coat.saddleCenter.y, z: coat.saddleCenter.z, sx: coat.saddleCenter.sx, sy: coat.saddleCenter.sy, sz: coat.saddleCenter.sz, color: shastaPalette.warmTan },
+    { x: coat.saddleSpine.x, y: coat.saddleSpine.y, z: coat.saddleSpine.z, sx: coat.saddleSpine.sx, sy: coat.saddleSpine.sy, sz: coat.saddleSpine.sz, color: shastaPalette.sable },
+    { x: coat.shoulderTan.x, y: coat.shoulderTan.y, z: coat.shoulderTan.z, sx: coat.shoulderTan.sx, sy: coat.shoulderTan.sy, sz: coat.shoulderTan.sz, color: shastaPalette.lightTan },
+    { x: 0, y: 0.91, z: -0.63, sx: 0.27, sy: 0.21, sz: 0.3, color: shastaPalette.lightTan },
+
+    // Light forehead with a narrow warm crown stripe seen in the supplied front views.
+    { x: coat.crownTan.x, y: coat.crownTan.y, z: coat.crownTan.z, sx: coat.crownTan.sx, sy: coat.crownTan.sy, sz: coat.crownTan.sz, color: shastaPalette.lightTan },
+    { x: 0, y: face.noseY, z: face.noseZ, sx: 0.105, sy: 0.075, sz: 0.075, color: shastaPalette.pinkBrownNose },
   ];
+
   for (const side of [-1, 1]) {
+    // Subtle tan brow/temple markings, amber irises and tiny dark pupils.
     shastaRockParts.push(
-      { x: side * 0.16, y: 1.53, z: 0.84, sx: 0.1, sy: 0.14, sz: 0.1, color: SHASTA_COAT.mask },
-      { x: side * 0.14, y: 1.52, z: 1.04, sx: 0.04, sy: 0.035, sz: 0.028, color: SHASTA_COAT.eye },
+      { x: side * 0.145, y: 1.55, z: 0.84, sx: 0.075, sy: 0.09, sz: 0.105, color: shastaPalette.lightTan },
+      { x: side * face.eyeX, y: face.eyeY, z: face.eyeZ, sx: 0.041, sy: 0.034, sz: 0.026, color: shastaPalette.amberEye },
+      { x: side * face.eyeX, y: face.eyeY, z: face.pupilZ, sx: 0.017, sy: 0.016, sz: 0.012, color: shastaPalette.pupil },
     );
   }
+
   const pawInstanceIndices: number[] = [];
   for (const x of [-1, 1]) for (const z of [-1, 1]) {
     pawInstanceIndices.push(shastaRockParts.length);
@@ -983,10 +1003,10 @@ export function createWorld(
       x: x * 0.2,
       y: 0.06,
       z: z * 0.52 + 0.04,
-      sx: 0.11,
-      sy: 0.065,
-      sz: 0.16,
-      color: SHASTA_COAT.white,
+      sx: p.paw.x,
+      sy: p.paw.y,
+      sz: p.paw.z,
+      color: shastaPalette.brightWhite,
     });
   }
   const shastaRockMesh = instances(rockGeo, shastaRockMat, shastaRockParts, true, shasta);
@@ -997,25 +1017,25 @@ export function createWorld(
       {
         x: side * 0.18,
         y: 1.82,
-        z: 0.68,
-        sx: 0.14,
-        sy: 0.44,
-        sz: 0.16,
-        q: new THREE.Quaternion().setFromEuler(new THREE.Euler(0, 0, -side * 0.08)),
-        color: SHASTA_COAT.gold,
+        z: 0.69,
+        sx: p.ear.x,
+        sy: p.ear.y,
+        sz: p.ear.z,
+        q: new THREE.Quaternion().setFromEuler(new THREE.Euler(0, 0, -side * 0.075)),
+        color: shastaPalette.warmTan,
       },
       {
         x: side * 0.18,
         y: 1.81,
-        z: 0.72,
-        sx: 0.065,
-        sy: 0.24,
-        sz: 0.075,
-        color: SHASTA_COAT.mask,
+        z: 0.73,
+        sx: 0.062,
+        sy: 0.235,
+        sz: 0.072,
+        color: shastaPalette.innerEar,
       },
     );
   }
-  instances(cone, mat("#ffffff"), shastaEarParts, true, shasta);
+  instances(cone, mat(shastaPalette.creamWhite), shastaEarParts, true, shasta);
 
   const shastaCylinderParts: Instance[] = [];
   const shastaLegs: {
@@ -1034,20 +1054,20 @@ export function createWorld(
       x: x * 0.2,
       y: 0.54,
       z: z * 0.44,
-      sx: 0.085,
+      sx: 0.082,
       sy: 0.4,
-      sz: 0.085,
-      color: forward ? SHASTA_COAT.gold : SHASTA_COAT.topcoat,
+      sz: 0.082,
+      color: forward ? shastaPalette.creamWhite : shastaPalette.lightTan,
     });
     const lowerIndex = shastaCylinderParts.length;
     shastaCylinderParts.push({
       x: x * 0.2,
       y: 0.25,
       z: z * 0.48,
-      sx: 0.075,
+      sx: 0.072,
       sy: 0.36,
-      sz: 0.075,
-      color: SHASTA_COAT.white,
+      sz: 0.072,
+      color: shastaPalette.brightWhite,
     });
     shastaLegs.push({
       x: x * 0.2,
@@ -1059,34 +1079,81 @@ export function createWorld(
     });
     legIndex++;
   }
+
+  // Warm tail base transitions into Shasta's broad cream-white plume.
   shastaCylinderParts.push({
     x: 0,
-    y: 1.08,
-    z: -0.72,
+    y: 1.0,
+    z: -0.73,
     sx: 0.11,
-    sy: 0.34,
+    sy: 0.33,
     sz: 0.11,
-    q: new THREE.Quaternion().setFromEuler(new THREE.Euler(-0.7, 0, 0)),
-    color: SHASTA_COAT.tailBase,
+    q: new THREE.Quaternion().setFromEuler(new THREE.Euler(-0.62, 0, 0)),
+    color: shastaPalette.warmTan,
   });
   const shastaCylinderMesh = instances(
     cylinder,
-    mat("#ffffff"),
+    mat(shastaPalette.creamWhite),
     shastaCylinderParts,
     true,
     shasta,
   );
 
-  // A high, curled plume tail remains independently animated.
-  const tail = mesh(
-    geo(new THREE.TorusGeometry(0.39, 0.13, 6, 14, Math.PI * 1.62)),
-    mat(SHASTA_COAT.white),
-    [0, 1.32, -0.76],
-    [1, 1, 1],
-    shasta,
+  // Photo-matched tail: a large, soft plume that drops behind the hips and
+  // sweeps outward before a gentle curl. An instanced ellipsoid chain keeps it
+  // to one draw call while reading much closer to Shasta than a torus.
+  const shastaTail = new THREE.Group();
+  shastaTail.position.set(0, 1.0, -0.72);
+  shasta.add(shastaTail);
+  const tailPivotY = 1.0;
+  const tailPivotZ = -0.72;
+  instances(
+    rockGeo,
+    mat(shastaPalette.creamWhite),
+    SHASTA_CHARACTER.tail.plume.map((part) => ({
+      x: part.x,
+      y: part.y - tailPivotY,
+      z: part.z - tailPivotZ,
+      sx: part.sx,
+      sy: part.sy,
+      sz: part.sz,
+      color: colorFor(part.tone),
+    })),
+    true,
+    shastaTail,
   );
-  tail.rotation.y = Math.PI / 2;
-  tail.rotation.z = 0.2;
+  shastaTail.rotation.z = SHASTA_CHARACTER.tail.restAngleZ;
+  shastaTail.rotation.y = SHASTA_CHARACTER.tail.restAngleY;
+
+  // Compact trail-harness cue from the outdoor photos. It is intentionally
+  // lightweight and removable from the character spec rather than baked into
+  // the body colors.
+  if (SHASTA_CHARACTER.harness.enabledInWorld) {
+    const straps = [
+      segment(new THREE.Vector3(-0.3, 1.08, 0.13), new THREE.Vector3(0.3, 1.08, 0.13), 0.035),
+      segment(new THREE.Vector3(-0.27, 1.05, 0.12), new THREE.Vector3(-0.31, 0.84, 0.46), 0.032),
+      segment(new THREE.Vector3(0.27, 1.05, 0.12), new THREE.Vector3(0.31, 0.84, 0.46), 0.032),
+      segment(new THREE.Vector3(-0.27, 0.87, 0.47), new THREE.Vector3(0.27, 0.87, 0.47), 0.032),
+    ].map((part) => ({ ...part, color: shastaPalette.harnessWebbing }));
+    instances(cylinder, mat(shastaPalette.harnessWebbing), straps, true, shasta);
+    instances(
+      boxGeo,
+      mat(shastaPalette.harnessPanel),
+      [
+        { x: 0, y: 1.12, z: 0.12, sx: 0.23, sy: 0.055, sz: 0.22, color: shastaPalette.harnessPanel },
+        { x: 0, y: 0.99, z: 0.39, sx: 0.16, sy: 0.11, sz: 0.055, color: shastaPalette.harnessHighlight },
+      ],
+      true,
+      shasta,
+    );
+  }
+
+  canvas.dataset.shastaSex = SHASTA_CHARACTER.identity.sex;
+  canvas.dataset.shastaProfile = `${SHASTA_CHARACTER.identity.type}:${SHASTA_CHARACTER.identity.build}`;
+  canvas.dataset.shastaTailParts = String(SHASTA_CHARACTER.tail.plume.length);
+  canvas.dataset.shastaEye = shastaPalette.amberEye;
+  canvas.dataset.shastaNose = shastaPalette.pinkBrownNose;
+
   // A barely visible paw-print detour; the dog heads here when you approach.
   const prints: Instance[] = [];
   for (let i = 0; i < 14; i++) {
@@ -2726,10 +2793,13 @@ export function createWorld(
     });
     shastaCylinderMesh.instanceMatrix.needsUpdate = true;
     shastaRockMesh.instanceMatrix.needsUpdate = true;
-    tail.rotation.z =
-      0.2 +
-      Math.sin(elapsed * 1.8) * 0.045 +
-      Math.sin(dogGaitPhase) * 0.035 * dogMoveBlend;
+    shastaTail.rotation.z =
+      SHASTA_CHARACTER.tail.restAngleZ +
+      Math.sin(elapsed * 1.55) * 0.022 +
+      Math.sin(dogGaitPhase) * 0.018 * dogMoveBlend;
+    shastaTail.rotation.y =
+      SHASTA_CHARACTER.tail.restAngleY +
+      Math.sin(elapsed * 0.85 + 0.4) * 0.03;
     camera.position.lerp(targetCamera, 1 - Math.exp(-dt * 3.6));
     look.lerp(targetLook, 1 - Math.exp(-dt * 4));
     camera.lookAt(look);
