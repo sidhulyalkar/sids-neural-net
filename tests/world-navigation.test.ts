@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   coastlineX,
+  eastCoastlineX,
   constrainMove,
   distance,
   isWater,
@@ -147,4 +148,26 @@ test("coast semantic landing is dry, discoverable and close enough for immediate
   assert.equal(nearbyDiscovery(landing), "coast");
   const waterStep = { x: landing.x - 2, z: landing.z };
   assert.equal(isWater(waterStep), true);
+});
+
+
+test("east lagoon creates a second dry shoreline with a finite warm-water shelf", () => {
+  for (const z of [-20, 10, 30]) {
+    const shore = eastCoastlineX(z);
+    const land = { x: shore - 2, z };
+    const water = { x: shore + 10, z };
+    assert.equal(isWater(land), false);
+    assert.equal(isWater(water), true);
+    const floor = seaFloorHeight(water.x, water.z);
+    assert.ok(floor < SEA_SURFACE - 1);
+    const depth = maxDiveDepth(water);
+    assert.ok(depth > 0 && depth <= 10);
+  }
+});
+
+test("lagoon semantic landing is dry, discoverable and immediately swimmable", () => {
+  const landing = regionLanding("lagoon");
+  assert.equal(isWater(landing), false);
+  assert.equal(nearbyDiscovery(landing), "lagoon");
+  assert.equal(isWater({ x: landing.x + 2, z: landing.z }), true);
 });
