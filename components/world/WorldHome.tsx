@@ -429,7 +429,7 @@ export function WorldHome({ content }: { content: WorldContent }) {
             <>
               <p className={styles.eyebrow}>CALIFORNIA COAST</p>
               <h2 id="world-panel-title">Field notes</h2>
-              <p className={styles.panelIntro}>California coastal scrub and redwoods transition into an imagined alpine ridge. Offshore, the swim area is a cold-water kelp and rocky-reef composite rather than a tropical reef.</p>
+              <p className={styles.panelIntro}>California kelp coast · South Pacific lagoon · alpine ridge.</p>
               <div className={styles.projectList}>
                 {COASTAL_FLORA.map(plant => <a key={plant.scientific} href={plant.source} target="_blank" rel="noreferrer">
                   <h3>{plant.common}</h3><p><i>{plant.scientific}</i> · {plant.habitat}</p><span>National Park Service ↗</span>
@@ -500,21 +500,16 @@ export function WorldHome({ content }: { content: WorldContent }) {
               <div className={styles.panelLinks}>
                 <Link href={selected.href} prefetch={false}>
                   {selected.id === "grove"
-                    ? "More about me"
-                    : selected.id === "coast"
-                      ? "All photography"
+                    ? "About"
+                    : selected.id === "coast" || selected.id === "lagoon"
+                      ? "Photography"
                       : selected.id === "mountain"
-                        ? "All projects"
-                        : "Research & ideas"}
+                        ? "Projects"
+                        : "Research"}
                 </Link>
                 {selected.id === "neural" && (
                   <Link prefetch={false} href="/frontier">
                     Beyond the horizon · Frontier
-                  </Link>
-                )}
-                {selected.id === "coast" && (
-                  <Link prefetch={false} href="/arcade">
-                    Play my games
                   </Link>
                 )}
                 {selected.id === "grove" && (
