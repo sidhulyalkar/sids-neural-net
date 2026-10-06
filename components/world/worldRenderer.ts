@@ -2576,18 +2576,19 @@ export function createWorld(
 
     // Smooth the target itself, then steer velocity toward it with finite
     // acceleration/braking. This removes the start/stop jerk from direct pursuit.
-    dogSmoothedTarget = smoothPoint(dogSmoothedTarget, dogTarget, dt);
+    const dogMotionDt = Math.min(rawDelta, 0.1);
+    dogSmoothedTarget = smoothPoint(dogSmoothedTarget, dogTarget, dogMotionDt);
     dogVelocity = steerShastaVelocity(
       dogVelocity,
       dog,
       dogSmoothedTarget,
       travel.speed,
-      dt,
+      dogMotionDt,
     );
     const dogBefore = { ...dog };
     const requestedDogStep = {
-      x: dog.x + dogVelocity.x * dt,
-      z: dog.z + dogVelocity.z * dt,
+      x: dog.x + dogVelocity.x * dogMotionDt,
+      z: dog.z + dogVelocity.z * dogMotionDt,
     };
     const candidate = constrainMove(dog, requestedDogStep, obstacles);
     if (!isWater(candidate)) {
@@ -2595,7 +2596,7 @@ export function createWorld(
       const requestedDistance = distance(dogBefore, requestedDogStep);
       const actualDistance = distance(dogBefore, dog);
       if (requestedDistance > 0.001 && actualDistance < requestedDistance * 0.72) {
-        const inverseDt = 1 / Math.max(0.001, dt);
+        const inverseDt = 1 / Math.max(0.001, dogMotionDt);
         dogVelocity = {
           x: (dog.x - dogBefore.x) * inverseDt,
           z: (dog.z - dogBefore.z) * inverseDt,
@@ -2603,17 +2604,17 @@ export function createWorld(
       }
     } else {
       dogVelocity = {
-        x: dogVelocity.x * (1 - smoothingAlpha(dt, 12)),
-        z: dogVelocity.z * (1 - smoothingAlpha(dt, 12)),
+        x: dogVelocity.x * (1 - smoothingAlpha(dogMotionDt, 12)),
+        z: dogVelocity.z * (1 - smoothingAlpha(dogMotionDt, 12)),
       };
     }
 
     const dogStep = distance(dogBefore, dog);
-    const dogActualSpeed = dogStep / Math.max(0.001, dt);
+    const dogActualSpeed = dogStep / Math.max(0.001, dogMotionDt);
     dogAnimSpeed +=
-      (dogActualSpeed - dogAnimSpeed) * smoothingAlpha(dt, 7.5);
+      (dogActualSpeed - dogAnimSpeed) * smoothingAlpha(dogMotionDt, 9.5);
     const dogAcceleration =
-      Math.abs(dogActualSpeed - lastDogSpeed) / Math.max(0.001, dt);
+      Math.abs(dogActualSpeed - lastDogSpeed) / Math.max(0.001, dogMotionDt);
     dogMaxAcceleration = Math.max(dogMaxAcceleration, dogAcceleration);
     lastDogSpeed = dogActualSpeed;
 
@@ -2638,15 +2639,15 @@ export function createWorld(
     dogPitch += (dogContactSample.pitch - dogPitch) * poseAlpha;
     dogRoll += (dogContactSample.roll - dogRoll) * poseAlpha;
 
-    dogGaitPhase += dogAnimSpeed * dt * 4.35;
+    dogGaitPhase += dogAnimSpeed * dogMotionDt * 4.35;
     const targetMoveBlend = gaitBlendForSpeed(dogAnimSpeed);
     dogMoveBlend +=
-      (targetMoveBlend - dogMoveBlend) * smoothingAlpha(dt, 8.5);
+      (targetMoveBlend - dogMoveBlend) * smoothingAlpha(dogMotionDt, 10.5);
     dogMaxMoveBlend = Math.max(dogMaxMoveBlend, dogMoveBlend);
 
     const targetDogY = terrainHeight(dog.x, dog.z);
     dogGroundY +=
-      (targetDogY - dogGroundY) * smoothingAlpha(dt, 10);
+      (targetDogY - dogGroundY) * smoothingAlpha(dogMotionDt, 10);
     const dogBob = Math.sin(dogGaitPhase * 2) * 0.012 * dogMoveBlend;
     const dogRenderY = dogGroundY + dogBob;
     dogMaxYStep = Math.max(dogMaxYStep, Math.abs(dogRenderY - lastDogRenderY));
