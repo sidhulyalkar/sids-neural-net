@@ -406,6 +406,13 @@
   border-radius: 5px;
   animation: memoryIn 0.9s ease both;
 }
+.memoryVideo {
+  display: block;
+  width: 100%;
+  max-height: 62svh;
+  background: #102b31;
+  border-radius: 6px;
+}
 .photoCaption {
   font-size: 13px;
   color: #61736b;
