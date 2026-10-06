@@ -2387,6 +2387,104 @@ export function createWorld(
       targetCamera.set(42 + Math.sin(elapsed * 0.035) * 1.5, 36, 86);
       targetLook.set(-12, 6, -12);
     }
+    critterBodies.visible = critterTails.visible = aquatic === "land";
+    if (aquatic === "land") {
+      critters.forEach((critter, i) => {
+        critter.phase += dt * critter.speed * 0.55;
+        const dogDistance = distance(critter.point, dog);
+        const playerDistance = distance(critter.point, player);
+        const threat =
+          dogDistance < 6.5
+            ? dog
+            : playerDistance < 3.2
+              ? player
+              : null;
+        let target = {
+          x: critter.home.x + Math.cos(critter.phase) * critter.roam,
+          z: critter.home.z + Math.sin(critter.phase * 0.83) * critter.roam,
+        };
+        let pace = critter.speed * 0.7;
+        if (threat) {
+          const awayX = critter.point.x - threat.x;
+          const awayZ = critter.point.z - threat.z;
+          const awayLength = Math.max(0.001, Math.hypot(awayX, awayZ));
+          target = {
+            x: critter.point.x + awayX / awayLength * 3.2,
+            z: critter.point.z + awayZ / awayLength * 3.2,
+          };
+          pace = critter.speed * 2.8;
+        }
+        const toX = target.x - critter.point.x;
+        const toZ = target.z - critter.point.z;
+        const targetDistance = Math.max(0.001, Math.hypot(toX, toZ));
+        const step = Math.min(targetDistance, pace * dt);
+        const candidate = {
+          x: critter.point.x + toX / targetDistance * step,
+          z: critter.point.z + toZ / targetDistance * step,
+        };
+        if (isWater(candidate)) {
+          critter.phase += Math.PI * 0.7;
+        } else {
+          critter.point = candidate;
+          if (step > 0.0001) critter.heading = Math.atan2(toX, toZ);
+        }
+
+        const bodyY =
+          terrainHeight(critter.point.x, critter.point.z) +
+          critter.bodyScale.y * (critter.kind === "lizard" ? 0.75 : 1.0);
+        dummy.position.set(critter.point.x, bodyY, critter.point.z);
+        dummy.rotation.set(0, critter.heading, 0);
+        dummy.scale.set(
+          critter.bodyScale.x,
+          critter.bodyScale.y,
+          critter.bodyScale.z,
+        );
+        dummy.updateMatrix();
+        critterBodies.setMatrixAt(i, dummy.matrix);
+
+        const forwardX = Math.sin(critter.heading);
+        const forwardZ = Math.cos(critter.heading);
+        const tailLift =
+          critter.kind === "squirrel"
+            ? 0.34
+            : critter.kind === "rabbit"
+              ? 0.12
+              : 0.03;
+        const tailStart = new THREE.Vector3(
+          critter.point.x - forwardX * critter.bodyScale.z * 0.65,
+          bodyY,
+          critter.point.z - forwardZ * critter.bodyScale.z * 0.65,
+        );
+        const tailEnd = new THREE.Vector3(
+          tailStart.x - forwardX * critter.tailLength,
+          bodyY + tailLift,
+          tailStart.z - forwardZ * critter.tailLength,
+        );
+        const tailPart = segment(tailStart, tailEnd, critter.tailRadius);
+        dummy.position.set(tailPart.x, tailPart.y, tailPart.z);
+        dummy.quaternion.copy(tailPart.q!);
+        dummy.scale.set(tailPart.sx, tailPart.sy, tailPart.sz);
+        dummy.updateMatrix();
+        critterTails.setMatrixAt(i, dummy.matrix);
+      });
+      critterBodies.instanceMatrix.needsUpdate = true;
+      critterTails.instanceMatrix.needsUpdate = true;
+    }
+
+    const nearbyShastaMemory = MEMORY_POINTS
+      .filter((memory) => memory.id.startsWith("shasta-"))
+      .map((memory) => ({ memory, d: distance(player, memory.point) }))
+      .filter(({ d }) => d < 10)
+      .sort((a, b) => a.d - b.d)[0]?.memory;
+    const nearbyCritter = critters
+      .map((critter) => ({
+        critter,
+        playerDistance: distance(player, critter.point),
+        dogDistance: distance(dog, critter.point),
+      }))
+      .filter(({ playerDistance, dogDistance }) => playerDistance < 10 && dogDistance < 12)
+      .sort((a, b) => a.dogDistance - b.dogDistance)[0]?.critter;
+
     const playerWaterZone = waterZone(player);
     const shoreWait = {
       x:
@@ -2400,8 +2498,16 @@ export function createWorld(
         ? shoreWait
         : distance(player, SECRET) < 13
           ? SECRET
-          : { x: player.x + 2.7, z: player.z - 2.7 }
+          : nearbyShastaMemory
+            ? nearbyShastaMemory.point
+            : nearbyCritter
+              ? nearbyCritter.point
+              : { x: player.x + 2.7, z: player.z - 2.7 }
       : { x: 4 + Math.sin(elapsed * 0.13) * 2, z: 12 };
+    canvas.dataset.dogCuriosity =
+      aquatic !== "land"
+        ? "shore"
+        : nearbyShastaMemory?.id ?? nearbyCritter?.kind ?? "";
     const dogDelta = distance(dog, dogTarget);
     const dogBefore = { ...dog };
     let desiredDogYaw = dogYaw;
