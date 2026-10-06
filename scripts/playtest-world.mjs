@@ -340,6 +340,18 @@ try {
   }
   await page.waitForFunction(() => document.querySelector('canvas')?.dataset.reefZone === 'lagoon');
   assert.equal(await page.locator('canvas').getAttribute('data-reef'), 'true');
+  // The immediate shoreline is intentionally too shallow to dive safely. Swim
+  // offshore until the shared bathymetry exposes enough clearance, then dive.
+  await page.keyboard.down('w');
+  try {
+    await page.waitForFunction(
+      () => Number(document.querySelector('canvas')?.dataset.maxDepth) > 0.9,
+      null,
+      { timeout: 12000 },
+    );
+  } finally {
+    await page.keyboard.up('w');
+  }
   await screenshot(page, 'activity-lagoon-snorkel');
   await page.getByRole('button', { name: 'Dive', exact: true }).click();
   await page.waitForFunction(() => document.querySelector('canvas')?.dataset.aquatic === 'dive');
