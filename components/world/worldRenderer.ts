@@ -2987,9 +2987,18 @@ export function createWorld(
         // Welcome mode has its own ambient dog wandering. Gait continuity metrics
         // judge entered-world following, so start that measurement at the moment
         // exploration begins instead of carrying welcome-transition motion forward.
+        dogVelocity = { x: 0, z: 0 };
+        dogSmoothedTarget = { ...dog };
+        dogAnimSpeed = 0;
+        dogInterestCritterIndex = null;
+        dogInterestUntil = 0;
+        dogInterestRestUntil = elapsed + 0.8;
+        dogTargetSwitches = 0;
         dogMaxYawStep = 0;
         dogMaxYStep = 0;
         dogMaxMoveBlend = 0;
+        dogMaxAcceleration = 0;
+        lastDogSpeed = 0;
         lastDogRenderY = shasta.position.y;
       }
       if (next.entered && !next.paused && (changedActivity || requestedAction || requestedWaterAction))
@@ -3018,11 +3027,22 @@ export function createWorld(
         setAquaticMode("land");
         playerY = groundHeight(player);
         dog = { x: player.x + 2, z: player.z - 2 };
+        dogVelocity = { x: 0, z: 0 };
+        dogSmoothedTarget = { ...dog };
         dogGroundY = terrainHeight(dog.x, dog.z);
+        dogPitch = 0;
+        dogRoll = 0;
         dogMoveBlend = 0;
+        dogAnimSpeed = 0;
+        dogInterestCritterIndex = null;
+        dogInterestUntil = 0;
+        dogInterestRestUntil = elapsed + 0.8;
+        dogTargetSwitches = 0;
         dogMaxYawStep = 0;
         dogMaxYStep = 0;
         dogMaxMoveBlend = 0;
+        dogMaxAcceleration = 0;
+        lastDogSpeed = 0;
         lastDogRenderY = dogGroundY;
         destination = null;
         if (next.command.activity === "ski") {
