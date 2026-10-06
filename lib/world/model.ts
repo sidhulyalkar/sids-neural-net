@@ -23,10 +23,87 @@ export const WORLD_BOUNDS = { minX: -92, maxX: 94, minZ: -96, maxZ: 58 } as cons
 export const SEA_SURFACE = -1.4;
 
 export const MEMORY_POINTS = [
-  { id: "lake", photoId: "photo-001", title: "Higher ground", point: { x: 1, z: -66 } },
-  { id: "shore", photoId: "photo-028", title: "The last light", point: { x: -32, z: 8 } },
-  { id: "wildflowers", photoId: "photo-038", title: "Along the coast", point: { x: -27, z: 22 } },
+  {
+    id: "lake",
+    photoId: "photo-001",
+    title: "Mountain lake",
+    detail: "Deep blue water below forest and rocky ridges.",
+    point: { x: 1, z: -66 },
+  },
+  {
+    id: "shore",
+    photoId: "photo-028",
+    title: "Wet beach",
+    detail: "Low clouds and sunset reflected across wet sand.",
+    point: { x: -32, z: 8 },
+  },
+  {
+    id: "wildflowers",
+    photoId: "photo-038",
+    title: "Coastal flowers",
+    detail: "Wildflowers above blue ocean cliffs.",
+    point: { x: -27, z: 22 },
+  },
+  {
+    id: "shasta-lake",
+    photoId: "photo-002",
+    title: "Shasta · lake",
+    detail: "Shasta looking across an alpine lake.",
+    point: { x: -7, z: -72 },
+  },
+  {
+    id: "shasta-trail",
+    photoId: "photo-037",
+    title: "Shasta · trail",
+    detail: "Shasta on a coastal trail.",
+    point: { x: -24, z: 29 },
+  },
+  {
+    id: "shasta-water",
+    photoId: "photo-040",
+    title: "Shasta · water",
+    detail: "Shasta beside flowing water and rock.",
+    point: { x: -15, z: -19 },
+  },
+  {
+    id: "shasta-beach",
+    photoId: "photo-045",
+    title: "Shasta · beach",
+    detail: "Shasta running across wet sand at sunset.",
+    point: { x: -30, z: -3 },
+  },
+  {
+    id: "shasta-field",
+    photoId: "photo-048",
+    title: "Shasta · field",
+    detail: "Shasta watching cattle across a green field.",
+    point: { x: 24, z: 40 },
+  },
+  {
+    id: "shasta-stream",
+    photoId: "photo-049",
+    title: "Shasta · stream",
+    detail: "Shasta beside a winding meadow stream.",
+    point: { x: -12, z: -31 },
+  },
 ] as const;
+
+export type WorldVideoPoint = {
+  id: string;
+  title: string;
+  detail: string;
+  point: Point;
+  src: string;
+  posterSrc?: string;
+  reef: "kelp" | "lagoon";
+};
+
+/**
+ * Snorkeling video discoveries intentionally stay empty until Sid's real clips are
+ * added to the repo/media pipeline. Adding an entry here makes it discoverable in
+ * place without changing renderer or dialog code.
+ */
+export const SNORKEL_VIDEO_POINTS: WorldVideoPoint[] = [];
 
 export const SECRET = { x: 18, z: 22 };
 export const SPAWN = { x: 0, z: 16 };
@@ -96,6 +173,8 @@ export function nearestRegion(point: Point): RegionId {
 
 export function nearbyDiscovery(point: Point): string | null {
   if (distance(point, SECRET) < 3.5) return "secret";
+  const video = SNORKEL_VIDEO_POINTS.find((m) => distance(point, m.point) < 3.2);
+  if (video) return video.id;
   const memory = MEMORY_POINTS.find((m) => distance(point, m.point) < 3.2);
   if (memory) return memory.id;
   const region = REGIONS.find((r) => distance(point, r.point) < 6);
@@ -173,9 +252,17 @@ export type WorldPhoto = {
   width: number;
   height: number;
 };
+export type WorldVideo = {
+  id: string;
+  title: string;
+  detail: string;
+  src: string;
+  posterSrc?: string;
+};
 export type WorldContent = {
   projects: WorldProject[];
   photos: WorldPhoto[];
+  videos: WorldVideo[];
   games: { title: string; subtitle: string; href: string }[];
 };
 export type WorldCommand = {
