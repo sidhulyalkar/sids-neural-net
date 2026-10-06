@@ -2894,9 +2894,11 @@ export function createWorld(
               ? 0
               : r.id === "coast"
                 ? 1.15
-                : r.id === "neural"
-                  ? -0.6
-                  : 0.25;
+                : r.id === "lagoon"
+                  ? -1.15
+                  : r.id === "neural"
+                    ? -0.6
+                    : 0.25;
         }
         if (r.id === "cavern") {
           pitch = 0.22;
