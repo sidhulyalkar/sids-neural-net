@@ -340,15 +340,16 @@ try {
   }
   await page.waitForFunction(() => document.querySelector('canvas')?.dataset.reefZone === 'lagoon');
   assert.equal(await page.locator('canvas').getAttribute('data-reef'), 'true');
-  // The coral garden is intentionally shallow. maxDiveDepth already reserves
-  // 1.15 world units above the seafloor, so wait for a small but genuinely safe
-  // dive envelope rather than requiring deep water beyond the reef.
+  // The coral garden is intentionally shallow, and Dive itself requires more
+  // than 0.8 world units of safe depth. On SwiftShader, movement advances more
+  // slowly than wall time, so keep swimming offshore until the real control
+  // threshold is satisfied instead of weakening the aquatic safety contract.
   await page.keyboard.down('w');
   try {
     await page.waitForFunction(
-      () => Number(document.querySelector('canvas')?.dataset.maxDepth) > 0.4,
+      () => Number(document.querySelector('canvas')?.dataset.maxDepth) > 0.82,
       null,
-      { timeout: 12000 },
+      { timeout: 30000 },
     );
   } finally {
     await page.keyboard.up('w');
