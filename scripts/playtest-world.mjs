@@ -46,14 +46,20 @@ try {
     maxYawStep: Number(c.dataset.dogMaxYawStep),
     maxYStep: Number(c.dataset.dogMaxYStep),
     maxBlend: Number(c.dataset.dogMaxMoveBlend),
+    maxAcceleration: Number(c.dataset.dogMaxAcceleration),
+    targetSwitches: Number(c.dataset.dogTargetSwitches),
+    speed: Number(c.dataset.dogSpeed),
     phase: Number(c.dataset.dogGaitPhase),
   }));
-  assert.ok(dogMotion.maxYawStep <= 0.22, `Shasta max frame yaw step ${dogMotion.maxYawStep}`);
-  assert.ok(dogMotion.maxYStep < 0.2, `Shasta max frame height step ${dogMotion.maxYStep}`);
+  assert.ok(dogMotion.maxYawStep <= 0.19, `Shasta max frame yaw step ${dogMotion.maxYawStep}`);
+  assert.ok(dogMotion.maxYStep < 0.16, `Shasta max frame height step ${dogMotion.maxYStep}`);
   assert.ok(dogMotion.maxBlend > 0.15, `Shasta max gait blend ${dogMotion.maxBlend}`);
+  assert.ok(dogMotion.maxAcceleration < 15.5, `Shasta max acceleration ${dogMotion.maxAcceleration}`);
+  assert.ok(dogMotion.targetSwitches <= 1, `Shasta curiosity target switches ${dogMotion.targetSwitches}`);
+  assert.ok(Number.isFinite(dogMotion.speed));
   assert.ok(dogMotion.phase > beforeDogPhase);
   results.push('Keyboard walking changes player position');
-  results.push('Shasta follow gait stays per-frame height/yaw-continuous and distance-phased');
+  results.push('Shasta follow gait uses smooth acceleration, stable curiosity and articulated distance-phased motion');
   for (const [name, prompt, title] of [
     ['01 Redwood grove A little about me', 'Redwood grove', 'Redwood grove.'],
     ['02 Granite ridge Things I build', 'Granite ridge', 'Granite ridge.'],
