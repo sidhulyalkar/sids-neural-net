@@ -1,7 +1,7 @@
 import type { Point } from "./model";
 
 export const SHASTA_MOTION = {
-  targetResponse: 4.6,
+  targetResponse: 6.2,
   acceleration: 8.5,
   braking: 12,
   minCruiseSpeed: 3.4,
@@ -13,7 +13,7 @@ export const SHASTA_MOTION = {
   maxTurnRate: 3.4,
 } as const;
 
-const clampDt = (dt: number) => Math.max(0, Math.min(dt, 0.05));
+const clampDt = (dt: number) => Math.max(0, Math.min(dt, 0.1));
 const clamp = (value: number, min: number, max: number) =>
   Math.max(min, Math.min(max, value));
 
