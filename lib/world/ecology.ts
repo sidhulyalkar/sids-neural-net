@@ -22,20 +22,6 @@ export const MARINE_LIFE = [
   { common: "Rockfish and anchovies", note: "Midwater fish and schooling prey", source: "https://www.montereybayaquarium.org/animals-the-ocean/ecosystems/kelp-forest" },
 ] as const;
 
-// Photo references: archive 040 (daylight topcoat), 042/043 (white face/chest).
-// Sid's direct color description overrides sunset/shade casts. These are art-directed
-// sRGB material colors, not calibrated fur reflectance or an exact coat measurement.
-export const SHASTA_COAT = {
-  white: "#f4eee1",
-  topcoat: "#c4a675",
-  gold: "#dbc39a",
-  tailBase: "#ab7352",
-  mask: "#9f805e",
-  nose: "#302923",
-  eye: "#5b86a1",
-} as const;
-
-
 export type LandWildlifeKind =
   | "squirrel"
   | "mouse"
