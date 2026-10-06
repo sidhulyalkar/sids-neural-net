@@ -34,3 +34,40 @@ export const SHASTA_COAT = {
   nose: "#302923",
   eye: "#5b86a1",
 } as const;
+
+
+export type LandWildlifeKind =
+  | "squirrel"
+  | "mouse"
+  | "woodrat"
+  | "lizard"
+  | "rabbit"
+  | "quail";
+
+export const LAND_WILDLIFE = [
+  { id: "squirrel-grove-1", kind: "squirrel", point: { x: -6, z: 12 }, roam: 4.2, speed: 1.5 },
+  { id: "squirrel-grove-2", kind: "squirrel", point: { x: 7, z: 7 }, roam: 3.8, speed: 1.4 },
+  { id: "mouse-grove", kind: "mouse", point: { x: 10, z: 17 }, roam: 3.2, speed: 1.2 },
+  { id: "woodrat-canyon", kind: "woodrat", point: { x: 33, z: 29 }, roam: 4.4, speed: 1.1 },
+  { id: "lizard-coast", kind: "lizard", point: { x: -26, z: 17 }, roam: 4.8, speed: 1.05 },
+  { id: "lizard-ridge", kind: "lizard", point: { x: 18, z: -17 }, roam: 4.3, speed: 0.95 },
+  { id: "rabbit-meadow", kind: "rabbit", point: { x: 20, z: 32 }, roam: 5.0, speed: 1.25 },
+  { id: "rabbit-falls", kind: "rabbit", point: { x: -13, z: -24 }, roam: 4.2, speed: 1.15 },
+  { id: "quail-grove", kind: "quail", point: { x: 13, z: 2 }, roam: 5.2, speed: 1.0 },
+  { id: "quail-canyon", kind: "quail", point: { x: 37, z: 37 }, roam: 4.7, speed: 1.0 },
+] as const satisfies readonly {
+  id: string;
+  kind: LandWildlifeKind;
+  point: { x: number; z: number };
+  roam: number;
+  speed: number;
+}[];
+
+export const LAND_WILDLIFE_COLORS: Record<LandWildlifeKind, string> = {
+  squirrel: "#92735b",
+  mouse: "#8b8176",
+  woodrat: "#7a7168",
+  lizard: "#70815b",
+  rabbit: "#b4a690",
+  quail: "#8b755d",
+};
