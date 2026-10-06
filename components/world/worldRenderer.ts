@@ -2291,8 +2291,13 @@ export function createWorld(
             targetCamera.x = player.x - horizontalBoom;
             targetCamera.z = player.z + THREE.MathUtils.clamp(cameraDz * 0.2, -3, 3);
           }
-          if (!isWater({ x: targetCamera.x, z: targetCamera.z }))
-            targetCamera.x = coastlineX(targetCamera.z) - 1.3;
+          if (!isWater({ x: targetCamera.x, z: targetCamera.z })) {
+            const zone = waterZone(player);
+            targetCamera.x =
+              zone === "lagoon"
+                ? eastCoastlineX(targetCamera.z) + 1.3
+                : coastlineX(targetCamera.z) - 1.3;
+          }
         }
         const floor = seaFloorHeight(targetCamera.x, targetCamera.z);
         targetCamera.y = THREE.MathUtils.clamp(
@@ -2314,8 +2319,12 @@ export function createWorld(
       targetCamera.set(42 + Math.sin(elapsed * 0.035) * 1.5, 36, 86);
       targetLook.set(-12, 6, -12);
     }
+    const playerWaterZone = waterZone(player);
     const shoreWait = {
-      x: coastlineX(player.z) + 2.6,
+      x:
+        playerWaterZone === "lagoon"
+          ? eastCoastlineX(player.z) - 2.6
+          : coastlineX(player.z) + 2.6,
       z: THREE.MathUtils.clamp(player.z, WORLD_BOUNDS.minZ + 4, WORLD_BOUNDS.maxZ - 4),
     };
     const dogTarget = state.entered
