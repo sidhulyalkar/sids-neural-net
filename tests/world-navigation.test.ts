@@ -46,7 +46,7 @@ test("movement stays inside the finite world and resolves trunk collision includ
   assert.ok(distance(contact, obstacle) >= 2.45 - 1e-8);
   assert.ok(Number.isFinite(contact.x) && Number.isFinite(contact.z));
 });
-test("world content resolves to six real project pages and three local photos", () => {
+test("world content resolves to six real project pages, local photo memories, and real-only videos", () => {
   const content = getWorldContent();
   assert.equal(content.projects.length, 6);
   const nodes = NeuralGraphSchema.parse(graph).nodes;
@@ -59,9 +59,10 @@ test("world content resolves to six real project pages and three local photos", 
     );
     assert.ok(p.summary.length > 0);
   }
-  assert.equal(content.photos.length, 3);
+  assert.equal(content.photos.length, MEMORY_POINTS.length);
   for (const photo of content.photos)
     assert.ok(existsSync(`public${photo.src}`), photo.src);
+  assert.equal(content.videos.length, 0);
 });
 
 test("swept movement cannot tunnel through a trunk even when the endpoint is clear", () => {
