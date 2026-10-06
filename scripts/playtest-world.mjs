@@ -340,12 +340,13 @@ try {
   }
   await page.waitForFunction(() => document.querySelector('canvas')?.dataset.reefZone === 'lagoon');
   assert.equal(await page.locator('canvas').getAttribute('data-reef'), 'true');
-  // The immediate shoreline is intentionally too shallow to dive safely. Swim
-  // offshore until the shared bathymetry exposes enough clearance, then dive.
+  // The coral garden is intentionally shallow. maxDiveDepth already reserves
+  // 1.15 world units above the seafloor, so wait for a small but genuinely safe
+  // dive envelope rather than requiring deep water beyond the reef.
   await page.keyboard.down('w');
   try {
     await page.waitForFunction(
-      () => Number(document.querySelector('canvas')?.dataset.maxDepth) > 0.9,
+      () => Number(document.querySelector('canvas')?.dataset.maxDepth) > 0.4,
       null,
       { timeout: 12000 },
     );
