@@ -44,7 +44,7 @@ The standing silhouette is modeled as a broad plume that:
 4. widens into a cream-white plume,
 5. curls gently outward and slightly upward at the tip.
 
-The runtime uses six instanced ellipsoids under a single animated tail root, preserving the plume silhouette at one draw call.
+The runtime uses six photo-derived control points under a single animated tail root. They drive one continuous tapered TubeGeometry with a warm-tan to cream-white vertex-color gradient, preserving the plume silhouette at one draw call without visible segment seams.
 
 ## Harness
 
