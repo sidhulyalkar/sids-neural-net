@@ -1,5 +1,5 @@
 /** Small, deterministic geography shared by the renderer, navigation and tests. */
-export type RegionId = "grove" | "mountain" | "neural" | "coast" | "waterfall" | "canyon" | "cavern";
+export type RegionId = "grove" | "mountain" | "neural" | "coast" | "lagoon" | "waterfall" | "canyon" | "cavern";
 export type Point = { x: number; z: number };
 
 export const REGIONS: {
@@ -12,13 +12,14 @@ export const REGIONS: {
   { id: "grove", name: "Redwood grove", meaning: "A little about me", point: { x: 0, z: 8 }, href: "/about" },
   { id: "mountain", name: "Granite ridge", meaning: "Things I build", point: { x: 8, z: -54 }, href: "/projects" },
   { id: "neural", name: "Strange grove", meaning: "Things I explore", point: { x: 30, z: -5 }, href: "/ideas" },
-  { id: "coast", name: "Wild coast", meaning: "Life outside the screen", point: { x: -29, z: 13 }, href: "/photography" },
+  { id: "coast", name: "Wild coast", meaning: "Cold-water coast", point: { x: -29, z: 13 }, href: "/photography" },
+  { id: "lagoon", name: "Lagoon reef", meaning: "South Pacific reef", point: { x: 58, z: 13 }, href: "/photography" },
   { id: "waterfall", name: "Fern falls", meaning: "Follow the water", point: { x: -20, z: -24 }, href: "/photography" },
   { id: "canyon", name: "Moss canyon", meaning: "A quieter trail", point: { x: 29, z: 34 }, href: "/about" },
   { id: "cavern", name: "Arcade cavern", meaning: "Play my games", point: { x: 44, z: -9 }, href: "/arcade" },
 ];
 
-export const WORLD_BOUNDS = { minX: -92, maxX: 72, minZ: -96, maxZ: 58 } as const;
+export const WORLD_BOUNDS = { minX: -92, maxX: 94, minZ: -96, maxZ: 58 } as const;
 export const SEA_SURFACE = -1.4;
 
 export const MEMORY_POINTS = [
@@ -43,11 +44,30 @@ export function coastlineX(z: number): number {
   return -34 + Math.sin(z * 0.075) * 1.7 + Math.sin(z * 0.021 + 1.8) * 0.8;
 }
 
+export function eastCoastlineX(z: number): number {
+  return 58 + Math.sin(z * 0.067 + 0.7) * 1.9 + Math.sin(z * 0.019) * 1.1;
+}
+
+export type WaterZone = "kelp" | "lagoon";
+export function waterZone(point: Point): WaterZone | null {
+  if (point.x < coastlineX(point.z) - 0.35) return "kelp";
+  if (point.x > eastCoastlineX(point.z) + 0.35) return "lagoon";
+  return null;
+}
+
 export function isWater(point: Point): boolean {
-  return point.x < coastlineX(point.z) - 0.35;
+  return waterZone(point) !== null;
 }
 
 export function seaFloorHeight(x: number, z: number): number {
+  const zone = waterZone({ x, z });
+  if (zone === "lagoon") {
+    const offshore = Math.max(0, x - eastCoastlineX(z));
+    const shelf = SEA_SURFACE - 1.9 - Math.min(7.4, offshore * 0.17);
+    const sandRipples = Math.sin(z * 0.18 + 0.8) * 0.2 + Math.cos(x * 0.14) * 0.16;
+    const coralGarden = 1.65 * Math.exp(-((x - 72) ** 2 / 250 + (z - 11) ** 2 / 460));
+    return shelf + sandRipples + coralGarden;
+  }
   const offshore = Math.max(0, coastlineX(z) - x);
   const shelf = SEA_SURFACE - 2.1 - Math.min(8.5, offshore * 0.15);
   const rockyRelief = Math.sin(z * 0.16) * 0.45 + Math.cos(x * 0.11) * 0.35;
@@ -92,6 +112,8 @@ export function regionLanding(region: RegionId): Point {
   const z = target.point.z + 3;
   if (region === "coast")
     return { x: coastlineX(z) + 1.35, z };
+  if (region === "lagoon")
+    return { x: eastCoastlineX(z) - 1.35, z };
   return { x: target.point.x, z };
 }
 
