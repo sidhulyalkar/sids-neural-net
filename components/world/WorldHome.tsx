@@ -50,25 +50,14 @@ const LINKS = [
   ["Contact", "/contact"],
 ];
 const INTRO: Record<RegionId, { title: string; text: string }> = {
-  waterfall: { title: "Fern falls.", text: "A shaded trail below the falls and another route into the photography archive." },
-  canyon: { title: "Moss canyon.", text: "A narrow rock corridor connecting the grove, coast, and inland trails." },
-  cavern: { title: "Arcade cavern.", text: "The playable games are carved into the cavern walls and open through their existing routes." },
-  grove: {
-    title: "Hi, I’m Sid.",
-    text: "Neuroscience, machine learning, and the infrastructure between them. Off-screen: trails with Shasta.",
-  },
-  mountain: {
-    title: "Things I build.",
-    text: "From raw measurements to useful systems. A few projects from my work in neuroscience, data infrastructure, and machine learning.",
-  },
-  neural: {
-    title: "Things I explore.",
-    text: "How do neural systems represent the world? How can we understand what a model has learned? These questions connect much of my research.",
-  },
-  coast: {
-    title: "Outside the screen.",
-    text: "Coastal trails, mountain days, and Shasta. A few photographs from along the way.",
-  },
+  waterfall: { title: "Fern falls.", text: "Water · fern · stone." },
+  canyon: { title: "Moss canyon.", text: "Rock · moss · trail." },
+  cavern: { title: "Arcade cavern.", text: "Playable games carved into stone." },
+  grove: { title: "Redwood grove.", text: "Neuroscience · engineering · Shasta." },
+  mountain: { title: "Granite ridge.", text: "Selected builds." },
+  neural: { title: "Strange grove.", text: "Research questions." },
+  coast: { title: "Wild coast.", text: "Cold water · trails · photographs." },
+  lagoon: { title: "Lagoon reef.", text: "Bora Bora · Tahiti · Mo’orea." },
 };
 
 export function WorldHome({ content }: { content: WorldContent }) {
@@ -197,15 +186,17 @@ export function WorldHome({ content }: { content: WorldContent }) {
   const nearbyGame = Number.isInteger(nearbyGameIndex) ? content.games[nearbyGameIndex] : undefined;
   const discoveryTitle =
     nearby === "secret"
-      ? "Shasta found something"
+      ? "Shasta"
       : (nearbyGame?.title ??
+        content.videos.find((item) => item.id === nearby)?.title ??
         MEMORY_POINTS.find((m) => m.id === nearby)?.title ??
-        REGIONS.find((r) => r.id === nearby)?.meaning);
+        REGIONS.find((r) => r.id === nearby)?.name);
   const current = REGIONS.find((r) => r.id === region)!;
   const selected = REGIONS.find((r) => r.id === panel);
   const carvedGameIndex = panel?.startsWith("game:") ? Number(panel.slice(5)) : -1;
   const carvedGame = Number.isInteger(carvedGameIndex) ? content.games[carvedGameIndex] : undefined;
   const photo = content.photos.find((p) => p.id === panel);
+  const video = content.videos.find((item) => item.id === panel);
   const caption = MEMORY_POINTS.find((m) => m.id === panel);
 
   return (
@@ -486,20 +477,24 @@ export function WorldHome({ content }: { content: WorldContent }) {
               </div>
               {selected.id === "coast" && (
                 <div className={styles.memoryList}>
-                  {content.photos.map((p) => (
-                    <button key={p.id} onClick={() => setPanel(p.id)}>
-                      <Image
-                        src={p.src}
-                        alt={p.alt}
-                        width={240}
-                        height={150}
-                        sizes="(max-width: 600px) 80vw, 240px"
-                      />
-                      <span>
-                        {MEMORY_POINTS.find((m) => m.id === p.id)?.title}
-                      </span>
-                    </button>
-                  ))}
+                  {content.photos.map((p) => {
+                    const memory = MEMORY_POINTS.find((m) => m.id === p.id);
+                    return (
+                      <button
+                        key={p.id}
+                        aria-label={memory?.title ?? p.alt}
+                        onClick={() => setPanel(p.id)}
+                      >
+                        <Image
+                          src={p.src}
+                          alt={p.alt}
+                          width={240}
+                          height={150}
+                          sizes="(max-width: 600px) 80vw, 240px"
+                        />
+                      </button>
+                    );
+                  })}
                 </div>
               )}
               <div className={styles.panelLinks}>
@@ -530,9 +525,23 @@ export function WorldHome({ content }: { content: WorldContent }) {
               </div>
             </>
           )}
+          {video && (
+            <>
+              <h2 id="world-panel-title">{video.title}</h2>
+              <video
+                className={styles.memoryVideo}
+                src={video.src}
+                poster={video.posterSrc}
+                controls
+                playsInline
+                preload="metadata"
+              />
+              <p className={styles.photoCaption}>{video.detail}</p>
+              <button onClick={close}>Back to reef</button>
+            </>
+          )}
           {photo && (
             <>
-              <p className={styles.eyebrow}>A MEMORY FROM MY PHOTO ARCHIVE</p>
               <h2 id="world-panel-title">{caption?.title}</h2>
               <Image
                 className={styles.memoryPhoto}
@@ -542,19 +551,16 @@ export function WorldHome({ content }: { content: WorldContent }) {
                 height={photo.height}
                 sizes="(max-width: 900px) 92vw, 1000px"
               />
-              <p className={styles.photoCaption}>{photo.alt}</p>
+              <p className={styles.photoCaption}>{caption?.detail ?? photo.alt}</p>
               <Link prefetch={false} href="/photography">
-                Explore the photographs
+                Photography
               </Link>
             </>
           )}
           {panel === "secret" && (
             <>
-              <p className={styles.eyebrow}>A GOOD GUIDE</p>
               <h2 id="world-panel-title">Shasta.</h2>
-              <p className={styles.panelIntro}>
-                Coastal trail. Last light.
-              </p>
+              <p className={styles.panelIntro}>Sunset overlook.</p>
               <Image
                 className={styles.secretPhoto}
                 src="/visual-archive/web/photo-042.webp"
@@ -564,7 +570,7 @@ export function WorldHome({ content }: { content: WorldContent }) {
                 sizes="(max-width: 600px) 85vw, 400px"
               />
               <Link prefetch={false} href="/photography">
-                More days outside
+                Photography
               </Link>
             </>
           )}
