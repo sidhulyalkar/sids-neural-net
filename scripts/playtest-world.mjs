@@ -32,6 +32,8 @@ try {
   await waitForScene(page);
   assert.equal(await page.locator('canvas').getAttribute('data-carved-games'), '3');
   assert.equal(await page.locator('canvas').getAttribute('data-reef-species'), '8');
+  assert.equal(await page.locator('canvas').getAttribute('data-lagoon-species'), '7');
+  assert.equal(await page.locator('canvas').getAttribute('data-land-wildlife'), '10');
   await screenshot(page, 'desktop-welcome');
   await page.getByRole('button', { name: 'Explore world', exact: true }).click();
   const before = await page.locator('canvas').getAttribute('data-player');
@@ -53,18 +55,19 @@ try {
   results.push('Keyboard walking changes player position');
   results.push('Shasta follow gait stays per-frame height/yaw-continuous and distance-phased');
   for (const [name, prompt, title] of [
-    ['01 Redwood grove A little about me', 'A little about me', 'Hi, I’m Sid.'],
-    ['02 Granite ridge Things I build', 'Things I build', 'Things I build.'],
-    ['03 Strange grove Things I explore', 'Things I explore', 'Things I explore.'],
-    ['04 Wild coast Life outside the screen', 'Life outside the screen', 'Outside the screen.'],
-    ['05 Fern falls Follow the water', 'Follow the water', 'Fern falls.'],
-    ['06 Moss canyon A quieter trail', 'A quieter trail', 'Moss canyon.'],
-    ['07 Arcade cavern Play my games', 'Play my games', 'Arcade cavern.'],
+    ['01 Redwood grove A little about me', 'Redwood grove', 'Redwood grove.'],
+    ['02 Granite ridge Things I build', 'Granite ridge', 'Granite ridge.'],
+    ['03 Strange grove Things I explore', 'Strange grove', 'Strange grove.'],
+    ['04 Wild coast Cold-water coast', 'Wild coast', 'Wild coast.'],
+    ['05 Lagoon reef South Pacific reef', 'Lagoon reef', 'Lagoon reef.'],
+    ['06 Fern falls Follow the water', 'Fern falls', 'Fern falls.'],
+    ['07 Moss canyon A quieter trail', 'Moss canyon', 'Moss canyon.'],
+    ['08 Arcade cavern Play my games', 'Arcade cavern', 'Arcade cavern.'],
   ]) {
     await page.getByRole('button', { name: 'Open navigation menu' }).click();
     await page.getByRole('button', { name, exact: true }).click();
 
-    if (name.startsWith('07')) {
+    if (name.startsWith('08')) {
       const carvedTitles = ['Stretchicorn', 'uniRico', 'Unicorn Stampede'];
       await page.waitForFunction(() => document.querySelector('canvas')?.dataset.gazeGame?.startsWith('game:'), null, { timeout: 15000 });
       const gazeId = await page.locator('canvas').getAttribute('data-gaze-game');
@@ -102,7 +105,7 @@ try {
       assert.equal(hrefs.length, 3);
       for (const href of hrefs) assert.equal((await page.request.get(`${base}${href}`)).status(), 200, href);
     }
-    if (name.startsWith('04')) for (const memory of ['Higher ground', 'The last light', 'Along the coast']) {
+    if (name.startsWith('04')) for (const memory of ['Mountain lake', 'Wet beach', 'Coastal flowers', 'Shasta · beach']) {
       await page.getByRole('button', { name: new RegExp(memory) }).click();
       await page.getByRole('heading', { name: memory, exact: true }).waitFor();
       await page.waitForFunction(() => { const img = document.querySelector('dialog img'); return img?.complete && img.naturalWidth > 0; });
@@ -239,7 +242,7 @@ try {
   // Qualify the full land -> surface snorkel -> dive -> surface -> shore loop.
   await page.getByRole('button', { name: 'Trail running', exact: true }).click();
   await page.getByRole('button', { name: 'Open navigation menu' }).click();
-  await page.getByRole('button', { name: '04 Wild coast Life outside the screen', exact: true }).click();
+  await page.getByRole('button', { name: '04 Wild coast Cold-water coast', exact: true }).click();
   await page.waitForFunction(() => document.querySelector('canvas')?.dataset.aquatic === 'land');
   await page.waitForFunction(() => document.activeElement?.tagName === 'CANVAS');
 
@@ -307,6 +310,48 @@ try {
   }
   results.push('Land, snorkeling, dive depth, surfacing, and shore return all transition cleanly');
 
+  // The east-side lagoon is a separate warm-water biome with its own shoreline,
+  // atmosphere and batched fauna. Enter it through normal movement as well.
+  await page.getByRole('button', { name: 'Open navigation menu' }).click();
+  await page.getByRole('button', { name: '05 Lagoon reef South Pacific reef', exact: true }).click();
+  await page.waitForFunction(() => document.querySelector('canvas')?.dataset.aquatic === 'land');
+  await page.waitForFunction(() => document.activeElement?.tagName === 'CANVAS');
+  await page.keyboard.press('Space');
+  await page.keyboard.down('w');
+  try {
+    await page.waitForFunction(
+      () => document.querySelector('canvas')?.dataset.aquatic === 'surface',
+      null,
+      { timeout: 12000 },
+    );
+  } finally {
+    await page.keyboard.up('w');
+  }
+  await page.waitForFunction(() => document.querySelector('canvas')?.dataset.reefZone === 'lagoon');
+  assert.equal(await page.locator('canvas').getAttribute('data-reef'), 'true');
+  await screenshot(page, 'activity-lagoon-snorkel');
+  await page.getByRole('button', { name: 'Dive', exact: true }).click();
+  await page.waitForFunction(() => document.querySelector('canvas')?.dataset.aquatic === 'dive');
+  await page.waitForFunction(() => document.querySelector('canvas')?.dataset.cameraWater === 'true');
+  await page.waitForFunction(() => Number(document.querySelector('canvas')?.dataset.depth) > 0.35);
+  await page.waitForFunction(() => Number(document.querySelector('canvas')?.dataset.drawCalls) > 0);
+  const lagoonDrawCalls = Number(await page.locator('canvas').getAttribute('data-draw-calls'));
+  assert.ok(lagoonDrawCalls < 100, `lagoon draw calls ${lagoonDrawCalls}`);
+  await screenshot(page, 'activity-lagoon-dive');
+  results.push('East lagoon snorkeling and diving activate only the warm-water reef within renderer budget');
+  await page.getByRole('button', { name: 'Surface', exact: true }).click();
+  await page.waitForFunction(() => document.querySelector('canvas')?.dataset.aquatic === 'surface');
+  await page.keyboard.down('s');
+  try {
+    await page.waitForFunction(
+      () => document.querySelector('canvas')?.dataset.aquatic === 'land',
+      null,
+      { timeout: 15000 },
+    );
+  } finally {
+    await page.keyboard.up('s');
+  }
+
   await page.getByRole('button', { name: 'Open navigation menu' }).click();
   await page.getByRole('button', { name: 'Field notes', exact: true }).click();
   assert.equal(await page.locator('dialog a[href^="https://www.nps.gov"]').count(), 4);
@@ -348,7 +393,7 @@ try {
 
   // Phone-width aquatic controls must remain visible and tappable, not just fit CSS.
   await mobile.getByRole('button', { name: 'Open navigation menu' }).tap();
-  await mobile.getByRole('button', { name: '04 Wild coast Life outside the screen', exact: true }).tap();
+  await mobile.getByRole('button', { name: '04 Wild coast Cold-water coast', exact: true }).tap();
   await mobile.waitForFunction(() => document.querySelector('canvas')?.dataset.aquatic === 'land');
   await mobile.locator('canvas').focus();
   await mobile.waitForFunction(() => document.activeElement?.tagName === 'CANVAS');
