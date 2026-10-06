@@ -42,6 +42,11 @@ try {
   await page.waitForTimeout(1400);
   await page.keyboard.up('w');
   await page.waitForFunction(old => document.querySelector('canvas')?.dataset.player !== old, before);
+  await page.waitForFunction(
+    () => Number(document.querySelector('canvas')?.dataset.dogMaxMoveBlend) > 0.15,
+    null,
+    { timeout: 4000 },
+  );
   const dogMotion = await page.locator('canvas').evaluate(c => ({
     maxYawStep: Number(c.dataset.dogMaxYawStep),
     maxYStep: Number(c.dataset.dogMaxYStep),
