@@ -1680,13 +1680,24 @@ export function createWorld(
   let playerY = groundHeight(player);
   explorer.rotation.order = "YXZ";
   let dog: Point = { x: 3, z: 12 };
+  let dogVelocity: Point = { x: 0, z: 0 };
+  let dogSmoothedTarget: Point = { ...dog };
   let dogYaw = 0;
+  let dogPitch = 0;
+  let dogRoll = 0;
   let dogGroundY = terrainHeight(dog.x, dog.z);
   let dogGaitPhase = 0;
   let dogMoveBlend = 0;
+  let dogAnimSpeed = 0;
+  let dogInterestCritterIndex: number | null = null;
+  let dogInterestUntil = 0;
+  let dogInterestRestUntil = 0;
+  let dogTargetSwitches = 0;
   let dogMaxYawStep = 0;
   let dogMaxYStep = 0;
   let dogMaxMoveBlend = 0;
+  let dogMaxAcceleration = 0;
+  let lastDogSpeed = 0;
   let lastDogRenderY = dogGroundY;
   let locationKey = "",
     discovery: string | null = null,
@@ -2499,14 +2510,45 @@ export function createWorld(
       .map((memory) => ({ memory, d: distance(player, memory.point) }))
       .filter(({ d }) => d < 10)
       .sort((a, b) => a.d - b.d)[0]?.memory;
-    const nearbyCritter = critters
-      .map((critter) => ({
-        critter,
-        playerDistance: distance(player, critter.point),
-        dogDistance: distance(dog, critter.point),
-      }))
-      .filter(({ playerDistance, dogDistance }) => playerDistance < 10 && dogDistance < 12)
-      .sort((a, b) => a.dogDistance - b.dogDistance)[0]?.critter;
+
+    // Curiosity uses hysteresis: once Shasta chooses a moving animal he keeps that
+    // interest briefly instead of selecting a new nearest critter every frame.
+    if (dogInterestCritterIndex !== null) {
+      const interest = critters[dogInterestCritterIndex];
+      const stillRelevant =
+        aquatic === "land" &&
+        elapsed < dogInterestUntil &&
+        distance(player, interest.point) < 13 &&
+        distance(dog, interest.point) < 16;
+      if (!stillRelevant) {
+        dogInterestCritterIndex = null;
+        dogInterestRestUntil = elapsed + 1.35;
+      }
+    }
+    if (
+      dogInterestCritterIndex === null &&
+      aquatic === "land" &&
+      !nearbyShastaMemory &&
+      elapsed >= dogInterestRestUntil
+    ) {
+      const nextInterest = critters
+        .map((critter, index) => ({
+          index,
+          playerDistance: distance(player, critter.point),
+          dogDistance: distance(dog, critter.point),
+        }))
+        .filter(({ playerDistance, dogDistance }) => playerDistance < 9 && dogDistance < 11)
+        .sort((a, b) => a.dogDistance - b.dogDistance)[0];
+      if (nextInterest) {
+        dogInterestCritterIndex = nextInterest.index;
+        dogInterestUntil = elapsed + 3.2;
+        dogTargetSwitches++;
+      }
+    }
+    const nearbyCritter =
+      dogInterestCritterIndex === null
+        ? null
+        : critters[dogInterestCritterIndex];
 
     const playerWaterZone = waterZone(player);
     const shoreWait = {
@@ -2531,62 +2573,102 @@ export function createWorld(
       aquatic !== "land"
         ? "shore"
         : nearbyShastaMemory?.id ?? nearbyCritter?.kind ?? "";
-    const dogDelta = distance(dog, dogTarget);
+
+    // Smooth the target itself, then steer velocity toward it with finite
+    // acceleration/braking. This removes the start/stop jerk from direct pursuit.
+    dogSmoothedTarget = smoothPoint(dogSmoothedTarget, dogTarget, dt);
+    dogVelocity = steerShastaVelocity(
+      dogVelocity,
+      dog,
+      dogSmoothedTarget,
+      travel.speed,
+      dt,
+    );
     const dogBefore = { ...dog };
-    let desiredDogYaw = dogYaw;
-    if (dogDelta > 0.7) {
-      const speed = Math.min(dt * Math.max(6, travel.speed + 2), dogDelta);
-      desiredDogYaw = Math.atan2(dogTarget.x - dog.x, dogTarget.z - dog.z);
-      const candidate = constrainMove(
-        dog,
-        {
-          x: dog.x + Math.sin(desiredDogYaw) * speed,
-          z: dog.z + Math.cos(desiredDogYaw) * speed,
-        },
-        obstacles,
-      );
-      if (!isWater(candidate)) dog = candidate;
+    const requestedDogStep = {
+      x: dog.x + dogVelocity.x * dt,
+      z: dog.z + dogVelocity.z * dt,
+    };
+    const candidate = constrainMove(dog, requestedDogStep, obstacles);
+    if (!isWater(candidate)) {
+      dog = candidate;
+      const requestedDistance = distance(dogBefore, requestedDogStep);
+      const actualDistance = distance(dogBefore, dog);
+      if (requestedDistance > 0.001 && actualDistance < requestedDistance * 0.72) {
+        const inverseDt = 1 / Math.max(0.001, dt);
+        dogVelocity = {
+          x: (dog.x - dogBefore.x) * inverseDt,
+          z: (dog.z - dogBefore.z) * inverseDt,
+        };
+      }
+    } else {
+      dogVelocity = {
+        x: dogVelocity.x * (1 - smoothingAlpha(dt, 12)),
+        z: dogVelocity.z * (1 - smoothingAlpha(dt, 12)),
+      };
     }
-    const yawDelta = Math.atan2(
-      Math.sin(desiredDogYaw - dogYaw),
-      Math.cos(desiredDogYaw - dogYaw),
-    );
-    // Bound actual angular velocity rather than only easing toward the target.
-    // This stays visually continuous even when a slow frame or obstacle causes
-    // the desired heading to flip sharply.
-    const maxDogTurnStep = Math.min(0.18, 4.2 * Math.max(0, Math.min(dt, 0.05)));
-    const appliedDogYawStep = Math.max(
-      -maxDogTurnStep,
-      Math.min(maxDogTurnStep, yawDelta),
-    );
-    dogYaw += appliedDogYawStep;
-    dogYaw = Math.atan2(Math.sin(dogYaw), Math.cos(dogYaw));
-    dogMaxYawStep = Math.max(dogMaxYawStep, Math.abs(appliedDogYawStep));
-    shasta.rotation.y = dogYaw;
+
     const dogStep = distance(dogBefore, dog);
-    dogGaitPhase += dogStep * 5.4;
-    const movingTarget = dogStep > 0.001 ? 1 : 0;
-    dogMoveBlend += (movingTarget - dogMoveBlend) * (1 - Math.exp(-dt * 7));
-    dogMaxMoveBlend = Math.max(dogMaxMoveBlend, dogMoveBlend);
-    const targetDogY = terrainHeight(dog.x, dog.z);
-    const dogGroundError = targetDogY - dogGroundY;
-    const maxDogGroundStep = Math.min(0.1, 2.4 * Math.max(0, Math.min(dt, 0.05)));
-    dogGroundY += Math.max(
-      -maxDogGroundStep,
-      Math.min(maxDogGroundStep, dogGroundError),
+    const dogActualSpeed = dogStep / Math.max(0.001, dt);
+    dogAnimSpeed +=
+      (dogActualSpeed - dogAnimSpeed) * smoothingAlpha(dt, 7.5);
+    const dogAcceleration =
+      Math.abs(dogActualSpeed - lastDogSpeed) / Math.max(0.001, dt);
+    dogMaxAcceleration = Math.max(dogMaxAcceleration, dogAcceleration);
+    lastDogSpeed = dogActualSpeed;
+
+    const velocitySpeed = Math.hypot(dogVelocity.x, dogVelocity.z);
+    const desiredDogYaw =
+      velocitySpeed > 0.08
+        ? Math.atan2(dogVelocity.x, dogVelocity.z)
+        : dogYaw;
+    const previousDogYaw = dogYaw;
+    dogYaw = smoothAngle(dogYaw, desiredDogYaw, dt);
+    const appliedDogYawStep = Math.abs(
+      Math.atan2(
+        Math.sin(dogYaw - previousDogYaw),
+        Math.cos(dogYaw - previousDogYaw),
+      ),
     );
-    const dogBob = Math.sin(dogGaitPhase * 2) * 0.022 * dogMoveBlend;
+    dogMaxYawStep = Math.max(dogMaxYawStep, appliedDogYawStep);
+
+    const dogHeading = { x: Math.sin(dogYaw), z: Math.cos(dogYaw) };
+    const dogContactSample = terrainContact(dog, dogHeading, 0.58, 0.22);
+    const poseAlpha = smoothingAlpha(dt, 8);
+    dogPitch += (dogContactSample.pitch - dogPitch) * poseAlpha;
+    dogRoll += (dogContactSample.roll - dogRoll) * poseAlpha;
+
+    dogGaitPhase += dogAnimSpeed * dt * 4.35;
+    const targetMoveBlend = gaitBlendForSpeed(dogAnimSpeed);
+    dogMoveBlend +=
+      (targetMoveBlend - dogMoveBlend) * smoothingAlpha(dt, 8.5);
+    dogMaxMoveBlend = Math.max(dogMaxMoveBlend, dogMoveBlend);
+
+    const targetDogY = terrainHeight(dog.x, dog.z);
+    dogGroundY +=
+      (targetDogY - dogGroundY) * smoothingAlpha(dt, 10);
+    const dogBob = Math.sin(dogGaitPhase * 2) * 0.012 * dogMoveBlend;
     const dogRenderY = dogGroundY + dogBob;
     dogMaxYStep = Math.max(dogMaxYStep, Math.abs(dogRenderY - lastDogRenderY));
     lastDogRenderY = dogRenderY;
     shasta.position.set(dog.x, dogRenderY, dog.z);
+    shasta.rotation.set(
+      dogPitch,
+      dogYaw,
+      dogRoll + Math.sin(dogGaitPhase) * 0.012 * dogMoveBlend,
+    );
+
     canvas.dataset.dogYaw = dogYaw.toFixed(3);
     canvas.dataset.dogY = dogRenderY.toFixed(3);
+    canvas.dataset.dogSpeed = dogActualSpeed.toFixed(3);
     canvas.dataset.dogMoveBlend = dogMoveBlend.toFixed(3);
     canvas.dataset.dogGaitPhase = dogGaitPhase.toFixed(3);
     canvas.dataset.dogMaxYawStep = dogMaxYawStep.toFixed(3);
     canvas.dataset.dogMaxYStep = dogMaxYStep.toFixed(3);
     canvas.dataset.dogMaxMoveBlend = dogMaxMoveBlend.toFixed(3);
+    canvas.dataset.dogMaxAcceleration = dogMaxAcceleration.toFixed(3);
+    canvas.dataset.dogTargetSwitches = String(dogTargetSwitches);
+
     explorerContact.visible = aquatic === "land";
     explorerContact.position.set(
       explorer.position.x,
@@ -2594,22 +2676,59 @@ export function createWorld(
       explorer.position.z,
     );
     dogContact.position.set(dog.x, terrainHeight(dog.x, dog.z) + 0.04, dog.z);
-    const dogLegPhases = [0, Math.PI, Math.PI, 0];
-    lowerLegInstanceIndices.forEach((instanceIndex, i) => {
-      const part = shastaCylinderParts[instanceIndex];
-      dummy.position.set(part.x, part.y, part.z);
-      dummy.scale.set(part.sx, part.sy, part.sz);
-      dummy.rotation.set(
-        Math.sin(dogGaitPhase + dogLegPhases[i]) * 0.2 * dogMoveBlend,
-        0,
-        0,
-      );
+
+    // Articulated diagonal trot. Upper leg, lower leg and paw share the same
+    // phase chain so the foot follows the limb instead of jittering in place.
+    const upperLength = 0.4;
+    const lowerLength = 0.36;
+    const hipY = 0.76;
+    shastaLegs.forEach((leg) => {
+      const phase = dogGaitPhase + leg.phase;
+      const upperAngle =
+        Math.sin(phase) * 0.3 * dogMoveBlend;
+      const kneeBend =
+        Math.max(0, Math.cos(phase)) * 0.24 * dogMoveBlend;
+      const lowerAngle = upperAngle * 0.58 - kneeBend;
+
+      const upperPart = shastaCylinderParts[leg.upperIndex];
+      const upperCenterY =
+        hipY - Math.cos(upperAngle) * upperLength * 0.5;
+      const upperCenterZ =
+        leg.z - Math.sin(upperAngle) * upperLength * 0.5;
+      dummy.position.set(leg.x, upperCenterY, upperCenterZ);
+      dummy.scale.set(upperPart.sx, upperPart.sy, upperPart.sz);
+      dummy.rotation.set(upperAngle, 0, 0);
       dummy.updateMatrix();
-      shastaCylinderMesh.setMatrixAt(instanceIndex, dummy.matrix);
+      shastaCylinderMesh.setMatrixAt(leg.upperIndex, dummy.matrix);
+
+      const kneeY = hipY - Math.cos(upperAngle) * upperLength;
+      const kneeZ = leg.z - Math.sin(upperAngle) * upperLength;
+      const lowerPart = shastaCylinderParts[leg.lowerIndex];
+      const lowerCenterY =
+        kneeY - Math.cos(lowerAngle) * lowerLength * 0.5;
+      const lowerCenterZ =
+        kneeZ - Math.sin(lowerAngle) * lowerLength * 0.5;
+      dummy.position.set(leg.x, lowerCenterY, lowerCenterZ);
+      dummy.scale.set(lowerPart.sx, lowerPart.sy, lowerPart.sz);
+      dummy.rotation.set(lowerAngle, 0, 0);
+      dummy.updateMatrix();
+      shastaCylinderMesh.setMatrixAt(leg.lowerIndex, dummy.matrix);
+
+      const ankleY = kneeY - Math.cos(lowerAngle) * lowerLength;
+      const ankleZ = kneeZ - Math.sin(lowerAngle) * lowerLength;
+      const pawPart = shastaRockParts[leg.pawIndex];
+      dummy.position.set(leg.x, Math.max(0.055, ankleY + 0.04), ankleZ + 0.035);
+      dummy.scale.set(pawPart.sx, pawPart.sy, pawPart.sz);
+      dummy.rotation.set(lowerAngle * 0.18, 0, 0);
+      dummy.updateMatrix();
+      shastaRockMesh.setMatrixAt(leg.pawIndex, dummy.matrix);
     });
     shastaCylinderMesh.instanceMatrix.needsUpdate = true;
+    shastaRockMesh.instanceMatrix.needsUpdate = true;
     tail.rotation.z =
-      0.2 + Math.sin(elapsed * 2.2) * 0.07 + Math.sin(dogGaitPhase) * 0.05 * dogMoveBlend;
+      0.2 +
+      Math.sin(elapsed * 1.8) * 0.045 +
+      Math.sin(dogGaitPhase) * 0.035 * dogMoveBlend;
     camera.position.lerp(targetCamera, 1 - Math.exp(-dt * 3.6));
     look.lerp(targetLook, 1 - Math.exp(-dt * 4));
     camera.lookAt(look);
