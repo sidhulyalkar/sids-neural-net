@@ -1298,6 +1298,227 @@ export function createWorld(
   reefRoot.add(reefMotes);
   canvas.dataset.reefSpecies = "8";
 
+  // --- Warm-water Society Islands-inspired lagoon -----------------------------
+  // This second reef lives on the island's east shelf and stays fully culled while
+  // the player is in the California kelp coast. Most detail is instanced so adding
+  // coral/fish density costs instances rather than draw calls.
+  const tropicalReefRoot = new THREE.Group();
+  tropicalReefRoot.visible = false;
+  scene.add(tropicalReefRoot);
+
+  const tropicalCoralColors = ["#76539a", "#5d9d61", "#c99d45", "#9367b4", "#79a965"];
+  const tropicalCoralHeads: Instance[] = [];
+  const tropicalCoralBranches: Instance[] = [];
+  for (let i = 0; i < 72; i++) {
+    const z = -24 + random() * 66;
+    const x = eastCoastlineX(z) + 3.2 + random() * 19;
+    const floor = seaFloorHeight(x, z);
+    const size = 0.24 + random() * 0.7;
+    const color = tropicalCoralColors[i % tropicalCoralColors.length];
+    tropicalCoralHeads.push({
+      x,
+      y: floor + size * 0.34,
+      z,
+      sx: size * (0.8 + random() * 0.5),
+      sy: size * (0.55 + random() * 0.5),
+      sz: size * (0.85 + random() * 0.55),
+      ry: random() * Math.PI,
+      color,
+    });
+    if (i % 2 === 0) {
+      const branches = 2 + (i % 4);
+      for (let branch = 0; branch < branches; branch++) {
+        const a = branch / branches * Math.PI * 2 + i * 0.31;
+        const start = new THREE.Vector3(x, floor + 0.1, z);
+        const end = new THREE.Vector3(
+          x + Math.cos(a) * (0.22 + random() * 0.35),
+          floor + 0.55 + random() * 0.65,
+          z + Math.sin(a) * (0.22 + random() * 0.35),
+        );
+        tropicalCoralBranches.push({ ...segment(start, end, 0.045 + random() * 0.035), color });
+      }
+    }
+  }
+  instances(rockGeo, mat("#ffffff"), tropicalCoralHeads, false, tropicalReefRoot);
+  instances(cylinder, mat("#ffffff"), tropicalCoralBranches, false, tropicalReefRoot);
+
+  type TropicalFishState = {
+    centerX: number;
+    centerZ: number;
+    radiusX: number;
+    radiusZ: number;
+    baseY: number;
+    speed: number;
+    phase: number;
+    size: number;
+    color: string;
+  };
+  const tropicalFishPalette = [
+    "#f0c84b", "#5eb8cb", "#6b73c9", "#e57f55", "#75b86d", "#e9e1c2", "#9d63bd",
+  ];
+  const tropicalFishStates: TropicalFishState[] = Array.from({ length: 34 }, (_, i) => {
+    const centerZ = -15 + (i % 7) * 8 + random() * 3;
+    const centerX = eastCoastlineX(centerZ) + 9 + random() * 9;
+    return {
+      centerX,
+      centerZ,
+      radiusX: 1.7 + random() * 5.2,
+      radiusZ: 2.4 + random() * 6.6,
+      baseY: -2.8 - random() * 4.8,
+      speed: 0.18 + random() * 0.24,
+      phase: random() * Math.PI * 2,
+      size: 0.22 + random() * 0.34,
+      color: tropicalFishPalette[i % tropicalFishPalette.length],
+    };
+  });
+  const tropicalFishBodies = instances(
+    rockGeo,
+    mat("#ffffff"),
+    tropicalFishStates.map((fish) => ({
+      x: fish.centerX,
+      y: fish.baseY,
+      z: fish.centerZ,
+      sx: fish.size * 0.42,
+      sy: fish.size * 0.26,
+      sz: fish.size * 0.9,
+      color: fish.color,
+    })),
+    false,
+    tropicalReefRoot,
+  );
+  const tropicalFishTails = instances(
+    cone,
+    mat("#ffffff"),
+    tropicalFishStates.map((fish) => ({
+      x: fish.centerX,
+      y: fish.baseY,
+      z: fish.centerZ - fish.size,
+      sx: fish.size * 0.24,
+      sy: fish.size * 0.4,
+      sz: fish.size * 0.12,
+      color: fish.color,
+    })),
+    false,
+    tropicalReefRoot,
+  );
+
+  type TropicalRay = {
+    object: THREE.Group;
+    kind: "manta" | "eagle" | "sting";
+    radiusX: number;
+    radiusZ: number;
+    speed: number;
+    phase: number;
+    baseY: number;
+  };
+  const tropicalRays: TropicalRay[] = [];
+  function makeTropicalRay(
+    kind: TropicalRay["kind"],
+    color: string,
+    radiusX: number,
+    radiusZ: number,
+    speed: number,
+    phase: number,
+    baseY: number,
+  ) {
+    const group = new THREE.Group();
+    const scale =
+      kind === "manta"
+        ? { x: 2.25, z: 1.55 }
+        : kind === "eagle"
+          ? { x: 1.55, z: 1.18 }
+          : { x: 1.15, z: 0.98 };
+    const body = mesh(
+      rayGeo,
+      mat(color, { side: THREE.DoubleSide }),
+      [0, 0, 0],
+      [scale.x, scale.z, 1],
+      group,
+    );
+    body.rotation.x = Math.PI / 2;
+    const tailLength = kind === "manta" ? 2.1 : kind === "eagle" ? 2.8 : 2.2;
+    const rayTail = segment(
+      new THREE.Vector3(0, 0, -0.55),
+      new THREE.Vector3(0, 0, -tailLength),
+      kind === "manta" ? 0.04 : 0.03,
+    );
+    const tailMesh = mesh(
+      cylinder,
+      mat(kind === "eagle" ? "#565f5b" : color),
+      [rayTail.x, rayTail.y, rayTail.z],
+      [rayTail.sx, rayTail.sy, rayTail.sz],
+      group,
+    );
+    tailMesh.quaternion.copy(rayTail.q!);
+    if (kind === "manta") {
+      for (const side of [-1, 1]) {
+        const lobe = mesh(cone, mat("#485b62"), [side * 0.3, 0.02, 0.72], [0.16, 0.34, 0.14], group);
+        lobe.rotation.x = -Math.PI / 2;
+      }
+    } else if (kind === "eagle") {
+      const spots: Instance[] = [];
+      for (let i = 0; i < 9; i++)
+        spots.push({
+          x: (random() - 0.5) * 1.6,
+          y: 0.035,
+          z: (random() - 0.5) * 0.9,
+          sx: 0.055,
+          sy: 0.025,
+          sz: 0.055,
+        });
+      instances(rockGeo, mat("#d8e1d5"), spots, false, group);
+    }
+    tropicalReefRoot.add(group);
+    tropicalRays.push({ object: group, kind, radiusX, radiusZ, speed, phase, baseY });
+  }
+  makeTropicalRay("manta", "#526870", 8.5, 13.5, 0.075, 0.2, -5.4);
+  makeTropicalRay("eagle", "#65716a", 7.2, 10.5, 0.095, 2.1, -4.2);
+  makeTropicalRay("sting", "#a48e6b", 5.8, 8.2, 0.11, 4.0, -3.6);
+
+  const tropicalSharks: THREE.Group[] = [];
+  for (let i = 0; i < 3; i++) {
+    const shark = new THREE.Group();
+    const sharkMat = mat("#82958f");
+    const tipMat = mat("#263634");
+    mesh(rockGeo, sharkMat, [0, 0, 0], [0.42, 0.28, 1.65], shark);
+    const dorsal = mesh(cone, sharkMat, [0, 0.34, -0.08], [0.2, 0.48, 0.18], shark);
+    dorsal.rotation.x = -0.16;
+    const dorsalTip = mesh(cone, tipMat, [0, 0.62, -0.12], [0.11, 0.2, 0.1], shark);
+    dorsalTip.rotation.x = -0.16;
+    for (const side of [-1, 1]) {
+      const fin = mesh(cone, sharkMat, [side * 0.43, -0.03, 0.18], [0.14, 0.58, 0.1], shark);
+      fin.rotation.z = side * 1.18;
+    }
+    const tail = mesh(cone, tipMat, [0, 0, -1.55], [0.38, 0.58, 0.12], shark);
+    tail.rotation.x = Math.PI / 2;
+    tropicalReefRoot.add(shark);
+    tropicalSharks.push(shark);
+  }
+
+  const tropicalMotePositions = new Float32Array(120 * 3);
+  for (let i = 0; i < 120; i++) {
+    const z = -20 + random() * 58;
+    const x = eastCoastlineX(z) + 4 + random() * 19;
+    const floor = seaFloorHeight(x, z);
+    tropicalMotePositions.set(
+      [x, floor + 0.5 + random() * Math.max(0.8, SEA_SURFACE - floor - 1.0), z],
+      i * 3,
+    );
+  }
+  const tropicalMoteGeo = geo(new THREE.BufferGeometry());
+  tropicalMoteGeo.setAttribute("position", new THREE.BufferAttribute(tropicalMotePositions, 3));
+  const tropicalMoteMat = new THREE.PointsMaterial({
+    color: "#e7f7e6",
+    size: 0.05,
+    transparent: true,
+    opacity: 0.28,
+    depthWrite: false,
+  });
+  materials.add(tropicalMoteMat);
+  const tropicalMotes = new THREE.Points(tropicalMoteGeo, tropicalMoteMat);
+  tropicalReefRoot.add(tropicalMotes);
+  canvas.dataset.lagoonSpecies = "7";
+
   // A tiny world-space bubble field follows the swimmer. The points rise independently
   // of the character's pitch so snorkeling/diving motion reads naturally.
   const bubblePositions = new Float32Array(36 * 3);
