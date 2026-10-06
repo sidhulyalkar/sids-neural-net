@@ -1,6 +1,6 @@
 import { activityLanding, BOULDER_HOLDS, effectiveActivity, FALLEN_LOGS, grindStyleForApproach, groundHeight, nearestGrind, nextHold, onSnow, rampImpulseAt, RIDE_RAMPS, stepSwim, stepTravel, terrainContact, type Activity, type AquaticMode, type GrindStyle, type Travel } from "@/lib/world/activities";
 import { LAND_WILDLIFE, LAND_WILDLIFE_COLORS } from "@/lib/world/ecology";
-import { SHASTA_CHARACTER, type ShastaPaletteKey } from "@/lib/world/shastaCharacter";
+import { SHASTA_CHARACTER } from "@/lib/world/shastaCharacter";
 import { FrameSampler, QualityController } from "@/lib/world/performance";
 import { gaitBlendForSpeed, smoothAngle, smoothPoint, smoothingAlpha, steerShastaVelocity } from "@/lib/world/shastaMotion";
 import * as THREE from "three/src/Three.Core.js";
@@ -961,7 +961,6 @@ export function createWorld(
   scene.add(shasta);
   const shastaPalette = SHASTA_CHARACTER.palette;
   const shastaRockMat = mat(shastaPalette.creamWhite);
-  const colorFor = (key: ShastaPaletteKey) => shastaPalette[key];
   const p = SHASTA_CHARACTER.proportions;
   const coat = SHASTA_CHARACTER.coat;
   const face = SHASTA_CHARACTER.face;
@@ -1099,29 +1098,76 @@ export function createWorld(
     shasta,
   );
 
-  // Photo-matched tail: a large, soft plume that drops behind the hips and
-  // sweeps outward before a gentle curl. An instanced ellipsoid chain keeps it
-  // to one draw call while reading much closer to Shasta than a torus.
+  // Photo-matched tail: six hidden control points drive one continuous plume
+  // that drops behind the hips, broadens through the middle, then curls softly
+  // outward. Vertex colors transition from Shasta's warm tail base into his
+  // cream-white plume without adding another draw call.
   const shastaTail = new THREE.Group();
   shastaTail.position.set(0, 1.0, -0.72);
   shasta.add(shastaTail);
   const tailPivotY = 1.0;
   const tailPivotZ = -0.72;
-  instances(
-    rockGeo,
-    mat(shastaPalette.creamWhite),
-    SHASTA_CHARACTER.tail.plume.map((part) => ({
-      x: part.x,
-      y: part.y - tailPivotY,
-      z: part.z - tailPivotZ,
-      sx: part.sx,
-      sy: part.sy,
-      sz: part.sz,
-      color: colorFor(part.tone),
-    })),
-    true,
+  const tailCurve = new THREE.CatmullRomCurve3(
+    SHASTA_CHARACTER.tail.plume.map(
+      (part) =>
+        new THREE.Vector3(
+          part.x,
+          part.y - tailPivotY,
+          part.z - tailPivotZ,
+        ),
+    ),
+    false,
+    "centripetal",
+  );
+  const tailTubularSegments = 20;
+  const tailRadialSegments = 7;
+  const tailGeometry = geo(
+    new THREE.TubeGeometry(
+      tailCurve,
+      tailTubularSegments,
+      0.17,
+      tailRadialSegments,
+      false,
+    ),
+  );
+  const tailPosition = tailGeometry.getAttribute("position") as THREE.BufferAttribute;
+  const tailColors = new Float32Array(tailPosition.count * 3);
+  const tailBaseColor = new THREE.Color(shastaPalette.warmTan);
+  const tailMidColor = new THREE.Color(shastaPalette.creamWhite);
+  const tailTipColor = new THREE.Color(shastaPalette.brightWhite);
+  const tailCenter = new THREE.Vector3();
+  const tailVertex = new THREE.Vector3();
+  const verticesPerTailRing = tailRadialSegments + 1;
+  for (let ring = 0; ring <= tailTubularSegments; ring++) {
+    const t = ring / tailTubularSegments;
+    tailCurve.getPointAt(t, tailCenter);
+    // Broadest around the middle of the plume; narrower at the rump and tip.
+    const plumeScale = 0.78 + Math.sin(Math.PI * t) * 0.38;
+    const color =
+      t < 0.45
+        ? tailBaseColor.clone().lerp(tailMidColor, t / 0.45)
+        : tailMidColor.clone().lerp(tailTipColor, (t - 0.45) / 0.55);
+    for (let radial = 0; radial <= tailRadialSegments; radial++) {
+      const index = ring * verticesPerTailRing + radial;
+      tailVertex.fromBufferAttribute(tailPosition, index);
+      tailVertex.sub(tailCenter).multiplyScalar(plumeScale).add(tailCenter);
+      tailPosition.setXYZ(index, tailVertex.x, tailVertex.y, tailVertex.z);
+      tailColors[index * 3] = color.r;
+      tailColors[index * 3 + 1] = color.g;
+      tailColors[index * 3 + 2] = color.b;
+    }
+  }
+  tailPosition.needsUpdate = true;
+  tailGeometry.setAttribute("color", new THREE.BufferAttribute(tailColors, 3));
+  tailGeometry.computeVertexNormals();
+  const shastaTailMesh = mesh(
+    tailGeometry,
+    mat("#ffffff", { vertexColors: true }),
+    [0, 0, 0],
+    [1, 1, 1],
     shastaTail,
   );
+  shastaTailMesh.castShadow = false;
   shastaTail.rotation.z = SHASTA_CHARACTER.tail.restAngleZ;
   shastaTail.rotation.y = SHASTA_CHARACTER.tail.restAngleY;
 
