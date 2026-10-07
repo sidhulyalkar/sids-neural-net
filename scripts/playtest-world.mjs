@@ -34,7 +34,7 @@ try {
   assert.equal(await page.locator('canvas').getAttribute('data-reef-species'), '8');
   assert.equal(await page.locator('canvas').getAttribute('data-lagoon-species'), '7');
   assert.equal(await page.locator('canvas').getAttribute('data-land-wildlife'), '10');
-  assert.equal(await page.locator('canvas').getAttribute('data-land-wildlife-style'), 'anatomical-v2');
+  assert.equal(await page.locator('canvas').getAttribute('data-land-wildlife-style'), 'anatomical-v3');
   assert.equal(await page.locator('canvas').getAttribute('data-marine-wildlife-style'), 'anatomical-v2');
   assert.equal(await page.locator('canvas').getAttribute('data-shasta-sex'), 'male');
   assert.equal(await page.locator('canvas').getAttribute('data-shasta-profile'), 'husky-mix:lean-athletic');
@@ -75,6 +75,7 @@ try {
   results.push('Keyboard walking changes player position');
   results.push('Shasta follow gait uses smooth acceleration, stable curiosity and articulated distance-phased motion');
   results.push('Shasta character profile uses male identity, amber eyes, pink-brown nose, smooth photo-profile geometry and a continuous relaxed plume tail');
+  results.push('Land wildlife uses anatomical-v3 silhouettes with shared eyes, grounded legs, species-specific heads, ears and tails');
   for (const [name, prompt, title] of [
     ['01 Redwood grove A little about me', 'Redwood grove', 'Redwood grove.'],
     ['02 Granite ridge Things I build', 'Granite ridge', 'Granite ridge.'],
@@ -97,6 +98,8 @@ try {
       assert.equal(await page.locator('canvas').getAttribute('data-cave-vegetation-clear'), 'true');
       assert.equal(await page.locator('canvas').getAttribute('data-cave-terrain-carved'), 'true');
       assert.notEqual(await page.locator('canvas').getAttribute('data-cave-inside'), 'true');
+      await page.waitForTimeout(700);
+      await screenshot(page, 'region-08-entrance');
 
       // Navigation lands outside the cave. Walk uphill through the actual tunnel
       // before game selection is allowed.
@@ -117,6 +120,15 @@ try {
         () => document.querySelector('canvas')?.dataset.gazeGame?.startsWith('game:'),
         null,
         { timeout: 15000 },
+      );
+      await page.waitForFunction(
+        () => document.querySelector('canvas')?.dataset.caveDogClear === 'true',
+        null,
+        { timeout: 6000 },
+      );
+      assert.equal(
+        await page.locator('canvas').getAttribute('data-dog-curiosity'),
+        'cave-entrance',
       );
       const gazeId = await page.locator('canvas').getAttribute('data-gaze-game');
       const gazeIndex = Number(gazeId?.slice(5));
