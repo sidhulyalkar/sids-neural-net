@@ -98,7 +98,7 @@ try {
       assert.equal(await page.locator('canvas').getAttribute('data-cave-vegetation-clear'), 'true');
       assert.equal(await page.locator('canvas').getAttribute('data-cave-terrain-carved'), 'true');
       assert.notEqual(await page.locator('canvas').getAttribute('data-cave-inside'), 'true');
-      await page.waitForTimeout(700);
+      await page.waitForTimeout(2200);
       await screenshot(page, 'region-08-entrance');
 
       // Navigation lands outside the cave. Walk uphill through the actual tunnel
@@ -120,6 +120,10 @@ try {
         () => document.querySelector('canvas')?.dataset.gazeGame?.startsWith('game:'),
         null,
         { timeout: 15000 },
+      );
+      assert.equal(
+        await page.locator('canvas').getAttribute('data-cave-chamber'),
+        'true',
       );
       await page.waitForFunction(
         () => document.querySelector('canvas')?.dataset.caveDogClear === 'true',
