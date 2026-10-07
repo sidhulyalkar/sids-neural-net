@@ -265,7 +265,7 @@ export function createWorld(
   terrain.computeVertexNormals();
   const ground = mesh(
     terrain,
-    mat("#ffffff", { vertexColors: true }),
+    mat("#ffffff", { vertexColors: true, flatShading: false, roughness: 0.92 }),
     [0, 0, 0],
     [1, 1, 1],
   );
@@ -960,7 +960,17 @@ export function createWorld(
   shasta.rotation.order = "YXZ";
   scene.add(shasta);
   const shastaPalette = SHASTA_CHARACTER.palette;
-  const shastaRockMat = mat(shastaPalette.creamWhite);
+  const shastaBodyGeo = geo(
+    new THREE.SphereGeometry(
+      1,
+      SHASTA_CHARACTER.rendering.bodySegments,
+      SHASTA_CHARACTER.rendering.bodyRings,
+    ),
+  );
+  const shastaRockMat = mat(shastaPalette.creamWhite, {
+    flatShading: false,
+    roughness: 0.94,
+  });
   const p = SHASTA_CHARACTER.proportions;
   const coat = SHASTA_CHARACTER.coat;
   const face = SHASTA_CHARACTER.face;
@@ -989,8 +999,11 @@ export function createWorld(
   for (const side of [-1, 1]) {
     // Subtle tan brow/temple markings, amber irises and tiny dark pupils.
     shastaRockParts.push(
-      { x: side * 0.145, y: 1.55, z: 0.84, sx: 0.075, sy: 0.09, sz: 0.105, color: shastaPalette.lightTan },
-      { x: side * face.eyeX, y: face.eyeY, z: face.eyeZ, sx: 0.041, sy: 0.034, sz: 0.026, color: shastaPalette.amberEye },
+      // Shasta's white cheek ruff softens the lower face while the warm color
+      // stays high around the brow/ear line in the supplied photos.
+      { x: side * face.cheekX, y: face.cheekY, z: face.cheekZ, sx: p.cheek.x, sy: p.cheek.y, sz: p.cheek.z, color: shastaPalette.brightWhite },
+      { x: side * 0.14, y: 1.55, z: 0.84, sx: 0.068, sy: 0.082, sz: 0.1, color: shastaPalette.lightTan },
+      { x: side * face.eyeX, y: face.eyeY, z: face.eyeZ, sx: 0.04, sy: 0.033, sz: 0.025, color: shastaPalette.amberEye },
       { x: side * face.eyeX, y: face.eyeY, z: face.pupilZ, sx: 0.017, sy: 0.016, sz: 0.012, color: shastaPalette.pupil },
     );
   }
@@ -1008,7 +1021,7 @@ export function createWorld(
       color: shastaPalette.brightWhite,
     });
   }
-  const shastaRockMesh = instances(rockGeo, shastaRockMat, shastaRockParts, true, shasta);
+  const shastaRockMesh = instances(shastaBodyGeo, shastaRockMat, shastaRockParts, true, shasta);
 
   const shastaEarParts: Instance[] = [];
   for (const side of [-1, 1]) {
@@ -1199,6 +1212,8 @@ export function createWorld(
   canvas.dataset.shastaTailParts = String(SHASTA_CHARACTER.tail.plume.length);
   canvas.dataset.shastaEye = shastaPalette.amberEye;
   canvas.dataset.shastaNose = shastaPalette.pinkBrownNose;
+  canvas.dataset.shastaProfileVersion = SHASTA_CHARACTER.rendering.profileVersion;
+  canvas.dataset.shastaTailStyle = SHASTA_CHARACTER.rendering.tailStyle;
 
   // A barely visible paw-print detour; the dog heads here when you approach.
   const prints: Instance[] = [];
