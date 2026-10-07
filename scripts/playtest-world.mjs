@@ -100,6 +100,13 @@ try {
       assert.equal(await page.locator('canvas').getAttribute('data-cave-terrain-carved'), 'true');
       assert.notEqual(await page.locator('canvas').getAttribute('data-cave-inside'), 'true');
       await page.waitForTimeout(2200);
+      const caveApproachCameraDistance = Number(
+        await page.locator('canvas').getAttribute('data-camera-distance'),
+      );
+      assert.ok(
+        caveApproachCameraDistance > 4.5 && caveApproachCameraDistance < 9.5,
+        `Arcade cave approach camera distance ${caveApproachCameraDistance}`,
+      );
       await screenshot(page, 'region-08-entrance');
 
       // Navigation lands outside the cave. Walk uphill through the actual tunnel
