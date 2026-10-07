@@ -30,7 +30,7 @@ export const ARCADE_CAVE = {
   tunnelHalfWidth: 3.35,
   tunnelDepth: 12.5,
   ceilingClearance: 4.35,
-  lantern: { x: 16, z: -75.1 },
+  lantern: { x: 16, z: -72.9 },
   gamePanelXs: [12.85, 16, 19.15],
 } as const;
 
