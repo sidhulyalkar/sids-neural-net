@@ -1369,8 +1369,9 @@ export function createWorld(
   }
   instances(rockGeo, mat("#718266"), prints, false);
 
-  // Small land animals share two instanced meshes. Their behavior can grow without
-  // multiplying persistent draw calls as more species/locations are added.
+  // Land wildlife shares a small anatomical vocabulary instead of one generic
+  // body + stick-tail silhouette. Heads, ears/crests and tail families are still
+  // instanced across all animals so realism costs only a few draw calls.
   type CritterState = {
     kind: typeof LAND_WILDLIFE[number]["kind"];
     home: Point;
@@ -1380,22 +1381,81 @@ export function createWorld(
     roam: number;
     speed: number;
     bodyScale: { x: number; y: number; z: number };
+    headScale: { x: number; y: number; z: number };
+    headForward: number;
+    headLift: number;
+    earScale: { x: number; y: number; z: number } | null;
+    tailStyle: "plume" | "thin" | "puff" | "feather";
     tailLength: number;
     tailRadius: number;
   };
   const critters: CritterState[] = LAND_WILDLIFE.map((animal, i) => {
     const shape =
       animal.kind === "lizard"
-        ? { bodyScale: { x: 0.12, y: 0.07, z: 0.34 }, tailLength: 0.55, tailRadius: 0.025 }
+        ? {
+            bodyScale: { x: 0.11, y: 0.065, z: 0.34 },
+            headScale: { x: 0.095, y: 0.07, z: 0.14 },
+            headForward: 0.3,
+            headLift: 0.015,
+            earScale: null,
+            tailStyle: "thin" as const,
+            tailLength: 0.62,
+            tailRadius: 0.024,
+          }
         : animal.kind === "mouse"
-          ? { bodyScale: { x: 0.13, y: 0.11, z: 0.2 }, tailLength: 0.4, tailRadius: 0.018 }
+          ? {
+              bodyScale: { x: 0.12, y: 0.105, z: 0.19 },
+              headScale: { x: 0.1, y: 0.095, z: 0.12 },
+              headForward: 0.17,
+              headLift: 0.035,
+              earScale: { x: 0.045, y: 0.07, z: 0.04 },
+              tailStyle: "thin" as const,
+              tailLength: 0.46,
+              tailRadius: 0.015,
+            }
           : animal.kind === "woodrat"
-            ? { bodyScale: { x: 0.18, y: 0.15, z: 0.25 }, tailLength: 0.48, tailRadius: 0.022 }
+            ? {
+                bodyScale: { x: 0.17, y: 0.145, z: 0.25 },
+                headScale: { x: 0.125, y: 0.12, z: 0.145 },
+                headForward: 0.22,
+                headLift: 0.045,
+                earScale: { x: 0.052, y: 0.078, z: 0.046 },
+                tailStyle: "thin" as const,
+                tailLength: 0.52,
+                tailRadius: 0.019,
+              }
             : animal.kind === "rabbit"
-              ? { bodyScale: { x: 0.24, y: 0.3, z: 0.34 }, tailLength: 0.14, tailRadius: 0.06 }
+              ? {
+                  bodyScale: { x: 0.23, y: 0.27, z: 0.34 },
+                  headScale: { x: 0.15, y: 0.17, z: 0.17 },
+                  headForward: 0.3,
+                  headLift: 0.12,
+                  earScale: { x: 0.055, y: 0.28, z: 0.052 },
+                  tailStyle: "puff" as const,
+                  tailLength: 0.15,
+                  tailRadius: 0.1,
+                }
               : animal.kind === "quail"
-                ? { bodyScale: { x: 0.2, y: 0.22, z: 0.28 }, tailLength: 0.18, tailRadius: 0.045 }
-                : { bodyScale: { x: 0.2, y: 0.2, z: 0.3 }, tailLength: 0.5, tailRadius: 0.08 };
+                ? {
+                    bodyScale: { x: 0.19, y: 0.2, z: 0.27 },
+                    headScale: { x: 0.12, y: 0.13, z: 0.14 },
+                    headForward: 0.22,
+                    headLift: 0.1,
+                    earScale: { x: 0.028, y: 0.15, z: 0.025 },
+                    tailStyle: "feather" as const,
+                    tailLength: 0.24,
+                    tailRadius: 0.055,
+                  }
+                : {
+                    bodyScale: { x: 0.19, y: 0.19, z: 0.3 },
+                    headScale: { x: 0.13, y: 0.145, z: 0.16 },
+                    headForward: 0.25,
+                    headLift: 0.09,
+                    earScale: { x: 0.05, y: 0.13, z: 0.045 },
+                    tailStyle: "plume" as const,
+                    tailLength: 0.56,
+                    tailRadius: 0.1,
+                  };
     return {
       kind: animal.kind,
       home: { ...animal.point },
@@ -1407,9 +1467,10 @@ export function createWorld(
       ...shape,
     };
   });
+  const wildlifeMat = mat("#ffffff", { flatShading: false, roughness: 0.96 });
   const critterBodies = instances(
-    rockGeo,
-    mat("#ffffff"),
+    shastaBodyGeo,
+    wildlifeMat,
     critters.map((critter) => ({
       x: critter.point.x,
       y: terrainHeight(critter.point.x, critter.point.z) + critter.bodyScale.y,
@@ -1421,21 +1482,105 @@ export function createWorld(
     })),
     false,
   );
-  const critterTails = instances(
-    cylinder,
-    mat("#ffffff"),
+  const critterHeads = instances(
+    shastaBodyGeo,
+    wildlifeMat,
     critters.map((critter) => ({
       x: critter.point.x,
-      y: terrainHeight(critter.point.x, critter.point.z) + 0.15,
-      z: critter.point.z - 0.25,
-      sx: critter.tailRadius,
-      sy: critter.tailLength,
-      sz: critter.tailRadius,
+      y: terrainHeight(critter.point.x, critter.point.z) + critter.bodyScale.y + critter.headLift,
+      z: critter.point.z,
+      sx: critter.headScale.x,
+      sy: critter.headScale.y,
+      sz: critter.headScale.z,
       color: LAND_WILDLIFE_COLORS[critter.kind],
     })),
     false,
   );
+
+  type CritterEarPart = { critterIndex: number; side: number; crest: boolean };
+  const critterEarParts: CritterEarPart[] = [];
+  critters.forEach((critter, critterIndex) => {
+    if (!critter.earScale) return;
+    if (critter.kind === "quail") {
+      critterEarParts.push({ critterIndex, side: 0, crest: true });
+    } else {
+      critterEarParts.push(
+        { critterIndex, side: -1, crest: false },
+        { critterIndex, side: 1, crest: false },
+      );
+    }
+  });
+  const critterEars = instances(
+    cone,
+    wildlifeMat,
+    critterEarParts.map(({ critterIndex }) => {
+      const critter = critters[critterIndex];
+      const ear = critter.earScale!;
+      return {
+        x: critter.point.x,
+        y: terrainHeight(critter.point.x, critter.point.z) + 0.4,
+        z: critter.point.z,
+        sx: ear.x,
+        sy: ear.y,
+        sz: ear.z,
+        color: LAND_WILDLIFE_COLORS[critter.kind],
+      };
+    }),
+    false,
+  );
+
+  type CritterPlumePart = { critterIndex: number; segment: number; segments: number };
+  const critterPlumeParts: CritterPlumePart[] = [];
+  type CritterThinTailPart = { critterIndex: number; segment: number; segments: number };
+  const critterThinTailParts: CritterThinTailPart[] = [];
+  critters.forEach((critter, critterIndex) => {
+    if (critter.tailStyle === "thin") {
+      for (let segment = 0; segment < 3; segment++)
+        critterThinTailParts.push({ critterIndex, segment, segments: 3 });
+    } else {
+      const segments = critter.tailStyle === "plume" ? 3 : critter.tailStyle === "feather" ? 2 : 1;
+      for (let segment = 0; segment < segments; segment++)
+        critterPlumeParts.push({ critterIndex, segment, segments });
+    }
+  });
+  const critterPlumes = instances(
+    shastaBodyGeo,
+    wildlifeMat,
+    critterPlumeParts.map(({ critterIndex, segment, segments }) => {
+      const critter = critters[critterIndex];
+      const fraction = (segment + 1) / segments;
+      return {
+        x: critter.point.x,
+        y: terrainHeight(critter.point.x, critter.point.z) + 0.15,
+        z: critter.point.z,
+        sx: critter.tailRadius * (1.45 - fraction * 0.45),
+        sy: critter.tailRadius * (1.7 - fraction * 0.35),
+        sz: (critter.tailLength / segments) * 0.78,
+        color: LAND_WILDLIFE_COLORS[critter.kind],
+      };
+    }),
+    false,
+  );
+  const critterThinTails = instances(
+    cylinder,
+    wildlifeMat,
+    critterThinTailParts.map(({ critterIndex, segment, segments }) => {
+      const critter = critters[critterIndex];
+      const taper = 1 - segment / (segments * 1.15);
+      return {
+        x: critter.point.x,
+        y: terrainHeight(critter.point.x, critter.point.z) + 0.1,
+        z: critter.point.z,
+        sx: critter.tailRadius * taper,
+        sy: critter.tailLength / segments,
+        sz: critter.tailRadius * taper,
+        color: LAND_WILDLIFE_COLORS[critter.kind],
+      };
+    }),
+    false,
+  );
   canvas.dataset.landWildlife = String(critters.length);
+  canvas.dataset.landWildlifeStyle = "anatomical-v2";
 
   // --- Cold-water kelp forest -------------------------------------------------
   // Reparent all submerged detail under one visibility gate so land scenes do not
