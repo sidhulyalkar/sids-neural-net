@@ -1232,18 +1232,16 @@ export function createWorld(
     { x: coat.shoulderTan.x, y: coat.shoulderTan.y, z: coat.shoulderTan.z, sx: coat.shoulderTan.sx, sy: coat.shoulderTan.sy, sz: coat.shoulderTan.sz, color: shastaPalette.lightTan },
     { x: 0, y: 0.91, z: -0.63, sx: 0.27, sy: 0.21, sz: 0.3, color: shastaPalette.lightTan },
 
-    // Light forehead with a narrow warm crown stripe seen in the supplied front views.
-    { x: coat.crownTan.x, y: coat.crownTan.y, z: coat.crownTan.z, sx: coat.crownTan.sx, sy: coat.crownTan.sy, sz: coat.crownTan.sz, color: shastaPalette.lightTan },
+    // Keep the forehead volume clean. Shasta's subtle tan facial coloration is
+    // not modeled as extra geometry, which would incorrectly change his skull silhouette.
     { x: 0, y: face.noseY, z: face.noseZ, sx: 0.105, sy: 0.075, sz: 0.075, color: shastaPalette.pinkBrownNose },
   ];
 
   for (const side of [-1, 1]) {
-    // Subtle tan brow/temple markings, amber irises and tiny dark pupils.
+    // White cheek ruff, amber irises and tiny dark pupils. Do not add separate
+    // brow/crown ellipsoids: coloration should not create forehead bulges.
     shastaRockParts.push(
-      // Shasta's white cheek ruff softens the lower face while the warm color
-      // stays high around the brow/ear line in the supplied photos.
       { x: side * face.cheekX, y: face.cheekY, z: face.cheekZ, sx: p.cheek.x, sy: p.cheek.y, sz: p.cheek.z, color: shastaPalette.brightWhite },
-      { x: side * 0.14, y: 1.55, z: 0.84, sx: 0.068, sy: 0.082, sz: 0.1, color: shastaPalette.lightTan },
       { x: side * face.eyeX, y: face.eyeY, z: face.eyeZ, sx: 0.04, sy: 0.033, sz: 0.025, color: shastaPalette.amberEye },
       { x: side * face.eyeX, y: face.eyeY, z: face.pupilZ, sx: 0.017, sy: 0.016, sz: 0.012, color: shastaPalette.pupil },
     );
@@ -1425,28 +1423,8 @@ export function createWorld(
   shastaTail.rotation.z = SHASTA_CHARACTER.tail.restAngleZ;
   shastaTail.rotation.y = SHASTA_CHARACTER.tail.restAngleY;
 
-  // Compact trail-harness cue from the outdoor photos. It is intentionally
-  // lightweight and removable from the character spec rather than baked into
-  // the body colors.
-  if (SHASTA_CHARACTER.harness.enabledInWorld) {
-    const straps = [
-      segment(new THREE.Vector3(-0.3, 1.08, 0.13), new THREE.Vector3(0.3, 1.08, 0.13), 0.035),
-      segment(new THREE.Vector3(-0.27, 1.05, 0.12), new THREE.Vector3(-0.31, 0.84, 0.46), 0.032),
-      segment(new THREE.Vector3(0.27, 1.05, 0.12), new THREE.Vector3(0.31, 0.84, 0.46), 0.032),
-      segment(new THREE.Vector3(-0.27, 0.87, 0.47), new THREE.Vector3(0.27, 0.87, 0.47), 0.032),
-    ].map((part) => ({ ...part, color: shastaPalette.harnessWebbing }));
-    instances(cylinder, mat(shastaPalette.harnessWebbing), straps, true, shasta);
-    instances(
-      boxGeo,
-      mat(shastaPalette.harnessPanel),
-      [
-        { x: 0, y: 1.12, z: 0.12, sx: 0.23, sy: 0.055, sz: 0.22, color: shastaPalette.harnessPanel },
-        { x: 0, y: 0.99, z: 0.39, sx: 0.16, sy: 0.11, sz: 0.055, color: shastaPalette.harnessHighlight },
-      ],
-      true,
-      shasta,
-    );
-  }
+  // Default World Mode shows Shasta without accessories so his natural coat and
+  // body silhouette remain unobstructed.
 
   canvas.dataset.shastaSex = SHASTA_CHARACTER.identity.sex;
   canvas.dataset.shastaProfile = `${SHASTA_CHARACTER.identity.type}:${SHASTA_CHARACTER.identity.build}`;
@@ -1455,6 +1433,7 @@ export function createWorld(
   canvas.dataset.shastaNose = shastaPalette.pinkBrownNose;
   canvas.dataset.shastaProfileVersion = SHASTA_CHARACTER.rendering.profileVersion;
   canvas.dataset.shastaTailStyle = SHASTA_CHARACTER.rendering.tailStyle;
+  canvas.dataset.shastaHarness = String(SHASTA_CHARACTER.accessories.harnessInWorld);
 
   // A barely visible paw-print detour; the dog heads here when you approach.
   const prints: Instance[] = [];
