@@ -34,6 +34,8 @@ try {
   assert.equal(await page.locator('canvas').getAttribute('data-reef-species'), '8');
   assert.equal(await page.locator('canvas').getAttribute('data-lagoon-species'), '7');
   assert.equal(await page.locator('canvas').getAttribute('data-land-wildlife'), '10');
+  assert.equal(await page.locator('canvas').getAttribute('data-land-wildlife-style'), 'anatomical-v2');
+  assert.equal(await page.locator('canvas').getAttribute('data-marine-wildlife-style'), 'anatomical-v2');
   assert.equal(await page.locator('canvas').getAttribute('data-shasta-sex'), 'male');
   assert.equal(await page.locator('canvas').getAttribute('data-shasta-profile'), 'husky-mix:lean-athletic');
   assert.equal(await page.locator('canvas').getAttribute('data-shasta-tail-parts'), '6');
@@ -88,12 +90,35 @@ try {
 
     if (name.startsWith('08')) {
       const carvedTitles = ['Stretchicorn', 'uniRico', 'Unicorn Stampede'];
-      await page.waitForFunction(() => document.querySelector('canvas')?.dataset.gazeGame?.startsWith('game:'), null, { timeout: 15000 });
+      assert.equal(await page.locator('canvas').getAttribute('data-cave-style'), 'backside-mountain-tunnel');
+      assert.equal(await page.locator('canvas').getAttribute('data-cave-lantern'), 'true');
+      assert.equal(await page.locator('canvas').getAttribute('data-cave-game-panels'), '3');
+      assert.notEqual(await page.locator('canvas').getAttribute('data-cave-inside'), 'true');
+
+      // Navigation lands outside the cave. Walk uphill through the actual tunnel
+      // before game selection is allowed.
+      await page.waitForFunction(() => document.activeElement?.tagName === 'CANVAS');
+      await page.keyboard.down('w');
+      try {
+        await page.waitForFunction(
+          () =>
+            document.querySelector('canvas')?.dataset.caveInside === 'true' &&
+            Number(document.querySelector('canvas')?.dataset.caveDepth) > 0.62,
+          null,
+          { timeout: 22000 },
+        );
+      } finally {
+        await page.keyboard.up('w');
+      }
+      await page.waitForFunction(
+        () => document.querySelector('canvas')?.dataset.gazeGame?.startsWith('game:'),
+        null,
+        { timeout: 15000 },
+      );
       const gazeId = await page.locator('canvas').getAttribute('data-gaze-game');
       const gazeIndex = Number(gazeId?.slice(5));
       assert.ok(Number.isInteger(gazeIndex) && carvedTitles[gazeIndex]);
       const gazeTitle = carvedTitles[gazeIndex];
-      await page.waitForFunction(() => document.activeElement?.tagName === 'CANVAS');
       await page.waitForTimeout(350); // Dwell long enough to prove the selection is stable.
       assert.equal(await page.locator('canvas').getAttribute('data-gaze-game'), gazeId);
       await screenshot(page, `region-${name.slice(0, 2)}`);
@@ -109,7 +134,7 @@ try {
       for (const href of games) assert.equal((await page.request.get(`${base}${href}`)).status(), 200);
       await page.keyboard.press('Escape');
       assert.equal(await page.locator('dialog').evaluate(d => d.open), false);
-      results.push('Arcade cavern gaze-selects a carved game and links all three playable games');
+      results.push('Arcade cavern requires entering the backside mountain tunnel, then gaze-selects three spaced carved games under lantern light');
       results.push(`Landmark, discovery, and dismissal: ${name}`);
       continue;
     }
