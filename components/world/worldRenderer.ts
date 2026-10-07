@@ -3534,25 +3534,73 @@ export function createWorld(
         const yawFish = Math.atan2(tx, tz);
         const forwardX = Math.sin(yawFish);
         const forwardZ = Math.cos(yawFish);
+        const rightX = Math.cos(yawFish);
+        const rightZ = -Math.sin(yawFish);
+        const bodyRoll = Math.sin(a * 2 + i) * 0.035;
 
         dummy.position.set(x, y, z);
-        dummy.rotation.set(0, yawFish, Math.sin(a * 2 + i) * 0.035);
-        dummy.scale.set(fish.size * 0.42, fish.size * 0.26, fish.size * 0.9);
+        dummy.rotation.set(0, yawFish, bodyRoll);
+        dummy.scale.set(
+          fish.size * fish.bodyX,
+          fish.size * fish.bodyY,
+          fish.size * fish.bodyZ,
+        );
         dummy.updateMatrix();
         tropicalFishBodies.setMatrixAt(i, dummy.matrix);
 
         dummy.position.set(
-          x - forwardX * fish.size * 0.82,
+          x - forwardX * fish.size * fish.bodyZ * 0.9,
           y,
-          z - forwardZ * fish.size * 0.82,
+          z - forwardZ * fish.size * fish.bodyZ * 0.9,
         );
         dummy.rotation.set(Math.PI / 2, yawFish, 0);
-        dummy.scale.set(fish.size * 0.24, fish.size * 0.4, fish.size * 0.12);
+        dummy.scale.set(
+          fish.size * fish.bodyX * 0.58,
+          fish.size * fish.bodyY * 1.5,
+          fish.size * 0.11,
+        );
         dummy.updateMatrix();
         tropicalFishTails.setMatrixAt(i, dummy.matrix);
+
+        dummy.position.set(
+          x - forwardX * fish.size * 0.05,
+          y + fish.size * fish.bodyY * 0.82,
+          z - forwardZ * fish.size * 0.05,
+        );
+        dummy.rotation.set(0, yawFish, bodyRoll * 0.6);
+        dummy.scale.set(
+          fish.size * 0.07,
+          fish.size * fish.bodyY * 0.9,
+          fish.size * 0.1,
+        );
+        dummy.updateMatrix();
+        tropicalFishDorsals.setMatrixAt(i, dummy.matrix);
+
+        for (const side of [-1, 1]) {
+          const eyeIndex = i * 2 + (side === -1 ? 0 : 1);
+          dummy.position.set(
+            x +
+              forwardX * fish.size * fish.bodyZ * 0.58 +
+              rightX * side * fish.size * fish.bodyX * 0.72,
+            y + fish.size * fish.bodyY * 0.16,
+            z +
+              forwardZ * fish.size * fish.bodyZ * 0.58 +
+              rightZ * side * fish.size * fish.bodyX * 0.72,
+          );
+          dummy.rotation.set(0, yawFish, 0);
+          dummy.scale.set(
+            fish.size * 0.045,
+            fish.size * 0.045,
+            fish.size * 0.03,
+          );
+          dummy.updateMatrix();
+          tropicalFishEyes.setMatrixAt(eyeIndex, dummy.matrix);
+        }
       });
       tropicalFishBodies.instanceMatrix.needsUpdate = true;
       tropicalFishTails.instanceMatrix.needsUpdate = true;
+      tropicalFishDorsals.instanceMatrix.needsUpdate = true;
+      tropicalFishEyes.instanceMatrix.needsUpdate = true;
 
       tropicalRays.forEach((rayState, i) => {
         const a = elapsed * rayState.speed + rayState.phase;
