@@ -26,6 +26,7 @@ export const ARCADE_CAVE = {
   // Backside entrance of Granite Ridge. The player arrives outside and must
   // walk uphill through the tunnel before the carved game wall is selectable.
   entrance: { x: 16, z: -82 },
+  approach: { x: 16, z: -86.4 },
   wall: { x: 16, z: -69.5 },
   tunnelHalfWidth: 3.35,
   tunnelDepth: 12.5,
@@ -238,6 +239,8 @@ export function regionLanding(region: RegionId): Point {
     return { x: coastlineX(z) + 1.35, z };
   if (region === "lagoon")
     return { x: eastCoastlineX(z) - 1.35, z };
+  if (region === "cavern")
+    return { ...ARCADE_CAVE.approach };
   return { x: target.point.x, z };
 }
 
