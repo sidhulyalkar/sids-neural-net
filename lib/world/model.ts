@@ -16,11 +16,23 @@ export const REGIONS: {
   { id: "lagoon", name: "Lagoon reef", meaning: "South Pacific reef", point: { x: 58, z: 13 }, href: "/photography" },
   { id: "waterfall", name: "Fern falls", meaning: "Follow the water", point: { x: -20, z: -24 }, href: "/photography" },
   { id: "canyon", name: "Moss canyon", meaning: "A quieter trail", point: { x: 29, z: 34 }, href: "/about" },
-  { id: "cavern", name: "Arcade cavern", meaning: "Play my games", point: { x: 44, z: -9 }, href: "/arcade" },
+  { id: "cavern", name: "Arcade cavern", meaning: "Play my games", point: { x: 16, z: -82 }, href: "/arcade" },
 ];
 
 export const WORLD_BOUNDS = { minX: -92, maxX: 94, minZ: -96, maxZ: 58 } as const;
 export const SEA_SURFACE = -1.4;
+
+export const ARCADE_CAVE = {
+  // Backside entrance of Granite Ridge. The player arrives outside and must
+  // walk uphill through the tunnel before the carved game wall is selectable.
+  entrance: { x: 16, z: -82 },
+  wall: { x: 16, z: -69.5 },
+  tunnelHalfWidth: 3.35,
+  tunnelDepth: 12.5,
+  ceilingClearance: 4.35,
+  lantern: { x: 16, z: -75.1 },
+  gamePanelXs: [12.85, 16, 19.15],
+} as const;
 
 export const MEMORY_POINTS = [
   {
