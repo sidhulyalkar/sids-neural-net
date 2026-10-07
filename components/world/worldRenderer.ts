@@ -2981,11 +2981,20 @@ export function createWorld(
                 ? Math.min(zoom, 15)
                 : zoom;
       const cameraYaw = aquatic === "dive" ? yaw + 0.28 : yaw;
-      targetCamera.set(
-        player.x + Math.sin(cameraYaw) * cameraZoom * Math.cos(pitch),
-        targetLook.y + cameraZoom * Math.sin(pitch),
-        player.z + Math.cos(cameraYaw) * cameraZoom * Math.cos(pitch),
-      );
+      if (cavernFraming) {
+        const caveCameraZ = Math.max(arcade.z + 0.6, player.z - 4.8);
+        targetCamera.set(
+          arcade.x,
+          terrainHeight(arcade.x, caveCameraZ) + 2.15,
+          caveCameraZ,
+        );
+      } else {
+        targetCamera.set(
+          player.x + Math.sin(cameraYaw) * cameraZoom * Math.cos(pitch),
+          targetLook.y + cameraZoom * Math.sin(pitch),
+          player.z + Math.cos(cameraYaw) * cameraZoom * Math.cos(pitch),
+        );
+      }
       // Keep a trunk from obscuring the explorer on land.
       if (aquatic === "land") {
         const bx = targetCamera.x - player.x,
