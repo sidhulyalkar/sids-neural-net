@@ -7,6 +7,7 @@ import * as THREE from "three/src/Three.Core.js";
 import type { WebGLRenderer } from "three/src/renderers/WebGLRenderer.js";
 import {
   ARCADE_CAVE,
+  arcadeCaveTerrainMask,
   constrainMove,
   distance,
   MEMORY_POINTS,
@@ -259,6 +260,11 @@ export function createWorld(
     if (!wet && (trail < 1.7 || distance({ x, z }, REGIONS[0].point) < 4))
       groundColor.set("#b6a684");
     if (onSnow({ x, z })) groundColor.set("#edf3f2");
+    const caveTerrainMask = arcadeCaveTerrainMask(x, z);
+    if (caveTerrainMask > 0) {
+      const caveFloorColor = new THREE.Color("#1a2324");
+      groundColor.lerp(caveFloorColor, Math.min(1, caveTerrainMask * 0.94));
+    }
     groundColor.multiplyScalar(0.94 + random() * 0.12);
     colors.push(groundColor.r, groundColor.g, groundColor.b);
   }
@@ -1009,6 +1015,7 @@ export function createWorld(
   canvas.dataset.caveGamePanels = String(carvingBands.length);
   canvas.dataset.caveSealed = "true";
   canvas.dataset.caveVegetationClear = "true";
+  canvas.dataset.caveTerrainCarved = "true";
   const carvingMaterial = mat("#d7bc82", {
     emissive: "#9b6d31",
     emissiveIntensity: 0.55,
