@@ -982,9 +982,11 @@ export function createWorld(
   );
   caveRearSeal.castShadow = false;
   instances(rockGeo, caveDeepRock, caveBackWall);
-  const carvingBandMaterial = mat("#172225", {
-    emissive: "#503d27",
-    emissiveIntensity: 0.22,
+  const carvingBandMaterial = mat("#11191b", {
+    transparent: true,
+    opacity: 0.001,
+    depthWrite: false,
+    roughness: 1,
   });
   const panelY = arcadeWallY + 2.35;
   const carvingBands: Instance[] = ARCADE_CAVE.gamePanelXs.map((x) => ({
@@ -1616,6 +1618,86 @@ export function createWorld(
     false,
   );
 
+  type CritterEyePart = { critterIndex: number; side: -1 | 1 };
+  const critterEyeParts: CritterEyePart[] = critters.flatMap((_, critterIndex) => [
+    { critterIndex, side: -1 },
+    { critterIndex, side: 1 },
+  ]);
+  const critterEyeIndicesByCritter: number[][] = critters.map(() => []);
+  critterEyeParts.forEach((part, index) =>
+    critterEyeIndicesByCritter[part.critterIndex].push(index),
+  );
+  const critterEyes = instances(
+    shastaBodyGeo,
+    mat("#201b17", { flatShading: false, roughness: 0.48 }),
+    critterEyeParts.map(({ critterIndex }) => {
+      const critter = critters[critterIndex];
+      return {
+        x: critter.point.x,
+        y: terrainHeight(critter.point.x, critter.point.z) + 0.2,
+        z: critter.point.z,
+        sx: Math.max(0.012, critter.headScale.x * 0.12),
+        sy: Math.max(0.012, critter.headScale.y * 0.11),
+        sz: Math.max(0.009, critter.headScale.z * 0.08),
+      };
+    }),
+    false,
+  );
+
+  type CritterLegPart = {
+    critterIndex: number;
+    side: -1 | 1;
+    fore: -1 | 0 | 1;
+  };
+  const critterLegParts: CritterLegPart[] = [];
+  critters.forEach((critter, critterIndex) => {
+    if (critter.kind === "quail") {
+      critterLegParts.push(
+        { critterIndex, side: -1, fore: 0 },
+        { critterIndex, side: 1, fore: 0 },
+      );
+    } else {
+      for (const side of [-1, 1] as const)
+        for (const fore of [-1, 1] as const)
+          critterLegParts.push({ critterIndex, side, fore });
+    }
+  });
+  const critterLegIndicesByCritter: number[][] = critters.map(() => []);
+  critterLegParts.forEach((part, index) =>
+    critterLegIndicesByCritter[part.critterIndex].push(index),
+  );
+  const critterLegs = instances(
+    cylinder,
+    wildlifeMat,
+    critterLegParts.map(({ critterIndex }) => {
+      const critter = critters[critterIndex];
+      const legHeight =
+        critter.kind === "lizard"
+          ? 0.07
+          : critter.kind === "mouse"
+            ? 0.09
+            : critter.kind === "woodrat"
+              ? 0.11
+              : critter.kind === "rabbit"
+                ? 0.18
+                : critter.kind === "quail"
+                  ? 0.16
+                  : 0.13;
+      const legRadius =
+        critter.kind === "rabbit" ? 0.035 : critter.kind === "quail" ? 0.021 : 0.026;
+      return {
+        x: critter.point.x,
+        y: terrainHeight(critter.point.x, critter.point.z) + legHeight * 0.5,
+        z: critter.point.z,
+        sx: legRadius,
+        sy: legHeight,
+        sz: legRadius,
+        color: LAND_WILDLIFE_COLORS[critter.kind],
+      };
+    }),
+    false,
+  );
+
   type CritterPlumePart = { critterIndex: number; segment: number; segments: number };
   const critterPlumeParts: CritterPlumePart[] = [];
   type CritterThinTailPart = { critterIndex: number; segment: number; segments: number };
@@ -1675,7 +1757,7 @@ export function createWorld(
     false,
   );
   canvas.dataset.landWildlife = String(critters.length);
-  canvas.dataset.landWildlifeStyle = "anatomical-v2";
+  canvas.dataset.landWildlifeStyle = "anatomical-v3";
 
   // --- Cold-water kelp forest -------------------------------------------------
   // Reparent all submerged detail under one visibility gate so land scenes do not
@@ -3044,7 +3126,7 @@ export function createWorld(
       const cavernFraming =
         caveInside && caveProgress > 0.48 && distance(player, arcadeWall) < 8.5;
       if (cavernFraming) {
-        targetLook.set(arcadeWall.x, arcadeWallY + 2.35, arcadeWall.z - 0.48);
+        targetLook.set(arcadeWall.x, arcadeWallY + 2.05, arcadeWall.z - 0.5);
       } else {
         const aquaticLookAhead = aquatic === "land" ? 0 : aquatic === "dive" ? 3.2 : 2.2;
         targetLook.set(
@@ -3065,10 +3147,10 @@ export function createWorld(
                 : zoom;
       const cameraYaw = aquatic === "dive" ? yaw + 0.28 : yaw;
       if (cavernFraming) {
-        const caveCameraZ = Math.max(arcade.z + 0.6, player.z - 4.8);
+        const caveCameraZ = Math.max(arcade.z + 0.35, player.z - 6.2);
         targetCamera.set(
           arcade.x,
-          terrainHeight(arcade.x, caveCameraZ) + 2.15,
+          terrainHeight(arcade.x, caveCameraZ) + 1.72,
           caveCameraZ,
         );
       } else {
@@ -3151,6 +3233,8 @@ export function createWorld(
     critterBodies.visible =
       critterHeads.visible =
       critterEars.visible =
+      critterEyes.visible =
+      critterLegs.visible =
       critterPlumes.visible =
       critterThinTails.visible =
         landWildlifeVisible;
@@ -3229,6 +3313,66 @@ export function createWorld(
         );
         dummy.updateMatrix();
         critterHeads.setMatrixAt(i, dummy.matrix);
+
+        for (const eyeIndex of critterEyeIndicesByCritter[i]) {
+          const eyePart = critterEyeParts[eyeIndex];
+          const eyeForward = critter.headScale.z * 0.73;
+          const eyeSide = critter.headScale.x * 0.56;
+          dummy.position.set(
+            headX + forwardX * eyeForward + rightX * eyePart.side * eyeSide,
+            headY + critter.headScale.y * 0.12,
+            headZ + forwardZ * eyeForward + rightZ * eyePart.side * eyeSide,
+          );
+          dummy.rotation.set(0, critter.heading, 0);
+          dummy.scale.set(
+            Math.max(0.012, critter.headScale.x * 0.12),
+            Math.max(0.012, critter.headScale.y * 0.11),
+            Math.max(0.009, critter.headScale.z * 0.08),
+          );
+          dummy.updateMatrix();
+          critterEyes.setMatrixAt(eyeIndex, dummy.matrix);
+        }
+
+        for (const legIndex of critterLegIndicesByCritter[i]) {
+          const legPart = critterLegParts[legIndex];
+          const legHeight =
+            critter.kind === "lizard"
+              ? 0.07
+              : critter.kind === "mouse"
+                ? 0.09
+                : critter.kind === "woodrat"
+                  ? 0.11
+                  : critter.kind === "rabbit"
+                    ? 0.18
+                    : critter.kind === "quail"
+                      ? 0.16
+                      : 0.13;
+          const legRadius =
+            critter.kind === "rabbit"
+              ? 0.035
+              : critter.kind === "quail"
+                ? 0.021
+                : 0.026;
+          const stride =
+            critter.kind === "lizard"
+              ? Math.sin(critter.phase * 7 + legPart.side * 0.7 + legPart.fore) * 0.025
+              : Math.sin(critter.phase * 8 + (legPart.side === legPart.fore ? 0 : Math.PI)) *
+                Math.min(0.045, step * 1.15);
+          const longitudinal =
+            legPart.fore === 0
+              ? 0.02
+              : legPart.fore * critter.bodyScale.z * 0.48 + stride;
+          const lateral = legPart.side * critter.bodyScale.x * 0.62;
+          dummy.position.set(
+            critter.point.x + forwardX * longitudinal + rightX * lateral,
+            terrainHeight(critter.point.x, critter.point.z) + legHeight * 0.48,
+            critter.point.z + forwardZ * longitudinal + rightZ * lateral,
+          );
+          dummy.rotation.set(0, critter.heading, 0);
+          dummy.scale.set(legRadius, legHeight, legRadius);
+          dummy.updateMatrix();
+          critterLegs.setMatrixAt(legIndex, dummy.matrix);
+        }
 
         for (const earIndex of critterEarIndicesByCritter[i]) {
           const earPart = critterEarParts[earIndex];
@@ -3322,6 +3466,8 @@ export function createWorld(
       critterBodies.instanceMatrix.needsUpdate = true;
       critterHeads.instanceMatrix.needsUpdate = true;
       critterEars.instanceMatrix.needsUpdate = true;
+      critterEyes.instanceMatrix.needsUpdate = true;
+      critterLegs.instanceMatrix.needsUpdate = true;
       critterPlumes.instanceMatrix.needsUpdate = true;
       critterThinTails.instanceMatrix.needsUpdate = true;
     }
@@ -3379,21 +3525,30 @@ export function createWorld(
           : coastlineX(player.z) + 2.6,
       z: THREE.MathUtils.clamp(player.z, WORLD_BOUNDS.minZ + 4, WORLD_BOUNDS.maxZ - 4),
     };
+    const dogWaitsAtCaveEntrance =
+      caveInside && caveProgress > 0.46;
     const dogTarget = state.entered
       ? aquatic !== "land" || isWater(player)
         ? shoreWait
-        : distance(player, SECRET) < 13
-          ? SECRET
-          : nearbyShastaMemory
-            ? nearbyShastaMemory.point
-            : nearbyCritter
-              ? nearbyCritter.point
-              : { x: player.x + 2.7, z: player.z - 2.7 }
+        : dogWaitsAtCaveEntrance
+          ? { x: arcade.x - 2.0, z: arcade.z - 1.65 }
+          : distance(player, SECRET) < 13
+            ? SECRET
+            : nearbyShastaMemory
+              ? nearbyShastaMemory.point
+              : nearbyCritter
+                ? nearbyCritter.point
+                : { x: player.x + 2.7, z: player.z - 2.7 }
       : { x: 4 + Math.sin(elapsed * 0.13) * 2, z: 12 };
     canvas.dataset.dogCuriosity =
       aquatic !== "land"
         ? "shore"
-        : nearbyShastaMemory?.id ?? nearbyCritter?.kind ?? "";
+        : dogWaitsAtCaveEntrance
+          ? "cave-entrance"
+          : nearbyShastaMemory?.id ?? nearbyCritter?.kind ?? "";
+    canvas.dataset.caveDogClear = String(
+      !caveInside || distance(dog, arcadeWall) > 6.5,
+    );
 
     // Smooth the target itself, then steer velocity toward it with finite
     // acceleration/braking. This removes the start/stop jerk from direct pursuit.
