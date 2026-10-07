@@ -1,5 +1,7 @@
 # Astra handoff: Costa Rica rainforest expansion
 
+> **Master-plan note:** This rainforest handoff is now subordinate to [astra-world-biome-master-spec.md](astra-world-biome-master-spec.md), which defines the island-wide biome topology, reusable fauna architecture, performance budgets, cave/waterfall work, desert/redwood/alpine integration, and sequencing. Use this file for Manuel Antonio-specific ecological detail only.
+
 Status: planned next biome after the east-side lagoon reef is qualified on an exact green SHA.
 
 ## Product intent
