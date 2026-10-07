@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
+  ARCADE_CAVE,
   coastlineX,
   eastCoastlineX,
   constrainMove,
@@ -123,6 +124,25 @@ test("arcade cavern exposes the same playable games as the established arcade", 
   assert.deepEqual(games.map(g => g.href), arcadeGames.filter(g => g.status === "playable").map(g => `/arcade/${g.slug}`));
   assert.equal(games[0].title, "Stretchicorn");
   assert.equal(REGIONS.find(r => r.id === "cavern")?.href, "/arcade");
+});
+
+test("arcade cave is a deep backside mountain tunnel rather than an exterior arch", () => {
+  const mountain = REGIONS.find(r => r.id === "mountain")!;
+  const cavern = REGIONS.find(r => r.id === "cavern")!;
+  assert.deepEqual(cavern.point, ARCADE_CAVE.entrance);
+  assert.ok(
+    ARCADE_CAVE.entrance.z < mountain.point.z - 15,
+    "cave entrance should sit on the far side of Granite Ridge",
+  );
+  assert.ok(ARCADE_CAVE.tunnelDepth >= 12);
+  assert.ok(ARCADE_CAVE.wall.z - ARCADE_CAVE.entrance.z >= 12);
+  assert.ok(
+    terrainHeight(ARCADE_CAVE.wall.x, ARCADE_CAVE.wall.z) >
+      terrainHeight(ARCADE_CAVE.entrance.x, ARCADE_CAVE.entrance.z),
+    "tunnel should climb into the mountain",
+  );
+  for (let i = 1; i < ARCADE_CAVE.gamePanelXs.length; i++)
+    assert.ok(ARCADE_CAVE.gamePanelXs[i] - ARCADE_CAVE.gamePanelXs[i - 1] > 2.8);
 });
 
 
