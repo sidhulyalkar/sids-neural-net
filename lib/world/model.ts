@@ -120,13 +120,46 @@ export const SNORKEL_VIDEO_POINTS: WorldVideoPoint[] = [];
 export const SECRET = { x: 18, z: 22 };
 export const SPAWN = { x: 0, z: 16 };
 
-export function terrainHeight(x: number, z: number): number {
+function rawTerrainHeight(x: number, z: number): number {
   const main = 17.5 * Math.exp(-((x - 7) ** 2 / 560 + (z + 61) ** 2 / 650));
   const westPeak = 9.2 * Math.exp(-((x + 19) ** 2 / 520 + (z + 69) ** 2 / 470));
   const shoulder = 5.4 * Math.exp(-((x - 4) ** 2 / 720 + (z + 36) ** 2 / 620));
   const canyonRise = 2.2 * Math.exp(-((x - 31) ** 2 / 500 + (z - 24) ** 2 / 850));
   return 0.65 + main + westPeak + shoulder + canyonRise +
     Math.sin(x * 0.085) * 0.42 + Math.cos(z * 0.105) * 0.5;
+}
+
+const smoothstep01 = (t: number) => {
+  const x = Math.max(0, Math.min(1, t));
+  return x * x * (3 - 2 * x);
+};
+
+/**
+ * Soft mask for the carved arcade tunnel. It flattens only the walkable core,
+ * blending back into the natural mountain under the authored rock shell.
+ */
+export function arcadeCaveTerrainMask(x: number, z: number): number {
+  const startZ = ARCADE_CAVE.entrance.z - 0.8;
+  const endZ = ARCADE_CAVE.wall.z + 1.4;
+  if (z <= startZ || z >= endZ) return 0;
+  const fadeIn = smoothstep01((z - startZ) / 1.9);
+  const fadeOut = 1 - smoothstep01((z - (endZ - 1.5)) / 1.5);
+  const lateral = Math.abs(x - ARCADE_CAVE.entrance.x);
+  const core = ARCADE_CAVE.tunnelHalfWidth - 0.5;
+  const feather = 1.65;
+  const lateralMask =
+    lateral <= core
+      ? 1
+      : 1 - smoothstep01((lateral - core) / feather);
+  return Math.max(0, Math.min(1, fadeIn * fadeOut * lateralMask));
+}
+
+export function terrainHeight(x: number, z: number): number {
+  const base = rawTerrainHeight(x, z);
+  const caveMask = arcadeCaveTerrainMask(x, z);
+  if (caveMask <= 0) return base;
+  const caveCenterFloor = rawTerrainHeight(ARCADE_CAVE.entrance.x, z);
+  return base + (caveCenterFloor - base) * caveMask;
 }
 
 export function coastlineX(z: number): number {
