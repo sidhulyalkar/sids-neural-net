@@ -1510,6 +1510,10 @@ export function createWorld(
       );
     }
   });
+  const critterEarIndicesByCritter: number[][] = critters.map(() => []);
+  critterEarParts.forEach((part, index) =>
+    critterEarIndicesByCritter[part.critterIndex].push(index),
+  );
   const critterEars = instances(
     cone,
     wildlifeMat,
@@ -1543,6 +1547,14 @@ export function createWorld(
         critterPlumeParts.push({ critterIndex, segment, segments });
     }
   });
+  const critterPlumeIndicesByCritter: number[][] = critters.map(() => []);
+  critterPlumeParts.forEach((part, index) =>
+    critterPlumeIndicesByCritter[part.critterIndex].push(index),
+  );
+  const critterThinTailIndicesByCritter: number[][] = critters.map(() => []);
+  critterThinTailParts.forEach((part, index) =>
+    critterThinTailIndicesByCritter[part.critterIndex].push(index),
+  );
   const critterPlumes = instances(
     shastaBodyGeo,
     wildlifeMat,
@@ -2844,8 +2856,14 @@ export function createWorld(
       targetCamera.set(42 + Math.sin(elapsed * 0.035) * 1.5, 36, 86);
       targetLook.set(-12, 6, -12);
     }
-    critterBodies.visible = critterTails.visible = aquatic === "land";
-    if (aquatic === "land") {
+    const landWildlifeVisible = aquatic === "land";
+    critterBodies.visible =
+      critterHeads.visible =
+      critterEars.visible =
+      critterPlumes.visible =
+      critterThinTails.visible =
+        landWildlifeVisible;
+    if (landWildlifeVisible) {
       critters.forEach((critter, i) => {
         critter.phase += dt * critter.speed * 0.55;
         const dogDistance = distance(critter.point, dog);
@@ -2866,8 +2884,8 @@ export function createWorld(
           const awayZ = critter.point.z - threat.z;
           const awayLength = Math.max(0.001, Math.hypot(awayX, awayZ));
           target = {
-            x: critter.point.x + awayX / awayLength * 3.2,
-            z: critter.point.z + awayZ / awayLength * 3.2,
+            x: critter.point.x + (awayX / awayLength) * 3.2,
+            z: critter.point.z + (awayZ / awayLength) * 3.2,
           };
           pace = critter.speed * 2.8;
         }
@@ -2876,8 +2894,8 @@ export function createWorld(
         const targetDistance = Math.max(0.001, Math.hypot(toX, toZ));
         const step = Math.min(targetDistance, pace * dt);
         const candidate = {
-          x: critter.point.x + toX / targetDistance * step,
-          z: critter.point.z + toZ / targetDistance * step,
+          x: critter.point.x + (toX / targetDistance) * step,
+          z: critter.point.z + (toZ / targetDistance) * step,
         };
         if (isWater(candidate)) {
           critter.phase += Math.PI * 0.7;
@@ -2886,9 +2904,14 @@ export function createWorld(
           if (step > 0.0001) critter.heading = Math.atan2(toX, toZ);
         }
 
+        const gaitBob =
+          critter.kind === "lizard"
+            ? 0
+            : Math.sin(critter.phase * 8) * Math.min(0.025, step * 0.7);
         const bodyY =
           terrainHeight(critter.point.x, critter.point.z) +
-          critter.bodyScale.y * (critter.kind === "lizard" ? 0.75 : 1.0);
+          critter.bodyScale.y * (critter.kind === "lizard" ? 0.75 : 1.0) +
+          gaitBob;
         dummy.position.set(critter.point.x, bodyY, critter.point.z);
         dummy.rotation.set(0, critter.heading, 0);
         dummy.scale.set(
@@ -2901,31 +2924,115 @@ export function createWorld(
 
         const forwardX = Math.sin(critter.heading);
         const forwardZ = Math.cos(critter.heading);
-        const tailLift =
-          critter.kind === "squirrel"
-            ? 0.34
-            : critter.kind === "rabbit"
-              ? 0.12
-              : 0.03;
-        const tailStart = new THREE.Vector3(
-          critter.point.x - forwardX * critter.bodyScale.z * 0.65,
-          bodyY,
-          critter.point.z - forwardZ * critter.bodyScale.z * 0.65,
+        const rightX = Math.cos(critter.heading);
+        const rightZ = -Math.sin(critter.heading);
+        const headX = critter.point.x + forwardX * critter.headForward;
+        const headZ = critter.point.z + forwardZ * critter.headForward;
+        const headY = bodyY + critter.headLift;
+        dummy.position.set(headX, headY, headZ);
+        dummy.rotation.set(0, critter.heading, 0);
+        dummy.scale.set(
+          critter.headScale.x,
+          critter.headScale.y,
+          critter.headScale.z,
         );
-        const tailEnd = new THREE.Vector3(
-          tailStart.x - forwardX * critter.tailLength,
-          bodyY + tailLift,
-          tailStart.z - forwardZ * critter.tailLength,
-        );
-        const tailPart = segment(tailStart, tailEnd, critter.tailRadius);
-        dummy.position.set(tailPart.x, tailPart.y, tailPart.z);
-        dummy.quaternion.copy(tailPart.q!);
-        dummy.scale.set(tailPart.sx, tailPart.sy, tailPart.sz);
         dummy.updateMatrix();
-        critterTails.setMatrixAt(i, dummy.matrix);
+        critterHeads.setMatrixAt(i, dummy.matrix);
+
+        for (const earIndex of critterEarIndicesByCritter[i]) {
+          const earPart = critterEarParts[earIndex];
+          const ear = critter.earScale!;
+          const sideOffset = earPart.crest ? 0 : earPart.side * critter.headScale.x * 0.58;
+          const forwardOffset = earPart.crest ? 0.035 : -0.015;
+          dummy.position.set(
+            headX + rightX * sideOffset + forwardX * forwardOffset,
+            headY + critter.headScale.y * 0.72 + ear.y * 0.42,
+            headZ + rightZ * sideOffset + forwardZ * forwardOffset,
+          );
+          dummy.rotation.set(
+            earPart.crest ? -0.24 : 0,
+            critter.heading,
+            earPart.crest ? 0.18 : -earPart.side * 0.1,
+          );
+          dummy.scale.set(ear.x, ear.y, ear.z);
+          dummy.updateMatrix();
+          critterEars.setMatrixAt(earIndex, dummy.matrix);
+        }
+
+        for (const plumeIndex of critterPlumeIndicesByCritter[i]) {
+          const plumePart = critterPlumeParts[plumeIndex];
+          const fraction = (plumePart.segment + 0.55) / plumePart.segments;
+          let behind = critter.bodyScale.z * 0.62 + critter.tailLength * fraction;
+          let lift = 0.03;
+          let lateral = 0;
+          let sx = critter.tailRadius;
+          let sy = critter.tailRadius;
+          let sz = critter.tailLength / plumePart.segments;
+          if (critter.tailStyle === "plume") {
+            lift = 0.05 + Math.sin(fraction * Math.PI) * 0.34 + fraction * 0.08;
+            lateral = Math.sin(critter.phase * 0.6 + fraction * 1.8) * 0.035;
+            sx *= 1.45 - fraction * 0.3;
+            sy *= 1.7 - fraction * 0.35;
+            sz *= 0.9;
+          } else if (critter.tailStyle === "puff") {
+            behind = critter.bodyScale.z * 0.72;
+            lift = 0.055;
+            sx = sy = sz = critter.tailRadius;
+          } else {
+            lift = -0.01 - fraction * 0.035;
+            sx *= 0.72;
+            sy *= 0.55;
+            sz *= 1.05;
+          }
+          dummy.position.set(
+            critter.point.x - forwardX * behind + rightX * lateral,
+            bodyY + lift,
+            critter.point.z - forwardZ * behind + rightZ * lateral,
+          );
+          dummy.rotation.set(0, critter.heading, critter.tailStyle === "plume" ? -0.08 : 0);
+          dummy.scale.set(sx, sy, sz);
+          dummy.updateMatrix();
+          critterPlumes.setMatrixAt(plumeIndex, dummy.matrix);
+        }
+
+        for (const thinIndex of critterThinTailIndicesByCritter[i]) {
+          const tailState = critterThinTailParts[thinIndex];
+          const f0 = tailState.segment / tailState.segments;
+          const f1 = (tailState.segment + 1) / tailState.segments;
+          const tailRootDistance = critter.bodyScale.z * 0.62;
+          const curveAmplitude = critter.kind === "lizard" ? 0.08 : 0.055;
+          const pointAt = (fraction: number) => {
+            const curve =
+              Math.sin(critter.phase * 0.7 + fraction * Math.PI * 1.3) *
+              curveAmplitude *
+              fraction;
+            return new THREE.Vector3(
+              critter.point.x -
+                forwardX * (tailRootDistance + critter.tailLength * fraction) +
+                rightX * curve,
+              bodyY - 0.02 - (critter.kind === "lizard" ? fraction * 0.025 : 0),
+              critter.point.z -
+                forwardZ * (tailRootDistance + critter.tailLength * fraction) +
+                rightZ * curve,
+            );
+          };
+          const tailSegment = segment(
+            pointAt(f0),
+            pointAt(f1),
+            critter.tailRadius * (1 - f0 * 0.58),
+          );
+          dummy.position.set(tailSegment.x, tailSegment.y, tailSegment.z);
+          dummy.quaternion.copy(tailSegment.q!);
+          dummy.scale.set(tailSegment.sx, tailSegment.sy, tailSegment.sz);
+          dummy.updateMatrix();
+          critterThinTails.setMatrixAt(thinIndex, dummy.matrix);
+        }
       });
       critterBodies.instanceMatrix.needsUpdate = true;
-      critterTails.instanceMatrix.needsUpdate = true;
+      critterHeads.instanceMatrix.needsUpdate = true;
+      critterEars.instanceMatrix.needsUpdate = true;
+      critterPlumes.instanceMatrix.needsUpdate = true;
+      critterThinTails.instanceMatrix.needsUpdate = true;
     }
 
     const nearbyShastaMemory = MEMORY_POINTS
