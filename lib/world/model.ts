@@ -22,21 +22,6 @@ export const REGIONS: {
 export const WORLD_BOUNDS = { minX: -92, maxX: 94, minZ: -96, maxZ: 58 } as const;
 export const SEA_SURFACE = -1.4;
 
-/**
- * Arcade cavern layout. The entrance sits on the mountain's far shoulder and
- * the tunnel climbs inward toward the massif, so the game wall cannot be seen
- * from the open world.
- */
-export const CAVERN_LAYOUT = {
-  entrance: { x: 33, z: -72 },
-  threshold: { x: 31.1, z: -70.8 },
-  chamber: { x: 26.2, z: -67.5 },
-  gameWall: { x: 23.7, z: -65.8 },
-  lantern: { x: 27.7, z: -68.5 },
-  discoverRadius: 5.4,
-  chamberRadius: 7.2,
-} as const;
-
 export const ARCADE_CAVE = {
   // Backside entrance of Granite Ridge. The player arrives outside and must
   // walk uphill through the tunnel before the carved game wall is selectable.
