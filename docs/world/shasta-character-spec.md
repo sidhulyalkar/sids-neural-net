@@ -46,9 +46,21 @@ The standing silhouette is modeled as a broad plume that:
 
 The runtime uses six photo-derived control points under a single animated tail root. They drive one continuous tapered TubeGeometry with a warm-tan to cream-white vertex-color gradient, preserving the plume silhouette at one draw call without visible segment seams.
 
-## Harness
+## Accessories
 
-Outdoor photos often show a compact orange/brown and black trail harness. The world variant is intentionally separate from the body definition so it can be disabled or swapped without changing coat geometry.
+World Mode renders Shasta **without a harness**. The supplied outdoor photos may show a trail harness, but it is reference context only and must not obscure his natural coat/body silhouette in the default world character.
+
+Do not reintroduce harness straps or panels unless Sid explicitly asks for an accessory variant.
+
+## Face geometry
+
+Shasta's forehead must remain smooth and structurally simple. Warm facial coloration should never be represented as separate bulbous brow/crown meshes. In particular:
+
+- no tan ellipsoid above either eye;
+- no raised crown bubble;
+- amber irises/pupils may remain separate because they represent actual surface features;
+- cheek ruff volumes must stay small enough that they soften the face without widening the skull;
+- the muzzle should remain longer and narrower than a generic blocky husky head.
 
 ## Animation contract
 
