@@ -3525,8 +3525,16 @@ export function createWorld(
           : coastlineX(player.z) + 2.6,
       z: THREE.MathUtils.clamp(player.z, WORLD_BOUNDS.minZ + 4, WORLD_BOUNDS.maxZ - 4),
     };
+    const dogCaveProgress = THREE.MathUtils.clamp(
+      (player.z - arcade.z) / ARCADE_CAVE.tunnelDepth,
+      0,
+      1,
+    );
     const dogWaitsAtCaveEntrance =
-      caveInside && caveProgress > 0.46;
+      aquatic === "land" &&
+      nearestRegion(player) === "cavern" &&
+      dogCaveProgress > 0.46 &&
+      Math.abs(player.x - arcade.x) < ARCADE_CAVE.tunnelHalfWidth - 0.25;
     const dogTarget = state.entered
       ? aquatic !== "land" || isWater(player)
         ? shoreWait
@@ -3547,7 +3555,7 @@ export function createWorld(
           ? "cave-entrance"
           : nearbyShastaMemory?.id ?? nearbyCritter?.kind ?? "";
     canvas.dataset.caveDogClear = String(
-      !caveInside || distance(dog, arcadeWall) > 6.5,
+      !dogWaitsAtCaveEntrance || distance(dog, arcadeWall) > 6.5,
     );
 
     // Smooth the target itself, then steer velocity toward it with finite
