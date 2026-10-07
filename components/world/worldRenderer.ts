@@ -475,10 +475,16 @@ export function createWorld(
     const x = -25 + random() * 62;
     const z = -84 + random() * 49;
     const laneCenter = 7 + Math.sin((z + 60) * 0.13) * 7;
+    const inArcadeCaveCorridor =
+      Math.abs(x - ARCADE_CAVE.entrance.x) <
+        ARCADE_CAVE.tunnelHalfWidth + 2.6 &&
+      z > ARCADE_CAVE.entrance.z - 3 &&
+      z < ARCADE_CAVE.wall.z + 4;
     if (
       Math.abs(x - laneCenter) < 3.4 ||
       distance({ x, z }, REGIONS[1].point) < 7 ||
-      RIDE_RAMPS.some(r => distance({ x, z }, r.point) < 5)
+      RIDE_RAMPS.some(r => distance({ x, z }, r.point) < 5) ||
+      inArcadeCaveCorridor
     ) continue;
     const y = terrainHeight(x, z);
     if (y < 7.5) continue;
@@ -777,6 +783,7 @@ export function createWorld(
   const caveDeepRock = mat("#222b2d");
   const caveShell: Instance[] = [];
   const caveLining: Instance[] = [];
+  const caveFloorLining: Instance[] = [];
   const caveFloorStones: Instance[] = [];
   const caveSections = 9;
   for (let i = 0; i < caveSections; i++) {
@@ -841,13 +848,21 @@ export function createWorld(
         radius: 0.68,
       });
     }
+    caveFloorLining.push({
+      x: arcade.x,
+      y: floor + 0.035,
+      z,
+      sx: halfWidth * 2.02,
+      sy: 0.12,
+      sz: 1.84,
+    });
     caveFloorStones.push({
       x: arcade.x + Math.sin(i * 1.4) * 0.22,
-      y: floor + 0.045,
+      y: floor + 0.095,
       z,
-      sx: 2.8,
-      sy: 0.075,
-      sz: 0.92,
+      sx: Math.max(1.9, halfWidth * 0.78),
+      sy: 0.055,
+      sz: 0.78,
       ry: Math.sin(i) * 0.08,
     });
   }
@@ -858,6 +873,12 @@ export function createWorld(
     false,
   );
   instances(rockGeo, caveRock, caveShell);
+  instances(
+    boxGeo,
+    mat("#141c1e", { flatShading: false, roughness: 1 }),
+    caveFloorLining,
+    false,
+  );
   instances(rockGeo, mat("#273134"), caveFloorStones, false);
 
   // Blend the entrance into the actual mountain shoulder with irregular portal
@@ -885,22 +906,48 @@ export function createWorld(
     [lanternChain.sx, lanternChain.sy, lanternChain.sz],
   );
   chainMesh.quaternion.copy(lanternChain.q!);
+  const lanternMetal = mat("#5a4631", { roughness: 0.9 });
+  const lanternGlow = mat("#ffd08a", {
+    emissive: "#f3a43b",
+    emissiveIntensity: 2.2,
+    transparent: true,
+    opacity: 0.9,
+    roughness: 0.24,
+  });
   mesh(
     cylinder,
-    mat("#5a4631"),
-    [ARCADE_CAVE.lantern.x, lanternY, ARCADE_CAVE.lantern.z],
-    [0.14, 0.25, 0.14],
+    lanternMetal,
+    [ARCADE_CAVE.lantern.x, lanternY + 0.19, ARCADE_CAVE.lantern.z],
+    [0.19, 0.08, 0.19],
   );
   mesh(
-    rockGeo,
-    mat("#ffd08a", {
-      emissive: "#f3a43b",
-      emissiveIntensity: 1.8,
-      roughness: 0.35,
-    }),
-    [ARCADE_CAVE.lantern.x, lanternY, ARCADE_CAVE.lantern.z],
-    [0.085, 0.14, 0.085],
+    cylinder,
+    lanternMetal,
+    [ARCADE_CAVE.lantern.x, lanternY - 0.19, ARCADE_CAVE.lantern.z],
+    [0.2, 0.08, 0.2],
   );
+  mesh(
+    cylinder,
+    lanternGlow,
+    [ARCADE_CAVE.lantern.x, lanternY, ARCADE_CAVE.lantern.z],
+    [0.11, 0.31, 0.11],
+  );
+  const lanternCage: Instance[] = [];
+  for (const [dx, dz] of [
+    [-0.13, -0.13],
+    [-0.13, 0.13],
+    [0.13, -0.13],
+    [0.13, 0.13],
+  ] as const)
+    lanternCage.push({
+      x: ARCADE_CAVE.lantern.x + dx,
+      y: lanternY,
+      z: ARCADE_CAVE.lantern.z + dz,
+      sx: 0.018,
+      sy: 0.38,
+      sz: 0.018,
+    });
+  instances(cylinder, lanternMetal, lanternCage, false);
   const caveLight = new THREE.PointLight("#ffcb83", 9, 14, 1.8);
   caveLight.position.set(ARCADE_CAVE.lantern.x, lanternY - 0.05, ARCADE_CAVE.lantern.z);
   scene.add(caveLight);
@@ -921,6 +968,13 @@ export function createWorld(
       });
     }
   }
+  const caveRearSeal = mesh(
+    boxGeo,
+    mat("#11191b", { flatShading: false, roughness: 1 }),
+    [arcadeWall.x, arcadeWallY + 2.35, arcadeWall.z + 0.92],
+    [9.4, 5.9, 1.45],
+  );
+  caveRearSeal.castShadow = false;
   instances(rockGeo, caveDeepRock, caveBackWall);
   const carvingBandMaterial = mat("#172225", {
     emissive: "#503d27",
@@ -953,6 +1007,8 @@ export function createWorld(
   canvas.dataset.caveStyle = "backside-mountain-tunnel";
   canvas.dataset.caveLantern = "true";
   canvas.dataset.caveGamePanels = String(carvingBands.length);
+  canvas.dataset.caveSealed = "true";
+  canvas.dataset.caveVegetationClear = "true";
   const carvingMaterial = mat("#d7bc82", {
     emissive: "#9b6d31",
     emissiveIntensity: 0.55,
