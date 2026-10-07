@@ -1640,29 +1640,41 @@ export function createWorld(
 
   function makeFish(kind: "anchovy" | "rockfish", color: string, size: number) {
     const group = new THREE.Group();
-    const bodyMat = mat(color);
+    const bodyMat = mat(color, { flatShading: false, roughness: 0.88 });
     const bodyScale: number[] =
       kind === "anchovy"
-        ? [size * 0.2, size * 0.13, size * 1.2]
-        : [size * 0.42, size * 0.3, size * 0.88];
-    mesh(rockGeo, bodyMat, [0, 0, 0], bodyScale, group);
+        ? [size * 0.19, size * 0.12, size * 1.22]
+        : [size * 0.42, size * 0.3, size * 0.9];
+    mesh(shastaBodyGeo, bodyMat, [0, 0, 0], bodyScale, group);
     const tailFin = mesh(
       cone,
       bodyMat,
-      [0, 0, -size * (kind === "anchovy" ? 1.08 : 0.86)],
-      [size * 0.25, size * 0.4, size * 0.11],
+      [0, 0, -size * (kind === "anchovy" ? 1.12 : 0.88)],
+      [size * 0.24, size * 0.42, size * 0.1],
       group,
     );
     tailFin.rotation.x = Math.PI / 2;
-    if (kind === "rockfish") {
-      const dorsal = mesh(
+    const dorsal = mesh(
+      cone,
+      bodyMat,
+      [0, size * (kind === "rockfish" ? 0.31 : 0.13), -size * 0.06],
+      [
+        size * (kind === "rockfish" ? 0.13 : 0.055),
+        size * (kind === "rockfish" ? 0.32 : 0.18),
+        size * 0.12,
+      ],
+      group,
+    );
+    dorsal.rotation.x = -0.16;
+    for (const side of [-1, 1]) {
+      const fin = mesh(
         cone,
         bodyMat,
-        [0, size * 0.28, -size * 0.05],
-        [size * 0.12, size * 0.3, size * 0.14],
+        [side * bodyScale[0] * 0.82, -size * 0.025, size * 0.13],
+        [size * 0.07, size * 0.22, size * 0.055],
         group,
       );
-      dorsal.rotation.x = -0.2;
+      fin.rotation.z = side * 1.12;
     }
     reefRoot.add(group);
     return group;
@@ -1678,71 +1690,158 @@ export function createWorld(
     const radius = 5 + random() * 17, phase = random() * Math.PI * 2;
     reefSwimmers.push({ object: fish, radius, speed: 0.16 + random() * 0.16, phase, baseY: -3.2 - random() * 4.2 });
   }
-  // Leopard-shark silhouettes: long body, dorsal fin and forked tail.
+  // Leopard sharks use a smooth fusiform body, tapered snout, paired fins and
+  // recognizable dark saddle/spot accents rather than a faceted stone shape.
   const sharks: THREE.Group[] = [];
   for (let i = 0; i < 2; i++) {
     const shark = new THREE.Group();
-    const sharkMat = mat("#7f8f86");
-    mesh(rockGeo, sharkMat, [0, 0, 0], [0.46, 0.32, 1.9], shark);
-    const dorsal = mesh(cone, sharkMat, [0, 0.38, -0.1], [0.22, 0.55, 0.2], shark);
-    dorsal.rotation.x = -0.18;
+    const sharkMat = mat("#7f8f86", { flatShading: false, roughness: 0.86 });
+    const undersideMat = mat("#aeb7ad", { flatShading: false, roughness: 0.9 });
+    mesh(shastaBodyGeo, sharkMat, [0, 0, 0], [0.44, 0.3, 1.82], shark);
+    mesh(shastaBodyGeo, sharkMat, [0, -0.01, 1.43], [0.31, 0.22, 0.52], shark);
+    mesh(shastaBodyGeo, undersideMat, [0, -0.17, 0.12], [0.36, 0.095, 1.32], shark);
+    const dorsal = mesh(cone, sharkMat, [0, 0.34, -0.12], [0.19, 0.52, 0.18], shark);
+    dorsal.rotation.x = -0.16;
     for (const side of [-1, 1]) {
-      const fin = mesh(cone, sharkMat, [side * 0.48, -0.04, 0.2], [0.18, 0.7, 0.12], shark);
-      fin.rotation.z = side * 1.2;
+      const fin = mesh(cone, sharkMat, [side * 0.45, -0.035, 0.24], [0.15, 0.66, 0.105], shark);
+      fin.rotation.z = side * 1.18;
     }
-    const tailFin = mesh(cone, sharkMat, [0, 0, -1.75], [0.45, 0.7, 0.14], shark);
-    tailFin.rotation.x = Math.PI / 2;
+    const upperTail = mesh(cone, sharkMat, [0, 0.28, -1.72], [0.2, 0.48, 0.11], shark);
+    const lowerTail = mesh(cone, sharkMat, [0, -0.25, -1.72], [0.18, 0.4, 0.1], shark);
+    lowerTail.rotation.z = Math.PI;
+    const leopardMarks: Instance[] = [];
+    for (let mark = 0; mark < 8; mark++) {
+      const z = -1.05 + mark * 0.28;
+      const side = mark % 2 ? -1 : 1;
+      leopardMarks.push({
+        x: side * (0.34 - Math.abs(z) * 0.035),
+        y: 0.13 + (mark % 3) * 0.035,
+        z,
+        sx: 0.055,
+        sy: 0.028,
+        sz: 0.1,
+      });
+    }
+    instances(shastaBodyGeo, mat("#4c5b55"), leopardMarks, false, shark);
     reefRoot.add(shark);
     sharks.push(shark);
   }
-  // Rays use four-sided discs and a long tapered tail.
-  const rayGeo = geo(new THREE.CircleGeometry(1, 4));
+
+  // A curved wing outline gives rays a recognizable organic planform while
+  // remaining a single low-cost surface.
+  const rayShape = new THREE.Shape();
+  rayShape.moveTo(0, 1.05);
+  rayShape.bezierCurveTo(0.32, 0.96, 1.18, 0.62, 1.46, 0.05);
+  rayShape.bezierCurveTo(1.08, -0.18, 0.52, -0.58, 0, -0.72);
+  rayShape.bezierCurveTo(-0.52, -0.58, -1.08, -0.18, -1.46, 0.05);
+  rayShape.bezierCurveTo(-1.18, 0.62, -0.32, 0.96, 0, 1.05);
+  const rayGeo = geo(new THREE.ShapeGeometry(rayShape, 8));
   const rays: THREE.Group[] = [];
   for (let i = 0; i < 2; i++) {
     const rayGroup = new THREE.Group();
-    const rayBody = mesh(rayGeo, mat("#687d78", { side: THREE.DoubleSide }), [0, 0, 0], [1.2, 0.65, 1], rayGroup);
+    const rayMat = mat("#687d78", {
+      side: THREE.DoubleSide,
+      flatShading: false,
+      roughness: 0.9,
+    });
+    const rayBody = mesh(rayGeo, rayMat, [0, 0, 0], [1.18, 0.95, 1], rayGroup);
     rayBody.rotation.x = Math.PI / 2;
-    const rayTail = segment(new THREE.Vector3(0, 0, -0.6), new THREE.Vector3(0, 0, -2), 0.035);
-    const tailMesh = mesh(cylinder, mat("#566d68"), [rayTail.x, rayTail.y, rayTail.z], [rayTail.sx, rayTail.sy, rayTail.sz], rayGroup);
+    mesh(shastaBodyGeo, rayMat, [0, 0.045, 0.12], [0.28, 0.1, 0.58], rayGroup);
+    const rayTail = segment(
+      new THREE.Vector3(0, 0, -0.58),
+      new THREE.Vector3(0, -0.015, -2.15),
+      0.028,
+    );
+    const tailMesh = mesh(
+      cylinder,
+      mat("#566d68"),
+      [rayTail.x, rayTail.y, rayTail.z],
+      [rayTail.sx, rayTail.sy, rayTail.sz],
+      rayGroup,
+    );
     tailMesh.quaternion.copy(rayTail.q!);
     reefRoot.add(rayGroup);
     rays.push(rayGroup);
   }
 
-  // Octopuses, eels and jellies sit close to the rocky shelf.
+  // Octopus, eel and jelly silhouettes use smooth bodies and batched appendages.
   const octopuses: THREE.Group[] = [];
   for (let i = 0; i < 1; i++) {
     const o = new THREE.Group();
-    const octMat = mat(i ? "#9b5b4f" : "#b66c58");
-    mesh(rockGeo, octMat, [0, 0.35, 0], [0.42, 0.5, 0.4], o);
+    const octMat = mat("#b66c58", { flatShading: false, roughness: 0.92 });
+    mesh(shastaBodyGeo, octMat, [0, 0.4, 0], [0.33, 0.46, 0.31], o);
+    mesh(shastaBodyGeo, octMat, [0, 0.14, 0.03], [0.39, 0.23, 0.37], o);
+    const tentacles: Instance[] = [];
     for (let arm = 0; arm < 8; arm++) {
-      const a = arm * Math.PI / 4;
-      const tentacle = segment(new THREE.Vector3(0, 0.12, 0), new THREE.Vector3(Math.cos(a) * 0.72, -0.05, Math.sin(a) * 0.72), 0.055);
-      const limb = mesh(cylinder, octMat, [tentacle.x, tentacle.y, tentacle.z], [tentacle.sx, tentacle.sy, tentacle.sz], o);
-      limb.quaternion.copy(tentacle.q!);
+      const a = (arm * Math.PI) / 4;
+      const root = new THREE.Vector3(Math.cos(a) * 0.12, 0.1, Math.sin(a) * 0.12);
+      const mid = new THREE.Vector3(
+        Math.cos(a + 0.12 * Math.sin(arm)) * 0.43,
+        0.015,
+        Math.sin(a + 0.12 * Math.sin(arm)) * 0.43,
+      );
+      const tip = new THREE.Vector3(
+        Math.cos(a + 0.22 * Math.sin(arm + 1)) * 0.78,
+        -0.055,
+        Math.sin(a + 0.22 * Math.sin(arm + 1)) * 0.78,
+      );
+      tentacles.push(segment(root, mid, 0.058), segment(mid, tip, 0.038));
     }
-    const px = -46 - i * 7, pz = 8 + i * 14;
+    instances(cylinder, octMat, tentacles, false, o);
+    const px = -46, pz = 8;
     o.position.set(px, seaFloorHeight(px, pz) + 0.32, pz);
-    reefRoot.add(o); octopuses.push(o);
+    reefRoot.add(o);
+    octopuses.push(o);
   }
+
   const eels: THREE.Group[] = [];
   for (let i = 0; i < 1; i++) {
     const eel = new THREE.Group();
-    const eelMat = mat("#5b6c4c");
-    for (let segIndex = 0; segIndex < 5; segIndex++)
-      mesh(rockGeo, eelMat, [0, 0, segIndex * 0.34], [0.16, 0.12, 0.28], eel);
-    const px = -49 + i * 5, pz = -1 + i * 16;
+    const eelMat = mat("#5b6c4c", { flatShading: false, roughness: 0.9 });
+    const eelSegments: Instance[] = [];
+    for (let segIndex = 0; segIndex < 7; segIndex++) {
+      const taper = 1 - segIndex * 0.075;
+      eelSegments.push({
+        x: Math.sin(segIndex * 0.55) * 0.075,
+        y: Math.sin(segIndex * 0.65) * 0.025,
+        z: segIndex * 0.27,
+        sx: 0.17 * taper,
+        sy: 0.125 * taper,
+        sz: 0.25,
+      });
+    }
+    instances(shastaBodyGeo, eelMat, eelSegments, false, eel);
+    const px = -49, pz = -1;
     eel.position.set(px, seaFloorHeight(px, pz) + 0.4, pz);
-    reefRoot.add(eel); eels.push(eel);
+    reefRoot.add(eel);
+    eels.push(eel);
   }
-  const jellyGeo = geo(new THREE.SphereGeometry(1, 8, 5, 0, Math.PI * 2, 0, Math.PI / 2));
+
+  const jellyGeo = geo(
+    new THREE.SphereGeometry(1, 10, 6, 0, Math.PI * 2, 0, Math.PI / 2),
+  );
   const jellies: THREE.Group[] = [];
   for (let i = 0; i < 3; i++) {
     const jelly = new THREE.Group();
-    const jellyMat = mat("#a7cad1", { transparent: true, opacity: 0.62, emissive: "#79aebd", emissiveIntensity: 0.12 });
+    const jellyMat = mat("#a7cad1", {
+      transparent: true,
+      opacity: 0.62,
+      emissive: "#79aebd",
+      emissiveIntensity: 0.12,
+      flatShading: false,
+    });
     mesh(jellyGeo, jellyMat, [0, 0, 0], [0.42, 0.28, 0.42], jelly);
-    for (let t = -1; t <= 1; t++) mesh(cylinder, jellyMat, [t * 0.12, -0.38, 0], [0.018, 0.72, 0.018], jelly);
-    reefRoot.add(jelly); jellies.push(jelly);
+    const tentacles: Instance[] = [-1, 0, 1].map((t) => ({
+      x: t * 0.12,
+      y: -0.38,
+      z: 0,
+      sx: 0.018,
+      sy: 0.72,
+      sz: 0.018,
+    }));
+    instances(cylinder, jellyMat, tentacles, false, jelly);
+    reefRoot.add(jelly);
+    jellies.push(jelly);
   }
 
   // Purple urchins get a spherical core plus instanced radial spines so they
