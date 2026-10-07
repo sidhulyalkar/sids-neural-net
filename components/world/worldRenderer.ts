@@ -789,93 +789,113 @@ export function createWorld(
   const caveDeepRock = mat("#222b2d");
   const caveShell: Instance[] = [];
   const caveLining: Instance[] = [];
-  const caveFloorLining: Instance[] = [];
   const caveFloorStones: Instance[] = [];
   const caveSections = 9;
-  for (let i = 0; i < caveSections; i++) {
+  const caveSectionData = Array.from({ length: caveSections }, (_, i) => {
     const t = i / (caveSections - 1);
     const z = arcade.z + ARCADE_CAVE.tunnelDepth * t;
     const floor = terrainHeight(arcade.x, z);
-    const chamberFlare =
-      THREE.MathUtils.smoothstep(t, 0.56, 1) * 1.35;
-    const halfWidth =
-      ARCADE_CAVE.tunnelHalfWidth - t * 0.18 + chamberFlare;
-    const clearance =
-      ARCADE_CAVE.ceilingClearance - t * 0.18 + chamberFlare * 0.16;
-    // A continuous dark envelope prevents sky cracks. Small irregular rock
-    // cladding sits around the perimeter only, leaving the central sightline and
-    // camera boom clear instead of filling the tunnel with giant shards.
+    const chamberFlare = THREE.MathUtils.smoothstep(t, 0.56, 1) * 1.35;
+    return {
+      t,
+      z,
+      floor,
+      halfWidth: ARCADE_CAVE.tunnelHalfWidth - t * 0.18 + chamberFlare,
+      clearance:
+        ARCADE_CAVE.ceilingClearance - t * 0.18 + chamberFlare * 0.16,
+    };
+  });
+
+  // Build the tunnel as overlapping sloped panels between terrain samples.
+  // The previous horizontal floor/ceiling slabs produced visible staircase bands
+  // and could intersect the third-person camera on the steep mountain shoulder.
+  for (let i = 0; i < caveSectionData.length - 1; i++) {
+    const a = caveSectionData[i];
+    const b = caveSectionData[i + 1];
+    const midZ = (a.z + b.z) * 0.5;
+    const midFloor = (a.floor + b.floor) * 0.5;
+    const halfWidth = (a.halfWidth + b.halfWidth) * 0.5;
+    const clearance = (a.clearance + b.clearance) * 0.5;
+    const dz = b.z - a.z;
+    const dy = b.floor - a.floor;
+    const segmentLength = Math.hypot(dz, dy);
+    const pitch = -Math.atan2(dy, dz);
+    const slopeQ = new THREE.Quaternion().setFromEuler(
+      new THREE.Euler(pitch, 0, 0),
+    );
+
     caveLining.push(
       {
-        x: arcade.x - (halfWidth + 0.42),
-        y: floor + clearance * 0.48,
-        z,
-        sx: 0.72,
-        sy: clearance * 1.06,
-        sz: 1.82,
+        x: arcade.x - (halfWidth + 0.44),
+        y: midFloor + clearance * 0.5,
+        z: midZ,
+        sx: 0.62,
+        sy: clearance * 1.08,
+        sz: segmentLength + 0.28,
+        q: slopeQ,
       },
       {
-        x: arcade.x + (halfWidth + 0.42),
-        y: floor + clearance * 0.48,
-        z,
-        sx: 0.72,
-        sy: clearance * 1.06,
-        sz: 1.82,
+        x: arcade.x + (halfWidth + 0.44),
+        y: midFloor + clearance * 0.5,
+        z: midZ,
+        sx: 0.62,
+        sy: clearance * 1.08,
+        sz: segmentLength + 0.28,
+        q: slopeQ,
       },
       {
         x: arcade.x,
-        y: floor + clearance + 0.28,
-        z,
-        sx: halfWidth * 2.02,
-        sy: 0.56,
-        sz: 1.82,
+        y: midFloor + clearance + 0.3,
+        z: midZ,
+        sx: halfWidth * 2.05,
+        sy: 0.5,
+        sz: segmentLength + 0.34,
+        q: slopeQ,
       },
     );
+
+    // Rock cladding stays near the perimeter, never across the central camera lane.
     for (const side of [-1, 1]) {
       caveShell.push(
         {
-          x: arcade.x + side * (halfWidth + 0.1),
-          y: floor + 1.15,
-          z: z + Math.sin(i * 0.9 + side) * 0.12,
-          sx: 0.72,
-          sy: 1.02,
-          sz: 0.88,
+          x: arcade.x + side * (halfWidth + 0.08),
+          y: midFloor + 1.12,
+          z: midZ + Math.sin(i * 0.9 + side) * 0.11,
+          sx: 0.66,
+          sy: 0.94,
+          sz: 0.72,
           ry: i * 0.63 + side * 0.3,
         },
         {
-          x: arcade.x + side * (halfWidth * 0.72),
-          y: floor + clearance - 0.18,
-          z: z + 0.12,
-          sx: 0.78,
-          sy: 0.52,
-          sz: 0.86,
+          x: arcade.x + side * (halfWidth * 0.76),
+          y: midFloor + clearance - 0.2,
+          z: midZ + 0.08,
+          sx: 0.68,
+          sy: 0.42,
+          sz: 0.7,
           ry: i * 0.41 - side * 0.5,
         },
       );
       obstacles.push({
-        x: arcade.x + side * (halfWidth + 0.92),
-        z,
-        radius: 0.68,
+        x: arcade.x + side * (halfWidth + 0.9),
+        z: midZ,
+        radius: 0.62,
       });
     }
-    caveFloorLining.push({
-      x: arcade.x,
-      y: floor + 0.035,
-      z,
-      sx: halfWidth * 2.02,
-      sy: 0.12,
-      sz: 1.84,
-    });
+
+    // Small scattered floor stones preserve cave texture without forming horizontal
+    // bars across the uphill walking path.
     caveFloorStones.push({
-      x: arcade.x + Math.sin(i * 1.4) * 0.22,
-      y: floor + 0.095,
-      z,
-      sx: Math.max(1.9, halfWidth * 0.78),
-      sy: 0.055,
-      sz: 0.78,
-      ry: Math.sin(i) * 0.08,
+      x: arcade.x + Math.sin(i * 1.57) * halfWidth * 0.42,
+      y: midFloor + 0.08,
+      z: midZ + Math.cos(i * 1.31) * 0.26,
+      sx: 0.42 + (i % 3) * 0.12,
+      sy: 0.07,
+      sz: 0.38 + ((i + 1) % 3) * 0.1,
+      ry: i * 0.71,
     });
   }
+
   instances(
     boxGeo,
     mat("#182123", { flatShading: false, roughness: 1 }),
@@ -883,12 +903,6 @@ export function createWorld(
     false,
   );
   instances(rockGeo, caveRock, caveShell);
-  instances(
-    boxGeo,
-    mat("#141c1e", { flatShading: false, roughness: 1 }),
-    caveFloorLining,
-    false,
-  );
   instances(rockGeo, mat("#273134"), caveFloorStones, false);
 
   // Blend the entrance into the actual mountain shoulder with irregular portal
