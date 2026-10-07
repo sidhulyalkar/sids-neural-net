@@ -3152,10 +3152,12 @@ export function createWorld(
       if (cavernFraming) {
         targetLook.set(arcadeWall.x, arcadeWallY + 2.05, arcadeWall.z - 0.5);
       } else if (cavernApproachFraming) {
+        // Frame the mouth of the cave, not the high terrain deep behind it.
+        // This keeps the entrance readable as a dark opening in the mountain.
         targetLook.set(
           arcade.x,
-          terrainHeight(arcade.x, arcade.z + 3.6) + 1.75,
-          arcade.z + 3.6,
+          arcadeY + 2.1,
+          arcade.z + 1.8,
         );
       } else {
         const aquaticLookAhead = aquatic === "land" ? 0 : aquatic === "dive" ? 3.2 : 2.2;
@@ -3274,7 +3276,18 @@ export function createWorld(
           SEA_SURFACE - 0.28,
         );
       }
-      canvas.dataset.cameraWater = String(
+      if (cavernFraming) {
+        const cameraFloor = terrainHeight(targetCamera.x, targetCamera.z);
+        const cameraCeiling = cameraFloor + ARCADE_CAVE.ceilingClearance;
+        canvas.dataset.caveCameraClear = String(
+          Math.abs(targetCamera.x - arcade.x) < ARCADE_CAVE.tunnelHalfWidth - 0.75 &&
+          targetCamera.y > cameraFloor + 1.4 &&
+          targetCamera.y < cameraCeiling - 0.7,
+        );
+      } else {
+        canvas.dataset.caveCameraClear = "true";
+      }
+            canvas.dataset.cameraWater = String(
         aquatic !== "dive" || isWater({ x: targetCamera.x, z: targetCamera.z }),
       );
       canvas.dataset.cameraDistance = Math.hypot(
