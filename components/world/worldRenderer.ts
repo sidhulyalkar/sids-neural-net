@@ -3300,10 +3300,13 @@ export function createWorld(
           caveCameraZ,
         );
       } else if (cavernApproachFraming) {
-        const approachCameraZ = arcade.z - 6.8;
+        // Pull the approach camera well behind the explorer so the cave mouth
+        // remains the subject instead of nearby portal rocks or the explorer
+        // occupying most of the foreground.
+        const approachCameraZ = arcade.z - 10.2;
         targetCamera.set(
           arcade.x,
-          terrainHeight(arcade.x, approachCameraZ) + 2.6,
+          terrainHeight(arcade.x, approachCameraZ) + 3.05,
           approachCameraZ,
         );
       } else {
