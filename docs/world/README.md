@@ -1,5 +1,9 @@
 # Sid’s World — coastal expansion
 
+## Astra master biome specification
+
+For the next major world-expansion tranche, use [astra-world-biome-master-spec.md](astra-world-biome-master-spec.md) as the authoritative design/implementation contract. It supersedes ad-hoc cave/waterfall iterations and defines the island biome map, mountain/cave geometry, snowmelt hydrology, Paper Archive cave, ecology modules, reef quality, rainforest, redwood and desert plans.
+
 ## Product contract
 
 A small, optional spatial index into the existing portfolio. One continuous landscape,
