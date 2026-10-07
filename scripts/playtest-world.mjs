@@ -95,6 +95,7 @@ try {
       assert.equal(await page.locator('canvas').getAttribute('data-cave-game-panels'), '3');
       assert.equal(await page.locator('canvas').getAttribute('data-cave-sealed'), 'true');
       assert.equal(await page.locator('canvas').getAttribute('data-cave-vegetation-clear'), 'true');
+      assert.equal(await page.locator('canvas').getAttribute('data-cave-terrain-carved'), 'true');
       assert.notEqual(await page.locator('canvas').getAttribute('data-cave-inside'), 'true');
 
       // Navigation lands outside the cave. Walk uphill through the actual tunnel
@@ -136,7 +137,7 @@ try {
       for (const href of games) assert.equal((await page.request.get(`${base}${href}`)).status(), 200);
       await page.keyboard.press('Escape');
       assert.equal(await page.locator('dialog').evaluate(d => d.open), false);
-      results.push('Arcade cavern requires entering the sealed vegetation-free backside tunnel, then gaze-selects three spaced carved games under lantern light');
+      results.push('Arcade cavern requires entering the terrain-carved sealed backside tunnel, then gaze-selects three spaced carved games under lantern light');
       results.push(`Landmark, discovery, and dismissal: ${name}`);
       continue;
     }
