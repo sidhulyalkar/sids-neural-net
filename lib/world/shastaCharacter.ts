@@ -24,9 +24,6 @@ export const SHASTA_CHARACTER = {
     pupil: "#2d211a",
     pinkBrownNose: "#95645b",
     nail: "#57483f",
-    harnessWebbing: "#282727",
-    harnessPanel: "#b76c36",
-    harnessHighlight: "#d09255",
   },
   proportions: {
     torso: { x: 0.31, y: 0.36, z: 0.8 },
@@ -34,7 +31,7 @@ export const SHASTA_CHARACTER = {
     neck: { x: 0.27, y: 0.31, z: 0.29 },
     head: { x: 0.245, y: 0.275, z: 0.29 },
     muzzle: { x: 0.18, y: 0.13, z: 0.39 },
-    cheek: { x: 0.13, y: 0.14, z: 0.18 },
+    cheek: { x: 0.105, y: 0.115, z: 0.15 },
     paw: { x: 0.105, y: 0.062, z: 0.155 },
     ear: { x: 0.125, y: 0.42, z: 0.15 },
   },
@@ -44,7 +41,6 @@ export const SHASTA_CHARACTER = {
     saddleCenter: { y: 1.015, z: -0.14, x: 0, sx: 0.255, sy: 0.125, sz: 0.7 },
     saddleSpine: { y: 1.105, z: -0.18, x: 0, sx: 0.17, sy: 0.07, sz: 0.58 },
     shoulderTan: { y: 0.96, z: 0.39, x: 0, sx: 0.285, sy: 0.19, sz: 0.31 },
-    crownTan: { y: 1.565, z: 0.82, x: 0, sx: 0.145, sy: 0.105, sz: 0.22 },
   },
   face: {
     eyeX: 0.135,
@@ -52,8 +48,8 @@ export const SHASTA_CHARACTER = {
     eyeZ: 1.055,
     pupilZ: 1.079,
     cheekX: 0.155,
-    cheekY: 1.39,
-    cheekZ: 0.87,
+    cheekY: 1.355,
+    cheekZ: 0.885,
     noseY: 1.34,
     noseZ: 1.285,
   },
@@ -76,17 +72,13 @@ export const SHASTA_CHARACTER = {
     restAngleY: -0.08,
   },
   rendering: {
-    profileVersion: "photo-profile-v2",
+    profileVersion: "photo-profile-v3-natural-coat",
     bodySegments: 9,
     bodyRings: 7,
     tailStyle: "continuous-relaxed-plume",
   },
-  harness: {
-    enabledInWorld: true,
-    shoulderY: 1.0,
-    shoulderZ: 0.22,
-    chestY: 0.83,
-    chestZ: 0.52,
+  accessories: {
+    harnessInWorld: false,
   },
 } as const;
 
