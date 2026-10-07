@@ -1550,14 +1550,14 @@ export function createWorld(
                     tailRadius: 0.055,
                   }
                 : {
-                    bodyScale: { x: 0.19, y: 0.19, z: 0.3 },
-                    headScale: { x: 0.13, y: 0.145, z: 0.16 },
-                    headForward: 0.25,
+                    bodyScale: { x: 0.18, y: 0.18, z: 0.29 },
+                    headScale: { x: 0.125, y: 0.14, z: 0.155 },
+                    headForward: 0.24,
                     headLift: 0.09,
-                    earScale: { x: 0.05, y: 0.13, z: 0.045 },
+                    earScale: { x: 0.048, y: 0.125, z: 0.043 },
                     tailStyle: "plume" as const,
-                    tailLength: 0.56,
-                    tailRadius: 0.1,
+                    tailLength: 0.64,
+                    tailRadius: 0.115,
                   };
     return {
       kind: animal.kind,
@@ -1662,6 +1662,64 @@ export function createWorld(
     false,
   );
 
+  const critterMuzzleColors: Record<typeof critters[number]["kind"], string> = {
+    squirrel: "#a98a70",
+    mouse: "#a59a8e",
+    woodrat: "#91877c",
+    lizard: "#829069",
+    rabbit: "#c8baa4",
+    quail: "#c79b52",
+  };
+  const critterMuzzleIndices = critters
+    .map((critter, critterIndex) => ({ critter, critterIndex }))
+    .filter(({ critter }) => critter.kind !== "quail")
+    .map(({ critterIndex }) => critterIndex);
+  const critterMuzzleInstanceByCritter = new Map<number, number>();
+  critterMuzzleIndices.forEach((critterIndex, instanceIndex) =>
+    critterMuzzleInstanceByCritter.set(critterIndex, instanceIndex),
+  );
+  const critterMuzzles = instances(
+    shastaBodyGeo,
+    mat("#ffffff", { flatShading: false, roughness: 0.96 }),
+    critterMuzzleIndices.map((critterIndex) => {
+      const critter = critters[critterIndex];
+      return {
+        x: critter.point.x,
+        y: terrainHeight(critter.point.x, critter.point.z) + 0.2,
+        z: critter.point.z,
+        sx: 0.07,
+        sy: 0.055,
+        sz: 0.09,
+        color: critterMuzzleColors[critter.kind],
+      };
+    }),
+    false,
+  );
+  const critterBeakIndices = critters
+    .map((critter, critterIndex) => ({ critter, critterIndex }))
+    .filter(({ critter }) => critter.kind === "quail")
+    .map(({ critterIndex }) => critterIndex);
+  const critterBeakInstanceByCritter = new Map<number, number>();
+  critterBeakIndices.forEach((critterIndex, instanceIndex) =>
+    critterBeakInstanceByCritter.set(critterIndex, instanceIndex),
+  );
+  const critterBeaks = instances(
+    cone,
+    mat("#c79b52", { roughness: 0.92 }),
+    critterBeakIndices.map((critterIndex) => ({
+      x: critters[critterIndex].point.x,
+      y: terrainHeight(
+        critters[critterIndex].point.x,
+        critters[critterIndex].point.z,
+      ) + 0.2,
+      z: critters[critterIndex].point.z,
+      sx: 0.045,
+      sy: 0.1,
+      sz: 0.045,
+    })),
+    false,
+  );
+
   type CritterLegPart = {
     critterIndex: number;
     side: -1 | 1;
@@ -1725,7 +1783,7 @@ export function createWorld(
       for (let segment = 0; segment < 3; segment++)
         critterThinTailParts.push({ critterIndex, segment, segments: 3 });
     } else {
-      const segments = critter.tailStyle === "plume" ? 3 : critter.tailStyle === "feather" ? 2 : 1;
+      const segments = critter.tailStyle === "plume" ? 4 : critter.tailStyle === "feather" ? 2 : 1;
       for (let segment = 0; segment < segments; segment++)
         critterPlumeParts.push({ critterIndex, segment, segments });
     }
@@ -1775,7 +1833,7 @@ export function createWorld(
     false,
   );
   canvas.dataset.landWildlife = String(critters.length);
-  canvas.dataset.landWildlifeStyle = "anatomical-v3";
+  canvas.dataset.landWildlifeStyle = "anatomical-v4";
 
   // --- Cold-water kelp forest -------------------------------------------------
   // Reparent all submerged detail under one visibility gate so land scenes do not
@@ -3305,6 +3363,8 @@ export function createWorld(
       critterHeads.visible =
       critterEars.visible =
       critterEyes.visible =
+      critterMuzzles.visible =
+      critterBeaks.visible =
       critterLegs.visible =
       critterPlumes.visible =
       critterThinTails.visible =
@@ -3402,6 +3462,44 @@ export function createWorld(
           );
           dummy.updateMatrix();
           critterEyes.setMatrixAt(eyeIndex, dummy.matrix);
+        }
+
+        const muzzleInstance = critterMuzzleInstanceByCritter.get(i);
+        if (muzzleInstance !== undefined) {
+          const muzzleScale =
+            critter.kind === "lizard"
+              ? { x: 0.082, y: 0.048, z: 0.13 }
+              : critter.kind === "mouse"
+                ? { x: 0.06, y: 0.05, z: 0.082 }
+                : critter.kind === "woodrat"
+                  ? { x: 0.072, y: 0.058, z: 0.094 }
+                  : critter.kind === "rabbit"
+                    ? { x: 0.082, y: 0.065, z: 0.1 }
+                    : { x: 0.072, y: 0.058, z: 0.092 };
+          const muzzleForward = critter.headScale.z * 0.88;
+          dummy.position.set(
+            headX + forwardX * muzzleForward,
+            headY - critter.headScale.y * 0.12,
+            headZ + forwardZ * muzzleForward,
+          );
+          dummy.rotation.set(0, critter.heading, 0);
+          dummy.scale.set(muzzleScale.x, muzzleScale.y, muzzleScale.z);
+          dummy.updateMatrix();
+          critterMuzzles.setMatrixAt(muzzleInstance, dummy.matrix);
+        }
+
+        const beakInstance = critterBeakInstanceByCritter.get(i);
+        if (beakInstance !== undefined) {
+          const beakForward = critter.headScale.z * 0.95;
+          dummy.position.set(
+            headX + forwardX * beakForward,
+            headY - 0.015,
+            headZ + forwardZ * beakForward,
+          );
+          dummy.rotation.set(Math.PI / 2, critter.heading, 0);
+          dummy.scale.set(0.042, 0.105, 0.042);
+          dummy.updateMatrix();
+          critterBeaks.setMatrixAt(beakInstance, dummy.matrix);
         }
 
         for (const legIndex of critterLegIndicesByCritter[i]) {
@@ -3538,6 +3636,8 @@ export function createWorld(
       critterHeads.instanceMatrix.needsUpdate = true;
       critterEars.instanceMatrix.needsUpdate = true;
       critterEyes.instanceMatrix.needsUpdate = true;
+      critterMuzzles.instanceMatrix.needsUpdate = true;
+      critterBeaks.instanceMatrix.needsUpdate = true;
       critterLegs.instanceMatrix.needsUpdate = true;
       critterPlumes.instanceMatrix.needsUpdate = true;
       critterThinTails.instanceMatrix.needsUpdate = true;
