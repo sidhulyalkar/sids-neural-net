@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   ARCADE_CAVE,
+  arcadeCaveTerrainMask,
   coastlineX,
   eastCoastlineX,
   constrainMove,
@@ -124,6 +125,21 @@ test("arcade cavern exposes the same playable games as the established arcade", 
   assert.deepEqual(games.map(g => g.href), arcadeGames.filter(g => g.status === "playable").map(g => `/arcade/${g.slug}`));
   assert.equal(games[0].title, "Stretchicorn");
   assert.equal(REGIONS.find(r => r.id === "cavern")?.href, "/arcade");
+});
+
+test("arcade cave terrain is physically carved flat through the tunnel core", () => {
+  const z = ARCADE_CAVE.entrance.z + ARCADE_CAVE.tunnelDepth * 0.62;
+  const center = terrainHeight(ARCADE_CAVE.entrance.x, z);
+  const left = terrainHeight(ARCADE_CAVE.entrance.x - 2.2, z);
+  const right = terrainHeight(ARCADE_CAVE.entrance.x + 2.2, z);
+  assert.ok(arcadeCaveTerrainMask(ARCADE_CAVE.entrance.x, z) > 0.9);
+  assert.ok(Math.abs(left - center) < 0.35);
+  assert.ok(Math.abs(right - center) < 0.35);
+  assert.equal(
+    arcadeCaveTerrainMask(ARCADE_CAVE.entrance.x + 8, z),
+    0,
+    "mountain outside the tunnel feather should remain untouched",
+  );
 });
 
 test("arcade cave is a deep backside mountain tunnel rather than an exterior arch", () => {
