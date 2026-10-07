@@ -81,7 +81,7 @@ Use weighted distance fields / smooth blend regions so:
 - fog and ambient color shift gradually;
 - wildlife does not stop exactly at an invisible border.
 
-Recommended transition widths: **6–15 world units**.
+Recommended starting transition widths: **6–15 world units**, refined by terrain scale and the shared transition contract in sections 16.6–16.9.
 
 ---
 
@@ -1001,7 +1001,7 @@ Fallen deadwood should be abundant enough to feel ecologically real, but only se
 
 # 16. Joshua Tree / San Diego-origin desert biome
 
-This biome should represent Sid's Southern California origin and Joshua Tree interest.
+This biome should evoke Sid's Southern California experiences and Joshua Tree interest, without asserting a birthplace.
 
 ## 16.1 Rock formation language
 
@@ -1088,6 +1088,155 @@ Use low wildlife density. Desert should feel open.
 
 ---
 
+## 16.4 Visual identity and color authority
+
+The target is a pale, sun-weathered monzogranite landscape with muted living greens, spacious sandy ground, and cool crevice shadows. Do not turn the biome into orange sandstone, red mesas, yellow dunes, or a cactus garden.
+
+This is an art-directed Southern California / Joshua Tree composite, not a geographically literal adjacency of Joshua Tree, Santa Cruz, alpine terrain, and Costa Rica. Do not infer Sid's birthplace or sightings from this biome.
+
+The following sRGB swatches are authored starting values, not measured ecological colors. Evaluate them under the world's existing neutral daylight, tone mapping, and exposure before tuning. Convert through the renderer's established color pipeline exactly once. Golden-hour warmth belongs primarily to shared lighting, not orange base materials.
+
+| Surface or plant region | Base color | Secondary color | Placement rule |
+| --- | --- | --- | --- |
+| Main monzogranite | `#BBAA91` warm gray-beige | `#D5C4AA` pale buff | Broad exposed masses; retain readable faces in sun |
+| Feldspar warmth | `#C4A795` dusty rose | `#A58C79` taupe | Restrained patches, not every boulder |
+| Weathered rock / joint recess | `#8B7D6D` | `#6A6662` cool gray | Sparse weathering and recess detail; real shadows remain lighting-driven |
+| Decomposed granite / grus | `#C5B18B` | `#AE9977` | Coarse aprons at rock bases grading into soil |
+| Dry sandy wash | `#D7C6A5` | `#BCA987` | Pale winding drainage, sparse pebbles |
+| Dry compact soil | `#AA9574` | `#91816A` | Open interspaces; avoid one flat beige field |
+| Joshua living leaf rosettes | `#68735A` | `#8C9270` | Muted olive/sage; pointed leaf silhouettes |
+| Joshua trunk / dead leaf skirt | `#716356` | `#9C896A` | Fibrous gray-brown trunk, straw skirt beneath tips |
+| Creosote | `#646D48` | `#858666` | Small airy shrubs with visible ground beneath |
+| Cholla body / spine halo | `#8E9574` | `#D9CCA8` | Muted stems; cream spines only close up |
+| Ocotillo | `#7C705E` | `#818562` | Thin gray-brown canes, sparse optional leaves |
+| Dry bunchgrass | `#A99A70` | `#C2B28B` | Sparse tufts; never a continuous lawn |
+| Rare flower accents | `#B65F43` / `#CEB564` | — | Tiny seasonal accents, disabled by default |
+
+Material rules:
+- Rock is matte and granular: initial roughness 0.85–1.0, metalness 0. No polished/plastic boulders.
+- Use low-frequency vertex/instance color variation for broad weathering, restrained fine detail at close range, and shared materials. Avoid random per-face confetti.
+- Joint grooves must follow each formation's structural axes. Large forms carry the silhouette; micro-noise must not turn them into crumpled foil.
+- Base burial, talus, grus, and contact shadow ground each formation. Do not paint black ambient-occlusion rings around every rock.
+- A formation crossing a transition retains one coherent local material field; camera position must not recolor it.
+- Preserve the alpine cave's cooler granite identity from section 7.5. This palette does not recolor the Arcade mountain.
+
+## 16.5 Authored desert subzones
+
+NPS distinguishes Mojave Joshua-tree communities, lower Colorado Desert ocotillo/cholla communities, and higher pinyon/juniper woodland. Use this distinction to organize the composition, not as a mandate to simulate real regional climate.
+
+| Subzone | Landform and composition | Vegetation | Player experience |
+| --- | --- | --- | --- |
+| Upper Joshua basin | Broad open floor framed by 2–3 granite masses | Irregular Joshua-tree clusters with widely spaced creosote | First unmistakable desert vista; readable route |
+| Granite passages | Interlocking domes, jointed blocks, grus aprons | Sparse plants in soil pockets outside passage clearance | Shaded slot walk and optional bouldering loop |
+| Lower warm wash | Shallow braided dry channel and open banks | Creosote, local cholla groups, occasional ocotillo | Curving route toward coastal scrub |
+| Dry mountain shoulder | Exposed ribs, talus, progressively cooler gray rock | Sparse juniper/pinyon forms fading uphill | Links desert to lower mountain before alpine snow |
+| Scrub margin | Rolling gravel/soil ground with increasing plant cover | Muted sage-like shrubs and dry bunchgrass | Long, gradual link to central paths and coast |
+
+Composition starting targets, to be tuned against actual map scale:
+- Keep roughly 60–75% of the main basin floor visibly open from the entry view. This is an art target, not a biological statistic.
+- Author one dominant dome, two supporting formation groups, and at most one balanced-rock hero visible from the main approach.
+- Cluster plants by habitat suitability, leaving broad gaps. Avoid uniform grids and equal spacing.
+- Use 3–5 Joshua-tree silhouette variants: unbranched juvenile, two-arm, asymmetric multi-arm, taller sparse crown, and one rare weathered form. Vary proportions without stretching leaf rosettes into balls.
+- Joshua trees need branching woody trunks, upward/outward arms, dense pointed terminal rosettes, and restrained dead-leaf skirts. They must not read as palms, conifers, or green spheres.
+- Cholla needs articulated branching segments; ocotillo needs a sparse fan of long tapering canes. No saguaros as generic desert shorthand.
+- Flowering is an optional coherent seasonal treatment, not permanent scattered neon.
+- Wildlife follows section 16.3 at low density, with shade/basking/perch anchors. Keep a clear main walking route and optional climbing detours.
+
+## 16.6 Natural biome transitions — shared island contract
+
+This section refines sections 2, 3, and 19. The existing 6–15-unit transition recommendation is a starting range for local ground/vegetation overlap, not a universal stripe painted around every biome. Large visible slopes may need a broader authored sequence. Final widths must be chosen after inspecting map scale and normal travel speed.
+
+One spatial system must drive ground materials, vegetation suitability, habitat assignment, and atmospheric targets. Independent border noise per subsystem is forbidden.
+
+Extend the sampler internally to normalized multi-biome weights plus continuous elevation, slope, moisture, exposure, and substrate fields. Keep the existing `primary / secondary / blend` API as a compatibility projection if callers need it; two winning labels alone must not control a three-way junction.
+
+Required sampler invariants:
+- All values finite; weights nonnegative and sum to 1 within 1e-6.
+- Sample the same world-space position and seed identically regardless of camera, frame rate, travel direction, or quality tier.
+- Smooth overlapping influence fields before normalization; guard the zero-total case with a defined local fallback.
+- No categorical branch on `primary` for ground color, fog, or density.
+- At three-way junctions, retain all relevant weights without a seam caused by swapping second place.
+- Low-frequency boundary perturbation uses a shared stable world-space field. Noise must not create isolated wet-forest specks in the desert interior.
+
+Placement:
+- Derive species density from biome weights multiplied by elevation, slope, moisture, and substrate suitability.
+- Generate stable candidate positions and stable per-candidate random thresholds at scene construction/chunk build time.
+- Taper population density spatially; do not resample plants as the player moves.
+- Mix species by habitat rather than morphing a Joshua tree into a redwood.
+- Exclude paths, jump takeoffs/landings, cave mouths, interaction approaches, and water channels using existing authored footprints.
+- Fauna home ranges may overlap compatible margins; animals turn through ordinary movement, never disappear on a biome line.
+
+Terrain and appearance:
+- Terrain height and surface normals remain continuous across biome boundaries. Biome masks decorate and constrain the shared terrain rather than stitch disconnected heightfields.
+- Transition exposed rock to grus to soil to leaf litter through spatial material weights; fade moss/ferns with local moisture.
+- Stable material variation stays attached to world space. Only atmosphere responds to camera position.
+- Use the shared sun and exposure. Shift local ambient/fog gently; never use abrupt per-biome white balance, sky replacement, or colored spotlights.
+- Smooth atmosphere toward the camera's local target over approximately 1–2 seconds, with a bounded frame-time update; teleports initialize to the destination target instead of carrying the old biome's fog.
+- Preserve reduced-motion behavior; transitions need no animated screen effects.
+- Ski snowfall remains the established mode effect across land. It does not change species distribution or redefine the desert as alpine.
+
+## 16.7 Transition routes and geographic separation
+
+| Connection | Required visible sequence | Reject |
+| --- | --- | --- |
+| Desert → mountain | Open wash → Joshua basin → dry woodland shoulder → sparse conifers/talus → patchy snow → upper snowfield | Joshua trees touching a continuous snow wall |
+| Desert → California scrub | Pale gravel → mixed compact soil → denser sage-toned shrubs → coastal scrub → beach margin | Beige/green straight line or desert trees rooted in surf |
+| Redwood → desert, if visible nearby | Moist forest interior → drier mixed woodland → scrub saddle behind ridge → open desert | Giant redwoods interspersed with cholla as random border scatter |
+| Desert → rainforest | Route through broad scrub/central terrain and an intervening ridge; tropical moisture increases on the far side | Ferns and tropical palms immediately bordering Joshua-tree rows |
+| Redwood → alpine | Fern/log understory → mixed conifer slope → sparse treeline → rock/snow | Abrupt forest deletion at altitude threshold |
+| Rainforest → lagoon | Canopy thins → coastal vegetation → beach/backshore → wet shoreline → shallow sand → reef patches | Coral rooted on dry sand or rainforest ending at a ruler-straight edge |
+| Kelp → warm lagoon | Separate coastal coves with rocky headland and open-water/sandy habitat gap | Coral/giant-kelp checkerboard or a visible straight water-color seam |
+
+The fictional island compresses climate zones. Landform separation and intermediate habitats make this legible; a color gradient alone cannot make rainforest directly adjoining desert ecologically literal. Preserve distinct marine communities while blending water appearance smoothly.
+
+Do not redirect the required alpine waterfall into a dry wash simply to connect features. Keep its established forest drainage; desert washes are normally dry unless a separate credible water source is authored.
+
+## 16.8 Traversal, performance, and implementation order
+
+- Author the approach along a winding wash so the first Joshua silhouettes appear before the entire basin opens.
+- Reveal the main dome after a bend; offer an optional slot passage and climbing loop that reconnects with the main trail.
+- The main route stays comfortably walkable, with camera clearance; scenic crevices need not all be traversable.
+- Existing climbing/interaction mechanics and rendered surfaces must share their authored definitions. Decorative rocks must not imply a climbable mechanic that is absent.
+- Start Phase 1 with sampler/transition fields and a palette blockout. Phase 9 builds the desert modules and qualifies the complete desert route. Do not postpone the blending architecture until final decoration.
+- Keep distant landform silhouettes visible while culling dense vegetation and fauna independently.
+- Camera-visible adjacent biome chunks may be rendered even when the player is in another biome. Player membership alone is not a visibility test.
+- Use frustum/distance chunk culling with hysteresis and stable LOD. Avoid whole-root pop-in and transparent duplicate forests used as a crossfade.
+- Shared materials, merged static formation geometry, instanced vegetation, and bounded fauna updates remain mandatory.
+- Measure the shared boundary view with both neighbors visible. The existing <100 draw-call gate and preferred triangle/renderable targets apply to the combined view, not to each biome separately.
+- Optional spine/flower/fine-grain detail may be reduced by quality tier; preserve Joshua-tree and rock silhouettes, paths, and discoveries.
+
+## 16.9 Visual qualification and rejection criteria
+
+Required fixed-seed views at identical neutral daylight/exposure:
+1. Desert approach from scrub: early silhouettes and no material seam.
+2. Basin wide: pale granite, open ground, distinct Joshua forms.
+3. Dome close-up: matte granular surface, joint logic, grounded base.
+4. Slot passage: readable shade, floor and camera clearance.
+5. Lower wash: distinct cholla/ocotillo composition and dry drainage.
+6. Dry shoulder looking both downhill to desert and uphill toward snow.
+7. The nearest woodland/desert separation and any three-biome junction.
+8. A worst-case boundary view with both neighboring habitats rendered.
+
+Also record forward/reverse traversal of each actual desert boundary at walking and bike speed. Inspect for ground seams, lighting pulses, plant/LOD popping, collision changes, and fauna disappearance. Include desktop and the existing mobile viewport.
+
+Acceptance:
+- Neutral daylight reads warm beige/granite with subdued olive foliage; no orange wash, white clipping, neon green plants, or plasticky rock.
+- Joshua trees are recognizable in silhouette without labels.
+- Vegetation shifts in multiple stages tied to terrain, not in a uniform hedge.
+- No duplicated overlapping terrain sheets, z-fighting, artificial straight border, or three-way junction seam.
+- Main paths, bouldering approaches, Shasta following, and existing cave/sport entry routes remain usable.
+- Atmosphere stays continuous across boundaries and settles correctly after navigation jumps.
+- Worst-case combined rendering stays within the unchanged budget.
+
+Add meaningful implementation tests when the substrate is built: deterministic normalized samples at interiors/edges/junctions; continuity on fixed transects; stable placement IDs; species exclusions in known incompatible habitats; and traversal/visibility regression coverage. These are future runtime qualification requirements, not claims that a documentation update has already passed visual review.
+
+References for ecological/geological grounding (palette, density, timing and widths above are authored design targets):
+- https://www.nps.gov/jotr/learn/nature/geologicformations.htm
+- https://www.nps.gov/jotr/learn/nature/plants.htm
+
+
+---
+
 # 17. Ecology module API
 
 Avoid one-off renderer code.
@@ -1169,7 +1318,7 @@ lagoonRoot
 
 Rules:
 - active biome fully visible/animated
-- adjacent transition biome may remain partially visible
+- adjacent transition biome remains visible where camera/frustum and distance require it; use section 16.8 chunk visibility rather than player membership alone
 - distant dense fauna roots disabled
 - water fauna only animate while corresponding reef is active
 - rainforest canopy hero animals only update while rainforest is active
