@@ -41,8 +41,9 @@ try {
   assert.equal(await page.locator('canvas').getAttribute('data-shasta-tail-parts'), '6');
   assert.equal(await page.locator('canvas').getAttribute('data-shasta-eye'), '#b47a2f');
   assert.equal(await page.locator('canvas').getAttribute('data-shasta-nose'), '#95645b');
-  assert.equal(await page.locator('canvas').getAttribute('data-shasta-profile-version'), 'photo-profile-v2');
+  assert.equal(await page.locator('canvas').getAttribute('data-shasta-profile-version'), 'photo-profile-v3-natural-coat');
   assert.equal(await page.locator('canvas').getAttribute('data-shasta-tail-style'), 'continuous-relaxed-plume');
+  assert.equal(await page.locator('canvas').getAttribute('data-shasta-harness'), 'false');
   await screenshot(page, 'desktop-welcome');
   await page.getByRole('button', { name: 'Explore world', exact: true }).click();
   const before = await page.locator('canvas').getAttribute('data-player');
@@ -74,7 +75,7 @@ try {
   assert.ok(dogMotion.phase > beforeDogPhase);
   results.push('Keyboard walking changes player position');
   results.push('Shasta follow gait uses smooth acceleration, stable curiosity and articulated distance-phased motion');
-  results.push('Shasta character profile uses male identity, amber eyes, pink-brown nose, smooth photo-profile geometry and a continuous relaxed plume tail');
+  results.push('Shasta character profile uses male identity, natural coat geometry without harness/brow bulges, amber eyes, pink-brown nose and a continuous relaxed plume tail');
   results.push('Land wildlife uses anatomical-v4 silhouettes with eyes, grounded legs, species-specific muzzles/beaks, ears and tails');
   results.push('Marine wildlife uses anatomical-v3 fish fins, smooth ray/shark bodies and stronger facial cues');
   for (const [name, prompt, title] of [
