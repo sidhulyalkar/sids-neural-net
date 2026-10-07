@@ -39,6 +39,8 @@ try {
   assert.equal(await page.locator('canvas').getAttribute('data-shasta-tail-parts'), '6');
   assert.equal(await page.locator('canvas').getAttribute('data-shasta-eye'), '#b47a2f');
   assert.equal(await page.locator('canvas').getAttribute('data-shasta-nose'), '#95645b');
+  assert.equal(await page.locator('canvas').getAttribute('data-shasta-profile-version'), 'photo-profile-v2');
+  assert.equal(await page.locator('canvas').getAttribute('data-shasta-tail-style'), 'continuous-relaxed-plume');
   await screenshot(page, 'desktop-welcome');
   await page.getByRole('button', { name: 'Explore world', exact: true }).click();
   const before = await page.locator('canvas').getAttribute('data-player');
@@ -70,7 +72,7 @@ try {
   assert.ok(dogMotion.phase > beforeDogPhase);
   results.push('Keyboard walking changes player position');
   results.push('Shasta follow gait uses smooth acceleration, stable curiosity and articulated distance-phased motion');
-  results.push('Shasta character profile uses male identity, amber eyes, pink-brown nose and a six-part relaxed plume tail');
+  results.push('Shasta character profile uses male identity, amber eyes, pink-brown nose, smooth photo-profile geometry and a continuous relaxed plume tail');
   for (const [name, prompt, title] of [
     ['01 Redwood grove A little about me', 'Redwood grove', 'Redwood grove.'],
     ['02 Granite ridge Things I build', 'Granite ridge', 'Granite ridge.'],
