@@ -32,10 +32,11 @@ export const SHASTA_CHARACTER = {
     torso: { x: 0.31, y: 0.36, z: 0.8 },
     chest: { x: 0.31, y: 0.39, z: 0.35 },
     neck: { x: 0.27, y: 0.31, z: 0.29 },
-    head: { x: 0.255, y: 0.285, z: 0.285 },
-    muzzle: { x: 0.205, y: 0.145, z: 0.34 },
+    head: { x: 0.245, y: 0.275, z: 0.29 },
+    muzzle: { x: 0.18, y: 0.13, z: 0.39 },
+    cheek: { x: 0.13, y: 0.14, z: 0.18 },
     paw: { x: 0.105, y: 0.062, z: 0.155 },
-    ear: { x: 0.135, y: 0.43, z: 0.155 },
+    ear: { x: 0.125, y: 0.42, z: 0.15 },
   },
   coat: {
     // Light face and underside are the dominant read; color is concentrated
@@ -46,12 +47,15 @@ export const SHASTA_CHARACTER = {
     crownTan: { y: 1.565, z: 0.82, x: 0, sx: 0.145, sy: 0.105, sz: 0.22 },
   },
   face: {
-    eyeX: 0.14,
-    eyeY: 1.52,
-    eyeZ: 1.045,
-    pupilZ: 1.069,
+    eyeX: 0.135,
+    eyeY: 1.515,
+    eyeZ: 1.055,
+    pupilZ: 1.079,
+    cheekX: 0.155,
+    cheekY: 1.39,
+    cheekZ: 0.87,
     noseY: 1.34,
-    noseZ: 1.245,
+    noseZ: 1.285,
   },
   tail: {
     /**
@@ -70,6 +74,12 @@ export const SHASTA_CHARACTER = {
     ] as const,
     restAngleZ: 0.035,
     restAngleY: -0.08,
+  },
+  rendering: {
+    profileVersion: "photo-profile-v2",
+    bodySegments: 9,
+    bodyRings: 7,
+    tailStyle: "continuous-relaxed-plume",
   },
   harness: {
     enabledInWorld: true,
