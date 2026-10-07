@@ -1947,6 +1947,15 @@ export function createWorld(
       const fin = mesh(cone, sharkMat, [side * 0.45, -0.035, 0.24], [0.15, 0.66, 0.105], shark);
       fin.rotation.z = side * 1.18;
     }
+    const sharkEyeMat = mat("#111719", { roughness: 0.35 });
+    for (const side of [-1, 1])
+      mesh(
+        shastaBodyGeo,
+        sharkEyeMat,
+        [side * 0.26, 0.08, 1.68],
+        [0.045, 0.038, 0.028],
+        shark,
+      );
     mesh(cone, sharkMat, [0, 0.28, -1.72], [0.2, 0.48, 0.11], shark);
     const lowerTail = mesh(cone, sharkMat, [0, -0.25, -1.72], [0.18, 0.4, 0.1], shark);
     lowerTail.rotation.z = Math.PI;
@@ -2012,6 +2021,15 @@ export function createWorld(
     const octMat = mat("#b66c58", { flatShading: false, roughness: 0.92 });
     mesh(shastaBodyGeo, octMat, [0, 0.4, 0], [0.33, 0.46, 0.31], o);
     mesh(shastaBodyGeo, octMat, [0, 0.14, 0.03], [0.39, 0.23, 0.37], o);
+    const octEyeMat = mat("#171514", { roughness: 0.42 });
+    for (const side of [-1, 1])
+      mesh(
+        shastaBodyGeo,
+        octEyeMat,
+        [side * 0.18, 0.44, 0.24],
+        [0.045, 0.035, 0.026],
+        o,
+      );
     const tentacles: Instance[] = [];
     for (let arm = 0; arm < 8; arm++) {
       const a = (arm * Math.PI) / 4;
@@ -2290,6 +2308,31 @@ export function createWorld(
     false,
     tropicalReefRoot,
   );
+
+  type TropicalFishPectoral = { fishIndex: number; side: -1 | 1 };
+  const tropicalFishPectoralStates: TropicalFishPectoral[] =
+    tropicalFishStates.flatMap((_, fishIndex) => [
+      { fishIndex, side: -1 as const },
+      { fishIndex, side: 1 as const },
+    ]);
+  const tropicalFishPectorals = instances(
+    cone,
+    mat("#ffffff", { roughness: 0.9 }),
+    tropicalFishPectoralStates.map(({ fishIndex }) => {
+      const fish = tropicalFishStates[fishIndex];
+      return {
+        x: fish.centerX,
+        y: fish.baseY,
+        z: fish.centerZ,
+        sx: fish.size * 0.055,
+        sy: fish.size * fish.bodyX * 0.62,
+        sz: fish.size * 0.05,
+        color: fish.color,
+      };
+    }),
+    false,
+    tropicalReefRoot,
+  );
   type TropicalFishEye = { fishIndex: number; side: number };
   const tropicalFishEyeStates: TropicalFishEye[] = tropicalFishStates.flatMap(
     (_, fishIndex) => [
@@ -2435,6 +2478,15 @@ export function createWorld(
       );
       finTip.rotation.z = side * 1.18;
     }
+    const sharkEyeMat = mat("#111719", { roughness: 0.35 });
+    for (const side of [-1, 1])
+      mesh(
+        shastaBodyGeo,
+        sharkEyeMat,
+        [side * 0.24, 0.075, 1.48],
+        [0.042, 0.036, 0.027],
+        shark,
+      );
     mesh(cone, tipMat, [0, 0.26, -1.52], [0.18, 0.42, 0.1], shark);
     const lowerTail = mesh(
       cone,
@@ -2471,7 +2523,7 @@ export function createWorld(
   const tropicalMotes = new THREE.Points(tropicalMoteGeo, tropicalMoteMat);
   tropicalReefRoot.add(tropicalMotes);
   canvas.dataset.lagoonSpecies = "7";
-  canvas.dataset.marineWildlifeStyle = "anatomical-v2";
+  canvas.dataset.marineWildlifeStyle = "anatomical-v3";
 
   // A tiny world-space bubble field follows the swimmer. The points rise independently
   // of the character's pitch so snorkeling/diving motion reads naturally.
@@ -4043,6 +4095,31 @@ export function createWorld(
         dummy.updateMatrix();
         tropicalFishDorsals.setMatrixAt(i, dummy.matrix);
 
+        for (const side of [-1, 1] as const) {
+          const pectoralIndex = i * 2 + (side === -1 ? 0 : 1);
+          dummy.position.set(
+            x +
+              rightX * side * fish.size * fish.bodyX * 0.82 -
+              forwardX * fish.size * 0.02,
+            y - fish.size * fish.bodyY * 0.05,
+            z +
+              rightZ * side * fish.size * fish.bodyX * 0.82 -
+              forwardZ * fish.size * 0.02,
+          );
+          dummy.rotation.set(
+            Math.PI / 2,
+            yawFish,
+            side * (0.82 + Math.sin(a * 2.1 + side) * 0.08),
+          );
+          dummy.scale.set(
+            fish.size * 0.055,
+            fish.size * fish.bodyX * 0.62,
+            fish.size * 0.05,
+          );
+          dummy.updateMatrix();
+          tropicalFishPectorals.setMatrixAt(pectoralIndex, dummy.matrix);
+        }
+
         for (const side of [-1, 1]) {
           const eyeIndex = i * 2 + (side === -1 ? 0 : 1);
           dummy.position.set(
@@ -4067,6 +4144,7 @@ export function createWorld(
       tropicalFishBodies.instanceMatrix.needsUpdate = true;
       tropicalFishTails.instanceMatrix.needsUpdate = true;
       tropicalFishDorsals.instanceMatrix.needsUpdate = true;
+      tropicalFishPectorals.instanceMatrix.needsUpdate = true;
       tropicalFishEyes.instanceMatrix.needsUpdate = true;
 
       tropicalRays.forEach((rayState, i) => {
