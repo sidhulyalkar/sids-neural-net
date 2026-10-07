@@ -776,6 +776,7 @@ export function createWorld(
   const caveRock = mat("#303b3d");
   const caveDeepRock = mat("#222b2d");
   const caveShell: Instance[] = [];
+  const caveLining: Instance[] = [];
   const caveFloorStones: Instance[] = [];
   const caveSections = 9;
   for (let i = 0; i < caveSections; i++) {
@@ -784,55 +785,62 @@ export function createWorld(
     const floor = terrainHeight(arcade.x, z);
     const halfWidth = ARCADE_CAVE.tunnelHalfWidth - t * 0.38;
     const clearance = ARCADE_CAVE.ceilingClearance - t * 0.28;
-    // Two rough side columns plus overlapping crown stones make the tunnel read
-    // as continuous rock rather than another decorative arch.
+    // A continuous dark envelope prevents sky cracks. Small irregular rock
+    // cladding sits around the perimeter only, leaving the central sightline and
+    // camera boom clear instead of filling the tunnel with giant shards.
+    caveLining.push(
+      {
+        x: arcade.x - (halfWidth + 0.42),
+        y: floor + clearance * 0.48,
+        z,
+        sx: 0.72,
+        sy: clearance * 1.06,
+        sz: 1.82,
+      },
+      {
+        x: arcade.x + (halfWidth + 0.42),
+        y: floor + clearance * 0.48,
+        z,
+        sx: 0.72,
+        sy: clearance * 1.06,
+        sz: 1.82,
+      },
+      {
+        x: arcade.x,
+        y: floor + clearance + 0.28,
+        z,
+        sx: halfWidth * 2.02,
+        sy: 0.56,
+        sz: 1.82,
+      },
+    );
     for (const side of [-1, 1]) {
       caveShell.push(
         {
-          x: arcade.x + side * (halfWidth + 0.48),
+          x: arcade.x + side * (halfWidth + 0.1),
           y: floor + 1.15,
-          z,
-          sx: 1.15,
-          sy: 1.75,
-          sz: 1.35,
+          z: z + Math.sin(i * 0.9 + side) * 0.12,
+          sx: 0.72,
+          sy: 1.02,
+          sz: 0.88,
           ry: i * 0.63 + side * 0.3,
         },
         {
-          x: arcade.x + side * (halfWidth + 0.18),
-          y: floor + 3.0,
+          x: arcade.x + side * (halfWidth * 0.72),
+          y: floor + clearance - 0.18,
           z: z + 0.12,
-          sx: 1.05,
-          sy: 1.4,
-          sz: 1.28,
+          sx: 0.78,
+          sy: 0.52,
+          sz: 0.86,
           ry: i * 0.41 - side * 0.5,
         },
       );
       obstacles.push({
-        x: arcade.x + side * (halfWidth + 1.05),
+        x: arcade.x + side * (halfWidth + 0.92),
         z,
-        radius: 0.78,
+        radius: 0.68,
       });
     }
-    caveShell.push(
-      {
-        x: arcade.x - 1.55,
-        y: floor + clearance,
-        z,
-        sx: 1.9,
-        sy: 0.72,
-        sz: 1.35,
-        ry: i * 0.51,
-      },
-      {
-        x: arcade.x + 1.55,
-        y: floor + clearance + 0.08,
-        z,
-        sx: 1.9,
-        sy: 0.72,
-        sz: 1.35,
-        ry: i * 0.51 + 0.8,
-      },
-    );
     caveFloorStones.push({
       x: arcade.x + Math.sin(i * 1.4) * 0.22,
       y: floor + 0.045,
@@ -843,6 +851,12 @@ export function createWorld(
       ry: Math.sin(i) * 0.08,
     });
   }
+  instances(
+    boxGeo,
+    mat("#182123", { flatShading: false, roughness: 1 }),
+    caveLining,
+    false,
+  );
   instances(rockGeo, caveRock, caveShell);
   instances(rockGeo, mat("#273134"), caveFloorStones, false);
 
@@ -875,7 +889,7 @@ export function createWorld(
     cylinder,
     mat("#5a4631"),
     [ARCADE_CAVE.lantern.x, lanternY, ARCADE_CAVE.lantern.z],
-    [0.22, 0.38, 0.22],
+    [0.14, 0.25, 0.14],
   );
   mesh(
     rockGeo,
@@ -885,9 +899,9 @@ export function createWorld(
       roughness: 0.35,
     }),
     [ARCADE_CAVE.lantern.x, lanternY, ARCADE_CAVE.lantern.z],
-    [0.13, 0.22, 0.13],
+    [0.085, 0.14, 0.085],
   );
-  const caveLight = new THREE.PointLight("#ffcb83", 11, 15, 1.8);
+  const caveLight = new THREE.PointLight("#ffcb83", 9, 14, 1.8);
   caveLight.position.set(ARCADE_CAVE.lantern.x, lanternY - 0.05, ARCADE_CAVE.lantern.z);
   scene.add(caveLight);
 
@@ -966,7 +980,13 @@ export function createWorld(
           [...bits].forEach((bit, px) => {
             if (bit !== "1") return;
             carvingGlyphs.push({
-              x: startX + index * 4 * scale + px * scale,
+              // The wall is viewed while facing +Z, which reverses world-X on
+              // screen. Mirror both glyph order and each 3-column bitmap so the
+              // carving reads normally from the cave entrance.
+              x:
+                startX +
+                (line.length - 1 - index) * 4 * scale +
+                (2 - px) * scale,
               y: baseline - py * scale,
               z: arcadeWall.z - 0.57,
               sx: scale * 0.78,
