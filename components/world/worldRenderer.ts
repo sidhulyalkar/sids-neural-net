@@ -1706,7 +1706,7 @@ export function createWorld(
       const fin = mesh(cone, sharkMat, [side * 0.45, -0.035, 0.24], [0.15, 0.66, 0.105], shark);
       fin.rotation.z = side * 1.18;
     }
-    const upperTail = mesh(cone, sharkMat, [0, 0.28, -1.72], [0.2, 0.48, 0.11], shark);
+    mesh(cone, sharkMat, [0, 0.28, -1.72], [0.2, 0.48, 0.11], shark);
     const lowerTail = mesh(cone, sharkMat, [0, -0.25, -1.72], [0.18, 0.4, 0.1], shark);
     lowerTail.rotation.z = Math.PI;
     const leopardMarks: Instance[] = [];
@@ -2100,14 +2100,30 @@ export function createWorld(
         : kind === "eagle"
           ? { x: 1.55, z: 1.18 }
           : { x: 1.15, z: 0.98 };
+    const rayMat = mat(color, {
+      side: THREE.DoubleSide,
+      flatShading: false,
+      roughness: 0.88,
+    });
     const body = mesh(
       rayGeo,
-      mat(color, { side: THREE.DoubleSide }),
+      rayMat,
       [0, 0, 0],
       [scale.x, scale.z, 1],
       group,
     );
     body.rotation.x = Math.PI / 2;
+    mesh(
+      shastaBodyGeo,
+      rayMat,
+      [0, 0.045, 0.12],
+      [
+        kind === "manta" ? 0.4 : 0.3,
+        kind === "manta" ? 0.12 : 0.1,
+        kind === "manta" ? 0.68 : 0.52,
+      ],
+      group,
+    );
     const tailLength = kind === "manta" ? 2.1 : kind === "eagle" ? 2.8 : 2.2;
     const rayTail = segment(
       new THREE.Vector3(0, 0, -0.55),
@@ -2138,7 +2154,7 @@ export function createWorld(
           sy: 0.025,
           sz: 0.055,
         });
-      instances(rockGeo, mat("#d8e1d5"), spots, false, group);
+      instances(shastaBodyGeo, mat("#d8e1d5", { flatShading: false }), spots, false, group);
     }
     tropicalReefRoot.add(group);
     tropicalRays.push({ object: group, kind, radiusX, radiusZ, speed, phase, baseY });
@@ -2150,19 +2166,43 @@ export function createWorld(
   const tropicalSharks: THREE.Group[] = [];
   for (let i = 0; i < 3; i++) {
     const shark = new THREE.Group();
-    const sharkMat = mat("#82958f");
+    const sharkMat = mat("#82958f", { flatShading: false, roughness: 0.86 });
+    const undersideMat = mat("#bac2ba", { flatShading: false, roughness: 0.9 });
     const tipMat = mat("#263634");
-    mesh(rockGeo, sharkMat, [0, 0, 0], [0.42, 0.28, 1.65], shark);
-    const dorsal = mesh(cone, sharkMat, [0, 0.34, -0.08], [0.2, 0.48, 0.18], shark);
-    dorsal.rotation.x = -0.16;
-    const dorsalTip = mesh(cone, tipMat, [0, 0.62, -0.12], [0.11, 0.2, 0.1], shark);
-    dorsalTip.rotation.x = -0.16;
+    mesh(shastaBodyGeo, sharkMat, [0, 0, 0], [0.41, 0.27, 1.66], shark);
+    mesh(shastaBodyGeo, sharkMat, [0, -0.01, 1.32], [0.29, 0.2, 0.48], shark);
+    mesh(shastaBodyGeo, undersideMat, [0, -0.145, 0.12], [0.34, 0.085, 1.18], shark);
+    const dorsal = mesh(cone, sharkMat, [0, 0.33, -0.08], [0.19, 0.47, 0.17], shark);
+    dorsal.rotation.x = -0.15;
+    const dorsalTip = mesh(cone, tipMat, [0, 0.57, -0.11], [0.095, 0.18, 0.085], shark);
+    dorsalTip.rotation.x = -0.15;
     for (const side of [-1, 1]) {
-      const fin = mesh(cone, sharkMat, [side * 0.43, -0.03, 0.18], [0.14, 0.58, 0.1], shark);
+      const fin = mesh(
+        cone,
+        sharkMat,
+        [side * 0.42, -0.025, 0.2],
+        [0.135, 0.56, 0.095],
+        shark,
+      );
       fin.rotation.z = side * 1.18;
+      const finTip = mesh(
+        cone,
+        tipMat,
+        [side * 0.67, -0.03, 0.17],
+        [0.07, 0.18, 0.06],
+        shark,
+      );
+      finTip.rotation.z = side * 1.18;
     }
-    const tail = mesh(cone, tipMat, [0, 0, -1.55], [0.38, 0.58, 0.12], shark);
-    tail.rotation.x = Math.PI / 2;
+    mesh(cone, tipMat, [0, 0.26, -1.52], [0.18, 0.42, 0.1], shark);
+    const lowerTail = mesh(
+      cone,
+      tipMat,
+      [0, -0.23, -1.52],
+      [0.16, 0.35, 0.09],
+      shark,
+    );
+    lowerTail.rotation.z = Math.PI;
     tropicalReefRoot.add(shark);
     tropicalSharks.push(shark);
   }
@@ -2190,6 +2230,7 @@ export function createWorld(
   const tropicalMotes = new THREE.Points(tropicalMoteGeo, tropicalMoteMat);
   tropicalReefRoot.add(tropicalMotes);
   canvas.dataset.lagoonSpecies = "7";
+  canvas.dataset.marineWildlifeStyle = "anatomical-v2";
 
   // A tiny world-space bubble field follows the swimmer. The points rise independently
   // of the character's pitch so snorkeling/diving motion reads naturally.
