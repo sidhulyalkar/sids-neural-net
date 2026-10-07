@@ -6,6 +6,7 @@ import { gaitBlendForSpeed, smoothAngle, smoothPoint, smoothingAlpha, steerShast
 import * as THREE from "three/src/Three.Core.js";
 import type { WebGLRenderer } from "three/src/renderers/WebGLRenderer.js";
 import {
+  ARCADE_CAVE,
   constrainMove,
   distance,
   MEMORY_POINTS,
@@ -765,48 +766,165 @@ export function createWorld(
   const splash = mesh(geo(new THREE.TorusGeometry(2.1, 0.055, 4, 24)), mat("#d6f6ec"), [falls.x, fallsY + 0.12, falls.z - 1], [1, 1, 1]);
   splash.rotation.x = -Math.PI / 2;
   splash.castShadow = false;
-  // A walk-in rock arch frames a physical cabinet; the actual games use their existing routes.
-  const arcade = REGIONS.find(r => r.id === "cavern")!.point;
+  // The arcade now lives inside a real tunnel on the backside of Granite Ridge.
+  // Menu travel lands outside the entrance; the player must walk uphill into the
+  // mountain before the carved games become selectable.
+  const arcade = ARCADE_CAVE.entrance;
   const arcadeY = terrainHeight(arcade.x, arcade.z);
-  const cave: Instance[] = [];
-  for (let i = 0; i < 9; i++) {
-    const a = i * Math.PI / 8;
-    const crown = Math.sin(a) > 0.72;
-    cave.push({
-      x: arcade.x + Math.cos(a) * 5.55,
-      y: arcadeY + Math.sin(a) * 6.15 + (crown ? 1.05 : 0),
-      z: arcade.z - 3.0,
-      sx: crown ? 1.12 : 1.35,
-      sy: crown ? 0.98 : 1.25,
-      sz: crown ? 1.72 : 2.05,
-      ry: i * 0.74,
+  const arcadeWall = ARCADE_CAVE.wall;
+  const arcadeWallY = terrainHeight(arcadeWall.x, arcadeWall.z);
+  const caveRock = mat("#303b3d");
+  const caveDeepRock = mat("#222b2d");
+  const caveShell: Instance[] = [];
+  const caveFloorStones: Instance[] = [];
+  const caveSections = 9;
+  for (let i = 0; i < caveSections; i++) {
+    const t = i / (caveSections - 1);
+    const z = arcade.z + ARCADE_CAVE.tunnelDepth * t;
+    const floor = terrainHeight(arcade.x, z);
+    const halfWidth = ARCADE_CAVE.tunnelHalfWidth - t * 0.38;
+    const clearance = ARCADE_CAVE.ceilingClearance - t * 0.28;
+    // Two rough side columns plus overlapping crown stones make the tunnel read
+    // as continuous rock rather than another decorative arch.
+    for (const side of [-1, 1]) {
+      caveShell.push(
+        {
+          x: arcade.x + side * (halfWidth + 0.48),
+          y: floor + 1.15,
+          z,
+          sx: 1.15,
+          sy: 1.75,
+          sz: 1.35,
+          ry: i * 0.63 + side * 0.3,
+        },
+        {
+          x: arcade.x + side * (halfWidth + 0.18),
+          y: floor + 3.0,
+          z: z + 0.12,
+          sx: 1.05,
+          sy: 1.4,
+          sz: 1.28,
+          ry: i * 0.41 - side * 0.5,
+        },
+      );
+      obstacles.push({
+        x: arcade.x + side * (halfWidth + 1.05),
+        z,
+        radius: 0.78,
+      });
+    }
+    caveShell.push(
+      {
+        x: arcade.x - 1.55,
+        y: floor + clearance,
+        z,
+        sx: 1.9,
+        sy: 0.72,
+        sz: 1.35,
+        ry: i * 0.51,
+      },
+      {
+        x: arcade.x + 1.55,
+        y: floor + clearance + 0.08,
+        z,
+        sx: 1.9,
+        sy: 0.72,
+        sz: 1.35,
+        ry: i * 0.51 + 0.8,
+      },
+    );
+    caveFloorStones.push({
+      x: arcade.x + Math.sin(i * 1.4) * 0.22,
+      y: floor + 0.045,
+      z,
+      sx: 2.8,
+      sy: 0.075,
+      sz: 0.92,
+      ry: Math.sin(i) * 0.08,
     });
   }
-  instances(rockGeo, mat("#354d58"), cave);
-  for (const side of [-1, 1])
-    obstacles.push({ x: arcade.x + side * 5.35, z: arcade.z - 3.0, radius: 1.25 });
+  instances(rockGeo, caveRock, caveShell);
+  instances(rockGeo, mat("#273134"), caveFloorStones, false);
 
-  // A shallow stone floor and warm local light make the wall read as an interior,
-  // not a pile of dark exterior boulders.
-  mesh(boxGeo, mat("#26383e"), [arcade.x, arcadeY + 0.03, arcade.z - 4.8], [10.2, 0.12, 7.6]);
-  const caveLight = new THREE.PointLight("#ffd9a6", 17, 18, 2);
-  caveLight.position.set(arcade.x, arcadeY + 3.4, arcade.z - 4.3);
+  // Blend the entrance into the actual mountain shoulder with irregular portal
+  // rocks, leaving a dark readable opening rather than a freestanding ring.
+  const entranceRocks: Instance[] = [
+    { x: arcade.x - 3.65, y: arcadeY + 1.4, z: arcade.z - 0.45, sx: 1.75, sy: 2.15, sz: 1.6, ry: 0.4 },
+    { x: arcade.x + 3.65, y: arcadeY + 1.5, z: arcade.z - 0.25, sx: 1.8, sy: 2.25, sz: 1.65, ry: -0.55 },
+    { x: arcade.x - 1.7, y: arcadeY + 4.15, z: arcade.z + 0.05, sx: 2.0, sy: 0.9, sz: 1.6, ry: 0.2 },
+    { x: arcade.x + 1.7, y: arcadeY + 4.18, z: arcade.z + 0.08, sx: 2.0, sy: 0.9, sz: 1.6, ry: -0.3 },
+  ];
+  instances(rockGeo, mat("#3a4646"), entranceRocks);
+
+  // A single small hanging lantern provides the cave's warm interior light.
+  const lanternFloor = terrainHeight(ARCADE_CAVE.lantern.x, ARCADE_CAVE.lantern.z);
+  const lanternY = lanternFloor + ARCADE_CAVE.ceilingClearance - 0.85;
+  const lanternChain = segment(
+    new THREE.Vector3(ARCADE_CAVE.lantern.x, lanternY + 0.95, ARCADE_CAVE.lantern.z),
+    new THREE.Vector3(ARCADE_CAVE.lantern.x, lanternY + 0.28, ARCADE_CAVE.lantern.z),
+    0.026,
+  );
+  const chainMesh = mesh(
+    cylinder,
+    mat("#3d3730"),
+    [lanternChain.x, lanternChain.y, lanternChain.z],
+    [lanternChain.sx, lanternChain.sy, lanternChain.sz],
+  );
+  chainMesh.quaternion.copy(lanternChain.q!);
+  mesh(
+    cylinder,
+    mat("#5a4631"),
+    [ARCADE_CAVE.lantern.x, lanternY, ARCADE_CAVE.lantern.z],
+    [0.22, 0.38, 0.22],
+  );
+  mesh(
+    rockGeo,
+    mat("#ffd08a", {
+      emissive: "#f3a43b",
+      emissiveIntensity: 1.8,
+      roughness: 0.35,
+    }),
+    [ARCADE_CAVE.lantern.x, lanternY, ARCADE_CAVE.lantern.z],
+    [0.13, 0.22, 0.13],
+  );
+  const caveLight = new THREE.PointLight("#ffcb83", 11, 15, 1.8);
+  caveLight.position.set(ARCADE_CAVE.lantern.x, lanternY - 0.05, ARCADE_CAVE.lantern.z);
   scene.add(caveLight);
 
-  // The cavern wall is the game selector: broad recessed bands carry carved names.
-  mesh(boxGeo, mat("#314850"), [arcade.x, arcadeY + 3.15, arcade.z - 6.75], [10.1, 6.45, 0.72]);
-  const carvingBandMaterial = mat("#24363d");
-  const carvingBands: Instance[] = Array.from({ length: 3 }, (_, row) => ({
-    x: arcade.x,
-    y: arcadeY + 4.42 - row * 1.42,
-    z: arcade.z - 6.37,
-    sx: 8.35,
-    sy: 1.08,
-    sz: 0.06,
+  // Build a rough back wall from stone, then inset three separate game panels.
+  // They are horizontally spaced so gaze/click selection has generous hit areas.
+  const caveBackWall: Instance[] = [];
+  for (let ix = -4; ix <= 4; ix++) {
+    for (let iy = 0; iy < 3; iy++) {
+      caveBackWall.push({
+        x: arcadeWall.x + ix * 1.05,
+        y: arcadeWallY + 0.85 + iy * 1.35,
+        z: arcadeWall.z + 0.38 + Math.sin(ix * 1.3 + iy) * 0.12,
+        sx: 0.72,
+        sy: 0.9,
+        sz: 0.7,
+        ry: ix * 0.6 + iy,
+      });
+    }
+  }
+  instances(rockGeo, caveDeepRock, caveBackWall);
+  const carvingBandMaterial = mat("#172225", {
+    emissive: "#503d27",
+    emissiveIntensity: 0.22,
+  });
+  const panelY = arcadeWallY + 2.35;
+  const carvingBands: Instance[] = ARCADE_CAVE.gamePanelXs.map((x) => ({
+    x,
+    y: panelY,
+    z: arcadeWall.z - 0.42,
+    sx: 2.55,
+    sy: 2.65,
+    sz: 0.13,
   }));
   const carvingBandMesh = instances(boxGeo, carvingBandMaterial, carvingBands, false);
   carvingBandMesh.userData.discoveryByInstance = ["game:0", "game:1", "game:2"];
   markerObjects.push(carvingBandMesh);
+
   const glyphs: Record<string, string[]> = {
     A: ["010","101","111","101","101"], C: ["111","100","100","100","111"],
     D: ["110","101","101","101","110"], E: ["111","100","110","100","111"],
@@ -818,48 +936,68 @@ export function createWorld(
   };
   const carvingTitles = (gameTitles.length ? gameTitles : ["Stretchicorn", "uniRico", "Unicorn Stampede"]).slice(0, 3);
   canvas.dataset.carvedGames = String(carvingTitles.length);
-  const carvingMaterial = mat("#dec995", { emissive: "#9b7741", emissiveIntensity: 0.62, roughness: 0.85 });
+  canvas.dataset.caveStyle = "backside-mountain-tunnel";
+  canvas.dataset.caveLantern = "true";
+  canvas.dataset.caveGamePanels = String(carvingBands.length);
+  const carvingMaterial = mat("#d7bc82", {
+    emissive: "#9b6d31",
+    emissiveIntensity: 0.55,
+    roughness: 0.9,
+  });
   const carvingGlyphs: Instance[] = [];
-  carvingTitles.forEach((title, row) => {
-    const text = title.toUpperCase();
-    const scale = Math.min(0.12, 6.8 / Math.max(4, text.length * 4));
-    const width = text.length * 4 * scale;
-    const startX = arcade.x - width / 2 + scale * 0.5;
-    const baseline = arcadeY + 4.6 - row * 1.42;
-    [...text].forEach((letter, index) => {
-      const pattern = letter === " " ? [] : glyphs[letter];
-      if (!pattern) return;
-      pattern.forEach((bits, py) => [...bits].forEach((bit, px) => {
-        if (bit !== "1") return;
-        carvingGlyphs.push({
-          x: startX + index * 4 * scale + px * scale,
-          y: baseline - py * scale,
-          z: arcade.z - 6.34,
-          sx: scale * 0.78,
-          sy: scale * 0.78,
-          sz: 0.05,
-        });
-      }));
+  carvingTitles.forEach((title, panelIndex) => {
+    const words = title.toUpperCase().split(" ");
+    const lines =
+      title.length > 11 && words.length > 1
+        ? words
+        : [title.toUpperCase()];
+    const maxChars = Math.max(...lines.map((line) => line.length));
+    const scale = Math.min(0.055, 2.15 / Math.max(4, maxChars * 4));
+    const lineStep = 6.2 * scale;
+    lines.forEach((line, lineIndex) => {
+      const width = line.length * 4 * scale;
+      const startX = ARCADE_CAVE.gamePanelXs[panelIndex] - width / 2 + scale * 0.5;
+      const baseline =
+        panelY + ((lines.length - 1) * lineStep) / 2 - lineIndex * lineStep + scale * 2;
+      [...line].forEach((letter, index) => {
+        const pattern = glyphs[letter];
+        if (!pattern) return;
+        pattern.forEach((bits, py) =>
+          [...bits].forEach((bit, px) => {
+            if (bit !== "1") return;
+            carvingGlyphs.push({
+              x: startX + index * 4 * scale + px * scale,
+              y: baseline - py * scale,
+              z: arcadeWall.z - 0.57,
+              sx: scale * 0.78,
+              sy: scale * 0.78,
+              sz: 0.04,
+            });
+          }),
+        );
+      });
     });
   });
   instances(boxGeo, carvingMaterial, carvingGlyphs, false);
-  // A lower frieze keeps three abstract carved glyphs distinct from the game names:
-  // a horn, a branching neuron, and a mountain.
-  const runeZ = arcade.z - 6.31;
-  const caveRunes = [
-    segment(new THREE.Vector3(arcade.x - 3.2, arcadeY + 0.42, runeZ), new THREE.Vector3(arcade.x - 2.72, arcadeY + 0.98, runeZ), 0.05),
-    segment(new THREE.Vector3(arcade.x - 2.72, arcadeY + 0.98, runeZ), new THREE.Vector3(arcade.x - 2.9, arcadeY + 0.68, runeZ), 0.04),
-    segment(new THREE.Vector3(arcade.x, arcadeY + 0.38, runeZ), new THREE.Vector3(arcade.x, arcadeY + 1.02, runeZ), 0.045),
-    segment(new THREE.Vector3(arcade.x, arcadeY + 0.78, runeZ), new THREE.Vector3(arcade.x - 0.42, arcadeY + 1.02, runeZ), 0.04),
-    segment(new THREE.Vector3(arcade.x, arcadeY + 0.78, runeZ), new THREE.Vector3(arcade.x + 0.42, arcadeY + 1.02, runeZ), 0.04),
-    segment(new THREE.Vector3(arcade.x, arcadeY + 0.58, runeZ), new THREE.Vector3(arcade.x - 0.34, arcadeY + 0.42, runeZ), 0.035),
-    segment(new THREE.Vector3(arcade.x, arcadeY + 0.58, runeZ), new THREE.Vector3(arcade.x + 0.34, arcadeY + 0.42, runeZ), 0.035),
-    segment(new THREE.Vector3(arcade.x + 2.55, arcadeY + 0.4, runeZ), new THREE.Vector3(arcade.x + 3.05, arcadeY + 1.04, runeZ), 0.05),
-    segment(new THREE.Vector3(arcade.x + 3.05, arcadeY + 1.04, runeZ), new THREE.Vector3(arcade.x + 3.58, arcadeY + 0.4, runeZ), 0.05),
-  ];
-  instances(cylinder, mat("#a58f68"), caveRunes, false);
 
-  // No arcade cabinet is duplicated here; the wall itself is the portfolio/game interface.
+  // Subtle carved symbols below each game keep the wall personal without adding
+  // UI chrome: horn, branching neuron, mountain.
+  const runeZ = arcadeWall.z - 0.58;
+  const runeY = arcadeWallY + 0.85;
+  const [leftGameX, middleGameX, rightGameX] = ARCADE_CAVE.gamePanelXs;
+  const caveRunes = [
+    segment(new THREE.Vector3(leftGameX - 0.28, runeY, runeZ), new THREE.Vector3(leftGameX + 0.2, runeY + 0.56, runeZ), 0.04),
+    segment(new THREE.Vector3(leftGameX + 0.2, runeY + 0.56, runeZ), new THREE.Vector3(leftGameX + 0.02, runeY + 0.26, runeZ), 0.032),
+    segment(new THREE.Vector3(middleGameX, runeY, runeZ), new THREE.Vector3(middleGameX, runeY + 0.62, runeZ), 0.035),
+    segment(new THREE.Vector3(middleGameX, runeY + 0.38, runeZ), new THREE.Vector3(middleGameX - 0.38, runeY + 0.62, runeZ), 0.032),
+    segment(new THREE.Vector3(middleGameX, runeY + 0.38, runeZ), new THREE.Vector3(middleGameX + 0.38, runeY + 0.62, runeZ), 0.032),
+    segment(new THREE.Vector3(rightGameX - 0.5, runeY, runeZ), new THREE.Vector3(rightGameX, runeY + 0.62, runeZ), 0.04),
+    segment(new THREE.Vector3(rightGameX, runeY + 0.62, runeZ), new THREE.Vector3(rightGameX + 0.5, runeY, runeZ), 0.04),
+  ];
+  instances(cylinder, mat("#9a8462"), caveRunes, false);
+
+  // No arcade cabinet is duplicated here; the mountain wall itself is the portfolio/game interface.
+
   // Sport equipment stays lightweight but uses recognizable proportions and materials.
   const board = new THREE.Group(), bike = new THREE.Group(), skis = new THREE.Group();
   explorer.add(board, bike, skis);
