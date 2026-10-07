@@ -3177,17 +3177,22 @@ export function createWorld(
                 : zoom;
       const cameraYaw = aquatic === "dive" ? yaw + 0.28 : yaw;
       if (cavernFraming) {
-        const caveCameraZ = Math.max(arcade.z + 0.35, player.z - 6.2);
+        // Keep the third-person boom centered inside the authored tunnel.
+        // A lower eye line prevents the roof from swallowing the frame while
+        // preserving the explorer silhouette against the carved game wall.
+        const caveCameraZ = Math.max(arcade.z + 0.9, player.z - 4.2);
+        const caveCameraFloor = terrainHeight(arcade.x, caveCameraZ);
         targetCamera.set(
           arcade.x,
-          terrainHeight(arcade.x, caveCameraZ) + 1.72,
+          caveCameraFloor + 2.05,
           caveCameraZ,
         );
       } else if (cavernApproachFraming) {
+        const approachCameraZ = arcade.z - 6.8;
         targetCamera.set(
           arcade.x,
-          arcadeY + 5.15,
-          arcade.z - 8.7,
+          terrainHeight(arcade.x, approachCameraZ) + 2.6,
+          approachCameraZ,
         );
       } else {
         targetCamera.set(
@@ -3196,26 +3201,43 @@ export function createWorld(
           player.z + Math.cos(cameraYaw) * cameraZoom * Math.cos(pitch),
         );
       }
-      // Keep a trunk from obscuring the explorer on land.
+      // Keep a trunk from obscuring the explorer on land. The cave uses its own
+      // tighter camera clearance because the global +3.5m terrain clamp pushed
+      // the camera into the roof on the steep backside slope.
       if (aquatic === "land") {
-        const bx = targetCamera.x - player.x,
-          bz = targetCamera.z - player.z;
-        let boom = 1;
-        for (const o of obstacles) {
-          const t =
-            ((o.x - player.x) * bx + (o.z - player.z) * bz) / (bx * bx + bz * bz);
-          if (
-            t > 0.08 &&
-            t < boom &&
-            Math.hypot(player.x + bx * t - o.x, player.z + bz * t - o.z) <
-              o.radius + 0.75
-          ) boom = Math.max(0.25, t - 0.15);
+        if (cavernFraming) {
+          const cameraFloor = terrainHeight(targetCamera.x, targetCamera.z);
+          const cameraCeiling = cameraFloor + ARCADE_CAVE.ceilingClearance;
+          targetCamera.y = THREE.MathUtils.clamp(
+            targetCamera.y,
+            cameraFloor + 1.65,
+            cameraCeiling - 0.9,
+          );
+        } else if (cavernApproachFraming) {
+          targetCamera.y = Math.max(
+            targetCamera.y,
+            terrainHeight(targetCamera.x, targetCamera.z) + 2.2,
+          );
+        } else {
+          const bx = targetCamera.x - player.x,
+            bz = targetCamera.z - player.z;
+          let boom = 1;
+          for (const o of obstacles) {
+            const t =
+              ((o.x - player.x) * bx + (o.z - player.z) * bz) / (bx * bx + bz * bz);
+            if (
+              t > 0.08 &&
+              t < boom &&
+              Math.hypot(player.x + bx * t - o.x, player.z + bz * t - o.z) <
+                o.radius + 0.75
+            ) boom = Math.max(0.25, t - 0.15);
+          }
+          if (boom < 1) targetCamera.lerpVectors(targetLook, targetCamera, boom);
+          targetCamera.y = Math.max(
+            targetCamera.y,
+            worldFloorHeight(targetCamera.x, targetCamera.z) + 3.5,
+          );
         }
-        if (boom < 1) targetCamera.lerpVectors(targetLook, targetCamera, boom);
-        targetCamera.y = Math.max(
-          targetCamera.y,
-          worldFloorHeight(targetCamera.x, targetCamera.z) + 3.5,
-        );
       } else if (aquatic === "surface") {
         targetCamera.y = Math.min(targetCamera.y, SEA_SURFACE + 4.8);
       } else if (aquatic === "dive") {
@@ -4135,8 +4157,9 @@ export function createWorld(
                     : 0.25;
         }
         if (r.id === "cavern") {
+          yaw = Math.PI;
           pitch = 0.22;
-          zoom = Math.min(zoom, 16);
+          zoom = Math.min(zoom, 15);
         }
         // Menu-driven semantic travel closes a dialog whose focus-restoration
         // target is the menu trigger. Exploration should immediately regain
