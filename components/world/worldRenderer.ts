@@ -796,8 +796,12 @@ export function createWorld(
     const t = i / (caveSections - 1);
     const z = arcade.z + ARCADE_CAVE.tunnelDepth * t;
     const floor = terrainHeight(arcade.x, z);
-    const halfWidth = ARCADE_CAVE.tunnelHalfWidth - t * 0.38;
-    const clearance = ARCADE_CAVE.ceilingClearance - t * 0.28;
+    const chamberFlare =
+      THREE.MathUtils.smoothstep(t, 0.56, 1) * 1.35;
+    const halfWidth =
+      ARCADE_CAVE.tunnelHalfWidth - t * 0.18 + chamberFlare;
+    const clearance =
+      ARCADE_CAVE.ceilingClearance - t * 0.18 + chamberFlare * 0.16;
     // A continuous dark envelope prevents sky cracks. Small irregular rock
     // cladding sits around the perimeter only, leaving the central sightline and
     // camera boom clear instead of filling the tunnel with giant shards.
@@ -3083,6 +3087,7 @@ export function createWorld(
         Math.abs(player.x - arcade.x) < ARCADE_CAVE.tunnelHalfWidth - 0.25;
       canvas.dataset.caveInside = String(caveInside);
       canvas.dataset.caveDepth = caveProgress.toFixed(3);
+      canvas.dataset.caveChamber = String(caveProgress > 0.58);
       let rawGazeGame: string | null = null;
       const cavernCameraSettled =
         camera.position.distanceTo(targetCamera) < 1.35 &&
@@ -3123,10 +3128,21 @@ export function createWorld(
         locationKey = nextKey;
         callbacks.onLocation(r, discovery);
       }
+      const cavernApproachFraming =
+        aquatic === "land" &&
+        r === "cavern" &&
+        caveProgress <= 0.32 &&
+        distance(player, arcade) < 5.8;
       const cavernFraming =
         caveInside && caveProgress > 0.48 && distance(player, arcadeWall) < 8.5;
       if (cavernFraming) {
         targetLook.set(arcadeWall.x, arcadeWallY + 2.05, arcadeWall.z - 0.5);
+      } else if (cavernApproachFraming) {
+        targetLook.set(
+          arcade.x,
+          terrainHeight(arcade.x, arcade.z + 3.6) + 1.75,
+          arcade.z + 3.6,
+        );
       } else {
         const aquaticLookAhead = aquatic === "land" ? 0 : aquatic === "dive" ? 3.2 : 2.2;
         targetLook.set(
@@ -3152,6 +3168,12 @@ export function createWorld(
           arcade.x,
           terrainHeight(arcade.x, caveCameraZ) + 1.72,
           caveCameraZ,
+        );
+      } else if (cavernApproachFraming) {
+        targetCamera.set(
+          arcade.x,
+          arcadeY + 5.15,
+          arcade.z - 8.7,
         );
       } else {
         targetCamera.set(
