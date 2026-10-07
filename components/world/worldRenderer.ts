@@ -2070,8 +2070,8 @@ export function createWorld(
     if (marker && marker.distance < 55) {
       const discoveryId = discoveryForHit(marker);
       if (discoveryId?.startsWith("game:")) {
-        if (distance(player, arcade) < 8) callbacks.onInteract(discoveryId);
-        else destination = { ...arcade };
+        if (distance(player, arcadeWall) < 7.4) callbacks.onInteract(discoveryId);
+        else destination = { x: arcadeWall.x, z: arcadeWall.z - 4.2 };
         return;
       }
       const point = markerData.find((m) => m.id === discoveryId);
@@ -2550,14 +2550,26 @@ export function createWorld(
           : 0
       ).toFixed(3);
       const r: RegionId = isWater(player) ? "coast" : nearestRegion(player);
+      const caveProgress = THREE.MathUtils.clamp(
+        (player.z - arcade.z) / ARCADE_CAVE.tunnelDepth,
+        0,
+        1,
+      );
+      const caveInside =
+        aquatic === "land" &&
+        r === "cavern" &&
+        caveProgress > 0.12 &&
+        Math.abs(player.x - arcade.x) < ARCADE_CAVE.tunnelHalfWidth - 0.25;
+      canvas.dataset.caveInside = String(caveInside);
+      canvas.dataset.caveDepth = caveProgress.toFixed(3);
       let rawGazeGame: string | null = null;
       const cavernCameraSettled =
         camera.position.distanceTo(targetCamera) < 1.35 &&
         look.distanceTo(targetLook) < 0.65;
       if (
-        aquatic === "land" &&
-        r === "cavern" &&
-        distance(player, arcade) < 10 &&
+        caveInside &&
+        caveProgress > 0.58 &&
+        distance(player, arcadeWall) < 7.4 &&
         cavernCameraSettled
       ) {
         ray.setFromCamera(gazePointer, camera);
@@ -2591,9 +2603,9 @@ export function createWorld(
         callbacks.onLocation(r, discovery);
       }
       const cavernFraming =
-        aquatic === "land" && r === "cavern" && distance(player, arcade) < 10;
+        caveInside && caveProgress > 0.48 && distance(player, arcadeWall) < 8.5;
       if (cavernFraming) {
-        targetLook.set(arcade.x, arcadeY + 3.25, arcade.z - 6.3);
+        targetLook.set(arcadeWall.x, arcadeWallY + 2.35, arcadeWall.z - 0.48);
       } else {
         const aquaticLookAhead = aquatic === "land" ? 0 : aquatic === "dive" ? 3.2 : 2.2;
         targetLook.set(
@@ -3323,7 +3335,7 @@ export function createWorld(
         } else {
           yaw =
             r.id === "cavern"
-              ? 0
+              ? Math.PI
               : r.id === "coast"
                 ? 1.15
                 : r.id === "lagoon"
