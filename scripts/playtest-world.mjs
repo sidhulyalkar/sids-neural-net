@@ -125,6 +125,10 @@ try {
         await page.locator('canvas').getAttribute('data-cave-chamber'),
         'true',
       );
+      assert.equal(
+        await page.locator('canvas').getAttribute('data-cave-camera-clear'),
+        'true',
+      );
       await page.waitForFunction(
         () => document.querySelector('canvas')?.dataset.caveDogClear === 'true',
         null,
@@ -153,7 +157,7 @@ try {
       for (const href of games) assert.equal((await page.request.get(`${base}${href}`)).status(), 200);
       await page.keyboard.press('Escape');
       assert.equal(await page.locator('dialog').evaluate(d => d.open), false);
-      results.push('Arcade cavern requires entering the terrain-carved sealed backside tunnel, then gaze-selects three spaced carved games under lantern light');
+      results.push('Arcade cavern lands outside a camera-safe sloped backside tunnel, then gaze-selects three spaced carved games under lantern light');
       results.push(`Landmark, discovery, and dismissal: ${name}`);
       continue;
     }
