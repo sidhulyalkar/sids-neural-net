@@ -1965,35 +1965,55 @@ export function createWorld(
     phase: number;
     size: number;
     color: string;
+    bodyX: number;
+    bodyY: number;
+    bodyZ: number;
   };
   const tropicalFishPalette = [
-    "#f0c84b", "#5eb8cb", "#6b73c9", "#e57f55", "#75b86d", "#e9e1c2", "#9d63bd",
+    "#f0c84b",
+    "#5eb8cb",
+    "#6b73c9",
+    "#e57f55",
+    "#75b86d",
+    "#e9e1c2",
+    "#9d63bd",
   ];
-  const tropicalFishStates: TropicalFishState[] = Array.from({ length: 34 }, (_, i) => {
-    const centerZ = -15 + (i % 7) * 8 + random() * 3;
-    const centerX = eastCoastlineX(centerZ) + 9 + random() * 9;
-    return {
-      centerX,
-      centerZ,
-      radiusX: 1.7 + random() * 5.2,
-      radiusZ: 2.4 + random() * 6.6,
-      baseY: -2.8 - random() * 4.8,
-      speed: 0.18 + random() * 0.24,
-      phase: random() * Math.PI * 2,
-      size: 0.22 + random() * 0.34,
-      color: tropicalFishPalette[i % tropicalFishPalette.length],
-    };
-  });
+  const tropicalFishStates: TropicalFishState[] = Array.from(
+    { length: 34 },
+    (_, i) => {
+      const centerZ = -15 + (i % 7) * 8 + random() * 3;
+      const centerX = eastCoastlineX(centerZ) + 9 + random() * 9;
+      const shape = i % 3;
+      const proportions =
+        shape === 0
+          ? { bodyX: 0.3, bodyY: 0.2, bodyZ: 1.15 } // slender fusiform
+          : shape === 1
+            ? { bodyX: 0.48, bodyY: 0.42, bodyZ: 0.78 } // deep-bodied reef fish
+            : { bodyX: 0.4, bodyY: 0.27, bodyZ: 0.94 }; // general oval
+      return {
+        centerX,
+        centerZ,
+        radiusX: 1.7 + random() * 5.2,
+        radiusZ: 2.4 + random() * 6.6,
+        baseY: -2.8 - random() * 4.8,
+        speed: 0.18 + random() * 0.24,
+        phase: random() * Math.PI * 2,
+        size: 0.22 + random() * 0.34,
+        color: tropicalFishPalette[i % tropicalFishPalette.length],
+        ...proportions,
+      };
+    },
+  );
   const tropicalFishBodies = instances(
-    rockGeo,
-    mat("#ffffff"),
+    shastaBodyGeo,
+    mat("#ffffff", { flatShading: false, roughness: 0.86 }),
     tropicalFishStates.map((fish) => ({
       x: fish.centerX,
       y: fish.baseY,
       z: fish.centerZ,
-      sx: fish.size * 0.42,
-      sy: fish.size * 0.26,
-      sz: fish.size * 0.9,
+      sx: fish.size * fish.bodyX,
+      sy: fish.size * fish.bodyY,
+      sz: fish.size * fish.bodyZ,
       color: fish.color,
     })),
     false,
@@ -2006,11 +2026,50 @@ export function createWorld(
       x: fish.centerX,
       y: fish.baseY,
       z: fish.centerZ - fish.size,
-      sx: fish.size * 0.24,
-      sy: fish.size * 0.4,
-      sz: fish.size * 0.12,
+      sx: fish.size * (fish.bodyX * 0.58),
+      sy: fish.size * (fish.bodyY * 1.5),
+      sz: fish.size * 0.11,
       color: fish.color,
     })),
+    false,
+    tropicalReefRoot,
+  );
+  const tropicalFishDorsals = instances(
+    cone,
+    mat("#ffffff"),
+    tropicalFishStates.map((fish) => ({
+      x: fish.centerX,
+      y: fish.baseY + fish.size * fish.bodyY * 0.8,
+      z: fish.centerZ - fish.size * 0.05,
+      sx: fish.size * 0.07,
+      sy: fish.size * (fish.bodyY * 0.9),
+      sz: fish.size * 0.1,
+      color: fish.color,
+    })),
+    false,
+    tropicalReefRoot,
+  );
+  type TropicalFishEye = { fishIndex: number; side: number };
+  const tropicalFishEyeStates: TropicalFishEye[] = tropicalFishStates.flatMap(
+    (_, fishIndex) => [
+      { fishIndex, side: -1 },
+      { fishIndex, side: 1 },
+    ],
+  );
+  const tropicalFishEyes = instances(
+    shastaBodyGeo,
+    mat("#172226", { flatShading: false, roughness: 0.6 }),
+    tropicalFishEyeStates.map(({ fishIndex }) => {
+      const fish = tropicalFishStates[fishIndex];
+      return {
+        x: fish.centerX,
+        y: fish.baseY,
+        z: fish.centerZ + fish.size * fish.bodyZ * 0.55,
+        sx: fish.size * 0.045,
+        sy: fish.size * 0.045,
+        sz: fish.size * 0.03,
+      };
+    }),
     false,
     tropicalReefRoot,
   );
