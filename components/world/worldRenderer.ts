@@ -2914,7 +2914,7 @@ export function createWorld(
       const caveInside =
         aquatic === "land" &&
         r === "cavern" &&
-        caveProgress > 0.12 &&
+        caveProgress > 0.3 &&
         Math.abs(player.x - arcade.x) < ARCADE_CAVE.tunnelHalfWidth - 0.25;
       canvas.dataset.caveInside = String(caveInside);
       canvas.dataset.caveDepth = caveProgress.toFixed(3);
