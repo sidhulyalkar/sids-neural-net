@@ -142,6 +142,16 @@ test("arcade cave terrain is physically carved flat through the tunnel core", ()
   );
 });
 
+test("arcade cave semantic landing stays outside the entrance", () => {
+  const landing = regionLanding("cavern");
+  assert.deepEqual(landing, ARCADE_CAVE.approach);
+  assert.ok(
+    landing.z < ARCADE_CAVE.entrance.z - 3,
+    "navigation should place the player outside the backside cave",
+  );
+  assert.equal(nearbyDiscovery(landing), "cavern");
+});
+
 test("arcade cave is a deep backside mountain tunnel rather than an exterior arch", () => {
   const mountain = REGIONS.find(r => r.id === "mountain")!;
   const cavern = REGIONS.find(r => r.id === "cavern")!;
