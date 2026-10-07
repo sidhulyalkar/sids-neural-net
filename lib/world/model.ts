@@ -146,8 +146,11 @@ export function arcadeCaveTerrainMask(x: number, z: number): number {
   const fadeIn = smoothstep01((z - startZ) / 1.9);
   const fadeOut = 1 - smoothstep01((z - (endZ - 1.5)) / 1.5);
   const lateral = Math.abs(x - ARCADE_CAVE.entrance.x);
-  const core = ARCADE_CAVE.tunnelHalfWidth - 0.5;
-  const feather = 1.65;
+  // Keep the carved floor flat underneath the authored side-wall footprint.
+  // The old core ended inside the wall and let the mountain rise through the
+  // interior as a bright triangular seam.
+  const core = ARCADE_CAVE.tunnelHalfWidth + 0.25;
+  const feather = 1.4;
   const lateralMask =
     lateral <= core
       ? 1
