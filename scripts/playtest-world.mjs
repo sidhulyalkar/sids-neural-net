@@ -34,8 +34,8 @@ try {
   assert.equal(await page.locator('canvas').getAttribute('data-reef-species'), '8');
   assert.equal(await page.locator('canvas').getAttribute('data-lagoon-species'), '7');
   assert.equal(await page.locator('canvas').getAttribute('data-land-wildlife'), '10');
-  assert.equal(await page.locator('canvas').getAttribute('data-land-wildlife-style'), 'anatomical-v3');
-  assert.equal(await page.locator('canvas').getAttribute('data-marine-wildlife-style'), 'anatomical-v2');
+  assert.equal(await page.locator('canvas').getAttribute('data-land-wildlife-style'), 'anatomical-v4');
+  assert.equal(await page.locator('canvas').getAttribute('data-marine-wildlife-style'), 'anatomical-v3');
   assert.equal(await page.locator('canvas').getAttribute('data-shasta-sex'), 'male');
   assert.equal(await page.locator('canvas').getAttribute('data-shasta-profile'), 'husky-mix:lean-athletic');
   assert.equal(await page.locator('canvas').getAttribute('data-shasta-tail-parts'), '6');
@@ -75,7 +75,8 @@ try {
   results.push('Keyboard walking changes player position');
   results.push('Shasta follow gait uses smooth acceleration, stable curiosity and articulated distance-phased motion');
   results.push('Shasta character profile uses male identity, amber eyes, pink-brown nose, smooth photo-profile geometry and a continuous relaxed plume tail');
-  results.push('Land wildlife uses anatomical-v3 silhouettes with shared eyes, grounded legs, species-specific heads, ears and tails');
+  results.push('Land wildlife uses anatomical-v4 silhouettes with eyes, grounded legs, species-specific muzzles/beaks, ears and tails');
+  results.push('Marine wildlife uses anatomical-v3 fish fins, smooth ray/shark bodies and stronger facial cues');
   for (const [name, prompt, title] of [
     ['01 Redwood grove A little about me', 'Redwood grove', 'Redwood grove.'],
     ['02 Granite ridge Things I build', 'Granite ridge', 'Granite ridge.'],
