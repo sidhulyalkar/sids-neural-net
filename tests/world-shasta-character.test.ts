@@ -44,13 +44,17 @@ test("Shasta tail is a broad relaxed plume, not a tight torus", () => {
 });
 
 test("Shasta rendering profile keeps a smooth bespoke body and continuous plume", () => {
-  assert.equal(SHASTA_CHARACTER.rendering.profileVersion, "photo-profile-v2");
+  assert.equal(SHASTA_CHARACTER.rendering.profileVersion, "photo-profile-v3-natural-coat");
   assert.equal(SHASTA_CHARACTER.rendering.tailStyle, "continuous-relaxed-plume");
   assert.ok(SHASTA_CHARACTER.rendering.bodySegments >= 9);
   assert.ok(SHASTA_CHARACTER.rendering.bodyRings >= 7);
 });
 
-test("Shasta world accessory remains removable from the body definition", () => {
-  assert.equal(typeof SHASTA_CHARACTER.harness.enabledInWorld, "boolean");
-  assert.ok(SHASTA_CHARACTER.harness.shoulderY > SHASTA_CHARACTER.harness.chestY);
+test("Shasta renders without a harness or volumetric brow markings", () => {
+  assert.equal(SHASTA_CHARACTER.accessories.harnessInWorld, false);
+  assert.equal("crownTan" in SHASTA_CHARACTER.coat, false);
+  assert.ok(
+    SHASTA_CHARACTER.proportions.cheek.y < SHASTA_CHARACTER.proportions.head.y * 0.5,
+    "cheek ruff should not distort the face silhouette",
+  );
 });
