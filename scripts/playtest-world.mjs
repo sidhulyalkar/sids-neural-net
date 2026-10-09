@@ -256,11 +256,17 @@ try {
   await screenshot(page, 'activity-grind');
   results.push('Skateboard acquires the fallen redwood as an angle-selected boardslide');
 
-  // The Ski landing sits close to the ridge log. Backward travel from the authored
-  // kicker-facing spawn approaches that log nearly parallel, qualifying a 50-50.
+  // Ski spawns at (8, -54), facing the southward kicker. Turn toward the
+  // ridge-log endpoint (5, -52): approach (-3, +2) aligns with the log for a 50-50.
   await page.getByRole('button', { name: 'Skiing', exact: true }).click();
   await page.waitForFunction(() => document.activeElement?.tagName === 'CANVAS');
-  await page.keyboard.down('s');
+  const ridgeApproachYaw = Math.atan2(3, -2);
+  const ridgeTurnPixels = (Math.PI - ridgeApproachYaw) / 0.005;
+  await page.mouse.move(700, 450);
+  await page.mouse.down();
+  await page.mouse.move(700 + ridgeTurnPixels, 450, { steps: 12 });
+  await page.mouse.up();
+  await page.keyboard.down('w');
   try {
     await page.waitForFunction(
       () => document.querySelector('canvas')?.dataset.grindReady === 'true',
@@ -275,7 +281,7 @@ try {
       { timeout: 4000 },
     );
   } finally {
-    await page.keyboard.up('s');
+    await page.keyboard.up('w');
   }
   assert.equal(await page.locator('canvas').getAttribute('data-grind-id'), 'ridge-log');
   assert.equal(await page.locator('canvas').getAttribute('data-grind-style'), 'fifty-fifty');

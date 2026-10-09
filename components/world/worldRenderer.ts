@@ -1,9 +1,10 @@
+import { createFishGeometry, createFishBodyGeometry, createCaudalFinGeometry, createDorsalFinGeometry, createPectoralFinGeometry, createSharkGeometry, createRayWingGeometry } from "./worldFaunaGeometry";
 import { createReefGarden } from "./worldReef";
 import { createHabitats } from "./worldHabitats";
 import { ringSurface, ribbon } from "./worldGeometry";
-import { drainagePoints, DOWNSTREAM_PATH } from "@/lib/world/hydrology";
+import { drainagePoints, downstreamPoints, waterfallProfile, waterfallCrownRings } from "@/lib/world/hydrology";
 import { biomeAt, BIOME_COLORS } from "@/lib/world/biomes";
-import { rampSurface, sportClearance, activityLanding, BOULDER_HOLDS, effectiveActivity, FALLEN_LOGS, grindStyleForApproach, groundHeight, nearestGrind, nextHold, onSnow, rampImpulseAt, RIDE_RAMPS, stepSwim, stepTravel, terrainContact, type Activity, type AquaticMode, type GrindStyle, type Travel } from "@/lib/world/activities";
+import { stepAirborne, rampSurface, sportClearance, activityLanding, BOULDER_HOLDS, effectiveActivity, FALLEN_LOGS, grindStyleForApproach, groundHeight, nearestGrind, nextHold, onSnow, rampImpulseAt, RIDE_RAMPS, stepSwim, stepTravel, terrainContact, type Activity, type AquaticMode, type GrindStyle, type Travel } from "@/lib/world/activities";
 import { LAND_WILDLIFE, LAND_WILDLIFE_COLORS } from "@/lib/world/ecology";
 import { SHASTA_CHARACTER } from "@/lib/world/shastaCharacter";
 import { FrameSampler, QualityController } from "@/lib/world/performance";
@@ -15,6 +16,8 @@ import {
   arcadeCaveTerrainMask,
   arcadeInside,
   paperCaveInside,
+  paperCaveHalfWidth,
+  caveObstacles,
   caveHalfWidth,
   mountainSurfaceHeight,
   constrainMove,
@@ -385,9 +388,10 @@ export function createWorld(
   // Authored climbable ledges use the same footprint and top height as navigation.
   const climbRocks: THREE.Mesh[] = [];
   const ledgeGeometry = geo(new THREE.CylinderGeometry(1, 1.15, 1, 8));
+  const desertLedgeMat = mat("#c4b299");
   for (const hold of BOULDER_HOLDS) {
     const y = terrainHeight(hold.x, hold.z);
-    climbRocks.push(mesh(ledgeGeometry, rockMat, [hold.x, y + hold.height / 2, hold.z], [hold.radius, hold.height, hold.radius]));
+    climbRocks.push(mesh(ledgeGeometry, biomeAt(hold).weights.desert > 0.4 ? desertLedgeMat : rockMat, [hold.x, y + hold.height / 2, hold.z], [hold.radius, hold.height, hold.radius]));
     mesh(boxGeo, mat("#e7b574"), [hold.x, y + hold.height + 0.03, hold.z], [0.35, 0.04, 0.35]);
   }
   // Decorative boulders are low enough to step over; tree trunks have collision.
@@ -765,32 +769,31 @@ export function createWorld(
   instances(rockGeo, mat("#687b75"), canyonStone);
   instances(rockGeo, mat("#648d3d"), canyonMoss, false);
   instances(cone, mat("#4d875d"), fernFronds, false); // Stylized fern forms; no species claim.
-  const falls = REGIONS.find(r => r.id === "waterfall")!.point;
-  const fallsY = terrainHeight(falls.x, falls.z);
+  const fallsY = waterfallProfile().floorY;
   const waterRibbonMat=mat("#9dc6c5",{transparent:true,opacity:.7,roughness:.35,side:THREE.DoubleSide});
   const melt=drainagePoints();
   const upper=melt.map(p=>new THREE.Vector3(p.x,p.y,p.z));
-  const lip=new THREE.Vector3(-20,upper[upper.length-1].y-.5,-30);
-  upper.push(new THREE.Vector3(-20,lip.y+.3,-37),new THREE.Vector3(-20,lip.y+.15,-34),lip);
-  mesh(geo(ribbon(upper,upper.map((_,i)=>.6+i*.18))),waterRibbonMat,[0,0,0],[1,1,1]);
+  const lip=upper[upper.length-1];
+  mesh(geo(ribbon(upper,upper.map((_,i)=>.6+1.6*i/(upper.length-1)))),waterRibbonMat,[0,0,0],[1,1,1]);
   const basin=mesh(geo(new THREE.CircleGeometry(2,20)),waterRibbonMat,[upper[0].x,upper[0].y,upper[0].z],[1,1,1]);basin.rotation.x=-Math.PI/2;
   const fallRings=Array.from({length:13},(_,i)=>{const t=i/12;return [new THREE.Vector3(-21.2-Math.sin(t*4)*.12,lip.y+(fallsY+.1-lip.y)*t,-30+t*.8),new THREE.Vector3(-18.8+Math.sin(t*6)*.18,lip.y+(fallsY+.1-lip.y)*t,-30+t*.8)];});
   const waterfall=mesh(geo(ringSurface(fallRings)),waterRibbonMat,[0,0,0],[1,1,1]);waterfall.castShadow=false;
-  const paperRings=Array.from({length:7},(_,i)=>{const z=-30-i;return [new THREE.Vector3(-24,fallsY,z),new THREE.Vector3(-24,fallsY+3.2,z),new THREE.Vector3(-22.5,fallsY+4.7,z),new THREE.Vector3(-20,fallsY+5,z),new THREE.Vector3(-17.5,fallsY+4.7,z),new THREE.Vector3(-16,fallsY+3.2,z),new THREE.Vector3(-16,fallsY,z)];});
+  const paperRings=Array.from({length:7},(_,i)=>{const z=-30-i,w=paperCaveHalfWidth(z);return [new THREE.Vector3(-20-w,fallsY,z),new THREE.Vector3(-20-w,fallsY+3.2,z),new THREE.Vector3(-20-w*.625,fallsY+4.7,z),new THREE.Vector3(-20,fallsY+5,z),new THREE.Vector3(-20+w*.625,fallsY+4.7,z),new THREE.Vector3(-20+w,fallsY+3.2,z),new THREE.Vector3(-20+w,fallsY,z)];});
   mesh(geo(ringSurface(paperRings)),mat("#465958",{side:THREE.DoubleSide}),[0,0,0],[1,1,1]);
   mesh(boxGeo,mat("#43504e"),[-20,fallsY+2.5,-36.2],[8,5,.5]);
   mesh(boxGeo,mat("#4d5a57"),[-20,fallsY-.08,-33],[8,.14,6]);
-  for(const side of [-1,1])for(let z=-30;z>=-36;z--)obstacles.push({x:-20+side*4.2,z,radius:.35});
-  for(let x=-24;x<=-16;x++)obstacles.push({x,z:-36.5,radius:.35});
-  const paperRockRings=[...paperRings, [new THREE.Vector3(-24,fallsY,-38)], [new THREE.Vector3(-24,fallsY,-40)]].map((ring)=>[new THREE.Vector3(-27,terrainHeight(-27,ring[0].z),ring[0].z),new THREE.Vector3(-24,lip.y+.5,ring[0].z),new THREE.Vector3(-20,lip.y,ring[0].z),new THREE.Vector3(-16,lip.y+.5,ring[0].z),new THREE.Vector3(-13,terrainHeight(-13,ring[0].z),ring[0].z)]);
-  mesh(geo(ringSurface(paperRockRings)),mat("#78867a",{side:THREE.DoubleSide}),[0,0,0],[1,1,1]);
+  obstacles.push(...caveObstacles());
+  const paperRockRings = waterfallCrownRings().map(ring => ring.map(p => new THREE.Vector3(p.x, p.y, p.z)));
+  // Close the rock above and beside the mouth without closing the passage.
+  const paperRockSkin = [...paperRockRings, paperRings[0]];
+  mesh(geo(ringSurface(paperRockSkin)),mat("#78867a",{side:THREE.DoubleSide}),[0,0,0],[1,1,1]);
   const paperTablets:Instance[]=Array.from({length:4},(_,i)=>({x:-22.4+i*1.6,y:fallsY+1.9,z:-35.75,sx:1.05,sy:1.5,sz:.16}));
   instances(boxGeo,mat("#8d9c96"),paperTablets,false);
   const paperGlyphs:Instance[]=paperTablets.flatMap(p=>Array.from({length:12},(_,i)=>({x:p.x-.4+i*.07,y:p.y+Math.sin(i*1.8)*.19,z:p.z+.1,sx:.05,sy:.055,sz:.025})));
   instances(boxGeo,mat("#394c4f"),paperGlyphs,false);
   const paperLight=new THREE.PointLight("#b2dce6",4,9,2);paperLight.position.set(-20,fallsY+3,-33);scene.add(paperLight);
   const pool=mesh(geo(new THREE.CircleGeometry(3.7,24)),waterRibbonMat,[-20,fallsY+.08,-27],[1,1,1]);pool.rotation.x=-Math.PI/2;
-  const lower=DOWNSTREAM_PATH.map(p=>new THREE.Vector3(p.x,terrainHeight(p.x,p.z)+.1,p.z));
+  const lower=downstreamPoints().map(p=>new THREE.Vector3(p.x,p.y,p.z));
   mesh(geo(ribbon(lower,lower.map(()=>1.2))),waterRibbonMat,[0,0,0],[1,1,1]);
   const fallingWater=instances(boxGeo,mat("#efffff",{transparent:true,opacity:.45}),Array.from({length:24},(_,i)=>({x:-21+(i%5)*.45,y:fallsY+.3+(i/24)*(lip.y-fallsY-.5),z:-29.55,sx:.025,sy:.3,sz:.025})),false);
   const splash=mesh(geo(new THREE.TorusGeometry(1.2,.04,4,20)),mat("#d6f6ec"),[-20,fallsY+.15,-29],[1,1,1]);splash.rotation.x=-Math.PI/2;
@@ -816,12 +819,10 @@ export function createWorld(
       return [new THREE.Vector3(16,top+.18,z),new THREE.Vector3(16+side*(w+1),Math.max(top+.4,mountainSurfaceHeight(16+side*(w+1),z)),z),new THREE.Vector3(16+side*(w+5),terrainHeight(16+side*(w+5),z),z)];
     });
     mesh(geo(ringSurface(shoulderRings)),mat("#969b94",{side:THREE.DoubleSide,flatShading:false}),[0,0,0],[1,1,1]);
-    for(let z=-81;z<-63;z+=1)obstacles.push({x:16+side*(caveHalfWidth(z)+.4),z,radius:.32});
   }
   mesh(boxGeo,mat("#535b59"),[16,caveFloorY-.12,-72.5],[12.1,.2,19]);
   // Recessed throat baffle blocks the direct exterior view of the rear niche.
   mesh(boxGeo,mat("#646b67"),[14.2,caveFloorY+2.35,-74.5],[4.8,4.7,.7]);
-  for(let x=12;x<16.7;x+=.7)obstacles.push({x,z:-74.5,radius:.28});
   // A single small hanging lantern provides the cave's warm interior light.
   const lanternFloor = terrainHeight(ARCADE_CAVE.lantern.x, ARCADE_CAVE.lantern.z);
   const lanternY = lanternFloor + ARCADE_CAVE.ceilingClearance - 0.85;
@@ -886,7 +887,6 @@ export function createWorld(
   // Build a rough back wall from stone, then inset three separate game panels.
   // They are horizontally spaced so gaze/click selection has generous hit areas.
   mesh(boxGeo,mat("#424b49"),[16,caveFloorY+3,-62.9],[12.8,6.2,.8]);
-  for(let x=10;x<23;x+=.8)obstacles.push({x,z:-62.5,radius:.35});
   const carvingBandMaterial = mat("#11191b", {
     transparent: true,
     opacity: 0.001,
@@ -1733,42 +1733,7 @@ export function createWorld(
 
   function makeFish(kind: "anchovy" | "rockfish", color: string, size: number) {
     const group = new THREE.Group();
-    const bodyMat = mat(color, { flatShading: false, roughness: 0.88 });
-    const bodyScale: number[] =
-      kind === "anchovy"
-        ? [size * 0.19, size * 0.12, size * 1.22]
-        : [size * 0.42, size * 0.3, size * 0.9];
-    mesh(shastaBodyGeo, bodyMat, [0, 0, 0], bodyScale, group);
-    const tailFin = mesh(
-      cone,
-      bodyMat,
-      [0, 0, -size * (kind === "anchovy" ? 1.12 : 0.88)],
-      [size * 0.24, size * 0.42, size * 0.1],
-      group,
-    );
-    tailFin.rotation.x = Math.PI / 2;
-    const dorsal = mesh(
-      cone,
-      bodyMat,
-      [0, size * (kind === "rockfish" ? 0.31 : 0.13), -size * 0.06],
-      [
-        size * (kind === "rockfish" ? 0.13 : 0.055),
-        size * (kind === "rockfish" ? 0.32 : 0.18),
-        size * 0.12,
-      ],
-      group,
-    );
-    dorsal.rotation.x = -0.16;
-    for (const side of [-1, 1]) {
-      const fin = mesh(
-        cone,
-        bodyMat,
-        [side * bodyScale[0] * 0.82, -size * 0.025, size * 0.13],
-        [size * 0.07, size * 0.22, size * 0.055],
-        group,
-      );
-      fin.rotation.z = side * 1.12;
-    }
+    mesh(geo(createFishGeometry(kind, color)), mat("#ffffff", { vertexColors: true, flatShading: false, roughness: 0.88 }), [0, 0, 0], [size, size, size], group);
     reefRoot.add(group);
     return group;
   }
@@ -1788,57 +1753,16 @@ export function createWorld(
   const sharks: THREE.Group[] = [];
   for (let i = 0; i < 2; i++) {
     const shark = new THREE.Group();
-    const sharkMat = mat("#7f8f86", { flatShading: false, roughness: 0.86 });
-    const undersideMat = mat("#aeb7ad", { flatShading: false, roughness: 0.9 });
-    mesh(shastaBodyGeo, sharkMat, [0, 0, 0], [0.44, 0.3, 1.82], shark);
-    mesh(shastaBodyGeo, sharkMat, [0, -0.01, 1.43], [0.31, 0.22, 0.52], shark);
-    mesh(shastaBodyGeo, undersideMat, [0, -0.17, 0.12], [0.36, 0.095, 1.32], shark);
-    const dorsal = mesh(cone, sharkMat, [0, 0.34, -0.12], [0.19, 0.52, 0.18], shark);
-    dorsal.rotation.x = -0.16;
-    for (const side of [-1, 1]) {
-      const fin = mesh(cone, sharkMat, [side * 0.45, -0.035, 0.24], [0.15, 0.66, 0.105], shark);
-      fin.rotation.z = side * 1.18;
-    }
-    const sharkEyeMat = mat("#111719", { roughness: 0.35 });
-    for (const side of [-1, 1])
-      mesh(
-        shastaBodyGeo,
-        sharkEyeMat,
-        [side * 0.26, 0.08, 1.68],
-        [0.045, 0.038, 0.028],
-        shark,
-      );
-    mesh(cone, sharkMat, [0, 0.28, -1.72], [0.2, 0.48, 0.11], shark);
-    const lowerTail = mesh(cone, sharkMat, [0, -0.25, -1.72], [0.18, 0.4, 0.1], shark);
-    lowerTail.rotation.z = Math.PI;
-    const leopardMarks: Instance[] = [];
-    for (let mark = 0; mark < 8; mark++) {
-      const z = -1.05 + mark * 0.28;
-      const side = mark % 2 ? -1 : 1;
-      leopardMarks.push({
-        x: side * (0.34 - Math.abs(z) * 0.035),
-        y: 0.13 + (mark % 3) * 0.035,
-        z,
-        sx: 0.055,
-        sy: 0.028,
-        sz: 0.1,
-      });
-    }
-    instances(shastaBodyGeo, mat("#4c5b55"), leopardMarks, false, shark);
+    mesh(geo(createSharkGeometry("leopard")), mat("#ffffff", { vertexColors: true, flatShading: false, roughness: 0.86 }), [0, 0, 0], [1, 1, 1], shark);
     reefRoot.add(shark);
     sharks.push(shark);
   }
 
   // A curved wing outline gives rays a recognizable organic planform while
   // remaining a single low-cost surface.
-  const rayShape = new THREE.Shape();
-  rayShape.moveTo(0, 1.05);
-  rayShape.bezierCurveTo(0.32, 0.96, 1.18, 0.62, 1.46, 0.05);
-  rayShape.bezierCurveTo(1.08, -0.18, 0.52, -0.58, 0, -0.72);
-  rayShape.bezierCurveTo(-0.52, -0.58, -1.08, -0.18, -1.46, 0.05);
-  rayShape.bezierCurveTo(-1.18, 0.62, -0.32, 0.96, 0, 1.05);
-  const rayGeo = geo(new THREE.ShapeGeometry(rayShape, 8));
+  const rayGeo = geo(createRayWingGeometry());
   const rayOriginal = new Float32Array(rayGeo.attributes.position.array);
+  if (rayGeo.boundingSphere) rayGeo.boundingSphere.radius += 0.16;
   const rays: THREE.Group[] = [];
   for (let i = 0; i < 2; i++) {
     const rayGroup = new THREE.Group();
@@ -2084,7 +2008,7 @@ export function createWorld(
     },
   );
   const tropicalFishBodies = instances(
-    shastaBodyGeo,
+    geo(createFishBodyGeometry()),
     mat("#ffffff", { flatShading: false, roughness: 0.86 }),
     tropicalFishStates.map((fish) => ({
       x: fish.centerX,
@@ -2099,7 +2023,7 @@ export function createWorld(
     tropicalReefRoot,
   );
   const tropicalFishTails = instances(
-    cone,
+    geo(createCaudalFinGeometry()),
     mat("#ffffff"),
     tropicalFishStates.map((fish) => ({
       x: fish.centerX,
@@ -2114,7 +2038,7 @@ export function createWorld(
     tropicalReefRoot,
   );
   const tropicalFishDorsals = instances(
-    cone,
+    geo(createDorsalFinGeometry()),
     mat("#ffffff"),
     tropicalFishStates.map((fish) => ({
       x: fish.centerX,
@@ -2136,7 +2060,7 @@ export function createWorld(
       { fishIndex, side: 1 as const },
     ]);
   const tropicalFishPectorals = instances(
-    cone,
+    geo(createPectoralFinGeometry()),
     mat("#ffffff", { roughness: 0.9 }),
     tropicalFishPectoralStates.map(({ fishIndex }) => {
       const fish = tropicalFishStates[fishIndex];
@@ -2270,52 +2194,7 @@ export function createWorld(
   const tropicalSharks: THREE.Group[] = [];
   for (let i = 0; i < 3; i++) {
     const shark = new THREE.Group();
-    const sharkMat = mat("#82958f", { flatShading: false, roughness: 0.86 });
-    const undersideMat = mat("#bac2ba", { flatShading: false, roughness: 0.9 });
-    const tipMat = mat("#263634");
-    mesh(shastaBodyGeo, sharkMat, [0, 0, 0], [0.41, 0.27, 1.66], shark);
-    mesh(shastaBodyGeo, sharkMat, [0, -0.01, 1.32], [0.29, 0.2, 0.48], shark);
-    mesh(shastaBodyGeo, undersideMat, [0, -0.145, 0.12], [0.34, 0.085, 1.18], shark);
-    const dorsal = mesh(cone, sharkMat, [0, 0.33, -0.08], [0.19, 0.47, 0.17], shark);
-    dorsal.rotation.x = -0.15;
-    const dorsalTip = mesh(cone, tipMat, [0, 0.57, -0.11], [0.095, 0.18, 0.085], shark);
-    dorsalTip.rotation.x = -0.15;
-    for (const side of [-1, 1]) {
-      const fin = mesh(
-        cone,
-        sharkMat,
-        [side * 0.42, -0.025, 0.2],
-        [0.135, 0.56, 0.095],
-        shark,
-      );
-      fin.rotation.z = side * 1.18;
-      const finTip = mesh(
-        cone,
-        tipMat,
-        [side * 0.67, -0.03, 0.17],
-        [0.07, 0.18, 0.06],
-        shark,
-      );
-      finTip.rotation.z = side * 1.18;
-    }
-    const sharkEyeMat = mat("#111719", { roughness: 0.35 });
-    for (const side of [-1, 1])
-      mesh(
-        shastaBodyGeo,
-        sharkEyeMat,
-        [side * 0.24, 0.075, 1.48],
-        [0.042, 0.036, 0.027],
-        shark,
-      );
-    mesh(cone, tipMat, [0, 0.26, -1.52], [0.18, 0.42, 0.1], shark);
-    const lowerTail = mesh(
-      cone,
-      tipMat,
-      [0, -0.23, -1.52],
-      [0.16, 0.35, 0.09],
-      shark,
-    );
-    lowerTail.rotation.z = Math.PI;
+    mesh(geo(createSharkGeometry("blacktip")), mat("#ffffff", { vertexColors: true, flatShading: false, roughness: 0.86 }), [0, 0, 0], [1, 1, 1], shark);
     tropicalReefRoot.add(shark);
     tropicalSharks.push(shark);
   }
@@ -2854,10 +2733,18 @@ export function createWorld(
             }
           }
         } else {
-          verticalSpeed -= dt * 14;
-          airHeight = Math.max(0, airHeight + verticalSpeed * dt);
-          if (airHeight === 0) verticalSpeed = 0;
-          playerY = groundHeight(player) + airHeight;
+          const groundY = groundHeight(player);
+          // Integrate in world space: crossing a ramp lip must not subtract its
+          // deck height from an airborne rider's trajectory.
+          if (airHeight > 0 || verticalSpeed > 0) {
+            const airborne = stepAirborne(previousY, verticalSpeed, groundY, dt);
+            playerY = airborne.y;
+            airHeight = airborne.airHeight;
+            verticalSpeed = airborne.verticalSpeed;
+          } else {
+            playerY = groundY;
+            verticalSpeed = 0;
+          }
           const modeForRamp = effectiveActivity(state.activity, player);
           if (airHeight === 0 && elapsed - lastRampAt > 1.1) {
             const ramp = rampImpulseAt(player, travel.heading, modeForRamp, travel.speed);
@@ -3031,7 +2918,7 @@ export function createWorld(
       canvas.dataset.caveDepth = caveProgress.toFixed(3);
       canvas.dataset.player = `${player.x.toFixed(2)},${player.z.toFixed(2)}`;
       canvas.dataset.paperInside = String(paperCaveInside(player));
-      canvas.dataset.caveChamber = String(caveProgress > 0.58);
+      canvas.dataset.caveChamber = String(caveInside && caveProgress > 0.58);
       let rawGazeGame: string | null = null;
       const cavernCameraSettled =
         camera.position.distanceTo(targetCamera) < 1.35 &&
@@ -3216,7 +3103,7 @@ export function createWorld(
         const maxZ = isArcade ? -63.7 : -30.3;
         const desired = constrainMove(player,{x:player.x+Math.sin(yaw)*2.6,z:player.z+Math.cos(yaw)*2.6},obstacles);
         const z=THREE.MathUtils.clamp(desired.z,minZ,maxZ);
-        const half = isArcade ? caveHalfWidth(z)-.85 : 3.1;
+        const half = isArcade ? caveHalfWidth(z)-.85 : paperCaveHalfWidth(z)-.85;
         targetCamera.set(THREE.MathUtils.clamp(desired.x,centerX-half,centerX+half),playerY+2.15,z);
         targetLook.set(player.x-Math.sin(yaw)*2.4,playerY+1.85,player.z-Math.cos(yaw)*2.4);
       }
@@ -3553,7 +3440,7 @@ export function createWorld(
       aquatic === "land" &&
       nearestRegion(player) === "cavern" &&
       dogCaveProgress > 0.46 &&
-      Math.abs(player.x - arcade.x) < ARCADE_CAVE.tunnelHalfWidth - 0.25;
+      arcadeInside(player);
     const dogTarget = state.entered
       ? aquatic !== "land" || isWater(player)
         ? shoreWait
@@ -3736,7 +3623,11 @@ export function createWorld(
     camera.position.lerp(targetCamera, 1 - Math.exp(-dt * 3.6));
     if (arcadeInside(player) || paperCaveInside(player)) {
       const c=constrainMove(player,{x:camera.position.x,z:camera.position.z},obstacles);
-      camera.position.x=c.x;camera.position.z=c.z;
+      const inArcade = arcadeInside(player);
+      const centerX = inArcade ? 16 : -20;
+      const z = THREE.MathUtils.clamp(c.z, inArcade ? -81.6 : -35.4, inArcade ? -63.7 : -30.3);
+      const half = (inArcade ? caveHalfWidth(z) : paperCaveHalfWidth(z)) - .85;
+      camera.position.x=THREE.MathUtils.clamp(c.x,centerX-half,centerX+half);camera.position.z=z;
       camera.position.y=THREE.MathUtils.clamp(camera.position.y,playerY+1.5,playerY+3);
     }
     look.lerp(targetLook, 1 - Math.exp(-dt * 4));
@@ -3870,11 +3761,11 @@ export function createWorld(
           y,
           z - forwardZ * fish.size * fish.bodyZ * 0.9,
         );
-        dummy.rotation.set(Math.PI / 2, yawFish, 0);
+        dummy.rotation.set(0, yawFish, 0);
         dummy.scale.set(
-          fish.size * fish.bodyX * 0.58,
+          fish.size,
           fish.size * fish.bodyY * 1.5,
-          fish.size * 0.11,
+          fish.size * 0.45,
         );
         dummy.updateMatrix();
         tropicalFishTails.setMatrixAt(i, dummy.matrix);
@@ -3886,9 +3777,9 @@ export function createWorld(
         );
         dummy.rotation.set(0, yawFish, bodyRoll * 0.6);
         dummy.scale.set(
-          fish.size * 0.07,
+          fish.size,
           fish.size * fish.bodyY * 0.9,
-          fish.size * 0.1,
+          fish.size * 0.45,
         );
         dummy.updateMatrix();
         tropicalFishDorsals.setMatrixAt(i, dummy.matrix);
@@ -3905,14 +3796,14 @@ export function createWorld(
               forwardZ * fish.size * 0.02,
           );
           dummy.rotation.set(
-            Math.PI / 2,
+            0,
             yawFish,
-            side * (0.82 + Math.sin(a * 2.1 + side) * 0.08),
+            -side * (0.82 + Math.sin(a * 2.1 + side) * 0.08),
           );
           dummy.scale.set(
-            fish.size * 0.055,
+            fish.size,
             fish.size * fish.bodyX * 0.62,
-            fish.size * 0.05,
+            fish.size * 0.28,
           );
           dummy.updateMatrix();
           tropicalFishPectorals.setMatrixAt(pectoralIndex, dummy.matrix);
@@ -4004,8 +3895,9 @@ export function createWorld(
     waterfall.visible = true;
     if (reefRoot.visible || tropicalReefRoot.visible) {
       const rp=rayGeo.attributes.position;
-      for(let i=0;i<rp.count;i++)rp.setZ(i,Math.sin(elapsed*1.6+Math.abs(rayOriginal[i*3])*1.2)*.09*Math.abs(rayOriginal[i*3]));
+      for(let i=0;i<rp.count;i++)rp.setZ(i,rayOriginal[i*3+2]+Math.sin(elapsed*1.6+Math.abs(rayOriginal[i*3])*1.2)*.09*Math.abs(rayOriginal[i*3]));
       rp.needsUpdate=true;
+      rayGeo.computeVertexNormals();
     }
     reefGarden.update(elapsed);
     habitats.update({x:camera.position.x,z:camera.position.z});

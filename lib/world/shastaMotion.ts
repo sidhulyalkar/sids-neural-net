@@ -185,8 +185,17 @@ export function shastaDetour(
   }
   if (!best) return target;
   const r = best.radius + 1.15;
-  return {
-    x: best.x + fz * r * side + fx * 0.8,
-    z: best.z - fx * r * side + fz * 0.8,
-  };
+  const detour = (direction: number): Point => ({
+    x: best.x + fz * r * direction + fx * 0.8,
+    z: best.z - fx * r * direction + fz * 0.8,
+  });
+  const preferred = detour(side);
+  // Adjacent trunks or a cave baffle can occupy the preferred waypoint.
+  // Retain the persistent side unless its waypoint is actually obstructed.
+  const penetration = (p: Point) => obstacles.reduce((total, o) =>
+    total + Math.max(0, o.radius + 0.7 - Math.hypot(p.x - o.x, p.z - o.z)), 0);
+  const preferredOverlap = penetration(preferred);
+  if (preferredOverlap === 0) return preferred;
+  const alternate = detour(-side);
+  return penetration(alternate) < preferredOverlap ? alternate : preferred;
 }

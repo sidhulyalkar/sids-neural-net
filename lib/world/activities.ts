@@ -71,11 +71,19 @@ export const onSnow = (p: Point) =>
 /** Ski mode remains equipped everywhere; the snowfall is a mode effect, not a biome gate. */
 export const effectiveActivity = (id: Activity, _p: Point): Activity => id;
 
-export const BOULDER_HOLDS = [
+/** Jointed granite ledges on the eastern side of Joshua basin. */
+export const DESERT_CLIMB_HOLDS = [
+  { x: 46, z: -21, radius: 1.8, height: 1.4 },
+  { x: 47, z: -24, radius: 1.7, height: 2.8 },
+  { x: 49, z: -27, radius: 1.6, height: 4.3 },
+];
+
+export const GROVE_CLIMB_HOLDS = [
   { x: 16, z: -17, radius: 1.8, height: 1.5 },
   { x: 19, z: -19, radius: 1.6, height: 2.7 },
   { x: 22, z: -21, radius: 1.5, height: 4 },
 ];
+export const BOULDER_HOLDS = [...GROVE_CLIMB_HOLDS, ...DESERT_CLIMB_HOLDS];
 
 export const FALLEN_LOGS = [
   {
@@ -189,15 +197,16 @@ export const RIDE_RAMPS = [
     id: "bike-ramp",
     point: { x: 10, z: -28 },
     radius: 2.5,
-    heading: { x: 0.15, z: -1 },
+    heading: { x: -0.15, z: 1 },
     lift: 5.3,
     modes: ["bike", "skate"] as Activity[],
   },
   {
     id: "ski-kicker",
-    point: { x: 15, z: -60 },
+    // The open bowl shoulder keeps takeoff and landing clear of the cave cut.
+    point: { x: 8, z: -47 },
     radius: 2.8,
-    heading: { x: -0.08, z: -1 },
+    heading: { x: 0, z: 1 },
     lift: 6.1,
     modes: ["ski", "bike"] as Activity[],
   },
@@ -462,9 +471,17 @@ export function rampImpulseAt(
   if (speed < 3) return null;
   const headingLength = Math.max(1e-6, Math.hypot(heading.x, heading.z));
   for (const ramp of RIDE_RAMPS) {
-    if (!ramp.modes.includes(mode) || distance(point, ramp.point) > ramp.radius)
-      continue;
+    if (!ramp.modes.includes(mode)) continue;
     const rampLength = Math.hypot(ramp.heading.x, ramp.heading.z);
+    const fx = ramp.heading.x / rampLength,
+      fz = ramp.heading.z / rampLength;
+    const dx = point.x - ramp.point.x,
+      dz = point.z - ramp.point.z;
+    const along = dx * fx + dz * fz,
+      side = dx * fz - dz * fx;
+    // A short strip straddling the lip catches a full 50 ms physics step at
+    // maximum ski speed without launching from beside or halfway up the deck.
+    if (along < -0.45 || along > 0.65 || Math.abs(side) > 1.275) continue;
     const dot =
       (heading.x * ramp.heading.x + heading.z * ramp.heading.z) /
       (headingLength * rampLength);
@@ -472,6 +489,20 @@ export function rampImpulseAt(
     return { id: ramp.id, impulse: Math.min(9, ramp.lift + speed * 0.16) };
   }
   return null;
+}
+
+/** Integrate height in world space so downhill terrain cannot drag a jump down. */
+export function stepAirborne(
+  previousY: number,
+  verticalSpeed: number,
+  groundY: number,
+  dt: number,
+) {
+  dt = Math.max(0, Math.min(dt, 0.05));
+  const speed = verticalSpeed - 14 * dt;
+  const y = Math.max(groundY, previousY + speed * dt);
+  const airHeight = y - groundY;
+  return { y, verticalSpeed: airHeight > 0 ? speed : 0, airHeight };
 }
 
 /** Authored travel lanes also reserve landing/runout space from scenery. */

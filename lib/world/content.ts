@@ -14,7 +14,7 @@ const FEATURED: { slug: string; region: RegionId }[] = [
 ];
 export function getWorldContent(): WorldContent {
   return {
-    publications: graphData.nodes.filter(n=>n.type === "publication").map(n=>({id:n.id,title:n.title,year:n.publication?.year ?? null,href:"/publications"})),
+    publications: graphData.nodes.filter(n=>n.type === "publication").map(n=>({id:n.id,title:n.title,year:n.publication?.year ?? null,href:"/publications"})).sort((a,b)=>(b.year ?? 0)-(a.year ?? 0) || a.title.localeCompare(b.title)),
     games: arcadeGames.filter(game => game.status === "playable").map(game => ({ title: game.title, subtitle: game.subtitle, href: `/arcade/${game.slug}` })),
     projects: FEATURED.flatMap(({ slug, region }) => {
       const p = graphData.nodes.find(

@@ -75,7 +75,7 @@ export function createReefGarden(root: THREE.Group) {
         sphere,
         color,
         x,
-        y + size * 0.4,
+        y + (form === "encrusting" ? 0.08 : size * 0.4),
         z,
         size,
         form === "encrusting" ? 0.12 : size * 0.7,
@@ -115,7 +115,7 @@ export function createReefGarden(root: THREE.Group) {
           stem,
           color,
           x + dx,
-          y + size * 0.5,
+          y + size * (form === "whip" ? 1 : 0.5),
           z + (form === "fan" ? 0 : dz),
           0.04,
           size * (form === "whip" ? 2 : 1),
@@ -154,12 +154,14 @@ export function createReefGarden(root: THREE.Group) {
       roughness: 0.95,
     });
   const coral = new THREE.Mesh(coralGeo, mat);
+  coral.name = "lagoon-coral-garden";
   root.add(coral);
   // One batched body plus two moving front flippers keeps the turtle to three draws.
   const body = new GeometryBatch();
   body.add(sphere, "#7d8050", v(0, 0, 0), v(0.64, 0.3, 0.86));
   body.add(sphere, "#c2b386", v(0, -0.15, 0), v(0.58, 0.12, 0.8));
   body.add(sphere, "#939c6d", v(0, 0, 0.98), v(0.21, 0.18, 0.3));
+  body.add(sphere, "#939c6d", v(0, -0.1, -0.87), v(0.065, 0.055, 0.2));
   for (const side of [-1, 1]) {
     body.add(
       sphere,
@@ -198,6 +200,8 @@ export function createReefGarden(root: THREE.Group) {
     turtle.add(pivot);
     return pivot;
   });
+  turtle.name = "lagoon-sea-turtle";
+  turtle.position.set(79, SEA_SURFACE - 1.4, 20);
   root.add(turtle);
   stem.dispose();
   plate.dispose();
@@ -213,7 +217,8 @@ export function createReefGarden(root: THREE.Group) {
         ),
         20 + Math.sin(a) * 7,
       );
-      turtle.rotation.y = -a;
+      // Face the tangent of the elliptical path, with the head along local +Z.
+      turtle.rotation.y = Math.atan2(-6 * Math.sin(a), 7 * Math.cos(a));
       fins.forEach(
         (f, i) =>
           (f.rotation.z = (i ? 1 : -1) * (0.2 + Math.sin(t * 1.5) * 0.38)),

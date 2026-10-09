@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import {
   ACTIVITIES,
   activityLanding,
-  BOULDER_HOLDS,
+  GROVE_CLIMB_HOLDS,
   effectiveActivity,
   FALLEN_LOGS,
   grindStyleForApproach,
@@ -71,9 +71,9 @@ test("ski landing is alpine while selected skis remain equipped throughout land 
   assert.equal(effectiveActivity("ski", { x: 0, z: 16 }), "ski");
 });
 
-test("every authored climbing hold is reachable and advances upward", () => {
+test("original grove climbing route remains reachable and advances upward", () => {
   let point = activityLanding("boulder")!;
-  for (const hold of BOULDER_HOLDS) {
+  for (const hold of GROVE_CLIMB_HOLDS) {
     assert.deepEqual(nextHold(point), hold);
     assert.ok(groundHeight(hold) > groundHeight(point));
     point = hold;

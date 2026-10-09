@@ -170,15 +170,42 @@ export function caveHalfWidth(z:number) {
   return 3.1 + smoothstep01((z + 75) / 5) * 3.0;
 }
 export const PAPER_CAVE = {x:-20,z:-30,backZ:-36,halfWidth:4} as const;
-export function paperCaveInside(p:Point) {return Math.abs(p.x-PAPER_CAVE.x)<3.5 && p.z < -31 && p.z > -35.5;}
+export function paperCaveHalfWidth(z: number) { return 2.3 + 1.7 * smoothstep01((-z - 30) / 3); }
+export function paperCaveInside(p:Point) {return Math.abs(p.x-PAPER_CAVE.x)<paperCaveHalfWidth(p.z)-.5 && p.z < -31 && p.z > -35.5;}
 export function arcadeInside(p:Point) {return p.z>-81.5 && p.z<-63 && Math.abs(p.x-16)<caveHalfWidth(p.z)-.3;}
+/** Shared solid footprints: water curtains remain deliberately absent. */
+export function caveObstacles(): Obstacle[] {
+  const result: Obstacle[] = [];
+  for (const side of [-1, 1]) {
+    for (let z = -30; z >= -36; z--) result.push({ x: -20 + side * (paperCaveHalfWidth(z) + .2), z, radius: .35 });
+    for (let z = -81; z < -63; z++) result.push({ x: 16 + side * (caveHalfWidth(z) + .4), z, radius: .32 });
+  }
+  for (let x = -24; x <= -16; x++) result.push({ x, z: -36.5, radius: .35 });
+  for (let x = 12; x < 16.7; x += .7) result.push({ x, z: -74.5, radius: .28 });
+  for (let x = 10; x < 23; x += .8) result.push({ x, z: -62.5, radius: .35 });
+  return result;
+}
 export function terrainHeight(x: number, z: number): number {
   let base = rawTerrainHeight(x, z);
+  // A shallow level bench receives melt at the snow edge. Feather its banks
+  // into the slope so the basin surface cannot intersect the uphill terrain.
+  const meltBasinMask = 1 - smoothstep01((Math.hypot(x + 13, z + 66) - 2) / 0.9);
+  base += (rawTerrainHeight(-13, -66) - 0.08 - base) * meltBasinMask;
   const caveMask = arcadeCaveTerrainMask(x, z);
   const caveFloor = rawTerrainHeight(16,-83);
   base += (caveFloor - base) * caveMask;
   const paperMask = smoothstep01((z+38)/2)*(1-smoothstep01((z+30)/3))*(1-smoothstep01((Math.abs(x+20)-4)/2));
   base += (rawTerrainHeight(-20,-24)-base)*paperMask;
+  // The plunge pool occupies a shallow basin, not a disc buried in the hillside.
+  const poolDistance = Math.hypot(x + 20, z + 27);
+  const poolMask = (1 - smoothstep01((poolDistance - 3.7) / 1.2)) * smoothstep01(z + 30);
+  base += (rawTerrainHeight(-20, -24) - 0.12 - base) * poolMask;
+  // Cut a small outlet down to sea level so the creek actually reaches the coast.
+  const outletT = Math.max(0, Math.min(1, ((x + 32) * -4 + (z + 7) * 6) / 52));
+  const outletDistance = Math.hypot(x - (-32 - 4 * outletT), z - (-7 + 6 * outletT));
+  const outletMask = (1 - smoothstep01((outletDistance - 0.7) / 1.1)) * smoothstep01(outletT / 0.15);
+  const outletBed = rawTerrainHeight(-32, -7) * (1 - outletT) + (SEA_SURFACE - 0.2) * outletT;
+  base += (outletBed - base) * outletMask;
   return base;
 }
 /** Roof tie-in samples the uncarved mountain; collision uses the flat floor. */

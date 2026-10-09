@@ -38,27 +38,37 @@ export function biomeAt(p: Point) {
   const rainforest =
     smooth(14, 32, p.x) * smooth(8, 27, p.z + n) * (1 - alpine);
   const beach = Math.max(
-    1 - smooth(0, 7, Math.abs(p.x - coastlineX(p.z))),
-    1 - smooth(0, 7, Math.abs(p.x - eastCoastlineX(p.z))),
+    1 - smooth(0, 7, Math.max(0, p.x - coastlineX(p.z))),
+    1 - smooth(0, 7, Math.max(0, eastCoastlineX(p.z) - p.x)),
   );
   const redwood =
     (1 - smooth(9, 25, p.x)) * (1 - smooth(20, 42, p.z)) * (1 - alpine);
   const weights: Record<BiomeId, number> = {
     alpine,
-    desert,
-    redwood,
-    rainforest,
+    desert: desert * (1 - beach),
+    redwood: redwood * (1 - beach),
+    rainforest: rainforest * (1 - beach),
     "cold-beach": beach,
-    "coastal-scrub": 0.32,
+    "coastal-scrub": 0.32 * (1 - alpine) * (1 - beach),
     kelp: 0,
     lagoon: 0,
   };
   if (isWater(p)) {
     for (const k of Object.keys(weights) as BiomeId[]) weights[k] = 0;
-    weights[waterZone(p)!] = 1;
+    const zone = waterZone(p)!;
+    const offshore = zone === "kelp" ? coastlineX(p.z) - p.x : p.x - eastCoastlineX(p.z);
+    const marine = smooth(0.35, 5.35, offshore);
+    weights["cold-beach"] = 1 - marine;
+    weights[zone] = marine;
   }
   const total = Object.values(weights).reduce((a, b) => a + b, 0);
-  for (const k of Object.keys(weights) as BiomeId[]) weights[k] /= total;
+  if (total > 0) {
+    for (const k of Object.keys(weights) as BiomeId[]) weights[k] /= total;
+  } else weights["coastal-scrub"] = 1;
+  const slope = Math.hypot(
+    terrainHeight(p.x + 0.5, p.z) - terrainHeight(p.x - 0.5, p.z),
+    terrainHeight(p.x, p.z + 0.5) - terrainHeight(p.x, p.z - 0.5),
+  );
   const ranked = (Object.keys(weights) as BiomeId[]).sort(
     (a, b) => weights[b] - weights[a],
   );
@@ -70,10 +80,12 @@ export function biomeAt(p: Point) {
     elevation: h,
     moisture: weights.redwood * 0.7 + weights.rainforest,
     exposure: weights.desert,
-    slope: Math.hypot(
-      terrainHeight(p.x + 0.5, p.z) - terrainHeight(p.x - 0.5, p.z),
-      terrainHeight(p.x, p.z + 0.5) - terrainHeight(p.x, p.z - 0.5),
-    ),
+    slope,
+    substrate: {
+      sand: weights["cold-beach"] + weights.lagoon,
+      rock: smooth(0.35, 1.2, slope),
+      soil: (1 - weights["cold-beach"] - weights.kelp - weights.lagoon) * (1 - smooth(0.35, 1.2, slope)),
+    },
   };
 }
 export const DESERT_FORMATIONS = [

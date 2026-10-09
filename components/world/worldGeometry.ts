@@ -3,6 +3,7 @@ import * as THREE from "three/src/Three.Core.js";
 export class GeometryBatch {
   private positions: number[] = [];
   private colors: number[] = [];
+  private normals: number[] = [];
   add(
     g: THREE.BufferGeometry,
     color: string,
@@ -18,11 +19,14 @@ export class GeometryBatch {
         scale,
       ),
     );
+    if (!source.getAttribute("normal")) source.computeVertexNormals();
+    const n = source.getAttribute("normal");
     const a = source.getAttribute("position"),
       c = new THREE.Color(color);
     for (let i = 0; i < a.count; i++) {
       this.positions.push(a.getX(i), a.getY(i), a.getZ(i));
       this.colors.push(c.r, c.g, c.b);
+      this.normals.push(n.getX(i), n.getY(i), n.getZ(i));
     }
     source.dispose();
   }
@@ -33,7 +37,9 @@ export class GeometryBatch {
       new THREE.Float32BufferAttribute(this.positions, 3),
     );
     g.setAttribute("color", new THREE.Float32BufferAttribute(this.colors, 3));
-    g.computeVertexNormals();
+    // Preserve transformed smooth normals from the source. Recomputing after
+    // de-indexing turns every rounded animal/rock into disconnected flat faces.
+    g.setAttribute("normal", new THREE.Float32BufferAttribute(this.normals, 3));
     g.computeBoundingSphere();
     return g;
   }

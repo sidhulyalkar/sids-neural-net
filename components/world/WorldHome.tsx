@@ -62,6 +62,20 @@ const INTRO: Record<RegionId, { title: string; text: string }> = {
   lagoon: { title: "Lagoon reef.", text: "Bora Bora · Tahiti · Mo’orea." },
 };
 
+// Reuse archive records, keeping regional discoveries relevant to their surroundings.
+const REGION_PHOTOS: Partial<Record<RegionId, readonly string[]>> = {
+  mountain: ["lake", "shasta-lake"],
+  grove: ["shasta-trail", "shasta-stream"],
+  waterfall: ["shasta-water", "shasta-stream"],
+  canyon: ["shasta-field"],
+  desert: ["desert-ridges"],
+  rainforest: ["rainforest-leaves"],
+  lagoon: ["lagoon-shore"],
+};
+const ROUTE_LABELS: Record<string, string> = Object.fromEntries(
+  LINKS.map(([label, href]) => [href, label]),
+);
+
 export function WorldHome({ content }: { content: WorldContent }) {
   const [enabled, setEnabled] = useState(false);
   const [entered, setEntered] = useState(false);
@@ -477,9 +491,9 @@ export function WorldHome({ content }: { content: WorldContent }) {
                     </Link>
                   ))}
               </div>
-              {selected.id === "coast" && (
+              {(selected.id === "coast" || REGION_PHOTOS[selected.id]) && (
                 <div className={styles.memoryList}>
-                  {content.photos.map((p) => {
+                  {content.photos.filter((p) => selected.id === "coast" || REGION_PHOTOS[selected.id]?.includes(p.id)).map((p) => {
                     const memory = MEMORY_POINTS.find((m) => m.id === p.id);
                     return (
                       <button
@@ -501,17 +515,11 @@ export function WorldHome({ content }: { content: WorldContent }) {
               )}
               <div className={styles.panelLinks}>
                 <Link href={selected.href} prefetch={false}>
-                  {selected.id === "grove"
-                    ? "About"
-                    : ["coast", "lagoon", "desert", "rainforest", "waterfall"].includes(selected.id)
-                      ? "Photography"
-                      : selected.id === "mountain"
-                        ? "Projects"
-                        : "Research"}
+                  {ROUTE_LABELS[selected.href]}
                 </Link>
                 {selected.id === "neural" && (
                   <Link prefetch={false} href="/frontier">
-                    Beyond the horizon · Frontier
+                    Frontier
                   </Link>
                 )}
                 {selected.id === "grove" && (

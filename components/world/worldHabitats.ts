@@ -1,7 +1,7 @@
 import * as THREE from "three/src/Three.Core.js";
 import { GeometryBatch } from "./worldGeometry";
-import { biomeAt, DESERT_FORMATIONS } from "@/lib/world/biomes";
-import { sportClearance } from "@/lib/world/activities";
+import { biomeAt, DESERT_FORMATIONS, smooth } from "@/lib/world/biomes";
+import { BOULDER_HOLDS, sportClearance } from "@/lib/world/activities";
 import {
   terrainHeight,
   distance,
@@ -70,17 +70,30 @@ export function createHabitats(scene: THREE.Scene, obstacles: Obstacle[]) {
     );
   };
   const roots: { mesh: THREE.Mesh; center: Point; radius: number }[] = [];
-  const finish = (b: GeometryBatch, center: Point, radius: number) => {
+  const finish = (b: GeometryBatch, label: string) => {
     const g = b.finish();
+    if (!g.getAttribute("position").count) {
+      g.dispose();
+      return;
+    }
     resources.push(g);
+    g.computeBoundingBox();
+    const bounds = g.boundingBox!;
+    const center = { x: (bounds.min.x + bounds.max.x) / 2, z: (bounds.min.z + bounds.max.z) / 2 };
+    const radius = Math.hypot(bounds.max.x - bounds.min.x, bounds.max.z - bounds.min.z) / 2;
     const m = new THREE.Mesh(g, material);
+    m.name = label;
     m.receiveShadow = true;
     scene.add(m);
     meshes.push(m);
     roots.push({ mesh: m, center, radius });
     return m;
   };
+  const washX = (z: number) => 27 + -z * 0.08 + Math.sin(z * 0.11) * 1.6;
+  const inDryWash = (p: Point) => p.z > -52 && p.z < -4 && Math.abs(p.x - washX(p.z)) < 1.4;
   const clear = (p: Point) =>
+    inDryWash(p) ||
+    BOULDER_HOLDS.some((h) => distance(p, h) < h.radius + 2) ||
     sportClearance(p) ||
     REGIONS.some((r) => distance(p, r.point) < 3) ||
     MEMORY_POINTS.some((r) => distance(p, r.point) < 2.5) ||
@@ -111,7 +124,7 @@ export function createHabitats(scene: THREE.Scene, obstacles: Obstacle[]) {
         );
       }
     obstacles.push({ x: f.x, z: f.z, radius: Math.min(f.sx, f.sz) * 0.8 });
-    for (let j = 0; j < 9; j++) {
+    for (let j = 0; j < 16; j++) {
       const a = j * 2.4,
         r = f.sx * (0.8 + random() * 0.6);
       const x = f.x + Math.cos(a) * r,
@@ -129,7 +142,15 @@ export function createHabitats(scene: THREE.Scene, obstacles: Obstacle[]) {
       );
     }
   }
-  finish(granite, { x: 42, z: -28 }, 80);
+  // A dry gravel corridor guides the approach without inventing a water source.
+  // Sparse ground-hugging grus breaks the edge; vegetation shares this footprint.
+  for (let i = 0; i < 120; i++) {
+    const z = -5 - random() * 46, x = washX(z) + (random() - 0.5) * 2.4;
+    if (biomeAt({ x, z }).weights.desert < 0.12 || sportClearance({ x, z })) continue;
+    add(granite, sphere, i % 3 ? "#d7c6a5" : "#bca987", x, terrainHeight(x, z) + 0.025, z,
+      0.08 + random() * 0.22, 0.035, 0.1 + random() * 0.24);
+  }
+  finish(granite, "desert-granite");
   // Desert is divided into chunks so distant detail does not pop as one biome root.
   for (let row = 0; row < 3; row++) {
     const b = new GeometryBatch(),
@@ -141,7 +162,7 @@ export function createHabitats(scene: THREE.Scene, obstacles: Obstacle[]) {
         sample = biomeAt(p);
       if (
         clear(p) ||
-        random() > sample.weights.desert * 0.9 ||
+        random() > sample.weights.desert * (1 - smooth(0.5, 1.3, sample.slope)) * 0.9 ||
         DESERT_FORMATIONS.some((f) => distance(p, f) < f.sx + 1)
       )
         continue;
@@ -150,17 +171,17 @@ export function createHabitats(scene: THREE.Scene, obstacles: Obstacle[]) {
       if (upper && i % 3 === 0) {
         const h = 2.5 + random() * 2;
         stem(b, "#716356", V(x, y, z), V(x, y + h, z), 0.19);
-        const arms = 2 + (i % 3);
-        for (let a = 0; a < arms; a++) {
+        const arms = (Math.floor(i / 3) + row) % 5; // Juvenile through sparse multi-arm crowns.
+        for (let a = 0; a < Math.max(1, arms); a++) {
           const angle = a * 2.3 + i,
-            reach = 0.65 + random() * 0.6,
+            reach = arms === 0 ? 0 : 0.65 + random() * 0.6,
             end = V(
               x + Math.cos(angle) * reach,
               y + h + 0.5 + random(),
               z + Math.sin(angle) * reach,
             );
           stem(b, "#716356", V(x, y + h * 0.65, z), end, 0.13);
-          for (let j = 0; j < 9; j++) {
+          for (let j = 0; j < 16; j++) {
             const theta = j * 2.4;
             add(
               b,
@@ -191,6 +212,24 @@ export function createHabitats(scene: THREE.Scene, obstacles: Obstacle[]) {
           );
         }
         obstacles.push({ x, z, radius: 0.2 });
+      } else if (upper && sample.elevation > 6 && i % 4 === 1) {
+        // Sparse dry woodland softens the climb from Joshua basin to alpine talus.
+        const h = 1.6 + random() * 1.4;
+        stem(b, "#716356", V(x, y, z), V(x, y + h, z), 0.12);
+        for (let j = 0; j < 3; j++) {
+          const a = j * 2.4;
+          const end = V(x + Math.cos(a) * 0.55, y + h * (0.6 + j * 0.15), z + Math.sin(a) * 0.55);
+          stem(b, "#716356", V(x, y + h * 0.4, z), end, 0.07);
+          add(b, sphere, "#68735a", end.x, end.y, end.z, 0.6, 0.65, 0.5);
+        }
+        obstacles.push({ x, z, radius: 0.15 });
+      } else if (!upper && i % 9 === 2) {
+        // A few ribbed barrel cacti share the plant batch and leave the wash open.
+        add(b, sphere, "#8e9574", x, y + 0.3, z, 0.25, 0.36, 0.25);
+        for (let j = 0; j < 7; j++) {
+          const a = j * Math.PI * 2 / 7;
+          add(b, sphere, "#aeb394", x + Math.cos(a) * 0.19, y + 0.3, z + Math.sin(a) * 0.19, 0.075, 0.32, 0.075);
+        }
       } else if (!upper && i % 4 === 0) {
         for (let j = 0; j < 6; j++) {
           const a = j * 2.4;
@@ -246,8 +285,9 @@ export function createHabitats(scene: THREE.Scene, obstacles: Obstacle[]) {
         }
       }
     }
-    finish(b, center, 50);
+    finish(b, `desert-plants-${row}`);
   }
+  const canopyPerches: { x: number; z: number; y: number }[] = [];
   // Layered redwood understory and tropical canopy, each split into compact chunks.
   for (const region of ["redwood", "rainforest"] as const)
     for (let row = 0; row < 2; row++) {
@@ -260,8 +300,18 @@ export function createHabitats(scene: THREE.Scene, obstacles: Obstacle[]) {
         const x = center.x + (random() - 0.5) * 27,
           z = center.z + (random() - 0.5) * 23,
           p = { x, z };
-        if (clear(p) || random() > biomeAt(p).weights[region]) continue;
+        const sample = biomeAt(p);
+        const suitability = sample.weights[region] * (0.65 + 0.35 * sample.moisture)
+          * (0.3 + 0.7 * sample.substrate.soil) * (1 - smooth(0.65, 1.5, sample.slope));
+        if (clear(p) || random() > suitability) continue;
         const y = terrainHeight(x, z);
+        // Leaf litter follows the actual ground and shares the existing plant batch.
+        if (region === "rainforest")
+          for (let j = 0; j < 3; j++) {
+            const lx = x + Math.cos(j * 2.4 + i) * 0.55, lz = z + Math.sin(j * 2.4 + i) * 0.55;
+            add(b, blade, j % 2 ? "#77684d" : "#655c42", lx, terrainHeight(lx, lz) + 0.035, lz,
+              0.2, 0.5, 0.2, Math.PI / 2, 0, j + i);
+          }
         if (region === "rainforest" && i % 7 === 0) {
           const h = 4 + random() * 3;
           stem(b, "#827456", V(x, y, z), V(x + 0.4, y + h, z), 0.18);
@@ -285,7 +335,10 @@ export function createHabitats(scene: THREE.Scene, obstacles: Obstacle[]) {
           obstacles.push({ x, z, radius: 0.22 });
         } else if (region === "rainforest" && i % 5 === 0) {
           const h = 7 + random() * 6;
+          canopyPerches.push({ x, z, y: y + h - 1.4 });
           stem(b, "#756954", V(x, y, z), V(x, y + h, z), 0.35);
+          // Fauna perches connect to this actual trunk, below its crown.
+          stem(b, "#756954", V(x, y + h - 1.4, z), V(x + 2, y + h - 1.4, z), 0.12);
           for (let j = 0; j < 4; j++) {
             const a = j * 1.57;
             stem(
@@ -314,7 +367,23 @@ export function createHabitats(scene: THREE.Scene, obstacles: Obstacle[]) {
             V(x + 0.8, y + 1, z + 0.6),
             0.04,
           );
+          // Small epiphyte rosettes attach to the trunk, never float beside it.
+          for (let j = 0; j < 5; j++) {
+            const a = j * 2.4;
+            add(b, blade, "#6b8054", x + 0.22, y + h * 0.42, z,
+              0.2, 0.65, 0.2, Math.cos(a) * 0.8, a, Math.sin(a) * 0.8);
+          }
           obstacles.push({ x, z, radius: 0.42 });
+        } else if (region === "rainforest" && i % 3 === 0) {
+          // Broad-leaf midstory gives the forest a second silhouette beneath the canopy.
+          const h = 0.8 + random() * 1.2;
+          stem(b, "#697054", V(x, y, z), V(x, y + h, z), 0.035);
+          for (let j = 0; j < 5; j++) {
+            const a = j * 2.4 + i;
+            add(b, blade, j % 2 ? "#436340" : "#63874b",
+              x, y + h * (0.5 + j * 0.1), z, 0.8, 1.3, 0.8,
+              Math.PI * 0.35, a, 0.25);
+          }
         } else {
           const size = 0.4 + random() * 0.6;
           for (let j = 0; j < 4; j++) {
@@ -348,39 +417,50 @@ export function createHabitats(scene: THREE.Scene, obstacles: Obstacle[]) {
             add(b, sphere, "#c6b04d", x + 0.4, y + 0.09, z, 0.07, 0.07, 0.23);
         }
       }
-      finish(b, center, 48);
+      finish(b, `${region}-plants-${row}`);
     }
   // Low-count canopy silhouettes: articulated limbs and branch attachment, no expensive rigs.
   const animals = new GeometryBatch();
-  for (const [i, x, z] of [
-    [0, 43, 37],
-    [1, 47, 23],
-  ] as const) {
-    const y = terrainHeight(x, z) + 7;
-    stem(animals, "#756954", V(x - 2, y + 0.5, z), V(x + 2, y + 0.5, z), 0.15);
-    add(animals, sphere, i ? "#a2987b" : "#71614d", x, y, z, 0.3, 0.45, 0.25);
-    add(animals, sphere, "#b2a88b", x, y + 0.45, z + 0.12, 0.24, 0.23, 0.22);
-    for (const side of [-1, 1]) {
-      stem(
-        animals,
-        "#81725c",
-        V(x + side * 0.2, y + 0.2, z),
-        V(x + side * 0.7, y + 0.5, z),
-        0.08,
-      );
-      stem(
-        animals,
-        "#81725c",
-        V(x + side * 0.2, y - 0.3, z),
-        V(x + side * 0.4, y + 0.5, z + 0.3),
-        0.075,
-      );
+  for (const [i, perch] of canopyPerches.slice(0, 2).entries()) {
+    const { z } = perch, x = perch.x + 1;
+    if (i === 0) {
+      // Sloth hangs below the branch: compact trunk, long hooked limbs, short face.
+      const y = perch.y - 0.6;
+      add(animals, sphere, "#a2987b", x, y, z, 0.36, 0.38, 0.27);
+      add(animals, sphere, "#c0b99f", x + 0.3, y + 0.08, z + 0.1, 0.23, 0.21, 0.2);
+      for (const side of [-1, 1]) {
+        for (const front of [-1, 1]) {
+          const knee = V(x + side * 0.42, y + 0.2, z + front * 0.22);
+          stem(animals, "#8e856c", V(x + side * 0.2, y, z + front * 0.12), knee, 0.065);
+          stem(animals, "#8e856c", knee, V(x + side * 0.55, perch.y + 0.05, z), 0.055);
+        }
+        add(animals, sphere, "#675c4b", x + 0.34 + side * 0.07, y + 0.12, z + 0.28, 0.06, 0.035, 0.025);
+      }
+    } else {
+      // White-faced monkey sits above its support with bent legs and a curved tail.
+      const y = perch.y + 0.4;
+      add(animals, sphere, "#574b3d", x, y, z, 0.24, 0.36, 0.23);
+      add(animals, sphere, "#d0c6a6", x, y + 0.38, z + 0.06, 0.22, 0.22, 0.2);
+      add(animals, sphere, "#b5a587", x, y + 0.31, z + 0.22, 0.13, 0.1, 0.1);
+      for (const side of [-1, 1]) {
+        add(animals, sphere, "#a39174", x + side * 0.23, y + 0.38, z + 0.03, 0.07, 0.09, 0.045);
+        stem(animals, "#574b3d", V(x + side * 0.15, y + 0.12, z), V(x + side * 0.3, perch.y + 0.06, z), 0.055);
+        stem(animals, "#574b3d", V(x + side * 0.14, y - 0.2, z), V(x + side * 0.34, y - 0.14, z + 0.15), 0.075);
+        stem(animals, "#574b3d", V(x + side * 0.34, y - 0.14, z + 0.15), V(x + side * 0.2, perch.y + 0.03, z), 0.06);
+      }
+      let from = V(x, y - 0.2, z - 0.17);
+      for (let j = 1; j <= 8; j++) {
+        const t = j / 8, to = V(x + Math.sin(t * 2.7) * 0.65, y - 0.2 - t * 0.7, z - 0.17 - t * 0.5);
+        stem(animals, "#574b3d", from, to, 0.055 * (1 - t * 0.5));
+        from = to;
+      }
     }
   }
   for (const [x, z] of [
     [42, 31],
     [48, 39],
   ]) {
+    if (clear({ x, z }) || biomeAt({ x, z }).weights.rainforest < 0.35) continue;
     const y = terrainHeight(x, z) + 0.12;
     add(animals, sphere, "#628444", x, y, z, 0.2, 0.12, 0.22);
     add(animals, sphere, "#799255", x, y + 0.1, z + 0.12, 0.16, 0.1, 0.13);
@@ -409,44 +489,45 @@ export function createHabitats(scene: THREE.Scene, obstacles: Obstacle[]) {
       );
     }
   }
-  const bx = 43,
-    bz = 37,
-    by = terrainHeight(bx, bz) + 8;
-  add(animals, sphere, "#343d35", bx + 1, by, bz, 0.2, 0.28, 0.3);
-  add(
-    animals,
-    sphere,
-    "#363e31",
-    bx + 1,
-    by + 0.25,
-    bz + 0.15,
-    0.17,
-    0.17,
-    0.19,
-  );
-  add(
-    animals,
-    sphere,
-    "#c6aa54",
-    bx + 1,
-    by + 0.25,
-    bz + 0.4,
-    0.12,
-    0.13,
-    0.32,
-  );
-  add(
-    animals,
-    sphere,
-    "#d7d1aa",
-    bx + 1,
-    by + 0.02,
-    bz + 0.15,
-    0.14,
-    0.19,
-    0.15,
-  );
-  finish(animals, { x: 45, z: 30 }, 32);
+  const birdPerch = canopyPerches[2];
+  if (birdPerch) {
+    const bx = birdPerch.x, bz = birdPerch.z, by = birdPerch.y + 0.3;
+    add(animals, sphere, "#343d35", bx + 1, by, bz, 0.2, 0.28, 0.3);
+    add(
+      animals,
+      sphere,
+      "#363e31",
+      bx + 1,
+      by + 0.25,
+      bz + 0.15,
+      0.17,
+      0.17,
+      0.19,
+    );
+    add(
+      animals,
+      sphere,
+      "#c6aa54",
+      bx + 1,
+      by + 0.25,
+      bz + 0.4,
+      0.12,
+      0.13,
+      0.32,
+    );
+    add(
+      animals,
+      sphere,
+      "#d7d1aa",
+      bx + 1,
+      by + 0.02,
+      bz + 0.15,
+      0.14,
+      0.19,
+      0.15,
+    );
+  }
+  finish(animals, "rainforest-canopy-fauna");
   sphere.dispose();
   branch.dispose();
   leaf.dispose();
