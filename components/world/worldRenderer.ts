@@ -3509,7 +3509,7 @@ export function createWorld(
       aquatic === "land" &&
       nearestRegion(player) === "cavern" &&
       dogCaveProgress > 0.46 &&
-      caveInside;
+      caveLayer === "arcade" && arcadeInside(player);
     const dogTarget = state.entered
       ? aquatic !== "land" || isWater(player)
         ? shoreWait
@@ -3690,9 +3690,12 @@ export function createWorld(
       SHASTA_CHARACTER.tail.restAngleY +
       Math.sin(elapsed * 0.85 + 0.4) * 0.03;
     camera.position.lerp(targetCamera, 1 - Math.exp(-dt * 3.6));
-    if (caveInside || paperInside) {
+    if (
+      (caveLayer === "arcade" && arcadeInside(player)) ||
+      (caveLayer === "paper" && paperCaveInside(player))
+    ) {
       const c=constrainMove(player,{x:camera.position.x,z:camera.position.z},caveSolids);
-      const inArcade = caveInside;
+      const inArcade = caveLayer === "arcade" && arcadeInside(player);
       const centerX = inArcade ? 16 : -20;
       const z = THREE.MathUtils.clamp(c.z, inArcade ? -81.6 : -35.4, inArcade ? -63.7 : -30.3);
       const half = (inArcade ? caveHalfWidth(z) : paperCaveHalfWidth(z)) - .85;
