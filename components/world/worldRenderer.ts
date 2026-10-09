@@ -1,13 +1,22 @@
-import { activityLanding, BOULDER_HOLDS, effectiveActivity, FALLEN_LOGS, grindStyleForApproach, groundHeight, nearestGrind, nextHold, onSnow, rampImpulseAt, RIDE_RAMPS, stepSwim, stepTravel, terrainContact, type Activity, type AquaticMode, type GrindStyle, type Travel } from "@/lib/world/activities";
+import { createReefGarden } from "./worldReef";
+import { createHabitats } from "./worldHabitats";
+import { ringSurface, ribbon } from "./worldGeometry";
+import { drainagePoints, DOWNSTREAM_PATH } from "@/lib/world/hydrology";
+import { biomeAt, BIOME_COLORS } from "@/lib/world/biomes";
+import { rampSurface, sportClearance, activityLanding, BOULDER_HOLDS, effectiveActivity, FALLEN_LOGS, grindStyleForApproach, groundHeight, nearestGrind, nextHold, onSnow, rampImpulseAt, RIDE_RAMPS, stepSwim, stepTravel, terrainContact, type Activity, type AquaticMode, type GrindStyle, type Travel } from "@/lib/world/activities";
 import { LAND_WILDLIFE, LAND_WILDLIFE_COLORS } from "@/lib/world/ecology";
 import { SHASTA_CHARACTER } from "@/lib/world/shastaCharacter";
 import { FrameSampler, QualityController } from "@/lib/world/performance";
-import { gaitBlendForSpeed, smoothAngle, smoothPoint, smoothingAlpha, steerShastaVelocity } from "@/lib/world/shastaMotion";
+import { shastaDetour, initialChaseState, stepChase, gaitBlendForSpeed, smoothAngle, smoothPoint, smoothingAlpha, steerShastaVelocity } from "@/lib/world/shastaMotion";
 import * as THREE from "three/src/Three.Core.js";
 import type { WebGLRenderer } from "three/src/renderers/WebGLRenderer.js";
 import {
   ARCADE_CAVE,
   arcadeCaveTerrainMask,
+  arcadeInside,
+  paperCaveInside,
+  caveHalfWidth,
+  mountainSurfaceHeight,
   constrainMove,
   distance,
   MEMORY_POINTS,
@@ -246,20 +255,10 @@ export function createWorld(
         lineDistance(x, z, REGIONS[0].point, r.point),
       ),
     );
-    groundColor.set(
-      wet
-        ? "#526d61"
-        : x < coastlineX(z) + 5
-          ? "#d5bd87"
-          : y > 10
-            ? "#7d8585"
-            : x > 21
-              ? "#527466"
-              : "#a8a064",
-    );
-    if (!wet && (trail < 1.7 || distance({ x, z }, REGIONS[0].point) < 4))
-      groundColor.set("#b6a684");
-    if (onSnow({ x, z })) groundColor.set("#edf3f2");
+    const biome = biomeAt({x,z});
+    groundColor.setRGB(0,0,0);
+    for (const [id,weight] of Object.entries(biome.weights)) groundColor.add(new THREE.Color(BIOME_COLORS[id as keyof typeof BIOME_COLORS]).multiplyScalar(weight));
+    if (!wet && (trail < 1.7 || distance({ x, z }, REGIONS[0].point) < 4)) groundColor.lerp(new THREE.Color("#b6a684"), .5);
     const caveTerrainMask = arcadeCaveTerrainMask(x, z);
     if (caveTerrainMask > 0) {
       const caveFloorColor = new THREE.Color("#1a2324");
@@ -366,6 +365,7 @@ export function createWorld(
     const x = -34 + random() * 75,
       z = -43 + random() * 79;
     if (
+      sportClearance({x,z}) ||
       BOULDER_HOLDS.some(h => distance(h, { x, z }) < 5) ||
       REGIONS.some((r) => distance(r.point, { x, z }) < 7) ||
       MEMORY_POINTS.some((m) => distance(m.point, { x, z }) < 4)
@@ -408,6 +408,7 @@ export function createWorld(
     const x = -25 + random() * 71,
       z = -40 + random() * 80;
     if (
+      sportClearance({x,z}) || biomeAt({x,z}).weights.redwood < .25 ||
       x < -17 || z < -15 ||
       BOULDER_HOLDS.some(h => distance(h, { x, z }) < 6) ||
       REGIONS.some((r) => distance(r.point, { x, z }) < 9) ||
@@ -483,10 +484,11 @@ export function createWorld(
     const laneCenter = 7 + Math.sin((z + 60) * 0.13) * 7;
     const inArcadeCaveCorridor =
       Math.abs(x - ARCADE_CAVE.entrance.x) <
-        ARCADE_CAVE.tunnelHalfWidth + 2.6 &&
+        caveHalfWidth(z) + 2.6 &&
       z > ARCADE_CAVE.entrance.z - 3 &&
       z < ARCADE_CAVE.wall.z + 4;
     if (
+      sportClearance({x,z}) ||
       Math.abs(x - laneCenter) < 3.4 ||
       distance({ x, z }, REGIONS[1].point) < 7 ||
       RIDE_RAMPS.some(r => distance({ x, z }, r.point) < 5) ||
@@ -536,17 +538,18 @@ export function createWorld(
     };
     const right = { x: forward.z, z: -forward.x };
     const yaw = Math.atan2(forward.x, forward.z);
-    const pitch = -0.2;
+    const entryY = terrainHeight(ramp.point.x-forward.x*3.5,ramp.point.z-forward.z*3.5)+.12;
+    const lipY = terrainHeight(ramp.point.x,ramp.point.z)+.84;
+    const pitch = -Math.atan2(lipY-entryY,3.5);
     const plankQ = new THREE.Quaternion().setFromEuler(
       new THREE.Euler(pitch, yaw, 0, "YXZ"),
     );
-    const baseY = terrainHeight(ramp.point.x, ramp.point.z);
     for (let plank = 0; plank < 8; plank++) {
       const t = plank / 7;
-      const along = -1.75 + t * 3.5;
+      const along = -3.5 + t * 3.5;
       rampPlanks.push({
         x: ramp.point.x + forward.x * along,
-        y: baseY + 0.12 + t * 0.72,
+        y: rampSurface(ramp,{x:ramp.point.x+forward.x*along,z:ramp.point.z+forward.z*along}) ?? entryY+(lipY-entryY)*t,
         z: ramp.point.z + forward.z * along,
         sx: 2.55,
         sy: 0.11,
@@ -556,14 +559,14 @@ export function createWorld(
     }
     for (const side of [-1, 1]) {
       const start = new THREE.Vector3(
-        ramp.point.x - forward.x * 1.9 + right.x * side * 0.92,
-        baseY + 0.08,
-        ramp.point.z - forward.z * 1.9 + right.z * side * 0.92,
+        ramp.point.x - forward.x * 3.5 + right.x * side * 0.92,
+        entryY-.05,
+        ramp.point.z - forward.z * 3.5 + right.z * side * 0.92,
       );
       const end = new THREE.Vector3(
-        ramp.point.x + forward.x * 1.9 + right.x * side * 0.92,
-        baseY + 0.86,
-        ramp.point.z + forward.z * 1.9 + right.z * side * 0.92,
+        ramp.point.x + right.x * side * 0.92,
+        lipY-.05,
+        ramp.point.z + right.z * side * 0.92,
       );
       rampStringers.push(segment(start, end, 0.08));
     }
@@ -576,6 +579,7 @@ export function createWorld(
     const x = -28 + random() * 74,
       z = -39 + random() * 77;
     if (
+      random() < biomeAt({x,z}).weights.desert || sportClearance({x,z}) ||
       REGIONS.some((r) => lineDistance(x, z, REGIONS[0].point, r.point) < 2.7)
     )
       continue;
@@ -712,6 +716,7 @@ export function createWorld(
   markerHitMesh.userData.discoveryByInstance = markerIds;
   markerObjects.push(markerHitMesh);
   instances(rockGeo, mat("#8d9185"), cairnPieces, false);
+  const habitats = createHabitats(scene, obstacles);
   // Explorer root carries world/terrain orientation. bodyRoot carries the human pose
   // independently so swimming and bike seating do not rotate/offset the equipment.
   const explorer = new THREE.Group();
@@ -762,22 +767,34 @@ export function createWorld(
   instances(cone, mat("#4d875d"), fernFronds, false); // Stylized fern forms; no species claim.
   const falls = REGIONS.find(r => r.id === "waterfall")!.point;
   const fallsY = terrainHeight(falls.x, falls.z);
-  const cliff: Instance[] = [];
-  for (let i = 0; i < 7; i++) {
-    const x = falls.x - 6 + i * 2, z = falls.z - 5;
-    cliff.push({ x, y: fallsY + 4.2, z, sx: 2, sy: 6.1, sz: 1.8 });
-    obstacles.push({ x, z, radius: 1.3 });
-  }
-  instances(rockGeo, mat("#698983"), cliff);
-  const waterfall = mesh(boxGeo, mat("#c9f1f6", { transparent: true, opacity: 0.75, emissive: "#6babb7", emissiveIntensity: 0.15 }), [falls.x, fallsY + 4, falls.z - 2.9], [2.5, 8.4, 0.1]);
-  waterfall.castShadow = false;
-  const pool = mesh(geo(new THREE.CircleGeometry(4.2, 24)), mat("#399eaa", { transparent: true, opacity: 0.85, roughness: 0.3 }), [falls.x, fallsY + 0.09, falls.z - 1], [1, 0.65, 1]);
-  pool.rotation.x = -Math.PI / 2;
-  pool.castShadow = false;
-  const fallingWater = instances(boxGeo, mat("#efffff", { transparent: true, opacity: 0.55 }), Array.from({ length: 20 }, (_, i) => ({ x: falls.x - 1.1 + (i % 5) * 0.53, y: fallsY + (i / 20) * 8, z: falls.z - 2.8, sx: 0.045, sy: 0.65, sz: 0.03 })), false);
-  const splash = mesh(geo(new THREE.TorusGeometry(2.1, 0.055, 4, 24)), mat("#d6f6ec"), [falls.x, fallsY + 0.12, falls.z - 1], [1, 1, 1]);
-  splash.rotation.x = -Math.PI / 2;
-  splash.castShadow = false;
+  const waterRibbonMat=mat("#9dc6c5",{transparent:true,opacity:.7,roughness:.35,side:THREE.DoubleSide});
+  const melt=drainagePoints();
+  const upper=melt.map(p=>new THREE.Vector3(p.x,p.y,p.z));
+  const lip=new THREE.Vector3(-20,upper[upper.length-1].y-.5,-30);
+  upper.push(new THREE.Vector3(-20,lip.y+.3,-37),new THREE.Vector3(-20,lip.y+.15,-34),lip);
+  mesh(geo(ribbon(upper,upper.map((_,i)=>.6+i*.18))),waterRibbonMat,[0,0,0],[1,1,1]);
+  const basin=mesh(geo(new THREE.CircleGeometry(2,20)),waterRibbonMat,[upper[0].x,upper[0].y,upper[0].z],[1,1,1]);basin.rotation.x=-Math.PI/2;
+  const fallRings=Array.from({length:13},(_,i)=>{const t=i/12;return [new THREE.Vector3(-21.2-Math.sin(t*4)*.12,lip.y+(fallsY+.1-lip.y)*t,-30+t*.8),new THREE.Vector3(-18.8+Math.sin(t*6)*.18,lip.y+(fallsY+.1-lip.y)*t,-30+t*.8)];});
+  const waterfall=mesh(geo(ringSurface(fallRings)),waterRibbonMat,[0,0,0],[1,1,1]);waterfall.castShadow=false;
+  const paperRings=Array.from({length:7},(_,i)=>{const z=-30-i;return [new THREE.Vector3(-24,fallsY,z),new THREE.Vector3(-24,fallsY+3.2,z),new THREE.Vector3(-22.5,fallsY+4.7,z),new THREE.Vector3(-20,fallsY+5,z),new THREE.Vector3(-17.5,fallsY+4.7,z),new THREE.Vector3(-16,fallsY+3.2,z),new THREE.Vector3(-16,fallsY,z)];});
+  mesh(geo(ringSurface(paperRings)),mat("#465958",{side:THREE.DoubleSide}),[0,0,0],[1,1,1]);
+  mesh(boxGeo,mat("#43504e"),[-20,fallsY+2.5,-36.2],[8,5,.5]);
+  mesh(boxGeo,mat("#4d5a57"),[-20,fallsY-.08,-33],[8,.14,6]);
+  for(const side of [-1,1])for(let z=-30;z>=-36;z--)obstacles.push({x:-20+side*4.2,z,radius:.35});
+  for(let x=-24;x<=-16;x++)obstacles.push({x,z:-36.5,radius:.35});
+  const paperRockRings=[...paperRings, [new THREE.Vector3(-24,fallsY,-38)], [new THREE.Vector3(-24,fallsY,-40)]].map((ring)=>[new THREE.Vector3(-27,terrainHeight(-27,ring[0].z),ring[0].z),new THREE.Vector3(-24,lip.y+.5,ring[0].z),new THREE.Vector3(-20,lip.y,ring[0].z),new THREE.Vector3(-16,lip.y+.5,ring[0].z),new THREE.Vector3(-13,terrainHeight(-13,ring[0].z),ring[0].z)]);
+  mesh(geo(ringSurface(paperRockRings)),mat("#78867a",{side:THREE.DoubleSide}),[0,0,0],[1,1,1]);
+  const paperTablets:Instance[]=Array.from({length:4},(_,i)=>({x:-22.4+i*1.6,y:fallsY+1.9,z:-35.75,sx:1.05,sy:1.5,sz:.16}));
+  instances(boxGeo,mat("#8d9c96"),paperTablets,false);
+  const paperGlyphs:Instance[]=paperTablets.flatMap(p=>Array.from({length:12},(_,i)=>({x:p.x-.4+i*.07,y:p.y+Math.sin(i*1.8)*.19,z:p.z+.1,sx:.05,sy:.055,sz:.025})));
+  instances(boxGeo,mat("#394c4f"),paperGlyphs,false);
+  const paperLight=new THREE.PointLight("#b2dce6",4,9,2);paperLight.position.set(-20,fallsY+3,-33);scene.add(paperLight);
+  const pool=mesh(geo(new THREE.CircleGeometry(3.7,24)),waterRibbonMat,[-20,fallsY+.08,-27],[1,1,1]);pool.rotation.x=-Math.PI/2;
+  const lower=DOWNSTREAM_PATH.map(p=>new THREE.Vector3(p.x,terrainHeight(p.x,p.z)+.1,p.z));
+  mesh(geo(ribbon(lower,lower.map(()=>1.2))),waterRibbonMat,[0,0,0],[1,1,1]);
+  const fallingWater=instances(boxGeo,mat("#efffff",{transparent:true,opacity:.45}),Array.from({length:24},(_,i)=>({x:-21+(i%5)*.45,y:fallsY+.3+(i/24)*(lip.y-fallsY-.5),z:-29.55,sx:.025,sy:.3,sz:.025})),false);
+  const splash=mesh(geo(new THREE.TorusGeometry(1.2,.04,4,20)),mat("#d6f6ec"),[-20,fallsY+.15,-29],[1,1,1]);splash.rotation.x=-Math.PI/2;
+  canvas.dataset.waterSource="snowmelt";
   // The arcade now lives inside a real tunnel on the backside of Granite Ridge.
   // Menu travel lands outside the entrance; the player must walk uphill into the
   // mountain before the carved games become selectable.
@@ -785,136 +802,26 @@ export function createWorld(
   const arcadeY = terrainHeight(arcade.x, arcade.z);
   const arcadeWall = ARCADE_CAVE.wall;
   const arcadeWallY = terrainHeight(arcadeWall.x, arcadeWall.z);
-  const caveRock = mat("#303b3d");
-  const caveDeepRock = mat("#222b2d");
-  const caveShell: Instance[] = [];
-  const caveLining: Instance[] = [];
-  const caveFloorStones: Instance[] = [];
-  const caveSections = 9;
-  const caveSectionData = Array.from({ length: caveSections }, (_, i) => {
-    const t = i / (caveSections - 1);
-    const z = arcade.z + ARCADE_CAVE.tunnelDepth * t;
-    const floor = terrainHeight(arcade.x, z);
-    const chamberFlare = THREE.MathUtils.smoothstep(t, 0.56, 1) * 1.35;
-    return {
-      t,
-      z,
-      floor,
-      halfWidth: ARCADE_CAVE.tunnelHalfWidth - t * 0.18 + chamberFlare,
-      clearance:
-        ARCADE_CAVE.ceilingClearance - t * 0.18 + chamberFlare * 0.16,
-    };
+  // Continuous negative-space shell, with outer shoulders tied to uncarved terrain.
+  const caveFloorY = terrainHeight(16,-78);
+  const shellRings = Array.from({length:17},(_,i)=>{
+    const z=arcade.z+i/16*ARCADE_CAVE.tunnelDepth,w=caveHalfWidth(z),h=4.5+THREE.MathUtils.smoothstep(z,-76,-70)*1.5;
+    const jitter=Math.sin(i*1.7)*.12;
+    return [new THREE.Vector3(16-w,caveFloorY-.1,z),new THREE.Vector3(16-w-.15,caveFloorY+2.3,z),new THREE.Vector3(16-w*.72,caveFloorY+h-.3+jitter,z),new THREE.Vector3(16,caveFloorY+h+jitter,z),new THREE.Vector3(16+w*.72,caveFloorY+h-.2,z),new THREE.Vector3(16+w+.15,caveFloorY+2.3,z),new THREE.Vector3(16+w,caveFloorY-.1,z)];
   });
-
-  // Build the tunnel as overlapping sloped panels between terrain samples.
-  // The previous horizontal floor/ceiling slabs produced visible staircase bands
-  // and could intersect the third-person camera on the steep mountain shoulder.
-  for (let i = 0; i < caveSectionData.length - 1; i++) {
-    const a = caveSectionData[i];
-    const b = caveSectionData[i + 1];
-    const midZ = (a.z + b.z) * 0.5;
-    const midFloor = (a.floor + b.floor) * 0.5;
-    const halfWidth = (a.halfWidth + b.halfWidth) * 0.5;
-    const clearance = (a.clearance + b.clearance) * 0.5;
-    const dz = b.z - a.z;
-    const dy = b.floor - a.floor;
-    const segmentLength = Math.hypot(dz, dy);
-    const pitch = -Math.atan2(dy, dz);
-    const slopeQ = new THREE.Quaternion().setFromEuler(
-      new THREE.Euler(pitch, 0, 0),
-    );
-
-    caveLining.push(
-      {
-        x: arcade.x - (halfWidth + 0.44),
-        y: midFloor + clearance * 0.5,
-        z: midZ,
-        sx: 0.62,
-        sy: clearance * 1.08,
-        sz: segmentLength + 0.28,
-        q: slopeQ,
-      },
-      {
-        x: arcade.x + (halfWidth + 0.44),
-        y: midFloor + clearance * 0.5,
-        z: midZ,
-        sx: 0.62,
-        sy: clearance * 1.08,
-        sz: segmentLength + 0.28,
-        q: slopeQ,
-      },
-      {
-        x: arcade.x,
-        y: midFloor + clearance + 0.3,
-        z: midZ,
-        sx: halfWidth * 2.05,
-        sy: 0.5,
-        sz: segmentLength + 0.34,
-        q: slopeQ,
-      },
-    );
-
-    // Rock cladding stays near the perimeter, never across the central camera lane.
-    for (const side of [-1, 1]) {
-      caveShell.push(
-        {
-          x: arcade.x + side * (halfWidth + 0.08),
-          y: midFloor + 1.12,
-          z: midZ + Math.sin(i * 0.9 + side) * 0.11,
-          sx: 0.66,
-          sy: 0.94,
-          sz: 0.72,
-          ry: i * 0.63 + side * 0.3,
-        },
-        {
-          x: arcade.x + side * (halfWidth * 0.76),
-          y: midFloor + clearance - 0.2,
-          z: midZ + 0.08,
-          sx: 0.68,
-          sy: 0.42,
-          sz: 0.7,
-          ry: i * 0.41 - side * 0.5,
-        },
-      );
-      obstacles.push({
-        x: arcade.x + side * (halfWidth + 0.9),
-        z: midZ,
-        radius: 0.62,
-      });
-    }
-
-    // Small scattered floor stones preserve cave texture without forming horizontal
-    // bars across the uphill walking path.
-    caveFloorStones.push({
-      x: arcade.x + Math.sin(i * 1.57) * halfWidth * 0.42,
-      y: midFloor + 0.08,
-      z: midZ + Math.cos(i * 1.31) * 0.26,
-      sx: 0.42 + (i % 3) * 0.12,
-      sy: 0.07,
-      sz: 0.38 + ((i + 1) % 3) * 0.1,
-      ry: i * 0.71,
+  mesh(geo(ringSurface(shellRings)),mat("#626766",{side:THREE.DoubleSide,flatShading:false}),[0,0,0],[1,1,1]);
+  for(const side of [-1,1]){
+    const shoulderRings=shellRings.map((ring,i)=>{
+      const z=ring[0].z,w=caveHalfWidth(z),top=ring[3].y;
+      return [new THREE.Vector3(16,top+.18,z),new THREE.Vector3(16+side*(w+1),Math.max(top+.4,mountainSurfaceHeight(16+side*(w+1),z)),z),new THREE.Vector3(16+side*(w+5),terrainHeight(16+side*(w+5),z),z)];
     });
+    mesh(geo(ringSurface(shoulderRings)),mat("#969b94",{side:THREE.DoubleSide,flatShading:false}),[0,0,0],[1,1,1]);
+    for(let z=-81;z<-63;z+=1)obstacles.push({x:16+side*(caveHalfWidth(z)+.4),z,radius:.32});
   }
-
-  instances(
-    boxGeo,
-    mat("#182123", { flatShading: false, roughness: 1 }),
-    caveLining,
-    false,
-  );
-  instances(rockGeo, caveRock, caveShell);
-  instances(rockGeo, mat("#273134"), caveFloorStones, false);
-
-  // Blend the entrance into the actual mountain shoulder with irregular portal
-  // rocks, leaving a dark readable opening rather than a freestanding ring.
-  const entranceRocks: Instance[] = [
-    { x: arcade.x - 3.65, y: arcadeY + 1.4, z: arcade.z - 0.45, sx: 1.75, sy: 2.15, sz: 1.6, ry: 0.4 },
-    { x: arcade.x + 3.65, y: arcadeY + 1.5, z: arcade.z - 0.25, sx: 1.8, sy: 2.25, sz: 1.65, ry: -0.55 },
-    { x: arcade.x - 1.7, y: arcadeY + 4.15, z: arcade.z + 0.05, sx: 2.0, sy: 0.9, sz: 1.6, ry: 0.2 },
-    { x: arcade.x + 1.7, y: arcadeY + 4.18, z: arcade.z + 0.08, sx: 2.0, sy: 0.9, sz: 1.6, ry: -0.3 },
-  ];
-  instances(rockGeo, mat("#3a4646"), entranceRocks);
-
+  mesh(boxGeo,mat("#535b59"),[16,caveFloorY-.12,-72.5],[12.1,.2,19]);
+  // Recessed throat baffle blocks the direct exterior view of the rear niche.
+  mesh(boxGeo,mat("#646b67"),[14.2,caveFloorY+2.35,-74.5],[4.8,4.7,.7]);
+  for(let x=12;x<16.7;x+=.7)obstacles.push({x,z:-74.5,radius:.28});
   // A single small hanging lantern provides the cave's warm interior light.
   const lanternFloor = terrainHeight(ARCADE_CAVE.lantern.x, ARCADE_CAVE.lantern.z);
   const lanternY = lanternFloor + ARCADE_CAVE.ceilingClearance - 0.85;
@@ -978,28 +885,8 @@ export function createWorld(
 
   // Build a rough back wall from stone, then inset three separate game panels.
   // They are horizontally spaced so gaze/click selection has generous hit areas.
-  const caveBackWall: Instance[] = [];
-  for (let ix = -4; ix <= 4; ix++) {
-    for (let iy = 0; iy < 3; iy++) {
-      caveBackWall.push({
-        x: arcadeWall.x + ix * 1.05,
-        y: arcadeWallY + 0.85 + iy * 1.35,
-        z: arcadeWall.z + 0.38 + Math.sin(ix * 1.3 + iy) * 0.12,
-        sx: 0.72,
-        sy: 0.9,
-        sz: 0.7,
-        ry: ix * 0.6 + iy,
-      });
-    }
-  }
-  const caveRearSeal = mesh(
-    boxGeo,
-    mat("#11191b", { flatShading: false, roughness: 1 }),
-    [arcadeWall.x, arcadeWallY + 2.35, arcadeWall.z + 0.92],
-    [9.4, 5.9, 1.45],
-  );
-  caveRearSeal.castShadow = false;
-  instances(rockGeo, caveDeepRock, caveBackWall);
+  mesh(boxGeo,mat("#424b49"),[16,caveFloorY+3,-62.9],[12.8,6.2,.8]);
+  for(let x=10;x<23;x+=.8)obstacles.push({x,z:-62.5,radius:.35});
   const carvingBandMaterial = mat("#11191b", {
     transparent: true,
     opacity: 0.001,
@@ -1007,14 +894,10 @@ export function createWorld(
     roughness: 1,
   });
   const panelY = arcadeWallY + 2.35;
-  const carvingBands: Instance[] = ARCADE_CAVE.gamePanelXs.map((x) => ({
-    x,
-    y: panelY,
-    z: arcadeWall.z - 0.42,
-    sx: 2.55,
-    sy: 2.65,
-    sz: 0.13,
-  }));
+  const gameNiches = [
+    {x:10.35,z:-67,yaw:Math.PI/2}, {x:16,z:-63.45,yaw:0}, {x:21.65,z:-67,yaw:-Math.PI/2},
+  ];
+  const carvingBands: Instance[] = gameNiches.map(p=>({x:p.x,y:panelY,z:p.z,sx:3.6,sy:2.65,sz:.13,ry:p.yaw}));
   const carvingBandMesh = instances(boxGeo, carvingBandMaterial, carvingBands, false);
   carvingBandMesh.userData.discoveryByInstance = ["game:0", "game:1", "game:2"];
   markerObjects.push(carvingBandMesh);
@@ -1062,16 +945,16 @@ export function createWorld(
         pattern.forEach((bits, py) =>
           [...bits].forEach((bit, px) => {
             if (bit !== "1") return;
+            const niche = gameNiches[panelIndex];
+            const localX = startX + (line.length - 1 - index) * 4 * scale + (2 - px) * scale - ARCADE_CAVE.gamePanelXs[panelIndex];
             carvingGlyphs.push({
               // The wall is viewed while facing +Z, which reverses world-X on
               // screen. Mirror both glyph order and each 3-column bitmap so the
               // carving reads normally from the cave entrance.
-              x:
-                startX +
-                (line.length - 1 - index) * 4 * scale +
-                (2 - px) * scale,
+              x: niche.x+Math.cos(niche.yaw)*localX-Math.sin(niche.yaw)*.14,
               y: baseline - py * scale,
-              z: arcadeWall.z - 0.57,
+              z: niche.z-Math.sin(niche.yaw)*localX-Math.cos(niche.yaw)*.14,
+              ry:niche.yaw,
               sx: scale * 0.78,
               sy: scale * 0.78,
               sz: 0.04,
@@ -1081,23 +964,13 @@ export function createWorld(
       });
     });
   });
-  instances(boxGeo, carvingMaterial, carvingGlyphs, false);
+  const gameCarvings = instances(boxGeo, carvingMaterial, carvingGlyphs, false);
 
   // Subtle carved symbols below each game keep the wall personal without adding
   // UI chrome: horn, branching neuron, mountain.
-  const runeZ = arcadeWall.z - 0.58;
-  const runeY = arcadeWallY + 0.85;
-  const [leftGameX, middleGameX, rightGameX] = ARCADE_CAVE.gamePanelXs;
-  const caveRunes = [
-    segment(new THREE.Vector3(leftGameX - 0.28, runeY, runeZ), new THREE.Vector3(leftGameX + 0.2, runeY + 0.56, runeZ), 0.04),
-    segment(new THREE.Vector3(leftGameX + 0.2, runeY + 0.56, runeZ), new THREE.Vector3(leftGameX + 0.02, runeY + 0.26, runeZ), 0.032),
-    segment(new THREE.Vector3(middleGameX, runeY, runeZ), new THREE.Vector3(middleGameX, runeY + 0.62, runeZ), 0.035),
-    segment(new THREE.Vector3(middleGameX, runeY + 0.38, runeZ), new THREE.Vector3(middleGameX - 0.38, runeY + 0.62, runeZ), 0.032),
-    segment(new THREE.Vector3(middleGameX, runeY + 0.38, runeZ), new THREE.Vector3(middleGameX + 0.38, runeY + 0.62, runeZ), 0.032),
-    segment(new THREE.Vector3(rightGameX - 0.5, runeY, runeZ), new THREE.Vector3(rightGameX, runeY + 0.62, runeZ), 0.04),
-    segment(new THREE.Vector3(rightGameX, runeY + 0.62, runeZ), new THREE.Vector3(rightGameX + 0.5, runeY, runeZ), 0.04),
-  ];
-  instances(cylinder, mat("#9a8462"), caveRunes, false);
+  const caveRunes: Instance[] = gameNiches.flatMap((p,i)=>Array.from({length:3+i},(_,k)=>({x:p.x+Math.cos(p.yaw)*(k*.17-.3)-Math.sin(p.yaw)*.15,y:caveFloorY+1.1+Math.sin(k)*.15,z:p.z-Math.sin(p.yaw)*(k*.17-.3)-Math.cos(p.yaw)*.15,sx:.08,sy:.12,sz:.04,ry:p.yaw})));
+  const runeMesh = instances(boxGeo,mat("#9a8462"),caveRunes,false);
+  gameCarvings.visible = runeMesh.visible = carvingBandMesh.visible = false;
 
   // No arcade cabinet is duplicated here; the mountain wall itself is the portfolio/game interface.
 
@@ -1965,6 +1838,7 @@ export function createWorld(
   rayShape.bezierCurveTo(-0.52, -0.58, -1.08, -0.18, -1.46, 0.05);
   rayShape.bezierCurveTo(-1.18, 0.62, -0.32, 0.96, 0, 1.05);
   const rayGeo = geo(new THREE.ShapeGeometry(rayShape, 8));
+  const rayOriginal = new Float32Array(rayGeo.attributes.position.array);
   const rays: THREE.Group[] = [];
   for (let i = 0; i < 2; i++) {
     const rayGroup = new THREE.Group();
@@ -2157,41 +2031,8 @@ export function createWorld(
   tropicalReefRoot.visible = false;
   scene.add(tropicalReefRoot);
 
-  const tropicalCoralColors = ["#76539a", "#5d9d61", "#c99d45", "#9367b4", "#79a965"];
-  const tropicalCoralHeads: Instance[] = [];
-  const tropicalCoralBranches: Instance[] = [];
-  for (let i = 0; i < 72; i++) {
-    const z = -24 + random() * 66;
-    const x = eastCoastlineX(z) + 3.2 + random() * 19;
-    const floor = seaFloorHeight(x, z);
-    const size = 0.24 + random() * 0.7;
-    const color = tropicalCoralColors[i % tropicalCoralColors.length];
-    tropicalCoralHeads.push({
-      x,
-      y: floor + size * 0.34,
-      z,
-      sx: size * (0.8 + random() * 0.5),
-      sy: size * (0.55 + random() * 0.5),
-      sz: size * (0.85 + random() * 0.55),
-      ry: random() * Math.PI,
-      color,
-    });
-    if (i % 2 === 0) {
-      const branches = 2 + (i % 4);
-      for (let branch = 0; branch < branches; branch++) {
-        const a = branch / branches * Math.PI * 2 + i * 0.31;
-        const start = new THREE.Vector3(x, floor + 0.1, z);
-        const end = new THREE.Vector3(
-          x + Math.cos(a) * (0.22 + random() * 0.35),
-          floor + 0.55 + random() * 0.65,
-          z + Math.sin(a) * (0.22 + random() * 0.35),
-        );
-        tropicalCoralBranches.push({ ...segment(start, end, 0.045 + random() * 0.035), color });
-      }
-    }
-  }
-  instances(rockGeo, mat("#ffffff"), tropicalCoralHeads, false, tropicalReefRoot);
-  instances(cylinder, mat("#ffffff"), tropicalCoralBranches, false, tropicalReefRoot);
+  const reefGarden = createReefGarden(tropicalReefRoot);
+
 
   type TropicalFishState = {
     centerX: number;
@@ -2501,7 +2342,8 @@ export function createWorld(
   materials.add(tropicalMoteMat);
   const tropicalMotes = new THREE.Points(tropicalMoteGeo, tropicalMoteMat);
   tropicalReefRoot.add(tropicalMotes);
-  canvas.dataset.lagoonSpecies = "7";
+  canvas.dataset.lagoonSpecies = "8";
+  canvas.dataset.coralForms = "9";
   canvas.dataset.marineWildlifeStyle = "anatomical-v3";
 
   // A tiny world-space bubble field follows the swimmer. The points rise independently
@@ -2584,8 +2426,8 @@ export function createWorld(
   let dogMoveBlend = 0;
   let dogAnimSpeed = 0;
   let dogInterestCritterIndex: number | null = null;
-  let dogInterestUntil = 0;
-  let dogInterestRestUntil = 0;
+  let dogChase = initialChaseState();
+
   let dogTargetSwitches = 0;
   let dogMaxYawStep = 0;
   let dogMaxYStep = 0;
@@ -2698,7 +2540,7 @@ export function createWorld(
     if (marker && marker.distance < 55) {
       const discoveryId = discoveryForHit(marker);
       if (discoveryId?.startsWith("game:")) {
-        if (distance(player, arcadeWall) < 7.4) callbacks.onInteract(discoveryId);
+        if (arcadeInside(player) && distance(player, arcadeWall) < 7.4) callbacks.onInteract(discoveryId);
         else destination = { x: arcadeWall.x, z: arcadeWall.z - 4.2 };
         return;
       }
@@ -3183,13 +3025,12 @@ export function createWorld(
         0,
         1,
       );
-      const caveInside =
-        aquatic === "land" &&
-        r === "cavern" &&
-        caveProgress > 0.3 &&
-        Math.abs(player.x - arcade.x) < ARCADE_CAVE.tunnelHalfWidth - 0.25;
+      const caveInside = aquatic === "land" && arcadeInside(player);
+      gameCarvings.visible = runeMesh.visible = carvingBandMesh.visible = caveInside && caveProgress > .4;
       canvas.dataset.caveInside = String(caveInside);
       canvas.dataset.caveDepth = caveProgress.toFixed(3);
+      canvas.dataset.player = `${player.x.toFixed(2)},${player.z.toFixed(2)}`;
+      canvas.dataset.paperInside = String(paperCaveInside(player));
       canvas.dataset.caveChamber = String(caveProgress > 0.58);
       let rawGazeGame: string | null = null;
       const cavernCameraSettled =
@@ -3219,7 +3060,7 @@ export function createWorld(
       } else if (gazeStable && now - gazeLastSeen > 450) {
         gazeStable = null;
       }
-      if (r !== "cavern" || aquatic !== "land") {
+      if (!caveInside || aquatic !== "land") {
         gazeCandidate = gazeStable = null;
         gazeCandidateSince = gazeLastSeen = now;
       }
@@ -3233,7 +3074,7 @@ export function createWorld(
       }
       const cavernApproachFraming =
         aquatic === "land" &&
-        r === "cavern" &&
+        distance(player,arcade)<12 &&
         caveProgress <= 0.32 &&
         distance(player, arcade) < 5.8;
       const cavernFraming =
@@ -3368,11 +3209,22 @@ export function createWorld(
           SEA_SURFACE - 0.28,
         );
       }
+      if (caveInside || paperCaveInside(player)) {
+        const isArcade = caveInside;
+        const centerX = isArcade ? 16 : -20;
+        const minZ = isArcade ? -81.6 : -35.4;
+        const maxZ = isArcade ? -63.7 : -30.3;
+        const desired = constrainMove(player,{x:player.x+Math.sin(yaw)*2.6,z:player.z+Math.cos(yaw)*2.6},obstacles);
+        const z=THREE.MathUtils.clamp(desired.z,minZ,maxZ);
+        const half = isArcade ? caveHalfWidth(z)-.85 : 3.1;
+        targetCamera.set(THREE.MathUtils.clamp(desired.x,centerX-half,centerX+half),playerY+2.15,z);
+        targetLook.set(player.x-Math.sin(yaw)*2.4,playerY+1.85,player.z-Math.cos(yaw)*2.4);
+      }
       if (cavernFraming) {
         const cameraFloor = terrainHeight(targetCamera.x, targetCamera.z);
         const cameraCeiling = cameraFloor + ARCADE_CAVE.ceilingClearance;
         canvas.dataset.caveCameraClear = String(
-          Math.abs(targetCamera.x - arcade.x) < ARCADE_CAVE.tunnelHalfWidth - 0.75 &&
+          Math.abs(targetCamera.x - arcade.x) < caveHalfWidth(targetCamera.z) - 0.7 &&
           targetCamera.y > cameraFloor + 1.4 &&
           targetCamera.y < cameraCeiling - 0.7,
         );
@@ -3405,6 +3257,7 @@ export function createWorld(
         landWildlifeVisible;
     if (landWildlifeVisible) {
       critters.forEach((critter, i) => {
+        if (distance(player,critter.point)>45) return;
         critter.phase += dt * critter.speed * 0.55;
         const dogDistance = distance(critter.point, dog);
         const playerDistance = distance(critter.point, player);
@@ -3437,7 +3290,7 @@ export function createWorld(
           x: critter.point.x + (toX / targetDistance) * step,
           z: critter.point.z + (toZ / targetDistance) * step,
         };
-        if (isWater(candidate)) {
+        if (isWater(candidate) || distance(candidate,critter.home)>critter.roam*2) {
           critter.phase += Math.PI * 0.7;
         } else {
           critter.point = candidate;
@@ -3677,51 +3530,12 @@ export function createWorld(
       critterThinTails.instanceMatrix.needsUpdate = true;
     }
 
-    const nearbyShastaMemory = MEMORY_POINTS
-      .filter((memory) => memory.id.startsWith("shasta-"))
-      .map((memory) => ({ memory, d: distance(player, memory.point) }))
-      .filter(({ d }) => d < 10)
-      .sort((a, b) => a.d - b.d)[0]?.memory;
-
-    // Curiosity uses hysteresis: once Shasta chooses a moving animal he keeps that
-    // interest briefly instead of selecting a new nearest critter every frame.
-    if (dogInterestCritterIndex !== null) {
-      const interest = critters[dogInterestCritterIndex];
-      const stillRelevant =
-        aquatic === "land" &&
-        elapsed < dogInterestUntil &&
-        distance(player, interest.point) < 13 &&
-        distance(dog, interest.point) < 16;
-      if (!stillRelevant) {
-        dogInterestCritterIndex = null;
-        dogInterestRestUntil = elapsed + 1.35;
-      }
-    }
-    if (
-      dogInterestCritterIndex === null &&
-      aquatic === "land" &&
-      !nearbyShastaMemory &&
-      elapsed >= dogInterestRestUntil
-    ) {
-      const nextInterest = critters
-        .map((critter, index) => ({
-          index,
-          playerDistance: distance(player, critter.point),
-          dogDistance: distance(dog, critter.point),
-        }))
-        .filter(({ playerDistance, dogDistance }) => playerDistance < 9 && dogDistance < 11)
-        .sort((a, b) => a.dogDistance - b.dogDistance)[0];
-      if (nextInterest) {
-        dogInterestCritterIndex = nextInterest.index;
-        dogInterestUntil = elapsed + 3.2;
-        dogTargetSwitches++;
-      }
-    }
-    const nearbyCritter =
-      dogInterestCritterIndex === null
-        ? null
-        : critters[dogInterestCritterIndex];
-
+    const chaseBefore = dogChase;
+    dogChase = stepChase(dogChase, elapsed, dog, player, critters.map(c => c.point), aquatic === "land" && !arcadeInside(player) && !paperCaveInside(player));
+    dogInterestCritterIndex = dogChase.target;
+    if (dogChase.target !== null && dogChase.target !== chaseBefore.target) dogTargetSwitches++;
+    const nearbyCritter = dogInterestCritterIndex === null ? null : critters[dogInterestCritterIndex];
+    canvas.dataset.dogBehavior = dogChase.mode;
     const playerWaterZone = waterZone(player);
     const shoreWait = {
       x:
@@ -3745,20 +3559,16 @@ export function createWorld(
         ? shoreWait
         : dogWaitsAtCaveEntrance
           ? { x: arcade.x - 2.0, z: arcade.z - 1.65 }
-          : distance(player, SECRET) < 13
-            ? SECRET
-            : nearbyShastaMemory
-              ? nearbyShastaMemory.point
-              : nearbyCritter
-                ? nearbyCritter.point
-                : { x: player.x + 2.7, z: player.z - 2.7 }
+          : nearbyCritter
+            ? nearbyCritter.point
+            : { x: player.x - travel.heading.x * 2.2 + travel.heading.z * 1.2, z: player.z - travel.heading.z * 2.2 - travel.heading.x * 1.2 }
       : { x: 4 + Math.sin(elapsed * 0.13) * 2, z: 12 };
     canvas.dataset.dogCuriosity =
       aquatic !== "land"
         ? "shore"
         : dogWaitsAtCaveEntrance
           ? "cave-entrance"
-          : nearbyShastaMemory?.id ?? nearbyCritter?.kind ?? "";
+          : nearbyCritter?.kind ?? "";
     canvas.dataset.caveDogClear = String(
       !dogWaitsAtCaveEntrance || distance(dog, arcadeWall) > 6.5,
     );
@@ -3766,12 +3576,13 @@ export function createWorld(
     // Smooth the target itself, then steer velocity toward it with finite
     // acceleration/braking. This removes the start/stop jerk from direct pursuit.
     const dogMotionDt = Math.min(rawDelta, 0.1);
-    dogSmoothedTarget = smoothPoint(dogSmoothedTarget, dogTarget, dogMotionDt);
+    const dogSteeringTarget = shastaDetour(dog,dogTarget,obstacles,1);
+    dogSmoothedTarget = smoothPoint(dogSmoothedTarget, isWater(dogSteeringTarget) ? dogTarget : dogSteeringTarget, dogMotionDt);
     dogVelocity = steerShastaVelocity(
       dogVelocity,
       dog,
       dogSmoothedTarget,
-      travel.speed,
+      dogChase.mode === "return" ? Math.max(travel.speed, 6) : travel.speed,
       dogMotionDt,
     );
     const dogBefore = { ...dog };
@@ -3923,6 +3734,11 @@ export function createWorld(
       SHASTA_CHARACTER.tail.restAngleY +
       Math.sin(elapsed * 0.85 + 0.4) * 0.03;
     camera.position.lerp(targetCamera, 1 - Math.exp(-dt * 3.6));
+    if (arcadeInside(player) || paperCaveInside(player)) {
+      const c=constrainMove(player,{x:camera.position.x,z:camera.position.z},obstacles);
+      camera.position.x=c.x;camera.position.z=c.z;
+      camera.position.y=THREE.MathUtils.clamp(camera.position.y,playerY+1.5,playerY+3);
+    }
     look.lerp(targetLook, 1 - Math.exp(-dt * 4));
     camera.lookAt(look);
 
@@ -3943,7 +3759,7 @@ export function createWorld(
     if (scene.background instanceof THREE.Color)
       scene.background.set(underwater ? underwaterColor : "#67b7ef");
     if (scene.fog instanceof THREE.Fog) {
-      scene.fog.color.set(underwater ? underwaterFog : "#c4e2f1");
+      if (underwater) scene.fog.color.set(underwaterFog);
       scene.fog.near = underwater ? 7 : 85;
       scene.fog.far = underwater ? (currentWaterZone === "lagoon" ? 70 : 58) : 270;
     }
@@ -4184,7 +4000,21 @@ export function createWorld(
     shoreFoamMat.opacity = 0.52 + Math.sin(elapsed * 0.9) * 0.08;
     fallingWater.position.y = -(elapsed * 3.5 % 0.4);
     splash.scale.setScalar(1 + Math.sin(elapsed * 2) * 0.05);
-    waterfall.scale.x = 2.5 + Math.sin(elapsed * 3) * 0.06;
+    waterRibbonMat.opacity = .66 + Math.sin(elapsed * 3) * .025;
+    waterfall.visible = true;
+    if (reefRoot.visible || tropicalReefRoot.visible) {
+      const rp=rayGeo.attributes.position;
+      for(let i=0;i<rp.count;i++)rp.setZ(i,Math.sin(elapsed*1.6+Math.abs(rayOriginal[i*3])*1.2)*.09*Math.abs(rayOriginal[i*3]));
+      rp.needsUpdate=true;
+    }
+    reefGarden.update(elapsed);
+    habitats.update({x:camera.position.x,z:camera.position.z});
+    if(aquatic === "land" && scene.fog instanceof THREE.Fog) {
+      const w = biomeAt({x:camera.position.x,z:camera.position.z}).weights;
+      const fogTarget = new THREE.Color("#c4d9df").lerp(new THREE.Color("#d7c7ae"),w.desert).lerp(new THREE.Color("#a8c4af"),w.rainforest+w.redwood*.35);
+      scene.fog.color.lerp(fogTarget,1-Math.exp(-Math.min(rawDelta,.1)*2));
+    }
+    canvas.dataset.biome = biomeAt(player).primary;
     renderer.render(scene, camera);
     const metrics = frameSampler.add(rawDelta);
     if (metrics) {
@@ -4258,8 +4088,7 @@ export function createWorld(
         dogSmoothedTarget = { ...dog };
         dogAnimSpeed = 0;
         dogInterestCritterIndex = null;
-        dogInterestUntil = 0;
-        dogInterestRestUntil = elapsed + 0.8;
+        dogChase = { ...initialChaseState(), cooldown: elapsed + 0.8 };
         dogTargetSwitches = 0;
         dogMaxYawStep = 0;
         dogMaxYStep = 0;
@@ -4302,8 +4131,7 @@ export function createWorld(
         dogMoveBlend = 0;
         dogAnimSpeed = 0;
         dogInterestCritterIndex = null;
-        dogInterestUntil = 0;
-        dogInterestRestUntil = elapsed + 0.8;
+        dogChase = { ...initialChaseState(), cooldown: elapsed + 0.8 };
         dogTargetSwitches = 0;
         dogMaxYawStep = 0;
         dogMaxYStep = 0;
@@ -4346,6 +4174,8 @@ export function createWorld(
       } else schedule();
     },
     dispose() {
+      habitats.dispose();
+      reefGarden.dispose();
       disposed = true;
       cancelAnimationFrame(raf);
       observer.disconnect();

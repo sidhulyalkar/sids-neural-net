@@ -50,8 +50,10 @@ const LINKS = [
   ["Contact", "/contact"],
 ];
 const INTRO: Record<RegionId, { title: string; text: string }> = {
-  waterfall: { title: "Fern falls.", text: "Water · fern · stone." },
-  canyon: { title: "Moss canyon.", text: "Rock · moss · trail." },
+  waterfall: { title: "Fern falls.", text: "Snowmelt from Granite ridge." },
+  canyon: { title: "Moss canyon.", text: "" },
+  desert: {title:"Joshua basin.",text:"Warm granite, open washes and desert trails."},
+  rainforest: {title:"Rainforest.",text:"A shaded path from canopy to coast."},
   cavern: { title: "Arcade cavern.", text: "Playable games carved into stone." },
   grove: { title: "Redwood grove.", text: "Neuroscience · engineering · Shasta." },
   mountain: { title: "Granite ridge.", text: "Selected builds." },
@@ -185,7 +187,7 @@ export function WorldHome({ content }: { content: WorldContent }) {
   const nearbyGameIndex = nearby?.startsWith("game:") ? Number(nearby.slice(5)) : -1;
   const nearbyGame = Number.isInteger(nearbyGameIndex) ? content.games[nearbyGameIndex] : undefined;
   const discoveryTitle =
-    nearby === "secret"
+    nearby === "paper-archive" ? "Paper Archive" : nearby === "secret"
       ? "Shasta"
       : (nearbyGame?.title ??
         content.videos.find((item) => item.id === nearby)?.title ??
@@ -457,7 +459,7 @@ export function WorldHome({ content }: { content: WorldContent }) {
             <>
               <p className={styles.eyebrow}>{selected.name}</p>
               <h2 id="world-panel-title">{INTRO[selected.id].title}</h2>
-              <p className={styles.panelIntro}>{INTRO[selected.id].text}</p>
+              {INTRO[selected.id].text && <p className={styles.panelIntro}>{INTRO[selected.id].text}</p>}
               {selected.id === "cavern" && <div className={styles.projectList}>
                 {content.games.map((game, index) => <Link key={game.href} href={game.href} prefetch={false}>
                   {index === 0 && <span>FEATURED GAME</span>}
@@ -501,7 +503,7 @@ export function WorldHome({ content }: { content: WorldContent }) {
                 <Link href={selected.href} prefetch={false}>
                   {selected.id === "grove"
                     ? "About"
-                    : selected.id === "coast" || selected.id === "lagoon"
+                    : ["coast", "lagoon", "desert", "rainforest", "waterfall"].includes(selected.id)
                       ? "Photography"
                       : selected.id === "mountain"
                         ? "Projects"
@@ -552,6 +554,7 @@ export function WorldHome({ content }: { content: WorldContent }) {
               </Link>
             </>
           )}
+          {panel === "paper-archive" && <><h2 id="world-panel-title">Paper Archive.</h2><div className={styles.projectList}>{content.publications.map(p=><Link key={p.id} href={p.href} prefetch={false}><h3>{p.title}</h3>{p.year && <span>{p.year}</span>}</Link>)}</div><Link prefetch={false} href="/publications">Explore publications</Link></>}
           {panel === "secret" && (
             <>
               <h2 id="world-panel-title">Shasta.</h2>

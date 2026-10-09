@@ -36,7 +36,7 @@ test("every jump lands within its own discoverable region on finite terrain", ()
 test("viewpoints and hidden discovery take precedence over surrounding region", () => {
   for (const m of MEMORY_POINTS) assert.equal(nearbyDiscovery(m.point), m.id);
   assert.equal(nearbyDiscovery(SECRET), "secret");
-  assert.equal(nearbyDiscovery({ x: 40, z: 35 }), null);
+  assert.equal(nearbyDiscovery({ x: 40, z: 35 }), "rainforest");
 });
 test("movement stays inside the finite world and resolves trunk collision including a zero-distance contact", () => {
   assert.deepEqual(constrainMove({ x: 0, z: 0 }, { x: -1000, z: 1000 }, []), {
@@ -162,11 +162,7 @@ test("arcade cave is a deep backside mountain tunnel rather than an exterior arc
   );
   assert.ok(ARCADE_CAVE.tunnelDepth >= 12);
   assert.ok(ARCADE_CAVE.wall.z - ARCADE_CAVE.entrance.z >= 12);
-  assert.ok(
-    terrainHeight(ARCADE_CAVE.wall.x, ARCADE_CAVE.wall.z) >
-      terrainHeight(ARCADE_CAVE.entrance.x, ARCADE_CAVE.entrance.z),
-    "tunnel should climb into the mountain",
-  );
+  assert.ok(Math.abs(terrainHeight(16,-78)-terrainHeight(16,-66))<.02,"interior floor stays flat while mountain rises above it");
   for (let i = 1; i < ARCADE_CAVE.gamePanelXs.length; i++)
     assert.ok(ARCADE_CAVE.gamePanelXs[i] - ARCADE_CAVE.gamePanelXs[i - 1] > 2.8);
 });

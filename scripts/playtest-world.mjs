@@ -32,8 +32,8 @@ try {
   await waitForScene(page);
   assert.equal(await page.locator('canvas').getAttribute('data-carved-games'), '3');
   assert.equal(await page.locator('canvas').getAttribute('data-reef-species'), '8');
-  assert.equal(await page.locator('canvas').getAttribute('data-lagoon-species'), '7');
-  assert.equal(await page.locator('canvas').getAttribute('data-land-wildlife'), '10');
+  assert.equal(await page.locator('canvas').getAttribute('data-lagoon-species'), '8');
+  assert.equal(await page.locator('canvas').getAttribute('data-land-wildlife'), '14');
   assert.equal(await page.locator('canvas').getAttribute('data-land-wildlife-style'), 'anatomical-v4');
   assert.equal(await page.locator('canvas').getAttribute('data-marine-wildlife-style'), 'anatomical-v3');
   assert.equal(await page.locator('canvas').getAttribute('data-shasta-sex'), 'male');
@@ -87,6 +87,8 @@ try {
     ['06 Fern falls Follow the water', 'Fern falls', 'Fern falls.'],
     ['07 Moss canyon A quieter trail', 'Moss canyon', 'Moss canyon.'],
     ['08 Arcade cavern Play my games', 'Arcade cavern', 'Arcade cavern.'],
+    ['09 Joshua basin Granite and desert trails', 'Joshua basin', 'Joshua basin.'],
+    ['10 Rainforest Canopy to coast', 'Rainforest', 'Rainforest.'],
   ]) {
     await page.getByRole('button', { name: 'Open navigation menu' }).click();
     await page.getByRole('button', { name, exact: true }).click();
@@ -110,21 +112,20 @@ try {
       );
       await screenshot(page, 'region-08-entrance');
 
-      // Navigation lands outside the cave. Walk uphill through the actual tunnel
-      // before game selection is allowed.
-      await page.waitForFunction(() => document.activeElement?.tagName === 'CANVAS');
-      await page.keyboard.down('w');
-      try {
-        await page.waitForFunction(
-          () =>
-            document.querySelector('canvas')?.dataset.caveInside === 'true' &&
-            Number(document.querySelector('canvas')?.dataset.caveDepth) > 0.62,
-          null,
-          { timeout: 22000 },
-        );
-      } finally {
-        await page.keyboard.up('w');
-      }
+      // Walk the flat tunnel and its offset throat through ordinary controls.
+      const walkUntil = async (key, axis, target, greater) => {
+        await page.keyboard.down(key);
+        try {
+          await page.waitForFunction(({axis,target,greater})=>{
+            const p=(document.querySelector('canvas')?.dataset.player??'').split(',').map(Number);
+            return greater?p[axis]>=target:p[axis]<=target;
+          },{axis,target,greater},{timeout:22000});
+        } finally {await page.keyboard.up(key);}
+      };
+      await walkUntil('w',1,-77,true);
+      await walkUntil('a',0,18.1,true);
+      await walkUntil('w',1,-67.2,true);
+      await walkUntil('d',0,16.05,false);
       await page.waitForFunction(
         () => document.querySelector('canvas')?.dataset.gazeGame?.startsWith('game:'),
         null,
@@ -159,6 +160,18 @@ try {
       const directHref = await page.getByRole('link', { name: new RegExp(`Play ${gazeTitle}`) }).getAttribute('href');
       assert.ok(directHref?.startsWith('/arcade/'));
       assert.equal((await page.request.get(`${base}${directHref}`)).status(), 200);
+      await page.keyboard.press('Escape');
+      // Side niches must independently select their own canonical game.
+      for (const [dragX,index] of [[Math.PI/2/.005,0],[-Math.PI/.005,2]]) {
+        await page.mouse.move(700,450);await page.mouse.down();
+        await page.mouse.move(700+dragX,450,{steps:12});await page.mouse.up();
+        await page.waitForFunction(i=>document.querySelector('canvas')?.dataset.gazeGame===`game:${i}`,index,{timeout:15000});
+        await page.keyboard.press('Enter');
+        await page.getByRole('heading',{name:carvedTitles[index],exact:true}).waitFor();
+        await screenshot(page,`cave-niche-${index}`);
+        await page.keyboard.press('Escape');
+      }
+      await page.keyboard.press('Enter');
       await page.getByRole('button', { name: 'All games', exact: true }).click();
       await page.getByRole('heading', { name: 'Arcade cavern.', exact: true }).waitFor();
       const games = await page.locator('dialog a[href^="/arcade/"]').evaluateAll(links => links.map(a => a.getAttribute('href')));
@@ -166,7 +179,7 @@ try {
       for (const href of games) assert.equal((await page.request.get(`${base}${href}`)).status(), 200);
       await page.keyboard.press('Escape');
       assert.equal(await page.locator('dialog').evaluate(d => d.open), false);
-      results.push('Arcade cavern lands outside a camera-safe sloped backside tunnel, then gaze-selects three spaced carved games under lantern light');
+      results.push('Arcade cavern lands outside a camera-safe flat backside tunnel, then gaze-selects three spaced carved games under lantern light');
       results.push(`Landmark, discovery, and dismissal: ${name}`);
       continue;
     }
@@ -214,6 +227,8 @@ try {
     }
   }
   results.push('Five activity modes equip correctly; their actions work');
+  assert.equal(await page.locator('canvas').getAttribute('data-coral-forms'),'9');
+  assert.equal(await page.locator('canvas').getAttribute('data-water-source'),'snowmelt');
 
   // Qualify the authored grove log through the real locomotion/action path.
   await page.getByRole('button', { name: 'Open navigation menu' }).click();

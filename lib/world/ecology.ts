@@ -41,6 +41,11 @@ export const LAND_WILDLIFE = [
   { id: "rabbit-falls", kind: "rabbit", point: { x: -13, z: -24 }, roam: 4.2, speed: 1.15 },
   { id: "quail-grove", kind: "quail", point: { x: 13, z: 2 }, roam: 5.2, speed: 1.0 },
   { id: "quail-canyon", kind: "quail", point: { x: 37, z: 37 }, roam: 4.7, speed: 1.0 },
+  { id: "squirrel-desert", kind: "squirrel", point: {x:37,z:-35}, roam:3, speed:1.4 },
+  { id: "rabbit-desert", kind: "rabbit", point: {x:46,z:-8}, roam:3, speed:1.3 },
+  { id: "lizard-desert", kind: "lizard", point: {x:48,z:-39}, roam:2.5, speed:1.1 },
+  { id: "lizard-rainforest", kind: "lizard", point: {x:43,z:36}, roam:3, speed:1 },
+
 ] as const satisfies readonly {
   id: string;
   kind: LandWildlifeKind;

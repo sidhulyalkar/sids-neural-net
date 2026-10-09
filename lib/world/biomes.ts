@@ -1,0 +1,85 @@
+import {
+  terrainHeight,
+  isWater,
+  waterZone,
+  coastlineX,
+  eastCoastlineX,
+  type Point,
+} from "./model";
+export type BiomeId =
+  | "alpine"
+  | "redwood"
+  | "coastal-scrub"
+  | "cold-beach"
+  | "kelp"
+  | "lagoon"
+  | "rainforest"
+  | "desert";
+export const BIOME_COLORS: Record<BiomeId, string> = {
+  alpine: "#dbe2df",
+  redwood: "#65735b",
+  "coastal-scrub": "#a49b75",
+  "cold-beach": "#d5c3a0",
+  kelp: "#526d61",
+  lagoon: "#d2c7a4",
+  rainforest: "#536a48",
+  desert: "#c5b18b",
+};
+export const smooth = (a: number, b: number, v: number) => {
+  const t = Math.max(0, Math.min(1, (v - a) / (b - a)));
+  return t * t * (3 - 2 * t);
+};
+/** Continuous, deterministic weights. Labels are informational, never material switches. */
+export function biomeAt(p: Point) {
+  const h = terrainHeight(p.x, p.z),
+    n = Math.sin(p.x * 0.08) * 2 + Math.sin(p.z * 0.095) * 2;
+  const alpine = smooth(10, 24, h),
+    desert = smooth(20, 37, p.x + n) * (1 - smooth(-22, 4, p.z)) * (1 - alpine);
+  const rainforest =
+    smooth(14, 32, p.x) * smooth(8, 27, p.z + n) * (1 - alpine);
+  const beach = Math.max(
+    1 - smooth(0, 7, Math.abs(p.x - coastlineX(p.z))),
+    1 - smooth(0, 7, Math.abs(p.x - eastCoastlineX(p.z))),
+  );
+  const redwood =
+    (1 - smooth(9, 25, p.x)) * (1 - smooth(20, 42, p.z)) * (1 - alpine);
+  const weights: Record<BiomeId, number> = {
+    alpine,
+    desert,
+    redwood,
+    rainforest,
+    "cold-beach": beach,
+    "coastal-scrub": 0.32,
+    kelp: 0,
+    lagoon: 0,
+  };
+  if (isWater(p)) {
+    for (const k of Object.keys(weights) as BiomeId[]) weights[k] = 0;
+    weights[waterZone(p)!] = 1;
+  }
+  const total = Object.values(weights).reduce((a, b) => a + b, 0);
+  for (const k of Object.keys(weights) as BiomeId[]) weights[k] /= total;
+  const ranked = (Object.keys(weights) as BiomeId[]).sort(
+    (a, b) => weights[b] - weights[a],
+  );
+  return {
+    primary: ranked[0],
+    secondary: ranked[1],
+    blend: weights[ranked[1]],
+    weights,
+    elevation: h,
+    moisture: weights.redwood * 0.7 + weights.rainforest,
+    exposure: weights.desert,
+    slope: Math.hypot(
+      terrainHeight(p.x + 0.5, p.z) - terrainHeight(p.x - 0.5, p.z),
+      terrainHeight(p.x, p.z + 0.5) - terrainHeight(p.x, p.z - 0.5),
+    ),
+  };
+}
+export const DESERT_FORMATIONS = [
+  { id: "dome", x: 43, z: -31, sx: 7, sy: 6, sz: 8 },
+  { id: "joints", x: 51, z: -47, sx: 4, sy: 5, sz: 5 },
+  { id: "slot-west", x: 33, z: -18, sx: 3, sy: 4, sz: 6 },
+  { id: "slot-east", x: 42, z: -17, sx: 3, sy: 5, sz: 6 },
+  { id: "balanced", x: 50, z: -12, sx: 2, sy: 3, sz: 2 },
+] as const;

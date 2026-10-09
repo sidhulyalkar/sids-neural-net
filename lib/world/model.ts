@@ -1,5 +1,5 @@
 /** Small, deterministic geography shared by the renderer, navigation and tests. */
-export type RegionId = "grove" | "mountain" | "neural" | "coast" | "lagoon" | "waterfall" | "canyon" | "cavern";
+export type RegionId = "grove" | "mountain" | "neural" | "coast" | "lagoon" | "waterfall" | "canyon" | "cavern" | "desert" | "rainforest";
 export type Point = { x: number; z: number };
 
 export const REGIONS: {
@@ -17,6 +17,8 @@ export const REGIONS: {
   { id: "waterfall", name: "Fern falls", meaning: "Follow the water", point: { x: -20, z: -24 }, href: "/photography" },
   { id: "canyon", name: "Moss canyon", meaning: "A quieter trail", point: { x: 29, z: 34 }, href: "/about" },
   { id: "cavern", name: "Arcade cavern", meaning: "Play my games", point: { x: 16, z: -82 }, href: "/arcade" },
+  { id: "desert", name: "Joshua basin", meaning: "Granite and desert trails", point: { x: 37, z: -29 }, href: "/photography" },
+  { id: "rainforest", name: "Rainforest", meaning: "Canopy to coast", point: { x: 44, z: 33 }, href: "/photography" },
 ];
 
 export const WORLD_BOUNDS = { minX: -92, maxX: 94, minZ: -96, maxZ: 58 } as const;
@@ -27,11 +29,11 @@ export const ARCADE_CAVE = {
   // walk uphill through the tunnel before the carved game wall is selectable.
   entrance: { x: 16, z: -82 },
   approach: { x: 16, z: -86.4 },
-  wall: { x: 16, z: -69.5 },
+  wall: { x: 16, z: -63 },
   tunnelHalfWidth: 3.35,
-  tunnelDepth: 12.5,
+  tunnelDepth: 19,
   ceilingClearance: 4.35,
-  lantern: { x: 16, z: -72.9 },
+  lantern: { x: 16, z: -67.5 },
   gamePanelXs: [12.85, 16, 19.15],
 } as const;
 
@@ -99,6 +101,10 @@ export const MEMORY_POINTS = [
     detail: "Shasta beside a winding meadow stream.",
     point: { x: -12, z: -31 },
   },
+  {id:"desert-ridges",photoId:"photo-003",title:"Desert ridges",detail:"Dry ridges with snowy mountains beyond.",point:{x:36,z:-39}},
+  {id:"rainforest-leaves",photoId:"photo-020",title:"Tropical leaves",detail:"Leaves and stems against a misty hillside.",point:{x:46,z:42}},
+  {id:"lagoon-shore",photoId:"photo-024",title:"Tropical shore",detail:"Palms above clear shallow water.",point:{x:53,z:25}},
+
 ] as const;
 
 export type WorldVideoPoint = {
@@ -122,11 +128,13 @@ export const SECRET = { x: 18, z: 22 };
 export const SPAWN = { x: 0, z: 16 };
 
 function rawTerrainHeight(x: number, z: number): number {
-  const main = 17.5 * Math.exp(-((x - 7) ** 2 / 560 + (z + 61) ** 2 / 650));
-  const westPeak = 9.2 * Math.exp(-((x + 19) ** 2 / 520 + (z + 69) ** 2 / 470));
-  const shoulder = 5.4 * Math.exp(-((x - 4) ** 2 / 720 + (z + 36) ** 2 / 620));
+  const main = 24.5 * Math.exp(-((x - 7) ** 2 / 560 + (z + 61) ** 2 / 650));
+  const westPeak = 12.8 * Math.exp(-((x + 19) ** 2 / 520 + (z + 69) ** 2 / 470));
+  const shoulder = 6.8 * Math.exp(-((x - 4) ** 2 / 720 + (z + 36) ** 2 / 620));
   const canyonRise = 2.2 * Math.exp(-((x - 31) ** 2 / 500 + (z - 24) ** 2 / 850));
-  return 0.65 + main + westPeak + shoulder + canyonRise +
+  const backside = 5.5 * Math.exp(-((x-16)**2/340+(z+78)**2/180));
+  const dryRidge = 3 * Math.exp(-((x-35)**2/210+(z+43)**2/450));
+  return 0.65 + main + westPeak + shoulder + canyonRise + backside + dryRidge +
     Math.sin(x * 0.085) * 0.42 + Math.cos(z * 0.105) * 0.5;
 }
 
@@ -140,16 +148,16 @@ const smoothstep01 = (t: number) => {
  * blending back into the natural mountain under the authored rock shell.
  */
 export function arcadeCaveTerrainMask(x: number, z: number): number {
-  const startZ = ARCADE_CAVE.entrance.z - 0.8;
+  const startZ = ARCADE_CAVE.entrance.z - 6;
   const endZ = ARCADE_CAVE.wall.z + 1.4;
   if (z <= startZ || z >= endZ) return 0;
-  const fadeIn = smoothstep01((z - startZ) / 1.9);
+  const fadeIn = smoothstep01((z - startZ) / 6);
   const fadeOut = 1 - smoothstep01((z - (endZ - 1.5)) / 1.5);
   const lateral = Math.abs(x - ARCADE_CAVE.entrance.x);
   // Keep the carved floor flat underneath the authored side-wall footprint.
   // The old core ended inside the wall and let the mountain rise through the
   // interior as a bright triangular seam.
-  const core = ARCADE_CAVE.tunnelHalfWidth + 0.25;
+  const core = caveHalfWidth(z) + 0.5;
   const feather = 1.4;
   const lateralMask =
     lateral <= core
@@ -158,13 +166,23 @@ export function arcadeCaveTerrainMask(x: number, z: number): number {
   return Math.max(0, Math.min(1, fadeIn * fadeOut * lateralMask));
 }
 
-export function terrainHeight(x: number, z: number): number {
-  const base = rawTerrainHeight(x, z);
-  const caveMask = arcadeCaveTerrainMask(x, z);
-  if (caveMask <= 0) return base;
-  const caveCenterFloor = rawTerrainHeight(ARCADE_CAVE.entrance.x, z);
-  return base + (caveCenterFloor - base) * caveMask;
+export function caveHalfWidth(z:number) {
+  return 3.1 + smoothstep01((z + 75) / 5) * 3.0;
 }
+export const PAPER_CAVE = {x:-20,z:-30,backZ:-36,halfWidth:4} as const;
+export function paperCaveInside(p:Point) {return Math.abs(p.x-PAPER_CAVE.x)<3.5 && p.z < -31 && p.z > -35.5;}
+export function arcadeInside(p:Point) {return p.z>-81.5 && p.z<-63 && Math.abs(p.x-16)<caveHalfWidth(p.z)-.3;}
+export function terrainHeight(x: number, z: number): number {
+  let base = rawTerrainHeight(x, z);
+  const caveMask = arcadeCaveTerrainMask(x, z);
+  const caveFloor = rawTerrainHeight(16,-83);
+  base += (caveFloor - base) * caveMask;
+  const paperMask = smoothstep01((z+38)/2)*(1-smoothstep01((z+30)/3))*(1-smoothstep01((Math.abs(x+20)-4)/2));
+  base += (rawTerrainHeight(-20,-24)-base)*paperMask;
+  return base;
+}
+/** Roof tie-in samples the uncarved mountain; collision uses the flat floor. */
+export const mountainSurfaceHeight = rawTerrainHeight;
 
 export function coastlineX(z: number): number {
   return -34 + Math.sin(z * 0.075) * 1.7 + Math.sin(z * 0.021 + 1.8) * 0.8;
@@ -221,6 +239,7 @@ export function nearestRegion(point: Point): RegionId {
 }
 
 export function nearbyDiscovery(point: Point): string | null {
+  if (paperCaveInside(point)) return "paper-archive";
   if (distance(point, SECRET) < 3.5) return "secret";
   const video = SNORKEL_VIDEO_POINTS.find((m) => distance(point, m.point) < 3.2);
   if (video) return video.id;
@@ -313,6 +332,7 @@ export type WorldVideo = {
 export type WorldContent = {
   projects: WorldProject[];
   photos: WorldPhoto[];
+  publications: {id:string;title:string;year:number|null;href:string}[];
   videos: WorldVideo[];
   games: { title: string; subtitle: string; href: string }[];
 };
