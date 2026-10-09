@@ -311,6 +311,7 @@ export function stepTravel(
   sprint = false,
   destination?: Point | null,
   airborne = 0,
+  supportHeight: (p: Point) => number = groundHeight,
 ): Travel {
   dt = Math.max(0, Math.min(dt, 0.05));
   const mode = effectiveActivity(selected, current.point);
@@ -321,8 +322,8 @@ export function stepTravel(
     ? { x: input.x / length, z: input.z / length }
     : current.heading;
   const slope =
-    terrainHeight(current.point.x + heading.x, current.point.z + heading.z) -
-    terrainHeight(current.point.x, current.point.z);
+    supportHeight({ x: current.point.x + heading.x, z: current.point.z + heading.z }) -
+    supportHeight(current.point);
   const maxSpeed =
     config.speed *
     (mode === "run" && sprint ? 1.45 : 1) *
@@ -344,7 +345,7 @@ export function stepTravel(
   );
   if (
     !isWater(point) &&
-    groundHeight(point) > groundHeight(current.point) + Math.max(0.6, airborne)
+    supportHeight(point) > supportHeight(current.point) + Math.max(0.6, airborne)
   )
     return { ...current, speed: 0 };
   return {
@@ -396,12 +397,13 @@ export function terrainContact(
   heading: Point,
   halfLength: number,
   halfWidth: number,
+  supportHeight: (p: Point) => number = groundHeight,
 ) {
   const magnitude = Math.max(1e-6, Math.hypot(heading.x, heading.z));
   const forward = { x: heading.x / magnitude, z: heading.z / magnitude };
   const right = { x: forward.z, z: -forward.x };
   const sample = (along: number, side: number) =>
-    groundHeight({
+    supportHeight({
       x: point.x + forward.x * along + right.x * side,
       z: point.z + forward.z * along + right.z * side,
     });
@@ -409,7 +411,7 @@ export function terrainContact(
   const rear = sample(-halfLength, 0);
   const rightY = sample(0, halfWidth);
   const leftY = sample(0, -halfWidth);
-  const center = groundHeight(point);
+  const center = supportHeight(point);
   return {
     pitch: -Math.atan2(front - rear, Math.max(0.01, halfLength * 2)),
     roll: Math.atan2(rightY - leftY, Math.max(0.01, halfWidth * 2)),

@@ -2,7 +2,10 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   ARCADE_CAVE,
+  arcadeCaveFloorHeight,
   arcadeCaveTerrainMask,
+  mountainSurfaceHeight,
+  nextCaveLayer,
   coastlineX,
   eastCoastlineX,
   constrainMove,
@@ -127,18 +130,28 @@ test("arcade cavern exposes the same playable games as the established arcade", 
   assert.equal(REGIONS.find(r => r.id === "cavern")?.href, "/arcade");
 });
 
-test("arcade cave terrain is physically carved flat through the tunnel core", () => {
+test("arcade cave keeps a walkable mountain roof above its independent floor", () => {
   const z = ARCADE_CAVE.entrance.z + ARCADE_CAVE.tunnelDepth * 0.62;
-  const center = terrainHeight(ARCADE_CAVE.entrance.x, z);
-  const left = terrainHeight(ARCADE_CAVE.entrance.x - 2.2, z);
-  const right = terrainHeight(ARCADE_CAVE.entrance.x + 2.2, z);
+  const surface = terrainHeight(ARCADE_CAVE.entrance.x, z);
+  const floor = arcadeCaveFloorHeight({ x: ARCADE_CAVE.entrance.x, z });
   assert.ok(arcadeCaveTerrainMask(ARCADE_CAVE.entrance.x, z) > 0.9);
-  assert.ok(Math.abs(left - center) < 0.35);
-  assert.ok(Math.abs(right - center) < 0.35);
+  assert.ok(surface > floor + 8);
+  assert.ok(Math.abs(surface - mountainSurfaceHeight(ARCADE_CAVE.entrance.x, z)) < 1e-8);
   assert.equal(
     arcadeCaveTerrainMask(ARCADE_CAVE.entrance.x + 8, z),
     0,
-    "mountain outside the tunnel feather should remain untouched",
+    "mountain outside the tunnel envelope should remain untouched",
+  );
+  const roofY = mountainSurfaceHeight(16, ARCADE_CAVE.entrance.z + 0.4);
+  assert.equal(
+    nextCaveLayer("surface", { x: 16, z: ARCADE_CAVE.entrance.z }, { x: 16, z: ARCADE_CAVE.entrance.z + 0.4 }, roofY),
+    "surface",
+    "crossing the cave footprint on the roof must not enter the tunnel layer",
+  );
+  assert.equal(
+    nextCaveLayer("surface", { x: 16, z: ARCADE_CAVE.entrance.z }, { x: 16, z: ARCADE_CAVE.entrance.z + 0.4 }, arcadeCaveFloorHeight(ARCADE_CAVE.entrance)),
+    "arcade",
+    "crossing the same mouth at entrance-floor height enters the cave",
   );
 });
 
@@ -162,7 +175,8 @@ test("arcade cave is a deep backside mountain tunnel rather than an exterior arc
   );
   assert.ok(ARCADE_CAVE.tunnelDepth >= 12);
   assert.ok(ARCADE_CAVE.wall.z - ARCADE_CAVE.entrance.z >= 12);
-  assert.ok(Math.abs(terrainHeight(16,-78)-terrainHeight(16,-66))<.02,"interior floor stays flat while mountain rises above it");
+  assert.ok(Math.abs(arcadeCaveFloorHeight({x:16,z:-78})-arcadeCaveFloorHeight({x:16,z:-66}))<.02,"deep interior floor stays flat");
+  assert.ok(terrainHeight(16,-66)-arcadeCaveFloorHeight({x:16,z:-66})>10,"mountain surface remains above the chamber");
   for (let i = 1; i < ARCADE_CAVE.gamePanelXs.length; i++)
     assert.ok(ARCADE_CAVE.gamePanelXs[i] - ARCADE_CAVE.gamePanelXs[i - 1] > 2.8);
 });

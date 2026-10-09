@@ -3,6 +3,9 @@ import assert from "node:assert/strict";
 import { biomeAt } from "../lib/world/biomes";
 import {
   terrainHeight,
+  mountainSurfaceHeight,
+  arcadeCaveFloorHeight,
+  paperCaveFloorHeight,
   arcadeInside,
   paperCaveInside,
   nearbyDiscovery,
@@ -36,10 +39,14 @@ test("biome weights are deterministic, normalized and continuous through three-w
       }
     }
 });
-test("arcade floor is flat for the entire interior and discoveries stay inside", () => {
-  const y = terrainHeight(16, -81);
-  for (let z = -81; z < -64; z += 0.25)
-    assert.ok(Math.abs(terrainHeight(16, z) - y) < 0.01);
+test("cave floors stay separate from continuous walkable roof terrain", () => {
+  const deepFloor = arcadeCaveFloorHeight({ x: 16, z: -76 });
+  for (let z = -76; z < -64; z += 0.25) {
+    assert.ok(Math.abs(arcadeCaveFloorHeight({ x: 16, z }) - deepFloor) < 0.02);
+    assert.ok(terrainHeight(16, z) > deepFloor + 7);
+    assert.ok(Math.abs(terrainHeight(16, z) - mountainSurfaceHeight(16, z)) < 1e-8);
+  }
+  assert.ok(terrainHeight(-20, -33) > paperCaveFloorHeight({ x: -20, z: -33 }) + 4);
   assert.equal(arcadeInside({ x: 16, z: -83 }), false);
   assert.equal(arcadeInside({ x: 16, z: -69 }), true);
   assert.equal(paperCaveInside({ x: -20, z: -28 }), false);

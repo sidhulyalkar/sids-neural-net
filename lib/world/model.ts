@@ -30,7 +30,7 @@ export const ARCADE_CAVE = {
   entrance: { x: 16, z: -82 },
   approach: { x: 16, z: -86.4 },
   wall: { x: 16, z: -63 },
-  tunnelHalfWidth: 3.35,
+  tunnelHalfWidth: 3.8,
   tunnelDepth: 19,
   ceilingClearance: 4.35,
   lantern: { x: 16, z: -67.5 },
@@ -134,7 +134,11 @@ function rawTerrainHeight(x: number, z: number): number {
   const canyonRise = 2.2 * Math.exp(-((x - 31) ** 2 / 500 + (z - 24) ** 2 / 850));
   const backside = 5.5 * Math.exp(-((x-16)**2/340+(z+78)**2/180));
   const dryRidge = 3 * Math.exp(-((x-35)**2/210+(z+43)**2/450));
-  return 0.65 + main + westPeak + shoulder + canyonRise + backside + dryRidge +
+  // A continuous waterfall shoulder provides real mountain mass above the
+  // archive cave. The water and cave are carved into this landform rather
+  // than being separate shells floating over a flattened terrain patch.
+  const waterfallShoulder = 5.4 * Math.exp(-((x + 20) ** 2 / 70 + (z + 33) ** 2 / 45));
+  return 0.65 + main + westPeak + shoulder + canyonRise + backside + dryRidge + waterfallShoulder +
     Math.sin(x * 0.085) * 0.42 + Math.cos(z * 0.105) * 0.5;
 }
 
@@ -144,8 +148,8 @@ const smoothstep01 = (t: number) => {
 };
 
 /**
- * Soft mask for the carved arcade tunnel. It flattens only the walkable core,
- * blending back into the natural mountain under the authored rock shell.
+ * Footprint of the authored arcade cavity. This describes where the tunnel
+ * lives in plan view; it deliberately does not flatten the mountain roof.
  */
 export function arcadeCaveTerrainMask(x: number, z: number): number {
   const startZ = ARCADE_CAVE.entrance.z - 6;
@@ -154,9 +158,7 @@ export function arcadeCaveTerrainMask(x: number, z: number): number {
   const fadeIn = smoothstep01((z - startZ) / 6);
   const fadeOut = 1 - smoothstep01((z - (endZ - 1.5)) / 1.5);
   const lateral = Math.abs(x - ARCADE_CAVE.entrance.x);
-  // Keep the carved floor flat underneath the authored side-wall footprint.
-  // The old core ended inside the wall and let the mountain rise through the
-  // interior as a bright triangular seam.
+  // This is only a plan-view envelope for authored cave content and clearance.
   const core = caveHalfWidth(z) + 0.5;
   const feather = 1.4;
   const lateralMask =
@@ -167,12 +169,94 @@ export function arcadeCaveTerrainMask(x: number, z: number): number {
 }
 
 export function caveHalfWidth(z:number) {
-  return 3.1 + smoothstep01((z + 75) / 5) * 3.0;
+  return 3.8 + smoothstep01((z + 75) / 5) * 2.5;
 }
 export const PAPER_CAVE = {x:-20,z:-30,backZ:-36,halfWidth:4} as const;
 export function paperCaveHalfWidth(z: number) { return 2.3 + 1.7 * smoothstep01((-z - 30) / 3); }
+
+export type CaveLayer = "surface" | "arcade" | "paper";
+const ARCADE_PORTAL_Z = ARCADE_CAVE.entrance.z + 0.08;
+const PAPER_PORTAL_Z = PAPER_CAVE.z - 0.18;
+const arcadeApproachY = rawTerrainHeight(ARCADE_CAVE.approach.x, ARCADE_CAVE.approach.z);
+const arcadeMouthY = arcadeApproachY + 0.22;
+const paperMouthY = rawTerrainHeight(-20, -24) - 0.95;
+
+/** Separate underground support surfaces let the same x/z carry roof and floor. */
+export function arcadeCaveFloorHeight(p: Point) {
+  if (p.z <= ARCADE_CAVE.entrance.z) {
+    const t = smoothstep01(
+      (p.z - ARCADE_CAVE.approach.z) /
+        (ARCADE_CAVE.entrance.z - ARCADE_CAVE.approach.z),
+    );
+    return arcadeApproachY + (arcadeMouthY - arcadeApproachY) * t;
+  }
+  return arcadeMouthY + 0.72 * smoothstep01((p.z - ARCADE_CAVE.entrance.z) / 5.5);
+}
+export function paperCaveFloorHeight(p: Point) {
+  const depth = smoothstep01((-p.z - 30) / 3.2);
+  return paperMouthY - 1.15 * depth;
+}
+
+/** Only the entrance apron modifies surface topography. The tunnel footprint
+ * beyond the mouth keeps the original mountain surface intact and walkable. */
+export function arcadeAccessTerrainMask(x: number, z: number) {
+  if (z < ARCADE_CAVE.approach.z - 1 || z > ARCADE_CAVE.entrance.z + 0.7) return 0;
+  const lateral = Math.abs(x - ARCADE_CAVE.entrance.x);
+  const lateralMask =
+    lateral <= 2.15 ? 1 : 1 - smoothstep01((lateral - 2.15) / 1.55);
+  const startFade = smoothstep01((z - (ARCADE_CAVE.approach.z - 1)) / 1.1);
+  const endFade = 1 - smoothstep01((z - (ARCADE_CAVE.entrance.z + 0.18)) / 0.5);
+  return Math.max(0, Math.min(1, lateralMask * startFade * endFade));
+}
+function paperAccessTerrainMask(x: number, z: number) {
+  if (z < PAPER_CAVE.z - 0.7 || z > PAPER_CAVE.z + 1.45) return 0;
+  const lateral = Math.abs(x - PAPER_CAVE.x);
+  const lateralMask = lateral <= 1.75 ? 1 : 1 - smoothstep01((lateral - 1.75) / 1.2);
+  const backFade = smoothstep01((z - (PAPER_CAVE.z - 0.7)) / 0.55);
+  const frontFade = 1 - smoothstep01((z - (PAPER_CAVE.z + 0.9)) / 0.55);
+  return Math.max(0, Math.min(1, lateralMask * backFade * frontFade));
+}
+
 export function paperCaveInside(p:Point) {return Math.abs(p.x-PAPER_CAVE.x)<paperCaveHalfWidth(p.z)-.5 && p.z < -31 && p.z > -35.5;}
 export function arcadeInside(p:Point) {return p.z>-81.5 && p.z<-63 && Math.abs(p.x-16)<caveHalfWidth(p.z)-.3;}
+
+/** Resolve the vertical navigation layer only at a cave mouth. A hiker crossing
+ * the same x/z on the roof stays on the surface because their y is near the roof. */
+export function supportLayerAtPoint(layer: CaveLayer, p: Point, y: number): CaveLayer {
+  if (layer !== "surface") return layer;
+  if (
+    p.z > ARCADE_PORTAL_Z &&
+    p.z < ARCADE_CAVE.entrance.z + 2.3 &&
+    Math.abs(p.x - ARCADE_CAVE.entrance.x) < caveHalfWidth(p.z) - 0.45 &&
+    y < rawTerrainHeight(p.x, p.z) - 1
+  ) return "arcade";
+  if (
+    p.z < PAPER_PORTAL_Z &&
+    p.z > PAPER_CAVE.z - 2.3 &&
+    Math.abs(p.x - PAPER_CAVE.x) < paperCaveHalfWidth(p.z) - 0.45 &&
+    y < rawTerrainHeight(p.x, p.z) - 0.7
+  ) return "paper";
+  return "surface";
+}
+export function nextCaveLayer(
+  layer: CaveLayer,
+  from: Point,
+  to: Point,
+  y: number,
+): CaveLayer {
+  if (layer === "surface") return supportLayerAtPoint(layer, to, y);
+  if (
+    layer === "arcade" &&
+    from.z > ARCADE_PORTAL_Z &&
+    to.z <= ARCADE_PORTAL_Z
+  ) return "surface";
+  if (
+    layer === "paper" &&
+    from.z < PAPER_PORTAL_Z &&
+    to.z >= PAPER_PORTAL_Z
+  ) return "surface";
+  return layer;
+}
 /** Shared solid footprints: water curtains remain deliberately absent. */
 export function caveObstacles(): Obstacle[] {
   const result: Obstacle[] = [];
@@ -191,11 +275,6 @@ export function terrainHeight(x: number, z: number): number {
   // into the slope so the basin surface cannot intersect the uphill terrain.
   const meltBasinMask = 1 - smoothstep01((Math.hypot(x + 13, z + 66) - 2) / 0.9);
   base += (rawTerrainHeight(-13, -66) - 0.08 - base) * meltBasinMask;
-  const caveMask = arcadeCaveTerrainMask(x, z);
-  const caveFloor = rawTerrainHeight(16,-83);
-  base += (caveFloor - base) * caveMask;
-  const paperMask = smoothstep01((z+38)/2)*(1-smoothstep01((z+30)/3))*(1-smoothstep01((Math.abs(x+20)-4)/2));
-  base += (rawTerrainHeight(-20,-24)-base)*paperMask;
   // The plunge pool occupies a shallow basin, not a disc buried in the hillside.
   const poolDistance = Math.hypot(x + 20, z + 27);
   const poolMask = (1 - smoothstep01((poolDistance - 3.7) / 1.2)) * smoothstep01(z + 30);
@@ -206,9 +285,16 @@ export function terrainHeight(x: number, z: number): number {
   const outletMask = (1 - smoothstep01((outletDistance - 0.7) / 1.1)) * smoothstep01(outletT / 0.15);
   const outletBed = rawTerrainHeight(-32, -7) * (1 - outletT) + (SEA_SURFACE - 0.2) * outletT;
   base += (outletBed - base) * outletMask;
+
+  // The only surface cuts are short entrance aprons. Past each mouth, the
+  // mountain roof remains the ordinary continuous heightfield.
+  const arcadeMask = arcadeAccessTerrainMask(x, z);
+  base += (arcadeCaveFloorHeight({ x, z }) - base) * arcadeMask;
+  const paperMask = paperAccessTerrainMask(x, z);
+  base += (paperCaveFloorHeight({ x, z }) - base) * paperMask;
   return base;
 }
-/** Roof tie-in samples the uncarved mountain; collision uses the flat floor. */
+/** Natural roof surface, intentionally independent from underground cave floors. */
 export const mountainSurfaceHeight = rawTerrainHeight;
 
 export function coastlineX(z: number): number {

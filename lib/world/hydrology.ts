@@ -44,7 +44,9 @@ export const DOWNSTREAM_PATH = [
 
 /** Renderer and drainage share exact contact heights, independent of approach terrain. */
 export function waterfallProfile() {
-  const floorY = terrainHeight(-20, -33);
+  // The plunge pool is surface terrain. The archive chamber has its own
+  // lower support surface and must not flatten this waterfall shoulder.
+  const floorY = terrainHeight(-20, -27);
   return {
     floorY,
     lip: { x: -20, z: -30, y: floorY + 5.35 },

@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { drainagePoints, downstreamPoints, waterfallProfile, waterfallCrownRings } from "../lib/world/hydrology";
-import { caveObstacles, constrainMove, paperCaveHalfWidth, paperCaveInside, terrainHeight, SEA_SURFACE } from "../lib/world/model";
+import { caveObstacles, constrainMove, mountainSurfaceHeight, paperCaveFloorHeight, paperCaveHalfWidth, paperCaveInside, terrainHeight, SEA_SURFACE } from "../lib/world/model";
 
 test("snowmelt, lip, pool and creek share a continuous downhill profile above terrain", () => {
   const upper = drainagePoints(), lower = downstreamPoints(), profile = waterfallProfile();
@@ -22,14 +22,17 @@ test("snowmelt, lip, pool and creek share a continuous downhill profile above te
   }
 });
 
-test("paper cave has a narrow opening, wider flat chamber and no curtain collision", () => {
+test("paper cave widens and descends beneath a continuous waterfall shoulder", () => {
   assert.equal(paperCaveHalfWidth(-30) * 2, 4.6);
   assert.equal(paperCaveHalfWidth(-34) * 2, 8);
-  const floor = waterfallProfile().floorY;
-  for (let z = -35; z <= -30; z += .25) {
-    for (let x = -20 - paperCaveHalfWidth(z) + .5; x < -20 + paperCaveHalfWidth(z) - .5; x += .25) {
-      assert.ok(Math.abs(terrainHeight(x, z) - floor) < .001);
-    }
+  const mouth = paperCaveFloorHeight({ x: -20, z: -30 });
+  const chamber = paperCaveFloorHeight({ x: -20, z: -34 });
+  assert.ok(chamber < mouth - .8, "archive chamber descends behind the waterfall");
+  for (let z = -35; z <= -31; z += .25) {
+    const floor = paperCaveFloorHeight({ x: -20, z });
+    const roof = terrainHeight(-20, z);
+    assert.ok(roof > floor + 4, `paper cave roof clearance at ${z}`);
+    assert.ok(Math.abs(roof - mountainSurfaceHeight(-20, z)) < 1e-8);
   }
   assert.equal(paperCaveInside({ x: -17, z: -31.1 }), false);
   assert.equal(paperCaveInside({ x: -17, z: -34 }), true);

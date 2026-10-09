@@ -288,21 +288,35 @@ export function createHabitats(scene: THREE.Scene, obstacles: Obstacle[]) {
     finish(b, `desert-plants-${row}`);
   }
   const canopyPerches: { x: number; z: number; y: number }[] = [];
-  // Layered redwood understory and tropical canopy, each split into compact chunks.
-  for (const region of ["redwood", "rainforest"] as const)
-    for (let row = 0; row < 2; row++) {
+  // Layered redwood understory and tropical canopy. Rainforest gets three
+  // overlapping spatial bands so canopy continuity survives long walks without
+  // turning the whole biome into one giant geometry batch.
+  for (const region of ["redwood", "rainforest"] as const) {
+    const rows = region === "rainforest" ? 3 : 2;
+    for (let row = 0; row < rows; row++) {
       const b = new GeometryBatch(),
         center =
           region === "redwood"
             ? { x: -5, z: row * 22 }
-            : { x: 43, z: 18 + row * 20 };
-      for (let i = 0; i < 60; i++) {
+            : { x: 44, z: 14 + row * 16 };
+      const candidates = region === "rainforest" ? 88 : 60;
+      for (let i = 0; i < candidates; i++) {
         const x = center.x + (random() - 0.5) * 27,
           z = center.z + (random() - 0.5) * 23,
           p = { x, z };
         const sample = biomeAt(p);
-        const suitability = sample.weights[region] * (0.65 + 0.35 * sample.moisture)
-          * (0.3 + 0.7 * sample.substrate.soil) * (1 - smooth(0.65, 1.5, sample.slope));
+        const suitability = region === "rainforest"
+          ? Math.min(
+              1,
+              sample.weights.rainforest *
+                (0.9 + 0.35 * sample.moisture) *
+                (0.55 + 0.45 * sample.substrate.soil) *
+                (1 - smooth(1.0, 2.2, sample.slope)),
+            )
+          : sample.weights.redwood *
+            (0.65 + 0.35 * sample.moisture) *
+            (0.3 + 0.7 * sample.substrate.soil) *
+            (1 - smooth(0.65, 1.5, sample.slope));
         if (clear(p) || random() > suitability) continue;
         const y = terrainHeight(x, z);
         // Leaf litter follows the actual ground and shares the existing plant batch.
@@ -333,14 +347,14 @@ export function createHabitats(scene: THREE.Scene, obstacles: Obstacle[]) {
             );
           }
           obstacles.push({ x, z, radius: 0.22 });
-        } else if (region === "rainforest" && i % 5 === 0) {
-          const h = 7 + random() * 6;
-          canopyPerches.push({ x, z, y: y + h - 1.4 });
-          stem(b, "#756954", V(x, y, z), V(x, y + h, z), 0.35);
+        } else if (region === "rainforest" && i % 4 === 0) {
+          const h = 10 + random() * 8;
+          canopyPerches.push({ x, z, y: y + h - 1.6 });
+          stem(b, "#756954", V(x, y, z), V(x, y + h, z), 0.42);
           // Fauna perches connect to this actual trunk, below its crown.
-          stem(b, "#756954", V(x, y + h - 1.4, z), V(x + 2, y + h - 1.4, z), 0.12);
-          for (let j = 0; j < 4; j++) {
-            const a = j * 1.57;
+          stem(b, "#756954", V(x, y + h - 1.6, z), V(x + 2.3, y + h - 1.6, z), 0.13);
+          for (let j = 0; j < 6; j++) {
+            const a = j * Math.PI / 3;
             stem(
               b,
               "#756954",
@@ -352,13 +366,30 @@ export function createHabitats(scene: THREE.Scene, obstacles: Obstacle[]) {
               b,
               sphere,
               j % 2 ? "#547347" : "#436340",
-              x + Math.cos(a) * 1.5,
-              y + h,
-              z + Math.sin(a) * 1.5,
-              2.5,
-              1.25,
-              2.4,
+              x + Math.cos(a) * 1.9,
+              y + h - 0.2 + Math.sin(a * 2) * 0.35,
+              z + Math.sin(a) * 1.9,
+              3.0,
+              1.55,
+              2.9,
             );
+            // Large planar leaves break the crown into a readable tropical
+            // silhouette instead of a stack of generic green blobs.
+            for (const tilt of [-0.18, 0.18])
+              add(
+                b,
+                blade,
+                j % 2 ? "#5d854d" : "#477340",
+                x + Math.cos(a) * 2.1,
+                y + h + 0.25,
+                z + Math.sin(a) * 2.1,
+                1.2,
+                3.4,
+                1.05,
+                Math.PI * (0.28 + tilt),
+                a,
+                tilt,
+              );
           }
           stem(
             b,
@@ -381,7 +412,7 @@ export function createHabitats(scene: THREE.Scene, obstacles: Obstacle[]) {
           for (let j = 0; j < 5; j++) {
             const a = j * 2.4 + i;
             add(b, blade, j % 2 ? "#436340" : "#63874b",
-              x, y + h * (0.5 + j * 0.1), z, 0.8, 1.3, 0.8,
+              x, y + h * (0.5 + j * 0.1), z, 1.05, 1.8, 1.0,
               Math.PI * 0.35, a, 0.25);
           }
         } else {
@@ -419,6 +450,7 @@ export function createHabitats(scene: THREE.Scene, obstacles: Obstacle[]) {
       }
       finish(b, `${region}-plants-${row}`);
     }
+  }
   // Low-count canopy silhouettes: articulated limbs and branch attachment, no expensive rigs.
   const animals = new GeometryBatch();
   for (const [i, perch] of canopyPerches.slice(0, 2).entries()) {
@@ -533,10 +565,11 @@ export function createHabitats(scene: THREE.Scene, obstacles: Obstacle[]) {
   leaf.dispose();
   blade.dispose();
   return {
-    update(camera: Point) {
-      for (const r of roots)
-        r.mesh.visible =
-          distance(camera, r.center) < r.radius + (r.mesh.visible ? 26 : 18);
+    update(_camera: Point) {
+      // These are already a handful of large static batches. Let Three.js frustum
+      // culling handle them instead of toggling entire biome chunks at a short
+      // distance threshold, which caused rainforest rows to visibly disappear.
+      for (const r of roots) r.mesh.visible = true;
     },
     dispose() {
       for (const m of meshes) scene.remove(m);

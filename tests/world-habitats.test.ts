@@ -29,11 +29,13 @@ test("habitat geometry stays deterministic, finite, batched and disposable", () 
     assert.ok(Array.from(positions.array).every(Number.isFinite));
     assert.ok(mesh.geometry.boundingSphere!.radius > 0);
   }
-  assert.ok(vertices < 250_000, `habitat vertex budget: ${vertices}`);
+  assert.ok(vertices < 320_000, `habitat vertex budget: ${vertices}`);
+  const rainforest = scene.children.filter((mesh) => mesh.name.startsWith("rainforest-plants-"));
+  assert.equal(rainforest.length, 3, "rainforest canopy uses overlapping persistent spatial bands");
   habitats.update({ x: 1000, z: 1000 });
-  assert.ok(scene.children.every((mesh) => !mesh.visible));
+  assert.ok(scene.children.every((mesh) => mesh.visible), "distance alone must not pop whole habitat batches");
   habitats.update({ x: 43, z: 30 });
-  assert.ok(scene.children.some((mesh) => mesh.visible));
+  assert.ok(rainforest.every((mesh) => mesh.visible));
   habitats.dispose(); copy.dispose();
   assert.equal(scene.children.length, 0);
   assert.equal(second.children.length, 0);
