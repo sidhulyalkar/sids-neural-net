@@ -2,16 +2,17 @@
 import {useEffect,useRef,useState} from "react";
 import {
  DISC_GOLF_HOLES,discGolfRemaining,discGolfScoreName,discGolfWind,
- type DiscGolfState,type DiscShot,
+ type DiscGolfState,type DiscShot,type DiscGolfSwingStage,
 } from "@/lib/world/discGolf";
 import styles from "./world.module.css";
 
-type Stage="idle"|"power"|"accuracy"|"released";
-export function WorldDiscGolfHUD({game,onShot,onChangeHole,onExit}:{
+type Stage=DiscGolfSwingStage;
+export function WorldDiscGolfHUD({game,onShot,onChangeHole,onExit,onStage}:{
  game:DiscGolfState;
  onShot:(shot:DiscShot)=>void;
  onChangeHole:(hole:number)=>void;
  onExit:()=>void;
+ onStage:(stage:DiscGolfSwingStage)=>void;
 }){
  const hole=DISC_GOLF_HOLES[game.holeIndex];
  const [stage,setStage]=useState<Stage>("idle");
@@ -36,13 +37,13 @@ export function WorldDiscGolfHUD({game,onShot,onChangeHole,onExit}:{
  const act=()=>{
   if(game.phase==="flying"||game.phase==="holed"||stage==="released")return;
   if(stage==="idle"){
-   started.current=performance.now();setCursor(0);setStage("power");
+   started.current=performance.now();setCursor(0);setStage("power");onStage("power");
   }else if(stage==="power"){
    setPower(Math.max(8,Math.round(cursor*100)));
-   started.current=performance.now();setCursor(0);setStage("accuracy");
+   started.current=performance.now();setCursor(0);setStage("accuracy");onStage("accuracy");
   }else{
    const accuracy=(cursor-.5)*2;
-   setStage("released");
+   setStage("released");onStage("released");
    onShot({power,accuracy,loft,aimOffset:aim});
   }
  };
@@ -115,7 +116,7 @@ export function WorldDiscGolfHUD({game,onShot,onChangeHole,onExit}:{
      <span className={styles.discGolfHint}>Three taps: pull back → power → release. Wind shifts your throw; the basket moves while it flies.</span>
     </>
    )}
-   <div className={styles.discGolfHoles} aria-label="Choose course">
+   <div className={styles.discGolfHoles} role="group" aria-label="Choose course">
      {DISC_GOLF_HOLES.map((h,i)=>(
       <button key={h.id} type="button" aria-pressed={i===game.holeIndex}
        disabled={game.phase==="flying"} onClick={()=>onChangeHole(i)}>

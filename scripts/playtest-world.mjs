@@ -535,6 +535,39 @@ try {
   await screenshot(page,'challenge-alpine-landing');
   results.push('Alpine jump launches by skiing, macaws call true flown distances, and downhill receiving slope lands cleanly');
 
+  await page.getByRole('button',{name:'Disc golf · play',exact:true}).click();
+  await page.waitForFunction(()=>document.querySelector('canvas')?.dataset.discGolfPhase==='ready');
+  assert.equal(await page.locator('canvas').getAttribute('data-disc-golf-holes'),'4');
+  await screenshot(page,'disc-golf-tee-and-moving-chains');
+  await page.getByRole('button',{name:'Start pullback'}).click();
+  await page.waitForTimeout(530);
+  await screenshot(page,'disc-golf-pullback-meter');
+  await page.getByRole('button',{name:'Lock power'}).click();
+  await page.waitForTimeout(265);
+  await screenshot(page,'disc-golf-accuracy-meter');
+  await page.getByRole('button',{name:'Release disc'}).click();
+  await page.waitForFunction(
+    ()=>document.querySelector('canvas')?.dataset.discGolfPhase==='flying',
+    null,{timeout:5000},
+  );
+  await screenshot(page,'disc-golf-disc-in-flight');
+  await page.waitForFunction(
+    ()=>['landed','water','holed'].includes(document.querySelector('canvas')?.dataset.discGolfPhase??''),
+    null,{timeout:15000},
+  );
+  const golfPhase=await page.locator('canvas').getAttribute('data-disc-golf-phase');
+  if(golfPhase==='landed'){
+    assert.equal(await page.locator('canvas').getAttribute('data-disc-golf-beacon'),'true');
+    await screenshot(page,'disc-golf-gold-landing-beam');
+  }
+  await page.getByRole('group',{name:'Choose course'}).getByRole('button',{name:'2'}).click();
+  await page.waitForFunction(
+    ()=>document.querySelector('canvas')?.dataset.discGolfHole==='scrub-crosswind',
+  );
+  await page.getByRole('button',{name:'Leave disc golf'}).click();
+  await page.waitForFunction(()=>document.querySelector('canvas')?.dataset.discGolfPhase==='off');
+  results.push('Disc golf uses a three-tap double meter, animated moving basket and four selectable holes; outcomes and lie beacon are coherent');
+
   diagnostics = await page.locator('canvas').evaluate(c => ({ ...c.dataset }));
   assert.ok(Number(diagnostics.drawCalls) < 100);
   assert.ok(Number(diagnostics.frameP50) > 0);

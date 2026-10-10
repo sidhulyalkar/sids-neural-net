@@ -8,6 +8,7 @@ import { createDiscGolfGeometry } from "./worldDiscGolfGeometry";
 import {
   DISC_GOLF_HOLES,discGolfBasketPosition,discGolfThrow,stepDiscGolf,
   startDiscGolf,idleDiscGolf,type DiscGolfState,type DiscShot,
+  type DiscGolfSwingStage,
 } from "@/lib/world/discGolf";
 import {
   BIG_AIR,bigAirBirdCallout,bigAirCrossedLip,launchBigAir,
@@ -87,6 +88,7 @@ type State = {
   discGolfShotSerial:number;
   discGolfShot:DiscShot|null;
   discGolfExitSerial:number;
+  discGolfSwingStage:DiscGolfSwingStage;
   waterAction: "dive" | "deeper" | "shallower" | "surface";
   waterActionSerial: number;
   entered: boolean;
@@ -2383,6 +2385,7 @@ export function createWorld(
     discGolfShotSerial:0,
     discGolfShot:null,
     discGolfExitSerial:0,
+    discGolfSwingStage:"idle",
     waterAction: "dive",
     waterActionSerial: 0,
   };
@@ -3008,7 +3011,14 @@ export function createWorld(
         bodyRoot.rotation.set(bikePose ? bikeBodyLean : 0, 0, 0);
         legs[0].rotation.x = running ? walking * 0.6 : bikePose ? 0.58 + walking * 0.28 : 0.2;
         legs[1].rotation.x = running ? -walking * 0.6 : bikePose ? 0.58 - walking * 0.28 : 0.2;
-        arms[0].rotation.x = climb ? -2 : running ? -walking * 0.4 : bikePose ? 0.82 : -0.75;
+        // A quiet 3D throw pose follows the two user-controlled meter phases:
+        // shoulder reaches back on pullback, then rotates through release.
+        const throwArm=discGolf.phase!=="off"?
+          state.discGolfSwingStage==="power" ? -.15 :
+          state.discGolfSwingStage==="accuracy" ? -1.3 :
+          state.discGolfSwingStage==="released" ? -2.05 : -.75 : null;
+        arms[0].rotation.x = throwArm!==null?throwArm:
+          climb ? -2 : running ? -walking * 0.4 : bikePose ? 0.82 : -0.75;
         arms[1].rotation.x = climb ? -1.6 : running ? walking * 0.4 : bikePose ? 0.82 : -0.75;
         const footprint = mode === "bike"
           ? { length: 1.05, width: 0.55 }
@@ -3061,6 +3071,7 @@ export function createWorld(
       canvas.dataset.height = playerY.toFixed(2);
       canvas.dataset.airborne = String(airHeight > 0 || !!climb || !!grind);
       canvas.dataset.discGolfPhase=discGolf.phase;
+      canvas.dataset.discGolfBeacon=String(discGolf.phase==="landed");
       canvas.dataset.discGolfStrokes=String(discGolf.strokes);
       canvas.dataset.discGolfWaterRedos=String(discGolf.waterRedos);
       canvas.dataset.discGolfHole=DISC_GOLF_HOLES[discGolf.holeIndex].id;

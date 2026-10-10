@@ -8,7 +8,7 @@ import styles from "./world.module.css";
 import type { Activity, AquaticMode } from "@/lib/world/activities";
 import type { TrialState } from "@/lib/world/trials";
 import type { BigAirState } from "@/lib/world/bigAir";
-import type { DiscGolfState,DiscShot } from "@/lib/world/discGolf";
+import type { DiscGolfState,DiscShot,DiscGolfSwingStage } from "@/lib/world/discGolf";
 
 type Props = {
   activity: Activity;
@@ -20,6 +20,7 @@ type Props = {
   discGolfShotSerial:number;
   discGolfShot:DiscShot|null;
   discGolfExitSerial:number;
+  discGolfSwingStage:DiscGolfSwingStage;
   waterAction: "dive" | "deeper" | "shallower" | "surface";
   waterActionSerial: number;
   gameTitles: string[];

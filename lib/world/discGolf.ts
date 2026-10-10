@@ -5,6 +5,7 @@ import type { Point } from "./model";
  * Distances are fictional world units, not regulation PDGA measurements. */
 export type DiscPoint = Point & { y:number };
 export type DiscGolfPhase = "off"|"ready"|"flying"|"landed"|"water"|"holed";
+export type DiscGolfSwingStage = "idle"|"power"|"accuracy"|"released";
 export type DiscGolfHole = {
   id:string;name:string;par:number;tee:Point;target:Point;
   motion:"sway"|"figure-eight"|"orbit";radius:number;period:number;

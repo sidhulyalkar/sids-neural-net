@@ -24,7 +24,7 @@ import { COASTAL_FLORA, MARINE_LIFE } from "@/lib/world/ecology";
 import { UNDERWATER_TRIDENTS } from "@/lib/world/artifacts";
 import { JOSHUA_TRIAL, JOSHUA_GATES, type TrialState } from "@/lib/world/trials";
 import { WorldDiscGolfHUD } from "./WorldDiscGolfHUD";
-import { idleDiscGolf,type DiscShot,type DiscGolfState } from "@/lib/world/discGolf";
+import { idleDiscGolf,type DiscShot,type DiscGolfState,type DiscGolfSwingStage } from "@/lib/world/discGolf";
 import {
   BIG_AIR,bigAirBirdCallout,idleBigAir,type BigAirState,
 } from "@/lib/world/bigAir";
@@ -94,14 +94,21 @@ export function WorldHome({ content }: { content: WorldContent }) {
   const [challengeSerial,setChallengeSerial]=useState(0);
   const [bigAirSerial,setBigAirSerial]=useState(0);
   const [discGolf,setDiscGolf]=useState<DiscGolfState>(idleDiscGolf);
+  const [discGolfStage,setDiscGolfStage]=useState<DiscGolfSwingStage>("idle");
   const [discGolfStartSerial,setDiscGolfStartSerial]=useState(0);
   const [discGolfHoleIndex,setDiscGolfHoleIndex]=useState(0);
   const [discGolfShotSerial,setDiscGolfShotSerial]=useState(0);
   const [discGolfShot,setDiscGolfShot]=useState<DiscShot|null>(null);
   const [discGolfExitSerial,setDiscGolfExitSerial]=useState(0);
-  const onDiscGolf=useCallback((g:DiscGolfState)=>setDiscGolf(g),[]);
+  const onDiscGolf=useCallback((g:DiscGolfState)=>{
+    setDiscGolf(g);
+    if(g.phase==="landed"||g.phase==="water"||g.phase==="holed"||g.phase==="off")
+      setDiscGolfStage("idle");
+  },[]);
   const startDiscHole=(index:number)=>{
-    setDiscGolfHoleIndex(index);
+    setDiscGolfStage("idle");setDiscGolfHoleIndex(index);
+    setBigAir(idleBigAir());
+    setTrial({phase:"idle",nextGate:0,elapsedMs:0,splitsMs:[]});
     setActivity("run");
     setDiscGolfStartSerial(n=>n+1);
   };
@@ -110,7 +117,7 @@ export function WorldHome({ content }: { content: WorldContent }) {
     setDiscGolfShotSerial(n=>n+1);
   };
   const exitDiscGolf=()=>{
-    setDiscGolf(idleDiscGolf());
+    setDiscGolfStage("idle");setDiscGolf(idleDiscGolf());
     setDiscGolfExitSerial(n=>n+1);
   };
   const [bigAir,setBigAir]=useState<BigAirState>(idleBigAir);
@@ -352,6 +359,7 @@ export function WorldHome({ content }: { content: WorldContent }) {
             discGolfShotSerial={discGolfShotSerial}
             discGolfShot={discGolfShot}
             discGolfExitSerial={discGolfExitSerial}
+            discGolfSwingStage={discGolfStage}
             waterAction={waterAction}
             waterActionSerial={waterActionSerial}
             gameTitles={content.games.map(game => game.title)}
@@ -459,6 +467,7 @@ export function WorldHome({ content }: { content: WorldContent }) {
               onShot={takeDiscShot}
               onChangeHole={startDiscHole}
               onExit={exitDiscGolf}
+              onStage={setDiscGolfStage}
             />
           )}
           {(trial.phase==="armed"||trial.phase==="running"||
