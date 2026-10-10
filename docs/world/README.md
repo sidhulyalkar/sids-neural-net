@@ -1,5 +1,9 @@
 # Sid’s World — coastal expansion
 
+## World Challenges v1: technical riding, puzzles and big air
+
+[astra-world-challenges-v1-spec.md](astra-world-challenges-v1-spec.md) is the **PLANNED, not yet implemented** scope for real rock-garden and balance-beam riding, the 305-unit Joshua course's optional time trials, progressive alpine distance jumps with an opt-in long valley flight, and a trilogy of terrain-based environmental puzzles. It establishes explicit interactions, fair timing, camera/landing physics, performance and browser acceptance criteria. The preceding biome and island specs retain authority over the existing cave, waterfall, ecology, underwater discoveries and all protected landmarks.
+
 ## Island Expansion vNext (2026-10-10)
 
 **Next milestone scope:** [astra-island-expansion-vnext-spec.md](astra-island-expansion-vnext-spec.md) defines the **3x Joshua bike circuit**, actual dirt-gap/arroyo jumps and bypasses, island-coverage audit, desert/rainforest wildlife, the real sloth photo ingestion requirement, schooling-fish morphs and UCSD-inspired underwater tridents. It is a **design and testing contract, not an implementation-complete claim**. Its feature-specific requirements refine the master biome spec without changing the authoritative cave/waterfall contracts.

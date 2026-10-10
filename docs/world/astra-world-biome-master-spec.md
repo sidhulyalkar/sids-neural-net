@@ -1,5 +1,10 @@
 # Astra master specification — Sid's World biome, mountain, cave, waterfall, ecology, and reef redesign
 
+## World Challenges v1: technical riding, puzzles and big air
+
+[astra-world-challenges-v1-spec.md](astra-world-challenges-v1-spec.md) is the **PLANNED, not yet implemented** scope for real rock-garden and balance-beam riding, the 305-unit Joshua course's optional time trials, progressive alpine distance jumps with an opt-in long valley flight, and a trilogy of terrain-based environmental puzzles. It establishes explicit interactions, fair timing, camera/landing physics, performance and browser acceptance criteria. The preceding biome and island specs retain authority over the existing cave, waterfall, ecology, underwater discoveries and all protected landmarks.
+
+
 Status: **implementation contract for Astra**
 Authoring intent: replace the current accumulation of scenic primitives with a coherent island-scale world architecture.
 

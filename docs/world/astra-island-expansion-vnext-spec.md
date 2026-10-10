@@ -1,5 +1,10 @@
 # Sid's World: Island Expansion vNext — executable scope and acceptance contract
 
+## World Challenges v1: technical riding, puzzles and big air
+
+[astra-world-challenges-v1-spec.md](astra-world-challenges-v1-spec.md) is the **PLANNED, not yet implemented** scope for real rock-garden and balance-beam riding, the 305-unit Joshua course's optional time trials, progressive alpine distance jumps with an opt-in long valley flight, and a trilogy of terrain-based environmental puzzles. It establishes explicit interactions, fair timing, camera/landing physics, performance and browser acceptance criteria. The preceding biome and island specs retain authority over the existing cave, waterfall, ecology, underwater discoveries and all protected landmarks.
+
+
 Status: **IN PROGRESS**. Scope approved 2026-10-10. The initial island audit and
 measured expanded-course tranche are implemented; later features remain pending.
 Current implementation data must be read from the feature branch, not the frozen
