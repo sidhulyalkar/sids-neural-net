@@ -3,6 +3,8 @@
 Status: **implementation contract for Astra**
 Authoring intent: replace the current accumulation of scenic primitives with a coherent island-scale world architecture.
 
+> **October 2026 feature-specific addendum:** [Island Expansion vNext](astra-island-expansion-vnext-spec.md) is the newest implementation scope for tripling the Joshua bike track, physical gap jumps, intelligent island infill, desert/rainforest fauna, sloth photo provenance, coordinated marine schools and three UCSD-inspired underwater tridents. This general master remains authoritative for caves, waterfall, existing geography, Shasta movement, biome transitions and rendering budgets. **Planning document, not shipped functionality.**
+
 ## Frozen baseline and authority
 
 Astra should begin from the current World Mode branch, but the visual design in this document takes precedence over the current cave/waterfall implementation.

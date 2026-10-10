@@ -50,6 +50,8 @@ the waterfall drainage chain, the lagoon or the rainforest footprint.
 This is deterministic arcade riding, not a promise of fully physical bike suspension.
 Future ride dynamics should be separately qualified by visual/browser playtesting.
 
+> **Next generation of this circuit:** The requested tripling of the track length and replacement of two mound jumps with real gapped arroyo/fallen-Joshua crossings are specified in [Island Expansion vNext](astra-island-expansion-vnext-spec.md). Those items are not yet implemented. This page documents the existing smaller-loop baseline.
+
 ## October 2026: authored dirt jumps and rainforest wildlife
 
 Three jump features now share one contract in `lib/world/desertTrack.ts`:

@@ -1,5 +1,9 @@
 # Sid’s World — coastal expansion
 
+## Island Expansion vNext (2026-10-10)
+
+**Next milestone scope:** [astra-island-expansion-vnext-spec.md](astra-island-expansion-vnext-spec.md) defines the **3x Joshua bike circuit**, actual dirt-gap/arroyo jumps and bypasses, island-coverage audit, desert/rainforest wildlife, the real sloth photo ingestion requirement, schooling-fish morphs and UCSD-inspired underwater tridents. It is a **design and testing contract, not an implementation-complete claim**. Its feature-specific requirements refine the master biome spec without changing the authoritative cave/waterfall contracts.
+
 ## Astra master biome specification
 
 For the next major world-expansion tranche, use [astra-world-biome-master-spec.md](astra-world-biome-master-spec.md) as the authoritative design/implementation contract. It supersedes ad-hoc cave/waterfall iterations and defines the island biome map, mountain/cave geometry, snowmelt hydrology, Paper Archive cave, ecology modules, reef quality, rainforest, redwood and desert plans.
