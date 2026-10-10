@@ -49,10 +49,15 @@ The ledger below distinguishes implementation from remaining visual qualificatio
   `worldBigAirBirds.ts` uses three instanced geometry batches, with
   animated wingbeats and no shadows or automatic audio. Subtle named
   macaw **text** callouts report 10-world-unit distance milestones;
-  the HUD shows the continuously measured distance. These are
+  the HUD shows the continuously measured distance. An optional **Bird
+  distance voice** toggle explicitly enables local browser speech synthesis
+  of the same milestones, capped to one call per ten units with old
+  queued audio cancelled. Default is silent, external voices/files are
+  not downloaded, and if the browser lacks speech support the text remains.
+  These are
   stylized birds accompanying a skier across this fictional multi-biome
   world, not a natural alpine ecological claim. There is no synthesized
-  voice or audio narration yet.
+  custom animal voice asset. Browser TTS is optional and generic.
 - **Qualification remains required:** continuous real-browser ride/flight
   screenshots, mobile HUD fit, real camera framing, bird visibility,
   landing-site vegetation, frustum/draw-call budgets, Shasta ground

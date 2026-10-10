@@ -675,6 +675,21 @@
   box-shadow:0 12px 32px #10282c55;
   pointer-events:auto;
 }
+.birdVoiceToggle {
+  display:block;
+  margin-top:9px;
+  padding:7px 9px;
+  border:1px solid #c5d8db66;
+  border-radius:7px;
+  font-size:11px;
+  color:#e1eeeb;
+  background:#26434a99;
+}
+.birdVoiceToggle[aria-pressed="true"] {
+  background:#c3e3df;
+  color:#19373d;
+}
+.birdVoiceToggle:focus-visible {outline:2px solid #f1dda8;outline-offset:2px;}
 .bigAirHud strong {
   display:block;
   margin:6px 0;

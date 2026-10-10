@@ -505,6 +505,11 @@ try {
     () => document.querySelector('canvas')?.dataset.bigAirPhase === 'armed',
   );
   assert.equal(await page.locator('canvas').getAttribute('data-big-air-birds'),'3');
+  const voiceToggle=page.getByRole('button',{name:'Bird distance voice · Off',exact:true});
+  await voiceToggle.click();
+  assert.equal(await page.getByRole('button',{name:'Bird distance voice · On',exact:true}).getAttribute('aria-pressed'),'true');
+  await page.getByRole('button',{name:'Bird distance voice · On',exact:true}).click();
+  await page.locator('canvas').focus();
   await screenshot(page,'challenge-alpine-approach');
   await page.keyboard.down('w');
   try {

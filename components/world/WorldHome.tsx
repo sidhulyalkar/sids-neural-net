@@ -102,6 +102,20 @@ export function WorldHome({ content }: { content: WorldContent }) {
     }catch{return null;}
   });
   const bestFlightRef=useRef(bestFlight);
+  const [birdVoice,setBirdVoice]=useState(false);
+  const birdVoiceRef=useRef(false);
+  const lastSpokenFlightMarker=useRef(0);
+  const toggleBirdVoice=()=>{
+    if(!("speechSynthesis" in window)||!("SpeechSynthesisUtterance" in window)){
+      setBirdVoice(false);
+      birdVoiceRef.current=false;
+      return;
+    }
+    const next=!birdVoiceRef.current;
+    birdVoiceRef.current=next;
+    setBirdVoice(next);
+    if(!next)window.speechSynthesis.cancel();
+  };
   const [trial,setTrial]=useState<TrialState>({
     phase:"idle",nextGate:0,elapsedMs:0,splitsMs:[],
   });
@@ -148,6 +162,24 @@ export function WorldHome({ content }: { content: WorldContent }) {
   },[]);
   const onBigAir=useCallback((next:BigAirState)=>{
     setBigAir(next);
+    if(next.phase==="armed")lastSpokenFlightMarker.current=0;
+    if(next.phase==="flying"){
+      const milestone=Math.floor(next.distance/10)*10;
+      if(milestone>=10&&milestone>lastSpokenFlightMarker.current){
+        lastSpokenFlightMarker.current=milestone;
+        if(birdVoiceRef.current&&"speechSynthesis" in window &&
+          "SpeechSynthesisUtterance" in window){
+          // Opt-in device speech, not a downloaded voice or automatically
+          // playing audio. Discard queued old calls at each distance marker.
+          const call=new SpeechSynthesisUtterance(milestone+" meters");
+          call.rate=1.1;call.pitch=1.14;call.volume=.48;
+          try{
+            window.speechSynthesis.cancel();
+            window.speechSynthesis.speak(call);
+          }catch{/* Text labels always remain authoritative. */}
+        }
+      }
+    }
     if(next.phase==="landed"&&
       (!bestFlightRef.current||next.distance>bestFlightRef.current)){
       bestFlightRef.current=next.distance;
@@ -432,6 +464,12 @@ export function WorldHome({ content }: { content: WorldContent }) {
               )}
               {bestFlight!==null&&(
                 <small>Best landing {bestFlight.toFixed(1)} m</small>
+              )}
+              {(bigAir.phase==="armed"||bigAir.phase==="flying")&&(
+                <button className={styles.birdVoiceToggle} aria-pressed={birdVoice}
+                  onClick={toggleBirdVoice}>
+                  Bird distance voice · {birdVoice?"On":"Off"}
+                </button>
               )}
               {(bigAir.phase==="landed"||bigAir.phase==="missed")&&(
                 <div className={styles.trialActions}>
