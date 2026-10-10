@@ -1,4 +1,4 @@
-import { desertTrackClearance, DESERT_JUMPS } from "./desertTrack";
+import { desertTrackClearance, desertTrackCenterline, DESERT_JUMPS } from "./desertTrack";
 import {
   constrainMove,
   distance,
@@ -554,15 +554,8 @@ export const SPORT_ROUTES = [
   },
   {
     id: "desert-flow",
-    points: [
-      { x: 32, z: -13 },
-      { x: 32, z: -43 },
-      { x: 37, z: -48 },
-      { x: 42, z: -43 },
-      { x: 42, z: -13 },
-      { x: 37, z: -8 },
-      { x: 32, z: -13 },
-    ],
+    // One complete measured lap, shared with terrain and landscaping.
+    points: desertTrackCenterline(24),
   },
 ] as const;
 export function sportClearance(p: Point) {
@@ -578,7 +571,7 @@ export function sportClearance(p: Point) {
   return (
     desertTrackClearance(p) ||
     SPORT_ROUTES.some((r) =>
-      r.points.slice(1).some((b, i) => lineDistance(r.points[i], b) < 3),
+      r.id !== "desert-flow" && r.points.slice(1).some((b, i) => lineDistance(r.points[i], b) < 3),
     ) ||
     RIDE_RAMPS.some((r) => {
       const len = Math.hypot(r.heading.x, r.heading.z);

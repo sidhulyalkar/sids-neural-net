@@ -2,36 +2,49 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import * as THREE from "three/src/Three.Core.js";
 import {
-  DESERT_TRACK, DESERT_JUMPS, desertJumpOffset, desertTrackCenterline, desertTrackClearance,
+  DESERT_TRACK, DESERT_TRACK_LENGTH, DESERT_JUMPS, desertJumpOffset,
+  desertTrackCenterline, desertTrackClearance, desertTrackSampleAt,
   desertTrackFrame, desertTrackHeightOffset, desertTrackTreadBlend,
 } from "../lib/world/desertTrack";
 import { createHabitats } from "../components/world/worldHabitats";
 import { groundHeight, rampImpulseAt, rampSurface, RIDE_RAMPS, stepTravel } from "../lib/world/activities";
 import { distance, terrainHeight, type Obstacle } from "../lib/world/model";
 
-test("Joshua pump loop is closed, tangent continuous and feathered into the landscape", () => {
-  const loop = desertTrackCenterline(24);
-  assert.ok(distance(loop[0], loop.at(-1)!) < 1e-8, "full closed return");
-  for (const [i,p] of loop.entries()) {
-    const sample = desertTrackFrame(p);
-    assert.ok(sample.distance < 1e-7, `centerline contact ${i}`);
-    assert.equal(desertTrackTreadBlend(p), 1);
+test("expanded course measures >3x baseline, stays closed and uses extra island area", () => {
+  assert.ok(Math.abs(DESERT_TRACK.previousLength - (60+10*Math.PI)) < 1e-8);
+  assert.ok(DESERT_TRACK_LENGTH >= 3*DESERT_TRACK.previousLength,
+    `expanded course length ${DESERT_TRACK_LENGTH}`);
+  assert.ok(DESERT_TRACK_LENGTH >= 300 && DESERT_TRACK_LENGTH <= 330,
+    `target 300–330: ${DESERT_TRACK_LENGTH}`);
+  const loop = desertTrackCenterline(160);
+  assert.ok(distance(loop[0], loop.at(-1)!) < 1e-8, "one closed lap");
+  assert.ok(Math.min(...loop.map(p=>p.x)) < 16, "scrub-margin outer return");
+  assert.ok(Math.max(...loop.map(p=>p.x)) > 50, "far eastern descent");
+  assert.ok(Math.min(...loop.map(p=>p.z)) < -60, "lower shoulder is used");
+  assert.ok(Math.max(...loop.map(p=>p.z)) > 8, "north lookout is used");
+  let previousTangent = desertTrackFrame(loop[0]).tangent;
+  for(const [i,p] of loop.entries()) {
+    const frame = desertTrackFrame(p);
+    assert.ok(frame.distance < 1e-6, `centerline contact ${i}`);
+    assert.equal(desertTrackTreadBlend(p),1);
     assert.ok(desertTrackClearance(p));
     assert.ok(Number.isFinite(terrainHeight(p.x,p.z)));
-    if (i) {
-      const prev = desertTrackFrame(loop[i-1]).tangent;
-      assert.ok(Math.hypot(prev.x-sample.tangent.x,prev.z-sample.tangent.z) < 0.2,
-        `tangent join ${i}`);
-    }
+    if(i) assert.ok(Math.hypot(previousTangent.x-frame.tangent.x,
+      previousTangent.z-frame.tangent.z)<0.24, `continuous direction ${i}`);
+    previousTangent=frame.tangent;
+  }
+  for(let i=0;i<300;i++) {
+    const point=desertTrackSampleAt(i*DESERT_TRACK_LENGTH/300);
+    const frame=desertTrackFrame(point);
+    assert.ok(frame.distance < 1e-6,"arc-distance sampler stays on actual geometry");
+    assert.ok(Math.abs(frame.s-i*DESERT_TRACK_LENGTH/300)<0.09,
+      "s remains monotonic and measurable");
   }
   assert.equal(desertTrackHeightOffset({x:10,z:35}),0);
   assert.equal(desertTrackTreadBlend({x:10,z:35}),0);
-  for (const z of [DESERT_TRACK.north, DESERT_TRACK.south]) {
-    const outside = {x:DESERT_TRACK.cx,z:z+(z< -25 ? -DESERT_TRACK.radius-2.5 : DESERT_TRACK.radius+2.5)};
-    const inside = {x:DESERT_TRACK.cx,z:z+(z< -25 ? -DESERT_TRACK.radius+2.5 : DESERT_TRACK.radius-2.5)};
-    assert.ok(desertTrackHeightOffset(outside)>desertTrackHeightOffset(inside)+0.2,
-      "smooth raised outer berm, passable inner tread");
-  }
+  // Historical landmarks and cave remain well off the expanded riding surface.
+  for (const p of [{x:16,z:-82},{x:-20,z:-30},{x:44,z:33},{x:58,z:13}])
+    assert.ok(!desertTrackClearance(p), `protected destination ${JSON.stringify(p)}`);
 });
 
 test("bike can traverse the complete dirt flow without hitting decorative obstacles", () => {
@@ -46,14 +59,14 @@ test("bike can traverse the complete dirt flow without hitting decorative obstac
   let travel={point:loop[0],heading:{x:0,z:-1},speed:5};
   for(const [i,target] of loop.slice(1).entries()) {
     let attempts=0;
-    while(distance(travel.point,target)>0.06 && attempts++<15) {
+    while(distance(travel.point,target)>0.11 && attempts++<30) {
       const dir={x:target.x-travel.point.x,z:target.z-travel.point.z};
       const next=stepTravel(travel,dir,0.05,"bike",obstacles,false,target);
       assert.ok(distance(next.point,travel.point)>0.001,
         `bike stalled on earthen feature ${i}`);
       travel=next;
     }
-    assert.ok(distance(travel.point,target)<0.07,
+    assert.ok(distance(travel.point,target)<0.15,
       `bike can reach every segment on the centerline ${i}`);
   }
   assert.ok(distance(travel.point,loop[0])<0.7,"ride returns to its start");

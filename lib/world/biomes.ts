@@ -110,7 +110,8 @@ export function understoryDensityAt(p: Point) {
 
 export const DESERT_FORMATIONS = [
   // Low, weathered outcrops stay away from the central dirt loop.
-  { id: "talus-north", x: 52, z: -49, sx: 2.4, sy: 1.15, sz: 3.1 },
-  { id: "talus-east", x: 53, z: -22, sx: 2.6, sy: 1.3, sz: 3.0 },
-  { id: "talus-south", x: 53, z: -5, sx: 2.1, sy: 1.05, sz: 2.5 },
+  // Outside the four coursed riding lanes and their landing clearances.
+  { id: "talus-north", x: 17, z: -49, sx: 2.4, sy: 1.15, sz: 3.1 },
+  { id: "talus-east", x: 16, z: -25, sx: 2.6, sy: 1.3, sz: 3.0 },
+  { id: "talus-south", x: 53, z: 17, sx: 2.1, sy: 1.05, sz: 2.5 },
 ] as const;
