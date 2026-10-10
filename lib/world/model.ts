@@ -125,6 +125,11 @@ export type WorldVideoPoint = {
  */
 export const SNORKEL_VIDEO_POINTS: WorldVideoPoint[] = [];
 
+/** Quiet wildlife observation, photo upload attaches only after a real asset is committed. */
+export const WILDLIFE_DISCOVERIES = [
+  {id:"sloth-portrait",point:{x:40,z:43},title:"Rainforest sloth"} ,
+] as const;
+
 export const SECRET = { x: 18, z: 22 };
 export const SPAWN = { x: 0, z: 16 };
 
@@ -360,6 +365,8 @@ export function nearbyDiscovery(point: Point): string | null {
   if (distance(point, SECRET) < 3.5) return "secret";
   const video = SNORKEL_VIDEO_POINTS.find((m) => distance(point, m.point) < 3.2);
   if (video) return video.id;
+  const wildlife=WILDLIFE_DISCOVERIES.find(m=>distance(point,m.point)<3.1);
+  if(wildlife)return wildlife.id;
   const memory = MEMORY_POINTS.find((m) => distance(point, m.point) < 3.2);
   if (memory) return memory.id;
   const region = REGIONS.find((r) => distance(point, r.point) < 6);

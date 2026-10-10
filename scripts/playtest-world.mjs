@@ -48,6 +48,8 @@ try {
   assert.ok(lap>300&&lap<330,`expanded Joshua lap ${lap}`);
   assert.equal(await page.locator('canvas').getAttribute('data-desert-gap-count'),'2');
   assert.equal(await page.locator('canvas').getAttribute('data-desert-bypasses'),'2');
+  assert.equal(await page.locator('canvas').getAttribute('data-schooling-fish'),'84');
+  assert.equal(await page.locator('canvas').getAttribute('data-golden-tridents'),'3');
   await screenshot(page, 'desktop-welcome');
   await page.getByRole('button', { name: 'Explore world', exact: true }).click();
   const before = await page.locator('canvas').getAttribute('data-player');

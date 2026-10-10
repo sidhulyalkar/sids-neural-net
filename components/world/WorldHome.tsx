@@ -13,6 +13,7 @@ import {
 } from "react";
 import {
   MEMORY_POINTS,
+  WILDLIFE_DISCOVERIES,
   REGIONS,
   type RegionId,
   type WorldCommand,
@@ -208,12 +209,14 @@ export function WorldHome({ content }: { content: WorldContent }) {
         content.videos.find((item) => item.id === nearby)?.title ??
         MEMORY_POINTS.find((m) => m.id === nearby)?.title ??
         REGIONS.find((r) => r.id === nearby)?.name ??
-        UNDERWATER_TRIDENTS.find((a) => a.id === nearby)?.title);
+        UNDERWATER_TRIDENTS.find((a) => a.id === nearby)?.title ??
+        WILDLIFE_DISCOVERIES.find((a)=>a.id===nearby)?.title);
   const current = REGIONS.find((r) => r.id === region)!;
   const selected = REGIONS.find((r) => r.id === panel);
   const carvedGameIndex = panel?.startsWith("game:") ? Number(panel.slice(5)) : -1;
   const carvedGame = Number.isInteger(carvedGameIndex) ? content.games[carvedGameIndex] : undefined;
-  const photo = content.photos.find((p) => p.id === panel);
+  const photo = content.photos.find((p) => p.id === panel ||
+    (panel === "sloth-portrait" && p.id === "photo-050"));
   const video = content.videos.find((item) => item.id === panel);
   const caption = MEMORY_POINTS.find((m) => m.id === panel);
   const trident = UNDERWATER_TRIDENTS.find((a) => a.id === panel);
@@ -550,7 +553,7 @@ export function WorldHome({ content }: { content: WorldContent }) {
           )}
           {photo && (
             <>
-              <h2 id="world-panel-title">{caption?.title}</h2>
+              <h2 id="world-panel-title">{caption?.title ?? "Sloth · rainforest"}</h2>
               <Image
                 className={styles.memoryPhoto}
                 src={photo.src}
@@ -566,6 +569,18 @@ export function WorldHome({ content }: { content: WorldContent }) {
             </>
           )}
 
+          {panel === "sloth-portrait" && !photo && (
+            <>
+              <h2 id="world-panel-title">A sloth in the canopy.</h2>
+              <p className={styles.panelIntro}>
+                Inspired by a real sloth photograph: a pale face with a dark
+                eye mask, long gray-beige fur, and one extended forelimb
+                wrapped around a rainforest trunk.
+              </p>
+              <Link href="/photography" prefetch={false}>My photography</Link>
+              <button onClick={close}>Return to the forest</button>
+            </>
+          )}
           {trident && (
             <>
               <h2 id="world-panel-title">{trident.title}.</h2>

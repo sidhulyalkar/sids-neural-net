@@ -449,6 +449,19 @@ export function createHabitats(scene: THREE.Scene, obstacles: Obstacle[]) {
               Math.sin(a) * 0.22, a, Math.cos(a) * 0.22);
           }
         }
+        if(region==="rainforest" && i%13===2){
+          // Occasional orchid and bromeliad clusters provide small pockets of
+          // magenta/yellow rather than uniformly saturated giant flower props.
+          const h=.6+random()*.5;
+          stem(b,"#58764e",V(x,y,z),V(x,y+h,z),.035);
+          for(let j=0;j<5;j++){
+            const theta=j*Math.PI*2/5;
+            add(b,leaf,j%2?"#b35e9b":"#de8dba",
+              x+Math.cos(theta)*.12,y+h+j*.035,z+Math.sin(theta)*.12,
+              .16,.32,.13,0,theta);
+          }
+          add(b,sphere,"#f2c56a",x,y+h+.17,z,.085,.11,.08);
+        }
         // Leaf litter follows the actual ground and shares the existing plant batch.
         if (region === "rainforest")
           for (let j = 0; j < 3; j++) {
@@ -745,20 +758,21 @@ export function createHabitats(scene: THREE.Scene, obstacles: Obstacle[]) {
     if(biomeAt(reptile.point).weights.rainforest<.30)continue;
     const y=terrainHeight(x,z)+reptile.height;
     stem(animals,"#665b49",V(x,y-.85,z),V(x+.88,y+.08,z),.12);
-    const radius=reptile.kind==="boa"?.72:.42;
+    const heavy=reptile.kind==="boa"||reptile.kind==="anaconda";
+    const radius=reptile.kind==="anaconda"?.98:heavy?.72:.42;
     let prev=V(x+.42+radius,y+.18,z);
-    const segments=reptile.kind==="boa"?22:14;
+    const segments=reptile.kind==="anaconda"?30:heavy?22:14;
     for(let j=1;j<=segments;j++){
-      const t=j/segments,a=t*Math.PI*(reptile.kind==="boa"?3.6:2.7);
+      const t=j/segments,a=t*Math.PI*(heavy?3.6:2.7);
       const next=V(x+.42+Math.cos(a)*radius*(1-t*.2),
         y+.18+Math.sin(t*Math.PI)*.10,
         z+Math.sin(a)*radius*.5);
-      stem(animals,reptile.kind==="boa"&&j%4===0?"#5d5947":reptile.color,
-        prev,next,reptile.kind==="boa"?.09*(1-t*.35):.047*(1-t*.35));
+      stem(animals,heavy&&j%4===0?"#5d5947":reptile.color,
+        prev,next,heavy?(reptile.kind==="anaconda"?.16:.09)*(1-t*.35):.047*(1-t*.35));
       prev=next;
     }
     add(animals,sphere,reptile.color,prev.x,prev.y,prev.z,
-      reptile.kind==="boa"?.13:.09,.07,.14);
+      heavy?.15:.09,.07,heavy?.19:.14);
     for(const side of [-1,1])
       add(animals,sphere,"#292b25",prev.x+side*.06,
         prev.y+.026,prev.z+.10,.017,.017,.014);

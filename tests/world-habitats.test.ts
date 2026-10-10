@@ -133,6 +133,8 @@ test("desert reptile and rainforest snake anchors stay authored and separated", 
   assert.ok(DESERT_ECOLOGY_ANCHORS.some(a=>a.kind==="roadrunner"));
   assert.ok(RAINFOREST_REPTILES.filter(r=>r.kind==="eyelash-viper").length===2);
   assert.ok(RAINFOREST_REPTILES.filter(r=>r.kind==="boa").length===2);
+  assert.equal(RAINFOREST_REPTILES.filter(r=>r.kind==="anaconda").length,1,
+    "one explicitly designated visiting South American species");
   for(const snake of RAINFOREST_REPTILES) {
     assert.ok(biomeAt(snake.point).weights.rainforest>.30,snake.id);
     assert.ok(snake.height>4 && snake.height<11);

@@ -7,6 +7,41 @@ initial-baseline inventory below.
 
 ### Execution ledger (2026-10-10)
 
+**Ecology and discoveries implementation update (2026-10-10):**
+- Joshua branches have weathered bark ribs, asymmetrical blue/olive-green
+  narrow crowns and muted dead-leaf skirts. Five stationary, non-aggressive
+  desert encounter anchors add snakes, lizards and a roadrunner without new
+  independent draw-call batches or rider collision hazards.
+- The canopy now includes two distinct parrots, two colorful macaws, two
+  toucans, two eyelash vipers, two boas, one expressly **fictional visiting
+  South American anaconda** and a sloth with photo-informed cream face,
+  dark mask, gray-beige shaggy texture and raised climbing arm. The
+  earlier generic second sloth is removed. Small orchid/bromeliad
+  accents add magenta/yellow without saturating the entire forest.
+- Three deterministic marine schools (84 total fish) render as instanced
+  bodies/tails and morph smoothly through bait-ball, ribbon and
+  split/reform shapes; group updates are reduced-motion-aware and only
+  active in a visible water zone. Existing individual reef fish stay.
+- Three gold trident sculptures inspired by UCSD are on real kelp/lagoon
+  seabeds, with depth-gated dive discovery and actual internal
+  /about, /projects and /publications destinations. These are not official
+  university emblems, souvenirs or collectibles.
+- The author's actual uploaded sloth image is available as conversation
+  source. `scripts/import-sloth-photo.py` is the deterministic ingest
+  path to optimized web/thumb files, EXIF stripping and photo-050 archive
+  registration. **Binary photo assets are not yet in GitHub**: the world
+  presently offers a photo-informed fauna encounter with a truthful
+  description. Photo viewing automatically becomes available when
+  both actual photo-050 files and the manifest entry are committed.
+  Do not label source-photo publishing complete until then.
+- Targeted tests now cover ecology, measured marine zone/depth and
+  shape-changing shoal behavior, trident mesh lifecycle and dive gating.
+  Browser wildlife silhouette, photo rendering, fish flow and trident
+  discovery still require manual visual signoff. Existing cave,
+  waterfall, Shasta and unrelated security gates are unchanged.
+
+
+
 - **Tranche 0 (first survey) complete:** `lib/world/occupancy.ts`,
   `scripts/audit-island.ts`, `tests/world-occupancy.test.ts`. At 6-unit
   sampling, 384 cells (367 land, 17 water) were classified; 3 are flagged

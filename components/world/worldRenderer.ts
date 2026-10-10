@@ -31,6 +31,7 @@ import {
   constrainMove,
   distance,
   MEMORY_POINTS,
+  WILDLIFE_DISCOVERIES,
   SEA_SURFACE,
   coastlineX,
   eastCoastlineX,
@@ -699,6 +700,7 @@ export function createWorld(
   const markerData = [
     ...REGIONS.map((r) => ({ id: r.id, point: r.point })),
     ...MEMORY_POINTS.map((m) => ({ id: m.id, point: m.point })),
+    ...WILDLIFE_DISCOVERIES.map(m=>({id:m.id,point:m.point})),
   ];
   const markerObjects: THREE.Mesh[] = [];
   const cairnPieces: Instance[] = [], markerHitVolumes: Instance[] = [];

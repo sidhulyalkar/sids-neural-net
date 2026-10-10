@@ -50,6 +50,8 @@ export const RAINFOREST_REPTILES = [
   {id:"eyelash-viper-green",kind:"eyelash-viper",point:{x:49,z:46},height:8.0,color:"#7aab57"},
   {id:"tree-boa",kind:"boa",point:{x:45,z:47},height:8.3,color:"#987650"},
   {id:"rainforest-tree-boa",kind:"boa",point:{x:54,z:35},height:8.6,color:"#b19b74"},
+  // Fictional visiting South American river species, not Costa Rican wildlife.
+  {id:"south-america-anaconda-guest",kind:"anaconda",point:{x:46,z:29},height:4.8,color:"#627457"},
 ] as const;
 // The green anaconda is South American, not native to Manuel Antonio.
 // A later separate South American tributary biome may carry that encounter.
