@@ -29,6 +29,7 @@ export default defineConfig([
   },
   globalIgnores([
     '.next/**',
+    'artifacts/**',
     'node_modules/**',
     'data/generated/**',
     'public/**',

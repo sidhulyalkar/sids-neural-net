@@ -29,7 +29,7 @@ for (const testCase of cases) {
   });
   const expectedViewport = `${testCase.width}x${testCase.height}`;
   const seed = `surface-boundary-v17-${testCase.width}x${testCase.height}`;
-  await page.goto(`${baseUrl}/?morph=${testCase.morph}&seed=${seed}`, { waitUntil: 'networkidle' });
+  await page.goto(`${baseUrl}/atlas?morph=${testCase.morph}&seed=${seed}`, { waitUntil: 'networkidle' });
   await page.waitForFunction(
     ({ morph, expectedViewport }) => {
       const root = document.querySelector('[data-fractal-morphology]');

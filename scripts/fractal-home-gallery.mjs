@@ -53,7 +53,7 @@ for (const testCase of cases) {
     if (message.type() === 'error') consoleErrors.push(message.text());
   });
 
-  const url = `${baseUrl}/?morph=${encodeURIComponent(testCase.morph)}&seed=gallery-v14-curated-clearance`;
+  const url = `${baseUrl}/atlas?morph=${encodeURIComponent(testCase.morph)}&seed=gallery-v14-curated-clearance`;
   await page.goto(url, { waitUntil: 'networkidle' });
   const root = page.locator('[data-fractal-morphology]');
   await root.waitFor({ state: 'visible' });
@@ -213,7 +213,7 @@ for (const testCase of cases) {
 
 for (const removedMorph of removedMorphologies) {
   const page = await browser.newPage({ viewport: { width: 1920, height: 1080 }, deviceScaleFactor: 1 });
-  await page.goto(`${baseUrl}/?morph=${removedMorph}&seed=removed-v14-curation`, { waitUntil: 'networkidle' });
+  await page.goto(`${baseUrl}/atlas?morph=${removedMorph}&seed=removed-v14-curation`, { waitUntil: 'networkidle' });
   const root = page.locator('[data-fractal-morphology]');
   await root.waitFor({ state: 'visible' });
   await page.waitForFunction(
@@ -241,7 +241,7 @@ for (const echoCase of echoCases) {
   const pageErrors = [];
   page.on('pageerror', (error) => pageErrors.push(error.message));
 
-  await page.goto(`${baseUrl}/?morph=${echoCase.morph}&seed=theme-echo-browser`, { waitUntil: 'networkidle' });
+  await page.goto(`${baseUrl}/atlas?morph=${echoCase.morph}&seed=theme-echo-browser`, { waitUntil: 'networkidle' });
   await page.waitForFunction(
     (morph) => document.querySelector('[data-fractal-morphology]')?.getAttribute('data-fractal-morphology') === morph,
     echoCase.morph

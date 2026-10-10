@@ -1,0 +1,81 @@
+name: World Landscape Regression
+
+on:
+  push:
+    branches: ['feat/sids-world']
+    paths:
+      - 'lib/world/**'
+      - 'components/world/**'
+      - 'tests/world-*.test.ts'
+      - 'scripts/audit-island.ts'
+      - 'scripts/audit-desert-gaps.ts'
+      - '.github/workflows/world-regression.yml'
+  pull_request:
+    paths:
+      - 'lib/world/**'
+      - 'components/world/**'
+      - 'tests/world-*.test.ts'
+      - 'scripts/audit-island.ts'
+      - 'scripts/audit-desert-gaps.ts'
+      - '.github/workflows/world-regression.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: world-landscape-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  world-regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install locked packages
+        run: npm ci
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Lint changed world sources
+        run: >-
+          npx eslint
+          lib/world/desertTrack.ts
+          lib/world/activities.ts
+          lib/world/biomes.ts
+          lib/world/ecology.ts
+          lib/world/shastaCharacter.ts
+          lib/world/model.ts
+          components/world/worldHabitats.ts
+          components/world/worldRenderer.ts
+          tests/world-desert-track.test.ts
+          tests/world-desert-gaps.test.ts
+          tests/world-contract.test.ts
+          tests/world-habitats.test.ts
+          tests/world-shasta-character.test.ts
+          lib/world/occupancy.ts
+          tests/world-occupancy.test.ts
+          --max-warnings=0
+      - name: Run all world unit contracts
+        run: node --import tsx --test tests/world-*.test.ts
+      - name: Produce island occupancy evidence
+        run: node --import tsx scripts/audit-island.ts
+      - name: Audit physical gap and flight cross sections
+        run: node --import tsx scripts/audit-desert-gaps.ts
+      - name: Upload occupancy evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: world-occupancy-${{ github.sha }}
+          path: |
+            artifacts/world/island-occupancy.json
+            artifacts/world/island-occupancy.csv
+            artifacts/world/island-occupancy.svg
+            artifacts/world/desert-gap-profiles.json
+            artifacts/world/desert-gap-profiles.svg
+          if-no-files-found: error
+      - name: Validate procedural world scenes
+        run: npm run check:world3d

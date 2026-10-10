@@ -41,8 +41,8 @@ const MORPHOLOGY_FIXTURES: Record<FractalMorphologyId, Dimensions> = {
   'echo-nest': { width: 1440, height: 900 },
 };
 
-test('homepage promotes all eight destinations into the dendritic field', () => {
-  const home = readRepoFile('app/page.tsx');
+test('legacy atlas preserves all eight destinations into the dendritic field', () => {
+  const home = readRepoFile('app/atlas/page.tsx');
   const dendrite = readRepoFile('components/neural-atlas-canvas/AdaptiveFractalHome.tsx');
 
   assert.match(home, /AdaptiveFractalHome/);

@@ -1,0 +1,162 @@
+{
+  "generatedAt": "2026-10-04T05:03:46.132Z",
+  "source": "Next.js 16 Turbopack experimental-analyze",
+  "thresholds": {
+    "maxClientChunkRawBytes": 500000,
+    "maxClientChunkCompressedBytes": 180000,
+    "maxClientTotalRawBytes": 2000000,
+    "maxClientTotalCompressedBytes": 800000
+  },
+  "client": {
+    "chunks": 24,
+    "totalRawBytes": 1431105,
+    "totalCompressedBytes": 526547,
+    "largestChunks": [
+      {
+        "filename": "[client-fs]/_next/static/chunks/209n1ydajcs9k.js",
+        "rawBytes": 228844,
+        "compressedBytes": 76425,
+        "parts": 24
+      },
+      {
+        "filename": "[client-fs]/_next/static/chunks/3lxkwppg9_0rk.js",
+        "rawBytes": 218638,
+        "compressedBytes": 69448,
+        "parts": 184
+      },
+      {
+        "filename": "[client-fs]/_next/static/chunks/09t--t47wj5v2.js",
+        "rawBytes": 155119,
+        "compressedBytes": 61461,
+        "parts": 70
+      },
+      {
+        "filename": "[client-fs]/_next/static/chunks/0um4bh-ews0cn.js",
+        "rawBytes": 138165,
+        "compressedBytes": 40415,
+        "parts": 1
+      },
+      {
+        "filename": "[client-fs]/_next/static/chunks/3427322yrg002.js",
+        "rawBytes": 136921,
+        "compressedBytes": 46685,
+        "parts": 37
+      },
+      {
+        "filename": "[client-fs]/_next/static/chunks/1hmmfovbbogu3.js",
+        "rawBytes": 117946,
+        "compressedBytes": 57343,
+        "parts": 242
+      },
+      {
+        "filename": "[client-fs]/_next/static/chunks/0cz1d0mv5g_q7.js",
+        "rawBytes": 112594,
+        "compressedBytes": 39434,
+        "parts": 1
+      },
+      {
+        "filename": "[client-fs]/_next/static/chunks/2zwwmkl2h4na5.js",
+        "rawBytes": 43456,
+        "compressedBytes": 18141,
+        "parts": 22
+      },
+      {
+        "filename": "[client-fs]/_next/static/chunks/34zvtwm2biqve.js",
+        "rawBytes": 39496,
+        "compressedBytes": 12917,
+        "parts": 13
+      },
+      {
+        "filename": "[client-fs]/_next/static/chunks/1zvi2ypppjcb1.js",
+        "rawBytes": 35689,
+        "compressedBytes": 15381,
+        "parts": 17
+      },
+      {
+        "filename": "[client-fs]/_next/static/chunks/1_q5fsxx_zk8q.js",
+        "rawBytes": 35231,
+        "compressedBytes": 14240,
+        "parts": 6
+      },
+      {
+        "filename": "[client-fs]/_next/static/chunks/2ds74rjrm49g_.js",
+        "rawBytes": 31856,
+        "compressedBytes": 14213,
+        "parts": 31
+      },
+      {
+        "filename": "[client-fs]/_next/static/chunks/2pb7xgf0nluvc.js",
+        "rawBytes": 22883,
+        "compressedBytes": 11900,
+        "parts": 26
+      },
+      {
+        "filename": "[client-fs]/_next/static/chunks/339lnukc55pqc.js",
+        "rawBytes": 20182,
+        "compressedBytes": 6783,
+        "parts": 3
+      },
+      {
+        "filename": "[client-fs]/_next/static/chunks/1s_v00rb5vkrk.js",
+        "rawBytes": 17817,
+        "compressedBytes": 9544,
+        "parts": 26
+      },
+      {
+        "filename": "[client-fs]/_next/static/chunks/0xikrxg0kqks-.js",
+        "rawBytes": 14353,
+        "compressedBytes": 6781,
+        "parts": 15
+      },
+      {
+        "filename": "[client-fs]/_next/static/chunks/37cdx8gqemv1p.js",
+        "rawBytes": 11909,
+        "compressedBytes": 5636,
+        "parts": 12
+      },
+      {
+        "filename": "[client-fs]/_next/static/chunks/1nqfmi33g5iwm.js",
+        "rawBytes": 11291,
+        "compressedBytes": 4232,
+        "parts": 11
+      },
+      {
+        "filename": "[client-fs]/_next/static/chunks/turbopack-0j55pia8b3n7g.js",
+        "rawBytes": 10989,
+        "compressedBytes": 4898,
+        "parts": 5
+      },
+      {
+        "filename": "[client-fs]/_next/static/chunks/2_3i0h1rd6qxx.js",
+        "rawBytes": 10445,
+        "compressedBytes": 3191,
+        "parts": 1
+      },
+      {
+        "filename": "[client-fs]/_next/static/chunks/2_x-3_lti0byz.js",
+        "rawBytes": 9903,
+        "compressedBytes": 5292,
+        "parts": 14
+      },
+      {
+        "filename": "[client-fs]/_next/static/chunks/0orkkvjz7p_-i.js",
+        "rawBytes": 6796,
+        "compressedBytes": 1737,
+        "parts": 2
+      },
+      {
+        "filename": "[client-fs]/_next/static/chunks/0o2rfy1elsxpn.js",
+        "rawBytes": 324,
+        "compressedBytes": 239,
+        "parts": 1
+      },
+      {
+        "filename": "[client-fs]/_next/static/chunks/0whgfzjedhu-i.js",
+        "rawBytes": 258,
+        "compressedBytes": 211,
+        "parts": 1
+      }
+    ]
+  },
+  "failures": []
+}
