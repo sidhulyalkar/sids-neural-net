@@ -35,7 +35,7 @@ const local=(p:Point)=>{
 export function bigAirTerrainOffset(p:Point):number {
  const {along,side}=local(p);
  if(along<-7||along>2.5||Math.abs(side)>4)return 0;
- const width=1-smooth(1.5,3.6,Math.abs(side));
+ const width=1-smooth(.8,1.60,Math.abs(side));
  const approach=smooth(-6,-2.8,along)*(1-smooth(0,2.5,along));
  const crown=smooth(-2.3,-.45,along)*(1-smooth(.12,2.2,along));
  return width*(.22*approach+.80*crown);
