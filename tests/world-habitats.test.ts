@@ -93,7 +93,7 @@ test("island vegetation density reserves alpine, surf, desert and authored ride 
 
 test("authored tropical wildlife is sparse, supported and colorful", () => {
   assert.deepEqual(
-    rainforestSpecies(RAINFOREST_CANOPY_WILDLIFE).sort(),
+    RAINFOREST_CANOPY_WILDLIFE.map(animal => animal.kind).sort(),
     ["macaw", "macaw", "sloth", "toucan", "toucan"],
   );
   for (const animal of RAINFOREST_CANOPY_WILDLIFE) {
@@ -122,6 +122,3 @@ test("authored tropical wildlife is sparse, supported and colorful", () => {
   habitat.dispose();
 });
 
-function RAINFOST_NAMES(animals: typeof RAINFOREST_CANOPY_WILDLIFE) {
-  return animals.map(animal => animal.kind);
-}
