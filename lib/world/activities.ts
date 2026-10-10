@@ -74,9 +74,10 @@ export const effectiveActivity = (id: Activity, _p: Point): Activity => id;
 
 /** Jointed granite ledges on the eastern side of Joshua basin. */
 export const DESERT_CLIMB_HOLDS = [
-  { x: 46, z: -21, radius: 1.8, height: 1.4 },
-  { x: 47, z: -24, radius: 1.7, height: 2.8 },
-  { x: 49, z: -27, radius: 1.6, height: 4.3 },
+  // Separate granite shoulder climbing zone, west of the bike through-lines.
+  { x: 18, z: -39, radius: 1.8, height: 1.4 },
+  { x: 18, z: -42, radius: 1.7, height: 2.8 },
+  { x: 17, z: -45, radius: 1.6, height: 4.3 },
 ];
 
 export const GROVE_CLIMB_HOLDS = [
@@ -161,8 +162,8 @@ export const FALLEN_LOGS = [
   },
   {
     id: "ridge-crossing",
-    a: { x: 22, z: -48 },
-    b: { x: 28, z: -47 },
+    a: { x: 12, z: -48 },
+    b: { x: 18, z: -47 },
     role: "traversal",
     radius: 0.5,
     lift: 0.65,

@@ -165,7 +165,7 @@ test("airborne motion preserves launch elevation across a deck lip and lands on 
 
 
 test("Joshua granite ledges form a reachable ascending boulder route", () => {
-  let point = { x: 45, z: -18 };
+  let point = { x: 18, z: -36 };
   for (const hold of DESERT_CLIMB_HOLDS) {
     assert.equal(nextHold(point), hold);
     assert.ok(groundHeight(hold) > groundHeight(point) + .5);

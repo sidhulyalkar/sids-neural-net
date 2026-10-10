@@ -18,7 +18,7 @@ export const REGIONS: {
   { id: "waterfall", name: "Fern falls", meaning: "Follow the water", point: { x: -20, z: -24 }, href: "/photography" },
   { id: "canyon", name: "Moss canyon", meaning: "A quieter trail", point: { x: 29, z: 34 }, href: "/about" },
   { id: "cavern", name: "Arcade cavern", meaning: "Play my games", point: { x: 16, z: -82 }, href: "/arcade" },
-  { id: "desert", name: "Joshua basin", meaning: "Granite and desert trails", point: { x: 37, z: -29 }, href: "/photography" },
+  { id: "desert", name: "Joshua basin", meaning: "Granite and desert trails", point: { x: 22, z: -33 }, href: "/photography" },
   { id: "rainforest", name: "Rainforest", meaning: "Canopy to coast", point: { x: 44, z: 33 }, href: "/photography" },
 ];
 
@@ -102,7 +102,7 @@ export const MEMORY_POINTS = [
     detail: "Shasta beside a winding meadow stream.",
     point: { x: -12, z: -31 },
   },
-  {id:"desert-ridges",photoId:"photo-003",title:"Desert ridges",detail:"Dry ridges with snowy mountains beyond.",point:{x:36,z:-39}},
+  {id:"desert-ridges",photoId:"photo-003",title:"Desert ridges",detail:"Dry ridges with snowy mountains beyond.",point:{x:17,z:-36}},
   {id:"rainforest-leaves",photoId:"photo-020",title:"Tropical leaves",detail:"Leaves and stems against a misty hillside.",point:{x:46,z:42}},
   {id:"lagoon-shore",photoId:"photo-024",title:"Tropical shore",detail:"Palms above clear shallow water.",point:{x:53,z:25}},
 

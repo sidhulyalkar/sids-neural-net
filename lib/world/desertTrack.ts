@@ -75,8 +75,8 @@ hairpin(47, -57, Math.PI, 2 * Math.PI, "lower-turn-b");
 line({ x: 51, z: -8 }, "east-return");
 bezier({ x: 51, z: 1 }, { x: 54, z: 9 }, { x: 43, z: 9 }, "north-overlook");
 line({ x: 24, z: 9 }, "north-overlook");
-bezier({ x: 17, z: 9 }, { x: 11, z: 3 }, { x: 14, z: -8 }, "scrub-return");
-bezier({ x: 17, z: -19 }, { x: 27, z: -3 }, { x: 27, z: -10 }, "scrub-return");
+bezier({ x: 10, z: 9 }, { x: 7, z: 4 }, { x: 11, z: 0 }, "scrub-return");
+bezier({ x: 15, z: -4 }, { x: 27, z: -5 }, { x: 27, z: -10 }, "scrub-return");
 
 export const DESERT_TRACK_LENGTH = knots[knots.length - 1].s;
 const CELL = DESERT_TRACK.spatialCell;

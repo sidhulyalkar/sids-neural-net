@@ -28,7 +28,7 @@ test("island survey is finite, deterministic and distinguishes actual open lands
 test("expanded desert lap remains off the protected waterfall and cave", () => {
   assert.ok(DESERT_TRACK_LENGTH>300,"not just three counted runs around old oval");
   for (const p of desertTrackCenterline(80)) {
-    assert.ok(p.x>10&&p.x<57 && p.z>-64&&p.z<13);
+    assert.ok(p.x>8&&p.x<57 && p.z>-64&&p.z<13);
   }
   for(const landmark of REGIONS.filter(r=>r.id==="waterfall"||
     r.id==="cavern"||r.id==="rainforest"||r.id==="lagoon"))
