@@ -75,7 +75,7 @@ test("jumped bike follows world-space trajectory above real dirt and lands",()=>
     const impulse=rampImpulseAt(jump.point,jump.heading,"bike",speed);
     assert.equal(impulse?.id,jump.id);
     let y=terrainHeight(jump.point.x,jump.point.z),v=impulse!.impulse;
-    let passedGap=false,landed=false;
+    let passedGap=false,landed=false,landingAlong=Infinity;
     for(let i=1;i<40;i++) {
       const along=i*speed*0.05,p=jumpWorld(jump,along);
       const soil=terrainHeight(p.x,p.z);
@@ -85,9 +85,13 @@ test("jumped bike follows world-space trajectory above real dirt and lands",()=>
         assert.ok(y>soil+0.15,jump.id+" rider cannot glue to the trough");
         passedGap=true;
       }
-      if(along>jump.gapEnd && state.airHeight===0) {landed=true;break;}
+      if(along>jump.gapEnd && state.airHeight===0) {
+        landed=true;landingAlong=along;break;
+      }
     }
     assert.ok(passedGap && landed,jump.id+" must fly across and recover contact");
+    assert.ok(landingAlong <= jump.landing + 3.3,
+      jump.id+" cannot overfly its authored receiving bank: "+landingAlong);
   }
 });
 test("failed jump has a walkable side escape without an airborne teleport",()=>{

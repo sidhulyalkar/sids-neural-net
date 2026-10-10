@@ -202,7 +202,7 @@ export const DESERT_JUMPS = [
   { id:"desert-hip",kind:"gap",obstacle:"fallen-joshua",point:{x:43,z:-39},heading:{x:0,z:-1},
     lift:3.3,height:0.72,landing:5.6,gapStart:1.05,gapEnd:4.25,depth:1.45,minSpeed:7 },
   { id:"desert-step",kind:"gap",obstacle:"dry-arroyo",point:{x:51,z:-26.5},heading:{x:0,z:1},
-    lift:4.0,height:0.88,landing:6.35,gapStart:1.1,gapEnd:5.1,depth:1.65,minSpeed:8 },
+    lift:3.45,height:0.88,landing:6.35,gapStart:1.1,gapEnd:5.1,depth:1.65,minSpeed:8 },
 ] as const;
 
 export type DesertJump = (typeof DESERT_JUMPS)[number];
