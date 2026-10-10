@@ -21,7 +21,7 @@ export function desertJumpOffset(p: Point) {
     if (along < -5 || along > jump.landing + 4 || Math.abs(side) > 3.4) continue;
     const cross = 1 - smooth(1.15, 3.3, Math.abs(side));
     // Gentle approach, short flattened lip, shallow gap, broad landing.
-    const lip = smooth(-4.1, -0.9, along) * (1 - smooth(0.2, 1.75, along));
+    const lip = smooth(-4.1, -0.9, along) * (1 - smooth(0.0, 2.65, along));
     const landing = smooth(jump.landing - 2.3, jump.landing - 0.7, along) *
       (1 - smooth(jump.landing + 0.9, jump.landing + 3.2, along));
     elevation += cross * jump.height * (lip + landing * 0.64);
