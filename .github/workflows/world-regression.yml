@@ -43,11 +43,15 @@ jobs:
           lib/world/desertTrack.ts
           lib/world/activities.ts
           lib/world/biomes.ts
+          lib/world/ecology.ts
+          lib/world/shastaCharacter.ts
           lib/world/model.ts
           components/world/worldHabitats.ts
           components/world/worldRenderer.ts
           tests/world-desert-track.test.ts
+          tests/world-contract.test.ts
           tests/world-habitats.test.ts
+          tests/world-shasta-character.test.ts
           --max-warnings=0
       - name: Run all world unit contracts
         run: node --import tsx --test tests/world-*.test.ts

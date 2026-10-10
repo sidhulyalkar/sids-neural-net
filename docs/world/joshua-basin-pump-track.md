@@ -49,3 +49,43 @@ the waterfall drainage chain, the lagoon or the rainforest footprint.
 
 This is deterministic arcade riding, not a promise of fully physical bike suspension.
 Future ride dynamics should be separately qualified by visual/browser playtesting.
+
+## October 2026: authored dirt jumps and rainforest wildlife
+
+Three jump features now share one contract in `lib/world/desertTrack.ts`:
+- `desert-table`: x=32, z=-27, heading north, gentle rollable tabletop with raised landing
+- `desert-hip`: x=42, z=-39, heading south, progressive return-line dirt lip
+- `desert-step`: x=42, z=-26.5, heading south, larger step-up with a clear landing
+
+`lib/world/activities.ts` derives the jump triggers from that same feature
+array. All three are dirt terrain, so `rampSurface` deliberately returns null:
+there must never be a timber deck hovering over a dirt lip. The runtime launch
+trigger remains bike/skate directional and speed-gated. Each takeoff/landing
+must pass the global <1.0 height-unit-per-distance grade audit.
+
+**Rainforest:** `RAINFOREST_CANOPY_WILDLIFE` anchors a sloth, two colorful
+macaws and two toucans to modeled branches at fixed canopy coordinates.
+`worldHabitats.ts` adds subdued heliconia/red-orange flower clusters within
+suitable rainforest planting patches. Animal meshes are statically batched;
+they are not a procedural free-flying flock. Avoid overpopulating this region.
+
+**Photography source integrity:** the present Visual Archive has 49 photos
+and does **not** include a sloth image. The sloth mesh references the intended
+photographic subject aesthetically, but there is no sloth-photo discovery link
+until that actual image is ingested with a valid archive ID. Never substitute
+an unrelated photograph, fabricated source, or placeholder link.
+
+**Shasta:** `shastaCharacter.ts` v4 defines shallow almond-shaped rim, iris
+and pupil geometry positioned at the measured surface of the modeled head
+ellipsoid. Keep rim-to-skull spacing, frontal read and side-view protrusion
+regressions. Do not add large sclera or volumetric eyebrows.
+
+Additional visual acceptance steps:
+- Ride all three dirt jumps at slow and fast speeds, confirm proper takeoff,
+  airtime, landing support and safe runout, then finish a full lap
+- View macaw blue wings/red torso, blue-yellow macaw, both toucan bills,
+  and the sloth from the forest trail; ensure vegetation does not occlude
+  everything from ground level
+- Inspect Shasta's eyes at front and side at rest and while following;
+  confirm no spherical protrusion or artificial staring appearance
+- Record desktop/mobile frame behavior and look for sudden geometry pop.
