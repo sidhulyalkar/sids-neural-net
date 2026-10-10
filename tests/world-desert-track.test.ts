@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import * as THREE from "three/src/Three.Core.js";
 import {
-  DESERT_TRACK, desertTrackCenterline, desertTrackClearance,
+  DESERT_TRACK, DESERT_JUMPS, desertJumpOffset, desertTrackCenterline, desertTrackClearance,
   desertTrackFrame, desertTrackHeightOffset, desertTrackTreadBlend,
 } from "../lib/world/desertTrack";
 import { createHabitats } from "../components/world/worldHabitats";
@@ -61,9 +61,27 @@ test("bike can traverse the complete dirt flow without hitting decorative obstac
 });
 
 test("rock-and-dirt crest launches from ground, not a timber plank", () => {
-  const jump=RIDE_RAMPS.find(r=>r.id==="desert-step")!;
-  assert.equal(rampSurface(jump,jump.point),null);
-  assert.ok(Math.abs(groundHeight(jump.point)-terrainHeight(jump.point.x,jump.point.z))<1e-8);
-  const takeoff=rampImpulseAt(jump.point,{x:0,z:1},"bike",7);
-  assert.equal(takeoff?.id,"desert-step");
+  assert.equal(DESERT_JUMPS.length, 3);
+  for (const feature of DESERT_JUMPS) {
+    const jump=RIDE_RAMPS.find(r=>r.id===feature.id)!;
+    assert.ok(jump, feature.id);
+    assert.equal(rampSurface(jump,jump.point),null);
+    assert.ok(Math.abs(groundHeight(jump.point)-terrainHeight(jump.point.x,jump.point.z))<1e-8);
+    assert.ok(desertJumpOffset(jump.point)>feature.height*0.65,
+      "real sculpted takeoff lip, not invisible launch force");
+    const takeoff=rampImpulseAt(jump.point,feature.heading,"bike",7);
+    assert.equal(takeoff?.id,feature.id);
+    assert.equal(rampImpulseAt(jump.point,{x:-feature.heading.x,z:-feature.heading.z},"bike",8),null);
+    assert.equal(rampImpulseAt(jump.point,feature.heading,"run",8),null);
+    const landing={x:feature.point.x+feature.heading.x*feature.landing,
+      z:feature.point.z+feature.heading.z*feature.landing};
+    assert.ok(desertJumpOffset(landing)>0.25,
+      "raised landing mound receives the airborne rider");
+    for(let along=-4;along<=feature.landing+3;along+=0.25) {
+      const a={x:feature.point.x+feature.heading.x*along,z:feature.point.z+feature.heading.z*along};
+      const b={x:a.x+feature.heading.x*0.25,z:a.z+feature.heading.z*0.25};
+      assert.ok(Math.abs(terrainHeight(a.x,a.z)-terrainHeight(b.x,b.z))<0.25,
+        feature.id+" has a continuous, traversable dirt profile");
+    }
+  }
 });

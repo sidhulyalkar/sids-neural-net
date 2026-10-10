@@ -3,6 +3,31 @@ import type { Point } from "./model";
 /** One tangent-continuous capsule loop shared by terrain, planting and travel. */
 export const DESERT_TRACK = { cx: 37, radius: 5, north: -43, south: -13, tread: 2.2, clearance: 3.35 } as const;
 export type Segment = "north-berm" | "south-berm" | "west-rollers" | "east-return";
+
+/** A paced progression: rollable tabletop, return-line jump, advanced step-up.
+ * These authored lips are real terrain; activity launches read the same points. */
+export const DESERT_JUMPS = [
+  { id: "desert-table", point: { x: 32, z: -27 }, heading: { x: 0, z: -1 }, lift: 2.4, height: 0.76, landing: 4.6 },
+  { id: "desert-hip", point: { x: 42, z: -39 }, heading: { x: 0, z: 1 }, lift: 2.8, height: 0.9, landing: 4.8 },
+  { id: "desert-step", point: { x: 42, z: -26.5 }, heading: { x: 0, z: 1 }, lift: 3.8, height: 1.0, landing: 5.4 },
+] as const;
+
+export function desertJumpOffset(p: Point) {
+  let elevation = 0;
+  for (const jump of DESERT_JUMPS) {
+    const dx = p.x - jump.point.x, dz = p.z - jump.point.z;
+    const along = dx * jump.heading.x + dz * jump.heading.z;
+    const side = dx * jump.heading.z - dz * jump.heading.x;
+    if (along < -5 || along > jump.landing + 4 || Math.abs(side) > 3.4) continue;
+    const cross = 1 - smooth(1.15, 3.3, Math.abs(side));
+    // Gentle approach, short flattened lip, shallow gap, broad landing.
+    const lip = smooth(-4.1, -0.9, along) * (1 - smooth(0.2, 1.75, along));
+    const landing = smooth(jump.landing - 2.3, jump.landing - 0.7, along) *
+      (1 - smooth(jump.landing + 0.9, jump.landing + 3.2, along));
+    elevation += cross * jump.height * (lip + landing * 0.64);
+  }
+  return elevation;
+}
 const smooth = (a: number, b: number, v: number) => {
   const t = Math.max(0, Math.min(1, (v-a)/(b-a)));
   return t*t*(3-2*t);
@@ -42,15 +67,16 @@ export function desertTrackHeightOffset(p: Point) {
     offset+=0.95*smooth(0,3.5,Math.abs(p.z-cap))*
       smooth(-0.5,2.6,frame.lateral)*(1-smooth(3.4,6.5,frame.lateral));
   }
-  // Progressive rollers on west line, earthen launch crest on east return.
+  // Low rollers build speed before the west tabletop; sculpted jumps own
+  // their own lips and landings on both sides of the return route.
   for (const [x,z,h,w] of [
-    [32,-38,0.58,2.8], [32,-31,0.86,2.8], [32,-24,0.74,2.8],
-    [32,-17,0.52,2.8], [42,-26.5,0.85,2.5],
+    [32,-40.5,0.30,2.8], [32,-20.5,0.44,2.8],
+    [32,-16,0.46,2.8],
   ]) {
     const dx=(p.x-x)/w, dz=(p.z-z)/2.8;
     offset+=h*Math.exp(-1.65*(dx*dx+dz*dz));
   }
-  return offset;
+  return offset + desertJumpOffset(p);
 }
 export function desertTrackTreadBlend(p: Point) {
   if (p.x<24 || p.x>50 || p.z< -55 || p.z>-2) return 0;

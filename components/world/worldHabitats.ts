@@ -2,6 +2,7 @@ import * as THREE from "three/src/Three.Core.js";
 import { GeometryBatch } from "./worldGeometry";
 import { biomeAt, DESERT_FORMATIONS, smooth, understoryDensityAt } from "@/lib/world/biomes";
 import { BOULDER_HOLDS, sportClearance } from "@/lib/world/activities";
+import { RAINFOREST_CANOPY_WILDLIFE } from "@/lib/world/ecology";
 import {
   terrainHeight,
   distance,
@@ -332,6 +333,24 @@ export function createHabitats(scene: THREE.Scene, obstacles: Obstacle[]) {
             (1 - smooth(0.65, 1.5, sample.slope));
         if (clear(p) || random() > suitability) continue;
         const y = terrainHeight(x, z);
+        // Intermittent heliconia / bromeliad colors enrich only the tropical
+        // understory. Use actual leaf geometry rather than oversized balloons.
+        if (region === "rainforest" && i % 11 === 0) {
+          const h = 1.1 + random() * 0.8;
+          stem(b, "#486647", V(x, y, z), V(x, y + h, z), 0.045);
+          for (let k = 0; k < 5; k++) {
+            const a = k * 2.399 + i;
+            add(b, blade, k % 2 ? "#4f864d" : "#72965a", x, y + h * 0.32, z,
+              0.55, 1.1, 0.28, Math.PI * 0.36, a, 0);
+          }
+          for (let k = 0; k < 3; k++) {
+            const a = k * 2.094;
+            add(b, leaf, k === 2 ? "#f5a34c" : "#d8504e",
+              x + Math.cos(a) * 0.14, y + h + k * 0.11,
+              z + Math.sin(a) * 0.14, 0.20, 0.39, 0.17,
+              Math.sin(a) * 0.22, a, Math.cos(a) * 0.22);
+          }
+        }
         // Leaf litter follows the actual ground and shares the existing plant batch.
         if (region === "rainforest")
           for (let j = 0; j < 3; j++) {
@@ -534,43 +553,75 @@ export function createHabitats(scene: THREE.Scene, obstacles: Obstacle[]) {
       );
     }
   }
-  const birdPerch = canopyPerches[2];
-  if (birdPerch) {
-    const bx = birdPerch.x, bz = birdPerch.z, by = birdPerch.y + 0.3;
-    add(animals, sphere, "#343d35", bx + 1, by, bz, 0.2, 0.28, 0.3);
-    add(
-      animals,
-      sphere,
-      "#363e31",
-      bx + 1,
-      by + 0.25,
-      bz + 0.15,
-      0.17,
-      0.17,
-      0.19,
-    );
-    add(
-      animals,
-      sphere,
-      "#c6aa54",
-      bx + 1,
-      by + 0.25,
-      bz + 0.4,
-      0.12,
-      0.13,
-      0.32,
-    );
-    add(
-      animals,
-      sphere,
-      "#d7d1aa",
-      bx + 1,
-      by + 0.02,
-      bz + 0.15,
-      0.14,
-      0.19,
-      0.15,
-    );
+  // Authored wildlife lives on actual branch forks. The previous lone toucan
+  // was almost indistinguishable from a dark blob at walking distance.
+  // Five restrained hero perches give the biome a clear sloth/bird silhouette.
+  for (const [i, wildlife] of RAINFOREST_CANOPY_WILDLIFE.entries()) {
+    const { x, z } = wildlife.point;
+    const weight = biomeAt({ x, z }).weights.rainforest;
+    if (weight < 0.30) continue;
+    const ground = terrainHeight(x, z);
+    const by = ground + wildlife.height;
+    const bx = x + 1.35, bz = z + 0.35;
+    stem(animals, "#6d6250", V(x, ground, z), V(x, by + 0.65, z), 0.21);
+    stem(animals, "#6d6250", V(x, by - 0.55, z), V(bx + 0.25, by, bz), 0.12);
+    for (let k = 0; k < 4; k++) {
+      const a = k * Math.PI / 2;
+      add(animals, sphere, k % 2 ? "#386b45" : "#4e7b46",
+        x + Math.cos(a) * 1.1, by + 1.15, z + Math.sin(a) * 1.1,
+        1.35, 0.69, 1.13);
+    }
+    if (wildlife.kind === "macaw") {
+      const scarlet = i === 1;
+      const body = scarlet ? "#c53e38" : "#d9af46";
+      const wing = scarlet ? "#285ca5" : "#2869ad";
+      // Head/white cheek patch, coupled wings, long tapered tail and hooked beak.
+      add(animals, sphere, body, bx, by + 0.40, bz, 0.27, 0.42, 0.30);
+      add(animals, sphere, body, bx, by + 0.81, bz + 0.10, 0.23, 0.23, 0.23);
+      add(animals, sphere, "#f0e4c8", bx, by + 0.83, bz + 0.29, 0.15, 0.12, 0.042);
+      add(animals, sphere, "#292b24", bx, by + 0.72, bz + 0.34, 0.105, 0.09, 0.12);
+      for (const side of [-1, 1]) {
+        add(animals, leaf, wing, bx + side * 0.25, by + 0.35, bz - 0.08,
+          0.15, 0.62, 0.19, side * 0.25, 0, side * 0.12);
+        add(animals, sphere, "#1d211d", bx + side * 0.105, by + 0.90, bz + 0.31, 0.020, 0.025, 0.017);
+        stem(animals, "#3a3329", V(bx + side * 0.09, by + 0.12, bz),
+          V(bx + side * 0.09, by - 0.08, bz + 0.09), 0.028);
+        stem(animals, wing, V(bx + side * 0.08, by + 0.10, bz - 0.21),
+          V(bx + side * 0.16, by - 0.73, bz - 0.6), 0.065);
+      }
+      add(animals, sphere, scarlet ? "#e1ad49" : "#379e77",
+        bx, by + 0.40, bz + 0.24, 0.19, 0.21, 0.10);
+    } else if (wildlife.kind === "toucan") {
+      add(animals, sphere, "#292d2a", bx, by + 0.33, bz, 0.25, 0.36, 0.24);
+      add(animals, sphere, "#232c28", bx, by + 0.70, bz + 0.06, 0.21, 0.24, 0.20);
+      add(animals, sphere, "#e6d5ab", bx, by + 0.45, bz + 0.22, 0.16, 0.28, 0.11);
+      // Oversized colorful beak is the defining toucan silhouette.
+      add(animals, leaf, "#e7a83f", bx, by + 0.62, bz + 0.46,
+        0.18, 0.31, 0.65, Math.PI * 0.5, 0, 0);
+      add(animals, sphere, "#da5834", bx, by + 0.52, bz + 0.74, 0.085, 0.10, 0.18);
+      for (const side of [-1, 1]) {
+        add(animals, sphere, "#72a5a1", bx + side * 0.15, by + 0.78, bz + 0.18,
+          0.045, 0.052, 0.03);
+        add(animals, sphere, "#151a18", bx + side * 0.15, by + 0.78, bz + 0.206,
+          0.018, 0.025, 0.016);
+      }
+    } else {
+      // One quiet photo-inspired sloth, attached by four curled limbs.
+      // No nonexistent archive image ID is minted for this encounter.
+      const sy = by - 0.45;
+      add(animals, sphere, "#9b9077", bx, sy, bz, 0.37, 0.42, 0.31);
+      add(animals, sphere, "#c2b69c", bx, sy + 0.19, bz + 0.28, 0.25, 0.22, 0.18);
+      add(animals, sphere, "#776750", bx, sy + 0.20, bz + 0.405, 0.08, 0.05, 0.03);
+      for (const side of [-1, 1]) {
+        for (const front of [-1, 1]) {
+          const elbow = V(bx + side * 0.39, sy + front * 0.15, bz + front * 0.14);
+          stem(animals, "#827762", V(bx + side * 0.2, sy, bz), elbow, 0.067);
+          stem(animals, "#827762", elbow, V(bx + side * 0.43, by + 0.06, bz), 0.052);
+        }
+        add(animals, sphere, "#675a48", bx + side * 0.115, sy + 0.24,
+          bz + 0.426, 0.067, 0.085, 0.024);
+      }
+    }
   }
   finish(animals, "rainforest-canopy-fauna");
   sphere.dispose();

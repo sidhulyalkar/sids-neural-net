@@ -22,6 +22,16 @@ export const MARINE_LIFE = [
   { common: "Rockfish and anchovies", note: "Midwater fish and schooling prey", source: "https://www.montereybayaquarium.org/animals-the-ocean/ecosystems/kelp-forest" },
 ] as const;
 
+/** Carefully located canopy wildlife. Each perch is supported by a modeled tree.
+ * This represents a tropical composite, not a claim these species share one range. */
+export const RAINFOREST_CANOPY_WILDLIFE = [
+  { id: "sloth-portrait", kind: "sloth", point: { x: 40, z: 43 }, height: 7.5 },
+  { id: "scarlet-macaw", kind: "macaw", point: { x: 44, z: 36 }, height: 9.5 },
+  { id: "blue-yellow-macaw", kind: "macaw", point: { x: 50, z: 37 }, height: 9.3 },
+  { id: "tropical-toucan", kind: "toucan", point: { x: 42, z: 49 }, height: 8.4 },
+  { id: "upper-canopy-toucan", kind: "toucan", point: { x: 52, z: 49 }, height: 10.2 },
+] as const;
+
 export type LandWildlifeKind =
   | "squirrel"
   | "mouse"

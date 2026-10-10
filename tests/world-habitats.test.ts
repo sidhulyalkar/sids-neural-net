@@ -3,6 +3,7 @@ import test from "node:test";
 import * as THREE from "three/src/Three.Core.js";
 import { createHabitats } from "../components/world/worldHabitats";
 import { biomeAt, understoryDensityAt } from "../lib/world/biomes";
+import { RAINFOREST_CANOPY_WILDLIFE } from "../lib/world/ecology";
 import { coastlineX, eastCoastlineX, type Obstacle } from "../lib/world/model";
 
 test("rainforest gives way to bare beach continuously", () => {
@@ -89,3 +90,38 @@ test("island vegetation density reserves alpine, surf, desert and authored ride 
     }
   assert.ok(opportunities > sampled * 0.2, "meaningful habitat opportunity across island interior");
 });
+
+test("authored tropical wildlife is sparse, supported and colorful", () => {
+  assert.deepEqual(
+    rainforestSpecies(RAINFOREST_CANOPY_WILDLIFE).sort(),
+    ["macaw", "macaw", "sloth", "toucan", "toucan"],
+  );
+  for (const animal of RAINFOREST_CANOPY_WILDLIFE) {
+    assert.ok(animal.height > 6 && animal.height < 12, animal.id);
+    assert.ok(biomeAt(animal.point).weights.rainforest > 0.30,
+      animal.id + " must belong in tropical canopy, not desert or ocean");
+  }
+  const scene = new THREE.Scene(), obstacles: Obstacle[] = [];
+  const habitat = createHabitats(scene, obstacles);
+  const mesh = scene.children.find(x => x.name === "rainforest-canopy-fauna") as THREE.Mesh;
+  assert.ok(mesh && mesh.geometry, "authored wildlife geometry built");
+  const colors = mesh.geometry.getAttribute("color");
+  const hasColor = (target: string) => {
+    const c = new THREE.Color(target);
+    for(let i=0;i<colors.count;i++) {
+      if(Math.abs(colors.getX(i)-c.r)<0.015 &&
+         Math.abs(colors.getY(i)-c.g)<0.015 &&
+         Math.abs(colors.getZ(i)-c.b)<0.015) return true;
+    }
+    return false;
+  };
+  assert.ok(hasColor("#c53e38"), "scarlet macaw red");
+  assert.ok(hasColor("#2869ad"), "macaw blue wings");
+  assert.ok(hasColor("#e7a83f"), "toucan bill");
+  assert.ok(hasColor("#c2b69c"), "sloth face");
+  habitat.dispose();
+});
+
+function RAINFOST_NAMES(animals: typeof RAINFOREST_CANOPY_WILDLIFE) {
+  return animals.map(animal => animal.kind);
+}

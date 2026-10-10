@@ -544,7 +544,7 @@ export function createWorld(
   const rampPlanks: Instance[] = [], rampStringers: Instance[] = [];
   for (const ramp of RIDE_RAMPS) {
     // Joshua basin uses a molded earthen lip; no timber planks above the tread.
-    if (ramp.id === "desert-step") continue;
+    if (ramp.id.startsWith("desert-")) continue;
     const headingLength = Math.hypot(ramp.heading.x, ramp.heading.z);
     const forward = {
       x: ramp.heading.x / headingLength,
@@ -1172,12 +1172,17 @@ export function createWorld(
   ];
 
   for (const side of [-1, 1]) {
-    // White cheek ruff, amber irises and tiny dark pupils. Do not add separate
-    // brow/crown ellipsoids: coloration should not create forehead bulges.
+    // Flat almond-shaped eye sockets sit on the curved head, not floating
+    // spherical amber beads projecting past it. Low-key rims preserve the
+    // familiar alert husky expression without large whites or bulky brows.
     shastaRockParts.push(
       { x: side * face.cheekX, y: face.cheekY, z: face.cheekZ, sx: p.cheek.x, sy: p.cheek.y, sz: p.cheek.z, color: shastaPalette.brightWhite },
-      { x: side * face.eyeX, y: face.eyeY, z: face.eyeZ, sx: 0.04, sy: 0.033, sz: 0.025, color: shastaPalette.amberEye },
-      { x: side * face.eyeX, y: face.eyeY, z: face.pupilZ, sx: 0.017, sy: 0.016, sz: 0.012, color: shastaPalette.pupil },
+      { x: side * face.eyeX, y: face.eyeY, z: face.rimZ,
+        sx: face.rimRadius.x, sy: face.rimRadius.y, sz: face.rimRadius.z, color: shastaPalette.eyeRim },
+      { x: side * face.eyeX, y: face.eyeY, z: face.irisZ,
+        sx: face.irisRadius.x, sy: face.irisRadius.y, sz: face.irisRadius.z, color: shastaPalette.amberEye },
+      { x: side * face.eyeX, y: face.eyeY, z: face.pupilZ,
+        sx: face.pupilRadius.x, sy: face.pupilRadius.y, sz: face.pupilRadius.z, color: shastaPalette.pupil },
     );
   }
 

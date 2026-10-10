@@ -1,4 +1,4 @@
-import { desertTrackClearance } from "./desertTrack";
+import { desertTrackClearance, DESERT_JUMPS } from "./desertTrack";
 import {
   constrainMove,
   distance,
@@ -38,7 +38,7 @@ export const ACTIVITIES = [
     acceleration: 12,
     braking: 9,
     action: "Hop",
-    hint: "Ride the trails and hit the timber ramps",
+    hint: "Ride the trails, sculpted dirt jumps and timber kickers",
   },
   {
     id: "ski",
@@ -259,14 +259,14 @@ export const RIDE_RAMPS = [
     lift: 3.2,
     modes: ["skate", "bike"] as Activity[],
   },
-  {
-    id: "desert-step",
-    point: { x: 42, z: -26.5 },
+  ...DESERT_JUMPS.map((jump) => ({
+    id: jump.id,
+    point: jump.point,
+    heading: jump.heading,
     radius: 2,
-    heading: { x: 0, z: 1 },
-    lift: 3.8,
+    lift: jump.lift,
     modes: ["bike", "skate"] as Activity[],
-  },
+  })),
 ] as const;
 
 export type AquaticMode = "land" | "surface" | "dive";
@@ -601,7 +601,7 @@ export function sportClearance(p: Point) {
 /** Plank surface and support use the same sloped deck, ending at the launch point. */
 export function rampSurface(ramp: (typeof RIDE_RAMPS)[number], p: Point) {
   // The Joshua step is earthen terrain, not a disconnected timber platform.
-  if (ramp.id === "desert-step") return null;
+  if (ramp.id.startsWith("desert-")) return null;
   const len = Math.hypot(ramp.heading.x, ramp.heading.z),
     fx = ramp.heading.x / len,
     fz = ramp.heading.z / len;
