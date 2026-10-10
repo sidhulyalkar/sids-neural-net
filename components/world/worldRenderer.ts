@@ -3183,7 +3183,8 @@ export function createWorld(
         const p=fly?discGolf.disc:player;
         const hx=basket.x-player.x,hz=basket.z-player.z;
         const hlen=Math.hypot(hx,hz)||1;
-        targetLook.set(p.x+(fly?0:hx/hlen*5.5),fly?p.y:playerY+2.4,
+        targetLook.set(p.x+(fly?0:hx/hlen*5.5),
+          fly?discGolf.disc.y:playerY+2.4,
           p.z+(fly?0:hz/hlen*5.5));
       } else if (cavernFraming) {
         targetLook.set(arcadeWall.x, arcadeWallY + 2.05, arcadeWall.z - 0.5);
