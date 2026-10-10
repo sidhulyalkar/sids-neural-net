@@ -10,6 +10,7 @@ on:
       - 'scripts/audit-island.ts'
       - 'scripts/audit-desert-gaps.ts'
       - 'scripts/audit-ski-flight.ts'
+      - 'scripts/playtest-world.mjs'
       - '.github/workflows/world-regression.yml'
   pull_request:
     paths:
@@ -19,6 +20,7 @@ on:
       - 'scripts/audit-island.ts'
       - 'scripts/audit-desert-gaps.ts'
       - 'scripts/audit-ski-flight.ts'
+      - 'scripts/playtest-world.mjs'
       - '.github/workflows/world-regression.yml'
   workflow_dispatch:
 
@@ -77,6 +79,8 @@ jobs:
           lib/world/occupancy.ts
           tests/world-occupancy.test.ts
           --max-warnings=0
+      - name: Verify manual browser playtest script syntax
+        run: node --check scripts/playtest-world.mjs
       - name: Run all world unit contracts
         run: node --import tsx --test tests/world-*.test.ts
       - name: Produce island occupancy evidence

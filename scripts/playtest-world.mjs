@@ -497,6 +497,39 @@ try {
   await page.waitForFunction(() => document.querySelector('canvas')?.dataset.trialPhase === 'invalidated');
   results.push('Joshua lap arms at a real start gate, runs on movement and aborts fairly on pause');
 
+  // Ski Big Air: genuine forward approach, bird escorts, sampled distance
+  // and safe landing. This uses only ordinary UI + keyboard input.
+  await page.getByRole('button',{name:'Skiing',exact:true}).click();
+  await page.getByRole('button',{name:'Alpine Big Air · start',exact:true}).click();
+  await page.waitForFunction(
+    () => document.querySelector('canvas')?.dataset.bigAirPhase === 'armed',
+  );
+  assert.equal(await page.locator('canvas').getAttribute('data-big-air-birds'),'3');
+  await screenshot(page,'challenge-alpine-approach');
+  await page.keyboard.down('w');
+  try {
+    await page.waitForFunction(
+      () => document.querySelector('canvas')?.dataset.bigAirPhase === 'flying',
+      null,{timeout:30000},
+    );
+  } finally {await page.keyboard.up('w');}
+  await page.waitForFunction(
+    () => Number(document.querySelector('canvas')?.dataset.bigAirDistance)>11,
+    null,{timeout:18000},
+  );
+  assert.ok((await page.locator('canvas').getAttribute('data-big-air-bird-callout'))?.includes('m'));
+  assert.equal(await page.getByRole('complementary',{name:'Alpine Big Air flight'}).count(),1);
+  await screenshot(page,'challenge-alpine-macaw-flight');
+  await page.waitForFunction(
+    () => ['landed','missed'].includes(document.querySelector('canvas')?.dataset.bigAirPhase??''),
+    null,{timeout:24000},
+  );
+  const distance=Number(await page.locator('canvas').getAttribute('data-big-air-distance'));
+  assert.equal(await page.locator('canvas').getAttribute('data-big-air-phase'),'landed');
+  assert.ok(distance>=28&&distance<85,`flight distance ${distance}`);
+  await screenshot(page,'challenge-alpine-landing');
+  results.push('Alpine jump launches by skiing, macaws call true flown distances, and downhill receiving slope lands cleanly');
+
   diagnostics = await page.locator('canvas').evaluate(c => ({ ...c.dataset }));
   assert.ok(Number(diagnostics.drawCalls) < 100);
   assert.ok(Number(diagnostics.frameP50) > 0);

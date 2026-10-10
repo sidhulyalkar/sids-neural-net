@@ -26,10 +26,41 @@ The ledger below distinguishes implementation from remaining visual qualificatio
   against analytic terrain, coasts, caves, existing destination markers
   and sport corridors, exporting a machine-readable CI artifact.
   It **does not** prove any landing corridor safe against vegetation,
-  3D scene props or camera clipping. **No large ski jump has been built.**
-- **Not yet implemented:** challenge-local Big Air physics/receiving slope;
-  granite counterweight, deadwood bridge and canopy-light environmental
-  puzzles; alpine slalom, ghost replay and technical-section speed trials.
+  3D scene props or camera clipping. A first playable Big Air jump has since
+  been implemented; these remain independent browser-release gates.
+- **P3 Alpine Big Air implemented as an opt-in first playable prototype:**
+  an extended downhill run-in begins around (-2,-65), with the ski lip at
+  (-2,-49). The continuous compacted-snow takeoff is a terrain height offset
+  sampled by feet/skis and by a high-resolution localized snow mesh; a
+  narrow footprint preserves the adjacent bowl-small kicker's approach
+  and landing grade. `lib/world/bigAir.ts` owns forward swept takeoff
+  qualification, minimum approach speed, bounded launch impulse, fixed
+  ≤12.5ms substeps, swept real-heightfield touchdown, distance/airtime
+  scoring, stop conditions and safe exit status. The World UI offers
+  **Alpine Big Air · start**, real flight distance, a locally stored
+  versioned best *successful landing*, and retry/explore.
+- **Browser QA extended:** `scripts/playtest-world.mjs` now attempts
+  actual ski launch by W input, captures approach/macaw-flight/landing,
+  asserts 3 bird companions, visible named distance callouts, a clean
+  landing and a range bounded by the terrain survey. World CI syntax-checks
+  the script; **actual graphical browser execution is still pending**.
+- **Bird escort (requested):** two macaws and a green parrot fly in a
+  3-bird formation alongside the skier **only in Big Air free flight**.
+  `worldBigAirBirds.ts` uses three instanced geometry batches, with
+  animated wingbeats and no shadows or automatic audio. Subtle named
+  macaw **text** callouts report 10-world-unit distance milestones;
+  the HUD shows the continuously measured distance. These are
+  stylized birds accompanying a skier across this fictional multi-biome
+  world, not a natural alpine ecological claim. There is no synthesized
+  voice or audio narration yet.
+- **Qualification remains required:** continuous real-browser ride/flight
+  screenshots, mobile HUD fit, real camera framing, bird visibility,
+  landing-site vegetation, frustum/draw-call budgets, Shasta ground
+  behavior and full runout recovery. Game distance is expressed in
+  virtual world meters, not measured GPS distance.
+- **Not yet implemented:** environmental puzzles (granite counterweight,
+  deadwood bridge, canopy light), alpine slalom, ghost replay,
+  and technical-section speed trials.
 - **CI evidence:** [World Landscape Regression run 38085071146](https://github.com/sidhulyalkar/sids-neural-net/actions/runs/38085071146)
   passed **93/93** world tests, TypeScript, strict lint, existing scene
   validation and all three generated audit reports. The ski-flight survey
