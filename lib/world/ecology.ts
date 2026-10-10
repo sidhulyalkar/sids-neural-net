@@ -39,11 +39,11 @@ export const RAINFOREST_CANOPY_WILDLIFE = [
  * landing/runout corridors and separated by zone. Do not chase or attack them.
  */
 export const DESERT_ECOLOGY_ANCHORS = [
-  {id:"sidewinder-basin",kind:"sidewinder",point:{x:52,z:-45},scale:1},
+  {id:"sidewinder-basin",kind:"sidewinder",point:{x:47,z:-47},scale:1},
   {id:"rock-rattlesnake",kind:"rattlesnake",point:{x:20,z:-45},scale:0.88},
-  {id:"chuckwalla",kind:"chuckwalla",point:{x:53,z:-10},scale:1.1},
+  {id:"chuckwalla",kind:"chuckwalla",point:{x:47,z:-12},scale:1.1},
   {id:"desert-iguana",kind:"lizard",point:{x:19,z:-24},scale:0.86},
-  {id:"roadrunner",kind:"roadrunner",point:{x:55,z:-31},scale:1},
+  {id:"roadrunner",kind:"roadrunner",point:{x:47,z:-32},scale:1},
 ] as const;
 export const RAINFOREST_REPTILES = [
   {id:"eyelash-viper-gold",kind:"eyelash-viper",point:{x:38,z:34},height:6.2,color:"#e1c65f"},

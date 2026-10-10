@@ -4,7 +4,8 @@ import * as THREE from "three/src/Three.Core.js";
 import { createHabitats } from "../components/world/worldHabitats";
 import { biomeAt, understoryDensityAt } from "../lib/world/biomes";
 import { RAINFOREST_CANOPY_WILDLIFE, RAINFOREST_REPTILES, DESERT_ECOLOGY_ANCHORS } from "../lib/world/ecology";
-import { coastlineX, eastCoastlineX, type Obstacle } from "../lib/world/model";
+import { coastlineX, eastCoastlineX, isWater, type Obstacle } from "../lib/world/model";
+import { sportClearance } from "../lib/world/activities";
 
 test("rainforest gives way to bare beach continuously", () => {
   const z = 36, coast = eastCoastlineX(z);
@@ -131,6 +132,11 @@ test("desert reptile and rainforest snake anchors stay authored and separated", 
   assert.ok(DESERT_ECOLOGY_ANCHORS.some(a=>a.kind==="sidewinder"));
   assert.ok(DESERT_ECOLOGY_ANCHORS.some(a=>a.kind==="chuckwalla"));
   assert.ok(DESERT_ECOLOGY_ANCHORS.some(a=>a.kind==="roadrunner"));
+  for(const animal of DESERT_ECOLOGY_ANCHORS) {
+    assert.ok(!isWater(animal.point),animal.id+" must actually exist on land");
+    assert.ok(!sportClearance(animal.point),
+      animal.id+" must be present after riding clearance (not just in the manifest)");
+  }
   assert.ok(RAINFOREST_REPTILES.filter(r=>r.kind==="eyelash-viper").length===2);
   assert.ok(RAINFOREST_REPTILES.filter(r=>r.kind==="boa").length===2);
   assert.equal(RAINFOREST_REPTILES.filter(r=>r.kind==="anaconda").length,1,
