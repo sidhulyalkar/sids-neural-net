@@ -30,9 +30,17 @@ The ledger below distinguishes implementation from remaining visual qualificatio
 - **Not yet implemented:** challenge-local Big Air physics/receiving slope;
   granite counterweight, deadwood bridge and canopy-light environmental
   puzzles; alpine slalom, ghost replay and technical-section speed trials.
-- **Go/no-go:** world CI green, physical preview inspection for beams and
-  rocks, at least one manually completed non-cheating lap, mobile review,
-  and real render draw/triangle budgets remain necessary. Site-wide
+- **CI evidence:** [World Landscape Regression run 38085071146](https://github.com/sidhulyalkar/sids-neural-net/actions/runs/38085071146)
+  passed **93/93** world tests, TypeScript, strict lint, existing scene
+  validation and all three generated audit reports. The ski-flight survey
+  found **4 provisionally clear candidates** out of 45 coarse ballistic
+  cases; the current top trajectory, (-2,-49) -> (-2,-4.3), travels
+  approximately **44.7 world units**. That is NOT a physically/visually
+  approved ski-flying receiving slope.
+- **Go/no-go:** physical browser preview inspection for beams and rocks,
+  at least one manually completed non-cheating lap, mobile review,
+  terrain/vegetation/camera clearance along the ski jump path, and actual
+  island renderer draw/triangle budgets remain necessary. Site-wide
   security/FRONTIER failures are separately tracked, never bypassed.
 
 

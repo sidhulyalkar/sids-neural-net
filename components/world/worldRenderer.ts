@@ -4162,6 +4162,12 @@ export function createWorld(
       if (next.entered && (!wasEntered || (wasPaused && !next.paused)))
         canvas.focus({ preventScroll: true });
       if (next.command && next.command.serial !== lastSerial) {
+        // Region fast travel is an explicit run invalidation, even if it
+        // lands on a future checkpoint or is performed between frame ticks.
+        if(trial.phase==="armed"||trial.phase==="running"){
+          trial=abortJoshuaTrial(trial,"Region transfer");
+          callbacks.onChallenge(trial);
+        }
         lastSerial = next.command.serial;
         const r = REGIONS.find((r) => r.id === next.command!.region)!;
         player =
