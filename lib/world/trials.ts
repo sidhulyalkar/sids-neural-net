@@ -19,25 +19,28 @@ const headingAt=(s:number):Point=>{
   const a=desertTrackSampleAt(s-.15),b=desertTrackSampleAt(s+.15);
   const length=dist(a,b)||1;return {x:(b.x-a.x)/length,z:(b.z-a.z)/length};
 };
-const safeGateAt=(requested:number)=>{
-  let s=requested;
-  // Never require users taking the legal bypass to cross a checkpoint in
-  // a depression or on an airborne gap; shift away from known jump zones.
-  for(let attempts=0;attempts<20;attempts++){
-    const p=desertTrackSampleAt(s);
-    if(DESERT_JUMPS.every(j=>dist(p,j.point)>j.landing+3.8))return s;
-    s+=.7;
+const spacing=DESERT_TRACK_LENGTH/JOSHUA_TRIAL.checkpointCount;
+const safeGateAt=(requested:number,previous:number)=>{
+  // Find the nearest *ordered* clear crossing, not a radial trigger beside
+  // either gap. Keeping gates between nominal neighbors prevents bunching.
+  for(let step=0;step<=120;step++){
+    for(const direction of [1,-1]){
+      const s=requested+direction*step*.25;
+      if(s<=previous+9 || s>=DESERT_TRACK_LENGTH-7)continue;
+      const p=desertTrackSampleAt(s);
+      if(DESERT_JUMPS.every(j=>dist(p,j.point)>j.landing+3.8))return s;
+    }
   }
-  return s;
+  throw new Error("No safe checkpoint near s="+requested);
 };
-export const JOSHUA_GATES:readonly TrialGate[]=Array.from(
-  {length:JOSHUA_TRIAL.checkpointCount},(_,i)=>{
-    const s=i===0?0:safeGateAt(i*DESERT_TRACK_LENGTH/JOSHUA_TRIAL.checkpointCount);
-    return {id:i===0?"start-finish":`checkpoint-${i}`,
-      s,point:desertTrackSampleAt(s),forward:headingAt(s),
-      halfWidth:JOSHUA_TRIAL.gateHalfWidth};
-  },
-);
+const authoredGates:TrialGate[]=[];
+for(let i=0;i<JOSHUA_TRIAL.checkpointCount;i++) {
+  const s=i===0?0:safeGateAt(i*spacing,authoredGates.at(-1)!.s);
+  authoredGates.push({id:i===0?"start-finish":`checkpoint-${i}`,
+    s,point:desertTrackSampleAt(s),forward:headingAt(s),
+    halfWidth:JOSHUA_TRIAL.gateHalfWidth});
+}
+export const JOSHUA_GATES:readonly TrialGate[]=authoredGates;
 export type TrialState={
   phase:TrialPhase;nextGate:number;elapsedMs:number;
   splitsMs:readonly number[];reason?:string;

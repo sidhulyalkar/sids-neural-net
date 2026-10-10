@@ -1,6 +1,7 @@
 import * as THREE from "three/src/Three.Core.js";
 import { GeometryBatch } from "./worldGeometry";
 import { terrainHeight } from "@/lib/world/model";
+import { JOSHUA_GATES } from "@/lib/world/trials";
 import {
   BALANCE_BEAMS, ROCK_GARDENS, beamRiseAt, rockGardenStones,
 } from "@/lib/world/technicalFeatures";
@@ -66,6 +67,22 @@ export function createTechnicalGeometry(scene:THREE.Scene) {
       batch.add(rock,"#9c9788",
         V(p.x,terrainHeight(p.x,p.z)-.025,p.z),
         V(.20,.08,.20));
+    }
+  }
+  // Natural paired stakes make time-trial planes readable without floating
+  // sci-fi hoops. One baked material/mesh with the terrain features.
+  for(const [i,gate] of JOSHUA_GATES.entries()) {
+    const side=gate.halfWidth+.24;
+    for(const sign of [-1,1]) {
+      const x=gate.point.x+sign*gate.forward.z*side;
+      const z=gate.point.z-sign*gate.forward.x*side;
+      const y=terrainHeight(x,z);
+      batch.add(box,i===0?"#a58b62":"#80745f",
+        V(x,y+.47,z),V(.11,.94,.11));
+      // A tiny angled wood marker signals gate direction when approaching.
+      batch.add(box,i===0?"#dfc997":"#aa9d7b",
+        V(x,y+.97,z),V(.19,.16,.18),
+        new THREE.Euler(0,i*.15,0));
     }
   }
   const geometry=batch.finish();

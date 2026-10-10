@@ -648,6 +648,57 @@
 .activityButtons .actionButton { border: 1px solid #e6bf7e99; color: #ffe0a0; }
 .activityButtons button:disabled { opacity: 0.4; }
 .activityDock p { font-size: 11px; color: #eee5d4; padding: 6px 8px 2px; }
+.trialLaunch {
+  display:block;
+  margin:4px 6px 2px;
+  min-height:36px;
+  padding:8px 12px;
+  border:1px solid #d6bf9677;
+  border-radius:8px;
+  color:#f8e6c8;
+  font-size:12px;
+  background:#203d39a8;
+}
+.trialLaunch:disabled { opacity:.45; }
+.trialHud {
+  position:absolute;
+  right:28px;
+  top:232px;
+  z-index:3;
+  min-width:200px;
+  max-width:280px;
+  padding:14px 16px;
+  border:1px solid #f0debc66;
+  border-radius:12px;
+  color:#f9f2e3;
+  background:#172f31e9;
+  box-shadow:0 12px 32px #121d1b55;
+  pointer-events:auto;
+}
+.trialHud strong {
+  display:block;
+  margin:5px 0;
+  font-size:28px;
+  font-variant-numeric:tabular-nums;
+  font-weight:600;
+}
+.trialHud p,.trialHud small {
+  display:block;
+  margin-top:4px;
+  font-size:12px;
+  color:#e7e0d0;
+}
+.trialActions { display:flex;gap:8px;margin-top:10px; }
+.trialActions button {
+  padding:8px 12px;
+  border:1px solid #f0debc66;
+  border-radius:7px;
+  font-size:12px;
+}
+.trialActions button:hover,.trialActions button:focus-visible,
+.trialLaunch:hover:not(:disabled),.trialLaunch:focus-visible {
+  background:#eee5d1;color:#223835;
+}
 .waterDock {
   position: absolute;
   top: 108px;
@@ -692,6 +743,9 @@
 .header > * { pointer-events: auto; }
 @media (max-width: 760px) {
   .activityDock { top: 96px; left: 16px; right: 16px; max-width: none; padding: 6px; }
+  .trialHud {top:auto;bottom:108px;left:16px;right:auto;min-width:170px;max-width:calc(100% - 32px);padding:10px 12px;}
+  .trialHud strong {font-size:22px;}
+  .trialLaunch {font-size:11px;min-height:32px;}
   .waterDock {
     top: 96px;
     left: 16px;

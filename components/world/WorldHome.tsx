@@ -22,6 +22,7 @@ import {
 import { ACTIVITIES, activityConfig, type Activity, type AquaticMode } from "@/lib/world/activities";
 import { COASTAL_FLORA, MARINE_LIFE } from "@/lib/world/ecology";
 import { UNDERWATER_TRIDENTS } from "@/lib/world/artifacts";
+import { JOSHUA_TRIAL, JOSHUA_GATES, type TrialState } from "@/lib/world/trials";
 import styles from "./world.module.css";
 
 const WorldScene = dynamic(() => import("./WorldScene"), { ssr: false });
@@ -85,6 +86,12 @@ export function WorldHome({ content }: { content: WorldContent }) {
   const [failed, setFailed] = useState(false);
   const [activity, setActivity] = useState<Activity>("run");
   const [actionSerial, setActionSerial] = useState(0);
+  const [challengeSerial,setChallengeSerial]=useState(0);
+  const [trial,setTrial]=useState<TrialState>({
+    phase:"idle",nextGate:0,elapsedMs:0,splitsMs:[],
+  });
+  const [personalBest,setPersonalBest]=useState<number|null>(null);
+  const bestRef=useRef<number|null>(null);
   const [aquatic, setAquatic] = useState<AquaticMode>("land");
   const [waterAction, setWaterAction] = useState<"dive" | "deeper" | "shallower" | "surface">("dive");
   const [waterActionSerial, setWaterActionSerial] = useState(0);
@@ -103,6 +110,31 @@ export function WorldHome({ content }: { content: WorldContent }) {
     setReady(false);
   }, []);
   const onReady = useCallback(() => setReady(true), []);
+  useEffect(()=>{
+    try {
+      const raw=window.localStorage.getItem("sid-world:trial:"+JOSHUA_TRIAL.version);
+      if(raw){
+        const best=JSON.parse(raw) as {elapsedMs?:number};
+        if(typeof best.elapsedMs==="number" && Number.isFinite(best.elapsedMs) &&
+          best.elapsedMs>0 && best.elapsedMs<3600000){
+          bestRef.current=best.elapsedMs;
+          setPersonalBest(best.elapsedMs);
+        }
+      }
+    } catch { /* Private browsing and unavailable local storage are supported. */ }
+  },[]);
+  const onChallenge=useCallback((next:TrialState)=>{
+    setTrial(next);
+    if(next.phase==="complete" && Number.isFinite(next.elapsedMs) &&
+      next.elapsedMs>0 && (!bestRef.current || next.elapsedMs<bestRef.current)){
+      bestRef.current=next.elapsedMs;
+      setPersonalBest(next.elapsedMs);
+      try {
+        window.localStorage.setItem("sid-world:trial:"+JOSHUA_TRIAL.version,
+          JSON.stringify({version:JOSHUA_TRIAL.version,elapsedMs:next.elapsedMs}));
+      } catch { /* A best remains visible during this session. */ }
+    }
+  },[]);
   const onLocation = useCallback((r: RegionId, discovery: string | null) => {
     setRegion(r);
     setNearby(discovery);
@@ -236,6 +268,7 @@ export function WorldHome({ content }: { content: WorldContent }) {
             command={command}
             activity={activity}
             actionSerial={actionSerial}
+            challengeSerial={challengeSerial}
             waterAction={waterAction}
             waterActionSerial={waterActionSerial}
             gameTitles={content.games.map(game => game.title)}
@@ -244,6 +277,7 @@ export function WorldHome({ content }: { content: WorldContent }) {
             onError={onError}
             onLocation={onLocation}
             onInteract={open}
+            onChallenge={onChallenge}
           />
         </SceneBoundary>
       )}
@@ -316,7 +350,40 @@ export function WorldHome({ content }: { content: WorldContent }) {
                 </button>
               </div>
               <p aria-live="polite">{activityConfig(activity).hint}</p>
+              {activity==="bike" && trial.phase!=="armed" &&
+                trial.phase!=="running" && (
+                <button className={styles.trialLaunch} disabled={!ready||quiet}
+                  onClick={()=>setChallengeSerial(n=>n+1)}>
+                  Joshua lap · start trial
+                </button>
+              )}
             </div>
+          )}
+          {(trial.phase==="armed"||trial.phase==="running"||
+              trial.phase==="complete"||trial.phase==="invalidated") && (
+            <aside className={styles.trialHud} aria-label="Joshua bike time trial"
+              aria-live={trial.phase==="complete"||trial.phase==="invalidated"?"polite":"off"}>
+              <span className={styles.eyebrow}>JOSHUA · ADVENTURE LAP</span>
+              <strong>{(trial.elapsedMs/1000).toFixed(1)} s</strong>
+              <p>{trial.phase==="armed"?"Cross the starting line":
+                trial.phase==="running" ?
+                  `Gate ${Math.min(trial.nextGate,JOSHUA_GATES.length)} / ${JOSHUA_GATES.length}`:
+                trial.phase==="complete"?"Lap complete":
+                trial.reason??"Run interrupted"}</p>
+              {personalBest!==null && (
+                <small>Personal best {(personalBest/1000).toFixed(1)} s</small>
+              )}
+              {(trial.phase==="complete"||trial.phase==="invalidated") && (
+                <div className={styles.trialActions}>
+                  <button onClick={()=>{
+                    setActivity("bike");setChallengeSerial(n=>n+1);
+                  }}>Retry</button>
+                  <button onClick={()=>setTrial({
+                    phase:"idle",nextGate:0,elapsedMs:0,splitsMs:[],
+                  })}>Explore</button>
+                </div>
+              )}
+            </aside>
           )}
           {aquatic !== "land" && (
             <div className={styles.waterDock} role="group" aria-label="Swimming depth controls">

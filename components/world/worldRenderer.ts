@@ -1,4 +1,5 @@
-import { desertTrackTreadBlend, DESERT_GAP_DEBRIS, DESERT_JUMPS, DESERT_TRACK_LENGTH } from "@/lib/world/desertTrack";
+import { desertTrackTreadBlend, desertTrackSampleAt, DESERT_GAP_DEBRIS, DESERT_JUMPS, DESERT_TRACK_LENGTH } from "@/lib/world/desertTrack";
+import { JOSHUA_GATES, armJoshuaTrial, abortJoshuaTrial, tickJoshuaTrial, type TrialState } from "@/lib/world/trials";
 import { createFishGeometry, createFishBodyGeometry, createCaudalFinGeometry, createDorsalFinGeometry, createPectoralFinGeometry, createSharkGeometry, createRayWingGeometry } from "./worldFaunaGeometry";
 import { createReefGarden } from "./worldReef";
 import { createTechnicalGeometry } from "./worldTechnicalGeometry";
@@ -62,10 +63,12 @@ type Callbacks = {
   onAquatic: (mode: AquaticMode) => void;
   onLocation: (r: RegionId, d: string | null) => void;
   onInteract: (d: string) => void;
+  onChallenge: (trial:TrialState) => void;
 };
 type State = {
   activity: Activity;
   actionSerial: number;
+  challengeSerial: number;
   waterAction: "dive" | "deeper" | "shallower" | "surface";
   waterActionSerial: number;
   entered: boolean;
@@ -2369,6 +2372,8 @@ export function createWorld(
   let caveLayer: CaveLayer = "surface";
   let travel: Travel = { point: player, speed: 0, heading: { x: 0, z: -1 } };
   let airHeight = 0, verticalSpeed = 0, lastAction = 0, lastWaterAction = 0;
+  let lastChallengeSerial=0, lastTrialUpdate=0;
+  let trial:TrialState={phase:"idle",nextGate:0,elapsedMs:0,splitsMs:[]};
   let aquatic: AquaticMode = "land", swimDepth = 0, targetDepth = 0;
   let climb: { from: Point; to: Point; fromY: number; toY: number; progress: number } | null = null;
   let grind: {
@@ -2864,6 +2869,17 @@ export function createWorld(
       }
 
       const mode = effectiveActivity(state.activity, player);
+      if(trial.phase==="armed" || trial.phase==="running") {
+        const previousTrial=trial;
+        trial=tickJoshuaTrial(trial,previousPoint,player,dt,mode);
+        if(trial.phase!==previousTrial.phase || trial.nextGate!==previousTrial.nextGate ||
+          elapsed-lastTrialUpdate>.24) {
+          callbacks.onChallenge(trial);
+          lastTrialUpdate=elapsed;
+        }
+      }
+      canvas.dataset.trialPhase=trial.phase;
+      canvas.dataset.trialCheckpoint=String(trial.nextGate);
       const swimming = aquatic !== "land";
       const walking = travel.speed > 0.05
         ? Math.sin(elapsed * (swimming ? 9 : mode === "run" ? 14 : 10))
@@ -4085,6 +4101,10 @@ export function createWorld(
         airHeight = verticalSpeed = 0;
       }
       state = next;
+      if(next.paused && (trial.phase==="armed"||trial.phase==="running")) {
+        trial=abortJoshuaTrial(trial,"Interrupted by menu or pause");
+        callbacks.onChallenge(trial);
+      }
       if (next.entered && !wasEntered) {
         // Welcome mode has its own ambient dog wandering. Gait continuity metrics
         // judge entered-world following, so start that measurement at the moment
@@ -4104,6 +4124,32 @@ export function createWorld(
       }
       if (next.entered && !next.paused && (changedActivity || requestedAction || requestedWaterAction))
         canvas.focus({ preventScroll: true });
+      if(next.challengeSerial!==lastChallengeSerial) {
+        lastChallengeSerial=next.challengeSerial;
+        if(next.entered && !next.paused) {
+          const start=JOSHUA_GATES[0];
+          // Explicit challenge selection moves the player to a safe start
+          // approach, never to an arbitrary point mid-air or inside a gap.
+          player={x:start.point.x-start.forward.x*1.5,
+            z:start.point.z-start.forward.z*1.5};
+          travel={point:player,speed:0,heading:{...start.forward}};
+          yaw=Math.atan2(-start.forward.x,-start.forward.z);
+          playerY=groundHeight(player);
+          airHeight=verticalSpeed=swimDepth=targetDepth=0;
+          climb=grind=null;
+          setAquaticMode("land");
+          caveLayer="surface";
+          destination=null;
+          clearInput();
+          dog={x:player.x+2,z:player.z+2};
+          dogVelocity={x:0,z:0};
+          dogSmoothedTarget={...dog};
+          dogGroundY=terrainHeight(dog.x,dog.z);
+          trial=armJoshuaTrial();
+          callbacks.onChallenge(trial);
+          canvas.focus({preventScroll:true});
+        }
+      }
       if (next.actionSerial !== lastAction) {
         lastAction = next.actionSerial;
         performAction();

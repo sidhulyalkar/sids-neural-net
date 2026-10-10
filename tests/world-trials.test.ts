@@ -15,7 +15,8 @@ test("Joshua adventure lap gates follow single unique route and avoid both gaps"
    assert.ok(gate.s>=0&&gate.s<DESERT_TRACK_LENGTH);
    assert.ok(gate.halfWidth>=2.8&&gate.halfWidth<=3.4);
    assert.ok(Math.abs(Math.hypot(gate.forward.x,gate.forward.z)-1)<.001);
-   assert.ok(DESERT_JUMPS.every(j=>distance(gate.point,j.point)>j.landing+3.7));
+   assert.ok(DESERT_JUMPS.every(j=>distance(gate.point,j.point)>j.landing+3.7),
+     gate.id+" near an obstacle at s="+gate.s.toFixed(2));
    previous=gate.s;
  }
  assert.equal(JOSHUA_FINISH_GATE,JOSHUA_GATES[0]);

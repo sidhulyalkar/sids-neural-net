@@ -6,10 +6,12 @@ import type { RegionId, WorldCommand } from "@/lib/world/model";
 import styles from "./world.module.css";
 
 import type { Activity, AquaticMode } from "@/lib/world/activities";
+import type { TrialState } from "@/lib/world/trials";
 
 type Props = {
   activity: Activity;
   actionSerial: number;
+  challengeSerial: number;
   waterAction: "dive" | "deeper" | "shallower" | "surface";
   waterActionSerial: number;
   gameTitles: string[];
@@ -21,6 +23,7 @@ type Props = {
   onAquatic: (mode: AquaticMode) => void;
   onLocation: (region: RegionId, discovery: string | null) => void;
   onInteract: (discovery: string) => void;
+  onChallenge: (state:TrialState) => void;
 };
 export default function WorldScene(props: Props) {
   const host = useRef<HTMLDivElement>(null);
@@ -42,6 +45,7 @@ export default function WorldScene(props: Props) {
           onAquatic: (mode) => callbacks.current.onAquatic(mode),
           onLocation: (r, d) => callbacks.current.onLocation(r, d),
           onInteract: (d) => callbacks.current.onInteract(d),
+          onChallenge: (trial) => callbacks.current.onChallenge(trial),
         }, WebGLRenderer, callbacks.current.gameTitles);
         runtime.current.setState(callbacks.current);
       } catch { callbacks.current.onError(); }
