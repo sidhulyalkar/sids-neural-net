@@ -1,4 +1,4 @@
-import { isWater, SEA_SURFACE, terrainHeight } from "./model";
+import { isWater, SEA_SURFACE, terrainHeight, worldFloorHeight } from "./model";
 export const SNOWMELT_PATH = [
   { x: -13, z: -66 },
   { x: -16, z: -61 },
@@ -16,7 +16,7 @@ function surfaceRibbon(points: WaterPoint[]) {
     const count = Math.ceil(Math.hypot(b.x - a.x, b.z - a.z) / .08);
     for (let j = 1; j <= count; j++) {
       const t = j / count, x = a.x + (b.x - a.x) * t, z = a.z + (b.z - a.z) * t;
-      sampled.push({ x, z, y: Math.max(a.y + (b.y - a.y) * t, terrainHeight(x, z) + .1) });
+      sampled.push({ x, z, y: Math.max(a.y + (b.y - a.y) * t, worldFloorHeight(x, z) + .1) });
     }
   }
   // Small undulations become gently descending reaches, never uphill water.

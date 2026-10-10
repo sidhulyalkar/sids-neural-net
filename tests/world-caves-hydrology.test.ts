@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { drainagePoints, downstreamPoints, waterfallProfile, waterfallCrownRings } from "../lib/world/hydrology";
-import { caveObstacles, constrainMove, mountainSurfaceHeight, paperCaveFloorHeight, paperCaveHalfWidth, paperCaveInside, terrainHeight, SEA_SURFACE } from "../lib/world/model";
+import { caveObstacles, constrainMove, mountainSurfaceHeight, paperCaveFloorHeight, paperCaveHalfWidth, paperCaveInside, terrainHeight, worldFloorHeight, SEA_SURFACE } from "../lib/world/model";
 
 test("snowmelt, lip, pool and creek share a continuous downhill profile above terrain", () => {
   const upper = drainagePoints(), lower = downstreamPoints(), profile = waterfallProfile();
@@ -16,7 +16,7 @@ test("snowmelt, lip, pool and creek share a continuous downhill profile above te
       assert.ok(b.y <= a.y, `uphill reach ${i}`);
       for (let t = 0; t <= 1; t += .1) {
         const x = a.x + (b.x - a.x) * t, z = a.z + (b.z - a.z) * t;
-        assert.ok(a.y + (b.y - a.y) * t > terrainHeight(x, z), `buried reach ${i}`);
+        assert.ok(a.y + (b.y - a.y) * t > worldFloorHeight(x, z), `buried reach ${i}`);
       }
     }
   }
