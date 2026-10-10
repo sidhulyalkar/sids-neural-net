@@ -90,8 +90,17 @@ export function WorldHome({ content }: { content: WorldContent }) {
   const [trial,setTrial]=useState<TrialState>({
     phase:"idle",nextGate:0,elapsedMs:0,splitsMs:[],
   });
-  const [personalBest,setPersonalBest]=useState<number|null>(null);
-  const bestRef=useRef<number|null>(null);
+  const [personalBest,setPersonalBest]=useState<number|null>(()=>{
+    if(typeof window==="undefined")return null;
+    try {
+      const raw=window.localStorage.getItem("sid-world:trial:"+JOSHUA_TRIAL.version);
+      if(!raw)return null;
+      const best=JSON.parse(raw) as {elapsedMs?:number};
+      return typeof best.elapsedMs==="number"&&Number.isFinite(best.elapsedMs)&&
+        best.elapsedMs>0&&best.elapsedMs<3600000 ? best.elapsedMs : null;
+    } catch {return null;}
+  });
+  const bestRef=useRef<number|null>(personalBest);
   const [aquatic, setAquatic] = useState<AquaticMode>("land");
   const [waterAction, setWaterAction] = useState<"dive" | "deeper" | "shallower" | "surface">("dive");
   const [waterActionSerial, setWaterActionSerial] = useState(0);
@@ -110,19 +119,6 @@ export function WorldHome({ content }: { content: WorldContent }) {
     setReady(false);
   }, []);
   const onReady = useCallback(() => setReady(true), []);
-  useEffect(()=>{
-    try {
-      const raw=window.localStorage.getItem("sid-world:trial:"+JOSHUA_TRIAL.version);
-      if(raw){
-        const best=JSON.parse(raw) as {elapsedMs?:number};
-        if(typeof best.elapsedMs==="number" && Number.isFinite(best.elapsedMs) &&
-          best.elapsedMs>0 && best.elapsedMs<3600000){
-          bestRef.current=best.elapsedMs;
-          setPersonalBest(best.elapsedMs);
-        }
-      }
-    } catch { /* Private browsing and unavailable local storage are supported. */ }
-  },[]);
   const onChallenge=useCallback((next:TrialState)=>{
     setTrial(next);
     if(next.phase==="complete" && Number.isFinite(next.elapsedMs) &&

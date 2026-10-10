@@ -477,6 +477,26 @@ try {
   await page.getByRole('button', { name: 'Open navigation menu' }).click();
   for (let i = 0; i < 24; i++) { await page.keyboard.press('Tab'); assert.equal(await page.evaluate(() => !!document.activeElement.closest('dialog')), true); }
   await page.keyboard.press('Escape'); results.push('Menu keeps keyboard focus and supports Escape');
+  // Optional challenges are playable without a new screen or account.
+  await page.getByRole('button', { name: 'Mountain biking', exact: true }).click();
+  await page.getByRole('button', { name: 'Joshua lap · start trial', exact: true }).click();
+  await page.waitForFunction(() => document.querySelector('canvas')?.dataset.trialPhase === 'armed');
+  assert.equal(await page.locator('canvas').getAttribute('data-technical-features'), '3-gardens-3-beams');
+  await screenshot(page, 'challenge-joshua-start');
+  await page.keyboard.down('w');
+  try {
+    await page.waitForFunction(
+      () => document.querySelector('canvas')?.dataset.trialPhase === 'running',
+      null, {timeout:9000},
+    );
+  } finally { await page.keyboard.up('w'); }
+  assert.equal(await page.getByRole('complementary', { name: 'Joshua bike time trial' }).count(), 1);
+  await screenshot(page, 'challenge-joshua-timer');
+  await page.getByRole('button', { name: 'Open navigation menu' }).click();
+  await page.keyboard.press('Escape');
+  await page.waitForFunction(() => document.querySelector('canvas')?.dataset.trialPhase === 'invalidated');
+  results.push('Joshua lap arms at a real start gate, runs on movement and aborts fairly on pause');
+
   diagnostics = await page.locator('canvas').evaluate(c => ({ ...c.dataset }));
   assert.ok(Number(diagnostics.drawCalls) < 100);
   assert.ok(Number(diagnostics.frameP50) > 0);
