@@ -1,5 +1,9 @@
 # Sid’s World — coastal expansion
 
+## Island Disc Golf v1 (current playtest milestone)
+
+[astra-disc-golf-v1-spec.md](astra-disc-golf-v1-spec.md) supersedes the **unimplemented** puzzle trilogy for the next gameplay direction. Four authored disc-golf holes use moving chain baskets, wind, adjustable loft/aim, a two-stage three-tap power/release meter, real simulated disc landing, a golden lie beam, and free water-shot retries. The first build is subject to CI and manual browser signoff. The former leverage/log/light puzzles are deferred, not shipping.
+
 ## World Challenges v1: technical riding, puzzles and big air
 
 [astra-world-challenges-v1-spec.md](astra-world-challenges-v1-spec.md) tracks the **phased, in-development** challenge system: technical riding, the 305-unit Joshua time trial and Alpine Big Air are implemented on the World feature branch (visual browser signoff remains required). Its environment puzzles remain **planned**, with the visitor-first interaction contract now refined in [astra-puzzle-trilogy-experience-spec.md](astra-puzzle-trilogy-experience-spec.md). The original biome/island specs remain authoritative for cave, waterfall, ecology, underwater discoveries and protected landmarks.

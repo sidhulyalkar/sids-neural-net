@@ -23,6 +23,8 @@ import { ACTIVITIES, activityConfig, type Activity, type AquaticMode } from "@/l
 import { COASTAL_FLORA, MARINE_LIFE } from "@/lib/world/ecology";
 import { UNDERWATER_TRIDENTS } from "@/lib/world/artifacts";
 import { JOSHUA_TRIAL, JOSHUA_GATES, type TrialState } from "@/lib/world/trials";
+import { WorldDiscGolfHUD } from "./WorldDiscGolfHUD";
+import { idleDiscGolf,type DiscShot,type DiscGolfState } from "@/lib/world/discGolf";
 import {
   BIG_AIR,bigAirBirdCallout,idleBigAir,type BigAirState,
 } from "@/lib/world/bigAir";
@@ -91,6 +93,26 @@ export function WorldHome({ content }: { content: WorldContent }) {
   const [actionSerial, setActionSerial] = useState(0);
   const [challengeSerial,setChallengeSerial]=useState(0);
   const [bigAirSerial,setBigAirSerial]=useState(0);
+  const [discGolf,setDiscGolf]=useState<DiscGolfState>(idleDiscGolf);
+  const [discGolfStartSerial,setDiscGolfStartSerial]=useState(0);
+  const [discGolfHoleIndex,setDiscGolfHoleIndex]=useState(0);
+  const [discGolfShotSerial,setDiscGolfShotSerial]=useState(0);
+  const [discGolfShot,setDiscGolfShot]=useState<DiscShot|null>(null);
+  const [discGolfExitSerial,setDiscGolfExitSerial]=useState(0);
+  const onDiscGolf=useCallback((g:DiscGolfState)=>setDiscGolf(g),[]);
+  const startDiscHole=(index:number)=>{
+    setDiscGolfHoleIndex(index);
+    setActivity("run");
+    setDiscGolfStartSerial(n=>n+1);
+  };
+  const takeDiscShot=(shot:DiscShot)=>{
+    setDiscGolfShot(shot);
+    setDiscGolfShotSerial(n=>n+1);
+  };
+  const exitDiscGolf=()=>{
+    setDiscGolf(idleDiscGolf());
+    setDiscGolfExitSerial(n=>n+1);
+  };
   const [bigAir,setBigAir]=useState<BigAirState>(idleBigAir);
   const [bestFlight,setBestFlight]=useState<number|null>(()=>{
     if(typeof window==="undefined")return null;
@@ -325,6 +347,11 @@ export function WorldHome({ content }: { content: WorldContent }) {
             actionSerial={actionSerial}
             challengeSerial={challengeSerial}
             bigAirSerial={bigAirSerial}
+            discGolfStartSerial={discGolfStartSerial}
+            discGolfHoleIndex={discGolfHoleIndex}
+            discGolfShotSerial={discGolfShotSerial}
+            discGolfShot={discGolfShot}
+            discGolfExitSerial={discGolfExitSerial}
             waterAction={waterAction}
             waterActionSerial={waterActionSerial}
             gameTitles={content.games.map(game => game.title)}
@@ -335,6 +362,7 @@ export function WorldHome({ content }: { content: WorldContent }) {
             onInteract={open}
             onChallenge={onChallenge}
             onBigAir={onBigAir}
+            onDiscGolf={onDiscGolf}
           />
         </SceneBoundary>
       )}
@@ -396,7 +424,7 @@ export function WorldHome({ content }: { content: WorldContent }) {
             </button>
           )}
           {aquatic === "land" && (
-            <div className={styles.activityDock}>
+            <div className={styles.activityDock} style={{display:discGolf.phase!=="off"?"none":undefined}}>
               <div className={styles.activityButtons} role="group" aria-label="Movement activity">
                 {ACTIVITIES.map(item => (
                   <button key={item.id} aria-label={item.name} aria-pressed={activity === item.id}
@@ -407,6 +435,8 @@ export function WorldHome({ content }: { content: WorldContent }) {
                 </button>
               </div>
               <p aria-live="polite">{activityConfig(activity).hint}</p>
+              <button className={styles.trialLaunch} disabled={!ready||quiet}
+                onClick={()=>startDiscHole(0)}>Disc golf · play</button>
               {activity==="ski" && bigAir.phase!=="armed" && bigAir.phase!=="flying" && (
                 <button className={styles.trialLaunch} disabled={!ready||quiet}
                   onClick={()=>setBigAirSerial(n=>n+1)}>
@@ -421,6 +451,15 @@ export function WorldHome({ content }: { content: WorldContent }) {
                 </button>
               )}
             </div>
+          )}
+          {discGolf.phase!=="off" && (
+            <WorldDiscGolfHUD
+              key={discGolf.holeIndex+"-"+discGolf.strokes+"-"+discGolf.phase+"-"+discGolf.waterRedos}
+              game={discGolf}
+              onShot={takeDiscShot}
+              onChangeHole={startDiscHole}
+              onExit={exitDiscGolf}
+            />
           )}
           {(trial.phase==="armed"||trial.phase==="running"||
               trial.phase==="complete"||trial.phase==="invalidated") && (

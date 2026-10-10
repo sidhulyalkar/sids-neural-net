@@ -202,6 +202,8 @@ Current `stepAirborne` gravity=14 and launch impulse max 9. **These cannot fly d
 
 Before the headline jump, the existing bowl already has small/medium/large ramps. Wrap them into an optional training sequence: 3 distance gates, stable landing feedback and one deliberately scary but safe final launch. Do not add more jumps until existing geometry is actually qualified.
 
+**Update 2026-10-10:** The Granite, Deadwood and Rainforest Light puzzle trilogy is **deferred at user request**. Its experience spec remains archival design exploration, not a delivery requirement. The new near-term gameplay milestone is [Island Disc Golf v1](astra-disc-golf-v1-spec.md), with moving chain baskets, wind, three-tap double meter, landing beacon and free water redos. Do not implement the trilogy unless explicitly requested later.
+
 ## 7. Five environmental puzzles, no borrowed game assets
 
 **The three v1 puzzles are now specified in detail by [Astra Puzzle Trilogy: Experience-First Design Contract](astra-puzzle-trilogy-experience-spec.md).** That document supersedes the older one-row descriptions below where they differ. Puzzles remain *design-complete, not implemented*. Build **three for v1**, then evaluate engagement before adding the other two. All puzzles have explicit local rules, visible cause/effect, multiple solution paths, reset, optional hint and bypass, with no mandatory website gating or narrative filler.

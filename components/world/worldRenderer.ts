@@ -4,6 +4,11 @@ import { createFishGeometry, createFishBodyGeometry, createCaudalFinGeometry, cr
 import { createReefGarden } from "./worldReef";
 import { createTechnicalGeometry } from "./worldTechnicalGeometry";
 import { createBigAirBirds } from "./worldBigAirBirds";
+import { createDiscGolfGeometry } from "./worldDiscGolfGeometry";
+import {
+  DISC_GOLF_HOLES,discGolfBasketPosition,discGolfThrow,stepDiscGolf,
+  startDiscGolf,idleDiscGolf,type DiscGolfState,type DiscShot,
+} from "@/lib/world/discGolf";
 import {
   BIG_AIR,bigAirBirdCallout,bigAirCrossedLip,launchBigAir,
   advanceBigAir,armBigAir,idleBigAir,type BigAirState,
@@ -70,12 +75,18 @@ type Callbacks = {
   onInteract: (d: string) => void;
   onChallenge: (trial:TrialState) => void;
   onBigAir: (flight:BigAirState) => void;
+  onDiscGolf:(game:DiscGolfState)=>void;
 };
 type State = {
   activity: Activity;
   actionSerial: number;
   challengeSerial: number;
   bigAirSerial: number;
+  discGolfStartSerial:number;
+  discGolfHoleIndex:number;
+  discGolfShotSerial:number;
+  discGolfShot:DiscShot|null;
+  discGolfExitSerial:number;
   waterAction: "dive" | "deeper" | "shallower" | "surface";
   waterActionSerial: number;
   entered: boolean;
@@ -750,6 +761,8 @@ export function createWorld(
   const habitats = createHabitats(scene, obstacles);
   const technicalFeatures = createTechnicalGeometry(scene);
   const flyingBirds=createBigAirBirds(scene);
+  const discGolfObjects=createDiscGolfGeometry(scene);
+  canvas.dataset.discGolfHoles=String(DISC_GOLF_HOLES.length);
   canvas.dataset.bigAirBirds=String(flyingBirds.count);
   canvas.dataset.technicalFeatures = "3-gardens-3-beams";
   // Deep fallen-Joshua debris catches riders who underjump, but airborne
@@ -2365,6 +2378,11 @@ export function createWorld(
     actionSerial: 0,
     challengeSerial: 0,
     bigAirSerial: 0,
+    discGolfStartSerial:0,
+    discGolfHoleIndex:0,
+    discGolfShotSerial:0,
+    discGolfShot:null,
+    discGolfExitSerial:0,
     waterAction: "dive",
     waterActionSerial: 0,
   };
@@ -2386,6 +2404,8 @@ export function createWorld(
   let lastChallengeSerial=0, lastTrialUpdate=0;
   let lastBigAirSerial=0,lastBigAirUpdate=0;
   let bigAir:BigAirState=idleBigAir();
+  let discGolf:DiscGolfState=idleDiscGolf();
+  let lastDiscStart=0,lastDiscShot=0,lastDiscExit=0,lastDiscUpdate=0;
   let trial:TrialState={phase:"idle",nextGate:0,elapsedMs:0,splitsMs:[]};
   let aquatic: AquaticMode = "land", swimDepth = 0, targetDepth = 0;
   let climb: { from: Point; to: Point; fromY: number; toY: number; progress: number } | null = null;
@@ -2519,7 +2539,7 @@ export function createWorld(
     drag = null;
     if (canvas.hasPointerCapture(e.pointerId))
       canvas.releasePointerCapture(e.pointerId);
-    if (!wasClick || state.paused) return;
+    if (!wasClick || state.paused || discGolf.phase!=="off") return;
     const rect = canvas.getBoundingClientRect();
     pointer.set(
       ((e.clientX - rect.left) / rect.width) * 2 - 1,
@@ -2559,7 +2579,7 @@ export function createWorld(
   function onKey(e: KeyboardEvent) {
     if (!state.entered || state.paused || e.metaKey || e.ctrlKey || e.altKey)
       return;
-    if (e.target !== canvas) return;
+    if (e.target !== canvas || discGolf.phase!=="off") return;
     const key = e.key.toLowerCase();
     if (key === "shift") keys.add(key);
     if (key === " " && !e.repeat && aquatic === "land") {
@@ -2618,7 +2638,7 @@ export function createWorld(
     }
   }
   function performAction() {
-    if (!state.entered || state.paused || document.hidden || aquatic !== "land" || climb || grind || airHeight > 0.01) return;
+    if (!state.entered || state.paused || document.hidden || aquatic !== "land" || discGolf.phase!=="off" || climb || grind || airHeight > 0.01) return;
     if ((state.activity === "skate" || state.activity === "ski") && travel.speed > 2.2) {
       const candidate = nearestGrind(player);
       if (candidate) {
@@ -2734,7 +2754,22 @@ export function createWorld(
       }
       const previousPoint = { ...player };
       const previousY = playerY;
-      if (climb) {
+      if (discGolf.phase!=="off") {
+        const previous=discGolf.phase;
+        discGolf=stepDiscGolf(discGolf,dt,p=>terrainHeight(p.x,p.z),isWater,SEA_SURFACE);
+        if(discGolf.phase!==previous){
+          if(discGolf.phase==="landed"||discGolf.phase==="holed"){
+            // The next lie is an actual terrain location, not a menu-only target.
+            player={...discGolf.lie};playerY=groundHeight(player);
+            travel={point:player,speed:0,heading:travel.heading};
+            airHeight=verticalSpeed=0;
+          }
+          callbacks.onDiscGolf(discGolf);
+        }else if(elapsed-lastDiscUpdate>.22){
+          callbacks.onDiscGolf(discGolf);lastDiscUpdate=elapsed;
+        }
+        travel.speed=0;destination=null;
+      } else if (climb) {
         climb.progress = Math.min(1, climb.progress + dt * 1.25);
         const t = climb.progress * climb.progress * (3 - 2 * climb.progress);
         player = {
@@ -3025,6 +3060,10 @@ export function createWorld(
       canvas.dataset.speed = travel.speed.toFixed(2);
       canvas.dataset.height = playerY.toFixed(2);
       canvas.dataset.airborne = String(airHeight > 0 || !!climb || !!grind);
+      canvas.dataset.discGolfPhase=discGolf.phase;
+      canvas.dataset.discGolfStrokes=String(discGolf.strokes);
+      canvas.dataset.discGolfWaterRedos=String(discGolf.waterRedos);
+      canvas.dataset.discGolfHole=DISC_GOLF_HOLES[discGolf.holeIndex].id;
       canvas.dataset.bigAirPhase=bigAir.phase;
       canvas.dataset.bigAirDistance=bigAir.distance.toFixed(1);
       canvas.dataset.bigAirBirdCallout=bigAir.phase==="flying"
@@ -3138,7 +3177,15 @@ export function createWorld(
         distance(player, arcade) < 5.8;
       const cavernFraming =
         caveInside && caveProgress > 0.48 && distance(player, arcadeWall) < 8.5;
-      if (cavernFraming) {
+      if(discGolf.phase!=="off"){
+        const basket=discGolfBasketPosition(DISC_GOLF_HOLES[discGolf.holeIndex],discGolf.clock);
+        const fly=discGolf.phase==="flying";
+        const p=fly?discGolf.disc:player;
+        const hx=basket.x-player.x,hz=basket.z-player.z;
+        const hlen=Math.hypot(hx,hz)||1;
+        targetLook.set(p.x+(fly?0:hx/hlen*5.5),fly?p.y:playerY+2.4,
+          p.z+(fly?0:hz/hlen*5.5));
+      } else if (cavernFraming) {
         targetLook.set(arcadeWall.x, arcadeWallY + 2.05, arcadeWall.z - 0.5);
       } else if (cavernApproachFraming) {
         // Frame the mouth of the cave, not the high terrain deep behind it.
@@ -3168,7 +3215,14 @@ export function createWorld(
                 ? Math.min(zoom, 15)
                 : zoom;
       const cameraYaw = aquatic === "dive" ? yaw + 0.28 : yaw;
-      if (cavernFraming) {
+      if(discGolf.phase!=="off"){
+        const target=discGolfBasketPosition(DISC_GOLF_HOLES[discGolf.holeIndex],discGolf.clock);
+        const dx=target.x-player.x,dz=target.z-player.z;
+        const len=Math.hypot(dx,dz)||1;
+        const p=discGolf.phase==="flying"?discGolf.disc:
+          {x:player.x,y:playerY,z:player.z};
+        targetCamera.set(p.x-dx/len*13+2.3,p.y+7.5,p.z-dz/len*13+2.3);
+      } else if (cavernFraming) {
         // Keep the third-person boom centered inside the authored tunnel.
         // A lower eye line prevents the roof from swallowing the frame while
         // preserving the explorer silhouette against the carved game wall.
@@ -4078,6 +4132,7 @@ export function createWorld(
     reefGarden.update(elapsed);
     const reducedFlightMotion=window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     marineSchools.update(elapsed,reducedFlightMotion);
+    discGolfObjects.update(discGolf);
     flyingBirds.update(bigAir,elapsed,reducedFlightMotion);
     habitats.update(player);
     if(aquatic === "land" && scene.fog instanceof THREE.Fog) {
@@ -4155,6 +4210,39 @@ export function createWorld(
         airHeight = verticalSpeed = 0;
       }
       state = next;
+      if(next.discGolfExitSerial!==lastDiscExit){
+        lastDiscExit=next.discGolfExitSerial;
+        discGolf=idleDiscGolf();callbacks.onDiscGolf(discGolf);
+      }
+      if(next.discGolfStartSerial!==lastDiscStart){
+        lastDiscStart=next.discGolfStartSerial;
+        if(next.entered&&!next.paused){
+          const hole=DISC_GOLF_HOLES[next.discGolfHoleIndex]??DISC_GOLF_HOLES[0];
+          discGolf=startDiscGolf(next.discGolfHoleIndex,p=>terrainHeight(p.x,p.z),elapsed);
+          player={...hole.tee};playerY=groundHeight(player);
+          travel={point:player,speed:0,heading:{x:0,z:1}};
+          const basket=discGolfBasketPosition(hole,elapsed);
+          yaw=Math.atan2(-(basket.x-player.x),-(basket.z-player.z));
+          airHeight=verticalSpeed=swimDepth=targetDepth=0;
+          climb=grind=null;caveLayer="surface";
+          setAquaticMode("land");clearInput();
+          bigAir=idleBigAir();
+          if(trial.phase==="running"||trial.phase==="armed"){
+            trial=abortJoshuaTrial(trial,"Disc golf started");callbacks.onChallenge(trial);
+          }
+          dog={x:player.x+1.8,z:player.z-1.8};
+          dogVelocity={x:0,z:0};dogSmoothedTarget={...dog};
+          dogGroundY=terrainHeight(dog.x,dog.z);
+          callbacks.onDiscGolf(discGolf);
+        }
+      }
+      if(next.discGolfShotSerial!==lastDiscShot){
+        lastDiscShot=next.discGolfShotSerial;
+        if(next.discGolfShot&&discGolf.phase!=="off"){
+          discGolf=discGolfThrow(discGolf,next.discGolfShot,p=>terrainHeight(p.x,p.z));
+          callbacks.onDiscGolf(discGolf);
+        }
+      }
       if(next.paused && (bigAir.phase==="armed"||bigAir.phase==="flying")){
         bigAir={...bigAir,phase:"missed",reason:"Jump interrupted"};
         callbacks.onBigAir(bigAir);
@@ -4241,6 +4329,9 @@ export function createWorld(
       if (next.entered && (!wasEntered || (wasPaused && !next.paused)))
         canvas.focus({ preventScroll: true });
       if (next.command && next.command.serial !== lastSerial) {
+        if(discGolf.phase!=="off"){
+          discGolf=idleDiscGolf();callbacks.onDiscGolf(discGolf);
+        }
         if(bigAir.phase==="armed"||bigAir.phase==="flying"){
           bigAir={...bigAir,phase:"missed",reason:"Region transfer"};
           callbacks.onBigAir(bigAir);
@@ -4316,6 +4407,7 @@ export function createWorld(
       } else schedule();
     },
     dispose() {
+      discGolfObjects.dispose();
       flyingBirds.dispose();
       technicalFeatures.dispose();
       habitats.dispose();

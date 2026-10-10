@@ -56,6 +56,10 @@ jobs:
           lib/world/bigAir.ts
           components/world/worldBigAirBirds.ts
           tests/world-big-air.test.ts
+          lib/world/discGolf.ts
+          components/world/worldDiscGolfGeometry.ts
+          components/world/WorldDiscGolfHUD.tsx
+          tests/world-disc-golf.test.ts
           components/world/WorldScene.tsx
           tests/world-trials.test.ts
           lib/world/activities.ts

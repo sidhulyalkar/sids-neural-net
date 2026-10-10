@@ -8,12 +8,18 @@ import styles from "./world.module.css";
 import type { Activity, AquaticMode } from "@/lib/world/activities";
 import type { TrialState } from "@/lib/world/trials";
 import type { BigAirState } from "@/lib/world/bigAir";
+import type { DiscGolfState,DiscShot } from "@/lib/world/discGolf";
 
 type Props = {
   activity: Activity;
   actionSerial: number;
   challengeSerial: number;
   bigAirSerial:number;
+  discGolfStartSerial:number;
+  discGolfHoleIndex:number;
+  discGolfShotSerial:number;
+  discGolfShot:DiscShot|null;
+  discGolfExitSerial:number;
   waterAction: "dive" | "deeper" | "shallower" | "surface";
   waterActionSerial: number;
   gameTitles: string[];
@@ -27,6 +33,7 @@ type Props = {
   onInteract: (discovery: string) => void;
   onChallenge: (state:TrialState) => void;
   onBigAir: (state:BigAirState) => void;
+  onDiscGolf:(game:DiscGolfState)=>void;
 };
 export default function WorldScene(props: Props) {
   const host = useRef<HTMLDivElement>(null);
@@ -50,6 +57,7 @@ export default function WorldScene(props: Props) {
           onInteract: (d) => callbacks.current.onInteract(d),
           onChallenge: (trial) => callbacks.current.onChallenge(trial),
           onBigAir: (flight) => callbacks.current.onBigAir(flight),
+          onDiscGolf:(golf)=>callbacks.current.onDiscGolf(golf),
         }, WebGLRenderer, callbacks.current.gameTitles);
         runtime.current.setState(callbacks.current);
       } catch { callbacks.current.onError(); }
