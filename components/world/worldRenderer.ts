@@ -1,3 +1,4 @@
+import { desertTrackTreadBlend } from "@/lib/world/desertTrack";
 import { createFishGeometry, createFishBodyGeometry, createCaudalFinGeometry, createDorsalFinGeometry, createPectoralFinGeometry, createSharkGeometry, createRayWingGeometry } from "./worldFaunaGeometry";
 import { createReefGarden } from "./worldReef";
 import { createHabitats } from "./worldHabitats";
@@ -232,7 +233,7 @@ export function createWorld(
   // One continuous finite surface covers land, shoreline and the underwater shelf.
   const terrainWidth = WORLD_BOUNDS.maxX - WORLD_BOUNDS.minX;
   const terrainDepth = WORLD_BOUNDS.maxZ - WORLD_BOUNDS.minZ;
-  const terrain = geo(new THREE.PlaneGeometry(terrainWidth, terrainDepth, 118, 110));
+  const terrain = geo(new THREE.PlaneGeometry(terrainWidth, terrainDepth, 142, 132));
   terrain.rotateX(-Math.PI / 2);
   terrain.translate(
     (WORLD_BOUNDS.minX + WORLD_BOUNDS.maxX) / 2,
@@ -267,6 +268,8 @@ export function createWorld(
     groundColor.setRGB(0,0,0);
     for (const [id,weight] of Object.entries(biome.weights)) groundColor.add(new THREE.Color(BIOME_COLORS[id as keyof typeof BIOME_COLORS]).multiplyScalar(weight));
     if (!wet && (trail < 1.7 || distance({ x, z }, REGIONS[0].point) < 4)) groundColor.lerp(new THREE.Color("#b6a684"), .5);
+    // Track pigment is bound to the modeled dirt tread, never a floating decal.
+    if (!wet) groundColor.lerp(new THREE.Color("#9c7951"), desertTrackTreadBlend({ x, z }) * 0.82);
     const caveApproachMask = arcadeAccessTerrainMask(x, z);
     if (caveApproachMask > 0) {
       const caveApproachColor = new THREE.Color("#626766");
@@ -540,6 +543,8 @@ export function createWorld(
   // floating brown slab, while remaining only two instanced draw calls.
   const rampPlanks: Instance[] = [], rampStringers: Instance[] = [];
   for (const ramp of RIDE_RAMPS) {
+    // Joshua basin uses a molded earthen lip; no timber planks above the tread.
+    if (ramp.id === "desert-step") continue;
     const headingLength = Math.hypot(ramp.heading.x, ramp.heading.z);
     const forward = {
       x: ramp.heading.x / headingLength,

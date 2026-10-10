@@ -1,3 +1,4 @@
+import { desertTrackClearance } from "./desertTrack";
 import {
   constrainMove,
   distance,
@@ -260,7 +261,7 @@ export const RIDE_RAMPS = [
   },
   {
     id: "desert-step",
-    point: { x: 36, z: -8 },
+    point: { x: 42, z: -26.5 },
     radius: 2,
     heading: { x: 0, z: 1 },
     lift: 3.8,
@@ -554,10 +555,13 @@ export const SPORT_ROUTES = [
   {
     id: "desert-flow",
     points: [
-      { x: 36, z: -49 },
-      { x: 36, z: -28 },
-      { x: 36, z: -8 },
-      { x: 36, z: 8 },
+      { x: 32, z: -13 },
+      { x: 32, z: -43 },
+      { x: 37, z: -48 },
+      { x: 42, z: -43 },
+      { x: 42, z: -13 },
+      { x: 37, z: -8 },
+      { x: 32, z: -13 },
     ],
   },
 ] as const;
@@ -572,6 +576,7 @@ export function sportClearance(p: Point) {
     return Math.hypot(p.x - a.x - dx * t, p.z - a.z - dz * t);
   };
   return (
+    desertTrackClearance(p) ||
     SPORT_ROUTES.some((r) =>
       r.points.slice(1).some((b, i) => lineDistance(r.points[i], b) < 3),
     ) ||
@@ -595,6 +600,8 @@ export function sportClearance(p: Point) {
 
 /** Plank surface and support use the same sloped deck, ending at the launch point. */
 export function rampSurface(ramp: (typeof RIDE_RAMPS)[number], p: Point) {
+  // The Joshua step is earthen terrain, not a disconnected timber platform.
+  if (ramp.id === "desert-step") return null;
   const len = Math.hypot(ramp.heading.x, ramp.heading.z),
     fx = ramp.heading.x / len,
     fz = ramp.heading.z / len;

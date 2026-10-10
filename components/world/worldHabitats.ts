@@ -1,6 +1,6 @@
 import * as THREE from "three/src/Three.Core.js";
 import { GeometryBatch } from "./worldGeometry";
-import { biomeAt, DESERT_FORMATIONS, smooth } from "@/lib/world/biomes";
+import { biomeAt, DESERT_FORMATIONS, smooth, understoryDensityAt } from "@/lib/world/biomes";
 import { BOULDER_HOLDS, sportClearance } from "@/lib/world/activities";
 import {
   terrainHeight,
@@ -102,28 +102,14 @@ export function createHabitats(scene: THREE.Scene, obstacles: Obstacle[]) {
   const granite = new GeometryBatch();
   for (const f of DESERT_FORMATIONS) {
     const y = terrainHeight(f.x, f.z);
-    if (f.id === "balanced") {
-      add(granite, sphere, "#a58c79", f.x, y + 1.2, f.z, 1.1, 1.7, 1);
-      add(granite, sphere, "#c4a795", f.x + 0.2, y + 3.7, f.z, 2.3, 1.6, 1.6);
-    } else
-      for (let i = 0; i < (f.id === "joints" ? 6 : 3); i++) {
-        const dx = ((i % 3) - 1) * f.sx * 0.55,
-          dz = Math.floor(i / 3) * f.sz * 0.5;
-        add(
-          granite,
-          sphere,
-          i % 2 ? "#bbaa91" : "#c4b299",
-          f.x + dx,
-          y + f.sy * 0.28 + (i > 2 ? 2.5 : 0),
-          f.z + dz,
-          f.sx * 0.7,
-          f.sy * 0.7,
-          f.sz * 0.65,
-          0,
-          0.1 * i,
-        );
-      }
-    obstacles.push({ x: f.x, z: f.z, radius: Math.min(f.sx, f.sz) * 0.8 });
+    // Three small, buried rock shoulders replace the towering boulder stacks.
+    for (let i = 0; i < 3; i++) {
+      const dx = (i - 1) * f.sx * 0.55;
+      add(granite, sphere, i % 2 ? "#bbaa91" : "#c4b299",
+        f.x + dx, terrainHeight(f.x + dx, f.z) + f.sy * 0.22, f.z,
+        f.sx * 0.52, f.sy * 0.46, f.sz * 0.58, 0, i * 0.19);
+    }
+    obstacles.push({ x: f.x, z: f.z, radius: Math.min(f.sx, f.sz) * 0.65 });
     for (let j = 0; j < 16; j++) {
       const a = j * 2.4,
         r = f.sx * (0.8 + random() * 0.6);
@@ -155,7 +141,7 @@ export function createHabitats(scene: THREE.Scene, obstacles: Obstacle[]) {
   for (let row = 0; row < 3; row++) {
     const b = new GeometryBatch(),
       center = { x: 43, z: -49 + row * 20 };
-    for (let i = 0; i < 45; i++) {
+    for (let i = 0; i < 90; i++) {
       const x = 24 + random() * 32,
         z = center.z - 10 + random() * 20,
         p = { x, z },
@@ -168,11 +154,11 @@ export function createHabitats(scene: THREE.Scene, obstacles: Obstacle[]) {
         continue;
       const y = terrainHeight(x, z),
         upper = z < -22;
-      if (upper && i % 3 === 0) {
+      if (upper && i % 2 === 0) {
         const h = 2.5 + random() * 2;
         stem(b, "#716356", V(x, y, z), V(x, y + h, z), 0.19);
-        const arms = (Math.floor(i / 3) + row) % 5; // Juvenile through sparse multi-arm crowns.
-        for (let a = 0; a < Math.max(1, arms); a++) {
+        const arms = 2 + (Math.floor(i / 3) + row) % 3; // Juvenile through sparse multi-arm crowns.
+        for (let a = 0; a < arms; a++) {
           const angle = a * 2.3 + i,
             reach = arms === 0 ? 0 : 0.65 + random() * 0.6,
             end = V(
@@ -287,34 +273,34 @@ export function createHabitats(scene: THREE.Scene, obstacles: Obstacle[]) {
     }
     finish(b, `desert-plants-${row}`);
   }
-  // Deterministic dry meadow and coastal ecotone fill. Keep this as small
-  // region-local batches and preserve all ride lines and authored discoveries.
-  // Sparse clumps avoid the empty procedural-plane look without making every
-  // square meter equally forested.
-  for (let row = 0; row < 4; row++) {
+  // Ecotones cover unoccupied foothills and valley interiors without making
+  // forests, the arid bike loop or alpine slopes look uniformly planted.
+  // Six narrow strips keep spatial bounds and frustum culling predictable.
+  for (let row = 0; row < 6; row++) {
     const b = new GeometryBatch();
-    for (let i = 0; i < 150; i++) {
-      const x = -28 + random() * 83;
-      const z = -26 + row * 18 + random() * 18;
+    for (let i = 0; i < 240; i++) {
+      const x = -29 + random() * 85;
+      const z = -59 + row * 18 + random() * 18;
       const p = { x, z };
       const sample = biomeAt(p);
-      const patch = sample.weights["coastal-scrub"] + sample.weights.redwood * 0.3;
-      if (clear(p) || random() > Math.min(0.75, patch * 0.55) ||
-          sample.slope > 1.15 || sample.weights.desert > 0.55 ||
-          sample.weights.rainforest > 0.35) continue;
-      const y = terrainHeight(x, z), h = .3 + random() * .8;
+      const patch = 0.7 + 0.3 * Math.sin(x * 0.23 + z * 0.18) ** 2;
+      if (clear(p) || random() > understoryDensityAt(p) * patch) continue;
+      const y = terrainHeight(x, z), h = 0.25 + random() * 0.72;
       const count = 3 + Math.floor(random() * 3);
       for (let j = 0; j < count; j++) {
         const a = j * 2.399 + i;
-        add(b, blade, j % 2 ? "#7e8762" : "#687b55",
-          x + Math.cos(a) * .2, y + .04,
-          z + Math.sin(a) * .2,
-          .24 + random() * .16, h, .2, .55, a, 0);
+        const scrub = sample.weights["coastal-scrub"] > 0.35;
+        const lx = x + Math.cos(a) * 0.24, lz = z + Math.sin(a) * 0.24;
+        add(b, blade, scrub
+            ? (j % 2 ? "#7e8762" : "#87916b")
+            : (j % 2 ? "#62845d" : "#769168"),
+          lx, terrainHeight(lx, lz) + 0.035, lz,
+          0.19 + random() * 0.14, h, 0.15, 0.55, a, 0);
       }
     }
     finish(b, `scrub-ecotone-${row}`);
   }
-    const canopyPerches: { x: number; z: number; y: number }[] = [];
+  const canopyPerches: { x: number; z: number; y: number }[] = [];
   // Layered redwood understory and tropical canopy. Rainforest gets three
   // overlapping spatial bands so canopy continuity survives long walks without
   // turning the whole biome into one giant geometry batch.

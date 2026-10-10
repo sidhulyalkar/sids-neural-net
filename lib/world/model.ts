@@ -1,3 +1,4 @@
+import { desertTrackHeightOffset } from "./desertTrack";
 /** Small, deterministic geography shared by the renderer, navigation and tests. */
 export type RegionId = "grove" | "mountain" | "neural" | "coast" | "lagoon" | "waterfall" | "canyon" | "cavern" | "desert" | "rainforest";
 export type Point = { x: number; z: number };
@@ -286,19 +287,8 @@ export function terrainHeight(x: number, z: number): number {
   const outletBed = rawTerrainHeight(-32, -7) * (1 - outletT) + (SEA_SURFACE - 0.2) * outletT;
   base += (outletBed - base) * outletMask;
 
-  // A low sculpted dirt flow-line is part of the ground itself, so bike tires,
-  // feet and ground contact agree on its shape. The clear central runout remains
-  // obstacle-free, with Joshua trees on its shoulders.
-  for (const roller of [
-    { x: 36, z: -43, rise: 0.75 },
-    { x: 36, z: -34, rise: 1.05 },
-    { x: 36, z: -25, rise: 0.9 },
-    { x: 36, z: -16, rise: 0.7 },
-  ]) {
-    const dx = (x - roller.x) / 4.0;
-    const dz = (z - roller.z) / 2.9;
-    base += roller.rise * Math.exp(-2 * (dx * dx + dz * dz));
-  }
+  // Terrain mesh, feet, tires and vegetation all use the same sculpted loop.
+  base += desertTrackHeightOffset({ x, z });
 
   // The only surface cuts are short entrance aprons. Past each mouth, the
   // mountain roof remains the ordinary continuous heightfield.

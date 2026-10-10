@@ -88,9 +88,29 @@ export function biomeAt(p: Point) {
     },
   };
 }
+/**
+ * Understory opportunity on the unbuilt parts of the island. Coverage varies
+ * continuously with biome/soil/slope: alpine stays open, Joshua tread stays dry,
+ * beaches stay sandy and transition valleys gain grass/sage instead of bare mesh.
+ * Local game/route clearances are applied later by createHabitats.
+ */
+export function understoryDensityAt(p: Point) {
+  if (isWater(p)) return 0;
+  const b = biomeAt(p);
+  const w = b.weights;
+  const base = 0.12 + 0.42*w["coastal-scrub"] + 0.24*w.redwood + 0.14*w.rainforest;
+  const soil = 0.55 + 0.45*b.substrate.soil;
+  const cliff = 1 - 0.9*smooth(0.8, 2.2, b.slope);
+  return Math.max(0, Math.min(0.72,
+    base * soil * cliff *
+    (1 - 0.93*w.alpine) *
+    (1 - 0.90*w.desert) *
+    (1 - w["cold-beach"])));
+}
+
 export const DESERT_FORMATIONS = [
   // Low, weathered outcrops stay away from the central dirt loop.
   { id: "talus-north", x: 52, z: -49, sx: 2.4, sy: 1.15, sz: 3.1 },
   { id: "talus-east", x: 53, z: -22, sx: 2.6, sy: 1.3, sz: 3.0 },
-  { id: "talus-south", x: 46, z: -8, sx: 2.1, sy: 1.05, sz: 2.5 },
+  { id: "talus-south", x: 53, z: -5, sx: 2.1, sy: 1.05, sz: 2.5 },
 ] as const;
