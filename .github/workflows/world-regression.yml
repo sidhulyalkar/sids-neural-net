@@ -7,12 +7,14 @@ on:
       - 'lib/world/**'
       - 'components/world/**'
       - 'tests/world-*.test.ts'
+      - 'scripts/audit-island.ts'
       - '.github/workflows/world-regression.yml'
   pull_request:
     paths:
       - 'lib/world/**'
       - 'components/world/**'
       - 'tests/world-*.test.ts'
+      - 'scripts/audit-island.ts'
       - '.github/workflows/world-regression.yml'
   workflow_dispatch:
 
@@ -52,8 +54,22 @@ jobs:
           tests/world-contract.test.ts
           tests/world-habitats.test.ts
           tests/world-shasta-character.test.ts
+          lib/world/occupancy.ts
+          tests/world-occupancy.test.ts
+          scripts/audit-island.ts
           --max-warnings=0
       - name: Run all world unit contracts
         run: node --import tsx --test tests/world-*.test.ts
+      - name: Produce island occupancy evidence
+        run: node --import tsx scripts/audit-island.ts
+      - name: Upload occupancy evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: world-occupancy-${{ github.sha }}
+          path: |
+            artifacts/world/island-occupancy.json
+            artifacts/world/island-occupancy.csv
+            artifacts/world/island-occupancy.svg
+          if-no-files-found: error
       - name: Validate procedural world scenes
         run: npm run check:world3d

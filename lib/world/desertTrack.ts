@@ -186,7 +186,8 @@ export function desertTrackHeightOffset(p: Point): number {
   if (frame.distance > 7) return 0;
   const tread = 1-smooth(1.1,3.5,frame.distance);
   let offset = -0.12*tread;
-  if (frame.segment.includes("turn")) {
+  if (frame.segment === "lower-turn-a" || frame.segment === "upper-turn" ||
+      frame.segment === "lower-turn-b") {
     // Outside shoulder creates a broad berm, feathered at the bank edge.
     offset += 0.75*smooth(-0.5,2.6,frame.lateral)*
       (1-smooth(3.4,6.5,frame.lateral));
