@@ -411,7 +411,8 @@ export function createWorld(
   const obstacles: Obstacle[] = [];
   const trees = [
     { x: -10, z: 6, h: 24, r: 1.4 },
-    { x: 9, z: 1, h: 27, r: 1.5 },
+    // Keep the large grove tree away from the new western scrub return.
+    { x: 3, z: 1, h: 27, r: 1.5 },
     { x: -5, z: -7, h: 29, r: 1.7 },
     { x: 17, z: 15, h: 20, r: 1.1 },
     { x: -13, z: 23, h: 21, r: 1.2 },

@@ -1,6 +1,38 @@
 # Sid's World: Island Expansion vNext — executable scope and acceptance contract
 
-Status: **SCOPED, NOT YET IMPLEMENTED**. Requested 2026-10-10.
+Status: **IN PROGRESS**. Scope approved 2026-10-10. The initial island audit and
+measured expanded-course tranche are implemented; later features remain pending.
+Current implementation data must be read from the feature branch, not the frozen
+initial-baseline inventory below.
+
+### Execution ledger (2026-10-10)
+
+- **Tranche 0 (first survey) complete:** `lib/world/occupancy.ts`,
+  `scripts/audit-island.ts`, `tests/world-occupancy.test.ts`. At 6-unit
+  sampling, 384 cells (367 land, 17 water) were classified; 3 are flagged
+  `needs-review`. This is a semantic suitability proxy, NOT pixel-verified
+  vegetation occupancy. The workflow saves SVG, JSON and CSV audit artifacts.
+- **Tranche 1 (3× course geometry) code and CI complete:** `desertTrack.ts`
+  replaces the 91.416-unit capsule with a **305.4886-unit** closed, sampled
+  single-lap centerline, four long corridors, three real hairpin curves and a
+  wide northern/scrub return. Spatial bucketing limits nearest-segment queries.
+  Sport clearance, route points, terrain, jumps and ground pigment share the
+  source. The climbing ledges, boulder groups, waypoint/photography turnout
+  and ridge log were moved off the course. Read updated path coordinates and
+  dynamic region locations from the source, not the draft blockout below.
+- The current three desert jumps remain **solid sculpted kickers**, not true
+  lowered arroyo/fallen-tree gaps. **Tranche 2 is NOT complete.** The proposed
+  bypasses, underjump behavior, revised obstacle meshes and landing physics
+  must be implemented and tested separately.
+- Desert and rainforest fauna additions, photo ingestion, shape-changing fish
+  schools, trident objects and all-island visible infill are **NOT complete**
+  under this expanded contract. Prior biome elements remain available.
+- Regression evidence: [World Landscape Regression 38068793072](https://github.com/sidhulyalkar/sids-neural-net/actions/runs/38068793072)
+  passed dedicated world unit tests, typecheck, lint, audit report generation
+  and the separate World Loom validator. **Manual browser visual review,
+  actual WebGL render budget and site-wide security checks are still gates.**
+
+
 Parent architecture: [astra-world-biome-master-spec.md](astra-world-biome-master-spec.md).
 Baseline feature branch: feat/sids-world @ 70e21ce65a1c35278a380543f5798d0167c38a90.
 Existing targeted contract: [joshua-basin-pump-track.md](joshua-basin-pump-track.md).
