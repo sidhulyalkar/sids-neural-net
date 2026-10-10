@@ -50,7 +50,7 @@ export function waterfallProfile() {
   return {
     floorY,
     lip: { x: -20, z: -30, y: Math.max(floorY + 5.35, terrainHeight(-20, -30) + 0.14) },
-    pool: { x: -20, z: -27, y: floorY + 0.08 },
+    pool: { x: -20, z: -27, y: floorY + 0.22 },
   };
 }
 
