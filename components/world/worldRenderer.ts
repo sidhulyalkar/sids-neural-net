@@ -2354,6 +2354,7 @@ export function createWorld(
     command: null,
     activity: "run",
     actionSerial: 0,
+    challengeSerial: 0,
     waterAction: "dive",
     waterActionSerial: 0,
   };

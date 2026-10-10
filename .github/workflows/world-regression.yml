@@ -9,6 +9,7 @@ on:
       - 'tests/world-*.test.ts'
       - 'scripts/audit-island.ts'
       - 'scripts/audit-desert-gaps.ts'
+      - 'scripts/audit-ski-flight.ts'
       - '.github/workflows/world-regression.yml'
   pull_request:
     paths:
@@ -17,6 +18,7 @@ on:
       - 'tests/world-*.test.ts'
       - 'scripts/audit-island.ts'
       - 'scripts/audit-desert-gaps.ts'
+      - 'scripts/audit-ski-flight.ts'
       - '.github/workflows/world-regression.yml'
   workflow_dispatch:
 
@@ -77,6 +79,8 @@ jobs:
         run: node --import tsx scripts/audit-island.ts
       - name: Audit physical gap and flight cross sections
         run: node --import tsx scripts/audit-desert-gaps.ts
+      - name: Survey preliminary ski flight corridors
+        run: node --import tsx scripts/audit-ski-flight.ts
       - name: Upload occupancy evidence
         uses: actions/upload-artifact@v4
         with:
@@ -87,6 +91,7 @@ jobs:
             artifacts/world/island-occupancy.svg
             artifacts/world/desert-gap-profiles.json
             artifacts/world/desert-gap-profiles.svg
+            artifacts/world/ski-flying-candidate-audit.json
           if-no-files-found: error
       - name: Validate procedural world scenes
         run: npm run check:world3d

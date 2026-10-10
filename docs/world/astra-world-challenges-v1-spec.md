@@ -1,6 +1,41 @@
 # World Challenges v1: riding terrain, field puzzles, racing and alpine big air
 
-**Status: PLANNED / NOT IMPLEMENTED.** Scoped 2026-10-10. Owner: World lead / Astra integration.
+**Status: IN DEVELOPMENT.** Scoped 2026-10-10. Owner: World lead / Astra integration.
+The ledger below distinguishes implementation from remaining visual qualification.
+
+## Implementation ledger (2026-10-10)
+
+- **P1 technical-trail prototype implemented on `feat/sids-world`:**
+  `lib/world/technicalFeatures.ts` authoritatively defines three deterministic
+  compact rock gardens (two Joshua lines, one redwood weave) and three
+  low taper-ended beams (two redwood, one scrub). Terrain mesh overlay,
+  small stones and plank geometry share the analytic heights used by
+  rider support. All visuals are baked into **one extra mesh**, with
+  explicit disposal and corridor clearance. This is a first terrain
+  prototype, not a claim of high-fidelity bike suspension or tire physics.
+- **P2 Joshua Adventure Lap MVP implemented:** `lib/world/trials.ts`
+  contains ordered 12-gate swept crossing validation, direction,
+  mode, continuity, corridor and gap-bypass fairness checks. The existing
+  World dock offers an opt-in Joshua Lap start, a compact running
+  timer/checkpoint HUD, finish/retry and a versioned local personal best.
+  Stakes appear beside the actual shared track route. The app does not
+  require signup or offer a global leaderboard. The release is contingent
+  on both CI and manual browser riding/UX signoff.
+- **P0 ski-flight *preliminary survey* scripted:** `scripts/audit-ski-flight.ts`
+  tests plausible run-ins, headings and initial ballistic trajectories
+  against analytic terrain, coasts, caves, existing destination markers
+  and sport corridors, exporting a machine-readable CI artifact.
+  It **does not** prove any landing corridor safe against vegetation,
+  3D scene props or camera clipping. **No large ski jump has been built.**
+- **Not yet implemented:** challenge-local Big Air physics/receiving slope;
+  granite counterweight, deadwood bridge and canopy-light environmental
+  puzzles; alpine slalom, ghost replay and technical-section speed trials.
+- **Go/no-go:** world CI green, physical preview inspection for beams and
+  rocks, at least one manually completed non-cheating lap, mobile review,
+  and real render draw/triangle budgets remain necessary. Site-wide
+  security/FRONTIER failures are separately tracked, never bypassed.
+
+
 Authority: [world biome master](astra-world-biome-master-spec.md) governs terrain, cave, waterfall and region identity. [island expansion vNext](astra-island-expansion-vnext-spec.md) governs Joshua lap, gapped jumps, ecology, fish, tridents and budgets. This document is newest authority only for **optional World challenges, technical features, time trials and alpine distance-jump gameplay**.
 
 ## 1. Product goals and creative constraints
