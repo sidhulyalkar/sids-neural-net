@@ -48,6 +48,8 @@ jobs:
           lib/world/technicalFeatures.ts
           components/world/worldTechnicalGeometry.ts
           tests/world-technical-features.test.ts
+          lib/world/trials.ts
+          tests/world-trials.test.ts
           lib/world/activities.ts
           lib/world/biomes.ts
           lib/world/ecology.ts
