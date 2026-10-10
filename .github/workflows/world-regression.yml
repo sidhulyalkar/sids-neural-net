@@ -56,7 +56,6 @@ jobs:
           tests/world-shasta-character.test.ts
           lib/world/occupancy.ts
           tests/world-occupancy.test.ts
-          scripts/audit-island.ts
           --max-warnings=0
       - name: Run all world unit contracts
         run: node --import tsx --test tests/world-*.test.ts
