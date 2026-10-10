@@ -79,6 +79,18 @@ test("water and bounds preserve last lie and refund the shot",()=>{
  assert.equal(retry.strokes,1);
  assert.equal(retry.phase,"flying");
 });
+test("water masks take precedence over elevated analytic terrain",()=>{
+  const falseGround=()=>3;
+  let s=startDiscGolf(0,falseGround,0);
+  s={...s,lie:{x:-2,z:0},disc:{x:-2,z:0,y:5},
+    phase:"flying",strokes:1,flightTime:0,
+    velocity:{x:9,y:-.5,z:0},lockedWind:{x:0,z:0,speed:0}};
+  for(let i=0;i<350&&s.phase==="flying";i++)
+    s=stepDiscGolf(s,.05,falseGround,p=>p.x>0,0);
+  assert.equal(s.phase,"water",JSON.stringify(s));
+  assert.equal(s.strokes,0);
+  assert.deepEqual(s.lie,{x:-2,z:0});
+});
 test("moving chains catch discs in the target zone and scoring is explicit",()=>{
  const s=startDiscGolf(2,ground,5);
  const basket=discGolfBasketPosition(DISC_GOLF_HOLES[s.holeIndex],s.clock);

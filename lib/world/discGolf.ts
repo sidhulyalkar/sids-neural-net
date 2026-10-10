@@ -117,7 +117,9 @@ export function stepDiscGolf(state:DiscGolfState,dt:number,
    s.reason="Water shot: free redo from last lie";
    break;
   }
-  if(next.y<=ground(p)+.16 && s.flightTime>.12){
+  // The island's analytic hillside height is not the sea surface.
+  // Never turn open water into a valid lie just because terrainHeight is high.
+  if(!isWater(p) && next.y<=ground(p)+.16 && s.flightTime>.12){
    s.phase="landed";s.disc={x:p.x,z:p.z,y:ground(p)+.16};
    s.lie={x:p.x,z:p.z};
    s.lastDistance=Math.hypot(p.x-state.lie.x,p.z-state.lie.z);
