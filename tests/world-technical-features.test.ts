@@ -81,13 +81,18 @@ test("rendered rock and beam mesh is one bounded disposable batch with finite sa
   for(const beam of BALANCE_BEAMS){
     const center={x:(beam.start.x+beam.end.x)/2,
       z:(beam.start.z+beam.end.z)/2};
-    const expected=terrainHeight(center.x,center.z)+beamRiseAt(beam,center)!;
+    const dx=beam.end.x-beam.start.x,dz=beam.end.z-beam.start.z;
+    const length=Math.hypot(dx,dz);
+    // Box-geometry vertices sit on the top *edges*, not the centerline.
+    const p={x:center.x+(dz/length)*beam.halfWidth,
+      z:center.z-(dx/length)*beam.halfWidth};
+    const expected=terrainHeight(p.x,p.z)+beamRiseAt(beam,p)!;
     let nearest=Infinity;
     for(let i=0;i<pos.count;i++) {
-      const delta=Math.hypot(pos.getX(i)-center.x,pos.getZ(i)-center.z);
-      if(delta<.15)nearest=Math.min(nearest,Math.abs(pos.getY(i)-expected));
+      const delta=Math.hypot(pos.getX(i)-p.x,pos.getZ(i)-p.z);
+      if(delta<.17)nearest=Math.min(nearest,Math.abs(pos.getY(i)-expected));
     }
-    assert.ok(nearest<.075,`${beam.id}: deck visibly matches analytic foot support`);
+    assert.ok(nearest<.075,`${beam.id}: top deck edges match support`);
   }
   a.dispose();b.dispose();
   assert.equal(scene.children.length,0);

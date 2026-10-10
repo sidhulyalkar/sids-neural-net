@@ -64,10 +64,13 @@ export function beamLocal(beam:BalanceBeam,p:Point){
 }
 export function beamRiseAt(beam:BalanceBeam,p:Point):number|null {
   const {along,side,length}=beamLocal(beam,p);
-  if(along<0||along>length||Math.abs(side)>beam.halfWidth)return null;
+  if(along < -1e-7 || along > length+1e-7 ||
+    Math.abs(side)>beam.halfWidth+1e-7)return null;
+  // Endpoint interpolation has subnanometer floating-point drift.
+  const s=clamp(along,0,length);
   // Roll-on and roll-off lower to zero without teleport or height discontinuity.
-  const easing=smooth(0,beam.entry,along)*
-    (1-smooth(length-beam.entry,length,along));
+  const easing=smooth(0,beam.entry,s)*
+    (1-smooth(length-beam.entry,length,s));
   return beam.rise*easing;
 }
 /** Compute a point's supported height using the SAME elevation as the mesh.
