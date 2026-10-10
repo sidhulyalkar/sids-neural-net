@@ -1,6 +1,7 @@
 import { desertTrackTreadBlend, DESERT_GAP_DEBRIS, DESERT_JUMPS, DESERT_TRACK_LENGTH } from "@/lib/world/desertTrack";
 import { createFishGeometry, createFishBodyGeometry, createCaudalFinGeometry, createDorsalFinGeometry, createPectoralFinGeometry, createSharkGeometry, createRayWingGeometry } from "./worldFaunaGeometry";
 import { createReefGarden } from "./worldReef";
+import { createTechnicalGeometry } from "./worldTechnicalGeometry";
 import { createMarineSchools } from "./worldSchools";
 import { createWorldTridents } from "./worldTridents";
 import { nearbyUnderwaterTrident } from "@/lib/world/artifacts";
@@ -737,6 +738,8 @@ export function createWorld(
   markerObjects.push(markerHitMesh);
   instances(rockGeo, mat("#8d9185"), cairnPieces, false);
   const habitats = createHabitats(scene, obstacles);
+  const technicalFeatures = createTechnicalGeometry(scene);
+  canvas.dataset.technicalFeatures = "3-gardens-3-beams";
   // Deep fallen-Joshua debris catches riders who underjump, but airborne
   // riders pass above it without an infinite-height 2D collision column.
   const groundedObstacles: Obstacle[] = [...obstacles, ...DESERT_GAP_DEBRIS];
@@ -4177,6 +4180,7 @@ export function createWorld(
       } else schedule();
     },
     dispose() {
+      technicalFeatures.dispose();
       habitats.dispose();
       reefGarden.dispose();
       marineSchools.dispose();

@@ -1,4 +1,5 @@
 import { desertTrackClearance, desertTrackGroundRoute, DESERT_JUMPS } from "./desertTrack";
+import { beamSupportHeight, technicalFeatureClearance } from "./technicalFeatures";
 import {
   constrainMove,
   distance,
@@ -279,6 +280,8 @@ export function groundHeight(p: Point) {
   if (isWater(p)) return height;
   for (const ramp of RIDE_RAMPS)
     height = Math.max(height, rampSurface(ramp, p) ?? -Infinity);
+  const beam = beamSupportHeight(p, terrainHeight(p.x,p.z));
+  if (beam !== null) height = Math.max(height, beam);
   for (const hold of BOULDER_HOLDS) {
     if (distance(p, hold) <= hold.radius)
       height = Math.max(height, terrainHeight(hold.x, hold.z) + hold.height);
@@ -600,6 +603,7 @@ export function sportClearance(p: Point) {
   };
   return (
     desertTrackClearance(p) ||
+    technicalFeatureClearance(p) ||
     SPORT_ROUTES.some((r) =>
       r.id !== "desert-flow" && r.points.slice(1).some((b, i) => lineDistance(r.points[i], b) < 3),
     ) ||

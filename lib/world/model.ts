@@ -1,4 +1,5 @@
 import { desertTrackHeightOffset } from "./desertTrack";
+import { rockGardenHeightOffset } from "./technicalFeatures";
 /** Small, deterministic geography shared by the renderer, navigation and tests. */
 export type RegionId = "grove" | "mountain" | "neural" | "coast" | "lagoon" | "waterfall" | "canyon" | "cavern" | "desert" | "rainforest";
 export type Point = { x: number; z: number };
@@ -294,6 +295,7 @@ export function terrainHeight(x: number, z: number): number {
 
   // Terrain mesh, feet, tires and vegetation all use the same sculpted loop.
   base += desertTrackHeightOffset({ x, z });
+  base += rockGardenHeightOffset({ x, z });
 
   // The only surface cuts are short entrance aprons. Past each mouth, the
   // mountain roof remains the ordinary continuous heightfield.

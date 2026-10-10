@@ -45,6 +45,9 @@ jobs:
         run: >-
           npx eslint
           lib/world/desertTrack.ts
+          lib/world/technicalFeatures.ts
+          components/world/worldTechnicalGeometry.ts
+          tests/world-technical-features.test.ts
           lib/world/activities.ts
           lib/world/biomes.ts
           lib/world/ecology.ts
