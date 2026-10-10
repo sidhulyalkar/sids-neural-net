@@ -1,4 +1,4 @@
-import { desertTrackClearance, desertTrackCenterline, DESERT_JUMPS } from "./desertTrack";
+import { desertTrackClearance, desertTrackGroundRoute, DESERT_JUMPS } from "./desertTrack";
 import {
   constrainMove,
   distance,
@@ -585,7 +585,7 @@ export const SPORT_ROUTES = [
   {
     id: "desert-flow",
     // One complete measured lap, shared with terrain and landscaping.
-    points: desertTrackCenterline(24),
+    points: desertTrackGroundRoute(36),
   },
 ] as const;
 export function sportClearance(p: Point) {

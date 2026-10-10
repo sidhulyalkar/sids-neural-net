@@ -3,7 +3,7 @@ import test from "node:test";
 import * as THREE from "three/src/Three.Core.js";
 import {
   DESERT_TRACK, DESERT_TRACK_LENGTH, DESERT_JUMPS, desertJumpOffset,
-  desertTrackCenterline, desertTrackClearance, desertTrackSampleAt,
+  desertTrackCenterline, desertTrackGroundRoute, desertTrackClearance, desertTrackSampleAt,
   desertTrackFrame, desertTrackHeightOffset, desertTrackTreadBlend,
 } from "../lib/world/desertTrack";
 import { createHabitats } from "../components/world/worldHabitats";
@@ -50,7 +50,7 @@ test("expanded course measures >3x baseline, stays closed and uses extra island 
 test("bike can traverse the complete dirt flow without hitting decorative obstacles", () => {
   const scene=new THREE.Scene(), obstacles: Obstacle[]=[];
   const habitats=createHabitats(scene,obstacles);
-  const loop=desertTrackCenterline(48);
+  const loop=desertTrackGroundRoute(48);
   for(const [i,p] of loop.entries()) {
     for(const obstacle of obstacles)
       assert.ok(distance(p,obstacle)>obstacle.radius+0.32,

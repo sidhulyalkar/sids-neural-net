@@ -149,6 +149,42 @@ export function desertTrackCenterline(steps = 24): Point[] {
     i === count ? {x:knots[0].x,z:knots[0].z} : desertTrackSampleAt(i*DESERT_TRACK_LENGTH/count));
 }
 
+/**
+ * A complete non-jumping route using actual bypasses at both pits. Used by
+ * ground-oriented exploration paths and the slow-speed full-lap audit.
+ * It never pretends that the open gap is a traversable tabletop.
+ */
+export function desertTrackGroundRoute(steps=48):Point[] {
+  const gaps=DESERT_JUMPS.filter(j=>j.kind==="gap")
+    .map(j=>({jump:j,start:desertTrackFrame(j.point).s-5.5,
+      end:desertTrackFrame(j.point).s+j.landing+4.5}))
+    .sort((a,b)=>a.start-b.start);
+  const result:Point[]=[];
+  const push=(p:Point)=>{
+    if(!result.length||dist(result[result.length-1],p)>1e-6)result.push(p);
+  };
+  const addInterpolated=(points:readonly Point[])=>{
+    for(let i=1;i<points.length;i++) {
+      const a=points[i-1],b=points[i],n=Math.ceil(dist(a,b)/0.6);
+      for(let k=1;k<=n;k++)
+        push({x:a.x+(b.x-a.x)*k/n,z:a.z+(b.z-a.z)*k/n});
+    }
+  };
+  const count=Math.max(192,steps*4);
+  let used=0;
+  for(let i=0;i<=count;i++) {
+    const along=i*DESERT_TRACK_LENGTH/count;
+    while(used<gaps.length && along>=gaps[used].start) {
+      const gap=gaps[used++];
+      push(desertTrackSampleAt(gap.start));
+      addInterpolated(desertGapBypassPoints(gap.jump));
+    }
+    if(gaps.some(g=>along>g.start&&along<g.end))continue;
+    push(i===count?{x:knots[0].x,z:knots[0].z}:desertTrackSampleAt(along));
+  }
+  return result;
+}
+
 export function desertTrackClearance(p: Point) {
   if (p.x < 8 || p.x > 57 || p.z < -64 || p.z > 14) return false;
   return desertTrackFrame(p).distance < DESERT_TRACK.clearance ||
@@ -208,9 +244,13 @@ export function desertJumpOffset(p: Point): number {
 export function desertGapBypassPoints(jump: DesertJump): Point[] {
   if(jump.kind!=="gap")return [];
   const start=-5.5,end=jump.landing+4.5;
-  return [jumpWorld(jump,start),jumpWorld(jump,-2.2,2.8),
-    jumpWorld(jump,0.5,5.2),jumpWorld(jump,(jump.gapStart+jump.gapEnd)/2,5.3),
-    jumpWorld(jump,jump.gapEnd+0.6,5.2),jumpWorld(jump,jump.landing+2,2.8),
+  // Keep the east-return detour *inland*, away from the lagoon shoreline.
+  const sign=jump.id==="desert-step"?-1:1;
+  return [jumpWorld(jump,start),jumpWorld(jump,-2.2,sign*2.8),
+    jumpWorld(jump,0.5,sign*5.2),
+    jumpWorld(jump,(jump.gapStart+jump.gapEnd)/2,sign*5.3),
+    jumpWorld(jump,jump.gapEnd+0.6,sign*5.2),
+    jumpWorld(jump,jump.landing+2,sign*2.8),
     jumpWorld(jump,end)];
 }
 const segmentDistance=(p:Point,a:Point,b:Point)=>{

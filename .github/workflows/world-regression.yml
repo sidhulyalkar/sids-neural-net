@@ -51,6 +51,7 @@ jobs:
           components/world/worldHabitats.ts
           components/world/worldRenderer.ts
           tests/world-desert-track.test.ts
+          tests/world-desert-gaps.test.ts
           tests/world-contract.test.ts
           tests/world-habitats.test.ts
           tests/world-shasta-character.test.ts
