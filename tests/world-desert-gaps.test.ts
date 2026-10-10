@@ -90,6 +90,27 @@ test("jumped bike follows world-space trajectory above real dirt and lands",()=>
     assert.ok(passedGap && landed,jump.id+" must fly across and recover contact");
   }
 });
+test("failed jump has a walkable side escape without an airborne teleport",()=>{
+  for (const jump of gaps) {
+    const centerAlong=(jump.gapStart+jump.gapEnd)/2;
+    const escapeSide=jump.id==="desert-step"?-1:1;
+    let position=jumpWorld(jump,centerAlong);
+    let speed=2.4;
+    for (let side=0.2;side<=5.7;side+=0.2) {
+      const target=jumpWorld(jump,centerAlong,side*escapeSide);
+      const input={x:target.x-position.x,z:target.z-position.z};
+      const next=stepTravel(
+        {point:position,heading:input,speed},input,0.05,"run",
+        [...DESERT_GAP_DEBRIS],false,target,
+      );
+      assert.ok(distance(next.point,position)>0.005,
+        jump.id+" must permit walking out of the wash at side "+side);
+      position=next.point;speed=next.speed;
+    }
+    assert.ok(distance(position,jumpWorld(jump,centerAlong,5.7*escapeSide))<1.1);
+  }
+});
+
 test("a low-speed underjump enters the physical wash and can retreat by its bypass",()=>{
   for(const jump of gaps) {
     const tooSlow=jump.minSpeed-1;
