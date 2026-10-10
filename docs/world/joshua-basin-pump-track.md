@@ -91,3 +91,34 @@ Additional visual acceptance steps:
 - Inspect Shasta's eyes at front and side at rest and while following;
   confirm no spherical protrusion or artificial staring appearance
 - Record desktop/mobile frame behavior and look for sudden geometry pop.
+
+## Expanded long course and genuine gaps (2026-10-10)
+
+The original 91.416-unit capsule and its first three mounds documented
+above are historical. The live `DESERT_TRACK_LENGTH` is **305.4886 world
+units**, a single closed lap through four major riding lanes and an
+extended north/scrub return. The course uses a spatial-indexed centerline
+sampler; vegetation clearance and tread pigmentation are derived from it.
+
+The three current authored features:
+- `desert-table` at (35,-27), northbound: rollable tabletop;
+- `desert-hip` at (43,-39), southbound: actual excavated pit
+  containing a dead Joshua-tree skeleton;
+- `desert-step` at (51,-26.5), northbound: lowered dry arroyo, with
+  a raised receiving bank and shoreline-safe inland bypass.
+
+Real ground remains at the bottom of both pits. Failure to clear a
+jump can drop the player into the wash; there is no invisible no-support
+floor or instant reset. `rampImpulseCrossing` requires travel across the
+lip's oriented plane with sufficient speed. A separate
+`desertTrackGroundRoute` uses shallow dirt turnouts to bypass the gaps
+during a slow lap or walk; jumping riders stay on the centerline.
+Fallen wood is a ground-height obstacle only. The pit, lip, landing,
+grus scattering, bypass color and exclusion volumes all use the shared
+physical geometry, not duplicate artistic measurements.
+
+**Live validation:** `tests/world-desert-gaps.test.ts`, the expanded
+`tests/world-desert-track.test.ts` and all other `tests/world-*.test.ts`
+are included in the World Landscape Regression workflow. A green
+programmatic simulation does **not** replace manually recorded
+side-on screenshots and browser riding verification.

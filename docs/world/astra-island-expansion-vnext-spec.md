@@ -20,17 +20,32 @@ initial-baseline inventory below.
   source. The climbing ledges, boulder groups, waypoint/photography turnout
   and ridge log were moved off the course. Read updated path coordinates and
   dynamic region locations from the source, not the draft blockout below.
-- The current three desert jumps remain **solid sculpted kickers**, not true
-  lowered arroyo/fallen-tree gaps. **Tranche 2 is NOT complete.** The proposed
-  bypasses, underjump behavior, revised obstacle meshes and landing physics
-  must be implemented and tested separately.
+- **Tranche 2 (gapped riding, code + initial CI complete):** One rollable
+  tabletop remains. Two real excavated pits now exist: `desert-hip` spans
+  fallen-Joshua limbs and `desert-step` crosses a dry arroyo. Their takeoff,
+  negative terrain cut, opposite landing lip and runout use one
+  `DESERT_JUMPS` geometry contract in `desertTrack.ts`. Static wash stones,
+  exposed banks, weathered deadwood and bypass turnouts share the existing
+  desert habitat batching. `rampImpulseCrossing` activates only on a swept,
+  correctly oriented, speed-gated lip crossing. Rider collision with fallen
+  debris is gated by air height; grounded underjumps encounter the log, and
+  jumping riders pass above it. Slow travelers use
+  `desertTrackGroundRoute` to go around both gaps, preserving the 305.4886
+  unit full-lap centerline as the primary course. The explicit new
+  `tests/world-desert-gaps.test.ts` checks the pit, landing, direction,
+  speed, airborne trajectory and bypasses. Browser camera-side screenshots,
+  visual daylight-through-gap confirmation, and play-feel signoff remain
+  mandatory before marking Tranche 2 **fully accepted**.
 - Desert and rainforest fauna additions, photo ingestion, shape-changing fish
   schools, trident objects and all-island visible infill are **NOT complete**
   under this expanded contract. Prior biome elements remain available.
-- Regression evidence: [World Landscape Regression 38068793072](https://github.com/sidhulyalkar/sids-neural-net/actions/runs/38068793072)
-  passed dedicated world unit tests, typecheck, lint, audit report generation
-  and the separate World Loom validator. **Manual browser visual review,
-  actual WebGL render budget and site-wide security checks are still gates.**
+- Regression evidence: [World Landscape Regression 38071071075](https://github.com/sidhulyalkar/sids-neural-net/actions/runs/38071071075)
+  passed **81 world tests**, TypeScript, targeted lint, repeatable island
+  occupancy audit, and the separate World Loom validator. Short-landing
+  ground escape from both pits is now explicitly tested and passed in
+  [run 38071247793](https://github.com/sidhulyalkar/sids-neural-net/actions/runs/38071247793).
+  **Manual browser visual review, actual WebGL render budget, and existing
+  site-wide security checks are still gates.**
 
 
 Parent architecture: [astra-world-biome-master-spec.md](astra-world-biome-master-spec.md).

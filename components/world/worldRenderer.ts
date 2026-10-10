@@ -1,4 +1,4 @@
-import { desertTrackTreadBlend, DESERT_GAP_DEBRIS } from "@/lib/world/desertTrack";
+import { desertTrackTreadBlend, DESERT_GAP_DEBRIS, DESERT_JUMPS, DESERT_TRACK_LENGTH } from "@/lib/world/desertTrack";
 import { createFishGeometry, createFishBodyGeometry, createCaudalFinGeometry, createDorsalFinGeometry, createPectoralFinGeometry, createSharkGeometry, createRayWingGeometry } from "./worldFaunaGeometry";
 import { createReefGarden } from "./worldReef";
 import { createHabitats } from "./worldHabitats";
@@ -1377,6 +1377,10 @@ export function createWorld(
   canvas.dataset.shastaProfileVersion = SHASTA_CHARACTER.rendering.profileVersion;
   canvas.dataset.shastaTailStyle = SHASTA_CHARACTER.rendering.tailStyle;
   canvas.dataset.shastaHarness = String(SHASTA_CHARACTER.accessories.harnessInWorld);
+  // Lightweight exact-build browser audit contract; no debug teleport paths.
+  canvas.dataset.desertLapLength = DESERT_TRACK_LENGTH.toFixed(3);
+  canvas.dataset.desertGapCount = String(DESERT_JUMPS.filter(j=>j.kind==="gap").length);
+  canvas.dataset.desertBypasses = "2";
 
   // A barely visible paw-print detour; the dog heads here when you approach.
   const prints: Instance[] = [];

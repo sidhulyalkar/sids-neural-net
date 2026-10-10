@@ -39,11 +39,15 @@ try {
   assert.equal(await page.locator('canvas').getAttribute('data-shasta-sex'), 'male');
   assert.equal(await page.locator('canvas').getAttribute('data-shasta-profile'), 'husky-mix:lean-athletic');
   assert.equal(await page.locator('canvas').getAttribute('data-shasta-tail-parts'), '6');
-  assert.equal(await page.locator('canvas').getAttribute('data-shasta-eye'), '#b47a2f');
+  assert.equal(await page.locator('canvas').getAttribute('data-shasta-eye'), '#a87942');
   assert.equal(await page.locator('canvas').getAttribute('data-shasta-nose'), '#95645b');
-  assert.equal(await page.locator('canvas').getAttribute('data-shasta-profile-version'), 'photo-profile-v3-natural-coat');
+  assert.equal(await page.locator('canvas').getAttribute('data-shasta-profile-version'), 'photo-profile-v4-almond-eyes');
   assert.equal(await page.locator('canvas').getAttribute('data-shasta-tail-style'), 'continuous-relaxed-plume');
   assert.equal(await page.locator('canvas').getAttribute('data-shasta-harness'), 'false');
+  const lap=Number(await page.locator('canvas').getAttribute('data-desert-lap-length'));
+  assert.ok(lap>300&&lap<330,`expanded Joshua lap ${lap}`);
+  assert.equal(await page.locator('canvas').getAttribute('data-desert-gap-count'),'2');
+  assert.equal(await page.locator('canvas').getAttribute('data-desert-bypasses'),'2');
   await screenshot(page, 'desktop-welcome');
   await page.getByRole('button', { name: 'Explore world', exact: true }).click();
   const before = await page.locator('canvas').getAttribute('data-player');
