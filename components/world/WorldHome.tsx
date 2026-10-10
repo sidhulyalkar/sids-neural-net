@@ -104,7 +104,7 @@ export function WorldHome({ content }: { content: WorldContent }) {
     setDiscGolf(g);
     if(g.phase==="landed"||g.phase==="water"||g.phase==="holed"||g.phase==="off")
       setDiscGolfStage("idle");
-  },[]);
+  },[setDiscGolf,setDiscGolfStage]);
   const startDiscHole=(index:number)=>{
     setDiscGolfStage("idle");setDiscGolfHoleIndex(index);
     setBigAir(idleBigAir());
@@ -188,7 +188,7 @@ export function WorldHome({ content }: { content: WorldContent }) {
           JSON.stringify({version:JOSHUA_TRIAL.version,elapsedMs:next.elapsedMs}));
       } catch { /* A best remains visible during this session. */ }
     }
-  },[]);
+  },[setTrial,setPersonalBest]);
   const onBigAir=useCallback((next:BigAirState)=>{
     setBigAir(next);
     if(next.phase==="armed")lastSpokenFlightMarker.current=0;
@@ -218,7 +218,7 @@ export function WorldHome({ content }: { content: WorldContent }) {
           JSON.stringify({version:BIG_AIR.version,distance:next.distance}));
       }catch{/* Session results still work when storage is unavailable. */}
     }
-  },[]);
+  },[setBigAir,setBestFlight]);
   const onLocation = useCallback((r: RegionId, discovery: string | null) => {
     setRegion(r);
     setNearby(discovery);
