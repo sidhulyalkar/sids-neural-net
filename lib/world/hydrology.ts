@@ -13,10 +13,10 @@ function surfaceRibbon(points: WaterPoint[]) {
   const sampled = [points[0]];
   for (let i = 1; i < points.length; i++) {
     const a = points[i - 1], b = points[i];
-    const count = Math.ceil(Math.hypot(b.x - a.x, b.z - a.z) / .2);
+    const count = Math.ceil(Math.hypot(b.x - a.x, b.z - a.z) / .08);
     for (let j = 1; j <= count; j++) {
       const t = j / count, x = a.x + (b.x - a.x) * t, z = a.z + (b.z - a.z) * t;
-      sampled.push({ x, z, y: Math.max(a.y + (b.y - a.y) * t, terrainHeight(x, z) + .035) });
+      sampled.push({ x, z, y: Math.max(a.y + (b.y - a.y) * t, terrainHeight(x, z) + .1) });
     }
   }
   // Small undulations become gently descending reaches, never uphill water.
@@ -49,7 +49,7 @@ export function waterfallProfile() {
   const floorY = terrainHeight(-20, -27);
   return {
     floorY,
-    lip: { x: -20, z: -30, y: floorY + 5.35 },
+    lip: { x: -20, z: -30, y: Math.max(floorY + 5.35, terrainHeight(-20, -30) + 0.14) },
     pool: { x: -20, z: -27, y: floorY + 0.08 },
   };
 }

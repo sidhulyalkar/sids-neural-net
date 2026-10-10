@@ -161,7 +161,7 @@ export function arcadeCaveTerrainMask(x: number, z: number): number {
   const lateral = Math.abs(x - ARCADE_CAVE.entrance.x);
   // This is only a plan-view envelope for authored cave content and clearance.
   const core = caveHalfWidth(z) + 0.5;
-  const feather = 1.4;
+  const feather = 1.0;
   const lateralMask =
     lateral <= core
       ? 1
@@ -191,7 +191,7 @@ export function arcadeCaveFloorHeight(p: Point) {
     );
     return arcadeApproachY + (arcadeMouthY - arcadeApproachY) * t;
   }
-  return arcadeMouthY + 0.72 * smoothstep01((p.z - ARCADE_CAVE.entrance.z) / 5.5);
+  return arcadeMouthY + 0.72 * smoothstep01((p.z - ARCADE_CAVE.entrance.z) / 3.2);
 }
 export function paperCaveFloorHeight(p: Point) {
   const depth = smoothstep01((-p.z - 30) / 3.2);

@@ -116,6 +116,12 @@ test("each ramp has a continuous deck and terrain-supported vehicle contacts", a
     "../lib/world/activities"
   );
   for (const r of RIDE_RAMPS) {
+    if (r.id === "desert-step") {
+      // The pump-track kicker is terrain itself, not a separate wooden deck.
+      assert.equal(rampSurface(r, r.point), null);
+      assert.ok(Math.abs(groundHeight(r.point) - terrainHeight(r.point.x, r.point.z)) < 1e-8);
+      continue;
+    }
     const len = Math.hypot(r.heading.x, r.heading.z),
       f = { x: r.heading.x / len, z: r.heading.z / len };
     for (let t = 0.01; t < 1; t += 0.05) {
