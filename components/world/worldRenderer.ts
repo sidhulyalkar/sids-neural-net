@@ -3,6 +3,11 @@ import { JOSHUA_GATES, armJoshuaTrial, abortJoshuaTrial, tickJoshuaTrial, type T
 import { createFishGeometry, createFishBodyGeometry, createCaudalFinGeometry, createDorsalFinGeometry, createPectoralFinGeometry, createSharkGeometry, createRayWingGeometry } from "./worldFaunaGeometry";
 import { createReefGarden } from "./worldReef";
 import { createTechnicalGeometry } from "./worldTechnicalGeometry";
+import { createBigAirBirds } from "./worldBigAirBirds";
+import {
+  BIG_AIR,bigAirBirdCallout,bigAirCrossedLip,launchBigAir,
+  advanceBigAir,armBigAir,idleBigAir,type BigAirState,
+} from "@/lib/world/bigAir";
 import { createMarineSchools } from "./worldSchools";
 import { createWorldTridents } from "./worldTridents";
 import { nearbyUnderwaterTrident } from "@/lib/world/artifacts";
@@ -64,11 +69,13 @@ type Callbacks = {
   onLocation: (r: RegionId, d: string | null) => void;
   onInteract: (d: string) => void;
   onChallenge: (trial:TrialState) => void;
+  onBigAir: (flight:BigAirState) => void;
 };
 type State = {
   activity: Activity;
   actionSerial: number;
   challengeSerial: number;
+  bigAirSerial: number;
   waterAction: "dive" | "deeper" | "shallower" | "surface";
   waterActionSerial: number;
   entered: boolean;
@@ -742,6 +749,8 @@ export function createWorld(
   instances(rockGeo, mat("#8d9185"), cairnPieces, false);
   const habitats = createHabitats(scene, obstacles);
   const technicalFeatures = createTechnicalGeometry(scene);
+  const flyingBirds=createBigAirBirds(scene);
+  canvas.dataset.bigAirBirds=String(flyingBirds.count);
   canvas.dataset.technicalFeatures = "3-gardens-3-beams";
   // Deep fallen-Joshua debris catches riders who underjump, but airborne
   // riders pass above it without an infinite-height 2D collision column.
@@ -2355,6 +2364,7 @@ export function createWorld(
     activity: "run",
     actionSerial: 0,
     challengeSerial: 0,
+    bigAirSerial: 0,
     waterAction: "dive",
     waterActionSerial: 0,
   };
@@ -2374,6 +2384,8 @@ export function createWorld(
   let travel: Travel = { point: player, speed: 0, heading: { x: 0, z: -1 } };
   let airHeight = 0, verticalSpeed = 0, lastAction = 0, lastWaterAction = 0;
   let lastChallengeSerial=0, lastTrialUpdate=0;
+  let lastBigAirSerial=0,lastBigAirUpdate=0;
+  let bigAir:BigAirState=idleBigAir();
   let trial:TrialState={phase:"idle",nextGate:0,elapsedMs:0,splitsMs:[]};
   let aquatic: AquaticMode = "land", swimDepth = 0, targetDepth = 0;
   let climb: { from: Point; to: Point; fromY: number; toY: number; progress: number } | null = null;
@@ -2760,6 +2772,25 @@ export function createWorld(
           airHeight = 0.08;
           verticalSpeed = 2.5;
         }
+      } else if (bigAir.phase==="flying") {
+        bigAir=advanceBigAir(bigAir,dt,p=>groundHeight(p),isWater);
+        player={...bigAir.point};
+        playerY=bigAir.y;
+        airHeight=Math.max(0,playerY-supportHeight(player));
+        verticalSpeed=bigAir.verticalSpeed;
+        travel={point:player,speed:bigAir.horizontalSpeed,heading:BIG_AIR.heading};
+        if(bigAir.phase==="landed"||bigAir.phase==="missed") {
+          // No springy auto-hop on touchdown. Natural ground contact resumes
+          // after the challenge has settled, without a second ramp trigger.
+          airHeight=verticalSpeed=0;
+          playerY=supportHeight(player);
+          travel={...travel,speed:0};
+          lastRampAt=elapsed;
+          callbacks.onBigAir(bigAir);
+        } else if(elapsed-lastBigAirUpdate>.19) {
+          callbacks.onBigAir(bigAir);
+          lastBigAirUpdate=elapsed;
+        }
       } else if (aquatic !== "land") {
         const nextTravel = stepSwim(
           { ...travel, point: player },
@@ -2853,7 +2884,7 @@ export function createWorld(
             verticalSpeed = 0;
           }
           const modeForRamp = effectiveActivity(state.activity, player);
-          if (airHeight === 0 && elapsed - lastRampAt > 1.1) {
+          if (bigAir.phase!=="armed" && airHeight === 0 && elapsed - lastRampAt > 1.1) {
             const ramp = rampImpulseCrossing(
               previousPoint, player, travel.heading, modeForRamp, travel.speed,
             );
@@ -2869,6 +2900,16 @@ export function createWorld(
         }
       }
 
+      if(bigAir.phase==="armed" &&
+        bigAirCrossedLip(previousPoint,player,travel.heading,state.activity,
+          travel.speed,true) && airHeight<.10) {
+        bigAir=launchBigAir(player,supportHeight(player),travel.speed);
+        playerY=bigAir.y;
+        airHeight=Math.max(.04,playerY-supportHeight(player));
+        verticalSpeed=bigAir.verticalSpeed;
+        lastRampAt=elapsed;
+        callbacks.onBigAir(bigAir);
+      }
       const mode = effectiveActivity(state.activity, player);
       if(trial.phase==="armed" || trial.phase==="running") {
         const previousTrial=trial;
@@ -2984,6 +3025,11 @@ export function createWorld(
       canvas.dataset.speed = travel.speed.toFixed(2);
       canvas.dataset.height = playerY.toFixed(2);
       canvas.dataset.airborne = String(airHeight > 0 || !!climb || !!grind);
+      canvas.dataset.bigAirPhase=bigAir.phase;
+      canvas.dataset.bigAirDistance=bigAir.distance.toFixed(1);
+      canvas.dataset.bigAirBirdCallout=bigAir.phase==="flying"
+        ? bigAirBirdCallout(bigAir.distance)??"":"";
+      canvas.dataset.bigAirAltitude=(playerY-supportHeight(player)).toFixed(2);
       canvas.dataset.aquatic = aquatic;
       canvas.dataset.depth = swimDepth.toFixed(2);
       canvas.dataset.maxDepth = maxDiveDepth(player).toFixed(2);
@@ -3111,6 +3157,7 @@ export function createWorld(
         );
       }
       const cameraZoom =
+        bigAir.phase==="flying" ? 23 :
         aquatic === "dive"
           ? Math.min(zoom, 13.5)
           : aquatic === "surface"
@@ -4029,7 +4076,9 @@ export function createWorld(
       rayGeo.computeVertexNormals();
     }
     reefGarden.update(elapsed);
-    marineSchools.update(elapsed,window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+    const reducedFlightMotion=window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    marineSchools.update(elapsed,reducedFlightMotion);
+    flyingBirds.update(bigAir,elapsed,reducedFlightMotion);
     habitats.update(player);
     if(aquatic === "land" && scene.fog instanceof THREE.Fog) {
       const w = biomeAt({x:camera.position.x,z:camera.position.z}).weights;
@@ -4096,12 +4145,20 @@ export function createWorld(
       const requestedAction = next.actionSerial !== lastAction;
       const requestedWaterAction = next.waterActionSerial !== lastWaterAction;
       if (changedActivity) {
+        if(bigAir.phase==="armed"||bigAir.phase==="flying"){
+          bigAir={...bigAir,phase:"missed",reason:"Ski mode changed"};
+          callbacks.onBigAir(bigAir);
+        }
         clearInput();
         climb = null;
         grind = null;
         airHeight = verticalSpeed = 0;
       }
       state = next;
+      if(next.paused && (bigAir.phase==="armed"||bigAir.phase==="flying")){
+        bigAir={...bigAir,phase:"missed",reason:"Jump interrupted"};
+        callbacks.onBigAir(bigAir);
+      }
       if(next.paused && (trial.phase==="armed"||trial.phase==="running")) {
         trial=abortJoshuaTrial(trial,"Interrupted by menu or pause");
         callbacks.onChallenge(trial);
@@ -4125,6 +4182,28 @@ export function createWorld(
       }
       if (next.entered && !next.paused && (changedActivity || requestedAction || requestedWaterAction))
         canvas.focus({ preventScroll: true });
+      if(next.bigAirSerial!==lastBigAirSerial) {
+        lastBigAirSerial=next.bigAirSerial;
+        if(next.entered&&!next.paused){
+          player={...BIG_AIR.start};
+          travel={point:player,heading:{...BIG_AIR.heading},speed:0};
+          yaw=Math.atan2(-BIG_AIR.heading.x,-BIG_AIR.heading.z);
+          playerY=groundHeight(player);
+          airHeight=verticalSpeed=swimDepth=targetDepth=0;
+          climb=grind=null;
+          caveLayer="surface";
+          setAquaticMode("land");
+          destination=null;
+          clearInput();
+          dog={x:player.x+2,z:player.z-2};
+          dogVelocity={x:0,z:0};
+          dogSmoothedTarget={...dog};
+          dogGroundY=terrainHeight(dog.x,dog.z);
+          bigAir=armBigAir();
+          callbacks.onBigAir(bigAir);
+          canvas.focus({preventScroll:true});
+        }
+      }
       if(next.challengeSerial!==lastChallengeSerial) {
         lastChallengeSerial=next.challengeSerial;
         if(next.entered && !next.paused) {
@@ -4162,6 +4241,10 @@ export function createWorld(
       if (next.entered && (!wasEntered || (wasPaused && !next.paused)))
         canvas.focus({ preventScroll: true });
       if (next.command && next.command.serial !== lastSerial) {
+        if(bigAir.phase==="armed"||bigAir.phase==="flying"){
+          bigAir={...bigAir,phase:"missed",reason:"Region transfer"};
+          callbacks.onBigAir(bigAir);
+        }
         // Region fast travel is an explicit run invalidation, even if it
         // lands on a future checkpoint or is performed between frame ticks.
         if(trial.phase==="armed"||trial.phase==="running"){
@@ -4233,6 +4316,7 @@ export function createWorld(
       } else schedule();
     },
     dispose() {
+      flyingBirds.dispose();
       technicalFeatures.dispose();
       habitats.dispose();
       reefGarden.dispose();

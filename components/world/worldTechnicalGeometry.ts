@@ -2,6 +2,7 @@ import * as THREE from "three/src/Three.Core.js";
 import { GeometryBatch } from "./worldGeometry";
 import { terrainHeight } from "@/lib/world/model";
 import { JOSHUA_GATES } from "@/lib/world/trials";
+import { BIG_AIR } from "@/lib/world/bigAir";
 import {
   BALANCE_BEAMS, ROCK_GARDENS, beamRiseAt, rockGardenStones,
 } from "@/lib/world/technicalFeatures";
@@ -68,6 +69,37 @@ export function createTechnicalGeometry(scene:THREE.Scene) {
         V(p.x,terrainHeight(p.x,p.z)-.025,p.z),
         V(.20,.08,.20));
     }
+  }
+  // Local snow-surfaced run-in at the surveyed ski-flying lip. The sampled
+  // top uses terrainHeight, exactly as the collision support does, avoiding
+  // a hovering ramp on the lower-resolution island-wide mesh.
+  {
+    const center={x:BIG_AIR.lip.x,z:BIG_AIR.lip.z-2.55};
+    const points:number[]=[];
+    const segments=32,rings=9;
+    const v=(r:number,a:number)=>{
+      const x=center.x+Math.sin(a)*3.35*r;
+      const z=center.z+Math.cos(a)*5.5*r;
+      return [x,terrainHeight(x,z)+.028,z];
+    };
+    for(let ring=0;ring<rings;ring++)
+      for(let i=0;i<segments;i++){
+        const a=i*2*Math.PI/segments,b=(i+1)*2*Math.PI/segments;
+        const inner=ring/rings,outer=(ring+1)/rings;
+        const p0=v(inner,a),p1=v(outer,a),p2=v(outer,b),p3=v(inner,b);
+        points.push(...p0,...p1,...p2,...p0,...p2,...p3);
+      }
+    const surface=new THREE.BufferGeometry();
+    surface.setAttribute("position",new THREE.Float32BufferAttribute(points,3));
+    surface.computeVertexNormals();
+    batch.add(surface,"#dce4e1",V(0,0,0),V(1,1,1));
+    surface.dispose();
+    // A low left-hand takeoff flag is visible at speed but out of the
+    // skier's center lane and collision corridor.
+    const x=BIG_AIR.lip.x-2.25,z=BIG_AIR.lip.z;
+    const y=terrainHeight(x,z);
+    batch.add(box,"#7d847f",V(x,y+.8,z),V(.09,1.6,.09));
+    batch.add(box,"#be9a58",V(x+.24,y+1.47,z),V(.46,.17,.07));
   }
   // Natural paired stakes make time-trial planes readable without floating
   // sci-fi hoops. One baked material/mesh with the terrain features.

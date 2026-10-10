@@ -23,6 +23,9 @@ import { ACTIVITIES, activityConfig, type Activity, type AquaticMode } from "@/l
 import { COASTAL_FLORA, MARINE_LIFE } from "@/lib/world/ecology";
 import { UNDERWATER_TRIDENTS } from "@/lib/world/artifacts";
 import { JOSHUA_TRIAL, JOSHUA_GATES, type TrialState } from "@/lib/world/trials";
+import {
+  BIG_AIR,bigAirBirdCallout,idleBigAir,type BigAirState,
+} from "@/lib/world/bigAir";
 import styles from "./world.module.css";
 
 const WorldScene = dynamic(() => import("./WorldScene"), { ssr: false });
@@ -87,6 +90,18 @@ export function WorldHome({ content }: { content: WorldContent }) {
   const [activity, setActivity] = useState<Activity>("run");
   const [actionSerial, setActionSerial] = useState(0);
   const [challengeSerial,setChallengeSerial]=useState(0);
+  const [bigAirSerial,setBigAirSerial]=useState(0);
+  const [bigAir,setBigAir]=useState<BigAirState>(idleBigAir);
+  const [bestFlight,setBestFlight]=useState<number|null>(()=>{
+    if(typeof window==="undefined")return null;
+    try{
+      const raw=window.localStorage.getItem("sid-world:big-air:"+BIG_AIR.version);
+      const value=raw?JSON.parse(raw) as {distance?:number}:null;
+      return value&&typeof value.distance==="number"&&Number.isFinite(value.distance)&&
+        value.distance>=28&&value.distance<115?value.distance:null;
+    }catch{return null;}
+  });
+  const bestFlightRef=useRef(bestFlight);
   const [trial,setTrial]=useState<TrialState>({
     phase:"idle",nextGate:0,elapsedMs:0,splitsMs:[],
   });
@@ -129,6 +144,18 @@ export function WorldHome({ content }: { content: WorldContent }) {
         window.localStorage.setItem("sid-world:trial:"+JOSHUA_TRIAL.version,
           JSON.stringify({version:JOSHUA_TRIAL.version,elapsedMs:next.elapsedMs}));
       } catch { /* A best remains visible during this session. */ }
+    }
+  },[]);
+  const onBigAir=useCallback((next:BigAirState)=>{
+    setBigAir(next);
+    if(next.phase==="landed"&&
+      (!bestFlightRef.current||next.distance>bestFlightRef.current)){
+      bestFlightRef.current=next.distance;
+      setBestFlight(next.distance);
+      try{
+        window.localStorage.setItem("sid-world:big-air:"+BIG_AIR.version,
+          JSON.stringify({version:BIG_AIR.version,distance:next.distance}));
+      }catch{/* Session results still work when storage is unavailable. */}
     }
   },[]);
   const onLocation = useCallback((r: RegionId, discovery: string | null) => {
@@ -265,6 +292,7 @@ export function WorldHome({ content }: { content: WorldContent }) {
             activity={activity}
             actionSerial={actionSerial}
             challengeSerial={challengeSerial}
+            bigAirSerial={bigAirSerial}
             waterAction={waterAction}
             waterActionSerial={waterActionSerial}
             gameTitles={content.games.map(game => game.title)}
@@ -274,6 +302,7 @@ export function WorldHome({ content }: { content: WorldContent }) {
             onLocation={onLocation}
             onInteract={open}
             onChallenge={onChallenge}
+            onBigAir={onBigAir}
           />
         </SceneBoundary>
       )}
@@ -346,6 +375,12 @@ export function WorldHome({ content }: { content: WorldContent }) {
                 </button>
               </div>
               <p aria-live="polite">{activityConfig(activity).hint}</p>
+              {activity==="ski" && bigAir.phase!=="armed" && bigAir.phase!=="flying" && (
+                <button className={styles.trialLaunch} disabled={!ready||quiet}
+                  onClick={()=>setBigAirSerial(n=>n+1)}>
+                  Alpine Big Air · start
+                </button>
+              )}
               {activity==="bike" && trial.phase!=="armed" &&
                 trial.phase!=="running" && (
                 <button className={styles.trialLaunch} disabled={!ready||quiet}
@@ -377,6 +412,33 @@ export function WorldHome({ content }: { content: WorldContent }) {
                   <button onClick={()=>setTrial({
                     phase:"idle",nextGate:0,elapsedMs:0,splitsMs:[],
                   })}>Explore</button>
+                </div>
+              )}
+            </aside>
+          )}
+          {(bigAir.phase==="armed"||bigAir.phase==="flying"||
+            bigAir.phase==="landed"||bigAir.phase==="missed") && (
+            <aside className={styles.bigAirHud} aria-label="Alpine Big Air flight"
+              aria-live={bigAir.phase==="landed"||bigAir.phase==="missed"?"polite":"off"}>
+              <span className={styles.eyebrow}>ALPINE · BIG AIR</span>
+              <strong>{bigAir.distance.toFixed(1)} m</strong>
+              <p>{bigAir.phase==="armed"?"Ski downhill through the marked lip":
+                bigAir.phase==="flying"?
+                  (bigAirBirdCallout(bigAir.distance)??"Macaws joining your flight"):
+                bigAir.phase==="landed"?"Clean landing":
+                  bigAir.reason??"Flight ended"}</p>
+              {bigAir.phase==="flying"&&(
+                <small>Airborne {bigAir.airtime.toFixed(1)} s · 3 birds in formation</small>
+              )}
+              {bestFlight!==null&&(
+                <small>Best landing {bestFlight.toFixed(1)} m</small>
+              )}
+              {(bigAir.phase==="landed"||bigAir.phase==="missed")&&(
+                <div className={styles.trialActions}>
+                  <button onClick={()=>{
+                    setActivity("ski");setBigAirSerial(n=>n+1);
+                  }}>Retry jump</button>
+                  <button onClick={()=>setBigAir(idleBigAir())}>Explore</button>
                 </div>
               )}
             </aside>

@@ -1,5 +1,6 @@
 import { desertTrackClearance, desertTrackGroundRoute, DESERT_JUMPS } from "./desertTrack";
 import { beamSupportHeight, technicalFeatureClearance } from "./technicalFeatures";
+import { bigAirClearance } from "./bigAir";
 import {
   constrainMove,
   distance,
@@ -604,6 +605,7 @@ export function sportClearance(p: Point) {
   return (
     desertTrackClearance(p) ||
     technicalFeatureClearance(p) ||
+    bigAirClearance(p) ||
     SPORT_ROUTES.some((r) =>
       r.id !== "desert-flow" && r.points.slice(1).some((b, i) => lineDistance(r.points[i], b) < 3),
     ) ||

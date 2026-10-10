@@ -51,6 +51,10 @@ jobs:
           components/world/worldTechnicalGeometry.ts
           tests/world-technical-features.test.ts
           lib/world/trials.ts
+          lib/world/bigAir.ts
+          components/world/worldBigAirBirds.ts
+          tests/world-big-air.test.ts
+          components/world/WorldScene.tsx
           tests/world-trials.test.ts
           lib/world/activities.ts
           lib/world/biomes.ts

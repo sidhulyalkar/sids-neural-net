@@ -7,11 +7,13 @@ import styles from "./world.module.css";
 
 import type { Activity, AquaticMode } from "@/lib/world/activities";
 import type { TrialState } from "@/lib/world/trials";
+import type { BigAirState } from "@/lib/world/bigAir";
 
 type Props = {
   activity: Activity;
   actionSerial: number;
   challengeSerial: number;
+  bigAirSerial:number;
   waterAction: "dive" | "deeper" | "shallower" | "surface";
   waterActionSerial: number;
   gameTitles: string[];
@@ -24,6 +26,7 @@ type Props = {
   onLocation: (region: RegionId, discovery: string | null) => void;
   onInteract: (discovery: string) => void;
   onChallenge: (state:TrialState) => void;
+  onBigAir: (state:BigAirState) => void;
 };
 export default function WorldScene(props: Props) {
   const host = useRef<HTMLDivElement>(null);
@@ -46,6 +49,7 @@ export default function WorldScene(props: Props) {
           onLocation: (r, d) => callbacks.current.onLocation(r, d),
           onInteract: (d) => callbacks.current.onInteract(d),
           onChallenge: (trial) => callbacks.current.onChallenge(trial),
+          onBigAir: (flight) => callbacks.current.onBigAir(flight),
         }, WebGLRenderer, callbacks.current.gameTitles);
         runtime.current.setState(callbacks.current);
       } catch { callbacks.current.onError(); }

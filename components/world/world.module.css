@@ -660,6 +660,34 @@
   background:#203d39a8;
 }
 .trialLaunch:disabled { opacity:.45; }
+.bigAirHud {
+  position:absolute;
+  top:228px;
+  right:28px;
+  z-index:3;
+  min-width:208px;
+  max-width:278px;
+  padding:14px 16px;
+  border:1px solid #b8d4e8a3;
+  border-radius:12px;
+  color:#f8f7ef;
+  background:#173743eb;
+  box-shadow:0 12px 32px #10282c55;
+  pointer-events:auto;
+}
+.bigAirHud strong {
+  display:block;
+  margin:6px 0;
+  font-size:30px;
+  font-weight:600;
+  font-variant-numeric:tabular-nums;
+}
+.bigAirHud p,.bigAirHud small {
+  display:block;
+  margin-top:5px;
+  color:#e4e9e7;
+  font-size:12px;
+}
 .trialHud {
   position:absolute;
   right:28px;
@@ -744,6 +772,8 @@
 @media (max-width: 760px) {
   .activityDock { top: 96px; left: 16px; right: 16px; max-width: none; padding: 6px; }
   .trialHud {top:auto;bottom:108px;left:16px;right:auto;min-width:170px;max-width:calc(100% - 32px);padding:10px 12px;}
+  .bigAirHud {top:auto;bottom:108px;left:16px;right:auto;min-width:170px;max-width:calc(100% - 32px);padding:10px 12px;}
+  .bigAirHud strong {font-size:23px;}
   .trialHud strong {font-size:22px;}
   .trialLaunch {font-size:11px;min-height:32px;}
   .waterDock {
