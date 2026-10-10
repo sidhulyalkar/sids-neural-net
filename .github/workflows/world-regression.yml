@@ -57,6 +57,12 @@ jobs:
           tests/world-contract.test.ts
           tests/world-habitats.test.ts
           tests/world-shasta-character.test.ts
+          lib/world/schools.ts
+          lib/world/artifacts.ts
+          components/world/worldSchools.ts
+          components/world/worldTridents.ts
+          components/world/WorldHome.tsx
+          tests/world-marine-discoveries.test.ts
           lib/world/occupancy.ts
           tests/world-occupancy.test.ts
           --max-warnings=0

@@ -2,7 +2,7 @@ import * as THREE from "three/src/Three.Core.js";
 import { GeometryBatch } from "./worldGeometry";
 import { biomeAt, DESERT_FORMATIONS, smooth, understoryDensityAt } from "@/lib/world/biomes";
 import { BOULDER_HOLDS, sportClearance } from "@/lib/world/activities";
-import { RAINFOREST_CANOPY_WILDLIFE } from "@/lib/world/ecology";
+import { RAINFOREST_CANOPY_WILDLIFE, RAINFOREST_REPTILES, DESERT_ECOLOGY_ANCHORS } from "@/lib/world/ecology";
 import { DESERT_JUMPS, desertGapBypassPoints, jumpWorld } from "@/lib/world/desertTrack";
 import {
   terrainHeight,
@@ -181,6 +181,53 @@ export function createHabitats(scene: THREE.Scene, obstacles: Obstacle[]) {
         p.z,0.32,0.027,0.43,0,i*0.3);
     }
   }
+  // Basking reptiles, small coiled snakes and one roadrunner are intentionally
+  // still life. They never become bike hazards, threats or chase targets.
+  for(const [i,animal] of DESERT_ECOLOGY_ANCHORS.entries()){
+    const {x,z}=animal.point,y=terrainHeight(x,z)+.08;
+    if(isWater(animal.point)||sportClearance(animal.point))continue;
+    if(animal.kind==="sidewinder"||animal.kind==="rattlesnake"){
+      const length=animal.kind==="sidewinder"?13:17;
+      let previous=V(x+.4,y,z);
+      for(let j=1;j<=length;j++){
+        const t=j/length,angle=t*Math.PI*3.8+i,rad=.44*(1-t*.75);
+        const next=V(x+Math.cos(angle)*rad,y+.08,z+Math.sin(angle)*rad);
+        stem(granite,j%4===0?"#867b60":"#ad9976",previous,next,
+          .08*(1-t*.35));previous=next;
+      }
+      add(granite,sphere,"#a89679",previous.x,previous.y,previous.z,.13,.09,.18);
+      for(const side of [-1,1])
+        add(granite,sphere,"#342e25",previous.x+side*.078,previous.y+.047,
+          previous.z+.09,.022,.022,.018);
+    } else if(animal.kind==="roadrunner"){
+      add(granite,sphere,"#6d6257",x,y+.54,z,.22,.25,.49);
+      add(granite,sphere,"#817668",x,y+.9,z+.37,.15,.17,.19);
+      add(granite,leaf,"#bca97e",x,y+.86,z+.64,.10,.10,.31,Math.PI/2);
+      for(const side of [-1,1]){
+        stem(granite,"#8d6b53",V(x+side*.10,y+.32,z),
+          V(x+side*.13,y+.04,z+.07),.033);
+        stem(granite,"#7b705c",V(x+side*.12,y+.51,z-.3),
+          V(x+side*.24,y+.61,z-1.0),.05);
+      }
+    } else {
+      const big=animal.kind==="chuckwalla";
+      add(granite,sphere,big?"#867f66":"#b5a27c",x,y+.17,z,
+        big?.37:.26,big?.22:.12,big?.53:.45);
+      add(granite,sphere,"#9b8f70",x,y+.20,z+.49,.17,.13,.23);
+      for(const side of [-1,1]){
+        for(const front of [-1,1])
+          stem(granite,"#7c765b",V(x+side*.23,y+.16,z+front*.26),
+            V(x+side*.42,y+.04,z+front*.4),.048);
+        add(granite,sphere,"#2f3027",x+side*.11,y+.28,z+.64,.025,.025,.022);
+      }
+      let prev=V(x,y+.12,z-.40);
+      for(let t=1;t<=7;t++){
+        const next=V(x+Math.sin(t*.33)*.10,y+.1-t*.009,z-.4-t*.18);
+        stem(granite,big?"#85795e":"#ab9d7e",prev,next,.09*(1-t/9));
+        prev=next;
+      }
+    }
+  }
   finish(granite, "desert-granite");
   // Desert is divided into chunks so distant detail does not pop as one biome root.
   for (let row = 0; row < 3; row++) {
@@ -201,7 +248,14 @@ export function createHabitats(scene: THREE.Scene, obstacles: Obstacle[]) {
         upper = z < -22;
       if (upper && i % 2 === 0) {
         const h = 2.5 + random() * 2;
-        stem(b, "#716356", V(x, y, z), V(x, y + h, z), 0.19);
+        stem(b, "#847666", V(x, y, z), V(x, y + h, z), 0.19);
+        // Bark ribs on irregular branching trunks, blue-green spiky crowns.
+        for(let rib=0;rib<5;rib++){
+          const a=rib*2.4+i*.31;
+          stem(b,rib%2?"#6c6255":"#998775",
+            V(x+Math.cos(a)*.17,y+.3,z+Math.sin(a)*.17),
+            V(x+Math.cos(a)*.17,y+h*.74,z+Math.sin(a)*.17),.018);
+        }
         const arms = 2 + (Math.floor(i / 3) + row) % 3; // Juvenile through sparse multi-arm crowns.
         for (let a = 0; a < arms; a++) {
           const angle = a * 2.3 + i,
@@ -211,19 +265,19 @@ export function createHabitats(scene: THREE.Scene, obstacles: Obstacle[]) {
               y + h + 0.5 + random(),
               z + Math.sin(angle) * reach,
             );
-          stem(b, "#716356", V(x, y + h * 0.65, z), end, 0.13);
+          stem(b, a%2===0?"#837565":"#93816c", V(x, y + h * 0.65, z), end, 0.13);
           for (let j = 0; j < 16; j++) {
             const theta = j * 2.4;
             add(
               b,
               leaf,
-              j % 2 ? "#68735a" : "#8c9270",
+              j%3===0?"#a2a783":j%3===1?"#667c70":"#85967b",
               end.x + Math.cos(theta) * 0.2,
               end.y,
               end.z + Math.sin(theta) * 0.2,
-              0.085,
-              0.7,
-              0.06,
+              0.075,
+              0.87,
+              0.07,
               Math.cos(theta) * 0.7,
               theta,
               Math.sin(theta) * 0.7,
@@ -232,7 +286,7 @@ export function createHabitats(scene: THREE.Scene, obstacles: Obstacle[]) {
           add(
             b,
             leaf,
-            "#9c896a",
+            "#a39a7d",
             end.x,
             end.y - 0.28,
             end.z,
@@ -529,39 +583,25 @@ export function createHabitats(scene: THREE.Scene, obstacles: Obstacle[]) {
   }
   // Low-count canopy silhouettes: articulated limbs and branch attachment, no expensive rigs.
   const animals = new GeometryBatch();
-  for (const [i, perch] of canopyPerches.slice(0, 2).entries()) {
-    const { z } = perch, x = perch.x + 1;
-    if (i === 0) {
-      // Sloth hangs below the branch: compact trunk, long hooked limbs, short face.
-      const y = perch.y - 0.6;
-      add(animals, sphere, "#a2987b", x, y, z, 0.36, 0.38, 0.27);
-      add(animals, sphere, "#c0b99f", x + 0.3, y + 0.08, z + 0.1, 0.23, 0.21, 0.2);
-      for (const side of [-1, 1]) {
-        for (const front of [-1, 1]) {
-          const knee = V(x + side * 0.42, y + 0.2, z + front * 0.22);
-          stem(animals, "#8e856c", V(x + side * 0.2, y, z + front * 0.12), knee, 0.065);
-          stem(animals, "#8e856c", knee, V(x + side * 0.55, perch.y + 0.05, z), 0.055);
-        }
-        add(animals, sphere, "#675c4b", x + 0.34 + side * 0.07, y + 0.12, z + 0.28, 0.06, 0.035, 0.025);
-      }
-    } else {
-      // White-faced monkey sits above its support with bent legs and a curved tail.
-      const y = perch.y + 0.4;
-      add(animals, sphere, "#574b3d", x, y, z, 0.24, 0.36, 0.23);
-      add(animals, sphere, "#d0c6a6", x, y + 0.38, z + 0.06, 0.22, 0.22, 0.2);
-      add(animals, sphere, "#b5a587", x, y + 0.31, z + 0.22, 0.13, 0.1, 0.1);
-      for (const side of [-1, 1]) {
-        add(animals, sphere, "#a39174", x + side * 0.23, y + 0.38, z + 0.03, 0.07, 0.09, 0.045);
-        stem(animals, "#574b3d", V(x + side * 0.15, y + 0.12, z), V(x + side * 0.3, perch.y + 0.06, z), 0.055);
-        stem(animals, "#574b3d", V(x + side * 0.14, y - 0.2, z), V(x + side * 0.34, y - 0.14, z + 0.15), 0.075);
-        stem(animals, "#574b3d", V(x + side * 0.34, y - 0.14, z + 0.15), V(x + side * 0.2, perch.y + 0.03, z), 0.06);
-      }
-      let from = V(x, y - 0.2, z - 0.17);
-      for (let j = 1; j <= 8; j++) {
-        const t = j / 8, to = V(x + Math.sin(t * 2.7) * 0.65, y - 0.2 - t * 0.7, z - 0.17 - t * 0.5);
-        stem(animals, "#574b3d", from, to, 0.055 * (1 - t * 0.5));
-        from = to;
-      }
+  // One restrained white-faced monkey. The photographic sloth encounter
+  // below replaces the earlier duplicate, round-bodied generic sloth.
+  const monkeyPerch=canopyPerches[1];
+  if(monkeyPerch) {
+    const x=monkeyPerch.x+1,z=monkeyPerch.z,y=monkeyPerch.y+0.4;
+    add(animals,sphere,"#574b3d",x,y,z,.24,.36,.23);
+    add(animals,sphere,"#d0c6a6",x,y+.38,z+.06,.22,.22,.20);
+    add(animals,sphere,"#b5a587",x,y+.31,z+.22,.13,.10,.10);
+    for(const side of [-1,1]){
+      stem(animals,"#574b3d",V(x+side*.15,y+.12,z),
+        V(x+side*.3,monkeyPerch.y+.06,z),.055);
+      stem(animals,"#574b3d",V(x+side*.14,y-.20,z),
+        V(x+side*.2,monkeyPerch.y+.03,z+.15),.065);
+    }
+    let previous=V(x,y-.2,z-.17);
+    for(let k=1;k<=8;k++){
+      const t=k/8,to=V(x+Math.sin(t*2.7)*.65,
+        y-.2-t*.7,z-.17-t*.5);
+      stem(animals,"#574b3d",previous,to,.055*(1-t*.5));previous=to;
     }
   }
   for (const [x, z] of [
@@ -649,13 +689,43 @@ export function createHabitats(scene: THREE.Scene, obstacles: Obstacle[]) {
         add(animals, sphere, "#151a18", bx + side * 0.15, by + 0.78, bz + 0.206,
           0.018, 0.025, 0.016);
       }
+    } else if(wildlife.kind==="parrot") {
+      const body=i===5?"#3d9a65":"#709f4b";
+      add(animals,sphere,body,bx,by+.31,bz,.22,.32,.24);
+      add(animals,sphere,i===5?"#57b879":"#e0b651",
+        bx,by+.66,bz+.08,.20,.20,.20);
+      add(animals,leaf,"#d4a35a",bx,by+.59,bz+.28,
+        .09,.14,.21,Math.PI/2);
+      for(const side of [-1,1]){
+        add(animals,leaf,side===1?"#287b68":"#416d90",
+          bx+side*.20,by+.28,bz-.13,.17,.43,.18,side*.24,0);
+        add(animals,sphere,"#202c27",bx+side*.13,
+          by+.76,bz+.23,.022,.024,.018);
+        stem(animals,"#3f5141",V(bx+side*.08,by+.12,bz-.1),
+          V(bx+side*.11,by-.45,bz-.40),.035);
+      }
     } else {
-      // One quiet photo-inspired sloth, attached by four curled limbs.
+      // One photo-informed sloth clings sideways to a lichen-covered trunk.
       // No nonexistent archive image ID is minted for this encounter.
-      const sy = by - 0.45;
-      add(animals, sphere, "#9b9077", bx, sy, bz, 0.37, 0.42, 0.31);
-      add(animals, sphere, "#c2b69c", bx, sy + 0.19, bz + 0.28, 0.25, 0.22, 0.18);
-      add(animals, sphere, "#776750", bx, sy + 0.20, bz + 0.405, 0.08, 0.05, 0.03);
+      const sy=by-0.64;
+      // Inclined elongated torso, pale cheeks, charcoal eye mask and long
+      // gray-beige rough fur follow the actual supplied photograph.
+      add(animals,sphere,"#a8a28d",bx-.16,sy,bz,.36,.63,.33,0,0,-.31);
+      add(animals,sphere,"#c9bea3",bx+.10,sy+.32,bz+.28,.27,.24,.19);
+      add(animals,sphere,"#5c554d",bx+.14,sy+.30,bz+.43,.16,.12,.045);
+      add(animals,sphere,"#302b29",bx+.18,sy+.27,bz+.478,.045,.041,.028);
+      for(let hair=0;hair<13;hair++){
+        const a=hair*2.4,length=.17+(hair%4)*.06;
+        const start=V(bx-.16+Math.cos(a)*.25,
+          sy-.30+(hair%5)*.16,bz+Math.sin(a)*.25);
+        stem(animals,hair%2?"#b1aa95":"#c4bba5",start,
+          V(start.x+.04,start.y-length,start.z+.04),.014);
+      }
+      // Signature extended front arm reaches high around the trunk.
+      stem(animals,"#a7a08b",V(bx+.06,sy+.30,bz),
+        V(x+.50,by+.15,z+.05),.105);
+      stem(animals,"#b4ac97",V(x+.50,by+.15,z+.05),
+        V(x+.12,by+.65,z-.05),.081);
       for (const side of [-1, 1]) {
         for (const front of [-1, 1]) {
           const elbow = V(bx + side * 0.39, sy + front * 0.15, bz + front * 0.14);
@@ -666,6 +736,35 @@ export function createHabitats(scene: THREE.Scene, obstacles: Obstacle[]) {
           bz + 0.426, 0.067, 0.085, 0.024);
       }
     }
+  }
+  // Small yellow/green eyelash vipers and thick-bodied boas rest on explicit
+  // support limbs. Not a source of combat or movement collision. No anaconda
+  // is mislabeled as native to Manuel Antonio.
+  for(const reptile of RAINFOREST_REPTILES){
+    const {x,z}=reptile.point;
+    if(biomeAt(reptile.point).weights.rainforest<.30)continue;
+    const y=terrainHeight(x,z)+reptile.height;
+    stem(animals,"#665b49",V(x,y-.85,z),V(x+.88,y+.08,z),.12);
+    const radius=reptile.kind==="boa"?.72:.42;
+    let prev=V(x+.42+radius,y+.18,z);
+    const segments=reptile.kind==="boa"?22:14;
+    for(let j=1;j<=segments;j++){
+      const t=j/segments,a=t*Math.PI*(reptile.kind==="boa"?3.6:2.7);
+      const next=V(x+.42+Math.cos(a)*radius*(1-t*.2),
+        y+.18+Math.sin(t*Math.PI)*.10,
+        z+Math.sin(a)*radius*.5);
+      stem(animals,reptile.kind==="boa"&&j%4===0?"#5d5947":reptile.color,
+        prev,next,reptile.kind==="boa"?.09*(1-t*.35):.047*(1-t*.35));
+      prev=next;
+    }
+    add(animals,sphere,reptile.color,prev.x,prev.y,prev.z,
+      reptile.kind==="boa"?.13:.09,.07,.14);
+    for(const side of [-1,1])
+      add(animals,sphere,"#292b25",prev.x+side*.06,
+        prev.y+.026,prev.z+.10,.017,.017,.014);
+    if(reptile.kind==="eyelash-viper")for(const side of [-1,1])
+      stem(animals,reptile.color,V(prev.x+side*.065,prev.y+.07,prev.z+.08),
+        V(prev.x+side*.079,prev.y+.18,prev.z+.11),.022);
   }
   finish(animals, "rainforest-canopy-fauna");
   sphere.dispose();

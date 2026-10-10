@@ -3,7 +3,7 @@ import test from "node:test";
 import * as THREE from "three/src/Three.Core.js";
 import { createHabitats } from "../components/world/worldHabitats";
 import { biomeAt, understoryDensityAt } from "../lib/world/biomes";
-import { RAINFOREST_CANOPY_WILDLIFE } from "../lib/world/ecology";
+import { RAINFOREST_CANOPY_WILDLIFE, RAINFOREST_REPTILES, DESERT_ECOLOGY_ANCHORS } from "../lib/world/ecology";
 import { coastlineX, eastCoastlineX, type Obstacle } from "../lib/world/model";
 
 test("rainforest gives way to bare beach continuously", () => {
@@ -94,7 +94,7 @@ test("island vegetation density reserves alpine, surf, desert and authored ride 
 test("authored tropical wildlife is sparse, supported and colorful", () => {
   assert.deepEqual(
     RAINFOREST_CANOPY_WILDLIFE.map(animal => animal.kind).sort(),
-    ["macaw", "macaw", "sloth", "toucan", "toucan"],
+    ["macaw", "macaw", "parrot", "parrot", "sloth", "toucan", "toucan"],
   );
   for (const animal of RAINFOREST_CANOPY_WILDLIFE) {
     assert.ok(animal.height > 6 && animal.height < 12, animal.id);
@@ -118,7 +118,33 @@ test("authored tropical wildlife is sparse, supported and colorful", () => {
   assert.ok(hasColor("#c53e38"), "scarlet macaw red");
   assert.ok(hasColor("#2869ad"), "macaw blue wings");
   assert.ok(hasColor("#e7a83f"), "toucan bill");
-  assert.ok(hasColor("#c2b69c"), "sloth face");
+  assert.ok(hasColor("#c9bea3"), "photo-informed sloth face");
+  assert.ok(hasColor("#e1c65f"), "yellow eyelash viper");
+  assert.ok(hasColor("#987650"), "tree boa");
+  assert.ok(hasColor("#3d9a65"), "parrot green");
   habitat.dispose();
 });
 
+
+test("desert reptile and rainforest snake anchors stay authored and separated", () => {
+  assert.ok(DESERT_ECOLOGY_ANCHORS.length>=5);
+  assert.ok(DESERT_ECOLOGY_ANCHORS.some(a=>a.kind==="sidewinder"));
+  assert.ok(DESERT_ECOLOGY_ANCHORS.some(a=>a.kind==="chuckwalla"));
+  assert.ok(DESERT_ECOLOGY_ANCHORS.some(a=>a.kind==="roadrunner"));
+  assert.ok(RAINFOREST_REPTILES.filter(r=>r.kind==="eyelash-viper").length===2);
+  assert.ok(RAINFOREST_REPTILES.filter(r=>r.kind==="boa").length===2);
+  for(const snake of RAINFOREST_REPTILES) {
+    assert.ok(biomeAt(snake.point).weights.rainforest>.30,snake.id);
+    assert.ok(snake.height>4 && snake.height<11);
+  }
+  const scene=new THREE.Scene(),obstacles:Obstacle[]=[];
+  const habitats=createHabitats(scene,obstacles);
+  const granite=scene.children.find(o=>o.name==="desert-granite") as THREE.Mesh;
+  const colors=granite.geometry.getAttribute("color");
+  const expected=new THREE.Color("#ad9976");
+  let found=false;
+  for(let i=0;i<colors.count;i++) if(Math.abs(colors.getX(i)-expected.r)<.015
+    && Math.abs(colors.getY(i)-expected.g)<.015){found=true;break;}
+  assert.ok(found,"snake palette appears in the desert batch");
+  habitats.dispose();
+});

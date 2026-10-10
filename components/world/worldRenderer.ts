@@ -1,6 +1,9 @@
 import { desertTrackTreadBlend, DESERT_GAP_DEBRIS, DESERT_JUMPS, DESERT_TRACK_LENGTH } from "@/lib/world/desertTrack";
 import { createFishGeometry, createFishBodyGeometry, createCaudalFinGeometry, createDorsalFinGeometry, createPectoralFinGeometry, createSharkGeometry, createRayWingGeometry } from "./worldFaunaGeometry";
 import { createReefGarden } from "./worldReef";
+import { createMarineSchools } from "./worldSchools";
+import { createWorldTridents } from "./worldTridents";
+import { nearbyUnderwaterTrident } from "@/lib/world/artifacts";
 import { createHabitats } from "./worldHabitats";
 import { ringSurface, ribbon } from "./worldGeometry";
 import { drainagePoints, downstreamPoints, waterfallProfile, waterfallCrownRings } from "@/lib/world/hydrology";
@@ -2030,6 +2033,10 @@ export function createWorld(
   scene.add(tropicalReefRoot);
 
   const reefGarden = createReefGarden(tropicalReefRoot);
+  const marineSchools = createMarineSchools(reefRoot,tropicalReefRoot);
+  const goldenTridents = createWorldTridents(reefRoot,tropicalReefRoot);
+  canvas.dataset.schoolingFish = String(marineSchools.count);
+  canvas.dataset.goldenTridents = String(goldenTridents.count);
 
 
   type TropicalFishState = {
@@ -3049,7 +3056,8 @@ export function createWorld(
       const nearby = nearbyDiscovery(player);
       const layeredNearby =
         nearby === "paper-archive" && caveLayer !== "paper" ? null : nearby;
-      discovery = aquatic === "land" ? (gazeGame ?? layeredNearby) : null;
+      const trident=nearbyUnderwaterTrident(player,playerY,aquatic);
+      discovery = aquatic === "land" ? (gazeGame ?? layeredNearby) : trident?.id ?? null;
       const nextKey = `${r}:${discovery}`;
       if (nextKey !== locationKey) {
         locationKey = nextKey;
@@ -3999,6 +4007,7 @@ export function createWorld(
       rayGeo.computeVertexNormals();
     }
     reefGarden.update(elapsed);
+    marineSchools.update(elapsed,window.matchMedia("(prefers-reduced-motion: reduce)").matches);
     habitats.update(player);
     if(aquatic === "land" && scene.fog instanceof THREE.Fog) {
       const w = biomeAt({x:camera.position.x,z:camera.position.z}).weights;
@@ -4168,6 +4177,8 @@ export function createWorld(
     dispose() {
       habitats.dispose();
       reefGarden.dispose();
+      marineSchools.dispose();
+      goldenTridents.dispose();
       disposed = true;
       cancelAnimationFrame(raf);
       observer.disconnect();

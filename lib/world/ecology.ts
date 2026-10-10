@@ -30,7 +30,29 @@ export const RAINFOREST_CANOPY_WILDLIFE = [
   { id: "blue-yellow-macaw", kind: "macaw", point: { x: 50, z: 37 }, height: 9.3 },
   { id: "tropical-toucan", kind: "toucan", point: { x: 42, z: 49 }, height: 8.4 },
   { id: "upper-canopy-toucan", kind: "toucan", point: { x: 52, z: 49 }, height: 10.2 },
+  { id: "emerald-parrot", kind: "parrot", point: { x: 37, z: 40 }, height: 7.8 },
+  { id: "yellow-headed-parrot", kind: "parrot", point: { x: 54, z: 42 }, height: 8.4 },
 ] as const;
+
+/**
+ * Sparse stationary wildlife perches. Anchors are authored away from bike
+ * landing/runout corridors and separated by zone. Do not chase or attack them.
+ */
+export const DESERT_ECOLOGY_ANCHORS = [
+  {id:"sidewinder-basin",kind:"sidewinder",point:{x:52,z:-45},scale:1},
+  {id:"rock-rattlesnake",kind:"rattlesnake",point:{x:20,z:-45},scale:0.88},
+  {id:"chuckwalla",kind:"chuckwalla",point:{x:53,z:-10},scale:1.1},
+  {id:"desert-iguana",kind:"lizard",point:{x:19,z:-24},scale:0.86},
+  {id:"roadrunner",kind:"roadrunner",point:{x:55,z:-31},scale:1},
+] as const;
+export const RAINFOREST_REPTILES = [
+  {id:"eyelash-viper-gold",kind:"eyelash-viper",point:{x:38,z:34},height:6.2,color:"#e1c65f"},
+  {id:"eyelash-viper-green",kind:"eyelash-viper",point:{x:49,z:46},height:8.0,color:"#7aab57"},
+  {id:"tree-boa",kind:"boa",point:{x:45,z:47},height:8.3,color:"#987650"},
+  {id:"rainforest-tree-boa",kind:"boa",point:{x:54,z:35},height:8.6,color:"#b19b74"},
+] as const;
+// The green anaconda is South American, not native to Manuel Antonio.
+// A later separate South American tributary biome may carry that encounter.
 
 export type LandWildlifeKind =
   | "squirrel"

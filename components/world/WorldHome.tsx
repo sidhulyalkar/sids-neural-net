@@ -20,6 +20,7 @@ import {
 } from "@/lib/world/model";
 import { ACTIVITIES, activityConfig, type Activity, type AquaticMode } from "@/lib/world/activities";
 import { COASTAL_FLORA, MARINE_LIFE } from "@/lib/world/ecology";
+import { UNDERWATER_TRIDENTS } from "@/lib/world/artifacts";
 import styles from "./world.module.css";
 
 const WorldScene = dynamic(() => import("./WorldScene"), { ssr: false });
@@ -206,7 +207,8 @@ export function WorldHome({ content }: { content: WorldContent }) {
       : (nearbyGame?.title ??
         content.videos.find((item) => item.id === nearby)?.title ??
         MEMORY_POINTS.find((m) => m.id === nearby)?.title ??
-        REGIONS.find((r) => r.id === nearby)?.name);
+        REGIONS.find((r) => r.id === nearby)?.name ??
+        UNDERWATER_TRIDENTS.find((a) => a.id === nearby)?.title);
   const current = REGIONS.find((r) => r.id === region)!;
   const selected = REGIONS.find((r) => r.id === panel);
   const carvedGameIndex = panel?.startsWith("game:") ? Number(panel.slice(5)) : -1;
@@ -214,6 +216,7 @@ export function WorldHome({ content }: { content: WorldContent }) {
   const photo = content.photos.find((p) => p.id === panel);
   const video = content.videos.find((item) => item.id === panel);
   const caption = MEMORY_POINTS.find((m) => m.id === panel);
+  const trident = UNDERWATER_TRIDENTS.find((a) => a.id === panel);
 
   return (
     <div
@@ -560,6 +563,21 @@ export function WorldHome({ content }: { content: WorldContent }) {
               <Link prefetch={false} href="/photography">
                 Photography
               </Link>
+            </>
+          )}
+
+          {trident && (
+            <>
+              <h2 id="world-panel-title">{trident.title}.</h2>
+              <p className={styles.panelIntro}>
+                A small golden trident inspired by UC San Diego, a personal
+                connection to Bioengineering and scientific exploration.
+                This sculpture is not an official university emblem.
+              </p>
+              <div className={styles.panelLinks}>
+                <Link href={trident.href} prefetch={false}>Explore this connection</Link>
+                <button onClick={close}>Continue diving</button>
+              </div>
             </>
           )}
           {panel === "paper-archive" && <><h2 id="world-panel-title">Paper Archive.</h2><div className={styles.projectList}>{content.publications.map(p=><Link key={p.id} href={p.href} prefetch={false}><h3>{p.title}</h3>{p.year && <span>{p.year}</span>}</Link>)}</div><Link prefetch={false} href="/publications">Explore publications</Link></>}
