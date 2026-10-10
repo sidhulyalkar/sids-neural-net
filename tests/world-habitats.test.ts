@@ -19,7 +19,7 @@ test("habitat geometry stays deterministic, finite, batched and disposable", () 
   const obstacles: Obstacle[] = [], repeated: Obstacle[] = [];
   const habitats = createHabitats(scene, obstacles), copy = createHabitats(second, repeated);
   assert.deepEqual(obstacles, repeated);
-  assert.ok(scene.children.length <= 10, "bounded shared-material batches");
+  assert.ok(scene.children.length <= 14, "bounded shared-material batches");
   let vertices = 0;
   for (const [i, object] of scene.children.entries()) {
     const mesh = object as THREE.Mesh, other = second.children[i] as THREE.Mesh;

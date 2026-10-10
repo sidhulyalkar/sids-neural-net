@@ -554,6 +554,7 @@ export const SPORT_ROUTES = [
   {
     id: "desert-flow",
     points: [
+      { x: 36, z: -49 },
       { x: 36, z: -28 },
       { x: 36, z: -8 },
       { x: 36, z: 8 },

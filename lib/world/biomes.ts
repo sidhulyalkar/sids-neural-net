@@ -89,9 +89,8 @@ export function biomeAt(p: Point) {
   };
 }
 export const DESERT_FORMATIONS = [
-  { id: "dome", x: 43, z: -31, sx: 7, sy: 6, sz: 8 },
-  { id: "joints", x: 51, z: -47, sx: 4, sy: 5, sz: 5 },
-  { id: "slot-west", x: 33, z: -18, sx: 3, sy: 4, sz: 6 },
-  { id: "slot-east", x: 42, z: -17, sx: 3, sy: 5, sz: 6 },
-  { id: "balanced", x: 50, z: -12, sx: 2, sy: 3, sz: 2 },
+  // Low, weathered outcrops stay away from the central dirt loop.
+  { id: "talus-north", x: 52, z: -49, sx: 2.4, sy: 1.15, sz: 3.1 },
+  { id: "talus-east", x: 53, z: -22, sx: 2.6, sy: 1.3, sz: 3.0 },
+  { id: "talus-south", x: 46, z: -8, sx: 2.1, sy: 1.05, sz: 2.5 },
 ] as const;

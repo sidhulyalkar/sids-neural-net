@@ -987,7 +987,7 @@ export function createWorld(
     const lineStep = 6.2 * scale;
     lines.forEach((line, lineIndex) => {
       const width = line.length * 4 * scale;
-      const startX = ARCADE_CAVE.gamePanelXs[panelIndex] - width / 2 + scale * 0.5;
+      // Positions are defined in panel-local coordinates, not global X.
       const baseline =
         panelY + ((lines.length - 1) * lineStep) / 2 - lineIndex * lineStep + scale * 2;
       [...line].forEach((letter, index) => {
@@ -997,11 +997,16 @@ export function createWorld(
           [...bits].forEach((bit, px) => {
             if (bit !== "1") return;
             const niche = gameNiches[panelIndex];
-            const localX = startX + (line.length - 1 - index) * 4 * scale + (2 - px) * scale - ARCADE_CAVE.gamePanelXs[panelIndex];
+            // Each panel has its own viewer-facing tangent. Side niches already
+            // face toward the chamber, so mirroring them produced backwards text.
+            // Only the rear (+Z-facing view) needs horizontal reversal.
+            const leftToRight = -width / 2 + scale * 0.5 + index * 4 * scale + px * scale;
+            const localX = panelIndex === 1
+              ? -leftToRight
+              : leftToRight;
             carvingGlyphs.push({
-              // The wall is viewed while facing +Z, which reverses world-X on
-              // screen. Mirror both glyph order and each 3-column bitmap so the
-              // carving reads normally from the cave entrance.
+              // Local tangent points viewer-right on both side niches; the rear
+              // niche alone reverses its tangent for readable lettering.
               x: niche.x+Math.cos(niche.yaw)*localX-Math.sin(niche.yaw)*.14,
               y: baseline - py * scale,
               z: niche.z-Math.sin(niche.yaw)*localX-Math.cos(niche.yaw)*.14,

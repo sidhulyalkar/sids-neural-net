@@ -287,7 +287,34 @@ export function createHabitats(scene: THREE.Scene, obstacles: Obstacle[]) {
     }
     finish(b, `desert-plants-${row}`);
   }
-  const canopyPerches: { x: number; z: number; y: number }[] = [];
+  // Deterministic dry meadow and coastal ecotone fill. Keep this as small
+  // region-local batches and preserve all ride lines and authored discoveries.
+  // Sparse clumps avoid the empty procedural-plane look without making every
+  // square meter equally forested.
+  for (let row = 0; row < 4; row++) {
+    const b = new GeometryBatch();
+    for (let i = 0; i < 150; i++) {
+      const x = -28 + random() * 83;
+      const z = -26 + row * 18 + random() * 18;
+      const p = { x, z };
+      const sample = biomeAt(p);
+      const patch = sample.weights["coastal-scrub"] + sample.weights.redwood * 0.3;
+      if (clear(p) || random() > Math.min(0.75, patch * 0.55) ||
+          sample.slope > 1.15 || sample.weights.desert > 0.55 ||
+          sample.weights.rainforest > 0.35) continue;
+      const y = terrainHeight(x, z), h = .3 + random() * .8;
+      const count = 3 + Math.floor(random() * 3);
+      for (let j = 0; j < count; j++) {
+        const a = j * 2.399 + i;
+        add(b, blade, j % 2 ? "#7e8762" : "#687b55",
+          x + Math.cos(a) * .2, y + .04,
+          z + Math.sin(a) * .2,
+          .24 + random() * .16, h, .2, .55, a, 0);
+      }
+    }
+    finish(b, `scrub-ecotone-${row}`);
+  }
+    const canopyPerches: { x: number; z: number; y: number }[] = [];
   // Layered redwood understory and tropical canopy. Rainforest gets three
   // overlapping spatial bands so canopy continuity survives long walks without
   // turning the whole biome into one giant geometry batch.
