@@ -204,13 +204,13 @@ Before the headline jump, the existing bowl already has small/medium/large ramps
 
 ## 7. Five environmental puzzles, no borrowed game assets
 
-Build **three for v1**, then evaluate engagement before adding the other two. All puzzles have explicit local rule, visible cause/effect, multiple solution paths, reset, optional hint, and bypass; no narrative filler.
+**The three v1 puzzles are now specified in detail by [Astra Puzzle Trilogy: Experience-First Design Contract](astra-puzzle-trilogy-experience-spec.md).** That document supersedes the older one-row descriptions below where they differ. Puzzles remain *design-complete, not implemented*. Build **three for v1**, then evaluate engagement before adding the other two. All puzzles have explicit local rules, visible cause/effect, multiple solution paths, reset, optional hint and bypass, with no mandatory website gating or narrative filler.
 
 | Puzzle / world area | Player observes | Interacts / solves | Alternate solution or accessibility |
 | --- | --- | --- | --- |
-| **Granite Counterweight** (dry ridge shoulder) | rolling natural boulder and weighted lever/wooden crossing | push/roll one of two stones to balance a low bridge | carry smaller rocks on foot or use a second low route |
-| **Deadwood Bridge** (redwood/stream edge) | pivoting fallen trunk with two support pads | position one log + cross narrow beam while it settles | slightly longer walk-around and touch-friendly snap assistance |
-| **Rainforest Light Gap** (canopy path) | shaft of sunlight and two small rotated leaf/mirror reflectors illuminating an orchid cluster | orient both reflectors to guide the beam | climb a side root onto the rear reflector and use one fewer angle |
+| **Granite Counterweight / Balanced Ridge** (survey dry ridge shoulder) | naturally tilted granite slab, pivot, near/far depressions and four loose stones | arrange weight by lever arm, with two legitimately different stone combinations leveling a walkable crossing | follow the longer natural ridge route; no exclusive project-page access |
+| **Deadwood Bridge / Nurse Log** (survey north redwood gully) | existing fallen tree, slightly unstable span and a smaller bracing branch near two root notches | wedge a *small* branch below a **fixed main log**, or attempt the narrow balance crossing unbraced | walk around the gully, with no forced fall, teleport or puzzle lock |
+| **Rainforest Light / Canopy Window** (survey canopy trail) | broad hanging fronds shade root steps and dappled forest floor | move leaf occluders to expose the route, or observe the path from a higher root perch | longer existing forest trail remains usable; foliage blocks sunlight rather than reflecting magical light |
 | **Meltwater Diversion** (Fern Falls side rill) | two small low-profile stone deflectors affecting a tiny *side* flow | align outlets to fill a little shallow basin | use high bank stepping stones to reach end point directly; NEVER alter original snowmelt->falls discharge |
 | **Reef Current** (clear lagoon channel) | floating marker oscillates within authored tide flow while a shoal splits | rotate two submerged natural rock vanes to guide buoy through marker | follow a separate swim-through path; tridents always independently accessible |
 

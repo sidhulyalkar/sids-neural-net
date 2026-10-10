@@ -2,7 +2,7 @@
 
 ## World Challenges v1: technical riding, puzzles and big air
 
-[astra-world-challenges-v1-spec.md](astra-world-challenges-v1-spec.md) is the **PLANNED, not yet implemented** scope for real rock-garden and balance-beam riding, the 305-unit Joshua course's optional time trials, progressive alpine distance jumps with an opt-in long valley flight, and a trilogy of terrain-based environmental puzzles. It establishes explicit interactions, fair timing, camera/landing physics, performance and browser acceptance criteria. The preceding biome and island specs retain authority over the existing cave, waterfall, ecology, underwater discoveries and all protected landmarks.
+[astra-world-challenges-v1-spec.md](astra-world-challenges-v1-spec.md) tracks the **phased, in-development** challenge system: technical riding, the 305-unit Joshua time trial and Alpine Big Air are implemented on the World feature branch (visual browser signoff remains required). Its environment puzzles remain **planned**, with the visitor-first interaction contract now refined in [astra-puzzle-trilogy-experience-spec.md](astra-puzzle-trilogy-experience-spec.md). The original biome/island specs remain authoritative for cave, waterfall, ecology, underwater discoveries and protected landmarks.
 
 ## Island Expansion vNext (2026-10-10)
 
