@@ -476,6 +476,8 @@ export function rampImpulseAt(
   const headingLength = Math.max(1e-6, Math.hypot(heading.x, heading.z));
   for (const ramp of RIDE_RAMPS) {
     if (!ramp.modes.includes(mode)) continue;
+    const desert = DESERT_JUMPS.find(j => j.id === ramp.id);
+    if(desert?.kind === "gap" && speed < desert.minSpeed) continue;
     const rampLength = Math.hypot(ramp.heading.x, ramp.heading.z);
     const fx = ramp.heading.x / rampLength,
       fz = ramp.heading.z / rampLength;
@@ -493,6 +495,33 @@ export function rampImpulseAt(
     return { id: ramp.id, impulse: Math.min(9, ramp.lift + speed * 0.16) };
   }
   return null;
+}
+
+/**
+ * Actual gap launches use a swept lip crossing. Stopping at or backing onto
+ * a gap lip cannot create repeated upward impulses or an invisible trampoline.
+ * Existing non-gap ramps retain their original behavior.
+ */
+export function rampImpulseCrossing(
+  previous:Point, current:Point, heading:Point, mode:Activity, speed:number,
+) {
+  for(const jump of DESERT_JUMPS) {
+    if(jump.kind!=="gap")continue;
+    const prev=(previous.x-jump.point.x)*jump.heading.x+
+      (previous.z-jump.point.z)*jump.heading.z;
+    const along=(current.x-jump.point.x)*jump.heading.x+
+      (current.z-jump.point.z)*jump.heading.z;
+    const lateral=(current.x-jump.point.x)*jump.heading.z-
+      (current.z-jump.point.z)*jump.heading.x;
+    // A real crossed plane, one frame's 50ms maximum step either side.
+    if(prev<0 && along>=0 && along<=0.68 && Math.abs(lateral)<=1.275) {
+      const hit=rampImpulseAt(current,heading,mode,speed);
+      if(hit?.id===jump.id)return hit;
+    }
+  }
+  const nearest=DESERT_JUMPS.some(j=>j.kind==="gap" && Math.hypot(
+    current.x-j.point.x,current.z-j.point.z)<2);
+  return nearest?null:rampImpulseAt(current,heading,mode,speed);
 }
 
 /** Integrate height in world space so downhill terrain cannot drag a jump down. */

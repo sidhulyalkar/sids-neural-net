@@ -1,11 +1,11 @@
-import { desertTrackTreadBlend } from "@/lib/world/desertTrack";
+import { desertTrackTreadBlend, DESERT_GAP_DEBRIS } from "@/lib/world/desertTrack";
 import { createFishGeometry, createFishBodyGeometry, createCaudalFinGeometry, createDorsalFinGeometry, createPectoralFinGeometry, createSharkGeometry, createRayWingGeometry } from "./worldFaunaGeometry";
 import { createReefGarden } from "./worldReef";
 import { createHabitats } from "./worldHabitats";
 import { ringSurface, ribbon } from "./worldGeometry";
 import { drainagePoints, downstreamPoints, waterfallProfile, waterfallCrownRings } from "@/lib/world/hydrology";
 import { biomeAt, BIOME_COLORS } from "@/lib/world/biomes";
-import { stepAirborne, rampSurface, sportClearance, activityLanding, BOULDER_HOLDS, effectiveActivity, FALLEN_LOGS, grindStyleForApproach, groundHeight, nearestGrind, nextHold, onSnow, rampImpulseAt, RIDE_RAMPS, stepSwim, stepTravel, terrainContact, type Activity, type AquaticMode, type GrindStyle, type Travel } from "@/lib/world/activities";
+import { stepAirborne, rampSurface, sportClearance, activityLanding, BOULDER_HOLDS, effectiveActivity, FALLEN_LOGS, grindStyleForApproach, groundHeight, nearestGrind, nextHold, onSnow, rampImpulseCrossing, RIDE_RAMPS, stepSwim, stepTravel, terrainContact, type Activity, type AquaticMode, type GrindStyle, type Travel } from "@/lib/world/activities";
 import { LAND_WILDLIFE, LAND_WILDLIFE_COLORS } from "@/lib/world/ecology";
 import { SHASTA_CHARACTER } from "@/lib/world/shastaCharacter";
 import { FrameSampler, QualityController } from "@/lib/world/performance";
@@ -732,6 +732,9 @@ export function createWorld(
   markerObjects.push(markerHitMesh);
   instances(rockGeo, mat("#8d9185"), cairnPieces, false);
   const habitats = createHabitats(scene, obstacles);
+  // Deep fallen-Joshua debris catches riders who underjump, but airborne
+  // riders pass above it without an infinite-height 2D collision column.
+  const groundedObstacles: Obstacle[] = [...obstacles, ...DESERT_GAP_DEBRIS];
   // Explorer root carries world/terrain orientation. bodyRoot carries the human pose
   // independently so swimming and bike seating do not rotate/offset the equipment.
   const explorer = new THREE.Group();
@@ -2776,7 +2779,9 @@ export function createWorld(
           { x: dx, z: dz },
           dt,
           state.activity,
-          caveLayer === "surface" ? obstacles : caveSolids,
+          caveLayer === "surface"
+            ? (airHeight < 0.2 ? groundedObstacles : obstacles)
+            : caveSolids,
           keys.has("shift"),
           destination,
           airHeight,
@@ -2827,7 +2832,9 @@ export function createWorld(
           }
           const modeForRamp = effectiveActivity(state.activity, player);
           if (airHeight === 0 && elapsed - lastRampAt > 1.1) {
-            const ramp = rampImpulseAt(player, travel.heading, modeForRamp, travel.speed);
+            const ramp = rampImpulseCrossing(
+              previousPoint, player, travel.heading, modeForRamp, travel.speed,
+            );
             if (ramp && ramp.id !== lastRampId) {
               lastRampAt = elapsed;
               lastRampId = ramp.id;

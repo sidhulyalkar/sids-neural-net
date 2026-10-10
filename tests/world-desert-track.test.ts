@@ -82,7 +82,7 @@ test("rock-and-dirt crest launches from ground, not a timber plank", () => {
     assert.ok(Math.abs(groundHeight(jump.point)-terrainHeight(jump.point.x,jump.point.z))<1e-8);
     assert.ok(desertJumpOffset(jump.point)>feature.height*0.65,
       "real sculpted takeoff lip, not invisible launch force");
-    const takeoff=rampImpulseAt(jump.point,feature.heading,"bike",7);
+    const takeoff=rampImpulseAt(jump.point,feature.heading,"bike",Math.max(8,feature.minSpeed));
     assert.equal(takeoff?.id,feature.id);
     assert.equal(rampImpulseAt(jump.point,{x:-feature.heading.x,z:-feature.heading.z},"bike",8),null);
     assert.equal(rampImpulseAt(jump.point,feature.heading,"run",8),null);
@@ -93,8 +93,10 @@ test("rock-and-dirt crest launches from ground, not a timber plank", () => {
     for(let along=-4;along<=feature.landing+3;along+=0.25) {
       const a={x:feature.point.x+feature.heading.x*along,z:feature.point.z+feature.heading.z*along};
       const b={x:a.x+feature.heading.x*0.25,z:a.z+feature.heading.z*0.25};
+      if(feature.kind==="gap" && along>=feature.gapStart-1.0 &&
+        along<=feature.gapEnd+1.25) continue; // intentional steep eroded walls
       assert.ok(Math.abs(terrainHeight(a.x,a.z)-terrainHeight(b.x,b.z))<0.25,
-        feature.id+" has a continuous, traversable dirt profile");
+        feature.id+" has a continuous approach and receiving runout");
     }
   }
 });

@@ -151,34 +151,94 @@ export function desertTrackCenterline(steps = 24): Point[] {
 
 export function desertTrackClearance(p: Point) {
   if (p.x < 8 || p.x > 57 || p.z < -64 || p.z > 14) return false;
-  return desertTrackFrame(p).distance < DESERT_TRACK.clearance;
+  return desertTrackFrame(p).distance < DESERT_TRACK.clearance ||
+    desertBypassClearance(p);
 }
 
 /**
- * Existing safe sculpted kickers are retained in tranche 1. True lowered
- * arroyo / fallen-Joshua gaps + bypass physics are separately scoped tranche 2.
+ * Two actually lowered gaps, plus the original rollable tabletop. Local
+ * +along follows heading, +side is a consistent right-handed cross-axis.
+ * Each pit retains real ground support; it is not a hole in the physics API.
  */
 export const DESERT_JUMPS = [
-  { id:"desert-table", point:{ x:35, z:-27 }, heading:{x:0,z:1}, lift:2.4, height:0.76, landing:4.6 },
-  { id:"desert-hip", point:{ x:43, z:-39 }, heading:{x:0,z:-1}, lift:2.8, height:0.9, landing:4.8 },
-  { id:"desert-step", point:{ x:51, z:-26.5 }, heading:{x:0,z:1}, lift:3.8, height:1.0, landing:5.4 },
+  { id:"desert-table",kind:"table",obstacle:"none",point:{x:35,z:-27},heading:{x:0,z:1},
+    lift:2.4,height:0.76,landing:4.6,gapStart:0,gapEnd:0,depth:0,minSpeed:3 },
+  { id:"desert-hip",kind:"gap",obstacle:"fallen-joshua",point:{x:43,z:-39},heading:{x:0,z:-1},
+    lift:3.3,height:0.72,landing:5.6,gapStart:1.05,gapEnd:4.25,depth:1.45,minSpeed:7 },
+  { id:"desert-step",kind:"gap",obstacle:"dry-arroyo",point:{x:51,z:-26.5},heading:{x:0,z:1},
+    lift:4.0,height:0.88,landing:6.35,gapStart:1.1,gapEnd:5.1,depth:1.65,minSpeed:8 },
 ] as const;
 
-export function desertJumpOffset(p: Point): number {
-  let elevation = 0;
-  for (const jump of DESERT_JUMPS) {
-    const dx = p.x - jump.point.x, dz = p.z - jump.point.z;
-    const along = dx * jump.heading.x + dz * jump.heading.z;
-    const side = dx * jump.heading.z - dz * jump.heading.x;
-    if (along < -5 || along > jump.landing + 4 || Math.abs(side) > 3.4) continue;
-    const cross = 1-smooth(1.15,3.3,Math.abs(side));
-    const lip = smooth(-4.1,-0.9,along)*(1-smooth(0,2.65,along));
-    const landing = smooth(jump.landing-2.3,jump.landing-0.7,along)*
-      (1-smooth(jump.landing+0.9,jump.landing+3.2,along));
-    elevation += cross*jump.height*(lip+landing*0.64);
-  }
-  return elevation;
+export type DesertJump = (typeof DESERT_JUMPS)[number];
+export function jumpLocal(jump: DesertJump, p: Point) {
+  const dx=p.x-jump.point.x,dz=p.z-jump.point.z;
+  return { along:dx*jump.heading.x+dz*jump.heading.z,
+    side:dx*jump.heading.z-dz*jump.heading.x };
 }
+export function jumpWorld(jump: DesertJump, along: number, side=0): Point {
+  return { x:jump.point.x+along*jump.heading.x+side*jump.heading.z,
+    z:jump.point.z+along*jump.heading.z-side*jump.heading.x };
+}
+
+/** Broad shoulder/landing shaping, with a real below-grade channel between. */
+export function desertJumpOffset(p: Point): number {
+  let offset=0;
+  for(const jump of DESERT_JUMPS) {
+    const {along,side}=jumpLocal(jump,p);
+    if(along<-6||along>jump.landing+4||Math.abs(side)>4.5)continue;
+    const cross=1-smooth(1.65,4.15,Math.abs(side));
+    const lip=smooth(-4.1,-1,along)*(1-smooth(0,2.65,along));
+    const landing=smooth(jump.landing-1.5,jump.landing-0.35,along)*
+      (1-smooth(jump.landing+0.9,jump.landing+3.2,along));
+    offset += cross*jump.height*(lip+landing*0.66);
+    if(jump.kind==="gap") {
+      // Dip extends smoothly below the original soil, its floor remains
+      // climbable on a failed attempt rather than becoming a no-collision void.
+      const channel=smooth(jump.gapStart-0.4,jump.gapStart+1.15,along)*
+        (1-smooth(jump.gapEnd-0.8,jump.gapEnd+1.4,along));
+      const bank=1-smooth(1.5,4.15,Math.abs(side));
+      offset -= jump.depth*channel*bank;
+    }
+  }
+  return offset;
+}
+
+/** World-space packed-earth bypass bends toward the outer shoulder of each gap.
+ * Every point is below/away from the aerial line, then rejoins after runout. */
+export function desertGapBypassPoints(jump: DesertJump): Point[] {
+  if(jump.kind!=="gap")return [];
+  const start=-5.5,end=jump.landing+4.5;
+  return [jumpWorld(jump,start),jumpWorld(jump,-2.2,2.8),
+    jumpWorld(jump,0.5,5.2),jumpWorld(jump,(jump.gapStart+jump.gapEnd)/2,5.3),
+    jumpWorld(jump,jump.gapEnd+0.6,5.2),jumpWorld(jump,jump.landing+2,2.8),
+    jumpWorld(jump,end)];
+}
+const segmentDistance=(p:Point,a:Point,b:Point)=>{
+  const dx=b.x-a.x,dz=b.z-a.z;
+  const t=clamp(((p.x-a.x)*dx+(p.z-a.z)*dz)/Math.max(1e-8,dx*dx+dz*dz),0,1);
+  return Math.hypot(p.x-a.x-dx*t,p.z-a.z-dz*t);
+};
+export function desertBypassDistance(p:Point):number {
+  let best=Infinity;
+  for(const jump of DESERT_JUMPS) {
+    if(jump.kind!=="gap")continue;
+    const path=desertGapBypassPoints(jump);
+    for(let i=1;i<path.length;i++)
+      best=Math.min(best,segmentDistance(p,path[i-1],path[i]));
+  }
+  return best;
+}
+/** Prevent saplings or roadside rocks in the walking/slow riding alternative. */
+export function desertBypassClearance(p:Point):boolean {
+  return p.x>=36&&p.x<=59&&p.z>=-52&&p.z<=-11&&
+    desertBypassDistance(p)<1.65;
+}
+/** Decorative fallen wood is solid only while the player is on the ground;
+ * high airborne riders may pass above it without a 2D collision wall. */
+export const DESERT_GAP_DEBRIS = DESERT_JUMPS
+  .filter(j=>j.obstacle==="fallen-joshua")
+  .map(j=>({...jumpWorld(j,(j.gapStart+j.gapEnd)/2),radius:0.65}));
+
 
 export function desertTrackHeightOffset(p: Point): number {
   if (p.x < 8 || p.x > 57 || p.z < -64 || p.z > 14) return 0;
@@ -202,5 +262,7 @@ export function desertTrackHeightOffset(p: Point): number {
 
 export function desertTrackTreadBlend(p: Point): number {
   if (p.x < 8 || p.x > 57 || p.z < -64 || p.z > 14) return 0;
-  return 1-smooth(1.5,3.5,desertTrackFrame(p).distance);
+  const main=1-smooth(1.5,3.5,desertTrackFrame(p).distance);
+  const bypass=1-smooth(0.9,1.9,desertBypassDistance(p));
+  return Math.max(main,bypass);
 }

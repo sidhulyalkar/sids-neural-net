@@ -18,6 +18,7 @@ import {
 } from "../lib/world/model";
 import { GeometryBatch } from "../components/world/worldGeometry";
 import { createReefGarden } from "../components/world/worldReef";
+import { DESERT_JUMPS } from "../lib/world/desertTrack";
 
 const rampPoint = (r: (typeof RIDE_RAMPS)[number], along: number, side = 0) => {
   const l = Math.hypot(r.heading.x, r.heading.z),
@@ -79,6 +80,8 @@ test("jump approaches and runouts avoid terrain cuts and cliff landings", () => 
       for (let d = -5; d < 13; d += 0.25) {
         const a = rampPoint(ramp, d, side);
         const b = rampPoint(ramp, d + 0.25, side);
+        const gap=DESERT_JUMPS.find(j=>j.id===ramp.id && j.kind==="gap");
+        if(gap && d>=gap.gapStart-1.15 && d<=gap.gapEnd+1.4) continue;
         const grade = Math.abs(terrainHeight(b.x, b.z) - terrainHeight(a.x, a.z)) / 0.25;
         assert.ok(grade < 1, `${ramp.id} at ${d}, side ${side}: grade ${grade}`);
       }

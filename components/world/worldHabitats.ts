@@ -3,6 +3,7 @@ import { GeometryBatch } from "./worldGeometry";
 import { biomeAt, DESERT_FORMATIONS, smooth, understoryDensityAt } from "@/lib/world/biomes";
 import { BOULDER_HOLDS, sportClearance } from "@/lib/world/activities";
 import { RAINFOREST_CANOPY_WILDLIFE } from "@/lib/world/ecology";
+import { DESERT_JUMPS, desertGapBypassPoints, jumpWorld } from "@/lib/world/desertTrack";
 import {
   terrainHeight,
   distance,
@@ -136,6 +137,49 @@ export function createHabitats(scene: THREE.Scene, obstacles: Obstacle[]) {
     if (biomeAt({ x, z }).weights.desert < 0.12 || sportClearance({ x, z })) continue;
     add(granite, sphere, i % 3 ? "#d7c6a5" : "#bca987", x, terrainHeight(x, z) + 0.025, z,
       0.08 + random() * 0.22, 0.035, 0.1 + random() * 0.24);
+  }
+  // True lowered gap interiors: gravel wash / dead Joshua skeleton below the
+  // airborne route. These share the existing static habitat material/batch.
+  // They are visually grounded on the same analytic terrain as bike contact.
+  for(const jump of DESERT_JUMPS) {
+    if(jump.kind!=="gap")continue;
+    const center=(jump.gapStart+jump.gapEnd)/2;
+    for(let i=0;i<26;i++) {
+      const along=jump.gapStart+0.35+(i%13)/12*(jump.gapEnd-jump.gapStart-0.7);
+      const side=(((i*7)%11)-5)/5*2.35;
+      const p=jumpWorld(jump,along,side);
+      const y=terrainHeight(p.x,p.z);
+      add(granite,sphere,i%4===0?"#a9987c":i%3===0?"#cbb99c":"#b4a58b",
+        p.x,y+0.025,p.z,0.11+(i%4)*0.042,0.035,0.13+(i%5)*0.035);
+    }
+    if(jump.obstacle==="fallen-joshua") {
+      const a=jumpWorld(jump,center,-1.65),b=jumpWorld(jump,center,1.65);
+      const left=V(a.x,terrainHeight(a.x,a.z)+0.22,a.z);
+      const right=V(b.x,terrainHeight(b.x,b.z)+0.18,b.z);
+      stem(granite,"#978b75",left,right,0.20);
+      for(let k=0;k<5;k++) {
+        const base=jumpWorld(jump,center,-1.4+k*0.7);
+        const tip=jumpWorld(jump,center+((k%2)?0.85:-1.1),-1.6+k*0.7);
+        stem(granite,k%2?"#7d725f":"#a79a81",
+          V(base.x,terrainHeight(base.x,base.z)+0.2,base.z),
+          V(tip.x,terrainHeight(tip.x,tip.z)+0.56,tip.z),0.065);
+      }
+    } else {
+      // Exposed grus bank strata read as an arroyo without fabricating a
+      // perennial water source in the Mojave basin.
+      for(const side of [-1,1])for(let k=0;k<6;k++) {
+        const p=jumpWorld(jump,jump.gapStart+k*(jump.gapEnd-jump.gapStart)/5,side*2.75);
+        add(granite,sphere,k%2?"#d6c1a1":"#c2ab8b",p.x,
+          terrainHeight(p.x,p.z)+0.04,p.z,0.24,0.13,0.39,0,k*0.37);
+      }
+    }
+    // Worn bare-earth bypass turnouts read from the same authored polyline.
+    const bypass=desertGapBypassPoints(jump);
+    for(const [i,p] of bypass.entries()) {
+      if(i===0||i===bypass.length-1)continue;
+      add(granite,sphere,"#b3a084",p.x,terrainHeight(p.x,p.z)+0.02,
+        p.z,0.32,0.027,0.43,0,i*0.3);
+    }
   }
   finish(granite, "desert-granite");
   // Desert is divided into chunks so distant detail does not pop as one biome root.
