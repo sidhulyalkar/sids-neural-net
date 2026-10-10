@@ -1,6 +1,6 @@
 # Astra World Puzzle Trilogy: Experience-First Design Contract
 
-**Status: DESIGN APPROVED FOR PROTOTYPING, NOT IMPLEMENTED.** 2026-10-10. Authority for Granite Counterweight, Deadwood Bridge and Rainforest Light only. Supersedes the earlier one-row descriptions of these puzzles in [World Challenges v1](astra-world-challenges-v1-spec.md). Existing biome, cave, waterfall, ecology, terrain-contact and website requirements remain unchanged.
+**Status: REFINED DESIGN PROPOSAL, NOT IMPLEMENTED OR VISUALLY APPROVED.** 2026-10-10. Detailed planning reference for Granite Counterweight, Deadwood Bridge and Rainforest Light only. Supersedes the earlier one-row descriptions of these puzzles in [World Challenges v1](astra-world-challenges-v1-spec.md). Existing biome, cave, waterfall, ecology, terrain-contact and website requirements remain unchanged.
 
 ## 0. What are we designing for?
 
