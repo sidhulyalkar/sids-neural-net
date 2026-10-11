@@ -6,7 +6,7 @@ import { createTechnicalGeometry } from "./worldTechnicalGeometry";
 import { createBigAirBirds } from "./worldBigAirBirds";
 import { createDiscGolfGeometry } from "./worldDiscGolfGeometry";
 import {createJetSkiDock} from "./worldJetSkiDock";
-import {JET_SKI_DOCK,JET_SKI_GATES,startJetSkiRace,stepJetSkiRace,jetSkiNavigableWater,jetSkiGateDistance,jetSkiBearingToGate,type JetSkiState} from "@/lib/world/jetSkiRace";
+import {JET_SKI_DOCK,JET_SKI_GATES,startJetSkiRace,stepJetSkiRace,jetSkiNavigableWater,jetSkiGateDistance,jetSkiBearingToGate,jetSkiOpponentInput,jetSkiRaceProgress,type JetSkiState} from "@/lib/world/jetSkiRace";
 import {
   DISC_GOLF_HOLES,discGolfOpeningClearance,discGolfCourseClearance,discGolfBasketPosition,discGolfNextTarget,discGolfThrowCameraPose,discGolfIntroPose,discGolfThrow,stepDiscGolf,
   startDiscGolf,idleDiscGolf,type DiscGolfState,type DiscShot,
@@ -2469,6 +2469,7 @@ export function createWorld(
   let bigAir:BigAirState=idleBigAir();
   let discGolf:DiscGolfState=idleDiscGolf();
   let jetSki:JetSkiState|null=null;
+  let jetRivals:JetSkiState[]=[];
   let selectedJetSki:"touring"|"sport"|"race"="sport";
   let discFetch=idleDiscGolfFetch();
   let lastDiscStart=0,lastDiscShot=0,lastDiscExit=0,lastDiscUpdate=0;
@@ -2668,13 +2669,20 @@ export function createWorld(
       canvas.dataset.jetSkiSelected=selectedJetSki;
     }
     if(key==="escape"&&jetSki){
-      jetSki=null;player={x:57,z:JET_SKI_DOCK.z};playerY=groundHeight(player);
+      jetSki=null;jetRivals=[];
+      player={x:57,z:JET_SKI_DOCK.z};playerY=groundHeight(player);
       jetHud.style.display="none";
       canvas.dataset.jetSkiStatus="docked";e.preventDefault();return;
     }
     if(key==="e"&&!e.repeat&&!jetSki&&discGolf.phase==="off"&&
        Math.hypot(player.x-57,player.z-JET_SKI_DOCK.z)<8){
       jetSki=startJetSkiRace(selectedJetSki);
+      jetRivals=[
+        {...startJetSkiRace('sport'),position:{x:70,z:7}},
+        {...startJetSkiRace('touring'),position:{x:73,z:5}},
+      ];
+      jetskiVisual.activeHull.material.color.set(
+        selectedJetSki==='touring'?'#f3c24d':selectedJetSki==='sport'?'#e96c48':'#39bdc5');
       destination=null;aquatic="land";canvas.dataset.jetSkiStatus="racing";
       e.preventDefault();return;
     }
@@ -2858,6 +2866,17 @@ export function createWorld(
         const steerInput=Number(keys.has("d")||keys.has("arrowright"))-
           Number(keys.has("a")||keys.has("arrowleft"));
         jetSki=stepJetSkiRace(jetSki,dt,{throttle:forwardInput,steer:steerInput});
+        jetRivals=jetRivals.map(rival=>stepJetSkiRace(
+          rival,dt,jetSkiOpponentInput(rival),jetSkiNavigableWater));
+        jetskiVisual.opponents.forEach((object,i)=>{
+          const rival=jetRivals[i];
+          object.visible=!!rival;
+          if(!rival)return;
+          object.position.set(rival.position.x,SEA_SURFACE+.2+Math.sin(elapsed*4+i)*.045,rival.position.z);
+          object.rotation.y=rival.heading;
+          object.rotation.z=THREE.MathUtils.lerp(object.rotation.z,
+            -jetSkiOpponentInput(rival).steer*.16*Math.min(1,rival.speed/10),Math.min(1,dt*4));
+        });
         player={...jetSki.position};playerY=SEA_SURFACE+.65;
         travel={point:player,speed:jetSki.speed,
           heading:{x:Math.sin(jetSki.heading),z:Math.cos(jetSki.heading)}};
@@ -2884,14 +2903,19 @@ export function createWorld(
         canvas.dataset.jetSkiSpeed=jetSki.speed.toFixed(1);
         canvas.dataset.jetSkiTime=jetSki.elapsed.toFixed(1);
         canvas.dataset.jetSkiCourseWater=String(jetSkiNavigableWater(player));
+        const place=1+jetRivals.filter(rival=>jetSkiRaceProgress(rival)>
+          jetSkiRaceProgress(jetSki!)).length;
+        canvas.dataset.jetSkiPlace=String(place);
+        jetskiVisual.skis.forEach((ski,i)=>{ski.visible=i!==(
+          selectedJetSki==="touring"?0:selectedJetSki==="sport"?1:2);});
         jetHud.style.display="block";
         const gateBearing=jetSkiBearingToGate(jetSki);
         const turnGuide=Math.abs(gateBearing)<.22?"↑":
           Math.abs(gateBearing)<.72?(gateBearing>0?"↗":"↖"):
           gateBearing>0?"→":"←";
         jetHud.textContent=jetSki.phase==="finished"?
-          `FINISH · ${jetSki.elapsed.toFixed(1)}s · Esc to dock`:
-          `${jetSki.craft.toUpperCase()} · Lap ${Math.min(2,jetSki.lap+1)}/2 · Gate ${jetSki.checkpoint+1}/${JET_SKI_GATES.length} ${turnGuide} ${jetSkiGateDistance(jetSki).toFixed(0)}m · ${Math.max(0,jetSki.speed).toFixed(0)} m/s · ${jetSki.elapsed.toFixed(1)}s · Esc to dock`;
+          `FINISH · ${jetSki.elapsed.toFixed(1)}s · Place ${place}/3 · Esc to dock`:
+          `${jetSki.craft.toUpperCase()} · Place ${place}/3 · Lap ${Math.min(2,jetSki.lap+1)}/2 · Gate ${jetSki.checkpoint+1}/${JET_SKI_GATES.length} ${turnGuide} ${jetSkiGateDistance(jetSki).toFixed(0)}m · ${Math.max(0,jetSki.speed).toFixed(0)} m/s · ${jetSki.elapsed.toFixed(1)}s · Esc to dock`;
         explorer.visible=false;
       }else if (discGolf.phase!=="off") {
         const previous=discGolf.phase;
@@ -3455,6 +3479,8 @@ export function createWorld(
         );
       }
       if(!jetSki){explorer.visible=true;jetskiVisual.activeSki.visible=false;
+        jetskiVisual.opponents.forEach(g=>{g.visible=false;});
+        jetskiVisual.skis.forEach(g=>{g.visible=true;});
         jetskiVisual.wake.visible=false;
         if(discGolf.phase==="off"&&Math.hypot(player.x-57,player.z-JET_SKI_DOCK.z)<9){
           jetHud.style.display="block";
@@ -4709,7 +4735,7 @@ export function createWorld(
         }
         lastSerial = next.command.serial;
         const r = REGIONS.find((r) => r.id === next.command!.region)!;
-        jetSki=null;jetHud.style.display="none";
+        jetSki=null;jetRivals=[];jetHud.style.display="none";
         player =
           (next.command.activity && activityLanding(next.command.activity)) ||
           regionLanding(r.id);
