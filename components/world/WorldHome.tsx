@@ -25,6 +25,7 @@ import { UNDERWATER_TRIDENTS } from "@/lib/world/artifacts";
 import { JOSHUA_TRIAL, JOSHUA_GATES, type TrialState } from "@/lib/world/trials";
 import { WorldDiscGolfHUD } from "./WorldDiscGolfHUD";
 import { idleDiscGolf,type DiscShot,type DiscGolfState,type DiscGolfSwingStage } from "@/lib/world/discGolf";
+import {emptyDiscGolfRound,loadDiscGolfRound,persistDiscGolfRound,recordDiscGolfHole,nextUnplayedDiscGolfHole,discGolfRoundSummary} from "@/lib/world/discGolfRound";
 import {
   BIG_AIR,bigAirBirdCallout,idleBigAir,type BigAirState,
 } from "@/lib/world/bigAir";
@@ -94,6 +95,9 @@ export function WorldHome({ content }: { content: WorldContent }) {
   const [challengeSerial,setChallengeSerial]=useState(0);
   const [bigAirSerial,setBigAirSerial]=useState(0);
   const [discGolf,setDiscGolf]=useState<DiscGolfState>(idleDiscGolf);
+  const [discGolfRound,setDiscGolfRound]=useState(loadDiscGolfRound);
+  const [discGolfScorecardOpen,setDiscGolfScorecardOpen]=useState(false);
+  useEffect(()=>{persistDiscGolfRound(discGolfRound);},[discGolfRound]);
   const [discPreviewShot,setDiscPreviewShot]=useState<DiscShot|null>(null);
   const onDiscPreview=useCallback((shot:DiscShot|null)=>setDiscPreviewShot(shot),[]);
   const [discGolfStage,setDiscGolfStage]=useState<DiscGolfSwingStage>("idle");
@@ -110,6 +114,10 @@ export function WorldHome({ content }: { content: WorldContent }) {
     const changed=g.phase!==lastDiscGolfPhase.current;
     lastDiscGolfPhase.current=g.phase;
     if(!changed)return;
+    if(g.phase==="holed"){
+      setDiscGolfRound(previous=>recordDiscGolfHole(previous,g.holeIndex,g.strokes));
+      setDiscGolfScorecardOpen(true);
+    }
     if(g.phase==="landed"||g.phase==="water"||g.phase==="holed"||g.phase==="off"){
       setDiscGolfStage("idle");setDiscGolfSwingAmount(0);
     }
@@ -119,12 +127,17 @@ export function WorldHome({ content }: { content: WorldContent }) {
       setDiscPreviewShot(null);
   },[setDiscGolf,setDiscGolfStage,setDiscPreviewShot,setDiscGolfSwingAmount]);
   const startDiscHole=(index:number)=>{
+    setDiscGolfScorecardOpen(false);
     setDiscGolfStage("idle");setDiscGolfSwingAmount(0);setDiscGolfHoleIndex(index);
     setDiscPreviewShot({power:65,accuracy:0,loft:22,aimOffset:0});
     setBigAir(idleBigAir());
     setTrial({phase:"idle",nextGate:0,elapsedMs:0,splitsMs:[]});
     setActivity("run");
     setDiscGolfStartSerial(n=>n+1);
+  };
+  const restartDiscRound=()=>{
+    setDiscGolfRound(current=>emptyDiscGolfRound(current.bestTotal));
+    startDiscHole(0);
   };
   const takeDiscShot=(shot:DiscShot)=>{
     setDiscGolfShot(shot);
@@ -461,7 +474,12 @@ export function WorldHome({ content }: { content: WorldContent }) {
               </div>
               <p aria-live="polite">{activityConfig(activity).hint}</p>
               <button className={styles.trialLaunch} disabled={!ready||quiet}
-                onClick={()=>startDiscHole(0)}>Disc golf · play</button>
+                onClick={()=>{
+                    const next=nextUnplayedDiscGolfHole(discGolfRound);
+                    startDiscHole(next??0);
+                    if(next===null)setDiscGolfScorecardOpen(true);
+                  }}>Disc golf · {discGolfRoundSummary(discGolfRound).complete?"scorecard":
+                   discGolfRoundSummary(discGolfRound).holesPlayed>0?"resume":"play"}</button>
               {activity==="ski" && bigAir.phase!=="armed" && bigAir.phase!=="flying" && (
                 <button className={styles.trialLaunch} disabled={!ready||quiet}
                   onClick={()=>setBigAirSerial(n=>n+1)}>
@@ -481,6 +499,10 @@ export function WorldHome({ content }: { content: WorldContent }) {
             <WorldDiscGolfHUD
               key={discGolf.holeIndex+"-"+discGolf.strokes+"-"+discGolf.phase+"-"+discGolf.waterRedos}
               game={discGolf}
+              round={discGolfRound}
+              scorecardOpen={discGolfScorecardOpen}
+              onToggleScorecard={()=>setDiscGolfScorecardOpen(v=>!v)}
+              onNewRound={restartDiscRound}
               onShot={takeDiscShot}
               onChangeHole={startDiscHole}
               onExit={exitDiscGolf}
