@@ -151,6 +151,10 @@ export function createWorld(
   jetAnnounce.setAttribute('aria-live','polite');
   jetAnnounce.style.cssText='position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap';
   host.appendChild(jetAnnounce);
+  const jetNotice=document.createElement("div");
+  jetNotice.setAttribute("role","status");
+  jetNotice.style.cssText="display:none;position:absolute;top:18%;left:50%;transform:translateX(-50%);z-index:8;pointer-events:none;max-width:88%;padding:9px 17px;border-radius:12px;background:#153947b8;border:1px solid #ffffff55;color:white;text-align:center;font:700 18px/1.4 system-ui,sans-serif;text-shadow:0 1px 3px #10252f";
+  host.appendChild(jetNotice);
   // Native DOM controls keep touch input separate from the world canvas and
   // never steal pointer drags used by exploration.
   const jetTouchEnabled=window.matchMedia("(pointer: coarse)").matches;
@@ -173,8 +177,9 @@ export function createWorld(
   const jetBoostState={active:false};
   const jetRightButton=makeJetButton("→");
   const jetDockButton=makeJetButton("Dock");
+  const jetRetryButton=makeJetButton("Retry");
   const driveButtons=[jetLeftButton,jetThrottleButton,jetBrakeButton,
-    jetBoostButton,jetRightButton,jetDockButton];
+    jetBoostButton,jetRightButton,jetDockButton,jetRetryButton];
   const holdJetButton=(button:HTMLButtonElement,press:()=>void,release:()=>void)=>{
     button.addEventListener("pointerdown",e=>{
       e.preventDefault();e.stopPropagation();press();
@@ -197,6 +202,7 @@ export function createWorld(
   });
   jetBoardButton.addEventListener("click",()=>boardJetSki());
   jetDockButton.addEventListener("click",()=>stopJetSki());
+  jetRetryButton.addEventListener("click",()=>restartJetSki());
   host.appendChild(jetTouch);
   const scene = new THREE.Scene();
   scene.background = new THREE.Color("#67b7ef");
@@ -2533,6 +2539,9 @@ export function createWorld(
   let jetSki:JetSkiState|null=null;
   let jetRivals:JetSkiState[]=[];
   let jetMilestone='';
+  let jetCountdown=0;
+  let jetNoticeUntil=0;
+  let jetSessionBest:number|null=null;
   let jetWakeSamples:JetSkiWakePoint[]=[];
   let jetWakeAccumulator=0;
   let selectedJetSki:"touring"|"sport"|"race"="sport";
@@ -2558,6 +2567,7 @@ export function createWorld(
   function stopJetSki(){
     if(!jetSki)return;
     jetSki=null;jetRivals=[];jetMilestone="";
+    jetCountdown=0;jetNoticeUntil=0;jetNotice.style.display="none";
     jetWakeSamples=[];jetWakeAccumulator=0;
     jetTouchInput.throttle=0;jetTouchInput.steer=0;jetTouchInput.brake=false;
     jetBoostState.active=false;
@@ -2572,6 +2582,7 @@ export function createWorld(
     if(!state.entered||state.paused||jetSki||discGolf.phase!=="off"||
        Math.hypot(player.x-57,player.z-JET_SKI_DOCK.z)>=8)return;
     jetSki=startJetSkiRace(selectedJetSki);jetMilestone="";
+    jetCountdown=3.3;jetNoticeUntil=0;
     jetWakeSamples=[];jetWakeAccumulator=0;
     jetRivals=[
       {...startJetSkiRace("sport"),position:{x:70,z:7}},
@@ -2581,6 +2592,13 @@ export function createWorld(
       selectedJetSki==="touring"?"#f3c24d":selectedJetSki==="sport"?"#e96c48":"#39bdc5");
     destination=null;aquatic="land";canvas.dataset.jetSkiStatus="racing";
     canvas.focus({preventScroll:true});
+  }
+  function restartJetSki(){
+    if(!jetSki)return;
+    const selected=jetSki.craft;
+    stopJetSki();
+    selectedJetSki=selected;
+    boardJetSki();
   }
   const supportHeight = (p: Point) => {
     const layer = supportLayerAtPoint(caveLayer, p, playerY);
@@ -2761,6 +2779,7 @@ export function createWorld(
       canvas.dataset.jetSkiSelected=selectedJetSki;
     }
     if(key==="escape"&&jetSki){stopJetSki();e.preventDefault();return;}
+    if(key==="r"&&!e.repeat&&jetSki){restartJetSki();e.preventDefault();return;}
     if(key==="e"&&!e.repeat&&!jetSki&&discGolf.phase==="off"&&
        Math.hypot(player.x-57,player.z-JET_SKI_DOCK.z)<8){
       boardJetSki();e.preventDefault();return;
@@ -2946,11 +2965,34 @@ export function createWorld(
           Number(keys.has("s")||keys.has("arrowdown"))+jetTouchInput.throttle,-1,1);
         const steerInput=THREE.MathUtils.clamp(Number(keys.has("d")||keys.has("arrowright"))-
           Number(keys.has("a")||keys.has("arrowleft"))+jetTouchInput.steer,-1,1);
-        jetSki=stepJetSkiRace(jetSki,dt,{throttle:forwardInput,steer:steerInput,
-          brake:jetTouchInput.brake||forwardInput<0&&jetSki.speed>0,
-          turbo:keys.has("shift")||jetBoostState.active});
-        jetRivals=jetRivals.map(rival=>stepJetSkiRace(
-          rival,dt,jetSkiOpponentInput(rival),jetSkiNavigableWater));
+        const previousGate=jetSki.checkpoint;
+        const previousLap=jetSki.lap;
+        const previousPhase=jetSki.phase;
+        if(jetCountdown>0){
+          jetCountdown=Math.max(0,jetCountdown-dt);
+        }else{
+          jetSki=stepJetSkiRace(jetSki,dt,{throttle:forwardInput,steer:steerInput,
+            brake:jetTouchInput.brake||forwardInput<0&&jetSki.speed>0,
+            turbo:keys.has("shift")||jetBoostState.active});
+          jetRivals=jetRivals.map(rival=>stepJetSkiRace(
+            rival,dt,jetSkiOpponentInput(rival),jetSkiNavigableWater));
+        }
+        if(jetSki.phase!==previousPhase&&jetSki.phase==="finished"){
+          if(jetSessionBest===null||jetSki.elapsed<jetSessionBest)
+            jetSessionBest=jetSki.elapsed;
+          jetNotice.textContent="FINISH · "+jetSki.elapsed.toFixed(1)+"s";
+          jetNoticeUntil=elapsed+3.5;
+        }else if(jetSki.lap>previousLap){
+          jetNotice.textContent="LAP "+jetSki.lap+" COMPLETE · +8 TURBO";
+          jetNoticeUntil=elapsed+2;
+        }else if(jetSki.checkpoint!==previousGate){
+          jetNotice.textContent="CHECKPOINT "+jetSki.checkpoint+" · +8 TURBO";
+          jetNoticeUntil=elapsed+1.25;
+        }
+        jetNotice.style.display=jetCountdown>0||elapsed<jetNoticeUntil?"block":"none";
+        if(jetCountdown>0)jetNotice.textContent=String(Math.ceil(jetCountdown));
+        else if(previousGate===0&&previousLap===0&&jetSki.elapsed<.55)
+          jetNotice.textContent="GO!";
         jetskiVisual.opponents.forEach((object,i)=>{
           const rival=jetRivals[i];
           object.visible=!!rival;
@@ -2996,6 +3038,8 @@ export function createWorld(
           }
         }else jetWakeAccumulator=0;
         jetskiVisual.updateWakeTrail(jetWakeSamples,elapsed);
+        jetskiVisual.updateGateFocus(jetSki.checkpoint,elapsed,
+          jetSki.phase==="racing");
         jetskiVisual.buoys.forEach((b,i)=>{b.visible=true;
           b.scale.setScalar(i===jetSki!.checkpoint?1.7:1);});
         canvas.dataset.jetSkiStatus=jetSki.phase;
@@ -3025,8 +3069,10 @@ export function createWorld(
         const turnGuide=Math.abs(gateBearing)<.22?"↑":
           Math.abs(gateBearing)<.72?(gateBearing>0?"↗":"↖"):
           gateBearing>0?"→":"←";
-        jetHudReadout.textContent=jetSki.phase==="finished"?
-          `FINISH · ${jetSki.elapsed.toFixed(1)}s · Place ${place}/3 · Esc to dock`:
+        jetHudReadout.textContent=jetCountdown>0?
+          `START IN ${Math.ceil(jetCountdown)} · ${jetSki.craft.toUpperCase()} · Hold throttle to launch`:
+          jetSki.phase==="finished"?
+          `FINISH · ${jetSki.elapsed.toFixed(1)}s · Place ${place}/3 · Session best ${jetSessionBest?.toFixed(1)??"·"}s · R Retry / Esc Dock`:
           `${jetSkiSectionName(jetSki.checkpoint)} · Place ${place}/3 · Lap ${Math.min(2,jetSki.lap+1)}/2 · Gate ${jetSki.checkpoint+1}/${JET_SKI_GATES.length} ${turnGuide} ${jetSkiGateDistance(jetSki).toFixed(0)}m · ${Math.max(0,jetSki.speed).toFixed(0)} m/s · Turbo ${jetSki.turbo.toFixed(0)}%${jetSki.jumpHeight>.2?" · AIR":""} · ${jetSki.elapsed.toFixed(1)}s · Shift BOOST · Esc Dock`;
         explorer.visible=false;
       }else if (discGolf.phase!=="off") {
@@ -3599,11 +3645,14 @@ export function createWorld(
         jetTouch.style.display=jetSki||nearDock?"flex":"none";
         jetCraftButton.style.display=jetBoardButton.style.display=jetSki?"none":"inline-flex";
         driveButtons.forEach(b=>{b.style.display=jetSki?"inline-flex":"none";});
+        jetRetryButton.style.display=jetSki&&jetSki.phase==="finished"?"inline-flex":"none";
       }
       if(!jetSki){explorer.visible=true;jetskiVisual.activeSki.visible=false;
         jetskiVisual.opponents.forEach(g=>{g.visible=false;});
         jetskiVisual.skis.forEach(g=>{g.visible=true;});
         jetskiVisual.wake.visible=false;
+        jetskiVisual.updateGateFocus(0,elapsed,false);
+        jetNotice.style.display="none";
         if(jetWakeSamples.length){jetWakeSamples=[];jetWakeAccumulator=0;}
         jetskiVisual.updateWakeTrail([],elapsed);
         if(discGolf.phase==="off"&&Math.hypot(player.x-57,player.z-JET_SKI_DOCK.z)<9){
@@ -4926,7 +4975,7 @@ export function createWorld(
     dispose() {
       discGolfObjects.dispose();
       jetskiCoast.dispose();
-      jetHud.remove();jetAnnounce.remove();jetTouch.remove();
+      jetHud.remove();jetAnnounce.remove();jetTouch.remove();jetNotice.remove();
       jetskiVisual.root.traverse(object=>{
         if(object instanceof THREE.Mesh){object.geometry.dispose();
           const mat=object.material;
