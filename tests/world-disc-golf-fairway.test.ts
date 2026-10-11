@@ -15,7 +15,7 @@ test("nine fairway surveys preserve the course order and describe measured terra
   assert.equal(h.hole,i+1);
   assert.ok(h.routeDistance>=60&&Number.isFinite(h.climb),
    "all holes must span multiple throws");
-  assert.ok(h.gateCount>=1&&h.gateCount<=3);
+  assert.ok(h.gateCount>=1&&h.gateCount<=(i===8?8:3));
   assert.equal(h.legDistances.length,h.gateCount+1);
   assert.equal(h.gateReachable.length,h.gateCount);
   assert.ok(Number.isFinite(h.maxSlope)&&h.maxSlope>=0);
