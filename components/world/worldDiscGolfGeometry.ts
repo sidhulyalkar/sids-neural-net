@@ -138,13 +138,21 @@ export function createDiscGolfGeometry(scene:THREE.Scene){
   chains.rotation.x=Number.isFinite(t)?Math.cos(t*17)*Math.exp(-t*3)*.08:0;
   disc.position.set(game.disc.x,game.disc.y,game.disc.z);
   if(game.phase==="flying"){
-   const direction=Math.atan2(game.velocity.x,game.velocity.z);
-   disc.rotation.y=direction;
-   // Physical nose/pitch and precessing roll, with independently
-   // integrated spin phase (backhand vs forehand spin senses).
-   disc.rotation.x=-game.pitchDegrees*Math.PI/180;
-   disc.rotation.z=game.rollDegrees*Math.PI/180;
-   spinner.rotation.y=game.spinPhase;
+   if(game.rigid){
+    // The attitude quaternion contains axial spin. Move that axial phase
+    // into the disc's visible printed-face spinner without double-spinning.
+    const q=game.rigid.orientation;
+    disc.quaternion.set(q.x,q.y,q.z,q.w);
+    disc.quaternion.multiply(new THREE.Quaternion().setFromAxisAngle(
+      new THREE.Vector3(0,1,0),-game.spinPhase));
+    spinner.rotation.y=game.spinPhase;
+   }else{
+    const direction=Math.atan2(game.velocity.x,game.velocity.z);
+    disc.rotation.y=direction;
+    disc.rotation.x=-game.pitchDegrees*Math.PI/180;
+    disc.rotation.z=game.rollDegrees*Math.PI/180;
+    spinner.rotation.y=game.spinPhase;
+   }
   }else{
    disc.rotation.set(0,0,0);
    spinner.rotation.y=0;
