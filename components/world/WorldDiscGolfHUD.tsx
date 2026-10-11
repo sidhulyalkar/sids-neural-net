@@ -32,6 +32,7 @@ export function WorldDiscGolfHUD({game,round,scorecardOpen,onToggleScorecard,onN
  const roundSummary=discGolfRoundSummary(round);
  const nextHole=nextUnplayedDiscGolfHole(round,game.holeIndex);
  const [restartConfirm,setRestartConfirm]=useState(false);
+ const [settingsOpen,setSettingsOpen]=useState(false);
  const [loft,setLoft]=useState(24);
  const [aim,setAim]=useState(0);
  const [bankAngle,setBankAngle]=useState(0);
@@ -68,6 +69,7 @@ export function WorldDiscGolfHUD({game,round,scorecardOpen,onToggleScorecard,onN
   pendingReset.current=setTimeout(()=>{
    fired.current=false;pendingReset.current=null;
   },900);
+  setSettingsOpen(false);
   onStage("released");onSwing(1);onPreview(null);
   onShot(shot);
  },[onShot,onPreview,onStage,onSwing]);
@@ -176,192 +178,216 @@ export function WorldDiscGolfHUD({game,round,scorecardOpen,onToggleScorecard,onN
  const shownPower=charging?chargePower:suggested;
  const remaining=discGolfRemaining(game);
  const gatePending=game.gatesCleared<hole.gates.length;
+
  return (
   <aside className={styles.discGolfHud} aria-label="Disc golf controls">
-   <div className={styles.discGolfHeading}>
-    <div>
-     <span className={styles.eyebrow}>DISC GOLF · {game.holeIndex+1}/{DISC_GOLF_HOLES.length}</span>
-     <h2>{discGolfName(game.holeIndex,round.nameSeed)}</h2>
+   <div className={styles.discGolfBar}>
+    <div className={styles.discGolfBarHole}>
+     <span className={styles.discGolfBarEyebrow}>DISC GOLF · {game.holeIndex+1}/9 · PAR {hole.par}</span>
+     <strong title={discGolfName(game.holeIndex,round.nameSeed)}>{discGolfName(game.holeIndex,round.nameSeed)}</strong>
     </div>
-    <div className={styles.discGolfHeaderActions}>
-     <button type="button" aria-expanded={scorecardOpen} aria-controls="disc-golf-scorecard"
-       onClick={onToggleScorecard}>Scorecard</button>
-    <button type="button" onClick={()=>{
-     onExit();
-     requestAnimationFrame(()=>document.querySelector<HTMLCanvasElement>('canvas[role="application"]')?.focus({preventScroll:true}));
-    }} aria-label="Leave disc golf">Exit</button>
+    <div className={styles.discGolfBarStatus} aria-live="polite">
+     <span>{game.strokes} {game.strokes===1?"throw":"throws"} · {gatePending?"Gate "+(game.gatesCleared+1)+"/"+hole.gates.length:"Basket"} · {remaining.toFixed(0)} m</span>
+     <span>{game.presentationPending?(game.phase==="flying"?"Disc in flight":"Shasta fetching"):
+       game.phase==="holed"?discGolfScoreName(game.strokes,hole.par):
+       game.phase==="water"?"Water · free retry":"Wind "+windArrow+" "+liveWind.speed.toFixed(1)}</span>
     </div>
-   </div>
-   <div className={styles.discGolfStats} aria-live="polite">
-    <span>Par {hole.par}</span><span>{game.strokes} throws</span>
-    <span>{gatePending?"Gate "+(game.gatesCleared+1)+"/"+hole.gates.length:"Basket"} · {remaining.toFixed(0)} m</span>
-    <span title="Wind">{ "Wind "+windArrow+" "+liveWind.speed.toFixed(1) }</span>
-   </div>
-   <p className={styles.discGolfNote}>
-    {game.presentationPending?
-      game.phase==="flying"?"Disc in flight":"Shasta fetching":
-     game.phase==="holed"?discGolfScoreName(game.strokes,hole.par)+"!":
-     game.phase==="water"?"Water · free retry":
-     game.phase==="landed"?(gatePending?"Next gate":"Next throw"):""}
-   </p>
-   {game.presentationPending?null:game.phase==="holed"?(
-    roundSummary.complete?(
-     <div className={styles.discGolfRoundComplete} aria-live="polite">
-      <strong>Round complete · {roundSummary.strokes} strokes</strong>
-      <span>Par {roundSummary.coursePar} · {roundSummary.toPar>0?"+":""}{roundSummary.toPar} overall</span>
-      <button className={styles.discGolfMainButton} type="button" onClick={onNewRound}>Play another round</button>
+    <div className={styles.discGolfQuickReadout} aria-label="Current throw settings">
+     <span title="A/D adjust aim">Aim <strong>{aim>0?"+":""}{aim}°</strong></span>
+     <span title="W/S adjust loft">Loft <strong>{loft}°</strong></span>
+     <span title="Q/E adjust curve">Curve <strong>{bankAngle>0?"+":""}{bankAngle}°</strong></span>
+    </div>
+    <div className={styles.discGolfBarPower}>
+     <div className={styles.discGolfMeterHeader}>
+      <span>{charging?"Release":"Power"}</span>
+      <strong>{charging?shownPower+"%":suggested+"% ideal"}</strong>
      </div>
-    ):(
-     <button type="button" className={styles.discGolfMainButton}
-       onClick={()=>{if(nextHole!==null)onChangeHole(nextHole);}}>
-       {nextHole===null?"See scorecard":"Next · "+(nextHole+1)}
-     </button>
-    )
-   ):(
-
-    <>
-     <div className={styles.discGolfKeyGuide}>
-      <div><kbd>A</kbd> <kbd>D</kbd><span>Aim <strong>{aim>0?"+":""}{aim}°</strong></span></div>
-      <div><kbd>W</kbd> <kbd>S</kbd><span>Loft <strong>{loft}°</strong></span></div>
-      <div><kbd>Q</kbd> <kbd>E</kbd><span>Curve <strong>{bankAngle<0?"↶ Left":bankAngle>0?"Right ↷":"Flat"} {Math.abs(bankAngle)}°</strong></span></div>
+     <div className={styles.discGolfMeter} role="progressbar" aria-label="Disc throw power"
+       aria-valuemin={0} aria-valuemax={100} aria-valuenow={shownPower}>
+      <span className={styles.discGolfPowerFill} style={{width:shownPower+"%"}}/>
+      <span className={styles.discGolfSweetBand}
+       style={{left:clamp(suggested-6,0,100)+"%",
+        width:(clamp(suggested+6,0,100)-clamp(suggested-6,0,100))+"%"}}/>
+      <span className={styles.discGolfBestMarker} style={{left:suggested+"%"}}/>
      </div>
-     <div className={styles.discGolfCurve}>
-      <label htmlFor="disc-golf-bank">Disc tilt</label>
-      <div className={styles.discGolfCurveRow}>
-       <span aria-hidden="true">↶</span>
-       <input id="disc-golf-bank" type="range" min={-DISC_GOLF_MAX_BANK}
-        max={DISC_GOLF_MAX_BANK} step={5} value={bankAngle}
-        disabled={!available||charging}
-        onChange={e=>setBankAngle(Number(e.currentTarget.value))}
-        aria-label="Curve disc left or right" aria-valuetext={
-         bankAngle===0?"Flat":Math.abs(bankAngle)+" degrees "+(bankAngle<0?"left":"right")
-        }/>
-       <span aria-hidden="true">↷</span>
-       <button type="button" onClick={()=>setBankAngle(0)}
-        disabled={!available||charging||bankAngle===0} aria-label="Reset disc curve to flat">
-        Flat
+    </div>
+    <div className={styles.discGolfBarPrimary}>
+     {game.presentationPending?(
+      <button type="button" className={styles.discGolfMainButton} disabled>
+       {game.phase==="flying"?"In flight":"Shasta fetching"}
+      </button>
+     ):game.phase==="holed"?(
+      roundSummary.complete?(
+       <button type="button" className={styles.discGolfMainButton}
+        onClick={onNewRound}>New round</button>
+      ):(
+       <button type="button" className={styles.discGolfMainButton}
+        disabled={nextHole===null}
+        onClick={()=>{if(nextHole!==null)onChangeHole(nextHole);}}>
+        Next · {nextHole===null?"Scorecard":nextHole+1}
        </button>
-      </div>
-     </div>
-     <section className={styles.discGolfFlightControls} aria-label="Disc aerodynamics">
-      <div className={styles.discGolfFlightTop}>
-       <label htmlFor="disc-golf-disc-type">Disc</label>
-       <select id="disc-golf-disc-type" value={discStyle} disabled={!available||charging}
-        onChange={e=>setDiscStyle(e.currentTarget.value as DiscGolfFlightStyle)}>
-        <option value="putter">Putter</option><option value="midrange">Midrange</option>
-        <option value="fairway">Fairway</option><option value="driver">Driver</option>
-       </select>
-       <label htmlFor="disc-golf-release-style">Throw</label>
-       <select id="disc-golf-release-style" value={releaseStyle} disabled={!available||charging}
-        onChange={e=>setReleaseStyle(e.currentTarget.value as DiscGolfReleaseStyle)}>
-        <option value="backhand">Backhand</option><option value="forehand">Forehand</option>
-       </select>
-      </div>
-      <div className={styles.discGolfFlightSliders}>
-       <label htmlFor="disc-golf-spin">Flick · {spinRpm} rpm</label>
-       <input id="disc-golf-spin" type="range" min={DISC_GOLF_SPIN_MIN_RPM}
-        max={DISC_GOLF_SPIN_MAX_RPM} step={50} value={spinRpm}
-        disabled={!available||charging} onChange={e=>setSpinRpm(Number(e.currentTarget.value))}/>
-       <label htmlFor="disc-golf-nose">Nose · {noseAngle>0?"+":""}{noseAngle}°</label>
-       <input id="disc-golf-nose" type="range" min={-DISC_GOLF_NOSE_MAX_DEGREES}
-        max={DISC_GOLF_NOSE_MAX_DEGREES} step={1} value={noseAngle}
-        disabled={!available||charging} onChange={e=>setNoseAngle(Number(e.currentTarget.value))}/>
-      </div>
-     </section>
-     <div className={styles.discGolfMeters}>
-      <div className={styles.discGolfMeterHeader}>
-       <span>{charging?"Release":"Power"}</span>
-       <strong>{charging?
-        (Math.abs(shownPower-suggested)<=6?"Clean release":
-         shownPower>suggested?"Power drive":"Soft touch"):
-        suggested+"% ideal"}</strong>
-      </div>
-      <div className={styles.discGolfMeter} role="progressbar" aria-label="Disc throw power"
-        aria-valuemin={0} aria-valuemax={100} aria-valuenow={shownPower}>
-       <span className={styles.discGolfPowerFill} style={{width:shownPower+"%"}}/>
-       <span className={styles.discGolfSweetBand}
-        style={{left:clamp(suggested-6,0,100)+"%",
-         width:(clamp(suggested+6,0,100)-clamp(suggested-6,0,100))+"%"}}/>
-       <span className={styles.discGolfBestMarker} style={{left:suggested+"%"}}/>
-      </div>
-     </div>
-     <button className={styles.discGolfMainButton} disabled={!available}
-       type="button"
+      )
+     ):(
+      <button type="button" className={styles.discGolfMainButton}
+       disabled={!available}
        onPointerDown={e=>{if(e.pointerType!=="mouse"||e.button===0){
         e.currentTarget.setPointerCapture(e.pointerId);begin();
        }}}
        onPointerUp={finish}
        onPointerCancel={()=>{held.current=false;setCharging(false);onStage("idle");}}
        onClick={()=>{if(held.current)finish();else tap();}}>
-       {game.phase==="flying"?"Disc airborne":
-        charging?"Release to throw":"Space · Throw"}
-     </button>
-     <span className={styles.discGolfHint}>
-      Hold Space for power.
-     </span>
-    </>
-   )}
-   <div className={styles.discGolfRoundStrip} aria-live="polite">
-    <span>{roundSummary.holesPlayed}/{roundSummary.holesTotal} holes</span>
-    <strong>{roundSummary.strokes} strokes · {roundSummary.toPar>0?"+":""}{roundSummary.toPar}</strong>
-   </div>
-   <div className={styles.discGolfHoles} role="group" aria-label="Choose hole">
-    {DISC_GOLF_HOLES.map((h,i)=>(
-     <button key={h.id} type="button" aria-pressed={i===game.holeIndex}
-       className={round.scores[i]!==null?styles.discGolfRecordedHole:undefined}
-       disabled={game.phase==="flying"||!!game.presentationPending}
-       title={round.scores[i]===null?"Hole not yet completed":"Recorded: "+round.scores[i]+" strokes. Replay is practice."}
-       aria-label={"Play hole "+(i+1)+": "+discGolfName(i,round.nameSeed)+
-        (round.scores[i]===null?"":", scored "+round.scores[i]+" (practice replay)")}
-       onClick={()=>onChangeHole(i)}>
-       {i+1}{round.scores[i]!==null?" ✓":""}
-     </button>
-    ))}
-   </div>
-   {round.scores[game.holeIndex]!==null&&game.phase!=="holed"&&
-    <p className={styles.discGolfPracticeNote}>
-     Practice · saved score {round.scores[game.holeIndex]}
-    </p>}
-   <section id="disc-golf-scorecard" className={styles.discGolfScorecard}
-     hidden={!scorecardOpen} aria-label="Nine-hole scorecard">
-    <div className={styles.discGolfScorecardHeading}>
-     <strong>{roundSummary.complete?"Round finished":"Round progress"}</strong>
-     {round.bestTotal!==null&&<span>Best round: {round.bestTotal} strokes</span>}
-    </div>
-    <table>
-     <thead><tr><th scope="col">Hole</th><th scope="col">Par</th><th scope="col">Score</th><th scope="col">±</th></tr></thead>
-     <tbody>
-      {DISC_GOLF_HOLES.map((h,i)=>{
-       const score=round.scores[i];
-       const delta=score===null?null:score-h.par;
-       return <tr key={h.id} aria-current={i===game.holeIndex?"true":undefined}>
-        <th scope="row">{i+1}. {discGolfName(i,round.nameSeed)}</th>
-        <td>{h.par}</td><td>{score??"·"}</td>
-        <td>{delta===null?"·":delta>0?"+"+delta:delta}</td>
-       </tr>;
-      })}
-     </tbody>
-     <tfoot><tr><th scope="row">Total</th><td>{roundSummary.coursePar}</td>
-      <td>{roundSummary.strokes}</td>
-      <td>{roundSummary.toPar>0?"+"+roundSummary.toPar:roundSummary.toPar}</td>
-     </tr></tfoot>
-    </table>
-    {!roundSummary.complete&&
-     <p className={styles.discGolfHint}>Completed holes count.</p>}
-    {restartConfirm?(
-     <div className={styles.discGolfRestartActions}>
-      <button type="button" onClick={()=>{onNewRound();setRestartConfirm(false);}}>
-       Confirm new round
+       {charging?"Release to throw":"Space · Throw"}
       </button>
-      <button type="button" onClick={()=>setRestartConfirm(false)}>Cancel</button>
+     )}
+    </div>
+    <div className={styles.discGolfBarActions}>
+     <button type="button" aria-expanded={settingsOpen}
+      aria-controls="disc-golf-settings"
+      onClick={()=>{
+       if(!settingsOpen&&scorecardOpen)onToggleScorecard();
+       setSettingsOpen(v=>!v);
+      }}>Tune</button>
+     <button type="button" aria-expanded={scorecardOpen}
+      aria-controls="disc-golf-course"
+      onClick={()=>{
+       setSettingsOpen(false);
+       onToggleScorecard();
+      }}>Course</button>
+     <button type="button" aria-label="Leave disc golf" onClick={()=>{
+      onExit();
+      requestAnimationFrame(()=>document.querySelector<HTMLCanvasElement>('canvas[role="application"]')?.focus({preventScroll:true}));
+     }}>Exit</button>
+    </div>
+   </div>
+
+   {settingsOpen&&(
+    <section id="disc-golf-settings" className={styles.discGolfPanel}
+     aria-label="Disc throw tuning">
+     <div className={styles.discGolfPanelHeading}>
+      <strong>Shape your throw</strong>
+      <button type="button" onClick={()=>setSettingsOpen(false)}>Close</button>
      </div>
-    ):(
-     <button className={styles.discGolfResetButton} type="button"
-       onClick={()=>roundSummary.holesPlayed>0?setRestartConfirm(true):onNewRound()}>
-       Start a fresh round
-     </button>
-    )}
-   </section>
+     <div className={styles.discGolfTuneGrid}>
+      <label className={styles.discGolfTuneItem} htmlFor="disc-golf-aim">
+       <span>Aim · {aim>0?"+":""}{aim}° <small>A / D</small></span>
+       <input id="disc-golf-aim" type="range" min={-55} max={55} step={1}
+        value={aim} disabled={!available||charging}
+        onChange={e=>setAim(Number(e.currentTarget.value))}/>
+      </label>
+      <label className={styles.discGolfTuneItem} htmlFor="disc-golf-loft">
+       <span>Loft · {loft}° <small>W / S</small></span>
+       <input id="disc-golf-loft" type="range" min={6} max={42} step={1}
+        value={loft} disabled={!available||charging}
+        onChange={e=>setLoft(Number(e.currentTarget.value))}/>
+      </label>
+      <label className={styles.discGolfTuneItem} htmlFor="disc-golf-bank">
+       <span>Curve · {bankAngle>0?"+":""}{bankAngle}° <small>Q / E</small></span>
+       <input id="disc-golf-bank" type="range"
+        min={-DISC_GOLF_MAX_BANK} max={DISC_GOLF_MAX_BANK} step={5}
+        value={bankAngle} disabled={!available||charging}
+        onChange={e=>setBankAngle(Number(e.currentTarget.value))}
+        aria-label="Curve disc left or right" aria-valuetext={
+         bankAngle===0?"Flat":Math.abs(bankAngle)+" degrees "+(bankAngle<0?"left":"right")
+        }/>
+      </label>
+      <label className={styles.discGolfTuneItem} htmlFor="disc-golf-nose">
+       <span>Nose · {noseAngle>0?"+":""}{noseAngle}°</span>
+       <input id="disc-golf-nose" type="range" min={-DISC_GOLF_NOSE_MAX_DEGREES}
+        max={DISC_GOLF_NOSE_MAX_DEGREES} step={1} value={noseAngle}
+        disabled={!available||charging} onChange={e=>setNoseAngle(Number(e.currentTarget.value))}/>
+      </label>
+      <label className={styles.discGolfTuneItem} htmlFor="disc-golf-spin">
+       <span>Flick · {spinRpm} rpm</span>
+       <input id="disc-golf-spin" type="range" min={DISC_GOLF_SPIN_MIN_RPM}
+        max={DISC_GOLF_SPIN_MAX_RPM} step={50} value={spinRpm}
+        disabled={!available||charging} onChange={e=>setSpinRpm(Number(e.currentTarget.value))}/>
+      </label>
+      <label className={styles.discGolfTuneItem} htmlFor="disc-golf-disc-type">
+       <span>Disc profile</span>
+       <select id="disc-golf-disc-type" value={discStyle} disabled={!available||charging}
+        onChange={e=>setDiscStyle(e.currentTarget.value as DiscGolfFlightStyle)}>
+        <option value="putter">Putter</option><option value="midrange">Midrange</option>
+        <option value="fairway">Fairway</option><option value="driver">Driver</option>
+       </select>
+      </label>
+      <label className={styles.discGolfTuneItem} htmlFor="disc-golf-release-style">
+       <span>Release</span>
+       <select id="disc-golf-release-style" value={releaseStyle} disabled={!available||charging}
+        onChange={e=>setReleaseStyle(e.currentTarget.value as DiscGolfReleaseStyle)}>
+        <option value="backhand">Backhand</option><option value="forehand">Forehand</option>
+       </select>
+      </label>
+      <div className={styles.discGolfTuneActions}>
+       <button type="button" onClick={()=>setBankAngle(0)}
+        disabled={!available||charging||bankAngle===0}>Flat curve</button>
+       <span>Tap Space for suggested power. Hold to charge.</span>
+      </div>
+     </div>
+    </section>
+   )}
+   {scorecardOpen&&(
+    <section id="disc-golf-course" className={styles.discGolfPanel}
+     aria-label="Nine-hole course and scorecard">
+     <div className={styles.discGolfPanelHeading}>
+      <strong>Course · {roundSummary.holesPlayed}/9 played</strong>
+      <span>{roundSummary.strokes} strokes · {roundSummary.toPar>0?"+":""}{roundSummary.toPar} to par</span>
+      <button type="button" onClick={onToggleScorecard}>Close</button>
+     </div>
+     <div className={styles.discGolfHoles} role="group" aria-label="Choose hole">
+      {DISC_GOLF_HOLES.map((h,i)=>(
+       <button key={h.id} type="button" aria-pressed={i===game.holeIndex}
+        className={round.scores[i]!==null?styles.discGolfRecordedHole:undefined}
+        disabled={game.phase==="flying"||!!game.presentationPending}
+        title={round.scores[i]===null?"Hole not yet completed":"Recorded: "+round.scores[i]+" strokes. Replay is practice."}
+        aria-label={"Play hole "+(i+1)+": "+discGolfName(i,round.nameSeed)+
+         (round.scores[i]===null?"":", scored "+round.scores[i]+" (practice replay)")}
+        onClick={()=>onChangeHole(i)}>
+        {i+1}{round.scores[i]!==null?" ✓":""}
+       </button>
+      ))}
+     </div>
+     <div className={styles.discGolfScorecard}>
+      <div className={styles.discGolfScorecardHeading}>
+       <strong>{roundSummary.complete?"Round finished":"Round progress"}</strong>
+       {round.bestTotal!==null&&<span>Best: {round.bestTotal} strokes</span>}
+      </div>
+      <table>
+       <thead><tr><th scope="col">Hole</th><th scope="col">Par</th>
+        <th scope="col">Score</th><th scope="col">±</th></tr></thead>
+       <tbody>
+        {DISC_GOLF_HOLES.map((h,i)=>{
+         const score=round.scores[i];
+         const delta=score===null?null:score-h.par;
+         return <tr key={h.id} aria-current={i===game.holeIndex?"true":undefined}>
+          <th scope="row">{i+1}. {discGolfName(i,round.nameSeed)}</th>
+          <td>{h.par}</td><td>{score??"·"}</td>
+          <td>{delta===null?"·":delta>0?"+"+delta:delta}</td>
+         </tr>;
+        })}
+       </tbody>
+       <tfoot><tr><th scope="row">Total</th><td>{roundSummary.coursePar}</td>
+        <td>{roundSummary.strokes}</td>
+        <td>{roundSummary.toPar>0?"+"+roundSummary.toPar:roundSummary.toPar}</td>
+       </tr></tfoot>
+      </table>
+      {round.scores[game.holeIndex]!==null&&game.phase!=="holed"&&(
+       <p className={styles.discGolfPracticeNote}>Practice · saved {round.scores[game.holeIndex]}</p>
+      )}
+      {restartConfirm?(
+       <div className={styles.discGolfRestartActions}>
+        <button type="button" onClick={()=>{onNewRound();setRestartConfirm(false);}}>Confirm new round</button>
+        <button type="button" onClick={()=>setRestartConfirm(false)}>Cancel</button>
+       </div>
+      ):(
+       <button type="button" className={styles.discGolfResetButton}
+        disabled={!!game.presentationPending||game.phase==="flying"}
+        onClick={()=>roundSummary.holesPlayed>0?setRestartConfirm(true):onNewRound()}>
+        Start a fresh round
+       </button>
+      )}
+     </div>
+    </section>
+   )}
   </aside>
  );
 }
