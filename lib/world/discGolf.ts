@@ -151,7 +151,7 @@ export type DiscGolfState={
  velocity:{x:number;y:number;z:number};strokes:number;waterRedos:number;
  flightTime:number;clock:number;lockedWind:DiscWind;
  lastDistance:number;reason?:string;spin:number;bankAngle:number;resultAt?:number;
- pitchDegrees:number;rollDegrees:number;spinRpm:number;
+ pitchDegrees:number;rollDegrees:number;spinRpm:number;spinPhase:number;
  discStyle:DiscGolfFlightStyle;releaseStyle:DiscGolfReleaseStyle;
  aero?:AeroTelemetry;
 };
@@ -163,13 +163,13 @@ export function startDiscGolf(index:number,ground:DiscTerrain,clock=0):DiscGolfS
   disc:{...lie,y:ground(lie)+.18},velocity:{x:0,y:0,z:0},
   strokes:0,waterRedos:0,flightTime:0,clock,lockedWind:discGolfWind(holeIndex,clock),
   lastDistance:0,spin:0,bankAngle:0,pitchDegrees:0,rollDegrees:0,
-  spinRpm:0,discStyle:"midrange",releaseStyle:"backhand"};
+  spinRpm:0,spinPhase:0,discStyle:"midrange",releaseStyle:"backhand"};
 }
 export const idleDiscGolf=():DiscGolfState=>({
  phase:"off",holeIndex:0,gatesCleared:0,lie:{x:0,z:0},disc:{x:0,y:0,z:0},
  velocity:{x:0,y:0,z:0},strokes:0,waterRedos:0,flightTime:0,clock:0,
  lockedWind:{x:0,z:0,speed:0},lastDistance:0,spin:0,bankAngle:0,
- pitchDegrees:0,rollDegrees:0,spinRpm:0,discStyle:"midrange",releaseStyle:"backhand",
+ pitchDegrees:0,rollDegrees:0,spinRpm:0,spinPhase:0,discStyle:"midrange",releaseStyle:"backhand",
 });
 export function discGolfThrow(state:DiscGolfState,shot:DiscShot,ground:DiscTerrain):DiscGolfState{
  if(!["ready","landed","water"].includes(state.phase))return state;
@@ -200,7 +200,7 @@ export function discGolfThrow(state:DiscGolfState,shot:DiscShot,ground:DiscTerra
   spinRpm:clamp(shot.spinRpm??650,DISC_GOLF_SPIN_MIN_RPM,DISC_GOLF_SPIN_MAX_RPM),
   discStyle:shot.discStyle??"midrange",
   releaseStyle:shot.releaseStyle??"backhand",
-  aero:undefined,resultAt:undefined};
+  spinPhase:0,aero:undefined,resultAt:undefined};
 }
 /** Cylindrical trunk intersection swept from previous to next disc center.
  * A small radius allowance represents the disc itself, not imaginary foliage. */
@@ -240,6 +240,8 @@ export function stepDiscGolf(state:DiscGolfState,dt:number,
   },s.lockedWind,d);
   s.velocity=evolved.state.velocity;
   s.rollDegrees=evolved.state.rollDegrees;
+  const sense=s.releaseStyle==="forehand"?-1:1;
+  s.spinPhase+=sense*.5*(s.spinRpm+evolved.state.spinRpm)*Math.PI/30*d;
   s.spinRpm=evolved.state.spinRpm;
   s.aero=evolved.telemetry;
   const horizontal=Math.hypot(s.velocity.x,s.velocity.z);
