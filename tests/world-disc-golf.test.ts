@@ -154,7 +154,7 @@ test("disc bank visibly tilts while the printed disc spins independently",()=>{
  const initial=startDiscGolf(1,()=>0);
  const airborne=discGolfThrow(initial,
   {power:80,accuracy:0,loft:24,aimOffset:0,bankAngle:30},()=>0);
- geo.update({...airborne,flightTime:1.2});
+ geo.update({...airborne,flightTime:1.2,spinPhase:12.5});
  const disc=scene.children[1] as THREE.Group;
  assert.ok(disc.rotation.z>.45);
  assert.ok(Math.abs(disc.rotation.y)>0);
