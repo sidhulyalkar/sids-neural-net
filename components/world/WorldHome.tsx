@@ -153,6 +153,8 @@ export function WorldHome({ content }: { content: WorldContent }) {
   };
   const takeDiscShot=(shot:DiscShot)=>{
     if(discGolf.presentationPending)return;
+    // Never let the optional course overlay obscure an active flight.
+    setDiscGolfScorecardOpen(false);
     setDiscGolfShot(shot);
     setDiscGolfShotSerial(n=>n+1);
   };
