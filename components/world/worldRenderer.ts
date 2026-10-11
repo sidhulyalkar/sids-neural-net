@@ -6,7 +6,7 @@ import { createTechnicalGeometry } from "./worldTechnicalGeometry";
 import { createBigAirBirds } from "./worldBigAirBirds";
 import { createDiscGolfGeometry } from "./worldDiscGolfGeometry";
 import {
-  DISC_GOLF_HOLES,discGolfOpeningClearance,discGolfCourseClearance,discGolfBasketPosition,discGolfThrowCameraPose,discGolfIntroPose,discGolfThrow,stepDiscGolf,
+  DISC_GOLF_HOLES,discGolfOpeningClearance,discGolfCourseClearance,discGolfBasketPosition,discGolfNextTarget,discGolfThrowCameraPose,discGolfIntroPose,discGolfThrow,stepDiscGolf,
   startDiscGolf,idleDiscGolf,type DiscGolfState,type DiscShot,
   type DiscGolfSwingStage,
 } from "@/lib/world/discGolf";
@@ -3134,6 +3134,8 @@ export function createWorld(
       canvas.dataset.discGolfStrokes=String(discGolf.strokes);
       canvas.dataset.discGolfWaterRedos=String(discGolf.waterRedos);
       canvas.dataset.discGolfHole=DISC_GOLF_HOLES[discGolf.holeIndex].id;
+      canvas.dataset.discGolfGates=String(discGolf.gatesCleared);
+      canvas.dataset.discGolfGatesTotal=String(DISC_GOLF_HOLES[discGolf.holeIndex].gates.length);
       canvas.dataset.bigAirPhase=bigAir.phase;
       canvas.dataset.bigAirDistance=bigAir.distance.toFixed(1);
       canvas.dataset.bigAirBirdCallout=bigAir.phase==="flying"
@@ -3248,7 +3250,7 @@ export function createWorld(
       const cavernFraming =
         caveInside && caveProgress > 0.48 && distance(player, arcadeWall) < 8.5;
       if(discGolf.phase!=="off"){
-        const basket=discGolfBasketPosition(DISC_GOLF_HOLES[discGolf.holeIndex],discGolf.clock);
+        const basket=discGolfNextTarget(discGolf);
         const pose=discGolfThrowCameraPose(player,basket,playerY);
         // Preserve a stationary putting camera through the entire short
         // flight; only long drives follow the disc through the island.
@@ -3292,7 +3294,7 @@ export function createWorld(
                 : zoom;
       const cameraYaw = aquatic === "dive" ? yaw + 0.28 : yaw;
       if(discGolf.phase!=="off"){
-        const target=discGolfBasketPosition(DISC_GOLF_HOLES[discGolf.holeIndex],discGolf.clock);
+        const target=discGolfNextTarget(discGolf);
         const pose=discGolfThrowCameraPose(player,target,playerY);
         if(discGolf.phase==="flying"&&!pose.putting){
           const dx=target.x-player.x,dz=target.z-player.z;
@@ -3424,7 +3426,7 @@ export function createWorld(
       const dogFetchVisible=discGolf.phase!=="off"&&discFetch.phase!=="idle"&&
         !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
       if(dogFetchVisible&&!discGolfIntro){
-        const basket=discGolfBasketPosition(DISC_GOLF_HOLES[discGolf.holeIndex],discGolf.clock);
+        const basket=discGolfNextTarget(discGolf);
         const putting=discGolfThrowCameraPose(player,basket,playerY).putting;
         const focusX=discFetch.phase==="found"?dog.x:
           dog.x*.72+discGolf.disc.x*.28;
@@ -3452,7 +3454,7 @@ export function createWorld(
       // The normal terrain/camera constraints above remain authoritative at
       // the endpoint. Do not replay this when a disc lands.
       if(discGolfIntro && discGolf.phase!=="off"){
-        const basket=discGolfBasketPosition(DISC_GOLF_HOLES[discGolf.holeIndex],discGolf.clock);
+        const basket=discGolfNextTarget(discGolf);
         const pose=discGolfIntroPose(
           discGolf.lie,basket,
           {x:targetCamera.x,y:targetCamera.y,z:targetCamera.z},
@@ -4391,7 +4393,7 @@ export function createWorld(
           discFetch=idleDiscGolfFetch();
           player={...hole.tee};playerY=groundHeight(player);
           travel={point:player,speed:0,heading:{x:0,z:1}};
-          const basket=discGolfBasketPosition(hole,elapsed);
+          const basket=discGolfNextTarget(discGolf);
           yaw=Math.atan2(-(basket.x-player.x),-(basket.z-player.z));
           const reducedMotion=window.matchMedia("(prefers-reduced-motion: reduce)").matches;
           discGolfIntro={startedAt:elapsed,reducedMotion};
