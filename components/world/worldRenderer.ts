@@ -26,6 +26,7 @@ import { LAND_WILDLIFE, LAND_WILDLIFE_COLORS } from "@/lib/world/ecology";
 import { SHASTA_CHARACTER } from "@/lib/world/shastaCharacter";
 import { FrameSampler, QualityController } from "@/lib/world/performance";
 import { shastaDetour, initialChaseState, stepChase, gaitBlendForSpeed, smoothAngle, smoothPoint, smoothingAlpha, steerShastaVelocity } from "@/lib/world/shastaMotion";
+import {idleDiscGolfFetch,startDiscGolfFetch,stepDiscGolfFetch} from "@/lib/world/discGolfFetch";
 import * as THREE from "three/src/Three.Core.js";
 import type { WebGLRenderer } from "three/src/renderers/WebGLRenderer.js";
 import {
@@ -2415,6 +2416,7 @@ export function createWorld(
   let lastBigAirSerial=0,lastBigAirUpdate=0;
   let bigAir:BigAirState=idleBigAir();
   let discGolf:DiscGolfState=idleDiscGolf();
+  let discFetch=idleDiscGolfFetch();
   let lastDiscStart=0,lastDiscShot=0,lastDiscExit=0,lastDiscUpdate=0;
   let lastDiscPreview:DiscShot|null=null,lastPreviewTick=-Infinity;
   let lastDiscPreviewPhase=discGolf.phase;
@@ -2785,6 +2787,7 @@ export function createWorld(
         const previous=discGolf.phase;
         discGolf=stepDiscGolf(discGolf,dt,p=>terrainHeight(p.x,p.z),
           isWater,SEA_SURFACE,obstacles);
+        discFetch=stepDiscGolfFetch(discFetch,discGolf,dog,elapsed);
         if(discGolf.phase!==previous){
           if(discGolf.phase==="landed"||discGolf.phase==="holed"){
             // The next lie is an actual terrain location, not a menu-only target.
@@ -3734,10 +3737,12 @@ export function createWorld(
     }
 
     const chaseBefore = dogChase;
-    dogChase = stepChase(dogChase, elapsed, dog, player, critters.map(c => c.point), aquatic === "land" && caveLayer === "surface");
+    dogChase = stepChase(dogChase, elapsed, dog, player, critters.map(c => c.point),
+      discGolf.phase==="off" && aquatic === "land" && caveLayer === "surface");
     dogInterestCritterIndex = dogChase.target;
     if (dogChase.target !== null && dogChase.target !== chaseBefore.target) dogTargetSwitches++;
-    const nearbyCritter = dogInterestCritterIndex === null ? null : critters[dogInterestCritterIndex];
+    const nearbyCritter = discGolf.phase!=="off"||dogInterestCritterIndex === null ?
+      null : critters[dogInterestCritterIndex];
     canvas.dataset.dogBehavior = dogChase.mode;
     const playerWaterZone = waterZone(player);
     const shoreWait = {
@@ -3762,10 +3767,13 @@ export function createWorld(
         ? shoreWait
         : dogWaitsAtCaveEntrance
           ? { x: arcade.x - 2.0, z: arcade.z - 1.65 }
-          : nearbyCritter
-            ? nearbyCritter.point
-            : { x: player.x - travel.heading.x * 2.2 + travel.heading.z * 1.2, z: player.z - travel.heading.z * 2.2 - travel.heading.x * 1.2 }
+          : discFetch.target&&discGolf.phase!=="off"?
+            discFetch.target
+            : nearbyCritter
+              ? nearbyCritter.point
+              : { x: player.x - travel.heading.x * 2.2 + travel.heading.z * 1.2, z: player.z - travel.heading.z * 2.2 - travel.heading.x * 1.2 }
       : { x: 4 + Math.sin(elapsed * 0.13) * 2, z: 12 };
+    canvas.dataset.dogFetchStage=discFetch.phase;
     canvas.dataset.dogCuriosity =
       aquatic !== "land"
         ? "shore"
@@ -3785,7 +3793,8 @@ export function createWorld(
       dogVelocity,
       dog,
       dogSmoothedTarget,
-      dogChase.mode === "return" ? Math.max(travel.speed, 6) : travel.speed,
+      discFetch.phase==="chase" ? 14 :
+        dogChase.mode === "return" ? Math.max(travel.speed, 6) : travel.speed,
       dogMotionDt,
     );
     const dogBefore = { ...dog };
@@ -3857,7 +3866,7 @@ export function createWorld(
     lastDogRenderY = dogRenderY;
     shasta.position.set(dog.x, dogRenderY, dog.z);
     shasta.rotation.set(
-      dogPitch,
+      dogPitch+(discFetch.phase==="found"?.11:0),
       dogYaw,
       dogRoll + Math.sin(dogGaitPhase) * 0.012 * dogMoveBlend,
     );
@@ -3935,7 +3944,8 @@ export function createWorld(
       Math.sin(dogGaitPhase) * 0.018 * dogMoveBlend;
     shastaTail.rotation.y =
       SHASTA_CHARACTER.tail.restAngleY +
-      Math.sin(elapsed * 0.85 + 0.4) * 0.03;
+      Math.sin(elapsed*(discFetch.phase==="found"?14:0.85)+0.4)*
+        (discFetch.phase==="found"?.26:.03);
     if(showingDiscGolfIntro || snapDiscCamera){
       // A direct time-derived pose starts on the basket instead of slowly
       // drifting there from a camera that previously followed the player.
@@ -4320,6 +4330,7 @@ export function createWorld(
       state = next;
       if(next.discGolfExitSerial!==lastDiscExit){
         lastDiscExit=next.discGolfExitSerial;
+        discFetch=idleDiscGolfFetch();
         discGolfIntro=null;
         discGolf=idleDiscGolf();callbacks.onDiscGolf(discGolf);
       }
@@ -4328,6 +4339,7 @@ export function createWorld(
         if(next.entered&&!next.paused){
           const hole=DISC_GOLF_HOLES[next.discGolfHoleIndex]??DISC_GOLF_HOLES[0];
           discGolf=startDiscGolf(next.discGolfHoleIndex,p=>terrainHeight(p.x,p.z),elapsed);
+          discFetch=idleDiscGolfFetch();
           player={...hole.tee};playerY=groundHeight(player);
           travel={point:player,speed:0,heading:{x:0,z:1}};
           const basket=discGolfBasketPosition(hole,elapsed);
@@ -4359,7 +4371,10 @@ export function createWorld(
         lastDiscShot=next.discGolfShotSerial;
         if(next.discGolfShot&&discGolf.phase!=="off"){
           if(discGolfIntro){discGolfIntro=null;snapDiscCamera=true;}
+          const beforeShot=discGolf.phase;
           discGolf=discGolfThrow(discGolf,next.discGolfShot,p=>terrainHeight(p.x,p.z));
+          if(discGolf.phase==="flying"&&beforeShot!=="flying")
+            discFetch=startDiscGolfFetch(elapsed);
           callbacks.onDiscGolf(discGolf);
         }
       }
@@ -4453,6 +4468,7 @@ export function createWorld(
         canvas.focus({ preventScroll: true });
       if (next.command && next.command.serial !== lastSerial) {
         if(discGolf.phase!=="off"){
+          discFetch=idleDiscGolfFetch();
           discGolfIntro=null;
           discGolf=idleDiscGolf();callbacks.onDiscGolf(discGolf);
         }
