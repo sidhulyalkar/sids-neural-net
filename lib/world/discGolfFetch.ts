@@ -75,8 +75,9 @@ export function discGolfFetchCameraPhase(
 export function discGolfHandoffTarget(
  previous:DiscGolfFetch,next:DiscGolfFetch,game:DiscGolfState,
 ):Point|null{
- if(previous.phase==="idle"||next.phase!=="idle"||
-   (game.phase!=="landed"&&game.phase!=="holed"))return null;
+ if((previous.phase!=="found"&&previous.phase!=="chase")||
+    next.phase!=="idle"||
+    (game.phase!=="landed"&&game.phase!=="holed"))return null;
  return game.phase==="holed"
   ?{x:game.disc.x,z:game.disc.z}:{...game.lie};
 }
