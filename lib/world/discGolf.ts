@@ -12,8 +12,8 @@ export type DiscGolfHole = {
 // Fixed destinations form a linked cross-island route. The previous basket
 // is the next tee, so the whole course reads as a journey, not target chasing.
 export const DISC_GOLF_HOLES:readonly DiscGolfHole[]=[
-  {id:"redwood-bend",name:"Redwood Traverse",par:4,tee:{x:-6,z:10},
-   target:{x:42,z:42}},
+  {id:"redwood-bend",name:"Redwood Traverse",par:4,tee:{x:38,z:9},
+   target:{x:43,z:43}},
   {id:"scrub-crosswind",name:"Scrub Crosswind",par:4,tee:{x:42,z:42},
    target:{x:43,z:-29}},
   {id:"desert-drifter",name:"Desert Ridge",par:4,tee:{x:43,z:-29},
@@ -29,9 +29,19 @@ export const DISC_GOLF_HOLES:readonly DiscGolfHole[]=[
   {id:"joshua-chute",name:"Joshua Chute",par:4,tee:{x:5,z:-52},
    target:{x:40,z:-28}},
   {id:"homeward-line",name:"Homeward Line",par:5,tee:{x:40,z:-28},
-   target:{x:-6,z:10}},
+   target:{x:38,z:9}},
 ];
 export const DISC_GOLF_VERSION="disc-golf-island-v1.3";
+/** Keeps the opening approach unobstructed by procedural rocks/trees, while
+ * leaving surrounding forest and authored sport features intact. */
+export function discGolfOpeningClearance(p:Point,extraRadius=0):boolean{
+ const start=DISC_GOLF_HOLES[0].tee,finish=DISC_GOLF_HOLES[0].target;
+ const dx=finish.x-start.x,dz=finish.z-start.z;
+ const t=Math.max(0,Math.min(1,((p.x-start.x)*dx+(p.z-start.z)*dz)/
+   (dx*dx+dz*dz)));
+ const x=start.x+dx*t,z=start.z+dz*t;
+ return Math.hypot(p.x-x,p.z-z)<3.5+extraRadius;
+}
 const clamp=(n:number,a:number,b:number)=>Math.max(a,Math.min(b,n));
 // Keep the existing time argument for render/simulation call sites; there is
 // deliberately no animation or aiming uncertainty in basket position.
