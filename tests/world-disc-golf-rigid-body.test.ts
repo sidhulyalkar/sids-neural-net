@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {discInitialOrientation,initializeRigidDisc,
- stepRigidDisc,discNormal,dot} from "../lib/world/discGolfRigidBody";
+ stepRigidDisc,discNormal,dot,type RigidFlight} from "../lib/world/discGolfRigidBody";
 import {discImpact,discGroundNormal,stepGroundSlide} from "../lib/world/discGolfGroundContact";
 import {DISC_GOLF_AERO_PROFILES} from "../lib/world/discGolfAerodynamics";
 import {discGolfThrow,startDiscGolf,stepDiscGolf,traceDiscGolfShot} from "../lib/world/discGolf";
@@ -20,7 +20,7 @@ test("disc rigid-body release has a normalized orientation and physical spin mom
  assert.ok(dot(n,forehand.momentum)<0);
 });
 test("six-DOF orientation, translational energy and spin remain bounded",()=>{
- let state={velocity:{x:0,y:0,z:25},
+ let state:RigidFlight={velocity:{x:0,y:0,z:25},
   rigid:initializeRigidDisc(0,16,19,700,"backhand","fairway"),
   spinRpm:700,releaseStyle:"backhand" as const,discStyle:"fairway" as const};
  let firstLift=0,lastSpeed=25;
