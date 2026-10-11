@@ -6,7 +6,7 @@ import { createTechnicalGeometry } from "./worldTechnicalGeometry";
 import { createBigAirBirds } from "./worldBigAirBirds";
 import { createDiscGolfGeometry } from "./worldDiscGolfGeometry";
 import {
-  DISC_GOLF_HOLES,discGolfOpeningClearance,discGolfBasketPosition,discGolfThrowCameraPose,discGolfIntroPose,discGolfThrow,stepDiscGolf,
+  DISC_GOLF_HOLES,discGolfOpeningClearance,discGolfCourseClearance,discGolfBasketPosition,discGolfThrowCameraPose,discGolfIntroPose,discGolfThrow,stepDiscGolf,
   startDiscGolf,idleDiscGolf,type DiscGolfState,type DiscShot,
   type DiscGolfSwingStage,
 } from "@/lib/world/discGolf";
@@ -408,7 +408,7 @@ export function createWorld(
       z = -43 + random() * 79;
     if (
       sportClearance({x,z}) ||
-      discGolfOpeningClearance({x,z},3) ||
+      discGolfOpeningClearance({x,z},3) || discGolfCourseClearance({x,z},2.7) ||
       BOULDER_HOLDS.some(h => distance(h, { x, z }) < 5) ||
       REGIONS.some((r) => distance(r.point, { x, z }) < 7) ||
       MEMORY_POINTS.some((m) => distance(m.point, { x, z }) < 4)
@@ -454,6 +454,7 @@ export function createWorld(
       z = -40 + random() * 80;
     if (
       sportClearance({x,z}) || discGolfOpeningClearance({x,z},2) ||
+      discGolfCourseClearance({x,z},2) ||
       biomeAt({x,z}).weights.redwood < .25 ||
       x < -17 || z < -15 ||
       BOULDER_HOLDS.some(h => distance(h, { x, z }) < 6) ||
@@ -536,6 +537,7 @@ export function createWorld(
     if (
       sportClearance({x,z}) ||
       discGolfOpeningClearance({x,z},2) ||
+      discGolfCourseClearance({x,z},2) ||
       Math.abs(x - laneCenter) < 3.4 ||
       distance({ x, z }, REGIONS[1].point) < 7 ||
       RIDE_RAMPS.some(r => distance({ x, z }, r.point) < 5) ||
@@ -628,6 +630,7 @@ export function createWorld(
     const x = -28 + random() * 74,
       z = -39 + random() * 77;
     if (
+      discGolfCourseClearance({x,z}) ||
       random() < biomeAt({x,z}).weights.desert || sportClearance({x,z}) ||
       REGIONS.some((r) => lineDistance(x, z, REGIONS[0].point, r.point) < 2.7)
     )
@@ -648,7 +651,8 @@ export function createWorld(
   const coyote: Instance[] = [], sage: Instance[] = [], stems: Instance[] = [], poppies: Instance[] = [];
   for (let i = 0; i < 160; i++) {
     const x = -33 + random() * 14, z = -25 + random() * 58;
-    if (REGIONS.some(r => distance(r.point, { x, z }) < 4) || MEMORY_POINTS.some(m => distance(m.point, { x, z }) < 3) ||
+    if (discGolfCourseClearance({x,z},1.2) ||
+        REGIONS.some(r => distance(r.point, { x, z }) < 4) || MEMORY_POINTS.some(m => distance(m.point, { x, z }) < 3) ||
         REGIONS.slice(1).some(r => lineDistance(x, z, REGIONS[0].point, r.point) < 2)) continue;
     const y = terrainHeight(x, z), size = 0.4 + random() * 0.6;
     if (i % 2) coyote.push({ x, y: y + size * 0.45, z, sx: size, sy: size * 0.65, sz: size * 0.8 });
@@ -656,7 +660,8 @@ export function createWorld(
   }
   for (let i = 0; i < 140; i++) {
     const x = -30 + random() * 13, z = 9 + random() * 23;
-    if (MEMORY_POINTS.some(m => distance(m.point, { x, z }) < 2) || distance(REGIONS[3].point, { x, z }) < 3) continue;
+    if (discGolfCourseClearance({x,z}) ||
+        MEMORY_POINTS.some(m => distance(m.point, { x, z }) < 2) || distance(REGIONS[3].point, { x, z }) < 3) continue;
     const y = terrainHeight(x, z), h = 0.2 + random() * 0.2;
     stems.push({ x, y: y + h / 2, z, sx: 0.025, sy: h, sz: 0.025 });
     poppies.push({ x, y: y + h, z, sx: 0.12, sy: 0.13, sz: 0.12 });
