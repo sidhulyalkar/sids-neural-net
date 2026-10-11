@@ -44,6 +44,49 @@ during a watercraft run.
 - This is original arcade handling, **not** a six-contact measured hull model.
   Water bobbing, foam, and banking are cosmetic for now.
 
+## Landmark and water-mechanics tranche (2026-10-11)
+
+New code on this draft branch:
+
+- `jetSkiCourse.ts`: two mandatory sea arch openings aligned with gate 5
+  (Santa Cruz–inspired sandstone, northern capes) and gate 14
+  (Hawaiian-inspired basalt, southern passage); five offshore sea stacks
+  along the Mendocino-like west coast and two basalt shelves. Collision
+  footprints are narrower than decorative silhouettes. Route segment checks
+  must show clear passage through every gate.
+- `worldJetSkiCourseGeometry.ts`: generated irregular stone pillars,
+  open semicircular arches, foam skirts, animated jump-wave rings and
+  three wave-surface patches. Geometries/materials disposed on unmount.
+- `jetSkiWater.ts`: deterministic regional swell height and slopes,
+  stronger chop on the exposed west/south coast, conservative current drift,
+  and two authored wave-lip jumps aligned with the racing direction.
+- `jetSkiRace.ts`: bounded turbo energy that recharges off boost,
+  boosted acceleration and speed, gentle release deceleration, current
+  drift, rock impacts, jump cooldown, gravity and landing splash state.
+  Steering/roll/pitch remain arcade-friendly, not full rigid-body hull physics.
+- World renderer: Shift boost on keyboard or large touch Boost button,
+  turquoise turbo meter, named route section cues, wave-aware craft height
+  and camera adjustment during jumps.
+- World unit tests cover open arches, dry-route avoidance, rock placement,
+  wave determinism, boost recharge, controlled airtime and opponent laps.
+
+### Visual/functional review checklist
+1. Fly a camera through the **North Natural Bridges** arch, and through
+   the **South Lava Window** arch, with a clear overwater opening. No arch
+   beam should collide with the craft.
+2. In the western Mendocino section verify sea stacks guide a readable
+   slalom and that no rock occupies a mandatory checkpoint or route line.
+3. Verify moving wave patches line up with visual craft bobbing; ensure
+   their opacity and seams do not obscure reef photography or snorkeling.
+4. On both desktop and touch, turbo should be useful for a pass and a
+   jump but not required to complete either lap. Releasing boost must not
+   abruptly clamp speed.
+5. Jump zones must have safe water landing surfaces, limited airtime,
+   legible camera framing, no repeated instant relaunches, and visible
+   landing foam. AI must be capable of completing the same route.
+6. Verify no regressions to cave, disc golf, swimming, aquatic fauna,
+   beach exploration, or normal keyboard movement.
+
 ## Acceptance checklist before merge
 
 1. World typecheck, strict lint including jet-ski sources, existing World
