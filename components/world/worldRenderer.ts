@@ -4352,7 +4352,7 @@ export function createWorld(
       lastPreviewTick=discGolf.clock;
     }
     flyingBirds.update(bigAir,elapsed,reducedFlightMotion);
-    habitats.update(player);
+    habitats.update(player,elapsed);
     if(aquatic === "land" && scene.fog instanceof THREE.Fog) {
       const w = biomeAt({x:camera.position.x,z:camera.position.z}).weights;
       const fogTarget = new THREE.Color("#c4d9df").lerp(new THREE.Color("#d7c7ae"),w.desert).lerp(new THREE.Color("#a8c4af"),w.rainforest+w.redwood*.35);
