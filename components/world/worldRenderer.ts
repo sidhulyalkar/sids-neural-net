@@ -26,7 +26,7 @@ import { LAND_WILDLIFE, LAND_WILDLIFE_COLORS } from "@/lib/world/ecology";
 import { SHASTA_CHARACTER } from "@/lib/world/shastaCharacter";
 import { FrameSampler, QualityController } from "@/lib/world/performance";
 import { shastaDetour, initialChaseState, stepChase, gaitBlendForSpeed, smoothAngle, smoothPoint, smoothingAlpha, steerShastaVelocity } from "@/lib/world/shastaMotion";
-import {idleDiscGolfFetch,startDiscGolfFetch,stepDiscGolfFetch,discGolfFetchCameraPhase} from "@/lib/world/discGolfFetch";
+import {idleDiscGolfFetch,startDiscGolfFetch,stepDiscGolfFetch,discGolfFetchCameraPhase,discGolfHandoffTarget} from "@/lib/world/discGolfFetch";
 import * as THREE from "three/src/Three.Core.js";
 import type { WebGLRenderer } from "three/src/renderers/WebGLRenderer.js";
 import {
@@ -2802,22 +2802,38 @@ export function createWorld(
       const previousY = playerY;
       if (discGolf.phase!=="off") {
         const previous=discGolf.phase;
+        const wasPresentationPending=!!discGolf.presentationPending;
         discGolf=stepDiscGolf(discGolf,dt,p=>terrainHeight(p.x,p.z),
           isWater,SEA_SURFACE,obstacles);
+        const previousFetch=discFetch;
         discFetch=stepDiscGolfFetch(discFetch,discGolf,dog,elapsed);
-        if(discGolf.phase!==previous){
-          if(discGolf.phase==="landed"||discGolf.phase==="holed"){
-            // The next lie is an actual terrain location, not a menu-only target.
-            player={...discGolf.lie};playerY=groundHeight(player);
-            const chains=discGolfNextTarget(discGolf);
-            const dx=chains.x-player.x,dz=chains.z-player.z;
-            const len=Math.hypot(dx,dz)||1;
-            travel={point:player,speed:0,heading:{x:dx/len,z:dz/len}};
-            // After a long drive the player should face the next putt.
-            explorer.rotation.y=Math.atan2(dx,dz);
-            yaw=Math.atan2(-dx,-dz);
-            airHeight=verticalSpeed=0;
-          }
+        const handoff=discGolfHandoffTarget(previousFetch,discFetch,discGolf);
+        if(handoff){
+          // The physics has already committed the real lie and stroke.
+          // Leave the avatar at its PREVIOUS throw position until Shasta's
+          // run and find animation have completed, then move it once.
+          player=handoff;playerY=groundHeight(player);
+          const nextTarget=discGolfNextTarget(discGolf);
+          const faceX=nextTarget.x-player.x,faceZ=nextTarget.z-player.z;
+          const len=Math.hypot(faceX,faceZ)||1;
+          travel={point:player,speed:0,heading:{x:faceX/len,z:faceZ/len}};
+          explorer.rotation.y=Math.atan2(faceX,faceZ);
+          yaw=Math.atan2(-faceX,-faceZ);
+          airHeight=verticalSpeed=0;
+          dogSmoothedTarget={...dog};
+          canvas.dataset.discGolfHandoff="complete";
+        }
+        // Water shots and cancelled cinematics release the input lock
+        // without teleporting the player. Successful fetches unlock only
+        // AFTER the final phase returns to idle.
+        if(discGolf.presentationPending&&previousFetch.phase!=="idle"&&
+           discFetch.phase==="idle")
+          discGolf={...discGolf,presentationPending:false};
+        canvas.dataset.discGolfHandoffPending=String(!!discGolf.presentationPending);
+        canvas.dataset.discGolfAvatarX=player.x.toFixed(2);
+        canvas.dataset.discGolfAvatarZ=player.z.toFixed(2);
+        if(discGolf.phase!==previous||
+           !!discGolf.presentationPending!==wasPresentationPending){
           callbacks.onDiscGolf(discGolf);
         }else if(elapsed-lastDiscUpdate>.22){
           callbacks.onDiscGolf(discGolf);lastDiscUpdate=elapsed;
@@ -4442,6 +4458,8 @@ export function createWorld(
           const hole=DISC_GOLF_HOLES[next.discGolfHoleIndex]??DISC_GOLF_HOLES[0];
           discGolf=startDiscGolf(next.discGolfHoleIndex,p=>terrainHeight(p.x,p.z),elapsed);
           canvas.dataset.discGolfLastShot="pending";
+          canvas.dataset.discGolfHandoff="none";
+          canvas.dataset.discGolfHandoffPending="false";
           discFetch=idleDiscGolfFetch();
           player={...hole.tee};playerY=groundHeight(player);
           const basket=discGolfNextTarget(discGolf);
@@ -4475,13 +4493,23 @@ export function createWorld(
       if(next.discGolfShotSerial!==lastDiscShot){
         lastDiscShot=next.discGolfShotSerial;
         if(next.discGolfShot&&discGolf.phase!=="off"){
-          if(discGolfIntro){discGolfIntro=null;snapDiscCamera=true;}
-          const beforeShot=discGolf.phase;
-          discGolf=discGolfThrow(discGolf,next.discGolfShot,p=>terrainHeight(p.x,p.z));
-          const accepted=discGolf.phase==="flying"&&beforeShot!=="flying";
-          if(accepted)discFetch=startDiscGolfFetch(elapsed);
-          canvas.dataset.discGolfLastShot=accepted?"accepted":"rejected";
-          callbacks.onDiscGolf(discGolf);
+          if(discGolf.presentationPending){
+            // Ignore synthetic, double-click or stale shot commands while
+            // the previous disc is still being retrieved.
+            canvas.dataset.discGolfLastShot="waiting-fetch";
+          }else{
+            if(discGolfIntro){discGolfIntro=null;snapDiscCamera=true;}
+            const beforeShot=discGolf.phase;
+            discGolf=discGolfThrow(discGolf,next.discGolfShot,p=>terrainHeight(p.x,p.z));
+            const accepted=discGolf.phase==="flying"&&beforeShot!=="flying";
+            if(accepted){
+              discFetch=startDiscGolfFetch(elapsed);
+              discGolf={...discGolf,presentationPending:true};
+              canvas.dataset.discGolfHandoff="waiting";
+            }
+            canvas.dataset.discGolfLastShot=accepted?"accepted":"rejected";
+            callbacks.onDiscGolf(discGolf);
+          }
         }
       }
       if(next.paused && discGolfIntro){
