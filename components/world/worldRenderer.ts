@@ -2822,14 +2822,20 @@ export function createWorld(
           airHeight=verticalSpeed=0;
           dogSmoothedTarget={...dog};
           canvas.dataset.discGolfHandoff="complete";
+          canvas.dataset.discGolfHandoffReason=
+            previousFetch.phase==="found"?"found":"timeout";
         }
         // Water shots and cancelled cinematics release the input lock
         // without teleporting the player. Successful fetches unlock only
         // AFTER the final phase returns to idle.
         if(discGolf.presentationPending&&previousFetch.phase!=="idle"&&
-           discFetch.phase==="idle")
+           discFetch.phase==="idle"){
+          if(!handoff)canvas.dataset.discGolfHandoff="none";
           discGolf={...discGolf,presentationPending:false};
+        }
         canvas.dataset.discGolfHandoffPending=String(!!discGolf.presentationPending);
+        canvas.dataset.discGolfLieX=discGolf.lie.x.toFixed(2);
+        canvas.dataset.discGolfLieZ=discGolf.lie.z.toFixed(2);
         canvas.dataset.discGolfAvatarX=player.x.toFixed(2);
         canvas.dataset.discGolfAvatarZ=player.z.toFixed(2);
         if(discGolf.phase!==previous||
@@ -4459,6 +4465,7 @@ export function createWorld(
           discGolf=startDiscGolf(next.discGolfHoleIndex,p=>terrainHeight(p.x,p.z),elapsed);
           canvas.dataset.discGolfLastShot="pending";
           canvas.dataset.discGolfHandoff="none";
+          canvas.dataset.discGolfHandoffReason="none";
           canvas.dataset.discGolfHandoffPending="false";
           discFetch=idleDiscGolfFetch();
           player={...hole.tee};playerY=groundHeight(player);
