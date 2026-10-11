@@ -5,7 +5,7 @@ import { createReefGarden } from "./worldReef";
 import { createTechnicalGeometry } from "./worldTechnicalGeometry";
 import { createBigAirBirds } from "./worldBigAirBirds";
 import { createDiscGolfGeometry } from "./worldDiscGolfGeometry";
-import {createJetSkiDock} from "./worldJetSkiDock";
+import {createJetSkiDock,type JetSkiWakePoint} from "./worldJetSkiDock";
 import {createJetSkiCoastGeometry} from "./worldJetSkiCourseGeometry";
 import {jetSkiSectionName} from "@/lib/world/jetSkiCourse";
 import {JET_SKI_DOCK,JET_SKI_GATES,startJetSkiRace,stepJetSkiRace,jetSkiNavigableWater,jetSkiGateDistance,jetSkiBearingToGate,jetSkiOpponentInput,jetSkiRaceProgress,type JetSkiState} from "@/lib/world/jetSkiRace";
@@ -2533,6 +2533,8 @@ export function createWorld(
   let jetSki:JetSkiState|null=null;
   let jetRivals:JetSkiState[]=[];
   let jetMilestone='';
+  let jetWakeSamples:JetSkiWakePoint[]=[];
+  let jetWakeAccumulator=0;
   let selectedJetSki:"touring"|"sport"|"race"="sport";
   let discFetch=idleDiscGolfFetch();
   let lastDiscStart=0,lastDiscShot=0,lastDiscExit=0,lastDiscUpdate=0;
@@ -2556,6 +2558,7 @@ export function createWorld(
   function stopJetSki(){
     if(!jetSki)return;
     jetSki=null;jetRivals=[];jetMilestone="";
+    jetWakeSamples=[];jetWakeAccumulator=0;
     jetTouchInput.throttle=0;jetTouchInput.steer=0;jetTouchInput.brake=false;
     jetBoostState.active=false;
     player={x:57,z:JET_SKI_DOCK.z};playerY=groundHeight(player);
@@ -2569,6 +2572,7 @@ export function createWorld(
     if(!state.entered||state.paused||jetSki||discGolf.phase!=="off"||
        Math.hypot(player.x-57,player.z-JET_SKI_DOCK.z)>=8)return;
     jetSki=startJetSkiRace(selectedJetSki);jetMilestone="";
+    jetWakeSamples=[];jetWakeAccumulator=0;
     jetRivals=[
       {...startJetSkiRace("sport"),position:{x:70,z:7}},
       {...startJetSkiRace("touring"),position:{x:73,z:5}},
@@ -2974,6 +2978,24 @@ export function createWorld(
         jetskiVisual.wake.rotation.z=-jetSki.heading;
         jetskiVisual.wake.material.opacity=jetSki.boosting?.9:.58;
         jetskiVisual.wake.scale.setScalar(1+Math.min(3.4,Math.abs(jetSki.speed)/9));
+        // A bounded foam history makes acceleration and turns visible, with
+        // no per-frame mesh allocation or extra individual draw calls.
+        jetWakeSamples=jetWakeSamples.filter(p=>{
+          p.age+=dt;return p.age<1.9;
+        });
+        if(jetSki.phase==="racing"&&jetSki.speed>3&&jetSki.jumpHeight<.12){
+          jetWakeAccumulator+=dt;
+          if(jetWakeAccumulator>=.09){
+            jetWakeAccumulator%= .09;
+            const h=jetSki.heading;
+            jetWakeSamples.unshift({
+              x:player.x-Math.sin(h)*1.55,z:player.z-Math.cos(h)*1.55,
+              heading:h,speed:jetSki.speed,age:0,boosting:jetSki.boosting,
+            });
+            if(jetWakeSamples.length>38)jetWakeSamples.length=38;
+          }
+        }else jetWakeAccumulator=0;
+        jetskiVisual.updateWakeTrail(jetWakeSamples,elapsed);
         jetskiVisual.buoys.forEach((b,i)=>{b.visible=true;
           b.scale.setScalar(i===jetSki!.checkpoint?1.7:1);});
         canvas.dataset.jetSkiStatus=jetSki.phase;
@@ -3582,6 +3604,8 @@ export function createWorld(
         jetskiVisual.opponents.forEach(g=>{g.visible=false;});
         jetskiVisual.skis.forEach(g=>{g.visible=true;});
         jetskiVisual.wake.visible=false;
+        if(jetWakeSamples.length){jetWakeSamples=[];jetWakeAccumulator=0;}
+        jetskiVisual.updateWakeTrail([],elapsed);
         if(discGolf.phase==="off"&&Math.hypot(player.x-57,player.z-JET_SKI_DOCK.z)<9){
           jetHud.style.display="block";
           jetTurboBar.style.display="none";
