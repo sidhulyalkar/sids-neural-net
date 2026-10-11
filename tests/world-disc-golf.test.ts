@@ -91,6 +91,78 @@ test("pullback power, release accuracy, aim and throw angle all influence disc f
  assert.notEqual(tilt.velocity.z,fast.velocity.z);
  assert.ok(high.velocity.y>slow.velocity.y);
 });
+test("release bank curves the disc left or right instead of changing the initial aim",()=>{
+ const flat=()=>0,water=()=>false;
+ const initial=startDiscGolf(0,flat,0);
+ const shot={power:76,accuracy:0,loft:28,aimOffset:0};
+ const straight=discGolfThrow(initial,shot,flat);
+ const left=discGolfThrow(initial,{...shot,bankAngle:-40},flat);
+ const right=discGolfThrow(initial,{...shot,bankAngle:40},flat);
+ assert.equal(left.bankAngle,-40);
+ assert.equal(right.bankAngle,40);
+ assert.equal(straight.bankAngle,0);
+ assert.deepEqual(left.velocity,right.velocity,
+  "bank angle bends during flight, not as a secret change to starting heading");
+ const fly=(start:typeof straight)=>{
+  let s=start;
+  for(let i=0;i<210&&s.phase==="flying";i++)
+   s=stepDiscGolf(s,.05,flat,water,-1.4);
+  return s;
+ };
+ const a=fly(left),b=fly(right),center=fly(straight);
+ assert.equal(a.phase,"landed");
+ assert.equal(b.phase,"landed");
+ assert.equal(center.phase,"landed");
+ const norm=Math.hypot(straight.velocity.x,straight.velocity.z);
+ const rx=straight.velocity.z/norm,rz=-straight.velocity.x/norm;
+ const leftLateral=(a.disc.x-center.disc.x)*rx+(a.disc.z-center.disc.z)*rz;
+ const rightLateral=(b.disc.x-center.disc.x)*rx+(b.disc.z-center.disc.z)*rz;
+ assert.ok(leftLateral< -2,
+  "negative bank must visibly bend to the traveler's left: "+leftLateral);
+ assert.ok(rightLateral>2,
+  "positive bank must visibly bend right: "+rightLateral);
+ assert.ok(Math.hypot(a.disc.x-b.disc.x,a.disc.z-b.disc.z)>7);
+});
+test("curved flight preview, real landing and gate progress use identical physics",()=>{
+ const flat=()=>0,water=()=>false;
+ for(const bankAngle of [-40,-25,0,25,40]){
+  const initial=startDiscGolf(1,flat,3.2);
+  const shot={power:90,accuracy:0,loft:27,aimOffset:0,bankAngle};
+  const preview=traceDiscGolfShot(initial,shot,flat,water,-1.4);
+  let actual=discGolfThrow(initial,shot,flat);
+  for(let i=0;i<90&&actual.phase==="flying";i++)
+   actual=stepDiscGolf(actual,.1,flat,water,-1.4);
+  assert.equal(preview.outcome,actual.phase);
+  assert.equal(preview.gatesCleared,actual.gatesCleared);
+  assert.ok(Math.hypot(preview.end.x-actual.disc.x,
+   preview.end.z-actual.disc.z)<1e-7);
+  assert.ok(Math.abs(preview.end.y-actual.disc.y)<1e-7);
+  assert.equal(actual.bankAngle,bankAngle);
+ }
+});
+test("bank control rejects invalid inputs and clamps excessive tilt",()=>{
+ const init=startDiscGolf(0,()=>0);
+ const shot={power:75,loft:24,accuracy:0,aimOffset:0};
+ assert.equal(discGolfThrow(init,{...shot,bankAngle:Infinity},()=>0),init);
+ assert.equal(discGolfThrow(init,{...shot,bankAngle:NaN},()=>0),init);
+ assert.equal(discGolfThrow(init,{...shot,bankAngle:999},()=>0).bankAngle,40);
+ assert.equal(discGolfThrow(init,{...shot,bankAngle:-999},()=>0).bankAngle,-40);
+ assert.equal(discGolfThrow(init,shot,()=>0).bankAngle,0);
+});
+test("disc bank visibly tilts while the printed disc spins independently",()=>{
+ const scene=new THREE.Scene(),geo=createDiscGolfGeometry(scene);
+ const initial=startDiscGolf(1,()=>0);
+ const airborne=discGolfThrow(initial,
+  {power:80,accuracy:0,loft:24,aimOffset:0,bankAngle:30},()=>0);
+ geo.update({...airborne,flightTime:1.2});
+ const disc=scene.children[1] as THREE.Group;
+ assert.ok(disc.rotation.z>.45);
+ assert.ok(Math.abs(disc.rotation.y)>0);
+ assert.ok((disc.children[0] as THREE.Group).rotation.y>10);
+ geo.update(initial);
+ assert.equal(disc.rotation.z,0);
+ geo.dispose();
+});
 test("real heightfield shots settle on ground at a playable new lie",()=>{
  let s=discGolfThrow(startDiscGolf(0,ground,0),ordinary,ground);
  for(let i=0;i<1000&&s.phase==="flying";i++)
