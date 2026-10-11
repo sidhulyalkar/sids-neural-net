@@ -146,7 +146,7 @@ test("a disc striking a tree earns a ground lie, not a free water redo",()=>{
  for(let n=0;n<100&&shot.phase==="flying";n++)
    shot=stepDiscGolf(shot,.05,ground,isWater,-1.4,[obstacle]);
  assert.equal(shot.phase,"landed",JSON.stringify(shot));
- assert.match(shot.reason??"","Tree contact");
+ assert.match(shot.reason??"",/Tree contact/);
  assert.equal(shot.strokes,1);
  assert.equal(shot.waterRedos,0);
  assert.ok(Math.abs(shot.disc.y-ground(shot.lie)-.16)<.001);
