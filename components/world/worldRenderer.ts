@@ -3254,7 +3254,8 @@ export function createWorld(
         const pose=discGolfThrowCameraPose(player,basket,playerY);
         // Preserve a stationary putting camera through the entire short
         // flight; only long drives follow the disc through the island.
-        const followFlight=discGolf.phase==="flying"&&!pose.putting;
+        const followFlight=discGolf.phase==="flying"&&!pose.putting&&
+          !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
         const dx=basket.x-player.x,dz=basket.z-player.z;
         const len=Math.hypot(dx,dz)||1;
         const lookAt=followFlight?{
@@ -3296,7 +3297,8 @@ export function createWorld(
       if(discGolf.phase!=="off"){
         const target=discGolfNextTarget(discGolf);
         const pose=discGolfThrowCameraPose(player,target,playerY);
-        if(discGolf.phase==="flying"&&!pose.putting){
+        if(discGolf.phase==="flying"&&!pose.putting&&
+          !window.matchMedia("(prefers-reduced-motion: reduce)").matches){
           const dx=target.x-player.x,dz=target.z-player.z;
           const len=Math.hypot(dx,dz)||1;
           const fx=dx/len,fz=dz/len,p=discGolf.disc;
@@ -3846,9 +3848,12 @@ export function createWorld(
         ? shoreWait
         : dogWaitsAtCaveEntrance
           ? { x: arcade.x - 2.0, z: arcade.z - 1.65 }
-          : (discFetch.phase==="chase"||discFetch.phase==="found")&&
-            discFetch.target&&discGolf.phase!=="off"?
-            discFetch.target
+          : discGolf.phase!=="off"&&
+            (discFetch.phase==="flight"||discFetch.phase==="landed")?
+            dog
+            : (discFetch.phase==="chase"||discFetch.phase==="found")&&
+              discFetch.target&&discGolf.phase!=="off"?
+              discFetch.target
             : nearbyCritter
               ? nearbyCritter.point
               : { x: player.x - travel.heading.x * 2.2 + travel.heading.z * 1.2, z: player.z - travel.heading.z * 2.2 - travel.heading.x * 1.2 }
@@ -3867,6 +3872,13 @@ export function createWorld(
     // Smooth the target itself, then steer velocity toward it with finite
     // acceleration/braking. This removes the start/stop jerk from direct pursuit.
     const dogMotionDt = Math.min(rawDelta, 0.1);
+    if(discGolf.phase!=="off"&&
+      (discFetch.phase==="flight"||discFetch.phase==="landed")){
+      // Player teleports to the landing lie on impact. Shasta must NOT
+      // treat that teleport as an invitation to sprint during the reveal.
+      dogVelocity={x:0,z:0};
+      dogSmoothedTarget={...dog};
+    }
     const dogSteeringTarget = shastaDetour(dog,dogTarget,obstacles,1);
     dogSmoothedTarget = smoothPoint(dogSmoothedTarget, isWater(dogSteeringTarget) ? dogTarget : dogSteeringTarget, dogMotionDt);
     dogVelocity = steerShastaVelocity(
