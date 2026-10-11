@@ -66,7 +66,7 @@ test("rainforest cloud bank, rain and California tree floor detail are grounded 
  habitat.update({x:42,z:36},5);
  assert.ok(rain.position.y<=0&&rain.position.y>=-1.8);
  habitat.update({x:42,z:36},7);
- assert.ok(rain.geometry===scene.getObjectByName("rainforest-local-rain")?.geometry,
+ assert.ok(rain.geometry===(scene.getObjectByName("rainforest-local-rain") as THREE.LineSegments)?.geometry,
   "animation must not rebuild buffers or create new draw calls");
  habitat.dispose();
  assert.equal(scene.children.length,0);
