@@ -125,7 +125,10 @@ export function WorldDiscGolfHUD({game,onShot,onChangeHole,onExit,onStage,onPrev
      <span className={styles.eyebrow}>ISLAND DISC GOLF · {game.holeIndex+1}/{DISC_GOLF_HOLES.length}</span>
      <h2>{hole.name}</h2>
     </div>
-    <button type="button" onClick={onExit} aria-label="Leave disc golf">Exit</button>
+    <button type="button" onClick={()=>{
+     onExit();
+     requestAnimationFrame(()=>document.querySelector<HTMLCanvasElement>('canvas[role="application"]')?.focus({preventScroll:true}));
+    }} aria-label="Leave disc golf">Exit</button>
    </div>
    <div className={styles.discGolfStats} aria-live="polite">
     <span>Par {hole.par}</span><span>Throws {game.strokes}</span>
