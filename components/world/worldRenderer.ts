@@ -3401,6 +3401,35 @@ export function createWorld(
         targetCamera.set(THREE.MathUtils.clamp(desired.x,centerX-half,centerX+half),playerY+2.15,z);
         targetLook.set(player.x-Math.sin(yaw)*2.4,playerY+1.85,player.z-Math.cos(yaw)*2.4);
       }
+      // Fetch camera: gently travel with Shasta toward the disc while keeping
+      // the normal third-person putting perspective mostly intact.
+      // This is cosmetic; neither game physics nor the player lie are moved.
+      const dogFetchVisible=discGolf.phase!=="off"&&discFetch.phase!=="idle"&&
+        !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      if(dogFetchVisible&&!discGolfIntro){
+        const basket=discGolfBasketPosition(DISC_GOLF_HOLES[discGolf.holeIndex],discGolf.clock);
+        const putting=discGolfThrowCameraPose(player,basket,playerY).putting;
+        const focusX=discFetch.phase==="found"?dog.x:
+          dog.x*.72+discGolf.disc.x*.28;
+        const focusZ=discFetch.phase==="found"?dog.z:
+          dog.z*.72+discGolf.disc.z*.28;
+        const target=new THREE.Vector3(focusX,
+          terrainHeight(focusX,focusZ)+1.6,focusZ);
+        const amount=putting?.18:.75;
+        targetLook.lerp(target,amount);
+        if(!putting){
+          const hx=basket.x-player.x,hz=basket.z-player.z;
+          const len=Math.hypot(hx,hz)||1;
+          const chaseCamera=new THREE.Vector3(
+            focusX-hx/len*20+hz/len*2.5,
+            terrainHeight(focusX,focusZ)+13.5,
+            focusZ-hz/len*20-hx/len*2.5);
+          chaseCamera.y=Math.max(chaseCamera.y,
+            worldFloorHeight(chaseCamera.x,chaseCamera.z)+9);
+          targetCamera.lerp(chaseCamera,.58);
+        }
+      }
+      canvas.dataset.discGolfFetchCamera=dogFetchVisible;
       // Basket-first orientation: hold the chains, then rise over the
       // fairway and return to the *existing* third-person aiming pose.
       // The normal terrain/camera constraints above remain authoritative at
