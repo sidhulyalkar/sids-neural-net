@@ -5,13 +5,18 @@ import {
  recommendDiscGolfPower,discGolfPullback,type DiscGolfState,type DiscShot,type DiscGolfSwingStage,
 } from "@/lib/world/discGolf";
 import {terrainHeight,isWater,SEA_SURFACE} from "@/lib/world/model";
+import {discGolfRoundSummary,nextUnplayedDiscGolfHole,type DiscGolfRound} from "@/lib/world/discGolfRound";
 import styles from "./world.module.css";
 
 const clamp=(value:number,min:number,max:number)=>Math.min(max,Math.max(min,value));
 const ground=(p:{x:number;z:number})=>terrainHeight(p.x,p.z);
 
-export function WorldDiscGolfHUD({game,onShot,onChangeHole,onExit,onStage,onPreview,onSwing}:{
+export function WorldDiscGolfHUD({game,round,scorecardOpen,onToggleScorecard,onNewRound,onShot,onChangeHole,onExit,onStage,onPreview,onSwing}:{
  game:DiscGolfState;
+ round:DiscGolfRound;
+ scorecardOpen:boolean;
+ onToggleScorecard:()=>void;
+ onNewRound:()=>void;
  onShot:(shot:DiscShot)=>void;
  onChangeHole:(hole:number)=>void;
  onExit:()=>void;
@@ -20,6 +25,9 @@ export function WorldDiscGolfHUD({game,onShot,onChangeHole,onExit,onStage,onPrev
  onSwing:(amount:number)=>void;
 }){
  const hole=DISC_GOLF_HOLES[game.holeIndex];
+ const roundSummary=discGolfRoundSummary(round);
+ const nextHole=nextUnplayedDiscGolfHole(round,game.holeIndex);
+ const [restartConfirm,setRestartConfirm]=useState(false);
  const [loft,setLoft]=useState(24);
  const [aim,setAim]=useState(0);
  const [charging,setCharging]=useState(false);
@@ -134,13 +142,17 @@ export function WorldDiscGolfHUD({game,onShot,onChangeHole,onExit,onStage,onPrev
      <span className={styles.eyebrow}>ISLAND DISC GOLF · {game.holeIndex+1}/{DISC_GOLF_HOLES.length}</span>
      <h2>{hole.name}</h2>
     </div>
+    <div className={styles.discGolfHeaderActions}>
+     <button type="button" aria-expanded={scorecardOpen} aria-controls="disc-golf-scorecard"
+       onClick={onToggleScorecard}>Scorecard</button>
     <button type="button" onClick={()=>{
      onExit();
      requestAnimationFrame(()=>document.querySelector<HTMLCanvasElement>('canvas[role="application"]')?.focus({preventScroll:true}));
     }} aria-label="Leave disc golf">Exit</button>
+    </div>
    </div>
    <div className={styles.discGolfStats} aria-live="polite">
-    <span>Par {hole.par}</span><span>Throws {game.strokes}</span>
+    <span>Par {hole.par} · Hole {game.holeIndex+1}</span><span>Throws {game.strokes}</span>
     <span>{remaining.toFixed(0)} m to basket</span>
     <span title="Wind at release">{ "Wind "+windArrow+" "+liveWind.speed.toFixed(1) }</span>
    </div>
@@ -152,11 +164,20 @@ export function WorldDiscGolfHUD({game,onShot,onChangeHole,onExit,onStage,onPrev
      "Fixed basket across the island. Advance from each landing."}
    </p>
    {game.phase==="holed"?(
-    <button className={styles.discGolfMainButton} type="button"
-      onClick={()=>onChangeHole((game.holeIndex+1)%DISC_GOLF_HOLES.length)}>
-      Next island hole
-    </button>
+    roundSummary.complete?(
+     <div className={styles.discGolfRoundComplete} aria-live="polite">
+      <strong>Round complete · {roundSummary.strokes} strokes</strong>
+      <span>Par {roundSummary.coursePar} · {roundSummary.toPar>0?"+":""}{roundSummary.toPar} overall</span>
+      <button className={styles.discGolfMainButton} type="button" onClick={onNewRound}>Play another round</button>
+     </div>
+    ):(
+     <button type="button" className={styles.discGolfMainButton}
+       onClick={()=>{if(nextHole!==null)onChangeHole(nextHole);}}>
+       {nextHole===null?"See scorecard":"Next unplayed hole · "+(nextHole+1)}
+     </button>
+    )
    ):(
+
     <>
      <div className={styles.discGolfKeyGuide}>
       <div><kbd>A</kbd> <kbd>D</kbd><span>Aim left / right <strong>{aim>0?"+":""}{aim}°</strong></span></div>
@@ -197,15 +218,67 @@ export function WorldDiscGolfHUD({game,onShot,onChangeHole,onExit,onStage,onPrev
      </span>
     </>
    )}
+   <div className={styles.discGolfRoundStrip} aria-live="polite">
+    <span>{roundSummary.holesPlayed}/{roundSummary.holesTotal} holes complete</span>
+    <strong>{roundSummary.strokes} strokes · {roundSummary.toPar>0?"+":""}{roundSummary.toPar} to par</strong>
+   </div>
    <div className={styles.discGolfHoles} role="group" aria-label="Choose hole">
     {DISC_GOLF_HOLES.map((h,i)=>(
      <button key={h.id} type="button" aria-pressed={i===game.holeIndex}
-       disabled={game.phase==="flying"} aria-label={"Play hole "+(i+1)+": "+h.name}
+       className={round.scores[i]!==null?styles.discGolfRecordedHole:undefined}
+       disabled={game.phase==="flying"}
+       title={round.scores[i]===null?"Hole not yet completed":"Recorded: "+round.scores[i]+" strokes. Replay is practice."}
+       aria-label={"Play hole "+(i+1)+": "+h.name+
+        (round.scores[i]===null?"":", scored "+round.scores[i]+" (practice replay)")}
        onClick={()=>onChangeHole(i)}>
-       {i+1}
+       {i+1}{round.scores[i]!==null?" ✓":""}
      </button>
     ))}
    </div>
+   {round.scores[game.holeIndex]!==null&&game.phase!=="holed"&&
+    <p className={styles.discGolfPracticeNote}>
+     Practice replay. Your recorded score for this hole stays {round.scores[game.holeIndex]}.
+    </p>}
+   <section id="disc-golf-scorecard" className={styles.discGolfScorecard}
+     hidden={!scorecardOpen} aria-label="Nine-hole scorecard">
+    <div className={styles.discGolfScorecardHeading}>
+     <strong>{roundSummary.complete?"Round finished":"Round progress"}</strong>
+     {round.bestTotal!==null&&<span>Best round: {round.bestTotal} strokes</span>}
+    </div>
+    <table>
+     <thead><tr><th scope="col">Hole</th><th scope="col">Par</th><th scope="col">Score</th><th scope="col">±</th></tr></thead>
+     <tbody>
+      {DISC_GOLF_HOLES.map((h,i)=>{
+       const score=round.scores[i];
+       const delta=score===null?null:score-h.par;
+       return <tr key={h.id} aria-current={i===game.holeIndex?"true":undefined}>
+        <th scope="row">{i+1}. {h.name}</th>
+        <td>{h.par}</td><td>{score??"·"}</td>
+        <td>{delta===null?"·":delta>0?"+"+delta:delta}</td>
+       </tr>;
+      })}
+     </tbody>
+     <tfoot><tr><th scope="row">Total</th><td>{roundSummary.coursePar}</td>
+      <td>{roundSummary.strokes}</td>
+      <td>{roundSummary.toPar>0?"+"+roundSummary.toPar:roundSummary.toPar}</td>
+     </tr></tfoot>
+    </table>
+    {!roundSummary.complete&&
+     <p className={styles.discGolfHint}>Only finished baskets count. Switching holes doesn't award or erase strokes.</p>}
+    {restartConfirm?(
+     <div className={styles.discGolfRestartActions}>
+      <button type="button" onClick={()=>{onNewRound();setRestartConfirm(false);}}>
+       Confirm new round
+      </button>
+      <button type="button" onClick={()=>setRestartConfirm(false)}>Cancel</button>
+     </div>
+    ):(
+     <button className={styles.discGolfResetButton} type="button"
+       onClick={()=>roundSummary.holesPlayed>0?setRestartConfirm(true):onNewRound()}>
+       Start a fresh round
+     </button>
+    )}
+   </section>
   </aside>
  );
 }
