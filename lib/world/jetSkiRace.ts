@@ -100,3 +100,31 @@ export function stepJetSkiRace(state:JetSkiState,dt:number,
  }
  return s;
 }
+
+/** Shared physics, independent steering policy. Opponents anticipate tight
+ * bends and coast before sharp turns; they cannot bypass shoreline collision.
+ * No rubber-banding or scripted teleporting. */
+export function jetSkiOpponentInput(state:JetSkiState,pace=.85):JetSkiInput{
+ const headingError=jetSkiBearingToGate(state);
+ const curve=Math.abs(headingError);
+ const top=JET_SKI_PROFILES[state.craft].maxSpeed*clamp(pace,.55,1);
+ const target=curve>.95?top*.42:curve>.42?top*.68:top;
+ return {
+  throttle:state.speed<target?1:0,
+  steer:clamp(headingError*1.7,-1,1),
+  brake:state.speed>target+2,
+ };
+}
+/** Interpolated checkpoint progress is sufficient for a readable leaderboard.
+ * Gate count remains authoritative for actual race completion. */
+export function jetSkiRaceProgress(state:JetSkiState):number{
+ if(state.phase==="finished")return JET_SKI_GATES.length*JET_SKI_LAPS;
+ const previous=state.checkpoint===0?
+  (state.lap===0?JET_SKI_START:JET_SKI_GATES.at(-1)!):
+  JET_SKI_GATES[state.checkpoint-1];
+ const next=JET_SKI_GATES[state.checkpoint];
+ const dx=next.x-previous.x,dz=next.z-previous.z;
+ const t=clamp(((state.position.x-previous.x)*dx+
+  (state.position.z-previous.z)*dz)/Math.max(.001,dx*dx+dz*dz),0,.99);
+ return state.lap*JET_SKI_GATES.length+state.checkpoint+t;
+}
