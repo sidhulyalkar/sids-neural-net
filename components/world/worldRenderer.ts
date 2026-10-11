@@ -325,6 +325,29 @@ export function createWorld(
     [1, 1, 1],
   );
   ground.castShadow = false;
+  // Soft north/south shoreline aprons join the finite island terrain to the
+  // existing ocean plane. The outside racing channel starts beyond these
+  // slopes; no exploration bounds, caves or ecology rules are expanded.
+  for(const side of [-1,1]){
+    const edgeZ=side>0?WORLD_BOUNDS.maxZ:WORLD_BOUNDS.minZ;
+    const depth=20;
+    const apron=geo(new THREE.PlaneGeometry(102,depth,64,18));
+    apron.rotateX(-Math.PI/2);
+    apron.translate(12,0,edgeZ+side*depth/2);
+    const vertices=apron.attributes.position;
+    for(let i=0;i<vertices.count;i++){
+      const x=vertices.getX(i),z=vertices.getZ(i);
+      const u=THREE.MathUtils.clamp(side*(z-edgeZ)/depth,0,1);
+      const blend=u*u*(3-2*u);
+      const shoreY=worldFloorHeight(x,edgeZ);
+      const seabed=SEA_SURFACE-3.7+Math.sin(x*.12)*.2;
+      vertices.setY(i,shoreY*(1-blend)+seabed*blend);
+    }
+    apron.computeVertexNormals();
+    const cap=mesh(apron,mat("#7b8272",{roughness:.98}),
+      [0,0,0],[1,1,1]);
+    cap.castShadow=false;
+  }
   // Ocean and a few quiet, moving tide lines.
   const waterMaterial = mat("#218ba8", {
     roughness: 0.38,
@@ -3455,6 +3478,10 @@ export function createWorld(
             targetCamera.y,
             terrainHeight(targetCamera.x, targetCamera.z) + 2.2,
           );
+        } else if(jetSki){
+          // Offshore courses sit beyond the finite terrain mesh: do not
+          // project the chase camera onto the island mountain heightfield.
+          targetCamera.y=Math.max(targetCamera.y,SEA_SURFACE+5.5);
         } else if(discGolf.phase!=="off"){
           // Trees used to shrink the camera boom to 25%, zooming into
           // the back of the character during a putt. Hold the overhead
