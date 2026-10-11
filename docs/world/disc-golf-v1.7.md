@@ -15,7 +15,7 @@ Tap Space for a recommended shot, or hold/release for manual strength. A/D adjus
 | Hole | Tee | Mandatory gate(s), in order | Chains | Par |
 | --- | --- | --- | --- | ---: |
 | 1 | (35,-12) | (43,17) | (35,46) | 4 |
-| 2, Shore to Backside | (51,24) | (45,-9), (34,-42), (26,-69) | (26,-87) | 6 |
+| 2, Shore to Backside | (51,32) | (45,-9), (34,-42), (26,-69) | (26,-87) | 6 |
 | 3 | (46,-4) | (40,-32), (27,-59) | (8,-75) | 5 |
 | 4 | (35,-76) | (7,-57), (-16,-38) | (-26,-8) | 5 |
 | 5 | (-24,38) | (-16,9), (-16,-21) | (-27,-47) | 5 |
