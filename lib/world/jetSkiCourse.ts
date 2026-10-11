@@ -52,3 +52,15 @@ export function jetSkiSegmentClear(a:Point,b:Point,margin=1):boolean{
  }
  return true;
 }
+
+/** Short route identity cues keyed to the next checkpoint index. */
+export function jetSkiSectionName(gateIndex:number):string{
+ if(gateIndex<2)return "Lagoon Sprint";
+ if(gateIndex<4)return "Northern Swell";
+ if(gateIndex===4)return "Natural Bridges";
+ if(gateIndex<7)return "Outer Cape";
+ if(gateIndex<12)return "Mendocino Stacks";
+ if(gateIndex<14)return "South Surge";
+ if(gateIndex===14)return "Lava Window";
+ return "Reef Return";
+}
