@@ -2741,7 +2741,10 @@ export function createWorld(
       canvas.dataset.jetSkiSelected=selectedJetSki;
     }
     if(key==="escape"&&jetSki){stopJetSki();e.preventDefault();return;}
-    if(key==="e"&&!e.repeat&&!jetSki){boardJetSki();e.preventDefault();return;}
+    if(key==="e"&&!e.repeat&&!jetSki&&discGolf.phase==="off"&&
+       Math.hypot(player.x-57,player.z-JET_SKI_DOCK.z)<8){
+      boardJetSki();e.preventDefault();return;
+    }
     // The land jump action must not fire while steering a jet ski.
     if(jetSki&&key===" "){e.preventDefault();return;}
     if (key === "shift") keys.add(key);
@@ -3545,6 +3548,7 @@ export function createWorld(
       }
       if(jetTouchEnabled){
         const nearDock=Math.hypot(player.x-57,player.z-JET_SKI_DOCK.z)<9;
+        jetCraftButton.textContent=selectedJetSki;
         jetTouch.style.display=jetSki||nearDock?"flex":"none";
         jetCraftButton.style.display=jetBoardButton.style.display=jetSki?"none":"inline-flex";
         driveButtons.forEach(b=>{b.style.display=jetSki?"inline-flex":"none";});
