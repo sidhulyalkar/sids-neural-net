@@ -1,6 +1,7 @@
 import { desertTrackClearance, desertTrackGroundRoute, DESERT_JUMPS } from "./desertTrack";
 import { beamSupportHeight, technicalFeatureClearance } from "./technicalFeatures";
 import { bigAirClearance } from "./bigAir";
+import {jetSkiPierHeight} from "./jetSkiPier";
 import {
   constrainMove,
   distance,
@@ -277,6 +278,8 @@ export type GrindStyle = "fifty-fifty" | "boardslide";
 export const SWIM_SPEED = 4.6;
 
 export function groundHeight(p: Point) {
+  const pier=jetSkiPierHeight(p);
+  if(pier!==null)return pier;
   let height = worldFloorHeight(p.x, p.z);
   if (isWater(p)) return height;
   for (const ramp of RIDE_RAMPS)
@@ -350,7 +353,7 @@ export function stepTravel(
     obstacles,
   );
   if (
-    !isWater(point) &&
+    (!isWater(point)||jetSkiPierHeight(point)!==null) &&
     supportHeight(point) > supportHeight(current.point) + Math.max(0.6, airborne)
   )
     return { ...current, speed: 0 };
