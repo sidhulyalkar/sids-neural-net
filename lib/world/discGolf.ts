@@ -58,7 +58,7 @@ export const DISC_GOLF_HOLES:readonly DiscGolfHole[]=[
    {point:{x:45,z:-34},radius:9},
    {point:{x:26,z:-69},radius:9},
    {point:{x:5,z:-62},radius:9},
-   {point:{x:-16,z:-38},radius:9},
+   {point:{x:-15,z:-47},radius:9},
    {point:{x:-16,z:9},radius:9},
    {point:{x:-24,z:38},radius:9},
   ],target:{x:-24,z:-15}},
