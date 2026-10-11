@@ -138,7 +138,11 @@ export function createDiscGolfGeometry(scene:THREE.Scene){
   chains.rotation.x=Number.isFinite(t)?Math.cos(t*17)*Math.exp(-t*3)*.08:0;
   disc.position.set(game.disc.x,game.disc.y,game.disc.z);
   if(game.phase==="flying"){
-   if(game.rigid){
+   if(game.contact?.mode==="roll"){
+    disc.rotation.set(0,Math.atan2(game.velocity.x,game.velocity.z),0);
+    disc.rotation.z=(game.contact.rollSign??1)*1.42;
+    spinner.rotation.y=game.contact.rollAngle??0;
+   }else if(game.rigid){
     // The attitude quaternion contains axial spin. Move that axial phase
     // into the disc's visible printed-face spinner without double-spinning.
     const q=game.rigid.orientation;
