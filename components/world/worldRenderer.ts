@@ -6,7 +6,7 @@ import { createTechnicalGeometry } from "./worldTechnicalGeometry";
 import { createBigAirBirds } from "./worldBigAirBirds";
 import { createDiscGolfGeometry } from "./worldDiscGolfGeometry";
 import {
-  DISC_GOLF_HOLES,discGolfBasketPosition,discGolfThrow,stepDiscGolf,
+  DISC_GOLF_HOLES,discGolfBasketPosition,discGolfIntroPose,discGolfThrow,stepDiscGolf,
   startDiscGolf,idleDiscGolf,type DiscGolfState,type DiscShot,
   type DiscGolfSwingStage,
 } from "@/lib/world/discGolf";
@@ -2415,6 +2415,9 @@ export function createWorld(
   let lastDiscStart=0,lastDiscShot=0,lastDiscExit=0,lastDiscUpdate=0;
   let lastDiscPreview:DiscShot|null=null,lastPreviewTick=-Infinity;
   let lastDiscPreviewPhase=discGolf.phase;
+  // Local camera-only state: it never mutates the simulation, scoring or lie.
+  let discGolfIntro:{startedAt:number;reducedMotion:boolean}|null=null;
+  let snapDiscCamera=false;
   let trial:TrialState={phase:"idle",nextGate:0,elapsedMs:0,splitsMs:[]};
   let aquatic: AquaticMode = "land", swimDepth = 0, targetDepth = 0;
   let climb: { from: Point; to: Point; fromY: number; toY: number; progress: number } | null = null;
@@ -2588,7 +2591,18 @@ export function createWorld(
   function onKey(e: KeyboardEvent) {
     if (!state.entered || state.paused || e.metaKey || e.ctrlKey || e.altKey)
       return;
-    if (e.target !== canvas || discGolf.phase!=="off") return;
+    // Aiming or throwing interrupts the introductory flyback immediately.
+    // Let the HUD handle the same keystroke; do not fire world actions here.
+    if(discGolf.phase!=="off"){
+      const k=e.key.toLowerCase();
+      if(discGolfIntro && (k==="escape"||k===" "||
+        ["w","a","s","d","arrowup","arrowdown","arrowleft","arrowright"].includes(k))){
+        discGolfIntro=null;snapDiscCamera=true;
+        if(k==="escape")e.preventDefault();
+      }
+      return;
+    }
+    if(e.target !== canvas) return;
     const key = e.key.toLowerCase();
     if (key === "shift") keys.add(key);
     if (key === " " && !e.repeat && aquatic === "land") {
@@ -3363,6 +3377,31 @@ export function createWorld(
         targetCamera.set(THREE.MathUtils.clamp(desired.x,centerX-half,centerX+half),playerY+2.15,z);
         targetLook.set(player.x-Math.sin(yaw)*2.4,playerY+1.85,player.z-Math.cos(yaw)*2.4);
       }
+      // Basket-first orientation: hold the chains, then rise over the
+      // fairway and return to the *existing* third-person aiming pose.
+      // The normal terrain/camera constraints above remain authoritative at
+      // the endpoint. Do not replay this when a disc lands.
+      let showingDiscGolfIntro=false;
+      if(discGolfIntro && discGolf.phase!=="off"){
+        const basket=discGolfBasketPosition(DISC_GOLF_HOLES[discGolf.holeIndex],discGolf.clock);
+        const pose=discGolfIntroPose(
+          discGolf.lie,basket,
+          {x:targetCamera.x,y:targetCamera.y,z:targetCamera.z},
+          {x:targetLook.x,y:targetLook.y,z:targetLook.z},
+          elapsed-discGolfIntro.startedAt,
+          p=>worldFloorHeight(p.x,p.z),discGolfIntro.reducedMotion,
+        );
+        if(pose.stage==="complete"){
+          discGolfIntro=null;
+        }else{
+          targetCamera.set(pose.camera.x,pose.camera.y,pose.camera.z);
+          targetLook.set(pose.look.x,pose.look.y,pose.look.z);
+          showingDiscGolfIntro=true;
+        }
+        canvas.dataset.discGolfIntro=pose.stage;
+      }else{
+        canvas.dataset.discGolfIntro="off";
+      }
       if (cavernFraming) {
         const cameraFloor = arcadeCaveFloorHeight({x:targetCamera.x,z:targetCamera.z});
         const cameraCeiling = cameraFloor + ARCADE_CAVE.ceilingClearance;
@@ -3876,7 +3915,16 @@ export function createWorld(
     shastaTail.rotation.y =
       SHASTA_CHARACTER.tail.restAngleY +
       Math.sin(elapsed * 0.85 + 0.4) * 0.03;
-    camera.position.lerp(targetCamera, 1 - Math.exp(-dt * 3.6));
+    if(showingDiscGolfIntro || snapDiscCamera){
+      // A direct time-derived pose starts on the basket instead of slowly
+      // drifting there from a camera that previously followed the player.
+      camera.position.copy(targetCamera);
+      look.copy(targetLook);
+      snapDiscCamera=false;
+    }else{
+      camera.position.lerp(targetCamera, 1 - Math.exp(-dt * 3.6));
+      look.lerp(targetLook, 1 - Math.exp(-dt * 4));
+    }
     if (
       (caveLayer === "arcade" && arcadeInside(player)) ||
       (caveLayer === "paper" && paperCaveInside(player))
@@ -3889,7 +3937,6 @@ export function createWorld(
       camera.position.x=THREE.MathUtils.clamp(c.x,centerX-half,centerX+half);camera.position.z=z;
       camera.position.y=THREE.MathUtils.clamp(camera.position.y,playerY+1.5,playerY+3);
     }
-    look.lerp(targetLook, 1 - Math.exp(-dt * 4));
     camera.lookAt(look);
 
     // Underwater atmosphere and biome work are keyed by the water zone. The cold
@@ -4252,6 +4299,7 @@ export function createWorld(
       state = next;
       if(next.discGolfExitSerial!==lastDiscExit){
         lastDiscExit=next.discGolfExitSerial;
+        discGolfIntro=null;
         discGolf=idleDiscGolf();callbacks.onDiscGolf(discGolf);
       }
       if(next.discGolfStartSerial!==lastDiscStart){
@@ -4263,6 +4311,19 @@ export function createWorld(
           travel={point:player,speed:0,heading:{x:0,z:1}};
           const basket=discGolfBasketPosition(hole,elapsed);
           yaw=Math.atan2(-(basket.x-player.x),-(basket.z-player.z));
+          const reducedMotion=window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+          discGolfIntro={startedAt:elapsed,reducedMotion};
+          snapDiscCamera=false;
+          const headingX=basket.x-player.x,headingZ=basket.z-player.z;
+          const headingLength=Math.hypot(headingX,headingZ)||1;
+          const ux=headingX/headingLength,uz=headingZ/headingLength;
+          const introStart=discGolfIntroPose(player,basket,
+            {x:player.x-ux*13+2.3,y:playerY+7.5,z:player.z-uz*13+2.3},
+            {x:player.x+ux*5.5,y:playerY+2.4,z:player.z+uz*5.5},
+            0,p=>worldFloorHeight(p.x,p.z),reducedMotion);
+          camera.position.set(introStart.camera.x,introStart.camera.y,introStart.camera.z);
+          look.set(introStart.look.x,introStart.look.y,introStart.look.z);
+          camera.lookAt(look);
           airHeight=verticalSpeed=swimDepth=targetDepth=0;
           climb=grind=null;caveLayer="surface";
           setAquaticMode("land");clearInput();
@@ -4279,9 +4340,13 @@ export function createWorld(
       if(next.discGolfShotSerial!==lastDiscShot){
         lastDiscShot=next.discGolfShotSerial;
         if(next.discGolfShot&&discGolf.phase!=="off"){
+          if(discGolfIntro){discGolfIntro=null;snapDiscCamera=true;}
           discGolf=discGolfThrow(discGolf,next.discGolfShot,p=>terrainHeight(p.x,p.z));
           callbacks.onDiscGolf(discGolf);
         }
+      }
+      if(next.paused && discGolfIntro){
+        discGolfIntro=null;snapDiscCamera=true;
       }
       if(next.paused && (bigAir.phase==="armed"||bigAir.phase==="flying")){
         bigAir={...bigAir,phase:"missed",reason:"Jump interrupted"};
@@ -4370,6 +4435,7 @@ export function createWorld(
         canvas.focus({ preventScroll: true });
       if (next.command && next.command.serial !== lastSerial) {
         if(discGolf.phase!=="off"){
+          discGolfIntro=null;
           discGolf=idleDiscGolf();callbacks.onDiscGolf(discGolf);
         }
         if(bigAir.phase==="armed"||bigAir.phase==="flying"){
