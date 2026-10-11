@@ -270,7 +270,7 @@ export function discGolfIntroPose(
   Math.sin(Math.PI*eased)*Math.min(14,distance*.16);
  return {
   stage:"pullback",
-  camera:{x,z,y:Math.max(height,ground({x,z})+4.5)},
+  camera:{x,z,y:Math.max(height,ground({x,z})+3.5+(1-eased))},
   look:{
    x:look.x+(followLook.x-look.x)*eased,
    y:look.y+(followLook.y-look.y)*eased,
