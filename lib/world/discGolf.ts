@@ -28,6 +28,7 @@ const clamp=(n:number,a:number,b:number)=>Math.max(a,Math.min(b,n));
 export function discGolfBasketPosition(hole:DiscGolfHole,_t:number):Point{
  return {...hole.target};
 }
+export type DiscWind=Point & {speed:number};
 export function discGolfWind(index:number,t:number):DiscWind{
  // Slow predictable gust variation; locked at the moment of release.
  const phase=index*1.79+t*.19;
