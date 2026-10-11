@@ -29,7 +29,7 @@ export function createDiscGolfGeometry(scene:THREE.Scene){
 
  const gateMat=new THREE.MeshStandardMaterial({color:"#ffcc6e",emissive:"#f7ad42",
   emissiveIntensity:.8,metalness:.1,roughness:.35});
- const postGeo=new THREE.CylinderGeometry(.13,.13,10,7);
+ const postGeo=new THREE.CylinderGeometry(.13,.13,12,7);
  const topGeo=new THREE.CylinderGeometry(.16,.16,1,7);
  const posts=[-1,1].map(side=>{
   const p=new THREE.Mesh(postGeo,gateMat);gateRoot.add(p);return p;
@@ -110,9 +110,9 @@ export function createDiscGolfGeometry(scene:THREE.Scene){
    const dir=Math.atan2(point.x-prev.x,point.z-prev.z);
    gateRoot.rotation.y=dir;
    const side=gate.radius;
-   posts[0].position.set(-side,5,0);
-   posts[1].position.set(side,5,0);
-   topBar.position.set(0,10,0);
+   posts[0].position.set(-side,6,0);
+   posts[1].position.set(side,6,0);
+   topBar.position.set(0,12,0);
    topBar.scale.y=side*2;
    topBar.rotation.z=Math.PI/2;
   }
