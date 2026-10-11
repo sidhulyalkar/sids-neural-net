@@ -51,8 +51,15 @@ export function createDiscGolfGeometry(scene:THREE.Scene){
  }
  chains.instanceMatrix.needsUpdate=true;
  const disc=new THREE.Group();scene.add(disc);
- const body=new THREE.Mesh(discGeo,plastic);disc.add(body);
- const discRim=new THREE.Mesh(rimGeo,gold);discRim.rotation.x=Math.PI/2;disc.add(discRim);
+ // Keep the bank locked to the direction of travel while the printed disc
+ // itself rotates. Spinning the whole group would spin the bank angle too.
+ const spinner=new THREE.Group();disc.add(spinner);
+ const body=new THREE.Mesh(discGeo,plastic);spinner.add(body);
+ const discRim=new THREE.Mesh(rimGeo,gold);
+ discRim.rotation.x=Math.PI/2;spinner.add(discRim);
+ const stripeGeo=new THREE.BoxGeometry(.18,.008,.06);
+ const stripe=new THREE.Mesh(stripeGeo,gold);stripe.position.set(.1,.032,.03);
+ spinner.add(stripe);
  const beacon=new THREE.Mesh(beamGeo,glow);beacon.visible=false;scene.add(beacon);
  const pathGeometry=new THREE.BufferGeometry();
  const pathBuffer=new Float32Array(96*3);
@@ -130,21 +137,28 @@ export function createDiscGolfGeometry(scene:THREE.Scene){
   chains.rotation.z=Number.isFinite(t)?Math.sin(t*20)*Math.exp(-t*3)*.16:0;
   chains.rotation.x=Number.isFinite(t)?Math.cos(t*17)*Math.exp(-t*3)*.08:0;
   disc.position.set(game.disc.x,game.disc.y,game.disc.z);
-  disc.rotation.z=game.phase==="flying"
-    ?Math.sin(game.flightTime*14)*.13:0;
-  disc.rotation.y=game.phase==="flying"?game.flightTime*14:0;
+  if(game.phase==="flying"){
+   const direction=Math.atan2(game.velocity.x,game.velocity.z);
+   disc.rotation.y=direction;
+   disc.rotation.z=game.bankAngle*Math.PI/180*.9+
+    Math.sin(game.flightTime*12)*.025;
+   spinner.rotation.y=game.flightTime*17;
+  }else{
+   disc.rotation.set(0,0,0);
+   spinner.rotation.y=0;
+  }
   if(beacon.visible){
    beacon.position.set(game.lie.x,terrainHeight(game.lie.x,game.lie.z)+5,game.lie.z);
   }
  };
  update({phase:"off",holeIndex:0,gatesCleared:0,lie:{x:0,z:0},disc:{x:0,y:0,z:0},
   velocity:{x:0,y:0,z:0},strokes:0,waterRedos:0,flightTime:0,clock:0,
-  lockedWind:{x:0,z:0,speed:0},lastDistance:0,spin:0});
+  lockedWind:{x:0,z:0,speed:0},lastDistance:0,spin:0,bankAngle:0});
  return {update,updatePreview,dispose(){
   scene.remove(root,disc,beacon,guide,ring,teeMarker,gateRoot);
   pathGeometry.dispose();guideMat.dispose();ringMat.dispose();
   poleGeo.dispose();chainGeo.dispose();ringGeo.dispose();coneGeo.dispose();
-  discGeo.dispose();rimGeo.dispose();beamGeo.dispose();
+  discGeo.dispose();rimGeo.dispose();stripeGeo.dispose();beamGeo.dispose();
   chains.dispose();postGeo.dispose();topGeo.dispose();gateMat.dispose();materials.forEach(m=>m.dispose());
  },drawCalls:14};
 }
