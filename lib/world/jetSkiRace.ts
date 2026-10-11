@@ -38,7 +38,7 @@ export function jetSkiNavigableWater(point:Point):boolean{
  const {x,z}=point;
  if(!Number.isFinite(x)||!Number.isFinite(z)||
     x< -104||x>109||z< -152||z>108)return false;
- if(z>WORLD_BOUNDS.maxZ+14||z<WORLD_BOUNDS.minZ-14)return true;
+ if(z>WORLD_BOUNDS.maxZ+20||z<WORLD_BOUNDS.minZ-20)return true;
  return x>eastCoastlineX(z)+1.5||x<coastlineX(z)-1.5;
 }
 export function startJetSkiRace(craft:JetSkiType="sport"):JetSkiState{
