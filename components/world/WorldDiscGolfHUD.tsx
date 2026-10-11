@@ -11,6 +11,8 @@ import type {DiscGolfFlightStyle,DiscGolfReleaseStyle} from "@/lib/world/discGol
 import {discGolfName} from "@/lib/world/discGolfNames";
 import {discGolfRoundSummary,nextUnplayedDiscGolfHole,type DiscGolfRound} from "@/lib/world/discGolfRound";
 import styles from "./world.module.css";
+import {discGolfRailPower,discGolfRailIdeal,discGolfRailStatus,
+ clampDiscGolfRail} from "@/lib/world/discGolfPowerRail";
 
 const clamp=(value:number,min:number,max:number)=>Math.min(max,Math.max(min,value));
 const ground=(p:{x:number;z:number})=>terrainHeight(p.x,p.z);
@@ -42,7 +44,11 @@ export function WorldDiscGolfHUD({game,round,scorecardOpen,onToggleScorecard,onN
  const [releaseStyle,setReleaseStyle]=useState<DiscGolfReleaseStyle>("backhand");
  const [charging,setCharging]=useState(false);
  const [chargePower,setChargePower]=useState(65);
+ const [railDragging,setRailDragging]=useState(false);
+ const [railKeyPower,setRailKeyPower]=useState<number|null>(null);
+ const [lastReleasePower,setLastReleasePower]=useState<number|null>(null);
  const held=useRef(false);
+ const railDraggingRef=useRef(false);
  const fired=useRef(false);
  const pendingReset=useRef<ReturnType<typeof setTimeout>|null>(null);
  const chargeAt=useRef(0);
@@ -56,6 +62,10 @@ export function WorldDiscGolfHUD({game,round,scorecardOpen,onToggleScorecard,onN
   // The wind varies slowly; the preview itself refreshes during aiming.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   [game.holeIndex,game.gatesCleared,game.lie.x,game.lie.z,game.phase,loft,aim,bankAngle,noseAngle,spinRpm,discStyle,releaseStyle]);
+ const shotAtPower=useCallback((power:number):DiscShot=>({
+  power,accuracy:0,loft,aimOffset:aim,bankAngle,
+  noseAngle,spinRpm,discStyle,releaseStyle,
+ }),[loft,aim,bankAngle,noseAngle,spinRpm,discStyle,releaseStyle]);
  const preview=useCallback((power:number)=>{
   onPreview({power,accuracy:0,loft,aimOffset:aim,bankAngle,
    noseAngle,spinRpm,discStyle,releaseStyle});
@@ -63,6 +73,7 @@ export function WorldDiscGolfHUD({game,round,scorecardOpen,onToggleScorecard,onN
  const queueShot=useCallback((shot:DiscShot)=>{
   if(fired.current)return;
   fired.current=true;
+  setRailKeyPower(null);setLastReleasePower(shot.power);
   if(pendingReset.current!==null)clearTimeout(pendingReset.current);
   // If the renderer rejects a request while changing holes, don't deadlock
   // the Space key forever. A successful transition clears this immediately.
@@ -82,12 +93,12 @@ export function WorldDiscGolfHUD({game,round,scorecardOpen,onToggleScorecard,onN
  },[game.phase]);
  useEffect(()=>()=>{if(pendingReset.current!==null)clearTimeout(pendingReset.current);},[]);
  useEffect(()=>{
-  if(!available||charging||fired.current)return;
-  preview(suggested);
+  if(!available||charging||railDraggingRef.current||fired.current)return;
+  preview(railKeyPower??suggested);
   onSwing(0);onStage("idle");
- },[available,charging,suggested,preview,onSwing,onStage]);
+ },[available,charging,suggested,railKeyPower,preview,onSwing,onStage]);
  const begin=useCallback(()=>{
-  if(!available||held.current||fired.current)return;
+  if(!available||held.current||railDraggingRef.current||fired.current)return;
   held.current=true;chargeAt.current=performance.now();
   powerBucket.current=-1;swingTick.current=-1;
   setCharging(true);setChargePower(suggested);
@@ -101,14 +112,12 @@ export function WorldDiscGolfHUD({game,round,scorecardOpen,onToggleScorecard,onN
   // longer press cannot accidentally turn a drive into a tiny putt.
   const power=discGolfPullback(ms,suggested).power;
   setCharging(false);setChargePower(power);
-  queueShot({power,loft,aimOffset:aim,accuracy:0,bankAngle,
-   noseAngle,spinRpm,discStyle,releaseStyle});
- },[suggested,queueShot,loft,aim,bankAngle,noseAngle,spinRpm,discStyle,releaseStyle]);
+  queueShot(shotAtPower(power));
+ },[suggested,queueShot,shotAtPower]);
  const tap=useCallback(()=>{
-  if(!available||held.current||fired.current)return;
-  queueShot({power:suggested,loft,aimOffset:aim,accuracy:0,bankAngle,
-   noseAngle,spinRpm,discStyle,releaseStyle});
- },[available,suggested,queueShot,loft,aim,bankAngle,noseAngle,spinRpm,discStyle,releaseStyle]);
+  if(!available||held.current||railDraggingRef.current||fired.current)return;
+  queueShot(shotAtPower(suggested));
+ },[available,suggested,queueShot,shotAtPower]);
  useEffect(()=>{
   if(!charging)return;
   let frame=0;
@@ -162,7 +171,13 @@ export function WorldDiscGolfHUD({game,round,scorecardOpen,onToggleScorecard,onN
     e.preventDefault();tap();
    }
   };
-  const cancel=()=>{if(held.current){held.current=false;setCharging(false);onStage("idle");onSwing(0);}};
+  const cancel=()=>{
+   if(held.current||railDraggingRef.current){
+    held.current=false;railDraggingRef.current=false;
+    setCharging(false);setRailDragging(false);
+    onStage("idle");onSwing(0);
+   }
+  };
   window.addEventListener("keydown",down);
   window.addEventListener("keyup",up);
   window.addEventListener("blur",cancel);
@@ -175,7 +190,67 @@ export function WorldDiscGolfHUD({game,round,scorecardOpen,onToggleScorecard,onN
  const liveWind=game.phase==="flying"?game.lockedWind:discGolfWind(game.holeIndex,game.clock);
  const bearing=Math.atan2(liveWind.x,liveWind.z)*180/Math.PI;
  const windArrow=["↑","↗","→","↘","↓","↙","←","↖"][((Math.round((bearing+360)/45)%8)+8)%8];
- const shownPower=charging?chargePower:suggested;
+ const shownPower=charging||railDragging?chargePower:
+  game.presentationPending&&lastReleasePower!==null?lastReleasePower:
+  railKeyPower??suggested;
+ const ideal=discGolfRailIdeal(suggested);
+ const powerStatus=discGolfRailStatus(shownPower,suggested);
+ const sampleRail=(clientX:number,left:number,width:number)=>{
+  const value=discGolfRailPower(clientX,left,width);
+  setChargePower(value);
+  const bucket=Math.round(value/3);
+  if(bucket!==powerBucket.current){
+   powerBucket.current=bucket;preview(value);
+  }
+  onSwing(.18+.72*value/100);
+  return value;
+ };
+ const beginRail=(element:HTMLDivElement,pointerId:number,clientX:number)=>{
+  if(!available||held.current||railDraggingRef.current||fired.current)return;
+  railDraggingRef.current=true;
+  powerBucket.current=-1;
+  const rect=element.getBoundingClientRect();
+  sampleRail(clientX,rect.left,rect.width);
+  setRailDragging(true);
+  onStage("power");
+  element.setPointerCapture(pointerId);
+ };
+ const moveRail=(element:HTMLDivElement,clientX:number)=>{
+  if(!railDraggingRef.current)return;
+  const rect=element.getBoundingClientRect();
+  sampleRail(clientX,rect.left,rect.width);
+ };
+ const finishRail=(element:HTMLDivElement,pointerId:number,clientX:number)=>{
+  if(!railDraggingRef.current)return;
+  const rect=element.getBoundingClientRect();
+  const power=discGolfRailPower(clientX,rect.left,rect.width);
+  railDraggingRef.current=false;
+  setRailDragging(false);
+  setChargePower(power);
+  if(element.hasPointerCapture(pointerId))element.releasePointerCapture(pointerId);
+  queueShot(shotAtPower(power));
+ };
+ const cancelRail=()=>{
+  if(!railDraggingRef.current)return;
+  railDraggingRef.current=false;setRailDragging(false);
+  onSwing(0);onStage("idle");
+  if(available)preview(railKeyPower??suggested);
+ };
+ const railKeyDown=(key:string)=>{
+  if(!available)return false;
+  if(key==="Enter"){
+   queueShot(shotAtPower(railKeyPower??suggested));
+   return true;
+  }
+  if(!["ArrowLeft","ArrowRight","ArrowUp","ArrowDown","Home","End","PageUp","PageDown"].includes(key))return false;
+  const start=railKeyPower??suggested;
+  const next=clampDiscGolfRail(key==="Home"?4:key==="End"?100:
+   start+(key==="ArrowRight"||key==="ArrowUp"?1:
+     key==="ArrowLeft"||key==="ArrowDown"?-1:key==="PageUp"?10:-10));
+  setRailKeyPower(next);
+  preview(next);
+  return true;
+ };
  const remaining=discGolfRemaining(game);
  const gatePending=game.gatesCleared<hole.gates.length;
 
