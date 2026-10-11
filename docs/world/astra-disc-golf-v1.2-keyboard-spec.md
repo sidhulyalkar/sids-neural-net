@@ -112,3 +112,15 @@ The audit is **not visual validation**. Procedural tree trunk collisions, fallen
 3. Exit/reload/resume a partially played round and confirm all previously completed scores survive; start new round and confirm the last best remains.
 4. Check small-screen scorecard scrolling and focus, clean collapse/expand, large enough nine-hole buttons, and no world key leakage.
 5. Visually inspect all tees, baskets and putting lies in desktop/mobile browser; relocate any basket obstructed by a tree, steep face, discoverable object, cave shell, or activity trail. Capture screenshots and confirm the actual intended par per hole.
+
+
+## Disc Golf v1.5: clear opener, playful names, Shasta fetch
+
+- Hole 1 starts at (38,9), ends at (43,43), and the final hole returns to this opening tee. This deliberately leaves the former rock- and trunk-obstructed redwood tee. A narrow analytic capsule along the opening fairway is excluded from procedural boulders, trunks, rainforest canopy and understory; do **not** clear trees throughout the world. Verify the actual rendered line and shot trajectories in a browser before releasing.
+- Player-facing title is simply **Disc Golf**. Keep the HUD restrained: hole/par, remaining distance, wind, WASD angle/loft and Space pullback. Avoid explanatory paragraphs or territorial branding.
+- Each round gets a cosmetic seed for **nine distinct funny hole names**. Names are stable across replays, saved scores and refreshes, and reroll on starting a fresh round. Original hole identifiers and coordinates stay stable for score/science contracts. No unseeded name changes during a throw.
+- Each actual disc release initiates Shasta's fetch. While flying, he heads toward the live disc. On ground contact he races to the real lie (or the basket if holed), sniffs briefly and wags before returning to player-follow behavior. Reuse existing obstacle-aware, terrain-following, finite-acceleration motion. Do not teleport Shasta or alter the disc, lie, strokes, or camera when playing normally. Water/out-of-bounds, new hole, exit and prolonged inability to reach the disc safely cancel the fetch.
+- The camera gently pans along with Shasta's chase, staying high enough above the terrain and blending back to ordinary framing after he finds the disc. On short putts keep the established player-focused elevated third-person view with only a small look adjustment. Respect `prefers-reduced-motion` by disabling the additional fetch-camera pan. Never block WASD/Space while Shasta is finding the disc.
+- Expose `data-dog-fetch-stage` and `data-disc-golf-fetch-camera` on canvas for manual/browser regression. Inspect throws, nearby putts, very long shots, trunk collisions, water retries, pause/exit, fast travel and course switches. Confirm cleanup and the absence of dog chase behavior outside Disc Golf.
+
+**Status:** implementation committed for review; automated tests and the terrain audit are prerequisites, but visible camera composition, obstacle-free opening sightline and dog fetch animation require a manual browser playtest.
