@@ -35,6 +35,7 @@ export function WorldDiscGolfHUD({game,round,scorecardOpen,onToggleScorecard,onN
  const [chargePower,setChargePower]=useState(65);
  const held=useRef(false);
  const fired=useRef(false);
+ const pendingReset=useRef<ReturnType<typeof setTimeout>|null>(null);
  const chargeAt=useRef(0);
  const powerBucket=useRef(-1);
  const swingTick=useRef(-1);
@@ -48,6 +49,26 @@ export function WorldDiscGolfHUD({game,round,scorecardOpen,onToggleScorecard,onN
  const preview=useCallback((power:number)=>{
   onPreview({power,accuracy:0,loft,aimOffset:aim});
  },[onPreview,loft,aim]);
+ const queueShot=useCallback((shot:DiscShot)=>{
+  if(fired.current)return;
+  fired.current=true;
+  if(pendingReset.current!==null)clearTimeout(pendingReset.current);
+  // If the renderer rejects a request while changing holes, don't deadlock
+  // the Space key forever. A successful transition clears this immediately.
+  pendingReset.current=setTimeout(()=>{
+   fired.current=false;pendingReset.current=null;
+  },900);
+  onStage("released");onSwing(1);onPreview(null);
+  onShot(shot);
+ },[onShot,onPreview,onStage,onSwing]);
+ useEffect(()=>{
+  if(game.phase!=="ready"&&game.phase!=="landed"&&game.phase!=="water"){
+   if(pendingReset.current!==null)clearTimeout(pendingReset.current);
+   pendingReset.current=null;
+   fired.current=false;
+  }
+ },[game.phase]);
+ useEffect(()=>()=>{if(pendingReset.current!==null)clearTimeout(pendingReset.current);},[]);
  useEffect(()=>{
   if(!available||charging||fired.current)return;
   preview(suggested);
@@ -62,20 +83,18 @@ export function WorldDiscGolfHUD({game,round,scorecardOpen,onToggleScorecard,onN
  },[available,onStage,suggested]);
  const finish=useCallback(()=>{
   if(!held.current||fired.current)return;
-  held.current=false;fired.current=true;
+  held.current=false;
   const ms=performance.now()-chargeAt.current;
   // The elastic meter starts at recommended strength, so a slightly
   // longer press cannot accidentally turn a drive into a tiny putt.
   const power=discGolfPullback(ms,suggested).power;
   setCharging(false);setChargePower(power);
-  onStage("released");onSwing(1);onPreview(null);
-  onShot({power,loft,aimOffset:aim,accuracy:0});
- },[suggested,onStage,onSwing,onPreview,onShot,loft,aim]);
+  queueShot({power,loft,aimOffset:aim,accuracy:0});
+ },[suggested,queueShot,loft,aim]);
  const tap=useCallback(()=>{
   if(!available||held.current||fired.current)return;
-  fired.current=true;onStage("released");onSwing(1);onPreview(null);
-  onShot({power:suggested,loft,aimOffset:aim,accuracy:0});
- },[available,suggested,onStage,onSwing,onPreview,onShot,loft,aim]);
+  queueShot({power:suggested,loft,aimOffset:aim,accuracy:0});
+ },[available,suggested,queueShot,loft,aim]);
  useEffect(()=>{
   if(!charging)return;
   let frame=0;
@@ -119,7 +138,13 @@ export function WorldDiscGolfHUD({game,round,scorecardOpen,onToggleScorecard,onN
    }
   };
   const up=(e:KeyboardEvent)=>{
-   if(e.code==="Space"&&held.current){e.preventDefault();finish();}
+   if(e.code!=="Space"||e.altKey||e.ctrlKey||e.metaKey||isTextEntry(e.target))return;
+   if(held.current){e.preventDefault();finish();}
+   else if(available&&!fired.current){
+    // Keydown may have happened during the flyover or before HUD mount.
+    // Never eat the opening keyup without performing the first throw.
+    e.preventDefault();tap();
+   }
   };
   const cancel=()=>{if(held.current){held.current=false;setCharging(false);onStage("idle");onSwing(0);}};
   window.addEventListener("keydown",down);
@@ -130,7 +155,7 @@ export function WorldDiscGolfHUD({game,round,scorecardOpen,onToggleScorecard,onN
    window.removeEventListener("keyup",up);
    window.removeEventListener("blur",cancel);
   };
- },[available,begin,finish,onStage,onSwing]);
+ },[available,begin,finish,tap,onStage,onSwing]);
  const liveWind=game.phase==="flying"?game.lockedWind:discGolfWind(game.holeIndex,game.clock);
  const bearing=Math.atan2(liveWind.x,liveWind.z)*180/Math.PI;
  const windArrow=["↑","↗","→","↘","↓","↙","←","↖"][((Math.round((bearing+360)/45)%8)+8)%8];
