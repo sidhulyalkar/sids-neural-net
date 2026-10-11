@@ -26,7 +26,7 @@ export function createDiscGolfGeometry(scene:THREE.Scene){
  // One clearly readable glowing mandatory gate. Three lightweight meshes;
  // a single active gate is rendered at any time.
  const gateRoot=new THREE.Group();gateRoot.name="disc-golf-next-mandatory-gate";
- scene.add(gateRoot);
+
  const gateMat=new THREE.MeshStandardMaterial({color:"#ffcc6e",emissive:"#f7ad42",
   emissiveIntensity:.8,metalness:.1,roughness:.35});
  const postGeo=new THREE.CylinderGeometry(.13,.13,10,7);
