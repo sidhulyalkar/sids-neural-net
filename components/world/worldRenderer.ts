@@ -3485,7 +3485,8 @@ export function createWorld(
         targetLook.set(lookAt.x,lookAt.y,lookAt.z);
         canvas.dataset.discGolfCamera=followFlight?"flight":pose.putting?"putt":"approach";
       } else if(jetSki){
-        targetLook.set(player.x+Math.sin(jetSki.heading)*8,SEA_SURFACE+1.4,
+        targetLook.set(player.x+Math.sin(jetSki.heading)*8,
+          SEA_SURFACE+1.4+jetSki.jumpHeight*.55,
           player.z+Math.cos(jetSki.heading)*8);
       } else if (cavernFraming) {
         targetLook.set(arcadeWall.x, arcadeWallY + 2.05, arcadeWall.z - 0.5);
@@ -3530,7 +3531,8 @@ export function createWorld(
       } else if(jetSki){
         const h=jetSki.heading;
         targetCamera.set(player.x-Math.sin(h)*13+Math.cos(h)*2.4,
-          SEA_SURFACE+7.6,player.z-Math.cos(h)*13-Math.sin(h)*2.4);
+          SEA_SURFACE+7.6+jetSki.jumpHeight*.75,
+          player.z-Math.cos(h)*13-Math.sin(h)*2.4);
       } else if (cavernFraming) {
         // Keep the third-person boom centered inside the authored tunnel.
         // A lower eye line prevents the roof from swallowing the frame while
