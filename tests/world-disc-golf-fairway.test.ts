@@ -32,7 +32,8 @@ test("fairway warnings are advisory and do not masquerade as rendered obstacle c
    "over-water","steep-target","steep-fairway",
    "landmark-clearance","large-elevation-change","steep-tee",
    "crowded-tee","crowded-green","coastal-tee","coastal-green",
-   "short-first-shot","first-shot-water","unsafe-gate",\n   "short-leg","missed-gate-from-staging",
+   "short-first-shot","first-shot-water","unsafe-gate",
+   "short-leg","missed-gate-from-staging",
   ].includes(r)));
   if(h.waterSamples>0)assert.ok(h.risks.includes("over-water"));
   if(h.nearbyLandmarks.length>0)assert.ok(h.risks.includes("landmark-clearance"));
