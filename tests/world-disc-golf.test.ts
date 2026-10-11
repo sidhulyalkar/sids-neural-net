@@ -13,25 +13,26 @@ import { terrainHeight,isWater } from "../lib/world/model";
 import { createDiscGolfGeometry } from "../components/world/worldDiscGolfGeometry";
 const ground=(p:{x:number;z:number})=>terrainHeight(p.x,p.z);
 const ordinary={power:74,accuracy:0,loft:25,aimOffset:0};
-test("nine fixed baskets form a connected island circuit over valid terrain",()=>{
+test("nine independently placed tees and fixed greens remain on playable land",()=>{
  assert.equal(DISC_GOLF_HOLES.length,9);
  assert.equal(new Set(DISC_GOLF_HOLES.map(h=>h.id)).size,9);
  for(let i=0;i<DISC_GOLF_HOLES.length;i++){
   const h=DISC_GOLF_HOLES[i];
   assert.ok(!isWater(h.tee)&&!isWater(h.target),h.id);
-  assert.ok(Math.hypot(h.tee.x-h.target.x,h.tee.z-h.target.z)>20,h.id);
+  const length=Math.hypot(h.tee.x-h.target.x,h.tee.z-h.target.z);
+  assert.ok(length>=23&&length<=52,`Hole ${i+1}: ${length} unit playable length required`);
   const p0=discGolfBasketPosition(h,0),p1=discGolfBasketPosition(h,100);
   assert.deepEqual(p0,p1,"the basket must never move");
-  if(i>0)assert.deepEqual(h.tee,DISC_GOLF_HOLES[i-1].target,
-   "next tee should begin at the previous fixed basket");
+  if(i>0)assert.notDeepEqual(h.tee,DISC_GOLF_HOLES[i-1].target,
+   "holes must have a separately prepared tee, not reuse a potentially blocked basket");
   assert.ok(Number.isFinite(ground(p0)));
   const p=ground(p0);
   const slope=Math.hypot(ground({x:p0.x+1,z:p0.z})-ground({x:p0.x-1,z:p0.z}),
     ground({x:p0.x,z:p0.z+1})-ground({x:p0.x,z:p0.z-1}));
   assert.ok(Number.isFinite(slope)&&Number.isFinite(p),"basket must be on measurable island terrain");
  }
- assert.deepEqual(DISC_GOLF_HOLES.at(-1)!.target,DISC_GOLF_HOLES[0].tee,
-  "the ninth hole closes the loop at the opening tee");
+ assert.notDeepEqual(DISC_GOLF_HOLES.at(-1)!.target,DISC_GOLF_HOLES[0].tee,
+  "last basket gets its own safe putting green");
  assert.ok(DISC_GOLF_VERSION.includes("disc-golf"));
 });
 test("wind is deterministic and time varying; throw is locked to release wind",()=>{
@@ -119,15 +120,17 @@ test("fixed chains catch discs in the target zone and scoring is explicit",()=>{
 });
 test("active chain basket, disc and landing beacon render efficiently and dispose",()=>{
  const scene=new THREE.Scene(),v=createDiscGolfGeometry(scene);
- assert.ok(v.drawCalls<=10);
- assert.equal(scene.children.length,5);
+ assert.ok(v.drawCalls<=11);
+ assert.equal(scene.children.length,6);
  let s=startDiscGolf(0,ground);
  v.update(s);
  assert.ok(scene.children[0].visible);
+ assert.ok(scene.children[5].visible,"tee circle visible on the initial lie");
  assert.ok(!scene.children[2].visible);
  const lie=s.lie;
  s={...s,phase:"landed",disc:{...lie,y:ground(lie)+.16}};
  v.update(s);
+ assert.ok(!scene.children[5].visible,"tee pad hides after first throw");
  assert.ok(scene.children[2].visible,"beam from the landed disc");
  assert.equal(scene.children[2].position.x,lie.x);
  v.update(idleDiscGolf());
