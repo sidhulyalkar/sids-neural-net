@@ -433,3 +433,39 @@ test("single elastic backswing is continuous across tap and hold with a forgivin
  assert.ok(up.power>55&&down.power<55,"hold offers both stronger and softer shots");
  assert.equal(discGolfPullback(Number.NaN,55).power,55);
 });
+
+
+test("disc profiles have intentional distance hierarchy at equal power",()=>{
+ const base=startDiscGolf(0,()=>0);
+ const styles=["putter","midrange","fairway","driver"] as const;
+ const speeds=styles.map(discStyle=>{
+  const s=discGolfThrow(base,{power:80,accuracy:0,loft:23,aimOffset:0,discStyle},()=>0);
+  assert.equal(s.phase,"flying");
+  return Math.hypot(s.velocity.x,s.velocity.y,s.velocity.z);
+ });
+ for(let i=1;i<speeds.length;i++)
+  assert.ok(speeds[i]>speeds[i-1],styles[i]+" should launch faster than "+styles[i-1]);
+});
+
+test("ordinary spin presets preserve controllable rigid angular momentum",()=>{
+ const base=startDiscGolf(0,()=>0);
+ for(const rpm of [650,850,1100]){
+  const shot=discGolfThrow(base,{power:72,accuracy:0,loft:24,aimOffset:0,spinRpm:rpm},()=>0);
+  assert.equal(shot.spinRpm,rpm);
+  assert.ok(shot.rigid);
+  const m=shot.rigid!.momentum;
+  assert.ok(Math.hypot(m.x,m.y,m.z)>0);
+ }
+});
+
+test("unobstructed playable throws reach a terminal phase without running forever",()=>{
+ const flat=()=>0,water=()=>false;
+ for(const style of ["putter","midrange","fairway","driver"] as const){
+  let s=discGolfThrow(startDiscGolf(0,flat),
+   {power:72,accuracy:0,loft:24,aimOffset:0,discStyle:style},flat);
+  for(let i=0;i<2000&&s.phase==="flying";i++)
+   s=stepDiscGolf(s,.05,flat,water,-1.4);
+  assert.notEqual(s.phase,"flying",style+" flight should resolve");
+  assert.ok(Number.isFinite(s.disc.x)&&Number.isFinite(s.disc.y)&&Number.isFinite(s.disc.z));
+ }
+});
