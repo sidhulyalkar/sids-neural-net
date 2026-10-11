@@ -8,6 +8,7 @@ on:
       - 'components/world/**'
       - 'tests/world-*.test.ts'
       - 'scripts/audit-island.ts'
+      - 'scripts/audit-disc-golf.ts'
       - 'scripts/audit-desert-gaps.ts'
       - 'scripts/audit-ski-flight.ts'
       - 'scripts/playtest-world.mjs'
@@ -89,6 +90,8 @@ jobs:
         run: node --import tsx --test tests/world-*.test.ts
       - name: Produce island occupancy evidence
         run: node --import tsx scripts/audit-island.ts
+      - name: Audit disc golf course safety and coverage
+        run: node --import tsx scripts/audit-disc-golf.ts
       - name: Audit physical gap and flight cross sections
         run: node --import tsx scripts/audit-desert-gaps.ts
       - name: Survey preliminary ski flight corridors
@@ -101,6 +104,8 @@ jobs:
             artifacts/world/island-occupancy.json
             artifacts/world/island-occupancy.csv
             artifacts/world/island-occupancy.svg
+            artifacts/world/disc-golf-fairways.json
+            artifacts/world/disc-golf-fairways.md
             artifacts/world/desert-gap-profiles.json
             artifacts/world/desert-gap-profiles.svg
             artifacts/world/ski-flying-candidate-audit.json
