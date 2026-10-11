@@ -89,7 +89,9 @@ export function createJetSkiDock(scene:THREE.Scene){
  // rather than allocating a new mesh for every spray/foam fragment.
  const wakeFoam=new THREE.MeshBasicMaterial({
   color:"#eaffff",transparent:true,opacity:.66,depthWrite:false,
-  vertexColors:true,side:THREE.DoubleSide,
+  // Instance colors are provided by InstancedMesh.setColorAt. PlaneGeometry
+  // does not have a vertex-color attribute, so leave vertexColors disabled.
+  side:THREE.DoubleSide,
  });
  const foamGeo=new THREE.PlaneGeometry(.85,2);
  foamGeo.rotateX(-Math.PI/2);
