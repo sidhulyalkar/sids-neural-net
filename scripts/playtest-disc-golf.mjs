@@ -15,14 +15,37 @@ const report=[];
 const errors=[];
 try{
  const page=await browser.newPage({viewport:{width:1440,height:900}});
- page.on("pageerror",e=>errors.push(e.message));
+ page.on("pageerror",e=>errors.push("pageerror: "+e.message));
+ page.on("console",msg=>{if(msg.type()==="error")
+  errors.push("console: "+msg.text().slice(0,350));});
  await page.goto(base);
  // World rendering is lazy: the welcome page intentionally has no canvas
  // before the visitor chooses Explore. Waiting for frames first deadlocks.
  await page.getByRole("button",{name:/Explore world/}).click();
- await page.waitForFunction(()=>
-  Number(document.querySelector("canvas")?.dataset.drawCalls)>0,
-  null,{timeout:90000});
+ try{
+  await page.waitForFunction(()=>
+   Number(document.querySelector("canvas")?.dataset.drawCalls)>0,
+   null,{timeout:30000});
+ }catch(err){
+  const diagnostics=await page.evaluate(()=>{
+   const element=document.querySelector("[data-world-state]");
+   const canvas=document.querySelector("canvas");
+   const test=document.createElement("canvas");
+   let gl2=false,gl1=false;
+   try{gl2=!!test.getContext("webgl2");}catch{}
+   try{gl1=!!test.getContext("webgl");}catch{}
+   return {worldState:element?.getAttribute("data-world-state"),
+    worldText:element?.textContent?.slice(0,1500),
+    canvasCount:document.querySelectorAll("canvas").length,
+    canvasData:canvas?{...canvas.dataset}:null,
+    webgl2:gl2,webgl1:gl1,userAgent:navigator.userAgent};
+  });
+  fs.writeFileSync(path.join(out,"boot-failure.json"),
+   JSON.stringify({diagnostics,errors},null,2));
+  await page.screenshot({path:path.join(out,"world-boot-failure.png")});
+  console.error("WORLD BOOT DIAGNOSTICS",JSON.stringify({diagnostics,errors},null,2));
+  throw err;
+ }
  await page.getByRole("button",{name:/^Disc golf · (play|resume|scorecard)$/}).click();
  const canvas=page.locator("canvas");
  await page.waitForFunction(()=>document.querySelector("canvas")?.dataset.discGolfPhase==="ready");
