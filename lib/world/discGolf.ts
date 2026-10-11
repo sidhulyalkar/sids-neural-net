@@ -48,12 +48,23 @@ export const DISC_GOLF_HOLES:readonly DiscGolfHole[]=[
  {id:"joshua-chute",name:"Long desert lane",par:5,tee:{x:42,z:-67},
   gates:[{point:{x:45,z:-34},radius:9},{point:{x:39,z:-12},radius:9}],
   target:{x:23,z:15}},
- {id:"homeward-line",name:"Last long throw",par:5,tee:{x:46,z:49},
-  gates:[{point:{x:19,z:19},radius:8},{point:{x:0,z:-3},radius:8}],
-  target:{x:-24,z:-15}},
+ // Grand finale: a true cross-island expedition, roughly three times the
+ // previous Hole 9 route, with readable sequential gates rather than an
+ // implausibly far single airborne throw.
+ {id:"homeward-line",name:"The grand traverse",par:11,tee:{x:46,z:49},
+  gates:[
+   {point:{x:43,z:17},radius:9},
+   {point:{x:45,z:-9},radius:9},
+   {point:{x:45,z:-34},radius:9},
+   {point:{x:26,z:-69},radius:9},
+   {point:{x:5,z:-62},radius:9},
+   {point:{x:-16,z:-38},radius:9},
+   {point:{x:-16,z:9},radius:9},
+   {point:{x:-24,z:38},radius:9},
+  ],target:{x:-24,z:-15}},
 ];
 // Do not attach v1.6 scorecards to the longer v1.7 course and par system.
-export const DISC_GOLF_VERSION="disc-golf-v1.9";
+export const DISC_GOLF_VERSION="disc-golf-v1.10";
 
 /** Capsule helpers shared by the seeded environment and course QA. */
 function inCorridor(p:Point,from:Point,to:Point,radius:number){
