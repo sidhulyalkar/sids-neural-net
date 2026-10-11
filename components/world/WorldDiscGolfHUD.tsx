@@ -2,14 +2,13 @@
 import {useCallback,useEffect,useMemo,useRef,useState} from "react";
 import {
  DISC_GOLF_HOLES,discGolfRemaining,discGolfScoreName,discGolfWind,
- recommendDiscGolfPower,type DiscGolfState,type DiscShot,type DiscGolfSwingStage,
+ recommendDiscGolfPower,discGolfPullback,type DiscGolfState,type DiscShot,type DiscGolfSwingStage,
 } from "@/lib/world/discGolf";
 import {terrainHeight,isWater,SEA_SURFACE} from "@/lib/world/model";
 import styles from "./world.module.css";
 
 const clamp=(value:number,min:number,max:number)=>Math.min(max,Math.max(min,value));
 const ground=(p:{x:number;z:number})=>terrainHeight(p.x,p.z);
-const chargedPower=(ms:number)=>clamp(Math.round((ms-150)/9),4,100);
 
 export function WorldDiscGolfHUD({game,onShot,onChangeHole,onExit,onStage,onPreview,onSwing}:{
  game:DiscGolfState;
@@ -24,7 +23,7 @@ export function WorldDiscGolfHUD({game,onShot,onChangeHole,onExit,onStage,onPrev
  const [loft,setLoft]=useState(24);
  const [aim,setAim]=useState(0);
  const [charging,setCharging]=useState(false);
- const [chargePower,setChargePower]=useState(4);
+ const [chargePower,setChargePower]=useState(65);
  const held=useRef(false);
  const fired=useRef(false);
  const chargeAt=useRef(0);
@@ -47,16 +46,16 @@ export function WorldDiscGolfHUD({game,onShot,onChangeHole,onExit,onStage,onPrev
  const begin=useCallback(()=>{
   if(!available||held.current||fired.current)return;
   held.current=true;chargeAt.current=performance.now();
-  powerBucket.current=-1;setCharging(true);setChargePower(4);
+  powerBucket.current=-1;setCharging(true);setChargePower(suggested);
   onStage("power");
- },[available,onStage]);
+ },[available,onStage,suggested]);
  const finish=useCallback(()=>{
   if(!held.current||fired.current)return;
   held.current=false;fired.current=true;
   const ms=performance.now()-chargeAt.current;
-  // A tap is the fully predictable suggested throw.
-  // Holding provides an optional, single power meter without accuracy RNG.
-  const power=ms<180?suggested:chargedPower(ms);
+  // The elastic meter starts at recommended strength, so a slightly
+  // longer press cannot accidentally turn a drive into a tiny putt.
+  const power=discGolfPullback(ms,suggested).power;
   setCharging(false);setChargePower(power);
   onStage("released");onSwing(1);onPreview(null);
   onShot({power,loft,aimOffset:aim,accuracy:0});
@@ -71,17 +70,19 @@ export function WorldDiscGolfHUD({game,onShot,onChangeHole,onExit,onStage,onPrev
   let frame=0;
   const tick=()=>{
    if(!held.current)return;
-   const power=chargedPower(performance.now()-chargeAt.current);
-   const bucket=Math.round(power/4);
+   const sample=discGolfPullback(performance.now()-chargeAt.current,suggested);
+   const bucket=Math.round(sample.power/4);
    if(bucket!==powerBucket.current){
-    powerBucket.current=bucket;setChargePower(power);
-    onSwing(power/100);preview(power);
+    powerBucket.current=bucket;
+    setChargePower(sample.power);
+    onSwing(sample.windup);
+    preview(sample.power);
    }
    frame=requestAnimationFrame(tick);
   };
   frame=requestAnimationFrame(tick);
   return ()=>cancelAnimationFrame(frame);
- },[charging,preview,onSwing]);
+ },[charging,preview,onSwing,suggested]);
  useEffect(()=>{
   const isTextEntry=(target:EventTarget|null)=>target instanceof HTMLElement &&
    !!target.closest("input,textarea,select,[contenteditable='true']");
@@ -155,12 +156,15 @@ export function WorldDiscGolfHUD({game,onShot,onChangeHole,onExit,onStage,onPrev
      </div>
      <div className={styles.discGolfMeters}>
       <div className={styles.discGolfMeterHeader}>
-       <span>{charging?"Hold Space: power":"Suggested pullback"}</span>
+       <span>{charging?"Release inside the sweet spot":"Recommended power"}</span>
        <strong>{shownPower}% · recommended {suggested}%</strong>
       </div>
       <div className={styles.discGolfMeter} role="progressbar" aria-label="Disc throw power"
         aria-valuemin={0} aria-valuemax={100} aria-valuenow={shownPower}>
        <span className={styles.discGolfPowerFill} style={{width:shownPower+"%"}}/>
+       <span className={styles.discGolfSweetBand}
+        style={{left:clamp(suggested-6,0,100)+"%",
+         width:(clamp(suggested+6,0,100)-clamp(suggested-6,0,100))+"%"}}/>
        <span className={styles.discGolfBestMarker} style={{left:suggested+"%"}}/>
       </div>
      </div>
@@ -173,19 +177,20 @@ export function WorldDiscGolfHUD({game,onShot,onChangeHole,onExit,onStage,onPrev
        onPointerCancel={()=>{held.current=false;setCharging(false);onStage("idle");}}
        onClick={e=>{if(e.detail===0)tap();}}>
        {game.phase==="flying"?"Disc airborne":
-        charging?"Release to throw":"Tap Space to throw · hold for power"}
+        charging?"Release Space to throw":"Tap Space · hold to pull back"}
      </button>
      <span className={styles.discGolfHint}>
-      Tap Space for the suggested shot. Hold and release to set power yourself.
-      The flight line estimates a centered release; wind and trees still matter.
-      Close to the chains, tap for a controlled putt.
+      Tap Space for an easy clean release. Hold Space to pull back: the
+      power sweeps around the highlighted sweet spot. Release to throw.
+      One meter, no separate accuracy timing. Wind and trees still matter.
      </span>
     </>
    )}
    <div className={styles.discGolfHoles} role="group" aria-label="Choose hole">
     {DISC_GOLF_HOLES.map((h,i)=>(
      <button key={h.id} type="button" aria-pressed={i===game.holeIndex}
-       disabled={game.phase==="flying"} onClick={()=>onChangeHole(i)}>
+       disabled={game.phase==="flying"} aria-label={"Play hole "+(i+1)+": "+h.name}
+       onClick={()=>onChangeHole(i)}>
        {i+1}
      </button>
     ))}
