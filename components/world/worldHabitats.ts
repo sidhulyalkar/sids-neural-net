@@ -616,6 +616,85 @@ export function createHabitats(scene: THREE.Scene, obstacles: Obstacle[]) {
       finish(b, `${region}-plants-${row}`);
     }
   }
+  // Representative California companions to coast redwoods. Every trunk
+  // starts on the sampled terrain; branch-supported crowns distinguish live
+  // oak, tanoak, madrone and Douglas-fir instead of cloning the same cone.
+  const natives=new GeometryBatch();
+  const nativeLocations=[
+   {x:-18,z:10,kind:"oak"},{x:-12,z:16,kind:"tanoak"},
+   {x:-6,z:29,kind:"madrone"},{x:4,z:19,kind:"fir"},
+   {x:-19,z:31,kind:"oak"},{x:6,z:-4,kind:"fir"},
+   {x:-2,z:34,kind:"tanoak"},{x:-20,z:1,kind:"madrone"},
+  ] as const;
+  for(const [index,t] of nativeLocations.entries()){
+    const p={x:t.x,z:t.z};
+    if(isWater(p)||clear(p)||biomeAt(p).weights.redwood<.18)continue;
+    const y=terrainHeight(t.x,t.z),h=t.kind==="fir"?11.5:6.5+index%3;
+    const bark=t.kind==="madrone"?"#9a624b":
+      t.kind==="oak"?"#665a48":"#6d5945";
+    stem(natives,bark,V(t.x,y,t.z),V(t.x,y+h*.85,t.z),t.kind==="fir"?.28:.36);
+    if(t.kind==="fir"){
+      for(let level=0;level<6;level++){
+        const height=y+h*(.34+level*.105),reach=2.7-level*.32;
+        for(let j=0;j<5;j++){
+          const a=j*Math.PI*2/5+index*.2;
+          const end=V(t.x+Math.cos(a)*reach,height-.25,t.z+Math.sin(a)*reach);
+          stem(natives,"#675d4c",V(t.x,height,t.z),end,.075);
+          add(natives,leaf,level%2?"#456c58":"#56775e",
+            end.x,end.y+.65,end.z,.7,1.65,.7,0,a,0);
+        }
+      }
+    }else{
+      for(let j=0;j<7;j++){
+        const a=j*2.399+index*.36;
+        const reach=1.4+(j%3)*.43;
+        const end=V(t.x+Math.cos(a)*reach,y+h*(.63+(j%2)*.1),
+          t.z+Math.sin(a)*reach);
+        stem(natives,bark,V(t.x,y+h*.49,t.z),end,.1);
+        const foliage=t.kind==="oak"?"#506b50":
+          t.kind==="madrone"?"#43715a":"#6a7f53";
+        add(natives,sphere,foliage,end.x,end.y+.32,end.z,
+          1.15,.87,1.05);
+      }
+    }
+    obstacles.push({x:t.x,z:t.z,radius:.38});
+  }
+  finish(natives,"california-native-trees");
+
+  // Local coastal-rainforest weather is geographically confined. A soft,
+  // small cloudbank is high above the canopy, while rain streaks descend only
+  // in this biome. One batched mesh and one line draw call, no global storm.
+  const weather=new GeometryBatch();
+  const rainVertices:number[]=[];
+  for(let cluster=0;cluster<4;cluster++){
+    const x=38+(cluster%2)*9,z=25+Math.floor(cluster/2)*14;
+    const centerY=terrainHeight(x,z)+23;
+    for(let puff=0;puff<5;puff++){
+      const a=puff*2.399+cluster;
+      add(weather,sphere,puff%2?"#bbc8c8":"#d1d6d2",
+        x+Math.cos(a)*2.6,centerY+Math.sin(a)*.55,
+        z+Math.sin(a)*2.4,3.1,1.05,2.8);
+    }
+    for(let n=0;n<55;n++){
+      const px=x+(random()-.5)*13,pz=z+(random()-.5)*13;
+      const p={x:px,z:pz};
+      if(isWater(p)||biomeAt(p).weights.rainforest<.42)continue;
+      const base=terrainHeight(px,pz);
+      const top=base+4+random()*14;
+      rainVertices.push(px,top,pz,px-.09,top-.65-random()*.4,pz+.06);
+    }
+  }
+  finish(weather,"rainforest-cloud-bank");
+  const rainGeometry=new THREE.BufferGeometry();
+  rainGeometry.setAttribute("position",
+    new THREE.Float32BufferAttribute(rainVertices,3));
+  rainGeometry.computeBoundingSphere();
+  const rainMaterial=new THREE.LineBasicMaterial({
+    color:"#bfd3d7",transparent:true,opacity:.38,depthWrite:false,
+  });
+  const rain=new THREE.LineSegments(rainGeometry,rainMaterial);
+  rain.name="rainforest-local-rain";
+  scene.add(rain);
   // Low-count canopy silhouettes: articulated limbs and branch attachment, no expensive rigs.
   const animals = new GeometryBatch();
   // One restrained white-faced monkey. The photographic sloth encounter
@@ -812,7 +891,10 @@ export function createHabitats(scene: THREE.Scene, obstacles: Obstacle[]) {
   leaf.dispose();
   blade.dispose();
   return {
-    update(_camera: Point) {
+    update(_camera: Point, elapsed=0) {
+      // Subtle falling motion independent of FPS, contained within the wet
+      // region and using no per-frame buffer mutations or allocations.
+      rain.position.y=-((elapsed*1.85)%1.8);
       // These are already a handful of large static batches. Let Three.js frustum
       // culling handle them instead of toggling entire biome chunks at a short
       // distance threshold, which caused rainforest rows to visibly disappear.
@@ -820,6 +902,8 @@ export function createHabitats(scene: THREE.Scene, obstacles: Obstacle[]) {
     },
     dispose() {
       for (const m of meshes) scene.remove(m);
+      scene.remove(rain);
+      rainGeometry.dispose();rainMaterial.dispose();
       resources.forEach((g) => g.dispose());
       material.dispose();
     },
