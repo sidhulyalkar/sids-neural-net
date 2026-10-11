@@ -76,9 +76,9 @@ export function WorldDiscGolfHUD({game,onShot,onChangeHole,onExit,onStage,onPrev
    const sample=discGolfPullback(ms,suggested);
    // Animate the actual arm throughout the windup at a bounded 20 Hz;
    // recompute the predictive trajectory only on meaningful power changes.
-   const tick=Math.floor(ms/50);
-   if(tick!==swingTick.current){
-    swingTick.current=tick;onSwing(sample.windup);
+   const frameBucket=Math.floor(ms/50);
+   if(frameBucket!==swingTick.current){
+    swingTick.current=frameBucket;onSwing(sample.windup);
    }
    const bucket=Math.round(sample.power/4);
    if(bucket!==powerBucket.current){
