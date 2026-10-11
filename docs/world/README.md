@@ -1,8 +1,8 @@
 # Sid’s World — coastal expansion
 
-## Disc Golf v1.9: aerodynamic release and long multi-throw course
+## Disc Golf v1.16: rigid-body aerodynamics, terrain contact and long-form course
 
-[disc-golf-v1.9-aerodynamics.md](disc-golf-v1.9-aerodynamics.md) is the current physics and calibration contract; [disc-golf-v1.7.md](disc-golf-v1.7.md) remains the mandatory-gate layout specification. Nine significantly longer holes, including a shore-to-backside-mountain second hole, now require sequenced luminous flight gates before the chains will catch. A/D aims at the next gate, Space provides suggested or manual power, and a missed gate is recoverable. Clear launch pads, Shasta fetch, funny seeded names and the scorecard remain. Automated course, physics and visual browser checks are required; release remains pending a real browser review. Earlier v1.6 and older Disc Golf specs describe superseded short-course experiments.
+[disc-golf-v1.16-physical-flight.md](disc-golf-v1.16-physical-flight.md) is the current implementation, calibration and release-acceptance contract. The solver now tracks a quaternion orientation and world angular momentum with six coupled flight DOFs; deterministic wind shear, rim skips, frictional sliding, and edge rolls feed the same live/preview physics. Real 3D measurement-based coefficient fitting and held-out error reporting are supported, but no actual disc has been calibrated yet. The final cross-island hole is about three times longer than before with eight sequenced gates. The Shasta fetch, low bottom HUD and nine-hole scorecard are preserved. [disc-golf-v1.13-ecology-and-physics.md](disc-golf-v1.13-ecology-and-physics.md) defines the terrain and wildlife additions. Browser QA and empirical calibration remain the explicit requirements before any claim of real-world accuracy; older v1.9 physics notes are historical.
 
 ## World Challenges v1: technical riding, puzzles and big air
 
