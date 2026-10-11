@@ -462,13 +462,13 @@ export function WorldHome({ content }: { content: WorldContent }) {
               <button onClick={() => open("menu")}>Browse the site</button>
             </div>
           )}
-          <div className={styles.location}>
+          <div className={styles.location} style={{display:discGolf.phase==="off"?undefined:"none"}}>
             <span className={styles.eyebrow}>
               {String(REGIONS.indexOf(current) + 1).padStart(2, "0")} / {String(REGIONS.length).padStart(2, "0")}
             </span>
             <p>{current.name}</p>
           </div>
-          {nearby && ready && (
+          {nearby && ready && discGolf.phase==="off" && (
             <button className={styles.discovery} onClick={() => open(nearby)}>
               <span>{discoveryTitle}</span>
               <span className={styles.key}>Enter</span>
@@ -597,7 +597,7 @@ export function WorldHome({ content }: { content: WorldContent }) {
               )}
             </div>
           )}
-          <p className={styles.controls}>
+          <p className={styles.controls} style={{display:discGolf.phase==="off"?undefined:"none"}}>
             {aquatic === "land" ? (
               <>WASD / arrows to move <span>·</span> Drag to look <span>·</span>{" "}
                 Space to {activityConfig(activity).action.toLowerCase()} <span>·</span> M for menu</>
