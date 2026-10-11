@@ -3040,19 +3040,20 @@ export function createWorld(
         }else{
           jetSki=stepJetSkiRace(jetSki,dt,{throttle:forwardInput,steer:steerInput,
             brake:jetTouchInput.brake||forwardInput<0&&jetSki.speed>0,
-            turbo:keys.has("shift")||jetBoostState.active});
+            turbo:keys.has("shift")||jetBoostState.active},
+            jetSkiNavigableWater,jetRideMode==="race");
           jetRivals=jetRivals.map(rival=>stepJetSkiRace(
             rival,dt,jetSkiOpponentInput(rival),jetSkiNavigableWater));
         }
-        if(jetSki.phase!==previousPhase&&jetSki.phase==="finished"){
+        if(jetRideMode==="race"&&jetSki.phase!==previousPhase&&jetSki.phase==="finished"){
           if(jetSessionBest===null||jetSki.elapsed<jetSessionBest)
             jetSessionBest=jetSki.elapsed;
           jetNotice.textContent="FINISH · "+jetSki.elapsed.toFixed(1)+"s";
           jetNoticeUntil=elapsed+3.5;
-        }else if(jetSki.lap>previousLap){
+        }else if(jetRideMode==="race"&&jetSki.lap>previousLap){
           jetNotice.textContent="LAP "+jetSki.lap+" COMPLETE · +8 TURBO";
           jetNoticeUntil=elapsed+2;
-        }else if(jetSki.checkpoint!==previousGate){
+        }else if(jetRideMode==="race"&&jetSki.checkpoint!==previousGate){
           jetNotice.textContent="CHECKPOINT "+jetSki.checkpoint+" · +8 TURBO";
           jetNoticeUntil=elapsed+1.25;
         }
@@ -3104,7 +3105,7 @@ export function createWorld(
         }else jetWakeAccumulator=0;
         jetskiVisual.updateWakeTrail(jetWakeSamples,elapsed);
         jetskiVisual.updateGateFocus(jetSki.checkpoint,elapsed,
-          jetSki.phase==="racing");
+          jetRideMode==="race"&&jetSki.phase==="racing");
         jetskiVisual.buoys.forEach((b,i)=>{b.visible=true;
           b.scale.setScalar(i===jetSki!.checkpoint?1.7:1);});
         canvas.dataset.jetSkiStatus=jetSki.phase;
@@ -3133,11 +3134,13 @@ export function createWorld(
         const turnGuide=Math.abs(gateBearing)<.22?"↑":
           Math.abs(gateBearing)<.72?(gateBearing>0?"↗":"↖"):
           gateBearing>0?"→":"←";
-        jetHudReadout.textContent=jetCountdown>0?
+        jetHudReadout.textContent=jetRideMode==="free"?
+          `FREE RIDE · W accelerate / S reverse · A left / D right · Shift boost · ${Math.abs(jetSki.speed).toFixed(0)} m/s · Turbo ${jetSki.turbo.toFixed(0)}% · Esc dock`:
+          jetCountdown>0?
           `START IN ${Math.ceil(jetCountdown)} · ${jetSki.craft.toUpperCase()} · Hold throttle to launch`:
           jetSki.phase==="finished"?
           `FINISH · ${jetSki.elapsed.toFixed(1)}s · Place ${place}/3 · Session best ${jetSessionBest?.toFixed(1)??"·"}s · R Retry / Esc Dock`:
-          `${jetSkiSectionName(jetSki.checkpoint)} · Place ${place}/3 · Lap ${Math.min(2,jetSki.lap+1)}/2 · Gate ${jetSki.checkpoint+1}/${JET_SKI_GATES.length} ${turnGuide} ${jetSkiGateDistance(jetSki).toFixed(0)}m · ${Math.max(0,jetSki.speed).toFixed(0)} m/s · Turbo ${jetSki.turbo.toFixed(0)}%${jetSki.jumpHeight>.2?" · AIR":""} · ${jetSki.elapsed.toFixed(1)}s · Shift BOOST · Esc Dock`;
+          `${jetSkiSectionName(jetSki.checkpoint)} · W forward / S reverse · A left / D right · Place ${place}/3 · Lap ${Math.min(2,jetSki.lap+1)}/2 · Gate ${jetSki.checkpoint+1}/${JET_SKI_GATES.length} ${turnGuide} ${jetSkiGateDistance(jetSki).toFixed(0)}m · ${Math.max(0,jetSki.speed).toFixed(0)} m/s · Turbo ${jetSki.turbo.toFixed(0)}%${jetSki.jumpHeight>.2?" · AIR":""} · ${jetSki.elapsed.toFixed(1)}s · Shift BOOST · Esc Dock`;
         explorer.visible=false;
       }else if (discGolf.phase!=="off") {
         const previous=discGolf.phase;
@@ -3710,7 +3713,12 @@ export function createWorld(
         driveButtons.forEach(b=>{b.style.display=jetSki?"inline-flex":"none";});
         jetRetryButton.style.display=jetSki&&jetSki.phase==="finished"?"inline-flex":"none";
       }
-      if(!jetSki){explorer.visible=true;jetskiVisual.activeSki.visible=false;
+      if(!jetSki){explorer.visible=!jetChoosing;
+        jetskiVisual.activeSki.visible=jetChoosing;
+        if(jetChoosing){
+          jetskiVisual.activeSki.position.set(66.7,SEA_SURFACE+.2,JET_SKI_PIER.centerZ);
+          jetskiVisual.activeSki.rotation.set(0,0,0);
+        }
         jetskiVisual.opponents.forEach(g=>{g.visible=false;});
         jetskiVisual.skis.forEach(g=>{g.visible=true;});
         jetskiVisual.wake.visible=false;
