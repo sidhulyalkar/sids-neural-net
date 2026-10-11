@@ -135,6 +135,10 @@ export function createWorld(
     "Explore Sid’s world. Use arrows or WASD to move, Shift to sprint, Space for your land activity, V to dive or surface, Q and E for dive depth, drag to look, Enter to discover, and M for the menu.",
   );
   host.appendChild(canvas);
+  const jetHud=document.createElement('div');
+  jetHud.setAttribute('aria-live','polite');
+  jetHud.style.cssText='position:absolute;bottom:72px;left:50%;transform:translateX(-50%);z-index:8;pointer-events:none;background:rgba(9,30,43,.82);border:1px solid rgba(255,255,255,.26);border-radius:12px;color:white;font:600 13px/1.5 system-ui,sans-serif;padding:8px 14px;white-space:nowrap;display:none';
+  host.appendChild(jetHud);
   const scene = new THREE.Scene();
   scene.background = new THREE.Color("#67b7ef");
   scene.fog = new THREE.Fog("#c4e2f1", 85, 270);
@@ -2442,6 +2446,7 @@ export function createWorld(
   let bigAir:BigAirState=idleBigAir();
   let discGolf:DiscGolfState=idleDiscGolf();
   let jetSki:JetSkiState|null=null;
+  let selectedJetSki:"touring"|"sport"|"race"="sport";
   let discFetch=idleDiscGolfFetch();
   let lastDiscStart=0,lastDiscShot=0,lastDiscExit=0,lastDiscUpdate=0;
   let lastDiscPreview:DiscShot|null=null,lastPreviewTick=-Infinity;
@@ -2635,13 +2640,18 @@ export function createWorld(
     }
     if(e.target !== canvas) return;
     const key = e.key.toLowerCase();
+    if(!jetSki&&["1","2","3"].includes(key)){
+      selectedJetSki=key==="1"?"touring":key==="2"?"sport":"race";
+      canvas.dataset.jetSkiSelected=selectedJetSki;
+    }
     if(key==="escape"&&jetSki){
       jetSki=null;player={x:57,z:JET_SKI_DOCK.z};playerY=groundHeight(player);
+      jetHud.style.display="none";
       canvas.dataset.jetSkiStatus="docked";e.preventDefault();return;
     }
     if(key==="e"&&!e.repeat&&!jetSki&&discGolf.phase==="off"&&
        Math.hypot(player.x-57,player.z-JET_SKI_DOCK.z)<8){
-      jetSki=startJetSkiRace(keys.has("shift")?"race":"sport");
+      jetSki=startJetSkiRace(selectedJetSki);
       destination=null;aquatic="land";canvas.dataset.jetSkiStatus="racing";
       e.preventDefault();return;
     }
@@ -2840,6 +2850,11 @@ export function createWorld(
         canvas.dataset.jetSkiGate=String(jetSki.checkpoint+1);
         canvas.dataset.jetSkiSpeed=jetSki.speed.toFixed(1);
         canvas.dataset.jetSkiTime=jetSki.elapsed.toFixed(1);
+        jetHud.style.display="block";
+        jetHud.textContent=jetSki.phase==="finished"?
+          `FINISH · ${jetSki.elapsed.toFixed(1)}s · Esc to dock`:
+          `${jetSki.craft.toUpperCase()} · Lap ${Math.min(2,jetSki.lap+1)}/2 · Gate ${jetSki.checkpoint+1}/${JET_SKI_GATES.length} · ${Math.max(0,jetSki.speed).toFixed(0)} m/s · ${jetSki.elapsed.toFixed(1)}s · Esc to dock`;
+        explorer.visible=false;
       }else if (discGolf.phase!=="off") {
         const previous=discGolf.phase;
         const wasPresentationPending=!!discGolf.presentationPending;
@@ -3401,7 +3416,7 @@ export function createWorld(
           player.z + Math.cos(cameraYaw) * cameraZoom * Math.cos(pitch),
         );
       }
-      if(!jetSki){jetskiVisual.activeSki.visible=false;
+      if(!jetSki){explorer.visible=true;jetskiVisual.activeSki.visible=false;
         jetskiVisual.buoys.forEach(b=>{b.visible=false;});}
       // Keep a trunk from obscuring the explorer on land. The cave uses its own
       // tighter camera clearance because the global +3.5m terrain clamp pushed
@@ -4711,6 +4726,13 @@ export function createWorld(
     },
     dispose() {
       discGolfObjects.dispose();
+      jetHud.remove();
+      jetskiVisual.root.traverse(object=>{
+        if(object instanceof THREE.Mesh){object.geometry.dispose();
+          const mat=object.material;
+          if(Array.isArray(mat))mat.forEach(m=>m.dispose());else mat.dispose();}
+      });
+      scene.remove(jetskiVisual.root);
       flyingBirds.dispose();
       technicalFeatures.dispose();
       habitats.dispose();
