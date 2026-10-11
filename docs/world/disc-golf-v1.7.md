@@ -24,7 +24,7 @@ Tap Space for a recommended shot, or hold/release for manual strength. A/D adjus
 | 8 | (42,-67) | (45,-34), (34,-7) | (17,16) | 5 |
 | 9 | (47,41) | (19,19), (0,-3) | (-24,-15) | 5 |
 
-Course par: **45**. Gates are broad and stand ten world units tall for readable, achievable throws. Routes range roughly 60–125 world units; actual multi-throw flight distances depend on terrain, wind, power and release angle. User-facing names remain random and funny per round; route descriptions in this document are internal planning names.
+Course par: **45**. Gates are broad and stand twelve world units tall for readable, achievable throws. Routes range roughly 60–125 world units; actual multi-throw flight distances depend on terrain, wind, power and release angle. User-facing names remain random and funny per round; route descriptions in this document are internal planning names.
 
 ## Validity and release
 
