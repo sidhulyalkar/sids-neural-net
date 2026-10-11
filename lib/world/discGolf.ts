@@ -9,38 +9,51 @@ export type DiscGolfSwingStage = "idle"|"power"|"accuracy"|"released";
 export type DiscGolfHole = {
   id:string;name:string;par:number;tee:Point;target:Point;
 };
-// Fixed destinations form a linked cross-island route. The previous basket
-// is the next tee, so the whole course reads as a journey, not target chasing.
+// Each tee and basket is authored independently. Reusing the preceding basket
+// as the next tee trapped players in foliage, steep greens and collision volumes.
+// A round advances between these proper tee pads as a course normally would.
 export const DISC_GOLF_HOLES:readonly DiscGolfHole[]=[
-  {id:"redwood-bend",name:"Redwood Traverse",par:4,tee:{x:38,z:9},
-   target:{x:43,z:43}},
-  {id:"scrub-crosswind",name:"Scrub Crosswind",par:4,tee:{x:43,z:43},
-   target:{x:43,z:-29}},
-  {id:"desert-drifter",name:"Desert Ridge",par:4,tee:{x:43,z:-29},
-   target:{x:0,z:-61}},
-  {id:"coastal-gust",name:"Coastal Return",par:5,tee:{x:0,z:-61},
-   target:{x:-25,z:15}},
-  {id:"redwood-needles",name:"Redwood Needles",par:3,tee:{x:-25,z:15},
-   target:{x:-11,z:-8}},
-  {id:"fern-falls",name:"Fern Falls",par:3,tee:{x:-11,z:-8},
-   target:{x:-6,z:-31}},
-  {id:"granite-climb",name:"Granite Climb",par:3,tee:{x:-6,z:-31},
-   target:{x:5,z:-52}},
-  {id:"joshua-chute",name:"Joshua Chute",par:4,tee:{x:5,z:-52},
-   target:{x:40,z:-28}},
-  {id:"homeward-line",name:"Homeward Line",par:5,tee:{x:40,z:-28},
-   target:{x:38,z:9}},
+  {id:"redwood-bend",name:"Opening drive",par:3,tee:{x:38,z:2},target:{x:36,z:33}},
+  {id:"scrub-crosswind",name:"Crosswind",par:4,tee:{x:47,z:15},target:{x:38,z:-18}},
+  {id:"desert-drifter",name:"Dry ridge",par:4,tee:{x:42,z:-22},target:{x:28,z:-49}},
+  {id:"coastal-gust",name:"Ridgeline",par:4,tee:{x:24,z:-59},target:{x:-17,z:-42}},
+  {id:"redwood-needles",name:"The bend",par:3,tee:{x:-23,z:5},target:{x:-24,z:37}},
+  {id:"fern-falls",name:"Fern meadow",par:3,tee:{x:-17,z:4},target:{x:-7,z:-23}},
+  {id:"granite-climb",name:"Up the hill",par:4,tee:{x:-22,z:-42},target:{x:10,z:-62}},
+  {id:"joshua-chute",name:"The chute",par:3,tee:{x:28,z:-53},target:{x:43,z:-34}},
+  {id:"homeward-line",name:"Final approach",par:3,tee:{x:44,z:-9},target:{x:35,z:20}},
 ];
-export const DISC_GOLF_VERSION="disc-golf-island-v1.3";
-/** Keeps the opening approach unobstructed by procedural rocks/trees, while
- * leaving surrounding forest and authored sport features intact. */
+// Course geometry and pars changed; saved strokes from the old, unplayable
+// chain of baskets must not be misrepresented as a round on this course.
+export const DISC_GOLF_VERSION="disc-golf-v1.6";
+
+/** Capsule helpers shared by the seeded environment and course QA. */
+function inCorridor(p:Point,from:Point,to:Point,radius:number){
+ const dx=to.x-from.x,dz=to.z-from.z,den=dx*dx+dz*dz;
+ const t=den>1e-8?Math.max(0,Math.min(1,
+  ((p.x-from.x)*dx+(p.z-from.z)*dz)/den)):0;
+ return Math.hypot(p.x-from.x-dx*t,p.z-from.z-dz*t)<radius;
+}
+/** Keep both playable ends and the first 11m of each throw clear.
+ * Do not sterilize the whole route: mid-fairway obstacles stay interesting. */
+export function discGolfCourseClearance(p:Point,extraRadius=0):boolean{
+ for(let i=0;i<DISC_GOLF_HOLES.length;i++){
+  const h=DISC_GOLF_HOLES[i];
+  const dx=h.target.x-h.tee.x,dz=h.target.z-h.tee.z;
+  const len=Math.hypot(dx,dz)||1;
+  const ux=dx/len,uz=dz/len;
+  const start={x:h.tee.x+ux*11,z:h.tee.z+uz*11};
+  const approach={x:h.target.x-ux*8,z:h.target.z-uz*8};
+  if(inCorridor(p,h.tee,start,3.25+extraRadius)||
+     inCorridor(p,approach,h.target,2.8+extraRadius))
+   return true;
+ }
+ return false;
+}
+// Hole 1 is the tutorial drive. Keep its entire flight lane easy to read.
 export function discGolfOpeningClearance(p:Point,extraRadius=0):boolean{
- const start=DISC_GOLF_HOLES[0].tee,finish=DISC_GOLF_HOLES[0].target;
- const dx=finish.x-start.x,dz=finish.z-start.z;
- const t=Math.max(0,Math.min(1,((p.x-start.x)*dx+(p.z-start.z)*dz)/
-   (dx*dx+dz*dz)));
- const x=start.x+dx*t,z=start.z+dz*t;
- return Math.hypot(p.x-x,p.z-z)<3.5+extraRadius;
+ const h=DISC_GOLF_HOLES[0];
+ return inCorridor(p,h.tee,h.target,3.5+extraRadius);
 }
 const clamp=(n:number,a:number,b:number)=>Math.max(a,Math.min(b,n));
 // Keep the existing time argument for render/simulation call sites; there is
