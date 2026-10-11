@@ -2843,6 +2843,16 @@ export function createWorld(
         jetskiVisual.activeSki.visible=true;
         jetskiVisual.activeSki.position.set(player.x,SEA_SURFACE+.2+Math.sin(elapsed*5)*.07,player.z);
         jetskiVisual.activeSki.rotation.y=jetSki.heading;
+        const steering=Number(keys.has("d")||keys.has("arrowright"))-
+          Number(keys.has("a")||keys.has("arrowleft"));
+        jetskiVisual.activeSki.rotation.z=THREE.MathUtils.lerp(
+          jetskiVisual.activeSki.rotation.z,-steering*.22*Math.min(1,Math.abs(jetSki.speed)/11),
+          Math.min(1,dt*5));
+        jetskiVisual.wake.visible=jetSki.speed>2;
+        jetskiVisual.wake.position.x=player.x-Math.sin(jetSki.heading)*1.1;
+        jetskiVisual.wake.position.z=player.z-Math.cos(jetSki.heading)*1.1;
+        jetskiVisual.wake.rotation.z=-jetSki.heading;
+        jetskiVisual.wake.scale.setScalar(1+Math.min(2.7,Math.abs(jetSki.speed)/10));
         jetskiVisual.buoys.forEach((b,i)=>{b.visible=true;
           b.scale.setScalar(i===jetSki!.checkpoint?1.7:1);});
         canvas.dataset.jetSkiStatus=jetSki.phase;
@@ -3417,6 +3427,11 @@ export function createWorld(
         );
       }
       if(!jetSki){explorer.visible=true;jetskiVisual.activeSki.visible=false;
+        jetskiVisual.wake.visible=false;
+        if(discGolf.phase==="off"&&Math.hypot(player.x-57,player.z-JET_SKI_DOCK.z)<9){
+          jetHud.style.display="block";
+          jetHud.textContent=`JET-SKI DOCK · 1 Touring / 2 Sport / 3 Race · Selected: ${selectedJetSki} · Press E to ride`;
+        }else jetHud.style.display="none";
         jetskiVisual.buoys.forEach(b=>{b.visible=false;});}
       // Keep a trunk from obscuring the explorer on land. The cave uses its own
       // tighter camera clearance because the global +3.5m terrain clamp pushed
@@ -4662,6 +4677,7 @@ export function createWorld(
         }
         lastSerial = next.command.serial;
         const r = REGIONS.find((r) => r.id === next.command!.region)!;
+        jetSki=null;jetHud.style.display="none";
         player =
           (next.command.activity && activityLanding(next.command.activity)) ||
           regionLanding(r.id);
