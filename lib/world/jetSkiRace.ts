@@ -73,7 +73,8 @@ function segmentWithinGate(a:Point,b:Point,gate:Point,radius:number):boolean{
  * same handling. Contact penalties apply once per shoreline impact, never 120
  * times a second. Gates are swept so fast skis cannot tunnel through buoys. */
 export function stepJetSkiRace(state:JetSkiState,dt:number,
- input:JetSkiInput,water:(p:Point)=>boolean=jetSkiNavigableWater):JetSkiState{
+ input:JetSkiInput,water:(p:Point)=>boolean=jetSkiNavigableWater,
+ checkpoints=true):JetSkiState{
  if(state.phase!=="racing"||!Number.isFinite(dt)||dt<=0)return state;
  let s={...state,position:{...state.position},current:{...state.current}};
  let remaining=Math.min(dt,.12);
@@ -96,7 +97,7 @@ export function stepJetSkiRace(state:JetSkiState,dt:number,
   // Releasing turbo decelerates instead of snapping instantly to cruise cap.
   const smoothLimit=boost?maximum:Math.max(maximum,s.speed-9*h);
   s.speed=clamp(s.speed+(acceleration-resistance*s.speed*brake)*h,
-   -5,smoothLimit);
+   -8,smoothLimit);
   const steerAssist=.42+.58*Math.min(1,Math.abs(s.speed)/10);
   s.heading+=steer*profile.turnRate*steerAssist*(boost?.84:1)*
    (s.jumpHeight>0?.35:1)*h*(s.speed<0?-1:1);
@@ -149,7 +150,7 @@ export function stepJetSkiRace(state:JetSkiState,dt:number,
   s.pitch+=(wantPitch-s.pitch)*Math.min(1,h*8);
   s.roll+=(wantRoll-s.roll)*Math.min(1,h*8);
   const gate=JET_SKI_GATES[s.checkpoint];
-  if(segmentWithinGate(before,s.position,gate,5.8)){
+  if(checkpoints&&segmentWithinGate(before,s.position,gate,5.8)){
    // Clean checkpoint routing rewards precision without requiring pickups.
    s.turbo=clamp(s.turbo+8,0,100);
    s.checkpoint++;
