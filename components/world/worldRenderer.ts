@@ -3429,7 +3429,7 @@ export function createWorld(
           targetCamera.lerp(chaseCamera,.58);
         }
       }
-      canvas.dataset.discGolfFetchCamera=dogFetchVisible;
+      canvas.dataset.discGolfFetchCamera=String(dogFetchVisible);
       // Basket-first orientation: hold the chains, then rise over the
       // fairway and return to the *existing* third-person aiming pose.
       // The normal terrain/camera constraints above remain authoritative at
