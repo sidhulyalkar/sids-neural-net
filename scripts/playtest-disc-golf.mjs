@@ -36,6 +36,13 @@ try{
    return c?.dataset.discGolfHole===id&&c?.dataset.discGolfPhase==="ready";
   },ids[i]);
   assert.equal(await canvas.getAttribute("data-disc-golf-last-shot"),"pending");
+  assert.equal(await canvas.getAttribute("data-disc-golf-gates"),"0");
+  assert.ok(Number(await canvas.getAttribute("data-disc-golf-gates-total"))>=1,
+    "Every long hole needs an active mandatory gate");
+  if(i===1){
+   assert.equal(await canvas.getAttribute("data-disc-golf-gates-total"),"3",
+    "Shore-to-backside Hole 2 needs three required gates");
+  }
   if(i===1){
    // Explicit pointer regression for the formerly unplayable second tee.
    await page.getByRole("button",{name:"Space · Throw"}).click();
