@@ -101,12 +101,21 @@ export function auditDiscGolfFairways():DiscGolfFairwayAudit[]{
    // side. It must never be described as full physical playtest coverage.
    const at={x:gate.point.x-direction.x/len*14,
     z:gate.point.z-direction.z/len*14};
-   if(isWater(at))return false;
-   const init={...startDiscGolf(i,p=>terrainHeight(p.x,p.z),5),
-     phase:"landed" as const,gatesCleared:index,lie:at,
-     disc:{...at,y:terrainHeight(at.x,at.z)+.16}};
-   for(const loft of [18,26,34]){
-    for(const power of [28,44,60,76,92]){
+   // A legitimate gate may require a shorter/longer layup when approached
+   // from a mountain slope. Search plausible lies, then run the SAME
+   // physical flight and swept crossing as gameplay. Never award by proximity.
+   const stages=[at,...[9,19,25].map(d=>({
+    x:gate.point.x-direction.x/len*d,
+    z:gate.point.z-direction.z/len*d,
+   }))];
+   for(const [stageIndex,lie] of stages.entries()){
+    if(isWater(lie))continue;
+    const init={...startDiscGolf(i,p=>terrainHeight(p.x,p.z),5),
+      phase:"landed" as const,gatesCleared:index,lie,
+      disc:{...lie,y:terrainHeight(lie.x,lie.z)+.16}};
+    const lofts=stageIndex===0?[18,26,34]:[12,20,30,40];
+    const powers=stageIndex===0?[28,44,60,76,92]:[18,30,44,60,78];
+    for(const loft of lofts)for(const power of powers){
      const trace=traceDiscGolfShot(init,
       {power,loft,aimOffset:0,accuracy:0},
       p=>terrainHeight(p.x,p.z),isWater,-1.4);
