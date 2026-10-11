@@ -1,12 +1,16 @@
 "use client";
-import {useEffect,useRef,useState} from "react";
+import {useCallback,useEffect,useMemo,useRef,useState} from "react";
 import {
  DISC_GOLF_HOLES,discGolfRemaining,discGolfScoreName,discGolfWind,
- type DiscGolfState,type DiscShot,type DiscGolfSwingStage,
+ recommendDiscGolfPower,type DiscGolfState,type DiscShot,type DiscGolfSwingStage,
 } from "@/lib/world/discGolf";
+import {terrainHeight,isWater,SEA_SURFACE} from "@/lib/world/model";
 import styles from "./world.module.css";
 
-type Stage=DiscGolfSwingStage;
+const clamp=(value:number,min:number,max:number)=>Math.min(max,Math.max(min,value));
+const ground=(p:{x:number;z:number})=>terrainHeight(p.x,p.z);
+const chargedPower=(ms:number)=>clamp(Math.round((ms-150)/9),4,100);
+
 export function WorldDiscGolfHUD({game,onShot,onChangeHole,onExit,onStage,onPreview,onSwing}:{
  game:DiscGolfState;
  onShot:(shot:DiscShot)=>void;
@@ -17,64 +21,103 @@ export function WorldDiscGolfHUD({game,onShot,onChangeHole,onExit,onStage,onPrev
  onSwing:(amount:number)=>void;
 }){
  const hole=DISC_GOLF_HOLES[game.holeIndex];
- const [stage,setStage]=useState<Stage>("idle");
- const [cursor,setCursor]=useState(0);
- const [power,setPower]=useState(65);
- const [loft,setLoft]=useState(22);
+ const [loft,setLoft]=useState(24);
  const [aim,setAim]=useState(0);
- const started=useRef(0);
- const previewPowerBucket=useRef(-1);
+ const [charging,setCharging]=useState(false);
+ const [chargePower,setChargePower]=useState(4);
+ const held=useRef(false);
+ const fired=useRef(false);
+ const chargeAt=useRef(0);
+ const powerBucket=useRef(-1);
+ const locked=game.phase==="flying"||game.phase==="holed";
+ const available=!locked&&game.phase!=="off";
+ // Re-solve on a new lie or a changed aim, not on every animation frame.
+ const suggested=useMemo(()=>recommendDiscGolfPower(game,loft,aim,ground,isWater,SEA_SURFACE),
+  // The wind varies slowly; the preview itself refreshes during aiming.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  [game.holeIndex,game.lie.x,game.lie.z,game.phase,loft,aim]);
+ const preview=useCallback((power:number)=>{
+  onPreview({power,accuracy:0,loft,aimOffset:aim});
+ },[onPreview,loft,aim]);
  useEffect(()=>{
-  if(stage!=="power"&&stage!=="accuracy")return;
-  let raf=0;
-  const run=(now:number)=>{
-   const period=stage==="power"?1850:1160;
-   const cycle=((now-started.current)%period)/period;
-   const t=cycle<.5?cycle*2:(1-cycle)*2;
-   setCursor(t);
-   if(stage==="power"){
-     const bucket=Math.round(t*10);
-     if(bucket!==previewPowerBucket.current){
-       previewPowerBucket.current=bucket;
-       onPreview({power:Math.max(8,bucket*10),accuracy:0,loft,aimOffset:aim});
-       onSwing(bucket/10);
-     }
-   } else {
-     const bucket=Math.round(t*10);
-     if(bucket!==previewPowerBucket.current){
-       previewPowerBucket.current=bucket;
-       onSwing(bucket/10);
-     }
+  if(!available||charging||fired.current)return;
+  preview(suggested);
+  onSwing(0);onStage("idle");
+ },[available,charging,suggested,preview,onSwing,onStage]);
+ const begin=useCallback(()=>{
+  if(!available||held.current||fired.current)return;
+  held.current=true;chargeAt.current=performance.now();
+  powerBucket.current=-1;setCharging(true);setChargePower(4);
+  onStage("power");
+ },[available,onStage]);
+ const finish=useCallback(()=>{
+  if(!held.current||fired.current)return;
+  held.current=false;fired.current=true;
+  const ms=performance.now()-chargeAt.current;
+  // A tap is the fully predictable suggested throw.
+  // Holding provides an optional, single power meter without accuracy RNG.
+  const power=ms<180?suggested:chargedPower(ms);
+  setCharging(false);setChargePower(power);
+  onStage("released");onSwing(1);onPreview(null);
+  onShot({power,loft,aimOffset:aim,accuracy:0});
+ },[suggested,onStage,onSwing,onPreview,onShot,loft,aim]);
+ const tap=useCallback(()=>{
+  if(!available||held.current||fired.current)return;
+  fired.current=true;onStage("released");onSwing(1);onPreview(null);
+  onShot({power:suggested,loft,aimOffset:aim,accuracy:0});
+ },[available,suggested,onStage,onSwing,onPreview,onShot,loft,aim]);
+ useEffect(()=>{
+  if(!charging)return;
+  let frame=0;
+  const tick=()=>{
+   if(!held.current)return;
+   const power=chargedPower(performance.now()-chargeAt.current);
+   const bucket=Math.round(power/4);
+   if(bucket!==powerBucket.current){
+    powerBucket.current=bucket;setChargePower(power);
+    onSwing(power/100);preview(power);
    }
-   raf=requestAnimationFrame(run);
+   frame=requestAnimationFrame(tick);
   };
-  raf=requestAnimationFrame(run);
-  return ()=>cancelAnimationFrame(raf);
- },[stage,onPreview,onSwing,loft,aim]);
- const act=()=>{
-  if(game.phase==="flying"||game.phase==="holed"||stage==="released")return;
-  if(stage==="idle"){
-   started.current=performance.now();setCursor(0);setStage("power");onStage("power");
-   previewPowerBucket.current=-1;onSwing(0);
-  }else if(stage==="power"){
-   const chosen=Math.max(8,Math.round(cursor*100));
-   setPower(chosen);
-   onPreview({power:chosen,accuracy:0,loft,aimOffset:aim});
-   started.current=performance.now();setCursor(0);setStage("accuracy");onStage("accuracy");
-   previewPowerBucket.current=-1;onSwing(0);
-  }else{
-   const accuracy=(cursor-.5)*2;
-   setStage("released");onStage("released");
-   onSwing(1);onPreview(null);
-   onShot({power,accuracy,loft,aimOffset:aim});
-  }
- };
+  frame=requestAnimationFrame(tick);
+  return ()=>cancelAnimationFrame(frame);
+ },[charging,preview,onSwing]);
+ useEffect(()=>{
+  const isTextEntry=(target:EventTarget|null)=>target instanceof HTMLElement &&
+   !!target.closest("input,textarea,select,[contenteditable='true']");
+  const down=(e:KeyboardEvent)=>{
+   if(!available||e.altKey||e.ctrlKey||e.metaKey||isTextEntry(e.target))return;
+   const key=e.key.toLowerCase();
+   if(key==="a"||key==="d"||key==="w"||key==="s"||
+      key==="arrowleft"||key==="arrowright"||key==="arrowup"||key==="arrowdown"){
+    e.preventDefault();
+    if(key==="a"||key==="arrowleft")setAim(v=>clamp(v-2,-55,55));
+    else if(key==="d"||key==="arrowright")setAim(v=>clamp(v+2,-55,55));
+    else if(key==="w"||key==="arrowup")setLoft(v=>clamp(v+2,6,42));
+    else setLoft(v=>clamp(v-2,6,42));
+   }else if(e.code==="Space"){
+    e.preventDefault();
+    if(!e.repeat)begin();
+   }
+  };
+  const up=(e:KeyboardEvent)=>{
+   if(e.code==="Space"&&held.current){e.preventDefault();finish();}
+  };
+  const cancel=()=>{if(held.current){held.current=false;setCharging(false);onStage("idle");onSwing(0);}};
+  window.addEventListener("keydown",down);
+  window.addEventListener("keyup",up);
+  window.addEventListener("blur",cancel);
+  return ()=>{
+   window.removeEventListener("keydown",down);
+   window.removeEventListener("keyup",up);
+   window.removeEventListener("blur",cancel);
+  };
+ },[available,begin,finish,onStage,onSwing]);
  const liveWind=game.phase==="flying"?game.lockedWind:discGolfWind(game.holeIndex,game.clock);
  const bearing=Math.atan2(liveWind.x,liveWind.z)*180/Math.PI;
  const windArrow=["↑","↗","→","↘","↓","↙","←","↖"][((Math.round((bearing+360)/45)%8)+8)%8];
- const disabled=game.phase==="flying"||game.phase==="holed";
- const buttonLabel=stage==="idle"?"Start pullback":stage==="power"?"Lock power":
-   stage==="accuracy"?"Release disc":"Disc airborne";
+ const shownPower=charging?chargePower:suggested;
+ const remaining=discGolfRemaining(game);
  return (
   <aside className={styles.discGolfHud} aria-label="Island disc golf controls">
    <div className={styles.discGolfHeading}>
@@ -86,73 +129,63 @@ export function WorldDiscGolfHUD({game,onShot,onChangeHole,onExit,onStage,onPrev
    </div>
    <div className={styles.discGolfStats} aria-live="polite">
     <span>Par {hole.par}</span><span>Throws {game.strokes}</span>
-    <span>{discGolfRemaining(game).toFixed(0)} m to basket</span>
-    <span title="Wind is sampled at release">Wind {windArrow} {liveWind.speed.toFixed(1)}</span>
+    <span>{remaining.toFixed(0)} m to basket</span>
+    <span title="Wind at release">{ "Wind "+windArrow+" "+liveWind.speed.toFixed(1) }</span>
    </div>
    <p className={styles.discGolfNote}>
-    {game.phase==="holed"?`Chains! ${discGolfScoreName(game.strokes,hole.par)}`:
-     game.phase==="water"?(game.reason??"Water shot. Free redo from your last lie."):
-     game.phase==="landed"?(game.reason??"Follow the gold beam to your next shot."):
-     game.phase==="flying"?"Watch the disc bend in the wind…":
-     "Aim, choose loft, then tap three times to swing and release."}
+    {game.phase==="holed"?"Chains! "+discGolfScoreName(game.strokes,hole.par):
+     game.phase==="water"?(game.reason??"Water shot: free retry."):
+     game.phase==="landed"?(game.reason??"Shoot from the gold light."):
+     game.phase==="flying"?"Watch the disc fly…":
+     "Fixed basket across the island. Advance from each landing."}
    </p>
    {game.phase==="holed"?(
-    <button type="button" className={styles.discGolfMainButton}
+    <button className={styles.discGolfMainButton} type="button"
       onClick={()=>onChangeHole((game.holeIndex+1)%DISC_GOLF_HOLES.length)}>
-      Next moving basket
+      Next island hole
     </button>
    ):(
     <>
-     <div className={styles.discGolfControlRow}>
-      <label>Throw angle <strong>{loft}°</strong>
-       <input type="range" min="6" max="42" step="1" value={loft}
-        disabled={disabled||stage==="released"} onChange={e=>{
-          const value=Number(e.target.value);setLoft(value);
-          onPreview({power:stage==="power"?Math.max(8,Math.round(cursor*100)):power,
-            accuracy:0,loft:value,aimOffset:aim});
-        }}/>
-      </label>
-      <label>Aim offset <strong>{aim>0?"+":""}{aim}°</strong>
-       <input type="range" min="-55" max="55" step="1" value={aim}
-        disabled={disabled||stage==="released"} onChange={e=>{
-          const value=Number(e.target.value);setAim(value);
-          onPreview({power:stage==="power"?Math.max(8,Math.round(cursor*100)):power,
-            accuracy:0,loft,aimOffset:value});
-        }}/>
-      </label>
+     <div className={styles.discGolfKeyGuide}>
+      <div><kbd>A</kbd> <kbd>D</kbd><span>Aim left / right <strong>{aim>0?"+":""}{aim}°</strong></span></div>
+      <div><kbd>W</kbd> <kbd>S</kbd><span>Throw higher / lower <strong>{loft}°</strong></span></div>
      </div>
-     <div className={styles.discGolfMeters} aria-label="Two-phase throw timing meters">
-      <div>
-       <div className={styles.discGolfMeterHeader}><span>1 · Pullback / power</span><strong>{stage==="power"?Math.round(cursor*100):power}%</strong></div>
-       <div className={styles.discGolfMeter} role="progressbar"
-         aria-label="Power pullback" aria-valuemin={0} aria-valuemax={100}
-         aria-valuenow={stage==="power"?Math.round(cursor*100):power}>
-        <span className={styles.discGolfPowerFill} style={{width:`${stage==="power"?cursor*100:power}%`}}/>
-        <span className={styles.discGolfNeedle} style={{left:`${stage==="power"?cursor*100:power}%`}}/>
-       </div>
+     <div className={styles.discGolfMeters}>
+      <div className={styles.discGolfMeterHeader}>
+       <span>{charging?"Hold Space: power":"Suggested pullback"}</span>
+       <strong>{shownPower}% · recommended {suggested}%</strong>
       </div>
-      <div>
-       <div className={styles.discGolfMeterHeader}><span>2 · Release / accuracy</span><strong>{stage==="accuracy"?`${Math.round(Math.abs(cursor-.5)*200)}% off`:"Center = clean"}</strong></div>
-       <div className={styles.discGolfMeter} role="progressbar"
-         aria-label="Release accuracy" aria-valuemin={0} aria-valuemax={100}
-         aria-valuenow={Math.round((stage==="accuracy"?cursor:.5)*100)}>
-        <span className={styles.discGolfSweetSpot}/>
-        <span className={styles.discGolfNeedle} style={{left:`${(stage==="accuracy"?cursor:.5)*100}%`}}/>
-       </div>
+      <div className={styles.discGolfMeter} role="progressbar" aria-label="Disc throw power"
+        aria-valuemin={0} aria-valuemax={100} aria-valuenow={shownPower}>
+       <span className={styles.discGolfPowerFill} style={{width:shownPower+"%"}}/>
+       <span className={styles.discGolfBestMarker} style={{left:suggested+"%"}}/>
       </div>
      </div>
-     <button className={styles.discGolfMainButton} disabled={disabled||stage==="released"}
-       type="button" onClick={act}>{buttonLabel}</button>
-     <span className={styles.discGolfHint}>The faint trajectory shows an ideal centered release at the current wind. The basket keeps moving, so the landing is an estimate. Three taps: pull back → power → release.</span>
+     <button className={styles.discGolfMainButton} disabled={!available||fired.current}
+       type="button"
+       onPointerDown={e=>{if(e.pointerType!=="mouse"||e.button===0){
+        e.currentTarget.setPointerCapture(e.pointerId);begin();
+       }}}
+       onPointerUp={finish}
+       onPointerCancel={()=>{held.current=false;setCharging(false);onStage("idle");}}
+       onClick={e=>{if(e.detail===0)tap();}}>
+       {game.phase==="flying"?"Disc airborne":
+        charging?"Release to throw":"Tap Space to throw · hold for power"}
+     </button>
+     <span className={styles.discGolfHint}>
+      Tap Space for the suggested shot. Hold and release to set power yourself.
+      The flight line estimates a centered release; wind and trees still matter.
+      Close to the chains, tap for a controlled putt.
+     </span>
     </>
    )}
-   <div className={styles.discGolfHoles} role="group" aria-label="Choose course">
-     {DISC_GOLF_HOLES.map((h,i)=>(
-      <button key={h.id} type="button" aria-pressed={i===game.holeIndex}
+   <div className={styles.discGolfHoles} role="group" aria-label="Choose hole">
+    {DISC_GOLF_HOLES.map((h,i)=>(
+     <button key={h.id} type="button" aria-pressed={i===game.holeIndex}
        disabled={game.phase==="flying"} onClick={()=>onChangeHole(i)}>
        {i+1}
-      </button>
-     ))}
+     </button>
+    ))}
    </div>
   </aside>
  );
