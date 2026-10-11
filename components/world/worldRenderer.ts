@@ -26,7 +26,7 @@ import { LAND_WILDLIFE, LAND_WILDLIFE_COLORS } from "@/lib/world/ecology";
 import { SHASTA_CHARACTER } from "@/lib/world/shastaCharacter";
 import { FrameSampler, QualityController } from "@/lib/world/performance";
 import { shastaDetour, initialChaseState, stepChase, gaitBlendForSpeed, smoothAngle, smoothPoint, smoothingAlpha, steerShastaVelocity } from "@/lib/world/shastaMotion";
-import {idleDiscGolfFetch,startDiscGolfFetch,stepDiscGolfFetch} from "@/lib/world/discGolfFetch";
+import {idleDiscGolfFetch,startDiscGolfFetch,stepDiscGolfFetch,discGolfFetchCameraPhase} from "@/lib/world/discGolfFetch";
 import * as THREE from "three/src/Three.Core.js";
 import type { WebGLRenderer } from "three/src/renderers/WebGLRenderer.js";
 import {
@@ -3420,35 +3420,66 @@ export function createWorld(
         targetCamera.set(THREE.MathUtils.clamp(desired.x,centerX-half,centerX+half),playerY+2.15,z);
         targetLook.set(player.x-Math.sin(yaw)*2.4,playerY+1.85,player.z-Math.cos(yaw)*2.4);
       }
-      // Fetch camera: gently travel with Shasta toward the disc while keeping
-      // the normal third-person putting perspective mostly intact.
-      // This is cosmetic; neither game physics nor the player lie are moved.
-      const dogFetchVisible=discGolf.phase!=="off"&&discFetch.phase!=="idle"&&
-        !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-      if(dogFetchVisible&&!discGolfIntro){
-        const basket=discGolfNextTarget(discGolf);
-        const putting=discGolfThrowCameraPose(player,basket,playerY).putting;
-        const focusX=discFetch.phase==="found"?dog.x:
-          dog.x*.72+discGolf.disc.x*.28;
-        const focusZ=discFetch.phase==="found"?dog.z:
-          dog.z*.72+discGolf.disc.z*.28;
-        const target=new THREE.Vector3(focusX,
-          terrainHeight(focusX,focusZ)+1.6,focusZ);
-        const amount=putting?.18:.75;
-        targetLook.lerp(target,amount);
-        if(!putting){
-          const hx=basket.x-player.x,hz=basket.z-player.z;
-          const len=Math.hypot(hx,hz)||1;
-          const chaseCamera=new THREE.Vector3(
-            focusX-hx/len*20+hz/len*2.5,
-            terrainHeight(focusX,focusZ)+13.5,
-            focusZ-hz/len*20-hx/len*2.5);
-          chaseCamera.y=Math.max(chaseCamera.y,
-            worldFloorHeight(chaseCamera.x,chaseCamera.z)+9);
-          targetCamera.lerp(chaseCamera,.58);
+      // Camera choreography, never gameplay authority:
+      // flight -> landing reveal -> visible dog chase -> Shasta eye view.
+      // Before landing the shot gets the camera; Shasta stays behind.
+      const reducedFetchMotion=window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      const fetchCamera=discGolf.phase!=="off"&&!discGolfIntro?
+        discGolfFetchCameraPhase(discFetch,elapsed,reducedFetchMotion):"off";
+      if(fetchCamera==="disc" && discGolf.phase==="flying"){
+        const p=discGolf.disc;
+        const speed=Math.hypot(discGolf.velocity.x,discGolf.velocity.z);
+        const target=discGolfNextTarget(discGolf);
+        const dx=speed>.25?discGolf.velocity.x:target.x-player.x;
+        const dz=speed>.25?discGolf.velocity.z:target.z-player.z;
+        const length=Math.hypot(dx,dz)||1,fx=dx/length,fz=dz/length;
+        // Putts remain in the broad third-person composition; on longer
+        // drives, the flying disc owns the view until impact.
+        const putting=discGolfThrowCameraPose(player,target,playerY).putting;
+        const discLook=new THREE.Vector3(p.x+fx*2,p.y+.6,p.z+fz*2);
+        if(putting)targetLook.lerp(discLook,.45);
+        else{
+          targetLook.copy(discLook);
+          targetCamera.set(p.x-fx*15+fz*2.7,p.y+9.5,
+            p.z-fz*15-fx*2.7);
         }
+      }else if(fetchCamera==="landing"&&discFetch.target){
+        const p=discFetch.target;
+        const dx=discGolf.velocity.x,dz=discGolf.velocity.z;
+        const len=Math.hypot(dx,dz)||1,fx=dx/len,fz=dz/len;
+        const y=terrainHeight(p.x,p.z);
+        targetLook.set(p.x,y+1,p.z);
+        targetCamera.set(p.x-fx*12+fz*4,y+12,p.z-fz*12-fx*4);
+      }else if(fetchCamera==="chase"&&discFetch.target){
+        const goal=discFetch.target;
+        const dx=goal.x-dog.x,dz=goal.z-dog.z;
+        const dist=Math.hypot(dx,dz)||1,fx=dx/dist,fz=dz/dist;
+        const mid=Math.min(.53,9/dist);
+        const lookX=dog.x+dx*mid,lookZ=dog.z+dz*mid;
+        targetLook.set(lookX,terrainHeight(lookX,lookZ)+1.3,lookZ);
+        targetCamera.set(dog.x-fx*9+fz*3,
+          terrainHeight(dog.x,dog.z)+9+Math.min(6,dist*.07),
+          dog.z-fz*9-fx*3);
+      }else if(fetchCamera==="shasta"&&discFetch.target){
+        const goal=discFetch.target;
+        const dx=goal.x-dog.x,dz=goal.z-dog.z;
+        const dist=Math.hypot(dx,dz)||1,fx=dx/dist,fz=dz/dist;
+        // Shasta's low, forward-facing view. This is not a teleport:
+        // the position comes from the same obstacle-aware dog locomotion.
+        const eyeX=dog.x+fx*.45,eyeZ=dog.z+fz*.45;
+        targetCamera.set(eyeX,terrainHeight(eyeX,eyeZ)+1.65,eyeZ);
+        const ahead=Math.min(10,Math.max(2,dist));
+        const lookX=eyeX+fx*ahead,lookZ=eyeZ+fz*ahead;
+        targetLook.set(lookX,terrainHeight(lookX,lookZ)+1.45,lookZ);
       }
-      canvas.dataset.discGolfFetchCamera=String(dogFetchVisible);
+      if(fetchCamera!=="off"){
+        targetCamera.y=Math.max(targetCamera.y,
+          worldFloorHeight(targetCamera.x,targetCamera.z)+
+          (fetchCamera==="shasta"?1.45:7));
+        canvas.dataset.discGolfCamera=fetchCamera;
+      }
+      canvas.dataset.discGolfCinematicStage=fetchCamera;
+      canvas.dataset.discGolfFetchCamera=String(fetchCamera!=="off");
       // Basket-first orientation: hold the chains, then rise over the
       // fairway and return to the *existing* third-person aiming pose.
       // The normal terrain/camera constraints above remain authoritative at
@@ -3815,7 +3846,8 @@ export function createWorld(
         ? shoreWait
         : dogWaitsAtCaveEntrance
           ? { x: arcade.x - 2.0, z: arcade.z - 1.65 }
-          : discFetch.target&&discGolf.phase!=="off"?
+          : (discFetch.phase==="chase"||discFetch.phase==="found")&&
+            discFetch.target&&discGolf.phase!=="off"?
             discFetch.target
             : nearbyCritter
               ? nearbyCritter.point
@@ -4001,8 +4033,12 @@ export function createWorld(
       look.copy(targetLook);
       snapDiscCamera=false;
     }else{
-      camera.position.lerp(targetCamera, 1 - Math.exp(-dt * 3.6));
-      look.lerp(targetLook, 1 - Math.exp(-dt * 4));
+      // Fast enough to keep the flying disc on screen, with smooth
+      // cinematic blends instead of jumping between subjects.
+      const cinematicRate=discGolf.phase!=="off"&&discFetch.phase==="flight"?8:
+        discGolf.phase!=="off"&&discFetch.phase!=="idle"?5.2:3.6;
+      camera.position.lerp(targetCamera, 1 - Math.exp(-dt * cinematicRate));
+      look.lerp(targetLook, 1 - Math.exp(-dt * (cinematicRate+.4)));
     }
     if (
       (caveLayer === "arcade" && arcadeInside(player)) ||
