@@ -269,7 +269,7 @@ export function stepDiscGolf(state:DiscGolfState,dt:number,
  while(left>1e-7&&s.phase==="flying"){
   const d=Math.min(.0125,left);left-=d;s.clock+=d;s.flightTime+=d;
   const old={...s.disc};
-  if(s.contact?.mode==="slide"){
+  if(s.contact?.mode==="slide"||s.contact?.mode==="roll"){
    const update=stepGroundSlide(old,s.velocity,s.contact,d,ground);
    const p={x:update.position.x,z:update.position.z};
    if(isWater(p)){
