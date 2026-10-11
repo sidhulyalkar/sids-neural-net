@@ -7,14 +7,14 @@
  * force/moment equations, but the coefficients and inertia are still nominal.
  * There is no empirical validation against a specific commercial disc yet.
  */
-import {DISC_GOLF_AERO_PROFILES,discGolfAeroCoefficients,
+import {DISC_GOLF_AERO_PROFILES,discGolfModelCoefficients,
  type AeroDisc,type AeroTelemetry,type DiscGolfFlightStyle,
  type DiscGolfReleaseStyle,type AeroVector} from "./discGolfAerodynamics";
 export type V3=AeroVector;
 export type Quat={x:number;y:number;z:number;w:number};
 export type RigidDisc={orientation:Quat;momentum:V3};
 export type RigidFlight={velocity:V3;rigid:RigidDisc;spinRpm:number;
- discStyle:DiscGolfFlightStyle;releaseStyle:DiscGolfReleaseStyle};
+ discStyle:DiscGolfFlightStyle;releaseStyle:DiscGolfReleaseStyle;model?:AeroDisc};
 const pi=Math.PI,rad=pi/180,density=1.225,gravity=10.8;
 const clamp=(v:number,a:number,b:number)=>Math.max(a,Math.min(b,v));
 export const dot=(a:V3,b:V3)=>a.x*b.x+a.y*b.y+a.z*b.z;
@@ -90,7 +90,7 @@ export function stepRigidDisc(state:RigidFlight,wind:V3,dt:number):
    dragNewtons:0,precessionDegreesPerSecond:0,airspeed:0,spinRpm:state.spinRpm,
    nutationRadiansPerSecond:0,angularMomentum:length(state.rigid.momentum)}};
  }
- const p=DISC_GOLF_AERO_PROFILES[state.discStyle],area=pi*p.radius**2;
+ const p=state.model??DISC_GOLF_AERO_PROFILES[state.discStyle],area=pi*p.radius**2;
  const nsteps=Math.max(1,Math.ceil(h/.003));
  const sub=h/nsteps;
  let {velocity,rigid}=state;
@@ -113,7 +113,7 @@ export function stepRigidDisc(state:RigidFlight,wind:V3,dt:number):
    const direction=scale(air,1/speed);
    const alphaRad=Math.asin(clamp(-dot(n,direction),-1,1));
    alpha=alphaRad/rad;
-   const co=discGolfAeroCoefficients(state.discStyle,alphaRad);
+   const co=discGolfModelCoefficients(p,alphaRad);
    const dynamic=.5*density*speed*speed;
    lift=dynamic*area*co.cl;drag=dynamic*area*co.cd;
    const lateral=add(n,scale(direction,-dot(n,direction)));
@@ -128,8 +128,6 @@ export function stepRigidDisc(state:RigidFlight,wind:V3,dt:number):
   // Small aerodynamic damping on transverse angular rate prevents an
   // infinitely undamped nutation mode, but is uncalibrated for each mold.
   const rotation=rigid.orientation;
-  const bodyTorque=rotateQuat({x:-rotation.x,y:-rotation.y,
-   z:-rotation.z,w:rotation.w},torque);
   const transverseDamping=.00017;
   const dampedTorque=add(torque,rotateQuat(rotation,{
    x:-transverseDamping*wbody.x,
@@ -157,7 +155,6 @@ export function stepRigidDisc(state:RigidFlight,wind:V3,dt:number):
    nutationRadiansPerSecond:Math.hypot(actualOmega.x,actualOmega.z),
    angularMomentum:length(rigid.momentum),
   };
-  void bodyTorque; // reserved for later coefficient-specific moment diagnostics
  }
  const omega=bodyAngularVelocity(rigid,p);
  const spinRpm=Math.abs(omega.y)*30/pi;
