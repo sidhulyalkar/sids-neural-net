@@ -1,12 +1,16 @@
-/** Self-contained arcade watercraft course. Coordinates share the World island
- * map; a larger around-island route requires extending navigable water bounds.
- * Inspired by Sunwake Rush checkpoint pacing, not copied source code. */
-import type {Point} from "./model";
+/** Original arcade watercraft simulation and circumnavigation course.
+ * Gameplay inspiration: Sunwake Rush's checkpoints and readable handling.
+ * The island mesh occupies WORLD_BOUNDS; the open-ocean north/south legs are
+ * beyond it, while the east/west legs use the existing coastal water zones. */
+import {coastlineX,eastCoastlineX,WORLD_BOUNDS,type Point} from "./model";
 export type JetSkiType="touring"|"sport"|"race";
 export type JetSkiPhase="docked"|"racing"|"finished";
-export type JetSkiState={phase:JetSkiPhase;craft:JetSkiType;position:Point;
- heading:number;speed:number;elapsed:number;checkpoint:number;lap:number;
- penalties:number;};
+export type JetSkiInput={throttle:number;steer:number;brake?:boolean};
+export type JetSkiState={
+ phase:JetSkiPhase;craft:JetSkiType;position:Point;heading:number;
+ speed:number;elapsed:number;checkpoint:number;lap:number;
+ penalties:number;shoreContact:boolean;
+};
 export const JET_SKI_DOCK={x:62.5,z:12} as const;
 export const JET_SKI_START={x:68,z:12} as const;
 export const JET_SKI_PROFILES={
@@ -15,32 +19,61 @@ export const JET_SKI_PROFILES={
  race:{acceleration:24,maxSpeed:28,turnRate:1.55,drag:.8},
 } as const;
 export const JET_SKI_LAPS=2;
-/** All these coastal gates must be verified as water by the map audit. */
+/** One ordered clockwise lap, from the eastern dock around BOTH island ends.
+ * Keep bends wide so touring craft can complete the route without braking
+ * into dry ground. North/south gates lie beyond the finite terrain mesh. */
 export const JET_SKI_GATES:readonly Point[]=[
- {x:73,z:28},{x:85,z:37},{x:88,z:12},{x:84,z:-15},
- {x:73,z:-34},{x:69,z:-17},{x:78,z:0},{x:68,z:12},
+ {x:75,z:36},{x:77,z:59},{x:75,z:81},
+ {x:41,z:87},{x:0,z:88},{x:-39,z:85},
+ {x:-58,z:75},{x:-60,z:41},{x:-59,z:4},
+ {x:-61,z:-36},{x:-61,z:-80},{x:-59,z:-119},
+ {x:-25,z:-127},{x:17,z:-127},{x:56,z:-124},
+ {x:76,z:-97},{x:77,z:-59},{x:75,z:-20},{x:69,z:13},
 ];
 const clamp=(x:number,a:number,b:number)=>Math.max(a,Math.min(b,x));
+/** The ocean plane continues beyond the north/south terrain edge. Use a
+ * conservative safety margin so racers cannot drive over invisible land.
+ * Keep swimming/ecology water semantics unchanged. */
+export function jetSkiNavigableWater(point:Point):boolean{
+ const {x,z}=point;
+ if(!Number.isFinite(x)||!Number.isFinite(z)||
+    x< -104||x>109||z< -152||z>108)return false;
+ if(z>WORLD_BOUNDS.maxZ+14||z<WORLD_BOUNDS.minZ-14)return true;
+ return x>eastCoastlineX(z)+1.5||x<coastlineX(z)-1.5;
+}
 export function startJetSkiRace(craft:JetSkiType="sport"):JetSkiState{
  return {phase:"racing",craft,position:{...JET_SKI_START},
- heading:0,speed:0,elapsed:0,checkpoint:0,lap:0,penalties:0};
+ heading:0,speed:0,elapsed:0,checkpoint:0,lap:0,
+ penalties:0,shoreContact:false};
 }
-export function jetSkiGateDistance(s:JetSkiState){
+export function jetSkiGateDistance(s:JetSkiState):number{
  const gate=JET_SKI_GATES[s.checkpoint];
  return Math.hypot(s.position.x-gate.x,s.position.z-gate.z);
 }
-/** Fixed-duration substeps give deterministic arcade handling with speed-based
- * steer assist. Land rejects the move instead of teleporting the rider. */
+/** Heading hint relative to the bow. Clockwise positive means steer right. */
+export function jetSkiBearingToGate(s:JetSkiState):number{
+ const gate=JET_SKI_GATES[s.checkpoint];
+ const absolute=Math.atan2(gate.x-s.position.x,gate.z-s.position.z);
+ return Math.atan2(Math.sin(absolute-s.heading),Math.cos(absolute-s.heading));
+}
+function segmentWithinGate(a:Point,b:Point,gate:Point,radius:number):boolean{
+ const dx=b.x-a.x,dz=b.z-a.z,den=dx*dx+dz*dz;
+ const t=den>1e-9?clamp(((gate.x-a.x)*dx+(gate.z-a.z)*dz)/den,0,1):0;
+ return Math.hypot(a.x+dx*t-gate.x,a.z+dz*t-gate.z)<=radius;
+}
+/** Deterministic fixed substeps; both full and partial frame updates use the
+ * same handling. Contact penalties apply once per shoreline impact, never 120
+ * times a second. Gates are swept so fast skis cannot tunnel through buoys. */
 export function stepJetSkiRace(state:JetSkiState,dt:number,
- input:{throttle:number;steer:number;brake?:boolean},
- isWater:(p:Point)=>boolean):JetSkiState{
+ input:JetSkiInput,water:(p:Point)=>boolean=jetSkiNavigableWater):JetSkiState{
  if(state.phase!=="racing"||!Number.isFinite(dt)||dt<=0)return state;
  let s={...state,position:{...state.position}};
  let remaining=Math.min(dt,.12);
  const profile=JET_SKI_PROFILES[s.craft];
  while(remaining>1e-8){
   const h=Math.min(remaining,1/120);remaining-=h;
-  const throttle=clamp(input.throttle,-1,1),steer=clamp(input.steer,-1,1);
+  const throttle=clamp(Number.isFinite(input.throttle)?input.throttle:0,-1,1);
+  const steer=clamp(Number.isFinite(input.steer)?input.steer:0,-1,1);
   const brake=input.brake?2.8:1;
   const acceleration=throttle>=0?profile.acceleration*throttle:
    profile.acceleration*.7*throttle;
@@ -49,11 +82,15 @@ export function stepJetSkiRace(state:JetSkiState,dt:number,
   s.heading+=steer*profile.turnRate*steerAssist*h*(s.speed<0?-1:1);
   const next={x:s.position.x+Math.sin(s.heading)*s.speed*h,
    z:s.position.z+Math.cos(s.heading)*s.speed*h};
-  if(isWater(next))s.position=next;
-  else{s.speed=Math.min(0,s.speed)*.25;s.penalties++;}
+  const before=s.position;
+  if(water(next)){s.position=next;s.shoreContact=false;}
+  else{
+   if(!s.shoreContact)s.penalties++;
+   s.shoreContact=true;s.speed=0;
+  }
   s.elapsed+=h;
   const gate=JET_SKI_GATES[s.checkpoint];
-  if(Math.hypot(s.position.x-gate.x,s.position.z-gate.z)<5.5){
+  if(segmentWithinGate(before,s.position,gate,5.8)){
    s.checkpoint++;
    if(s.checkpoint===JET_SKI_GATES.length){
     s.checkpoint=0;s.lap++;
