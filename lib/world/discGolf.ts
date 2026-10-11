@@ -13,13 +13,13 @@ export type DiscGolfHole = {
 // as the next tee trapped players in foliage, steep greens and collision volumes.
 // A round advances between these proper tee pads as a course normally would.
 export const DISC_GOLF_HOLES:readonly DiscGolfHole[]=[
-  {id:"redwood-bend",name:"Opening drive",par:3,tee:{x:38,z:2},target:{x:36,z:33}},
+  {id:"redwood-bend",name:"Opening drive",par:3,tee:{x:38,z:-4},target:{x:41,z:27}},
   {id:"scrub-crosswind",name:"Crosswind",par:4,tee:{x:47,z:15},target:{x:38,z:-18}},
   {id:"desert-drifter",name:"Dry ridge",par:4,tee:{x:42,z:-22},target:{x:28,z:-49}},
-  {id:"coastal-gust",name:"Ridgeline",par:4,tee:{x:24,z:-59},target:{x:-17,z:-42}},
+  {id:"coastal-gust",name:"Ridgeline",par:4,tee:{x:16,z:-55},target:{x:-24,z:-39}},
   {id:"redwood-needles",name:"The bend",par:3,tee:{x:-23,z:5},target:{x:-24,z:37}},
   {id:"fern-falls",name:"Fern meadow",par:3,tee:{x:-17,z:4},target:{x:-7,z:-23}},
-  {id:"granite-climb",name:"Up the hill",par:4,tee:{x:-22,z:-42},target:{x:10,z:-62}},
+  {id:"granite-climb",name:"Down the hill",par:4,tee:{x:26,z:-57},target:{x:44,z:-78}},
   {id:"joshua-chute",name:"The chute",par:3,tee:{x:28,z:-53},target:{x:43,z:-34}},
   {id:"homeward-line",name:"Final approach",par:3,tee:{x:44,z:-9},target:{x:35,z:20}},
 ];
