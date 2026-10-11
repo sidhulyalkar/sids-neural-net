@@ -481,3 +481,17 @@ test("disc golf camera orbits away from a blocking tree without moving its focus
  assert.ok(Math.hypot(clear.x-focus.x,clear.z-focus.z)>=19.9,
   "keep a readable distance rather than zooming into the player");
 });
+
+test("camera avoids foliage crowns even when trunk is clear",()=>{
+ const focus={x:0,y:13,z:0},desired={x:0,y:18,z:20};
+ const crown=[{x:3,z:10,radius:1,height:20}];
+ const clear=discGolfClearCamera(desired,focus,crown,()=>0);
+ assert.ok(Math.abs(clear.x)>1,"wide foliage should trigger an alternate orbit");
+});
+test("camera checks ridges even without any tree obstacles",()=>{
+ const focus={x:0,y:2,z:0},desired={x:0,y:12,z:20};
+ const ridge=(p:{x:number;z:number})=>
+  p.z>7&&p.z<14&&Math.abs(p.x)<3?25:0;
+ const clear=discGolfClearCamera(desired,focus,[],ridge);
+ assert.ok(Math.abs(clear.x)>1,"terrain ridge should trigger an alternate orbit");
+});
