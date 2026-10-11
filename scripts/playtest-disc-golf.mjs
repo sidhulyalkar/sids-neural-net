@@ -53,6 +53,15 @@ try{
   }
   await page.waitForFunction(()=>document.querySelector("canvas")?.dataset.discGolfLastShot==="accepted",
    null,{timeout:5000});
+  // The opening throw is also a camera-story regression. Shasta must
+  // NOT steal attention mid-flight; see where the disc lands first.
+  if(i===0){
+   await page.waitForFunction(()=>
+    document.querySelector("canvas")?.dataset.discGolfCinematicStage==="disc",
+    null,{timeout:5000}).catch(()=>{
+     throw new Error("First throw never entered disc-follow camera mode");
+    });
+  }
   await page.waitForFunction(()=>{
    const phase=document.querySelector("canvas")?.dataset.discGolfPhase;
    return phase==="landed"||phase==="holed"||phase==="water";
@@ -61,6 +70,20 @@ try{
   const strokes=Number(await canvas.getAttribute("data-disc-golf-strokes"));
   assert.notEqual(phase,"water","Default first throw should not be an immediate water redo on "+ids[i]);
   assert.equal(strokes,1,"First throw must count exactly one stroke on "+ids[i]);
+  if(i===0){
+   await page.waitForFunction(()=>
+    document.querySelector("canvas")?.dataset.discGolfCinematicStage==="landing",
+    null,{timeout:2500});
+   await page.screenshot({path:path.join(out,"hole-1-disc-landing.png")});
+   await page.waitForFunction(()=>
+    document.querySelector("canvas")?.dataset.discGolfCinematicStage==="chase",
+    null,{timeout:3500});
+   await page.screenshot({path:path.join(out,"hole-1-shasta-begins-chase.png")});
+   await page.waitForFunction(()=>
+    document.querySelector("canvas")?.dataset.discGolfCinematicStage==="shasta",
+    null,{timeout:3500});
+   await page.screenshot({path:path.join(out,"hole-1-shasta-pov.png")});
+  }
   if(i===1||i===0||i===8){
    await page.screenshot({path:path.join(out,`hole-${i+1}-after-first-shot.png`)});
   }
