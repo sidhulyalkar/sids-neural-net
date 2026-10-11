@@ -295,7 +295,9 @@ export function discGolfIntroPose(
 export function discGolfThrowCameraPose(lie:Point,basket:Point,playerY:number){
  const distance=Math.hypot(basket.x-lie.x,basket.z-lie.z);
  const inv=1/Math.max(.001,distance);
- const fx=(basket.x-lie.x)*inv,fz=(basket.z-lie.z)*inv;
+ // An exactly coincident missed lie must not collapse the camera to overhead.
+ const fx=distance<.001?0:(basket.x-lie.x)*inv;
+ const fz=distance<.001?1:(basket.z-lie.z)*inv;
  const putting=distance<=10;
  const boom=putting?21:19.5;
  const rise=putting?15:13;
