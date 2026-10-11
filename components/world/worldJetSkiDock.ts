@@ -40,5 +40,13 @@ export function createJetSkiDock(scene:THREE.Scene){
  craft.rotation.x=Math.PI/2;activeSki.add(craft);
  make(new THREE.MeshStandardMaterial({color:"#24333c"}),[.75,.4,.65],[0,.42,0],activeSki);
  activeSki.visible=false;
- return {root,skis,buoys,activeSki,start:JET_SKI_START};
+ const wakeMaterial=new THREE.MeshBasicMaterial({
+  color:"#e3ffff",transparent:true,opacity:.58,depthWrite:false,
+  side:THREE.DoubleSide,
+ });
+ const wake=new THREE.Mesh(new THREE.RingGeometry(.7,1.04,24,1,Math.PI*.12,Math.PI*1.76),wakeMaterial);
+ wake.rotation.x=-Math.PI/2;
+ wake.position.y=SEA_SURFACE+.055;
+ wake.visible=false;root.add(wake);
+ return {root,skis,buoys,activeSki,wake,start:JET_SKI_START};
 }
