@@ -150,6 +150,8 @@ export function stepJetSkiRace(state:JetSkiState,dt:number,
   s.roll+=(wantRoll-s.roll)*Math.min(1,h*8);
   const gate=JET_SKI_GATES[s.checkpoint];
   if(segmentWithinGate(before,s.position,gate,5.8)){
+   // Clean checkpoint routing rewards precision without requiring pickups.
+   s.turbo=clamp(s.turbo+8,0,100);
    s.checkpoint++;
    if(s.checkpoint===JET_SKI_GATES.length){
     s.checkpoint=0;s.lap++;
