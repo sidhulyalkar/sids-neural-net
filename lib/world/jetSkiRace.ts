@@ -111,7 +111,10 @@ export function stepJetSkiRace(state:JetSkiState,dt:number,
   };
   const rock=jetSkiRockAt(next);
   if(water(next)&&!rock){
-   s.position=next;s.shoreContact=false;s.rockContact=false;
+   s.position=next;s.shoreContact=false;
+   // Release the rock-contact latch only after leaving a wider clearance.
+   // Without hysteresis, tiny forward substeps at the rim count as new hits.
+   s.rockContact=jetSkiRockAt(next,1.35)!==null;
   }else{
    if(rock){
     if(!s.rockContact){s.rockHits++;s.penalties++;}
