@@ -5,6 +5,7 @@ import {
  recommendDiscGolfPower,discGolfPullback,type DiscGolfState,type DiscShot,type DiscGolfSwingStage,
 } from "@/lib/world/discGolf";
 import {terrainHeight,isWater,SEA_SURFACE} from "@/lib/world/model";
+import {discGolfName} from "@/lib/world/discGolfNames";
 import {discGolfRoundSummary,nextUnplayedDiscGolfHole,type DiscGolfRound} from "@/lib/world/discGolfRound";
 import styles from "./world.module.css";
 
@@ -136,11 +137,11 @@ export function WorldDiscGolfHUD({game,round,scorecardOpen,onToggleScorecard,onN
  const shownPower=charging?chargePower:suggested;
  const remaining=discGolfRemaining(game);
  return (
-  <aside className={styles.discGolfHud} aria-label="Island disc golf controls">
+  <aside className={styles.discGolfHud} aria-label="Disc golf controls">
    <div className={styles.discGolfHeading}>
     <div>
-     <span className={styles.eyebrow}>ISLAND DISC GOLF · {game.holeIndex+1}/{DISC_GOLF_HOLES.length}</span>
-     <h2>{hole.name}</h2>
+     <span className={styles.eyebrow}>DISC GOLF · {game.holeIndex+1}/{DISC_GOLF_HOLES.length}</span>
+     <h2>{discGolfName(game.holeIndex,round.nameSeed)}</h2>
     </div>
     <div className={styles.discGolfHeaderActions}>
      <button type="button" aria-expanded={scorecardOpen} aria-controls="disc-golf-scorecard"
@@ -152,16 +153,15 @@ export function WorldDiscGolfHUD({game,round,scorecardOpen,onToggleScorecard,onN
     </div>
    </div>
    <div className={styles.discGolfStats} aria-live="polite">
-    <span>Par {hole.par} · Hole {game.holeIndex+1}</span><span>Throws {game.strokes}</span>
-    <span>{remaining.toFixed(0)} m to basket</span>
-    <span title="Wind at release">{ "Wind "+windArrow+" "+liveWind.speed.toFixed(1) }</span>
+    <span>Par {hole.par}</span><span>{game.strokes} throws</span>
+    <span>{remaining.toFixed(0)} m left</span>
+    <span title="Wind">{ "Wind "+windArrow+" "+liveWind.speed.toFixed(1) }</span>
    </div>
    <p className={styles.discGolfNote}>
-    {game.phase==="holed"?"Chains! "+discGolfScoreName(game.strokes,hole.par):
-     game.phase==="water"?(game.reason??"Water shot: free retry."):
-     game.phase==="landed"?(game.reason??"Shoot from the gold light."):
-     game.phase==="flying"?"Watch the disc fly…":
-     "Fixed basket across the island. Advance from each landing."}
+    {game.phase==="holed"?discGolfScoreName(game.strokes,hole.par)+"!":
+     game.phase==="water"?"Water · free retry":
+     game.phase==="landed"?"Next throw":
+     game.phase==="flying"?"Shasta, fetch!":""}
    </p>
    {game.phase==="holed"?(
     roundSummary.complete?(
@@ -173,19 +173,19 @@ export function WorldDiscGolfHUD({game,round,scorecardOpen,onToggleScorecard,onN
     ):(
      <button type="button" className={styles.discGolfMainButton}
        onClick={()=>{if(nextHole!==null)onChangeHole(nextHole);}}>
-       {nextHole===null?"See scorecard":"Next unplayed hole · "+(nextHole+1)}
+       {nextHole===null?"See scorecard":"Next · "+(nextHole+1)}
      </button>
     )
    ):(
 
     <>
      <div className={styles.discGolfKeyGuide}>
-      <div><kbd>A</kbd> <kbd>D</kbd><span>Aim left / right <strong>{aim>0?"+":""}{aim}°</strong></span></div>
-      <div><kbd>W</kbd> <kbd>S</kbd><span>Throw higher / lower <strong>{loft}°</strong></span></div>
+      <div><kbd>A</kbd> <kbd>D</kbd><span>Aim <strong>{aim>0?"+":""}{aim}°</strong></span></div>
+      <div><kbd>W</kbd> <kbd>S</kbd><span>Loft <strong>{loft}°</strong></span></div>
      </div>
      <div className={styles.discGolfMeters}>
       <div className={styles.discGolfMeterHeader}>
-       <span>{charging?"Release inside the sweet spot":"Recommended power"}</span>
+       <span>{charging?"Release":"Power"}</span>
        <strong>{charging?
         (Math.abs(shownPower-suggested)<=6?"Clean release":
          shownPower>suggested?"Power drive":"Soft touch"):
@@ -209,18 +209,16 @@ export function WorldDiscGolfHUD({game,round,scorecardOpen,onToggleScorecard,onN
        onPointerCancel={()=>{held.current=false;setCharging(false);onStage("idle");}}
        onClick={e=>{if(e.detail===0)tap();}}>
        {game.phase==="flying"?"Disc airborne":
-        charging?"Release Space to throw":"Tap Space · hold to pull back"}
+        charging?"Release to throw":"Space · Throw"}
      </button>
      <span className={styles.discGolfHint}>
-      Tap Space for an easy clean release. Hold Space to pull back: the
-      power sweeps around the highlighted sweet spot. Release to throw.
-      One meter, no separate accuracy timing. Wind and trees still matter.
+      Hold Space for power.
      </span>
     </>
    )}
    <div className={styles.discGolfRoundStrip} aria-live="polite">
-    <span>{roundSummary.holesPlayed}/{roundSummary.holesTotal} holes complete</span>
-    <strong>{roundSummary.strokes} strokes · {roundSummary.toPar>0?"+":""}{roundSummary.toPar} to par</strong>
+    <span>{roundSummary.holesPlayed}/{roundSummary.holesTotal} holes</span>
+    <strong>{roundSummary.strokes} strokes · {roundSummary.toPar>0?"+":""}{roundSummary.toPar}</strong>
    </div>
    <div className={styles.discGolfHoles} role="group" aria-label="Choose hole">
     {DISC_GOLF_HOLES.map((h,i)=>(
@@ -228,7 +226,7 @@ export function WorldDiscGolfHUD({game,round,scorecardOpen,onToggleScorecard,onN
        className={round.scores[i]!==null?styles.discGolfRecordedHole:undefined}
        disabled={game.phase==="flying"}
        title={round.scores[i]===null?"Hole not yet completed":"Recorded: "+round.scores[i]+" strokes. Replay is practice."}
-       aria-label={"Play hole "+(i+1)+": "+h.name+
+       aria-label={"Play hole "+(i+1)+": "+discGolfName(i,round.nameSeed)+
         (round.scores[i]===null?"":", scored "+round.scores[i]+" (practice replay)")}
        onClick={()=>onChangeHole(i)}>
        {i+1}{round.scores[i]!==null?" ✓":""}
@@ -237,7 +235,7 @@ export function WorldDiscGolfHUD({game,round,scorecardOpen,onToggleScorecard,onN
    </div>
    {round.scores[game.holeIndex]!==null&&game.phase!=="holed"&&
     <p className={styles.discGolfPracticeNote}>
-     Practice replay. Your recorded score for this hole stays {round.scores[game.holeIndex]}.
+     Practice · saved score {round.scores[game.holeIndex]}
     </p>}
    <section id="disc-golf-scorecard" className={styles.discGolfScorecard}
      hidden={!scorecardOpen} aria-label="Nine-hole scorecard">
@@ -252,7 +250,7 @@ export function WorldDiscGolfHUD({game,round,scorecardOpen,onToggleScorecard,onN
        const score=round.scores[i];
        const delta=score===null?null:score-h.par;
        return <tr key={h.id} aria-current={i===game.holeIndex?"true":undefined}>
-        <th scope="row">{i+1}. {h.name}</th>
+        <th scope="row">{i+1}. {discGolfName(i,round.nameSeed)}</th>
         <td>{h.par}</td><td>{score??"·"}</td>
         <td>{delta===null?"·":delta>0?"+"+delta:delta}</td>
        </tr>;
@@ -264,7 +262,7 @@ export function WorldDiscGolfHUD({game,round,scorecardOpen,onToggleScorecard,onN
      </tr></tfoot>
     </table>
     {!roundSummary.complete&&
-     <p className={styles.discGolfHint}>Only finished baskets count. Switching holes doesn&apos;t award or erase strokes.</p>}
+     <p className={styles.discGolfHint}>Completed holes count.</p>}
     {restartConfirm?(
      <div className={styles.discGolfRestartActions}>
       <button type="button" onClick={()=>{onNewRound();setRestartConfirm(false);}}>
