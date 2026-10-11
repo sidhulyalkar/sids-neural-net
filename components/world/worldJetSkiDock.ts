@@ -1,6 +1,7 @@
 import * as THREE from "three/src/Three.Core.js";
 import {JET_SKI_DOCK,JET_SKI_GATES,JET_SKI_START} from "@/lib/world/jetSkiRace";
 import {SEA_SURFACE} from "@/lib/world/model";
+import {JET_SKI_PIER,jetSkiPierHeight} from "@/lib/world/jetSkiPier";
 import {jetSkiWaterSample} from "@/lib/world/jetSkiWater";
 export type JetSkiWakePoint={x:number;z:number;heading:number;speed:number;age:number;boosting:boolean};
 /** Lightweight dock and race markings, entirely independent of marine ecology. */
@@ -12,11 +13,17 @@ export function createJetSkiDock(scene:THREE.Scene){
   const mesh=new THREE.Mesh(new THREE.BoxGeometry(...size),material);
   mesh.position.set(...position);parent.add(mesh);return mesh;
  };
- for(let i=0;i<7;i++){
-  make(wood,[1.25,.22,5.5],[57.6+i*1.1,SEA_SURFACE+.8,JET_SKI_DOCK.z]);
+ // Planks and ramp use the SAME sampled walking height as player physics.
+ for(let x=JET_SKI_PIER.landX+.48;x<JET_SKI_PIER.endX;x+=.94){
+  const top=jetSkiPierHeight({x,z:JET_SKI_PIER.centerZ});
+  if(top===null)continue;
+  make(wood,[.88,.19,5.35],[x,top-.095,JET_SKI_PIER.centerZ]);
  }
- for(const z of [JET_SKI_DOCK.z-2.2,JET_SKI_DOCK.z+2.2]){
-  for(const x of [58,61,64])make(wood,[.23,2.9,.23],[x,SEA_SURFACE-.45,z]);
+ for(const z of [JET_SKI_PIER.centerZ-2.25,JET_SKI_PIER.centerZ+2.25]){
+  for(const x of [59.7,62.3,64.6]){
+   const top=jetSkiPierHeight({x,z})??JET_SKI_PIER.deckHeight;
+   make(wood,[.26,2.7,.26],[x,top-1.35,z]);
+  }
  }
  const skis:THREE.Group[]=[];
  hullColors.forEach((color,i)=>{
