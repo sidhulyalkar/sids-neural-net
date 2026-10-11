@@ -295,12 +295,12 @@ export function stepDiscGolf(state:DiscGolfState,dt:number,
  * flight engine as gameplay. Moving target and current wind can change
  * between preview and the actual release. No guaranteed landing claim. */
 export type DiscGolfPreview={points:readonly DiscPoint[];
-  outcome:DiscGolfPhase;end:DiscPoint};
+  outcome:DiscGolfPhase;end:DiscPoint;gatesCleared:number};
 export function traceDiscGolfShot(state:DiscGolfState,shot:DiscShot,
  ground:DiscTerrain,isWater:(p:Point)=>boolean,seaSurface:number,
  obstacles:readonly DiscGolfObstacle[]=[]):DiscGolfPreview{
  if(!["ready","landed","water"].includes(state.phase))
-   return {points:[],outcome:state.phase,end:state.disc};
+   return {points:[],outcome:state.phase,end:state.disc,gatesCleared:state.gatesCleared};
  let preview=discGolfThrow(state,shot,ground);
  const points:DiscPoint[]=[{...preview.disc}];
  for(let i=0;i<90&&preview.phase==="flying";i++){
@@ -310,7 +310,7 @@ export function traceDiscGolfShot(state:DiscGolfState,shot:DiscShot,
    if(preview.phase==="water")break;
    points.push({...preview.disc});
  }
- return {points,outcome:preview.phase,end:{...preview.disc}};
+ return {points,outcome:preview.phase,end:{...preview.disc},gatesCleared:preview.gatesCleared};
 }
 
 /** Deterministic suggestion. Search reachable shots with the same physics
