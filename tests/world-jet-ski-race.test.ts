@@ -2,7 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {isWater,WORLD_BOUNDS} from "../lib/world/model";
 import {JET_SKI_START,JET_SKI_GATES,JET_SKI_PROFILES,jetSkiGateDistance,
- jetSkiNavigableWater,jetSkiBearingToGate,
+ jetSkiNavigableWater,jetSkiBearingToGate,jetSkiOpponentInput,
+ jetSkiRaceProgress,
  startJetSkiRace,stepJetSkiRace} from "../lib/world/jetSkiRace";
 test("dock launch and all coastal checkpoints are navigable water",()=>{
  assert.ok(isWater(JET_SKI_START));
@@ -86,4 +87,19 @@ test("one long tick agrees with equivalent smaller physics steps",()=>{
  for(let i=0;i<10;i++)b=stepJetSkiRace(b,.01,input,()=>true);
  assert.ok(Math.hypot(a.position.x-b.position.x,a.position.z-b.position.z)<.01);
  assert.ok(Math.abs(a.heading-b.heading)<.001);
+});
+
+test("AI competitors complete both laps using the same collision-safe physics",()=>{
+ for(const craft of ["touring","sport","race"] as const){
+  let rival=startJetSkiRace(craft);
+  let previous=jetSkiRaceProgress(rival);
+  for(let i=0;i<12000&&rival.phase==="racing";i++){
+   rival=stepJetSkiRace(rival,1/60,jetSkiOpponentInput(rival));
+   const progress=jetSkiRaceProgress(rival);
+   assert.ok(progress>=previous-0.04,"opponent should follow ordered gates");
+   previous=progress;
+  }
+  assert.equal(rival.phase,"finished",craft+" must actually finish the route");
+  assert.equal(rival.penalties,0,craft+" should avoid the shoreline");
+ }
 });
