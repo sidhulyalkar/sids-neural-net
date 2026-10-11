@@ -1,8 +1,8 @@
 # Sid’s World — coastal expansion
 
-## Island Disc Golf v1 (current playtest milestone)
+## Island Disc Golf v1.2 (current playtest milestone)
 
-[astra-disc-golf-v1-spec.md](astra-disc-golf-v1-spec.md) supersedes the **unimplemented** puzzle trilogy for the next gameplay direction. Four authored disc-golf holes use moving chain baskets, wind, adjustable loft/aim, a two-stage three-tap power/release meter, real simulated disc landing, a golden lie beam, and free water-shot retries. The first build is subject to CI and manual browser signoff. The former leverage/log/light puzzles are deferred, not shipping.
+[astra-disc-golf-v1.2-keyboard-spec.md](astra-disc-golf-v1.2-keyboard-spec.md) is the authoritative interaction and fixed-course contract. Four linked cross-island holes now use stationary chain baskets, WASD aiming, Space tap-to-throw with suggested power, optional hold-to-charge, grounded short putts, obstacle-aware flight, a landing-beam lie, and free water retries. CI and actual browser/terrain survey remain acceptance gates. The [v1 spec](astra-disc-golf-v1-spec.md) is retained only as the original moving-basket prototype history; the former puzzle trilogy remains deferred.
 
 ## World Challenges v1: technical riding, puzzles and big air
 
