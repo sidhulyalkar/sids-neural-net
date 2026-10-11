@@ -4368,9 +4368,12 @@ export function createWorld(
         discGolfIntro=null;
         discGolf=idleDiscGolf();callbacks.onDiscGolf(discGolf);
       }
-      if(next.discGolfStartSerial!==lastDiscStart){
+      if(next.discGolfStartSerial!==lastDiscStart &&
+         next.entered&&!next.paused){
+        // Consume the start request only after the world can actually start.
+        // Previously an early/paused request was discarded forever.
         lastDiscStart=next.discGolfStartSerial;
-        if(next.entered&&!next.paused){
+        {
           const hole=DISC_GOLF_HOLES[next.discGolfHoleIndex]??DISC_GOLF_HOLES[0];
           discGolf=startDiscGolf(next.discGolfHoleIndex,p=>terrainHeight(p.x,p.z),elapsed);
           discFetch=idleDiscGolfFetch();
@@ -4407,8 +4410,9 @@ export function createWorld(
           if(discGolfIntro){discGolfIntro=null;snapDiscCamera=true;}
           const beforeShot=discGolf.phase;
           discGolf=discGolfThrow(discGolf,next.discGolfShot,p=>terrainHeight(p.x,p.z));
-          if(discGolf.phase==="flying"&&beforeShot!=="flying")
-            discFetch=startDiscGolfFetch(elapsed);
+          const accepted=discGolf.phase==="flying"&&beforeShot!=="flying";
+          if(accepted)discFetch=startDiscGolfFetch(elapsed);
+          canvas.dataset.discGolfLastShot=accepted?"accepted":"rejected";
           callbacks.onDiscGolf(discGolf);
         }
       }
