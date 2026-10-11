@@ -136,9 +136,13 @@ export function createWorld(
   );
   host.appendChild(canvas);
   const jetHud=document.createElement('div');
-  jetHud.setAttribute('aria-live','polite');
-  jetHud.style.cssText='position:absolute;bottom:72px;left:50%;transform:translateX(-50%);z-index:8;pointer-events:none;background:rgba(9,30,43,.82);border:1px solid rgba(255,255,255,.26);border-radius:12px;color:white;font:600 13px/1.5 system-ui,sans-serif;padding:8px 14px;white-space:nowrap;display:none';
+  jetHud.setAttribute('aria-label','Jet ski race status');
+  jetHud.style.cssText='position:absolute;bottom:72px;left:50%;transform:translateX(-50%);z-index:8;pointer-events:none;background:rgba(9,30,43,.82);border:1px solid rgba(255,255,255,.26);border-radius:12px;color:white;font:600 13px/1.5 system-ui,sans-serif;padding:8px 14px;white-space:normal;text-align:center;max-width:calc(100% - 28px);display:none';
   host.appendChild(jetHud);
+  const jetAnnounce=document.createElement('div');
+  jetAnnounce.setAttribute('aria-live','polite');
+  jetAnnounce.style.cssText='position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap';
+  host.appendChild(jetAnnounce);
   const scene = new THREE.Scene();
   scene.background = new THREE.Color("#67b7ef");
   scene.fog = new THREE.Fog("#c4e2f1", 85, 270);
@@ -2470,6 +2474,7 @@ export function createWorld(
   let discGolf:DiscGolfState=idleDiscGolf();
   let jetSki:JetSkiState|null=null;
   let jetRivals:JetSkiState[]=[];
+  let jetMilestone='';
   let selectedJetSki:"touring"|"sport"|"race"="sport";
   let discFetch=idleDiscGolfFetch();
   let lastDiscStart=0,lastDiscShot=0,lastDiscExit=0,lastDiscUpdate=0;
@@ -2611,7 +2616,7 @@ export function createWorld(
     drag = null;
     if (canvas.hasPointerCapture(e.pointerId))
       canvas.releasePointerCapture(e.pointerId);
-    if (!wasClick || state.paused || discGolf.phase!=="off") return;
+    if (!wasClick || state.paused || discGolf.phase!=="off" || jetSki) return;
     const rect = canvas.getBoundingClientRect();
     pointer.set(
       ((e.clientX - rect.left) / rect.width) * 2 - 1,
@@ -2686,6 +2691,8 @@ export function createWorld(
       destination=null;aquatic="land";canvas.dataset.jetSkiStatus="racing";
       e.preventDefault();return;
     }
+    // The land jump action must not fire while steering a jet ski.
+    if(jetSki&&key===" "){e.preventDefault();return;}
     if (key === "shift") keys.add(key);
     if (key === " " && !e.repeat && aquatic === "land") {
       e.preventDefault();
@@ -2898,6 +2905,12 @@ export function createWorld(
         jetskiVisual.buoys.forEach((b,i)=>{b.visible=true;
           b.scale.setScalar(i===jetSki!.checkpoint?1.7:1);});
         canvas.dataset.jetSkiStatus=jetSki.phase;
+        const milestone=`${jetSki.phase}:${jetSki.lap}:${jetSki.checkpoint}`;
+        if(milestone!==jetMilestone){
+          jetMilestone=milestone;
+          jetAnnounce.textContent=jetSki.phase==="finished"?"Jet ski race finished":
+            `Lap ${jetSki.lap+1}, checkpoint ${jetSki.checkpoint+1}`;
+        }
         canvas.dataset.jetSkiLap=String(jetSki.lap+1);
         canvas.dataset.jetSkiGate=String(jetSki.checkpoint+1);
         canvas.dataset.jetSkiSpeed=jetSki.speed.toFixed(1);
@@ -4800,7 +4813,7 @@ export function createWorld(
     },
     dispose() {
       discGolfObjects.dispose();
-      jetHud.remove();
+      jetHud.remove();jetAnnounce.remove();
       jetskiVisual.root.traverse(object=>{
         if(object instanceof THREE.Mesh){object.geometry.dispose();
           const mat=object.material;
