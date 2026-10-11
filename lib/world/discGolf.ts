@@ -6,26 +6,49 @@ import type { Point } from "./model";
 export type DiscPoint = Point & { y:number };
 export type DiscGolfPhase = "off"|"ready"|"flying"|"landed"|"water"|"holed";
 export type DiscGolfSwingStage = "idle"|"power"|"accuracy"|"released";
-export type DiscGolfHole = {
-  id:string;name:string;par:number;tee:Point;target:Point;
+export type DiscGolfGate={point:Point;radius:number};
+/** Gates are *mandatory*, pass in order, and are credited by the actual
+ * swept flight crossing. They are not checkpoints awarded for proximity. */
+export type DiscGolfHole={
+ id:string;name:string;par:number;tee:Point;target:Point;
+ gates:readonly DiscGolfGate[];
 };
-// Each tee and basket is authored independently. Reusing the preceding basket
-// as the next tee trapped players in foliage, steep greens and collision volumes.
-// A round advances between these proper tee pads as a course normally would.
+// Independent tees let courses span multiple biomes without placing the next
+// launch in a prior basket, tree trunk, steep grade, or cave mouth.
 export const DISC_GOLF_HOLES:readonly DiscGolfHole[]=[
-  {id:"redwood-bend",name:"Opening drive",par:3,tee:{x:38,z:-4},target:{x:41,z:27}},
-  {id:"scrub-crosswind",name:"Crosswind",par:4,tee:{x:47,z:15},target:{x:38,z:-18}},
-  {id:"desert-drifter",name:"Dry ridge",par:4,tee:{x:42,z:-22},target:{x:28,z:-49}},
-  {id:"coastal-gust",name:"Ridgeline",par:4,tee:{x:16,z:-55},target:{x:-24,z:-39}},
-  {id:"redwood-needles",name:"The bend",par:3,tee:{x:-23,z:5},target:{x:-24,z:37}},
-  {id:"fern-falls",name:"Fern meadow",par:3,tee:{x:-17,z:4},target:{x:-7,z:-23}},
-  {id:"granite-climb",name:"Down the hill",par:4,tee:{x:26,z:-57},target:{x:44,z:-78}},
-  {id:"joshua-chute",name:"The chute",par:3,tee:{x:28,z:-53},target:{x:43,z:-34}},
-  {id:"homeward-line",name:"Final approach",par:3,tee:{x:44,z:-9},target:{x:35,z:20}},
+ {id:"redwood-bend",name:"Opening drive",par:4,tee:{x:35,z:-12},
+  gates:[{point:{x:43,z:17},radius:8}],target:{x:35,z:46}},
+ {id:"scrub-crosswind",name:"Shore to mountain backside",par:6,
+  tee:{x:51,z:24},
+  gates:[
+   {point:{x:45,z:-9},radius:9},
+   {point:{x:34,z:-42},radius:9},
+   {point:{x:26,z:-69},radius:9},
+  ],target:{x:26,z:-87}},
+ {id:"desert-drifter",name:"High traverse",par:5,tee:{x:46,z:-4},
+  gates:[{point:{x:40,z:-32},radius:8},{point:{x:27,z:-59},radius:8}],
+  target:{x:8,z:-75}},
+ {id:"coastal-gust",name:"Downhill transfer",par:5,tee:{x:35,z:-76},
+  gates:[{point:{x:7,z:-57},radius:9},{point:{x:-16,z:-38},radius:9}],
+  target:{x:-26,z:-8}},
+ {id:"redwood-needles",name:"Western return",par:5,tee:{x:-24,z:38},
+  gates:[{point:{x:-16,z:9},radius:8},{point:{x:-16,z:-21},radius:8}],
+  target:{x:-27,z:-47}},
+ {id:"fern-falls",name:"Forest crossing",par:5,tee:{x:-24,z:-5},
+  gates:[{point:{x:-6,z:15},radius:8},{point:{x:18,z:30},radius:8}],
+  target:{x:45,z:46}},
+ {id:"granite-climb",name:"Backside descent",par:5,tee:{x:26,z:-85},
+  gates:[{point:{x:5,z:-62},radius:8},{point:{x:3,z:-33},radius:8}],
+  target:{x:14,z:-12}},
+ {id:"joshua-chute",name:"Long desert lane",par:5,tee:{x:42,z:-67},
+  gates:[{point:{x:45,z:-34},radius:9},{point:{x:34,z:-7},radius:9}],
+  target:{x:17,z:16}},
+ {id:"homeward-line",name:"Last long throw",par:5,tee:{x:47,z:41},
+  gates:[{point:{x:19,z:19},radius:8},{point:{x:0,z:-3},radius:8}],
+  target:{x:-24,z:-15}},
 ];
-// Course geometry and pars changed; saved strokes from the old, unplayable
-// chain of baskets must not be misrepresented as a round on this course.
-export const DISC_GOLF_VERSION="disc-golf-v1.6";
+// Do not attach v1.6 scorecards to the longer v1.7 course and par system.
+export const DISC_GOLF_VERSION="disc-golf-v1.7";
 
 /** Capsule helpers shared by the seeded environment and course QA. */
 function inCorridor(p:Point,from:Point,to:Point,radius:number){
@@ -39,14 +62,27 @@ function inCorridor(p:Point,from:Point,to:Point,radius:number){
 export function discGolfCourseClearance(p:Point,extraRadius=0):boolean{
  for(let i=0;i<DISC_GOLF_HOLES.length;i++){
   const h=DISC_GOLF_HOLES[i];
-  const dx=h.target.x-h.tee.x,dz=h.target.z-h.tee.z;
-  const len=Math.hypot(dx,dz)||1;
-  const ux=dx/len,uz=dz/len;
-  const start={x:h.tee.x+ux*11,z:h.tee.z+uz*11};
-  const approach={x:h.target.x-ux*8,z:h.target.z-uz*8};
-  if(inCorridor(p,h.tee,start,3.25+extraRadius)||
-     inCorridor(p,approach,h.target,2.8+extraRadius))
+  const nodes=[h.tee,...h.gates.map(g=>g.point),h.target];
+  const first=nodes[1],last=nodes[nodes.length-2];
+  const dirA=Math.hypot(first.x-h.tee.x,first.z-h.tee.z)||1;
+  const dirB=Math.hypot(h.target.x-last.x,h.target.z-last.z)||1;
+  const start={x:h.tee.x+(first.x-h.tee.x)*11/dirA,
+   z:h.tee.z+(first.z-h.tee.z)*11/dirA};
+  const approach={x:h.target.x-(h.target.x-last.x)*9/dirB,
+   z:h.target.z-(h.target.z-last.z)*9/dirB};
+  if(inCorridor(p,h.tee,start,3.3+extraRadius)||
+     inCorridor(p,approach,h.target,3.1+extraRadius))
    return true;
+  for(let j=0;j<h.gates.length;j++){
+   const gate=h.gates[j],from=nodes[j],to=nodes[j+2];
+   const a=Math.hypot(gate.point.x-from.x,gate.point.z-from.z)||1;
+   const b=Math.hypot(to.x-gate.point.x,to.z-gate.point.z)||1;
+   const entering={x:gate.point.x-(gate.point.x-from.x)*9/a,
+    z:gate.point.z-(gate.point.z-from.z)*9/a};
+   const leaving={x:gate.point.x+(to.x-gate.point.x)*7/b,
+    z:gate.point.z+(to.z-gate.point.z)*7/b};
+   if(inCorridor(p,entering,leaving,3+extraRadius))return true;
+  }
  }
  return false;
 }
@@ -61,6 +97,34 @@ const clamp=(n:number,a:number,b:number)=>Math.max(a,Math.min(b,n));
 export function discGolfBasketPosition(hole:DiscGolfHole,_t:number):Point{
  return {...hole.target};
 }
+export function discGolfNextTarget(state:Pick<DiscGolfState,"holeIndex"|"gatesCleared">):Point{
+ const h=DISC_GOLF_HOLES[state.holeIndex];
+ return h.gates[state.gatesCleared]?.point??h.target;
+}
+export function discGolfRouteLength(hole:DiscGolfHole):number{
+ const pts=[hole.tee,...hole.gates.map(g=>g.point),hole.target];
+ return pts.slice(1).reduce((sum,p,i)=>sum+Math.hypot(
+  p.x-pts[i].x,p.z-pts[i].z),0);
+}
+/** Swept crossing through an upright, wide portal. The signed plane faces
+ * from the prior route marker to the gate. A correct crossing must move
+ * forward and stay inside the visible width/vertical clearance. */
+export function discGolfGateCrossing(from:DiscPoint,to:DiscPoint,
+ hole:DiscGolfHole,index:number,ground:DiscTerrain):boolean{
+ const gate=hole.gates[index];
+ if(!gate)return false;
+ const previous=index===0?hole.tee:hole.gates[index-1].point;
+ const dirX=gate.point.x-previous.x,dirZ=gate.point.z-previous.z;
+ const len=Math.hypot(dirX,dirZ)||1,nx=dirX/len,nz=dirZ/len;
+ const before=(from.x-gate.point.x)*nx+(from.z-gate.point.z)*nz;
+ const after=(to.x-gate.point.x)*nx+(to.z-gate.point.z)*nz;
+ if(before>0||after<0||after-before<1e-6)return false;
+ const t=Math.max(0,Math.min(1,-before/(after-before)));
+ const x=from.x+(to.x-from.x)*t,z=from.z+(to.z-from.z)*t;
+ const y=from.y+(to.y-from.y)*t,base=ground(gate.point);
+ const cross=Math.abs((x-gate.point.x)*nz-(z-gate.point.z)*nx);
+ return cross<=gate.radius&&y>=base+.35&&y<=base+12;
+}
 export type DiscWind=Point & {speed:number};
 export function discGolfWind(index:number,t:number):DiscWind{
  // Slow predictable gust variation; locked at the moment of release.
@@ -71,7 +135,7 @@ export function discGolfWind(index:number,t:number):DiscWind{
 }
 export type DiscShot={power:number;accuracy:number;loft:number;aimOffset:number};
 export type DiscGolfState={
- phase:DiscGolfPhase;holeIndex:number;lie:Point; disc:DiscPoint;
+ phase:DiscGolfPhase;holeIndex:number;gatesCleared:number;lie:Point; disc:DiscPoint;
  velocity:{x:number;y:number;z:number};strokes:number;waterRedos:number;
  flightTime:number;clock:number;lockedWind:DiscWind;
  lastDistance:number;reason?:string;spin:number;resultAt?:number;
@@ -80,13 +144,13 @@ export type DiscTerrain=(p:Point)=>number;
 export function startDiscGolf(index:number,ground:DiscTerrain,clock=0):DiscGolfState{
  const holeIndex=((index%DISC_GOLF_HOLES.length)+DISC_GOLF_HOLES.length)%DISC_GOLF_HOLES.length;
  const lie={...DISC_GOLF_HOLES[holeIndex].tee};
- return {phase:"ready",holeIndex,lie,
+ return {phase:"ready",holeIndex,gatesCleared:0,lie,
   disc:{...lie,y:ground(lie)+.18},velocity:{x:0,y:0,z:0},
   strokes:0,waterRedos:0,flightTime:0,clock,lockedWind:discGolfWind(holeIndex,clock),
   lastDistance:0,spin:0};
 }
 export const idleDiscGolf=():DiscGolfState=>({
- phase:"off",holeIndex:0,lie:{x:0,z:0},disc:{x:0,y:0,z:0},
+ phase:"off",holeIndex:0,gatesCleared:0,lie:{x:0,z:0},disc:{x:0,y:0,z:0},
  velocity:{x:0,y:0,z:0},strokes:0,waterRedos:0,flightTime:0,clock:0,
  lockedWind:{x:0,z:0,speed:0},lastDistance:0,spin:0,
 });
@@ -97,8 +161,8 @@ export function discGolfThrow(state:DiscGolfState,shot:DiscShot,ground:DiscTerra
  const accuracy=clamp(shot.accuracy,-1,1);
  const loft=clamp(shot.loft,6,42)*Math.PI/180;
  const hole=DISC_GOLF_HOLES[state.holeIndex];
- const basket=discGolfBasketPosition(hole,state.clock);
- const base=Math.atan2(basket.x-state.lie.x,basket.z-state.lie.z);
+ const aimPoint=discGolfNextTarget(state);
+ const base=Math.atan2(aimPoint.x-state.lie.x,aimPoint.z-state.lie.z);
  const aim=base+clamp(shot.aimOffset,-55,55)*Math.PI/180+
    accuracy*.28;
  // A low-end putt must be possible: zero power is no longer a full drive.
@@ -161,7 +225,12 @@ export function stepDiscGolf(state:DiscGolfState,dt:number,
   const atBasket=Math.hypot(nearX-basket.x,nearZ-basket.z)<1.05 &&
    nearY>cupY-.66&&nearY<cupY+.80&&horizontal<31;
   s.disc=next;
-  if(atBasket){
+  // Gate progress is earned by crossing the actual open arch, never merely
+  // approaching it. One throw can pass multiple gates in sequence.
+  while(s.gatesCleared<DISC_GOLF_HOLES[s.holeIndex].gates.length &&
+    discGolfGateCrossing(old,next,DISC_GOLF_HOLES[s.holeIndex],
+      s.gatesCleared,ground))s.gatesCleared++;
+  if(atBasket && s.gatesCleared===DISC_GOLF_HOLES[s.holeIndex].gates.length){
    s.phase="holed";s.disc={...basket,y:cupY};
    s.lastDistance=Math.hypot(basket.x-state.lie.x,basket.z-state.lie.z);
    s.reason="Chains caught the disc";s.resultAt=s.clock;
@@ -252,16 +321,17 @@ export function recommendDiscGolfPower(
  ground:DiscTerrain,isWater:(p:Point)=>boolean,seaSurface:number,
  obstacles:readonly DiscGolfObstacle[]=[]):number{
  if(!["ready","landed","water"].includes(state.phase))return 0;
- const basket=discGolfBasketPosition(DISC_GOLF_HOLES[state.holeIndex],state.clock);
+ const basket=discGolfNextTarget(state);
  const dx=basket.x-state.lie.x,dz=basket.z-state.lie.z;
  const remaining=Math.hypot(dx,dz);
  const fx=remaining>1e-8?dx/remaining:0;
  const fz=remaining>1e-8?dz/remaining:1;
- const putting=remaining<=9;
+ const putting=remaining<=9 && state.gatesCleared===DISC_GOLF_HOLES[state.holeIndex].gates.length;
  // A drive aims to reach an approachable green, not auto-sink every
  // hole from the tee. Near the chains the same helper becomes a true putt.
- const leave=putting?0:Math.min(8,Math.max(3.5,remaining*.18));
- const goal=Math.max(0,remaining-leave);
+ const gatePending=state.gatesCleared<DISC_GOLF_HOLES[state.holeIndex].gates.length;
+ const leave=putting?0:Math.min(7,Math.max(3.5,remaining*.17));
+ const goal=gatePending?remaining+4:Math.max(0,remaining-leave);
  let best=55,bestScore=Infinity;
  for(let power=4;power<=100;power+=4){
   const trace=traceDiscGolfShot(state,{power,loft,aimOffset,accuracy:0},
@@ -273,7 +343,11 @@ export function recommendDiscGolfPower(
   const along=traveledX*fx+traveledZ*fz;
   const lateral=Math.abs(traveledX*fz-traveledZ*fx);
   const overshoot=Math.max(0,along-remaining);
-  const score=Math.abs(along-goal)+lateral*.7+overshoot*1.5+
+  // Crossing the gate is always preferable to a visually close miss.
+  const crossed=trace.gatesCleared>state.gatesCleared;
+  const score=Math.abs(along-goal)+lateral*.7+
+   (gatePending?Math.max(0,along-remaining-14)*.4:overshoot*1.5)+
+   (gatePending&&!crossed?90:0)+
    (!putting&&trace.outcome==="holed"?12:0)+power*.001;
   if(score<bestScore){bestScore=score;best=power;}
  }
@@ -371,7 +445,7 @@ export function discGolfPullback(elapsedMs:number,suggested:number){
 
 export function discGolfRemaining(state:DiscGolfState):number{
  const hole=DISC_GOLF_HOLES[state.holeIndex];
- const p=discGolfBasketPosition(hole,state.clock);
+ const p=discGolfNextTarget(state);
  return Math.hypot(state.lie.x-p.x,state.lie.z-p.z);
 }
 export function discGolfScoreName(strokes:number,par:number):string{
