@@ -23,7 +23,7 @@ test("nine independently placed tees and fixed greens remain on playable land",(
   const length=Math.hypot(h.tee.x-h.target.x,h.tee.z-h.target.z);
   assert.ok(length>=48&&length<=138,`Hole ${i+1}: ${length} unit tee-to-basket length`);
   assert.ok(discGolfRouteLength(h)>58,`Hole ${i+1} must need multiple throws`);
-  assert.ok(h.gates.length>=1&&h.gates.length<=3);
+  assert.ok(h.gates.length>=1&&h.gates.length<=(i===8?8:3));
   const p0=discGolfBasketPosition(h,0),p1=discGolfBasketPosition(h,100);
   assert.deepEqual(p0,p1,"the basket must never move");
   if(i>0)assert.notDeepEqual(h.tee,DISC_GOLF_HOLES[i-1].target,
@@ -34,6 +34,10 @@ test("nine independently placed tees and fixed greens remain on playable land",(
     ground({x:p0.x,z:p0.z+1})-ground({x:p0.x,z:p0.z-1}));
   assert.ok(Number.isFinite(slope)&&Number.isFinite(p),"basket must be on measurable island terrain");
  }
+ assert.ok(discGolfRouteLength(DISC_GOLF_HOLES[8])>=285&&
+  discGolfRouteLength(DISC_GOLF_HOLES[8])<=320,
+  "Hole 9 is a roughly triple-length cross-island finale");
+ assert.equal(DISC_GOLF_HOLES[8].gates.length,8);
  assert.notDeepEqual(DISC_GOLF_HOLES.at(-1)!.target,DISC_GOLF_HOLES[0].tee,
   "last basket gets its own safe putting green");
  assert.ok(DISC_GOLF_VERSION.includes("disc-golf"));
