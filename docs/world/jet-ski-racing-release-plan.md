@@ -87,6 +87,45 @@ New code on this draft branch:
 6. Verify no regressions to cave, disc golf, swimming, aquatic fauna,
    beach exploration, or normal keyboard movement.
 
+## Playable race quality pass (2026-10-11)
+
+The latest refinement adds:
+
+- A **single batched instanced-mesh foam trail** with paired turbulent arms.
+  It follows the same wave sampler as the craft, fades along the last 1.9
+  seconds of driving, and uses darker tints for older foam without allocating
+  one WebGL object per segment. The immediate stern ripple is retained.
+- A water-following **light beacon on the active mandatory gate**, separate
+  from the small markers on other gates. It follows buoy order and hides when
+  not racing.
+- A **3-second departure countdown**; the player's craft and AI opponents do
+  not begin accumulating race time or velocity before GO.
+- Short checkpoint/lap messages, plus **8 turbo points per legitimate gate**.
+- A retry action (R or touch Retry at finish), a temporary in-session best
+  time, and real finish-place ranking based on completion time when multiple
+  craft have crossed the line.
+- A dedicated `scripts/playtest-jet-ski.mjs` desktop/touch Playwright QA
+  script. Syntax is checked in World CI; it is **not automatically run** by
+  that workflow because it requires a browser and a running World server.
+
+Browser playtest invocation, after starting the development server and
+installing Playwright separately:
+
+```bash
+PLAYWRIGHT_MODULE_ROOT=/path/to/playwright WORLD_BASE_URL=http://127.0.0.1:3000 node scripts/playtest-jet-ski.mjs
+```
+
+It checks docking, choosing crafts, the start countdown, acceleration and
+boost, restarting, returning to exploration, and coarse-pointer boarding
+controls. Screenshots and a JSON result are written to
+`artifacts/world/jet-ski-playtest`.
+
+**Remaining visual acceptance:** inspect foam trails against real rendered
+water, camera transitions through the sea arches, racing buoys versus kelp and
+reef decorations, shoreline apron seams, and responsive touch HUD on actual
+phones. Do not claim the race is browser-qualified solely because script
+syntax and World unit contracts pass.
+
 ## Acceptance checklist before merge
 
 1. World typecheck, strict lint including jet-ski sources, existing World
