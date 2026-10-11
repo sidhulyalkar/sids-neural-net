@@ -5,6 +5,9 @@ import {
  recommendDiscGolfPower,discGolfPullback,DISC_GOLF_MAX_BANK,type DiscGolfState,type DiscShot,type DiscGolfSwingStage,
 } from "@/lib/world/discGolf";
 import {terrainHeight,isWater,SEA_SURFACE} from "@/lib/world/model";
+import {DISC_GOLF_SPIN_MIN_RPM,DISC_GOLF_SPIN_MAX_RPM,
+ DISC_GOLF_NOSE_MAX_DEGREES} from "@/lib/world/discGolfAerodynamics";
+import type {DiscGolfFlightStyle,DiscGolfReleaseStyle} from "@/lib/world/discGolf";
 import {discGolfName} from "@/lib/world/discGolfNames";
 import {discGolfRoundSummary,nextUnplayedDiscGolfHole,type DiscGolfRound} from "@/lib/world/discGolfRound";
 import styles from "./world.module.css";
@@ -32,6 +35,10 @@ export function WorldDiscGolfHUD({game,round,scorecardOpen,onToggleScorecard,onN
  const [loft,setLoft]=useState(24);
  const [aim,setAim]=useState(0);
  const [bankAngle,setBankAngle]=useState(0);
+ const [noseAngle,setNoseAngle]=useState(0);
+ const [spinRpm,setSpinRpm]=useState(650);
+ const [discStyle,setDiscStyle]=useState<DiscGolfFlightStyle>("midrange");
+ const [releaseStyle,setReleaseStyle]=useState<DiscGolfReleaseStyle>("backhand");
  const [charging,setCharging]=useState(false);
  const [chargePower,setChargePower]=useState(65);
  const held=useRef(false);
@@ -43,13 +50,15 @@ export function WorldDiscGolfHUD({game,round,scorecardOpen,onToggleScorecard,onN
  const locked=game.phase==="flying"||game.phase==="holed";
  const available=!locked&&game.phase!=="off";
  // Re-solve on a new lie or a changed aim, not on every animation frame.
- const suggested=useMemo(()=>recommendDiscGolfPower(game,loft,aim,ground,isWater,SEA_SURFACE,[],bankAngle),
+ const suggested=useMemo(()=>recommendDiscGolfPower(game,loft,aim,ground,isWater,SEA_SURFACE,[],bankAngle,
+  {noseAngle,spinRpm,discStyle,releaseStyle}),
   // The wind varies slowly; the preview itself refreshes during aiming.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  [game.holeIndex,game.gatesCleared,game.lie.x,game.lie.z,game.phase,loft,aim,bankAngle]);
+  [game.holeIndex,game.gatesCleared,game.lie.x,game.lie.z,game.phase,loft,aim,bankAngle,noseAngle,spinRpm,discStyle,releaseStyle]);
  const preview=useCallback((power:number)=>{
-  onPreview({power,accuracy:0,loft,aimOffset:aim,bankAngle});
- },[onPreview,loft,aim,bankAngle]);
+  onPreview({power,accuracy:0,loft,aimOffset:aim,bankAngle,
+   noseAngle,spinRpm,discStyle,releaseStyle});
+ },[onPreview,loft,aim,bankAngle,noseAngle,spinRpm,discStyle,releaseStyle]);
  const queueShot=useCallback((shot:DiscShot)=>{
   if(fired.current)return;
   fired.current=true;
@@ -90,12 +99,14 @@ export function WorldDiscGolfHUD({game,round,scorecardOpen,onToggleScorecard,onN
   // longer press cannot accidentally turn a drive into a tiny putt.
   const power=discGolfPullback(ms,suggested).power;
   setCharging(false);setChargePower(power);
-  queueShot({power,loft,aimOffset:aim,accuracy:0,bankAngle});
- },[suggested,queueShot,loft,aim,bankAngle]);
+  queueShot({power,loft,aimOffset:aim,accuracy:0,bankAngle,
+   noseAngle,spinRpm,discStyle,releaseStyle});
+ },[suggested,queueShot,loft,aim,bankAngle,noseAngle,spinRpm,discStyle,releaseStyle]);
  const tap=useCallback(()=>{
   if(!available||held.current||fired.current)return;
-  queueShot({power:suggested,loft,aimOffset:aim,accuracy:0,bankAngle});
- },[available,suggested,queueShot,loft,aim,bankAngle]);
+  queueShot({power:suggested,loft,aimOffset:aim,accuracy:0,bankAngle,
+   noseAngle,spinRpm,discStyle,releaseStyle});
+ },[available,suggested,queueShot,loft,aim,bankAngle,noseAngle,spinRpm,discStyle,releaseStyle]);
  useEffect(()=>{
   if(!charging)return;
   let frame=0;
@@ -231,6 +242,31 @@ export function WorldDiscGolfHUD({game,round,scorecardOpen,onToggleScorecard,onN
        </button>
       </div>
      </div>
+     <section className={styles.discGolfFlightControls} aria-label="Disc aerodynamics">
+      <div className={styles.discGolfFlightTop}>
+       <label htmlFor="disc-golf-disc-type">Disc</label>
+       <select id="disc-golf-disc-type" value={discStyle} disabled={!available||charging}
+        onChange={e=>setDiscStyle(e.currentTarget.value as DiscGolfFlightStyle)}>
+        <option value="putter">Putter</option><option value="midrange">Midrange</option>
+        <option value="fairway">Fairway</option><option value="driver">Driver</option>
+       </select>
+       <label htmlFor="disc-golf-release-style">Throw</label>
+       <select id="disc-golf-release-style" value={releaseStyle} disabled={!available||charging}
+        onChange={e=>setReleaseStyle(e.currentTarget.value as DiscGolfReleaseStyle)}>
+        <option value="backhand">Backhand</option><option value="forehand">Forehand</option>
+       </select>
+      </div>
+      <div className={styles.discGolfFlightSliders}>
+       <label htmlFor="disc-golf-spin">Flick · {spinRpm} rpm</label>
+       <input id="disc-golf-spin" type="range" min={DISC_GOLF_SPIN_MIN_RPM}
+        max={DISC_GOLF_SPIN_MAX_RPM} step={50} value={spinRpm}
+        disabled={!available||charging} onChange={e=>setSpinRpm(Number(e.currentTarget.value))}/>
+       <label htmlFor="disc-golf-nose">Nose · {noseAngle>0?"+":""}{noseAngle}°</label>
+       <input id="disc-golf-nose" type="range" min={-DISC_GOLF_NOSE_MAX_DEGREES}
+        max={DISC_GOLF_NOSE_MAX_DEGREES} step={1} value={noseAngle}
+        disabled={!available||charging} onChange={e=>setNoseAngle(Number(e.currentTarget.value))}/>
+      </div>
+     </section>
      <div className={styles.discGolfMeters}>
       <div className={styles.discGolfMeterHeader}>
        <span>{charging?"Release":"Power"}</span>
