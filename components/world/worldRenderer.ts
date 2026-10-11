@@ -2809,7 +2809,7 @@ export function createWorld(
           if(discGolf.phase==="landed"||discGolf.phase==="holed"){
             // The next lie is an actual terrain location, not a menu-only target.
             player={...discGolf.lie};playerY=groundHeight(player);
-            const chains=discGolfBasketPosition(DISC_GOLF_HOLES[discGolf.holeIndex],discGolf.clock);
+            const chains=discGolfNextTarget(discGolf);
             const dx=chains.x-player.x,dz=chains.z-player.z;
             const len=Math.hypot(dx,dz)||1;
             travel={point:player,speed:0,heading:{x:dx/len,z:dz/len}};
@@ -4392,9 +4392,12 @@ export function createWorld(
           canvas.dataset.discGolfLastShot="pending";
           discFetch=idleDiscGolfFetch();
           player={...hole.tee};playerY=groundHeight(player);
-          travel={point:player,speed:0,heading:{x:0,z:1}};
           const basket=discGolfNextTarget(discGolf);
-          yaw=Math.atan2(-(basket.x-player.x),-(basket.z-player.z));
+          const faceX=basket.x-player.x,faceZ=basket.z-player.z;
+          const faceLength=Math.hypot(faceX,faceZ)||1;
+          travel={point:player,speed:0,heading:{x:faceX/faceLength,z:faceZ/faceLength}};
+          explorer.rotation.y=Math.atan2(faceX,faceZ);
+          yaw=Math.atan2(-faceX,-faceZ);
           const reducedMotion=window.matchMedia("(prefers-reduced-motion: reduce)").matches;
           discGolfIntro={startedAt:elapsed,reducedMotion};
           snapDiscCamera=false;
