@@ -232,7 +232,7 @@ export function WorldDiscGolfHUD({game,round,scorecardOpen,onToggleScorecard,onN
        }}}
        onPointerUp={finish}
        onPointerCancel={()=>{held.current=false;setCharging(false);onStage("idle");}}
-       onClick={e=>{if(e.detail===0)tap();}}>
+       onClick={()=>{if(held.current)finish();else tap();}}>
        {game.phase==="flying"?"Disc airborne":
         charging?"Release to throw":"Space · Throw"}
      </button>
