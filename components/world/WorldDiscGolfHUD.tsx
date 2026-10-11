@@ -191,7 +191,7 @@ export function WorldDiscGolfHUD({game,round,scorecardOpen,onToggleScorecard,onN
  const bearing=Math.atan2(liveWind.x,liveWind.z)*180/Math.PI;
  const windArrow=["↑","↗","→","↘","↓","↙","←","↖"][((Math.round((bearing+360)/45)%8)+8)%8];
  const shownPower=charging||railDragging?chargePower:
-  game.presentationPending&&lastReleasePower!==null?lastReleasePower:
+  (game.presentationPending||fired.current)&&lastReleasePower!==null?lastReleasePower:
   railKeyPower??suggested;
  const ideal=discGolfRailIdeal(suggested);
  const powerStatus=discGolfRailStatus(shownPower,suggested);
