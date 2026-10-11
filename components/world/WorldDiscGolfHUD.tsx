@@ -274,16 +274,49 @@ export function WorldDiscGolfHUD({game,round,scorecardOpen,onToggleScorecard,onN
     </div>
     <div className={styles.discGolfBarPower}>
      <div className={styles.discGolfMeterHeader}>
-      <span>{charging?"Release":"Power"}</span>
-      <strong>{charging?shownPower+"%":suggested+"% ideal"}</strong>
+      <span>{charging||railDragging?"PULL · RELEASE":"THROW POWER"}</span>
+      <strong aria-live="off">{shownPower}% <span className={styles.discGolfSuggested}>/ {ideal.ideal}% target</span></strong>
      </div>
-     <div className={styles.discGolfMeter} role="progressbar" aria-label="Disc throw power"
-       aria-valuemin={0} aria-valuemax={100} aria-valuenow={shownPower}>
-      <span className={styles.discGolfPowerFill} style={{width:shownPower+"%"}}/>
-      <span className={styles.discGolfSweetBand}
-       style={{left:clamp(suggested-6,0,100)+"%",
-        width:(clamp(suggested+6,0,100)-clamp(suggested-6,0,100))+"%"}}/>
-      <span className={styles.discGolfBestMarker} style={{left:suggested+"%"}}/>
+     <div className={styles.discGolfMeterRail}>
+      <div className={[
+       styles.discGolfMeter,
+       charging||railDragging?styles.discGolfMeterActive:"",
+       !available?styles.discGolfMeterLocked:"",
+      ].filter(Boolean).join(" ")}
+       role="slider" tabIndex={available?0:-1}
+       aria-disabled={!available}
+       aria-label="Throw power. Drag and release to throw, or use arrow keys and Enter."
+       aria-valuemin={4} aria-valuemax={100} aria-valuenow={shownPower}
+       aria-valuetext={shownPower+" percent; suggested "+ideal.ideal+" percent"}
+       data-power={shownPower} data-quality={powerStatus}
+       data-dragging={String(railDragging)}
+       onPointerDown={e=>{
+        if(e.pointerType==="mouse"&&e.button!==0)return;
+        e.preventDefault();beginRail(e.currentTarget,e.pointerId,e.clientX);
+       }}
+       onPointerMove={e=>moveRail(e.currentTarget,e.clientX)}
+       onPointerUp={e=>finishRail(e.currentTarget,e.pointerId,e.clientX)}
+       onPointerCancel={cancelRail}
+       onLostPointerCapture={cancelRail}
+       onKeyDown={e=>{if(railKeyDown(e.key)){e.preventDefault();e.stopPropagation();}}}>
+       <span className={styles.discGolfTrackTicks} aria-hidden="true"/>
+       <span className={styles.discGolfPowerFill}
+        style={{width:shownPower+"%"}} aria-hidden="true"/>
+       <span className={styles.discGolfSweetBand}
+        style={{left:ideal.low+"%",width:ideal.high-ideal.low+"%"}}
+        aria-hidden="true"/>
+       <span className={styles.discGolfBestMarker}
+        style={{left:ideal.ideal+"%"}} aria-hidden="true"/>
+       <span className={styles.discGolfPowerHandle}
+        style={{left:shownPower+"%"}} aria-hidden="true">
+        <span className={styles.discGolfPowerGrip}/>
+       </span>
+      </div>
+     </div>
+     <div className={styles.discGolfMeterFooter} aria-hidden="true">
+      <span>SOFT</span>
+      <span>{charging?"HOLD SPACE":railDragging?"RELEASE TO THROW":"DRAG TO THROW"}</span>
+      <span>FULL</span>
      </div>
     </div>
     <div className={styles.discGolfBarPrimary}>
