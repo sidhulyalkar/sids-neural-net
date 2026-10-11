@@ -14,7 +14,7 @@ export type DiscGolfHole = {
 export const DISC_GOLF_HOLES:readonly DiscGolfHole[]=[
   {id:"redwood-bend",name:"Redwood Traverse",par:4,tee:{x:38,z:9},
    target:{x:43,z:43}},
-  {id:"scrub-crosswind",name:"Scrub Crosswind",par:4,tee:{x:42,z:42},
+  {id:"scrub-crosswind",name:"Scrub Crosswind",par:4,tee:{x:43,z:43},
    target:{x:43,z:-29}},
   {id:"desert-drifter",name:"Desert Ridge",par:4,tee:{x:43,z:-29},
    target:{x:0,z:-61}},
