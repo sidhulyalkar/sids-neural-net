@@ -15,7 +15,7 @@ const ground=(p:{x:number;z:number})=>terrainHeight(p.x,p.z);
 const ordinary={power:74,accuracy:0,loft:25,aimOffset:0};
 test("nine fixed baskets form a connected island circuit over valid terrain",()=>{
  assert.equal(DISC_GOLF_HOLES.length,9);
- assert.equal(new Set(DISC_GOLF_HOLES.map(h=>h.id)).size,4);
+ assert.equal(new Set(DISC_GOLF_HOLES.map(h=>h.id)).size,9);
  for(let i=0;i<DISC_GOLF_HOLES.length;i++){
   const h=DISC_GOLF_HOLES[i];
   assert.ok(!isWater(h.tee)&&!isWater(h.target),h.id);
