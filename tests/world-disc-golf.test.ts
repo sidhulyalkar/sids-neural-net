@@ -4,22 +4,23 @@ import * as THREE from "three/src/Three.Core.js";
 import {
  DISC_GOLF_HOLES,DISC_GOLF_VERSION,discGolfBasketPosition,discGolfWind,
  startDiscGolf,idleDiscGolf,discGolfThrow,stepDiscGolf,discGolfScoreName,
- discGolfRemaining,discGolfTreeContact,traceDiscGolfShot,
+ discGolfRemaining,discGolfTreeContact,traceDiscGolfShot,recommendDiscGolfPower,
 } from "../lib/world/discGolf";
 import { terrainHeight,isWater } from "../lib/world/model";
 import { createDiscGolfGeometry } from "../components/world/worldDiscGolfGeometry";
 const ground=(p:{x:number;z:number})=>terrainHeight(p.x,p.z);
 const ordinary={power:74,accuracy:0,loft:25,aimOffset:0};
-test("four playable island holes have continuously moving chain baskets away from water",()=>{
+test("four fixed baskets make a linked, multi-throw journey over safe land",()=>{
  assert.equal(DISC_GOLF_HOLES.length,4);
  assert.equal(new Set(DISC_GOLF_HOLES.map(h=>h.id)).size,4);
- for(const h of DISC_GOLF_HOLES){
+ for(let i=0;i<DISC_GOLF_HOLES.length;i++){
+  const h=DISC_GOLF_HOLES[i];
   assert.ok(!isWater(h.tee)&&!isWater(h.target),h.id);
-  assert.ok(Math.hypot(h.tee.x-h.target.x,h.tee.z-h.target.z)>13);
-  const p0=discGolfBasketPosition(h,0),p1=discGolfBasketPosition(h,h.period/4);
-  assert.ok(Math.hypot(p0.x-p1.x,p0.z-p1.z)>1,h.id);
-  const p2=discGolfBasketPosition(h,h.period);
-  assert.ok(Math.hypot(p2.x-p0.x,p2.z-p0.z)<1e-8);
+  assert.ok(Math.hypot(h.tee.x-h.target.x,h.tee.z-h.target.z)>45,h.id);
+  const p0=discGolfBasketPosition(h,0),p1=discGolfBasketPosition(h,100);
+  assert.deepEqual(p0,p1,"the basket must never move");
+  if(i>0)assert.deepEqual(h.tee,DISC_GOLF_HOLES[i-1].target,
+   "next tee should begin at the previous fixed basket");
   assert.ok(Number.isFinite(ground(p0)));
  }
  assert.ok(DISC_GOLF_VERSION.includes("disc-golf"));
@@ -91,7 +92,7 @@ test("water masks take precedence over elevated analytic terrain",()=>{
   assert.equal(s.strokes,0);
   assert.deepEqual(s.lie,{x:-2,z:0});
 });
-test("moving chains catch discs in the target zone and scoring is explicit",()=>{
+test("fixed chains catch discs in the target zone and scoring is explicit",()=>{
  const s=startDiscGolf(2,ground,5);
  const basket=discGolfBasketPosition(DISC_GOLF_HOLES[s.holeIndex],s.clock);
  const catching={...s,phase:"flying" as const,strokes:2,flightTime:1,
@@ -188,4 +189,18 @@ test("a water reset never creates a false drawn segment back to the tee",()=>{
   const last=preview.points.at(-1)!;
   assert.ok(Math.hypot(last.x-begin.lie.x,last.z-begin.lie.z)>.05);
  }
+});
+
+test("short putts have reachable low power and a predicted catch",()=>{
+ const flat=()=>0,water=()=>false;
+ const h=DISC_GOLF_HOLES[0];
+ const start=startDiscGolf(0,flat,0);
+ const lie={x:h.target.x,z:h.target.z-2.2};
+ const state={...start,phase:"landed" as const,lie,
+  disc:{...lie,y:.16}};
+ const power=recommendDiscGolfPower(state,24,0,flat,water,-1.4);
+ assert.ok(power>=4&&power<45,"putts should not need full drive power: "+power);
+ const trace=traceDiscGolfShot(state,{power,accuracy:0,loft:24,aimOffset:0},
+  flat,water,-1.4);
+ assert.equal(trace.outcome,"holed","an aimed short putt should reach stationary chains");
 });
