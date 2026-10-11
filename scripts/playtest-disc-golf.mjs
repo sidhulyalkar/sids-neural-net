@@ -43,6 +43,9 @@ try{
    assert.equal(await canvas.getAttribute("data-disc-golf-gates-total"),"3",
     "Shore-to-backside Hole 2 needs three required gates");
   }
+  const startAvatar=await canvas.evaluate(c=>({
+   x:Number(c.dataset.discGolfAvatarX),z:Number(c.dataset.discGolfAvatarZ),
+  }));
   if(i===1){
    // Explicit pointer regression for the formerly unplayable second tee.
    await page.getByRole("button",{name:"Space · Throw"}).click();
@@ -70,7 +73,20 @@ try{
   const strokes=Number(await canvas.getAttribute("data-disc-golf-strokes"));
   assert.notEqual(phase,"water","Default first throw should not be an immediate water redo on "+ids[i]);
   assert.equal(strokes,1,"First throw must count exactly one stroke on "+ids[i]);
+  assert.equal(await canvas.getAttribute("data-disc-golf-handoff-pending"),"true",
+   "landing cannot unlock the next throw before fetch");
   if(i===0){
+   const assertNotMoved=async phaseName=>{
+    const avatar=await canvas.evaluate(c=>({
+     x:Number(c.dataset.discGolfAvatarX),
+     z:Number(c.dataset.discGolfAvatarZ),
+     pending:c.dataset.discGolfHandoffPending,
+    }));
+    assert.deepEqual({x:avatar.x,z:avatar.z},startAvatar,
+     "Avatar moved before Shasta finished during "+phaseName);
+    assert.equal(avatar.pending,"true");
+   };
+   await assertNotMoved("landing");
    await page.waitForFunction(()=>
     document.querySelector("canvas")?.dataset.discGolfCinematicStage==="landing",
     null,{timeout:2500});
@@ -78,11 +94,27 @@ try{
    await page.waitForFunction(()=>
     document.querySelector("canvas")?.dataset.discGolfCinematicStage==="chase",
     null,{timeout:3500});
+   await assertNotMoved("chase");
    await page.screenshot({path:path.join(out,"hole-1-shasta-begins-chase.png")});
    await page.waitForFunction(()=>
     document.querySelector("canvas")?.dataset.discGolfCinematicStage==="shasta",
     null,{timeout:3500});
+   await assertNotMoved("Shasta POV");
    await page.screenshot({path:path.join(out,"hole-1-shasta-pov.png")});
+  }
+  await page.waitForFunction(()=>
+   document.querySelector("canvas")?.dataset.discGolfHandoffPending==="false",
+   null,{timeout:25000});
+  if(i===0){
+   assert.equal(await canvas.getAttribute("data-disc-golf-handoff"),"complete");
+   assert.equal(await canvas.getAttribute("data-disc-golf-handoff-reason"),"found",
+    "Shasta must actually find the disc before Hole 1 teleports the avatar");
+   const final=await canvas.evaluate(c=>({
+    x:Number(c.dataset.discGolfAvatarX),z:Number(c.dataset.discGolfAvatarZ),
+    lieX:Number(c.dataset.discGolfLieX),lieZ:Number(c.dataset.discGolfLieZ),
+   }));
+   assert.deepEqual([final.x,final.z],[final.lieX,final.lieZ],
+    "Avatar should arrive exactly at the committed throwing lie after Shasta finds it");
   }
   if(i===1||i===0||i===8){
    await page.screenshot({path:path.join(out,`hole-${i+1}-after-first-shot.png`)});
