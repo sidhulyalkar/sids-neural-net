@@ -48,3 +48,16 @@ The previous basket location is the next tee. The user can still switch holes ex
 Automated checks: four stationary targets, each distance >45 world units, linked tees, stable wind, power and loft flight sensitivity, swept chain capture, short-putt recommendation, preview/live parity, water refunds, trunk contacts, graphics cleanup. CI must pass typecheck, lint, tests, and production build.
 
 Human checks: first tee and next three transitions; WASD/Space without pointer use; Space held/released under keyboard repeat; click/touch press behavior; at least one realistic putt under 3m; tree/water recoveries; mobile viewport without covering player; target visibility from a distant tee; frame time/resource cleanup; no leakage into ordinary WASD/Space after exit. A green test suite alone does not establish visual or interaction acceptance.
+
+## Basket-first camera introduction (2026-10-10)
+
+Each time a visitor starts a hole, the camera cuts to a close view of the **stationary basket** from the fairway side. Hold the chains clearly on screen for ~0.7 seconds, then move over the hole's real terrain for ~2.65 seconds, settling in the exact ordinary third-person aiming view behind the player. This is a **camera-only** introduction: shots, aim, power, strokes, wind and player position do not change.
+
+- Use deterministic world simulation time, which pauses with menus/hidden tabs, not a free-running timeout.
+- Ease smoothly between basket and player, rise above the fairway and sample terrain beneath the moving camera; avoid clipping through hills. The last frame must match the existing normal third-person position and look direction, without a jarring second jump.
+- The camera starts **on the basket**, rather than easing from the previous location to the basket. There is no extra loading pause.
+- WASD, arrows, Space or Escape cancels the introduction and immediately restores the normal camera. A shot also cancels it, so gameplay always wins.
+- Honor reduced-motion: show the basket briefly, then **cut** to the player. No continuous flyover.
+- Replay only when selecting/starting a new hole, not when landing, retrying water, putting, changing loft, or reopening the HUD. Exiting, fast travel and menu pause clear the introduction.
+- QA: screenshot first basket frame, mid-fairway reveal and settled tee camera on all four holes; verify occlusion by trees, rocks and mountains; check reduced motion, immediate throws, pause/resume, hole switches and clean World exit.
+- The canvas exposes `data-disc-golf-intro` (`basket`, `pullback`, `complete`, `off`) for playtest automation. User-visible UI remains restrained; there is no mandatory confirmation or tutorial overlay.
