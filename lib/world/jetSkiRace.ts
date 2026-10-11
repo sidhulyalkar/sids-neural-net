@@ -92,8 +92,11 @@ export function stepJetSkiRace(state:JetSkiState,dt:number,
   const acceleration=throttle>=0?profile.acceleration*throttle*(boost?1.7:1):
    profile.acceleration*.7*throttle;
   const resistance=profile.drag*(1+waterSample.roughness*.09);
+  const maximum=profile.maxSpeed*(boost?1.42:1);
+  // Releasing turbo decelerates instead of snapping instantly to cruise cap.
+  const smoothLimit=boost?maximum:Math.max(maximum,s.speed-9*h);
   s.speed=clamp(s.speed+(acceleration-resistance*s.speed*brake)*h,
-   -5,profile.maxSpeed*(boost?1.42:1));
+   -5,smoothLimit);
   const steerAssist=.42+.58*Math.min(1,Math.abs(s.speed)/10);
   s.heading+=steer*profile.turnRate*steerAssist*(boost?.84:1)*
    (s.jumpHeight>0?.35:1)*h*(s.speed<0?-1:1);
