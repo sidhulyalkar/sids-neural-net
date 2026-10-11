@@ -2959,8 +2959,6 @@ export function createWorld(
         jetskiVisual.activeSki.position.set(player.x,
           SEA_SURFACE+.2+jetSki.waterHeight+jetSki.jumpHeight,player.z);
         jetskiVisual.activeSki.rotation.y=jetSki.heading;
-        const steering=Number(keys.has("d")||keys.has("arrowright"))-
-          Number(keys.has("a")||keys.has("arrowleft"));
         jetskiVisual.activeSki.rotation.z=jetSki.roll;
         jetskiVisual.activeSki.rotation.x=jetSki.pitch;
         jetskiVisual.wake.visible=jetSki.speed>2&&jetSki.jumpHeight<.1;
