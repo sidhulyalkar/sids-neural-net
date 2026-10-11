@@ -253,15 +253,28 @@ export function recommendDiscGolfPower(
  obstacles:readonly DiscGolfObstacle[]=[]):number{
  if(!["ready","landed","water"].includes(state.phase))return 0;
  const basket=discGolfBasketPosition(DISC_GOLF_HOLES[state.holeIndex],state.clock);
+ const dx=basket.x-state.lie.x,dz=basket.z-state.lie.z;
+ const remaining=Math.hypot(dx,dz);
+ const fx=remaining>1e-8?dx/remaining:0;
+ const fz=remaining>1e-8?dz/remaining:1;
+ const putting=remaining<=9;
+ // A drive aims to reach an approachable green, not auto-sink every
+ // hole from the tee. Near the chains the same helper becomes a true putt.
+ const leave=putting?0:Math.min(8,Math.max(3.5,remaining*.18));
+ const goal=Math.max(0,remaining-leave);
  let best=55,bestScore=Infinity;
  for(let power=4;power<=100;power+=4){
   const trace=traceDiscGolfShot(state,{power,loft,aimOffset,accuracy:0},
    ground,isWater,seaSurface,obstacles);
-  if(trace.outcome==="holed")return power;
-  if(trace.outcome!=="landed")continue;
-  const d=Math.hypot(trace.end.x-basket.x,trace.end.z-basket.z);
-  // Favor useful progress, avoid over-strong putts when distances are equal.
-  const score=d+power*.001;
+  if(trace.outcome!=="landed"&&trace.outcome!=="holed")continue;
+  if(putting&&trace.outcome==="holed")return power;
+  const traveledX=trace.end.x-state.lie.x;
+  const traveledZ=trace.end.z-state.lie.z;
+  const along=traveledX*fx+traveledZ*fz;
+  const lateral=Math.abs(traveledX*fz-traveledZ*fx);
+  const overshoot=Math.max(0,along-remaining);
+  const score=Math.abs(along-goal)+lateral*.7+overshoot*1.5+
+   (!putting&&trace.outcome==="holed"?12:0)+power*.001;
   if(score<bestScore){bestScore=score;best=power;}
  }
  return best;
