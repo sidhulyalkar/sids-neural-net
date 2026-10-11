@@ -2,7 +2,7 @@ import * as THREE from "three/src/Three.Core.js";
 import { GeometryBatch } from "./worldGeometry";
 import { biomeAt, DESERT_FORMATIONS, smooth, understoryDensityAt } from "@/lib/world/biomes";
 import { BOULDER_HOLDS, sportClearance } from "@/lib/world/activities";
-import { discGolfOpeningClearance } from "@/lib/world/discGolf";
+import { discGolfOpeningClearance, discGolfCourseClearance } from "@/lib/world/discGolf";
 import { RAINFOREST_CANOPY_WILDLIFE, RAINFOREST_REPTILES, DESERT_ECOLOGY_ANCHORS } from "@/lib/world/ecology";
 import { DESERT_JUMPS, desertGapBypassPoints, jumpWorld } from "@/lib/world/desertTrack";
 import {
@@ -628,7 +628,7 @@ export function createHabitats(scene: THREE.Scene, obstacles: Obstacle[]) {
   ] as const;
   for(const [index,t] of nativeLocations.entries()){
     const p={x:t.x,z:t.z};
-    if(isWater(p)||clear(p)||biomeAt(p).weights.redwood<.18)continue;
+    if(isWater(p)||clear(p)||discGolfCourseClearance(p,1.6)||biomeAt(p).weights.redwood<.18)continue;
     const y=terrainHeight(t.x,t.z),h=t.kind==="fir"?11.5:6.5+index%3;
     const bark=t.kind==="madrone"?"#9a624b":
       t.kind==="oak"?"#665a48":"#6d5945";
