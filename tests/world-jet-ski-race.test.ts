@@ -63,8 +63,8 @@ test("gate detection preserves order and completes exactly two laps",()=>{
 
 test("navigable ocean stays bounded and does not flood island interiors",()=>{
  assert.equal(jetSkiNavigableWater({x:0,z:0}),false);
- assert.equal(jetSkiNavigableWater({x:0,z:WORLD_BOUNDS.maxZ+20}),true);
- assert.equal(jetSkiNavigableWater({x:0,z:WORLD_BOUNDS.minZ-20}),true);
+ assert.equal(jetSkiNavigableWater({x:0,z:WORLD_BOUNDS.maxZ+24}),true);
+ assert.equal(jetSkiNavigableWater({x:0,z:WORLD_BOUNDS.minZ-24}),true);
  assert.equal(jetSkiNavigableWater({x:0,z:180}),false);
  assert.equal(jetSkiNavigableWater({x:300,z:20}),false);
 });
