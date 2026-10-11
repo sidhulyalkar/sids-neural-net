@@ -183,7 +183,8 @@ test("clean checkpoint adds a bounded turbo reward only when crossed",()=>{
   heading:0,speed:12,turbo:1};
  const pass=stepJetSkiRace(near,.1,{throttle:1,steer:0},()=>true);
  assert.equal(pass.checkpoint,1);
- assert.ok(pass.turbo>=8&&pass.turbo<=10);
+ // 1 starting point + 8 gate points + 14 points/second normal recharge.
+ assert.ok(Math.abs(pass.turbo-(1+8+14*.1))<.1);
  const noGate=stepJetSkiRace(startJetSkiRace(),.1,{throttle:0,steer:0},()=>true);
  assert.equal(noGate.checkpoint,0);
  assert.equal(noGate.turbo,100);
