@@ -22,6 +22,36 @@ try{
  await page.getByRole("button",{name:/^Disc golf · (play|resume|scorecard)$/}).click();
  const canvas=page.locator("canvas");
  await page.waitForFunction(()=>document.querySelector("canvas")?.dataset.discGolfPhase==="ready");
+ // The resting HUD is a small edge-to-edge strip, not a right-side panel.
+ const hud=page.getByRole("complementary",{name:"Disc golf controls"});
+ const desktopHud=await hud.boundingBox();
+ assert.ok(desktopHud,"Disc Golf bar must be rendered");
+ assert.ok(desktopHud.width>=page.viewportSize().width*.93,
+  "HUD must span nearly the entire width of the world");
+ assert.ok(desktopHud.height<=110,
+  "Idle bottom HUD must stay thin instead of blocking the player");
+ assert.ok(desktopHud.y+desktopHud.height>=page.viewportSize().height-42,
+  "HUD must sit near the bottom edge of the world");
+ assert.equal(await page.getByRole("region",{name:"Disc throw tuning"}).count(),0,
+  "Detailed disc controls should stay collapsed by default");
+ await page.getByRole("button",{name:"Tune",exact:true}).click();
+ assert.equal(await page.getByRole("region",{name:"Disc throw tuning"}).isVisible(),true);
+ assert.equal(await page.locator("#disc-golf-disc-type").isVisible(),true);
+ assert.equal(await page.locator("#disc-golf-spin").isVisible(),true);
+ await page.getByRole("region",{name:"Disc throw tuning"})
+  .getByRole("button",{name:"Close"}).click();
+ await page.getByRole("button",{name:"Course",exact:true}).click();
+ assert.equal(await page.getByRole("region",{name:"Nine-hole course and scorecard"}).isVisible(),true);
+ assert.equal(await page.getByRole("group",{name:"Choose hole"}).getByRole("button").count(),9);
+ await page.getByRole("region",{name:"Nine-hole course and scorecard"})
+  .getByRole("button",{name:"Close"}).click();
+ await page.setViewportSize({width:390,height:844});
+ const mobileHud=await hud.boundingBox();
+ assert.ok(mobileHud&&mobileHud.x>=0&&mobileHud.x+mobileHud.width<=390,
+  "Mobile bar must remain within the viewport");
+ assert.ok(mobileHud.height<=170,
+  "Mobile HUD should remain compact even when it wraps into rows");
+ await page.setViewportSize({width:1440,height:900});
  const issues=await canvas.getAttribute("data-disc-golf-layout-issues");
  assert.equal(await canvas.getAttribute("data-disc-golf-layout-clear"),"true",
   "A procedural obstacle overlaps a tee or green: "+issues);
