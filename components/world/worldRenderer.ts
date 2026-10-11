@@ -2756,6 +2756,7 @@ export function createWorld(
     elapsed += dt;
     let dx = 0,
       dz = 0;
+    let showingDiscGolfIntro=false;
     if (state.entered) {
       const forward =
         Number(keys.has("w") || keys.has("arrowup")) -
@@ -3381,7 +3382,6 @@ export function createWorld(
       // fairway and return to the *existing* third-person aiming pose.
       // The normal terrain/camera constraints above remain authoritative at
       // the endpoint. Do not replay this when a disc lands.
-      let showingDiscGolfIntro=false;
       if(discGolfIntro && discGolf.phase!=="off"){
         const basket=discGolfBasketPosition(DISC_GOLF_HOLES[discGolf.holeIndex],discGolf.clock);
         const pose=discGolfIntroPose(
