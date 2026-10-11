@@ -35,3 +35,14 @@ Course par: **45**. Gates are broad and stand twelve world units tall for readab
 - Browser review still required for mountain backdrop visibility, clearance of the actual waterfall/cave shell, overhead camera during short putts, attractive amber arches and real gameplay fairness. Do **not** claim visual signoff from the analytic CI alone.
 
 Older v1.6 short-course par/coordinates and saved rounds are superseded. v1.7 changes the storage version so incompatible rounds cannot be carried into the redesigned scorecard.
+
+
+## v1.8: curve throws with disc release bank
+
+**Flight shaping:** A/D steers initial heading, W/S adjusts vertical loft, and **Q/E changes the separate bank angle** in 5-degree steps, from -40° (bend left, ↶) through 0° (flat) to +40° (bend right, ↷). A compact centered slider gives equivalent touch and pointer control, with a Flat reset. The UI avoids hidden throw modifiers: the signed angle is visible before the release.
+
+**Physics:** A release locks its bank angle like wind. The flight engine applies a perpendicular signed lateral acceleration to the live velocity after a short launch ramp. Magnitude depends on disc bank and forward speed, so the throw progressively curves rather than instantly rotating the launch vector. Neutral bank retains the earlier flight. All outcomes still use the existing terrain, water, swept tree-trunk collisions and mandatory gate crossings; the system never cheats a gate for a curved path.
+
+**Preview and aim assistance:** The same `bankAngle` goes to tap and held Space shots, power optimization and sampled trajectory preview. Suggested power evaluates the chosen curve against active gates; the predicted flight path visibly bows left or right. Curve tilt does not substitute for a change in A/D heading, and a player must still shape a shot through each mandatory arch.
+
+**Visuals and QA:** In flight, the disc orientation follows its travel direction and banks visually while the printed surface rotates separately. Regression tests compare symmetric left/right curvature, zero-bank backward compatibility, invalid-angle rejection/clamping, exact preview versus landed location/gate state, and the in-flight rendered tilt. Test both keyboard and slider on desktop/mobile; confirm curve visibility at moderate distances, useful bank around trees, no surprising motion during short putts, and no performance regression across nine holes. Browser visualization remains pending; no visual pass is claimed from unit tests.
