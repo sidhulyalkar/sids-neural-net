@@ -23,6 +23,7 @@ import { drainagePoints, downstreamPoints, waterfallProfile, waterfallCrownRings
 import { biomeAt, BIOME_COLORS } from "@/lib/world/biomes";
 import { stepAirborne, rampSurface, sportClearance, activityLanding, BOULDER_HOLDS, effectiveActivity, FALLEN_LOGS, grindStyleForApproach, groundHeight, nearestGrind, nextHold, onSnow, rampImpulseCrossing, RIDE_RAMPS, stepSwim, stepTravel, terrainContact, type Activity, type AquaticMode, type GrindStyle, type Travel } from "@/lib/world/activities";
 import { LAND_WILDLIFE, LAND_WILDLIFE_COLORS } from "@/lib/world/ecology";
+import {stepCritterLocomotion} from "@/lib/world/landWildlifeMotion";
 import { SHASTA_CHARACTER } from "@/lib/world/shastaCharacter";
 import { FrameSampler, QualityController } from "@/lib/world/performance";
 import { shastaDetour, initialChaseState, stepChase, gaitBlendForSpeed, smoothAngle, smoothPoint, smoothingAlpha, steerShastaVelocity } from "@/lib/world/shastaMotion";
@@ -1467,6 +1468,8 @@ export function createWorld(
     heading: number;
     roam: number;
     speed: number;
+    panicUntil:number;
+    fleeFrom:Point|null;
     bodyScale: { x: number; y: number; z: number };
     headScale: { x: number; y: number; z: number };
     headForward: number;
@@ -1551,6 +1554,8 @@ export function createWorld(
       heading: random() * Math.PI * 2,
       roam: animal.roam,
       speed: animal.speed,
+      panicUntil:0,
+      fleeFrom:null,
       ...shape,
     };
   });
@@ -3571,44 +3576,17 @@ export function createWorld(
     if (landWildlifeVisible) {
       critters.forEach((critter, i) => {
         if (distance(player,critter.point)>45) return;
-        critter.phase += dt * critter.speed * 0.55;
-        const dogDistance = distance(critter.point, dog);
-        const playerDistance = distance(critter.point, player);
-        const threat =
-          dogDistance < 6.5
-            ? dog
-            : playerDistance < 3.2
-              ? player
-              : null;
-        let target = {
-          x: critter.home.x + Math.cos(critter.phase) * critter.roam,
-          z: critter.home.z + Math.sin(critter.phase * 0.83) * critter.roam,
-        };
-        let pace = critter.speed * 0.7;
-        if (threat) {
-          const awayX = critter.point.x - threat.x;
-          const awayZ = critter.point.z - threat.z;
-          const awayLength = Math.max(0.001, Math.hypot(awayX, awayZ));
-          target = {
-            x: critter.point.x + (awayX / awayLength) * 3.2,
-            z: critter.point.z + (awayZ / awayLength) * 3.2,
-          };
-          pace = critter.speed * 2.8;
-        }
-        const toX = target.x - critter.point.x;
-        const toZ = target.z - critter.point.z;
-        const targetDistance = Math.max(0.001, Math.hypot(toX, toZ));
-        const step = Math.min(targetDistance, pace * dt);
-        const candidate = {
-          x: critter.point.x + (toX / targetDistance) * step,
-          z: critter.point.z + (toZ / targetDistance) * step,
-        };
-        if (isWater(candidate) || distance(candidate,critter.home)>critter.roam*2) {
-          critter.phase += Math.PI * 0.7;
-        } else {
-          critter.point = candidate;
-          if (step > 0.0001) critter.heading = Math.atan2(toX, toZ);
-        }
+        const dogDistance=distance(critter.point,dog);
+        const playerDistance=distance(critter.point,player);
+        const threat=dogDistance<6.5?dog:
+          playerDistance<3.2?player:null;
+        const next=stepCritterLocomotion(critter,dt,elapsed,threat,isWater);
+        critter.point=next.motion.point;
+        critter.heading=next.motion.heading;
+        critter.phase=next.motion.phase;
+        critter.panicUntil=next.motion.panicUntil;
+        critter.fleeFrom=next.motion.fleeFrom;
+        const step=next.step;
 
         const gaitBob =
           critter.kind === "lizard"
