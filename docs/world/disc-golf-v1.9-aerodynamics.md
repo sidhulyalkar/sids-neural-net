@@ -39,3 +39,14 @@ To calibrate properly, collect throws with known disc mass/diameter, release spe
 2. Potts & Crowther, *Frisbee Aerodynamics*, AIAA 2002-3150. DOI [10.2514/6.2002-3150](https://doi.org/10.2514/6.2002-3150).
 3. Kamaruddin, Potts & Crowther, *Aerodynamic performance of flying discs*, Aircraft Engineering and Aerospace Technology (2018). DOI [10.1108/AEAT-09-2016-0143](https://doi.org/10.1108/AEAT-09-2016-0143).
 4. *Disc golf trajectory modelling combining computational fluid dynamics and rigid body dynamics*, Sports Engineering (2022). [DOI 10.1007/s12283-022-00390-5](https://doi.org/10.1007/s12283-022-00390-5).
+
+
+## v1.10: disc-first camera, followed by Shasta
+
+The shot is the hero, not the dog animation. On an accepted release, cancel any old fetch sequence and show the **actual flying disc**, following its live velocity with an elevated tracking camera on drives. Close putts retain a broad, stable third-person view that keeps the entire short throw visible. The camera and flight use the same renderer state; there is no prerecorded shot reconstruction.
+
+When the disc reaches a valid lie or chains, leave the camera on the landing point for **0.85 seconds** to establish the result. Shasta is deliberately held at his existing position during the entire flight *and* landing reveal; never target the relocated player, which teleports to the lie as part of the existing controls. After the hold, let Shasta accelerate toward the fixed target using the existing obstacle-aware, water-avoiding terrain-following dog locomotion. Show his initial run for **0.95 seconds** from a higher trailing shot before blending to his **dog-eye camera**. This POV uses his actual interpolated world position, low to the terrain, pointed toward the discovered disc, and stays through his brief find/sniff (1.65 seconds). Return smoothly to player-controlled third-person framing afterward. No extra HUD prose.
+
+The finite states are **idle → flight → landed → chase → found → idle**. A splash, cancellation, exit, new hole, or new throw clears the previous shot story. An unreachable disc times out after 14 seconds of chase. The score, gates, physics, and player's lie never depend on the camera or fetch phases. `prefers-reduced-motion` disables the automatic cinematic transitions and fast flight-follow framing.
+
+Browser acceptance: on Hole 1, capture disc-flight, landing-reveal, Shasta run-up and Shasta POV frames with `scripts/playtest-disc-golf.mjs`; check the on-canvas diagnostic `data-disc-golf-cinematic-stage`. Verify short putting, mountain shots, steep slopes, water retries, rethrows during a chase, Shasta unable to reach the lie, fast hole switching, and normal follow behavior after exit. Screenshots must be inspected manually before claiming visual signoff. Do not let Shasta's viewpoint tunnel through terrain or abruptly snap between phases.
