@@ -46,7 +46,10 @@ export function stepDiscGolfFetch(
    {...state,phase:"chase",target}:{...state,target};
  if(now-state.landedAt>DISC_FETCH_CHASE_TIMEOUT)
   return idleDiscGolfFetch();
- if(Math.hypot(dog.x-target.x,dog.z-target.z)<1.85)
+ // The dog may already be next to a short putt. Preserve the visible
+ // chase/POV beat before the "found" phase even in that edge case.
+ if(now-state.landedAt-DISC_FETCH_LANDING_HOLD>=DISC_FETCH_POV_DELAY &&
+    Math.hypot(dog.x-target.x,dog.z-target.z)<1.85)
   return {...state,phase:"found",foundAt:now,target};
  return {...state,target};
 }
@@ -63,4 +66,17 @@ export function discGolfFetchCameraPhase(
    "shasta":"chase";
  if(state.phase==="found")return "shasta";
  return "off";
+}
+
+/** Presentation and physical lie are deliberately separate. The player may
+ * move to the new lie only after the final find animation (or safe timeout).
+ * A holed disc lives at the chains, not at the previous throwing lie.
+ * A canceled shot, splash, exit or start of a new hole must not hand off. */
+export function discGolfHandoffTarget(
+ previous:DiscGolfFetch,next:DiscGolfFetch,game:DiscGolfState,
+):Point|null{
+ if(previous.phase==="idle"||next.phase!=="idle"||
+   (game.phase!=="landed"&&game.phase!=="holed"))return null;
+ return game.phase==="holed"
+  ?{x:game.disc.x,z:game.disc.z}:{...game.lie};
 }
