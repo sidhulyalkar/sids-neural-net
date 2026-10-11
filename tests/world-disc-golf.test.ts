@@ -4,7 +4,7 @@ import * as THREE from "three/src/Three.Core.js";
 import {
  DISC_GOLF_HOLES,DISC_GOLF_VERSION,discGolfBasketPosition,discGolfWind,
  startDiscGolf,idleDiscGolf,discGolfThrow,stepDiscGolf,discGolfScoreName,
- discGolfRemaining,
+ discGolfRemaining,discGolfTreeContact,traceDiscGolfShot,
 } from "../lib/world/discGolf";
 import { terrainHeight,isWater } from "../lib/world/model";
 import { createDiscGolfGeometry } from "../components/world/worldDiscGolfGeometry";
@@ -109,8 +109,8 @@ test("moving chains catch discs in the target zone and scoring is explicit",()=>
 });
 test("active chain basket, disc and landing beacon render efficiently and dispose",()=>{
  const scene=new THREE.Scene(),v=createDiscGolfGeometry(scene);
- assert.ok(v.drawCalls<=9);
- assert.equal(scene.children.length,3);
+ assert.ok(v.drawCalls<=10);
+ assert.equal(scene.children.length,5);
  let s=startDiscGolf(0,ground);
  v.update(s);
  assert.ok(scene.children[0].visible);
@@ -121,7 +121,69 @@ test("active chain basket, disc and landing beacon render efficiently and dispos
  assert.ok(scene.children[2].visible,"beam from the landed disc");
  assert.equal(scene.children[2].position.x,lie.x);
  v.update(idleDiscGolf());
+ v.updatePreview(idleDiscGolf(),null,[]);
  assert.ok(scene.children.every(o=>!o.visible));
  v.dispose();
  assert.equal(scene.children.length,0);
+});
+
+test("swept tree-trunk contact checks real height as well as horizontal crossing",()=>{
+ const obstacle={x:1.5,z:0,radius:.28,height:6};
+ const from={x:0,y:2,z:0},to={x:3,y:2,z:0};
+ const hit=discGolfTreeContact(from,to,obstacle,()=>0);
+ assert.ok(hit && hit.x>0 && hit.x<1.5);
+ assert.equal(discGolfTreeContact({...from,y:8},{...to,y:8},obstacle,()=>0),null,
+   "discs clearing the canopy corridor must not collide with infinite columns");
+ assert.equal(discGolfTreeContact(from,{x:0,y:2,z:4},obstacle,()=>0),null);
+});
+test("a disc striking a tree earns a ground lie, not a free water redo",()=>{
+ const first=discGolfThrow(startDiscGolf(0,ground,0),
+   {power:72,accuracy:0,loft:19,aimOffset:0},ground);
+ let probe=first;
+ for(let n=0;n<8;n++)probe=stepDiscGolf(probe,.05,ground,isWater,-1.4);
+ const obstacle={x:probe.disc.x,z:probe.disc.z,radius:.65,height:12};
+ let shot=first;
+ for(let n=0;n<100&&shot.phase==="flying";n++)
+   shot=stepDiscGolf(shot,.05,ground,isWater,-1.4,[obstacle]);
+ assert.equal(shot.phase,"landed",JSON.stringify(shot));
+ assert.match(shot.reason??"","Tree contact");
+ assert.equal(shot.strokes,1);
+ assert.equal(shot.waterRedos,0);
+ assert.ok(Math.abs(shot.disc.y-ground(shot.lie)-.16)<.001);
+ const followUp=discGolfThrow(shot,{power:30,accuracy:0,loft:22,aimOffset:0},ground);
+ assert.equal(followUp.strokes,2);
+});
+test("the ideal throw preview and actual flight use identical simulation",()=>{
+ const init=startDiscGolf(1,ground,3.8);
+ const preview=traceDiscGolfShot(init,ordinary,ground,isWater,-1.4);
+ assert.ok(preview.points.length>6&&preview.points.length<=91);
+ let actual=discGolfThrow(init,ordinary,ground);
+ for(let i=0;i<90&&actual.phase==="flying";i++)
+   actual=stepDiscGolf(actual,.10,ground,isWater,-1.4);
+ assert.equal(preview.outcome,actual.phase);
+ if(actual.phase!=="water"){
+  assert.ok(Math.hypot(preview.end.x-actual.disc.x,preview.end.z-actual.disc.z)<1e-7);
+  assert.ok(Math.abs(preview.end.y-actual.disc.y)<1e-7);
+ }
+ const scene=new THREE.Scene(),visual=createDiscGolfGeometry(scene);
+ visual.update(init);
+ visual.updatePreview(init,ordinary,[]);
+ assert.ok(scene.children[3].visible,"preview is one line, not a field of meshes");
+ const guide=scene.children[3] as THREE.Line;
+ assert.ok(guide.geometry.drawRange.count>6);
+ assert.ok(guide.geometry.drawRange.count<=96);
+ visual.updatePreview(init,null,[]);
+ assert.ok(!guide.visible);
+ visual.dispose();
+});
+test("a water reset never creates a false drawn segment back to the tee",()=>{
+ const flat=()=>0;
+ const begin=startDiscGolf(0,flat,0);
+ const shot={power:100,loft:11,accuracy:0,aimOffset:0};
+ const preview=traceDiscGolfShot(begin,shot,flat,p=>p.x<begin.lie.x-.9,-1.4);
+ if(preview.outcome==="water"){
+  assert.ok(preview.points.length>=2);
+  const last=preview.points.at(-1)!;
+  assert.ok(Math.hypot(last.x-begin.lie.x,last.z-begin.lie.z)>.05);
+ }
 });

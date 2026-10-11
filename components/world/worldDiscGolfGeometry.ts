@@ -1,6 +1,9 @@
 import * as THREE from "three/src/Three.Core.js";
-import {DISC_GOLF_HOLES,discGolfBasketPosition,type DiscGolfState} from "@/lib/world/discGolf";
-import {terrainHeight} from "@/lib/world/model";
+import {
+ DISC_GOLF_HOLES,discGolfBasketPosition,traceDiscGolfShot,
+ type DiscGolfState,type DiscShot,type DiscGolfObstacle,
+} from "@/lib/world/discGolf";
+import {terrainHeight,isWater,SEA_SURFACE} from "@/lib/world/model";
 
 /** One active target and one disc. No imported models or shader/postprocessing.
  * Chains are one instanced mesh; beacon is visible only at a valid land lie. */
@@ -38,6 +41,40 @@ export function createDiscGolfGeometry(scene:THREE.Scene){
  const body=new THREE.Mesh(discGeo,plastic);disc.add(body);
  const discRim=new THREE.Mesh(rimGeo,gold);discRim.rotation.x=Math.PI/2;disc.add(discRim);
  const beacon=new THREE.Mesh(beamGeo,glow);beacon.visible=false;scene.add(beacon);
+ const pathGeometry=new THREE.BufferGeometry();
+ const pathBuffer=new Float32Array(96*3);
+ pathGeometry.setAttribute("position",new THREE.BufferAttribute(pathBuffer,3).setUsage(THREE.DynamicDrawUsage));
+ pathGeometry.setDrawRange(0,0);
+ const guideMat=new THREE.LineBasicMaterial({color:"#f1d9a0",transparent:true,
+   opacity:.52,depthWrite:false});
+ const guide=new THREE.Line(pathGeometry,guideMat);
+ guide.name="disc-golf-estimated-flight";guide.frustumCulled=false;
+ guide.visible=false;scene.add(guide);
+ const ringMat=new THREE.MeshBasicMaterial({color:"#e7c987",
+  transparent:true,opacity:.55,depthWrite:false,side:THREE.DoubleSide});
+ const ring=new THREE.Mesh(ringGeo,ringMat);
+ ring.name="disc-golf-estimated-landing";ring.rotation.x=Math.PI/2;
+ ring.visible=false;scene.add(ring);
+ const updatePreview=(state:DiscGolfState,shot:DiscShot|null,
+   obstacles:readonly DiscGolfObstacle[])=>{
+   const allowed=state.phase==="ready"||state.phase==="landed"||state.phase==="water";
+   if(!shot||!allowed){guide.visible=ring.visible=false;return;}
+   const trace=traceDiscGolfShot(state,{...shot,accuracy:0},
+     p=>terrainHeight(p.x,p.z),isWater,SEA_SURFACE,obstacles);
+   const count=Math.min(trace.points.length,96);
+   for(let i=0;i<count;i++){
+     const p=trace.points[i];
+     pathBuffer[3*i]=p.x;pathBuffer[3*i+1]=p.y+.08;pathBuffer[3*i+2]=p.z;
+   }
+   pathGeometry.attributes.position.needsUpdate=true;
+   pathGeometry.setDrawRange(0,count);
+   guide.visible=count>1;
+   ring.visible=trace.outcome==="landed";
+   if(ring.visible){
+     ring.position.set(trace.end.x,terrainHeight(trace.end.x,trace.end.z)+.11,trace.end.z);
+     ring.scale.setScalar(.72);
+   }
+ };
  beacon.name="disc-golf-lie-light";
  const update=(game:DiscGolfState)=>{
   const active=game.phase!=="off";
@@ -46,6 +83,10 @@ export function createDiscGolfGeometry(scene:THREE.Scene){
   if(!active)return;
   const basket=discGolfBasketPosition(DISC_GOLF_HOLES[game.holeIndex],game.clock);
   root.position.set(basket.x,terrainHeight(basket.x,basket.z),basket.z);
+  const t=game.phase==="holed"&&game.resultAt!==undefined?
+    Math.max(0,game.clock-game.resultAt):Infinity;
+  chains.rotation.z=Number.isFinite(t)?Math.sin(t*20)*Math.exp(-t*3)*.16:0;
+  chains.rotation.x=Number.isFinite(t)?Math.cos(t*17)*Math.exp(-t*3)*.08:0;
   disc.position.set(game.disc.x,game.disc.y,game.disc.z);
   disc.rotation.z=game.phase==="flying"
     ?Math.sin(game.flightTime*14)*.13:0;
@@ -57,10 +98,11 @@ export function createDiscGolfGeometry(scene:THREE.Scene){
  update({phase:"off",holeIndex:0,lie:{x:0,z:0},disc:{x:0,y:0,z:0},
   velocity:{x:0,y:0,z:0},strokes:0,waterRedos:0,flightTime:0,clock:0,
   lockedWind:{x:0,z:0,speed:0},lastDistance:0,spin:0});
- return {update,dispose(){
-  scene.remove(root,disc,beacon);
+ return {update,updatePreview,dispose(){
+  scene.remove(root,disc,beacon,guide,ring);
+  pathGeometry.dispose();guideMat.dispose();ringMat.dispose();
   poleGeo.dispose();chainGeo.dispose();ringGeo.dispose();coneGeo.dispose();
   discGeo.dispose();rimGeo.dispose();beamGeo.dispose();
   chains.dispose();materials.forEach(m=>m.dispose());
- },drawCalls:8};
+ },drawCalls:10};
 }

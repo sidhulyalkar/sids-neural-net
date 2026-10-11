@@ -7,12 +7,13 @@ import {
 import styles from "./world.module.css";
 
 type Stage=DiscGolfSwingStage;
-export function WorldDiscGolfHUD({game,onShot,onChangeHole,onExit,onStage}:{
+export function WorldDiscGolfHUD({game,onShot,onChangeHole,onExit,onStage,onPreview}:{
  game:DiscGolfState;
  onShot:(shot:DiscShot)=>void;
  onChangeHole:(hole:number)=>void;
  onExit:()=>void;
  onStage:(stage:DiscGolfSwingStage)=>void;
+ onPreview:(shot:DiscShot|null)=>void;
 }){
  const hole=DISC_GOLF_HOLES[game.holeIndex];
  const [stage,setStage]=useState<Stage>("idle");
@@ -21,6 +22,7 @@ export function WorldDiscGolfHUD({game,onShot,onChangeHole,onExit,onStage}:{
  const [loft,setLoft]=useState(22);
  const [aim,setAim]=useState(0);
  const started=useRef(0);
+ const previewPowerBucket=useRef(-1);
  useEffect(()=>{
   if(stage!=="power"&&stage!=="accuracy")return;
   let raf=0;
@@ -29,21 +31,31 @@ export function WorldDiscGolfHUD({game,onShot,onChangeHole,onExit,onStage}:{
    const cycle=((now-started.current)%period)/period;
    const t=cycle<.5?cycle*2:(1-cycle)*2;
    setCursor(t);
+   if(stage==="power"){
+     const bucket=Math.round(t*10);
+     if(bucket!==previewPowerBucket.current){
+       previewPowerBucket.current=bucket;
+       onPreview({power:Math.max(8,bucket*10),accuracy:0,loft,aimOffset:aim});
+     }
+   }
    raf=requestAnimationFrame(run);
   };
   raf=requestAnimationFrame(run);
   return ()=>cancelAnimationFrame(raf);
- },[stage]);
+ },[stage,onPreview,loft,aim]);
  const act=()=>{
   if(game.phase==="flying"||game.phase==="holed"||stage==="released")return;
   if(stage==="idle"){
    started.current=performance.now();setCursor(0);setStage("power");onStage("power");
   }else if(stage==="power"){
-   setPower(Math.max(8,Math.round(cursor*100)));
+   const chosen=Math.max(8,Math.round(cursor*100));
+   setPower(chosen);
+   onPreview({power:chosen,accuracy:0,loft,aimOffset:aim});
    started.current=performance.now();setCursor(0);setStage("accuracy");onStage("accuracy");
   }else{
    const accuracy=(cursor-.5)*2;
    setStage("released");onStage("released");
+   onPreview(null);
    onShot({power,accuracy,loft,aimOffset:aim});
   }
  };
@@ -84,11 +96,19 @@ export function WorldDiscGolfHUD({game,onShot,onChangeHole,onExit,onStage}:{
      <div className={styles.discGolfControlRow}>
       <label>Throw angle <strong>{loft}°</strong>
        <input type="range" min="6" max="42" step="1" value={loft}
-        disabled={disabled||stage==="released"} onChange={e=>setLoft(Number(e.target.value))}/>
+        disabled={disabled||stage==="released"} onChange={e=>{
+          const value=Number(e.target.value);setLoft(value);
+          onPreview({power:stage==="power"?Math.max(8,Math.round(cursor*100)):power,
+            accuracy:0,loft:value,aimOffset:aim});
+        }}/>
       </label>
       <label>Aim offset <strong>{aim>0?"+":""}{aim}°</strong>
        <input type="range" min="-55" max="55" step="1" value={aim}
-        disabled={disabled||stage==="released"} onChange={e=>setAim(Number(e.target.value))}/>
+        disabled={disabled||stage==="released"} onChange={e=>{
+          const value=Number(e.target.value);setAim(value);
+          onPreview({power:stage==="power"?Math.max(8,Math.round(cursor*100)):power,
+            accuracy:0,loft,aimOffset:value});
+        }}/>
       </label>
      </div>
      <div className={styles.discGolfMeters} aria-label="Two-phase throw timing meters">
@@ -113,7 +133,7 @@ export function WorldDiscGolfHUD({game,onShot,onChangeHole,onExit,onStage}:{
      </div>
      <button className={styles.discGolfMainButton} disabled={disabled||stage==="released"}
        type="button" onClick={act}>{buttonLabel}</button>
-     <span className={styles.discGolfHint}>Three taps: pull back → power → release. Wind shifts your throw; the basket moves while it flies.</span>
+     <span className={styles.discGolfHint}>The faint trajectory shows an ideal centered release at the current wind. The basket keeps moving, so the landing is an estimate. Three taps: pull back → power → release.</span>
     </>
    )}
    <div className={styles.discGolfHoles} role="group" aria-label="Choose course">

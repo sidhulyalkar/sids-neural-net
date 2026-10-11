@@ -87,6 +87,7 @@ type State = {
   discGolfHoleIndex:number;
   discGolfShotSerial:number;
   discGolfShot:DiscShot|null;
+  discGolfPreview:DiscShot|null;
   discGolfExitSerial:number;
   discGolfSwingStage:DiscGolfSwingStage;
   waterAction: "dive" | "deeper" | "shallower" | "surface";
@@ -2384,6 +2385,7 @@ export function createWorld(
     discGolfHoleIndex:0,
     discGolfShotSerial:0,
     discGolfShot:null,
+    discGolfPreview:null,
     discGolfExitSerial:0,
     discGolfSwingStage:"idle",
     waterAction: "dive",
@@ -2409,6 +2411,8 @@ export function createWorld(
   let bigAir:BigAirState=idleBigAir();
   let discGolf:DiscGolfState=idleDiscGolf();
   let lastDiscStart=0,lastDiscShot=0,lastDiscExit=0,lastDiscUpdate=0;
+  let lastDiscPreview:DiscShot|null=null,lastPreviewTick=-Infinity;
+  let lastDiscPreviewPhase=discGolf.phase;
   let trial:TrialState={phase:"idle",nextGate:0,elapsedMs:0,splitsMs:[]};
   let aquatic: AquaticMode = "land", swimDepth = 0, targetDepth = 0;
   let climb: { from: Point; to: Point; fromY: number; toY: number; progress: number } | null = null;
@@ -2759,7 +2763,8 @@ export function createWorld(
       const previousY = playerY;
       if (discGolf.phase!=="off") {
         const previous=discGolf.phase;
-        discGolf=stepDiscGolf(discGolf,dt,p=>terrainHeight(p.x,p.z),isWater,SEA_SURFACE);
+        discGolf=stepDiscGolf(discGolf,dt,p=>terrainHeight(p.x,p.z),
+          isWater,SEA_SURFACE,obstacles);
         if(discGolf.phase!==previous){
           if(discGolf.phase==="landed"||discGolf.phase==="holed"){
             // The next lie is an actual terrain location, not a menu-only target.
@@ -4145,6 +4150,17 @@ export function createWorld(
     const reducedFlightMotion=window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     marineSchools.update(elapsed,reducedFlightMotion);
     discGolfObjects.update(discGolf);
+    // Bound prediction to ~2 Hz while a disc is being aimed. The preview
+    // runs the same solver as the throw, but intentionally assumes a
+    // centered release; actual late/early timing changes its trajectory.
+    if(state.discGolfPreview!==lastDiscPreview ||
+      discGolf.phase!==lastDiscPreviewPhase ||
+      discGolf.clock-lastPreviewTick>.6){
+      discGolfObjects.updatePreview(discGolf,state.discGolfPreview,obstacles);
+      lastDiscPreview=state.discGolfPreview;
+      lastDiscPreviewPhase=discGolf.phase;
+      lastPreviewTick=discGolf.clock;
+    }
     flyingBirds.update(bigAir,elapsed,reducedFlightMotion);
     habitats.update(player);
     if(aquatic === "land" && scene.fog instanceof THREE.Fog) {

@@ -94,19 +94,30 @@ export function WorldHome({ content }: { content: WorldContent }) {
   const [challengeSerial,setChallengeSerial]=useState(0);
   const [bigAirSerial,setBigAirSerial]=useState(0);
   const [discGolf,setDiscGolf]=useState<DiscGolfState>(idleDiscGolf);
+  const [discPreviewShot,setDiscPreviewShot]=useState<DiscShot|null>(null);
+  const onDiscPreview=useCallback((shot:DiscShot|null)=>setDiscPreviewShot(shot),[]);
   const [discGolfStage,setDiscGolfStage]=useState<DiscGolfSwingStage>("idle");
   const [discGolfStartSerial,setDiscGolfStartSerial]=useState(0);
   const [discGolfHoleIndex,setDiscGolfHoleIndex]=useState(0);
   const [discGolfShotSerial,setDiscGolfShotSerial]=useState(0);
   const [discGolfShot,setDiscGolfShot]=useState<DiscShot|null>(null);
   const [discGolfExitSerial,setDiscGolfExitSerial]=useState(0);
+  const lastDiscGolfPhase=useRef<DiscGolfState["phase"]>("off");
   const onDiscGolf=useCallback((g:DiscGolfState)=>{
     setDiscGolf(g);
+    const changed=g.phase!==lastDiscGolfPhase.current;
+    lastDiscGolfPhase.current=g.phase;
+    if(!changed)return;
     if(g.phase==="landed"||g.phase==="water"||g.phase==="holed"||g.phase==="off")
       setDiscGolfStage("idle");
-  },[setDiscGolf,setDiscGolfStage]);
+    if(g.phase==="landed"||g.phase==="water"||g.phase==="ready")
+      setDiscPreviewShot({power:65,accuracy:0,loft:22,aimOffset:0});
+    if(g.phase==="off"||g.phase==="flying"||g.phase==="holed")
+      setDiscPreviewShot(null);
+  },[setDiscGolf,setDiscGolfStage,setDiscPreviewShot]);
   const startDiscHole=(index:number)=>{
     setDiscGolfStage("idle");setDiscGolfHoleIndex(index);
+    setDiscPreviewShot({power:65,accuracy:0,loft:22,aimOffset:0});
     setBigAir(idleBigAir());
     setTrial({phase:"idle",nextGate:0,elapsedMs:0,splitsMs:[]});
     setActivity("run");
@@ -118,6 +129,7 @@ export function WorldHome({ content }: { content: WorldContent }) {
   };
   const exitDiscGolf=()=>{
     setDiscGolfStage("idle");setDiscGolf(idleDiscGolf());
+    setDiscPreviewShot(null);
     setDiscGolfExitSerial(n=>n+1);
   };
   const [bigAir,setBigAir]=useState<BigAirState>(idleBigAir);
@@ -358,6 +370,7 @@ export function WorldHome({ content }: { content: WorldContent }) {
             discGolfHoleIndex={discGolfHoleIndex}
             discGolfShotSerial={discGolfShotSerial}
             discGolfShot={discGolfShot}
+            discGolfPreview={discPreviewShot}
             discGolfExitSerial={discGolfExitSerial}
             discGolfSwingStage={discGolfStage}
             waterAction={waterAction}
@@ -468,6 +481,7 @@ export function WorldHome({ content }: { content: WorldContent }) {
               onChangeHole={startDiscHole}
               onExit={exitDiscGolf}
               onStage={setDiscGolfStage}
+              onPreview={onDiscPreview}
             />
           )}
           {(trial.phase==="armed"||trial.phase==="running"||

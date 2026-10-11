@@ -19,6 +19,7 @@ type Props = {
   discGolfHoleIndex:number;
   discGolfShotSerial:number;
   discGolfShot:DiscShot|null;
+  discGolfPreview:DiscShot|null;
   discGolfExitSerial:number;
   discGolfSwingStage:DiscGolfSwingStage;
   waterAction: "dive" | "deeper" | "shallower" | "surface";

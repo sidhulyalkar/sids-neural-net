@@ -22,7 +22,7 @@ export const DISC_GOLF_HOLES:readonly DiscGolfHole[]=[
 ];
 export const DISC_GOLF_VERSION="disc-golf-island-v1";
 const clamp=(n:number,a:number,b:number)=>Math.max(a,Math.min(b,n));
-const length=(p:Point)=>Math.hypot(p.x,p.z);
+// Used by game and flight-preview sampling; pure world units.
 export type DiscWind=Point & {speed:number};
 export function discGolfBasketPosition(hole:DiscGolfHole,t:number):Point{
  const u=Math.max(0,t)*2*Math.PI/hole.period;
@@ -45,7 +45,7 @@ export type DiscGolfState={
  phase:DiscGolfPhase;holeIndex:number;lie:Point; disc:DiscPoint;
  velocity:{x:number;y:number;z:number};strokes:number;waterRedos:number;
  flightTime:number;clock:number;lockedWind:DiscWind;
- lastDistance:number;reason?:string;spin:number;
+ lastDistance:number;reason?:string;spin:number;resultAt?:number;
 };
 export type DiscTerrain=(p:Point)=>number;
 export function startDiscGolf(index:number,ground:DiscTerrain,clock=0):DiscGolfState{
@@ -63,6 +63,7 @@ export const idleDiscGolf=():DiscGolfState=>({
 });
 export function discGolfThrow(state:DiscGolfState,shot:DiscShot,ground:DiscTerrain):DiscGolfState{
  if(!["ready","landed","water"].includes(state.phase))return state;
+ if(![shot.power,shot.accuracy,shot.loft,shot.aimOffset].every(Number.isFinite))return state;
  const power=clamp(shot.power,0,100)/100;
  const accuracy=clamp(shot.accuracy,-1,1);
  const loft=clamp(shot.loft,6,42)*Math.PI/180;
@@ -77,10 +78,30 @@ export function discGolfThrow(state:DiscGolfState,shot:DiscShot,ground:DiscTerra
   velocity:{x:Math.sin(aim)*Math.cos(loft)*speed,
     y:Math.sin(loft)*speed,z:Math.cos(aim)*Math.cos(loft)*speed},
   lockedWind:discGolfWind(state.holeIndex,state.clock),
-  strokes:state.strokes+1,flightTime:0,lastDistance:0,spin:accuracy};
+  strokes:state.strokes+1,flightTime:0,lastDistance:0,spin:accuracy,resultAt:undefined};
+}
+/** Cylindrical trunk intersection swept from previous to next disc center.
+ * A small radius allowance represents the disc itself, not imaginary foliage. */
+export type DiscGolfObstacle=Point & {radius:number;height?:number};
+export function discGolfTreeContact(from:DiscPoint,to:DiscPoint,
+ obstacle:DiscGolfObstacle,ground:DiscTerrain):DiscPoint|null{
+ const r=Math.max(0,obstacle.radius)+.24;
+ const dx=to.x-from.x,dz=to.z-from.z;
+ const ox=from.x-obstacle.x,oz=from.z-obstacle.z;
+ const aa=dx*dx+dz*dz;
+ if(aa<1e-12)return null;
+ const bb=2*(ox*dx+oz*dz),cc=ox*ox+oz*oz-r*r;
+ const disc=bb*bb-4*aa*cc;
+ if(disc<0)return null;
+ const t=Math.max(0,(-bb-Math.sqrt(disc))/(2*aa));
+ if(t>1)return null;
+ const y=from.y+(to.y-from.y)*t,base=ground(obstacle);
+ if(y<base+.17||y>base+(obstacle.height??9))return null;
+ return {x:from.x+dx*t,y,z:from.z+dz*t};
 }
 export function stepDiscGolf(state:DiscGolfState,dt:number,
- ground:DiscTerrain,isWater:(p:Point)=>boolean,seaSurface:number):DiscGolfState{
+ ground:DiscTerrain,isWater:(p:Point)=>boolean,seaSurface:number,
+ obstacles:readonly DiscGolfObstacle[]=[]):DiscGolfState{
  if(!Number.isFinite(dt)||dt<0)return state;
  if(state.phase!=="flying")return {...state,clock:state.clock+Math.min(dt,.12)};
  let s={...state,velocity:{...state.velocity},disc:{...state.disc}};
@@ -107,14 +128,35 @@ export function stepDiscGolf(state:DiscGolfState,dt:number,
   if(atBasket){
    s.phase="holed";s.disc={...basket,y:cupY};
    s.lastDistance=Math.hypot(basket.x-state.lie.x,basket.z-state.lie.z);
-   s.reason="Chains caught the disc";
+   s.reason="Chains caught the disc";s.resultAt=s.clock;
    break;
   }
   if(isWater(p) && next.y<=seaSurface+.09){
    // User-requested water redo: do not count this throw, preserve last lie.
    s.phase="water";s.strokes=Math.max(0,s.strokes-1);s.waterRedos+=1;
    s.disc={...state.lie,y:ground(state.lie)+.18};
-   s.reason="Water shot: free redo from last lie";
+   s.reason="Water shot: free redo from last lie";s.resultAt=s.clock;
+   break;
+  }
+  // Tree trunks are actual swept obstacles. A collision leaves the disc
+  // on real terrain and costs the current stroke, not a free water redo.
+  let trunkContact:DiscPoint|null=null;
+  if(s.flightTime>.10){
+   for(const trunk of obstacles){
+    if(Math.abs(p.x-trunk.x)>trunk.radius+1.3 &&
+       Math.abs(old.x-trunk.x)>trunk.radius+1.3)continue;
+    if(Math.abs(p.z-trunk.z)>trunk.radius+1.3 &&
+       Math.abs(old.z-trunk.z)>trunk.radius+1.3)continue;
+    const hit=discGolfTreeContact(old,next,trunk,ground);
+    if(hit){trunkContact=hit;break;}
+   }
+  }
+  if(trunkContact){
+   const lie={x:trunkContact.x,z:trunkContact.z};
+   s.phase="landed";s.lie=lie;s.disc={...lie,y:ground(lie)+.16};
+   s.lastDistance=Math.hypot(lie.x-state.lie.x,lie.z-state.lie.z);
+   s.reason="Tree contact. The next shot starts here.";
+   s.resultAt=s.clock;
    break;
   }
   // The island's analytic hillside height is not the sea surface.
@@ -123,17 +165,39 @@ export function stepDiscGolf(state:DiscGolfState,dt:number,
    s.phase="landed";s.disc={x:p.x,z:p.z,y:ground(p)+.16};
    s.lie={x:p.x,z:p.z};
    s.lastDistance=Math.hypot(p.x-state.lie.x,p.z-state.lie.z);
-   s.reason="Disc landed. Shoot from the light marker.";
+   s.reason="Disc landed. Shoot from the light marker.";s.resultAt=s.clock;
    break;
   }
   if(s.flightTime>=10 || Math.abs(p.x)>93 || Math.abs(p.z)>95 || p.z>57){
    s.phase="water";s.waterRedos+=1;s.strokes=Math.max(0,s.strokes-1);
    s.disc={...state.lie,y:ground(state.lie)+.18};
-   s.reason="Out of bounds: free redo";
+   s.reason="Out of bounds: free redo";s.resultAt=s.clock;
   }
  }
  return s;
 }
+/** Approximate, ideal-center-release projection, sampled by the same
+ * flight engine as gameplay. Moving target and current wind can change
+ * between preview and the actual release. No guaranteed landing claim. */
+export type DiscGolfPreview={points:readonly DiscPoint[];
+  outcome:DiscGolfPhase;end:DiscPoint};
+export function traceDiscGolfShot(state:DiscGolfState,shot:DiscShot,
+ ground:DiscTerrain,isWater:(p:Point)=>boolean,seaSurface:number,
+ obstacles:readonly DiscGolfObstacle[]=[]):DiscGolfPreview{
+ if(!["ready","landed","water"].includes(state.phase))
+   return {points:[],outcome:state.phase,end:state.disc};
+ let preview=discGolfThrow(state,shot,ground);
+ const points:DiscPoint[]=[{...preview.disc}];
+ for(let i=0;i<90&&preview.phase==="flying";i++){
+   preview=stepDiscGolf(preview,.10,ground,isWater,seaSurface,obstacles);
+   // A water redo teleports the game disc to its previous lie. The preview
+   // must never draw a fake line connecting that reset to the splash point.
+   if(preview.phase==="water")break;
+   points.push({...preview.disc});
+ }
+ return {points,outcome:preview.phase,end:{...preview.disc}};
+}
+
 export function discGolfRemaining(state:DiscGolfState):number{
  const hole=DISC_GOLF_HOLES[state.holeIndex];
  const p=discGolfBasketPosition(hole,state.clock);
