@@ -1,6 +1,8 @@
 import * as THREE from "three/src/Three.Core.js";
 import {JET_SKI_DOCK,JET_SKI_GATES,JET_SKI_START} from "@/lib/world/jetSkiRace";
 import {SEA_SURFACE} from "@/lib/world/model";
+import {jetSkiWaterSample} from "@/lib/world/jetSkiWater";
+export type JetSkiWakePoint={x:number;z:number;heading:number;speed:number;age:number;boosting:boolean};
 /** Lightweight dock and race markings, entirely independent of marine ecology. */
 export function createJetSkiDock(scene:THREE.Scene){
  const root=new THREE.Group();scene.add(root);
@@ -63,5 +65,48 @@ export function createJetSkiDock(scene:THREE.Scene){
  wake.rotation.x=-Math.PI/2;
  wake.position.y=SEA_SURFACE+.055;
  wake.visible=false;root.add(wake);
- return {root,skis,buoys,activeSki,activeHull:playerCraft.hull,opponents,wake,start:JET_SKI_START};
+ // Bounded pooled foam strips, two arms per wake sample. One draw call,
+ // rather than allocating a new mesh for every spray/foam fragment.
+ const wakeFoam=new THREE.MeshBasicMaterial({
+  color:"#eaffff",transparent:true,opacity:.66,depthWrite:false,
+  vertexColors:true,side:THREE.DoubleSide,
+ });
+ const foamGeo=new THREE.PlaneGeometry(.85,2);
+ foamGeo.rotateX(-Math.PI/2);
+ const trail=new THREE.InstancedMesh(foamGeo,wakeFoam,80);
+ trail.count=0;trail.frustumCulled=false;
+ trail.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+ trail.visible=false;root.add(trail);
+ const dummy=new THREE.Object3D();
+ const tint=new THREE.Color();
+ function updateWakeTrail(points:readonly JetSkiWakePoint[],time:number){
+  let used=0;
+  const maxAge=1.9;
+  for(const point of points){
+   const life=Math.max(0,1-point.age/maxAge);
+   if(life<=0||point.speed<2||used+2>trail.instanceMatrix.count)continue;
+   const forwardX=Math.sin(point.heading),forwardZ=Math.cos(point.heading);
+   const sideX=forwardZ,sideZ=-forwardX;
+   const separation=.45+point.age*.85;
+   const swell=jetSkiWaterSample({x:point.x,z:point.z},time).height;
+   for(const side of [-1,1]){
+    dummy.position.set(point.x+sideX*side*separation,
+     SEA_SURFACE+.09+swell,point.z+sideZ*side*separation);
+    dummy.rotation.set(0,point.heading,0);
+    const width=(point.boosting?.9:.65)*(.45+.55*life);
+    const length=(1.1+Math.min(2.6,point.speed/12))*life;
+    dummy.scale.set(width,1,Math.max(.09,length));
+    dummy.updateMatrix();
+    trail.setMatrixAt(used,dummy.matrix);
+    tint.setRGB(1,1,1).multiplyScalar(.26+.74*life);
+    trail.setColorAt(used,tint);
+    used++;
+   }
+  }
+  trail.count=used;trail.visible=used>0;
+  trail.instanceMatrix.needsUpdate=true;
+  if(trail.instanceColor)trail.instanceColor.needsUpdate=true;
+ }
+ return {root,skis,buoys,activeSki,activeHull:playerCraft.hull,
+  opponents,wake,trail,updateWakeTrail,start:JET_SKI_START};
 }
