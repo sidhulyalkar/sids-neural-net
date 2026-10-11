@@ -128,6 +128,9 @@ export function WorldHome({ content }: { content: WorldContent }) {
       setDiscPreviewShot(null);
   },[setDiscGolf,setDiscGolfStage,setDiscPreviewShot,setDiscGolfSwingAmount]);
   const startDiscHole=(index:number)=>{
+    // Start commands and throws carry separate serials. Do not carry a stale
+    // shot payload across a hole transition.
+    setDiscGolfShot(null);
     setDiscGolfScorecardOpen(false);
     setDiscGolfStage("idle");setDiscGolfSwingAmount(0);setDiscGolfHoleIndex(index);
     setDiscPreviewShot({power:65,accuracy:0,loft:22,aimOffset:0});
@@ -498,7 +501,7 @@ export function WorldHome({ content }: { content: WorldContent }) {
           )}
           {discGolf.phase!=="off" && (
             <WorldDiscGolfHUD
-              key={discGolf.holeIndex+"-"+discGolf.strokes+"-"+discGolf.phase+"-"+discGolf.waterRedos}
+              key={discGolfStartSerial+"-"+discGolf.holeIndex}
               game={discGolf}
               round={discGolfRound}
               scorecardOpen={discGolfScorecardOpen}
