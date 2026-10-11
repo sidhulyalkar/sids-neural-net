@@ -2,7 +2,9 @@ import assert from "node:assert/strict";
 import * as THREE from "three/src/Three.Core.js";
 import {createJetSkiDock} from "../components/world/worldJetSkiDock";
 import test from "node:test";
-import {isWater,WORLD_BOUNDS} from "../lib/world/model";
+import {isWater,WORLD_BOUNDS,terrainHeight} from "../lib/world/model";
+import {groundHeight,stepTravel} from "../lib/world/activities";
+import {JET_SKI_PIER,jetSkiPierHeight,nearJetSkiBoarding} from "../lib/world/jetSkiPier";
 import {JET_SKI_ARCHES,JET_SKI_ROCKS,jetSkiRockAt,jetSkiSegmentClear} from "../lib/world/jetSkiCourse";
 import {JET_SKI_JUMPS,jetSkiWaterSample} from "../lib/world/jetSkiWater";
 import {JET_SKI_START,JET_SKI_GATES,JET_SKI_PROFILES,jetSkiGateDistance,
@@ -223,4 +225,63 @@ test("race position keeps earlier finishers ahead after all competitors finish",
  const behind={...startJetSkiRace(),checkpoint:4};
  assert.equal(jetSkiRacePlace(behind,[b]),2);
  assert.equal(jetSkiRacePlace(a,[behind]),1);
+});
+
+test("pier deck is walkable across water with exactly matching support height",()=>{
+ const p=JET_SKI_PIER;
+ const dry={x:p.landX-.25,z:p.centerZ};
+ const ramp={x:p.landX+.5,z:p.centerZ};
+ const mid={x:p.rampEndX+.5,z:p.centerZ};
+ const edge={x:p.endX-.2,z:p.centerZ};
+ assert.equal(jetSkiPierHeight(dry),null);
+ assert.equal(nearJetSkiBoarding(dry),false);
+ assert.equal(jetSkiPierHeight(ramp)!==null,true);
+ assert.equal(isWater(edge),true,"pier should actually span water");
+ assert.ok(Math.abs(groundHeight(mid)-p.deckHeight)<.001);
+ assert.ok(Math.abs(groundHeight(edge)-p.deckHeight)<.001);
+ assert.equal(nearJetSkiBoarding(mid),true);
+ assert.equal(nearJetSkiBoarding(edge),true);
+ assert.equal(jetSkiPierHeight({x:edge.x,z:edge.z+p.halfWidth+1}),null);
+ assert.ok(terrainHeight(p.landX,p.centerZ)<Infinity);
+});
+
+test("walker advances across elevated pier without entering underwater locomotion",()=>{
+ const p=JET_SKI_PIER;
+ let current={point:{x:p.landX+.1,z:p.centerZ},
+  speed:0,heading:{x:1,z:0}};
+ for(let i=0;i<200&&current.point.x<p.endX-.6;i++){
+  current=stepTravel(current,{x:1,z:0},.05,"run",[],false,null,0,groundHeight);
+ }
+ assert.ok(current.point.x>p.rampEndX+1,"the deck must be accessible on foot");
+ assert.ok(jetSkiPierHeight(current.point)!==null);
+ assert.ok(groundHeight(current.point)>0);
+});
+
+test("A turns left and D turns right, including reversing safely from stuck",()=>{
+ let base=startJetSkiRace();
+ for(let i=0;i<65;i++)base=stepJetSkiRace(base,1/60,{throttle:1,steer:0},()=>true);
+ const a=stepJetSkiRace(base,.11,{throttle:1,steer:-1},()=>true);
+ const d=stepJetSkiRace(base,.11,{throttle:1,steer:1},()=>true);
+ assert.ok(a.heading<base.heading,"A should rotate bow left");
+ assert.ok(d.heading>base.heading,"D should rotate bow right");
+ let stuck={...startJetSkiRace(),speed:0,position:{x:75,z:15}};
+ for(let i=0;i<200;i++)stuck=stepJetSkiRace(stuck,1/60,
+  {throttle:-1,steer:0},()=>true);
+ assert.ok(stuck.speed< -5,"S must genuinely reverse, not just brake");
+ assert.ok(stuck.position.z<15);
+ const backA=stepJetSkiRace(stuck,.1,{throttle:-1,steer:-1},()=>true);
+ const backD=stepJetSkiRace(stuck,.1,{throttle:-1,steer:1},()=>true);
+ assert.ok(backA.heading>stuck.heading,"reversing with A pivots opposite the forward heading");
+ assert.ok(backD.heading<stuck.heading,"reversing with D pivots opposite the forward heading");
+});
+
+test("free ride ignores checkpoint progression and still moves through waves",()=>{
+ let s={...startJetSkiRace(),position:{...JET_SKI_GATES[0]}};
+ for(let i=0;i<90;i++)s=stepJetSkiRace(s,1/60,
+  {throttle:1,steer:0},()=>true,false);
+ assert.equal(s.checkpoint,0);
+ assert.equal(s.lap,0);
+ assert.equal(s.phase,"racing");
+ assert.ok(s.speed>3);
+ assert.ok(Number.isFinite(s.waterHeight));
 });
