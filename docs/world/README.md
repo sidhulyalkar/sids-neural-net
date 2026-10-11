@@ -1,8 +1,8 @@
 # Sid’s World — coastal expansion
 
-## Disc Golf v1.7: long multi-throw fairways and mandatory gates
+## Disc Golf v1.9: aerodynamic release and long multi-throw course
 
-[disc-golf-v1.7.md](disc-golf-v1.7.md) is the current implementation and QA contract. Nine significantly longer holes, including a shore-to-backside-mountain second hole, now require sequenced luminous flight gates before the chains will catch. A/D aims at the next gate, Space provides suggested or manual power, and a missed gate is recoverable. Clear launch pads, Shasta fetch, funny seeded names and the scorecard remain. Automated course, physics and visual browser checks are required; release remains pending a real browser review. Earlier v1.6 and older Disc Golf specs describe superseded short-course experiments.
+[disc-golf-v1.9-aerodynamics.md](disc-golf-v1.9-aerodynamics.md) is the current physics and calibration contract; [disc-golf-v1.7.md](disc-golf-v1.7.md) remains the mandatory-gate layout specification. Nine significantly longer holes, including a shore-to-backside-mountain second hole, now require sequenced luminous flight gates before the chains will catch. A/D aims at the next gate, Space provides suggested or manual power, and a missed gate is recoverable. Clear launch pads, Shasta fetch, funny seeded names and the scorecard remain. Automated course, physics and visual browser checks are required; release remains pending a real browser review. Earlier v1.6 and older Disc Golf specs describe superseded short-course experiments.
 
 ## World Challenges v1: technical riding, puzzles and big air
 
