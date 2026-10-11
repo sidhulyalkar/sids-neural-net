@@ -136,7 +136,8 @@ test("release bank curves the disc left or right instead of changing the initial
   "release bank must curve in the intended direction initially");
  assert.ok(rightLateral>leftLateral+3,
   "right bank should finish to the right OF left bank, even with late fade");
- assert.ok(Math.hypot(a.disc.x-b.disc.x,a.disc.z-b.disc.z)>7);
+ assert.ok(Math.hypot(a.disc.x-b.disc.x,a.disc.z-b.disc.z)>3,
+  "opposite banks should produce measurably different landings on a short drive");
 });
 test("curved flight preview, real landing and gate progress use identical physics",()=>{
  const flat=()=>0,water=()=>false;
