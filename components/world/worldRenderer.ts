@@ -3465,7 +3465,11 @@ export function createWorld(
       }else if(fetchCamera==="shasta"&&discFetch.target){
         const goal=discFetch.target;
         const dx=goal.x-dog.x,dz=goal.z-dog.z;
-        const dist=Math.hypot(dx,dz)||1,fx=dx/dist,fz=dz/dist;
+        const dist=Math.hypot(dx,dz);
+        // At the disc, preserve Shasta's heading rather than looking at an
+        // almost zero-length direction that can whip the POV around.
+        const fx=dist>1.5?dx/dist:Math.sin(dogYaw);
+        const fz=dist>1.5?dz/dist:Math.cos(dogYaw);
         // Shasta's low, forward-facing view. This is not a teleport:
         // the position comes from the same obstacle-aware dog locomotion.
         const eyeX=dog.x+fx*.45,eyeZ=dog.z+fz*.45;
