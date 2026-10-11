@@ -609,7 +609,7 @@ export function WorldHome({ content }: { content: WorldContent }) {
               <>WASD / arrows to swim <span>·</span> Q / E for depth <span>·</span> V to surface <span>·</span> M for menu</>
             )}
           </p>
-          <div className={styles.touchHelp}>
+          <div className={styles.touchHelp} style={{display:discGolf.phase==="off"?undefined:"none"}}>
             {aquatic === "land" ? "Tap ground to move · Drag to look" : "Tap water to swim · Drag to look"}
           </div>
         </>
