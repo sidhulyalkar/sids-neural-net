@@ -4,6 +4,8 @@ import {stepDiscGolfAero,DISC_GOLF_NOSE_MAX_DEGREES,
  type DiscGolfFlightStyle,type DiscGolfReleaseStyle,type AeroTelemetry,
 } from "./discGolfAerodynamics";
 export type {DiscGolfFlightStyle,DiscGolfReleaseStyle} from "./discGolfAerodynamics";
+import {stepRigidDisc,initializeRigidDisc,discRigidAngles,
+ type RigidDisc} from "./discGolfRigidBody";
 
 /** Independent, deterministic arcade disc-golf simulation.
  * No model imports: the world supplies terrain, water and simulation time.
@@ -165,6 +167,7 @@ export type DiscGolfState={
  pitchDegrees:number;rollDegrees:number;spinRpm:number;spinPhase:number;
  discStyle:DiscGolfFlightStyle;releaseStyle:DiscGolfReleaseStyle;
  aero?:AeroTelemetry;
+ rigid?:RigidDisc;
  /** Display-only handoff lock, set by the renderer, never by flight physics.
   * While true, the original avatar remains at the throwing lie until fetch. */
  presentationPending?:boolean;
@@ -214,6 +217,11 @@ export function discGolfThrow(state:DiscGolfState,shot:DiscShot,ground:DiscTerra
   spinRpm:clamp(shot.spinRpm??650,DISC_GOLF_SPIN_MIN_RPM,DISC_GOLF_SPIN_MAX_RPM),
   discStyle:shot.discStyle??"midrange",
   releaseStyle:shot.releaseStyle??"backhand",
+  rigid:initializeRigidDisc(aim,
+    loft*180/Math.PI+clamp(shot.noseAngle??0,-DISC_GOLF_NOSE_MAX_DEGREES,DISC_GOLF_NOSE_MAX_DEGREES),
+    clamp(shot.bankAngle??0,-DISC_GOLF_MAX_BANK,DISC_GOLF_MAX_BANK),
+    clamp(shot.spinRpm??650,DISC_GOLF_SPIN_MIN_RPM,DISC_GOLF_SPIN_MAX_RPM),
+    shot.releaseStyle??"backhand",shot.discStyle??"midrange"),
   spinPhase:0,aero:undefined,resultAt:undefined};
 }
 /** Cylindrical trunk intersection swept from previous to next disc center.
@@ -245,19 +253,24 @@ export function stepDiscGolf(state:DiscGolfState,dt:number,
  while(left>1e-7&&s.phase==="flying"){
   const d=Math.min(.0125,left);left-=d;s.clock+=d;s.flightTime+=d;
   const old={...s.disc};
-  // Air-relative lift/drag and aerodynamic torque induced precession.
-  // Preview, recommendations and live physics all use the same substeps.
-  const evolved=stepDiscGolfAero({
-   velocity:s.velocity,pitchDegrees:s.pitchDegrees,
-   rollDegrees:s.rollDegrees,spinRpm:s.spinRpm,
-   discStyle:s.discStyle,releaseStyle:s.releaseStyle,
-  },s.lockedWind,d);
-  s.velocity=evolved.state.velocity;
-  s.rollDegrees=evolved.state.rollDegrees;
-  const sense=s.releaseStyle==="forehand"?-1:1;
-  s.spinPhase+=sense*.5*(s.spinRpm+evolved.state.spinRpm)*Math.PI/30*d;
-  s.spinRpm=evolved.state.spinRpm;
-  s.aero=evolved.telemetry;
+  // Six-DOF translational/rotational rigid-body integration. The same
+  // integrator advances live shots, trajectory previews and power search.
+  if(s.rigid){
+   const evolved=stepRigidDisc({
+     velocity:s.velocity,rigid:s.rigid,spinRpm:s.spinRpm,
+     discStyle:s.discStyle,releaseStyle:s.releaseStyle,
+   },{...s.lockedWind,y:0},d);
+   s.velocity=evolved.state.velocity;
+   s.rigid=evolved.state.rigid;
+   const heading=Math.atan2(s.velocity.x,s.velocity.z);
+   const angles=discRigidAngles(s.rigid,heading);
+   s.rollDegrees=angles.rollDegrees;
+   s.pitchDegrees=angles.pitchDegrees;
+   const sense=s.releaseStyle==="forehand"?-1:1;
+   s.spinPhase+=sense*.5*(s.spinRpm+evolved.state.spinRpm)*Math.PI/30*d;
+   s.spinRpm=evolved.state.spinRpm;
+   s.aero=evolved.telemetry;
+  }
   const horizontal=Math.hypot(s.velocity.x,s.velocity.z);
   const next={x:old.x+s.velocity.x*d,y:old.y+s.velocity.y*d,
    z:old.z+s.velocity.z*d};
