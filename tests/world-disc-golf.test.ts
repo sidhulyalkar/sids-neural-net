@@ -149,6 +149,8 @@ test("a disc striking a tree earns a ground lie, not a free water redo",()=>{
  assert.match(shot.reason??"",/Tree contact/);
  assert.equal(shot.strokes,1);
  assert.equal(shot.waterRedos,0);
+ assert.ok(Math.hypot(shot.lie.x-obstacle.x,shot.lie.z-obstacle.z)>=obstacle.radius+.60,
+   "a landed shot must leave space for the explorer's walking collider");
  assert.ok(Math.abs(shot.disc.y-ground(shot.lie)-.16)<.001);
  const followUp=discGolfThrow(shot,{power:30,accuracy:0,loft:22,aimOffset:0},ground);
  assert.equal(followUp.strokes,2);

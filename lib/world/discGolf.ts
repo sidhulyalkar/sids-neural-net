@@ -141,6 +141,7 @@ export function stepDiscGolf(state:DiscGolfState,dt:number,
   // Tree trunks are actual swept obstacles. A collision leaves the disc
   // on real terrain and costs the current stroke, not a free water redo.
   let trunkContact:DiscPoint|null=null;
+  let trunkObstacle:DiscGolfObstacle|null=null;
   if(s.flightTime>.10){
    for(const trunk of obstacles){
     if(Math.abs(p.x-trunk.x)>trunk.radius+1.3 &&
@@ -148,11 +149,18 @@ export function stepDiscGolf(state:DiscGolfState,dt:number,
     if(Math.abs(p.z-trunk.z)>trunk.radius+1.3 &&
        Math.abs(old.z-trunk.z)>trunk.radius+1.3)continue;
     const hit=discGolfTreeContact(old,next,trunk,ground);
-    if(hit){trunkContact=hit;break;}
+    if(hit){trunkContact=hit;trunkObstacle=trunk;break;}
    }
   }
-  if(trunkContact){
-   const lie={x:trunkContact.x,z:trunkContact.z};
+  if(trunkContact && trunkObstacle){
+   // The disc collides at its own small radius, but the explorer occupies
+   // a larger walking capsule (obstacle.radius + 0.45). Place the next
+   // throwing lie just outside that capsule with modest clearance.
+   const vx=trunkContact.x-trunkObstacle.x;
+   const vz=trunkContact.z-trunkObstacle.z;
+   const len=Math.hypot(vx,vz)||1;
+   const away=trunkObstacle.radius+.62;
+   const lie={x:trunkObstacle.x+vx/len*away,z:trunkObstacle.z+vz/len*away};
    s.phase="landed";s.lie=lie;s.disc={...lie,y:ground(lie)+.16};
    s.lastDistance=Math.hypot(lie.x-state.lie.x,lie.z-state.lie.z);
    s.reason="Tree contact. The next shot starts here.";
