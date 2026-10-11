@@ -19,6 +19,7 @@ on:
       - 'components/world/**'
       - 'tests/world-*.test.ts'
       - 'scripts/audit-island.ts'
+      - 'scripts/audit-disc-golf.ts'
       - 'scripts/audit-desert-gaps.ts'
       - 'scripts/audit-ski-flight.ts'
       - 'scripts/playtest-world.mjs'
