@@ -8,30 +8,25 @@ export type DiscGolfPhase = "off"|"ready"|"flying"|"landed"|"water"|"holed";
 export type DiscGolfSwingStage = "idle"|"power"|"accuracy"|"released";
 export type DiscGolfHole = {
   id:string;name:string;par:number;tee:Point;target:Point;
-  motion:"sway"|"figure-eight"|"orbit";radius:number;period:number;
 };
+// Fixed destinations form a linked cross-island route. The previous basket
+// is the next tee, so the whole course reads as a journey, not target chasing.
 export const DISC_GOLF_HOLES:readonly DiscGolfHole[]=[
-  {id:"redwood-bend",name:"Redwood Bend",par:3,tee:{x:-6,z:10},
-   target:{x:-18,z:26},motion:"sway",radius:2.3,period:12},
-  {id:"scrub-crosswind",name:"Scrub Crosswind",par:3,tee:{x:11,z:27},
-   target:{x:29,z:17},motion:"figure-eight",radius:2.8,period:14},
-  {id:"desert-drifter",name:"Desert Drifter",par:3,tee:{x:29,z:-11},
-   target:{x:48,z:-29},motion:"orbit",radius:2.6,period:16},
-  {id:"coastal-gust",name:"Coastal Gust",par:3,tee:{x:-22,z:5},
-   target:{x:-29,z:21},motion:"sway",radius:2.7,period:10},
+  {id:"redwood-bend",name:"Redwood Traverse",par:4,tee:{x:-6,z:10},
+   target:{x:42,z:42}},
+  {id:"scrub-crosswind",name:"Scrub Crosswind",par:4,tee:{x:42,z:42},
+   target:{x:43,z:-29}},
+  {id:"desert-drifter",name:"Desert Ridge",par:4,tee:{x:43,z:-29},
+   target:{x:0,z:-61}},
+  {id:"coastal-gust",name:"Coastal Return",par:5,tee:{x:0,z:-61},
+   target:{x:-25,z:15}},
 ];
-export const DISC_GOLF_VERSION="disc-golf-island-v1";
+export const DISC_GOLF_VERSION="disc-golf-island-v1.2";
 const clamp=(n:number,a:number,b:number)=>Math.max(a,Math.min(b,n));
-// Used by game and flight-preview sampling; pure world units.
-export type DiscWind=Point & {speed:number};
-export function discGolfBasketPosition(hole:DiscGolfHole,t:number):Point{
- const u=Math.max(0,t)*2*Math.PI/hole.period;
- if(hole.motion==="orbit")return {x:hole.target.x+hole.radius*Math.cos(u),
-   z:hole.target.z+hole.radius*Math.sin(u)};
- if(hole.motion==="figure-eight")return {x:hole.target.x+hole.radius*Math.sin(u),
-   z:hole.target.z+hole.radius*.52*Math.sin(2*u)};
- return {x:hole.target.x+hole.radius*Math.sin(u),
-   z:hole.target.z+.48*hole.radius*Math.sin(u+.9)};
+// Keep the existing time argument for render/simulation call sites; there is
+// deliberately no animation or aiming uncertainty in basket position.
+export function discGolfBasketPosition(hole:DiscGolfHole,_t:number):Point{
+ return {...hole.target};
 }
 export function discGolfWind(index:number,t:number):DiscWind{
  // Slow predictable gust variation; locked at the moment of release.
@@ -72,7 +67,8 @@ export function discGolfThrow(state:DiscGolfState,shot:DiscShot,ground:DiscTerra
  const base=Math.atan2(basket.x-state.lie.x,basket.z-state.lie.z);
  const aim=base+clamp(shot.aimOffset,-55,55)*Math.PI/180+
    accuracy*.28;
- const speed=10+power*19;
+ // A low-end putt must be possible: zero power is no longer a full drive.
+ const speed=2.3+power*26.7;
  return {...state,phase:"flying",reason:undefined,
   disc:{...state.lie,y:ground(state.lie)+1.1},
   velocity:{x:Math.sin(aim)*Math.cos(loft)*speed,
@@ -122,8 +118,14 @@ export function stepDiscGolf(state:DiscGolfState,dt:number,
   const p={x:next.x,z:next.z};
   const basket=discGolfBasketPosition(DISC_GOLF_HOLES[s.holeIndex],s.clock);
   const cupY=ground(basket)+1.35;
-  const atBasket=Math.hypot(p.x-basket.x,p.z-basket.z)<1.12 &&
-   next.y>cupY-.65&&next.y<cupY+.85&&horizontal<30;
+  // Swept capture avoids a disc slipping through chains between updates.
+  const vx=next.x-old.x,vz=next.z-old.z;
+  const u=clamp(((basket.x-old.x)*vx+(basket.z-old.z)*vz)/
+    Math.max(1e-8,vx*vx+vz*vz),0,1);
+  const nearX=old.x+vx*u,nearZ=old.z+vz*u;
+  const nearY=old.y+(next.y-old.y)*u;
+  const atBasket=Math.hypot(nearX-basket.x,nearZ-basket.z)<1.05 &&
+   nearY>cupY-.66&&nearY<cupY+.80&&horizontal<31;
   s.disc=next;
   if(atBasket){
    s.phase="holed";s.disc={...basket,y:cupY};
@@ -173,7 +175,9 @@ export function stepDiscGolf(state:DiscGolfState,dt:number,
    s.phase="landed";s.disc={x:p.x,z:p.z,y:ground(p)+.16};
    s.lie={x:p.x,z:p.z};
    s.lastDistance=Math.hypot(p.x-state.lie.x,p.z-state.lie.z);
-   s.reason="Disc landed. Shoot from the light marker.";s.resultAt=s.clock;
+   const near=Math.hypot(p.x-basket.x,p.z-basket.z);
+   s.reason=near<4?"Short putt: tap Space for suggested power.":
+     "Disc landed. Shoot from the light marker.";s.resultAt=s.clock;
    break;
   }
   if(s.flightTime>=10 || Math.abs(p.x)>93 || Math.abs(p.z)>95 || p.z>57){
@@ -204,6 +208,29 @@ export function traceDiscGolfShot(state:DiscGolfState,shot:DiscShot,
    points.push({...preview.disc});
  }
  return {points,outcome:preview.phase,end:{...preview.disc}};
+}
+
+/** Deterministic suggestion. Search reachable shots with the same physics
+ * as the flight preview; never claim that trees or release timing are solved.
+ * A tap of Space accepts this, while holding Space overrides it. */
+export function recommendDiscGolfPower(
+ state:DiscGolfState,loft:number,aimOffset:number,
+ ground:DiscTerrain,isWater:(p:Point)=>boolean,seaSurface:number,
+ obstacles:readonly DiscGolfObstacle[]=[]):number{
+ if(!["ready","landed","water"].includes(state.phase))return 0;
+ const basket=discGolfBasketPosition(DISC_GOLF_HOLES[state.holeIndex],state.clock);
+ let best=55,bestScore=Infinity;
+ for(let power=4;power<=100;power+=4){
+  const trace=traceDiscGolfShot(state,{power,loft,aimOffset,accuracy:0},
+   ground,isWater,seaSurface,obstacles);
+  if(trace.outcome==="holed")return power;
+  if(trace.outcome!=="landed")continue;
+  const d=Math.hypot(trace.end.x-basket.x,trace.end.z-basket.z);
+  // Favor useful progress, avoid over-strong putts when distances are equal.
+  const score=d+power*.001;
+  if(score<bestScore){bestScore=score;best=power;}
+ }
+ return best;
 }
 
 export function discGolfRemaining(state:DiscGolfState):number{
