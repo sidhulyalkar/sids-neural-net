@@ -46,6 +46,31 @@ test("habitat geometry stays deterministic, finite, batched and disposable", () 
 });
 
 
+test("rainforest cloud bank, rain and California tree floor detail are grounded and disposable",()=>{
+ const scene=new THREE.Scene(),obstacles:Obstacle[]=[];
+ const habitat=createHabitats(scene,obstacles);
+ const cloud=scene.getObjectByName("rainforest-cloud-bank") as THREE.Mesh;
+ const rain=scene.getObjectByName("rainforest-local-rain") as THREE.LineSegments;
+ const natives=scene.getObjectByName("california-native-trees") as THREE.Mesh;
+ assert.ok(cloud?.geometry,"rainforest has a batched local cloud bank");
+ assert.ok(rain?.geometry,"rainclouds create localized rainfall geometry");
+ assert.ok(natives?.geometry,"redwood biome includes mixed California native trees");
+ const rainPositions=rain.geometry.getAttribute("position");
+ assert.ok(rainPositions.count>=60&&rainPositions.count<=500,
+  "rainfall must be visible without dense particles");
+ for(let i=0;i<rainPositions.count;i++){
+  const x=rainPositions.getX(i),z=rainPositions.getZ(i);
+  assert.ok(x>30&&x<60&&z>17&&z<55,
+   "rain remains spatially inside the canopy neighborhood");
+ }
+ habitat.update({x:42,z:36},5);
+ assert.ok(rain.position.y<=0&&rain.position.y>=-1.8);
+ habitat.update({x:42,z:36},7);
+ assert.ok(rain.geometry===scene.getObjectByName("rainforest-local-rain")?.geometry,
+  "animation must not rebuild buffers or create new draw calls");
+ habitat.dispose();
+ assert.equal(scene.children.length,0);
+});
 test("both shores blend continuously into distinct marine communities", () => {
   for (const [zone, coast, sign] of [["kelp", coastlineX(30), -1], ["lagoon", eastCoastlineX(30), 1]] as const) {
     let previous = biomeAt({ x: coast, z: 30 });
