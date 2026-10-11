@@ -191,3 +191,16 @@ export function jetSkiRaceProgress(state:JetSkiState):number{
   (state.position.z-previous.z)*dz)/Math.max(.001,dx*dx+dz*dz),0,.99);
  return state.lap*JET_SKI_GATES.length+state.checkpoint+t;
 }
+
+/** Compare checkpoint progress during the race and elapsed finish time once
+ * two riders have completed the route. Finished racers retain real placement
+ * even when everyone eventually has the same gate count. */
+export function jetSkiRacePlace(player:JetSkiState,rivals:readonly JetSkiState[]):number{
+ return 1+rivals.filter(rival=>{
+  if(player.phase==="finished"){
+   return rival.phase==="finished"&&rival.elapsed<player.elapsed;
+  }
+  return rival.phase==="finished"||
+   jetSkiRaceProgress(rival)>jetSkiRaceProgress(player);
+ }).length;
+}
