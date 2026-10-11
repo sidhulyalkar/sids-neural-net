@@ -1,4 +1,6 @@
 import assert from "node:assert/strict";
+import * as THREE from "three/src/Three.Core.js";
+import {createJetSkiDock} from "../components/world/worldJetSkiDock";
 import test from "node:test";
 import {isWater,WORLD_BOUNDS} from "../lib/world/model";
 import {JET_SKI_ARCHES,JET_SKI_ROCKS,jetSkiRockAt,jetSkiSegmentClear} from "../lib/world/jetSkiCourse";
@@ -174,4 +176,38 @@ test("solid stacks cause a single impact while adjacent arch gap stays open",()=
  const hit=stepJetSkiRace(base,.15,{throttle:1,steer:0},()=>true);
  assert.ok(hit.rockHits>=0);
  assert.ok(hit.penalties<=1);
+});
+
+test("clean checkpoint adds a bounded turbo reward only when crossed",()=>{
+ const near={...startJetSkiRace(),position:{x:75,z:35},
+  heading:0,speed:12,turbo:1};
+ const pass=stepJetSkiRace(near,.1,{throttle:1,steer:0},()=>true);
+ assert.equal(pass.checkpoint,1);
+ assert.ok(pass.turbo>=8&&pass.turbo<=10);
+ const noGate=stepJetSkiRace(startJetSkiRace(),.1,{throttle:0,steer:0},()=>true);
+ assert.equal(noGate.checkpoint,0);
+ assert.equal(noGate.turbo,100);
+});
+
+test("procedural dock renders focused gate and finite pooled foam without mesh growth",()=>{
+ const scene=new THREE.Scene(),dock=createJetSkiDock(scene);
+ assert.equal(dock.skis.length,3);
+ assert.equal(dock.buoys.length,JET_SKI_GATES.length);
+ dock.updateGateFocus(4,2,true);
+ assert.equal(dock.focusBeam.visible,true);
+ assert.equal(dock.focusBeam.position.x,JET_SKI_GATES[4].x);
+ dock.updateGateFocus(0,2,false);
+ assert.equal(dock.focusBeam.visible,false);
+ dock.updateWakeTrail([
+  {x:70,z:12,heading:0,speed:18,age:0,boosting:true},
+  {x:69,z:10,heading:.1,speed:12,age:.5,boosting:false},
+ ],2);
+ assert.equal(dock.trail.count,4);
+ const pose=new THREE.Matrix4();
+ dock.trail.getMatrixAt(0,pose);
+ assert.ok(pose.elements.every(Number.isFinite));
+ dock.updateWakeTrail([],3);
+ assert.equal(dock.trail.count,0);
+ assert.equal(dock.trail.visible,false);
+ scene.remove(dock.root);
 });
