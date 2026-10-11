@@ -4,9 +4,9 @@ Status: implemented on `feat/sids-world`. Automated checks verify deterministic 
 
 ## Hole 9: the grand traverse
 
-Nine-hole finale moves from the previous ~96 world-unit walk to approximately **307 world units**. The tee stays at (46,49), and the basket stays at (-24,-15). The required route visits **eight** distinct 9-world-unit-radius luminous arches, in order:
+Nine-hole finale moves from the previous ~96 world-unit walk to approximately **309 world units**. The tee stays at (46,49), and the basket stays at (-24,-15). The required route visits **eight** distinct 9-world-unit-radius luminous arches, in order:
 
-(43,17) → (45,-9) → (45,-34) → (26,-69) → (5,-62) → (-16,-38) → (-16,9) → (-24,38) → chains (-24,-15).
+(43,17) → (45,-9) → (45,-34) → (26,-69) → (5,-62) → (-15,-47) → (-16,9) → (-24,38) → chains (-24,-15).
 
 The player may use multiple shots per segment and recover missed gates from either side. The more involved course has par **11**, not 5. Because the layout and par change materially, saved scores receive a new course version (`disc-golf-v1.10`). No previous short-course strokes are retroactively reassigned. The analytic course audit checks tee/basket clearance, leg lengths, gate staging throws, slopes, water, and fixed landmarks, but this does not certify the waterfall, canopy occlusion, Shasta POV, or visual gate visibility.
 
