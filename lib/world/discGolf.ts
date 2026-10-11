@@ -154,6 +154,9 @@ export type DiscGolfState={
  pitchDegrees:number;rollDegrees:number;spinRpm:number;spinPhase:number;
  discStyle:DiscGolfFlightStyle;releaseStyle:DiscGolfReleaseStyle;
  aero?:AeroTelemetry;
+ /** Display-only handoff lock, set by the renderer, never by flight physics.
+  * While true, the original avatar remains at the throwing lie until fetch. */
+ presentationPending?:boolean;
 };
 export type DiscTerrain=(p:Point)=>number;
 export function startDiscGolf(index:number,ground:DiscTerrain,clock=0):DiscGolfState{
