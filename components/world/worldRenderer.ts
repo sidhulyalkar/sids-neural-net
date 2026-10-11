@@ -7,6 +7,7 @@ import { createBigAirBirds } from "./worldBigAirBirds";
 import { createDiscGolfGeometry } from "./worldDiscGolfGeometry";
 import {createJetSkiDock} from "./worldJetSkiDock";
 import {createJetSkiCoastGeometry} from "./worldJetSkiCourseGeometry";
+import {jetSkiSectionName} from "@/lib/world/jetSkiCourse";
 import {JET_SKI_DOCK,JET_SKI_GATES,startJetSkiRace,stepJetSkiRace,jetSkiNavigableWater,jetSkiGateDistance,jetSkiBearingToGate,jetSkiOpponentInput,jetSkiRaceProgress,type JetSkiState} from "@/lib/world/jetSkiRace";
 import {
   DISC_GOLF_HOLES,discGolfOpeningClearance,discGolfCourseClearance,discGolfBasketPosition,discGolfNextTarget,discGolfThrowCameraPose,discGolfIntroPose,discGolfThrow,stepDiscGolf,
@@ -140,6 +141,12 @@ export function createWorld(
   jetHud.setAttribute('aria-label','Jet ski race status');
   jetHud.style.cssText='position:absolute;bottom:72px;left:50%;transform:translateX(-50%);z-index:8;pointer-events:none;background:rgba(9,30,43,.82);border:1px solid rgba(255,255,255,.26);border-radius:12px;color:white;font:600 13px/1.5 system-ui,sans-serif;padding:8px 14px;white-space:normal;text-align:center;max-width:calc(100% - 28px);display:none';
   host.appendChild(jetHud);
+  const jetHudReadout=document.createElement("span");jetHud.appendChild(jetHudReadout);
+  const jetTurboBar=document.createElement("div");
+  jetTurboBar.style.cssText="display:none;height:4px;background:#ffffff44;border-radius:3px;margin-top:5px;overflow:hidden";
+  const jetTurboFill=document.createElement("div");
+  jetTurboFill.style.cssText="height:100%;width:100%;background:#91edcb;transition:width .1s linear";
+  jetTurboBar.appendChild(jetTurboFill);jetHud.appendChild(jetTurboBar);
   const jetAnnounce=document.createElement('div');
   jetAnnounce.setAttribute('aria-live','polite');
   jetAnnounce.style.cssText='position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap';
@@ -2990,13 +2997,15 @@ export function createWorld(
         jetskiVisual.skis.forEach((ski,i)=>{ski.visible=i!==(
           selectedJetSki==="touring"?0:selectedJetSki==="sport"?1:2);});
         jetHud.style.display="block";
+        jetTurboBar.style.display="block";
+        jetTurboFill.style.width=jetSki.turbo.toFixed(1)+"%";
         const gateBearing=jetSkiBearingToGate(jetSki);
         const turnGuide=Math.abs(gateBearing)<.22?"↑":
           Math.abs(gateBearing)<.72?(gateBearing>0?"↗":"↖"):
           gateBearing>0?"→":"←";
-        jetHud.textContent=jetSki.phase==="finished"?
+        jetHudReadout.textContent=jetSki.phase==="finished"?
           `FINISH · ${jetSki.elapsed.toFixed(1)}s · Place ${place}/3 · Esc to dock`:
-          `${jetSki.craft.toUpperCase()} · Place ${place}/3 · Lap ${Math.min(2,jetSki.lap+1)}/2 · Gate ${jetSki.checkpoint+1}/${JET_SKI_GATES.length} ${turnGuide} ${jetSkiGateDistance(jetSki).toFixed(0)}m · ${Math.max(0,jetSki.speed).toFixed(0)} m/s · Turbo ${jetSki.turbo.toFixed(0)}%${jetSki.jumpHeight>.2?" · AIR":""} · ${jetSki.elapsed.toFixed(1)}s · Shift BOOST · Esc Dock`;
+          `${jetSkiSectionName(jetSki.checkpoint)} · Place ${place}/3 · Lap ${Math.min(2,jetSki.lap+1)}/2 · Gate ${jetSki.checkpoint+1}/${JET_SKI_GATES.length} ${turnGuide} ${jetSkiGateDistance(jetSki).toFixed(0)}m · ${Math.max(0,jetSki.speed).toFixed(0)} m/s · Turbo ${jetSki.turbo.toFixed(0)}%${jetSki.jumpHeight>.2?" · AIR":""} · ${jetSki.elapsed.toFixed(1)}s · Shift BOOST · Esc Dock`;
         explorer.visible=false;
       }else if (discGolf.phase!=="off") {
         const previous=discGolf.phase;
@@ -3575,7 +3584,8 @@ export function createWorld(
         jetskiVisual.wake.visible=false;
         if(discGolf.phase==="off"&&Math.hypot(player.x-57,player.z-JET_SKI_DOCK.z)<9){
           jetHud.style.display="block";
-          jetHud.textContent=`JET-SKI DOCK · 1 Touring / 2 Sport / 3 Race · Selected: ${selectedJetSki} · Press E to ride`;
+          jetTurboBar.style.display="none";
+          jetHudReadout.textContent=`JET-SKI DOCK · 1 Touring / 2 Sport / 3 Race · Selected: ${selectedJetSki} · Press E to ride`;
         }else jetHud.style.display="none";
         jetskiVisual.buoys.forEach(b=>{b.visible=false;});}
       // Keep a trunk from obscuring the explorer on land. The cave uses its own
