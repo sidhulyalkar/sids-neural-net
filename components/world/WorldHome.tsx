@@ -110,22 +110,30 @@ export function WorldHome({ content }: { content: WorldContent }) {
   const [discGolfShot,setDiscGolfShot]=useState<DiscShot|null>(null);
   const [discGolfExitSerial,setDiscGolfExitSerial]=useState(0);
   const lastDiscGolfPhase=useRef<DiscGolfState["phase"]>("off");
+  const previousFetchPending=useRef(false);
   const onDiscGolf=useCallback((g:DiscGolfState)=>{
     setDiscGolf(g);
+    const wasPending=previousFetchPending.current;
+    previousFetchPending.current=!!g.presentationPending;
+    // Scoring commits as soon as chains catch, but the scorecard should not
+    // hide the fetch POV. Show it when Shasta's animation has finished.
+    if(wasPending&&!g.presentationPending&&g.phase==="holed")
+      setDiscGolfScorecardOpen(true);
     const changed=g.phase!==lastDiscGolfPhase.current;
     lastDiscGolfPhase.current=g.phase;
     if(!changed)return;
     if(g.phase==="holed"){
       setDiscGolfRound(previous=>recordDiscGolfHole(previous,g.holeIndex,g.strokes));
-      setDiscGolfScorecardOpen(true);
+      if(!g.presentationPending)setDiscGolfScorecardOpen(true);
     }
     if(g.phase==="landed"||g.phase==="water"||g.phase==="holed"||g.phase==="off"){
       setDiscGolfStage("idle");setDiscGolfSwingAmount(0);
     }
-    if(g.phase==="landed"||g.phase==="water"||g.phase==="ready")
+    if((g.phase==="landed"||g.phase==="water"||g.phase==="ready")&&
+       !g.presentationPending)
       setDiscPreviewShot({power:65,accuracy:0,loft:22,aimOffset:0});
-    if(g.phase==="off"||g.phase==="flying"||g.phase==="holed")
-      setDiscPreviewShot(null);
+    if(g.presentationPending||g.phase==="off"||g.phase==="flying"||
+       g.phase==="holed")setDiscPreviewShot(null);
   },[setDiscGolf,setDiscGolfStage,setDiscPreviewShot,setDiscGolfSwingAmount]);
   const startDiscHole=(index:number)=>{
     // Start commands and throws carry separate serials. Do not carry a stale
@@ -144,6 +152,7 @@ export function WorldHome({ content }: { content: WorldContent }) {
     startDiscHole(0);
   };
   const takeDiscShot=(shot:DiscShot)=>{
+    if(discGolf.presentationPending)return;
     setDiscGolfShot(shot);
     setDiscGolfShotSerial(n=>n+1);
   };
