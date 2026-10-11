@@ -5,6 +5,7 @@ import {
  DISC_GOLF_HOLES,DISC_GOLF_VERSION,discGolfBasketPosition,discGolfWind,
  startDiscGolf,idleDiscGolf,discGolfThrow,stepDiscGolf,discGolfScoreName,
  discGolfRemaining,discGolfTreeContact,traceDiscGolfShot,recommendDiscGolfPower,
+ discGolfIntroPose,DISC_GOLF_INTRO_HOLD,DISC_GOLF_INTRO_PULLBACK,
 } from "../lib/world/discGolf";
 import { terrainHeight,isWater } from "../lib/world/model";
 import { createDiscGolfGeometry } from "../components/world/worldDiscGolfGeometry";
@@ -203,4 +204,48 @@ test("short putts have reachable low power and a predicted catch",()=>{
  const trace=traceDiscGolfShot(state,{power,accuracy:0,loft:24,aimOffset:0},
   flat,water,-1.4);
  assert.equal(trace.outcome,"holed","an aimed short putt should reach stationary chains");
+});
+
+test("basket reveal holds target, flies back along fairway, and ends exactly at player pose",()=>{
+ const tee={x:0,z:0},basket={x:62,z:-24};
+ const followCamera={x:-10,y:9,z:7};
+ const followLook={x:5,y:2.4,z:-2};
+ const ground=()=>0;
+ const reveal=discGolfIntroPose(tee,basket,followCamera,followLook,0,ground);
+ assert.equal(reveal.stage,"basket");
+ assert.ok(Math.hypot(reveal.camera.x-basket.x,reveal.camera.z-basket.z)<9);
+ assert.deepEqual(reveal.look,{...basket,y:1.5});
+ assert.deepEqual(discGolfIntroPose(tee,basket,followCamera,followLook,
+  DISC_GOLF_INTRO_HOLD-.01,ground),reveal,"hold must not drift");
+ const mid=discGolfIntroPose(tee,basket,followCamera,followLook,
+  DISC_GOLF_INTRO_HOLD+DISC_GOLF_INTRO_PULLBACK*.5,ground);
+ assert.equal(mid.stage,"pullback");
+ assert.ok(mid.camera.x<reveal.camera.x);
+ assert.ok(mid.camera.y>followCamera.y,"flyback rises to reveal a long fairway");
+ const almost=discGolfIntroPose(tee,basket,followCamera,followLook,
+  DISC_GOLF_INTRO_HOLD+DISC_GOLF_INTRO_PULLBACK-.001,ground);
+ assert.ok(Math.hypot(almost.camera.x-followCamera.x,
+  almost.camera.z-followCamera.z)<.01,"smooth handoff to normal aim");
+ const done=discGolfIntroPose(tee,basket,followCamera,followLook,
+  DISC_GOLF_INTRO_HOLD+DISC_GOLF_INTRO_PULLBACK,ground);
+ assert.equal(done.stage,"complete");
+ assert.deepEqual(done.camera,followCamera);
+ assert.deepEqual(done.look,followLook);
+});
+test("flyback honors changing island elevation and reduced-motion camera cuts",()=>{
+ const tee={x:0,z:0},basket={x:90,z:0},followCamera={x:-9,y:8,z:2};
+ const followLook={x:3,y:2,z:0};
+ const hill=(p:{x:number;z:number})=>10*Math.exp(-((p.x-38)/11)**2);
+ const middle=discGolfIntroPose(tee,basket,followCamera,followLook,
+  DISC_GOLF_INTRO_HOLD+DISC_GOLF_INTRO_PULLBACK*.5,hill);
+ assert.ok(middle.camera.y>=hill(middle.camera)+4.5,
+  "flyback must not cut through the mountain");
+ const reduced=discGolfIntroPose(tee,basket,followCamera,followLook,
+  DISC_GOLF_INTRO_HOLD-.01,hill,true);
+ assert.equal(reduced.stage,"basket");
+ const cut=discGolfIntroPose(tee,basket,followCamera,followLook,
+  DISC_GOLF_INTRO_HOLD+.01,hill,true);
+ assert.equal(cut.stage,"complete");
+ assert.deepEqual(cut.camera,followCamera);
+ assert.deepEqual(cut.look,followLook);
 });
