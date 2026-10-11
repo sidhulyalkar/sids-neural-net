@@ -3,6 +3,7 @@ import test from "node:test";
 import * as THREE from "three/src/Three.Core.js";
 import {
  DISC_GOLF_HOLES,DISC_GOLF_VERSION,discGolfBasketPosition,discGolfWind,
+ discGolfNextTarget,discGolfRouteLength,discGolfGateCrossing,
  startDiscGolf,idleDiscGolf,discGolfThrow,stepDiscGolf,discGolfScoreName,
  discGolfRemaining,discGolfTreeContact,traceDiscGolfShot,recommendDiscGolfPower,
  discGolfIntroPose,DISC_GOLF_INTRO_HOLD,DISC_GOLF_INTRO_PULLBACK,
@@ -20,7 +21,9 @@ test("nine independently placed tees and fixed greens remain on playable land",(
   const h=DISC_GOLF_HOLES[i];
   assert.ok(!isWater(h.tee)&&!isWater(h.target),h.id);
   const length=Math.hypot(h.tee.x-h.target.x,h.tee.z-h.target.z);
-  assert.ok(length>=23&&length<=52,`Hole ${i+1}: ${length} unit playable length required`);
+  assert.ok(length>=48&&length<=138,`Hole ${i+1}: ${length} unit tee-to-basket length`);
+  assert.ok(discGolfRouteLength(h)>58,`Hole ${i+1} must need multiple throws`);
+  assert.ok(h.gates.length>=1&&h.gates.length<=3);
   const p0=discGolfBasketPosition(h,0),p1=discGolfBasketPosition(h,100);
   assert.deepEqual(p0,p1,"the basket must never move");
   if(i>0)assert.notDeepEqual(h.tee,DISC_GOLF_HOLES[i-1].target,
@@ -34,6 +37,33 @@ test("nine independently placed tees and fixed greens remain on playable land",(
  assert.notDeepEqual(DISC_GOLF_HOLES.at(-1)!.target,DISC_GOLF_HOLES[0].tee,
   "last basket gets its own safe putting green");
  assert.ok(DISC_GOLF_VERSION.includes("disc-golf"));
+});
+test("mandatory gates are crossed by actual flight segments in order",()=>{
+ const h=DISC_GOLF_HOLES[1],gate=h.gates[0],source=h.tee;
+ const dx=gate.point.x-source.x,dz=gate.point.z-source.z;
+ const len=Math.hypot(dx,dz),ux=dx/len,uz=dz/len;
+ const before={x:gate.point.x-ux*2,z:gate.point.z-uz*2,y:5};
+ const after={x:gate.point.x+ux*2,z:gate.point.z+uz*2,y:5};
+ assert.equal(discGolfGateCrossing(before,after,h,0,()=>0),true);
+ assert.equal(discGolfGateCrossing(after,before,h,0,()=>0),true,
+  "a missed gate remains recoverable by flying back through it");
+ assert.equal(discGolfGateCrossing({...before,x:before.x+30},{...after,x:after.x+30},h,0,()=>0),false);
+ assert.equal(discGolfGateCrossing({...before,y:17},{...after,y:17},h,0,()=>0),false);
+ assert.deepEqual(discGolfNextTarget(startDiscGolf(1,ground)),h.gates[0].point);
+ const atLastGate={...startDiscGolf(1,ground),gatesCleared:h.gates.length};
+ assert.deepEqual(discGolfNextTarget(atLastGate),h.target);
+});
+test("basket cannot score before mandatory gates even at chain height",()=>{
+ const h=DISC_GOLF_HOLES[0],base=startDiscGolf(0,()=>0);
+ const basket=h.target;
+ const shot={...base,phase:"flying" as const,strokes:2,flightTime:1,
+  lie:{...basket},disc:{...basket,y:1.35},
+  velocity:{x:0,y:0,z:.02}};
+ const blocked=stepDiscGolf(shot,.0125,()=>0,()=>false,-1.4);
+ assert.notEqual(blocked.phase,"holed");
+ const finished=stepDiscGolf({...shot,gatesCleared:h.gates.length},
+  .0125,()=>0,()=>false,-1.4);
+ assert.equal(finished.phase,"holed");
 });
 test("wind is deterministic and time varying; throw is locked to release wind",()=>{
  const a=discGolfWind(1,4);
@@ -106,6 +136,7 @@ test("fixed chains catch discs in the target zone and scoring is explicit",()=>{
  const s=startDiscGolf(2,ground,5);
  const basket=discGolfBasketPosition(DISC_GOLF_HOLES[s.holeIndex],s.clock);
  const catching={...s,phase:"flying" as const,strokes:2,flightTime:1,
+  gatesCleared:DISC_GOLF_HOLES[s.holeIndex].gates.length,
   disc:{...basket,y:ground(basket)+1.35},
   velocity:{x:0,y:.1,z:0}};
  const result=stepDiscGolf(catching,.0125,ground,isWater,-1.4);
@@ -120,12 +151,13 @@ test("fixed chains catch discs in the target zone and scoring is explicit",()=>{
 });
 test("active chain basket, disc and landing beacon render efficiently and dispose",()=>{
  const scene=new THREE.Scene(),v=createDiscGolfGeometry(scene);
- assert.ok(v.drawCalls<=11);
- assert.equal(scene.children.length,6);
+ assert.ok(v.drawCalls<=14);
+ assert.equal(scene.children.length,7);
  let s=startDiscGolf(0,ground);
  v.update(s);
  assert.ok(scene.children[0].visible);
  assert.ok(scene.children[5].visible,"tee circle visible on the initial lie");
+ assert.ok(scene.children[6].visible,"next mandatory gate visible");
  assert.ok(!scene.children[2].visible);
  const lie=s.lie;
  s={...s,phase:"landed",disc:{...lie,y:ground(lie)+.16}};
@@ -223,7 +255,7 @@ test("short putts have reachable low power and a predicted catch",()=>{
  const start=startDiscGolf(0,flat,0);
  const lie={x:h.target.x,z:h.target.z-2.2};
  const state={...start,phase:"landed" as const,lie,
-  disc:{...lie,y:.16}};
+  gatesCleared:h.gates.length,disc:{...lie,y:.16}};
  const power=recommendDiscGolfPower(state,24,0,flat,water,-1.4);
  assert.ok(power>=4&&power<45,"putts should not need full drive power: "+power);
  const trace=traceDiscGolfShot(state,{power,accuracy:0,loft:24,aimOffset:0},
