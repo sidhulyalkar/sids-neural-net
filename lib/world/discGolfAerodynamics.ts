@@ -43,14 +43,16 @@ const clamp=(v:number,a:number,b:number)=>Math.max(a,Math.min(b,v));
 const rad=Math.PI/180;
 const density=1.225;
 const gravity=10.8; // Matches existing island gravity units.
-export function discGolfAeroCoefficients(style:DiscGolfFlightStyle,alphaRad:number){
- const d=DISC_GOLF_AERO_PROFILES[style];
+export function discGolfModelCoefficients(d:AeroDisc,alphaRad:number){
  const alpha=clamp(alphaRad,-.46,.52);
  return {
   cl:clamp(d.lift0+d.liftSlope*alpha,-.19,1.15),
   cd:clamp(d.drag0+d.dragSlope*(alpha-d.trimAoA)**2,.055,1.2),
   cm:clamp(d.moment0+d.momentSlope*alpha,-.065,.065),
  };
+}
+export function discGolfAeroCoefficients(style:DiscGolfFlightStyle,alphaRad:number){
+ return discGolfModelCoefficients(DISC_GOLF_AERO_PROFILES[style],alphaRad);
 }
 /** One bounded integration substep. Exactly the same function runs in preview
  * and live flight. Low-speed fallback prevents singular angular momentum. */
