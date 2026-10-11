@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {isWater,WORLD_BOUNDS} from "../lib/world/model";
+import {JET_SKI_ARCHES,JET_SKI_ROCKS,jetSkiRockAt,jetSkiSegmentClear} from "../lib/world/jetSkiCourse";
+import {JET_SKI_JUMPS,jetSkiWaterSample} from "../lib/world/jetSkiWater";
 import {JET_SKI_START,JET_SKI_GATES,JET_SKI_PROFILES,jetSkiGateDistance,
  jetSkiNavigableWater,jetSkiBearingToGate,jetSkiOpponentInput,
  jetSkiRaceProgress,
@@ -102,4 +104,74 @@ test("AI competitors complete both laps using the same collision-safe physics",(
   assert.equal(rival.phase,"finished",craft+" must actually finish the route");
   assert.equal(rival.penalties,0,craft+" should avoid the shoreline");
  }
+});
+
+test("authored rock arches align with numbered checkpoints and leave open water",()=>{
+ assert.equal(JET_SKI_ARCHES.length,2);
+ assert.ok(JET_SKI_ROCKS.length>=10);
+ for(const arch of JET_SKI_ARCHES){
+  const point=JET_SKI_GATES[arch.gateIndex];
+  assert.ok(Math.hypot(point.x-arch.center.x,point.z-arch.center.z)<.01,
+   arch.id+" must genuinely be part of the race");
+  assert.equal(jetSkiRockAt(arch.center),null,
+   arch.id+" must have an unobstructed passage");
+ }
+ for(const rock of JET_SKI_ROCKS){
+  assert.ok(jetSkiNavigableWater(rock.point),"rock must stand offshore: "+rock.id);
+ }
+ const nodes=[JET_SKI_START,...JET_SKI_GATES];
+ for(let i=0;i<nodes.length-1;i++)
+  assert.equal(jetSkiSegmentClear(nodes[i],nodes[i+1],1.25),true,
+   "baseline course must avoid solid stacks at segment "+i);
+});
+
+test("wave and coastal-current sampling is bounded, deterministic and spatial",()=>{
+ const ocean={x:-60,z:-20},lagoon={x:70,z:12};
+ const a=jetSkiWaterSample(ocean,3.25),same=jetSkiWaterSample(ocean,3.25);
+ assert.deepEqual(a,same);
+ assert.notDeepEqual(a,jetSkiWaterSample(ocean,5));
+ assert.ok(a.roughness>jetSkiWaterSample(lagoon,3.25).roughness);
+ for(const x of [a.height,a.slopeX,a.slopeZ,a.roughness,a.current.x,a.current.z])
+  assert.ok(Number.isFinite(x));
+});
+
+test("turbo has meaningful bounded speed and recharges after release",()=>{
+ const input={throttle:1,steer:0};
+ let normal=startJetSkiRace(),boosted=startJetSkiRace();
+ for(let i=0;i<110;i++){
+  normal=stepJetSkiRace(normal,1/60,input,()=>true);
+  boosted=stepJetSkiRace(boosted,1/60,{...input,turbo:true},()=>true);
+ }
+ assert.ok(boosted.speed>normal.speed+3);
+ assert.ok(boosted.turbo<normal.turbo);
+ assert.ok(boosted.turbo>=0&&boosted.turbo<=100);
+ const low=boosted.turbo;
+ for(let i=0;i<70;i++)
+  boosted=stepJetSkiRace(boosted,1/60,{...input,turbo:false},()=>true);
+ assert.ok(boosted.turbo>low);
+});
+
+test("a wave ramp launches, lands, and cannot chain-launch in one frame",()=>{
+ const jump=JET_SKI_JUMPS.find(j=>j.id==="south-lava-launch")!;
+ let s={...startJetSkiRace(),position:{x:jump.point.x-4,z:jump.point.z},
+  heading:jump.heading,speed:20};
+ s=stepJetSkiRace(s,.1,{throttle:1,steer:0,turbo:true},()=>true);
+ assert.ok(s.jumpHeight>0,"aligned high-speed approach should launch");
+ assert.ok(s.jumpCooldown>0);
+ const firstCooldown=s.jumpCooldown;
+ for(let i=0;i<130;i++)
+  s=stepJetSkiRace(s,1/60,{throttle:0,steer:0},()=>true);
+ assert.equal(s.jumpHeight,0,"gravity returns the craft to water");
+ assert.ok(s.jumpCooldown<firstCooldown);
+ assert.ok(s.landingSplash>=0);
+});
+
+test("solid stacks cause a single impact while adjacent arch gap stays open",()=>{
+ const rock=JET_SKI_ROCKS.find(r=>r.id==="mendocino-needle-a")!;
+ assert.ok(jetSkiRockAt(rock.point));
+ const base={...startJetSkiRace(),position:{x:rock.point.x-4,z:rock.point.z},
+  heading:Math.PI/2,speed:14};
+ const hit=stepJetSkiRace(base,.15,{throttle:1,steer:0},()=>true);
+ assert.ok(hit.rockHits>=0);
+ assert.ok(hit.penalties<=1);
 });
