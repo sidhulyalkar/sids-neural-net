@@ -17,8 +17,12 @@ try{
  const page=await browser.newPage({viewport:{width:1440,height:900}});
  page.on("pageerror",e=>errors.push(e.message));
  await page.goto(base);
- await page.waitForFunction(()=>Number(document.querySelector("canvas")?.dataset.drawCalls)>0);
- await page.getByRole("button",{name:"Explore world",exact:true}).click();
+ // World rendering is lazy: the welcome page intentionally has no canvas
+ // before the visitor chooses Explore. Waiting for frames first deadlocks.
+ await page.getByRole("button",{name:/Explore world/}).click();
+ await page.waitForFunction(()=>
+  Number(document.querySelector("canvas")?.dataset.drawCalls)>0,
+  null,{timeout:90000});
  await page.getByRole("button",{name:/^Disc golf · (play|resume|scorecard)$/}).click();
  const canvas=page.locator("canvas");
  await page.waitForFunction(()=>document.querySelector("canvas")?.dataset.discGolfPhase==="ready");
