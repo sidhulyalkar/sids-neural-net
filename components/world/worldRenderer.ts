@@ -6,6 +6,7 @@ import { createTechnicalGeometry } from "./worldTechnicalGeometry";
 import { createBigAirBirds } from "./worldBigAirBirds";
 import { createDiscGolfGeometry } from "./worldDiscGolfGeometry";
 import {createJetSkiDock,type JetSkiWakePoint} from "./worldJetSkiDock";
+import {jetSkiPierHeight,nearJetSkiBoarding,JET_SKI_PIER} from "@/lib/world/jetSkiPier";
 import {createJetSkiCoastGeometry} from "./worldJetSkiCourseGeometry";
 import {jetSkiSectionName} from "@/lib/world/jetSkiCourse";
 import {JET_SKI_DOCK,JET_SKI_GATES,startJetSkiRace,stepJetSkiRace,jetSkiNavigableWater,jetSkiGateDistance,jetSkiBearingToGate,jetSkiOpponentInput,jetSkiRacePlace,type JetSkiState} from "@/lib/world/jetSkiRace";
@@ -168,7 +169,6 @@ export function createWorld(
     button.style.cssText="min-height:44px;min-width:48px;border:1px solid #ffffff66;border-radius:9px;background:#153947e8;color:#fff;padding:8px 12px;font:600 13px system-ui,sans-serif;touch-action:none";
     jetTouch.appendChild(button);return button;
   };
-  const jetCraftButton=makeJetButton("Sport");
   const jetBoardButton=makeJetButton("Ride");
   const jetLeftButton=makeJetButton("←");
   const jetThrottleButton=makeJetButton("Throttle");
@@ -195,15 +195,53 @@ export function createWorld(
   holdJetButton(jetBoostButton,()=>{jetBoostState.active=true;},()=>{jetBoostState.active=false;});
   holdJetButton(jetBrakeButton,()=>{jetTouchInput.throttle=-1;jetTouchInput.brake=true;},
     ()=>{jetTouchInput.throttle=0;jetTouchInput.brake=false;});
-  jetCraftButton.addEventListener("click",()=>{
-    selectedJetSki=selectedJetSki==="touring"?"sport":selectedJetSki==="sport"?"race":"touring";
-    canvas.dataset.jetSkiSelected=selectedJetSki;
-    jetCraftButton.textContent=selectedJetSki;
-  });
-  jetBoardButton.addEventListener("click",()=>boardJetSki());
+  jetBoardButton.addEventListener("click",()=>openJetChooser());
   jetDockButton.addEventListener("click",()=>stopJetSki());
   jetRetryButton.addEventListener("click",()=>restartJetSki());
   host.appendChild(jetTouch);
+  const jetChooser=document.createElement("div");
+  jetChooser.setAttribute("role","dialog");
+  jetChooser.setAttribute("aria-modal","true");
+  jetChooser.setAttribute("aria-label","Choose a jet ski");
+  jetChooser.style.cssText="display:none;position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:15;width:min(370px,calc(100% - 32px));padding:20px;border:1px solid #a6e5e688;border-radius:16px;background:#102d38f2;color:#fff;box-shadow:0 18px 48px #06131faa;font:500 14px/1.5 system-ui,sans-serif";
+  const jetChooserTitle=document.createElement("h2");
+  jetChooserTitle.textContent="Choose your ride";
+  jetChooserTitle.style.cssText="font-size:20px;margin:0 0 4px";
+  jetChooser.appendChild(jetChooserTitle);
+  const jetChooserHint=document.createElement("p");
+  jetChooserHint.textContent="Enter to select · Escape to stay on the pier";
+  jetChooserHint.style.cssText="color:#d1e7e7;margin:0 0 12px";
+  jetChooser.appendChild(jetChooserHint);
+  const jetChoiceButtons:[HTMLButtonElement,string][]=[];
+  for(const [label,detail,id] of [
+    ["Touring","Relaxed speed · easy turning","touring"],
+    ["Sport","Balanced acceleration and handling","sport"],
+    ["Race","Highest speed · sharper challenge","race"],
+    ["Free ride","Explore the coastline without a race","free"],
+  ]){
+    const button=document.createElement("button");
+    button.type="button";
+    button.textContent=label+" · "+detail;
+    button.style.cssText="display:block;width:100%;margin:7px 0;padding:11px 12px;text-align:left;border-radius:9px;border:1px solid #c4e6e455;background:#235264;color:white;font:600 14px system-ui,sans-serif;cursor:pointer";
+    button.addEventListener("click",()=>chooseJetSki(id));
+    jetChooser.appendChild(button);
+    jetChoiceButtons.push([button,id]);
+  }
+  const cancelJetChooserButton=document.createElement("button");
+  cancelJetChooserButton.type="button";cancelJetChooserButton.textContent="Stay on pier";
+  cancelJetChooserButton.style.cssText="width:100%;margin-top:8px;padding:9px;background:none;border:1px solid #ffffff66;border-radius:9px;color:white";
+  cancelJetChooserButton.addEventListener("click",()=>closeJetChooser());
+  jetChooser.appendChild(cancelJetChooserButton);
+  jetChooser.addEventListener("keydown",event=>{
+    if(event.key==="Escape"){event.preventDefault();closeJetChooser();}
+    if(event.key==="Tab"){
+      const buttons=[...jetChoiceButtons.map(pair=>pair[0]),cancelJetChooserButton];
+      const index=buttons.indexOf(document.activeElement as HTMLButtonElement);
+      if(index===buttons.length-1&&!event.shiftKey){event.preventDefault();buttons[0].focus();}
+      else if(index===0&&event.shiftKey){event.preventDefault();buttons.at(-1)?.focus();}
+    }
+  });
+  host.appendChild(jetChooser);
   const scene = new THREE.Scene();
   scene.background = new THREE.Color("#67b7ef");
   scene.fog = new THREE.Fog("#c4e2f1", 85, 270);
