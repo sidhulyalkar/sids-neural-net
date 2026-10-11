@@ -79,6 +79,21 @@ try{
  assert.ok(mobileHud.height<=170,
   "Mobile HUD should remain compact even when it wraps into rows");
  await page.setViewportSize({width:1440,height:900});
+ const powerRail=page.getByRole("slider",{name:/Throw power/});
+ assert.ok(await powerRail.isVisible(),"Precision launch rail must be visible");
+ assert.equal(await powerRail.getAttribute("aria-valuemin"),"4");
+ assert.equal(await powerRail.getAttribute("aria-valuemax"),"100");
+ const suggested=Number(await powerRail.getAttribute("aria-valuenow"));
+ assert.ok(suggested>=4&&suggested<=100);
+ await powerRail.focus();
+ await page.keyboard.press("Home");
+ assert.equal(await powerRail.getAttribute("aria-valuenow"),"4");
+ await page.keyboard.press("ArrowRight");
+ assert.equal(await powerRail.getAttribute("aria-valuenow"),"5",
+  "Keyboard must adjust power, not the player's aim");
+ await page.keyboard.press("Escape");
+ assert.equal(Number(await powerRail.getAttribute("aria-valuenow")),suggested,
+  "Escape resets custom power to the suggested target");
  const issues=await canvas.getAttribute("data-disc-golf-layout-issues");
  assert.equal(await canvas.getAttribute("data-disc-golf-layout-clear"),"true",
   "A procedural obstacle overlaps a tee or green: "+issues);
@@ -86,8 +101,12 @@ try{
    "coastal-gust","redwood-needles","fern-falls","granite-climb",
    "joshua-chute","homeward-line"];
  for(let i=0;i<ids.length;i++){
-  if(i>0)await page.getByRole("button",
-   {name:new RegExp("^Play hole "+(i+1)+":")}).click();
+  if(i>0){
+   // The new bottom HUD keeps the nine-hole menu collapsed by default.
+   await page.getByRole("button",{name:"Course",exact:true}).click();
+   await page.getByRole("region",{name:"Nine-hole course and scorecard"})
+    .getByRole("button",{name:new RegExp("^Play hole "+(i+1)+":")}).click();
+  }
   await page.waitForFunction((id)=>{
    const c=document.querySelector("canvas");
    return c?.dataset.discGolfHole===id&&c?.dataset.discGolfPhase==="ready";
@@ -104,8 +123,24 @@ try{
    x:Number(c.dataset.discGolfAvatarX),z:Number(c.dataset.discGolfAvatarZ),
   }));
   if(i===1){
-   // Explicit pointer regression for the formerly unplayable second tee.
+   // Keep the original click-to-throw coverage for the restored second tee.
    await page.getByRole("button",{name:"Space · Throw"}).click();
+  }else if(i===2){
+   // Dragging the engraved power grip must update strength LIVE and release
+   // exactly one throw without needing to click the normal throw button.
+   const bounds=await powerRail.boundingBox();
+   assert.ok(bounds&&bounds.width>90);
+   const y=bounds.y+bounds.height/2;
+   await page.mouse.move(bounds.x+bounds.width*.3,y);
+   await page.mouse.down();
+   assert.equal(await powerRail.getAttribute("data-dragging"),"true");
+   await page.mouse.move(bounds.x+bounds.width*.77,y,{steps:9});
+   const adjusted=Number(await powerRail.getAttribute("data-power"));
+   assert.ok(adjusted>=70&&adjusted<=85,
+    "Drag should control strength in the correct direction");
+   await page.screenshot({path:path.join(out,"hole-3-power-rail-charging.png")});
+   await page.mouse.up();
+   assert.equal(await powerRail.getAttribute("data-dragging"),"false");
   }else{
    await page.keyboard.down("Space");
    await page.waitForTimeout(85);
