@@ -57,7 +57,7 @@ export function stepGroundSlide(position:{x:number;y:number;z:number},
  const along=Math.hypot(velocity.x,velocity.z);
  // Gravity projected onto the terrain tangent plus dry-vegetation friction.
  const g=10.8,mu=.42;
- const tangentG={x:-g*n.y*n.x,y:0,z:-g*n.y*n.z};
+ const tangentG={x:g*n.y*n.x,y:0,z:g*n.y*n.z};
  const friction=mu*g*Math.max(.2,n.y);
  const decel=along>1e-6?Math.min(along/h,friction):0;
  const vx=velocity.x+(tangentG.x-(along>1e-6?velocity.x/along*decel:0))*h;
