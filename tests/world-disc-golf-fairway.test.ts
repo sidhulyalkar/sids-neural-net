@@ -36,17 +36,18 @@ test("fairway warnings are advisory and do not masquerade as rendered obstacle c
 });
 
 test("every hole starts with an unhindered real throw and a usable green",()=>{
- const report=auditDiscGolfFairways();
- for(const h of report){
+ const failures:string[]=[];
+ for(const h of auditDiscGolfFairways()){
   const label="Hole "+h.hole+" ("+h.id+")";
-  assert.ok(h.teeCoastMargin>=6,label+": tee too close to water "+h.teeCoastMargin);
-  assert.ok(h.greenCoastMargin>=6,label+": green too close to water "+h.greenCoastMargin);
-  assert.ok(h.teeFeatureClearance>=2,label+": tee crowded by authored feature "+h.teeFeatureClearance);
-  assert.ok(h.greenFeatureClearance>=2,label+": basket crowded by authored feature "+h.greenFeatureClearance);
-  assert.ok(h.teeSlope<=1.35,label+": tee too steep "+h.teeSlope);
-  assert.ok(h.basketSlope<=1.45,label+": green too steep "+h.basketSlope);
-  assert.ok(h.firstShotDistance>=7,label+": first shot dies within "+h.firstShotDistance);
-  assert.ok(["landed","holed"].includes(h.firstShotPhase),
-    label+": first shot must settle on a real lie, not "+h.firstShotPhase);
+  if(h.teeCoastMargin<6)failures.push(label+" tee near coast "+h.teeCoastMargin);
+  if(h.greenCoastMargin<6)failures.push(label+" green near coast "+h.greenCoastMargin);
+  if(h.teeFeatureClearance<2)failures.push(label+" crowded tee "+h.teeFeatureClearance);
+  if(h.greenFeatureClearance<2)failures.push(label+" crowded green "+h.greenFeatureClearance);
+  if(h.teeSlope>1.35)failures.push(label+" steep tee "+h.teeSlope);
+  if(h.basketSlope>1.45)failures.push(label+" steep green "+h.basketSlope);
+  if(h.firstShotDistance<7)failures.push(label+" opening dies at "+h.firstShotDistance);
+  if(!["landed","holed"].includes(h.firstShotPhase))
+   failures.push(label+" opening ends in "+h.firstShotPhase);
  }
+ assert.deepEqual(failures,[],"Fix every unsafe tee and green before passing CI");
 });
