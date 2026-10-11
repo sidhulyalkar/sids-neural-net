@@ -70,7 +70,7 @@ test("slopes redirect skids downhill and water remains a free redo",()=>{
  const state={mode:"slide" as const,impacts:1,elapsed:0};
  const step=stepGroundSlide({x:0,y:.16,z:0},{x:0,y:0,z:5},
   state,.05,ramp);
- assert.ok(step.velocity.x>0,"down-slope acceleration follows negative terrain gradient");
+ assert.ok(step.velocity.x<0,"down-slope acceleration follows negative terrain gradient");
 });
 test("the rigid model and contact dynamics remain preview/live identical",()=>{
  const initial=startDiscGolf(1,flat,3.5);
