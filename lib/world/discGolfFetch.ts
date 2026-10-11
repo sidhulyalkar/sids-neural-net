@@ -25,7 +25,8 @@ export function stepDiscGolfFetch(
   return now-state.foundAt>=1.35?idleDiscGolfFetch():state;
  }
  const landing=game.phase==="landed"||game.phase==="holed";
- const target=landing?game.lie:{x:game.disc.x,z:game.disc.z};
+ const target=game.phase==="holed"?{x:game.disc.x,z:game.disc.z}:
+  landing?game.lie:{x:game.disc.x,z:game.disc.z};
  const distance=Math.hypot(dog.x-target.x,dog.z-target.z);
  if(landing&&distance<1.85)
   return {phase:"found",startedAt:state.startedAt,foundAt:now,target};
