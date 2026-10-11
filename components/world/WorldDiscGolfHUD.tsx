@@ -264,7 +264,7 @@ export function WorldDiscGolfHUD({game,round,scorecardOpen,onToggleScorecard,onN
      </tr></tfoot>
     </table>
     {!roundSummary.complete&&
-     <p className={styles.discGolfHint}>Only finished baskets count. Switching holes doesn't award or erase strokes.</p>}
+     <p className={styles.discGolfHint}>Only finished baskets count. Switching holes doesn&apos;t award or erase strokes.</p>}
     {restartConfirm?(
      <div className={styles.discGolfRestartActions}>
       <button type="button" onClick={()=>{onNewRound();setRestartConfirm(false);}}>
