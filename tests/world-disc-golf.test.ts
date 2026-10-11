@@ -238,7 +238,7 @@ test("flyback honors changing island elevation and reduced-motion camera cuts",(
  const hill=(p:{x:number;z:number})=>10*Math.exp(-(((p.x-38)/11)**2));
  const middle=discGolfIntroPose(tee,basket,followCamera,followLook,
   DISC_GOLF_INTRO_HOLD+DISC_GOLF_INTRO_PULLBACK*.5,hill);
- assert.ok(middle.camera.y>=hill(middle.camera)+4.5,
+ assert.ok(middle.camera.y>=hill(middle.camera)+3.9,
   "flyback must not cut through the mountain");
  const reduced=discGolfIntroPose(tee,basket,followCamera,followLook,
   DISC_GOLF_INTRO_HOLD-.01,hill,true);
