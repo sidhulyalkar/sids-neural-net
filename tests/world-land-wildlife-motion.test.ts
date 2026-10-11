@@ -1,10 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {angularDifference,stepCritterLocomotion} from "../lib/world/landWildlifeMotion";
+import {angularDifference,stepCritterLocomotion,type CritterLocomotion} from "../lib/world/landWildlifeMotion";
 const start={point:{x:0,z:0},home:{x:0,z:0},heading:0,phase:1,
  roam:4,speed:1.5,panicUntil:0,fleeFrom:null};
 test("small animals turn gradually rather than alternating directions each frame",()=>{
- let motion=start,now=2,maxTurn=0,flips=0,previous=motion.heading;
+ let motion:CritterLocomotion=start,now=2,maxTurn=0,flips=0,previous=motion.heading;
  for(let i=0;i<550;i++){
   now+=1/60;
   const nearThreat=i%5<2?{x:motion.point.x+.4,z:motion.point.z+.2}:null;
