@@ -53,6 +53,26 @@ export function createJetSkiDock(scene:THREE.Scene){
   return {group,hull};
  };
  const playerCraft=buildCraft("#f3c24d");
+ // A dedicated focus beacon stays on the next *mandatory* gate.
+ // Subtle enough not to swallow the sea arch, tall enough to read at speed.
+ const focusBeam=new THREE.Group();root.add(focusBeam);
+ const beamMat=new THREE.MeshBasicMaterial({
+  color:"#a5f8ec",transparent:true,opacity:.37,depthWrite:false,
+  side:THREE.DoubleSide,
+ });
+ const column=new THREE.Mesh(new THREE.CylinderGeometry(.13,.37,5.8,9),beamMat);
+ column.position.y=3;focusBeam.add(column);
+ const guideRing=new THREE.Mesh(new THREE.TorusGeometry(2.7,.14,5,24),beamMat);
+ guideRing.rotation.x=Math.PI/2;guideRing.position.y=.12;
+ focusBeam.add(guideRing);focusBeam.visible=false;
+ function updateGateFocus(gate:number,time:number,active:boolean){
+  focusBeam.visible=active&&gate>=0&&gate<JET_SKI_GATES.length;
+  if(!focusBeam.visible)return;
+  const p=JET_SKI_GATES[gate];
+  focusBeam.position.set(p.x,SEA_SURFACE+jetSkiWaterSample(p,time).height,p.z);
+  guideRing.scale.setScalar(1+.09*Math.sin(time*3));
+  column.scale.y=.92+.08*Math.sin(time*2.2);
+ }
  const activeSki=playerCraft.group;
  const opponents=[buildCraft("#e96c48").group,buildCraft("#39bdc5").group];
  opponents.forEach(g=>{g.visible=false;});
@@ -108,5 +128,5 @@ export function createJetSkiDock(scene:THREE.Scene){
   if(trail.instanceColor)trail.instanceColor.needsUpdate=true;
  }
  return {root,skis,buoys,activeSki,activeHull:playerCraft.hull,
-  opponents,wake,trail,updateWakeTrail,start:JET_SKI_START};
+  opponents,wake,trail,focusBeam,updateWakeTrail,updateGateFocus,start:JET_SKI_START};
 }
