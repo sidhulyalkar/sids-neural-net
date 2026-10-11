@@ -1,8 +1,8 @@
 # Sid’s World — coastal expansion
 
-## Disc Golf v1.6: playable nine-hole round
+## Disc Golf v1.7: long multi-throw fairways and mandatory gates
 
-[disc-golf-v1.6.md](disc-golf-v1.6.md) is the active specification. Each hole now has an independently qualified tee and green; the opening 11 units, greens and the first tutorial fairway are protected from seeded clutter. Space and click throws recover from missed input or paused starts, and CI verifies the recommended first shot on every tee. A visible tee marker, Shasta fetch, concise controls, funny seeded names and persistent nine-hole scorecard are included. **Manual browser playtesting remains mandatory before merging.** Older disc-golf specs document previous iterations only.
+[disc-golf-v1.7.md](disc-golf-v1.7.md) is the current implementation and QA contract. Nine significantly longer holes, including a shore-to-backside-mountain second hole, now require sequenced luminous flight gates before the chains will catch. A/D aims at the next gate, Space provides suggested or manual power, and a missed gate is recoverable. Clear launch pads, Shasta fetch, funny seeded names and the scorecard remain. Automated course, physics and visual browser checks are required; release remains pending a real browser review. Earlier v1.6 and older Disc Golf specs describe superseded short-course experiments.
 
 ## World Challenges v1: technical riding, puzzles and big air
 
