@@ -3,13 +3,18 @@
  * The island mesh occupies WORLD_BOUNDS; the open-ocean north/south legs are
  * beyond it, while the east/west legs use the existing coastal water zones. */
 import {coastlineX,eastCoastlineX,WORLD_BOUNDS,type Point} from "./model";
+import {jetSkiRockAt} from "./jetSkiCourse";
+import {jetSkiWaterSample,jetSkiJumpAt} from "./jetSkiWater";
 export type JetSkiType="touring"|"sport"|"race";
 export type JetSkiPhase="docked"|"racing"|"finished";
-export type JetSkiInput={throttle:number;steer:number;brake?:boolean};
+export type JetSkiInput={throttle:number;steer:number;brake?:boolean;turbo?:boolean};
 export type JetSkiState={
  phase:JetSkiPhase;craft:JetSkiType;position:Point;heading:number;
  speed:number;elapsed:number;checkpoint:number;lap:number;
- penalties:number;shoreContact:boolean;
+ penalties:number;shoreContact:boolean;rockContact:boolean;rockHits:number;
+ turbo:number;boosting:boolean;jumpHeight:number;jumpVelocity:number;
+ jumpCooldown:number;landingSplash:number;waterHeight:number;
+ roll:number;pitch:number;roughness:number;current:Point;
 };
 export const JET_SKI_DOCK={x:62.5,z:12} as const;
 export const JET_SKI_START={x:68,z:12} as const;
@@ -44,7 +49,10 @@ export function jetSkiNavigableWater(point:Point):boolean{
 export function startJetSkiRace(craft:JetSkiType="sport"):JetSkiState{
  return {phase:"racing",craft,position:{...JET_SKI_START},
  heading:0,speed:0,elapsed:0,checkpoint:0,lap:0,
- penalties:0,shoreContact:false};
+ penalties:0,shoreContact:false,rockContact:false,rockHits:0,
+ turbo:100,boosting:false,jumpHeight:0,jumpVelocity:0,
+ jumpCooldown:0,landingSplash:0,waterHeight:0,
+ roll:0,pitch:0,roughness:0,current:{x:0,z:0}};
 }
 export function jetSkiGateDistance(s:JetSkiState):number{
  const gate=JET_SKI_GATES[s.checkpoint];
@@ -67,34 +75,81 @@ function segmentWithinGate(a:Point,b:Point,gate:Point,radius:number):boolean{
 export function stepJetSkiRace(state:JetSkiState,dt:number,
  input:JetSkiInput,water:(p:Point)=>boolean=jetSkiNavigableWater):JetSkiState{
  if(state.phase!=="racing"||!Number.isFinite(dt)||dt<=0)return state;
- let s={...state,position:{...state.position}};
+ let s={...state,position:{...state.position},current:{...state.current}};
  let remaining=Math.min(dt,.12);
  const profile=JET_SKI_PROFILES[s.craft];
  while(remaining>1e-8){
   const h=Math.min(remaining,1/120);remaining-=h;
   const throttle=clamp(Number.isFinite(input.throttle)?input.throttle:0,-1,1);
   const steer=clamp(Number.isFinite(input.steer)?input.steer:0,-1,1);
+  const waterSample=jetSkiWaterSample(s.position,s.elapsed);
+  const boost=!!input.turbo&&throttle>0&&s.turbo>1;
+  s.boosting=boost;
+  s.turbo=clamp(s.turbo+(boost?-33:14)*h,0,100);
+  s.jumpCooldown=Math.max(0,s.jumpCooldown-h);
+  s.landingSplash=Math.max(0,s.landingSplash-h);
   const brake=input.brake?2.8:1;
-  const acceleration=throttle>=0?profile.acceleration*throttle:
+  const acceleration=throttle>=0?profile.acceleration*throttle*(boost?1.7:1):
    profile.acceleration*.7*throttle;
-  s.speed=clamp(s.speed+(acceleration-profile.drag*s.speed*brake)*h,-5,profile.maxSpeed);
+  const resistance=profile.drag*(1+waterSample.roughness*.09);
+  s.speed=clamp(s.speed+(acceleration-resistance*s.speed*brake)*h,
+   -5,profile.maxSpeed*(boost?1.42:1));
   const steerAssist=.42+.58*Math.min(1,Math.abs(s.speed)/10);
-  s.heading+=steer*profile.turnRate*steerAssist*h*(s.speed<0?-1:1);
-  const next={x:s.position.x+Math.sin(s.heading)*s.speed*h,
-   z:s.position.z+Math.cos(s.heading)*s.speed*h};
+  s.heading+=steer*profile.turnRate*steerAssist*(boost?.84:1)*
+   (s.jumpHeight>0?.35:1)*h*(s.speed<0?-1:1);
   const before=s.position;
-  if(water(next)){s.position=next;s.shoreContact=false;}
-  else{
-   if(!s.shoreContact)s.penalties++;
-   s.shoreContact=true;s.speed=0;
+  // A bounded current bends the racing line; it never teleports the craft.
+  const currentFactor=s.jumpHeight>0?.12:.68;
+  const next={
+   x:s.position.x+(Math.sin(s.heading)*s.speed+
+    waterSample.current.x*currentFactor)*h,
+   z:s.position.z+(Math.cos(s.heading)*s.speed+
+    waterSample.current.z*currentFactor)*h,
+  };
+  const rock=jetSkiRockAt(next);
+  if(water(next)&&!rock){
+   s.position=next;s.shoreContact=false;s.rockContact=false;
+  }else{
+   if(rock){
+    if(!s.rockContact){s.rockHits++;s.penalties++;}
+    s.rockContact=true;
+   }else if(!s.shoreContact)s.penalties++;
+   s.shoreContact=!rock;s.speed=Math.min(0,s.speed)*.1;
   }
   s.elapsed+=h;
+  const surface=jetSkiWaterSample(s.position,s.elapsed);
+  s.waterHeight=surface.height;
+  s.roughness=surface.roughness;s.current=surface.current;
+  if(s.jumpHeight<=0&&s.jumpCooldown<=0){
+   const jump=jetSkiJumpAt(s.position,s.heading,s.speed);
+   if(jump){
+    s.jumpHeight=.02;
+    s.jumpVelocity=jump.impulse+(boost?1.3:0);
+    s.jumpCooldown=3.2;
+   }
+  }
+  if(s.jumpHeight>0){
+   s.jumpVelocity-=10.8*h;
+   s.jumpHeight+=s.jumpVelocity*h;
+   if(s.jumpHeight<=0){
+    s.jumpHeight=0;s.jumpVelocity=0;s.landingSplash=.42;
+   }
+  }
+  const fx=Math.sin(s.heading),fz=Math.cos(s.heading);
+  // Wave slope gives small visually coherent pitch/roll without sudden flips.
+  const wantPitch=clamp(-(surface.slopeX*fx+surface.slopeZ*fz)*2,-.24,.24);
+  const wantRoll=clamp(-steer*Math.min(1,Math.abs(s.speed)/12)*.23+
+   (surface.slopeX*fz-surface.slopeZ*fx),-.38,.38);
+  s.pitch+=(wantPitch-s.pitch)*Math.min(1,h*8);
+  s.roll+=(wantRoll-s.roll)*Math.min(1,h*8);
   const gate=JET_SKI_GATES[s.checkpoint];
   if(segmentWithinGate(before,s.position,gate,5.8)){
    s.checkpoint++;
    if(s.checkpoint===JET_SKI_GATES.length){
     s.checkpoint=0;s.lap++;
-    if(s.lap>=JET_SKI_LAPS){s.phase="finished";s.speed=0;break;}
+    if(s.lap>=JET_SKI_LAPS){
+     s.phase="finished";s.speed=0;s.boosting=false;break;
+    }
    }
   }
  }
