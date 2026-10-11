@@ -23,17 +23,28 @@ const summary={
 writeFileSync(join(dir,"disc-golf-fairways.json"),
  JSON.stringify({summary,report},null,2)+"\n");
 const markdown=[
- "# Island disc golf · fairway review",
+ "# Disc Golf · fairway review",
  "",
  "Automated heightfield review only. These findings flag placement risks; they do not certify a fairway as clear or playable.",
  "",
- "| # | Hole | Par | Distance | Δ elevation | Tee → basket | Max slope | Risks |",
- "| ---: | --- | ---: | ---: | ---: | --- | ---: | --- |",
- ...report.map(h=>`| ${h.hole} | ${h.name} | ${h.par} | ${h.distance} | ${h.climb} | ${h.teeBiome} → ${h.basketBiome} | ${h.maxSlope} | ${h.risks.join(", ")||"none detected"} |`),
+ "| # | Hole | Par | Distance | Δ elev | Tee → basket | Tee slope | Green slope | Tee clearance | Green clearance | First shot | Risks |",
+ "| ---: | --- | ---: | ---: | ---: | --- | ---: | ---: | ---: | ---: | --- | --- |",
+ ...report.map(h=>`| ${h.hole} | ${h.name} | ${h.par} | ${h.distance} | ${h.climb} | ${h.teeBiome} → ${h.basketBiome} | ${h.teeSlope} | ${h.basketSlope} | ${h.teeFeatureClearance} | ${h.greenFeatureClearance} | ${h.firstShotDistance} (${h.firstShotPhase}) | ${h.risks.join(", ")||"none"} |`),
  "",
  "Review basket clearance (trees, boulders, markers), route silhouettes, short putts, water retries and hazards in a real browser before release.",
  "",
 ];
 writeFileSync(join(dir,"disc-golf-fairways.md"),markdown.join("\n"));
 console.log(JSON.stringify(summary,null,2));
-if(report.length!==9||issues.length>0)process.exitCode=1;
+for(const h of report)console.log(
+ `HOLE ${h.hole} ${h.id}: span=${h.distance}; slopes=${h.teeSlope}/${h.basketSlope}; clear=${h.teeFeatureClearance}/${h.greenFeatureClearance}; coast=${h.teeCoastMargin}/${h.greenCoastMargin}; first=${h.firstShotDistance} ${h.firstShotPhase}; risks=${h.risks.join(",")||"none"}`
+);
+if(report.length!==9||issues.length>0||
+ report.some(h=>h.risks.includes("steep-tee")||
+  h.risks.includes("crowded-tee")||
+  h.risks.includes("crowded-green")||
+  h.risks.includes("coastal-tee")||
+  h.risks.includes("coastal-green")||
+  h.risks.includes("short-first-shot")||
+  h.risks.includes("first-shot-water")||
+  h.basketSlope>1.45))process.exitCode=1;
