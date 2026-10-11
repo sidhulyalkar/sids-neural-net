@@ -8,7 +8,7 @@ import { createDiscGolfGeometry } from "./worldDiscGolfGeometry";
 import {createJetSkiDock,type JetSkiWakePoint} from "./worldJetSkiDock";
 import {createJetSkiCoastGeometry} from "./worldJetSkiCourseGeometry";
 import {jetSkiSectionName} from "@/lib/world/jetSkiCourse";
-import {JET_SKI_DOCK,JET_SKI_GATES,startJetSkiRace,stepJetSkiRace,jetSkiNavigableWater,jetSkiGateDistance,jetSkiBearingToGate,jetSkiOpponentInput,jetSkiRaceProgress,type JetSkiState} from "@/lib/world/jetSkiRace";
+import {JET_SKI_DOCK,JET_SKI_GATES,startJetSkiRace,stepJetSkiRace,jetSkiNavigableWater,jetSkiGateDistance,jetSkiBearingToGate,jetSkiOpponentInput,jetSkiRacePlace,type JetSkiState} from "@/lib/world/jetSkiRace";
 import {
   DISC_GOLF_HOLES,discGolfOpeningClearance,discGolfCourseClearance,discGolfBasketPosition,discGolfNextTarget,discGolfThrowCameraPose,discGolfIntroPose,discGolfThrow,stepDiscGolf,
   startDiscGolf,idleDiscGolf,type DiscGolfState,type DiscShot,
@@ -2970,6 +2970,10 @@ export function createWorld(
         const previousPhase=jetSki.phase;
         if(jetCountdown>0){
           jetCountdown=Math.max(0,jetCountdown-dt);
+          if(jetCountdown===0){
+            jetNotice.textContent="GO!";
+            jetNoticeUntil=elapsed+.85;
+          }
         }else{
           jetSki=stepJetSkiRace(jetSki,dt,{throttle:forwardInput,steer:steerInput,
             brake:jetTouchInput.brake||forwardInput<0&&jetSki.speed>0,
@@ -2991,8 +2995,6 @@ export function createWorld(
         }
         jetNotice.style.display=jetCountdown>0||elapsed<jetNoticeUntil?"block":"none";
         if(jetCountdown>0)jetNotice.textContent=String(Math.ceil(jetCountdown));
-        else if(previousGate===0&&previousLap===0&&jetSki.elapsed<.55)
-          jetNotice.textContent="GO!";
         jetskiVisual.opponents.forEach((object,i)=>{
           const rival=jetRivals[i];
           object.visible=!!rival;
@@ -3057,8 +3059,7 @@ export function createWorld(
         canvas.dataset.jetSkiJump=jetSki.jumpHeight.toFixed(2);
         canvas.dataset.jetSkiRockHits=String(jetSki.rockHits);
         canvas.dataset.jetSkiCourseWater=String(jetSkiNavigableWater(player));
-        const place=1+jetRivals.filter(rival=>jetSkiRaceProgress(rival)>
-          jetSkiRaceProgress(jetSki!)).length;
+        const place=jetSkiRacePlace(jetSki,jetRivals);
         canvas.dataset.jetSkiPlace=String(place);
         jetskiVisual.skis.forEach((ski,i)=>{ski.visible=i!==(
           selectedJetSki==="touring"?0:selectedJetSki==="sport"?1:2);});
