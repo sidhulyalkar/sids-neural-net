@@ -5,6 +5,8 @@ import { createReefGarden } from "./worldReef";
 import { createTechnicalGeometry } from "./worldTechnicalGeometry";
 import { createBigAirBirds } from "./worldBigAirBirds";
 import { createDiscGolfGeometry } from "./worldDiscGolfGeometry";
+import {createJetSkiDock} from "./worldJetSkiDock";
+import {JET_SKI_DOCK,JET_SKI_GATES,startJetSkiRace,stepJetSkiRace,type JetSkiState} from "@/lib/world/jetSkiRace";
 import {
   DISC_GOLF_HOLES,discGolfOpeningClearance,discGolfCourseClearance,discGolfBasketPosition,discGolfNextTarget,discGolfThrowCameraPose,discGolfIntroPose,discGolfThrow,stepDiscGolf,
   startDiscGolf,idleDiscGolf,type DiscGolfState,type DiscShot,
@@ -776,6 +778,7 @@ export function createWorld(
   const technicalFeatures = createTechnicalGeometry(scene);
   const flyingBirds=createBigAirBirds(scene);
   const discGolfObjects=createDiscGolfGeometry(scene);
+  const jetskiVisual=createJetSkiDock(scene);
   canvas.dataset.discGolfHoles=String(DISC_GOLF_HOLES.length);
   canvas.dataset.bigAirBirds=String(flyingBirds.count);
   canvas.dataset.technicalFeatures = "3-gardens-3-beams";
@@ -2438,6 +2441,7 @@ export function createWorld(
   let lastBigAirSerial=0,lastBigAirUpdate=0;
   let bigAir:BigAirState=idleBigAir();
   let discGolf:DiscGolfState=idleDiscGolf();
+  let jetSki:JetSkiState|null=null;
   let discFetch=idleDiscGolfFetch();
   let lastDiscStart=0,lastDiscShot=0,lastDiscExit=0,lastDiscUpdate=0;
   let lastDiscPreview:DiscShot|null=null,lastPreviewTick=-Infinity;
@@ -2631,6 +2635,16 @@ export function createWorld(
     }
     if(e.target !== canvas) return;
     const key = e.key.toLowerCase();
+    if(key==="escape"&&jetSki){
+      jetSki=null;player={x:57,z:JET_SKI_DOCK.z};playerY=groundHeight(player);
+      canvas.dataset.jetSkiStatus="docked";e.preventDefault();return;
+    }
+    if(key==="e"&&!e.repeat&&!jetSki&&discGolf.phase==="off"&&
+       Math.hypot(player.x-57,player.z-JET_SKI_DOCK.z)<8){
+      jetSki=startJetSkiRace(keys.has("shift")?"race":"sport");
+      destination=null;aquatic="land";canvas.dataset.jetSkiStatus="racing";
+      e.preventDefault();return;
+    }
     if (key === "shift") keys.add(key);
     if (key === " " && !e.repeat && aquatic === "land") {
       e.preventDefault();
@@ -2805,7 +2819,28 @@ export function createWorld(
       }
       const previousPoint = { ...player };
       const previousY = playerY;
-      if (discGolf.phase!=="off") {
+      if(jetSki){
+        const forwardInput=Number(keys.has("w")||keys.has("arrowup"))-
+          Number(keys.has("s")||keys.has("arrowdown"));
+        const steerInput=Number(keys.has("d")||keys.has("arrowright"))-
+          Number(keys.has("a")||keys.has("arrowleft"));
+        jetSki=stepJetSkiRace(jetSki,dt,{throttle:forwardInput,steer:steerInput},isWater);
+        player={...jetSki.position};playerY=SEA_SURFACE+.65;
+        travel={point:player,speed:jetSki.speed,
+          heading:{x:Math.sin(jetSki.heading),z:Math.cos(jetSki.heading)}};
+        explorer.rotation.y=jetSki.heading;
+        airHeight=verticalSpeed=0;destination=null;
+        jetskiVisual.activeSki.visible=true;
+        jetskiVisual.activeSki.position.set(player.x,SEA_SURFACE+.2+Math.sin(elapsed*5)*.07,player.z);
+        jetskiVisual.activeSki.rotation.y=jetSki.heading;
+        jetskiVisual.buoys.forEach((b,i)=>{b.visible=true;
+          b.scale.setScalar(i===jetSki!.checkpoint?1.7:1);});
+        canvas.dataset.jetSkiStatus=jetSki.phase;
+        canvas.dataset.jetSkiLap=String(jetSki.lap+1);
+        canvas.dataset.jetSkiGate=String(jetSki.checkpoint+1);
+        canvas.dataset.jetSkiSpeed=jetSki.speed.toFixed(1);
+        canvas.dataset.jetSkiTime=jetSki.elapsed.toFixed(1);
+      }else if (discGolf.phase!=="off") {
         const previous=discGolf.phase;
         const wasPresentationPending=!!discGolf.presentationPending;
         discGolf=stepDiscGolf(discGolf,dt,p=>terrainHeight(p.x,p.z),
@@ -3291,6 +3326,9 @@ export function createWorld(
         }:pose.look;
         targetLook.set(lookAt.x,lookAt.y,lookAt.z);
         canvas.dataset.discGolfCamera=followFlight?"flight":pose.putting?"putt":"approach";
+      } else if(jetSki){
+        targetLook.set(player.x+Math.sin(jetSki.heading)*8,SEA_SURFACE+1.4,
+          player.z+Math.cos(jetSki.heading)*8);
       } else if (cavernFraming) {
         targetLook.set(arcadeWall.x, arcadeWallY + 2.05, arcadeWall.z - 0.5);
       } else if (cavernApproachFraming) {
@@ -3331,6 +3369,10 @@ export function createWorld(
           const fx=dx/len,fz=dz/len,p=discGolf.disc;
           targetCamera.set(p.x-fx*19.5+fz*2.25,p.y+12,p.z-fz*19.5-fx*2.25);
         }else targetCamera.set(pose.camera.x,pose.camera.y,pose.camera.z);
+      } else if(jetSki){
+        const h=jetSki.heading;
+        targetCamera.set(player.x-Math.sin(h)*13+Math.cos(h)*2.4,
+          SEA_SURFACE+7.6,player.z-Math.cos(h)*13-Math.sin(h)*2.4);
       } else if (cavernFraming) {
         // Keep the third-person boom centered inside the authored tunnel.
         // A lower eye line prevents the roof from swallowing the frame while
@@ -3359,6 +3401,8 @@ export function createWorld(
           player.z + Math.cos(cameraYaw) * cameraZoom * Math.cos(pitch),
         );
       }
+      if(!jetSki){jetskiVisual.activeSki.visible=false;
+        jetskiVisual.buoys.forEach(b=>{b.visible=false;});}
       // Keep a trunk from obscuring the explorer on land. The cave uses its own
       // tighter camera clearance because the global +3.5m terrain clamp pushed
       // the camera into the roof on the steep backside slope.
