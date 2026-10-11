@@ -1,13 +1,15 @@
 import {DISC_GOLF_HOLES,DISC_GOLF_VERSION} from "./discGolf";
+import {newDiscGolfNameSeed} from "./discGolfNames";
 
 /** One nine-hole round. Live lies and flight physics remain in DiscGolfState. */
 export type DiscGolfRound={
  scores:(number|null)[];
  bestTotal:number|null;
+ nameSeed:number;
 };
 export const DISC_GOLF_ROUND_KEY="sid-world:disc-golf-round:"+DISC_GOLF_VERSION;
-export function emptyDiscGolfRound(bestTotal:number|null=null):DiscGolfRound{
- return {scores:DISC_GOLF_HOLES.map(()=>null),bestTotal};
+export function emptyDiscGolfRound(bestTotal:number|null=null,nameSeed=0):DiscGolfRound{
+ return {scores:DISC_GOLF_HOLES.map(()=>null),bestTotal,nameSeed};
 }
 export function discGolfRoundSummary(round:DiscGolfRound){
  const scores=DISC_GOLF_HOLES.map((_,i)=>round.scores[i]??null);
@@ -44,7 +46,7 @@ export function loadDiscGolfRound():DiscGolfRound{
  if(typeof window==="undefined")return emptyDiscGolfRound();
  try{
   const raw=window.localStorage.getItem(DISC_GOLF_ROUND_KEY);
-  if(!raw)return emptyDiscGolfRound();
+  if(!raw)return emptyDiscGolfRound(null,newDiscGolfNameSeed());
   const parsed=JSON.parse(raw) as Partial<DiscGolfRound>;
   if(!Array.isArray(parsed.scores)||parsed.scores.length!==DISC_GOLF_HOLES.length||
     !parsed.scores.every(n=>n===null||
@@ -53,7 +55,9 @@ export function loadDiscGolfRound():DiscGolfRound{
   const best=typeof parsed.bestTotal==="number"&&
     Number.isInteger(parsed.bestTotal)&&parsed.bestTotal>=DISC_GOLF_HOLES.length&&
     parsed.bestTotal<=DISC_GOLF_HOLES.length*999?parsed.bestTotal:null;
-  const round={scores:[...parsed.scores],bestTotal:best};
+  const nameSeed=typeof parsed.nameSeed==="number"&&Number.isInteger(parsed.nameSeed)&&
+   parsed.nameSeed>=0&&parsed.nameSeed<0x7fffffff?parsed.nameSeed:0;
+  const round={scores:[...parsed.scores],bestTotal:best,nameSeed};
   const result=discGolfRoundSummary(round);
   // A finished round can only have a real aggregate best.
   if(result.complete)
