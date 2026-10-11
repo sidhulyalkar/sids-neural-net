@@ -234,6 +234,51 @@ export function recommendDiscGolfPower(
  return best;
 }
 
+/** Noninteractive camera introduction for a fixed chain basket.
+ * The course shows the basket, then pulls back along the fairway to the
+ * player. Positions are derived from world time, so tab pauses cannot drift.
+ * Returning "complete" preserves the renderer's exact ordinary camera pose.
+ */
+export const DISC_GOLF_INTRO_HOLD=0.7;
+export const DISC_GOLF_INTRO_PULLBACK=2.65;
+export type DiscGolfIntroStage="basket"|"pullback"|"complete";
+export type DiscGolfIntroPose={
+ stage:DiscGolfIntroStage; camera:DiscPoint; look:DiscPoint;
+};
+export function discGolfIntroPose(
+ tee:Point,basket:Point,followCamera:DiscPoint,followLook:DiscPoint,
+ elapsedSeconds:number,ground:DiscTerrain,reducedMotion=false,
+):DiscGolfIntroPose{
+ const distance=Math.hypot(basket.x-tee.x,basket.z-tee.z)||1;
+ const ux=(basket.x-tee.x)/distance,uz=(basket.z-tee.z)/distance;
+ const close={x:basket.x-ux*8.5,z:basket.z-uz*8.5};
+ const camera:DiscPoint={...close,
+  y:Math.max(ground(close)+5.2,ground(basket)+5.8)};
+ const look:DiscPoint={...basket,y:ground(basket)+1.5};
+ if(elapsedSeconds<DISC_GOLF_INTRO_HOLD)
+  return {stage:"basket",camera,look};
+ // Reduced-motion visitors still see where the target is, but there is
+ // no moving flyover. Return via a single camera cut after the hold.
+ if(reducedMotion||elapsedSeconds>=DISC_GOLF_INTRO_HOLD+DISC_GOLF_INTRO_PULLBACK)
+  return {stage:"complete",camera:{...followCamera},look:{...followLook}};
+ const t=clamp((elapsedSeconds-DISC_GOLF_INTRO_HOLD)/DISC_GOLF_INTRO_PULLBACK,0,1);
+ const eased=t*t*(3-2*t);
+ const x=camera.x+(followCamera.x-camera.x)*eased;
+ const z=camera.z+(followCamera.z-camera.z)*eased;
+ // A small rising arc reveals the fairway and keeps the camera above hills.
+ const height=camera.y+(followCamera.y-camera.y)*eased+
+  Math.sin(Math.PI*eased)*Math.min(14,distance*.16);
+ return {
+  stage:"pullback",
+  camera:{x,z,y:Math.max(height,ground({x,z})+4.5)},
+  look:{
+   x:look.x+(followLook.x-look.x)*eased,
+   y:look.y+(followLook.y-look.y)*eased,
+   z:look.z+(followLook.z-look.z)*eased,
+  },
+ };
+}
+
 export function discGolfRemaining(state:DiscGolfState):number{
  const hole=DISC_GOLF_HOLES[state.holeIndex];
  const p=discGolfBasketPosition(hole,state.clock);
