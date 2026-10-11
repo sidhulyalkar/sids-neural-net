@@ -61,6 +61,8 @@ jobs:
           components/world/worldBigAirBirds.ts
           tests/world-big-air.test.ts
           lib/world/discGolf.ts
+          lib/world/discGolfPowerRail.ts
+          tests/world-disc-golf-power-rail.test.ts
           lib/world/discGolfAerodynamics.ts
           lib/world/discGolfRigidBody.ts
           lib/world/discGolfGroundContact.ts
