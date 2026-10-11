@@ -7,7 +7,7 @@ import {
  startDiscGolf,idleDiscGolf,discGolfThrow,stepDiscGolf,discGolfScoreName,
  discGolfRemaining,discGolfTreeContact,traceDiscGolfShot,recommendDiscGolfPower,
  discGolfIntroPose,DISC_GOLF_INTRO_HOLD,DISC_GOLF_INTRO_PULLBACK,
- discGolfThrowCameraPose,discGolfPullback,DISC_GOLF_TAP_WINDOW_MS,
+ discGolfThrowCameraPose,discGolfClearCamera,discGolfPullback,DISC_GOLF_TAP_WINDOW_MS,
  DISC_GOLF_SWING_CYCLE_MS,
 } from "../lib/world/discGolf";
 import { terrainHeight,isWater } from "../lib/world/model";
@@ -468,4 +468,16 @@ test("unobstructed playable throws reach a terminal phase without running foreve
   assert.notEqual(s.phase,"flying",style+" flight should resolve");
   assert.ok(Number.isFinite(s.disc.x)&&Number.isFinite(s.disc.y)&&Number.isFinite(s.disc.z));
  }
+});
+
+test("disc golf camera orbits away from a blocking tree without moving its focus",()=>{
+ const focus={x:0,y:2,z:0},desired={x:0,y:14,z:20};
+ const unobstructed=discGolfClearCamera(desired,focus,[],()=>0);
+ assert.deepEqual(unobstructed,desired);
+ const tree=[{x:0,z:10,radius:2,height:20}];
+ const clear=discGolfClearCamera(desired,focus,tree,()=>0);
+ assert.ok(Number.isFinite(clear.x)&&Number.isFinite(clear.y)&&Number.isFinite(clear.z));
+ assert.ok(Math.abs(clear.x)>2,"camera should orbit away from the trunk");
+ assert.ok(Math.hypot(clear.x-focus.x,clear.z-focus.z)>=19.9,
+  "keep a readable distance rather than zooming into the player");
 });
