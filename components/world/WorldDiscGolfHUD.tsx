@@ -157,7 +157,10 @@ export function WorldDiscGolfHUD({game,onShot,onChangeHole,onExit,onStage,onPrev
      <div className={styles.discGolfMeters}>
       <div className={styles.discGolfMeterHeader}>
        <span>{charging?"Release inside the sweet spot":"Recommended power"}</span>
-       <strong>{shownPower}% · recommended {suggested}%</strong>
+       <strong>{charging?
+        (Math.abs(shownPower-suggested)<=6?"Clean release":
+         shownPower>suggested?"Power drive":"Soft touch"):
+        suggested+"% ideal"}</strong>
       </div>
       <div className={styles.discGolfMeter} role="progressbar" aria-label="Disc throw power"
         aria-valuemin={0} aria-valuemax={100} aria-valuenow={shownPower}>
