@@ -2,7 +2,7 @@ import * as THREE from "three/src/Three.Core.js";
 import { GeometryBatch } from "./worldGeometry";
 import { biomeAt, DESERT_FORMATIONS, smooth, understoryDensityAt } from "@/lib/world/biomes";
 import { BOULDER_HOLDS, sportClearance } from "@/lib/world/activities";
-import { discGolfOpeningClearance,discGolfCourseClearance } from "@/lib/world/discGolf";
+import { discGolfOpeningClearance } from "@/lib/world/discGolf";
 import { RAINFOREST_CANOPY_WILDLIFE, RAINFOREST_REPTILES, DESERT_ECOLOGY_ANCHORS } from "@/lib/world/ecology";
 import { DESERT_JUMPS, desertGapBypassPoints, jumpWorld } from "@/lib/world/desertTrack";
 import {
@@ -96,7 +96,6 @@ export function createHabitats(scene: THREE.Scene, obstacles: Obstacle[]) {
   const inDryWash = (p: Point) => p.z > -52 && p.z < -4 && Math.abs(p.x - washX(p.z)) < 1.4;
   const clear = (p: Point) =>
     discGolfOpeningClearance(p,1.6) ||
-    discGolfCourseClearance(p,1.6) ||
     inDryWash(p) ||
     BOULDER_HOLDS.some((h) => distance(p, h) < h.radius + 2) ||
     sportClearance(p) ||
