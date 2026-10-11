@@ -2618,7 +2618,7 @@ export function createWorld(
     if(discGolf.phase!=="off"){
       const k=e.key.toLowerCase();
       if(discGolfIntro && (k==="escape"||k===" "||
-        ["w","a","s","d","arrowup","arrowdown","arrowleft","arrowright"].includes(k))){
+        ["w","a","s","d","q","e","arrowup","arrowdown","arrowleft","arrowright"].includes(k))){
         discGolfIntro=null;snapDiscCamera=true;
         if(k==="escape")e.preventDefault();
       }
