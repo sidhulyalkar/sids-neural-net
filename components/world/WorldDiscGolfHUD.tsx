@@ -2,7 +2,7 @@
 import {useCallback,useEffect,useMemo,useRef,useState} from "react";
 import {
  DISC_GOLF_HOLES,discGolfRemaining,discGolfScoreName,discGolfWind,
- recommendDiscGolfPower,discGolfPullback,type DiscGolfState,type DiscShot,type DiscGolfSwingStage,
+ recommendDiscGolfPower,discGolfPullback,DISC_GOLF_MAX_BANK,type DiscGolfState,type DiscShot,type DiscGolfSwingStage,
 } from "@/lib/world/discGolf";
 import {terrainHeight,isWater,SEA_SURFACE} from "@/lib/world/model";
 import {discGolfName} from "@/lib/world/discGolfNames";
@@ -31,6 +31,7 @@ export function WorldDiscGolfHUD({game,round,scorecardOpen,onToggleScorecard,onN
  const [restartConfirm,setRestartConfirm]=useState(false);
  const [loft,setLoft]=useState(24);
  const [aim,setAim]=useState(0);
+ const [bankAngle,setBankAngle]=useState(0);
  const [charging,setCharging]=useState(false);
  const [chargePower,setChargePower]=useState(65);
  const held=useRef(false);
@@ -42,13 +43,13 @@ export function WorldDiscGolfHUD({game,round,scorecardOpen,onToggleScorecard,onN
  const locked=game.phase==="flying"||game.phase==="holed";
  const available=!locked&&game.phase!=="off";
  // Re-solve on a new lie or a changed aim, not on every animation frame.
- const suggested=useMemo(()=>recommendDiscGolfPower(game,loft,aim,ground,isWater,SEA_SURFACE),
+ const suggested=useMemo(()=>recommendDiscGolfPower(game,loft,aim,ground,isWater,SEA_SURFACE,[],bankAngle),
   // The wind varies slowly; the preview itself refreshes during aiming.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  [game.holeIndex,game.gatesCleared,game.lie.x,game.lie.z,game.phase,loft,aim]);
+  [game.holeIndex,game.gatesCleared,game.lie.x,game.lie.z,game.phase,loft,aim,bankAngle]);
  const preview=useCallback((power:number)=>{
-  onPreview({power,accuracy:0,loft,aimOffset:aim});
- },[onPreview,loft,aim]);
+  onPreview({power,accuracy:0,loft,aimOffset:aim,bankAngle});
+ },[onPreview,loft,aim,bankAngle]);
  const queueShot=useCallback((shot:DiscShot)=>{
   if(fired.current)return;
   fired.current=true;
@@ -89,12 +90,12 @@ export function WorldDiscGolfHUD({game,round,scorecardOpen,onToggleScorecard,onN
   // longer press cannot accidentally turn a drive into a tiny putt.
   const power=discGolfPullback(ms,suggested).power;
   setCharging(false);setChargePower(power);
-  queueShot({power,loft,aimOffset:aim,accuracy:0});
- },[suggested,queueShot,loft,aim]);
+  queueShot({power,loft,aimOffset:aim,accuracy:0,bankAngle});
+ },[suggested,queueShot,loft,aim,bankAngle]);
  const tap=useCallback(()=>{
   if(!available||held.current||fired.current)return;
-  queueShot({power:suggested,loft,aimOffset:aim,accuracy:0});
- },[available,suggested,queueShot,loft,aim]);
+  queueShot({power:suggested,loft,aimOffset:aim,accuracy:0,bankAngle});
+ },[available,suggested,queueShot,loft,aim,bankAngle]);
  useEffect(()=>{
   if(!charging)return;
   let frame=0;
@@ -125,13 +126,15 @@ export function WorldDiscGolfHUD({game,round,scorecardOpen,onToggleScorecard,onN
   const down=(e:KeyboardEvent)=>{
    if(!available||e.altKey||e.ctrlKey||e.metaKey||isTextEntry(e.target))return;
    const key=e.key.toLowerCase();
-   if(key==="a"||key==="d"||key==="w"||key==="s"||
+   if(key==="a"||key==="d"||key==="w"||key==="s"||key==="q"||key==="e"||
       key==="arrowleft"||key==="arrowright"||key==="arrowup"||key==="arrowdown"){
     e.preventDefault();
     if(key==="a"||key==="arrowleft")setAim(v=>clamp(v-2,-55,55));
     else if(key==="d"||key==="arrowright")setAim(v=>clamp(v+2,-55,55));
     else if(key==="w"||key==="arrowup")setLoft(v=>clamp(v+2,6,42));
-    else setLoft(v=>clamp(v-2,6,42));
+    else if(key==="s"||key==="arrowdown")setLoft(v=>clamp(v-2,6,42));
+    else if(key==="q")setBankAngle(v=>clamp(v-5,-DISC_GOLF_MAX_BANK,DISC_GOLF_MAX_BANK));
+    else if(key==="e")setBankAngle(v=>clamp(v+5,-DISC_GOLF_MAX_BANK,DISC_GOLF_MAX_BANK));
    }else if(e.code==="Space"){
     e.preventDefault();
     if(!e.repeat)begin();
@@ -208,6 +211,25 @@ export function WorldDiscGolfHUD({game,round,scorecardOpen,onToggleScorecard,onN
      <div className={styles.discGolfKeyGuide}>
       <div><kbd>A</kbd> <kbd>D</kbd><span>Aim <strong>{aim>0?"+":""}{aim}°</strong></span></div>
       <div><kbd>W</kbd> <kbd>S</kbd><span>Loft <strong>{loft}°</strong></span></div>
+      <div><kbd>Q</kbd> <kbd>E</kbd><span>Curve <strong>{bankAngle<0?"↶ Left":bankAngle>0?"Right ↷":"Flat"} {Math.abs(bankAngle)}°</strong></span></div>
+     </div>
+     <div className={styles.discGolfCurve}>
+      <label htmlFor="disc-golf-bank">Disc tilt</label>
+      <div className={styles.discGolfCurveRow}>
+       <span aria-hidden="true">↶</span>
+       <input id="disc-golf-bank" type="range" min={-DISC_GOLF_MAX_BANK}
+        max={DISC_GOLF_MAX_BANK} step={5} value={bankAngle}
+        disabled={!available||charging}
+        onChange={e=>setBankAngle(Number(e.currentTarget.value))}
+        aria-label="Curve disc left or right" aria-valuetext={
+         bankAngle===0?"Flat":Math.abs(bankAngle)+" degrees "+(bankAngle<0?"left":"right")
+        }/>
+       <span aria-hidden="true">↷</span>
+       <button type="button" onClick={()=>setBankAngle(0)}
+        disabled={!available||charging||bankAngle===0} aria-label="Reset disc curve to flat">
+        Flat
+       </button>
+      </div>
      </div>
      <div className={styles.discGolfMeters}>
       <div className={styles.discGolfMeterHeader}>
