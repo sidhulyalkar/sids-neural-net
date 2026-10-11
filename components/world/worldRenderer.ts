@@ -6,6 +6,7 @@ import { createTechnicalGeometry } from "./worldTechnicalGeometry";
 import { createBigAirBirds } from "./worldBigAirBirds";
 import { createDiscGolfGeometry } from "./worldDiscGolfGeometry";
 import {createJetSkiDock} from "./worldJetSkiDock";
+import {createJetSkiCoastGeometry} from "./worldJetSkiCourseGeometry";
 import {JET_SKI_DOCK,JET_SKI_GATES,startJetSkiRace,stepJetSkiRace,jetSkiNavigableWater,jetSkiGateDistance,jetSkiBearingToGate,jetSkiOpponentInput,jetSkiRaceProgress,type JetSkiState} from "@/lib/world/jetSkiRace";
 import {
   DISC_GOLF_HOLES,discGolfOpeningClearance,discGolfCourseClearance,discGolfBasketPosition,discGolfNextTarget,discGolfThrowCameraPose,discGolfIntroPose,discGolfThrow,stepDiscGolf,
@@ -161,9 +162,12 @@ export function createWorld(
   const jetLeftButton=makeJetButton("←");
   const jetThrottleButton=makeJetButton("Throttle");
   const jetBrakeButton=makeJetButton("Brake");
+  const jetBoostButton=makeJetButton("BOOST");
+  const jetBoostState={active:false};
   const jetRightButton=makeJetButton("→");
   const jetDockButton=makeJetButton("Dock");
-  const driveButtons=[jetLeftButton,jetThrottleButton,jetBrakeButton,jetRightButton,jetDockButton];
+  const driveButtons=[jetLeftButton,jetThrottleButton,jetBrakeButton,
+    jetBoostButton,jetRightButton,jetDockButton];
   const holdJetButton=(button:HTMLButtonElement,press:()=>void,release:()=>void)=>{
     button.addEventListener("pointerdown",e=>{
       e.preventDefault();e.stopPropagation();press();
@@ -176,6 +180,7 @@ export function createWorld(
   holdJetButton(jetLeftButton,()=>{jetTouchInput.steer=-1;},()=>{jetTouchInput.steer=0;});
   holdJetButton(jetRightButton,()=>{jetTouchInput.steer=1;},()=>{jetTouchInput.steer=0;});
   holdJetButton(jetThrottleButton,()=>{jetTouchInput.throttle=1;},()=>{jetTouchInput.throttle=0;});
+  holdJetButton(jetBoostButton,()=>{jetBoostState.active=true;},()=>{jetBoostState.active=false;});
   holdJetButton(jetBrakeButton,()=>{jetTouchInput.throttle=-1;jetTouchInput.brake=true;},
     ()=>{jetTouchInput.throttle=0;jetTouchInput.brake=false;});
   jetCraftButton.addEventListener("click",()=>{
@@ -853,6 +858,9 @@ export function createWorld(
   const flyingBirds=createBigAirBirds(scene);
   const discGolfObjects=createDiscGolfGeometry(scene);
   const jetskiVisual=createJetSkiDock(scene);
+  const jetskiCoast=createJetSkiCoastGeometry(scene);
+  canvas.dataset.jetSkiRocks=String(jetskiCoast.rockCount);
+  canvas.dataset.jetSkiArches=String(jetskiCoast.archCount);
   canvas.dataset.discGolfHoles=String(DISC_GOLF_HOLES.length);
   canvas.dataset.bigAirBirds=String(flyingBirds.count);
   canvas.dataset.technicalFeatures = "3-gardens-3-beams";
@@ -2542,6 +2550,7 @@ export function createWorld(
     if(!jetSki)return;
     jetSki=null;jetRivals=[];jetMilestone="";
     jetTouchInput.throttle=0;jetTouchInput.steer=0;jetTouchInput.brake=false;
+    jetBoostState.active=false;
     player={x:57,z:JET_SKI_DOCK.z};playerY=groundHeight(player);
     travel={point:player,speed:0,heading:{x:1,z:0}};
     destination=null;
@@ -2927,17 +2936,19 @@ export function createWorld(
         const steerInput=THREE.MathUtils.clamp(Number(keys.has("d")||keys.has("arrowright"))-
           Number(keys.has("a")||keys.has("arrowleft"))+jetTouchInput.steer,-1,1);
         jetSki=stepJetSkiRace(jetSki,dt,{throttle:forwardInput,steer:steerInput,
-          brake:jetTouchInput.brake||forwardInput<0&&jetSki.speed>0});
+          brake:jetTouchInput.brake||forwardInput<0&&jetSki.speed>0,
+          turbo:keys.has("shift")||jetBoostState.active});
         jetRivals=jetRivals.map(rival=>stepJetSkiRace(
           rival,dt,jetSkiOpponentInput(rival),jetSkiNavigableWater));
         jetskiVisual.opponents.forEach((object,i)=>{
           const rival=jetRivals[i];
           object.visible=!!rival;
           if(!rival)return;
-          object.position.set(rival.position.x,SEA_SURFACE+.2+Math.sin(elapsed*4+i)*.045,rival.position.z);
+          object.position.set(rival.position.x,SEA_SURFACE+.2+rival.waterHeight+
+            rival.jumpHeight,rival.position.z);
           object.rotation.y=rival.heading;
-          object.rotation.z=THREE.MathUtils.lerp(object.rotation.z,
-            -jetSkiOpponentInput(rival).steer*.16*Math.min(1,rival.speed/10),Math.min(1,dt*4));
+          object.rotation.z=rival.roll;
+          object.rotation.x=rival.pitch;
         });
         player={...jetSki.position};playerY=SEA_SURFACE+.65;
         travel={point:player,speed:jetSki.speed,
@@ -2945,18 +2956,19 @@ export function createWorld(
         explorer.rotation.y=jetSki.heading;
         airHeight=verticalSpeed=0;destination=null;
         jetskiVisual.activeSki.visible=true;
-        jetskiVisual.activeSki.position.set(player.x,SEA_SURFACE+.2+Math.sin(elapsed*5)*.07,player.z);
+        jetskiVisual.activeSki.position.set(player.x,
+          SEA_SURFACE+.2+jetSki.waterHeight+jetSki.jumpHeight,player.z);
         jetskiVisual.activeSki.rotation.y=jetSki.heading;
         const steering=Number(keys.has("d")||keys.has("arrowright"))-
           Number(keys.has("a")||keys.has("arrowleft"));
-        jetskiVisual.activeSki.rotation.z=THREE.MathUtils.lerp(
-          jetskiVisual.activeSki.rotation.z,-steering*.22*Math.min(1,Math.abs(jetSki.speed)/11),
-          Math.min(1,dt*5));
-        jetskiVisual.wake.visible=jetSki.speed>2;
+        jetskiVisual.activeSki.rotation.z=jetSki.roll;
+        jetskiVisual.activeSki.rotation.x=jetSki.pitch;
+        jetskiVisual.wake.visible=jetSki.speed>2&&jetSki.jumpHeight<.1;
         jetskiVisual.wake.position.x=player.x-Math.sin(jetSki.heading)*1.1;
         jetskiVisual.wake.position.z=player.z-Math.cos(jetSki.heading)*1.1;
         jetskiVisual.wake.rotation.z=-jetSki.heading;
-        jetskiVisual.wake.scale.setScalar(1+Math.min(2.7,Math.abs(jetSki.speed)/10));
+        jetskiVisual.wake.material.opacity=jetSki.boosting?.9:.58;
+        jetskiVisual.wake.scale.setScalar(1+Math.min(3.4,Math.abs(jetSki.speed)/9));
         jetskiVisual.buoys.forEach((b,i)=>{b.visible=true;
           b.scale.setScalar(i===jetSki!.checkpoint?1.7:1);});
         canvas.dataset.jetSkiStatus=jetSki.phase;
@@ -2970,6 +2982,9 @@ export function createWorld(
         canvas.dataset.jetSkiGate=String(jetSki.checkpoint+1);
         canvas.dataset.jetSkiSpeed=jetSki.speed.toFixed(1);
         canvas.dataset.jetSkiTime=jetSki.elapsed.toFixed(1);
+        canvas.dataset.jetSkiTurbo=jetSki.turbo.toFixed(0);
+        canvas.dataset.jetSkiJump=jetSki.jumpHeight.toFixed(2);
+        canvas.dataset.jetSkiRockHits=String(jetSki.rockHits);
         canvas.dataset.jetSkiCourseWater=String(jetSkiNavigableWater(player));
         const place=1+jetRivals.filter(rival=>jetSkiRaceProgress(rival)>
           jetSkiRaceProgress(jetSki!)).length;
@@ -2983,7 +2998,7 @@ export function createWorld(
           gateBearing>0?"→":"←";
         jetHud.textContent=jetSki.phase==="finished"?
           `FINISH · ${jetSki.elapsed.toFixed(1)}s · Place ${place}/3 · Esc to dock`:
-          `${jetSki.craft.toUpperCase()} · Place ${place}/3 · Lap ${Math.min(2,jetSki.lap+1)}/2 · Gate ${jetSki.checkpoint+1}/${JET_SKI_GATES.length} ${turnGuide} ${jetSkiGateDistance(jetSki).toFixed(0)}m · ${Math.max(0,jetSki.speed).toFixed(0)} m/s · ${jetSki.elapsed.toFixed(1)}s · Esc to dock`;
+          `${jetSki.craft.toUpperCase()} · Place ${place}/3 · Lap ${Math.min(2,jetSki.lap+1)}/2 · Gate ${jetSki.checkpoint+1}/${JET_SKI_GATES.length} ${turnGuide} ${jetSkiGateDistance(jetSki).toFixed(0)}m · ${Math.max(0,jetSki.speed).toFixed(0)} m/s · Turbo ${jetSki.turbo.toFixed(0)}%${jetSki.jumpHeight>.2?" · AIR":""} · ${jetSki.elapsed.toFixed(1)}s · Shift BOOST · Esc Dock`;
         explorer.visible=false;
       }else if (discGolf.phase!=="off") {
         const previous=discGolf.phase;
@@ -3546,6 +3561,7 @@ export function createWorld(
           player.z + Math.cos(cameraYaw) * cameraZoom * Math.cos(pitch),
         );
       }
+      jetskiCoast.update(elapsed,!!jetSki);
       if(jetTouchEnabled){
         const nearDock=Math.hypot(player.x-57,player.z-JET_SKI_DOCK.z)<9;
         jetCraftButton.textContent=selectedJetSki;
@@ -4875,6 +4891,7 @@ export function createWorld(
     },
     dispose() {
       discGolfObjects.dispose();
+      jetskiCoast.dispose();
       jetHud.remove();jetAnnounce.remove();jetTouch.remove();
       jetskiVisual.root.traverse(object=>{
         if(object instanceof THREE.Mesh){object.geometry.dispose();
