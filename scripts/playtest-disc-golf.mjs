@@ -1,0 +1,66 @@
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
+import {createRequire} from "node:module";
+
+const root=process.env.PLAYWRIGHT_MODULE_ROOT;
+if(!root)throw new Error("Set PLAYWRIGHT_MODULE_ROOT to an installed Playwright package directory");
+const require=createRequire(path.join(root,"package.json"));
+const {chromium}=require("playwright");
+const base=process.env.WORLD_BASE_URL??"http://127.0.0.1:3000";
+const out=process.env.WORLD_AUDIT_DIR??"artifacts/world/disc-golf-playtest";
+fs.mkdirSync(out,{recursive:true});
+const browser=await chromium.launch({headless:true,args:["--no-sandbox","--enable-unsafe-swiftshader"]});
+const report=[];
+const errors=[];
+try{
+ const page=await browser.newPage({viewport:{width:1440,height:900}});
+ page.on("pageerror",e=>errors.push(e.message));
+ await page.goto(base);
+ await page.waitForFunction(()=>Number(document.querySelector("canvas")?.dataset.drawCalls)>0);
+ await page.getByRole("button",{name:"Explore world",exact:true}).click();
+ await page.getByRole("button",{name:/^Disc golf · (play|resume|scorecard)$/}).click();
+ const canvas=page.locator("canvas");
+ await page.waitForFunction(()=>document.querySelector("canvas")?.dataset.discGolfPhase==="ready");
+ const issues=await canvas.getAttribute("data-disc-golf-layout-issues");
+ assert.equal(await canvas.getAttribute("data-disc-golf-layout-clear"),"true",
+  "A procedural obstacle overlaps a tee or green: "+issues);
+ const ids=["redwood-bend","scrub-crosswind","desert-drifter",
+   "coastal-gust","redwood-needles","fern-falls","granite-climb",
+   "joshua-chute","homeward-line"];
+ for(let i=0;i<ids.length;i++){
+  if(i>0)await page.getByRole("button",
+   {name:new RegExp("^Play hole "+(i+1)+":")}).click();
+  await page.waitForFunction((id)=>{
+   const c=document.querySelector("canvas");
+   return c?.dataset.discGolfHole===id&&c?.dataset.discGolfPhase==="ready";
+  },ids[i]);
+  assert.equal(await canvas.getAttribute("data-disc-golf-last-shot"),"pending");
+  if(i===1){
+   // Explicit pointer regression for the formerly unplayable second tee.
+   await page.getByRole("button",{name:"Space · Throw"}).click();
+  }else{
+   await page.keyboard.down("Space");
+   await page.waitForTimeout(85);
+   await page.keyboard.up("Space");
+  }
+  await page.waitForFunction(()=>document.querySelector("canvas")?.dataset.discGolfLastShot==="accepted",
+   null,{timeout:5000});
+  await page.waitForFunction(()=>{
+   const phase=document.querySelector("canvas")?.dataset.discGolfPhase;
+   return phase==="landed"||phase==="holed"||phase==="water";
+  },null,{timeout:15000});
+  const phase=await canvas.getAttribute("data-disc-golf-phase");
+  const strokes=Number(await canvas.getAttribute("data-disc-golf-strokes"));
+  assert.notEqual(phase,"water","Default first throw should not be an immediate water redo on "+ids[i]);
+  assert.equal(strokes,1,"First throw must count exactly one stroke on "+ids[i]);
+  if(i===1||i===0||i===8){
+   await page.screenshot({path:path.join(out,`hole-${i+1}-after-first-shot.png`)});
+  }
+  report.push({hole:i+1,id:ids[i],phase,strokes});
+ }
+ assert.deepEqual(errors,[],"Browser should produce no runtime errors");
+ fs.writeFileSync(path.join(out,"report.json"),JSON.stringify({report,errors},null,2)+"\n");
+ console.log(JSON.stringify({report,errors},null,2));
+ await page.close();
+}finally{await browser.close();}
