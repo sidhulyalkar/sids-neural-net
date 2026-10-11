@@ -134,6 +134,8 @@ export function WorldHome({ content }: { content: WorldContent }) {
     setDiscGolfStage("idle");setDiscGolfSwingAmount(0);setDiscGolf(idleDiscGolf());
     setDiscPreviewShot(null);
     setDiscGolfExitSerial(n=>n+1);
+    // Return keyboard navigation to the world after the throw HUD unmounts.
+    requestAnimationFrame(()=>worldRoot.current?.querySelector("canvas")?.focus({preventScroll:true}));
   };
   const [bigAir,setBigAir]=useState<BigAirState>(idleBigAir);
   const [bestFlight,setBestFlight]=useState<number|null>(()=>{
