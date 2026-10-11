@@ -7,13 +7,14 @@ import {
 import styles from "./world.module.css";
 
 type Stage=DiscGolfSwingStage;
-export function WorldDiscGolfHUD({game,onShot,onChangeHole,onExit,onStage,onPreview}:{
+export function WorldDiscGolfHUD({game,onShot,onChangeHole,onExit,onStage,onPreview,onSwing}:{
  game:DiscGolfState;
  onShot:(shot:DiscShot)=>void;
  onChangeHole:(hole:number)=>void;
  onExit:()=>void;
  onStage:(stage:DiscGolfSwingStage)=>void;
  onPreview:(shot:DiscShot|null)=>void;
+ onSwing:(amount:number)=>void;
 }){
  const hole=DISC_GOLF_HOLES[game.holeIndex];
  const [stage,setStage]=useState<Stage>("idle");
@@ -36,26 +37,35 @@ export function WorldDiscGolfHUD({game,onShot,onChangeHole,onExit,onStage,onPrev
      if(bucket!==previewPowerBucket.current){
        previewPowerBucket.current=bucket;
        onPreview({power:Math.max(8,bucket*10),accuracy:0,loft,aimOffset:aim});
+       onSwing(bucket/10);
+     }
+   } else {
+     const bucket=Math.round(t*10);
+     if(bucket!==previewPowerBucket.current){
+       previewPowerBucket.current=bucket;
+       onSwing(bucket/10);
      }
    }
    raf=requestAnimationFrame(run);
   };
   raf=requestAnimationFrame(run);
   return ()=>cancelAnimationFrame(raf);
- },[stage,onPreview,loft,aim]);
+ },[stage,onPreview,onSwing,loft,aim]);
  const act=()=>{
   if(game.phase==="flying"||game.phase==="holed"||stage==="released")return;
   if(stage==="idle"){
    started.current=performance.now();setCursor(0);setStage("power");onStage("power");
+   previewPowerBucket.current=-1;onSwing(0);
   }else if(stage==="power"){
    const chosen=Math.max(8,Math.round(cursor*100));
    setPower(chosen);
    onPreview({power:chosen,accuracy:0,loft,aimOffset:aim});
    started.current=performance.now();setCursor(0);setStage("accuracy");onStage("accuracy");
+   previewPowerBucket.current=-1;onSwing(0);
   }else{
    const accuracy=(cursor-.5)*2;
    setStage("released");onStage("released");
-   onPreview(null);
+   onSwing(1);onPreview(null);
    onShot({power,accuracy,loft,aimOffset:aim});
   }
  };
@@ -81,8 +91,8 @@ export function WorldDiscGolfHUD({game,onShot,onChangeHole,onExit,onStage,onPrev
    </div>
    <p className={styles.discGolfNote}>
     {game.phase==="holed"?`Chains! ${discGolfScoreName(game.strokes,hole.par)}`:
-     game.phase==="water"?"Water shot. Free redo from your last lie.":
-     game.phase==="landed"?"Follow the gold beam to your next shot.":
+     game.phase==="water"?(game.reason??"Water shot. Free redo from your last lie."):
+     game.phase==="landed"?(game.reason??"Follow the gold beam to your next shot."):
      game.phase==="flying"?"Watch the disc bend in the wind…":
      "Aim, choose loft, then tap three times to swing and release."}
    </p>

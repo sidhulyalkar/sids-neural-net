@@ -538,12 +538,24 @@ try {
   await page.getByRole('button',{name:'Disc golf · play',exact:true}).click();
   await page.waitForFunction(()=>document.querySelector('canvas')?.dataset.discGolfPhase==='ready');
   assert.equal(await page.locator('canvas').getAttribute('data-disc-golf-holes'),'4');
+  await page.waitForFunction(
+    ()=>document.querySelector('canvas')?.dataset.discGolfPreview==='true',
+    null,{timeout:5000},
+  );
   await screenshot(page,'disc-golf-tee-and-moving-chains');
   await page.getByRole('button',{name:'Start pullback'}).click();
-  await page.waitForTimeout(530);
+  await page.waitForFunction(
+    ()=>document.querySelector('canvas')?.dataset.discGolfSwing==='power' &&
+      Number(document.querySelector('canvas')?.dataset.discGolfSwingAmount)>.10,
+    null,{timeout:5000},
+  );
   await screenshot(page,'disc-golf-pullback-meter');
   await page.getByRole('button',{name:'Lock power'}).click();
-  await page.waitForTimeout(265);
+  await page.waitForFunction(
+    ()=>document.querySelector('canvas')?.dataset.discGolfSwing==='accuracy' &&
+      Number(document.querySelector('canvas')?.dataset.discGolfSwingAmount)>.10,
+    null,{timeout:5000},
+  );
   await screenshot(page,'disc-golf-accuracy-meter');
   await page.getByRole('button',{name:'Release disc'}).click();
   await page.waitForFunction(

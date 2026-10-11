@@ -90,6 +90,7 @@ type State = {
   discGolfPreview:DiscShot|null;
   discGolfExitSerial:number;
   discGolfSwingStage:DiscGolfSwingStage;
+  discGolfSwingAmount:number;
   waterAction: "dive" | "deeper" | "shallower" | "surface";
   waterActionSerial: number;
   entered: boolean;
@@ -2388,6 +2389,7 @@ export function createWorld(
     discGolfPreview:null,
     discGolfExitSerial:0,
     discGolfSwingStage:"idle",
+    discGolfSwingAmount:0,
     waterAction: "dive",
     waterActionSerial: 0,
   };
@@ -3018,9 +3020,14 @@ export function createWorld(
         legs[1].rotation.x = running ? -walking * 0.6 : bikePose ? 0.58 - walking * 0.28 : 0.2;
         // A quiet 3D throw pose follows the two user-controlled meter phases:
         // shoulder reaches back on pullback, then rotates through release.
+        const throwProgress=THREE.MathUtils.clamp(state.discGolfSwingAmount,0,1);
         const throwArm=discGolf.phase!=="off"?
-          state.discGolfSwingStage==="power" ? -.15 :
-          state.discGolfSwingStage==="accuracy" ? -1.3 :
+          discGolf.phase==="flying" ?
+            -.75-1.3*Math.max(0,1-discGolf.flightTime/.43) :
+          state.discGolfSwingStage==="power" ?
+            -.75+.65*throwProgress :
+          state.discGolfSwingStage==="accuracy" ?
+            -.10-1.9*throwProgress :
           state.discGolfSwingStage==="released" ? -2.05 : -.75 : null;
         arms[0].rotation.x = throwArm!==null?throwArm:
           climb ? -2 : running ? -walking * 0.4 : bikePose ? 0.82 : -0.75;
@@ -3076,6 +3083,11 @@ export function createWorld(
       canvas.dataset.height = playerY.toFixed(2);
       canvas.dataset.airborne = String(airHeight > 0 || !!climb || !!grind);
       canvas.dataset.discGolfPhase=discGolf.phase;
+      canvas.dataset.discGolfSwing=state.discGolfSwingStage;
+      canvas.dataset.discGolfPreview=String(
+        !!state.discGolfPreview &&
+        (discGolf.phase==="ready"||discGolf.phase==="landed"||discGolf.phase==="water"));
+      canvas.dataset.discGolfSwingAmount=state.discGolfSwingAmount.toFixed(2);
       canvas.dataset.discGolfBeacon=String(discGolf.phase==="landed");
       canvas.dataset.discGolfStrokes=String(discGolf.strokes);
       canvas.dataset.discGolfWaterRedos=String(discGolf.waterRedos);

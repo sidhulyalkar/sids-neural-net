@@ -36,12 +36,23 @@ These are explicit *initial* locations, subject to real browser visual survey. D
 ### Controls
 The default World canvas owns WASD/Space/drag. Once disc golf is selected it pauses ordinary locomotion and shows a focused persistent shot HUD. Numeric hole buttons allow switching between four targets, each resetting its own temporary round. Mobile controls must remain 44px-minimum for primary actions. All information remains readable without color or sound.
 
-### Improvements after browser validation
-1. **Trajectory preview**: a short dotted still-air line and landing ring that illustrates expected launch and loft without promising wind-perfect accuracy.
-2. **Disc hand and backswing animation**: character shoulder pullback mirrors meter, forward release carries through smoothly, returns to idle after takeoff.
-3. **Moving basket variations**: tree-gap side sweep, raised basket on a rocky platform, spiral/orbit challenge, slow uphill/dune motion. Always validate clearance and no clipping.
-4. **More disc behavior**: deliberately chosen glide profiles (putter/mid/fairway), optional hyzer and anhyzer, more legible speed/turn/fade and modest ground skip. First refine original throwing feel before adding inventory.
-5. **Course continuity**: hole-completion tally and optional replay/personal best, no account, no global leaderboard.
+### Next quality tranche: measured preview and obstacle-aware flight (2026-10-10)
+
+**Implemented in the feature branch, CI and graphical signoff tracked separately:**
+- `traceDiscGolfShot` simulates the exact same timestep solver and wind sampling as actual throws, with a fixed **centered release** assumption. The preview is explicitly labeled as an **estimate** since release timing, basket motion and gust phase can change. There is no hidden aim assist or guaranteed catch.
+- A single translucent world-space flight line and an estimated ground-contact ring update only when aim/power/loft changes or on a bounded 0.6-second cadence. The estimate never draws a teleport segment back to the tee after a water redo. Both meshes are disposed on scene exit.
+- `discGolfTreeContact` uses swept horizontal disc-versus-trunk cylinder intersections **with a vertical height check**, rather than rendering-only tree trunks. A contact earns an ordinary stroke and settles on actual ground, leaving a valid next lie, unlike water which still refunds the shot.
+- On a chain catch, the existing instanced metal chain assembly responds with a short damped movement. No extra per-link meshes, sounds or global particles are added.
+- The meter component preserves the player's chosen angle and power through incremental World updates; its live preview is throttled by ten-power-percent buckets while the first meter sweeps.
+- Dedicated regression checks cover collision between frames, passing safely above low trunks, exact preview/actual parity for a centered release, no fake water-return trajectory, and graphics resource cleanup.
+
+**Still needing actual visual browser validation:** player approach to all four tees, overlap between tree trunks and candidate target sweep paths, readable preview line in the forest, camera clipping while following a disc, whether a tree-contact lie is fairly playable, responsive touch controls, FPS/draw calls, and evidence screenshots. Do not claim the course is visually accepted merely because unit tests pass.
+
+### Backlog after real browser validation
+1. **More expressive body animation**: the arm already changes pose for each stage; add smooth follow-through driven by actual meter position, and ensure the disc truly releases from the hand location.
+2. **Course-specific obstacles**: validate seeded obstacles and create meaningful but fair tree gaps and rocky ridge lines, never invisible obstacles.
+3. **More disc behavior**: opt-in putter/mid/fairway styles, hyzer/anhyzer and modest ground skip only if intuitive base physics is already enjoyable.
+4. **Course continuity**: optional hole-completion tally and personal best, no account or global leaderboard.
 
 ### Quality gates
 - Verify the user can complete all four holes and that actual chain geometry aligns with simulated catch volume.
