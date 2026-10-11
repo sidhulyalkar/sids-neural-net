@@ -1,6 +1,6 @@
 import * as THREE from "three/src/Three.Core.js";
 import {
- DISC_GOLF_HOLES,discGolfBasketPosition,traceDiscGolfShot,
+ DISC_GOLF_HOLES,discGolfBasketPosition,discGolfNextTarget,traceDiscGolfShot,
  type DiscGolfState,type DiscShot,type DiscGolfObstacle,
 } from "@/lib/world/discGolf";
 import {terrainHeight,isWater,SEA_SURFACE} from "@/lib/world/model";
@@ -23,6 +23,19 @@ export function createDiscGolfGeometry(scene:THREE.Scene){
   new THREE.MeshBasicMaterial({color:"#e1c878",transparent:true,opacity:.23,depthWrite:false,side:THREE.DoubleSide}),
  ];
  const [steel,gold,plastic,glow]=materials;
+ // One clearly readable glowing mandatory gate. Three lightweight meshes;
+ // a single active gate is rendered at any time.
+ const gateRoot=new THREE.Group();gateRoot.name="disc-golf-next-mandatory-gate";
+ scene.add(gateRoot);
+ const gateMat=new THREE.MeshStandardMaterial({color:"#ffcc6e",emissive:"#f7ad42",
+  emissiveIntensity:.8,metalness:.1,roughness:.35});
+ const postGeo=new THREE.CylinderGeometry(.13,.13,10,7);
+ const topGeo=new THREE.CylinderGeometry(.16,.16,1,7);
+ const posts=[-1,1].map(side=>{
+  const p=new THREE.Mesh(postGeo,gateMat);gateRoot.add(p);return p;
+ });
+ const topBar=new THREE.Mesh(topGeo,gateMat);gateRoot.add(topBar);
+
  const pole=new THREE.Mesh(poleGeo,steel);pole.position.y=1.02;root.add(pole);
  const rim=new THREE.Mesh(ringGeo,gold);rim.rotation.x=Math.PI/2;rim.position.y=1.04;root.add(rim);
  const upper=new THREE.Mesh(ringGeo,steel);upper.rotation.x=Math.PI/2;upper.position.y=2.00;root.add(upper);
@@ -84,6 +97,24 @@ export function createDiscGolfGeometry(scene:THREE.Scene){
  const update=(game:DiscGolfState)=>{
   const active=game.phase!=="off";
   root.visible=disc.visible=active;
+  const hole=DISC_GOLF_HOLES[game.holeIndex];
+  const gate=hole.gates[game.gatesCleared];
+  gateRoot.visible=active&&!!gate;
+  if(gateRoot.visible&&gate){
+   const point=gate.point;
+   const groundY=terrainHeight(point.x,point.z);
+   gateRoot.position.set(point.x,groundY,point.z);
+   const prev=game.gatesCleared===0?hole.tee:
+    hole.gates[game.gatesCleared-1].point;
+   const dir=Math.atan2(point.x-prev.x,point.z-prev.z);
+   gateRoot.rotation.y=dir;
+   const side=gate.radius;
+   posts[0].position.set(-side,5,0);
+   posts[1].position.set(side,5,0);
+   topBar.position.set(0,10,0);
+   topBar.scale.y=side*2;
+   topBar.rotation.z=Math.PI/2;
+  }
   teeMarker.visible=game.phase==="ready";
   beacon.visible=game.phase==="landed";
   if(!active)return;
@@ -109,10 +140,10 @@ export function createDiscGolfGeometry(scene:THREE.Scene){
   velocity:{x:0,y:0,z:0},strokes:0,waterRedos:0,flightTime:0,clock:0,
   lockedWind:{x:0,z:0,speed:0},lastDistance:0,spin:0});
  return {update,updatePreview,dispose(){
-  scene.remove(root,disc,beacon,guide,ring,teeMarker);
+  scene.remove(root,disc,beacon,guide,ring,teeMarker,gateRoot);
   pathGeometry.dispose();guideMat.dispose();ringMat.dispose();
   poleGeo.dispose();chainGeo.dispose();ringGeo.dispose();coneGeo.dispose();
   discGeo.dispose();rimGeo.dispose();beamGeo.dispose();
-  chains.dispose();materials.forEach(m=>m.dispose());
- },drawCalls:11};
+  chains.dispose();postGeo.dispose();topGeo.dispose();gateMat.dispose();materials.forEach(m=>m.dispose());
+ },drawCalls:14};
 }
