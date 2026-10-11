@@ -260,7 +260,7 @@ test("flyback honors changing island elevation and reduced-motion camera cuts",(
 
 test("short putts use a stable elevated third-person camera, not a zoom into chains",()=>{
  const lie={x:3,z:4},groundY=12;
- for(const d of [1.2,3,6,9.9,10,10.1,40,75]){
+ for(const d of [0,.05,1.2,3,6,9.9,10,10.1,40,75]){
   const p=discGolfThrowCameraPose(lie,{x:lie.x+d,z:lie.z},groundY);
   const boom=Math.hypot(p.camera.x-lie.x,p.camera.z-lie.z);
   assert.ok(boom>=19,"camera cannot collapse into the player at distance "+d);
