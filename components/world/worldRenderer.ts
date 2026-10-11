@@ -829,6 +829,18 @@ export function createWorld(
   instances(rockGeo, mat("#687b75"), canyonStone);
   instances(rockGeo, mat("#648d3d"), canyonMoss, false);
   instances(cone, mat("#4d875d"), fernFronds, false); // Stylized fern forms; no species claim.
+  // Inspect actual generated collision footprints, not just analytic regions.
+  // Browser QA can assert each starting throw and putting green is usable.
+  const blockedGolfEnds=DISC_GOLF_HOLES.flatMap((h,index)=>{
+    const blocked=(p:{x:number;z:number})=>obstacles.some(o=>
+      Math.hypot(p.x-o.x,p.z-o.z)<o.radius+1.5);
+    return [
+      ...(blocked(h.tee)?[`hole-${index+1}-tee`]:[]),
+      ...(blocked(h.target)?[`hole-${index+1}-green`]:[]),
+    ];
+  });
+  canvas.dataset.discGolfLayoutClear=String(blockedGolfEnds.length===0);
+  canvas.dataset.discGolfLayoutIssues=blockedGolfEnds.join(",");
   const fallsY = waterfallProfile().floorY;
   const waterRibbonMat=mat("#9dc6c5",{transparent:true,opacity:.7,roughness:.35,side:THREE.DoubleSide});
   const melt=drainagePoints();
@@ -4375,6 +4387,7 @@ export function createWorld(
         lastDiscStart=next.discGolfStartSerial;
           const hole=DISC_GOLF_HOLES[next.discGolfHoleIndex]??DISC_GOLF_HOLES[0];
           discGolf=startDiscGolf(next.discGolfHoleIndex,p=>terrainHeight(p.x,p.z),elapsed);
+          canvas.dataset.discGolfLastShot="pending";
           discFetch=idleDiscGolfFetch();
           player={...hole.tee};playerY=groundHeight(player);
           travel={point:player,speed:0,heading:{x:0,z:1}};
