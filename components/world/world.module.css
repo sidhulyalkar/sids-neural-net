@@ -669,7 +669,7 @@
 .discGolfMainButton{width:100%;min-height:44px;border-radius:10px;font-size:14px;font-weight:650;color:#1b3738;background:#ebd8ae;padding:10px 14px}
 .discGolfMainButton:disabled{opacity:.54}
 .discGolfHint{display:block;font-size:11px;color:#e1e9e0;margin-top:9px;line-height:1.4}
-.discGolfHoles{display:flex;gap:7px;justify-content:center;margin-top:11px}
+.discGolfHoles{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:7px;justify-content:center;margin-top:11px}
 .discGolfHoles button{min-width:44px;min-height:40px;border:1px solid #cddbd070;border-radius:9px}
 .discGolfHoles button[aria-pressed="true"]{background:#eee1c5;color:#173538}
 .discGolfKeyGuide{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:12px 0;font-size:11px}
@@ -677,6 +677,7 @@
 .discGolfKeyGuide kbd{display:inline-grid;place-items:center;min-width:24px;height:25px;border:1px solid #ffffff69;border-radius:5px;background:#1f3d42;font:600 12px system-ui}
 .discGolfKeyGuide span{margin-left:5px;line-height:1.25}
 .discGolfKeyGuide strong{display:block;font-size:12px;color:#f9e9bd;font-weight:650}
+.discGolfSweetBand{position:absolute;top:0;bottom:0;background:#f5eac885;border-left:1px solid #fff5d7;border-right:1px solid #fff5d7;box-shadow:0 0 11px #f7e4b67a;pointer-events:none}
 .discGolfBestMarker{position:absolute;top:0;bottom:0;left:50%;width:3px;background:#fff9da;box-shadow:0 0 0 1px #132a2e,0 0 5px #fff5dc;transform:translateX(-50%)}
 .discGolfHud button:focus-visible,.discGolfHud input:focus-visible{outline:2px solid #fff0c8;outline-offset:3px}
 @media (max-width:760px){.discGolfHud{left:10px;right:10px;bottom:48px;width:auto;max-height:min(68vh,560px);padding:12px}.discGolfHeading h2{font-size:16px}}
