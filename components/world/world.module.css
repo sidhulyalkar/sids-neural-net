@@ -651,6 +651,27 @@
 
 .discGolfHud {position:absolute;z-index:5;right:22px;bottom:48px;width:min(410px,calc(100vw - 36px));max-height:min(79vh,650px);overflow:auto;padding:15px;border:1px solid #d9c9a080;border-radius:16px;background:#163237f3;color:#faf4e7;box-shadow:0 12px 38px #0f23269c;pointer-events:auto}
 .discGolfHeading{display:flex;justify-content:space-between;gap:14px;align-items:center}
+.discGolfHeaderActions{display:flex;align-items:center;gap:6px;flex-shrink:0}
+.discGolfHeaderActions button{font-size:12px;padding:7px 9px}
+.discGolfHeaderActions button[aria-expanded="true"]{background:#e9d8ad;color:#16383b}
+.discGolfRoundStrip{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:11px;color:#e9e4d7;margin:12px 0 5px;font-variant-numeric:tabular-nums}
+.discGolfRoundStrip strong{font-size:12px;color:#f8e3b3}
+.discGolfRecordedHole{border-color:#e9d4a3!important;color:#fde8c1}
+.discGolfPracticeNote{font-size:11px;color:#e9d4a3;margin:8px 0}
+.discGolfRoundComplete{display:grid;gap:7px;font-size:12px;margin:8px 0;color:#fbebca}
+.discGolfRoundComplete>strong{font-size:16px}
+.discGolfScorecard{margin-top:12px;padding-top:11px;border-top:1px solid #e9d9b755}
+.discGolfScorecardHeading{display:flex;justify-content:space-between;gap:8px;align-items:baseline;margin:0 0 8px;font-size:12px}
+.discGolfScorecardHeading span{font-size:11px;color:#d7e5e2}
+.discGolfScorecard table{width:100%;border-collapse:collapse;font-size:11px;line-height:1.5;font-variant-numeric:tabular-nums}
+.discGolfScorecard :is(th,td){padding:4px 6px;border-bottom:1px solid #e8dcc030;text-align:right}
+.discGolfScorecard :is(th,td):first-child{text-align:left}
+.discGolfScorecard tbody tr[aria-current="true"]{background:#dfc58b28}
+.discGolfScorecard thead th{color:#d3e1db}
+.discGolfScorecard tfoot th,.discGolfScorecard tfoot td{font-weight:700;color:#fff0c9}
+.discGolfResetButton,.discGolfRestartActions button{min-height:36px;padding:8px 12px;border:1px solid #e2c99888;border-radius:8px;font-size:12px;margin-top:10px}
+.discGolfRestartActions{display:flex;gap:8px}
+
 .discGolfHeading h2{font-size:18px;line-height:1.2;font-weight:600;margin:4px 0}
 .discGolfHeading button{border:1px solid #ffffff77;border-radius:9px;padding:9px 13px;min-height:42px}
 .discGolfStats{display:grid;grid-template-columns:1fr 1fr;gap:3px 12px;margin:10px 0;font-variant-numeric:tabular-nums;font-size:12px;color:#e0ebe1}
