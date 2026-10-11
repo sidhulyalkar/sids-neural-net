@@ -7,6 +7,7 @@ import { createBigAirBirds } from "./worldBigAirBirds";
 import { createDiscGolfGeometry } from "./worldDiscGolfGeometry";
 import {createJetSkiDock,type JetSkiWakePoint} from "./worldJetSkiDock";
 import {jetSkiPierHeight,nearJetSkiBoarding,JET_SKI_PIER} from "@/lib/world/jetSkiPier";
+import {jetSkiWaterSample} from "@/lib/world/jetSkiWater";
 import {createJetSkiCoastGeometry} from "./worldJetSkiCourseGeometry";
 import {jetSkiSectionName} from "@/lib/world/jetSkiCourse";
 import {JET_SKI_DOCK,JET_SKI_GATES,startJetSkiRace,stepJetSkiRace,jetSkiNavigableWater,jetSkiGateDistance,jetSkiBearingToGate,jetSkiOpponentInput,jetSkiRacePlace,type JetSkiState} from "@/lib/world/jetSkiRace";
@@ -460,13 +461,31 @@ export function createWorld(
     side: THREE.DoubleSide,
   });
   const water = mesh(
-    geo(new THREE.PlaneGeometry(540, 420)),
+    geo(new THREE.PlaneGeometry(540, 420, 64, 48)),
     waterMaterial,
     [-80, SEA_SURFACE, -90],
     [1, 1, 1],
   );
   water.rotation.x = -Math.PI / 2;
   water.castShadow = false;
+  const oceanPositions=water.geometry.attributes.position;
+  let oceanWaveLast=-Infinity,oceanWaveActive=false;
+  function updateRaceOceanWaves(time:number,racing:boolean){
+    if(racing&&time-oceanWaveLast<.065)return;
+    if(!racing&&!oceanWaveActive)return;
+    oceanWaveLast=time;oceanWaveActive=racing;
+    // Ocean PlaneGeometry is rotated -90deg about X; local +Z is world Y.
+    // Race visuals sample the same world-space field as the watercraft hull.
+    for(let i=0;i<oceanPositions.count;i++){
+      const x=water.position.x+oceanPositions.getX(i);
+      const z=water.position.z-oceanPositions.getY(i);
+      const wet=jetSkiNavigableWater({x,z})||isWater({x,z});
+      oceanPositions.setZ(i,racing&&wet?
+        jetSkiWaterSample({x,z},time).height:0);
+    }
+    oceanPositions.needsUpdate=true;
+    water.geometry.computeVertexNormals();
+  }
   const waves: Instance[] = [];
   for (let i = 0; i < 100; i++)
     waves.push({
@@ -3705,6 +3724,7 @@ export function createWorld(
           player.z + Math.cos(cameraYaw) * cameraZoom * Math.cos(pitch),
         );
       }
+      updateRaceOceanWaves(elapsed,!!jetSki);
       jetskiCoast.update(elapsed,!!jetSki);
       if(jetTouchEnabled){
         const nearDock=nearJetSkiBoarding(player)&&aquatic==="land";
