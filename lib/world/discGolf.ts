@@ -135,12 +135,15 @@ export function discGolfWind(index:number,t:number):DiscWind{
  const z=Math.cos(phase*.7)*1.05+Math.sin(phase*.55)*.45;
  return {x,z,speed:Math.hypot(x,z)};
 }
-export type DiscShot={power:number;accuracy:number;loft:number;aimOffset:number};
+/** Signed disc-bank in degrees: negative curls left, positive curls right.
+ * Optional so older saved shots/tests remain neutral. */
+export const DISC_GOLF_MAX_BANK=40;
+export type DiscShot={power:number;accuracy:number;loft:number;aimOffset:number;bankAngle?:number};
 export type DiscGolfState={
  phase:DiscGolfPhase;holeIndex:number;gatesCleared:number;lie:Point; disc:DiscPoint;
  velocity:{x:number;y:number;z:number};strokes:number;waterRedos:number;
  flightTime:number;clock:number;lockedWind:DiscWind;
- lastDistance:number;reason?:string;spin:number;resultAt?:number;
+ lastDistance:number;reason?:string;spin:number;bankAngle:number;resultAt?:number;
 };
 export type DiscTerrain=(p:Point)=>number;
 export function startDiscGolf(index:number,ground:DiscTerrain,clock=0):DiscGolfState{
@@ -149,16 +152,16 @@ export function startDiscGolf(index:number,ground:DiscTerrain,clock=0):DiscGolfS
  return {phase:"ready",holeIndex,gatesCleared:0,lie,
   disc:{...lie,y:ground(lie)+.18},velocity:{x:0,y:0,z:0},
   strokes:0,waterRedos:0,flightTime:0,clock,lockedWind:discGolfWind(holeIndex,clock),
-  lastDistance:0,spin:0};
+  lastDistance:0,spin:0,bankAngle:0};
 }
 export const idleDiscGolf=():DiscGolfState=>({
  phase:"off",holeIndex:0,gatesCleared:0,lie:{x:0,z:0},disc:{x:0,y:0,z:0},
  velocity:{x:0,y:0,z:0},strokes:0,waterRedos:0,flightTime:0,clock:0,
- lockedWind:{x:0,z:0,speed:0},lastDistance:0,spin:0,
+ lockedWind:{x:0,z:0,speed:0},lastDistance:0,spin:0,bankAngle:0,
 });
 export function discGolfThrow(state:DiscGolfState,shot:DiscShot,ground:DiscTerrain):DiscGolfState{
  if(!["ready","landed","water"].includes(state.phase))return state;
- if(![shot.power,shot.accuracy,shot.loft,shot.aimOffset].every(Number.isFinite))return state;
+ if(![shot.power,shot.accuracy,shot.loft,shot.aimOffset,shot.bankAngle??0].every(Number.isFinite))return state;
  const power=clamp(shot.power,0,100)/100;
  const accuracy=clamp(shot.accuracy,-1,1);
  const loft=clamp(shot.loft,6,42)*Math.PI/180;
@@ -174,7 +177,9 @@ export function discGolfThrow(state:DiscGolfState,shot:DiscShot,ground:DiscTerra
   velocity:{x:Math.sin(aim)*Math.cos(loft)*speed,
     y:Math.sin(loft)*speed,z:Math.cos(aim)*Math.cos(loft)*speed},
   lockedWind:discGolfWind(state.holeIndex,state.clock),
-  strokes:state.strokes+1,flightTime:0,lastDistance:0,spin:accuracy,resultAt:undefined};
+  strokes:state.strokes+1,flightTime:0,lastDistance:0,spin:accuracy,
+  bankAngle:clamp(shot.bankAngle??0,-DISC_GOLF_MAX_BANK,DISC_GOLF_MAX_BANK),
+  resultAt:undefined};
 }
 /** Cylindrical trunk intersection swept from previous to next disc center.
  * A small radius allowance represents the disc itself, not imaginary foliage. */
@@ -212,6 +217,18 @@ export function stepDiscGolf(state:DiscGolfState,dt:number,
   const drag=.020;
   s.velocity.x+=relativeX*drag*d;
   s.velocity.z+=relativeZ*drag*d;
+  // Signed bank bends the flight in the disc's LOCAL left/right axis,
+  // unlike aim (initial heading) or loft (vertical launch). Deterministic
+  // acceleration develops after release, strongest at driving speeds.
+  // It cannot amplify indefinitely because this force is perpendicular
+  // to horizontal velocity. A neutral release preserves old trajectory.
+  if(Math.abs(s.bankAngle)>1e-6 && horizontal>.1){
+   const ramp=clamp(s.flightTime/.42,0,1);
+   const lateral=(s.bankAngle/DISC_GOLF_MAX_BANK)*
+    (1.0+2.4*Math.min(1,horizontal/25))*ramp;
+   s.velocity.x+=(s.velocity.z/horizontal)*lateral*d;
+   s.velocity.z-=(s.velocity.x/horizontal)*lateral*d;
+  }
   s.velocity.y+=(-10.8+Math.min(2.3,horizontal*.045))*d;
   const next={x:old.x+s.velocity.x*d,y:old.y+s.velocity.y*d,
    z:old.z+s.velocity.z*d};
@@ -323,7 +340,7 @@ export function traceDiscGolfShot(state:DiscGolfState,shot:DiscShot,
 export function recommendDiscGolfPower(
  state:DiscGolfState,loft:number,aimOffset:number,
  ground:DiscTerrain,isWater:(p:Point)=>boolean,seaSurface:number,
- obstacles:readonly DiscGolfObstacle[]=[]):number{
+ obstacles:readonly DiscGolfObstacle[]=[],bankAngle=0):number{
  if(!["ready","landed","water"].includes(state.phase))return 0;
  const basket=discGolfNextTarget(state);
  const dx=basket.x-state.lie.x,dz=basket.z-state.lie.z;
@@ -338,7 +355,7 @@ export function recommendDiscGolfPower(
  const goal=gatePending?remaining+4:Math.max(0,remaining-leave);
  let best=55,bestScore=Infinity;
  for(let power=4;power<=100;power+=4){
-  const trace=traceDiscGolfShot(state,{power,loft,aimOffset,accuracy:0},
+  const trace=traceDiscGolfShot(state,{power,loft,aimOffset,accuracy:0,bankAngle},
    ground,isWater,seaSurface,obstacles);
   if(trace.outcome!=="landed"&&trace.outcome!=="holed")continue;
   if(putting&&trace.outcome==="holed")return power;
