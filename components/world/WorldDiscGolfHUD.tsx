@@ -353,6 +353,12 @@ export function WorldDiscGolfHUD({game,round,scorecardOpen,onToggleScorecard,onN
      )}
     </div>
     <div className={styles.discGolfBarActions}>
+     <button type="button" disabled={!available||charging||railDragging}
+      title="Cycle spin for obstacle shots; detailed RPM adjustment is in Tune"
+      aria-label={"Spin strength "+(spinRpm<=650?"normal":spinRpm<=850?"strong":"maximum")+". Cycle spin strength"}
+      onClick={()=>setSpinRpm(v=>v<800?850:v<1000?1100:650)}>
+      Spin {spinRpm<=650?"Normal":spinRpm<=850?"Strong":"Max"}
+     </button>
      <button type="button" aria-expanded={settingsOpen}
       aria-controls="disc-golf-settings"
       onClick={()=>{
