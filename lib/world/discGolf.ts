@@ -506,6 +506,44 @@ export function discGolfIntroPose(
  };
 }
 
+/** Camera-only visibility search. Choose a nearby orbit with clear sight of the
+ * thrower/disc and intended flight line. Never changes throw physics.
+ * Candidate order penalizes obstruction before camera displacement, avoiding
+ * trees that fill the foreground without snapping into the player's back. */
+export function discGolfClearCamera(
+ desired:DiscPoint,focus:DiscPoint,obstacles:readonly DiscGolfObstacle[],
+ ground:DiscTerrain,
+):DiscPoint{
+ const dx=desired.x-focus.x,dz=desired.z-focus.z;
+ const distance=Math.hypot(dx,dz);
+ if(distance<.1||obstacles.length===0)return desired;
+ const base=Math.atan2(dx,dz);
+ let best=desired,bestScore=Infinity;
+ for(const turn of [0,-.22,.22,-.43,.43,-.7,.7,-1,1]){
+  const a=base+turn;
+  const candidate={x:focus.x+Math.sin(a)*distance,
+   z:focus.z+Math.cos(a)*distance,
+   y:Math.max(desired.y,ground({x:focus.x+Math.sin(a)*distance,
+    z:focus.z+Math.cos(a)*distance})+5)};
+  let blocked=0;
+  for(const tree of obstacles){
+   const segX=candidate.x-focus.x,segZ=candidate.z-focus.z;
+   const t=clamp(((tree.x-focus.x)*segX+(tree.z-focus.z)*segZ)/
+    (segX*segX+segZ*segZ),0,1);
+   if(t<=.06||t>=.96)continue;
+   const separation=Math.hypot(focus.x+segX*t-tree.x,
+    focus.z+segZ*t-tree.z);
+   const sightY=focus.y+(candidate.y-focus.y)*t;
+   if(separation<tree.radius+.9&&
+      sightY<ground(tree)+(tree.height??12)+.4)blocked+=1;
+  }
+  const score=blocked*100+Math.abs(turn)*4+
+    Math.max(0,candidate.y-desired.y)*.08;
+  if(score<bestScore){bestScore=score;best=candidate;}
+ }
+ return best;
+}
+
 /** Stable 3rd-person, slightly elevated view. In particular, short putts
  * must not collapse to a close-up of the character or chain basket.
  * The look-ahead is capped so both disc and chains stay in frame. */
