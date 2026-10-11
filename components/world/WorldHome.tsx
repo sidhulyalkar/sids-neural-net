@@ -26,6 +26,7 @@ import { JOSHUA_TRIAL, JOSHUA_GATES, type TrialState } from "@/lib/world/trials"
 import { WorldDiscGolfHUD } from "./WorldDiscGolfHUD";
 import { idleDiscGolf,type DiscShot,type DiscGolfState,type DiscGolfSwingStage } from "@/lib/world/discGolf";
 import {emptyDiscGolfRound,loadDiscGolfRound,persistDiscGolfRound,recordDiscGolfHole,nextUnplayedDiscGolfHole,discGolfRoundSummary} from "@/lib/world/discGolfRound";
+import {newDiscGolfNameSeed} from "@/lib/world/discGolfNames";
 import {
   BIG_AIR,bigAirBirdCallout,idleBigAir,type BigAirState,
 } from "@/lib/world/bigAir";
@@ -136,7 +137,7 @@ export function WorldHome({ content }: { content: WorldContent }) {
     setDiscGolfStartSerial(n=>n+1);
   };
   const restartDiscRound=()=>{
-    setDiscGolfRound(current=>emptyDiscGolfRound(current.bestTotal));
+    setDiscGolfRound(current=>emptyDiscGolfRound(current.bestTotal,newDiscGolfNameSeed()));
     startDiscHole(0);
   };
   const takeDiscShot=(shot:DiscShot)=>{
