@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
- idleDiscGolfFetch,startDiscGolfFetch,stepDiscGolfFetch,discGolfFetchCameraPhase,\n DISC_FETCH_LANDING_HOLD,DISC_FETCH_POV_DELAY,DISC_FETCH_FOUND_HOLD,\n DISC_FETCH_CHASE_TIMEOUT,
+ idleDiscGolfFetch,startDiscGolfFetch,stepDiscGolfFetch,discGolfFetchCameraPhase,
+ DISC_FETCH_LANDING_HOLD,DISC_FETCH_POV_DELAY,DISC_FETCH_FOUND_HOLD,
+ DISC_FETCH_CHASE_TIMEOUT,
 } from "../lib/world/discGolfFetch";
 import {
  DISC_GOLF_HOLES,discGolfOpeningClearance,startDiscGolf,
