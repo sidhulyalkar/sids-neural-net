@@ -161,7 +161,7 @@ export function WorldDiscGolfHUD({game,onShot,onChangeHole,onExit,onStage,onPrev
        <span className={styles.discGolfBestMarker} style={{left:suggested+"%"}}/>
       </div>
      </div>
-     <button className={styles.discGolfMainButton} disabled={!available||fired.current}
+     <button className={styles.discGolfMainButton} disabled={!available}
        type="button"
        onPointerDown={e=>{if(e.pointerType!=="mouse"||e.button===0){
         e.currentTarget.setPointerCapture(e.pointerId);begin();
