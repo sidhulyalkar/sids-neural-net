@@ -58,6 +58,12 @@ test("shallow level rim impacts skip, steep impacts slide and brake",()=>{
  const drop=discImpact({x:0,y:-9,z:4},p,flatHeight,flatRigid,0);
  assert.equal(drop.contact.mode,"slide");
  assert.ok(drop.velocity.z<4);
+ const tilted=initializeRigidDisc(0,0,66,750,"backhand","midrange");
+ const roll=discImpact({x:0,y:-4,z:12},p,flatHeight,tilted,0);
+ assert.equal(roll.contact.mode,"roll");
+ const rolling=stepGroundSlide(roll.position,roll.velocity,roll.contact,.05,flatHeight);
+ assert.ok(Math.abs(rolling.contact.rollAngle??0)>0);
+ assert.ok(Math.hypot(rolling.velocity.x,rolling.velocity.z)>0);
  const slider=stepGroundSlide(drop.position,
   {x:0,y:0,z:6},drop.contact,.05,flatHeight);
  assert.ok(slider.position.z>drop.position.z);
