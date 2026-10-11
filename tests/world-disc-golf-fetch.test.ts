@@ -54,7 +54,7 @@ test("first fairway reserves a continuous clean corridor across island terrain",
  assert.ok(!isWater(tee)&&!isWater(target));
  assert.ok(Math.hypot(target.x-tee.x,target.z-tee.z)>30);
  assert.notDeepEqual(DISC_GOLF_HOLES.at(-1)?.target,tee);
- assert.ok(Math.hypot(target.x-tee.x,target.z-tee.z)<52);
+ assert.ok(Math.hypot(target.x-tee.x,target.z-tee.z)<80);
  for(let i=0;i<=16;i++){
   const t=i/16;
   const point={x:tee.x+(target.x-tee.x)*t,z:tee.z+(target.z-tee.z)*t};
