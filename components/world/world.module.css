@@ -662,7 +662,7 @@
 }
 .discGolfBar{
   display:grid;
-  grid-template-columns:minmax(135px,1.1fr) minmax(160px,1fr) minmax(165px,.95fr) minmax(138px,.85fr) minmax(138px,auto) auto;
+  grid-template-columns:minmax(125px,.95fr) minmax(145px,1fr) minmax(145px,.8fr) minmax(208px,1.45fr) minmax(138px,auto) auto;
   align-items:center;
   gap:clamp(9px,1.1vw,20px);
   padding:11px 14px;
@@ -692,13 +692,68 @@
 .discGolfQuickReadout{display:flex;align-items:center;gap:clamp(5px,1vw,15px);white-space:nowrap}
 .discGolfQuickReadout span{display:grid;gap:3px;font-size:10px;color:#c7ddd5}
 .discGolfQuickReadout strong{font-size:13px;color:#fff1d1;font-weight:650}
-.discGolfBarPower{min-width:0}
-.discGolfMeterHeader{display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:7px;color:#e4e6d9;font-size:11px}
-.discGolfMeterHeader strong{font-size:11px;color:#fff0cf;white-space:nowrap}
-.discGolfMeter{position:relative;overflow:hidden;height:13px;border:1px solid #f6deb77a;border-radius:100px;background:#375354}
-.discGolfPowerFill{position:absolute;inset:0 auto 0 0;display:block;background:linear-gradient(90deg,#527e86,#d6bb76,#d18b64)}
-.discGolfSweetBand{position:absolute;inset-block:0;background:#f5eac885;border-left:1px solid #fff5d7;border-right:1px solid #fff5d7;pointer-events:none}
-.discGolfBestMarker{position:absolute;inset-block:0;width:3px;background:#fff9da;box-shadow:0 0 0 1px #132a2e,0 0 5px #fff5dc;transform:translateX(-50%)}
+.discGolfBarPower{min-width:0;padding-inline:7px}
+.discGolfMeterHeader{display:flex;align-items:center;justify-content:space-between;gap:5px;margin-bottom:6px;color:#b9d0cb;font-size:9px;font-weight:650;letter-spacing:.065em;white-space:nowrap}
+.discGolfMeterHeader strong{font-size:12px;letter-spacing:0;color:#ffebc4;white-space:nowrap;font-variant-numeric:tabular-nums}
+.discGolfSuggested{font-size:9px;color:#b9cfc6;font-weight:500}
+.discGolfMeterRail{padding-block:4px}
+.discGolfMeter{
+ position:relative;isolation:isolate;touch-action:none;user-select:none;
+ height:25px;border:1px solid #d4bc8b90;border-radius:20px;
+ background:linear-gradient(180deg,#0a1d21,#1f3c3e);
+ box-shadow:inset 0 2px 6px #020d12a8,0 1px 1px #ffeed41a;
+ cursor:ew-resize;outline-offset:5px;
+}
+.discGolfTrackTicks{
+ position:absolute;inset:3px 5px;border-radius:30px;pointer-events:none;
+ background:repeating-linear-gradient(90deg,#c9dfd126 0 1px,transparent 1px 10%);
+ opacity:.82;z-index:2;
+}
+.discGolfPowerFill{
+ position:absolute;inset:2px auto 2px 2px;display:block;pointer-events:none;
+ border-radius:20px;background:linear-gradient(90deg,#3e8b86 0%,#81b9a2 47%,#dcc18c 80%,#cf9664 100%);
+ box-shadow:inset 0 1px 0 #ffffff73,0 0 9px #a9d6b450;z-index:1;
+ transition:width 65ms linear;
+}
+.discGolfSweetBand{
+ position:absolute;top:0;bottom:0;pointer-events:none;z-index:3;
+ border-left:1px solid #f7dfa2;border-right:1px solid #f7dfa2;
+ border-radius:4px;background:linear-gradient(180deg,#fae4a946,#f4e6b111 45%,#f4da9e3b);
+ box-shadow:inset 0 0 0 1px #faf1c72e;
+}
+.discGolfBestMarker{
+ position:absolute;top:-5px;height:35px;width:2px;pointer-events:none;z-index:4;
+ background:linear-gradient(#fff5d1,#f0d192,#fff5d1);
+ box-shadow:0 0 3px #ffe5a7c5;transform:translateX(-50%);
+}
+.discGolfBestMarker::before{
+ content:"";position:absolute;top:-3px;left:50%;transform:translateX(-50%);
+ border:4px solid transparent;border-top-color:#ffebc1;
+}
+.discGolfPowerHandle{
+ position:absolute;top:50%;width:22px;height:22px;z-index:5;
+ transform:translate(-50%,-50%);display:grid;place-items:center;
+ border-radius:50%;pointer-events:none;
+ background:radial-gradient(circle at 34% 30%,#fffbe7 0%,#f5e1ad 34%,#b58a53 78%);
+ box-shadow:0 0 0 2px #1e4240,0 2px 5px #000b,0 0 12px #e6d19b4d;
+ transition:left 65ms linear,box-shadow 130ms ease,transform 130ms ease;
+}
+.discGolfPowerGrip{
+ width:12px;height:12px;border-radius:50%;
+ border:1px solid #81623a;
+ background:radial-gradient(circle at center,#be9c69 0 2px,#ead3a3 3px 4px,#987749 5px 6px);
+ box-shadow:inset 0 1px 1px #fff8dcaa;
+}
+.discGolfMeterActive .discGolfPowerHandle{
+ transform:translate(-50%,-50%) scale(1.1);
+ box-shadow:0 0 0 2px #234641,0 2px 7px #000b,0 0 14px #ffebacb8;
+}
+.discGolfMeter[data-quality="in-zone"] .discGolfPowerHandle{
+ box-shadow:0 0 0 2px #f9dfaa,0 2px 5px #000b,0 0 13px #ffdfa18a;
+}
+.discGolfMeterLocked{opacity:.67;cursor:default}
+.discGolfMeterFooter{display:flex;justify-content:space-between;gap:5px;margin-top:3px;font-size:8px;font-weight:600;letter-spacing:.065em;color:#a5c1bb;white-space:nowrap}
+.discGolfMeterFooter span:nth-child(2){color:#e7d7b0}
 .discGolfBarPrimary{min-width:0}
 .discGolfMainButton{
   width:100%;
@@ -826,7 +881,7 @@
 .discGolfHud select:focus-visible{outline:2px solid #fff0c8;outline-offset:2px}
 @media(max-width:1140px){
   .discGolfBar{
-    grid-template-columns:minmax(120px,1fr) minmax(152px,1fr) minmax(112px,.85fr) minmax(124px,auto) auto;
+    grid-template-columns:minmax(120px,.9fr) minmax(150px,1fr) minmax(190px,1.4fr) minmax(124px,auto) auto;
   }
   .discGolfQuickReadout{display:none}
 }
@@ -854,6 +909,10 @@
   .discGolfBarStatus{font-size:10px;flex-wrap:wrap;gap:3px 10px}
   .discGolfBarActions{gap:3px}
   .discGolfBarActions button{padding:5px 6px}
+  .discGolfSuggested{display:none}
+  .discGolfBarPower{padding-inline:4px}
+  .discGolfMeterHeader{font-size:9px;margin-bottom:4px}
+  .discGolfMeterFooter{font-size:7px}
   .discGolfPanel{width:100%;padding:12px;max-height:min(59svh,440px)}
   .discGolfTuneGrid{grid-template-columns:1fr;gap:8px}
   .discGolfHoles{grid-template-columns:repeat(5,minmax(0,1fr))}
@@ -861,6 +920,9 @@
 @media(max-height:550px){
   .discGolfPanel{max-height:54svh}
   .discGolfBar{min-height:0;padding-block:7px}
+}
+@media(prefers-reduced-motion:reduce){
+ .discGolfPowerFill,.discGolfPowerHandle{transition:none}
 }
 @media(prefers-reduced-transparency:reduce){
   .discGolfBar{background:#163237}
