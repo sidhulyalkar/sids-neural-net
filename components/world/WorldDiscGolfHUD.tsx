@@ -45,7 +45,7 @@ export function WorldDiscGolfHUD({game,round,scorecardOpen,onToggleScorecard,onN
  const suggested=useMemo(()=>recommendDiscGolfPower(game,loft,aim,ground,isWater,SEA_SURFACE),
   // The wind varies slowly; the preview itself refreshes during aiming.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  [game.holeIndex,game.lie.x,game.lie.z,game.phase,loft,aim]);
+  [game.holeIndex,game.gatesCleared,game.lie.x,game.lie.z,game.phase,loft,aim]);
  const preview=useCallback((power:number)=>{
   onPreview({power,accuracy:0,loft,aimOffset:aim});
  },[onPreview,loft,aim]);
@@ -161,6 +161,7 @@ export function WorldDiscGolfHUD({game,round,scorecardOpen,onToggleScorecard,onN
  const windArrow=["↑","↗","→","↘","↓","↙","←","↖"][((Math.round((bearing+360)/45)%8)+8)%8];
  const shownPower=charging?chargePower:suggested;
  const remaining=discGolfRemaining(game);
+ const gatePending=game.gatesCleared<hole.gates.length;
  return (
   <aside className={styles.discGolfHud} aria-label="Disc golf controls">
    <div className={styles.discGolfHeading}>
@@ -179,13 +180,13 @@ export function WorldDiscGolfHUD({game,round,scorecardOpen,onToggleScorecard,onN
    </div>
    <div className={styles.discGolfStats} aria-live="polite">
     <span>Par {hole.par}</span><span>{game.strokes} throws</span>
-    <span>{remaining.toFixed(0)} m left</span>
+    <span>{gatePending?"Gate "+(game.gatesCleared+1)+"/"+hole.gates.length:"Basket"} · {remaining.toFixed(0)} m</span>
     <span title="Wind">{ "Wind "+windArrow+" "+liveWind.speed.toFixed(1) }</span>
    </div>
    <p className={styles.discGolfNote}>
     {game.phase==="holed"?discGolfScoreName(game.strokes,hole.par)+"!":
      game.phase==="water"?"Water · free retry":
-     game.phase==="landed"?"Next throw":
+     game.phase==="landed"?(gatePending?"Next gate":"Next throw"):
      game.phase==="flying"?"Shasta, fetch!":""}
    </p>
    {game.phase==="holed"?(
