@@ -20,8 +20,18 @@ export const DISC_GOLF_HOLES:readonly DiscGolfHole[]=[
    target:{x:0,z:-61}},
   {id:"coastal-gust",name:"Coastal Return",par:5,tee:{x:0,z:-61},
    target:{x:-25,z:15}},
+  {id:"redwood-needles",name:"Redwood Needles",par:3,tee:{x:-25,z:15},
+   target:{x:-11,z:-8}},
+  {id:"fern-falls",name:"Fern Falls",par:3,tee:{x:-11,z:-8},
+   target:{x:-6,z:-31}},
+  {id:"granite-climb",name:"Granite Climb",par:3,tee:{x:-6,z:-31},
+   target:{x:5,z:-52}},
+  {id:"joshua-chute",name:"Joshua Chute",par:4,tee:{x:5,z:-52},
+   target:{x:40,z:-28}},
+  {id:"homeward-line",name:"Homeward Line",par:5,tee:{x:40,z:-28},
+   target:{x:-6,z:10}},
 ];
-export const DISC_GOLF_VERSION="disc-golf-island-v1.2";
+export const DISC_GOLF_VERSION="disc-golf-island-v1.3";
 const clamp=(n:number,a:number,b:number)=>Math.max(a,Math.min(b,n));
 // Keep the existing time argument for render/simulation call sites; there is
 // deliberately no animation or aiming uncertainty in basket position.
@@ -276,6 +286,48 @@ export function discGolfIntroPose(
    y:look.y+(followLook.y-look.y)*eased,
    z:look.z+(followLook.z-look.z)*eased,
   },
+ };
+}
+
+/** Stable 3rd-person, slightly elevated view. In particular, short putts
+ * must not collapse to a close-up of the character or chain basket.
+ * The look-ahead is capped so both disc and chains stay in frame. */
+export function discGolfThrowCameraPose(lie:Point,basket:Point,playerY:number){
+ const distance=Math.hypot(basket.x-lie.x,basket.z-lie.z);
+ const inv=1/Math.max(.001,distance);
+ const fx=(basket.x-lie.x)*inv,fz=(basket.z-lie.z)*inv;
+ const putting=distance<=10;
+ const boom=putting?21:19.5;
+ const rise=putting?15:13;
+ const lookAhead=putting?clamp(distance*.45,0.8,4):5.5;
+ const side=2.25;
+ return {
+  putting,
+  camera:{x:lie.x-fx*boom+fz*side,y:playerY+rise,
+   z:lie.z-fz*boom-fx*side},
+  look:{x:lie.x+fx*lookAhead,y:playerY+1.85,
+   z:lie.z+fz*lookAhead},
+ };
+}
+
+/** A single elastic backswing meter, no second accuracy minigame.
+ * Tapping Space always uses the recommended shot. Holding lets players
+ * deliberately add/subtract strength by releasing near the center marker.
+ * At the tap/hold boundary the sampled power is continuous. */
+export const DISC_GOLF_TAP_WINDOW_MS=240;
+export const DISC_GOLF_SWING_CYCLE_MS=1720;
+export function discGolfPullback(elapsedMs:number,suggested:number){
+ const center=clamp(Math.round(suggested),4,100);
+ const ms=Math.max(0,Number.isFinite(elapsedMs)?elapsedMs:0);
+ const manual=ms>DISC_GOLF_TAP_WINDOW_MS;
+ const cycle=manual?(ms-DISC_GOLF_TAP_WINDOW_MS)/DISC_GOLF_SWING_CYCLE_MS:0;
+ const deviation=manual?32*Math.sin(cycle*2*Math.PI):0;
+ const power=clamp(Math.round(center+deviation),4,100);
+ const difference=Math.abs(power-center);
+ return {power,manual,quality:difference<=6?"clean":difference<=17?"controlled":"strong",
+  // Windup gives the arm real preparation even before the meter changes.
+  windup:manual?clamp(.42+.53*Math.abs(Math.sin(cycle*Math.PI)),0,1):
+   clamp(ms/DISC_GOLF_TAP_WINDOW_MS*.42,0,.42),
  };
 }
 
