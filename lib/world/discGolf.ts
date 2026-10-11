@@ -118,7 +118,9 @@ export function discGolfGateCrossing(from:DiscPoint,to:DiscPoint,
  const len=Math.hypot(dirX,dirZ)||1,nx=dirX/len,nz=dirZ/len;
  const before=(from.x-gate.point.x)*nx+(from.z-gate.point.z)*nz;
  const after=(to.x-gate.point.x)*nx+(to.z-gate.point.z)*nz;
- if(before>0||after<0||after-before<1e-6)return false;
+ // A miss beyond the gate must be recoverable: flying back *through* the
+ // arch also counts. Crossing the plane is mandatory, direction is not.
+ if(before*after>0||Math.abs(after-before)<1e-6)return false;
  const t=Math.max(0,Math.min(1,-before/(after-before)));
  const x=from.x+(to.x-from.x)*t,z=from.z+(to.z-from.z)*t;
  const y=from.y+(to.y-from.y)*t,base=ground(gate.point);
@@ -239,6 +241,7 @@ export function stepDiscGolf(state:DiscGolfState,dt:number,
   if(isWater(p) && next.y<=seaSurface+.09){
    // User-requested water redo: do not count this throw, preserve last lie.
    s.phase="water";s.strokes=Math.max(0,s.strokes-1);s.waterRedos+=1;
+   s.gatesCleared=state.gatesCleared;
    s.disc={...state.lie,y:ground(state.lie)+.18};
    s.reason="Water shot: free redo from last lie";s.resultAt=s.clock;
    break;
@@ -285,6 +288,7 @@ export function stepDiscGolf(state:DiscGolfState,dt:number,
   }
   if(s.flightTime>=10 || Math.abs(p.x)>93 || Math.abs(p.z)>95 || p.z>57){
    s.phase="water";s.waterRedos+=1;s.strokes=Math.max(0,s.strokes-1);
+   s.gatesCleared=state.gatesCleared;
    s.disc={...state.lie,y:ground(state.lie)+.18};
    s.reason="Out of bounds: free redo";s.resultAt=s.clock;
   }
