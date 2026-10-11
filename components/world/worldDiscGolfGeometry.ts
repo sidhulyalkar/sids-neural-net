@@ -1,6 +1,6 @@
 import * as THREE from "three/src/Three.Core.js";
 import {
- DISC_GOLF_HOLES,discGolfBasketPosition,discGolfNextTarget,traceDiscGolfShot,
+ DISC_GOLF_HOLES,discGolfBasketPosition,traceDiscGolfShot,
  type DiscGolfState,type DiscShot,type DiscGolfObstacle,
 } from "@/lib/world/discGolf";
 import {terrainHeight,isWater,SEA_SURFACE} from "@/lib/world/model";
@@ -136,7 +136,7 @@ export function createDiscGolfGeometry(scene:THREE.Scene){
    beacon.position.set(game.lie.x,terrainHeight(game.lie.x,game.lie.z)+5,game.lie.z);
   }
  };
- update({phase:"off",holeIndex:0,lie:{x:0,z:0},disc:{x:0,y:0,z:0},
+ update({phase:"off",holeIndex:0,gatesCleared:0,lie:{x:0,z:0},disc:{x:0,y:0,z:0},
   velocity:{x:0,y:0,z:0},strokes:0,waterRedos:0,flightTime:0,clock:0,
   lockedWind:{x:0,z:0,speed:0},lastDistance:0,spin:0});
  return {update,updatePreview,dispose(){
