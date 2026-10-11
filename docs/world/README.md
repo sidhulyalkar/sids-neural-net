@@ -1,8 +1,8 @@
 # Sid’s World — coastal expansion
 
-## Island Disc Golf v1.2 (current playtest milestone)
+## Disc Golf v1.6: playable nine-hole round
 
-[astra-disc-golf-v1.2-keyboard-spec.md](astra-disc-golf-v1.2-keyboard-spec.md) is the authoritative interaction and fixed-course contract. Four linked cross-island holes now use stationary chain baskets, WASD aiming, Space tap-to-throw with suggested power, optional hold-to-charge, grounded short putts, obstacle-aware flight, a landing-beam lie, and free water retries. CI and actual browser/terrain survey remain acceptance gates. The [v1 spec](astra-disc-golf-v1-spec.md) is retained only as the original moving-basket prototype history; the former puzzle trilogy remains deferred.
+[disc-golf-v1.6.md](disc-golf-v1.6.md) is the active specification. Each hole now has an independently qualified tee and green; the opening 11 units, greens and the first tutorial fairway are protected from seeded clutter. Space and click throws recover from missed input or paused starts, and CI verifies the recommended first shot on every tee. A visible tee marker, Shasta fetch, concise controls, funny seeded names and persistent nine-hole scorecard are included. **Manual browser playtesting remains mandatory before merging.** Older disc-golf specs document previous iterations only.
 
 ## World Challenges v1: technical riding, puzzles and big air
 
