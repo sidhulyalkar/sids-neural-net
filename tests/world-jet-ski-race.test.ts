@@ -7,7 +7,7 @@ import {JET_SKI_ARCHES,JET_SKI_ROCKS,jetSkiRockAt,jetSkiSegmentClear} from "../l
 import {JET_SKI_JUMPS,jetSkiWaterSample} from "../lib/world/jetSkiWater";
 import {JET_SKI_START,JET_SKI_GATES,JET_SKI_PROFILES,jetSkiGateDistance,
  jetSkiNavigableWater,jetSkiBearingToGate,jetSkiOpponentInput,
- jetSkiRaceProgress,
+ jetSkiRaceProgress,jetSkiRacePlace,
  startJetSkiRace,stepJetSkiRace} from "../lib/world/jetSkiRace";
 test("dock launch and all coastal checkpoints are navigable water",()=>{
  assert.ok(isWater(JET_SKI_START));
@@ -210,4 +210,16 @@ test("procedural dock renders focused gate and finite pooled foam without mesh g
  assert.equal(dock.trail.count,0);
  assert.equal(dock.trail.visible,false);
  scene.remove(dock.root);
+});
+
+test("race position keeps earlier finishers ahead after all competitors finish",()=>{
+ const a={...startJetSkiRace(),phase:"finished" as const,elapsed:101,lap:2};
+ const b={...startJetSkiRace(),phase:"finished" as const,elapsed:96,lap:2};
+ const c={...startJetSkiRace(),phase:"finished" as const,elapsed:114,lap:2};
+ assert.equal(jetSkiRacePlace(a,[b,c]),2);
+ assert.equal(jetSkiRacePlace(b,[a,c]),1);
+ assert.equal(jetSkiRacePlace(c,[a,b]),3);
+ const behind={...startJetSkiRace(),checkpoint:4};
+ assert.equal(jetSkiRacePlace(behind,[b]),2);
+ assert.equal(jetSkiRacePlace(a,[behind]),1);
 });
