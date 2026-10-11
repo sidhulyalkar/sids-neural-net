@@ -6,7 +6,7 @@ import { createTechnicalGeometry } from "./worldTechnicalGeometry";
 import { createBigAirBirds } from "./worldBigAirBirds";
 import { createDiscGolfGeometry } from "./worldDiscGolfGeometry";
 import {
-  DISC_GOLF_HOLES,discGolfBasketPosition,discGolfThrowCameraPose,discGolfIntroPose,discGolfThrow,stepDiscGolf,
+  DISC_GOLF_HOLES,discGolfOpeningClearance,discGolfBasketPosition,discGolfThrowCameraPose,discGolfIntroPose,discGolfThrow,stepDiscGolf,
   startDiscGolf,idleDiscGolf,type DiscGolfState,type DiscShot,
   type DiscGolfSwingStage,
 } from "@/lib/world/discGolf";
@@ -407,6 +407,7 @@ export function createWorld(
       z = -43 + random() * 79;
     if (
       sportClearance({x,z}) ||
+      discGolfOpeningClearance({x,z},3) ||
       BOULDER_HOLDS.some(h => distance(h, { x, z }) < 5) ||
       REGIONS.some((r) => distance(r.point, { x, z }) < 7) ||
       MEMORY_POINTS.some((m) => distance(m.point, { x, z }) < 4)
@@ -451,7 +452,8 @@ export function createWorld(
     const x = -25 + random() * 71,
       z = -40 + random() * 80;
     if (
-      sportClearance({x,z}) || biomeAt({x,z}).weights.redwood < .25 ||
+      sportClearance({x,z}) || discGolfOpeningClearance({x,z},2) ||
+      biomeAt({x,z}).weights.redwood < .25 ||
       x < -17 || z < -15 ||
       BOULDER_HOLDS.some(h => distance(h, { x, z }) < 6) ||
       REGIONS.some((r) => distance(r.point, { x, z }) < 9) ||
@@ -532,6 +534,7 @@ export function createWorld(
       z < ARCADE_CAVE.wall.z + 4;
     if (
       sportClearance({x,z}) ||
+      discGolfOpeningClearance({x,z},2) ||
       Math.abs(x - laneCenter) < 3.4 ||
       distance({ x, z }, REGIONS[1].point) < 7 ||
       RIDE_RAMPS.some(r => distance({ x, z }, r.point) < 5) ||
