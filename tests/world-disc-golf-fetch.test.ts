@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
  idleDiscGolfFetch,startDiscGolfFetch,stepDiscGolfFetch,discGolfFetchCameraPhase,
+ discGolfHandoffTarget,
  DISC_FETCH_LANDING_HOLD,DISC_FETCH_POV_DELAY,DISC_FETCH_FOUND_HOLD,
  DISC_FETCH_CHASE_TIMEOUT,
 } from "../lib/world/discGolfFetch";
@@ -72,6 +73,81 @@ test("water, exits, another throw and timeout cleanly cancel the cinematic",()=>
  assert.deepEqual(stepDiscGolfFetch(chasing,landed,{x:0,z:0},
   2+DISC_FETCH_CHASE_TIMEOUT+.1),idleDiscGolfFetch(),
   "no unreachable fetch may hold the camera forever");
+});
+test("the avatar stays at the previous tee until Shasta finishes finding the disc",()=>{
+ const start=startDiscGolf(1,ground);
+ const playerAtTee={...start.lie};
+ const result={...start,phase:"landed" as const,
+  lie:{x:start.lie.x-19,z:start.lie.z-12},
+  disc:{x:start.lie.x-19,y:1,z:start.lie.z-12}};
+ let previous=startDiscGolfFetch(0);
+ let next=stepDiscGolfFetch(previous,{...result,phase:"flying"},
+  playerAtTee,.5);
+ assert.equal(discGolfHandoffTarget(previous,next,result),null);
+ previous=next;
+ next=stepDiscGolfFetch(previous,result,playerAtTee,1);
+ assert.equal(discGolfHandoffTarget(previous,next,result),null,
+  "the landing reveal cannot teleport the avatar");
+ previous=next;
+ next=stepDiscGolfFetch(previous,result,playerAtTee,1+DISC_FETCH_LANDING_HOLD+.02);
+ assert.equal(next.phase,"chase");
+ assert.equal(discGolfHandoffTarget(previous,next,result),null);
+ previous=next;
+ const chaseTime=1+DISC_FETCH_LANDING_HOLD+DISC_FETCH_POV_DELAY+.05;
+ next=stepDiscGolfFetch(previous,result,result.lie,chaseTime);
+ assert.equal(next.phase,"found");
+ assert.equal(discGolfHandoffTarget(previous,next,result),null,
+  "the avatar stays at the tee while Shasta sniffs");
+ previous=next;
+ next=stepDiscGolfFetch(previous,result,result.lie,
+  chaseTime+DISC_FETCH_FOUND_HOLD+.01);
+ assert.equal(next.phase,"idle");
+ assert.deepEqual(discGolfHandoffTarget(previous,next,result),result.lie);
+ assert.deepEqual(playerAtTee,start.lie,
+  "pure fetch logic must not change the player or flight state");
+ assert.equal(discGolfHandoffTarget(next,next,result),null,
+  "handoff is a one-time event, not a continual teleport");
+});
+test("basket completion relocates after finding chains, never to the old lie",()=>{
+ const start=startDiscGolf(0,ground);
+ const disc=DISC_GOLF_HOLES[0].target;
+ const finished={...start,phase:"holed" as const,
+  disc:{...disc,y:ground(disc)+1.35}};
+ const ending={...startDiscGolfFetch(2),phase:"found" as const,foundAt:4};
+ const idle=stepDiscGolfFetch(ending,finished,disc,4+DISC_FETCH_FOUND_HOLD+.01);
+ assert.deepEqual(discGolfHandoffTarget(ending,idle,finished),disc);
+ assert.notDeepEqual(disc,start.lie);
+});
+test("short shots still show Shasta POV before the avatar handoff",()=>{
+ const game=startDiscGolf(0,ground);
+ const short={...game,phase:"landed" as const,lie:{x:2,z:2}};
+ const landing={...startDiscGolfFetch(0),phase:"landed" as const,landedAt:1,
+  target:short.lie};
+ const chase=stepDiscGolfFetch(landing,short,short.lie,1+DISC_FETCH_LANDING_HOLD+.01);
+ assert.equal(chase.phase,"chase");
+ const tooEarly=stepDiscGolfFetch(chase,short,short.lie,1+DISC_FETCH_LANDING_HOLD+.1);
+ assert.equal(tooEarly.phase,"chase");
+ assert.equal(discGolfHandoffTarget(chase,tooEarly,short),null);
+ const found=stepDiscGolfFetch(tooEarly,short,short.lie,
+  1+DISC_FETCH_LANDING_HOLD+DISC_FETCH_POV_DELAY+.02);
+ assert.equal(found.phase,"found");
+ assert.equal(discGolfHandoffTarget(tooEarly,found,short),null);
+});
+test("water, exit and in-flight cancellation never hand the avatar to a bogus lie",()=>{
+ const start=startDiscGolf(0,ground);
+ const chasing={...startDiscGolfFetch(0),phase:"chase" as const,
+  landedAt:1,target:{x:30,z:20}};
+ for(const phase of ["water","off","flying"] as const){
+  const game={...start,phase};
+  const canceled=stepDiscGolfFetch(chasing,game,start.lie,3);
+  assert.equal(discGolfHandoffTarget(chasing,canceled,game),null);
+ }
+ const stalled={...start,phase:"landed" as const,lie:{x:21,z:9}};
+ const timeout=stepDiscGolfFetch(chasing,stalled,start.lie,
+  1+DISC_FETCH_CHASE_TIMEOUT+.1);
+ assert.equal(timeout.phase,"idle");
+ assert.deepEqual(discGolfHandoffTarget(chasing,timeout,stalled),stalled.lie,
+  "unreachable targets eventually release controls with a safe fallback");
 });
 test("reduced motion avoids every extra automatic fetch camera transition",()=>{
  const on=startDiscGolfFetch(1);
