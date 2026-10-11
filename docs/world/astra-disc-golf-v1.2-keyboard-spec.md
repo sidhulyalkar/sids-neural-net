@@ -61,3 +61,29 @@ Each time a visitor starts a hole, the camera cuts to a close view of the **stat
 - Replay only when selecting/starting a new hole, not when landing, retrying water, putting, changing loft, or reopening the HUD. Exiting, fast travel and menu pause clear the introduction.
 - QA: screenshot first basket frame, mid-fairway reveal and settled tee camera on all four holes; verify occlusion by trees, rocks and mountains; check reduced motion, immediate throws, pause/resume, hole switches and clean World exit.
 - The canvas exposes `data-disc-golf-intro` (`basket`, `pullback`, `complete`, `off`) for playtest automation. User-visible UI remains restrained; there is no mandatory confirmation or tutorial overlay.
+
+## Disc Golf v1.3: nine holes, comfortable putting, elastic release (2026-10-10)
+
+### Design priorities
+1. **Putting remains an over-the-shoulder game, not a basket close-up.** When chains are 10 world units or closer, the player's aiming camera stays ~21 units horizontally behind and ~15 units above the standing lie, biased over the shoulder. The look-ahead is limited to the playable green. During short putt flights the camera remains anchored instead of chasing the disc. Long drives may still track the disc.
+2. **No surprise zoom caused by trees.** The old horizontal tree proximity check shortened camera distance down to 25% and effectively hid the player. Disc-golf cameras preserve their boom and are lifted above terrain. World navigation camera obstacle avoidance is unchanged outside disc golf. The camera intro's last shot now resolves to this same comfortable pose.
+3. **Nine fixed holes form a loop.** Preserve the initial four; add five linked segments after Coastal Return, ending at the first tee. Each spot must be on dry finite terrain. A full nine-hole game should span different island biomes and both long- and short-form approaches, not nine identical drives.
+4. **The Space button is the only throw interaction.** A tap is a clean suggested shot; holding grows the character's backswing and drives one elastic power meter that gently cycles around the suggested power. Release at the light band for a clean controlled throw, or intentionally earlier/later for a soft/strong shot. There is no separate accuracy meter, forced quick-time sequence, or hidden RNG.
+
+| Hole | Tee (x,z) | Fixed chains (x,z) | Par | Character |
+| --- | --- | --- | --- | --- |
+| 1 Redwood Traverse | (-6,10) | (42,42) | 4 | Traverse into rainforest |
+| 2 Scrub Crosswind | (42,42) | (43,-29) | 4 | Long exposed fairway |
+| 3 Desert Ridge | (43,-29) | (0,-61) | 4 | Dry-to-alpine relief |
+| 4 Coastal Return | (0,-61) | (-25,15) | 5 | Long northwest return |
+| 5 Redwood Needles | (-25,15) | (-11,-8) | 3 | Compact woodland accuracy |
+| 6 Fern Falls | (-11,-8) | (-6,-31) | 3 | Short approach near water features |
+| 7 Granite Climb | (-6,-31) | (5,-52) | 3 | Elevation challenge |
+| 8 Joshua Chute | (5,-52) | (40,-28) | 4 | Downhill desert corridor |
+| 9 Homeward Line | (40,-28) | (-6,10) | 5 | Long closing return to first tee |
+
+**Provisional placement:** This geometry is computationally authored and tested against the island's analytic terrain, not a substitute for a real browser/obstacle survey. Verify the course near scenic markers, ridges, cave roofs, waterfall drainage, bike features and seeded trunks before approval; relocate if needed while preserving linked transitions.
+
+### Validation gates
+
+Nine unique fixed baskets and tees; each tee matches the prior chains; final destination returns to tee one; per-hole finite terrain/dry land; no zooming when the disc is under 3m away; elevated camera follows every close shot; player remains visible; backswing power smoothly transitions from a tap to a hold with no jarring low-power step; the single meter can give intentionally soft and strong shots, and it never breaks preview parity. Add screenshot-based browser comparison for first drive and 2m putt and mobile controls. Keep asset allocation, existing throw simulation, water refunds, chain catch and disposal unchanged.
