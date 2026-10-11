@@ -87,3 +87,28 @@ Each time a visitor starts a hole, the camera cuts to a close view of the **stat
 ### Validation gates
 
 Nine unique fixed baskets and tees; each tee matches the prior chains; final destination returns to tee one; per-hole finite terrain/dry land; no zooming when the disc is under 3m away; elevated camera follows every close shot; player remains visible; backswing power smoothly transitions from a tap to a hold with no jarring low-power step; the single meter can give intentionally soft and strong shots, and it never breaks preview parity. Add screenshot-based browser comparison for first drive and 2m putt and mobile controls. Keep asset allocation, existing throw simulation, water refunds, chain catch and disposal unchanged.
+
+
+## Disc Golf v1.4: nine-hole round authority and evidence-driven course review
+
+### Visitor experience
+
+- A **nine-hole scorecard** records actual chain catches only; selecting or restarting a hole does not invent a result.
+- The compact HUD shows completed-hole count, aggregate strokes and score relative to the par for **played holes**. Open **Scorecard** to see individual par, recorded strokes and +/-.
+- After a basket catch, the next button selects the next uncompleted hole, with wraparound only across still-unplayed holes. On completing all nine, show the finished-round total and a clear **Play another round** action, not an automatic replay.
+- Replaying a completed basket is allowed for practice; its original recorded score remains unchanged. Starting a fresh round clears individual scores, retains the best complete-round total and requires confirmation when abandoning partial progress.
+- The current nine-hole round survives leaving World and a page refresh via versioned local storage, with strict validation of saved values. This is local-only and makes no claim of a cloud leaderboard.
+
+### Fairway evidence and acceptance
+
+`lib/world/discGolfFairway.ts` samples each straight tee-to-basket segment against the island's analytic heightfield. It reports distance, elevation change, representative biomes, maximum sampled slope, basket slope, water crossings and proximity to discovery landmarks. `scripts/audit-disc-golf.ts` publishes `artifacts/world/disc-golf-fairways.json` and a human-readable markdown report in World CI.
+
+The audit is **not visual validation**. Procedural tree trunk collisions, fallen logs, boulder instances, camera occlusion, scenic markers, true foot-path reachability, and bunker-like lie recovery still need real browser inspection. Surface risks are review flags, not proof that the disc trajectory is physically obstructed.
+
+### QA required before merge
+
+1. Start and complete hole 1, switch to a different tee, replay completed hole 1, and confirm it cannot corrupt the original result.
+2. Complete all nine in nonsequential order; verify the next-unplayed selector, final score, par and best-round update.
+3. Exit/reload/resume a partially played round and confirm all previously completed scores survive; start new round and confirm the last best remains.
+4. Check small-screen scorecard scrolling and focus, clean collapse/expand, large enough nine-hole buttons, and no world key leakage.
+5. Visually inspect all tees, baskets and putting lies in desktop/mobile browser; relocate any basket obstructed by a tree, steep face, discoverable object, cave shell, or activity trail. Capture screenshots and confirm the actual intended par per hole.
