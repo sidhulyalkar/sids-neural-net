@@ -242,6 +242,10 @@ export function WorldDiscGolfHUD({game,round,scorecardOpen,onToggleScorecard,onN
    queueShot(shotAtPower(railKeyPower??suggested));
    return true;
   }
+  if(key==="Escape"){
+   setRailKeyPower(null);preview(suggested);
+   return true;
+  }
   if(!["ArrowLeft","ArrowRight","ArrowUp","ArrowDown","Home","End","PageUp","PageDown"].includes(key))return false;
   const start=railKeyPower??suggested;
   const next=clampDiscGolfRail(key==="Home"?4:key==="End"?100:
