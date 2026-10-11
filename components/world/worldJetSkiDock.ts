@@ -34,11 +34,26 @@ export function createJetSkiDock(scene:THREE.Scene){
   marker.position.set(g.x,SEA_SURFACE+.55,g.z);
   marker.visible=false;root.add(marker);return marker;
  });
- const activeSki=new THREE.Group();root.add(activeSki);
- const craft=new THREE.Mesh(new THREE.CapsuleGeometry(.51,1.4,5,10),
-  new THREE.MeshStandardMaterial({color:"#f3c24d",metalness:.23,roughness:.37}));
- craft.rotation.x=Math.PI/2;activeSki.add(craft);
- make(new THREE.MeshStandardMaterial({color:"#24333c"}),[.75,.4,.65],[0,.42,0],activeSki);
+ // All racers share a light procedural model, preserving the project's
+ // no-external-asset world aesthetic. Independent groups allow turning/lean.
+ const riderSuit=new THREE.MeshStandardMaterial({color:"#24414c",roughness:.8});
+ const helmetMat=new THREE.MeshStandardMaterial({color:"#fff1cf",roughness:.4});
+ const buildCraft=(color:string)=>{
+  const group=new THREE.Group();root.add(group);
+  const hull=new THREE.Mesh(new THREE.CapsuleGeometry(.51,1.4,5,10),
+   new THREE.MeshStandardMaterial({color,metalness:.23,roughness:.37}));
+  hull.rotation.x=Math.PI/2;group.add(hull);
+  make(new THREE.MeshStandardMaterial({color:"#24333c"}),[.75,.4,.65],[0,.42,0],group);
+  make(riderSuit,[.48,.6,.37],[0,.96,-.2],group);
+  const helmet=new THREE.Mesh(new THREE.SphereGeometry(.26,9,7),helmetMat);
+  helmet.position.set(0,1.39,-.16);group.add(helmet);
+  make(riderSuit,[1.0,.13,.14],[0,.81,.25],group);
+  return {group,hull};
+ };
+ const playerCraft=buildCraft("#f3c24d");
+ const activeSki=playerCraft.group;
+ const opponents=[buildCraft("#e96c48").group,buildCraft("#39bdc5").group];
+ opponents.forEach(g=>{g.visible=false;});
  activeSki.visible=false;
  const wakeMaterial=new THREE.MeshBasicMaterial({
   color:"#e3ffff",transparent:true,opacity:.58,depthWrite:false,
@@ -48,5 +63,5 @@ export function createJetSkiDock(scene:THREE.Scene){
  wake.rotation.x=-Math.PI/2;
  wake.position.y=SEA_SURFACE+.055;
  wake.visible=false;root.add(wake);
- return {root,skis,buoys,activeSki,wake,start:JET_SKI_START};
+ return {root,skis,buoys,activeSki,activeHull:playerCraft.hull,opponents,wake,start:JET_SKI_START};
 }
