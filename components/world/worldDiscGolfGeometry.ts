@@ -55,6 +55,11 @@ export function createDiscGolfGeometry(scene:THREE.Scene){
  const ring=new THREE.Mesh(ringGeo,ringMat);
  ring.name="disc-golf-estimated-landing";ring.rotation.x=Math.PI/2;
  ring.visible=false;scene.add(ring);
+ // A subtle, collision-free tee circle makes the starting lie unambiguous.
+ // It is separate from the basket and disappears after the first throw.
+ const teeMarker=new THREE.Mesh(ringGeo,gold);
+ teeMarker.name="disc-golf-tee";teeMarker.rotation.x=Math.PI/2;
+ teeMarker.scale.setScalar(1.65);teeMarker.visible=false;scene.add(teeMarker);
  const updatePreview=(state:DiscGolfState,shot:DiscShot|null,
    obstacles:readonly DiscGolfObstacle[])=>{
    const allowed=state.phase==="ready"||state.phase==="landed"||state.phase==="water";
@@ -79,10 +84,15 @@ export function createDiscGolfGeometry(scene:THREE.Scene){
  const update=(game:DiscGolfState)=>{
   const active=game.phase!=="off";
   root.visible=disc.visible=active;
+  teeMarker.visible=game.phase==="ready";
   beacon.visible=game.phase==="landed";
   if(!active)return;
   const basket=discGolfBasketPosition(DISC_GOLF_HOLES[game.holeIndex],game.clock);
   root.position.set(basket.x,terrainHeight(basket.x,basket.z),basket.z);
+  if(teeMarker.visible){
+   const tee=DISC_GOLF_HOLES[game.holeIndex].tee;
+   teeMarker.position.set(tee.x,terrainHeight(tee.x,tee.z)+.1,tee.z);
+  }
   const t=game.phase==="holed"&&game.resultAt!==undefined?
     Math.max(0,game.clock-game.resultAt):Infinity;
   chains.rotation.z=Number.isFinite(t)?Math.sin(t*20)*Math.exp(-t*3)*.16:0;
@@ -99,10 +109,10 @@ export function createDiscGolfGeometry(scene:THREE.Scene){
   velocity:{x:0,y:0,z:0},strokes:0,waterRedos:0,flightTime:0,clock:0,
   lockedWind:{x:0,z:0,speed:0},lastDistance:0,spin:0});
  return {update,updatePreview,dispose(){
-  scene.remove(root,disc,beacon,guide,ring);
+  scene.remove(root,disc,beacon,guide,ring,teeMarker);
   pathGeometry.dispose();guideMat.dispose();ringMat.dispose();
   poleGeo.dispose();chainGeo.dispose();ringGeo.dispose();coneGeo.dispose();
   discGeo.dispose();rimGeo.dispose();beamGeo.dispose();
   chains.dispose();materials.forEach(m=>m.dispose());
- },drawCalls:10};
+ },drawCalls:11};
 }
