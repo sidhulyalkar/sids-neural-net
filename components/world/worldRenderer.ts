@@ -6,7 +6,7 @@ import { createTechnicalGeometry } from "./worldTechnicalGeometry";
 import { createBigAirBirds } from "./worldBigAirBirds";
 import { createDiscGolfGeometry } from "./worldDiscGolfGeometry";
 import {
-  DISC_GOLF_HOLES,discGolfBasketPosition,discGolfIntroPose,discGolfThrow,stepDiscGolf,
+  DISC_GOLF_HOLES,discGolfBasketPosition,discGolfThrowCameraPose,discGolfIntroPose,discGolfThrow,stepDiscGolf,
   startDiscGolf,idleDiscGolf,type DiscGolfState,type DiscShot,
   type DiscGolfSwingStage,
 } from "@/lib/world/discGolf";
@@ -3033,16 +3033,14 @@ export function createWorld(
         bodyRoot.rotation.set(bikePose ? bikeBodyLean : 0, 0, 0);
         legs[0].rotation.x = running ? walking * 0.6 : bikePose ? 0.58 + walking * 0.28 : 0.2;
         legs[1].rotation.x = running ? -walking * 0.6 : bikePose ? 0.58 - walking * 0.28 : 0.2;
-        // A quiet 3D throw pose follows the two user-controlled meter phases:
-        // shoulder reaches back on pullback, then rotates through release.
+        // Single elastic backswing: shoulder reaches behind the body during
+        // Space hold, then follows through as the disc takes flight.
         const throwProgress=THREE.MathUtils.clamp(state.discGolfSwingAmount,0,1);
         const throwArm=discGolf.phase!=="off"?
           discGolf.phase==="flying" ?
             -.75-1.3*Math.max(0,1-discGolf.flightTime/.43) :
           state.discGolfSwingStage==="power" ?
             -.75+.65*throwProgress :
-          state.discGolfSwingStage==="accuracy" ?
-            -.10-1.9*throwProgress :
           state.discGolfSwingStage==="released" ? -2.05 : -.75 : null;
         arms[0].rotation.x = throwArm!==null?throwArm:
           climb ? -2 : running ? -walking * 0.4 : bikePose ? 0.82 : -0.75;
@@ -3222,13 +3220,18 @@ export function createWorld(
         caveInside && caveProgress > 0.48 && distance(player, arcadeWall) < 8.5;
       if(discGolf.phase!=="off"){
         const basket=discGolfBasketPosition(DISC_GOLF_HOLES[discGolf.holeIndex],discGolf.clock);
-        const fly=discGolf.phase==="flying";
-        const p=fly?discGolf.disc:player;
-        const hx=basket.x-player.x,hz=basket.z-player.z;
-        const hlen=Math.hypot(hx,hz)||1;
-        targetLook.set(p.x+(fly?0:hx/hlen*5.5),
-          fly?discGolf.disc.y:playerY+2.4,
-          p.z+(fly?0:hz/hlen*5.5));
+        const pose=discGolfThrowCameraPose(player,basket,playerY);
+        // Preserve a stationary putting camera through the entire short
+        // flight; only long drives follow the disc through the island.
+        const followFlight=discGolf.phase==="flying"&&!pose.putting;
+        const dx=basket.x-player.x,dz=basket.z-player.z;
+        const len=Math.hypot(dx,dz)||1;
+        const lookAt=followFlight?{
+          x:discGolf.disc.x+dx/len*3,y:discGolf.disc.y+.9,
+          z:discGolf.disc.z+dz/len*3,
+        }:pose.look;
+        targetLook.set(lookAt.x,lookAt.y,lookAt.z);
+        canvas.dataset.discGolfCamera=followFlight?"flight":pose.putting?"putt":"approach";
       } else if (cavernFraming) {
         targetLook.set(arcadeWall.x, arcadeWallY + 2.05, arcadeWall.z - 0.5);
       } else if (cavernApproachFraming) {
@@ -3261,11 +3264,13 @@ export function createWorld(
       const cameraYaw = aquatic === "dive" ? yaw + 0.28 : yaw;
       if(discGolf.phase!=="off"){
         const target=discGolfBasketPosition(DISC_GOLF_HOLES[discGolf.holeIndex],discGolf.clock);
-        const dx=target.x-player.x,dz=target.z-player.z;
-        const len=Math.hypot(dx,dz)||1;
-        const p=discGolf.phase==="flying"?discGolf.disc:
-          {x:player.x,y:playerY,z:player.z};
-        targetCamera.set(p.x-dx/len*13+2.3,p.y+7.5,p.z-dz/len*13+2.3);
+        const pose=discGolfThrowCameraPose(player,target,playerY);
+        if(discGolf.phase==="flying"&&!pose.putting){
+          const dx=target.x-player.x,dz=target.z-player.z;
+          const len=Math.hypot(dx,dz)||1;
+          const fx=dx/len,fz=dz/len,p=discGolf.disc;
+          targetCamera.set(p.x-fx*19.5+fz*2.25,p.y+12,p.z-fz*19.5-fx*2.25);
+        }else targetCamera.set(pose.camera.x,pose.camera.y,pose.camera.z);
       } else if (cavernFraming) {
         // Keep the third-person boom centered inside the authored tunnel.
         // A lower eye line prevents the roof from swallowing the frame while
@@ -3311,6 +3316,12 @@ export function createWorld(
             targetCamera.y,
             terrainHeight(targetCamera.x, targetCamera.z) + 2.2,
           );
+        } else if(discGolf.phase!=="off"){
+          // Trees used to shrink the camera boom to 25%, zooming into
+          // the back of the character during a putt. Hold the overhead
+          // framing and lift above uneven terrain instead.
+          targetCamera.y=Math.max(targetCamera.y,
+            worldFloorHeight(targetCamera.x,targetCamera.z)+9);
         } else {
           const bx = targetCamera.x - player.x,
             bz = targetCamera.z - player.z;
@@ -4315,12 +4326,9 @@ export function createWorld(
           const reducedMotion=window.matchMedia("(prefers-reduced-motion: reduce)").matches;
           discGolfIntro={startedAt:elapsed,reducedMotion};
           snapDiscCamera=false;
-          const headingX=basket.x-player.x,headingZ=basket.z-player.z;
-          const headingLength=Math.hypot(headingX,headingZ)||1;
-          const ux=headingX/headingLength,uz=headingZ/headingLength;
+          const teePose=discGolfThrowCameraPose(player,basket,playerY);
           const introStart=discGolfIntroPose(player,basket,
-            {x:player.x-ux*13+2.3,y:playerY+7.5,z:player.z-uz*13+2.3},
-            {x:player.x+ux*5.5,y:playerY+2.4,z:player.z+uz*5.5},
+            teePose.camera,teePose.look,
             0,p=>worldFloorHeight(p.x,p.z),reducedMotion);
           camera.position.set(introStart.camera.x,introStart.camera.y,introStart.camera.z);
           look.set(introStart.look.x,introStart.look.y,introStart.look.z);
