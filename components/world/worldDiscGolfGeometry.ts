@@ -73,6 +73,7 @@ export function createDiscGolfGeometry(scene:THREE.Scene){
  const teeMarker=new THREE.Mesh(ringGeo,gold);
  teeMarker.name="disc-golf-tee";teeMarker.rotation.x=Math.PI/2;
  teeMarker.scale.setScalar(1.65);teeMarker.visible=false;scene.add(teeMarker);
+ scene.add(gateRoot);
  const updatePreview=(state:DiscGolfState,shot:DiscShot|null,
    obstacles:readonly DiscGolfObstacle[])=>{
    const allowed=state.phase==="ready"||state.phase==="landed"||state.phase==="water";
