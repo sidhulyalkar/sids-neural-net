@@ -28,6 +28,7 @@ export function WorldDiscGolfHUD({game,onShot,onChangeHole,onExit,onStage,onPrev
  const fired=useRef(false);
  const chargeAt=useRef(0);
  const powerBucket=useRef(-1);
+ const swingTick=useRef(-1);
  const locked=game.phase==="flying"||game.phase==="holed";
  const available=!locked&&game.phase!=="off";
  // Re-solve on a new lie or a changed aim, not on every animation frame.
@@ -46,7 +47,8 @@ export function WorldDiscGolfHUD({game,onShot,onChangeHole,onExit,onStage,onPrev
  const begin=useCallback(()=>{
   if(!available||held.current||fired.current)return;
   held.current=true;chargeAt.current=performance.now();
-  powerBucket.current=-1;setCharging(true);setChargePower(suggested);
+  powerBucket.current=-1;swingTick.current=-1;
+  setCharging(true);setChargePower(suggested);
   onStage("power");
  },[available,onStage,suggested]);
  const finish=useCallback(()=>{
@@ -70,12 +72,18 @@ export function WorldDiscGolfHUD({game,onShot,onChangeHole,onExit,onStage,onPrev
   let frame=0;
   const tick=()=>{
    if(!held.current)return;
-   const sample=discGolfPullback(performance.now()-chargeAt.current,suggested);
+   const ms=performance.now()-chargeAt.current;
+   const sample=discGolfPullback(ms,suggested);
+   // Animate the actual arm throughout the windup at a bounded 20 Hz;
+   // recompute the predictive trajectory only on meaningful power changes.
+   const tick=Math.floor(ms/50);
+   if(tick!==swingTick.current){
+    swingTick.current=tick;onSwing(sample.windup);
+   }
    const bucket=Math.round(sample.power/4);
    if(bucket!==powerBucket.current){
     powerBucket.current=bucket;
     setChargePower(sample.power);
-    onSwing(sample.windup);
     preview(sample.power);
    }
    frame=requestAnimationFrame(tick);
