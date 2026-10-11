@@ -47,7 +47,7 @@ export function WorldDiscGolfHUD({game,round,scorecardOpen,onToggleScorecard,onN
  const chargeAt=useRef(0);
  const powerBucket=useRef(-1);
  const swingTick=useRef(-1);
- const locked=game.phase==="flying"||game.phase==="holed";
+ const locked=game.phase==="flying"||game.phase==="holed"||!!game.presentationPending;
  const available=!locked&&game.phase!=="off";
  // Re-solve on a new lie or a changed aim, not on every animation frame.
  const suggested=useMemo(()=>recommendDiscGolfPower(game,loft,aim,ground,isWater,SEA_SURFACE,[],bankAngle,
@@ -198,12 +198,13 @@ export function WorldDiscGolfHUD({game,round,scorecardOpen,onToggleScorecard,onN
     <span title="Wind">{ "Wind "+windArrow+" "+liveWind.speed.toFixed(1) }</span>
    </div>
    <p className={styles.discGolfNote}>
-    {game.phase==="holed"?discGolfScoreName(game.strokes,hole.par)+"!":
+    {game.presentationPending?
+      game.phase==="flying"?"Disc in flight":"Shasta fetching":
+     game.phase==="holed"?discGolfScoreName(game.strokes,hole.par)+"!":
      game.phase==="water"?"Water · free retry":
-     game.phase==="landed"?(gatePending?"Next gate":"Next throw"):
-     game.phase==="flying"?"Shasta, fetch!":""}
+     game.phase==="landed"?(gatePending?"Next gate":"Next throw"):""}
    </p>
-   {game.phase==="holed"?(
+   {game.presentationPending?null:game.phase==="holed"?(
     roundSummary.complete?(
      <div className={styles.discGolfRoundComplete} aria-live="polite">
       <strong>Round complete · {roundSummary.strokes} strokes</strong>
@@ -308,7 +309,7 @@ export function WorldDiscGolfHUD({game,round,scorecardOpen,onToggleScorecard,onN
     {DISC_GOLF_HOLES.map((h,i)=>(
      <button key={h.id} type="button" aria-pressed={i===game.holeIndex}
        className={round.scores[i]!==null?styles.discGolfRecordedHole:undefined}
-       disabled={game.phase==="flying"}
+       disabled={game.phase==="flying"||!!game.presentationPending}
        title={round.scores[i]===null?"Hole not yet completed":"Recorded: "+round.scores[i]+" strokes. Replay is practice."}
        aria-label={"Play hole "+(i+1)+": "+discGolfName(i,round.nameSeed)+
         (round.scores[i]===null?"":", scored "+round.scores[i]+" (practice replay)")}
