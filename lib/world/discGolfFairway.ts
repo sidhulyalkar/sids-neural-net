@@ -1,5 +1,5 @@
 import {
- DISC_GOLF_HOLES,discGolfThrow,stepDiscGolf,startDiscGolf,
+ DISC_GOLF_HOLES,discGolfThrow,stepDiscGolf,startDiscGolf,recommendDiscGolfPower,
 } from "./discGolf";
 import {
  REGIONS,MEMORY_POINTS,isWater,terrainHeight,distance,
@@ -18,7 +18,7 @@ export type DiscGolfFairwayAudit={
  maxSlope:number;teeSlope:number;basketSlope:number;waterSamples:number;
  teeCoastMargin:number;greenCoastMargin:number;
  teeFeatureClearance:number;greenFeatureClearance:number;
- firstShotDistance:number;firstShotPhase:string;
+ firstShotDistance:number;firstShotPower:number;firstShotPhase:string;
  nearbyLandmarks:string[];risks:DiscGolfFairwayRisk[];
 };
 
@@ -65,14 +65,15 @@ function coastMargin(p:Point){
 function firstShot(holeIndex:number){
  let s=startDiscGolf(holeIndex,p=>terrainHeight(p.x,p.z),5);
  const tee={...s.lie};
- s=discGolfThrow(s,{power:78,loft:26,aimOffset:0,accuracy:0},
-  p=>terrainHeight(p.x,p.z));
+ const ground=(p:Point)=>terrainHeight(p.x,p.z);
+ const power=recommendDiscGolfPower(s,24,0,ground,isWater,-1.4);
+ s=discGolfThrow(s,{power,loft:24,aimOffset:0,accuracy:0},ground);
  for(let i=0;i<230&&s.phase==="flying";i++){
   s=stepDiscGolf(s,.05,p=>terrainHeight(p.x,p.z),isWater,-1.4);
  }
  return {
   distance:s.phase==="water"?0:Math.hypot(s.disc.x-tee.x,s.disc.z-tee.z),
-  phase:s.phase,
+  power,phase:s.phase,
  };
 }
 
@@ -132,6 +133,7 @@ export function auditDiscGolfFairways():DiscGolfFairwayAudit[]{
    teeFeatureClearance:Math.round(teeFeatureClearance*10)/10,
    greenFeatureClearance:Math.round(greenFeatureClearance*10)/10,
    firstShotDistance:Math.round(opening.distance*10)/10,
+   firstShotPower:opening.power,
    firstShotPhase:opening.phase,
    waterSamples,nearbyLandmarks,risks};
  });
