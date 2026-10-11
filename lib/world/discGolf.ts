@@ -154,6 +154,20 @@ export function discGolfWind(index:number,t:number):DiscWind{
  const z=Math.cos(phase*.7)*1.05+Math.sin(phase*.55)*.45;
  return {x,z,speed:Math.hypot(x,z)};
 }
+/** Air moves faster above treetops than near ground, with a weak, smoothly
+ * varying three-dimensional gust. The same locked-weather seed feeds the
+ * live simulator and the prediction, avoiding frame-rate dependent wind. */
+export function discGolfWindAt(locked:DiscWind,p:DiscPoint,time:number){
+ const height=Math.max(0,p.y);
+ const shear=clamp(.84+.12*Math.log1p(height/5),.84,1.43);
+ const turbulence=Math.sin(p.x*.046+p.z*.073+time*.77);
+ const cross=Math.cos(p.z*.057-p.x*.028+time*.59);
+ return {
+  x:locked.x*shear+.21*turbulence,
+  y:.14*Math.sin(p.x*.05+p.z*.03+time*.48),
+  z:locked.z*shear+.18*cross,
+ };
+}
 /** Signed disc-bank in degrees: negative curls left, positive curls right.
  * Optional so older saved shots/tests remain neutral. */
 export const DISC_GOLF_MAX_BANK=40;
@@ -280,7 +294,7 @@ export function stepDiscGolf(state:DiscGolfState,dt:number,
    const evolved=stepRigidDisc({
      velocity:s.velocity,rigid:s.rigid,spinRpm:s.spinRpm,
      discStyle:s.discStyle,releaseStyle:s.releaseStyle,
-   },{...s.lockedWind,y:0},d);
+   },discGolfWindAt(s.lockedWind,s.disc,s.flightTime),d);
    s.velocity=evolved.state.velocity;
    s.rigid=evolved.state.rigid;
    const heading=Math.atan2(s.velocity.x,s.velocity.z);
