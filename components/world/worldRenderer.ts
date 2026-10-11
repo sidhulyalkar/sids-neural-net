@@ -2786,7 +2786,13 @@ export function createWorld(
           if(discGolf.phase==="landed"||discGolf.phase==="holed"){
             // The next lie is an actual terrain location, not a menu-only target.
             player={...discGolf.lie};playerY=groundHeight(player);
-            travel={point:player,speed:0,heading:travel.heading};
+            const chains=discGolfBasketPosition(DISC_GOLF_HOLES[discGolf.holeIndex],discGolf.clock);
+            const dx=chains.x-player.x,dz=chains.z-player.z;
+            const len=Math.hypot(dx,dz)||1;
+            travel={point:player,speed:0,heading:{x:dx/len,z:dz/len}};
+            // After a long drive the player should face the next putt.
+            explorer.rotation.y=Math.atan2(dx,dz);
+            yaw=Math.atan2(-dx,-dz);
             airHeight=verticalSpeed=0;
           }
           callbacks.onDiscGolf(discGolf);
