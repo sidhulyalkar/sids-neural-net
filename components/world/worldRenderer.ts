@@ -3392,6 +3392,7 @@ export function createWorld(
           p=>worldFloorHeight(p.x,p.z),discGolfIntro.reducedMotion,
         );
         if(pose.stage==="complete"){
+          if(discGolfIntro.reducedMotion)snapDiscCamera=true;
           discGolfIntro=null;
         }else{
           targetCamera.set(pose.camera.x,pose.camera.y,pose.camera.z);
