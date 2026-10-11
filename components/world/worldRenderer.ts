@@ -6,7 +6,7 @@ import { createTechnicalGeometry } from "./worldTechnicalGeometry";
 import { createBigAirBirds } from "./worldBigAirBirds";
 import { createDiscGolfGeometry } from "./worldDiscGolfGeometry";
 import {createJetSkiDock} from "./worldJetSkiDock";
-import {JET_SKI_DOCK,JET_SKI_GATES,startJetSkiRace,stepJetSkiRace,type JetSkiState} from "@/lib/world/jetSkiRace";
+import {JET_SKI_DOCK,JET_SKI_GATES,startJetSkiRace,stepJetSkiRace,jetSkiNavigableWater,jetSkiGateDistance,jetSkiBearingToGate,type JetSkiState} from "@/lib/world/jetSkiRace";
 import {
   DISC_GOLF_HOLES,discGolfOpeningClearance,discGolfCourseClearance,discGolfBasketPosition,discGolfNextTarget,discGolfThrowCameraPose,discGolfIntroPose,discGolfThrow,stepDiscGolf,
   startDiscGolf,idleDiscGolf,type DiscGolfState,type DiscShot,
@@ -2834,7 +2834,7 @@ export function createWorld(
           Number(keys.has("s")||keys.has("arrowdown"));
         const steerInput=Number(keys.has("d")||keys.has("arrowright"))-
           Number(keys.has("a")||keys.has("arrowleft"));
-        jetSki=stepJetSkiRace(jetSki,dt,{throttle:forwardInput,steer:steerInput},isWater);
+        jetSki=stepJetSkiRace(jetSki,dt,{throttle:forwardInput,steer:steerInput});
         player={...jetSki.position};playerY=SEA_SURFACE+.65;
         travel={point:player,speed:jetSki.speed,
           heading:{x:Math.sin(jetSki.heading),z:Math.cos(jetSki.heading)}};
@@ -2860,10 +2860,15 @@ export function createWorld(
         canvas.dataset.jetSkiGate=String(jetSki.checkpoint+1);
         canvas.dataset.jetSkiSpeed=jetSki.speed.toFixed(1);
         canvas.dataset.jetSkiTime=jetSki.elapsed.toFixed(1);
+        canvas.dataset.jetSkiCourseWater=String(jetSkiNavigableWater(player));
         jetHud.style.display="block";
+        const gateBearing=jetSkiBearingToGate(jetSki);
+        const turnGuide=Math.abs(gateBearing)<.22?"↑":
+          Math.abs(gateBearing)<.72?(gateBearing>0?"↗":"↖"):
+          gateBearing>0?"→":"←";
         jetHud.textContent=jetSki.phase==="finished"?
           `FINISH · ${jetSki.elapsed.toFixed(1)}s · Esc to dock`:
-          `${jetSki.craft.toUpperCase()} · Lap ${Math.min(2,jetSki.lap+1)}/2 · Gate ${jetSki.checkpoint+1}/${JET_SKI_GATES.length} · ${Math.max(0,jetSki.speed).toFixed(0)} m/s · ${jetSki.elapsed.toFixed(1)}s · Esc to dock`;
+          `${jetSki.craft.toUpperCase()} · Lap ${Math.min(2,jetSki.lap+1)}/2 · Gate ${jetSki.checkpoint+1}/${JET_SKI_GATES.length} ${turnGuide} ${jetSkiGateDistance(jetSki).toFixed(0)}m · ${Math.max(0,jetSki.speed).toFixed(0)} m/s · ${jetSki.elapsed.toFixed(1)}s · Esc to dock`;
         explorer.visible=false;
       }else if (discGolf.phase!=="off") {
         const previous=discGolf.phase;
