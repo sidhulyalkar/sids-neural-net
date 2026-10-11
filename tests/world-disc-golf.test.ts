@@ -203,6 +203,20 @@ test("a water reset never creates a false drawn segment back to the tee",()=>{
  }
 });
 
+test("suggested drive power reaches the fairway without auto-acing the whole course",()=>{
+ let aces=0;
+ for(let index=0;index<DISC_GOLF_HOLES.length;index++){
+  const start=startDiscGolf(index,ground,5);
+  const power=recommendDiscGolfPower(start,24,0,ground,isWater,-1.4);
+  const projected=traceDiscGolfShot(start,{power,loft:24,aimOffset:0,accuracy:0},
+   ground,isWater,-1.4);
+  assert.ok(power>=4&&power<=100);
+  assert.ok(["landed","holed"].includes(projected.outcome),
+   "Hole "+(index+1)+" suggested shot must not vanish into water");
+  if(projected.outcome==="holed")aces++;
+ }
+ assert.ok(aces<=2,"suggested power must not auto-score aces across nine holes");
+});
 test("short putts have reachable low power and a predicted catch",()=>{
  const flat=()=>0,water=()=>false;
  const h=DISC_GOLF_HOLES[0];
