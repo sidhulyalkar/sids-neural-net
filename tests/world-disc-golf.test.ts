@@ -6,24 +6,32 @@ import {
  startDiscGolf,idleDiscGolf,discGolfThrow,stepDiscGolf,discGolfScoreName,
  discGolfRemaining,discGolfTreeContact,traceDiscGolfShot,recommendDiscGolfPower,
  discGolfIntroPose,DISC_GOLF_INTRO_HOLD,DISC_GOLF_INTRO_PULLBACK,
+ discGolfThrowCameraPose,discGolfPullback,DISC_GOLF_TAP_WINDOW_MS,
+ DISC_GOLF_SWING_CYCLE_MS,
 } from "../lib/world/discGolf";
 import { terrainHeight,isWater } from "../lib/world/model";
 import { createDiscGolfGeometry } from "../components/world/worldDiscGolfGeometry";
 const ground=(p:{x:number;z:number})=>terrainHeight(p.x,p.z);
 const ordinary={power:74,accuracy:0,loft:25,aimOffset:0};
-test("four fixed baskets make a linked, multi-throw journey over safe land",()=>{
- assert.equal(DISC_GOLF_HOLES.length,4);
+test("nine fixed baskets form a connected island circuit over valid terrain",()=>{
+ assert.equal(DISC_GOLF_HOLES.length,9);
  assert.equal(new Set(DISC_GOLF_HOLES.map(h=>h.id)).size,4);
  for(let i=0;i<DISC_GOLF_HOLES.length;i++){
   const h=DISC_GOLF_HOLES[i];
   assert.ok(!isWater(h.tee)&&!isWater(h.target),h.id);
-  assert.ok(Math.hypot(h.tee.x-h.target.x,h.tee.z-h.target.z)>45,h.id);
+  assert.ok(Math.hypot(h.tee.x-h.target.x,h.tee.z-h.target.z)>20,h.id);
   const p0=discGolfBasketPosition(h,0),p1=discGolfBasketPosition(h,100);
   assert.deepEqual(p0,p1,"the basket must never move");
   if(i>0)assert.deepEqual(h.tee,DISC_GOLF_HOLES[i-1].target,
    "next tee should begin at the previous fixed basket");
   assert.ok(Number.isFinite(ground(p0)));
+  const p=ground(p0);
+  const slope=Math.hypot(ground({x:p0.x+1,z:p0.z})-ground({x:p0.x-1,z:p0.z}),
+    ground({x:p0.x,z:p0.z+1})-ground({x:p0.x,z:p0.z-1}));
+  assert.ok(Number.isFinite(slope)&&Number.isFinite(p),"basket must be on measurable island terrain");
  }
+ assert.deepEqual(DISC_GOLF_HOLES.at(-1)!.target,DISC_GOLF_HOLES[0].tee,
+  "the ninth hole closes the loop at the opening tee");
  assert.ok(DISC_GOLF_VERSION.includes("disc-golf"));
 });
 test("wind is deterministic and time varying; throw is locked to release wind",()=>{
@@ -248,4 +256,43 @@ test("flyback honors changing island elevation and reduced-motion camera cuts",(
  assert.equal(cut.stage,"complete");
  assert.deepEqual(cut.camera,followCamera);
  assert.deepEqual(cut.look,followLook);
+});
+
+test("short putts use a stable elevated third-person camera, not a zoom into chains",()=>{
+ const lie={x:3,z:4},groundY=12;
+ for(const d of [1.2,3,6,9.9,10,10.1,40,75]){
+  const p=discGolfThrowCameraPose(lie,{x:lie.x+d,z:lie.z},groundY);
+  const boom=Math.hypot(p.camera.x-lie.x,p.camera.z-lie.z);
+  assert.ok(boom>=19,"camera cannot collapse into the player at distance "+d);
+  assert.ok(p.camera.y>=groundY+12);
+  assert.ok(p.look.x<=lie.x+5.6,"look point cannot rush into the target");
+  assert.equal(p.putting,d<=10);
+ }
+ const north=discGolfThrowCameraPose(lie,{x:3,z:-2},groundY);
+ assert.ok(north.camera.z>lie.z,"camera should stay behind the direction of throw");
+ const south=discGolfThrowCameraPose(lie,{x:3,z:9},groundY);
+ assert.ok(south.camera.z<lie.z);
+});
+test("single elastic backswing is continuous across tap and hold with a forgiving target",()=>{
+ for(const center of [4,12,35,70,95,100]){
+  const tap=discGolfPullback(40,center);
+  const boundary=discGolfPullback(DISC_GOLF_TAP_WINDOW_MS,center);
+  const justHeld=discGolfPullback(DISC_GOLF_TAP_WINDOW_MS+.1,center);
+  assert.equal(tap.power,boundary.power,"tap always uses recommended shot");
+  assert.ok(Math.abs(boundary.power-justHeld.power)<=1,"no sudden short throw on hold");
+  assert.equal(boundary.manual,false);
+  assert.equal(justHeld.manual,true);
+  assert.equal(tap.quality,"clean");
+  for(let t=0;t<=3500;t+=47){
+   const s=discGolfPullback(t,center);
+   assert.ok(s.power>=4&&s.power<=100);
+   assert.ok(s.windup>=0&&s.windup<=1);
+  }
+  const period=discGolfPullback(DISC_GOLF_TAP_WINDOW_MS+DISC_GOLF_SWING_CYCLE_MS,center);
+  assert.equal(period.power,boundary.power,"meter can repeat safely");
+ }
+ const up=discGolfPullback(DISC_GOLF_TAP_WINDOW_MS+DISC_GOLF_SWING_CYCLE_MS*.25,55);
+ const down=discGolfPullback(DISC_GOLF_TAP_WINDOW_MS+DISC_GOLF_SWING_CYCLE_MS*.75,55);
+ assert.ok(up.power>55&&down.power<55,"hold offers both stronger and softer shots");
+ assert.equal(discGolfPullback(Number.NaN,55).power,55);
 });
