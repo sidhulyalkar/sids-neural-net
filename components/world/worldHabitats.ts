@@ -465,6 +465,18 @@ export function createHabitats(scene: THREE.Scene, obstacles: Obstacle[]) {
           add(b,sphere,"#f2c56a",x,y+h+.17,z,.085,.11,.08);
         }
         // Leaf litter follows the actual ground and shares the existing plant batch.
+        if (region === "redwood") {
+          // Redwood duff: fallen needles and tiny twig fragments lie ON the
+          // sampled forest floor, rather than suspended canopy geometry.
+          for(let j=0;j<9;j++){
+            const angle=i*1.7+j*2.4;
+            const lx=x+Math.cos(angle)*(.25+(j%3)*.28);
+            const lz=z+Math.sin(angle)*(.25+(j%3)*.28);
+            add(b,blade,j%3?"#806c50":"#967653",
+              lx,terrainHeight(lx,lz)+.038,lz,.045,.26+(j%2)*.11,.035,
+              Math.PI*.49,angle,0);
+          }
+        }
         if (region === "rainforest")
           for (let j = 0; j < 3; j++) {
             const lx = x + Math.cos(j * 2.4 + i) * 0.55, lz = z + Math.sin(j * 2.4 + i) * 0.55;
@@ -518,23 +530,14 @@ export function createHabitats(scene: THREE.Scene, obstacles: Obstacle[]) {
               1.55,
               2.9,
             );
-            // Large planar leaves break the crown into a readable tropical
-            // silhouette instead of a stack of generic green blobs.
-            for (const tilt of [-0.18, 0.18])
-              add(
-                b,
-                blade,
-                j % 2 ? "#5d854d" : "#477340",
-                x + Math.cos(a) * 2.1,
-                y + h + 0.25,
-                z + Math.sin(a) * 2.1,
-                1.2,
-                3.4,
-                1.05,
-                Math.PI * (0.28 + tilt),
-                a,
-                tilt,
-              );
+            // Every prominent leaf belongs to a real branch tip, not a
+            // freestanding shape several metres above the ground.
+            const tip=V(x+Math.cos(a)*2.1,y+h+.25,z+Math.sin(a)*2.1);
+            stem(b,"#596b45",V(x,y+h-.2,z),tip,.055);
+            for(const tilt of [-.18,.18])
+              add(b,blade,j%2?"#5d854d":"#477340",
+                tip.x,tip.y,tip.z,1.0,2.45,.75,
+                Math.PI*(.28+tilt),a,tilt);
           }
           stem(
             b,
@@ -543,6 +546,23 @@ export function createHabitats(scene: THREE.Scene, obstacles: Obstacle[]) {
             V(x + 0.8, y + 1, z + 0.6),
             0.04,
           );
+          // Lianas are anchored to this trunk and over a real branch. They
+          // hang down toward the understory without crossing the ground.
+          if(i%8===0){
+            const top=V(x+1.5,y+h-1.55,z);
+            stem(b,"#4d6943",V(x,y+h-1.6,z),top,.07);
+            let previous=top;
+            for(let k=1;k<=9;k++){
+              const t=k/9;
+              const v=V(x+1.5+Math.sin(t*4.2+i)*.28,
+                y+h-1.55-t*Math.min(5,h*.44),
+                z+Math.sin(t*3.1+i)*.26);
+              stem(b,"#527445",previous,v,.045*(1-t*.25));
+              if(k%3===0)add(b,blade,"#66894f",
+                v.x,v.y,v.z,.24,.65,.22,.4,i+t,0);
+              previous=v;
+            }
+          }
           // Small epiphyte rosettes attach to the trunk, never float beside it.
           for (let j = 0; j < 5; j++) {
             const a = j * 2.4;
@@ -759,7 +779,11 @@ export function createHabitats(scene: THREE.Scene, obstacles: Obstacle[]) {
     const {x,z}=reptile.point;
     if(biomeAt(reptile.point).weights.rainforest<.30)continue;
     const y=terrainHeight(x,z)+reptile.height;
-    stem(animals,"#665b49",V(x,y-.85,z),V(x+.88,y+.08,z),.12);
+    // Authored reptiles must rest on a supported branch. The previous small
+    // isolated limb started mid-air and gave the illusion of floating snakes.
+    stem(animals,"#665b49",V(x,terrainHeight(x,z),z),V(x,y+.28,z),.24);
+    stem(animals,"#665b49",V(x-.75,y+.10,z),V(x+1.75,y+.10,z),.20);
+    stem(animals,"#665b49",V(x,y-.85,z),V(x+.88,y+.10,z),.14);
     const heavy=reptile.kind==="boa"||reptile.kind==="anaconda";
     const radius=reptile.kind==="anaconda"?.98:heavy?.72:.42;
     let prev=V(x+.42+radius,y+.18,z);
