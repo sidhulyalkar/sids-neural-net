@@ -1,5 +1,6 @@
 import {
  DISC_GOLF_HOLES,discGolfThrow,stepDiscGolf,startDiscGolf,recommendDiscGolfPower,
+ discGolfRouteLength,traceDiscGolfShot,
 } from "./discGolf";
 import {
  REGIONS,MEMORY_POINTS,isWater,terrainHeight,distance,
@@ -11,10 +12,14 @@ import {biomeAt} from "./biomes";
 export type DiscGolfFairwayRisk=
  "over-water"|"steep-target"|"steep-fairway"|"landmark-clearance"|
  "large-elevation-change"|"steep-tee"|"crowded-tee"|"crowded-green"|
- "coastal-tee"|"coastal-green"|"short-first-shot"|"first-shot-water";
+ "coastal-tee"|"coastal-green"|"short-first-shot"|"first-shot-water"|
+ "unsafe-gate"|"short-leg"|"missed-gate-from-staging";
 export type DiscGolfFairwayAudit={
  hole:number;id:string;name:string;par:number;
- distance:number;climb:number;teeBiome:string;basketBiome:string;
+ distance:number;routeDistance:number;legDistances:number[];
+ gateCount:number;gateClearance:number[];gateSlope:number[];
+ gateReachable:boolean[];
+ climb:number;teeBiome:string;basketBiome:string;
  maxSlope:number;teeSlope:number;basketSlope:number;waterSamples:number;
  teeCoastMargin:number;greenCoastMargin:number;
  teeFeatureClearance:number;greenFeatureClearance:number;
@@ -84,11 +89,39 @@ function firstShot(holeIndex:number){
 export function auditDiscGolfFairways():DiscGolfFairwayAudit[]{
  return DISC_GOLF_HOLES.map((hole,i)=>{
   const length=distance(hole.tee,hole.target);
+  const waypoints=[hole.tee,...hole.gates.map(g=>g.point),hole.target];
+  const legDistances=waypoints.slice(1).map((p,j)=>distance(waypoints[j],p));
+  const gateClearance=hole.gates.map(g=>discGolfFixedFeatureClearance(g.point));
+  const gateSlope=hole.gates.map(g=>discGolfLocalSlope(g.point));
+  const gateReachable=hole.gates.map((gate,index)=>{
+   const previous=waypoints[index],direction={
+    x:gate.point.x-previous.x,z:gate.point.z-previous.z};
+   const len=Math.hypot(direction.x,direction.z)||1;
+   // This is a laboratory simulation from a plausible lie on the approach
+   // side. It must never be described as full physical playtest coverage.
+   const at={x:gate.point.x-direction.x/len*14,
+    z:gate.point.z-direction.z/len*14};
+   if(isWater(at))return false;
+   const init={...startDiscGolf(i,p=>terrainHeight(p.x,p.z),5),
+     phase:"landed" as const,gatesCleared:index,lie:at,
+     disc:{...at,y:terrainHeight(at.x,at.z)+.16}};
+   for(const loft of [18,26,34]){
+    for(const power of [28,44,60,76,92]){
+     const trace=traceDiscGolfShot(init,
+      {power,loft,aimOffset:0,accuracy:0},
+      p=>terrainHeight(p.x,p.z),isWater,-1.4);
+     if(trace.gatesCleared>index)return true;
+    }
+   }
+   return false;
+  });
   let maxSlope=0,waterSamples=0;
-  for(let step=0;step<=24;step++){
-   const t=step/24;
-   const p={x:hole.tee.x+(hole.target.x-hole.tee.x)*t,
-    z:hole.tee.z+(hole.target.z-hole.tee.z)*t};
+  for(let step=0;step<24;step++){
+   const j=Math.min(waypoints.length-2,
+    Math.floor(step*(waypoints.length-1)/24));
+   const local=(step*(waypoints.length-1)/24)-j;
+   const p={x:waypoints[j].x+(waypoints[j+1].x-waypoints[j].x)*local,
+    z:waypoints[j].z+(waypoints[j+1].z-waypoints[j].z)*local};
    if(isWater(p))waterSamples++;
    const sx=terrainHeight(p.x+.5,p.z)-terrainHeight(p.x-.5,p.z);
    const sz=terrainHeight(p.x,p.z+.5)-terrainHeight(p.x,p.z-.5);
@@ -121,8 +154,19 @@ export function auditDiscGolfFairways():DiscGolfFairwayAudit[]{
   if(greenCoastMargin<6)risks.push("coastal-green");
   if(opening.distance<7)risks.push("short-first-shot");
   if(opening.phase==="water")risks.push("first-shot-water");
+  if(gateClearance.some(v=>v<1.2)||gateSlope.some(v=>v>2.2))
+   risks.push("unsafe-gate");
+  if(legDistances.some(v=>v<14))risks.push("short-leg");
+  if(gateReachable.some(v=>!v))risks.push("missed-gate-from-staging");
   return {hole:i+1,id:hole.id,name:hole.name,par:hole.par,
-   distance:Math.round(length*10)/10,climb:Math.round(climb*10)/10,
+   distance:Math.round(length*10)/10,
+   routeDistance:Math.round(discGolfRouteLength(hole)*10)/10,
+   legDistances:legDistances.map(v=>Math.round(v*10)/10),
+   gateCount:hole.gates.length,
+   gateClearance:gateClearance.map(v=>Math.round(v*10)/10),
+   gateSlope:gateSlope.map(v=>Math.round(v*100)/100),
+   gateReachable,
+   climb:Math.round(climb*10)/10,
    teeBiome:biomeAt(hole.tee).primary,
    basketBiome:biomeAt(hole.target).primary,
    maxSlope:Math.round(maxSlope*100)/100,
