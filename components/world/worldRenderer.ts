@@ -6,7 +6,7 @@ import { createTechnicalGeometry } from "./worldTechnicalGeometry";
 import { createBigAirBirds } from "./worldBigAirBirds";
 import { createDiscGolfGeometry } from "./worldDiscGolfGeometry";
 import {
-  DISC_GOLF_HOLES,discGolfOpeningClearance,discGolfCourseClearance,discGolfBasketPosition,discGolfNextTarget,discGolfThrowCameraPose,discGolfIntroPose,discGolfThrow,stepDiscGolf,
+  DISC_GOLF_HOLES,discGolfOpeningClearance,discGolfCourseClearance,discGolfBasketPosition,discGolfNextTarget,discGolfThrowCameraPose,discGolfClearCamera,discGolfIntroPose,discGolfThrow,stepDiscGolf,
   startDiscGolf,idleDiscGolf,type DiscGolfState,type DiscShot,
   type DiscGolfSwingStage,
 } from "@/lib/world/discGolf";
@@ -3331,6 +3331,13 @@ export function createWorld(
           const fx=dx/len,fz=dz/len,p=discGolf.disc;
           targetCamera.set(p.x-fx*19.5+fz*2.25,p.y+12,p.z-fz*19.5-fx*2.25);
         }else targetCamera.set(pose.camera.x,pose.camera.y,pose.camera.z);
+        // Camera-only orbit; preserve the same disc flight and aiming target.
+        const focus=discGolf.phase==="flying"&&!pose.putting
+          ?discGolf.disc:{x:player.x,y:playerY+1.7,z:player.z};
+        const clear=discGolfClearCamera(
+          {x:targetCamera.x,y:targetCamera.y,z:targetCamera.z},
+          focus,obstacles,p=>worldFloorHeight(p.x,p.z));
+        targetCamera.set(clear.x,clear.y,clear.z);
       } else if (cavernFraming) {
         // Keep the third-person boom centered inside the authored tunnel.
         // A lower eye line prevents the roof from swallowing the frame while
