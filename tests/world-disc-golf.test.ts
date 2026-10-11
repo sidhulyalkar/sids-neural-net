@@ -235,7 +235,7 @@ test("basket reveal holds target, flies back along fairway, and ends exactly at 
 test("flyback honors changing island elevation and reduced-motion camera cuts",()=>{
  const tee={x:0,z:0},basket={x:90,z:0},followCamera={x:-9,y:8,z:2};
  const followLook={x:3,y:2,z:0};
- const hill=(p:{x:number;z:number})=>10*Math.exp(-((p.x-38)/11)**2);
+ const hill=(p:{x:number;z:number})=>10*Math.exp(-(((p.x-38)/11)**2));
  const middle=discGolfIntroPose(tee,basket,followCamera,followLook,
   DISC_GOLF_INTRO_HOLD+DISC_GOLF_INTRO_PULLBACK*.5,hill);
  assert.ok(middle.camera.y>=hill(middle.camera)+4.5,
