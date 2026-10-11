@@ -4373,7 +4373,6 @@ export function createWorld(
         // Consume the start request only after the world can actually start.
         // Previously an early/paused request was discarded forever.
         lastDiscStart=next.discGolfStartSerial;
-        {
           const hole=DISC_GOLF_HOLES[next.discGolfHoleIndex]??DISC_GOLF_HOLES[0];
           discGolf=startDiscGolf(next.discGolfHoleIndex,p=>terrainHeight(p.x,p.z),elapsed);
           discFetch=idleDiscGolfFetch();
@@ -4402,7 +4401,6 @@ export function createWorld(
           dogVelocity={x:0,z:0};dogSmoothedTarget={...dog};
           dogGroundY=terrainHeight(dog.x,dog.z);
           callbacks.onDiscGolf(discGolf);
-        }
       }
       if(next.discGolfShotSerial!==lastDiscShot){
         lastDiscShot=next.discGolfShotSerial;
