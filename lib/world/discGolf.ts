@@ -219,7 +219,11 @@ export function discGolfThrow(state:DiscGolfState,shot:DiscShot,ground:DiscTerra
  const aim=base+clamp(shot.aimOffset,-55,55)*Math.PI/180+
    accuracy*.28;
  // A low-end putt must be possible: zero power is no longer a full drive.
- const speed=2.3+power*26.7;
+ // Gameplay calibration: a full-power throw must carry through a real fairway.
+ // Preserve short putts while allowing fairway and distance discs to travel.
+ const discSpeed={putter:.81,midrange:1,fairway:1.09,driver:1.16} as const;
+ const style=shot.discStyle??"midrange";
+ const speed=(2.3+power*30.7)*discSpeed[style];
  return {...state,phase:"flying",reason:undefined,
   disc:{...state.lie,y:ground(state.lie)+1.1},
   velocity:{x:Math.sin(aim)*Math.cos(loft)*speed,
@@ -384,7 +388,7 @@ export function stepDiscGolf(state:DiscGolfState,dt:number,
    }
    break;
   }
-  if(s.flightTime>=10 || Math.abs(p.x)>93 || Math.abs(p.z)>95 || p.z>57){
+  if(s.flightTime>=16 || Math.abs(p.x)>93 || Math.abs(p.z)>95 || p.z>57){
    s.phase="water";s.waterRedos+=1;s.strokes=Math.max(0,s.strokes-1);
    s.gatesCleared=state.gatesCleared;
    s.disc={...state.lie,y:ground(state.lie)+.18};
