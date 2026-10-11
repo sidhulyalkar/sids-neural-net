@@ -140,9 +140,11 @@ export function createDiscGolfGeometry(scene:THREE.Scene){
   if(game.phase==="flying"){
    const direction=Math.atan2(game.velocity.x,game.velocity.z);
    disc.rotation.y=direction;
-   disc.rotation.z=game.bankAngle*Math.PI/180*.9+
-    Math.sin(game.flightTime*12)*.025;
-   spinner.rotation.y=game.flightTime*17;
+   // Physical nose/pitch and precessing roll, with independently
+   // integrated spin phase (backhand vs forehand spin senses).
+   disc.rotation.x=-game.pitchDegrees*Math.PI/180;
+   disc.rotation.z=game.rollDegrees*Math.PI/180;
+   spinner.rotation.y=game.spinPhase;
   }else{
    disc.rotation.set(0,0,0);
    spinner.rotation.y=0;
@@ -153,7 +155,8 @@ export function createDiscGolfGeometry(scene:THREE.Scene){
  };
  update({phase:"off",holeIndex:0,gatesCleared:0,lie:{x:0,z:0},disc:{x:0,y:0,z:0},
   velocity:{x:0,y:0,z:0},strokes:0,waterRedos:0,flightTime:0,clock:0,
-  lockedWind:{x:0,z:0,speed:0},lastDistance:0,spin:0,bankAngle:0});
+  lockedWind:{x:0,z:0,speed:0},lastDistance:0,spin:0,bankAngle:0,
+  pitchDegrees:0,rollDegrees:0,spinRpm:0,spinPhase:0,discStyle:"midrange",releaseStyle:"backhand"});
  return {update,updatePreview,dispose(){
   scene.remove(root,disc,beacon,guide,ring,teeMarker,gateRoot);
   pathGeometry.dispose();guideMat.dispose();ringMat.dispose();
