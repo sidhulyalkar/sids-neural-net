@@ -19,7 +19,7 @@ export const DISC_GOLF_HOLES:readonly DiscGolfHole[]=[
  {id:"redwood-bend",name:"Opening drive",par:4,tee:{x:35,z:-12},
   gates:[{point:{x:43,z:17},radius:8}],target:{x:41,z:49}},
  {id:"scrub-crosswind",name:"Shore to mountain backside",par:6,
-  tee:{x:49,z:30},
+  tee:{x:51,z:32},
   gates:[
    {point:{x:45,z:-9},radius:9},
    {point:{x:34,z:-42},radius:9},
