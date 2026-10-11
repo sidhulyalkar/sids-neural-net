@@ -37,7 +37,7 @@ const markdown=[
 writeFileSync(join(dir,"disc-golf-fairways.md"),markdown.join("\n"));
 console.log(JSON.stringify(summary,null,2));
 for(const h of report)console.log(
- `HOLE ${h.hole} ${h.id}: span=${h.distance}; slopes=${h.teeSlope}/${h.basketSlope}; clear=${h.teeFeatureClearance}/${h.greenFeatureClearance}; coast=${h.teeCoastMargin}/${h.greenCoastMargin}; first=${h.firstShotDistance} ${h.firstShotPhase}; risks=${h.risks.join(",")||"none"}`
+ `HOLE ${h.hole} ${h.id}: span=${h.distance}; slopes=${h.teeSlope}/${h.basketSlope}; clear=${h.teeFeatureClearance}/${h.greenFeatureClearance}; coast=${h.teeCoastMargin}/${h.greenCoastMargin}; first=${h.firstShotDistance}@${h.firstShotPower}% ${h.firstShotPhase}; risks=${h.risks.join(",")||"none"}`
 );
 if(report.length!==9||issues.length>0||
  report.some(h=>h.risks.includes("steep-tee")||
