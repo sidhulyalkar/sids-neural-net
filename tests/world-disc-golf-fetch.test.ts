@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
- idleDiscGolfFetch,startDiscGolfFetch,stepDiscGolfFetch,
+ idleDiscGolfFetch,startDiscGolfFetch,stepDiscGolfFetch,discGolfFetchCameraPhase,\n DISC_FETCH_LANDING_HOLD,DISC_FETCH_POV_DELAY,DISC_FETCH_FOUND_HOLD,\n DISC_FETCH_CHASE_TIMEOUT,
 } from "../lib/world/discGolfFetch";
 import {
  DISC_GOLF_HOLES,discGolfOpeningClearance,startDiscGolf,
@@ -13,24 +13,36 @@ import {emptyDiscGolfRound,recordDiscGolfHole} from "../lib/world/discGolfRound"
 import {terrainHeight,isWater} from "../lib/world/model";
 
 const ground=(p:{x:number;z:number})=>terrainHeight(p.x,p.z);
-test("Shasta chases a live disc, finds its landed lie and returns without teleporting",()=>{
+test("the entire disc flight belongs to the shot camera; Shasta waits for landing",()=>{
  const game=startDiscGolf(0,ground);
  let fetch=startDiscGolfFetch(0);
- assert.equal(fetch.phase,"chase");
+ assert.equal(fetch.phase,"flight");
+ assert.equal(fetch.target,null,"dog must not chase a still-flying disc");
  const flying={...game,phase:"flying" as const,
   disc:{x:12,y:7,z:24}};
  fetch=stepDiscGolfFetch(fetch,flying,{x:0,z:0},.5);
- assert.deepEqual(fetch.target,{x:12,z:24});
+ assert.equal(fetch.phase,"flight");
+ assert.equal(fetch.target,null);
+ assert.equal(discGolfFetchCameraPhase(fetch,.5),"disc");
  const landed={...flying,phase:"landed" as const,
   lie:{x:17,z:26},disc:{x:17,y:1,z:26}};
- fetch=stepDiscGolfFetch(fetch,landed,{x:15,z:26},2);
- assert.equal(fetch.phase,"chase");
+ fetch=stepDiscGolfFetch(fetch,landed,{x:0,z:0},2);
+ assert.equal(fetch.phase,"landed");
  assert.deepEqual(fetch.target,landed.lie);
- fetch=stepDiscGolfFetch(fetch,landed,{x:17.3,z:26.3},3);
+ assert.equal(discGolfFetchCameraPhase(fetch,2),"landing");
+ assert.equal(stepDiscGolfFetch(fetch,landed,{x:0,z:0},2.5).phase,"landed");
+ fetch=stepDiscGolfFetch(fetch,landed,{x:0,z:0},2+DISC_FETCH_LANDING_HOLD+.02);
+ assert.equal(fetch.phase,"chase");
+ assert.equal(discGolfFetchCameraPhase(fetch,2.9),"chase",
+  "show Shasta beginning to run before switching into his view");
+ assert.equal(discGolfFetchCameraPhase(fetch,
+  2+DISC_FETCH_LANDING_HOLD+DISC_FETCH_POV_DELAY+.05),"shasta");
+ fetch=stepDiscGolfFetch(fetch,landed,{x:17.3,z:26.3},4);
  assert.equal(fetch.phase,"found");
- assert.equal(stepDiscGolfFetch(fetch,landed,{x:17,z:26},4).phase,"found");
- assert.deepEqual(stepDiscGolfFetch(fetch,landed,{x:17,z:26},4.4),
-  idleDiscGolfFetch());
+ assert.equal(discGolfFetchCameraPhase(fetch,4),"shasta");
+ assert.equal(stepDiscGolfFetch(fetch,landed,{x:17,z:26},4.8).phase,"found");
+ assert.deepEqual(stepDiscGolfFetch(fetch,landed,{x:17,z:26},
+  4+DISC_FETCH_FOUND_HOLD+.01),idleDiscGolfFetch());
 });
 test("Shasta finds a caught disc at the basket, not the previous lie",()=>{
  const game=startDiscGolf(0,ground);
@@ -40,14 +52,34 @@ test("Shasta finds a caught disc at the basket, not the previous lie",()=>{
  const fetch=stepDiscGolfFetch(startDiscGolfFetch(0),holed,
   {x:game.lie.x,z:game.lie.z},2);
  assert.deepEqual(fetch.target,basket);
- assert.equal(fetch.phase,"chase");
+ assert.equal(fetch.phase,"landed");
 });
-test("water shots, exits and unreachable terrain safely end fetch",()=>{
+test("water, exits, another throw and timeout cleanly cancel the cinematic",()=>{
  const game=startDiscGolf(0,ground);
  const active=startDiscGolfFetch(0);
  for(const phase of ["water","off","ready"] as const)
-  assert.equal(stepDiscGolfFetch(active,{...game,phase},{x:0,z:0},1).phase,"idle");
- assert.equal(stepDiscGolfFetch(active,{...game,phase:"flying"},{x:0,z:0},13).phase,"idle");
+  assert.deepEqual(stepDiscGolfFetch(active,{...game,phase},{x:0,z:0},1),
+   idleDiscGolfFetch());
+ const landed={...game,phase:"landed" as const};
+ const showing=stepDiscGolfFetch(active,landed,{x:0,z:0},2);
+ const chasing=stepDiscGolfFetch(showing,landed,{x:0,z:0},4);
+ assert.equal(chasing.phase,"chase");
+ assert.deepEqual(stepDiscGolfFetch(chasing,{...game,phase:"flying"},
+  {x:0,z:0},4.1),idleDiscGolfFetch(),
+  "new shot interrupts old fetch sequence");
+ assert.deepEqual(stepDiscGolfFetch(chasing,landed,{x:0,z:0},
+  2+DISC_FETCH_CHASE_TIMEOUT+.1),idleDiscGolfFetch(),
+  "no unreachable fetch may hold the camera forever");
+});
+test("reduced motion avoids every extra automatic fetch camera transition",()=>{
+ const on=startDiscGolfFetch(1);
+ assert.equal(discGolfFetchCameraPhase(on,1,true),"off");
+ const landed={...on,phase:"landed" as const,landedAt:2};
+ const chase={...landed,phase:"chase" as const};
+ for(const stage of [on,landed,chase,{...chase,phase:"found" as const}]){
+  assert.equal(discGolfFetchCameraPhase(stage,4,true),"off");
+ }
+ assert.equal(discGolfFetchCameraPhase(idleDiscGolfFetch(),8),"off");
 });
 test("first fairway reserves a continuous clean corridor across island terrain",()=>{
  const tee=DISC_GOLF_HOLES[0].tee,target=DISC_GOLF_HOLES[0].target;
