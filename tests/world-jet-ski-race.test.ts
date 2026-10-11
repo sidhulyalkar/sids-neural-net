@@ -254,7 +254,7 @@ test("walker advances across elevated pier without entering underwater locomotio
  }
  assert.ok(current.point.x>p.rampEndX+1,"the deck must be accessible on foot");
  assert.ok(jetSkiPierHeight(current.point)!==null);
- assert.ok(groundHeight(current.point)>0);
+ assert.ok(groundHeight(current.point)>JET_SKI_PIER.deckHeight-.05);
 });
 
 test("A turns left and D turns right, including reversing safely from stuck",()=>{
