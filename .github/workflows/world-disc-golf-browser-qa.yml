@@ -4,6 +4,7 @@ on:
     branches: ['feat/sids-world']
     paths:
       - '.github/workflows/world-disc-golf-browser-qa.yml'
+      - 'scripts/playtest-disc-golf.mjs'
   workflow_dispatch:
 
 permissions:
