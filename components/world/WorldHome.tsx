@@ -380,6 +380,9 @@ export function WorldHome({ content }: { content: WorldContent }) {
   const video = content.videos.find((item) => item.id === panel);
   const caption = MEMORY_POINTS.find((m) => m.id === panel);
   const trident = UNDERWATER_TRIDENTS.find((a) => a.id === panel);
+  const worldGameActive=jetActive||discGolf.phase!=="off"||
+    bigAir.phase==="armed"||bigAir.phase==="flying"||
+    trial.phase==="armed"||trial.phase==="running";
 
   return (
     <div
@@ -466,20 +469,20 @@ export function WorldHome({ content }: { content: WorldContent }) {
               <button onClick={() => open("menu")}>Browse the site</button>
             </div>
           )}
-          <div className={styles.location} style={{display:discGolf.phase==="off"&&!jetActive?undefined:"none"}}>
+          <div className={styles.location} style={{display:!worldGameActive?undefined:"none"}}>
             <span className={styles.eyebrow}>
               {String(REGIONS.indexOf(current) + 1).padStart(2, "0")} / {String(REGIONS.length).padStart(2, "0")}
             </span>
             <p>{current.name}</p>
           </div>
-          {nearby && ready && discGolf.phase==="off" && !jetActive && (
+          {nearby && ready && !worldGameActive && (
             <button className={styles.discovery} onClick={() => open(nearby)}>
               <span>{discoveryTitle}</span>
               <span className={styles.key}>Enter</span>
             </button>
           )}
           {aquatic === "land" && (
-            <div className={styles.activityDock} style={{display:discGolf.phase!=="off"||jetActive?"none":undefined}}>
+            <div className={styles.activityDock} style={{display:worldGameActive?"none":undefined}}>
               <div className={styles.activityButtons} role="group" aria-label="Movement activity">
                 {ACTIVITIES.map(item => (
                   <button key={item.id} aria-label={item.name} aria-pressed={activity === item.id}
@@ -607,7 +610,7 @@ export function WorldHome({ content }: { content: WorldContent }) {
               )}
             </div>
           )}
-          <p className={styles.controls} style={{display:discGolf.phase==="off"&&!jetActive?undefined:"none"}}>
+          <p className={styles.controls} style={{display:!worldGameActive?undefined:"none"}}>
             {aquatic === "land" ? (
               <>WASD / arrows to move <span>·</span> Drag to look <span>·</span>{" "}
                 Space to {activityConfig(activity).action.toLowerCase()} <span>·</span> M for menu</>
@@ -617,7 +620,7 @@ export function WorldHome({ content }: { content: WorldContent }) {
               <>WASD / arrows to swim <span>·</span> Q / E for depth <span>·</span> V to surface <span>·</span> M for menu</>
             )}
           </p>
-          <div className={styles.touchHelp} style={{display:discGolf.phase==="off"&&!jetActive?undefined:"none"}}>
+          <div className={styles.touchHelp} style={{display:!worldGameActive?undefined:"none"}}>
             {aquatic === "land" ? "Tap ground to move · Drag to look" : "Tap water to swim · Drag to look"}
           </div>
         </>
