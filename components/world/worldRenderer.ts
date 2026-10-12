@@ -3300,7 +3300,15 @@ export function createWorld(
           verticalSpeed = 2.5;
         }
       } else if (bigAir.phase==="flying") {
-        bigAir=advanceBigAir(bigAir,dt,p=>groundHeight(p),isWater);
+        // Physics can advance in bounded steps at low render FPS. Running only
+        // the global 50ms movement tick turned a long ski flight into slow
+        // motion on software-rendered and mobile GPUs.
+        let flightDelta=Math.max(0,Math.min(rawDelta,.3));
+        while(flightDelta>1e-8&&bigAir.phase==="flying"){
+          const flightStep=Math.min(.12,flightDelta);
+          bigAir=advanceBigAir(bigAir,flightStep,p=>groundHeight(p),isWater);
+          flightDelta-=flightStep;
+        }
         player={...bigAir.point};
         playerY=bigAir.y;
         airHeight=Math.max(0,playerY-supportHeight(player));
