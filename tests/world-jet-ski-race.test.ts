@@ -332,3 +332,17 @@ test("lagoon menu spawn and natural rightward approach overlap the physical pier
    "walk toward the parked skis leaves pier at "+JSON.stringify(p));
  }
 });
+
+test("parked jet skis and race launch remain in open water outside the pier",()=>{
+ assert.equal(jetSkiPierHeight(JET_SKI_START),null,
+  "race start should be off the pier, not intersecting its planks");
+ const scene=new THREE.Scene(),dock=createJetSkiDock(scene);
+ assert.equal(dock.skis.length,3);
+ for(const ski of dock.skis){
+  assert.ok(ski.position.x>JET_SKI_PIER.endX+1,
+   "parked craft hull should sit beyond the end of the pier");
+  assert.equal(jetSkiPierHeight({x:ski.position.x,z:ski.position.z}),null);
+  assert.ok(isWater({x:ski.position.x,z:ski.position.z}));
+ }
+ scene.remove(dock.root);
+});
