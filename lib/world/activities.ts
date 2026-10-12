@@ -31,7 +31,7 @@ export const ACTIVITIES = [
     acceleration: 8,
     braking: 5,
     action: "Ollie",
-    hint: "Space near logs · Approach straight for 50-50, crosswise for boardslide",
+    hint: "Aim at glowing targets while rolling, then click/tap or press F to fire a speed boost",
   },
   {
     id: "bike",
@@ -41,7 +41,7 @@ export const ACTIVITIES = [
     acceleration: 12,
     braking: 9,
     action: "Hop",
-    hint: "Ride the trails, sculpted dirt jumps and timber kickers",
+    hint: "Joshua ghost race · Aim and shoot targets for an extra burst of speed",
   },
   {
     id: "ski",
@@ -51,7 +51,7 @@ export const ACTIVITIES = [
     acceleration: 7,
     braking: 4,
     action: "Hop",
-    hint: "Snow follows ski mode · Space near fallen logs to slide",
+    hint: "Snow and mountain jumps · Aim and shoot glowing rings for speed boosts",
   },
   {
     id: "boulder",
@@ -321,6 +321,7 @@ export function stepTravel(
   destination?: Point | null,
   airborne = 0,
   supportHeight: (p: Point) => number = groundHeight,
+  boost = false,
 ): Travel {
   dt = Math.max(0, Math.min(dt, 0.05));
   const mode = effectiveActivity(selected, current.point);
@@ -333,13 +334,18 @@ export function stepTravel(
   const slope =
     supportHeight({ x: current.point.x + heading.x, z: current.point.z + heading.z }) -
     supportHeight(current.point);
+  const boostEligible=boost && (mode==="bike"||mode==="ski"||mode==="skate");
   const maxSpeed =
     config.speed *
     (mode === "run" && sprint ? 1.45 : 1) *
-    (mode === "ski" ? Math.max(0.42, Math.min(1.45, 1 - slope * 0.38)) : 1);
+    (mode === "ski" ? Math.max(0.42, Math.min(1.45, 1 - slope * 0.38)) : 1) *
+    (boostEligible ? 1.6 : 1);
+  // When the skill-shot expires, retain momentum briefly instead of snapping
+  // immediately to normal cruise speed. Normal braking still takes over.
   const speed = moving
-    ? Math.min(maxSpeed, current.speed + config.acceleration * dt)
-    : Math.max(0, current.speed - config.braking * dt);
+    ? Math.min(Math.max(maxSpeed,current.speed-config.braking*dt*.75),
+      current.speed+config.acceleration*dt*(boostEligible?2.35:1))
+    : Math.max(0,current.speed-config.braking*dt);
   const step = Math.min(
     speed * dt,
     destination ? distance(current.point, destination) : Infinity,
