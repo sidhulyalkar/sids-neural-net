@@ -29,6 +29,11 @@ try {
  await page.keyboard.press("Home");
  await page.keyboard.press("End");
  assert.equal(await rail.getAttribute("aria-valuenow"),"100");
+ // Revert to the suggested fairway strength after proving keyboard range.
+ // Full power is allowed to overshoot the opening green into water.
+ await page.keyboard.press("Escape");
+ const suggested=Number(await rail.getAttribute("aria-valuenow"));
+ assert.ok(suggested>=4&&suggested<=100);
  // Use the same keyboard slider release that players use in the live game.
  await page.keyboard.press("Enter");
  await page.waitForFunction(()=>document.querySelector("canvas")?.dataset.discGolfLastShot==="accepted",
