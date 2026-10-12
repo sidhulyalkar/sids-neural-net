@@ -5,8 +5,10 @@ import {desertTrackGroundRoute,desertTrackFrame,DESERT_TRACK_LENGTH} from "./des
 import {JOSHUA_GATES,type TrialState} from "./trials";
 import type {Point} from "./model";
 export const JOSHUA_GHOSTS=[
- {id:"copper",name:"Copper",speed:10.2,lane:-.45},
- {id:"sage",name:"Sage",speed:11.6,lane:.45},
+ // Named for the user's preferred Super Smash Bros. fighters. These remain
+ // original translucent racing ghosts, not the games' character models.
+ {id:"lucas",name:"Lucas",speed:10.2,lane:-.45},
+ {id:"ness",name:"Ness",speed:11.6,lane:.45},
 ] as const;
 const path=desertTrackGroundRoute(52);
 const lengths=[0];
