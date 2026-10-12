@@ -48,7 +48,7 @@ try{
  await desktop.keyboard.press("Enter");
  const chooser=desktop.getByRole("dialog",{name:"Choose a jet ski"});
  await chooser.waitFor({state:"visible"});
- await chooser.getByRole("button",{name:/^Race ·/}).click();
+ await chooser.getByRole("button",{name:/^Race/}).click();
  await desktop.waitForFunction(()=>document.querySelector("canvas")?.dataset.jetSkiStatus==="racing");
  await desktop.screenshot({path:path.join(out,"01-dock-launch.png")});
  assert.match(await dock.textContent(),/START IN/);
@@ -70,6 +70,15 @@ try{
  }));
  assert.equal(driving.courseWater,"true");
  assert.ok(driving.speed>1,JSON.stringify(driving));
+ await desktop.keyboard.down("s");
+ try{
+  await desktop.waitForFunction(()=>
+   Number(document.querySelector("canvas")?.dataset.jetSkiSpeed)<-.5,
+   null,{timeout:12000});
+ }finally{await desktop.keyboard.up("s");}
+ assert.ok(Number(await canvas.getAttribute("data-jet-ski-speed"))<0,
+  "Reverse must back the player out of narrow channels");
+
  await desktop.screenshot({path:path.join(out,"02-race-boost.png")});
  results.push({desktop:driving});
  await desktop.keyboard.press("r");
@@ -87,7 +96,7 @@ try{
  await ride.tap();
  const mobileChooser=phone.getByRole("dialog",{name:"Choose a jet ski"});
  await mobileChooser.waitFor({state:"visible"});
- await mobileChooser.getByRole("button",{name:/^Free ride ·/}).tap();
+ await mobileChooser.getByRole("button",{name:/^Free ride/}).tap();
  await phone.waitForFunction(()=>document.querySelector("canvas")?.dataset.jetSkiStatus==="racing");
  assert.equal(await phone.locator("canvas").getAttribute("data-jet-ski-mode"),"free");
  assert.equal(await phone.getByRole("button",{name:"BOOST",exact:true}).isVisible(),true);
