@@ -95,6 +95,42 @@ test("pullback power, release accuracy, aim and throw angle all influence disc f
  assert.notEqual(tilt.velocity.z,fast.velocity.z);
  assert.ok(high.velocity.y>slow.velocity.y);
 });
+test("arcade glide returns a powerful playable throw, not a collapsing rigid-disc shot",()=>{
+ const flat=()=>0,water=()=>false;
+ const start=startDiscGolf(0,flat,0);
+ const initial=discGolfThrow(start,{...ordinary,power:78,loft:26},flat);
+ assert.equal(initial.phase,"flying");
+ assert.equal(initial.rigid,undefined,"default flight must not use six-axis rigid-body integration");
+ assert.ok(Math.hypot(initial.velocity.x,initial.velocity.z)>15);
+ let flight=initial;
+ for(let i=0;i<10;i++)flight=stepDiscGolf(flight,.05,flat,water,-1.4);
+ assert.equal(flight.phase,"flying","an ordinary drive should remain airborne at half a second");
+ assert.ok(flight.disc.y>1.2,"the frisbee should rise visibly out of the hand");
+ assert.ok(Math.hypot(flight.disc.x-initial.disc.x,flight.disc.z-initial.disc.z)>6,
+  "the disc must travel rather than stalling above the tee");
+ let finished=flight;
+ for(let i=0;i<190&&finished.phase==="flying";i++)
+  finished=stepDiscGolf(finished,.05,flat,water,-1.4);
+ assert.equal(finished.phase,"landed");
+ assert.ok(finished.lastDistance>18,"full drives should cover useful course distance");
+ assert.equal(finished.contact,undefined,"landing should hand off immediately for the next throw");
+ const second=discGolfThrow(finished,{...ordinary,power:30},flat);
+ assert.equal(second.phase,"flying");
+ assert.equal(second.strokes,2);
+});
+test("a suggested arcade drive and its visible trajectory agree",()=>{
+ const flat=()=>0,water=()=>false;
+ const start=startDiscGolf(0,flat,3);
+ const p=recommendDiscGolfPower(start,25,0,flat,water,-1.4);
+ assert.ok(p>=4&&p<=100);
+ const shot={...ordinary,power:p};
+ const preview=traceDiscGolfShot(start,shot,flat,water,-1.4);
+ let actual=discGolfThrow(start,shot,flat);
+ for(let i=0;i<100&&actual.phase==="flying";i++)
+  actual=stepDiscGolf(actual,.1,flat,water,-1.4);
+ assert.equal(preview.outcome,actual.phase);
+ assert.ok(Math.hypot(preview.end.x-actual.disc.x,preview.end.z-actual.disc.z)<1e-7);
+});
 test("release bank curves the disc left or right instead of changing the initial aim",()=>{
  const flat=()=>0,water=()=>false;
  const initial=startDiscGolf(0,flat,0);
@@ -123,8 +159,7 @@ test("release bank curves the disc left or right instead of changing the initial
  const rightLateral=(b.disc.x-center.disc.x)*rx+(b.disc.z-center.disc.z)*rz;
  assert.ok(leftLateral< -2,
   "negative bank should visibly bend to the traveler's left: "+leftLateral);
- // Initial bank controls early lateral motion; late aerodynamic precession
- // can reverse that curve, so landing-side sign alone is not an invariant.
+ // Curves are deterministic and remain separate from initial aim/loft.
  const early=(bankAngle:number)=>{
   const t=traceDiscGolfShot(initial,{...shot,bankAngle},flat,water,-1.4);
   return t.points[Math.min(3,t.points.length-1)];
