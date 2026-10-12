@@ -6,6 +6,7 @@ on:
       - 'components/world/**'
       - 'lib/world/**'
       - 'scripts/playtest-jet-ski.mjs'
+      - 'scripts/playtest-mountain-jump.mjs'
       - '.github/workflows/jet-ski-browser.yml'
   workflow_dispatch:
 
@@ -52,6 +53,12 @@ jobs:
         run: |
           export PLAYWRIGHT_MODULE_ROOT="/tmp/island-playwright/node_modules/playwright"
           node scripts/playtest-jet-ski.mjs
+      - name: Test freeform mountain ski flight and companion birds
+        env:
+          WORLD_BASE_URL: http://127.0.0.1:3000
+          WORLD_AUDIT_DIR: artifacts/world/mountain-jump-browser
+          PLAYWRIGHT_MODULE_ROOT: /tmp/island-playwright/node_modules/playwright
+        run: node scripts/playtest-mountain-jump.mjs
       - name: Upload browser evidence and diagnostics
         if: always()
         uses: actions/upload-artifact@v4
@@ -59,5 +66,6 @@ jobs:
           name: jet-ski-browser-${{ github.sha }}
           path: |
             artifacts/world/jet-ski-browser
+            artifacts/world/mountain-jump-browser
             /tmp/world-dev.log
           if-no-files-found: warn
