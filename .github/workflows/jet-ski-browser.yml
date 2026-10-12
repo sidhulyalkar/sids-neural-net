@@ -1,0 +1,60 @@
+name: Jet-Ski Browser Acceptance
+
+on:
+  pull_request:
+    paths:
+      - 'components/world/**'
+      - 'lib/world/**'
+      - 'scripts/playtest-jet-ski.mjs'
+      - '.github/workflows/jet-ski-browser.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: jet-ski-browser-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  jet-ski-playtest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install locked application dependencies
+        run: npm ci
+      - name: Install isolated Playwright runner and Chromium
+        run: |
+          npm install --no-save --package-lock=false playwright@1.56.1
+          npx playwright install --with-deps chromium
+      - name: Start local World development server
+        run: |
+          npm run dev -- --hostname 127.0.0.1 > /tmp/world-dev.log 2>&1 &
+          echo $! > /tmp/world-dev.pid
+          for i in {1..90}; do
+            if curl -fsS http://127.0.0.1:3000/ > /dev/null; then exit 0; fi
+            sleep 2
+          done
+          cat /tmp/world-dev.log
+          exit 1
+      - name: Walk pier, choose ride, boost, reverse and dock
+        env:
+          WORLD_BASE_URL: http://127.0.0.1:3000
+          WORLD_AUDIT_DIR: artifacts/world/jet-ski-browser
+        run: |
+          export PLAYWRIGHT_MODULE_ROOT="$(node -p 'require("path").dirname(require.resolve("playwright/package.json"))')"
+          node scripts/playtest-jet-ski.mjs
+      - name: Upload browser evidence and diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jet-ski-browser-${{ github.sha }}
+          path: |
+            artifacts/world/jet-ski-browser
+            /tmp/world-dev.log
+          if-no-files-found: warn
