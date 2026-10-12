@@ -2623,6 +2623,12 @@ export function createWorld(
   } | null = null;
   let lastRampAt = -10, lastRampId = "";
   let playerY = groundHeight(player);
+  // Single source of truth for mutually exclusive minigame entrances.
+  const occupiedByOtherMode=(requested:"jet"|"ski"|"disc"|"trial")=>
+    (requested!=="jet"&&(!!jetSki||jetChoosing))||
+    (requested!=="ski"&&(bigAir.phase==="armed"||bigAir.phase==="flying"))||
+    (requested!=="disc"&&discGolf.phase!=="off")||
+    (requested!=="trial"&&(trial.phase==="armed"||trial.phase==="running"));
   function stopJetSki(){
     if(!jetSki)return;
     jetSki=null;jetRivals=[];jetMilestone="";
@@ -2647,7 +2653,7 @@ export function createWorld(
     canvas.focus({preventScroll:true});
   }
   function openJetChooser(){
-    if(!state.entered||state.paused||jetSki||discGolf.phase!=="off"||
+    if(!state.entered||state.paused||jetSki||occupiedByOtherMode("jet")||
        aquatic!=="land"||!nearJetSkiBoarding(player))return;
     jetChoosing=true;
     jetskiVisual.activeHull.material.color.set("#e96c48");
@@ -2665,7 +2671,7 @@ export function createWorld(
     boardJetSki();
   }
   function boardJetSki(){
-    if(!state.entered||state.paused||jetSki||discGolf.phase!=="off"||
+    if(!state.entered||state.paused||jetSki||occupiedByOtherMode("jet")||
        aquatic!=="land"||!nearJetSkiBoarding(player))return;
     jetSki=startJetSkiRace(selectedJetSki);jetMilestone="";
     jetCountdown=jetRideMode==="race"?3.3:0;jetNoticeUntil=0;
@@ -4863,7 +4869,7 @@ export function createWorld(
         discGolf=idleDiscGolf();callbacks.onDiscGolf(discGolf);
       }
       if(next.discGolfStartSerial!==lastDiscStart &&
-         next.entered&&!next.paused){
+         next.entered&&!next.paused&&!occupiedByOtherMode("disc")){
         // Consume the start request only after the world can actually start.
         // Previously an early/paused request was discarded forever.
         lastDiscStart=next.discGolfStartSerial;
@@ -4957,7 +4963,7 @@ export function createWorld(
         canvas.focus({ preventScroll: true });
       if(next.bigAirSerial!==lastBigAirSerial) {
         lastBigAirSerial=next.bigAirSerial;
-        if(next.entered&&!next.paused){
+        if(next.entered&&!next.paused&&!occupiedByOtherMode("ski")){
           player={...BIG_AIR.start};
           travel={point:player,heading:{...BIG_AIR.heading},speed:0};
           yaw=Math.atan2(-BIG_AIR.heading.x,-BIG_AIR.heading.z);
@@ -4979,7 +4985,7 @@ export function createWorld(
       }
       if(next.challengeSerial!==lastChallengeSerial) {
         lastChallengeSerial=next.challengeSerial;
-        if(next.entered && !next.paused) {
+        if(next.entered && !next.paused && !occupiedByOtherMode("trial")) {
           const start=JOSHUA_GATES[0];
           // Explicit challenge selection moves the player to a safe start
           // approach, never to an arbitrary point mid-air or inside a gap.
