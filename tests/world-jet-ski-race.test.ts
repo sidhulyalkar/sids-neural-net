@@ -3,7 +3,7 @@ import * as THREE from "three/src/Three.Core.js";
 import {createJetSkiDock} from "../components/world/worldJetSkiDock";
 import test from "node:test";
 import {isWater,WORLD_BOUNDS,terrainHeight} from "../lib/world/model";
-import {groundHeight,stepTravel} from "../lib/world/activities";
+import {groundHeight,stepTravel,type Travel} from "../lib/world/activities";
 import {JET_SKI_PIER,jetSkiPierHeight,nearJetSkiBoarding} from "../lib/world/jetSkiPier";
 import {JET_SKI_ARCHES,JET_SKI_ROCKS,jetSkiRockAt,jetSkiSegmentClear} from "../lib/world/jetSkiCourse";
 import {JET_SKI_JUMPS,jetSkiWaterSample} from "../lib/world/jetSkiWater";
@@ -247,7 +247,7 @@ test("pier deck is walkable across water with exactly matching support height",(
 
 test("walker advances across elevated pier without entering underwater locomotion",()=>{
  const p=JET_SKI_PIER;
- let current={point:{x:p.landX+.1,z:p.centerZ},
+ let current:Travel={point:{x:p.landX+.1,z:p.centerZ},
   speed:0,heading:{x:1,z:0}};
  for(let i=0;i<200&&current.point.x<p.endX-.6;i++){
   current=stepTravel(current,{x:1,z:0},.05,"run",[],false,null,0,groundHeight);
