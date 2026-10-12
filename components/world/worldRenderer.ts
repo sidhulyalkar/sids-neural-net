@@ -3796,7 +3796,7 @@ export function createWorld(
       if(!jetSki){explorer.visible=!jetChoosing;
         jetskiVisual.activeSki.visible=jetChoosing;
         if(jetChoosing){
-          jetskiVisual.activeSki.position.set(68.9,SEA_SURFACE+.2,JET_SKI_PIER.centerZ-.15);
+          jetskiVisual.activeSki.position.set(JET_SKI_DOCK.x+.25,SEA_SURFACE+.2,JET_SKI_PIER.centerZ-.15);
           jetskiVisual.activeSki.rotation.set(0,0,0);
         }
         jetskiVisual.opponents.forEach(g=>{g.visible=false;});
