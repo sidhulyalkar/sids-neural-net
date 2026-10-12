@@ -44,7 +44,7 @@ export function createSeaStackGeometry(rock:JetSkiRock):THREE.BufferGeometry{
    const angle=i/sides*Math.PI*2;
    const angular=.049*Math.sin(angle*5+seed)+
      .035*Math.sin(angle*9-seed*.4+t*3.1);
-   const radius=rock.radius*clamp(taper+undercut+angular,.32,1.18);
+   const radius=rock.radius*clamp(taper+undercut+angular,.32,1.14);
    const edge=(i%4===0?.09:0)*Math.sin(t*13+seed);
    vertices.push(Math.cos(angle)*radius,
     SEA_SURFACE-1.7+rock.height*t+edge,
