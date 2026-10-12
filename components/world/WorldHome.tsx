@@ -28,7 +28,7 @@ import { idleDiscGolf,type DiscShot,type DiscGolfState,type DiscGolfSwingStage }
 import {emptyDiscGolfRound,loadDiscGolfRound,persistDiscGolfRound,recordDiscGolfHole,nextUnplayedDiscGolfHole,discGolfRoundSummary} from "@/lib/world/discGolfRound";
 import {newDiscGolfNameSeed} from "@/lib/world/discGolfNames";
 import {
-  BIG_AIR,bigAirBirdCallout,idleBigAir,type BigAirState,
+  BIG_AIR,bigAirBirdCallout,mountainJumpOutwardGain,idleBigAir,type BigAirState,
 } from "@/lib/world/bigAir";
 import styles from "./world.module.css";
 
@@ -569,14 +569,17 @@ export function WorldHome({ content }: { content: WorldContent }) {
             <aside className={styles.bigAirHud} aria-label="Alpine Big Air flight"
               aria-live={bigAir.phase==="landed"||bigAir.phase==="missed"?"polite":"off"}>
               <span className={styles.eyebrow}>MOUNTAIN · FREE JUMP</span>
-              <strong>{(bigAir.radialDistance??bigAir.distance).toFixed(1)} m from center</strong>
+              <strong>{(bigAir.radialDistance??0).toFixed(1)} m from center</strong>
               <p>{bigAir.phase==="armed"?"Choose any slope or press Space while skiing":
                 bigAir.phase==="flying"?
                   (bigAirBirdCallout(bigAir.distance)??"Macaws joining your flight"):
                 bigAir.phase==="landed"?"Clean landing":
                   bigAir.reason??"Flight ended"}</p>
               {bigAir.phase==="flying"&&(
-                <small>Flight {bigAir.distance.toFixed(1)} m · Airborne {bigAir.airtime.toFixed(1)} s · 3 birds in formation</small>
+                <small>Flight {bigAir.distance.toFixed(1)} m · {mountainJumpOutwardGain(bigAir)>=0?"+":""}{mountainJumpOutwardGain(bigAir).toFixed(1)} m outward · {bigAir.airtime.toFixed(1)} s airborne</small>
+              )}
+              {(bigAir.phase==="landed"||bigAir.phase==="missed")&&(
+                <small>Traveled {bigAir.distance.toFixed(1)} m · {mountainJumpOutwardGain(bigAir)>=0?"+":""}{mountainJumpOutwardGain(bigAir).toFixed(1)} m outward · Peak clearance {(bigAir.maxClearance??0).toFixed(1)} m</small>
               )}
               {bestFlight!==null&&(
                 <small>Furthest from mountain center {bestFlight.toFixed(1)} m</small>
