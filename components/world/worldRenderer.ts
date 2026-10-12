@@ -10,6 +10,7 @@ import {jetSkiPierHeight,nearJetSkiBoarding,JET_SKI_PIER} from "@/lib/world/jetS
 import {jetSkiWaterSample} from "@/lib/world/jetSkiWater";
 import {createJetSkiCoastGeometry} from "./worldJetSkiCourseGeometry";
 import {jetSkiSectionName} from "@/lib/world/jetSkiCourse";
+import {canStartWorldGame,type WorldGameMode} from "@/lib/world/gameMode";
 import {JET_SKI_DOCK,JET_SKI_GATES,startJetSkiRace,stepJetSkiRace,jetSkiNavigableWater,jetSkiGateDistance,jetSkiBearingToGate,jetSkiOpponentInput,jetSkiRacePlace,type JetSkiState} from "@/lib/world/jetSkiRace";
 import {
   DISC_GOLF_HOLES,discGolfOpeningClearance,discGolfCourseClearance,discGolfBasketPosition,discGolfNextTarget,discGolfThrowCameraPose,discGolfIntroPose,discGolfThrow,stepDiscGolf,
@@ -2635,11 +2636,13 @@ export function createWorld(
   let lastRampAt = -10, lastRampId = "";
   let playerY = groundHeight(player);
   // Single source of truth for mutually exclusive minigame entrances.
-  const occupiedByOtherMode=(requested:"jet"|"ski"|"disc"|"trial")=>
-    (requested!=="jet"&&(!!jetSki||jetChoosing))||
-    (requested!=="ski"&&(bigAir.phase==="armed"||bigAir.phase==="flying"))||
-    (requested!=="disc"&&discGolf.phase!=="off")||
-    (requested!=="trial"&&(trial.phase==="armed"||trial.phase==="running"));
+  const occupiedByOtherMode=(requested:WorldGameMode)=>
+    !canStartWorldGame(requested,{
+      jet:!!jetSki||jetChoosing,
+      ski:bigAir.phase==="armed"||bigAir.phase==="flying",
+      disc:discGolf.phase!=="off",
+      trial:trial.phase==="armed"||trial.phase==="running",
+    });
   function stopJetSki(){
     if(!jetSki)return;
     jetSki=null;jetRivals=[];jetMilestone="";
