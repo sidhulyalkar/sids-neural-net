@@ -5,7 +5,7 @@ import { isWater,terrainHeight,distance,ARCADE_CAVE,PAPER_CAVE } from "../lib/wo
 import {
  BIG_AIR,BIG_AIR_BIRDS,advanceBigAir,armBigAir,bigAirBirdCallout,
  bigAirBirdPositions,bigAirClearance,bigAirCrossedLip,bigAirTerrainOffset,
- launchBigAir,idleBigAir,mountainJumpEligible,mountainSkiTakeoff,mountainJumpOutwardGain,MOUNTAIN_JUMP_CENTER,type BigAirState,
+ launchBigAir,idleBigAir,mountainJumpEligible,mountainSkiTakeoff,mountainJumpOutwardGain,mountainJumpCameraPose,MOUNTAIN_JUMP_CENTER,type BigAirState,
 } from "../lib/world/bigAir";
 import { createBigAirBirds } from "../components/world/worldBigAirBirds";
 
@@ -192,4 +192,20 @@ test("ski clearance and outward progress measure real terrain and ridge-relative
  const later={...inward,point:{x:15,z:-61}};
  assert.ok(mountainJumpOutwardGain(later)<0);
  assert.equal(mountainJumpOutwardGain(idleBigAir()),0);
+});
+
+test("flight camera stays behind the skier for all mountain departure headings",()=>{
+ for(const dir of [{x:0,z:1},{x:0,z:-1},{x:1,z:0},{x:-1,z:0},
+  {x:Math.SQRT1_2,z:Math.SQRT1_2}]){
+  const state=launchBigAir({x:7,z:-54},20,14,dir,true);
+  const pose=mountainJumpCameraPose(state);
+  const backward=(pose.camera.x-state.point.x)*dir.x+
+   (pose.camera.z-state.point.z)*dir.z;
+  const ahead=(pose.look.x-state.point.x)*dir.x+
+   (pose.look.z-state.point.z)*dir.z;
+  assert.ok(backward< -15&&ahead>5);
+  assert.ok(pose.camera.y>state.y+7);
+  assert.ok(Object.values(pose.camera).every(Number.isFinite));
+  assert.ok(Object.values(pose.look).every(Number.isFinite));
+ }
 });
