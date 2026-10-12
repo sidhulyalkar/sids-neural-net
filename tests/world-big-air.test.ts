@@ -150,3 +150,16 @@ test("mountain slope and authored ramps both initiate tracked flights without ar
  assert.equal(mountainSkiTakeoff(point,16,2,16.2,12,8),false);
  assert.equal(mountainSkiTakeoff({x:70,z:12},16,11,16.5,10,8),false);
 });
+
+test("every genuine free-terrain ski touchdown counts even under five meters",()=>{
+ const launch=launchBigAir({x:7,z:-58},12,5.3,{x:1,z:0},true);
+ const steepGround=(p:{x:number;z:number})=>12+Math.max(0,p.x-7)*4;
+ let flight=launch;
+ for(let i=0;i<120&&flight.phase==="flying";i++)
+   flight=advanceBigAir(flight,.025,steepGround,()=>false);
+ assert.equal(flight.phase,"landed",JSON.stringify(flight));
+ assert.ok(flight.distance>=0&&flight.distance<5,
+  "short slope hops still receive landing scores");
+ assert.equal(flight.reason,undefined);
+ assert.ok(Number.isFinite(flight.radialDistance));
+});
