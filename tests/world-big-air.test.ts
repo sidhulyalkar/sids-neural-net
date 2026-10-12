@@ -5,7 +5,7 @@ import { isWater,terrainHeight,distance,ARCADE_CAVE,PAPER_CAVE } from "../lib/wo
 import {
  BIG_AIR,BIG_AIR_BIRDS,advanceBigAir,armBigAir,bigAirBirdCallout,
  bigAirBirdPositions,bigAirClearance,bigAirCrossedLip,bigAirTerrainOffset,
- launchBigAir,idleBigAir,mountainJumpEligible,MOUNTAIN_JUMP_CENTER,type BigAirState,
+ launchBigAir,idleBigAir,mountainJumpEligible,mountainSkiTakeoff,MOUNTAIN_JUMP_CENTER,type BigAirState,
 } from "../lib/world/bigAir";
 import { createBigAirBirds } from "../components/world/worldBigAirBirds";
 
@@ -138,4 +138,13 @@ test("flock positions stay alongside skier even when jumping across slope",()=>{
  assert.ok(birds.some(p=>p.z>flight.point.z+2));
  assert.ok(birds.some(p=>p.z<flight.point.z-2));
  assert.ok(birds.every(p=>Math.abs(p.yaw-Math.PI/2)<.001));
+});
+
+test("mountain slope and authored ramps both initiate tracked flights without arming",()=>{
+ const point={x:24,z:-62};
+ assert.equal(mountainSkiTakeoff(point,16,11,16.1,14.5),true);
+ assert.equal(mountainSkiTakeoff(point,16,11,16,16,6),true);
+ assert.equal(mountainSkiTakeoff(point,16,11,16,16,0),false);
+ assert.equal(mountainSkiTakeoff(point,16,2,16.2,12,8),false);
+ assert.equal(mountainSkiTakeoff({x:70,z:12},16,11,16.5,10,8),false);
 });
