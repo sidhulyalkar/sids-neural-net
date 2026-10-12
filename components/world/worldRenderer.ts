@@ -153,6 +153,10 @@ export function createWorld(
   rideHud.setAttribute("aria-label","Land sports target boost");
   rideHud.style.display="none";
   host.appendChild(rideHud);
+  const rideReticle=document.createElement("div");
+  rideReticle.className=worldStyles.rideBoostReticle;
+  rideReticle.setAttribute("aria-hidden","true");
+  rideReticle.style.display="none";host.appendChild(rideReticle);
   const rideAnnounce=document.createElement("span");
   rideAnnounce.style.cssText="position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap";
   rideAnnounce.setAttribute("role","status");rideAnnounce.setAttribute("aria-live","polite");
@@ -2742,6 +2746,7 @@ export function createWorld(
   function boardJetSki(){
     if(!state.entered||state.paused||jetSki||occupiedByOtherMode("jet")||
        aquatic!=="land"||!nearJetSkiBoarding(player))return;
+    resetRideBoost();
     jetSki=startJetSkiRace(selectedJetSki);jetMilestone="";
     callbacks.onJetSkiMode(true);
     jetCountdown=jetRideMode==="race"?3.3:0;jetNoticeUntil=0;
@@ -2888,8 +2893,14 @@ export function createWorld(
     pointer.set(((x-rect.left)/rect.width)*2-1,
       (-(y-rect.top)/rect.height)*2+1);
     ray.setFromCamera(pointer,camera);
-    const hit=ray.intersectObjects(rideVisual.targets,false)[0];
-    const target=hit?.distance<=65?rideVisual.targetFromHit(hit.object):null;
+    const hit=ray.intersectObjects(rideVisual.targets,false)
+      .find(h=>h.object.parent?.visible);
+    // The shooter must have visual line of sight. Hills can hide an offshore
+    // marker from some approaches; do not score hits through the terrain.
+    const terrainHit=ray.intersectObject(ground,false)[0];
+    const clear=!!hit&&(!terrainHit||terrainHit.distance>hit.distance+.08);
+    const target=clear&&hit.distance<=65?
+      rideVisual.targetFromHit(hit.object):null;
     const previous=rideBoost;
     if(target)rideBoost=fireRideBoost(target,currentMode,player,
       travel.speed,elapsed,rideBoost);
@@ -3701,6 +3712,7 @@ export function createWorld(
         isBoostActivity(state.activity)&&discGolf.phase==="off"&&!jetSki&&
         !jetChoosing&&bigAir.phase!=="flying";
       rideHud.style.display=showAim?"block":"none";
+      rideReticle.style.display=showAim?"block":"none";
       if(showAim){
         const seconds=Math.max(0,rideBoost.until-elapsed);
         rideHud.textContent=elapsed<rideBoostNoticeUntil?rideBoostNotice:
@@ -5040,6 +5052,7 @@ export function createWorld(
           callbacks.onBigAir(bigAir);
         }
         clearInput();
+        resetRideBoost();
         climb = null;
         grind = null;
         airHeight = verticalSpeed = 0;
@@ -5284,6 +5297,7 @@ export function createWorld(
       }
       if (state.paused) {
         clearInput();
+        resetRideBoost();
         cancelAnimationFrame(raf);
         raf = 0;
       } else schedule();
@@ -5291,7 +5305,7 @@ export function createWorld(
     dispose() {
       discGolfObjects.dispose();
       jetskiCoast.dispose();
-      rideVisual.dispose();rideHud.remove();rideAnnounce.remove();
+      rideVisual.dispose();rideHud.remove();rideReticle.remove();rideAnnounce.remove();
       jetHud.remove();jetAnnounce.remove();jetTouch.remove();jetNotice.remove();jetChooser.remove();
       jetskiVisual.root.traverse(object=>{
         if(object instanceof THREE.Mesh){object.geometry.dispose();
