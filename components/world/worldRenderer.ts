@@ -8,6 +8,7 @@ import { createDiscGolfGeometry } from "./worldDiscGolfGeometry";
 import {createJetSkiDock,type JetSkiWakePoint} from "./worldJetSkiDock";
 import {jetSkiPierHeight,nearJetSkiBoarding,JET_SKI_PIER} from "@/lib/world/jetSkiPier";
 import {jetSkiWaterSample} from "@/lib/world/jetSkiWater";
+import {jetSkiControlInput} from "@/lib/world/jetSkiControls";
 import {createJetSkiCoastGeometry} from "./worldJetSkiCourseGeometry";
 import {jetSkiSectionName} from "@/lib/world/jetSkiCourse";
 import {canStartWorldGame,type WorldGameMode} from "@/lib/world/gameMode";
@@ -150,7 +151,11 @@ export function createWorld(
   host.appendChild(jetHud);
   const jetHudReadout=document.createElement("span");jetHud.appendChild(jetHudReadout);
   const jetTurboBar=document.createElement("div");
-  jetTurboBar.style.cssText="display:none;height:4px;background:#ffffff44;border-radius:3px;margin-top:5px;overflow:hidden";
+  jetTurboBar.setAttribute("role","progressbar");
+  jetTurboBar.setAttribute("aria-label","Jet ski boost charge");
+  jetTurboBar.setAttribute("aria-valuemin","0");
+  jetTurboBar.setAttribute("aria-valuemax","100");
+  jetTurboBar.style.cssText="display:none;height:5px;background:#ffffff44;border-radius:3px;margin-top:5px;overflow:hidden";
   const jetTurboFill=document.createElement("div");
   jetTurboFill.style.cssText="height:100%;width:100%;background:#91edcb;transition:width .1s linear";
   jetTurboBar.appendChild(jetTurboFill);jetHud.appendChild(jetTurboBar);
@@ -199,6 +204,16 @@ export function createWorld(
     button.addEventListener("pointerup",release);
     button.addEventListener("pointercancel",release);
     button.addEventListener("lostpointercapture",release);
+    // Space/Enter must behave as hold controls for keyboard and switch users.
+    button.addEventListener("keydown",e=>{
+      if((e.key===" "||e.key==="Enter")&&!e.repeat){
+        e.preventDefault();press();
+      }
+    });
+    button.addEventListener("keyup",e=>{
+      if(e.key===" "||e.key==="Enter"){e.preventDefault();release();}
+    });
+    button.addEventListener("blur",release);
   };
   holdJetButton(jetLeftButton,()=>{jetTouchInput.steer=-1;},()=>{jetTouchInput.steer=0;});
   holdJetButton(jetRightButton,()=>{jetTouchInput.steer=1;},()=>{jetTouchInput.steer=0;});
@@ -480,7 +495,7 @@ export function createWorld(
     side: THREE.DoubleSide,
   });
   const water = mesh(
-    geo(new THREE.PlaneGeometry(540, 420, 64, 48)),
+    geo(new THREE.PlaneGeometry(540, 420, 96, 72)),
     waterMaterial,
     [-80, SEA_SURFACE, -90],
     [1, 1, 1],
@@ -2891,12 +2906,16 @@ export function createWorld(
       }
       return;
     }
-    if(e.target !== canvas) return;
+    // Canvas focus can move to a touch/accessible control while riding.
+    // Keep steering active inside the world, but never grab keys from the
+    // surrounding site or a text field.
+    if(e.target !== canvas && !(jetSki&&
+      (e.target===document.body||host.contains(e.target as Node))))return;
     const key = e.key.toLowerCase();
     if(key==="escape"&&jetSki){stopJetSki();e.preventDefault();return;}
     if(key==="r"&&!e.repeat&&jetSki){restartJetSki();e.preventDefault();return;}
     // The land jump action must not fire while steering a jet ski.
-    if(jetSki&&key===" "){e.preventDefault();return;}
+    if(jetSki&&key===" "){if(e.target===canvas)e.preventDefault();return;}
     if (key === "shift") keys.add(key);
     if (key === " " && !e.repeat && aquatic === "land") {
       e.preventDefault();
@@ -3026,8 +3045,13 @@ export function createWorld(
     drag = null;
     destination = null;
   }
-  function visibility() {
+  function clearHeldJetControls(){
     clearInput();
+    jetTouchInput.throttle=0;jetTouchInput.steer=0;jetTouchInput.brake=false;
+    jetBoostState.active=false;
+  }
+  function visibility() {
+    clearHeldJetControls();
     if (document.hidden) {
       cancelAnimationFrame(raf);
       raf = 0;
@@ -3045,7 +3069,7 @@ export function createWorld(
   window.addEventListener("keydown", onKey);
   canvas.addEventListener("blur", clearInput);
   window.addEventListener("keyup", keyUp);
-  window.addEventListener("blur", clearInput);
+  window.addEventListener("blur", clearHeldJetControls);
   document.addEventListener("visibilitychange", visibility);
   canvas.addEventListener("webglcontextlost", contextLost);
   function schedule() {
@@ -3088,10 +3112,7 @@ export function createWorld(
       const previousPoint = { ...player };
       const previousY = playerY;
       if(jetSki){
-        const forwardInput=THREE.MathUtils.clamp(Number(keys.has("w")||keys.has("arrowup"))-
-          Number(keys.has("s")||keys.has("arrowdown"))+jetTouchInput.throttle,-1,1);
-        const steerInput=THREE.MathUtils.clamp(Number(keys.has("d")||keys.has("arrowright"))-
-          Number(keys.has("a")||keys.has("arrowleft"))+jetTouchInput.steer,-1,1);
+        const drive=jetSkiControlInput(keys,jetTouchInput,jetBoostState.active,jetSki.speed);
         const previousGate=jetSki.checkpoint;
         const previousLap=jetSki.lap;
         const previousPhase=jetSki.phase;
@@ -3104,9 +3125,7 @@ export function createWorld(
             jetNoticeUntil=elapsed+.85;
           }
         }else{
-          jetSki=stepJetSkiRace(jetSki,dt,{throttle:forwardInput,steer:steerInput,
-            brake:jetTouchInput.brake||forwardInput<0&&jetSki.speed>0,
-            turbo:keys.has("shift")||jetBoostState.active},
+          jetSki=stepJetSkiRace(jetSki,dt,drive,
             jetSkiNavigableWater,jetRideMode==="race");
           jetRivals=jetRivals.map(rival=>stepJetSkiRace(
             rival,dt,jetSkiOpponentInput(rival),jetSkiNavigableWater));
@@ -3187,6 +3206,9 @@ export function createWorld(
         canvas.dataset.jetSkiHeading=jetSki.heading.toFixed(3);
         canvas.dataset.jetSkiTime=jetSki.elapsed.toFixed(1);
         canvas.dataset.jetSkiTurbo=jetSki.turbo.toFixed(0);
+        canvas.dataset.jetSkiBoosting=String(jetSki.boosting);
+        canvas.dataset.jetSkiBoostLocked=String(jetSki.boostLocked);
+        canvas.dataset.jetSkiWaveHeight=jetSki.waterHeight.toFixed(2);
         canvas.dataset.jetSkiJump=jetSki.jumpHeight.toFixed(2);
         canvas.dataset.jetSkiRockHits=String(jetSki.rockHits);
         canvas.dataset.jetSkiCourseWater=String(jetSkiNavigableWater(player));
@@ -3197,24 +3219,35 @@ export function createWorld(
         jetHud.style.display="block";
         jetTurboBar.style.display="block";
         jetTurboFill.style.width=jetSki.turbo.toFixed(1)+"%";
+        jetTurboBar.setAttribute("aria-valuenow",jetSki.turbo.toFixed(0));
+        const boostStatus=jetSki.boosting?"BOOSTING":
+          jetSki.boostLocked?"BOOST RECHARGING":
+          jetSki.turbo>=20?"BOOST READY":"BOOST LOW";
+        jetBoostButton.dataset.boostState=jetSki.boosting?"active":
+          jetSki.boostLocked?"charging":"ready";
+        jetBoostButton.setAttribute("aria-description",boostStatus+
+          ". Hold for acceleration; releasing rearms a recharged boost.");
+        jetTurboFill.style.background=jetSki.boosting?"#f2d16d":
+          jetSki.boostLocked?"#8da8b0":"#91edcb";
         const gateBearing=jetSkiBearingToGate(jetSki);
         const turnGuide=Math.abs(gateBearing)<.22?"↑":
           Math.abs(gateBearing)<.72?(gateBearing>0?"↗":"↖"):
           gateBearing>0?"→":"←";
+        const swellStatus=jetSki.roughness>1.05?" · BIG SWELLS":"";
         const compactJetHud=jetCountdown>0?
           `START IN ${Math.ceil(jetCountdown)} · ${jetSki.craft.toUpperCase()}`:
           jetSki.phase==="finished"?
           `FINISH · ${jetSki.elapsed.toFixed(1)}s · Place ${place}/3`:
           jetRideMode==="free"?
-          `FREE RIDE · ${jetSki.speed<-.2?"REV ":""}${Math.abs(jetSki.speed).toFixed(0)} m/s · Turbo ${jetSki.turbo.toFixed(0)}%`:
-          `Lap ${Math.min(2,jetSki.lap+1)}/2 · Gate ${jetSki.checkpoint+1}/${JET_SKI_GATES.length} ${turnGuide} · ${jetSki.speed<-.2?"REV ":""}${Math.abs(jetSki.speed).toFixed(0)} m/s · Place ${place}/3`;
+          `FREE RIDE · ${jetSki.speed<-.2?"REV ":""}${Math.abs(jetSki.speed).toFixed(0)} m/s · ${boostStatus} ${jetSki.turbo.toFixed(0)}%${swellStatus}`:
+          `Lap ${Math.min(2,jetSki.lap+1)}/2 · Gate ${jetSki.checkpoint+1}/${JET_SKI_GATES.length} ${turnGuide} · ${jetSki.speed<-.2?"REV ":""}${Math.abs(jetSki.speed).toFixed(0)} m/s · ${boostStatus} ${jetSki.turbo.toFixed(0)}%${swellStatus}`;
         jetHudReadout.textContent=jetTouchEnabled?compactJetHud:jetRideMode==="free"?
-          `FREE RIDE · W accelerate / S reverse · A left / D right · Shift boost · ${jetSki.speed<-.2?"REVERSE ":""}${Math.abs(jetSki.speed).toFixed(0)} m/s · Turbo ${jetSki.turbo.toFixed(0)}% · Esc dock`:
+          `FREE RIDE · ${jetSki.speed<-.2?"REVERSE ":""}${Math.abs(jetSki.speed).toFixed(0)} m/s · ${boostStatus} ${jetSki.turbo.toFixed(0)}%${swellStatus} · W/↑ forward · S/↓ reverse · A/D steer · Shift BOOST · Esc dock`:
           jetCountdown>0?
           `START IN ${Math.ceil(jetCountdown)} · ${jetSki.craft.toUpperCase()} · Hold throttle to launch`:
           jetSki.phase==="finished"?
           `FINISH · ${jetSki.elapsed.toFixed(1)}s · Place ${place}/3 · Session best ${jetSessionBest?.toFixed(1)??"·"}s · R Retry / Esc Dock`:
-          `${jetSkiSectionName(jetSki.checkpoint)} · W forward / S reverse · A left / D right · Place ${place}/3 · Lap ${Math.min(2,jetSki.lap+1)}/2 · Gate ${jetSki.checkpoint+1}/${JET_SKI_GATES.length} ${turnGuide} ${jetSkiGateDistance(jetSki).toFixed(0)}m · ${jetSki.speed<-.2?"REVERSE ":""}${Math.abs(jetSki.speed).toFixed(0)} m/s · Turbo ${jetSki.turbo.toFixed(0)}%${jetSki.jumpHeight>.2?" · AIR":""} · ${jetSki.elapsed.toFixed(1)}s · Shift BOOST · Esc Dock`;
+          `${jetSkiSectionName(jetSki.checkpoint)} · Place ${place}/3 · Lap ${Math.min(2,jetSki.lap+1)}/2 · Gate ${jetSki.checkpoint+1}/${JET_SKI_GATES.length} ${turnGuide} ${jetSkiGateDistance(jetSki).toFixed(0)}m · ${jetSki.speed<-.2?"REV ":""}${Math.abs(jetSki.speed).toFixed(0)} m/s · ${boostStatus} ${jetSki.turbo.toFixed(0)}%${swellStatus}${jetSki.jumpHeight>.2?" · AIR":""} · W/↑ forward · S/↓ reverse · A/D steer · Shift BOOST · R reset · Esc Dock`;
         explorer.visible=false;
       }else if (discGolf.phase!=="off") {
         const previous=discGolf.phase;
@@ -3747,7 +3780,7 @@ export function createWorld(
         const ahead=jetTouchEnabled?3.6:8;
         const lookHeight=jetTouchEnabled ? 0.8 : 1.4;
         targetLook.set(player.x+Math.sin(jetSki.heading)*ahead,
-          SEA_SURFACE+lookHeight+jetSki.jumpHeight*.55,
+          SEA_SURFACE+lookHeight+jetSki.waterHeight+jetSki.jumpHeight*.55,
           player.z+Math.cos(jetSki.heading)*ahead);
       } else if (cavernFraming) {
         targetLook.set(arcadeWall.x, arcadeWallY + 2.05, arcadeWall.z - 0.5);
@@ -3795,7 +3828,7 @@ export function createWorld(
       } else if(jetSki){
         const h=jetSki.heading;
         targetCamera.set(player.x-Math.sin(h)*13+Math.cos(h)*2.4,
-          SEA_SURFACE+7.6+jetSki.jumpHeight*.75,
+          SEA_SURFACE+7.6+jetSki.waterHeight*.4+jetSki.jumpHeight*.75,
           player.z-Math.cos(h)*13-Math.sin(h)*2.4);
       } else if (cavernFraming) {
         // Keep the third-person boom centered inside the authored tunnel.
@@ -5192,7 +5225,7 @@ export function createWorld(
       window.removeEventListener("keydown", onKey);
       canvas.removeEventListener("blur", clearInput);
       window.removeEventListener("keyup", keyUp);
-      window.removeEventListener("blur", clearInput);
+      window.removeEventListener("blur", clearHeldJetControls);
       document.removeEventListener("visibilitychange", visibility);
       canvas.removeEventListener("webglcontextlost", contextLost);
       scene.traverse((o) => {
