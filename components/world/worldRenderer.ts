@@ -173,7 +173,7 @@ export function createWorld(
   const jetBoardButton=makeJetButton("Ride");
   const jetLeftButton=makeJetButton("←");
   const jetThrottleButton=makeJetButton("Throttle");
-  const jetBrakeButton=makeJetButton("Brake");
+  const jetBrakeButton=makeJetButton("Reverse / Brake");
   const jetBoostButton=makeJetButton("BOOST");
   const jetBoostState={active:false};
   const jetRightButton=makeJetButton("→");
@@ -2650,6 +2650,7 @@ export function createWorld(
     if(!state.entered||state.paused||jetSki||discGolf.phase!=="off"||
        aquatic!=="land"||!nearJetSkiBoarding(player))return;
     jetChoosing=true;
+    jetskiVisual.activeHull.material.color.set("#e96c48");
     jetChooser.style.display="block";
     canvas.dataset.jetSkiChooser="open";
     destination=null;travel.speed=0;keys.clear();
@@ -3137,6 +3138,7 @@ export function createWorld(
         canvas.dataset.jetSkiLap=String(jetSki.lap+1);
         canvas.dataset.jetSkiGate=String(jetSki.checkpoint+1);
         canvas.dataset.jetSkiSpeed=jetSki.speed.toFixed(1);
+        canvas.dataset.jetSkiHeading=jetSki.heading.toFixed(3);
         canvas.dataset.jetSkiTime=jetSki.elapsed.toFixed(1);
         canvas.dataset.jetSkiTurbo=jetSki.turbo.toFixed(0);
         canvas.dataset.jetSkiJump=jetSki.jumpHeight.toFixed(2);
@@ -3154,12 +3156,12 @@ export function createWorld(
           Math.abs(gateBearing)<.72?(gateBearing>0?"↗":"↖"):
           gateBearing>0?"→":"←";
         jetHudReadout.textContent=jetRideMode==="free"?
-          `FREE RIDE · W accelerate / S reverse · A left / D right · Shift boost · ${Math.abs(jetSki.speed).toFixed(0)} m/s · Turbo ${jetSki.turbo.toFixed(0)}% · Esc dock`:
+          `FREE RIDE · W accelerate / S reverse · A left / D right · Shift boost · ${jetSki.speed<-.2?"REVERSE ":""}${Math.abs(jetSki.speed).toFixed(0)} m/s · Turbo ${jetSki.turbo.toFixed(0)}% · Esc dock`:
           jetCountdown>0?
           `START IN ${Math.ceil(jetCountdown)} · ${jetSki.craft.toUpperCase()} · Hold throttle to launch`:
           jetSki.phase==="finished"?
           `FINISH · ${jetSki.elapsed.toFixed(1)}s · Place ${place}/3 · Session best ${jetSessionBest?.toFixed(1)??"·"}s · R Retry / Esc Dock`:
-          `${jetSkiSectionName(jetSki.checkpoint)} · W forward / S reverse · A left / D right · Place ${place}/3 · Lap ${Math.min(2,jetSki.lap+1)}/2 · Gate ${jetSki.checkpoint+1}/${JET_SKI_GATES.length} ${turnGuide} ${jetSkiGateDistance(jetSki).toFixed(0)}m · ${Math.max(0,jetSki.speed).toFixed(0)} m/s · Turbo ${jetSki.turbo.toFixed(0)}%${jetSki.jumpHeight>.2?" · AIR":""} · ${jetSki.elapsed.toFixed(1)}s · Shift BOOST · Esc Dock`;
+          `${jetSkiSectionName(jetSki.checkpoint)} · W forward / S reverse · A left / D right · Place ${place}/3 · Lap ${Math.min(2,jetSki.lap+1)}/2 · Gate ${jetSki.checkpoint+1}/${JET_SKI_GATES.length} ${turnGuide} ${jetSkiGateDistance(jetSki).toFixed(0)}m · ${jetSki.speed<-.2?"REVERSE ":""}${Math.abs(jetSki.speed).toFixed(0)} m/s · Turbo ${jetSki.turbo.toFixed(0)}%${jetSki.jumpHeight>.2?" · AIR":""} · ${jetSki.elapsed.toFixed(1)}s · Shift BOOST · Esc Dock`;
         explorer.visible=false;
       }else if (discGolf.phase!=="off") {
         const previous=discGolf.phase;
@@ -3738,11 +3740,11 @@ export function createWorld(
       if(!jetSki){explorer.visible=!jetChoosing;
         jetskiVisual.activeSki.visible=jetChoosing;
         if(jetChoosing){
-          jetskiVisual.activeSki.position.set(66.7,SEA_SURFACE+.2,JET_SKI_PIER.centerZ);
+          jetskiVisual.activeSki.position.set(68.9,SEA_SURFACE+.2,JET_SKI_PIER.centerZ-.15);
           jetskiVisual.activeSki.rotation.set(0,0,0);
         }
         jetskiVisual.opponents.forEach(g=>{g.visible=false;});
-        jetskiVisual.skis.forEach(g=>{g.visible=true;});
+        jetskiVisual.skis.forEach((g,i)=>{g.visible=!jetChoosing||i!==1;});
         jetskiVisual.wake.visible=false;
         jetskiVisual.updateGateFocus(0,elapsed,false);
         jetNotice.style.display="none";
