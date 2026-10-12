@@ -27,6 +27,7 @@ export function createRideChallengeGeometry(scene:THREE.Scene){
  const tracer=new THREE.Line(tracerGeo,tracerMat);
  tracer.visible=false;tracer.renderOrder=80;root.add(tracer);
  let shotUntil=0;
+ const aimVector=new THREE.Vector3();
  const targets=RIDE_BOOST_TARGETS.map(target=>{
   const group=new THREE.Group();group.name="skill-shot-"+target.id;
   group.position.set(target.point.x,groundHeight(target.point)+2.9,target.point.z);
@@ -70,6 +71,22 @@ export function createRideChallengeGeometry(scene:THREE.Scene){
     tracer.visible=true;shotUntil=now+.17;
   },
   updateTracer(now:number){tracer.visible=now<shotUntil;},
+  /** Read-only camera projection for browser acceptance and aim accessibility. */
+  visibleAimTarget(mode:Activity,player:Point,speed:number,now:number,
+   state:RideBoost,camera:THREE.Camera):{id:string;x:number;y:number}|null{
+   let best:{id:string;x:number;y:number}|null=null;
+   let bestDistance=Infinity;
+   for(const {target,group} of targets){
+    if(!group.visible||!canFireRideBoost(target,mode,player,speed,now,state))continue;
+    aimVector.copy(group.position).project(camera);
+    if(aimVector.z<0||aimVector.z>1||
+      Math.abs(aimVector.x)>.87||Math.abs(aimVector.y)>.85)continue;
+    const d=aimVector.x*aimVector.x+aimVector.y*aimVector.y;
+    if(d<bestDistance){best={id:target.id,x:aimVector.x,y:aimVector.y};
+     bestDistance=d;}
+   }
+   return best;
+  },
   targetFromHit(object:THREE.Object3D):RideBoostTarget|null{
    const id=object.userData.boostTargetId;
    return RIDE_BOOST_TARGETS.find(t=>t.id===id)??null;
