@@ -3126,11 +3126,11 @@ export function createWorld(
         jetskiVisual.updateWakeTrail(jetWakeSamples,elapsed);
         jetskiVisual.updateGateFocus(jetSki.checkpoint,elapsed,
           jetRideMode==="race"&&jetSki.phase==="racing");
-        jetskiVisual.buoys.forEach((b,i)=>{b.visible=true;
+        jetskiVisual.buoys.forEach((b,i)=>{b.visible=jetRideMode==="race";
           b.scale.setScalar(i===jetSki!.checkpoint?1.7:1);});
         canvas.dataset.jetSkiStatus=jetSki.phase;
         const milestone=`${jetSki.phase}:${jetSki.lap}:${jetSki.checkpoint}`;
-        if(milestone!==jetMilestone){
+        if(milestone!==jetMilestone&&jetRideMode==="race"){
           jetMilestone=milestone;
           jetAnnounce.textContent=jetSki.phase==="finished"?"Jet ski race finished":
             `Lap ${jetSki.lap+1}, checkpoint ${jetSki.checkpoint+1}`;
