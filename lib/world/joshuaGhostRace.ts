@@ -41,6 +41,8 @@ export function joshuaPlayerFraction(state:TrialState,player:Point):number{
   Math.max(previous,Math.min(next,position))/DESERT_TRACK_LENGTH));
 }
 export function joshuaRacePlace(state:TrialState,player:Point):number{
+ if(state.phase==="complete")return 1+JOSHUA_GHOSTS.filter(ghost=>
+  state.elapsedMs>JOSHUA_GHOST_ROUTE_LENGTH/ghost.speed*1000).length;
  const progress=joshuaPlayerFraction(state,player);
  return 1+JOSHUA_GHOSTS.filter(ghost=>{
   const pose=joshuaGhostPose(state.elapsedMs,ghost);
