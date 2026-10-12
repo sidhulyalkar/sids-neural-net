@@ -5,7 +5,7 @@ import { isWater,terrainHeight,distance,ARCADE_CAVE,PAPER_CAVE } from "../lib/wo
 import {
  BIG_AIR,BIG_AIR_BIRDS,advanceBigAir,armBigAir,bigAirBirdCallout,
  bigAirBirdPositions,bigAirClearance,bigAirCrossedLip,bigAirTerrainOffset,
- launchBigAir,idleBigAir,type BigAirState,
+ launchBigAir,idleBigAir,mountainJumpEligible,MOUNTAIN_JUMP_CENTER,type BigAirState,
 } from "../lib/world/bigAir";
 import { createBigAirBirds } from "../components/world/worldBigAirBirds";
 
@@ -104,4 +104,38 @@ test("bird flock has three draw calls, is hidden outside flight and disposes cor
  assert.ok(scene.children.every(o=>!o.visible));
  birds.dispose();
  assert.equal(scene.children.length,0);
+});
+
+test("mountain launches can begin on many slopes and travel in chosen heading",()=>{
+ assert.equal(mountainJumpEligible({x:8,z:-54},18,12),true);
+ assert.equal(mountainJumpEligible({x:8,z:-54},18,1),false);
+ assert.equal(mountainJumpEligible({x:60,z:13},18,12),false);
+ assert.equal(mountainJumpEligible({x:8,z:-54},1,12),false);
+ const start={x:7,z:-58};
+ const alternate=launchBigAir(start,12,15,{x:1,z:0},true);
+ assert.equal(alternate.freeTerrain,true);
+ assert.deepEqual(alternate.heading,{x:1,z:0});
+ assert.deepEqual(alternate.takeoff,start);
+ const levelGround=(p:{x:number;z:number})=>p.x>18?0:12;
+ let flight=alternate;
+ for(let i=0;i<180&&flight.phase==="flying";i++)
+   flight=advanceBigAir(flight,.05,levelGround,()=>false);
+ assert.equal(flight.phase,"landed",JSON.stringify(flight));
+ assert.ok(flight.point.x>start.x+10);
+ assert.ok(Math.abs(flight.point.z-start.z)<1e-3);
+ assert.ok(flight.distance>10);
+ assert.ok(Math.abs((flight.radialDistance??0)-
+   Math.hypot(flight.point.x-MOUNTAIN_JUMP_CENTER.x,
+     flight.point.z-MOUNTAIN_JUMP_CENTER.z))<.001);
+});
+
+test("flock positions stay alongside skier even when jumping across slope",()=>{
+ const flight=launchBigAir({x:9,z:-55},14,14,{x:1,z:0},true);
+ const birds=bigAirBirdPositions(flight,1.3);
+ assert.equal(birds.length,3);
+ assert.ok(birds.every(p=>p.x>flight.point.x),
+  "birds should fly ahead in +X, not in the old fixed +Z direction");
+ assert.ok(birds.some(p=>p.z>flight.point.z+2));
+ assert.ok(birds.some(p=>p.z<flight.point.z-2));
+ assert.ok(birds.every(p=>Math.abs(p.yaw-Math.PI/2)<.001));
 });
