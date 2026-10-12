@@ -47,6 +47,10 @@ try{
  assert.equal(flight.birds,"true");
  // Starting another minigame must be unavailable while a ski flight plays.
  const disc=page.getByRole("button",{name:/^Disc golf/}).first();
+ await page.waitForFunction(()=>
+  Array.from(document.querySelectorAll("button")).some(
+   button=>button.textContent?.startsWith("Disc golf")&&button.disabled),
+  null,{timeout:15000});
  assert.equal(await disc.isDisabled(),true);
  await page.screenshot({path:path.join(out,"01-arbitrary-mountain-jump.png")});
  await page.waitForFunction(()=>{
