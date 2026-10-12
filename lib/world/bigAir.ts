@@ -62,7 +62,7 @@ export function launchBigAir(point:Point,groundY:number,
  speed:number,heading:Point=BIG_AIR.heading,freeTerrain=false):BigAirState {
  const horizontalSpeed=clamp(speed,5.3,24);
  const verticalSpeed=freeTerrain?
-  5.7+Math.min(3.4,horizontalSpeed*.22):
+  7.7+Math.min(3.6,horizontalSpeed*.20):
   11.4+Math.min(2.6,horizontalSpeed*.11);
  const norm=Math.hypot(heading.x,heading.z)||1;
  return {phase:"flying",point:{...point},y:groundY+.04,
@@ -102,7 +102,9 @@ export function advanceBigAir(state:BigAirState,dt:number,
      const f=clamp(beforeMargin/Math.max(1e-8,beforeMargin-afterMargin),0,1);
      const point={x:prev.x+(next.x-prev.x)*f,z:prev.z+(next.z-prev.z)*f};
      const distance=result.distance+result.horizontalSpeed*step*f;
-     const safe=result.freeTerrain?distance>=5:
+     // Even a small, genuine mountain hop is a completed jump.
+     // Only authored legacy big-air runs retain the old receiving-slope rule.
+     const safe=result.freeTerrain?distance>=0:
        distance>=28&&distance<85&&
        Math.abs(point.x-BIG_AIR.lip.x)<BIG_AIR.runout.halfWidth &&
        point.z>=BIG_AIR.runout.minZ&&point.z<=BIG_AIR.runout.maxZ;
@@ -111,7 +113,7 @@ export function advanceBigAir(state:BigAirState,dt:number,
        radialDistance:Math.hypot(point.x-MOUNTAIN_JUMP_CENTER.x,
         point.z-MOUNTAIN_JUMP_CENTER.z),phase:safe?"landed":"missed",
        landingQuality:safe?"clean":undefined,
-       reason:safe?undefined:result.freeTerrain?"Short jump":"Outside the receiving slope"};
+       reason:safe?undefined:"Outside the receiving slope"};
      break;
    }
    result={...result,point:next,y:yNext,verticalSpeed:velocityNext,
