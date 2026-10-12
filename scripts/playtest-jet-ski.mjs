@@ -22,6 +22,18 @@ async function boot(page){
  await page.getByRole("button",{name:"Open navigation menu"}).click();
  await page.getByRole("button",{name:"05 Lagoon reef South Pacific reef",exact:true}).click();
  await page.waitForFunction(()=>document.querySelector("canvas")?.dataset.aquatic==="land");
+ // Lagoon region spawns near the shoreline pier ramp; walk on the deck.
+ const canvas=page.locator("canvas");
+ await canvas.focus();
+ await page.keyboard.down("d");
+ try{
+  await page.waitForFunction(()=>document.querySelector("canvas")?.dataset.jetSkiPier==="true",
+   null,{timeout:9000});
+ }finally{
+  await page.keyboard.up("d");
+ }
+ assert.notEqual(await canvas.getAttribute("data-jet-ski-deck-height"),"");
+ assert.equal(await canvas.getAttribute("data-aquatic"),"land");
 }
 try{
  const desktop=await browser.newPage({viewport:{width:1440,height:900}});
@@ -31,10 +43,12 @@ try{
  assert.ok(Number(await canvas.getAttribute("data-jet-ski-rocks"))>=10);
  const dock=desktop.locator('[aria-label="Jet ski race status"]');
  await dock.waitFor({state:"visible"});
- assert.match(await dock.textContent(),/JET-SKI DOCK/);
+ assert.match(await dock.textContent(),/JET-SKI PIER/);
  await canvas.focus();
- await desktop.keyboard.press("3");
- await desktop.keyboard.press("e");
+ await desktop.keyboard.press("Enter");
+ const chooser=desktop.getByRole("dialog",{name:"Choose a jet ski"});
+ await chooser.waitFor({state:"visible"});
+ await chooser.getByRole("button",{name:/^Race ·/}).click();
  await desktop.waitForFunction(()=>document.querySelector("canvas")?.dataset.jetSkiStatus==="racing");
  await desktop.screenshot({path:path.join(out,"01-dock-launch.png")});
  assert.match(await dock.textContent(),/START IN/);
@@ -63,23 +77,24 @@ try{
  assert.match(await dock.textContent(),/START IN/);
  await desktop.keyboard.press("Escape");
  await desktop.waitForFunction(()=>document.querySelector("canvas")?.dataset.jetSkiStatus==="docked");
- results.push("Desktop board, countdown, throttle, boost, restart and dock pass");
+ results.push("Desktop walks onto pier, Enter chooser, countdown, reverse/boost, restart and dock");
  const phone=await browser.newPage({
   viewport:{width:390,height:844},isMobile:true,hasTouch:true,deviceScaleFactor:1,
  });
  await boot(phone);
  const ride=phone.getByRole("button",{name:"Ride",exact:true});
  await ride.waitFor({state:"visible"});
- const craft=phone.getByRole("button",{name:"sport",exact:true});
- await craft.tap();
- await phone.getByRole("button",{name:"race",exact:true}).waitFor();
  await ride.tap();
+ const mobileChooser=phone.getByRole("dialog",{name:"Choose a jet ski"});
+ await mobileChooser.waitFor({state:"visible"});
+ await mobileChooser.getByRole("button",{name:/^Free ride ·/}).tap();
  await phone.waitForFunction(()=>document.querySelector("canvas")?.dataset.jetSkiStatus==="racing");
+ assert.equal(await phone.locator("canvas").getAttribute("data-jet-ski-mode"),"free");
  assert.equal(await phone.getByRole("button",{name:"BOOST",exact:true}).isVisible(),true);
  await phone.screenshot({path:path.join(out,"03-touch-race.png")});
  await phone.getByRole("button",{name:"Dock",exact:true}).tap();
  await phone.waitForFunction(()=>document.querySelector("canvas")?.dataset.jetSkiStatus==="docked");
- results.push("Touch craft choice, boarding, boost presence and dock pass");
+ results.push("Touch pier boarding, free ride selection, boost controls and docking");
  assert.deepEqual(errors,[],"No browser console or runtime errors");
  fs.writeFileSync(path.join(out,"report.json"),JSON.stringify({results,errors},null,2)+"\n");
  console.log(JSON.stringify({results,errors},null,2));
