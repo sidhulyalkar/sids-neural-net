@@ -33,6 +33,7 @@ try{
  // A free mountain jump must derive from actual skier momentum. Gain speed
  // through normal input; the downhill lip might auto-launch before Space.
  await canvas.focus();
+ let flight;
  await page.keyboard.down("w");
  try{
    await page.waitForFunction(()=>{
@@ -41,20 +42,19 @@ try{
    },null,{timeout:35000});
    if(await canvas.getAttribute("data-big-air-phase")==="idle")
     await page.keyboard.press("Space");
-   await page.waitForFunction(()=>{
+   // Sample the active bird/flight state atomically. A short jump can land
+   // between independent Playwright evaluate requests on 4 FPS SwiftShader.
+   const sample=await page.waitForFunction(()=>{
     const d=document.querySelector("canvas")?.dataset;
-    return d?.bigAirPhase==="flying"&&d.bigAirBirdsFollowing==="true";
+    if(d?.bigAirPhase!=="flying"||d.bigAirBirdsFollowing!=="true")
+     return false;
+    return {phase:d.bigAirPhase,distance:Number(d.bigAirDistance),
+     altitude:Number(d.bigAirAltitude),birds:d.bigAirBirdsFollowing,
+     outward:Number(d.bigAirOutwardGain),
+     peak:Number(d.bigAirPeakClearance),mode:d.activity};
    },null,{timeout:35000});
+   flight=await sample.jsonValue();
  }finally{await page.keyboard.up("w");}
- const flight=await canvas.evaluate(el=>({
-  phase:el.dataset.bigAirPhase,
-  distance:Number(el.dataset.bigAirDistance),
-  altitude:Number(el.dataset.bigAirAltitude),
-  birds:el.dataset.bigAirBirdsFollowing,
-  outward:Number(el.dataset.bigAirOutwardGain),
-  peak:Number(el.dataset.bigAirPeakClearance),
-  mode:el.dataset.activity,
- }));
  assert.equal(flight.mode,"ski");
  assert.equal(flight.birds,"true");
  // Starting another minigame must be unavailable while a ski flight plays.
