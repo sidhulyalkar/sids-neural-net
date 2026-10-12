@@ -18,7 +18,7 @@ import {
   type DiscGolfSwingStage,
 } from "@/lib/world/discGolf";
 import {
-  BIG_AIR,bigAirBirdCallout,bigAirCrossedLip,launchBigAir,mountainJumpEligible,
+  BIG_AIR,bigAirBirdCallout,bigAirCrossedLip,launchBigAir,mountainJumpEligible,mountainSkiTakeoff,
   advanceBigAir,armBigAir,idleBigAir,type BigAirState,
 } from "@/lib/world/bigAir";
 import { createMarineSchools } from "./worldSchools";
@@ -3419,10 +3419,9 @@ export function createWorld(
       const ahead={x:player.x+travel.heading.x*2.1,
         z:player.z+travel.heading.z*2.1};
       const frontGround=supportHeight(ahead);
-      const downhillDrop=previousGround-frontGround;
-      const slope=previousGround-supportHeight(player);
-      const naturalLip=skiEligible&&travel.speed>8&&
-        slope>.06&&downhillDrop>1.25;
+      const naturalLip=skiEligible&&mountainSkiTakeoff(player,
+        supportHeight(player),travel.speed,previousGround,frontGround,
+        verticalSpeed);
       const markedLip=bigAir.phase==="armed"&&
         bigAirCrossedLip(previousPoint,player,travel.heading,state.activity,
           travel.speed,true);
