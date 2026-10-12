@@ -3721,9 +3721,14 @@ export function createWorld(
         targetLook.set(lookAt.x,lookAt.y,lookAt.z);
         canvas.dataset.discGolfCamera=followFlight?"flight":pose.putting?"putt":"approach";
       } else if(jetSki){
-        targetLook.set(player.x+Math.sin(jetSki.heading)*8,
-          SEA_SURFACE+1.4+jetSki.jumpHeight*.55,
-          player.z+Math.cos(jetSki.heading)*8);
+        // Coarse-pointer steering covers the lower screen. Looking less far
+        // ahead positions the rider ABOVE the touch buttons while retaining
+        // the wider forward preview on desktop.
+        const ahead=jetTouchEnabled?3.6:8;
+        const lookHeight=jetTouchEnabled?.8:1.4;
+        targetLook.set(player.x+Math.sin(jetSki.heading)*ahead,
+          SEA_SURFACE+lookHeight+jetSki.jumpHeight*.55,
+          player.z+Math.cos(jetSki.heading)*ahead);
       } else if (cavernFraming) {
         targetLook.set(arcadeWall.x, arcadeWallY + 2.05, arcadeWall.z - 0.5);
       } else if (cavernApproachFraming) {
