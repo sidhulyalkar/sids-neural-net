@@ -55,10 +55,10 @@ export function createSeaStackGeometry(rock:JetSkiRock):THREE.BufferGeometry{
  for(let j=0;j<levels-1;j++)for(let i=0;i<sides;i++){
   const a=j*sides+i,b=j*sides+(i+1)%sides;
   const c=(j+1)*sides+i,d=(j+1)*sides+(i+1)%sides;
-  indices.push(a,b,c,b,d,c);
+  indices.push(a,c,b,b,c,d);
  }
  for(let i=1;i<sides-1;i++)
-  indices.push((levels-1)*sides,(levels-1)*sides+i,(levels-1)*sides+i+1);
+  indices.push((levels-1)*sides,(levels-1)*sides+i+1,(levels-1)*sides+i);
  return finish(vertices,colors,indices);
 }
 /** A thick wave-cut stone bridge, sampled as a crooked tapered beam over the
@@ -87,7 +87,7 @@ export function createSeaArchGeometry(arch:JetSkiArch):THREE.BufferGeometry{
  }
  for(let j=0;j<sections;j++)for(let i=0;i<sides;i++){
   const a=j*sides+i,b=j*sides+(i+1)%sides,c=(j+1)*sides+i,d=(j+1)*sides+(i+1)%sides;
-  indices.push(a,b,c,b,d,c);
+  indices.push(a,c,b,b,c,d);
  }
  for(let i=1;i<sides-1;i++){
   indices.push(0,i+1,i);
