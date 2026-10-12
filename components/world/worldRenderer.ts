@@ -35,6 +35,7 @@ import { FrameSampler, QualityController } from "@/lib/world/performance";
 import { shastaDetour, initialChaseState, stepChase, gaitBlendForSpeed, smoothAngle, smoothPoint, smoothingAlpha, steerShastaVelocity } from "@/lib/world/shastaMotion";
 import {idleDiscGolfFetch,startDiscGolfFetch,stepDiscGolfFetch,discGolfFetchCameraPhase,discGolfHandoffTarget} from "@/lib/world/discGolfFetch";
 import * as THREE from "three/src/Three.Core.js";
+import worldStyles from "./world.module.css";
 import type { WebGLRenderer } from "three/src/renderers/WebGLRenderer.js";
 import {
   ARCADE_CAVE,
@@ -204,15 +205,19 @@ export function createWorld(
   jetChooser.setAttribute("role","dialog");
   jetChooser.setAttribute("aria-modal","true");
   jetChooser.setAttribute("aria-label","Choose a jet ski");
-  jetChooser.style.cssText="display:none;position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:15;width:min(370px,calc(100% - 32px));padding:20px;border:1px solid #a6e5e688;border-radius:16px;background:#102d38f2;color:#fff;box-shadow:0 18px 48px #06131faa;font:500 14px/1.5 system-ui,sans-serif";
+  jetChooser.className=worldStyles.jetSkiChooser;
+  jetChooser.hidden=true;
   const jetChooserTitle=document.createElement("h2");
   jetChooserTitle.textContent="Choose your ride";
-  jetChooserTitle.style.cssText="font-size:20px;margin:0 0 4px";
+  jetChooserTitle.className=worldStyles.jetSkiChooserTitle;
   jetChooser.appendChild(jetChooserTitle);
   const jetChooserHint=document.createElement("p");
-  jetChooserHint.textContent="Enter to select · Escape to stay on the pier";
-  jetChooserHint.style.cssText="color:#d1e7e7;margin:0 0 12px";
+  jetChooserHint.textContent="Choose the experience you want on the water.";
+  jetChooserHint.className=worldStyles.jetSkiChooserHint;
   jetChooser.appendChild(jetChooserHint);
+  const jetChoicesGrid=document.createElement("div");
+  jetChoicesGrid.className=worldStyles.jetSkiChoiceGrid;
+  jetChooser.appendChild(jetChoicesGrid);
   const jetChoiceButtons:[HTMLButtonElement,string][]=[];
   for(const [label,detail,id] of [
     ["Touring","Relaxed speed · easy turning","touring"],
@@ -222,15 +227,20 @@ export function createWorld(
   ]){
     const button=document.createElement("button");
     button.type="button";
-    button.textContent=label+" · "+detail;
-    button.style.cssText="display:block;width:100%;margin:7px 0;padding:11px 12px;text-align:left;border-radius:9px;border:1px solid #c4e6e455;background:#235264;color:white;font:600 14px system-ui,sans-serif;cursor:pointer";
+    button.dataset.kind=id;
+    button.className=worldStyles.jetSkiChoice;
+    const headline=document.createElement("strong");
+    headline.textContent=label;
+    const hint=document.createElement("small");
+    hint.textContent=detail;
+    button.append(headline,hint);
     button.addEventListener("click",()=>chooseJetSki(id));
-    jetChooser.appendChild(button);
+    jetChoicesGrid.appendChild(button);
     jetChoiceButtons.push([button,id]);
   }
   const cancelJetChooserButton=document.createElement("button");
   cancelJetChooserButton.type="button";cancelJetChooserButton.textContent="Stay on pier";
-  cancelJetChooserButton.style.cssText="width:100%;margin-top:8px;padding:9px;background:none;border:1px solid #ffffff66;border-radius:9px;color:white";
+  cancelJetChooserButton.className=worldStyles.jetSkiChooserCancel;
   cancelJetChooserButton.addEventListener("click",()=>closeJetChooser());
   jetChooser.appendChild(cancelJetChooserButton);
   jetChooser.addEventListener("keydown",event=>{
@@ -2647,7 +2657,7 @@ export function createWorld(
   }
   function closeJetChooser(){
     jetChoosing=false;
-    jetChooser.style.display="none";
+    jetChooser.hidden=true;
     canvas.dataset.jetSkiChooser="closed";
     keys.clear();
     canvas.focus({preventScroll:true});
@@ -2657,7 +2667,7 @@ export function createWorld(
        aquatic!=="land"||!nearJetSkiBoarding(player))return;
     jetChoosing=true;
     jetskiVisual.activeHull.material.color.set("#e96c48");
-    jetChooser.style.display="block";
+    jetChooser.hidden=false;
     canvas.dataset.jetSkiChooser="open";
     destination=null;travel.speed=0;keys.clear();
     jetChoiceButtons[0][0].focus({preventScroll:true});
