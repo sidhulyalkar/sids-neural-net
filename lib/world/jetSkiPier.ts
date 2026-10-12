@@ -11,7 +11,9 @@ const smooth=(v:number)=>{const t=Math.max(0,Math.min(1,v));return t*t*(3-2*t);}
 /** A wide, walk-on shore connector with no submerged footfall. */
 export function jetSkiPierHeight(point:Point):number|null{
  const {x,z}=point,p=JET_SKI_PIER;
- if(x<p.landX||x>p.endX||Math.abs(z-p.centerZ)>p.halfWidth)return null;
+ // Boundary tolerance keeps render vertices and avatar contact identical.
+ if(x<p.landX-1e-6||x>p.endX+1e-6||
+    Math.abs(z-p.centerZ)>p.halfWidth+1e-6)return null;
  // Ramp begins at the true terrain height, then eases onto the level deck.
  const landY=terrainHeight(p.landX,p.centerZ);
  const t=smooth((x-p.landX)/(p.rampEndX-p.landX));
