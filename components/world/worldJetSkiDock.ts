@@ -13,6 +13,31 @@ export function createJetSkiDock(scene:THREE.Scene){
   const mesh=new THREE.Mesh(new THREE.BoxGeometry(...size),material);
   mesh.position.set(...position);parent.add(mesh);return mesh;
  };
+ // Continuous structural deck beneath planks, following the shore ramp
+ // exactly. The zero-gap geometry starts inland of the coastline.
+ const span=JET_SKI_PIER.endX-JET_SKI_PIER.landX;
+ const deckVertices:number[]=[],deckFaces:number[]=[];
+ const subdivisions=96;
+ for(let i=0;i<=subdivisions;i++){
+  const x=JET_SKI_PIER.landX+span*i/subdivisions;
+  for(const side of [-1,1]){
+   const z=JET_SKI_PIER.centerZ+side*JET_SKI_PIER.halfWidth;
+   const y=jetSkiPierHeight({x,z})??JET_SKI_PIER.deckHeight;
+   deckVertices.push(x,y-.12,z);
+  }
+  if(i<subdivisions){
+   const j=i*2;deckFaces.push(j,j+1,j+2,j+1,j+3,j+2);
+  }
+ }
+ const deckGeometry=new THREE.BufferGeometry();
+ deckGeometry.setAttribute("position",new THREE.Float32BufferAttribute(deckVertices,3));
+ deckGeometry.setIndex(deckFaces);deckGeometry.computeVertexNormals();
+ const deckSurface=new THREE.Mesh(deckGeometry,new THREE.MeshStandardMaterial({
+  color:"#715e49",roughness:.95,side:THREE.DoubleSide,
+ }));
+ deckSurface.receiveShadow=true;
+ deckSurface.name="continuous-walkable-pier-surface";
+ root.add(deckSurface);
  // Planks and ramp use the SAME sampled walking height as player physics.
  for(let x=JET_SKI_PIER.landX+.48;x<JET_SKI_PIER.endX;x+=.94){
   const top=jetSkiPierHeight({x,z:JET_SKI_PIER.centerZ});
