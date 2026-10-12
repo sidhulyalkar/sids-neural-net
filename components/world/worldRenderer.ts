@@ -9,7 +9,7 @@ import {createJetSkiDock,type JetSkiWakePoint} from "./worldJetSkiDock";
 import {jetSkiPierHeight,nearJetSkiBoarding,JET_SKI_PIER} from "@/lib/world/jetSkiPier";
 import {jetSkiWaterSample} from "@/lib/world/jetSkiWater";
 import {jetSkiControlInput} from "@/lib/world/jetSkiControls";
-import {RIDE_BOOST_TARGETS,isBoostActivity,initialRideBoost,fireRideBoost,
+import {isBoostActivity,initialRideBoost,fireRideBoost,
  activeRideBoost,RIDE_BOOST_DURATION} from "@/lib/world/rideBoost";
 import {JOSHUA_GHOSTS,joshuaRacePlace,joshuaPlayerFraction} from "@/lib/world/joshuaGhostRace";
 import {createRideChallengeGeometry} from "./worldRideChallengeGeometry";
@@ -3570,7 +3570,7 @@ export function createWorld(
         trial=tickJoshuaTrial(trial,previousPoint,player,dt,mode);
         if(trial.phase!==previousTrial.phase || trial.nextGate!==previousTrial.nextGate ||
           elapsed-lastTrialUpdate>.24) {
-          callbacks.onChallenge(trial);
+          callbacks.onChallenge({...trial,ghostPlace:joshuaRacePlace(trial,player)});
           lastTrialUpdate=elapsed;
         }
       }
