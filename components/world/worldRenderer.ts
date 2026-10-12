@@ -3085,7 +3085,9 @@ export function createWorld(
         const previousLap=jetSki.lap;
         const previousPhase=jetSki.phase;
         if(jetCountdown>0){
-          jetCountdown=Math.max(0,jetCountdown-dt);
+          // Countdown follows real elapsed time, not tiny fixed physics ticks
+          // on slow GPUs or accessibility/reduced-motion hardware.
+          jetCountdown=Math.max(0,jetCountdown-Math.min(rawDelta,.35));
           if(jetCountdown===0){
             jetNotice.textContent="GO!";
             jetNoticeUntil=elapsed+.85;
