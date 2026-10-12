@@ -18,7 +18,7 @@ export function createRideChallengeGeometry(scene:THREE.Scene){
  const coreMat=new THREE.MeshBasicMaterial({color:"#ffeb9d",transparent:true,
   opacity:.9,depthWrite:false});
  const ringGeo=new THREE.TorusGeometry(.94,.14,7,24);
- const coreGeo=new THREE.SphereGeometry(.5,10,8);
+ const coreGeo=new THREE.SphereGeometry(.68,10,8);
  const haloGeo=new THREE.TorusGeometry(1.24,.027,4,24);
  const tracerGeo=new THREE.BufferGeometry();
  tracerGeo.setAttribute("position",new THREE.BufferAttribute(new Float32Array(6),3));
