@@ -99,8 +99,10 @@ test("bird flock has three draw calls, is hidden outside flight and disposes cor
  assert.equal(scene.children.length,3);
  const flight=launchBigAir(BIG_AIR.lip,ground(BIG_AIR.lip),15);
  birds.update(flight,1.2,false);
+ assert.equal(birds.active,true);
  assert.ok(scene.children.every(o=>o.visible&&o instanceof THREE.InstancedMesh));
  birds.update({...flight,phase:"landed"},1.5,false);
+ assert.equal(birds.active,false);
  assert.ok(scene.children.every(o=>!o.visible));
  birds.dispose();
  assert.equal(scene.children.length,0);
