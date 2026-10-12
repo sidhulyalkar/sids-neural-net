@@ -229,7 +229,7 @@ export function discGolfThrow(state:DiscGolfState,shot:DiscShot,ground:DiscTerra
   lockedWind:discGolfWind(state.holeIndex,state.clock),
   strokes:state.strokes+1,flightTime:0,lastDistance:0,spin:accuracy,
   bankAngle:clamp(shot.bankAngle??0,-DISC_GOLF_MAX_BANK,DISC_GOLF_MAX_BANK),
-  pitchDegrees:loft*180/Math.PI+
+  pitchDegrees:clamp(shot.loft,6,42)+
     clamp(shot.noseAngle??0,-DISC_GOLF_NOSE_MAX_DEGREES,DISC_GOLF_NOSE_MAX_DEGREES),
   rollDegrees:clamp(shot.bankAngle??0,-DISC_GOLF_MAX_BANK,DISC_GOLF_MAX_BANK),
   spinRpm:clamp(shot.spinRpm??650,DISC_GOLF_SPIN_MIN_RPM,DISC_GOLF_SPIN_MAX_RPM),
