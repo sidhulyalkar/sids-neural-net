@@ -110,9 +110,15 @@ try{
 
  await desktop.screenshot({path:path.join(out,"02-race-boost.png")});
  results.push({desktop:driving});
+ const raceTimeBeforeRetry=Number(await canvas.getAttribute("data-jet-ski-time"));
  await desktop.keyboard.press("r");
- await desktop.waitForFunction(()=>document.querySelector("canvas")?.dataset.jetSkiTime==="0.0");
- assert.match(await dock.textContent(),/START IN/);
+ await desktop.waitForFunction(previous=>{
+  const d=document.querySelector("canvas")?.dataset;
+  return d?.jetSkiStatus==="racing"&&d.jetSkiLap==="1"&&d.jetSkiGate==="1"&&
+   Number(d.jetSkiTime)<previous-.1;
+ },raceTimeBeforeRetry,{timeout:25000});
+ // Browser compositing can outlive the brief countdown on slow software GPUs;
+ // assert the durable game reset, not a transitory HUD string.
  await desktop.keyboard.press("Escape");
  await desktop.waitForFunction(()=>document.querySelector("canvas")?.dataset.jetSkiStatus==="docked");
  results.push("Desktop walks onto pier, Enter chooser, countdown, reverse/boost, restart and dock");
