@@ -10,7 +10,7 @@ ghosts** at the activity dock. The existing safe staging area places the
 rider 1.5 units before the start gate, where the lap arms. The course uses
 the same twelve ordered one-way checkpoints plus the return finish plane.
 The stopwatch and personal best remain authoritative. Two translucent
-pace ghosts, **Copper** and **Sage**, travel independently along the safe
+pace ghosts, **Lucas** and **Ness**, travel independently along the safe
 bypass-inclusive course. They have separate speed profiles, do not collide,
 do not rubber-band, and are not recordings of another person's gameplay.
 The HUD displays the current placing (1/3, 2/3 or 3/3). At the finish,
