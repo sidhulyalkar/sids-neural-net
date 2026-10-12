@@ -61,6 +61,9 @@ test("skill-shot applies to bike, ski and skate without instant speed snapping",
 
 test("Joshua pace ghosts are finite deterministic riders on a closed safe route",()=>{
  assert.equal(JOSHUA_GHOSTS.length,2);
+ assert.deepEqual(JOSHUA_GHOSTS.map(ghost=>ghost.name),["Lucas","Ness"]);
+ assert.deepEqual(JOSHUA_GHOSTS.map(ghost=>ghost.id),["lucas","ness"]);
+ assert.ok(JOSHUA_GHOSTS[0].speed!==JOSHUA_GHOSTS[1].speed);
  assert.ok(JOSHUA_GHOST_ROUTE_LENGTH>DESERT_TRACK_LENGTH*.7);
  for(const ghost of JOSHUA_GHOSTS){
   const first=joshuaGhostPose(0,ghost),again=joshuaGhostPose(0,ghost);
