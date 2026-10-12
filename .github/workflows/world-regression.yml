@@ -64,6 +64,9 @@ jobs:
           tests/world-big-air.test.ts
           lib/world/discGolf.ts
           lib/world/jetSkiRace.ts
+          lib/world/jetSkiPier.ts
+          lib/world/gameMode.ts
+          tests/world-game-mode.test.ts
           lib/world/jetSkiCourse.ts
           lib/world/jetSkiWater.ts
           components/world/worldJetSkiCourseGeometry.ts
