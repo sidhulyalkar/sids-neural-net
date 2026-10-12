@@ -43,6 +43,7 @@ import {
   arcadeAccessTerrainMask,
   arcadeCaveFloorHeight,
   arcadeInside,
+  shastaWaitsAtArcadeEntrance,
   paperCaveFloorHeight,
   paperCaveInside,
   paperCaveHalfWidth,
@@ -4316,16 +4317,10 @@ export function createWorld(
           : coastlineX(player.z) + 2.6,
       z: THREE.MathUtils.clamp(player.z, WORLD_BOUNDS.minZ + 4, WORLD_BOUNDS.maxZ - 4),
     };
-    const dogCaveProgress = THREE.MathUtils.clamp(
-      (player.z - arcade.z) / ARCADE_CAVE.tunnelDepth,
-      0,
-      1,
-    );
+    // The game's carved chamber sits beneath an alpine region. Geometry,
+    // not whichever open-air region marker is closest, owns cave behavior.
     const dogWaitsAtCaveEntrance =
-      aquatic === "land" &&
-      nearestRegion(player) === "cavern" &&
-      dogCaveProgress > 0.46 &&
-      caveLayer === "arcade" && arcadeInside(player);
+      shastaWaitsAtArcadeEntrance(player,caveLayer,aquatic);
     const dogTarget = state.entered
       ? aquatic !== "land" || isWater(player)
         ? shoreWait
