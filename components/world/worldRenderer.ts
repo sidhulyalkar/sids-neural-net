@@ -18,7 +18,7 @@ import {
   type DiscGolfSwingStage,
 } from "@/lib/world/discGolf";
 import {
-  BIG_AIR,bigAirBirdCallout,bigAirCrossedLip,launchBigAir,mountainJumpEligible,mountainSkiTakeoff,
+  BIG_AIR,bigAirBirdCallout,bigAirCrossedLip,launchBigAir,mountainJumpEligible,mountainSkiTakeoff,mountainJumpOutwardGain,
   advanceBigAir,armBigAir,idleBigAir,type BigAirState,
 } from "@/lib/world/bigAir";
 import { createMarineSchools } from "./worldSchools";
@@ -2960,9 +2960,13 @@ export function createWorld(
     if (!state.entered || state.paused || document.hidden || aquatic !== "land" ||
       discGolf.phase!=="off"||jetSki||jetChoosing||
       trial.phase==="armed"||trial.phase==="running"||
-      bigAir.phase==="flying"||climb||grind||airHeight>0.01)return;
-    if(state.activity==="ski"&&mountainJumpEligible(player,playerY,Math.max(travel.speed,5.5))){
-      bigAir=launchBigAir(player,playerY,Math.max(travel.speed,5.5),travel.heading,true);
+      (bigAir.phase!=="idle"&&bigAir.phase!=="armed")||
+      climb||grind||airHeight>0.01)return;
+    if(state.activity==="ski"&&mountainJumpEligible(player,supportHeight(player),travel.speed)){
+      const ahead={x:player.x+travel.heading.x*2.1,
+        z:player.z+travel.heading.z*2.1};
+      const drop=Math.max(0,supportHeight(player)-supportHeight(ahead));
+      bigAir=launchBigAir(player,supportHeight(player),travel.speed,travel.heading,true,drop);
       playerY=bigAir.y;airHeight=.04;verticalSpeed=bigAir.verticalSpeed;
       callbacks.onBigAir(bigAir);
       return;
@@ -3430,7 +3434,8 @@ export function createWorld(
 
       // Skiing may launch from any steep downhill edge on the mountain.
       // The original marked kicker remains as a deliberate easy starting point.
-      const skiEligible=state.activity==="ski"&&bigAir.phase!=="flying"&&
+      const skiEligible=state.activity==="ski"&&
+        (bigAir.phase==="idle"||bigAir.phase==="armed")&&
         discGolf.phase==="off"&&!jetSki&&!jetChoosing&&
         trial.phase!=="running"&&trial.phase!=="armed"&&
         !climb&&!grind&&aquatic==="land"&&airHeight<.1&&
@@ -3439,6 +3444,7 @@ export function createWorld(
       const ahead={x:player.x+travel.heading.x*2.1,
         z:player.z+travel.heading.z*2.1};
       const frontGround=supportHeight(ahead);
+      const downhillDrop=previousGround-frontGround;
       const naturalLip=skiEligible&&mountainSkiTakeoff(player,
         supportHeight(player),travel.speed,previousGround,frontGround,
         verticalSpeed);
@@ -3447,7 +3453,7 @@ export function createWorld(
           travel.speed,true);
       if(skiEligible&&(naturalLip||markedLip)){
         bigAir=launchBigAir(player,supportHeight(player),travel.speed,
-          travel.heading,!markedLip);
+          travel.heading,!markedLip,Math.max(0,downhillDrop));
         playerY=bigAir.y;
         airHeight=Math.max(.04,playerY-supportHeight(player));
         verticalSpeed=bigAir.verticalSpeed;
@@ -3593,6 +3599,8 @@ export function createWorld(
       canvas.dataset.discGolfGatesTotal=String(DISC_GOLF_HOLES[discGolf.holeIndex].gates.length);
       canvas.dataset.bigAirPhase=bigAir.phase;
       canvas.dataset.bigAirDistance=bigAir.distance.toFixed(1);
+      canvas.dataset.bigAirOutwardGain=mountainJumpOutwardGain(bigAir).toFixed(2);
+      canvas.dataset.bigAirPeakClearance=(bigAir.maxClearance??0).toFixed(2);
       canvas.dataset.bigAirBirdCallout=bigAir.phase==="flying"
         ? bigAirBirdCallout(bigAir.distance)??"":"";
       canvas.dataset.bigAirAltitude=(playerY-supportHeight(player)).toFixed(2);
