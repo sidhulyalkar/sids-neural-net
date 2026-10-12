@@ -29,6 +29,18 @@ async function boot(page){
  try{
   await page.waitForFunction(()=>document.querySelector("canvas")?.dataset.jetSkiPier==="true",
    null,{timeout:9000});
+ }catch(err){
+  const diagnostics=await canvas.evaluate(element=>({
+   player:element.dataset.player,aquatic:element.dataset.aquatic,
+   onPier:element.dataset.jetSkiPier,
+   height:element.dataset.height,deckHeight:element.dataset.jetSkiDeckHeight,
+   drawCalls:element.dataset.drawCalls,
+  }));
+  fs.writeFileSync(path.join(out,"pier-approach-failure.json"),
+   JSON.stringify({diagnostics,errors},null,2));
+  await page.screenshot({path:path.join(out,"pier-approach-failure.png")});
+  console.error("PIER APPROACH DIAGNOSTICS",JSON.stringify(diagnostics));
+  throw err;
  }finally{
   await page.keyboard.up("d");
  }
