@@ -285,3 +285,36 @@ test("free ride ignores checkpoint progression and still moves through waves",()
  assert.ok(s.speed>3);
  assert.ok(Number.isFinite(s.waterHeight));
 });
+
+test("walker can approach from dry island and cross the full pier without a blocked rise",()=>{
+ const p=JET_SKI_PIER;
+ assert.equal(isWater({x:p.landX,z:p.centerZ}),false,
+  "pier ramp must physically originate on the island");
+ assert.equal(isWater({x:p.endX,z:p.centerZ}),true,
+  "pier must extend over the lagoon");
+ let current:Travel={point:{x:p.landX-2.3,z:p.centerZ},
+  speed:0,heading:{x:1,z:0}};
+ for(let i=0;i<225&&current.point.x<p.endX-.5;i++){
+  const prior=current.point.x;
+  current=stepTravel(current,{x:1,z:0},.05,"run",[],false,null,0,groundHeight);
+  assert.ok(current.point.x>=prior,"walking should never reverse direction");
+ }
+ assert.ok(current.point.x>=p.endX-.5,
+  "pier approach should remain traversable from dry land: "+current.point.x);
+ assert.ok(nearJetSkiBoarding(current.point));
+ assert.equal(groundHeight(current.point),p.deckHeight);
+});
+
+test("the pier renders a continuous physical-looking deck with no missing boards",()=>{
+ const scene=new THREE.Scene(),dock=createJetSkiDock(scene);
+ const deck=dock.root.getObjectByName("continuous-walkable-pier-surface");
+ assert.ok(deck instanceof THREE.Mesh);
+ const vertices=deck.geometry.attributes.position;
+ assert.ok(vertices.count>=100);
+ const startHeight=jetSkiPierHeight({x:JET_SKI_PIER.landX,z:JET_SKI_PIER.centerZ});
+ assert.ok(Math.abs(vertices.getY(0)-(startHeight!-.12))<.001);
+ dock.root.traverse(object=>{
+  if(object instanceof THREE.Mesh){object.geometry.dispose();}
+ });
+ scene.remove(dock.root);
+});
