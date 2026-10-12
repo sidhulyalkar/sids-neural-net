@@ -162,6 +162,46 @@ a rock; visually inspect ocean displacement, mesh seams and mobile overlap.
 `scripts/playtest-jet-ski.mjs` was updated for this flow but must still be
 executed against a live browser before merge.
 
+## Post-playtest repair tranche: pier continuity, selection and mountain jumps
+
+**Pier root cause:** Previous deck support began at `x=56.4`, already close
+to the east water transition. Approaching from the island could enter aquatic
+mode before the foot collided with the dock, and a swimmer could not emerge
+onto water-classified dock tiles. The support now starts further inland at
+`x=47.5` and slopes to the flat pier; the visible planks and a continuous
+underdeck mesh sample the same function. Water-mode movement may step onto
+the deck and return to normal walking. Boundary coordinates have a numerical
+tolerance shared between rendering and contact. A dry-land-to-outer-pier
+movement regression was added; visually inspect the exact join in browser.
+
+**Ride chooser:** The old stack of inline-colored buttons is replaced with a
+small, responsive, translucent, design-system CSS card chooser. Enter while
+standing on the pier mounts a preview rider, then the user chooses Touring,
+Sport, Race or Free Ride. Escape backs out to the pier. Other world activity
+controls hide while the chooser or a jet-ski session is active. The choice is
+accessible via keyboard focus trapping and touch.
+
+**Mutual exclusion:** `lib/world/gameMode.ts` is the authority for one
+active minigame at a time. Jet-ski, ski-jump, disc-golf and Joshua race entry
+requests are rejected while another challenge is armed, playing, or choosing.
+The React World HUD also disables competing start controls. Normal area
+navigation is still an explicit way to exit a current game.
+
+**Ski flying:** The old single ski launch path is no longer required.
+Skiers can launch by pressing Space at qualifying mountain elevations, or by
+moving fast over downhill terrain/ramp lips. Real travel headings are preserved
+during flight. The three birds and their wings rotate with that heading and
+the flight is measured as horizontal distance plus radial distance from the
+mountain center. The mountain distance is the new record metric, versioned
+separately from the legacy marked-lip best. A water touchdown transitions
+to swimming instead of snapping the skier onto underwater seabed.
+
+**Browser qualification:** `.github/workflows/jet-ski-browser.yml` runs a
+real Chromium/Playwright pier and jet-ski acceptance workflow on the draft PR.
+Failures are not suppressed: inspect the Playwright report/screenshots and
+repair before promoting the draft. Existing World unit and geometry audits
+remain additional, not replacement, evidence.
+
 ## Acceptance checklist before merge
 
 1. World typecheck, strict lint including jet-ski sources, existing World
