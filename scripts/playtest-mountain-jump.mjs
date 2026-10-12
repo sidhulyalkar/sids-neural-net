@@ -46,7 +46,9 @@ try{
  assert.equal(flight.mode,"ski");
  assert.equal(flight.birds,"true");
  // Starting another minigame must be unavailable while a ski flight plays.
- const disc=page.getByRole("button",{name:/^Disc golf/}).first();
+ // Hidden game-dock controls are deliberately absent from the accessible
+ // tree. Include hidden only to assert their disabled/visibility contract.
+ const disc=page.getByRole("button",{name:/^Disc golf/,includeHidden:true}).first();
  await page.waitForFunction(()=>
   Array.from(document.querySelectorAll("button")).some(
    button=>button.textContent?.startsWith("Disc golf")&&button.disabled),
