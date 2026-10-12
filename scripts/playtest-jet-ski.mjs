@@ -75,6 +75,8 @@ try{
  await desktop.keyboard.press("Enter");
  const chooser=desktop.getByRole("dialog",{name:"Choose a jet ski"});
  await chooser.waitFor({state:"visible"});
+ // Boarding instructions must disappear while the chooser is displayed.
+ await dock.waitFor({state:"hidden",timeout:15000});
  await desktop.screenshot({path:path.join(out,"01-ride-chooser.png")});
  await chooser.getByRole("button",{name:/^Race/}).click();
  await desktop.waitForFunction(()=>document.querySelector("canvas")?.dataset.jetSkiStatus==="racing");
@@ -139,6 +141,38 @@ try{
  await phone.waitForFunction(()=>document.querySelector("canvas")?.dataset.jetSkiStatus==="racing");
  assert.equal(await phone.locator("canvas").getAttribute("data-jet-ski-mode"),"free");
  assert.equal(await phone.getByRole("button",{name:"BOOST",exact:true}).isVisible(),true);
+ const touchLayout=await phone.evaluate(()=>{
+   const hud=document.querySelector('[aria-label="Jet ski race status"]');
+   const touch=document.querySelector('[aria-label="Jet ski touch controls"]');
+   if(!hud||!touch)throw Error("Missing jet-ski HUD or touch controls");
+   const status=hud.getBoundingClientRect(),controls=touch.getBoundingClientRect();
+   const buttons=Array.from(touch.querySelectorAll("button"))
+     .filter(button=>getComputedStyle(button).display!=="none")
+     .map(button=>({label:button.textContent,rect:button.getBoundingClientRect()}));
+   return {status:{x:status.x,y:status.y,right:status.right,bottom:status.bottom},
+     controls:{x:controls.x,y:controls.y,right:controls.right,bottom:controls.bottom},
+     viewport:{w:innerWidth,h:innerHeight},
+     buttons:buttons.map(b=>({label:b.label,x:b.rect.x,y:b.rect.y,
+       right:b.rect.right,bottom:b.rect.bottom}))};
+ });
+ assert.ok(touchLayout.status.bottom+5<touchLayout.controls.y,
+  "Mobile status must never overlap touch buttons: "+JSON.stringify(touchLayout));
+ assert.ok(touchLayout.controls.bottom<=touchLayout.viewport.h+1,
+  "Touch steering must remain inside the viewport");
+ for(const button of touchLayout.buttons){
+   assert.ok(button.x>=0&&button.right<=touchLayout.viewport.w+1);
+   assert.ok(button.y>=0&&button.bottom<=touchLayout.viewport.h+1);
+ }
+ for(let i=0;i<touchLayout.buttons.length;i++){
+  for(let j=i+1;j<touchLayout.buttons.length;j++){
+   const a=touchLayout.buttons[i],b=touchLayout.buttons[j];
+   const xOverlap=Math.min(a.right,b.right)-Math.max(a.x,b.x);
+   const yOverlap=Math.min(a.bottom,b.bottom)-Math.max(a.y,b.y);
+   assert.ok(xOverlap<=1||yOverlap<=1,
+    "Touch controls must not overlap each other: "+a.label+" and "+b.label);
+  }
+ }
+ results.push({touchLayout});
  await phone.screenshot({path:path.join(out,"03-touch-race.png")});
  await phone.getByRole("button",{name:"Dock",exact:true}).tap();
  await phone.waitForFunction(()=>document.querySelector("canvas")?.dataset.jetSkiStatus==="docked");
