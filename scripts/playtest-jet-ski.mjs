@@ -86,6 +86,15 @@ try{
  assert.equal(await canvas.getAttribute("data-jet-ski-status"),"racing");
  await desktop.waitForFunction(()=>Number(document.querySelector("canvas")?.dataset.jetSkiTime)>.08,
   null,{timeout:45000});
+ // Shift alone accelerates the ski, with no simultaneous W press needed.
+ await desktop.keyboard.down("Shift");
+ try{
+  await desktop.waitForFunction(()=>Number(document.querySelector("canvas")?.dataset.jetSkiTurbo)<94,
+   null,{timeout:20000});
+  assert.equal(await canvas.getAttribute("data-jet-ski-boosting"),"true");
+  assert.ok(Number(await canvas.getAttribute("data-jet-ski-speed"))>0,
+   "holding Shift alone must actually propel the ski");
+ }finally{await desktop.keyboard.up("Shift");}
  await desktop.keyboard.down("w");
  await desktop.keyboard.down("Shift");
  try{
@@ -125,7 +134,7 @@ try{
  // assert the durable game reset, not a transitory HUD string.
  await desktop.keyboard.press("Escape");
  await desktop.waitForFunction(()=>document.querySelector("canvas")?.dataset.jetSkiStatus==="docked");
- results.push("Desktop walks onto pier, Enter chooser, countdown, reverse/boost, restart and dock");
+ results.push("Desktop walks onto pier, Enter chooser, solo-Shift boost, W+Shift boost, reverse, restart and dock");
  // Release desktop WebGL resources before starting a second SwiftShader scene.
  await desktop.close();
  const phone=await browser.newPage({
