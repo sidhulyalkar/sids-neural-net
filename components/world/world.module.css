@@ -1201,3 +1201,72 @@
   .world .jetSkiChoice { transition: none; }
   .world .jetSkiChoice:hover { transform: none; }
 }
+
+/* HUD and coarse-pointer steering occupy separate visual lanes. The prior
+   wrapped flex controls covered the speed/status readout on narrow phones. */
+.jetSkiHud {
+  position: absolute;
+  bottom: 72px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 8;
+  pointer-events: none;
+  background: rgba(9, 30, 43, .82);
+  border: 1px solid rgba(255,255,255,.22);
+  border-radius: 11px;
+  color: white;
+  font: 600 12px/1.45 system-ui,sans-serif;
+  padding: 8px 13px;
+  white-space: normal;
+  text-align: center;
+  max-width: calc(100% - 24px);
+}
+.jetSkiTouchControls {
+  position: absolute;
+  bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 12;
+  align-items: stretch;
+  justify-items: stretch;
+  gap: 7px;
+  max-width: calc(100% - 20px);
+  pointer-events: auto;
+}
+.world .jetSkiTouchButton {
+  display: inline-flex;
+  min-height: 47px;
+  min-width: 0;
+  width: 100%;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(207,238,231,.32);
+  border-radius: 10px;
+  background: rgba(18, 50, 59, .94);
+  color: #f5faf7;
+  box-shadow: 0 3px 12px rgba(0,0,0,.18);
+  padding: 8px 5px;
+  font: 650 12px/1.2 system-ui,sans-serif;
+  text-align: center;
+  touch-action: none;
+  user-select: none;
+}
+.world .jetSkiTouchButton:active,
+.world .jetSkiTouchButton:focus-visible {
+  background: rgba(39, 99, 101, .96);
+  border-color: #b5e9d9;
+}
+@media (pointer:coarse) {
+  .jetSkiHud {
+    bottom: calc(141px + env(safe-area-inset-bottom, 0px));
+    width: min(365px,calc(100% - 20px));
+    max-width: calc(100% - 20px);
+    padding: 7px 9px;
+    font-size: 12px;
+  }
+  .jetSkiTouchControls { max-width: 380px; }
+}
+@media (max-height: 620px) and (pointer: coarse) {
+  .jetSkiHud {bottom: calc(126px + env(safe-area-inset-bottom, 0px));}
+  .world .jetSkiTouchButton { min-height: 41px; }
+}
