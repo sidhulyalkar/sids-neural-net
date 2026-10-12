@@ -24,13 +24,15 @@ try{
   Number(document.querySelector("canvas")?.dataset.drawCalls)>0,
   null,{timeout:45000});
  await page.getByRole("button",{name:"Mountain biking",exact:true}).click();
- await page.getByRole("button",{name:"Joshua circuit · race ghosts"}).click();
+ await page.getByRole("button",{name:"Joshua circuit · race Lucas & Ness"}).click();
  await page.waitForFunction(()=>{
   const data=document.querySelector("canvas")?.dataset;
   return data?.trialPhase==="armed"&&data?.joshuaGhosts==="2";
  },null,{timeout:15000});
  const hud=page.getByLabel("Joshua dirt-bike ghost race");
  assert.match(await hud.textContent(),/GHOST RACE/);
+ assert.match(await hud.textContent(),/Lucas/);
+ assert.match(await hud.textContent(),/Ness/);
  await page.screenshot({path:path.join(out,"01-ghost-grid.png")});
  await canvas.focus();
  await page.keyboard.down("w");
