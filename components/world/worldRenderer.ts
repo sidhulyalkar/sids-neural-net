@@ -2902,7 +2902,7 @@ export function createWorld(
     const target=clear&&hit&&hit.distance<=65?
       rideVisual.targetFromHit(hit.object):null;
     const endpoint=hit&&clear?hit.point:terrainHit&&terrainHit.distance<28?
-      terrainHit.point:ray.at(28,new THREE.Vector3());
+      terrainHit.point:ray.ray.at(28,new THREE.Vector3());
     rideVisual.fireTracer(new THREE.Vector3(player.x,playerY+1.35,player.z),
       endpoint,elapsed);
     const previous=rideBoost;
