@@ -4,7 +4,7 @@
 import {SEA_SURFACE,type Point,terrainHeight} from "./model";
 export const JET_SKI_PIER={
  landX:47.5,rampEndX:61.5,endX:68,
- centerZ:12,halfWidth:3.05,
+ centerZ:14,halfWidth:3.05,
  deckHeight:SEA_SURFACE+1.15,
 } as const;
 const smooth=(v:number)=>{const t=Math.max(0,Math.min(1,v));return t*t*(3-2*t);};
