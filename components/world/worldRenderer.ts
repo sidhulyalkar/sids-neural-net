@@ -17,7 +17,7 @@ import {
   type DiscGolfSwingStage,
 } from "@/lib/world/discGolf";
 import {
-  BIG_AIR,bigAirBirdCallout,bigAirCrossedLip,launchBigAir,
+  BIG_AIR,bigAirBirdCallout,bigAirCrossedLip,launchBigAir,mountainJumpEligible,
   advanceBigAir,armBigAir,idleBigAir,type BigAirState,
 } from "@/lib/world/bigAir";
 import { createMarineSchools } from "./worldSchools";
@@ -2926,7 +2926,16 @@ export function createWorld(
     }
   }
   function performAction() {
-    if (!state.entered || state.paused || document.hidden || aquatic !== "land" || discGolf.phase!=="off" || climb || grind || airHeight > 0.01) return;
+    if (!state.entered || state.paused || document.hidden || aquatic !== "land" ||
+      discGolf.phase!=="off"||jetSki||jetChoosing||
+      trial.phase==="armed"||trial.phase==="running"||
+      bigAir.phase==="flying"||climb||grind||airHeight>0.01)return;
+    if(state.activity==="ski"&&mountainJumpEligible(player,playerY,Math.max(travel.speed,5.5))){
+      bigAir=launchBigAir(player,playerY,Math.max(travel.speed,5.5),travel.heading,true);
+      playerY=bigAir.y;airHeight=.04;verticalSpeed=bigAir.verticalSpeed;
+      callbacks.onBigAir(bigAir);
+      return;
+    }
     if ((state.activity === "skate" || state.activity === "ski") && travel.speed > 2.2) {
       const candidate = nearestGrind(player);
       if (candidate) {
@@ -3252,7 +3261,8 @@ export function createWorld(
         playerY=bigAir.y;
         airHeight=Math.max(0,playerY-supportHeight(player));
         verticalSpeed=bigAir.verticalSpeed;
-        travel={point:player,speed:bigAir.horizontalSpeed,heading:BIG_AIR.heading};
+        travel={point:player,speed:bigAir.horizontalSpeed,
+          heading:bigAir.heading??BIG_AIR.heading};
         if(bigAir.phase==="landed"||bigAir.phase==="missed") {
           // No springy auto-hop on touchdown. Natural ground contact resumes
           // after the challenge has settled, without a second ramp trigger.
@@ -3374,10 +3384,27 @@ export function createWorld(
         }
       }
 
-      if(bigAir.phase==="armed" &&
+      // Skiing may launch from any steep downhill edge on the mountain.
+      // The original marked kicker remains as a deliberate easy starting point.
+      const skiEligible=state.activity==="ski"&&bigAir.phase!=="flying"&&
+        discGolf.phase==="off"&&!jetSki&&!jetChoosing&&
+        trial.phase!=="running"&&trial.phase!=="armed"&&
+        !climb&&!grind&&aquatic==="land"&&airHeight<.1&&
+        mountainJumpEligible(player,supportHeight(player),travel.speed);
+      const previousGround=supportHeight(previousPoint);
+      const ahead={x:player.x+travel.heading.x*2.1,
+        z:player.z+travel.heading.z*2.1};
+      const frontGround=supportHeight(ahead);
+      const downhillDrop=previousGround-frontGround;
+      const slope=previousGround-supportHeight(player);
+      const naturalLip=skiEligible&&travel.speed>8&&
+        slope>.06&&downhillDrop>1.25;
+      const markedLip=bigAir.phase==="armed"&&
         bigAirCrossedLip(previousPoint,player,travel.heading,state.activity,
-          travel.speed,true) && airHeight<.10) {
-        bigAir=launchBigAir(player,supportHeight(player),travel.speed);
+          travel.speed,true);
+      if(skiEligible&&(naturalLip||markedLip)){
+        bigAir=launchBigAir(player,supportHeight(player),travel.speed,
+          travel.heading,!markedLip);
         playerY=bigAir.y;
         airHeight=Math.max(.04,playerY-supportHeight(player));
         verticalSpeed=bigAir.verticalSpeed;
