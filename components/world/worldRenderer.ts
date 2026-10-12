@@ -4826,6 +4826,7 @@ export function createWorld(
       lastPreviewTick=discGolf.clock;
     }
     flyingBirds.update(bigAir,elapsed,reducedFlightMotion);
+    canvas.dataset.bigAirBirdsFollowing=String(flyingBirds.active);
     habitats.update(player,elapsed);
     if(aquatic === "land" && scene.fog instanceof THREE.Fog) {
       const w = biomeAt({x:camera.position.x,z:camera.position.z}).weights;
