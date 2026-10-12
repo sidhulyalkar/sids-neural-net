@@ -2899,8 +2899,12 @@ export function createWorld(
     // marker from some approaches; do not score hits through the terrain.
     const terrainHit=ray.intersectObject(ground,false)[0];
     const clear=!!hit&&(!terrainHit||terrainHit.distance>hit.distance+.08);
-    const target=clear&&hit.distance<=65?
+    const target=clear&&hit&&hit.distance<=65?
       rideVisual.targetFromHit(hit.object):null;
+    const endpoint=hit&&clear?hit.point:terrainHit&&terrainHit.distance<28?
+      terrainHit.point:ray.at(28,new THREE.Vector3());
+    rideVisual.fireTracer(new THREE.Vector3(player.x,playerY+1.35,player.z),
+      endpoint,elapsed);
     const previous=rideBoost;
     if(target)rideBoost=fireRideBoost(target,currentMode,player,
       travel.speed,elapsed,rideBoost);
@@ -3955,6 +3959,7 @@ export function createWorld(
       }
       updateRaceOceanWaves(elapsed,!!jetSki);
       jetskiCoast.update(elapsed,!!jetSki);
+      rideVisual.updateTracer(elapsed);
       rideVisual.updateTargets(effectiveActivity(state.activity,player),
         player,travel.speed,elapsed,rideBoost,camera,
         state.entered&&!state.paused&&aquatic==="land"&&
