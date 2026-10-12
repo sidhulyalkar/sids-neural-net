@@ -61,6 +61,10 @@ jobs:
           components/world/worldTechnicalGeometry.ts
           tests/world-technical-features.test.ts
           lib/world/trials.ts
+          lib/world/rideBoost.ts
+          lib/world/joshuaGhostRace.ts
+          components/world/worldRideChallengeGeometry.ts
+          tests/world-ride-boost-ghost.test.ts
           lib/world/bigAir.ts
           components/world/worldBigAirBirds.ts
           tests/world-big-air.test.ts
