@@ -1282,3 +1282,27 @@
   border-color: rgba(175,196,207,.42);
   color: #c8d4d6;
 }
+
+/* Compact land-sports aiming rail. It lives above the world controls and
+   never captures pointer input, leaving taps for the actual Three.js target. */
+.rideBoostHud {
+  position:absolute;
+  z-index:7;
+  top:12px;
+  left:50%;
+  transform:translateX(-50%);
+  max-width:calc(100% - 28px);
+  width:max-content;
+  pointer-events:none;
+  padding:8px 13px;
+  border:1px solid rgba(198,237,206,.36);
+  border-radius:11px;
+  background:rgba(13,36,36,.82);
+  color:#e3fbeb;
+  text-align:center;
+  font:650 12px/1.4 system-ui,sans-serif;
+  text-shadow:0 1px 3px #102724;
+}
+@media (max-width:560px) {
+ .rideBoostHud {font-size:11px;top:8px;padding:7px 9px;}
+}
