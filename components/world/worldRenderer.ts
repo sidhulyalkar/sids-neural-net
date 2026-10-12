@@ -2729,9 +2729,10 @@ export function createWorld(
   function restartJetSki(){
     if(!jetSki)return;
     const selected=jetSki.craft;
+    const currentMode=jetRideMode;
     stopJetSki();
     selectedJetSki=selected;
-    jetRideMode="race";
+    jetRideMode=currentMode;
     boardJetSki();
   }
   const supportHeight = (p: Point) => {
