@@ -86,6 +86,7 @@ type Callbacks = {
   onChallenge: (trial:TrialState) => void;
   onBigAir: (flight:BigAirState) => void;
   onDiscGolf:(game:DiscGolfState)=>void;
+  onJetSkiMode:(active:boolean)=>void;
 };
 type State = {
   activity: Activity;
@@ -2642,6 +2643,7 @@ export function createWorld(
   function stopJetSki(){
     if(!jetSki)return;
     jetSki=null;jetRivals=[];jetMilestone="";
+    callbacks.onJetSkiMode(false);
     jetRideMode="race";
     jetCountdown=0;jetNoticeUntil=0;jetNotice.style.display="none";
     jetWakeSamples=[];jetWakeAccumulator=0;
@@ -2659,6 +2661,7 @@ export function createWorld(
     jetChoosing=false;
     jetChooser.hidden=true;
     canvas.dataset.jetSkiChooser="closed";
+    callbacks.onJetSkiMode(false);
     keys.clear();
     canvas.focus({preventScroll:true});
   }
@@ -2669,6 +2672,7 @@ export function createWorld(
     jetskiVisual.activeHull.material.color.set("#e96c48");
     jetChooser.hidden=false;
     canvas.dataset.jetSkiChooser="open";
+    callbacks.onJetSkiMode(true);
     destination=null;travel.speed=0;keys.clear();
     jetChoiceButtons[0][0].focus({preventScroll:true});
   }
@@ -2684,6 +2688,7 @@ export function createWorld(
     if(!state.entered||state.paused||jetSki||occupiedByOtherMode("jet")||
        aquatic!=="land"||!nearJetSkiBoarding(player))return;
     jetSki=startJetSkiRace(selectedJetSki);jetMilestone="";
+    callbacks.onJetSkiMode(true);
     jetCountdown=jetRideMode==="race"?3.3:0;jetNoticeUntil=0;
     jetWakeSamples=[];jetWakeAccumulator=0;
     jetRivals=jetRideMode==="race"?[
@@ -5048,6 +5053,8 @@ export function createWorld(
         lastSerial = next.command.serial;
         const r = REGIONS.find((r) => r.id === next.command!.region)!;
         jetSki=null;jetRivals=[];jetHud.style.display="none";
+        callbacks.onJetSkiMode(false);
+        if(jetChoosing){jetChoosing=false;jetChooser.hidden=true;}
         player =
           (next.command.activity && activityLanding(next.command.activity)) ||
           regionLanding(r.id);
