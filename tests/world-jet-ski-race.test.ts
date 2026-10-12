@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import * as THREE from "three/src/Three.Core.js";
 import {createJetSkiDock} from "../components/world/worldJetSkiDock";
 import test from "node:test";
-import {isWater,WORLD_BOUNDS,terrainHeight} from "../lib/world/model";
+import {isWater,WORLD_BOUNDS,terrainHeight,regionLanding} from "../lib/world/model";
 import {groundHeight,stepTravel,type Travel} from "../lib/world/activities";
 import {JET_SKI_PIER,jetSkiPierHeight,nearJetSkiBoarding} from "../lib/world/jetSkiPier";
 import {JET_SKI_ARCHES,JET_SKI_ROCKS,jetSkiRockAt,jetSkiSegmentClear} from "../lib/world/jetSkiCourse";
@@ -317,4 +317,18 @@ test("the pier renders a continuous physical-looking deck with no missing boards
   if(object instanceof THREE.Mesh){object.geometry.dispose();}
  });
  scene.remove(dock.root);
+});
+
+test("lagoon menu spawn and natural rightward approach overlap the physical pier",()=>{
+ const start=regionLanding("lagoon");
+ assert.ok(jetSkiPierHeight(start)!==null,
+  "lagoon fast travel must land on the shore-connected pier, not beside it");
+ assert.ok(start.z>=JET_SKI_PIER.centerZ-JET_SKI_PIER.halfWidth);
+ assert.ok(start.z<=JET_SKI_PIER.centerZ+JET_SKI_PIER.halfWidth);
+ // The short eastward walk into the boarding area cannot cross open water.
+ for(let step=0;step<=28;step++){
+  const p={x:start.x+step*.09,z:start.z-step*.023};
+  assert.ok(jetSkiPierHeight(p)!==null,
+   "walk toward the parked skis leaves pier at "+JSON.stringify(p));
+ }
 });
