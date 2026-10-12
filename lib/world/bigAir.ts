@@ -157,6 +157,21 @@ export function mountainSkiTakeoff(point:Point,height:number,speed:number,
   (verticalSpeed>3.3||
    previousGround-height>.06&&previousGround-aheadGround>1.25);
 }
+/** Deterministic directional chase framing for ski jumps from any face.
+ * Look along the real flight heading, not the exploration camera's old yaw. */
+export function mountainJumpCameraPose(state:BigAirState):{
+ camera:{x:number;y:number;z:number};
+ look:{x:number;y:number;z:number};
+}{
+ const dir=state.heading??BIG_AIR.heading;
+ const side={x:dir.z,z:-dir.x};
+ return {
+  camera:{x:state.point.x-dir.x*16+side.x*2.6,
+   y:state.y+8.5,z:state.point.z-dir.z*16+side.z*2.6},
+  look:{x:state.point.x+dir.x*5.5,
+   y:state.y+1.1,z:state.point.z+dir.z*5.5},
+ };
+}
 export const BIG_AIR_BIRDS=[
   {id:"scarlet-macaw",kind:"macaw",color:"#d65347",wing:"#edbf42",side:-1},
   {id:"blue-gold-macaw",kind:"macaw",color:"#3f88b3",wing:"#d8ac44",side:1},
