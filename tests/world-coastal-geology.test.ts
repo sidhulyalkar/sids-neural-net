@@ -12,6 +12,9 @@ test("wave-eroded arch geometry clears the actual gate and joins physical rock l
   const geo=createSeaArchGeometry(arch),p=geo.attributes.position;
   assert.equal(p.count,25*8);
   assert.ok(geo.getAttribute("color"));
+  const normals=geo.attributes.normal;
+  assert.ok(normals.getZ(12*8)>.3,
+   "crown exterior must face outward, not vanish under back-face culling");
   assert.ok(geo.boundingSphere&&geo.boundingSphere.radius>8);
   // Center channel must not be filled by a torus or a secret roof collider.
   const centerX=arch.span*.5;
@@ -36,6 +39,8 @@ test("offshore stacks have deterministic weathered strata within their collision
   const a=createSeaStackGeometry(rock),b=createSeaStackGeometry(rock);
   const vertex=a.attributes.position,colors=a.attributes.color;
   assert.equal(vertex.count,130);
+  assert.ok(a.attributes.normal.getX(5*13)>.2,
+   "sea-stack normals must point toward exterior water");
   assert.deepEqual(Array.from(vertex.array),Array.from(b.attributes.position.array));
   assert.ok(a.boundingSphere?.radius&&a.boundingSphere.radius<rock.height*2.3);
   let maxR=0,outerBandCount=0;
