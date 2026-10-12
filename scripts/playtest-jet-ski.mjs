@@ -134,7 +134,24 @@ try{
  // assert the durable game reset, not a transitory HUD string.
  await desktop.keyboard.press("Escape");
  await desktop.waitForFunction(()=>document.querySelector("canvas")?.dataset.jetSkiStatus==="docked");
- results.push("Desktop walks onto pier, Enter chooser, solo-Shift boost, W+Shift boost, reverse, restart and dock");
+ // Restart must preserve Free ride rather than unexpectedly launching a race.
+ await canvas.focus();
+ await desktop.keyboard.press("Enter");
+ await chooser.waitFor({state:"visible"});
+ await chooser.getByRole("button",{name:/^Free ride/}).click();
+ await desktop.waitForFunction(()=>document.querySelector("canvas")?.dataset.jetSkiMode==="free");
+ await desktop.waitForFunction(()=>Number(document.querySelector("canvas")?.dataset.jetSkiTime)>.5,
+  null,{timeout:15000});
+ const beforeFreeRestart=Number(await canvas.getAttribute("data-jet-ski-time"));
+ await desktop.keyboard.press("r");
+ await desktop.waitForFunction(previous=>{
+  const d=document.querySelector("canvas")?.dataset;
+  return d?.jetSkiMode==="free"&&d.jetSkiStatus==="racing"&&
+   Number(d.jetSkiTime)<previous-.2;
+ },beforeFreeRestart,{timeout:15000});
+ await desktop.keyboard.press("Escape");
+ await desktop.waitForFunction(()=>document.querySelector("canvas")?.dataset.jetSkiStatus==="docked");
+ results.push("Desktop walks onto pier, Enter chooser, solo-Shift boost, W+Shift boost, reverse, race/free-ride restart and dock");
  // Release desktop WebGL resources before starting a second SwiftShader scene.
  await desktop.close();
  const phone=await browser.newPage({
