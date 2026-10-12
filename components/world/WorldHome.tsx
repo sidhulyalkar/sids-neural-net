@@ -517,7 +517,7 @@ export function WorldHome({ content }: { content: WorldContent }) {
                 trial.phase!=="running" && (
                 <button className={styles.trialLaunch} disabled={!ready||quiet}
                   onClick={()=>setChallengeSerial(n=>n+1)}>
-                  Joshua lap · start trial
+                  Joshua circuit · race ghosts
                 </button>
               )}
             </div>
@@ -540,10 +540,11 @@ export function WorldHome({ content }: { content: WorldContent }) {
           )}
           {(trial.phase==="armed"||trial.phase==="running"||
               trial.phase==="complete"||trial.phase==="invalidated") && (
-            <aside className={styles.trialHud} aria-label="Joshua bike time trial"
+            <aside className={styles.trialHud} aria-label="Joshua dirt-bike ghost race"
               aria-live={trial.phase==="complete"||trial.phase==="invalidated"?"polite":"off"}>
-              <span className={styles.eyebrow}>JOSHUA · ADVENTURE LAP</span>
+              <span className={styles.eyebrow}>JOSHUA · GHOST RACE</span>
               <strong>{(trial.elapsedMs/1000).toFixed(1)} s</strong>
+              <small>Position {trial.ghostPlace??1}/3 · 2 transparent pace ghosts</small>
               <p>{trial.phase==="armed"?"Cross the starting line":
                 trial.phase==="running" ?
                   `Gate ${Math.min(trial.nextGate,JOSHUA_GATES.length)} / ${JOSHUA_GATES.length}`:
