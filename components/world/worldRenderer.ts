@@ -3579,6 +3579,8 @@ export function createWorld(
       canvas.dataset.caveDepth = caveProgress.toFixed(3);
       canvas.dataset.caveLayer = caveLayer;
       canvas.dataset.player = `${player.x.toFixed(2)},${player.z.toFixed(2)}`;
+      canvas.dataset.jetSkiPier=String(nearJetSkiBoarding(player)&&aquatic==="land");
+      canvas.dataset.jetSkiDeckHeight=jetSkiPierHeight(player)?.toFixed(2)??"";
       canvas.dataset.paperInside = String(paperInside);
       canvas.dataset.caveChamber = String(caveInside && caveProgress > 0.58);
       let rawGazeGame: string | null = null;
