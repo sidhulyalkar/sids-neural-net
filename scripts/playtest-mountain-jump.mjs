@@ -30,17 +30,29 @@ try{
  },null,{timeout:30000});
  const canvas=page.locator("canvas");
  assert.equal(await canvas.getAttribute("data-big-air-phase"),"idle");
+ // A free mountain jump must derive from actual skier momentum. Gain speed
+ // through normal input; the downhill lip might auto-launch before Space.
  await canvas.focus();
- await page.keyboard.press("Space");
- await page.waitForFunction(()=>{
-  const d=document.querySelector("canvas")?.dataset;
-  return d?.bigAirPhase==="flying"&&d.bigAirBirdsFollowing==="true";
- },null,{timeout:30000});
+ await page.keyboard.down("w");
+ try{
+   await page.waitForFunction(()=>{
+    const d=document.querySelector("canvas")?.dataset;
+    return d?.bigAirPhase==="flying"||Number(d?.speed)>=6;
+   },null,{timeout:35000});
+   if(await canvas.getAttribute("data-big-air-phase")==="idle")
+    await page.keyboard.press("Space");
+   await page.waitForFunction(()=>{
+    const d=document.querySelector("canvas")?.dataset;
+    return d?.bigAirPhase==="flying"&&d.bigAirBirdsFollowing==="true";
+   },null,{timeout:35000});
+ }finally{await page.keyboard.up("w");}
  const flight=await canvas.evaluate(el=>({
   phase:el.dataset.bigAirPhase,
   distance:Number(el.dataset.bigAirDistance),
   altitude:Number(el.dataset.bigAirAltitude),
   birds:el.dataset.bigAirBirdsFollowing,
+  outward:Number(el.dataset.bigAirOutwardGain),
+  peak:Number(el.dataset.bigAirPeakClearance),
   mode:el.dataset.activity,
  }));
  assert.equal(flight.mode,"ski");
