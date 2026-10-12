@@ -48,7 +48,7 @@ try{
  // Starting another minigame must be unavailable while a ski flight plays.
  // Hidden game-dock controls are deliberately absent from the accessible
  // tree. Include hidden only to assert their disabled/visibility contract.
- const disc=page.getByRole("button",{name:/^Disc golf/,includeHidden:true}).first();
+ const disc=page.locator("button").filter({hasText:/^Disc golf/}).first();
  await page.waitForFunction(()=>
   Array.from(document.querySelectorAll("button")).some(
    button=>button.textContent?.startsWith("Disc golf")&&button.disabled),
