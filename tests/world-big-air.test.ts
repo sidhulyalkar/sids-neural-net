@@ -5,7 +5,7 @@ import { isWater,terrainHeight,distance,ARCADE_CAVE,PAPER_CAVE } from "../lib/wo
 import {
  BIG_AIR,BIG_AIR_BIRDS,advanceBigAir,armBigAir,bigAirBirdCallout,
  bigAirBirdPositions,bigAirClearance,bigAirCrossedLip,bigAirTerrainOffset,
- launchBigAir,idleBigAir,mountainJumpEligible,mountainSkiTakeoff,MOUNTAIN_JUMP_CENTER,type BigAirState,
+ launchBigAir,idleBigAir,mountainJumpEligible,mountainSkiTakeoff,mountainJumpOutwardGain,MOUNTAIN_JUMP_CENTER,type BigAirState,
 } from "../lib/world/bigAir";
 import { createBigAirBirds } from "../components/world/worldBigAirBirds";
 
@@ -162,4 +162,34 @@ test("every genuine free-terrain ski touchdown counts even under five meters",()
   "short slope hops still receive landing scores");
  assert.equal(flight.reason,undefined);
  assert.ok(Number.isFinite(flight.radialDistance));
+});
+
+test("manual mountain takeoff requires actual travel momentum, without phantom standstill flights",()=>{
+ const p={x:8,z:-54};
+ assert.equal(mountainJumpEligible(p,20,0),false);
+ assert.equal(mountainJumpEligible(p,20,2.5),false);
+ assert.equal(mountainJumpEligible(p,20,5.3),true);
+ const slow=launchBigAir(p,20,6,{x:0,z:1},true,0);
+ const fast=launchBigAir(p,20,16,{x:0,z:1},true,0);
+ const downhill=launchBigAir(p,20,16,{x:0,z:1},true,2.1);
+ assert.ok(fast.verticalSpeed>slow.verticalSpeed);
+ assert.ok(downhill.verticalSpeed>fast.verticalSpeed);
+ assert.ok(downhill.verticalSpeed-fast.verticalSpeed<=1.8);
+ assert.equal(slow.takeoffY,20);
+ assert.equal(slow.maxClearance,0);
+});
+
+test("ski clearance and outward progress measure real terrain and ridge-relative movement",()=>{
+ const p={x:8,z:-54};
+ let state=launchBigAir(p,18,15,{x:1,z:0},true,1);
+ const floor=()=>0;
+ for(let i=0;i<20&&state.phase==="flying";i++)
+  state=advanceBigAir(state,.05,floor,()=>false);
+ assert.ok((state.maxClearance??0)>15,"peak terrain clearance is measured");
+ assert.ok(mountainJumpOutwardGain(state)>0);
+ assert.ok(Number.isFinite(state.radialDistance));
+ const inward=launchBigAir({x:27,z:-61},18,15,{x:-1,z:0},true);
+ const later={...inward,point:{x:15,z:-61}};
+ assert.ok(mountainJumpOutwardGain(later)<0);
+ assert.equal(mountainJumpOutwardGain(idleBigAir()),0);
 });
