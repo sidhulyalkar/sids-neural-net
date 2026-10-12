@@ -6,7 +6,8 @@ import {isWater,WORLD_BOUNDS,terrainHeight,regionLanding} from "../lib/world/mod
 import {groundHeight,stepTravel,type Travel} from "../lib/world/activities";
 import {JET_SKI_PIER,jetSkiPierHeight,nearJetSkiBoarding} from "../lib/world/jetSkiPier";
 import {JET_SKI_ARCHES,JET_SKI_ROCKS,jetSkiRockAt,jetSkiSegmentClear} from "../lib/world/jetSkiCourse";
-import {JET_SKI_JUMPS,jetSkiWaterSample} from "../lib/world/jetSkiWater";
+import {JET_SKI_JUMPS,jetSkiWaterSample,jetSkiCrestImpulse} from "../lib/world/jetSkiWater";
+import {jetSkiControlInput} from "../lib/world/jetSkiControls";
 import {JET_SKI_START,JET_SKI_GATES,JET_SKI_PROFILES,jetSkiGateDistance,
  jetSkiNavigableWater,jetSkiBearingToGate,jetSkiOpponentInput,
  jetSkiRaceProgress,jetSkiRacePlace,
@@ -127,6 +128,78 @@ test("authored rock arches align with numbered checkpoints and leave open water"
  for(let i=0;i<nodes.length-1;i++)
   assert.equal(jetSkiSegmentClear(nodes[i],nodes[i+1],1.25),true,
    "baseline course must avoid solid stacks at segment "+i);
+});
+
+
+test("keyboard, arrows and touch use the same predictable steering and boost",()=>{
+ const touch={throttle:0,steer:0,brake:false};
+ assert.deepEqual(jetSkiControlInput(new Set(["shift"]),touch,false,0),
+  {throttle:1,steer:0,brake:false,turbo:true},
+  "Shift alone must accelerate and boost");
+ assert.deepEqual(jetSkiControlInput(new Set(),touch,true,0),
+  {throttle:1,steer:0,brake:false,turbo:true},
+  "Touch BOOST alone must accelerate and boost");
+ assert.deepEqual(jetSkiControlInput(new Set(["arrowleft","w"]),touch,false,4),
+  {throttle:1,steer:-1,brake:false,turbo:false});
+ assert.deepEqual(jetSkiControlInput(new Set(["d","arrowup"]),touch,false,4),
+  {throttle:1,steer:1,brake:false,turbo:false});
+ assert.deepEqual(jetSkiControlInput(new Set(["s","shift","d"]),
+  {throttle:1,steer:0,brake:false},true,7),
+  {throttle:-1,steer:1,brake:true,turbo:false},
+  "Reverse overrides forward/boost when stuck");
+ assert.deepEqual(jetSkiControlInput(new Set(["a","d"]),touch,false,0),
+  {throttle:0,steer:0,brake:false,turbo:false});
+});
+
+test("large exposed swells have taller crests than the sheltered dock",()=>{
+ const highest=(x:number,z:number)=>Math.max(...Array.from({length:120},(_,i)=>
+  Math.abs(jetSkiWaterSample({x,z},i*.1).height)));
+ const south=highest(10,-127),dock=highest(70,12);
+ assert.ok(south>.65,"southern rollers should have visible height: "+south);
+ assert.ok(south>dock*2,"pier water should remain comparatively calm");
+ for(let i=0;i<70;i++){
+  const s=jetSkiWaterSample({x:10,z:-127},i*.1);
+  assert.ok(Math.abs(s.height)<1.5);
+  assert.ok(Math.abs(s.slopeX)<.5&&Math.abs(s.slopeZ)<.5);
+ }
+});
+
+test("turbo exhausts cleanly and rearms only after release plus recharge",()=>{
+ let state=startJetSkiRace();
+ for(let i=0;i<230;i++)
+  state=stepJetSkiRace(state,1/60,{throttle:1,steer:0,turbo:true},()=>true,false);
+ assert.equal(state.boostLocked,true);
+ assert.equal(state.boosting,false);
+ const before=state.turbo;
+ for(let i=0;i<35;i++)
+  state=stepJetSkiRace(state,1/60,{throttle:1,steer:0,turbo:true},()=>true,false);
+ assert.ok(state.turbo>before,"spent energy must recharge without oscillating boost");
+ assert.equal(state.boosting,false,"holding spent boost must not auto-pulse");
+ for(let i=0;i<100;i++)
+  state=stepJetSkiRace(state,1/60,{throttle:0,steer:0,turbo:false},()=>true,false);
+ assert.equal(state.boostLocked,false);
+ state=stepJetSkiRace(state,.05,{throttle:1,steer:0,turbo:true},()=>true,false);
+ assert.equal(state.boosting,true);
+});
+
+test("boosted steep wave faces launch outside authored jump rings",()=>{
+ const location={x:10,z:-127},heading=Math.PI/2;
+ let bestTime=0,bestSlope=-Infinity;
+ for(let i=0;i<300;i++){
+  const t=i*.04,s=jetSkiWaterSample(location,t);
+  if(s.slopeX>bestSlope){bestTime=t;bestSlope=s.slopeX;}
+ }
+ assert.ok(bestSlope>.115,"the large swell must provide a rideable face");
+ const sample=jetSkiWaterSample(location,bestTime);
+ assert.ok(jetSkiCrestImpulse(sample,heading,24,true)>0);
+ assert.equal(jetSkiCrestImpulse(sample,heading,24,false),0);
+ assert.equal(jetSkiCrestImpulse(sample,heading,10,true),0);
+ assert.equal(jetSkiCrestImpulse(jetSkiWaterSample({x:70,z:12},bestTime),
+  heading,24,true),0);
+ let s={...startJetSkiRace(),position:location,heading,speed:24,elapsed:bestTime};
+ s=stepJetSkiRace(s,1/120,{throttle:1,steer:0,turbo:true},()=>true,false);
+ assert.ok(s.jumpHeight>0,"offshore boost must pop over a steep crest");
+ assert.ok(s.jumpCooldown>0);
 });
 
 test("wave and coastal-current sampling is bounded, deterministic and spatial",()=>{
