@@ -4,7 +4,7 @@
  * beyond it, while the east/west legs use the existing coastal water zones. */
 import {coastlineX,eastCoastlineX,WORLD_BOUNDS,type Point} from "./model";
 import {jetSkiRockAt} from "./jetSkiCourse";
-import {jetSkiWaterSample,jetSkiJumpAt} from "./jetSkiWater";
+import {jetSkiWaterSample,jetSkiJumpAt,jetSkiCrestImpulse} from "./jetSkiWater";
 export type JetSkiType="touring"|"sport"|"race";
 export type JetSkiPhase="docked"|"racing"|"finished";
 export type JetSkiInput={throttle:number;steer:number;brake?:boolean;turbo?:boolean};
@@ -12,7 +12,7 @@ export type JetSkiState={
  phase:JetSkiPhase;craft:JetSkiType;position:Point;heading:number;
  speed:number;elapsed:number;checkpoint:number;lap:number;
  penalties:number;shoreContact:boolean;rockContact:boolean;rockHits:number;
- turbo:number;boosting:boolean;jumpHeight:number;jumpVelocity:number;
+ turbo:number;boosting:boolean;boostLocked:boolean;jumpHeight:number;jumpVelocity:number;
  jumpCooldown:number;landingSplash:number;waterHeight:number;
  roll:number;pitch:number;roughness:number;current:Point;
 };
@@ -51,7 +51,7 @@ export function startJetSkiRace(craft:JetSkiType="sport"):JetSkiState{
  return {phase:"racing",craft,position:{...JET_SKI_START},
  heading:0,speed:0,elapsed:0,checkpoint:0,lap:0,
  penalties:0,shoreContact:false,rockContact:false,rockHits:0,
- turbo:100,boosting:false,jumpHeight:0,jumpVelocity:0,
+ turbo:100,boosting:false,boostLocked:false,jumpHeight:0,jumpVelocity:0,
  jumpCooldown:0,landingSplash:0,waterHeight:0,
  roll:0,pitch:0,roughness:0,current:{x:0,z:0}};
 }
@@ -85,9 +85,13 @@ export function stepJetSkiRace(state:JetSkiState,dt:number,
   const throttle=clamp(Number.isFinite(input.throttle)?input.throttle:0,-1,1);
   const steer=clamp(Number.isFinite(input.steer)?input.steer:0,-1,1);
   const waterSample=jetSkiWaterSample(s.position,s.elapsed);
-  const boost=!!input.turbo&&throttle>0&&s.turbo>1;
+  // Once depleted, boost remains locked until the rider releases it and
+  // recovers enough charge. Avoids frame-by-frame microboost stuttering.
+  if(!input.turbo&&s.turbo>=20)s.boostLocked=false;
+  const boost=!!input.turbo&&throttle>0&&!s.boostLocked&&s.turbo>1;
   s.boosting=boost;
   s.turbo=clamp(s.turbo+(boost?-33:14)*h,0,100);
+  if(boost&&s.turbo<=1)s.boostLocked=true;
   s.jumpCooldown=Math.max(0,s.jumpCooldown-h);
   s.landingSplash=Math.max(0,s.landingSplash-h);
   const brake=input.brake?2.8:1;
@@ -130,10 +134,12 @@ export function stepJetSkiRace(state:JetSkiState,dt:number,
   s.roughness=surface.roughness;s.current=surface.current;
   if(s.jumpHeight<=0&&s.jumpCooldown<=0){
    const jump=jetSkiJumpAt(s.position,s.heading,s.speed);
-   if(jump){
+   const impulse=jump?jump.impulse+(boost?1.3:0):
+    jetSkiCrestImpulse(surface,s.heading,s.speed,boost);
+   if(impulse>0){
     s.jumpHeight=.02;
-    s.jumpVelocity=jump.impulse+(boost?1.3:0);
-    s.jumpCooldown=3.2;
+    s.jumpVelocity=impulse;
+    s.jumpCooldown=jump?3.2:2.6;
    }
   }
   if(s.jumpHeight>0){
