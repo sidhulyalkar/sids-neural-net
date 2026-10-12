@@ -380,9 +380,10 @@ export function WorldHome({ content }: { content: WorldContent }) {
   const video = content.videos.find((item) => item.id === panel);
   const caption = MEMORY_POINTS.find((m) => m.id === panel);
   const trident = UNDERWATER_TRIDENTS.find((a) => a.id === panel);
+  // Keep all ordinary world controls behind the active game HUD until the
+  // player explicitly exits even after its result/landing is displayed.
   const worldGameActive=jetActive||discGolf.phase!=="off"||
-    bigAir.phase==="armed"||bigAir.phase==="flying"||
-    trial.phase==="armed"||trial.phase==="running";
+    bigAir.phase!=="idle"||trial.phase!=="idle";
 
   return (
     <div
