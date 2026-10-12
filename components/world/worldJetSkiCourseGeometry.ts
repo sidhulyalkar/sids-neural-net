@@ -1,6 +1,7 @@
 import * as THREE from "three/src/Three.Core.js";
 import {SEA_SURFACE} from "@/lib/world/model";
-import {JET_SKI_ARCHES,JET_SKI_ROCKS,type JetSkiRock} from "@/lib/world/jetSkiCourse";
+import {JET_SKI_ARCHES,JET_SKI_ROCKS} from "@/lib/world/jetSkiCourse";
+import {createSeaArchGeometry,createSeaStackGeometry} from "./worldCoastalRockGeometry";
 import {JET_SKI_JUMPS,jetSkiWaterSample} from "@/lib/world/jetSkiWater";
 
 /** Procedurally sculpted sea stacks and fully open arches. Collision is
@@ -11,41 +12,13 @@ export function createJetSkiCoastGeometry(scene:THREE.Scene){
  root.name="World racing coast arches, sea stacks and volcanic shelves";
  scene.add(root);
  const materials={
-  sandstone:new THREE.MeshStandardMaterial({color:"#ae9171",roughness:1,flatShading:true}),
-  "sea-stack":new THREE.MeshStandardMaterial({color:"#777d77",roughness:1,flatShading:true}),
-  basalt:new THREE.MeshStandardMaterial({color:"#323e41",roughness:.97,flatShading:true}),
+  sandstone:new THREE.MeshStandardMaterial({color:"#ffffff",vertexColors:true,roughness:1,flatShading:true}),
+  "sea-stack":new THREE.MeshStandardMaterial({color:"#ffffff",vertexColors:true,roughness:1,flatShading:true}),
+  basalt:new THREE.MeshStandardMaterial({color:"#ffffff",vertexColors:true,roughness:.97,flatShading:true}),
  } as const;
  const foam=new THREE.MeshBasicMaterial({color:"#c6eff0",transparent:true,opacity:.65,depthWrite:false,side:THREE.DoubleSide});
- function stackGeometry(rock:JetSkiRock){
-  const sides=9,levels=6;
-  const positions:number[]=[];
-  const indices:number[]=[];
-  const seed=rock.point.x*2.17+rock.point.z*.92;
-  for(let j=0;j<levels;j++){
-   const t=j/(levels-1),taper=1-.4*t+.05*Math.sin(t*11+seed);
-   for(let i=0;i<sides;i++){
-    const a=i/sides*Math.PI*2;
-    const jitter=1+.11*Math.sin(seed+i*4.7+j*1.9);
-    const radius=rock.radius*taper*jitter;
-    positions.push(Math.cos(a)*radius,
-     SEA_SURFACE-1.2+rock.height*t,
-     Math.sin(a)*radius);
-   }
-  }
-  for(let j=0;j<levels-1;j++)for(let i=0;i<sides;i++){
-   const a=j*sides+i,b=j*sides+(i+1)%sides;
-   const c=(j+1)*sides+i,d=(j+1)*sides+(i+1)%sides;
-   indices.push(a,b,c,b,d,c);
-  }
-  for(let i=1;i<sides-1;i++)indices.push((levels-1)*sides,
-   (levels-1)*sides+i,(levels-1)*sides+i+1);
-  const geo=new THREE.BufferGeometry();
-  geo.setAttribute("position",new THREE.Float32BufferAttribute(positions,3));
-  geo.setIndex(indices);geo.computeVertexNormals();
-  return geo;
- }
  for(const rock of JET_SKI_ROCKS){
-  const mesh=new THREE.Mesh(stackGeometry(rock),materials[rock.kind]);
+  const mesh=new THREE.Mesh(createSeaStackGeometry(rock),materials[rock.kind]);
   mesh.position.set(rock.point.x,0,rock.point.z);
   mesh.castShadow=true;mesh.receiveShadow=true;
   mesh.name=rock.id;root.add(mesh);
@@ -61,19 +34,13 @@ export function createJetSkiCoastGeometry(scene:THREE.Scene){
   group.position.set(arch.center.x,SEA_SURFACE,arch.center.z);
   group.rotation.y=arch.heading;
   const mat=materials[arch.kind];
-  // Upper half of an eroded ring. Both feet align with physical rock legs.
-  const upper=new THREE.Mesh(new THREE.TorusGeometry(
-   arch.span/2,1.9,7,32,Math.PI),mat);
-  upper.position.y=4.2;
-  upper.castShadow=true;upper.receiveShadow=true;
-  group.add(upper);
-  // Eroded ledges accent the opening, but never span the water below the arch.
-  for(const side of [-1,1]){
-   const shoulder=new THREE.Mesh(new THREE.DodecahedronGeometry(2.3,0),mat);
-   shoulder.position.set(side*arch.span*.44,4.9,0);
-   shoulder.scale.set(1.4,1.5,1.12);
-   shoulder.castShadow=true;group.add(shoulder);
-  }
+  const bridge=new THREE.Mesh(createSeaArchGeometry(arch),mat);
+  bridge.name=arch.id+"-wave-eroded-crown";
+  bridge.castShadow=true;
+  bridge.receiveShadow=true;
+  group.add(bridge);
+  // Both bridge ends physically overlap their collision-authoritative legs.
+  // The center channel has neither a hidden mesh nor an invisible collider.
   root.add(group);
  }
  const jumpMat=new THREE.MeshBasicMaterial({
