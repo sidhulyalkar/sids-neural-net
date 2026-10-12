@@ -13,6 +13,7 @@ on:
       - 'scripts/audit-ski-flight.ts'
       - 'scripts/playtest-world.mjs'
       - 'scripts/playtest-disc-golf.mjs'
+      - 'scripts/playtest-disc-golf-arcade.mjs'
       - 'scripts/playtest-jet-ski.mjs'
       - 'scripts/playtest-ride-ghost.mjs'
       - 'scripts/playtest-mountain-jump.mjs'
@@ -28,6 +29,7 @@ on:
       - 'scripts/audit-ski-flight.ts'
       - 'scripts/playtest-world.mjs'
       - 'scripts/playtest-disc-golf.mjs'
+      - 'scripts/playtest-disc-golf-arcade.mjs'
       - 'scripts/playtest-jet-ski.mjs'
       - 'scripts/playtest-ride-ghost.mjs'
       - 'scripts/playtest-mountain-jump.mjs'
@@ -128,6 +130,7 @@ jobs:
         run: |
           node --check scripts/playtest-world.mjs
           node --check scripts/playtest-disc-golf.mjs
+          node --check scripts/playtest-disc-golf-arcade.mjs
           node --check scripts/playtest-jet-ski.mjs
           node --check scripts/playtest-ride-ghost.mjs
           node --check scripts/playtest-mountain-jump.mjs
