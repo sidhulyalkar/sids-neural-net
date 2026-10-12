@@ -16,8 +16,9 @@ export type JetSkiState={
  jumpCooldown:number;landingSplash:number;waterHeight:number;
  roll:number;pitch:number;roughness:number;current:Point;
 };
-export const JET_SKI_DOCK={x:62.5,z:12} as const;
-export const JET_SKI_START={x:68,z:12} as const;
+// Keep craft beyond the pier end: the old start position intersected its deck.
+export const JET_SKI_DOCK={x:70.8,z:14} as const;
+export const JET_SKI_START={x:72,z:14} as const;
 export const JET_SKI_PROFILES={
  touring:{acceleration:14,maxSpeed:17,turnRate:2.15,drag:.92},
  sport:{acceleration:19,maxSpeed:23,turnRate:1.85,drag:.84},
