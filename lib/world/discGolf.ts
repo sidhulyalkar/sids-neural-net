@@ -1,11 +1,10 @@
 import type { Point } from "./model";
-import {stepDiscGolfAero,DISC_GOLF_NOSE_MAX_DEGREES,
+import {DISC_GOLF_NOSE_MAX_DEGREES,
  DISC_GOLF_SPIN_MIN_RPM,DISC_GOLF_SPIN_MAX_RPM,
  type DiscGolfFlightStyle,type DiscGolfReleaseStyle,type AeroTelemetry,
 } from "./discGolfAerodynamics";
 export type {DiscGolfFlightStyle,DiscGolfReleaseStyle} from "./discGolfAerodynamics";
-import {stepRigidDisc,initializeRigidDisc,discRigidAngles,
- type RigidDisc} from "./discGolfRigidBody";
+import type {RigidDisc} from "./discGolfRigidBody";
 import {discImpact,stepGroundSlide,type GroundDiscContact} from "./discGolfGroundContact";
 
 /** Independent, deterministic arcade disc-golf simulation.
@@ -67,7 +66,7 @@ export const DISC_GOLF_HOLES:readonly DiscGolfHole[]=[
   ],target:{x:-24,z:-15}},
 ];
 // Do not attach v1.6 scorecards to the longer v1.7 course and par system.
-export const DISC_GOLF_VERSION="disc-golf-v1.10";
+export const DISC_GOLF_VERSION="disc-golf-v1.11-arcade-flight";
 
 /** Capsule helpers shared by the seeded environment and course QA. */
 function inCorridor(p:Point,from:Point,to:Point,radius:number){
@@ -233,11 +232,8 @@ export function discGolfThrow(state:DiscGolfState,shot:DiscShot,ground:DiscTerra
   spinRpm:clamp(shot.spinRpm??650,DISC_GOLF_SPIN_MIN_RPM,DISC_GOLF_SPIN_MAX_RPM),
   discStyle:shot.discStyle??"midrange",
   releaseStyle:shot.releaseStyle??"backhand",
-  rigid:initializeRigidDisc(aim,
-    loft*180/Math.PI+clamp(shot.noseAngle??0,-DISC_GOLF_NOSE_MAX_DEGREES,DISC_GOLF_NOSE_MAX_DEGREES),
-    clamp(shot.bankAngle??0,-DISC_GOLF_MAX_BANK,DISC_GOLF_MAX_BANK),
-    clamp(shot.spinRpm??650,DISC_GOLF_SPIN_MIN_RPM,DISC_GOLF_SPIN_MAX_RPM),
-    shot.releaseStyle??"backhand",shot.discStyle??"midrange"),
+  // Legacy rigid-body state must never leak into the playable arcade flight.
+  rigid:undefined,
   spinPhase:0,aero:undefined,contact:undefined,resultAt:undefined};
 }
 /** Cylindrical trunk intersection swept from previous to next disc center.
@@ -288,24 +284,33 @@ export function stepDiscGolf(state:DiscGolfState,dt:number,
    }
    continue;
   }
-  // Six-DOF translational/rotational rigid-body integration. The same
-  // integrator advances live shots, trajectory previews and power search.
-  if(s.rigid){
-   const evolved=stepRigidDisc({
-     velocity:s.velocity,rigid:s.rigid,spinRpm:s.spinRpm,
-     discStyle:s.discStyle,releaseStyle:s.releaseStyle,
-   },discGolfWindAt(s.lockedWind,s.disc,s.flightTime),d);
-   s.velocity=evolved.state.velocity;
-   s.rigid=evolved.state.rigid;
-   const heading=Math.atan2(s.velocity.x,s.velocity.z);
-   const angles=discRigidAngles(s.rigid,heading);
-   s.rollDegrees=angles.rollDegrees;
-   s.pitchDegrees=angles.pitchDegrees;
-   const sense=s.releaseStyle==="forehand"?-1:1;
-   s.spinPhase+=sense*.5*(s.spinRpm+evolved.state.spinRpm)*Math.PI/30*d;
-   s.spinRpm=evolved.state.spinRpm;
-   s.aero=evolved.telemetry;
+  // Restore the Oct 10 arcade flight path: a legible, stable glide with
+  // small wind drift and bank-controlled left/right curves. The rigid-disc
+  // simulator remains available as a separate research model, but is not
+  // suitable as the default input-to-reward model for this minigame.
+  //
+  // Use ONE integrator for release, prediction and recommended power so the
+  // HUD cannot promise a throw that the live simulation will not deliver.
+  const horizontal=Math.hypot(s.velocity.x,s.velocity.z);
+  const drag=.020;
+  s.velocity.x+=(s.lockedWind.x-s.velocity.x)*drag*d;
+  s.velocity.z+=(s.lockedWind.z-s.velocity.z)*drag*d;
+  if(Math.abs(s.bankAngle)>1e-6 && horizontal>.1){
+   const ramp=clamp(s.flightTime/.42,0,1);
+   const lateral=(s.bankAngle/DISC_GOLF_MAX_BANK)*
+    (1.0+2.4*Math.min(1,horizontal/25))*ramp;
+   const oldX=s.velocity.x,oldZ=s.velocity.z;
+   // Turn into the bank without injecting forward speed.
+   s.velocity.x+=(oldZ/horizontal)*lateral*d;
+   s.velocity.z-=(oldX/horizontal)*lateral*d;
   }
+  s.velocity.y+=(-10.8+Math.min(2.3,horizontal*.045))*d;
+  const spinSign=s.releaseStyle==="forehand"?-1:1;
+  s.spinPhase+=spinSign*s.spinRpm*Math.PI/30*d;
+  s.spinRpm=Math.max(0,s.spinRpm*Math.exp(-.12*d));
+  s.rollDegrees=s.bankAngle;
+  s.pitchDegrees=clamp(s.pitchDegrees,-15,50);
+  s.aero=undefined;
   const horizontal=Math.hypot(s.velocity.x,s.velocity.z);
   const next={x:old.x+s.velocity.x*d,y:old.y+s.velocity.y*d,
    z:old.z+s.velocity.z*d};
