@@ -10,7 +10,7 @@ export const RIDE_BOOST_DURATION=2.4;
 export const RIDE_BOOST_COOLDOWN=9;
 export const RIDE_BOOST_RANGE=32;
 export const RIDE_BOOST_TARGETS:readonly RideBoostTarget[]=[
- ...[.13,.38,.69,.9].map((fraction,i)=>({
+ ...[.06,.38,.69,.9].map((fraction,i)=>({
    id:"joshua-"+i,activity:"bike" as const,
    point:desertTrackSampleAt(DESERT_TRACK_LENGTH*fraction),
  })),
