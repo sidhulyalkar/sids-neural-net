@@ -59,7 +59,9 @@ export function createBigAirBirds(scene:THREE.Scene){
    }
    for(const mesh of [bodies,wings,tails])mesh.instanceMatrix.needsUpdate=true;
  };
- return {update,drawCalls:3,count:BIG_AIR_BIRDS.length,dispose(){
+ return {update,drawCalls:3,count:BIG_AIR_BIRDS.length,
+  get active(){return bodies.visible&&wings.visible&&tails.visible;},
+  dispose(){
    for(const mesh of [bodies,wings,tails]){
      scene.remove(mesh);mesh.dispose();
    }
