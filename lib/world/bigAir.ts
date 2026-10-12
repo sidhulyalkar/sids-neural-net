@@ -3,7 +3,7 @@ import type { Point } from "./model";
 /** Survey-led ridge-to-valley ski flight. No model imports: terrain may use
  * the sculpted takeoff without creating a circular module dependency. */
 export const BIG_AIR = {
-  id:"alpine-big-air",version:"ridge-flight-v1",
+  id:"alpine-big-air",version:"mountain-open-flight-v2",
   lip:{x:-2,z:-49},start:{x:-2,z:-65},heading:{x:0,z:1},
   halfWidth:1.45,minSpeed:8.5,gravity:14,
   maxFlightSeconds:8,runout:{minZ:-13,maxZ:5,halfWidth:4.3},
