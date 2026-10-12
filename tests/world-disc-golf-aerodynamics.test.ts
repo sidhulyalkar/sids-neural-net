@@ -58,7 +58,7 @@ test("turn reverses into fade as attack angle passes the moment trim",()=>{
   {x:0,z:0},.0125);
  assert.ok(forehand.telemetry.precessionDegreesPerSecond<0);
 });
-test("release nose and disc profile alter lift, spin flick and winding hand are stored",()=>{
+test("release nose and disc profile tune arcade glide; spin flick and winding hand persist",()=>{
  const a=startDiscGolf(0,flat);
  const shot={power:80,accuracy:0,loft:25,aimOffset:0,
   spinRpm:950,noseAngle:8,discStyle:"driver" as const,
@@ -71,7 +71,8 @@ test("release nose and disc profile alter lift, spin flick and winding hand are 
  const stepped=stepDiscGolf(released,.05,flat,water,-1.4);
  assert.ok(stepped.spinPhase<0,"forehand spins the rendered disc opposite to backhand");
  assert.ok(stepped.spinRpm<released.spinRpm);
- assert.ok(stepped.aero&&Number.isFinite(stepped.aero.angleOfAttackDegrees));
+ assert.equal(stepped.aero,undefined,
+  "Play uses the stable arcade flight, not rigid aerodynamic telemetry");
  const flatNose=traceDiscGolfShot(a,{...shot,noseAngle:0},flat,water,-1.4);
  const highNose=traceDiscGolfShot(a,shot,flat,water,-1.4);
  assert.ok(Math.hypot(flatNose.end.x-highNose.end.x,flatNose.end.z-highNose.end.z)>1,
