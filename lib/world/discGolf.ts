@@ -311,7 +311,7 @@ export function stepDiscGolf(state:DiscGolfState,dt:number,
   s.rollDegrees=s.bankAngle;
   s.pitchDegrees=clamp(s.pitchDegrees,-15,50);
   s.aero=undefined;
-  const horizontal=Math.hypot(s.velocity.x,s.velocity.z);
+  // Keep launch-horizontal speed for the generous basket catch.
   const next={x:old.x+s.velocity.x*d,y:old.y+s.velocity.y*d,
    z:old.z+s.velocity.z*d};
   const p={x:next.x,z:next.z};
