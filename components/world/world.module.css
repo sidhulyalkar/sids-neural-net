@@ -1270,3 +1270,15 @@
   .jetSkiHud {bottom: calc(126px + env(safe-area-inset-bottom, 0px));}
   .world .jetSkiTouchButton { min-height: 41px; }
 }
+
+/* The boost control communicates its actual physics state without changing
+   the tested mobile button grid or stealing space from the racing camera. */
+.world .jetSkiTouchButton[data-boost-state="active"] {
+  background: rgba(132, 93, 32, .96);
+  border-color: #ffe49b;
+  box-shadow: inset 0 0 0 1px rgba(255,228,155,.55);
+}
+.world .jetSkiTouchButton[data-boost-state="charging"] {
+  border-color: rgba(175,196,207,.42);
+  color: #c8d4d6;
+}
