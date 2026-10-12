@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { drainagePoints, downstreamPoints, waterfallProfile, waterfallCrownRings } from "../lib/world/hydrology";
-import { caveObstacles, constrainMove, mountainSurfaceHeight, paperCaveFloorHeight, paperCaveHalfWidth, paperCaveInside, terrainHeight, worldFloorHeight, SEA_SURFACE } from "../lib/world/model";
+import { caveObstacles, constrainMove, mountainSurfaceHeight, paperCaveFloorHeight, paperCaveHalfWidth, paperCaveInside, shastaWaitsAtArcadeEntrance, nearestRegion, terrainHeight, worldFloorHeight, SEA_SURFACE } from "../lib/world/model";
 
 test("snowmelt, lip, pool and creek share a continuous downhill profile above terrain", () => {
   const upper = drainagePoints(), lower = downstreamPoints(), profile = waterfallProfile();
@@ -75,4 +75,17 @@ test("melt basin clears the slope and stream has continuous rock support above t
     assert.equal(crown[i][6].y, terrainHeight(crown[i][6].x, crown[i][6].z));
     assert.ok(crown[i][3].y > waterfallProfile().floorY + 5);
   }
+});
+
+test("Shasta's cave-entrance waiting follows carved chamber, not nearest alpine region",()=>{
+ const chamber={x:15.19,z:-66.67};
+ assert.equal(nearestRegion(chamber),"alpine",
+  "the arcade chamber is geographically beneath the alpine region");
+ assert.equal(shastaWaitsAtArcadeEntrance(chamber,"arcade","land"),true);
+ assert.equal(shastaWaitsAtArcadeEntrance({x:18.1,z:-67.2},"arcade","land"),true);
+ assert.equal(shastaWaitsAtArcadeEntrance({x:16,z:-78.5},"arcade","land"),false,
+  "wait for the explorer to proceed deeper into the chamber");
+ assert.equal(shastaWaitsAtArcadeEntrance(chamber,"surface","land"),false);
+ assert.equal(shastaWaitsAtArcadeEntrance(chamber,"arcade","surface"),false);
+ assert.equal(shastaWaitsAtArcadeEntrance({x:40,z:-66.67},"arcade","land"),false);
 });
