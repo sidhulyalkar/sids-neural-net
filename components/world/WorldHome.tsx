@@ -607,7 +607,7 @@ export function WorldHome({ content }: { content: WorldContent }) {
               )}
             </div>
           )}
-          <p className={styles.controls} style={{display:discGolf.phase==="off"?undefined:"none"}}>
+          <p className={styles.controls} style={{display:discGolf.phase==="off"&&!jetActive?undefined:"none"}}>
             {aquatic === "land" ? (
               <>WASD / arrows to move <span>·</span> Drag to look <span>·</span>{" "}
                 Space to {activityConfig(activity).action.toLowerCase()} <span>·</span> M for menu</>
@@ -617,7 +617,7 @@ export function WorldHome({ content }: { content: WorldContent }) {
               <>WASD / arrows to swim <span>·</span> Q / E for depth <span>·</span> V to surface <span>·</span> M for menu</>
             )}
           </p>
-          <div className={styles.touchHelp} style={{display:discGolf.phase==="off"?undefined:"none"}}>
+          <div className={styles.touchHelp} style={{display:discGolf.phase==="off"&&!jetActive?undefined:"none"}}>
             {aquatic === "land" ? "Tap ground to move · Drag to look" : "Tap water to swim · Drag to look"}
           </div>
         </>
