@@ -3291,7 +3291,11 @@ export function createWorld(
           // No springy auto-hop on touchdown. Natural ground contact resumes
           // after the challenge has settled, without a second ramp trigger.
           airHeight=verticalSpeed=0;
-          playerY=supportHeight(player);
+          if(isWater(player)&&jetSkiPierHeight(player)===null){
+            swimDepth=targetDepth=0;
+            setAquaticMode("surface");
+            playerY=SEA_SURFACE-.42;
+          }else playerY=supportHeight(player);
           travel={...travel,speed:0};
           lastRampAt=elapsed;
           callbacks.onBigAir(bigAir);
