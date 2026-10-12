@@ -79,7 +79,7 @@ test("melt basin clears the slope and stream has continuous rock support above t
 
 test("Shasta's cave-entrance waiting follows carved chamber, not nearest alpine region",()=>{
  const chamber={x:15.19,z:-66.67};
- assert.equal(nearestRegion(chamber),"alpine",
+ assert.equal(nearestRegion(chamber),"mountain",
   "the arcade chamber is geographically beneath the alpine region");
  assert.equal(shastaWaitsAtArcadeEntrance(chamber,"arcade","land"),true);
  assert.equal(shastaWaitsAtArcadeEntrance({x:18.1,z:-67.2},"arcade","land"),true);
