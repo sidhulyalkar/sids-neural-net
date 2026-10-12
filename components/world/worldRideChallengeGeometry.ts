@@ -44,8 +44,10 @@ export function createRideChallengeGeometry(scene:THREE.Scene){
  const frameGeo=new THREE.BoxGeometry(.18,.19,1.6);
  const torsoGeo=new THREE.CapsuleGeometry(.22,.44,3,6);
  const headGeo=new THREE.SphereGeometry(.22,8,6);
- const ghostMaterials=JOSHUA_GHOSTS.map((ghost,i)=>
-  new THREE.MeshBasicMaterial({color:i===0?"#f0ae73":"#9dc8ec",
+ // Warm gold for Lucas, cool blue for Ness, with the existing translucent
+ // silhouette and no imported character imagery or textures.
+ const ghostMaterials=JOSHUA_GHOSTS.map(ghost=>
+  new THREE.MeshBasicMaterial({color:ghost.id==="lucas"?"#edb85d":"#6ca8ec",
    transparent:true,opacity:.55,depthWrite:false}));
  const ghosts=JOSHUA_GHOSTS.map((ghost,i)=>{
   const group=new THREE.Group();group.name="ghost-"+ghost.id;
