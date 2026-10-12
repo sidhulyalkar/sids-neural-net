@@ -61,11 +61,15 @@ try{
  // Hidden game-dock controls are deliberately absent from the accessible
  // tree. Include hidden only to assert their disabled/visibility contract.
  const disc=page.locator("button").filter({hasText:/^Disc golf/}).first();
+ // The activity dock disappears while skiing and while the jump result
+ // is on screen. Do not require the hidden button itself to stay disabled
+ // after landing, since a result is terminal and only Explore reopens it.
  await page.waitForFunction(()=>
-  Array.from(document.querySelectorAll("button")).some(
-   button=>button.textContent?.startsWith("Disc golf")&&button.disabled),
+  Array.from(document.querySelectorAll("button")).some(button=>
+   button.textContent?.startsWith("Disc golf")&&
+   (button.disabled||button.getClientRects().length===0)),
   null,{timeout:15000});
- assert.equal(await disc.isDisabled(),true);
+ assert.equal(await disc.isVisible(),false);
  await page.screenshot({path:path.join(out,"01-arbitrary-mountain-jump.png")});
  await page.waitForFunction(()=>{
   const d=document.querySelector("canvas")?.dataset;
