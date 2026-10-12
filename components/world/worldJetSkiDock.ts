@@ -53,7 +53,9 @@ export function createJetSkiDock(scene:THREE.Scene){
  const skis:THREE.Group[]=[];
  hullColors.forEach((color,i)=>{
   const ski=new THREE.Group();root.add(ski);
-  ski.position.set(67+i*1.9,SEA_SURFACE+.17,JET_SKI_DOCK.z-2.4+i*2.25);
+  // Moor all three hulls outside the end of the pier, visibly on open water.
+  ski.position.set(JET_SKI_DOCK.x+i*1.9,SEA_SURFACE+.17,
+    JET_SKI_DOCK.z-3.4+i*2.1);
   const hull=new THREE.Mesh(new THREE.CapsuleGeometry(.48,1.55,4,8),
    new THREE.MeshStandardMaterial({color,metalness:.18,roughness:.38}));
   hull.rotation.x=Math.PI/2;ski.add(hull);
