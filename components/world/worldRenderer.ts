@@ -503,6 +503,16 @@ export function createWorld(
   water.rotation.x = -Math.PI / 2;
   water.castShadow = false;
   const oceanPositions=water.geometry.attributes.position;
+  // This plane never translates in X/Z. Cache its water/land mask once and
+  // reuse one point object for wave sampling: the denser surface must not
+  // allocate thousands of transient objects or recheck coastlines each tick.
+  const oceanWet=new Uint8Array(oceanPositions.count);
+  const oceanPoint={x:0,z:0};
+  for(let i=0;i<oceanPositions.count;i++){
+    oceanPoint.x=water.position.x+oceanPositions.getX(i);
+    oceanPoint.z=water.position.z-oceanPositions.getY(i);
+    oceanWet[i]=jetSkiNavigableWater(oceanPoint)||isWater(oceanPoint)?1:0;
+  }
   let oceanWaveLast=-Infinity,oceanWaveActive=false;
   function updateRaceOceanWaves(time:number,racing:boolean){
     if(racing&&time-oceanWaveLast<.065)return;
@@ -511,11 +521,10 @@ export function createWorld(
     // Ocean PlaneGeometry is rotated -90deg about X; local +Z is world Y.
     // Race visuals sample the same world-space field as the watercraft hull.
     for(let i=0;i<oceanPositions.count;i++){
-      const x=water.position.x+oceanPositions.getX(i);
-      const z=water.position.z-oceanPositions.getY(i);
-      const wet=jetSkiNavigableWater({x,z})||isWater({x,z});
-      oceanPositions.setZ(i,racing&&wet?
-        jetSkiWaterSample({x,z},time).height:0);
+      oceanPoint.x=water.position.x+oceanPositions.getX(i);
+      oceanPoint.z=water.position.z-oceanPositions.getY(i);
+      oceanPositions.setZ(i,racing&&oceanWet[i]?
+        jetSkiWaterSample(oceanPoint,time).height:0);
     }
     oceanPositions.needsUpdate=true;
     water.geometry.computeVertexNormals();
