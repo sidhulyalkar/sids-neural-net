@@ -23,6 +23,7 @@ import { ACTIVITIES, activityConfig, type Activity, type AquaticMode } from "@/l
 import { COASTAL_FLORA, MARINE_LIFE } from "@/lib/world/ecology";
 import { UNDERWATER_TRIDENTS } from "@/lib/world/artifacts";
 import { JOSHUA_TRIAL, JOSHUA_GATES, type TrialState } from "@/lib/world/trials";
+import { JOSHUA_GHOSTS } from "@/lib/world/joshuaGhostRace";
 import { WorldDiscGolfHUD } from "./WorldDiscGolfHUD";
 import { idleDiscGolf,type DiscShot,type DiscGolfState,type DiscGolfSwingStage } from "@/lib/world/discGolf";
 import {emptyDiscGolfRound,loadDiscGolfRound,persistDiscGolfRound,recordDiscGolfHole,nextUnplayedDiscGolfHole,discGolfRoundSummary} from "@/lib/world/discGolfRound";
@@ -517,7 +518,7 @@ export function WorldHome({ content }: { content: WorldContent }) {
                 trial.phase!=="running" && (
                 <button className={styles.trialLaunch} disabled={!ready||quiet}
                   onClick={()=>setChallengeSerial(n=>n+1)}>
-                  Joshua circuit · race ghosts
+                  Joshua circuit · race Lucas & Ness
                 </button>
               )}
             </div>
@@ -544,7 +545,7 @@ export function WorldHome({ content }: { content: WorldContent }) {
               aria-live={trial.phase==="complete"||trial.phase==="invalidated"?"polite":"off"}>
               <span className={styles.eyebrow}>JOSHUA · GHOST RACE</span>
               <strong>{(trial.elapsedMs/1000).toFixed(1)} s</strong>
-              <small>Position {trial.ghostPlace??1}/3 · 2 transparent pace ghosts</small>
+              <small>Position {trial.ghostPlace??1}/3 · vs {JOSHUA_GHOSTS.map(ghost=>ghost.name).join(" + ")}</small>
               <p>{trial.phase==="armed"?"Cross the starting line":
                 trial.phase==="running" ?
                   `Gate ${Math.min(trial.nextGate,JOSHUA_GATES.length)} / ${JOSHUA_GATES.length}`:
