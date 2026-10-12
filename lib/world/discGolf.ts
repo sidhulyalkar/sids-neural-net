@@ -5,7 +5,7 @@ import {DISC_GOLF_NOSE_MAX_DEGREES,
 } from "./discGolfAerodynamics";
 export type {DiscGolfFlightStyle,DiscGolfReleaseStyle} from "./discGolfAerodynamics";
 import type {RigidDisc} from "./discGolfRigidBody";
-import {discImpact,stepGroundSlide,type GroundDiscContact} from "./discGolfGroundContact";
+import type {GroundDiscContact} from "./discGolfGroundContact";
 
 /** Independent, deterministic arcade disc-golf simulation.
  * No model imports: the world supplies terrain, water and simulation time.
@@ -265,25 +265,6 @@ export function stepDiscGolf(state:DiscGolfState,dt:number,
  while(left>1e-7&&s.phase==="flying"){
   const d=Math.min(.0125,left);left-=d;s.clock+=d;s.flightTime+=d;
   const old={...s.disc};
-  if(s.contact?.mode==="slide"||s.contact?.mode==="roll"){
-   const update=stepGroundSlide(old,s.velocity,s.contact,d,ground);
-   const p={x:update.position.x,z:update.position.z};
-   if(isWater(p)){
-    s.phase="water";s.strokes=Math.max(0,s.strokes-1);s.waterRedos++;
-    s.gatesCleared=state.gatesCleared;
-    s.disc={...state.lie,y:ground(state.lie)+.18};
-    s.reason="Disc slid into water: free redo";s.resultAt=s.clock;
-    break;
-   }
-   s.disc=update.position;s.velocity=update.velocity;s.contact=update.contact;
-   if(update.settled){
-    s.phase="landed";s.lie=p;s.lastDistance=
-      Math.hypot(p.x-state.lie.x,p.z-state.lie.z);
-    s.reason="Disc settled after ground contact";
-    s.resultAt=s.clock;break;
-   }
-   continue;
-  }
   // Restore the Oct 10 arcade flight path: a legible, stable glide with
   // small wind drift and bank-controlled left/right curves. The rigid-disc
   // simulator remains available as a separate research model, but is not
@@ -374,19 +355,21 @@ export function stepDiscGolf(state:DiscGolfState,dt:number,
    s.resultAt=s.clock;
    break;
   }
-  // The island's analytic hillside height is not the sea surface.
-  // Never turn open water into a valid lie just because terrainHeight is high.
-  if(!isWater(p) && next.y<=ground(p)+.16 && s.flightTime>.12){
-   // Distinguish shallow rim skips from steep landings and dry skids.
-   // Nothing is awarded until the disc actually comes to rest.
-   const impact=discImpact(s.velocity,p,ground,s.rigid??null,
-     s.contact?.impacts??0);
-   s.disc=impact.position;s.velocity=impact.velocity;s.contact=impact.contact;
-   if(impact.settled){
-    s.phase="landed";s.lie={x:p.x,z:p.z};
-    s.lastDistance=Math.hypot(p.x-state.lie.x,p.z-state.lie.z);
-    s.reason="Disc settled at the lie";s.resultAt=s.clock;
-   }
+  // Immediate, reliable arcade landing. A tiny rim skip or long rolling
+  // simulation kept the player locked out of the next throw, even when the
+  // disc visibly touched the ground. Restore the original Oct 10 handoff.
+  // The ground model still exists for research/tests but not default play.
+  if(!isWater(p)&&next.y<=ground(p)+.16&&s.flightTime>.12){
+   s.phase="landed";
+   s.disc={x:p.x,y:ground(p)+.16,z:p.z};
+   s.lie={x:p.x,z:p.z};
+   s.contact=undefined;
+   s.velocity={x:0,y:0,z:0};
+   s.lastDistance=Math.hypot(p.x-state.lie.x,p.z-state.lie.z);
+   const near=Math.hypot(p.x-basket.x,p.z-basket.z);
+   s.reason=near<4?"Short putt: tap Space for suggested power.":
+     "Disc landed. Shoot from the light marker.";
+   s.resultAt=s.clock;
    break;
   }
   if(s.flightTime>=10 || Math.abs(p.x)>93 || Math.abs(p.z)>95 || p.z>57){
