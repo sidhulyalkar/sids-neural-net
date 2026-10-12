@@ -20,6 +20,13 @@ export function createRideChallengeGeometry(scene:THREE.Scene){
  const ringGeo=new THREE.TorusGeometry(.94,.14,7,24);
  const coreGeo=new THREE.SphereGeometry(.5,10,8);
  const haloGeo=new THREE.TorusGeometry(1.24,.027,4,24);
+ const tracerGeo=new THREE.BufferGeometry();
+ tracerGeo.setAttribute("position",new THREE.BufferAttribute(new Float32Array(6),3));
+ const tracerMat=new THREE.LineBasicMaterial({color:"#f5efad",transparent:true,
+  opacity:.95,depthWrite:false,depthTest:false});
+ const tracer=new THREE.Line(tracerGeo,tracerMat);
+ tracer.visible=false;tracer.renderOrder=80;root.add(tracer);
+ let shotUntil=0;
  const targets=RIDE_BOOST_TARGETS.map(target=>{
   const group=new THREE.Group();group.name="skill-shot-"+target.id;
   group.position.set(target.point.x,groundHeight(target.point)+2.9,target.point.z);
@@ -55,6 +62,14 @@ export function createRideChallengeGeometry(scene:THREE.Scene){
  });
  return {
   targets:targets.map(t=>t.core),
+  fireTracer(from:THREE.Vector3,to:THREE.Vector3,now:number){
+    const positions=tracerGeo.attributes.position as THREE.BufferAttribute;
+    positions.setXYZ(0,from.x,from.y,from.z);
+    positions.setXYZ(1,to.x,to.y,to.z);
+    positions.needsUpdate=true;
+    tracer.visible=true;shotUntil=now+.17;
+  },
+  updateTracer(now:number){tracer.visible=now<shotUntil;},
   targetFromHit(object:THREE.Object3D):RideBoostTarget|null{
    const id=object.userData.boostTargetId;
    return RIDE_BOOST_TARGETS.find(t=>t.id===id)??null;
@@ -87,7 +102,7 @@ export function createRideChallengeGeometry(scene:THREE.Scene){
    root.traverse(o=>{if(o instanceof THREE.Mesh)o.geometry.dispose();});
    // Target geometry is shared; double-disposing a Three geometry is safe but
    // use a single disposal path for each shared resource.
-   [targetMat,targetInactive,coreMat,...ghostMaterials].forEach(m=>m.dispose());
+   [targetMat,targetInactive,coreMat,tracerMat,...ghostMaterials].forEach(m=>m.dispose());
    scene.remove(root);
   }
  };
