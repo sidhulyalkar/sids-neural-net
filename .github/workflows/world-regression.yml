@@ -72,6 +72,8 @@ jobs:
           lib/world/jetSkiCourse.ts
           lib/world/jetSkiWater.ts
           components/world/worldJetSkiCourseGeometry.ts
+          components/world/worldCoastalRockGeometry.ts
+          tests/world-coastal-geology.test.ts
           components/world/worldJetSkiDock.ts
           tests/world-jet-ski-race.test.ts
           lib/world/discGolfPowerRail.ts
