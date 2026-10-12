@@ -1100,3 +1100,104 @@
   .welcome { top: 105px; bottom: 62px; }
   .welcome h1 { font-size: 40px; }
 }
+
+/* Jet-ski selection is a compact deck-mounted game chooser, not a giant
+   opaque form. The player and craft remain visible behind the glass. */
+.jetSkiChooser {
+  position: absolute;
+  z-index: 25;
+  left: 50%;
+  bottom: clamp(86px, 11vh, 128px);
+  transform: translateX(-50%);
+  width: min(548px, calc(100vw - 28px));
+  max-height: min(76svh, 560px);
+  overflow-y: auto;
+  padding: clamp(14px, 2.5vw, 22px);
+  color: #f4faf8;
+  border: 1px solid rgba(211, 240, 232, .25);
+  border-radius: 19px;
+  background: linear-gradient(145deg, rgba(13, 33, 39, .92), rgba(19, 45, 49, .88));
+  box-shadow: 0 22px 76px rgba(6, 25, 27, .46), inset 0 1px rgba(255,255,255,.07);
+  backdrop-filter: blur(20px) saturate(115%);
+  -webkit-backdrop-filter: blur(20px) saturate(115%);
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
+  text-align: left;
+}
+.jetSkiChooser[hidden] { display: none !important; }
+.jetSkiChooserTitle {
+  font-size: clamp(18px, 2.6vw, 23px);
+  line-height: 1.15;
+  letter-spacing: -.035em;
+  font-weight: 650;
+  margin: 0 0 7px;
+}
+.jetSkiChooserHint {
+  font-size: 12px;
+  line-height: 1.5;
+  margin: 0 0 15px;
+  color: rgba(230, 247, 240, .7);
+}
+.jetSkiChoiceGrid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 9px; }
+.world .jetSkiChoice {
+  position: relative;
+  min-height: 87px;
+  padding: 14px 13px 13px 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 5px;
+  color: #eff9f5;
+  text-align: left;
+  border-radius: 11px;
+  border: 1px solid rgba(200,231,227,.16);
+  background: rgba(255,255,255,.055);
+  transition: border-color .18s ease, background .18s ease, transform .18s ease;
+}
+.jetSkiChoice::before {
+  position: absolute;
+  content: "";
+  top: 14px;
+  bottom: 14px;
+  left: 0;
+  width: 3px;
+  background: #9dd5bb;
+  border-radius: 5px;
+}
+.jetSkiChoice[data-kind="sport"]::before { background: #f29b65; }
+.jetSkiChoice[data-kind="race"]::before { background: #75c4d3; }
+.jetSkiChoice[data-kind="free"]::before { background: #d8c9a6; }
+.jetSkiChoice strong {font-size: 14px; font-weight: 660; letter-spacing: -.01em; }
+.jetSkiChoice small {font-size: 11px; color: rgba(230,247,240,.68); line-height: 1.35; }
+.world .jetSkiChoice:hover, .world .jetSkiChoice:focus-visible {
+  background: rgba(155, 219, 212, .13);
+  border-color: rgba(170,235,222,.62);
+  transform: translateY(-1px);
+}
+.world .jetSkiChooserCancel {
+  display: block;
+  margin-top: 12px;
+  padding: 10px;
+  width: 100%;
+  border: 0;
+  color: rgba(236,249,244,.72);
+  background: transparent;
+  text-align: center;
+  border-radius: 9px;
+  font-size: 12px;
+}
+.world .jetSkiChooserCancel:hover, .world .jetSkiChooserCancel:focus-visible {
+  color: #fff;
+  background: rgba(255,255,255,.08);
+}
+@media(max-width: 450px) {
+  .jetSkiChooser { bottom: 80px; max-height: 72svh; }
+  .jetSkiChoiceGrid { gap: 7px; }
+  .world .jetSkiChoice { min-height: 92px; padding: 12px 9px 12px 13px; }
+  .jetSkiChoice strong { font-size: 13px; }
+  .jetSkiChoice small { font-size: 10px; }
+}
+@media(prefers-reduced-motion: reduce) {
+  .world .jetSkiChoice { transition: none; }
+  .world .jetSkiChoice:hover { transform: none; }
+}
