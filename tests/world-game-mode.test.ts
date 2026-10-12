@@ -20,5 +20,5 @@ test("free exploration may start any minigame and overlapping modes are rejected
   assert.equal(canStartWorldGame(mode,none),true);
  const conflict:WorldGameActivity={jet:true,ski:false,disc:true,trial:false};
  for(const mode of ["jet","ski","disc","trial"] as const)
-  assert.equal(canStartWorldGame(mode,conflict),false===["jet","disc"].includes(mode)?false:true);
+  assert.equal(canStartWorldGame(mode,conflict),false);
 });
