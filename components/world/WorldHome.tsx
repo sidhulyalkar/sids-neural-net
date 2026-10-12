@@ -170,7 +170,7 @@ export function WorldHome({ content }: { content: WorldContent }) {
       const raw=window.localStorage.getItem("sid-world:big-air:"+BIG_AIR.version);
       const value=raw?JSON.parse(raw) as {distance?:number}:null;
       return value&&typeof value.distance==="number"&&Number.isFinite(value.distance)&&
-        value.distance>=28&&value.distance<115?value.distance:null;
+        value.distance>=0&&value.distance<300?value.distance:null;
     }catch{return null;}
   });
   const bestFlightRef=useRef(bestFlight);
@@ -253,12 +253,12 @@ export function WorldHome({ content }: { content: WorldContent }) {
       }
     }
     if(next.phase==="landed"&&
-      (!bestFlightRef.current||next.distance>bestFlightRef.current)){
-      bestFlightRef.current=next.distance;
-      setBestFlight(next.distance);
+      (!bestFlightRef.current||(next.radialDistance??next.distance)>bestFlightRef.current)){
+      bestFlightRef.current=next.radialDistance??next.distance;
+      setBestFlight(next.radialDistance??next.distance);
       try{
         window.localStorage.setItem("sid-world:big-air:"+BIG_AIR.version,
-          JSON.stringify({version:BIG_AIR.version,distance:next.distance}));
+          JSON.stringify({version:BIG_AIR.version,distance:next.radialDistance??next.distance}));
       }catch{/* Session results still work when storage is unavailable. */}
     }
   },[setBigAir,setBestFlight]);
@@ -498,7 +498,7 @@ export function WorldHome({ content }: { content: WorldContent }) {
               {activity==="ski" && bigAir.phase!=="armed" && bigAir.phase!=="flying" && (
                 <button className={styles.trialLaunch} disabled={!ready||quiet}
                   onClick={()=>setBigAirSerial(n=>n+1)}>
-                  Alpine Big Air · start
+                  Mountain ski jump · summit start
                 </button>
               )}
               {activity==="bike" && trial.phase!=="armed" &&
@@ -556,18 +556,18 @@ export function WorldHome({ content }: { content: WorldContent }) {
             bigAir.phase==="landed"||bigAir.phase==="missed") && (
             <aside className={styles.bigAirHud} aria-label="Alpine Big Air flight"
               aria-live={bigAir.phase==="landed"||bigAir.phase==="missed"?"polite":"off"}>
-              <span className={styles.eyebrow}>ALPINE · BIG AIR</span>
-              <strong>{bigAir.distance.toFixed(1)} m</strong>
-              <p>{bigAir.phase==="armed"?"Ski downhill through the marked lip":
+              <span className={styles.eyebrow}>MOUNTAIN · FREE JUMP</span>
+              <strong>{(bigAir.radialDistance??bigAir.distance).toFixed(1)} m from center</strong>
+              <p>{bigAir.phase==="armed"?"Choose any slope or press Space while skiing":
                 bigAir.phase==="flying"?
                   (bigAirBirdCallout(bigAir.distance)??"Macaws joining your flight"):
                 bigAir.phase==="landed"?"Clean landing":
                   bigAir.reason??"Flight ended"}</p>
               {bigAir.phase==="flying"&&(
-                <small>Airborne {bigAir.airtime.toFixed(1)} s · 3 birds in formation</small>
+                <small>Flight {bigAir.distance.toFixed(1)} m · Airborne {bigAir.airtime.toFixed(1)} s · 3 birds in formation</small>
               )}
               {bestFlight!==null&&(
-                <small>Best landing {bestFlight.toFixed(1)} m</small>
+                <small>Furthest from mountain center {bestFlight.toFixed(1)} m</small>
               )}
               {(bigAir.phase==="armed"||bigAir.phase==="flying")&&(
                 <button className={styles.birdVoiceToggle} aria-pressed={birdVoice}
