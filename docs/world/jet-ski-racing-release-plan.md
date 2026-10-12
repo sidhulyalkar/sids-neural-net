@@ -44,6 +44,40 @@ during a watercraft run.
 - This is original arcade handling, **not** a six-contact measured hull model.
   Water bobbing, foam, and banking are cosmetic for now.
 
+## Coastal geology and mountain-flight refinement (follow-up)
+
+The original offshore rocks rendered as simple tapered columns and each arch
+used a smooth half-torus. Their new procedural geology provides:
+
+- Faceted, asymmetric sea stacks with wave-cut feet, eroded necks, and
+  deterministic sandstone, gray stone, and dark basalt stratification.
+  Every visible foot remains inside its corresponding physical collision
+  radius plus the existing hull clearance; collision envelopes are not inflated.
+- Thick uneven open arch crowns replacing both half-tori. Each crown joins the
+  real rock legs while leaving the center channel clear for the jet ski.
+  Outward-facing triangle normals avoid invisible faces under back-face culling.
+  Santa Cruz and Hawaii remain stylized inspirations, not surveyed replicas.
+- No remote assets, new runtime downloads, collision shortcuts, or additional
+  allocation inside the racing frame loop.
+- Dedicated geology unit tests for outward face normals, procedural mesh
+  determinism, collision fairness, open arch geometry and course gate coverage.
+
+Mountain jumps now score from the summit-centered ridge reference (7,-61),
+versioned separately from older results. The HUD displays landing radius,
+horizontal flight length, outward gain, airtime and peak terrain clearance.
+Takeoff strength depends on actual ski speed and downhill/ramp drop; pressing
+Space while standing no longer creates an artificial forward race jump.
+
+The freeform jump camera follows the actual departure heading; the three
+companion birds follow the same heading. Flight physics uses bounded catch-up
+substeps under low browser frame rates, without mutating ground movement speed.
+Automated tests cover directional flight, honest takeoffs, arch route clearance
+and collider/silhouette agreement.
+
+Manual QA remains required: visually inspect both arches while racing,
+approaching the north and south passages from either side, and long ski flights
+away from the original authored kicker.
+
 ## Landmark and water-mechanics tranche (2026-10-11)
 
 New code on this draft branch:
@@ -55,7 +89,7 @@ New code on this draft branch:
   footprints are narrower than decorative silhouettes. Route segment checks
   must show clear passage through every gate.
 - `worldJetSkiCourseGeometry.ts`: generated irregular stone pillars,
-  open semicircular arches, foam skirts, animated jump-wave rings and
+  open wave-cut arch crowns, foam skirts, animated jump-wave rings and
   three wave-surface patches. Geometries/materials disposed on unmount.
 - `jetSkiWater.ts`: deterministic regional swell height and slopes,
   stronger chop on the exposed west/south coast, conservative current drift,
