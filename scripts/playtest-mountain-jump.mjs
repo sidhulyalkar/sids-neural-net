@@ -64,6 +64,15 @@ try{
   birds:el.dataset.bigAirBirdsFollowing,
  }));
  assert.ok(progress.distance>2,"The skier must make real forward progress");
+ await page.waitForFunction(()=>{
+  const phase=document.querySelector("canvas")?.dataset.bigAirPhase;
+  return phase==="landed"||phase==="missed";
+ },null,{timeout:45000});
+ assert.equal(await disc.isVisible(),false,
+  "Exploration controls must stay hidden while jump results are displayed");
+ await page.screenshot({path:path.join(out,"02-mountain-landing-result.png")});
+ await page.getByRole("button",{name:"Explore",exact:true}).click();
+ await disc.waitFor({state:"visible",timeout:15000});
  assert.deepEqual(errors,[],"No browser runtime errors during mountain flight");
  fs.writeFileSync(path.join(out,"mountain-jump-report.json"),
   JSON.stringify({flight,progress,errors},null,2)+"\n");
