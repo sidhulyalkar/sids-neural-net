@@ -20,7 +20,7 @@ bounds as the player. No warping, rubber-banding or fake finishing.
 The compact HUD shows place, current gate, direction/distance, lap, speed and
 elapsed time. Escape returns the rider to the dock.
 
-Input: keyboard 1/2/3 choose craft, E boards near dock, WASD or arrows drive,
+Input: Enter at pier opens chooser; then pick craft or Free ride. WASD or arrows drive,
 Escape exits. Coarse-pointer devices get dock, craft, steering, throttle and
 brake touch buttons. Space remains reserved for land movement and does nothing
 during a watercraft run.
@@ -125,6 +125,42 @@ water, camera transitions through the sea arches, racing buoys versus kelp and
 reef decorations, shoreline apron seams, and responsive touch HUD on actual
 phones. Do not claim the race is browser-qualified solely because script
 syntax and World unit contracts pass.
+
+## Pier, boarding and reverse-control correction (2026-10-11)
+
+**On-foot interaction:** The old dock existed only as visual planks above the
+water; the shared walking model still sampled submerged seabed and switched the
+avatar into swimming. The new `jetSkiPier.ts` defines the exact deck footprint,
+height and 3m shoreline ramp. Both planks and the locomotion ground surface
+sample it. Water beyond the deck remains swimmable; the global `isWater` and
+the marine ecology classification are unchanged.
+
+Walk down the pier, then **press Enter** at its boarding end. An accessible,
+focus-contained chooser displays **Touring**, **Sport**, **Race** and **Free ride**.
+The craft preview shows a rider seated on the middle jet ski while the chooser
+is open. Escape cancels. Choosing a racing profile starts the synchronized
+countdown; Free ride launches without opponents or mandatory gates.
+Coarse-pointer users see a **Ride** action at the pier end to open the same
+chooser. The old E-to-ride and number-key shortcuts are removed.
+
+**Jet-ski controls:** W/up accelerates; S/down brakes and continues into genuine
+reverse (up to 8 world units/s) so the rider can back out of narrow channels.
+A/left turns left, D/right turns right. Steering reverses the bow's rotation
+when backing, matching typical watercraft maneuvering. Shift or touch Boost
+activates turbo; Escape docks, and R retries a timed race.
+
+**Visible waves:** During a jet-ski session, the main ocean mesh gains a
+moderately subdivided dynamic surface updated from the *same deterministic wave
+field* as the hull, in addition to localized crest patches. The mesh is reset
+to its previous flat state after docking. This does not silently modify reef
+depth, swim dynamics or the existing surfing contract.
+
+**Required QA:** walk the entire pier (including its shoreline transition),
+validate that aquatic mode stays `land` while on the deck, press Enter and
+confirm focus/choice, cancel with Escape, choose Free ride and reverse from
+a rock; visually inspect ocean displacement, mesh seams and mobile overlap.
+`scripts/playtest-jet-ski.mjs` was updated for this flow but must still be
+executed against a live browser before merge.
 
 ## Acceptance checklist before merge
 
