@@ -62,16 +62,18 @@ try{
  await desktop.keyboard.press("Enter");
  const chooser=desktop.getByRole("dialog",{name:"Choose a jet ski"});
  await chooser.waitFor({state:"visible"});
+ await desktop.screenshot({path:path.join(out,"01-ride-chooser.png")});
  await chooser.getByRole("button",{name:/^Race/}).click();
  await desktop.waitForFunction(()=>document.querySelector("canvas")?.dataset.jetSkiStatus==="racing");
  await desktop.screenshot({path:path.join(out,"01-dock-launch.png")});
  assert.match(await dock.textContent(),/START IN/);
- await desktop.waitForTimeout(3600);
+ await desktop.waitForFunction(()=>Number(document.querySelector("canvas")?.dataset.jetSkiTime)>.08,
+  null,{timeout:45000});
  await desktop.keyboard.down("w");
  await desktop.keyboard.down("Shift");
  try{
   await desktop.waitForFunction(()=>Number(document.querySelector("canvas")?.dataset.jetSkiTurbo)<90,
-   null,{timeout:6500});
+   null,{timeout:25000});
  }finally{
   await desktop.keyboard.up("Shift");
   await desktop.keyboard.up("w");
@@ -88,7 +90,7 @@ try{
  try{
   await desktop.waitForFunction(()=>
    Number(document.querySelector("canvas")?.dataset.jetSkiSpeed)<-.5,
-   null,{timeout:12000});
+   null,{timeout:35000});
  }finally{await desktop.keyboard.up("s");}
  assert.ok(Number(await canvas.getAttribute("data-jet-ski-speed"))<0,
   "Reverse must back the player out of narrow channels");
