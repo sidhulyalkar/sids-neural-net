@@ -570,7 +570,7 @@ export function WorldHome({ content }: { content: WorldContent }) {
               aria-live={bigAir.phase==="landed"||bigAir.phase==="missed"?"polite":"off"}>
               <span className={styles.eyebrow}>MOUNTAIN · FREE JUMP</span>
               <strong>{(bigAir.radialDistance??0).toFixed(1)} m from center</strong>
-              <p>{bigAir.phase==="armed"?"Choose any slope or press Space while skiing":
+              <p>{bigAir.phase==="armed"?"Build speed and jump from any mountain slope":
                 bigAir.phase==="flying"?
                   (bigAirBirdCallout(bigAir.distance)??"Macaws joining your flight"):
                 bigAir.phase==="landed"?"Clean landing":
