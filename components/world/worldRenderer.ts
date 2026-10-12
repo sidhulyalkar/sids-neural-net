@@ -144,7 +144,8 @@ export function createWorld(
   host.appendChild(canvas);
   const jetHud=document.createElement('div');
   jetHud.setAttribute('aria-label','Jet ski race status');
-  jetHud.style.cssText='position:absolute;bottom:72px;left:50%;transform:translateX(-50%);z-index:8;pointer-events:none;background:rgba(9,30,43,.82);border:1px solid rgba(255,255,255,.26);border-radius:12px;color:white;font:600 13px/1.5 system-ui,sans-serif;padding:8px 14px;white-space:normal;text-align:center;max-width:calc(100% - 28px);display:none';
+  jetHud.className=worldStyles.jetSkiHud;
+  jetHud.style.display="none";
   host.appendChild(jetHud);
   const jetHudReadout=document.createElement("span");jetHud.appendChild(jetHudReadout);
   const jetTurboBar=document.createElement("div");
@@ -165,12 +166,13 @@ export function createWorld(
   const jetTouchEnabled=window.matchMedia("(pointer: coarse)").matches;
   const jetTouch=document.createElement("div");
   jetTouch.setAttribute("aria-label","Jet ski touch controls");
-  jetTouch.style.cssText="position:absolute;bottom:10px;left:50%;transform:translateX(-50%);z-index:9;display:none;flex-wrap:wrap;justify-content:center;gap:8px;max-width:calc(100% - 20px);pointer-events:auto";
+  jetTouch.className=worldStyles.jetSkiTouchControls;
+  jetTouch.style.display="none";
   const jetTouchInput={throttle:0,steer:0,brake:false};
   const makeJetButton=(label:string)=>{
     const button=document.createElement("button");
     button.type="button";button.textContent=label;
-    button.style.cssText="min-height:44px;min-width:48px;border:1px solid #ffffff66;border-radius:9px;background:#153947e8;color:#fff;padding:8px 12px;font:600 13px system-ui,sans-serif;touch-action:none";
+    button.className=worldStyles.jetSkiTouchButton;
     jetTouch.appendChild(button);return button;
   };
   const jetBoardButton=makeJetButton("Ride");
@@ -184,6 +186,10 @@ export function createWorld(
   const jetRetryButton=makeJetButton("Retry");
   const driveButtons=[jetLeftButton,jetThrottleButton,jetBrakeButton,
     jetBoostButton,jetRightButton,jetDockButton,jetRetryButton];
+  for(const [i,button] of [jetLeftButton,jetThrottleButton,jetRightButton,
+    jetBrakeButton,jetBoostButton,jetDockButton,jetRetryButton].entries()){
+    button.style.order=String(i+1);
+  }
   const holdJetButton=(button:HTMLButtonElement,press:()=>void,release:()=>void)=>{
     button.addEventListener("pointerdown",e=>{
       e.preventDefault();e.stopPropagation();press();
@@ -3190,7 +3196,14 @@ export function createWorld(
         const turnGuide=Math.abs(gateBearing)<.22?"↑":
           Math.abs(gateBearing)<.72?(gateBearing>0?"↗":"↖"):
           gateBearing>0?"→":"←";
-        jetHudReadout.textContent=jetRideMode==="free"?
+        const compactJetHud=jetCountdown>0?
+          `START IN ${Math.ceil(jetCountdown)} · ${jetSki.craft.toUpperCase()}`:
+          jetSki.phase==="finished"?
+          `FINISH · ${jetSki.elapsed.toFixed(1)}s · Place ${place}/3`:
+          jetRideMode==="free"?
+          `FREE RIDE · ${jetSki.speed<-.2?"REV ":""}${Math.abs(jetSki.speed).toFixed(0)} m/s · Turbo ${jetSki.turbo.toFixed(0)}%`:
+          `Lap ${Math.min(2,jetSki.lap+1)}/2 · Gate ${jetSki.checkpoint+1}/${JET_SKI_GATES.length} ${turnGuide} · ${jetSki.speed<-.2?"REV ":""}${Math.abs(jetSki.speed).toFixed(0)} m/s · Place ${place}/3`;
+        jetHudReadout.textContent=jetTouchEnabled?compactJetHud:jetRideMode==="free"?
           `FREE RIDE · W accelerate / S reverse · A left / D right · Shift boost · ${jetSki.speed<-.2?"REVERSE ":""}${Math.abs(jetSki.speed).toFixed(0)} m/s · Turbo ${jetSki.turbo.toFixed(0)}% · Esc dock`:
           jetCountdown>0?
           `START IN ${Math.ceil(jetCountdown)} · ${jetSki.craft.toUpperCase()} · Hold throttle to launch`:
@@ -3788,7 +3801,11 @@ export function createWorld(
       jetskiCoast.update(elapsed,!!jetSki);
       if(jetTouchEnabled){
         const nearDock=nearJetSkiBoarding(player)&&aquatic==="land";
-        jetTouch.style.display=!jetChoosing&&(jetSki||nearDock)?"flex":"none";
+        jetTouch.style.display=!jetChoosing&&(jetSki||nearDock)?"grid":"none";
+        jetTouch.style.gridTemplateColumns=jetSki?
+          "repeat(3,minmax(0,1fr))":"1fr";
+        jetTouch.style.width=jetSki?"min(380px,calc(100% - 20px))":
+          "min(180px,calc(100% - 20px))";
         jetBoardButton.style.display=jetSki?"none":"inline-flex";
         driveButtons.forEach(b=>{b.style.display=jetSki?"inline-flex":"none";});
         jetRetryButton.style.display=jetSki&&jetSki.phase==="finished"?"inline-flex":"none";
@@ -3806,7 +3823,7 @@ export function createWorld(
         jetNotice.style.display="none";
         if(jetWakeSamples.length){jetWakeSamples=[];jetWakeAccumulator=0;}
         jetskiVisual.updateWakeTrail([],elapsed);
-        if(discGolf.phase==="off"&&nearJetSkiBoarding(player)&&aquatic==="land"){
+        if(discGolf.phase==="off"&&!jetChoosing&&nearJetSkiBoarding(player)&&aquatic==="land"){
           jetHud.style.display="block";
           jetTurboBar.style.display="none";
           jetHudReadout.textContent="JET-SKI PIER · Press Enter to choose your jet ski";
