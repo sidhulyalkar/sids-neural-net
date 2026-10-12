@@ -19,7 +19,7 @@ import {
 } from "@/lib/world/discGolf";
 import {
   BIG_AIR,bigAirBirdCallout,bigAirCrossedLip,launchBigAir,mountainJumpEligible,mountainSkiTakeoff,mountainJumpOutwardGain,
-  advanceBigAir,armBigAir,idleBigAir,type BigAirState,
+  advanceBigAir,mountainJumpCameraPose,armBigAir,idleBigAir,type BigAirState,
 } from "@/lib/world/bigAir";
 import { createMarineSchools } from "./worldSchools";
 import { createWorldTridents } from "./worldTridents";
@@ -3729,6 +3729,9 @@ export function createWorld(
         }:pose.look;
         targetLook.set(lookAt.x,lookAt.y,lookAt.z);
         canvas.dataset.discGolfCamera=followFlight?"flight":pose.putting?"putt":"approach";
+      } else if(bigAir.phase==="flying"){
+        const pose=mountainJumpCameraPose(bigAir);
+        targetLook.set(pose.look.x,pose.look.y,pose.look.z);
       } else if(jetSki){
         // Coarse-pointer steering covers the lower screen. Looking less far
         // ahead positions the rider ABOVE the touch buttons while retaining
@@ -3778,6 +3781,9 @@ export function createWorld(
           const fx=dx/len,fz=dz/len,p=discGolf.disc;
           targetCamera.set(p.x-fx*19.5+fz*2.25,p.y+12,p.z-fz*19.5-fx*2.25);
         }else targetCamera.set(pose.camera.x,pose.camera.y,pose.camera.z);
+      } else if(bigAir.phase==="flying"){
+        const pose=mountainJumpCameraPose(bigAir);
+        targetCamera.set(pose.camera.x,pose.camera.y,pose.camera.z);
       } else if(jetSki){
         const h=jetSki.heading;
         targetCamera.set(player.x-Math.sin(h)*13+Math.cos(h)*2.4,
