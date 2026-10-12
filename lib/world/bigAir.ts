@@ -12,7 +12,8 @@ export type BigAirPhase="idle"|"armed"|"flying"|"landed"|"missed";
 export type BigAirState={
  phase:BigAirPhase;point:Point;y:number;verticalSpeed:number;
  horizontalSpeed:number;distance:number;airtime:number;
- takeoffY:number;reason?:string;landingQuality?: "clean"|"rough";
+ takeoffY:number;heading?:Point;takeoff?:Point;freeTerrain?:boolean;
+ radialDistance?:number;reason?:string;landingQuality?: "clean"|"rough";
 };
 export const idleBigAir=():BigAirState=>({
  phase:"idle",point:{...BIG_AIR.start},y:0,verticalSpeed:0,
@@ -58,11 +59,17 @@ export function bigAirCrossedLip(from:Point,to:Point,heading:Point,
    (heading.x*BIG_AIR.heading.x+heading.z*BIG_AIR.heading.z)>.92;
 }
 export function launchBigAir(point:Point,groundY:number,
- speed:number):BigAirState {
- const horizontalSpeed=clamp(speed,8.5,20);
- const verticalSpeed=11.4+Math.min(2.6,horizontalSpeed*.11);
+ speed:number,heading:Point=BIG_AIR.heading,freeTerrain=false):BigAirState {
+ const horizontalSpeed=clamp(speed,5.3,24);
+ const verticalSpeed=freeTerrain?
+  5.7+Math.min(3.4,horizontalSpeed*.22):
+  11.4+Math.min(2.6,horizontalSpeed*.11);
+ const norm=Math.hypot(heading.x,heading.z)||1;
  return {phase:"flying",point:{...point},y:groundY+.04,
-  takeoffY:groundY,verticalSpeed,horizontalSpeed,distance:0,airtime:0};
+  takeoffY:groundY,verticalSpeed,horizontalSpeed,distance:0,airtime:0,
+  heading:{x:heading.x/norm,z:heading.z/norm},takeoff:{...point},
+  freeTerrain,radialDistance:Math.hypot(point.x-MOUNTAIN_JUMP_CENTER.x,
+   point.z-MOUNTAIN_JUMP_CENTER.z)};
 }
 export type SurfaceSample=(p:Point)=>number;
 export function advanceBigAir(state:BigAirState,dt:number,
@@ -78,8 +85,8 @@ export function advanceBigAir(state:BigAirState,dt:number,
    const step=Math.min(.0125,remaining);remaining-=step;
    const prev={...result.point},yBefore=result.y;
    const next={
-     x:prev.x+BIG_AIR.heading.x*result.horizontalSpeed*step,
-     z:prev.z+BIG_AIR.heading.z*result.horizontalSpeed*step,
+     x:prev.x+(result.heading?.x??BIG_AIR.heading.x)*result.horizontalSpeed*step,
+     z:prev.z+(result.heading?.z??BIG_AIR.heading.z)*result.horizontalSpeed*step,
    };
    const velocityNext=result.verticalSpeed-BIG_AIR.gravity*step;
    const yNext=yBefore+(result.verticalSpeed+velocityNext)*step*.5;
@@ -95,25 +102,36 @@ export function advanceBigAir(state:BigAirState,dt:number,
      const f=clamp(beforeMargin/Math.max(1e-8,beforeMargin-afterMargin),0,1);
      const point={x:prev.x+(next.x-prev.x)*f,z:prev.z+(next.z-prev.z)*f};
      const distance=result.distance+result.horizontalSpeed*step*f;
-     const safe=distance>=28&&distance<85&&
+     const safe=result.freeTerrain?distance>=5:
+       distance>=28&&distance<85&&
        Math.abs(point.x-BIG_AIR.lip.x)<BIG_AIR.runout.halfWidth &&
        point.z>=BIG_AIR.runout.minZ&&point.z<=BIG_AIR.runout.maxZ;
      result={...result,point,y:ground(point),verticalSpeed:0,distance,
        airtime:result.airtime-step*(1-f),
-       phase:safe?"landed":"missed",
+       radialDistance:Math.hypot(point.x-MOUNTAIN_JUMP_CENTER.x,
+        point.z-MOUNTAIN_JUMP_CENTER.z),phase:safe?"landed":"missed",
        landingQuality:safe?"clean":undefined,
-       reason:safe?undefined:"Outside the receiving slope"};
+       reason:safe?undefined:result.freeTerrain?"Short jump":"Outside the receiving slope"};
      break;
    }
    result={...result,point:next,y:yNext,verticalSpeed:velocityNext,
+     radialDistance:Math.hypot(next.x-MOUNTAIN_JUMP_CENTER.x,
+       next.z-MOUNTAIN_JUMP_CENTER.z),
      distance:result.distance+result.horizontalSpeed*step};
-   if(result.airtime>BIG_AIR.maxFlightSeconds||result.distance>115){
+   if(result.airtime>BIG_AIR.maxFlightSeconds||result.distance>145){
      result={...result,phase:"missed",reason:"Outside flight envelope"};
    }
  }
  return result;
 }
 
+/** Scored mountain hub. Launches may occur from any steep mountain
+ * face instead of a single marked kicker. */
+export const MOUNTAIN_JUMP_CENTER={x:0,z:-53} as const;
+export function mountainJumpEligible(point:Point,height:number,speed:number):boolean{
+ return point.x> -31&&point.x<34&&point.z> -90&&point.z< -19&&
+  height>5.5&&speed>=5.3;
+}
 export const BIG_AIR_BIRDS=[
   {id:"scarlet-macaw",kind:"macaw",color:"#d65347",wing:"#edbf42",side:-1},
   {id:"blue-gold-macaw",kind:"macaw",color:"#3f88b3",wing:"#d8ac44",side:1},
@@ -125,10 +143,11 @@ export function bigAirBirdPositions(state:BigAirState,time:number):BirdPosition[
  return BIG_AIR_BIRDS.map((b,i)=>{
   const offset=i===2?5.6:3.5,forward=i===2?2.4:4.1;
   const flap=Math.sin(time*(i===2?9:7.5)+i*1.9);
-  return {x:state.point.x+b.side*offset+Math.sin(time*1.7+i)*.22,
-   z:state.point.z+forward+Math.sin(time*.8+i)*.45,
+  const dir=state.heading??BIG_AIR.heading;
+  return {x:state.point.x+dir.z*b.side*offset+dir.x*forward+Math.sin(time*1.7+i)*.22,
+   z:state.point.z-dir.x*b.side*offset+dir.z*forward+Math.sin(time*.8+i)*.45,
    y:state.y+1.25+i*.30+Math.sin(time*2.5+i)*.32,
-   yaw:0,wingBeat:flap,scale:i===2?.69:1};
+   yaw:Math.atan2(dir.x,dir.z),wingBeat:flap,scale:i===2?.69:1};
  });
 }
 export function bigAirBirdCallout(distance:number):string|null {
