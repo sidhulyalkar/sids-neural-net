@@ -280,3 +280,41 @@ without compromising the existing snorkeling, underwater ecology, or disc golf.
 Merge policy: keep #94 draft until the checked SHA passes required tests,
 production security gate and real browser review. Never assert this release is
 live based solely on committed source.
+
+## Boost, wave scale, and input clarity pass (2026-10-11)
+
+- **Single-action BOOST:** Shift alone on desktop, or a held BOOST button on
+  touch, drives forward and applies turbo. It no longer depends on pressing W or
+  Throttle with another finger. S/down or touch Reverse takes priority over
+  boost so riders can escape a rock. W/up, S/down, A/left, D/right and arrow
+  keys share one pure mapping across keyboard and touch.
+- **Exhaustion feedback:** Once the boost tank drains it locks out new bursts
+  instead of stuttering on every simulation substep. Release boost after
+  recovering at least 20% charge to rearm it. The HUD differentiates BOOSTING,
+  BOOST READY, BOOST LOW and BOOST RECHARGING; charge is an accessible progress
+  bar. The touch button communicates active/charging state without relocating
+  or overlapping other touch controls.
+- **Exposed-water surf:** Deterministic swells reach about 0.9 world units at
+  the rough southern cape; sheltered pier water stays roughly 0.25. The main
+  race-only ocean surface now uses a denser grid, while craft position, pitch,
+  roll and camera look-at track the same sampled surface. Marine ecology,
+  diving, snorkeling and ordinary flat-water presentation remain unchanged.
+- **Wave-play mechanic:** High-speed boost into a sufficiently steep rising
+  swell face can briefly hop the ski, with gravity and a 2.6s launch cooldown.
+  It works beyond the two authored wave-lip rings but does not launch in the
+  sheltered lagoon or at slow speed. This remains arcade behavior, not a
+  hydrodynamics or oceanographic simulation.
+- **Focus safety:** Keyboard driving remains available when focus moves to
+  controls inside the running World without trapping typing outside it.
+  Window blur and hidden-page transitions release held touch/boost inputs.
+
+**Automated acceptance:** pure input resolution tests, deterministic exposed
+vs sheltered water height tests, boost depletion/rearm tests, offshore crest
+jump tests and desktop Playwright Shift-only acceleration assertion. Existing
+physical jet-ski course, pier, rock arch geometry, freeform mountain ski jump,
+and activity mutual-exclusion tests remain in the World regression suite.
+
+**Still required before merging:** browser and unit CI at the latest head,
+real-device touch multitasking (steer + boost + reverse), offshore wave mesh
+visual inspection at normal and low framerates, arch silhouettes from the ski
+camera, and long freeform ski-jump follow camera/bird tracking.
