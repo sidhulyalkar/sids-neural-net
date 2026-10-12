@@ -9,6 +9,10 @@ import {createJetSkiDock,type JetSkiWakePoint} from "./worldJetSkiDock";
 import {jetSkiPierHeight,nearJetSkiBoarding,JET_SKI_PIER} from "@/lib/world/jetSkiPier";
 import {jetSkiWaterSample} from "@/lib/world/jetSkiWater";
 import {jetSkiControlInput} from "@/lib/world/jetSkiControls";
+import {RIDE_BOOST_TARGETS,isBoostActivity,initialRideBoost,fireRideBoost,
+ activeRideBoost,RIDE_BOOST_DURATION} from "@/lib/world/rideBoost";
+import {JOSHUA_GHOSTS,joshuaRacePlace,joshuaPlayerFraction} from "@/lib/world/joshuaGhostRace";
+import {createRideChallengeGeometry} from "./worldRideChallengeGeometry";
 import {createJetSkiCoastGeometry} from "./worldJetSkiCourseGeometry";
 import {jetSkiSectionName} from "@/lib/world/jetSkiCourse";
 import {canStartWorldGame,type WorldGameMode} from "@/lib/world/gameMode";
@@ -144,6 +148,15 @@ export function createWorld(
     "Explore Sid’s world. Use arrows or WASD to move, Shift to sprint, Space for your land activity, V to dive or surface, Q and E for dive depth, drag to look, Enter to discover, and M for the menu.",
   );
   host.appendChild(canvas);
+  const rideHud=document.createElement("div");
+  rideHud.className=worldStyles.rideBoostHud;
+  rideHud.setAttribute("aria-label","Land sports target boost");
+  rideHud.style.display="none";
+  host.appendChild(rideHud);
+  const rideAnnounce=document.createElement("span");
+  rideAnnounce.style.cssText="position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap";
+  rideAnnounce.setAttribute("role","status");rideAnnounce.setAttribute("aria-live","polite");
+  host.appendChild(rideAnnounce);
   const jetHud=document.createElement('div');
   jetHud.setAttribute('aria-label','Jet ski race status');
   jetHud.className=worldStyles.jetSkiHud;
@@ -972,6 +985,7 @@ export function createWorld(
   const discGolfObjects=createDiscGolfGeometry(scene);
   const jetskiVisual=createJetSkiDock(scene);
   const jetskiCoast=createJetSkiCoastGeometry(scene);
+  const rideVisual=createRideChallengeGeometry(scene);
   canvas.dataset.jetSkiRocks=String(jetskiCoast.rockCount);
   canvas.dataset.jetSkiArches=String(jetskiCoast.archCount);
   canvas.dataset.discGolfHoles=String(DISC_GOLF_HOLES.length);
@@ -2655,6 +2669,13 @@ export function createWorld(
   let discGolfIntro:{startedAt:number;reducedMotion:boolean}|null=null;
   let snapDiscCamera=false;
   let trial:TrialState={phase:"idle",nextGate:0,elapsedMs:0,splitsMs:[]};
+  let rideBoost=initialRideBoost();
+  let rideBoostNoticeUntil=0;
+  let rideBoostNotice="";
+  function resetRideBoost(){
+    rideBoost=initialRideBoost();
+    rideBoostNoticeUntil=0;rideBoostNotice="";
+  }
   let aquatic: AquaticMode = "land", swimDepth = 0, targetDepth = 0;
   let climb: { from: Point; to: Point; fromY: number; toY: number; progress: number } | null = null;
   let grind: {
@@ -2859,6 +2880,28 @@ export function createWorld(
     drag.lastX = e.clientX;
     drag.lastY = e.clientY;
   }
+  function fireRideShot(x:number,y:number){
+    const currentMode=effectiveActivity(state.activity,player);
+    if(!isBoostActivity(currentMode)||aquatic!=="land"||jetSki||jetChoosing||
+      discGolf.phase!=="off"||bigAir.phase==="flying"||state.paused)return false;
+    const rect=canvas.getBoundingClientRect();
+    pointer.set(((x-rect.left)/rect.width)*2-1,
+      (-(y-rect.top)/rect.height)*2+1);
+    ray.setFromCamera(pointer,camera);
+    const hit=ray.intersectObjects(rideVisual.targets,false)[0];
+    const target=hit?.distance<=65?rideVisual.targetFromHit(hit.object):null;
+    const previous=rideBoost;
+    if(target)rideBoost=fireRideBoost(target,currentMode,player,
+      travel.speed,elapsed,rideBoost);
+    const success=rideBoost!==previous;
+    rideBoostNotice=success?"BOOST HIT · +"+RIDE_BOOST_DURATION.toFixed(1)+"s":
+      travel.speed<2.25?"BUILD SPEED TO FIRE":
+      target?"TARGET RECHARGING OR TOO FAR":"MISS · AIM AT A GLOWING RING";
+    rideBoostNoticeUntil=elapsed+1.35;
+    rideAnnounce.textContent=rideBoostNotice;
+    canvas.dataset.rideBoostLastShot=success?"hit":"miss";
+    return true;
+  }
   function onUp(e: PointerEvent) {
     if (!drag || e.pointerId !== drag.id) return;
     const wasClick = !drag.moved;
@@ -2866,6 +2909,9 @@ export function createWorld(
     if (canvas.hasPointerCapture(e.pointerId))
       canvas.releasePointerCapture(e.pointerId);
     if (!wasClick || state.paused || discGolf.phase!=="off" || jetSki) return;
+    // While moving on sport gear the pointer is a skill shot, never an
+    // accidental click-to-move. Drag retains normal orbit-camera behavior.
+    if(travel.speed>1.5&&fireRideShot(e.clientX,e.clientY))return;
     const rect = canvas.getBoundingClientRect();
     pointer.set(
       ((e.clientX - rect.left) / rect.width) * 2 - 1,
@@ -2924,6 +2970,12 @@ export function createWorld(
     const key = e.key.toLowerCase();
     if(key==="escape"&&jetSki){stopJetSki();e.preventDefault();return;}
     if(key==="r"&&!e.repeat&&jetSki){restartJetSki();e.preventDefault();return;}
+    if(key==="f"&&!e.repeat&&!jetSki&&isBoostActivity(state.activity)){
+      e.preventDefault();
+      const rect=canvas.getBoundingClientRect();
+      fireRideShot(rect.left+rect.width/2,rect.top+rect.height/2);
+      return;
+    }
     // The land jump action must not fire while steering a jet ski.
     if(jetSki&&key===" "){if(e.target===canvas)e.preventDefault();return;}
     if (key === "shift") keys.add(key);
@@ -3422,6 +3474,7 @@ export function createWorld(
           destination,
           airHeight,
           supportHeight,
+          activeRideBoost(rideBoost,elapsed) && isBoostActivity(state.activity),
         );
         if (
           destination &&
@@ -3523,6 +3576,12 @@ export function createWorld(
       }
       canvas.dataset.trialPhase=trial.phase;
       canvas.dataset.trialCheckpoint=String(trial.nextGate);
+      rideVisual.updateGhosts(trial);
+      if(trial.phase==="armed"||trial.phase==="running"||trial.phase==="complete"){
+        canvas.dataset.joshuaGhosts=String(JOSHUA_GHOSTS.length);
+        canvas.dataset.joshuaPlace=String(joshuaRacePlace(trial,player));
+        canvas.dataset.joshuaProgress=joshuaPlayerFraction(trial,player).toFixed(3);
+      }else canvas.dataset.joshuaGhosts="0";
       const swimming = aquatic !== "land";
       const walking = travel.speed > 0.05
         ? Math.sin(elapsed * (swimming ? 9 : mode === "run" ? 14 : 10))
@@ -3634,6 +3693,20 @@ export function createWorld(
       }
       canvas.dataset.activity = mode;
       canvas.dataset.speed = travel.speed.toFixed(2);
+      const boosting=activeRideBoost(rideBoost,elapsed)&&
+        isBoostActivity(state.activity)&&aquatic==="land";
+      canvas.dataset.rideBoost=String(boosting);
+      canvas.dataset.rideBoostRemaining=Math.max(0,rideBoost.until-elapsed).toFixed(2);
+      const showAim=state.entered&&aquatic==="land"&&
+        isBoostActivity(state.activity)&&discGolf.phase==="off"&&!jetSki&&
+        !jetChoosing&&bigAir.phase!=="flying";
+      rideHud.style.display=showAim?"block":"none";
+      if(showAim){
+        const seconds=Math.max(0,rideBoost.until-elapsed);
+        rideHud.textContent=elapsed<rideBoostNoticeUntil?rideBoostNotice:
+          boosting?"BOOST ×1.6 · "+seconds.toFixed(1)+"s":
+          "AIM + FIRE · Click/tap a glowing ring · F shoots center";
+      }
       canvas.dataset.height = playerY.toFixed(2);
       canvas.dataset.airborne = String(airHeight > 0 || !!climb || !!grind);
       canvas.dataset.discGolfPhase=discGolf.phase;
@@ -3870,6 +3943,10 @@ export function createWorld(
       }
       updateRaceOceanWaves(elapsed,!!jetSki);
       jetskiCoast.update(elapsed,!!jetSki);
+      rideVisual.updateTargets(effectiveActivity(state.activity,player),
+        player,travel.speed,elapsed,rideBoost,camera,
+        state.entered&&!state.paused&&aquatic==="land"&&
+        discGolf.phase==="off"&&!jetSki&&!jetChoosing&&bigAir.phase!=="flying");
       if(jetTouchEnabled){
         const nearDock=nearJetSkiBoarding(player)&&aquatic==="land";
         jetTouch.style.display=!jetChoosing&&(jetSki||nearDock)?"grid":"none";
@@ -5085,6 +5162,7 @@ export function createWorld(
           dogSmoothedTarget={...dog};
           dogGroundY=terrainHeight(dog.x,dog.z);
           bigAir=armBigAir();
+          resetRideBoost();
           callbacks.onBigAir(bigAir);
           canvas.focus({preventScroll:true});
         }
@@ -5111,6 +5189,7 @@ export function createWorld(
           dogSmoothedTarget={...dog};
           dogGroundY=terrainHeight(dog.x,dog.z);
           trial=armJoshuaTrial();
+          resetRideBoost();
           callbacks.onChallenge(trial);
           canvas.focus({preventScroll:true});
         }
@@ -5141,6 +5220,7 @@ export function createWorld(
           trial=abortJoshuaTrial(trial,"Region transfer");
           callbacks.onChallenge(trial);
         }
+        resetRideBoost();
         lastSerial = next.command.serial;
         const r = REGIONS.find((r) => r.id === next.command!.region)!;
         jetSki=null;jetRivals=[];jetHud.style.display="none";
@@ -5211,6 +5291,7 @@ export function createWorld(
     dispose() {
       discGolfObjects.dispose();
       jetskiCoast.dispose();
+      rideVisual.dispose();rideHud.remove();rideAnnounce.remove();
       jetHud.remove();jetAnnounce.remove();jetTouch.remove();jetNotice.remove();jetChooser.remove();
       jetskiVisual.root.traverse(object=>{
         if(object instanceof THREE.Mesh){object.geometry.dispose();
