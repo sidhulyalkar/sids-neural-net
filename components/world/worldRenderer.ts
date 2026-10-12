@@ -3725,7 +3725,7 @@ export function createWorld(
         // ahead positions the rider ABOVE the touch buttons while retaining
         // the wider forward preview on desktop.
         const ahead=jetTouchEnabled?3.6:8;
-        const lookHeight=jetTouchEnabled?.8:1.4;
+        const lookHeight=jetTouchEnabled ? 0.8 : 1.4;
         targetLook.set(player.x+Math.sin(jetSki.heading)*ahead,
           SEA_SURFACE+lookHeight+jetSki.jumpHeight*.55,
           player.z+Math.cos(jetSki.heading)*ahead);
