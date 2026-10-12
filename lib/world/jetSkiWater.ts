@@ -32,8 +32,11 @@ export function jetSkiWaterSample(point:Point,time:number):JetSkiWaterSample{
  }
  const s1=.105*x+.17*z-1.9*t,s2=-.19*x+.075*z-2.5*t;
  const s3=.34*x-.21*z+3.8*t;
- const amplitude=.11+.2*clamp(roughness,0,1.7);
- const a=amplitude*.65,b=amplitude*.3,c=amplitude*.12;
+ // Lagoon and empty ocean remain gentle; exposed capes carry rolling
+ // 0.7-1.1m crests. All rendering and buoyancy use this single field.
+ const exposure=clamp((roughness-.45)/1.5,0,1);
+ const amplitude=.14+.75*exposure;
+ const a=amplitude*.82,b=amplitude*.38,c=amplitude*.14;
  const height=a*Math.sin(s1)+b*Math.sin(s2)+c*Math.sin(s3);
  const slopeX=a*.105*Math.cos(s1)-b*.19*Math.cos(s2)+c*.34*Math.cos(s3);
  const slopeZ=a*.17*Math.cos(s1)+b*.075*Math.cos(s2)-c*.21*Math.cos(s3);
@@ -62,4 +65,14 @@ export function jetSkiJumpAt(point:Point,heading:number,speed:number):
    Math.hypot(point.x-jump.point.x,point.z-jump.point.z)<jump.radius)return jump;
  }
  return null;
+}
+
+// A boosted ski can carve up the rising face of a large offshore swell.
+// Low-speed riding and the calm pier lagoon never auto-launch. The physics
+// caller applies a cooldown so one continuous wave cannot relaunch a rider.
+export function jetSkiCrestImpulse(sample:JetSkiWaterSample,
+ heading:number,speed:number,boosting:boolean):number{
+ if(!boosting||speed<18||sample.roughness<1.05)return 0;
+ const climb=sample.slopeX*Math.sin(heading)+sample.slopeZ*Math.cos(heading);
+ return climb>.11?Math.min(3.2,1.25+climb*9):0;
 }
