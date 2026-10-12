@@ -211,7 +211,10 @@ export function discGolfThrow(state:DiscGolfState,shot:DiscShot,ground:DiscTerra
  if(shot.releaseStyle&&!["backhand","forehand"].includes(shot.releaseStyle))return state;
  const power=clamp(shot.power,0,100)/100;
  const accuracy=clamp(shot.accuracy,-1,1);
- const loft=clamp(shot.loft,6,42)*Math.PI/180;
+ // Nose tuning moves the *launch loft* only slightly in arcade play.
+ // A full ±15° tuning range changes release by at most ±7.5°, avoiding
+ // unstable aerodynamic pitch crashes while retaining meaningful control.
+ const loft=clamp(shot.loft+clamp(shot.noseAngle??0,-15,15)*.5,6,42)*Math.PI/180;
  const hole=DISC_GOLF_HOLES[state.holeIndex];
  const aimPoint=discGolfNextTarget(state);
  const base=Math.atan2(aimPoint.x-state.lie.x,aimPoint.z-state.lie.z);
@@ -273,19 +276,28 @@ export function stepDiscGolf(state:DiscGolfState,dt:number,
   // Use ONE integrator for release, prediction and recommended power so the
   // HUD cannot promise a throw that the live simulation will not deliver.
   const horizontal=Math.hypot(s.velocity.x,s.velocity.z);
-  const drag=.020;
+  // Disc mold choices give a small, predictable change in range. Midrange,
+  // the default, reproduces the previous arcade path exactly.
+  const style=s.discStyle==="putter"?1.16:
+   s.discStyle==="fairway"?.91:s.discStyle==="driver"?.82:1;
+  const drag=.020*style;
   s.velocity.x+=(s.lockedWind.x-s.velocity.x)*drag*d;
   s.velocity.z+=(s.lockedWind.z-s.velocity.z)*drag*d;
   if(Math.abs(s.bankAngle)>1e-6 && horizontal>.1){
    const ramp=clamp(s.flightTime/.42,0,1);
+   // More flick slightly stabilizes the intended bank turn, but never
+   // changes direction or sends the disc into an uncontrolled roll.
+   const spinControl=clamp(.85+.15*s.spinRpm/650,.88,1.12);
    const lateral=(s.bankAngle/DISC_GOLF_MAX_BANK)*
-    (1.0+2.4*Math.min(1,horizontal/25))*ramp;
+    (1.0+2.4*Math.min(1,horizontal/25))*ramp*spinControl;
    const oldX=s.velocity.x,oldZ=s.velocity.z;
    // Turn into the bank without injecting forward speed.
    s.velocity.x+=(oldZ/horizontal)*lateral*d;
    s.velocity.z-=(oldX/horizontal)*lateral*d;
   }
-  s.velocity.y+=(-10.8+Math.min(2.3,horizontal*.045))*d;
+  const glide=s.discStyle==="putter"?-.16:
+   s.discStyle==="fairway"?.12:s.discStyle==="driver"?.20:0;
+  s.velocity.y+=(-10.8+Math.min(2.3,horizontal*.045)+glide)*d;
   const spinSign=s.releaseStyle==="forehand"?-1:1;
   s.spinPhase+=spinSign*s.spinRpm*Math.PI/30*d;
   s.spinRpm=Math.max(0,s.spinRpm*Math.exp(-.12*d));
