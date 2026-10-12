@@ -129,8 +129,16 @@ export function advanceBigAir(state:BigAirState,dt:number,
  * face instead of a single marked kicker. */
 export const MOUNTAIN_JUMP_CENTER={x:0,z:-53} as const;
 export function mountainJumpEligible(point:Point,height:number,speed:number):boolean{
- return point.x> -31&&point.x<34&&point.z> -90&&point.z< -19&&
+ return point.x> -49&&point.x<52&&point.z> -95&&point.z<6&&
   height>5.5&&speed>=5.3;
+}
+/** Detect either a genuine downhill lip or a skier-initiated ramp hop.
+ * Works at every qualifying mountain position, never just the marked kicker. */
+export function mountainSkiTakeoff(point:Point,height:number,speed:number,
+ previousGround:number,aheadGround:number,verticalSpeed=0):boolean{
+ return mountainJumpEligible(point,height,speed)&&
+  (verticalSpeed>3.3||
+   previousGround-height>.06&&previousGround-aheadGround>1.25);
 }
 export const BIG_AIR_BIRDS=[
   {id:"scarlet-macaw",kind:"macaw",color:"#d65347",wing:"#edbf42",side:-1},
