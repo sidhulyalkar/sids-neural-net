@@ -25,7 +25,9 @@ async function boot(page){
  // Lagoon region spawns near the shoreline pier ramp; walk on the deck.
  const canvas=page.locator("canvas");
  await canvas.focus();
- await page.keyboard.down("d");
+ // Walk FORWARD from the lagoon arrival along its pier-facing camera.
+ // D is a camera-relative strafe and can send the player sideways into water.
+ await page.keyboard.down("w");
  try{
   await page.waitForFunction(()=>document.querySelector("canvas")?.dataset.jetSkiPier==="true",
    null,{timeout:9000});
@@ -42,7 +44,7 @@ async function boot(page){
   console.error("PIER APPROACH DIAGNOSTICS",JSON.stringify(diagnostics));
   throw err;
  }finally{
-  await page.keyboard.up("d");
+  await page.keyboard.up("w");
  }
  assert.notEqual(await canvas.getAttribute("data-jet-ski-deck-height"),"");
  assert.equal(await canvas.getAttribute("data-aquatic"),"land");
