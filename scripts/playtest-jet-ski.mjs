@@ -17,8 +17,21 @@ async function boot(page){
  page.on("console",m=>{if(m.type()==="error")errors.push("console: "+m.text().slice(0,300));});
  await page.goto(base);
  await page.getByRole("button",{name:"Explore world",exact:true}).click();
- await page.waitForFunction(()=>Number(document.querySelector("canvas")?.dataset.drawCalls)>0,
-  null,{timeout:30000});
+ try{
+  await page.waitForFunction(()=>Number(document.querySelector("canvas")?.dataset.drawCalls)>0,
+   null,{timeout:45000});
+ }catch(error){
+  const diag=await page.evaluate(()=>({
+    scene:document.querySelector("[data-world-state]")?.getAttribute("data-world-state"),
+    canvasCount:document.querySelectorAll("canvas").length,
+    canvasData:{...document.querySelector("canvas")?.dataset},
+    userAgent:navigator.userAgent,
+  }));
+  fs.writeFileSync(path.join(out,"world-boot-failure.json"),JSON.stringify({diag,errors},null,2));
+  await page.screenshot({path:path.join(out,"world-boot-failure.png")});
+  console.error("WORLD BROWSER BOOT DIAGNOSTICS",JSON.stringify(diag));
+  throw error;
+ }
  await page.getByRole("button",{name:"Open navigation menu"}).click();
  await page.getByRole("button",{name:"05 Lagoon reef South Pacific reef",exact:true}).click();
  await page.waitForFunction(()=>document.querySelector("canvas")?.dataset.aquatic==="land");
@@ -103,6 +116,8 @@ try{
  await desktop.keyboard.press("Escape");
  await desktop.waitForFunction(()=>document.querySelector("canvas")?.dataset.jetSkiStatus==="docked");
  results.push("Desktop walks onto pier, Enter chooser, countdown, reverse/boost, restart and dock");
+ // Release desktop WebGL resources before starting a second SwiftShader scene.
+ await desktop.close();
  const phone=await browser.newPage({
   viewport:{width:390,height:844},isMobile:true,hasTouch:true,deviceScaleFactor:1,
  });
