@@ -3282,7 +3282,7 @@ export function createWorld(
           rawDelta,
           destination,
         );
-        if (!isWater(nextTravel.point)) {
+        if (!isWater(nextTravel.point)||jetSkiPierHeight(nextTravel.point)!==null) {
           if (aquatic === "surface") {
             travel = nextTravel;
             player = nextTravel.point;
