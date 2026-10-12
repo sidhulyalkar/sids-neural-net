@@ -164,6 +164,7 @@ export function WorldHome({ content }: { content: WorldContent }) {
     setDiscGolfExitSerial(n=>n+1);
   };
   const [bigAir,setBigAir]=useState<BigAirState>(idleBigAir);
+  const [jetActive,setJetActive]=useState(false);
   const [bestFlight,setBestFlight]=useState<number|null>(()=>{
     if(typeof window==="undefined")return null;
     try{
@@ -416,6 +417,7 @@ export function WorldHome({ content }: { content: WorldContent }) {
             onChallenge={onChallenge}
             onBigAir={onBigAir}
             onDiscGolf={onDiscGolf}
+            onJetSkiMode={setJetActive}
           />
         </SceneBoundary>
       )}
@@ -464,23 +466,25 @@ export function WorldHome({ content }: { content: WorldContent }) {
               <button onClick={() => open("menu")}>Browse the site</button>
             </div>
           )}
-          <div className={styles.location} style={{display:discGolf.phase==="off"?undefined:"none"}}>
+          <div className={styles.location} style={{display:discGolf.phase==="off"&&!jetActive?undefined:"none"}}>
             <span className={styles.eyebrow}>
               {String(REGIONS.indexOf(current) + 1).padStart(2, "0")} / {String(REGIONS.length).padStart(2, "0")}
             </span>
             <p>{current.name}</p>
           </div>
-          {nearby && ready && discGolf.phase==="off" && (
+          {nearby && ready && discGolf.phase==="off" && !jetActive && (
             <button className={styles.discovery} onClick={() => open(nearby)}>
               <span>{discoveryTitle}</span>
               <span className={styles.key}>Enter</span>
             </button>
           )}
           {aquatic === "land" && (
-            <div className={styles.activityDock} style={{display:discGolf.phase!=="off"?"none":undefined}}>
+            <div className={styles.activityDock} style={{display:discGolf.phase!=="off"||jetActive?"none":undefined}}>
               <div className={styles.activityButtons} role="group" aria-label="Movement activity">
                 {ACTIVITIES.map(item => (
                   <button key={item.id} aria-label={item.name} aria-pressed={activity === item.id}
+                    disabled={bigAir.phase==="armed"||bigAir.phase==="flying"||
+                      trial.phase==="armed"||trial.phase==="running"}
                     onClick={() => chooseActivity(item.id)}>{item.label}</button>
                 ))}
                 <button className={styles.actionButton} disabled={!ready || quiet} onClick={() => setActionSerial(n => n + 1)}>
@@ -488,20 +492,24 @@ export function WorldHome({ content }: { content: WorldContent }) {
                 </button>
               </div>
               <p aria-live="polite">{activityConfig(activity).hint}</p>
-              <button className={styles.trialLaunch} disabled={!ready||quiet}
+              <button className={styles.trialLaunch} disabled={!ready||quiet||
+                bigAir.phase==="armed"||bigAir.phase==="flying"||
+                trial.phase==="armed"||trial.phase==="running"}
                 onClick={()=>{
                     const next=nextUnplayedDiscGolfHole(discGolfRound);
                     startDiscHole(next??0);
                     if(next===null)setDiscGolfScorecardOpen(true);
                   }}>Disc golf · {discGolfRoundSummary(discGolfRound).complete?"scorecard":
                    discGolfRoundSummary(discGolfRound).holesPlayed>0?"resume":"play"}</button>
-              {activity==="ski" && bigAir.phase!=="armed" && bigAir.phase!=="flying" && (
+              {activity==="ski" && bigAir.phase!=="armed" && bigAir.phase!=="flying" &&
+                trial.phase!=="armed"&&trial.phase!=="running" && (
                 <button className={styles.trialLaunch} disabled={!ready||quiet}
                   onClick={()=>setBigAirSerial(n=>n+1)}>
                   Mountain ski jump · summit start
                 </button>
               )}
-              {activity==="bike" && trial.phase!=="armed" &&
+              {activity==="bike" && bigAir.phase!=="armed"&&bigAir.phase!=="flying"&&
+                trial.phase!=="armed" &&
                 trial.phase!=="running" && (
                 <button className={styles.trialLaunch} disabled={!ready||quiet}
                   onClick={()=>setChallengeSerial(n=>n+1)}>
