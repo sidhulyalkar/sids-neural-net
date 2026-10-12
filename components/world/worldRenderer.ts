@@ -4702,6 +4702,16 @@ export function createWorld(
       camera.position.y=THREE.MathUtils.clamp(camera.position.y,playerY+1.5,playerY+3);
     }
     camera.lookAt(look);
+    // Projection diagnostics are read-only: the raycast still decides whether
+    // a real click has struck an unoccluded target in the current camera.
+    if(state.entered&&aquatic==="land"&&isBoostActivity(state.activity)&&
+      !jetSki&&!jetChoosing&&discGolf.phase==="off"&&bigAir.phase!=="flying"){
+      camera.updateMatrixWorld();
+      const aimed=rideVisual.visibleAimTarget(state.activity,player,
+        travel.speed,elapsed,rideBoost,camera);
+      canvas.dataset.rideBoostAim=aimed?
+        [aimed.x.toFixed(3),aimed.y.toFixed(3),aimed.id].join(","):"";
+    }else canvas.dataset.rideBoostAim="";
 
     // Underwater atmosphere and biome work are keyed by the water zone. The cold
     // kelp shelf and warm lagoon never render/animate together.
