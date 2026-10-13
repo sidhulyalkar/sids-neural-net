@@ -4,6 +4,7 @@
  */
 import type {Point} from "./model";
 import {shastaDetour} from "./shastaMotion";
+import {JET_SKI_PIER,jetSkiPierHeight} from "./jetSkiPier";
 export type FetchRunRoute={
  goal:Point|null;waypoint:Point|null;detouring:boolean;
  lastCheck:number;decisions:number;
@@ -22,7 +23,13 @@ export function stepFetchRunRoute(
  const refresh=route.waypoint===null||newGoal||arrived||
   (!route.detouring&&now-route.lastCheck>.65);
  if(!refresh)return route;
- const waypoint=shastaDetour(dog,goal,obstacles,1);
+ // Hole 2 begins on the pier. Shasta must leave by the same walkable
+ // ramp as the player, not cut diagonally through open water to the green.
+ const exitingPier=jetSkiPierHeight(dog)!==null&&
+  jetSkiPierHeight(goal)===null&&dog.x>JET_SKI_PIER.landX+2.2;
+ const waypoint=exitingPier?
+  {x:JET_SKI_PIER.landX+.6,z:JET_SKI_PIER.centerZ}:
+  shastaDetour(dog,goal,obstacles,1);
  const detouring=distance(waypoint,goal)>.5;
  return {goal:{...goal},waypoint,detouring,
   lastCheck:now,decisions:route.decisions+1};
