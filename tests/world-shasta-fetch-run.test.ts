@@ -17,7 +17,7 @@ test("direct Shasta fetch route is reused instead of checking every frame",()=>{
 
 test("a tree produces a persistent detour and no flip-flopping sides",()=>{
  const goal={x:24,z:0};
- const obstacles=[{x:8,z:0,radius:1.4}];
+ const obstacles=[{x:3,z:0,radius:1.4}];
  let route=idleFetchRunRoute(),dog={x:0,z:0};
  route=stepFetchRunRoute(route,dog,goal,obstacles,0);
  assert.equal(route.detouring,true);
