@@ -2507,6 +2507,7 @@ export function createWorld(
   let discGolf:DiscGolfState=idleDiscGolf();
   let skimHeat:SkimHeat=idleSkimHeat();
   let lastSkimCommand=0,lastSkimUpdate=0,skimNearby:number|null=null;
+  let surfClock=0;
 
   let discFetch=idleDiscGolfFetch();
   let lastDiscStart=0,lastDiscShot=0,lastDiscExit=0,lastDiscUpdate=0;
@@ -2722,7 +2723,7 @@ export function createWorld(
         skimHeat={...skimHeat,lastTrick:"Sprint toward the shorebreak before dropping"};
     }else if(action==="pop"||action==="shuvit"||action==="big-spin"||
              action==="three-sixty"||action==="wrap"){
-      skimHeat=skimAction(skimHeat,action,player,elapsed);
+      skimHeat=skimAction(skimHeat,action,player,surfClock);
     }
     callbacks.onSkim(skimHeat);
   }
@@ -2907,6 +2908,7 @@ export function createWorld(
       dt = Math.min(rawDelta, 0.05);
     last = now;
     elapsed += dt;
+    surfClock+=Math.max(0,Math.min(rawDelta,.5));
     let dx = 0,
       dz = 0;
     let showingDiscGolfIntro=false;
@@ -2985,13 +2987,13 @@ export function createWorld(
         let tick={heat:skimHeat,point:player};
         for(let slice=0;slice<slices;slice++){
           tick=stepSkimHeat(tick.heat,tick.point,simulationDelta/slices,
-            elapsed-dt+slice*simulationDelta/slices,right,forward>0);
+            surfClock-simulationDelta+(slice+1)*simulationDelta/slices,right,forward>0);
           if(tick.heat.phase!=="riding")break;
         }
         skimHeat=tick.heat;
         player=tick.point;
         travel={point:player,speed:skimHeat.speed,heading:skimHeat.heading};
-        playerY=Math.max(skimWaterHeight(player,elapsed,SEA_SURFACE),
+        playerY=Math.max(skimWaterHeight(player,surfClock,SEA_SURFACE),
           isWater(player)?SEA_SURFACE:terrainHeight(player.x,player.z));
         destination=null;
         if(skimHeat.phase!==before){
@@ -3352,7 +3354,7 @@ export function createWorld(
       canvas.dataset.skimScore=String(skimHeat.score);
       canvas.dataset.skimRemaining=skimHeat.remaining.toFixed(1);
       canvas.dataset.skimRidePoints=skimHeat.ridePoints.toFixed(0);
-      canvas.dataset.skimWave=skimWaterHeight(player,elapsed,SEA_SURFACE).toFixed(2);
+      canvas.dataset.skimWave=skimWaterHeight(player,surfClock,SEA_SURFACE).toFixed(2);
       canvas.dataset.activity = surfing?"skim":mode;
       canvas.dataset.speed = travel.speed.toFixed(2);
       canvas.dataset.height = playerY.toFixed(2);
@@ -4532,7 +4534,7 @@ export function createWorld(
     tides.position.x = Math.sin(elapsed * 0.2) * 0.5;
     for(let i=0;i<skimWavePieces.length;i++){
       const seg=i%skimWaveSegments,crest=Math.floor(i/skimWaveSegments);
-      const x=-26+seg*3.05,z=northShoreZ(x)+waveCrestOffshore(crest,elapsed);
+      const x=-26+seg*3.05,z=northShoreZ(x)+waveCrestOffshore(crest,surfClock);
       dummy.position.set(x,SEA_SURFACE+.13,z);
       dummy.rotation.set(0,0,0);
       dummy.scale.set(3,.055,.36);dummy.updateMatrix();
