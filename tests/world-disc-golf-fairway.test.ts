@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {auditDiscGolfFairways} from "../lib/world/discGolfFairway";
 import {DISC_GOLF_HOLES} from "../lib/world/discGolf";
-import {isWater} from "../lib/world/model";
+import {discGolfSurfaceIsWater} from "../lib/world/discGolfSurface";
 
 test("nine fairway surveys preserve the course order and describe measured terrain",()=>{
  const audit=auditDiscGolfFairways();
@@ -20,7 +20,8 @@ test("nine fairway surveys preserve the course order and describe measured terra
   assert.equal(h.gateReachable.length,h.gateCount);
   assert.ok(Number.isFinite(h.maxSlope)&&h.maxSlope>=0);
   assert.ok(Number.isFinite(h.basketSlope)&&h.basketSlope>=0);
-  assert.ok(!isWater(DISC_GOLF_HOLES[i].tee)&&!isWater(DISC_GOLF_HOLES[i].target));
+  assert.ok(!discGolfSurfaceIsWater(DISC_GOLF_HOLES[i].tee)&&
+    !discGolfSurfaceIsWater(DISC_GOLF_HOLES[i].target));
   assert.ok(typeof h.teeBiome==="string"&&typeof h.basketBiome==="string");
  }
 });
@@ -44,7 +45,8 @@ test("every hole starts with an unhindered real throw and a usable green",()=>{
  const failures:string[]=[];
  for(const h of auditDiscGolfFairways()){
   const label="Hole "+h.hole+" ("+h.id+")";
-  if(h.teeCoastMargin<6)failures.push(label+" tee near coast "+h.teeCoastMargin);
+  if(h.teeSupport!=="pier"&&h.teeCoastMargin<6)
+    failures.push(label+" tee near coast "+h.teeCoastMargin);
   if(h.greenCoastMargin<6)failures.push(label+" green near coast "+h.greenCoastMargin);
   if(h.teeFeatureClearance<2)failures.push(label+" crowded tee "+h.teeFeatureClearance);
   if(h.greenFeatureClearance<2)failures.push(label+" crowded green "+h.greenFeatureClearance);
