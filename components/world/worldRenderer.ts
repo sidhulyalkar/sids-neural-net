@@ -13,6 +13,7 @@ import {isBoostActivity,initialRideBoost,fireRideBoost,
  activeRideBoost,RIDE_BOOST_DURATION} from "@/lib/world/rideBoost";
 import {JOSHUA_GHOSTS,joshuaRacePlace,joshuaPlayerFraction} from "@/lib/world/joshuaGhostRace";
 import {createRideChallengeGeometry} from "./worldRideChallengeGeometry";
+import {CameraVisibilityField,type CameraVolume} from "@/lib/world/cameraVisibility";
 import {createJetSkiCoastGeometry} from "./worldJetSkiCourseGeometry";
 import {jetSkiSectionName} from "@/lib/world/jetSkiCourse";
 import {canStartWorldGame,type WorldGameMode} from "@/lib/world/gameMode";
@@ -653,6 +654,9 @@ export function createWorld(
     crowns: Instance[] = [],
     roots: Instance[] = [];
   const obstacles: Obstacle[] = [];
+  // World-coordinate ellipsoids, derived from actual rendered tree parts.
+  // Unlike the trunk-only 2D collision list, these describe leaf crowns.
+  const cameraCanopies:CameraVolume[]=[];
   const trees = [
     { x: -10, z: 6, h: 24, r: 1.4 },
     // Keep the large grove tree away from the new western scrub return.
@@ -681,6 +685,7 @@ export function createWorld(
   trees.forEach(({ x, z, h, r }, index) => {
     const y = terrainHeight(x, z);
     obstacles.push({ x, z, radius: r });
+    cameraCanopies.push({x,y:y+h*.45,z,rx:r+.3,ry:h*.45,rz:r+.3});
     trunks.push({
       x,
       y: y + h * 0.45,
@@ -732,6 +737,10 @@ export function createWorld(
       color: "#5e846e",
     });
   });
+  for(const leaf of crowns)cameraCanopies.push({
+    x:leaf.x,y:leaf.y,z:leaf.z,
+    rx:leaf.sx+0.35,ry:leaf.sy*.58+0.25,rz:leaf.sz+0.35,
+  });
   instances(cylinder, trunkMat, [...trunks, ...branches, ...roots]);
   instances(cone, leafMat, crowns);
 
@@ -760,6 +769,7 @@ export function createWorld(
     const h = 8 + random() * 8;
     const r = 0.38 + random() * 0.25;
     obstacles.push({ x, z, radius: r + 0.08 });
+    cameraCanopies.push({x,y:y+h*.44,z,rx:r+.2,ry:h*.44,rz:r+.2});
     skiTrunks.push({ x, y: y + h * 0.44, z, sx: r, sy: h * 0.88, sz: r });
     for (let layer = 0; layer < 3; layer++) {
       const width = 2.3 - layer * 0.45;
@@ -775,6 +785,10 @@ export function createWorld(
       });
     }
   }
+  for(const leaf of skiCrowns)cameraCanopies.push({
+    x:leaf.x,y:leaf.y,z:leaf.z,
+    rx:leaf.sx+.3,ry:leaf.sy*.58+.3,rz:leaf.sz+.3,
+  });
   instances(cylinder, mat("#6f4936"), skiTrunks);
   instances(cone, leafMat, skiCrowns);
 
@@ -984,6 +998,11 @@ export function createWorld(
   markerObjects.push(markerHitMesh);
   instances(rockGeo, mat("#8d9185"), cairnPieces, false);
   const habitats = createHabitats(scene, obstacles);
+  const cameraVisibility=new CameraVisibilityField([
+    ...cameraCanopies,...habitats.cameraOccluders,
+  ]);
+  canvas.dataset.discGolfCameraVolumes=String(
+    cameraCanopies.length+habitats.cameraOccluders.length);
   const technicalFeatures = createTechnicalGeometry(scene);
   const flyingBirds=createBigAirBirds(scene);
   const discGolfObjects=createDiscGolfGeometry(scene);
@@ -2672,6 +2691,10 @@ export function createWorld(
   // Local camera-only state: it never mutates the simulation, scoring or lie.
   let discGolfIntro:{startedAt:number;reducedMotion:boolean}|null=null;
   let snapDiscCamera=false;
+  let lastDiscCameraSolve:{
+    desired:THREE.Vector3;focus:THREE.Vector3;position:THREE.Vector3;
+    clear:boolean;adjusted:boolean;blocking:number;
+  }|null=null;
   let trial:TrialState={phase:"idle",nextGate:0,elapsedMs:0,splitsMs:[]};
   let rideBoost=initialRideBoost();
   let rideBoostNoticeUntil=0;
@@ -4177,6 +4200,40 @@ export function createWorld(
       }else{
         canvas.dataset.discGolfIntro="off";
       }
+      // Aiming is the only camera state requiring a persistent unobstructed
+      // player silhouette. Never interfere with the disc-follow, Shasta POV,
+      // mountain jumps, underwater camera or authored cave cinematics.
+      const smartDiscCamera=discGolf.phase==="ready"||
+        discGolf.phase==="landed"||discGolf.phase==="water";
+      if(smartDiscCamera&&!discGolf.presentationPending&&
+        !showingDiscGolfIntro&&aquatic==="land"){
+        const focus={x:player.x,y:playerY+1.55,z:player.z};
+        const old=lastDiscCameraSolve;
+        const needed=!old||old.desired.distanceTo(targetCamera)>.30||
+          old.focus.distanceTo(new THREE.Vector3(focus.x,focus.y,focus.z))>.30;
+        if(needed){
+          const result=cameraVisibility.resolve(
+            {x:targetCamera.x,y:targetCamera.y,z:targetCamera.z},
+            focus,(x,z)=>worldFloorHeight(x,z),
+            old?.position);
+          lastDiscCameraSolve={
+            desired:targetCamera.clone(),focus:new THREE.Vector3(focus.x,focus.y,focus.z),
+            position:new THREE.Vector3(result.point.x,result.point.y,result.point.z),
+            clear:result.clear,adjusted:result.adjusted,blocking:result.blocking,
+          };
+        }
+        if(lastDiscCameraSolve){
+          targetCamera.copy(lastDiscCameraSolve.position);
+          canvas.dataset.discGolfCameraAdjusted=String(lastDiscCameraSolve.adjusted);
+          canvas.dataset.discGolfCameraClear=String(lastDiscCameraSolve.clear);
+          canvas.dataset.discGolfCameraBlockers=String(lastDiscCameraSolve.blocking);
+        }
+      }else{
+        lastDiscCameraSolve=null;
+        canvas.dataset.discGolfCameraAdjusted="false";
+        canvas.dataset.discGolfCameraClear="true";
+        canvas.dataset.discGolfCameraBlockers="0";
+      }
       if (cavernFraming) {
         const cameraFloor = arcadeCaveFloorHeight({x:targetCamera.x,z:targetCamera.z});
         const cameraCeiling = cameraFloor + ARCADE_CAVE.ceilingClearance;
@@ -4689,6 +4746,19 @@ export function createWorld(
       camera.position.lerp(targetCamera, 1 - Math.exp(-dt * cinematicRate));
       look.lerp(targetLook, 1 - Math.exp(-dt * (cinematicRate+.4)));
     }
+    // The *interpolated* lens can cross foliage even if both ends of
+    // the blend are clear. Reject that intermediate pose and snap onto the
+    // validated shot so a second throw is never framed from inside a leaf.
+    if(lastDiscCameraSolve&&lastDiscCameraSolve.clear){
+      if(!cameraVisibility.clear(camera.position,lastDiscCameraSolve.focus)){
+        camera.position.copy(lastDiscCameraSolve.position);
+        look.copy(targetLook);
+      }
+      canvas.dataset.discGolfRenderedCameraClear=String(
+        cameraVisibility.clear(camera.position,lastDiscCameraSolve.focus));
+      canvas.dataset.discGolfRenderedCameraDistance=
+        camera.position.distanceTo(lastDiscCameraSolve.position).toFixed(2);
+    }else canvas.dataset.discGolfRenderedCameraClear="true";
     if (
       (caveLayer === "arcade" && arcadeInside(player)) ||
       (caveLayer === "paper" && paperCaveInside(player))
