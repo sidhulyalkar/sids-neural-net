@@ -21,6 +21,9 @@ try{
  await page.waitForFunction(()=>
   Number(document.querySelector("canvas")?.dataset.drawCalls)>0,null,{timeout:45000});
  assert.equal(await canvas.getAttribute("data-dog-snow-stage"),"idle");
+ assert.equal(await canvas.getAttribute("data-shasta-tail-tip"),"closed-white");
+ assert.ok(Number(await canvas.getAttribute("data-shasta-paw-width"))>=.14);
+ assert.equal(await canvas.getAttribute("data-shasta-joints-valid"),"true");
  await page.getByRole("button",{name:"Skiing",exact:true}).click();
  await page.waitForFunction(()=>{
   const stage=document.querySelector("canvas")?.dataset.dogSnowStage;
