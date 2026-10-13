@@ -66,6 +66,8 @@ jobs:
           tests/world-technical-features.test.ts
           lib/world/trials.ts
           lib/world/rideBoost.ts
+          lib/world/cameraVisibility.ts
+          tests/world-camera-visibility.test.ts
           lib/world/joshuaGhostRace.ts
           components/world/worldRideChallengeGeometry.ts
           tests/world-ride-boost-ghost.test.ts
