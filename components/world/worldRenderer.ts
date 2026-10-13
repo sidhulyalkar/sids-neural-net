@@ -41,6 +41,7 @@ import { SHASTA_CHARACTER } from "@/lib/world/shastaCharacter";
 import { FrameSampler, QualityController } from "@/lib/world/performance";
 import { shastaDetour, initialChaseState, stepChase, gaitBlendForSpeed, smoothAngle, smoothPoint, smoothingAlpha, steerShastaVelocity } from "@/lib/world/shastaMotion";
 import {advanceShastaStride,shastaGaitPose,shastaLegIK} from "@/lib/world/shastaGait";
+import {shastaCameraShot,stepShastaCameraAnchor,type ShastaCameraAnchor} from "@/lib/world/shastaCamera";
 import {idleShastaSnowPlay,queueShastaSnowPlay,stepShastaSnowPlay,shastaSnowPose} from "@/lib/world/shastaPersonality";
 import {idleDiscGolfFetch,startDiscGolfFetch,stepDiscGolfFetch,discGolfFetchCameraPhase,discGolfHandoffTarget} from "@/lib/world/discGolfFetch";
 import * as THREE from "three/src/Three.Core.js";
@@ -2848,6 +2849,8 @@ export function createWorld(
   let dogPitch = 0;
   let dogRoll = 0;
   let dogGroundY = terrainHeight(dog.x, dog.z);
+  const dogFootGround=[0,0,0,0];
+  let dogCameraAnchor:ShastaCameraAnchor|null=null;
   let dogGaitPhase = 0;
   let dogMoveBlend = 0;
   let shastaSnow=idleShastaSnowPlay();
@@ -4185,31 +4188,24 @@ export function createWorld(
         const y=terrainHeight(p.x,p.z);
         targetLook.set(p.x,y+1,p.z);
         targetCamera.set(p.x-fx*12+fz*4,y+12,p.z-fz*12-fx*4);
-      }else if(fetchCamera==="chase"&&discFetch.target){
-        const goal=discFetch.target;
-        const dx=goal.x-dog.x,dz=goal.z-dog.z;
-        const dist=Math.hypot(dx,dz)||1,fx=dx/dist,fz=dz/dist;
-        const mid=Math.min(.53,9/dist);
-        const lookX=dog.x+dx*mid,lookZ=dog.z+dz*mid;
-        targetLook.set(lookX,terrainHeight(lookX,lookZ)+1.3,lookZ);
-        targetCamera.set(dog.x-fx*9+fz*3,
-          terrainHeight(dog.x,dog.z)+9+Math.min(6,dist*.07),
-          dog.z-fz*9-fx*3);
-      }else if(fetchCamera==="shasta"&&discFetch.target){
-        const goal=discFetch.target;
-        const dx=goal.x-dog.x,dz=goal.z-dog.z;
-        const dist=Math.hypot(dx,dz);
-        // At the disc, preserve Shasta's heading rather than looking at an
-        // almost zero-length direction that can whip the POV around.
-        const fx=dist>1.5?dx/dist:Math.sin(dogYaw);
-        const fz=dist>1.5?dz/dist:Math.cos(dogYaw);
-        // Shasta's low, forward-facing view. This is not a teleport:
-        // the position comes from the same obstacle-aware dog locomotion.
-        const eyeX=dog.x+fx*.45,eyeZ=dog.z+fz*.45;
-        targetCamera.set(eyeX,terrainHeight(eyeX,eyeZ)+1.65,eyeZ);
-        const ahead=Math.min(10,Math.max(2,dist));
-        const lookX=eyeX+fx*ahead,lookZ=eyeZ+fz*ahead;
-        targetLook.set(lookX,terrainHeight(lookX,lookZ)+1.45,lookZ);
+      }else if((fetchCamera==="chase"||fetchCamera==="shasta")&&
+        discFetch.target){
+        // Smooth the *actual dog navigation* independently from paw IK and
+        // high-frequency terrain samples, and preserve heading near the lie.
+        // The wider over-shoulder follow shot keeps Shasta and his gait in
+        // view rather than putting the lens at his moving nose.
+        dogCameraAnchor=stepShastaCameraAnchor(dogCameraAnchor,
+          {x:dog.x,y:dogGroundY,z:dog.z},dogYaw,dt);
+        const shot=shastaCameraShot(dogCameraAnchor,fetchCamera,
+          (x,z)=>worldFloorHeight(x,z));
+        targetCamera.set(shot.camera.x,shot.camera.y,shot.camera.z);
+        targetLook.set(shot.look.x,shot.look.y,shot.look.z);
+        canvas.dataset.shastaFollowBoom=shot.boom.toFixed(1);
+        canvas.dataset.shastaFollowMode="third-person";
+      }
+      if(fetchCamera!=="chase"&&fetchCamera!=="shasta"){
+        dogCameraAnchor=null;
+        canvas.dataset.shastaFollowMode="off";
       }
       if(fetchCamera!=="off"){
         targetCamera.y=Math.max(targetCamera.y,
@@ -4692,11 +4688,11 @@ export function createWorld(
 
     const velocitySpeed = Math.hypot(dogVelocity.x, dogVelocity.z);
     const desiredDogYaw =
-      velocitySpeed > 0.08
+      velocitySpeed > 0.8
         ? Math.atan2(dogVelocity.x, dogVelocity.z)
         : dogYaw;
     const previousDogYaw = dogYaw;
-    dogYaw = smoothAngle(dogYaw, desiredDogYaw, dt);
+    dogYaw = smoothAngle(dogYaw, desiredDogYaw, dogMotionDt);
     const appliedDogYawStep = Math.abs(
       Math.atan2(
         Math.sin(dogYaw - previousDogYaw),
@@ -4707,7 +4703,7 @@ export function createWorld(
 
     const dogHeading = { x: Math.sin(dogYaw), z: Math.cos(dogYaw) };
     const dogContactSample = terrainContact(dog, dogHeading, 0.58, 0.22);
-    const poseAlpha = smoothingAlpha(dt, 8);
+    const poseAlpha = smoothingAlpha(dogMotionDt, 5.2);
     dogPitch += (dogContactSample.pitch - dogPitch) * poseAlpha;
     dogRoll += (dogContactSample.roll - dogRoll) * poseAlpha;
 
@@ -4721,7 +4717,7 @@ export function createWorld(
 
     const targetDogY = terrainHeight(dog.x, dog.z);
     dogGroundY +=
-      (targetDogY - dogGroundY) * smoothingAlpha(dogMotionDt, 10);
+      (targetDogY - dogGroundY) * smoothingAlpha(dogMotionDt, 6.5);
     const dogGait=shastaGaitPose(dogAnimSpeed,dogGaitPhase,dogMoveBlend);
     const dogBob=dogGait.bodyBob;
     const dogRenderY=dogGroundY+dogBob;
@@ -4776,7 +4772,12 @@ export function createWorld(
       const worldZ=dog.z+foot.z*cosYaw-leg.x*sinYaw;
       const groundDelta=THREE.MathUtils.clamp(
         terrainHeight(worldX,worldZ)-dogGroundY,-.14,.14);
-      const footY=foot.y+groundDelta;
+      // Independent ankle suspension. Sampling each paw against a
+      // high-frequency heightfield without filtering made its IK knee
+      // and paw visibly shake while running through uneven terrain.
+      dogFootGround[i]+=(groundDelta-dogFootGround[i])*
+        smoothingAlpha(dogMotionDt,8);
+      const footY=foot.y+dogFootGround[i];
       const ik=shastaLegIK(leg.z,foot.z,footY,leg.z>0);
       const upperPart=shastaCylinderParts[leg.upperIndex];
       const lowerPart=shastaCylinderParts[leg.lowerIndex];
