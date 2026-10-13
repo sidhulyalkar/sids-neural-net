@@ -40,7 +40,7 @@ import {stepCritterLocomotion} from "@/lib/world/landWildlifeMotion";
 import { SHASTA_CHARACTER } from "@/lib/world/shastaCharacter";
 import { FrameSampler, QualityController } from "@/lib/world/performance";
 import { shastaDetour, initialChaseState, stepChase, gaitBlendForSpeed, smoothAngle, smoothPoint, smoothingAlpha, steerShastaVelocity } from "@/lib/world/shastaMotion";
-import {advanceShastaStride,shastaGaitPose,shastaLegIK} from "@/lib/world/shastaGait";
+import {advanceShastaStride,shastaGaitPose,shastaStraightLeg} from "@/lib/world/shastaGait";
 import {shastaCameraShot,stepShastaCameraAnchor,type ShastaCameraAnchor} from "@/lib/world/shastaCamera";
 import {idleShastaSnowPlay,queueShastaSnowPlay,stepShastaSnowPlay,shastaSnowPose} from "@/lib/world/shastaPersonality";
 import {idleDiscGolfFetch,startDiscGolfFetch,stepDiscGolfFetch,discGolfFetchCameraPhase,discGolfHandoffTarget} from "@/lib/world/discGolfFetch";
@@ -1514,42 +1514,16 @@ export function createWorld(
   const shastaHeadIndices=[
     4,5,10,11,12,13,14,15,16,17,18,shastaMouthIndex,shastaTongueIndex,
   ];
-  // Each foot gets a broad planted pad, three short toe lobes, and joint
-  // caps to avoid the thin, disconnected stick silhouette in motion.
+  // Four compact, rounded paws only. No toe lobes, hock spheres or knee
+  // blobs: the clean low-poly silhouette matches the simple leg columns.
   const pawInstanceIndices:number[]=[];
-  const toeInstanceIndices:number[][]=[];
-  const jointInstanceIndices:{knee:number;hock:number|null}[]=[];
-  for(const x of [-1,1])for(const z of [-1,1]){
+  for(const side of [-1,1])for(const fore of [-1,1]){
     pawInstanceIndices.push(shastaRockParts.length);
     shastaRockParts.push({
-      x:x*.2,y:.07,z:z*.44+.02,
+      x:side*.2,y:.06,z:fore*.44+.018,
       sx:p.paw.x,sy:p.paw.y,sz:p.paw.z,
       color:shastaPalette.brightWhite,
     });
-    const toes:number[]=[];
-    for(const dx of [-.075,0,.075]){
-      toes.push(shastaRockParts.length);
-      shastaRockParts.push({
-        x:x*.2+dx,y:.054,z:z*.44+.15,
-        sx:.052,sy:.045,sz:.078,color:shastaPalette.brightWhite,
-      });
-    }
-    toeInstanceIndices.push(toes);
-    const knee=shastaRockParts.length;
-    shastaRockParts.push({
-      x:x*.2,y:.45,z:z*.44,
-      sx:z>0?.099:.129,sy:z>0?.112:.14,sz:z>0?.111:.135,
-      color:z>0?shastaPalette.creamWhite:shastaPalette.lightTan,
-    });
-    let hock:number|null=null;
-    if(z<0){
-      hock=shastaRockParts.length;
-      shastaRockParts.push({
-        x:x*.2,y:.27,z:z*.44-.16,
-        sx:.088,sy:.087,sz:.090,color:shastaPalette.brightWhite,
-      });
-    }
-    jointInstanceIndices.push({knee,hock});
   }
   const shastaRockMesh = instances(shastaBodyGeo, shastaRockMat, shastaRockParts, true, shastaArt);
 
@@ -1583,47 +1557,22 @@ export function createWorld(
   const shastaHeadPos=new THREE.Vector3(),shastaHeadQuat=new THREE.Quaternion(),
     shastaEarQuat=new THREE.Quaternion();
 
-  const shastaCylinderParts: Instance[] = [];
-  const shastaLegs: {
-    x: number;
-    z: number;
-    upperIndex: number;
-    lowerIndex: number;
-    pawIndex: number;
-    toeIndices:number[];
-    kneeJointIndex:number;
-    hockJointIndex:number|null;
-    hockIndex:number|null;
-  }[] = [];
-  let legIndex = 0;
-  for (const x of [-1, 1]) for (const z of [-1, 1]) {
-    const forward = z > 0;
-    const upperIndex=shastaCylinderParts.length;
+  const shastaCylinderParts:Instance[]=[];
+  const shastaLegs:{
+    x:number;z:number;legIndex:number;pawIndex:number;
+  }[]=[];
+  let legIndex=0;
+  for(const side of [-1,1])for(const fore of [-1,1]){
+    const index=shastaCylinderParts.length;
+    // Same lateral scale as the compact paw, visually one continuous limb.
     shastaCylinderParts.push({
-      x:x*.2,y:.56,z:z*.44,
-      sx:forward?.099:.136,sy:.4,sz:forward?.10:.13,
-      color:forward?shastaPalette.creamWhite:shastaPalette.lightTan,
+      x:side*.2,y:.4,z:fore*.44,
+      sx:p.paw.x,sy:.75,sz:.086,
+      color:fore>0?shastaPalette.creamWhite:shastaPalette.brightWhite,
     });
-    const lowerIndex=shastaCylinderParts.length;
-    shastaCylinderParts.push({
-      x:x*.2,y:.30,z:z*.44,
-      sx:forward?.084:.10,sy:.38,sz:forward?.084:.10,
-      color:shastaPalette.brightWhite,
-    });
-    let hockIndex:number|null=null;
-    if(!forward){
-      hockIndex=shastaCylinderParts.length;
-      shastaCylinderParts.push({
-        x:x*.2,y:.17,z:z*.44-.09,
-        sx:.084,sy:.25,sz:.088,color:shastaPalette.brightWhite,
-      });
-    }
     shastaLegs.push({
-      x:x*.2,z:z*.44,upperIndex,lowerIndex,hockIndex,
+      x:side*.2,z:fore*.44,legIndex:index,
       pawIndex:pawInstanceIndices[legIndex],
-      toeIndices:toeInstanceIndices[legIndex],
-      kneeJointIndex:jointInstanceIndices[legIndex].knee,
-      hockJointIndex:jointInstanceIndices[legIndex].hock,
     });
     legIndex++;
   }
