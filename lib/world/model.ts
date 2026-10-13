@@ -1,8 +1,9 @@
 import { desertTrackHeightOffset } from "./desertTrack";
 import { rockGardenHeightOffset } from "./technicalFeatures";
 import { bigAirTerrainOffset } from "./bigAir";
+import { beachBlend, northShoreZ } from "./skimboarding";
 /** Small, deterministic geography shared by the renderer, navigation and tests. */
-export type RegionId = "grove" | "mountain" | "neural" | "coast" | "lagoon" | "waterfall" | "canyon" | "cavern" | "desert" | "rainforest";
+export type RegionId = "grove" | "mountain" | "neural" | "coast" | "lagoon" | "waterfall" | "canyon" | "cavern" | "desert" | "rainforest" | "north-shore";
 export type Point = { x: number; z: number };
 
 export const REGIONS: {
@@ -22,9 +23,10 @@ export const REGIONS: {
   { id: "cavern", name: "Arcade cavern", meaning: "Play my games", point: { x: 16, z: -82 }, href: "/arcade" },
   { id: "desert", name: "Joshua basin", meaning: "Granite and desert trails", point: { x: 22, z: -33 }, href: "/photography" },
   { id: "rainforest", name: "Rainforest", meaning: "Canopy to coast", point: { x: 44, z: 33 }, href: "/photography" },
+  { id: "north-shore", name: "North shore", meaning: "Skimboarding · Shore break", point: { x: 0, z: 40 }, href: "/photography" },
 ];
 
-export const WORLD_BOUNDS = { minX: -92, maxX: 94, minZ: -96, maxZ: 58 } as const;
+export const WORLD_BOUNDS = { minX: -92, maxX: 94, minZ: -96, maxZ: 94 } as const;
 export const SEA_SURFACE = -1.4;
 
 export const ARCADE_CAVE = {
@@ -294,6 +296,12 @@ export function terrainHeight(x: number, z: number): number {
   const outletBed = rawTerrainHeight(-32, -7) * (1 - outletT) + (SEA_SURFACE - 0.2) * outletT;
   base += (outletBed - base) * outletMask;
 
+  // Model the skim beach into the actual heightfield, not a floating sand decal.
+  // A gentle sloping foreshore intersects the very same water boundary.
+  const beach = beachBlend(x, z);
+  const beachHeight = SEA_SURFACE + Math.max(0, northShoreZ(x) - z) * 0.19;
+  base += (beachHeight - base) * beach;
+
   // Terrain mesh, feet, tires and vegetation all use the same sculpted loop.
   base += desertTrackHeightOffset({ x, z });
   base += rockGardenHeightOffset({ x, z });
@@ -318,10 +326,11 @@ export function eastCoastlineX(z: number): number {
   return 58 + Math.sin(z * 0.067 + 0.7) * 1.9 + Math.sin(z * 0.019) * 1.1;
 }
 
-export type WaterZone = "kelp" | "lagoon";
+export type WaterZone = "kelp" | "lagoon" | "north-shore";
 export function waterZone(point: Point): WaterZone | null {
   if (point.x < coastlineX(point.z) - 0.35) return "kelp";
   if (point.x > eastCoastlineX(point.z) + 0.35) return "lagoon";
+  if (point.z > northShoreZ(point.x) + 0.35) return "north-shore";
   return null;
 }
 
@@ -331,6 +340,10 @@ export function isWater(point: Point): boolean {
 
 export function seaFloorHeight(x: number, z: number): number {
   const zone = waterZone({ x, z });
+  if (zone === "north-shore") {
+    const offshore = Math.max(0, z - northShoreZ(x));
+    return SEA_SURFACE - 0.4 - Math.min(4.2, offshore * 0.16) + Math.sin(x * 0.33 + z * 0.14) * 0.065;
+  }
   if (zone === "lagoon") {
     const offshore = Math.max(0, x - eastCoastlineX(z));
     const shelf = SEA_SURFACE - 1.9 - Math.min(7.4, offshore * 0.17);
@@ -389,6 +402,7 @@ export function regionLanding(region: RegionId): Point {
     return { x: coastlineX(z) + 1.35, z };
   if (region === "lagoon")
     return { x: eastCoastlineX(z) - 1.35, z };
+  if (region === "north-shore") return { x: 0, z: northShoreZ(0) - 5.2 };
   if (region === "cavern")
     return { ...ARCADE_CAVE.approach };
   return { x: target.point.x, z };
