@@ -60,6 +60,31 @@ try {
  assert.notEqual(result.phase,"water","Regular first throw must not immediately splash out");
  assert.equal(result.strokes,"1");
  await page.screenshot({path:path.join(out,"02-arcade-landing.png")});
+ // The footage-derived gait contract applies during Shasta's automatic
+ // fetch, not just while following the player. Sample actual animation
+ // frames; fixed scene screenshots cannot prove anti-hop behavior.
+ await page.waitForFunction(()=>document.querySelector("canvas")?.dataset.dogFetchStage==="chase",
+  null,{timeout:8000});
+ const fetchGait=await page.evaluate(async ()=>{
+  const samples=[];
+  for(let i=0;i<18;i++){
+   const d=document.querySelector("canvas")?.dataset;
+   samples.push({
+    stage:d?.dogFetchStage,gait:d?.dogGait,
+    speed:Number(d?.dogSpeed),bodyBob:Number(d?.dogBodyBob),
+    pawLift:Number(d?.dogFootLiftMax)
+   });
+   await new Promise(resolve=>setTimeout(resolve,100));
+  }
+  return samples;
+ });
+ assert.ok(fetchGait.every(s=>Number.isFinite(s.bodyBob)&&
+   Math.abs(s.bodyBob)<.03),
+  "Shasta's body cannot repeatedly bounce while fetching the disc");
+ assert.ok(fetchGait.some(s=>s.speed>1),
+  "Fetch must include Shasta actually travelling, not only idle posing");
+ assert.ok(fetchGait.every(s=>Number.isFinite(s.pawLift)&&s.pawLift<.19));
+
  // Recreate the reported Hole 1 second-shot failure after Shasta has
  // delivered the disc to the new lie. Check BOTH the requested camera and
  // the actually rendered, interpolated lens, not only tree trunk clearance.
