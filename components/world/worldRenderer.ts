@@ -1678,6 +1678,14 @@ export function createWorld(
   shastaTail.rotation.z = SHASTA_CHARACTER.tail.restAngleZ;
   shastaTail.rotation.y = SHASTA_CHARACTER.tail.restAngleY;
 
+  // Ground-level snow scatter reuses one tiny instanced draw call. Puffs are
+  // only visible during the alpine zoom/run/roll event, never during fetch.
+  const snowPuffGeo=geo(new THREE.IcosahedronGeometry(1,0));
+  const snowPuffMat=mat("#eff8f6",{transparent:true,opacity:.66,depthWrite:false});
+  const snowPuffs=instances(snowPuffGeo,snowPuffMat,
+    Array.from({length:12},()=>({x:0,y:-100,z:0,sx:.1,sy:.06,sz:.1})),false);
+  snowPuffs.frustumCulled=false;
+  snowPuffs.visible=false;
   // Default World Mode shows Shasta without accessories so his natural coat and
   // body silhouette remain unobstructed.
 
@@ -4733,7 +4741,15 @@ export function createWorld(
     const limbDir=new THREE.Vector3();
     shastaLegs.forEach((leg,i)=>{
       const foot=dogGait.feet[i];
-      const ik=shastaLegIK(leg.z,foot.z,foot.y,leg.z>0);
+      // Sample under every paw. The hips follow smoothed ground elevation,
+      // while individual ankles accommodate little downhill/log variations.
+      const cosYaw=Math.cos(dogYaw),sinYaw=Math.sin(dogYaw);
+      const worldX=dog.x+leg.x*cosYaw+foot.z*sinYaw;
+      const worldZ=dog.z+foot.z*cosYaw-leg.x*sinYaw;
+      const groundDelta=THREE.MathUtils.clamp(
+        terrainHeight(worldX,worldZ)-dogGroundY,-.14,.14);
+      const footY=foot.y+groundDelta;
+      const ik=shastaLegIK(leg.z,foot.z,footY,leg.z>0);
       const upperPart=shastaCylinderParts[leg.upperIndex];
       const lowerPart=shastaCylinderParts[leg.lowerIndex];
       const upperLength=Math.hypot(ik.hip.y-ik.knee.y,ik.hip.z-ik.knee.z);
@@ -4753,7 +4769,7 @@ export function createWorld(
       dummy.updateMatrix();
       shastaCylinderMesh.setMatrixAt(leg.lowerIndex,dummy.matrix);
       const pawPart=shastaRockParts[leg.pawIndex];
-      dummy.position.set(leg.x,foot.y,foot.z+.035);
+      dummy.position.set(leg.x,footY,foot.z+.035);
       dummy.rotation.set(foot.stance?0:-.12,0,0);
       dummy.scale.set(pawPart.sx,pawPart.sy,pawPart.sz);
       dummy.updateMatrix();
@@ -4767,6 +4783,24 @@ export function createWorld(
       Math.sin(elapsed*2.6)*.027+Math.sin(elapsed*8.3)*.09*wagEnergy;
     shastaTail.rotation.y=SHASTA_CHARACTER.tail.restAngleY+
       Math.sin(elapsed*(wagEnergy>1?10:4.3)+.4)*(.035+wagEnergy*.17);
+    const inSnowPlay=shastaSnow.stage==="zoom"||
+      shastaSnow.stage==="roll"||shastaSnow.stage==="shake";
+    snowPuffs.visible=inSnowPlay;
+    if(inSnowPlay){
+      const puffCycle=(elapsed-shastaSnow.started)*3.1;
+      for(let i=0;i<12;i++){
+        const angle=i*2.399+puffCycle*.19;
+        const r=.23+(i%4)*.22;
+        const px=dog.x+Math.cos(angle)*r,pz=dog.z+Math.sin(angle)*r;
+        const age=((puffCycle*.75+i*.381)%1+1)%1;
+        dummy.position.set(px,terrainHeight(px,pz)+.08+age*.21,pz);
+        dummy.rotation.set(0,angle,0);
+        const size=(.045+age*.11)*(shastaSnow.stage==="zoom"?1:.65);
+        dummy.scale.set(size,size*.5,size);
+        dummy.updateMatrix();snowPuffs.setMatrixAt(i,dummy.matrix);
+      }
+      snowPuffs.instanceMatrix.needsUpdate=true;
+    }
     if(showingDiscGolfIntro || snapDiscCamera){
       // A direct time-derived pose starts on the basket instead of slowly
       // drifting there from a camera that previously followed the player.
