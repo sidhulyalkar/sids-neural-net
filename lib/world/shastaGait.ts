@@ -41,7 +41,8 @@ export function shastaGaitPose(speed:number,phase:number,blend:number):ShastaGai
  const length=shastaStrideLength(safeSpeed);
  const walkToTrot=smoothstep(2.0,4.5,safeSpeed);
  const trotToCanter=smoothstep(7.0,10.0,safeSpeed);
- const stride=mix(mix(.17,.23,walkToTrot),.30,trotToCanter);
+ // Keep foot reach within the elbow/stifle's physically valid side.
+ const stride=mix(mix(.17,.205,walkToTrot),.24,trotToCanter);
  const duty=mix(mix(.69,.59,walkToTrot),.48,trotToCanter);
  // Paw order: left hind, left fore, right hind, right fore.
  // Blend contact offsets across gait boundaries so speed oscillation
@@ -82,8 +83,8 @@ export type ShastaLegIK={
  hock:ShastaLegJoint|null;paw:ShastaLegJoint;
 };
 export const SHASTA_LEG_LENGTHS={
- fore:{upper:.42,lower:.38},
- hind:{upper:.38,lower:.40,hockToPawZ:.16,hockToPawY:.22},
+ fore:{upper:.45,lower:.44},
+ hind:{upper:.44,lower:.45,hockToPawZ:.16,hockToPawY:.22},
 } as const;
 export function shastaLegIK(hipZ:number,footZ:number,footY:number,
  fore:boolean,hipY=fore?.77:.82):ShastaLegIK{
