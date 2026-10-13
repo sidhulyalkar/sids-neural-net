@@ -35,8 +35,10 @@ Shasta appear to hop. The replacement separates independent concerns:
 2. **Gait** in `lib/world/shastaGait.ts` uses grounded stance/swing feet,
    diagonal trot timing and a higher-speed canter, with small torso
    oscillation capped below approximately 2cm in world units.
-3. **Foot placement** solves two-bone limb geometry against each actual
-   terrain sample. Paw swing lifts individual feet, not the dog root.
+3. **Foot placement (updated Oct 13)** uses one continuous straight
+   stylized limb per hip/paw pair. Four separate terrain filters move four
+   compact paws gently up/down; there is no knee or hock inverse kinematics.
+   Swing lifts individual paws, not the dog root.
 4. **Personality** in `lib/world/shastaPersonality.ts` is a deterministic,
    cancellable Ski event: perk -> snow run -> side/back roll -> shake ->
    rejoin. This only starts when selected Ski mode reaches alpine terrain.
@@ -52,16 +54,16 @@ Shasta appear to hop. The replacement separates independent concerns:
 
 - The center of mass never performs a large arbitrary bounce during a
   normal walk, trot, or disc-fetch sprint.
-- Stance/swing IK limbs stay connected at the knee. Sample terrain at each
-  paw instead of applying the same height to all four legs.
+- Four straight leg columns remain visually connected to their own compact
+  paws. Sample terrain at each foot without moving the whole dog.
 - Deterministic phase increment depends on actual dog displacement.
 - Repeated selecting of other activities clears the queued or active
   celebration; it never steals focus during disc golf, jet skiing, cave,
   or water cinematics.
 - Shasta's original male cream/tan coat, amber eyes, relaxed tail shape,
   and harness-free appearance remain unchanged.
-- The World regression suite includes finite IK, leg reach, anti-hop
-  bounds and personality state machine tests.
+- The World regression suite includes bounded straight-leg reach,
+  anti-hop bounds and personality state machine tests.
 - Chromium snow play acceptance captures run, roll and shake frames,
   measures body bob, and confirms cancel-on-mode-switch. Browser validation
   and visual/manual device review are required before promoting the draft.
@@ -104,4 +106,28 @@ producing a visible knee/paw pop, particularly near uneven terrain.
   The Chromium disc-golf playtest also checks that the actual camera
   records a third-person trailing boom while Shasta runs.
 - The World remains a stylized art-direction model; manual playback review
-  is needed to tune the remaining knee animation and camera composition.
+  is needed to tune remaining gait damping and camera composition.
+
+## Authoritative Shasta leg silhouette: straight rig (Oct 13, later pass)
+
+The subsequent anatomical knee/hock implementation looked too mechanical
+in the user's gameplay screenshots. At the user's direction, it has been
+**replaced**, not refined. The current spec is deliberately stylized:
+
+- **Four straight cylinder legs**, each connecting a fixed chest/hip anchor
+  to a lightly animated paw target in one uninterrupted mesh.
+- **Four slim oval paws**, one per leg, no individual toe blobs, knee spheres,
+  hock spheres, or additional bent segments. Both the paw lateral radius
+  and leg lateral radius equal **0.086 world units**.
+- **Gentle ground conformance:** clamp local paw terrain variation to ±0.075
+  units, ease offsets per foot, and allow a tiny pitch change up to 0.045
+  radians when the foot is planted. Torso/neck do not copy ankle noise.
+- Keep continuous distance-driven walk/trot/canter phase, eye/head/tail
+  personality, the sealed white tail tip, fetch camera, and snow-play state
+  machine. This is not a skeletal dog biomechanics model.
+- Regression contracts now check four-leg count and equal narrow paw/leg
+  widths in actual Chromium snow and disc-fetch gameplay. Older articulated
+  knee/hock acceptance contracts are intentionally deleted.
+
+Review the left/right silhouettes at rest, walking, fetching a disc, and
+snow zoomies before promoting the draft branch.
