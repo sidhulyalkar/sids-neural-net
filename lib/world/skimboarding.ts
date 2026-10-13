@@ -60,7 +60,7 @@ export function skimOffshore(p: SkimPoint): number { return p.z - northShoreZ(p.
 /** Crest translates toward negative Z. Its exact phase also positions rendered foam. */
 export function waveCrestOffshore(index: number, seconds: number): number {
   const repeat = SKIM_WAVE_SPACING * 5;
-  return 2.2 + (((index * SKIM_WAVE_SPACING - seconds * SKIM_WAVE_SPEED) % repeat) + repeat) % repeat;
+  return 2.2 + (((11.2 + index * SKIM_WAVE_SPACING - seconds * SKIM_WAVE_SPEED) % repeat) + repeat) % repeat;
 }
 export function skimWaveAt(p: SkimPoint, seconds: number): number {
   const offshore = skimOffshore(p);
