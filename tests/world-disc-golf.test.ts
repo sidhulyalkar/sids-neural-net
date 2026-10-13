@@ -11,15 +11,17 @@ import {
  DISC_GOLF_SWING_CYCLE_MS,
 } from "../lib/world/discGolf";
 import { terrainHeight,isWater } from "../lib/world/model";
+import {discGolfSurfaceHeight,discGolfSurfaceIsWater} from "../lib/world/discGolfSurface";
+import {jetSkiPierHeight,JET_SKI_PIER} from "../lib/world/jetSkiPier";
 import { createDiscGolfGeometry } from "../components/world/worldDiscGolfGeometry";
-const ground=(p:{x:number;z:number})=>terrainHeight(p.x,p.z);
+const ground=discGolfSurfaceHeight;
 const ordinary={power:74,accuracy:0,loft:25,aimOffset:0};
 test("nine independently placed tees and fixed greens remain on playable land",()=>{
  assert.equal(DISC_GOLF_HOLES.length,9);
  assert.equal(new Set(DISC_GOLF_HOLES.map(h=>h.id)).size,9);
  for(let i=0;i<DISC_GOLF_HOLES.length;i++){
   const h=DISC_GOLF_HOLES[i];
-  assert.ok(!isWater(h.tee)&&!isWater(h.target),h.id);
+  assert.ok(!discGolfSurfaceIsWater(h.tee)&&!discGolfSurfaceIsWater(h.target),h.id);
   const length=Math.hypot(h.tee.x-h.target.x,h.tee.z-h.target.z);
   assert.ok(length>=48&&length<=138,`Hole ${i+1}: ${length} unit tee-to-basket length`);
   assert.ok(discGolfRouteLength(h)>58,`Hole ${i+1} must need multiple throws`);
@@ -41,6 +43,26 @@ test("nine independently placed tees and fixed greens remain on playable land",(
  assert.notDeepEqual(DISC_GOLF_HOLES.at(-1)!.target,DISC_GOLF_HOLES[0].tee,
   "last basket gets its own safe putting green");
  assert.ok(DISC_GOLF_VERSION.includes("disc-golf"));
+});
+test("Hole 2 is an elevated, unobstructed pier tee with a safe arcade launch",()=>{
+ const tee=DISC_GOLF_HOLES[1].tee;
+ assert.deepEqual(tee,{x:62.5,z:14});
+ assert.ok(tee.x>=JET_SKI_PIER.rampEndX &&tee.x<JET_SKI_PIER.endX-2);
+ assert.ok(Math.abs(tee.z-JET_SKI_PIER.centerZ)<.1);
+ assert.equal(discGolfSurfaceHeight(tee),jetSkiPierHeight(tee));
+ assert.equal(discGolfSurfaceIsWater(tee),false);
+ const start=startDiscGolf(1,discGolfSurfaceHeight);
+ assert.equal(start.phase,"ready");
+ assert.ok(Math.abs(start.disc.y-JET_SKI_PIER.deckHeight-.18)<.001);
+ const shot=discGolfThrow(start,ordinary,discGolfSurfaceHeight);
+ assert.equal(shot.phase,"flying");
+ assert.ok(shot.disc.y>JET_SKI_PIER.deckHeight+.9,
+  "Disc must launch ABOVE pier decking, not under the ocean");
+ const next=stepDiscGolf(shot,.1,discGolfSurfaceHeight,
+   discGolfSurfaceIsWater,-1.4);
+ assert.equal(next.phase,"flying");
+ assert.ok(next.disc.z<start.disc.z,
+  "First shot should head from the pier toward mainland fairway");
 });
 test("mandatory gates are crossed by actual flight segments in order",()=>{
  const h=DISC_GOLF_HOLES[1],gate=h.gates[0],source=h.tee;
