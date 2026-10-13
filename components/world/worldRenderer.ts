@@ -311,6 +311,7 @@ export function createWorld(
     groundColor.setRGB(0,0,0);
     for (const [id,weight] of Object.entries(biome.weights)) groundColor.add(new THREE.Color(BIOME_COLORS[id as keyof typeof BIOME_COLORS]).multiplyScalar(weight));
     if (!wet && (trail < 1.7 || distance({ x, z }, REGIONS[0].point) < 4)) groundColor.lerp(new THREE.Color("#b6a684"), .5);
+    if (beachBlend(x,z) > .02) groundColor.lerp(new THREE.Color("#e6c797"),beachBlend(x,z)*.94);
     // Track pigment is bound to the modeled dirt tread, never a floating decal.
     if (!wet) groundColor.lerp(new THREE.Color("#9c7951"), desertTrackTreadBlend({ x, z }) * 0.82);
     const caveApproachMask = arcadeAccessTerrainMask(x, z);
@@ -385,6 +386,43 @@ export function createWorld(
     emissiveIntensity: 0.08,
   });
   const shoreFoam = instances(boxGeo, shoreFoamMat, shoreFoamPieces, false);
+  // North-shore foam tracks the very same traveling crests as the ride solver.
+  const skimWaveSegments=18,skimWaveCount=5;
+  const skimWavePieces:Instance[]=[];
+  for(let crest=0;crest<skimWaveCount;crest++)for(let seg=0;seg<skimWaveSegments;seg++){
+    const x=-26+seg*3.05;
+    skimWavePieces.push({x,y:SEA_SURFACE+.13,z:northShoreZ(x)+waveCrestOffshore(crest,0),
+      sx:3,sy:.055,sz:.36});
+  }
+  const skimFoam=instances(boxGeo,mat("#e7faf4",{transparent:true,opacity:.83,depthWrite:false,roughness:.3}),skimWavePieces,false);
+  const skimSwell=instances(boxGeo,mat("#7bd4d8",{transparent:true,opacity:.44,depthWrite:false}),
+    skimWavePieces.map(p=>({...p,y:SEA_SURFACE+.065,sy:.14,sz:1.15})),false);
+  skimFoam.frustumCulled=skimSwell.frustumCulled=false;
+
+  const skimShape=new THREE.Shape();
+  skimShape.moveTo(0,-.97);
+  skimShape.bezierCurveTo(-.48,-.85,-.57,-.25,-.51,.1);
+  skimShape.bezierCurveTo(-.44,.7,-.21,.95,0,.99);
+  skimShape.bezierCurveTo(.21,.95,.44,.7,.51,.1);
+  skimShape.bezierCurveTo(.57,-.25,.48,-.85,0,-.97);
+  const skimDeckGeometry=geo(new THREE.ExtrudeGeometry(skimShape,{
+    depth:.06,steps:1,bevelEnabled:true,bevelThickness:.018,bevelSize:.024,bevelSegments:1,curveSegments:9,
+  }));
+  const skimDeckMaterials=SKIM_BOARDS.map(b=>mat(b.color,{roughness:.67}));
+  const skimDarkMaterial=mat("#272b33");
+  const skimProps=SKIM_BOARDS.map((b,index)=>{
+    const p=boardPoint(index), y=terrainHeight(p.x,p.z)+.98;
+    const prop=mesh(skimDeckGeometry,skimDeckMaterials[index],[p.x,y,p.z],[1,1,1]);
+    prop.rotation.z=(index-1)*.065;
+    prop.rotation.y=(index-1)*.16;
+    prop.userData.skimBoardIndex=index;
+    if(index!==1){
+      const tail=mesh(boxGeo,skimDarkMaterial,[p.x,y-.58,p.z+.09],[.76,.69,.025]);
+      tail.rotation.z=prop.rotation.z;
+      tail.userData.skimBoardIndex=index;
+    }
+    return prop;
+  });
 
   // Far granite silhouettes echo the playable ridge without competing with it.
   const peaks: Instance[] = [],
@@ -1112,6 +1150,10 @@ export function createWorld(
   // Sport equipment stays lightweight but uses recognizable proportions and materials.
   const board = new THREE.Group(), bike = new THREE.Group(), skis = new THREE.Group();
   explorer.add(board, bike, skis);
+  const skimEquipment=new THREE.Group();
+  explorer.add(skimEquipment);
+  const skimDeck=mesh(skimDeckGeometry,skimDeckMaterials[0],[0,0,0],[1,1,1],skimEquipment);
+  skimEquipment.visible=false;
   const bikeSeatLocal = { y: 1.45, z: -0.42 };
   const riderHipLocal = { y: 0.73, z: 0 };
   const bikeBodyLean = 0.16;
@@ -4340,6 +4382,17 @@ export function createWorld(
     neuralMat.emissiveIntensity = 0.4 + Math.sin(elapsed * 0.65) * 0.18;
     particleMat.opacity = 0.48 + Math.sin(elapsed) * 0.17;
     tides.position.x = Math.sin(elapsed * 0.2) * 0.5;
+    for(let i=0;i<skimWavePieces.length;i++){
+      const seg=i%skimWaveSegments,crest=Math.floor(i/skimWaveSegments);
+      const x=-26+seg*3.05,z=northShoreZ(x)+waveCrestOffshore(crest,elapsed);
+      dummy.position.set(x,SEA_SURFACE+.13,z);
+      dummy.rotation.set(0,0,0);
+      dummy.scale.set(3,.055,.36);dummy.updateMatrix();
+      skimFoam.setMatrixAt(i,dummy.matrix);
+      dummy.position.y=SEA_SURFACE+.065;dummy.scale.set(3,.14,1.15);dummy.updateMatrix();
+      skimSwell.setMatrixAt(i,dummy.matrix);
+    }
+    skimFoam.instanceMatrix.needsUpdate=true;skimSwell.instanceMatrix.needsUpdate=true;
     shoreFoam.position.x = Math.sin(elapsed * 0.7) * 0.11;
     shoreFoam.position.y = Math.sin(elapsed * 1.25) * 0.018;
     shoreFoamMat.opacity = 0.52 + Math.sin(elapsed * 0.9) * 0.08;
