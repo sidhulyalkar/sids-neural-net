@@ -29,7 +29,7 @@ import { FrameSampler, QualityController } from "@/lib/world/performance";
 import {
   SKIM_BOARDS, boardPoint, beachBlend, northShoreZ, nearbySkimBoard,
   idleSkimHeat, pickupSkimBoard, startSkimRide, stepSkimHeat, skimAction,
-  skimWaterHeight, waveCrestOffshore, SKIM_WAVE_SPACING,
+  skimWaterHeight, waveCrestOffshore,
   type SkimHeat, type SkimTrick,
 } from "@/lib/world/skimboarding";
 import { shastaDetour, initialChaseState, stepChase, gaitBlendForSpeed, smoothAngle, smoothPoint, smoothingAlpha, steerShastaVelocity } from "@/lib/world/shastaMotion";
@@ -385,6 +385,15 @@ export function createWorld(
     emissive: "#8ebfbd",
     emissiveIntensity: 0.08,
   });
+  // The new sand beach shares this waterline geometry, including its
+  // north-facing foam seam where the finite land mesh meets the sea.
+  for(let x=-25;x<=25;x+=1.8){
+    const z=northShoreZ(x);
+    shoreFoamPieces.push({
+      x,y:SEA_SURFACE+.045,z:z+.32,sx:1.05,sy:.025,sz:.19,
+      ry:-Math.atan((northShoreZ(x+1)-northShoreZ(x-1))/2),
+    });
+  }
   const shoreFoam = instances(boxGeo, shoreFoamMat, shoreFoamPieces, false);
   // North-shore foam tracks the very same traveling crests as the ride solver.
   const skimWaveSegments=18,skimWaveCount=5;
@@ -410,6 +419,7 @@ export function createWorld(
   }));
   const skimDeckMaterials=SKIM_BOARDS.map(b=>mat(b.color,{roughness:.67}));
   const skimDarkMaterial=mat("#272b33");
+  const skimTails: THREE.Mesh[]=[];
   const skimProps=SKIM_BOARDS.map((b,index)=>{
     const p=boardPoint(index), y=terrainHeight(p.x,p.z)+.98;
     const prop=mesh(skimDeckGeometry,skimDeckMaterials[index],[p.x,y,p.z],[1,1,1]);
@@ -420,6 +430,7 @@ export function createWorld(
       const tail=mesh(boxGeo,skimDarkMaterial,[p.x,y-.58,p.z+.09],[.76,.69,.025]);
       tail.rotation.z=prop.rotation.z;
       tail.userData.skimBoardIndex=index;
+      skimTails[index]=tail;
     }
     return prop;
   });
@@ -2772,7 +2783,7 @@ export function createWorld(
       destination = null;
       e.preventDefault();
     }
-    if (key === "enter" && !e.repeat && discovery) {
+    if (key === "enter" && !e.repeat && discovery && skimHeat.phase==="off") {
       e.preventDefault();
       callbacks.onInteract(discovery);
     }
@@ -2976,6 +2987,14 @@ export function createWorld(
         destination=null;
         if(skimHeat.phase!==before){
           travel.speed=0;
+          // Finish on safe sand, not in an underwater walking state.
+          if(skimHeat.phase==="finished"){
+            const x=Math.max(-13,Math.min(13,player.x));
+            player={x,z:northShoreZ(x)-6.8};
+            playerY=groundHeight(player);
+            travel={point:player,speed:0,heading:{x:0,z:1}};
+            yaw=Math.PI;clearInput();
+          }
           callbacks.onSkim(skimHeat);
         }
       } else if(skimHeat.phase==="recovering"){
@@ -3206,7 +3225,10 @@ export function createWorld(
       skis.visible = !skimEquipped && !swimming && mode === "ski";
       chalk.visible = !skimEquipped && !swimming && mode === "boulder";
       skimEquipment.visible=skimEquipped;
-      skimProps.forEach((prop,i)=>{prop.visible=!(skimEquipped&&skimHeat.board===i);});
+      skimProps.forEach((prop,i)=>{
+        prop.visible=!(skimEquipped&&skimHeat.board===i);
+        if(skimTails[i])skimTails[i].visible=prop.visible;
+      });
       if(skimEquipped){
         skimDeck.material=skimDeckMaterials[skimHeat.board??0];
         skimEquipment.position.set(surfing?0:.74,surfing?.04:.87,surfing?0:.15);
