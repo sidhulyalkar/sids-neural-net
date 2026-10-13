@@ -5325,6 +5325,7 @@ export function createWorld(
           dog={x:player.x+1.8,z:player.z-1.8};
           dogVelocity={x:0,z:0};dogSmoothedTarget={...dog};
           dogGroundY=terrainHeight(dog.x,dog.z);
+          dogFootGround.fill(0);dogCameraAnchor=null;
           callbacks.onDiscGolf(discGolf);
       }
       if(next.discGolfShotSerial!==lastDiscShot){
@@ -5402,6 +5403,7 @@ export function createWorld(
           dogVelocity={x:0,z:0};
           dogSmoothedTarget={...dog};
           dogGroundY=terrainHeight(dog.x,dog.z);
+          dogFootGround.fill(0);dogCameraAnchor=null;
           bigAir=armBigAir();
           resetRideBoost();
           callbacks.onBigAir(bigAir);
@@ -5429,6 +5431,7 @@ export function createWorld(
           dogVelocity={x:0,z:0};
           dogSmoothedTarget={...dog};
           dogGroundY=terrainHeight(dog.x,dog.z);
+          dogFootGround.fill(0);dogCameraAnchor=null;
           trial=armJoshuaTrial();
           resetRideBoost();
           callbacks.onChallenge(trial);
@@ -5482,6 +5485,7 @@ export function createWorld(
         dogVelocity = { x: 0, z: 0 };
         dogSmoothedTarget = { ...dog };
         dogGroundY = terrainHeight(dog.x, dog.z);
+        dogFootGround.fill(0);dogCameraAnchor=null;
         dogPitch = 0;
         dogRoll = 0;
         dogMoveBlend = 0;
