@@ -17,7 +17,8 @@ export function stepFetchRunRoute(
  obstacles:readonly (Point & {radius:number})[],now:number,
 ):FetchRunRoute{
  const newGoal=!route.goal||distance(route.goal,goal)>.45;
- const arrived=route.waypoint!==null&&distance(dog,route.waypoint)<1.45;
+ const arrived=route.detouring&&route.waypoint!==null&&
+  distance(dog,route.waypoint)<1.45&&now-route.lastCheck>.3;
  const refresh=route.waypoint===null||newGoal||arrived||
   (!route.detouring&&now-route.lastCheck>.65);
  if(!refresh)return route;
