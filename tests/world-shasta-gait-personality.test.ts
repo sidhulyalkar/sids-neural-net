@@ -69,6 +69,25 @@ test("Shasta fore elbows and hind stifles always fold the canine direction",()=>
  }
 });
 
+test("IK never reverses knees under rough-terrain ankle targets",()=>{
+ for(const fore of [true,false]){
+  for(const dz of [-.28,-.22,-.10,0,.10,.22,.28]){
+   for(const height of [-.08,-.03,.055,.16,.26,.34]){
+    const hipZ=fore?.44:-.44;
+    const pose=shastaLegIK(hipZ,hipZ+dz,height,fore);
+    assert.ok(fore?pose.knee.z<pose.hip.z:
+      pose.knee.z>pose.hip.z,
+      "anatomical elbow/stifle direction must survive rough terrain");
+    assert.ok(Math.abs(pose.paw.z-hipZ)<=.180001);
+    if(pose.hock){
+     assert.ok(pose.hock.z<pose.paw.z);
+     assert.ok(pose.hock.y>pose.paw.y);
+    }
+   }
+  }
+ }
+});
+
 test("three-link hind / two-link fore IK stays connected throughout gait",()=>{
  for(const fore of [false,true]){
   for(const height of [.055,.10,.17]){
