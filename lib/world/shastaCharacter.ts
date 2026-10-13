@@ -33,8 +33,8 @@ export const SHASTA_CHARACTER = {
     head: { x: 0.245, y: 0.275, z: 0.29 },
     muzzle: { x: 0.18, y: 0.13, z: 0.39 },
     cheek: { x: 0.105, y: 0.115, z: 0.15 },
-    // Rounded planted husky pads, wider at the toes and low to the ground.
-    paw: { x: 0.145, y: 0.068, z: 0.192 },
+    // Low, compact paw: same lateral half-width as the straight leg.
+    paw: { x: 0.086, y: 0.05, z: 0.135 },
     ear: { x: 0.125, y: 0.42, z: 0.15 },
   },
   coat: {
