@@ -14,8 +14,17 @@ const mod=(x:number,y:number)=>((x%y)+y)%y;
 export function shastaGaitForSpeed(speed:number):ShastaGait{
  return speed<.3?"stand":speed<3.25?"walk":speed<8.5?"trot":"canter";
 }
+const smoothstep=(a:number,b:number,x:number)=>{
+ const u=clamp((x-a)/(b-a),0,1);return u*u*(3-2*u);
+};
+const mix=(a:number,b:number,t:number)=>a+(b-a)*t;
+/** Continuous strides across walk/trot/canter speed bands. The old
+ * thresholded length snapped the phase speed and paws on every crossover.
+ */
 export function shastaStrideLength(speed:number){
- return speed<3.25?.64:speed<8.5?.93:1.25;
+ const walkToTrot=smoothstep(2.0,4.5,speed);
+ const trotToCanter=smoothstep(7.0,10.0,speed);
+ return mix(mix(.64,.93,walkToTrot),1.25,trotToCanter);
 }
 /** Call with *actual displacement* to avoid standing-in-place cycling or
  * artificially rapid footsteps when the dog collides with an obstacle. */
@@ -30,11 +39,17 @@ export function shastaGaitPose(speed:number,phase:number,blend:number):ShastaGai
  const moving=clamp(blend,0,1);
  const gait=shastaGaitForSpeed(safeSpeed);
  const length=shastaStrideLength(safeSpeed);
- const stride=gait==="walk"?.17:gait==="trot"?.23:.30;
- const duty=gait==="walk"?.69:gait==="trot"?.59:.48;
+ const walkToTrot=smoothstep(2.0,4.5,safeSpeed);
+ const trotToCanter=smoothstep(7.0,10.0,safeSpeed);
+ const stride=mix(mix(.17,.23,walkToTrot),.30,trotToCanter);
+ const duty=mix(mix(.69,.59,walkToTrot),.48,trotToCanter);
  // Paw order: left hind, left fore, right hind, right fore.
- const offsets=gait==="walk"?[0,.5,.74,.25]:
-  gait==="trot"?[0,.5,.5,0]:[0,.14,.53,.63];
+ // Blend contact offsets across gait boundaries so speed oscillation
+ // around 3.25 or 8.5 never abruptly swaps which paw is planted.
+ const walkOffsets=[0,.5,.74,.25],trotOffsets=[0,.5,.5,0],
+  canterOffsets=[0,.14,.53,.63];
+ const offsets=walkOffsets.map((v,i)=>
+  mix(mix(v,trotOffsets[i],walkToTrot),canterOffsets[i],trotToCanter));
  const legs=offsets.map((shift,i):ShastaFoot=>{
   const f=mod(phase/(2*Math.PI)+shift,1);
   const stance=f<duty;
@@ -48,9 +63,9 @@ export function shastaGaitPose(speed:number,phase:number,blend:number):ShastaGai
  });
  // This is the fix for the hop: the body never inherits a large sinusoidal
  // step amplitude. High-speed flex is <3cm; walk/trot have smaller travel.
- const bodyBob=(gait==="stand"?0:gait==="canter"?.019:.008)*
+ const bodyBob=(gait==="stand"?0:mix(.008,.016,trotToCanter))*
   moving*Math.sin(phase*2);
- const bodyPitch=(gait==="canter"?.027:.012)*moving*Math.sin(phase);
+ const bodyPitch=mix(.012,.024,trotToCanter)*moving*Math.sin(phase);
  return {gait,phase,blend:moving,bodyBob,bodyPitch,
   strideLength:length,feet:legs as unknown as ShastaGaitPose["feet"]};
 }
