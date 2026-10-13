@@ -40,6 +40,8 @@ import {stepCritterLocomotion} from "@/lib/world/landWildlifeMotion";
 import { SHASTA_CHARACTER } from "@/lib/world/shastaCharacter";
 import { FrameSampler, QualityController } from "@/lib/world/performance";
 import { shastaDetour, initialChaseState, stepChase, gaitBlendForSpeed, smoothAngle, smoothPoint, smoothingAlpha, steerShastaVelocity } from "@/lib/world/shastaMotion";
+import {advanceShastaStride,shastaGaitPose,shastaLegIK} from "@/lib/world/shastaGait";
+import {idleShastaSnowPlay,queueShastaSnowPlay,stepShastaSnowPlay,shastaSnowPose} from "@/lib/world/shastaPersonality";
 import {idleDiscGolfFetch,startDiscGolfFetch,stepDiscGolfFetch,discGolfFetchCameraPhase,discGolfHandoffTarget} from "@/lib/world/discGolfFetch";
 import * as THREE from "three/src/Three.Core.js";
 import worldStyles from "./world.module.css";
@@ -1443,6 +1445,11 @@ export function createWorld(
   const shasta = new THREE.Group();
   shasta.rotation.order = "YXZ";
   scene.add(shasta);
+  // Root follows ground, while the full-body pose rotates around Shasta's
+  // approximate center of mass instead of spinning about his paws.
+  const shastaPose=new THREE.Group(),shastaArt=new THREE.Group();
+  shastaPose.position.y=.79;shastaArt.position.y=-.79;
+  shastaPose.add(shastaArt);shasta.add(shastaPose);
   const shastaPalette = SHASTA_CHARACTER.palette;
   const shastaBodyGeo = geo(
     new THREE.SphereGeometry(
@@ -1508,7 +1515,7 @@ export function createWorld(
       color: shastaPalette.brightWhite,
     });
   }
-  const shastaRockMesh = instances(shastaBodyGeo, shastaRockMat, shastaRockParts, true, shasta);
+  const shastaRockMesh = instances(shastaBodyGeo, shastaRockMat, shastaRockParts, true, shastaArt);
 
   const shastaEarParts: Instance[] = [];
   for (const side of [-1, 1]) {
@@ -1534,7 +1541,7 @@ export function createWorld(
       },
     );
   }
-  instances(cone, mat(shastaPalette.creamWhite), shastaEarParts, true, shasta);
+  instances(cone, mat(shastaPalette.creamWhite), shastaEarParts, true, shastaArt);
 
   const shastaCylinderParts: Instance[] = [];
   const shastaLegs: {
@@ -1595,7 +1602,7 @@ export function createWorld(
     mat(shastaPalette.creamWhite),
     shastaCylinderParts,
     true,
-    shasta,
+    shastaArt,
   );
 
   // Photo-matched tail: six hidden control points drive one continuous plume
@@ -1604,7 +1611,7 @@ export function createWorld(
   // cream-white plume without adding another draw call.
   const shastaTail = new THREE.Group();
   shastaTail.position.set(0, 1.0, -0.72);
-  shasta.add(shastaTail);
+  shastaArt.add(shastaTail);
   const tailPivotY = 1.0;
   const tailPivotZ = -0.72;
   const tailCurve = new THREE.CatmullRomCurve3(
@@ -2820,6 +2827,7 @@ export function createWorld(
   let dogGroundY = terrainHeight(dog.x, dog.z);
   let dogGaitPhase = 0;
   let dogMoveBlend = 0;
+  let shastaSnow=idleShastaSnowPlay();
   let dogAnimSpeed = 0;
   let dogInterestCritterIndex: number | null = null;
   let dogChase = initialChaseState();
@@ -4549,11 +4557,25 @@ export function createWorld(
     // not whichever open-air region marker is closest, owns cave behavior.
     const dogWaitsAtCaveEntrance =
       shastaWaitsAtArcadeEntrance(player,caveLayer,aquatic);
+    // Queue the Ski celebration until actual alpine snow is reached.
+    // Never play while the disc is being fetched or another mode is active.
+    const snowAllowed=state.entered&&!state.paused&&state.activity==="ski"&&
+      aquatic==="land"&&discGolf.phase==="off"&&!jetSki&&!jetChoosing&&
+      caveLayer==="surface";
+    const snowHere=terrainHeight(player.x,player.z)>10&&
+      biomeAt(player).weights.alpine>.28;
+    shastaSnow=stepShastaSnowPlay(shastaSnow,elapsed,snowHere,snowAllowed);
+    const snowPose=shastaSnowPose(shastaSnow,elapsed);
     const dogTarget = state.entered
       ? aquatic !== "land" || isWater(player)
         ? shoreWait
         : dogWaitsAtCaveEntrance
           ? { x: arcade.x - 2.0, z: arcade.z - 1.65 }
+          : shastaSnow.stage==="zoom"?
+            {x:player.x+Math.cos(snowPose.circle)*3.2,
+             z:player.z+Math.sin(snowPose.circle)*3.2}
+          : (shastaSnow.stage==="roll"||shastaSnow.stage==="shake")?
+            dog
           : discGolf.phase!=="off"&&
             (discFetch.phase==="flight"||discFetch.phase==="landed")?
             dog
@@ -4565,6 +4587,8 @@ export function createWorld(
               : { x: player.x - travel.heading.x * 2.2 + travel.heading.z * 1.2, z: player.z - travel.heading.z * 2.2 - travel.heading.x * 1.2 }
       : { x: 4 + Math.sin(elapsed * 0.13) * 2, z: 12 };
     canvas.dataset.dogFetchStage=discFetch.phase;
+    canvas.dataset.dogSnowStage=shastaSnow.stage;
+    canvas.dataset.dogSnowQueued=String(shastaSnow.queued);
     canvas.dataset.dogCuriosity =
       aquatic !== "land"
         ? "shore"
@@ -4591,7 +4615,9 @@ export function createWorld(
       dogVelocity,
       dog,
       dogSmoothedTarget,
-      discFetch.phase==="chase" ? 14 :
+      discFetch.phase==="chase" ? 11.0 :
+        shastaSnow.stage==="zoom" ? 9.5 :
+        shastaSnow.stage==="roll"||shastaSnow.stage==="shake"?0:
         dogChase.mode === "return" ? Math.max(travel.speed, 6) : travel.speed,
       dogMotionDt,
     );
@@ -4649,7 +4675,9 @@ export function createWorld(
     dogPitch += (dogContactSample.pitch - dogPitch) * poseAlpha;
     dogRoll += (dogContactSample.roll - dogRoll) * poseAlpha;
 
-    dogGaitPhase += dogAnimSpeed * dogMotionDt * 4.35;
+    // Use distance TRAVELLED: collisions or frame stalls never create
+    // high-speed stepping in place.
+    dogGaitPhase=advanceShastaStride(dogGaitPhase,dogStep,dogAnimSpeed);
     const targetMoveBlend = gaitBlendForSpeed(dogAnimSpeed);
     dogMoveBlend +=
       (targetMoveBlend - dogMoveBlend) * smoothingAlpha(dogMotionDt, 10.5);
@@ -4658,16 +4686,27 @@ export function createWorld(
     const targetDogY = terrainHeight(dog.x, dog.z);
     dogGroundY +=
       (targetDogY - dogGroundY) * smoothingAlpha(dogMotionDt, 10);
-    const dogBob = Math.sin(dogGaitPhase * 2) * 0.012 * dogMoveBlend;
-    const dogRenderY = dogGroundY + dogBob;
+    const dogGait=shastaGaitPose(dogAnimSpeed,dogGaitPhase,dogMoveBlend);
+    const dogBob=dogGait.bodyBob;
+    const dogRenderY=dogGroundY+dogBob;
     dogMaxYStep = Math.max(dogMaxYStep, Math.abs(dogRenderY - lastDogRenderY));
     lastDogRenderY = dogRenderY;
     shasta.position.set(dog.x, dogRenderY, dog.z);
     shasta.rotation.set(
-      dogPitch+(discFetch.phase==="found"?.11:0),
-      dogYaw,
-      dogRoll + Math.sin(dogGaitPhase) * 0.012 * dogMoveBlend,
+      dogPitch+dogGait.bodyPitch+(discFetch.phase==="found"?.035:0),
+      dogYaw+(shastaSnow.stage==="shake"?snowPose.headTilt:0),
+      dogRoll + Math.sin(dogGaitPhase) * 0.008 * dogMoveBlend,
     );
+    // Mass-centered full-body roll with gradually lowered back-on-snow pose.
+    shastaPose.rotation.z=snowPose.roll;
+    shastaPose.rotation.x=snowPose.crouch*.33;
+    shastaPose.position.y=.79-.37*Math.sin(snowPose.roll*.5)**2-
+      snowPose.crouch*.19;
+    canvas.dataset.dogGait=dogGait.gait;
+    canvas.dataset.dogFootLiftMax=Math.max(
+      ...dogGait.feet.map(p=>p.y-.055)).toFixed(3);
+    canvas.dataset.dogBodyBob=dogBob.toFixed(4);
+    canvas.dataset.dogSnowRoll=snowPose.roll.toFixed(3);
 
     canvas.dataset.dogYaw = dogYaw.toFixed(3);
     canvas.dataset.dogY = dogRenderY.toFixed(3);
@@ -4688,62 +4727,46 @@ export function createWorld(
     );
     dogContact.position.set(dog.x, terrainHeight(dog.x, dog.z) + 0.04, dog.z);
 
-    // Articulated diagonal trot. Upper leg, lower leg and paw share the same
-    // phase chain so the foot follows the limb instead of jittering in place.
-    const upperLength = 0.4;
-    const lowerLength = 0.36;
-    const hipY = 0.76;
-    shastaLegs.forEach((leg) => {
-      const phase = dogGaitPhase + leg.phase;
-      const upperAngle =
-        Math.sin(phase) * 0.3 * dogMoveBlend;
-      const kneeBend =
-        Math.max(0, Math.cos(phase)) * 0.24 * dogMoveBlend;
-      const lowerAngle = upperAngle * 0.58 - kneeBend;
-
-      const upperPart = shastaCylinderParts[leg.upperIndex];
-      const upperCenterY =
-        hipY - Math.cos(upperAngle) * upperLength * 0.5;
-      const upperCenterZ =
-        leg.z - Math.sin(upperAngle) * upperLength * 0.5;
-      dummy.position.set(leg.x, upperCenterY, upperCenterZ);
-      dummy.scale.set(upperPart.sx, upperPart.sy, upperPart.sz);
-      dummy.rotation.set(upperAngle, 0, 0);
+    // Stance/swing paw targets and local two-bone IK: the paw lifts while
+    // the center of mass stays stable. No whole-dog leap on every stride.
+    const limbUp=new THREE.Vector3(0,1,0);
+    const limbDir=new THREE.Vector3();
+    shastaLegs.forEach((leg,i)=>{
+      const foot=dogGait.feet[i];
+      const ik=shastaLegIK(leg.z,foot.z,foot.y,leg.z>0);
+      const upperPart=shastaCylinderParts[leg.upperIndex];
+      const lowerPart=shastaCylinderParts[leg.lowerIndex];
+      const upperLength=Math.hypot(ik.hip.y-ik.knee.y,ik.hip.z-ik.knee.z);
+      dummy.position.set(leg.x,(ik.hip.y+ik.knee.y)*.5,
+        (ik.hip.z+ik.knee.z)*.5);
+      limbDir.set(0,ik.hip.y-ik.knee.y,ik.hip.z-ik.knee.z).normalize();
+      dummy.quaternion.setFromUnitVectors(limbUp,limbDir);
+      dummy.scale.set(upperPart.sx,upperLength,upperPart.sz);
       dummy.updateMatrix();
-      shastaCylinderMesh.setMatrixAt(leg.upperIndex, dummy.matrix);
-
-      const kneeY = hipY - Math.cos(upperAngle) * upperLength;
-      const kneeZ = leg.z - Math.sin(upperAngle) * upperLength;
-      const lowerPart = shastaCylinderParts[leg.lowerIndex];
-      const lowerCenterY =
-        kneeY - Math.cos(lowerAngle) * lowerLength * 0.5;
-      const lowerCenterZ =
-        kneeZ - Math.sin(lowerAngle) * lowerLength * 0.5;
-      dummy.position.set(leg.x, lowerCenterY, lowerCenterZ);
-      dummy.scale.set(lowerPart.sx, lowerPart.sy, lowerPart.sz);
-      dummy.rotation.set(lowerAngle, 0, 0);
+      shastaCylinderMesh.setMatrixAt(leg.upperIndex,dummy.matrix);
+      const lowerLength=Math.hypot(ik.knee.y-ik.paw.y,ik.knee.z-ik.paw.z);
+      dummy.position.set(leg.x,(ik.knee.y+ik.paw.y)*.5,
+        (ik.knee.z+ik.paw.z)*.5);
+      limbDir.set(0,ik.knee.y-ik.paw.y,ik.knee.z-ik.paw.z).normalize();
+      dummy.quaternion.setFromUnitVectors(limbUp,limbDir);
+      dummy.scale.set(lowerPart.sx,lowerLength,lowerPart.sz);
       dummy.updateMatrix();
-      shastaCylinderMesh.setMatrixAt(leg.lowerIndex, dummy.matrix);
-
-      const ankleY = kneeY - Math.cos(lowerAngle) * lowerLength;
-      const ankleZ = kneeZ - Math.sin(lowerAngle) * lowerLength;
-      const pawPart = shastaRockParts[leg.pawIndex];
-      dummy.position.set(leg.x, Math.max(0.055, ankleY + 0.04), ankleZ + 0.035);
-      dummy.scale.set(pawPart.sx, pawPart.sy, pawPart.sz);
-      dummy.rotation.set(lowerAngle * 0.18, 0, 0);
+      shastaCylinderMesh.setMatrixAt(leg.lowerIndex,dummy.matrix);
+      const pawPart=shastaRockParts[leg.pawIndex];
+      dummy.position.set(leg.x,foot.y,foot.z+.035);
+      dummy.rotation.set(foot.stance?0:-.12,0,0);
+      dummy.scale.set(pawPart.sx,pawPart.sy,pawPart.sz);
       dummy.updateMatrix();
-      shastaRockMesh.setMatrixAt(leg.pawIndex, dummy.matrix);
+      shastaRockMesh.setMatrixAt(leg.pawIndex,dummy.matrix);
     });
     shastaCylinderMesh.instanceMatrix.needsUpdate = true;
     shastaRockMesh.instanceMatrix.needsUpdate = true;
-    shastaTail.rotation.z =
-      SHASTA_CHARACTER.tail.restAngleZ +
-      Math.sin(elapsed * 1.55) * 0.022 +
-      Math.sin(dogGaitPhase) * 0.018 * dogMoveBlend;
-    shastaTail.rotation.y =
-      SHASTA_CHARACTER.tail.restAngleY +
-      Math.sin(elapsed*(discFetch.phase==="found"?14:0.85)+0.4)*
-        (discFetch.phase==="found"?.26:.03);
+    const wagEnergy=discFetch.phase==="found"?.8:
+      snowPose.wag>0?snowPose.wag:dogMoveBlend*.25;
+    shastaTail.rotation.z=SHASTA_CHARACTER.tail.restAngleZ+
+      Math.sin(elapsed*2.6)*.027+Math.sin(elapsed*8.3)*.09*wagEnergy;
+    shastaTail.rotation.y=SHASTA_CHARACTER.tail.restAngleY+
+      Math.sin(elapsed*(wagEnergy>1?10:4.3)+.4)*(.035+wagEnergy*.17);
     if(showingDiscGolfIntro || snapDiscCamera){
       // A direct time-derived pose starts on the basket instead of slowly
       // drifting there from a camera that previously followed the player.
@@ -5251,6 +5274,11 @@ export function createWorld(
         dogMaxAcceleration = 0;
         lastDogSpeed = 0;
         lastDogRenderY = shasta.position.y;
+      }
+      if(changedActivity){
+        shastaSnow=next.activity==="ski"?
+          queueShastaSnowPlay(idleShastaSnowPlay()):
+          idleShastaSnowPlay();
       }
       if (next.entered && !next.paused && (changedActivity || requestedAction || requestedWaterAction))
         canvas.focus({ preventScroll: true });
