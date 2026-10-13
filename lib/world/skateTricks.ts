@@ -58,3 +58,12 @@ export function flickTrick(direction:"up"|"left"|"right",windupSeconds:number):S
  if(direction==="left")return windupSeconds>=.45?"Tre Flip":"Kickflip";
  return windupSeconds>=.45?"360 Shuvit":"Heelflip";
 }
+
+/** Grinding rewards distance travelled and clean style, without granting
+ * points merely for standing beside a rail. */
+export function scoreSkateGrind(state:SkateTrickState,meters:number,style:"fifty-fifty"|"boardslide",now:number):SkateTrickState{
+ if(!Number.isFinite(meters)||meters<.5||state.phase!=="ground")return state;
+ const combo=(now-state.lastLandedAt<4.5?state.combo:0)+1;
+ const points=(combo>1?state.points:0)+Math.round((60+meters*12)*(style==="boardslide"?1.3:1))*combo;
+ return {...state,combo,points,best:Math.max(points,state.best),lastLabel:style==="boardslide"?"Boardslide":"50-50",lastLandedAt:now};
+}
