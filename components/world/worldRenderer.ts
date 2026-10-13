@@ -1514,18 +1514,42 @@ export function createWorld(
   const shastaHeadIndices=[
     4,5,10,11,12,13,14,15,16,17,18,shastaMouthIndex,shastaTongueIndex,
   ];
-  const pawInstanceIndices: number[] = [];
-  for (const x of [-1, 1]) for (const z of [-1, 1]) {
+  // Each foot gets a broad planted pad, three short toe lobes, and joint
+  // caps to avoid the thin, disconnected stick silhouette in motion.
+  const pawInstanceIndices:number[]=[];
+  const toeInstanceIndices:number[][]=[];
+  const jointInstanceIndices:{knee:number;hock:number|null}[]=[];
+  for(const x of [-1,1])for(const z of [-1,1]){
     pawInstanceIndices.push(shastaRockParts.length);
     shastaRockParts.push({
-      x: x * 0.2,
-      y: 0.06,
-      z: z * 0.52 + 0.04,
-      sx: p.paw.x,
-      sy: p.paw.y,
-      sz: p.paw.z,
-      color: shastaPalette.brightWhite,
+      x:x*.2,y:.07,z:z*.44+.02,
+      sx:p.paw.x,sy:p.paw.y,sz:p.paw.z,
+      color:shastaPalette.brightWhite,
     });
+    const toes:number[]=[];
+    for(const dx of [-.075,0,.075]){
+      toes.push(shastaRockParts.length);
+      shastaRockParts.push({
+        x:x*.2+dx,y:.054,z:z*.44+.15,
+        sx:.052,sy:.045,sz:.078,color:shastaPalette.brightWhite,
+      });
+    }
+    toeInstanceIndices.push(toes);
+    const knee=shastaRockParts.length;
+    shastaRockParts.push({
+      x:x*.2,y:.45,z:z*.44,
+      sx:z>0?.099:.129,sy:z>0?.112:.14,sz:z>0?.111:.135,
+      color:z>0?shastaPalette.creamWhite:shastaPalette.lightTan,
+    });
+    let hock:number|null=null;
+    if(z<0){
+      hock=shastaRockParts.length;
+      shastaRockParts.push({
+        x:x*.2,y:.27,z:z*.44-.16,
+        sx:.088,sy:.087,sz:.090,color:shastaPalette.brightWhite,
+      });
+    }
+    jointInstanceIndices.push({knee,hock});
   }
   const shastaRockMesh = instances(shastaBodyGeo, shastaRockMat, shastaRockParts, true, shastaArt);
 
@@ -1566,38 +1590,40 @@ export function createWorld(
     upperIndex: number;
     lowerIndex: number;
     pawIndex: number;
-    phase: number;
+    toeIndices:number[];
+    kneeJointIndex:number;
+    hockJointIndex:number|null;
+    hockIndex:number|null;
   }[] = [];
   let legIndex = 0;
   for (const x of [-1, 1]) for (const z of [-1, 1]) {
     const forward = z > 0;
-    const upperIndex = shastaCylinderParts.length;
+    const upperIndex=shastaCylinderParts.length;
     shastaCylinderParts.push({
-      x: x * 0.2,
-      y: 0.54,
-      z: z * 0.44,
-      sx: 0.082,
-      sy: 0.4,
-      sz: 0.082,
-      color: forward ? shastaPalette.creamWhite : shastaPalette.lightTan,
+      x:x*.2,y:.56,z:z*.44,
+      sx:forward?.099:.136,sy:.4,sz:forward?.10:.13,
+      color:forward?shastaPalette.creamWhite:shastaPalette.lightTan,
     });
-    const lowerIndex = shastaCylinderParts.length;
+    const lowerIndex=shastaCylinderParts.length;
     shastaCylinderParts.push({
-      x: x * 0.2,
-      y: 0.25,
-      z: z * 0.48,
-      sx: 0.072,
-      sy: 0.36,
-      sz: 0.072,
-      color: shastaPalette.brightWhite,
+      x:x*.2,y:.30,z:z*.44,
+      sx:forward?.084:.10,sy:.38,sz:forward?.084:.10,
+      color:shastaPalette.brightWhite,
     });
+    let hockIndex:number|null=null;
+    if(!forward){
+      hockIndex=shastaCylinderParts.length;
+      shastaCylinderParts.push({
+        x:x*.2,y:.17,z:z*.44-.09,
+        sx:.084,sy:.25,sz:.088,color:shastaPalette.brightWhite,
+      });
+    }
     shastaLegs.push({
-      x: x * 0.2,
-      z: z * 0.44,
-      upperIndex,
-      lowerIndex,
-      pawIndex: pawInstanceIndices[legIndex],
-      phase: legIndex === 0 || legIndex === 3 ? 0 : Math.PI,
+      x:x*.2,z:z*.44,upperIndex,lowerIndex,hockIndex,
+      pawIndex:pawInstanceIndices[legIndex],
+      toeIndices:toeInstanceIndices[legIndex],
+      kneeJointIndex:jointInstanceIndices[legIndex].knee,
+      hockJointIndex:jointInstanceIndices[legIndex].hock,
     });
     legIndex++;
   }
