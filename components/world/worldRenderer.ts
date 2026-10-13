@@ -998,11 +998,22 @@ export function createWorld(
   markerObjects.push(markerHitMesh);
   instances(rockGeo, mat("#8d9185"), cairnPieces, false);
   const habitats = createHabitats(scene, obstacles);
+  // Low rock clusters and climb ledges can obstruct a low camera even
+  // without vegetation. Include their render-authored extents as well.
+  const cameraRocks:CameraVolume[]=[
+    ...boulders.map(o=>({
+      x:o.x,y:o.y,z:o.z,rx:o.sx+.2,ry:o.sy*.6+.2,rz:o.sz+.2,
+    })),
+    ...BOULDER_HOLDS.map(h=>({
+      x:h.x,y:terrainHeight(h.x,h.z)+h.height*.5,z:h.z,
+      rx:h.radius+.2,ry:h.height*.55+.2,rz:h.radius+.2,
+    })),
+  ];
   const cameraVisibility=new CameraVisibilityField([
-    ...cameraCanopies,...habitats.cameraOccluders,
+    ...cameraCanopies,...habitats.cameraOccluders,...cameraRocks,
   ]);
   canvas.dataset.discGolfCameraVolumes=String(
-    cameraCanopies.length+habitats.cameraOccluders.length);
+    cameraCanopies.length+habitats.cameraOccluders.length+cameraRocks.length);
   const technicalFeatures = createTechnicalGeometry(scene);
   const flyingBirds=createBigAirBirds(scene);
   const discGolfObjects=createDiscGolfGeometry(scene);
@@ -4210,7 +4221,8 @@ export function createWorld(
         const focus={x:player.x,y:playerY+1.55,z:player.z};
         const old=lastDiscCameraSolve;
         const needed=!old||old.desired.distanceTo(targetCamera)>.30||
-          old.focus.distanceTo(new THREE.Vector3(focus.x,focus.y,focus.z))>.30;
+          Math.hypot(old.focus.x-focus.x,old.focus.y-focus.y,
+            old.focus.z-focus.z)>.30;
         if(needed){
           const result=cameraVisibility.resolve(
             {x:targetCamera.x,y:targetCamera.y,z:targetCamera.z},
