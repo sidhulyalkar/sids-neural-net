@@ -4037,20 +4037,26 @@ export function createWorld(
 
     const chaseBefore = dogChase;
     dogChase = stepChase(dogChase, elapsed, dog, player, critters.map(c => c.point),
-      discGolf.phase==="off" && aquatic === "land" && caveLayer === "surface");
+      discGolf.phase==="off" && skimHeat.phase==="off" && aquatic === "land" && caveLayer === "surface");
     dogInterestCritterIndex = dogChase.target;
     if (dogChase.target !== null && dogChase.target !== chaseBefore.target) dogTargetSwitches++;
     const nearbyCritter = discGolf.phase!=="off"||dogInterestCritterIndex === null ?
       null : critters[dogInterestCritterIndex];
     canvas.dataset.dogBehavior = dogChase.mode;
     const playerWaterZone = waterZone(player);
-    const shoreWait = {
-      x:
-        playerWaterZone === "lagoon"
-          ? eastCoastlineX(player.z) - 2.6
-          : coastlineX(player.z) + 2.6,
-      z: THREE.MathUtils.clamp(player.z, WORLD_BOUNDS.minZ + 4, WORLD_BOUNDS.maxZ - 4),
-    };
+    const shoreWait = playerWaterZone === "north-shore"
+      ? {
+          // Shasta watches from dry sand rather than following a rider
+          // into the ocean or running to the distant west-coast shore.
+          x: THREE.MathUtils.clamp(player.x,-14,14),
+          z: northShoreZ(THREE.MathUtils.clamp(player.x,-14,14))-6.8,
+        }
+      : {
+          x: playerWaterZone === "lagoon"
+            ? eastCoastlineX(player.z)-2.6
+            : coastlineX(player.z)+2.6,
+          z: THREE.MathUtils.clamp(player.z,WORLD_BOUNDS.minZ+4,WORLD_BOUNDS.maxZ-4),
+        };
     const dogCaveProgress = THREE.MathUtils.clamp(
       (player.z - arcade.z) / ARCADE_CAVE.tunnelDepth,
       0,
