@@ -88,13 +88,17 @@ export const SHASTA_LEG_LENGTHS={
 } as const;
 export function shastaLegIK(hipZ:number,footZ:number,footY:number,
  fore:boolean,hipY=fore?.77:.82):ShastaLegIK{
- const hip={z:hipZ,y:hipY},paw={z:footZ,y:footY};
+ // The camera-visible foot is reach-limited; extreme swing/terrain
+ // targets otherwise force the inverse knee onto the wrong hinge branch.
+ // Renderer uses this returned paw position for its toe pads too.
+ const hip={z:hipZ,y:hipY},
+  paw={z:hipZ+clamp(footZ-hipZ,-.18,.18),y:footY};
  const proportions=fore?SHASTA_LEG_LENGTHS.fore:SHASTA_LEG_LENGTHS.hind;
  // The hind hock stays behind and above the toes. Its third segment
  // remains forward-leaning at walk, trot and canter.
  const desiredEnd=fore?paw:{
-  z:footZ-SHASTA_LEG_LENGTHS.hind.hockToPawZ,
-  y:footY+SHASTA_LEG_LENGTHS.hind.hockToPawY,
+  z:paw.z-SHASTA_LEG_LENGTHS.hind.hockToPawZ,
+  y:paw.y+SHASTA_LEG_LENGTHS.hind.hockToPawY,
  };
  const dz=desiredEnd.z-hipZ,dy=desiredEnd.y-hipY;
  const rawDistance=Math.hypot(dz,dy);
