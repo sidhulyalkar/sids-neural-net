@@ -60,6 +60,37 @@ try {
  assert.notEqual(result.phase,"water","Regular first throw must not immediately splash out");
  assert.equal(result.strokes,"1");
  await page.screenshot({path:path.join(out,"02-arcade-landing.png")});
+ // Recreate the reported Hole 1 second-shot failure after Shasta has
+ // delivered the disc to the new lie. Check BOTH the requested camera and
+ // the actually rendered, interpolated lens, not only tree trunk clearance.
+ await page.waitForFunction(()=>
+  document.querySelector("canvas")?.dataset.discGolfHandoffPending==="false",
+  null,{timeout:35000});
+ await page.waitForFunction(()=>{
+  const d=document.querySelector("canvas")?.dataset;
+  return d?.discGolfCameraClear==="true"&&
+    d?.discGolfRenderedCameraClear==="true";
+ },null,{timeout:12000});
+ await page.waitForTimeout(700);
+ const secondShot=await canvas.evaluate(c=>({
+  phase:c.dataset.discGolfPhase,
+  cameraClear:c.dataset.discGolfCameraClear,
+  renderedClear:c.dataset.discGolfRenderedCameraClear,
+  cameraAdjusted:c.dataset.discGolfCameraAdjusted,
+  canopyVolumes:c.dataset.discGolfCameraVolumes,
+  blockers:c.dataset.discGolfCameraBlockers,
+ }));
+ assert.equal(secondShot.cameraClear,"true");
+ assert.equal(secondShot.renderedClear,"true");
+ assert.ok(Number(secondShot.canopyVolumes)>0,
+  "The camera must use the island's authored 3D foliage geometry");
+ await page.screenshot({path:path.join(out,"03-wooded-second-shot-view.png")});
+ // Second shot remains playable after automatic camera repositioning.
+ await page.getByRole("button",{name:"Space · Throw"}).click();
+ await page.waitForFunction(()=>
+  document.querySelector("canvas")?.dataset.discGolfStrokes==="2",
+  null,{timeout:6000});
+ result.secondShot=secondShot;
  fs.writeFileSync(path.join(out,"report.json"),JSON.stringify({result,errors},null,2)+"\n");
  assert.deepEqual(errors,[],"No uncaught browser runtime errors");
  console.log(JSON.stringify({result,errors}));
