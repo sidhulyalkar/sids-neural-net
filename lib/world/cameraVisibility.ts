@@ -65,10 +65,18 @@ export class CameraVisibilityField {
    const v=this.volumes[id];
    if(cameraSegmentHitsVolume(camera,camera,v,.7)){hits+=3;continue;}
    if(cameraSegmentHitsVolume(camera,focus,v,.18))hits++;
-   // Lower torso visibility matters too. A clear line to a head alone
-   // still produced the leaf-filled screenshot of the first-hole rethrow.
+   // Lower torso and both shoulders form a small camera-space visibility
+   // fan. A single center ray can be clear while a giant crown still fills
+   // nearly the whole screen around the player's silhouette.
    if(cameraSegmentHitsVolume(camera,
      {x:focus.x,y:focus.y-.85,z:focus.z},v,.14))hits++;
+   const nx=camera.x-focus.x,nz=camera.z-focus.z;
+   const length=Math.hypot(nx,nz)||1;
+   const sx=-nz/length*.65,sz=nx/length*.65;
+   if(cameraSegmentHitsVolume(camera,
+     {x:focus.x+sx,y:focus.y-.12,z:focus.z+sz},v,.14))hits++;
+   if(cameraSegmentHitsVolume(camera,
+     {x:focus.x-sx,y:focus.y-.12,z:focus.z-sz},v,.14))hits++;
   }
   return hits;
  }
