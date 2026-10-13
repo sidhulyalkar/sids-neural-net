@@ -2978,7 +2978,16 @@ export function createWorld(
         travel.speed=0;destination=null;
       } else if(skimHeat.phase==="riding"){
         const before=skimHeat.phase;
-        const tick=stepSkimHeat(skimHeat,player,dt,elapsed,right,forward>0);
+        // At low FPS, integrate bounded 50 ms slices instead of throwing away
+        // elapsed real time. This keeps surf speed and the 90-second heat aligned.
+        const simulationDelta=Math.max(0,Math.min(rawDelta,.5));
+        const slices=Math.max(1,Math.ceil(simulationDelta/.05));
+        let tick={heat:skimHeat,point:player};
+        for(let slice=0;slice<slices;slice++){
+          tick=stepSkimHeat(tick.heat,tick.point,simulationDelta/slices,
+            elapsed-dt+slice*simulationDelta/slices,right,forward>0);
+          if(tick.heat.phase!=="riding")break;
+        }
         skimHeat=tick.heat;
         player=tick.point;
         travel={point:player,speed:skimHeat.speed,heading:skimHeat.heading};
