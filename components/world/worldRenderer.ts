@@ -4807,7 +4807,8 @@ export function createWorld(
       const ik=shastaLegIK(leg.z,foot.z,footY,leg.z>0);
       const upperPart=shastaCylinderParts[leg.upperIndex];
       const lowerPart=shastaCylinderParts[leg.lowerIndex];
-      const upperLength=Math.hypot(ik.hip.y-ik.knee.y,ik.hip.z-ik.knee.z);
+      const upperLength=Math.hypot(ik.hip.y-ik.knee.y,
+        ik.hip.z-ik.knee.z);
       dummy.position.set(leg.x,(ik.hip.y+ik.knee.y)*.5,
         (ik.hip.z+ik.knee.z)*.5);
       limbDir.set(0,ik.hip.y-ik.knee.y,ik.hip.z-ik.knee.z).normalize();
@@ -4815,20 +4816,65 @@ export function createWorld(
       dummy.scale.set(upperPart.sx,upperLength,upperPart.sz);
       dummy.updateMatrix();
       shastaCylinderMesh.setMatrixAt(leg.upperIndex,dummy.matrix);
-      const lowerLength=Math.hypot(ik.knee.y-ik.paw.y,ik.knee.z-ik.paw.z);
-      dummy.position.set(leg.x,(ik.knee.y+ik.paw.y)*.5,
-        (ik.knee.z+ik.paw.z)*.5);
-      limbDir.set(0,ik.knee.y-ik.paw.y,ik.knee.z-ik.paw.z).normalize();
+      // Hind tibia ends at the rearward hock; forearm ends at wrist.
+      const lowerEnd=ik.hock??ik.paw;
+      const lowerLength=Math.hypot(ik.knee.y-lowerEnd.y,
+        ik.knee.z-lowerEnd.z);
+      dummy.position.set(leg.x,(ik.knee.y+lowerEnd.y)*.5,
+        (ik.knee.z+lowerEnd.z)*.5);
+      limbDir.set(0,ik.knee.y-lowerEnd.y,
+        ik.knee.z-lowerEnd.z).normalize();
       dummy.quaternion.setFromUnitVectors(limbUp,limbDir);
       dummy.scale.set(lowerPart.sx,lowerLength,lowerPart.sz);
       dummy.updateMatrix();
       shastaCylinderMesh.setMatrixAt(leg.lowerIndex,dummy.matrix);
+      if(ik.hock&&leg.hockIndex!==null){
+        const metatarsal=shastaCylinderParts[leg.hockIndex];
+        const linkLength=Math.hypot(ik.hock.y-ik.paw.y,
+          ik.hock.z-ik.paw.z);
+        dummy.position.set(leg.x,(ik.hock.y+ik.paw.y)*.5,
+          (ik.hock.z+ik.paw.z)*.5);
+        limbDir.set(0,ik.hock.y-ik.paw.y,
+          ik.hock.z-ik.paw.z).normalize();
+        dummy.quaternion.setFromUnitVectors(limbUp,limbDir);
+        dummy.scale.set(metatarsal.sx,linkLength,metatarsal.sz);
+        dummy.updateMatrix();
+        shastaCylinderMesh.setMatrixAt(leg.hockIndex,dummy.matrix);
+      }
+      // Instanced joint masses visually join the bones; otherwise the knee
+      // geometry reads as broken, independent toothpicks.
+      const kneePart=shastaRockParts[leg.kneeJointIndex];
+      dummy.position.set(leg.x,ik.knee.y,ik.knee.z);
+      dummy.quaternion.identity();
+      dummy.scale.set(kneePart.sx,kneePart.sy,kneePart.sz);
+      dummy.updateMatrix();
+      shastaRockMesh.setMatrixAt(leg.kneeJointIndex,dummy.matrix);
+      if(ik.hock&&leg.hockJointIndex!==null){
+        const hockPart=shastaRockParts[leg.hockJointIndex];
+        dummy.position.set(leg.x,ik.hock.y,ik.hock.z);
+        dummy.quaternion.identity();
+        dummy.scale.set(hockPart.sx,hockPart.sy,hockPart.sz);
+        dummy.updateMatrix();
+        shastaRockMesh.setMatrixAt(leg.hockJointIndex,dummy.matrix);
+      }
+      // The paw must remain nearly horizontal regardless of shin angle.
       const pawPart=shastaRockParts[leg.pawIndex];
-      dummy.position.set(leg.x,footY,foot.z+.035);
-      dummy.rotation.set(foot.stance?0:-.12,0,0);
+      const pawPitch=foot.stance?.008:-.055;
+      dummy.position.set(leg.x,footY+.012,foot.z+.02);
+      dummy.rotation.set(pawPitch,0,0);
       dummy.scale.set(pawPart.sx,pawPart.sy,pawPart.sz);
       dummy.updateMatrix();
       shastaRockMesh.setMatrixAt(leg.pawIndex,dummy.matrix);
+      for(let toe=0;toe<leg.toeIndices.length;toe++){
+        const index=leg.toeIndices[toe];
+        const part=shastaRockParts[index];
+        dummy.position.set(leg.x+(toe-1)*.075,
+          footY-.003,foot.z+.154);
+        dummy.rotation.set(pawPitch,0,0);
+        dummy.scale.set(part.sx,part.sy,part.sz);
+        dummy.updateMatrix();
+        shastaRockMesh.setMatrixAt(index,dummy.matrix);
+      }
     });
     // A tiny articulated head/ear rig: curious side-glances while following,
     // nose-down sniff at the disc, alert ears for snow play. Keep the same
