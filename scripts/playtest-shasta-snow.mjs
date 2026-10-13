@@ -44,16 +44,18 @@ try{
  assert.ok(frames.some(f=>f.gait==="trot"||f.gait==="canter"||f.gait==="walk"),
   "Shasta must move on articulated paws during excited zoomies");
  await page.screenshot({path:path.join(out,"01-shasta-snow-zoom.png")});
- await page.waitForFunction(()=>
-  document.querySelector("canvas")?.dataset.dogSnowStage==="roll",
-  null,{timeout:12000});
- await page.waitForFunction(()=>
-  Number(document.querySelector("canvas")?.dataset.dogSnowRoll)>1,
-  null,{timeout:7000});
+ // WebGL software screenshots may take longer than an animation phase.
+ // Check the renderer's witnessed stage history instead of requiring a
+ // transient roll frame to coincide exactly with a Playwright callback.
+ await page.waitForFunction(()=>{
+  const d=document.querySelector("canvas")?.dataset;
+  return d?.dogSnowHistory?.includes("roll")&&
+    Number(d?.dogSnowMaxRoll)>1;
+ },null,{timeout:15000});
  await page.screenshot({path:path.join(out,"02-shasta-snow-back-rub.png")});
  await page.waitForFunction(()=>
-  document.querySelector("canvas")?.dataset.dogSnowStage==="shake",
-  null,{timeout:10000});
+  document.querySelector("canvas")?.dataset.dogSnowHistory?.includes("shake"),
+  null,{timeout:12000});
  await page.screenshot({path:path.join(out,"03-shasta-snow-shake.png")});
  await page.getByRole("button",{name:"Mountain biking",exact:true}).click();
  await page.waitForFunction(()=>
