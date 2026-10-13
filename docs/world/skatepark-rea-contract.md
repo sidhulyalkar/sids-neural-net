@@ -4,11 +4,11 @@
 
 ## Original experience, not a Skate 3 port
 
-Reference inspiration: Skate 3 and `https://skate.aaddpp.lol/`. The reference is a fan experience that loads data from a user's converted retail copy. No extracted code, assets, animations, marks, soundtrack, map meshes, or copyrighted textures are included in this implementation. REA ("Recreate Anything") is useful here as an **evidence-driven measurement workflow**, not an asset conversion shortcut. Retail timing and animation parameter parity remain **unverified**.
+Reference inspiration: Skate 3 and `https://skate.aaddpp.lol/`. The reference is a fan experience that loads data from a user's converted retail copy. No extracted code, assets, animations, marks, soundtrack, map meshes, or copyrighted textures are included in this implementation. REA ("Reverse Engineer Anything") is useful here as an **evidence-driven measurement workflow**, not an asset conversion shortcut. Retail timing and animation parameter parity remain **unverified**.
 
 ## Geography and geometry contract
 
-South meadow `x:-20..8, z:28..52`, connected to the existing grove and skating landing at `(0,26)`. Geometry and navigation use exactly the same `skateParkSurface()` heightfield. A feathered plateau supports an offset concave bowl, the two quarter transitions and a center street pyramid. Rail metadata is shared between render meshes and grind targeting. Deterministic scenery clearance reserves the whole park. All land and water tests should stay unchanged. Do not build a second island, introduce downloads, or move the existing redwood tree, disc-golf tees, jet-ski pier, ski-jump mountain or caves.
+South meadow `x:-20..8, z:28..52`, connected to the existing grove. Press **Skate**, then choose **Skatepark · south meadow** in the activity dock for a deterministic playable landing at `(0,35)`. Geometry and navigation use exactly the same `skateParkSurface()` heightfield. A feathered plateau supports an offset concave bowl, the two quarter transitions and a center street pyramid. Rail metadata is shared between render meshes and grind targeting. Deterministic scenery clearance reserves the whole park. All land and water tests should stay unchanged. Do not build a second island, introduce downloads, or move the existing redwood tree, disc-golf tees, jet-ski pier, ski-jump mountain or caves.
 
 ## Inputs (current first pass)
 
@@ -30,6 +30,10 @@ Arrows are intentionally reserved for Flick-style trick entry **only in Skate mo
 - **Inspired / not measured:** trick-pop impulse, 0.66s rotation window, scoring table, wheel friction, board geometry, rail attachment, curved plaza geometry, camera dampening. Treat these as tunable original behavior.
 - **Still missing:** measured Skate 3 motion parity, consistent analog crouch/release gesture classification, manuals/nose manuals, foot plants, reverts, 180/360 body spins, grabs that articulate skater arms, proper board-foot separation, board bails and recovery, lip tricks, multiplayer, replay/video editor, park item placement and saved parks, sponsor/career campaign, UI for control remapping.
 
+## Local REA tool setup (not executed in this environment)
+
+REA can be connected to an agent on a compatible local host using `npx rea-agents setup`, then verified with `npx -y rea-agents@latest doctor`. The current GitHub-only implementation has **not** performed runtime REA inspection of the proprietary Skate 3 game or the player-owned data served by the fan site. A future analysis run requires suitable local access and recorded evidence. The reference footage, original meshes, animations, sounds, and game binaries must not be redistributed into this repo.
+
 ## REA collection protocol
 
 1. Capture owned-game or permitted reference footage, ideally at 60 fps, plus synchronized inputs: push at 0/5/10 speed, hard turns, crouch-release vs short ollie, every principal flip, clean/bail landings, ground-to-quarter takeoffs, fakie, grind start/exit.
@@ -41,7 +45,7 @@ Arrows are intentionally reserved for Flick-style trick entry **only in Skate mo
 ## Acceptance gate
 
 - Automated: `node --import tsx --test tests/world-skatepark.test.ts`; TypeScript, strict lint and existing World regressions.
-- Chromium: approach from spawn, select Skate, mount plaza without a step, ride both quarter lips, enter/leave bowl without sinking, traverse three rails, exercise arrow flicks and Space, check two successive landings, verify combo/bail, keyboard focus and touch buttons.
+- Chromium: `scripts/playtest-skatepark.mjs` is wired into the jet-ski browser workflow to verify Skate selection, direct park arrival, a landed ollie and a landed kickflip combo with screenshots. This does **not** yet cover every rail, transition, bail or touch behavior. Add those assertions before approval.
 - Human: visually inspect smooth ramp surfaces, continuous wheel contact, rotations and body pose, park scale, lighting, rail heights and camera tracking at 30/60 fps. No release claim before this passes.
 
 ## Next tranche
