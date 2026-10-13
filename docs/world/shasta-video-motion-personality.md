@@ -74,3 +74,34 @@ trot and running on level ground at a known camera frame rate, ideally with
 camera calibration, markers or 3D pose estimates. Then fit individualized
 joint trajectories, stance durations, step lengths and foot contact rather
 than assuming nominal limb geometry from uncalibrated personal clips.
+
+## Follow-camera and paw stability follow-up (Oct 13)
+
+The first implemented version looked better in low-speed checks but the
+walk/trot/canter changes still occurred at abrupt velocity thresholds.
+Those changed the phase offsets and step lengths on a single update,
+producing a visible knee/paw pop, particularly near uneven terrain.
+
+- Continuous smoothstep blending now drives foot offsets, stride length,
+  swing height, and duty factor through speed transitions. Named gait
+  labels still exist for diagnostics, but cannot jump the underlying pose.
+- Four bounded, smoothed ankle-ground offsets reduce knee jitter caused by
+  small terrain-height changes under each paw. The base ground height and
+  torso slope also have slower response, without changing navigation,
+  fetching, or the committed disc lie.
+- The former Shasta eye camera sampled moving terrain at Shasta's nose and
+  changed direction with the goal vector, which can whip near a landed disc.
+  `lib/world/shastaCamera.ts` now owns a low-pass filtered world-space anchor
+  and separately damped heading/height. The fetch uses a more readable
+  7.6-unit over-the-shoulder follow view, and the chase intro a wider
+  11.7-unit trailing composition; the dog remains visible in both.
+- The smoothing camera is **only** used for Shasta's `chase` / `shasta`
+  disc-fetch stages. Flying disc shots, ordinary disc-golf aiming, jet skiing
+  and mountain cinematics retain their existing framing.
+- `tests/world-shasta-camera.test.ts` asserts third-person distance,
+  terrain-height filtering, heading stability, teleport resets, and
+  continuous gait poses either side of the previous transition thresholds.
+  The Chromium disc-golf playtest also checks that the actual camera
+  records a third-person trailing boom while Shasta runs.
+- The World remains a stylized art-direction model; manual playback review
+  is needed to tune the remaining knee animation and camera composition.
