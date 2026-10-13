@@ -41,6 +41,7 @@ import {stepCritterLocomotion} from "@/lib/world/landWildlifeMotion";
 import { SHASTA_CHARACTER } from "@/lib/world/shastaCharacter";
 import { FrameSampler, QualityController } from "@/lib/world/performance";
 import { shastaDetour, initialChaseState, stepChase, gaitBlendForSpeed, smoothAngle, smoothPoint, smoothingAlpha, steerShastaVelocity } from "@/lib/world/shastaMotion";
+import {idleFetchRunRoute,stepFetchRunRoute,steerFetchRun} from "@/lib/world/shastaFetchRun";
 import {advanceShastaStride,shastaGaitPose,shastaStraightLeg} from "@/lib/world/shastaGait";
 import {shastaCameraShot,stepShastaCameraAnchor,type ShastaCameraAnchor} from "@/lib/world/shastaCamera";
 import {idleShastaSnowPlay,queueShastaSnowPlay,stepShastaSnowPlay,shastaSnowPose} from "@/lib/world/shastaPersonality";
@@ -1589,6 +1590,8 @@ export function createWorld(
     q: new THREE.Quaternion().setFromEuler(new THREE.Euler(-0.62, 0, 0)),
     color: shastaPalette.warmTan,
   });
+  const shastaLimbUp=new THREE.Vector3(0,1,0);
+  const shastaLimbDir=new THREE.Vector3();
   const shastaCylinderMesh = instances(
     cylinder,
     mat(shastaPalette.creamWhite),
@@ -2838,6 +2841,7 @@ export function createWorld(
   let dog: Point = { x: 3, z: 12 };
   let dogVelocity: Point = { x: 0, z: 0 };
   let dogSmoothedTarget: Point = { ...dog };
+  let fetchRunRoute=idleFetchRunRoute();
   let dogYaw = 0;
   let dogPitch = 0;
   let dogRoll = 0;
@@ -3223,6 +3227,7 @@ export function createWorld(
   function frame(now: number) {
     raf = 0;
     if (disposed || document.hidden || state.paused) return;
+    const fetchNow=now*.001;
     const rawDelta = (now - last) / 1000,
       dt = Math.min(rawDelta, 0.05);
     last = now;
@@ -3395,7 +3400,7 @@ export function createWorld(
         discGolf=stepDiscGolf(discGolf,dt,discGolfSurfaceHeight,
           discGolfSurfaceIsWater,SEA_SURFACE,obstacles);
         const previousFetch=discFetch;
-        discFetch=stepDiscGolfFetch(discFetch,discGolf,dog,elapsed);
+        discFetch=stepDiscGolfFetch(discFetch,discGolf,dog,fetchNow);
         const handoff=discGolfHandoffTarget(previousFetch,discFetch,discGolf);
         if(handoff){
           // The physics has already committed the real lie and stroke.
@@ -4156,7 +4161,7 @@ export function createWorld(
       // Before landing the shot gets the camera; Shasta stays behind.
       const reducedFetchMotion=window.matchMedia("(prefers-reduced-motion: reduce)").matches;
       const fetchCamera=discGolf.phase!=="off"&&!discGolfIntro?
-        discGolfFetchCameraPhase(discFetch,elapsed,reducedFetchMotion):"off";
+        discGolfFetchCameraPhase(discFetch,fetchNow,reducedFetchMotion):"off";
       if(fetchCamera==="disc" && discGolf.phase==="flying"){
         const p=discGolf.disc;
         const speed=Math.hypot(discGolf.velocity.x,discGolf.velocity.z);
@@ -4634,18 +4639,31 @@ export function createWorld(
       dogVelocity={x:0,z:0};
       dogSmoothedTarget={...dog};
     }
-    const dogSteeringTarget = shastaDetour(dog,dogTarget,obstacles,1);
-    dogSmoothedTarget = smoothPoint(dogSmoothedTarget, isWater(dogSteeringTarget) ? dogTarget : dogSteeringTarget, dogMotionDt);
-    dogVelocity = steerShastaVelocity(
-      dogVelocity,
-      dog,
-      dogSmoothedTarget,
-      discFetch.phase==="chase" ? 11.0 :
-        shastaSnow.stage==="zoom" ? 9.5 :
+    const activelyFetching=discGolf.phase!=="off"&&
+      discFetch.phase==="chase"&&discFetch.target!==null;
+    if(activelyFetching&&discFetch.target){
+      // A husky runs directly toward the disc, retaining one obstacle
+      // waypoint until passed. Recomputing every frame caused lateral
+      // steering oscillation and repeatedly scanned every island trunk.
+      fetchRunRoute=stepFetchRunRoute(fetchRunRoute,dog,
+        discFetch.target,obstacles,fetchNow);
+      const waypoint=fetchRunRoute.waypoint??discFetch.target;
+      dogVelocity=steerFetchRun(dogVelocity,dog,waypoint,
+        discFetch.target,dogMotionDt);
+      canvas.dataset.dogFetchRouteChecks=String(fetchRunRoute.decisions);
+      dogSmoothedTarget={...waypoint};
+    }else{
+      if(fetchRunRoute.goal!==null)fetchRunRoute=idleFetchRunRoute();
+      const dogSteeringTarget=shastaDetour(dog,dogTarget,obstacles,1);
+      dogSmoothedTarget=smoothPoint(dogSmoothedTarget,
+        isWater(dogSteeringTarget)?dogTarget:dogSteeringTarget,dogMotionDt);
+      dogVelocity=steerShastaVelocity(dogVelocity,dog,
+        dogSmoothedTarget,
+        shastaSnow.stage==="zoom"?9.5:
         shastaSnow.stage==="roll"||shastaSnow.stage==="shake"?0:
-        dogChase.mode === "return" ? Math.max(travel.speed, 6) : travel.speed,
-      dogMotionDt,
-    );
+        dogChase.mode==="return"?Math.max(travel.speed,6):travel.speed,
+        dogMotionDt);
+    }
     const dogBefore = { ...dog };
     const requestedDogStep = {
       x: dog.x + dogVelocity.x * dogMotionDt,
@@ -4695,10 +4713,18 @@ export function createWorld(
     dogMaxYawStep = Math.max(dogMaxYawStep, appliedDogYawStep);
 
     const dogHeading = { x: Math.sin(dogYaw), z: Math.cos(dogYaw) };
-    const dogContactSample = terrainContact(dog, dogHeading, 0.58, 0.22);
-    const poseAlpha = smoothingAlpha(dogMotionDt, 5.2);
-    dogPitch += (dogContactSample.pitch - dogPitch) * poseAlpha;
-    dogRoll += (dogContactSample.roll - dogRoll) * poseAlpha;
+    // Fetch running keeps the torso level. It is the *feet*, not the
+    // shoulders, that accommodate fine terrain bumps. Skip repeated slope
+    // probes while chasing to avoid camera-visible high-frequency twitch.
+    const poseAlpha=smoothingAlpha(dogMotionDt,4.0);
+    if(activelyFetching){
+      dogPitch*=1-poseAlpha;
+      dogRoll*=1-poseAlpha;
+    }else{
+      const contact=terrainContact(dog,dogHeading,.58,.22);
+      dogPitch+=(contact.pitch-dogPitch)*poseAlpha;
+      dogRoll+=(contact.roll-dogRoll)*poseAlpha;
+    }
 
     // Use distance TRAVELLED: collisions or frame stalls never create
     // high-speed stepping in place.
@@ -4711,16 +4737,22 @@ export function createWorld(
     const targetDogY = terrainHeight(dog.x, dog.z);
     dogGroundY +=
       (targetDogY - dogGroundY) * smoothingAlpha(dogMotionDt, 6.5);
-    const dogGait=shastaGaitPose(dogAnimSpeed,dogGaitPhase,dogMoveBlend);
-    const dogBob=dogGait.bodyBob;
+    // Use a low-amplitude diagonal trot on the fetch, avoiding the
+    // very rapid walk->trot->canter pose changes seen in the screenshots.
+    const dogGait=shastaGaitPose(
+      activelyFetching?Math.min(7.4,dogAnimSpeed):dogAnimSpeed,
+      dogGaitPhase,dogMoveBlend);
+    const dogBob=activelyFetching?0:dogGait.bodyBob;
     const dogRenderY=dogGroundY+dogBob;
     dogMaxYStep = Math.max(dogMaxYStep, Math.abs(dogRenderY - lastDogRenderY));
     lastDogRenderY = dogRenderY;
     shasta.position.set(dog.x, dogRenderY, dog.z);
     shasta.rotation.set(
-      dogPitch+dogGait.bodyPitch+(discFetch.phase==="found"?.035:0),
+      dogPitch+(activelyFetching?0:dogGait.bodyPitch)+
+        (discFetch.phase==="found"?.02:0),
       dogYaw+(shastaSnow.stage==="shake"?snowPose.headTilt:0),
-      dogRoll + Math.sin(dogGaitPhase) * 0.008 * dogMoveBlend,
+      dogRoll+(activelyFetching?0:
+        Math.sin(dogGaitPhase)*.008*dogMoveBlend),
     );
     // Mass-centered full-body roll with gradually lowered back-on-snow pose.
     shastaPose.rotation.z=snowPose.roll;
@@ -4755,8 +4787,9 @@ export function createWorld(
     // Simple straight legs, deliberately no inverse kinematics or knee
     // articulation. Each paw follows its own lightly filtered terrain
     // sample while the leg connects directly to its stable body anchor.
-    const limbUp=new THREE.Vector3(0,1,0);
-    const limbDir=new THREE.Vector3();
+    // These scratch vectors are allocated once with the character mesh.
+    const limbUp=shastaLimbUp;
+    const limbDir=shastaLimbDir;
     shastaLegs.forEach((leg,i)=>{
       const foot=dogGait.feet[i];
       const cosYaw=Math.cos(dogYaw),sinYaw=Math.sin(dogYaw);
@@ -5338,7 +5371,7 @@ export function createWorld(
             discGolf=discGolfThrow(discGolf,next.discGolfShot,discGolfSurfaceHeight);
             const accepted=discGolf.phase==="flying"&&beforeShot!=="flying";
             if(accepted){
-              discFetch=startDiscGolfFetch(elapsed);
+              discFetch=startDiscGolfFetch(performance.now()*.001);
               discGolf={...discGolf,presentationPending:true};
               canvas.dataset.discGolfHandoff="waiting";
             }
