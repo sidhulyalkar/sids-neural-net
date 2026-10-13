@@ -4806,6 +4806,7 @@ export function createWorld(
     // the center of mass stays stable. No whole-dog leap on every stride.
     const limbUp=new THREE.Vector3(0,1,0);
     const limbDir=new THREE.Vector3();
+    let dogJointsValid=true;
     shastaLegs.forEach((leg,i)=>{
       const foot=dogGait.feet[i];
       // Sample under every paw. The hips follow smoothed ground elevation,
@@ -4822,6 +4823,10 @@ export function createWorld(
         smoothingAlpha(dogMotionDt,8);
       const footY=foot.y+dogFootGround[i];
       const ik=shastaLegIK(leg.z,foot.z,footY,leg.z>0);
+      const fore=leg.z>0;
+      dogJointsValid&&=fore?
+        ik.knee.z<ik.hip.z&&ik.hock===null:
+        !!ik.hock&&ik.knee.z>ik.hip.z&&ik.hock.z<ik.paw.z;
       const upperPart=shastaCylinderParts[leg.upperIndex];
       const lowerPart=shastaCylinderParts[leg.lowerIndex];
       const upperLength=Math.hypot(ik.hip.y-ik.knee.y,
@@ -4893,6 +4898,8 @@ export function createWorld(
         shastaRockMesh.setMatrixAt(index,dummy.matrix);
       }
     });
+    canvas.dataset.shastaJointsValid=String(dogJointsValid);
+    canvas.dataset.shastaPawWidth=p.paw.x.toFixed(3);
     // A tiny articulated head/ear rig: curious side-glances while following,
     // nose-down sniff at the disc, alert ears for snow play. Keep the same
     // single instanced mesh draw calls as the original character.
