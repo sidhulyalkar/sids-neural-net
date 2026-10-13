@@ -69,20 +69,50 @@ export function shastaGaitPose(speed:number,phase:number,blend:number):ShastaGai
  return {gait,phase,blend:moving,bodyBob,bodyPitch,
   strideLength:length,feet:legs as unknown as ShastaGaitPose["feet"]};
 }
-/** Two-bone hind/fore limb IK in the Z/Y plane, with bounded joints.
- * Foot positions are in a body-local frame. */
+/** Leg solver in the local forward-Z / vertical-Y plane.
+ * Facing +Z: the fore elbow flexes toward -Z (behind the shoulder).
+ * A dog's hind leg needs three visible links: hip -> forward stifle ->
+ * rearward hock -> forward-pointing paw. Treating the hind hock as a
+ * second knee generated the backward-folding legs in the screenshot.
+ * This is stylized reach-limited IK, not a measured veterinary skeleton.
+ */
+export type ShastaLegJoint={y:number;z:number};
+export type ShastaLegIK={
+ hip:ShastaLegJoint;knee:ShastaLegJoint;
+ hock:ShastaLegJoint|null;paw:ShastaLegJoint;
+};
+export const SHASTA_LEG_LENGTHS={
+ fore:{upper:.42,lower:.38},
+ hind:{upper:.38,lower:.40,hockToPawZ:.16,hockToPawY:.22},
+} as const;
 export function shastaLegIK(hipZ:number,footZ:number,footY:number,
- fore:boolean,hipY=.77){
- const upper=.42,lower=.38;
- const dz=footZ-hipZ,dy=footY-hipY;
- const distance=clamp(Math.hypot(dz,dy),.035,upper+lower-.001);
- const inv=1/Math.max(1e-8,Math.hypot(dz,dy));
- const uz=dz*inv,uy=dy*inv;
+ fore:boolean,hipY=fore?.77:.82):ShastaLegIK{
+ const hip={z:hipZ,y:hipY},paw={z:footZ,y:footY};
+ const proportions=fore?SHASTA_LEG_LENGTHS.fore:SHASTA_LEG_LENGTHS.hind;
+ // The hind hock stays behind and above the toes. Its third segment
+ // remains forward-leaning at walk, trot and canter.
+ const desiredEnd=fore?paw:{
+  z:footZ-SHASTA_LEG_LENGTHS.hind.hockToPawZ,
+  y:footY+SHASTA_LEG_LENGTHS.hind.hockToPawY,
+ };
+ const dz=desiredEnd.z-hipZ,dy=desiredEnd.y-hipY;
+ const rawDistance=Math.hypot(dz,dy);
+ const unitZ=rawDistance>1e-8?dz/rawDistance:0;
+ const unitY=rawDistance>1e-8?dy/rawDistance:-1;
+ const upper=proportions.upper,lower=proportions.lower;
+ const distance=clamp(rawDistance,
+  Math.abs(upper-lower)+.001,upper+lower-.001);
+ const end={
+  z:hipZ+unitZ*distance,y:hipY+unitY*distance,
+ };
  const along=(upper*upper-lower*lower+distance*distance)/(2*distance);
- const perpendicular=Math.sqrt(Math.max(0,upper*upper-along*along));
- const sign=fore?1:-1;
- const kneeZ=hipZ+uz*along-uy*perpendicular*sign;
- const kneeY=hipY+uy*along+uz*perpendicular*sign;
- return {hip:{y:hipY,z:hipZ},knee:{y:kneeY,z:kneeZ},
-  paw:{y:footY,z:footZ}};
+ const sideways=Math.sqrt(Math.max(0,upper*upper-along*along));
+ // Perpendicular orientation matters: fore elbows behind (-Z),
+ // hind stifles ahead (+Z) of the hip-to-hock line.
+ const bend=fore?-1:1;
+ const knee={
+  z:hipZ+unitZ*along-unitY*sideways*bend,
+  y:hipY+unitY*along+unitZ*sideways*bend,
+ };
+ return {hip,knee,hock:fore?null:end,paw};
 }
