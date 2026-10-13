@@ -1717,6 +1717,23 @@ export function createWorld(
     shastaTail,
   );
   shastaTailMesh.castShadow = false;
+  // The tubular tail is open at both ends, so the white end-cap was
+  // literally missing despite the plume having white vertex colors.
+  // Close it with an overlapping ellipsoid that follows the tail pivot.
+  const tailTipPoint=tailCurve.getPointAt(1);
+  const tailTipTangent=tailCurve.getTangentAt(.995).normalize();
+  const shastaTailTip=mesh(
+    shastaBodyGeo,mat(shastaPalette.brightWhite,{roughness:.94}),
+    [tailTipPoint.x+tailTipTangent.x*.064,
+      tailTipPoint.y+tailTipTangent.y*.064,
+      tailTipPoint.z+tailTipTangent.z*.064],
+    [.143,.194,.143],shastaTail,
+  );
+  shastaTailTip.quaternion.setFromUnitVectors(
+    new THREE.Vector3(0,1,0),tailTipTangent,
+  );
+  shastaTailTip.castShadow=false;
+  canvas.dataset.shastaTailTip="closed-white";
   shastaTail.rotation.z = SHASTA_CHARACTER.tail.restAngleZ;
   shastaTail.rotation.y = SHASTA_CHARACTER.tail.restAngleY;
 
