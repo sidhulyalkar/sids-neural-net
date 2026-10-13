@@ -3634,10 +3634,15 @@ export function createWorld(
           }
           if (!isWater({ x: targetCamera.x, z: targetCamera.z })) {
             const zone = waterZone(player);
-            targetCamera.x =
-              zone === "lagoon"
-                ? eastCoastlineX(targetCamera.z) + 1.3
-                : coastlineX(targetCamera.z) - 1.3;
+            if(zone==="north-shore"){
+              // A diver behind the north beach must stay seaward in Z,
+              // not teleport the camera sideways to the cold-water coast.
+              targetCamera.z=northShoreZ(targetCamera.x)+1.3;
+            }else{
+              targetCamera.x=zone==="lagoon"
+                ? eastCoastlineX(targetCamera.z)+1.3
+                : coastlineX(targetCamera.z)-1.3;
+            }
           }
         }
         const floor = seaFloorHeight(targetCamera.x, targetCamera.z);
