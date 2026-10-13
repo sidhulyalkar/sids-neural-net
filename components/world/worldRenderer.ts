@@ -2845,7 +2845,7 @@ export function createWorld(
   let dogYaw = 0;
   let dogPitch = 0;
   let dogRoll = 0;
-  let dogGroundY = terrainHeight(dog.x, dog.z);
+  let dogGroundY = discGolfSurfaceHeight(dog);
   const dogFootGround=[0,0,0,0];
   let dogCameraAnchor:ShastaCameraAnchor|null=null;
   let dogGaitPhase = 0;
@@ -4590,7 +4590,7 @@ export function createWorld(
     shastaSnow=stepShastaSnowPlay(shastaSnow,snowNow,snowHere,snowAllowed);
     const snowPose=shastaSnowPose(shastaSnow,snowNow);
     const dogTarget = state.entered
-      ? aquatic !== "land" || isWater(player)
+      ? aquatic !== "land" || discGolfSurfaceIsWater(player)
         ? shoreWait
         : dogWaitsAtCaveEntrance
           ? { x: arcade.x - 2.0, z: arcade.z - 1.65 }
@@ -4656,7 +4656,7 @@ export function createWorld(
       if(fetchRunRoute.goal!==null)fetchRunRoute=idleFetchRunRoute();
       const dogSteeringTarget=shastaDetour(dog,dogTarget,obstacles,1);
       dogSmoothedTarget=smoothPoint(dogSmoothedTarget,
-        isWater(dogSteeringTarget)?dogTarget:dogSteeringTarget,dogMotionDt);
+        discGolfSurfaceIsWater(dogSteeringTarget)?dogTarget:dogSteeringTarget,dogMotionDt);
       dogVelocity=steerShastaVelocity(dogVelocity,dog,
         dogSmoothedTarget,
         shastaSnow.stage==="zoom"?9.5:
@@ -4670,7 +4670,7 @@ export function createWorld(
       z: dog.z + dogVelocity.z * dogMotionDt,
     };
     const candidate = constrainMove(dog, requestedDogStep, obstacles);
-    if (!isWater(candidate)) {
+    if (!discGolfSurfaceIsWater(candidate)) {
       dog = candidate;
       const requestedDistance = distance(dogBefore, requestedDogStep);
       const actualDistance = distance(dogBefore, dog);
@@ -4734,7 +4734,7 @@ export function createWorld(
       (targetMoveBlend - dogMoveBlend) * smoothingAlpha(dogMotionDt, 10.5);
     dogMaxMoveBlend = Math.max(dogMaxMoveBlend, dogMoveBlend);
 
-    const targetDogY = terrainHeight(dog.x, dog.z);
+    const targetDogY = discGolfSurfaceHeight(dog);
     dogGroundY +=
       (targetDogY - dogGroundY) * smoothingAlpha(dogMotionDt, 6.5);
     // Use a low-amplitude diagonal trot on the fetch, avoiding the
@@ -4782,7 +4782,7 @@ export function createWorld(
       aquatic === "land" ? supportHeight(player) + 0.04 : SEA_SURFACE,
       explorer.position.z,
     );
-    dogContact.position.set(dog.x, terrainHeight(dog.x, dog.z) + 0.04, dog.z);
+    dogContact.position.set(dog.x, discGolfSurfaceHeight(dog) + 0.04, dog.z);
 
     // Simple straight legs, deliberately no inverse kinematics or knee
     // articulation. Each paw follows its own lightly filtered terrain
@@ -4796,7 +4796,7 @@ export function createWorld(
       const worldX=dog.x+leg.x*cosYaw+foot.z*sinYaw;
       const worldZ=dog.z+foot.z*cosYaw-leg.x*sinYaw;
       const groundDelta=THREE.MathUtils.clamp(
-        terrainHeight(worldX,worldZ)-dogGroundY,-.075,.075);
+        discGolfSurfaceHeight({x:worldX,z:worldZ})-dogGroundY,-.075,.075);
       dogFootGround[i]+=(groundDelta-dogFootGround[i])*
         smoothingAlpha(dogMotionDt,7);
       const pose=shastaStraightLeg(
@@ -4814,8 +4814,8 @@ export function createWorld(
       // The paw is one small oval, not three cartoon toes. The pitch is
       // nearly flat with only a little slope compensation during stance.
       const pawPart=shastaRockParts[leg.pawIndex];
-      const front=terrainHeight(worldX+sinYaw*.12,worldZ+cosYaw*.12);
-      const back=terrainHeight(worldX-sinYaw*.12,worldZ-cosYaw*.12);
+      const front=discGolfSurfaceHeight({x:worldX+sinYaw*.12,z:worldZ+cosYaw*.12});
+      const back=discGolfSurfaceHeight({x:worldX-sinYaw*.12,z:worldZ-cosYaw*.12});
       const slopePitch=foot.stance?THREE.MathUtils.clamp(
         Math.atan2(front-back,.24),-.045,.045):-.025;
       dummy.position.set(leg.x,pose.paw.y+.012,pose.paw.z+.018);
@@ -5354,7 +5354,7 @@ export function createWorld(
           }
           dog={x:player.x+1.8,z:player.z-1.8};
           dogVelocity={x:0,z:0};dogSmoothedTarget={...dog};
-          dogGroundY=terrainHeight(dog.x,dog.z);
+          dogGroundY=discGolfSurfaceHeight(dog);
           dogFootGround.fill(0);dogCameraAnchor=null;
           callbacks.onDiscGolf(discGolf);
       }
@@ -5432,7 +5432,7 @@ export function createWorld(
           dog={x:player.x+2,z:player.z-2};
           dogVelocity={x:0,z:0};
           dogSmoothedTarget={...dog};
-          dogGroundY=terrainHeight(dog.x,dog.z);
+          dogGroundY=discGolfSurfaceHeight(dog);
           dogFootGround.fill(0);dogCameraAnchor=null;
           bigAir=armBigAir();
           resetRideBoost();
@@ -5460,7 +5460,7 @@ export function createWorld(
           dog={x:player.x+2,z:player.z+2};
           dogVelocity={x:0,z:0};
           dogSmoothedTarget={...dog};
-          dogGroundY=terrainHeight(dog.x,dog.z);
+          dogGroundY=discGolfSurfaceHeight(dog);
           dogFootGround.fill(0);dogCameraAnchor=null;
           trial=armJoshuaTrial();
           resetRideBoost();
