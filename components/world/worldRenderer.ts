@@ -2842,6 +2842,11 @@ export function createWorld(
   let dogVelocity: Point = { x: 0, z: 0 };
   let dogSmoothedTarget: Point = { ...dog };
   let fetchRunRoute=idleFetchRunRoute();
+  // Broadphase: terrain/vegetation obstacles are static. Only reselect a
+  // padded local working set when Shasta has actually traveled several units.
+  let dogObstacleAnchor:Point|null=null;
+  let dogLocalObstacles:Obstacle[]=[];
+  let dogObstacleRefreshes=0;
   let dogYaw = 0;
   let dogPitch = 0;
   let dogRoll = 0;
@@ -4629,6 +4634,17 @@ export function createWorld(
       !dogWaitsAtCaveEntrance || distance(dog, arcadeWall) > 6.5,
     );
 
+    // Cull the static collision field locally instead of scanning the whole
+    // island on every step. A generous 10-unit margin covers body movement,
+    // near-field trunk routing and the next bounded step.
+    if(!dogObstacleAnchor||distance(dog,dogObstacleAnchor)>3.2){
+      dogObstacleAnchor={...dog};
+      dogLocalObstacles=obstacles.filter(o=>
+        Math.hypot(o.x-dog.x,o.z-dog.z)<10+o.radius);
+      dogObstacleRefreshes++;
+    }
+    canvas.dataset.dogObstacleRefreshes=String(dogObstacleRefreshes);
+    canvas.dataset.dogNearbyObstacleCount=String(dogLocalObstacles.length);
     // Smooth the target itself, then steer velocity toward it with finite
     // acceleration/braking. This removes the start/stop jerk from direct pursuit.
     const dogMotionDt = Math.min(rawDelta, 0.1);
@@ -4646,7 +4662,7 @@ export function createWorld(
       // waypoint until passed. Recomputing every frame caused lateral
       // steering oscillation and repeatedly scanned every island trunk.
       fetchRunRoute=stepFetchRunRoute(fetchRunRoute,dog,
-        discFetch.target,obstacles,fetchNow);
+        discFetch.target,dogLocalObstacles,fetchNow);
       const waypoint=fetchRunRoute.waypoint??discFetch.target;
       dogVelocity=steerFetchRun(dogVelocity,dog,waypoint,
         discFetch.target,dogMotionDt);
@@ -4654,7 +4670,7 @@ export function createWorld(
       dogSmoothedTarget={...waypoint};
     }else{
       if(fetchRunRoute.goal!==null)fetchRunRoute=idleFetchRunRoute();
-      const dogSteeringTarget=shastaDetour(dog,dogTarget,obstacles,1);
+      const dogSteeringTarget=shastaDetour(dog,dogTarget,dogLocalObstacles,1);
       dogSmoothedTarget=smoothPoint(dogSmoothedTarget,
         discGolfSurfaceIsWater(dogSteeringTarget)?dogTarget:dogSteeringTarget,dogMotionDt);
       dogVelocity=steerShastaVelocity(dogVelocity,dog,
@@ -4669,7 +4685,7 @@ export function createWorld(
       x: dog.x + dogVelocity.x * dogMotionDt,
       z: dog.z + dogVelocity.z * dogMotionDt,
     };
-    const candidate = constrainMove(dog, requestedDogStep, obstacles);
+    const candidate = constrainMove(dog, requestedDogStep, dogLocalObstacles);
     if (!discGolfSurfaceIsWater(candidate)) {
       dog = candidate;
       const requestedDistance = distance(dogBefore, requestedDogStep);
@@ -4816,8 +4832,10 @@ export function createWorld(
       const pawPart=shastaRockParts[leg.pawIndex];
       const front=discGolfSurfaceHeight({x:worldX+sinYaw*.12,z:worldZ+cosYaw*.12});
       const back=discGolfSurfaceHeight({x:worldX-sinYaw*.12,z:worldZ-cosYaw*.12});
-      const slopePitch=foot.stance?THREE.MathUtils.clamp(
-        Math.atan2(front-back,.24),-.045,.045):-.025;
+      // During fetch keep all paws nearly level rather than feeding
+      // per-step micro-slope noise into tiny geometry rotations.
+      const slopePitch=activelyFetching?0:foot.stance?
+        THREE.MathUtils.clamp(Math.atan2(front-back,.24),-.045,.045):-.025;
       dummy.position.set(leg.x,pose.paw.y+.012,pose.paw.z+.018);
       dummy.rotation.set(slopePitch,0,0);
       dummy.scale.set(pawPart.sx,pawPart.sy,pawPart.sz);
