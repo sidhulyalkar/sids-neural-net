@@ -2817,7 +2817,12 @@ export function createWorld(
     covered: number;
   } | null = null;
   let lastRampAt = -10, lastRampId = "";
+  const skateBestKey="sid-world:skate-line-best-v1";
   let skateTrick=idleSkateTrick(),skateWindupAt=-Infinity,skatePadPrimed=false;
+  try {
+    const saved=Number(window.localStorage.getItem(skateBestKey));
+    if(Number.isFinite(saved)&&saved>=0)skateTrick.best=Math.min(saved,1e9);
+  }catch{/* Persistent records remain optional in privacy-restricted browsers. */}
   let skateHasBeenAirborne=false,skatePadPushHeld=false;
   let playerY = groundHeight(player);
   // Single source of truth for mutually exclusive minigame entrances.
@@ -3781,13 +3786,17 @@ export function createWorld(
       }
       const mode = effectiveActivity(state.activity, player);
       if(mode!=="skate"&&skateTrick.phase!=="ground"){
-        skateTrick=idleSkateTrick();skateHasBeenAirborne=false;
+        skateTrick={...idleSkateTrick(),best:skateTrick.best};skateHasBeenAirborne=false;
       }
       if(mode==="skate"&&skateTrick.phase==="air"){
         if(airHeight>.12)skateHasBeenAirborne=true;
         if(skateHasBeenAirborne&&airHeight<=.001&&!grind){
           const landing=finishSkateTrick(skateTrick,elapsed,travel.speed);
           if(landing.bails>skateTrick.bails)travel={...travel,speed:travel.speed*.32};
+          if(landing.best>skateTrick.best){
+            try{window.localStorage.setItem(skateBestKey,String(landing.best));}
+            catch{/* No gameplay dependency on storage. */}
+          }
           skateTrick=landing;skateHasBeenAirborne=false;
         }
       }
