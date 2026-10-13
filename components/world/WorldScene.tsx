@@ -9,6 +9,7 @@ import type { Activity, AquaticMode } from "@/lib/world/activities";
 import type { TrialState } from "@/lib/world/trials";
 import type { BigAirState } from "@/lib/world/bigAir";
 import type { DiscGolfState,DiscShot,DiscGolfSwingStage } from "@/lib/world/discGolf";
+import type { SkimHeat } from "@/lib/world/skimboarding";
 
 type Props = {
   activity: Activity;
@@ -23,6 +24,9 @@ type Props = {
   discGolfExitSerial:number;
   discGolfSwingStage:DiscGolfSwingStage;
   discGolfSwingAmount:number;
+  skimCommandSerial:number;
+  skimCommand:"pickup"|"drop"|"pop"|"shuvit"|"big-spin"|"three-sixty"|"wrap"|"exit"|"restart";
+  skimBoardIndex:number;
   waterAction: "dive" | "deeper" | "shallower" | "surface";
   waterActionSerial: number;
   gameTitles: string[];
@@ -37,6 +41,8 @@ type Props = {
   onChallenge: (state:TrialState) => void;
   onBigAir: (state:BigAirState) => void;
   onDiscGolf:(game:DiscGolfState)=>void;
+  onSkim:(heat:SkimHeat)=>void;
+  onSkimNearby:(board:number|null)=>void;
 };
 export default function WorldScene(props: Props) {
   const host = useRef<HTMLDivElement>(null);
@@ -61,6 +67,8 @@ export default function WorldScene(props: Props) {
           onChallenge: (trial) => callbacks.current.onChallenge(trial),
           onBigAir: (flight) => callbacks.current.onBigAir(flight),
           onDiscGolf:(golf)=>callbacks.current.onDiscGolf(golf),
+          onSkim:(heat)=>callbacks.current.onSkim(heat),
+          onSkimNearby:(board)=>callbacks.current.onSkimNearby(board),
         }, WebGLRenderer, callbacks.current.gameTitles);
         runtime.current.setState(callbacks.current);
       } catch { callbacks.current.onError(); }
