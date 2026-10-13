@@ -33,6 +33,17 @@ test("a tree produces a persistent detour and no flip-flopping sides",()=>{
  assert.ok(route.decisions>1);
 });
 
+test("Hole 2 pier fetch exits by the land ramp rather than sea",()=>{
+ const dog={x:63,z:14},green={x:45,z:-9};
+ let route=stepFetchRunRoute(idleFetchRunRoute(),dog,green,[],0);
+ assert.deepEqual(route.waypoint,{x:48.1,z:14});
+ assert.equal(route.detouring,true);
+ assert.deepEqual(stepFetchRunRoute(route,dog,green,[],.1).waypoint,
+  route.waypoint,"pier exit remains stable between frames");
+ route=stepFetchRunRoute(route,{x:48.5,z:14},green,[],.9);
+ assert.deepEqual(route.waypoint,green,
+  "after reaching the pier ramp, resume mainland disc pursuit");
+});
 test("excited fetch accelerates smoothly, then brakes before reaching disc",()=>{
  let dog={x:0,z:0},velocity={x:0,z:0},maxStep=0;
  const goal={x:36,z:0},dt=1/60;
