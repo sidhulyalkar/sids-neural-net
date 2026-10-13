@@ -10,9 +10,6 @@ export type ShastaGaitPose={
  strideLength:number;feet:readonly [ShastaFoot,ShastaFoot,ShastaFoot,ShastaFoot];
 };
 const clamp=(x:number,a:number,b:number)=>Math.min(b,Math.max(a,x));
-const smooth=(a:number,b:number,x:number)=>{
- const t=clamp((x-a)/(b-a),0,1);return t*t*(3-2*t);
-};
 const mod=(x:number,y:number)=>((x%y)+y)%y;
 export function shastaGaitForSpeed(speed:number):ShastaGait{
  return speed<.3?"stand":speed<3.25?"walk":speed<8.5?"trot":"canter";
