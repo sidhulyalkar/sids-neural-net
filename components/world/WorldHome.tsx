@@ -27,6 +27,7 @@ import { WorldDiscGolfHUD } from "./WorldDiscGolfHUD";
 import { idleDiscGolf,type DiscShot,type DiscGolfState,type DiscGolfSwingStage } from "@/lib/world/discGolf";
 import {emptyDiscGolfRound,loadDiscGolfRound,persistDiscGolfRound,recordDiscGolfHole,nextUnplayedDiscGolfHole,discGolfRoundSummary} from "@/lib/world/discGolfRound";
 import {newDiscGolfNameSeed} from "@/lib/world/discGolfNames";
+import { idleSkimHeat, SKIM_BOARDS, type SkimHeat } from "@/lib/world/skimboarding";
 import {
   BIG_AIR,bigAirBirdCallout,idleBigAir,type BigAirState,
 } from "@/lib/world/bigAir";
@@ -70,6 +71,7 @@ const INTRO: Record<RegionId, { title: string; text: string }> = {
   neural: { title: "Strange grove.", text: "Research questions." },
   coast: { title: "Wild coast.", text: "Cold water · trails · photographs." },
   lagoon: { title: "Lagoon reef.", text: "Bora Bora · Tahiti · Mo’orea." },
+  "north-shore": { title: "North shore.", text: "Skim the shorebreak." },
 };
 
 // Reuse archive records, keeping regional discoveries relevant to their surroundings.
@@ -92,6 +94,26 @@ export function WorldHome({ content }: { content: WorldContent }) {
   const [ready, setReady] = useState(false);
   const [failed, setFailed] = useState(false);
   const [activity, setActivity] = useState<Activity>("run");
+  const [skim, setSkim] = useState<SkimHeat>(idleSkimHeat);
+  const [skimNearby, setSkimNearby] = useState<number|null>(null);
+  const [skimCommand, setSkimCommand] = useState<"pickup"|"drop"|"pop"|"shuvit"|"big-spin"|"three-sixty"|"wrap"|"exit"|"restart">("pickup");
+  const [skimCommandSerial, setSkimCommandSerial] = useState(0);
+  const [skimBoardIndex, setSkimBoardIndex] = useState(0);
+  const [skimBest, setSkimBest] = useState<number|null>(()=>{
+    if(typeof window==="undefined")return null;
+    try { const v=Number(window.localStorage.getItem("sid-world:skim-heat-v1")); return v>0&&Number.isFinite(v)?v:null; }
+    catch {return null;}
+  });
+  const onSkim=useCallback((heat:SkimHeat)=>setSkim(heat),[]);
+  const issueSkim=(action:typeof skimCommand,board=0)=>{
+    setSkimCommand(action);setSkimBoardIndex(board);setSkimCommandSerial(n=>n+1);
+    requestAnimationFrame(()=>worldRoot.current?.querySelector("canvas")?.focus({preventScroll:true}));
+  };
+  useEffect(()=>{
+    if(skim.phase!=="finished"||skim.score<1||(skimBest!==null&&skim.score<=skimBest))return;
+    setSkimBest(skim.score);
+    try{window.localStorage.setItem("sid-world:skim-heat-v1",String(skim.score));}catch{/* storage optional */}
+  },[skim.phase,skim.score,skimBest]);
   const [actionSerial, setActionSerial] = useState(0);
   const [challengeSerial,setChallengeSerial]=useState(0);
   const [bigAirSerial,setBigAirSerial]=useState(0);
@@ -136,6 +158,7 @@ export function WorldHome({ content }: { content: WorldContent }) {
        g.phase==="holed")setDiscPreviewShot(null);
   },[setDiscGolf,setDiscGolfStage,setDiscPreviewShot,setDiscGolfSwingAmount]);
   const startDiscHole=(index:number)=>{
+    if(skim.phase!=="off")return;
     // Start commands and throws carry separate serials. Do not carry a stale
     // shot payload across a hole transition.
     setDiscGolfShot(null);
@@ -324,6 +347,7 @@ export function WorldHome({ content }: { content: WorldContent }) {
     return () => window.removeEventListener("keydown", key);
   }, [open, panel]);
   function chooseActivity(next: Activity) {
+    if(skim.phase!=="off"||discGolf.phase!=="off")return;
     setActivity(next);
     // A selected mode can be activated again without a React state change.
     // Restore movement focus on every activation, including that case.
@@ -405,6 +429,9 @@ export function WorldHome({ content }: { content: WorldContent }) {
             discGolfExitSerial={discGolfExitSerial}
             discGolfSwingStage={discGolfStage}
             discGolfSwingAmount={discGolfSwingAmount}
+            skimCommandSerial={skimCommandSerial}
+            skimCommand={skimCommand}
+            skimBoardIndex={skimBoardIndex}
             waterAction={waterAction}
             waterActionSerial={waterActionSerial}
             gameTitles={content.games.map(game => game.title)}
@@ -416,6 +443,8 @@ export function WorldHome({ content }: { content: WorldContent }) {
             onChallenge={onChallenge}
             onBigAir={onBigAir}
             onDiscGolf={onDiscGolf}
+            onSkim={onSkim}
+            onSkimNearby={setSkimNearby}
           />
         </SceneBoundary>
       )}
@@ -464,20 +493,20 @@ export function WorldHome({ content }: { content: WorldContent }) {
               <button onClick={() => open("menu")}>Browse the site</button>
             </div>
           )}
-          <div className={styles.location} style={{display:discGolf.phase==="off"?undefined:"none"}}>
+          <div className={styles.location} style={{display:discGolf.phase==="off"&&skim.phase==="off"?undefined:"none"}}>
             <span className={styles.eyebrow}>
               {String(REGIONS.indexOf(current) + 1).padStart(2, "0")} / {String(REGIONS.length).padStart(2, "0")}
             </span>
             <p>{current.name}</p>
           </div>
-          {nearby && ready && discGolf.phase==="off" && (
+          {nearby && ready && discGolf.phase==="off" && skim.phase==="off" && (
             <button className={styles.discovery} onClick={() => open(nearby)}>
               <span>{discoveryTitle}</span>
               <span className={styles.key}>Enter</span>
             </button>
           )}
           {aquatic === "land" && (
-            <div className={styles.activityDock} style={{display:discGolf.phase!=="off"?"none":undefined}}>
+            <div className={styles.activityDock} style={{display:discGolf.phase!=="off"||skim.phase!=="off"?"none":undefined}}>
               <div className={styles.activityButtons} role="group" aria-label="Movement activity">
                 {ACTIVITIES.map(item => (
                   <button key={item.id} aria-label={item.name} aria-pressed={activity === item.id}
@@ -510,7 +539,36 @@ export function WorldHome({ content }: { content: WorldContent }) {
               )}
             </div>
           )}
-          {discGolf.phase!=="off" && (
+          {skim.phase==="off" && skimNearby!==null && aquatic==="land" && discGolf.phase==="off" && (
+             <button className={styles.skimPickup} onClick={()=>issueSkim("pickup",skimNearby)}>
+               Pick up {SKIM_BOARDS[skimNearby].label.toLowerCase()} skimboard · Enter
+             </button>
+           )}
+           {skim.phase!=="off" && (
+             <aside className={styles.skimHud} aria-label="North shore skimboarding heat" aria-live="polite">
+               <div className={styles.skimHeader}><span>NORTH SHORE · SKIM HEAT</span><button onClick={()=>issueSkim("exit")}>Exit</button></div>
+               <div className={styles.skimReadout}><strong>{skim.score.toLocaleString()} <small>PTS</small></strong><strong>{skim.remaining.toFixed(0)} <small>SEC</small></strong></div>
+               <div className={styles.skimMeter}><span style={{width:`${100*skim.remaining/90}%`}} /></div>
+               <p>{skim.phase==="ready"?"Sprint toward the wet sand, then drop your board.":skim.phase==="riding"?
+                 `Ride ${skim.rides+1} · ${Math.round(skim.ridePoints)} pending · ${skim.lastTrick||"Carve toward the shore break"}`:
+                 skim.phase==="recovering"?skim.lastTrick: `Heat complete · ${skim.rides} rides`}</p>
+               {skimBest!==null&&<small>Personal best {skimBest.toLocaleString()}</small>}
+               <div className={styles.skimActions}>
+                 {skim.phase==="ready"&&<button onClick={()=>issueSkim("drop")}>Drop board · Space</button>}
+                 {skim.phase==="riding"&&<>
+                   <button onClick={()=>issueSkim("pop")}>Pop · Space</button>
+                   <button onClick={()=>issueSkim("shuvit")}>Shuv-it · 1</button>
+                   <button onClick={()=>issueSkim("big-spin")}>Big spin · 2</button>
+                   <button onClick={()=>issueSkim("three-sixty")}>360 · 3</button>
+                   <button onClick={()=>issueSkim("wrap")}>Wrap · R</button>
+                 </>}
+                 {skim.phase==="finished"&&<button onClick={()=>issueSkim("restart")}>New heat</button>}
+               </div>
+               <small>{skim.phase==="riding"?"A/D carve · W pump · Pop, then choose a trick in the air":
+                 "WASD move · Shift sprint · Run, drop and ride incoming waves"}</small>
+             </aside>
+           )}
+           {discGolf.phase!=="off" && (
             <WorldDiscGolfHUD
               key={discGolfStartSerial+"-"+discGolf.holeIndex}
               game={discGolf}
@@ -526,7 +584,7 @@ export function WorldHome({ content }: { content: WorldContent }) {
               onSwing={onDiscSwing}
             />
           )}
-          {(trial.phase==="armed"||trial.phase==="running"||
+          {skim.phase==="off" && (trial.phase==="armed"||trial.phase==="running"||
               trial.phase==="complete"||trial.phase==="invalidated") && (
             <aside className={styles.trialHud} aria-label="Joshua bike time trial"
               aria-live={trial.phase==="complete"||trial.phase==="invalidated"?"polite":"off"}>
@@ -552,7 +610,7 @@ export function WorldHome({ content }: { content: WorldContent }) {
               )}
             </aside>
           )}
-          {(bigAir.phase==="armed"||bigAir.phase==="flying"||
+          {skim.phase==="off" && (bigAir.phase==="armed"||bigAir.phase==="flying"||
             bigAir.phase==="landed"||bigAir.phase==="missed") && (
             <aside className={styles.bigAirHud} aria-label="Alpine Big Air flight"
               aria-live={bigAir.phase==="landed"||bigAir.phase==="missed"?"polite":"off"}>
@@ -585,7 +643,7 @@ export function WorldHome({ content }: { content: WorldContent }) {
               )}
             </aside>
           )}
-          {aquatic !== "land" && (
+          {aquatic !== "land" && skim.phase==="off" && (
             <div className={styles.waterDock} role="group" aria-label="Swimming depth controls">
               <span className={styles.waterMode}>{aquatic === "surface" ? "Snorkeling" : "Diving"}</span>
               {aquatic === "surface" ? (
@@ -599,7 +657,7 @@ export function WorldHome({ content }: { content: WorldContent }) {
               )}
             </div>
           )}
-          <p className={styles.controls} style={{display:discGolf.phase==="off"?undefined:"none"}}>
+          <p className={styles.controls} style={{display:discGolf.phase==="off"&&skim.phase==="off"?undefined:"none"}}>
             {aquatic === "land" ? (
               <>WASD / arrows to move <span>·</span> Drag to look <span>·</span>{" "}
                 Space to {activityConfig(activity).action.toLowerCase()} <span>·</span> M for menu</>
@@ -609,7 +667,7 @@ export function WorldHome({ content }: { content: WorldContent }) {
               <>WASD / arrows to swim <span>·</span> Q / E for depth <span>·</span> V to surface <span>·</span> M for menu</>
             )}
           </p>
-          <div className={styles.touchHelp} style={{display:discGolf.phase==="off"?undefined:"none"}}>
+          <div className={styles.touchHelp} style={{display:discGolf.phase==="off"&&skim.phase==="off"?undefined:"none"}}>
             {aquatic === "land" ? "Tap ground to move · Drag to look" : "Tap water to swim · Drag to look"}
           </div>
         </>
