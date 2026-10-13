@@ -57,7 +57,7 @@ export function shastaGaitPose(speed:number,phase:number,blend:number):ShastaGai
   // During stance paws translate backward relative to the torso (world-paw
   // velocity approximately zero). Swing advances through a low arc.
   const z=stance?stride*(1-2*t):-stride*Math.cos(Math.PI*t);
-  const lift=stance?0:(.08+(gait==="canter"?.06:0))*Math.sin(Math.PI*t);
+  const lift=stance?0:(.08+.06*trotToCanter)*Math.sin(Math.PI*t);
   return {x:(i<2?-.2:.2),y:.055+moving*lift,
    z:(i%2===1?.44:-.44)+z*moving,stance};
  });
