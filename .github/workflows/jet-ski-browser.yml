@@ -9,6 +9,7 @@ on:
       - 'scripts/playtest-ride-ghost.mjs'
       - 'scripts/playtest-shasta-snow.mjs'
       - 'scripts/playtest-disc-golf-arcade.mjs'
+      - 'scripts/playtest-disc-hole2-pier.mjs'
       - 'scripts/playtest-mountain-jump.mjs'
       - '.github/workflows/jet-ski-browser.yml'
   workflow_dispatch:
@@ -49,6 +50,12 @@ jobs:
           done
           cat /tmp/world-dev.log
           exit 1
+      - name: Start Hole 2 from the elevated clear pier tee
+        env:
+          WORLD_BASE_URL: http://127.0.0.1:3000
+          WORLD_AUDIT_DIR: artifacts/world/disc-hole2-pier
+          PLAYWRIGHT_MODULE_ROOT: /tmp/island-playwright/node_modules/playwright
+        run: node scripts/playtest-disc-hole2-pier.mjs
       - name: Confirm arcade disc drive leaves hand, glides, and lands
         env:
           WORLD_BASE_URL: http://127.0.0.1:3000
@@ -91,5 +98,6 @@ jobs:
             artifacts/world/ride-ghost-browser
             artifacts/world/shasta-snow-play
             artifacts/world/disc-golf-arcade-browser
+            artifacts/world/disc-hole2-pier
             /tmp/world-dev.log
           if-no-files-found: warn
