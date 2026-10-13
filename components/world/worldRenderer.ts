@@ -2851,6 +2851,8 @@ export function createWorld(
   let dogGaitPhase = 0;
   let dogMoveBlend = 0;
   let shastaSnow=idleShastaSnowPlay();
+  let snowStagesSeen:string[]=[];
+  let snowMaxRoll=0;
   let dogAnimSpeed = 0;
   let dogInterestCritterIndex: number | null = null;
   let dogChase = initialChaseState();
@@ -4614,7 +4616,14 @@ export function createWorld(
               : { x: player.x - travel.heading.x * 2.2 + travel.heading.z * 1.2, z: player.z - travel.heading.z * 2.2 - travel.heading.x * 1.2 }
       : { x: 4 + Math.sin(elapsed * 0.13) * 2, z: 12 };
     canvas.dataset.dogFetchStage=discFetch.phase;
+    if(snowStagesSeen.at(-1)!==shastaSnow.stage){
+      snowStagesSeen.push(shastaSnow.stage);
+      if(snowStagesSeen.length>12)snowStagesSeen.shift();
+    }
+    snowMaxRoll=Math.max(snowMaxRoll,Math.abs(snowPose.roll));
     canvas.dataset.dogSnowStage=shastaSnow.stage;
+    canvas.dataset.dogSnowHistory=snowStagesSeen.join(",");
+    canvas.dataset.dogSnowMaxRoll=snowMaxRoll.toFixed(3);
     canvas.dataset.dogSnowQueued=String(shastaSnow.queued);
     canvas.dataset.dogCuriosity =
       aquatic !== "land"
@@ -5368,6 +5377,7 @@ export function createWorld(
         lastDogRenderY = shasta.position.y;
       }
       if(changedActivity){
+        snowStagesSeen=[];snowMaxRoll=0;
         shastaSnow=next.activity==="ski"?
           queueShastaSnowPlay(idleShastaSnowPlay()):
           idleShastaSnowPlay();
