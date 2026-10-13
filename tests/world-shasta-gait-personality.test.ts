@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {advanceShastaStride,shastaGaitForSpeed,shastaGaitPose,
- shastaLegIK} from "../lib/world/shastaGait";
+ shastaLegIK,SHASTA_LEG_LENGTHS} from "../lib/world/shastaGait";
 import {idleShastaSnowPlay,queueShastaSnowPlay,stepShastaSnowPlay,
  shastaSnowPose} from "../lib/world/shastaPersonality";
 
@@ -45,17 +45,48 @@ test("Shasta's diagonal trot is phase-synchronized and paw swing is local",()=>{
   "Standing dogs must have stable paws");
 });
 
-test("two-bone foot IK is finite, connected, and respects segment lengths",()=>{
+test("Shasta fore elbows and hind stifles always fold the canine direction",()=>{
+ for(const fore of [false,true]){
+  for(const speed of [0,1,3,6,9,13]){
+   for(let frame=0;frame<80;frame++){
+    const gait=shastaGaitPose(speed,Math.PI*2*frame/80,speed?1:0);
+    for(const i of fore?[1,3]:[0,2]){
+     const foot=gait.feet[i];
+     const hipZ=fore?.44:-.44;
+     const ik=shastaLegIK(hipZ,foot.z,foot.y,fore);
+     assert.ok(Number.isFinite(ik.knee.z)&&Number.isFinite(ik.knee.y));
+     assert.ok(fore?ik.knee.z<ik.hip.z:ik.knee.z>ik.hip.z,
+       "Front elbows must point back, hind stifles must point forward");
+     if(fore)assert.equal(ik.hock,null);
+     else{
+      assert.ok(ik.hock);
+      assert.ok(ik.hock.z<ik.paw.z,"Hind hock sits behind planted toes");
+      assert.ok(ik.hock.y>ik.paw.y,"Hock must rise above rear toes");
+     }
+    }
+   }
+  }
+ }
+});
+
+test("three-link hind / two-link fore IK stays connected throughout gait",()=>{
  for(const fore of [false,true]){
   for(const height of [.055,.10,.17]){
-   for(const dz of [-.23,0,.23]){
+   for(const dz of [-.22,-.14,0,.14,.22]){
     const hipZ=fore?.44:-.44;
     const pose=shastaLegIK(hipZ,hipZ+dz,height,fore);
-    const upper=Math.hypot(pose.hip.y-pose.knee.y,pose.hip.z-pose.knee.z);
-    const lower=Math.hypot(pose.knee.y-pose.paw.y,pose.knee.z-pose.paw.z);
-    assert.ok(Math.abs(upper-.42)<.0001);
-    assert.ok(Math.abs(lower-.38)<.0001);
-    assert.ok(Number.isFinite(pose.knee.y)&&Number.isFinite(pose.knee.z));
+    const endpoint=pose.hock??pose.paw;
+    const upper=Math.hypot(pose.hip.y-pose.knee.y,
+      pose.hip.z-pose.knee.z);
+    const lower=Math.hypot(pose.knee.y-endpoint.y,
+      pose.knee.z-endpoint.z);
+    const lengths=fore?SHASTA_LEG_LENGTHS.fore:SHASTA_LEG_LENGTHS.hind;
+    assert.ok(Math.abs(upper-lengths.upper)<.0001);
+    assert.ok(Math.abs(lower-lengths.lower)<.0001);
+    if(!fore&&pose.hock){
+     assert.ok(Math.hypot(pose.hock.y-pose.paw.y,
+      pose.hock.z-pose.paw.z)>.2);
+    }
    }
   }
  }
