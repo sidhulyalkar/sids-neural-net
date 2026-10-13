@@ -4751,104 +4751,49 @@ export function createWorld(
     );
     dogContact.position.set(dog.x, terrainHeight(dog.x, dog.z) + 0.04, dog.z);
 
-    // Stance/swing paw targets and local two-bone IK: the paw lifts while
-    // the center of mass stays stable. No whole-dog leap on every stride.
+    // Simple straight legs, deliberately no inverse kinematics or knee
+    // articulation. Each paw follows its own lightly filtered terrain
+    // sample while the leg connects directly to its stable body anchor.
     const limbUp=new THREE.Vector3(0,1,0);
     const limbDir=new THREE.Vector3();
-    let dogJointsValid=true;
     shastaLegs.forEach((leg,i)=>{
       const foot=dogGait.feet[i];
-      // Sample under every paw. The hips follow smoothed ground elevation,
-      // while individual ankles accommodate little downhill/log variations.
       const cosYaw=Math.cos(dogYaw),sinYaw=Math.sin(dogYaw);
       const worldX=dog.x+leg.x*cosYaw+foot.z*sinYaw;
       const worldZ=dog.z+foot.z*cosYaw-leg.x*sinYaw;
       const groundDelta=THREE.MathUtils.clamp(
-        terrainHeight(worldX,worldZ)-dogGroundY,-.14,.14);
-      // Independent ankle suspension. Sampling each paw against a
-      // high-frequency heightfield without filtering made its IK knee
-      // and paw visibly shake while running through uneven terrain.
+        terrainHeight(worldX,worldZ)-dogGroundY,-.075,.075);
       dogFootGround[i]+=(groundDelta-dogFootGround[i])*
-        smoothingAlpha(dogMotionDt,8);
-      const footY=foot.y+dogFootGround[i];
-      const ik=shastaLegIK(leg.z,foot.z,footY,leg.z>0);
-      const fore=leg.z>0;
-      dogJointsValid&&=fore?
-        ik.knee.z<ik.hip.z&&ik.hock===null:
-        !!ik.hock&&ik.knee.z>ik.hip.z&&ik.hock.z<ik.paw.z;
-      const upperPart=shastaCylinderParts[leg.upperIndex];
-      const lowerPart=shastaCylinderParts[leg.lowerIndex];
-      const upperLength=Math.hypot(ik.hip.y-ik.knee.y,
-        ik.hip.z-ik.knee.z);
-      dummy.position.set(leg.x,(ik.hip.y+ik.knee.y)*.5,
-        (ik.hip.z+ik.knee.z)*.5);
-      limbDir.set(0,ik.hip.y-ik.knee.y,ik.hip.z-ik.knee.z).normalize();
+        smoothingAlpha(dogMotionDt,7);
+      const pose=shastaStraightLeg(
+        leg.z,foot.z,foot.y+dogFootGround[i],leg.z>0);
+      const part=shastaCylinderParts[leg.legIndex];
+      dummy.position.set(leg.x,
+        (pose.hip.y+pose.paw.y)*.5,(pose.hip.z+pose.paw.z)*.5);
+      limbDir.set(0,pose.hip.y-pose.paw.y,
+        pose.hip.z-pose.paw.z).normalize();
       dummy.quaternion.setFromUnitVectors(limbUp,limbDir);
-      dummy.scale.set(upperPart.sx,upperLength,upperPart.sz);
+      dummy.scale.set(part.sx,pose.length,part.sz);
       dummy.updateMatrix();
-      shastaCylinderMesh.setMatrixAt(leg.upperIndex,dummy.matrix);
-      // Hind tibia ends at the rearward hock; forearm ends at wrist.
-      const lowerEnd=ik.hock??ik.paw;
-      const lowerLength=Math.hypot(ik.knee.y-lowerEnd.y,
-        ik.knee.z-lowerEnd.z);
-      dummy.position.set(leg.x,(ik.knee.y+lowerEnd.y)*.5,
-        (ik.knee.z+lowerEnd.z)*.5);
-      limbDir.set(0,ik.knee.y-lowerEnd.y,
-        ik.knee.z-lowerEnd.z).normalize();
-      dummy.quaternion.setFromUnitVectors(limbUp,limbDir);
-      dummy.scale.set(lowerPart.sx,lowerLength,lowerPart.sz);
-      dummy.updateMatrix();
-      shastaCylinderMesh.setMatrixAt(leg.lowerIndex,dummy.matrix);
-      if(ik.hock&&leg.hockIndex!==null){
-        const metatarsal=shastaCylinderParts[leg.hockIndex];
-        const linkLength=Math.hypot(ik.hock.y-ik.paw.y,
-          ik.hock.z-ik.paw.z);
-        dummy.position.set(leg.x,(ik.hock.y+ik.paw.y)*.5,
-          (ik.hock.z+ik.paw.z)*.5);
-        limbDir.set(0,ik.hock.y-ik.paw.y,
-          ik.hock.z-ik.paw.z).normalize();
-        dummy.quaternion.setFromUnitVectors(limbUp,limbDir);
-        dummy.scale.set(metatarsal.sx,linkLength,metatarsal.sz);
-        dummy.updateMatrix();
-        shastaCylinderMesh.setMatrixAt(leg.hockIndex,dummy.matrix);
-      }
-      // Instanced joint masses visually join the bones; otherwise the knee
-      // geometry reads as broken, independent toothpicks.
-      const kneePart=shastaRockParts[leg.kneeJointIndex];
-      dummy.position.set(leg.x,ik.knee.y,ik.knee.z);
-      dummy.quaternion.identity();
-      dummy.scale.set(kneePart.sx,kneePart.sy,kneePart.sz);
-      dummy.updateMatrix();
-      shastaRockMesh.setMatrixAt(leg.kneeJointIndex,dummy.matrix);
-      if(ik.hock&&leg.hockJointIndex!==null){
-        const hockPart=shastaRockParts[leg.hockJointIndex];
-        dummy.position.set(leg.x,ik.hock.y,ik.hock.z);
-        dummy.quaternion.identity();
-        dummy.scale.set(hockPart.sx,hockPart.sy,hockPart.sz);
-        dummy.updateMatrix();
-        shastaRockMesh.setMatrixAt(leg.hockJointIndex,dummy.matrix);
-      }
-      // The paw must remain nearly horizontal regardless of shin angle.
+      shastaCylinderMesh.setMatrixAt(leg.legIndex,dummy.matrix);
+
+      // The paw is one small oval, not three cartoon toes. The pitch is
+      // nearly flat with only a little slope compensation during stance.
       const pawPart=shastaRockParts[leg.pawIndex];
-      const pawPitch=foot.stance?.008:-.055;
-      dummy.position.set(leg.x,ik.paw.y+.012,ik.paw.z+.02);
-      dummy.rotation.set(pawPitch,0,0);
+      const front=terrainHeight(worldX+sinYaw*.12,worldZ+cosYaw*.12);
+      const back=terrainHeight(worldX-sinYaw*.12,worldZ-cosYaw*.12);
+      const slopePitch=foot.stance?THREE.MathUtils.clamp(
+        Math.atan2(front-back,.24),-.045,.045):-.025;
+      dummy.position.set(leg.x,pose.paw.y+.012,pose.paw.z+.018);
+      dummy.rotation.set(slopePitch,0,0);
       dummy.scale.set(pawPart.sx,pawPart.sy,pawPart.sz);
       dummy.updateMatrix();
       shastaRockMesh.setMatrixAt(leg.pawIndex,dummy.matrix);
-      for(let toe=0;toe<leg.toeIndices.length;toe++){
-        const index=leg.toeIndices[toe];
-        const part=shastaRockParts[index];
-        dummy.position.set(leg.x+(toe-1)*.075,
-          ik.paw.y-.003,ik.paw.z+.154);
-        dummy.rotation.set(pawPitch,0,0);
-        dummy.scale.set(part.sx,part.sy,part.sz);
-        dummy.updateMatrix();
-        shastaRockMesh.setMatrixAt(index,dummy.matrix);
-      }
     });
-    canvas.dataset.shastaJointsValid=String(dogJointsValid);
+    canvas.dataset.shastaLegRig="straight-four";
+    canvas.dataset.shastaLegCount=String(shastaLegs.length);
     canvas.dataset.shastaPawWidth=p.paw.x.toFixed(3);
+    canvas.dataset.shastaLegWidth=shastaCylinderParts[0].sx.toFixed(3);
     // A tiny articulated head/ear rig: curious side-glances while following,
     // nose-down sniff at the disc, alert ears for snow play. Keep the same
     // single instanced mesh draw calls as the original character.
