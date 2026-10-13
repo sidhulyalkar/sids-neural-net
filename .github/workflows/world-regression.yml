@@ -14,6 +14,7 @@ on:
       - 'scripts/playtest-world.mjs'
       - 'scripts/playtest-disc-golf.mjs'
       - 'scripts/playtest-disc-golf-arcade.mjs'
+      - 'scripts/playtest-disc-hole2-pier.mjs'
       - 'scripts/playtest-jet-ski.mjs'
       - 'scripts/playtest-ride-ghost.mjs'
       - 'scripts/playtest-mountain-jump.mjs'
@@ -31,6 +32,7 @@ on:
       - 'scripts/playtest-world.mjs'
       - 'scripts/playtest-disc-golf.mjs'
       - 'scripts/playtest-disc-golf-arcade.mjs'
+      - 'scripts/playtest-disc-hole2-pier.mjs'
       - 'scripts/playtest-jet-ski.mjs'
       - 'scripts/playtest-ride-ghost.mjs'
       - 'scripts/playtest-mountain-jump.mjs'
@@ -77,6 +79,7 @@ jobs:
           components/world/worldBigAirBirds.ts
           tests/world-big-air.test.ts
           lib/world/discGolf.ts
+          lib/world/discGolfSurface.ts
           lib/world/jetSkiRace.ts
           lib/world/jetSkiPier.ts
           lib/world/gameMode.ts
@@ -114,6 +117,8 @@ jobs:
           lib/world/ecology.ts
           lib/world/shastaCharacter.ts
           lib/world/shastaGait.ts
+          lib/world/shastaFetchRun.ts
+          tests/world-shasta-fetch-run.test.ts
           lib/world/shastaCamera.ts
           tests/world-shasta-camera.test.ts
           lib/world/shastaPersonality.ts
@@ -140,6 +145,7 @@ jobs:
           node --check scripts/playtest-world.mjs
           node --check scripts/playtest-disc-golf.mjs
           node --check scripts/playtest-disc-golf-arcade.mjs
+          node --check scripts/playtest-disc-hole2-pier.mjs
           node --check scripts/playtest-jet-ski.mjs
           node --check scripts/playtest-ride-ghost.mjs
           node --check scripts/playtest-mountain-jump.mjs
