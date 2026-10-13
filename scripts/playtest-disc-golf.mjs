@@ -188,11 +188,12 @@ try{
     null,{timeout:3500});
    await assertNotMoved("chase");
    await page.screenshot({path:path.join(out,"hole-1-shasta-begins-chase.png")});
-   await page.waitForFunction(()=>
-    document.querySelector("canvas")?.dataset.discGolfCinematicStage==="shasta",
-    null,{timeout:3500});
-   await assertNotMoved("Shasta POV");
-   await page.screenshot({path:path.join(out,"hole-1-shasta-pov.png")});
+   // One continuous over-shoulder run is deliberate: avoid the old
+   // eye-level POV cut, which made every tiny dog step fill the screen.
+   const follow=await canvas.getAttribute("data-shasta-follow-mode");
+   assert.equal(follow,"third-person");
+   assert.ok(Number(await canvas.getAttribute("data-shasta-follow-boom"))>=10);
+   await page.screenshot({path:path.join(out,"hole-1-shasta-wide-follow.png")});
   }
   await page.waitForFunction(()=>
    document.querySelector("canvas")?.dataset.discGolfHandoffPending==="false",
