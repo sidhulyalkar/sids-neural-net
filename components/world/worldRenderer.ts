@@ -4547,7 +4547,7 @@ export function createWorld(
       const seg=i%skimWaveSegments,crest=Math.floor(i/skimWaveSegments);
       const x=-26+seg*3.05,z=northShoreZ(x)+waveCrestOffshore(crest,surfClock);
       const height=skimWaveAt({x,z},surfClock);
-      dummy.position.set(x,skimWaterHeight({x,z},surfClock)+.055,z);
+      dummy.position.set(x,skimWaterHeight({x,z},surfClock,SEA_SURFACE)+.055,z);
       dummy.rotation.set(0,0,0);
       dummy.scale.set(3,.055,.36);dummy.updateMatrix();
       skimFoam.setMatrixAt(i,dummy.matrix);
