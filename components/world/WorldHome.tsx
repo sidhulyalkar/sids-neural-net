@@ -106,6 +106,7 @@ export function WorldHome({ content }: { content: WorldContent }) {
   });
   const onSkim=useCallback((heat:SkimHeat)=>setSkim(heat),[]);
   const issueSkim=(action:typeof skimCommand,board=0)=>{
+    if(action==="pickup")setActivity("run");
     setSkimCommand(action);setSkimBoardIndex(board);setSkimCommandSerial(n=>n+1);
     requestAnimationFrame(()=>worldRoot.current?.querySelector("canvas")?.focus({preventScroll:true}));
   };
