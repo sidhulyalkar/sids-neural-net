@@ -420,7 +420,7 @@ export function createWorld(
   const skimDeckMaterials=SKIM_BOARDS.map(b=>mat(b.color,{roughness:.67}));
   const skimDarkMaterial=mat("#272b33");
   const skimTails: THREE.Mesh[]=[];
-  const skimProps=SKIM_BOARDS.map((b,index)=>{
+  const skimProps=SKIM_BOARDS.map((_,index)=>{
     const p=boardPoint(index), y=terrainHeight(p.x,p.z)+.98;
     const prop=mesh(skimDeckGeometry,skimDeckMaterials[index],[p.x,y,p.z],[1,1,1]);
     prop.rotation.z=(index-1)*.065;
