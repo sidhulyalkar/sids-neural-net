@@ -4587,8 +4587,12 @@ export function createWorld(
       caveLayer==="surface";
     const snowHere=terrainHeight(player.x,player.z)>10&&
       biomeAt(player).weights.alpine>.28;
-    shastaSnow=stepShastaSnowPlay(shastaSnow,elapsed,snowHere,snowAllowed);
-    const snowPose=shastaSnowPose(shastaSnow,elapsed);
+    // Event choreography uses real elapsed wall-clock time, while physics
+    // displacement/gait use the bounded simulation dt. Low-FPS software
+    // renderers must not stretch an eight-second celebration into a minute.
+    const snowNow=now*.001;
+    shastaSnow=stepShastaSnowPlay(shastaSnow,snowNow,snowHere,snowAllowed);
+    const snowPose=shastaSnowPose(shastaSnow,snowNow);
     const dogTarget = state.entered
       ? aquatic !== "land" || isWater(player)
         ? shoreWait
@@ -4841,7 +4845,7 @@ export function createWorld(
       shastaSnow.stage==="roll"||shastaSnow.stage==="shake";
     snowPuffs.visible=inSnowPlay;
     if(inSnowPlay){
-      const puffCycle=(elapsed-shastaSnow.started)*3.1;
+      const puffCycle=(snowNow-shastaSnow.started)*3.1;
       for(let i=0;i<12;i++){
         const angle=i*2.399+puffCycle*.19;
         const r=.23+(i%4)*.22;
