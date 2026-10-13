@@ -3,7 +3,7 @@ import {
  discGolfRouteLength,traceDiscGolfShot,
 } from "./discGolf";
 import {
- REGIONS,MEMORY_POINTS,isWater,terrainHeight,distance,
+ REGIONS,MEMORY_POINTS,distance,
  coastlineX,eastCoastlineX,caveObstacles,type Point,
 } from "./model";
 import {BOULDER_HOLDS,RIDE_RAMPS,FALLEN_LOGS} from "./activities";
