@@ -29,7 +29,7 @@ import { FrameSampler, QualityController } from "@/lib/world/performance";
 import {
   SKIM_BOARDS, boardPoint, beachBlend, northShoreZ, nearbySkimBoard,
   idleSkimHeat, pickupSkimBoard, startSkimRide, stepSkimHeat, skimAction,
-  skimWaterHeight, waveCrestOffshore,
+  skimWaterHeight, skimWaveAt, waveCrestOffshore,
   type SkimHeat, type SkimTrick,
 } from "@/lib/world/skimboarding";
 import { shastaDetour, initialChaseState, stepChase, gaitBlendForSpeed, smoothAngle, smoothPoint, smoothingAlpha, steerShastaVelocity } from "@/lib/world/shastaMotion";
@@ -4546,11 +4546,13 @@ export function createWorld(
     for(let i=0;i<skimWavePieces.length;i++){
       const seg=i%skimWaveSegments,crest=Math.floor(i/skimWaveSegments);
       const x=-26+seg*3.05,z=northShoreZ(x)+waveCrestOffshore(crest,surfClock);
-      dummy.position.set(x,SEA_SURFACE+.13,z);
+      const height=skimWaveAt({x,z},surfClock);
+      dummy.position.set(x,skimWaterHeight({x,z},surfClock)+.055,z);
       dummy.rotation.set(0,0,0);
       dummy.scale.set(3,.055,.36);dummy.updateMatrix();
       skimFoam.setMatrixAt(i,dummy.matrix);
-      dummy.position.y=SEA_SURFACE+.065;dummy.scale.set(3,.14,1.15);dummy.updateMatrix();
+      dummy.position.y=SEA_SURFACE+.06+height*.31;
+      dummy.scale.set(3,.12+height*.85,1.15);dummy.updateMatrix();
       skimSwell.setMatrixAt(i,dummy.matrix);
     }
     skimFoam.instanceMatrix.needsUpdate=true;skimSwell.instanceMatrix.needsUpdate=true;
