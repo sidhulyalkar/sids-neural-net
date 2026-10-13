@@ -2637,13 +2637,20 @@ export function createWorld(
     drag = null;
     if (canvas.hasPointerCapture(e.pointerId))
       canvas.releasePointerCapture(e.pointerId);
-    if (!wasClick || state.paused || discGolf.phase!=="off") return;
+    if (!wasClick || state.paused || discGolf.phase!=="off" || skimHeat.phase!=="off") return;
     const rect = canvas.getBoundingClientRect();
     pointer.set(
       ((e.clientX - rect.left) / rect.width) * 2 - 1,
       (-(e.clientY - rect.top) / rect.height) * 2 + 1,
     );
     ray.setFromCamera(pointer, camera);
+    const boardHit=ray.intersectObjects(skimProps,false)[0];
+    if(boardHit&&boardHit.distance<60){
+      const index=boardHit.object.userData.skimBoardIndex as number;
+      if(nearbySkimBoard(player)===index)doSkimAction("pickup",index);
+      else destination=boardPoint(index);
+      return;
+    }
     const marker = ray.intersectObjects(markerObjects)[0];
     if (marker && marker.distance < 55) {
       const discoveryId = discoveryForHit(marker);
@@ -2674,6 +2681,40 @@ export function createWorld(
     e.preventDefault();
     zoom = THREE.MathUtils.clamp(zoom + e.deltaY * 0.015, 11, 28);
   }
+  function doSkimAction(action:State["skimCommand"],boardIndex=0) {
+    if(!state.entered||state.paused||document.hidden)return;
+    if(action==="exit"){
+      if(skimHeat.phase==="off")return;
+      if(isWater(player)){
+        const x=Math.max(-16,Math.min(16,player.x));
+        player={x,z:northShoreZ(x)-5};playerY=groundHeight(player);
+        travel={point:player,speed:0,heading:{x:0,z:1}};
+      }
+      skimHeat=idleSkimHeat();destination=null;clearInput();
+    }else if(action==="pickup"){
+      if(discGolf.phase!=="off"||aquatic!=="land"||
+         bigAir.phase==="armed"||bigAir.phase==="flying"||
+         trial.phase==="armed"||trial.phase==="running")return;
+      skimHeat=pickupSkimBoard(player,boardIndex,skimHeat);
+      if(skimHeat.phase==="ready"){destination=null;airHeight=verticalSpeed=0;}
+    }else if(action==="restart"){
+      if(skimHeat.phase!=="finished"||skimHeat.board===null)return;
+      const point=boardPoint(skimHeat.board);
+      player={x:point.x,z:point.z-2};playerY=groundHeight(player);
+      travel={point:player,speed:0,heading:{x:0,z:1}};
+      skimHeat={...idleSkimHeat(),board:skimHeat.board,phase:"ready"};
+      yaw=Math.PI;destination=null;setAquaticMode("land");clearInput();
+    }else if(action==="drop"){
+      const next=startSkimRide(skimHeat,player,travel.speed,travel.heading);
+      if(next!==skimHeat){skimHeat=next;destination=null;airHeight=verticalSpeed=0;}
+      else if(skimHeat.phase==="ready")
+        skimHeat={...skimHeat,lastTrick:"Sprint toward the shorebreak before dropping"};
+    }else if(action==="pop"||action==="shuvit"||action==="big-spin"||
+             action==="three-sixty"||action==="wrap"){
+      skimHeat=skimAction(skimHeat,action,player,elapsed);
+    }
+    callbacks.onSkim(skimHeat);
+  }
   function onKey(e: KeyboardEvent) {
     if (!state.entered || state.paused || e.metaKey || e.ctrlKey || e.altKey)
       return;
@@ -2690,6 +2731,18 @@ export function createWorld(
     }
     if(e.target !== canvas) return;
     const key = e.key.toLowerCase();
+    if(skimHeat.phase!=="off"){
+      if(!e.repeat&&(key==="enter"||key==="e")&&skimHeat.phase==="finished"){
+        e.preventDefault();doSkimAction("restart");return;
+      }
+      if(!e.repeat&&key==="x"){e.preventDefault();doSkimAction("exit");return;}
+      const action=key==="1"?"shuvit":key==="2"?"big-spin":key==="3"?"three-sixty":
+        key==="r"?"wrap":null;
+      if(!e.repeat&&action){e.preventDefault();doSkimAction(action);return;}
+    }else if(!e.repeat&&(key==="enter"||key==="e")){
+      const board=nearbySkimBoard(player);
+      if(board!==null){e.preventDefault();doSkimAction("pickup",board);return;}
+    }
     if (key === "shift") keys.add(key);
     if (key === " " && !e.repeat && aquatic === "land") {
       e.preventDefault();
@@ -2747,6 +2800,9 @@ export function createWorld(
     }
   }
   function performAction() {
+    if(skimHeat.phase==="riding"){doSkimAction("pop");return;}
+    if(skimHeat.phase==="ready"){doSkimAction("drop");return;}
+    if(skimHeat.phase!=="off")return;
     if (!state.entered || state.paused || document.hidden || aquatic !== "land" || discGolf.phase!=="off" || climb || grind || airHeight > 0.01) return;
     if ((state.activity === "skate" || state.activity === "ski") && travel.speed > 2.2) {
       const candidate = nearestGrind(player);
@@ -4478,6 +4534,7 @@ export function createWorld(
   renderer.shadowMap.needsUpdate = true;
   renderer.render(scene, camera);
   callbacks.onAquatic("land");
+  callbacks.onSkim(skimHeat);
   callbacks.onReady();
   schedule();
   return {
@@ -4498,6 +4555,10 @@ export function createWorld(
         airHeight = verticalSpeed = 0;
       }
       state = next;
+      if(next.skimCommandSerial!==lastSkimCommand){
+        lastSkimCommand=next.skimCommandSerial;
+        doSkimAction(next.skimCommand,next.skimBoardIndex);
+      }
       if(next.discGolfExitSerial!==lastDiscExit){
         lastDiscExit=next.discGolfExitSerial;
         discFetch=idleDiscGolfFetch();
@@ -4505,7 +4566,7 @@ export function createWorld(
         discGolf=idleDiscGolf();callbacks.onDiscGolf(discGolf);
       }
       if(next.discGolfStartSerial!==lastDiscStart &&
-         next.entered&&!next.paused){
+         next.entered&&!next.paused&&skimHeat.phase==="off"){
         // Consume the start request only after the world can actually start.
         // Previously an early/paused request was discarded forever.
         lastDiscStart=next.discGolfStartSerial;
@@ -4599,7 +4660,7 @@ export function createWorld(
         canvas.focus({ preventScroll: true });
       if(next.bigAirSerial!==lastBigAirSerial) {
         lastBigAirSerial=next.bigAirSerial;
-        if(next.entered&&!next.paused){
+        if(next.entered&&!next.paused&&skimHeat.phase==="off"){
           player={...BIG_AIR.start};
           travel={point:player,heading:{...BIG_AIR.heading},speed:0};
           yaw=Math.atan2(-BIG_AIR.heading.x,-BIG_AIR.heading.z);
@@ -4621,7 +4682,7 @@ export function createWorld(
       }
       if(next.challengeSerial!==lastChallengeSerial) {
         lastChallengeSerial=next.challengeSerial;
-        if(next.entered && !next.paused) {
+        if(next.entered && !next.paused && skimHeat.phase==="off") {
           const start=JOSHUA_GATES[0];
           // Explicit challenge selection moves the player to a safe start
           // approach, never to an arbitrary point mid-air or inside a gap.
@@ -4656,6 +4717,9 @@ export function createWorld(
       if (next.entered && (!wasEntered || (wasPaused && !next.paused)))
         canvas.focus({ preventScroll: true });
       if (next.command && next.command.serial !== lastSerial) {
+        if(skimHeat.phase!=="off"){
+          skimHeat=idleSkimHeat();callbacks.onSkim(skimHeat);
+        }
         if(discGolf.phase!=="off"){
           discFetch=idleDiscGolfFetch();
           discGolfIntro=null;
@@ -4677,7 +4741,7 @@ export function createWorld(
           (next.command.activity && activityLanding(next.command.activity)) ||
           regionLanding(r.id);
         clearInput();
-        travel = { point: player, speed: 0, heading: { x: 0, z: -1 } };
+        travel = { point: player, speed: 0, heading: { x: 0, z: r.id==="north-shore"?1:-1 } };
         airHeight = verticalSpeed = swimDepth = targetDepth = 0;
         climb = null;
         grind = null;
@@ -4715,6 +4779,7 @@ export function createWorld(
                 ? 1.15
                 : r.id === "lagoon"
                   ? -1.15
+                 : r.id === "north-shore" ? Math.PI
                   : r.id === "neural"
                     ? -0.6
                     : 0.25;
