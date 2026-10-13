@@ -1502,6 +1502,17 @@ export function createWorld(
     );
   }
 
+  // Observed relaxed panting and bright alert expression, with an actual
+  // small mouth/tongue rather than a permanently expressionless snout.
+  const shastaMouthIndex=shastaRockParts.length;
+  shastaRockParts.push({x:0,y:1.267,z:1.16,
+    sx:.116,sy:.043,sz:.07,color:"#51433e"});
+  const shastaTongueIndex=shastaRockParts.length;
+  shastaRockParts.push({x:0,y:1.235,z:1.205,
+    sx:.058,sy:.023,sz:.082,color:"#c58b89"});
+  const shastaHeadIndices=[
+    4,5,10,11,12,13,14,15,16,17,18,shastaMouthIndex,shastaTongueIndex,
+  ];
   const pawInstanceIndices: number[] = [];
   for (const x of [-1, 1]) for (const z of [-1, 1]) {
     pawInstanceIndices.push(shastaRockParts.length);
@@ -1541,7 +1552,11 @@ export function createWorld(
       },
     );
   }
-  instances(cone, mat(shastaPalette.creamWhite), shastaEarParts, true, shastaArt);
+  const shastaEarMesh=instances(cone,mat(shastaPalette.creamWhite),
+    shastaEarParts,true,shastaArt);
+  const shastaHeadPivot=new THREE.Vector3(0,1.25,.58);
+  const shastaHeadPos=new THREE.Vector3(),shastaHeadQuat=new THREE.Quaternion(),
+    shastaEarQuat=new THREE.Quaternion();
 
   const shastaCylinderParts: Instance[] = [];
   const shastaLegs: {
@@ -4775,6 +4790,45 @@ export function createWorld(
       dummy.updateMatrix();
       shastaRockMesh.setMatrixAt(leg.pawIndex,dummy.matrix);
     });
+    // A tiny articulated head/ear rig: curious side-glances while following,
+    // nose-down sniff at the disc, alert ears for snow play. Keep the same
+    // single instanced mesh draw calls as the original character.
+    const headYaw=Math.sin(elapsed*.76)*.06+
+      (shastaSnow.stage==="perk"?.07:0);
+    const headPitch=discFetch.phase==="found"?.17:
+      shastaSnow.stage==="roll"?.07:dogAnimSpeed<.4?.035:-.025;
+    shastaHeadQuat.setFromEuler(new THREE.Euler(headPitch,headYaw,0));
+    for(const index of shastaHeadIndices){
+      const part=shastaRockParts[index];
+      shastaHeadPos.set(part.x,part.y,part.z)
+        .sub(shastaHeadPivot).applyQuaternion(shastaHeadQuat)
+        .add(shastaHeadPivot);
+      dummy.position.copy(shastaHeadPos);
+      dummy.quaternion.copy(shastaHeadQuat);
+      const isMouth=index===shastaMouthIndex;
+      const isTongue=index===shastaTongueIndex;
+      const pant=dogAnimSpeed>3||shastaSnow.stage!=="idle"||
+        discFetch.phase==="found";
+      dummy.scale.set(part.sx,
+        part.sy*(isMouth?(pant?1.7:.6):isTongue?(pant?1.8:.25):1),
+        part.sz);
+      dummy.updateMatrix();
+      shastaRockMesh.setMatrixAt(index,dummy.matrix);
+    }
+    for(let i=0;i<shastaEarParts.length;i++){
+      const ear=shastaEarParts[i];
+      shastaHeadPos.set(ear.x,ear.y,ear.z)
+        .sub(shastaHeadPivot).applyQuaternion(shastaHeadQuat)
+        .add(shastaHeadPivot);
+      dummy.position.copy(shastaHeadPos);
+      shastaEarQuat.copy(shastaHeadQuat);
+      if(ear.q)shastaEarQuat.multiply(ear.q);
+      dummy.quaternion.copy(shastaEarQuat);
+      dummy.scale.set(ear.sx,ear.sy,ear.sz);
+      dummy.updateMatrix();
+      shastaEarMesh.setMatrixAt(i,dummy.matrix);
+    }
+    shastaEarMesh.instanceMatrix.needsUpdate=true;
     shastaCylinderMesh.instanceMatrix.needsUpdate = true;
     shastaRockMesh.instanceMatrix.needsUpdate = true;
     const wagEnergy=discFetch.phase==="found"?.8:
