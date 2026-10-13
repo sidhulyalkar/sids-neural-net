@@ -33,7 +33,7 @@ test("the entire disc flight belongs to the shot camera; Shasta waits for landin
  assert.equal(fetch.phase,"landed");
  assert.deepEqual(fetch.target,landed.lie);
  assert.equal(discGolfFetchCameraPhase(fetch,2),"landing");
- assert.equal(stepDiscGolfFetch(fetch,landed,{x:0,z:0},2.5).phase,"landed");
+ assert.equal(stepDiscGolfFetch(fetch,landed,{x:0,z:0},2.12).phase,"landed");
  fetch=stepDiscGolfFetch(fetch,landed,{x:0,z:0},2+DISC_FETCH_LANDING_HOLD+.02);
  assert.equal(fetch.phase,"chase");
  assert.equal(discGolfFetchCameraPhase(fetch,2.9),"chase",
