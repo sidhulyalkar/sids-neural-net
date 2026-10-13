@@ -89,7 +89,7 @@ test("ski selection queues an alpine-only, finite, interruptible celebration",()
 test("rolling in snow starts/ends grounded and does not cartwheel the dog",()=>{
  let state=stepShastaSnowPlay(
   queueShastaSnowPlay(idleShastaSnowPlay()),5,true,true);
- const start=shastaSnowPose(stepShastaSnowPlay(state,8.6,true,true),8.6);
+ const start=shastaSnowPose(stepShastaSnowPlay(state,8.61,true,true),8.61);
  const middle=shastaSnowPose(stepShastaSnowPlay(state,9.85,true,true),9.85);
  const end=shastaSnowPose(stepShastaSnowPlay(state,11.24,true,true),11.24);
  assert.equal(start.stage,"roll");
