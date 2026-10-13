@@ -4882,7 +4882,7 @@ export function createWorld(
       // The paw must remain nearly horizontal regardless of shin angle.
       const pawPart=shastaRockParts[leg.pawIndex];
       const pawPitch=foot.stance?.008:-.055;
-      dummy.position.set(leg.x,footY+.012,foot.z+.02);
+      dummy.position.set(leg.x,ik.paw.y+.012,ik.paw.z+.02);
       dummy.rotation.set(pawPitch,0,0);
       dummy.scale.set(pawPart.sx,pawPart.sy,pawPart.sz);
       dummy.updateMatrix();
@@ -4891,7 +4891,7 @@ export function createWorld(
         const index=leg.toeIndices[toe];
         const part=shastaRockParts[index];
         dummy.position.set(leg.x+(toe-1)*.075,
-          footY-.003,foot.z+.154);
+          ik.paw.y-.003,ik.paw.z+.154);
         dummy.rotation.set(pawPitch,0,0);
         dummy.scale.set(part.sx,part.sy,part.sz);
         dummy.updateMatrix();
