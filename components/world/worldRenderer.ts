@@ -3229,7 +3229,6 @@ export function createWorld(
       trial.phase==="armed"||trial.phase==="running"||
       (bigAir.phase!=="idle"&&bigAir.phase!=="armed")||
       climb||grind||airHeight>0.01)return;
-    if(state.activity==="skate"){launchSkateTrick("Ollie");return;}
     if(state.activity==="ski"&&mountainJumpEligible(player,supportHeight(player),travel.speed)){
       const ahead={x:player.x+travel.heading.x*2.1,
         z:player.z+travel.heading.z*2.1};
@@ -3278,6 +3277,7 @@ export function createWorld(
         return;
       }
     }
+    if(state.activity==="skate"){launchSkateTrick("Ollie");return;}
     if (state.activity === "boulder") {
       const hold = nextHold(player);
       if (hold) {
