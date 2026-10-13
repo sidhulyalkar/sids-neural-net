@@ -26,6 +26,12 @@ import { LAND_WILDLIFE, LAND_WILDLIFE_COLORS } from "@/lib/world/ecology";
 import {stepCritterLocomotion} from "@/lib/world/landWildlifeMotion";
 import { SHASTA_CHARACTER } from "@/lib/world/shastaCharacter";
 import { FrameSampler, QualityController } from "@/lib/world/performance";
+import {
+  SKIM_BOARDS, boardPoint, beachBlend, northShoreZ, nearbySkimBoard,
+  idleSkimHeat, pickupSkimBoard, startSkimRide, stepSkimHeat, skimAction,
+  skimWaterHeight, waveCrestOffshore, SKIM_WAVE_SPACING,
+  type SkimHeat, type SkimTrick,
+} from "@/lib/world/skimboarding";
 import { shastaDetour, initialChaseState, stepChase, gaitBlendForSpeed, smoothAngle, smoothPoint, smoothingAlpha, steerShastaVelocity } from "@/lib/world/shastaMotion";
 import {idleDiscGolfFetch,startDiscGolfFetch,stepDiscGolfFetch,discGolfFetchCameraPhase,discGolfHandoffTarget} from "@/lib/world/discGolfFetch";
 import * as THREE from "three/src/Three.Core.js";
@@ -79,6 +85,8 @@ type Callbacks = {
   onChallenge: (trial:TrialState) => void;
   onBigAir: (flight:BigAirState) => void;
   onDiscGolf:(game:DiscGolfState)=>void;
+  onSkim:(heat:SkimHeat)=>void;
+  onSkimNearby:(board:number|null)=>void;
 };
 type State = {
   activity: Activity;
@@ -93,6 +101,9 @@ type State = {
   discGolfExitSerial:number;
   discGolfSwingStage:DiscGolfSwingStage;
   discGolfSwingAmount:number;
+  skimCommandSerial:number;
+  skimCommand:"pickup"|"drop"|"pop"|SkimTrick|"exit"|"restart";
+  skimBoardIndex:number;
   waterAction: "dive" | "deeper" | "shallower" | "surface";
   waterActionSerial: number;
   entered: boolean;
@@ -2418,6 +2429,9 @@ export function createWorld(
     discGolfSwingAmount:0,
     waterAction: "dive",
     waterActionSerial: 0,
+    skimCommandSerial: 0,
+    skimCommand: "pickup",
+    skimBoardIndex: 0,
   };
   let disposed = false,
     raf = 0,
@@ -2438,6 +2452,9 @@ export function createWorld(
   let lastBigAirSerial=0,lastBigAirUpdate=0;
   let bigAir:BigAirState=idleBigAir();
   let discGolf:DiscGolfState=idleDiscGolf();
+  let skimHeat:SkimHeat=idleSkimHeat();
+  let lastSkimCommand=0,lastSkimUpdate=0,skimNearby:number|null=null;
+
   let discFetch=idleDiscGolfFetch();
   let lastDiscStart=0,lastDiscShot=0,lastDiscExit=0,lastDiscUpdate=0;
   let lastDiscPreview:DiscShot|null=null,lastPreviewTick=-Infinity;
