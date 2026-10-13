@@ -1,4 +1,6 @@
 import { desertTrackTreadBlend, desertTrackSampleAt, DESERT_GAP_DEBRIS, DESERT_JUMPS, DESERT_TRACK_LENGTH } from "@/lib/world/desertTrack";
+import {SKATE_PARK,SKATE_PARK_RAILS,skateParkSurface,insideSkatePark} from "@/lib/world/skatepark";
+import {idleSkateTrick,startSkateTrick,finishSkateTrick,setSkateGrab,skateTrickPose,flickTrick,scoreSkateGrind,type SkateTrickName} from "@/lib/world/skateTricks";
 import { JOSHUA_GATES, armJoshuaTrial, abortJoshuaTrial, tickJoshuaTrial, type TrialState } from "@/lib/world/trials";
 import { createFishGeometry, createFishBodyGeometry, createCaudalFinGeometry, createDorsalFinGeometry, createPectoralFinGeometry, createSharkGeometry, createRayWingGeometry } from "./worldFaunaGeometry";
 import { createReefGarden } from "./worldReef";
@@ -35,7 +37,7 @@ import { createHabitats } from "./worldHabitats";
 import { ringSurface, ribbon } from "./worldGeometry";
 import { drainagePoints, downstreamPoints, waterfallProfile, waterfallCrownRings } from "@/lib/world/hydrology";
 import { biomeAt, BIOME_COLORS } from "@/lib/world/biomes";
-import { stepAirborne, rampSurface, sportClearance, activityLanding, BOULDER_HOLDS, effectiveActivity, FALLEN_LOGS, grindStyleForApproach, groundHeight, nearestGrind, nextHold, onSnow, rampImpulseCrossing, RIDE_RAMPS, stepSwim, stepTravel, terrainContact, type Activity, type AquaticMode, type GrindStyle, type Travel } from "@/lib/world/activities";
+import { stepAirborne, rampSurface, sportClearance, activityLanding, BOULDER_HOLDS, effectiveActivity, FALLEN_LOGS, grindStyleForApproach, groundHeight, nearestGrind, nextHold, onSnow, rampImpulseCrossing, RIDE_RAMPS, stepSwim, stepTravel, terrainContact, type Activity, type AquaticMode, type GrindStyle, type GrindRail, type Travel } from "@/lib/world/activities";
 import { LAND_WILDLIFE, LAND_WILDLIFE_COLORS } from "@/lib/world/ecology";
 import {stepCritterLocomotion} from "@/lib/world/landWildlifeMotion";
 import { SHASTA_CHARACTER } from "@/lib/world/shastaCharacter";
@@ -159,6 +161,22 @@ export function createWorld(
   rideHud.setAttribute("aria-label","Land sports target boost");
   rideHud.style.display="none";
   host.appendChild(rideHud);
+  const skateHud=document.createElement("div");
+  skateHud.setAttribute("aria-label","Skateboarding tricks and line score");
+  skateHud.setAttribute("role","status");
+  skateHud.style.cssText="display:none;position:absolute;bottom:14px;left:50%;transform:translateX(-50%);z-index:7;pointer-events:none;max-width:94%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:7px 13px;border-radius:10px;background:#12242bd9;color:#eef7f4;border:1px solid #bed9cc70;font:600 12px/1.3 system-ui,sans-serif;text-align:center";
+  host.appendChild(skateHud);
+  const skateTouch=document.createElement("div");
+  skateTouch.setAttribute("aria-label","Skateboarding touch tricks");
+  skateTouch.style.cssText="display:none;position:absolute;right:14px;bottom:66px;z-index:9;gap:7px";
+  host.appendChild(skateTouch);
+  for(const [name,label] of [["Ollie","POP"],["Kickflip","FLIP"],["Pop Shuvit","SHUV"]] as const){
+    const button=document.createElement("button");
+    button.textContent=label;button.type="button";button.setAttribute("aria-label",name);
+    button.style.cssText="border:1px solid #e2ebed99;border-radius:12px;background:#183c44d9;color:#fff;padding:12px;font:700 13px system-ui,sans-serif;touch-action:manipulation";
+    button.addEventListener("click",()=>launchSkateTrick(name));
+    skateTouch.appendChild(button);
+  }
   const rideReticle=document.createElement("div");
   rideReticle.className=worldStyles.rideBoostReticle;
   rideReticle.setAttribute("aria-hidden","true");
@@ -855,6 +873,53 @@ export function createWorld(
   }
   instances(boxGeo, mat("#815536"), rampPlanks);
   instances(cylinder, mat("#5e3b28"), rampStringers);
+  // South-meadow skate plaza: one sampled mesh, same heightfield as tire contact.
+  // The bowl, quarter transitions and pyramid are geometry, not decorations.
+  const parkPositions:number[]=[],parkColors:number[]=[],parkIndices:number[]=[];
+  const parkStepsX=32,parkStepsZ=30;
+  const parkTint=new THREE.Color();
+  for(let iz=0;iz<=parkStepsZ;iz++)for(let ix=0;ix<=parkStepsX;ix++){
+    const x=SKATE_PARK.center.x-SKATE_PARK.halfWidth+
+      ix*SKATE_PARK.halfWidth*2/parkStepsX;
+    const z=SKATE_PARK.center.z-SKATE_PARK.halfDepth+
+      iz*SKATE_PARK.halfDepth*2/parkStepsZ;
+    const p={x,z},y=skateParkSurface(p)??terrainHeight(x,z);
+    parkPositions.push(x,y+.026,z);
+    const bowl=Math.hypot(x+12,z-40)<5.3;
+    const tint=bowl?"#6f8a89":Math.abs(x+1)<2.6&&Math.abs(z-40)<3.4?"#a0aaa4":"#87938d";
+    parkTint.set(tint);
+    parkColors.push(parkTint.r,parkTint.g,parkTint.b);
+  }
+  for(let iz=0;iz<parkStepsZ;iz++)for(let ix=0;ix<parkStepsX;ix++){
+    const a=iz*(parkStepsX+1)+ix,b=a+1,c=a+parkStepsX+1,d=c+1;
+    parkIndices.push(a,c,b,b,c,d);
+  }
+  const parkGeo=geo(new THREE.BufferGeometry());
+  parkGeo.setAttribute("position",new THREE.Float32BufferAttribute(parkPositions,3));
+  parkGeo.setAttribute("color",new THREE.Float32BufferAttribute(parkColors,3));
+  parkGeo.setIndex(parkIndices);parkGeo.computeVertexNormals();
+  const plaza=mesh(parkGeo,mat("#ffffff",{vertexColors:true,flatShading:false,side:THREE.DoubleSide}),[0,0,0],[1,1,1]);
+  plaza.castShadow=false;
+  const parkSteel=mat("#b6c9c8"),parkPosts:Instance[]=[],parkBars:Instance[]=[];
+  for(const rail of SKATE_PARK_RAILS){
+    const a=new THREE.Vector3(rail.a.x,groundHeight(rail.a)+rail.lift,rail.a.z);
+    const b=new THREE.Vector3(rail.b.x,groundHeight(rail.b)+rail.lift,rail.b.z);
+    parkBars.push(segment(a,b,rail.radius));
+    for(const end of [rail.a,rail.b]){
+      parkPosts.push(segment(
+        new THREE.Vector3(end.x,groundHeight(end)+.03,end.z),
+        new THREE.Vector3(end.x,groundHeight(end)+rail.lift,end.z),.045));
+    }
+  }
+  instances(cylinder,parkSteel,[...parkBars,...parkPosts]);
+  const parkPaint:Instance[]=[];
+  for(const z of [35,45]){
+    for(const x of [-2,0,2,4]){
+      parkPaint.push({x,y:(skateParkSurface({x,z})??terrainHeight(x,z))+.057,
+        z,sx:.65,sy:.025,sz:.075});
+    }
+  }
+  instances(boxGeo,mat("#ecdbc0"),parkPaint,false);
   // Small grasses share one geometry and one draw call.
   const grasses: Instance[] = [];
   for (let i = 0; i < 750; i++) {
@@ -2744,13 +2809,16 @@ export function createWorld(
   let aquatic: AquaticMode = "land", swimDepth = 0, targetDepth = 0;
   let climb: { from: Point; to: Point; fromY: number; toY: number; progress: number } | null = null;
   let grind: {
-    log: typeof FALLEN_LOGS[number];
+    log: GrindRail;
     t: number;
     direction: number;
     style: GrindStyle;
     mode: "skate" | "ski";
+    covered: number;
   } | null = null;
   let lastRampAt = -10, lastRampId = "";
+  let skateTrick=idleSkateTrick(),skateWindupAt=-Infinity,skatePadPrimed=false;
+  let skateHasBeenAirborne=false,skatePadPushHeld=false;
   let playerY = groundHeight(player);
   // Single source of truth for mutually exclusive minigame entrances.
   const occupiedByOtherMode=(requested:WorldGameMode)=>
@@ -3063,6 +3131,21 @@ export function createWorld(
       fireRideShot(rect.left+rect.width/2,rect.top+rect.height/2);
       return;
     }
+    if(state.activity==="skate"&&!jetSki&&aquatic==="land"&&!e.repeat){
+      if(key==="arrowdown"){
+        skateWindupAt=elapsed;e.preventDefault();return;
+      }
+      if(["arrowup","arrowleft","arrowright"].includes(key)){
+        const hold=Number.isFinite(skateWindupAt)?Math.max(0,elapsed-skateWindupAt):0;
+        skateWindupAt=-Infinity;
+        launchSkateTrick(flickTrick(key.slice(5) as "up"|"left"|"right",hold));
+        e.preventDefault();return;
+      }
+      if(key==="q"||key==="e"){
+        skateTrick=setSkateGrab(skateTrick,key==="q"?"left":"right");
+        e.preventDefault();return;
+      }
+    }
     // The land jump action must not fire while steering a jet ski.
     if(jetSki&&key===" "){if(e.target===canvas)e.preventDefault();return;}
     if (key === "shift") keys.add(key);
@@ -3090,7 +3173,7 @@ export function createWorld(
         "arrowright",
       ].includes(key)
     ) {
-      keys.add(key);
+      if(state.activity!=="skate"||!key.startsWith("arrow"))keys.add(key);
       destination = null;
       e.preventDefault();
     }
@@ -3103,7 +3186,9 @@ export function createWorld(
     }
   }
   function keyUp(e: KeyboardEvent) {
-    keys.delete(e.key.toLowerCase());
+    const key=e.key.toLowerCase();
+    keys.delete(key);
+    if(key==="q"||key==="e")skateTrick=setSkateGrab(skateTrick,"none");
   }
   function setAquaticMode(next: AquaticMode) {
     if (next === aquatic) return;
@@ -3124,12 +3209,27 @@ export function createWorld(
       targetDepth = 0;
     }
   }
+  function launchSkateTrick(name:SkateTrickName){
+    if(state.activity!=="skate"||!state.entered||state.paused||document.hidden||
+      aquatic!=="land"||jetSki||jetChoosing||discGolf.phase!=="off"||
+      trial.phase==="armed"||trial.phase==="running"||
+      bigAir.phase==="flying"||bigAir.phase==="armed"||climb||
+      airHeight>.08||skateTrick.phase==="air")return;
+    if(grind)grind=null; // pop off a rail instead of locking the player on it
+    const next=startSkateTrick(skateTrick,name,elapsed,travel.speed);
+    if(next===skateTrick)return;
+    skateTrick=next;skateHasBeenAirborne=false;
+    verticalSpeed=Math.min(7.6,5.9+Math.min(14,travel.speed)*.1);
+    playerY=Math.max(playerY,supportHeight(player)+.04);airHeight=.04;
+    destination=null;
+  }
   function performAction() {
     if (!state.entered || state.paused || document.hidden || aquatic !== "land" ||
       discGolf.phase!=="off"||jetSki||jetChoosing||
       trial.phase==="armed"||trial.phase==="running"||
       (bigAir.phase!=="idle"&&bigAir.phase!=="armed")||
       climb||grind||airHeight>0.01)return;
+    if(state.activity==="skate"){launchSkateTrick("Ollie");return;}
     if(state.activity==="ski"&&mountainJumpEligible(player,supportHeight(player),travel.speed)){
       const ahead={x:player.x+travel.heading.x*2.1,
         z:player.z+travel.heading.z*2.1};
@@ -3171,6 +3271,7 @@ export function createWorld(
           direction,
           style: grindStyleForApproach(travel.heading, candidate.log),
           mode: state.activity,
+          covered:0,
         };
         destination = null;
         verticalSpeed = airHeight = 0;
@@ -3249,6 +3350,29 @@ export function createWorld(
         Number(keys.has("a") || keys.has("arrowleft"));
       dx = -Math.sin(yaw) * forward + Math.cos(yaw) * right;
       dz = -Math.cos(yaw) * forward - Math.sin(yaw) * right;
+      if(state.activity==="skate"&&!jetSki&&discGolf.phase==="off"){
+        const pads=navigator.getGamepads?.();
+        const pad=pads?Array.from(pads).find(p=>p?.connected):null;
+        if(pad){
+          const lx=pad.axes[0]??0,ly=pad.axes[1]??0;
+          if(Math.hypot(lx,ly)>.22){
+            dx=Math.cos(yaw)*lx+Math.sin(yaw)*ly;
+            dz=-Math.sin(yaw)*lx+Math.cos(yaw)*ly;
+          }
+          const fx=pad.axes[2]??0,fy=pad.axes[3]??0;
+          if(fy>.65&&!skatePadPrimed){skatePadPrimed=true;skateWindupAt=elapsed;}
+          if(skatePadPrimed&&(fy<-.58||Math.abs(fx)>.7)){
+            const direction=fy<-.58?"up":fx<0?"left":"right";
+            launchSkateTrick(flickTrick(direction,Math.max(0,elapsed-skateWindupAt)));
+            skatePadPrimed=false;skateWindupAt=-Infinity;
+          }
+          if(pad.buttons[0]?.pressed&&!keys.has(" ")){
+            // Edge-trigger on A so holding push never repeats an ollie.
+            if(!skatePadPushHeld)launchSkateTrick("Ollie");
+            skatePadPushHeld=true;
+          }else skatePadPushHeld=false;
+        }else skatePadPushHeld=false;
+      }
       if (destination) {
         dx = destination.x - player.x;
         dz = destination.z - player.z;
@@ -3460,9 +3584,11 @@ export function createWorld(
         const dzLog = grind.log.b.z - grind.log.a.z;
         const logLength = Math.hypot(dxLog, dzLog);
         const grindSpeed = Math.max(4.2, travel.speed);
+        const previousGrindT=grind.t;
         grind.t += grind.direction * grindSpeed * dt / logLength;
         const finished = grind.t <= 0 || grind.t >= 1;
         grind.t = THREE.MathUtils.clamp(grind.t, 0, 1);
+        grind.covered+=Math.abs(grind.t-previousGrindT)*logLength;
         player = {
           x: grind.log.a.x + dxLog * grind.t,
           z: grind.log.a.z + dzLog * grind.t,
@@ -3474,10 +3600,11 @@ export function createWorld(
           heading: { x: (dxLog / logLength) * headingSign, z: (dzLog / logLength) * headingSign },
         };
         const railGround =
-          terrainHeight(grind.log.a.x, grind.log.a.z) * (1 - grind.t) +
-          terrainHeight(grind.log.b.x, grind.log.b.z) * grind.t;
+          groundHeight(grind.log.a) * (1 - grind.t) +
+          groundHeight(grind.log.b) * grind.t;
         playerY = railGround + grind.log.lift + 0.16;
         if (finished) {
+          if(grind.mode==="skate")skateTrick=scoreSkateGrind(skateTrick,grind.covered,grind.style,elapsed);
           grind = null;
           airHeight = 0.08;
           verticalSpeed = 2.5;
@@ -3653,6 +3780,17 @@ export function createWorld(
         callbacks.onBigAir(bigAir);
       }
       const mode = effectiveActivity(state.activity, player);
+      if(mode!=="skate"&&skateTrick.phase!=="ground"){
+        skateTrick=idleSkateTrick();skateHasBeenAirborne=false;
+      }
+      if(mode==="skate"&&skateTrick.phase==="air"){
+        if(airHeight>.12)skateHasBeenAirborne=true;
+        if(skateHasBeenAirborne&&airHeight<=.001&&!grind){
+          const landing=finishSkateTrick(skateTrick,elapsed,travel.speed);
+          if(landing.bails>skateTrick.bails)travel={...travel,speed:travel.speed*.32};
+          skateTrick=landing;skateHasBeenAirborne=false;
+        }
+      }
       if(trial.phase==="armed" || trial.phase==="running") {
         const previousTrial=trial;
         trial=tickJoshuaTrial(trial,previousPoint,player,dt,mode);
@@ -3675,6 +3813,9 @@ export function createWorld(
         ? Math.sin(elapsed * (swimming ? 9 : mode === "run" ? 14 : 10))
         : 0;
       board.visible = !swimming && mode === "skate";
+      const trickPose=skateTrickPose(skateTrick,elapsed);
+      board.rotation.set(0,mode==="skate"?trickPose.yaw:0,mode==="skate"?trickPose.roll:0);
+      board.position.y=mode==="skate"&&skateTrick.phase==="air"?Math.sin(Math.PI*trickPose.progress)*.19:0;
       bike.visible = !swimming && mode === "bike";
       skis.visible = !swimming && mode === "ski";
       chalk.visible = !swimming && mode === "boulder";
@@ -3758,8 +3899,8 @@ export function createWorld(
           const alongX = (logDx / logLength) * grind.direction;
           const alongZ = (logDz / logLength) * grind.direction;
           const logYaw = Math.atan2(alongX, alongZ);
-          const groundA = terrainHeight(grind.log.a.x, grind.log.a.z);
-          const groundB = terrainHeight(grind.log.b.x, grind.log.b.z);
+          const groundA = groundHeight(grind.log.a);
+          const groundB = groundHeight(grind.log.b);
           const logPitch = -Math.atan2(
             (groundB - groundA) * grind.direction,
             logLength,
@@ -3779,6 +3920,20 @@ export function createWorld(
           player.z,
         );
       }
+      const skateVisible=state.entered&&!swimming&&mode==="skate"&&
+        discGolf.phase==="off"&&!jetSki&&!jetChoosing&&
+        bigAir.phase!=="flying";
+      skateHud.style.display=skateVisible?"block":"none";
+      skateTouch.style.display=skateVisible&&jetTouchEnabled?"flex":"none";
+      if(skateVisible)skateHud.textContent=skateTrick.phase==="air"?
+        (skateTrick.name??"Trick")+" · land clean":
+        skateTrick.lastLabel?
+          skateTrick.lastLabel+" · "+skateTrick.points+" pts · ×"+Math.max(1,skateTrick.combo)+" · Best "+skateTrick.best:
+          "SKATE · Space: Ollie · ↓ ↑/←/→: Flick · Q/E: Grab";
+      canvas.dataset.skateTrick=skateTrick.name??"";
+      canvas.dataset.skateCombo=String(skateTrick.combo);
+      canvas.dataset.skateScore=String(skateTrick.points);
+      canvas.dataset.skatePark=String(insideSkatePark(player));
       canvas.dataset.activity = mode;
       canvas.dataset.speed = travel.speed.toFixed(2);
       const boosting=activeRideBoost(rideBoost,elapsed)&&
@@ -3979,7 +4134,7 @@ export function createWorld(
           : aquatic === "surface"
             ? Math.min(zoom, 14)
             : mode === "bike" || mode === "skate"
-              ? Math.min(zoom, 16)
+              ? Math.min(zoom, mode==="skate"?21:16)
               : mode === "boulder"
                 ? Math.min(zoom, 15)
                 : zoom;
