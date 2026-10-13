@@ -47,11 +47,10 @@ export function shastaSnowPose(state:ShastaSnowPlay,now:number):ShastaSnowPose{
  }
  if(stage==="roll"){
   const u=clamp((t-3.6)/2.65,0,1);
-  const envelope=curve(0,.17,u)*(1-curve(.84,1,u));
-  // A single side-roll into a back rub and back upright. The arc begins
-  // and ends at zero rotation without discontinuity across stage boundaries.
-  const angle=Math.PI*2*curve(0,1,u);
-  return {stage,motion:0,roll:angle*envelope,crouch:.19*envelope,
+  const envelope=Math.sin(Math.PI*curve(0,1,u));
+  // A side-to-back rub and back upright, not an acrobatic full cartwheel.
+  // Reversing direction while on his back fits the relaxed grass footage.
+  return {stage,motion:0,roll:Math.PI*envelope,crouch:.19*envelope,
    wag:1.4,headTilt:.05*Math.sin(u*13),circle:Math.PI*3,done:false};
  }
  if(stage==="shake")return {stage,motion:0,roll:0,crouch:0,
