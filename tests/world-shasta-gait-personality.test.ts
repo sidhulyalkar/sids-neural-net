@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {advanceShastaStride,shastaGaitForSpeed,shastaGaitPose,
- shastaLegIK,SHASTA_LEG_LENGTHS} from "../lib/world/shastaGait";
+ shastaStraightLeg} from "../lib/world/shastaGait";
 import {idleShastaSnowPlay,queueShastaSnowPlay,stepShastaSnowPlay,
  shastaSnowPose} from "../lib/world/shastaPersonality";
 
@@ -45,68 +45,37 @@ test("Shasta's diagonal trot is phase-synchronized and paw swing is local",()=>{
   "Standing dogs must have stable paws");
 });
 
-test("Shasta fore elbows and hind stifles always fold the canine direction",()=>{
- for(const fore of [false,true]){
-  for(const speed of [0,1,3,6,9,13]){
-   for(let frame=0;frame<80;frame++){
-    const gait=shastaGaitPose(speed,Math.PI*2*frame/80,speed?1:0);
-    for(const i of fore?[1,3]:[0,2]){
-     const foot=gait.feet[i];
-     const hipZ=fore?.44:-.44;
-     const ik=shastaLegIK(hipZ,foot.z,foot.y,fore);
-     assert.ok(Number.isFinite(ik.knee.z)&&Number.isFinite(ik.knee.y));
-     assert.ok(fore?ik.knee.z<ik.hip.z:ik.knee.z>ik.hip.z,
-       "Front elbows must point back, hind stifles must point forward");
-     if(fore)assert.equal(ik.hock,null);
-     else{
-      assert.ok(ik.hock);
-      assert.ok(ik.hock.z<ik.paw.z,"Hind hock sits behind planted toes");
-      assert.ok(ik.hock.y>ik.paw.y,"Hock must rise above rear toes");
-     }
-    }
+test("Shasta has one uninterrupted straight leg per paw in all gaits",()=>{
+ for(const speed of [0,1,2.9,3.25,6,8.5,11,17]){
+  for(let frame=0;frame<100;frame++){
+   const gait=shastaGaitPose(speed,Math.PI*2*frame/100,speed?1:0);
+   for(let i=0;i<4;i++){
+    const foot=gait.feet[i];
+    const hipZ=i%2===1?.44:-.44;
+    const leg=shastaStraightLeg(hipZ,foot.z,foot.y,hipZ>0);
+    assert.ok(leg.length>.45&&leg.length<1.05,
+      "leg is a single, finite solid column between hip and paw");
+    assert.ok(Number.isFinite(leg.hip.y)&&Number.isFinite(leg.paw.z));
+    assert.ok(Math.abs(leg.paw.z-leg.hip.z)<=.28000001,
+      "feet stay beneath the body even at fast canter");
+    assert.equal(Object.keys(leg).sort().join(","),"hip,length,paw",
+      "no invisible IK joints or hock state remain in the rig");
    }
   }
  }
 });
 
-test("IK never reverses knees under rough-terrain ankle targets",()=>{
- for(const fore of [true,false]){
-  for(const dz of [-.28,-.22,-.10,0,.10,.22,.28]){
-   for(const height of [-.08,-.03,.055,.16,.26,.34]){
-    const hipZ=fore?.44:-.44;
-    const pose=shastaLegIK(hipZ,hipZ+dz,height,fore);
-    assert.ok(fore?pose.knee.z<pose.hip.z:
-      pose.knee.z>pose.hip.z,
-      "anatomical elbow/stifle direction must survive rough terrain");
-    assert.ok(Math.abs(pose.paw.z-hipZ)<=.180001);
-    if(pose.hock){
-     assert.ok(pose.hock.z<pose.paw.z);
-     assert.ok(pose.hock.y>pose.paw.y);
-    }
-   }
-  }
- }
-});
-
-test("three-link hind / two-link fore IK stays connected throughout gait",()=>{
+test("each straight paw adapts to bounded terrain without moving its hip",()=>{
+ const offsets=[-.2,-.08,-.055,0,.075,.15,.3];
  for(const fore of [false,true]){
-  for(const height of [.055,.10,.17]){
-   for(const dz of [-.22,-.14,0,.14,.22]){
-    const hipZ=fore?.44:-.44;
-    const pose=shastaLegIK(hipZ,hipZ+dz,height,fore);
-    const endpoint=pose.hock??pose.paw;
-    const upper=Math.hypot(pose.hip.y-pose.knee.y,
-      pose.hip.z-pose.knee.z);
-    const lower=Math.hypot(pose.knee.y-endpoint.y,
-      pose.knee.z-endpoint.z);
-    const lengths=fore?SHASTA_LEG_LENGTHS.fore:SHASTA_LEG_LENGTHS.hind;
-    assert.ok(Math.abs(upper-lengths.upper)<.0001);
-    assert.ok(Math.abs(lower-lengths.lower)<.0001);
-    if(!fore&&pose.hock){
-     assert.ok(Math.hypot(pose.hock.y-pose.paw.y,
-      pose.hock.z-pose.paw.z)>.2);
-    }
-   }
+  for(const offset of offsets){
+   const hipZ=fore?.44:-.44;
+   const leg=shastaStraightLeg(hipZ,hipZ+.19,.055+offset,fore);
+   assert.equal(leg.hip.z,hipZ);
+   assert.equal(leg.hip.y,fore?.77:.82);
+   assert.ok(leg.paw.y>=-.04&&leg.paw.y<=.28,
+     "terrain must not drag paw far above or below the body");
+   assert.ok(leg.length>.4&&Number.isFinite(leg.length));
   }
  }
 });
