@@ -3,7 +3,8 @@ import {
  DISC_GOLF_HOLES,discGolfBasketPosition,traceDiscGolfShot,
  type DiscGolfState,type DiscShot,type DiscGolfObstacle,
 } from "@/lib/world/discGolf";
-import {terrainHeight,isWater,SEA_SURFACE} from "@/lib/world/model";
+import {terrainHeight,SEA_SURFACE} from "@/lib/world/model";
+import {discGolfSurfaceHeight,discGolfSurfaceIsWater} from "@/lib/world/discGolfSurface";
 
 /** One active target and one disc. No imported models or shader/postprocessing.
  * Chains are one instanced mesh; beacon is visible only at a valid land lie. */
@@ -86,7 +87,7 @@ export function createDiscGolfGeometry(scene:THREE.Scene){
    const allowed=state.phase==="ready"||state.phase==="landed"||state.phase==="water";
    if(!shot||!allowed){guide.visible=ring.visible=false;return;}
    const trace=traceDiscGolfShot(state,{...shot,accuracy:0},
-     p=>terrainHeight(p.x,p.z),isWater,SEA_SURFACE,obstacles);
+     discGolfSurfaceHeight,discGolfSurfaceIsWater,SEA_SURFACE,obstacles);
    const count=Math.min(trace.points.length,96);
    for(let i=0;i<count;i++){
      const p=trace.points[i];
@@ -130,7 +131,7 @@ export function createDiscGolfGeometry(scene:THREE.Scene){
   root.position.set(basket.x,terrainHeight(basket.x,basket.z),basket.z);
   if(teeMarker.visible){
    const tee=DISC_GOLF_HOLES[game.holeIndex].tee;
-   teeMarker.position.set(tee.x,terrainHeight(tee.x,tee.z)+.1,tee.z);
+   teeMarker.position.set(tee.x,discGolfSurfaceHeight(tee)+.1,tee.z);
   }
   const t=game.phase==="holed"&&game.resultAt!==undefined?
     Math.max(0,game.clock-game.resultAt):Infinity;
@@ -162,7 +163,7 @@ export function createDiscGolfGeometry(scene:THREE.Scene){
    spinner.rotation.y=0;
   }
   if(beacon.visible){
-   beacon.position.set(game.lie.x,terrainHeight(game.lie.x,game.lie.z)+5,game.lie.z);
+   beacon.position.set(game.lie.x,discGolfSurfaceHeight(game.lie)+5,game.lie.z);
   }
  };
  update({phase:"off",holeIndex:0,gatesCleared:0,lie:{x:0,z:0},disc:{x:0,y:0,z:0},

@@ -7,7 +7,7 @@ import {
 /** Pure run scoring. No React state, timers or browser persistence here. */
 export const JOSHUA_TRIAL = {
   id:"joshua-adventure-lap",
-  version:"course-305-v1",
+  version:"course-305-v2-ghost-boost",
   requiredMode:"bike",
   gateHalfWidth:3.1,
   checkpointCount:12,
@@ -43,7 +43,7 @@ for(let i=0;i<JOSHUA_TRIAL.checkpointCount;i++) {
 export const JOSHUA_GATES:readonly TrialGate[]=authoredGates;
 export type TrialState={
   phase:TrialPhase;nextGate:number;elapsedMs:number;
-  splitsMs:readonly number[];reason?:string;
+  splitsMs:readonly number[];reason?:string;ghostPlace?:number;
 };
 export function armJoshuaTrial():TrialState {
   return {phase:"armed",nextGate:0,elapsedMs:0,splitsMs:[]};

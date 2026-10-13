@@ -37,6 +37,7 @@ type Props = {
   onChallenge: (state:TrialState) => void;
   onBigAir: (state:BigAirState) => void;
   onDiscGolf:(game:DiscGolfState)=>void;
+  onJetSkiMode:(active:boolean)=>void;
 };
 export default function WorldScene(props: Props) {
   const host = useRef<HTMLDivElement>(null);
@@ -61,6 +62,7 @@ export default function WorldScene(props: Props) {
           onChallenge: (trial) => callbacks.current.onChallenge(trial),
           onBigAir: (flight) => callbacks.current.onBigAir(flight),
           onDiscGolf:(golf)=>callbacks.current.onDiscGolf(golf),
+          onJetSkiMode:(active)=>callbacks.current.onJetSkiMode(active),
         }, WebGLRenderer, callbacks.current.gameTitles);
         runtime.current.setState(callbacks.current);
       } catch { callbacks.current.onError(); }

@@ -13,6 +13,12 @@ on:
       - 'scripts/audit-ski-flight.ts'
       - 'scripts/playtest-world.mjs'
       - 'scripts/playtest-disc-golf.mjs'
+      - 'scripts/playtest-disc-golf-arcade.mjs'
+      - 'scripts/playtest-disc-hole2-pier.mjs'
+      - 'scripts/playtest-jet-ski.mjs'
+      - 'scripts/playtest-ride-ghost.mjs'
+      - 'scripts/playtest-mountain-jump.mjs'
+      - 'scripts/playtest-shasta-snow.mjs'
       - '.github/workflows/world-regression.yml'
   pull_request:
     paths:
@@ -25,6 +31,12 @@ on:
       - 'scripts/audit-ski-flight.ts'
       - 'scripts/playtest-world.mjs'
       - 'scripts/playtest-disc-golf.mjs'
+      - 'scripts/playtest-disc-golf-arcade.mjs'
+      - 'scripts/playtest-disc-hole2-pier.mjs'
+      - 'scripts/playtest-jet-ski.mjs'
+      - 'scripts/playtest-ride-ghost.mjs'
+      - 'scripts/playtest-mountain-jump.mjs'
+      - 'scripts/playtest-shasta-snow.mjs'
       - '.github/workflows/world-regression.yml'
   workflow_dispatch:
 
@@ -57,10 +69,28 @@ jobs:
           components/world/worldTechnicalGeometry.ts
           tests/world-technical-features.test.ts
           lib/world/trials.ts
+          lib/world/rideBoost.ts
+          lib/world/cameraVisibility.ts
+          tests/world-camera-visibility.test.ts
+          lib/world/joshuaGhostRace.ts
+          components/world/worldRideChallengeGeometry.ts
+          tests/world-ride-boost-ghost.test.ts
           lib/world/bigAir.ts
           components/world/worldBigAirBirds.ts
           tests/world-big-air.test.ts
           lib/world/discGolf.ts
+          lib/world/discGolfSurface.ts
+          lib/world/jetSkiRace.ts
+          lib/world/jetSkiPier.ts
+          lib/world/gameMode.ts
+          tests/world-game-mode.test.ts
+          lib/world/jetSkiCourse.ts
+          lib/world/jetSkiWater.ts
+          components/world/worldJetSkiCourseGeometry.ts
+          components/world/worldCoastalRockGeometry.ts
+          tests/world-coastal-geology.test.ts
+          components/world/worldJetSkiDock.ts
+          tests/world-jet-ski-race.test.ts
           lib/world/discGolfPowerRail.ts
           tests/world-disc-golf-power-rail.test.ts
           lib/world/discGolfAerodynamics.ts
@@ -86,6 +116,13 @@ jobs:
           lib/world/biomes.ts
           lib/world/ecology.ts
           lib/world/shastaCharacter.ts
+          lib/world/shastaGait.ts
+          lib/world/shastaFetchRun.ts
+          tests/world-shasta-fetch-run.test.ts
+          lib/world/shastaCamera.ts
+          tests/world-shasta-camera.test.ts
+          lib/world/shastaPersonality.ts
+          tests/world-shasta-gait-personality.test.ts
           lib/world/model.ts
           components/world/worldHabitats.ts
           components/world/worldRenderer.ts
@@ -107,6 +144,12 @@ jobs:
         run: |
           node --check scripts/playtest-world.mjs
           node --check scripts/playtest-disc-golf.mjs
+          node --check scripts/playtest-disc-golf-arcade.mjs
+          node --check scripts/playtest-disc-hole2-pier.mjs
+          node --check scripts/playtest-jet-ski.mjs
+          node --check scripts/playtest-ride-ghost.mjs
+          node --check scripts/playtest-mountain-jump.mjs
+          node --check scripts/playtest-shasta-snow.mjs
       - name: Run all world unit contracts
         run: node --import tsx --test tests/world-*.test.ts
       - name: Produce island occupancy evidence

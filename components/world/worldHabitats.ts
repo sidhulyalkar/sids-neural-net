@@ -1,4 +1,5 @@
 import * as THREE from "three/src/Three.Core.js";
+import type {CameraVolume} from "@/lib/world/cameraVisibility";
 import { GeometryBatch } from "./worldGeometry";
 import { biomeAt, DESERT_FORMATIONS, smooth, understoryDensityAt } from "@/lib/world/biomes";
 import { BOULDER_HOLDS, sportClearance } from "@/lib/world/activities";
@@ -16,6 +17,7 @@ import {
 } from "@/lib/world/model";
 /** Batched ecological compositions; seeded candidates are stable across quality/camera changes. */
 export function createHabitats(scene: THREE.Scene, obstacles: Obstacle[]) {
+  const cameraOccluders:CameraVolume[]=[];
   const resources: THREE.BufferGeometry[] = [],
     meshes: THREE.Mesh[] = [];
   const sphere = new THREE.SphereGeometry(1, 8, 5),
@@ -510,6 +512,9 @@ export function createHabitats(scene: THREE.Scene, obstacles: Obstacle[]) {
           stem(b, "#756954", V(x, y, z), V(x, y + h, z), 0.42);
           // Fauna perches connect to this actual trunk, below its crown.
           stem(b, "#756954", V(x, y + h - 1.6, z), V(x + 2.3, y + h - 1.6, z), 0.13);
+          // Single compact camera proxy for this authored crown cluster.
+          // The merged vegetation draw call is not raycast every frame.
+          cameraOccluders.push({x,y:y+h-.3,z,rx:5.6,ry:2.6,rz:5.6});
           for (let j = 0; j < 6; j++) {
             const a = j * Math.PI / 3;
             stem(
@@ -634,6 +639,7 @@ export function createHabitats(scene: THREE.Scene, obstacles: Obstacle[]) {
       t.kind==="oak"?"#665a48":"#6d5945";
     stem(natives,bark,V(t.x,y,t.z),V(t.x,y+h*.85,t.z),t.kind==="fir"?.28:.36);
     if(t.kind==="fir"){
+      cameraOccluders.push({x:t.x,y:y+h*.69,z:t.z,rx:3.4,ry:h*.43,rz:3.4});
       for(let level=0;level<6;level++){
         const height=y+h*(.34+level*.105),reach=2.7-level*.32;
         for(let j=0;j<5;j++){
@@ -645,6 +651,7 @@ export function createHabitats(scene: THREE.Scene, obstacles: Obstacle[]) {
         }
       }
     }else{
+      cameraOccluders.push({x:t.x,y:y+h*.70,z:t.z,rx:3.7,ry:h*.25,rz:3.7});
       for(let j=0;j<7;j++){
         const a=j*2.399+index*.36;
         const reach=1.4+(j%3)*.43;
@@ -891,6 +898,7 @@ export function createHabitats(scene: THREE.Scene, obstacles: Obstacle[]) {
   leaf.dispose();
   blade.dispose();
   return {
+    cameraOccluders:cameraOccluders as readonly CameraVolume[],
     update(_camera: Point, elapsed=0) {
       // Subtle falling motion independent of FPS, contained within the wet
       // region and using no per-frame buffer mutations or allocations.

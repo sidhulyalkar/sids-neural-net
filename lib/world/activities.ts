@@ -1,6 +1,8 @@
 import { desertTrackClearance, desertTrackGroundRoute, DESERT_JUMPS } from "./desertTrack";
+import {insideSkatePark,skateParkSurface,skateParkLipCrossing,SKATE_PARK_RAILS,type SkateRail} from "./skatepark";
 import { beamSupportHeight, technicalFeatureClearance } from "./technicalFeatures";
 import { bigAirClearance } from "./bigAir";
+import {jetSkiPierHeight} from "./jetSkiPier";
 import {
   constrainMove,
   distance,
@@ -30,7 +32,7 @@ export const ACTIVITIES = [
     acceleration: 8,
     braking: 5,
     action: "Ollie",
-    hint: "Space near logs · Approach straight for 50-50, crosswise for boardslide",
+    hint: "WASD to carve · Space to ollie · ↓ then ↑/←/→ for Flick tricks · Q/E grabs",
   },
   {
     id: "bike",
@@ -40,7 +42,7 @@ export const ACTIVITIES = [
     acceleration: 12,
     braking: 9,
     action: "Hop",
-    hint: "Ride the trails, sculpted dirt jumps and timber kickers",
+    hint: "Joshua ghost race · Aim and shoot targets for an extra burst of speed",
   },
   {
     id: "ski",
@@ -50,7 +52,7 @@ export const ACTIVITIES = [
     acceleration: 7,
     braking: 4,
     action: "Hop",
-    hint: "Snow follows ski mode · Space near fallen logs to slide",
+    hint: "Snow and mountain jumps · Aim and shoot glowing rings for speed boosts",
   },
   {
     id: "boulder",
@@ -274,13 +276,17 @@ export const RIDE_RAMPS = [
 
 export type AquaticMode = "land" | "surface" | "dive";
 export type GrindStyle = "fifty-fifty" | "boardslide";
+export type GrindRail = SkateRail | (typeof FALLEN_LOGS)[number];
 export const SWIM_SPEED = 4.6;
 
 export function groundHeight(p: Point) {
+  const pier=jetSkiPierHeight(p);
+  if(pier!==null)return pier;
   let height = worldFloorHeight(p.x, p.z);
   if (isWater(p)) return height;
   for (const ramp of RIDE_RAMPS)
     height = Math.max(height, rampSurface(ramp, p) ?? -Infinity);
+  height = Math.max(height, skateParkSurface(p) ?? -Infinity);
   const beam = beamSupportHeight(p, terrainHeight(p.x,p.z));
   if (beam !== null) height = Math.max(height, beam);
   for (const hold of BOULDER_HOLDS) {
@@ -301,6 +307,7 @@ export function activityLanding(id: Activity): Point | null {
   // kicker's launch direction. This makes the first descent naturally cross the
   // feature instead of approaching it from the back side.
   if (id === "ski") return { x: 8, z: -54 };
+  if (id === "skate") return { x: 0, z: 26 };
   if (id === "boulder") return { x: 13, z: -15 };
   return null;
 }
@@ -318,25 +325,37 @@ export function stepTravel(
   destination?: Point | null,
   airborne = 0,
   supportHeight: (p: Point) => number = groundHeight,
+  boost = false,
 ): Travel {
   dt = Math.max(0, Math.min(dt, 0.05));
   const mode = effectiveActivity(selected, current.point);
   const config = activityConfig(mode);
   const length = Math.hypot(input.x, input.z);
   const moving = length > 0.001;
-  const heading = moving
+  const desired = moving
     ? { x: input.x / length, z: input.z / length }
     : current.heading;
+  // Rolling skateboard carves gradually; other modes keep exact steering.
+  const steer = mode === "skate" ? Math.min(1, dt * (3.1 + current.speed * 0.16)) : 1;
+  const blended = {x:current.heading.x*(1-steer)+desired.x*steer,
+    z:current.heading.z*(1-steer)+desired.z*steer};
+  const norm = Math.hypot(blended.x,blended.z) || 1;
+  const heading = {x:blended.x/norm,z:blended.z/norm};
   const slope =
     supportHeight({ x: current.point.x + heading.x, z: current.point.z + heading.z }) -
     supportHeight(current.point);
+  const boostEligible=boost && (mode==="bike"||mode==="ski"||mode==="skate");
   const maxSpeed =
     config.speed *
     (mode === "run" && sprint ? 1.45 : 1) *
-    (mode === "ski" ? Math.max(0.42, Math.min(1.45, 1 - slope * 0.38)) : 1);
+    (mode === "ski" ? Math.max(0.42, Math.min(1.45, 1 - slope * 0.38)) : 1) *
+    (boostEligible ? 1.6 : 1);
+  // When the skill-shot expires, retain momentum briefly instead of snapping
+  // immediately to normal cruise speed. Normal braking still takes over.
   const speed = moving
-    ? Math.min(maxSpeed, current.speed + config.acceleration * dt)
-    : Math.max(0, current.speed - config.braking * dt);
+    ? Math.min(Math.max(maxSpeed,current.speed-config.braking*dt*.75),
+      current.speed+config.acceleration*dt*(boostEligible?2.35:1))
+    : Math.max(0,current.speed-(mode==="skate"?1.1:config.braking)*dt);
   const step = Math.min(
     speed * dt,
     destination ? distance(current.point, destination) : Infinity,
@@ -350,7 +369,7 @@ export function stepTravel(
     obstacles,
   );
   if (
-    !isWater(point) &&
+    (!isWater(point)||jetSkiPierHeight(point)!==null) &&
     supportHeight(point) > supportHeight(current.point) + Math.max(0.6, airborne)
   )
     return { ...current, speed: 0 };
@@ -428,13 +447,13 @@ export function terrainContact(
 export function nearestGrind(point: Point, maxDistance = 1.45) {
   let best:
     | {
-        log: (typeof FALLEN_LOGS)[number];
+        log: GrindRail;
         t: number;
         point: Point;
         distance: number;
       }
     | undefined;
-  for (const log of FALLEN_LOGS) {
+  for (const log of [...FALLEN_LOGS,...SKATE_PARK_RAILS]) {
     if (log.role !== "sport") continue;
     const dx = log.b.x - log.a.x,
       dz = log.b.z - log.a.z;
@@ -456,7 +475,7 @@ export function nearestGrind(point: Point, maxDistance = 1.45) {
 
 export function grindStyleForApproach(
   heading: Point,
-  log: (typeof FALLEN_LOGS)[number],
+  log: GrindRail,
 ): GrindStyle {
   const headingLength = Math.max(1e-6, Math.hypot(heading.x, heading.z));
   const logX = log.b.x - log.a.x;
@@ -509,6 +528,10 @@ export function rampImpulseAt(
 export function rampImpulseCrossing(
   previous:Point, current:Point, heading:Point, mode:Activity, speed:number,
 ) {
+  if(mode==="skate"){
+    const parkLip=skateParkLipCrossing(previous,current,heading,speed);
+    if(parkLip)return parkLip;
+  }
   for(const jump of DESERT_JUMPS) {
     if(jump.kind!=="gap")continue;
     const prev=(previous.x-jump.point.x)*jump.heading.x+
@@ -603,6 +626,7 @@ export function sportClearance(p: Point) {
     return Math.hypot(p.x - a.x - dx * t, p.z - a.z - dz * t);
   };
   return (
+    insideSkatePark(p,2) ||
     desertTrackClearance(p) ||
     technicalFeatureClearance(p) ||
     bigAirClearance(p) ||

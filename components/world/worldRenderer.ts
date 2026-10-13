@@ -1,18 +1,34 @@
 import { desertTrackTreadBlend, desertTrackSampleAt, DESERT_GAP_DEBRIS, DESERT_JUMPS, DESERT_TRACK_LENGTH } from "@/lib/world/desertTrack";
+import {SKATE_PARK,SKATE_PARK_RAILS,skateParkSurface,insideSkatePark} from "@/lib/world/skatepark";
+import {idleSkateTrick,startSkateTrick,finishSkateTrick,setSkateGrab,skateTrickPose,flickTrick,scoreSkateGrind,type SkateTrickName} from "@/lib/world/skateTricks";
 import { JOSHUA_GATES, armJoshuaTrial, abortJoshuaTrial, tickJoshuaTrial, type TrialState } from "@/lib/world/trials";
 import { createFishGeometry, createFishBodyGeometry, createCaudalFinGeometry, createDorsalFinGeometry, createPectoralFinGeometry, createSharkGeometry, createRayWingGeometry } from "./worldFaunaGeometry";
 import { createReefGarden } from "./worldReef";
 import { createTechnicalGeometry } from "./worldTechnicalGeometry";
 import { createBigAirBirds } from "./worldBigAirBirds";
 import { createDiscGolfGeometry } from "./worldDiscGolfGeometry";
+import {createJetSkiDock,type JetSkiWakePoint} from "./worldJetSkiDock";
+import {jetSkiPierHeight,nearJetSkiBoarding,JET_SKI_PIER} from "@/lib/world/jetSkiPier";
+import {discGolfSurfaceHeight,discGolfSurfaceIsWater} from "@/lib/world/discGolfSurface";
+import {jetSkiWaterSample} from "@/lib/world/jetSkiWater";
+import {jetSkiControlInput} from "@/lib/world/jetSkiControls";
+import {isBoostActivity,initialRideBoost,fireRideBoost,
+ activeRideBoost,RIDE_BOOST_DURATION} from "@/lib/world/rideBoost";
+import {JOSHUA_GHOSTS,joshuaRacePlace,joshuaPlayerFraction} from "@/lib/world/joshuaGhostRace";
+import {createRideChallengeGeometry} from "./worldRideChallengeGeometry";
+import {CameraVisibilityField,type CameraVolume} from "@/lib/world/cameraVisibility";
+import {createJetSkiCoastGeometry} from "./worldJetSkiCourseGeometry";
+import {jetSkiSectionName} from "@/lib/world/jetSkiCourse";
+import {canStartWorldGame,type WorldGameMode} from "@/lib/world/gameMode";
+import {JET_SKI_DOCK,JET_SKI_GATES,startJetSkiRace,stepJetSkiRace,jetSkiNavigableWater,jetSkiGateDistance,jetSkiBearingToGate,jetSkiOpponentInput,jetSkiRacePlace,type JetSkiState} from "@/lib/world/jetSkiRace";
 import {
   DISC_GOLF_HOLES,discGolfOpeningClearance,discGolfCourseClearance,discGolfBasketPosition,discGolfNextTarget,discGolfThrowCameraPose,discGolfIntroPose,discGolfThrow,stepDiscGolf,
   startDiscGolf,idleDiscGolf,type DiscGolfState,type DiscShot,
   type DiscGolfSwingStage,
 } from "@/lib/world/discGolf";
 import {
-  BIG_AIR,bigAirBirdCallout,bigAirCrossedLip,launchBigAir,
-  advanceBigAir,armBigAir,idleBigAir,type BigAirState,
+  BIG_AIR,bigAirBirdCallout,bigAirCrossedLip,launchBigAir,mountainJumpEligible,mountainSkiTakeoff,mountainJumpOutwardGain,
+  advanceBigAir,mountainJumpCameraPose,armBigAir,idleBigAir,type BigAirState,
 } from "@/lib/world/bigAir";
 import { createMarineSchools } from "./worldSchools";
 import { createWorldTridents } from "./worldTridents";
@@ -21,20 +37,26 @@ import { createHabitats } from "./worldHabitats";
 import { ringSurface, ribbon } from "./worldGeometry";
 import { drainagePoints, downstreamPoints, waterfallProfile, waterfallCrownRings } from "@/lib/world/hydrology";
 import { biomeAt, BIOME_COLORS } from "@/lib/world/biomes";
-import { stepAirborne, rampSurface, sportClearance, activityLanding, BOULDER_HOLDS, effectiveActivity, FALLEN_LOGS, grindStyleForApproach, groundHeight, nearestGrind, nextHold, onSnow, rampImpulseCrossing, RIDE_RAMPS, stepSwim, stepTravel, terrainContact, type Activity, type AquaticMode, type GrindStyle, type Travel } from "@/lib/world/activities";
+import { stepAirborne, rampSurface, sportClearance, activityLanding, BOULDER_HOLDS, effectiveActivity, FALLEN_LOGS, grindStyleForApproach, groundHeight, nearestGrind, nextHold, onSnow, rampImpulseCrossing, RIDE_RAMPS, stepSwim, stepTravel, terrainContact, type Activity, type AquaticMode, type GrindStyle, type GrindRail, type Travel } from "@/lib/world/activities";
 import { LAND_WILDLIFE, LAND_WILDLIFE_COLORS } from "@/lib/world/ecology";
 import {stepCritterLocomotion} from "@/lib/world/landWildlifeMotion";
 import { SHASTA_CHARACTER } from "@/lib/world/shastaCharacter";
 import { FrameSampler, QualityController } from "@/lib/world/performance";
 import { shastaDetour, initialChaseState, stepChase, gaitBlendForSpeed, smoothAngle, smoothPoint, smoothingAlpha, steerShastaVelocity } from "@/lib/world/shastaMotion";
+import {idleFetchRunRoute,stepFetchRunRoute,steerFetchRun} from "@/lib/world/shastaFetchRun";
+import {advanceShastaStride,shastaGaitPose,shastaStraightLeg} from "@/lib/world/shastaGait";
+import {shastaCameraShot,stepShastaCameraAnchor,type ShastaCameraAnchor} from "@/lib/world/shastaCamera";
+import {idleShastaSnowPlay,queueShastaSnowPlay,stepShastaSnowPlay,shastaSnowPose} from "@/lib/world/shastaPersonality";
 import {idleDiscGolfFetch,startDiscGolfFetch,stepDiscGolfFetch,discGolfFetchCameraPhase,discGolfHandoffTarget} from "@/lib/world/discGolfFetch";
 import * as THREE from "three/src/Three.Core.js";
+import worldStyles from "./world.module.css";
 import type { WebGLRenderer } from "three/src/renderers/WebGLRenderer.js";
 import {
   ARCADE_CAVE,
   arcadeAccessTerrainMask,
   arcadeCaveFloorHeight,
   arcadeInside,
+  shastaWaitsAtArcadeEntrance,
   paperCaveFloorHeight,
   paperCaveInside,
   paperCaveHalfWidth,
@@ -79,6 +101,7 @@ type Callbacks = {
   onChallenge: (trial:TrialState) => void;
   onBigAir: (flight:BigAirState) => void;
   onDiscGolf:(game:DiscGolfState)=>void;
+  onJetSkiMode:(active:boolean)=>void;
 };
 type State = {
   activity: Activity;
@@ -133,6 +156,168 @@ export function createWorld(
     "Explore Sid’s world. Use arrows or WASD to move, Shift to sprint, Space for your land activity, V to dive or surface, Q and E for dive depth, drag to look, Enter to discover, and M for the menu.",
   );
   host.appendChild(canvas);
+  const rideHud=document.createElement("div");
+  rideHud.className=worldStyles.rideBoostHud;
+  rideHud.setAttribute("aria-label","Land sports target boost");
+  rideHud.style.display="none";
+  host.appendChild(rideHud);
+  const skateHud=document.createElement("div");
+  skateHud.setAttribute("aria-label","Skateboarding tricks and line score");
+  skateHud.setAttribute("role","status");
+  skateHud.style.cssText="display:none;position:absolute;bottom:14px;left:50%;transform:translateX(-50%);z-index:7;pointer-events:none;max-width:94%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:7px 13px;border-radius:10px;background:#12242bd9;color:#eef7f4;border:1px solid #bed9cc70;font:600 12px/1.3 system-ui,sans-serif;text-align:center";
+  host.appendChild(skateHud);
+  const skateTouch=document.createElement("div");
+  skateTouch.setAttribute("aria-label","Skateboarding touch tricks");
+  skateTouch.style.cssText="display:none;position:absolute;right:14px;bottom:66px;z-index:9;gap:7px";
+  host.appendChild(skateTouch);
+  for(const [name,label] of [["Ollie","POP"],["Kickflip","FLIP"],["Pop Shuvit","SHUV"]] as const){
+    const button=document.createElement("button");
+    button.textContent=label;button.type="button";button.setAttribute("aria-label",name);
+    button.style.cssText="border:1px solid #e2ebed99;border-radius:12px;background:#183c44d9;color:#fff;padding:12px;font:700 13px system-ui,sans-serif;touch-action:manipulation";
+    button.addEventListener("click",()=>launchSkateTrick(name));
+    skateTouch.appendChild(button);
+  }
+  const rideReticle=document.createElement("div");
+  rideReticle.className=worldStyles.rideBoostReticle;
+  rideReticle.setAttribute("aria-hidden","true");
+  rideReticle.style.display="none";host.appendChild(rideReticle);
+  const rideAnnounce=document.createElement("span");
+  rideAnnounce.style.cssText="position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap";
+  rideAnnounce.setAttribute("role","status");rideAnnounce.setAttribute("aria-live","polite");
+  host.appendChild(rideAnnounce);
+  const jetHud=document.createElement('div');
+  jetHud.setAttribute('aria-label','Jet ski race status');
+  jetHud.className=worldStyles.jetSkiHud;
+  jetHud.style.display="none";
+  host.appendChild(jetHud);
+  const jetHudReadout=document.createElement("span");jetHud.appendChild(jetHudReadout);
+  const jetTurboBar=document.createElement("div");
+  jetTurboBar.setAttribute("role","progressbar");
+  jetTurboBar.setAttribute("aria-label","Jet ski boost charge");
+  jetTurboBar.setAttribute("aria-valuemin","0");
+  jetTurboBar.setAttribute("aria-valuemax","100");
+  jetTurboBar.style.cssText="display:none;height:5px;background:#ffffff44;border-radius:3px;margin-top:5px;overflow:hidden";
+  const jetTurboFill=document.createElement("div");
+  jetTurboFill.style.cssText="height:100%;width:100%;background:#91edcb;transition:width .1s linear";
+  jetTurboBar.appendChild(jetTurboFill);jetHud.appendChild(jetTurboBar);
+  const jetAnnounce=document.createElement('div');
+  jetAnnounce.setAttribute('aria-live','polite');
+  jetAnnounce.style.cssText='position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap';
+  host.appendChild(jetAnnounce);
+  const jetNotice=document.createElement("div");
+  jetNotice.setAttribute("role","status");
+  jetNotice.style.cssText="display:none;position:absolute;top:18%;left:50%;transform:translateX(-50%);z-index:8;pointer-events:none;max-width:88%;padding:9px 17px;border-radius:12px;background:#153947b8;border:1px solid #ffffff55;color:white;text-align:center;font:700 18px/1.4 system-ui,sans-serif;text-shadow:0 1px 3px #10252f";
+  host.appendChild(jetNotice);
+  // Native DOM controls keep touch input separate from the world canvas and
+  // never steal pointer drags used by exploration.
+  const jetTouchEnabled=window.matchMedia("(pointer: coarse)").matches;
+  const jetTouch=document.createElement("div");
+  jetTouch.setAttribute("aria-label","Jet ski touch controls");
+  jetTouch.className=worldStyles.jetSkiTouchControls;
+  jetTouch.style.display="none";
+  const jetTouchInput={throttle:0,steer:0,brake:false};
+  const makeJetButton=(label:string)=>{
+    const button=document.createElement("button");
+    button.type="button";button.textContent=label;
+    button.className=worldStyles.jetSkiTouchButton;
+    jetTouch.appendChild(button);return button;
+  };
+  const jetBoardButton=makeJetButton("Ride");
+  const jetLeftButton=makeJetButton("←");
+  const jetThrottleButton=makeJetButton("Throttle");
+  const jetBrakeButton=makeJetButton("Reverse / Brake");
+  const jetBoostButton=makeJetButton("BOOST");
+  const jetBoostState={active:false};
+  const jetRightButton=makeJetButton("→");
+  const jetDockButton=makeJetButton("Dock");
+  const jetRetryButton=makeJetButton("Retry");
+  const driveButtons=[jetLeftButton,jetThrottleButton,jetBrakeButton,
+    jetBoostButton,jetRightButton,jetDockButton,jetRetryButton];
+  for(const [i,button] of [jetLeftButton,jetThrottleButton,jetRightButton,
+    jetBrakeButton,jetBoostButton,jetDockButton,jetRetryButton].entries()){
+    button.style.order=String(i+1);
+  }
+  const holdJetButton=(button:HTMLButtonElement,press:()=>void,release:()=>void)=>{
+    button.addEventListener("pointerdown",e=>{
+      e.preventDefault();e.stopPropagation();press();
+      button.setPointerCapture(e.pointerId);
+    });
+    button.addEventListener("pointerup",release);
+    button.addEventListener("pointercancel",release);
+    button.addEventListener("lostpointercapture",release);
+    // Space/Enter must behave as hold controls for keyboard and switch users.
+    button.addEventListener("keydown",e=>{
+      if((e.key===" "||e.key==="Enter")&&!e.repeat){
+        e.preventDefault();press();
+      }
+    });
+    button.addEventListener("keyup",e=>{
+      if(e.key===" "||e.key==="Enter"){e.preventDefault();release();}
+    });
+    button.addEventListener("blur",release);
+  };
+  holdJetButton(jetLeftButton,()=>{jetTouchInput.steer=-1;},()=>{jetTouchInput.steer=0;});
+  holdJetButton(jetRightButton,()=>{jetTouchInput.steer=1;},()=>{jetTouchInput.steer=0;});
+  holdJetButton(jetThrottleButton,()=>{jetTouchInput.throttle=1;},()=>{jetTouchInput.throttle=0;});
+  holdJetButton(jetBoostButton,()=>{jetBoostState.active=true;},()=>{jetBoostState.active=false;});
+  holdJetButton(jetBrakeButton,()=>{jetTouchInput.throttle=-1;jetTouchInput.brake=true;},
+    ()=>{jetTouchInput.throttle=0;jetTouchInput.brake=false;});
+  jetBoardButton.addEventListener("click",()=>openJetChooser());
+  jetDockButton.addEventListener("click",()=>stopJetSki());
+  jetRetryButton.addEventListener("click",()=>restartJetSki());
+  host.appendChild(jetTouch);
+  const jetChooser=document.createElement("div");
+  jetChooser.setAttribute("role","dialog");
+  jetChooser.setAttribute("aria-modal","true");
+  jetChooser.setAttribute("aria-label","Choose a jet ski");
+  jetChooser.className=worldStyles.jetSkiChooser;
+  jetChooser.hidden=true;
+  const jetChooserTitle=document.createElement("h2");
+  jetChooserTitle.textContent="Choose your ride";
+  jetChooserTitle.className=worldStyles.jetSkiChooserTitle;
+  jetChooser.appendChild(jetChooserTitle);
+  const jetChooserHint=document.createElement("p");
+  jetChooserHint.textContent="Choose the experience you want on the water.";
+  jetChooserHint.className=worldStyles.jetSkiChooserHint;
+  jetChooser.appendChild(jetChooserHint);
+  const jetChoicesGrid=document.createElement("div");
+  jetChoicesGrid.className=worldStyles.jetSkiChoiceGrid;
+  jetChooser.appendChild(jetChoicesGrid);
+  const jetChoiceButtons:[HTMLButtonElement,string][]=[];
+  for(const [label,detail,id] of [
+    ["Touring","Relaxed speed · easy turning","touring"],
+    ["Sport","Balanced acceleration and handling","sport"],
+    ["Race","Highest speed · sharper challenge","race"],
+    ["Free ride","Explore the coastline without a race","free"],
+  ]){
+    const button=document.createElement("button");
+    button.type="button";
+    button.dataset.kind=id;
+    button.className=worldStyles.jetSkiChoice;
+    const headline=document.createElement("strong");
+    headline.textContent=label;
+    const hint=document.createElement("small");
+    hint.textContent=detail;
+    button.append(headline,hint);
+    button.addEventListener("click",()=>chooseJetSki(id));
+    jetChoicesGrid.appendChild(button);
+    jetChoiceButtons.push([button,id]);
+  }
+  const cancelJetChooserButton=document.createElement("button");
+  cancelJetChooserButton.type="button";cancelJetChooserButton.textContent="Stay on pier";
+  cancelJetChooserButton.className=worldStyles.jetSkiChooserCancel;
+  cancelJetChooserButton.addEventListener("click",()=>closeJetChooser());
+  jetChooser.appendChild(cancelJetChooserButton);
+  jetChooser.addEventListener("keydown",event=>{
+    if(event.key==="Escape"){event.preventDefault();closeJetChooser();}
+    if(event.key==="Tab"){
+      const buttons=[...jetChoiceButtons.map(pair=>pair[0]),cancelJetChooserButton];
+      const index=buttons.indexOf(document.activeElement as HTMLButtonElement);
+      if(index===buttons.length-1&&!event.shiftKey){event.preventDefault();buttons[0].focus();}
+      else if(index===0&&event.shiftKey){event.preventDefault();buttons.at(-1)?.focus();}
+    }
+  });
+  host.appendChild(jetChooser);
   const scene = new THREE.Scene();
   scene.background = new THREE.Color("#67b7ef");
   scene.fog = new THREE.Fog("#c4e2f1", 85, 270);
@@ -319,6 +504,29 @@ export function createWorld(
     [1, 1, 1],
   );
   ground.castShadow = false;
+  // Soft north/south shoreline aprons join the finite island terrain to the
+  // existing ocean plane. The outside racing channel starts beyond these
+  // slopes; no exploration bounds, caves or ecology rules are expanded.
+  for(const side of [-1,1]){
+    const edgeZ=side>0?WORLD_BOUNDS.maxZ:WORLD_BOUNDS.minZ;
+    const depth=20;
+    const apron=geo(new THREE.PlaneGeometry(102,depth,64,18));
+    apron.rotateX(-Math.PI/2);
+    apron.translate(12,0,edgeZ+side*depth/2);
+    const vertices=apron.attributes.position;
+    for(let i=0;i<vertices.count;i++){
+      const x=vertices.getX(i),z=vertices.getZ(i);
+      const u=THREE.MathUtils.clamp(side*(z-edgeZ)/depth,0,1);
+      const blend=u*u*(3-2*u);
+      const shoreY=worldFloorHeight(x,edgeZ);
+      const seabed=SEA_SURFACE-3.7+Math.sin(x*.12)*.2;
+      vertices.setY(i,shoreY*(1-blend)+seabed*blend);
+    }
+    apron.computeVertexNormals();
+    const cap=mesh(apron,mat("#7b8272",{roughness:.98}),
+      [0,0,0],[1,1,1]);
+    cap.castShadow=false;
+  }
   // Ocean and a few quiet, moving tide lines.
   const waterMaterial = mat("#218ba8", {
     roughness: 0.38,
@@ -328,13 +536,40 @@ export function createWorld(
     side: THREE.DoubleSide,
   });
   const water = mesh(
-    geo(new THREE.PlaneGeometry(540, 420)),
+    geo(new THREE.PlaneGeometry(540, 420, 96, 72)),
     waterMaterial,
     [-80, SEA_SURFACE, -90],
     [1, 1, 1],
   );
   water.rotation.x = -Math.PI / 2;
   water.castShadow = false;
+  const oceanPositions=water.geometry.attributes.position;
+  // This plane never translates in X/Z. Cache its water/land mask once and
+  // reuse one point object for wave sampling: the denser surface must not
+  // allocate thousands of transient objects or recheck coastlines each tick.
+  const oceanWet=new Uint8Array(oceanPositions.count);
+  const oceanPoint={x:0,z:0};
+  for(let i=0;i<oceanPositions.count;i++){
+    oceanPoint.x=water.position.x+oceanPositions.getX(i);
+    oceanPoint.z=water.position.z-oceanPositions.getY(i);
+    oceanWet[i]=jetSkiNavigableWater(oceanPoint)||isWater(oceanPoint)?1:0;
+  }
+  let oceanWaveLast=-Infinity,oceanWaveActive=false;
+  function updateRaceOceanWaves(time:number,racing:boolean){
+    if(racing&&time-oceanWaveLast<.065)return;
+    if(!racing&&!oceanWaveActive)return;
+    oceanWaveLast=time;oceanWaveActive=racing;
+    // Ocean PlaneGeometry is rotated -90deg about X; local +Z is world Y.
+    // Race visuals sample the same world-space field as the watercraft hull.
+    for(let i=0;i<oceanPositions.count;i++){
+      oceanPoint.x=water.position.x+oceanPositions.getX(i);
+      oceanPoint.z=water.position.z-oceanPositions.getY(i);
+      oceanPositions.setZ(i,racing&&oceanWet[i]?
+        jetSkiWaterSample(oceanPoint,time).height:0);
+    }
+    oceanPositions.needsUpdate=true;
+    water.geometry.computeVertexNormals();
+  }
   const waves: Instance[] = [];
   for (let i = 0; i < 100; i++)
     waves.push({
@@ -442,6 +677,9 @@ export function createWorld(
     crowns: Instance[] = [],
     roots: Instance[] = [];
   const obstacles: Obstacle[] = [];
+  // World-coordinate ellipsoids, derived from actual rendered tree parts.
+  // Unlike the trunk-only 2D collision list, these describe leaf crowns.
+  const cameraCanopies:CameraVolume[]=[];
   const trees = [
     { x: -10, z: 6, h: 24, r: 1.4 },
     // Keep the large grove tree away from the new western scrub return.
@@ -470,6 +708,7 @@ export function createWorld(
   trees.forEach(({ x, z, h, r }, index) => {
     const y = terrainHeight(x, z);
     obstacles.push({ x, z, radius: r });
+    cameraCanopies.push({x,y:y+h*.45,z,rx:r+.3,ry:h*.45,rz:r+.3});
     trunks.push({
       x,
       y: y + h * 0.45,
@@ -521,6 +760,10 @@ export function createWorld(
       color: "#5e846e",
     });
   });
+  for(const leaf of crowns)cameraCanopies.push({
+    x:leaf.x,y:leaf.y,z:leaf.z,
+    rx:leaf.sx+0.35,ry:leaf.sy*.58+0.25,rz:leaf.sz+0.35,
+  });
   instances(cylinder, trunkMat, [...trunks, ...branches, ...roots]);
   instances(cone, leafMat, crowns);
 
@@ -549,6 +792,7 @@ export function createWorld(
     const h = 8 + random() * 8;
     const r = 0.38 + random() * 0.25;
     obstacles.push({ x, z, radius: r + 0.08 });
+    cameraCanopies.push({x,y:y+h*.44,z,rx:r+.2,ry:h*.44,rz:r+.2});
     skiTrunks.push({ x, y: y + h * 0.44, z, sx: r, sy: h * 0.88, sz: r });
     for (let layer = 0; layer < 3; layer++) {
       const width = 2.3 - layer * 0.45;
@@ -564,6 +808,10 @@ export function createWorld(
       });
     }
   }
+  for(const leaf of skiCrowns)cameraCanopies.push({
+    x:leaf.x,y:leaf.y,z:leaf.z,
+    rx:leaf.sx+.3,ry:leaf.sy*.58+.3,rz:leaf.sz+.3,
+  });
   instances(cylinder, mat("#6f4936"), skiTrunks);
   instances(cone, leafMat, skiCrowns);
 
@@ -625,6 +873,53 @@ export function createWorld(
   }
   instances(boxGeo, mat("#815536"), rampPlanks);
   instances(cylinder, mat("#5e3b28"), rampStringers);
+  // South-meadow skate plaza: one sampled mesh, same heightfield as tire contact.
+  // The bowl, quarter transitions and pyramid are geometry, not decorations.
+  const parkPositions:number[]=[],parkColors:number[]=[],parkIndices:number[]=[];
+  const parkStepsX=32,parkStepsZ=30;
+  const parkTint=new THREE.Color();
+  for(let iz=0;iz<=parkStepsZ;iz++)for(let ix=0;ix<=parkStepsX;ix++){
+    const x=SKATE_PARK.center.x-SKATE_PARK.halfWidth+
+      ix*SKATE_PARK.halfWidth*2/parkStepsX;
+    const z=SKATE_PARK.center.z-SKATE_PARK.halfDepth+
+      iz*SKATE_PARK.halfDepth*2/parkStepsZ;
+    const p={x,z},y=skateParkSurface(p)??terrainHeight(x,z);
+    parkPositions.push(x,y+.026,z);
+    const bowl=Math.hypot(x+12,z-40)<5.3;
+    const tint=bowl?"#6f8a89":Math.abs(x+1)<2.6&&Math.abs(z-40)<3.4?"#a0aaa4":"#87938d";
+    parkTint.set(tint);
+    parkColors.push(parkTint.r,parkTint.g,parkTint.b);
+  }
+  for(let iz=0;iz<parkStepsZ;iz++)for(let ix=0;ix<parkStepsX;ix++){
+    const a=iz*(parkStepsX+1)+ix,b=a+1,c=a+parkStepsX+1,d=c+1;
+    parkIndices.push(a,c,b,b,c,d);
+  }
+  const parkGeo=geo(new THREE.BufferGeometry());
+  parkGeo.setAttribute("position",new THREE.Float32BufferAttribute(parkPositions,3));
+  parkGeo.setAttribute("color",new THREE.Float32BufferAttribute(parkColors,3));
+  parkGeo.setIndex(parkIndices);parkGeo.computeVertexNormals();
+  const plaza=mesh(parkGeo,mat("#ffffff",{vertexColors:true,flatShading:false,side:THREE.DoubleSide}),[0,0,0],[1,1,1]);
+  plaza.castShadow=false;
+  const parkSteel=mat("#b6c9c8"),parkPosts:Instance[]=[],parkBars:Instance[]=[];
+  for(const rail of SKATE_PARK_RAILS){
+    const a=new THREE.Vector3(rail.a.x,groundHeight(rail.a)+rail.lift,rail.a.z);
+    const b=new THREE.Vector3(rail.b.x,groundHeight(rail.b)+rail.lift,rail.b.z);
+    parkBars.push(segment(a,b,rail.radius));
+    for(const end of [rail.a,rail.b]){
+      parkPosts.push(segment(
+        new THREE.Vector3(end.x,groundHeight(end)+.03,end.z),
+        new THREE.Vector3(end.x,groundHeight(end)+rail.lift,end.z),.045));
+    }
+  }
+  instances(cylinder,parkSteel,[...parkBars,...parkPosts]);
+  const parkPaint:Instance[]=[];
+  for(const z of [35,45]){
+    for(const x of [-2,0,2,4]){
+      parkPaint.push({x,y:(skateParkSurface({x,z})??terrainHeight(x,z))+.057,
+        z,sx:.65,sy:.025,sz:.075});
+    }
+  }
+  instances(boxGeo,mat("#ecdbc0"),parkPaint,false);
   // Small grasses share one geometry and one draw call.
   const grasses: Instance[] = [];
   for (let i = 0; i < 750; i++) {
@@ -773,9 +1068,30 @@ export function createWorld(
   markerObjects.push(markerHitMesh);
   instances(rockGeo, mat("#8d9185"), cairnPieces, false);
   const habitats = createHabitats(scene, obstacles);
+  // Low rock clusters and climb ledges can obstruct a low camera even
+  // without vegetation. Include their render-authored extents as well.
+  const cameraRocks:CameraVolume[]=[
+    ...boulders.map(o=>({
+      x:o.x,y:o.y,z:o.z,rx:o.sx+.2,ry:o.sy*.6+.2,rz:o.sz+.2,
+    })),
+    ...BOULDER_HOLDS.map(h=>({
+      x:h.x,y:terrainHeight(h.x,h.z)+h.height*.5,z:h.z,
+      rx:h.radius+.2,ry:h.height*.55+.2,rz:h.radius+.2,
+    })),
+  ];
+  const cameraVisibility=new CameraVisibilityField([
+    ...cameraCanopies,...habitats.cameraOccluders,...cameraRocks,
+  ]);
+  canvas.dataset.discGolfCameraVolumes=String(
+    cameraCanopies.length+habitats.cameraOccluders.length+cameraRocks.length);
   const technicalFeatures = createTechnicalGeometry(scene);
   const flyingBirds=createBigAirBirds(scene);
   const discGolfObjects=createDiscGolfGeometry(scene);
+  const jetskiVisual=createJetSkiDock(scene);
+  const jetskiCoast=createJetSkiCoastGeometry(scene);
+  const rideVisual=createRideChallengeGeometry(scene);
+  canvas.dataset.jetSkiRocks=String(jetskiCoast.rockCount);
+  canvas.dataset.jetSkiArches=String(jetskiCoast.archCount);
   canvas.dataset.discGolfHoles=String(DISC_GOLF_HOLES.length);
   canvas.dataset.bigAirBirds=String(flyingBirds.count);
   canvas.dataset.technicalFeatures = "3-gardens-3-beams";
@@ -1197,6 +1513,11 @@ export function createWorld(
   const shasta = new THREE.Group();
   shasta.rotation.order = "YXZ";
   scene.add(shasta);
+  // Root follows ground, while the full-body pose rotates around Shasta's
+  // approximate center of mass instead of spinning about his paws.
+  const shastaPose=new THREE.Group(),shastaArt=new THREE.Group();
+  shastaPose.position.y=.79;shastaArt.position.y=-.79;
+  shastaPose.add(shastaArt);shasta.add(shastaPose);
   const shastaPalette = SHASTA_CHARACTER.palette;
   const shastaBodyGeo = geo(
     new THREE.SphereGeometry(
@@ -1249,20 +1570,29 @@ export function createWorld(
     );
   }
 
-  const pawInstanceIndices: number[] = [];
-  for (const x of [-1, 1]) for (const z of [-1, 1]) {
+  // Observed relaxed panting and bright alert expression, with an actual
+  // small mouth/tongue rather than a permanently expressionless snout.
+  const shastaMouthIndex=shastaRockParts.length;
+  shastaRockParts.push({x:0,y:1.267,z:1.16,
+    sx:.116,sy:.043,sz:.07,color:"#51433e"});
+  const shastaTongueIndex=shastaRockParts.length;
+  shastaRockParts.push({x:0,y:1.235,z:1.205,
+    sx:.058,sy:.023,sz:.082,color:"#c58b89"});
+  const shastaHeadIndices=[
+    4,5,10,11,12,13,14,15,16,17,18,shastaMouthIndex,shastaTongueIndex,
+  ];
+  // Four compact, rounded paws only. No toe lobes, hock spheres or knee
+  // blobs: the clean low-poly silhouette matches the simple leg columns.
+  const pawInstanceIndices:number[]=[];
+  for(const side of [-1,1])for(const fore of [-1,1]){
     pawInstanceIndices.push(shastaRockParts.length);
     shastaRockParts.push({
-      x: x * 0.2,
-      y: 0.06,
-      z: z * 0.52 + 0.04,
-      sx: p.paw.x,
-      sy: p.paw.y,
-      sz: p.paw.z,
-      color: shastaPalette.brightWhite,
+      x:side*.2,y:.06,z:fore*.44+.018,
+      sx:p.paw.x,sy:p.paw.y,sz:p.paw.z,
+      color:shastaPalette.brightWhite,
     });
   }
-  const shastaRockMesh = instances(shastaBodyGeo, shastaRockMat, shastaRockParts, true, shasta);
+  const shastaRockMesh = instances(shastaBodyGeo, shastaRockMat, shastaRockParts, true, shastaArt);
 
   const shastaEarParts: Instance[] = [];
   for (const side of [-1, 1]) {
@@ -1288,47 +1618,28 @@ export function createWorld(
       },
     );
   }
-  instances(cone, mat(shastaPalette.creamWhite), shastaEarParts, true, shasta);
+  const shastaEarMesh=instances(cone,mat(shastaPalette.creamWhite),
+    shastaEarParts,true,shastaArt);
+  const shastaHeadPivot=new THREE.Vector3(0,1.25,.58);
+  const shastaHeadPos=new THREE.Vector3(),shastaHeadQuat=new THREE.Quaternion(),
+    shastaEarQuat=new THREE.Quaternion();
 
-  const shastaCylinderParts: Instance[] = [];
-  const shastaLegs: {
-    x: number;
-    z: number;
-    upperIndex: number;
-    lowerIndex: number;
-    pawIndex: number;
-    phase: number;
-  }[] = [];
-  let legIndex = 0;
-  for (const x of [-1, 1]) for (const z of [-1, 1]) {
-    const forward = z > 0;
-    const upperIndex = shastaCylinderParts.length;
+  const shastaCylinderParts:Instance[]=[];
+  const shastaLegs:{
+    x:number;z:number;legIndex:number;pawIndex:number;
+  }[]=[];
+  let legIndex=0;
+  for(const side of [-1,1])for(const fore of [-1,1]){
+    const index=shastaCylinderParts.length;
+    // Same lateral scale as the compact paw, visually one continuous limb.
     shastaCylinderParts.push({
-      x: x * 0.2,
-      y: 0.54,
-      z: z * 0.44,
-      sx: 0.082,
-      sy: 0.4,
-      sz: 0.082,
-      color: forward ? shastaPalette.creamWhite : shastaPalette.lightTan,
-    });
-    const lowerIndex = shastaCylinderParts.length;
-    shastaCylinderParts.push({
-      x: x * 0.2,
-      y: 0.25,
-      z: z * 0.48,
-      sx: 0.072,
-      sy: 0.36,
-      sz: 0.072,
-      color: shastaPalette.brightWhite,
+      x:side*.2,y:.4,z:fore*.44,
+      sx:p.paw.x,sy:.75,sz:.086,
+      color:fore>0?shastaPalette.creamWhite:shastaPalette.brightWhite,
     });
     shastaLegs.push({
-      x: x * 0.2,
-      z: z * 0.44,
-      upperIndex,
-      lowerIndex,
-      pawIndex: pawInstanceIndices[legIndex],
-      phase: legIndex === 0 || legIndex === 3 ? 0 : Math.PI,
+      x:side*.2,z:fore*.44,legIndex:index,
+      pawIndex:pawInstanceIndices[legIndex],
     });
     legIndex++;
   }
@@ -1344,12 +1655,14 @@ export function createWorld(
     q: new THREE.Quaternion().setFromEuler(new THREE.Euler(-0.62, 0, 0)),
     color: shastaPalette.warmTan,
   });
+  const shastaLimbUp=new THREE.Vector3(0,1,0);
+  const shastaLimbDir=new THREE.Vector3();
   const shastaCylinderMesh = instances(
     cylinder,
     mat(shastaPalette.creamWhite),
     shastaCylinderParts,
     true,
-    shasta,
+    shastaArt,
   );
 
   // Photo-matched tail: six hidden control points drive one continuous plume
@@ -1358,7 +1671,7 @@ export function createWorld(
   // cream-white plume without adding another draw call.
   const shastaTail = new THREE.Group();
   shastaTail.position.set(0, 1.0, -0.72);
-  shasta.add(shastaTail);
+  shastaArt.add(shastaTail);
   const tailPivotY = 1.0;
   const tailPivotZ = -0.72;
   const tailCurve = new THREE.CatmullRomCurve3(
@@ -1422,9 +1735,34 @@ export function createWorld(
     shastaTail,
   );
   shastaTailMesh.castShadow = false;
+  // The tubular tail is open at both ends, so the white end-cap was
+  // literally missing despite the plume having white vertex colors.
+  // Close it with an overlapping ellipsoid that follows the tail pivot.
+  const tailTipPoint=tailCurve.getPointAt(1);
+  const tailTipTangent=tailCurve.getTangentAt(.995).normalize();
+  const shastaTailTip=mesh(
+    shastaBodyGeo,mat(shastaPalette.brightWhite,{roughness:.94}),
+    [tailTipPoint.x+tailTipTangent.x*.064,
+      tailTipPoint.y+tailTipTangent.y*.064,
+      tailTipPoint.z+tailTipTangent.z*.064],
+    [.143,.194,.143],shastaTail,
+  );
+  shastaTailTip.quaternion.setFromUnitVectors(
+    new THREE.Vector3(0,1,0),tailTipTangent,
+  );
+  shastaTailTip.castShadow=false;
+  canvas.dataset.shastaTailTip="closed-white";
   shastaTail.rotation.z = SHASTA_CHARACTER.tail.restAngleZ;
   shastaTail.rotation.y = SHASTA_CHARACTER.tail.restAngleY;
 
+  // Ground-level snow scatter reuses one tiny instanced draw call. Puffs are
+  // only visible during the alpine zoom/run/roll event, never during fetch.
+  const snowPuffGeo=geo(new THREE.IcosahedronGeometry(1,0));
+  const snowPuffMat=mat("#eff8f6",{transparent:true,opacity:.66,depthWrite:false});
+  const snowPuffs=instances(snowPuffGeo,snowPuffMat,
+    Array.from({length:12},()=>({x:0,y:-100,z:0,sx:.1,sy:.06,sz:.1})),false);
+  snowPuffs.frustumCulled=false;
+  snowPuffs.visible=false;
   // Default World Mode shows Shasta without accessories so his natural coat and
   // body silhouette remain unobstructed.
 
@@ -2438,6 +2776,17 @@ export function createWorld(
   let lastBigAirSerial=0,lastBigAirUpdate=0;
   let bigAir:BigAirState=idleBigAir();
   let discGolf:DiscGolfState=idleDiscGolf();
+  let jetSki:JetSkiState|null=null;
+  let jetRivals:JetSkiState[]=[];
+  let jetMilestone='';
+  let jetCountdown=0;
+  let jetNoticeUntil=0;
+  let jetSessionBest:number|null=null;
+  let jetWakeSamples:JetSkiWakePoint[]=[];
+  let jetWakeAccumulator=0;
+  let selectedJetSki:"touring"|"sport"|"race"="sport";
+  let jetRideMode:"race"|"free"="race";
+  let jetChoosing=false;
   let discFetch=idleDiscGolfFetch();
   let lastDiscStart=0,lastDiscShot=0,lastDiscExit=0,lastDiscUpdate=0;
   let lastDiscPreview:DiscShot|null=null,lastPreviewTick=-Infinity;
@@ -2445,18 +2794,111 @@ export function createWorld(
   // Local camera-only state: it never mutates the simulation, scoring or lie.
   let discGolfIntro:{startedAt:number;reducedMotion:boolean}|null=null;
   let snapDiscCamera=false;
+  let lastDiscCameraSolve:{
+    desired:THREE.Vector3;focus:THREE.Vector3;position:THREE.Vector3;
+    clear:boolean;adjusted:boolean;blocking:number;
+  }|null=null;
   let trial:TrialState={phase:"idle",nextGate:0,elapsedMs:0,splitsMs:[]};
+  let rideBoost=initialRideBoost();
+  let rideBoostNoticeUntil=0;
+  let rideBoostNotice="";
+  function resetRideBoost(){
+    rideBoost=initialRideBoost();
+    rideBoostNoticeUntil=0;rideBoostNotice="";
+  }
   let aquatic: AquaticMode = "land", swimDepth = 0, targetDepth = 0;
   let climb: { from: Point; to: Point; fromY: number; toY: number; progress: number } | null = null;
   let grind: {
-    log: typeof FALLEN_LOGS[number];
+    log: GrindRail;
     t: number;
     direction: number;
     style: GrindStyle;
     mode: "skate" | "ski";
+    covered: number;
   } | null = null;
   let lastRampAt = -10, lastRampId = "";
+  let skateTrick=idleSkateTrick(),skateWindupAt=-Infinity,skatePadPrimed=false;
+  let skateHasBeenAirborne=false,skatePadPushHeld=false;
   let playerY = groundHeight(player);
+  // Single source of truth for mutually exclusive minigame entrances.
+  const occupiedByOtherMode=(requested:WorldGameMode)=>
+    !canStartWorldGame(requested,{
+      jet:!!jetSki||jetChoosing,
+      ski:bigAir.phase==="armed"||bigAir.phase==="flying",
+      disc:discGolf.phase!=="off",
+      trial:trial.phase==="armed"||trial.phase==="running",
+    });
+  function stopJetSki(){
+    if(!jetSki)return;
+    jetSki=null;jetRivals=[];jetMilestone="";
+    callbacks.onJetSkiMode(false);
+    jetRideMode="race";
+    jetCountdown=0;jetNoticeUntil=0;jetNotice.style.display="none";
+    jetWakeSamples=[];jetWakeAccumulator=0;
+    jetTouchInput.throttle=0;jetTouchInput.steer=0;jetTouchInput.brake=false;
+    jetBoostState.active=false;
+    player={x:JET_SKI_PIER.rampEndX+1,z:JET_SKI_PIER.centerZ};
+    playerY=groundHeight(player);
+    travel={point:player,speed:0,heading:{x:1,z:0}};
+    destination=null;
+    jetHud.style.display="none";
+    canvas.dataset.jetSkiStatus="docked";
+    canvas.focus({preventScroll:true});
+  }
+  function closeJetChooser(){
+    jetChoosing=false;
+    jetChooser.hidden=true;
+    canvas.dataset.jetSkiChooser="closed";
+    callbacks.onJetSkiMode(false);
+    keys.clear();
+    canvas.focus({preventScroll:true});
+  }
+  function openJetChooser(){
+    if(!state.entered||state.paused||jetSki||occupiedByOtherMode("jet")||
+       aquatic!=="land"||!nearJetSkiBoarding(player))return;
+    jetChoosing=true;
+    jetskiVisual.activeHull.material.color.set("#e96c48");
+    jetChooser.hidden=false;
+    canvas.dataset.jetSkiChooser="open";
+    callbacks.onJetSkiMode(true);
+    destination=null;travel.speed=0;keys.clear();
+    jetChoiceButtons[0][0].focus({preventScroll:true});
+  }
+  function chooseJetSki(choice:string){
+    if(!jetChoosing)return;
+    const craft=choice==="touring"?"touring":choice==="race"?"race":"sport";
+    jetRideMode=choice==="free"?"free":"race";
+    selectedJetSki=craft;
+    closeJetChooser();
+    boardJetSki();
+  }
+  function boardJetSki(){
+    if(!state.entered||state.paused||jetSki||occupiedByOtherMode("jet")||
+       aquatic!=="land"||!nearJetSkiBoarding(player))return;
+    resetRideBoost();
+    jetSki=startJetSkiRace(selectedJetSki);jetMilestone="";
+    callbacks.onJetSkiMode(true);
+    jetCountdown=jetRideMode==="race"?3.3:0;jetNoticeUntil=0;
+    jetWakeSamples=[];jetWakeAccumulator=0;
+    jetRivals=jetRideMode==="race"?[
+      {...startJetSkiRace("sport"),position:{x:70,z:7}},
+      {...startJetSkiRace("touring"),position:{x:73,z:5}},
+    ]:[];
+    jetskiVisual.activeHull.material.color.set(
+      selectedJetSki==="touring"?"#f3c24d":selectedJetSki==="sport"?"#e96c48":"#39bdc5");
+    destination=null;setAquaticMode("land");canvas.dataset.jetSkiStatus="racing";
+    canvas.dataset.jetSkiMode=jetRideMode;
+    canvas.focus({preventScroll:true});
+  }
+  function restartJetSki(){
+    if(!jetSki)return;
+    const selected=jetSki.craft;
+    const currentMode=jetRideMode;
+    stopJetSki();
+    selectedJetSki=selected;
+    jetRideMode=currentMode;
+    boardJetSki();
+  }
   const supportHeight = (p: Point) => {
     const layer = supportLayerAtPoint(caveLayer, p, playerY);
     if (layer === "arcade") return arcadeCaveFloorHeight(p);
@@ -2467,12 +2909,23 @@ export function createWorld(
   let dog: Point = { x: 3, z: 12 };
   let dogVelocity: Point = { x: 0, z: 0 };
   let dogSmoothedTarget: Point = { ...dog };
+  let fetchRunRoute=idleFetchRunRoute();
+  // Broadphase: terrain/vegetation obstacles are static. Only reselect a
+  // padded local working set when Shasta has actually traveled several units.
+  let dogObstacleAnchor:Point|null=null;
+  let dogLocalObstacles:Obstacle[]=[];
+  let dogObstacleRefreshes=0;
   let dogYaw = 0;
   let dogPitch = 0;
   let dogRoll = 0;
-  let dogGroundY = terrainHeight(dog.x, dog.z);
+  let dogGroundY = discGolfSurfaceHeight(dog);
+  const dogFootGround=[0,0,0,0];
+  let dogCameraAnchor:ShastaCameraAnchor|null=null;
   let dogGaitPhase = 0;
   let dogMoveBlend = 0;
+  let shastaSnow=idleShastaSnowPlay();
+  let snowStagesSeen:string[]=[];
+  let snowMaxRoll=0;
   let dogAnimSpeed = 0;
   let dogInterestCritterIndex: number | null = null;
   let dogChase = initialChaseState();
@@ -2572,13 +3025,48 @@ export function createWorld(
     drag.lastX = e.clientX;
     drag.lastY = e.clientY;
   }
+  function fireRideShot(x:number,y:number){
+    const currentMode=effectiveActivity(state.activity,player);
+    if(!isBoostActivity(currentMode)||aquatic!=="land"||jetSki||jetChoosing||
+      discGolf.phase!=="off"||bigAir.phase==="flying"||state.paused)return false;
+    const rect=canvas.getBoundingClientRect();
+    pointer.set(((x-rect.left)/rect.width)*2-1,
+      (-(y-rect.top)/rect.height)*2+1);
+    ray.setFromCamera(pointer,camera);
+    const hit=ray.intersectObjects(rideVisual.targets,false)
+      .find(h=>h.object.parent?.visible);
+    // The shooter must have visual line of sight. Hills can hide an offshore
+    // marker from some approaches; do not score hits through the terrain.
+    const terrainHit=ray.intersectObject(ground,false)[0];
+    const clear=!!hit&&(!terrainHit||terrainHit.distance>hit.distance+.08);
+    const target=clear&&hit&&hit.distance<=65?
+      rideVisual.targetFromHit(hit.object):null;
+    const endpoint=hit&&clear?hit.point:terrainHit&&terrainHit.distance<28?
+      terrainHit.point:ray.ray.at(28,new THREE.Vector3());
+    rideVisual.fireTracer(new THREE.Vector3(player.x,playerY+1.35,player.z),
+      endpoint,elapsed);
+    const previous=rideBoost;
+    if(target)rideBoost=fireRideBoost(target,currentMode,player,
+      travel.speed,elapsed,rideBoost);
+    const success=rideBoost!==previous;
+    rideBoostNotice=success?"BOOST HIT · +"+RIDE_BOOST_DURATION.toFixed(1)+"s":
+      travel.speed<2.25?"BUILD SPEED TO FIRE":
+      target?"TARGET RECHARGING OR TOO FAR":"MISS · AIM AT A GLOWING RING";
+    rideBoostNoticeUntil=elapsed+1.35;
+    rideAnnounce.textContent=rideBoostNotice;
+    canvas.dataset.rideBoostLastShot=success?"hit":"miss";
+    return true;
+  }
   function onUp(e: PointerEvent) {
     if (!drag || e.pointerId !== drag.id) return;
     const wasClick = !drag.moved;
     drag = null;
     if (canvas.hasPointerCapture(e.pointerId))
       canvas.releasePointerCapture(e.pointerId);
-    if (!wasClick || state.paused || discGolf.phase!=="off") return;
+    if (!wasClick || state.paused || discGolf.phase!=="off" || jetSki) return;
+    // While moving on sport gear the pointer is a skill shot, never an
+    // accidental click-to-move. Drag retains normal orbit-camera behavior.
+    if(travel.speed>1.5&&fireRideShot(e.clientX,e.clientY))return;
     const rect = canvas.getBoundingClientRect();
     pointer.set(
       ((e.clientX - rect.left) / rect.width) * 2 - 1,
@@ -2629,8 +3117,37 @@ export function createWorld(
       }
       return;
     }
-    if(e.target !== canvas) return;
+    // Canvas focus can move to a touch/accessible control while riding.
+    // Keep steering active inside the world, but never grab keys from the
+    // surrounding site or a text field.
+    if(e.target !== canvas && !(jetSki&&
+      (e.target===document.body||host.contains(e.target as Node))))return;
     const key = e.key.toLowerCase();
+    if(key==="escape"&&jetSki){stopJetSki();e.preventDefault();return;}
+    if(key==="r"&&!e.repeat&&jetSki){restartJetSki();e.preventDefault();return;}
+    if(key==="f"&&!e.repeat&&!jetSki&&isBoostActivity(state.activity)){
+      e.preventDefault();
+      const rect=canvas.getBoundingClientRect();
+      fireRideShot(rect.left+rect.width/2,rect.top+rect.height/2);
+      return;
+    }
+    if(state.activity==="skate"&&!jetSki&&aquatic==="land"&&!e.repeat){
+      if(key==="arrowdown"){
+        skateWindupAt=elapsed;e.preventDefault();return;
+      }
+      if(["arrowup","arrowleft","arrowright"].includes(key)){
+        const hold=Number.isFinite(skateWindupAt)?Math.max(0,elapsed-skateWindupAt):0;
+        skateWindupAt=-Infinity;
+        launchSkateTrick(flickTrick(key.slice(5) as "up"|"left"|"right",hold));
+        e.preventDefault();return;
+      }
+      if(key==="q"||key==="e"){
+        skateTrick=setSkateGrab(skateTrick,key==="q"?"left":"right");
+        e.preventDefault();return;
+      }
+    }
+    // The land jump action must not fire while steering a jet ski.
+    if(jetSki&&key===" "){if(e.target===canvas)e.preventDefault();return;}
     if (key === "shift") keys.add(key);
     if (key === " " && !e.repeat && aquatic === "land") {
       e.preventDefault();
@@ -2656,9 +3173,12 @@ export function createWorld(
         "arrowright",
       ].includes(key)
     ) {
-      keys.add(key);
+      if(state.activity!=="skate"||!key.startsWith("arrow"))keys.add(key);
       destination = null;
       e.preventDefault();
+    }
+    if (key === "enter" && !e.repeat && !jetSki&&nearJetSkiBoarding(player)&&aquatic==="land") {
+      e.preventDefault();openJetChooser();return;
     }
     if (key === "enter" && !e.repeat && discovery) {
       e.preventDefault();
@@ -2666,7 +3186,9 @@ export function createWorld(
     }
   }
   function keyUp(e: KeyboardEvent) {
-    keys.delete(e.key.toLowerCase());
+    const key=e.key.toLowerCase();
+    keys.delete(key);
+    if(key==="q"||key==="e")skateTrick=setSkateGrab(skateTrick,"none");
   }
   function setAquaticMode(next: AquaticMode) {
     if (next === aquatic) return;
@@ -2687,8 +3209,35 @@ export function createWorld(
       targetDepth = 0;
     }
   }
+  function launchSkateTrick(name:SkateTrickName){
+    if(state.activity!=="skate"||!state.entered||state.paused||document.hidden||
+      aquatic!=="land"||jetSki||jetChoosing||discGolf.phase!=="off"||
+      trial.phase==="armed"||trial.phase==="running"||
+      bigAir.phase==="flying"||bigAir.phase==="armed"||climb||
+      airHeight>.08||skateTrick.phase==="air")return;
+    if(grind)grind=null; // pop off a rail instead of locking the player on it
+    const next=startSkateTrick(skateTrick,name,elapsed,travel.speed);
+    if(next===skateTrick)return;
+    skateTrick=next;skateHasBeenAirborne=false;
+    verticalSpeed=Math.min(7.6,5.9+Math.min(14,travel.speed)*.1);
+    playerY=Math.max(playerY,supportHeight(player)+.04);airHeight=.04;
+    destination=null;
+  }
   function performAction() {
-    if (!state.entered || state.paused || document.hidden || aquatic !== "land" || discGolf.phase!=="off" || climb || grind || airHeight > 0.01) return;
+    if (!state.entered || state.paused || document.hidden || aquatic !== "land" ||
+      discGolf.phase!=="off"||jetSki||jetChoosing||
+      trial.phase==="armed"||trial.phase==="running"||
+      (bigAir.phase!=="idle"&&bigAir.phase!=="armed")||
+      climb||grind||airHeight>0.01)return;
+    if(state.activity==="ski"&&mountainJumpEligible(player,supportHeight(player),travel.speed)){
+      const ahead={x:player.x+travel.heading.x*2.1,
+        z:player.z+travel.heading.z*2.1};
+      const drop=Math.max(0,supportHeight(player)-supportHeight(ahead));
+      bigAir=launchBigAir(player,supportHeight(player),travel.speed,travel.heading,true,drop);
+      playerY=bigAir.y;airHeight=.04;verticalSpeed=bigAir.verticalSpeed;
+      callbacks.onBigAir(bigAir);
+      return;
+    }
     if ((state.activity === "skate" || state.activity === "ski") && travel.speed > 2.2) {
       const candidate = nearestGrind(player);
       if (candidate) {
@@ -2721,12 +3270,14 @@ export function createWorld(
           direction,
           style: grindStyleForApproach(travel.heading, candidate.log),
           mode: state.activity,
+          covered:0,
         };
         destination = null;
         verticalSpeed = airHeight = 0;
         return;
       }
     }
+    if(state.activity==="skate"){launchSkateTrick("Ollie");return;}
     if (state.activity === "boulder") {
       const hold = nextHold(player);
       if (hold) {
@@ -2744,8 +3295,13 @@ export function createWorld(
     drag = null;
     destination = null;
   }
-  function visibility() {
+  function clearHeldJetControls(){
     clearInput();
+    jetTouchInput.throttle=0;jetTouchInput.steer=0;jetTouchInput.brake=false;
+    jetBoostState.active=false;
+  }
+  function visibility() {
+    clearHeldJetControls();
     if (document.hidden) {
       cancelAnimationFrame(raf);
       raf = 0;
@@ -2763,7 +3319,7 @@ export function createWorld(
   window.addEventListener("keydown", onKey);
   canvas.addEventListener("blur", clearInput);
   window.addEventListener("keyup", keyUp);
-  window.addEventListener("blur", clearInput);
+  window.addEventListener("blur", clearHeldJetControls);
   document.addEventListener("visibilitychange", visibility);
   canvas.addEventListener("webglcontextlost", contextLost);
   function schedule() {
@@ -2777,6 +3333,7 @@ export function createWorld(
   function frame(now: number) {
     raf = 0;
     if (disposed || document.hidden || state.paused) return;
+    const fetchNow=now*.001;
     const rawDelta = (now - last) / 1000,
       dt = Math.min(rawDelta, 0.05);
     last = now;
@@ -2793,6 +3350,29 @@ export function createWorld(
         Number(keys.has("a") || keys.has("arrowleft"));
       dx = -Math.sin(yaw) * forward + Math.cos(yaw) * right;
       dz = -Math.cos(yaw) * forward - Math.sin(yaw) * right;
+      if(state.activity==="skate"&&!jetSki&&discGolf.phase==="off"){
+        const pads=navigator.getGamepads?.();
+        const pad=pads?Array.from(pads).find(p=>p?.connected):null;
+        if(pad){
+          const lx=pad.axes[0]??0,ly=pad.axes[1]??0;
+          if(Math.hypot(lx,ly)>.22){
+            dx=Math.cos(yaw)*lx+Math.sin(yaw)*ly;
+            dz=-Math.sin(yaw)*lx+Math.cos(yaw)*ly;
+          }
+          const fx=pad.axes[2]??0,fy=pad.axes[3]??0;
+          if(fy>.65&&!skatePadPrimed){skatePadPrimed=true;skateWindupAt=elapsed;}
+          if(skatePadPrimed&&(fy<-.58||Math.abs(fx)>.7)){
+            const direction=fy<-.58?"up":fx<0?"left":"right";
+            launchSkateTrick(flickTrick(direction,Math.max(0,elapsed-skateWindupAt)));
+            skatePadPrimed=false;skateWindupAt=-Infinity;
+          }
+          if(pad.buttons[0]?.pressed&&!keys.has(" ")){
+            // Edge-trigger on A so holding push never repeats an ollie.
+            if(!skatePadPushHeld)launchSkateTrick("Ollie");
+            skatePadPushHeld=true;
+          }else skatePadPushHeld=false;
+        }else skatePadPushHeld=false;
+      }
       if (destination) {
         dx = destination.x - player.x;
         dz = destination.z - player.z;
@@ -2805,13 +3385,151 @@ export function createWorld(
       }
       const previousPoint = { ...player };
       const previousY = playerY;
-      if (discGolf.phase!=="off") {
+      if(jetSki){
+        const drive=jetSkiControlInput(keys,jetTouchInput,jetBoostState.active,jetSki.speed);
+        const previousGate=jetSki.checkpoint;
+        const previousLap=jetSki.lap;
+        const previousPhase=jetSki.phase;
+        if(jetCountdown>0){
+          // Countdown follows real elapsed time, not tiny fixed physics ticks
+          // on slow GPUs or accessibility/reduced-motion hardware.
+          jetCountdown=Math.max(0,jetCountdown-Math.min(rawDelta,.35));
+          if(jetCountdown===0){
+            jetNotice.textContent="GO!";
+            jetNoticeUntil=elapsed+.85;
+          }
+        }else{
+          jetSki=stepJetSkiRace(jetSki,dt,drive,
+            jetSkiNavigableWater,jetRideMode==="race");
+          jetRivals=jetRivals.map(rival=>stepJetSkiRace(
+            rival,dt,jetSkiOpponentInput(rival),jetSkiNavigableWater));
+        }
+        if(jetRideMode==="race"&&jetSki.phase!==previousPhase&&jetSki.phase==="finished"){
+          if(jetSessionBest===null||jetSki.elapsed<jetSessionBest)
+            jetSessionBest=jetSki.elapsed;
+          jetNotice.textContent="FINISH · "+jetSki.elapsed.toFixed(1)+"s";
+          jetNoticeUntil=elapsed+3.5;
+        }else if(jetRideMode==="race"&&jetSki.lap>previousLap){
+          jetNotice.textContent="LAP "+jetSki.lap+" COMPLETE · +8 TURBO";
+          jetNoticeUntil=elapsed+2;
+        }else if(jetRideMode==="race"&&jetSki.checkpoint!==previousGate){
+          jetNotice.textContent="CHECKPOINT "+jetSki.checkpoint+" · +8 TURBO";
+          jetNoticeUntil=elapsed+1.25;
+        }
+        jetNotice.style.display=jetCountdown>0||elapsed<jetNoticeUntil?"block":"none";
+        if(jetCountdown>0)jetNotice.textContent=String(Math.ceil(jetCountdown));
+        jetskiVisual.opponents.forEach((object,i)=>{
+          const rival=jetRivals[i];
+          object.visible=!!rival;
+          if(!rival)return;
+          object.position.set(rival.position.x,SEA_SURFACE+.2+rival.waterHeight+
+            rival.jumpHeight,rival.position.z);
+          object.rotation.y=rival.heading;
+          object.rotation.z=rival.roll;
+          object.rotation.x=rival.pitch;
+        });
+        player={...jetSki.position};playerY=SEA_SURFACE+.65;
+        travel={point:player,speed:jetSki.speed,
+          heading:{x:Math.sin(jetSki.heading),z:Math.cos(jetSki.heading)}};
+        explorer.rotation.y=jetSki.heading;
+        airHeight=verticalSpeed=0;destination=null;
+        jetskiVisual.activeSki.visible=true;
+        jetskiVisual.activeSki.position.set(player.x,
+          SEA_SURFACE+.2+jetSki.waterHeight+jetSki.jumpHeight,player.z);
+        jetskiVisual.activeSki.rotation.y=jetSki.heading;
+        jetskiVisual.activeSki.rotation.z=jetSki.roll;
+        jetskiVisual.activeSki.rotation.x=jetSki.pitch;
+        jetskiVisual.wake.visible=jetSki.speed>2&&jetSki.jumpHeight<.1;
+        jetskiVisual.wake.position.x=player.x-Math.sin(jetSki.heading)*1.1;
+        jetskiVisual.wake.position.z=player.z-Math.cos(jetSki.heading)*1.1;
+        jetskiVisual.wake.rotation.z=-jetSki.heading;
+        jetskiVisual.wake.material.opacity=jetSki.boosting?.9:.58;
+        jetskiVisual.wake.scale.setScalar(1+Math.min(3.4,Math.abs(jetSki.speed)/9));
+        // A bounded foam history makes acceleration and turns visible, with
+        // no per-frame mesh allocation or extra individual draw calls.
+        jetWakeSamples=jetWakeSamples.filter(p=>{
+          p.age+=dt;return p.age<1.9;
+        });
+        if(jetSki.phase==="racing"&&jetSki.speed>3&&jetSki.jumpHeight<.12){
+          jetWakeAccumulator+=dt;
+          if(jetWakeAccumulator>=.09){
+            jetWakeAccumulator%= .09;
+            const h=jetSki.heading;
+            jetWakeSamples.unshift({
+              x:player.x-Math.sin(h)*1.55,z:player.z-Math.cos(h)*1.55,
+              heading:h,speed:jetSki.speed,age:0,boosting:jetSki.boosting,
+            });
+            if(jetWakeSamples.length>38)jetWakeSamples.length=38;
+          }
+        }else jetWakeAccumulator=0;
+        jetskiVisual.updateWakeTrail(jetWakeSamples,elapsed);
+        jetskiVisual.updateGateFocus(jetSki.checkpoint,elapsed,
+          jetRideMode==="race"&&jetSki.phase==="racing");
+        jetskiVisual.buoys.forEach((b,i)=>{b.visible=jetRideMode==="race";
+          b.scale.setScalar(i===jetSki!.checkpoint?1.7:1);});
+        canvas.dataset.jetSkiStatus=jetSki.phase;
+        const milestone=`${jetSki.phase}:${jetSki.lap}:${jetSki.checkpoint}`;
+        if(milestone!==jetMilestone&&jetRideMode==="race"){
+          jetMilestone=milestone;
+          jetAnnounce.textContent=jetSki.phase==="finished"?"Jet ski race finished":
+            `Lap ${jetSki.lap+1}, checkpoint ${jetSki.checkpoint+1}`;
+        }
+        canvas.dataset.jetSkiLap=String(jetSki.lap+1);
+        canvas.dataset.jetSkiGate=String(jetSki.checkpoint+1);
+        canvas.dataset.jetSkiSpeed=jetSki.speed.toFixed(1);
+        canvas.dataset.jetSkiHeading=jetSki.heading.toFixed(3);
+        canvas.dataset.jetSkiTime=jetSki.elapsed.toFixed(1);
+        canvas.dataset.jetSkiTurbo=jetSki.turbo.toFixed(0);
+        canvas.dataset.jetSkiBoosting=String(jetSki.boosting);
+        canvas.dataset.jetSkiBoostLocked=String(jetSki.boostLocked);
+        canvas.dataset.jetSkiWaveHeight=jetSki.waterHeight.toFixed(2);
+        canvas.dataset.jetSkiJump=jetSki.jumpHeight.toFixed(2);
+        canvas.dataset.jetSkiRockHits=String(jetSki.rockHits);
+        canvas.dataset.jetSkiCourseWater=String(jetSkiNavigableWater(player));
+        const place=jetSkiRacePlace(jetSki,jetRivals);
+        canvas.dataset.jetSkiPlace=String(place);
+        jetskiVisual.skis.forEach((ski,i)=>{ski.visible=i!==(
+          selectedJetSki==="touring"?0:selectedJetSki==="sport"?1:2);});
+        jetHud.style.display="block";
+        jetTurboBar.style.display="block";
+        jetTurboFill.style.width=jetSki.turbo.toFixed(1)+"%";
+        jetTurboBar.setAttribute("aria-valuenow",jetSki.turbo.toFixed(0));
+        const boostStatus=jetSki.boosting?"BOOSTING":
+          jetSki.boostLocked?"BOOST RECHARGING":
+          jetSki.turbo>=20?"BOOST READY":"BOOST LOW";
+        jetBoostButton.dataset.boostState=jetSki.boosting?"active":
+          jetSki.boostLocked?"charging":"ready";
+        jetBoostButton.setAttribute("aria-description",boostStatus+
+          ". Hold for acceleration; releasing rearms a recharged boost.");
+        jetTurboFill.style.background=jetSki.boosting?"#f2d16d":
+          jetSki.boostLocked?"#8da8b0":"#91edcb";
+        const gateBearing=jetSkiBearingToGate(jetSki);
+        const turnGuide=Math.abs(gateBearing)<.22?"↑":
+          Math.abs(gateBearing)<.72?(gateBearing>0?"↗":"↖"):
+          gateBearing>0?"→":"←";
+        const swellStatus=jetSki.roughness>1.05?" · BIG SWELLS":"";
+        const compactJetHud=jetCountdown>0?
+          `START IN ${Math.ceil(jetCountdown)} · ${jetSki.craft.toUpperCase()}`:
+          jetSki.phase==="finished"?
+          `FINISH · ${jetSki.elapsed.toFixed(1)}s · Place ${place}/3`:
+          jetRideMode==="free"?
+          `FREE RIDE · ${jetSki.speed<-.2?"REV ":""}${Math.abs(jetSki.speed).toFixed(0)} m/s · ${boostStatus} ${jetSki.turbo.toFixed(0)}%${swellStatus}`:
+          `Lap ${Math.min(2,jetSki.lap+1)}/2 · Gate ${jetSki.checkpoint+1}/${JET_SKI_GATES.length} ${turnGuide} · ${jetSki.speed<-.2?"REV ":""}${Math.abs(jetSki.speed).toFixed(0)} m/s · ${boostStatus} ${jetSki.turbo.toFixed(0)}%${swellStatus}`;
+        jetHudReadout.textContent=jetTouchEnabled?compactJetHud:jetRideMode==="free"?
+          `FREE RIDE · ${jetSki.speed<-.2?"REVERSE ":""}${Math.abs(jetSki.speed).toFixed(0)} m/s · ${boostStatus} ${jetSki.turbo.toFixed(0)}%${swellStatus} · W/↑ forward · S/↓ reverse · A/D steer · Shift BOOST · Esc dock`:
+          jetCountdown>0?
+          `START IN ${Math.ceil(jetCountdown)} · ${jetSki.craft.toUpperCase()} · Hold throttle to launch`:
+          jetSki.phase==="finished"?
+          `FINISH · ${jetSki.elapsed.toFixed(1)}s · Place ${place}/3 · Session best ${jetSessionBest?.toFixed(1)??"·"}s · R Retry / Esc Dock`:
+          `${jetSkiSectionName(jetSki.checkpoint)} · Place ${place}/3 · Lap ${Math.min(2,jetSki.lap+1)}/2 · Gate ${jetSki.checkpoint+1}/${JET_SKI_GATES.length} ${turnGuide} ${jetSkiGateDistance(jetSki).toFixed(0)}m · ${jetSki.speed<-.2?"REV ":""}${Math.abs(jetSki.speed).toFixed(0)} m/s · ${boostStatus} ${jetSki.turbo.toFixed(0)}%${swellStatus}${jetSki.jumpHeight>.2?" · AIR":""} · W/↑ forward · S/↓ reverse · A/D steer · Shift BOOST · R reset · Esc Dock`;
+        explorer.visible=false;
+      }else if (discGolf.phase!=="off") {
         const previous=discGolf.phase;
         const wasPresentationPending=!!discGolf.presentationPending;
-        discGolf=stepDiscGolf(discGolf,dt,p=>terrainHeight(p.x,p.z),
-          isWater,SEA_SURFACE,obstacles);
+        discGolf=stepDiscGolf(discGolf,dt,discGolfSurfaceHeight,
+          discGolfSurfaceIsWater,SEA_SURFACE,obstacles);
         const previousFetch=discFetch;
-        discFetch=stepDiscGolfFetch(discFetch,discGolf,dog,elapsed);
+        discFetch=stepDiscGolfFetch(discFetch,discGolf,dog,fetchNow);
         const handoff=discGolfHandoffTarget(previousFetch,discFetch,discGolf);
         if(handoff){
           // The physics has already committed the real lie and stroke.
@@ -2866,9 +3584,11 @@ export function createWorld(
         const dzLog = grind.log.b.z - grind.log.a.z;
         const logLength = Math.hypot(dxLog, dzLog);
         const grindSpeed = Math.max(4.2, travel.speed);
+        const previousGrindT=grind.t;
         grind.t += grind.direction * grindSpeed * dt / logLength;
         const finished = grind.t <= 0 || grind.t >= 1;
         grind.t = THREE.MathUtils.clamp(grind.t, 0, 1);
+        grind.covered+=Math.abs(grind.t-previousGrindT)*logLength;
         player = {
           x: grind.log.a.x + dxLog * grind.t,
           z: grind.log.a.z + dzLog * grind.t,
@@ -2880,26 +3600,40 @@ export function createWorld(
           heading: { x: (dxLog / logLength) * headingSign, z: (dzLog / logLength) * headingSign },
         };
         const railGround =
-          terrainHeight(grind.log.a.x, grind.log.a.z) * (1 - grind.t) +
-          terrainHeight(grind.log.b.x, grind.log.b.z) * grind.t;
+          groundHeight(grind.log.a) * (1 - grind.t) +
+          groundHeight(grind.log.b) * grind.t;
         playerY = railGround + grind.log.lift + 0.16;
         if (finished) {
+          if(grind.mode==="skate")skateTrick=scoreSkateGrind(skateTrick,grind.covered,grind.style,elapsed);
           grind = null;
           airHeight = 0.08;
           verticalSpeed = 2.5;
         }
       } else if (bigAir.phase==="flying") {
-        bigAir=advanceBigAir(bigAir,dt,p=>groundHeight(p),isWater);
+        // Physics can advance in bounded steps at low render FPS. Running only
+        // the global 50ms movement tick turned a long ski flight into slow
+        // motion on software-rendered and mobile GPUs.
+        let flightDelta=Math.max(0,Math.min(rawDelta,.3));
+        while(flightDelta>1e-8&&bigAir.phase==="flying"){
+          const flightStep=Math.min(.12,flightDelta);
+          bigAir=advanceBigAir(bigAir,flightStep,p=>groundHeight(p),isWater);
+          flightDelta-=flightStep;
+        }
         player={...bigAir.point};
         playerY=bigAir.y;
         airHeight=Math.max(0,playerY-supportHeight(player));
         verticalSpeed=bigAir.verticalSpeed;
-        travel={point:player,speed:bigAir.horizontalSpeed,heading:BIG_AIR.heading};
+        travel={point:player,speed:bigAir.horizontalSpeed,
+          heading:bigAir.heading??BIG_AIR.heading};
         if(bigAir.phase==="landed"||bigAir.phase==="missed") {
           // No springy auto-hop on touchdown. Natural ground contact resumes
           // after the challenge has settled, without a second ramp trigger.
           airHeight=verticalSpeed=0;
-          playerY=supportHeight(player);
+          if(isWater(player)&&jetSkiPierHeight(player)===null){
+            swimDepth=targetDepth=0;
+            setAquaticMode("surface");
+            playerY=SEA_SURFACE-.42;
+          }else playerY=supportHeight(player);
           travel={...travel,speed:0};
           lastRampAt=elapsed;
           callbacks.onBigAir(bigAir);
@@ -2914,7 +3648,7 @@ export function createWorld(
           rawDelta,
           destination,
         );
-        if (!isWater(nextTravel.point)) {
+        if (!isWater(nextTravel.point)||jetSkiPierHeight(nextTravel.point)!==null) {
           if (aquatic === "surface") {
             travel = nextTravel;
             player = nextTravel.point;
@@ -2955,6 +3689,7 @@ export function createWorld(
           destination,
           airHeight,
           supportHeight,
+          activeRideBoost(rideBoost,elapsed) && isBoostActivity(state.activity),
         );
         if (
           destination &&
@@ -2968,7 +3703,7 @@ export function createWorld(
         }
         player = travel.point;
 
-        if (isWater(player)) {
+        if (isWater(player)&&jetSkiPierHeight(player)===null) {
           const steppedIn = !isWater(previousPoint) && airHeight < 0.12;
           if (steppedIn) {
             setAquaticMode("surface");
@@ -3016,10 +3751,28 @@ export function createWorld(
         }
       }
 
-      if(bigAir.phase==="armed" &&
+      // Skiing may launch from any steep downhill edge on the mountain.
+      // The original marked kicker remains as a deliberate easy starting point.
+      const skiEligible=state.activity==="ski"&&
+        (bigAir.phase==="idle"||bigAir.phase==="armed")&&
+        discGolf.phase==="off"&&!jetSki&&!jetChoosing&&
+        trial.phase!=="running"&&trial.phase!=="armed"&&
+        !climb&&!grind&&aquatic==="land"&&airHeight<.1&&
+        mountainJumpEligible(player,supportHeight(player),travel.speed);
+      const previousGround=supportHeight(previousPoint);
+      const ahead={x:player.x+travel.heading.x*2.1,
+        z:player.z+travel.heading.z*2.1};
+      const frontGround=supportHeight(ahead);
+      const downhillDrop=previousGround-frontGround;
+      const naturalLip=skiEligible&&mountainSkiTakeoff(player,
+        supportHeight(player),travel.speed,previousGround,frontGround,
+        verticalSpeed);
+      const markedLip=bigAir.phase==="armed"&&
         bigAirCrossedLip(previousPoint,player,travel.heading,state.activity,
-          travel.speed,true) && airHeight<.10) {
-        bigAir=launchBigAir(player,supportHeight(player),travel.speed);
+          travel.speed,true);
+      if(skiEligible&&(naturalLip||markedLip)){
+        bigAir=launchBigAir(player,supportHeight(player),travel.speed,
+          travel.heading,!markedLip,Math.max(0,downhillDrop));
         playerY=bigAir.y;
         airHeight=Math.max(.04,playerY-supportHeight(player));
         verticalSpeed=bigAir.verticalSpeed;
@@ -3027,22 +3780,42 @@ export function createWorld(
         callbacks.onBigAir(bigAir);
       }
       const mode = effectiveActivity(state.activity, player);
+      if(mode!=="skate"&&skateTrick.phase!=="ground"){
+        skateTrick=idleSkateTrick();skateHasBeenAirborne=false;
+      }
+      if(mode==="skate"&&skateTrick.phase==="air"){
+        if(airHeight>.12)skateHasBeenAirborne=true;
+        if(skateHasBeenAirborne&&airHeight<=.001&&!grind){
+          const landing=finishSkateTrick(skateTrick,elapsed,travel.speed);
+          if(landing.bails>skateTrick.bails)travel={...travel,speed:travel.speed*.32};
+          skateTrick=landing;skateHasBeenAirborne=false;
+        }
+      }
       if(trial.phase==="armed" || trial.phase==="running") {
         const previousTrial=trial;
         trial=tickJoshuaTrial(trial,previousPoint,player,dt,mode);
         if(trial.phase!==previousTrial.phase || trial.nextGate!==previousTrial.nextGate ||
           elapsed-lastTrialUpdate>.24) {
-          callbacks.onChallenge(trial);
+          callbacks.onChallenge({...trial,ghostPlace:joshuaRacePlace(trial,player)});
           lastTrialUpdate=elapsed;
         }
       }
       canvas.dataset.trialPhase=trial.phase;
       canvas.dataset.trialCheckpoint=String(trial.nextGate);
+      rideVisual.updateGhosts(trial);
+      if(trial.phase==="armed"||trial.phase==="running"||trial.phase==="complete"){
+        canvas.dataset.joshuaGhosts=String(JOSHUA_GHOSTS.length);
+        canvas.dataset.joshuaPlace=String(joshuaRacePlace(trial,player));
+        canvas.dataset.joshuaProgress=joshuaPlayerFraction(trial,player).toFixed(3);
+      }else canvas.dataset.joshuaGhosts="0";
       const swimming = aquatic !== "land";
       const walking = travel.speed > 0.05
         ? Math.sin(elapsed * (swimming ? 9 : mode === "run" ? 14 : 10))
         : 0;
       board.visible = !swimming && mode === "skate";
+      const trickPose=skateTrickPose(skateTrick,elapsed);
+      board.rotation.set(0,mode==="skate"?trickPose.yaw:0,mode==="skate"?trickPose.roll:0);
+      board.position.y=mode==="skate"&&skateTrick.phase==="air"?Math.sin(Math.PI*trickPose.progress)*.19:0;
       bike.visible = !swimming && mode === "bike";
       skis.visible = !swimming && mode === "ski";
       chalk.visible = !swimming && mode === "boulder";
@@ -3126,8 +3899,8 @@ export function createWorld(
           const alongX = (logDx / logLength) * grind.direction;
           const alongZ = (logDz / logLength) * grind.direction;
           const logYaw = Math.atan2(alongX, alongZ);
-          const groundA = terrainHeight(grind.log.a.x, grind.log.a.z);
-          const groundB = terrainHeight(grind.log.b.x, grind.log.b.z);
+          const groundA = groundHeight(grind.log.a);
+          const groundB = groundHeight(grind.log.b);
           const logPitch = -Math.atan2(
             (groundB - groundA) * grind.direction,
             logLength,
@@ -3147,8 +3920,37 @@ export function createWorld(
           player.z,
         );
       }
+      const skateVisible=state.entered&&!swimming&&mode==="skate"&&
+        discGolf.phase==="off"&&!jetSki&&!jetChoosing&&
+        bigAir.phase!=="flying";
+      skateHud.style.display=skateVisible?"block":"none";
+      skateTouch.style.display=skateVisible&&jetTouchEnabled?"flex":"none";
+      if(skateVisible)skateHud.textContent=skateTrick.phase==="air"?
+        (skateTrick.name??"Trick")+" · land clean":
+        skateTrick.lastLabel?
+          skateTrick.lastLabel+" · "+skateTrick.points+" pts · ×"+Math.max(1,skateTrick.combo)+" · Best "+skateTrick.best:
+          "SKATE · Space: Ollie · ↓ ↑/←/→: Flick · Q/E: Grab";
+      canvas.dataset.skateTrick=skateTrick.name??"";
+      canvas.dataset.skateCombo=String(skateTrick.combo);
+      canvas.dataset.skateScore=String(skateTrick.points);
+      canvas.dataset.skatePark=String(insideSkatePark(player));
       canvas.dataset.activity = mode;
       canvas.dataset.speed = travel.speed.toFixed(2);
+      const boosting=activeRideBoost(rideBoost,elapsed)&&
+        isBoostActivity(state.activity)&&aquatic==="land";
+      canvas.dataset.rideBoost=String(boosting);
+      canvas.dataset.rideBoostRemaining=Math.max(0,rideBoost.until-elapsed).toFixed(2);
+      const showAim=state.entered&&aquatic==="land"&&
+        isBoostActivity(state.activity)&&discGolf.phase==="off"&&!jetSki&&
+        !jetChoosing&&bigAir.phase!=="flying";
+      rideHud.style.display=showAim?"block":"none";
+      rideReticle.style.display=showAim?"block":"none";
+      if(showAim){
+        const seconds=Math.max(0,rideBoost.until-elapsed);
+        rideHud.textContent=elapsed<rideBoostNoticeUntil?rideBoostNotice:
+          boosting?"BOOST ×1.6 · "+seconds.toFixed(1)+"s":
+          "AIM + FIRE · Click/tap a glowing ring · F shoots center";
+      }
       canvas.dataset.height = playerY.toFixed(2);
       canvas.dataset.airborne = String(airHeight > 0 || !!climb || !!grind);
       canvas.dataset.discGolfPhase=discGolf.phase;
@@ -3165,6 +3967,8 @@ export function createWorld(
       canvas.dataset.discGolfGatesTotal=String(DISC_GOLF_HOLES[discGolf.holeIndex].gates.length);
       canvas.dataset.bigAirPhase=bigAir.phase;
       canvas.dataset.bigAirDistance=bigAir.distance.toFixed(1);
+      canvas.dataset.bigAirOutwardGain=mountainJumpOutwardGain(bigAir).toFixed(2);
+      canvas.dataset.bigAirPeakClearance=(bigAir.maxClearance??0).toFixed(2);
       canvas.dataset.bigAirBirdCallout=bigAir.phase==="flying"
         ? bigAirBirdCallout(bigAir.distance)??"":"";
       canvas.dataset.bigAirAltitude=(playerY-supportHeight(player)).toFixed(2);
@@ -3223,6 +4027,8 @@ export function createWorld(
       canvas.dataset.caveDepth = caveProgress.toFixed(3);
       canvas.dataset.caveLayer = caveLayer;
       canvas.dataset.player = `${player.x.toFixed(2)},${player.z.toFixed(2)}`;
+      canvas.dataset.jetSkiPier=String(nearJetSkiBoarding(player)&&aquatic==="land");
+      canvas.dataset.jetSkiDeckHeight=jetSkiPierHeight(player)?.toFixed(2)??"";
       canvas.dataset.paperInside = String(paperInside);
       canvas.dataset.caveChamber = String(caveInside && caveProgress > 0.58);
       let rawGazeGame: string | null = null;
@@ -3291,6 +4097,18 @@ export function createWorld(
         }:pose.look;
         targetLook.set(lookAt.x,lookAt.y,lookAt.z);
         canvas.dataset.discGolfCamera=followFlight?"flight":pose.putting?"putt":"approach";
+      } else if(bigAir.phase==="flying"){
+        const pose=mountainJumpCameraPose(bigAir);
+        targetLook.set(pose.look.x,pose.look.y,pose.look.z);
+      } else if(jetSki){
+        // Coarse-pointer steering covers the lower screen. Looking less far
+        // ahead positions the rider ABOVE the touch buttons while retaining
+        // the wider forward preview on desktop.
+        const ahead=jetTouchEnabled?3.6:8;
+        const lookHeight=jetTouchEnabled ? 0.8 : 1.4;
+        targetLook.set(player.x+Math.sin(jetSki.heading)*ahead,
+          SEA_SURFACE+lookHeight+jetSki.waterHeight+jetSki.jumpHeight*.55,
+          player.z+Math.cos(jetSki.heading)*ahead);
       } else if (cavernFraming) {
         targetLook.set(arcadeWall.x, arcadeWallY + 2.05, arcadeWall.z - 0.5);
       } else if (cavernApproachFraming) {
@@ -3316,7 +4134,7 @@ export function createWorld(
           : aquatic === "surface"
             ? Math.min(zoom, 14)
             : mode === "bike" || mode === "skate"
-              ? Math.min(zoom, 16)
+              ? Math.min(zoom, mode==="skate"?21:16)
               : mode === "boulder"
                 ? Math.min(zoom, 15)
                 : zoom;
@@ -3331,6 +4149,14 @@ export function createWorld(
           const fx=dx/len,fz=dz/len,p=discGolf.disc;
           targetCamera.set(p.x-fx*19.5+fz*2.25,p.y+12,p.z-fz*19.5-fx*2.25);
         }else targetCamera.set(pose.camera.x,pose.camera.y,pose.camera.z);
+      } else if(bigAir.phase==="flying"){
+        const pose=mountainJumpCameraPose(bigAir);
+        targetCamera.set(pose.camera.x,pose.camera.y,pose.camera.z);
+      } else if(jetSki){
+        const h=jetSki.heading;
+        targetCamera.set(player.x-Math.sin(h)*13+Math.cos(h)*2.4,
+          SEA_SURFACE+7.6+jetSki.waterHeight*.4+jetSki.jumpHeight*.75,
+          player.z-Math.cos(h)*13-Math.sin(h)*2.4);
       } else if (cavernFraming) {
         // Keep the third-person boom centered inside the authored tunnel.
         // A lower eye line prevents the roof from swallowing the frame while
@@ -3359,6 +4185,43 @@ export function createWorld(
           player.z + Math.cos(cameraYaw) * cameraZoom * Math.cos(pitch),
         );
       }
+      updateRaceOceanWaves(elapsed,!!jetSki);
+      jetskiCoast.update(elapsed,!!jetSki);
+      rideVisual.updateTracer(elapsed);
+      rideVisual.updateTargets(effectiveActivity(state.activity,player),
+        player,travel.speed,elapsed,rideBoost,camera,
+        state.entered&&!state.paused&&aquatic==="land"&&
+        discGolf.phase==="off"&&!jetSki&&!jetChoosing&&bigAir.phase!=="flying");
+      if(jetTouchEnabled){
+        const nearDock=nearJetSkiBoarding(player)&&aquatic==="land";
+        jetTouch.style.display=!jetChoosing&&(jetSki||nearDock)?"grid":"none";
+        jetTouch.style.gridTemplateColumns=jetSki?
+          "repeat(3,minmax(0,1fr))":"1fr";
+        jetTouch.style.width=jetSki?"min(380px,calc(100% - 20px))":
+          "min(180px,calc(100% - 20px))";
+        jetBoardButton.style.display=jetSki?"none":"inline-flex";
+        driveButtons.forEach(b=>{b.style.display=jetSki?"inline-flex":"none";});
+        jetRetryButton.style.display=jetSki&&jetSki.phase==="finished"?"inline-flex":"none";
+      }
+      if(!jetSki){explorer.visible=!jetChoosing;
+        jetskiVisual.activeSki.visible=jetChoosing;
+        if(jetChoosing){
+          jetskiVisual.activeSki.position.set(JET_SKI_DOCK.x+.25,SEA_SURFACE+.2,JET_SKI_PIER.centerZ-.15);
+          jetskiVisual.activeSki.rotation.set(0,0,0);
+        }
+        jetskiVisual.opponents.forEach(g=>{g.visible=false;});
+        jetskiVisual.skis.forEach((g,i)=>{g.visible=!jetChoosing||i!==1;});
+        jetskiVisual.wake.visible=false;
+        jetskiVisual.updateGateFocus(0,elapsed,false);
+        jetNotice.style.display="none";
+        if(jetWakeSamples.length){jetWakeSamples=[];jetWakeAccumulator=0;}
+        jetskiVisual.updateWakeTrail([],elapsed);
+        if(discGolf.phase==="off"&&!jetChoosing&&nearJetSkiBoarding(player)&&aquatic==="land"){
+          jetHud.style.display="block";
+          jetTurboBar.style.display="none";
+          jetHudReadout.textContent="JET-SKI PIER · Press Enter to choose your jet ski";
+        }else jetHud.style.display="none";
+        jetskiVisual.buoys.forEach(b=>{b.visible=false;});}
       // Keep a trunk from obscuring the explorer on land. The cave uses its own
       // tighter camera clearance because the global +3.5m terrain clamp pushed
       // the camera into the roof on the steep backside slope.
@@ -3376,6 +4239,10 @@ export function createWorld(
             targetCamera.y,
             terrainHeight(targetCamera.x, targetCamera.z) + 2.2,
           );
+        } else if(jetSki){
+          // Offshore courses sit beyond the finite terrain mesh: do not
+          // project the chase camera onto the island mountain heightfield.
+          targetCamera.y=Math.max(targetCamera.y,SEA_SURFACE+5.5);
         } else if(discGolf.phase!=="off"){
           // Trees used to shrink the camera boom to 25%, zooming into
           // the back of the character during a putt. Hold the overhead
@@ -3454,7 +4321,7 @@ export function createWorld(
       // Before landing the shot gets the camera; Shasta stays behind.
       const reducedFetchMotion=window.matchMedia("(prefers-reduced-motion: reduce)").matches;
       const fetchCamera=discGolf.phase!=="off"&&!discGolfIntro?
-        discGolfFetchCameraPhase(discFetch,elapsed,reducedFetchMotion):"off";
+        discGolfFetchCameraPhase(discFetch,fetchNow,reducedFetchMotion):"off";
       if(fetchCamera==="disc" && discGolf.phase==="flying"){
         const p=discGolf.disc;
         const speed=Math.hypot(discGolf.velocity.x,discGolf.velocity.z);
@@ -3479,31 +4346,24 @@ export function createWorld(
         const y=terrainHeight(p.x,p.z);
         targetLook.set(p.x,y+1,p.z);
         targetCamera.set(p.x-fx*12+fz*4,y+12,p.z-fz*12-fx*4);
-      }else if(fetchCamera==="chase"&&discFetch.target){
-        const goal=discFetch.target;
-        const dx=goal.x-dog.x,dz=goal.z-dog.z;
-        const dist=Math.hypot(dx,dz)||1,fx=dx/dist,fz=dz/dist;
-        const mid=Math.min(.53,9/dist);
-        const lookX=dog.x+dx*mid,lookZ=dog.z+dz*mid;
-        targetLook.set(lookX,terrainHeight(lookX,lookZ)+1.3,lookZ);
-        targetCamera.set(dog.x-fx*9+fz*3,
-          terrainHeight(dog.x,dog.z)+9+Math.min(6,dist*.07),
-          dog.z-fz*9-fx*3);
-      }else if(fetchCamera==="shasta"&&discFetch.target){
-        const goal=discFetch.target;
-        const dx=goal.x-dog.x,dz=goal.z-dog.z;
-        const dist=Math.hypot(dx,dz);
-        // At the disc, preserve Shasta's heading rather than looking at an
-        // almost zero-length direction that can whip the POV around.
-        const fx=dist>1.5?dx/dist:Math.sin(dogYaw);
-        const fz=dist>1.5?dz/dist:Math.cos(dogYaw);
-        // Shasta's low, forward-facing view. This is not a teleport:
-        // the position comes from the same obstacle-aware dog locomotion.
-        const eyeX=dog.x+fx*.45,eyeZ=dog.z+fz*.45;
-        targetCamera.set(eyeX,terrainHeight(eyeX,eyeZ)+1.65,eyeZ);
-        const ahead=Math.min(10,Math.max(2,dist));
-        const lookX=eyeX+fx*ahead,lookZ=eyeZ+fz*ahead;
-        targetLook.set(lookX,terrainHeight(lookX,lookZ)+1.45,lookZ);
+      }else if((fetchCamera==="chase"||fetchCamera==="shasta")&&
+        discFetch.target){
+        // Smooth the *actual dog navigation* independently from paw IK and
+        // high-frequency terrain samples, and preserve heading near the lie.
+        // The wider over-shoulder follow shot keeps Shasta and his gait in
+        // view rather than putting the lens at his moving nose.
+        dogCameraAnchor=stepShastaCameraAnchor(dogCameraAnchor,
+          {x:dog.x,y:dogGroundY,z:dog.z},dogYaw,dt);
+        const shot=shastaCameraShot(dogCameraAnchor,fetchCamera,
+          (x,z)=>worldFloorHeight(x,z));
+        targetCamera.set(shot.camera.x,shot.camera.y,shot.camera.z);
+        targetLook.set(shot.look.x,shot.look.y,shot.look.z);
+        canvas.dataset.shastaFollowBoom=shot.boom.toFixed(1);
+        canvas.dataset.shastaFollowMode="third-person";
+      }
+      if(fetchCamera!=="chase"&&fetchCamera!=="shasta"){
+        dogCameraAnchor=null;
+        canvas.dataset.shastaFollowMode="off";
       }
       if(fetchCamera!=="off"){
         targetCamera.y=Math.max(targetCamera.y,
@@ -3537,6 +4397,41 @@ export function createWorld(
         canvas.dataset.discGolfIntro=pose.stage;
       }else{
         canvas.dataset.discGolfIntro="off";
+      }
+      // Aiming is the only camera state requiring a persistent unobstructed
+      // player silhouette. Never interfere with the disc-follow, Shasta POV,
+      // mountain jumps, underwater camera or authored cave cinematics.
+      const smartDiscCamera=discGolf.phase==="ready"||
+        discGolf.phase==="landed"||discGolf.phase==="water";
+      if(smartDiscCamera&&!discGolf.presentationPending&&
+        !showingDiscGolfIntro&&aquatic==="land"){
+        const focus={x:player.x,y:playerY+1.55,z:player.z};
+        const old=lastDiscCameraSolve;
+        const needed=!old||old.desired.distanceTo(targetCamera)>.30||
+          Math.hypot(old.focus.x-focus.x,old.focus.y-focus.y,
+            old.focus.z-focus.z)>.30;
+        if(needed){
+          const result=cameraVisibility.resolve(
+            {x:targetCamera.x,y:targetCamera.y,z:targetCamera.z},
+            focus,(x,z)=>worldFloorHeight(x,z),
+            old?.position);
+          lastDiscCameraSolve={
+            desired:targetCamera.clone(),focus:new THREE.Vector3(focus.x,focus.y,focus.z),
+            position:new THREE.Vector3(result.point.x,result.point.y,result.point.z),
+            clear:result.clear,adjusted:result.adjusted,blocking:result.blocking,
+          };
+        }
+        if(lastDiscCameraSolve){
+          targetCamera.copy(lastDiscCameraSolve.position);
+          canvas.dataset.discGolfCameraAdjusted=String(lastDiscCameraSolve.adjusted);
+          canvas.dataset.discGolfCameraClear=String(lastDiscCameraSolve.clear);
+          canvas.dataset.discGolfCameraBlockers=String(lastDiscCameraSolve.blocking);
+        }
+      }else{
+        lastDiscCameraSolve=null;
+        canvas.dataset.discGolfCameraAdjusted="false";
+        canvas.dataset.discGolfCameraClear="true";
+        canvas.dataset.discGolfCameraBlockers="0";
       }
       if (cavernFraming) {
         const cameraFloor = arcadeCaveFloorHeight({x:targetCamera.x,z:targetCamera.z});
@@ -3837,21 +4732,33 @@ export function createWorld(
           : coastlineX(player.z) + 2.6,
       z: THREE.MathUtils.clamp(player.z, WORLD_BOUNDS.minZ + 4, WORLD_BOUNDS.maxZ - 4),
     };
-    const dogCaveProgress = THREE.MathUtils.clamp(
-      (player.z - arcade.z) / ARCADE_CAVE.tunnelDepth,
-      0,
-      1,
-    );
+    // The game's carved chamber sits beneath an alpine region. Geometry,
+    // not whichever open-air region marker is closest, owns cave behavior.
     const dogWaitsAtCaveEntrance =
-      aquatic === "land" &&
-      nearestRegion(player) === "cavern" &&
-      dogCaveProgress > 0.46 &&
-      caveLayer === "arcade" && arcadeInside(player);
+      shastaWaitsAtArcadeEntrance(player,caveLayer,aquatic);
+    // Queue the Ski celebration until actual alpine snow is reached.
+    // Never play while the disc is being fetched or another mode is active.
+    const snowAllowed=state.entered&&!state.paused&&state.activity==="ski"&&
+      aquatic==="land"&&discGolf.phase==="off"&&!jetSki&&!jetChoosing&&
+      caveLayer==="surface";
+    const snowHere=terrainHeight(player.x,player.z)>10&&
+      biomeAt(player).weights.alpine>.28;
+    // Event choreography uses real elapsed wall-clock time, while physics
+    // displacement/gait use the bounded simulation dt. Low-FPS software
+    // renderers must not stretch an eight-second celebration into a minute.
+    const snowNow=now*.001;
+    shastaSnow=stepShastaSnowPlay(shastaSnow,snowNow,snowHere,snowAllowed);
+    const snowPose=shastaSnowPose(shastaSnow,snowNow);
     const dogTarget = state.entered
-      ? aquatic !== "land" || isWater(player)
+      ? aquatic !== "land" || discGolfSurfaceIsWater(player)
         ? shoreWait
         : dogWaitsAtCaveEntrance
           ? { x: arcade.x - 2.0, z: arcade.z - 1.65 }
+          : shastaSnow.stage==="zoom"?
+            {x:player.x+Math.cos(snowPose.circle)*3.2,
+             z:player.z+Math.sin(snowPose.circle)*3.2}
+          : (shastaSnow.stage==="roll"||shastaSnow.stage==="shake")?
+            dog
           : discGolf.phase!=="off"&&
             (discFetch.phase==="flight"||discFetch.phase==="landed")?
             dog
@@ -3863,6 +4770,15 @@ export function createWorld(
               : { x: player.x - travel.heading.x * 2.2 + travel.heading.z * 1.2, z: player.z - travel.heading.z * 2.2 - travel.heading.x * 1.2 }
       : { x: 4 + Math.sin(elapsed * 0.13) * 2, z: 12 };
     canvas.dataset.dogFetchStage=discFetch.phase;
+    if(snowStagesSeen.at(-1)!==shastaSnow.stage){
+      snowStagesSeen.push(shastaSnow.stage);
+      if(snowStagesSeen.length>12)snowStagesSeen.shift();
+    }
+    snowMaxRoll=Math.max(snowMaxRoll,Math.abs(snowPose.roll));
+    canvas.dataset.dogSnowStage=shastaSnow.stage;
+    canvas.dataset.dogSnowHistory=snowStagesSeen.join(",");
+    canvas.dataset.dogSnowMaxRoll=snowMaxRoll.toFixed(3);
+    canvas.dataset.dogSnowQueued=String(shastaSnow.queued);
     canvas.dataset.dogCuriosity =
       aquatic !== "land"
         ? "shore"
@@ -3873,6 +4789,17 @@ export function createWorld(
       !dogWaitsAtCaveEntrance || distance(dog, arcadeWall) > 6.5,
     );
 
+    // Cull the static collision field locally instead of scanning the whole
+    // island on every step. A generous 10-unit margin covers body movement,
+    // near-field trunk routing and the next bounded step.
+    if(!dogObstacleAnchor||distance(dog,dogObstacleAnchor)>3.2){
+      dogObstacleAnchor={...dog};
+      dogLocalObstacles=obstacles.filter(o=>
+        Math.hypot(o.x-dog.x,o.z-dog.z)<10+o.radius);
+      dogObstacleRefreshes++;
+    }
+    canvas.dataset.dogObstacleRefreshes=String(dogObstacleRefreshes);
+    canvas.dataset.dogNearbyObstacleCount=String(dogLocalObstacles.length);
     // Smooth the target itself, then steer velocity toward it with finite
     // acceleration/braking. This removes the start/stop jerk from direct pursuit.
     const dogMotionDt = Math.min(rawDelta, 0.1);
@@ -3883,23 +4810,38 @@ export function createWorld(
       dogVelocity={x:0,z:0};
       dogSmoothedTarget={...dog};
     }
-    const dogSteeringTarget = shastaDetour(dog,dogTarget,obstacles,1);
-    dogSmoothedTarget = smoothPoint(dogSmoothedTarget, isWater(dogSteeringTarget) ? dogTarget : dogSteeringTarget, dogMotionDt);
-    dogVelocity = steerShastaVelocity(
-      dogVelocity,
-      dog,
-      dogSmoothedTarget,
-      discFetch.phase==="chase" ? 14 :
-        dogChase.mode === "return" ? Math.max(travel.speed, 6) : travel.speed,
-      dogMotionDt,
-    );
+    const activelyFetching=discGolf.phase!=="off"&&
+      discFetch.phase==="chase"&&discFetch.target!==null;
+    if(activelyFetching&&discFetch.target){
+      // A husky runs directly toward the disc, retaining one obstacle
+      // waypoint until passed. Recomputing every frame caused lateral
+      // steering oscillation and repeatedly scanned every island trunk.
+      fetchRunRoute=stepFetchRunRoute(fetchRunRoute,dog,
+        discFetch.target,dogLocalObstacles,fetchNow);
+      const waypoint=fetchRunRoute.waypoint??discFetch.target;
+      dogVelocity=steerFetchRun(dogVelocity,dog,waypoint,
+        discFetch.target,dogMotionDt);
+      canvas.dataset.dogFetchRouteChecks=String(fetchRunRoute.decisions);
+      dogSmoothedTarget={...waypoint};
+    }else{
+      if(fetchRunRoute.goal!==null)fetchRunRoute=idleFetchRunRoute();
+      const dogSteeringTarget=shastaDetour(dog,dogTarget,dogLocalObstacles,1);
+      dogSmoothedTarget=smoothPoint(dogSmoothedTarget,
+        discGolfSurfaceIsWater(dogSteeringTarget)?dogTarget:dogSteeringTarget,dogMotionDt);
+      dogVelocity=steerShastaVelocity(dogVelocity,dog,
+        dogSmoothedTarget,
+        shastaSnow.stage==="zoom"?9.5:
+        shastaSnow.stage==="roll"||shastaSnow.stage==="shake"?0:
+        dogChase.mode==="return"?Math.max(travel.speed,6):travel.speed,
+        dogMotionDt);
+    }
     const dogBefore = { ...dog };
     const requestedDogStep = {
       x: dog.x + dogVelocity.x * dogMotionDt,
       z: dog.z + dogVelocity.z * dogMotionDt,
     };
-    const candidate = constrainMove(dog, requestedDogStep, obstacles);
-    if (!isWater(candidate)) {
+    const candidate = constrainMove(dog, requestedDogStep, dogLocalObstacles);
+    if (!discGolfSurfaceIsWater(candidate)) {
       dog = candidate;
       const requestedDistance = distance(dogBefore, requestedDogStep);
       const actualDistance = distance(dogBefore, dog);
@@ -3928,11 +4870,11 @@ export function createWorld(
 
     const velocitySpeed = Math.hypot(dogVelocity.x, dogVelocity.z);
     const desiredDogYaw =
-      velocitySpeed > 0.08
+      velocitySpeed > 0.8
         ? Math.atan2(dogVelocity.x, dogVelocity.z)
         : dogYaw;
     const previousDogYaw = dogYaw;
-    dogYaw = smoothAngle(dogYaw, desiredDogYaw, dt);
+    dogYaw = smoothAngle(dogYaw, desiredDogYaw, dogMotionDt);
     const appliedDogYawStep = Math.abs(
       Math.atan2(
         Math.sin(dogYaw - previousDogYaw),
@@ -3942,30 +4884,57 @@ export function createWorld(
     dogMaxYawStep = Math.max(dogMaxYawStep, appliedDogYawStep);
 
     const dogHeading = { x: Math.sin(dogYaw), z: Math.cos(dogYaw) };
-    const dogContactSample = terrainContact(dog, dogHeading, 0.58, 0.22);
-    const poseAlpha = smoothingAlpha(dt, 8);
-    dogPitch += (dogContactSample.pitch - dogPitch) * poseAlpha;
-    dogRoll += (dogContactSample.roll - dogRoll) * poseAlpha;
+    // Fetch running keeps the torso level. It is the *feet*, not the
+    // shoulders, that accommodate fine terrain bumps. Skip repeated slope
+    // probes while chasing to avoid camera-visible high-frequency twitch.
+    const poseAlpha=smoothingAlpha(dogMotionDt,4.0);
+    if(activelyFetching){
+      dogPitch*=1-poseAlpha;
+      dogRoll*=1-poseAlpha;
+    }else{
+      const contact=terrainContact(dog,dogHeading,.58,.22);
+      dogPitch+=(contact.pitch-dogPitch)*poseAlpha;
+      dogRoll+=(contact.roll-dogRoll)*poseAlpha;
+    }
 
-    dogGaitPhase += dogAnimSpeed * dogMotionDt * 4.35;
+    // Use distance TRAVELLED: collisions or frame stalls never create
+    // high-speed stepping in place.
+    dogGaitPhase=advanceShastaStride(dogGaitPhase,dogStep,dogAnimSpeed);
     const targetMoveBlend = gaitBlendForSpeed(dogAnimSpeed);
     dogMoveBlend +=
       (targetMoveBlend - dogMoveBlend) * smoothingAlpha(dogMotionDt, 10.5);
     dogMaxMoveBlend = Math.max(dogMaxMoveBlend, dogMoveBlend);
 
-    const targetDogY = terrainHeight(dog.x, dog.z);
+    const targetDogY = discGolfSurfaceHeight(dog);
     dogGroundY +=
-      (targetDogY - dogGroundY) * smoothingAlpha(dogMotionDt, 10);
-    const dogBob = Math.sin(dogGaitPhase * 2) * 0.012 * dogMoveBlend;
-    const dogRenderY = dogGroundY + dogBob;
+      (targetDogY - dogGroundY) * smoothingAlpha(dogMotionDt, 6.5);
+    // Use a low-amplitude diagonal trot on the fetch, avoiding the
+    // very rapid walk->trot->canter pose changes seen in the screenshots.
+    const dogGait=shastaGaitPose(
+      activelyFetching?Math.min(7.4,dogAnimSpeed):dogAnimSpeed,
+      dogGaitPhase,dogMoveBlend);
+    const dogBob=activelyFetching?0:dogGait.bodyBob;
+    const dogRenderY=dogGroundY+dogBob;
     dogMaxYStep = Math.max(dogMaxYStep, Math.abs(dogRenderY - lastDogRenderY));
     lastDogRenderY = dogRenderY;
     shasta.position.set(dog.x, dogRenderY, dog.z);
     shasta.rotation.set(
-      dogPitch+(discFetch.phase==="found"?.11:0),
-      dogYaw,
-      dogRoll + Math.sin(dogGaitPhase) * 0.012 * dogMoveBlend,
+      dogPitch+(activelyFetching?0:dogGait.bodyPitch)+
+        (discFetch.phase==="found"?.02:0),
+      dogYaw+(shastaSnow.stage==="shake"?snowPose.headTilt:0),
+      dogRoll+(activelyFetching?0:
+        Math.sin(dogGaitPhase)*.008*dogMoveBlend),
     );
+    // Mass-centered full-body roll with gradually lowered back-on-snow pose.
+    shastaPose.rotation.z=snowPose.roll;
+    shastaPose.rotation.x=snowPose.crouch*.33;
+    shastaPose.position.y=.79-.37*Math.sin(snowPose.roll*.5)**2-
+      snowPose.crouch*.19;
+    canvas.dataset.dogGait=dogGait.gait;
+    canvas.dataset.dogFootLiftMax=Math.max(
+      ...dogGait.feet.map(p=>p.y-.055)).toFixed(3);
+    canvas.dataset.dogBodyBob=dogBob.toFixed(4);
+    canvas.dataset.dogSnowRoll=snowPose.roll.toFixed(3);
 
     canvas.dataset.dogYaw = dogYaw.toFixed(3);
     canvas.dataset.dogY = dogRenderY.toFixed(3);
@@ -3984,64 +4953,119 @@ export function createWorld(
       aquatic === "land" ? supportHeight(player) + 0.04 : SEA_SURFACE,
       explorer.position.z,
     );
-    dogContact.position.set(dog.x, terrainHeight(dog.x, dog.z) + 0.04, dog.z);
+    dogContact.position.set(dog.x, discGolfSurfaceHeight(dog) + 0.04, dog.z);
 
-    // Articulated diagonal trot. Upper leg, lower leg and paw share the same
-    // phase chain so the foot follows the limb instead of jittering in place.
-    const upperLength = 0.4;
-    const lowerLength = 0.36;
-    const hipY = 0.76;
-    shastaLegs.forEach((leg) => {
-      const phase = dogGaitPhase + leg.phase;
-      const upperAngle =
-        Math.sin(phase) * 0.3 * dogMoveBlend;
-      const kneeBend =
-        Math.max(0, Math.cos(phase)) * 0.24 * dogMoveBlend;
-      const lowerAngle = upperAngle * 0.58 - kneeBend;
-
-      const upperPart = shastaCylinderParts[leg.upperIndex];
-      const upperCenterY =
-        hipY - Math.cos(upperAngle) * upperLength * 0.5;
-      const upperCenterZ =
-        leg.z - Math.sin(upperAngle) * upperLength * 0.5;
-      dummy.position.set(leg.x, upperCenterY, upperCenterZ);
-      dummy.scale.set(upperPart.sx, upperPart.sy, upperPart.sz);
-      dummy.rotation.set(upperAngle, 0, 0);
+    // Simple straight legs, deliberately no inverse kinematics or knee
+    // articulation. Each paw follows its own lightly filtered terrain
+    // sample while the leg connects directly to its stable body anchor.
+    // These scratch vectors are allocated once with the character mesh.
+    const limbUp=shastaLimbUp;
+    const limbDir=shastaLimbDir;
+    shastaLegs.forEach((leg,i)=>{
+      const foot=dogGait.feet[i];
+      const cosYaw=Math.cos(dogYaw),sinYaw=Math.sin(dogYaw);
+      const worldX=dog.x+leg.x*cosYaw+foot.z*sinYaw;
+      const worldZ=dog.z+foot.z*cosYaw-leg.x*sinYaw;
+      const groundDelta=THREE.MathUtils.clamp(
+        discGolfSurfaceHeight({x:worldX,z:worldZ})-dogGroundY,-.075,.075);
+      dogFootGround[i]+=(groundDelta-dogFootGround[i])*
+        smoothingAlpha(dogMotionDt,7);
+      const pose=shastaStraightLeg(
+        leg.z,foot.z,foot.y+dogFootGround[i],leg.z>0);
+      const part=shastaCylinderParts[leg.legIndex];
+      dummy.position.set(leg.x,
+        (pose.hip.y+pose.paw.y)*.5,(pose.hip.z+pose.paw.z)*.5);
+      limbDir.set(0,pose.hip.y-pose.paw.y,
+        pose.hip.z-pose.paw.z).normalize();
+      dummy.quaternion.setFromUnitVectors(limbUp,limbDir);
+      dummy.scale.set(part.sx,pose.length,part.sz);
       dummy.updateMatrix();
-      shastaCylinderMesh.setMatrixAt(leg.upperIndex, dummy.matrix);
+      shastaCylinderMesh.setMatrixAt(leg.legIndex,dummy.matrix);
 
-      const kneeY = hipY - Math.cos(upperAngle) * upperLength;
-      const kneeZ = leg.z - Math.sin(upperAngle) * upperLength;
-      const lowerPart = shastaCylinderParts[leg.lowerIndex];
-      const lowerCenterY =
-        kneeY - Math.cos(lowerAngle) * lowerLength * 0.5;
-      const lowerCenterZ =
-        kneeZ - Math.sin(lowerAngle) * lowerLength * 0.5;
-      dummy.position.set(leg.x, lowerCenterY, lowerCenterZ);
-      dummy.scale.set(lowerPart.sx, lowerPart.sy, lowerPart.sz);
-      dummy.rotation.set(lowerAngle, 0, 0);
+      // The paw is one small oval, not three cartoon toes. The pitch is
+      // nearly flat with only a little slope compensation during stance.
+      const pawPart=shastaRockParts[leg.pawIndex];
+      const front=discGolfSurfaceHeight({x:worldX+sinYaw*.12,z:worldZ+cosYaw*.12});
+      const back=discGolfSurfaceHeight({x:worldX-sinYaw*.12,z:worldZ-cosYaw*.12});
+      // During fetch keep all paws nearly level rather than feeding
+      // per-step micro-slope noise into tiny geometry rotations.
+      const slopePitch=activelyFetching?0:foot.stance?
+        THREE.MathUtils.clamp(Math.atan2(front-back,.24),-.045,.045):-.025;
+      dummy.position.set(leg.x,pose.paw.y+.012,pose.paw.z+.018);
+      dummy.rotation.set(slopePitch,0,0);
+      dummy.scale.set(pawPart.sx,pawPart.sy,pawPart.sz);
       dummy.updateMatrix();
-      shastaCylinderMesh.setMatrixAt(leg.lowerIndex, dummy.matrix);
-
-      const ankleY = kneeY - Math.cos(lowerAngle) * lowerLength;
-      const ankleZ = kneeZ - Math.sin(lowerAngle) * lowerLength;
-      const pawPart = shastaRockParts[leg.pawIndex];
-      dummy.position.set(leg.x, Math.max(0.055, ankleY + 0.04), ankleZ + 0.035);
-      dummy.scale.set(pawPart.sx, pawPart.sy, pawPart.sz);
-      dummy.rotation.set(lowerAngle * 0.18, 0, 0);
-      dummy.updateMatrix();
-      shastaRockMesh.setMatrixAt(leg.pawIndex, dummy.matrix);
+      shastaRockMesh.setMatrixAt(leg.pawIndex,dummy.matrix);
     });
+    canvas.dataset.shastaLegRig="straight-four";
+    canvas.dataset.shastaLegCount=String(shastaLegs.length);
+    canvas.dataset.shastaPawWidth=p.paw.x.toFixed(3);
+    canvas.dataset.shastaLegWidth=shastaCylinderParts[0].sx.toFixed(3);
+    // A tiny articulated head/ear rig: curious side-glances while following,
+    // nose-down sniff at the disc, alert ears for snow play. Keep the same
+    // single instanced mesh draw calls as the original character.
+    const headYaw=Math.sin(elapsed*.76)*.06+
+      (shastaSnow.stage==="perk"?.07:0);
+    const headPitch=discFetch.phase==="found"?.17:
+      shastaSnow.stage==="roll"?.07:dogAnimSpeed<.4?.035:-.025;
+    shastaHeadQuat.setFromEuler(new THREE.Euler(headPitch,headYaw,0));
+    for(const index of shastaHeadIndices){
+      const part=shastaRockParts[index];
+      shastaHeadPos.set(part.x,part.y,part.z)
+        .sub(shastaHeadPivot).applyQuaternion(shastaHeadQuat)
+        .add(shastaHeadPivot);
+      dummy.position.copy(shastaHeadPos);
+      dummy.quaternion.copy(shastaHeadQuat);
+      const isMouth=index===shastaMouthIndex;
+      const isTongue=index===shastaTongueIndex;
+      const pant=dogAnimSpeed>3||shastaSnow.stage!=="idle"||
+        discFetch.phase==="found";
+      dummy.scale.set(part.sx,
+        part.sy*(isMouth?(pant?1.7:.6):isTongue?(pant?1.8:.25):1),
+        part.sz);
+      dummy.updateMatrix();
+      shastaRockMesh.setMatrixAt(index,dummy.matrix);
+    }
+    for(let i=0;i<shastaEarParts.length;i++){
+      const ear=shastaEarParts[i];
+      shastaHeadPos.set(ear.x,ear.y,ear.z)
+        .sub(shastaHeadPivot).applyQuaternion(shastaHeadQuat)
+        .add(shastaHeadPivot);
+      dummy.position.copy(shastaHeadPos);
+      shastaEarQuat.copy(shastaHeadQuat);
+      if(ear.q)shastaEarQuat.multiply(ear.q);
+      dummy.quaternion.copy(shastaEarQuat);
+      dummy.scale.set(ear.sx,ear.sy,ear.sz);
+      dummy.updateMatrix();
+      shastaEarMesh.setMatrixAt(i,dummy.matrix);
+    }
+    shastaEarMesh.instanceMatrix.needsUpdate=true;
     shastaCylinderMesh.instanceMatrix.needsUpdate = true;
     shastaRockMesh.instanceMatrix.needsUpdate = true;
-    shastaTail.rotation.z =
-      SHASTA_CHARACTER.tail.restAngleZ +
-      Math.sin(elapsed * 1.55) * 0.022 +
-      Math.sin(dogGaitPhase) * 0.018 * dogMoveBlend;
-    shastaTail.rotation.y =
-      SHASTA_CHARACTER.tail.restAngleY +
-      Math.sin(elapsed*(discFetch.phase==="found"?14:0.85)+0.4)*
-        (discFetch.phase==="found"?.26:.03);
+    const wagEnergy=discFetch.phase==="found"?.8:
+      snowPose.wag>0?snowPose.wag:dogMoveBlend*.25;
+    shastaTail.rotation.z=SHASTA_CHARACTER.tail.restAngleZ+
+      Math.sin(elapsed*2.6)*.027+Math.sin(elapsed*8.3)*.09*wagEnergy;
+    shastaTail.rotation.y=SHASTA_CHARACTER.tail.restAngleY+
+      Math.sin(elapsed*(wagEnergy>1?10:4.3)+.4)*(.035+wagEnergy*.17);
+    const inSnowPlay=shastaSnow.stage==="zoom"||
+      shastaSnow.stage==="roll"||shastaSnow.stage==="shake";
+    snowPuffs.visible=inSnowPlay;
+    if(inSnowPlay){
+      const puffCycle=(snowNow-shastaSnow.started)*3.1;
+      for(let i=0;i<12;i++){
+        const angle=i*2.399+puffCycle*.19;
+        const r=.23+(i%4)*.22;
+        const px=dog.x+Math.cos(angle)*r,pz=dog.z+Math.sin(angle)*r;
+        const age=((puffCycle*.75+i*.381)%1+1)%1;
+        dummy.position.set(px,terrainHeight(px,pz)+.08+age*.21,pz);
+        dummy.rotation.set(0,angle,0);
+        const size=(.045+age*.11)*(shastaSnow.stage==="zoom"?1:.65);
+        dummy.scale.set(size,size*.5,size);
+        dummy.updateMatrix();snowPuffs.setMatrixAt(i,dummy.matrix);
+      }
+      snowPuffs.instanceMatrix.needsUpdate=true;
+    }
     if(showingDiscGolfIntro || snapDiscCamera){
       // A direct time-derived pose starts on the basket instead of slowly
       // drifting there from a camera that previously followed the player.
@@ -4056,6 +5080,19 @@ export function createWorld(
       camera.position.lerp(targetCamera, 1 - Math.exp(-dt * cinematicRate));
       look.lerp(targetLook, 1 - Math.exp(-dt * (cinematicRate+.4)));
     }
+    // The *interpolated* lens can cross foliage even if both ends of
+    // the blend are clear. Reject that intermediate pose and snap onto the
+    // validated shot so a second throw is never framed from inside a leaf.
+    if(lastDiscCameraSolve&&lastDiscCameraSolve.clear){
+      if(!cameraVisibility.clear(camera.position,lastDiscCameraSolve.focus)){
+        camera.position.copy(lastDiscCameraSolve.position);
+        look.copy(targetLook);
+      }
+      canvas.dataset.discGolfRenderedCameraClear=String(
+        cameraVisibility.clear(camera.position,lastDiscCameraSolve.focus));
+      canvas.dataset.discGolfRenderedCameraDistance=
+        camera.position.distanceTo(lastDiscCameraSolve.position).toFixed(2);
+    }else canvas.dataset.discGolfRenderedCameraClear="true";
     if (
       (caveLayer === "arcade" && arcadeInside(player)) ||
       (caveLayer === "paper" && paperCaveInside(player))
@@ -4069,6 +5106,16 @@ export function createWorld(
       camera.position.y=THREE.MathUtils.clamp(camera.position.y,playerY+1.5,playerY+3);
     }
     camera.lookAt(look);
+    // Projection diagnostics are read-only: the raycast still decides whether
+    // a real click has struck an unoccluded target in the current camera.
+    if(state.entered&&aquatic==="land"&&isBoostActivity(state.activity)&&
+      !jetSki&&!jetChoosing&&discGolf.phase==="off"&&bigAir.phase!=="flying"){
+      camera.updateMatrixWorld();
+      const aimed=rideVisual.visibleAimTarget(state.activity,player,
+        travel.speed,elapsed,rideBoost,camera);
+      canvas.dataset.rideBoostAim=aimed?
+        [aimed.x.toFixed(3),aimed.y.toFixed(3),aimed.id].join(","):"";
+    }else canvas.dataset.rideBoostAim="";
 
     // Underwater atmosphere and biome work are keyed by the water zone. The cold
     // kelp shelf and warm lagoon never render/animate together.
@@ -4352,6 +5399,7 @@ export function createWorld(
       lastPreviewTick=discGolf.clock;
     }
     flyingBirds.update(bigAir,elapsed,reducedFlightMotion);
+    canvas.dataset.bigAirBirdsFollowing=String(flyingBirds.active);
     habitats.update(player,elapsed);
     if(aquatic === "land" && scene.fog instanceof THREE.Fog) {
       const w = biomeAt({x:camera.position.x,z:camera.position.z}).weights;
@@ -4423,6 +5471,7 @@ export function createWorld(
           callbacks.onBigAir(bigAir);
         }
         clearInput();
+        resetRideBoost();
         climb = null;
         grind = null;
         airHeight = verticalSpeed = 0;
@@ -4435,12 +5484,12 @@ export function createWorld(
         discGolf=idleDiscGolf();callbacks.onDiscGolf(discGolf);
       }
       if(next.discGolfStartSerial!==lastDiscStart &&
-         next.entered&&!next.paused){
+         next.entered&&!next.paused&&!occupiedByOtherMode("disc")){
         // Consume the start request only after the world can actually start.
         // Previously an early/paused request was discarded forever.
         lastDiscStart=next.discGolfStartSerial;
           const hole=DISC_GOLF_HOLES[next.discGolfHoleIndex]??DISC_GOLF_HOLES[0];
-          discGolf=startDiscGolf(next.discGolfHoleIndex,p=>terrainHeight(p.x,p.z),elapsed);
+          discGolf=startDiscGolf(next.discGolfHoleIndex,discGolfSurfaceHeight,elapsed);
           canvas.dataset.discGolfLastShot="pending";
           canvas.dataset.discGolfHandoff="none";
           canvas.dataset.discGolfHandoffReason="none";
@@ -4454,12 +5503,18 @@ export function createWorld(
           explorer.rotation.y=Math.atan2(faceX,faceZ);
           yaw=Math.atan2(-faceX,-faceZ);
           const reducedMotion=window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-          discGolfIntro={startedAt:elapsed,reducedMotion};
-          snapDiscCamera=false;
+          // Hole 2 starts *on the open pier*, facing the fairway. Skip the
+          // basket flyover that previously placed its opening shot in trees.
+          const pierTee=discGolf.holeIndex===1;
+          discGolfIntro=pierTee?null:{startedAt:elapsed,reducedMotion};
+          snapDiscCamera=pierTee;
           const teePose=discGolfThrowCameraPose(player,basket,playerY);
-          const introStart=discGolfIntroPose(player,basket,
-            teePose.camera,teePose.look,
-            0,p=>worldFloorHeight(p.x,p.z),reducedMotion);
+          const introStart=pierTee?
+            {camera:teePose.camera,look:teePose.look}:
+            discGolfIntroPose(player,basket,teePose.camera,teePose.look,
+              0,p=>worldFloorHeight(p.x,p.z),reducedMotion);
+          canvas.dataset.discGolfTeeSite=pierTee?"pier":"land";
+          canvas.dataset.discGolfTeeHeight=discGolfSurfaceHeight(player).toFixed(3);
           camera.position.set(introStart.camera.x,introStart.camera.y,introStart.camera.z);
           look.set(introStart.look.x,introStart.look.y,introStart.look.z);
           camera.lookAt(look);
@@ -4472,7 +5527,8 @@ export function createWorld(
           }
           dog={x:player.x+1.8,z:player.z-1.8};
           dogVelocity={x:0,z:0};dogSmoothedTarget={...dog};
-          dogGroundY=terrainHeight(dog.x,dog.z);
+          dogGroundY=discGolfSurfaceHeight(dog);
+          dogFootGround.fill(0);dogCameraAnchor=null;
           callbacks.onDiscGolf(discGolf);
       }
       if(next.discGolfShotSerial!==lastDiscShot){
@@ -4485,10 +5541,10 @@ export function createWorld(
           }else{
             if(discGolfIntro){discGolfIntro=null;snapDiscCamera=true;}
             const beforeShot=discGolf.phase;
-            discGolf=discGolfThrow(discGolf,next.discGolfShot,p=>terrainHeight(p.x,p.z));
+            discGolf=discGolfThrow(discGolf,next.discGolfShot,discGolfSurfaceHeight);
             const accepted=discGolf.phase==="flying"&&beforeShot!=="flying";
             if(accepted){
-              discFetch=startDiscGolfFetch(elapsed);
+              discFetch=startDiscGolfFetch(performance.now()*.001);
               discGolf={...discGolf,presentationPending:true};
               canvas.dataset.discGolfHandoff="waiting";
             }
@@ -4525,11 +5581,17 @@ export function createWorld(
         lastDogSpeed = 0;
         lastDogRenderY = shasta.position.y;
       }
+      if(changedActivity){
+        snowStagesSeen=[];snowMaxRoll=0;
+        shastaSnow=next.activity==="ski"?
+          queueShastaSnowPlay(idleShastaSnowPlay()):
+          idleShastaSnowPlay();
+      }
       if (next.entered && !next.paused && (changedActivity || requestedAction || requestedWaterAction))
         canvas.focus({ preventScroll: true });
       if(next.bigAirSerial!==lastBigAirSerial) {
         lastBigAirSerial=next.bigAirSerial;
-        if(next.entered&&!next.paused){
+        if(next.entered&&!next.paused&&!occupiedByOtherMode("ski")){
           player={...BIG_AIR.start};
           travel={point:player,heading:{...BIG_AIR.heading},speed:0};
           yaw=Math.atan2(-BIG_AIR.heading.x,-BIG_AIR.heading.z);
@@ -4543,15 +5605,17 @@ export function createWorld(
           dog={x:player.x+2,z:player.z-2};
           dogVelocity={x:0,z:0};
           dogSmoothedTarget={...dog};
-          dogGroundY=terrainHeight(dog.x,dog.z);
+          dogGroundY=discGolfSurfaceHeight(dog);
+          dogFootGround.fill(0);dogCameraAnchor=null;
           bigAir=armBigAir();
+          resetRideBoost();
           callbacks.onBigAir(bigAir);
           canvas.focus({preventScroll:true});
         }
       }
       if(next.challengeSerial!==lastChallengeSerial) {
         lastChallengeSerial=next.challengeSerial;
-        if(next.entered && !next.paused) {
+        if(next.entered && !next.paused && !occupiedByOtherMode("trial")) {
           const start=JOSHUA_GATES[0];
           // Explicit challenge selection moves the player to a safe start
           // approach, never to an arbitrary point mid-air or inside a gap.
@@ -4569,8 +5633,10 @@ export function createWorld(
           dog={x:player.x+2,z:player.z+2};
           dogVelocity={x:0,z:0};
           dogSmoothedTarget={...dog};
-          dogGroundY=terrainHeight(dog.x,dog.z);
+          dogGroundY=discGolfSurfaceHeight(dog);
+          dogFootGround.fill(0);dogCameraAnchor=null;
           trial=armJoshuaTrial();
+          resetRideBoost();
           callbacks.onChallenge(trial);
           canvas.focus({preventScroll:true});
         }
@@ -4601,8 +5667,12 @@ export function createWorld(
           trial=abortJoshuaTrial(trial,"Region transfer");
           callbacks.onChallenge(trial);
         }
+        resetRideBoost();
         lastSerial = next.command.serial;
         const r = REGIONS.find((r) => r.id === next.command!.region)!;
+        jetSki=null;jetRivals=[];jetHud.style.display="none";
+        callbacks.onJetSkiMode(false);
+        if(jetChoosing){jetChoosing=false;jetChooser.hidden=true;}
         player =
           (next.command.activity && activityLanding(next.command.activity)) ||
           regionLanding(r.id);
@@ -4618,6 +5688,7 @@ export function createWorld(
         dogVelocity = { x: 0, z: 0 };
         dogSmoothedTarget = { ...dog };
         dogGroundY = terrainHeight(dog.x, dog.z);
+        dogFootGround.fill(0);dogCameraAnchor=null;
         dogPitch = 0;
         dogRoll = 0;
         dogMoveBlend = 0;
@@ -4661,12 +5732,22 @@ export function createWorld(
       }
       if (state.paused) {
         clearInput();
+        resetRideBoost();
         cancelAnimationFrame(raf);
         raf = 0;
       } else schedule();
     },
     dispose() {
       discGolfObjects.dispose();
+      jetskiCoast.dispose();
+      rideVisual.dispose();rideHud.remove();rideReticle.remove();rideAnnounce.remove();
+      jetHud.remove();jetAnnounce.remove();jetTouch.remove();jetNotice.remove();jetChooser.remove();
+      jetskiVisual.root.traverse(object=>{
+        if(object instanceof THREE.Mesh){object.geometry.dispose();
+          const mat=object.material;
+          if(Array.isArray(mat))mat.forEach(m=>m.dispose());else mat.dispose();}
+      });
+      scene.remove(jetskiVisual.root);
       flyingBirds.dispose();
       technicalFeatures.dispose();
       habitats.dispose();
@@ -4684,7 +5765,7 @@ export function createWorld(
       window.removeEventListener("keydown", onKey);
       canvas.removeEventListener("blur", clearInput);
       window.removeEventListener("keyup", keyUp);
-      window.removeEventListener("blur", clearInput);
+      window.removeEventListener("blur", clearHeldJetControls);
       document.removeEventListener("visibilitychange", visibility);
       canvas.removeEventListener("webglcontextlost", contextLost);
       scene.traverse((o) => {
