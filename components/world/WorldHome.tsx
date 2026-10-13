@@ -104,17 +104,22 @@ export function WorldHome({ content }: { content: WorldContent }) {
     try { const v=Number(window.localStorage.getItem("sid-world:skim-heat-v1")); return v>0&&Number.isFinite(v)?v:null; }
     catch {return null;}
   });
-  const onSkim=useCallback((heat:SkimHeat)=>setSkim(heat),[]);
+  const onSkim=useCallback((heat:SkimHeat)=>{
+    setSkim(heat);
+    if(heat.phase==="finished" && heat.score>0){
+      setSkimBest(current=>current===null?heat.score:Math.max(current,heat.score));
+      try{
+        const stored=Number(window.localStorage.getItem("sid-world:skim-heat-v1"))||0;
+        if(heat.score>stored)
+          window.localStorage.setItem("sid-world:skim-heat-v1",String(heat.score));
+      }catch{/* private browsing or storage unavailable */}
+    }
+  },[setSkim,setSkimBest]);
   const issueSkim=(action:typeof skimCommand,board=0)=>{
     if(action==="pickup")setActivity("run");
     setSkimCommand(action);setSkimBoardIndex(board);setSkimCommandSerial(n=>n+1);
     requestAnimationFrame(()=>worldRoot.current?.querySelector("canvas")?.focus({preventScroll:true}));
   };
-  useEffect(()=>{
-    if(skim.phase!=="finished"||skim.score<1||(skimBest!==null&&skim.score<=skimBest))return;
-    setSkimBest(skim.score);
-    try{window.localStorage.setItem("sid-world:skim-heat-v1",String(skim.score));}catch{/* storage optional */}
-  },[skim.phase,skim.score,skimBest]);
   const [actionSerial, setActionSerial] = useState(0);
   const [challengeSerial,setChallengeSerial]=useState(0);
   const [bigAirSerial,setBigAirSerial]=useState(0);
@@ -296,12 +301,12 @@ export function WorldHome({ content }: { content: WorldContent }) {
         ? document.activeElement
         : null;
     setPanel(value);
-  }, []);
+  }, [setPanel]);
   const close = useCallback(() => {
     setPanel(null);
     // Return keyboard users to the action that opened the dialog.
     requestAnimationFrame(() => trigger.current?.focus());
-  }, []);
+  }, [setPanel]);
   useEffect(() => {
     const motion = window.matchMedia("(prefers-reduced-motion: reduce)");
     const small = window.matchMedia("(max-width: 760px), (pointer: coarse)");
