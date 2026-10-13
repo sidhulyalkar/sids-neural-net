@@ -30,7 +30,6 @@ export type SkimHeat = {
   recovery: number;
 };
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
-const mix = (a: number, b: number, t: number) => a + (b - a) * t;
 const smooth = (x: number) => { const t = clamp(x, 0, 1); return t * t * (3 - 2 * t); };
 const normalize = (v: SkimPoint): SkimPoint => {
   const n = Math.hypot(v.x, v.z);
@@ -161,7 +160,7 @@ export function stepSkimHeat(
     if (air <= 0) {
       air = 0;
       const trick = s.pendingTrick;
-      if (trick) {
+      if (trick && trick !== "wrap") {
         const count = s.repeats[trick] ?? 0;
         const bonus = Math.round(TRICK_POINTS[trick] *
           (1 + wave * .6) / (1 + count * .4));
