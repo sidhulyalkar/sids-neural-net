@@ -17,6 +17,7 @@ on:
       - 'scripts/playtest-jet-ski.mjs'
       - 'scripts/playtest-ride-ghost.mjs'
       - 'scripts/playtest-mountain-jump.mjs'
+      - 'scripts/playtest-shasta-snow.mjs'
       - '.github/workflows/world-regression.yml'
   pull_request:
     paths:
@@ -33,6 +34,7 @@ on:
       - 'scripts/playtest-jet-ski.mjs'
       - 'scripts/playtest-ride-ghost.mjs'
       - 'scripts/playtest-mountain-jump.mjs'
+      - 'scripts/playtest-shasta-snow.mjs'
       - '.github/workflows/world-regression.yml'
   workflow_dispatch:
 
@@ -111,6 +113,9 @@ jobs:
           lib/world/biomes.ts
           lib/world/ecology.ts
           lib/world/shastaCharacter.ts
+          lib/world/shastaGait.ts
+          lib/world/shastaPersonality.ts
+          tests/world-shasta-gait-personality.test.ts
           lib/world/model.ts
           components/world/worldHabitats.ts
           components/world/worldRenderer.ts
@@ -136,6 +141,7 @@ jobs:
           node --check scripts/playtest-jet-ski.mjs
           node --check scripts/playtest-ride-ghost.mjs
           node --check scripts/playtest-mountain-jump.mjs
+          node --check scripts/playtest-shasta-snow.mjs
       - name: Run all world unit contracts
         run: node --import tsx --test tests/world-*.test.ts
       - name: Produce island occupancy evidence
