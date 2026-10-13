@@ -114,6 +114,8 @@ jobs:
           lib/world/ecology.ts
           lib/world/shastaCharacter.ts
           lib/world/shastaGait.ts
+          lib/world/shastaCamera.ts
+          tests/world-shasta-camera.test.ts
           lib/world/shastaPersonality.ts
           tests/world-shasta-gait-personality.test.ts
           lib/world/model.ts
