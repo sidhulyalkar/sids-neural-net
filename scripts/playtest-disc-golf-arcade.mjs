@@ -72,7 +72,8 @@ try {
    samples.push({
     stage:d?.dogFetchStage,gait:d?.dogGait,
     speed:Number(d?.dogSpeed),bodyBob:Number(d?.dogBodyBob),
-    pawLift:Number(d?.dogFootLiftMax)
+    pawLift:Number(d?.dogFootLiftMax),
+    followMode:d?.shastaFollowMode,followBoom:Number(d?.shastaFollowBoom)
    });
    await new Promise(resolve=>setTimeout(resolve,100));
   }
@@ -84,6 +85,8 @@ try {
  assert.ok(fetchGait.some(s=>s.speed>1),
   "Fetch must include Shasta actually travelling, not only idle posing");
  assert.ok(fetchGait.every(s=>Number.isFinite(s.pawLift)&&s.pawLift<.19));
+ assert.ok(fetchGait.some(s=>s.followMode==="third-person"&&s.followBoom>=7),
+  "The fetch camera should stay far enough behind Shasta to show his gait");
 
  // Recreate the reported Hole 1 second-shot failure after Shasta has
  // delivered the disc to the new lie. Check BOTH the requested camera and
