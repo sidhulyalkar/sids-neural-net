@@ -506,6 +506,16 @@ export function WorldHome({ content }: { content: WorldContent }) {
                     if(next===null)setDiscGolfScorecardOpen(true);
                   }}>Disc golf · {discGolfRoundSummary(discGolfRound).complete?"scorecard":
                    discGolfRoundSummary(discGolfRound).holesPlayed>0?"resume":"play"}</button>
+              {activity==="skate" && !worldGameActive && (
+                <button className={styles.trialLaunch} disabled={!ready||quiet}
+                  onClick={()=>{
+                    setCommand(previous=>({region:"grove",
+                      serial:(previous?.serial??0)+1,activity:"skate"}));
+                    requestAnimationFrame(()=>worldRoot.current?.querySelector("canvas")?.focus({preventScroll:true}));
+                  }}>
+                  Skatepark · south meadow
+                </button>
+              )}
               {activity==="ski" && bigAir.phase!=="armed" && bigAir.phase!=="flying" &&
                 trial.phase!=="armed"&&trial.phase!=="running" && (
                 <button className={styles.trialLaunch} disabled={!ready||quiet}
