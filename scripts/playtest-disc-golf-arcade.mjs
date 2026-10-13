@@ -85,6 +85,9 @@ try {
  assert.ok(fetchGait.some(s=>s.speed>1),
   "Fetch must include Shasta actually travelling, not only idle posing");
  assert.ok(fetchGait.every(s=>Number.isFinite(s.pawLift)&&s.pawLift<.19));
+ assert.equal(await canvas.getAttribute("data-shasta-joints-valid"),"true",
+  "Fetch must preserve elbow and hock directions throughout movement");
+ assert.equal(await canvas.getAttribute("data-shasta-tail-tip"),"closed-white");
  assert.ok(fetchGait.some(s=>s.followMode==="third-person"&&s.followBoom>=7),
   "The fetch camera should stay far enough behind Shasta to show his gait");
 
