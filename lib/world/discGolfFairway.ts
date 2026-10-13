@@ -8,6 +8,8 @@ import {
 } from "./model";
 import {BOULDER_HOLDS,RIDE_RAMPS,FALLEN_LOGS} from "./activities";
 import {biomeAt} from "./biomes";
+import {discGolfSurfaceHeight,discGolfSurfaceIsWater} from "./discGolfSurface";
+import {jetSkiPierHeight} from "./jetSkiPier";
 
 export type DiscGolfFairwayRisk=
  "over-water"|"steep-target"|"steep-fairway"|"landmark-clearance"|
@@ -23,14 +25,17 @@ export type DiscGolfFairwayAudit={
  maxSlope:number;teeSlope:number;basketSlope:number;waterSamples:number;
  teeCoastMargin:number;greenCoastMargin:number;
  teeFeatureClearance:number;greenFeatureClearance:number;
+ teeSupport:"pier"|"terrain";
  firstShotDistance:number;firstShotPower:number;firstShotPhase:string;
  nearbyLandmarks:string[];risks:DiscGolfFairwayRisk[];
 };
 
 export function discGolfLocalSlope(p:Point):number{
  return Math.hypot(
-  (terrainHeight(p.x+.5,p.z)-terrainHeight(p.x-.5,p.z)),
-  (terrainHeight(p.x,p.z+.5)-terrainHeight(p.x,p.z-.5)));
+  (discGolfSurfaceHeight({x:p.x+.5,z:p.z})-
+   discGolfSurfaceHeight({x:p.x-.5,z:p.z})),
+  (discGolfSurfaceHeight({x:p.x,z:p.z+.5})-
+   discGolfSurfaceHeight({x:p.x,z:p.z-.5})));
 }
 function distanceToLine(p:Point,a:Point,b:Point):number{
  const dx=b.x-a.x,dz=b.z-a.z,len=dx*dx+dz*dz;
@@ -52,8 +57,12 @@ export function discGolfFixedFeatureClearance(p:Point):number{
   ...FALLEN_LOGS.map(x=>distanceToLine(p,x.a,x.b)-x.radius),
   ...fixedTrees.map(x=>distance(p,x)-x.radius),
   ...caveObstacles().map(x=>distance(p,x)-x.radius),
-  ...REGIONS.map(x=>distance(p,x.point)-4),
-  ...MEMORY_POINTS.map(x=>distance(p,x.point)-3),
+  // Region/photo labels are semantic landmarks, not solid collision
+  // objects. On the raised pier they do not obstruct the tee circle.
+  ...(jetSkiPierHeight(p)===null?
+    REGIONS.map(x=>distance(p,x.point)-4):[]),
+  ...(jetSkiPierHeight(p)===null?
+    MEMORY_POINTS.map(x=>distance(p,x.point)-3):[]),
  ];
  // Canyon stone columns are authored outside the general tree scatter.
  for(const side of [-1,1]){
@@ -68,13 +77,13 @@ function coastMargin(p:Point){
  return Math.min(p.x-coastlineX(p.z),eastCoastlineX(p.z)-p.x);
 }
 function firstShot(holeIndex:number){
- let s=startDiscGolf(holeIndex,p=>terrainHeight(p.x,p.z),5);
+ let s=startDiscGolf(holeIndex,discGolfSurfaceHeight,5);
  const tee={...s.lie};
- const ground=(p:Point)=>terrainHeight(p.x,p.z);
- const power=recommendDiscGolfPower(s,24,0,ground,isWater,-1.4);
- s=discGolfThrow(s,{power,loft:24,aimOffset:0,accuracy:0},ground);
+ const power=recommendDiscGolfPower(s,24,0,discGolfSurfaceHeight,
+   discGolfSurfaceIsWater,-1.4);
+ s=discGolfThrow(s,{power,loft:24,aimOffset:0,accuracy:0},discGolfSurfaceHeight);
  for(let i=0;i<230&&s.phase==="flying";i++){
-  s=stepDiscGolf(s,.05,p=>terrainHeight(p.x,p.z),isWater,-1.4);
+  s=stepDiscGolf(s,.05,discGolfSurfaceHeight,discGolfSurfaceIsWater,-1.4);
  }
  return {
   distance:s.phase==="water"?0:Math.hypot(s.disc.x-tee.x,s.disc.z-tee.z),
@@ -109,16 +118,16 @@ export function auditDiscGolfFairways():DiscGolfFairwayAudit[]{
     z:gate.point.z-direction.z/len*d,
    }))];
    for(const [stageIndex,lie] of stages.entries()){
-    if(isWater(lie))continue;
-    const init={...startDiscGolf(i,p=>terrainHeight(p.x,p.z),5),
+    if(discGolfSurfaceIsWater(lie))continue;
+    const init={...startDiscGolf(i,discGolfSurfaceHeight,5),
       phase:"landed" as const,gatesCleared:index,lie,
-      disc:{...lie,y:terrainHeight(lie.x,lie.z)+.16}};
+      disc:{...lie,y:discGolfSurfaceHeight(lie)+.16}};
     const lofts=stageIndex===0?[18,26,34]:[12,20,30,40];
     const powers=stageIndex===0?[28,44,60,76,92]:[18,30,44,60,78];
     for(const loft of lofts)for(const power of powers){
      const trace=traceDiscGolfShot(init,
       {power,loft,aimOffset:0,accuracy:0},
-      p=>terrainHeight(p.x,p.z),isWater,-1.4);
+      discGolfSurfaceHeight,discGolfSurfaceIsWater,-1.4);
      if(trace.gatesCleared>index)return true;
     }
    }
@@ -131,9 +140,11 @@ export function auditDiscGolfFairways():DiscGolfFairwayAudit[]{
    const local=(step*(waypoints.length-1)/24)-j;
    const p={x:waypoints[j].x+(waypoints[j+1].x-waypoints[j].x)*local,
     z:waypoints[j].z+(waypoints[j+1].z-waypoints[j].z)*local};
-   if(isWater(p))waterSamples++;
-   const sx=terrainHeight(p.x+.5,p.z)-terrainHeight(p.x-.5,p.z);
-   const sz=terrainHeight(p.x,p.z+.5)-terrainHeight(p.x,p.z-.5);
+   if(discGolfSurfaceIsWater(p))waterSamples++;
+   const sx=discGolfSurfaceHeight({x:p.x+.5,z:p.z})-
+     discGolfSurfaceHeight({x:p.x-.5,z:p.z});
+   const sz=discGolfSurfaceHeight({x:p.x,z:p.z+.5})-
+     discGolfSurfaceHeight({x:p.x,z:p.z-.5});
    maxSlope=Math.max(maxSlope,Math.hypot(sx,sz));
   }
   const nearTarget=(p:Point)=>distance(p,hole.target)<6;
@@ -143,13 +154,14 @@ export function auditDiscGolfFairways():DiscGolfFairwayAudit[]{
   ];
   const basketSlope=discGolfLocalSlope(hole.target);
   const teeSlope=discGolfLocalSlope(hole.tee);
+  const teeSupport=jetSkiPierHeight(hole.tee)===null?"terrain" as const:"pier" as const;
   const teeCoastMargin=coastMargin(hole.tee);
   const greenCoastMargin=coastMargin(hole.target);
   const teeFeatureClearance=discGolfFixedFeatureClearance(hole.tee);
   const greenFeatureClearance=discGolfFixedFeatureClearance(hole.target);
   const opening=firstShot(i);
-  const climb=terrainHeight(hole.target.x,hole.target.z)-
-   terrainHeight(hole.tee.x,hole.tee.z);
+  const climb=discGolfSurfaceHeight(hole.target)-
+   discGolfSurfaceHeight(hole.tee);
   const risks:DiscGolfFairwayRisk[]=[];
   if(waterSamples>0)risks.push("over-water");
   if(basketSlope>2.2)risks.push("steep-target");
@@ -159,7 +171,9 @@ export function auditDiscGolfFairways():DiscGolfFairwayAudit[]{
   if(teeSlope>1.35)risks.push("steep-tee");
   if(teeFeatureClearance<2)risks.push("crowded-tee");
   if(greenFeatureClearance<2)risks.push("crowded-green");
-  if(teeCoastMargin<6)risks.push("coastal-tee");
+  // A constructed raised deck is safe as a tee despite a negative
+  // analytic island coastline margin. Do not hide the real margin value.
+  if(teeCoastMargin<6&&teeSupport!=="pier")risks.push("coastal-tee");
   if(greenCoastMargin<6)risks.push("coastal-green");
   if(opening.distance<7)risks.push("short-first-shot");
   if(opening.phase==="water")risks.push("first-shot-water");
@@ -183,6 +197,7 @@ export function auditDiscGolfFairways():DiscGolfFairwayAudit[]{
    basketSlope:Math.round(basketSlope*100)/100,
    teeCoastMargin:Math.round(teeCoastMargin*10)/10,
    greenCoastMargin:Math.round(greenCoastMargin*10)/10,
+   teeSupport,
    teeFeatureClearance:Math.round(teeFeatureClearance*10)/10,
    greenFeatureClearance:Math.round(greenFeatureClearance*10)/10,
    firstShotDistance:Math.round(opening.distance*10)/10,
