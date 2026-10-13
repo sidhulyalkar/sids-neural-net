@@ -22,8 +22,12 @@ try{
   Number(document.querySelector("canvas")?.dataset.drawCalls)>0,null,{timeout:45000});
  assert.equal(await canvas.getAttribute("data-dog-snow-stage"),"idle");
  assert.equal(await canvas.getAttribute("data-shasta-tail-tip"),"closed-white");
- assert.ok(Number(await canvas.getAttribute("data-shasta-paw-width"))>=.14);
- assert.equal(await canvas.getAttribute("data-shasta-joints-valid"),"true");
+ assert.equal(await canvas.getAttribute("data-shasta-leg-rig"),"straight-four");
+ assert.equal(await canvas.getAttribute("data-shasta-leg-count"),"4");
+ const pawWidth=Number(await canvas.getAttribute("data-shasta-paw-width"));
+ const legWidth=Number(await canvas.getAttribute("data-shasta-leg-width"));
+ assert.ok(pawWidth<=.10&&Math.abs(pawWidth-legWidth)<.001,
+  "Slim paws must match the four straight legs in width");
  await page.getByRole("button",{name:"Skiing",exact:true}).click();
  await page.waitForFunction(()=>{
   const stage=document.querySelector("canvas")?.dataset.dogSnowStage;
@@ -45,7 +49,7 @@ try{
  assert.ok(frames.every(f=>Math.abs(f.bodyBob)<.03),
   "Snow sprint must run on planted legs, not whole-body hopping");
  assert.ok(frames.some(f=>f.gait==="trot"||f.gait==="canter"||f.gait==="walk"),
-  "Shasta must move on articulated paws during excited zoomies");
+  "Shasta must step with his straight legs during excited zoomies");
  await page.screenshot({path:path.join(out,"01-shasta-snow-zoom.png")});
  // WebGL software screenshots may take longer than an animation phase.
  // Check the renderer's witnessed stage history instead of requiring a
