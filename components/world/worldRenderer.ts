@@ -7,6 +7,7 @@ import { createBigAirBirds } from "./worldBigAirBirds";
 import { createDiscGolfGeometry } from "./worldDiscGolfGeometry";
 import {createJetSkiDock,type JetSkiWakePoint} from "./worldJetSkiDock";
 import {jetSkiPierHeight,nearJetSkiBoarding,JET_SKI_PIER} from "@/lib/world/jetSkiPier";
+import {discGolfSurfaceHeight,discGolfSurfaceIsWater} from "@/lib/world/discGolfSurface";
 import {jetSkiWaterSample} from "@/lib/world/jetSkiWater";
 import {jetSkiControlInput} from "@/lib/world/jetSkiControls";
 import {isBoostActivity,initialRideBoost,fireRideBoost,
@@ -3391,8 +3392,8 @@ export function createWorld(
       }else if (discGolf.phase!=="off") {
         const previous=discGolf.phase;
         const wasPresentationPending=!!discGolf.presentationPending;
-        discGolf=stepDiscGolf(discGolf,dt,p=>terrainHeight(p.x,p.z),
-          isWater,SEA_SURFACE,obstacles);
+        discGolf=stepDiscGolf(discGolf,dt,discGolfSurfaceHeight,
+          discGolfSurfaceIsWater,SEA_SURFACE,obstacles);
         const previousFetch=discFetch;
         discFetch=stepDiscGolfFetch(discFetch,discGolf,dog,elapsed);
         const handoff=discGolfHandoffTarget(previousFetch,discFetch,discGolf);
@@ -5282,7 +5283,7 @@ export function createWorld(
         // Previously an early/paused request was discarded forever.
         lastDiscStart=next.discGolfStartSerial;
           const hole=DISC_GOLF_HOLES[next.discGolfHoleIndex]??DISC_GOLF_HOLES[0];
-          discGolf=startDiscGolf(next.discGolfHoleIndex,p=>terrainHeight(p.x,p.z),elapsed);
+          discGolf=startDiscGolf(next.discGolfHoleIndex,discGolfSurfaceHeight,elapsed);
           canvas.dataset.discGolfLastShot="pending";
           canvas.dataset.discGolfHandoff="none";
           canvas.dataset.discGolfHandoffReason="none";
@@ -5296,12 +5297,18 @@ export function createWorld(
           explorer.rotation.y=Math.atan2(faceX,faceZ);
           yaw=Math.atan2(-faceX,-faceZ);
           const reducedMotion=window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-          discGolfIntro={startedAt:elapsed,reducedMotion};
-          snapDiscCamera=false;
+          // Hole 2 starts *on the open pier*, facing the fairway. Skip the
+          // basket flyover that previously placed its opening shot in trees.
+          const pierTee=discGolf.holeIndex===1;
+          discGolfIntro=pierTee?null:{startedAt:elapsed,reducedMotion};
+          snapDiscCamera=pierTee;
           const teePose=discGolfThrowCameraPose(player,basket,playerY);
-          const introStart=discGolfIntroPose(player,basket,
-            teePose.camera,teePose.look,
-            0,p=>worldFloorHeight(p.x,p.z),reducedMotion);
+          const introStart=pierTee?
+            {camera:teePose.camera,look:teePose.look}:
+            discGolfIntroPose(player,basket,teePose.camera,teePose.look,
+              0,p=>worldFloorHeight(p.x,p.z),reducedMotion);
+          canvas.dataset.discGolfTeeSite=pierTee?"pier":"land";
+          canvas.dataset.discGolfTeeHeight=discGolfSurfaceHeight(player).toFixed(3);
           camera.position.set(introStart.camera.x,introStart.camera.y,introStart.camera.z);
           look.set(introStart.look.x,introStart.look.y,introStart.look.z);
           camera.lookAt(look);
@@ -5328,7 +5335,7 @@ export function createWorld(
           }else{
             if(discGolfIntro){discGolfIntro=null;snapDiscCamera=true;}
             const beforeShot=discGolf.phase;
-            discGolf=discGolfThrow(discGolf,next.discGolfShot,p=>terrainHeight(p.x,p.z));
+            discGolf=discGolfThrow(discGolf,next.discGolfShot,discGolfSurfaceHeight);
             const accepted=discGolf.phase==="flying"&&beforeShot!=="flying";
             if(accepted){
               discFetch=startDiscGolfFetch(elapsed);
