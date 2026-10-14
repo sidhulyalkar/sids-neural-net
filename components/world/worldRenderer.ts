@@ -2805,6 +2805,7 @@ export function createWorld(
   }
   let skateHasBeenAirborne=false,skatePadPushHeld=false,skateCarveLean=0;
   let skateAssistAttempts=0,skateResultAt=-Infinity,skateResultLabel="";
+  let skateResultSerial=0,skateResultPoints=0;
   function commitSkateTrick(next:SkateTrickState){
     const previous=skateTrick;
     if(previous===next)return;
@@ -2812,6 +2813,8 @@ export function createWorld(
       const bailed=next.bails>previous.bails;
       const awarded=next.combo<=1?next.points:next.points-previous.points;
       skateResultLabel=next.lastLabel;
+      skateResultPoints=bailed?0:Math.max(0,Math.round(awarded));
+      skateResultSerial++;
       skateResultName.textContent=bailed?"Almost!":next.lastLabel;
       skateResultDetail.textContent=bailed?"KEEP ROLLING":
         "+"+Math.max(0,Math.round(awarded))+" PTS"+
@@ -4009,6 +4012,11 @@ export function createWorld(
       canvas.dataset.skateGroveZone=skateVisible?skateParkZone(player):"";
       canvas.dataset.skateAssist="on";
       canvas.dataset.skateResult=resultVisible?skateResultLabel:"";
+      // Stable event telemetry is distinct from the fleeting UI toast: a slow
+      // Chromium render must never miss a genuine landed trick.
+      canvas.dataset.skateLastResult=skateResultLabel;
+      canvas.dataset.skateResultSerial=String(skateResultSerial);
+      canvas.dataset.skateResultPoints=String(skateResultPoints);
       canvas.dataset.skateResultVisible=String(resultVisible);
       canvas.dataset.skateManual=skateTrick.manual;
       canvas.dataset.skateStance=skateTrick.stance;
