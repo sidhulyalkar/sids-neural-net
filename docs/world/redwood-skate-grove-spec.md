@@ -66,6 +66,42 @@ it should read as a hollowed living-material sculpture, not a bark picket fence.
 No added physical obstruction at the roll-in, no alternative colliders, and no
 camera override while actually skating.
 
+## Play-first flow line and safe rim assist (October 14)
+
+**Arrival contract:** `activityLanding("skate")` uses the `SKATE_GROVE_FLOW.approach`
+coordinate **(3, 40.8)**, not the older unaligned (0, 35) start. The fast
+travel sets **both** camera facing and actual `travel.heading` from
+`skateGroveStartHeading()`. A visitor pressing only **W** first moves west,
+through the wide timber apron and the east split at **(-6.6, 40.8)** into
+the hollow redwood bowl. This is not an autopilot or a scripted line.
+
+**Carve contract:** Near the bowl pocket, **A** steers south along the
+redwood bank from the west-facing starting camera. The player can reverse or
+choose another route with the normal controls. A clean outward crossing
+of the bowl rim can earn one modest assisted air trick. It is not a trampoline:
+`redwoodBowlExitCrossing()` requires a real outward plane crossing, sufficient
+momentum, plausible heading, no east-opening collision, and a **predicted
+touchdown still inside the grove (1.3 u edge clearance) on land**.
+Unsafe cliff-facing trajectories are explicitly rejected. Airborne state and
+landing points still belong to the existing World simulation.
+
+**Acceptance:** `tests/world-skate-flow.test.ts` deterministically samples
+the wheel-support route, verifies the redwood entrance, checks that continuing
+straight west never earns a hazardous automatic launch, and qualifies a
+meadow-directed carve at safe speed. `scripts/playtest-skate-grove-flow.mjs`
+executes the actual Chromium route with **W then A**, records player position,
+heading, speed, zone, airborne status and takeoff events, and retains screenshot
+and JSON evidence independently of the classic three-trick playtest.
+
+GitHub [Redwood Skate Grove Browser QA run 38522810458](https://github.com/sidhulyalkar/sids-neural-net/actions/runs/38522810458)
+passed both browser steps. Representative real browser trace:
+`(3.00,40.80) at rest → (-14.07,40.80), west at 10.46 u/s →
+(-16.67,43.12), southwest carve at 11.45 u/s`, one
+`redwood-bowl-exit` and **no browser exceptions**, still in the grove.
+The classic trick test also scored a 580-point three-trick line.
+This is a real, safe entry-and-carve smoke test, **not** a claim that every
+possible high-speed trick, loop or world game mode is validated.
+
 ## Review checklist
 
 - From spawn the hero hollow-redwood rim and pale halfpipe are both visible without obstructing the landscape or camera.
