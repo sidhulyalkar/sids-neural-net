@@ -549,50 +549,31 @@ try {
   await screenshot(page,'challenge-alpine-landing');
   results.push('Alpine jump launches by skiing, macaws call true flown distances, and downhill receiving slope lands cleanly');
 
-  await page.getByRole('button',{name:'Disc golf · play',exact:true}).click();
+  // World smoke QA: the dedicated disc-golf browser workflow owns the full
+  // nine-hole route. Do not retain old four-hole/three-tap controls here.
+  await page.getByRole('button',{name:/^Disc golf · (play|resume|scorecard)$/}).click();
   await page.waitForFunction(()=>document.querySelector('canvas')?.dataset.discGolfPhase==='ready');
-  assert.equal(await page.locator('canvas').getAttribute('data-disc-golf-holes'),'4');
-  await page.waitForFunction(
-    ()=>document.querySelector('canvas')?.dataset.discGolfPreview==='true',
-    null,{timeout:5000},
-  );
-  await screenshot(page,'disc-golf-tee-and-moving-chains');
-  await page.getByRole('button',{name:'Start pullback'}).click();
-  await page.waitForFunction(
-    ()=>document.querySelector('canvas')?.dataset.discGolfSwing==='power' &&
-      Number(document.querySelector('canvas')?.dataset.discGolfSwingAmount)>.10,
-    null,{timeout:5000},
-  );
-  await screenshot(page,'disc-golf-pullback-meter');
-  await page.getByRole('button',{name:'Lock power'}).click();
-  await page.waitForFunction(
-    ()=>document.querySelector('canvas')?.dataset.discGolfSwing==='accuracy' &&
-      Number(document.querySelector('canvas')?.dataset.discGolfSwingAmount)>.10,
-    null,{timeout:5000},
-  );
-  await screenshot(page,'disc-golf-accuracy-meter');
-  await page.getByRole('button',{name:'Release disc'}).click();
-  await page.waitForFunction(
-    ()=>document.querySelector('canvas')?.dataset.discGolfPhase==='flying',
-    null,{timeout:5000},
-  );
-  await screenshot(page,'disc-golf-disc-in-flight');
-  await page.waitForFunction(
-    ()=>['landed','water','holed'].includes(document.querySelector('canvas')?.dataset.discGolfPhase??''),
-    null,{timeout:15000},
-  );
-  const golfPhase=await page.locator('canvas').getAttribute('data-disc-golf-phase');
-  if(golfPhase==='landed'){
-    assert.equal(await page.locator('canvas').getAttribute('data-disc-golf-beacon'),'true');
-    await screenshot(page,'disc-golf-gold-landing-beam');
-  }
-  await page.getByRole('group',{name:'Choose course'}).getByRole('button',{name:'2'}).click();
-  await page.waitForFunction(
-    ()=>document.querySelector('canvas')?.dataset.discGolfHole==='scrub-crosswind',
-  );
-  await page.getByRole('button',{name:'Leave disc golf'}).click();
+  assert.equal(await page.locator('canvas').getAttribute('data-disc-golf-holes'),'9');
+  const discHud=page.getByRole('complementary',{name:'Disc golf controls'});
+  assert.equal(await discHud.isVisible(),true);
+  assert.equal(await page.getByRole('slider',{name:/Throw power/}).isVisible(),true);
+  await screenshot(page,'disc-golf-nine-hole-throw-rail');
+  await discHud.getByRole('button',{name:'Course',exact:true}).click();
+  const scorecard=page.getByRole('region',{name:'Nine-hole course and scorecard'});
+  assert.equal(await scorecard.isVisible(),true);
+  assert.equal(await scorecard.getByRole('group',{name:'Choose hole'})
+    .getByRole('button').count(),9);
+  await scorecard.getByRole('button',{name:'Close',exact:true}).click();
+  await discHud.getByRole('button',{name:'Space · Throw'}).click();
+  await page.waitForFunction(()=>document.querySelector('canvas')?.dataset.discGolfLastShot==='accepted',
+    null,{timeout:10000});
+  await page.waitForFunction(()=>['flying','landed','water','holed'].includes(
+    document.querySelector('canvas')?.dataset.discGolfPhase??''),null,{timeout:10000});
+  await screenshot(page,'disc-golf-modern-flight');
+  await discHud.getByRole('button',{name:'Leave disc golf'}).click();
   await page.waitForFunction(()=>document.querySelector('canvas')?.dataset.discGolfPhase==='off');
-  results.push('Disc golf uses a three-tap double meter, animated moving basket and four selectable holes; outcomes and lie beacon are coherent');
+  results.push('Nine-hole disc golf rail, course selection, throw and exit remain integrated with World');
+
 
   diagnostics = await page.locator('canvas').evaluate(c => ({ ...c.dataset }));
   assert.ok(Number(diagnostics.drawCalls) < 100);

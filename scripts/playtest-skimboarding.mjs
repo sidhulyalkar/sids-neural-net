@@ -151,6 +151,20 @@ try {
   await page.waitForFunction(()=>document.querySelector('canvas[role="application"]')?.dataset.aquatic==="land"&&
     document.querySelector('canvas[role="application"]')?.dataset.skimPhase==="off");
   checks.push("Fast travel back into the island restores normal world state");
+  // A region jump DURING a prepared skim run must invalidate the heat and
+  // restore the board, without letting it leak into rainforest or other games.
+  await page.getByRole("button",{name:"Open navigation menu"}).click();
+  await page.getByRole("button",{name:/North shore Skimboarding/}).click();
+  await page.getByRole("button",{name:/Pick up aqua skimboard/}).click();
+  await waitPhase("ready");
+  await page.getByRole("button",{name:"Open navigation menu"}).click();
+  await page.getByRole("button",{name:/Rainforest Canopy to coast/}).click();
+  await waitPhase("off");
+  assert.equal(await attr("aquatic"),"land");
+  assert.equal(await page.getByRole("complementary",{name:"North shore skimboarding heat"}).count(),0);
+  assert.equal(await page.getByRole("button",{name:"Skateboarding"}).isVisible(),true);
+  await snap("05-rainforest-after-skim-transfer");
+  checks.push("Fast travel while equipped drops skim state and restores other island activities");
   assert.deepEqual(errors,[]);
   fs.writeFileSync(path.join(output,"qa.json"),JSON.stringify({checks,start,errors},null,2));
   console.log("SKIMBOARDING BROWSER QA PASS",checks.join("; "));
