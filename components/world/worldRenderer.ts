@@ -1,5 +1,6 @@
 import { desertTrackTreadBlend, desertTrackSampleAt, DESERT_GAP_DEBRIS, DESERT_JUMPS, DESERT_TRACK_LENGTH } from "@/lib/world/desertTrack";
-import {SKATE_PARK,SKATE_PARK_RAILS,skateParkSurface,insideSkatePark} from "@/lib/world/skatepark";
+import {insideSkatePark,skateParkZone} from "@/lib/world/skatepark";
+import {createWorldSkateGrove} from "./worldSkateGroveGeometry";
 import {skateLean} from "@/lib/world/skateDynamics";
 import {selectAssistedSkateTrick,assistedSkateSpin} from "@/lib/world/skateAssist";
 import {idleSkateTrick,startSkateTrick,finishSkateTrick,setSkateGrab,skateTrickPose,flickTrick,scoreSkateGrind,queueSkateSpin,startSkateManual,stepSkateManual,finishSkateManual,type SkateTrickName,type SkateTrickState} from "@/lib/world/skateTricks";
@@ -891,73 +892,9 @@ export function createWorld(
   }
   instances(boxGeo, mat("#815536"), rampPlanks);
   instances(cylinder, mat("#5e3b28"), rampStringers);
-  // South-meadow skate plaza: one sampled mesh, same heightfield as tire contact.
-  // The bowl, quarter transitions and pyramid are geometry, not decorations.
-  const parkPositions:number[]=[],parkColors:number[]=[],parkIndices:number[]=[];
-  const parkStepsX=32,parkStepsZ=30;
-  const parkTint=new THREE.Color();
-  for(let iz=0;iz<=parkStepsZ;iz++)for(let ix=0;ix<=parkStepsX;ix++){
-    const x=SKATE_PARK.center.x-SKATE_PARK.halfWidth+
-      ix*SKATE_PARK.halfWidth*2/parkStepsX;
-    const z=SKATE_PARK.center.z-SKATE_PARK.halfDepth+
-      iz*SKATE_PARK.halfDepth*2/parkStepsZ;
-    const p={x,z},y=skateParkSurface(p)??terrainHeight(x,z);
-    parkPositions.push(x,y+.026,z);
-    const bowl=Math.hypot(x+12,z-40)<5.3;
-    const tint=bowl?"#6f8a89":Math.abs(x+1)<2.6&&Math.abs(z-40)<3.4?"#a0aaa4":"#87938d";
-    parkTint.set(tint);
-    parkColors.push(parkTint.r,parkTint.g,parkTint.b);
-  }
-  for(let iz=0;iz<parkStepsZ;iz++)for(let ix=0;ix<parkStepsX;ix++){
-    const a=iz*(parkStepsX+1)+ix,b=a+1,c=a+parkStepsX+1,d=c+1;
-    parkIndices.push(a,c,b,b,c,d);
-  }
-  const parkGeo=geo(new THREE.BufferGeometry());
-  parkGeo.setAttribute("position",new THREE.Float32BufferAttribute(parkPositions,3));
-  parkGeo.setAttribute("color",new THREE.Float32BufferAttribute(parkColors,3));
-  parkGeo.setIndex(parkIndices);parkGeo.computeVertexNormals();
-  const plaza=mesh(parkGeo,mat("#ffffff",{vertexColors:true,flatShading:false,side:THREE.DoubleSide}),[0,0,0],[1,1,1]);
-  plaza.castShadow=false;
-  const parkSteel=mat("#b6c9c8"),parkPosts:Instance[]=[],parkBars:Instance[]=[];
-  for(const rail of SKATE_PARK_RAILS){
-    const a=new THREE.Vector3(rail.a.x,groundHeight(rail.a)+rail.lift,rail.a.z);
-    const b=new THREE.Vector3(rail.b.x,groundHeight(rail.b)+rail.lift,rail.b.z);
-    parkBars.push(segment(a,b,rail.radius));
-    for(const end of [rail.a,rail.b]){
-      parkPosts.push(segment(
-        new THREE.Vector3(end.x,groundHeight(end)+.03,end.z),
-        new THREE.Vector3(end.x,groundHeight(end)+rail.lift,end.z),.045));
-    }
-  }
-  instances(cylinder,parkSteel,[...parkBars,...parkPosts]);
-  // Continuous-looking coping is assembled from short pooled sections.
-  // Every endpoint samples the same skatepark support as the riding wheels.
-  // There are no invisible extra collision boxes or per-frame allocations.
-  const parkCoping:Instance[]=[];
-  const bowlSegments=24,bowlRadius=5.1;
-  for(let i=0;i<bowlSegments;i++){
-    const a=i*Math.PI*2/bowlSegments,b=(i+1)*Math.PI*2/bowlSegments;
-    const p={x:-12+Math.cos(a)*bowlRadius,z:40+Math.sin(a)*bowlRadius};
-    const q={x:-12+Math.cos(b)*bowlRadius,z:40+Math.sin(b)*bowlRadius};
-    parkCoping.push(segment(
-      new THREE.Vector3(p.x,groundHeight(p)+.085,p.z),
-      new THREE.Vector3(q.x,groundHeight(q)+.085,q.z),.045));
-  }
-  for(const z of [30.9,49.1])for(let x=-2;x<6;x+=.8){
-    const p={x,z},q={x:x+.8,z};
-    parkCoping.push(segment(
-      new THREE.Vector3(x,groundHeight(p)+.075,z),
-      new THREE.Vector3(x+.8,groundHeight(q)+.075,z),.047));
-  }
-  instances(cylinder,mat("#d7d9cd",{metalness:.55,roughness:.38}),parkCoping,false);
-  const parkPaint:Instance[]=[];
-  for(const z of [35,45]){
-    for(const x of [-2,0,2,4]){
-      parkPaint.push({x,y:(skateParkSurface({x,z})??terrainHeight(x,z))+.057,
-        z,sx:.65,sy:.025,sz:.075});
-    }
-  }
-  instances(boxGeo,mat("#ecdbc0"),parkPaint,false);
+  // Natural redwood skate grove: single authoritative riding heightfield.
+  // Static procedural wood art is isolated and fully disposable.
+  const skateGrove=createWorldSkateGrove(scene,groundHeight);
   // Small grasses share one geometry and one draw call.
   const grasses: Instance[] = [];
   for (let i = 0; i < 750; i++) {
@@ -4068,6 +4005,8 @@ export function createWorld(
         " PTS · BEST "+skateTrick.best;
       // Avoid 60 identical live-region mutations per second for screen readers.
       if(skateVisible&&skateHud.textContent!==skateStatus)skateHud.textContent=skateStatus;
+      canvas.dataset.skateGrove="redwood-timber-v1";
+      canvas.dataset.skateGroveZone=skateVisible?skateParkZone(player):"";
       canvas.dataset.skateAssist="on";
       canvas.dataset.skateResult=resultVisible?skateResultLabel:"";
       canvas.dataset.skateResultVisible=String(resultVisible);
@@ -5893,6 +5832,7 @@ export function createWorld(
       } else schedule();
     },
     dispose() {
+      skateGrove.dispose();
       discGolfObjects.dispose();
       jetskiCoast.dispose();
       rideVisual.dispose();rideHud.remove();rideReticle.remove();rideAnnounce.remove();
