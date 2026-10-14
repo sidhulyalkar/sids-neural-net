@@ -4614,7 +4614,10 @@ export function createWorld(
       scene.fog.color.lerp(fogTarget,1-Math.exp(-Math.min(rawDelta,.1)*2));
     }
     canvas.dataset.biome = biomeAt(player).primary;
-    const hideUpland=underwater&&swimDepth>=1.1;
+    // The water-mode transition already changes atmosphere; cull upland
+    // meshes for every dive depth so shallow lagoon and deep kelp share
+    // the same draw-call budget without an additional mid-dive pop.
+    const hideUpland=underwater;
     for(const decoration of submergedSurfaceDecor)
       decoration.visible=!hideUpland;
     canvas.dataset.underwaterDecorCulled=String(
