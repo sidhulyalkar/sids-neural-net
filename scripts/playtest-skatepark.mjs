@@ -17,6 +17,9 @@ const sample=async canvas=>({
  score:await canvas.getAttribute("data-skate-score"),
  combo:await canvas.getAttribute("data-skate-combo"),
  result:await canvas.getAttribute("data-skate-result"),
+ lastResult:await canvas.getAttribute("data-skate-last-result"),
+ resultSerial:await canvas.getAttribute("data-skate-result-serial"),
+ resultPoints:await canvas.getAttribute("data-skate-result-points"),
  assist:await canvas.getAttribute("data-skate-assist"),
  grove:await canvas.getAttribute("data-skate-grove"),
  groveZone:await canvas.getAttribute("data-skate-grove-zone"),
@@ -55,8 +58,8 @@ try{
  },null,{timeout:26000});
  const first=await sample(canvas);
  assert.ok(Number(first.score)>0,"Landed ollie should score");
- await page.waitForFunction(()=>document.querySelector("canvas")?.dataset.skateResult==="Ollie",
-  null,{timeout:5000});
+ assert.equal(first.lastResult,"Ollie","The first landed trick must emit a persistent completion event");
+ assert.ok(Number(first.resultSerial)>0,"Landing event must increment a serial");
  assert.equal(await page.locator("[aria-label='Completed skateboard trick']").count(),1);
  await page.keyboard.down("ArrowDown");await page.keyboard.up("ArrowDown");
  await page.keyboard.press("ArrowLeft");
@@ -67,7 +70,9 @@ try{
   return d?.skateTrick===""&&Number(d?.skateCombo)>=2;
  },null,{timeout:26000});
  const second=await sample(canvas);
- await page.waitForFunction(()=>document.querySelector("canvas")?.dataset.skateResult==="Kickflip",null,{timeout:5000});
+ assert.equal(second.lastResult,"Kickflip","An explicit flick should record the completed move");
+ assert.ok(Number(second.resultSerial)>Number(first.resultSerial),"Each landing emits exactly a new result event");
+ assert.ok(Number(second.resultPoints)>0,"The scored kickflip records earned points");
  assert.ok(Number(second.score)>Number(first.score),
   "Clean flick landing chains into the current line");
  await page.screenshot({path:path.join(out,"02-skate-combo.png")});
@@ -77,9 +82,11 @@ try{
   null,{timeout:10000});
  await page.waitForFunction(()=>{
   const d=document.querySelector("canvas")?.dataset;
-  return d?.skateTrick===""&&d?.skateResult==="Kickflip";
+  return d?.skateTrick===""&&d?.skateLastResult==="Kickflip"&&
+    Number(d?.skateResultSerial)>2;
  },null,{timeout:26000});
  const third=await sample(canvas);
+ assert.ok(Number(third.resultSerial)>Number(second.resultSerial),"Assisted trick emits a third result event");
  assert.ok(Number(third.score)>Number(second.score),
   "A second one-button assisted trick should increase the player's line score");
  await page.screenshot({path:path.join(out,"03-skate-assisted-trick.png")});
