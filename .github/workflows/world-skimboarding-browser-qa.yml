@@ -31,7 +31,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 25
     env:
-      WORLD_BASE_URL: http://127.0.0.1:3000
+      WORLD_BASE_URL: http://localhost:3000
       WORLD_AUDIT_DIR: artifacts/world/skimboarding
       PLAYWRIGHT_MODULE_ROOT: ${{ github.workspace }}/node_modules/playwright
     steps:
@@ -50,7 +50,7 @@ jobs:
         run: |
           (npm run dev > /tmp/world-skim-next.log 2>&1 &)
           for i in $(seq 1 90); do
-            if curl -fsS http://127.0.0.1:3000 >/dev/null; then
+            if curl -fsS http://localhost:3000 >/dev/null; then
               echo "World ready"; exit 0
             fi
             sleep 2

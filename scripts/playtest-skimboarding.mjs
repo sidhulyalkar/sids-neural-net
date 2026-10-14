@@ -6,7 +6,7 @@ import {createRequire} from "node:module";
 const root=process.env.PLAYWRIGHT_MODULE_ROOT;
 if(!root)throw new Error("PLAYWRIGHT_MODULE_ROOT is required");
 const {chromium}=createRequire(path.join(root,"package.json"))("playwright");
-const base=process.env.WORLD_BASE_URL??"http://127.0.0.1:3000";
+const base=process.env.WORLD_BASE_URL??"http://localhost:3000";
 const output=process.env.WORLD_AUDIT_DIR??"artifacts/world/skimboarding";
 fs.mkdirSync(output,{recursive:true});
 const browser=await chromium.launch({
@@ -126,7 +126,7 @@ try {
   })).catch(()=>null):null;
   fs.writeFileSync(path.join(output,"failure.json"),JSON.stringify({error:String(error),errors,diagnostic},null,2));
   if(page)await snap("failure").catch(()=>{});
-  console.error("SKIMBOARDING BROWSER QA FAILED",error,diagnostic);
+  console.error("SKIMBOARDING BROWSER QA FAILED",error,errors,diagnostic);
   process.exitCode=1;
 }finally{
   await browser.close();
