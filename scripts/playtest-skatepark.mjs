@@ -18,6 +18,8 @@ const sample=async canvas=>({
  combo:await canvas.getAttribute("data-skate-combo"),
  result:await canvas.getAttribute("data-skate-result"),
  assist:await canvas.getAttribute("data-skate-assist"),
+ grove:await canvas.getAttribute("data-skate-grove"),
+ groveZone:await canvas.getAttribute("data-skate-grove-zone"),
  speed:await canvas.getAttribute("data-speed"),
  height:await canvas.getAttribute("data-height"),
 });
@@ -36,8 +38,11 @@ try{
   null,{timeout:15000});
  assert.equal(await canvas.getAttribute("data-activity"),"skate");
  assert.equal(await canvas.getAttribute("data-skate-assist"),"on");
- assert.equal(await page.getByRole("button",{name:"Do an assisted skate trick"}).count(),1,
-  "One touch trick button replaces three technique-specific controls");
+ assert.equal(await canvas.getAttribute("data-skate-grove"),"redwood-timber-v1");
+ assert.ok(["timber-quarter","street","apron","redwood-bowl","stump-pad"].includes(
+  await canvas.getAttribute("data-skate-grove-zone")),"named wooden park zone");
+ assert.equal(await page.getByRole("button",{name:"Do an assisted skate trick",includeHidden:true}).count(),1,
+  "Single accessible touch trick button exists even when hidden on desktop");
  assert.ok(Number(await canvas.getAttribute("data-height"))>0);
  await page.screenshot({path:path.join(out,"01-skatepark-overview.png")});
  await canvas.focus();
