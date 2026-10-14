@@ -54,6 +54,21 @@ export function skateParkZone(p:Point):SkateParkZone{
  if(Math.abs(p.x+1)<3.4&&Math.abs(p.z-40)<4)return "street";
  return "apron";
 }
+/** Smooth, physically rideable redwood cross-section, independent of native
+ * terrain. The C1 transition across the inside and bark exterior matches the
+ * visual mesh; the shallow east split always remains available for drop-ins.
+ * Exposing the bank profile makes its silhouette verifiable without relying
+ * on procedural bark art or local hillside elevation. */
+export function redwoodBowlBankRise(p:Point):number{
+ const r=Math.hypot(p.x-REDWOOD_BOWL.center.x,p.z-REDWOOD_BOWL.center.z);
+ const az=Math.atan2(p.z-REDWOOD_BOWL.center.z,p.x-REDWOOD_BOWL.center.x);
+ const organic=1+.043*Math.sin(az*7+.5)+.021*Math.sin(az*11-1.1);
+ const bank=2.05*organic*smooth((r-.85)/4.55)*
+  (1-smooth((r-REDWOOD_BOWL.rimRadius)/1.36));
+ const opening=smooth((p.x+9)/2.5)*(1-smooth(Math.abs(p.z-40.8)/2.15));
+ return bank*(1-.66*opening);
+}
+
 export function skateParkSurface(p:Point):number|null {
  if(!insideSkatePark(p))return null;
  const natural=terrainHeight(p.x,p.z);
@@ -67,21 +82,7 @@ export function skateParkSurface(p:Point):number|null {
  const south=smooth((p.z-46.2)/4.2);
  // Deliberate mirrored timber quarter walls preserve existing real takeoffs.
  const quarters=2.2*Math.max(north*north,south*south)*street;
- const r=Math.hypot(p.x-REDWOOD_BOWL.center.x,p.z-REDWOOD_BOWL.center.z);
- // The sculpted redwood is a genuinely raised wooden bank, not a visual
- // shell masking a flat collision disk. A gradual polished 4.5u interior
- // rolls into a shorter, steeper bark shoulder OUTSIDE the coping.
- // Mild deterministic trunk asymmetry keeps the crown from reading as a
- // perfect concrete ring while retaining smooth wheel and mesh support.
- const az=Math.atan2(p.z-REDWOOD_BOWL.center.z,p.x-REDWOOD_BOWL.center.x);
- const irregularity=1+.043*Math.sin(az*7+.5)+.021*Math.sin(az*11-1.1);
- const bank=2.05*irregularity*smooth((r-.85)/4.55)*
-  (1-smooth((r-REDWOOD_BOWL.rimRadius)/1.36));
- // The east-facing split opening is a shallow, obvious roll-in rather than
- // a physical gate. A rider can enter it even without a timed jump.
- const opening=smooth((p.x+9)/2.5)*(1-smooth(Math.abs(p.z-40.8)/2.15));
- // Preserve the friendly eastern roll-in height despite the deeper shell.
- const bowl=bank*(1-.66*opening);
+ const bowl=redwoodBowlBankRise(p);
  const pyramid=.66*Math.max(0,1-Math.abs(p.x+1)/2.5)*
   Math.max(0,1-Math.abs(p.z-40)/3.2);
  const stump=STUMP_PADS.reduce((sum,pad)=>{
