@@ -1,6 +1,19 @@
 name: Jet-Ski Browser Acceptance
 
 on:
+  push:
+    branches: ['feat/island-jetski-dock-race-v1']
+    paths:
+      - 'components/world/**'
+      - 'lib/world/**'
+      - 'scripts/playtest-jet-ski.mjs'
+      - 'scripts/playtest-ride-ghost.mjs'
+      - 'scripts/playtest-skatepark.mjs'
+      - 'scripts/playtest-shasta-snow.mjs'
+      - 'scripts/playtest-disc-golf-arcade.mjs'
+      - 'scripts/playtest-disc-hole2-pier.mjs'
+      - 'scripts/playtest-mountain-jump.mjs'
+      - '.github/workflows/jet-ski-browser.yml'
   pull_request:
     paths:
       - 'components/world/**'
@@ -30,7 +43,7 @@ jobs:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
         with:
-          node-version: '22'
+          node-version: '24'
           cache: npm
       - name: Install locked application dependencies
         run: npm ci
