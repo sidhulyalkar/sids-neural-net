@@ -19,6 +19,27 @@ export function insideSkatePark(p:Point,margin=0):boolean {
  * a negative hole under the natural ground. The wood/bark are visual skins,
  * never a hidden second collidable surface. */
 export const REDWOOD_BOWL={center:{x:-12,z:40},rimRadius:5.4,barkRadius:6.5} as const;
+/**
+ * The default first push points straight through the split redwood roll-in.
+ * Stops describe an optional free-riding path, not rails or an autopilot.
+ * Nothing moves the player after they begin skating.
+ */
+export const SKATE_GROVE_FLOW={
+ approach:{x:3,z:40.8},
+ splitEntry:{x:-6.6,z:40.8},
+ hollow:{x:-11.6,z:40.7},
+ farBank:{x:-16,z:40.9},
+ southCarve:{x:-14.2,z:43.5},
+ returnPocket:{x:-10.8,z:43.2},
+ exit:{x:-6.5,z:41.25},
+ runout:{x:2,z:42.1},
+} as const;
+export function skateGroveStartHeading():Point{
+ const dx=SKATE_GROVE_FLOW.splitEntry.x-SKATE_GROVE_FLOW.approach.x;
+ const dz=SKATE_GROVE_FLOW.splitEntry.z-SKATE_GROVE_FLOW.approach.z;
+ const len=Math.hypot(dx,dz)||1;
+ return {x:dx/len,z:dz/len};
+}
 export const STUMP_PADS=[
  {id:"north-stump",center:{x:-5,z:33.5},radius:1.3,lift:.15},
  {id:"south-stump",center:{x:-5,z:46.5},radius:1.3,lift:.15},
@@ -77,6 +98,27 @@ export const SKATE_PARK_LIPS=[
 ] as const;
 
 /** Launch only on an actual forward crossing, not on idle proximity or reverse. */
+/** A fast outward rim crossing rewards a bowl carve without inventing a
+ * second launch surface. The split eastern roll-in is deliberately omitted,
+ * so approaching the bowl never pops the rider over its own entrance. */
+export function redwoodBowlExitCrossing(previous:Point,current:Point,heading:Point,speed:number){
+ if(!Number.isFinite(speed)||speed<5.1||
+  !insideSkatePark(previous)||!insideSkatePark(current))return null;
+ const center=REDWOOD_BOWL.center;
+ const r0=Math.hypot(previous.x-center.x,previous.z-center.z);
+ const r1=Math.hypot(current.x-center.x,current.z-center.z);
+ const crossing=REDWOOD_BOWL.rimRadius-.18;
+ if(r0>=crossing||r1<crossing||r1>crossing+1.15)return null;
+ const vx=current.x-center.x,vz=current.z-center.z;
+ const len=Math.hypot(vx,vz)||1;
+ const outward=(heading.x*vx+heading.z*vz)/(Math.max(.001,Math.hypot(heading.x,heading.z))*len);
+ if(outward<.72)return null;
+ // The opening is not coping: preserve a low, accessible way in and out.
+ const angle=Math.atan2(vz,vx);
+ const split=Math.atan2(Math.sin(angle-.15),Math.cos(angle-.15));
+ if(Math.abs(split)<.43)return null;
+ return {id:"redwood-bowl-exit",impulse:Math.min(5.4,3.55+speed*.17)};
+}
 export function skateParkLipCrossing(previous:Point,current:Point,heading:Point,speed:number){
  if(speed<3.2)return null;
  for(const lip of SKATE_PARK_LIPS){
@@ -88,5 +130,5 @@ export function skateParkLipCrossing(previous:Point,current:Point,heading:Point,
   if(prev<0&&next>=0&&next<=1.3&&Math.abs(side)<lip.halfWidth)
    return {id:lip.id,impulse:Math.min(7.4,lip.impulse+speed*.12)};
  }
- return null;
+ return redwoodBowlExitCrossing(previous,current,heading,speed);
 }
