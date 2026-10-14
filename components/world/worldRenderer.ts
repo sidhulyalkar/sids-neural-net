@@ -5618,6 +5618,12 @@ export function createWorld(
         climb = null;
         grind = null;
         airHeight = verticalSpeed = 0;
+        if(state.activity==="skate"||next.activity==="skate"){
+          // Equipment changes start a fresh, independent trick line. The
+          // player's best persists, while old landing cards never leak.
+          skateTrick={...idleSkateTrick(),best:skateTrick.best};
+          skateAssistAttempts=0;skateHasBeenAirborne=false;skateResultAt=-Infinity;
+        }
       }
       state = next;
       if(next.discGolfExitSerial!==lastDiscExit){
