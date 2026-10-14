@@ -33,7 +33,7 @@ export const ACTIVITIES = [
     acceleration: 8,
     braking: 5,
     action: "Ollie",
-    hint: "WASD to carve · Space to ollie · ↓ then ↑/←/→ for Flick tricks · Q/E grabs",
+    hint: "WASD carve · Space ollie/grind · ↓ then ↑/←/→ flick · C/X manuals · J/L spin · Q/E grab",
   },
   {
     id: "bike",
