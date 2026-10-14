@@ -69,7 +69,14 @@ export function createWorldSkateGrove(scene:THREE.Scene,support:(p:Point)=>numbe
   positions.push(x,ride(p)+.035,z);
   if(zone==="redwood-bowl"){
    const d=Math.hypot(x-REDWOOD_BOWL.center.x,z-REDWOOD_BOWL.center.z);
+   const az=Math.atan2(z-REDWOOD_BOWL.center.z,x-REDWOOD_BOWL.center.x);
    color.set(d<4.35?"#c9ab7e":d<5.4?"#b99669":"#a67c53");
+   // Close-to-satin end grain, not hard concentric target stripes.
+   // These slight tonal changes are baked into the one existing vertex
+   // color field, so no texture requests or additional draw calls.
+   const cutGrain=.97+.020*Math.sin(d*8.7+.65*Math.sin(az*5))+
+    .012*Math.sin(d*18.1+.55*Math.cos(az*9));
+   color.multiplyScalar(cutGrain);
   }else if(zone==="timber-quarter"){
    color.set(iz%3===0?"#caa471":"#bf9566");
   }else if(zone==="stump-pad")color.set("#c8a477");
