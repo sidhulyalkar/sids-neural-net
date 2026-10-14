@@ -63,7 +63,9 @@ export function redwoodBowlBankRise(p:Point):number{
  const r=Math.hypot(p.x-REDWOOD_BOWL.center.x,p.z-REDWOOD_BOWL.center.z);
  const az=Math.atan2(p.z-REDWOOD_BOWL.center.z,p.x-REDWOOD_BOWL.center.x);
  const organic=1+.043*Math.sin(az*7+.5)+.021*Math.sin(az*11-1.1);
- const bank=2.05*organic*smooth((r-.85)/4.55)*
+ // A wider carved floor lets the interior read as a hollow tree rather
+ // than a raised platter. C1 smooth walls climb only outside radius 2.05.
+ const bank=2.05*organic*smooth((r-2.05)/3.35)*
   (1-smooth((r-REDWOOD_BOWL.rimRadius)/1.36));
  const opening=smooth((p.x+9)/2.5)*(1-smooth(Math.abs(p.z-40.8)/2.15));
  return bank*(1-.66*opening);
