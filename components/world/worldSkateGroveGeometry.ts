@@ -197,6 +197,35 @@ export function createWorldSkateGrove(scene:THREE.Scene,support:(p:Point)=>numbe
  pooled("redwood-growth-rings",annualRings,grain);
  pooled("split-redwood-coping",innerCoping,metal);
  pooled("outside-redwood-root-grain",outerRoots,bark);
+ // Raised, staggered redwood bark ridges articulate the cut trunk at a
+ // distance. They lie on the *outside* skirt, never across the hollow ride
+ // surface or the east-facing roll-in. A few warm cut-face strokes clarify
+ // that the entrance is split wood, not a missing polygon.
+ const barkRidges:Part[]=[],woodEndGrain:Part[]=[];
+ for(let i=0;i<84;i++){
+  const a=(i+.22*(i%3))*2*Math.PI/84;
+  const delta=Math.atan2(Math.sin(a-.15),Math.cos(a-.15));
+  if(Math.abs(delta)<.33)continue;
+  const radius0=5.59+(i%3)*.11,radius1=6.30+(i%4)*.035;
+  const p={x:REDWOOD_BOWL.center.x+Math.cos(a)*radius0,
+   z:REDWOOD_BOWL.center.z+Math.sin(a)*radius0};
+  const q={x:REDWOOD_BOWL.center.x+Math.cos(a+.022)*radius1,
+   z:REDWOOD_BOWL.center.z+Math.sin(a+.022)*radius1};
+  barkRidges.push(beam(onRide(p,.09),onRide(q,.062),.026+(i%4)*.005));
+ }
+ for(const split of [-.33,.33]){
+  const a=.15+split;
+  for(let k=0;k<5;k++){
+   const inner=5.48+k*.185,outer=inner+.16;
+   const p={x:REDWOOD_BOWL.center.x+Math.cos(a)*inner,
+    z:REDWOOD_BOWL.center.z+Math.sin(a)*inner};
+   const q={x:REDWOOD_BOWL.center.x+Math.cos(a)*outer,
+    z:REDWOOD_BOWL.center.z+Math.sin(a)*outer};
+   woodEndGrain.push(beam(onRide(p,.085),onRide(q,.085),.040));
+  }
+ }
+ pooled("redwood-bark-striations",barkRidges,darkTimber);
+ pooled("open-trunk-end-grain",woodEndGrain,grain);
 
  // Timber quarterpipes and halfpipe rhythm. Thin seams follow the real
  // slope so they cannot float above the deck as straight boxes.
@@ -272,6 +301,34 @@ export function createWorldSkateGrove(scene:THREE.Scene,support:(p:Point)=>numbe
  pooled("split-timber-hybrid-rails",hybridRails,darkTimber);
  pooled("durable-grind-caps",railCaps,metal);
  pooled("grind-rail-timber-stands",railPosts,bark);
+
+ // Vegetation grows along the outer meadow seam, leaving every bank, rail,
+ // stump and entrance clear. Fronds are static pooled strokes, not animated
+ // shader foliage, and stay below foot/board height on any ride line.
+ const fernStems:Part[]=[],fernFronds:Part[]=[];
+ const fernStemMat=material("#52715a"),fernFrondMat=material("#7e9a72");
+ for(let i=0;i<30;i++){
+  const u=((i*29)%31)/30,side=i%4;
+  const p=side===0?{x:-19.38,z:30.3+u*18.9}:
+   side===1?{x:7.45,z:30.4+u*18.7}:
+   side===2?{x:-17.9+u*23,z:28.72}:
+             {x:-18.2+u*23,z:51.14};
+  if(skateParkZone(p)==="redwood-bowl"||skateParkZone(p)==="timber-quarter")continue;
+  const ground=ride(p),h=.26+(i%5)*.055;
+  const base=new THREE.Vector3(p.x,ground+.03,p.z);
+  fernStems.push(beam(base,new THREE.Vector3(p.x,ground+h,p.z),.014));
+  for(let sideLeaf of [-1,1])for(let j=0;j<3;j++){
+   const angle=i*2.4+j*2.09;
+   const distance=(.13+j*.043)*sideLeaf;
+   const origin=new THREE.Vector3(p.x,ground+.13+j*.053,p.z);
+   const tip=new THREE.Vector3(p.x+Math.cos(angle)*distance,
+    ground+.13+j*.062,
+    p.z+Math.sin(angle)*distance);
+   fernFronds.push(beam(origin,tip,.022));
+  }
+ }
+ pooled("park-edge-fern-stems",fernStems,fernStemMat);
+ pooled("park-edge-fern-fronds",fernFronds,fernFrondMat);
 
  return {
   root:group,
