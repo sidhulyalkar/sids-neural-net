@@ -49,60 +49,69 @@ try{
   stage="carve";
   const entry=await sample();
   assert.equal(entry.zone,"redwood-bowl");
+  // A steers toward the southern bank. Its curvature should redirect an
+  // unsafe westward exit into a rideable tangent instead of auto-launching
+  // a trick out over the shore.
   await page.keyboard.down("a");
+  let carved;
   try{
-   for(let i=0;i<36;i++){
-    await page.waitForTimeout(280);
-    const samplePoint=await sample();
-    if(samplePoint.exits>0||samplePoint.zone===""||samplePoint.speed<.5)break;
+   for(let i=0;i<26;i++){
+    await page.waitForTimeout(190);
+    carved=await sample();
+    const p=carved.point?.split(",").map(Number);
+    const h=carved.heading?.split(",").map(Number);
+    if(carved.zone===""||carved.failedLandings>0)break;
+    if(p?.length===2&&h?.length===2&&p[1]>43.1&&h[0]>.10)break;
    }
-  }finally{
-   await page.keyboard.up("a");
-  }
-  const latest=samples.at(-1);
+  }finally{await page.keyboard.up("a");}
+  assert.ok(carved,"the banked carve needs measurable travel");
+  assert.ok(carved.zone!==""&&carved.failedLandings===0,
+   "first carve must stay inside protected meadow and never splash down");
   await page.screenshot({path:path.join(out,"bowl-carve-after-run.png")});
-  fs.writeFileSync(path.join(out,"trace.json"),JSON.stringify({samples,errors},null,2)+"\n");
-  console.log("REDWOOD BOWL CARVE TRACE",JSON.stringify({entry,latest,samples,errors}));
-  assert.deepEqual(errors,[],"no renderer exceptions");
-  assert.ok(latest?.exits===1&&latest?.zone!==""&&latest?.takeoff==="redwood-bowl-exit",
-   "carve should reach exactly one meadow-safe bowl launch without leaving park");
+  console.log("REDWOOD BOWL CARVE TRACE",JSON.stringify({entry,carved,samples,errors}));
 
-  // The earlier QA stopped at takeoff. A safe-looking prediction is not
-  // evidence of an actual landing, nor of a line a visitor can continue.
-  stage="touchdown";
-  await page.waitForFunction(()=>{
-   const d=document.querySelector("canvas")?.dataset;
-   return Number(d?.skateBowlLandings)+Number(d?.skateBowlFailedLandings)>0;
-  },null,{timeout:20000});
-  const touchdown=await sample();
-  assert.equal(touchdown.landings,1,"the carved rim must lead to one real grounded landing");
-  assert.equal(touchdown.failedLandings,0,"the touchdown must avoid water and park boundaries");
-  assert.ok(touchdown.landingSpeed>2,"the rider must carry usable momentum into the runout");
-  assert.ok(touchdown.resultSerial>0&&touchdown.lastResult!=="Bail",
-   "the automatic rim trick should complete and land, not leave an unfinished board spin");
-  await page.screenshot({path:path.join(out,"bowl-touchdown.png")});
-
-  // Camera-relative S now points back toward the eastern timber meadow.
-  // This is an ordinary input, not a scripted teleport/ghost path.
+  // S points back toward the eastern timber corridor in this camera
+  // orientation. This is normal WASD steering, not scripted player motion.
   stage="return";
+  let returned;
   await page.keyboard.down("s");
-  let returnSample;
   try{
-   for(let i=0;i<42;i++){
-    await page.waitForTimeout(250);
-    returnSample=await sample();
-    const point=returnSample.point?.split(",").map(Number);
-    if(returnSample.zone===""||returnSample.failedLandings>0||returnSample.speed<.6)break;
-    if(point?.length===2&&point[0]>-7.5)break;
+   for(let i=0;i<44;i++){
+    await page.waitForTimeout(200);
+    returned=await sample();
+    const p=returned.point?.split(",").map(Number);
+    if(returned.zone===""||returned.failedLandings>0||returned.speed<.6)break;
+    if(p?.length===2&&p[0]>-7.5)break;
    }
   }finally{await page.keyboard.up("s");}
-  assert.ok(returnSample,"return path must produce samples");
-  const back=returnSample.point.split(",").map(Number);
-  assert.ok(returnSample.zone!==""&&back[0]>-7.5&&returnSample.speed>1.5,
-   "one easy reverse-camera turn should bring the skater back to the timber approach");
-  assert.equal(returnSample.landings,1,"the return path must not fabricate a second landing");
+  assert.ok(returned,"timber return needs actual movement samples");
+  const back=returned.point?.split(",").map(Number);
+  assert.ok(returned.zone!==""&&back?.[0]>-7.5&&returned.speed>1.5,
+   "the rider should be able to return toward timber on normal WASD controls");
+  assert.equal(returned.failedLandings,0,
+   "no bowl pop is allowed to land outside the safe meadow");
   await page.screenshot({path:path.join(out,"redwood-return-line.png")});
-  console.log("REDWOOD GROVE RETURN PASS",JSON.stringify({entry,latest,touchdown,returnSample}));
+
+  // The next trick stays optional and easy: one Space press while rolling.
+  // Require the real airborne-to-ground result rather than a transient toast.
+  stage="return-trick";
+  const previousSerial=returned.resultSerial;
+  await canvas.focus();
+  await page.keyboard.press("Space");
+  await page.waitForFunction(serial=>{
+   const d=document.querySelector("canvas")?.dataset;
+   return Number(d?.skateResultSerial)>serial&&d?.skateTrick==="";
+  },previousSerial,{timeout:26000});
+  const landed=await sample();
+  assert.ok(landed.score>0&&landed.lastResult!=="Bail",
+   "a stylish assisted return-line trick must complete its actual landing");
+  assert.equal(landed.failedLandings,0);
+  assert.ok(landed.zone!=="","the return-line trick must land inside the park");
+  await page.screenshot({path:path.join(out,"timber-return-landed-trick.png")});
+  assert.deepEqual(errors,[],"no browser renderer exceptions");
+  console.log("REDWOOD GROVE RETURN PASS",JSON.stringify({entry,carved,returned,landed}));
+  fs.writeFileSync(path.join(out,"trace.json"),
+   JSON.stringify({samples,entry,carved,returned,landed,errors},null,2)+"\n");
  }catch(error){
   fs.writeFileSync(path.join(out,"trace.json"),JSON.stringify({samples,errors,failed:String(error)},null,2)+"\n");
   console.error("REDWOOD BOWL FLOW FAILURE",JSON.stringify({samples,errors}));
