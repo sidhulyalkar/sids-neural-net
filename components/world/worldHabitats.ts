@@ -625,15 +625,30 @@ export function createHabitats(scene: THREE.Scene, obstacles: Obstacle[]) {
   // starts on the sampled terrain; branch-supported crowns distinguish live
   // oak, tanoak, madrone and Douglas-fir instead of cloning the same cone.
   const natives=new GeometryBatch();
+  // A few hand-composed California tree locations can all be disqualified
+  // as neighboring disc-golf fairways and skate features evolve. Deterministic
+  // spare candidates guarantee the redwood woodland is still represented,
+  // without ever planting a trunk on a protected sport route.
+  const species=["oak","tanoak","madrone","fir"] as const;
   const nativeLocations=[
    {x:-18,z:10,kind:"oak"},{x:-12,z:16,kind:"tanoak"},
    {x:-6,z:29,kind:"madrone"},{x:4,z:19,kind:"fir"},
    {x:-19,z:31,kind:"oak"},{x:6,z:-4,kind:"fir"},
    {x:-2,z:34,kind:"tanoak"},{x:-20,z:1,kind:"madrone"},
+   ...Array.from({length:128},(_,i)=>({
+    x:-17+(i*13)%32,
+    z:-24+(i*19)%49,
+    kind:species[i%species.length],
+   })),
   ] as const;
+  const nativePlaced:Point[]=[];
   for(const [index,t] of nativeLocations.entries()){
+    if(nativePlaced.length>=8)break;
     const p={x:t.x,z:t.z};
-    if(isWater(p)||clear(p)||discGolfCourseClearance(p,1.6)||biomeAt(p).weights.redwood<.18)continue;
+    if(isWater(p)||clear(p)||discGolfCourseClearance(p,1.6)||
+      biomeAt(p).weights.redwood<.18||
+      nativePlaced.some(other=>distance(p,other)<5.5))continue;
+    nativePlaced.push(p);
     const y=terrainHeight(t.x,t.z),h=t.kind==="fir"?11.5:6.5+index%3;
     const bark=t.kind==="madrone"?"#9a624b":
       t.kind==="oak"?"#665a48":"#6d5945";
