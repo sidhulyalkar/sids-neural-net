@@ -5,7 +5,7 @@ import {
   waterZone, nearbyDiscovery,
 } from "../lib/world/model";
 import {
-  SKIM_BOARDS, SKIM_HEAT_SECONDS, boardPoint, northShoreZ, beachBlend,
+  SKIM_BOARDS, SKIM_HEAT_SECONDS, boardPoint, northShoreZ, beachBlend, skimBeachClearance,
   skimOffshore, nearbySkimBoard, waveCrestOffshore, skimWaveAt, skimWaterHeight,
   idleSkimHeat, pickupSkimBoard, startSkimRide, skimAction, stepSkimHeat,
   skimTrickForKey, SKIM_TRICK_KEYS,
@@ -166,4 +166,14 @@ test("skim heat countdown uses bounded fixed steps at low frame rates",()=>{
   for(let i=0;i<10;i++)for(let sub=0;sub<10;sub++)
     heat=stepSkimHeat(heat,p,.05,i*.5+sub*.05,0,false).heat;
   assert.ok(Math.abs(heat.remaining-(SKIM_HEAT_SECONDS-5))<1e-7);
+});
+
+test("surf board pickups and run-ins remain clear of generated vegetation",()=>{
+  for(const index of [0,1,2]){
+    const p=boardPoint(index);
+    assert.ok(skimBeachClearance(p),"board pickup area should stay open");
+    assert.ok(skimBeachClearance({x:p.x,z:p.z+3}),"surf run-in should stay open");
+  }
+  assert.equal(skimBeachClearance({x:43,z:40}),false,"do not erase rainforest");
+  assert.equal(skimBeachClearance({x:0,z:12}),false,"do not erase redwoods");
 });

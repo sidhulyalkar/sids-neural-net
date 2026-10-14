@@ -4,6 +4,7 @@ import { biomeAt, DESERT_FORMATIONS, smooth, understoryDensityAt } from "@/lib/w
 import { BOULDER_HOLDS, sportClearance } from "@/lib/world/activities";
 import { discGolfOpeningClearance, discGolfCourseClearance } from "@/lib/world/discGolf";
 import { RAINFOREST_CANOPY_WILDLIFE, RAINFOREST_REPTILES, DESERT_ECOLOGY_ANCHORS } from "@/lib/world/ecology";
+import { skimBeachClearance } from "@/lib/world/skimboarding";
 import { DESERT_JUMPS, desertGapBypassPoints, jumpWorld } from "@/lib/world/desertTrack";
 import {
   terrainHeight,
@@ -99,6 +100,7 @@ export function createHabitats(scene: THREE.Scene, obstacles: Obstacle[]) {
     inDryWash(p) ||
     BOULDER_HOLDS.some((h) => distance(p, h) < h.radius + 2) ||
     sportClearance(p) ||
+    skimBeachClearance(p) ||
     REGIONS.some((r) => distance(p, r.point) < 3) ||
     MEMORY_POINTS.some((r) => distance(p, r.point) < 2.5) ||
     isWater(p);

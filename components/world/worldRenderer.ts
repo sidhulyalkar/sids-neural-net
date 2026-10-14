@@ -27,7 +27,7 @@ import {stepCritterLocomotion} from "@/lib/world/landWildlifeMotion";
 import { SHASTA_CHARACTER } from "@/lib/world/shastaCharacter";
 import { FrameSampler, QualityController } from "@/lib/world/performance";
 import {
-  SKIM_BOARDS, boardPoint, beachBlend, northShoreZ, nearbySkimBoard,
+  SKIM_BOARDS, boardPoint, beachBlend, northShoreZ, skimBeachClearance, nearbySkimBoard,
   idleSkimHeat, pickupSkimBoard, startSkimRide, stepSkimHeat, skimAction,
   skimWaterHeight, skimWaveAt, waveCrestOffshore,
   skimTrickForKey, type SkimHeat, type SkimTrick,
@@ -568,7 +568,7 @@ export function createWorld(
     const x = -25 + random() * 71,
       z = -40 + random() * 80;
     if (
-      sportClearance({x,z}) || discGolfOpeningClearance({x,z},2) ||
+      sportClearance({x,z}) || skimBeachClearance({x,z}) || discGolfOpeningClearance({x,z},2) ||
       discGolfCourseClearance({x,z},2) ||
       biomeAt({x,z}).weights.redwood < .25 ||
       x < -17 || z < -15 ||
@@ -747,6 +747,7 @@ export function createWorld(
     if (
       discGolfCourseClearance({x,z}) ||
       random() < biomeAt({x,z}).weights.desert || sportClearance({x,z}) ||
+      skimBeachClearance({x,z}) ||
       REGIONS.some((r) => lineDistance(x, z, REGIONS[0].point, r.point) < 2.7)
     )
       continue;
