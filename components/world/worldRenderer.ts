@@ -4038,11 +4038,16 @@ export function createWorld(
         isBoostActivity(state.activity)&&aquatic==="land";
       canvas.dataset.rideBoost=String(boosting);
       canvas.dataset.rideBoostRemaining=Math.max(0,rideBoost.until-elapsed).toFixed(2);
-      const showAim=state.entered&&aquatic==="land"&&
+      const aimEligible=state.entered&&aquatic==="land"&&
         isBoostActivity(state.activity)&&discGolf.phase==="off"&&!jetSki&&
         !jetChoosing&&bigAir.phase!=="flying";
+      // One-button skating already has its own thin score strip; don't
+      // advertise an unrelated precision skill-shot all the time. F/click
+      // still work, and boost notices remain visible when actually used.
+      const showAim=aimEligible&&(mode!=="skate"||
+        boosting||elapsed<rideBoostNoticeUntil);
       rideHud.style.display=showAim?"block":"none";
-      rideReticle.style.display=showAim?"block":"none";
+      rideReticle.style.display=aimEligible&&mode!=="skate"?"block":"none";
       if(showAim){
         const seconds=Math.max(0,rideBoost.until-elapsed);
         rideHud.textContent=elapsed<rideBoostNoticeUntil?rideBoostNotice:
