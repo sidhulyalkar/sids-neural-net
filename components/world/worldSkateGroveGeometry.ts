@@ -202,16 +202,19 @@ export function createWorldSkateGrove(scene:THREE.Scene,support:(p:Point)=>numbe
  // surface or the east-facing roll-in. A few warm cut-face strokes clarify
  // that the entrance is split wood, not a missing polygon.
  const barkRidges:Part[]=[],woodEndGrain:Part[]=[];
- for(let i=0;i<84;i++){
-  const a=(i+.22*(i%3))*2*Math.PI/84;
+ // Keep the trunk exterior a solid bark surface, not a porcupine fringe.
+ // Sparse low flutes are embedded into the skirt and terminate *inside*
+ // the rim, never dangling past the edge or crossing the east roll-in.
+ for(let i=0;i<28;i++){
+  const a=(i+.16*(i%3))*2*Math.PI/28;
   const delta=Math.atan2(Math.sin(a-.15),Math.cos(a-.15));
-  if(Math.abs(delta)<.33)continue;
-  const radius0=5.59+(i%3)*.11,radius1=6.30+(i%4)*.035;
+  if(Math.abs(delta)<.38)continue;
+  const radius0=5.60+(i%2)*.09,radius1=6.07+(i%3)*.055;
   const p={x:REDWOOD_BOWL.center.x+Math.cos(a)*radius0,
    z:REDWOOD_BOWL.center.z+Math.sin(a)*radius0};
-  const q={x:REDWOOD_BOWL.center.x+Math.cos(a+.022)*radius1,
-   z:REDWOOD_BOWL.center.z+Math.sin(a+.022)*radius1};
-  barkRidges.push(beam(onRide(p,.09),onRide(q,.062),.026+(i%4)*.005));
+  const q={x:REDWOOD_BOWL.center.x+Math.cos(a+.012)*radius1,
+   z:REDWOOD_BOWL.center.z+Math.sin(a+.012)*radius1};
+  barkRidges.push(beam(onRide(p,.065),onRide(q,.065),.014+(i%3)*.003));
  }
  for(const split of [-.33,.33]){
   const a=.15+split;
@@ -224,7 +227,7 @@ export function createWorldSkateGrove(scene:THREE.Scene,support:(p:Point)=>numbe
    woodEndGrain.push(beam(onRide(p,.085),onRide(q,.085),.040));
   }
  }
- pooled("redwood-bark-striations",barkRidges,darkTimber);
+ pooled("redwood-bark-striations",barkRidges,bark);
  pooled("open-trunk-end-grain",woodEndGrain,grain);
 
  // Timber quarterpipes and halfpipe rhythm. Thin seams follow the real
