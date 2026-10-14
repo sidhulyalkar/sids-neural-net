@@ -57,7 +57,7 @@ export function queueSkateSpin(state:SkateTrickState,direction:-1|1,now:number):
  return degrees===state.spinDegrees?state:{...state,spinDegrees:degrees};
 }
 export function skateTrickPose(state:SkateTrickState,now:number){
- const duration=Math.max(state.assisted?.44:SKATE_FLIP_SECONDS,Math.abs(state.spinDegrees)/360*.78);
+ const duration=Math.max(state.assisted ? 0.44 : SKATE_FLIP_SECONDS,Math.abs(state.spinDegrees)/360*.78);
  const progress=state.phase==="air"?clamp((now-state.startedAt)/duration,0,1):0;
  const e=smooth(progress);
  const baseYaw=state.stance==="fakie"?Math.PI:0;
@@ -74,10 +74,10 @@ export function skateTrickPose(state:SkateTrickState,now:number){
 export function finishSkateTrick(state:SkateTrickState,now:number,landingSpeed:number):SkateTrickState{
  if(state.phase!=="air"||!state.name||!Number.isFinite(now))return state;
  const seconds=Math.max(0,now-state.startedAt);
- const duration=Math.max(state.assisted?.44:SKATE_FLIP_SECONDS,Math.abs(state.spinDegrees)/360*.78);
+ const duration=Math.max(state.assisted ? 0.44 : SKATE_FLIP_SECONDS,Math.abs(state.spinDegrees)/360*.78);
  // Assisted tricks complete their catch slightly earlier. Truly premature
  // touchdown still bails, so the rider never banks an unperformed flip.
- const clean=seconds>=duration*(state.assisted?.76:.72);
+ const clean=seconds>=duration*(state.assisted ? .76 : .72);
  const base={...state,phase:"ground" as const,name:null,grab:"none" as const,
   spinDegrees:0,assisted:false,manual:"none" as const,manualDistance:0,manualTime:0};
  if(!clean)return {...base,combo:0,points:0,lastLabel:"Bail",
