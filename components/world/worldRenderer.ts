@@ -3446,6 +3446,12 @@ export function createWorld(
       canvas.dataset.skimRemaining=skimHeat.remaining.toFixed(1);
       canvas.dataset.skimRidePoints=skimHeat.ridePoints.toFixed(0);
       canvas.dataset.skimWave=skimWaterHeight(player,surfClock,SEA_SURFACE).toFixed(2);
+      canvas.dataset.skimWaveStyle="continuous-ribbon-v1";
+      canvas.dataset.skimWaveRibbons=String(skimWaves.length);
+      canvas.dataset.skimPendingTrick=skimHeat.pendingTrick??"";
+      canvas.dataset.skimLastTrick=skimHeat.lastTrick;
+      canvas.dataset.skimTrickSpin=skimHeat.spin.toFixed(3);
+      canvas.dataset.skimCameraFollow=String(surfing);
       canvas.dataset.activity = surfing?"skim":mode;
       canvas.dataset.speed = travel.speed.toFixed(2);
       canvas.dataset.height = playerY.toFixed(2);
