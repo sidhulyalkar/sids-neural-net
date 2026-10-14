@@ -16,6 +16,8 @@ const sample=async canvas=>({
  trick:await canvas.getAttribute("data-skate-trick"),
  score:await canvas.getAttribute("data-skate-score"),
  combo:await canvas.getAttribute("data-skate-combo"),
+ result:await canvas.getAttribute("data-skate-result"),
+ assist:await canvas.getAttribute("data-skate-assist"),
  speed:await canvas.getAttribute("data-speed"),
  height:await canvas.getAttribute("data-height"),
 });
@@ -33,6 +35,9 @@ try{
  await page.waitForFunction(()=>document.querySelector("canvas")?.dataset.skatePark==="true",
   null,{timeout:15000});
  assert.equal(await canvas.getAttribute("data-activity"),"skate");
+ assert.equal(await canvas.getAttribute("data-skate-assist"),"on");
+ assert.equal(await page.getByRole("button",{name:"Do an assisted skate trick"}).count(),1,
+  "One touch trick button replaces three technique-specific controls");
  assert.ok(Number(await canvas.getAttribute("data-height"))>0);
  await page.screenshot({path:path.join(out,"01-skatepark-overview.png")});
  await canvas.focus();
@@ -45,6 +50,9 @@ try{
  },null,{timeout:26000});
  const first=await sample(canvas);
  assert.ok(Number(first.score)>0,"Landed ollie should score");
+ await page.waitForFunction(()=>document.querySelector("canvas")?.dataset.skateResult==="Ollie",
+  null,{timeout:5000});
+ assert.equal(await page.locator("[aria-label='Completed skateboard trick']").count(),1);
  await page.keyboard.down("ArrowDown");await page.keyboard.up("ArrowDown");
  await page.keyboard.press("ArrowLeft");
  await page.waitForFunction(()=>document.querySelector("canvas")?.dataset.skateTrick==="Kickflip",
@@ -54,9 +62,19 @@ try{
   return d?.skateTrick===""&&Number(d?.skateCombo)>=2;
  },null,{timeout:26000});
  const second=await sample(canvas);
+ await page.waitForFunction(()=>document.querySelector("canvas")?.dataset.skateResult==="Kickflip",null,{timeout:5000});
  assert.ok(Number(second.score)>Number(first.score),
   "Clean flick landing chains into the current line");
  await page.screenshot({path:path.join(out,"02-skate-combo.png")});
+ // A second Space should choose a new move without any special flick sequence.
+ await page.keyboard.press("Space");
+ await page.waitForFunction(()=>document.querySelector("canvas")?.dataset.skateTrick==="Kickflip",
+  null,{timeout:10000});
+ await page.waitForFunction(()=>{
+  const d=document.querySelector("canvas")?.dataset;
+  return d?.skateTrick===""&&d?.skateResult==="Kickflip";
+ },null,{timeout:26000});
+ await page.screenshot({path:path.join(out,"03-skate-assisted-trick.png")});
  assert.deepEqual(errors,[],"No renderer errors or browser console errors");
  fs.writeFileSync(path.join(out,"report.json"),JSON.stringify({first,second,errors},null,2)+"\n");
  console.log("Skatepark browser acceptance PASS",JSON.stringify({first,second,errors}));
