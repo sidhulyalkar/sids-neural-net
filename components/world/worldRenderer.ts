@@ -2864,6 +2864,22 @@ export function createWorld(
     catch{/* Gameplay keeps its in-memory best. */}
   }
   let skateHasBeenAirborne=false,skatePadPushHeld=false,skateCarveLean=0;
+  let skateAssistAttempts=0,skateResultAt=-Infinity,skateResultLabel="";
+  function commitSkateTrick(next:SkateTrickState){
+    const previous=skateTrick;
+    if(previous===next)return;
+    if(Number.isFinite(next.lastLandedAt)&&next.lastLandedAt!==previous.lastLandedAt&&next.lastLabel){
+      const bailed=next.bails>previous.bails;
+      const awarded=next.combo<=1?next.points:next.points-previous.points;
+      skateResultLabel=next.lastLabel;
+      skateResultName.textContent=bailed?"Almost!":next.lastLabel;
+      skateResultDetail.textContent=bailed?"KEEP ROLLING":
+        "+"+Math.max(0,Math.round(awarded))+" PTS"+
+        (next.combo>1?"  ·  "+next.combo+"× LINE":"  ·  LANDED");
+      skateResultAt=performance.now();
+    }
+    saveSkateBest(next);skateTrick=next;
+  }
   let playerY = groundHeight(player);
   // Single source of truth for mutually exclusive minigame entrances.
   const occupiedByOtherMode=(requested:WorldGameMode)=>
@@ -3244,7 +3260,7 @@ export function createWorld(
     if(key==="q"||key==="e")skateTrick=setSkateGrab(skateTrick,"none");
     if(key==="c"||key==="x"){
       const next=finishSkateManual(skateTrick,elapsed);
-      saveSkateBest(next);skateTrick=next;
+      commitSkateTrick(next);
     }
   }
   function setAquaticMode(next: AquaticMode) {
@@ -3266,22 +3282,33 @@ export function createWorld(
       targetDepth = 0;
     }
   }
-  function launchSkateTrick(name:SkateTrickName){
+  function launchSkateTrick(name:SkateTrickName,assisted=false){
     if(state.activity!=="skate"||!state.entered||state.paused||document.hidden||
       aquatic!=="land"||jetSki||jetChoosing||discGolf.phase!=="off"||
       trial.phase==="armed"||trial.phase==="running"||
       bigAir.phase==="flying"||bigAir.phase==="armed"||climb||
       (airHeight>.08&&verticalSpeed<=0)||skateTrick.phase==="air")return;
-    const naturalFlight=airHeight>.08&&verticalSpeed>0;
+    const naturalFlight=airHeight>.025&&verticalSpeed>0;
     if(grind)grind=null; // pop off a rail instead of locking the player on it
-    const next=startSkateTrick(skateTrick,name,elapsed,travel.speed);
+    const next=startSkateTrick(skateTrick,name,elapsed,travel.speed,assisted);
     if(next===skateTrick)return;
-    saveSkateBest(next);skateTrick=next;skateHasBeenAirborne=false;
+    commitSkateTrick(next);skateHasBeenAirborne=false;
     if(!naturalFlight){
       verticalSpeed=Math.min(7.6,5.9+Math.min(14,travel.speed)*.1);
       playerY=Math.max(playerY,supportHeight(player)+.04);airHeight=.04;
     }else skateHasBeenAirborne=true;
     destination=null;
+  }
+  function launchAssistedSkateTrick(){
+    const context={attempt:skateAssistAttempts,speed:travel.speed,
+      inPark:insideSkatePark(player),airborne:airHeight>.025};
+    const before=skateTrick;
+    launchSkateTrick(selectAssistedSkateTrick(context),true);
+    if(skateTrick!==before&&skateTrick.phase==="air"){
+      const direction=assistedSkateSpin(context);
+      if(direction)skateTrick=queueSkateSpin(skateTrick,direction,elapsed);
+      skateAssistAttempts++;
+    }
   }
   function performAction() {
     if (!state.entered || state.paused || document.hidden || aquatic !== "land" ||
@@ -3299,8 +3326,8 @@ export function createWorld(
       callbacks.onBigAir(bigAir);
       return;
     }
-    if(state.activity==="skate"&&airHeight>.08){launchSkateTrick("Ollie");return;}
-    if(grind&&state.activity==="skate"){launchSkateTrick("Ollie");return;}
+    if(state.activity==="skate"&&airHeight>.08){launchAssistedSkateTrick();return;}
+    if(grind&&state.activity==="skate"){launchAssistedSkateTrick();return;}
     if ((state.activity === "skate" || state.activity === "ski") && travel.speed > 2.2) {
       const candidate = nearestGrind(player,state.activity==="skate"?.92:1.45);
       if (candidate) {
@@ -3344,7 +3371,7 @@ export function createWorld(
         return;
       }
     }
-    if(state.activity==="skate"){launchSkateTrick("Ollie");return;}
+    if(state.activity==="skate"){launchAssistedSkateTrick();return;}
     if (state.activity === "boulder") {
       const hold = nextHold(player);
       if (hold) {
@@ -3359,7 +3386,7 @@ export function createWorld(
   function clearInput() {
     if(skateTrick.manual!=="none"){
       const next=finishSkateManual(skateTrick,elapsed);
-      saveSkateBest(next);skateTrick=next;
+      commitSkateTrick(next);
     }
     skateWindupAt=-Infinity;skatePadPrimed=false;skatePadPushHeld=false;skateCarveLean=0;
     keys.clear();
@@ -3439,8 +3466,8 @@ export function createWorld(
             skatePadPrimed=false;skateWindupAt=-Infinity;
           }
           if(pad.buttons[0]?.pressed&&!keys.has(" ")){
-            // Edge-trigger on A so holding push never repeats an ollie.
-            if(!skatePadPushHeld)launchSkateTrick("Ollie");
+            // A matches Space/Touch: one edge-triggered contextual trick.
+            if(!skatePadPushHeld)performAction();
             skatePadPushHeld=true;
           }else skatePadPushHeld=false;
         }else skatePadPushHeld=false;
@@ -3678,7 +3705,7 @@ export function createWorld(
         if (finished) {
           if(grind.mode==="skate"){
             const next=scoreSkateGrind(skateTrick,grind.covered,grind.style,elapsed);
-            saveSkateBest(next);skateTrick=next;
+            commitSkateTrick(next);
           }
           grind = null;
           airHeight = 0.08;
@@ -3866,15 +3893,14 @@ export function createWorld(
       }
       if(mode==="skate"&&skateTrick.manual!=="none"){
         const next=stepSkateManual(skateTrick,dt,travel.speed,elapsed);
-        saveSkateBest(next);skateTrick=next;
+        commitSkateTrick(next);
       }
       if(mode==="skate"&&skateTrick.phase==="air"){
         if(airHeight>.12)skateHasBeenAirborne=true;
         if(skateHasBeenAirborne&&airHeight<=.001&&!grind){
           const landing=finishSkateTrick(skateTrick,elapsed,travel.speed);
           if(landing.bails>skateTrick.bails)travel={...travel,speed:travel.speed*.32};
-          saveSkateBest(landing);
-          skateTrick=landing;skateHasBeenAirborne=false;
+          commitSkateTrick(landing);skateHasBeenAirborne=false;
         }
       }
       if(trial.phase==="armed" || trial.phase==="running") {
@@ -5767,7 +5793,7 @@ export function createWorld(
         // Region transfer invalidates airborne tricks and manuals. A fast
         // travel cannot impersonate a landing or credit an unfinished line.
         skateTrick={...idleSkateTrick(),best:skateTrick.best};
-        skateHasBeenAirborne=false;skateCarveLean=0;
+        skateHasBeenAirborne=false;skateCarveLean=0;skateResultAt=-Infinity;
         lastSerial = next.command.serial;
         const r = REGIONS.find((r) => r.id === next.command!.region)!;
         jetSki=null;jetRivals=[];jetHud.style.display="none";
