@@ -21,6 +21,10 @@ test("authored wood geometry is static, named, low-draw and disposable",()=>{
  ])assert.ok(grove.root.getObjectByName(name),"missing "+name);
  assert.ok(grove.root.children.length<=24,
   "park should use pooled meshes, not hundreds of objects");
+ const barkFlutes=grove.root.getObjectByName("redwood-bark-striations");
+ assert.ok(barkFlutes instanceof THREE.InstancedMesh);
+ assert.ok(barkFlutes.count<=28,
+  "redwood exterior must have sparse embedded bark grain, not a spiky skirt");
  for(const child of grove.root.children){
   if(!(child instanceof THREE.Mesh))continue;
   const p=child.geometry.getAttribute("position");
