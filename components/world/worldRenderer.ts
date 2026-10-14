@@ -395,18 +395,72 @@ export function createWorld(
     });
   }
   const shoreFoam = instances(boxGeo, shoreFoamMat, shoreFoamPieces, false);
-  // North-shore foam tracks the very same traveling crests as the ride solver.
-  const skimWaveSegments=18,skimWaveCount=5;
-  const skimWavePieces:Instance[]=[];
-  for(let crest=0;crest<skimWaveCount;crest++)for(let seg=0;seg<skimWaveSegments;seg++){
-    const x=-26+seg*3.05;
-    skimWavePieces.push({x,y:SEA_SURFACE+.13,z:northShoreZ(x)+waveCrestOffshore(crest,0),
-      sx:3,sy:.055,sz:.36});
+  // Smooth continuous shorebreak ribbons: a shared height sampler drives
+  // BOTH skimming contact and rendered surface. No 3m cuboid wave strips.
+  const swellMaterial=mat("#54bfcc",{
+    roughness:.32,metalness:.05,transparent:true,opacity:.48,
+    depthWrite:false,side:THREE.DoubleSide,
+  });
+  const whitecapMaterial=mat("#effaf5",{
+    roughness:.65,transparent:true,opacity:.84,
+    depthWrite:false,side:THREE.DoubleSide,
+  });
+  const swellSamples=34;
+  function skimRibbon(across:number,material:THREE.Material){
+    const geometry=geo(new THREE.BufferGeometry());
+    const coords=new Float32Array((swellSamples+1)*(across+1)*3);
+    const positions=new THREE.BufferAttribute(coords,3);
+    positions.setUsage(THREE.DynamicDrawUsage);
+    geometry.setAttribute("position",positions);
+    const triangles:number[]=[];
+    for(let j=0;j<across;j++)for(let i=0;i<swellSamples;i++){
+      const a=j*(swellSamples+1)+i,b=a+swellSamples+1;
+      triangles.push(a,b,a+1,b,b+1,a+1);
+    }
+    geometry.setIndex(triangles);
+    const object=new THREE.Mesh(geometry,material);
+    object.castShadow=false;object.receiveShadow=false;
+    object.frustumCulled=false;
+    scene.add(object);
+    return {geometry,object,coords,across};
   }
-  const skimFoam=instances(boxGeo,mat("#e7faf4",{transparent:true,opacity:.83,depthWrite:false,roughness:.3}),skimWavePieces,false);
-  const skimSwell=instances(boxGeo,mat("#7bd4d8",{transparent:true,opacity:.44,depthWrite:false}),
-    skimWavePieces.map(p=>({...p,y:SEA_SURFACE+.065,sy:.14,sz:1.15})),false);
-  skimFoam.frustumCulled=skimSwell.frustumCulled=false;
+  const skimWaves=Array.from({length:5},(_,index)=>({
+    index,
+    surface:skimRibbon(8,swellMaterial),
+    foam:skimRibbon(2,whitecapMaterial),
+  }));
+  function updateSkimWaves(seconds:number){
+    for(const wave of skimWaves){
+      const crest=waveCrestOffshore(wave.index,seconds);
+      // Once a train passes offshore, hide it until it cycles back.
+      const visible=crest > -2.4 && crest < 40;
+      for(const [ribbon,foam] of [[wave.surface,false],[wave.foam,true]] as const){
+        ribbon.object.visible=visible;
+        if(!visible)continue;
+        const width=foam?.78:6.6;
+        const count=ribbon.across+1;
+        for(let j=0;j<count;j++){
+          const side=(j/ribbon.across-.5)*width;
+          for(let i=0;i<=swellSamples;i++){
+            const x=-27+54*i/swellSamples;
+            // Continuity is important at ribbon edges; avoid independent
+            // boxed segments that create surf-line gaps.
+            const point={x,z:northShoreZ(x)+crest+side};
+            const waveHeight=skimWaveAt(point,seconds);
+            const y=SEA_SURFACE+.012+waveHeight*.72+
+              (foam?.055:0);
+            const k=3*(j*(swellSamples+1)+i);
+            ribbon.coords[k]=x;
+            ribbon.coords[k+1]=y;
+            ribbon.coords[k+2]=point.z;
+          }
+        }
+        ribbon.geometry.attributes.position.needsUpdate=true;
+        ribbon.geometry.computeVertexNormals();
+      }
+    }
+  }
+  updateSkimWaves(0);
 
   const skimShape=new THREE.Shape();
   skimShape.moveTo(0,-.97);
@@ -2593,7 +2647,7 @@ export function createWorld(
   // Keep ground/coast geometry, water, wildlife, interactables and marine
   // content intact. This visibility filter runs after their frame updates.
   const underwaterCullingExclusions=new Set<THREE.Object3D>([
-    ground,water,tides,shoreFoam,skimFoam,skimSwell,
+    ground,water,tides,shoreFoam,...skimWaves.flatMap(w=>[w.surface.object,w.foam.object]),
     ...skimProps,...skimTails,
     grassMesh,markerHitMesh,explorerContact,dogContact,
     critterBodies,critterHeads,critterEars,critterEyes,critterMuzzles,
@@ -4565,19 +4619,7 @@ export function createWorld(
     neuralMat.emissiveIntensity = 0.4 + Math.sin(elapsed * 0.65) * 0.18;
     particleMat.opacity = 0.48 + Math.sin(elapsed) * 0.17;
     tides.position.x = Math.sin(elapsed * 0.2) * 0.5;
-    for(let i=0;i<skimWavePieces.length;i++){
-      const seg=i%skimWaveSegments,crest=Math.floor(i/skimWaveSegments);
-      const x=-26+seg*3.05,z=northShoreZ(x)+waveCrestOffshore(crest,surfClock);
-      const height=skimWaveAt({x,z},surfClock);
-      dummy.position.set(x,skimWaterHeight({x,z},surfClock,SEA_SURFACE)+.055,z);
-      dummy.rotation.set(0,0,0);
-      dummy.scale.set(3,.055,.36);dummy.updateMatrix();
-      skimFoam.setMatrixAt(i,dummy.matrix);
-      dummy.position.y=SEA_SURFACE+.06+height*.31;
-      dummy.scale.set(3,.12+height*.85,1.15);dummy.updateMatrix();
-      skimSwell.setMatrixAt(i,dummy.matrix);
-    }
-    skimFoam.instanceMatrix.needsUpdate=true;skimSwell.instanceMatrix.needsUpdate=true;
+    if(aquatic!=="dive")updateSkimWaves(surfClock);
     shoreFoam.position.x = Math.sin(elapsed * 0.7) * 0.11;
     shoreFoam.position.y = Math.sin(elapsed * 1.25) * 0.018;
     shoreFoamMat.opacity = 0.52 + Math.sin(elapsed * 0.9) * 0.08;
