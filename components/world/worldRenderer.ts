@@ -4021,6 +4021,7 @@ export function createWorld(
       if(skateVisible&&skateHud.textContent!==skateStatus)skateHud.textContent=skateStatus;
       canvas.dataset.skateGrove="redwood-timber-v1";
       canvas.dataset.skateBowlExits=String(skateBowlExits);
+      canvas.dataset.skateHeading=travel.heading.x.toFixed(3)+","+travel.heading.z.toFixed(3);
       canvas.dataset.skateLastTakeoff=skateLastTakeoff;
       canvas.dataset.skateGroveZone=skateVisible?skateParkZone(player):"";
       canvas.dataset.skateAssist="on";
