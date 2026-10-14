@@ -3047,10 +3047,16 @@ export function createWorld(
     // marker from some approaches; do not score hits through the terrain.
     const terrainHit=ray.intersectObject(ground,false)[0];
     const clear=!!hit&&(!terrainHit||terrainHit.distance>hit.distance+.08);
-    const target=clear&&hit&&hit.distance<=65?
+    const direct=clear&&hit&&hit.distance<=65?
       rideVisual.targetFromHit(hit.object):null;
-    const endpoint=hit&&clear?hit.point:terrainHit&&terrainHit.distance<28?
-      terrainHit.point:ray.ray.at(28,new THREE.Vector3());
+    const assisted=direct?null:rideVisual.nearAimTarget(
+      currentMode,player,travel.speed,elapsed,rideBoost,camera,pointer,ground);
+    const target=direct??assisted;
+    const endpoint=assisted?
+      new THREE.Vector3(assisted.point.x,
+        groundHeight(assisted.point)+2.9,assisted.point.z):
+      hit&&clear?hit.point:terrainHit&&terrainHit.distance<28?
+        terrainHit.point:ray.ray.at(28,new THREE.Vector3());
     rideVisual.fireTracer(new THREE.Vector3(player.x,playerY+1.35,player.z),
       endpoint,elapsed);
     const previous=rideBoost;
@@ -3063,6 +3069,7 @@ export function createWorld(
     rideBoostNoticeUntil=elapsed+1.35;
     rideAnnounce.textContent=rideBoostNotice;
     canvas.dataset.rideBoostLastShot=success?"hit":"miss";
+    canvas.dataset.rideBoostAimAssist=String(success&&!!assisted);
     return true;
   }
   function onUp(e: PointerEvent) {
@@ -5252,7 +5259,7 @@ export function createWorld(
       !jetSki&&!jetChoosing&&discGolf.phase==="off"&&bigAir.phase!=="flying"){
       camera.updateMatrixWorld();
       const aimed=rideVisual.visibleAimTarget(state.activity,player,
-        travel.speed,elapsed,rideBoost,camera);
+        travel.speed,elapsed,rideBoost,camera,ground);
       canvas.dataset.rideBoostAim=aimed?
         [aimed.x.toFixed(3),aimed.y.toFixed(3),aimed.id].join(","):"";
     }else canvas.dataset.rideBoostAim="";
