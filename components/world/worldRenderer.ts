@@ -3355,7 +3355,7 @@ export function createWorld(
               : -1;
         if(state.activity==="skate"&&skateTrick.manual!=="none"){
           const previousLine=finishSkateManual(skateTrick,elapsed);
-          saveSkateBest(previousLine);skateTrick=previousLine;
+          commitSkateTrick(previousLine);
         }
         player = { ...candidate.point };
         grind = {
@@ -3894,6 +3894,7 @@ export function createWorld(
       const mode = effectiveActivity(state.activity, player);
       if(mode!=="skate"&&(skateTrick.phase!=="ground"||skateTrick.manual!=="none")){
         skateTrick={...idleSkateTrick(),best:skateTrick.best};skateHasBeenAirborne=false;
+        skateResultAt=-Infinity;
       }
       if(mode==="skate"&&skateTrick.manual!=="none"){
         const next=stepSkateManual(skateTrick,dt,travel.speed,elapsed);
