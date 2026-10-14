@@ -1,5 +1,5 @@
 import { desertTrackClearance, desertTrackGroundRoute, DESERT_JUMPS } from "./desertTrack";
-import {insideSkatePark,skateParkSurface,skateParkLipCrossing,SKATE_PARK_RAILS,type SkateRail} from "./skatepark";
+import {insideSkatePark,skateParkSurface,skateParkLipCrossing,SKATE_PARK_RAILS,SKATE_GROVE_FLOW,type SkateRail} from "./skatepark";
 import {skateRollingSpeed} from "./skateDynamics";
 import { beamSupportHeight, technicalFeatureClearance } from "./technicalFeatures";
 import { bigAirClearance } from "./bigAir";
@@ -308,7 +308,7 @@ export function activityLanding(id: Activity): Point | null {
   // kicker's launch direction. This makes the first descent naturally cross the
   // feature instead of approaching it from the back side.
   if (id === "ski") return { x: 8, z: -54 };
-  if (id === "skate") return { x: 0, z: 35 };
+  if (id === "skate") return {...SKATE_GROVE_FLOW.approach};
   if (id === "boulder") return { x: 13, z: -15 };
   return null;
 }
