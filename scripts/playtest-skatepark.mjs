@@ -13,6 +13,7 @@ const browser=await chromium.launch({headless:true,args:["--no-sandbox","--enabl
 const errors=[];
 const sample=async canvas=>({
  park:await canvas.getAttribute("data-skate-park"),
+ player:await canvas.getAttribute("data-player"),
  trick:await canvas.getAttribute("data-skate-trick"),
  score:await canvas.getAttribute("data-skate-score"),
  combo:await canvas.getAttribute("data-skate-combo"),
@@ -109,7 +110,25 @@ try{
  assert.ok(Number(third.score)>Number(second.score),
   "A second one-button assisted trick should increase the player's line score");
  await page.screenshot({path:path.join(out,"03-skate-assisted-trick.png")});
+ // Validate an actual moving approach, not just stationary air tricks.
+ // The camera and island navigation should remain responsive while holding W.
+ const origin=(await canvas.getAttribute("data-player")).split(",").map(Number);
+ assert.equal(origin.length,2);
+ await canvas.focus();
+ await page.keyboard.down("w");
+ try{
+  await page.waitForFunction(start=>{
+   const d=document.querySelector("canvas")?.dataset;
+   const p=d?.player?.split(",").map(Number);
+   return p?.length===2&&Number(d?.speed)>1&&
+    Math.hypot(p[0]-start[0],p[1]-start[1])>1.2;
+  },origin,{timeout:20000});
+ }finally{await page.keyboard.up("w");}
+ const ride=await sample(canvas);
+ assert.ok(ride.park==="true","the opening flow line must remain inside the grove");
+ assert.ok(ride.player!==origin.join(","),"the skateboard must actually travel");
+ await page.screenshot({path:path.join(out,"04-ride-the-redwood-line.png")});
  assert.deepEqual(errors,[],"No renderer errors or browser console errors");
- fs.writeFileSync(path.join(out,"report.json"),JSON.stringify({first,second,third,errors},null,2)+"\n");
- console.log("Skatepark browser acceptance PASS",JSON.stringify({first,second,third,errors}));
+ fs.writeFileSync(path.join(out,"report.json"),JSON.stringify({first,second,third,ride,errors},null,2)+"\n");
+ console.log("Skatepark browser acceptance PASS",JSON.stringify({first,second,third,ride,errors}));
 }finally{await browser.close();}
