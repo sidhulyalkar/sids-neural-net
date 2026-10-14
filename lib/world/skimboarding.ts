@@ -161,8 +161,14 @@ export function stepSkimHeat(
   if (s.phase !== "riding") {
     return { heat: remaining === 0 ? { ...s, phase: "finished" } : s, point: p };
   }
-  const turn = clamp(steer, -1, 1) * (s.air > 0 ? .85 : 1.75) * step;
-  const a = Math.atan2(s.heading.x, s.heading.z) + turn;
+  // An accessible, optional return carve starts after meeting a swell.
+  // A/D always takes priority, while a neutral stick follows the break
+  // back to shore rather than drifting into a distant wipeout.
+  const offshoreStart=skimOffshore(p);
+  const assist=s.waveHits>0 && offshoreStart>10 && s.heading.z>-.87 &&
+    Math.abs(steer)<.15 ? 2.65*step : 0;
+  const turn=clamp(steer,-1,1)*(s.air>0?.85:1.75)*step+assist;
+  const a=Math.atan2(s.heading.x,s.heading.z)+turn;
   const heading = { x: Math.sin(a), z: Math.cos(a) };
   const wave = skimWaveAt(p, seconds);
   let speed = clamp(s.speed + ((pumping && s.air < .02 ? 1.9 : 0) +
@@ -171,9 +177,9 @@ export function stepSkimHeat(
   let airElapsed = s.airElapsed;
   let ridePoints = s.ridePoints + wave * speed * step * .6;
   let waveHits = s.waveHits;
-  if (wave > .68 && s.heading.z < -.1) {
-    ridePoints += 10 * step;
-    waveHits = Math.max(1, waveHits);
+  if(wave>.68){
+    if(waveHits===0)waveHits=1;
+    if(s.heading.z<-.1)ridePoints+=10*step;
   }
   if (air > 0) {
     air += verticalSpeed * step;

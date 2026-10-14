@@ -177,3 +177,21 @@ test("surf board pickups and run-ins remain clear of generated vegetation",()=>{
   assert.equal(skimBeachClearance({x:43,z:40}),false,"do not erase rainforest");
   assert.equal(skimBeachClearance({x:0,z:12}),false,"do not erase redwoods");
 });
+
+test("trick-assisted wave capture naturally returns an unstirred rider toward shore",()=>{
+  let point=boardPoint(1);
+  let heat=startSkimRide(pickupSkimBoard(point,1,idleSkimHeat()),
+    point,9,{x:0,z:1});
+  let maxOffshore=-Infinity,captured=false;
+  for(let i=0;i<1000&&heat.phase==="riding";i++){
+    const next=stepSkimHeat(heat,point,.025,i*.025,0,true);
+    heat=next.heat;point=next.point;
+    maxOffshore=Math.max(maxOffshore,skimOffshore(point));
+    if(heat.waveHits>0)captured=true;
+  }
+  assert.ok(captured,"incoming breaking wave should register a capture");
+  assert.ok(maxOffshore<29,"passive guidance should avoid distant water wipeout");
+  assert.equal(heat.phase,"recovering");
+  assert.match(heat.lastTrick,/Clean ride/);
+  assert.ok(heat.score>0);
+});

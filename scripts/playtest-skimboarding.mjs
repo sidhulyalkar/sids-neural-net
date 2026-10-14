@@ -82,21 +82,25 @@ try {
   await snap("02-run-up");
   await page.keyboard.press("Space");
   await waitPhase("riding",5500);
-  await page.keyboard.up("w");
-  await page.keyboard.up("Shift");
-  assert.equal(await attr("skim-camera-follow"),"true");
-  assert.equal(await attr("aquatic"),"land");
-  assert.match(await hud.textContent(),/Shuv-it · Q/);
-  await snap("02-ride");
-  checks.push("Run + board drop launches skim without swimming or shifting camera modes");
+  // Test against the live phase without spending a long screenshot interval
+  // before launching the aerial trick on a short surf run.
+  const launch=await canvas().evaluate(c=>({
+    phase:c.dataset.skimPhase,camera:c.dataset.skimCameraFollow,
+    aquatic:c.dataset.aquatic,
+  }));
+  assert.deepEqual(launch,{phase:"riding",camera:"true",aquatic:"land"});
   await canvas().focus();
   await page.keyboard.press("Space");
   await page.keyboard.press("q");
+  await page.keyboard.up("w");
+  await page.keyboard.up("Shift");
+  assert.match(await hud.textContent(),/Shuv-it · Q/);
+  checks.push("Run + board drop launches skim without swimming or shifting camera modes");
   await page.waitForFunction(()=>document.querySelector('canvas[role="application"]')?.dataset.skimPendingTrick==="shuvit",
     null,{timeout:4000});
   await page.waitForFunction(()=>Number(document.querySelector('canvas[role="application"]')?.dataset.skimTrickSpin)>.25,
     null,{timeout:4000});
-  await snap("03-shuvit-air");
+  await snap("02-ride-and-shuvit-air");
   await page.waitForFunction(()=>document.querySelector('canvas[role="application"]')?.dataset.skimLastTrick?.includes("Shuv-it landed"),
     null,{timeout:5000});
   checks.push("Q queues an airborne trick, spins visible geometry, and lands for points");
