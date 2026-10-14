@@ -4062,9 +4062,11 @@ export function createWorld(
       0,
       1,
     );
+    // The geometric cave layer is authoritative. The nearest semantic
+    // landmark can switch to Granite Ridge inside the tunnel, which used
+    // to disable Shasta's entrance wait and make his curiosity label blink.
     const dogWaitsAtCaveEntrance =
       aquatic === "land" &&
-      nearestRegion(player) === "cavern" &&
       dogCaveProgress > 0.46 &&
       caveLayer === "arcade" && arcadeInside(player);
     const dogTarget = state.entered
