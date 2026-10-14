@@ -43,7 +43,7 @@ test("visible cedar deck samples exact riding heightfield at every grid vertex",
   assert.ok(deck instanceof THREE.Mesh);
   if(!(deck instanceof THREE.Mesh))return;
   const position=deck.geometry.getAttribute("position");
-  assert.ok(position.count>3000,"smoothly tessellated bowl requires adequate mesh detail");
+  assert.ok(position.count>=8245,"steep bark shoulder needs at least a 96x84 static support mesh");
   let checked=0;
   for(let i=0;i<position.count;i+=73){
    const point={x:position.getX(i),z:position.getZ(i)};
@@ -82,4 +82,46 @@ test("deep redwood silhouette belongs to the real surface, not a hidden art coll
    prior=y;
   }
  }
+});
+
+test("redwood bark is draped above rendered triangles, never a jagged sawtooth",()=>{
+ const scene=new THREE.Scene(),grove=createWorldSkateGrove(scene,groundHeight);
+ try{
+  const deck=grove.root.getObjectByName("skate-grove-ride-surface");
+  const shell=grove.root.getObjectByName("hollow-redwood-bark-shell");
+  assert.ok(deck instanceof THREE.Mesh&&shell instanceof THREE.Mesh);
+  if(!(deck instanceof THREE.Mesh)||!(shell instanceof THREE.Mesh))return;
+  const field=deck.geometry.getAttribute("position");
+  const bark=shell.geometry.getAttribute("position");
+  const nx=96,nz=84,cols=nx+1;
+  assert.equal(field.count,(nx+1)*(nz+1));
+  assert.ok(bark.count>800&&bark.count%16===0);
+  const interpolatedY=(x:number,z:number)=>{
+   const gx=Math.max(0,Math.min(nx,(x-SKATE_PARK.center.x+SKATE_PARK.halfWidth)/
+    (SKATE_PARK.halfWidth*2/nx)));
+   const gz=Math.max(0,Math.min(nz,(z-SKATE_PARK.center.z+SKATE_PARK.halfDepth)/
+    (SKATE_PARK.halfDepth*2/nz)));
+   const ix=Math.min(nx-1,Math.floor(gx)),iz=Math.min(nz-1,Math.floor(gz));
+   const fx=gx-ix,fz=gz-iz;
+   const h=(dx:number,dz:number)=>field.getY((iz+dz)*cols+ix+dx);
+   const a=h(0,0),b=h(1,0),c=h(0,1),d=h(1,1);
+   return fx+fz<=1?
+    a*(1-fx-fz)+b*fx+c*fz:
+    b*(1-fz)+c*(1-fx)+d*(fx+fz-1);
+  };
+  let checked=0;
+  // Each surviving bark sector has two radial strips of six vertices,
+  // then four buried perimeter face vertices, which are intentionally
+  // allowed to descend into the earth. Check only the visible top skin.
+  for(let segment=0;segment<bark.count;segment+=16){
+   for(let j=0;j<12;j++){
+    const i=segment+j;
+    const clearance=bark.getY(i)-interpolatedY(bark.getX(i),bark.getZ(i));
+    assert.ok(clearance>=.015&&clearance<=.045,
+     "top bark must sit reliably just above GPU deck mesh, never cut through");
+    checked++;
+   }
+  }
+  assert.ok(checked>700);
+ }finally{grove.dispose();}
 });
