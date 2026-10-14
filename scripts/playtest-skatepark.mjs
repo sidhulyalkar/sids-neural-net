@@ -24,6 +24,8 @@ const sample=async canvas=>({
  assist:await canvas.getAttribute("data-skate-assist"),
  grove:await canvas.getAttribute("data-skate-grove"),
  groveZone:await canvas.getAttribute("data-skate-grove-zone"),
+ bowlExits:await canvas.getAttribute("data-skate-bowl-exits"),
+ lastTakeoff:await canvas.getAttribute("data-skate-last-takeoff"),
  speed:await canvas.getAttribute("data-speed"),
  height:await canvas.getAttribute("data-height"),
 });
@@ -110,10 +112,14 @@ try{
  assert.ok(Number(third.score)>Number(second.score),
   "A second one-button assisted trick should increase the player's line score");
  await page.screenshot({path:path.join(out,"03-skate-assisted-trick.png")});
- // Validate an actual moving approach, not just stationary air tricks.
- // The camera and island navigation should remain responsive while holding W.
+ // A real first push must follow the split trunk's east roll-in. Holding W
+ // should travel from the timber apron through the center and toward the
+ // western exit, where a fast outward crossing adds one assisted style pop.
  const origin=(await canvas.getAttribute("data-player")).split(",").map(Number);
  assert.equal(origin.length,2);
+ assert.ok(origin[0]>2&&Math.abs(origin[1]-40.8)<.35,
+  "Park spawn must align with the carved tree's accessible split entrance");
+ let ride,insideBowl;
  await canvas.focus();
  await page.keyboard.down("w");
  try{
@@ -123,12 +129,29 @@ try{
    return p?.length===2&&Number(d?.speed)>1&&
     Math.hypot(p[0]-start[0],p[1]-start[1])>1.2;
   },origin,{timeout:20000});
+  ride=await sample(canvas);
+  assert.equal(ride.park,"true");
+  await page.screenshot({path:path.join(out,"04-ride-the-redwood-line.png")});
+  await page.waitForFunction(()=>{
+   const d=document.querySelector("canvas")?.dataset;
+   const p=d?.player?.split(",").map(Number);
+   return d?.skateGroveZone==="redwood-bowl"&&p&&p[0]<-10.5&&p[0]>-13.7;
+  },null,{timeout:25000});
+  insideBowl=await sample(canvas);
+  assert.ok(Number(insideBowl.speed)>2,
+   "First-push run-in retains usable momentum in the hollow trunk");
+  await page.screenshot({path:path.join(out,"05-inside-redwood-bowl.png")});
+  await page.waitForFunction(()=>{
+   const d=document.querySelector("canvas")?.dataset;
+   return Number(d?.skateBowlExits)>0&&d?.skateLastTakeoff==="redwood-bowl-exit";
+  },null,{timeout:26000});
+  await page.screenshot({path:path.join(out,"06-carved-bowl-exit-trick.png")});
  }finally{await page.keyboard.up("w");}
- const ride=await sample(canvas);
- assert.ok(ride.park==="true","the opening flow line must remain inside the grove");
- assert.ok(ride.player!==origin.join(","),"the skateboard must actually travel");
- await page.screenshot({path:path.join(out,"04-ride-the-redwood-line.png")});
+ const exit=await sample(canvas);
+ assert.equal(Number(exit.bowlExits),1,
+  "Crossing outward through the bowl rim should trigger one and only one pop");
+ assert.equal(exit.lastTakeoff,"redwood-bowl-exit");
  assert.deepEqual(errors,[],"No renderer errors or browser console errors");
- fs.writeFileSync(path.join(out,"report.json"),JSON.stringify({first,second,third,ride,errors},null,2)+"\n");
- console.log("Skatepark browser acceptance PASS",JSON.stringify({first,second,third,ride,errors}));
+ fs.writeFileSync(path.join(out,"report.json"),JSON.stringify({first,second,third,ride,insideBowl,exit,errors},null,2)+"\n");
+ console.log("Skatepark browser acceptance PASS",JSON.stringify({first,second,third,ride,insideBowl,exit,errors}));
 }finally{await browser.close();}
