@@ -3852,6 +3852,10 @@ export function createWorld(
               lastRampId = ramp.id;
               verticalSpeed = ramp.impulse;
               airHeight = 0.03;
+              // A fast, deliberate quarterpipe launch earns a stylish trick
+              // without requiring a second, midair keypress from visitors.
+              if(modeForRamp==="skate"&&insideSkatePark(player)&&
+                travel.speed>=6&&skateTrick.phase==="ground")launchAssistedSkateTrick();
             } else if (!ramp) {
               lastRampId = "";
             }
@@ -4041,13 +4045,26 @@ export function createWorld(
         bigAir.phase!=="flying";
       skateHud.style.display=skateVisible?"block":"none";
       skateTouch.style.display=skateVisible&&jetTouchEnabled?"flex":"none";
+      const resultAge=performance.now()-skateResultAt;
+      const resultVisible=skateVisible&&resultAge>=0&&resultAge<1850;
+      skateResult.style.display=resultVisible?"block":"none";
+      if(resultVisible){
+        const alpha=Math.min(1,resultAge/145,(1850-resultAge)/350);
+        skateResult.style.opacity=String(Math.max(0,alpha));
+        skateResult.style.transform=skateResultReducedMotion?
+          "translate(-50%,0)":
+          "translate(-50%,"+(-5-Math.min(15,resultAge/130))+"px) scale("+
+          (0.96+Math.min(1,resultAge/220)*.04)+")";
+      }
       if(skateVisible)skateHud.textContent=skateTrick.phase==="air"?
         (skateTrick.name??"Trick")+(skateTrick.spinDegrees?" + "+Math.abs(skateTrick.spinDegrees)+"°":"")+" · land clean":
         skateTrick.manual!=="none"?
         (skateTrick.manual==="manual"?"MANUAL":"NOSE MANUAL")+" · "+skateTrick.manualDistance.toFixed(1)+" m":
-        skateTrick.lastLabel?
-          skateTrick.lastLabel+" · "+skateTrick.points+" pts · ×"+Math.max(1,skateTrick.combo)+" · Best "+skateTrick.best:
-          "SKATE · Space: Ollie · ↓+↑/←/→: Flick · C/X: Manual · J/L: Spin · Q/E: Grab";
+        "✦ SPACE / A: EASY TRICK · WASD: RIDE · "+skateTrick.points+
+        " PTS · BEST "+skateTrick.best;
+      canvas.dataset.skateAssist="on";
+      canvas.dataset.skateResult=resultVisible?skateResultLabel:"";
+      canvas.dataset.skateResultVisible=String(resultVisible);
       canvas.dataset.skateManual=skateTrick.manual;
       canvas.dataset.skateStance=skateTrick.stance;
       canvas.dataset.skateSpin=String(skateTrick.spinDegrees);
