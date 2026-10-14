@@ -68,12 +68,20 @@ export function skateParkSurface(p:Point):number|null {
  // Deliberate mirrored timber quarter walls preserve existing real takeoffs.
  const quarters=2.2*Math.max(north*north,south*south)*street;
  const r=Math.hypot(p.x-REDWOOD_BOWL.center.x,p.z-REDWOOD_BOWL.center.z);
- // Slightly deeper tree-carved silhouette, with the same C1 roll-in slope.
- const bank=1.42*smooth((r-.85)/4.55)*(1-smooth((r-REDWOOD_BOWL.rimRadius)/1.9));
+ // The sculpted redwood is a genuinely raised wooden bank, not a visual
+ // shell masking a flat collision disk. A gradual polished 4.5u interior
+ // rolls into a shorter, steeper bark shoulder OUTSIDE the coping.
+ // Mild deterministic trunk asymmetry keeps the crown from reading as a
+ // perfect concrete ring while retaining smooth wheel and mesh support.
+ const az=Math.atan2(p.z-REDWOOD_BOWL.center.z,p.x-REDWOOD_BOWL.center.x);
+ const irregularity=1+.043*Math.sin(az*7+.5)+.021*Math.sin(az*11-1.1);
+ const bank=2.05*irregularity*smooth((r-.85)/4.55)*
+  (1-smooth((r-REDWOOD_BOWL.rimRadius)/1.36));
  // The east-facing split opening is a shallow, obvious roll-in rather than
  // a physical gate. A rider can enter it even without a timed jump.
  const opening=smooth((p.x+9)/2.5)*(1-smooth(Math.abs(p.z-40.8)/2.15));
- const bowl=bank*(1-.53*opening);
+ // Preserve the friendly eastern roll-in height despite the deeper shell.
+ const bowl=bank*(1-.66*opening);
  const pyramid=.66*Math.max(0,1-Math.abs(p.x+1)/2.5)*
   Math.max(0,1-Math.abs(p.z-40)/3.2);
  const stump=STUMP_PADS.reduce((sum,pad)=>{
