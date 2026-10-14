@@ -28,6 +28,19 @@ export function createRideChallengeGeometry(scene:THREE.Scene){
  tracer.visible=false;tracer.renderOrder=80;root.add(tracer);
  let shotUntil=0;
  const aimVector=new THREE.Vector3();
+ const sightRay=new THREE.Raycaster();
+ const eye=new THREE.Vector3();
+ const direction=new THREE.Vector3();
+ const sightClear=(camera:THREE.Camera,position:THREE.Vector3,
+  ground:THREE.Mesh):boolean=>{
+   camera.getWorldPosition(eye);
+   direction.copy(position).sub(eye);
+   const length=direction.length();
+   if(length<=.1)return false;
+   sightRay.set(eye,direction.multiplyScalar(1/length));
+   sightRay.near=0;sightRay.far=length-.12;
+   return sightRay.intersectObject(ground,false).length===0;
+ };
  const targets=RIDE_BOOST_TARGETS.map(target=>{
   const group=new THREE.Group();group.name="skill-shot-"+target.id;
   group.position.set(target.point.x,groundHeight(target.point)+2.9,target.point.z);
@@ -75,7 +88,8 @@ export function createRideChallengeGeometry(scene:THREE.Scene){
   updateTracer(now:number){tracer.visible=now<shotUntil;},
   /** Read-only camera projection for browser acceptance and aim accessibility. */
   visibleAimTarget(mode:Activity,player:Point,speed:number,now:number,
-   state:RideBoost,camera:THREE.Camera):{id:string;x:number;y:number}|null{
+   state:RideBoost,camera:THREE.Camera,
+   ground:THREE.Mesh):{id:string;x:number;y:number}|null{
    let best:{id:string;x:number;y:number}|null=null;
    let bestDistance=Infinity;
    for(const {target,group} of targets){
@@ -84,10 +98,34 @@ export function createRideChallengeGeometry(scene:THREE.Scene){
     if(aimVector.z<0||aimVector.z>1||
       Math.abs(aimVector.x)>.87||Math.abs(aimVector.y)>.85)continue;
     const d=aimVector.x*aimVector.x+aimVector.y*aimVector.y;
-    if(d<bestDistance){best={id:target.id,x:aimVector.x,y:aimVector.y};
-     bestDistance=d;}
+    if(d<bestDistance&&sightClear(camera,group.position,ground)){
+     best={id:target.id,x:aimVector.x,y:aimVector.y};
+     bestDistance=d;
+    }
    }
    return best;
+  },
+  /** Small screen-space forgiveness for an off-axis click taken while the
+   * player and camera are moving. Still requires a charged, in-range, real
+   * target with an unoccluded 3D line of sight. A blank click stays a miss.
+   */
+  nearAimTarget(mode:Activity,player:Point,speed:number,now:number,
+   state:RideBoost,camera:THREE.Camera,
+   pointer:THREE.Vector2,ground:THREE.Mesh):RideBoostTarget|null{
+   let closest:RideBoostTarget|null=null;
+   let bestError=.065*.065;
+   for(const {target,group} of targets){
+    if(!group.visible||!canFireRideBoost(target,mode,player,speed,now,state))
+     continue;
+    aimVector.copy(group.position).project(camera);
+    if(aimVector.z<0||aimVector.z>1)continue;
+    const dx=pointer.x-aimVector.x,dy=pointer.y-aimVector.y;
+    const error=dx*dx+dy*dy;
+    if(error<bestError&&sightClear(camera,group.position,ground)){
+     closest=target;bestError=error;
+    }
+   }
+   return closest;
   },
   targetFromHit(object:THREE.Object3D):RideBoostTarget|null{
    const id=object.userData.boostTargetId;
