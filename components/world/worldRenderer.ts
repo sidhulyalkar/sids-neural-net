@@ -3288,7 +3288,7 @@ export function createWorld(
     if(state.activity==="skate"&&airHeight>.08){launchSkateTrick("Ollie");return;}
     if(grind&&state.activity==="skate"){launchSkateTrick("Ollie");return;}
     if ((state.activity === "skate" || state.activity === "ski") && travel.speed > 2.2) {
-      const candidate = nearestGrind(player);
+      const candidate = nearestGrind(player,state.activity==="skate"?.92:1.45);
       if (candidate) {
         const dx = candidate.log.b.x - candidate.log.a.x;
         const dz = candidate.log.b.z - candidate.log.a.z;
@@ -3312,6 +3312,10 @@ export function createWorld(
             : travel.heading.x * dx + travel.heading.z * dz >= 0
               ? 1
               : -1;
+        if(state.activity==="skate"&&skateTrick.manual!=="none"){
+          const previousLine=finishSkateManual(skateTrick,elapsed);
+          saveSkateBest(previousLine);skateTrick=previousLine;
+        }
         player = { ...candidate.point };
         grind = {
           log: candidate.log,
