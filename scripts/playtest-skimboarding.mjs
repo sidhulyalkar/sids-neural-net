@@ -75,9 +75,13 @@ try {
   await canvas().focus();
   await page.keyboard.down("Shift");
   await page.keyboard.down("w");
-  await page.waitForTimeout(420);
+  // Gate the drop on actual renderer speed, not wall-clock time.
+  await page.waitForFunction(()=>
+    Number(document.querySelector('canvas[role="application"]')?.dataset.speed)>4.2,
+    null,{timeout:6500});
+  await snap("02-run-up");
   await page.keyboard.press("Space");
-  await waitPhase("riding",5000);
+  await waitPhase("riding",5500);
   await page.keyboard.up("w");
   await page.keyboard.up("Shift");
   assert.equal(await attr("skim-camera-follow"),"true");
@@ -126,7 +130,8 @@ try {
   })).catch(()=>null):null;
   fs.writeFileSync(path.join(output,"failure.json"),JSON.stringify({error:String(error),errors,diagnostic},null,2));
   if(page)await snap("failure").catch(()=>{});
-  console.error("SKIMBOARDING BROWSER QA FAILED",error,errors,diagnostic);
+  console.error("SKIMBOARDING BROWSER QA FAILED",error,
+    JSON.stringify({errors,diagnostic},null,2));
   process.exitCode=1;
 }finally{
   await browser.close();
