@@ -229,7 +229,7 @@ export function createWorldSkateGrove(scene:THREE.Scene,support:(p:Point)=>numbe
 
  // Timber quarterpipes and halfpipe rhythm. Thin seams follow the real
  // slope so they cannot float above the deck as straight boxes.
- const plankSeams:Part[]=[],sideRails:Part[]=[],supportPosts:Part[]=[],lipTrim:Part[]=[];
+ const plankSeams:Part[]=[],sideRails:Part[]=[],supportPosts:Part[]=[],supportBraces:Part[]=[],lipTrim:Part[]=[];
  for(const zStart of [28.7,46.15]){
   const zEnd=zStart<40?34.2:51.3;
   for(let z=zStart;z<=zEnd;z+=.76){
@@ -246,8 +246,17 @@ export function createWorldSkateGrove(scene:THREE.Scene,support:(p:Point)=>numbe
    }
    for(const z of [zStart+.38,(zStart+zEnd)*.5,zEnd-.38]){
     const p={x,z},top=ride(p)-.16,bottom=terrainHeight(p.x,p.z)+.035;
-    if(top>bottom+.18)supportPosts.push(beam(
-     new THREE.Vector3(x,bottom,z),new THREE.Vector3(x,top,z),.095));
+    if(top>bottom+.18){
+     supportPosts.push(beam(
+      new THREE.Vector3(x,bottom,z),new THREE.Vector3(x,top,z),.095));
+     // A timber knee brace inside the outside frame, not a floating
+     // obstacle crossing the quarterpipe riding corridor.
+     const braceZ=Math.min(zEnd-.15,z+.58);
+     const foot={x,z:braceZ};
+     supportBraces.push(beam(
+      new THREE.Vector3(x,bottom+.09,z),
+      new THREE.Vector3(x,Math.max(bottom+.12,ride(foot)-.21),braceZ),.058));
+    }
    }
   }
  }
@@ -260,11 +269,12 @@ export function createWorldSkateGrove(scene:THREE.Scene,support:(p:Point)=>numbe
  pooled("timber-quarter-plank-joints",plankSeams,darkTimber);
  pooled("exterior-halfpipe-stringers",sideRails,timber);
  pooled("halfpipe-understructure",supportPosts,darkTimber);
+ pooled("halfpipe-braced-timber-knees",supportBraces,timber);
  pooled("timber-quarter-lips",lipTrim,metal);
 
  // Two polished, shallow split-stump manual targets. The radial rise is
  // already part of skateParkSurface, these are only visual grain inlays.
- const stumpRing:Part[]=[],stumpGrain:Part[]=[];
+ const stumpRing:Part[]=[],stumpGrain:Part[]=[],stumpSplits:Part[]=[];
  for(const pad of STUMP_PADS){
   for(const radius of [pad.radius*.31,pad.radius*.62,pad.radius*.91]){
    const segments=24;
@@ -276,9 +286,19 @@ export function createWorldSkateGrove(scene:THREE.Scene,support:(p:Point)=>numbe
     (radius > pad.radius * 0.85 ? stumpRing : stumpGrain).push(part);
    }
   }
+  // Short, asymmetrical end-grain checks help a cut stump read as wood,
+  // rather than a target graphic painted onto the plaza.
+  for(let k=0;k<6;k++){
+   const a=k*Math.PI/3+k*.08;
+   const inner=.22+(k%2)*.13,outer=pad.radius*(.60+(k%3)*.07);
+   const p={x:pad.center.x+Math.cos(a)*inner,z:pad.center.z+Math.sin(a)*inner};
+   const q={x:pad.center.x+Math.cos(a+.07)*outer,z:pad.center.z+Math.sin(a+.07)*outer};
+   stumpSplits.push(beam(onRide(p,.061),onRide(q,.061),.017));
+  }
  }
  pooled("split-stump-ring-edges",stumpRing,timber);
  pooled("split-stump-end-grain",stumpGrain,grain);
+ pooled("split-stump-grain-checks",stumpSplits,darkTimber);
 
  // Shared segment metadata is the sole authority for targeting and height.
  // Natural polished log/bar rails keep the old grind physics exactly.
