@@ -11,7 +11,7 @@ export type SkateTrickState={
  phase:"ground"|"air";name:SkateTrickName|null;startedAt:number;
  flip:number;shove:number;points:number;combo:number;best:number;
  lastLandedAt:number;lastLabel:string;bails:number;grab:"none"|"left"|"right";
- spinDegrees:number;stance:SkateStance;
+ spinDegrees:number;stance:SkateStance;assisted:boolean;
  manual:SkateManual;manualDistance:number;manualTime:number;
 };
 export const SKATE_FLIP_SECONDS=0.66;
@@ -20,7 +20,7 @@ const smooth=(t:number)=>{const x=clamp(t,0,1);return x*x*(3-2*x);};
 export function idleSkateTrick():SkateTrickState{
  return {phase:"ground",name:null,startedAt:0,flip:0,shove:0,points:0,combo:0,best:0,
   lastLandedAt:-Infinity,lastLabel:"",bails:0,grab:"none",
-  spinDegrees:0,stance:"regular",manual:"none",manualDistance:0,manualTime:0};
+  spinDegrees:0,stance:"regular",assisted:false,manual:"none",manualDistance:0,manualTime:0};
 }
 const specs:Record<SkateTrickName,{flip:number;shove:number;score:number}>={
  Ollie:{flip:0,shove:0,score:30},
@@ -38,13 +38,13 @@ function award(state:SkateTrickState,label:string,base:number,now:number):SkateT
  return {...state,combo,points,best:Math.max(points,state.best),
   lastLandedAt:now,lastLabel:label};
 }
-export function startSkateTrick(state:SkateTrickState,name:SkateTrickName,now:number,speed:number):SkateTrickState{
+export function startSkateTrick(state:SkateTrickState,name:SkateTrickName,now:number,speed:number,assisted=false):SkateTrickState{
  if(state.phase!=="ground"||!Number.isFinite(now)||!Number.isFinite(speed)||speed<0)return state;
  // A trick can exit a manual without fabricating an extra landing.
  const base=state.manual!=="none"?finishSkateManual(state,now):state;
  const trick=specs[name];
  return {...base,phase:"air",name,startedAt:now,flip:trick.flip,shove:trick.shove,
-  grab:"none",spinDegrees:0,manual:"none",manualDistance:0,manualTime:0};
+  grab:"none",spinDegrees:0,assisted,manual:"none",manualDistance:0,manualTime:0};
 }
 export function setSkateGrab(state:SkateTrickState,hand:"none"|"left"|"right"):SkateTrickState{
  return state.phase==="air"&&state.name?{...state,grab:hand}:state;
@@ -57,7 +57,7 @@ export function queueSkateSpin(state:SkateTrickState,direction:-1|1,now:number):
  return degrees===state.spinDegrees?state:{...state,spinDegrees:degrees};
 }
 export function skateTrickPose(state:SkateTrickState,now:number){
- const duration=Math.max(SKATE_FLIP_SECONDS,Math.abs(state.spinDegrees)/360*.78);
+ const duration=Math.max(state.assisted?.44:SKATE_FLIP_SECONDS,Math.abs(state.spinDegrees)/360*.78);
  const progress=state.phase==="air"?clamp((now-state.startedAt)/duration,0,1):0;
  const e=smooth(progress);
  const baseYaw=state.stance==="fakie"?Math.PI:0;
@@ -74,10 +74,12 @@ export function skateTrickPose(state:SkateTrickState,now:number){
 export function finishSkateTrick(state:SkateTrickState,now:number,landingSpeed:number):SkateTrickState{
  if(state.phase!=="air"||!state.name||!Number.isFinite(now))return state;
  const seconds=Math.max(0,now-state.startedAt);
- const duration=Math.max(SKATE_FLIP_SECONDS,Math.abs(state.spinDegrees)/360*.78);
- const clean=seconds>=duration*.72;
+ const duration=Math.max(state.assisted?.44:SKATE_FLIP_SECONDS,Math.abs(state.spinDegrees)/360*.78);
+ // Assisted tricks complete their catch slightly earlier. Truly premature
+ // touchdown still bails, so the rider never banks an unperformed flip.
+ const clean=seconds>=duration*(state.assisted?.76:.72);
  const base={...state,phase:"ground" as const,name:null,grab:"none" as const,
-  spinDegrees:0,manual:"none" as const,manualDistance:0,manualTime:0};
+  spinDegrees:0,assisted:false,manual:"none" as const,manualDistance:0,manualTime:0};
  if(!clean)return {...base,combo:0,points:0,lastLabel:"Bail",
   bails:state.bails+1,lastLandedAt:now};
  const rotate=Math.abs(state.spinDegrees);
