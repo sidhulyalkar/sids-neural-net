@@ -15,9 +15,11 @@ test("authored wood geometry is static, named, low-draw and disposable",()=>{
   "redwood-growth-rings","split-redwood-coping",
   "timber-quarter-plank-joints","exterior-halfpipe-stringers",
   "split-stump-end-grain","redwood-log-grind",
-  "durable-grind-caps",
+  "durable-grind-caps","redwood-bark-striations",
+  "open-trunk-end-grain","halfpipe-braced-timber-knees",
+  "split-stump-grain-checks","park-edge-fern-fronds",
  ])assert.ok(grove.root.getObjectByName(name),"missing "+name);
- assert.ok(grove.root.children.length<=20,
+ assert.ok(grove.root.children.length<=24,
   "park should use pooled meshes, not hundreds of objects");
  for(const child of grove.root.children){
   if(!(child instanceof THREE.Mesh))continue;
