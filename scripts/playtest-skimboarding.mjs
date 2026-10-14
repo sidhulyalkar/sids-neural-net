@@ -15,10 +15,10 @@ const browser=await chromium.launch({
 const errors=[],checks=[];
 let page;
 const snap=async(name)=>page.screenshot({path:path.join(output,name+".png")});
-const canvas=()=>page.locator("canvas");
+const canvas=()=>page.locator('canvas[role="application"]');
 const attr=(key)=>canvas().getAttribute("data-"+key);
 async function waitPhase(phase,timeout=10000){
-  await page.waitForFunction(p=>document.querySelector("canvas")?.dataset.skimPhase===p,
+  await page.waitForFunction(p=>document.querySelector('canvas[role="application"]')?.dataset.skimPhase===p,
     phase,{timeout});
 }
 try {
@@ -29,12 +29,26 @@ try {
     if(request.url().includes("/_next/"))errors.push("request: "+request.url()+" "+request.failure()?.errorText);
   });
   await page.goto(base);
-  await page.getByRole("button",{name:/Explore world/}).click();
-  await page.waitForFunction(()=>Number(document.querySelector("canvas")?.dataset.drawCalls)>0,null,{timeout:30000});
+  // Next dev can show the server-rendered welcome screen before hydration
+  // finishes. Early button clicks have no client handler, so confirm the
+  // exploration transition and retry after hydration when necessary.
+  for(let attempt=0;attempt<5;attempt++){
+    await page.getByRole("button",{name:/Explore world/}).click();
+    try{
+      await page.waitForFunction(()=>
+        document.querySelector("[data-world-state]")?.getAttribute("data-world-state")==="exploring",
+        null,{timeout:5000});
+      break;
+    }catch{
+      if(attempt===4)throw new Error("World entry never hydrated after five attempts");
+    }
+  }
+  await page.waitForFunction(()=>Number(document.querySelector('canvas[role="application"]')?.dataset.drawCalls)>0,
+    null,{timeout:30000});
   await page.getByRole("button",{name:"Open navigation menu"}).click();
   await page.getByRole("button",{name:/North shore Skimboarding/}).click();
   await page.waitForFunction(()=>{
-    const c=document.querySelector("canvas");
+    const c=document.querySelector('canvas[role="application"]');
     const p=c?.dataset.player?.split(",").map(Number);
     return p?.length===2&&Math.abs(p[0])<4&&p[1]>38;
   });
@@ -74,12 +88,12 @@ try {
   await canvas().focus();
   await page.keyboard.press("Space");
   await page.keyboard.press("q");
-  await page.waitForFunction(()=>document.querySelector("canvas")?.dataset.skimPendingTrick==="shuvit",
+  await page.waitForFunction(()=>document.querySelector('canvas[role="application"]')?.dataset.skimPendingTrick==="shuvit",
     null,{timeout:4000});
-  await page.waitForFunction(()=>Number(document.querySelector("canvas")?.dataset.skimTrickSpin)>.25,
+  await page.waitForFunction(()=>Number(document.querySelector('canvas[role="application"]')?.dataset.skimTrickSpin)>.25,
     null,{timeout:4000});
   await snap("03-shuvit-air");
-  await page.waitForFunction(()=>document.querySelector("canvas")?.dataset.skimLastTrick?.includes("Shuv-it landed"),
+  await page.waitForFunction(()=>document.querySelector('canvas[role="application"]')?.dataset.skimLastTrick?.includes("Shuv-it landed"),
     null,{timeout:5000});
   checks.push("Q queues an airborne trick, spins visible geometry, and lands for points");
   await page.setViewportSize({width:390,height:844});
@@ -95,8 +109,8 @@ try {
   checks.push("Leaving skimboarding releases normal activity selection");
   await page.getByRole("button",{name:"Open navigation menu"}).click();
   await page.getByRole("button",{name:/Redwood grove A little about me/}).click();
-  await page.waitForFunction(()=>document.querySelector("canvas")?.dataset.aquatic==="land"&&
-    document.querySelector("canvas")?.dataset.skimPhase==="off");
+  await page.waitForFunction(()=>document.querySelector('canvas[role="application"]')?.dataset.aquatic==="land"&&
+    document.querySelector('canvas[role="application"]')?.dataset.skimPhase==="off");
   checks.push("Fast travel back into the island restores normal world state");
   assert.deepEqual(errors,[]);
   fs.writeFileSync(path.join(output,"qa.json"),JSON.stringify({checks,start,errors},null,2));
