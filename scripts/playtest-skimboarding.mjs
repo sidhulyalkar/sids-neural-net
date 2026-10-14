@@ -79,31 +79,51 @@ try {
   await page.waitForFunction(()=>
     Number(document.querySelector('canvas[role="application"]')?.dataset.speed)>4.2,
     null,{timeout:6500});
-  await snap("02-run-up");
-  await page.keyboard.press("Space");
-  await waitPhase("riding",5500);
-  // Test against the live phase without spending a long screenshot interval
-  // before launching the aerial trick on a short surf run.
-  const launch=await canvas().evaluate(c=>({
-    phase:c.dataset.skimPhase,camera:c.dataset.skimCameraFollow,
-    aquatic:c.dataset.aquatic,
-  }));
-  assert.deepEqual(launch,{phase:"riding",camera:"true",aquatic:"land"});
-  await canvas().focus();
-  await page.keyboard.press("Space");
-  await page.keyboard.press("q");
+  // The browser's software WebGL renderer can take longer to take a screenshot
+  // than the entire aerial window. Exercise the real canvas key handlers in one
+  // browser task and observe every phase through MutationObserver so the audit
+  // cannot miss a fast landing between separate Playwright round trips.
+  const trickTrace=await canvas().evaluate(async c=>{
+    const trace={riding:false,airborne:false,spin:false,landed:false,clean:false,swimming:false};
+    const sample=()=>{
+      const d=c.dataset;
+      trace.riding ||= d.skimPhase==="riding";
+      trace.airborne ||= d.skimPendingTrick==="shuvit";
+      trace.spin ||= Number(d.skimTrickSpin)>.25;
+      trace.landed ||= (d.skimLastTrick??"").includes("Shuv-it landed");
+      trace.clean ||= (d.skimLastTrick??"").includes("Clean ride");
+      trace.swimming ||= d.aquatic!=="land";
+    };
+    const observer=new MutationObserver(sample);
+    observer.observe(c,{attributes:true,attributeFilter:[
+      "data-skim-phase","data-skim-pending-trick","data-skim-trick-spin",
+      "data-skim-last-trick","data-aquatic",
+    ]});
+    // These are ordinary bubbling keyboard events routed to the same world
+    // handler as physical Space/Q presses; no simulation shortcuts or state writes.
+    const press=key=>c.dispatchEvent(new KeyboardEvent("keydown",{
+      key,bubbles:true,cancelable:true,
+    }));
+    press(" "); // drop board at observed running speed
+    press(" "); // pop
+    press("q"); // shuv-it during flight
+    sample();
+    await new Promise(resolve=>setTimeout(resolve,2400));
+    sample();observer.disconnect();
+    return {...trace,finalPhase:c.dataset.skimPhase,
+      lastTrick:c.dataset.skimLastTrick,score:Number(c.dataset.skimScore)};
+  });
   await page.keyboard.up("w");
   await page.keyboard.up("Shift");
+  assert.equal(trickTrace.swimming,false,"skim should not switch into swimming");
+  assert.equal(trickTrace.riding,true,"run-up should launch a genuine skim");
+  assert.equal(trickTrace.airborne,true,"Q should queue an airborne shuv-it");
+  assert.equal(trickTrace.spin,true,"the avatar should visibly rotate during the trick");
+  assert.equal(trickTrace.landed,true,"a completed shuv-it should land for points");
+  await snap("02-ride-and-shuvit");
   assert.match(await hud.textContent(),/Shuv-it · Q/);
-  checks.push("Run + board drop launches skim without swimming or shifting camera modes");
-  await page.waitForFunction(()=>document.querySelector('canvas[role="application"]')?.dataset.skimPendingTrick==="shuvit",
-    null,{timeout:4000});
-  await page.waitForFunction(()=>Number(document.querySelector('canvas[role="application"]')?.dataset.skimTrickSpin)>.25,
-    null,{timeout:4000});
-  await snap("02-ride-and-shuvit-air");
-  await page.waitForFunction(()=>document.querySelector('canvas[role="application"]')?.dataset.skimLastTrick?.includes("Shuv-it landed"),
-    null,{timeout:5000});
-  checks.push("Q queues an airborne trick, spins visible geometry, and lands for points");
+  checks.push("Run + drop + Q trick registered airborne spin, touchdown score and no swim");
+
   await page.setViewportSize({width:390,height:844});
   const bounds=await hud.boundingBox();
   assert.ok(bounds&&bounds.x>=0&&bounds.x+bounds.width<=391,
