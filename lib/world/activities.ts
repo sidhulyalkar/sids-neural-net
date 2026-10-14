@@ -1,5 +1,5 @@
 import { desertTrackClearance, desertTrackGroundRoute, DESERT_JUMPS } from "./desertTrack";
-import {insideSkatePark,skateParkSurface,skateParkLipCrossing,SKATE_PARK_RAILS,SKATE_GROVE_FLOW,type SkateRail} from "./skatepark";
+import {insideSkatePark,skateParkSurface,skateParkLipCrossing,redwoodBowlCarveHeading,SKATE_PARK_RAILS,SKATE_GROVE_FLOW,type SkateRail} from "./skatepark";
 import {skateRollingSpeed} from "./skateDynamics";
 import { beamSupportHeight, technicalFeatureClearance } from "./technicalFeatures";
 import { bigAirClearance } from "./bigAir";
@@ -341,7 +341,9 @@ export function stepTravel(
   const blended = {x:current.heading.x*(1-steer)+desired.x*steer,
     z:current.heading.z*(1-steer)+desired.z*steer};
   const norm = Math.hypot(blended.x,blended.z) || 1;
-  const heading = {x:blended.x/norm,z:blended.z/norm};
+  const unbanked={x:blended.x/norm,z:blended.z/norm};
+  const heading=mode==="skate"?
+    redwoodBowlCarveHeading(current.point,unbanked,current.speed,dt):unbanked;
   const slope =
     supportHeight({ x: current.point.x + heading.x, z: current.point.z + heading.z }) -
     supportHeight(current.point);
