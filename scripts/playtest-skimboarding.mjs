@@ -23,7 +23,11 @@ async function waitPhase(phase,timeout=10000){
 }
 try {
   page=await browser.newPage({viewport:{width:1440,height:900}});
-  page.on("pageerror",e=>errors.push(e.message));
+  page.on("pageerror",e=>errors.push("pageerror: "+e.message));
+  page.on("console",message=>{if(message.type()==="error")errors.push("console: "+message.text());});
+  page.on("requestfailed",request=>{
+    if(request.url().includes("/_next/"))errors.push("request: "+request.url()+" "+request.failure()?.errorText);
+  });
   await page.goto(base);
   await page.getByRole("button",{name:/Explore world/}).click();
   await page.waitForFunction(()=>Number(document.querySelector("canvas")?.dataset.drawCalls)>0,null,{timeout:30000});
@@ -100,7 +104,11 @@ try {
 }catch(error){
   const diagnostic=page?await page.evaluate(()=>({
     world:document.querySelector("[data-world-state]")?.getAttribute("data-world-state"),
-    canvas:{...(document.querySelector("canvas")?.dataset??{})},
+    canvasCount:document.querySelectorAll("canvas").length,
+    canvases:[...document.querySelectorAll("canvas")].map(c=>({id:c.id,role:c.getAttribute("role"),dataset:{...c.dataset}})),
+    text:document.body?.innerText.slice(0,2200),
+    html:document.querySelector("[data-world-state]")?.outerHTML.slice(0,1500),
+    location:window.location.href,
   })).catch(()=>null):null;
   fs.writeFileSync(path.join(output,"failure.json"),JSON.stringify({error:String(error),errors,diagnostic},null,2));
   if(page)await snap("failure").catch(()=>{});
