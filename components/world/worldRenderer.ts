@@ -3261,7 +3261,7 @@ export function createWorld(
     if(grind)grind=null; // pop off a rail instead of locking the player on it
     const next=startSkateTrick(skateTrick,name,elapsed,travel.speed);
     if(next===skateTrick)return;
-    skateTrick=next;skateHasBeenAirborne=false;
+    saveSkateBest(next);skateTrick=next;skateHasBeenAirborne=false;
     verticalSpeed=Math.min(7.6,5.9+Math.min(14,travel.speed)*.1);
     playerY=Math.max(playerY,supportHeight(player)+.04);airHeight=.04;
     destination=null;
@@ -5741,6 +5741,10 @@ export function createWorld(
           callbacks.onChallenge(trial);
         }
         resetRideBoost();
+        // Region transfer invalidates airborne tricks and manuals. A fast
+        // travel cannot impersonate a landing or credit an unfinished line.
+        skateTrick={...idleSkateTrick(),best:skateTrick.best};
+        skateHasBeenAirborne=false;skateCarveLean=0;
         lastSerial = next.command.serial;
         const r = REGIONS.find((r) => r.id === next.command!.region)!;
         jetSki=null;jetRivals=[];jetHud.style.display="none";
