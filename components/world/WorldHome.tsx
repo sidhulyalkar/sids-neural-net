@@ -734,7 +734,7 @@ export function WorldHome({ content }: { content: WorldContent }) {
                     {REGIONS.map((r, i) => (
                       <button key={r.id} onClick={() => jump(r.id)}>
                         <span className={styles.destinationNumber}>
-                          0{i + 1}
+                          {String(i + 1).padStart(2, "0")}
                         </span>
                         <span>
                           {r.name}
