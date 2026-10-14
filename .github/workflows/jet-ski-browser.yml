@@ -64,6 +64,12 @@ jobs:
           done
           cat /tmp/world-dev.log
           exit 1
+      - name: Ride south meadow skatepark, flick and land trick combo
+        env:
+          WORLD_BASE_URL: http://127.0.0.1:3000
+          WORLD_AUDIT_DIR: artifacts/world/skatepark-browser
+          PLAYWRIGHT_MODULE_ROOT: /tmp/island-playwright/node_modules/playwright
+        run: node scripts/playtest-skatepark.mjs
       - name: Start Hole 2 from the elevated clear pier tee
         env:
           WORLD_BASE_URL: http://127.0.0.1:3000
@@ -95,12 +101,6 @@ jobs:
           WORLD_AUDIT_DIR: artifacts/world/mountain-jump-browser
           PLAYWRIGHT_MODULE_ROOT: /tmp/island-playwright/node_modules/playwright
         run: node scripts/playtest-mountain-jump.mjs
-      - name: Ride south meadow skatepark, flick and land trick combo
-        env:
-          WORLD_BASE_URL: http://127.0.0.1:3000
-          WORLD_AUDIT_DIR: artifacts/world/skatepark-browser
-          PLAYWRIGHT_MODULE_ROOT: /tmp/island-playwright/node_modules/playwright
-        run: node scripts/playtest-skatepark.mjs
       - name: Race Joshua pace ghosts and shoot a real target
         env:
           WORLD_BASE_URL: http://127.0.0.1:3000
