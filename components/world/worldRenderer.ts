@@ -2807,6 +2807,9 @@ export function createWorld(
   let skateAssistAttempts=0,skateResultAt=-Infinity,skateResultLabel="";
   let skateResultSerial=0,skateResultPoints=0;
   let skateBowlExits=0,skateLastTakeoff="";
+  // Measured real touchdown, never inferred from the rim prediction.
+  let skateBowlFlightActive=false,skateBowlLandings=0,skateBowlFailedLandings=0;
+  let skateBowlLastLanding="",skateBowlLastLandingSpeed=0;
   function commitSkateTrick(next:SkateTrickState){
     const previous=skateTrick;
     if(previous===next)return;
@@ -3794,7 +3797,10 @@ export function createWorld(
             if (ramp && ramp.id !== lastRampId) {
               if(modeForRamp==="skate"){
                 skateLastTakeoff=ramp.id;
-                if(ramp.id==="redwood-bowl-exit")skateBowlExits++;
+                if(ramp.id==="redwood-bowl-exit"){
+                  skateBowlExits++;
+                  skateBowlFlightActive=true;
+                }
               }
               lastRampAt = elapsed;
               lastRampId = ramp.id;
@@ -3809,6 +3815,17 @@ export function createWorld(
             }
           }
         }
+      }
+
+      // Record the first real physical touchdown after the predicted pop,
+      // even when the board drops into water or leaves the reserved meadow.
+      if(skateBowlFlightActive&&(aquatic!=="land"||
+        (airHeight<=.001&&verticalSpeed<=0&&!grind))){
+        const safe=aquatic==="land"&&insideSkatePark(player,-.5)&&!isWater(player);
+        if(safe)skateBowlLandings++;else skateBowlFailedLandings++;
+        skateBowlLastLanding=player.x.toFixed(2)+","+player.z.toFixed(2);
+        skateBowlLastLandingSpeed=travel.speed;
+        skateBowlFlightActive=false;
       }
 
       // Skiing may launch from any steep downhill edge on the mountain.
@@ -4021,6 +4038,11 @@ export function createWorld(
       if(skateVisible&&skateHud.textContent!==skateStatus)skateHud.textContent=skateStatus;
       canvas.dataset.skateGrove="redwood-timber-v1";
       canvas.dataset.skateBowlExits=String(skateBowlExits);
+      canvas.dataset.skateBowlFlight=String(skateBowlFlightActive);
+      canvas.dataset.skateBowlLandings=String(skateBowlLandings);
+      canvas.dataset.skateBowlFailedLandings=String(skateBowlFailedLandings);
+      canvas.dataset.skateBowlLastLanding=skateBowlLastLanding;
+      canvas.dataset.skateBowlLandingSpeed=skateBowlLastLandingSpeed.toFixed(2);
       canvas.dataset.skateHeading=travel.heading.x.toFixed(3)+","+travel.heading.z.toFixed(3);
       canvas.dataset.skateLastTakeoff=skateLastTakeoff;
       canvas.dataset.skateGroveZone=skateVisible?skateParkZone(player):"";
@@ -5592,6 +5614,8 @@ export function createWorld(
           skateTrick={...idleSkateTrick(),best:skateTrick.best};
           skateAssistAttempts=0;skateHasBeenAirborne=false;skateResultAt=-Infinity;
           skateBowlExits=0;skateLastTakeoff="";
+        skateBowlFlightActive=false;skateBowlLandings=skateBowlFailedLandings=0;
+        skateBowlLastLanding="";skateBowlLastLandingSpeed=0;
         }
       }
       state = next;
@@ -5791,6 +5815,8 @@ export function createWorld(
         skateTrick={...idleSkateTrick(),best:skateTrick.best};
         skateHasBeenAirborne=false;skateCarveLean=0;skateResultAt=-Infinity;
         skateBowlExits=0;skateLastTakeoff="";
+        skateBowlFlightActive=false;skateBowlLandings=skateBowlFailedLandings=0;
+        skateBowlLastLanding="";skateBowlLastLandingSpeed=0;
         lastSerial = next.command.serial;
         const r = REGIONS.find((r) => r.id === next.command!.region)!;
         jetSki=null;jetRivals=[];jetHud.style.display="none";
