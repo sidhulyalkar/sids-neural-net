@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import {activityLanding,groundHeight,rampImpulseCrossing,stepTravel,type Travel} from "../lib/world/activities";
 import {
   REDWOOD_BOWL,SKATE_GROVE_FLOW,SKATE_PARK,insideSkatePark,
-  skateGroveStartHeading,skateParkLipCrossing,redwoodBowlExitCrossing,
+  skateGroveStartHeading,skateParkLipCrossing,redwoodBowlExitCrossing,redwoodBowlCarveHeading,
 } from "../lib/world/skatepark";
 
 const distance=(a:{x:number;z:number},b:{x:number;z:number})=>Math.hypot(a.x-b.x,a.z-b.z);
@@ -59,23 +59,39 @@ test("the bowl assists a safe south-facing carve but rejects unsafe cliff launch
  assert.equal(redwoodBowlExitCrossing(westInside,westOutside,west,8),null,
   "west rim should not launch a visitor off the island");
  assert.equal(skateParkLipCrossing(westInside,westOutside,west,8),null);
- // A carver who turns along the wood bank gets a safe, gentle exit jump
- // aimed back into the meadow, with the same one-button assisted trick.
+ // Steep descents can double measured airtime, so even a south-facing
+ // exit is rejected when its complete downhill touchdown would leave the park.
  const southInside={x:-12,z:45.13},southOutside={x:-12,z:45.51};
  const south={x:0,z:1};
- const hit=redwoodBowlExitCrossing(southInside,southOutside,south,8);
+ assert.equal(redwoodBowlExitCrossing(southInside,southOutside,south,8),null);
+ // A southeast exit at *moderate* speed has a meadow landing corridor.
+ const p={x:-7.84,z:43.08},q={x:-7.65,z:43.3},se={x:.6,z:.8};
+ const hit=redwoodBowlExitCrossing(p,q,se,8);
  assert.equal(hit?.id,"redwood-bowl-exit");
  assert.ok(hit!.impulse>2.8&&hit!.impulse<3.3);
- assert.equal(skateParkLipCrossing(southInside,southOutside,south,8)?.id,hit?.id);
- assert.equal(rampImpulseCrossing(southInside,southOutside,south,"skate",8)?.id,hit?.id);
- assert.equal(rampImpulseCrossing(southInside,southOutside,south,"bike",8)?.id,undefined);
- assert.equal(redwoodBowlExitCrossing(southInside,southOutside,south,2),null);
- assert.equal(redwoodBowlExitCrossing(southOutside,southInside,{x:0,z:-1},8),null);
- assert.equal(redwoodBowlExitCrossing(southInside,southOutside,west,8),null);
- assert.equal(redwoodBowlExitCrossing(southInside,southOutside,south,18),null,
+ assert.equal(skateParkLipCrossing(p,q,se,8)?.id,hit?.id);
+ assert.equal(rampImpulseCrossing(p,q,se,"skate",8)?.id,hit?.id);
+ assert.equal(rampImpulseCrossing(p,q,se,"bike",8)?.id,undefined);
+ assert.equal(redwoodBowlExitCrossing(p,q,se,2),null);
+ assert.equal(redwoodBowlExitCrossing(q,p,{x:-.6,z:-.8},8),null);
+ assert.equal(redwoodBowlExitCrossing(p,q,west,8),null);
+ assert.equal(redwoodBowlExitCrossing(p,q,se,18),null,
   "very fast riders should not launch beyond the protected meadow");
  const eastIn={x:-6.83,z:40.8},eastOut={x:-6.51,z:40.8};
  assert.equal(redwoodBowlExitCrossing(eastIn,eastOut,{x:1,z:0},9),null,
   "the east split stays an unobstructed entrance and exit");
  assert.ok(SKATE_PARK.halfWidth>REDWOOD_BOWL.barkRadius);
+});
+
+test("unsafe westward edge becomes a smooth wood-bank carve, not a forced teleport",()=>{
+ const point={x:-16.5,z:42.5},heading={x:-.45,z:.89};
+ const adjusted=redwoodBowlCarveHeading(point,heading,8,.05);
+ assert.ok(adjusted.x>heading.x&&adjusted.z>0,
+  "bowl lip must steer away from cliff toward its natural tangent");
+ assert.ok(Math.abs(Math.hypot(adjusted.x,adjusted.z)-1)<1e-5);
+ const untouched=redwoodBowlCarveHeading({x:-8,z:43},{x:.8,z:.6},5,.05);
+ assert.deepEqual(untouched,{x:.8,z:.6},
+  "a safe rider-directed southeast exit must retain ordinary controls");
+ assert.deepEqual(redwoodBowlCarveHeading(point,heading,0,.05),heading,
+  "no unexplained steering when the board is stationary");
 });
