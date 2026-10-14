@@ -4,6 +4,7 @@ import {
   skateParkSurface, skateParkZone,
 } from "@/lib/world/skatepark";
 import {terrainHeight,type Point} from "@/lib/world/model";
+import {biomeAt,BIOME_COLORS} from "@/lib/world/biomes";
 
 /**
  * Static, self-owned forest skate geometry. Everything that looks like a
@@ -74,6 +75,17 @@ export function createWorldSkateGrove(scene:THREE.Scene,support:(p:Point)=>numbe
   }else if(zone==="stump-pad")color.set("#c8a477");
   else if(zone==="street")color.set("#a98a63");
   else color.set("#8b8971");
+  // Match the host island's actual biome pigments at the perimeter, so
+  // this remains a grove in the meadow instead of a visible square slab.
+  const edge=Math.min(SKATE_PARK.halfWidth-Math.abs(x-SKATE_PARK.center.x),
+    SKATE_PARK.halfDepth-Math.abs(z-SKATE_PARK.center.z));
+  if(edge<3){
+   const host=new THREE.Color(0,0,0);
+   for(const [id,w] of Object.entries(biomeAt(p).weights))
+    host.add(new THREE.Color(BIOME_COLORS[id as keyof typeof BIOME_COLORS]).multiplyScalar(w));
+   const f=Math.max(0,Math.min(1,edge/3));
+   color.lerp(host,1-f*f*(3-2*f));
+  }
   colors.push(color.r,color.g,color.b);
  }
  for(let iz=0;iz<depthSteps;iz++)for(let ix=0;ix<widthSteps;ix++){
