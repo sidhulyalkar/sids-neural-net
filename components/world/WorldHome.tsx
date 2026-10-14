@@ -563,14 +563,14 @@ export function WorldHome({ content }: { content: WorldContent }) {
                  {skim.phase==="ready"&&<button onClick={()=>issueSkim("drop")}>Drop board · Space</button>}
                  {skim.phase==="riding"&&<>
                    <button onClick={()=>issueSkim("pop")}>Pop · Space</button>
-                   <button onClick={()=>issueSkim("shuvit")}>Shuv-it · 1</button>
-                   <button onClick={()=>issueSkim("big-spin")}>Big spin · 2</button>
-                   <button onClick={()=>issueSkim("three-sixty")}>360 · 3</button>
+                   <button onClick={()=>issueSkim("shuvit")}>Shuv-it · Q</button>
+                   <button onClick={()=>issueSkim("big-spin")}>Big spin · E</button>
+                   <button onClick={()=>issueSkim("three-sixty")}>360 · F</button>
                    <button onClick={()=>issueSkim("wrap")}>Wrap · R</button>
                  </>}
                  {skim.phase==="finished"&&<button onClick={()=>issueSkim("restart")}>New heat</button>}
                </div>
-               <small>{skim.phase==="riding"?"A/D carve · W pump · Pop, then choose a trick in the air":
+               <small>{skim.phase==="riding"?"A/D carve · W pump · Space pop · Q/E/F airborne tricks":
                  "WASD move · Shift sprint · Run, drop and ride incoming waves"}</small>
              </aside>
            )}

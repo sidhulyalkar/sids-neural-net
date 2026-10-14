@@ -30,7 +30,7 @@ import {
   SKIM_BOARDS, boardPoint, beachBlend, northShoreZ, nearbySkimBoard,
   idleSkimHeat, pickupSkimBoard, startSkimRide, stepSkimHeat, skimAction,
   skimWaterHeight, skimWaveAt, waveCrestOffshore,
-  type SkimHeat, type SkimTrick,
+  skimTrickForKey, type SkimHeat, type SkimTrick,
 } from "@/lib/world/skimboarding";
 import { shastaDetour, initialChaseState, stepChase, gaitBlendForSpeed, smoothAngle, smoothPoint, smoothingAlpha, steerShastaVelocity } from "@/lib/world/shastaMotion";
 import {idleDiscGolfFetch,startDiscGolfFetch,stepDiscGolfFetch,discGolfFetchCameraPhase,discGolfHandoffTarget} from "@/lib/world/discGolfFetch";
@@ -2744,12 +2744,11 @@ export function createWorld(
     if(e.target !== canvas) return;
     const key = e.key.toLowerCase();
     if(skimHeat.phase!=="off"){
-      if(!e.repeat&&(key==="enter"||key==="e")&&skimHeat.phase==="finished"){
+      if(!e.repeat&&key==="enter"&&skimHeat.phase==="finished"){
         e.preventDefault();doSkimAction("restart");return;
       }
       if(!e.repeat&&key==="x"){e.preventDefault();doSkimAction("exit");return;}
-      const action=key==="1"?"shuvit":key==="2"?"big-spin":key==="3"?"three-sixty":
-        key==="r"?"wrap":null;
+      const action=key==="r"?"wrap":skimTrickForKey(key);
       if(!e.repeat&&action){e.preventDefault();doSkimAction(action);return;}
     }else if(!e.repeat&&(key==="enter"||key==="e")){
       const board=nearbySkimBoard(player);

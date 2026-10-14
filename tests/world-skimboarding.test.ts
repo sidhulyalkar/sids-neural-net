@@ -8,8 +8,33 @@ import {
   SKIM_BOARDS, SKIM_HEAT_SECONDS, boardPoint, northShoreZ, beachBlend,
   skimOffshore, nearbySkimBoard, waveCrestOffshore, skimWaveAt, skimWaterHeight,
   idleSkimHeat, pickupSkimBoard, startSkimRide, skimAction, stepSkimHeat,
+  skimTrickForKey, SKIM_TRICK_KEYS,
   type SkimHeat,
 } from "../lib/world/skimboarding";
+
+test("airborne tricks use Q/E/F and old number keys are not bound", () => {
+  assert.deepEqual(
+    ["q", "e", "f"].map(key => skimTrickForKey(key)),
+    ["shuvit", "big-spin", "three-sixty"],
+  );
+  assert.equal(skimTrickForKey("Q"), SKIM_TRICK_KEYS.q);
+  for (const key of ["1", "2", "3", "w", "a", "s", "d", "r", " "])
+    assert.equal(skimTrickForKey(key), null);
+  let heat = startSkimRide(
+    pickupSkimBoard(boardPoint(1),1,idleSkimHeat()),
+    boardPoint(1),9,{x:0,z:1},
+  );
+  // Tricks cannot be queued until after Space launches the rider.
+  for (const key of ["q","e","f"]) {
+    const trick = skimTrickForKey(key);
+    assert.ok(trick);
+    assert.equal(skimAction(heat,trick,boardPoint(1),0).pendingTrick,null);
+  }
+  heat = skimAction(heat,"pop",boardPoint(1),0);
+  const trick = skimTrickForKey("e");
+  assert.ok(trick);
+  assert.equal(skimAction(heat,trick,boardPoint(1),0).pendingTrick,"big-spin");
+});
 
 test("north shore is a traversable beach and shares one physical waterline", () => {
   assert.ok(WORLD_BOUNDS.maxZ > northShoreZ(0)+25);

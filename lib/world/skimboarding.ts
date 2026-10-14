@@ -10,6 +10,12 @@ export const SKIM_BOARDS = [
   { id: "lime", label: "Lime", color: "#c6cb59", tail: "#292d38", x: 10 },
 ] as const;
 export type SkimTrick = "shuvit" | "big-spin" | "three-sixty" | "wrap";
+/** Ergonomic left-hand tricks. Keep HUD prompts and key handling in sync. */
+export const SKIM_TRICK_KEYS: Readonly<Record<string, Exclude<SkimTrick, "wrap">>> =
+  Object.freeze({ q: "shuvit", e: "big-spin", f: "three-sixty" });
+export function skimTrickForKey(key: string): Exclude<SkimTrick, "wrap"> | null {
+  return SKIM_TRICK_KEYS[key.toLowerCase()] ?? null;
+}
 export type SkimPhase = "off" | "ready" | "riding" | "recovering" | "finished";
 export type SkimHeat = {
   phase: SkimPhase;
