@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {terrainHeight,isWater} from "../lib/world/model";
+import {skateRollingSpeed,skateLean} from "../lib/world/skateDynamics";
 import {groundHeight,nearestGrind,rampImpulseCrossing,stepTravel,type Travel} from "../lib/world/activities";
 import {SKATE_PARK,SKATE_PARK_RAILS,insideSkatePark,skateParkSurface,skateParkLipCrossing} from "../lib/world/skatepark";
 import {idleSkateTrick,startSkateTrick,finishSkateTrick,flickTrick,skateTrickPose,scoreSkateGrind,queueSkateSpin,startSkateManual,stepSkateManual,finishSkateManual} from "../lib/world/skateTricks";
@@ -142,4 +143,26 @@ test("bailing clears spins and manuals while retaining the prior stance",()=>{
  assert.equal(s.points,0);
  assert.equal(s.lastLabel,"Bail");
  assert.ok(s.bails>=1);
+});
+
+test("rolling speed respects gravity, friction, coast-down and bounded FPS",()=>{
+ const base={speed:6,dt:.05,pushing:false,maxSpeed:11,boosted:false};
+ const flat=skateRollingSpeed({...base,riseAhead:0});
+ const downhill=skateRollingSpeed({...base,riseAhead:-.55});
+ const uphill=skateRollingSpeed({...base,riseAhead:.55});
+ assert.ok(downhill>flat&&flat>uphill,
+  "slope should add/subtract momentum in the direction of riding");
+ assert.ok(flat<6&&flat>5.8,"coasting should slow without snapping to zero");
+ const pushed=skateRollingSpeed({...base,pushing:true,riseAhead:0});
+ assert.ok(pushed>6,"push should accelerate on flat");
+ const boosted=skateRollingSpeed({...base,pushing:true,boosted:true,riseAhead:0});
+ assert.ok(boosted>pushed);
+ const coastBoost=skateRollingSpeed({...base,speed:17,riseAhead:0});
+ assert.ok(coastBoost<17&&coastBoost>11,
+  "boost expiry must retain momentum, then converge smoothly");
+ assert.equal(skateRollingSpeed({...base,speed:6,dt:Infinity,riseAhead:0}),6,
+  "undefined frame duration must never explode physics");
+ assert.ok(skateLean(9,.2)>0);
+ assert.ok(skateLean(9,-.2)<0);
+ assert.ok(Math.abs(skateLean(30,10))<=.19);
 });
