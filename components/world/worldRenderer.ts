@@ -2587,6 +2587,27 @@ export function createWorld(
     [0.5, 1, 0.85],
   );
   dogContact.castShadow = false;
+  // A submerged camera is separated from upland scenery by the water
+  // surface. Cull ONLY static meshes whose entire world-space bounds sit
+  // above that surface. Fog alone does not prevent GPU draw submissions.
+  // Keep ground/coast geometry, water, wildlife, interactables and marine
+  // content intact. This visibility filter runs after their frame updates.
+  const underwaterCullingExclusions=new Set<THREE.Object3D>([
+    ground,water,tides,shoreFoam,skimFoam,skimSwell,
+    ...skimProps,...skimTails,
+    grassMesh,markerHitMesh,explorerContact,dogContact,
+    critterBodies,critterHeads,critterEars,critterEyes,critterMuzzles,
+    critterBeaks,critterLegs,critterPlumes,critterThinTails,
+  ]);
+  scene.updateMatrixWorld(true);
+  const submergedSurfaceDecor=scene.children.filter((object):object is THREE.Mesh=>{
+    if(!(object instanceof THREE.Mesh)||
+      underwaterCullingExclusions.has(object)||!object.visible)return false;
+    // Instancing maintains its own union bounds; never classify a trunk
+    // from the shared cylinder's origin-local geometry alone.
+    if(object instanceof THREE.InstancedMesh)object.computeBoundingBox();
+    return new THREE.Box3().setFromObject(object).min.y>SEA_SURFACE+1.25;
+  });
   const ray = new THREE.Raycaster(),
     pointer = new THREE.Vector2(),
     gazePointer = new THREE.Vector2(0, 0);
@@ -4593,6 +4614,11 @@ export function createWorld(
       scene.fog.color.lerp(fogTarget,1-Math.exp(-Math.min(rawDelta,.1)*2));
     }
     canvas.dataset.biome = biomeAt(player).primary;
+    const hideUpland=underwater&&swimDepth>=1.1;
+    for(const decoration of submergedSurfaceDecor)
+      decoration.visible=!hideUpland;
+    canvas.dataset.underwaterDecorCulled=String(
+      hideUpland?submergedSurfaceDecor.length:0);
     renderer.render(scene, camera);
     const metrics = frameSampler.add(rawDelta);
     if (metrics) {
