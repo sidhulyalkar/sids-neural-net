@@ -1,5 +1,5 @@
 import { desertTrackTreadBlend, desertTrackSampleAt, DESERT_GAP_DEBRIS, DESERT_JUMPS, DESERT_TRACK_LENGTH } from "@/lib/world/desertTrack";
-import {insideSkatePark,skateParkZone} from "@/lib/world/skatepark";
+import {insideSkatePark,skateParkZone,skateGroveStartHeading} from "@/lib/world/skatepark";
 import {createWorldSkateGrove} from "./worldSkateGroveGeometry";
 import {skateLean} from "@/lib/world/skateDynamics";
 import {selectAssistedSkateTrick,assistedSkateSpin} from "@/lib/world/skateAssist";
@@ -5790,7 +5790,9 @@ export function createWorld(
           (next.command.activity && activityLanding(next.command.activity)) ||
           regionLanding(r.id);
         clearInput();
-        travel = { point: player, speed: 0, heading: { x: 0, z: -1 } };
+        travel = { point: player, speed: 0, heading:
+          next.command.activity==="skate"&&insideSkatePark(player)?
+          skateGroveStartHeading():{x:0,z:-1} };
         airHeight = verticalSpeed = swimDepth = targetDepth = 0;
         climb = null;
         grind = null;
@@ -5842,7 +5844,9 @@ export function createWorld(
           // The old north-facing warp cropped the whole redwood centerpiece.
           // Approach from the timber halfpipe with the tree bowl in front:
           // W rides naturally toward the hollow trunk, with no cinematic lock.
-          yaw=1.86;pitch=.42;zoom=21;
+          const heading=skateGroveStartHeading();
+          yaw=Math.atan2(-heading.x,-heading.z);
+          pitch=.42;zoom=21;
         }
         // Menu-driven semantic travel closes a dialog whose focus-restoration
         // target is the menu trigger. Exploration should immediately regain
