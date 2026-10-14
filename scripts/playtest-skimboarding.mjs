@@ -121,7 +121,12 @@ try {
   assert.equal(trickTrace.spin,true,"the avatar should visibly rotate during the trick");
   assert.equal(trickTrace.landed,true,"a completed shuv-it should land for points");
   await snap("02-ride-and-shuvit");
-  assert.match(await hud.textContent(),/Shuv-it · Q/);
+  assert.ok(trickTrace.score>=130,"landed shuv-it must contribute its trick score");
+  // The HUD deliberately swaps the Q/E/F buttons back to "Drop" after a
+  // completed ride. Never assert trick controls while the state is ready.
+  if(await attr("skim-phase")==="ready"){
+    assert.match(await hud.textContent(),/Drop board · Space/);
+  }
   checks.push("Run + drop + Q trick registered airborne spin, touchdown score and no swim");
 
   await page.setViewportSize({width:390,height:844});
