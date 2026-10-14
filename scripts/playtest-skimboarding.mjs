@@ -121,7 +121,11 @@ try {
   assert.equal(trickTrace.spin,true,"the avatar should visibly rotate during the trick");
   assert.equal(trickTrace.landed,true,"a completed shuv-it should land for points");
   await snap("02-ride-and-shuvit");
-  assert.ok(trickTrace.score>=130,"landed shuv-it must contribute its trick score");
+  await page.waitForFunction(()=>Number(
+    document.querySelector('canvas[role="application"]')?.dataset.skimScore)>=130,
+    null,{timeout:12000});
+  const scored=Number(await attr("skim-score"));
+  assert.ok(scored>=130,"landed shuv-it must contribute to committed ride score");
   // The HUD deliberately swaps the Q/E/F buttons back to "Drop" after a
   // completed ride. Never assert trick controls while the state is ready.
   if(await attr("skim-phase")==="ready"){

@@ -546,7 +546,9 @@ export function WorldHome({ content }: { content: WorldContent }) {
               )}
             </div>
           )}
-          {skim.phase==="off" && skimNearby!==null && aquatic==="land" && discGolf.phase==="off" && (
+          {skim.phase==="off" && skimNearby!==null && aquatic==="land" &&
+            discGolf.phase==="off" && bigAir.phase!=="armed" && bigAir.phase!=="flying" &&
+            trial.phase!=="armed" && trial.phase!=="running" && (
              <button className={styles.skimPickup} onClick={()=>issueSkim("pickup",skimNearby)}>
                Pick up {SKIM_BOARDS[skimNearby].label.toLowerCase()} skimboard · Enter
              </button>
