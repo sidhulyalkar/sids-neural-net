@@ -1,5 +1,6 @@
 import { desertTrackTreadBlend, desertTrackSampleAt, DESERT_GAP_DEBRIS, DESERT_JUMPS, DESERT_TRACK_LENGTH } from "@/lib/world/desertTrack";
 import {SKATE_PARK,SKATE_PARK_RAILS,skateParkSurface,insideSkatePark} from "@/lib/world/skatepark";
+import {skateLean} from "@/lib/world/skateDynamics";
 import {idleSkateTrick,startSkateTrick,finishSkateTrick,setSkateGrab,skateTrickPose,flickTrick,scoreSkateGrind,queueSkateSpin,startSkateManual,stepSkateManual,finishSkateManual,type SkateTrickName,type SkateTrickState} from "@/lib/world/skateTricks";
 import { JOSHUA_GATES, armJoshuaTrial, abortJoshuaTrial, tickJoshuaTrial, type TrialState } from "@/lib/world/trials";
 import { createFishGeometry, createFishBodyGeometry, createCaudalFinGeometry, createDorsalFinGeometry, createPectoralFinGeometry, createSharkGeometry, createRayWingGeometry } from "./worldFaunaGeometry";
@@ -2828,7 +2829,7 @@ export function createWorld(
     try{window.localStorage.setItem(skateBestKey,String(next.best));}
     catch{/* Gameplay keeps its in-memory best. */}
   }
-  let skateHasBeenAirborne=false,skatePadPushHeld=false;
+  let skateHasBeenAirborne=false,skatePadPushHeld=false,skateCarveLean=0;
   let playerY = groundHeight(player);
   // Single source of truth for mutually exclusive minigame entrances.
   const occupiedByOtherMode=(requested:WorldGameMode)=>
@@ -3317,7 +3318,7 @@ export function createWorld(
       const next=finishSkateManual(skateTrick,elapsed);
       saveSkateBest(next);skateTrick=next;
     }
-    skateWindupAt=-Infinity;skatePadPrimed=false;skatePadPushHeld=false;
+    skateWindupAt=-Infinity;skatePadPrimed=false;skatePadPushHeld=false;skateCarveLean=0;
     keys.clear();
     travel.speed = 0;
     drag = null;
@@ -3708,6 +3709,7 @@ export function createWorld(
           playerY = SEA_SURFACE - (aquatic === "dive" ? Math.max(0.52, swimDepth) : 0.42);
         }
       } else {
+        const previousHeading={...travel.heading};
         travel = stepTravel(
           { ...travel, point: player },
           { x: dx, z: dz },
@@ -3722,6 +3724,11 @@ export function createWorld(
           supportHeight,
           activeRideBoost(rideBoost,elapsed) && isBoostActivity(state.activity),
         );
+        if(state.activity==="skate"){
+          const turn=previousHeading.x*travel.heading.z-previousHeading.z*travel.heading.x;
+          const desiredLean=skateLean(travel.speed,turn*5.5);
+          skateCarveLean+= (desiredLean-skateCarveLean)*Math.min(1,dt*9);
+        }else skateCarveLean+= (0-skateCarveLean)*Math.min(1,dt*10);
         if (
           destination &&
           (distance(travel.point, destination) < 0.3 ||
@@ -3930,7 +3937,7 @@ export function createWorld(
         const pitchAngle = running || climb ? 0 : contact.pitch;
         const rollAngle =
           (gearMode ? contact.roll : 0) +
-          (mode === "skate" ? Math.sin(elapsed * 2) * Math.min(travel.speed * 0.006, 0.06) : 0);
+          (mode === "skate" ? skateCarveLean : 0);
         explorer.rotation.set(pitchAngle, headingYaw+(mode==="skate"?trickPose.bodyYaw:0), rollAngle);
         if (grind) {
           const logDx = grind.log.b.x - grind.log.a.x;
@@ -3975,6 +3982,7 @@ export function createWorld(
       canvas.dataset.skateManual=skateTrick.manual;
       canvas.dataset.skateStance=skateTrick.stance;
       canvas.dataset.skateSpin=String(skateTrick.spinDegrees);
+      canvas.dataset.skateLean=skateCarveLean.toFixed(3);
       canvas.dataset.skateTrick=skateTrick.name??"";
       canvas.dataset.skateCombo=String(skateTrick.combo);
       canvas.dataset.skateScore=String(skateTrick.points);
