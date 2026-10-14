@@ -41,6 +41,8 @@ try{
   null,{timeout:15000});
  assert.equal(await canvas.getAttribute("data-activity"),"skate");
  assert.equal(await canvas.getAttribute("data-skate-assist"),"on");
+ assert.equal(await page.locator('[aria-label="Land sports target boost"]').isVisible(),false,
+  "Skate mode should hide the unrelated permanent aim/fire banner");
  assert.equal(await canvas.getAttribute("data-skate-grove"),"redwood-timber-v1");
  assert.ok(["timber-quarter","street","apron","redwood-bowl","stump-pad"].includes(
   await canvas.getAttribute("data-skate-grove-zone")),"named wooden park zone");
