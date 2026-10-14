@@ -122,3 +122,40 @@ test("recovery returns to ready and bad exits count as wipeouts",()=>{
   for(let i=0;i<50;i++)heat=stepSkimHeat(heat,p,.05,i*.05,0,false).heat;
   assert.equal(heat.phase,"ready");
 });
+
+test("shorebreak runs launch seaward, not backwards into inland biomes",()=>{
+  const p=boardPoint(1);
+  const ready=pickupSkimBoard(p,1,idleSkimHeat());
+  assert.equal(startSkimRide(ready,p,9,{x:0,z:-1}).phase,"ready");
+  assert.equal(startSkimRide(ready,p,9,{x:1,z:0}).phase,"ready");
+  assert.equal(startSkimRide(ready,p,9,{x:0,z:1}).phase,"riding");
+});
+test("wave wraps have a cooldown and cannot be score-farmed by repeated clicks",()=>{
+  const p={x:0,z:northShoreZ(0)+waveCrestOffshore(0,0)};
+  const ready=pickupSkimBoard(boardPoint(1),1,idleSkimHeat());
+  const riding=startSkimRide(ready,boardPoint(1),9,{x:0,z:1});
+  const first=skimAction(riding,"wrap",p,0);
+  assert.ok(first.ridePoints>0);
+  assert.equal(skimAction(first,"wrap",p,0).ridePoints,first.ridePoints);
+  const after=stepSkimHeat(first,p,.05,0,0,false).heat;
+  assert.ok(after.wrapCooldown>0 && after.wrapCooldown<first.wrapCooldown);
+});
+test("easy trick assist produces an airborne rotation and a temporary landing callout",()=>{
+  const p=boardPoint(1);
+  const ready=pickupSkimBoard(p,1,idleSkimHeat());
+  let heat=startSkimRide(ready,p,9,{x:0,z:1});
+  heat=skimAction(heat,"pop",p,0);
+  heat=skimAction(heat,"three-sixty",p,0);
+  let point=p,maxSpin=0;
+  for(let i=0;i<40&&heat.phase==="riding";i++){
+    const next=stepSkimHeat(heat,point,.025,i*.025,0,true);
+    heat=next.heat;point=next.point;
+    maxSpin=Math.max(maxSpin,heat.spin);
+    if(heat.lastTrick.includes("landed"))break;
+  }
+  assert.ok(maxSpin>Math.PI,"a visible rotation occurs before touchdown");
+  assert.match(heat.lastTrick,/360 landed/);
+  assert.ok(heat.trickCalloutTime>0);
+  for(let i=0;i<90;i++) heat=stepSkimHeat(heat,point,.05,3+i*.05,0,false).heat;
+  assert.equal(heat.trickCalloutTime,0);
+});

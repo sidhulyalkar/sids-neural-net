@@ -29,6 +29,12 @@ export type SkimHeat = {
   air: number;
   verticalSpeed: number;
   spin: number;
+  airElapsed: number;
+  airDuration: number;
+  trickStart: number;
+  wrapCooldown: number;
+  trickCallout: string;
+  trickCalloutTime: number;
   pendingTrick: SkimTrick | null;
   repeats: Partial<Record<SkimTrick, number>>;
   lastTrick: string;
@@ -84,7 +90,9 @@ export function skimWaterHeight(p: SkimPoint, seconds: number, seaSurface: numbe
 export function idleSkimHeat(): SkimHeat {
   return { phase: "off", board: null, remaining: SKIM_HEAT_SECONDS, score: 0,
     ridePoints: 0, rides: 0, speed: 0, heading: { x: 0, z: 1 }, air: 0,
-    verticalSpeed: 0, spin: 0, pendingTrick: null, repeats: {},
+    verticalSpeed: 0, spin: 0, airElapsed: 0, airDuration: 0,
+    trickStart: 0, wrapCooldown: 0, trickCallout: "", trickCalloutTime: 0,
+    pendingTrick: null, repeats: {},
     lastTrick: "", waveHits: 0, recovery: 0 };
 }
 export function pickupSkimBoard(p: SkimPoint, index: number, previous: SkimHeat): SkimHeat {
@@ -95,36 +103,41 @@ export function pickupSkimBoard(p: SkimPoint, index: number, previous: SkimHeat)
 export function startSkimRide(state: SkimHeat, p: SkimPoint, speed: number, heading: SkimPoint): SkimHeat {
   const shore = skimOffshore(p);
   if (state.phase !== "ready" || speed < 3.6 || shore < -13 || shore > 1 ||
-      Math.abs(p.x) > 24) return state;
+      Math.abs(p.x) > 24 || normalize(heading).z < 0.2) return state;
   return { ...state, phase: "riding", speed: Math.max(7, speed * 1.05),
     heading: normalize(heading), ridePoints: 0, waveHits: 0, air: 0,
-    verticalSpeed: 0, spin: 0, pendingTrick: null };
+    verticalSpeed: 0, spin: 0, airElapsed: 0, airDuration: 0, trickStart: 0,
+    pendingTrick: null };
 }
 function commitRide(s: SkimHeat, clean: boolean): SkimHeat {
   const points = Math.round(s.ridePoints * (clean ? 1.2 : 0.35));
   return { ...s, phase: s.remaining <= 0 ? "finished" : "recovering",
     score: s.score + points, rides: s.rides + 1, ridePoints: 0,
-    air: 0, verticalSpeed: 0, spin: 0, pendingTrick: null,
-    recovery: clean ? 0.45 : 1.2,
+    air: 0, verticalSpeed: 0, spin: 0, airElapsed: 0, airDuration: 0,
+    trickStart: 0, pendingTrick: null, trickCallout: clean ? "Clean ride!" : "Wipeout",
+    trickCalloutTime: 2.0, recovery: clean ? 0.45 : 1.2,
     lastTrick: clean ? `Clean ride +${points}` : `Wipeout +${points}` };
 }
 export function skimAction(s: SkimHeat, trick: "pop" | SkimTrick, p: SkimPoint, seconds: number): SkimHeat {
   if (s.phase !== "riding") return s;
   const wave = skimWaveAt(p, seconds);
   if (trick === "wrap") {
-    if (s.air > 0 || s.speed < 5.5 || wave < 0.25) return s;
+    if (s.air > 0 || s.speed < 5.5 || wave < 0.25 || s.wrapCooldown > 0) return s;
     const count = s.repeats.wrap ?? 0;
     return { ...s, heading: normalize({ x: s.heading.x * .4, z: -Math.abs(s.heading.z) - .6 }),
       ridePoints: s.ridePoints + Math.round(175 * (1 + wave * .8) / (1 + count * .35)),
       repeats: { ...s.repeats, wrap: count + 1 }, waveHits: s.waveHits + 1,
+      wrapCooldown: 1.15, trickCallout: "Wave wrap!", trickCalloutTime: 1.6,
       lastTrick: "Wave wrap" };
   }
   if (trick === "pop") {
     return s.air > 0.01 || s.speed < 4 ? s :
-      { ...s, air: .025, verticalSpeed: wave > .45 ? 4.9 : 3.8, spin: 0, pendingTrick: null };
+      { ...s, air: .025, verticalSpeed: wave > .45 ? 4.9 : 3.8,
+        airElapsed: 0, airDuration: 2 * (wave > .45 ? 4.9 : 3.8) / 13.8,
+        trickStart: 0, spin: 0, pendingTrick: null };
   }
   if (s.air <= 0 || s.pendingTrick) return s;
-  return { ...s, pendingTrick: trick };
+  return { ...s, pendingTrick: trick, trickStart: s.airElapsed };
 }
 const TRICK_POINTS: Record<Exclude<SkimTrick, "wrap">, number> = {
   shuvit: 130, "big-spin": 220, "three-sixty": 280,
@@ -138,7 +151,9 @@ export function stepSkimHeat(
   const step = clamp(dt, 0, .05);
   if (state.phase === "off" || state.phase === "finished") return { heat: state, point: p };
   const remaining = Math.max(0, state.remaining - step);
-  let s: SkimHeat = { ...state, remaining };
+  let s: SkimHeat = { ...state, remaining,
+    wrapCooldown: Math.max(0, state.wrapCooldown - step),
+    trickCalloutTime: Math.max(0, state.trickCalloutTime - step) };
   if (s.phase === "recovering") {
     s = { ...s, recovery: Math.max(0, s.recovery - step) };
     if (s.recovery === 0) s.phase = "ready";
@@ -153,6 +168,7 @@ export function stepSkimHeat(
   let speed = clamp(s.speed + ((pumping && s.air < .02 ? 1.9 : 0) +
     wave * (s.heading.z < 0 ? 3.4 : 1.5) - .75 - Math.abs(steer) * .55) * step, 0, 16);
   let air = s.air, verticalSpeed = s.verticalSpeed, spin = s.spin;
+  let airElapsed = s.airElapsed;
   let ridePoints = s.ridePoints + wave * speed * step * .6;
   let waveHits = s.waveHits;
   if (wave > .68 && s.heading.z < -.1) {
@@ -162,7 +178,14 @@ export function stepSkimHeat(
   if (air > 0) {
     air += verticalSpeed * step;
     verticalSpeed -= 13.8 * step;
-    spin += (s.pendingTrick ? (s.pendingTrick === "shuvit" ? 5.8 : 8.8) : 0) * step;
+    airElapsed += step;
+    if (s.pendingTrick) {
+      // Trick assist finishes a visually complete rotation before landing,
+      // without asking the player to time fractional key presses.
+      const progress = clamp((airElapsed - s.trickStart) /
+        Math.max(0.12, s.airDuration - s.trickStart), 0, 1);
+      spin = 2 * Math.PI * smooth(progress);
+    }
     if (air <= 0) {
       air = 0;
       const trick = s.pendingTrick;
@@ -173,16 +196,19 @@ export function stepSkimHeat(
         // A controlled touchdown requires forward momentum and a complete airborne window.
         if (speed >= 4.1) {
           ridePoints += bonus;
+          const title = trick === "shuvit" ? "Shuv-it" : trick === "big-spin" ? "Big spin" : "360";
           s = { ...s, repeats: { ...s.repeats, [trick]: count + 1 },
-            lastTrick: `${trick === "shuvit" ? "Shuv-it" : trick === "big-spin" ? "Big spin" : "360"} landed +${bonus}` };
+            trickCallout: `${title} +${bonus}`, trickCalloutTime: 1.8,
+            lastTrick: `${title} landed +${bonus}` };
         } else speed = 0;
       }
       verticalSpeed = spin = 0;
-      s = { ...s, pendingTrick: null };
+      airElapsed = 0;
+      s = { ...s, pendingTrick: null, airDuration: 0, trickStart: 0 };
     }
   }
   const point = { x: p.x + heading.x * speed * step, z: p.z + heading.z * speed * step };
-  s = { ...s, speed, heading, air, verticalSpeed, spin, ridePoints, waveHits };
+  s = { ...s, speed, heading, air, verticalSpeed, spin, airElapsed, ridePoints, waveHits };
   const offshore = skimOffshore(point);
   const clean = offshore < -9 && (s.waveHits > 0 || ridePoints > 35);
   if (clean) s = commitRide(s, true);
