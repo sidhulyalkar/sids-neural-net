@@ -60,8 +60,11 @@ export function createWorldSkateGrove(scene:THREE.Scene,support:(p:Point)=>numbe
  const widthSteps=96,depthSteps=84;
  const positions:number[]=[],colors:number[]=[],indices:number[]=[];
  const color=new THREE.Color();
- const polished=new THREE.Color("#d0af80"),heartwood=new THREE.Color("#bc9569");
+ const hollowFloor=new THREE.Color("#aa825c");
+ const carvedWall=new THREE.Color("#dfbd89");
+ const darkHeartwood=new THREE.Color("#ad7950");
  const exteriorBark=new THREE.Color("#674633"),soil=new THREE.Color("#8b8971");
+ const sandedPyramid=new THREE.Color("#ba9b72");
  const graded=(lo:number,hi:number,value:number)=>{
   const t=THREE.MathUtils.clamp((value-lo)/(hi-lo),0,1);
   return t*t*(3-2*t);
@@ -79,17 +82,26 @@ export function createWorldSkateGrove(scene:THREE.Scene,support:(p:Point)=>numbe
    // through the terrain on the shoulder. The actual GPU deck triangles
    // carry the cut heartwood, cambium and bark colors directly.
    const az=Math.atan2(z-REDWOOD_BOWL.center.z,x-REDWOOD_BOWL.center.x);
-   color.copy(polished).lerp(heartwood,graded(3.6,5.05,d));
-   color.lerp(exteriorBark,graded(5.16,5.81,d));
-   color.lerp(soil,graded(6.27,7.18,d));
+   // A darker recessed floor and brighter rising walls help the viewer
+   // perceive the real concavity without a fake shadow mesh or extra lights.
+   color.copy(hollowFloor).lerp(carvedWall,graded(2.05,4.45,d));
+   color.lerp(darkHeartwood,graded(4.85,5.47,d));
+   color.lerp(exteriorBark,graded(5.47,5.91,d));
+   color.lerp(soil,graded(6.32,7.18,d));
    const grain=.975+.019*Math.sin(d*8.7+.65*Math.sin(az*5))+
     .010*Math.sin(d*17.7+.55*Math.cos(az*9));
    color.multiplyScalar(grain);
   }else if(zone==="timber-quarter"){
    color.set(iz%3===0?"#caa471":"#bf9566");
   }else if(zone==="stump-pad")color.set("#c8a477");
-  else if(zone==="street")color.set("#a98a63");
-  else color.set("#8b8971");
+  else if(zone==="street"){
+   // The old rectangular brown street patch looked like a plywood slab.
+   // Only the authored raised pyramid is polished wood; the rest is
+   // contiguous meadow soil, with a feathered non-rectangular edge.
+   const relief=Math.max(0,1-Math.abs(x+1)/2.5)*
+    Math.max(0,1-Math.abs(z-40)/3.2);
+   color.copy(soil).lerp(sandedPyramid,graded(.035,.72,relief));
+  }else color.copy(soil);
   // Match the host island's actual biome pigments at the perimeter, so
   // this remains a grove in the meadow instead of a visible square slab.
   const edge=Math.min(SKATE_PARK.halfWidth-Math.abs(x-SKATE_PARK.center.x),
@@ -122,7 +134,7 @@ export function createWorldSkateGrove(scene:THREE.Scene,support:(p:Point)=>numbe
  // Subtle carved annual rings and a thin coping line, interrupted at the
  // opening. Never place any wood roughness in the wheel-height function.
  const rimSegments=72;
- const annualRings:Part[]=[],innerCoping:Part[]=[],outerRoots:Part[]=[];
+ const annualRings:Part[]=[],innerCoping:Part[]=[];
  for(const radius of [1.85,3.1,4.3]){
   for(let i=0;i<rimSegments;i++){
    const a=i*2*Math.PI/rimSegments,b=(i+1)*2*Math.PI/rimSegments;
@@ -142,18 +154,11 @@ export function createWorldSkateGrove(scene:THREE.Scene,support:(p:Point)=>numbe
   const p={x:REDWOOD_BOWL.center.x+Math.cos(a)*radius,z:REDWOOD_BOWL.center.z+Math.sin(a)*radius};
   const q={x:REDWOOD_BOWL.center.x+Math.cos(b)*radius,z:REDWOOD_BOWL.center.z+Math.sin(b)*radius};
   innerCoping.push(beam(onRide(p,.065),onRide(q,.065),.040));
-  if(i%9===0){
-   const rootRadius=REDWOOD_BOWL.barkRadius+.18;
-   const out={x:REDWOOD_BOWL.center.x+Math.cos(mid)*rootRadius,
-    z:REDWOOD_BOWL.center.z+Math.sin(mid)*rootRadius};
-   const inn={x:REDWOOD_BOWL.center.x+Math.cos(mid)*(rootRadius-.65),
-    z:REDWOOD_BOWL.center.z+Math.sin(mid)*(rootRadius-.65)};
-   outerRoots.push(beam(onRide(inn,.035),onRide(out,.025),.065));
-  }
+
  }
  pooled("redwood-growth-rings",annualRings,grain);
  pooled("split-redwood-coping",innerCoping,metal);
- pooled("outside-redwood-root-grain",outerRoots,bark);
+
  // The split entrance keeps subtle cross-cut end grain, with no vertical
  // bark beams that could resemble barriers across a rideable lip.
  const woodEndGrain:Part[]=[];
