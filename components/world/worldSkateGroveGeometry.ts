@@ -57,7 +57,7 @@ export function createWorldSkateGrove(scene:THREE.Scene,support:(p:Point)=>numbe
 
  // Primary satin-polished cedar and earth surface. Same sampled mesh geometry
  // as the world support profile, with color regions rather than box patches.
- const widthSteps=64,depthSteps=56;
+ const widthSteps=96,depthSteps=84;
  const positions:number[]=[],colors:number[]=[],indices:number[]=[];
  const color=new THREE.Color();
  for(let iz=0;iz<=depthSteps;iz++)for(let ix=0;ix<=widthSteps;ix++){
@@ -108,6 +108,31 @@ export function createWorldSkateGrove(scene:THREE.Scene,support:(p:Point)=>numbe
  surface.castShadow=false;surface.receiveShadow=true;
  group.add(surface);
 
+ // Decorative bark must follow the triangles the GPU actually displays,
+ // not a sub-grid analytic height which may intersect those triangles on the
+ // trunk's steeper outer slope. Match the two actual deck triangles per cell.
+ // The wheel/support function remains authoritative; this is a visual-only
+ // barycentric sampler baked once into the static shell.
+ const fieldMeshY=(p:Point):number=>{
+  const gx=THREE.MathUtils.clamp(
+   (p.x-(SKATE_PARK.center.x-SKATE_PARK.halfWidth))/
+   (SKATE_PARK.halfWidth*2/widthSteps),0,widthSteps);
+  const gz=THREE.MathUtils.clamp(
+   (p.z-(SKATE_PARK.center.z-SKATE_PARK.halfDepth))/
+   (SKATE_PARK.halfDepth*2/depthSteps),0,depthSteps);
+  const ix=Math.min(widthSteps-1,Math.floor(gx));
+  const iz=Math.min(depthSteps-1,Math.floor(gz));
+  const fx=gx-ix,fz=gz-iz;
+  const height=(dx:number,dz:number)=>
+   positions[((iz+dz)*(widthSteps+1)+ix+dx)*3+1];
+  const a=height(0,0),b=height(1,0),c=height(0,1),d=height(1,1);
+  return fx+fz<=1?
+   a*(1-fx-fz)+b*fx+c*fz:
+   b*(1-fz)+c*(1-fx)+d*(fx+fz-1);
+ };
+ const skinPoint=(p:Point,offset=.024)=>
+  new THREE.Vector3(p.x,fieldMeshY(p)+offset,p.z);
+
  // Huge, hollow redwood cross-section. Bark wraps outside the curved rim,
  // with an actual break facing east: the shallow roll-in stays inviting.
  // All upper vertices sample the support field; the vertical bark face is
@@ -133,7 +158,7 @@ export function createWorldSkateGrove(scene:THREE.Scene,support:(p:Point)=>numbe
     const p={x:REDWOOD_BOWL.center.x+cosine*radius,
       z:REDWOOD_BOWL.center.z+sine*radius};
     const wave=Math.sin(angle*11+radius*2)*.007;
-    barkPositions.push(p.x,ride(p)+.048+wave,p.z);
+    barkPositions.push(p.x,fieldMeshY(p)+.028+wave,p.z);
     barkColor.set(barkColorsPalette[Math.min(rimBands-1,Math.floor(t*rimBands))]??"#745038");
     barkColors.push(barkColor.r,barkColor.g,barkColor.b);
    }
@@ -150,7 +175,7 @@ export function createWorldSkateGrove(scene:THREE.Scene,support:(p:Point)=>numbe
     z:REDWOOD_BOWL.center.z+Math.sin(angle1)*radius};
   const edgeStart=barkPositions.length/3;
   for(const p of [left,right]){
-   const top=ride(p)+.045;
+   const top=fieldMeshY(p)+.024;
    for(const y of [top,terrainHeight(p.x,p.z)+.01]){
     barkPositions.push(p.x,y,p.z);
     barkColor.set(y===top?"#765039":"#513b31");
@@ -225,7 +250,7 @@ export function createWorldSkateGrove(scene:THREE.Scene,support:(p:Point)=>numbe
    z:REDWOOD_BOWL.center.z+Math.sin(a)*radius0};
   const q={x:REDWOOD_BOWL.center.x+Math.cos(a+.012)*radius1,
    z:REDWOOD_BOWL.center.z+Math.sin(a+.012)*radius1};
-  barkRidges.push(beam(onRide(p,.065),onRide(q,.065),.014+(i%3)*.003));
+  barkRidges.push(beam(skinPoint(p,.036),skinPoint(q,.036),.014+(i%3)*.003));
  }
  for(const split of [-.33,.33]){
   const a=.15+split;
