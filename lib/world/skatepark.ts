@@ -14,8 +14,25 @@ export function insideSkatePark(p:Point,margin=0):boolean {
   Math.abs(p.z-SKATE_PARK.center.z)<=SKATE_PARK.halfDepth+margin;
 }
 
-/** Continuous heightfield: approach apron, two transition banks, carved bowl
- * and a street pyramid. No hidden collision boxes or per-frame mesh rebuilds. */
+/** One support profile shared by mesh, ground collisions and scenery placement.
+ * We raise the exterior wall around a smooth central floor, rather than clip
+ * a negative hole under the natural ground. The wood/bark are visual skins,
+ * never a hidden second collidable surface. */
+export const REDWOOD_BOWL={center:{x:-12,z:40},rimRadius:5.4,barkRadius:6.5} as const;
+export const STUMP_PADS=[
+ {id:"north-stump",center:{x:-5,z:33.5},radius:1.3,lift:.15},
+ {id:"south-stump",center:{x:-5,z:46.5},radius:1.3,lift:.15},
+] as const;
+export type SkateParkZone="redwood-bowl"|"timber-quarter"|"stump-pad"|"street"|"apron";
+export function skateParkZone(p:Point):SkateParkZone{
+ if(Math.hypot(p.x-REDWOOD_BOWL.center.x,p.z-REDWOOD_BOWL.center.z)<REDWOOD_BOWL.rimRadius+.85)
+  return "redwood-bowl";
+ if(STUMP_PADS.some(pad=>Math.hypot(p.x-pad.center.x,p.z-pad.center.z)<pad.radius+.12))
+  return "stump-pad";
+ if(p.x>=-2&&(p.z<34.4||p.z>45.6))return "timber-quarter";
+ if(Math.abs(p.x+1)<3.4&&Math.abs(p.z-40)<4)return "street";
+ return "apron";
+}
 export function skateParkSurface(p:Point):number|null {
  if(!insideSkatePark(p))return null;
  const natural=terrainHeight(p.x,p.z);
@@ -27,14 +44,23 @@ export function skateParkSurface(p:Point):number|null {
  const street=smooth((p.x+5)/3);
  const north=smooth((33.8-p.z)/4.2);
  const south=smooth((p.z-46.2)/4.2);
- // A taller physical transition matches the lip and passes the relief audit.
+ // Deliberate mirrored timber quarter walls preserve existing real takeoffs.
  const quarters=2.2*Math.max(north*north,south*south)*street;
- const bowlRadius=Math.hypot(p.x+12,p.z-40);
- const bowl=-0.74*(1-smooth((bowlRadius-1)/4.9))+
-  0.18*Math.max(0,1-Math.abs(bowlRadius-5.4)/0.55);
- const pyramid=0.66*Math.max(0,1-Math.abs(p.x+1)/2.5)*
+ const r=Math.hypot(p.x-REDWOOD_BOWL.center.x,p.z-REDWOOD_BOWL.center.z);
+ const bank=1.18*smooth((r-.85)/4.55)*(1-smooth((r-REDWOOD_BOWL.rimRadius)/1.9));
+ // The east-facing split opening is a shallow, obvious roll-in rather than
+ // a physical gate. A rider can enter it even without a timed jump.
+ const opening=smooth((p.x+9)/2.5)*(1-smooth(Math.abs(p.z-40.8)/2.15));
+ const bowl=bank*(1-.53*opening);
+ const pyramid=.66*Math.max(0,1-Math.abs(p.x+1)/2.5)*
   Math.max(0,1-Math.abs(p.z-40)/3.2);
- return Math.max(natural,deck+blend*(quarters+bowl+pyramid));
+ const stump=STUMP_PADS.reduce((sum,pad)=>{
+  const radius=Math.hypot(p.x-pad.center.x,p.z-pad.center.z);
+  // The whole medallion is a smooth, low manual pad: no vertical stump edge.
+  const plateau=1-smooth((radius-pad.radius*.35)/(pad.radius*.65));
+  return sum+pad.lift*plateau;
+ },0);
+ return Math.max(natural,deck+blend*(quarters+bowl+pyramid+stump));
 }
 export type SkateRail={
  id:string;a:Point;b:Point;role:"sport";radius:number;lift:number;
