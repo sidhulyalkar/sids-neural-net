@@ -9,7 +9,7 @@
 - **Readability:** pale satin-polished wood = safe wheels; dark rough bark = decorative outer cladding; capped metal = grind/coping. No bark bumps, protruding roots, stump vertical faces or plank gaps on wheel contact.
 - **Flow before challenge:** gentle entry, natural bank, split-stump manual pads, central log slide, hero hollow-redwood bowl and timber halfpipe. Avoid adding challenge menus, gates, sponsor branding, crowds or collectables.
 - **One authoritative field:** `skateParkSurface(p)` is the sampled walk/ride height used by runtime physics and primary park mesh. All supplementary visual meshes are generated from that function (small positive visual offsets only). Never add a decorative solid above the ride envelope or change non-skate world minigame state.
-- **Low overhead:** bake all additional wood geometry once at world initialization. One sampled primary mesh, one bark ring, pooled instanced beams/seams/rail assets, no texture fetches, shaders, per-frame geometries or WebGL-heavy postprocessing.
+- **Low overhead:** bake all additional wood geometry once at world initialization. One sampled primary mesh with heartwood/bark vertex colors, pooled instanced beams/seams/rail assets, no texture fetches, shaders, per-frame geometries or WebGL-heavy postprocessing.
 
 ## Spatial layout (world coordinates, subject to terrain evaluation)
 
@@ -137,6 +137,32 @@ rendered deck support. This is a direct visual intervention, not an
 occluded decorative component. Confirm the final profile by reviewing
 the new browser screenshots and W → A → S → Space loop on the same head;
 the previous browser passes apply only to their exact checked commits.
+
+## No-overlap trunk shading correction (October 14)
+
+The raised 2.05u physical trunk changed the bowl silhouette, but a second
+skin of bark triangles visually tore through the steeper riding shoulder.
+Increasing the tessellation density and interpolating bark vertices against
+the displayed deck eliminated some clipping but still left jagged, partially
+occluded strips between overlay vertices. Therefore this extra shell and its
+decorative flutes were **removed altogether**.
+
+The production design uses **one** tessellated
+`skate-grove-ride-surface` for shape, wheel support, polished cut face,
+cambium transition and deeply colored bark. Bark and heartwood colors are
+computed once as baked vertex colors, with soft radial gradients and slight
+irregular end grain. No transparent textures, z-fighting fixes, polygon
+offsets, duplicated mesh or extra collision layer. A 96 × 84 grid resolves
+the steeper physical shoulder. Existing growth rings, coping, roots, timber
+beams and thin ornamental end-grain strokes remain pooled and separate,
+with no tall faux obstacles along the skateable apron.
+
+The geometry tests assert that there is **no**
+`hollow-redwood-bark-shell` and that the same riding mesh has contrasting
+bright inner wood and dark exterior bark. Camera screenshots must show no
+dark sawtooth triangles or yellow teeth at the redwood shoulder. Check the
+latest screenshot and the browser W → A → S → Space playtest after this
+change before accepting the final silhouette.
 
 ## Review checklist
 
