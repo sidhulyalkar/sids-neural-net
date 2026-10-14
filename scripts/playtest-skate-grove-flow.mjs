@@ -20,7 +20,10 @@ try{
   const result={stage,point:s.player,heading:s.skateHeading,
    speed:Number(s.speed),zone:s.skateGroveZone,
    exits:Number(s.skateBowlExits),takeoff:s.skateLastTakeoff,
-   airborne:s.airborne,activity:s.activity};
+   landings:Number(s.skateBowlLandings),failedLandings:Number(s.skateBowlFailedLandings),
+   landingPoint:s.skateBowlLastLanding,landingSpeed:Number(s.skateBowlLandingSpeed),
+   resultSerial:Number(s.skateResultSerial),lastResult:s.skateLastResult,
+   score:Number(s.skateScore),airborne:s.airborne,activity:s.activity};
   samples.push(result);return result;
  };
  try{
@@ -55,7 +58,6 @@ try{
    }
   }finally{
    await page.keyboard.up("a");
-   await canvas.evaluate(el=>el.blur());
   }
   const latest=samples.at(-1);
   await page.screenshot({path:path.join(out,"bowl-carve-after-run.png")});
@@ -64,6 +66,43 @@ try{
   assert.deepEqual(errors,[],"no renderer exceptions");
   assert.ok(latest?.exits===1&&latest?.zone!==""&&latest?.takeoff==="redwood-bowl-exit",
    "carve should reach exactly one meadow-safe bowl launch without leaving park");
+
+  // The earlier QA stopped at takeoff. A safe-looking prediction is not
+  // evidence of an actual landing, nor of a line a visitor can continue.
+  stage="touchdown";
+  await page.waitForFunction(()=>{
+   const d=document.querySelector("canvas")?.dataset;
+   return Number(d?.skateBowlLandings)+Number(d?.skateBowlFailedLandings)>0;
+  },null,{timeout:20000});
+  const touchdown=await sample();
+  assert.equal(touchdown.landings,1,"the carved rim must lead to one real grounded landing");
+  assert.equal(touchdown.failedLandings,0,"the touchdown must avoid water and park boundaries");
+  assert.ok(touchdown.landingSpeed>2,"the rider must carry usable momentum into the runout");
+  assert.ok(touchdown.resultSerial>0&&touchdown.lastResult!=="Bail",
+   "the automatic rim trick should complete and land, not leave an unfinished board spin");
+  await page.screenshot({path:path.join(out,"bowl-touchdown.png")});
+
+  // Camera-relative S now points back toward the eastern timber meadow.
+  // This is an ordinary input, not a scripted teleport/ghost path.
+  stage="return";
+  await page.keyboard.down("s");
+  let returnSample;
+  try{
+   for(let i=0;i<42;i++){
+    await page.waitForTimeout(250);
+    returnSample=await sample();
+    const point=returnSample.point?.split(",").map(Number);
+    if(returnSample.zone===""||returnSample.failedLandings>0||returnSample.speed<.6)break;
+    if(point?.length===2&&point[0]>-7.5)break;
+   }
+  }finally{await page.keyboard.up("s");}
+  assert.ok(returnSample,"return path must produce samples");
+  const back=returnSample.point.split(",").map(Number);
+  assert.ok(returnSample.zone!==""&&back[0]>-7.5&&returnSample.speed>1.5,
+   "one easy reverse-camera turn should bring the skater back to the timber approach");
+  assert.equal(returnSample.landings,1,"the return path must not fabricate a second landing");
+  await page.screenshot({path:path.join(out,"redwood-return-line.png")});
+  console.log("REDWOOD GROVE RETURN PASS",JSON.stringify({entry,latest,touchdown,returnSample}));
  }catch(error){
   fs.writeFileSync(path.join(out,"trace.json"),JSON.stringify({samples,errors,failed:String(error)},null,2)+"\n");
   console.error("REDWOOD BOWL FLOW FAILURE",JSON.stringify({samples,errors}));
