@@ -14,7 +14,7 @@ export function skateRollingSpeed({
 }:SkateRollingInput):number{
  if(!Number.isFinite(speed)||!Number.isFinite(riseAhead)||!Number.isFinite(maxSpeed))
   return 0;
- const h=clamp(dt,0,.05);
+ const h=Number.isFinite(dt)?clamp(dt,0,.05):0;
  const v=Math.max(0,speed);
  const grade=clamp(riseAhead,-1.35,1.35);
  // A rolling rider accelerates downhill while still having to push to
