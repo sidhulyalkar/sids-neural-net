@@ -24,14 +24,14 @@ export function selectAssistedSkateTrick(context:SkateAssistContext):SkateTrickN
  if(context.airborne)return speed>=5?"Tre Flip":"Kickflip";
  if(attempt===0&&speed<4)return "Ollie";
  const offset=context.inPark&&speed>=7?1:0;
- return FLOW[(attempt+offset)%FLOW.length];
+ return FLOW[(attempt+offset)%FLOW.length]??"Ollie";
 }
 
 /** A fast pass through the skatepark occasionally adds a simple body rotation.
  * The spin is additive to an already-allowed pop; not a separate input gate. */
 export function assistedSkateSpin(context:SkateAssistContext): -1|0|1 {
  const speed=Number.isFinite(context.speed)?context.speed:0;
- if(speed<6||!context.inPark&&!context.airborne||context.attempt<2||
+ if(speed<6||(!context.inPark&&!context.airborne)||context.attempt<2||
   context.attempt%4!==2)return 0;
  return context.attempt%8===2?1:-1;
 }
