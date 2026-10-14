@@ -1,6 +1,7 @@
 import { desertTrackTreadBlend, desertTrackSampleAt, DESERT_GAP_DEBRIS, DESERT_JUMPS, DESERT_TRACK_LENGTH } from "@/lib/world/desertTrack";
 import {SKATE_PARK,SKATE_PARK_RAILS,skateParkSurface,insideSkatePark} from "@/lib/world/skatepark";
 import {skateLean} from "@/lib/world/skateDynamics";
+import {selectAssistedSkateTrick,assistedSkateSpin} from "@/lib/world/skateAssist";
 import {idleSkateTrick,startSkateTrick,finishSkateTrick,setSkateGrab,skateTrickPose,flickTrick,scoreSkateGrind,queueSkateSpin,startSkateManual,stepSkateManual,finishSkateManual,type SkateTrickName,type SkateTrickState} from "@/lib/world/skateTricks";
 import { JOSHUA_GATES, armJoshuaTrial, abortJoshuaTrial, tickJoshuaTrial, type TrialState } from "@/lib/world/trials";
 import { createFishGeometry, createFishBodyGeometry, createCaudalFinGeometry, createDorsalFinGeometry, createPectoralFinGeometry, createSharkGeometry, createRayWingGeometry } from "./worldFaunaGeometry";
@@ -167,17 +168,30 @@ export function createWorld(
   skateHud.setAttribute("role","status");
   skateHud.style.cssText="display:none;position:absolute;bottom:14px;left:50%;transform:translateX(-50%);z-index:7;pointer-events:none;max-width:94%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:7px 13px;border-radius:10px;background:#12242bd9;color:#eef7f4;border:1px solid #bed9cc70;font:600 12px/1.3 system-ui,sans-serif;text-align:center";
   host.appendChild(skateHud);
+  // A brief, non-blocking landing card is more rewarding than a permanent
+  // dashboard. The island stays visible while the completed move is named.
+  const skateResult=document.createElement("div");
+  skateResult.setAttribute("role","status");
+  skateResult.setAttribute("aria-live","polite");
+  skateResult.setAttribute("aria-label","Completed skateboard trick");
+  skateResult.style.cssText="display:none;position:absolute;top:19%;left:50%;transform:translate(-50%,0);opacity:0;z-index:8;pointer-events:none;box-sizing:border-box;max-width:84%;min-width:185px;padding:11px 21px 12px;border:1px solid #e7f5e88f;border-radius:15px;background:linear-gradient(135deg,#132f35e8,#24565ad6);box-shadow:0 8px 26px #021e2844;color:#f8fbf3;text-align:center;backdrop-filter:blur(8px);font-family:system-ui,sans-serif";
+  const skateResultName=document.createElement("div");
+  skateResultName.style.cssText="font-size:clamp(17px,2.6vw,24px);font-weight:800;letter-spacing:.025em;line-height:1.15";
+  const skateResultDetail=document.createElement("div");
+  skateResultDetail.style.cssText="font-size:12px;font-weight:650;letter-spacing:.12em;margin-top:5px;color:#d1e6d5";
+  skateResult.append(skateResultName,skateResultDetail);host.appendChild(skateResult);
+  const skateResultReducedMotion=window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   const skateTouch=document.createElement("div");
   skateTouch.setAttribute("aria-label","Skateboarding touch tricks");
   skateTouch.style.cssText="display:none;position:absolute;right:14px;bottom:66px;z-index:9;gap:7px";
   host.appendChild(skateTouch);
-  for(const [name,label] of [["Ollie","POP"],["Kickflip","FLIP"],["Pop Shuvit","SHUV"]] as const){
-    const button=document.createElement("button");
-    button.textContent=label;button.type="button";button.setAttribute("aria-label",name);
-    button.style.cssText="border:1px solid #e2ebed99;border-radius:12px;background:#183c44d9;color:#fff;padding:12px;font:700 13px system-ui,sans-serif;touch-action:manipulation";
-    button.addEventListener("click",()=>launchSkateTrick(name));
-    skateTouch.appendChild(button);
-  }
+  const skateTrickButton=document.createElement("button");
+  skateTrickButton.type="button";
+  skateTrickButton.textContent="✦ TRICK";
+  skateTrickButton.setAttribute("aria-label","Do an assisted skate trick");
+  skateTrickButton.style.cssText="border:1px solid #d9ebdccc;border-radius:13px;background:#21515ce8;color:#fff;padding:14px 17px;font:750 14px system-ui,sans-serif;box-shadow:0 3px 12px #09273266;touch-action:manipulation";
+  skateTrickButton.addEventListener("click",()=>performAction());
+  skateTouch.appendChild(skateTrickButton);
   const rideReticle=document.createElement("div");
   rideReticle.className=worldStyles.rideBoostReticle;
   rideReticle.setAttribute("aria-hidden","true");
