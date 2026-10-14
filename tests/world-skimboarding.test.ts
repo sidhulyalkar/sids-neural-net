@@ -159,3 +159,11 @@ test("easy trick assist produces an airborne rotation and a temporary landing ca
   for(let i=0;i<90;i++) heat=stepSkimHeat(heat,point,.05,3+i*.05,0,false).heat;
   assert.equal(heat.trickCalloutTime,0);
 });
+
+test("skim heat countdown uses bounded fixed steps at low frame rates",()=>{
+  const p=boardPoint(0);
+  let heat=pickupSkimBoard(p,0,idleSkimHeat());
+  for(let i=0;i<10;i++)for(let sub=0;sub<10;sub++)
+    heat=stepSkimHeat(heat,p,.05,i*.5+sub*.05,0,false).heat;
+  assert.ok(Math.abs(heat.remaining-(SKIM_HEAT_SECONDS-5))<1e-7);
+});

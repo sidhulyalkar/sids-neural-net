@@ -1142,3 +1142,14 @@
   .skimHud p {font-size:11px;}
 }
 @media(prefers-reduced-motion:reduce){.skimMeter span{transition:none;}}
+
+/* Compact landing confirmation sits above the HUD, not over the surfer. */
+.skimTrickCallout {
+  position:absolute;left:50%;bottom:calc(100% + 10px);
+  transform:translateX(-50%);max-width:calc(100vw - 32px);
+  white-space:nowrap;padding:8px 15px;border-radius:999px;
+  border:1px solid #b6f3e2ab;background:#123d46ed;color:#ebfff8;
+  font-size:14px;font-weight:650;letter-spacing:.025em;
+  text-shadow:0 1px 3px #002c2b55;pointer-events:none;
+}
+@media(max-width:760px){.skimTrickCallout{font-size:12px;padding:6px 11px;}}

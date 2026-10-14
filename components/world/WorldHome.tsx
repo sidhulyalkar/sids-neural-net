@@ -106,6 +106,7 @@ export function WorldHome({ content }: { content: WorldContent }) {
   });
   const onSkim=useCallback((heat:SkimHeat)=>{
     setSkim(heat);
+    if(heat.phase==="ready")setActivity("run");
     if(heat.phase==="finished" && heat.score>0){
       setSkimBest(current=>current===null?heat.score:Math.max(current,heat.score));
       try{
@@ -553,6 +554,9 @@ export function WorldHome({ content }: { content: WorldContent }) {
            {skim.phase!=="off" && (
              <aside className={styles.skimHud} aria-label="North shore skimboarding heat" aria-live="polite">
                <div className={styles.skimHeader}><span>NORTH SHORE · SKIM HEAT</span><button onClick={()=>issueSkim("exit")}>Exit</button></div>
+               {skim.trickCalloutTime>0&&skim.trickCallout&&(
+                 <div className={styles.skimTrickCallout} role="status">{skim.trickCallout}</div>
+               )}
                <div className={styles.skimReadout}><strong>{skim.score.toLocaleString()} <small>PTS</small></strong><strong>{skim.remaining.toFixed(0)} <small>SEC</small></strong></div>
                <div className={styles.skimMeter}><span style={{width:`${100*skim.remaining/90}%`}} /></div>
                <p>{skim.phase==="ready"?"Sprint toward the wet sand, then drop your board.":skim.phase==="riding"?

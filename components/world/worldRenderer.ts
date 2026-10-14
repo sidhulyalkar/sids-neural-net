@@ -3084,7 +3084,8 @@ export function createWorld(
         }
       } else if(skimHeat.phase==="recovering"){
         travel.speed=0;
-        playerY=SEA_SURFACE-.15;
+        // Recover at the true seabed/wet-sand contact, never inside dry terrain.
+        playerY=isWater(player)?SEA_SURFACE-.12:groundHeight(player);
       } else if (climb) {
         climb.progress = Math.min(1, climb.progress + dt * 1.25);
         const t = climb.progress * climb.progress * (3 - 2 * climb.progress);
@@ -3182,7 +3183,7 @@ export function createWorld(
           { ...travel, point: player },
           { x: dx, z: dz },
           dt,
-          state.activity,
+          skimHeat.phase==="ready" ? "run" : state.activity,
           caveLayer === "surface"
             ? (airHeight < 0.2 ? groundedObstacles : obstacles)
             : caveSolids,
@@ -3238,7 +3239,8 @@ export function createWorld(
             playerY = groundY;
             verticalSpeed = 0;
           }
-          const modeForRamp = effectiveActivity(state.activity, player);
+          const modeForRamp = effectiveActivity(
+            skimHeat.phase==="ready" ? "run" : state.activity,player);
           if (bigAir.phase!=="armed" && airHeight === 0 && elapsed - lastRampAt > 1.1) {
             const ramp = rampImpulseCrossing(
               previousPoint, player, travel.heading, modeForRamp, travel.speed,
@@ -3257,7 +3259,13 @@ export function createWorld(
 
       if(skimHeat.phase!=="off"&&skimHeat.phase!=="riding"&&skimHeat.phase!=="finished"){
         const previousPhase=skimHeat.phase;
-        skimHeat=stepSkimHeat(skimHeat,player,dt,elapsed,0,false).heat;
+        const activeDelta=Math.max(0,Math.min(rawDelta,.5));
+        const slices=Math.max(1,Math.ceil(activeDelta/.05));
+        for(let slice=0;slice<slices;slice++){
+          skimHeat=stepSkimHeat(skimHeat,player,activeDelta/slices,
+            surfClock-activeDelta+(slice+1)*activeDelta/slices,0,false).heat;
+          if(skimHeat.phase==="finished")break;
+        }
         if(previousPhase==="recovering"&&skimHeat.phase==="ready"){
           const x=Math.max(-13,Math.min(13,player.x));
           player={x,z:northShoreZ(x)-6.8};
@@ -3287,7 +3295,8 @@ export function createWorld(
         lastRampAt=elapsed;
         callbacks.onBigAir(bigAir);
       }
-      const mode = effectiveActivity(state.activity, player);
+      const mode = effectiveActivity(
+        skimHeat.phase!=="off"&&skimHeat.phase!=="finished" ? "run" : state.activity,player);
       if(trial.phase==="armed" || trial.phase==="running") {
         const previousTrial=trial;
         trial=tickJoshuaTrial(trial,previousPoint,player,dt,mode);
@@ -3314,10 +3323,16 @@ export function createWorld(
         prop.visible=!(skimEquipped&&skimHeat.board===i);
         if(skimTails[i])skimTails[i].visible=prop.visible;
       });
+      const trick=surfing?skimHeat.pendingTrick:null;
+      const trickSpin=skimHeat.spin;
+      const avatarTurn=trick==="three-sixty"?trickSpin:
+        trick==="big-spin"?trickSpin*.5:0;
+      const boardTurn=trick==="shuvit"?trickSpin:
+        trick==="big-spin"?trickSpin*.5:0;
       if(skimEquipped){
         skimDeck.material=skimDeckMaterials[skimHeat.board??0];
         skimEquipment.position.set(surfing?0:.74,surfing?.04:.87,surfing?0:.15);
-        skimEquipment.rotation.set(surfing?-Math.PI/2:0,0,surfing?0:-.12);
+        skimEquipment.rotation.set(surfing?-Math.PI/2:0,boardTurn,surfing?0:-.12);
       }
       snorkel.visible = swimming;
       const running = !swimming && !surfing && (mode === "run" || mode === "boulder");
@@ -3360,8 +3375,10 @@ export function createWorld(
             : 0,
         );
         bodyRoot.rotation.set(bikePose ? bikeBodyLean : 0, 0, 0);
-        legs[0].rotation.x = surfing?.17:running ? walking * 0.6 : bikePose ? 0.58 + walking * 0.28 : 0.2;
-        legs[1].rotation.x = surfing?-.16:running ? -walking * 0.6 : bikePose ? 0.58 - walking * 0.28 : 0.2;
+        legs[0].rotation.x = surfing ? (skimHeat.air>0?.32:.17) :
+          running ? walking*.6 : bikePose ? .58+walking*.28 : .2;
+        legs[1].rotation.x = surfing ? (skimHeat.air>0?-.35:-.16) :
+          running ? -walking*.6 : bikePose ? .58-walking*.28 : .2;
         // Single elastic backswing: shoulder reaches behind the body during
         // Space hold, then follows through as the disc takes flight.
         const throwProgress=THREE.MathUtils.clamp(state.discGolfSwingAmount,0,1);
@@ -3391,8 +3408,8 @@ export function createWorld(
         const rollAngle =
           (gearMode ? contact.roll : 0) +
           (mode === "skate" ? Math.sin(elapsed * 2) * Math.min(travel.speed * 0.006, 0.06) : 0);
-        explorer.rotation.set(surfing?skimHeat.air*.035:pitchAngle,
-          headingYaw,surfing?Math.sin(elapsed*1.7)*.06:rollAngle);
+        explorer.rotation.set(surfing?.1+skimHeat.air*.035:pitchAngle,
+          headingYaw+avatarTurn,surfing?Math.sin(elapsed*1.7)*.065:rollAngle);
         if (grind) {
           const logDx = grind.log.b.x - grind.log.a.x;
           const logDz = grind.log.b.z - grind.log.a.z;
@@ -3492,7 +3509,9 @@ export function createWorld(
             )
           : 0
       ).toFixed(3);
-      const r: RegionId = isWater(player) ? "coast" : nearestRegion(player);
+      const r: RegionId = isWater(player) ?
+        (waterZone(player)==="north-shore"?"north-shore":"coast") :
+        nearestRegion(player);
       const caveProgress = THREE.MathUtils.clamp(
         (player.z - arcade.z) / ARCADE_CAVE.tunnelDepth,
         0,
@@ -3603,7 +3622,8 @@ export function createWorld(
               : mode === "boulder"
                 ? Math.min(zoom, 15)
                 : zoom;
-      const cameraYaw = aquatic === "dive" ? yaw + 0.28 : yaw;
+      const cameraYaw=surfing?Math.atan2(-travel.heading.x,-travel.heading.z):
+        aquatic==="dive"?yaw+.28:yaw;
       if(discGolf.phase!=="off"){
         const target=discGolfNextTarget(discGolf);
         const pose=discGolfThrowCameraPose(player,target,playerY);
