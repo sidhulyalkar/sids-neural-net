@@ -95,6 +95,7 @@ try {
     ['08 Arcade cavern Play my games', 'Arcade cavern', 'Arcade cavern.'],
     ['09 Joshua basin Granite and desert trails', 'Joshua basin', 'Joshua basin.'],
     ['10 Rainforest Canopy to coast', 'Rainforest', 'Rainforest.'],
+    ['11 North shore Skimboarding · Shore break', 'North shore', 'North shore.'],
   ]) {
     await page.getByRole('button', { name: 'Open navigation menu' }).click();
     await page.getByRole('button', { name, exact: true }).click();
