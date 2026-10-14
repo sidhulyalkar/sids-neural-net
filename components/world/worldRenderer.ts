@@ -3241,7 +3241,12 @@ export function createWorld(
     if(next===skateTrick)return;
     commitSkateTrick(next);skateHasBeenAirborne=false;
     if(!naturalFlight){
-      verticalSpeed=Math.min(7.6,5.9+Math.min(14,travel.speed)*.1);
+      // Easy tricks stay compact in the woodland park: enough time for
+      // the .44s assisted board animation, but no 15m float into the coast.
+      // Expert Flick and free-island tricks keep their original pop.
+      verticalSpeed=assisted&&insideSkatePark(player)?
+        Math.min(4.85,4.1+Math.min(12,travel.speed)*.055):
+        Math.min(7.6,5.9+Math.min(14,travel.speed)*.1);
       playerY=Math.max(playerY,supportHeight(player)+.04);airHeight=.04;
     }else skateHasBeenAirborne=true;
     destination=null;
@@ -4045,7 +4050,9 @@ export function createWorld(
       canvas.dataset.skateBowlLandingSpeed=skateBowlLastLandingSpeed.toFixed(2);
       canvas.dataset.skateHeading=travel.heading.x.toFixed(3)+","+travel.heading.z.toFixed(3);
       canvas.dataset.skateLastTakeoff=skateLastTakeoff;
-      canvas.dataset.skateGroveZone=skateVisible?skateParkZone(player):"";
+      // A zone label must never impersonate a *physical* park check.
+      canvas.dataset.skateGroveZone=skateVisible&&insideSkatePark(player)?
+        skateParkZone(player):"";
       canvas.dataset.skateAssist="on";
       canvas.dataset.skateResult=resultVisible?skateResultLabel:"";
       // Stable event telemetry is distinct from the fleeting UI toast: a slow
