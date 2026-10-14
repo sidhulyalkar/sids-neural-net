@@ -145,14 +145,19 @@ try {
         await page.locator('canvas').getAttribute('data-cave-camera-clear'),
         'true',
       );
+      // A true caveDogClear value is vacuously possible when the wait
+      // behavior never starts. First prove Shasta actually entered his
+      // cave-entrance behavior, then qualify physical clearance.
       await page.waitForFunction(
-        () => document.querySelector('canvas')?.dataset.caveDogClear === 'true',
+        () => document.querySelector('canvas')?.dataset.dogCuriosity === 'cave-entrance',
         null,
-        { timeout: 6000 },
+        { timeout: 9000 },
       );
-      assert.equal(
-        await page.locator('canvas').getAttribute('data-dog-curiosity'),
-        'cave-entrance',
+      await page.waitForFunction(
+        () => document.querySelector('canvas')?.dataset.caveDogClear === 'true' &&
+          document.querySelector('canvas')?.dataset.dogCuriosity === 'cave-entrance',
+        null,
+        { timeout: 9000 },
       );
       const gazeId = await page.locator('canvas').getAttribute('data-gaze-game');
       const gazeIndex = Number(gazeId?.slice(5));
