@@ -47,7 +47,8 @@ export function skateParkSurface(p:Point):number|null {
  // Deliberate mirrored timber quarter walls preserve existing real takeoffs.
  const quarters=2.2*Math.max(north*north,south*south)*street;
  const r=Math.hypot(p.x-REDWOOD_BOWL.center.x,p.z-REDWOOD_BOWL.center.z);
- const bank=1.18*smooth((r-.85)/4.55)*(1-smooth((r-REDWOOD_BOWL.rimRadius)/1.9));
+ // Slightly deeper tree-carved silhouette, with the same C1 roll-in slope.
+ const bank=1.42*smooth((r-.85)/4.55)*(1-smooth((r-REDWOOD_BOWL.rimRadius)/1.9));
  // The east-facing split opening is a shallow, obvious roll-in rather than
  // a physical gate. A rider can enter it even without a timed jump.
  const opening=smooth((p.x+9)/2.5)*(1-smooth(Math.abs(p.z-40.8)/2.15));
