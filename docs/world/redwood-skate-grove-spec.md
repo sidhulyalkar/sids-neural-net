@@ -66,41 +66,54 @@ it should read as a hollowed living-material sculpture, not a bark picket fence.
 No added physical obstruction at the roll-in, no alternative colliders, and no
 camera override while actually skating.
 
-## Play-first flow line and safe rim assist (October 14)
+## Play-first continuous flow and safety (October 14)
 
-**Arrival contract:** `activityLanding("skate")` uses the `SKATE_GROVE_FLOW.approach`
-coordinate **(3, 40.8)**, not the older unaligned (0, 35) start. The fast
-travel sets **both** camera facing and actual `travel.heading` from
-`skateGroveStartHeading()`. A visitor pressing only **W** first moves west,
-through the wide timber apron and the east split at **(-6.6, 40.8)** into
-the hollow redwood bowl. This is not an autopilot or a scripted line.
+**Arrival:** `activityLanding("skate")` starts at `(3,40.8)`. Camera and
+rider steering both face the east-side hollow-tree opening. **W** rolls from
+timber apron into bowl, **A** follows the lower carved curve, and **S**
+allows a return toward the pale-timber and stump features. Steering remains
+normal WASD input, not an autopilot, invisible rail or scripted path.
 
-**Carve contract:** Near the bowl pocket, **A** steers south along the
-redwood bank from the west-facing starting camera. The player can reverse or
-choose another route with the normal controls. A clean outward crossing
-of the bowl rim can earn one modest assisted air trick. It is not a trampoline:
-`redwoodBowlExitCrossing()` requires a real outward plane crossing, sufficient
-momentum, plausible heading, no east-opening collision, and a **predicted
-touchdown still inside the grove (1.3 u edge clearance) on land**.
-Unsafe cliff-facing trajectories are explicitly rejected. Airborne state and
-landing points still belong to the existing World simulation.
+**Bank assistance:** `redwoodBowlCarveHeading()` is purely deterministic
+and activates only at meaningful speed in the outer bowl wall when the
+projected trajectory would leave the meadow. It gently redirects unsafe
+outward motion along the bowl tangent, without changing speed, teleporting,
+or altering the east split or safe reader-controlled exits. Outside the bowl
+and on safely directed paths the original board movement is preserved.
 
-**Acceptance:** `tests/world-skate-flow.test.ts` deterministically samples
-the wheel-support route, verifies the redwood entrance, checks that continuing
-straight west never earns a hazardous automatic launch, and qualifies a
-meadow-directed carve at safe speed. `scripts/playtest-skate-grove-flow.mjs`
-executes the actual Chromium route with **W then A**, records player position,
-heading, speed, zone, airborne status and takeoff events, and retains screenshot
-and JSON evidence independently of the classic three-trick playtest.
+**Safe launch:** `redwoodBowlExitCrossing()` still requires a real outward
+crossing and speed and excludes the split. A cliff-facing launch is not a
+reward. Its check now reserves a **downhill-aware flight corridor of at least
+1.1 seconds** with a 1.5-unit inset from the park edge and rejects water;
+the old level-ground time estimate proved too short. Actual touchdown is
+recorded separately as `skateBowlLandings` or
+`skateBowlFailedLandings`, never inferred from an accepted pop.
 
-GitHub [Redwood Skate Grove Browser QA run 38522810458](https://github.com/sidhulyalkar/sids-neural-net/actions/runs/38522810458)
-passed both browser steps. Representative real browser trace:
-`(3.00,40.80) at rest → (-14.07,40.80), west at 10.46 u/s →
-(-16.67,43.12), southwest carve at 11.45 u/s`, one
-`redwood-bowl-exit` and **no browser exceptions**, still in the grove.
-The classic trick test also scored a 580-point three-trick line.
-This is a real, safe entry-and-carve smoke test, **not** a claim that every
-possible high-speed trick, loop or world game mode is validated.
+**Compact fun-first jump:** Space/controller A/touch-assisted tricks launched
+on the ground *inside* the grove have reduced pop velocity, preserving the
+0.44-second assisted board animation and clean landing thresholds without
+unintentionally carrying the board a long distance outside the park.
+Explicit expert Flick tricks and tricks in the wider island retain their
+existing air impulse. Park-zone telemetry reports a name only when the rider
+is physically inside park bounds, to prevent a fake positive QA outcome.
+
+**Real-browser contract:** `scripts/playtest-skate-grove-flow.mjs` presses
+W to enter the bowl, A to carve, S to return toward the timber zone and
+Space for the next trick. The test must observe a real completed landing,
+positive score, no water/out-of-bounds landings, and the final player's
+actual in-park status. Screenshots and a traced JSON report are retained
+on *both* success and failure. `tests/world-skate-flow.test.ts` separately
+covers safe/unsafe exit geometry and tangent banking.
+
+**Important prior regression:** The earlier launch-only audit
+([run 38522810458](https://github.com/sidhulyalkar/sids-neural-net/actions/runs/38522810458))
+passed while observing the bowl pop but did not observe touchdown. A later
+physics audit exposed an out-of-park real landing at `(-19.33,53.07)`.
+A subsequent browser run also showed that a scored return trick could land
+beyond the east park boundary even though a loosely classified zone label
+remained present. These were real bugs, not successful park-loop validation.
+The tests and physics were strengthened accordingly. Do not claim full-loop
+qualification until the latest strict browser test is green.
 
 ## Review checklist
 
