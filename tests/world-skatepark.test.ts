@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import {terrainHeight,isWater} from "../lib/world/model";
 import {groundHeight,nearestGrind,rampImpulseCrossing,stepTravel,type Travel} from "../lib/world/activities";
 import {SKATE_PARK,SKATE_PARK_RAILS,insideSkatePark,skateParkSurface,skateParkLipCrossing} from "../lib/world/skatepark";
-import {idleSkateTrick,startSkateTrick,finishSkateTrick,flickTrick,skateTrickPose,scoreSkateGrind} from "../lib/world/skateTricks";
+import {idleSkateTrick,startSkateTrick,finishSkateTrick,flickTrick,skateTrickPose,scoreSkateGrind,queueSkateSpin,startSkateManual,stepSkateManual,finishSkateManual} from "../lib/world/skateTricks";
 
 test("south-meadow plaza is land, continuous at its boundary and under the actual rider",()=>{
  assert.equal(SKATE_PARK_RAILS.length,3);
@@ -89,4 +89,57 @@ test("flicks animate through completion; clean landings chain and short flips ba
  const grind=scoreSkateGrind(combo,5,"boardslide",4);
  assert.equal(grind.combo,3);
  assert.ok(grind.best>=combo.best);
+});
+
+test("manuals are speed-gated, distance-scored, release-gated and never double-credit",()=>{
+ const idle=idleSkateTrick();
+ assert.equal(startSkateManual(idle,"manual",1),idle,"standing still cannot score a manual");
+ let state=startSkateManual(idle,"manual",6);
+ assert.equal(state.manual,"manual");
+ for(let i=1;i<=18;i++)state=stepSkateManual(state,.05,6,i*.05);
+ assert.ok(state.manualDistance>5);
+ const completed=finishSkateManual(state,1);
+ assert.equal(completed.manual,"none");
+ assert.ok(completed.points>0);
+ assert.equal(completed.combo,1);
+ assert.equal(finishSkateManual(completed,1.1),completed,
+  "releasing twice must not credit another trick");
+ assert.equal(startSkateManual(completed,"nose-manual",6).manual,"nose-manual");
+ let under=startSkateManual(idle,"nose-manual",3);
+ under=stepSkateManual(under,.1,3,.1);
+ assert.equal(finishSkateManual(under,.15).points,0,
+  "a tiny accidental weight shift is not a scored line");
+});
+test("180 spin changes stance only on clean landings; 360 holds stance",()=>{
+ const original=idleSkateTrick();
+ let state=startSkateTrick(original,"Ollie",1,8);
+ state=queueSkateSpin(state,1,1.12);
+ assert.equal(state.spinDegrees,180);
+ assert.ok(skateTrickPose(state,1.33).bodyYaw>0);
+ let landed=finishSkateTrick(state,1.8,8);
+ assert.equal(landed.stance,"fakie");
+ assert.match(landed.lastLabel,/180/);
+ assert.match(landed.lastLabel,/fakie/);
+ state=startSkateTrick(landed,"Kickflip",2,8);
+ state=queueSkateSpin(state,-1,2.12);
+ state=queueSkateSpin(state,-1,2.14);
+ assert.equal(state.spinDegrees,-360);
+ assert.equal(queueSkateSpin(state,-1,2.17),state,"spin angle is bounded");
+ assert.equal(skateTrickPose(state,2.2).progress<1,true);
+ landed=finishSkateTrick(state,2.83,9);
+ assert.equal(landed.stance,"fakie","360 should not toggle stance");
+ assert.ok(landed.combo>=2);
+ const late=queueSkateSpin(startSkateTrick(landed,"Ollie",3,8),1,3.5);
+ assert.equal(late.spinDegrees,0,"late stick input cannot snap the body around");
+});
+test("bailing clears spins and manuals while retaining the prior stance",()=>{
+ let s=startSkateTrick(idleSkateTrick(),"Kickflip",2,6);
+ s=queueSkateSpin(s,-1,2.1);
+ s=finishSkateTrick(s,2.2,5);
+ assert.equal(s.stance,"regular");
+ assert.equal(s.spinDegrees,0);
+ assert.equal(s.combo,0);
+ assert.equal(s.points,0);
+ assert.equal(s.lastLabel,"Bail");
+ assert.ok(s.bails>=1);
 });
