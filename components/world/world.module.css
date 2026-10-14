@@ -1103,7 +1103,7 @@
 
 /* Skimboarding lives in a narrow bottom rail, leaving the wave and rider visible. */
 .skimPickup {
-  position:absolute;top:152px;right:28px;z-index:5;
+  position:absolute;top:88px;left:50%;transform:translateX(-50%);z-index:5;
   padding:11px 15px;color:#f8ffff;background:#153d4ddd;
   border:1px solid #a9e3df8f;border-radius:12px;
   backdrop-filter:blur(10px);font-size:13px;pointer-events:auto;
@@ -1134,7 +1134,7 @@
 .skimActions button:hover,.skimActions button:focus-visible,.skimHeader button:hover,
 .skimHeader button:focus-visible {background:#d7ede3;color:#153b40;}
 @media(max-width:760px) {
-  .skimPickup {top:96px;left:16px;right:auto;}
+  .skimPickup {top:88px;left:50%;right:auto;transform:translateX(-50%);}
   .skimHud {bottom:12px;padding:9px 11px;width:calc(100% - 24px);border-radius:11px;}
   .skimReadout strong {font-size:20px;}
   .skimActions {flex-wrap:nowrap;overflow-x:auto;scrollbar-width:thin;}

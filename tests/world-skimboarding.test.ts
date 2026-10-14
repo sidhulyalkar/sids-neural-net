@@ -195,3 +195,12 @@ test("trick-assisted wave capture naturally returns an unstirred rider toward sh
   assert.match(heat.lastTrick,/Clean ride/);
   assert.ok(heat.score>0);
 });
+
+test("north shore beach clearing keeps rocks out of all three approach lanes",()=>{
+  for(const board of SKIM_BOARDS){
+    for(let z=33;z<northShoreZ(board.x)+3;z+=1.5)
+      assert.ok(skimBeachClearance({x:board.x,z}));
+  }
+  assert.equal(skimBeachClearance({x:39,z:42}),false,
+    "neighboring rainforest geometry must remain outside the beach");
+});

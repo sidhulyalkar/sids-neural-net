@@ -55,7 +55,7 @@ export function beachBlend(x: number, z: number): number {
   return smooth((z - 29) / 10) * (1 - smooth((Math.abs(x) - 19) / 14));
 }
 export function skimBeachClearance(p: SkimPoint): boolean {
-  return Math.abs(p.x) < 21 && p.z > 32 && p.z < northShoreZ(p.x) + 5;
+  return Math.abs(p.x) < 29 && p.z > 30 && p.z < northShoreZ(p.x) + 5;
 }
 export function boardPoint(index: number): SkimPoint {
   const board = SKIM_BOARDS[index] ?? SKIM_BOARDS[0];

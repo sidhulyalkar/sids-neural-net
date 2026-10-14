@@ -386,24 +386,44 @@ export function createWorld(
     emissive: "#8ebfbd",
     emissiveIntensity: 0.08,
   });
-  // The new sand beach shares this waterline geometry, including its
-  // north-facing foam seam where the finite land mesh meets the sea.
-  for(let x=-25;x<=25;x+=1.8){
-    const z=northShoreZ(x);
-    shoreFoamPieces.push({
-      x,y:SEA_SURFACE+.045,z:z+.32,sx:1.05,sy:.025,sz:.19,
-      ry:-Math.atan((northShoreZ(x+1)-northShoreZ(x-1))/2),
-    });
-  }
   const shoreFoam = instances(boxGeo, shoreFoamMat, shoreFoamPieces, false);
+  // A continuous shoreline replaces the dashed cuboids previously seen from
+  // the north-shore camera. Adjacent translucent wet sand grades into the
+  // baked terrain color, without changing walking or swimming boundaries.
+  function northBand(inside:number,outside:number,wetSand:boolean,material:THREE.Material){
+    const geom=geo(new THREE.BufferGeometry()),points:number[]=[],faces:number[]=[];
+    const divisions=96;
+    for(let i=0;i<=divisions;i++){
+      const x=-29+58*i/divisions,shore=northShoreZ(x);
+      for(const offset of [inside,outside]){
+        const z=shore+offset;
+        const y=wetSand?terrainHeight(x,z)+.045:SEA_SURFACE+.09;
+        points.push(x,y,z);
+      }
+      if(i<divisions){
+        const a=i*2;faces.push(a,a+1,a+2,a+1,a+3,a+2);
+      }
+    }
+    geom.setAttribute("position",new THREE.Float32BufferAttribute(points,3));
+    geom.setIndex(faces);geom.computeVertexNormals();
+    const obj=mesh(geom,material,[0,0,0],[1,1,1]);
+    obj.castShadow=false;obj.receiveShadow=false;
+    return obj;
+  }
+  const northWetSand=northBand(-3.6,-.85,true,mat("#7dada5",{
+    transparent:true,opacity:.15,depthWrite:false,side:THREE.DoubleSide,
+  }));
+  const northFoamSeam=northBand(.09,.37,false,mat("#f6f8e9",{
+    transparent:true,opacity:.58,depthWrite:false,side:THREE.DoubleSide,
+  }));
   // Smooth continuous shorebreak ribbons: a shared height sampler drives
   // BOTH skimming contact and rendered surface. No 3m cuboid wave strips.
   const swellMaterial=mat("#54bfcc",{
-    roughness:.32,metalness:.05,transparent:true,opacity:.48,
+    roughness:.32,metalness:.05,transparent:true,opacity:.22,
     depthWrite:false,side:THREE.DoubleSide,
   });
   const whitecapMaterial=mat("#effaf5",{
-    roughness:.65,transparent:true,opacity:.84,
+    roughness:.65,transparent:true,opacity:.54,
     depthWrite:false,side:THREE.DoubleSide,
   });
   const swellSamples=34;
@@ -438,7 +458,7 @@ export function createWorld(
       for(const [ribbon,foam] of [[wave.surface,false],[wave.foam,true]] as const){
         ribbon.object.visible=visible;
         if(!visible)continue;
-        const width=foam?.78:6.6;
+        const width=foam?.48:4.7;
         const count=ribbon.across+1;
         for(let j=0;j<count;j++){
           const side=(j/ribbon.across-.5)*width;
@@ -474,19 +494,38 @@ export function createWorld(
     depth:.06,steps:1,bevelEnabled:true,bevelThickness:.018,bevelSize:.024,bevelSegments:1,curveSegments:9,
   }));
   const skimDeckMaterials=SKIM_BOARDS.map(b=>mat(b.color,{roughness:.67}));
-  const skimDarkMaterial=mat("#272b33");
-  const skimTails: THREE.Mesh[]=[];
+  const skimDarkMaterial=mat("#25272b",{roughness:.89,side:THREE.DoubleSide});
+  // Clip the actual tapered board outline for the dark lower half. A simple
+  // black rectangle obscured the rail profile and looked glued to the sand.
+  const deckOutline=skimShape.getPoints(46);
+  const cutoff=-.12;
+  const darkOutline:THREE.Vector2[]=[];
+  for(let i=0;i<deckOutline.length;i++){
+    const a=deckOutline[i],b=deckOutline[(i+1)%deckOutline.length];
+    if(a.y<=cutoff)darkOutline.push(a);
+    if((a.y<=cutoff)!==(b.y<=cutoff)){
+      const t=(cutoff-a.y)/(b.y-a.y);
+      darkOutline.push(new THREE.Vector2(a.x+(b.x-a.x)*t,cutoff));
+    }
+  }
+  const darkShape=new THREE.Shape();
+  darkOutline.forEach((p,i)=>i===0?darkShape.moveTo(p.x,p.y):
+    darkShape.lineTo(p.x,p.y));
+  darkShape.closePath();
+  const skimTailGeometry=geo(new THREE.ShapeGeometry(darkShape));
+  const skimTails:THREE.Mesh[]=[];
   const skimProps=SKIM_BOARDS.map((_,index)=>{
-    const p=boardPoint(index), y=terrainHeight(p.x,p.z)+.98;
+    const p=boardPoint(index),y=terrainHeight(p.x,p.z)+.9;
     const prop=mesh(skimDeckGeometry,skimDeckMaterials[index],[p.x,y,p.z],[1,1,1]);
     prop.rotation.z=(index-1)*.065;
     prop.rotation.y=(index-1)*.16;
     prop.userData.skimBoardIndex=index;
     if(index!==1){
-      const tail=mesh(boxGeo,skimDarkMaterial,[p.x,y-.58,p.z+.09],[.76,.69,.025]);
-      tail.rotation.z=prop.rotation.z;
-      tail.userData.skimBoardIndex=index;
-      skimTails[index]=tail;
+      const front=mesh(skimTailGeometry,skimDarkMaterial,[0,0,.083],[1,1,1],prop);
+      front.castShadow=false;
+      const back=mesh(skimTailGeometry,skimDarkMaterial,[0,0,-.012],[1,1,1],prop);
+      back.castShadow=false;
+      skimTails[index]=front;
     }
     return prop;
   });
@@ -2650,7 +2689,7 @@ export function createWorld(
   // Keep ground/coast geometry, water, wildlife, interactables and marine
   // content intact. This visibility filter runs after their frame updates.
   const underwaterCullingExclusions=new Set<THREE.Object3D>([
-    ground,water,tides,shoreFoam,...skimWaves.flatMap(w=>[w.surface.object,w.foam.object]),
+    ground,water,tides,shoreFoam,northWetSand,northFoamSeam,...skimWaves.flatMap(w=>[w.surface.object,w.foam.object]),
     ...skimProps,...skimTails,
     grassMesh,markerHitMesh,explorerContact,dogContact,
     critterBodies,critterHeads,critterEars,critterEyes,critterMuzzles,
