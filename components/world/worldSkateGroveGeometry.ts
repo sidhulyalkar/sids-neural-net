@@ -231,8 +231,8 @@ export function createWorldSkateGrove(scene:THREE.Scene,support:(p:Point)=>numbe
     const a=i*Math.PI*2/segments,b=(i+1)*Math.PI*2/segments;
     const p={x:pad.center.x+Math.cos(a)*radius,z:pad.center.z+Math.sin(a)*radius};
     const q={x:pad.center.x+Math.cos(b)*radius,z:pad.center.z+Math.sin(b)*radius};
-    const part=beam(onRide(p,.054),onRide(q,.054),radius>pad.radius*.85?.034:.019);
-    (radius>pad.radius*.85?stumpRing:stumpGrain).push(part);
+    const part=beam(onRide(p,.054),onRide(q,.054),radius > pad.radius * 0.85 ? 0.034 : 0.019);
+    (radius > pad.radius * 0.85 ? stumpRing : stumpGrain).push(part);
    }
   }
  }
@@ -246,8 +246,8 @@ export function createWorldSkateGrove(scene:THREE.Scene,support:(p:Point)=>numbe
   const a=new THREE.Vector3(rail.a.x,support(rail.a)+rail.lift,rail.a.z);
   const b=new THREE.Vector3(rail.b.x,support(rail.b)+rail.lift,rail.b.z);
   const log=rail.id==="park-flat-bar";
-  (log?logRails:hybridRails).push(beam(a,b,log?.14:.085));
-  const capOffset=log?.1:.058;
+  (log?logRails:hybridRails).push(beam(a,b,log ? 0.14 : 0.085));
+  const capOffset=log ? 0.1 : 0.058;
   railCaps.push(beam(a.clone().add(new THREE.Vector3(0,capOffset,0)),
    b.clone().add(new THREE.Vector3(0,capOffset,0)),.023));
   for(const p of [rail.a,rail.b]){
