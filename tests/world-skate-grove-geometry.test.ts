@@ -12,6 +12,7 @@ test("authored wood geometry is static, named, low-draw and disposable",()=>{
  assert.equal(grove.root.name,"Redwood Skate Grove");
  for(const name of [
   "skate-grove-ride-surface","hollow-redwood-bark-shell",
+  "redwood-buried-trunk-fascia",
   "redwood-growth-rings","split-redwood-coping",
   "timber-quarter-plank-joints","exterior-halfpipe-stringers",
   "split-stump-end-grain","redwood-log-grind",
@@ -54,5 +55,35 @@ test("visible cedar deck samples exact riding heightfield at every grid vertex",
   }
   assert.ok(checked>40);
   assert.ok(SKATE_PARK.center.x-REDWOOD_BOWL.center.x>0);
+ }finally{grove.dispose();}
+});
+
+test("buried redwood fascia gives trunk visible thickness without imaginary wheel walls",()=>{
+ const scene=new THREE.Scene(),grove=createWorldSkateGrove(scene,groundHeight);
+ try{
+  const part=grove.root.getObjectByName("redwood-buried-trunk-fascia");
+  assert.ok(part instanceof THREE.Mesh);
+  if(!(part instanceof THREE.Mesh))return;
+  const p=part.geometry.getAttribute("position");
+  const colors=part.geometry.getAttribute("color");
+  assert.ok(p.count>750&&p.count%14===0,
+   "exterior uses six low-cost vertical bark bands per paired angular sector");
+  assert.equal(colors.count,p.count);
+  let measuredThickness=0;
+  for(let i=0;i<p.count;i+=7){
+   const point={x:p.getX(i),z:p.getZ(i)},crest=p.getY(i);
+   // The raised bark face starts just below the *same* wheel support.
+   assert.ok(crest<=groundHeight(point)+.002,
+    "fascia upper edge must not be a phantom barrier across the bowl");
+   const angle=Math.atan2(point.z-REDWOOD_BOWL.center.z,
+    point.x-REDWOOD_BOWL.center.x);
+   const opening=Math.atan2(Math.sin(angle-.15),Math.cos(angle-.15));
+   assert.ok(Math.abs(opening)>.23,"eastern carved entrance stays visually open");
+   const lower=i+6;
+   assert.ok(p.getY(lower)<=crest+.001,
+    "buried bark should descend into the existing meadow, never spike upward");
+   measuredThickness=Math.max(measuredThickness,crest-p.getY(lower));
+  }
+  assert.ok(measuredThickness>.28,"somewhere the fallen redwood must have true visible depth");
  }finally{grove.dispose();}
 });
