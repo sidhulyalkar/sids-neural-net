@@ -163,6 +163,58 @@ export function createWorldSkateGrove(scene:THREE.Scene,support:(p:Point)=>numbe
  shell.name="hollow-redwood-bark-shell";shell.castShadow=false;
  group.add(shell);
 
+ // The bowl used to read as a thin wooden saucer: its bark surface curved
+ // down to the meadow but there was no *visible trunk thickness*. Expose a
+ // partly buried vertical bark face UNDER the sampled rim, following the
+ // natural terrain underneath. This changes neither ride height nor wheel
+ // collision, and its upper edge remains below the sampled skating surface.
+ // The broad east split stays open rather than turning into a fake wall.
+ const fasciaPositions:number[]=[],fasciaColors:number[]=[],fasciaIndices:number[]=[];
+ const fasciaSegments=96,fasciaBands=6,fasciaColor=new THREE.Color();
+ for(let i=0;i<fasciaSegments;i++){
+  const startAngle=i*Math.PI*2/fasciaSegments;
+  const stopAngle=(i+1)*Math.PI*2/fasciaSegments;
+  const delta=Math.atan2(
+   Math.sin((startAngle+stopAngle)*.5-.15),
+   Math.cos((startAngle+stopAngle)*.5-.15));
+  if(Math.abs(delta)<.37)continue;
+  const offset=fasciaPositions.length/3;
+  for(const a of [startAngle,stopAngle]){
+   const noise=.025*Math.sin(a*13)+.016*Math.sin(a*29);
+   const topRadius=REDWOOD_BOWL.rimRadius+.29+noise;
+   const topPoint={x:REDWOOD_BOWL.center.x+Math.cos(a)*topRadius,
+    z:REDWOOD_BOWL.center.z+Math.sin(a)*topRadius};
+   const crest=ride(topPoint)-.055;
+   for(let band=0;band<=fasciaBands;band++){
+    const t=band/fasciaBands;
+    const radius=topRadius+t*(.18+.038*Math.sin(a*7));
+    const p={x:REDWOOD_BOWL.center.x+Math.cos(a)*radius,
+     z:REDWOOD_BOWL.center.z+Math.sin(a)*radius};
+    const ground=terrainHeight(p.x,p.z)+.025;
+    const y=ground+(crest-ground)*(1-t);
+    fasciaPositions.push(p.x,y,p.z);
+    const striation=Math.sin(a*41+band*.5)*.085;
+    fasciaColor.setHSL(.067+striation*.1,.36,.235+
+     .052*Math.sin(a*17+band*.43)+.025*Math.sin(a*43));
+    fasciaColors.push(fasciaColor.r,fasciaColor.g,fasciaColor.b);
+   }
+  }
+  for(let j=0;j<fasciaBands;j++){
+   const a=offset+j,b=offset+fasciaBands+1+j;
+   fasciaIndices.push(a,b,a+1,b,b+1,a+1);
+  }
+ }
+ const fasciaGeo=geometry(new THREE.BufferGeometry());
+ fasciaGeo.setAttribute("position",new THREE.Float32BufferAttribute(fasciaPositions,3));
+ fasciaGeo.setAttribute("color",new THREE.Float32BufferAttribute(fasciaColors,3));
+ fasciaGeo.setIndex(fasciaIndices);fasciaGeo.computeVertexNormals();
+ const fascia=new THREE.Mesh(fasciaGeo,material("#ffffff",{
+  vertexColors:true,roughness:1,side:THREE.DoubleSide,
+ }));
+ fascia.name="redwood-buried-trunk-fascia";
+ fascia.castShadow=false;fascia.receiveShadow=true;
+ group.add(fascia);
+
  // Subtle carved annual rings and a thin coping line, interrupted at the
  // opening. Never place any wood roughness in the wheel-height function.
  const annualRings:Part[]=[],innerCoping:Part[]=[],outerRoots:Part[]=[];
