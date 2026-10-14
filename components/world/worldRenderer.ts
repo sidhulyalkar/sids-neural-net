@@ -4623,6 +4623,13 @@ export function createWorld(
     canvas.dataset.underwaterDecorCulled=String(
       hideUpland?submergedSurfaceDecor.length:0);
     renderer.render(scene, camera);
+    // This per-mode diagnostic is sampled from the *current underwater
+    // render*, not a stale land-mode FPS window.
+    if(underwater){
+      canvas.dataset.underwaterDrawCalls=String(renderer.info.render.calls);
+    }else if(canvas.dataset.underwaterDrawCalls){
+      canvas.dataset.underwaterDrawCalls="";
+    }
     const metrics = frameSampler.add(rawDelta);
     if (metrics) {
       const { fps } = metrics;
