@@ -4000,11 +4000,17 @@ export function createWorld(
           "translate(-50%,"+(-5-Math.min(15,resultAge/130))+"px) scale("+
           (0.96+Math.min(1,resultAge/220)*.04)+")";
       }
+      const skateArea=insideSkatePark(player)?({
+        "redwood-bowl":"REDWOOD BOWL",
+        "timber-quarter":"TIMBER HALFPIPE",
+        "stump-pad":"STUMP GARDEN",
+        street:"SKATE GROVE",apron:"SKATE GROVE",
+      } as const)[skateParkZone(player)]:"ISLAND RIDE";
       const skateStatus=skateTrick.phase==="air"?
         (skateTrick.name??"Trick")+(skateTrick.spinDegrees?" + "+Math.abs(skateTrick.spinDegrees)+"°":"")+" · land clean":
         skateTrick.manual!=="none"?
         (skateTrick.manual==="manual"?"MANUAL":"NOSE MANUAL")+" · "+skateTrick.manualDistance.toFixed(1)+" m":
-        "✦ SPACE / A: EASY TRICK · WASD: RIDE · "+skateTrick.points+
+        skateArea+" · SPACE / A: EASY TRICK · "+skateTrick.points+
         " PTS · BEST "+skateTrick.best;
       // Avoid 60 identical live-region mutations per second for screen readers.
       if(skateVisible&&skateHud.textContent!==skateStatus)skateHud.textContent=skateStatus;
