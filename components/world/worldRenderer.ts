@@ -3257,13 +3257,16 @@ export function createWorld(
       aquatic!=="land"||jetSki||jetChoosing||discGolf.phase!=="off"||
       trial.phase==="armed"||trial.phase==="running"||
       bigAir.phase==="flying"||bigAir.phase==="armed"||climb||
-      airHeight>.08||skateTrick.phase==="air")return;
+      (airHeight>.08&&verticalSpeed<=0)||skateTrick.phase==="air")return;
+    const naturalFlight=airHeight>.08&&verticalSpeed>0;
     if(grind)grind=null; // pop off a rail instead of locking the player on it
     const next=startSkateTrick(skateTrick,name,elapsed,travel.speed);
     if(next===skateTrick)return;
     saveSkateBest(next);skateTrick=next;skateHasBeenAirborne=false;
-    verticalSpeed=Math.min(7.6,5.9+Math.min(14,travel.speed)*.1);
-    playerY=Math.max(playerY,supportHeight(player)+.04);airHeight=.04;
+    if(!naturalFlight){
+      verticalSpeed=Math.min(7.6,5.9+Math.min(14,travel.speed)*.1);
+      playerY=Math.max(playerY,supportHeight(player)+.04);airHeight=.04;
+    }else skateHasBeenAirborne=true;
     destination=null;
   }
   function performAction() {
@@ -3271,7 +3274,8 @@ export function createWorld(
       discGolf.phase!=="off"||jetSki||jetChoosing||
       trial.phase==="armed"||trial.phase==="running"||
       (bigAir.phase!=="idle"&&bigAir.phase!=="armed")||
-      climb||(grind&&state.activity!=="skate")||airHeight>0.01)return;
+      climb||(grind&&state.activity!=="skate")||
+      (airHeight>0.01&&!(state.activity==="skate"&&verticalSpeed>0.1)))return;
     if(state.activity==="ski"&&mountainJumpEligible(player,supportHeight(player),travel.speed)){
       const ahead={x:player.x+travel.heading.x*2.1,
         z:player.z+travel.heading.z*2.1};
@@ -3281,6 +3285,7 @@ export function createWorld(
       callbacks.onBigAir(bigAir);
       return;
     }
+    if(state.activity==="skate"&&airHeight>.08){launchSkateTrick("Ollie");return;}
     if(grind&&state.activity==="skate"){launchSkateTrick("Ollie");return;}
     if ((state.activity === "skate" || state.activity === "ski") && travel.speed > 2.2) {
       const candidate = nearestGrind(player);
