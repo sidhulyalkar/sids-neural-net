@@ -11,20 +11,18 @@ test("authored wood geometry is static, named, low-draw and disposable",()=>{
  assert.equal(grove.root.parent,scene);
  assert.equal(grove.root.name,"Redwood Skate Grove");
  for(const name of [
-  "skate-grove-ride-surface","hollow-redwood-bark-shell",
+  "skate-grove-ride-surface",
   "redwood-growth-rings","split-redwood-coping",
   "timber-quarter-plank-joints","exterior-halfpipe-stringers",
   "split-stump-end-grain","redwood-log-grind",
-  "durable-grind-caps","redwood-bark-striations",
+  "durable-grind-caps",
   "open-trunk-end-grain","halfpipe-braced-timber-knees",
   "split-stump-grain-checks","park-edge-fern-fronds",
  ])assert.ok(grove.root.getObjectByName(name),"missing "+name);
- assert.ok(grove.root.children.length<=24,
+ assert.ok(grove.root.children.length<=22,
   "park should use pooled meshes, not hundreds of objects");
- const barkFlutes=grove.root.getObjectByName("redwood-bark-striations");
- assert.ok(barkFlutes instanceof THREE.InstancedMesh);
- assert.ok(barkFlutes.count<=28,
-  "redwood exterior must have sparse embedded bark grain, not a spiky skirt");
+ assert.equal(grove.root.getObjectByName("hollow-redwood-bark-shell"),undefined,
+  "coincident bark mesh would cut through the actual bowl on steep slopes");
  for(const child of grove.root.children){
   if(!(child instanceof THREE.Mesh))continue;
   const p=child.geometry.getAttribute("position");
@@ -84,44 +82,33 @@ test("deep redwood silhouette belongs to the real surface, not a hidden art coll
  }
 });
 
-test("redwood bark is draped above rendered triangles, never a jagged sawtooth",()=>{
+test("tree trunk's dark bark exists in the authoritative riding field, not an overlay",()=>{
  const scene=new THREE.Scene(),grove=createWorldSkateGrove(scene,groundHeight);
  try{
   const deck=grove.root.getObjectByName("skate-grove-ride-surface");
-  const shell=grove.root.getObjectByName("hollow-redwood-bark-shell");
-  assert.ok(deck instanceof THREE.Mesh&&shell instanceof THREE.Mesh);
-  if(!(deck instanceof THREE.Mesh)||!(shell instanceof THREE.Mesh))return;
-  const field=deck.geometry.getAttribute("position");
-  const bark=shell.geometry.getAttribute("position");
-  const nx=96,nz=84,cols=nx+1;
-  assert.equal(field.count,(nx+1)*(nz+1));
-  assert.ok(bark.count>800&&bark.count%16===0);
-  const interpolatedY=(x:number,z:number)=>{
-   const gx=Math.max(0,Math.min(nx,(x-SKATE_PARK.center.x+SKATE_PARK.halfWidth)/
-    (SKATE_PARK.halfWidth*2/nx)));
-   const gz=Math.max(0,Math.min(nz,(z-SKATE_PARK.center.z+SKATE_PARK.halfDepth)/
-    (SKATE_PARK.halfDepth*2/nz)));
-   const ix=Math.min(nx-1,Math.floor(gx)),iz=Math.min(nz-1,Math.floor(gz));
-   const fx=gx-ix,fz=gz-iz;
-   const h=(dx:number,dz:number)=>field.getY((iz+dz)*cols+ix+dx);
-   const a=h(0,0),b=h(1,0),c=h(0,1),d=h(1,1);
-   return fx+fz<=1?
-    a*(1-fx-fz)+b*fx+c*fz:
-    b*(1-fz)+c*(1-fx)+d*(fx+fz-1);
-  };
-  let checked=0;
-  // Each surviving bark sector has two radial strips of six vertices,
-  // then four buried perimeter face vertices, which are intentionally
-  // allowed to descend into the earth. Check only the visible top skin.
-  for(let segment=0;segment<bark.count;segment+=16){
-   for(let j=0;j<12;j++){
-    const i=segment+j;
-    const clearance=bark.getY(i)-interpolatedY(bark.getX(i),bark.getZ(i));
-    assert.ok(clearance>=.015&&clearance<=.045,
-     "top bark must sit reliably just above GPU deck mesh, never cut through");
-    checked++;
+  assert.ok(deck instanceof THREE.Mesh);
+  if(!(deck instanceof THREE.Mesh))return;
+  const positions=deck.geometry.getAttribute("position");
+  const colors=deck.geometry.getAttribute("color");
+  assert.equal(positions.count,colors.count);
+  assert.ok(positions.count>=8245);
+  const near=(x:number,z:number)=>{
+   let best=Infinity,result=-1;
+   for(let i=0;i<positions.count;i++){
+    const d=Math.hypot(positions.getX(i)-x,positions.getZ(i)-z);
+    if(d<best){best=d;result=i;}
    }
-  }
-  assert.ok(checked>700);
+   assert.ok(best<.25,"sample requested a real mesh vertex");
+   return result;
+  };
+  const inner=near(REDWOOD_BOWL.center.x,REDWOOD_BOWL.center.z+2);
+  const dark=near(REDWOOD_BOWL.center.x,REDWOOD_BOWL.center.z+6);
+  const brightness=(i:number)=>(colors.getX(i)+colors.getY(i)+colors.getZ(i))/3;
+  assert.ok(brightness(inner)>brightness(dark)+.10,
+   "polished hollow interior must be visibly lighter than surrounding bark");
+  const brown=new THREE.Color(colors.getX(dark),colors.getY(dark),colors.getZ(dark));
+  assert.ok(brown.r>brown.b&&brown.g>brown.b*.8,
+   "outer surface must be warm redwood bark, not concrete or an exposed seam");
+  assert.equal(grove.root.getObjectByName("hollow-redwood-bark-shell"),undefined);
  }finally{grove.dispose();}
 });
