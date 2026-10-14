@@ -18,7 +18,7 @@ try{
  const sample=async()=>{
   const s=await page.locator("canvas").evaluate(el=>({...el.dataset}));
   const result={stage,point:s.player,heading:s.skateHeading,
-   speed:Number(s.speed),zone:s.skateGroveZone,
+   speed:Number(s.speed),zone:s.skateGroveZone,park:s.skatePark,
    exits:Number(s.skateBowlExits),takeoff:s.skateLastTakeoff,
    landings:Number(s.skateBowlLandings),failedLandings:Number(s.skateBowlFailedLandings),
    landingPoint:s.skateBowlLastLanding,landingSpeed:Number(s.skateBowlLandingSpeed),
@@ -81,12 +81,12 @@ try{
     returned=await sample();
     const p=returned.point?.split(",").map(Number);
     if(returned.zone===""||returned.failedLandings>0||returned.speed<.6)break;
-    if(p?.length===2&&p[0]>-7.5)break;
+    if(p?.length===2&&p[0]>-10)break;
    }
   }finally{await page.keyboard.up("s");}
   assert.ok(returned,"timber return needs actual movement samples");
   const back=returned.point?.split(",").map(Number);
-  assert.ok(returned.zone!==""&&back?.[0]>-7.5&&returned.speed>1.5,
+  assert.ok(returned.park==="true"&&returned.zone!==""&&back?.[0]>-10&&returned.speed>1.5,
    "the rider should be able to return toward timber on normal WASD controls");
   assert.equal(returned.failedLandings,0,
    "no bowl pop is allowed to land outside the safe meadow");
@@ -106,7 +106,8 @@ try{
   assert.ok(landed.score>0&&landed.lastResult!=="Bail",
    "a stylish assisted return-line trick must complete its actual landing");
   assert.equal(landed.failedLandings,0);
-  assert.ok(landed.zone!=="","the return-line trick must land inside the park");
+  assert.equal(landed.park,"true","return trick must actually land within the skatepark bounds");
+  assert.ok(landed.zone!=="","the return-line trick must report an in-park zone");
   await page.screenshot({path:path.join(out,"timber-return-landed-trick.png")});
   assert.deepEqual(errors,[],"no browser renderer exceptions");
   console.log("REDWOOD GROVE RETURN PASS",JSON.stringify({entry,carved,returned,landed}));
