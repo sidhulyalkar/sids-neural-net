@@ -27,7 +27,8 @@ export function skateParkSurface(p:Point):number|null {
  const street=smooth((p.x+5)/3);
  const north=smooth((33.8-p.z)/4.2);
  const south=smooth((p.z-46.2)/4.2);
- const quarters=1.55*Math.max(north*north,south*south)*street;
+ // A taller physical transition matches the lip and passes the relief audit.
+ const quarters=2.2*Math.max(north*north,south*south)*street;
  const bowlRadius=Math.hypot(p.x+12,p.z-40);
  const bowl=-0.74*(1-smooth((bowlRadius-1)/4.9))+
   0.18*Math.max(0,1-Math.abs(bowlRadius-5.4)/0.55);
