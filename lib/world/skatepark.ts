@@ -97,6 +97,37 @@ export const SKATE_PARK_LIPS=[
  {id:"park-south-quarter",point:{x:2,z:49.1},heading:{x:0,z:1},halfWidth:5.7,impulse:5.6},
 ] as const;
 
+/** A forgiving bowl carve near the exposed western rim. Most turns remain
+ * completely player-directed. At speed, an outward trajectory which would
+ * exit the reserved skate meadow is gradually deflected onto the carved
+ * tangent. This models banking assistance, not a path follower or teleport.
+ * The player can still leave via the gentle east split at any speed. */
+export function redwoodBowlCarveHeading(point:Point,heading:Point,speed:number,dt:number):Point{
+ const r=Math.hypot(point.x-REDWOOD_BOWL.center.x,point.z-REDWOOD_BOWL.center.z);
+ const mag=Math.hypot(heading.x,heading.z);
+ if(!Number.isFinite(speed)||!Number.isFinite(dt)||speed<4.8||
+  r<3.4||r>REDWOOD_BOWL.rimRadius+.05||mag<.01)return heading;
+ const vx=(point.x-REDWOOD_BOWL.center.x)/r;
+ const vz=(point.z-REDWOOD_BOWL.center.z)/r;
+ const outward=(heading.x*vx+heading.z*vz)/mag;
+ if(outward<.24)return heading;
+ const angle=Math.atan2(vz,vx);
+ const split=Math.atan2(Math.sin(angle-.15),Math.cos(angle-.15));
+ if(Math.abs(split)<.50)return heading;
+ const corridor={
+  x:point.x+heading.x/mag*speed*1.05,
+  z:point.z+heading.z/mag*speed*1.05,
+ };
+ if(insideSkatePark(corridor,-1.5)&&!isWater(corridor))return heading;
+ const tangent={x:vz,z:-vx};
+ const side=heading.x*tangent.x+heading.z*tangent.z>=0?1:-1;
+ const strength=1-Math.exp(-Math.max(0,Math.min(.05,dt))*12);
+ const x=heading.x/mag*(1-strength)+tangent.x*side*strength;
+ const z=heading.z/mag*(1-strength)+tangent.z*side*strength;
+ const len=Math.hypot(x,z)||1;
+ return {x:x/len,z:z/len};
+}
+
 /** Launch only on an actual forward crossing, not on idle proximity or reverse. */
 /** A fast outward rim crossing rewards a bowl carve without inventing a
  * second launch surface. The split eastern roll-in is deliberately omitted,
@@ -122,7 +153,10 @@ export function redwoodBowlExitCrossing(previous:Point,current:Point,heading:Poi
  // off the park, so never assist a launch into the water or outside the grove.
  // Keep this low enough for a quick board catch rather than a ski-sized jump.
  const impulse=Math.min(3.25,2.80+Math.max(0,speed-5.1)*.035);
- const flightTime=2*impulse/14; // matches stepAirborne gravity
+ // Downhill terrain can prolong airtime well past the level-ground
+ // parabola. Reserve the full 1.1-second runout, not just the ~0.4-second
+ // vacuum flight estimate; the empirical browser trace reached >10u.
+ const flightTime=Math.max(1.1,2*impulse/14+.55);
  const directionLength=Math.max(.001,Math.hypot(heading.x,heading.z));
  const touchdown={
   x:current.x+heading.x/directionLength*speed*flightTime,
