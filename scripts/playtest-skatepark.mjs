@@ -74,8 +74,11 @@ try{
   const d=document.querySelector("canvas")?.dataset;
   return d?.skateTrick===""&&d?.skateResult==="Kickflip";
  },null,{timeout:26000});
+ const third=await sample(canvas);
+ assert.ok(Number(third.score)>Number(second.score),
+  "A second one-button assisted trick should increase the player's line score");
  await page.screenshot({path:path.join(out,"03-skate-assisted-trick.png")});
  assert.deepEqual(errors,[],"No renderer errors or browser console errors");
- fs.writeFileSync(path.join(out,"report.json"),JSON.stringify({first,second,errors},null,2)+"\n");
- console.log("Skatepark browser acceptance PASS",JSON.stringify({first,second,errors}));
+ fs.writeFileSync(path.join(out,"report.json"),JSON.stringify({first,second,third,errors},null,2)+"\n");
+ console.log("Skatepark browser acceptance PASS",JSON.stringify({first,second,third,errors}));
 }finally{await browser.close();}
