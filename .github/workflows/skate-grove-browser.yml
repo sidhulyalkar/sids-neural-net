@@ -11,6 +11,7 @@ on:
       - 'lib/world/skateTricks.ts'
       - 'lib/world/skateDynamics.ts'
       - 'scripts/playtest-skatepark.mjs'
+      - 'scripts/playtest-skate-grove-flow.mjs'
       - '.github/workflows/skate-grove-browser.yml'
   pull_request:
     paths:
@@ -21,6 +22,7 @@ on:
       - 'lib/world/skateTricks.ts'
       - 'lib/world/skateDynamics.ts'
       - 'scripts/playtest-skatepark.mjs'
+      - 'scripts/playtest-skate-grove-flow.mjs'
       - '.github/workflows/skate-grove-browser.yml'
   workflow_dispatch:
 
@@ -58,6 +60,12 @@ jobs:
           done
           tail -n 120 /tmp/skate-grove-next.log
           exit 1
+      - name: Audit one-button grove roll-in and safe bowl carve
+        env:
+          WORLD_BASE_URL: http://127.0.0.1:3000
+          WORLD_AUDIT_DIR: artifacts/world/redwood-skate-flow
+          PLAYWRIGHT_MODULE_ROOT: /tmp/skate-grove-playwright/node_modules/playwright
+        run: node scripts/playtest-skate-grove-flow.mjs
       - name: Ride and inspect Redwood Skate Grove
         env:
           WORLD_BASE_URL: http://127.0.0.1:3000
@@ -71,6 +79,7 @@ jobs:
           name: redwood-skate-grove-${{ github.sha }}
           path: |
             artifacts/world/redwood-skate-grove/
+            artifacts/world/redwood-skate-flow/
             /tmp/skate-grove-next.log
           if-no-files-found: warn
       - name: Report browser or server errors
