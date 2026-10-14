@@ -9,6 +9,14 @@ on:
       - 'components/world/**'
       - 'scripts/playtest-skimboarding.mjs'
       - '.github/workflows/world-skimboarding-browser-qa.yml'
+  pull_request:
+    paths:
+      - 'lib/world/skimboarding.ts'
+      - 'lib/world/model.ts'
+      - 'lib/world/biomes.ts'
+      - 'components/world/**'
+      - 'scripts/playtest-skimboarding.mjs'
+      - '.github/workflows/world-skimboarding-browser-qa.yml'
   workflow_dispatch:
 
 permissions:
