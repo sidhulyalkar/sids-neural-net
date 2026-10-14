@@ -44,7 +44,9 @@ test("the entire disc flight belongs to the shot camera; Shasta waits for landin
  fetch=stepDiscGolfFetch(fetch,landed,{x:17.3,z:26.3},4);
  assert.equal(fetch.phase,"found");
  assert.equal(discGolfFetchCameraPhase(fetch,4),"chase");
- assert.equal(stepDiscGolfFetch(fetch,landed,{x:17,z:26},4.8).phase,"found");
+ assert.equal(stepDiscGolfFetch(fetch,landed,{x:17,z:26},
+  4+DISC_FETCH_FOUND_HOLD*.7).phase,"found",
+  "Shasta holds the find pose before its configured brief release");
  assert.deepEqual(stepDiscGolfFetch(fetch,landed,{x:17,z:26},
   4+DISC_FETCH_FOUND_HOLD+.01),idleDiscGolfFetch());
 });
