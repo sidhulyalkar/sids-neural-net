@@ -60,6 +60,12 @@ export function createWorldSkateGrove(scene:THREE.Scene,support:(p:Point)=>numbe
  const widthSteps=96,depthSteps=84;
  const positions:number[]=[],colors:number[]=[],indices:number[]=[];
  const color=new THREE.Color();
+ const polished=new THREE.Color("#d0af80"),heartwood=new THREE.Color("#bc9569");
+ const exteriorBark=new THREE.Color("#674633"),soil=new THREE.Color("#8b8971");
+ const graded=(lo:number,hi:number,value:number)=>{
+  const t=THREE.MathUtils.clamp((value-lo)/(hi-lo),0,1);
+  return t*t*(3-2*t);
+ };
  for(let iz=0;iz<=depthSteps;iz++)for(let ix=0;ix<=widthSteps;ix++){
   const x=SKATE_PARK.center.x-SKATE_PARK.halfWidth+
    ix*SKATE_PARK.halfWidth*2/widthSteps;
@@ -67,16 +73,18 @@ export function createWorldSkateGrove(scene:THREE.Scene,support:(p:Point)=>numbe
    iz*SKATE_PARK.halfDepth*2/depthSteps;
   const p={x,z},zone=skateParkZone(p);
   positions.push(x,ride(p)+.035,z);
-  if(zone==="redwood-bowl"){
-   const d=Math.hypot(x-REDWOOD_BOWL.center.x,z-REDWOOD_BOWL.center.z);
+  const d=Math.hypot(x-REDWOOD_BOWL.center.x,z-REDWOOD_BOWL.center.z);
+  if(d<REDWOOD_BOWL.barkRadius+.72){
+   // One physically rideable tree trunk, not a second dark shell clipping
+   // through the terrain on the shoulder. The actual GPU deck triangles
+   // carry the cut heartwood, cambium and bark colors directly.
    const az=Math.atan2(z-REDWOOD_BOWL.center.z,x-REDWOOD_BOWL.center.x);
-   color.set(d<4.35?"#c9ab7e":d<5.4?"#b99669":"#a67c53");
-   // Close-to-satin end grain, not hard concentric target stripes.
-   // These slight tonal changes are baked into the one existing vertex
-   // color field, so no texture requests or additional draw calls.
-   const cutGrain=.97+.020*Math.sin(d*8.7+.65*Math.sin(az*5))+
-    .012*Math.sin(d*18.1+.55*Math.cos(az*9));
-   color.multiplyScalar(cutGrain);
+   color.copy(polished).lerp(heartwood,graded(3.6,5.05,d));
+   color.lerp(exteriorBark,graded(5.16,5.81,d));
+   color.lerp(soil,graded(6.27,7.18,d));
+   const grain=.975+.019*Math.sin(d*8.7+.65*Math.sin(az*5))+
+    .010*Math.sin(d*17.7+.55*Math.cos(az*9));
+   color.multiplyScalar(grain);
   }else if(zone==="timber-quarter"){
    color.set(iz%3===0?"#caa471":"#bf9566");
   }else if(zone==="stump-pad")color.set("#c8a477");
@@ -108,96 +116,8 @@ export function createWorldSkateGrove(scene:THREE.Scene,support:(p:Point)=>numbe
  surface.castShadow=false;surface.receiveShadow=true;
  group.add(surface);
 
- // Decorative bark must follow the triangles the GPU actually displays,
- // not a sub-grid analytic height which may intersect those triangles on the
- // trunk's steeper outer slope. Match the two actual deck triangles per cell.
- // The wheel/support function remains authoritative; this is a visual-only
- // barycentric sampler baked once into the static shell.
- const fieldMeshY=(p:Point):number=>{
-  const gx=THREE.MathUtils.clamp(
-   (p.x-(SKATE_PARK.center.x-SKATE_PARK.halfWidth))/
-   (SKATE_PARK.halfWidth*2/widthSteps),0,widthSteps);
-  const gz=THREE.MathUtils.clamp(
-   (p.z-(SKATE_PARK.center.z-SKATE_PARK.halfDepth))/
-   (SKATE_PARK.halfDepth*2/depthSteps),0,depthSteps);
-  const ix=Math.min(widthSteps-1,Math.floor(gx));
-  const iz=Math.min(depthSteps-1,Math.floor(gz));
-  const fx=gx-ix,fz=gz-iz;
-  const height=(dx:number,dz:number)=>
-   positions[((iz+dz)*(widthSteps+1)+ix+dx)*3+1];
-  const a=height(0,0),b=height(1,0),c=height(0,1),d=height(1,1);
-  return fx+fz<=1?
-   a*(1-fx-fz)+b*fx+c*fz:
-   b*(1-fz)+c*(1-fx)+d*(fx+fz-1);
- };
- const skinPoint=(p:Point,offset=.024)=>
-  new THREE.Vector3(p.x,fieldMeshY(p)+offset,p.z);
-
- // Huge, hollow redwood cross-section. Bark wraps outside the curved rim,
- // with an actual break facing east: the shallow roll-in stays inviting.
- // All upper vertices sample the support field; the vertical bark face is
- // *outside* the ride envelope and is not used as a collision wall.
- const barkPositions:number[]=[],barkColors:number[]=[],barkIndices:number[]=[];
- const rimSegments=72,rimBands=5;
- const barkColorsPalette=["#9b6d49","#745038","#583d31","#80583b","#99724c"];
- const barkColor=new THREE.Color();
- for(let i=0;i<rimSegments;i++){
-  const angle0=i*2*Math.PI/rimSegments;
-  const angle1=(i+1)*2*Math.PI/rimSegments;
-  const mid=(angle0+angle1)*.5;
-  // Opening slightly north of east, centered around +0.15 radians.
-  const delta=Math.atan2(Math.sin(mid-.15),Math.cos(mid-.15));
-  if(Math.abs(delta)<.29)continue;
-  const start=barkPositions.length/3;
-  for(let side=0;side<2;side++){
-   const angle=side?angle1:angle0;
-   const cosine=Math.cos(angle),sine=Math.sin(angle);
-   for(let band=0;band<=rimBands;band++){
-    const t=band/rimBands;
-    const radius=REDWOOD_BOWL.rimRadius+.07+t*(REDWOOD_BOWL.barkRadius-REDWOOD_BOWL.rimRadius-.07);
-    const p={x:REDWOOD_BOWL.center.x+cosine*radius,
-      z:REDWOOD_BOWL.center.z+sine*radius};
-    const wave=Math.sin(angle*11+radius*2)*.007;
-    barkPositions.push(p.x,fieldMeshY(p)+.028+wave,p.z);
-    barkColor.set(barkColorsPalette[Math.min(rimBands-1,Math.floor(t*rimBands))]??"#745038");
-    barkColors.push(barkColor.r,barkColor.g,barkColor.b);
-   }
-  }
-  for(let band=0;band<rimBands;band++){
-   const a=start+band,b=start+rimBands+1+band;
-   barkIndices.push(a,b,a+1,a+1,b,b+1);
-  }
-  // Bark exterior slopes to the existing meadow; no raised extrusion inside.
-  const radius=REDWOOD_BOWL.barkRadius;
-  const left={x:REDWOOD_BOWL.center.x+Math.cos(angle0)*radius,
-    z:REDWOOD_BOWL.center.z+Math.sin(angle0)*radius};
-  const right={x:REDWOOD_BOWL.center.x+Math.cos(angle1)*radius,
-    z:REDWOOD_BOWL.center.z+Math.sin(angle1)*radius};
-  const edgeStart=barkPositions.length/3;
-  for(const p of [left,right]){
-   const top=fieldMeshY(p)+.024;
-   for(const y of [top,terrainHeight(p.x,p.z)+.01]){
-    barkPositions.push(p.x,y,p.z);
-    barkColor.set(y===top?"#765039":"#513b31");
-    barkColors.push(barkColor.r,barkColor.g,barkColor.b);
-   }
-  }
-  barkIndices.push(edgeStart,edgeStart+1,edgeStart+2,
-   edgeStart+1,edgeStart+3,edgeStart+2);
- }
- const shellGeo=geometry(new THREE.BufferGeometry());
- shellGeo.setAttribute("position",new THREE.Float32BufferAttribute(barkPositions,3));
- shellGeo.setAttribute("color",new THREE.Float32BufferAttribute(barkColors,3));
- shellGeo.setIndex(barkIndices);shellGeo.computeVertexNormals();
- const shell=new THREE.Mesh(shellGeo,material("#ffffff",{
-  vertexColors:true,roughness:1,side:THREE.DoubleSide,
- }));
- shell.name="hollow-redwood-bark-shell";shell.castShadow=false;
- group.add(shell);
-
- // The enlarged physical bowl bank already sculpts the real bark shoulder.
- // Do not draw buried duplicate bark walls: the old lower fascia was
- // hidden beneath the rideable mesh and cost an unnecessary WebGL draw call.
+ // The dark bark shoulder is painted on this SINGLE sampled riding mesh.
+ // No intersecting decorative shell, hidden fascia or extra draw call.
 
  // Subtle carved annual rings and a thin coping line, interrupted at the
  // opening. Never place any wood roughness in the wheel-height function.
@@ -233,25 +153,9 @@ export function createWorldSkateGrove(scene:THREE.Scene,support:(p:Point)=>numbe
  pooled("redwood-growth-rings",annualRings,grain);
  pooled("split-redwood-coping",innerCoping,metal);
  pooled("outside-redwood-root-grain",outerRoots,bark);
- // Raised, staggered redwood bark ridges articulate the cut trunk at a
- // distance. They lie on the *outside* skirt, never across the hollow ride
- // surface or the east-facing roll-in. A few warm cut-face strokes clarify
- // that the entrance is split wood, not a missing polygon.
- const barkRidges:Part[]=[],woodEndGrain:Part[]=[];
- // Keep the trunk exterior a solid bark surface, not a porcupine fringe.
- // Sparse low flutes are embedded into the skirt and terminate *inside*
- // the rim, never dangling past the edge or crossing the east roll-in.
- for(let i=0;i<28;i++){
-  const a=(i+.16*(i%3))*2*Math.PI/28;
-  const delta=Math.atan2(Math.sin(a-.15),Math.cos(a-.15));
-  if(Math.abs(delta)<.38)continue;
-  const radius0=5.60+(i%2)*.09,radius1=6.07+(i%3)*.055;
-  const p={x:REDWOOD_BOWL.center.x+Math.cos(a)*radius0,
-   z:REDWOOD_BOWL.center.z+Math.sin(a)*radius0};
-  const q={x:REDWOOD_BOWL.center.x+Math.cos(a+.012)*radius1,
-   z:REDWOOD_BOWL.center.z+Math.sin(a+.012)*radius1};
-  barkRidges.push(beam(skinPoint(p,.036),skinPoint(q,.036),.014+(i%3)*.003));
- }
+ // The split entrance keeps subtle cross-cut end grain, with no vertical
+ // bark beams that could resemble barriers across a rideable lip.
+ const woodEndGrain:Part[]=[];
  for(const split of [-.33,.33]){
   const a=.15+split;
   for(let k=0;k<5;k++){
@@ -263,7 +167,6 @@ export function createWorldSkateGrove(scene:THREE.Scene,support:(p:Point)=>numbe
    woodEndGrain.push(beam(onRide(p,.085),onRide(q,.085),.040));
   }
  }
- pooled("redwood-bark-striations",barkRidges,bark);
  pooled("open-trunk-end-grain",woodEndGrain,grain);
 
  // Timber quarterpipes and halfpipe rhythm. Thin seams follow the real
