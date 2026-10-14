@@ -115,7 +115,7 @@ export function WorldHome({ content }: { content: WorldContent }) {
           window.localStorage.setItem("sid-world:skim-heat-v1",String(heat.score));
       }catch{/* private browsing or storage unavailable */}
     }
-  },[setSkim,setSkimBest]);
+  },[setSkim,setSkimBest,setActivity]);
   const issueSkim=(action:typeof skimCommand,board=0)=>{
     if(action==="pickup")setActivity("run");
     setSkimCommand(action);setSkimBoardIndex(board);setSkimCommandSerial(n=>n+1);
