@@ -1,5 +1,6 @@
 import { desertTrackClearance, desertTrackGroundRoute, DESERT_JUMPS } from "./desertTrack";
 import {insideSkatePark,skateParkSurface,skateParkLipCrossing,SKATE_PARK_RAILS,type SkateRail} from "./skatepark";
+import {skateRollingSpeed} from "./skateDynamics";
 import { beamSupportHeight, technicalFeatureClearance } from "./technicalFeatures";
 import { bigAirClearance } from "./bigAir";
 import {jetSkiPierHeight} from "./jetSkiPier";
@@ -352,10 +353,15 @@ export function stepTravel(
     (boostEligible ? 1.6 : 1);
   // When the skill-shot expires, retain momentum briefly instead of snapping
   // immediately to normal cruise speed. Normal braking still takes over.
-  const speed = moving
+  const speed = mode==="skate"
+    ? skateRollingSpeed({
+      speed:current.speed,dt,pushing:moving,riseAhead:slope,
+      maxSpeed,boosted:boostEligible,
+    })
+    : moving
     ? Math.min(Math.max(maxSpeed,current.speed-config.braking*dt*.75),
       current.speed+config.acceleration*dt*(boostEligible?2.35:1))
-    : Math.max(0,current.speed-(mode==="skate"?1.1:config.braking)*dt);
+    : Math.max(0,current.speed-config.braking*dt);
   const step = Math.min(
     speed * dt,
     destination ? distance(current.point, destination) : Infinity,
