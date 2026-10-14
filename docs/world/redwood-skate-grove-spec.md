@@ -15,7 +15,7 @@
 
 | Feature | Coordinates | Ride and visual contract |
 | --- | --- | --- |
-| Redwood hollow-bowl | center **(-12,40)**, ride radius **0..5.55**, decorative bark **5.6..6.5** | Concave by **raised outer rim** rather than a clipped underground hole; center joins native deck, outer bank builds gradually to ~1.05-1.15 u; bark wrapping around outside, open upper bowl, low carved entry on east/northeast arc |
+| Redwood hollow-bowl | center **(-12,40)**, ride radius **0..5.55**, decorative bark **5.6..6.5** | Concave by **raised outer rim** rather than a clipped underground hole; center joins native deck, outer bank builds gradually to ~1.4 u (C1-smooth, shallow enough for casual carving); bark wrapping around outside, open upper bowl, low carved entry on east/northeast arc |
 | Wooden halfpipe corridor | x **-2..7**, north z **28.6..34**, south z **46..51.4** | Existing mirrored transitions keep their real heightfield and launch lips; replace grey surface coloring with pale cedar and aligned narrow grain/slat seams; support ribs and edge trim only below/along the outside edges |
 | Low timber street pyramid | centered **(-1,40)** | Keep shape, recolor to maple, no jump in collision function |
 | Split-stump manual pads | approx **(-5,33.3)** and **(-5,46.5)** | Radius ~1.15-1.3, smoothly feathered shallow humps <=0.16 world u; present as sanded cut-log medallions following support surface, not floating cylinders |
@@ -46,6 +46,25 @@ WASD drives, Space/controller A/touch ✦ TRICK invokes current assist. Keep adv
 4. Rail segment ids and grind targeting remain exact, including flat bar / log ride. Launch requires real lip-plane crossing + forward heading + sufficient speed; bike mode is unaffected.
 5. Browser: choose Skate, warp to south meadow, render three named materials/zones, land assisted and explicit flip, see brief trick callouts, verify no page errors. Record screenshots of bowl, timber halfpipe and approach line.
 6. All World unit tests, TypeScript, lint and existing mini-game/browser checks must pass at final HEAD. Do not mark merge-ready because the new park looks plausible in source code; real Chromium visual acceptance is still mandatory.
+
+## Visual acceptance follow-up (October 14)
+
+The first real Chromium screenshots showed a useful contrast: the cedar transitions
+were clearly legible and the new west-facing skate arrival framed the hero bowl,
+but 84 high-contrast radial bark ribs made the trunk read as a comb or fringed
+saucer. These were not gameplay obstacles, but they weakened the natural design.
+The implementation now uses 28 or fewer short, surface-embedded bark flutes,
+closer in color to the trunk, while maintaining the split roll-in.
+The radial raised-bank amplitude increased from 1.18 to 1.42 units, still using
+the same continuous collision heightfield and keeping the original coping and
+trick-assist affordances.
+
+Independent [Redwood Skate Grove Browser QA](../../.github/workflows/skate-grove-browser.yml)
+captures overview, bowl, halfpipe and trick results without waiting for jet ski
+or disc golf. Accept this refinement only after checking the **new** screenshot:
+it should read as a hollowed living-material sculpture, not a bark picket fence.
+No added physical obstruction at the roll-in, no alternative colliders, and no
+camera override while actually skating.
 
 ## Review checklist
 
