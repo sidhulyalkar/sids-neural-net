@@ -190,7 +190,10 @@ export function createWorld(
   skateTrickButton.textContent="✦ TRICK";
   skateTrickButton.setAttribute("aria-label","Do an assisted skate trick");
   skateTrickButton.style.cssText="border:1px solid #d9ebdccc;border-radius:13px;background:#21515ce8;color:#fff;padding:14px 17px;font:750 14px system-ui,sans-serif;box-shadow:0 3px 12px #09273266;touch-action:manipulation";
-  skateTrickButton.addEventListener("click",()=>performAction());
+  skateTrickButton.addEventListener("click",()=>{
+    performAction();
+    if(state.entered&&!state.paused)canvas.focus({preventScroll:true});
+  });
   skateTouch.appendChild(skateTrickButton);
   const rideReticle=document.createElement("div");
   rideReticle.className=worldStyles.rideBoostReticle;
@@ -5885,6 +5888,7 @@ export function createWorld(
       discGolfObjects.dispose();
       jetskiCoast.dispose();
       rideVisual.dispose();rideHud.remove();rideReticle.remove();rideAnnounce.remove();
+      skateHud.remove();skateTouch.remove();skateResult.remove();
       jetHud.remove();jetAnnounce.remove();jetTouch.remove();jetNotice.remove();jetChooser.remove();
       jetskiVisual.root.traverse(object=>{
         if(object instanceof THREE.Mesh){object.geometry.dispose();
