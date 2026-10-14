@@ -121,6 +121,7 @@ export function createWorldSkateGrove(scene:THREE.Scene,support:(p:Point)=>numbe
 
  // Subtle carved annual rings and a thin coping line, interrupted at the
  // opening. Never place any wood roughness in the wheel-height function.
+ const rimSegments=72;
  const annualRings:Part[]=[],innerCoping:Part[]=[],outerRoots:Part[]=[];
  for(const radius of [1.85,3.1,4.3]){
   for(let i=0;i<rimSegments;i++){
