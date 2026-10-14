@@ -18,6 +18,7 @@ import { createMarineSchools } from "./worldSchools";
 import { createWorldTridents } from "./worldTridents";
 import { nearbyUnderwaterTrident } from "@/lib/world/artifacts";
 import { createHabitats } from "./worldHabitats";
+import { createSkimWake } from "./worldSkimWake";
 import { ringSurface, ribbon } from "./worldGeometry";
 import { drainagePoints, downstreamPoints, waterfallProfile, waterfallCrownRings } from "@/lib/world/hydrology";
 import { biomeAt, BIOME_COLORS } from "@/lib/world/biomes";
@@ -461,6 +462,7 @@ export function createWorld(
     }
   }
   updateSkimWaves(0);
+  const skimWake=createSkimWake(scene);
 
   const skimShape=new THREE.Shape();
   skimShape.moveTo(0,-.97);
@@ -3449,6 +3451,7 @@ export function createWorld(
       canvas.dataset.skimWave=skimWaterHeight(player,surfClock,SEA_SURFACE).toFixed(2);
       canvas.dataset.skimWaveStyle="continuous-ribbon-v1";
       canvas.dataset.skimWaveRibbons=String(skimWaves.length);
+      canvas.dataset.skimWakeVisible=String(skimWake.visible);
       canvas.dataset.skimPendingTrick=skimHeat.pendingTrick??"";
       canvas.dataset.skimLastTrick=skimHeat.lastTrick;
       canvas.dataset.skimTrickSpin=skimHeat.spin.toFixed(3);
@@ -4677,6 +4680,9 @@ export function createWorld(
     }
     flyingBirds.update(bigAir,elapsed,reducedFlightMotion);
     habitats.update(player,elapsed);
+    skimWake.update(player,travel.heading,skimHeat.speed,surfClock,
+      skimHeat.phase==="riding",
+      p=>skimWaterHeight(p,surfClock,SEA_SURFACE));
     if(aquatic === "land" && scene.fog instanceof THREE.Fog) {
       const w = biomeAt({x:camera.position.x,z:camera.position.z}).weights;
       const fogTarget = new THREE.Color("#c4d9df").lerp(new THREE.Color("#d7c7ae"),w.desert).lerp(new THREE.Color("#a8c4af"),w.rainforest+w.redwood*.35);
@@ -5014,6 +5020,7 @@ export function createWorld(
       } else schedule();
     },
     dispose() {
+      skimWake.dispose();
       discGolfObjects.dispose();
       flyingBirds.dispose();
       technicalFeatures.dispose();

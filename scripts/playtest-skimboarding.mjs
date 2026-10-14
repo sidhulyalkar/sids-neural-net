@@ -84,7 +84,7 @@ try {
   // browser task and observe every phase through MutationObserver so the audit
   // cannot miss a fast landing between separate Playwright round trips.
   const trickTrace=await canvas().evaluate(async c=>{
-    const trace={riding:false,airborne:false,spin:false,landed:false,clean:false,swimming:false};
+    const trace={riding:false,airborne:false,spin:false,landed:false,clean:false,swimming:false,wake:false};
     const sample=()=>{
       const d=c.dataset;
       trace.riding ||= d.skimPhase==="riding";
@@ -93,11 +93,12 @@ try {
       trace.landed ||= (d.skimLastTrick??"").includes("Shuv-it landed");
       trace.clean ||= (d.skimLastTrick??"").includes("Clean ride");
       trace.swimming ||= d.aquatic!=="land";
+      trace.wake ||= d.skimWakeVisible==="true";
     };
     const observer=new MutationObserver(sample);
     observer.observe(c,{attributes:true,attributeFilter:[
       "data-skim-phase","data-skim-pending-trick","data-skim-trick-spin",
-      "data-skim-last-trick","data-aquatic",
+      "data-skim-last-trick","data-aquatic","data-skim-wake-visible",
     ]});
     // These are ordinary bubbling keyboard events routed to the same world
     // handler as physical Space/Q presses; no simulation shortcuts or state writes.
@@ -119,6 +120,7 @@ try {
   assert.equal(trickTrace.riding,true,"run-up should launch a genuine skim");
   assert.equal(trickTrace.airborne,true,"Q should queue an airborne shuv-it");
   assert.equal(trickTrace.spin,true,"the avatar should visibly rotate during the trick");
+  assert.equal(trickTrace.wake,true,"board motion should produce a water-height-following wake");
   assert.equal(trickTrace.landed,true,"a completed shuv-it should land for points");
   await snap("02-ride-and-shuvit");
   await page.waitForFunction(()=>Number(
