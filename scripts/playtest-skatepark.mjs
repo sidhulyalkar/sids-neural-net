@@ -50,6 +50,23 @@ try{
   "Single accessible touch trick button exists even when hidden on desktop");
  assert.ok(Number(await canvas.getAttribute("data-height"))>0);
  await page.screenshot({path:path.join(out,"01-skatepark-overview.png")});
+ // Capture both sides of the authored park. The normal landing view crops
+ // the giant redwood bowl, so a frontal view alone cannot qualify its art.
+ const parkBox=await canvas.boundingBox();
+ assert.ok(parkBox,"The WebGL canvas must have a measurable viewport");
+ const orbit=async amount=>{
+  const cx=parkBox.x+parkBox.width*.5,cy=parkBox.y+parkBox.height*.48;
+  await page.mouse.move(cx,cy);
+  await page.mouse.down();
+  await page.mouse.move(cx+amount,cy+12,{steps:8});
+  await page.mouse.up();
+  await page.waitForTimeout(360);
+ };
+ await orbit(-185);
+ await page.screenshot({path:path.join(out,"01b-carved-redwood-bowl.png")});
+ await orbit(370);
+ await page.screenshot({path:path.join(out,"01c-timber-halfpipe.png")});
+ await orbit(-185);
  await canvas.focus();
  await page.keyboard.press("Space");
  await page.waitForFunction(()=>document.querySelector("canvas")?.dataset.skateTrick==="Ollie",
