@@ -15,7 +15,7 @@
 
 | Feature | Coordinates | Ride and visual contract |
 | --- | --- | --- |
-| Redwood hollow-bowl | center **(-12,40)**, ride radius **0..5.55**, decorative bark **5.6..6.5** | Concave by **raised outer rim** rather than a clipped underground hole; center joins native deck, outer bank builds gradually to ~1.4 u (C1-smooth, shallow enough for casual carving); bark wrapping around outside, open upper bowl, low carved entry on east/northeast arc |
+| Redwood hollow-bowl | center **(-12,40)**, ride radius **0..5.55**, decorative bark **5.6..6.5** | Concave by **raised outer rim** rather than a clipped underground hole; center joins native deck, outer bank rises to roughly 2.05 u in the protected crest, with a smooth interior and a shorter exterior bark drop; the eastern roll-in remains lowered; bark wrapping around outside, open upper bowl, low carved entry on east/northeast arc |
 | Wooden halfpipe corridor | x **-2..7**, north z **28.6..34**, south z **46..51.4** | Existing mirrored transitions keep their real heightfield and launch lips; replace grey surface coloring with pale cedar and aligned narrow grain/slat seams; support ribs and edge trim only below/along the outside edges |
 | Low timber street pyramid | centered **(-1,40)** | Keep shape, recolor to maple, no jump in collision function |
 | Split-stump manual pads | approx **(-5,33.3)** and **(-5,46.5)** | Radius ~1.15-1.3, smoothly feathered shallow humps <=0.16 world u; present as sanded cut-log medallions following support surface, not floating cylinders |
@@ -114,6 +114,29 @@ beyond the east park boundary even though a loosely classified zone label
 remained present. These were real bugs, not successful park-loop validation.
 The tests and physics were strengthened accordingly. Do not claim full-loop
 qualification until the latest strict browser test is green.
+
+## Screenshot-driven trunk silhouette revision (October 14, second pass)
+
+A new hidden lower bark fascia passed geometry checks but changed almost
+nothing in Chromium: its triangles sat below the fully opaque sampled
+riding field. Keeping it would spend a draw call on invisible art, not
+deliver the intended massive fallen-tree form. It was removed.
+
+The definitive implementation is instead in the *single physics-backed*
+`redwoodBowlBankRise(p)`, called by `skateParkSurface(p)`. The crest rises
+about 2.05 world units above the underlying deck, with gentle asymmetric
+old-growth undulations, a compressed 1.36u exterior falloff, and a
+0.66-strength entrance relief on the east. The interior remains C1 smooth,
+while `worldSkateGroveGeometry` samples the exact same field for the pale
+carved riding top and dark bark slope. No bark collision mesh, rail changes,
+or hidden moving parts were introduced.
+
+Added tests qualify the actual *physical profile* (crown, shallow entry,
+native-ground blend and bounded sample-to-sample rises) as well as the
+rendered deck support. This is a direct visual intervention, not an
+occluded decorative component. Confirm the final profile by reviewing
+the new browser screenshots and W → A → S → Space loop on the same head;
+the previous browser passes apply only to their exact checked commits.
 
 ## Review checklist
 
