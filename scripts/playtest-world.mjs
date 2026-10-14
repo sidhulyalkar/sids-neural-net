@@ -402,8 +402,12 @@ try {
     initialDepth,
     { timeout: 8000 },
   );
-  await page.waitForFunction(() => Number(document.querySelector('canvas')?.dataset.drawCalls) > 0);
-  const diveDrawCalls = Number(await page.locator('canvas').getAttribute('data-draw-calls'));
+  await page.waitForFunction(() => {
+    const d=document.querySelector('canvas')?.dataset;
+    return d?.aquatic==='dive'&&Number(d.underwaterDrawCalls)>0&&
+      Number(d.underwaterDecorCulled)>0;
+  },null,{timeout:10000});
+  const diveDrawCalls=Number(await page.locator('canvas').getAttribute('data-underwater-draw-calls'));
   assert.ok(diveDrawCalls < 100, `underwater draw calls ${diveDrawCalls}`);
   await screenshot(page, 'activity-dive');
   results.push('Dive pose, framing, reef density and renderer budget stay bounded');
@@ -457,8 +461,12 @@ try {
   await page.waitForFunction(() => document.querySelector('canvas')?.dataset.aquatic === 'dive');
   await page.waitForFunction(() => document.querySelector('canvas')?.dataset.cameraWater === 'true');
   await page.waitForFunction(() => Number(document.querySelector('canvas')?.dataset.depth) > 0.35);
-  await page.waitForFunction(() => Number(document.querySelector('canvas')?.dataset.drawCalls) > 0);
-  const lagoonDrawCalls = Number(await page.locator('canvas').getAttribute('data-draw-calls'));
+  await page.waitForFunction(() => {
+    const d=document.querySelector('canvas')?.dataset;
+    return d?.aquatic==='dive'&&Number(d.underwaterDrawCalls)>0&&
+      Number(d.underwaterDecorCulled)>0;
+  },null,{timeout:10000});
+  const lagoonDrawCalls=Number(await page.locator('canvas').getAttribute('data-underwater-draw-calls'));
   assert.ok(lagoonDrawCalls < 100, `lagoon draw calls ${lagoonDrawCalls}`);
   await screenshot(page, 'activity-lagoon-dive');
   results.push('East lagoon snorkeling and diving activate only the warm-water reef within renderer budget');
