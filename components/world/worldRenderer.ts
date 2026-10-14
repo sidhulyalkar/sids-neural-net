@@ -913,6 +913,26 @@ export function createWorld(
     }
   }
   instances(cylinder,parkSteel,[...parkBars,...parkPosts]);
+  // Continuous-looking coping is assembled from short pooled sections.
+  // Every endpoint samples the same skatepark support as the riding wheels.
+  // There are no invisible extra collision boxes or per-frame allocations.
+  const parkCoping:Instance[]=[];
+  const bowlSegments=24,bowlRadius=5.1;
+  for(let i=0;i<bowlSegments;i++){
+    const a=i*Math.PI*2/bowlSegments,b=(i+1)*Math.PI*2/bowlSegments;
+    const p={x:-12+Math.cos(a)*bowlRadius,z:40+Math.sin(a)*bowlRadius};
+    const q={x:-12+Math.cos(b)*bowlRadius,z:40+Math.sin(b)*bowlRadius};
+    parkCoping.push(segment(
+      new THREE.Vector3(p.x,groundHeight(p)+.085,p.z),
+      new THREE.Vector3(q.x,groundHeight(q)+.085,q.z),.045));
+  }
+  for(const z of [30.9,49.1])for(let x=-2;x<6;x+=.8){
+    const p={x,z},q={x:x+.8,z};
+    parkCoping.push(segment(
+      new THREE.Vector3(x,groundHeight(p)+.075,z),
+      new THREE.Vector3(x+.8,groundHeight(q)+.075,z),.047));
+  }
+  instances(cylinder,mat("#d7d9cd",{metalness:.55,roughness:.38}),parkCoping,false);
   const parkPaint:Instance[]=[];
   for(const z of [35,45]){
     for(const x of [-2,0,2,4]){
