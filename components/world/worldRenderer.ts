@@ -5838,6 +5838,12 @@ export function createWorld(
           pitch = 0.22;
           zoom = Math.min(zoom, 15);
         }
+        if(next.command.activity==="skate"&&insideSkatePark(player)){
+          // The old north-facing warp cropped the whole redwood centerpiece.
+          // Approach from the timber halfpipe with the tree bowl in front:
+          // W rides naturally toward the hollow trunk, with no cinematic lock.
+          yaw=1.86;pitch=.42;zoom=21;
+        }
         // Menu-driven semantic travel closes a dialog whose focus-restoration
         // target is the menu trigger. Exploration should immediately regain
         // keyboard authority after the jump.
