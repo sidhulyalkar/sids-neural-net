@@ -2,7 +2,7 @@ name: World Landscape Regression
 
 on:
   push:
-    branches: ['feat/sids-world']
+    branches: ['feat/sids-world', 'feat/island-jetski-dock-race-v1']
     paths:
       - 'lib/world/**'
       - 'components/world/**'
@@ -55,7 +55,7 @@ jobs:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
         with:
-          node-version: '22'
+          node-version: '24'
           cache: npm
       - name: Install locked packages
         run: npm ci
