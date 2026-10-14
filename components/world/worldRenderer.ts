@@ -2806,6 +2806,7 @@ export function createWorld(
   let skateHasBeenAirborne=false,skatePadPushHeld=false,skateCarveLean=0;
   let skateAssistAttempts=0,skateResultAt=-Infinity,skateResultLabel="";
   let skateResultSerial=0,skateResultPoints=0;
+  let skateBowlExits=0,skateLastTakeoff="";
   function commitSkateTrick(next:SkateTrickState){
     const previous=skateTrick;
     if(previous===next)return;
@@ -3791,6 +3792,10 @@ export function createWorld(
               previousPoint, player, travel.heading, modeForRamp, travel.speed,
             );
             if (ramp && ramp.id !== lastRampId) {
+              if(modeForRamp==="skate"){
+                skateLastTakeoff=ramp.id;
+                if(ramp.id==="redwood-bowl-exit")skateBowlExits++;
+              }
               lastRampAt = elapsed;
               lastRampId = ramp.id;
               verticalSpeed = ramp.impulse;
@@ -4015,6 +4020,8 @@ export function createWorld(
       // Avoid 60 identical live-region mutations per second for screen readers.
       if(skateVisible&&skateHud.textContent!==skateStatus)skateHud.textContent=skateStatus;
       canvas.dataset.skateGrove="redwood-timber-v1";
+      canvas.dataset.skateBowlExits=String(skateBowlExits);
+      canvas.dataset.skateLastTakeoff=skateLastTakeoff;
       canvas.dataset.skateGroveZone=skateVisible?skateParkZone(player):"";
       canvas.dataset.skateAssist="on";
       canvas.dataset.skateResult=resultVisible?skateResultLabel:"";
@@ -5583,6 +5590,7 @@ export function createWorld(
           // player's best persists, while old landing cards never leak.
           skateTrick={...idleSkateTrick(),best:skateTrick.best};
           skateAssistAttempts=0;skateHasBeenAirborne=false;skateResultAt=-Infinity;
+          skateBowlExits=0;skateLastTakeoff="";
         }
       }
       state = next;
@@ -5781,6 +5789,7 @@ export function createWorld(
         // travel cannot impersonate a landing or credit an unfinished line.
         skateTrick={...idleSkateTrick(),best:skateTrick.best};
         skateHasBeenAirborne=false;skateCarveLean=0;skateResultAt=-Infinity;
+        skateBowlExits=0;skateLastTakeoff="";
         lastSerial = next.command.serial;
         const r = REGIONS.find((r) => r.id === next.command!.region)!;
         jetSki=null;jetRivals=[];jetHud.style.display="none";
