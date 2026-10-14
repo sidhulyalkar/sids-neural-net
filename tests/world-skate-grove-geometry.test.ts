@@ -70,6 +70,10 @@ test("deep redwood silhouette belongs to the real surface, not a hidden art coll
  assert.ok(outer<.05,"exterior bark shoulder returns to natural earth");
  assert.ok(split<west*.53,"east opening stays beginner-friendly");
  assert.ok(interior<.005,"wooden bowl floor is smoothly flattened");
+ assert.ok(redwoodBowlBankRise(at(1.95,Math.PI))<.005,
+  "wider flat pocket must be genuinely flat before the curved wall begins");
+ assert.ok(redwoodBowlBankRise(at(3.8,Math.PI))>.72,
+  "rising bank must still be substantial enough to read as a true bowl");
  for(const az of [-Math.PI,-2,-1,0,.35,1.7,2.5]){
   let prior=redwoodBowlBankRise(at(0,az));
   for(let r=.08;r<=7;r+=.08){
@@ -106,6 +110,12 @@ test("tree trunk's dark bark exists in the authoritative riding field, not an ov
   const brightness=(i:number)=>(colors.getX(i)+colors.getY(i)+colors.getZ(i))/3;
   assert.ok(brightness(inner)>brightness(dark)+.10,
    "polished hollow interior must be visibly lighter than surrounding bark");
+  const litWall=near(REDWOOD_BOWL.center.x+4.12,REDWOOD_BOWL.center.z);
+  assert.ok(brightness(litWall)>brightness(inner)+.07,
+   "carved wall should catch light over a darker recessed hollow floor");
+  const pyramid=near(-1,40),outerStreet=near(-3.2,37.2);
+  assert.ok(brightness(pyramid)>brightness(outerStreet)+.025,
+   "central street timber must feather into natural soil instead of a flat square");
   const brown=new THREE.Color(colors.getX(dark),colors.getY(dark),colors.getZ(dark));
   assert.ok(brown.r>brown.b&&brown.g>brown.b*.8,
    "outer surface must be warm redwood bark, not concrete or an exposed seam");
