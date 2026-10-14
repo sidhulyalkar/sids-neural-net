@@ -1,4 +1,4 @@
-import {terrainHeight, type Point} from "./model";
+import {terrainHeight,isWater,type Point} from "./model";
 
 /**
  * Original skate plaza on the unused south meadow.
@@ -117,7 +117,19 @@ export function redwoodBowlExitCrossing(previous:Point,current:Point,heading:Poi
  const angle=Math.atan2(vz,vx);
  const split=Math.atan2(Math.sin(angle-.15),Math.cos(angle-.15));
  if(Math.abs(split)<.43)return null;
- return {id:"redwood-bowl-exit",impulse:Math.min(5.4,3.55+speed*.17)};
+ // Flight must have meadow to land on. The island coast is just beyond the
+ // western bowl wall: an uncontrolled westward pop would throw casual riders
+ // off the park, so never assist a launch into the water or outside the grove.
+ // Keep this low enough for a quick board catch rather than a ski-sized jump.
+ const impulse=Math.min(3.25,2.80+Math.max(0,speed-5.1)*.035);
+ const flightTime=2*impulse/14; // matches stepAirborne gravity
+ const directionLength=Math.max(.001,Math.hypot(heading.x,heading.z));
+ const touchdown={
+  x:current.x+heading.x/directionLength*speed*flightTime,
+  z:current.z+heading.z/directionLength*speed*flightTime,
+ };
+ if(!insideSkatePark(touchdown,-1.3)||isWater(touchdown))return null;
+ return {id:"redwood-bowl-exit",impulse};
 }
 export function skateParkLipCrossing(previous:Point,current:Point,heading:Point,speed:number){
  if(speed<3.2)return null;
