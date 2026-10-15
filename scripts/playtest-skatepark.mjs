@@ -12,6 +12,8 @@ fs.mkdirSync(out,{recursive:true});
 const browser=await chromium.launch({headless:true,args:["--no-sandbox","--enable-unsafe-swiftshader"]});
 const errors=[];
 const sample=async canvas=>({
+ bodyYaw:await canvas.getAttribute("data-skate-body-yaw"),
+ footSpacing:await canvas.getAttribute("data-skate-foot-spacing"),
  park:await canvas.getAttribute("data-skate-park"),
  player:await canvas.getAttribute("data-player"),
  trick:await canvas.getAttribute("data-skate-trick"),
@@ -42,6 +44,10 @@ try{
   null,{timeout:15000});
  assert.equal(await canvas.getAttribute("data-activity"),"skate");
  assert.equal(await canvas.getAttribute("data-skate-assist"),"on");
+ assert.ok(Math.abs(Number(await canvas.getAttribute("data-skate-body-yaw"))-Math.PI/2)<.0001,
+  "human must face sideways relative to the skateboard");
+ assert.ok(Number(await canvas.getAttribute("data-skate-foot-spacing"))>.8,
+  "feet must straddle the front and rear truck positions");
  assert.equal(await page.locator('[aria-label="Land sports target boost"]').isVisible(),false,
   "Skate mode should hide the unrelated permanent aim/fire banner");
  assert.equal(await canvas.getAttribute("data-skate-grove"),"redwood-timber-v1");

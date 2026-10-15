@@ -102,7 +102,7 @@ export function WorldHome({ content }: { content: WorldContent }) {
   const [skimBoardIndex, setSkimBoardIndex] = useState(0);
   const [skimBest, setSkimBest] = useState<number|null>(()=>{
     if(typeof window==="undefined")return null;
-    try { const v=Number(window.localStorage.getItem("sid-world:skim-heat-v1")); return v>0&&Number.isFinite(v)?v:null; }
+    try { const v=Number(window.localStorage.getItem("sid-world:skim-heat-v2")); return v>0&&Number.isFinite(v)?v:null; }
     catch {return null;}
   });
   const onSkim=useCallback((heat:SkimHeat)=>{
@@ -111,9 +111,9 @@ export function WorldHome({ content }: { content: WorldContent }) {
     if(heat.phase==="finished" && heat.score>0){
       setSkimBest(current=>current===null?heat.score:Math.max(current,heat.score));
       try{
-        const stored=Number(window.localStorage.getItem("sid-world:skim-heat-v1"))||0;
+        const stored=Number(window.localStorage.getItem("sid-world:skim-heat-v2"))||0;
         if(heat.score>stored)
-          window.localStorage.setItem("sid-world:skim-heat-v1",String(heat.score));
+          window.localStorage.setItem("sid-world:skim-heat-v2",String(heat.score));
       }catch{/* private browsing or storage unavailable */}
     }
   },[setSkim,setSkimBest,setActivity]);
@@ -585,7 +585,7 @@ export function WorldHome({ content }: { content: WorldContent }) {
                <div className={styles.skimReadout}><strong>{skim.score.toLocaleString()} <small>PTS</small></strong><strong>{skim.remaining.toFixed(0)} <small>SEC</small></strong></div>
                <div className={styles.skimMeter}><span style={{width:`${100*skim.remaining/90}%`}} /></div>
                <p>{skim.phase==="ready"?"Sprint toward the wet sand, then drop your board.":skim.phase==="riding"?
-                 `Ride ${skim.rides+1} · ${Math.round(skim.ridePoints)} pending · ${skim.lastTrick||"Carve toward the shore break"}`:
+                 `Ride ${skim.rides+1} · ${Math.round(skim.ridePoints)} pending · ${skim.air>.1?"Airborne — Q / E / F":skim.waveRideSeconds>.2?"Riding the face":skim.lastTrick||"Build speed toward a breaking crest"}`:
                  skim.phase==="recovering"?skim.lastTrick: `Heat complete · ${skim.rides} rides`}</p>
                {skimBest!==null&&<small>Personal best {skimBest.toLocaleString()}</small>}
                <div className={styles.skimActions}>
@@ -599,7 +599,7 @@ export function WorldHome({ content }: { content: WorldContent }) {
                  </>}
                  {skim.phase==="finished"&&<button onClick={()=>issueSkim("restart")}>New heat</button>}
                </div>
-               <small>{skim.phase==="riding"?"A/D carve · W pump · Space pop · Q/E/F airborne tricks":
+               <small>{skim.phase==="riding"?"A/D carve · R wrap a wave · Hit a crest fast for air · Q/E/F tricks":
                  "WASD move · Shift sprint · Run, drop and ride incoming waves"}</small>
              </aside>
            )}
