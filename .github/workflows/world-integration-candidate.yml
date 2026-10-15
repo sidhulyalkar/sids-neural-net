@@ -169,8 +169,8 @@ jobs:
             echo "::error::Base moved during validation; no candidate publication"
             exit 1
           }
-          test "$CURRENT_CANDIDATE" = "212ef3ee4ea80f7f1aa1e69fa1c3b699b36ceb9d" || {
-            echo "::error::Candidate branch moved unexpectedly; refusing overwrite"
+          test "$CURRENT_CANDIDATE" = "$PR_HEAD" || {
+            echo "::error::Candidate is not fast-forward staged at the exact reviewed PR head; refusing overwrite"
             exit 1
           }
           test -z "$(git diff --name-only --diff-filter=U)" || {
