@@ -1,0 +1,77 @@
+name: Publish validated PR94 non-workflow merge
+
+on:
+  push:
+    branches: ['feat/pr94-merge-object-export']
+    paths: ['.github/workflows/world-merge-nonworkflow-publish.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  publish-exact-validated-merge:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 0ced4c181f67fa3a6f6058827d3a7ce9bc500ad2
+          fetch-depth: 0
+          persist-credentials: true
+      - name: Reconstruct validated merged tree with strict resolver
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "World Integration QA"
+          git config user.email "world-integration-qa@users.noreply.github.com"
+          test "$(git rev-parse HEAD)" = "0ced4c181f67fa3a6f6058827d3a7ce9bc500ad2"
+          git fetch --no-tags origin feat/sids-world
+          git update-ref refs/remotes/origin/feat/sids-world acc13cfbbfc06995b570a9696dbc9d0c6c8e5181
+          set +e
+          git merge --no-commit --no-ff origin/feat/sids-world >/tmp/pr94-merge-output.log 2>&1
+          merge_status=$?
+          set -e
+          if [ "$merge_status" -ne 0 ]; then
+            mapfile -t paths < <(git diff --name-only --diff-filter=U)
+            python3 scripts/resolve-world-integration.py "${paths[@]}"
+            git add -- "${paths[@]}" lib/world/skimboarding.ts lib/world/model.ts tests/world-skimboarding.test.ts lib/world/jetSkiRace.ts tests/world-jet-ski-race.test.ts
+          fi
+          test -z "$(git diff --name-only --diff-filter=U)"
+          git diff --cached --check
+          ACTUAL_TREE="$(git write-tree)"
+          EXPECTED_TREE="27696eca8a44e0b5a78e4021386ff853c811c7f4"
+          test "$ACTUAL_TREE" = "$EXPECTED_TREE" || {
+            echo "::error::Merge tree is not byte-identical to fully browser-tested integration"
+            exit 1
+          }
+          echo "Verified exact 1038-file merge tree: $ACTUAL_TREE"
+      - name: Stage workflow updates as ordinary reviewed text
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p docs/world
+          cp .github/workflows/world-regression.yml docs/world/_pr94-reviewed-regression-workflow.txt
+          cp .github/workflows/world-skimboarding-browser-qa.yml docs/world/_pr94-reviewed-skim-workflow.txt
+          git show 0ced4c181f67fa3a6f6058827d3a7ce9bc500ad2:.github/workflows/world-regression.yml > .github/workflows/world-regression.yml
+          rm .github/workflows/world-skimboarding-browser-qa.yml
+          git add -A -- .github/workflows/world-regression.yml .github/workflows/world-skimboarding-browser-qa.yml docs/world/_pr94-reviewed-regression-workflow.txt docs/world/_pr94-reviewed-skim-workflow.txt
+          test -z "$(git diff --cached --name-only | grep '^.github/workflows/' || true)" || {
+            echo "::error::Workflow entries unexpectedly changed in Actions-token staging commit"
+            exit 1
+          }
+          git diff --cached --check
+          git commit -m "merge(world): stage browser-validated skim, skate, jet-ski integration without workflow mutation"
+          test "$(git rev-list --parents -n 1 HEAD | wc -w)" -eq 3
+      - name: SHA-locked non-workflow-only candidate publication
+        shell: bash
+        run: |
+          set -euo pipefail
+          PR="$(git ls-remote origin refs/heads/feat/island-jetski-dock-race-v1 | cut -f1)"
+          BASE="$(git ls-remote origin refs/heads/feat/sids-world | cut -f1)"
+          CANDIDATE="$(git ls-remote origin refs/heads/feat/pr94-world-integration-candidate | cut -f1)"
+          test "$PR" = "0ced4c181f67fa3a6f6058827d3a7ce9bc500ad2" || exit 1
+          test "$BASE" = "acc13cfbbfc06995b570a9696dbc9d0c6c8e5181" || exit 1
+          test "$CANDIDATE" = "212ef3ee4ea80f7f1aa1e69fa1c3b699b36ceb9d" || exit 1
+          git push origin HEAD:refs/heads/feat/pr94-world-integration-candidate
+          echo "Published candidate's reviewed non-workflow merge (original branches untouched)"
