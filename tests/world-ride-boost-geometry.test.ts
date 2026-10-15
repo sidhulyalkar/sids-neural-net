@@ -23,6 +23,13 @@ test("a moving player's projected visible ring admits a near click but never bla
  const pointer=new THREE.Vector2(aim.x+.025,aim.y-.02);
  const near=visuals.nearAimTarget("bike",player,speed,now,state,camera,pointer,clear);
  assert.equal(near?.id,aim.id,"A small camera-motion offset still hits the aimed ring");
+ const fastShift=visuals.nearAimTarget("bike",player,13,now,state,camera,
+  new THREE.Vector2(aim.x+.115,aim.y-.03),clear);
+ assert.equal(fastShift?.id,aim.id,
+  "fast riders must not miss the glowing ring from measured camera-follow latency");
+ assert.equal(visuals.nearAimTarget("bike",player,13,now,state,camera,
+  new THREE.Vector2(aim.x+.23,aim.y),clear),null,
+  "fast-move forgiveness must not reward clicks well outside the ring");
  assert.equal(visuals.nearAimTarget("bike",player,speed,now,state,camera,
   new THREE.Vector2(.96,-.91),clear),null,"Blank space cannot collect a boost");
  assert.equal(visuals.nearAimTarget("bike",player,0,now,state,camera,pointer,clear),
