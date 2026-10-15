@@ -1,0 +1,70 @@
+name: Joshua Ride Skill Shot Browser QA
+
+on:
+  push:
+    branches: ['feat/island-jetski-dock-race-v1']
+    paths:
+      - 'components/world/worldRenderer.ts'
+      - 'components/world/worldRideChallengeGeometry.ts'
+      - 'lib/world/rideBoost.ts'
+      - 'lib/world/joshuaGhostRace.ts'
+      - 'scripts/playtest-ride-ghost.mjs'
+      - '.github/workflows/ride-ghost-browser.yml'
+  pull_request:
+    paths:
+      - 'components/world/worldRenderer.ts'
+      - 'components/world/worldRideChallengeGeometry.ts'
+      - 'lib/world/rideBoost.ts'
+      - 'lib/world/joshuaGhostRace.ts'
+      - 'scripts/playtest-ride-ghost.mjs'
+      - '.github/workflows/ride-ghost-browser.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: joshua-skillshot-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  joshua-skillshot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+          cache: npm
+      - name: Install locked packages
+        run: npm ci
+      - name: Install Chromium
+        run: |
+          mkdir -p /tmp/joshua-playwright
+          npm install --prefix /tmp/joshua-playwright --no-save --package-lock=false --ignore-scripts playwright@1.56.1
+          /tmp/joshua-playwright/node_modules/.bin/playwright install --with-deps chromium
+      - name: Start Sid's World
+        run: |
+          npm run dev -- --hostname 127.0.0.1 > /tmp/joshua-world-next.log 2>&1 &
+          for i in {1..90}; do
+            if curl -fsS http://127.0.0.1:3000/ >/dev/null; then exit 0; fi
+            sleep 2
+          done
+          tail -n 120 /tmp/joshua-world-next.log
+          exit 1
+      - name: Qualify moving-target aiming and actual ghost challenge
+        env:
+          WORLD_BASE_URL: http://127.0.0.1:3000
+          WORLD_AUDIT_DIR: artifacts/world/ride-ghost-browser
+          PLAYWRIGHT_MODULE_ROOT: /tmp/joshua-playwright/node_modules/playwright
+        run: node scripts/playtest-ride-ghost.mjs
+      - name: Preserve screenshots and aim-trace even after failure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: joshua-skillshot-${{ github.sha }}
+          path: |
+            artifacts/world/ride-ghost-browser/
+            /tmp/joshua-world-next.log
+          if-no-files-found: warn
