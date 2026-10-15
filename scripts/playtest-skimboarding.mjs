@@ -53,6 +53,12 @@ try {
     return p?.length===2&&Math.abs(p[0])<4&&p[1]>38;
   });
   assert.equal(await attr("aquatic"),"land");
+  // Fast travel can update the position before the next fully rendered frame.
+  // Do not accept a transient sky-only screenshot as proof of a beach scene.
+  await page.waitForFunction(()=>{
+    const d=document.querySelector('canvas[role="application"]')?.dataset;
+    return d&&Number(d.drawCalls)>=50&&Number(d.triangles)>=50000;
+  },null,{timeout:30000});
   assert.equal(await attr("skim-wave-style"),"continuous-ribbon-v1");
   assert.equal(await attr("skim-wave-ribbons"),"5");
   const start=await page.locator("canvas").evaluate(c=>({
@@ -160,6 +166,11 @@ try {
   await page.getByRole("button",{name:"Open navigation menu"}).click();
   await page.getByRole("button",{name:/Rainforest Canopy to coast/}).click();
   await waitPhase("off");
+  await page.waitForFunction(()=>{
+    const d=document.querySelector('canvas[role="application"]')?.dataset;
+    return d?.rainforestOverlook==="true" &&
+      Number(d.cameraTargetError)<8&&Number(d.drawCalls)>30;
+  },null,{timeout:26000});
   assert.equal(await attr("aquatic"),"land");
   assert.equal(await page.getByRole("complementary",{name:"North shore skimboarding heat"}).count(),0);
   assert.equal(await page.getByRole("button",{name:"Skateboarding"}).isVisible(),true);
