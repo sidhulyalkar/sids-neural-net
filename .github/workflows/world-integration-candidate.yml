@@ -177,6 +177,21 @@ jobs:
             echo "::error::Unmerged paths remain"
             exit 1
           }
+          # Preserve the fully reviewed merged regression workflow in the
+          # evidence artifact. GitHub Actions' token is not authorized to
+          # update workflow files; publishing one causes GitHub to reject the
+          # entire otherwise-qualified two-parent merge.
+          # The integration steward promotes this exact reviewed workflow
+          # separately with a workflow-authorized GitHub connector.
+          cp .github/workflows/world-regression.yml \
+            artifacts/world-integration/validated-world-regression.yml
+          git show "$PR_HEAD:.github/workflows/world-regression.yml" > \
+            .github/workflows/world-regression.yml
+          git add .github/workflows/world-regression.yml
+          if git diff --cached --name-only | grep -q '^.github/workflows/'; then
+            echo "::error::Publication would modify a workflow without authorization"
+            exit 1
+          fi
           git diff --cached --check
           git commit -m "merge(world): reviewed skate, skim, jet-ski and Joshua integration"
           PARENTS="$(git rev-list --parents -n 1 HEAD)"
