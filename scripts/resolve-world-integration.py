@@ -209,18 +209,18 @@ test("skatepark and north shore remain separate contiguous outdoor activities",(
  race="lib/world/jetSkiRace.ts"
  rewrite_once(race,
   'import {coastlineX,eastCoastlineX,WORLD_BOUNDS,type Point} from "./model";',
-  'import {coastlineX,eastCoastlineX,WORLD_BOUNDS,waterZone,type Point} from "./model";\\n'
+  'import {coastlineX,eastCoastlineX,WORLD_BOUNDS,waterZone,type Point} from "./model";\n'
   'import {northShoreZ} from "./skimboarding";')
  rewrite_once(race,
-  'x< -104||x>109||z< -152||z>108)return false;\\n'
+  'x< -104||x>109||z< -152||z>108)return false;\n'
   ' if(z>WORLD_BOUNDS.maxZ+20||z<WORLD_BOUNDS.minZ-20)return true;',
-  'x< -104||x>109||z< -152||z>Math.max(108,WORLD_BOUNDS.maxZ+36))return false;\\n'
-  ' if(z>Math.max(76,northShoreZ(x)+4.5)&&waterZone(point)==="north-shore")return true;\\n'
+  'x< -104||x>109||z< -152||z>Math.max(108,WORLD_BOUNDS.maxZ+36))return false;\n'
+  ' if(z>Math.max(76,northShoreZ(x)+4.5)&&waterZone(point)==="north-shore")return true;\n'
   ' if(z<WORLD_BOUNDS.minZ-20)return true;')
  race_tests="tests/world-jet-ski-race.test.ts"
  rewrite_once(race_tests,
   'import {isWater,WORLD_BOUNDS,terrainHeight,regionLanding} from "../lib/world/model";',
-  'import {isWater,WORLD_BOUNDS,terrainHeight,regionLanding} from "../lib/world/model";\\n'
+  'import {isWater,WORLD_BOUNDS,terrainHeight,regionLanding} from "../lib/world/model";\n'
   'import {northShoreZ} from "../lib/world/skimboarding";')
  rewrite_once(race_tests,
   'assert.ok(JET_SKI_GATES.some(g=>g.z>WORLD_BOUNDS.maxZ+14));',
