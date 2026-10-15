@@ -11,7 +11,7 @@ EXPECTED = {
  "components/world/WorldHome.tsx": 6,
  "components/world/WorldScene.tsx": 2,
  "components/world/world.module.css": 1,
- "components/world/worldRenderer.ts": 21,
+ "components/world/worldRenderer.ts": 22,
 }
 MARKERS = re.compile(
  r"^<<<<<<< HEAD\n(.*?)^=======\n(.*?)^>>>>>>> origin/feat/sids-world\n?",
@@ -51,6 +51,14 @@ def combine(name, i, ours, theirs):
   require(ours,".jetSkiChooser");require(theirs,".skim")
   return ours+"\n"+theirs
  if name.endswith("worldRenderer.ts"):
+  if i==1:
+   # Both geometries are intentional: the island's outer apron protects
+   # jet-ski water bounds; the nearshore skim ground uses the coastline
+   # heightfield. Neither must replace the other.
+   require(ours,"Soft north/south shoreline aprons")
+   require(theirs,"const shoreGroundGeometry=")
+   return ours+"\n"+theirs
+  if i>1:i-=1
   if i in (0,1,20):return ours+"\n"+theirs
   if i==2:
    require(ours,"|| jetSki)")
