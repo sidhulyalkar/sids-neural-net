@@ -59,7 +59,7 @@ jobs:
           if [ "$(cat artifacts/world-integration/merge-status.txt)" != "0" ]; then
             mapfile -t conflicts < artifacts/world-integration/conflict-paths.txt
             python3 scripts/resolve-world-integration.py "${conflicts[@]}"
-            git add -- "${conflicts[@]}"
+            git add -- "${conflicts[@]}" lib/world/skimboarding.ts lib/world/model.ts tests/world-skimboarding.test.ts
             # Diagnostic .tsx copies sit under artifacts/. If kept in the
             # checkout, tsc would compile their unresolved conflict markers.
             # The reviewed resolved sources are now staged and authoritative.
