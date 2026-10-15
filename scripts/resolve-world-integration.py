@@ -146,9 +146,59 @@ def resolve_file(name):
  Path(name).write_text(result)
  print("Resolved",name,len(found),"reviewed conflicts")
 
+def rewrite_once(path, old, new):
+ text=Path(path).read_text()
+ if text.count(old)!=1:
+  raise ValueError("Unexpected coastal integration anchor in "+path+": "+old[:90])
+ Path(path).write_text(text.replace(old,new))
+
+def preserve_sport_geography():
+ """Give North Shore its actual offshore latitude instead of flooding the
+ protected south-meadow skate grove. Single function defines the coast;
+ terrain, wet sand, pickups, waves and wildlife use that same shoreline."""
+ shore="lib/world/skimboarding.ts"
+ rewrite_once(shore,
+  "return 47.5 + 12.5 * Math.exp(-((x - 43) ** 2) / 210) + 1.25 * Math.sin(x * 0.085);",
+  "return 66 + 12.5 * Math.exp(-((x - 43) ** 2) / 210) + 1.25 * Math.sin(x * 0.085);")
+ rewrite_once(shore,
+  "return smooth((z - 29) / 10) * (1 - smooth((Math.abs(x) - 19) / 14));",
+  "return smooth((z - (northShoreZ(x) - 12)) / 7) * (1 - smooth((Math.abs(x) - 19) / 14));")
+ rewrite_once(shore,
+  "return Math.abs(p.x) < 29 && p.z > 30 && p.z < northShoreZ(p.x) + 5;",
+  "return Math.abs(p.x) < 29 && p.z > northShoreZ(p.x) - 12 && p.z < northShoreZ(p.x) + 5;")
+ rewrite_once("lib/world/model.ts",
+  '{ id: "north-shore", name: "North shore", meaning: "Skimboarding · Shore break", point: { x: 0, z: 40 }, href: "/photography" },',
+  '{ id: "north-shore", name: "North shore", meaning: "Skimboarding · Shore break", point: { x: 0, z: northShoreZ(0) - 8 }, href: "/photography" },')
+ tests="tests/world-skimboarding.test.ts"
+ rewrite_once(tests,
+  "for(let z=33;z<northShoreZ(board.x)+3;z+=1.5)",
+  "for(let z=northShoreZ(board.x)-11.5;z<northShoreZ(board.x)+3;z+=1.5)")
+ with Path(tests).open("a") as out:
+  out.write("""
+test("skatepark and north shore remain separate contiguous outdoor activities",()=>{
+  for(const x of [-19.9,-12,-6,0,7.9]){
+    for(const z of [32,40,48,51.9]){
+      assert.equal(isWater({x,z}),false,
+        "North Shore water cannot flood the south-meadow skate grove");
+      assert.ok(beachBlend(x,z)<.001,
+        "North Shore foreshore cannot sculpt the physical skatepark");
+    }
+  }
+  for(const board of SKIM_BOARDS){
+    const p=boardPoint(SKIM_BOARDS.indexOf(board));
+    assert.ok(nearbySkimBoard(p)!==null);
+    assert.ok(beachBlend(p.x,p.z)>.75);
+    assert.ok(skimBeachClearance(p));
+    assert.equal(waterZone({x:p.x,z:northShoreZ(p.x)+1}),"north-shore");
+  }
+});
+""")
+ print("Protected meadow skate from shifted skim shoreline and added geography contract")
+
 if __name__=="__main__":
  arguments=sys.argv[1:]
  if set(arguments)!=set(EXPECTED):
   raise SystemExit("Unexpected conflict paths. Expected "+
                    repr(sorted(EXPECTED))+" got "+repr(sorted(arguments)))
  for filename in sorted(arguments):resolve_file(filename)
+ preserve_sport_geography()
