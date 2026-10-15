@@ -3110,6 +3110,7 @@ export function createWorld(
       ski:bigAir.phase==="armed"||bigAir.phase==="flying",
       disc:discGolf.phase!=="off",
       trial:trial.phase==="armed"||trial.phase==="running",
+      skim:skimHeat.phase!=="off",
     });
   function stopJetSki(){
     if(!jetSki)return;
@@ -3434,9 +3435,7 @@ export function createWorld(
       }
       skimHeat=idleSkimHeat();destination=null;clearInput();
     }else if(action==="pickup"){
-      if(discGolf.phase!=="off"||aquatic!=="land"||
-         bigAir.phase==="armed"||bigAir.phase==="flying"||
-         trial.phase==="armed"||trial.phase==="running")return;
+      if(occupiedByOtherMode("skim")||aquatic!=="land")return;
       skimHeat=pickupSkimBoard(player,boardIndex,skimHeat);
       if(skimHeat.phase==="ready"){destination=null;airHeight=verticalSpeed=0;}
     }else if(action==="restart"){
