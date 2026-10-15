@@ -201,6 +201,45 @@ test("skatepark and north shore remain separate contiguous outdoor activities",(
   }
 });
 """)
+ # The jet-ski race used WORLD_BOUNDS.maxZ+20 as shorthand for open
+ # northern ocean when the old island ended at z=58. The merged skim
+ # shoreline extends the terrain to z=94, so the former shortcut would
+ # turn valid offshore buoys and arches into dry land. Check the physical
+ # North Shore waterline instead, keeping an explicit finite outer limit.
+ race="lib/world/jetSkiRace.ts"
+ rewrite_once(race,
+  'import {coastlineX,eastCoastlineX,WORLD_BOUNDS,type Point} from "./model";',
+  'import {coastlineX,eastCoastlineX,WORLD_BOUNDS,waterZone,type Point} from "./model";\\n'
+  'import {northShoreZ} from "./skimboarding";')
+ rewrite_once(race,
+  'x< -104||x>109||z< -152||z>108)return false;\\n'
+  ' if(z>WORLD_BOUNDS.maxZ+20||z<WORLD_BOUNDS.minZ-20)return true;',
+  'x< -104||x>109||z< -152||z>Math.max(108,WORLD_BOUNDS.maxZ+36))return false;\\n'
+  ' if(z>Math.max(76,northShoreZ(x)+4.5)&&waterZone(point)==="north-shore")return true;\\n'
+  ' if(z<WORLD_BOUNDS.minZ-20)return true;')
+ race_tests="tests/world-jet-ski-race.test.ts"
+ rewrite_once(race_tests,
+  'import {isWater,WORLD_BOUNDS,terrainHeight,regionLanding} from "../lib/world/model";',
+  'import {isWater,WORLD_BOUNDS,terrainHeight,regionLanding} from "../lib/world/model";\\n'
+  'import {northShoreZ} from "../lib/world/skimboarding";')
+ rewrite_once(race_tests,
+  'assert.ok(JET_SKI_GATES.some(g=>g.z>WORLD_BOUNDS.maxZ+14));',
+  'assert.ok(JET_SKI_GATES.some(g=>g.z>northShoreZ(g.x)+5),'
+  '"northern race buoys must sit offshore of the real coast");')
+ with Path(race_tests).open("a") as out:
+  out.write("""
+test("north shore surf and offshore jet-ski routes remain physically distinct",()=>{
+  for(const p of [{x:-19.9,z:49},{x:0,z:40},{x:7.9,z:51.9}]){
+    assert.equal(jetSkiNavigableWater(p),false,"skate grove is dry");
+  }
+  for(const p of [{x:41,z:87},{x:0,z:88},{x:0,z:97.5},
+                   {x:0,z:78.5},{x:-39,z:85}]){
+    assert.equal(isWater(p),true,"northern arch and buoy is actual sea");
+    assert.equal(jetSkiNavigableWater(p),true,"existing north race ring stays navigable");
+  }
+});
+""")
+ print("Protected all Jet-Ski northern buoys and sea stacks along actual North Shore waterline")
  print("Protected meadow skate from shifted skim shoreline and added geography contract")
 
 if __name__=="__main__":
