@@ -211,3 +211,17 @@ test("rainforest arrival uses a cleared walkable anchor",()=>{
   assert.equal(isWater(point),false);
   assert.ok(Number.isFinite(terrainHeight(point.x,point.z)));
 });
+
+test("compact beach lineup shows all colors, selects each board independently", () => {
+  const xValues=SKIM_BOARDS.map(b=>b.x);
+  assert.deepEqual(xValues,[-3.3,0,3.3]);
+  for(let index=0;index<SKIM_BOARDS.length;index++){
+    assert.equal(nearbySkimBoard(boardPoint(index)),index);
+    const walkUp={x:boardPoint(index).x,z:boardPoint(index).z-1.7};
+    assert.equal(nearbySkimBoard(walkUp),index);
+  }
+  const landing=regionLanding("north-shore");
+  assert.equal(nearbySkimBoard(landing),1);
+  assert.ok(landing.z<boardPoint(1).z,"visitor sees boards ahead, not in avatar");
+  assert.ok(!isWater(landing));
+});

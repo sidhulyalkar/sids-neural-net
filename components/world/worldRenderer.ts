@@ -521,11 +521,13 @@ export function createWorld(
     prop.rotation.y=(index-1)*.16;
     prop.userData.skimBoardIndex=index;
     if(index!==1){
-      const front=mesh(skimTailGeometry,skimDarkMaterial,[0,0,.083],[1,1,1],prop);
+      const front=mesh(skimTailGeometry,skimDarkMaterial,[0,0,.105],[1,1,1],prop);
       front.castShadow=false;
-      const back=mesh(skimTailGeometry,skimDarkMaterial,[0,0,-.012],[1,1,1],prop);
+      const back=mesh(skimTailGeometry,skimDarkMaterial,[0,0,-.045],[1,1,1],prop);
       back.castShadow=false;
       skimTails[index]=front;
+      // The dark reverse panel stays parented to the planted deck, so it
+      // disappears together with the selected board during pickup.
     }
     return prop;
   });

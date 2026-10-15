@@ -5,9 +5,9 @@ export const SKIM_HEAT_SECONDS = 90;
 export const SKIM_WAVE_SPACING = 12.5;
 export const SKIM_WAVE_SPEED = 3.8;
 export const SKIM_BOARDS = [
-  { id: "amber", label: "Amber", color: "#b87931", tail: "#292d38", x: -10 },
+  { id: "amber", label: "Amber", color: "#b87931", tail: "#292d38", x: -3.3 },
   { id: "aqua", label: "Aqua", color: "#69c6cf", tail: "#69c6cf", x: 0 },
-  { id: "lime", label: "Lime", color: "#c6cb59", tail: "#292d38", x: 10 },
+  { id: "lime", label: "Lime", color: "#c6cb59", tail: "#292d38", x: 3.3 },
 ] as const;
 export type SkimTrick = "shuvit" | "big-spin" | "three-sixty" | "wrap";
 /** Ergonomic left-hand tricks. Keep HUD prompts and key handling in sync. */
@@ -62,11 +62,15 @@ export function boardPoint(index: number): SkimPoint {
   return { x: board.x, z: northShoreZ(board.x) - 6.1 };
 }
 export function nearbySkimBoard(p: SkimPoint): number | null {
+  // Select the nearest planted board, not the first overlapping pickup zone.
+  // The three colors form a compact display, so deterministic proximity matters.
+  let nearest: number | null = null, minDistance = 2.15;
   for (let i = 0; i < SKIM_BOARDS.length; i++) {
-    const b = boardPoint(i);
-    if (Math.hypot(p.x - b.x, p.z - b.z) < 3.4) return i;
+    const board = boardPoint(i);
+    const distance = Math.hypot(p.x - board.x, p.z - board.z);
+    if (distance < minDistance) { minDistance = distance; nearest = i; }
   }
-  return null;
+  return nearest;
 }
 export function skimOffshore(p: SkimPoint): number { return p.z - northShoreZ(p.x); }
 /** Crest translates toward negative Z. Its exact phase also positions rendered foam. */
