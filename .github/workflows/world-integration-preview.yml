@@ -60,6 +60,10 @@ jobs:
             mapfile -t conflicts < artifacts/world-integration/conflict-paths.txt
             python3 scripts/resolve-world-integration.py "${conflicts[@]}"
             git add -- "${conflicts[@]}"
+            # Diagnostic .tsx copies sit under artifacts/. If kept in the
+            # checkout, tsc would compile their unresolved conflict markers.
+            # The reviewed resolved sources are now staged and authoritative.
+            rm -rf artifacts/world-integration/conflict-files
             test -z "$(git diff --name-only --diff-filter=U)"
             git diff --cached --check
             printf '0\n' > artifacts/world-integration/merge-status.txt
