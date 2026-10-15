@@ -94,7 +94,10 @@ export function smoothAngle(
     Math.cos(target - current),
   );
   const eased = delta * smoothingAlpha(dt, SHASTA_MOTION.headingResponse);
-  const maxStep = SHASTA_MOTION.maxTurnRate * clampDt(dt);
+  // Browser frames can momentarily approach 100 ms while the island loads.
+  // Bound the perceptual *per-frame* yaw as well as the turn rate so
+  // the husky never snaps a third of a radian in one drawn frame.
+  const maxStep = Math.min(.18,SHASTA_MOTION.maxTurnRate * clampDt(dt));
   const applied = clamp(eased, -maxStep, maxStep);
   const next = current + applied;
   return Math.atan2(Math.sin(next), Math.cos(next));

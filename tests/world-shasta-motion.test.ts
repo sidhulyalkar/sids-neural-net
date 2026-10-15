@@ -84,3 +84,17 @@ test("gait blend transitions continuously from idle into a trot", () => {
   assert.ok(gaitBlendForSpeed(1.4) > gaitBlendForSpeed(0.7));
   assert.equal(gaitBlendForSpeed(3), 1);
 });
+
+test("Shasta heading stays continuous through slow browser frames",()=>{
+  for(const dt of [1/30,1/15,.07,.1,.3]){
+    let yaw=0;
+    for(let i=0;i<30;i++){
+      const next=smoothAngle(yaw,Math.PI*.8,dt);
+      const change=Math.atan2(Math.sin(next-yaw),Math.cos(next-yaw));
+      assert.ok(Math.abs(change)<=.180000001,
+        "slow browser frames cannot produce a visible head/body yaw snap");
+      assert.ok(Math.abs(change)<=SHASTA_MOTION.maxTurnRate*Math.min(dt,.1)+1e-9);
+      yaw=next;
+    }
+  }
+});
