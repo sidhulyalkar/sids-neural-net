@@ -12,7 +12,7 @@ const out=process.env.WORLD_AUDIT_DIR??"artifacts/world/ride-ghost-browser";
 fs.mkdirSync(out,{recursive:true});
 const browser=await chromium.launch({
  headless:true,args:["--no-sandbox","--enable-unsafe-swiftshader"]});
-const errors=[],results=[];
+const errors=[],results=[],shotAttempts=[];
 try{
  const page=await browser.newPage({viewport:{width:1440,height:900}});
  page.on("pageerror",e=>errors.push(e.message));
@@ -58,15 +58,29 @@ try{
   let hit=false,attempts=0;
   while(!hit&&attempts<4){
    const data=await canvas.getAttribute("data-ride-boost-aim");
-   if(!data){await page.waitForTimeout(200);attempts++;continue;}
-   const [nx,ny]=data.split(",").map(Number);
+   if(!data){
+    shotAttempts.push({index:attempts,aim:"none",speed:await canvas.getAttribute("data-speed")});
+    await page.waitForTimeout(200);attempts++;continue;
+   }
+   const [nx,ny,id]=data.split(",");
    const rect=await canvas.boundingBox();
    if(!rect)throw Error("Canvas hidden during ride");
-   await page.mouse.click(rect.x+(nx+1)*rect.width/2,
-    rect.y+(1-ny)*rect.height/2);
-   hit=(await canvas.getAttribute("data-ride-boost-last-shot"))==="hit";
+   await page.mouse.click(rect.x+(Number(nx)+1)*rect.width/2,
+    rect.y+(1-Number(ny))*rect.height/2);
+   const after=await canvas.getAttribute("data-ride-boost-aim");
+   const result=await canvas.getAttribute("data-ride-boost-last-shot");
+   shotAttempts.push({index:attempts,aimAtClick:{nx,ny,id},aimAfter:after,
+    result,speed:await canvas.getAttribute("data-speed"),
+    player:await canvas.getAttribute("data-player"),
+    activity:await canvas.getAttribute("data-activity"),
+    phase:await canvas.getAttribute("data-trial-phase"),
+    assist:await canvas.getAttribute("data-ride-boost-aim-assist")});
+   hit=result==="hit";
    attempts++;
   }
+  fs.writeFileSync(path.join(out,"target-aim-trace.json"),
+   JSON.stringify({shotAttempts,hit,errors},null,2)+"\n");
+  if(!hit)await page.screenshot({path:path.join(out,"02-skill-shot-failed.png")});
   assert.equal(hit,true,
    "A visible, aimed, in-range skill shot must hit an actual 3D target");
   assert.equal(await canvas.getAttribute("data-ride-boost"),"true");
