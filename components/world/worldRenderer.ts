@@ -3718,8 +3718,10 @@ export function createWorld(
         );
       } else if (rainforestFraming) {
         const coastX=eastCoastlineX(player.z)+9;
+        // A higher canopy-level overlook opens the clearing without
+        // placing the lens among the dense bamboo/trunk foreground.
         targetCamera.set(coastX,
-          Math.max(playerY+13,worldFloorHeight(coastX,player.z)+9),
+          Math.max(playerY+22,worldFloorHeight(coastX,player.z)+18),
           player.z+3);
       } else if (cavernApproachFraming) {
         // Pull the approach camera well behind the explorer so the cave mouth

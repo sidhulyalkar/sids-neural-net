@@ -172,6 +172,7 @@ try {
       Number(d.cameraTargetError)<8&&Number(d.drawCalls)>30;
   },null,{timeout:26000});
   assert.equal(await attr("aquatic"),"land");
+  assert.equal(await attr("skim-surf-visible"),"false");
   assert.equal(await page.getByRole("complementary",{name:"North shore skimboarding heat"}).count(),0);
   assert.equal(await page.getByRole("button",{name:"Skateboarding"}).isVisible(),true);
   await snap("05-rainforest-after-skim-transfer");
