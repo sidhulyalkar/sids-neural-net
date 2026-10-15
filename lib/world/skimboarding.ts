@@ -40,6 +40,11 @@ export type SkimHeat = {
   lastTrick: string;
   waveHits: number;
   recovery: number;
+  flightY: number | null;
+  launchCooldown: number;
+  launchKind: "none" | "flat-pop" | "lip-air";
+  waveRideSeconds: number;
+  trickDuration: number;
 };
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
 const smooth = (x: number) => { const t = clamp(x, 0, 1); return t * t * (3 - 2 * t); };
@@ -76,7 +81,7 @@ export function skimOffshore(p: SkimPoint): number { return p.z - northShoreZ(p.
 /** Crest translates toward negative Z. Its exact phase also positions rendered foam. */
 export function waveCrestOffshore(index: number, seconds: number): number {
   const repeat = SKIM_WAVE_SPACING * 5;
-  return 2.2 + (((11.2 + index * SKIM_WAVE_SPACING - seconds * SKIM_WAVE_SPEED) % repeat) + repeat) % repeat;
+  return -10 + (((23.4 + index * SKIM_WAVE_SPACING - seconds * SKIM_WAVE_SPEED) % repeat) + repeat) % repeat;
 }
 /** Longshore phase variation keeps crests irregular, without letting the
  * rendered ribbon drift away from the collision and scoring wave field. */
@@ -102,11 +107,11 @@ export function skimWaveAt(p: SkimPoint, seconds: number): number {
     const delta = offshore - waveCrestAtX(i, p.x, seconds);
     // The leading (shoreward) face is steep, with a longer smooth swell
     // shoulder behind it. This avoids a row of symmetric raised bars.
-    const width = delta < 0 ? 1.05 : 5.4;
+    const width = delta < 0 ? 1.8 : 5.4;
     const profile = Math.exp(-Math.pow(delta / width, 2) * 1.75);
     crest = Math.max(crest, profile);
   }
-  return crest * smooth((offshore + 2) / 5) * skimSurfEnvelope(p.x);
+  return crest * smooth((offshore + 3) / 6) * (1-smooth((offshore-34)/6)) * skimSurfEnvelope(p.x);
 }
 /** Whitewater trails landward of the breaking lip. Breaking intensifies
  * within the shallower half of the north-shore shelf. */
@@ -132,7 +137,35 @@ export function skimWashDepthAt(p: SkimPoint, seconds: number): number {
   return Math.max(0,pulse*spread*onSand);
 }
 export function skimWaterHeight(p: SkimPoint, seconds: number, seaSurface: number): number {
-  return seaSurface + .075*skimSurfEnvelope(p.x) + skimWaveAt(p, seconds)*.89;
+  const offshore=skimOffshore(p);
+  const shoal=1.15+.55*(1-smooth((offshore-10)/22));
+  return seaSurface + .035*skimSurfEnvelope(p.x) + skimWaveAt(p, seconds)*shoal;
+}
+export type SkimSurfaceAt=(p:SkimPoint,seconds:number)=>number;
+const waterSupport:SkimSurfaceAt=(p,t)=>skimWaterHeight(p,t,0);
+/** Signed distance to the nearest translating crest; a wave index alone is
+ * never sufficient to award a catch or a launch. */
+export function skimWavePocket(p:SkimPoint,seconds:number){
+  const offshore=skimOffshore(p);
+  let index=0,delta=Infinity;
+  for(let i=0;i<5;i++){
+    const d=offshore-waveCrestAtX(i,p.x,seconds);
+    if(Math.abs(d)<Math.abs(delta)){delta=d;index=i;}
+  }
+  return {index,delta,face:skimWaveAt(p,seconds),breaking:skimBreakAmountAt(p,seconds)};
+}
+export function skimLipCrossing(a:SkimPoint,b:SkimPoint,fromTime:number,toTime:number,
+ heading:SkimPoint,speed:number):boolean{
+  if(speed<7.5||heading.z<.3||skimOffshore(b)<2||skimOffshore(b)>24)return false;
+  const before=skimWavePocket(a,fromTime),after=skimWavePocket(b,toTime);
+  return before.index===after.index&&before.delta<-.08&&after.delta>=-.08&&
+    after.delta<1.8&&after.face>.65;
+}
+function launchSkim(s:SkimHeat,p:SkimPoint,t:number,impulse:number,
+ kind:SkimHeat["launchKind"],surfaceAt:SkimSurfaceAt):SkimHeat{
+ return {...s,air:.025,verticalSpeed:impulse,flightY:surfaceAt(p,t)+.025,
+  airElapsed:0,airDuration:2*impulse/13.8,trickStart:0,trickDuration:0,
+  spin:0,pendingTrick:null,launchCooldown:1.35,launchKind:kind};
 }
 export type SkimBoardContact={centerY:number;pitch:number;roll:number;
   noseY:number;tailY:number;leftY:number;rightY:number;wash:number};
@@ -159,9 +192,12 @@ export function skimBoardContact(
   };
   const noseY=sample(at(.82,0)),tailY=sample(at(-.82,0));
   const leftY=sample(at(0,-.4)),rightY=sample(at(0,.4));
-  const centerY=sample(p);
-  const pitch=clamp(-Math.atan2(noseY-tailY,1.64),-.22,.22);
-  const roll=clamp(Math.atan2(rightY-leftY,.8),-.19,.19);
+  const pitch=clamp(-Math.atan2(noseY-tailY,1.64),-.58,.58);
+  const roll=clamp(Math.atan2(rightY-leftY,.8),-.42,.42);
+  // Support a rigid planing footprint at all five samples, including convex
+  // crests. Center-only contact let the nose cut straight through the face.
+  const centerY=Math.max(sample(p),noseY+Math.tan(pitch)*.82,
+    tailY-Math.tan(pitch)*.82,leftY+Math.tan(roll)*.4,rightY-Math.tan(roll)*.4);
   return {centerY,pitch,roll,noseY,tailY,leftY,rightY,
     wash:skimWashDepthAt(p,seconds)};
 }
@@ -171,7 +207,8 @@ export function idleSkimHeat(): SkimHeat {
     verticalSpeed: 0, spin: 0, airElapsed: 0, airDuration: 0,
     trickStart: 0, wrapCooldown: 0, trickCallout: "", trickCalloutTime: 0,
     pendingTrick: null, repeats: {},
-    lastTrick: "", waveHits: 0, recovery: 0 };
+    lastTrick: "", waveHits: 0, recovery: 0, flightY:null, launchCooldown:0,
+    launchKind:"none",waveRideSeconds:0,trickDuration:0 };
 }
 export function pickupSkimBoard(p: SkimPoint, index: number, previous: SkimHeat): SkimHeat {
   if (previous.phase !== "off" && previous.phase !== "finished") return previous;
@@ -185,18 +222,18 @@ export function startSkimRide(state: SkimHeat, p: SkimPoint, speed: number, head
   return { ...state, phase: "riding", speed: Math.max(7, speed * 1.05),
     heading: normalize(heading), ridePoints: 0, waveHits: 0, air: 0,
     verticalSpeed: 0, spin: 0, airElapsed: 0, airDuration: 0, trickStart: 0,
-    pendingTrick: null };
+    pendingTrick: null,flightY:null,launchCooldown:0,launchKind:"none",waveRideSeconds:0,trickDuration:0 };
 }
 function commitRide(s: SkimHeat, clean: boolean): SkimHeat {
   const points = Math.round(s.ridePoints * (clean ? 1.2 : 0.35));
   return { ...s, phase: s.remaining <= 0 ? "finished" : "recovering",
     score: s.score + points, rides: s.rides + 1, ridePoints: 0,
     air: 0, verticalSpeed: 0, spin: 0, airElapsed: 0, airDuration: 0,
-    trickStart: 0, pendingTrick: null, trickCallout: clean ? "Clean ride!" : "Wipeout",
+    trickStart: 0, pendingTrick: null, flightY:null,launchKind:"none",trickDuration:0, trickCallout: clean ? "Clean ride!" : "Wipeout",
     trickCalloutTime: 2.0, recovery: clean ? 0.45 : 1.2,
     lastTrick: clean ? `Clean ride +${points}` : `Wipeout +${points}` };
 }
-export function skimAction(s: SkimHeat, trick: "pop" | SkimTrick, p: SkimPoint, seconds: number): SkimHeat {
+export function skimAction(s: SkimHeat, trick: "pop" | SkimTrick, p: SkimPoint, seconds: number, surfaceAt:SkimSurfaceAt=waterSupport): SkimHeat {
   if (s.phase !== "riding") return s;
   const wave = skimWaveAt(p, seconds);
   if (trick === "wrap") {
@@ -209,13 +246,18 @@ export function skimAction(s: SkimHeat, trick: "pop" | SkimTrick, p: SkimPoint, 
       lastTrick: "Wave wrap" };
   }
   if (trick === "pop") {
-    return s.air > 0.01 || s.speed < 4 ? s :
-      { ...s, air: .025, verticalSpeed: wave > .45 ? 4.9 : 3.8,
-        airElapsed: 0, airDuration: 2 * (wave > .45 ? 4.9 : 3.8) / 13.8,
-        trickStart: 0, spin: 0, pendingTrick: null };
+    if(s.air>.01||s.speed<4)return s;
+    const face=skimWavePocket(p,seconds);
+    const lip=face.face>.45&&Math.abs(face.delta)<2.2;
+    return launchSkim(s,p,seconds,lip?Math.min(8.2,5.8+s.speed*.16):3.8,
+      lip?"lip-air":"flat-pop",surfaceAt);
   }
-  if (s.air <= 0 || s.pendingTrick) return s;
-  return { ...s, pendingTrick: trick, trickStart: s.airElapsed };
+  if(s.air<=0||s.pendingTrick)return s;
+  const remaining=(s.verticalSpeed+Math.sqrt(s.verticalSpeed*s.verticalSpeed+2*13.8*s.air))/13.8;
+  // Don't score a last-frame button press with no time for a visible rotation.
+  if(remaining<.22)return s;
+  return {...s,pendingTrick:trick,trickStart:s.airElapsed,
+    trickDuration:Math.max(.18,Math.min(.62,remaining*.84))};
 }
 const TRICK_POINTS: Record<Exclude<SkimTrick, "wrap">, number> = {
   shuvit: 130, "big-spin": 220, "three-sixty": 280,
@@ -224,13 +266,14 @@ const TRICK_POINTS: Record<Exclude<SkimTrick, "wrap">, number> = {
  * Scoring is paid on landing/ride completion, never merely on pressing a trick key. */
 export function stepSkimHeat(
   state: SkimHeat, p: SkimPoint, dt: number, seconds: number,
-  steer: number, pumping: boolean,
+  steer: number, pumping: boolean, surfaceAt:SkimSurfaceAt=waterSupport,
 ): { heat: SkimHeat; point: SkimPoint } {
   const step = clamp(dt, 0, .05);
   if (state.phase === "off" || state.phase === "finished") return { heat: state, point: p };
   const remaining = Math.max(0, state.remaining - step);
   let s: SkimHeat = { ...state, remaining,
     wrapCooldown: Math.max(0, state.wrapCooldown - step),
+    launchCooldown:Math.max(0,state.launchCooldown-step),
     trickCalloutTime: Math.max(0, state.trickCalloutTime - step) };
   if (s.phase === "recovering") {
     s = { ...s, recovery: Math.max(0, s.recovery - step) };
@@ -245,12 +288,25 @@ export function stepSkimHeat(
   const offshoreStart=skimOffshore(p);
   const assist=s.waveHits>0 && offshoreStart>10 && s.heading.z>-.87 &&
     Math.abs(steer)<.15 ? 2.65*step : 0;
-  const turn=clamp(steer,-1,1)*(s.air>0?.85:1.75)*step+assist;
+  const turn=clamp(steer,-1,1)*(s.air>0?.85:1.75)*step+(s.air>0?0:assist);
   const a=Math.atan2(s.heading.x,s.heading.z)+turn;
   const heading = { x: Math.sin(a), z: Math.cos(a) };
   const wave = skimWaveAt(p, seconds);
-  let speed = clamp(s.speed + ((pumping && s.air < .02 ? 1.9 : 0) +
-    wave * (s.heading.z < 0 ? 3.4 : 1.5) - .75 - Math.abs(steer) * .55) * step, 0, 16);
+  const pocket=skimWavePocket(p,seconds);
+  const caught=s.air<.02&&heading.z<-.12&&pocket.delta>-3.6&&pocket.delta<.6&&wave>.16;
+  // Momentum comes from riding the shoreward face. Pumping on deep flat water
+  // cannot act like a motor; on thin wash it mainly preserves the run-up.
+  const pump=pumping&&s.air<.02?(offshoreStart<1?1.6:wave*1.5):0;
+  const drive=caught?4.6*wave:0;
+  let speed=clamp(s.speed+(pump+drive-.60-Math.abs(steer)*.42)*step,0,16);
+  const point={x:p.x+heading.x*speed*step,z:p.z+heading.z*speed*step};
+  if(s.air<=0&&s.launchCooldown<=0&&
+    skimLipCrossing(p,point,seconds-step,seconds,heading,speed)){
+    s=launchSkim({...s,waveHits:s.waveHits+1},point,seconds,
+      Math.min(8.2,5.8+speed*.16),"lip-air",surfaceAt);
+    s.trickCallout="Lip air! · Q / E / F";s.trickCalloutTime=1.3;
+  }
+  s.waveRideSeconds+=caught?step:0;
   let air = s.air, verticalSpeed = s.verticalSpeed, spin = s.spin;
   let airElapsed = s.airElapsed;
   let ridePoints = s.ridePoints + wave * speed * step * .6;
@@ -260,14 +316,16 @@ export function stepSkimHeat(
     if(s.heading.z<-.1)ridePoints+=10*step;
   }
   if (air > 0) {
-    air += verticalSpeed * step;
+    const flightY=(s.flightY??surfaceAt(p,seconds-step)+air)+verticalSpeed*step-.5*13.8*step*step;
     verticalSpeed -= 13.8 * step;
+    s.flightY=flightY;
+    air=flightY-surfaceAt(point,seconds);
     airElapsed += step;
     if (s.pendingTrick) {
       // Trick assist finishes a visually complete rotation before landing,
       // without asking the player to time fractional key presses.
       const progress = clamp((airElapsed - s.trickStart) /
-        Math.max(0.12, s.airDuration - s.trickStart), 0, 1);
+        Math.max(.18,s.trickDuration), 0, 1);
       spin = 2 * Math.PI * smooth(progress);
     }
     if (air <= 0) {
@@ -278,7 +336,7 @@ export function stepSkimHeat(
         const bonus = Math.round(TRICK_POINTS[trick] *
           (1 + wave * .6) / (1 + count * .4));
         // A controlled touchdown requires forward momentum and a complete airborne window.
-        if (speed >= 4.1) {
+        if (speed >= 4.1 && spin>=Math.PI*2*.90) {
           ridePoints += bonus;
           const title = trick === "shuvit" ? "Shuv-it" : trick === "big-spin" ? "Big spin" : "360";
           s = { ...s, repeats: { ...s.repeats, [trick]: count + 1 },
@@ -288,13 +346,12 @@ export function stepSkimHeat(
       }
       verticalSpeed = spin = 0;
       airElapsed = 0;
-      s = { ...s, pendingTrick: null, airDuration: 0, trickStart: 0 };
+      s = { ...s, pendingTrick: null, airDuration: 0, trickStart: 0, flightY:null,trickDuration:0 };
     }
   }
-  const point = { x: p.x + heading.x * speed * step, z: p.z + heading.z * speed * step };
   s = { ...s, speed, heading, air, verticalSpeed, spin, airElapsed, ridePoints, waveHits };
   const offshore = skimOffshore(point);
-  const clean = offshore < -9 && (s.waveHits > 0 || ridePoints > 35);
+  const clean = s.air<=0 && offshore < -9 && (s.waveHits > 0 || ridePoints > 35);
   if (clean) s = commitRide(s, true);
   else if (speed < 2 || offshore > 29 || Math.abs(point.x) > 30 || offshore < -15) s = commitRide(s, false);
   else if (remaining === 0) s = commitRide(s, false);

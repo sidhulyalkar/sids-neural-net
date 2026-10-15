@@ -1,7 +1,8 @@
 import * as THREE from "three/src/Three.Core.js";
 import {
   SKATE_PARK, SKATE_PARK_RAILS, REDWOOD_BOWL, STUMP_PADS,
-  skateParkSurface, skateParkZone,
+  skateParkSurface, skateParkZone, GROVE_LOG, GROVE_BRIDGE,
+  groveBridgeRise, groveStoneRise,
 } from "@/lib/world/skatepark";
 import {terrainHeight,type Point} from "@/lib/world/model";
 import {biomeAt,BIOME_COLORS} from "@/lib/world/biomes";
@@ -87,10 +88,23 @@ export function createWorldSkateGrove(scene:THREE.Scene,support:(p:Point)=>numbe
    color.copy(hollowFloor).lerp(carvedWall,graded(2.05,4.45,d));
    color.lerp(darkHeartwood,graded(4.85,5.47,d));
    color.lerp(exteriorBark,graded(5.47,5.91,d));
+   // Bark fluting is color on the real shoulder, never protruding stakes.
+   if(d>5.55&&d<6.5)color.multiplyScalar(.88+.12*Math.cos(az*29+d*1.7));
    color.lerp(soil,graded(6.32,7.18,d));
    const grain=.975+.019*Math.sin(d*8.7+.65*Math.sin(az*5))+
     .010*Math.sin(d*17.7+.55*Math.cos(az*9));
    color.multiplyScalar(grain);
+  }else if(groveBridgeRise(p)>.025){
+   color.set(Math.floor((x-GROVE_BRIDGE.center.x)*3)%2===0?"#bb8c59":"#c79b68");
+  }else if(Math.abs(x-GROVE_LOG.center.x)<GROVE_LOG.halfLength &&
+    Math.abs(z-GROVE_LOG.center.z)<GROVE_LOG.halfWidth*1.5){
+   const across=Math.abs(z-GROVE_LOG.center.z)/GROVE_LOG.halfWidth;
+   color.copy(carvedWall).lerp(exteriorBark,graded(.85,1.1,across));
+   color.lerp(soil,graded(1.18,1.5,across));
+   color.multiplyScalar(.96+.04*Math.sin(x*4.2+across*7));
+  }else if(groveStoneRise(p)>.015){
+   color.set("#93978b");
+   color.multiplyScalar(.88+.12*Math.sin(Math.floor(x*2)*3+Math.floor(z*2)));
   }else if(zone==="timber-quarter"){
    color.set(iz%3===0?"#caa471":"#bf9566");
   }else if(zone==="stump-pad")color.set("#c8a477");
@@ -173,6 +187,17 @@ export function createWorldSkateGrove(scene:THREE.Scene,support:(p:Point)=>numbe
    woodEndGrain.push(beam(onRide(p,.085),onRide(q,.085),.040));
   }
  }
+ // Cross-cut growth lines on both open log ends and two bark edges.
+ // The log is split lengthwise so visitors can enter without a head collider.
+ for(const side of [-1,1]){
+  for(const inset of [.4,.65,.9]){
+   const x=GROVE_LOG.center.x+side*(GROVE_LOG.halfLength-inset);
+   for(let z=GROVE_LOG.center.z-GROVE_LOG.halfWidth;
+    z<GROVE_LOG.center.z+GROVE_LOG.halfWidth;z+=.15){
+    woodEndGrain.push(beam(onRide({x,z},.05),onRide({x,z:z+.15},.05),.018));
+   }
+  }
+ }
  pooled("open-trunk-end-grain",woodEndGrain,grain);
 
  // Timber quarterpipes and halfpipe rhythm. Thin seams follow the real
@@ -212,6 +237,22 @@ export function createWorldSkateGrove(scene:THREE.Scene,support:(p:Point)=>numbe
   for(let x=-1.8;x<6.5;x+=.6){
    const p={x,z},q={x:Math.min(6.5,x+.6),z};
    lipTrim.push(beam(onRide(p,.078),onRide(q,.078),.044));
+  }
+ }
+ // Plank arch crossing the granite garden. Every joint is subdivided
+ // across the smooth camber and samples exactly the same wheel surface.
+ for(let x=GROVE_BRIDGE.center.x-GROVE_BRIDGE.halfLength+.15;
+   x<GROVE_BRIDGE.center.x+GROVE_BRIDGE.halfLength;x+=.33){
+  for(let z=GROVE_BRIDGE.center.z-GROVE_BRIDGE.halfWidth;
+    z<GROVE_BRIDGE.center.z+GROVE_BRIDGE.halfWidth;z+=.21){
+   plankSeams.push(beam(onRide({x,z},.048),onRide({x,z:Math.min(z+.21,GROVE_BRIDGE.center.z+GROVE_BRIDGE.halfWidth)},.048),.012));
+  }
+ }
+ for(const side of [-1,1]){
+  const z=GROVE_BRIDGE.center.z+side*GROVE_BRIDGE.halfWidth;
+  for(let x=GROVE_BRIDGE.center.x-GROVE_BRIDGE.halfLength;
+    x<GROVE_BRIDGE.center.x+GROVE_BRIDGE.halfLength;x+=.2){
+   sideRails.push(beam(onRide({x,z},.065),onRide({x:x+.2,z},.065),.055));
   }
  }
  pooled("timber-quarter-plank-joints",plankSeams,darkTimber);

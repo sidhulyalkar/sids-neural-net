@@ -44,6 +44,30 @@ export const STUMP_PADS=[
  {id:"north-stump",center:{x:-5,z:33.5},radius:1.3,lift:.15},
  {id:"south-stump",center:{x:-5,z:46.5},radius:1.3,lift:.15},
 ] as const;
+/** Reference-inspired woodland features. Open split log and solid-backed bridge
+ * deliberately use a single heightfield: no invisible tunnel/overpass collider. */
+export const GROVE_LOG={center:{x:-11,z:30.7},halfLength:4.4,halfWidth:1.5} as const;
+export const GROVE_BRIDGE={center:{x:-10,z:49},halfLength:4.2,halfWidth:1.05} as const;
+export const GROVE_STONES=[
+ {x:-10,z:47.4,rx:2.0,rz:.72,height:.82},
+ {x:-10.8,z:50.7,rx:2.3,rz:.70,height:1.05},
+ {x:-18.1,z:32.1,rx:.85,rz:1.1,height:.65},
+] as const;
+export function groveBridgeRise(p:Point):number{
+ const u=Math.abs(p.x-GROVE_BRIDGE.center.x)/GROVE_BRIDGE.halfLength;
+ const v=Math.abs(p.z-GROVE_BRIDGE.center.z);
+ return 1.45*(1-smooth(u))*(1-smooth((v-GROVE_BRIDGE.halfWidth)/.7));
+}
+export function groveLogRise(p:Point):number{
+ const u=Math.abs(p.x-GROVE_LOG.center.x)/GROVE_LOG.halfLength;
+ const v=Math.abs(p.z-GROVE_LOG.center.z)/GROVE_LOG.halfWidth;
+ // Concave cross section, eased ends, and low outer bark shoulders.
+ return 1.12*smooth(v)*(1-smooth((v-1)/.5))*(1-smooth((u-.65)/.35));
+}
+export function groveStoneRise(p:Point):number{
+ return GROVE_STONES.reduce((height,rock)=>Math.max(height,rock.height*
+  Math.max(0,1-Math.hypot((p.x-rock.x)/rock.rx,(p.z-rock.z)/rock.rz))),0);
+}
 export type SkateParkZone="redwood-bowl"|"timber-quarter"|"stump-pad"|"street"|"apron";
 export function skateParkZone(p:Point):SkateParkZone{
  if(Math.hypot(p.x-REDWOOD_BOWL.center.x,p.z-REDWOOD_BOWL.center.z)<REDWOOD_BOWL.rimRadius+.85)
@@ -93,7 +117,7 @@ export function skateParkSurface(p:Point):number|null {
   const plateau=1-smooth((radius-pad.radius*.35)/(pad.radius*.65));
   return sum+pad.lift*plateau;
  },0);
- return Math.max(natural,deck+blend*(quarters+bowl+pyramid+stump));
+ return Math.max(natural,deck+blend*(quarters+bowl+pyramid+stump+groveBridgeRise(p)+groveLogRise(p)+groveStoneRise(p)));
 }
 export type SkateRail={
  id:string;a:Point;b:Point;role:"sport";radius:number;lift:number;

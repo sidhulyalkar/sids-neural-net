@@ -1,7 +1,7 @@
 name: North Shore Skimboarding Browser QA
 on:
   push:
-    branches: ['feat/sids-world']
+    branches: ['feat/sids-world', 'feat/skim-shorebreak-refinement']
     paths:
       - 'lib/world/skimboarding.ts'
       - 'lib/world/model.ts'
@@ -59,6 +59,12 @@ jobs:
           exit 1
       - name: Audit north-shore interactions and capture screenshots
         run: node scripts/playtest-skimboarding.mjs
+      - name: Preserve skatepark flow and sideways stance
+        env:
+          WORLD_AUDIT_DIR: artifacts/world/skimboarding/skatepark
+        run: |
+          node scripts/playtest-skate-grove-flow.mjs
+          node scripts/playtest-skatepark.mjs
       - name: Print Next.js startup and rendering failures
         if: failure()
         run: tail -n 160 /tmp/world-skim-next.log || true

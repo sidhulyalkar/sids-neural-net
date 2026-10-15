@@ -59,7 +59,7 @@ try {
     const d=document.querySelector('canvas[role="application"]')?.dataset;
     return d&&Number(d.drawCalls)>=50&&Number(d.triangles)>=50000;
   },null,{timeout:30000});
-  assert.equal(await attr("skim-wave-style"),"shoaling-lip-wash-v2");
+  assert.equal(await attr("skim-wave-style"),"continuous-peeling-surf-v3");
   assert.equal(await attr("skim-wave-ribbons"),"5");
   assert.equal(await attr("shore-life-visible"),"true");
   assert.equal(await attr("shore-fish"),"24");
@@ -155,6 +155,49 @@ try {
     assert.match(await hud.textContent(),/Drop board · Space/);
   }
   checks.push("Run + drop + Q trick registered airborne spin, touchdown score and no swim");
+
+  // A second actual run tests an uncommanded crest launch, not a flat-water
+  // Space hop. Capture the live WebGL frame before compositing can clear it.
+  await waitPhase("ready",15000);
+  await canvas().focus();
+  await page.keyboard.down("Shift");await page.keyboard.down("w");
+  await page.waitForFunction(()=>Number(document.querySelector("canvas")?.dataset.speed)>6.5,
+    null,{timeout:10000});
+  const lipTrace=await canvas().evaluate(async c=>{
+    return await new Promise(resolve=>{
+      const trace={lip:false,trick:false,landed:false,apex:0,maxFootError:0,png:"",bodyYaw:0};
+      let queued=false,done=false;
+      const press=key=>c.dispatchEvent(new KeyboardEvent("keydown",{key,bubbles:true,cancelable:true}));
+      const finish=()=>{if(done)return;done=true;observer.disconnect();clearTimeout(timer);resolve(trace);};
+      const sample=()=>{
+        const d=c.dataset,air=Number(d.skimAir);
+        trace.apex=Math.max(trace.apex,air);
+        if(d.skimPhase==="riding")trace.maxFootError=Math.max(trace.maxFootError,Number(d.skimFootContactError)||0);
+        if(d.skimLaunchKind==="lip-air"&&air>.3&&!queued){queued=true;trace.lip=true;press("f");}
+        if(d.skimPendingTrick==="three-sixty"&&air>.45){
+          trace.trick=true;trace.bodyYaw=Number(d.skimBodyYaw);
+          if(!trace.png)trace.png=c.toDataURL("image/png");
+        }
+        trace.landed ||= (d.skimLastTrick??"").includes("360 landed");
+        if(trace.landed)finish();
+      };
+      const observer=new MutationObserver(sample);
+      observer.observe(c,{attributes:true,attributeFilter:["data-skim-air","data-skim-last-trick","data-skim-pending-trick"]});
+      const timer=setTimeout(finish,20000);
+      press(" ");sample();
+    });
+  });
+  await page.keyboard.up("w");await page.keyboard.up("Shift");
+  if(lipTrace.png){
+    fs.writeFileSync(path.join(output,"03-actual-lip-air.png"),Buffer.from(lipTrace.png.split(",")[1],"base64"));
+    delete lipTrace.png;
+  }
+  fs.writeFileSync(path.join(output,"lip-air-trace.json"),JSON.stringify(lipTrace,null,2));
+  assert.ok(lipTrace.lip&&lipTrace.trick&&lipTrace.landed,"natural crest crossing must launch and land a 360");
+  assert.ok(lipTrace.apex>1.5,"lip air must visibly exceed a small flat hop");
+  assert.ok(lipTrace.maxFootError<.035,"actual transformed feet stay on the board plane");
+  assert.ok(Math.abs(lipTrace.bodyYaw-Math.PI/2)<.001,"sideways skim stance");
+  checks.push("Natural lip launch, actual airborne canvas capture, 360 landing and measured foot contact");
 
   await page.setViewportSize({width:390,height:844});
   const bounds=await hud.boundingBox();
