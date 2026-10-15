@@ -456,9 +456,9 @@ export function createWorld(
     roughness:.32,metalness:.05,transparent:true,opacity:.22,
     depthWrite:false,side:THREE.DoubleSide,
   });
-  const whitecapMaterial=mat("#effaf5",{
-    roughness:.65,transparent:true,opacity:.54,
-    depthWrite:false,side:THREE.DoubleSide,
+  const whitecapMaterial=new THREE.MeshBasicMaterial({
+    color:"#ffffff",transparent:true,opacity:.68,depthWrite:false,
+    side:THREE.DoubleSide,toneMapped:false,
   });
   const swellSamples=48;
   function skimRibbon(across:number,material:THREE.Material){
@@ -479,9 +479,9 @@ export function createWorld(
     scene.add(object);
     return {geometry,object,coords,across};
   }
-  const lipMaterial=mat("#d6f5e9",{
-    transparent:true,opacity:.55,depthWrite:false,side:THREE.DoubleSide,
-    roughness:.27,
+  const lipMaterial=new THREE.MeshBasicMaterial({
+    color:"#f0fff8",transparent:true,opacity:.80,depthWrite:false,
+    side:THREE.DoubleSide,toneMapped:false,
   });
   const washMaterial=mat("#c7ede4",{
     transparent:true,opacity:.28,depthWrite:false,side:THREE.DoubleSide,
@@ -494,6 +494,19 @@ export function createWorld(
     foam:skimRibbon(7,whitecapMaterial),
   }));
   const skimWash=skimRibbon(10,washMaterial);
+  // A single instanced collection of small foam cells makes breaking water
+  // granular, not one continuous white cylinder across the horizon.
+  const frothGeometry=geo(new THREE.CircleGeometry(1,7));
+  frothGeometry.rotateX(-Math.PI/2);
+  const frothMaterial=new THREE.MeshBasicMaterial({
+    color:"#f5fff8",transparent:true,opacity:.72,
+    depthWrite:false,side:THREE.DoubleSide,toneMapped:false,
+  });
+  const flecksPerWave=22;
+  const froth=new THREE.InstancedMesh(frothGeometry,frothMaterial,
+    skimWaves.length*flecksPerWave);
+  froth.frustumCulled=false;froth.castShadow=false;
+  scene.add(froth);
   function updateSkimWaves(seconds:number){
     for(const wave of skimWaves){
       const crest=waveCrestOffshore(wave.index,seconds);
@@ -513,8 +526,10 @@ export function createWorld(
             const point={x,z:northShoreZ(x)+waveCrestAtX(wave.index,x,seconds)+side};
             const face=skimWaveAt(point,seconds);
             const breaking=skimBreakAmountAt(point,seconds);
-            const lipLift=kind==="lip" ? .24*breaking*Math.sin(fraction*Math.PI) : 0;
-            const foamLift=kind==="whitewater" ? .035+.095*breaking : 0;
+            const curl=Math.sin(fraction*Math.PI)*breaking;
+            const lipLift=kind==="lip" ? .39*curl : 0;
+            const foamLift=kind==="whitewater" ? .014+.11*breaking : 0;
+            if(kind==="lip")point.z-=curl*.48;
             const y=skimWaterHeight(point,seconds,SEA_SURFACE)+lipLift+foamLift;
             const k=3*(j*(swellSamples+1)+i);
             ribbon.coords[k]=x;
@@ -525,7 +540,20 @@ export function createWorld(
         ribbon.geometry.attributes.position.needsUpdate=true;
         ribbon.geometry.computeVertexNormals();
       }
+      for(let i=0;i<flecksPerWave;i++){
+        const x=-28+56*i/(flecksPerWave-1);
+        const offset=-.8-(i%5)*.82;
+        const p={x,z:northShoreZ(x)+waveCrestAtX(wave.index,x,seconds)+offset};
+        const foam=skimBreakAmountAt(p,seconds);
+        dummy.position.set(x,skimWaterHeight(p,seconds,SEA_SURFACE)+.03+foam*.04,p.z);
+        dummy.rotation.set(0,Math.sin(i*2.4)*.3,0);
+        const size=foam>.08&&crest<30?.18+foam*.30:0;
+        dummy.scale.set(size*(1+(i%3)*.4),1,size*(.48+(i%4)*.14));
+        dummy.updateMatrix();
+        froth.setMatrixAt(wave.index*flecksPerWave+i,dummy.matrix);
+      }
     }
+    froth.instanceMatrix.needsUpdate=true;
     skimWash.object.visible=true;
     for(let j=0;j<=skimWash.across;j++){
       const offshore=-3.3+8*j/skimWash.across;
@@ -2766,7 +2794,7 @@ export function createWorld(
   // Keep ground/coast geometry, water, wildlife, interactables and marine
   // content intact. This visibility filter runs after their frame updates.
   const underwaterCullingExclusions=new Set<THREE.Object3D>([
-    ground,shoreGround,water,tides,shoreFoam,northWetSand,northFoamSeam,skimWash.object,
+    ground,shoreGround,water,tides,shoreFoam,northWetSand,northFoamSeam,skimWash.object,froth,
     ...skimWaves.flatMap(w=>[w.surface.object,w.lip.object,w.foam.object]),
     ...skimProps,...skimTails,
     grassMesh,markerHitMesh,explorerContact,dogContact,
@@ -3590,6 +3618,7 @@ export function createWorld(
       canvas.dataset.skimBreaking=skimBreakAmountAt(player,surfClock).toFixed(2);
       canvas.dataset.skimWaterOpacity=waterMaterial.opacity.toFixed(3);
       canvas.dataset.skimWaveRibbons=String(skimWaves.length);
+      canvas.dataset.skimFroth=String(froth.count);
       canvas.dataset.skimWakeVisible=String(skimWake.visible);
       canvas.dataset.skimPendingTrick=skimHeat.pendingTrick??"";
       canvas.dataset.skimLastTrick=skimHeat.lastTrick;
@@ -4833,6 +4862,7 @@ export function createWorld(
     }
     waterMaterial.opacity=baseOceanOpacity*
       (1-(surfVisible?.52:0));
+    froth.visible=surfVisible;
     canvas.dataset.skimSurfVisible=String(surfVisible);
     shoreFoam.position.x = Math.sin(elapsed * 0.7) * 0.11;
     shoreFoam.position.y = Math.sin(elapsed * 1.25) * 0.018;
