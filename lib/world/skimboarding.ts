@@ -85,18 +85,79 @@ export function waveCrestAtX(index: number, x: number, seconds: number): number 
     + .34*Math.sin(x*.24 + seconds*.31)
     + .13*Math.sin(x*.61 - seconds*.18);
 }
+/** A shoaling shoulder, steep forward face and short collapsed back.
+ * The positive displacement is the *offshore* side of a shoreward-traveling
+ * crest. The asymmetric geometry is also sampled by the renderer and board. */
 export function skimWaveAt(p: SkimPoint, seconds: number): number {
   const offshore = skimOffshore(p);
-  if (Math.abs(p.x) > 40 || offshore < -2 || offshore > 37) return 0;
+  if (Math.abs(p.x) > 36 || offshore < -4 || offshore > 40) return 0;
   let crest = 0;
   for (let i = 0; i < 5; i++) {
-    const d = Math.abs(offshore - waveCrestAtX(i, p.x, seconds));
-    crest = Math.max(crest, smooth(1 - d / 2.7));
+    const delta = offshore - waveCrestAtX(i, p.x, seconds);
+    // The leading (shoreward) face is steep, with a longer smooth swell
+    // shoulder behind it. This avoids a row of symmetric raised bars.
+    const width = delta < 0 ? 1.05 : 5.4;
+    const profile = Math.exp(-Math.pow(delta / width, 2) * 1.75);
+    crest = Math.max(crest, profile);
   }
-  return crest * smooth((offshore + 1) / 5);
+  return crest * smooth((offshore + 2) / 5);
+}
+/** Whitewater trails landward of the breaking lip. Breaking intensifies
+ * within the shallower half of the north-shore shelf. */
+export function skimBreakAmountAt(p: SkimPoint, seconds: number): number {
+  const offshore = skimOffshore(p);
+  if (Math.abs(p.x) > 32 || offshore < -4 || offshore > 31) return 0;
+  let foam=0;
+  for(let i=0;i<5;i++){
+    const delta=offshore-waveCrestAtX(i,p.x,seconds);
+    const trailing=smooth((delta+7)/3)*(1-smooth((delta+.15)/1.1));
+    foam=Math.max(foam,trailing);
+  }
+  return foam * (1-smooth((offshore-19)/13)) * smooth((offshore+2)/5);
+}
+/** Swash reaching a thin film across the wet foreshore. */
+export function skimWashDepthAt(p: SkimPoint, seconds: number): number {
+  const offshore=skimOffshore(p);
+  if(Math.abs(p.x)>31 || offshore < -4 || offshore > 12)return 0;
+  const spread=1-smooth((offshore-5)/7);
+  const onSand=1-smooth((offshore+3.3)/5);
+  const pulse=.04+.10*Math.max(skimBreakAmountAt(p,seconds),
+    .5+.5*Math.sin(seconds*1.25+p.x*.085));
+  return Math.max(0,pulse*spread*onSand);
 }
 export function skimWaterHeight(p: SkimPoint, seconds: number, seaSurface: number): number {
-  return seaSurface + 0.1 + skimWaveAt(p, seconds) * 0.72;
+  return seaSurface + .075 + skimWaveAt(p, seconds)*.89;
+}
+export type SkimBoardContact={centerY:number;pitch:number;roll:number;
+  noseY:number;tailY:number;leftY:number;rightY:number;wash:number};
+/** Five-point planing contact, shared with the render pose. The sand and
+ * ocean never compete for the board's support height at the shoreline. */
+export function skimBoardContact(
+  p:SkimPoint,heading:SkimPoint,seconds:number,seaSurface:number,
+  floorAt:(p:SkimPoint)=>number,
+):SkimBoardContact {
+  const dir=normalize(heading),right={x:dir.z,z:-dir.x};
+  const at=(along:number,across:number):SkimPoint=>({
+    x:p.x+dir.x*along+right.x*across,
+    z:p.z+dir.z*along+right.z*across,
+  });
+  const sample=(point:SkimPoint)=>{
+    const floor=floorAt(point);
+    const offshore=skimOffshore(point);
+    const wave=skimWaterHeight(point,seconds,seaSurface);
+    const swash=skimWashDepthAt(point,seconds);
+    // Blend contact across wet sand; no floating across bone-dry inland.
+    const wet=offshore>-.8 ? wave :
+      Math.min(wave,floor+Math.max(.018,swash));
+    return Math.max(floor+.045,wet);
+  };
+  const noseY=sample(at(.82,0)),tailY=sample(at(-.82,0));
+  const leftY=sample(at(0,-.4)),rightY=sample(at(0,.4));
+  const centerY=sample(p);
+  const pitch=clamp(-Math.atan2(noseY-tailY,1.64),-.22,.22);
+  const roll=clamp(Math.atan2(rightY-leftY,.8),-.19,.19);
+  return {centerY,pitch,roll,noseY,tailY,leftY,rightY,
+    wash:skimWashDepthAt(p,seconds)};
 }
 export function idleSkimHeat(): SkimHeat {
   return { phase: "off", board: null, remaining: SKIM_HEAT_SECONDS, score: 0,
