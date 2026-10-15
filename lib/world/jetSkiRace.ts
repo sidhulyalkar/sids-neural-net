@@ -2,7 +2,8 @@
  * Gameplay inspiration: Sunwake Rush's checkpoints and readable handling.
  * The island mesh occupies WORLD_BOUNDS; the open-ocean north/south legs are
  * beyond it, while the east/west legs use the existing coastal water zones. */
-import {coastlineX,eastCoastlineX,WORLD_BOUNDS,type Point} from "./model";
+import {coastlineX,eastCoastlineX,WORLD_BOUNDS,isWater,type Point} from "./model";
+import {northShoreZ} from "./skimboarding";
 import {jetSkiRockAt} from "./jetSkiCourse";
 import {jetSkiWaterSample,jetSkiJumpAt,jetSkiCrestImpulse} from "./jetSkiWater";
 export type JetSkiType="touring"|"sport"|"race";
@@ -43,8 +44,9 @@ const clamp=(x:number,a:number,b:number)=>Math.max(a,Math.min(b,x));
 export function jetSkiNavigableWater(point:Point):boolean{
  const {x,z}=point;
  if(!Number.isFinite(x)||!Number.isFinite(z)||
-    x< -104||x>109||z< -152||z>108)return false;
- if(z>WORLD_BOUNDS.maxZ+20||z<WORLD_BOUNDS.minZ-20)return true;
+    x< -104||x>109||z< -152||z>Math.max(108,WORLD_BOUNDS.maxZ+36))return false;
+ if(z>Math.max(76,northShoreZ(x)+4.5)&&isWater(point))return true;
+ if(z<WORLD_BOUNDS.minZ-20)return true;
  return x>eastCoastlineX(z)+1.5||x<coastlineX(z)-1.5;
 }
 export function startJetSkiRace(craft:JetSkiType="sport"):JetSkiState{

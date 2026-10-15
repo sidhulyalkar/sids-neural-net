@@ -37,6 +37,8 @@ import { createMarineSchools } from "./worldSchools";
 import { createWorldTridents } from "./worldTridents";
 import { nearbyUnderwaterTrident } from "@/lib/world/artifacts";
 import { createHabitats } from "./worldHabitats";
+import { createSkimWake } from "./worldSkimWake";
+import { createNorthShoreLife } from "./worldNorthShoreLife";
 import { ringSurface, ribbon } from "./worldGeometry";
 import { drainagePoints, downstreamPoints, waterfallProfile, waterfallCrownRings } from "@/lib/world/hydrology";
 import { biomeAt, BIOME_COLORS } from "@/lib/world/biomes";
@@ -45,6 +47,13 @@ import { LAND_WILDLIFE, LAND_WILDLIFE_COLORS } from "@/lib/world/ecology";
 import {stepCritterLocomotion} from "@/lib/world/landWildlifeMotion";
 import { SHASTA_CHARACTER } from "@/lib/world/shastaCharacter";
 import { FrameSampler, QualityController } from "@/lib/world/performance";
+import {
+  SKIM_BOARDS, boardPoint, beachBlend, northShoreZ, skimBeachClearance, nearbySkimBoard,
+  idleSkimHeat, pickupSkimBoard, startSkimRide, stepSkimHeat, skimAction,
+  skimWaterHeight, skimWaveAt, skimBreakAmountAt, skimWashDepthAt, skimBoardContact,
+  waveCrestOffshore, waveCrestAtX,
+  skimTrickForKey, type SkimHeat, type SkimTrick,
+} from "@/lib/world/skimboarding";
 import { shastaDetour, initialChaseState, stepChase, gaitBlendForSpeed, smoothAngle, smoothPoint, smoothingAlpha, steerShastaVelocity } from "@/lib/world/shastaMotion";
 import {idleFetchRunRoute,stepFetchRunRoute,steerFetchRun} from "@/lib/world/shastaFetchRun";
 import {advanceShastaStride,shastaGaitPose,shastaStraightLeg} from "@/lib/world/shastaGait";
@@ -105,6 +114,9 @@ type Callbacks = {
   onBigAir: (flight:BigAirState) => void;
   onDiscGolf:(game:DiscGolfState)=>void;
   onJetSkiMode:(active:boolean)=>void;
+
+  onSkim:(heat:SkimHeat)=>void;
+  onSkimNearby:(board:number|null)=>void;
 };
 type State = {
   activity: Activity;
@@ -119,6 +131,9 @@ type State = {
   discGolfExitSerial:number;
   discGolfSwingStage:DiscGolfSwingStage;
   discGolfSwingAmount:number;
+  skimCommandSerial:number;
+  skimCommand:"pickup"|"drop"|"pop"|SkimTrick|"exit"|"restart";
+  skimBoardIndex:number;
   waterAction: "dive" | "deeper" | "shallower" | "surface";
   waterActionSerial: number;
   entered: boolean;
@@ -504,6 +519,7 @@ export function createWorld(
     groundColor.setRGB(0,0,0);
     for (const [id,weight] of Object.entries(biome.weights)) groundColor.add(new THREE.Color(BIOME_COLORS[id as keyof typeof BIOME_COLORS]).multiplyScalar(weight));
     if (!wet && (trail < 1.7 || distance({ x, z }, REGIONS[0].point) < 4)) groundColor.lerp(new THREE.Color("#b6a684"), .5);
+    if (beachBlend(x,z) > .02) groundColor.lerp(new THREE.Color("#e6c797"),beachBlend(x,z)*.94);
     // Track pigment is bound to the modeled dirt tread, never a floating decal.
     if (!wet) groundColor.lerp(new THREE.Color("#9c7951"), desertTrackTreadBlend({ x, z }) * 0.82);
     const caveApproachMask = arcadeAccessTerrainMask(x, z);
@@ -546,6 +562,39 @@ export function createWorld(
       [0,0,0],[1,1,1]);
     cap.castShadow=false;
   }
+
+  // Fine-grained shore skin masks the ~1m polygonal edge of the island grid.
+  // This inherits the SAME navigation and marine-floor heights.
+  const shorePositions:number[]=[],shoreColors:number[]=[],shoreIndices:number[]=[];
+  const shoreXDiv=100,shoreZDiv=28,beachSand=new THREE.Color("#e7cfa6"),
+    wetTone=new THREE.Color("#b8b4a1");
+  for(let j=0;j<=shoreZDiv;j++)for(let i=0;i<=shoreXDiv;i++){
+    const x=-31+62*i/shoreXDiv,offshore=-11+23*j/shoreZDiv;
+    const z=northShoreZ(x)+offshore;
+    shorePositions.push(x,worldFloorHeight(x,z)+.027,z);
+    const biome=biomeAt({x,z}),color=new THREE.Color("#000000");
+    for(const [id,weight] of Object.entries(biome.weights))
+      color.add(new THREE.Color(BIOME_COLORS[id as keyof typeof BIOME_COLORS]).multiplyScalar(weight));
+    const sideFade=THREE.MathUtils.smoothstep(31-Math.abs(x),0,6);
+    const edgeFade=Math.min(THREE.MathUtils.smoothstep(offshore+11,0,3),
+      THREE.MathUtils.smoothstep(12-offshore,0,5));
+    const sand=beachSand.clone().lerp(wetTone,
+      THREE.MathUtils.smoothstep(offshore,-3,5)*.33);
+    color.lerp(sand,sideFade*edgeFade*Math.min(1,beachBlend(x,z)));
+    shoreColors.push(color.r,color.g,color.b);
+    if(i<shoreXDiv&&j<shoreZDiv){
+      const a=j*(shoreXDiv+1)+i,b=a+shoreXDiv+1;
+      shoreIndices.push(a,b,a+1,b,b+1,a+1);
+    }
+  }
+  const shoreGroundGeometry=geo(new THREE.BufferGeometry());
+  shoreGroundGeometry.setAttribute("position",new THREE.Float32BufferAttribute(shorePositions,3));
+  shoreGroundGeometry.setAttribute("color",new THREE.Float32BufferAttribute(shoreColors,3));
+  shoreGroundGeometry.setIndex(shoreIndices);shoreGroundGeometry.computeVertexNormals();
+  const shoreGround=mesh(shoreGroundGeometry,
+    mat("#ffffff",{vertexColors:true,roughness:.94,side:THREE.DoubleSide}),
+    [0,0,0],[1,1,1]);
+  shoreGround.castShadow=false;shoreGround.receiveShadow=true;
   // Ocean and a few quiet, moving tide lines.
   const waterMaterial = mat("#218ba8", {
     roughness: 0.38,
@@ -628,6 +677,212 @@ export function createWorld(
     emissiveIntensity: 0.08,
   });
   const shoreFoam = instances(boxGeo, shoreFoamMat, shoreFoamPieces, false);
+  // A continuous shoreline replaces the dashed cuboids previously seen from
+  // the north-shore camera. Adjacent translucent wet sand grades into the
+  // baked terrain color, without changing walking or swimming boundaries.
+  function northBand(inside:number,outside:number,wetSand:boolean,material:THREE.Material){
+    const geom=geo(new THREE.BufferGeometry()),points:number[]=[],faces:number[]=[];
+    const divisions=96;
+    for(let i=0;i<=divisions;i++){
+      const x=-29+58*i/divisions,shore=northShoreZ(x);
+      for(const offset of [inside,outside]){
+        const z=shore+offset;
+        const y=wetSand?terrainHeight(x,z)+.045:SEA_SURFACE+.09;
+        points.push(x,y,z);
+      }
+      if(i<divisions){
+        const a=i*2;faces.push(a,a+1,a+2,a+1,a+3,a+2);
+      }
+    }
+    geom.setAttribute("position",new THREE.Float32BufferAttribute(points,3));
+    geom.setIndex(faces);geom.computeVertexNormals();
+    const obj=mesh(geom,material,[0,0,0],[1,1,1]);
+    obj.castShadow=false;obj.receiveShadow=false;
+    return obj;
+  }
+  const northWetSand=northBand(-3.6,-.85,true,mat("#7dada5",{
+    transparent:true,opacity:.15,depthWrite:false,side:THREE.DoubleSide,
+  }));
+  const northFoamSeam=northBand(.09,.37,false,mat("#f6f8e9",{
+    transparent:true,opacity:.32,depthWrite:false,side:THREE.DoubleSide,
+  }));
+  // Smooth continuous shorebreak ribbons: a shared height sampler drives
+  // BOTH skimming contact and rendered surface. No 3m cuboid wave strips.
+  const swellMaterial=mat("#54bfcc",{
+    roughness:.32,metalness:.05,transparent:true,opacity:.22,
+    depthWrite:false,side:THREE.DoubleSide,
+  });
+  const whitecapMaterial=new THREE.MeshBasicMaterial({
+    color:"#ffffff",transparent:true,opacity:.68,depthWrite:false,
+    side:THREE.DoubleSide,toneMapped:false,
+  });
+  const swellSamples=48;
+  function skimRibbon(across:number,material:THREE.Material){
+    const geometry=geo(new THREE.BufferGeometry());
+    const coords=new Float32Array((swellSamples+1)*(across+1)*3);
+    const positions=new THREE.BufferAttribute(coords,3);
+    positions.setUsage(THREE.DynamicDrawUsage);
+    geometry.setAttribute("position",positions);
+    const triangles:number[]=[];
+    for(let j=0;j<across;j++)for(let i=0;i<swellSamples;i++){
+      const a=j*(swellSamples+1)+i,b=a+swellSamples+1;
+      triangles.push(a,b,a+1,b,b+1,a+1);
+    }
+    geometry.setIndex(triangles);
+    const object=new THREE.Mesh(geometry,material);
+    object.castShadow=false;object.receiveShadow=false;
+    object.frustumCulled=false;
+    scene.add(object);
+    return {geometry,object,coords,across};
+  }
+  const lipMaterial=new THREE.MeshBasicMaterial({
+    color:"#f0fff8",transparent:true,opacity:.80,depthWrite:false,
+    side:THREE.DoubleSide,toneMapped:false,
+  });
+  const washMaterial=mat("#c7ede4",{
+    transparent:true,opacity:.28,depthWrite:false,side:THREE.DoubleSide,
+    roughness:.46,
+  });
+  const skimWaves=Array.from({length:5},(_,index)=>({
+    index,
+    surface:skimRibbon(13,swellMaterial),
+    lip:skimRibbon(4,lipMaterial),
+    foam:skimRibbon(7,whitecapMaterial),
+  }));
+  const skimWash=skimRibbon(10,washMaterial);
+  // A single instanced collection of small foam cells makes breaking water
+  // granular, not one continuous white cylinder across the horizon.
+  const frothGeometry=geo(new THREE.CircleGeometry(1,7));
+  frothGeometry.rotateX(-Math.PI/2);
+  const frothMaterial=new THREE.MeshBasicMaterial({
+    color:"#f5fff8",transparent:true,opacity:.72,
+    depthWrite:false,side:THREE.DoubleSide,toneMapped:false,
+  });
+  const flecksPerWave=22;
+  const froth=new THREE.InstancedMesh(frothGeometry,frothMaterial,
+    skimWaves.length*flecksPerWave);
+  froth.frustumCulled=false;froth.castShadow=false;
+  scene.add(froth);
+  function updateSkimWaves(seconds:number){
+    for(const wave of skimWaves){
+      const crest=waveCrestOffshore(wave.index,seconds);
+      const visible=crest>-3&&crest<40;
+      for(const [ribbon,kind] of [
+        [wave.surface,"face"],[wave.lip,"lip"],[wave.foam,"whitewater"],
+      ] as const){
+        // Far-offshore foam should not resemble a second row of stripes.
+        ribbon.object.visible=visible&&(kind==="face"||crest<30);
+        if(!ribbon.object.visible)continue;
+        for(let j=0;j<=ribbon.across;j++){
+          const fraction=j/ribbon.across;
+          const side=kind==="face" ? -1.55+fraction*8.4 :
+            kind==="lip" ? -.7+fraction*1.4 : -5.4+fraction*5.5;
+          for(let i=0;i<=swellSamples;i++){
+            const x=-31+62*i/swellSamples;
+            const point={x,z:northShoreZ(x)+waveCrestAtX(wave.index,x,seconds)+side};
+            const face=skimWaveAt(point,seconds);
+            const breaking=skimBreakAmountAt(point,seconds);
+            const curl=Math.sin(fraction*Math.PI)*breaking;
+            const lipLift=kind==="lip" ? .39*curl : 0;
+            const foamLift=kind==="whitewater" ? .014+.11*breaking : 0;
+            if(kind==="lip")point.z-=curl*.48;
+            const y=skimWaterHeight(point,seconds,SEA_SURFACE)+lipLift+foamLift;
+            const k=3*(j*(swellSamples+1)+i);
+            ribbon.coords[k]=x;
+            ribbon.coords[k+1]=y;
+            ribbon.coords[k+2]=point.z;
+          }
+        }
+        ribbon.geometry.attributes.position.needsUpdate=true;
+        ribbon.geometry.computeVertexNormals();
+      }
+      for(let i=0;i<flecksPerWave;i++){
+        const x=-28+56*i/(flecksPerWave-1);
+        const offset=-.8-(i%5)*.82;
+        const p={x,z:northShoreZ(x)+waveCrestAtX(wave.index,x,seconds)+offset};
+        const foam=skimBreakAmountAt(p,seconds);
+        dummy.position.set(x,skimWaterHeight(p,seconds,SEA_SURFACE)+.03+foam*.04,p.z);
+        dummy.rotation.set(0,Math.sin(i*2.4)*.3,0);
+        const size=foam>.08&&crest<30?.18+foam*.30:0;
+        dummy.scale.set(size*(1+(i%3)*.4),1,size*(.48+(i%4)*.14));
+        dummy.updateMatrix();
+        froth.setMatrixAt(wave.index*flecksPerWave+i,dummy.matrix);
+      }
+    }
+    froth.instanceMatrix.needsUpdate=true;
+    skimWash.object.visible=true;
+    for(let j=0;j<=skimWash.across;j++){
+      const offshore=-3.3+8*j/skimWash.across;
+      for(let i=0;i<=swellSamples;i++){
+        const x=-31+62*i/swellSamples;
+        const p={x,z:northShoreZ(x)+offshore};
+        const floor=worldFloorHeight(x,p.z);
+        const depth=skimWashDepthAt(p,seconds);
+        const k=3*(j*(swellSamples+1)+i);
+        skimWash.coords[k]=x;
+        skimWash.coords[k+1]=Math.max(floor+.016,
+          offshore>0?SEA_SURFACE+.019:floor+depth+.012);
+        skimWash.coords[k+2]=p.z;
+      }
+    }
+    skimWash.geometry.attributes.position.needsUpdate=true;
+    skimWash.geometry.computeVertexNormals();
+  }
+  updateSkimWaves(0);
+  const skimWake=createSkimWake(scene);
+  const shoreLife=createNorthShoreLife(scene);
+  // Clear near-shore water by reducing opacity of the existing ocean surface
+  // locally in the view (the far ocean keeps its original treatment).
+  // Sand remains visible because the floor is the real sculpted terrain mesh.
+  const baseOceanOpacity=waterMaterial.opacity;
+
+  const skimShape=new THREE.Shape();
+  skimShape.moveTo(0,-.97);
+  skimShape.bezierCurveTo(-.48,-.85,-.57,-.25,-.51,.1);
+  skimShape.bezierCurveTo(-.44,.7,-.21,.95,0,.99);
+  skimShape.bezierCurveTo(.21,.95,.44,.7,.51,.1);
+  skimShape.bezierCurveTo(.57,-.25,.48,-.85,0,-.97);
+  const skimDeckGeometry=geo(new THREE.ExtrudeGeometry(skimShape,{
+    depth:.06,steps:1,bevelEnabled:true,bevelThickness:.018,bevelSize:.024,bevelSegments:1,curveSegments:9,
+  }));
+  const skimDeckMaterials=SKIM_BOARDS.map(b=>mat(b.color,{roughness:.67}));
+  const skimDarkMaterial=mat("#25272b",{roughness:.89,side:THREE.DoubleSide});
+  // Clip the actual tapered board outline for the dark lower half. A simple
+  // black rectangle obscured the rail profile and looked glued to the sand.
+  const deckOutline=skimShape.getPoints(46);
+  const cutoff=-.12;
+  const darkOutline:THREE.Vector2[]=[];
+  for(let i=0;i<deckOutline.length;i++){
+    const a=deckOutline[i],b=deckOutline[(i+1)%deckOutline.length];
+    if(a.y<=cutoff)darkOutline.push(a);
+    if((a.y<=cutoff)!==(b.y<=cutoff)){
+      const t=(cutoff-a.y)/(b.y-a.y);
+      darkOutline.push(new THREE.Vector2(a.x+(b.x-a.x)*t,cutoff));
+    }
+  }
+  const darkShape=new THREE.Shape();
+  darkOutline.forEach((p,i)=>i===0?darkShape.moveTo(p.x,p.y):
+    darkShape.lineTo(p.x,p.y));
+  darkShape.closePath();
+  const skimTailGeometry=geo(new THREE.ShapeGeometry(darkShape));
+  const skimTails:THREE.Mesh[]=[];
+  const skimProps=SKIM_BOARDS.map((_,index)=>{
+    const p=boardPoint(index),y=terrainHeight(p.x,p.z)+.9;
+    const prop=mesh(skimDeckGeometry,skimDeckMaterials[index],[p.x,y,p.z],[1,1,1]);
+    prop.rotation.z=(index-1)*.065;
+    prop.rotation.y=(index-1)*.16;
+    prop.userData.skimBoardIndex=index;
+    if(index!==1){
+      const front=mesh(skimTailGeometry,skimDarkMaterial,[0,0,.105],[1,1,1],prop);
+      front.castShadow=false;
+      const back=mesh(skimTailGeometry,skimDarkMaterial,[0,0,-.045],[1,1,1],prop);
+      back.castShadow=false;
+      skimTails[index]=front;
+      // The dark reverse panel stays parented to the planted deck, so it
+      // disappears together with the selected board during pickup.
+    }
+    return prop;
+  });
 
   // Far granite silhouettes echo the playable ridge without competing with it.
   const peaks: Instance[] = [],
@@ -662,7 +917,7 @@ export function createWorld(
     const x = -34 + random() * 75,
       z = -43 + random() * 79;
     if (
-      sportClearance({x,z}) ||
+      sportClearance({x,z}) || skimBeachClearance({x,z}) ||
       discGolfOpeningClearance({x,z},3) || discGolfCourseClearance({x,z},2.7) ||
       BOULDER_HOLDS.some(h => distance(h, { x, z }) < 5) ||
       REGIONS.some((r) => distance(r.point, { x, z }) < 7) ||
@@ -711,7 +966,7 @@ export function createWorld(
     const x = -25 + random() * 71,
       z = -40 + random() * 80;
     if (
-      sportClearance({x,z}) || discGolfOpeningClearance({x,z},2) ||
+      sportClearance({x,z}) || skimBeachClearance({x,z}) || discGolfOpeningClearance({x,z},2) ||
       discGolfCourseClearance({x,z},2) ||
       biomeAt({x,z}).weights.redwood < .25 ||
       x < -17 || z < -15 ||
@@ -903,6 +1158,7 @@ export function createWorld(
     if (
       discGolfCourseClearance({x,z}) ||
       random() < biomeAt({x,z}).weights.desert || sportClearance({x,z}) ||
+      skimBeachClearance({x,z}) ||
       REGIONS.some((r) => lineDistance(x, z, REGIONS[0].point, r.point) < 2.7)
     )
       continue;
@@ -1023,7 +1279,10 @@ export function createWorld(
       y = terrainHeight(x, z),
       scale = i < REGIONS.length ? 1 : 0.72,
       twist = i * 0.83;
-    cairnPieces.push(
+    // The beach already has three upright skimboards as its landmarks.
+    // Keep North shore discoverable without building a gray stone pile
+    // directly in front of the turquoise board and Shasta.
+    if(m.id!=="north-shore")cairnPieces.push(
       { x, y: y + 0.18 * scale, z, sx: 0.62 * scale, sy: 0.28 * scale, sz: 0.52 * scale, ry: twist },
       { x: x + 0.05 * scale, y: y + 0.47 * scale, z: z - 0.02 * scale, sx: 0.46 * scale, sy: 0.23 * scale, sz: 0.4 * scale, ry: twist + 0.7 },
       { x: x - 0.04 * scale, y: y + 0.7 * scale, z: z + 0.03 * scale, sx: 0.31 * scale, sy: 0.19 * scale, sz: 0.29 * scale, ry: twist + 1.4 },
@@ -1392,6 +1651,14 @@ export function createWorld(
   // Sport equipment stays lightweight but uses recognizable proportions and materials.
   const board = new THREE.Group(), bike = new THREE.Group(), skis = new THREE.Group();
   explorer.add(board, bike, skis);
+  const skimEquipment=new THREE.Group();
+  explorer.add(skimEquipment);
+  const skimDeck=mesh(skimDeckGeometry,skimDeckMaterials[0],[0,0,0],[1,1,1],skimEquipment);
+  // The nose points along the explorer's +Z motion (the planted boards are
+  // vertical but the ridden board lies flat, nose toward the break).
+  const rideTail=mesh(skimTailGeometry,skimDarkMaterial,[0,0,.105],[1,1,1],skimDeck);
+  rideTail.castShadow=false;
+  skimEquipment.visible=false;
   const bikeSeatLocal = { y: 1.45, z: -0.42 };
   const riderHipLocal = { y: 0.73, z: 0 };
   const bikeBodyLean = 0.16;
@@ -2731,6 +2998,9 @@ export function createWorld(
     discGolfSwingAmount:0,
     waterAction: "dive",
     waterActionSerial: 0,
+    skimCommandSerial: 0,
+    skimCommand: "pickup",
+    skimBoardIndex: 0,
   };
   let disposed = false,
     raf = 0,
@@ -2762,6 +3032,11 @@ export function createWorld(
   let selectedJetSki:"touring"|"sport"|"race"="sport";
   let jetRideMode:"race"|"free"="race";
   let jetChoosing=false;
+
+  let skimHeat:SkimHeat=idleSkimHeat();
+  let lastSkimCommand=0,lastSkimUpdate=0,skimNearby:number|null=null;
+  let surfClock=0;
+
   let discFetch=idleDiscGolfFetch();
   let lastDiscStart=0,lastDiscShot=0,lastDiscExit=0,lastDiscUpdate=0;
   let lastDiscPreview:DiscShot|null=null,lastPreviewTick=-Infinity;
@@ -2977,6 +3252,28 @@ export function createWorld(
     [0.5, 1, 0.85],
   );
   dogContact.castShadow = false;
+  // A submerged camera is separated from upland scenery by the water
+  // surface. Cull ONLY static meshes whose entire world-space bounds sit
+  // above that surface. Fog alone does not prevent GPU draw submissions.
+  // Keep ground/coast geometry, water, wildlife, interactables and marine
+  // content intact. This visibility filter runs after their frame updates.
+  const underwaterCullingExclusions=new Set<THREE.Object3D>([
+    ground,shoreGround,water,tides,shoreFoam,northWetSand,northFoamSeam,skimWash.object,froth,
+    ...skimWaves.flatMap(w=>[w.surface.object,w.lip.object,w.foam.object]),
+    ...skimProps,...skimTails,
+    grassMesh,markerHitMesh,explorerContact,dogContact,
+    critterBodies,critterHeads,critterEars,critterEyes,critterMuzzles,
+    critterBeaks,critterLegs,critterPlumes,critterThinTails,
+  ]);
+  scene.updateMatrixWorld(true);
+  const submergedSurfaceDecor=scene.children.filter((object):object is THREE.Mesh=>{
+    if(!(object instanceof THREE.Mesh)||
+      underwaterCullingExclusions.has(object)||!object.visible)return false;
+    // Instancing maintains its own union bounds; never classify a trunk
+    // from the shared cylinder's origin-local geometry alone.
+    if(object instanceof THREE.InstancedMesh)object.computeBoundingBox();
+    return new THREE.Box3().setFromObject(object).min.y>SEA_SURFACE+1.25;
+  });
   const ray = new THREE.Raycaster(),
     pointer = new THREE.Vector2(),
     gazePointer = new THREE.Vector2(0, 0);
@@ -3078,7 +3375,7 @@ export function createWorld(
     drag = null;
     if (canvas.hasPointerCapture(e.pointerId))
       canvas.releasePointerCapture(e.pointerId);
-    if (!wasClick || state.paused || discGolf.phase!=="off" || jetSki) return;
+    if (!wasClick || state.paused || discGolf.phase!=="off" || jetSki || skimHeat.phase!=="off") return;
     // While moving on sport gear the pointer is a skill shot, never an
     // accidental click-to-move. Drag retains normal orbit-camera behavior.
     if(travel.speed>1.5&&fireRideShot(e.clientX,e.clientY))return;
@@ -3088,6 +3385,13 @@ export function createWorld(
       (-(e.clientY - rect.top) / rect.height) * 2 + 1,
     );
     ray.setFromCamera(pointer, camera);
+    const boardHit=ray.intersectObjects(skimProps,false)[0];
+    if(boardHit&&boardHit.distance<60){
+      const index=boardHit.object.userData.skimBoardIndex as number;
+      if(nearbySkimBoard(player)===index)doSkimAction("pickup",index);
+      else destination=boardPoint(index);
+      return;
+    }
     const marker = ray.intersectObjects(markerObjects)[0];
     if (marker && marker.distance < 55) {
       const discoveryId = discoveryForHit(marker);
@@ -3118,6 +3422,40 @@ export function createWorld(
     e.preventDefault();
     zoom = THREE.MathUtils.clamp(zoom + e.deltaY * 0.015, 11, 28);
   }
+  function doSkimAction(action:State["skimCommand"],boardIndex=0) {
+    if(!state.entered||state.paused||document.hidden)return;
+    if(action==="exit"){
+      if(skimHeat.phase==="off")return;
+      if(isWater(player)){
+        const x=Math.max(-16,Math.min(16,player.x));
+        player={x,z:northShoreZ(x)-5};playerY=groundHeight(player);
+        travel={point:player,speed:0,heading:{x:0,z:1}};
+      }
+      skimHeat=idleSkimHeat();destination=null;clearInput();
+    }else if(action==="pickup"){
+      if(discGolf.phase!=="off"||aquatic!=="land"||
+         bigAir.phase==="armed"||bigAir.phase==="flying"||
+         trial.phase==="armed"||trial.phase==="running")return;
+      skimHeat=pickupSkimBoard(player,boardIndex,skimHeat);
+      if(skimHeat.phase==="ready"){destination=null;airHeight=verticalSpeed=0;}
+    }else if(action==="restart"){
+      if(skimHeat.phase!=="finished"||skimHeat.board===null)return;
+      const point=boardPoint(skimHeat.board);
+      player={x:point.x,z:point.z-2};playerY=groundHeight(player);
+      travel={point:player,speed:0,heading:{x:0,z:1}};
+      skimHeat={...idleSkimHeat(),board:skimHeat.board,phase:"ready"};
+      yaw=Math.PI;destination=null;setAquaticMode("land");clearInput();
+    }else if(action==="drop"){
+      const next=startSkimRide(skimHeat,player,travel.speed,travel.heading);
+      if(next!==skimHeat){skimHeat=next;destination=null;airHeight=verticalSpeed=0;}
+      else if(skimHeat.phase==="ready")
+        skimHeat={...skimHeat,lastTrick:"Sprint toward the shorebreak before dropping"};
+    }else if(action==="pop"||action==="shuvit"||action==="big-spin"||
+             action==="three-sixty"||action==="wrap"){
+      skimHeat=skimAction(skimHeat,action,player,surfClock);
+    }
+    callbacks.onSkim(skimHeat);
+  }
   function onKey(e: KeyboardEvent) {
     if (!state.entered || state.paused || e.metaKey || e.ctrlKey || e.altKey)
       return;
@@ -3138,6 +3476,17 @@ export function createWorld(
     if(e.target !== canvas && !(jetSki&&
       (e.target===document.body||host.contains(e.target as Node))))return;
     const key = e.key.toLowerCase();
+    if(skimHeat.phase!=="off"){
+      if(!e.repeat&&key==="enter"&&skimHeat.phase==="finished"){
+        e.preventDefault();doSkimAction("restart");return;
+      }
+      if(!e.repeat&&key==="x"){e.preventDefault();doSkimAction("exit");return;}
+      const action=key==="r"?"wrap":skimTrickForKey(key);
+      if(!e.repeat&&action){e.preventDefault();doSkimAction(action);return;}
+    }else if(!e.repeat&&(key==="enter"||key==="e")){
+      const board=nearbySkimBoard(player);
+      if(board!==null){e.preventDefault();doSkimAction("pickup",board);return;}
+    }
     if(key==="escape"&&jetSki){stopJetSki();e.preventDefault();return;}
     if(key==="r"&&!e.repeat&&jetSki){restartJetSki();e.preventDefault();return;}
     if(key==="f"&&!e.repeat&&!jetSki&&isBoostActivity(state.activity)){
@@ -3200,10 +3549,10 @@ export function createWorld(
       destination = null;
       e.preventDefault();
     }
-    if (key === "enter" && !e.repeat && !jetSki&&nearJetSkiBoarding(player)&&aquatic==="land") {
+    if (key === "enter" && !e.repeat && !jetSki&&nearJetSkiBoarding(player)&&aquatic==="land"&&skimHeat.phase==="off") {
       e.preventDefault();openJetChooser();return;
     }
-    if (key === "enter" && !e.repeat && discovery) {
+    if (key === "enter" && !e.repeat && discovery && skimHeat.phase==="off") {
       e.preventDefault();
       callbacks.onInteract(discovery);
     }
@@ -3270,6 +3619,9 @@ export function createWorld(
     }
   }
   function performAction() {
+    if(skimHeat.phase==="riding"){doSkimAction("pop");return;}
+    if(skimHeat.phase==="ready"){doSkimAction("drop");return;}
+    if(skimHeat.phase!=="off")return;
     if (!state.entered || state.paused || document.hidden || aquatic !== "land" ||
       discGolf.phase!=="off"||jetSki||jetChoosing||
       trial.phase==="armed"||trial.phase==="running"||
@@ -3396,6 +3748,7 @@ export function createWorld(
       dt = Math.min(rawDelta, 0.05);
     last = now;
     elapsed += dt;
+    surfClock+=Math.max(0,Math.min(rawDelta,.5));
     let dx = 0,
       dz = 0;
     let showingDiscGolfIntro=false;
@@ -3626,6 +3979,40 @@ export function createWorld(
           callbacks.onDiscGolf(discGolf);lastDiscUpdate=elapsed;
         }
         travel.speed=0;destination=null;
+      } else if(skimHeat.phase==="riding"){
+        const before=skimHeat.phase;
+        // At low FPS, integrate bounded 50 ms slices instead of throwing away
+        // elapsed real time. This keeps surf speed and the 90-second heat aligned.
+        const simulationDelta=Math.max(0,Math.min(rawDelta,.5));
+        const slices=Math.max(1,Math.ceil(simulationDelta/.05));
+        let tick={heat:skimHeat,point:player};
+        for(let slice=0;slice<slices;slice++){
+          tick=stepSkimHeat(tick.heat,tick.point,simulationDelta/slices,
+            surfClock-simulationDelta+(slice+1)*simulationDelta/slices,right,forward>0);
+          if(tick.heat.phase!=="riding")break;
+        }
+        skimHeat=tick.heat;
+        player=tick.point;
+        travel={point:player,speed:skimHeat.speed,heading:skimHeat.heading};
+        playerY=Math.max(skimWaterHeight(player,surfClock,SEA_SURFACE),
+          isWater(player)?SEA_SURFACE:terrainHeight(player.x,player.z));
+        destination=null;
+        if(skimHeat.phase!==before){
+          travel.speed=0;
+          // Finish on safe sand, not in an underwater walking state.
+          if(skimHeat.phase==="finished"){
+            const x=Math.max(-13,Math.min(13,player.x));
+            player={x,z:northShoreZ(x)-6.8};
+            playerY=groundHeight(player);
+            travel={point:player,speed:0,heading:{x:0,z:1}};
+            yaw=Math.PI;clearInput();
+          }
+          callbacks.onSkim(skimHeat);
+        }
+      } else if(skimHeat.phase==="recovering"){
+        travel.speed=0;
+        // Recover at the true seabed/wet-sand contact, never inside dry terrain.
+        playerY=isWater(player)?SEA_SURFACE-.12:groundHeight(player);
       } else if (climb) {
         climb.progress = Math.min(1, climb.progress + dt * 1.25);
         const t = climb.progress * climb.progress * (3 - 2 * climb.progress);
@@ -3743,7 +4130,7 @@ export function createWorld(
           { ...travel, point: player },
           { x: dx, z: dz },
           dt,
-          state.activity,
+          skimHeat.phase==="ready" ? "run" : state.activity,
           caveLayer === "surface"
             ? (airHeight < 0.2 ? groundedObstacles : obstacles)
             : caveSolids,
@@ -3769,7 +4156,11 @@ export function createWorld(
           airHeight = verticalSpeed = 0;
         }
         player = travel.point;
-
+        if(skimHeat.phase==="ready"&&isWater(player)){
+          // Carry the board across wet sand, but never switch to swimming
+          // before dropping it. This also blocks a stranded ready state.
+          player=previousPoint;travel={...travel,point:player,speed:0};
+        }
         if (isWater(player)&&jetSkiPierHeight(player)===null) {
           const steppedIn = !isWater(previousPoint) && airHeight < 0.12;
           if (steppedIn) {
@@ -3801,7 +4192,8 @@ export function createWorld(
             playerY = groundY;
             verticalSpeed = 0;
           }
-          const modeForRamp = effectiveActivity(state.activity, player);
+          const modeForRamp = effectiveActivity(
+            skimHeat.phase==="ready" ? "run" : state.activity,player);
           if (bigAir.phase!=="armed" && airHeight === 0 && elapsed - lastRampAt > 1.1) {
             const ramp = rampImpulseCrossing(
               previousPoint, player, travel.heading, modeForRamp, travel.speed,
@@ -3829,6 +4221,34 @@ export function createWorld(
         }
       }
 
+      if(skimHeat.phase!=="off"&&skimHeat.phase!=="riding"&&skimHeat.phase!=="finished"){
+        const previousPhase=skimHeat.phase;
+        const activeDelta=Math.max(0,Math.min(rawDelta,.5));
+        const slices=Math.max(1,Math.ceil(activeDelta/.05));
+        for(let slice=0;slice<slices;slice++){
+          skimHeat=stepSkimHeat(skimHeat,player,activeDelta/slices,
+            surfClock-activeDelta+(slice+1)*activeDelta/slices,0,false).heat;
+          if(skimHeat.phase==="finished")break;
+        }
+        if(previousPhase==="recovering"&&skimHeat.phase==="ready"){
+          const x=Math.max(-13,Math.min(13,player.x));
+          player={x,z:northShoreZ(x)-6.8};
+          playerY=groundHeight(player);
+          travel={point:player,speed:0,heading:{x:0,z:1}};
+          yaw=Math.PI;clearInput();destination=null;
+        }
+        if(skimHeat.phase==="finished"&&isWater(player)){
+          const x=Math.max(-13,Math.min(13,player.x));
+          player={x,z:northShoreZ(x)-6.8};
+          playerY=groundHeight(player);
+          travel={point:player,speed:0,heading:{x:0,z:1}};
+          yaw=Math.PI;
+        }
+        if(previousPhase!==skimHeat.phase)callbacks.onSkim(skimHeat);
+      }
+      if(skimHeat.phase!=="off"&&skimHeat.phase!=="finished"&&elapsed-lastSkimUpdate>.18){
+        callbacks.onSkim(skimHeat);lastSkimUpdate=elapsed;
+      }
       // Record the first real physical touchdown after the predicted pop,
       // even when the board drops into water or leaves the reserved meadow.
       if(skateBowlFlightActive&&(aquatic!=="land"||
@@ -3868,7 +4288,8 @@ export function createWorld(
         lastRampAt=elapsed;
         callbacks.onBigAir(bigAir);
       }
-      const mode = effectiveActivity(state.activity, player);
+      const mode = effectiveActivity(
+        skimHeat.phase!=="off"&&skimHeat.phase!=="finished" ? "run" : state.activity,player);
       if(mode!=="skate"&&(skateTrick.phase!=="ground"||skateTrick.manual!=="none")){
         skateTrick={...idleSkateTrick(),best:skateTrick.best};skateHasBeenAirborne=false;
         skateResultAt=-Infinity;
@@ -3906,15 +4327,53 @@ export function createWorld(
       const walking = travel.speed > 0.05
         ? Math.sin(elapsed * (swimming ? 9 : mode === "run" ? 14 : 10))
         : 0;
-      board.visible = !swimming && mode === "skate";
+      const surfing=skimHeat.phase==="riding";
+      const skimEquipped=skimHeat.phase!=="off"&&skimHeat.phase!=="finished";
+      board.visible = !skimEquipped && !swimming && mode === "skate";
       const trickPose=skateTrickPose(skateTrick,elapsed);
       board.rotation.set(mode==="skate"?trickPose.pitch:0,mode==="skate"?trickPose.yaw:0,mode==="skate"?trickPose.roll:0);
       board.position.y=mode==="skate"&&skateTrick.phase==="air"?Math.sin(Math.PI*trickPose.progress)*.19:0;
-      bike.visible = !swimming && mode === "bike";
-      skis.visible = !swimming && mode === "ski";
-      chalk.visible = !swimming && mode === "boulder";
+      bike.visible = !skimEquipped && !swimming && mode === "bike";
+      skis.visible = !skimEquipped && !swimming && mode === "ski";
+      chalk.visible = !skimEquipped && !swimming && mode === "boulder";
+      skimEquipment.visible=skimEquipped;
+      skimProps.forEach((prop,i)=>{
+        prop.visible=!(skimEquipped&&skimHeat.board===i);
+        if(skimTails[i])skimTails[i].visible=prop.visible;
+      });
+      const trick=surfing?skimHeat.pendingTrick:null;
+      const trickSpin=skimHeat.spin;
+      const avatarTurn=trick==="three-sixty"?trickSpin:
+        trick==="big-spin"?trickSpin*.5:0;
+      const boardTurn=trick==="shuvit"?trickSpin:
+        trick==="big-spin"?trickSpin*.5:0;
+      const skimContact=surfing?skimBoardContact(player,travel.heading,
+        surfClock,SEA_SURFACE,p=>worldFloorHeight(p.x,p.z)):null;
+      if(skimEquipped){
+        skimDeck.material=skimDeckMaterials[skimHeat.board??0];
+        rideTail.visible=skimHeat.board!==1;
+        // The planted board's orientation is vertical; the ridden board
+        // planes horizontally, with independent pitch and roll from four rails.
+        skimEquipment.position.set(surfing?0:.74,
+          surfing&&skimContact ? skimContact.centerY-playerY-.04+.07 : .87,
+          surfing?0:.15);
+        skimEquipment.rotation.set(surfing?Math.PI/2:0,boardTurn,surfing?0:-.12);
+        skimDeck.rotation.set(surfing&&skimContact?skimContact.pitch:0,
+          0,surfing&&skimContact?skimContact.roll:0);
+      }
+      canvas.dataset.skimBoardPitch=(skimContact?.pitch??0).toFixed(3);
+      canvas.dataset.skimBoardRoll=(skimContact?.roll??0).toFixed(3);
+      canvas.dataset.skimBoardContact=(skimContact?.centerY??0).toFixed(3);
+      // Approximate shoe-sole bottom from the authored leg mesh:
+      // leg center .39, length .72, and the root support offset .04.
+      // Independent of wave simulation so visual QA catches future drift.
+      const shoeY=playerY+skimHeat.air+.04+(.39-.72/2);
+      const deckY=(skimContact?.centerY??playerY)+skimHeat.air+.07;
+      canvas.dataset.skimFootContactError=surfing?
+        Math.abs(shoeY-deckY).toFixed(3):"0";
+      canvas.dataset.skimWashDepth=(skimContact?.wash??0).toFixed(3);
       snorkel.visible = swimming;
-      const running = !swimming && (mode === "run" || mode === "boulder");
+      const running = !swimming && !surfing && (mode === "run" || mode === "boulder");
       const headingYaw = travel.speed > 0.05
         ? Math.atan2(travel.heading.x, travel.heading.z)
         : explorer.rotation.y;
@@ -3954,9 +4413,9 @@ export function createWorld(
             : 0,
         );
         bodyRoot.rotation.set(bikePose ? bikeBodyLean : mode==="skate"?trickPose.crouch*.35:0, 0, 0);
-        legs[0].rotation.x = running ? walking * 0.6 : bikePose ? 0.58 + walking * 0.28 :
+        legs[0].rotation.x = surfing ? (skimHeat.air>0?.32:.17) : running ? walking * 0.6 : bikePose ? 0.58 + walking * 0.28 :
           mode==="skate" ? .10+trickPose.crouch*.9+trickPose.pitch*.65 : .2;
-        legs[1].rotation.x = running ? -walking * 0.6 : bikePose ? 0.58 - walking * 0.28 :
+        legs[1].rotation.x = surfing ? (skimHeat.air>0?-.35:-.16) : running ? -walking * 0.6 : bikePose ? 0.58 - walking * 0.28 :
           mode==="skate" ? .10+trickPose.crouch*.9-trickPose.pitch*.65 : .2;
         // Single elastic backswing: shoulder reaches behind the body during
         // Space hold, then follows through as the disc takes flight.
@@ -3967,10 +4426,10 @@ export function createWorld(
           state.discGolfSwingStage==="power" ?
             -.75+.65*throwProgress :
           state.discGolfSwingStage==="released" ? -2.05 : -.75 : null;
-        arms[0].rotation.x = throwArm!==null?throwArm:
+        arms[0].rotation.x = surfing?-1.23:throwArm!==null?throwArm:
           climb ? -2 : running ? -walking * 0.4 : bikePose ? 0.82 :
           mode==="skate" ? trickPose.grab==="left" ? .48 : -.6+trickPose.crouch*.45 : -.75;
-        arms[1].rotation.x = climb ? -1.6 : running ? walking * 0.4 : bikePose ? 0.82 :
+        arms[1].rotation.x = surfing?-1.17:climb ? -1.6 : running ? walking * 0.4 : bikePose ? 0.82 :
           mode==="skate" ? trickPose.grab==="right" ? .48 : -.6+trickPose.crouch*.45 : -.75;
         const footprint = mode === "bike"
           ? { length: 1.05, width: 0.55 }
@@ -3989,7 +4448,9 @@ export function createWorld(
         const rollAngle =
           (gearMode ? contact.roll : 0) +
           (mode === "skate" ? skateCarveLean : 0);
-        explorer.rotation.set(pitchAngle, headingYaw+(mode==="skate"?trickPose.bodyYaw:0), rollAngle);
+        explorer.rotation.set(surfing?.1+skimHeat.air*.035:pitchAngle,
+          headingYaw+avatarTurn+(mode==="skate"?trickPose.bodyYaw:0),
+          surfing?Math.sin(elapsed*1.7)*.065:rollAngle);
         if (grind) {
           const logDx = grind.log.b.x - grind.log.a.x;
           const logDz = grind.log.b.z - grind.log.a.z;
@@ -4012,8 +4473,8 @@ export function createWorld(
         bikeWheels.forEach(wheel => wheel.rotation.z += travel.speed * dt / 0.43);
         explorer.position.set(
           player.x,
-          playerY + supportLift +
-            (mode === "skate" ? 0.18 : mode === "bike" ? 0.2 : mode === "ski" ? 0.08 : 0) +
+          playerY + (surfing?skimHeat.air:0) + supportLift +
+            (surfing ? 0.04 : mode === "skate" ? 0.18 : mode === "bike" ? 0.2 : mode === "ski" ? 0.08 : 0) +
             (running ? Math.abs(walking) * 0.045 : 0),
           player.z,
         );
@@ -4077,6 +4538,27 @@ export function createWorld(
       canvas.dataset.skateScore=String(skateTrick.points);
       canvas.dataset.skatePark=String(insideSkatePark(player));
       canvas.dataset.activity = mode;
+      const boardNear=skimHeat.phase==="off"&&aquatic==="land"?nearbySkimBoard(player):null;
+      if(boardNear!==skimNearby){skimNearby=boardNear;callbacks.onSkimNearby(boardNear);}
+      canvas.dataset.skimPhase=skimHeat.phase;
+      canvas.dataset.skimBoard=skimHeat.board===null?"":SKIM_BOARDS[skimHeat.board].id;
+      canvas.dataset.skimScore=String(skimHeat.score);
+      canvas.dataset.skimRemaining=skimHeat.remaining.toFixed(1);
+      canvas.dataset.skimRidePoints=skimHeat.ridePoints.toFixed(0);
+      canvas.dataset.skimWave=skimWaterHeight(player,surfClock,SEA_SURFACE).toFixed(2);
+      canvas.dataset.skimWaveStyle="shoaling-lip-wash-v2";
+      canvas.dataset.skimBreaking=skimBreakAmountAt(player,surfClock).toFixed(2);
+      canvas.dataset.skimWaterOpacity=waterMaterial.opacity.toFixed(3);
+      canvas.dataset.skimWaveRibbons=String(skimWaves.length);
+      canvas.dataset.skimFroth=String(froth.count);
+      canvas.dataset.skimWakeVisible=String(skimWake.visible);
+      canvas.dataset.skimPendingTrick=skimHeat.pendingTrick??"";
+      canvas.dataset.skimLastTrick=skimHeat.lastTrick;
+      canvas.dataset.skimTrickSpin=skimHeat.spin.toFixed(3);
+      canvas.dataset.skimCameraFollow=String(surfing);
+      canvas.dataset.skimAir=skimHeat.air.toFixed(3);
+      canvas.dataset.skimCameraMode=surfing?(skimHeat.air>.08?"trick-air":"ride"):"off";
+      canvas.dataset.activity = surfing?"skim":mode;
       canvas.dataset.speed = travel.speed.toFixed(2);
       const boosting=activeRideBoost(rideBoost,elapsed)&&
         isBoostActivity(state.activity)&&aquatic==="land";
@@ -4161,7 +4643,9 @@ export function createWorld(
             )
           : 0
       ).toFixed(3);
-      const r: RegionId = isWater(player) ? "coast" : nearestRegion(player);
+      const r: RegionId = isWater(player) ?
+        (waterZone(player)==="north-shore"?"north-shore":"coast") :
+        nearestRegion(player);
       const caveProgress = THREE.MathUtils.clamp(
         (player.z - arcade.z) / ARCADE_CAVE.tunnelDepth,
         0,
@@ -4229,6 +4713,13 @@ export function createWorld(
         distance(player, arcade) < 5.8;
       const cavernFraming =
         caveInside && caveProgress > 0.48 && distance(player, arcadeWall) < 8.5;
+      // Arrive at the rainforest clearing from the open coastal side, not
+      // from a third-person boom embedded in trunks and boulders.
+      const rainforestFraming = r==="rainforest" && aquatic==="land" &&
+        caveLayer==="surface" && skimHeat.phase==="off" &&
+        discGolf.phase==="off" &&
+        distance(player,regionLanding("rainforest"))<5.5;
+      canvas.dataset.rainforestOverlook=String(rainforestFraming);
       if(discGolf.phase!=="off"){
         const basket=discGolfNextTarget(discGolf);
         const pose=discGolfThrowCameraPose(player,basket,playerY);
@@ -4258,6 +4749,8 @@ export function createWorld(
           player.z+Math.cos(jetSki.heading)*ahead);
       } else if (cavernFraming) {
         targetLook.set(arcadeWall.x, arcadeWallY + 2.05, arcadeWall.z - 0.5);
+      } else if (rainforestFraming) {
+        targetLook.set(player.x,playerY+2,player.z);
       } else if (cavernApproachFraming) {
         // Frame the mouth of the cave, not the high terrain deep behind it.
         // This keeps the entrance readable as a dark opening in the mountain.
@@ -4267,10 +4760,15 @@ export function createWorld(
           arcade.z + 1.8,
         );
       } else {
-        const aquaticLookAhead = aquatic === "land" ? 0 : aquatic === "dive" ? 3.2 : 2.2;
+        const aquaticLookAhead = surfing ? (skimHeat.air>.05?2.2:3.1) :
+          aquatic === "land" ? 0 : aquatic === "dive" ? 3.2 : 2.2;
+        // Follow the rider up during pop, then settle back into a broad
+        // shorebreak composition. This is camera-only: no gameplay authority.
         targetLook.set(
           player.x + travel.heading.x * aquaticLookAhead,
-          playerY + (aquatic === "dive" ? 0.55 : aquatic === "surface" ? 1.2 : 2.8),
+          playerY + (aquatic === "dive" ? .55 :
+            aquatic === "surface" ? 1.2 :
+            surfing ? 2.25+skimHeat.air*.64 : 2.8),
           player.z + travel.heading.z * aquaticLookAhead,
         );
       }
@@ -4280,12 +4778,15 @@ export function createWorld(
           ? Math.min(zoom, 13.5)
           : aquatic === "surface"
             ? Math.min(zoom, 14)
+            : surfing ? Math.min(zoom,skimHeat.air>.08 ? 14.5 : 17)
             : mode === "bike" || mode === "skate"
               ? Math.min(zoom, mode==="skate"?21:16)
               : mode === "boulder"
                 ? Math.min(zoom, 15)
                 : zoom;
-      const cameraYaw = aquatic === "dive" ? yaw + 0.28 : yaw;
+      const cameraYaw=surfing?
+        Math.atan2(-travel.heading.x,-travel.heading.z)+(skimHeat.air>.08?.19:.04):
+        aquatic==="dive"?yaw+.28:yaw;
       if(discGolf.phase!=="off"){
         const target=discGolfNextTarget(discGolf);
         const pose=discGolfThrowCameraPose(player,target,playerY);
@@ -4315,6 +4816,13 @@ export function createWorld(
           caveCameraFloor + 2.05,
           caveCameraZ,
         );
+      } else if (rainforestFraming) {
+        const coastX=eastCoastlineX(player.z)+9;
+        // A higher canopy-level overlook opens the clearing without
+        // placing the lens among the dense bamboo/trunk foreground.
+        targetCamera.set(coastX,
+          Math.max(playerY+22,worldFloorHeight(coastX,player.z)+18),
+          player.z+3);
       } else if (cavernApproachFraming) {
         // Pull the approach camera well behind the explorer so the cave mouth
         // remains the subject instead of nearby portal rocks or the explorer
@@ -4381,6 +4889,11 @@ export function createWorld(
             cameraFloor + 1.65,
             cameraCeiling - 0.9,
           );
+        } else if (rainforestFraming) {
+          // Preserve the coast-side overlook rather than shrinking the boom
+          // back into one of the rainforest trees.
+          targetCamera.y=Math.max(targetCamera.y,
+            worldFloorHeight(targetCamera.x,targetCamera.z)+9);
         } else if (cavernApproachFraming) {
           targetCamera.y = Math.max(
             targetCamera.y,
@@ -4439,10 +4952,15 @@ export function createWorld(
           }
           if (!isWater({ x: targetCamera.x, z: targetCamera.z })) {
             const zone = waterZone(player);
-            targetCamera.x =
-              zone === "lagoon"
-                ? eastCoastlineX(targetCamera.z) + 1.3
-                : coastlineX(targetCamera.z) - 1.3;
+            if(zone==="north-shore"){
+              // A diver behind the north beach must stay seaward in Z,
+              // not teleport the camera sideways to the cold-water coast.
+              targetCamera.z=northShoreZ(targetCamera.x)+1.3;
+            }else{
+              targetCamera.x=zone==="lagoon"
+                ? eastCoastlineX(targetCamera.z)+1.3
+                : coastlineX(targetCamera.z)-1.3;
+            }
           }
         }
         const floor = seaFloorHeight(targetCamera.x, targetCamera.z);
@@ -4865,20 +5383,26 @@ export function createWorld(
 
     const chaseBefore = dogChase;
     dogChase = stepChase(dogChase, elapsed, dog, player, critters.map(c => c.point),
-      discGolf.phase==="off" && aquatic === "land" && caveLayer === "surface");
+      discGolf.phase==="off" && skimHeat.phase==="off" && aquatic === "land" && caveLayer === "surface");
     dogInterestCritterIndex = dogChase.target;
     if (dogChase.target !== null && dogChase.target !== chaseBefore.target) dogTargetSwitches++;
     const nearbyCritter = discGolf.phase!=="off"||dogInterestCritterIndex === null ?
       null : critters[dogInterestCritterIndex];
     canvas.dataset.dogBehavior = dogChase.mode;
     const playerWaterZone = waterZone(player);
-    const shoreWait = {
-      x:
-        playerWaterZone === "lagoon"
-          ? eastCoastlineX(player.z) - 2.6
-          : coastlineX(player.z) + 2.6,
-      z: THREE.MathUtils.clamp(player.z, WORLD_BOUNDS.minZ + 4, WORLD_BOUNDS.maxZ - 4),
-    };
+    const shoreWait = playerWaterZone === "north-shore"
+      ? {
+          // Shasta watches from dry sand rather than following a rider
+          // into the ocean or running to the distant west-coast shore.
+          x: THREE.MathUtils.clamp(player.x,-14,14),
+          z: northShoreZ(THREE.MathUtils.clamp(player.x,-14,14))-6.8,
+        }
+      : {
+          x: playerWaterZone === "lagoon"
+            ? eastCoastlineX(player.z)-2.6
+            : coastlineX(player.z)+2.6,
+          z: THREE.MathUtils.clamp(player.z,WORLD_BOUNDS.minZ+4,WORLD_BOUNDS.maxZ-4),
+        };
     // The game's carved chamber sits beneath an alpine region. Geometry,
     // not whichever open-air region marker is closest, owns cave behavior.
     const dogWaitsAtCaveEntrance =
@@ -5263,6 +5787,7 @@ export function createWorld(
       canvas.dataset.rideBoostAim=aimed?
         [aimed.x.toFixed(3),aimed.y.toFixed(3),aimed.id].join(","):"";
     }else canvas.dataset.rideBoostAim="";
+    canvas.dataset.cameraTargetError=camera.position.distanceTo(targetCamera).toFixed(2);
 
     // Underwater atmosphere and biome work are keyed by the water zone. The cold
     // kelp shelf and warm lagoon never render/animate together.
@@ -5517,6 +6042,23 @@ export function createWorld(
     neuralMat.emissiveIntensity = 0.4 + Math.sin(elapsed * 0.65) * 0.18;
     particleMat.opacity = 0.48 + Math.sin(elapsed) * 0.17;
     tides.position.x = Math.sin(elapsed * 0.2) * 0.5;
+    // Animated surf is confined to the north beach. Every other biome should
+    // avoid the dynamic vertex writes and normal recomputation entirely.
+    // Rendering resumes from the current shared surf clock on return.
+    const surfVisible=aquatic!=="dive"&&Math.abs(player.x)<38&&player.z>19;
+    if(surfVisible)updateSkimWaves(surfClock);
+    else {
+      skimWash.object.visible=false;
+      for(const wave of skimWaves){
+        wave.surface.object.visible=false;
+        wave.lip.object.visible=false;
+        wave.foam.object.visible=false;
+      }
+    }
+    waterMaterial.opacity=baseOceanOpacity*
+      (1-(surfVisible?.52:0));
+    froth.visible=surfVisible;
+    canvas.dataset.skimSurfVisible=String(surfVisible);
     shoreFoam.position.x = Math.sin(elapsed * 0.7) * 0.11;
     shoreFoam.position.y = Math.sin(elapsed * 1.25) * 0.018;
     shoreFoamMat.opacity = 0.52 + Math.sin(elapsed * 0.9) * 0.08;
@@ -5548,13 +6090,35 @@ export function createWorld(
     flyingBirds.update(bigAir,elapsed,reducedFlightMotion);
     canvas.dataset.bigAirBirdsFollowing=String(flyingBirds.active);
     habitats.update(player,elapsed);
+    shoreLife.update(elapsed,player);
+    canvas.dataset.shoreLifeVisible=String(shoreLife.visible);
+    canvas.dataset.shoreFish=String(shoreLife.visible?shoreLife.counts.baitfish:0);
+    canvas.dataset.shoreRays=String(shoreLife.visible?shoreLife.counts.stingray:0);
+    skimWake.update(player,travel.heading,skimHeat.speed,surfClock,
+      skimHeat.phase==="riding",
+      p=>skimWaterHeight(p,surfClock,SEA_SURFACE));
     if(aquatic === "land" && scene.fog instanceof THREE.Fog) {
       const w = biomeAt({x:camera.position.x,z:camera.position.z}).weights;
       const fogTarget = new THREE.Color("#c4d9df").lerp(new THREE.Color("#d7c7ae"),w.desert).lerp(new THREE.Color("#a8c4af"),w.rainforest+w.redwood*.35);
       scene.fog.color.lerp(fogTarget,1-Math.exp(-Math.min(rawDelta,.1)*2));
     }
     canvas.dataset.biome = biomeAt(player).primary;
+    // The water-mode transition already changes atmosphere; cull upland
+    // meshes for every dive depth so shallow lagoon and deep kelp share
+    // the same draw-call budget without an additional mid-dive pop.
+    const hideUpland=underwater;
+    for(const decoration of submergedSurfaceDecor)
+      decoration.visible=!hideUpland;
+    canvas.dataset.underwaterDecorCulled=String(
+      hideUpland?submergedSurfaceDecor.length:0);
     renderer.render(scene, camera);
+    // This per-mode diagnostic is sampled from the *current underwater
+    // render*, not a stale land-mode FPS window.
+    if(underwater){
+      canvas.dataset.underwaterDrawCalls=String(renderer.info.render.calls);
+    }else if(canvas.dataset.underwaterDrawCalls){
+      canvas.dataset.underwaterDrawCalls="";
+    }
     const metrics = frameSampler.add(rawDelta);
     if (metrics) {
       const { fps } = metrics;
@@ -5603,6 +6167,7 @@ export function createWorld(
   renderer.shadowMap.needsUpdate = true;
   renderer.render(scene, camera);
   callbacks.onAquatic("land");
+  callbacks.onSkim(skimHeat);
   callbacks.onReady();
   schedule();
   return {
@@ -5633,6 +6198,10 @@ export function createWorld(
         }
       }
       state = next;
+      if(next.skimCommandSerial!==lastSkimCommand){
+        lastSkimCommand=next.skimCommandSerial;
+        doSkimAction(next.skimCommand,next.skimBoardIndex);
+      }
       if(next.discGolfExitSerial!==lastDiscExit){
         lastDiscExit=next.discGolfExitSerial;
         discFetch=idleDiscGolfFetch();
@@ -5640,7 +6209,7 @@ export function createWorld(
         discGolf=idleDiscGolf();callbacks.onDiscGolf(discGolf);
       }
       if(next.discGolfStartSerial!==lastDiscStart &&
-         next.entered&&!next.paused&&!occupiedByOtherMode("disc")){
+         next.entered&&!next.paused&&!occupiedByOtherMode("disc")&&skimHeat.phase==="off"){
         // Consume the start request only after the world can actually start.
         // Previously an early/paused request was discarded forever.
         lastDiscStart=next.discGolfStartSerial;
@@ -5747,7 +6316,7 @@ export function createWorld(
         canvas.focus({ preventScroll: true });
       if(next.bigAirSerial!==lastBigAirSerial) {
         lastBigAirSerial=next.bigAirSerial;
-        if(next.entered&&!next.paused&&!occupiedByOtherMode("ski")){
+        if(next.entered&&!next.paused&&!occupiedByOtherMode("ski")&&skimHeat.phase==="off"){
           player={...BIG_AIR.start};
           travel={point:player,heading:{...BIG_AIR.heading},speed:0};
           yaw=Math.atan2(-BIG_AIR.heading.x,-BIG_AIR.heading.z);
@@ -5771,7 +6340,7 @@ export function createWorld(
       }
       if(next.challengeSerial!==lastChallengeSerial) {
         lastChallengeSerial=next.challengeSerial;
-        if(next.entered && !next.paused && !occupiedByOtherMode("trial")) {
+        if(next.entered && !next.paused && !occupiedByOtherMode("trial")&&skimHeat.phase==="off") {
           const start=JOSHUA_GATES[0];
           // Explicit challenge selection moves the player to a safe start
           // approach, never to an arbitrary point mid-air or inside a gap.
@@ -5808,6 +6377,9 @@ export function createWorld(
       if (next.entered && (!wasEntered || (wasPaused && !next.paused)))
         canvas.focus({ preventScroll: true });
       if (next.command && next.command.serial !== lastSerial) {
+        if(skimHeat.phase!=="off"){
+          skimHeat=idleSkimHeat();callbacks.onSkim(skimHeat);
+        }
         if(discGolf.phase!=="off"){
           discFetch=idleDiscGolfFetch();
           discGolfIntro=null;
@@ -5842,7 +6414,7 @@ export function createWorld(
         clearInput();
         travel = { point: player, speed: 0, heading:
           next.command.activity==="skate"&&insideSkatePark(player)?
-          skateGroveStartHeading():{x:0,z:-1} };
+          skateGroveStartHeading():{x:0,z:r.id==="north-shore"?1:-1} };
         airHeight = verticalSpeed = swimDepth = targetDepth = 0;
         climb = null;
         grind = null;
@@ -5875,12 +6447,14 @@ export function createWorld(
           yaw = Math.atan2(-approachX, -approachZ);
         } else {
           yaw =
+            r.id === "rainforest" ? Math.PI/2 :
             r.id === "cavern"
               ? Math.PI
               : r.id === "coast"
                 ? 1.15
                 : r.id === "lagoon"
                   ? -1.15
+                 : r.id === "north-shore" ? Math.PI
                   : r.id === "neural"
                     ? -0.6
                     : 0.25;
@@ -5912,6 +6486,9 @@ export function createWorld(
     },
     dispose() {
       skateGrove.dispose();
+
+      shoreLife.dispose();
+      skimWake.dispose();
       discGolfObjects.dispose();
       jetskiCoast.dispose();
       rideVisual.dispose();rideHud.remove();rideReticle.remove();rideAnnounce.remove();

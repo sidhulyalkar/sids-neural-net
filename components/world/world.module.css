@@ -1323,3 +1323,56 @@
  content:"";position:absolute;left:6px;top:6px;
  width:3px;height:3px;border-radius:50%;background:#f8f7d2;
 }
+
+/* Skimboarding lives in a narrow bottom rail, leaving the wave and rider visible. */
+.skimPickup {
+  position:absolute;top:88px;left:50%;transform:translateX(-50%);z-index:5;
+  padding:11px 15px;color:#f8ffff;background:#153d4ddd;
+  border:1px solid #a9e3df8f;border-radius:12px;
+  backdrop-filter:blur(10px);font-size:13px;pointer-events:auto;
+}
+.skimPickup:hover,.skimPickup:focus-visible {background:#d9f5ef;color:#153b40;}
+.skimHud {
+  position:absolute;left:50%;bottom:22px;transform:translateX(-50%);
+  width:min(700px,calc(100% - 40px));z-index:6;
+  background:#102b33ed;color:#f3f8f4;
+  border:1px solid #c1e6d17b;border-radius:15px;
+  padding:12px 16px;box-shadow:0 14px 38px #061c2573;
+  backdrop-filter:blur(12px);pointer-events:auto;
+}
+.skimHeader {display:flex;align-items:center;justify-content:space-between;gap:12px;
+  font-size:10px;letter-spacing:.13em;font-weight:650;color:#c5eadd;}
+.skimHeader button {border:1px solid #b6d3d180;padding:5px 9px;border-radius:7px;
+  font-size:11px;letter-spacing:0;color:inherit;}
+.skimReadout {display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin:4px 0;}
+.skimReadout strong {font-size:26px;line-height:1.1;font-weight:650;font-variant-numeric:tabular-nums;}
+.skimReadout small {font-size:10px;font-weight:450;letter-spacing:.09em;}
+.skimMeter {height:3px;background:#cee6dd35;border-radius:5px;overflow:hidden;}
+.skimMeter span {display:block;height:100%;background:#8adccc;transition:width .22s linear;}
+.skimHud p {margin:6px 0 7px;font-size:12px;color:#e2eae8;}
+.skimHud > small {font-size:10px;color:#b9d4d0;display:block;margin-top:5px;}
+.skimActions {display:flex;gap:6px;flex-wrap:wrap;margin:8px 0 4px;}
+.skimActions button {min-height:35px;padding:7px 10px;border-radius:8px;
+  border:1px solid #c6e5d187;font-size:11px;background:#193d43;color:#f5faf7;}
+.skimActions button:hover,.skimActions button:focus-visible,.skimHeader button:hover,
+.skimHeader button:focus-visible {background:#d7ede3;color:#153b40;}
+@media(max-width:760px) {
+  .skimPickup {top:88px;left:50%;right:auto;transform:translateX(-50%);}
+  .skimHud {bottom:12px;padding:9px 11px;width:calc(100% - 24px);border-radius:11px;}
+  .skimReadout strong {font-size:20px;}
+  .skimActions {flex-wrap:nowrap;overflow-x:auto;scrollbar-width:thin;}
+  .skimActions button {white-space:nowrap;flex:0 0 auto;min-height:40px;}
+  .skimHud p {font-size:11px;}
+}
+@media(prefers-reduced-motion:reduce){.skimMeter span{transition:none;}}
+
+/* Compact landing confirmation sits above the HUD, not over the surfer. */
+.skimTrickCallout {
+  position:absolute;left:50%;bottom:calc(100% + 10px);
+  transform:translateX(-50%);max-width:calc(100vw - 32px);
+  white-space:nowrap;padding:8px 15px;border-radius:999px;
+  border:1px solid #b6f3e2ab;background:#123d46ed;color:#ebfff8;
+  font-size:14px;font-weight:650;letter-spacing:.025em;
+  text-shadow:0 1px 3px #002c2b55;pointer-events:none;
+}
+@media(max-width:760px){.skimTrickCallout{font-size:12px;padding:6px 11px;}}

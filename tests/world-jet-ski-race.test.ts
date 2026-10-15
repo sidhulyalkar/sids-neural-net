@@ -3,6 +3,7 @@ import * as THREE from "three/src/Three.Core.js";
 import {createJetSkiDock} from "../components/world/worldJetSkiDock";
 import test from "node:test";
 import {isWater,WORLD_BOUNDS,terrainHeight,regionLanding} from "../lib/world/model";
+import {northShoreZ} from "../lib/world/skimboarding";
 import {groundHeight,stepTravel,type Travel} from "../lib/world/activities";
 import {JET_SKI_PIER,jetSkiPierHeight,nearJetSkiBoarding} from "../lib/world/jetSkiPier";
 import {JET_SKI_ARCHES,JET_SKI_ROCKS,jetSkiRockAt,jetSkiSegmentClear} from "../lib/world/jetSkiCourse";
@@ -23,7 +24,7 @@ test("dock launch and all coastal checkpoints are navigable water",()=>{
    assert.ok(jetSkiNavigableWater(p),`dry shortcut on segment ${i} at ${JSON.stringify(p)}`);
   }
  }
- assert.ok(JET_SKI_GATES.some(g=>g.z>WORLD_BOUNDS.maxZ+14));
+ assert.ok(JET_SKI_GATES.some(g=>g.z>northShoreZ(g.x)+5),"northern race buoys must sit offshore of the real coast");
  assert.ok(JET_SKI_GATES.some(g=>g.z<WORLD_BOUNDS.minZ-14));
  assert.ok(JET_SKI_GATES.some(g=>g.x< -40));
  assert.ok(JET_SKI_GATES.some(g=>g.x>65));
@@ -418,4 +419,15 @@ test("parked jet skis and race launch remain in open water outside the pier",()=
   assert.ok(isWater({x:ski.position.x,z:ski.position.z}));
  }
  scene.remove(dock.root);
+});
+
+test("north shore surf and offshore jet-ski routes remain physically distinct",()=>{
+  for(const p of [{x:-19.9,z:49},{x:0,z:40},{x:7.9,z:51.9}]){
+    assert.equal(jetSkiNavigableWater(p),false,"skate grove is dry");
+  }
+  for(const p of [{x:41,z:87},{x:0,z:88},{x:0,z:97.5},
+                   {x:0,z:78.5},{x:-39,z:85}]){
+    assert.equal(isWater(p),true,"northern arch and buoy is actual sea");
+    assert.equal(jetSkiNavigableWater(p),true,"existing north race ring stays navigable");
+  }
 });

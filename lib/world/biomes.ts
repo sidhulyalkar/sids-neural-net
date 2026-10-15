@@ -6,6 +6,7 @@ import {
   eastCoastlineX,
   type Point,
 } from "./model";
+import { beachBlend, northShoreZ } from "./skimboarding";
 export type BiomeId =
   | "alpine"
   | "redwood"
@@ -40,6 +41,7 @@ export function biomeAt(p: Point) {
   const beach = Math.max(
     1 - smooth(0, 7, Math.max(0, p.x - coastlineX(p.z))),
     1 - smooth(0, 7, Math.max(0, eastCoastlineX(p.z) - p.x)),
+    beachBlend(p.x,p.z),
   );
   const redwood =
     (1 - smooth(9, 25, p.x)) * (1 - smooth(20, 42, p.z)) * (1 - alpine);
@@ -56,10 +58,12 @@ export function biomeAt(p: Point) {
   if (isWater(p)) {
     for (const k of Object.keys(weights) as BiomeId[]) weights[k] = 0;
     const zone = waterZone(p)!;
-    const offshore = zone === "kelp" ? coastlineX(p.z) - p.x : p.x - eastCoastlineX(p.z);
+    const offshore = zone === "kelp" ? coastlineX(p.z) - p.x :
+      zone === "lagoon" ? p.x - eastCoastlineX(p.z) :
+      p.z - northShoreZ(p.x);
     const marine = smooth(0.35, 5.35, offshore);
     weights["cold-beach"] = 1 - marine;
-    weights[zone] = marine;
+    weights[zone==="north-shore"?"lagoon":zone] = marine;
   }
   const total = Object.values(weights).reduce((a, b) => a + b, 0);
   if (total > 0) {
