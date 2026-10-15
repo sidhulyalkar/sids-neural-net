@@ -3915,10 +3915,16 @@ export function createWorld(
       chalk.visible = !swimming && mode === "boulder";
       snorkel.visible = swimming;
       const running = !swimming && (mode === "run" || mode === "boulder");
-      const headingYaw = travel.speed > 0.05
+      const headingYaw = travel.speed > 0.05 || mode==="skate"
         ? Math.atan2(travel.heading.x, travel.heading.z)
         : explorer.rotation.y;
 
+        legs.forEach((leg,i)=>{
+          const side=i===0?-1:1;
+          leg.position.x=side*(!swimming&&mode==="skate"?.43:.16);
+          leg.scale.y=!swimming&&mode==="skate"?.72-trickPose.crouch*.25:.72;
+          leg.position.y=!swimming&&mode==="skate"?.03+leg.scale.y/2+trickPose.crouch*.25:.39;
+        });
       if (swimming) {
         bodyRoot.position.set(0, 0, 0);
         bodyRoot.rotation.set(0, 0, 0);
@@ -3946,18 +3952,21 @@ export function createWorld(
           0,
           bikePose
             ? bikeSeatLocal.y - riderHipLocal.y * Math.cos(bikeBodyLean)
-            : mode==="skate" ? -trickPose.crouch * .54 : 0,
+            : mode==="skate" ? .15+board.position.y-trickPose.crouch*.25 : 0,
           bikePose
             ? bikeSeatLocal.z -
               (riderHipLocal.y * Math.sin(bikeBodyLean) +
                 riderHipLocal.z * Math.cos(bikeBodyLean))
             : 0,
         );
-        bodyRoot.rotation.set(bikePose ? bikeBodyLean : mode==="skate"?trickPose.crouch*.35:0, 0, 0);
+        // Board +Z follows travel; human +Z faces across it. Root owns spins
+        // and fakie once, so the body offset never rotates steering or gear.
+        bodyRoot.rotation.set(bikePose ? bikeBodyLean : 0, mode==="skate"?Math.PI/2:0, 0);
+
         legs[0].rotation.x = running ? walking * 0.6 : bikePose ? 0.58 + walking * 0.28 :
-          mode==="skate" ? .10+trickPose.crouch*.9+trickPose.pitch*.65 : .2;
+          mode==="skate" ? 0 : .2;
         legs[1].rotation.x = running ? -walking * 0.6 : bikePose ? 0.58 - walking * 0.28 :
-          mode==="skate" ? .10+trickPose.crouch*.9-trickPose.pitch*.65 : .2;
+          mode==="skate" ? 0 : .2;
         // Single elastic backswing: shoulder reaches behind the body during
         // Space hold, then follows through as the disc takes flight.
         const throwProgress=THREE.MathUtils.clamp(state.discGolfSwingAmount,0,1);
@@ -4070,6 +4079,8 @@ export function createWorld(
       canvas.dataset.skateResultVisible=String(resultVisible);
       canvas.dataset.skateManual=skateTrick.manual;
       canvas.dataset.skateStance=skateTrick.stance;
+      canvas.dataset.skateBodyYaw=bodyRoot.rotation.y.toFixed(5);
+      canvas.dataset.skateFootSpacing=Math.abs(legs[1].position.x-legs[0].position.x).toFixed(3);
       canvas.dataset.skateSpin=String(skateTrick.spinDegrees);
       canvas.dataset.skateLean=skateCarveLean.toFixed(3);
       canvas.dataset.skateTrick=skateTrick.name??"";

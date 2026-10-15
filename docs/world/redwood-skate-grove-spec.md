@@ -171,3 +171,32 @@ change before accepting the final silhouette.
 - Ramps look timber-framed, not like brown boxes dropped onto the earth. Metal coping remains visually slim and readable.
 - No flora, decorative bark or rail posts protrude through moving board or wheelchair-scale walkable apron.
 - No dependency changes, duplicate scene graph, video assets, downloaded retail meshes or new technique onboarding.
+
+## Reference woodland pass — October 15
+
+The supplied reference directs the park toward a carved stump bowl, timber
+transitions and rails, an open log feature, plank arch and granite garden.
+The existing south-meadow footprint and accessible east bowl opening remain.
+
+- North: split-log riding channel with a concave cross-section, eased ends,
+  warm inner grain and dark exterior bark.
+- South: curved plank arch with sampled seams/stringers, flanked by low
+  faceted granite shoulders. This is a solid-backed rideable arch, not an
+  underpass. The log is open above; neither implies unsupported tunnel physics.
+- Existing bowl: stronger painted longitudinal bark fluting on its actual
+  surface, with the hollow floor, growth rings and open entrance retained.
+- Existing halfpipes, metal-capped timber rails, stump pads and perimeter
+  ferns are retained. Shared heightfield geometry avoids visual-only obstacles.
+- Rider: human body is 90 degrees relative to the board, feet are spaced
+  along the deck, and a small vertical correction places them at grip height.
+  Crouch shortens the simple legs while preserving foot height; airborne board
+  lift carries the rider. Human yaw stays separate from travel, board flips,
+  whole-rider spins and fakie. Non-skate modes restore limb dimensions.
+- Fix idle spin accumulation: a stopped skater takes heading from travel,
+  rather than repeatedly adding trick yaw to last frame's rendered root yaw.
+
+Validation: 27 focused skate tests, TypeScript and changed-source ESLint pass
+locally. Added physical entrance continuity checks for both new features and
+browser assertions for sideways body yaw and fore/aft foot separation.
+Final browser screenshots and the full World suite must be checked on the
+actual pushed revision before claiming release acceptance.
