@@ -92,6 +92,8 @@ jobs:
           components/world/worldHabitats.ts
           components/world/worldRenderer.ts
           components/world/worldSkimWake.ts
+          components/world/worldNorthShoreLife.ts
+          lib/world/northShoreEcology.ts
           tests/world-desert-track.test.ts
           tests/world-desert-gaps.test.ts
           tests/world-contract.test.ts

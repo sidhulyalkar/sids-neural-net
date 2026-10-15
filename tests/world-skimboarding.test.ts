@@ -9,8 +9,12 @@ import {
   skimOffshore, nearbySkimBoard, waveCrestOffshore, skimWaveAt, skimWaterHeight,
   idleSkimHeat, pickupSkimBoard, startSkimRide, skimAction, stepSkimHeat,
   skimTrickForKey, SKIM_TRICK_KEYS, waveCrestAtX,
+  skimBreakAmountAt,skimWashDepthAt,skimBoardContact,
   type SkimHeat,
 } from "../lib/world/skimboarding";
+import {
+  NORTH_SHORE_COUNTS,shoreAnimalAnchor,shoreAnimalMotion,shoreLifeVisible,
+} from "../lib/world/northShoreEcology";
 
 test("airborne tricks use Q/E/F and old number keys are not bound", () => {
   assert.deepEqual(
@@ -234,4 +238,49 @@ test("longshore surf variation has coherent visible and physical crests",()=>{
     assert.ok(skimWaveAt(p,t)>.5,"ride solver samples the same crest geometry");
     assert.ok(skimWaterHeight(p,t,SEA_SURFACE)>SEA_SURFACE+.25);
   }
+});
+
+test("shorebreak has an asymmetric forward face, foam runout and wash",()=>{
+  const t=1.7,x=0,crest=waveCrestAtX(0,x,t);
+  const at=(offset:number)=>({x,z:northShoreZ(x)+crest+offset});
+  assert.ok(skimWaveAt(at(0),t)>.90);
+  assert.ok(skimWaveAt(at(2),t)>skimWaveAt(at(-2),t),
+    "long offshore shoulder exceeds the steep collapsed shore face");
+  const foam=skimBreakAmountAt(at(-1),t);
+  assert.ok(foam>0,"whitewater trails the crest");
+  assert.ok(skimWashDepthAt({x,z:northShoreZ(x)-2},t)>=0);
+  assert.equal(skimWaveAt({x:95,z:95},t),0);
+  assert.equal(skimBreakAmountAt({x:95,z:95},t),0);
+});
+test("planing contact is stable across a crest, rolls on an angled face",()=>{
+  const t=3.25,x=8,crest=waveCrestAtX(1,x,t);
+  const point={x,z:northShoreZ(x)+crest+.8};
+  const c=skimBoardContact(point,{x:.18,z:.98},t,SEA_SURFACE,
+    q=>seaFloorHeight(q.x,q.z));
+  for(const value of [c.centerY,c.noseY,c.tailY,c.leftY,c.rightY,c.pitch,c.roll])
+    assert.ok(Number.isFinite(value));
+  assert.ok(Math.abs(c.pitch)<=.22 && Math.abs(c.roll)<=.19);
+  assert.ok(c.centerY>SEA_SURFACE);
+  const shoreline=skimBoardContact({x:0,z:northShoreZ(0)-1.7},
+    {x:0,z:1},t,SEA_SURFACE,q=>terrainHeight(q.x,q.z));
+  assert.ok(shoreline.centerY>=terrainHeight(0,northShoreZ(0)-1.7),
+    "wet-sand skim never sinks through sculpted terrain");
+});
+test("sand habitat stays inside the north shore and marine life yields to rider",()=>{
+  for(const [kind,count] of Object.entries(NORTH_SHORE_COUNTS) as
+    [keyof typeof NORTH_SHORE_COUNTS,number][]){
+    for(let i=0;i<count;i++){
+      const at=shoreAnimalAnchor(kind,i);
+      const moved=shoreAnimalMotion(kind,i,2.5,at);
+      assert.ok(Math.abs(at.x)<=27);
+      assert.ok(Number.isFinite(moved.x)&&Number.isFinite(moved.z));
+      if(kind!=="crab"){
+        assert.ok(moved.z>=northShoreZ(moved.x)+2.9);
+        assert.ok(moved.z<=northShoreZ(moved.x)+32.1);
+      }
+    }
+  }
+  assert.ok(shoreLifeVisible(boardPoint(1)));
+  assert.equal(shoreLifeVisible({x:-60,z:10}),false);
+  assert.equal(shoreLifeVisible({x:0,z:-85}),false);
 });

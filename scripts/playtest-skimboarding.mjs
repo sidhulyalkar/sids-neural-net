@@ -59,8 +59,14 @@ try {
     const d=document.querySelector('canvas[role="application"]')?.dataset;
     return d&&Number(d.drawCalls)>=50&&Number(d.triangles)>=50000;
   },null,{timeout:30000});
-  assert.equal(await attr("skim-wave-style"),"continuous-ribbon-v1");
+  assert.equal(await attr("skim-wave-style"),"shoaling-lip-wash-v2");
   assert.equal(await attr("skim-wave-ribbons"),"5");
+  assert.equal(await attr("shore-life-visible"),"true");
+  assert.equal(await attr("shore-fish"),"24");
+  assert.equal(await attr("shore-rays"),"3");
+  assert.ok(Number(await attr("skim-water-opacity"))<.55,
+    "north-shore water should reveal the sandy bottom");
+  checks.push("Sandy shallows, fish schools and stingrays are active only near the beach");
   const start=await page.locator("canvas").evaluate(c=>({
     biome:c.dataset.biome,drawCalls:Number(c.dataset.drawCalls),player:c.dataset.player,
     waves:c.dataset.skimWaveRibbons,
@@ -90,7 +96,8 @@ try {
   // browser task and observe every phase through MutationObserver so the audit
   // cannot miss a fast landing between separate Playwright round trips.
   const trickTrace=await canvas().evaluate(async c=>{
-    const trace={riding:false,airborne:false,spin:false,landed:false,clean:false,swimming:false,wake:false};
+    const trace={riding:false,airborne:false,spin:false,landed:false,
+      clean:false,swimming:false,wake:false,contact:false,tilt:false};
     const sample=()=>{
       const d=c.dataset;
       trace.riding ||= d.skimPhase==="riding";
@@ -100,11 +107,17 @@ try {
       trace.clean ||= (d.skimLastTrick??"").includes("Clean ride");
       trace.swimming ||= d.aquatic!=="land";
       trace.wake ||= d.skimWakeVisible==="true";
+      trace.contact ||= d.skimPhase==="riding" &&
+        Number(d.skimFootContactError)<.08 && Number.isFinite(Number(d.skimBoardContact));
+      trace.tilt ||= d.skimPhase==="riding" &&
+        Number.isFinite(Number(d.skimBoardPitch)) &&
+        Number.isFinite(Number(d.skimBoardRoll));
     };
     const observer=new MutationObserver(sample);
     observer.observe(c,{attributes:true,attributeFilter:[
       "data-skim-phase","data-skim-pending-trick","data-skim-trick-spin",
       "data-skim-last-trick","data-aquatic","data-skim-wake-visible",
+      "data-skim-foot-contact-error","data-skim-board-pitch","data-skim-board-roll",
     ]});
     // These are ordinary bubbling keyboard events routed to the same world
     // handler as physical Space/Q presses; no simulation shortcuts or state writes.
@@ -127,6 +140,8 @@ try {
   assert.equal(trickTrace.airborne,true,"Q should queue an airborne shuv-it");
   assert.equal(trickTrace.spin,true,"the avatar should visibly rotate during the trick");
   assert.equal(trickTrace.wake,true,"board motion should produce a water-height-following wake");
+  assert.equal(trickTrace.contact,true,"rider's shoes should contact the sampled deck");
+  assert.equal(trickTrace.tilt,true,"wave-responsive board pitch and roll remain finite");
   assert.equal(trickTrace.landed,true,"a completed shuv-it should land for points");
   await snap("02-ride-and-shuvit");
   await page.waitForFunction(()=>Number(
@@ -173,6 +188,8 @@ try {
   },null,{timeout:26000});
   assert.equal(await attr("aquatic"),"land");
   assert.equal(await attr("skim-surf-visible"),"false");
+  assert.equal(await attr("shore-life-visible"),"false");
+  assert.equal(await attr("shore-fish"),"0");
   assert.equal(await page.getByRole("complementary",{name:"North shore skimboarding heat"}).count(),0);
   assert.equal(await page.getByRole("button",{name:"Skateboarding"}).isVisible(),true);
   await snap("05-rainforest-after-skim-transfer");
