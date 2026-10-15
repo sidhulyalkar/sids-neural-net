@@ -7,7 +7,7 @@ import {
  startDiscGolf,idleDiscGolf,discGolfThrow,stepDiscGolf,discGolfScoreName,
  discGolfRemaining,discGolfTreeContact,traceDiscGolfShot,recommendDiscGolfPower,
  discGolfIntroPose,DISC_GOLF_INTRO_HOLD,DISC_GOLF_INTRO_PULLBACK,
- discGolfThrowCameraPose,discGolfPullback,DISC_GOLF_TAP_WINDOW_MS,
+ discGolfThrowCameraPose,discGolfClearCamera,discGolfPullback,DISC_GOLF_TAP_WINDOW_MS,
  DISC_GOLF_SWING_CYCLE_MS,
 } from "../lib/world/discGolf";
 import { terrainHeight,isWater } from "../lib/world/model";
@@ -432,4 +432,66 @@ test("single elastic backswing is continuous across tap and hold with a forgivin
  const down=discGolfPullback(DISC_GOLF_TAP_WINDOW_MS+DISC_GOLF_SWING_CYCLE_MS*.75,55);
  assert.ok(up.power>55&&down.power<55,"hold offers both stronger and softer shots");
  assert.equal(discGolfPullback(Number.NaN,55).power,55);
+});
+
+
+test("disc profiles have intentional distance hierarchy at equal power",()=>{
+ const base=startDiscGolf(0,()=>0);
+ const styles=["putter","midrange","fairway","driver"] as const;
+ const speeds=styles.map(discStyle=>{
+  const s=discGolfThrow(base,{power:80,accuracy:0,loft:23,aimOffset:0,discStyle},()=>0);
+  assert.equal(s.phase,"flying");
+  return Math.hypot(s.velocity.x,s.velocity.y,s.velocity.z);
+ });
+ for(let i=1;i<speeds.length;i++)
+  assert.ok(speeds[i]>speeds[i-1],styles[i]+" should launch faster than "+styles[i-1]);
+});
+
+test("ordinary spin presets preserve controllable rigid angular momentum",()=>{
+ const base=startDiscGolf(0,()=>0);
+ for(const rpm of [650,850,1100]){
+  const shot=discGolfThrow(base,{power:72,accuracy:0,loft:24,aimOffset:0,spinRpm:rpm},()=>0);
+  assert.equal(shot.spinRpm,rpm);
+  assert.ok(shot.rigid);
+  const m=shot.rigid!.momentum;
+  assert.ok(Math.hypot(m.x,m.y,m.z)>0);
+ }
+});
+
+test("unobstructed playable throws reach a terminal phase without running forever",()=>{
+ const flat=()=>0,water=()=>false;
+ for(const style of ["putter","midrange","fairway","driver"] as const){
+  let s=discGolfThrow(startDiscGolf(0,flat),
+   {power:72,accuracy:0,loft:24,aimOffset:0,discStyle:style},flat);
+  for(let i=0;i<2000&&s.phase==="flying";i++)
+   s=stepDiscGolf(s,.05,flat,water,-1.4);
+  assert.notEqual(s.phase,"flying",style+" flight should resolve");
+  assert.ok(Number.isFinite(s.disc.x)&&Number.isFinite(s.disc.y)&&Number.isFinite(s.disc.z));
+ }
+});
+
+test("disc golf camera orbits away from a blocking tree without moving its focus",()=>{
+ const focus={x:0,y:2,z:0},desired={x:0,y:14,z:20};
+ const unobstructed=discGolfClearCamera(desired,focus,[],()=>0);
+ assert.deepEqual(unobstructed,desired);
+ const tree=[{x:0,z:10,radius:2,height:20}];
+ const clear=discGolfClearCamera(desired,focus,tree,()=>0);
+ assert.ok(Number.isFinite(clear.x)&&Number.isFinite(clear.y)&&Number.isFinite(clear.z));
+ assert.ok(Math.abs(clear.x)>2,"camera should orbit away from the trunk");
+ assert.ok(Math.hypot(clear.x-focus.x,clear.z-focus.z)>=19.9,
+  "keep a readable distance rather than zooming into the player");
+});
+
+test("camera avoids foliage crowns even when trunk is clear",()=>{
+ const focus={x:0,y:13,z:0},desired={x:0,y:18,z:20};
+ const crown=[{x:3,z:10,radius:1,height:20}];
+ const clear=discGolfClearCamera(desired,focus,crown,()=>0);
+ assert.ok(Math.abs(clear.x)>1,"wide foliage should trigger an alternate orbit");
+});
+test("camera checks ridges even without any tree obstacles",()=>{
+ const focus={x:0,y:2,z:0},desired={x:0,y:12,z:20};
+ const ridge=(p:{x:number;z:number})=>
+  p.z>7&&p.z<14&&Math.abs(p.x)<3?25:0;
+ const clear=discGolfClearCamera(desired,focus,[],ridge);
+ assert.ok(Math.abs(clear.x)>1,"terrain ridge should trigger an alternate orbit");
 });

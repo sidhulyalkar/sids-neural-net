@@ -219,7 +219,11 @@ export function discGolfThrow(state:DiscGolfState,shot:DiscShot,ground:DiscTerra
  const aim=base+clamp(shot.aimOffset,-55,55)*Math.PI/180+
    accuracy*.28;
  // A low-end putt must be possible: zero power is no longer a full drive.
- const speed=2.3+power*26.7;
+ // Gameplay calibration: a full-power throw must carry through a real fairway.
+ // Preserve short putts while allowing fairway and distance discs to travel.
+ const discSpeed={putter:.81,midrange:1,fairway:1.09,driver:1.16} as const;
+ const style=shot.discStyle??"midrange";
+ const speed=(2.3+power*30.7)*discSpeed[style];
  return {...state,phase:"flying",reason:undefined,
   disc:{...state.lie,y:ground(state.lie)+1.1},
   velocity:{x:Math.sin(aim)*Math.cos(loft)*speed,
@@ -384,7 +388,7 @@ export function stepDiscGolf(state:DiscGolfState,dt:number,
    }
    break;
   }
-  if(s.flightTime>=10 || Math.abs(p.x)>93 || Math.abs(p.z)>95 || p.z>57){
+  if(s.flightTime>=16 || Math.abs(p.x)>93 || Math.abs(p.z)>95 || p.z>57){
    s.phase="water";s.waterRedos+=1;s.strokes=Math.max(0,s.strokes-1);
    s.gatesCleared=state.gatesCleared;
    s.disc={...state.lie,y:ground(state.lie)+.18};
@@ -500,6 +504,56 @@ export function discGolfIntroPose(
    z:look.z+(followLook.z-look.z)*eased,
   },
  };
+}
+
+/** Camera-only visibility search. Choose a nearby orbit with clear sight of the
+ * thrower/disc and intended flight line. Never changes throw physics.
+ * Candidate order penalizes obstruction before camera displacement, avoiding
+ * trees that fill the foreground without snapping into the player's back. */
+export function discGolfClearCamera(
+ desired:DiscPoint,focus:DiscPoint,obstacles:readonly DiscGolfObstacle[],
+ ground:DiscTerrain,
+):DiscPoint{
+ const dx=desired.x-focus.x,dz=desired.z-focus.z;
+ const distance=Math.hypot(dx,dz);
+ if(distance<.1)return desired;
+ const base=Math.atan2(dx,dz);
+ let best=desired,bestScore=Infinity;
+ for(const turn of [0,-.22,.22,-.43,.43,-.7,.7,-1,1]){
+  const a=base+turn;
+  const candidate={x:focus.x+Math.sin(a)*distance,
+   z:focus.z+Math.cos(a)*distance,
+   y:Math.max(desired.y,ground({x:focus.x+Math.sin(a)*distance,
+    z:focus.z+Math.cos(a)*distance})+5)};
+  let blocked=0;
+  for(const tree of obstacles){
+   const segX=candidate.x-focus.x,segZ=candidate.z-focus.z;
+   const t=clamp(((tree.x-focus.x)*segX+(tree.z-focus.z)*segZ)/
+    (segX*segX+segZ*segZ),0,1);
+   if(t<=.06||t>=.96)continue;
+   const separation=Math.hypot(focus.x+segX*t-tree.x,
+    focus.z+segZ*t-tree.z);
+   const sightY=focus.y+(candidate.y-focus.y)*t;
+   const treeBase=ground(tree),treeHeight=tree.height??12;
+   const trunk=separation<tree.radius+.9&&sightY<treeBase+treeHeight+.4;
+   const crown=separation<tree.radius*2.8+1&&
+    sightY>treeBase+treeHeight*.55&&
+    sightY<treeBase+treeHeight+tree.radius;
+   if(trunk||crown)blocked+=1;
+  }
+  const steps=Math.max(6,Math.min(24,Math.ceil(distance/2)));
+  for(let i=1;i<steps;i++){
+   const t=i/steps;
+   const px=focus.x+(candidate.x-focus.x)*t;
+   const pz=focus.z+(candidate.z-focus.z)*t;
+   const sightY=focus.y+(candidate.y-focus.y)*t;
+   if(ground({x:px,z:pz})+.8>sightY)blocked+=1;
+  }
+  const score=blocked*100+Math.abs(turn)*4+
+    Math.max(0,candidate.y-desired.y)*.08;
+  if(score<bestScore){bestScore=score;best=candidate;}
+ }
+ return best;
 }
 
 /** Stable 3rd-person, slightly elevated view. In particular, short putts

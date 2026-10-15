@@ -115,10 +115,17 @@ export function stepRigidDisc(state:RigidFlight,wind:V3,dt:number):
    alpha=alphaRad/rad;
    const co=discGolfModelCoefficients(p,alphaRad);
    const dynamic=.5*density*speed*speed;
-   lift=dynamic*area*co.cl;drag=dynamic*area*co.cd;
+   // Playable-flight tuning: retain angle-of-attack response, but avoid
+   // the high-drag, negative-lift nose dive that kills ordinary releases.
+   // This is an intentional arcade calibration, not measured disc data.
+   lift=dynamic*area*Math.max(.16,co.cl);
+   drag=dynamic*area*co.cd*.68;
    const lateral=add(n,scale(direction,-dot(n,direction)));
    const liftDirection=norm(lateral);
-   force=add(force,add(scale(liftDirection,lift),scale(direction,-drag)));
+   // A little upright stability makes the path predictable without
+   // removing player-controlled hyzer/anhyzer or gyroscopic precession.
+   const uprightLift=add(scale(liftDirection,.82),{x:0,y:.18,z:0});
+   force=add(force,add(scale(norm(uprightLift),lift),scale(direction,-drag)));
    // Pitch axis is transverse to the disc normal and incoming air.
    // Actual pressure-center moment, NOT an arbitrary sideways force.
    const axis=norm(cross(n,direction));
@@ -128,7 +135,7 @@ export function stepRigidDisc(state:RigidFlight,wind:V3,dt:number):
   // Small aerodynamic damping on transverse angular rate prevents an
   // infinitely undamped nutation mode, but is uncalibrated for each mold.
   const rotation=rigid.orientation;
-  const transverseDamping=.00017;
+  const transverseDamping=.00045;
   const dampedTorque=add(torque,rotateQuat(rotation,{
    x:-transverseDamping*wbody.x,
    y:-.12*p.spinInertia*wbody.y,
