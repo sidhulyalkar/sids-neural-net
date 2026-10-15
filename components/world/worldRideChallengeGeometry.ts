@@ -113,7 +113,13 @@ export function createRideChallengeGeometry(scene:THREE.Scene){
    state:RideBoost,camera:THREE.Camera,
    pointer:THREE.Vector2,ground:THREE.Mesh):RideBoostTarget|null{
    let closest:RideBoostTarget|null=null;
-   let bestError=.065*.065;
+   // The old 0.065 NDC threshold was smaller than the projected ring
+   // while the camera followed a fast rider. At 13 u/s the observed aim
+   // drift between projection and click was about 0.10 NDC. Keep a modest,
+   // speed-scaled ring-sized forgiveness, but still insist on a charged,
+   // visible, in-range target and an unobstructed terrain sightline.
+   const aimRadius=Math.min(.17,.085+Math.max(0,speed)*.006);
+   let bestError=aimRadius*aimRadius;
    for(const {target,group} of targets){
     if(!group.visible||!canFireRideBoost(target,mode,player,speed,now,state))
      continue;
