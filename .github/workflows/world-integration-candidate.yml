@@ -185,9 +185,15 @@ jobs:
           # separately with a workflow-authorized GitHub connector.
           cp .github/workflows/world-regression.yml \
             artifacts/world-integration/validated-world-regression.yml
+          cp .github/workflows/world-skimboarding-browser-qa.yml \
+            artifacts/world-integration/validated-world-skimboarding-browser-qa.yml
           git show "$PR_HEAD:.github/workflows/world-regression.yml" > \
             .github/workflows/world-regression.yml
           git add .github/workflows/world-regression.yml
+          # The skim-only workflow is newly introduced by the base branch.
+          # The Actions token cannot create it either; archive the exact
+          # reviewed file, then promote it with the workflow-authorized app.
+          git rm -f .github/workflows/world-skimboarding-browser-qa.yml
           if git diff --cached --name-only | grep -q '^.github/workflows/'; then
             echo "::error::Publication would modify a workflow without authorization"
             exit 1
