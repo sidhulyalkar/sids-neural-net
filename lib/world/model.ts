@@ -342,7 +342,11 @@ export function seaFloorHeight(x: number, z: number): number {
   const zone = waterZone({ x, z });
   if (zone === "north-shore") {
     const offshore = Math.max(0, z - northShoreZ(x));
-    return SEA_SURFACE - 0.4 - Math.min(4.2, offshore * 0.16) + Math.sin(x * 0.33 + z * 0.14) * 0.065;
+    // The former 0.4m step created a cliff at the wet-sand/water boundary.
+    // Start with a gently submerged shelf and deepen it continuously offshore.
+    const depth = .12 + Math.min(4.2, Math.max(0,offshore-.35)*.15);
+    const ripples=Math.sin(x*.33+z*.14)*.035;
+    return SEA_SURFACE-depth+ripples;
   }
   if (zone === "lagoon") {
     const offshore = Math.max(0, x - eastCoastlineX(z));
