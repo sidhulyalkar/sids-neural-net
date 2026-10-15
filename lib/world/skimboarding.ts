@@ -82,8 +82,10 @@ export function waveCrestOffshore(index: number, seconds: number): number {
  * rendered ribbon drift away from the collision and scoring wave field. */
 export function waveCrestAtX(index: number, x: number, seconds: number): number {
   return waveCrestOffshore(index,seconds)
-    + .34*Math.sin(x*.24 + seconds*.31)
-    + .13*Math.sin(x*.61 - seconds*.18);
+    // Different segments peel across the beach instead of forming
+    // mechanically straight, full-width rectangular walls.
+    + 1.02*Math.sin(x*.135 + seconds*.33)
+    + .38*Math.sin(x*.38 - seconds*.22);
 }
 /** A shoaling shoulder, steep forward face and short collapsed back.
  * The positive displacement is the *offshore* side of a shoreward-traveling
