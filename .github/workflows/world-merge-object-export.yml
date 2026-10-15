@@ -1,0 +1,62 @@
+name: Export exact reviewed PR94 merge objects
+
+on:
+  push:
+    branches: ['feat/pr94-merge-object-export']
+    paths: ['.github/workflows/world-merge-object-export.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  export-validated-tree-delta:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 0ced4c181f67fa3a6f6058827d3a7ce9bc500ad2
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Reproduce exact tested parent merge without writing refs
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/world-merge-export
+          git config user.name "World Integration QA"
+          git config user.email "world-integration-qa@users.noreply.github.com"
+          test "$(git rev-parse HEAD)" = "0ced4c181f67fa3a6f6058827d3a7ce9bc500ad2"
+          git fetch --no-tags origin feat/sids-world
+          git update-ref refs/remotes/origin/feat/sids-world acc13cfbbfc06995b570a9696dbc9d0c6c8e5181
+          test "$(git rev-parse refs/remotes/origin/feat/sids-world)" = "acc13cfbbfc06995b570a9696dbc9d0c6c8e5181"
+          set +e
+          git merge --no-commit --no-ff origin/feat/sids-world > artifacts/world-merge-export/merge.log 2>&1
+          merge_status=$?
+          set -e
+          if [ "$merge_status" -ne 0 ]; then
+            mapfile -t paths < <(git diff --name-only --diff-filter=U)
+            python3 scripts/resolve-world-integration.py "${paths[@]}"
+            git add -- "${paths[@]}" lib/world/skimboarding.ts lib/world/model.ts tests/world-skimboarding.test.ts lib/world/jetSkiRace.ts tests/world-jet-ski-race.test.ts
+          fi
+          test -z "$(git diff --name-only --diff-filter=U)"
+          git diff --cached --check
+          git write-tree > artifacts/world-merge-export/tree.sha
+          git ls-tree -r "$(cat artifacts/world-merge-export/tree.sha)" > artifacts/world-merge-export/merged-tree.txt
+          git diff --cached --name-status > artifacts/world-merge-export/changed-status.txt
+          git diff --cached --name-only -z | while IFS= read -r -d '' file; do
+            if git cat-file -e ":$file" 2>/dev/null; then
+              mkdir -p "artifacts/world-merge-export/files/$(dirname "$file")"
+              git show ":$file" > "artifacts/world-merge-export/files/$file"
+            fi
+          done
+          printf '%s\n' "0ced4c181f67fa3a6f6058827d3a7ce9bc500ad2" > artifacts/world-merge-export/pr-parent.sha
+          printf '%s\n' "acc13cfbbfc06995b570a9696dbc9d0c6c8e5181" > artifacts/world-merge-export/base-parent.sha
+          echo "Exact tested merge delta exported without any GitHub ref mutation."
+      - name: Upload reproducible merge delta for connected reviewer
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: reviewed-pr94-merge-objects
+          path: artifacts/world-merge-export/
+          if-no-files-found: error
