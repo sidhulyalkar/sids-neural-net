@@ -3425,7 +3425,7 @@ export function createWorld(
         // The planted board's orientation is vertical; the ridden board
         // planes horizontally, with independent pitch and roll from four rails.
         skimEquipment.position.set(surfing?0:.74,
-          surfing&&skimContact ? skimContact.centerY-playerY-.14+.03 : .87,
+          surfing&&skimContact ? skimContact.centerY-playerY-.04+.07 : .87,
           surfing?0:.15);
         skimEquipment.rotation.set(surfing?Math.PI/2:0,boardTurn,surfing?0:-.12);
         skimDeck.rotation.set(surfing&&skimContact?skimContact.pitch:0,
@@ -3434,6 +3434,13 @@ export function createWorld(
       canvas.dataset.skimBoardPitch=(skimContact?.pitch??0).toFixed(3);
       canvas.dataset.skimBoardRoll=(skimContact?.roll??0).toFixed(3);
       canvas.dataset.skimBoardContact=(skimContact?.centerY??0).toFixed(3);
+      // Approximate shoe-sole bottom from the authored leg mesh:
+      // leg center .39, length .72, and the root support offset .04.
+      // Independent of wave simulation so visual QA catches future drift.
+      const shoeY=playerY+skimHeat.air+.04+(.39-.72/2);
+      const deckY=(skimContact?.centerY??playerY)+skimHeat.air+.07;
+      canvas.dataset.skimFootContactError=surfing?
+        Math.abs(shoeY-deckY).toFixed(3):"0";
       canvas.dataset.skimWashDepth=(skimContact?.wash??0).toFixed(3);
       snorkel.visible = swimming;
       const running = !swimming && !surfing && (mode === "run" || mode === "boulder");
@@ -3534,7 +3541,7 @@ export function createWorld(
         explorer.position.set(
           player.x,
           playerY + (surfing?skimHeat.air:0) + supportLift +
-            (surfing ? 0.14 : mode === "skate" ? 0.18 : mode === "bike" ? 0.2 : mode === "ski" ? 0.08 : 0) +
+            (surfing ? 0.04 : mode === "skate" ? 0.18 : mode === "bike" ? 0.2 : mode === "ski" ? 0.08 : 0) +
             (running ? Math.abs(walking) * 0.045 : 0),
           player.z,
         );
