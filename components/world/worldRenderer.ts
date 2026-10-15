@@ -334,6 +334,38 @@ export function createWorld(
     [1, 1, 1],
   );
   ground.castShadow = false;
+  // Fine-grained shore skin masks the ~1m polygonal edge of the island grid.
+  // This inherits the SAME navigation and marine-floor heights.
+  const shorePositions:number[]=[],shoreColors:number[]=[],shoreIndices:number[]=[];
+  const shoreXDiv=100,shoreZDiv=28,beachSand=new THREE.Color("#e7cfa6"),
+    wetTone=new THREE.Color("#b8b4a1");
+  for(let j=0;j<=shoreZDiv;j++)for(let i=0;i<=shoreXDiv;i++){
+    const x=-31+62*i/shoreXDiv,offshore=-11+23*j/shoreZDiv;
+    const z=northShoreZ(x)+offshore;
+    shorePositions.push(x,worldFloorHeight(x,z)+.027,z);
+    const biome=biomeAt({x,z}),color=new THREE.Color("#000000");
+    for(const [id,weight] of Object.entries(biome.weights))
+      color.add(new THREE.Color(BIOME_COLORS[id as keyof typeof BIOME_COLORS]).multiplyScalar(weight));
+    const sideFade=THREE.MathUtils.smoothstep(31-Math.abs(x),0,6);
+    const edgeFade=Math.min(THREE.MathUtils.smoothstep(offshore+11,0,3),
+      THREE.MathUtils.smoothstep(12-offshore,0,5));
+    const sand=beachSand.clone().lerp(wetTone,
+      THREE.MathUtils.smoothstep(offshore,-3,5)*.33);
+    color.lerp(sand,sideFade*edgeFade*Math.min(1,beachBlend(x,z)));
+    shoreColors.push(color.r,color.g,color.b);
+    if(i<shoreXDiv&&j<shoreZDiv){
+      const a=j*(shoreXDiv+1)+i,b=a+shoreXDiv+1;
+      shoreIndices.push(a,b,a+1,b,b+1,a+1);
+    }
+  }
+  const shoreGroundGeometry=geo(new THREE.BufferGeometry());
+  shoreGroundGeometry.setAttribute("position",new THREE.Float32BufferAttribute(shorePositions,3));
+  shoreGroundGeometry.setAttribute("color",new THREE.Float32BufferAttribute(shoreColors,3));
+  shoreGroundGeometry.setIndex(shoreIndices);shoreGroundGeometry.computeVertexNormals();
+  const shoreGround=mesh(shoreGroundGeometry,
+    mat("#ffffff",{vertexColors:true,roughness:.94,side:THREE.DoubleSide}),
+    [0,0,0],[1,1,1]);
+  shoreGround.castShadow=false;shoreGround.receiveShadow=true;
   // Ocean and a few quiet, moving tide lines.
   const waterMaterial = mat("#218ba8", {
     roughness: 0.38,
@@ -416,7 +448,7 @@ export function createWorld(
     transparent:true,opacity:.15,depthWrite:false,side:THREE.DoubleSide,
   }));
   const northFoamSeam=northBand(.09,.37,false,mat("#f6f8e9",{
-    transparent:true,opacity:.58,depthWrite:false,side:THREE.DoubleSide,
+    transparent:true,opacity:.32,depthWrite:false,side:THREE.DoubleSide,
   }));
   // Smooth continuous shorebreak ribbons: a shared height sampler drives
   // BOTH skimming contact and rendered surface. No 3m cuboid wave strips.
@@ -428,7 +460,7 @@ export function createWorld(
     roughness:.65,transparent:true,opacity:.54,
     depthWrite:false,side:THREE.DoubleSide,
   });
-  const swellSamples=34;
+  const swellSamples=48;
   function skimRibbon(across:number,material:THREE.Material){
     const geometry=geo(new THREE.BufferGeometry());
     const coords=new Float32Array((swellSamples+1)*(across+1)*3);
@@ -477,7 +509,7 @@ export function createWorld(
           const side=kind==="face" ? -1.55+fraction*8.4 :
             kind==="lip" ? -.7+fraction*1.4 : -5.4+fraction*5.5;
           for(let i=0;i<=swellSamples;i++){
-            const x=-27+54*i/swellSamples;
+            const x=-31+62*i/swellSamples;
             const point={x,z:northShoreZ(x)+waveCrestAtX(wave.index,x,seconds)+side};
             const face=skimWaveAt(point,seconds);
             const breaking=skimBreakAmountAt(point,seconds);
@@ -498,7 +530,7 @@ export function createWorld(
     for(let j=0;j<=skimWash.across;j++){
       const offshore=-3.3+8*j/skimWash.across;
       for(let i=0;i<=swellSamples;i++){
-        const x=-27+54*i/swellSamples;
+        const x=-31+62*i/swellSamples;
         const p={x,z:northShoreZ(x)+offshore};
         const floor=worldFloorHeight(x,p.z);
         const depth=skimWashDepthAt(p,seconds);
@@ -2734,7 +2766,7 @@ export function createWorld(
   // Keep ground/coast geometry, water, wildlife, interactables and marine
   // content intact. This visibility filter runs after their frame updates.
   const underwaterCullingExclusions=new Set<THREE.Object3D>([
-    ground,water,tides,shoreFoam,northWetSand,northFoamSeam,skimWash.object,
+    ground,shoreGround,water,tides,shoreFoam,northWetSand,northFoamSeam,skimWash.object,
     ...skimWaves.flatMap(w=>[w.surface.object,w.lip.object,w.foam.object]),
     ...skimProps,...skimTails,
     grassMesh,markerHitMesh,explorerContact,dogContact,
@@ -4800,7 +4832,7 @@ export function createWorld(
       }
     }
     waterMaterial.opacity=baseOceanOpacity*
-      (1-(surfVisible?.40:0));
+      (1-(surfVisible?.52:0));
     canvas.dataset.skimSurfVisible=String(surfVisible);
     shoreFoam.position.x = Math.sin(elapsed * 0.7) * 0.11;
     shoreFoam.position.y = Math.sin(elapsed * 1.25) * 0.018;
