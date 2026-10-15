@@ -53,7 +53,7 @@ try {
   await screenshot(page, 'desktop-welcome');
   await page.getByRole('button', { name: 'Explore world', exact: true }).click();
   const before = await page.locator('canvas').getAttribute('data-player');
-  const beforeDogPhase = Number(await page.locator('canvas').getAttribute('data-dog-gait-phase'));
+  const beforeDogDistance = Number(await page.locator('canvas').getAttribute('data-dog-distance-traveled'));
   await page.keyboard.down('w');
   await page.waitForTimeout(1400);
   await page.keyboard.up('w');
@@ -71,6 +71,7 @@ try {
     targetSwitches: Number(c.dataset.dogTargetSwitches),
     speed: Number(c.dataset.dogSpeed),
     phase: Number(c.dataset.dogGaitPhase),
+    distance: Number(c.dataset.dogDistanceTraveled),
   }));
   assert.ok(dogMotion.maxYawStep <= 0.19, `Shasta max frame yaw step ${dogMotion.maxYawStep}`);
   assert.ok(dogMotion.maxYStep < 0.16, `Shasta max frame height step ${dogMotion.maxYStep}`);
@@ -78,7 +79,11 @@ try {
   assert.ok(dogMotion.maxAcceleration < 15.5, `Shasta max acceleration ${dogMotion.maxAcceleration}`);
   assert.ok(dogMotion.targetSwitches <= 1, `Shasta curiosity target switches ${dogMotion.targetSwitches}`);
   assert.ok(Number.isFinite(dogMotion.speed));
-  assert.ok(dogMotion.phase > beforeDogPhase);
+  assert.ok(Number.isFinite(dogMotion.phase) &&
+    dogMotion.phase >= 0 && dogMotion.phase < Math.PI*2,
+    'Gait phase remains finite and wraps within one stride');
+  assert.ok(dogMotion.distance > beforeDogDistance + .05,
+    'Shasta advances along the ground instead of cycling in place');
   results.push('Keyboard walking changes player position');
   results.push('Shasta follow gait uses smooth acceleration, stable curiosity and articulated distance-phased motion');
   results.push('Shasta character profile uses male identity, natural coat geometry without harness/brow bulges, amber eyes, pink-brown nose and a continuous relaxed plume tail');

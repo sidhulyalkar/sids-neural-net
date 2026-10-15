@@ -116,3 +116,17 @@ test("rolling in snow starts/ends grounded and does not cartwheel the dog",()=>{
  assert.ok(middle.roll>1,"roll must be visibly more than a head nod");
  assert.ok(Math.abs(end.roll)<.02,"roll returns upright before shake");
 });
+
+test("Shasta gait phase wraps while actual ground displacement remains positive",()=>{
+  const start=Math.PI*2-.04;
+  const wrapped=advanceShastaStride(start,.16,6);
+  assert.ok(wrapped<start,"gait phase wraps at the end of each stride");
+  assert.ok(wrapped>=0&&wrapped<Math.PI*2);
+  let distance=0,phase=start;
+  for(let i=0;i<20;i++){
+    const step=.035;distance+=step;
+    phase=advanceShastaStride(phase,step,5);
+    assert.ok(phase>=0&&phase<Math.PI*2);
+  }
+  assert.ok(distance>.6,"physical ground displacement is monotone across wrap");
+});

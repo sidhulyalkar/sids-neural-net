@@ -3205,6 +3205,7 @@ export function createWorld(
   const dogFootGround=[0,0,0,0];
   let dogCameraAnchor:ShastaCameraAnchor|null=null;
   let dogGaitPhase = 0;
+  let dogDistanceTraveled = 0;
   let dogMoveBlend = 0;
   let shastaSnow=idleShastaSnowPlay();
   let snowStagesSeen:string[]=[];
@@ -5531,6 +5532,9 @@ export function createWorld(
     }
 
     const dogStep = distance(dogBefore, dog);
+    // Monotone motion evidence for browser QA; the gait *phase* intentionally
+    // wraps every cycle and must not be used as a cumulative distance proxy.
+    dogDistanceTraveled += dogStep;
     const dogActualSpeed = dogStep / Math.max(0.001, dogMotionDt);
     dogAnimSpeed +=
       (dogActualSpeed - dogAnimSpeed) * smoothingAlpha(dogMotionDt, 9.5);
@@ -5612,6 +5616,7 @@ export function createWorld(
     canvas.dataset.dogSpeed = dogActualSpeed.toFixed(3);
     canvas.dataset.dogMoveBlend = dogMoveBlend.toFixed(3);
     canvas.dataset.dogGaitPhase = dogGaitPhase.toFixed(3);
+    canvas.dataset.dogDistanceTraveled = dogDistanceTraveled.toFixed(3);
     canvas.dataset.dogMaxYawStep = dogMaxYawStep.toFixed(3);
     canvas.dataset.dogMaxYStep = dogMaxYStep.toFixed(3);
     canvas.dataset.dogMaxMoveBlend = dogMaxMoveBlend.toFixed(3);
