@@ -403,6 +403,8 @@ export function regionLanding(region: RegionId): Point {
   if (region === "lagoon")
     return { x: eastCoastlineX(z) - 1.35, z };
   if (region === "north-shore") return { x: 0, z: northShoreZ(0) - 5.2 };
+  // The rainforest anchor has a reserved, vegetation-free arrival circle.
+  if (region === "rainforest") return { ...target.point };
   if (region === "cavern")
     return { ...ARCADE_CAVE.approach };
   return { x: target.point.x, z };

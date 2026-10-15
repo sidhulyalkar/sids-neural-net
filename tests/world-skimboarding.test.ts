@@ -204,3 +204,10 @@ test("north shore beach clearing keeps rocks out of all three approach lanes",()
   assert.equal(skimBeachClearance({x:39,z:42}),false,
     "neighboring rainforest geometry must remain outside the beach");
 });
+
+test("rainforest arrival uses a cleared walkable anchor",()=>{
+  const point=regionLanding("rainforest");
+  assert.deepEqual(point,{x:44,z:33});
+  assert.equal(isWater(point),false);
+  assert.ok(Number.isFinite(terrainHeight(point.x,point.z)));
+});
