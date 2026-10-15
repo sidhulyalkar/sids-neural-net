@@ -78,12 +78,19 @@ export function waveCrestOffshore(index: number, seconds: number): number {
   const repeat = SKIM_WAVE_SPACING * 5;
   return 2.2 + (((11.2 + index * SKIM_WAVE_SPACING - seconds * SKIM_WAVE_SPEED) % repeat) + repeat) % repeat;
 }
+/** Longshore phase variation keeps crests irregular, without letting the
+ * rendered ribbon drift away from the collision and scoring wave field. */
+export function waveCrestAtX(index: number, x: number, seconds: number): number {
+  return waveCrestOffshore(index,seconds)
+    + .34*Math.sin(x*.24 + seconds*.31)
+    + .13*Math.sin(x*.61 - seconds*.18);
+}
 export function skimWaveAt(p: SkimPoint, seconds: number): number {
   const offshore = skimOffshore(p);
   if (Math.abs(p.x) > 40 || offshore < -2 || offshore > 37) return 0;
   let crest = 0;
   for (let i = 0; i < 5; i++) {
-    const d = Math.abs(offshore - waveCrestOffshore(i, seconds));
+    const d = Math.abs(offshore - waveCrestAtX(i, p.x, seconds));
     crest = Math.max(crest, smooth(1 - d / 2.7));
   }
   return crest * smooth((offshore + 1) / 5);

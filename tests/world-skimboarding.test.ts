@@ -8,7 +8,7 @@ import {
   SKIM_BOARDS, SKIM_HEAT_SECONDS, boardPoint, northShoreZ, beachBlend, skimBeachClearance,
   skimOffshore, nearbySkimBoard, waveCrestOffshore, skimWaveAt, skimWaterHeight,
   idleSkimHeat, pickupSkimBoard, startSkimRide, skimAction, stepSkimHeat,
-  skimTrickForKey, SKIM_TRICK_KEYS,
+  skimTrickForKey, SKIM_TRICK_KEYS, waveCrestAtX,
   type SkimHeat,
 } from "../lib/world/skimboarding";
 
@@ -224,4 +224,14 @@ test("compact beach lineup shows all colors, selects each board independently", 
   assert.equal(nearbySkimBoard(landing),1);
   assert.ok(landing.z<boardPoint(1).z,"visitor sees boards ahead, not in avatar");
   assert.ok(!isWater(landing));
+});
+
+test("longshore surf variation has coherent visible and physical crests",()=>{
+  for(const x of [-20,-8,0,7,20]){
+    const t=2.35,offshore=waveCrestAtX(2,x,t);
+    assert.ok(Math.abs(offshore-waveCrestOffshore(2,t))<.5);
+    const p={x,z:northShoreZ(x)+offshore};
+    assert.ok(skimWaveAt(p,t)>.5,"ride solver samples the same crest geometry");
+    assert.ok(skimWaterHeight(p,t,SEA_SURFACE)>SEA_SURFACE+.25);
+  }
 });

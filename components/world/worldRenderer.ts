@@ -30,7 +30,7 @@ import { FrameSampler, QualityController } from "@/lib/world/performance";
 import {
   SKIM_BOARDS, boardPoint, beachBlend, northShoreZ, skimBeachClearance, nearbySkimBoard,
   idleSkimHeat, pickupSkimBoard, startSkimRide, stepSkimHeat, skimAction,
-  skimWaterHeight, skimWaveAt, waveCrestOffshore,
+  skimWaterHeight, skimWaveAt, waveCrestOffshore, waveCrestAtX,
   skimTrickForKey, type SkimHeat, type SkimTrick,
 } from "@/lib/world/skimboarding";
 import { shastaDetour, initialChaseState, stepChase, gaitBlendForSpeed, smoothAngle, smoothPoint, smoothingAlpha, steerShastaVelocity } from "@/lib/world/shastaMotion";
@@ -466,10 +466,10 @@ export function createWorld(
             const x=-27+54*i/swellSamples;
             // Continuity is important at ribbon edges; avoid independent
             // boxed segments that create surf-line gaps.
-            const point={x,z:northShoreZ(x)+crest+side};
+            const point={x,z:northShoreZ(x)+waveCrestAtX(wave.index,x,seconds)+side};
             const waveHeight=skimWaveAt(point,seconds);
             const y=SEA_SURFACE+.012+waveHeight*.72+
-              (foam?.055:0);
+              (foam?.035+waveHeight*.11:0);
             const k=3*(j*(swellSamples+1)+i);
             ribbon.coords[k]=x;
             ribbon.coords[k+1]=y;
@@ -3500,6 +3500,8 @@ export function createWorld(
       canvas.dataset.skimLastTrick=skimHeat.lastTrick;
       canvas.dataset.skimTrickSpin=skimHeat.spin.toFixed(3);
       canvas.dataset.skimCameraFollow=String(surfing);
+      canvas.dataset.skimAir=skimHeat.air.toFixed(3);
+      canvas.dataset.skimCameraMode=surfing?(skimHeat.air>.08?"trick-air":"ride"):"off";
       canvas.dataset.activity = surfing?"skim":mode;
       canvas.dataset.speed = travel.speed.toFixed(2);
       canvas.dataset.height = playerY.toFixed(2);
@@ -3666,10 +3668,15 @@ export function createWorld(
           arcade.z + 1.8,
         );
       } else {
-        const aquaticLookAhead = surfing ? 3.5 : aquatic === "land" ? 0 : aquatic === "dive" ? 3.2 : 2.2;
+        const aquaticLookAhead = surfing ? (skimHeat.air>.05?2.2:3.1) :
+          aquatic === "land" ? 0 : aquatic === "dive" ? 3.2 : 2.2;
+        // Follow the rider up during pop, then settle back into a broad
+        // shorebreak composition. This is camera-only: no gameplay authority.
         targetLook.set(
           player.x + travel.heading.x * aquaticLookAhead,
-          playerY + (aquatic === "dive" ? 0.55 : aquatic === "surface" ? 1.2 : 2.8),
+          playerY + (aquatic === "dive" ? .55 :
+            aquatic === "surface" ? 1.2 :
+            surfing ? 2.25+skimHeat.air*.64 : 2.8),
           player.z + travel.heading.z * aquaticLookAhead,
         );
       }
@@ -3679,13 +3686,14 @@ export function createWorld(
           ? Math.min(zoom, 13.5)
           : aquatic === "surface"
             ? Math.min(zoom, 14)
-            : surfing ? Math.min(zoom,18)
+            : surfing ? Math.min(zoom,skimHeat.air>.08 ? 14.5 : 17)
             : mode === "bike" || mode === "skate"
               ? Math.min(zoom, 16)
               : mode === "boulder"
                 ? Math.min(zoom, 15)
                 : zoom;
-      const cameraYaw=surfing?Math.atan2(-travel.heading.x,-travel.heading.z):
+      const cameraYaw=surfing?
+        Math.atan2(-travel.heading.x,-travel.heading.z)+(skimHeat.air>.08?.19:.04):
         aquatic==="dive"?yaw+.28:yaw;
       if(discGolf.phase!=="off"){
         const target=discGolfNextTarget(discGolf);
