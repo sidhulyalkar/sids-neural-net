@@ -3626,6 +3626,13 @@ export function createWorld(
         distance(player, arcade) < 5.8;
       const cavernFraming =
         caveInside && caveProgress > 0.48 && distance(player, arcadeWall) < 8.5;
+      // Arrive at the rainforest clearing from the open coastal side, not
+      // from a third-person boom embedded in trunks and boulders.
+      const rainforestFraming = r==="rainforest" && aquatic==="land" &&
+        caveLayer==="surface" && skimHeat.phase==="off" &&
+        discGolf.phase==="off" &&
+        distance(player,regionLanding("rainforest"))<5.5;
+      canvas.dataset.rainforestOverlook=String(rainforestFraming);
       if(discGolf.phase!=="off"){
         const basket=discGolfNextTarget(discGolf);
         const pose=discGolfThrowCameraPose(player,basket,playerY);
@@ -3643,6 +3650,8 @@ export function createWorld(
         canvas.dataset.discGolfCamera=followFlight?"flight":pose.putting?"putt":"approach";
       } else if (cavernFraming) {
         targetLook.set(arcadeWall.x, arcadeWallY + 2.05, arcadeWall.z - 0.5);
+      } else if (rainforestFraming) {
+        targetLook.set(player.x,playerY+2,player.z);
       } else if (cavernApproachFraming) {
         // Frame the mouth of the cave, not the high terrain deep behind it.
         // This keeps the entrance readable as a dark opening in the mountain.
@@ -3694,6 +3703,11 @@ export function createWorld(
           caveCameraFloor + 2.05,
           caveCameraZ,
         );
+      } else if (rainforestFraming) {
+        const coastX=eastCoastlineX(player.z)+9;
+        targetCamera.set(coastX,
+          Math.max(playerY+13,worldFloorHeight(coastX,player.z)+9),
+          player.z+3);
       } else if (cavernApproachFraming) {
         // Pull the approach camera well behind the explorer so the cave mouth
         // remains the subject instead of nearby portal rocks or the explorer
@@ -3723,6 +3737,11 @@ export function createWorld(
             cameraFloor + 1.65,
             cameraCeiling - 0.9,
           );
+        } else if (rainforestFraming) {
+          // Preserve the coast-side overlook rather than shrinking the boom
+          // back into one of the rainforest trees.
+          targetCamera.y=Math.max(targetCamera.y,
+            worldFloorHeight(targetCamera.x,targetCamera.z)+9);
         } else if (cavernApproachFraming) {
           targetCamera.y = Math.max(
             targetCamera.y,
@@ -4434,6 +4453,7 @@ export function createWorld(
       camera.position.y=THREE.MathUtils.clamp(camera.position.y,playerY+1.5,playerY+3);
     }
     camera.lookAt(look);
+    canvas.dataset.cameraTargetError=camera.position.distanceTo(targetCamera).toFixed(2);
 
     // Underwater atmosphere and biome work are keyed by the water zone. The cold
     // kelp shelf and warm lagoon never render/animate together.
@@ -5031,6 +5051,7 @@ export function createWorld(
           yaw = Math.atan2(-approachX, -approachZ);
         } else {
           yaw =
+            r.id === "rainforest" ? Math.PI/2 :
             r.id === "cavern"
               ? Math.PI
               : r.id === "coast"
