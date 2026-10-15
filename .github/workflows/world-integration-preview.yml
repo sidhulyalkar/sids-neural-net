@@ -1,0 +1,88 @@
+name: World Integration Preview (No Branch Mutation)
+
+on:
+  push:
+    branches: ['feat/island-jetski-dock-race-v1']
+    paths:
+      - '.github/workflows/world-integration-preview.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: world-merge-preview-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  dry-run-three-way-merge:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Inspect moving base and preserve merge candidates
+        shell: bash
+        run: |
+          mkdir -p artifacts/world-integration
+          git fetch --no-tags origin feat/sids-world
+          git rev-parse HEAD > artifacts/world-integration/pr-head.sha
+          git rev-parse origin/feat/sids-world > artifacts/world-integration/base-head.sha
+          git merge-base HEAD origin/feat/sids-world > artifacts/world-integration/merge-base.sha
+          git config user.name 'World Integration QA'
+          git config user.email 'world-integration-qa@users.noreply.github.com'
+          set +e
+          git merge --no-commit --no-ff origin/feat/sids-world > artifacts/world-integration/merge.log 2>&1
+          result=$?
+          set -e
+          printf '%s\n' "$result" > artifacts/world-integration/merge-status.txt
+          git status --short > artifacts/world-integration/status.txt
+          git diff --name-only --diff-filter=U > artifacts/world-integration/conflict-paths.txt
+          git diff --cc > artifacts/world-integration/combined-conflicts.patch || true
+          if [ "$result" -ne 0 ]; then
+            while IFS= read -r file; do
+              if [ -f "$file" ]; then
+                mkdir -p "artifacts/world-integration/conflict-files/$(dirname "$file")"
+                cp "$file" "artifacts/world-integration/conflict-files/$file"
+              fi
+            done < artifacts/world-integration/conflict-paths.txt
+          fi
+          echo "PR head: $(cat artifacts/world-integration/pr-head.sha)"
+          echo "Base head: $(cat artifacts/world-integration/base-head.sha)"
+          echo "Merge status: $result"
+          cat artifacts/world-integration/conflict-paths.txt
+      - name: Reject unmerged work, never silently select one side
+        run: |
+          if [ "$(cat artifacts/world-integration/merge-status.txt)" != "0" ]; then
+            echo "::error::Merge conflicts remain. Review uploaded exact conflict files before integration."
+            exit 1
+          fi
+          test -f lib/world/skimboarding.ts
+          test -f lib/world/skatepark.ts
+          test -f components/world/worldSkateGroveGeometry.ts
+      - uses: actions/setup-node@v4
+        if: success()
+        with:
+          node-version: '24'
+          cache: npm
+      - name: Install merged dependencies exactly
+        if: success()
+        run: npm ci
+      - name: Typecheck merged World
+        if: success()
+        run: npm run typecheck
+      - name: Verify merged skate and skimboarding contracts
+        if: success()
+        run: node --import tsx --test tests/world-skate*.test.ts tests/world-skimboarding.test.ts
+      - name: Verify merged World unit contracts
+        if: success()
+        run: node --import tsx --test tests/world-*.test.ts
+      - name: Upload integration evidence even on conflicts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: world-integration-preview-${{ github.sha }}
+          path: artifacts/world-integration/
+          if-no-files-found: warn
