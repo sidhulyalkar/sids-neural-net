@@ -19,6 +19,7 @@ on:
       - 'scripts/playtest-ride-ghost.mjs'
       - 'scripts/playtest-mountain-jump.mjs'
       - 'scripts/playtest-shasta-snow.mjs'
+      - 'scripts/playtest-skimboarding.mjs'
       - '.github/workflows/world-regression.yml'
   pull_request:
     paths:
@@ -37,6 +38,7 @@ on:
       - 'scripts/playtest-ride-ghost.mjs'
       - 'scripts/playtest-mountain-jump.mjs'
       - 'scripts/playtest-shasta-snow.mjs'
+      - 'scripts/playtest-skimboarding.mjs'
       - '.github/workflows/world-regression.yml'
   workflow_dispatch:
 
@@ -126,6 +128,9 @@ jobs:
           lib/world/model.ts
           components/world/worldHabitats.ts
           components/world/worldRenderer.ts
+          components/world/worldSkimWake.ts
+          components/world/worldNorthShoreLife.ts
+          lib/world/northShoreEcology.ts
           tests/world-desert-track.test.ts
           tests/world-desert-gaps.test.ts
           tests/world-contract.test.ts
@@ -139,6 +144,8 @@ jobs:
           tests/world-marine-discoveries.test.ts
           lib/world/occupancy.ts
           tests/world-occupancy.test.ts
+          lib/world/skimboarding.ts
+          tests/world-skimboarding.test.ts
           --max-warnings=0
       - name: Verify manual browser playtest script syntax
         run: |
@@ -151,6 +158,7 @@ jobs:
           node --check scripts/playtest-mountain-jump.mjs
           node --check scripts/playtest-shasta-snow.mjs
           node --check scripts/playtest-skatepark.mjs
+          node --check scripts/playtest-skimboarding.mjs
       - name: Lint dedicated Redwood Skate Grove modules
         run: >-
           npx eslint lib/world/skatepark.ts lib/world/skateAssist.ts
