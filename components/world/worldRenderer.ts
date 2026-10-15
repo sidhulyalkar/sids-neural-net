@@ -4374,9 +4374,20 @@ export function createWorld(
       canvas.dataset.skimWashDepth=(skimContact?.wash??0).toFixed(3);
       snorkel.visible = swimming;
       const running = !swimming && !surfing && (mode === "run" || mode === "boulder");
-      const headingYaw = travel.speed > 0.05
+      const skating=mode==="skate"&&!surfing&&!swimming;
+      // When stopped, preserve the *travel* yaw while skating, not the
+      // previous render root yaw that already included trick spin.
+      const headingYaw = travel.speed > 0.05 || skating
         ? Math.atan2(travel.heading.x, travel.heading.z)
         : explorer.rotation.y;
+      // Locomotion is shared with skimboarding, biking and swimming.
+      // Reset anatomical leg offsets for every non-skate mode every frame.
+      legs.forEach((leg,i)=>{
+        const side=i===0?-1:1;
+        leg.position.x=side*(skating?.43:.16);
+        leg.scale.y=skating?.72-trickPose.crouch*.25:.72;
+        leg.position.y=skating?.03+leg.scale.y/2+trickPose.crouch*.25:.39;
+      });
 
       if (swimming) {
         bodyRoot.position.set(0, 0, 0);
@@ -4405,18 +4416,20 @@ export function createWorld(
           0,
           bikePose
             ? bikeSeatLocal.y - riderHipLocal.y * Math.cos(bikeBodyLean)
-            : mode==="skate" ? -trickPose.crouch * .54 : 0,
+            : skating ? .15+board.position.y-trickPose.crouch*.25 : 0,
           bikePose
             ? bikeSeatLocal.z -
               (riderHipLocal.y * Math.sin(bikeBodyLean) +
                 riderHipLocal.z * Math.cos(bikeBodyLean))
             : 0,
         );
-        bodyRoot.rotation.set(bikePose ? bikeBodyLean : mode==="skate"?trickPose.crouch*.35:0, 0, 0);
+        // Root follows gear direction; the actual human stance turns
+        // sideways relative to board travel, without twisting skim or bike.
+        bodyRoot.rotation.set(bikePose ? bikeBodyLean : 0, skating?Math.PI/2:0, 0);
         legs[0].rotation.x = surfing ? (skimHeat.air>0?.32:.17) : running ? walking * 0.6 : bikePose ? 0.58 + walking * 0.28 :
-          mode==="skate" ? .10+trickPose.crouch*.9+trickPose.pitch*.65 : .2;
+          skating ? 0 : .2;
         legs[1].rotation.x = surfing ? (skimHeat.air>0?-.35:-.16) : running ? -walking * 0.6 : bikePose ? 0.58 - walking * 0.28 :
-          mode==="skate" ? .10+trickPose.crouch*.9-trickPose.pitch*.65 : .2;
+          skating ? 0 : .2;
         // Single elastic backswing: shoulder reaches behind the body during
         // Space hold, then follows through as the disc takes flight.
         const throwProgress=THREE.MathUtils.clamp(state.discGolfSwingAmount,0,1);
@@ -4531,6 +4544,8 @@ export function createWorld(
       canvas.dataset.skateResultVisible=String(resultVisible);
       canvas.dataset.skateManual=skateTrick.manual;
       canvas.dataset.skateStance=skateTrick.stance;
+      canvas.dataset.skateBodyYaw=bodyRoot.rotation.y.toFixed(5);
+      canvas.dataset.skateFootSpacing=Math.abs(legs[1].position.x-legs[0].position.x).toFixed(3);
       canvas.dataset.skateSpin=String(skateTrick.spinDegrees);
       canvas.dataset.skateLean=skateCarveLean.toFixed(3);
       canvas.dataset.skateTrick=skateTrick.name??"";
