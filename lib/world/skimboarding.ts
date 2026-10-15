@@ -88,6 +88,10 @@ export function waveCrestAtX(index: number, x: number, seconds: number): number 
 /** A shoaling shoulder, steep forward face and short collapsed back.
  * The positive displacement is the *offshore* side of a shoreward-traveling
  * crest. The asymmetric geometry is also sampled by the renderer and board. */
+/** Blend surf into open water near the finite north beach edges. */
+export function skimSurfEnvelope(x:number):number {
+  return 1-smooth((Math.abs(x)-23)/8);
+}
 export function skimWaveAt(p: SkimPoint, seconds: number): number {
   const offshore = skimOffshore(p);
   if (Math.abs(p.x) > 36 || offshore < -4 || offshore > 40) return 0;
@@ -100,7 +104,7 @@ export function skimWaveAt(p: SkimPoint, seconds: number): number {
     const profile = Math.exp(-Math.pow(delta / width, 2) * 1.75);
     crest = Math.max(crest, profile);
   }
-  return crest * smooth((offshore + 2) / 5);
+  return crest * smooth((offshore + 2) / 5) * skimSurfEnvelope(p.x);
 }
 /** Whitewater trails landward of the breaking lip. Breaking intensifies
  * within the shallower half of the north-shore shelf. */
@@ -113,7 +117,7 @@ export function skimBreakAmountAt(p: SkimPoint, seconds: number): number {
     const trailing=smooth((delta+7)/3)*(1-smooth((delta+.15)/1.1));
     foam=Math.max(foam,trailing);
   }
-  return foam * (1-smooth((offshore-19)/13)) * smooth((offshore+2)/5);
+  return foam * (1-smooth((offshore-19)/13)) * smooth((offshore+2)/5) * skimSurfEnvelope(p.x);
 }
 /** Swash reaching a thin film across the wet foreshore. */
 export function skimWashDepthAt(p: SkimPoint, seconds: number): number {
@@ -126,7 +130,7 @@ export function skimWashDepthAt(p: SkimPoint, seconds: number): number {
   return Math.max(0,pulse*spread*onSand);
 }
 export function skimWaterHeight(p: SkimPoint, seconds: number, seaSurface: number): number {
-  return seaSurface + .075 + skimWaveAt(p, seconds)*.89;
+  return seaSurface + .075*skimSurfEnvelope(p.x) + skimWaveAt(p, seconds)*.89;
 }
 export type SkimBoardContact={centerY:number;pitch:number;roll:number;
   noseY:number;tailY:number;leftY:number;rightY:number;wash:number};
