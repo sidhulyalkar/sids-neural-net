@@ -563,7 +563,7 @@ export function createWorld(
     const x = -34 + random() * 75,
       z = -43 + random() * 79;
     if (
-      sportClearance({x,z}) ||
+      sportClearance({x,z}) || skimBeachClearance({x,z}) ||
       discGolfOpeningClearance({x,z},3) || discGolfCourseClearance({x,z},2.7) ||
       BOULDER_HOLDS.some(h => distance(h, { x, z }) < 5) ||
       REGIONS.some((r) => distance(r.point, { x, z }) < 7) ||
@@ -909,7 +909,10 @@ export function createWorld(
       y = terrainHeight(x, z),
       scale = i < REGIONS.length ? 1 : 0.72,
       twist = i * 0.83;
-    cairnPieces.push(
+    // The beach already has three upright skimboards as its landmarks.
+    // Keep North shore discoverable without building a gray stone pile
+    // directly in front of the turquoise board and Shasta.
+    if(m.id!=="north-shore")cairnPieces.push(
       { x, y: y + 0.18 * scale, z, sx: 0.62 * scale, sy: 0.28 * scale, sz: 0.52 * scale, ry: twist },
       { x: x + 0.05 * scale, y: y + 0.47 * scale, z: z - 0.02 * scale, sx: 0.46 * scale, sy: 0.23 * scale, sz: 0.4 * scale, ry: twist + 0.7 },
       { x: x - 0.04 * scale, y: y + 0.7 * scale, z: z + 0.03 * scale, sx: 0.31 * scale, sy: 0.19 * scale, sz: 0.29 * scale, ry: twist + 1.4 },
