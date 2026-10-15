@@ -5,6 +5,7 @@ import {createSeaArchGeometry,createSeaStackGeometry} from "../components/world/
 import {createJetSkiCoastGeometry} from "../components/world/worldJetSkiCourseGeometry";
 import {JET_SKI_ARCHES,JET_SKI_ROCKS,jetSkiRockAt,jetSkiSegmentClear} from "../lib/world/jetSkiCourse";
 import {JET_SKI_GATES} from "../lib/world/jetSkiRace";
+import {northShoreZ} from "../lib/world/skimboarding";
 import {SEA_SURFACE} from "../lib/world/model";
 
 test("wave-eroded arch geometry clears the actual gate and joins physical rock legs",()=>{
@@ -72,4 +73,23 @@ test("all landmark arches remain real race crossings and all approach lines stay
  }
  coast.dispose();
  assert.equal(scene.children.length,0);
+});
+
+test("north-shore surfing foreground stays free of race arch supports",()=>{
+ const arch=JET_SKI_ARCHES.find(arch=>arch.id==="natural-bridges");
+ assert.ok(arch,"Northern race arch must remain a real checkpoint");
+ const supportRocks=JET_SKI_ROCKS.filter(rock=>rock.id.startsWith("natural-bridge-"));
+ assert.equal(supportRocks.length,2);
+ // Rocks are offshore beyond the shorebreak and three planted boards; they
+ // remain visible and collidable to racers rather than being hidden by mode.
+ for(const rock of supportRocks){
+  assert.ok(rock.point.z-northShoreZ(rock.point.x)>30,
+   "Solid arch support cannot dominate the skimboard near-shore foreground");
+ }
+ assert.deepEqual(JET_SKI_GATES[arch.gateIndex],arch.center);
+ assert.equal(jetSkiRockAt(arch.center),null);
+ assert.ok(jetSkiSegmentClear(JET_SKI_GATES[3],arch.center,1),
+  "Northern arch approach remains navigable");
+ assert.ok(jetSkiSegmentClear(arch.center,JET_SKI_GATES[5],1),
+  "Northern arch exit remains navigable");
 });

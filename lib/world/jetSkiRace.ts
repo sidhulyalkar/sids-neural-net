@@ -31,7 +31,7 @@ export const JET_SKI_LAPS=2;
  * into dry ground. North/south gates lie beyond the finite terrain mesh. */
 export const JET_SKI_GATES:readonly Point[]=[
  {x:75,z:36},{x:77,z:59},{x:75,z:81},
- {x:41,z:87},{x:0,z:88},{x:-39,z:85},
+ {x:41,z:87},{x:0,z:109},{x:-39,z:85},
  {x:-58,z:75},{x:-60,z:41},{x:-59,z:4},
  {x:-61,z:-36},{x:-61,z:-80},{x:-59,z:-119},
  {x:-25,z:-127},{x:17,z:-127},{x:56,z:-124},

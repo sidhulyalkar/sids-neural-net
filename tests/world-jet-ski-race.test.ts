@@ -425,8 +425,8 @@ test("north shore surf and offshore jet-ski routes remain physically distinct",(
   for(const p of [{x:-19.9,z:49},{x:0,z:40},{x:7.9,z:51.9}]){
     assert.equal(jetSkiNavigableWater(p),false,"skate grove is dry");
   }
-  for(const p of [{x:41,z:87},{x:0,z:88},{x:0,z:97.5},
-                   {x:0,z:78.5},{x:-39,z:85}]){
+  for(const p of [{x:41,z:87},{x:0,z:109},{x:0,z:118.5},
+                   {x:0,z:99.5},{x:-39,z:85}]){
     assert.equal(isWater(p),true,"northern arch and buoy is actual sea");
     assert.equal(jetSkiNavigableWater(p),true,"existing north race ring stays navigable");
   }
