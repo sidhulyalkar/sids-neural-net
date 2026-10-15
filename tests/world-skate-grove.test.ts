@@ -5,6 +5,7 @@ import {groundHeight,nearestGrind,rampImpulseCrossing} from "../lib/world/activi
 import {
  SKATE_PARK,SKATE_PARK_RAILS,STUMP_PADS,REDWOOD_BOWL,
  insideSkatePark,skateParkZone,skateParkSurface,
+ GROVE_BRIDGE,GROVE_LOG,groveBridgeRise,groveLogRise,
 } from "../lib/world/skatepark";
 
 test("Redwood Skate Grove has readable, geographically distinct features",()=>{
@@ -74,4 +75,22 @@ test("wood transformation does not change grind or park lip targets",()=>{
  const from={x:2,z:31.25},to={x:2,z:30.75},heading={x:0,z:-1};
  assert.equal(rampImpulseCrossing(from,to,heading,"skate",9)?.id,"park-north-quarter");
  assert.equal(rampImpulseCrossing(from,to,heading,"bike",9)?.id,undefined);
+});
+
+
+test("reference bridge and split log have continuous physical entrances and clear runouts",()=>{
+ assert.ok(groveBridgeRise(GROVE_BRIDGE.center)>1.4);
+ assert.equal(groveLogRise(GROVE_LOG.center),0,"hollow log has an open floor");
+ assert.ok(groveLogRise({x:GROVE_LOG.center.x,z:GROVE_LOG.center.z+GROVE_LOG.halfWidth})>1);
+ for(const feature of [GROVE_BRIDGE,GROVE_LOG]){
+  let prior=groundHeight({x:feature.center.x-feature.halfLength-.3,z:feature.center.z});
+  for(let dx=-feature.halfLength-.25;dx<=feature.halfLength+.25;dx+=.05){
+   const p={x:feature.center.x+dx,z:feature.center.z};
+   assert.ok(insideSkatePark(p)&&!isWater(p));
+   const y=groundHeight(p);
+   assert.ok(Math.abs(y-prior)<.18,"no step at either entrance or arch crest");
+   assert.equal(y,skateParkSurface(p),"rendered support remains the physical support");
+   prior=y;
+  }
+ }
 });
