@@ -233,7 +233,7 @@ test("compact beach lineup shows all colors, selects each board independently", 
 test("longshore surf variation has coherent visible and physical crests",()=>{
   for(const x of [-20,-8,0,7,20]){
     const t=2.35,offshore=waveCrestAtX(2,x,t);
-    assert.ok(Math.abs(offshore-waveCrestOffshore(2,t))<.5);
+    assert.ok(Math.abs(offshore-waveCrestOffshore(2,t))<1.6);
     const p={x,z:northShoreZ(x)+offshore};
     assert.ok(skimWaveAt(p,t)>.5,"ride solver samples the same crest geometry");
     assert.ok(skimWaterHeight(p,t,SEA_SURFACE)>SEA_SURFACE+.25);
@@ -295,4 +295,11 @@ test("shoaling wave ribbons fade into the surrounding ocean at both shore edges"
     assert.equal(skimBreakAmountAt(p,3),0);
     assert.ok(Math.abs(skimWaterHeight(p,3,SEA_SURFACE)-SEA_SURFACE)<1e-6);
   }
+});
+
+test("sectioned peeling crests remain finite and vary visibly across the beach",()=>{
+  const at=[-20,-12,-3,6,14,23].map(x=>waveCrestAtX(2,x,3.5));
+  assert.ok(Math.max(...at)-Math.min(...at)>1.0,
+    "wavefront should peel in staggered sections, not one straight wall");
+  for(const value of at)assert.ok(Number.isFinite(value));
 });
