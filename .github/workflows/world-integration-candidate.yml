@@ -1,0 +1,218 @@
+name: PR94 Reviewed World Integration Candidate
+
+on:
+  push:
+    branches: ['feat/island-jetski-dock-race-v1']
+    paths:
+      - '.github/workflows/world-integration-candidate.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: world-merge-candidate-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qualify-and-publish-candidate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+      - name: Inspect moving base and preserve merge candidates
+        shell: bash
+        run: |
+          mkdir -p artifacts/world-integration
+          git fetch --no-tags origin feat/sids-world
+          git rev-parse HEAD > artifacts/world-integration/pr-head.sha
+          git rev-parse origin/feat/sids-world > artifacts/world-integration/base-head.sha
+          git merge-base HEAD origin/feat/sids-world > artifacts/world-integration/merge-base.sha
+          git config user.name 'World Integration QA'
+          git config user.email 'world-integration-qa@users.noreply.github.com'
+          set +e
+          git merge --no-commit --no-ff origin/feat/sids-world > artifacts/world-integration/merge.log 2>&1
+          result=$?
+          set -e
+          printf '%s\n' "$result" > artifacts/world-integration/merge-status.txt
+          git status --short > artifacts/world-integration/status.txt
+          git diff --name-only --diff-filter=U > artifacts/world-integration/conflict-paths.txt
+          git diff --cc > artifacts/world-integration/combined-conflicts.patch || true
+          if [ "$result" -ne 0 ]; then
+            while IFS= read -r file; do
+              if [ -f "$file" ]; then
+                mkdir -p "artifacts/world-integration/conflict-files/$(dirname "$file")"
+                cp "$file" "artifacts/world-integration/conflict-files/$file"
+              fi
+            done < artifacts/world-integration/conflict-paths.txt
+          fi
+          echo "PR head: $(cat artifacts/world-integration/pr-head.sha)"
+          echo "Base head: $(cat artifacts/world-integration/base-head.sha)"
+          echo "Merge status: $result"
+          cat artifacts/world-integration/conflict-paths.txt
+      - name: Resolve strictly reviewed mixed-game conflict sections
+        run: |
+          if [ "$(cat artifacts/world-integration/merge-status.txt)" != "0" ]; then
+            mapfile -t conflicts < artifacts/world-integration/conflict-paths.txt
+            python3 scripts/resolve-world-integration.py "${conflicts[@]}"
+            git add -- "${conflicts[@]}" lib/world/skimboarding.ts lib/world/model.ts tests/world-skimboarding.test.ts lib/world/jetSkiRace.ts tests/world-jet-ski-race.test.ts
+            # Diagnostic .tsx copies sit under artifacts/. If kept in the
+            # checkout, tsc would compile their unresolved conflict markers.
+            # The reviewed resolved sources are now staged and authoritative.
+            rm -rf artifacts/world-integration/conflict-files
+            test -z "$(git diff --name-only --diff-filter=U)"
+            git diff --cached --check
+            printf '0\n' > artifacts/world-integration/merge-status.txt
+            echo "Reviewed merge conflicts are resolved in this temporary checkout only."
+          fi
+          git diff --cached --stat > artifacts/world-integration/resolved-files.txt
+          test -f lib/world/skimboarding.ts
+          test -f lib/world/skatepark.ts
+      - name: Reject unmerged work, never silently select one side
+        run: |
+          if [ "$(cat artifacts/world-integration/merge-status.txt)" != "0" ]; then
+            echo "::error::Merge conflicts remain. Review uploaded exact conflict files before integration."
+            exit 1
+          fi
+          test -f lib/world/skimboarding.ts
+          test -f lib/world/skatepark.ts
+          test -f components/world/worldSkateGroveGeometry.ts
+      - uses: actions/setup-node@v4
+        if: success()
+        with:
+          node-version: '24'
+          cache: npm
+      - name: Install merged dependencies exactly
+        if: success()
+        run: npm ci
+      - name: Typecheck merged World
+        if: success()
+        run: npm run typecheck
+      - name: Production build from the integrated tree
+        if: success()
+        run: npm run build
+      - name: Verify merged skate and skimboarding contracts
+        if: success()
+        run: node --import tsx --test tests/world-skate*.test.ts tests/world-skimboarding.test.ts
+      - name: Verify merged World unit contracts
+        if: success()
+        run: node --import tsx --test tests/world-*.test.ts
+      - name: Install isolated merged-browser runtime
+        if: success()
+        run: |
+          mkdir -p /tmp/world-integration-playwright
+          npm install --prefix /tmp/world-integration-playwright --no-save --package-lock=false --ignore-scripts playwright@1.56.1
+          /tmp/world-integration-playwright/node_modules/.bin/playwright install --with-deps chromium
+      - name: Serve exactly the merged source tree
+        if: success()
+        run: |
+          npm run dev -- --hostname 127.0.0.1 > /tmp/world-integration-next.log 2>&1 &
+          for i in {1..90}; do
+            if curl -fsS http://127.0.0.1:3000/ >/dev/null; then exit 0; fi
+            sleep 2
+          done
+          tail -n 120 /tmp/world-integration-next.log
+          exit 1
+      - name: Browser QA - north-shore skimboarding
+        if: success()
+        env:
+          WORLD_BASE_URL: http://127.0.0.1:3000
+          WORLD_AUDIT_DIR: artifacts/world-integration/skimboarding
+          PLAYWRIGHT_MODULE_ROOT: /tmp/world-integration-playwright/node_modules/playwright
+        run: node scripts/playtest-skimboarding.mjs
+      - name: Browser QA - redwood bowl return and real landed trick
+        if: success()
+        env:
+          WORLD_BASE_URL: http://127.0.0.1:3000
+          WORLD_AUDIT_DIR: artifacts/world-integration/redwood-flow
+          PLAYWRIGHT_MODULE_ROOT: /tmp/world-integration-playwright/node_modules/playwright
+        run: node scripts/playtest-skate-grove-flow.mjs
+      - name: Browser QA - redwood skatepark and assisted combos
+        if: success()
+        env:
+          WORLD_BASE_URL: http://127.0.0.1:3000
+          WORLD_AUDIT_DIR: artifacts/world-integration/skatepark
+          PLAYWRIGHT_MODULE_ROOT: /tmp/world-integration-playwright/node_modules/playwright
+        run: node scripts/playtest-skatepark.mjs
+      - name: Browser QA - Joshua moving target and two ghost riders
+        if: success()
+        env:
+          WORLD_BASE_URL: http://127.0.0.1:3000
+          WORLD_AUDIT_DIR: artifacts/world-integration/joshua-ghosts
+          PLAYWRIGHT_MODULE_ROOT: /tmp/world-integration-playwright/node_modules/playwright
+        run: node scripts/playtest-ride-ghost.mjs
+      - name: Browser QA - jet ski boarding, navigation and racing
+        if: success()
+        env:
+          WORLD_BASE_URL: http://127.0.0.1:3000
+          WORLD_AUDIT_DIR: artifacts/world-integration/jet-ski
+          PLAYWRIGHT_MODULE_ROOT: /tmp/world-integration-playwright/node_modules/playwright
+        run: node scripts/playtest-jet-ski.mjs
+      - name: Publish SHA-locked candidate (never mutate PR or base)
+        if: success()
+        shell: bash
+        run: |
+          set -euo pipefail
+          PR_HEAD="$(cat artifacts/world-integration/pr-head.sha)"
+          BASE_HEAD="$(cat artifacts/world-integration/base-head.sha)"
+          CURRENT_PR="$(git ls-remote origin 'refs/heads/feat/island-jetski-dock-race-v1' | cut -f1)"
+          CURRENT_BASE="$(git ls-remote origin 'refs/heads/feat/sids-world' | cut -f1)"
+          CURRENT_CANDIDATE="$(git ls-remote origin 'refs/heads/feat/pr94-world-integration-candidate' | cut -f1)"
+          test "$CURRENT_PR" = "$PR_HEAD" || {
+            echo "::error::PR head moved during validation; no candidate publication"
+            exit 1
+          }
+          test "$CURRENT_BASE" = "$BASE_HEAD" || {
+            echo "::error::Base moved during validation; no candidate publication"
+            exit 1
+          }
+          test "$CURRENT_CANDIDATE" = "$PR_HEAD" || {
+            echo "::error::Candidate is not fast-forward staged at the exact reviewed PR head; refusing overwrite"
+            exit 1
+          }
+          test -z "$(git diff --name-only --diff-filter=U)" || {
+            echo "::error::Unmerged paths remain"
+            exit 1
+          }
+          # Preserve the fully reviewed merged regression workflow in the
+          # evidence artifact. GitHub Actions' token is not authorized to
+          # update workflow files; publishing one causes GitHub to reject the
+          # entire otherwise-qualified two-parent merge.
+          # The integration steward promotes this exact reviewed workflow
+          # separately with a workflow-authorized GitHub connector.
+          cp .github/workflows/world-regression.yml \
+            artifacts/world-integration/validated-world-regression.yml
+          cp .github/workflows/world-skimboarding-browser-qa.yml \
+            artifacts/world-integration/validated-world-skimboarding-browser-qa.yml
+          git show "$PR_HEAD:.github/workflows/world-regression.yml" > \
+            .github/workflows/world-regression.yml
+          git add .github/workflows/world-regression.yml
+          # The skim-only workflow is newly introduced by the base branch.
+          # The Actions token cannot create it either; archive the exact
+          # reviewed file, then promote it with the workflow-authorized app.
+          git rm -f .github/workflows/world-skimboarding-browser-qa.yml
+          if git diff --cached --name-only | grep -q '^.github/workflows/'; then
+            echo "::error::Publication would modify a workflow without authorization"
+            exit 1
+          fi
+          git diff --cached --check
+          git commit -m "merge(world): reviewed skate, skim, jet-ski and Joshua integration"
+          PARENTS="$(git rev-list --parents -n 1 HEAD)"
+          test "$(printf '%s\n' "$PARENTS" | wc -w)" -eq 3 || {
+            echo "::error::Expected a genuine two-parent merge commit"
+            exit 1
+          }
+          git rev-parse HEAD > artifacts/world-integration/validated-merge-commit.sha
+          git ls-tree -r HEAD > artifacts/world-integration/validated-merge-tree.txt
+          git push origin HEAD:refs/heads/feat/pr94-world-integration-candidate
+          echo "Published SHA-locked integrated tree to candidate branch only"
+      - name: Upload integration evidence even on conflicts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: world-integration-preview-${{ github.sha }}
+          path: artifacts/world-integration/
+          if-no-files-found: warn

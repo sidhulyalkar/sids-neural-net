@@ -44,20 +44,24 @@ export function createBigAirBirds(scene:THREE.Scene){
      dummy.rotation.set(0,p.yaw,0);
      dummy.scale.set(.28*scale,.35*scale,.59*scale);
      dummy.updateMatrix();bodies.setMatrixAt(i,dummy.matrix);
-     dummy.position.set(p.x,p.y-.05*scale,p.z-.57*scale);
+     dummy.position.set(p.x-Math.sin(p.yaw)*.57*scale,
+       p.y-.05*scale,p.z-Math.cos(p.yaw)*.57*scale);
      dummy.rotation.set(Math.PI/2,0,0);
      dummy.scale.set(.18*scale,.57*scale,.18*scale);
      dummy.updateMatrix();tails.setMatrixAt(i,dummy.matrix);
      for(const side of [-1,1]){
-       dummy.position.set(p.x+side*.60*scale,p.y+.04*scale,p.z+.02*scale);
-       dummy.rotation.set(0,0,side*(.16+((p.wingBeat+1)/2)*.73));
+       dummy.position.set(p.x+Math.cos(p.yaw)*side*.60*scale,
+         p.y+.04*scale,p.z-Math.sin(p.yaw)*side*.60*scale);
+       dummy.rotation.set(0,p.yaw,side*(.16+((p.wingBeat+1)/2)*.73),"YXZ");
        dummy.scale.set(.70*scale,.10*scale,.33*scale);
        dummy.updateMatrix();wings.setMatrixAt(i*2+(side===-1?0:1),dummy.matrix);
      }
    }
    for(const mesh of [bodies,wings,tails])mesh.instanceMatrix.needsUpdate=true;
  };
- return {update,drawCalls:3,count:BIG_AIR_BIRDS.length,dispose(){
+ return {update,drawCalls:3,count:BIG_AIR_BIRDS.length,
+  get active(){return bodies.visible&&wings.visible&&tails.visible;},
+  dispose(){
    for(const mesh of [bodies,wings,tails]){
      scene.remove(mesh);mesh.dispose();
    }

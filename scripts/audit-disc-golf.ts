@@ -2,16 +2,16 @@ import {mkdirSync,writeFileSync} from "node:fs";
 import {join} from "node:path";
 import {auditDiscGolfFairways} from "../lib/world/discGolfFairway";
 import {DISC_GOLF_HOLES,DISC_GOLF_VERSION} from "../lib/world/discGolf";
-import {isWater,terrainHeight} from "../lib/world/model";
+import {discGolfSurfaceIsWater,discGolfSurfaceHeight} from "../lib/world/discGolfSurface";
 import {discGolfRoundSummary,emptyDiscGolfRound} from "../lib/world/discGolfRound";
 
 const report=auditDiscGolfFairways();
 const dir=process.env.WORLD_AUDIT_DIR??"artifacts/world";
 mkdirSync(dir,{recursive:true});
-const issues=report.filter(h=>isWater(DISC_GOLF_HOLES[h.hole-1].tee)||
- isWater(DISC_GOLF_HOLES[h.hole-1].target)||
- !Number.isFinite(terrainHeight(DISC_GOLF_HOLES[h.hole-1].target.x,
-   DISC_GOLF_HOLES[h.hole-1].target.z)));
+const issues=report.filter(h=>
+ discGolfSurfaceIsWater(DISC_GOLF_HOLES[h.hole-1].tee)||
+ discGolfSurfaceIsWater(DISC_GOLF_HOLES[h.hole-1].target)||
+ !Number.isFinite(discGolfSurfaceHeight(DISC_GOLF_HOLES[h.hole-1].target)));
 const summary={
  version:DISC_GOLF_VERSION,
  holes:report.length,
@@ -45,7 +45,7 @@ if(report.length!==9||issues.length>0||
  report.some(h=>h.risks.includes("steep-tee")||
   h.risks.includes("crowded-tee")||
   h.risks.includes("crowded-green")||
-  h.risks.includes("coastal-tee")||
+  (h.teeSupport!=="pier"&&h.risks.includes("coastal-tee"))||
   h.risks.includes("coastal-green")||
   h.risks.includes("short-first-shot")||
   h.risks.includes("first-shot-water")||

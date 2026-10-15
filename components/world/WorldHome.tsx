@@ -23,13 +23,14 @@ import { ACTIVITIES, activityConfig, type Activity, type AquaticMode } from "@/l
 import { COASTAL_FLORA, MARINE_LIFE } from "@/lib/world/ecology";
 import { UNDERWATER_TRIDENTS } from "@/lib/world/artifacts";
 import { JOSHUA_TRIAL, JOSHUA_GATES, type TrialState } from "@/lib/world/trials";
+import { JOSHUA_GHOSTS } from "@/lib/world/joshuaGhostRace";
 import { WorldDiscGolfHUD } from "./WorldDiscGolfHUD";
 import { idleDiscGolf,type DiscShot,type DiscGolfState,type DiscGolfSwingStage } from "@/lib/world/discGolf";
 import {emptyDiscGolfRound,loadDiscGolfRound,persistDiscGolfRound,recordDiscGolfHole,nextUnplayedDiscGolfHole,discGolfRoundSummary} from "@/lib/world/discGolfRound";
 import {newDiscGolfNameSeed} from "@/lib/world/discGolfNames";
 import { idleSkimHeat, SKIM_BOARDS, type SkimHeat } from "@/lib/world/skimboarding";
 import {
-  BIG_AIR,bigAirBirdCallout,idleBigAir,type BigAirState,
+  BIG_AIR,bigAirBirdCallout,mountainJumpOutwardGain,idleBigAir,type BigAirState,
 } from "@/lib/world/bigAir";
 import styles from "./world.module.css";
 
@@ -194,13 +195,14 @@ export function WorldHome({ content }: { content: WorldContent }) {
     setDiscGolfExitSerial(n=>n+1);
   };
   const [bigAir,setBigAir]=useState<BigAirState>(idleBigAir);
+  const [jetActive,setJetActive]=useState(false);
   const [bestFlight,setBestFlight]=useState<number|null>(()=>{
     if(typeof window==="undefined")return null;
     try{
       const raw=window.localStorage.getItem("sid-world:big-air:"+BIG_AIR.version);
       const value=raw?JSON.parse(raw) as {distance?:number}:null;
       return value&&typeof value.distance==="number"&&Number.isFinite(value.distance)&&
-        value.distance>=28&&value.distance<115?value.distance:null;
+        value.distance>=0&&value.distance<300?value.distance:null;
     }catch{return null;}
   });
   const bestFlightRef=useRef(bestFlight);
@@ -283,12 +285,12 @@ export function WorldHome({ content }: { content: WorldContent }) {
       }
     }
     if(next.phase==="landed"&&
-      (!bestFlightRef.current||next.distance>bestFlightRef.current)){
-      bestFlightRef.current=next.distance;
-      setBestFlight(next.distance);
+      (!bestFlightRef.current||(next.radialDistance??next.distance)>bestFlightRef.current)){
+      bestFlightRef.current=next.radialDistance??next.distance;
+      setBestFlight(next.radialDistance??next.distance);
       try{
         window.localStorage.setItem("sid-world:big-air:"+BIG_AIR.version,
-          JSON.stringify({version:BIG_AIR.version,distance:next.distance}));
+          JSON.stringify({version:BIG_AIR.version,distance:next.radialDistance??next.distance}));
       }catch{/* Session results still work when storage is unavailable. */}
     }
   },[setBigAir,setBestFlight]);
@@ -410,6 +412,10 @@ export function WorldHome({ content }: { content: WorldContent }) {
   const video = content.videos.find((item) => item.id === panel);
   const caption = MEMORY_POINTS.find((m) => m.id === panel);
   const trident = UNDERWATER_TRIDENTS.find((a) => a.id === panel);
+  // Keep all ordinary world controls behind the active game HUD until the
+  // player explicitly exits even after its result/landing is displayed.
+  const worldGameActive=jetActive||discGolf.phase!=="off"||
+    bigAir.phase!=="idle"||trial.phase!=="idle";
 
   return (
     <div
@@ -450,6 +456,7 @@ export function WorldHome({ content }: { content: WorldContent }) {
             onChallenge={onChallenge}
             onBigAir={onBigAir}
             onDiscGolf={onDiscGolf}
+            onJetSkiMode={setJetActive}
             onSkim={onSkim}
             onSkimNearby={setSkimNearby}
           />
@@ -500,23 +507,25 @@ export function WorldHome({ content }: { content: WorldContent }) {
               <button onClick={() => open("menu")}>Browse the site</button>
             </div>
           )}
-          <div className={styles.location} style={{display:discGolf.phase==="off"&&skim.phase==="off"?undefined:"none"}}>
+          <div className={styles.location} style={{display:!worldGameActive&&skim.phase==="off"?undefined:"none"}}>
             <span className={styles.eyebrow}>
               {String(REGIONS.indexOf(current) + 1).padStart(2, "0")} / {String(REGIONS.length).padStart(2, "0")}
             </span>
             <p>{current.name}</p>
           </div>
-          {nearby && ready && discGolf.phase==="off" && skim.phase==="off" && (
+          {nearby && ready && !worldGameActive && skim.phase==="off" && (
             <button className={styles.discovery} onClick={() => open(nearby)}>
               <span>{discoveryTitle}</span>
               <span className={styles.key}>Enter</span>
             </button>
           )}
           {aquatic === "land" && (
-            <div className={styles.activityDock} style={{display:discGolf.phase!=="off"||skim.phase!=="off"?"none":undefined}}>
+            <div className={styles.activityDock} style={{display:worldGameActive||skim.phase!=="off"?"none":undefined}}>
               <div className={styles.activityButtons} role="group" aria-label="Movement activity">
                 {ACTIVITIES.map(item => (
                   <button key={item.id} aria-label={item.name} aria-pressed={activity === item.id}
+                    disabled={bigAir.phase==="armed"||bigAir.phase==="flying"||
+                      trial.phase==="armed"||trial.phase==="running"}
                     onClick={() => chooseActivity(item.id)}>{item.label}</button>
                 ))}
                 <button className={styles.actionButton} disabled={!ready || quiet} onClick={() => setActionSerial(n => n + 1)}>
@@ -524,24 +533,38 @@ export function WorldHome({ content }: { content: WorldContent }) {
                 </button>
               </div>
               <p aria-live="polite">{activityConfig(activity).hint}</p>
-              <button className={styles.trialLaunch} disabled={!ready||quiet}
+              <button className={styles.trialLaunch} disabled={!ready||quiet||
+                bigAir.phase==="armed"||bigAir.phase==="flying"||
+                trial.phase==="armed"||trial.phase==="running"}
                 onClick={()=>{
                     const next=nextUnplayedDiscGolfHole(discGolfRound);
                     startDiscHole(next??0);
                     if(next===null)setDiscGolfScorecardOpen(true);
                   }}>Disc golf · {discGolfRoundSummary(discGolfRound).complete?"scorecard":
                    discGolfRoundSummary(discGolfRound).holesPlayed>0?"resume":"play"}</button>
-              {activity==="ski" && bigAir.phase!=="armed" && bigAir.phase!=="flying" && (
+              {activity==="skate" && !worldGameActive && (
                 <button className={styles.trialLaunch} disabled={!ready||quiet}
-                  onClick={()=>setBigAirSerial(n=>n+1)}>
-                  Alpine Big Air · start
+                  onClick={()=>{
+                    setCommand(previous=>({region:"grove",
+                      serial:(previous?.serial??0)+1,activity:"skate"}));
+                    requestAnimationFrame(()=>worldRoot.current?.querySelector("canvas")?.focus({preventScroll:true}));
+                  }}>
+                  Skatepark · south meadow
                 </button>
               )}
-              {activity==="bike" && trial.phase!=="armed" &&
+              {activity==="ski" && bigAir.phase!=="armed" && bigAir.phase!=="flying" &&
+                trial.phase!=="armed"&&trial.phase!=="running" && (
+                <button className={styles.trialLaunch} disabled={!ready||quiet}
+                  onClick={()=>setBigAirSerial(n=>n+1)}>
+                  Mountain ski jump · summit start
+                </button>
+              )}
+              {activity==="bike" && bigAir.phase!=="armed"&&bigAir.phase!=="flying"&&
+                trial.phase!=="armed" &&
                 trial.phase!=="running" && (
                 <button className={styles.trialLaunch} disabled={!ready||quiet}
                   onClick={()=>setChallengeSerial(n=>n+1)}>
-                  Joshua lap · start trial
+                  Joshua circuit · race Lucas & Ness
                 </button>
               )}
             </div>
@@ -598,10 +621,11 @@ export function WorldHome({ content }: { content: WorldContent }) {
           )}
           {skim.phase==="off" && (trial.phase==="armed"||trial.phase==="running"||
               trial.phase==="complete"||trial.phase==="invalidated") && (
-            <aside className={styles.trialHud} aria-label="Joshua bike time trial"
+            <aside className={styles.trialHud} aria-label="Joshua dirt-bike ghost race"
               aria-live={trial.phase==="complete"||trial.phase==="invalidated"?"polite":"off"}>
-              <span className={styles.eyebrow}>JOSHUA · ADVENTURE LAP</span>
+              <span className={styles.eyebrow}>JOSHUA · GHOST RACE</span>
               <strong>{(trial.elapsedMs/1000).toFixed(1)} s</strong>
+              <small>Position {trial.ghostPlace??1}/3 · vs {JOSHUA_GHOSTS.map(ghost=>ghost.name).join(" + ")}</small>
               <p>{trial.phase==="armed"?"Cross the starting line":
                 trial.phase==="running" ?
                   `Gate ${Math.min(trial.nextGate,JOSHUA_GATES.length)} / ${JOSHUA_GATES.length}`:
@@ -626,18 +650,21 @@ export function WorldHome({ content }: { content: WorldContent }) {
             bigAir.phase==="landed"||bigAir.phase==="missed") && (
             <aside className={styles.bigAirHud} aria-label="Alpine Big Air flight"
               aria-live={bigAir.phase==="landed"||bigAir.phase==="missed"?"polite":"off"}>
-              <span className={styles.eyebrow}>ALPINE · BIG AIR</span>
-              <strong>{bigAir.distance.toFixed(1)} m</strong>
-              <p>{bigAir.phase==="armed"?"Ski downhill through the marked lip":
+              <span className={styles.eyebrow}>MOUNTAIN · FREE JUMP</span>
+              <strong>{(bigAir.radialDistance??0).toFixed(1)} m from center</strong>
+              <p>{bigAir.phase==="armed"?"Build speed and jump from any mountain slope":
                 bigAir.phase==="flying"?
                   (bigAirBirdCallout(bigAir.distance)??"Macaws joining your flight"):
                 bigAir.phase==="landed"?"Clean landing":
                   bigAir.reason??"Flight ended"}</p>
               {bigAir.phase==="flying"&&(
-                <small>Airborne {bigAir.airtime.toFixed(1)} s · 3 birds in formation</small>
+                <small>Flight {bigAir.distance.toFixed(1)} m · {mountainJumpOutwardGain(bigAir)>=0?"+":""}{mountainJumpOutwardGain(bigAir).toFixed(1)} m outward · {bigAir.airtime.toFixed(1)} s airborne</small>
+              )}
+              {(bigAir.phase==="landed"||bigAir.phase==="missed")&&(
+                <small>Traveled {bigAir.distance.toFixed(1)} m · {mountainJumpOutwardGain(bigAir)>=0?"+":""}{mountainJumpOutwardGain(bigAir).toFixed(1)} m outward · Peak clearance {(bigAir.maxClearance??0).toFixed(1)} m</small>
               )}
               {bestFlight!==null&&(
-                <small>Best landing {bestFlight.toFixed(1)} m</small>
+                <small>Furthest from mountain center {bestFlight.toFixed(1)} m</small>
               )}
               {(bigAir.phase==="armed"||bigAir.phase==="flying")&&(
                 <button className={styles.birdVoiceToggle} aria-pressed={birdVoice}
@@ -669,7 +696,7 @@ export function WorldHome({ content }: { content: WorldContent }) {
               )}
             </div>
           )}
-          <p className={styles.controls} style={{display:discGolf.phase==="off"&&skim.phase==="off"?undefined:"none"}}>
+          <p className={styles.controls} style={{display:!worldGameActive&&skim.phase==="off"?undefined:"none"}}>
             {aquatic === "land" ? (
               <>WASD / arrows to move <span>·</span> Drag to look <span>·</span>{" "}
                 Space to {activityConfig(activity).action.toLowerCase()} <span>·</span> M for menu</>
@@ -679,7 +706,7 @@ export function WorldHome({ content }: { content: WorldContent }) {
               <>WASD / arrows to swim <span>·</span> Q / E for depth <span>·</span> V to surface <span>·</span> M for menu</>
             )}
           </p>
-          <div className={styles.touchHelp} style={{display:discGolf.phase==="off"&&skim.phase==="off"?undefined:"none"}}>
+          <div className={styles.touchHelp} style={{display:!worldGameActive&&skim.phase==="off"?undefined:"none"}}>
             {aquatic === "land" ? "Tap ground to move · Drag to look" : "Tap water to swim · Drag to look"}
           </div>
         </>

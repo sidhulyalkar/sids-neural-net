@@ -202,7 +202,7 @@ test("trick-assisted wave capture naturally returns an unstirred rider toward sh
 
 test("north shore beach clearing keeps rocks out of all three approach lanes",()=>{
   for(const board of SKIM_BOARDS){
-    for(let z=33;z<northShoreZ(board.x)+3;z+=1.5)
+    for(let z=northShoreZ(board.x)-11.5;z<northShoreZ(board.x)+3;z+=1.5)
       assert.ok(skimBeachClearance({x:board.x,z}));
   }
   assert.equal(skimBeachClearance({x:39,z:42}),false,
@@ -302,4 +302,22 @@ test("sectioned peeling crests remain finite and vary visibly across the beach",
   assert.ok(Math.max(...at)-Math.min(...at)>1.0,
     "wavefront should peel in staggered sections, not one straight wall");
   for(const value of at)assert.ok(Number.isFinite(value));
+});
+
+test("skatepark and north shore remain separate contiguous outdoor activities",()=>{
+  for(const x of [-19.9,-12,-6,0,7.9]){
+    for(const z of [32,40,48,51.9]){
+      assert.equal(isWater({x,z}),false,
+        "North Shore water cannot flood the south-meadow skate grove");
+      assert.ok(beachBlend(x,z)<.001,
+        "North Shore foreshore cannot sculpt the physical skatepark");
+    }
+  }
+  for(const board of SKIM_BOARDS){
+    const p=boardPoint(SKIM_BOARDS.indexOf(board));
+    assert.ok(nearbySkimBoard(p)!==null);
+    assert.ok(beachBlend(p.x,p.z)>.75);
+    assert.ok(skimBeachClearance(p));
+    assert.equal(waterZone({x:p.x,z:northShoreZ(p.x)+1}),"north-shore");
+  }
 });

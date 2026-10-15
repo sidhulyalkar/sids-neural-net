@@ -1,10 +1,10 @@
 import type {Point} from "./model";
 import type {DiscGolfState} from "./discGolf";
 
-export const DISC_FETCH_LANDING_HOLD=0.85;
-export const DISC_FETCH_POV_DELAY=0.95;
-export const DISC_FETCH_FOUND_HOLD=1.65;
-export const DISC_FETCH_CHASE_TIMEOUT=14;
+export const DISC_FETCH_LANDING_HOLD=0.28;
+export const DISC_FETCH_POV_DELAY=0.32; // minimum visible run on short putts
+export const DISC_FETCH_FOUND_HOLD=0.52;
+export const DISC_FETCH_CHASE_TIMEOUT=12;
 
 export type DiscGolfFetch={
  phase:"idle"|"flight"|"landed"|"chase"|"found";
@@ -20,7 +20,7 @@ export function startDiscGolfFetch(now:number):DiscGolfFetch{
  return {phase:"flight",startedAt:now,landedAt:0,foundAt:0,target:null};
 }
 /** One deterministic cinematic sequence: disc flight, landing reveal,
- * visible run-up, Shasta POV, then return to the player's normal camera.
+ * one visible run and brief sniff, then return to the player's normal camera.
  * The dog remains obstacle-aware; this is only a target/timing contract.
  * Water redos and new shots cancel without moving the player's lie. */
 export function stepDiscGolfFetch(
@@ -54,17 +54,14 @@ export function stepDiscGolfFetch(
  return {...state,target};
 }
 /** The first camera follows the landing, then watches Shasta start moving
- * before transitioning into his low eye-level viewpoint. */
+ * without repeatedly switching between first/third-person shots. */
 export function discGolfFetchCameraPhase(
  state:DiscGolfFetch,now:number,reducedMotion=false,
 ):"off"|"disc"|"landing"|"chase"|"shasta"{
  if(reducedMotion)return "off";
  if(state.phase==="flight")return "disc";
  if(state.phase==="landed")return "landing";
- if(state.phase==="chase")
-  return now-state.landedAt-DISC_FETCH_LANDING_HOLD>=DISC_FETCH_POV_DELAY?
-   "shasta":"chase";
- if(state.phase==="found")return "shasta";
+ if(state.phase==="chase"||state.phase==="found")return "chase";
  return "off";
 }
 

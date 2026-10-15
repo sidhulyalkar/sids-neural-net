@@ -1,4 +1,5 @@
 import * as THREE from "three/src/Three.Core.js";
+import type {CameraVolume} from "@/lib/world/cameraVisibility";
 import { GeometryBatch } from "./worldGeometry";
 import { biomeAt, DESERT_FORMATIONS, smooth, understoryDensityAt } from "@/lib/world/biomes";
 import { BOULDER_HOLDS, sportClearance } from "@/lib/world/activities";
@@ -17,6 +18,7 @@ import {
 } from "@/lib/world/model";
 /** Batched ecological compositions; seeded candidates are stable across quality/camera changes. */
 export function createHabitats(scene: THREE.Scene, obstacles: Obstacle[]) {
+  const cameraOccluders:CameraVolume[]=[];
   const resources: THREE.BufferGeometry[] = [],
     meshes: THREE.Mesh[] = [];
   const sphere = new THREE.SphereGeometry(1, 8, 5),
@@ -512,6 +514,9 @@ export function createHabitats(scene: THREE.Scene, obstacles: Obstacle[]) {
           stem(b, "#756954", V(x, y, z), V(x, y + h, z), 0.42);
           // Fauna perches connect to this actual trunk, below its crown.
           stem(b, "#756954", V(x, y + h - 1.6, z), V(x + 2.3, y + h - 1.6, z), 0.13);
+          // Single compact camera proxy for this authored crown cluster.
+          // The merged vegetation draw call is not raycast every frame.
+          cameraOccluders.push({x,y:y+h-.3,z,rx:5.6,ry:2.6,rz:5.6});
           for (let j = 0; j < 6; j++) {
             const a = j * Math.PI / 3;
             stem(
@@ -622,20 +627,36 @@ export function createHabitats(scene: THREE.Scene, obstacles: Obstacle[]) {
   // starts on the sampled terrain; branch-supported crowns distinguish live
   // oak, tanoak, madrone and Douglas-fir instead of cloning the same cone.
   const natives=new GeometryBatch();
+  // A few hand-composed California tree locations can all be disqualified
+  // as neighboring disc-golf fairways and skate features evolve. Deterministic
+  // spare candidates guarantee the redwood woodland is still represented,
+  // without ever planting a trunk on a protected sport route.
+  const species=["oak","tanoak","madrone","fir"] as const;
   const nativeLocations=[
    {x:-18,z:10,kind:"oak"},{x:-12,z:16,kind:"tanoak"},
    {x:-6,z:29,kind:"madrone"},{x:4,z:19,kind:"fir"},
    {x:-19,z:31,kind:"oak"},{x:6,z:-4,kind:"fir"},
    {x:-2,z:34,kind:"tanoak"},{x:-20,z:1,kind:"madrone"},
+   ...Array.from({length:128},(_,i)=>({
+    x:-17+(i*13)%32,
+    z:-24+(i*19)%49,
+    kind:species[i%species.length],
+   })),
   ] as const;
+  const nativePlaced:Point[]=[];
   for(const [index,t] of nativeLocations.entries()){
+    if(nativePlaced.length>=8)break;
     const p={x:t.x,z:t.z};
-    if(isWater(p)||clear(p)||discGolfCourseClearance(p,1.6)||biomeAt(p).weights.redwood<.18)continue;
+    if(isWater(p)||clear(p)||discGolfCourseClearance(p,1.6)||
+      biomeAt(p).weights.redwood<.18||
+      nativePlaced.some(other=>distance(p,other)<5.5))continue;
+    nativePlaced.push(p);
     const y=terrainHeight(t.x,t.z),h=t.kind==="fir"?11.5:6.5+index%3;
     const bark=t.kind==="madrone"?"#9a624b":
       t.kind==="oak"?"#665a48":"#6d5945";
     stem(natives,bark,V(t.x,y,t.z),V(t.x,y+h*.85,t.z),t.kind==="fir"?.28:.36);
     if(t.kind==="fir"){
+      cameraOccluders.push({x:t.x,y:y+h*.69,z:t.z,rx:3.4,ry:h*.43,rz:3.4});
       for(let level=0;level<6;level++){
         const height=y+h*(.34+level*.105),reach=2.7-level*.32;
         for(let j=0;j<5;j++){
@@ -647,6 +668,7 @@ export function createHabitats(scene: THREE.Scene, obstacles: Obstacle[]) {
         }
       }
     }else{
+      cameraOccluders.push({x:t.x,y:y+h*.70,z:t.z,rx:3.7,ry:h*.25,rz:3.7});
       for(let j=0;j<7;j++){
         const a=j*2.399+index*.36;
         const reach=1.4+(j%3)*.43;
@@ -893,6 +915,7 @@ export function createHabitats(scene: THREE.Scene, obstacles: Obstacle[]) {
   leaf.dispose();
   blade.dispose();
   return {
+    cameraOccluders:cameraOccluders as readonly CameraVolume[],
     update(_camera: Point, elapsed=0) {
       // Subtle falling motion independent of FPS, contained within the wet
       // region and using no per-frame buffer mutations or allocations.

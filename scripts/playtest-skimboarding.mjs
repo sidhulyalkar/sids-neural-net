@@ -194,6 +194,37 @@ try {
   assert.equal(await page.getByRole("button",{name:"Skateboarding"}).isVisible(),true);
   await snap("05-rainforest-after-skim-transfer");
   checks.push("Fast travel while equipped drops skim state and restores other island activities");
+  // Complete same-session integration: coast to forest to skateboard park and
+  // back to the beach without reloading or leaking a concurrent minigame.
+  await page.getByRole("button",{name:"Skateboarding",exact:true}).click();
+  await page.getByRole("button",{name:"Skatepark · south meadow",exact:true}).click();
+  await page.waitForFunction(()=>{
+    const d=document.querySelector('canvas[role="application"]')?.dataset;
+    return d?.skatePark==="true"&&d?.skimPhase==="off"&&d?.activity==="skate";
+  },null,{timeout:15000});
+  assert.equal(await attr("shore-life-visible"),"false");
+  // The same player can complete a skate trick after leaving a skimboard
+  // heat; this exercises actual UI input, landing and scoring in one session.
+  await canvas().focus();
+  const previousSkateSerial=Number(await attr("skate-result-serial"))||0;
+  await page.keyboard.press("Space");
+  await page.waitForFunction(serial=>{
+    const d=document.querySelector('canvas[role="application"]')?.dataset;
+    return d?.skatePark==="true" && d?.skimPhase==="off" &&
+      Number(d.skateResultSerial)>serial && d.skateTrick==="" &&
+      Number(d.skateScore)>0;
+  },previousSkateSerial,{timeout:26000});
+  await snap("06-skatepark-after-skim");
+  checks.push("Skimboard → skateboard mode transition lands and scores a real assisted trick");
+  await page.getByRole("button",{name:"Open navigation menu"}).click();
+  await page.getByRole("button",{name:/North shore Skimboarding/}).click();
+  await page.waitForFunction(()=>{
+    const d=document.querySelector('canvas[role="application"]')?.dataset;
+    return d?.skimPhase==="off"&&d?.shoreLifeVisible==="true";
+  },null,{timeout:15000});
+  await page.getByRole("button",{name:/Pick up aqua skimboard/}).waitFor({state:"visible"});
+  await snap("07-beach-return-from-skatepark");
+  checks.push("Single World session switches beach → rainforest → redwood skatepark → beach");
   assert.deepEqual(errors,[]);
   fs.writeFileSync(path.join(output,"qa.json"),JSON.stringify({checks,start,errors},null,2));
   console.log("SKIMBOARDING BROWSER QA PASS",checks.join("; "));

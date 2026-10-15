@@ -23,7 +23,7 @@ export const REGIONS: {
   { id: "cavern", name: "Arcade cavern", meaning: "Play my games", point: { x: 16, z: -82 }, href: "/arcade" },
   { id: "desert", name: "Joshua basin", meaning: "Granite and desert trails", point: { x: 22, z: -33 }, href: "/photography" },
   { id: "rainforest", name: "Rainforest", meaning: "Canopy to coast", point: { x: 44, z: 33 }, href: "/photography" },
-  { id: "north-shore", name: "North shore", meaning: "Skimboarding · Shore break", point: { x: 0, z: 40 }, href: "/photography" },
+  { id: "north-shore", name: "North shore", meaning: "Skimboarding · Shore break", point: { x: 0, z: northShoreZ(0) - 8 }, href: "/photography" },
 ];
 
 export const WORLD_BOUNDS = { minX: -92, maxX: 94, minZ: -96, maxZ: 94 } as const;
@@ -229,6 +229,16 @@ function paperAccessTerrainMask(x: number, z: number) {
 
 export function paperCaveInside(p:Point) {return Math.abs(p.x-PAPER_CAVE.x)<paperCaveHalfWidth(p.z)-.5 && p.z < -31 && p.z > -35.5;}
 export function arcadeInside(p:Point) {return p.z>-81.5 && p.z<-63 && Math.abs(p.x-16)<caveHalfWidth(p.z)-.3;}
+/** The cave is carved inside an alpine biome. Its Shasta waiting behavior
+ * follows actual cave-layer geometry, not the nearest open-air region label.
+ * This remains true while walking along either side of the game chamber. */
+export function shastaWaitsAtArcadeEntrance(
+ point:Point,layer:CaveLayer,aquatic:"land"|"surface"|"dive",
+):boolean{
+ const progress=(point.z-ARCADE_CAVE.entrance.z)/ARCADE_CAVE.tunnelDepth;
+ return aquatic==="land"&&layer==="arcade"&&arcadeInside(point)&&progress>.46;
+}
+
 
 /** Resolve the vertical navigation layer only at a cave mouth. A hiker crossing
  * the same x/z on the roof stays on the surface because their y is near the roof. */

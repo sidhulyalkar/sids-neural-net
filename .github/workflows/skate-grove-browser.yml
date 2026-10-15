@@ -1,0 +1,87 @@
+name: Redwood Skate Grove Browser QA
+
+on:
+  push:
+    branches: ['feat/island-jetski-dock-race-v1']
+    paths:
+      - 'components/world/worldRenderer.ts'
+      - 'components/world/worldSkateGroveGeometry.ts'
+      - 'lib/world/skatepark.ts'
+      - 'lib/world/skateAssist.ts'
+      - 'lib/world/skateTricks.ts'
+      - 'lib/world/skateDynamics.ts'
+      - 'scripts/playtest-skatepark.mjs'
+      - 'scripts/playtest-skate-grove-flow.mjs'
+      - '.github/workflows/skate-grove-browser.yml'
+  pull_request:
+    paths:
+      - 'components/world/worldRenderer.ts'
+      - 'components/world/worldSkateGroveGeometry.ts'
+      - 'lib/world/skatepark.ts'
+      - 'lib/world/skateAssist.ts'
+      - 'lib/world/skateTricks.ts'
+      - 'lib/world/skateDynamics.ts'
+      - 'scripts/playtest-skatepark.mjs'
+      - 'scripts/playtest-skate-grove-flow.mjs'
+      - '.github/workflows/skate-grove-browser.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: skate-grove-browser-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  skate-grove-playtest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+          cache: npm
+      - name: Install locked website packages
+        run: npm ci
+      - name: Install isolated browser runtime
+        run: |
+          mkdir -p /tmp/skate-grove-playwright
+          npm install --prefix /tmp/skate-grove-playwright --no-save --package-lock=false --ignore-scripts playwright@1.56.1
+          /tmp/skate-grove-playwright/node_modules/.bin/playwright install --with-deps chromium
+      - name: Start Sid's World
+        run: |
+          npm run dev -- --hostname 127.0.0.1 > /tmp/skate-grove-next.log 2>&1 &
+          echo $! > /tmp/skate-grove-next.pid
+          for i in {1..90}; do
+            if curl -fsS http://127.0.0.1:3000/ >/dev/null; then exit 0; fi
+            sleep 2
+          done
+          tail -n 120 /tmp/skate-grove-next.log
+          exit 1
+      - name: Audit one-button grove roll-in and safe bowl carve
+        env:
+          WORLD_BASE_URL: http://127.0.0.1:3000
+          WORLD_AUDIT_DIR: artifacts/world/redwood-skate-flow
+          PLAYWRIGHT_MODULE_ROOT: /tmp/skate-grove-playwright/node_modules/playwright
+        run: node scripts/playtest-skate-grove-flow.mjs
+      - name: Ride and inspect Redwood Skate Grove
+        env:
+          WORLD_BASE_URL: http://127.0.0.1:3000
+          WORLD_AUDIT_DIR: artifacts/world/redwood-skate-grove
+          PLAYWRIGHT_MODULE_ROOT: /tmp/skate-grove-playwright/node_modules/playwright
+        run: node scripts/playtest-skatepark.mjs
+      - name: Preserve three skatepark camera views and trick QA
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: redwood-skate-grove-${{ github.sha }}
+          path: |
+            artifacts/world/redwood-skate-grove/
+            artifacts/world/redwood-skate-flow/
+            /tmp/skate-grove-next.log
+          if-no-files-found: warn
+      - name: Report browser or server errors
+        if: failure()
+        run: tail -n 120 /tmp/skate-grove-next.log || true

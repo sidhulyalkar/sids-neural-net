@@ -3,7 +3,7 @@ import type { Point } from "./model";
 /** Survey-led ridge-to-valley ski flight. No model imports: terrain may use
  * the sculpted takeoff without creating a circular module dependency. */
 export const BIG_AIR = {
-  id:"alpine-big-air",version:"ridge-flight-v1",
+  id:"alpine-big-air",version:"mountain-open-flight-v3",
   lip:{x:-2,z:-49},start:{x:-2,z:-65},heading:{x:0,z:1},
   halfWidth:1.45,minSpeed:8.5,gravity:14,
   maxFlightSeconds:8,runout:{minZ:-13,maxZ:5,halfWidth:4.3},
@@ -12,7 +12,8 @@ export type BigAirPhase="idle"|"armed"|"flying"|"landed"|"missed";
 export type BigAirState={
  phase:BigAirPhase;point:Point;y:number;verticalSpeed:number;
  horizontalSpeed:number;distance:number;airtime:number;
- takeoffY:number;reason?:string;landingQuality?: "clean"|"rough";
+ takeoffY:number;heading?:Point;takeoff?:Point;freeTerrain?:boolean;
+ radialDistance?:number;maxClearance?:number;reason?:string;landingQuality?: "clean"|"rough";
 };
 export const idleBigAir=():BigAirState=>({
  phase:"idle",point:{...BIG_AIR.start},y:0,verticalSpeed:0,
@@ -58,11 +59,22 @@ export function bigAirCrossedLip(from:Point,to:Point,heading:Point,
    (heading.x*BIG_AIR.heading.x+heading.z*BIG_AIR.heading.z)>.92;
 }
 export function launchBigAir(point:Point,groundY:number,
- speed:number):BigAirState {
- const horizontalSpeed=clamp(speed,8.5,20);
- const verticalSpeed=11.4+Math.min(2.6,horizontalSpeed*.11);
+ speed:number,heading:Point=BIG_AIR.heading,freeTerrain=false,
+ downhillDrop=0):BigAirState {
+ const horizontalSpeed=clamp(speed,5.3,24);
+ // A fast downhill takeoff has more lift than a slow hop; steep crests
+ // add a small, bounded impulse without turning every edge into a cannon.
+ const verticalSpeed=freeTerrain?
+  6.2+Math.min(3.5,horizontalSpeed*.23)+
+   Math.min(1.8,Math.max(0,downhillDrop)*.5):
+  11.4+Math.min(2.6,horizontalSpeed*.11);
+ const norm=Math.hypot(heading.x,heading.z)||1;
  return {phase:"flying",point:{...point},y:groundY+.04,
-  takeoffY:groundY,verticalSpeed,horizontalSpeed,distance:0,airtime:0};
+  takeoffY:groundY,verticalSpeed,horizontalSpeed,distance:0,airtime:0,
+  heading:{x:heading.x/norm,z:heading.z/norm},takeoff:{...point},
+  freeTerrain,maxClearance:0,
+  radialDistance:Math.hypot(point.x-MOUNTAIN_JUMP_CENTER.x,
+   point.z-MOUNTAIN_JUMP_CENTER.z)};
 }
 export type SurfaceSample=(p:Point)=>number;
 export function advanceBigAir(state:BigAirState,dt:number,
@@ -78,8 +90,8 @@ export function advanceBigAir(state:BigAirState,dt:number,
    const step=Math.min(.0125,remaining);remaining-=step;
    const prev={...result.point},yBefore=result.y;
    const next={
-     x:prev.x+BIG_AIR.heading.x*result.horizontalSpeed*step,
-     z:prev.z+BIG_AIR.heading.z*result.horizontalSpeed*step,
+     x:prev.x+(result.heading?.x??BIG_AIR.heading.x)*result.horizontalSpeed*step,
+     z:prev.z+(result.heading?.z??BIG_AIR.heading.z)*result.horizontalSpeed*step,
    };
    const velocityNext=result.verticalSpeed-BIG_AIR.gravity*step;
    const yNext=yBefore+(result.verticalSpeed+velocityNext)*step*.5;
@@ -95,25 +107,71 @@ export function advanceBigAir(state:BigAirState,dt:number,
      const f=clamp(beforeMargin/Math.max(1e-8,beforeMargin-afterMargin),0,1);
      const point={x:prev.x+(next.x-prev.x)*f,z:prev.z+(next.z-prev.z)*f};
      const distance=result.distance+result.horizontalSpeed*step*f;
-     const safe=distance>=28&&distance<85&&
+     // Even a small, genuine mountain hop is a completed jump.
+     // Only authored legacy big-air runs retain the old receiving-slope rule.
+     const safe=result.freeTerrain?distance>=0:
+       distance>=28&&distance<85&&
        Math.abs(point.x-BIG_AIR.lip.x)<BIG_AIR.runout.halfWidth &&
        point.z>=BIG_AIR.runout.minZ&&point.z<=BIG_AIR.runout.maxZ;
      result={...result,point,y:ground(point),verticalSpeed:0,distance,
        airtime:result.airtime-step*(1-f),
-       phase:safe?"landed":"missed",
+       maxClearance:Math.max(result.maxClearance??0,yBefore-ground(prev)),
+       radialDistance:Math.hypot(point.x-MOUNTAIN_JUMP_CENTER.x,
+        point.z-MOUNTAIN_JUMP_CENTER.z),phase:safe?"landed":"missed",
        landingQuality:safe?"clean":undefined,
        reason:safe?undefined:"Outside the receiving slope"};
      break;
    }
    result={...result,point:next,y:yNext,verticalSpeed:velocityNext,
+     maxClearance:Math.max(result.maxClearance??0,yNext-ground(next)),
+     radialDistance:Math.hypot(next.x-MOUNTAIN_JUMP_CENTER.x,
+       next.z-MOUNTAIN_JUMP_CENTER.z),
      distance:result.distance+result.horizontalSpeed*step};
-   if(result.airtime>BIG_AIR.maxFlightSeconds||result.distance>115){
+   if(result.airtime>BIG_AIR.maxFlightSeconds||result.distance>145){
      result={...result,phase:"missed",reason:"Outside flight envelope"};
    }
  }
  return result;
 }
 
+/** Scored mountain hub. Launches may occur from any steep mountain
+ * face instead of a single marked kicker. */
+export const MOUNTAIN_JUMP_CENTER={x:7,z:-61} as const;
+/** Positive when the skier lands farther from the ridge center than takeoff. */
+export function mountainJumpOutwardGain(state:BigAirState):number{
+ if(!state.takeoff)return 0;
+ return Math.hypot(state.point.x-MOUNTAIN_JUMP_CENTER.x,
+  state.point.z-MOUNTAIN_JUMP_CENTER.z)-
+  Math.hypot(state.takeoff.x-MOUNTAIN_JUMP_CENTER.x,
+   state.takeoff.z-MOUNTAIN_JUMP_CENTER.z);
+}
+export function mountainJumpEligible(point:Point,height:number,speed:number):boolean{
+ return point.x> -49&&point.x<52&&point.z> -95&&point.z<6&&
+  height>5.5&&speed>=5.3;
+}
+/** Detect either a genuine downhill lip or a skier-initiated ramp hop.
+ * Works at every qualifying mountain position, never just the marked kicker. */
+export function mountainSkiTakeoff(point:Point,height:number,speed:number,
+ previousGround:number,aheadGround:number,verticalSpeed=0):boolean{
+ return mountainJumpEligible(point,height,speed)&&
+  (verticalSpeed>3.3||
+   previousGround-height>.06&&previousGround-aheadGround>1.25);
+}
+/** Deterministic directional chase framing for ski jumps from any face.
+ * Look along the real flight heading, not the exploration camera's old yaw. */
+export function mountainJumpCameraPose(state:BigAirState):{
+ camera:{x:number;y:number;z:number};
+ look:{x:number;y:number;z:number};
+}{
+ const dir=state.heading??BIG_AIR.heading;
+ const side={x:dir.z,z:-dir.x};
+ return {
+  camera:{x:state.point.x-dir.x*16+side.x*2.6,
+   y:state.y+8.5,z:state.point.z-dir.z*16+side.z*2.6},
+  look:{x:state.point.x+dir.x*5.5,
+   y:state.y+1.1,z:state.point.z+dir.z*5.5},
+ };
+}
 export const BIG_AIR_BIRDS=[
   {id:"scarlet-macaw",kind:"macaw",color:"#d65347",wing:"#edbf42",side:-1},
   {id:"blue-gold-macaw",kind:"macaw",color:"#3f88b3",wing:"#d8ac44",side:1},
@@ -125,10 +183,11 @@ export function bigAirBirdPositions(state:BigAirState,time:number):BirdPosition[
  return BIG_AIR_BIRDS.map((b,i)=>{
   const offset=i===2?5.6:3.5,forward=i===2?2.4:4.1;
   const flap=Math.sin(time*(i===2?9:7.5)+i*1.9);
-  return {x:state.point.x+b.side*offset+Math.sin(time*1.7+i)*.22,
-   z:state.point.z+forward+Math.sin(time*.8+i)*.45,
+  const dir=state.heading??BIG_AIR.heading;
+  return {x:state.point.x+dir.z*b.side*offset+dir.x*forward+Math.sin(time*1.7+i)*.22,
+   z:state.point.z-dir.x*b.side*offset+dir.z*forward+Math.sin(time*.8+i)*.45,
    y:state.y+1.25+i*.30+Math.sin(time*2.5+i)*.32,
-   yaw:0,wingBeat:flap,scale:i===2?.69:1};
+   yaw:Math.atan2(dir.x,dir.z),wingBeat:flap,scale:i===2?.69:1};
  });
 }
 export function bigAirBirdCallout(distance:number):string|null {

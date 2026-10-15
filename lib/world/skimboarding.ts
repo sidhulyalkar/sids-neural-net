@@ -49,13 +49,13 @@ const normalize = (v: SkimPoint): SkimPoint => {
 };
 /** The far shore opposite Granite Ridge; rainforest canopy keeps its inland apron. */
 export function northShoreZ(x: number): number {
-  return 47.5 + 12.5 * Math.exp(-((x - 43) ** 2) / 210) + 1.25 * Math.sin(x * 0.085);
+  return 66 + 12.5 * Math.exp(-((x - 43) ** 2) / 210) + 1.25 * Math.sin(x * 0.085);
 }
 export function beachBlend(x: number, z: number): number {
-  return smooth((z - 29) / 10) * (1 - smooth((Math.abs(x) - 19) / 14));
+  return smooth((z - (northShoreZ(x) - 12)) / 7) * (1 - smooth((Math.abs(x) - 19) / 14));
 }
 export function skimBeachClearance(p: SkimPoint): boolean {
-  return Math.abs(p.x) < 29 && p.z > 30 && p.z < northShoreZ(p.x) + 5;
+  return Math.abs(p.x) < 29 && p.z > northShoreZ(p.x) - 12 && p.z < northShoreZ(p.x) + 5;
 }
 export function boardPoint(index: number): SkimPoint {
   const board = SKIM_BOARDS[index] ?? SKIM_BOARDS[0];

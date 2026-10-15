@@ -1,12 +1,11 @@
 import type { Point } from "./model";
-import {stepDiscGolfAero,DISC_GOLF_NOSE_MAX_DEGREES,
+import {DISC_GOLF_NOSE_MAX_DEGREES,
  DISC_GOLF_SPIN_MIN_RPM,DISC_GOLF_SPIN_MAX_RPM,
  type DiscGolfFlightStyle,type DiscGolfReleaseStyle,type AeroTelemetry,
 } from "./discGolfAerodynamics";
 export type {DiscGolfFlightStyle,DiscGolfReleaseStyle} from "./discGolfAerodynamics";
-import {stepRigidDisc,initializeRigidDisc,discRigidAngles,
- type RigidDisc} from "./discGolfRigidBody";
-import {discImpact,stepGroundSlide,type GroundDiscContact} from "./discGolfGroundContact";
+import type {RigidDisc} from "./discGolfRigidBody";
+import type {GroundDiscContact} from "./discGolfGroundContact";
 
 /** Independent, deterministic arcade disc-golf simulation.
  * No model imports: the world supplies terrain, water and simulation time.
@@ -26,8 +25,10 @@ export type DiscGolfHole={
 export const DISC_GOLF_HOLES:readonly DiscGolfHole[]=[
  {id:"redwood-bend",name:"Opening drive",par:4,tee:{x:35,z:-12},
   gates:[{point:{x:43,z:17},radius:8}],target:{x:41,z:49}},
- {id:"scrub-crosswind",name:"Shore to mountain backside",par:6,
-  tee:{x:51,z:32},
+ // Launch from the raised, walkable east pier. The first gate aims
+ // southwest toward the mainland, not into the rainforest tree crowns.
+ {id:"scrub-crosswind",name:"Pier to mountain backside",par:6,
+  tee:{x:62.5,z:14},
   gates:[
    {point:{x:45,z:-9},radius:9},
    {point:{x:34,z:-42},radius:9},
@@ -67,7 +68,7 @@ export const DISC_GOLF_HOLES:readonly DiscGolfHole[]=[
   ],target:{x:-24,z:-15}},
 ];
 // Do not attach v1.6 scorecards to the longer v1.7 course and par system.
-export const DISC_GOLF_VERSION="disc-golf-v1.10";
+export const DISC_GOLF_VERSION="disc-golf-v1.12-pier-tee";
 
 /** Capsule helpers shared by the seeded environment and course QA. */
 function inCorridor(p:Point,from:Point,to:Point,radius:number){
@@ -212,7 +213,10 @@ export function discGolfThrow(state:DiscGolfState,shot:DiscShot,ground:DiscTerra
  if(shot.releaseStyle&&!["backhand","forehand"].includes(shot.releaseStyle))return state;
  const power=clamp(shot.power,0,100)/100;
  const accuracy=clamp(shot.accuracy,-1,1);
- const loft=clamp(shot.loft,6,42)*Math.PI/180;
+ // Nose tuning moves the *launch loft* only slightly in arcade play.
+ // A full ±15° tuning range changes release by at most ±7.5°, avoiding
+ // unstable aerodynamic pitch crashes while retaining meaningful control.
+ const loft=clamp(shot.loft+clamp(shot.noseAngle??0,-15,15)*.5,6,42)*Math.PI/180;
  const hole=DISC_GOLF_HOLES[state.holeIndex];
  const aimPoint=discGolfNextTarget(state);
  const base=Math.atan2(aimPoint.x-state.lie.x,aimPoint.z-state.lie.z);
@@ -227,17 +231,14 @@ export function discGolfThrow(state:DiscGolfState,shot:DiscShot,ground:DiscTerra
   lockedWind:discGolfWind(state.holeIndex,state.clock),
   strokes:state.strokes+1,flightTime:0,lastDistance:0,spin:accuracy,
   bankAngle:clamp(shot.bankAngle??0,-DISC_GOLF_MAX_BANK,DISC_GOLF_MAX_BANK),
-  pitchDegrees:loft*180/Math.PI+
+  pitchDegrees:clamp(shot.loft,6,42)+
     clamp(shot.noseAngle??0,-DISC_GOLF_NOSE_MAX_DEGREES,DISC_GOLF_NOSE_MAX_DEGREES),
   rollDegrees:clamp(shot.bankAngle??0,-DISC_GOLF_MAX_BANK,DISC_GOLF_MAX_BANK),
   spinRpm:clamp(shot.spinRpm??650,DISC_GOLF_SPIN_MIN_RPM,DISC_GOLF_SPIN_MAX_RPM),
   discStyle:shot.discStyle??"midrange",
   releaseStyle:shot.releaseStyle??"backhand",
-  rigid:initializeRigidDisc(aim,
-    loft*180/Math.PI+clamp(shot.noseAngle??0,-DISC_GOLF_NOSE_MAX_DEGREES,DISC_GOLF_NOSE_MAX_DEGREES),
-    clamp(shot.bankAngle??0,-DISC_GOLF_MAX_BANK,DISC_GOLF_MAX_BANK),
-    clamp(shot.spinRpm??650,DISC_GOLF_SPIN_MIN_RPM,DISC_GOLF_SPIN_MAX_RPM),
-    shot.releaseStyle??"backhand",shot.discStyle??"midrange"),
+  // Legacy rigid-body state must never leak into the playable arcade flight.
+  rigid:undefined,
   spinPhase:0,aero:undefined,contact:undefined,resultAt:undefined};
 }
 /** Cylindrical trunk intersection swept from previous to next disc center.
@@ -269,44 +270,43 @@ export function stepDiscGolf(state:DiscGolfState,dt:number,
  while(left>1e-7&&s.phase==="flying"){
   const d=Math.min(.0125,left);left-=d;s.clock+=d;s.flightTime+=d;
   const old={...s.disc};
-  if(s.contact?.mode==="slide"||s.contact?.mode==="roll"){
-   const update=stepGroundSlide(old,s.velocity,s.contact,d,ground);
-   const p={x:update.position.x,z:update.position.z};
-   if(isWater(p)){
-    s.phase="water";s.strokes=Math.max(0,s.strokes-1);s.waterRedos++;
-    s.gatesCleared=state.gatesCleared;
-    s.disc={...state.lie,y:ground(state.lie)+.18};
-    s.reason="Disc slid into water: free redo";s.resultAt=s.clock;
-    break;
-   }
-   s.disc=update.position;s.velocity=update.velocity;s.contact=update.contact;
-   if(update.settled){
-    s.phase="landed";s.lie=p;s.lastDistance=
-      Math.hypot(p.x-state.lie.x,p.z-state.lie.z);
-    s.reason="Disc settled after ground contact";
-    s.resultAt=s.clock;break;
-   }
-   continue;
-  }
-  // Six-DOF translational/rotational rigid-body integration. The same
-  // integrator advances live shots, trajectory previews and power search.
-  if(s.rigid){
-   const evolved=stepRigidDisc({
-     velocity:s.velocity,rigid:s.rigid,spinRpm:s.spinRpm,
-     discStyle:s.discStyle,releaseStyle:s.releaseStyle,
-   },discGolfWindAt(s.lockedWind,s.disc,s.flightTime),d);
-   s.velocity=evolved.state.velocity;
-   s.rigid=evolved.state.rigid;
-   const heading=Math.atan2(s.velocity.x,s.velocity.z);
-   const angles=discRigidAngles(s.rigid,heading);
-   s.rollDegrees=angles.rollDegrees;
-   s.pitchDegrees=angles.pitchDegrees;
-   const sense=s.releaseStyle==="forehand"?-1:1;
-   s.spinPhase+=sense*.5*(s.spinRpm+evolved.state.spinRpm)*Math.PI/30*d;
-   s.spinRpm=evolved.state.spinRpm;
-   s.aero=evolved.telemetry;
-  }
+  // Restore the Oct 10 arcade flight path: a legible, stable glide with
+  // small wind drift and bank-controlled left/right curves. The rigid-disc
+  // simulator remains available as a separate research model, but is not
+  // suitable as the default input-to-reward model for this minigame.
+  //
+  // Use ONE integrator for release, prediction and recommended power so the
+  // HUD cannot promise a throw that the live simulation will not deliver.
   const horizontal=Math.hypot(s.velocity.x,s.velocity.z);
+  // Disc mold choices give a small, predictable change in range. Midrange,
+  // the default, reproduces the previous arcade path exactly.
+  const style=s.discStyle==="putter"?1.16:
+   s.discStyle==="fairway"?.91:s.discStyle==="driver"?.82:1;
+  const drag=.020*style;
+  s.velocity.x+=(s.lockedWind.x-s.velocity.x)*drag*d;
+  s.velocity.z+=(s.lockedWind.z-s.velocity.z)*drag*d;
+  if(Math.abs(s.bankAngle)>1e-6 && horizontal>.1){
+   const ramp=clamp(s.flightTime/.42,0,1);
+   // More flick slightly stabilizes the intended bank turn, but never
+   // changes direction or sends the disc into an uncontrolled roll.
+   const spinControl=clamp(.85+.15*s.spinRpm/650,.88,1.12);
+   const lateral=(s.bankAngle/DISC_GOLF_MAX_BANK)*
+    (1.0+2.4*Math.min(1,horizontal/25))*ramp*spinControl;
+   const oldX=s.velocity.x,oldZ=s.velocity.z;
+   // Turn into the bank without injecting forward speed.
+   s.velocity.x+=(oldZ/horizontal)*lateral*d;
+   s.velocity.z-=(oldX/horizontal)*lateral*d;
+  }
+  const glide=s.discStyle==="putter"?-.16:
+   s.discStyle==="fairway"?.12:s.discStyle==="driver"?.20:0;
+  s.velocity.y+=(-10.8+Math.min(2.3,horizontal*.045)+glide)*d;
+  const spinSign=s.releaseStyle==="forehand"?-1:1;
+  s.spinPhase+=spinSign*s.spinRpm*Math.PI/30*d;
+  s.spinRpm=Math.max(0,s.spinRpm*Math.exp(-.12*d));
+  s.rollDegrees=s.bankAngle;
+  s.pitchDegrees=clamp(s.pitchDegrees,-15,50);
+  s.aero=undefined;
+  // Keep launch-horizontal speed for the generous basket catch.
   const next={x:old.x+s.velocity.x*d,y:old.y+s.velocity.y*d,
    z:old.z+s.velocity.z*d};
   const p={x:next.x,z:next.z};
@@ -369,19 +369,21 @@ export function stepDiscGolf(state:DiscGolfState,dt:number,
    s.resultAt=s.clock;
    break;
   }
-  // The island's analytic hillside height is not the sea surface.
-  // Never turn open water into a valid lie just because terrainHeight is high.
-  if(!isWater(p) && next.y<=ground(p)+.16 && s.flightTime>.12){
-   // Distinguish shallow rim skips from steep landings and dry skids.
-   // Nothing is awarded until the disc actually comes to rest.
-   const impact=discImpact(s.velocity,p,ground,s.rigid??null,
-     s.contact?.impacts??0);
-   s.disc=impact.position;s.velocity=impact.velocity;s.contact=impact.contact;
-   if(impact.settled){
-    s.phase="landed";s.lie={x:p.x,z:p.z};
-    s.lastDistance=Math.hypot(p.x-state.lie.x,p.z-state.lie.z);
-    s.reason="Disc settled at the lie";s.resultAt=s.clock;
-   }
+  // Immediate, reliable arcade landing. A tiny rim skip or long rolling
+  // simulation kept the player locked out of the next throw, even when the
+  // disc visibly touched the ground. Restore the original Oct 10 handoff.
+  // The ground model still exists for research/tests but not default play.
+  if(!isWater(p)&&next.y<=ground(p)+.16&&s.flightTime>.12){
+   s.phase="landed";
+   s.disc={x:p.x,y:ground(p)+.16,z:p.z};
+   s.lie={x:p.x,z:p.z};
+   s.contact=undefined;
+   s.velocity={x:0,y:0,z:0};
+   s.lastDistance=Math.hypot(p.x-state.lie.x,p.z-state.lie.z);
+   const near=Math.hypot(p.x-basket.x,p.z-basket.z);
+   s.reason=near<4?"Short putt: tap Space for suggested power.":
+     "Disc landed. Shoot from the light marker.";
+   s.resultAt=s.clock;
    break;
   }
   if(s.flightTime>=10 || Math.abs(p.x)>93 || Math.abs(p.z)>95 || p.z>57){

@@ -33,17 +33,20 @@ test("the entire disc flight belongs to the shot camera; Shasta waits for landin
  assert.equal(fetch.phase,"landed");
  assert.deepEqual(fetch.target,landed.lie);
  assert.equal(discGolfFetchCameraPhase(fetch,2),"landing");
- assert.equal(stepDiscGolfFetch(fetch,landed,{x:0,z:0},2.5).phase,"landed");
+ assert.equal(stepDiscGolfFetch(fetch,landed,{x:0,z:0},2.12).phase,"landed");
  fetch=stepDiscGolfFetch(fetch,landed,{x:0,z:0},2+DISC_FETCH_LANDING_HOLD+.02);
  assert.equal(fetch.phase,"chase");
  assert.equal(discGolfFetchCameraPhase(fetch,2.9),"chase",
   "show Shasta beginning to run before switching into his view");
  assert.equal(discGolfFetchCameraPhase(fetch,
-  2+DISC_FETCH_LANDING_HOLD+DISC_FETCH_POV_DELAY+.05),"shasta");
+  2+DISC_FETCH_LANDING_HOLD+DISC_FETCH_POV_DELAY+.05),"chase",
+  "one fixed, wider follow shot without first-person cut");
  fetch=stepDiscGolfFetch(fetch,landed,{x:17.3,z:26.3},4);
  assert.equal(fetch.phase,"found");
- assert.equal(discGolfFetchCameraPhase(fetch,4),"shasta");
- assert.equal(stepDiscGolfFetch(fetch,landed,{x:17,z:26},4.8).phase,"found");
+ assert.equal(discGolfFetchCameraPhase(fetch,4),"chase");
+ assert.equal(stepDiscGolfFetch(fetch,landed,{x:17,z:26},
+  4+DISC_FETCH_FOUND_HOLD*.7).phase,"found",
+  "Shasta holds the find pose before its configured brief release");
  assert.deepEqual(stepDiscGolfFetch(fetch,landed,{x:17,z:26},
   4+DISC_FETCH_FOUND_HOLD+.01),idleDiscGolfFetch());
 });
@@ -118,7 +121,7 @@ test("basket completion relocates after finding chains, never to the old lie",()
  assert.deepEqual(discGolfHandoffTarget(ending,idle,finished),disc);
  assert.notDeepEqual(disc,start.lie);
 });
-test("short shots still show Shasta POV before the avatar handoff",()=>{
+test("short shots still show a minimum visible Shasta run before handoff",()=>{
  const game=startDiscGolf(0,ground);
  const short={...game,phase:"landed" as const,lie:{x:2,z:2}};
  const landing={...startDiscGolfFetch(0),phase:"landed" as const,landedAt:1,
