@@ -247,31 +247,27 @@ try {
   assert.equal(await page.locator('canvas').getAttribute('data-coral-forms'),'9');
   assert.equal(await page.locator('canvas').getAttribute('data-water-source'),'snowmelt');
 
-  // Qualify the authored grove log through the real locomotion/action path.
-  await page.getByRole('button', { name: 'Open navigation menu' }).click();
-  await page.getByRole('button', { name: '01 Redwood grove A little about me', exact: true }).click();
+  // The redwood grove is no longer the skatepark starting line. The legacy
+  // smoke test previously held W waiting for the grove-log grind from an old
+  // spawn and timed out after the meadow park was integrated. Check the real
+  // authored skatepark and an actual landed assisted trick here; dedicated
+  // skatepark browser QA verifies its ramps, grinds, bowls and moving lines.
   await page.getByRole('button', { name: 'Skateboarding', exact: true }).click();
-  await page.waitForFunction(() => document.activeElement?.tagName === 'CANVAS');
-  await page.keyboard.down('w');
-  try {
-    await page.waitForFunction(
-      () => document.querySelector('canvas')?.dataset.grindReady === 'true',
-      null,
-      { timeout: 15000 },
-    );
-    await page.keyboard.press('Space');
-    await page.waitForFunction(
-      () => document.querySelector('canvas')?.dataset.grinding === 'true',
-      null,
-      { timeout: 4000 },
-    );
-  } finally {
-    await page.keyboard.up('w');
-  }
-  assert.equal(await page.locator('canvas').getAttribute('data-grind-id'), 'grove-log');
-  assert.equal(await page.locator('canvas').getAttribute('data-grind-style'), 'boardslide');
-  await screenshot(page, 'activity-grind');
-  results.push('Skateboard acquires the fallen redwood as an angle-selected boardslide');
+  await page.getByRole('button', { name: 'Skatepark · south meadow', exact: true }).click();
+  await page.waitForFunction(() => {
+    const d=document.querySelector('canvas')?.dataset;
+    return d?.skatePark==='true' && d?.activity==='skate' && d?.skimPhase==='off';
+  },null,{timeout:15000});
+  await page.locator('canvas').focus();
+  const priorResult=Number(await page.locator('canvas').getAttribute('data-skate-result-serial'))||0;
+  await page.keyboard.press('Space');
+  await page.waitForFunction(serial => {
+    const d=document.querySelector('canvas')?.dataset;
+    return Number(d?.skateResultSerial)>serial && d?.skateTrick==='' &&
+      Number(d?.skateScore)>0 && d?.skatePark==='true';
+  },priorResult,{timeout:26000});
+  await screenshot(page,'activity-redwood-skatepark');
+  results.push('Skatepark opens in the integrated south meadow and lands a scored trick');
 
   // Ski spawns at (8, -54), facing the southward kicker. Turn toward the
   // ridge-log endpoint (5, -52): approach (-3, +2) aligns with the log for a 50-50.

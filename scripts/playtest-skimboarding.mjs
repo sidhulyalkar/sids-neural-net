@@ -203,7 +203,19 @@ try {
     return d?.skatePark==="true"&&d?.skimPhase==="off"&&d?.activity==="skate";
   },null,{timeout:15000});
   assert.equal(await attr("shore-life-visible"),"false");
+  // The same player can complete a skate trick after leaving a skimboard
+  // heat; this exercises actual UI input, landing and scoring in one session.
+  await canvas().focus();
+  const previousSkateSerial=Number(await attr("skate-result-serial"))||0;
+  await page.keyboard.press("Space");
+  await page.waitForFunction(serial=>{
+    const d=document.querySelector('canvas[role="application"]')?.dataset;
+    return d?.skatePark==="true" && d?.skimPhase==="off" &&
+      Number(d.skateResultSerial)>serial && d.skateTrick==="" &&
+      Number(d.skateScore)>0;
+  },previousSkateSerial,{timeout:26000});
   await snap("06-skatepark-after-skim");
+  checks.push("Skimboard → skateboard mode transition lands and scores a real assisted trick");
   await page.getByRole("button",{name:"Open navigation menu"}).click();
   await page.getByRole("button",{name:/North shore Skimboarding/}).click();
   await page.waitForFunction(()=>{
