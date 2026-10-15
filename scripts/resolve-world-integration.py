@@ -113,7 +113,7 @@ def combine(name, i, ours, theirs):
     '          surfing?Math.sin(elapsed*1.7)*.065:rollAngle);')
   if i==13:
    require(ours,"skateVisible");require(theirs,"skimHeat.phase")
-   return ours.replace("canvas.dataset.activity = mode;","")+theirs
+   return re.sub(r"(?m)^[ \\t]*canvas\\.dataset\\.activity = mode;[ \\t]*\\n","",ours)+theirs
   if i==14:
    require(ours,"shastaSnow=");require(ours,"shastaWaitsAtArcadeEntrance")
    require(theirs,'playerWaterZone === "north-shore"')
