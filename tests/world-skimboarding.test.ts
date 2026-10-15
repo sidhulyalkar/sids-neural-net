@@ -9,7 +9,7 @@ import {
   skimOffshore, nearbySkimBoard, waveCrestOffshore, skimWaveAt, skimWaterHeight,
   idleSkimHeat, pickupSkimBoard, startSkimRide, skimAction, stepSkimHeat,
   skimTrickForKey, SKIM_TRICK_KEYS, waveCrestAtX,
-  skimBreakAmountAt,skimWashDepthAt,skimBoardContact,
+  skimBreakAmountAt,skimWashDepthAt,skimBoardContact,skimSurfEnvelope,
   type SkimHeat,
 } from "../lib/world/skimboarding";
 import {
@@ -283,4 +283,16 @@ test("sand habitat stays inside the north shore and marine life yields to rider"
   assert.ok(shoreLifeVisible(boardPoint(1)));
   assert.equal(shoreLifeVisible({x:-60,z:10}),false);
   assert.equal(shoreLifeVisible({x:0,z:-85}),false);
+});
+
+test("shoaling wave ribbons fade into the surrounding ocean at both shore edges",()=>{
+  assert.equal(skimSurfEnvelope(-32),0);
+  assert.equal(skimSurfEnvelope(32),0);
+  assert.equal(skimSurfEnvelope(0),1);
+  for(const x of [-31,31]){
+    const p={x,z:northShoreZ(x)+waveCrestAtX(2,x,3)};
+    assert.ok(skimWaveAt(p,3)<1e-6,"no finite-ribbon height discontinuity");
+    assert.equal(skimBreakAmountAt(p,3),0);
+    assert.ok(Math.abs(skimWaterHeight(p,3,SEA_SURFACE)-SEA_SURFACE)<1e-6);
+  }
 });
