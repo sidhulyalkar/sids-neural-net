@@ -18,7 +18,7 @@ concurrency:
 jobs:
   dry-run-three-way-merge:
     runs-on: ubuntu-latest
-    timeout-minutes: 18
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
         with:
@@ -98,6 +98,57 @@ jobs:
       - name: Verify merged World unit contracts
         if: success()
         run: node --import tsx --test tests/world-*.test.ts
+      - name: Install isolated merged-browser runtime
+        if: success()
+        run: |
+          mkdir -p /tmp/world-integration-playwright
+          npm install --prefix /tmp/world-integration-playwright --no-save --package-lock=false --ignore-scripts playwright@1.56.1
+          /tmp/world-integration-playwright/node_modules/.bin/playwright install --with-deps chromium
+      - name: Serve exactly the merged source tree
+        if: success()
+        run: |
+          npm run dev -- --hostname 127.0.0.1 > /tmp/world-integration-next.log 2>&1 &
+          for i in {1..90}; do
+            if curl -fsS http://127.0.0.1:3000/ >/dev/null; then exit 0; fi
+            sleep 2
+          done
+          tail -n 120 /tmp/world-integration-next.log
+          exit 1
+      - name: Browser QA - north-shore skimboarding
+        if: success()
+        env:
+          WORLD_BASE_URL: http://127.0.0.1:3000
+          WORLD_AUDIT_DIR: artifacts/world-integration/skimboarding
+          PLAYWRIGHT_MODULE_ROOT: /tmp/world-integration-playwright/node_modules/playwright
+        run: node scripts/playtest-skimboarding.mjs
+      - name: Browser QA - redwood bowl return and real landed trick
+        if: success()
+        env:
+          WORLD_BASE_URL: http://127.0.0.1:3000
+          WORLD_AUDIT_DIR: artifacts/world-integration/redwood-flow
+          PLAYWRIGHT_MODULE_ROOT: /tmp/world-integration-playwright/node_modules/playwright
+        run: node scripts/playtest-skate-grove-flow.mjs
+      - name: Browser QA - redwood skatepark and assisted combos
+        if: success()
+        env:
+          WORLD_BASE_URL: http://127.0.0.1:3000
+          WORLD_AUDIT_DIR: artifacts/world-integration/skatepark
+          PLAYWRIGHT_MODULE_ROOT: /tmp/world-integration-playwright/node_modules/playwright
+        run: node scripts/playtest-skatepark.mjs
+      - name: Browser QA - Joshua moving target and two ghost riders
+        if: success()
+        env:
+          WORLD_BASE_URL: http://127.0.0.1:3000
+          WORLD_AUDIT_DIR: artifacts/world-integration/joshua-ghosts
+          PLAYWRIGHT_MODULE_ROOT: /tmp/world-integration-playwright/node_modules/playwright
+        run: node scripts/playtest-ride-ghost.mjs
+      - name: Browser QA - jet ski boarding, navigation and racing
+        if: success()
+        env:
+          WORLD_BASE_URL: http://127.0.0.1:3000
+          WORLD_AUDIT_DIR: artifacts/world-integration/jet-ski
+          PLAYWRIGHT_MODULE_ROOT: /tmp/world-integration-playwright/node_modules/playwright
+        run: node scripts/playtest-jet-ski.mjs
       - name: Upload integration evidence even on conflicts
         if: always()
         uses: actions/upload-artifact@v4
