@@ -30,7 +30,8 @@ import { FrameSampler, QualityController } from "@/lib/world/performance";
 import {
   SKIM_BOARDS, boardPoint, beachBlend, northShoreZ, skimBeachClearance, nearbySkimBoard,
   idleSkimHeat, pickupSkimBoard, startSkimRide, stepSkimHeat, skimAction,
-  skimWaterHeight, skimWaveAt, waveCrestOffshore, waveCrestAtX,
+  skimWaterHeight, skimWaveAt, skimBreakAmountAt, skimWashDepthAt, skimBoardContact,
+  waveCrestOffshore, waveCrestAtX,
   skimTrickForKey, type SkimHeat, type SkimTrick,
 } from "@/lib/world/skimboarding";
 import { shastaDetour, initialChaseState, stepChase, gaitBlendForSpeed, smoothAngle, smoothPoint, smoothingAlpha, steerShastaVelocity } from "@/lib/world/shastaMotion";
@@ -445,31 +446,43 @@ export function createWorld(
     scene.add(object);
     return {geometry,object,coords,across};
   }
+  const lipMaterial=mat("#d6f5e9",{
+    transparent:true,opacity:.55,depthWrite:false,side:THREE.DoubleSide,
+    roughness:.27,
+  });
+  const washMaterial=mat("#c7ede4",{
+    transparent:true,opacity:.28,depthWrite:false,side:THREE.DoubleSide,
+    roughness:.46,
+  });
   const skimWaves=Array.from({length:5},(_,index)=>({
     index,
-    surface:skimRibbon(8,swellMaterial),
-    foam:skimRibbon(2,whitecapMaterial),
+    surface:skimRibbon(13,swellMaterial),
+    lip:skimRibbon(4,lipMaterial),
+    foam:skimRibbon(7,whitecapMaterial),
   }));
+  const skimWash=skimRibbon(10,washMaterial);
   function updateSkimWaves(seconds:number){
     for(const wave of skimWaves){
       const crest=waveCrestOffshore(wave.index,seconds);
-      // Once a train passes offshore, hide it until it cycles back.
-      const visible=crest > -2.4 && crest < 40;
-      for(const [ribbon,foam] of [[wave.surface,false],[wave.foam,true]] as const){
-        ribbon.object.visible=visible;
-        if(!visible)continue;
-        const width=foam?.48:4.7;
-        const count=ribbon.across+1;
-        for(let j=0;j<count;j++){
-          const side=(j/ribbon.across-.5)*width;
+      const visible=crest>-3&&crest<40;
+      for(const [ribbon,kind] of [
+        [wave.surface,"face"],[wave.lip,"lip"],[wave.foam,"whitewater"],
+      ] as const){
+        // Far-offshore foam should not resemble a second row of stripes.
+        ribbon.object.visible=visible&&(kind==="face"||crest<30);
+        if(!ribbon.object.visible)continue;
+        for(let j=0;j<=ribbon.across;j++){
+          const fraction=j/ribbon.across;
+          const side=kind==="face" ? -1.55+fraction*8.4 :
+            kind==="lip" ? -.7+fraction*1.4 : -5.4+fraction*5.5;
           for(let i=0;i<=swellSamples;i++){
             const x=-27+54*i/swellSamples;
-            // Continuity is important at ribbon edges; avoid independent
-            // boxed segments that create surf-line gaps.
             const point={x,z:northShoreZ(x)+waveCrestAtX(wave.index,x,seconds)+side};
-            const waveHeight=skimWaveAt(point,seconds);
-            const y=SEA_SURFACE+.012+waveHeight*.72+
-              (foam?.035+waveHeight*.11:0);
+            const face=skimWaveAt(point,seconds);
+            const breaking=skimBreakAmountAt(point,seconds);
+            const lipLift=kind==="lip" ? .24*breaking*Math.sin(fraction*Math.PI) : 0;
+            const foamLift=kind==="whitewater" ? .035+.095*breaking : 0;
+            const y=skimWaterHeight(point,seconds,SEA_SURFACE)+lipLift+foamLift;
             const k=3*(j*(swellSamples+1)+i);
             ribbon.coords[k]=x;
             ribbon.coords[k+1]=y;
@@ -480,9 +493,30 @@ export function createWorld(
         ribbon.geometry.computeVertexNormals();
       }
     }
+    skimWash.object.visible=true;
+    for(let j=0;j<=skimWash.across;j++){
+      const offshore=-3.3+8*j/skimWash.across;
+      for(let i=0;i<=swellSamples;i++){
+        const x=-27+54*i/swellSamples;
+        const p={x,z:northShoreZ(x)+offshore};
+        const floor=worldFloorHeight(x,p.z);
+        const depth=skimWashDepthAt(p,seconds);
+        const k=3*(j*(swellSamples+1)+i);
+        skimWash.coords[k]=x;
+        skimWash.coords[k+1]=Math.max(floor+.016,
+          offshore>0?SEA_SURFACE+.019:floor+depth+.012);
+        skimWash.coords[k+2]=p.z;
+      }
+    }
+    skimWash.geometry.attributes.position.needsUpdate=true;
+    skimWash.geometry.computeVertexNormals();
   }
   updateSkimWaves(0);
   const skimWake=createSkimWake(scene);
+  // Clear near-shore water by reducing opacity of the existing ocean surface
+  // locally in the view (the far ocean keeps its original treatment).
+  // Sand remains visible because the floor is the real sculpted terrain mesh.
+  const baseOceanOpacity=waterMaterial.opacity;
 
   const skimShape=new THREE.Shape();
   skimShape.moveTo(0,-.97);
@@ -1265,6 +1299,10 @@ export function createWorld(
   const skimEquipment=new THREE.Group();
   explorer.add(skimEquipment);
   const skimDeck=mesh(skimDeckGeometry,skimDeckMaterials[0],[0,0,0],[1,1,1],skimEquipment);
+  // The nose points along the explorer's +Z motion (the planted boards are
+  // vertical but the ridden board lies flat, nose toward the break).
+  const rideTail=mesh(skimTailGeometry,skimDarkMaterial,[0,0,.105],[1,1,1],skimDeck);
+  rideTail.castShadow=false;
   skimEquipment.visible=false;
   const bikeSeatLocal = { y: 1.45, z: -0.42 };
   const riderHipLocal = { y: 0.73, z: 0 };
@@ -2694,7 +2732,8 @@ export function createWorld(
   // Keep ground/coast geometry, water, wildlife, interactables and marine
   // content intact. This visibility filter runs after their frame updates.
   const underwaterCullingExclusions=new Set<THREE.Object3D>([
-    ground,water,tides,shoreFoam,northWetSand,northFoamSeam,...skimWaves.flatMap(w=>[w.surface.object,w.foam.object]),
+    ground,water,tides,shoreFoam,northWetSand,northFoamSeam,skimWash.object,
+    ...skimWaves.flatMap(w=>[w.surface.object,w.lip.object,w.foam.object]),
     ...skimProps,...skimTails,
     grassMesh,markerHitMesh,explorerContact,dogContact,
     critterBodies,critterHeads,critterEars,critterEyes,critterMuzzles,
@@ -3376,11 +3415,24 @@ export function createWorld(
         trick==="big-spin"?trickSpin*.5:0;
       const boardTurn=trick==="shuvit"?trickSpin:
         trick==="big-spin"?trickSpin*.5:0;
+      const skimContact=surfing?skimBoardContact(player,travel.heading,
+        surfClock,SEA_SURFACE,p=>worldFloorHeight(p.x,p.z)):null;
       if(skimEquipped){
         skimDeck.material=skimDeckMaterials[skimHeat.board??0];
-        skimEquipment.position.set(surfing?0:.74,surfing?.04:.87,surfing?0:.15);
-        skimEquipment.rotation.set(surfing?-Math.PI/2:0,boardTurn,surfing?0:-.12);
+        rideTail.visible=skimHeat.board!==1;
+        // The planted board's orientation is vertical; the ridden board
+        // planes horizontally, with independent pitch and roll from four rails.
+        skimEquipment.position.set(surfing?0:.74,
+          surfing&&skimContact ? skimContact.centerY-playerY-.14+.03 : .87,
+          surfing?0:.15);
+        skimEquipment.rotation.set(surfing?Math.PI/2:0,boardTurn,surfing?0:-.12);
+        skimDeck.rotation.set(surfing&&skimContact?skimContact.pitch:0,
+          0,surfing&&skimContact?skimContact.roll:0);
       }
+      canvas.dataset.skimBoardPitch=(skimContact?.pitch??0).toFixed(3);
+      canvas.dataset.skimBoardRoll=(skimContact?.roll??0).toFixed(3);
+      canvas.dataset.skimBoardContact=(skimContact?.centerY??0).toFixed(3);
+      canvas.dataset.skimWashDepth=(skimContact?.wash??0).toFixed(3);
       snorkel.visible = swimming;
       const running = !swimming && !surfing && (mode === "run" || mode === "boulder");
       const headingYaw = travel.speed > 0.05
@@ -3493,7 +3545,9 @@ export function createWorld(
       canvas.dataset.skimRemaining=skimHeat.remaining.toFixed(1);
       canvas.dataset.skimRidePoints=skimHeat.ridePoints.toFixed(0);
       canvas.dataset.skimWave=skimWaterHeight(player,surfClock,SEA_SURFACE).toFixed(2);
-      canvas.dataset.skimWaveStyle="continuous-ribbon-v1";
+      canvas.dataset.skimWaveStyle="shoaling-lip-wash-v2";
+      canvas.dataset.skimBreaking=skimBreakAmountAt(player,surfClock).toFixed(2);
+      canvas.dataset.skimWaterOpacity=waterMaterial.opacity.toFixed(3);
       canvas.dataset.skimWaveRibbons=String(skimWaves.length);
       canvas.dataset.skimWakeVisible=String(skimWake.visible);
       canvas.dataset.skimPendingTrick=skimHeat.pendingTrick??"";
@@ -4728,10 +4782,16 @@ export function createWorld(
     // Rendering resumes from the current shared surf clock on return.
     const surfVisible=aquatic!=="dive"&&Math.abs(player.x)<38&&player.z>19;
     if(surfVisible)updateSkimWaves(surfClock);
-    else for(const wave of skimWaves){
-      wave.surface.object.visible=false;
-      wave.foam.object.visible=false;
+    else {
+      skimWash.object.visible=false;
+      for(const wave of skimWaves){
+        wave.surface.object.visible=false;
+        wave.lip.object.visible=false;
+        wave.foam.object.visible=false;
+      }
     }
+    waterMaterial.opacity=baseOceanOpacity*
+      (1-(surfVisible?.40:0));
     canvas.dataset.skimSurfVisible=String(surfVisible);
     shoreFoam.position.x = Math.sin(elapsed * 0.7) * 0.11;
     shoreFoam.position.y = Math.sin(elapsed * 1.25) * 0.018;
