@@ -5,6 +5,7 @@ on:
     branches: ['feat/island-jetski-dock-race-v1']
     paths:
       - '.github/workflows/world-integration-preview.yml'
+      - 'scripts/resolve-world-integration.py'
   workflow_dispatch:
 
 permissions:
@@ -53,6 +54,20 @@ jobs:
           echo "Base head: $(cat artifacts/world-integration/base-head.sha)"
           echo "Merge status: $result"
           cat artifacts/world-integration/conflict-paths.txt
+      - name: Resolve strictly reviewed mixed-game conflict sections
+        run: |
+          if [ "$(cat artifacts/world-integration/merge-status.txt)" != "0" ]; then
+            mapfile -t conflicts < artifacts/world-integration/conflict-paths.txt
+            python3 scripts/resolve-world-integration.py "${conflicts[@]}"
+            git add -- "${conflicts[@]}"
+            test -z "$(git diff --name-only --diff-filter=U)"
+            git diff --cached --check
+            printf '0\n' > artifacts/world-integration/merge-status.txt
+            echo "Reviewed merge conflicts are resolved in this temporary checkout only."
+          fi
+          git diff --cached --stat > artifacts/world-integration/resolved-files.txt
+          test -f lib/world/skimboarding.ts
+          test -f lib/world/skatepark.ts
       - name: Reject unmerged work, never silently select one side
         run: |
           if [ "$(cat artifacts/world-integration/merge-status.txt)" != "0" ]; then
