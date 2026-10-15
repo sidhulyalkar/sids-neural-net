@@ -4721,7 +4721,16 @@ export function createWorld(
     neuralMat.emissiveIntensity = 0.4 + Math.sin(elapsed * 0.65) * 0.18;
     particleMat.opacity = 0.48 + Math.sin(elapsed) * 0.17;
     tides.position.x = Math.sin(elapsed * 0.2) * 0.5;
-    if(aquatic!=="dive")updateSkimWaves(surfClock);
+    // Animated surf is confined to the north beach. Every other biome should
+    // avoid the dynamic vertex writes and normal recomputation entirely.
+    // Rendering resumes from the current shared surf clock on return.
+    const surfVisible=aquatic!=="dive"&&Math.abs(player.x)<38&&player.z>19;
+    if(surfVisible)updateSkimWaves(surfClock);
+    else for(const wave of skimWaves){
+      wave.surface.object.visible=false;
+      wave.foam.object.visible=false;
+    }
+    canvas.dataset.skimSurfVisible=String(surfVisible);
     shoreFoam.position.x = Math.sin(elapsed * 0.7) * 0.11;
     shoreFoam.position.y = Math.sin(elapsed * 1.25) * 0.018;
     shoreFoamMat.opacity = 0.52 + Math.sin(elapsed * 0.9) * 0.08;
