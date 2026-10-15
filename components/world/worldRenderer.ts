@@ -3628,15 +3628,6 @@ export function createWorld(
       (bigAir.phase!=="idle"&&bigAir.phase!=="armed")||
       climb||(grind&&state.activity!=="skate")||
       (airHeight>0.01&&!(state.activity==="skate"&&verticalSpeed>0.1)))return;
-    if(state.activity==="ski"&&mountainJumpEligible(player,supportHeight(player),travel.speed)){
-      const ahead={x:player.x+travel.heading.x*2.1,
-        z:player.z+travel.heading.z*2.1};
-      const drop=Math.max(0,supportHeight(player)-supportHeight(ahead));
-      bigAir=launchBigAir(player,supportHeight(player),travel.speed,travel.heading,true,drop);
-      playerY=bigAir.y;airHeight=.04;verticalSpeed=bigAir.verticalSpeed;
-      callbacks.onBigAir(bigAir);
-      return;
-    }
     if(state.activity==="skate"&&airHeight>.08){launchAssistedSkateTrick();return;}
     if(grind&&state.activity==="skate"){launchAssistedSkateTrick();return;}
     if ((state.activity === "skate" || state.activity === "ski") && travel.speed > 2.2) {
@@ -3681,6 +3672,19 @@ export function createWorld(
         verticalSpeed = airHeight = 0;
         return;
       }
+    }
+    // A player who is aligned with a physical log should grind it, not be
+    // hijacked by the freeform mountain-jump eligibility test. The previous
+    // order launched Big Air first near Granite Ridge and made 50-50s
+    // impossible even when the HUD reported grindReady=true.
+    if(state.activity==="ski"&&mountainJumpEligible(player,supportHeight(player),travel.speed)){
+      const ahead={x:player.x+travel.heading.x*2.1,
+        z:player.z+travel.heading.z*2.1};
+      const drop=Math.max(0,supportHeight(player)-supportHeight(ahead));
+      bigAir=launchBigAir(player,supportHeight(player),travel.speed,travel.heading,true,drop);
+      playerY=bigAir.y;airHeight=.04;verticalSpeed=bigAir.verticalSpeed;
+      callbacks.onBigAir(bigAir);
+      return;
     }
     if(state.activity==="skate"){launchAssistedSkateTrick();return;}
     if (state.activity === "boulder") {
