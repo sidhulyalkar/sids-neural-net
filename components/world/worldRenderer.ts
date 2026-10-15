@@ -19,6 +19,7 @@ import { createWorldTridents } from "./worldTridents";
 import { nearbyUnderwaterTrident } from "@/lib/world/artifacts";
 import { createHabitats } from "./worldHabitats";
 import { createSkimWake } from "./worldSkimWake";
+import { createNorthShoreLife } from "./worldNorthShoreLife";
 import { ringSurface, ribbon } from "./worldGeometry";
 import { drainagePoints, downstreamPoints, waterfallProfile, waterfallCrownRings } from "@/lib/world/hydrology";
 import { biomeAt, BIOME_COLORS } from "@/lib/world/biomes";
@@ -513,6 +514,7 @@ export function createWorld(
   }
   updateSkimWaves(0);
   const skimWake=createSkimWake(scene);
+  const shoreLife=createNorthShoreLife(scene);
   // Clear near-shore water by reducing opacity of the existing ocean surface
   // locally in the view (the far ocean keeps its original treatment).
   // Sand remains visible because the floor is the real sculpted terrain mesh.
@@ -4823,6 +4825,10 @@ export function createWorld(
     }
     flyingBirds.update(bigAir,elapsed,reducedFlightMotion);
     habitats.update(player,elapsed);
+    shoreLife.update(elapsed,player);
+    canvas.dataset.shoreLifeVisible=String(shoreLife.visible);
+    canvas.dataset.shoreFish=String(shoreLife.visible?shoreLife.counts.baitfish:0);
+    canvas.dataset.shoreRays=String(shoreLife.visible?shoreLife.counts.stingray:0);
     skimWake.update(player,travel.heading,skimHeat.speed,surfClock,
       skimHeat.phase==="riding",
       p=>skimWaterHeight(p,surfClock,SEA_SURFACE));
@@ -5164,6 +5170,7 @@ export function createWorld(
       } else schedule();
     },
     dispose() {
+      shoreLife.dispose();
       skimWake.dispose();
       discGolfObjects.dispose();
       flyingBirds.dispose();
