@@ -3008,6 +3008,12 @@ export function createWorld(
       trial:trial.phase,skim:skimHeat.phase,
     }).activity);
   function clearChallengeResults(){
+    // Explicitly starting another world activity never leaves an inverted
+    // skateboard traversal waiting to resume after the next minigame.
+    if(skateLoopRide){
+      skateLoopRide=null;lastSkateLoopEnd=elapsed;
+      airHeight=verticalSpeed=0;
+    }
     if(bigAir.phase==="landed"||bigAir.phase==="missed"){
       bigAir=idleBigAir();callbacks.onBigAir(bigAir);
     }
@@ -4112,7 +4118,8 @@ export function createWorld(
         player = travel.point;
         if(state.activity==="skate"&&caveLayer==="surface"&&
           aquatic==="land"&&!skateLoopRide&&!grind&&airHeight<=.001&&
-          skateTrick.phase==="ground"&&elapsed-lastSkateLoopEnd>1.4&&
+          skateTrick.phase==="ground"&&skateTrick.manual==="none"&&
+          elapsed-lastSkateLoopEnd>1.4&&
           skateLoopEntryCrossing(previousPoint,player,travel.heading,travel.speed)){
           skateLoopRide=beginSkateLoop(travel.speed,
             groundHeight(SKATE_LOOP.center),player.z);
