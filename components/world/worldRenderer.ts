@@ -3040,6 +3040,9 @@ export function createWorld(
     playerY=groundHeight(player);
     travel={point:player,speed:0,heading:{x:1,z:0}};
     destination=null;
+    // Release held throttle/turn keys when ownership returns to walking.
+    // Otherwise docking while holding W can immediately run off the pier.
+    clearInput();
     jetHud.style.display="none";
     canvas.dataset.jetSkiStatus="docked";
     canvas.focus({preventScroll:true});
