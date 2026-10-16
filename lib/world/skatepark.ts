@@ -47,6 +47,21 @@ export const STUMP_PADS=[
 /** Reference-inspired woodland features. Open split log and solid-backed bridge
  * deliberately use a single heightfield: no invisible tunnel/overpass collider. */
 export const GROVE_LOG={center:{x:-11,z:30.7},halfLength:4.4,halfWidth:1.5} as const;
+/** Ride-through giant sequoia: the existing open log remains the ONLY wheel
+ * support. Its shell is hollow, with open ends and no invisible roof collider.
+ * The inner crown clears the standing avatar while bark stays outside the lane. */
+export const GROVE_TUNNEL={
+ center:GROVE_LOG.center,halfLength:GROVE_LOG.halfLength,
+ innerRadius:2.05,outerRadius:2.37,archCenterLift:1.12,
+} as const;
+/** Vertical timber loop is NOT a heightfield: a single-valued ground profile
+ * cannot represent both the bottom and the inverted crown. Its dedicated
+ * rail traversal provides the 3D wheel/contact pose, then returns to roam. */
+export const SKATE_LOOP={
+ center:{x:-2.3,z:44.2},radius:2.15,width:2.35,
+ minEntrySpeed:8.4,entryHalfWidth:.82,
+} as const;
+
 export const GROVE_BRIDGE={center:{x:-10,z:49},halfLength:4.2,halfWidth:1.05} as const;
 export const GROVE_STONES=[
  {x:-10,z:47.4,rx:2.0,rz:.72,height:.82},
@@ -68,8 +83,14 @@ export function groveStoneRise(p:Point):number{
  return GROVE_STONES.reduce((height,rock)=>Math.max(height,rock.height*
   Math.max(0,1-Math.hypot((p.x-rock.x)/rock.rx,(p.z-rock.z)/rock.rz))),0);
 }
-export type SkateParkZone="redwood-bowl"|"timber-quarter"|"stump-pad"|"street"|"apron";
+export type SkateParkZone="redwood-bowl"|"timber-quarter"|"stump-pad"|"street"|"apron"|"sequoia-tunnel"|"timber-loop";
 export function skateParkZone(p:Point):SkateParkZone{
+ if(Math.abs(p.x-SKATE_LOOP.center.x)<SKATE_LOOP.radius+0.55&&
+  Math.abs(p.z-SKATE_LOOP.center.z)<SKATE_LOOP.width*.55+.18)
+  return "timber-loop";
+ if(Math.abs(p.x-GROVE_TUNNEL.center.x)<GROVE_TUNNEL.halfLength+.15&&
+  Math.abs(p.z-GROVE_TUNNEL.center.z)<GROVE_LOG.halfWidth*.92)
+  return "sequoia-tunnel";
  if(Math.hypot(p.x-REDWOOD_BOWL.center.x,p.z-REDWOOD_BOWL.center.z)<REDWOOD_BOWL.rimRadius+.85)
   return "redwood-bowl";
  if(STUMP_PADS.some(pad=>Math.hypot(p.x-pad.center.x,p.z-pad.center.z)<pad.radius+.12))
