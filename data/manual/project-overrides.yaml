@@ -1,0 +1,348 @@
+# Manual priority overrides for projects
+# These merge with GitHub-ingested data, with manual values taking precedence
+
+overrides:
+  # === HIDDEN: Non-project files ===
+  claude-code-ingestion-instructions:
+    hidden: true
+    importance: 0
+
+  # === HIDDEN: Personal-only context, not professional builds ===
+  personal-interests-and-life-nodes:
+    hidden: true
+    importance: 0
+
+  # === TOP PRIORITY: DataJoint Work ===
+  datajoint-multimodal-infrastructure:
+    importance: 100
+    featured: true
+    title: "DataJoint Multimodal Neuroscience Infrastructure"
+    summary: "Led and implemented cloud-ready DataJoint workflows for multimodal neuroscience data, including electrophysiology, calcium imaging, fiber photometry, DeepLabCut pose estimation, Facemap facial inference, behavior, and visualization across large customer deployments."
+    domains:
+      - Neural Data Infrastructure
+      - Scientific Workflow Systems
+    tags:
+      - Python
+      - DataJoint
+      - Docker
+      - AWS
+      - Kubernetes
+      - MySQL
+      - S3
+      - EFS
+      - Terraform
+      - SpikeInterface
+      - Suite2p
+      - CaImAn
+      - DeepLabCut
+      - Facemap
+      - fiber photometry
+      - calcium imaging
+      - electrophysiology
+      - pose estimation
+      - worker orchestration
+    cluster: "Neural Data Infrastructure"
+    modeVisibility:
+      - recruiter
+      - researcher
+      - builder
+      - full-brain
+
+  harvard-sabatini-datajoint-pipeline:
+    importance: 100
+    featured: true
+    title: "Harvard Sabatini DataJoint Pipeline"
+    summary: "Led a major customer deployment for Harvard/Sabatini Lab involving multimodal neuroscience processing and visualization over ~12TB-scale datasets."
+    sourceUrl: "https://github.com/bernardosabatinilab/sabatini-datajoint-pipeline"
+    domains:
+      - Neural Data Infrastructure
+      - Scientific Workflow Systems
+    tags:
+      - Python
+      - DataJoint
+      - Docker
+      - AWS
+      - Kubernetes
+      - MySQL
+      - S3
+      - EFS
+      - Terraform
+      - SpikeInterface
+      - Suite2p
+      - CaImAn
+      - DeepLabCut
+      - Facemap
+      - fiber photometry
+      - calcium imaging
+      - electrophysiology
+      - pose estimation
+      - worker orchestration
+    cluster: "Neural Data Infrastructure"
+    modeVisibility:
+      - recruiter
+      - researcher
+      - full-brain
+
+  # === NEATLABs Work ===
+  neatlabs-core-research:
+    importance: 100
+    featured: true
+    title: "NEATLABs Core Research and Lead Lab Programmer Work"
+    summary: "Served as Lead Lab Programmer at NEATLABs, building behavioral paradigms, large-scale LFP/behavior analysis pipelines, and neural engineering analyses for decision-making, inhibition, TBI, and reward-related neural networks."
+    domains:
+      - NEATLABs Research
+      - Neural Signal Discovery
+    tags:
+      - MATLAB
+      - Python
+      - LFP
+      - EEG
+      - behavioral analysis
+      - Granger causality
+      - cross-correlation
+      - Q-learning
+      - electrophysiology
+      - optogenetics
+      - behavioral rigs
+    cluster: "NEATLABs Research"
+    modeVisibility:
+      - recruiter
+      - researcher
+      - full-brain
+
+  neatlabs-dtw-tca-unpublished:
+    importance: 95
+    featured: true
+    title: "NEATLABs DTW and Tensor Component Analysis Work"
+    summary: "Applied Stanford dynamic time warping algorithms and Tensor Component Analysis to multi-terabyte LFP datasets, identifying precise temporal neural patterns."
+    domains:
+      - NEATLABs Research
+      - Neural Signal Discovery
+    tags:
+      - MATLAB
+      - Python
+      - LFP
+      - EEG
+      - behavioral analysis
+      - Granger causality
+      - cross-correlation
+      - Q-learning
+      - electrophysiology
+      - optogenetics
+    cluster: "NEATLABs Research"
+    modeVisibility:
+      - researcher
+      - full-brain
+
+  # === Neural Foundation Models ===
+  neuros-v1:
+    importance: 95
+    featured: true
+    title: "neurOS-v1"
+    summary: "A modular operating system for brain-computer interfaces: hot-swappable drivers across 16+ biosignal modalities, agent-based real-time orchestration, a registry-driven model zoo, the neuroFMx multimodal foundation model, mechanistic-interpretability tooling, and cloud-native streaming, serving, and observability — as a 10-package monorepo."
+    sourceUrl: "https://github.com/sidhulyalkar/neurOS-v1"
+    domains:
+      - BCI & Real-Time Systems
+      - Neural Foundation Models
+      - Neural Data Infrastructure
+    tags:
+      - Python
+      - PyTorch
+      - FastAPI
+      - Streamlit
+      - BrainFlow
+      - LSL
+      - Kafka
+      - Redis
+      - ZeroMQ
+      - NWB
+      - Zarr
+      - WebDataset
+      - Iceberg
+      - Mamba
+      - transformers
+      - tokenization
+      - CEBRA
+      - NDT
+      - POYO
+      - Neuroformer
+      - LoRA
+      - federated learning
+      - SageMaker
+      - Prometheus
+      - Grafana
+      - mechanistic interpretability
+      - real-time inference
+      - foundation models
+    cluster: "Foundation Models & BCI"
+    modeVisibility:
+      - recruiter
+      - researcher
+      - builder
+      - full-brain
+
+  neuros:
+    importance: 90
+    title: "neurOS"
+    summary: "Modular orchestration layer built on top of NeuroForge for BCI pipeline development."
+    domains:
+      - BCI & Real-Time Systems
+    tags:
+      - Python
+      - PyTorch
+      - FastAPI
+      - Mamba
+      - Perceiver IO
+      - LoRA
+      - FSDP
+      - NWB
+      - Zarr
+      - real-time inference
+      - neural time series
+    cluster: "Foundation Models & BCI"
+    modeVisibility:
+      - builder
+      - full-brain
+
+  neuroforge:
+    importance: 88
+    featured: true
+    title: "NeuroForge"
+    summary: "System of Agents to generate BCI middleware code."
+    domains:
+      - BCI & Real-Time Systems
+      - Applied AI Products
+    tags:
+      - Python
+      - FastAPI
+      - real-time systems
+      - BCI infrastructure
+    cluster: "Foundation Models & BCI"
+    modeVisibility:
+      - builder
+      - full-brain
+
+  neural-mm-tf-mechint:
+    importance: 85
+    featured: true
+    title: "Neural Multimodal Transformer Mechanistic Interpretability"
+    summary: "Mechanistic interpretability tools for neural multi-modal transformers."
+    domains:
+      - Mechanistic Interpretability
+    tags:
+      - Python
+      - PyTorch
+      - mechanistic interpretability
+      - path patching
+      - ACDC
+      - counterfactual interventions
+      - Bokeh
+      - Plotly
+    cluster: "Mechanistic Interpretability"
+    modeVisibility:
+      - researcher
+      - full-brain
+
+  # === Other Projects ===
+  woof:
+    importance: 70
+    featured: true
+    title: "Woof / PetPath"
+    summary: "Pet fitness tracking and social platform inspired by Shasta."
+    domains:
+      - Personal Product Experiments
+    tags:
+      - Shasta
+      - pets
+      - social-product
+      - TypeScript
+    cluster: "Personal Projects"
+    modeVisibility:
+      - builder
+      - personal
+      - full-brain
+
+  2dfft_pipeline:
+    importance: 75
+    title: "Precision 2DFFT Pipeline"
+    summary: "AWS-based 2D FFT processing pipeline for precision neuroscience."
+    domains:
+      - Neural Data Infrastructure
+    tags:
+      - AWS
+      - Docker
+      - Python
+      - infrastructure
+    cluster: "Infrastructure"
+    modeVisibility:
+      - builder
+      - full-brain
+
+  neuro-dl-classifier:
+    importance: 72
+    title: "Neuro-DL-Classifier"
+    summary: "ECoG and EEG deep learning based signal classification package."
+    domains:
+      - BCI & Real-Time Systems
+    tags:
+      - ECoG
+      - EEG
+      - deep-learning
+      - classification
+    cluster: "Neural Decoding"
+    modeVisibility:
+      - researcher
+      - builder
+      - full-brain
+
+  # === DataJoint Elements ===
+  element-deeplabcut:
+    importance: 80
+    title: "Element DeepLabCut"
+    summary: "DataJoint Element for behavioral analysis with DeepLabCut - contributed improvements."
+    domains:
+      - Neural Data Infrastructure
+    tags:
+      - Python
+      - DataJoint
+      - DeepLabCut
+      - pose estimation
+      - behavioral analysis
+    cluster: "DataJoint Elements"
+    modeVisibility:
+      - builder
+      - full-brain
+
+  element-facemap:
+    importance: 78
+    title: "Element Facemap"
+    summary: "DataJoint Element for facial inference and video-derived behavior features with Facemap."
+    domains:
+      - Neural Data Infrastructure
+    tags:
+      - Python
+      - DataJoint
+      - Facemap
+      - pose estimation
+      - behavioral analysis
+    cluster: "DataJoint Elements"
+    modeVisibility:
+      - builder
+      - full-brain
+
+  element-calcium-imaging:
+    importance: 80
+    title: "Element Calcium Imaging"
+    summary: "DataJoint Element for multi-photon calcium imaging analysis."
+    domains:
+      - Neural Data Infrastructure
+    tags:
+      - Python
+      - DataJoint
+      - calcium imaging
+      - Suite2p
+      - CaImAn
+    cluster: "DataJoint Elements"
+    modeVisibility:
+      - builder
+      - full-brain

@@ -1,0 +1,89 @@
+---
+title: "Real-Time Neuro, Audio, and LED Feedback Systems"
+slug: realtime-neuro-audio-led-systems
+summary: "Creative hardware systems connecting NeuroSky-style brain input, Raspberry Pi control, audio-reactive LED strips, NanoLeaf-style lighting, and lagless audio routing for synchronized real-time visual feedback."
+role: "Designer and implementer for class and personal creative hardware systems"
+scope: "NeuroSky to Raspberry Pi LEDs, dancyPi-inspired audio LEDs, NanoLeaf-style lighting, galaxy light, split audio routing"
+date: "2020-03-01"
+tags:
+  - raspberry-pi
+  - neurosky
+  - led
+  - audio-reactive
+  - real-time
+  - hardware
+domains:
+  - Real-Time Creative Systems
+  - BCI and Signal Feedback
+  - Hardware Prototyping
+featured: false
+importance: 86
+relatedProjects:
+  - neurosky-led-audio-visualization
+modeVisibility:
+  - builder
+  - personal
+  - full-brain
+---
+
+## The Fun System That Explains A Lot
+
+Before the bigger neuroscience infrastructure work, I was already drawn to closed-loop systems: signals coming from the world, software transforming them, and physical feedback appearing in real time.
+
+This record brings together a few related builds:
+
+- A NeuroSky to Raspberry Pi to LED strip project for an ECE class at UCSD
+- An implementation of the [`aztronaut/dancyPi-audio-reactive-led`](https://github.com/aztronaut/dancyPi-audio-reactive-led) style of audio-reactive LED visualization
+- NanoLeaf-style lighting experiments
+- An audio-reactive galaxy light setup
+- Split audio routing so the same signal could drive lights and speakers without introducing distracting lag
+
+## Signal Flow
+
+The core idea was to make the signal path physical and immediate.
+
+For brain-signal visualization:
+
+`NeuroSky-style EEG input -> attention / meditation / signal features -> Raspberry Pi -> LED strip feedback`
+
+For audio-reactive lighting:
+
+`Audio output -> split / capture path -> Raspberry Pi processing -> LED strip / lighting response`
+
+In parallel:
+
+`Audio output -> speakers`
+
+That parallel routing mattered. If the lights depended on a slow or awkward capture chain, the system felt wrong. Splitting the audio stream let the music remain clean and low-latency while still feeding a processing path for synchronized visual effects.
+
+## What I Built Around
+
+The system combined:
+
+- Real-time signal acquisition
+- Raspberry Pi control logic
+- LED strip mapping
+- Frequency and intensity extraction from audio
+- Brain-signal-inspired feedback mappings
+- Physical lighting composition across multiple devices
+- Practical routing decisions for clean audio and responsive visuals
+
+The point was not just to make lights blink. The interesting part was coordinating multiple feedback elements so the room behaved like one reactive interface.
+
+## Why It Belongs on a Professional Page
+
+This is a playful project, but it is also a serious signal about how I think.
+
+It shows:
+
+- Comfort moving between hardware, software, sensors, and physical output
+- Interest in real-time feedback loops
+- Taste for embodied interfaces
+- Practical debugging instincts around latency, routing, and synchronization
+- A long-running curiosity about BCI and adaptive environments
+
+That same instinct shows up later in my professional work: closed-loop neuroscience, behavioral boxes, DataJoint workflows, BCI middleware ideas, and real-time systems thinking.
+
+## What It Says About Working With Me
+
+I like systems that make invisible signals visible. I like when infrastructure becomes experiential. And I tend to care about the last ten feet of a system: whether it feels responsive, whether the output makes sense, and whether the user can trust what they are seeing.

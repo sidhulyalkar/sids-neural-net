@@ -1,0 +1,55 @@
+---
+title: "neurOS-v1 Package: neuros-core — Agents, Pipeline & Processing"
+slug: neuros-core
+summary: "The runtime heart of neurOS-v1: an asynchronous agent orchestrator, the pluggable processing pipeline, CV plugins, and adaptation/health monitoring that turn streamed signals into real-time inference."
+role: "Author and architect"
+sourceUrl: "https://github.com/sidhulyalkar/neurOS-v1"
+scope: "neurOS-v1 monorepo package"
+date: "2025-11-05"
+tags:
+  - neuros-v1
+  - real-time
+  - orchestration
+  - pipeline
+  - bci
+domains:
+  - BCI & Real-Time Systems
+  - Neural Data Infrastructure
+featured: false
+importance: 80
+relatedProjects:
+  - neuros-v1
+modeVisibility:
+  - recruiter
+  - researcher
+  - builder
+  - full-brain
+---
+
+## The Runtime Heart of neurOS
+
+`neuros-core` is where a live BCI pipeline actually runs. It owns the agents, the processing chain,
+and the run-time configuration that connect a driver's stream to a model's prediction.
+
+<SystemDiagram variant="pkg-core" />
+
+## What It Comprises
+
+- **Agents** — an async set of specialized workers: device, processing, model, and **fusion**
+  agents, plus modality-specific agents (motion, pose, video, facial, blink, calcium) and a
+  `multimodal_orchestrator` and `modality_manager`.
+- **Pipeline** — the `pipeline`, `alignment`, `augmentation`, `evaluation`, and `benchmarks`
+  modules that assemble and score a run.
+- **Processing** — `filters`, `feature_extraction`, `adaptation`, and a `health_monitor` loaded
+  dynamically at run time.
+- **CV plugins** — a DINOv3 backbone, feature matching, and a linear segmentation head for
+  imaging-heavy pipelines.
+- **Support** — `autoconfig` for automatic pipeline configuration and a `security` layer.
+
+## How It Differs
+
+Where `neuros-drivers` handles *getting data in* and `neuros-models` handles *the architectures*,
+`neuros-core` is the **conductor**: it coordinates agents into a real-time loop and lets them adapt
+when signals degrade. It depends on the other packages rather than duplicating them.
+
+Part of the [neurOS-v1 platform](/case-studies/neuros-v1-platform).

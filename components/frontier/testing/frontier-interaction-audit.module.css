@@ -1,0 +1,110 @@
+.shell {
+  min-height: 100vh;
+  padding: 72px clamp(24px, 5vw, 72px) 120px;
+  background: #071014;
+  color: rgba(237, 245, 242, 0.92);
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  gap: 24px;
+  max-width: 1180px;
+  margin: 0 auto 42px;
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: rgba(210, 231, 223, 0.48);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: 26px 24px;
+  align-items: start;
+  max-width: 1180px;
+  margin: 0 auto;
+}
+
+.card {
+  grid-column: span 5;
+  min-height: 360px;
+  padding: 0 0 18px;
+}
+
+.story {
+  display: grid;
+  gap: 14px;
+}
+
+.video {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  background: #0b151a;
+  opacity: 0.86;
+}
+
+.eyebrow {
+  margin: 8px 0 0;
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgba(165, 213, 193, 0.52);
+}
+
+.title {
+  color: inherit;
+  font-size: clamp(28px, 3vw, 42px);
+  font-weight: 360;
+  line-height: 0.98;
+  text-decoration: none;
+  text-wrap: balance;
+}
+
+.summary {
+  max-width: 58ch;
+  margin: 0;
+  color: rgba(223, 237, 232, 0.58);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.neighbor,
+.neighborSecondary {
+  min-height: 250px;
+  padding-top: 10px;
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(210, 231, 223, 0.24);
+}
+
+.neighbor {
+  grid-column: span 4;
+}
+
+.neighborSecondary {
+  grid-column: span 3;
+}
+
+@media (max-width: 720px) {
+  .shell {
+    padding: 38px 18px 80px;
+  }
+
+  .header {
+    margin-bottom: 30px;
+  }
+
+  .grid {
+    grid-template-columns: 1fr;
+  }
+
+  .card,
+  .neighbor,
+  .neighborSecondary {
+    grid-column: 1;
+  }
+}

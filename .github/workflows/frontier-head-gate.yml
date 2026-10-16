@@ -1,0 +1,89 @@
+name: FRONTIER Branch Head Gate
+
+on:
+  push:
+    branches:
+      - 'feat/frontier-*'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: frontier-head-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  head-gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout literal branch head
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ github.sha }}
+
+      - name: Prove checkout provenance
+        shell: bash
+        run: |
+          set -euo pipefail
+          actual="$(git rev-parse HEAD)"
+          test "$actual" = "$GITHUB_SHA"
+          mkdir -p artifacts/qualification
+          cat > artifacts/qualification/head.json <<EOF
+          {
+            "event": "${GITHUB_EVENT_NAME}",
+            "ref": "${GITHUB_REF}",
+            "expected_sha": "${GITHUB_SHA}",
+            "checked_out_sha": "$actual",
+            "repository": "${GITHUB_REPOSITORY}",
+            "run_id": "${GITHUB_RUN_ID}"
+          }
+          EOF
+
+      - name: Set up Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install exact locked dependencies
+        run: npm ci
+
+      - name: Audit production dependencies
+        run: npm audit --omit=dev --audit-level=high
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint without warnings
+        run: npm run lint -- --max-warnings=0
+
+      - name: Unit tests
+        run: npm test
+
+      - name: Audit FRONTIER adaptive slate counterfactual
+        run: npm run frontier:slate-audit -- content/frontier/latest.json
+
+      - name: Generate literal-head route and module bundle analysis
+        run: |
+          npx next experimental-analyze --output
+          mkdir -p artifacts/bundle-analyzer
+          cp -R .next/diagnostics/analyze/. artifacts/bundle-analyzer/
+
+      - name: Build literal head
+        env:
+          NEXT_PUBLIC_SITE_URL: https://example.invalid
+          NEXT_PUBLIC_WORLD_LOOM_XR: disabled
+        run: npm run build
+
+      - name: Enforce emitted JavaScript bundle budget
+        run: npm run check:bundle
+
+      - name: Upload branch-head qualification manifest
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontier-head-qualification-${{ github.sha }}
+          path: artifacts/qualification/head.json
+          if-no-files-found: error

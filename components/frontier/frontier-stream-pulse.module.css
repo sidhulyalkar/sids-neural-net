@@ -1,0 +1,74 @@
+.pulse {
+  position: fixed;
+  left: 50%;
+  bottom: max(58px, calc(env(safe-area-inset-bottom) + 58px));
+  z-index: 118;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 25px;
+  padding: 4px 8px 4px 7px;
+  border: 1px solid rgba(165, 213, 193, 0.1);
+  border-radius: 999px;
+  background: rgba(6, 9, 8, 0.58);
+  color: rgba(197, 217, 207, 0.72);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.15);
+  backdrop-filter: blur(18px) saturate(108%);
+  -webkit-backdrop-filter: blur(18px) saturate(108%);
+  cursor: pointer;
+  font-family: var(--font-geist-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 7px;
+  letter-spacing: 0.075em;
+  text-transform: uppercase;
+  transform: translate3d(-50%, 0, 0);
+  opacity: 0.88;
+  transition: opacity 140ms ease, transform 180ms ease, border-color 140ms ease;
+}
+
+.pulse:hover,
+.pulse:focus-visible {
+  opacity: 1;
+  border-color: rgba(165, 213, 193, 0.24);
+  transform: translate3d(-50%, -2px, 0);
+  outline: none;
+}
+
+.dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #a5d5c1;
+  box-shadow: 0 0 0 0 rgba(165, 213, 193, 0.22);
+  animation: streamPulse 2.8s ease-out infinite;
+}
+
+.pulse[data-polling='true'] .dot { animation-duration: 1.5s; }
+
+.pulse kbd {
+  margin-left: 2px;
+  padding: 2px 4px;
+  border: 1px solid rgba(226, 237, 231, 0.08);
+  border-radius: 4px;
+  color: rgba(174, 191, 182, 0.42);
+  font: inherit;
+  font-size: 6px;
+}
+
+@keyframes streamPulse {
+  0% { box-shadow: 0 0 0 0 rgba(165, 213, 193, 0.2); }
+  45%, 100% { box-shadow: 0 0 0 8px rgba(165, 213, 193, 0); }
+}
+
+@media (max-width: 720px) {
+  .pulse {
+    bottom: max(105px, calc(env(safe-area-inset-bottom) + 97px));
+    min-height: 24px;
+    font-size: 6.5px;
+  }
+  .pulse kbd { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pulse,
+  .dot { transition: none; animation: none; }
+}

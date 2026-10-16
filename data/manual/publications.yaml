@@ -1,0 +1,455 @@
+# Manually curated publications for Sidharth Hulyalkar
+# These are the canonical source of truth for publication data.
+
+publications:
+  - id: pub:beta-high-gamma-corticostriatal-2025
+    title: "Beta and High Gamma Oscillations in the Cortico-striatal Network Reflect Reward Certainty on a Probabilistic Reversal Learning Task"
+    year: 2025
+    summary: "Co-authored Journal of Neuroscience paper examining how beta and high-gamma activity in cortico-striatal circuits reflects reward certainty during probabilistic reversal learning."
+    abstract: "A peer-reviewed NEATLABs study focused on cortico-striatal oscillations, reward certainty, local field potentials, optogenetic modulation, and reinforcement-learning behavioral models."
+    myContribution: "Co-author contribution/context: performed research and contributed to the NEATLABs computational and electrophysiology analysis program supporting the paper."
+    whyItMatters: "This paper anchors the newest publication chamber around reward learning, cortico-striatal dynamics, and model-based analysis of behavior."
+    methods:
+      - "Rodent local field potential recordings"
+      - "Probabilistic reversal learning"
+      - "Reinforcement-learning model analysis"
+      - "Optogenetic beta-frequency modulation"
+    keyFindings:
+      - "Reward-evoked beta and high-gamma oscillations reflected positive reward valence and reward probability."
+      - "Beta-frequency connectivity across cortico-striatal regions correlated with behavioral performance."
+      - "Orbitofrontal beta stimulation promoted maladaptive behavior during non-target responses."
+    relatedProjects:
+      - neatlabs-core-research
+      - neatlabs-dtw-tca-unpublished
+    externalLinks:
+      - label: DOI
+        href: "https://doi.org/10.1523/JNEUROSCI.0858-25.2025"
+      - label: NEATLabs listing
+        href: "https://neatlabs.ucsd.edu/"
+      - label: Nature Index
+        href: "https://www.nature.com/nature-index/article/10.1523/jneurosci.0858-25.2025"
+    authors:
+      - Miranda F. Koloski
+      - Morteza Salimi
+      - Sidharth Hulyalkar
+      - Tianzhi Tang
+      - Sam A. Barnes
+      - Jyoti Mishra
+      - Dhakshin S. Ramanathan
+    venue: Journal of Neuroscience
+    doi: "10.1523/JNEUROSCI.0858-25.2025"
+    tags:
+      - neuroscience
+      - electrophysiology
+      - reward-certainty
+      - cortico-striatal
+      - beta-oscillations
+      - high-gamma
+      - reinforcement-learning
+      - NEATLABs
+    importance: 96
+    domains:
+      - Publications
+      - NEATLABs Research
+      - Neural Data Analysis
+    modeVisibility:
+      - recruiter
+      - researcher
+      - full-brain
+
+  - id: pub:cortico-striatal-beta-oscillations-2024
+    title: "Cortico-striatal beta oscillations as a reward-related signal"
+    year: 2024
+    summary: "Co-authored Cognitive, Affective, & Behavioral Neuroscience paper identifying cortico-striatal beta oscillations as a reward-related electrophysiological signal."
+    abstract: "A peer-reviewed open-access paper examining reward-locked beta activity during temporal discounting, with network-level LFP analysis and computational modeling of subjective value."
+    myContribution: "Co-author contribution/context: performed research and contributed to electrophysiology and behavior analysis in the NEATLABs reward-processing program."
+    whyItMatters: "This paper connects reward value, temporal discounting, and cortico-striatal electrophysiology, strengthening the atlas thread around translational neural biomarkers."
+    methods:
+      - "Rodent local field potential recordings"
+      - "Temporal discounting task"
+      - "Time-frequency analysis"
+      - "Computational modeling of subjective value"
+    keyFindings:
+      - "Reward-locked beta power signaled reward magnitude and decayed with longer delays."
+      - "Orbitofrontal, medial prefrontal, anterior insula, ventral striatum, and amygdala electrodes showed beta-frequency reward signals."
+      - "Beta power correlated with subjective value estimates from a computational model."
+    relatedProjects:
+      - neatlabs-core-research
+      - neatlabs-dtw-tca-unpublished
+    externalLinks:
+      - label: DOI
+        href: "https://doi.org/10.3758/s13415-024-01208-6"
+      - label: Springer article
+        href: "https://link.springer.com/article/10.3758/s13415-024-01208-6"
+      - label: Publisher PDF
+        href: "https://link.springer.com/content/pdf/10.3758/s13415-024-01208-6.pdf"
+    authors:
+      - M. F. Koloski
+      - S. Hulyalkar
+      - S. A. Barnes
+      - J. Mishra
+      - D. S. Ramanathan
+    venue: Cognitive, Affective, & Behavioral Neuroscience
+    doi: "10.3758/s13415-024-01208-6"
+    localPdfPath: "/papers/cortico-striatal-beta-oscillations-2024.pdf"
+    tags:
+      - neuroscience
+      - electrophysiology
+      - reward-value
+      - cortico-striatal
+      - beta-oscillations
+      - temporal-discounting
+      - NEATLABs
+    importance: 94
+    domains:
+      - Publications
+      - NEATLABs Research
+      - Neural Data Analysis
+    modeVisibility:
+      - recruiter
+      - researcher
+      - full-brain
+
+  - id: pub:cortico-striatal-beta-oscillations-learned-reward-value-2022
+    title: "Cortico-Striatal Beta-Oscillations as a Marker of Learned Reward Value"
+    year: 2022
+    summary: "Co-authored bioRxiv preprint connecting cortico-striatal beta and high-gamma oscillations to learned reward value across reward-valence, temporal-discounting, and probabilistic reversal-learning behavior."
+    abstract: "A NEATLABs preprint using large-scale local field potential recordings, single-unit analysis, and multiple rodent reward-learning tasks to test whether beta oscillations provide a distributed electrophysiological marker of learned reward value."
+    myContribution: "Co-author contribution/context: contributed to the NEATLABs reward-processing research program spanning electrophysiology, behavioral systems, and neural data analysis."
+    whyItMatters: "This preprint is a bridge record between the later cortico-striatal reward-value publications, making the archive's reward-learning thread more complete."
+    methods:
+      - "Large-scale rodent local field potential recordings"
+      - "Go/wait behavioral inhibition task"
+      - "Temporal discounting task"
+      - "Probabilistic reversal learning task"
+      - "Spike-field coherence analysis"
+    keyFindings:
+      - "Beta and high-gamma activity were associated with reward valence across cortico-striatal-limbic circuitry."
+      - "Beta oscillations scaled with reward magnitude, temporal delay, and reward probability across multiple behavioral tasks."
+      - "The preprint framed reward-evoked beta activity as a candidate physiological marker of learned reward value."
+    relatedProjects:
+      - neatlabs-core-research
+      - neatlabs-dtw-tca-unpublished
+    externalLinks:
+      - label: DOI
+        href: "https://doi.org/10.1101/2022.10.24.513264"
+      - label: bioRxiv PDF
+        href: "https://www.biorxiv.org/content/10.1101/2022.10.24.513264v2.full.pdf"
+    authors:
+      - M. Koloski Francoeur
+      - S. Hulyalkar
+      - T. Tang
+      - X. Wu
+      - L. Fakhraei
+      - J. Mishra
+      - D. S. Ramanathan
+    venue: bioRxiv
+    doi: "10.1101/2022.10.24.513264"
+    tags:
+      - neuroscience
+      - electrophysiology
+      - reward-value
+      - cortico-striatal
+      - beta-oscillations
+      - high-gamma
+      - temporal-discounting
+      - reversal-learning
+      - preprint
+      - NEATLABs
+    importance: 91
+    domains:
+      - Publications
+      - NEATLABs Research
+      - Neural Data Analysis
+    modeVisibility:
+      - recruiter
+      - researcher
+      - full-brain
+
+  - id: pub:beta-oscillatory-activity-value-representation-2022
+    title: "P7. Beta Oscillatory Activity Reflects Value Representation in Cortico-Striatal Reward Networks"
+    year: 2022
+    summary: "Co-authored Biological Psychiatry abstract-only supplement entry on beta oscillatory activity and value representation in cortico-striatal reward networks."
+    abstract: "Abstract-only conference supplement entry proposing that ventral striatum, orbitofrontal cortex, and prefrontal cortex act together dynamically at discrete oscillatory frequencies to build reward value representations."
+    myContribution: "Co-author contribution/context: contributed to the NEATLABs cortico-striatal reward-network research program spanning electrophysiology, behavioral systems, and value-representation analyses."
+    whyItMatters: "This abstract captures an early public version of the cortico-striatal beta-oscillation reward-value thread that later appears across the preprint and peer-reviewed reward-network papers."
+    methods:
+      - "Cortico-striatal reward-network analysis"
+      - "Beta oscillatory activity"
+      - "Reward value representation"
+      - "Conference supplement abstract"
+    keyFindings:
+      - "Frames beta oscillatory activity as a candidate signal for reward value representation."
+      - "Connects ventral striatum, orbitofrontal cortex, and prefrontal cortex in a dynamic reward-network hypothesis."
+      - "Appears as an abstract-only Biological Psychiatry supplement entry."
+    relatedProjects:
+      - neatlabs-core-research
+      - neatlabs-dtw-tca-unpublished
+    externalLinks:
+      - label: Publisher abstract
+        href: "https://www.biologicalpsychiatryjournal.com/article/S0006-3223(22)00329-8/abstract"
+      - label: Full text access
+        href: "https://www.biologicalpsychiatryjournal.com/article/S0006-3223(22)00329-8/abstract"
+    authors:
+      - Miranda Francoeur Koloski
+      - Sidharth Hulyalkar
+      - Jessica Cramer
+      - Dhakshin Ramanathan
+    venue: "Biological Psychiatry, Volume 91, Issue 9, Supplement"
+    tags:
+      - neuroscience
+      - electrophysiology
+      - reward-value
+      - cortico-striatal
+      - beta-oscillations
+      - biological-psychiatry
+      - abstract-only
+      - conference-supplement
+      - NEATLABs
+    importance: 87
+    domains:
+      - Publications
+      - NEATLABs Research
+      - Neural Data Analysis
+    modeVisibility:
+      - recruiter
+      - researcher
+      - full-brain
+
+  - id: pub:rodent-default-mode-network-2021
+    title: "Electrophysiological Correlates of Rodent Default-Mode Network Suppression Revealed by Large-Scale Local Field Potential Recordings"
+    year: 2021
+    summary: "Co-authored Cerebral Cortex Communications paper on large-scale LFP recordings and electrophysiological correlates of rodent default-mode network suppression."
+    abstract: "A NEATLABs publication connecting large-scale local field potential recordings to default-mode network suppression in rodents and analogous task-related suppression in humans."
+    myContribution: "Related contribution/context: co-author from the NEATLABs program. Existing repo context specifically notes work on large-scale LFP/behavior analysis pipelines and investigation of rodent default-mode network electrophysiology."
+    whyItMatters: "It demonstrates research continuity between neural signal processing infrastructure, rodent behavior, and peer-reviewed systems neuroscience."
+    methods:
+      - "Large-scale local field potential recordings"
+      - "Rodent default-mode network analysis"
+      - "Electrophysiological correlates of suppression"
+      - "Human EEG comparison"
+    keyFindings:
+      - "Reports electrophysiological correlates associated with rodent default-mode network suppression."
+      - "Uses large-scale LFP recordings as the core measurement context."
+      - "Identifies a shared alpha/low-beta suppression pattern in rodents and humans."
+    relatedProjects:
+      - neatlabs-core-research
+      - neatlabs-dtw-tca-unpublished
+    externalLinks:
+      - label: DOI
+        href: "https://doi.org/10.1093/texcom/tgab034"
+      - label: PubMed
+        href: "https://pubmed.ncbi.nlm.nih.gov/34296178"
+      - label: PMC
+        href: "https://pmc.ncbi.nlm.nih.gov/articles/PMC8166125/"
+      - label: Oxford Academic
+        href: "https://academic.oup.com/cercorcomms/article/2/2/tgab034/6265044"
+    authors:
+      - Leila Fakhraei
+      - Miranda Francoeur
+      - Pragathi P. Balasubramani
+      - Tianzhi Tang
+      - Sidharth Hulyalkar
+      - Nathalie Buscher
+      - Jyoti Mishra
+      - Dhakshin S. Ramanathan
+    venue: Cerebral Cortex Communications
+    doi: "10.1093/texcom/tgab034"
+    pmid: "34296178"
+    pmcid: "PMC8166125"
+    tags:
+      - neuroscience
+      - electrophysiology
+      - LFP
+      - default-mode-network
+      - human-rodent
+      - NEATLABs
+      - large-scale
+    importance: 92
+    domains:
+      - Publications
+      - NEATLABs Research
+      - Neural Data Analysis
+    modeVisibility:
+      - recruiter
+      - researcher
+      - full-brain
+
+  - id: pub:chronic-multisite-probe-designs-2021
+    title: "Chronic, Multi-Site Recordings Supported by Two Low-Cost, Stationary Probe Designs Optimized to Capture Either Single Unit or Local Field Potential Activity in Behaving Rats"
+    year: 2021
+    summary: "Co-authored Frontiers in Psychiatry methods paper describing low-cost stationary probe designs for chronic multi-site recordings in behaving rats."
+    abstract: "A methods-focused NEATLABs paper about chronic multi-site recording hardware designed for single-unit or LFP activity in behaving rats."
+    myContribution: "Related contribution/context: co-author from the NEATLABs research program. Repo context supports Sid's broader role across experimental systems, behavioral boxes, signal processing, and publication support."
+    whyItMatters: "This paper shows the hardware/methods side of the neuroscience portfolio: building experimental systems that make long-running neural recordings more practical."
+    methods:
+      - "Chronic multi-site recording design"
+      - "Low-cost stationary probe hardware"
+      - "Behaving-rat electrophysiology methods"
+    keyFindings:
+      - "Presents two low-cost stationary probe designs for chronic recordings."
+      - "Targets either single-unit or local field potential activity in behaving rats."
+      - "Complements the atlas story around practical experimental neuroscience infrastructure."
+    relatedProjects:
+      - neatlabs-core-research
+    externalLinks:
+      - label: DOI
+        href: "https://doi.org/10.3389/fpsyt.2021.678103"
+      - label: PubMed
+        href: "https://pubmed.ncbi.nlm.nih.gov/34421671"
+      - label: PMC
+        href: "https://pmc.ncbi.nlm.nih.gov/articles/PMC8374626/"
+      - label: Publisher PDF
+        href: "https://www.frontiersin.org/journals/psychiatry/articles/10.3389/fpsyt.2021.678103/pdf"
+    authors:
+      - Miranda J. Francoeur
+      - Tianzhi Tang
+      - Leila Fakhraei
+      - Xuanyu Wu
+      - Sidharth Hulyalkar
+      - Jessica Cramer
+      - Nathalie Buscher
+      - Dhakshin R. Ramanathan
+    venue: Frontiers in Psychiatry
+    doi: "10.3389/fpsyt.2021.678103"
+    pmid: "34421671"
+    pmcid: "PMC8374626"
+    localPdfPath: "/papers/chronic-multisite-probe-designs-2021.pdf"
+    tags:
+      - neuroscience
+      - electrophysiology
+      - probe-design
+      - behaving-rats
+      - NEATLABs
+      - methods
+    importance: 90
+    domains:
+      - Publications
+      - NEATLABs Research
+      - Experimental Systems
+    modeVisibility:
+      - recruiter
+      - researcher
+      - full-brain
+
+  - id: pub:mapping-large-scale-networks-2021
+    title: "Mapping Large-Scale Networks Associated with Action, Behavioral Inhibition and Impulsivity"
+    year: 2021
+    summary: "Co-authored eNeuro paper mapping large-scale action and inhibition networks using multisite LFP recordings in rodents and related human EEG analyses."
+    abstract: "A peer-reviewed open-access study identifying delta and theta oscillatory networks associated with action, behavioral inhibition, and impulsivity across rodent LFP and human EEG data."
+    myContribution: "Co-author contribution/context: designed and performed research as part of the NEATLABs team, with repo context supporting large-scale LFP and behavioral analysis infrastructure."
+    whyItMatters: "This paper is a central systems-neuroscience anchor for the atlas: distributed neural recordings, behavior, oscillatory networks, and translational rodent-human comparison."
+    methods:
+      - "Multisite rodent LFP recordings"
+      - "Go/wait behavioral inhibition task"
+      - "Human EEG comparison"
+      - "Functional connectivity analysis"
+    keyFindings:
+      - "Low-frequency activity was linked with action and sensory-based responses."
+      - "Theta activity in prefrontal and premotor regions was linked with inhibition."
+      - "Connectivity between motor cortex and inhibitory regions related to diminished impulsivity."
+    relatedProjects:
+      - neatlabs-core-research
+      - neatlabs-dtw-tca-unpublished
+    externalLinks:
+      - label: DOI
+        href: "https://doi.org/10.1523/ENEURO.0406-20.2021"
+      - label: PubMed
+        href: "https://pubmed.ncbi.nlm.nih.gov/33509949"
+      - label: PMC
+        href: "https://pmc.ncbi.nlm.nih.gov/articles/PMC7920541/"
+      - label: Publisher PDF
+        href: "https://www.eneuro.org/content/eneuro/8/1/ENEURO.0406-20.2021.full.pdf"
+    authors:
+      - L. Fakhraei
+      - M. Francoeur
+      - P. Balasubramani
+      - T. Tang
+      - S. Hulyalkar
+      - N. Buscher
+      - C. Claros
+      - A. Terry
+      - A. Gupta
+      - H. Xiong
+      - Z. Xu
+      - J. Mishra
+      - D. S. Ramanathan
+    venue: eNeuro
+    doi: "10.1523/ENEURO.0406-20.2021"
+    pmid: "33509949"
+    pmcid: "PMC7920541"
+    localPdfPath: "/papers/mapping-large-scale-networks-2021.pdf"
+    tags:
+      - neuroscience
+      - electrophysiology
+      - behavioral-inhibition
+      - impulsivity
+      - LFP
+      - EEG
+      - NEATLABs
+    importance: 93
+    domains:
+      - Publications
+      - NEATLABs Research
+      - Neural Data Analysis
+    modeVisibility:
+      - recruiter
+      - researcher
+      - full-brain
+
+  - id: pub:open-source-raspberry-pi-operant-box-2020
+    title: "Open-source raspberry Pi-based operant box for translational behavioral testing in rodents"
+    year: 2020
+    summary: "Co-authored Journal of Neuroscience Methods paper describing an open-source Raspberry Pi-based operant box for translational behavioral testing in rodents."
+    abstract: "A methods paper focused on low-cost behavioral testing hardware and software for rodent neuroscience experiments, designed to support scalable and electrophysiology-compatible behavioral paradigms."
+    myContribution: "Co-author contribution/context: contributed to the NEATLABs experimental systems program connecting custom behavior hardware, synchronization, and neural data collection."
+    whyItMatters: "This paper captures the engineering spine behind the research: practical, open-source apparatus design for reproducible rodent behavior experiments."
+    methods:
+      - "Open-source Raspberry Pi behavioral control"
+      - "Rodent operant chamber design"
+      - "Behavior and electrophysiology synchronization"
+    keyFindings:
+      - "Presents a lower-cost operant box architecture for translational rodent testing."
+      - "Supports visual/auditory paradigms and integration with neural recordings."
+      - "Makes experimental systems work visible as a research contribution."
+    relatedProjects:
+      - neatlabs-core-research
+      - workflow-monitoring-system
+    externalLinks:
+      - label: DOI
+        href: "https://doi.org/10.1016/j.jneumeth.2020.108761"
+      - label: PubMed
+        href: "https://pubmed.ncbi.nlm.nih.gov/32479970"
+      - label: ScienceDirect
+        href: "https://www.sciencedirect.com/science/article/abs/pii/S0165027020301849"
+    authors:
+      - N. Buscher
+      - A. Ojeda
+      - M. Francoeur
+      - S. Hulyalkar
+      - C. Claros
+      - T. Tang
+      - A. Terry
+      - A. Gupta
+      - L. Fakhraei
+      - D. S. Ramanathan
+    venue: Journal of Neuroscience Methods
+    doi: "10.1016/j.jneumeth.2020.108761"
+    pmid: "32479970"
+    tags:
+      - neuroscience
+      - experimental-systems
+      - operant-box
+      - raspberry-pi
+      - behavioral-testing
+      - open-source
+      - NEATLABs
+    importance: 88
+    domains:
+      - Publications
+      - NEATLABs Research
+      - Experimental Systems
+    modeVisibility:
+      - recruiter
+      - researcher
+      - full-brain

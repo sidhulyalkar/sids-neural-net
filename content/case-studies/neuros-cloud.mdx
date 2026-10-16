@@ -1,0 +1,52 @@
+---
+title: "neurOS-v1 Package: neuros-cloud — Streaming, Storage & Federated Training"
+slug: neuros-cloud
+summary: "The distributed backbone of neurOS-v1: message-bus streaming (Kafka, Redis, ZeroMQ), lakehouse storage and export (Iceberg, Petastorm, WebDataset), federated learning, and LSL sync for real deployments."
+role: "Author and architect"
+sourceUrl: "https://github.com/sidhulyalkar/neurOS-v1"
+scope: "neurOS-v1 monorepo package"
+date: "2025-11-05"
+tags:
+  - neuros-v1
+  - streaming
+  - kafka
+  - iceberg
+  - federated-learning
+  - cloud
+domains:
+  - Neural Data Infrastructure
+  - BCI & Real-Time Systems
+featured: false
+importance: 76
+relatedProjects:
+  - neuros-v1
+modeVisibility:
+  - recruiter
+  - researcher
+  - builder
+  - full-brain
+---
+
+## Beyond the Laptop
+
+`neuros-cloud` is what lets neurOS run as real infrastructure — streaming data across a message
+bus, landing it in a lakehouse, and training across machines or institutions.
+
+<SystemDiagram variant="pkg-cloud" />
+
+## What It Comprises
+
+- **Streaming / ingest** — Kafka, Redis Streams, and ZeroMQ publishers, a no-op writer for dry
+  runs, and LSL (lab-streaming-layer) sync.
+- **Storage & export** — an Iceberg streaming ETL job, Petastorm and WebDataset exporters, and a
+  metadata/provenance database.
+- **Federated** — a federated-learning `client` and `aggregator` for privacy-preserving training.
+- **Annotation** — Label Studio integration and a cloud pipeline runner.
+
+## How It Differs
+
+The other packages assume data is already local; `neuros-cloud` handles **movement, persistence,
+and distribution** — the parts that make the difference between a demo and a deployment. It is the
+plumbing beneath the Constellation multi-modal demo.
+
+Part of the [neurOS-v1 platform](/case-studies/neuros-v1-platform).

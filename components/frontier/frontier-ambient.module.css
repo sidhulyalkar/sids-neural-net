@@ -1,0 +1,14 @@
+.canvas {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  width: 100vw;
+  height: 100dvh;
+  pointer-events: none;
+  opacity: 0.9;
+  contain: strict;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .canvas { opacity: 0.72; }
+}

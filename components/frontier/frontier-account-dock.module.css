@@ -1,0 +1,20 @@
+.dock {
+  position: fixed;
+  top: 18px;
+  right: 18px;
+  z-index: 80;
+  pointer-events: auto;
+}
+
+@media (max-width: 900px) {
+  .dock {
+    /* On small screens the account control belongs to the masthead, not the
+       persistent floating-control layer. Let it scroll away so it cannot fight
+       the site's camera/gesture affordances or obscure reading cards. */
+    position: absolute;
+    top: 14px;
+    right: 10px;
+    bottom: auto;
+    max-width: min(58vw, 230px);
+  }
+}

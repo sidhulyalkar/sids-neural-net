@@ -1,0 +1,23 @@
+.virtualItem {
+  min-width: 0;
+  /* Card geometry is authoritative before interaction. Browser-managed
+     `content-visibility:auto` is intentionally avoided here: Chromium was
+     changing total scroll extent as locked masonry cards crossed its relevance
+     boundary. Expensive media work remains independently culled/warmed by the
+     GPU/native media pipeline, while ordinary offscreen DOM paint is left to
+     the browser's normal viewport culling. */
+  content-visibility: visible;
+  contain-intrinsic-size: none;
+}
+
+.virtualItem[data-frontier-geometry='locked'] {
+  content-visibility: visible;
+  contain-intrinsic-size: none;
+}
+
+@media (max-width: 720px) {
+  .feedVirtualItem:nth-child(-n + 3) {
+    content-visibility: visible;
+    contain-intrinsic-size: none;
+  }
+}

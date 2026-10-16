@@ -1,0 +1,285 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+import {
+  frontierEditorialFamily,
+  frontierRerankWindowSize,
+  frontierSourceBucket,
+  selectAdaptiveDailyAllocation,
+  slateCompositionDiagnostics,
+} from '../lib/frontier/adaptiveSlate';
+import { selectDailyRun } from '../lib/frontier/scoring';
+import type { FrontierItem, FrontierLaneId } from '../lib/frontier/types';
+
+function item(id: string, overrides: Partial<FrontierItem> = {}): FrontierItem {
+  return {
+    id,
+    title: id,
+    summary: `${id} summary`,
+    url: `https://${id}.example/story`,
+    source: `${id}.example`,
+    sourceLabel: id,
+    sourceKind: 'rss',
+    publishedAt: '2026-08-27T12:00:00.000Z',
+    lane: 'wildcards',
+    tags: ['frontier-test'],
+    baseScore: 0.75,
+    importance: 0.58,
+    novelty: 0.58,
+    quality: 0.82,
+    momentum: 0.55,
+    ...overrides,
+  };
+}
+
+test('editorial families stay internal and cover every public lane', () => {
+  const cases: Array<[FrontierLaneId, ReturnType<typeof frontierEditorialFamily>]> = [
+    ['must_know', 'consequential'],
+    ['world_pulse', 'consequential'],
+    ['neuro_frontier', 'research'],
+    ['ml_data', 'research'],
+    ['builder_signal', 'builder'],
+    ['creative_tech', 'builder'],
+    ['team_pulse', 'sports'],
+    ['premier_league', 'sports'],
+    ['gaming', 'culture'],
+    ['screen', 'culture'],
+    ['music', 'culture'],
+    ['life', 'leisure'],
+    ['wildcards', 'leisure'],
+  ];
+  for (const [lane, family] of cases) assert.equal(frontierEditorialFamily(item(lane, { lane })), family);
+});
+
+test('finite runs preserve Brainfood and After Hours without forcing micro-topics', () => {
+  const ranked = [
+    item('neuro-1', { lane: 'neuro_frontier', tags: ['neuroscience'] }),
+    item('ml-1', { lane: 'ml_data', tags: ['machine learning'] }),
+    item('method-1', { lane: 'methods', tags: ['inverse problem'] }),
+    item('builder-1', { lane: 'builder_signal', sourceKind: 'github', tags: ['open source'] }),
+    item('game-1', { lane: 'gaming', tags: ['video game'] }),
+    item('music-1', { lane: 'music', tags: ['bass music'] }),
+  ];
+
+  const selected = selectAdaptiveDailyAllocation(ranked, 4);
+  const lanes = selected.map((entry) => entry.lane);
+  assert.ok(lanes.some((lane) => ['neuro_frontier', 'ml_data', 'methods', 'builder_signal'].includes(lane)));
+  assert.ok(lanes.some((lane) => ['gaming', 'music'].includes(lane)));
+  assert.equal(selected.length, 4);
+});
+
+test('adaptive reranking stays inside a bounded neighborhood of learned rank', () => {
+  assert.equal(frontierRerankWindowSize(14, 100), 21);
+  assert.equal(frontierRerankWindowSize(48, 100), 72);
+  assert.equal(frontierRerankWindowSize(4, 100), 10);
+  assert.equal(frontierRerankWindowSize(14, 9), 9);
+  assert.equal(frontierRerankWindowSize(0, 100), 0);
+});
+
+test('ordinary composition can never resurrect a candidate below the local learned frontier', () => {
+  const ranked = Array.from({ length: 40 }, (_, index) => item(`rank-${index}`, {
+    lane: index < 20 ? (index % 2 ? 'ml_data' : 'methods') : 'sports',
+    tags: index < 20 ? ['method'] : ['fantasy football', 'superflex'],
+  }));
+  const selected = selectAdaptiveDailyAllocation(ranked, 14);
+  const selectedRanks = selected.map((entry) => ranked.findIndex((candidate) => candidate.id === entry.id));
+  assert.ok(selectedRanks.every((rank) => rank >= 0 && rank < 21), `selected ranks escaped frontier: ${selectedRanks.join(',')}`);
+  assert.ok(!selected.some((entry) => entry.id === 'rank-21'));
+});
+
+test('Must Know may interrupt outside the rerank frontier without granting ordinary tail items the same authority', () => {
+  const ranked = Array.from({ length: 30 }, (_, index) => item(`rank-${index}`, {
+    lane: index === 27 ? 'must_know' : index % 2 ? 'ml_data' : 'gaming',
+    importance: index === 27 ? 0.95 : 0.58,
+  }));
+  const selected = selectAdaptiveDailyAllocation(ranked, 14);
+  assert.ok(selected.some((entry) => entry.id === 'rank-27'), 'Must Know interrupt was lost');
+  const ordinaryTail = selected.filter((entry) => {
+    const rank = ranked.findIndex((candidate) => candidate.id === entry.id);
+    return rank >= 21 && entry.id !== 'rank-27';
+  });
+  assert.deepEqual(ordinaryTail, []);
+});
+
+test('live sports state may interrupt outside the rerank frontier as bounded utility', () => {
+  const ranked = Array.from({ length: 30 }, (_, index) => item(`rank-${index}`, {
+    lane: index === 26 ? 'sports' : index % 2 ? 'ml_data' : 'gaming',
+    sourceKind: index === 26 ? 'sports_state' : 'rss',
+  }));
+  const selected = selectAdaptiveDailyAllocation(ranked, 14);
+  assert.ok(selected.some((entry) => entry.id === 'rank-26'), 'live utility interrupt was lost');
+});
+
+test('a constrained local frontier may return fewer good cards instead of fishing through buried tail inventory', () => {
+  const concentrated = Array.from({ length: 21 }, (_, index) => item(`same-${index}`, {
+    lane: 'ml_data',
+    url: `https://one-publisher.example/${index}`,
+    source: 'one-publisher.example',
+  }));
+  const buriedTail = Array.from({ length: 20 }, (_, index) => item(`tail-${index}`, {
+    lane: index % 2 ? 'gaming' : 'sports',
+  }));
+  const ranked = [...concentrated, ...buriedTail];
+  const selected = selectAdaptiveDailyAllocation(ranked, 14);
+  assert.ok(selected.length < 14, `expected quality-preserving short slate, got ${selected.length}`);
+  assert.ok(selected.every((entry) => !entry.id.startsWith('tail-')), 'allocator filled from buried tail inventory');
+});
+
+test('a static micro-interest cannot demand a seat after learned rank moves it far down', () => {
+  const ranked = [
+    item('team-analysis', { lane: 'team_pulse', tags: ['team analysis'] }),
+    item('sports-data', { lane: 'sports', tags: ['sports data', 'player tracking'] }),
+    item('soccer-tactics', { lane: 'premier_league', tags: ['football tactics'] }),
+    item('neuro', { lane: 'neuro_frontier', tags: ['neuroscience'] }),
+    item('builder', { lane: 'builder_signal', sourceKind: 'github', tags: ['open source'] }),
+    item('game', { lane: 'gaming', tags: ['video game'] }),
+    item('science', { lane: 'broad_science', tags: ['science'] }),
+    item('method', { lane: 'methods', tags: ['method'] }),
+    item('screen', { lane: 'screen', tags: ['screen orbit'] }),
+    item('music', { lane: 'music', tags: ['bass music'] }),
+    item('fantasy-low-rank', {
+      lane: 'sports',
+      tags: ['fantasy football', 'superflex', 'target share'],
+      quality: 0.78,
+      importance: 0.5,
+    }),
+  ];
+
+  const selected = selectAdaptiveDailyAllocation(ranked, 6);
+  assert.ok(selected.some((entry) => frontierEditorialFamily(entry) === 'sports'));
+  assert.ok(!selected.some((entry) => entry.id === 'fantasy-low-rank'), 'micro-topic reservation overrode learned rank');
+});
+
+test('same-publisher volume cannot manufacture additional family demand', () => {
+  const first = item('paper-0', {
+    lane: 'neuro_frontier',
+    url: 'https://papers.example/0',
+    source: 'papers.example',
+  });
+  const singleDemand = slateCompositionDiagnostics([first], [first])
+    .find((entry) => entry.family === 'research')?.demand;
+  const flooded = [
+    first,
+    ...Array.from({ length: 20 }, (_, index) => item(`paper-${index + 1}`, {
+      lane: 'ai_frontier',
+      url: `https://papers.example/${index + 1}`,
+      source: 'papers.example',
+    })),
+  ];
+  const floodedDemand = slateCompositionDiagnostics(flooded, [first])
+    .find((entry) => entry.family === 'research')?.demand;
+
+  assert.equal(floodedDemand, singleDemand);
+});
+
+test('platform ecosystems use meaningful sub-sources instead of one global hostname bucket', () => {
+  const repoA = item('repo-a', {
+    lane: 'builder_signal',
+    sourceKind: 'github',
+    url: 'https://github.com/alpha-lab/repo-a',
+    source: 'github.com',
+    sourceLabel: 'alpha-lab/repo-a',
+  });
+  const repoB = item('repo-b', {
+    lane: 'builder_signal',
+    sourceKind: 'github',
+    url: 'https://github.com/beta-lab/repo-b',
+    source: 'github.com',
+    sourceLabel: 'beta-lab/repo-b',
+  });
+  const repoSameOwner = item('repo-c', {
+    lane: 'builder_signal',
+    sourceKind: 'github',
+    url: 'https://github.com/alpha-lab/repo-c',
+    source: 'github.com',
+    sourceLabel: 'alpha-lab/repo-c',
+  });
+
+  assert.equal(frontierSourceBucket(repoA), 'github.com/alpha-lab');
+  assert.equal(frontierSourceBucket(repoSameOwner), 'github.com/alpha-lab');
+  assert.equal(frontierSourceBucket(repoB), 'github.com/beta-lab');
+
+  const selected = selectAdaptiveDailyAllocation([
+    repoA,
+    repoB,
+    repoSameOwner,
+    item('research', { lane: 'neuro_frontier' }),
+    item('game', { lane: 'gaming' }),
+    item('sports', { lane: 'sports' }),
+  ], 6);
+  assert.ok(selected.some((entry) => entry.id === 'repo-a'));
+  assert.ok(selected.some((entry) => entry.id === 'repo-b'));
+});
+
+test('adaptive composition caps publisher and family concentration', () => {
+  const researchFlood = Array.from({ length: 18 }, (_, index) => item(`paper-${index}`, {
+    lane: index % 2 ? 'ai_frontier' : 'ml_data',
+    url: `https://papers.example/${index}`,
+    source: 'papers.example',
+    quality: 0.9,
+  }));
+  const diverse = [
+    item('builder', { lane: 'builder_signal', sourceKind: 'github' }),
+    item('team', { lane: 'team_pulse' }),
+    item('game', { lane: 'gaming' }),
+    item('music', { lane: 'music' }),
+    item('outside', { lane: 'life', tags: ['nature photography'] }),
+    item('world', { lane: 'world_pulse' }),
+  ];
+
+  const selected = selectAdaptiveDailyAllocation([...researchFlood, ...diverse], 14);
+  const paperHostCount = selected.filter((entry) => new URL(entry.url).hostname === 'papers.example').length;
+  const researchCount = selected.filter((entry) => frontierEditorialFamily(entry) === 'research').length;
+
+  assert.ok(paperHostCount <= 2, `same publisher occupied ${paperHostCount} slots`);
+  assert.ok(researchCount <= 6, `research family occupied ${researchCount} slots`);
+  assert.ok(selected.some((entry) => frontierEditorialFamily(entry) === 'culture'));
+  assert.ok(selected.some((entry) => frontierEditorialFamily(entry) === 'sports'));
+});
+
+test('composition diagnostics expose bounded targets and realized shares', () => {
+  const ranked = [
+    item('research', { lane: 'neuro_frontier' }),
+    item('builder', { lane: 'builder_signal', sourceKind: 'github' }),
+    item('sports', { lane: 'sports' }),
+    item('culture', { lane: 'gaming' }),
+    item('leisure', { lane: 'life', tags: ['nature photography'] }),
+  ];
+  const selected = selectAdaptiveDailyAllocation(ranked, 5);
+  const diagnostics = slateCompositionDiagnostics(ranked, selected, 5);
+
+  assert.equal(diagnostics.length, 6);
+  assert.ok(diagnostics.every((entry) => entry.targetShare <= 0.38 + Number.EPSILON));
+  const realized = diagnostics.reduce((sum, entry) => sum + entry.realizedShare, 0);
+  assert.ok(Math.abs(realized - 1) < 1e-9);
+  assert.equal(diagnostics.reduce((sum, entry) => sum + entry.selected, 0), selected.length);
+});
+
+test('expanded adaptive browse preserves the canonical 14-card opening exactly', () => {
+  const lanes: FrontierLaneId[] = [
+    'neuro_frontier',
+    'ml_data',
+    'methods',
+    'builder_signal',
+    'team_pulse',
+    'sports',
+    'gaming',
+    'screen',
+    'music',
+    'life',
+    'wildcards',
+  ];
+  const ranked = Array.from({ length: 72 }, (_, index) => item(`deep-${index}`, {
+    lane: lanes[index % lanes.length],
+    source: `source-${index}.example`,
+    url: `https://source-${index}.example/story`,
+    tags: index % lanes.length === 8 ? ['bass music'] : ['frontier-test'],
+  }));
+
+  const canonical = selectDailyRun(ranked, {}, 14);
+  const expanded = selectDailyRun(ranked, {}, 48);
+  assert.deepEqual(
+    expanded.slice(0, canonical.length).map((entry) => entry.id),
+    canonical.map((entry) => entry.id),
+  );
+  assert.equal(new Set(expanded.map((entry) => entry.id)).size, expanded.length);
+});

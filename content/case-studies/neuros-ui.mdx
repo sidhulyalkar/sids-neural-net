@@ -1,0 +1,49 @@
+---
+title: "neurOS-v1 Package: neuros-ui — Serving, Dashboard & CLI"
+slug: neuros-ui
+summary: "The human surface of neurOS-v1: a FastAPI serving API, a Streamlit dashboard, and a CLI to run pipelines, benchmarks, and the Constellation demo without writing code."
+role: "Author and architect"
+sourceUrl: "https://github.com/sidhulyalkar/neurOS-v1"
+scope: "neurOS-v1 monorepo package"
+date: "2025-11-05"
+tags:
+  - neuros-v1
+  - fastapi
+  - streamlit
+  - cli
+  - serving
+domains:
+  - BCI & Real-Time Systems
+  - Neural Data Infrastructure
+featured: false
+importance: 72
+relatedProjects:
+  - neuros-v1
+modeVisibility:
+  - recruiter
+  - researcher
+  - builder
+  - full-brain
+---
+
+## Where People Meet the Platform
+
+`neuros-ui` is how a human drives neurOS — serving models over an API, watching pipelines in a
+dashboard, and launching runs from the command line.
+
+<SystemDiagram variant="pkg-ui" />
+
+## What It Comprises
+
+- **Serving** — a FastAPI `server` and a `serve/api` model-serving surface for inference and
+  control endpoints.
+- **Dashboard** — a Streamlit `dashboard` for live monitoring and visualization.
+- **CLI** — the `neuros` command with `run`, `benchmark`, `constellation`, and `dashboard`
+  subcommands, so pipelines and demos launch without code.
+
+## How It Differs
+
+Every other package does the work; `neuros-ui` makes it **operable and observable** by people. It
+is the thin, deliberate presentation layer on top of the runtime, models, and cloud packages.
+
+Part of the [neurOS-v1 platform](/case-studies/neuros-v1-platform).

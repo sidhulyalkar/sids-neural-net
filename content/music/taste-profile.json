@@ -1,0 +1,23 @@
+{
+  "generatedAt": "2026-08-20T00:00:00.000Z",
+  "source": "curated-fallback",
+  "topArtists": [
+    { "name": "ILLENIUM", "genres": ["melodic bass", "dubstep"], "popularity": 90, "spotifyUrl": "https://open.spotify.com/artist/45eNHdiiabvmbp4erw26rg", "imageUrl": "", "rank": 1 },
+    { "name": "Virtual Riot", "genres": ["dubstep", "bass music"], "popularity": 74, "spotifyUrl": "https://open.spotify.com/search/Virtual%20Riot", "imageUrl": "", "rank": 2 },
+    { "name": "Seven Lions", "genres": ["melodic bass", "dubstep"], "popularity": 79, "spotifyUrl": "https://open.spotify.com/search/Seven%20Lions", "imageUrl": "", "rank": 3 },
+    { "name": "Skrillex", "genres": ["dubstep", "electronic"], "popularity": 92, "spotifyUrl": "https://open.spotify.com/search/Skrillex", "imageUrl": "", "rank": 4 },
+    { "name": "Subtronics", "genres": ["dubstep", "bass music"], "popularity": 78, "spotifyUrl": "https://open.spotify.com/search/Subtronics", "imageUrl": "", "rank": 5 },
+    { "name": "Zeds Dead", "genres": ["dubstep", "bass music"], "popularity": 80, "spotifyUrl": "https://open.spotify.com/search/Zeds%20Dead", "imageUrl": "", "rank": 6 },
+    { "name": "Knock2", "genres": ["bass house", "electronic"], "popularity": 82, "spotifyUrl": "https://open.spotify.com/search/Knock2", "imageUrl": "", "rank": 7 },
+    { "name": "RL Grime", "genres": ["trap", "bass music"], "popularity": 79, "spotifyUrl": "https://open.spotify.com/search/RL%20Grime", "imageUrl": "", "rank": 8 },
+    { "name": "GRiZ", "genres": ["dubstep", "funk", "bass music"], "popularity": 76, "spotifyUrl": "https://open.spotify.com/search/GRiZ", "imageUrl": "", "rank": 9 },
+    { "name": "Porter Robinson", "genres": ["electronic", "indietronica"], "popularity": 82, "spotifyUrl": "https://open.spotify.com/search/Porter%20Robinson", "imageUrl": "", "rank": 10 },
+    { "name": "Madeon", "genres": ["electronic"], "popularity": 77, "spotifyUrl": "https://open.spotify.com/search/Madeon", "imageUrl": "", "rank": 11 },
+    { "name": "Flume", "genres": ["future bass", "electronic"], "popularity": 87, "spotifyUrl": "https://open.spotify.com/search/Flume", "imageUrl": "", "rank": 12 },
+    { "name": "ODESZA", "genres": ["electronic"], "popularity": 84, "spotifyUrl": "https://open.spotify.com/search/ODESZA", "imageUrl": "", "rank": 13 },
+    { "name": "San Holo", "genres": ["future bass", "electronic"], "popularity": 78, "spotifyUrl": "https://open.spotify.com/search/San%20Holo", "imageUrl": "", "rank": 14 }
+  ],
+  "followedArtists": [],
+  "playlists": [],
+  "topTracks": []
+}

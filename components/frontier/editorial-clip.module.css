@@ -1,0 +1,212 @@
+.clip {
+  --clip-font: var(--font-geist-sans), system-ui, sans-serif;
+  --clip-highlight-font: var(--clip-font);
+  --clip-weight: 560;
+  --clip-transform: none;
+  --clip-letter-spacing: -0.03em;
+  position: relative;
+  min-width: 0;
+}
+
+.masthead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 13px;
+  font-family: var(--font-geist-mono), monospace;
+  font-size: 7px;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.section { color: #9fc9b7; }
+
+.source {
+  min-width: 0;
+  overflow: hidden;
+  color: #5f6a65;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.storyLink {
+  display: block;
+  color: inherit;
+  text-decoration: none;
+}
+
+.headlineBlock { min-width: 0; }
+
+.clipLabel,
+.byline,
+.readCue {
+  font-family: var(--font-geist-mono), monospace;
+  text-transform: uppercase;
+}
+
+.clipLabel {
+  display: block;
+  margin-bottom: 7px;
+  color: #65716b;
+  font-size: 6px;
+  letter-spacing: 0.15em;
+}
+
+.headline {
+  margin: 0;
+  color: #edf1ee;
+  font-family: var(--clip-font);
+  font-size: clamp(20px, 2vw, 28px);
+  font-weight: var(--clip-weight);
+  line-height: 1.06;
+  letter-spacing: var(--clip-letter-spacing);
+  text-transform: var(--clip-transform);
+  text-wrap: balance;
+}
+
+.byline {
+  display: block;
+  margin-top: 8px;
+  color: #65716b;
+  font-size: 6px;
+  letter-spacing: 0.09em;
+}
+
+.highlightBlock {
+  position: relative;
+  margin-top: 17px;
+}
+
+.highlightRule { display: none; }
+
+.highlight {
+  margin: 0;
+  color: #9ba7a1;
+  font-family: var(--clip-highlight-font);
+  font-size: 12px;
+  font-weight: 430;
+  line-height: 1.48;
+  letter-spacing: -0.012em;
+  text-wrap: pretty;
+}
+
+.clip[data-kind='quote'] .highlight {
+  color: #c9d2cd;
+  font-size: 14px;
+  font-style: italic;
+  line-height: 1.42;
+}
+
+.readCue {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 18px;
+  color: #66736d;
+  font-size: 6px;
+  letter-spacing: 0.1em;
+  transition: color 140ms ease;
+}
+
+.storyLink:hover .readCue { color: #c9d5cf; }
+.storyLink:hover .headline { color: #ffffff; }
+
+/* Research clipping: quiet journal typography and a measured abstract-like cut. */
+.research {
+  --clip-font: Georgia, 'Times New Roman', serif;
+  --clip-highlight-font: Georgia, 'Times New Roman', serif;
+  --clip-weight: 500;
+  --clip-letter-spacing: -0.022em;
+}
+
+.research .headline { line-height: 1.08; }
+.research .highlight { font-size: 12.5px; }
+.research .clipLabel { letter-spacing: 0.19em; }
+
+/* Builder clipping: precise, repo-adjacent, but still readable as an editorial card. */
+.builder {
+  --clip-font: var(--font-geist-mono), ui-monospace, monospace;
+  --clip-highlight-font: var(--font-geist-sans), system-ui, sans-serif;
+  --clip-weight: 500;
+  --clip-letter-spacing: -0.045em;
+}
+
+.builder .headline { font-size: clamp(18px, 1.7vw, 24px); line-height: 1.12; }
+.builder .clipLabel::before { content: '[ '; }
+.builder .clipLabel::after { content: ' ]'; }
+
+/* Sport clipping: compact feature-headline rhythm without turning into tabloid chrome. */
+.sport {
+  --clip-font: 'Arial Narrow', 'Helvetica Neue', Arial, sans-serif;
+  --clip-highlight-font: Georgia, 'Times New Roman', serif;
+  --clip-weight: 650;
+  --clip-letter-spacing: -0.043em;
+}
+
+.sport .headline { max-width: 96%; line-height: 1.02; }
+.sport .highlight { font-style: italic; }
+
+/* Games clipping: slightly chunkier feature typography, restrained by the same monochrome shell. */
+.games {
+  --clip-font: 'Trebuchet MS', var(--font-geist-sans), sans-serif;
+  --clip-highlight-font: var(--font-geist-sans), system-ui, sans-serif;
+  --clip-weight: 600;
+  --clip-letter-spacing: -0.038em;
+}
+
+.games .highlightBlock { padding-left: 0; }
+
+/* Music clipping: poster-like serif contrast and an airy listening note. */
+.music {
+  --clip-font: Palatino, 'Book Antiqua', Georgia, serif;
+  --clip-highlight-font: Palatino, 'Book Antiqua', Georgia, serif;
+  --clip-weight: 500;
+  --clip-letter-spacing: -0.025em;
+}
+
+.music .headline { line-height: 1.04; }
+.music .highlight { font-size: 13px; font-style: italic; }
+.music .clipLabel { letter-spacing: 0.22em; }
+
+/* Culture clipping: classic magazine cut, slightly literary, still sparse. */
+.culture {
+  --clip-font: Baskerville, Georgia, 'Times New Roman', serif;
+  --clip-highlight-font: var(--font-geist-sans), system-ui, sans-serif;
+  --clip-weight: 520;
+  --clip-letter-spacing: -0.025em;
+}
+
+.culture .headline { line-height: 1.08; }
+
+.dispatch {
+  --clip-font: var(--font-geist-sans), system-ui, sans-serif;
+  --clip-highlight-font: Georgia, 'Times New Roman', serif;
+}
+
+.list .storyLink {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(220px, 0.8fr);
+  column-gap: 34px;
+  align-items: end;
+}
+
+.list .headlineBlock { align-self: start; }
+.list .highlightBlock { align-self: end; margin-top: 0; }
+.list .readCue { grid-column: 1 / -1; margin-top: 15px; }
+
+.grid .headline { font-size: clamp(20px, 1.8vw, 26px); }
+.grid .highlight { display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 4; }
+
+@media (max-width: 720px) {
+  .masthead { gap: 8px; }
+  .list .storyLink { grid-template-columns: 1fr; row-gap: 0; }
+  .list .highlightBlock { margin-top: 15px; }
+  .list .readCue { grid-column: auto; }
+  .headline { font-size: 21px; }
+  .grid .headline { font-size: 21px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .readCue { transition: none; }
+}

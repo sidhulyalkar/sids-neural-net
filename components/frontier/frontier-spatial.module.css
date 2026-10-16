@@ -1,0 +1,152 @@
+.root {
+  position: relative;
+  min-height: 100vh;
+  isolation: isolate;
+  overflow: clip;
+  background: #040605;
+  color-scheme: dark;
+  --frontier-spatial-ink: rgba(242, 247, 244, 0.94);
+  --frontier-spatial-copy: rgba(181, 194, 187, 0.68);
+  --frontier-spatial-meta: rgba(158, 176, 167, 0.48);
+}
+
+/* The FRONTIER experience owns its own dark fallback color. Make that shell
+   transparent here so the fixed state-space canvas can actually breathe through it. */
+.root > :global(div) {
+  position: relative;
+  z-index: 1;
+  background: transparent !important;
+}
+
+/* Spatial minimalism rule: hierarchy comes from proximity, type, motion, and
+   opacity, never chrome. Preserve browser focus outlines while removing visible
+   ornamental borders and shadows throughout the FRONTIER subtree. */
+.root :global(*) {
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+
+.root :global(article),
+.root :global(article:hover),
+.root :global(article button),
+.root :global(header form),
+.root :global(header form:focus-within),
+.root :global(header button),
+.root :global(aside button),
+.root :global(footer button),
+.root :global(kbd) {
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.root :global(article) {
+  overflow: visible !important;
+  border-radius: 0 !important;
+  transition: opacity 160ms ease, transform 180ms ease !important;
+}
+
+.root :global(article:hover) {
+  opacity: 1;
+}
+
+.root :global(article h3) {
+  margin-left: -0.025em;
+  color: var(--frontier-spatial-ink) !important;
+  font-size: clamp(1.18rem, 0.8rem + 0.75vw, 1.95rem) !important;
+  font-weight: 455 !important;
+  line-height: 1.08 !important;
+  letter-spacing: -0.038em !important;
+  text-wrap: balance;
+}
+
+.root :global(article p) {
+  color: var(--frontier-spatial-copy) !important;
+  font-weight: 390;
+  line-height: 1.62 !important;
+  text-wrap: pretty;
+}
+
+.root :global(article button),
+.root :global(article a),
+.root :global(article summary) {
+  transition: color 130ms ease, opacity 130ms ease !important;
+}
+
+.root :global(article button:hover),
+.root :global(article a:hover),
+.root :global(article summary:hover) {
+  background: transparent !important;
+}
+
+.root :global(article *::before),
+.root :global(article *::after) {
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+
+.root :global(header) {
+  background: transparent !important;
+  border-color: transparent !important;
+}
+
+.root :global(header form) {
+  opacity: 0.72;
+  transition: opacity 160ms ease, transform 180ms ease !important;
+}
+
+.root :global(header form:focus-within) {
+  opacity: 1;
+  transform: translateY(-1px);
+}
+
+.root :global(header input) {
+  font-size: clamp(0.84rem, 0.79rem + 0.15vw, 0.98rem) !important;
+  font-weight: 430 !important;
+  letter-spacing: -0.018em !important;
+}
+
+.root :global(button),
+.root :global(select),
+.root :global(kbd) {
+  box-shadow: none !important;
+}
+
+.root :global([aria-label='Scanning live sources'] > div) {
+  border-radius: 0 !important;
+  background: transparent !important;
+}
+
+.root :global([data-frontier-virtual-card]) {
+  min-width: 0;
+}
+
+.root :global(footer),
+.root :global(aside) {
+  border-color: transparent !important;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .root :global([data-frontier-virtual-card]) {
+    transition: opacity 160ms ease, transform 180ms ease;
+  }
+
+  .root :global([data-frontier-virtual-card]:hover) {
+    transform: translateY(-2px);
+  }
+}
+
+@media (max-width: 720px) {
+  .root :global(article h3) {
+    font-size: clamp(1.2rem, 5.7vw, 1.58rem) !important;
+    line-height: 1.1 !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .root :global(article),
+  .root :global(header form),
+  .root :global([data-frontier-virtual-card]) {
+    transition: none !important;
+    transform: none !important;
+  }
+}

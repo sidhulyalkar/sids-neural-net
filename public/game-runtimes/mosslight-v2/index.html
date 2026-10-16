@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover" />
+<meta name="theme-color" content="#06110e" />
+<title>Sylvaria: Mossglint Run</title>
+<link rel="stylesheet" href="./styles.css" />
+<link rel="stylesheet" href="./portal-v4.css" />
+<link rel="stylesheet" href="./sylvaria-v5.css" />
+<link rel="stylesheet" href="./sylvaria-v6.css" />
+<link rel="stylesheet" href="./sylvaria-v7.css" />
+</head>
+<body>
+<div id="game">
+  <canvas id="c" width="960" height="640" tabindex="0" aria-label="Sylvaria Mossglint Run portal action puzzle game"></canvas>
+
+  <div id="hud" aria-hidden="true">
+    <div id="top">
+      <div id="roomCard" class="glass compact">
+        <div id="roomKicker">world 001 / 1000 · depth 1</div>
+        <div id="roomTitle">Sylvaria</div>
+        <div id="roomTask">Solve the world. Condense Mossglint. Fire the gate. Escape.</div>
+        <div id="biomeBadge">forest / moss · moss cathedral · cyan spores · warm bark</div>
+      </div>
+      <div id="stats" class="runStats">
+        <div class="stat glass"><b>score</b><span id="score">0</span></div>
+        <div class="stat glass"><b>time</b><span id="time">0:00.0</span></div>
+        <div class="stat glass"><b>stability</b><span id="integrity">◆◆◆</span></div>
+      </div>
+    </div>
+    <div id="hintCard" class="glass"><strong>Objective:</strong> every solved ecological node condenses one Mossglint stone.</div>
+    <div id="runRail" class="glass">
+      <div><b>mossglint</b><span id="mossglint">0/3</span></div>
+      <div><b>gate</b><span id="portalState">0%</span></div>
+      <div><b>dash</b><span id="dashState">READY</span></div>
+      <div id="bossWrap"><b>guardian</b><span id="bossState"></span></div>
+      <div id="portalAction"><button id="portalFireBtn" type="button" disabled>GATE LOCKED</button></div>
+    </div>
+    <div id="toast" class="glass"></div>
+  </div>
+
+  <div id="abilityBar" class="glass" aria-label="Mossglint portal gun resonances">
+    <button class="ability active" data-a="rain" style="--c:#64d9ff"><span class="key">1</span><div class="icon">◌</div><div class="name">Rain</div></button>
+    <button class="ability" data-a="sun" style="--c:#ffdb6e"><span class="key">2</span><div class="icon">✦</div><div class="name">Sun</div></button>
+    <button class="ability" data-a="seed" style="--c:#76f59c" disabled><span class="key">3</span><div class="icon">⌁</div><div class="name">Seed</div></button>
+    <button class="ability" data-a="wind" style="--c:#c9fff4" disabled><span class="key">4</span><div class="icon">≈</div><div class="name">Wind</div></button>
+    <button class="ability" data-a="mend" style="--c:#ff92c6" disabled><span class="key">5</span><div class="icon">◇</div><div class="name">Mend</div></button>
+    <button class="ability" data-a="gather" style="--c:#ffb66e" disabled><span class="key">6</span><div class="icon">●</div><div class="name">Gather</div></button>
+  </div>
+
+  <div id="title" class="screen">
+    <div class="panel menuPanel">
+      <div class="eyebrow">one-way living atlas · 1,000 worlds</div>
+      <h1><em class="sylvariaWord">Sylvaria</em><br/>Mossglint Run</h1>
+      <p class="lede narrow">Sprid carries a portal gun with an empty living core. Every sealed Sylvarian world hides ecological circuits, hostile movement patterns, and Mossglint stones. Solve the arena, fight or route around its guardians, fire a charged gate into the eastern anchor, and escape before the world closes behind you.</p>
+      <div class="storyRule">
+        <span>solve</span><i>→</i><span>condense Mossglint</span><i>→</i><span>fire gate</span><i>→</i><span>extract</span><i>→</i><span>never look back</span>
+      </div>
+      <div class="portalLegend" aria-label="Sylvaria run flow">
+        <div><b>Read the world</b><span>Each arena has a different movement grammar, route, ecology, atmosphere, and living horizon.</span></div>
+        <div><b>Fire the gate</b><span>When Mossglint aligns, press F to launch the charged portal shot.</span></div>
+        <div><b>Escape</b><span>The live neon rift destabilizes the environment. Reach it and commit forward.</span></div>
+      </div>
+      <div class="menuActions">
+        <button id="start" class="primary wide">start scored run</button>
+        <button id="explore" class="secondary wide">explorer run</button>
+        <div class="menuGrid">
+          <button id="howBtn" class="ghost">how to play</button>
+          <button id="controlsBtn" class="ghost">controls</button>
+          <button id="optionsBtn" class="ghost">options</button>
+        </div>
+      </div>
+      <div id="bestRun" class="bestRun">best · no run yet</div>
+      <p class="microcopy">Every tenth world has a guardian. World 1000 is an Atlas-clear milestone, not the end.</p>
+    </div>
+  </div>
+
+  <div id="howScreen" class="screen hidden">
+    <div class="panel subPanel">
+      <div class="eyebrow">the Sylvarian gate rule</div>
+      <h2>Every world ends with an escape.</h2>
+      <div class="howGrid">
+        <div><b>01 · read</b><p>Targets show the resonance they need. Terrain, wildlife, atmosphere, and sweep lanes telegraph danger before it arrives.</p></div>
+        <div><b>02 · solve</b><p>Complete each ecological relationship. Every completed node condenses one Mossglint stone.</p></div>
+        <div><b>03 · fight or route</b><p>Your portal gun also damages hostile encounters. Clear them for safety and score, or route around them to save time.</p></div>
+        <div><b>04 · fire gate</b><p>When the Mossglint quota is met, press F. Sprid charges the gun and fires a portal bolt into the eastern anchor.</p></div>
+        <div><b>05 · extract</b><p>The open portal intensifies the arena and the world around it. Reach the rift and press Enter or cross its edge to commit forward.</p></div>
+        <div><b>06 · adapt</b><p>World gifts persist for the full run. Build around fire rate, projectile size, spread, piercing, speed, and protection.</p></div>
+      </div>
+      <p class="lede small">Every tenth world locks Mossglint behind a guardian. Defeat it for two gate stones and a persistent gift. There are no scored-run retries and no backtracking.</p>
+      <div class="actions"><button class="secondary" data-back>back</button></div>
+    </div>
+  </div>
+
+  <div id="controlsScreen" class="screen hidden">
+    <div class="panel subPanel controlsPanel">
+      <div class="eyebrow">controls · click any key to remap</div>
+      <h2>Make Sprid's portal gun yours.</h2>
+      <div class="bindingGrid">
+        <button data-bind="moveUp"><span>move up</span><b class="bindKey">W</b></button>
+        <button data-bind="moveDown"><span>move down</span><b class="bindKey">S</b></button>
+        <button data-bind="moveLeft"><span>move left</span><b class="bindKey">A</b></button>
+        <button data-bind="moveRight"><span>move right</span><b class="bindKey">D</b></button>
+        <button data-bind="aimUp"><span>aim up</span><b class="bindKey">↑</b></button>
+        <button data-bind="aimDown"><span>aim down</span><b class="bindKey">↓</b></button>
+        <button data-bind="aimLeft"><span>aim left</span><b class="bindKey">←</b></button>
+        <button data-bind="aimRight"><span>aim right</span><b class="bindKey">→</b></button>
+        <button data-bind="cast"><span>resonance fire</span><b class="bindKey">Space</b></button>
+        <button data-bind="dash"><span>dash</span><b class="bindKey">Shift</b></button>
+        <button data-bind="portalFire"><span>fire charged gate</span><b class="bindKey">F</b></button>
+        <button data-bind="portalEnter"><span>enter open gate</span><b class="bindKey">Enter</b></button>
+        <button data-bind="cyclePrev"><span>previous resonance</span><b class="bindKey">Q</b></button>
+        <button data-bind="cycleNext"><span>next resonance</span><b class="bindKey">E</b></button>
+        <button data-bind="pause"><span>pause</span><b class="bindKey">P</b></button>
+      </div>
+      <p class="microcopy">Mouse always remains available for free aim and click-to-fire. Arrow keys provide independent laptop aim. Number keys 1–6 directly select unlocked resonances.</p>
+      <div class="actions"><button id="resetControls" class="ghost">reset defaults</button><button class="secondary" data-back>back</button></div>
+    </div>
+  </div>
+
+  <div id="optionsScreen" class="screen hidden">
+    <div class="panel subPanel optionsPanel">
+      <div class="eyebrow">options</div>
+      <h2>Keep the signal comfortable.</h2>
+      <label class="optionRow"><span><b>music</b><small>procedural score reacts to biome, depth, and guardians</small></span><input id="musicToggle" type="checkbox" checked /></label>
+      <label class="optionRow"><span><b>sound effects</b><small>resonances, Mossglint, portal charging, extraction, guardians</small></span><input id="sfxToggle" type="checkbox" checked /></label>
+      <label class="optionRow"><span><b>aim assistance</b><small>lightly bends near-correct puzzle shots while preserving manual aim</small></span><input id="assistToggle" type="checkbox" checked /></label>
+      <label class="optionRow"><span><b>reduced motion</b><small>reduces ambient parallax and decorative drift while preserving gameplay telegraphs</small></span><input id="motionToggle" type="checkbox" /></label>
+      <label class="optionRow"><span><b>visual quality</b><small>Auto keeps the living world crisp while adapting glow, atmosphere, and decorative density to your browser</small></span><select id="visualQuality"><option value="auto">Auto</option><option value="high">High</option><option value="balanced">Balanced</option><option value="performance">Performance</option></select></label>
+      <label class="optionRow volumeRow"><span><b>master volume</b><small>music and effects</small></span><input id="volume" type="range" min="0" max="1" value="0.68" step="0.02" /></label>
+      <div class="qualityHint">active render tier · <span id="qualityState">BALANCED</span></div>
+      <div class="actions"><button class="secondary" data-back>back</button></div>
+    </div>
+  </div>
+
+  <div id="pauseScreen" class="screen hidden">
+    <div class="panel subPanel pausePanel">
+      <div class="eyebrow">Sylvarian signal suspended</div>
+      <h2>Paused</h2>
+      <p class="lede small">The arena and scored run clock are frozen.</p>
+      <div class="menuActions">
+        <button id="resume" class="primary wide">resume</button>
+        <button id="pauseOptions" class="ghost wide">options</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="gameOver" class="screen hidden">
+    <div class="panel subPanel">
+      <div class="eyebrow">run archived</div>
+      <h2 id="gameOverTitle">the gate went dark</h2>
+      <p id="gameOverSummary" class="lede">0 worlds · 0 points</p>
+      <p class="microcopy">A scored Sylvaria run is one-way. There are no room retries and no rewind. The next attempt starts from a fresh Atlas route.</p>
+      <div class="actions"><button id="restartRun" class="primary">run again</button><button id="menuFromGameOver" class="secondary">main menu</button></div>
+    </div>
+  </div>
+
+  <div id="atlasMilestone" class="milestone hidden" aria-live="polite">
+    <b>SYLVARIAN ATLAS CLEARED</b>
+    <span id="atlasMilestoneCopy">Sprid crossed all 1,000 worlds.</span>
+  </div>
+</div>
+<script src="/game-runtimes/game-network-bridge.js"></script>
+<script src="./frame-driver.js"></script>
+<script src="./rooms.js"></script>
+<script src="/game-runtimes/mosslight-atlas"></script>
+<script src="./expedition-v7.js"></script>
+<script src="./director.js"></script>
+<script src="./arena-preflight.js"></script>
+<script src="./render-scale-v7.js"></script>
+<script src="./render-optimizer-v6.js"></script>
+<script src="./game-v5.js"></script>
+<script src="./visual-system-v7.js"></script>
+</body>
+</html>

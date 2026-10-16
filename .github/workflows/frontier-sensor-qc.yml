@@ -1,0 +1,124 @@
+name: FRONTIER Sensor QC Gate
+
+on:
+  push:
+    branches:
+      - master
+      - release/frontier-live-sensor-qc
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: frontier-sensor-qc-${{ github.event.pull_request.head.sha || github.sha }}
+  cancel-in-progress: true
+
+jobs:
+  literal-head-qc:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      TARGET_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+    steps:
+      - name: Checkout literal candidate
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ env.TARGET_SHA }}
+
+      - name: Prove exact checkout provenance
+        run: |
+          test "$(git rev-parse HEAD)" = "$TARGET_SHA"
+          printf 'qualified_sha=%s\n' "$TARGET_SHA" | tee /tmp/frontier-sensor-qc-qualified-sha.txt
+
+      - name: Set up Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install exact locked dependencies
+        run: npm ci
+
+      - name: Audit production dependencies
+        run: npm audit --omit=dev --audit-level=high
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Warning-free lint
+        run: npm run lint
+
+      - name: Full unit suite
+        run: npm test
+
+      - name: Audit FRONTIER adaptive slate counterfactual
+        run: npm run frontier:slate-audit -- content/frontier/latest.json
+
+      - name: Generate Next route and module bundle analysis
+        run: |
+          npx next experimental-analyze --output
+          mkdir -p artifacts/bundle-analyzer
+          cp -R .next/diagnostics/analyze/. artifacts/bundle-analyzer/
+
+      - name: Build production site
+        env:
+          NEXT_PUBLIC_SITE_URL: https://example.invalid
+          NEXT_PUBLIC_WORLD_LOOM_XR: disabled
+        run: npm run build
+
+      - name: Enforce JavaScript budget
+        run: npm run check:bundle
+
+      - name: Start built site
+        env:
+          FRONTIER_INTERACTION_AUDIT: enabled
+        run: |
+          npx next start -p 3000 > /tmp/frontier-sensor-qc-site.log 2>&1 &
+          echo $! > /tmp/frontier-sensor-qc-site.pid
+          for attempt in {1..40}; do
+            if curl -fsS http://127.0.0.1:3000/frontier >/dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/frontier-sensor-qc-site.log
+          exit 1
+
+      - name: Prove gated mosaic audit fixture is reachable
+        run: curl -fsS http://127.0.0.1:3000/frontier/mosaic-audit >/dev/null
+
+      - name: Audit FRONTIER production media resolution
+        env:
+          FRONTIER_MEDIA_RESOLUTION_AUDIT_URL: http://127.0.0.1:3000/api/frontier/feed
+        run: node scripts/frontier-media-resolution-route-audit.cjs
+
+      - name: Install Chromium audit engine
+        run: |
+          rm -rf /tmp/frontier-qc-playwright
+          npm install --prefix /tmp/frontier-qc-playwright --no-package-lock --no-save playwright@1.55.0
+          /tmp/frontier-qc-playwright/node_modules/.bin/playwright install --with-deps chromium
+
+      - name: Audit FRONTIER actual media paint and failure stability
+        env:
+          NODE_PATH: /tmp/frontier-qc-playwright/node_modules
+          FRONTIER_MEDIA_PAINT_AUDIT_URL: http://127.0.0.1:3000/frontier/mosaic-audit
+        run: node scripts/frontier-media-paint-audit.cjs
+
+      - name: Audit Sensor QC privacy, persistence, and missingness
+        env:
+          NODE_PATH: /tmp/frontier-qc-playwright/node_modules
+          FRONTIER_SENSOR_QC_AUDIT_URL: http://127.0.0.1:3000/frontier
+        run: node scripts/frontier-sensor-qc-browser-audit.cjs
+
+      - name: Upload qualification evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: frontier-sensor-qc-qualification
+          path: |
+            /tmp/frontier-sensor-qc-qualified-sha.txt
+            /tmp/frontier-sensor-qc-site.log
+          if-no-files-found: warn
+          retention-days: 14

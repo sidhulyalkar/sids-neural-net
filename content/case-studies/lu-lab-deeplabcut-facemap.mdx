@@ -1,0 +1,82 @@
+---
+title: "Lu Lab DeepLabCut and Facemap Deployment"
+slug: lu-lab-deeplabcut-facemap
+summary: "Deploying and optimizing DataJoint-backed deep learning pipelines for pose estimation and facial inference for Lu Lab at Indiana University."
+role: "DataJoint computer-vision workflow integrator and deployment contributor"
+scope: "DeepLabCut model training/inference, Facemap facial inference, cloud GPU execution, schema testing, deployment debugging"
+date: "2023-09-01"
+tags:
+  - datajoint
+  - deeplabcut
+  - facemap
+  - computer-vision
+  - cloud
+  - gpu
+domains:
+  - Neural Data Infrastructure
+  - Behavioral Computer Vision
+  - Scientific Workflow Systems
+featured: true
+importance: 94
+relatedProjects:
+  - element-deeplabcut
+  - element-facemap
+  - datajoint-multimodal-pipelines
+modeVisibility:
+  - recruiter
+  - researcher
+  - builder
+  - full-brain
+---
+
+## What This System Was
+
+For Lu Lab at Indiana University, I worked on deploying and optimizing DataJoint-backed deep learning workflows for behavioral video analysis. The core systems were DeepLabCut for markerless pose estimation and Facemap-style facial inference for extracting behaviorally meaningful signals from face videos.
+
+This was a practical deployment problem: take deep learning tools that scientists want to use, wrap them in reproducible DataJoint workflows, and make them work reliably in cloud-oriented compute environments.
+
+## element-deeplabcut Contributions
+
+I added and tested model training and inference support for `element-deeplabcut`.
+
+That included workflow components for:
+
+- DeepLabCut project and model state
+- Training runs and training configuration
+- Inference jobs on new behavioral videos
+- Output artifacts and downstream pose-estimation results
+- Validation paths for testing schema behavior and deployment behavior
+
+The important part was making the training and inference lifecycle explicit. Instead of treating pose estimation as a one-off script, the workflow could represent what model was used, what videos were processed, and what outputs were produced.
+
+## element-facemap Contributions
+
+I integrated deep-learning training and inference component schemas into `element-facemap`, helping bring facial behavior analysis into the same reproducible workflow style.
+
+That work focused on organizing model inputs, inference execution, generated features, and analysis outputs so facial inference could be connected to broader neural data workflows.
+
+## Cloud Deployment and Optimization
+
+I also worked through cloud deployment issues for these deep-learning pipelines. These systems needed to run with the practical constraints of GPU-backed processing, dependency management, video data movement, and reproducible execution environments.
+
+The work included:
+
+- Debugging deployment blockers in cloud execution contexts
+- Validating training and inference paths outside a purely local setup
+- Optimizing the flow from stored video data to model output
+- Making the behavior-analysis workflow more repeatable for lab use
+
+## Why Lu Lab Matters Here
+
+This deployment is a strong example of the kind of work I enjoy: turning research ML tools into usable scientific infrastructure.
+
+DeepLabCut and Facemap are powerful, but the deployed system only becomes useful when scientists can connect videos, models, parameters, outputs, and neural data without losing provenance. My work helped translate those tools into a structured pipeline that could be deployed, tested, and reused.
+
+## What This Shows About My Work
+
+This record shows several parts of my engineering style:
+
+- I can work at the boundary between deep learning and neuroscience data systems
+- I care about training and inference as lifecycle workflows, not isolated scripts
+- I can debug cloud deployment problems where software, data, dependencies, and GPU execution interact
+- I enjoy making behavioral signals easier to compute, trust, and align with neural data

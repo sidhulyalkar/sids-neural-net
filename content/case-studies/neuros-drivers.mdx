@@ -1,0 +1,53 @@
+---
+title: "neurOS-v1 Package: neuros-drivers — Device Adapters & I/O"
+slug: neuros-drivers
+summary: "A unified, hot-swappable driver API across 16+ biosignal modalities, plus NWB/Zarr I/O, so any device plugs into neurOS-v1 behind one contract without changing the pipeline."
+role: "Author and architect"
+sourceUrl: "https://github.com/sidhulyalkar/neurOS-v1"
+scope: "neurOS-v1 monorepo package"
+date: "2025-11-05"
+tags:
+  - neuros-v1
+  - drivers
+  - adapters
+  - nwb
+  - zarr
+  - multimodal
+domains:
+  - BCI & Real-Time Systems
+  - Neural Data Infrastructure
+featured: false
+importance: 78
+relatedProjects:
+  - neuros-v1
+modeVisibility:
+  - recruiter
+  - researcher
+  - builder
+  - full-brain
+---
+
+## One Contract, Any Device
+
+`neuros-drivers` is the acquisition layer. Every device implements a common `base_driver`
+interface, so drivers hot-swap without the rest of the pipeline noticing.
+
+<SystemDiagram variant="pkg-drivers" />
+
+## What It Comprises
+
+- **Neural / electrophysiology** — BrainFlow (EEG), ECoG, EMG, EOG, ECG.
+- **Optical / imaging** — calcium imaging, video, fNIRS.
+- **Autonomic / peripheral / context** — GSR/EDA, respiration, motion sensors, hormone, phone
+  sensors, audio.
+- **Development** — `mock` and `dataset` drivers for deterministic, hardware-free runs.
+- **I/O layer** — `nwb_loader`, `nwb_writer`, and `zarr_writer`, keeping standards and provenance
+  intact from the first sample.
+
+## How It Differs
+
+This package is deliberately thin and single-purpose: it *only* turns hardware (or recordings) into
+a standard stream. It knows nothing about models or orchestration — that separation is what lets
+16+ modalities coexist behind one API and makes new devices cheap to add.
+
+Part of the [neurOS-v1 platform](/case-studies/neuros-v1-platform).

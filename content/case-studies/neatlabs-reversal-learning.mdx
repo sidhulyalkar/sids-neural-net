@@ -1,0 +1,74 @@
+---
+title: "NEATLabs Paradigm: Probabilistic Reversal Learning — Reward Certainty"
+slug: neatlabs-reversal-learning
+summary: "The reward-certainty paradigm at NEATLabs: reward contingencies flip unpredictably while rats must relearn which action pays off. Beta and high-gamma oscillations track reward valence and probability, and optogenetic beta-frequency stimulation causally perturbs adaptive behavior. Anchors the Journal of Neuroscience paper on reward certainty."
+role: "Lead Lab Programmer — behavior systems, LFP analysis, RL-model support"
+scope: "Probabilistic reversal learning, cortico-striatal LFP, reinforcement-learning modeling, optogenetics"
+date: "2025-01-01"
+tags:
+  - reversal-learning
+  - reward-certainty
+  - beta-oscillations
+  - high-gamma
+  - reinforcement-learning
+  - optogenetics
+domains:
+  - NEATLabs Research
+  - Neural Signal Discovery
+  - Neural Data Analysis
+featured: true
+importance: 94
+relatedProjects:
+  - neatlabs-core-research
+modeVisibility:
+  - recruiter
+  - researcher
+  - builder
+  - full-brain
+---
+
+## The Question: How Does the Brain Track Whether a Reward Is *Likely*?
+
+Probabilistic reversal learning adds two things a fixed task cannot: **uncertainty** and **change**.
+Reward is only probabilistic, and the winning option flips mid-session, so the animal must
+continuously infer *how certain* a reward is and update when the world changes. At NEATLabs this
+paradigm drove the reward-certainty thread of the cortico-striatal reward program.
+
+<SystemDiagram variant="reversal-learning" />
+
+## Study Design and Rat Behavior
+
+- **Probabilistic contingencies** — a choice pays off only some of the time, so the animal cannot
+  rely on a single trial's outcome.
+- **Reversals** — the high-value option switches partway through, forcing re-learning.
+- **Adaptive choice** — the behavior elucidated is *belief updating under uncertainty*: how quickly
+  and how flexibly the rat shifts after contingencies change, and how it balances exploration
+  against exploiting a currently-good option.
+
+## Methodology
+
+- **Recording:** rodent **local field potential** recordings across cortico-striatal circuitry,
+  focused on reward-evoked oscillations.
+- **Modeling:** **reinforcement-learning models** fit to behavior, giving trial-by-trial estimates
+  of value and reward certainty to correlate against neural activity.
+- **Causal test:** **optogenetic beta-frequency stimulation** of orbitofrontal cortex — moving from
+  correlation to causation by injecting the oscillation and observing behavior.
+
+## What We Found
+
+The Journal of Neuroscience paper showed that beta and high-gamma oscillations reflect reward
+certainty:
+
+- **Reward-evoked beta and high-gamma oscillations reflected positive reward valence and reward
+  probability** — an oscillatory code for *how good* and *how likely* a reward was.
+- **Beta-frequency connectivity across cortico-striatal regions correlated with behavioral
+  performance** — network coupling, not just local power, tracked how well the animal did.
+- **Orbitofrontal beta stimulation promoted maladaptive behavior** during non-target responses — a
+  causal demonstration that driving the oscillation at the wrong moment disrupts adaptive choice.
+
+## Publications
+
+- [Beta and High Gamma Oscillations in the Cortico-striatal Network Reflect Reward Certainty on a Probabilistic Reversal Learning Task — Journal of Neuroscience (2025)](https://doi.org/10.1523/JNEUROSCI.0858-25.2025)
+- [Cortico-Striatal Beta-Oscillations as a Marker of Learned Reward Value — bioRxiv preprint (2022)](https://doi.org/10.1101/2022.10.24.513264)
+
+This paradigm is one thread of the broader [NEATLabs research program](/case-studies/neatlabs-core-research).
