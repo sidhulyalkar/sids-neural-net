@@ -152,6 +152,25 @@ test("keyboard, arrows and touch use the same predictable steering and boost",()
   {throttle:0,steer:0,brake:false,turbo:false});
 });
 
+test("A and D steer toward their actual camera-relative screen sides",()=>{
+ const touch={throttle:0,steer:0,brake:false};
+ for(const craft of ["touring","sport","race"] as const){
+  let cruising=startJetSkiRace(craft);
+  for(let i=0;i<55;i++)cruising=stepJetSkiRace(cruising,1/60,
+    {throttle:1,steer:0},()=>true,false);
+  const steer=(key:string)=>jetSkiControlInput(new Set([key,"w"]),touch,false,cruising.speed);
+  const left=stepJetSkiRace(cruising,.1,steer("a"),()=>true,false);
+  const right=stepJetSkiRace(cruising,.1,steer("d"),()=>true,false);
+  // Camera looks along the bow. Screen-right is (-cos(h), sin(h));
+  // with heading atan2(x,z), positive heading is therefore screen-left.
+  const screenHorizontal=(heading:number)=>
+    -Math.cos(cruising.heading)*Math.sin(heading)+
+     Math.sin(cruising.heading)*Math.cos(heading);
+  assert.ok(screenHorizontal(left.heading)<0,craft+" A must turn left");
+  assert.ok(screenHorizontal(right.heading)>0,craft+" D must turn right");
+ }
+});
+
 test("large exposed swells have taller crests than the sheltered dock",()=>{
  const highest=(x:number,z:number)=>Math.max(...Array.from({length:120},(_,i)=>
   Math.abs(jetSkiWaterSample({x,z},i*.1).height)));
