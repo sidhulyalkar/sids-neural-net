@@ -62,6 +62,12 @@ jobs:
           done
           tail -n 120 /tmp/skate-grove-next.log
           exit 1
+      - name: Ride the giant loop and verify controls after inversion
+        env:
+          WORLD_BASE_URL: http://127.0.0.1:3000
+          WORLD_AUDIT_DIR: artifacts/world/sequoia-loop-browser
+          PLAYWRIGHT_MODULE_ROOT: /tmp/skate-grove-playwright/node_modules/playwright
+        run: node scripts/playtest-sequoia-loop.mjs
       - name: Audit one-button grove roll-in and safe bowl carve
         env:
           WORLD_BASE_URL: http://127.0.0.1:3000
@@ -74,12 +80,6 @@ jobs:
           WORLD_AUDIT_DIR: artifacts/world/redwood-skate-grove
           PLAYWRIGHT_MODULE_ROOT: /tmp/skate-grove-playwright/node_modules/playwright
         run: node scripts/playtest-skatepark.mjs
-      - name: Ride the giant loop and verify controls after inversion
-        env:
-          WORLD_BASE_URL: http://127.0.0.1:3000
-          WORLD_AUDIT_DIR: artifacts/world/sequoia-loop-browser
-          PLAYWRIGHT_MODULE_ROOT: /tmp/skate-grove-playwright/node_modules/playwright
-        run: node scripts/playtest-sequoia-loop.mjs
       - name: Preserve three skatepark camera views and trick QA
         if: always()
         uses: actions/upload-artifact@v4
