@@ -2,6 +2,7 @@ import * as THREE from "three/src/Three.Core.js";
 import {
   SKATE_PARK, SKATE_PARK_RAILS, REDWOOD_BOWL, STUMP_PADS,
   skateParkSurface, skateParkZone, GROVE_LOG, GROVE_BRIDGE,
+  GROVE_TUNNEL, SKATE_LOOP,
   groveBridgeRise, groveStoneRise,
 } from "@/lib/world/skatepark";
 import {terrainHeight,type Point} from "@/lib/world/model";
@@ -141,6 +142,129 @@ export function createWorldSkateGrove(scene:THREE.Scene,support:(p:Point)=>numbe
  surface.name="skate-grove-ride-surface";
  surface.castShadow=false;surface.receiveShadow=true;
  group.add(surface);
+
+ // Giant fallen sequoia: actually hollow. Both mouths stay open and the
+ // existing polished split-log channel is the only physical ground contact.
+ // The closed upper arch has >3 world units of headroom at its crown.
+ const sequoiaInner=material("#c69765",{side:THREE.DoubleSide});
+ const sequoiaBark=material("#51372b",{side:THREE.DoubleSide});
+ const sequoiaCut=material("#e0b481",{side:THREE.DoubleSide});
+ const archSlices=36,logSlices=24,archExtent=2.22;
+ function makeArchSkin(radius:number,mat:THREE.Material,name:string){
+  const vertices:number[]=[],triangles:number[]=[];
+  for(let ix=0;ix<=logSlices;ix++){
+   const x=GROVE_TUNNEL.center.x-GROVE_TUNNEL.halfLength+
+    ix*GROVE_TUNNEL.halfLength*2/logSlices;
+   const base=ride({x,z:GROVE_TUNNEL.center.z})+GROVE_TUNNEL.archCenterLift;
+   for(let j=0;j<=archSlices;j++){
+    const angle=-archExtent+j*2*archExtent/archSlices;
+    const r=radius+(radius===GROVE_TUNNEL.outerRadius?
+     .045*Math.sin(angle*18+x*.6)*Math.sin(angle*5):0);
+    vertices.push(x,base+Math.cos(angle)*r,
+     GROVE_TUNNEL.center.z+Math.sin(angle)*r);
+   }
+  }
+  for(let ix=0;ix<logSlices;ix++)for(let j=0;j<archSlices;j++){
+   const a=ix*(archSlices+1)+j,b=a+1,d=a+archSlices+1,e=d+1;
+   triangles.push(a,b,d,b,e,d);
+  }
+  const g=geometry(new THREE.BufferGeometry());
+  g.setAttribute("position",new THREE.Float32BufferAttribute(vertices,3));
+  g.setIndex(triangles);g.computeVertexNormals();
+  const mesh=new THREE.Mesh(g,mat);
+  mesh.name=name;mesh.receiveShadow=true;mesh.castShadow=true;
+  group.add(mesh);
+ }
+ makeArchSkin(GROVE_TUNNEL.innerRadius,sequoiaInner,"sequoia-hollow-inner-roof");
+ makeArchSkin(GROVE_TUNNEL.outerRadius,sequoiaBark,"sequoia-deep-fluted-bark");
+ // Visible cut heartwood on both open faces, never a disc blocking the bore.
+ const sequoiaEndGrain:Part[]=[],barkFlutes:Part[]=[];
+ for(const end of [-1,1]){
+  const x=GROVE_TUNNEL.center.x+end*GROVE_TUNNEL.halfLength;
+  const base=ride({x,z:GROVE_TUNNEL.center.z})+GROVE_TUNNEL.archCenterLift;
+  for(let j=0;j<archSlices;j++){
+   const a=-archExtent+j*2*archExtent/archSlices;
+   const b=a+2*archExtent/archSlices;
+   for(const radius of [GROVE_TUNNEL.innerRadius+.045,
+    (GROVE_TUNNEL.innerRadius+GROVE_TUNNEL.outerRadius)*.5,
+    GROVE_TUNNEL.outerRadius-.045]){
+    sequoiaEndGrain.push(beam(
+     new THREE.Vector3(x,base+Math.cos(a)*radius,GROVE_TUNNEL.center.z+Math.sin(a)*radius),
+     new THREE.Vector3(x,base+Math.cos(b)*radius,GROVE_TUNNEL.center.z+Math.sin(b)*radius),.018));
+   }
+  }
+ }
+ for(let j=0;j<=28;j++){
+  const angle=-2.17+j*4.34/28;
+  const radius=GROVE_TUNNEL.outerRadius+.025;
+  let previous:THREE.Vector3|null=null;
+  for(let ix=0;ix<=logSlices;ix++){
+   const x=GROVE_TUNNEL.center.x-GROVE_TUNNEL.halfLength+
+    ix*GROVE_TUNNEL.halfLength*2/logSlices;
+   const current=new THREE.Vector3(x,
+    ride({x,z:GROVE_TUNNEL.center.z})+GROVE_TUNNEL.archCenterLift+
+    Math.cos(angle)*radius,GROVE_TUNNEL.center.z+Math.sin(angle)*radius);
+   if(previous)barkFlutes.push(beam(previous,current,.024+(j%5)*.004));
+   previous=current;
+  }
+ }
+ pooled("sequoia-open-end-growth-rings",sequoiaEndGrain,sequoiaCut);
+ pooled("sequoia-longitudinal-bark-flutes",barkFlutes,bark);
+
+ // Full vertical timber loop. This is a real 3D wheel path supported by the
+ // dedicated skateboard loop state, NEVER by the single-valued meadow field.
+ // Broadside to the riding direction so the inversion reads clearly on camera.
+ const loopBase=ride(SKATE_LOOP.center)+.09;
+ const loopCedar=material("#bc8b58",{side:THREE.DoubleSide});
+ const loopBark=material("#59402f",{side:THREE.DoubleSide});
+ const loopSegments=120;
+ function addLoopSkin(radius:number,mat:THREE.Material,name:string){
+  const vertices:number[]=[],triangles:number[]=[];
+  for(let i=0;i<=loopSegments;i++){
+   const angle=i*2*Math.PI/loopSegments;
+   const x=SKATE_LOOP.center.x-radius*Math.sin(angle);
+   const y=loopBase+radius*(1-Math.cos(angle));
+   for(const side of [-1,1])
+    vertices.push(x,y,SKATE_LOOP.center.z+side*SKATE_LOOP.width*.5);
+  }
+  for(let i=0;i<loopSegments;i++){
+   const a=i*2;triangles.push(a,a+1,a+2,a+1,a+3,a+2);
+  }
+  const g=geometry(new THREE.BufferGeometry());
+  g.setAttribute("position",new THREE.Float32BufferAttribute(vertices,3));
+  g.setIndex(triangles);g.computeVertexNormals();
+  const mesh=new THREE.Mesh(g,mat);
+  mesh.name=name;mesh.castShadow=true;mesh.receiveShadow=true;group.add(mesh);
+ }
+ addLoopSkin(SKATE_LOOP.radius,loopCedar,"full-360-loop-polished-tread");
+ addLoopSkin(SKATE_LOOP.radius+.16,loopBark,"full-360-loop-bark-understructure");
+ const loopCoping:Part[]=[],loopSlats:Part[]=[],loopStruts:Part[]=[];
+ for(let side of [-1,1]){
+  const z=SKATE_LOOP.center.z+side*SKATE_LOOP.width*.5;
+  for(let i=0;i<loopSegments;i++){
+   const a=i*2*Math.PI/loopSegments,b=(i+1)*2*Math.PI/loopSegments;
+   const p=(t:number,r:number)=>new THREE.Vector3(
+    SKATE_LOOP.center.x-r*Math.sin(t),loopBase+r*(1-Math.cos(t)),z);
+   loopCoping.push(beam(p(a,SKATE_LOOP.radius+.028),p(b,SKATE_LOOP.radius+.028),.044));
+  }
+  for(const x of [SKATE_LOOP.center.x-SKATE_LOOP.radius,
+    SKATE_LOOP.center.x+SKATE_LOOP.radius]){
+   // Buttressed on the outside; no vertical posts in the center riding lane.
+   const foot=ride({x,z})+.025;
+   loopStruts.push(beam(new THREE.Vector3(x,foot,z),
+    new THREE.Vector3(x,loopBase+SKATE_LOOP.radius*.78,z),.10));
+  }
+ }
+ for(let i=0;i<48;i++){
+  const a=i*2*Math.PI/48,r=SKATE_LOOP.radius+.035;
+  const x=SKATE_LOOP.center.x-r*Math.sin(a),y=loopBase+r*(1-Math.cos(a));
+  loopSlats.push(beam(
+   new THREE.Vector3(x,y,SKATE_LOOP.center.z-SKATE_LOOP.width*.5),
+   new THREE.Vector3(x,y,SKATE_LOOP.center.z+SKATE_LOOP.width*.5),.021));
+ }
+ pooled("loop-timber-safety-edges",loopCoping,metal);
+ pooled("loop-crossgrain-planks",loopSlats,grain);
+ pooled("loop-exterior-buttresses",loopStruts,darkTimber);
 
  // The dark bark shoulder is painted on this SINGLE sampled riding mesh.
  // No intersecting decorative shell, hidden fascia or extra draw call.
