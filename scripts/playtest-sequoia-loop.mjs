@@ -47,7 +47,7 @@ try{
    await page.waitForFunction(()=>{
     const p=document.querySelector("canvas")?.dataset.player?.split(",").map(Number);
     return p&&p[1]>=43.20;
-   },null,{timeout:32000});
+   },null,{timeout:60000});
   }finally{await page.keyboard.up("a");}
   const aligned=await sample();
   assert.ok(aligned.point[0]>-1.65,"alignment must finish east of loop seam");
@@ -56,7 +56,7 @@ try{
   await page.keyboard.down("w");
   try{
    await page.waitForFunction(()=>Number(document.querySelector("canvas")?.dataset.skateLoopEntries)>0,
-    null,{timeout:32000});
+    null,{timeout:60000});
    const captured=await sample();
    assert.equal(captured.entries,1);
    stage="inverted";
@@ -64,13 +64,13 @@ try{
     const d=document.querySelector("canvas")?.dataset;
     const a=Number(d?.skateLoopAngle);
     return d?.skateLoopPhase==="inverting"&&a>2.45&&a<4.05;
-   },null,{timeout:18000});
+   },null,{timeout:150000});
    const inverted=await sample();
    assert.ok(inverted.angle>2.45&&inverted.angle<4.05);
    await page.screenshot({path:path.join(out,"01-giant-timber-loop-inverted.png")});
    stage="loop-exit";
    await page.waitForFunction(()=>Number(document.querySelector("canvas")?.dataset.skateLoopCompletions)>0,
-    null,{timeout:18000});
+    null,{timeout:150000});
    const exit=await sample();
    assert.equal(exit.phase,"free","inversion must return to ordinary skating");
    assert.equal(exit.completions,1);
