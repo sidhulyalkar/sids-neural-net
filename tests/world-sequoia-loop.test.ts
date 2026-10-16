@@ -17,10 +17,12 @@ const left={x:-1,z:0},right={x:1,z:0};
 test("sequoia bore follows the existing open, fully traversable log trough",()=>{
   assert.deepEqual(GROVE_TUNNEL.center,GROVE_LOG.center);
   assert.equal(GROVE_TUNNEL.halfLength,GROVE_LOG.halfLength);
-  assert.ok(GROVE_TUNNEL.innerRadius-GROVE_LOG.halfWidth>.5,
+  assert.ok(GROVE_TUNNEL.innerHalfWidth-GROVE_LOG.halfWidth>.4,
     "the wood skin must not cut across the polished riding channel");
-  assert.ok(GROVE_TUNNEL.innerRadius+GROVE_TUNNEL.archCenterLift>2.9,
+  assert.ok(GROVE_TUNNEL.innerRadius+GROVE_TUNNEL.archCenterLift>4.2,
     "the human silhouette and camera need generous headroom");
+  assert.ok(GROVE_LOG.halfLength>5&&GROVE_TUNNEL.outerHalfWidth>3,
+    "the sequoia must have an old-growth scale, not a narrow pipe");
   for(let x=GROVE_LOG.center.x-GROVE_LOG.halfLength;
       x<=GROVE_LOG.center.x+GROVE_LOG.halfLength+.0001;x+=.12){
     const point={x,z:GROVE_LOG.center.z};
@@ -36,6 +38,7 @@ test("sequoia bore follows the existing open, fully traversable log trough",()=>
 
 test("loop is separate from rails, bowl, and boundary while staying within the park",()=>{
   const {center,radius,width}=SKATE_LOOP;
+  assert.ok(radius>=3.65&&width>=3.2,"loop must be enlarged to landmark scale");
   for(const x of [center.x-radius,center.x,center.x+radius])
     for(const z of [center.z-width*.5,center.z,center.z+width*.5])
       assert.ok(insideSkatePark({x,z}),"all wheel track points must be on the dry meadow");
@@ -56,7 +59,7 @@ test("entry is swept, one-way, fast enough, and centered on planked lane",()=>{
   assert.equal(skateLoopEntryCrossing(entry(.25),entry(-.25),left,8.39),false);
   assert.equal(skateLoopEntryCrossing(entry(.25),entry(-.25),right,9.4),false);
   assert.equal(skateLoopEntryCrossing(entry(-.25),entry(.25),right,9.4),false);
-  assert.equal(skateLoopEntryCrossing(entry(.25,C.z+1.05),entry(-.25,C.z+1.05),left,9.4),false);
+  assert.equal(skateLoopEntryCrossing(entry(.25,C.z+1.45),entry(-.25,C.z+1.45),left,9.4),false);
   assert.equal(skateLoopEntryCrossing(entry(2.3),entry(1.9),left,9.4),false);
   assert.equal(skateLoopEntryCrossing(entry(.25),entry(-.25),{x:-.2,z:1},9.4),false);
   assert.equal(skateLoopEntryCrossing(entry(.25),entry(-.25),left,Number.NaN),false);
