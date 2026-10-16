@@ -177,7 +177,7 @@ export function createWorldSkateGrove(scene:THREE.Scene,support:(p:Point)=>numbe
    for(let j=0;j<=archSlices;j++){
     const a=-archExtent+j*2*archExtent/archSlices,p=treePoint(x,a,outer);
     vertices.push(p.x,p.y,p.z);
-    const detail=outer?.44+.29*Math.sin(21*a+x)+.13*Math.cos(38*a-x*2):
+    const detail=outer ? .44+.29*Math.sin(21*a+x)+.13*Math.cos(38*a-x*2) :
      .78+.075*Math.sin(x*4+a*8);
     shade.copy(dark).lerp(light,THREE.MathUtils.clamp(detail,0,1));
     tints.push(shade.r,shade.g,shade.b);
@@ -278,7 +278,7 @@ export function createWorldSkateGrove(scene:THREE.Scene,support:(p:Point)=>numbe
   mesh.name=name;mesh.castShadow=true;mesh.receiveShadow=true;group.add(mesh);
  }
  addLoopSkin(SKATE_LOOP.radius,loopCedar,"full-360-loop-polished-tread");
- addLoopSkin(SKATE_LOOP.radius+.16,loopBark,"full-360-loop-bark-understructure");
+ addLoopSkin(SKATE_LOOP.radius+SKATE_LOOP.supportThickness,loopBark,"full-360-loop-bark-understructure");
  const loopCoping:Part[]=[],loopSlats:Part[]=[],loopStruts:Part[]=[];
  for(let side of [-1,1]){
   const z=SKATE_LOOP.center.z+side*SKATE_LOOP.width*.5;
@@ -291,9 +291,14 @@ export function createWorldSkateGrove(scene:THREE.Scene,support:(p:Point)=>numbe
   for(const x of [SKATE_LOOP.center.x-SKATE_LOOP.radius,
     SKATE_LOOP.center.x+SKATE_LOOP.radius]){
    // Buttressed on the outside; no vertical posts in the center riding lane.
-   const foot=ride({x,z})+.025;
-   loopStruts.push(beam(new THREE.Vector3(x,foot,z),
-    new THREE.Vector3(x,loopBase+SKATE_LOOP.radius*.78,z),.10));
+   const outsideZ=z+side*.58;
+   const foot=terrainHeight(x,outsideZ)+.06;
+   loopStruts.push(beam(new THREE.Vector3(x,foot,outsideZ),
+    new THREE.Vector3(x,loopBase+SKATE_LOOP.radius*.83,z),.15));
+   // Angled root-like braces hold up the giant circular timber ribs.
+   loopStruts.push(beam(new THREE.Vector3(x,foot,outsideZ+side*.35),
+    new THREE.Vector3(x-(x<SKATE_LOOP.center.x?.7:-.7),
+     loopBase+SKATE_LOOP.radius*.53,z),.11));
   }
  }
  for(let i=0;i<48;i++){
@@ -306,6 +311,70 @@ export function createWorldSkateGrove(scene:THREE.Scene,support:(p:Point)=>numbe
  pooled("loop-timber-safety-edges",loopCoping,metal);
  pooled("loop-crossgrain-planks",loopSlats,grain);
  pooled("loop-exterior-buttresses",loopStruts,darkTimber);
+
+ // The outer stump becomes genuine rugged sequoia bark. This annular shell
+ // hugs only the OUTSIDE of the drivable rim and fades into terrain: no roof,
+ // invisible collider, or bark slab occupying the carved bowl interior.
+ const barkVertices:number[]=[],barkFaces:number[]=[],barkColors:number[]=[];
+ const barkLight=new THREE.Color("#82543a"),barkDark=new THREE.Color("#35271f");
+ const barkMix=new THREE.Color(),barkAzimuths=128,barkRings=10;
+ for(let k=0;k<=barkAzimuths;k++){
+  const a=k*2*Math.PI/barkAzimuths;
+  const split=Math.abs(Math.atan2(Math.sin(a-.15),Math.cos(a-.15)));
+  for(let j=0;j<=barkRings;j++){
+   const f=j/barkRings,r=REDWOOD_BOWL.rimRadius+.18+
+    f*(REDWOOD_BOWL.barkRadius-REDWOOD_BOWL.rimRadius+.24);
+   const p={x:REDWOOD_BOWL.center.x+r*Math.cos(a),
+    z:REDWOOD_BOWL.center.z+r*Math.sin(a)};
+   const flare=.028*Math.sin(a*27+f*4)+.022*Math.cos(a*43-f*8);
+   // Near the open eastern roll-in, recess the bark skin completely.
+   const rise=split<.43?0:.025+.028*Math.max(0,flare);
+   barkVertices.push(p.x,ride(p)+rise,p.z);
+   const grain=.47+.26*Math.sin(a*37+f*1.5)+.12*Math.cos(a*59-f*5);
+   barkMix.copy(barkDark).lerp(barkLight,THREE.MathUtils.clamp(grain,0,1));
+   barkColors.push(barkMix.r,barkMix.g,barkMix.b);
+  }
+ }
+ for(let k=0;k<barkAzimuths;k++)for(let j=0;j<barkRings;j++){
+  const a=k*(barkRings+1)+j,b=a+1,d=a+barkRings+1;
+  barkFaces.push(a,b,d,b,d+1,d);
+ }
+ const barkG=geometry(new THREE.BufferGeometry());
+ barkG.setAttribute("position",new THREE.Float32BufferAttribute(barkVertices,3));
+ barkG.setAttribute("color",new THREE.Float32BufferAttribute(barkColors,3));
+ barkG.setIndex(barkFaces);barkG.computeVertexNormals();
+ const bowlBark=new THREE.Mesh(barkG,material("#ffffff",
+  {vertexColors:true,side:THREE.DoubleSide,roughness:1}));
+ bowlBark.name="stump-bowl-outer-bark-apron";
+ bowlBark.castShadow=false;bowlBark.receiveShadow=true;group.add(bowlBark);
+ const stumpFlutes:Part[]=[],stumpRoots:Part[]=[];
+ for(let j=0;j<72;j++){
+  const a=(j+.5)*Math.PI*2/72;
+  if(Math.abs(Math.atan2(Math.sin(a-.15),Math.cos(a-.15)))<.46)continue;
+  for(let k=0;k<10;k++){
+   const r1=REDWOOD_BOWL.rimRadius+.27+
+    k*(REDWOOD_BOWL.barkRadius-REDWOOD_BOWL.rimRadius)/10;
+   const r2=r1+(REDWOOD_BOWL.barkRadius-REDWOOD_BOWL.rimRadius)/10;
+   const sample=(r:number)=>{
+    const p={x:REDWOOD_BOWL.center.x+r*Math.cos(a),
+     z:REDWOOD_BOWL.center.z+r*Math.sin(a)};
+    return onRide(p,.07);
+   };
+   stumpFlutes.push(beam(sample(r1),sample(r2),.018+(j%7)*.005));
+  }
+  if(j%5===0){
+   const r=REDWOOD_BOWL.barkRadius-.27;
+   const aPoint={x:REDWOOD_BOWL.center.x+r*Math.cos(a),
+    z:REDWOOD_BOWL.center.z+r*Math.sin(a)};
+   const endR=r+.55;
+   const bPoint={x:REDWOOD_BOWL.center.x+endR*Math.cos(a+.055),
+    z:REDWOOD_BOWL.center.z+endR*Math.sin(a+.055)};
+   stumpRoots.push(beam(onRide(aPoint,.03),
+    new THREE.Vector3(bPoint.x,terrainHeight(bPoint.x,bPoint.z)+.02,bPoint.z),.095));
+  }
+ }
+ pooled("stump-bowl-longitudinal-bark",stumpFlutes,darkTimber);
+ pooled("stump-bowl-flared-roots",stumpRoots,bark);
  const landmarkGroup=new THREE.Group();
  landmarkGroup.name="sequoia-tunnel-and-timber-loop";
  for(const child of group.children.slice(landmarkStart))
