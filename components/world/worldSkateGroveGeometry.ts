@@ -222,7 +222,7 @@ export function createWorldSkateGrove(scene:THREE.Scene,support:(p:Point)=>numbe
  const sequoiaEndGrain:Part[]=[],barkFlutes:Part[]=[],brokenRoots:Part[]=[];
  for(const side of [-1,1]){
   const x=GROVE_TUNNEL.center.x+side*GROVE_TUNNEL.halfLength;
-  for(const weight of [.15,.38,.68,.93])for(let j=0;j<archSlices;j++){
+  for(const weight of [.18,.54,.91])for(let j=0;j<archSlices;j++){
    const a=-archExtent+j*2*archExtent/archSlices,b=a+2*archExtent/archSlices;
    const wood=(angle:number)=>treePoint(x,angle,false)
     .lerp(treePoint(x,angle,true),weight);
@@ -236,10 +236,10 @@ export function createWorldSkateGrove(scene:THREE.Scene,support:(p:Point)=>numbe
     new THREE.Vector3(rootX,terrainHeight(rootX,rootZ)+.08,rootZ),.17));
   }
  }
- for(let j=0;j<30;j++){
-  const a=-archExtent+.10+j*(archExtent*2-.20)/29;
+ for(let j=0;j<20;j++){
+  const a=-archExtent+.10+j*(archExtent*2-.20)/19;
   let last:THREE.Vector3|null=null;
-  for(let ix=0;ix<=logSlices;ix++){
+  for(let ix=0;ix<=logSlices;ix+=2){
    const x=GROVE_TUNNEL.center.x-GROVE_TUNNEL.halfLength+
     ix*GROVE_TUNNEL.halfLength*2/logSlices;
    const p=treePoint(x,a,true);
@@ -348,13 +348,13 @@ export function createWorldSkateGrove(scene:THREE.Scene,support:(p:Point)=>numbe
  bowlBark.name="stump-bowl-outer-bark-apron";
  bowlBark.castShadow=false;bowlBark.receiveShadow=true;group.add(bowlBark);
  const stumpFlutes:Part[]=[],stumpRoots:Part[]=[];
- for(let j=0;j<72;j++){
-  const a=(j+.5)*Math.PI*2/72;
+ for(let j=0;j<56;j++){
+  const a=(j+.5)*Math.PI*2/56;
   if(Math.abs(Math.atan2(Math.sin(a-.15),Math.cos(a-.15)))<.46)continue;
-  for(let k=0;k<10;k++){
+  for(let k=0;k<7;k++){
    const r1=REDWOOD_BOWL.rimRadius+.27+
-    k*(REDWOOD_BOWL.barkRadius-REDWOOD_BOWL.rimRadius)/10;
-   const r2=r1+(REDWOOD_BOWL.barkRadius-REDWOOD_BOWL.rimRadius)/10;
+    k*(REDWOOD_BOWL.barkRadius-REDWOOD_BOWL.rimRadius)/7;
+   const r2=r1+(REDWOOD_BOWL.barkRadius-REDWOOD_BOWL.rimRadius)/7;
    const sample=(r:number)=>{
     const p={x:REDWOOD_BOWL.center.x+r*Math.cos(a),
      z:REDWOOD_BOWL.center.z+r*Math.sin(a)};
