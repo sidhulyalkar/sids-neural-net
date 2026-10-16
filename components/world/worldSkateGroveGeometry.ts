@@ -143,6 +143,9 @@ export function createWorldSkateGrove(scene:THREE.Scene,support:(p:Point)=>numbe
  surface.castShadow=false;surface.receiveShadow=true;
  group.add(surface);
 
+ // The new landmark art is one semantic scene group. Root child count stays
+ // within the original low-draw / easy-disposal contract.
+ const landmarkStart=group.children.length;
  // Giant fallen sequoia: actually hollow. Both mouths stay open and the
  // existing polished split-log channel is the only physical ground contact.
  // The closed upper arch has >3 world units of headroom at its crown.
@@ -265,6 +268,11 @@ export function createWorldSkateGrove(scene:THREE.Scene,support:(p:Point)=>numbe
  pooled("loop-timber-safety-edges",loopCoping,metal);
  pooled("loop-crossgrain-planks",loopSlats,grain);
  pooled("loop-exterior-buttresses",loopStruts,darkTimber);
+ const landmarkGroup=new THREE.Group();
+ landmarkGroup.name="sequoia-tunnel-and-timber-loop";
+ for(const child of group.children.slice(landmarkStart))
+  landmarkGroup.add(child);
+ group.add(landmarkGroup);
 
  // The dark bark shoulder is painted on this SINGLE sampled riding mesh.
  // No intersecting decorative shell, hidden fascia or extra draw call.
