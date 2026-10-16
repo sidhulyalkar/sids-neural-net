@@ -57,7 +57,9 @@ export function advanceSkateLoop(
  const slices=Math.ceil(total/.025);
  const step=total/slices;
  for(let i=0;i<slices&&angle<TAU;i++){
-  speed=Math.max(3.9,speed+(-6.0*Math.sin(angle)-.14)*step);
+  // The larger timber ring needs enough assisted contact speed to stay
+  // inverted without demanding expert pumping from the visitor.
+  speed=Math.max(5.1,speed+(-6.0*Math.sin(angle)-.14)*step);
   angle=Math.min(TAU,angle+speed*step/SKATE_LOOP.radius);
  }
  return {
