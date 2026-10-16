@@ -4489,9 +4489,13 @@ export function createWorld(
         "redwood-bowl":"REDWOOD BOWL",
         "timber-quarter":"TIMBER HALFPIPE",
         "stump-pad":"STUMP GARDEN",
+        "sequoia-tunnel":"HOLLOW SEQUOIA",
+        "timber-loop":"360° TIMBER LOOP",
         street:"SKATE GROVE",apron:"SKATE GROVE",
       } as const)[skateParkZone(player)]:"ISLAND RIDE";
-      const skateStatus=skateTrick.phase==="air"?
+      const skateStatus=skateLoopRide?
+        "360° TIMBER LOOP · "+Math.round(skateLoopRide.angle/Math.PI*180)+"° · HOLD YOUR LINE":
+        skateTrick.phase==="air"?
         (skateTrick.name??"Trick")+(skateTrick.spinDegrees?" + "+Math.abs(skateTrick.spinDegrees)+"°":"")+" · land clean":
         skateTrick.manual!=="none"?
         (skateTrick.manual==="manual"?"MANUAL":"NOSE MANUAL")+" · "+skateTrick.manualDistance.toFixed(1)+" m":
@@ -4744,6 +4748,11 @@ export function createWorld(
         targetLook.set(player.x+Math.sin(jetSki.heading)*ahead,
           SEA_SURFACE+lookHeight+jetSki.waterHeight+jetSki.jumpHeight*.55,
           player.z+Math.cos(jetSki.heading)*ahead);
+      } else if(skateLoopRide){
+        // A stable outside-camera reads the whole vertical circle and the
+        // skater's inversion; the moving chase boom would intersect the ring.
+        targetLook.set(SKATE_LOOP.center.x,
+          skateLoopRide.baseY+SKATE_LOOP.radius+1.1,SKATE_LOOP.center.z);
       } else if (cavernFraming) {
         targetLook.set(arcadeWall.x, arcadeWallY + 2.05, arcadeWall.z - 0.5);
       } else if (rainforestFraming) {
@@ -4802,6 +4811,10 @@ export function createWorld(
         targetCamera.set(player.x-Math.sin(h)*13+Math.cos(h)*2.4,
           SEA_SURFACE+7.6+jetSki.waterHeight*.4+jetSki.jumpHeight*.75,
           player.z-Math.cos(h)*13-Math.sin(h)*2.4);
+      } else if(skateLoopRide){
+        targetCamera.set(SKATE_LOOP.center.x+5.8,
+          skateLoopRide.baseY+SKATE_LOOP.radius+5.6,
+          SKATE_LOOP.center.z+10.4);
       } else if (cavernFraming) {
         // Keep the third-person boom centered inside the authored tunnel.
         // A lower eye line prevents the roof from swallowing the frame while
@@ -5778,7 +5791,8 @@ export function createWorld(
     }else{
       // Fast enough to keep the flying disc on screen, with smooth
       // cinematic blends instead of jumping between subjects.
-      const cinematicRate=discGolf.phase!=="off"&&discFetch.phase==="flight"?8:
+      const cinematicRate=skateLoopRide?7.8:
+        discGolf.phase!=="off"&&discFetch.phase==="flight"?8:
         discGolf.phase!=="off"&&discFetch.phase!=="idle"?5.2:3.6;
       camera.position.lerp(targetCamera, 1 - Math.exp(-dt * cinematicRate));
       look.lerp(targetLook, 1 - Math.exp(-dt * (cinematicRate+.4)));
