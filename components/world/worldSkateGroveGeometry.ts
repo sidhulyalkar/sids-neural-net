@@ -375,6 +375,31 @@ export function createWorldSkateGrove(scene:THREE.Scene,support:(p:Point)=>numbe
  }
  pooled("stump-bowl-longitudinal-bark",stumpFlutes,darkTimber);
  pooled("stump-bowl-flared-roots",stumpRoots,bark);
+ // Thin fallen bark, sequoia needles and broken grain surround the grove.
+ // Everything stays below board height and outside the reserved stunt lanes.
+ // No added floor collision, shaders, random streams, or expensive draw calls.
+ const barkLitter:Part[]=[],needleLitter:Part[]=[];
+ for(let i=0;i<310;i++){
+  const u=((i*73)%307)/307,v=((i*113+17)%311)/311;
+  const side=i%4;
+  const x=side===0?SKATE_PARK.center.x-SKATE_PARK.halfWidth+.7+u*2.0:
+   side===1?SKATE_PARK.center.x+SKATE_PARK.halfWidth-.7-u*1.5:
+   SKATE_PARK.center.x-SKATE_PARK.halfWidth+u*SKATE_PARK.halfWidth*2;
+  const z=side===2?SKATE_PARK.center.z-SKATE_PARK.halfDepth+.45+v*1.9:
+   side===3?SKATE_PARK.center.z+SKATE_PARK.halfDepth-.45-v*1.9:
+   SKATE_PARK.center.z-SKATE_PARK.halfDepth+v*SKATE_PARK.halfDepth*2;
+  const p={x,z},zone=skateParkZone(p);
+  if(zone==="sequoia-tunnel"||zone==="timber-loop"||
+   zone==="redwood-bowl"||zone==="timber-quarter"||
+   zone==="stump-pad")continue;
+  const floor=ride(p)+.044;
+  const a=i*2.399,r=.075+(i%8)*.029;
+  const end=new THREE.Vector3(x+Math.cos(a)*r,floor+.004,z+Math.sin(a)*r);
+  const start=new THREE.Vector3(x,floor,z);
+  (i%3===0?barkLitter:needleLitter).push(beam(start,end,i%3===0?.019:.007));
+ }
+ pooled("grove-fallen-bark-fragments",barkLitter,darkTimber);
+ pooled("grove-needle-duff",needleLitter,bark);
  const landmarkGroup=new THREE.Group();
  landmarkGroup.name="sequoia-tunnel-and-timber-loop";
  for(const child of group.children.slice(landmarkStart))
