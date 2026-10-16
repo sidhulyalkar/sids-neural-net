@@ -74,6 +74,18 @@ export const SKATE_LOOP={
  supportThickness:.24,
 } as const;
 
+/** Old-growth framing trees stay OUTSIDE the rideable meadow and use the
+ * World tree renderer's same visible trunk + navigation obstacle contract.
+ * Water positions are skipped by the caller. No decorative phantom trunks. */
+export const SKATE_GROVE_FRAME_TREES=[
+ {x:-18.7,z:24.0,h:23,r:1.15},
+ {x:-8.0,z:23.7,h:27,r:1.22},
+ {x:-1.0,z:23.0,h:20,r:.95},
+ {x:11.6,z:33.8,h:20,r:1.00},
+ {x:12.6,z:45.1,h:24,r:1.12},
+ {x:10.8,z:52.3,h:19,r:.90},
+] as const;
+
 export const GROVE_BRIDGE={center:{x:-10,z:49},halfLength:4.2,halfWidth:1.05} as const;
 export const GROVE_STONES=[
  {x:-10,z:47.4,rx:2.0,rz:.72,height:.82},
