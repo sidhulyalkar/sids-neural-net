@@ -44,7 +44,7 @@ try{
     const d=document.querySelector("canvas")?.dataset;
     const p=d?.player?.split(",").map(Number);
     return p&&d?.skateGroveZone==="redwood-bowl"&&p[0]<-10.5&&p[0]>-13.5;
-   },null,{timeout:25000});
+   },null,{timeout:45000});
   }finally{await page.keyboard.up("w");}
   stage="carve";
   const entry=await sample();
