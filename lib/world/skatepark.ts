@@ -18,7 +18,11 @@ export function insideSkatePark(p:Point,margin=0):boolean {
  * We raise the exterior wall around a smooth central floor, rather than clip
  * a negative hole under the natural ground. The wood/bark are visual skins,
  * never a hidden second collidable surface. */
-export const REDWOOD_BOWL={center:{x:-12,z:40},rimRadius:5.4,barkRadius:6.5} as const;
+export const REDWOOD_BOWL={
+ center:{x:-12,z:40},rimRadius:5.65,barkRadius:6.85,
+ floorRadius:2.12,bankHeight:2.62,
+ // Authoritative bank remains C1; exterior root/fluting art is decorative.
+} as const;
 /**
  * The default first push points straight through the split redwood roll-in.
  * Stops describe an optional free-riding path, not rails or an autopilot.
@@ -46,20 +50,28 @@ export const STUMP_PADS=[
 ] as const;
 /** Reference-inspired woodland features. Open split log and solid-backed bridge
  * deliberately use a single heightfield: no invisible tunnel/overpass collider. */
-export const GROVE_LOG={center:{x:-11,z:30.7},halfLength:4.4,halfWidth:1.5} as const;
+export const GROVE_LOG={center:{x:-11,z:30.7},halfLength:5.35,halfWidth:2.12} as const;
 /** Ride-through giant sequoia: the existing open log remains the ONLY wheel
  * support. Its shell is hollow, with open ends and no invisible roof collider.
  * The inner crown clears the standing avatar while bark stays outside the lane. */
 export const GROVE_TUNNEL={
  center:GROVE_LOG.center,halfLength:GROVE_LOG.halfLength,
- innerRadius:2.05,outerRadius:2.37,archCenterLift:1.12,
+ // A broad elliptical bore, gently tapered like a true fallen tree.
+ innerRadius:2.85,outerRadius:3.32,
+ innerHalfWidth:2.61,outerHalfWidth:3.09,
+ archCenterLift:1.53,archExtent:2.12,
+ taper:.09,
+ // Central polished floor is clear; exterior rings never cap the entrances.
+ clearFloorHalfWidth:1.36,
 } as const;
 /** Vertical timber loop is NOT a heightfield: a single-valued ground profile
  * cannot represent both the bottom and the inverted crown. Its dedicated
  * rail traversal provides the 3D wheel/contact pose, then returns to roam. */
 export const SKATE_LOOP={
- center:{x:-2.3,z:44.2},radius:2.15,width:2.35,
- minEntrySpeed:8.4,entryHalfWidth:.82,
+ center:{x:-1.65,z:44.1},radius:3.75,width:3.45,
+ minEntrySpeed:8.4,entryHalfWidth:1.27,
+ // The rider uses the same 3D centerline as the planked mesh.
+ supportThickness:.24,
 } as const;
 
 export const GROVE_BRIDGE={center:{x:-10,z:49},halfLength:4.2,halfWidth:1.05} as const;
@@ -76,8 +88,12 @@ export function groveBridgeRise(p:Point):number{
 export function groveLogRise(p:Point):number{
  const u=Math.abs(p.x-GROVE_LOG.center.x)/GROVE_LOG.halfLength;
  const v=Math.abs(p.z-GROVE_LOG.center.z)/GROVE_LOG.halfWidth;
- // Concave cross section, eased ends, and low outer bark shoulders.
- return 1.12*smooth(v)*(1-smooth((v-1)/.5))*(1-smooth((u-.65)/.35));
+ // A wide, completely clear polished riding floor. Rise begins outside the
+ // central bore, easing up the exposed wood shoulders without an artificial
+ // wall, a canopy collider, or a wheel-catching seam at either end.
+ const shoulder=smooth((v-.64)/.36)*(1-smooth((v-1)/.48));
+ const end=1-smooth((u-.79)/.21);
+ return 1.14*shoulder*end;
 }
 export function groveStoneRise(p:Point):number{
  return GROVE_STONES.reduce((height,rock)=>Math.max(height,rock.height*
@@ -107,11 +123,13 @@ export function skateParkZone(p:Point):SkateParkZone{
 export function redwoodBowlBankRise(p:Point):number{
  const r=Math.hypot(p.x-REDWOOD_BOWL.center.x,p.z-REDWOOD_BOWL.center.z);
  const az=Math.atan2(p.z-REDWOOD_BOWL.center.z,p.x-REDWOOD_BOWL.center.x);
- const organic=1+.043*Math.sin(az*7+.5)+.021*Math.sin(az*11-1.1);
- // A wider carved floor lets the interior read as a hollow tree rather
- // than a raised platter. C1 smooth walls climb only outside radius 2.05.
- const bank=2.05*organic*smooth((r-2.05)/3.35)*
-  (1-smooth((r-REDWOOD_BOWL.rimRadius)/1.36));
+ const organic=1+.035*Math.sin(az*7+.5)+.018*Math.sin(az*11-1.1);
+ // Deeper and wider than v1: polished stump floor, tall carved banking and
+ // soft external roots. The actual wheel support stays a single C1 profile.
+ const bank=REDWOOD_BOWL.bankHeight*organic*
+  smooth((r-REDWOOD_BOWL.floorRadius)/
+    (REDWOOD_BOWL.rimRadius-REDWOOD_BOWL.floorRadius))*
+  (1-smooth((r-REDWOOD_BOWL.rimRadius)/1.38));
  const opening=smooth((p.x+9)/2.5)*(1-smooth(Math.abs(p.z-40.8)/2.15));
  return bank*(1-.66*opening);
 }
