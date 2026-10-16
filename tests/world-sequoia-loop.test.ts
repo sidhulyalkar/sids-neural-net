@@ -11,7 +11,7 @@ import {
 import {idleSkateTrick,scoreSkateLoop} from "../lib/world/skateTricks";
 
 const C=SKATE_LOOP.center;
-const entry=(x:number,z=C.z)=>({x:C.x+x,z});
+const entry=(x:number,z:number=C.z)=>({x:C.x+x,z});
 const left={x:-1,z:0},right={x:1,z:0};
 
 test("sequoia bore follows the existing open, fully traversable log trough",()=>{
