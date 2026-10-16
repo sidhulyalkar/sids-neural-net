@@ -121,6 +121,13 @@ export function finishSkateManual(state:SkateTrickState,now:number):SkateTrickSt
  const label=manual==="manual"?"Manual":"Nose manual";
  return award(base,label,Math.round(manualDistance*13+45),now);
 }
+/** Completing the entire authored inversion is a skate line, not a new
+ * minigame. Partial rotations, teleports and non-skate approaches earn nothing. */
+export function scoreSkateLoop(state:SkateTrickState,now:number,speed:number):SkateTrickState{
+ if(state.phase!=="ground"||!Number.isFinite(now)||!Number.isFinite(speed))return state;
+ return award(state,"Sequoia Loop 360°",420+Math.round(Math.min(18,Math.max(0,speed))*8),now);
+}
+
 /** Grinding scores only covered distance; a camera-nearby rail never scores. */
 export function scoreSkateGrind(state:SkateTrickState,meters:number,style:"fifty-fifty"|"boardslide",now:number):SkateTrickState{
  if(!Number.isFinite(meters)||meters<.5||state.phase!=="ground")return state;
