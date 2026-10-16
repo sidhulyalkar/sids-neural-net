@@ -1193,10 +1193,7 @@ export function createWorld(
       rx:h.radius+.2,ry:h.height*.55+.2,rz:h.radius+.2,
     })),
   ];
-  const cameraVisibility=new CameraVisibilityField([
-    ...cameraCanopies,...habitats.cameraOccluders,...cameraRocks,
-  ]);
-  canvas.dataset.discGolfCameraVolumes=String(
+   canvas.dataset.discGolfCameraVolumes=String(
     cameraCanopies.length+habitats.cameraOccluders.length+cameraRocks.length);
   const technicalFeatures = createTechnicalGeometry(scene);
   const flyingBirds=createBigAirBirds(scene);
@@ -1215,6 +1212,13 @@ export function createWorld(
   // Explorer root carries world/terrain orientation. bodyRoot carries the human pose
   // independently so swimming and bike seating do not rotate/offset the equipment.
   const sceneryCamera=createWorldCameraOcclusion(scene);
+  // One solve against the union is essential. Solving authored foliage and
+  // rendered scenery in sequence can produce a pose that clears one field
+  // while moving directly behind an obstacle in the other.
+  const cameraVisibility=new CameraVisibilityField([
+    ...cameraCanopies,...habitats.cameraOccluders,...cameraRocks,
+    ...sceneryCamera.volumes,
+  ]);
   canvas.dataset.discGolfRenderedVolumes=String(sceneryCamera.count);
   const explorer = new THREE.Group();
   const bodyRoot = new THREE.Group();
@@ -3726,10 +3730,17 @@ export function createWorld(
             jetNoticeUntil=elapsed+.85;
           }
         }else{
-          jetSki=stepJetSkiRace(jetSki,dt,drive,
-            jetSkiNavigableWater,jetRideMode==="race");
-          jetRivals=jetRivals.map(rival=>stepJetSkiRace(
-            rival,dt,jetSkiOpponentInput(rival),jetSkiNavigableWater));
+          // A slow WebGL frame must not make the jet ski steer or accelerate
+          // in slow motion. Integrate actual elapsed time in safe substeps.
+          let jetRemaining=Math.max(0,Math.min(rawDelta,.35));
+          while(jetRemaining>1e-8){
+            const slice=Math.min(jetRemaining,.05);
+            jetSki=stepJetSkiRace(jetSki,slice,drive,
+              jetSkiNavigableWater,jetRideMode==="race");
+            jetRivals=jetRivals.map(rival=>stepJetSkiRace(
+              rival,slice,jetSkiOpponentInput(rival),jetSkiNavigableWater));
+            jetRemaining-=slice;
+          }
         }
         if(jetRideMode==="race"&&jetSki.phase!==previousPhase&&jetSki.phase==="finished"){
           if(jetSessionBest===null||jetSki.elapsed<jetSessionBest)
@@ -5018,13 +5029,10 @@ export function createWorld(
           Math.hypot(old.focus.x-focus.x,old.focus.y-focus.y,
             old.focus.z-focus.z)>.30;
         if(needed){
-          const authored=cameraVisibility.resolve(
+          const result=cameraVisibility.resolve(
             {x:targetCamera.x,y:targetCamera.y,z:targetCamera.z},
             focus,(x,z)=>worldFloorHeight(x,z),
             old?.position);
-          const result=sceneryCamera.field.resolve(authored.point,focus,
-            (x,z)=>worldFloorHeight(x,z),old?.position);
-          result.adjusted ||= authored.adjusted;
           lastDiscCameraSolve={
             desired:targetCamera.clone(),focus:new THREE.Vector3(focus.x,focus.y,focus.z),
             position:new THREE.Vector3(result.point.x,result.point.y,result.point.z),
@@ -5707,7 +5715,7 @@ export function createWorld(
     // the blend are clear. Reject that intermediate pose and snap onto the
     // validated shot so a second throw is never framed from inside a leaf.
     if(lastDiscCameraSolve){
-      if(!sceneryCamera.field.clear(camera.position,lastDiscCameraSolve.focus)){
+      if(!cameraVisibility.clear(camera.position,lastDiscCameraSolve.focus)){
         camera.position.copy(lastDiscCameraSolve.position);
         look.copy(targetLook);
       }
@@ -5740,8 +5748,12 @@ export function createWorld(
       const projected=lastDiscCameraSolve.focus.clone().project(camera);
       canvas.dataset.discGolfPlayerFramed=String(Math.abs(projected.x)<.9&&
         Math.abs(projected.y)<.85&&projected.z>-1&&projected.z<1);
-      // Every remaining volume intersecting the silhouette is cut away.
-      canvas.dataset.discGolfRenderedCameraClear="true";
+      // Report the actual rendered-scenery visibility after local cutaways.
+      // Do not overwrite the diagnostic with an unconditional success.
+      const obstructing=sceneryCamera.field.blockingIndices(
+        camera.position,lastDiscCameraSolve.focus).length;
+      canvas.dataset.discGolfRenderedCameraClear=String(
+        obstructing===0||cutawayCount>=obstructing);
     }
     // Projection diagnostics are read-only: the raycast still decides whether
     // a real click has struck an unoccluded target in the current camera.
