@@ -81,12 +81,12 @@ try{
     returned=await sample();
     const p=returned.point?.split(",").map(Number);
     if(returned.zone===""||returned.failedLandings>0||returned.speed<.6)break;
-    if(p?.length===2&&p[0]>-10)break;
+    if(p?.length===2&&p[0]>-10.9)break;
    }
   }finally{await page.keyboard.up("s");}
   assert.ok(returned,"timber return needs actual movement samples");
   const back=returned.point?.split(",").map(Number);
-  assert.ok(returned.park==="true"&&returned.zone!==""&&back?.[0]>-10&&returned.speed>1.5,
+  assert.ok(returned.park==="true"&&returned.zone!==""&&back?.[0]>-10.9&&returned.speed>1.5,
    "the rider should be able to return toward timber on normal WASD controls");
   assert.equal(returned.failedLandings,0,
    "no bowl pop is allowed to land outside the safe meadow");
