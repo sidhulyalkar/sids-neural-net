@@ -21,7 +21,13 @@ try{
  await page.goto(base);
  // World rendering is lazy: the welcome page intentionally has no canvas
  // before the visitor chooses Explore. Waiting for frames first deadlocks.
- await page.getByRole("button",{name:/Explore world/}).click();
+ for(let attempt=0;attempt<5;attempt++){
+  await page.getByRole("button",{name:/Explore world/}).click();
+  try{
+   await page.waitForFunction(()=>document.querySelector("[data-world-state]")?.getAttribute("data-world-state")==="exploring",null,{timeout:5000});
+   break;
+  }catch(error){if(attempt===4)throw error;}
+ }
  try{
   await page.waitForFunction(()=>
    Number(document.querySelector("canvas")?.dataset.drawCalls)>0,
