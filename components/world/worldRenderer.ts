@@ -1,10 +1,11 @@
 import {createWorldSkimSurf} from "./worldSkimSurfGeometry";
 import { desertTrackTreadBlend, desertTrackSampleAt, DESERT_GAP_DEBRIS, DESERT_JUMPS, DESERT_TRACK_LENGTH } from "@/lib/world/desertTrack";
-import {insideSkatePark,skateParkZone,skateGroveStartHeading} from "@/lib/world/skatepark";
+import {insideSkatePark,skateParkZone,skateGroveStartHeading,SKATE_LOOP} from "@/lib/world/skatepark";
+import {beginSkateLoop,skateLoopEntryCrossing,advanceSkateLoop,skateLoopSample,type SkateLoopRide} from "@/lib/world/skateLoop";
 import {createWorldSkateGrove} from "./worldSkateGroveGeometry";
 import {skateLean} from "@/lib/world/skateDynamics";
 import {selectAssistedSkateTrick,assistedSkateSpin} from "@/lib/world/skateAssist";
-import {idleSkateTrick,startSkateTrick,finishSkateTrick,setSkateGrab,skateTrickPose,flickTrick,scoreSkateGrind,queueSkateSpin,startSkateManual,stepSkateManual,finishSkateManual,type SkateTrickName,type SkateTrickState} from "@/lib/world/skateTricks";
+import {idleSkateTrick,startSkateTrick,finishSkateTrick,setSkateGrab,skateTrickPose,flickTrick,scoreSkateGrind,scoreSkateLoop,queueSkateSpin,startSkateManual,stepSkateManual,finishSkateManual,type SkateTrickName,type SkateTrickState} from "@/lib/world/skateTricks";
 import { JOSHUA_GATES, armJoshuaTrial, abortJoshuaTrial, tickJoshuaTrial, type TrialState } from "@/lib/world/trials";
 import { createFishGeometry, createFishBodyGeometry, createCaudalFinGeometry, createDorsalFinGeometry, createPectoralFinGeometry, createSharkGeometry, createRayWingGeometry } from "./worldFaunaGeometry";
 import { createReefGarden } from "./worldReef";
@@ -2980,6 +2981,8 @@ export function createWorld(
   // Measured real touchdown, never inferred from the rim prediction.
   let skateBowlFlightActive=false,skateBowlLandings=0,skateBowlFailedLandings=0;
   let skateBowlLastLanding="",skateBowlLastLandingSpeed=0;
+  let skateLoopRide:SkateLoopRide|null=null;
+  let skateLoopEntries=0,skateLoopCompletions=0,lastSkateLoopEnd=-Infinity;
   function commitSkateTrick(next:SkateTrickState){
     const previous=skateTrick;
     if(previous===next)return;
@@ -3021,6 +3024,7 @@ export function createWorld(
     skimHeat=idleSkimHeat();callbacks.onSkim(skimHeat);
     lastDiscCameraSolve=null;sceneryCamera.restore();
     clearInput();resetRideBoost();destination=null;climb=grind=null;
+    skateLoopRide=null;lastSkateLoopEnd=elapsed;
     airHeight=verticalSpeed=0;travel={...travel,speed:0};
     if(isWater(player)&&jetSkiPierHeight(player)===null){
       swimDepth=targetDepth=0;setAquaticMode("surface");playerY=SEA_SURFACE-.42;
@@ -3511,7 +3515,7 @@ export function createWorld(
     if(state.activity!=="skate"||!state.entered||state.paused||document.hidden||
       aquatic!=="land"||jetSki||jetChoosing||discGolf.phase!=="off"||
       trial.phase==="armed"||trial.phase==="running"||
-      bigAir.phase==="flying"||bigAir.phase==="armed"||climb||
+      bigAir.phase==="flying"||bigAir.phase==="armed"||climb||skateLoopRide||
       (airHeight>.08&&verticalSpeed<=0)||skateTrick.phase==="air")return;
     const naturalFlight=airHeight>.025&&verticalSpeed>0;
     if(grind)grind=null; // pop off a rail instead of locking the player on it
@@ -3541,6 +3545,7 @@ export function createWorld(
     }
   }
   function performAction() {
+    if(skateLoopRide)return; // no concurrent grind, pop, or minigame in the inversion
     if(skimHeat.phase==="riding"){doSkimAction("pop");return;}
     if(skimHeat.phase==="ready"){doSkimAction("drop");return;}
     if(skimHeat.phase!=="off")return;
@@ -3959,6 +3964,20 @@ export function createWorld(
         explorer.rotation.y = Math.atan2(climb.to.x - climb.from.x, climb.to.z - climb.from.z);
         if (climb.progress === 1) climb = null;
         travel = { ...travel, point: player, speed: 0 };
+      } else if (skateLoopRide) {
+        // Dedicated 3D wheel contact; normal groundHeight has no upside-down
+        // layer. Bounded real-time slices preserve the stunt on slow devices.
+        const advanced=advanceSkateLoop(skateLoopRide,rawDelta);
+        skateLoopRide=advanced.ride;
+        const pose=skateLoopSample(advanced.ride);
+        player=pose.point;playerY=pose.y;
+        travel={point:player,speed:advanced.ride.speed,heading:{x:-1,z:0}};
+        airHeight=verticalSpeed=0;
+        if(advanced.completed){
+          skateLoopRide=null;lastSkateLoopEnd=elapsed;
+          skateLoopCompletions++;
+          commitSkateTrick(scoreSkateLoop(skateTrick,elapsed,travel.speed));
+        }
       } else if (grind) {
         const dxLog = grind.log.b.x - grind.log.a.x;
         const dzLog = grind.log.b.z - grind.log.a.z;
@@ -4091,12 +4110,27 @@ export function createWorld(
           airHeight = verticalSpeed = 0;
         }
         player = travel.point;
+        if(state.activity==="skate"&&caveLayer==="surface"&&
+          aquatic==="land"&&!skateLoopRide&&!grind&&airHeight<=.001&&
+          skateTrick.phase==="ground"&&elapsed-lastSkateLoopEnd>1.4&&
+          skateLoopEntryCrossing(previousPoint,player,travel.heading,travel.speed)){
+          skateLoopRide=beginSkateLoop(travel.speed,
+            groundHeight(SKATE_LOOP.center),player.z);
+          const loopStart=skateLoopSample(skateLoopRide);
+          player=loopStart.point;playerY=loopStart.y;
+          travel={point:player,speed:skateLoopRide.speed,heading:{x:-1,z:0}};
+          destination=null;lastRampAt=elapsed;skateLoopEntries++;
+        }
         if(skimHeat.phase==="ready"&&isWater(player)){
           // Carry the board across wet sand, but never switch to swimming
           // before dropping it. This also blocks a stranded ready state.
           player=previousPoint;travel={...travel,point:player,speed:0};
         }
-        if (isWater(player)&&jetSkiPierHeight(player)===null) {
+        if(skateLoopRide){
+          // Starting at the seam retains 3D track support this same frame.
+          playerY=skateLoopSample(skateLoopRide).y;
+          airHeight=verticalSpeed=0;
+        } else if (isWater(player)&&jetSkiPierHeight(player)===null) {
           const steppedIn = !isWater(previousPoint) && airHeight < 0.12;
           if (steppedIn) {
             setAquaticMode("surface");
@@ -4129,7 +4163,7 @@ export function createWorld(
           }
           const modeForRamp = effectiveActivity(
             skimHeat.phase==="ready" ? "run" : state.activity,player);
-          if (bigAir.phase!=="armed" && airHeight === 0 && elapsed - lastRampAt > 1.1) {
+          if (!skateLoopRide && bigAir.phase!=="armed" && airHeight === 0 && elapsed - lastRampAt > 1.1) {
             const ramp = rampImpulseCrossing(
               previousPoint, player, travel.heading, modeForRamp, travel.speed,
             );
@@ -4380,16 +4414,18 @@ export function createWorld(
         const contact = terrainContact(player, travel.heading, footprint.length, footprint.width, supportHeight);
         const gearMode = mode === "bike" || mode === "skate" || mode === "ski";
         const supportLift =
-          gearMode && airHeight <= 0.001 && !climb && !grind
+          gearMode && airHeight <= 0.001 && !climb && !grind && !skateLoopRide
             ? Math.max(0, contact.support - supportHeight(player))
             : 0;
         const pitchAngle = running || climb ? 0 : contact.pitch;
         const rollAngle =
           (gearMode ? contact.roll : 0) +
           (mode === "skate" ? skateCarveLean : 0);
-        explorer.rotation.set(surfing?skimPosePitch:pitchAngle,
+        explorer.rotation.set(skateLoopRide?-skateLoopRide.angle:
+          surfing?skimPosePitch:pitchAngle,
           headingYaw+avatarTurn+(mode==="skate"?trickPose.bodyYaw:0),
-          surfing?skimPoseRoll:rollAngle,surfing?"YXZ":"XYZ");
+          skateLoopRide?0:surfing?skimPoseRoll:rollAngle,
+          skateLoopRide||surfing?"YXZ":"XYZ");
         if (grind) {
           const logDx = grind.log.b.x - grind.log.a.x;
           const logDz = grind.log.b.z - grind.log.a.z;
@@ -4463,7 +4499,12 @@ export function createWorld(
         " PTS · BEST "+skateTrick.best;
       // Avoid 60 identical live-region mutations per second for screen readers.
       if(skateVisible&&skateHud.textContent!==skateStatus)skateHud.textContent=skateStatus;
-      canvas.dataset.skateGrove="redwood-timber-v1";
+      canvas.dataset.skateGrove="redwood-timber-v2";
+      canvas.dataset.skateLoopPhase=skateLoopRide?"inverting":"free";
+      canvas.dataset.skateLoopAngle=(skateLoopRide?.angle??0).toFixed(4);
+      canvas.dataset.skateLoopEntries=String(skateLoopEntries);
+      canvas.dataset.skateLoopCompletions=String(skateLoopCompletions);
+      canvas.dataset.skateLoopSpeed=(skateLoopRide?.speed??0).toFixed(2);
       canvas.dataset.skateBowlExits=String(skateBowlExits);
       canvas.dataset.skateBowlFlight=String(skateBowlFlightActive);
       canvas.dataset.skateBowlLandings=String(skateBowlLandings);
@@ -6202,6 +6243,7 @@ export function createWorld(
           skateTrick={...idleSkateTrick(),best:skateTrick.best};
           skateAssistAttempts=0;skateHasBeenAirborne=false;skateResultAt=-Infinity;
           skateBowlExits=0;skateLastTakeoff="";
+          skateLoopRide=null;lastSkateLoopEnd=elapsed;
         skateBowlFlightActive=false;skateBowlLandings=skateBowlFailedLandings=0;
         skateBowlLastLanding="";skateBowlLastLandingSpeed=0;
         }
@@ -6411,6 +6453,7 @@ export function createWorld(
         skateTrick={...idleSkateTrick(),best:skateTrick.best};
         skateHasBeenAirborne=false;skateCarveLean=0;skateResultAt=-Infinity;
         skateBowlExits=0;skateLastTakeoff="";
+        skateLoopRide=null;lastSkateLoopEnd=elapsed;
         skateBowlFlightActive=false;skateBowlLandings=skateBowlFailedLandings=0;
         skateBowlLastLanding="";skateBowlLastLandingSpeed=0;
         lastSerial = next.command.serial;
