@@ -1,6 +1,6 @@
 import {createWorldSkimSurf} from "./worldSkimSurfGeometry";
 import { desertTrackTreadBlend, desertTrackSampleAt, DESERT_GAP_DEBRIS, DESERT_JUMPS, DESERT_TRACK_LENGTH } from "@/lib/world/desertTrack";
-import {insideSkatePark,skateParkZone,skateGroveStartHeading,SKATE_LOOP,GROVE_TUNNEL} from "@/lib/world/skatepark";
+import {insideSkatePark,skateParkZone,skateGroveStartHeading,SKATE_LOOP,GROVE_TUNNEL,SKATE_GROVE_FRAME_TREES} from "@/lib/world/skatepark";
 import {beginSkateLoop,skateLoopEntryCrossing,advanceSkateLoop,skateLoopSample,type SkateLoopRide} from "@/lib/world/skateLoop";
 import {createWorldSkateGrove} from "./worldSkateGroveGeometry";
 import {skateLean} from "@/lib/world/skateDynamics";
@@ -842,6 +842,9 @@ export function createWorld(
     { x: -5, z: -7, h: 29, r: 1.7 },
     { x: 17, z: 15, h: 20, r: 1.1 },
     { x: -13, z: 23, h: 21, r: 1.2 },
+    // These boundary specimens use EXACTLY the same trunk/roots, canopy
+    // culling and actual collision obstacles as the rest of the island.
+    ...SKATE_GROVE_FRAME_TREES.filter(tree=>!isWater(tree)),
   ];
   for (let i = 0; i < 27; i++) {
     const x = -25 + random() * 71,
@@ -4511,6 +4514,7 @@ export function createWorld(
       // Avoid 60 identical live-region mutations per second for screen readers.
       if(skateVisible&&skateHud.textContent!==skateStatus)skateHud.textContent=skateStatus;
       canvas.dataset.skateGrove="redwood-timber-v1";
+      canvas.dataset.skateGroveArt="old-growth-stump-v2";
       canvas.dataset.skateLoopPhase=skateLoopRide?"inverting":"free";
       canvas.dataset.skateLoopAngle=(skateLoopRide?.angle??0).toFixed(4);
       canvas.dataset.skateLoopEntries=String(skateLoopEntries);
@@ -4765,7 +4769,7 @@ export function createWorld(
         // A stable outside-camera reads the whole vertical circle and the
         // skater's inversion; the moving chase boom would intersect the ring.
         targetLook.set(SKATE_LOOP.center.x,
-          skateLoopRide.baseY+SKATE_LOOP.radius+1.1,SKATE_LOOP.center.z);
+          skateLoopRide.baseY+SKATE_LOOP.radius+.8,SKATE_LOOP.center.z);
       } else if(sequoiaCamera){
         targetLook.set(player.x,playerY+1.40,player.z);
       } else if (cavernFraming) {
@@ -4827,9 +4831,9 @@ export function createWorld(
           SEA_SURFACE+7.6+jetSki.waterHeight*.4+jetSki.jumpHeight*.75,
           player.z-Math.cos(h)*13-Math.sin(h)*2.4);
       } else if(skateLoopRide){
-        targetCamera.set(SKATE_LOOP.center.x+5.8,
-          skateLoopRide.baseY+SKATE_LOOP.radius+5.6,
-          SKATE_LOOP.center.z+10.4);
+        targetCamera.set(SKATE_LOOP.center.x+SKATE_LOOP.radius*1.55,
+          skateLoopRide.baseY+SKATE_LOOP.radius*1.70+4.1,
+          SKATE_LOOP.center.z+SKATE_LOOP.radius*3.25+1.6);
       } else if(sequoiaCamera){
         const side=travel.heading.x<=0?1:-1;
         const mouthX=GROVE_TUNNEL.center.x+
