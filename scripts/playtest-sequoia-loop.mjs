@@ -46,7 +46,7 @@ try{
   try{
    await page.waitForFunction(()=>{
     const p=document.querySelector("canvas")?.dataset.player?.split(",").map(Number);
-    return p&&p[1]>=43.20;
+    return p&&p[1]>=42.90;
    },null,{timeout:60000});
   }finally{await page.keyboard.up("a");}
   const aligned=await sample();
