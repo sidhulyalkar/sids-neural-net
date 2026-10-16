@@ -59,3 +59,14 @@ test("spatial field checks lower torso, not just the visible head",()=>{
  // Head-only tests can miss this obstructing chest/torso leaf cluster.
  assert.ok(field.blockers(pose,look)>0);
 });
+
+ test("camera boom clears an intervening terrain ridge, not just the lens floor",()=>{
+  const field=new CameraVisibilityField([]);
+  const floor=(x:number,z:number)=>Math.abs(x)<3&&z>6&&z<10?7:0;
+  const result=field.resolve({x:0,y:5,z:16},look,floor);
+  assert.equal(result.clear,true);assert.equal(result.adjusted,true);
+  for(let i=1;i<30;i++){
+   const t=i/30,p=result.point;
+   assert.ok(p.y+(look.y-p.y)*t>=floor(p.x*(1-t),p.z*(1-t))+.2);
+  }
+ });

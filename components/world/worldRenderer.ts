@@ -5673,7 +5673,7 @@ export function createWorld(
     // The *interpolated* lens can cross foliage even if both ends of
     // the blend are clear. Reject that intermediate pose and snap onto the
     // validated shot so a second throw is never framed from inside a leaf.
-    if(lastDiscCameraSolve&&lastDiscCameraSolve.clear){
+    if(lastDiscCameraSolve){
       if(!sceneryCamera.field.clear(camera.position,lastDiscCameraSolve.focus)){
         camera.position.copy(lastDiscCameraSolve.position);
         look.copy(targetLook);

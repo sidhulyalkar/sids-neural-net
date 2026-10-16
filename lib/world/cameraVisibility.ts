@@ -102,7 +102,15 @@ export class CameraVisibilityField {
   const elevations=[0,-4,-8,4,9,16];
   const ranges=[1,.82,.64,.44,.22];
   const original={...desired,y:Math.max(desired.y,floor(desired.x,desired.z)+3.2)};
-  if(this.clear(original,focus))
+  const terrainBlocked=(point:CameraPoint)=>{
+   const steps=Math.max(2,Math.ceil(dist(point,focus)));
+   for(let i=1;i<steps;i++){
+    const t=i/steps,x=point.x+(focus.x-point.x)*t,z=point.z+(focus.z-point.z)*t;
+    if(point.y+(focus.y-point.y)*t<floor(x,z)+.2)return true;
+   }
+   return false;
+  };
+  if(this.clear(original,focus)&&!terrainBlocked(original))
    return {point:original,clear:true,adjusted:false,blocking:0};
   let best=original,bestCost=Infinity,bestBlocks=Infinity;
   for(const ratio of ranges){
@@ -113,7 +121,7 @@ export class CameraVisibilityField {
      const z=focus.z+Math.cos(heading)*radius*ratio;
      const y=Math.max(desired.y+lift,floor(x,z)+3.2);
      const sample={x,y,z};
-     const blocks=this.blockers(sample,focus);
+     const blocks=this.blockers(sample,focus)+(terrainBlocked(sample)?100:0);
      // Strong visibility preference, then preserve the intended throw
      // direction and silhouette size; use the prior clean shot as a
      // tie-break to avoid snapping between symmetric sides.
