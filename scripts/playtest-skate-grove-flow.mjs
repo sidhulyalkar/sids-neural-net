@@ -114,8 +114,16 @@ try{
   fs.writeFileSync(path.join(out,"trace.json"),
    JSON.stringify({samples,entry,carved,returned,landed,errors},null,2)+"\n");
  }catch(error){
-  fs.writeFileSync(path.join(out,"trace.json"),JSON.stringify({samples,errors,failed:String(error)},null,2)+"\n");
-  console.error("REDWOOD BOWL FLOW FAILURE",JSON.stringify({samples,errors}));
+  stage="failed";
+  // A simple timeout is ambiguous on software-rendered Chromium. Record the
+  // actual final player location, speed and support state before exiting.
+  let final=null;
+  try{final=await sample();}catch{/* Runtime may already be disposed. */}
+  try{await page.screenshot({path:path.join(out,"failure-final-state.png")});}
+  catch{/* Preserve diagnostic state even when WebGL is unavailable. */}
+  fs.writeFileSync(path.join(out,"trace.json"),
+   JSON.stringify({samples,final,errors,failed:String(error)},null,2)+"\n");
+  console.error("REDWOOD BOWL FLOW FAILURE",JSON.stringify({samples,final,errors}));
   throw error;
  }
 }finally{await browser.close();}
