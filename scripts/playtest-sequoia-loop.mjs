@@ -46,7 +46,7 @@ try{
   const aligned=await page.evaluate(async()=>new Promise((resolve,reject)=>{
    const el=document.querySelector("canvas");
    if(!el){reject(Error("World canvas unavailable"));return;}
-   const key=(type,value)=>window.dispatchEvent(new KeyboardEvent(type,{
+   const key=(type,value)=>el.dispatchEvent(new KeyboardEvent(type,{
     key:value,code:value==="a"?"KeyA":"KeyW",bubbles:true,cancelable:true}));
    const start=performance.now();
    key("keydown","a");
