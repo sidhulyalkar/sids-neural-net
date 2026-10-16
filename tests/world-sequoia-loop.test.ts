@@ -70,7 +70,7 @@ test("ordinary WASD skating can line up and enter the giant loop from park spawn
  // but independent of slow software-GPU wall clock and screenshot delays.
  let travel:Travel={point:{x:3,z:40.8},speed:0,heading:{x:-1,z:0}};
  let southSteps=0;
- while(travel.point.z<43.20&&southSteps<220){
+ while(travel.point.z<42.90&&southSteps<220){
   travel=stepTravel(travel,{x:0,z:1},.05,"skate",[]);
   southSteps++;
  }
