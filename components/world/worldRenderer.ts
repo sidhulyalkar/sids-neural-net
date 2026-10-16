@@ -3540,7 +3540,7 @@ export function createWorld(
     if (!state.entered || state.paused || document.hidden || aquatic !== "land" ||
       discGolf.phase!=="off"||jetSki||jetChoosing||
       trial.phase==="armed"||trial.phase==="running"||
-      (bigAir.phase!=="idle"&&bigAir.phase!=="armed")||
+      bigAir.phase==="flying"||
       climb||(grind&&state.activity!=="skate")||
       (airHeight>0.01&&!(state.activity==="skate"&&verticalSpeed>0.1)))return;
     if(state.activity==="ski"&&mountainJumpEligible(player,supportHeight(player),travel.speed)){
@@ -4177,7 +4177,7 @@ export function createWorld(
       // Skiing may launch from any steep downhill edge on the mountain.
       // The original marked kicker remains as a deliberate easy starting point.
       const skiEligible=state.activity==="ski"&&
-        (bigAir.phase==="idle"||bigAir.phase==="armed")&&
+        bigAir.phase!=="flying"&&elapsed-lastRampAt>1.1&&
         discGolf.phase==="off"&&!jetSki&&!jetChoosing&&
         trial.phase!=="running"&&trial.phase!=="armed"&&
         !climb&&!grind&&aquatic==="land"&&airHeight<.1&&
