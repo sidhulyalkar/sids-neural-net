@@ -4,7 +4,7 @@ import {
   GROVE_LOG,GROVE_TUNNEL,SKATE_LOOP,SKATE_PARK_RAILS,REDWOOD_BOWL,
   insideSkatePark,skateParkZone,skateParkSurface,
 } from "../lib/world/skatepark";
-import {groundHeight} from "../lib/world/activities";
+import {groundHeight,stepTravel,type Travel} from "../lib/world/activities";
 import {
   beginSkateLoop,skateLoopEntryCrossing,skateLoopSample,advanceSkateLoop,
 } from "../lib/world/skateLoop";
@@ -63,6 +63,31 @@ test("entry is swept, one-way, fast enough, and centered on planked lane",()=>{
   assert.equal(skateLoopEntryCrossing(entry(2.3),entry(1.9),left,9.4),false);
   assert.equal(skateLoopEntryCrossing(entry(.25),entry(-.25),{x:-.2,z:1},9.4),false);
   assert.equal(skateLoopEntryCrossing(entry(.25),entry(-.25),left,Number.NaN),false);
+});
+
+test("ordinary WASD skating can line up and enter the giant loop from park spawn",()=>{
+ // This is the same two-stage input sequence used by the real browser,
+ // but independent of slow software-GPU wall clock and screenshot delays.
+ let travel:Travel={point:{x:3,z:40.8},speed:0,heading:{x:-1,z:0}};
+ let southSteps=0;
+ while(travel.point.z<43.20&&southSteps<220){
+  travel=stepTravel(travel,{x:0,z:1},.05,"skate",[]);
+  southSteps++;
+ }
+ assert.ok(southSteps<220,"south alignment must remain traversable");
+ assert.ok(travel.point.x>SKATE_LOOP.center.x,"must be east of the loop");
+ let crossing=false,arrival=travel;
+ for(let i=0;i<200;i++){
+  const before=travel;
+  travel=stepTravel(travel,{x:-1,z:0},.05,"skate",[]);
+  if(skateLoopEntryCrossing(before.point,travel.point,travel.heading,travel.speed)){
+   crossing=true;arrival=travel;break;
+  }
+  if(travel.point.x<SKATE_LOOP.center.x-1)break;
+ }
+ assert.ok(crossing,
+  "A then W must cross the actual center seam with enough speed and lane alignment");
+ assert.ok(Math.abs(arrival.point.z-SKATE_LOOP.center.z)<SKATE_LOOP.entryHalfWidth);
 });
 
 test("3D wheel support forms a complete upright-to-inverted-to-upright circle",()=>{
