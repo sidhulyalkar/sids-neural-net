@@ -5,6 +5,7 @@ import { createHabitats } from "../components/world/worldHabitats";
 import { biomeAt, understoryDensityAt } from "../lib/world/biomes";
 import { RAINFOREST_CANOPY_WILDLIFE, RAINFOREST_REPTILES, DESERT_ECOLOGY_ANCHORS } from "../lib/world/ecology";
 import { coastlineX, eastCoastlineX, isWater, type Obstacle } from "../lib/world/model";
+import {DISC_GOLF_HOLES} from "../lib/world/discGolf";
 import { sportClearance } from "../lib/world/activities";
 
 test("rainforest gives way to bare beach continuously", () => {
@@ -181,3 +182,11 @@ test("desert reptile and rainforest snake anchors stay authored and separated", 
   assert.ok(found,"snake palette appears in the desert batch");
   habitats.dispose();
 });
+
+ test("habitat scatter cannot place a trunk in any disc-golf tee or green",()=>{
+  const scene=new THREE.Scene(),obstacles:Obstacle[]=[];
+  const habitats=createHabitats(scene,obstacles);
+  for(const hole of DISC_GOLF_HOLES)for(const p of [hole.tee,hole.target])
+   assert.ok(obstacles.every(o=>Math.hypot(p.x-o.x,p.z-o.z)>=o.radius+1.5),hole.id);
+  habitats.dispose();
+ });

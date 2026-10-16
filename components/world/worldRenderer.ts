@@ -24,7 +24,7 @@ import {createWorldCameraOcclusion} from "./worldCameraOcclusion";
 import {CameraVisibilityField,type CameraVolume} from "@/lib/world/cameraVisibility";
 import {createJetSkiCoastGeometry} from "./worldJetSkiCourseGeometry";
 import {jetSkiSectionName} from "@/lib/world/jetSkiCourse";
-import {canStartWorldGame,type WorldGameMode} from "@/lib/world/gameMode";
+import {canStartWorldGame,worldGameSession,type WorldGameMode} from "@/lib/world/gameMode";
 import {JET_SKI_DOCK,JET_SKI_GATES,startJetSkiRace,stepJetSkiRace,jetSkiNavigableWater,jetSkiGateDistance,jetSkiBearingToGate,jetSkiOpponentInput,jetSkiRacePlace,type JetSkiState} from "@/lib/world/jetSkiRace";
 import {
   DISC_GOLF_HOLES,discGolfOpeningClearance,discGolfCourseClearance,discGolfBasketPosition,discGolfNextTarget,discGolfThrowCameraPose,discGolfIntroPose,discGolfThrow,stepDiscGolf,
@@ -124,6 +124,7 @@ type State = {
   actionSerial: number;
   challengeSerial: number;
   bigAirSerial: number;
+  sessionExitSerial:number;
   discGolfStartSerial:number;
   discGolfHoleIndex:number;
   discGolfShotSerial:number;
@@ -2875,6 +2876,7 @@ export function createWorld(
     actionSerial: 0,
     challengeSerial: 0,
     bigAirSerial: 0,
+    sessionExitSerial:0,
     discGolfStartSerial:0,
     discGolfHoleIndex:0,
     discGolfShotSerial:0,
@@ -2905,7 +2907,7 @@ export function createWorld(
   let travel: Travel = { point: player, speed: 0, heading: { x: 0, z: -1 } };
   let airHeight = 0, verticalSpeed = 0, lastAction = 0, lastWaterAction = 0;
   let lastChallengeSerial=0, lastTrialUpdate=0;
-  let lastBigAirSerial=0,lastBigAirUpdate=0;
+  let lastBigAirSerial=0,lastBigAirUpdate=0,lastSessionExit=0;
   let bigAir:BigAirState=idleBigAir();
   let discGolf:DiscGolfState=idleDiscGolf();
   let jetSki:JetSkiState|null=null;
@@ -2994,13 +2996,33 @@ export function createWorld(
   let playerY = groundHeight(player);
   // Single source of truth for mutually exclusive minigame entrances.
   const occupiedByOtherMode=(requested:WorldGameMode)=>
-    !canStartWorldGame(requested,{
-      jet:!!jetSki||jetChoosing,
-      ski:bigAir.phase==="armed"||bigAir.phase==="flying",
-      disc:discGolf.phase!=="off",
-      trial:trial.phase==="armed"||trial.phase==="running",
-      skim:skimHeat.phase!=="off",
-    });
+    !canStartWorldGame(requested,worldGameSession({
+      jet:!!jetSki||jetChoosing,ski:bigAir.phase,disc:discGolf.phase,
+      trial:trial.phase,skim:skimHeat.phase,
+    }).activity);
+  function clearChallengeResults(){
+    if(bigAir.phase==="landed"||bigAir.phase==="missed"){
+      bigAir=idleBigAir();callbacks.onBigAir(bigAir);
+    }
+    if(trial.phase==="complete"||trial.phase==="invalidated"){
+      trial={phase:"idle",nextGate:0,elapsedMs:0,splitsMs:[]};callbacks.onChallenge(trial);
+    }
+  }
+  function leaveWorldGames(){
+    closeJetChooser();stopJetSki();
+    bigAir=idleBigAir();callbacks.onBigAir(bigAir);
+    trial={phase:"idle",nextGate:0,elapsedMs:0,splitsMs:[]};callbacks.onChallenge(trial);
+    discFetch=idleDiscGolfFetch();discGolfIntro=null;
+    discGolf=idleDiscGolf();callbacks.onDiscGolf(discGolf);
+    skimHeat=idleSkimHeat();callbacks.onSkim(skimHeat);
+    lastDiscCameraSolve=null;sceneryCamera.restore();
+    clearInput();resetRideBoost();destination=null;climb=grind=null;
+    airHeight=verticalSpeed=0;travel={...travel,speed:0};
+    if(isWater(player)&&jetSkiPierHeight(player)===null){
+      swimDepth=targetDepth=0;setAquaticMode("surface");playerY=SEA_SURFACE-.42;
+    }else{setAquaticMode("land");playerY=supportHeight(player);}
+    canvas.focus({preventScroll:true});
+  }
   function stopJetSki(){
     if(!jetSki)return;
     jetSki=null;jetRivals=[];jetMilestone="";
@@ -3029,6 +3051,7 @@ export function createWorld(
   function openJetChooser(){
     if(!state.entered||state.paused||jetSki||occupiedByOtherMode("jet")||
        aquatic!=="land"||!nearJetSkiBoarding(player))return;
+    clearChallengeResults();
     jetChoosing=true;
     jetskiVisual.activeHull.material.color.set("#e96c48");
     jetChooser.hidden=false;
@@ -3325,6 +3348,7 @@ export function createWorld(
       skimHeat=idleSkimHeat();destination=null;clearInput();
     }else if(action==="pickup"){
       if(occupiedByOtherMode("skim")||aquatic!=="land")return;
+      clearChallengeResults();
       skimHeat=pickupSkimBoard(player,boardIndex,skimHeat);
       if(skimHeat.phase==="ready"){destination=null;airHeight=verticalSpeed=0;}
     }else if(action==="restart"){
@@ -3376,7 +3400,9 @@ export function createWorld(
       const board=nearbySkimBoard(player);
       if(board!==null){e.preventDefault();doSkimAction("pickup",board);return;}
     }
-    if(key==="escape"&&jetSki){stopJetSki();e.preventDefault();return;}
+    if(key==="escape"&&(jetSki||bigAir.phase!=="idle"||trial.phase!=="idle"||skimHeat.phase!=="off")){
+      leaveWorldGames();e.preventDefault();return;
+    }
     if(key==="r"&&!e.repeat&&jetSki){restartJetSki();e.preventDefault();return;}
     if(key==="f"&&!e.repeat&&!jetSki&&isBoostActivity(state.activity)){
       e.preventDefault();
@@ -6121,6 +6147,9 @@ export function createWorld(
         }
       }
       state = next;
+      if(next.sessionExitSerial!==lastSessionExit){
+        lastSessionExit=next.sessionExitSerial;leaveWorldGames();
+      }
       if(next.skimCommandSerial!==lastSkimCommand){
         lastSkimCommand=next.skimCommandSerial;
         doSkimAction(next.skimCommand,next.skimBoardIndex);
@@ -6136,6 +6165,7 @@ export function createWorld(
         // Consume the start request only after the world can actually start.
         // Previously an early/paused request was discarded forever.
         lastDiscStart=next.discGolfStartSerial;
+        clearChallengeResults();
           const hole=DISC_GOLF_HOLES[next.discGolfHoleIndex]??DISC_GOLF_HOLES[0];
           discGolf=startDiscGolf(next.discGolfHoleIndex,discGolfSurfaceHeight,elapsed);
           canvas.dataset.discGolfLastShot="pending";
@@ -6165,13 +6195,8 @@ export function createWorld(
           canvas.dataset.discGolfTeeHeight=discGolfSurfaceHeight(player).toFixed(3);
           camera.position.set(introStart.camera.x,introStart.camera.y,introStart.camera.z);
           look.set(introStart.look.x,introStart.look.y,introStart.look.z);
-          // Last-resort cutaway also covers an obstructed interpolated pose or
-    // a lie surrounded by foliage where no unobstructed boom exists.
-    const cutawayCount=lastDiscCameraSolve?
-      sceneryCamera.cutaway(camera.position,lastDiscCameraSolve.focus):
-      (sceneryCamera.restore(),0);
-    canvas.dataset.discGolfCameraCutaways=String(cutawayCount);
-    camera.lookAt(look);
+          sceneryCamera.restore();lastDiscCameraSolve=null;
+          camera.lookAt(look);
           airHeight=verticalSpeed=swimDepth=targetDepth=0;
           climb=grind=null;caveLayer="surface";
           setAquaticMode("land");clearInput();
@@ -6246,6 +6271,7 @@ export function createWorld(
       if(next.bigAirSerial!==lastBigAirSerial) {
         lastBigAirSerial=next.bigAirSerial;
         if(next.entered&&!next.paused&&!occupiedByOtherMode("ski")&&skimHeat.phase==="off"){
+          clearChallengeResults();
           player={...BIG_AIR.start};
           travel={point:player,heading:{...BIG_AIR.heading},speed:0};
           yaw=Math.atan2(-BIG_AIR.heading.x,-BIG_AIR.heading.z);
@@ -6270,6 +6296,7 @@ export function createWorld(
       if(next.challengeSerial!==lastChallengeSerial) {
         lastChallengeSerial=next.challengeSerial;
         if(next.entered && !next.paused && !occupiedByOtherMode("trial")&&skimHeat.phase==="off") {
+          clearChallengeResults();
           const start=JOSHUA_GATES[0];
           // Explicit challenge selection moves the player to a safe start
           // approach, never to an arbitrary point mid-air or inside a gap.
@@ -6314,16 +6341,10 @@ export function createWorld(
           discGolfIntro=null;
           discGolf=idleDiscGolf();callbacks.onDiscGolf(discGolf);
         }
-        if(bigAir.phase==="armed"||bigAir.phase==="flying"){
-          bigAir={...bigAir,phase:"missed",reason:"Region transfer"};
-          callbacks.onBigAir(bigAir);
-        }
+        bigAir=idleBigAir();callbacks.onBigAir(bigAir);
         // Region fast travel is an explicit run invalidation, even if it
         // lands on a future checkpoint or is performed between frame ticks.
-        if(trial.phase==="armed"||trial.phase==="running"){
-          trial=abortJoshuaTrial(trial,"Region transfer");
-          callbacks.onChallenge(trial);
-        }
+        trial={phase:"idle",nextGate:0,elapsedMs:0,splitsMs:[]};callbacks.onChallenge(trial);
         resetRideBoost();
         // Region transfer invalidates airborne tricks and manuals. A fast
         // travel cannot impersonate a landing or credit an unfinished line.
