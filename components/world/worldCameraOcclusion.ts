@@ -10,7 +10,7 @@ export function createWorldCameraOcclusion(scene:THREE.Scene){
  const center=new THREE.Vector3(),size=new THREE.Vector3();
  scene.updateMatrixWorld(true);
  scene.traverse(object=>{
-  if(!(object instanceof THREE.Mesh))return;
+  if(!(object instanceof THREE.Mesh)||!object.visible)return;
   const materials=Array.isArray(object.material)?object.material:[object.material];
   if(!materials.some(m=>m.visible&&m.colorWrite&&(!m.transparent||m.opacity>=.65)))return;
   object.geometry.computeBoundingBox();
@@ -73,5 +73,5 @@ export function createWorldCameraOcclusion(scene:THREE.Scene){
   }
   return hidden.length;
  }
- return {field,cutaway,restore,count:volumes.length};
+ return {field,volumes,cutaway,restore,count:volumes.length};
 }
