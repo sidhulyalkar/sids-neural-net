@@ -146,73 +146,111 @@ export function createWorldSkateGrove(scene:THREE.Scene,support:(p:Point)=>numbe
  // The new landmark art is one semantic scene group. Root child count stays
  // within the original low-draw / easy-disposal contract.
  const landmarkStart=group.children.length;
- // Giant fallen sequoia: actually hollow. Both mouths stay open and the
- // existing polished split-log channel is the only physical ground contact.
- // The closed upper arch has >3 world units of headroom at its crown.
- const sequoiaInner=material("#c69765",{side:THREE.DoubleSide});
- const sequoiaBark=material("#51372b",{side:THREE.DoubleSide});
- const sequoiaCut=material("#e0b481",{side:THREE.DoubleSide});
- const archSlices=36,logSlices=24,archExtent=2.22;
- function makeArchSkin(radius:number,mat:THREE.Material,name:string){
-  const vertices:number[]=[],triangles:number[]=[];
+
+ // An enormous old-growth sequoia, elliptical rather than cylindrical. Inner
+ // and outer skins share a tapering skeleton. The sole wheel-height authority
+ // is the sampled polished floor already present in skateParkSurface.
+ const sequoiaInner=material("#ffffff",{side:THREE.DoubleSide,vertexColors:true});
+ const sequoiaBark=material("#ffffff",{side:THREE.DoubleSide,vertexColors:true});
+ const sequoiaCut=material("#d7ac78",{side:THREE.DoubleSide});
+ const archSlices=60,logSlices=44,archExtent=GROVE_TUNNEL.archExtent;
+ const treePoint=(x:number,a:number,outer:boolean)=>{
+  const along=(x-GROVE_TUNNEL.center.x)/GROVE_TUNNEL.halfLength;
+  const taper=1-GROVE_TUNNEL.taper*along;
+  // Bark has rugged longitudinal ridges, but the inner bore stays clean.
+  const grain=outer?1+.024*Math.sin(21*a+along*8)+
+   .014*Math.cos(38*a-along*7)+.010*Math.sin(7*a+along*17):1;
+  const vertical=(outer?GROVE_TUNNEL.outerRadius:GROVE_TUNNEL.innerRadius)*taper*grain;
+  const lateral=(outer?GROVE_TUNNEL.outerHalfWidth:GROVE_TUNNEL.innerHalfWidth)*taper*grain;
+  const base=ride({x,z:GROVE_TUNNEL.center.z})+GROVE_TUNNEL.archCenterLift;
+  return new THREE.Vector3(x,base+Math.cos(a)*vertical,
+   GROVE_TUNNEL.center.z+Math.sin(a)*lateral);
+ };
+ const makeSequoiaSkin=(outer:boolean)=>{
+  const vertices:number[]=[],faces:number[]=[],tints:number[]=[];
+  const light=new THREE.Color(outer?"#7e533b":"#dbb58c");
+  const dark=new THREE.Color(outer?"#34251c":"#b9875e");
+  const shade=new THREE.Color();
   for(let ix=0;ix<=logSlices;ix++){
    const x=GROVE_TUNNEL.center.x-GROVE_TUNNEL.halfLength+
     ix*GROVE_TUNNEL.halfLength*2/logSlices;
-   const base=ride({x,z:GROVE_TUNNEL.center.z})+GROVE_TUNNEL.archCenterLift;
    for(let j=0;j<=archSlices;j++){
-    const angle=-archExtent+j*2*archExtent/archSlices;
-    const r=radius+(radius===GROVE_TUNNEL.outerRadius?
-     .045*Math.sin(angle*18+x*.6)*Math.sin(angle*5):0);
-    vertices.push(x,base+Math.cos(angle)*r,
-     GROVE_TUNNEL.center.z+Math.sin(angle)*r);
+    const a=-archExtent+j*2*archExtent/archSlices,p=treePoint(x,a,outer);
+    vertices.push(p.x,p.y,p.z);
+    const detail=outer?.44+.29*Math.sin(21*a+x)+.13*Math.cos(38*a-x*2):
+     .78+.075*Math.sin(x*4+a*8);
+    shade.copy(dark).lerp(light,THREE.MathUtils.clamp(detail,0,1));
+    tints.push(shade.r,shade.g,shade.b);
    }
   }
   for(let ix=0;ix<logSlices;ix++)for(let j=0;j<archSlices;j++){
-   const a=ix*(archSlices+1)+j,b=a+1,d=a+archSlices+1,e=d+1;
-   triangles.push(a,b,d,b,e,d);
+   const a=ix*(archSlices+1)+j,b=a+1,n=a+archSlices+1;
+   faces.push(a,b,n,b,n+1,n);
   }
   const g=geometry(new THREE.BufferGeometry());
   g.setAttribute("position",new THREE.Float32BufferAttribute(vertices,3));
-  g.setIndex(triangles);g.computeVertexNormals();
-  const mesh=new THREE.Mesh(g,mat);
-  mesh.name=name;mesh.receiveShadow=true;mesh.castShadow=true;
-  group.add(mesh);
- }
- makeArchSkin(GROVE_TUNNEL.innerRadius,sequoiaInner,"sequoia-hollow-inner-roof");
- makeArchSkin(GROVE_TUNNEL.outerRadius,sequoiaBark,"sequoia-deep-fluted-bark");
- // Visible cut heartwood on both open faces, never a disc blocking the bore.
- const sequoiaEndGrain:Part[]=[],barkFlutes:Part[]=[];
- for(const end of [-1,1]){
-  const x=GROVE_TUNNEL.center.x+end*GROVE_TUNNEL.halfLength;
-  const base=ride({x,z:GROVE_TUNNEL.center.z})+GROVE_TUNNEL.archCenterLift;
-  for(let j=0;j<archSlices;j++){
+  g.setAttribute("color",new THREE.Float32BufferAttribute(tints,3));
+  g.setIndex(faces);g.computeVertexNormals();
+  const mesh=new THREE.Mesh(g,outer?sequoiaBark:sequoiaInner);
+  mesh.name=outer?"sequoia-deep-fluted-bark":"sequoia-hollow-inner-roof";
+  mesh.castShadow=true;mesh.receiveShadow=true;group.add(mesh);
+ };
+ makeSequoiaSkin(false);makeSequoiaSkin(true);
+ // Annular END faces only: a true hollow mouth, never a disk blocking passage.
+ const cutVertices:number[]=[],cutFaces:number[]=[];
+ for(const side of [-1,1]){
+  const x=GROVE_TUNNEL.center.x+side*GROVE_TUNNEL.halfLength;
+  const off=cutVertices.length/3;
+  for(let j=0;j<=archSlices;j++){
    const a=-archExtent+j*2*archExtent/archSlices;
-   const b=a+2*archExtent/archSlices;
-   for(const radius of [GROVE_TUNNEL.innerRadius+.045,
-    (GROVE_TUNNEL.innerRadius+GROVE_TUNNEL.outerRadius)*.5,
-    GROVE_TUNNEL.outerRadius-.045]){
-    sequoiaEndGrain.push(beam(
-     new THREE.Vector3(x,base+Math.cos(a)*radius,GROVE_TUNNEL.center.z+Math.sin(a)*radius),
-     new THREE.Vector3(x,base+Math.cos(b)*radius,GROVE_TUNNEL.center.z+Math.sin(b)*radius),.018));
+   for(const outer of [false,true]){
+    const p=treePoint(x,a,outer);
+    cutVertices.push(p.x+side*.005,p.y,p.z);
    }
   }
+  for(let j=0;j<archSlices;j++){
+   const v=off+j*2;
+   cutFaces.push(v,v+1,v+2,v+1,v+3,v+2);
+  }
  }
- for(let j=0;j<=28;j++){
-  const angle=-2.17+j*4.34/28;
-  const radius=GROVE_TUNNEL.outerRadius+.025;
-  let previous:THREE.Vector3|null=null;
+ const cutG=geometry(new THREE.BufferGeometry());
+ cutG.setAttribute("position",new THREE.Float32BufferAttribute(cutVertices,3));
+ cutG.setIndex(cutFaces);cutG.computeVertexNormals();
+ const endFaces=new THREE.Mesh(cutG,sequoiaCut);
+ endFaces.name="sequoia-open-end-heartwood";endFaces.receiveShadow=true;
+ group.add(endFaces);
+ const sequoiaEndGrain:Part[]=[],barkFlutes:Part[]=[],brokenRoots:Part[]=[];
+ for(const side of [-1,1]){
+  const x=GROVE_TUNNEL.center.x+side*GROVE_TUNNEL.halfLength;
+  for(const weight of [.15,.38,.68,.93])for(let j=0;j<archSlices;j++){
+   const a=-archExtent+j*2*archExtent/archSlices,b=a+2*archExtent/archSlices;
+   const wood=(angle:number)=>treePoint(x,angle,false)
+    .lerp(treePoint(x,angle,true),weight);
+   sequoiaEndGrain.push(beam(wood(a),wood(b),weight>.8?.023:.013));
+  }
+  for(const bank of [-1,1]){
+   const z=GROVE_TUNNEL.center.z+bank*(GROVE_TUNNEL.outerHalfWidth-.25);
+   const h=terrainHeight(x,z);
+   const rootX=x+side*1.35,rootZ=z+bank*.65;
+   brokenRoots.push(beam(new THREE.Vector3(x,h+.48,z),
+    new THREE.Vector3(rootX,terrainHeight(rootX,rootZ)+.08,rootZ),.17));
+  }
+ }
+ for(let j=0;j<30;j++){
+  const a=-archExtent+.10+j*(archExtent*2-.20)/29;
+  let last:THREE.Vector3|null=null;
   for(let ix=0;ix<=logSlices;ix++){
    const x=GROVE_TUNNEL.center.x-GROVE_TUNNEL.halfLength+
     ix*GROVE_TUNNEL.halfLength*2/logSlices;
-   const current=new THREE.Vector3(x,
-    ride({x,z:GROVE_TUNNEL.center.z})+GROVE_TUNNEL.archCenterLift+
-    Math.cos(angle)*radius,GROVE_TUNNEL.center.z+Math.sin(angle)*radius);
-   if(previous)barkFlutes.push(beam(previous,current,.024+(j%5)*.004));
-   previous=current;
+   const p=treePoint(x,a,true);
+   p.y+=Math.cos(a)*.02;p.z+=Math.sin(a)*.02;
+   if(last)barkFlutes.push(beam(last,p,.018+(j%6)*.005));
+   last=p;
   }
  }
  pooled("sequoia-open-end-growth-rings",sequoiaEndGrain,sequoiaCut);
- pooled("sequoia-longitudinal-bark-flutes",barkFlutes,bark);
+ pooled("sequoia-longitudinal-bark-flutes",barkFlutes,darkTimber);
+ pooled("sequoia-broken-root-buttresses",brokenRoots,bark);
 
  // Full vertical timber loop. This is a real 3D wheel path supported by the
  // dedicated skateboard loop state, NEVER by the single-valued meadow field.
