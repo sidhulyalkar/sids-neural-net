@@ -40,20 +40,38 @@ try{
   assert.equal(start.activity,"skate");
   assert.equal(start.art,"old-growth-stump-v2");
   stage="south-alignment";
-  // Arrival faces WEST. A is south (positive z) in this exact camera frame.
-  // Turn across the open street, then accelerate toward the loop's east seam.
-  await page.keyboard.down("a");
-  try{
-   await page.waitForFunction(()=>{
-    const p=document.querySelector("canvas")?.dataset.player?.split(",").map(Number);
-    return p&&p[1]>=42.90;
-   },null,{timeout:60000});
-  }finally{await page.keyboard.up("a");}
-  const aligned=await sample();
+  // Dispatch the *actual* normal keyboard events on the rendered frame.
+  // External Playwright polling can overshoot the loop's lane by >2 units
+  // on software-rendered WebGL and produce a false gameplay failure.
+  const aligned=await page.evaluate(async()=>new Promise((resolve,reject)=>{
+   const el=document.querySelector("canvas");
+   if(!el){reject(Error("World canvas unavailable"));return;}
+   const key=(type,value)=>window.dispatchEvent(new KeyboardEvent(type,{
+    key:value,code:value==="a"?"KeyA":"KeyW",bubbles:true,cancelable:true}));
+   const start=performance.now();
+   key("keydown","a");
+   const tick=()=>{
+    const d=el.dataset,p=d.player?.split(",").map(Number);
+    if(p?.length===2&&p[1]>=42.90){
+     key("keyup","a");
+     key("keydown","w");
+     resolve({point:p,speed:Number(d.speed),activity:d.activity});
+     return;
+    }
+    if(performance.now()-start>90000){
+     key("keyup","a");
+     reject(Error("Frame-synchronous south alignment timed out at "+d.player));
+     return;
+    }
+    requestAnimationFrame(tick);
+   };
+   requestAnimationFrame(tick);
+  }));
+  evidence.push({stage,point:aligned.point,speed:aligned.speed,
+   activity:aligned.activity,phase:"free",entries:0,completions:0});
   assert.ok(aligned.point[0]>-1.65,"alignment must finish east of loop seam");
-  assert.ok(aligned.point[1]<45,"alignment must stay out of south quarter");
+  assert.ok(aligned.point[1]<44.1,"alignment must stay inside the loop lane");
   stage="loop-approach";
-  await page.keyboard.down("w");
   try{
    await page.waitForFunction(()=>Number(document.querySelector("canvas")?.dataset.skateLoopEntries)>0,
     null,{timeout:60000});
@@ -83,13 +101,20 @@ try{
     return d?.skateLoopPhase==="free"&&d?.activity==="skate"&&p&&
      Math.hypot(p[0]-previous[0],p[1]-previous[1])>1.1;
    },origin,{timeout:18000});
-  }finally{await page.keyboard.up("w");}
+  }finally{
+    await page.evaluate(()=>window.dispatchEvent(new KeyboardEvent("keyup",{
+      key:"w",code:"KeyW",bubbles:true,cancelable:true})));
+  }
   const resumed=await sample();
   assert.ok(resumed.speed>0.5,"controls and momentum must survive the loop");
   assert.deepEqual(errors,[],"no browser renderer exceptions");
   await page.screenshot({path:path.join(out,"02-free-roaming-after-loop.png")});
   console.log("SEQUOIA LOOP RIDE PASS",JSON.stringify({start,aligned,resumed,evidence,errors}));
  }catch(error){
+  stage="failed";
+  try{await sample();}catch{/* Preserve best available evidence. */}
+  try{await page.screenshot({path:path.join(out,"failure-frame.png")});}
+  catch{/* Browser may already have closed. */}
   console.error("SEQUOIA LOOP RIDE FAILURE",String(error),JSON.stringify({evidence,errors}));
   throw error;
  }finally{
