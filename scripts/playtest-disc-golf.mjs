@@ -204,7 +204,20 @@ try{
     }
    }
    assert.equal(await canvas.getAttribute("data-disc-golf-handoff"),"complete");
-   assert.equal(await canvas.getAttribute("data-disc-golf-handoff-reason"),"found",
+   const handoffReason=await canvas.getAttribute("data-disc-golf-handoff-reason");
+   if(handoffReason!=="found"){
+    const diagnostics=await canvas.evaluate(c=>({
+     phase:c.dataset.discGolfPhase,fetch:c.dataset.dogFetchStage,
+     handoff:c.dataset.discGolfHandoff,reason:c.dataset.discGolfHandoffReason,
+     dog:c.dataset.dog,player:c.dataset.player,lie:{
+      x:c.dataset.discGolfLieX,z:c.dataset.discGolfLieZ,
+     },routeChecks:c.dataset.dogFetchRouteChecks,
+     speed:c.dataset.dogSpeed,obstacles:c.dataset.dogNearbyObstacleCount,
+    }));
+    fs.writeFileSync(path.join(out,"hole-1-fetch-failure.json"),
+     JSON.stringify(diagnostics,null,2)+"\n");
+   }
+   assert.equal(handoffReason,"found",
     "Shasta must actually find the disc before Hole 1 teleports the avatar");
    const final=await canvas.evaluate(c=>({
     x:Number(c.dataset.discGolfAvatarX),z:Number(c.dataset.discGolfAvatarZ),
