@@ -5486,11 +5486,39 @@ export function createWorld(
       };
     }
 
+    // Catch up bounded real time on software WebGL / low-FPS hardware.
+    // Shasta's chase previously advanced by at most 100ms per rendered frame
+    // while its 12s fetch deadline used wall time. On slow machines the dog
+    // could be nowhere near the disc when the cinematic timed out.
+    if(activelyFetching&&discFetch.target){
+      let remaining=Math.max(0,Math.min(rawDelta,.5)-dogMotionDt);
+      while(remaining>1e-8){
+        const step=Math.min(.1,remaining);
+        fetchRunRoute=stepFetchRunRoute(fetchRunRoute,dog,
+          discFetch.target,dogLocalObstacles,fetchNow-remaining);
+        const waypoint=fetchRunRoute.waypoint??discFetch.target;
+        const desiredVelocity=steerFetchRun(dogVelocity,dog,waypoint,
+          discFetch.target,step);
+        const advanced=constrainMove(dog,{
+          x:dog.x+desiredVelocity.x*step,
+          z:dog.z+desiredVelocity.z*step,
+        },dogLocalObstacles);
+        if(discGolfSurfaceIsWater(advanced)){
+          dogVelocity={x:0,z:0};
+          break;
+        }
+        const moved=distance(dog,advanced);
+        dogVelocity=moved<.001?{x:0,z:0}:desiredVelocity;
+        dog=advanced;
+        remaining-=step;
+      }
+    }
     const dogStep = distance(dogBefore, dog);
     // Monotone motion evidence for browser QA; the gait *phase* intentionally
     // wraps every cycle and must not be used as a cumulative distance proxy.
     dogDistanceTraveled += dogStep;
-    const dogActualSpeed = dogStep / Math.max(0.001, dogMotionDt);
+    const dogActualSpeed = dogStep / Math.max(0.001,
+      activelyFetching?Math.min(rawDelta,.5):dogMotionDt);
     dogAnimSpeed +=
       (dogActualSpeed - dogAnimSpeed) * smoothingAlpha(dogMotionDt, 9.5);
     const dogAcceleration =
