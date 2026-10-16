@@ -264,7 +264,9 @@ export function createWorldSkateGrove(scene:THREE.Scene,support:(p:Point)=>numbe
   for(let i=0;i<=loopSegments;i++){
    const angle=i*2*Math.PI/loopSegments;
    const x=SKATE_LOOP.center.x-radius*Math.sin(angle);
-   const y=loopBase+radius*(1-Math.cos(angle));
+   // All layers share ONE circle center. The bark foundation sits below
+   // the tread at the bottom and OUTSIDE it at the inverted crown.
+   const y=loopBase+SKATE_LOOP.radius-radius*Math.cos(angle);
    for(const side of [-1,1])
     vertices.push(x,y,SKATE_LOOP.center.z+side*SKATE_LOOP.width*.5);
   }
