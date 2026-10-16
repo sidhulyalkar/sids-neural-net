@@ -18,7 +18,13 @@ try{
  page.on("pageerror",e=>errors.push("page: "+e.message));
  page.on("console",m=>{if(m.type()==="error")errors.push("console: "+m.text().slice(0,300));});
  await page.goto(process.env.WORLD_BASE_URL??"http://127.0.0.1:3000");
- await page.getByRole("button",{name:"Explore world",exact:true}).click();
+ for(let attempt=0;attempt<5;attempt++){
+  await page.getByRole("button",{name:"Explore world",exact:true}).click();
+  try{
+   await page.waitForFunction(()=>document.querySelector("[data-world-state]")?.getAttribute("data-world-state")==="exploring",null,{timeout:5000});
+   break;
+  }catch(error){if(attempt===4)throw error;}
+ }
  await page.waitForFunction(()=>Number(document.querySelector("canvas")?.dataset.drawCalls)>0,
   null,{timeout:45000});
  // Pick Skiing, which navigates to mountain terrain. Do not arm the

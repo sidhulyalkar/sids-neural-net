@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import * as THREE from "three/src/Three.Core.js";
+import {GeometryBatch} from "../components/world/worldGeometry";
 import {createWorldCameraOcclusion} from "../components/world/worldCameraOcclusion";
 
 test("render-authored branches are detected and cut away per instance with exact restoration",()=>{
@@ -30,3 +31,19 @@ test("clear scenery keeps its visibility and hidden objects restore their origin
  assert.equal(camera.cutaway({x:10,y:2,z:8},{x:10,y:2,z:0}),0);
  mesh.geometry.dispose();mesh.material.dispose();
 });
+
+ test("a cutaway masks one merged branch without hiding the forest batch",()=>{
+  const batch=new GeometryBatch(),g=new THREE.BoxGeometry(1,3,1);
+  batch.add(g,"#ffffff",new THREE.Vector3(0,2,4),new THREE.Vector3(1,1,1));
+  batch.add(g,"#ffffff",new THREE.Vector3(15,2,4),new THREE.Vector3(1,1,1));
+  const geometry=batch.finish(),mesh=new THREE.Mesh(geometry,new THREE.MeshBasicMaterial());
+  const scene=new THREE.Scene();scene.add(mesh);const camera=createWorldCameraOcclusion(scene);
+  const count=geometry.userData.cameraParts[0].count;
+  assert.equal(camera.cutaway({x:0,y:2,z:8},{x:0,y:2,z:0}),1);
+  assert.equal(mesh.visible,true);
+  for(let i=0;i<count;i++)assert.equal(geometry.index!.getX(i),0);
+  for(let i=count;i<geometry.index!.count;i++)assert.equal(geometry.index!.getX(i),i);
+  camera.restore();
+  for(let i=0;i<geometry.index!.count;i++)assert.equal(geometry.index!.getX(i),i);
+  geometry.dispose();g.dispose();mesh.material.dispose();
+ });

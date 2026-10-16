@@ -2,6 +2,7 @@ import * as THREE from "three/src/Three.Core.js";
 /** Bake static colored parts into one draw, retaining real geometry and lighting. */
 export class GeometryBatch {
   private positions: number[] = [];
+  private parts: {start:number;count:number;min:number[];max:number[]}[] = [];
   private colors: number[] = [];
   private normals: number[] = [];
   add(
@@ -20,6 +21,9 @@ export class GeometryBatch {
       ),
     );
     if (!source.getAttribute("normal")) source.computeVertexNormals();
+    source.computeBoundingBox();
+    this.parts.push({start:this.positions.length/3,count:source.getAttribute("position").count,
+      min:source.boundingBox!.min.toArray(),max:source.boundingBox!.max.toArray()});
     const n = source.getAttribute("normal");
     const a = source.getAttribute("position"),
       c = new THREE.Color(color);
@@ -41,6 +45,7 @@ export class GeometryBatch {
     // de-indexing turns every rounded animal/rock into disconnected flat faces.
     g.setAttribute("normal", new THREE.Float32BufferAttribute(this.normals, 3));
     g.computeBoundingSphere();
+    g.userData.cameraParts=this.parts;
     return g;
   }
 }

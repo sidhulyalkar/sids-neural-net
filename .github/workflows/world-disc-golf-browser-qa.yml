@@ -34,6 +34,7 @@ jobs:
           npm install --no-save --package-lock=false playwright@1.56.1
           npx playwright install --with-deps chromium
       - name: Start website
+        id: world
         run: |
           (npm run dev > /tmp/world-next.log 2>&1 &)
           for i in $(seq 1 90); do
@@ -45,10 +46,19 @@ jobs:
           done
           cat /tmp/world-next.log
           exit 1
-      - name: Run nine-hole visual browser playtest
-        run: node scripts/playtest-disc-golf.mjs
+      - name: Verify ski landing and exit restore free roaming
+        if: ${{ !cancelled() && steps.world.outcome == 'success' }}
+        env:
+          WORLD_AUDIT_DIR: artifacts/world/disc-golf-playtest/session-exits
+        run: node scripts/playtest-mountain-jump.mjs
       - name: Verify jet-ski steering and controls
+        if: ${{ !cancelled() && steps.world.outcome == 'success' }}
+        env:
+          WORLD_AUDIT_DIR: artifacts/world/disc-golf-playtest/jet-controls
         run: node scripts/playtest-jet-ski.mjs
+      - name: Run nine-hole visual browser playtest
+        if: ${{ !cancelled() && steps.world.outcome == 'success' }}
+        run: node scripts/playtest-disc-golf.mjs
       - name: Upload browser screenshots and QA report
         if: always()
         uses: actions/upload-artifact@v4

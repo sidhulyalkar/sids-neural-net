@@ -103,8 +103,8 @@ try {
   null,{timeout:35000});
  await page.waitForFunction(()=>{
   const d=document.querySelector("canvas")?.dataset;
-  return d?.discGolfCameraClear==="true"&&
-    d?.discGolfRenderedCameraClear==="true";
+  return d?.discGolfRenderedCameraClear==="true"&&d.discGolfPlayerFramed==="true"&&
+    (d.discGolfCameraClear==="true"||Number(d.discGolfCameraCutaways)>0);
  },null,{timeout:12000});
  await page.waitForTimeout(700);
  const secondShot=await canvas.evaluate(c=>({
@@ -112,10 +112,13 @@ try {
   cameraClear:c.dataset.discGolfCameraClear,
   renderedClear:c.dataset.discGolfRenderedCameraClear,
   cameraAdjusted:c.dataset.discGolfCameraAdjusted,
+  cutaways:Number(c.dataset.discGolfCameraCutaways),
+  framed:c.dataset.discGolfPlayerFramed,
   canopyVolumes:c.dataset.discGolfCameraVolumes,
   blockers:c.dataset.discGolfCameraBlockers,
  }));
- assert.equal(secondShot.cameraClear,"true");
+ assert.ok(secondShot.cameraClear==="true"||secondShot.cutaways>0);
+ assert.equal(secondShot.framed,"true");
  assert.equal(secondShot.renderedClear,"true");
  assert.ok(Number(secondShot.canopyVolumes)>0,
   "The camera must use the island's authored 3D foliage geometry");

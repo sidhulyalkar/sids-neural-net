@@ -113,6 +113,7 @@ export class CameraVisibilityField {
   if(this.clear(original,focus)&&!terrainBlocked(original))
    return {point:original,clear:true,adjusted:false,blocking:0};
   let best=original,bestCost=Infinity,bestBlocks=Infinity;
+  const candidates:{point:CameraPoint;cost:number}[]=[];
   for(const ratio of ranges){
    for(const lift of elevations){
     for(const angle of angles){
@@ -121,17 +122,26 @@ export class CameraVisibilityField {
      const z=focus.z+Math.cos(heading)*radius*ratio;
      const y=Math.max(desired.y+lift,floor(x,z)+3.2);
      const sample={x,y,z};
-     const blocks=this.blockers(sample,focus)+(terrainBlocked(sample)?100:0);
+
      // Strong visibility preference, then preserve the intended throw
      // direction and silhouette size; use the prior clean shot as a
      // tie-break to avoid snapping between symmetric sides.
-     const cost=blocks*10000+Math.abs(angle)*8+
+     const cost=Math.abs(angle)*8+
       Math.abs(1-ratio)*11+Math.abs(lift)*.48+
       Math.max(0,y-desired.y-lift)*.6+
       (previous?clamp(dist(previous,sample),0,50)*.045:0);
-     if(cost<bestCost){best=sample;bestCost=cost;bestBlocks=blocks;}
+     candidates.push({point:sample,cost});
     }
    }
+  }
+  // Evaluate promising poses first and stop at the cheapest clear pose.
+  // This avoids hundreds of foliage queries for an easy local adjustment.
+  candidates.sort((a,b)=>a.cost-b.cost);
+  for(const candidate of candidates){
+   const blocks=this.blockers(candidate.point,focus)+(terrainBlocked(candidate.point)?100:0);
+   if(blocks===0)return {point:candidate.point,clear:true,adjusted:true,blocking:0};
+   const cost=candidate.cost+blocks*10000;
+   if(cost<bestCost){best=candidate.point;bestCost=cost;bestBlocks=blocks;}
   }
   return {point:best,clear:bestBlocks===0,adjusted:true,blocking:bestBlocks};
  }

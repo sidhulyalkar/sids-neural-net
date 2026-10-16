@@ -3543,7 +3543,8 @@ export function createWorld(
       bigAir.phase==="flying"||
       climb||(grind&&state.activity!=="skate")||
       (airHeight>0.01&&!(state.activity==="skate"&&verticalSpeed>0.1)))return;
-    if(state.activity==="ski"&&mountainJumpEligible(player,supportHeight(player),travel.speed)){
+    if(state.activity==="ski"&&!nearestGrind(player,1.45)&&
+      mountainJumpEligible(player,supportHeight(player),travel.speed)){
       const ahead={x:player.x+travel.heading.x*2.1,
         z:player.z+travel.heading.z*2.1};
       const drop=Math.max(0,supportHeight(player)-supportHeight(ahead));
@@ -3852,8 +3853,14 @@ export function createWorld(
       }else if (discGolf.phase!=="off") {
         const previous=discGolf.phase;
         const wasPresentationPending=!!discGolf.presentationPending;
-        discGolf=stepDiscGolf(discGolf,dt,discGolfSurfaceHeight,
-          discGolfSurfaceIsWater,SEA_SURFACE,obstacles);
+        // Preserve elapsed flight time on slow GPUs without enlarging physics steps.
+        let discDelta=Math.max(0,Math.min(rawDelta,.5));
+        while(discDelta>1e-8){
+          const slice=Math.min(discDelta,.05);
+          discGolf=stepDiscGolf(discGolf,slice,discGolfSurfaceHeight,
+            discGolfSurfaceIsWater,SEA_SURFACE,obstacles);
+          discDelta-=slice;
+        }
         const previousFetch=discFetch;
         discFetch=stepDiscGolfFetch(discFetch,discGolf,dog,fetchNow);
         const handoff=discGolfHandoffTarget(previousFetch,discFetch,discGolf);
