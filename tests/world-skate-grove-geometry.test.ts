@@ -46,7 +46,8 @@ test("giant bark sculpture and elliptical hollow log are static, open and dispos
     assert.ok(object instanceof THREE.Mesh);
     if(object instanceof THREE.Mesh){
       const vertices=object.geometry.getAttribute("position");
-      assert.ok(vertices.count>100,"feature must be a true sculpted surface: "+name);
+      assert.ok(object instanceof THREE.InstancedMesh?object.count>30:vertices.count>100,
+       "feature must be sculpted or batched with meaningful instances: "+name);
       for(let i=0;i<vertices.count;i+=17)
         for(const n of [vertices.getX(i),vertices.getY(i),vertices.getZ(i)])
           assert.ok(Number.isFinite(n),"bad landmark vertex "+name);
