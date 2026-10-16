@@ -11,6 +11,7 @@ on:
       - 'lib/world/skateTricks.ts'
       - 'lib/world/skateDynamics.ts'
       - 'scripts/playtest-skatepark.mjs'
+      - 'scripts/playtest-sequoia-loop.mjs'
       - 'scripts/playtest-skate-grove-flow.mjs'
       - '.github/workflows/skate-grove-browser.yml'
   pull_request:
@@ -22,6 +23,7 @@ on:
       - 'lib/world/skateTricks.ts'
       - 'lib/world/skateDynamics.ts'
       - 'scripts/playtest-skatepark.mjs'
+      - 'scripts/playtest-sequoia-loop.mjs'
       - 'scripts/playtest-skate-grove-flow.mjs'
       - '.github/workflows/skate-grove-browser.yml'
   workflow_dispatch:
@@ -72,6 +74,12 @@ jobs:
           WORLD_AUDIT_DIR: artifacts/world/redwood-skate-grove
           PLAYWRIGHT_MODULE_ROOT: /tmp/skate-grove-playwright/node_modules/playwright
         run: node scripts/playtest-skatepark.mjs
+      - name: Ride the giant loop and verify controls after inversion
+        env:
+          WORLD_BASE_URL: http://127.0.0.1:3000
+          WORLD_AUDIT_DIR: artifacts/world/sequoia-loop-browser
+          PLAYWRIGHT_MODULE_ROOT: /tmp/skate-grove-playwright/node_modules/playwright
+        run: node scripts/playtest-sequoia-loop.mjs
       - name: Preserve three skatepark camera views and trick QA
         if: always()
         uses: actions/upload-artifact@v4
@@ -80,6 +88,7 @@ jobs:
           path: |
             artifacts/world/redwood-skate-grove/
             artifacts/world/redwood-skate-flow/
+            artifacts/world/sequoia-loop-browser/
             /tmp/skate-grove-next.log
           if-no-files-found: warn
       - name: Report browser or server errors
