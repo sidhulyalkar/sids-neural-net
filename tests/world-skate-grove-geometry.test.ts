@@ -34,6 +34,33 @@ test("authored wood geometry is static, named, low-draw and disposable",()=>{
  assert.equal(grove.root.parent,null,"dispose removes park from scene");
 });
 
+test("giant bark sculpture and elliptical hollow log are static, open and disposable",()=>{
+ const scene=new THREE.Scene(),grove=createWorldSkateGrove(scene,groundHeight);
+ try{
+  for(const name of ["sequoia-hollow-inner-roof","sequoia-deep-fluted-bark",
+   "sequoia-open-end-heartwood","stump-bowl-outer-bark-apron",
+   "stump-bowl-longitudinal-bark","full-360-loop-polished-tread",
+   "full-360-loop-bark-understructure"]){
+    const object=grove.root.getObjectByName(name);
+    assert.ok(object,"missing sculptural landmark "+name);
+    assert.ok(object instanceof THREE.Mesh);
+    if(object instanceof THREE.Mesh){
+      const vertices=object.geometry.getAttribute("position");
+      assert.ok(vertices.count>100,"feature must be a true sculpted surface: "+name);
+      for(let i=0;i<vertices.count;i+=17)
+        for(const n of [vertices.getX(i),vertices.getY(i),vertices.getZ(i)])
+          assert.ok(Number.isFinite(n),"bad landmark vertex "+name);
+    }
+  }
+  const mouth=grove.root.getObjectByName("sequoia-open-end-heartwood") as THREE.Mesh;
+  const shell=grove.root.getObjectByName("sequoia-hollow-inner-roof") as THREE.Mesh;
+  assert.ok(mouth.geometry.index&&mouth.geometry.index.count>200);
+  assert.ok(shell.geometry.index&&shell.geometry.index.count>4000);
+  assert.equal(grove.root.getObjectByName("sequoia-tunnel-and-timber-loop")?.parent,grove.root);
+  assert.ok(grove.root.children.length<=22,"landmarks must share one pooled root");
+ }finally{grove.dispose();}
+});
+
 test("visible cedar deck samples exact riding heightfield at every grid vertex",()=>{
  const scene=new THREE.Scene(),grove=createWorldSkateGrove(scene,groundHeight);
  try{
@@ -62,10 +89,10 @@ test("deep redwood silhouette belongs to the real surface, not a hidden art coll
   z:c.z+Math.sin(angle)*r,
  });
  const west=redwoodBowlBankRise(at(5.32,Math.PI));
- const outer=redwoodBowlBankRise(at(6.72,Math.PI));
+ const outer=redwoodBowlBankRise(at(7.15,Math.PI));
  const split=redwoodBowlBankRise(at(5.32,.15));
  const interior=redwoodBowlBankRise(at(.4,0));
- assert.ok(west>1.72&&west<2.3,
+ assert.ok(west>2.28&&west<2.85,
   "raised trunk crest must have a legible old-growth silhouette");
  assert.ok(outer<.05,"exterior bark shoulder returns to natural earth");
  assert.ok(split<west*.53,"east opening stays beginner-friendly");
