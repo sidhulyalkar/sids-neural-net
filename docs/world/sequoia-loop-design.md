@@ -92,3 +92,41 @@ fast-travel cleanup, escape/exit behavior and equipment changes.
 - Cross-world: skate -> ski/jet/skim/disc/mountain transitions, Shasta, foliage
   occlusion, and zero regressions in existing Redwood/Island/World scripts.
 - No automatic production merge or deployment on this candidate.
+
+
+## V2 art-direction revision (reference vs latest playtest)
+
+The v1 screenshot revealed three precise visual shortcomings: a too-smooth
+earthy bowl, a narrow manufactured-looking log pipe, and an undersized loop.
+This revision addresses those root causes, not just their material colors.
+
+| Asset | V1 | V2 | Physical relationship |
+| --- | --- | --- | --- |
+| Stump | radius 5.4, peak banking ~2.05 | rim 5.65, 2.62-unit organic bank, raised contrast and bark apron with longitudinal furrows/roots | `redwoodBowlBankRise` owns contact; flutes hug only the outside |
+| Fallen tree | 8.8 units long, ~2-unit circular inner radius | 10.7 long, 2.85-unit tall inner elliptical roof, 2.61 lateral half-bore, tapered external 3.32-unit radius | Existing `groveLogRise` is widened, flat in the center; no end disks/inside decor |
+| Timber loop | 2.15 radius, 2.35 wide | **3.75 radius and 3.45 wide**, more substantial heavy-timber support | Shared `SKATE_LOOP.radius` drives visible mesh AND inverted 3D wheel state |
+| Surroundings | few fern fringes / bare brown soil | fallen bark and needle duff at park edges, six extra old-growth framing trees outside the active meadow | World tree renderer creates real trunk obstacle and canopy occlusion for each tree |
+
+The loop remains an assisted arcade stunt (not an unsupported claim of real
+skateboard physics). Its minimum contact speed is raised to 5.1 world units/s
+while inverted so it is reliably completed on the 7.5-unit diameter structure
+even at low frame rates. Entry still requires deliberate alignment and the
+8.4-unit/s approach gate, and uses the exact same line-scoring system.
+
+The open tunnel has a central clear floor at least 2.72 units wide, a much
+wider arch above it, and no under-roof plants/structural braces. Its decorative
+root buttresses are outside both open mouths, rather than across the runway.
+
+The bowl's bark is layered on the *exterior* and painted onto the real sampled
+bank; it is deliberately not a coincident invisible collider. Outer appendages
+never change the existing skateboard collision authority.
+
+### Visual signoff
+
+The visual target is a large bark-sheathed stump as centerpiece, a massive
+authentic fallen log, and a dominating sculptural timber loop in a denser
+redwood forest. A production-ready pass must still inspect screenshots in a
+real browser, including looking down both log entrances, examining the outer
+stump rim, seeing the entire new loop, capturing the rider inverted mid-loop,
+and verifying actual clean free-roam control after the stunt. Passing geometry
+tests is not a substitute for those observations.
