@@ -5776,9 +5776,19 @@ export function createWorld(
     camera.lookAt(look);
     if(lastDiscCameraSolve){
       camera.updateMatrixWorld();
-      const projected=lastDiscCameraSolve.focus.clone().project(camera);
-      canvas.dataset.discGolfPlayerFramed=String(Math.abs(projected.x)<.9&&
-        Math.abs(projected.y)<.85&&projected.z>-1&&projected.z<1);
+      let projected=lastDiscCameraSolve.focus.clone().project(camera);
+      const playerOnScreen=(p:THREE.Vector3)=>Math.abs(p.x)<.78&&
+        Math.abs(p.y)<.76&&p.z>-1&&p.z<1;
+      if(!playerOnScreen(projected)){
+        // A clear camera is still unplayable if basket-biased framing puts
+        // the release point offscreen. Preserve the safe camera position,
+        // but reacquire the thrower before they can aim their next shot.
+        look.copy(lastDiscCameraSolve.focus);
+        camera.lookAt(look);
+        camera.updateMatrixWorld();
+        projected=lastDiscCameraSolve.focus.clone().project(camera);
+      }
+      canvas.dataset.discGolfPlayerFramed=String(playerOnScreen(projected));
       // Report the actual rendered-scenery visibility after local cutaways.
       // Do not overwrite the diagnostic with an unconditional success.
       const obstructing=sceneryCamera.field.blockingIndices(
