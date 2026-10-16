@@ -1,6 +1,6 @@
 import {createWorldSkimSurf} from "./worldSkimSurfGeometry";
 import { desertTrackTreadBlend, desertTrackSampleAt, DESERT_GAP_DEBRIS, DESERT_JUMPS, DESERT_TRACK_LENGTH } from "@/lib/world/desertTrack";
-import {insideSkatePark,skateParkZone,skateGroveStartHeading,SKATE_LOOP} from "@/lib/world/skatepark";
+import {insideSkatePark,skateParkZone,skateGroveStartHeading,SKATE_LOOP,GROVE_TUNNEL} from "@/lib/world/skatepark";
 import {beginSkateLoop,skateLoopEntryCrossing,advanceSkateLoop,skateLoopSample,type SkateLoopRide} from "@/lib/world/skateLoop";
 import {createWorldSkateGrove} from "./worldSkateGroveGeometry";
 import {skateLean} from "@/lib/world/skateDynamics";
@@ -4503,7 +4503,7 @@ export function createWorld(
         " PTS · BEST "+skateTrick.best;
       // Avoid 60 identical live-region mutations per second for screen readers.
       if(skateVisible&&skateHud.textContent!==skateStatus)skateHud.textContent=skateStatus;
-      canvas.dataset.skateGrove="redwood-timber-v2";
+      canvas.dataset.skateGrove="redwood-timber-v1";
       canvas.dataset.skateLoopPhase=skateLoopRide?"inverting":"free";
       canvas.dataset.skateLoopAngle=(skateLoopRide?.angle??0).toFixed(4);
       canvas.dataset.skateLoopEntries=String(skateLoopEntries);
@@ -4721,6 +4721,12 @@ export function createWorld(
         discGolf.phase==="off" &&
         distance(player,regionLanding("rainforest"))<5.5;
       canvas.dataset.rainforestOverlook=String(rainforestFraming);
+      // Look THROUGH the open log mouth instead of flying the camera through
+      // the bark roof. This leaves the silhouette visible while riding inside.
+      const sequoiaCamera=skateVisible&&
+        Math.abs(player.x-GROVE_TUNNEL.center.x)<GROVE_TUNNEL.halfLength+.1&&
+        Math.abs(player.z-GROVE_TUNNEL.center.z)<1.30;
+      canvas.dataset.skateTunnelCamera=String(sequoiaCamera);
       if(discGolf.phase!=="off"){
         const basket=discGolfNextTarget(discGolf);
         const pose=discGolfThrowCameraPose(player,basket,playerY);
@@ -4753,6 +4759,8 @@ export function createWorld(
         // skater's inversion; the moving chase boom would intersect the ring.
         targetLook.set(SKATE_LOOP.center.x,
           skateLoopRide.baseY+SKATE_LOOP.radius+1.1,SKATE_LOOP.center.z);
+      } else if(sequoiaCamera){
+        targetLook.set(player.x,playerY+1.40,player.z);
       } else if (cavernFraming) {
         targetLook.set(arcadeWall.x, arcadeWallY + 2.05, arcadeWall.z - 0.5);
       } else if (rainforestFraming) {
@@ -4815,6 +4823,13 @@ export function createWorld(
         targetCamera.set(SKATE_LOOP.center.x+5.8,
           skateLoopRide.baseY+SKATE_LOOP.radius+5.6,
           SKATE_LOOP.center.z+10.4);
+      } else if(sequoiaCamera){
+        const side=travel.heading.x<=0?1:-1;
+        const mouthX=GROVE_TUNNEL.center.x+
+          side*(GROVE_TUNNEL.halfLength+2.9);
+        targetCamera.set(mouthX,
+          Math.max(targetLook.y+.8,groundHeight({x:mouthX,z:GROVE_TUNNEL.center.z})+1.85),
+          GROVE_TUNNEL.center.z);
       } else if (cavernFraming) {
         // Keep the third-person boom centered inside the authored tunnel.
         // A lower eye line prevents the roof from swallowing the frame while
