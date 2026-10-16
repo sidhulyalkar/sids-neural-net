@@ -13,5 +13,6 @@ export function jetSkiControlInput(keys:ReadonlySet<string>,
  const steer=clamp(Number(keys.has("d")||keys.has("arrowright"))-
   Number(keys.has("a")||keys.has("arrowleft"))+touch.steer);
  return {throttle:reverse?-1:accelerate||turbo?1:0,
-  steer,brake:reverse&&speed>0,turbo};
+  // Heading is atan2(x,z): positive yaw is rider-left, while UI right is +1.
+  steer:steer===0?0:-steer,brake:reverse&&speed>0,turbo};
 }

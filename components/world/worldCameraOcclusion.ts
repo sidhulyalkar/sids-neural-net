@@ -1,0 +1,61 @@
+import * as THREE from "three/src/Three.Core.js";
+import {CameraVisibilityField,type CameraPoint,type CameraVolume} from "@/lib/world/cameraVisibility";
+
+/** Snapshot static scenery before adding the player. Each instance keeps its
+ * own cutaway handle: hiding one leaf never removes an entire forest. */
+export function createWorldCameraOcclusion(scene:THREE.Scene){
+ const entries:{mesh:THREE.Mesh;instance?:number}[]=[],volumes:CameraVolume[]=[];
+ const matrix=new THREE.Matrix4(),world=new THREE.Matrix4(),box=new THREE.Box3();
+ const center=new THREE.Vector3(),size=new THREE.Vector3();
+ scene.updateMatrixWorld(true);
+ scene.traverse(object=>{
+  if(!(object instanceof THREE.Mesh))return;
+  const materials=Array.isArray(object.material)?object.material:[object.material];
+  if(!materials.some(m=>m.visible&&m.colorWrite&&(!m.transparent||m.opacity>=.65)))return;
+  object.geometry.computeBoundingBox();
+  const bounds=object.geometry.boundingBox;if(!bounds)return;
+  const count=object instanceof THREE.InstancedMesh?object.count:1;
+  for(let i=0;i<count;i++){
+   world.copy(object.matrixWorld);
+   if(object instanceof THREE.InstancedMesh){object.getMatrixAt(i,matrix);world.multiply(matrix);}
+   box.copy(bounds).applyMatrix4(world);box.getSize(size);box.getCenter(center);
+   // Island terrain/ocean are checked by the terrain clearance solver, not
+   // treated as one giant solid foliage volume enclosing the whole island.
+   if(Math.max(size.x,size.z)>120||size.length()<.02)continue;
+   const k=Math.sqrt(3)/2; // ellipsoid encloses all eight box corners
+   volumes.push({x:center.x,y:center.y,z:center.z,
+    rx:Math.max(.02,size.x*k),ry:Math.max(.02,size.y*k),rz:Math.max(.02,size.z*k)});
+   entries.push({mesh:object,instance:object instanceof THREE.InstancedMesh?i:undefined});
+  }
+ });
+ const field=new CameraVisibilityField(volumes);
+ const hidden:{mesh:THREE.Mesh;instance?:number;matrix?:THREE.Matrix4;visible:boolean}[]=[];
+ let hiddenKey="";
+ function restore(){
+  for(const h of hidden){
+   if(h.instance!==undefined&&h.mesh instanceof THREE.InstancedMesh){
+    h.mesh.setMatrixAt(h.instance,h.matrix!);h.mesh.instanceMatrix.needsUpdate=true;
+   }else h.mesh.visible=h.visible;
+  }
+  hidden.length=0;hiddenKey="";
+ }
+ function cutaway(camera:CameraPoint,focus:CameraPoint){
+  const ids=field.blockingIndices(camera,focus),key=ids.join(",");
+  if(key===hiddenKey){
+   for(const h of hidden)if(h.instance===undefined)h.mesh.visible=false;
+   return hidden.length;
+  }
+  restore();hiddenKey=key;
+  for(const id of ids){
+   const e=entries[id];
+   if(e.instance!==undefined&&e.mesh instanceof THREE.InstancedMesh){
+    const original=new THREE.Matrix4();e.mesh.getMatrixAt(e.instance,original);
+    hidden.push({...e,matrix:original,visible:e.mesh.visible});
+    e.mesh.setMatrixAt(e.instance,new THREE.Matrix4().makeScale(0,0,0));
+    e.mesh.instanceMatrix.needsUpdate=true;
+   }else{hidden.push({...e,visible:e.mesh.visible});e.mesh.visible=false;}
+  }
+  return hidden.length;
+ }
+ return {field,cutaway,restore,count:volumes.length};
+}

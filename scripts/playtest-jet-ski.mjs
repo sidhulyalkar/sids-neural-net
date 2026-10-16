@@ -112,6 +112,15 @@ try{
  }));
  assert.equal(driving.courseWater,"true");
  assert.ok(driving.speed>1,JSON.stringify(driving));
+ // Test the actual key handler, input adapter and heading integration.
+ for(const [key,sign] of [["a",1],["d",-1]]){
+  const before=Number(await canvas.getAttribute("data-jet-ski-heading"));
+  await desktop.keyboard.down(key);
+  try{await desktop.waitForFunction(({before,sign})=>{
+   const d=document.querySelector("canvas")?.dataset;
+   return (Number(d?.jetSkiHeading)-before)*sign>.025;
+  },{before,sign},{timeout:10000});}finally{await desktop.keyboard.up(key);}
+ }
  await desktop.keyboard.down("s");
  try{
   await desktop.waitForFunction(()=>

@@ -57,9 +57,9 @@ export class CameraVisibilityField {
  /** Check the actual camera lens and two avatar silhouette points.
   * Camera must not be *inside* foliage, even if a view ray appears clear.
   */
- blockers(camera:CameraPoint,focus:CameraPoint):number{
+ blockers(camera:CameraPoint,focus:CameraPoint,only?:readonly number[]):number{
   if(!valid(camera)||!valid(focus))return Infinity;
-  const candidates=this.candidates(camera,focus);
+  const candidates=only??this.candidates(camera,focus);
   let hits=0;
   for(const id of candidates){
    const v=this.volumes[id];
@@ -80,6 +80,11 @@ export class CameraVisibilityField {
   }
   return hits;
  }
+ blockingIndices(camera:CameraPoint,focus:CameraPoint):number[]{
+  return this.candidates(camera,focus).filter(id=>{
+   return this.blockers(camera,focus,[id])>0;
+  });
+ }
  clear(camera:CameraPoint,focus:CameraPoint):boolean{
   return this.blockers(camera,focus)===0;
  }
@@ -93,9 +98,9 @@ export class CameraVisibilityField {
   const dx=desired.x-focus.x,dz=desired.z-focus.z;
   const radius=Math.max(1,Math.hypot(dx,dz));
   const baseAngle=Math.atan2(dx,dz);
-  const angles=[0,-.27,.27,-.56,.56,-.95,.95,-1.35,1.35,Math.PI];
-  const elevations=[0,4,9,16,23];
-  const ranges=[1,.82,.64,.44];
+  const angles=[0,-.27,.27,-.56,.56,-.95,.95];
+  const elevations=[0,-4,-8,4,9,16];
+  const ranges=[1,.82,.64,.44,.22];
   const original={...desired,y:Math.max(desired.y,floor(desired.x,desired.z)+3.2)};
   if(this.clear(original,focus))
    return {point:original,clear:true,adjusted:false,blocking:0};
@@ -113,7 +118,7 @@ export class CameraVisibilityField {
      // direction and silhouette size; use the prior clean shot as a
      // tie-break to avoid snapping between symmetric sides.
      const cost=blocks*10000+Math.abs(angle)*8+
-      Math.abs(1-ratio)*11+lift*.48+
+      Math.abs(1-ratio)*11+Math.abs(lift)*.48+
       Math.max(0,y-desired.y-lift)*.6+
       (previous?clamp(dist(previous,sample),0,50)*.045:0);
      if(cost<bestCost){best=sample;bestCost=cost;bestBlocks=blocks;}

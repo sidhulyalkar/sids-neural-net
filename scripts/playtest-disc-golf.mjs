@@ -212,7 +212,17 @@ try{
   if(i===1||i===0||i===8){
    await page.screenshot({path:path.join(out,`hole-${i+1}-after-first-shot.png`)});
   }
-  report.push({hole:i+1,id:ids[i],phase,strokes});
+  await page.waitForFunction(()=>{
+   const d=document.querySelector('canvas[role="application"]')?.dataset;
+   return d?.discGolfPlayerFramed==="true"&&d.discGolfRenderedCameraClear==="true";
+  },null,{timeout:15000});
+  const cameraEvidence=await canvas.evaluate(c=>({
+   clear:c.dataset.discGolfRenderedCameraClear,framed:c.dataset.discGolfPlayerFramed,
+   cutaways:Number(c.dataset.discGolfCameraCutaways),volumes:Number(c.dataset.discGolfRenderedVolumes),
+  }));
+  assert.ok(cameraEvidence.volumes>0,"rendered geometry must participate in camera selection");
+  await page.screenshot({path:path.join(out,`hole-${i+1}-clear-rethrow.png`)});
+  report.push({hole:i+1,id:ids[i],phase,strokes,camera:cameraEvidence});
  }
  assert.deepEqual(errors,[],"Browser should produce no runtime errors");
  fs.writeFileSync(path.join(out,"report.json"),JSON.stringify({report,errors},null,2)+"\n");

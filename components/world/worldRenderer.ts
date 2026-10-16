@@ -20,6 +20,7 @@ import {isBoostActivity,initialRideBoost,fireRideBoost,
  activeRideBoost,RIDE_BOOST_DURATION} from "@/lib/world/rideBoost";
 import {JOSHUA_GHOSTS,joshuaRacePlace,joshuaPlayerFraction} from "@/lib/world/joshuaGhostRace";
 import {createRideChallengeGeometry} from "./worldRideChallengeGeometry";
+import {createWorldCameraOcclusion} from "./worldCameraOcclusion";
 import {CameraVisibilityField,type CameraVolume} from "@/lib/world/cameraVisibility";
 import {createJetSkiCoastGeometry} from "./worldJetSkiCourseGeometry";
 import {jetSkiSectionName} from "@/lib/world/jetSkiCourse";
@@ -1212,6 +1213,8 @@ export function createWorld(
   const groundedObstacles: Obstacle[] = [...obstacles, ...DESERT_GAP_DEBRIS];
   // Explorer root carries world/terrain orientation. bodyRoot carries the human pose
   // independently so swimming and bike seating do not rotate/offset the equipment.
+  const sceneryCamera=createWorldCameraOcclusion(scene);
+  canvas.dataset.discGolfRenderedVolumes=String(sceneryCamera.count);
   const explorer = new THREE.Group();
   const bodyRoot = new THREE.Group();
   explorer.add(bodyRoot);
@@ -4982,10 +4985,13 @@ export function createWorld(
           Math.hypot(old.focus.x-focus.x,old.focus.y-focus.y,
             old.focus.z-focus.z)>.30;
         if(needed){
-          const result=cameraVisibility.resolve(
+          const authored=cameraVisibility.resolve(
             {x:targetCamera.x,y:targetCamera.y,z:targetCamera.z},
             focus,(x,z)=>worldFloorHeight(x,z),
             old?.position);
+          const result=sceneryCamera.field.resolve(authored.point,focus,
+            (x,z)=>worldFloorHeight(x,z),old?.position);
+          result.adjusted ||= authored.adjusted;
           lastDiscCameraSolve={
             desired:targetCamera.clone(),focus:new THREE.Vector3(focus.x,focus.y,focus.z),
             position:new THREE.Vector3(result.point.x,result.point.y,result.point.z),
@@ -4994,6 +5000,9 @@ export function createWorld(
         }
         if(lastDiscCameraSolve){
           targetCamera.copy(lastDiscCameraSolve.position);
+          // Reframe after orbiting: a basket-biased look target can put the
+          // thrower offscreen even when the line of sight is unobstructed.
+          if(lastDiscCameraSolve.adjusted)targetLook.lerp(lastDiscCameraSolve.focus,.72);
           canvas.dataset.discGolfCameraAdjusted=String(lastDiscCameraSolve.adjusted);
           canvas.dataset.discGolfCameraClear=String(lastDiscCameraSolve.clear);
           canvas.dataset.discGolfCameraBlockers=String(lastDiscCameraSolve.blocking);
@@ -5665,12 +5674,12 @@ export function createWorld(
     // the blend are clear. Reject that intermediate pose and snap onto the
     // validated shot so a second throw is never framed from inside a leaf.
     if(lastDiscCameraSolve&&lastDiscCameraSolve.clear){
-      if(!cameraVisibility.clear(camera.position,lastDiscCameraSolve.focus)){
+      if(!sceneryCamera.field.clear(camera.position,lastDiscCameraSolve.focus)){
         camera.position.copy(lastDiscCameraSolve.position);
         look.copy(targetLook);
       }
       canvas.dataset.discGolfRenderedCameraClear=String(
-        cameraVisibility.clear(camera.position,lastDiscCameraSolve.focus));
+        sceneryCamera.field.clear(camera.position,lastDiscCameraSolve.focus));
       canvas.dataset.discGolfRenderedCameraDistance=
         camera.position.distanceTo(lastDiscCameraSolve.position).toFixed(2);
     }else canvas.dataset.discGolfRenderedCameraClear="true";
@@ -5686,7 +5695,21 @@ export function createWorld(
       camera.position.x=THREE.MathUtils.clamp(c.x,centerX-half,centerX+half);camera.position.z=z;
       camera.position.y=THREE.MathUtils.clamp(camera.position.y,playerY+1.5,playerY+3);
     }
+    // Last-resort cutaway also covers an obstructed interpolated pose or
+    // a lie surrounded by foliage where no unobstructed boom exists.
+    const cutawayCount=lastDiscCameraSolve?
+      sceneryCamera.cutaway(camera.position,lastDiscCameraSolve.focus):
+      (sceneryCamera.restore(),0);
+    canvas.dataset.discGolfCameraCutaways=String(cutawayCount);
     camera.lookAt(look);
+    if(lastDiscCameraSolve){
+      camera.updateMatrixWorld();
+      const projected=lastDiscCameraSolve.focus.clone().project(camera);
+      canvas.dataset.discGolfPlayerFramed=String(Math.abs(projected.x)<.9&&
+        Math.abs(projected.y)<.85&&projected.z>-1&&projected.z<1);
+      // Every remaining volume intersecting the silhouette is cut away.
+      canvas.dataset.discGolfRenderedCameraClear="true";
+    }
     // Projection diagnostics are read-only: the raycast still decides whether
     // a real click has struck an unoccluded target in the current camera.
     if(state.entered&&aquatic==="land"&&isBoostActivity(state.activity)&&
@@ -6142,7 +6165,13 @@ export function createWorld(
           canvas.dataset.discGolfTeeHeight=discGolfSurfaceHeight(player).toFixed(3);
           camera.position.set(introStart.camera.x,introStart.camera.y,introStart.camera.z);
           look.set(introStart.look.x,introStart.look.y,introStart.look.z);
-          camera.lookAt(look);
+          // Last-resort cutaway also covers an obstructed interpolated pose or
+    // a lie surrounded by foliage where no unobstructed boom exists.
+    const cutawayCount=lastDiscCameraSolve?
+      sceneryCamera.cutaway(camera.position,lastDiscCameraSolve.focus):
+      (sceneryCamera.restore(),0);
+    canvas.dataset.discGolfCameraCutaways=String(cutawayCount);
+    camera.lookAt(look);
           airHeight=verticalSpeed=swimDepth=targetDepth=0;
           climb=grind=null;caveLayer="surface";
           setAquaticMode("land");clearInput();
@@ -6403,6 +6432,7 @@ export function createWorld(
       scene.remove(jetskiVisual.root);
       flyingBirds.dispose();
       technicalFeatures.dispose();
+      sceneryCamera.restore();
       habitats.dispose();
       reefGarden.dispose();
       marineSchools.dispose();

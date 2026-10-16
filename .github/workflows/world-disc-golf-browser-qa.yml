@@ -1,10 +1,13 @@
 name: Disc Golf Browser QA
 on:
   push:
-    branches: ['feat/sids-world']
+    branches: ['feat/sids-world', 'fix/world-throw-camera-steering']
     paths:
       - '.github/workflows/world-disc-golf-browser-qa.yml'
       - 'scripts/playtest-disc-golf.mjs'
+      - 'components/world/**'
+      - 'lib/world/cameraVisibility.ts'
+      - 'lib/world/jetSkiControls.ts'
   workflow_dispatch:
 
 permissions:
@@ -44,6 +47,8 @@ jobs:
           exit 1
       - name: Run nine-hole visual browser playtest
         run: node scripts/playtest-disc-golf.mjs
+      - name: Verify jet-ski steering and controls
+        run: node scripts/playtest-jet-ski.mjs
       - name: Upload browser screenshots and QA report
         if: always()
         uses: actions/upload-artifact@v4
