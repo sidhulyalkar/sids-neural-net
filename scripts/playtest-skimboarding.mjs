@@ -128,7 +128,17 @@ try {
     press(" "); // pop
     press("q"); // shuv-it during flight
     sample();
-    await new Promise(resolve=>setTimeout(resolve,2400));
+    // Wait for observed simulation progress: software rendering can advance
+    // only a few frames during a fixed wall-clock sleep.
+    await new Promise(resolve=>{
+      const started=performance.now();
+      const poll=()=>{
+        sample();
+        if((trace.landed&&trace.wake&&trace.contact)||performance.now()-started>15000)resolve();
+        else setTimeout(poll,50);
+      };
+      poll();
+    });
     sample();observer.disconnect();
     return {...trace,finalPhase:c.dataset.skimPhase,
       lastTrick:c.dataset.skimLastTrick,score:Number(c.dataset.skimScore)};

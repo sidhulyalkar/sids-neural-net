@@ -50,13 +50,26 @@ try{
  await page.waitForFunction(()=>document.querySelector("canvas")?.dataset.discGolfRenderedCameraClear==="true",
   null,{timeout:10000});
  await page.screenshot({path:path.join(out,"01-hole2-pier-tee.png")});
+ // Record the transient flight before clicking: a software-rendered click
+ // can return after the disc has already landed.
+ await canvas.evaluate(c=>{
+  c.dataset.qaSawDiscFlight="false";
+  const observer=new MutationObserver(()=>{
+   if(c.dataset.discGolfPhase==="flying"){
+    c.dataset.qaSawDiscFlight="true";
+    observer.disconnect();
+   }
+  });
+  observer.observe(c,{attributes:true,attributeFilter:["data-disc-golf-phase"]});
+  setTimeout(()=>observer.disconnect(),10000);
+ });
  // Actual player throw, not only a simulated launch contract.
  await page.getByRole("button",{name:"Space · Throw"}).click();
  await page.waitForFunction(()=>document.querySelector("canvas")?.dataset.discGolfStrokes==="1",
   null,{timeout:5000});
- await page.waitForFunction(()=>document.querySelector("canvas")?.dataset.discGolfPhase==="flying",
+ await page.waitForFunction(()=>document.querySelector("canvas")?.dataset.qaSawDiscFlight==="true",
   null,{timeout:5000});
- await page.screenshot({path:path.join(out,"02-hole2-flight.png")});
+ await page.screenshot({path:path.join(out,"02-hole2-after-throw.png")});
  assert.deepEqual(errors,[],"No rendering/runtime exceptions at Hole 2 pier");
  fs.writeFileSync(path.join(out,"report.json"),JSON.stringify({start,errors},null,2)+"\n");
  console.log("Hole 2 pier tee accepted",JSON.stringify(start));

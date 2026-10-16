@@ -128,6 +128,20 @@ try{
   const startAvatar=await canvas.evaluate(c=>({
    x:Number(c.dataset.discGolfAvatarX),z:Number(c.dataset.discGolfAvatarZ),
   }));
+  if(i===0)await canvas.evaluate(c=>{
+   const trace=[];
+   c.__discStory=trace;
+   const observer=new MutationObserver(()=>{
+    const d=c.dataset,stage=d.discGolfCinematicStage;
+    if(trace.at(-1)?.stage!==stage)trace.push({stage,
+     x:Number(d.discGolfAvatarX),z:Number(d.discGolfAvatarZ),
+     pending:d.discGolfHandoffPending,follow:d.shastaFollowMode,
+     boom:Number(d.shastaFollowBoom)});
+    if(d.discGolfHandoffPending==="false"&&trace.some(s=>s.stage==="chase"))observer.disconnect();
+   });
+   observer.observe(c,{attributes:true,attributeFilter:["data-disc-golf-cinematic-stage"]});
+   setTimeout(()=>observer.disconnect(),45000);
+  });
   if(i===1){
    // Keep the original click-to-throw coverage for the restored second tee.
    await page.getByRole("button",{name:"Space · Throw"}).click();
@@ -173,38 +187,22 @@ try{
   assert.equal(strokes,1,"First throw must count exactly one stroke on "+ids[i]);
   assert.equal(await canvas.getAttribute("data-disc-golf-handoff-pending"),"true",
    "landing cannot unlock the next throw before fetch");
-  if(i===0){
-   const assertNotMoved=async phaseName=>{
-    const avatar=await canvas.evaluate(c=>({
-     x:Number(c.dataset.discGolfAvatarX),
-     z:Number(c.dataset.discGolfAvatarZ),
-     pending:c.dataset.discGolfHandoffPending,
-    }));
-    assert.deepEqual({x:avatar.x,z:avatar.z},startAvatar,
-     "Avatar moved before Shasta finished during "+phaseName);
-    assert.equal(avatar.pending,"true");
-   };
-   await assertNotMoved("landing");
-   await page.waitForFunction(()=>
-    document.querySelector("canvas")?.dataset.discGolfCinematicStage==="landing",
-    null,{timeout:2500});
-   await page.screenshot({path:path.join(out,"hole-1-disc-landing.png")});
-   await page.waitForFunction(()=>
-    document.querySelector("canvas")?.dataset.discGolfCinematicStage==="chase",
-    null,{timeout:3500});
-   await assertNotMoved("chase");
-   await page.screenshot({path:path.join(out,"hole-1-shasta-begins-chase.png")});
-   // One continuous over-shoulder run is deliberate: avoid the old
-   // eye-level POV cut, which made every tiny dog step fill the screen.
-   const follow=await canvas.getAttribute("data-shasta-follow-mode");
-   assert.equal(follow,"third-person");
-   assert.ok(Number(await canvas.getAttribute("data-shasta-follow-boom"))>=10);
-   await page.screenshot({path:path.join(out,"hole-1-shasta-wide-follow.png")});
-  }
   await page.waitForFunction(()=>
    document.querySelector("canvas")?.dataset.discGolfHandoffPending==="false",
    null,{timeout:25000});
   if(i===0){
+   const story=await canvas.evaluate(c=>c.__discStory);
+   for(const stage of ["disc","landing","chase"]){
+    const observed=story.find(s=>s.stage===stage);
+    assert.ok(observed,"Camera story must include "+stage);
+    assert.deepEqual({x:observed.x,z:observed.z},startAvatar,
+     "Avatar must stay at the tee during "+stage);
+    if(stage!=="disc")assert.equal(observed.pending,"true");
+    if(stage==="chase"){
+     assert.equal(observed.follow,"third-person");
+     assert.ok(observed.boom>=10);
+    }
+   }
    assert.equal(await canvas.getAttribute("data-disc-golf-handoff"),"complete");
    assert.equal(await canvas.getAttribute("data-disc-golf-handoff-reason"),"found",
     "Shasta must actually find the disc before Hole 1 teleports the avatar");
