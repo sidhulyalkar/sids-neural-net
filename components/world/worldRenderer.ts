@@ -1528,6 +1528,31 @@ export function createWorld(
   canvas.dataset.arcadeTrailMarkers=String(ARCADE_TRAIL_MARKERS.length);
   canvas.dataset.arcadeWayfindingSign=arcadeWord;
 
+  // Subtle gold-to-teal floor studs explain the real route around the
+  // recessed baffle: enter center, move to the open eastern bypass, then
+  // return toward the three carved game niches. Like painted wayfinding,
+  // these have ZERO collision or extra light sources.
+  const arcadeWalkRoute=[
+    {x:16.0,z:-80.65},{x:18.65,z:-77.1},
+    {x:18.65,z:-73.0},{x:18.3,z:-70.0},
+    {x:16.0,z:-66.65},
+  ];
+  const arcadeWalkInlays:Instance[]=[];
+  for(let i=0;i<arcadeWalkRoute.length-1;i++){
+    const a=arcadeWalkRoute[i],b=arcadeWalkRoute[i+1];
+    for(let j=0;j<8;j++){
+      const t=j/8;
+      const x=a.x+(b.x-a.x)*t,z=a.z+(b.z-a.z)*t;
+      const y=arcadeCaveFloorHeight({x,z})+.075;
+      arcadeWalkInlays.push({
+        x,y,z,sx:.15,sy:.016,sz:.095,
+        ry:-Math.atan2(b.x-a.x,b.z-a.z),
+      });
+    }
+  }
+  const arcadeTrailFloor=instances(boxGeo,arcadeGlacial,arcadeWalkInlays,false);
+  arcadeTrailFloor.name="arcade-cavern-baffle-safe-teal-route";
+
   // A single small hanging lantern provides the cave's warm interior light.
   const lanternFloor = arcadeCaveFloorHeight(ARCADE_CAVE.lantern);
   const lanternY = lanternFloor + ARCADE_CAVE.ceilingClearance - 0.85;
@@ -5129,7 +5154,13 @@ export function createWorld(
         driveButtons.forEach(b=>{b.style.display=jetSki?"inline-flex":"none";});
         jetRetryButton.style.display=jetSki&&jetSki.phase==="finished"?"inline-flex":"none";
       }
-      if(!jetSki){explorer.visible=!jetChoosing;
+      if(!jetSki){
+        // Third-person cave camera can be pushed close to the backpack by
+        // narrow rock. Hide only the camera-intersecting avatar in that case,
+        // never the player's actual collision or equipment states.
+        const cameraInsideAvatar=caveInside&&
+          camera.position.distanceTo(explorer.position)<2.55;
+        explorer.visible=!jetChoosing&&!cameraInsideAvatar;
         jetskiVisual.activeSki.visible=jetChoosing;
         if(jetChoosing){
           jetskiVisual.activeSki.position.set(JET_SKI_DOCK.x+.25,SEA_SURFACE+.2,JET_SKI_PIER.centerZ-.15);
