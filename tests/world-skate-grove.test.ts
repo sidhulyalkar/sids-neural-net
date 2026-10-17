@@ -9,8 +9,9 @@ import {
 } from "../lib/world/skatepark";
 
 test("Redwood Skate Grove has readable, geographically distinct features",()=>{
- assert.equal(SKATE_PARK_RAILS.length,3,"preserve existing grindable segments and ids");
- assert.deepEqual(SKATE_PARK_RAILS.map(rail=>rail.id),[
+ assert.ok(SKATE_PARK_RAILS.length>=18,
+  "preserve the original three while adding connected rail variation");
+ assert.deepEqual(SKATE_PARK_RAILS.filter(rail=>!rail.chainId).map(rail=>rail.id),[
   "park-flat-bar","park-down-rail","park-bowl-coping",
  ]);
  assert.equal(skateParkZone(REDWOOD_BOWL.center),"redwood-bowl");
