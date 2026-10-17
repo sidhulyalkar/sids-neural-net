@@ -1,4 +1,4 @@
-import * as THREE from "three";
+import type * as THREE from "three";
 import {ARCADE_CAVERN_MURALS,validateArcadeArtManifest} from "@/lib/world/arcadeCavernArtManifest";
 import {sampleCavernArt,type CavernArtTheme,type CavernArtSurface,type CavernMural} from "@/lib/world/arcadeCavernSurface";
 
@@ -284,7 +284,7 @@ function paintCeiling(ctx:Paint){
  }
  tag(ctx,"LEVELS ABOVE",295,140,56,"#cfb18b",-.025);
 }
-function paintTexture(theme:CavernArtTheme){
+function paintTexture(theme:CavernArtTheme,three:typeof import("three")){
  const canvas=document.createElement("canvas");
  canvas.width=1024;canvas.height=theme==="identity"?320:theme==="sports"||theme==="anime"||theme==="sport-anime"||theme==="comedy"?640:1024;
  const ctx=canvas.getContext("2d");
@@ -299,25 +299,25 @@ function paintTexture(theme:CavernArtTheme){
  if(theme==="comedy")paintComedy(ctx);
  if(theme==="sport-anime")paintSportAnime(ctx);
  ctx.restore();
- const texture=new THREE.CanvasTexture(canvas);
- texture.colorSpace=THREE.SRGBColorSpace;
+ const texture=new three.CanvasTexture(canvas);
+ texture.colorSpace=three.SRGBColorSpace;
  texture.anisotropy=4;texture.generateMipmaps=true;
- texture.minFilter=THREE.LinearMipmapLinearFilter;
+ texture.minFilter=three.LinearMipmapLinearFilter;
  return texture;
 }
-function atmosphereTexture(kind:"floor"|"ceiling"){
+function atmosphereTexture(kind:"floor"|"ceiling",three:typeof import("three")){
  const canvas=document.createElement("canvas");canvas.width=1024;canvas.height=1024;
  const ctx=canvas.getContext("2d");
  if(!ctx)throw Error("Arcade paint canvas unavailable");
  if(kind==="floor")paintFloor(ctx);else paintCeiling(ctx);
- const texture=new THREE.CanvasTexture(canvas);
- texture.colorSpace=THREE.SRGBColorSpace;
+ const texture=new three.CanvasTexture(canvas);
+ texture.colorSpace=three.SRGBColorSpace;
  texture.anisotropy=4;
  return texture;
 }
 function surfaceMesh(surface:CavernArtSurface,z0:number,z1:number,
  v0:number,v1:number,texture:THREE.Texture,name:string,
- zSegments=34,vSegments=14){
+ three:typeof import("three"),zSegments=34,vSegments=14){
  const vertices:number[]=[],uvs:number[]=[],indices:number[]=[];
  const left=surface==="left";
  for(let iz=0;iz<=zSegments;iz++)for(let iv=0;iv<=vSegments;iv++){
@@ -337,40 +337,40 @@ function surfaceMesh(surface:CavernArtSurface,z0:number,z1:number,
   const i=iz*(vSegments+1)+iv;
   indices.push(i,i+vSegments+1,i+1,i+1,i+vSegments+1,i+vSegments+2);
  }
- const g=new THREE.BufferGeometry();
- g.setAttribute("position",new THREE.Float32BufferAttribute(vertices,3));
- g.setAttribute("uv",new THREE.Float32BufferAttribute(uvs,2));
+ const g=new three.BufferGeometry();
+ g.setAttribute("position",new three.Float32BufferAttribute(vertices,3));
+ g.setAttribute("uv",new three.Float32BufferAttribute(uvs,2));
  g.setIndex(indices);g.computeVertexNormals();
- const mat=new THREE.MeshStandardMaterial({
-  map:texture,emissiveMap:texture,emissive:new THREE.Color("#7f5f58"),
+ const mat=new three.MeshStandardMaterial({
+  map:texture,emissiveMap:texture,emissive:new three.Color("#7f5f58"),
   emissiveIntensity:.17,transparent:true,opacity:.97,
   alphaTest:.015,depthWrite:false,
-  side:THREE.DoubleSide,roughness:1,polygonOffset:true,
+  side:three.DoubleSide,roughness:1,polygonOffset:true,
   polygonOffsetFactor:-2,polygonOffsetUnits:-2,
  });
- const mesh=new THREE.Mesh(g,mat);
+ const mesh=new three.Mesh(g,mat);
  mesh.name=name;mesh.castShadow=false;mesh.receiveShadow=false;
  mesh.raycast=()=>{};mesh.renderOrder=3;
  return mesh;
 }
-export function createWorldArcadeGraffiti(scene:THREE.Scene){
+export function createWorldArcadeGraffiti(scene:THREE.Scene,three:typeof import("three")){
  const issues=validateArcadeArtManifest(ARCADE_CAVERN_MURALS);
  if(issues.length)throw Error("Cave mural manifest: "+issues.join("; "));
- const root=new THREE.Group();root.name="sid-underground-fandom-fresco";
+ const root=new three.Group();root.name="sid-underground-fandom-fresco";
  const meshes:THREE.Mesh[]=[],textures:THREE.Texture[]=[];
  for(const mural of ARCADE_CAVERN_MURALS){
-  const tex=paintTexture(mural.theme);textures.push(tex);
+  const tex=paintTexture(mural.theme,three);textures.push(tex);
   const wall=surfaceMesh(mural.surface,mural.z0,mural.z1,
-   mural.v0,mural.v1,tex,"paint-"+mural.id,mural.surface==="back"?1:34,14);
+   mural.v0,mural.v1,tex,"paint-"+mural.id,three,mural.surface==="back"?1:34,14);
   // For the rear upper band the longitudinal z dimension is zero: texture
   // horizontal must use wall width, not the degenerate z-coordinate.
   meshes.push(wall);root.add(wall);
  }
  for(const layer of ["floor","ceiling"] as const){
-  const tex=atmosphereTexture(layer);textures.push(tex);
+  const tex=atmosphereTexture(layer,three);textures.push(tex);
   const mesh=surfaceMesh(layer,layer==="floor"?-79:-75.5,
    layer==="floor"?-65:-65.2,layer==="floor"?.06:.18,
-   layer==="floor"?.93:.86,tex,"paint-"+layer,38,16);
+   layer==="floor"?.93:.86,tex,"paint-"+layer,three,38,16);
   meshes.push(mesh);root.add(mesh);
  }
  scene.add(root);
