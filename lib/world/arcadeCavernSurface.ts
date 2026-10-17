@@ -86,9 +86,11 @@ export function sampleCavernArt(surface:CavernArtSurface,z:number,u:number,v:num
 export function validateCavernMural(m:CavernMural):string|null{
  if(!m.id||!m.title||!m.tags||!["left","right","ceiling","floor","back"].includes(m.surface))return "invalid descriptor";
  if(![m.z0,m.z1,m.v0,m.v1].every(Number.isFinite))return "nonfinite coordinates";
- if((m.u0!==undefined||m.u1!==undefined)&&
-   (!Number.isFinite(m.u0)||!Number.isFinite(m.u1)||
-    m.u0!<0||m.u1!>1||m.u0!>=m.u1!))return "invalid back patch";
+ const u0=m.u0,u1=m.u1;
+ if((u0!==undefined||u1!==undefined)&&
+  (u0===undefined||u1===undefined||
+   !Number.isFinite(u0)||!Number.isFinite(u1)||
+   u0<0||u1>1||u0>=u1))return "invalid back patch";
  if(m.surface==="back"){
   const header=m.v0>=.62&&m.v1<=.91&&m.u0===undefined&&m.u1===undefined;
   const side=m.v0>=.14&&m.v1<=.60&&(
