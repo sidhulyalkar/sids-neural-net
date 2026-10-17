@@ -1633,9 +1633,24 @@ export function createWorld(
   caveLight.position.set(ARCADE_CAVE.lantern.x, lanternY - 0.05, ARCADE_CAVE.lantern.z);
   scene.add(caveLight);
 
-  // Build a rough back wall from stone, then inset three separate game panels.
-  // They are horizontally spaced so gaze/click selection has generous hit areas.
-  mesh(boxGeo,mat("#424b49"),[16,arcadeWallY+3,-62.9],[12.8,6.2,.8]);
+  // A real cave-profile stone cap sits behind the three carved game targets.
+  // Unlike the old 12.8m grey BoxGeometry, this follows the actual roof arch
+  // and closes the tunnel invisibly behind the art and clickable niches.
+  // Its silhouette is shared with the cave shell, not an invented rectangle.
+  const rearProfile=shellRings[shellRings.length-1];
+  const rearOutline=new THREE.Shape();
+  rearOutline.moveTo(rearProfile[0].x,rearProfile[0].y);
+  for(let i=1;i<rearProfile.length;i++)
+    rearOutline.lineTo(rearProfile[i].x,rearProfile[i].y);
+  rearOutline.closePath();
+  const rearCap=mesh(
+    geo(new THREE.ShapeGeometry(rearOutline)),
+    mat("#2f302f",{side:THREE.DoubleSide,roughness:1}),
+    [0,0,-63.41],[1,1,1]
+  );
+  rearCap.name="arcade-carved-rock-rear-cap";
+  canvas.dataset.arcadeArchitecture="open-stone-cap-v3";
+  // Three existing game hit areas remain at their established positions.
   const carvingBandMaterial = mat("#11191b", {
     transparent: true,
     opacity: 0.001,
