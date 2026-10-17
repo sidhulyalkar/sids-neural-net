@@ -34,7 +34,7 @@ try{
   // A source-authored local title texture must really load into WebGL.
   // The procedural fallback is not accepted as evidence of that asset.
   await page.waitForFunction(()=>Number(
-   document.querySelector("canvas")?.dataset.arcadeAuthoredMuralsReady)>=8,
+   document.querySelector("canvas")?.dataset.arcadeAuthoredMuralsReady)>=9,
    null,{timeout:40000});
   const titleResponse=await page.request.get(base+
    "/world/arcade-cavern/hero/sids-underground.svg");
@@ -51,6 +51,7 @@ try{
    "/world/arcade-cavern/science/mindforge-brain.svg",
    "/world/arcade-cavern/anime/raid-ascend.svg",
    "/world/arcade-cavern/comedy/out-of-this-world.svg",
+   "/world/arcade-cavern/sport-anime/striker-setpoint.svg",
   ]){
    const response=await page.request.get(base+source);
    assert.equal(response.status(),200,"missing painted composition: "+source);
@@ -63,6 +64,7 @@ try{
     "/world/arcade-cavern/science/mindforge-brain.svg",
     "/world/arcade-cavern/anime/raid-ascend.svg",
     "/world/arcade-cavern/comedy/out-of-this-world.svg",
+   "/world/arcade-cavern/sport-anime/striker-setpoint.svg",
    ];
    const values=[];
    for(const source of sources){
