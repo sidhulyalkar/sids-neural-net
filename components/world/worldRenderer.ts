@@ -1,14 +1,15 @@
 import {ARCADE_GATE,ARCADE_TRAIL_MARKERS,arcadeTrailHint,arcadeTrailStage,arcadeTrailFooting,arcadeEntranceCameraPose} from "@/lib/world/arcadeWayfinding";
 import {createWorldSkimSurf} from "./worldSkimSurfGeometry";
 import { desertTrackTreadBlend, desertTrackSampleAt, DESERT_GAP_DEBRIS, DESERT_JUMPS, DESERT_TRACK_LENGTH } from "@/lib/world/desertTrack";
-import {insideSkatePark,skateParkZone,skateGroveStartHeading,SKATE_LOOP,GROVE_TUNNEL,SKATE_GROVE_FRAME_TREES,advanceRailChain,railLiftAt,insideCanyonFlow,CANYON_FLOW,type SkateRail} from "@/lib/world/skatepark";
+import {insideSkatePark,skateParkZone,skateGroveStartHeading,SKATE_LOOP,GROVE_TUNNEL,SKATE_PARK_RAILS,SKATE_GROVE_FRAME_TREES,advanceRailChain,railLiftAt,insideCanyonFlow,CANYON_FLOW,type SkateRail} from "@/lib/world/skatepark";
 import {beginSkateLoop,skateLoopEntryCrossing,advanceSkateLoop,skateLoopSample,type SkateLoopRide} from "@/lib/world/skateLoop";
+import {beginSkateRailGap,advanceSkateRailGap,skateRailGapSample,type SkateRailGapRide} from "@/lib/world/skateRailGaps";
 import {beginSkateTunnelRide,advanceSkateTunnelRide,skateTunnelSample,
  type SkateTunnelRide} from "@/lib/world/skateTunnel";
 import {createWorldSkateGrove} from "./worldSkateGroveGeometry";
 import {skateLean} from "@/lib/world/skateDynamics";
 import {selectAssistedSkateTrick,assistedSkateSpin} from "@/lib/world/skateAssist";
-import {idleSkateTrick,startSkateTrick,finishSkateTrick,setSkateGrab,skateTrickPose,flickTrick,scoreSkateGrind,scoreSkateLoop,scoreSkateTunnel,queueSkateSpin,startSkateManual,stepSkateManual,finishSkateManual,type SkateTrickName,type SkateTrickState} from "@/lib/world/skateTricks";
+import {idleSkateTrick,startSkateTrick,finishSkateTrick,setSkateGrab,skateTrickPose,flickTrick,scoreSkateGrind,scoreSkateLoop,scoreSkateTunnel,scoreSkateRailGap,queueSkateSpin,startSkateManual,stepSkateManual,finishSkateManual,type SkateTrickName,type SkateTrickState} from "@/lib/world/skateTricks";
 import { JOSHUA_GATES, armJoshuaTrial, abortJoshuaTrial, tickJoshuaTrial, type TrialState } from "@/lib/world/trials";
 import { createFishGeometry, createFishBodyGeometry, createCaudalFinGeometry, createDorsalFinGeometry, createPectoralFinGeometry, createSharkGeometry, createRayWingGeometry } from "./worldFaunaGeometry";
 import { createReefGarden } from "./worldReef";
@@ -3162,6 +3163,8 @@ export function createWorld(
   let skateLoopEntries=0,skateLoopCompletions=0,lastSkateLoopEnd=-Infinity;
   let skateTunnelRide:SkateTunnelRide|null=null;
   let skateTunnelEntries=0,skateTunnelCompletions=0;
+  let skateRailGapRide:SkateRailGapRide|null=null;
+  let skateRailGapEntries=0,skateRailGapLandings=0;
   function commitSkateTrick(next:SkateTrickState){
     const previous=skateTrick;
     if(previous===next)return;
@@ -3189,8 +3192,8 @@ export function createWorld(
   function clearChallengeResults(){
     // Explicitly starting another world activity never leaves an inverted
     // skateboard traversal waiting to resume after the next minigame.
-    if(skateLoopRide||skateTunnelRide){
-      skateLoopRide=null;skateTunnelRide=null;lastSkateLoopEnd=elapsed;
+    if(skateLoopRide||skateTunnelRide||skateRailGapRide){
+      skateLoopRide=null;skateTunnelRide=null;skateRailGapRide=null;lastSkateLoopEnd=elapsed;
       airHeight=verticalSpeed=0;
     }
     if(bigAir.phase==="landed"||bigAir.phase==="missed"){
@@ -3209,7 +3212,7 @@ export function createWorld(
     skimHeat=idleSkimHeat();callbacks.onSkim(skimHeat);
     lastDiscCameraSolve=null;sceneryCamera.restore();
     clearInput();resetRideBoost();destination=null;climb=grind=null;
-    skateLoopRide=null;skateTunnelRide=null;lastSkateLoopEnd=elapsed;
+    skateLoopRide=null;skateTunnelRide=null;skateRailGapRide=null;lastSkateLoopEnd=elapsed;
     airHeight=verticalSpeed=0;travel={...travel,speed:0};
     if(isWater(player)&&jetSkiPierHeight(player)===null){
       swimDepth=targetDepth=0;setAquaticMode("surface");playerY=SEA_SURFACE-.42;
@@ -3610,7 +3613,7 @@ export function createWorld(
       // Q/E roll clockwise/counterclockwise around the ACTUAL inner wood
       // surface while already skating through the trunk. Normal flat-floor
       // riding remains free; never auto-capture a visitor passing through.
-      if((key==="q"||key==="e")&&!skateTunnelRide&&!skateLoopRide&&
+      if((key==="q"||key==="e")&&!skateTunnelRide&&!skateLoopRide&&!skateRailGapRide&&
          !grind&&airHeight<=.01&&skateTrick.phase==="ground"&&
          skateTrick.manual==="none"){
         const next=beginSkateTunnelRide(player,travel.heading,travel.speed,
@@ -3714,7 +3717,7 @@ export function createWorld(
     if(state.activity!=="skate"||!state.entered||state.paused||document.hidden||
       aquatic!=="land"||jetSki||jetChoosing||discGolf.phase!=="off"||
       trial.phase==="armed"||trial.phase==="running"||
-      bigAir.phase==="flying"||bigAir.phase==="armed"||climb||skateLoopRide||skateTunnelRide||
+      bigAir.phase==="flying"||bigAir.phase==="armed"||climb||skateLoopRide||skateTunnelRide||skateRailGapRide||
       (airHeight>.08&&verticalSpeed<=0)||skateTrick.phase==="air")return;
     const naturalFlight=airHeight>.025&&verticalSpeed>0;
     if(grind)grind=null; // pop off a rail instead of locking the player on it
@@ -3744,7 +3747,7 @@ export function createWorld(
     }
   }
   function performAction() {
-    if(skateLoopRide||skateTunnelRide)return; // no concurrent grind, pop, or activity mid-inversion
+    if(skateLoopRide||skateTunnelRide||skateRailGapRide)return; // transfer owns board contact
     if(skimHeat.phase==="riding"){doSkimAction("pop");return;}
     if(skimHeat.phase==="ready"){doSkimAction("drop");return;}
     if(skimHeat.phase!=="off")return;
@@ -4190,6 +4193,27 @@ export function createWorld(
           playerY=groundHeight(player);
           commitSkateTrick(scoreSkateTunnel(skateTrick,elapsed,travel.speed));
         }
+      } else if(skateRailGapRide){
+        // An actual open-air arc from the departing rail to the receiving
+        // rail. Never move the rider via an arbitrary nearest-grind snap.
+        const advanced=advanceSkateRailGap(skateRailGapRide,rawDelta);
+        skateRailGapRide=advanced.ride;
+        const pose=skateRailGapSample(advanced.ride);
+        player=pose.point;playerY=pose.y;
+        travel={point:player,speed:advanced.ride.speed,heading:pose.heading};
+        airHeight=Math.max(.035,pose.y-groundHeight(player));
+        verticalSpeed=0;destination=null;
+        if(advanced.completed){
+          const receiving=SKATE_PARK_RAILS.find(r=>r.id===advanced.ride.to);
+          skateRailGapRide=null;airHeight=verticalSpeed=0;
+          if(receiving){
+            grind={log:receiving,t:advanced.ride.toT,direction:1,
+              style:"fifty-fifty",mode:"skate",covered:0};
+            skateRailGapLandings++;
+            commitSkateTrick(scoreSkateRailGap(skateTrick,advanced.ride.id,
+              elapsed,advanced.ride.speed));
+          }
+        }
       } else if (grind) {
         const grindSpeed=Math.max(4.2,travel.speed);
         const original=grind.log;
@@ -4227,12 +4251,17 @@ export function createWorld(
           railLiftAt(segment as SkateRail,grind.t):segment.lift;
         playerY=railGround+lift+.16;
         if(finished){
-          if(grind.mode==="skate"){
-            const scored=scoreSkateGrind(skateTrick,grind.covered,
-              grind.style,elapsed);
-            commitSkateTrick(scored);
-          }
-          grind=null;airHeight=.08;verticalSpeed=2.5;
+          const gap=grind.mode==="skate"&&"chainId" in segment&&segment.chainId?
+            beginSkateRailGap(segment as SkateRail,grind.direction,
+              grindSpeed,groundHeight):null;
+          if(grind.mode==="skate")
+            commitSkateTrick(scoreSkateGrind(skateTrick,grind.covered,
+              grind.style,elapsed));
+          grind=null;
+          if(gap){
+            skateRailGapRide=gap;skateRailGapEntries++;
+            lastRampAt=elapsed;airHeight=.04;verticalSpeed=0;
+          }else{airHeight=.08;verticalSpeed=2.5;}
         }
       } else if (bigAir.phase==="flying") {
         // Physics can advance in bounded steps at low render FPS. Running only
@@ -4334,7 +4363,7 @@ export function createWorld(
         }
         player = travel.point;
         if(state.activity==="skate"&&caveLayer==="surface"&&
-          aquatic==="land"&&!skateLoopRide&&!skateTunnelRide&&!grind&&airHeight<=.001&&
+          aquatic==="land"&&!skateLoopRide&&!skateTunnelRide&&!skateRailGapRide&&!grind&&airHeight<=.001&&
           skateTrick.phase==="ground"&&skateTrick.manual==="none"&&
           elapsed-lastSkateLoopEnd>1.4&&
           skateLoopEntryCrossing(previousPoint,player,travel.heading,travel.speed)){
@@ -4655,9 +4684,9 @@ export function createWorld(
           gearMode && airHeight <= 0.001 && !climb && !grind && !skateLoopRide && !skateTunnelRide
             ? Math.max(0, contact.support - supportHeight(player))
             : 0;
-        const pitchAngle = running || climb ? 0 : contact.pitch;
+        const pitchAngle = running || climb || skateRailGapRide ? 0 : contact.pitch;
         const rollAngle =
-          (gearMode ? contact.roll : 0) +
+          (gearMode&&!skateRailGapRide ? contact.roll : 0) +
           (mode === "skate" ? skateCarveLean : 0);
         const loopPitch=skateLoopRide?skateLoopSample(skateLoopRide).pitch:0;
         const tubeRoll=skateTunnelRide?
@@ -4748,7 +4777,10 @@ export function createWorld(
         "canyon-flow":"MOSS CANYON FLOW TRAIL",
         street:"SKATE GROVE",apron:"SKATE GROVE",
       } as const)[skateParkZone(player)]:"ISLAND RIDE";
-      const skateStatus=skateLoopRide?
+      const skateStatus=skateRailGapRide?
+        "GRANITE → REDWOOD GAP · "+Math.round(
+          skateRailGapSample(skateRailGapRide).progress*100)+"% · STICK THE LANDING":
+        skateLoopRide?
         "360° TIMBER LOOP · "+Math.round(skateLoopRide.angle/Math.PI*180)+"° · HOLD YOUR LINE":
         skateTunnelRide?
         "SEQUOIA INNER WALL · "+Math.round(skateTunnelRide.progress*360)+"° · RIDE THE WOOD":
@@ -4764,6 +4796,12 @@ export function createWorld(
       if(skateVisible&&skateHud.textContent!==skateStatus)skateHud.textContent=skateStatus;
       canvas.dataset.skateGrove="redwood-timber-v1";
       canvas.dataset.skateGroveArt="old-growth-stump-v2";
+      canvas.dataset.skateGapPhase=skateRailGapRide?"airborne":"free";
+      canvas.dataset.skateGapId=skateRailGapRide?.id??"";
+      canvas.dataset.skateGapEntries=String(skateRailGapEntries);
+      canvas.dataset.skateGapLandings=String(skateRailGapLandings);
+      canvas.dataset.skateGapProgress=(skateRailGapRide?
+        skateRailGapSample(skateRailGapRide).progress:0).toFixed(4);
       canvas.dataset.skateLoopPhase=skateLoopRide?"inverting":"free";
       canvas.dataset.skateLoopAngle=(skateLoopRide?.angle??0).toFixed(4);
       canvas.dataset.skateLoopEntries=String(skateLoopEntries);
@@ -5029,6 +5067,9 @@ export function createWorld(
         targetLook.set(player.x+Math.sin(jetSki.heading)*ahead,
           SEA_SURFACE+lookHeight+jetSki.waterHeight+jetSki.jumpHeight*.55,
           player.z+Math.cos(jetSki.heading)*ahead);
+      } else if(skateRailGapRide){
+        targetLook.set(player.x+travel.heading.x*2.4,
+          playerY+.95,player.z+travel.heading.z*2.4);
       } else if(skateLoopRide){
         // A stable outside-camera reads the whole vertical circle and the
         // skater's inversion; the moving chase boom would intersect the ring.
@@ -5097,6 +5138,10 @@ export function createWorld(
         targetCamera.set(player.x-Math.sin(h)*13+Math.cos(h)*2.4,
           SEA_SURFACE+7.6+jetSki.waterHeight*.4+jetSki.jumpHeight*.75,
           player.z-Math.cos(h)*13-Math.sin(h)*2.4);
+      } else if(skateRailGapRide){
+        const h=travel.heading;
+        targetCamera.set(player.x-h.x*12+h.z*2.4,
+          playerY+7.0,player.z-h.z*12-h.x*2.4);
       } else if(skateLoopRide){
         targetCamera.set(SKATE_LOOP.center.x+SKATE_LOOP.radius*1.55,
           skateLoopRide.baseY+SKATE_LOOP.radius*1.70+4.1,
@@ -6086,7 +6131,7 @@ export function createWorld(
     }else{
       // Fast enough to keep the flying disc on screen, with smooth
       // cinematic blends instead of jumping between subjects.
-      const cinematicRate=skateLoopRide||skateTunnelRide?7.8:
+      const cinematicRate=skateLoopRide||skateTunnelRide||skateRailGapRide?7.8:
         discGolf.phase!=="off"&&discFetch.phase==="flight"?8:
         discGolf.phase!=="off"&&discFetch.phase!=="idle"?5.2:3.6;
       camera.position.lerp(targetCamera, 1 - Math.exp(-dt * cinematicRate));
@@ -6552,7 +6597,7 @@ export function createWorld(
           skateTrick={...idleSkateTrick(),best:skateTrick.best};
           skateAssistAttempts=0;skateHasBeenAirborne=false;skateResultAt=-Infinity;
           skateBowlExits=0;skateLastTakeoff="";
-          skateLoopRide=null;skateTunnelRide=null;lastSkateLoopEnd=elapsed;
+          skateLoopRide=null;skateTunnelRide=null;skateRailGapRide=null;lastSkateLoopEnd=elapsed;
         skateBowlFlightActive=false;skateBowlLandings=skateBowlFailedLandings=0;
         skateBowlLastLanding="";skateBowlLastLandingSpeed=0;
         }
@@ -6762,7 +6807,7 @@ export function createWorld(
         skateTrick={...idleSkateTrick(),best:skateTrick.best};
         skateHasBeenAirborne=false;skateCarveLean=0;skateResultAt=-Infinity;
         skateBowlExits=0;skateLastTakeoff="";
-        skateLoopRide=null;skateTunnelRide=null;lastSkateLoopEnd=elapsed;
+        skateLoopRide=null;skateTunnelRide=null;skateRailGapRide=null;lastSkateLoopEnd=elapsed;
         skateBowlFlightActive=false;skateBowlLandings=skateBowlFailedLandings=0;
         skateBowlLastLanding="";skateBowlLastLandingSpeed=0;
         lastSerial = next.command.serial;
