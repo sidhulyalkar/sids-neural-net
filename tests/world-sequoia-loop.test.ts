@@ -90,45 +90,49 @@ test("ordinary WASD skating can line up and enter the giant loop from park spawn
  assert.ok(Math.abs(arrival.point.z-SKATE_LOOP.center.z)<SKATE_LOOP.entryHalfWidth);
 });
 
-test("3D wheel support forms a complete upright-to-inverted-to-upright circle",()=>{
-  const start=beginSkateLoop(9.2,2.5,C.z+.25);
-  const a=skateLoopSample(start);
-  const q=skateLoopSample({...start,angle:Math.PI/2});
-  const top=skateLoopSample({...start,angle:Math.PI});
-  const down=skateLoopSample({...start,angle:3*Math.PI/2});
-  const finish=skateLoopSample({...start,angle:2*Math.PI});
-  const tolerance=1e-7;
-  assert.ok(Math.abs(a.point.x-C.x)<tolerance);
-  assert.ok(Math.abs(q.point.x-(C.x-SKATE_LOOP.radius))<tolerance);
-  assert.ok(Math.abs(top.y-(a.y+2*SKATE_LOOP.radius))<tolerance);
-  assert.ok(Math.abs(down.point.x-(C.x+SKATE_LOOP.radius))<tolerance);
-  assert.ok(Math.abs(top.pitch+Math.PI)<tolerance);
-  assert.ok(Math.abs(finish.pitch+2*Math.PI)<tolerance);
-  assert.ok(Math.abs(finish.point.x-a.point.x)<tolerance);
-  assert.ok(Math.abs(finish.y-a.y)<tolerance);
-  assert.equal(top.point.z,C.z+.25);
-  assert.ok(top.y>groundHeight(C)+3,
-    "inverted wheel contact must remain above the ordinary ground field");
+test("elliptic loop has true inner contact, full inversion and different entry/exit",()=>{
+ const start=beginSkateLoop(9.2,groundHeight(C),C.z+.25,
+  groundHeight({x:C.x-SKATE_LOOP.exitOffset,z:C.z}));
+ const entry=skateLoopSample(start),top=skateLoopSample({...start,angle:Math.PI});
+ const finish=skateLoopSample({...start,angle:2*Math.PI});
+ assert.ok(SKATE_LOOP.radiusY>SKATE_LOOP.radius,
+  "the timber loop must be taller and more asymmetric than a perfect circle");
+ assert.ok(Math.abs(entry.point.x-C.x)<1e-8);
+ assert.ok(Math.abs(top.point.x-(C.x-SKATE_LOOP.exitOffset*.5))<1e-8);
+ assert.ok(Math.abs(top.y-(start.baseY+SKATE_LOOP.radiusY*2+
+   (start.exitY-start.baseY)*.5))<1e-6);
+ assert.ok(Math.abs(top.pitch+Math.PI)<.06,
+  "the skater must actually face backward while inverted");
+ assert.ok(Math.abs(finish.pitch+2*Math.PI)<.06);
+ assert.ok(Math.abs(finish.point.x-(C.x-SKATE_LOOP.exitOffset))<1e-8);
+ assert.ok(Math.abs(finish.y-start.exitY)<1e-6);
+ assert.ok(Math.abs(finish.y-groundHeight(finish.point)-.09)<.13,
+  "land exactly on the western exit grade");
+ assert.ok(Math.abs(finish.point.x-entry.point.x)>2,
+  "the exit cannot put the skater back onto the entry seam");
 });
 
-test("full completion remains stable at 10, 20, 40 and 60 FPS",()=>{
-  for(const fps of [10,20,40,60]){
-    let ride=beginSkateLoop(8.9,groundHeight(C),C.z);
-    let completed=false,steps=0,maxY=-Infinity;
-    while(steps<8*fps&&!completed){
-      const next=advanceSkateLoop(ride,1/fps);
-      assert.ok(next.ride.angle>=ride.angle);
-      assert.ok(next.ride.angle<=2*Math.PI);
-      assert.ok(Number.isFinite(next.ride.speed));
-      assert.ok(Number.isFinite(skateLoopSample(next.ride).y));
-      maxY=Math.max(maxY,skateLoopSample(next.ride).y);
-      ride=next.ride;completed=next.completed;steps++;
-    }
-    assert.equal(completed,true,"must return to free skating: "+fps+" fps");
-    assert.ok(steps/fps<4,"the controlled arc must complete promptly: "+fps+" fps");
-    assert.ok(maxY>ride.baseY+2*SKATE_LOOP.radius-.08);
-    assert.ok(Math.abs(skateLoopSample(ride).point.x-C.x)<1e-6);
+test("full elliptical loop completes at 10, 20, 40 and 60 FPS",()=>{
+ for(const fps of [10,20,40,60]){
+  let ride=beginSkateLoop(8.9,groundHeight(C),C.z,
+   groundHeight({x:C.x-SKATE_LOOP.exitOffset,z:C.z}));
+  let completed=false,steps=0,maxY=-Infinity;
+  while(steps<9*fps&&!completed){
+   const next=advanceSkateLoop(ride,1/fps);
+   assert.ok(next.ride.angle>=ride.angle);
+   assert.ok(next.ride.angle<=2*Math.PI);
+   assert.ok(Number.isFinite(next.ride.speed));
+   const sample=skateLoopSample(next.ride);
+   assert.ok(Number.isFinite(sample.y));
+   maxY=Math.max(maxY,sample.y);
+   ride=next.ride;completed=next.completed;steps++;
   }
+  assert.equal(completed,true,"must release to ordinary skating: "+fps+" fps");
+  assert.ok(steps/fps<8,"track traversal must complete at "+fps+" fps");
+  assert.ok(maxY>ride.baseY+2*SKATE_LOOP.radiusY-.18);
+  assert.ok(Math.abs(skateLoopSample(ride).point.x-
+   (C.x-SKATE_LOOP.exitOffset))<1e-6);
+ }
 });
 
 test("loop success is scored as an ordinary skate trick, not a new minigame",()=>{
