@@ -387,6 +387,17 @@ function authoredNeonMask(image:HTMLImageElement,three:ArcadeThree){
  result.minFilter=three.LinearMipmapLinearFilter;
  return result;
 }
+/** Authored slots reveal the real illustration once loaded. They should not
+ * render low-fidelity procedural doodles while TextureLoader is resolving. */
+function emptyPaint(three:ArcadeThree){
+ const canvas=document.createElement("canvas");
+ canvas.width=2;canvas.height=2;
+ const paint=new three.CanvasTexture(canvas);
+ paint.colorSpace=three.SRGBColorSpace;
+ const glow=new three.CanvasTexture(canvas);
+ glow.colorSpace=three.SRGBColorSpace;
+ return {paint,glow};
+}
 function atmosphereTexture(kind:"floor"|"ceiling",three:ArcadeThree){
  const canvas=document.createElement("canvas");canvas.width=1024;canvas.height=1024;
  const ctx=canvas.getContext("2d");
@@ -545,7 +556,8 @@ export function createWorldArcadeGraffiti(scene:THREE.Scene,three:ArcadeThree,
  const stone=createArcadeStoneLining(three);
  meshes.push(stone.mesh);textures.push(stone.texture);root.add(stone.mesh);
  for(const mural of ARCADE_CAVERN_MURALS){
-  const {paint,glow}=paintTexture(mural.theme,three);
+  const artwork=ARCADE_MURAL_ART_ASSETS[mural.theme];
+  const {paint,glow}=artwork?emptyPaint(three):paintTexture(mural.theme,three);
   textures.push(paint,glow);
   const wall=surfaceMesh(mural.surface,mural.z0,mural.z1,
    mural.v0,mural.v1,paint,"paint-"+mural.id,three,
@@ -555,7 +567,6 @@ export function createWorldArcadeGraffiti(scene:THREE.Scene,three:ArcadeThree,
   // For the rear upper band the longitudinal z dimension is zero: texture
   // horizontal must use wall width, not the degenerate z-coordinate.
   meshes.push(wall);root.add(wall);
-  const artwork=ARCADE_MURAL_ART_ASSETS[mural.theme];
   if(artwork?.presentation==="sports-crest-composite"){
    const srcs=[artwork.src,...(artwork.supportingSources??[])];
    // Use only self-hosted, full-color *authentic* crest files. The 3 bitmap
