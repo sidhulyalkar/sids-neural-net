@@ -78,6 +78,22 @@ export function createShastaPhotoStencil(
  c.restore();
  c.strokeStyle="#9cded5";c.lineWidth=10;c.lineCap="round";
  c.beginPath();c.moveTo(81,320);c.lineTo(211,302);c.lineTo(333,330);c.stroke();
+ // Edge feather across *every* ink layer, including the mountains. This
+ // keeps the finished atlas off a visible rectangular photo-card boundary.
+ c.save();c.globalCompositeOperation="destination-in";
+ const xf=c.createLinearGradient(0,0,canvas.width,0);
+ xf.addColorStop(0,"rgba(255,255,255,0)");
+ xf.addColorStop(.055,"rgba(255,255,255,1)");
+ xf.addColorStop(.93,"rgba(255,255,255,1)");
+ xf.addColorStop(1,"rgba(255,255,255,0)");
+ c.fillStyle=xf;c.fillRect(0,0,canvas.width,canvas.height);
+ const yf=c.createLinearGradient(0,0,0,canvas.height);
+ yf.addColorStop(0,"rgba(255,255,255,0)");
+ yf.addColorStop(.05,"rgba(255,255,255,1)");
+ yf.addColorStop(.90,"rgba(255,255,255,1)");
+ yf.addColorStop(1,"rgba(255,255,255,0)");
+ c.fillStyle=yf;c.fillRect(0,0,canvas.width,canvas.height);
+ c.restore();
  const tex=new three.CanvasTexture(canvas);
  tex.colorSpace=three.SRGBColorSpace;
  tex.anisotropy=4;
