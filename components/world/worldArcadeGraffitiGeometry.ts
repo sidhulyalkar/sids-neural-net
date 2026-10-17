@@ -6,6 +6,7 @@ type ArcadeThree=Pick<typeof import("three/src/Three.Core.js"),
  "MeshStandardMaterial"|"Color"|"DoubleSide"|"Mesh"|"Group"|
  "SRGBColorSpace"|"LinearMipmapLinearFilter">;
 import {ARCADE_CAVERN_MURALS,validateArcadeArtManifest} from "@/lib/world/arcadeCavernArtManifest";
+import {ARCADE_CAVE,arcadeCaveFloorHeight} from "@/lib/world/model";
 import {sampleCavernArt,type CavernArtTheme,type CavernArtSurface,type CavernMural} from "@/lib/world/arcadeCavernSurface";
 
 const TAU=Math.PI*2;
@@ -379,6 +380,66 @@ function surfaceMesh(surface:CavernArtSurface,z0:number,z1:number,
  mesh.raycast=()=>{};mesh.renderOrder=3;
  return mesh;
 }
+/** Pooled corner-stencil frames around, never over, the three playable
+ * carved game targets. One non-raycast mesh for all 24 short paint strips.
+ * The accurate hitboxes and carved title glyphs remain in worldRenderer. */
+function createNicheGraffitiFrames(three:ArcadeThree){
+ const floor=arcadeCaveFloorHeight(ARCADE_CAVE.wall),panelY=floor+2.35;
+ const niches=[
+  {x:10.35,z:-67,yaw:Math.PI/2,color:"#75bce7"},
+  {x:16,z:-63.45,yaw:0,color:"#e9c17a"},
+  {x:21.65,z:-67,yaw:-Math.PI/2,color:"#b2a0eb"},
+ ];
+ const positions:number[]=[],colors:number[]=[],indices:number[]=[];
+ for(const niche of niches){
+  const color=new three.Color(niche.color);
+  const basis=(u:number,v:number)=>{
+   const offset=.104;
+   return [
+    niche.x+Math.cos(niche.yaw)*u+Math.sin(niche.yaw)*offset,
+    panelY+v,
+    niche.z-Math.sin(niche.yaw)*u-Math.cos(niche.yaw)*offset,
+   ];
+  };
+  const paintLine=(x0:number,y0:number,x1:number,y1:number,thickness:number)=>{
+   const len=Math.hypot(x1-x0,y1-y0)||1;
+   const ox=-(y1-y0)/len*thickness*.5;
+   const oy=(x1-x0)/len*thickness*.5;
+   const start=positions.length/3;
+   for(const [u,v] of [[x0+ox,y0+oy],[x0-ox,y0-oy],
+    [x1+ox,y1+oy],[x1-ox,y1-oy]]){
+    positions.push(...basis(u,v));colors.push(color.r,color.g,color.b);
+   }
+   indices.push(start,start+1,start+2,start+1,start+3,start+2);
+  };
+  const halfW=2.07,halfH=1.54,arm=.54;
+  for(const sx of [-1,1]){
+   for(const sy of [-1,1]){
+    paintLine(sx*halfW,sy*halfH,sx*(halfW-arm),sy*halfH,.067);
+    paintLine(sx*halfW,sy*halfH,sx*halfW,sy*(halfH-arm),.067);
+   }
+  }
+  // Painted skill/score ticks below each carved target, distinct by color.
+  for(const k of [-1,0,1]){
+   paintLine(k*.19,-1.69,k*.19+.10,-1.69,.042);
+  }
+ }
+ const geo=new three.BufferGeometry();
+ geo.setAttribute("position",new three.Float32BufferAttribute(positions,3));
+ geo.setAttribute("color",new three.Float32BufferAttribute(colors,3));
+ geo.setIndex(indices);geo.computeVertexNormals();
+ const mat=new three.MeshStandardMaterial({
+  color:new three.Color("#ffffff"),vertexColors:true,transparent:true,
+  opacity:.91,depthWrite:false,side:three.DoubleSide,roughness:.82,
+  emissive:new three.Color("#575048"),emissiveIntensity:.34,
+ });
+ const mesh=new three.Mesh(geo,mat);
+ mesh.name="arcade-niche-graffiti-frames";
+ mesh.castShadow=false;mesh.receiveShadow=false;mesh.raycast=()=>{};
+ mesh.renderOrder=4;
+ return mesh;
+}
+
 export function createWorldArcadeGraffiti(scene:THREE.Scene,three:ArcadeThree){
  const issues=validateArcadeArtManifest(ARCADE_CAVERN_MURALS);
  if(issues.length)throw Error("Cave mural manifest: "+issues.join("; "));
@@ -399,6 +460,8 @@ export function createWorldArcadeGraffiti(scene:THREE.Scene,three:ArcadeThree){
    layer==="floor"?.93:.86,tex,"paint-"+layer,three,38,16);
   meshes.push(mesh);root.add(mesh);
  }
+ const nicheFrames=createNicheGraffitiFrames(three);
+ root.add(nicheFrames);meshes.push(nicheFrames);
  scene.add(root);
  const triangles=meshes.reduce((sum,m)=>sum+(m.geometry.index?.count??0)/3,0);
  return {
