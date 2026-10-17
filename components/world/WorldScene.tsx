@@ -16,6 +16,7 @@ type Props = {
   actionSerial: number;
   challengeSerial: number;
   bigAirSerial:number;
+  sessionExitSerial:number;
   discGolfStartSerial:number;
   discGolfHoleIndex:number;
   discGolfShotSerial:number;

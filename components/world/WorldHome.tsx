@@ -1,4 +1,5 @@
 "use client";
+import {worldGameSession} from "@/lib/world/gameMode";
 
 import dynamic from "next/dynamic";
 import Image from "next/image";
@@ -125,6 +126,7 @@ export function WorldHome({ content }: { content: WorldContent }) {
   const [actionSerial, setActionSerial] = useState(0);
   const [challengeSerial,setChallengeSerial]=useState(0);
   const [bigAirSerial,setBigAirSerial]=useState(0);
+  const [sessionExitSerial,setSessionExitSerial]=useState(0);
   const [discGolf,setDiscGolf]=useState<DiscGolfState>(idleDiscGolf);
   const [discGolfRound,setDiscGolfRound]=useState(loadDiscGolfRound);
   const [discGolfScorecardOpen,setDiscGolfScorecardOpen]=useState(false);
@@ -355,8 +357,15 @@ export function WorldHome({ content }: { content: WorldContent }) {
     window.addEventListener("keydown", key);
     return () => window.removeEventListener("keydown", key);
   }, [open, panel]);
+  function exploreWorld(){
+    setSessionExitSerial(n=>n+1);
+    setActivity("run");
+    requestAnimationFrame(()=>worldRoot.current?.querySelector("canvas")?.focus({preventScroll:true}));
+  }
   function chooseActivity(next: Activity) {
-    if(skim.phase!=="off"||discGolf.phase!=="off")return;
+    if(!worldGameSession({jet:jetActive,ski:bigAir.phase,disc:discGolf.phase,
+      trial:trial.phase,skim:skim.phase}).canChangeMovement)return;
+    setSessionExitSerial(n=>n+1);
     setActivity(next);
     // A selected mode can be activated again without a React state change.
     // Restore movement focus on every activation, including that case.
@@ -412,15 +421,16 @@ export function WorldHome({ content }: { content: WorldContent }) {
   const video = content.videos.find((item) => item.id === panel);
   const caption = MEMORY_POINTS.find((m) => m.id === panel);
   const trident = UNDERWATER_TRIDENTS.find((a) => a.id === panel);
-  // Keep all ordinary world controls behind the active game HUD until the
-  // player explicitly exits even after its result/landing is displayed.
-  const worldGameActive=jetActive||discGolf.phase!=="off"||
-    bigAir.phase!=="idle"||trial.phase!=="idle";
+  const session=worldGameSession({jet:jetActive,ski:bigAir.phase,
+    disc:discGolf.phase,trial:trial.phase,skim:skim.phase});
+  const worldGameActive=!session.canChangeMovement;
 
   return (
     <div
       ref={worldRoot}
       className={styles.world}
+      data-world-session={session.phase}
+      data-world-game={session.active??"none"}
       data-world-state={failed ? "fallback" : entered ? "exploring" : "welcome"}
     >
       <div className={styles.backdrop} aria-hidden="true" />
@@ -434,6 +444,7 @@ export function WorldHome({ content }: { content: WorldContent }) {
             actionSerial={actionSerial}
             challengeSerial={challengeSerial}
             bigAirSerial={bigAirSerial}
+            sessionExitSerial={sessionExitSerial}
             discGolfStartSerial={discGolfStartSerial}
             discGolfHoleIndex={discGolfHoleIndex}
             discGolfShotSerial={discGolfShotSerial}
@@ -634,14 +645,13 @@ export function WorldHome({ content }: { content: WorldContent }) {
               {personalBest!==null && (
                 <small>Personal best {(personalBest/1000).toFixed(1)} s</small>
               )}
+              {(trial.phase==="armed"||trial.phase==="running")&&<button onClick={exploreWorld}>Exit race</button>}
               {(trial.phase==="complete"||trial.phase==="invalidated") && (
                 <div className={styles.trialActions}>
                   <button onClick={()=>{
                     setActivity("bike");setChallengeSerial(n=>n+1);
                   }}>Retry</button>
-                  <button onClick={()=>setTrial({
-                    phase:"idle",nextGate:0,elapsedMs:0,splitsMs:[],
-                  })}>Explore</button>
+                  <button onClick={exploreWorld}>Explore</button>
                 </div>
               )}
             </aside>
@@ -666,6 +676,7 @@ export function WorldHome({ content }: { content: WorldContent }) {
               {bestFlight!==null&&(
                 <small>Furthest from mountain center {bestFlight.toFixed(1)} m</small>
               )}
+              {(bigAir.phase==="armed"||bigAir.phase==="flying")&&<button onClick={exploreWorld}>Exit jump</button>}
               {(bigAir.phase==="armed"||bigAir.phase==="flying")&&(
                 <button className={styles.birdVoiceToggle} aria-pressed={birdVoice}
                   onClick={toggleBirdVoice}>
@@ -677,7 +688,7 @@ export function WorldHome({ content }: { content: WorldContent }) {
                   <button onClick={()=>{
                     setActivity("ski");setBigAirSerial(n=>n+1);
                   }}>Retry jump</button>
-                  <button onClick={()=>setBigAir(idleBigAir())}>Explore</button>
+                  <button onClick={exploreWorld}>Explore</button>
                 </div>
               )}
             </aside>

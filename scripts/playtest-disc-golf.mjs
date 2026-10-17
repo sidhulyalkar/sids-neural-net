@@ -21,7 +21,13 @@ try{
  await page.goto(base);
  // World rendering is lazy: the welcome page intentionally has no canvas
  // before the visitor chooses Explore. Waiting for frames first deadlocks.
- await page.getByRole("button",{name:/Explore world/}).click();
+ for(let attempt=0;attempt<5;attempt++){
+  await page.getByRole("button",{name:/Explore world/}).click();
+  try{
+   await page.waitForFunction(()=>document.querySelector("[data-world-state]")?.getAttribute("data-world-state")==="exploring",null,{timeout:5000});
+   break;
+  }catch(error){if(attempt===4)throw error;}
+ }
  try{
   await page.waitForFunction(()=>
    Number(document.querySelector("canvas")?.dataset.drawCalls)>0,
@@ -46,6 +52,9 @@ try{
   console.error("WORLD BOOT DIAGNOSTICS",JSON.stringify({diagnostics,errors},null,2));
   throw err;
  }
+ // Enter disc golf while skateboarding is still selected. Disc throwing
+ // must use a forward-facing stance, not the old sideways board pose.
+ await page.getByRole("button",{name:"Skateboarding",exact:true}).click();
  await page.getByRole("button",{name:/^Disc golf · (play|resume|scorecard)$/}).click();
  const canvas=page.locator("canvas");
  await page.waitForFunction(()=>document.querySelector("canvas")?.dataset.discGolfPhase==="ready");
@@ -111,6 +120,11 @@ try{
    const c=document.querySelector("canvas");
    return c?.dataset.discGolfHole===id&&c?.dataset.discGolfPhase==="ready";
   },ids[i]);
+  await page.waitForFunction(()=>{
+   const d=document.querySelector("canvas")?.dataset;
+   return Number(d?.discGolfFacingDot)>.96 &&
+    Math.abs(Number(d?.discGolfBodyYaw))<.1 && d?.activity==="run";
+  },null,{timeout:15000});
   assert.equal(await canvas.getAttribute("data-disc-golf-last-shot"),"pending");
   assert.equal(await canvas.getAttribute("data-disc-golf-gates"),"0");
   assert.ok(Number(await canvas.getAttribute("data-disc-golf-gates-total"))>=1,
@@ -122,6 +136,20 @@ try{
   const startAvatar=await canvas.evaluate(c=>({
    x:Number(c.dataset.discGolfAvatarX),z:Number(c.dataset.discGolfAvatarZ),
   }));
+  if(i===0)await canvas.evaluate(c=>{
+   const trace=[];
+   c.__discStory=trace;
+   const observer=new MutationObserver(()=>{
+    const d=c.dataset,stage=d.discGolfCinematicStage;
+    if(trace.at(-1)?.stage!==stage)trace.push({stage,
+     x:Number(d.discGolfAvatarX),z:Number(d.discGolfAvatarZ),
+     pending:d.discGolfHandoffPending,follow:d.shastaFollowMode,
+     boom:Number(d.shastaFollowBoom)});
+    if(d.discGolfHandoffPending==="false"&&trace.some(s=>s.stage==="chase"))observer.disconnect();
+   });
+   observer.observe(c,{attributes:true,attributeFilter:["data-disc-golf-cinematic-stage"]});
+   setTimeout(()=>observer.disconnect(),45000);
+  });
   if(i===1){
    // Keep the original click-to-throw coverage for the restored second tee.
    await page.getByRole("button",{name:"Space · Throw"}).click();
@@ -167,40 +195,37 @@ try{
   assert.equal(strokes,1,"First throw must count exactly one stroke on "+ids[i]);
   assert.equal(await canvas.getAttribute("data-disc-golf-handoff-pending"),"true",
    "landing cannot unlock the next throw before fetch");
-  if(i===0){
-   const assertNotMoved=async phaseName=>{
-    const avatar=await canvas.evaluate(c=>({
-     x:Number(c.dataset.discGolfAvatarX),
-     z:Number(c.dataset.discGolfAvatarZ),
-     pending:c.dataset.discGolfHandoffPending,
-    }));
-    assert.deepEqual({x:avatar.x,z:avatar.z},startAvatar,
-     "Avatar moved before Shasta finished during "+phaseName);
-    assert.equal(avatar.pending,"true");
-   };
-   await assertNotMoved("landing");
-   await page.waitForFunction(()=>
-    document.querySelector("canvas")?.dataset.discGolfCinematicStage==="landing",
-    null,{timeout:2500});
-   await page.screenshot({path:path.join(out,"hole-1-disc-landing.png")});
-   await page.waitForFunction(()=>
-    document.querySelector("canvas")?.dataset.discGolfCinematicStage==="chase",
-    null,{timeout:3500});
-   await assertNotMoved("chase");
-   await page.screenshot({path:path.join(out,"hole-1-shasta-begins-chase.png")});
-   // One continuous over-shoulder run is deliberate: avoid the old
-   // eye-level POV cut, which made every tiny dog step fill the screen.
-   const follow=await canvas.getAttribute("data-shasta-follow-mode");
-   assert.equal(follow,"third-person");
-   assert.ok(Number(await canvas.getAttribute("data-shasta-follow-boom"))>=10);
-   await page.screenshot({path:path.join(out,"hole-1-shasta-wide-follow.png")});
-  }
   await page.waitForFunction(()=>
    document.querySelector("canvas")?.dataset.discGolfHandoffPending==="false",
    null,{timeout:25000});
   if(i===0){
+   const story=await canvas.evaluate(c=>c.__discStory);
+   for(const stage of ["disc","landing","chase"]){
+    const observed=story.find(s=>s.stage===stage);
+    assert.ok(observed,"Camera story must include "+stage);
+    assert.deepEqual({x:observed.x,z:observed.z},startAvatar,
+     "Avatar must stay at the tee during "+stage);
+    if(stage!=="disc")assert.equal(observed.pending,"true");
+    if(stage==="chase"){
+     assert.equal(observed.follow,"third-person");
+     assert.ok(observed.boom>=10);
+    }
+   }
    assert.equal(await canvas.getAttribute("data-disc-golf-handoff"),"complete");
-   assert.equal(await canvas.getAttribute("data-disc-golf-handoff-reason"),"found",
+   const handoffReason=await canvas.getAttribute("data-disc-golf-handoff-reason");
+   if(handoffReason!=="found"){
+    const diagnostics=await canvas.evaluate(c=>({
+     phase:c.dataset.discGolfPhase,fetch:c.dataset.dogFetchStage,
+     handoff:c.dataset.discGolfHandoff,reason:c.dataset.discGolfHandoffReason,
+     dog:c.dataset.dog,player:c.dataset.player,lie:{
+      x:c.dataset.discGolfLieX,z:c.dataset.discGolfLieZ,
+     },routeChecks:c.dataset.dogFetchRouteChecks,
+     speed:c.dataset.dogSpeed,obstacles:c.dataset.dogNearbyObstacleCount,
+    }));
+    fs.writeFileSync(path.join(out,"hole-1-fetch-failure.json"),
+     JSON.stringify(diagnostics,null,2)+"\n");
+   }
+   assert.equal(handoffReason,"found",
     "Shasta must actually find the disc before Hole 1 teleports the avatar");
    const final=await canvas.evaluate(c=>({
     x:Number(c.dataset.discGolfAvatarX),z:Number(c.dataset.discGolfAvatarZ),
@@ -212,7 +237,24 @@ try{
   if(i===1||i===0||i===8){
    await page.screenshot({path:path.join(out,`hole-${i+1}-after-first-shot.png`)});
   }
-  report.push({hole:i+1,id:ids[i],phase,strokes});
+  await page.waitForFunction(()=>{
+   const d=document.querySelector('canvas[role="application"]')?.dataset;
+   return d?.discGolfPlayerFramed==="true"&&d.discGolfRenderedCameraClear==="true";
+  },null,{timeout:15000});
+  await page.waitForFunction(()=>{
+   const d=document.querySelector("canvas")?.dataset;
+   return Number(d?.discGolfFacingDot)>.96 &&
+    Math.abs(Number(d?.discGolfBodyYaw))<.1;
+  },null,{timeout:10000});
+  const cameraEvidence=await canvas.evaluate(c=>({
+   facing:Number(c.dataset.discGolfFacingDot),
+   bodyYaw:Number(c.dataset.discGolfBodyYaw),
+   clear:c.dataset.discGolfRenderedCameraClear,framed:c.dataset.discGolfPlayerFramed,
+   cutaways:Number(c.dataset.discGolfCameraCutaways),volumes:Number(c.dataset.discGolfRenderedVolumes),
+  }));
+  assert.ok(cameraEvidence.volumes>0,"rendered geometry must participate in camera selection");
+  await page.screenshot({path:path.join(out,`hole-${i+1}-clear-rethrow.png`)});
+  report.push({hole:i+1,id:ids[i],phase,strokes,camera:cameraEvidence});
  }
  assert.deepEqual(errors,[],"Browser should produce no runtime errors");
  fs.writeFileSync(path.join(out,"report.json"),JSON.stringify({report,errors},null,2)+"\n");

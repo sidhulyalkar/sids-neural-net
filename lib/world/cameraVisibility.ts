@@ -57,9 +57,9 @@ export class CameraVisibilityField {
  /** Check the actual camera lens and two avatar silhouette points.
   * Camera must not be *inside* foliage, even if a view ray appears clear.
   */
- blockers(camera:CameraPoint,focus:CameraPoint):number{
+ blockers(camera:CameraPoint,focus:CameraPoint,only?:readonly number[]):number{
   if(!valid(camera)||!valid(focus))return Infinity;
-  const candidates=this.candidates(camera,focus);
+  const candidates=only??this.candidates(camera,focus);
   let hits=0;
   for(const id of candidates){
    const v=this.volumes[id];
@@ -80,6 +80,11 @@ export class CameraVisibilityField {
   }
   return hits;
  }
+ blockingIndices(camera:CameraPoint,focus:CameraPoint):number[]{
+  return this.candidates(camera,focus).filter(id=>{
+   return this.blockers(camera,focus,[id])>0;
+  });
+ }
  clear(camera:CameraPoint,focus:CameraPoint):boolean{
   return this.blockers(camera,focus)===0;
  }
@@ -93,13 +98,22 @@ export class CameraVisibilityField {
   const dx=desired.x-focus.x,dz=desired.z-focus.z;
   const radius=Math.max(1,Math.hypot(dx,dz));
   const baseAngle=Math.atan2(dx,dz);
-  const angles=[0,-.27,.27,-.56,.56,-.95,.95,-1.35,1.35,Math.PI];
-  const elevations=[0,4,9,16,23];
-  const ranges=[1,.82,.64,.44];
+  const angles=[0,-.27,.27,-.56,.56,-.95,.95];
+  const elevations=[0,-4,-8,4,9,16];
+  const ranges=[1,.82,.64,.44,.22];
   const original={...desired,y:Math.max(desired.y,floor(desired.x,desired.z)+3.2)};
-  if(this.clear(original,focus))
+  const terrainBlocked=(point:CameraPoint)=>{
+   const steps=Math.max(2,Math.ceil(dist(point,focus)));
+   for(let i=1;i<steps;i++){
+    const t=i/steps,x=point.x+(focus.x-point.x)*t,z=point.z+(focus.z-point.z)*t;
+    if(point.y+(focus.y-point.y)*t<floor(x,z)+.2)return true;
+   }
+   return false;
+  };
+  if(this.clear(original,focus)&&!terrainBlocked(original))
    return {point:original,clear:true,adjusted:false,blocking:0};
   let best=original,bestCost=Infinity,bestBlocks=Infinity;
+  const candidates:{point:CameraPoint;cost:number}[]=[];
   for(const ratio of ranges){
    for(const lift of elevations){
     for(const angle of angles){
@@ -108,17 +122,26 @@ export class CameraVisibilityField {
      const z=focus.z+Math.cos(heading)*radius*ratio;
      const y=Math.max(desired.y+lift,floor(x,z)+3.2);
      const sample={x,y,z};
-     const blocks=this.blockers(sample,focus);
+
      // Strong visibility preference, then preserve the intended throw
      // direction and silhouette size; use the prior clean shot as a
      // tie-break to avoid snapping between symmetric sides.
-     const cost=blocks*10000+Math.abs(angle)*8+
-      Math.abs(1-ratio)*11+lift*.48+
+     const cost=Math.abs(angle)*8+
+      Math.abs(1-ratio)*11+Math.abs(lift)*.48+
       Math.max(0,y-desired.y-lift)*.6+
       (previous?clamp(dist(previous,sample),0,50)*.045:0);
-     if(cost<bestCost){best=sample;bestCost=cost;bestBlocks=blocks;}
+     candidates.push({point:sample,cost});
     }
    }
+  }
+  // Evaluate promising poses first and stop at the cheapest clear pose.
+  // This avoids hundreds of foliage queries for an easy local adjustment.
+  candidates.sort((a,b)=>a.cost-b.cost);
+  for(const candidate of candidates){
+   const blocks=this.blockers(candidate.point,focus)+(terrainBlocked(candidate.point)?100:0);
+   if(blocks===0)return {point:candidate.point,clear:true,adjusted:true,blocking:0};
+   const cost=candidate.cost+blocks*10000;
+   if(cost<bestCost){best=candidate.point;bestCost=cost;bestBlocks=blocks;}
   }
   return {point:best,clear:bestBlocks===0,adjusted:true,blocking:bestBlocks};
  }

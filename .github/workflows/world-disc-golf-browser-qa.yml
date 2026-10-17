@@ -1,10 +1,13 @@
 name: Disc Golf Browser QA
 on:
   push:
-    branches: ['feat/sids-world']
+    branches: ['feat/sids-world', 'fix/world-throw-camera-steering']
     paths:
       - '.github/workflows/world-disc-golf-browser-qa.yml'
       - 'scripts/playtest-disc-golf.mjs'
+      - 'components/world/**'
+      - 'lib/world/cameraVisibility.ts'
+      - 'lib/world/jetSkiControls.ts'
   workflow_dispatch:
 
 permissions:
@@ -15,7 +18,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 25
     env:
-      WORLD_BASE_URL: http://127.0.0.1:3000
+      WORLD_BASE_URL: http://localhost:3000
       WORLD_AUDIT_DIR: artifacts/world/disc-golf-playtest
       PLAYWRIGHT_MODULE_ROOT: ${{ github.workspace }}/node_modules/playwright
     steps:
@@ -31,10 +34,11 @@ jobs:
           npm install --no-save --package-lock=false playwright@1.56.1
           npx playwright install --with-deps chromium
       - name: Start website
+        id: world
         run: |
           (npm run dev > /tmp/world-next.log 2>&1 &)
           for i in $(seq 1 90); do
-            if curl --fail --silent http://127.0.0.1:3000 >/dev/null; then
+            if curl --fail --silent http://localhost:3000 >/dev/null; then
               echo "Next.js server ready"
               exit 0
             fi
@@ -42,7 +46,18 @@ jobs:
           done
           cat /tmp/world-next.log
           exit 1
+      - name: Verify ski landing and exit restore free roaming
+        if: ${{ !cancelled() && steps.world.outcome == 'success' }}
+        env:
+          WORLD_AUDIT_DIR: artifacts/world/disc-golf-playtest/session-exits
+        run: node scripts/playtest-mountain-jump.mjs
+      - name: Verify jet-ski steering and controls
+        if: ${{ !cancelled() && steps.world.outcome == 'success' }}
+        env:
+          WORLD_AUDIT_DIR: artifacts/world/disc-golf-playtest/jet-controls
+        run: node scripts/playtest-jet-ski.mjs
       - name: Run nine-hole visual browser playtest
+        if: ${{ !cancelled() && steps.world.outcome == 'success' }}
         run: node scripts/playtest-disc-golf.mjs
       - name: Upload browser screenshots and QA report
         if: always()

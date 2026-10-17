@@ -53,9 +53,32 @@ test("use three-dimensional terrain clearance and avoid camera inside rock",()=>
  assert.ok(result.point.y>=terrain(result.point.x,result.point.z)+3.2);
 });
 
+test("camera candidate must clear authored AND rendered obstacles together",()=>{
+ const authored=[{x:0,y:9,z:11,rx:4,ry:7,rz:3}];
+ const rendered=[{x:5,y:8,z:8,rx:3,ry:5,rz:3}];
+ const combined=new CameraVisibilityField([...authored,...rendered]);
+ const desired={x:0,y:10,z:17};
+ const pose=combined.resolve(desired,look,floor);
+ assert.ok(combined.blockers(desired,look)>0,"initial boom is obstructed");
+ assert.equal(pose.clear,true);
+ assert.equal(new CameraVisibilityField(authored).clear(pose.point,look),true);
+ assert.equal(new CameraVisibilityField(rendered).clear(pose.point,look),true);
+});
+
 test("spatial field checks lower torso, not just the visible head",()=>{
  const field=new CameraVisibilityField([{x:0,y:.65,z:7,rx:2,ry:.5,rz:2}]);
  const pose={x:0,y:1.65,z:16};
  // Head-only tests can miss this obstructing chest/torso leaf cluster.
  assert.ok(field.blockers(pose,look)>0);
 });
+
+ test("camera boom clears an intervening terrain ridge, not just the lens floor",()=>{
+  const field=new CameraVisibilityField([]);
+  const floor=(x:number,z:number)=>Math.abs(x)<3&&z>6&&z<10?7:0;
+  const result=field.resolve({x:0,y:5,z:16},look,floor);
+  assert.equal(result.clear,true);assert.equal(result.adjusted,true);
+  for(let i=1;i<30;i++){
+   const t=i/30,p=result.point;
+   assert.ok(p.y+(look.y-p.y)*t>=floor(p.x*(1-t),p.z*(1-t))+.2);
+  }
+ });

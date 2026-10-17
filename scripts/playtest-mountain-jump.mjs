@@ -18,7 +18,13 @@ try{
  page.on("pageerror",e=>errors.push("page: "+e.message));
  page.on("console",m=>{if(m.type()==="error")errors.push("console: "+m.text().slice(0,300));});
  await page.goto(process.env.WORLD_BASE_URL??"http://127.0.0.1:3000");
- await page.getByRole("button",{name:"Explore world",exact:true}).click();
+ for(let attempt=0;attempt<5;attempt++){
+  await page.getByRole("button",{name:"Explore world",exact:true}).click();
+  try{
+   await page.waitForFunction(()=>document.querySelector("[data-world-state]")?.getAttribute("data-world-state")==="exploring",null,{timeout:5000});
+   break;
+  }catch(error){if(attempt===4)throw error;}
+ }
  await page.waitForFunction(()=>Number(document.querySelector("canvas")?.dataset.drawCalls)>0,
   null,{timeout:45000});
  // Pick Skiing, which navigates to mountain terrain. Do not arm the
@@ -61,15 +67,10 @@ try{
  // Hidden game-dock controls are deliberately absent from the accessible
  // tree. Include hidden only to assert their disabled/visibility contract.
  const disc=page.locator("button").filter({hasText:/^Disc golf/}).first();
- // The activity dock disappears while skiing and while the jump result
- // is on screen. Do not require the hidden button itself to stay disabled
- // after landing, since a result is terminal and only Explore reopens it.
- await page.waitForFunction(()=>
-  Array.from(document.querySelectorAll("button")).some(button=>
-   button.textContent?.startsWith("Disc golf")&&
-   (button.disabled||button.getClientRects().length===0)),
-  null,{timeout:15000});
- assert.equal(await disc.isVisible(),false);
+ // Result display must release movement; only an actual flight owns it.
+ const during=await canvas.evaluate(el=>({phase:el.dataset.bigAirPhase,
+  session:document.querySelector("[data-world-session]")?.getAttribute("data-world-session")}));
+ if(during.phase==="flying")assert.equal(during.session,"playing");
  await page.screenshot({path:path.join(out,"01-arbitrary-mountain-jump.png")});
  await page.waitForFunction(()=>{
   const d=document.querySelector("canvas")?.dataset;
@@ -86,11 +87,25 @@ try{
   const phase=document.querySelector("canvas")?.dataset.bigAirPhase;
   return phase==="landed"||phase==="missed";
  },null,{timeout:45000});
- assert.equal(await disc.isVisible(),false,
-  "Exploration controls must stay hidden while jump results are displayed");
+ await page.waitForFunction(()=>document.querySelector("[data-world-session]")?.getAttribute("data-world-session")==="results");
+ if(await canvas.getAttribute("data-aquatic")==="land")
+  await page.getByRole("group",{name:"Movement activity",exact:true}).waitFor({state:"visible"});
  await page.screenshot({path:path.join(out,"02-mountain-landing-result.png")});
  await page.getByRole("button",{name:"Explore",exact:true}).click();
+ await page.waitForFunction(()=>{
+  const d=document.querySelector("canvas")?.dataset;
+  return d?.bigAirPhase==="idle"&&d.activity==="run"&&
+   document.querySelector("[data-world-session]")?.getAttribute("data-world-session")==="free";
+ });
+ await page.getByRole("button",{name:"Open navigation menu"}).click();
+ await page.getByRole("button",{name:/Redwood grove A little about me/}).click();
  await disc.waitFor({state:"visible",timeout:15000});
+ await page.getByRole("button",{name:"Skiing",exact:true}).click();
+ await page.getByRole("button",{name:"Mountain ski jump · summit start",exact:true}).click();
+ await page.getByRole("button",{name:"Exit jump",exact:true}).click();
+ await disc.waitFor({state:"visible",timeout:15000});
+ assert.equal(await page.getByRole("button",{name:"Trail running",exact:true}).getAttribute("aria-pressed"),"true");
+ await page.screenshot({path:path.join(out,"03-free-roam-restored.png")});
  assert.deepEqual(errors,[],"No browser runtime errors during mountain flight");
  fs.writeFileSync(path.join(out,"mountain-jump-report.json"),
   JSON.stringify({flight,progress,errors},null,2)+"\n");

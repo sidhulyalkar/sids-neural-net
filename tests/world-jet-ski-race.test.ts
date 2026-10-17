@@ -141,15 +141,34 @@ test("keyboard, arrows and touch use the same predictable steering and boost",()
   {throttle:1,steer:0,brake:false,turbo:true},
   "Touch BOOST alone must accelerate and boost");
  assert.deepEqual(jetSkiControlInput(new Set(["arrowleft","w"]),touch,false,4),
-  {throttle:1,steer:-1,brake:false,turbo:false});
- assert.deepEqual(jetSkiControlInput(new Set(["d","arrowup"]),touch,false,4),
   {throttle:1,steer:1,brake:false,turbo:false});
+ assert.deepEqual(jetSkiControlInput(new Set(["d","arrowup"]),touch,false,4),
+  {throttle:1,steer:-1,brake:false,turbo:false});
  assert.deepEqual(jetSkiControlInput(new Set(["s","shift","d"]),
   {throttle:1,steer:0,brake:false},true,7),
-  {throttle:-1,steer:1,brake:true,turbo:false},
+  {throttle:-1,steer:-1,brake:true,turbo:false},
   "Reverse overrides forward/boost when stuck");
  assert.deepEqual(jetSkiControlInput(new Set(["a","d"]),touch,false,0),
   {throttle:0,steer:0,brake:false,turbo:false});
+});
+
+test("A and D steer toward their actual camera-relative screen sides",()=>{
+ const touch={throttle:0,steer:0,brake:false};
+ for(const craft of ["touring","sport","race"] as const){
+  let cruising=startJetSkiRace(craft);
+  for(let i=0;i<55;i++)cruising=stepJetSkiRace(cruising,1/60,
+    {throttle:1,steer:0},()=>true,false);
+  const steer=(key:string)=>jetSkiControlInput(new Set([key,"w"]),touch,false,cruising.speed);
+  const left=stepJetSkiRace(cruising,.1,steer("a"),()=>true,false);
+  const right=stepJetSkiRace(cruising,.1,steer("d"),()=>true,false);
+  // Camera looks along the bow. Screen-right is (-cos(h), sin(h));
+  // with heading atan2(x,z), positive heading is therefore screen-left.
+  const screenHorizontal=(heading:number)=>
+    -Math.cos(cruising.heading)*Math.sin(heading)+
+     Math.sin(cruising.heading)*Math.cos(heading);
+  assert.ok(screenHorizontal(left.heading)<0,craft+" A must turn left");
+  assert.ok(screenHorizontal(right.heading)>0,craft+" D must turn right");
+ }
 });
 
 test("large exposed swells have taller crests than the sheltered dock",()=>{
@@ -334,19 +353,20 @@ test("walker advances across elevated pier without entering underwater locomotio
 test("A turns left and D turns right, including reversing safely from stuck",()=>{
  let base=startJetSkiRace();
  for(let i=0;i<65;i++)base=stepJetSkiRace(base,1/60,{throttle:1,steer:0},()=>true);
- const a=stepJetSkiRace(base,.11,{throttle:1,steer:-1},()=>true);
- const d=stepJetSkiRace(base,.11,{throttle:1,steer:1},()=>true);
- assert.ok(a.heading<base.heading,"A should rotate bow left");
- assert.ok(d.heading>base.heading,"D should rotate bow right");
+ const input=(key:string,reverse=false)=>jetSkiControlInput(new Set([key,reverse?"s":"w"]),{throttle:0,steer:0,brake:false},false,reverse?-6:8);
+ const a=stepJetSkiRace(base,.11,input("a"),()=>true);
+ const d=stepJetSkiRace(base,.11,input("d"),()=>true);
+ assert.ok(a.heading>base.heading,"A should rotate bow left");
+ assert.ok(d.heading<base.heading,"D should rotate bow right");
  let stuck={...startJetSkiRace(),speed:0,position:{x:75,z:15}};
  for(let i=0;i<200;i++)stuck=stepJetSkiRace(stuck,1/60,
   {throttle:-1,steer:0},()=>true);
  assert.ok(stuck.speed< -5,"S must genuinely reverse, not just brake");
  assert.ok(stuck.position.z<15);
- const backA=stepJetSkiRace(stuck,.1,{throttle:-1,steer:-1},()=>true);
- const backD=stepJetSkiRace(stuck,.1,{throttle:-1,steer:1},()=>true);
- assert.ok(backA.heading>stuck.heading,"reversing with A pivots opposite the forward heading");
- assert.ok(backD.heading<stuck.heading,"reversing with D pivots opposite the forward heading");
+ const backA=stepJetSkiRace(stuck,.1,input("a",true),()=>true);
+ const backD=stepJetSkiRace(stuck,.1,input("d",true),()=>true);
+ assert.ok(backA.heading<stuck.heading,"reversing with A pivots opposite the forward heading");
+ assert.ok(backD.heading>stuck.heading,"reversing with D pivots opposite the forward heading");
 });
 
 test("free ride ignores checkpoint progression and still moves through waves",()=>{
@@ -431,3 +451,15 @@ test("north shore surf and offshore jet-ski routes remain physically distinct",(
     assert.equal(jetSkiNavigableWater(p),true,"existing north race ring stays navigable");
   }
 });
+
+ test("steering is rider-relative at every compass heading and agrees with touch",()=>{
+  for(const heading of [0,Math.PI/2,Math.PI,-Math.PI/2])for(const [key,side] of [["a",-1],["d",1]] as const){
+   const keys=jetSkiControlInput(new Set([key]),{throttle:0,steer:0,brake:false},false,8);
+   const touch=jetSkiControlInput(new Set(),{throttle:0,steer:side,brake:false},false,8);
+   assert.equal(keys.steer,touch.steer);
+   const s=stepJetSkiRace({...startJetSkiRace(),heading,speed:8},.1,keys,()=>true);
+   const riderRight={x:-Math.cos(heading),z:Math.sin(heading)};
+   const dot=Math.sin(s.heading)*riderRight.x+Math.cos(s.heading)*riderRight.z;
+   assert.ok(dot*side>0,"bow must rotate toward the requested rider-relative side");
+  }
+ });

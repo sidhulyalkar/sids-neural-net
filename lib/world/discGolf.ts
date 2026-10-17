@@ -121,6 +121,22 @@ export function discGolfNextTarget(state:Pick<DiscGolfState,"holeIndex"|"gatesCl
  const h=DISC_GOLF_HOLES[state.holeIndex];
  return h.gates[state.gatesCleared]?.point??h.target;
 }
+/** The thrower faces the NEXT playable course objective (gate first, then
+ * basket), not the camera, last travel mode or Shasta's fetch direction.
+ * Coincident targets use the basket, then the previous heading as fallback.
+ */
+export function discGolfFacingHeading(
+ lie:Point,activeTarget:Point,basket:Point,previous:Point={x:0,z:1},
+):Point{
+ for(const target of [activeTarget,basket]){
+  const dx=target.x-lie.x,dz=target.z-lie.z;
+  const length=Math.hypot(dx,dz);
+  if(Number.isFinite(length)&&length>.15)return {x:dx/length,z:dz/length};
+ }
+ const length=Math.hypot(previous.x,previous.z);
+ return Number.isFinite(length)&&length>1e-6
+  ?{x:previous.x/length,z:previous.z/length}:{x:0,z:1};
+}
 export function discGolfRouteLength(hole:DiscGolfHole):number{
  const pts=[hole.tee,...hole.gates.map(g=>g.point),hole.target];
  return pts.slice(1).reduce((sum,p,i)=>sum+Math.hypot(
