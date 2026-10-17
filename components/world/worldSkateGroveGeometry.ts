@@ -256,23 +256,35 @@ export function createWorldSkateGrove(scene:THREE.Scene,support:(p:Point)=>numbe
  pooled("sequoia-longitudinal-bark-flutes",barkFlutes,darkTimber);
  pooled("sequoia-broken-root-buttresses",brokenRoots,bark);
 
- // Full vertical timber loop. This is a real 3D wheel path supported by the
- // dedicated skateboard loop state, NEVER by the single-valued meadow field.
- // Broadside to the riding direction so the inversion reads clearly on camera.
- const loopBase=ride(SKATE_LOOP.center)+.09;
- const loopCedar=material("#bc8b58",{side:THREE.DoubleSide});
- const loopBark=material("#59402f",{side:THREE.DoubleSide});
- const loopSegments=120;
- function addLoopSkin(radius:number,mat:THREE.Material,name:string){
+ // The board-contact path, cedar top, bark backing, planks, guard coping,
+ // and end runouts ALL sample the same tilted elliptical x/y track. The ring
+ // advances to a separate west-side exit instead of returning to its start.
+ const loopBase=ride(SKATE_LOOP.center);
+ const loopExitPoint={x:SKATE_LOOP.center.x-SKATE_LOOP.exitOffset,
+  z:SKATE_LOOP.center.z};
+ const sampleRide=beginSkateLoop(9,loopBase,SKATE_LOOP.center.z,
+  ride(loopExitPoint));
+ const loopCedar=material("#c6a071",{side:THREE.DoubleSide});
+ const loopBark=material("#55402f",{side:THREE.DoubleSide});
+ const loopSegments=144;
+ const ringPoint=(a:number,z:number,backing=false)=>{
+  const pose=skateLoopSample({...sampleRide,angle:a});
+  const nx=-Math.sin(a)/SKATE_LOOP.radius;
+  const ny=-Math.cos(a)/SKATE_LOOP.radiusY;
+  const l=Math.hypot(nx,ny)||1;
+  const thick=backing?SKATE_LOOP.supportThickness:0;
+  return new THREE.Vector3(
+   pose.point.x+thick*nx/l,pose.y+thick*ny/l,z);
+ };
+ function addLoopSkin(backing:boolean,mat:THREE.Material,name:string){
   const vertices:number[]=[],triangles:number[]=[];
   for(let i=0;i<=loopSegments;i++){
-   const angle=i*2*Math.PI/loopSegments;
-   const x=SKATE_LOOP.center.x-radius*Math.sin(angle);
-   // All layers share ONE circle center. The bark foundation sits below
-   // the tread at the bottom and OUTSIDE it at the inverted crown.
-   const y=loopBase+SKATE_LOOP.radius-radius*Math.cos(angle);
-   for(const side of [-1,1])
-    vertices.push(x,y,SKATE_LOOP.center.z+side*SKATE_LOOP.width*.5);
+   const a=i*LOOP_TAU/loopSegments;
+   for(const side of [-1,1]){
+    const p=ringPoint(a,SKATE_LOOP.center.z+
+     side*SKATE_LOOP.width*.5,backing);
+    vertices.push(p.x,p.y,p.z);
+   }
   }
   for(let i=0;i<loopSegments;i++){
    const a=i*2;triangles.push(a,a+1,a+2,a+1,a+3,a+2);
@@ -283,40 +295,56 @@ export function createWorldSkateGrove(scene:THREE.Scene,support:(p:Point)=>numbe
   const mesh=new THREE.Mesh(g,mat);
   mesh.name=name;mesh.castShadow=true;mesh.receiveShadow=true;group.add(mesh);
  }
- addLoopSkin(SKATE_LOOP.radius,loopCedar,"full-360-loop-polished-tread");
- addLoopSkin(SKATE_LOOP.radius+SKATE_LOOP.supportThickness,loopBark,"full-360-loop-bark-understructure");
+ addLoopSkin(false,loopCedar,"full-360-loop-polished-tread");
+ addLoopSkin(true,loopBark,"full-360-loop-bark-understructure");
  const loopCoping:Part[]=[],loopSlats:Part[]=[],loopStruts:Part[]=[];
- for(let side of [-1,1]){
+ for(const side of [-1,1]){
   const z=SKATE_LOOP.center.z+side*SKATE_LOOP.width*.5;
   for(let i=0;i<loopSegments;i++){
-   const a=i*2*Math.PI/loopSegments,b=(i+1)*2*Math.PI/loopSegments;
-   const p=(t:number,r:number)=>new THREE.Vector3(
-    SKATE_LOOP.center.x-r*Math.sin(t),loopBase+r*(1-Math.cos(t)),z);
-   loopCoping.push(beam(p(a,SKATE_LOOP.radius+.028),p(b,SKATE_LOOP.radius+.028),.044));
+   const a=i*LOOP_TAU/loopSegments,b=(i+1)*LOOP_TAU/loopSegments;
+   loopCoping.push(beam(ringPoint(a,z),ringPoint(b,z),.045));
   }
-  for(const x of [SKATE_LOOP.center.x-SKATE_LOOP.radius,
-    SKATE_LOOP.center.x+SKATE_LOOP.radius]){
-   // Buttressed on the outside; no vertical posts in the center riding lane.
-   const outsideZ=z+side*.58;
-   const foot=terrainHeight(x,outsideZ)+.06;
-   loopStruts.push(beam(new THREE.Vector3(x,foot,outsideZ),
-    new THREE.Vector3(x,loopBase+SKATE_LOOP.radius*.83,z),.15));
-   // Angled root-like braces hold up the giant circular timber ribs.
-   loopStruts.push(beam(new THREE.Vector3(x,foot,outsideZ+side*.35),
-    new THREE.Vector3(x-(x<SKATE_LOOP.center.x?.7:-.7),
-     loopBase+SKATE_LOOP.radius*.53,z),.11));
+  // Buttresses anchored on the OUTER edge of the lane, not across the tread.
+  for(const angle of [LOOP_TAU*.14,LOOP_TAU*.37,LOOP_TAU*.63,LOOP_TAU*.86]){
+   const upper=ringPoint(angle,z,true);
+   const outerZ=z+side*.80;
+   const foot=new THREE.Vector3(upper.x,
+    terrainHeight(upper.x,outerZ)+.05,outerZ);
+   if(upper.y>foot.y+.40)loopStruts.push(beam(foot,upper,.13));
   }
  }
- for(let i=0;i<48;i++){
-  const a=i*2*Math.PI/48,r=SKATE_LOOP.radius+.035;
-  const x=SKATE_LOOP.center.x-r*Math.sin(a),y=loopBase+r*(1-Math.cos(a));
+ for(let i=0;i<60;i++){
+  const angle=i*LOOP_TAU/60;
   loopSlats.push(beam(
-   new THREE.Vector3(x,y,SKATE_LOOP.center.z-SKATE_LOOP.width*.5),
-   new THREE.Vector3(x,y,SKATE_LOOP.center.z+SKATE_LOOP.width*.5),.021));
+   ringPoint(angle,SKATE_LOOP.center.z-SKATE_LOOP.width*.5),
+   ringPoint(angle,SKATE_LOOP.center.z+SKATE_LOOP.width*.5),.021));
  }
  pooled("loop-timber-safety-edges",loopCoping,metal);
  pooled("loop-crossgrain-planks",loopSlats,grain);
  pooled("loop-exterior-buttresses",loopStruts,darkTimber);
+ // Grounded approaches are physically normal skate terrain; the tracked
+ // inversion starts at the eastern seam and hands off at a different west
+ // seam. Render contiguous decks that meet both seams without a sharp lip.
+ const loopLead:Part[]=[];
+ for(const [startX,endX] of [
+  [SKATE_LOOP.center.x+SKATE_LOOP.leadLength,SKATE_LOOP.center.x],
+  [loopExitPoint.x,loopExitPoint.x-SKATE_LOOP.leadLength],
+ ]){
+  const steps=12;
+  for(let i=0;i<steps;i++){
+   const xa=startX+(endX-startX)*i/steps;
+   const xb=startX+(endX-startX)*(i+1)/steps;
+   for(const side of [-1,1]){
+    const z=SKATE_LOOP.center.z+side*SKATE_LOOP.width*.5;
+    loopLead.push(beam(
+     onRide({x:xa,z},.045),onRide({x:xb,z},.045),.035));
+   }
+   if(i%2===0)loopLead.push(beam(
+    onRide({x:xa,z:SKATE_LOOP.center.z-SKATE_LOOP.width*.5},.048),
+    onRide({x:xa,z:SKATE_LOOP.center.z+SKATE_LOOP.width*.5},.048),.019));
+  }
+ }
+ pooled("loop-distinct-entry-exit-ramps",loopLead,grain);
 
  // The outer stump becomes genuine rugged sequoia bark. This annular shell
  // hugs only the OUTSIDE of the drivable rim and fades into terrain: no roof,
