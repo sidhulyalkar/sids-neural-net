@@ -25,6 +25,7 @@ try{
    null,{timeout:10000});
   assert.equal(await canvas.getAttribute("data-arcade-trail-markers"),"4");
   assert.equal(await canvas.getAttribute("data-arcade-wayfinding-sign"),"ARCADE");
+  assert.equal(await canvas.getAttribute("data-arcade-portal-visual"),"open-dark-arch");
   await page.getByRole("button",{name:"Open navigation menu"}).click();
   await page.getByRole("button",{name:/02 Granite ridge Things I build/}).click();
   await page.waitForFunction(()=>document.querySelector("canvas")?.dataset.player?.startsWith("8.00,"),
@@ -44,6 +45,9 @@ try{
   }));
   assert.match(trace.approach.text??"",/ENTER THE SPLIT STONE/);
   assert.equal(await page.getByRole("status",{name:"Arcade Cavern trail guidance"}).isVisible(),true);
+  // Give the intentionally throttled software WebGL at least another frame
+  // to finish drawing the *actual* exterior camera pose before signoff.
+  await page.waitForTimeout(900);
   await page.screenshot({path:path.join(out,"02-amber-portal-and-arcade-sign.png")});
   await canvas.focus();
   await page.keyboard.down("w");
@@ -58,6 +62,7 @@ try{
    stage:el.dataset.arcadeTrailStage,hint:el.dataset.arcadeTrailHint,
   }));
   assert.equal(trace.entered.hint,"");
+  await page.waitForTimeout(1100);
   await page.screenshot({path:path.join(out,"03-walk-inside-mountain.png")});
   assert.deepEqual(errors,[]);
   console.log("ARCADE CAVERN LANDMARK QA PASS",JSON.stringify({trace,errors}));
