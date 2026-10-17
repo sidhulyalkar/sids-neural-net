@@ -50,8 +50,12 @@ try{
   };
   await move("w",1,-77,true);
   await page.screenshot({path:path.join(out,"02-lantern-throat-comedy.png")});
-  await move("a",0,18.1,true);
+  // The baffle was removed. Walk straight down the open centerline,
+  // proving the build no longer hides an invisible obstacle.
   await move("w",1,-69.9,true);
+  const clearWalk=await canvas.evaluate(el=>(el.dataset.player??"").split(",").map(Number));
+  assert.ok(Math.abs(clearWalk[0]-16)<1.4,
+   "the direct arcade centerline must be traversable without a lateral detour");
   await page.waitForTimeout(600);
   evidence.interior=await canvas.evaluate(el=>({
    player:el.dataset.player,layer:el.dataset.caveLayer,
