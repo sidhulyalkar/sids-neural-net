@@ -4215,7 +4215,12 @@ export function createWorld(
           }
         }
       } else if (grind) {
-        const grindSpeed=Math.max(4.2,travel.speed);
+        // Smooth, beginner-friendly timber lines retain enough momentum to
+        // cross their authored air gaps even after several curved segments.
+        // No FPS-dependent per-frame brake on chained skateboard grinds.
+        const connectedSkate=grind.mode==="skate"&&
+          "chainId" in grind.log&&!!grind.log.chainId;
+        const grindSpeed=Math.max(connectedSkate?6.2:4.2,travel.speed);
         const original=grind.log;
         const chained="chainId" in original&&typeof original.chainId==="string";
         let finished=false;
@@ -4242,7 +4247,7 @@ export function createWorld(
           x:segment.a.x+dxLog*grind.t,
           z:segment.a.z+dzLog*grind.t,
         };
-        travel={point:player,speed:grindSpeed*.995,heading:{
+        travel={point:player,speed:connectedSkate?grindSpeed:grindSpeed*.995,heading:{
           x:dxLog/length*grind.direction,z:dzLog/length*grind.direction,
         }};
         const railGround=groundHeight(segment.a)*(1-grind.t)+
