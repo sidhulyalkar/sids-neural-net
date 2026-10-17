@@ -134,6 +134,17 @@ export function scoreSkateTunnel(state:SkateTrickState,now:number,speed:number):
  return award(state,"Sequoia Hollow 360°",350+Math.round(Math.min(18,Math.max(0,speed))*7),now);
 }
 
+/** Reward only a completed, physically sampled gap landing. Ordinary
+ * grind distance is awarded separately at the departure endpoint. */
+export function scoreSkateRailGap(
+ state:SkateTrickState,id:string,now:number,speed:number,
+):SkateTrickState{
+ if(state.phase!=="ground"||!Number.isFinite(now)||
+   !Number.isFinite(speed)||speed<4||!id)return state;
+ return award(state,"Rail → Rail · "+id.replaceAll("-"," "),
+  205+Math.round(clamp(speed,0,18)*12),now);
+}
+
 /** Grinding scores only covered distance; a camera-nearby rail never scores. */
 export function scoreSkateGrind(state:SkateTrickState,meters:number,style:"fifty-fifty"|"boardslide",now:number):SkateTrickState{
  if(!Number.isFinite(meters)||meters<.5||state.phase!=="ground")return state;
