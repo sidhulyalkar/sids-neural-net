@@ -1,4 +1,4 @@
-import {ARCADE_GATE,ARCADE_TRAIL_MARKERS,arcadeTrailHint,arcadeTrailStage,arcadeTrailFooting} from "@/lib/world/arcadeWayfinding";
+import {ARCADE_GATE,ARCADE_TRAIL_MARKERS,arcadeTrailHint,arcadeTrailStage,arcadeTrailFooting,arcadeEntranceCameraPose} from "@/lib/world/arcadeWayfinding";
 import {createWorldSkimSurf} from "./worldSkimSurfGeometry";
 import { desertTrackTreadBlend, desertTrackSampleAt, DESERT_GAP_DEBRIS, DESERT_JUMPS, DESERT_TRACK_LENGTH } from "@/lib/world/desertTrack";
 import {insideSkatePark,skateParkZone,skateGroveStartHeading,SKATE_LOOP,GROVE_TUNNEL,SKATE_GROVE_FRAME_TREES,advanceRailChain,railLiftAt,insideCanyonFlow,CANYON_FLOW,type SkateRail} from "@/lib/world/skatepark";
@@ -4993,13 +4993,10 @@ export function createWorld(
       } else if (rainforestFraming) {
         targetLook.set(player.x,playerY+2,player.z);
       } else if (cavernApproachFraming) {
-        // Frame the mouth of the cave, not the high terrain deep behind it.
-        // This keeps the entrance readable as a dark opening in the mountain.
-        targetLook.set(
-          arcade.x,
-          arcadeY + 2.1,
-          arcade.z + 1.8,
-        );
+        // Keep the *visible landmark* rather than aiming two metres into the
+        // uncarved mountain roof. The same target is used on arrival.
+        const pose=arcadeEntranceCameraPose();
+        targetLook.set(pose.look.x,pose.look.y,pose.look.z);
       } else {
         const aquaticLookAhead = surfing ? (skimHeat.air>.05?2.2:3.1) :
           aquatic === "land" ? 0 : aquatic === "dive" ? 3.2 : 2.2;
@@ -5078,15 +5075,8 @@ export function createWorld(
           Math.max(playerY+22,worldFloorHeight(coastX,player.z)+18),
           player.z+3);
       } else if (cavernApproachFraming) {
-        // Pull the approach camera well behind the explorer so the cave mouth
-        // remains the subject instead of nearby portal rocks or the explorer
-        // occupying most of the foreground.
-        const approachCameraZ = arcade.z - 10.2;
-        targetCamera.set(
-          arcade.x,
-          terrainHeight(arcade.x, approachCameraZ) + 3.05,
-          approachCameraZ,
-        );
+        const pose=arcadeEntranceCameraPose();
+        targetCamera.set(pose.position.x,pose.position.y,pose.position.z);
       } else {
         targetCamera.set(
           player.x + Math.sin(cameraYaw) * cameraZoom * Math.cos(pitch),
@@ -6777,6 +6767,14 @@ export function createWorld(
           yaw = Math.PI;
           pitch = 0.22;
           zoom = Math.min(zoom, 15);
+          // A warp from forest, coast, or mountain otherwise sweeps the camera
+          // through the solid Granite Ridge terrain for several frames.
+          // Snap only the lens, NOT the player, to an exterior clear-air view.
+          const pose=arcadeEntranceCameraPose();
+          camera.position.set(
+            pose.position.x,pose.position.y,pose.position.z);
+          look.set(pose.look.x,pose.look.y,pose.look.z);
+          camera.lookAt(look);
         }
         if(flowStart){
           yaw=-Math.PI/2;pitch=.37;zoom=19;
