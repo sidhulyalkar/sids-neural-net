@@ -305,6 +305,24 @@ function paintTexture(theme:CavernArtTheme,three:ArcadeThree){
  if(theme==="comedy")paintComedy(ctx);
  if(theme==="sport-anime")paintSportAnime(ctx);
  ctx.restore();
+ // Feather the spray as pigment on irregular stone, not an abruptly
+ // cropped rectangular canvas. Preserve the center and lettering while
+ // letting both lateral ends vanish into the basalt.
+ ctx.save();
+ ctx.globalCompositeOperation="destination-in";
+ const fadeX=ctx.createLinearGradient(0,0,canvas.width,0);
+ fadeX.addColorStop(0,"rgba(255,255,255,0)");
+ fadeX.addColorStop(.045,"rgba(255,255,255,1)");
+ fadeX.addColorStop(.94,"rgba(255,255,255,1)");
+ fadeX.addColorStop(1,"rgba(255,255,255,0)");
+ ctx.fillStyle=fadeX;ctx.fillRect(0,0,canvas.width,canvas.height);
+ const fadeY=ctx.createLinearGradient(0,0,0,canvas.height);
+ fadeY.addColorStop(0,"rgba(255,255,255,0)");
+ fadeY.addColorStop(.055,"rgba(255,255,255,1)");
+ fadeY.addColorStop(.95,"rgba(255,255,255,1)");
+ fadeY.addColorStop(1,"rgba(255,255,255,0)");
+ ctx.fillStyle=fadeY;ctx.fillRect(0,0,canvas.width,canvas.height);
+ ctx.restore();
  const texture=new three.CanvasTexture(canvas);
  texture.colorSpace=three.SRGBColorSpace;
  texture.anisotropy=4;texture.generateMipmaps=true;
