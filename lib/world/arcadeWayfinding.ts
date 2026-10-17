@@ -4,7 +4,7 @@ import {ARCADE_CAVE,arcadeCaveFloorHeight,terrainHeight,type Point} from "./mode
  * toward the cavern's real south-facing mouth. All stonework is visual-only:
  * no new ground-height collision, walls, or tunnel-layer intersections. */
 export const ARCADE_TRAIL_MARKERS=[
- {id:"ridge-beacon",point:{x:12.1,z:-59.2},height:3.8},
+ {id:"ridge-beacon",point:{x:10.4,z:-55.4},height:4.8},
  {id:"switchback-cairn",point:{x:20.8,z:-68.8},height:3.1},
  {id:"cave-overlook",point:{x:20.6,z:-77.2},height:3.6},
  {id:"mouth-waystone",point:{x:20.0,z:-85.4},height:2.45},
@@ -24,7 +24,7 @@ export function arcadeTrailStage(point:Point,caveLayer:"surface"|"arcade"|"paper
   point.z-ARCADE_CAVE.entrance.z);
  if(mouth<12)return "entrance" as const;
  if(ARCADE_TRAIL_MARKERS.some(marker=>
-  Math.hypot(point.x-marker.point.x,point.z-marker.point.z)<9))
+  Math.hypot(point.x-marker.point.x,point.z-marker.point.z)<(marker.id==="ridge-beacon"?12:9)))
   return "trail" as const;
  return "hidden" as const;
 }
@@ -48,7 +48,9 @@ export function arcadeTrailFooting(p:Point){
 export function arcadeEntranceCameraPose(){
  const {entrance}=ARCADE_CAVE;
  const floor=arcadeCaveFloorHeight(entrance);
- const cameraZ=entrance.z-8.1;
+ // A real ~6.3m rear boom at the (-86.4) arrival leaves room to frame
+ // the basalt gateway and avoids the 3.7m closeup that clipped the facade.
+ const cameraZ=entrance.z-10.7;
  return {
   position:{x:entrance.x,y:Math.max(
    terrainHeight(entrance.x,cameraZ)+4.7,floor+1.9),z:cameraZ},
