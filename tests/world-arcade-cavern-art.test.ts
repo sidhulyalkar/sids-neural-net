@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {ARCADE_CAVE,arcadeCaveFloorHeight,caveHalfWidth} from "../lib/world/model";
 import {ARCADE_CAVERN_MURALS,validateArcadeArtManifest} from "../lib/world/arcadeCavernArtManifest";
-import {caveArtRing,sampleCavernArt,validateCavernMural} from "../lib/world/arcadeCavernSurface";
+import {ARCADE_REAR_CAP_Z,caveArtRing,sampleCavernArt,validateCavernMural} from "../lib/world/arcadeCavernSurface";
 import {ARCADE_MURAL_ART_ASSETS,validateArcadeMuralAssets}
  from "../lib/world/arcadeCavernAssetManifest";
 
@@ -67,6 +67,16 @@ test("Curved graffiti is projected into interior of exact 17-shell ring segments
    }
   }
  }
+});
+
+test("physical cave cap must never obscure back-wall art or rock lining",()=>{
+ const stone=sampleCavernArt("back",-63.32,.5,.75,.019)!;
+ const paint=sampleCavernArt("back",-63.32,.5,.75,.056)!;
+ // From inside the cave, the camera is at smaller Z: paint must have the
+ // smallest Z, then stone, then the opaque rear cap at the largest Z.
+ assert.ok(paint.position.z<stone.position.z);
+ assert.ok(stone.position.z<ARCADE_REAR_CAP_Z-.04,
+  "cap is in front of the portrait and hides the whole gallery");
 });
 
 test("Floor paint uses underground support, not mountain topography",()=>{
