@@ -8,7 +8,7 @@ import {beginSkateTunnelRide,advanceSkateTunnelRide,skateTunnelSample,
  type SkateTunnelRide} from "@/lib/world/skateTunnel";
 import {createWorldSkateGrove} from "./worldSkateGroveGeometry";
 import {createWorldArcadeGraffiti} from "./worldArcadeGraffitiGeometry";
-import {ARCADE_REAR_CAP_Z} from "@/lib/world/arcadeCavernSurface";
+import {ARCADE_REAR_CAP_Z,sampleCavernArt} from "@/lib/world/arcadeCavernSurface";
 import {skateLean} from "@/lib/world/skateDynamics";
 import {selectAssistedSkateTrick,assistedSkateSpin} from "@/lib/world/skateAssist";
 import {idleSkateTrick,startSkateTrick,finishSkateTrick,setSkateGrab,skateTrickPose,flickTrick,scoreSkateGrind,scoreSkateLoop,scoreSkateTunnel,scoreSkateRailGap,queueSkateSpin,startSkateManual,stepSkateManual,finishSkateManual,type SkateTrickName,type SkateTrickState} from "@/lib/world/skateTricks";
@@ -1634,22 +1634,25 @@ export function createWorld(
   caveLight.position.set(ARCADE_CAVE.lantern.x, lanternY - 0.05, ARCADE_CAVE.lantern.z);
   scene.add(caveLight);
 
-  // The lantern illuminates the throat but leaves the gallery deep in shadow.
-  // Two restrained no-shadow arcade beacons lift pigment color without turning
-  // all the dark basalt into a flat glowing billboard. Small physical lantern
-  // cores explain the colored light from within the world itself.
-  const arcadeAccentY=arcadeCaveFloorHeight({x:16,z:-68})+3.55;
+  // Gallery lights must be physically fixed into real rock faces.
+  // Derive each fixture position from the same 17-ring cave sampler used
+  // for the murals. A freehand (x,y,z) cylinder could float in open air.
+  // Restrained cyan and rose accent sources lift painted colors while
+  // leaving the basalt dark. No additional shadow maps are allocated.
   for(const accent of [
-    {x:11.35,z:-68.2,color:"#72d1d6",power:3.0},
-    {x:20.65,z:-68.2,color:"#dca3c8",power:2.8},
+    {surface:"left" as const,z:-68.35,color:"#72d1d6",power:3.0},
+    {surface:"right" as const,z:-68.35,color:"#dca3c8",power:2.8},
   ]){
+    const rock=sampleCavernArt(accent.surface,accent.z,.5,.47,.095);
+    if(!rock)throw Error("Arcade accent lamp outside the cave shell");
+    const p=rock.position,n=rock.normal;
     const beacon=mesh(cylinder,mat(accent.color,{
-      emissive:accent.color,emissiveIntensity:1.35,
-      roughness:.48,
-    }),[accent.x,arcadeAccentY,accent.z],[.065,.19,.065]);
+      emissive:accent.color,emissiveIntensity:1.35,roughness:.48,
+    }),[p.x,p.y,p.z],[.065,.19,.065]);
+    beacon.name="arcade-rock-mounted-neon-source-"+accent.surface;
     beacon.castShadow=false;
     const light=new THREE.PointLight(accent.color,accent.power,10,2);
-    light.position.set(accent.x,arcadeAccentY,accent.z);
+    light.position.set(p.x+n.x*.42,p.y+n.y*.42,p.z+n.z*.42);
     light.castShadow=false;
     scene.add(light);
   }
