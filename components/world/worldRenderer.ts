@@ -1490,7 +1490,7 @@ export function createWorld(
       [...bits].forEach((bit,k)=>{
         if(bit!=="1")return;
         signPixels.push({
-          x:ARCADE_GATE.sign.x-signWidth*.5+
+          x:ARCADE_GATE.sign.x+signWidth*.5-
             (col*4+k+.5)*pixelSize,
           y:signY+.23-row*pixelSize,
           z:signZ-.12,sx:pixelSize*.82,sy:pixelSize*.82,sz:.035,
@@ -1500,6 +1500,30 @@ export function createWorld(
   });
   const arcadeSign=instances(boxGeo,arcadeEmber,signPixels,false);
   arcadeSign.name="arcade-cavern-readable-sign";
+  // The mountain surface is a heightfield: a flat, bright slope at the
+  // throat can read as a solid wall from outside even though the underground
+  // navigation layer is genuinely open. A front-facing dark cave mouth acts as
+  // a visual shadow transition, not a solid or a gameplay collider.
+  const mouthShape=new THREE.Shape();
+  mouthShape.moveTo(-3.05,.08);
+  mouthShape.lineTo(3.05,.08);
+  mouthShape.lineTo(3.05,2.1);
+  mouthShape.bezierCurveTo(3.05,4.75,-3.05,4.75,-3.05,2.1);
+  mouthShape.lineTo(-3.05,.08);
+  const shadowGeo=geo(new THREE.ShapeGeometry(mouthShape,20));
+  const shadowMat=mat("#111d22",{
+    side:THREE.FrontSide,transparent:true,opacity:.86,
+    depthWrite:false,roughness:1,
+  });
+  const mouthShadow=mesh(shadowGeo,shadowMat,
+    [arcade.x,arcadeY+.10,arcade.z-.80],[1,1,1]);
+  // ShapeGeometry faces +Z; rotate the face toward visitors approaching
+  // from -Z, while keeping the underside invisible once walking inside.
+  mouthShadow.rotation.y=Math.PI;
+  mouthShadow.castShadow=false;mouthShadow.receiveShadow=false;
+  mouthShadow.name="arcade-cavern-unblocked-shadow-mouth";
+  // Its visible dark void has no collision representation.
+  canvas.dataset.arcadePortalVisual="open-dark-arch";
   canvas.dataset.arcadeWayfinding="split-basalt-amber-v1";
   canvas.dataset.arcadeTrailMarkers=String(ARCADE_TRAIL_MARKERS.length);
   canvas.dataset.arcadeWayfindingSign=arcadeWord;
@@ -5220,7 +5244,10 @@ export function createWorld(
       if (caveInside || paperInside) {
         const isArcade = caveInside;
         const centerX = isArcade ? 16 : -20;
-        const minZ = isArcade ? -81.6 : -35.4;
+        // A camera just 0.5m behind the player at the threshold rendered the
+        // explorer's backpack as a full-screen polygon. Allow a 2.6m exterior
+        // throat boom; the layered cave floor still clamps vertical clearance.
+        const minZ = isArcade ? ARCADE_CAVE.entrance.z-2.4 : -35.4;
         const maxZ = isArcade ? -63.7 : -30.3;
         const desired = constrainMove(player,{x:player.x+Math.sin(yaw)*2.6,z:player.z+Math.cos(yaw)*2.6},caveSolids);
         const z=THREE.MathUtils.clamp(desired.z,minZ,maxZ);
