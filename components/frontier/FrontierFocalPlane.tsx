@@ -4,7 +4,8 @@ import { useEffect, useMemo, useRef } from 'react';
 import { ExternalLink, X } from 'lucide-react';
 import { frontierFocalTakeaways } from '@/lib/frontier/synthesis/artifactExtractor';
 import type { FrontierItem } from '@/lib/frontier/types';
-import { FrontierMediaSurface, canRenderFrontierMedia } from './media/FrontierMediaSurface';
+import { canRenderFrontierMedia } from './media/FrontierMediaSurface';
+import { RichFrontierMediaSurface } from './media/RichFrontierMediaSurface';
 import styles from './frontier-focal-plane.module.css';
 
 type Props = {
@@ -106,7 +107,7 @@ export function FrontierFocalPlane({ item, onClose }: Props) {
 
           {hasMedia ? (
             <div className={styles.media}>
-              <FrontierMediaSurface item={item} />
+              <RichFrontierMediaSurface item={item} />
             </div>
           ) : null}
         </div>

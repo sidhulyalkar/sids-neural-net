@@ -1,0 +1,51 @@
+/* FRONTIER render-fast route overrides.
+   The daily/explore deck is one viewport, one mounted page, and no document scroll. */
+
+body:has([data-frontier-performance-route='true'] [data-frontier-v21-newspaper='true'] > :first-child > main) {
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+[data-frontier-performance-route='true'] {
+  min-height: 100dvh;
+}
+
+[data-frontier-performance-route='true'] [data-frontier-v21-newspaper='true']:has(> :first-child > main) {
+  height: 100dvh;
+  min-height: 100dvh;
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+[data-frontier-performance-route='true'] [data-frontier-v21-newspaper='true'] > :first-child:has(> main) {
+  display: flex;
+  width: min(1500px, calc(100% - 32px));
+  height: 100%;
+  min-height: 0;
+  flex-direction: column;
+  padding-top: 10px;
+  padding-bottom: 10px;
+  overflow: hidden;
+}
+
+[data-frontier-performance-route='true'] [data-frontier-v21-newspaper='true'] > :first-child:has(> main) > header {
+  flex: 0 0 auto;
+}
+
+[data-frontier-performance-route='true'] [data-frontier-v21-newspaper='true'] > :first-child:has(> main) > main {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+
+[data-frontier-performance-route='true'] [data-frontier-v21-newspaper='true'] > :first-child:has(> main) > footer {
+  display: none;
+}
+
+@media (max-width: 720px) {
+  [data-frontier-performance-route='true'] [data-frontier-v21-newspaper='true'] > :first-child:has(> main) {
+    width: calc(100% - 18px);
+    padding-top: 7px;
+    padding-bottom: max(7px, env(safe-area-inset-bottom));
+  }
+}
