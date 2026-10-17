@@ -6,10 +6,11 @@ import {caveArtRing,sampleCavernArt,validateCavernMural} from "../lib/world/arca
 
 test("Curated wall program honors the corrected shonen/isekai/sports anime favorites",()=>{
  assert.deepEqual(validateArcadeArtManifest(ARCADE_CAVERN_MURALS),[]);
- assert.equal(ARCADE_CAVERN_MURALS.length,5);
+ assert.equal(ARCADE_CAVERN_MURALS.length,7);
  const ids=ARCADE_CAVERN_MURALS.map(m=>m.id);
  assert.deepEqual(ids,["out-of-this-world","home-stand","raid-ascend",
-  "striker-setpoint","sids-underground"]);
+  "striker-setpoint","sids-underground","shasta-mountain-guardian",
+  "neuroforge-synapses"]);
  const anime=ARCADE_CAVERN_MURALS.find(m=>m.theme==="anime")!;
  const sports=ARCADE_CAVERN_MURALS.find(m=>m.theme==="sport-anime")!;
  for(const favorite of ["SOLO LEVELING","JUJUTSU KAISEN","CHAINSAW MAN",
@@ -17,6 +18,14 @@ test("Curated wall program honors the corrected shonen/isekai/sports anime favor
   "SHANGRI-LA FRONTIER"])assert.ok(anime.tags.includes(favorite));
  for(const favorite of ["BLUE LOCK","HAIKYU!!"])
   assert.ok(sports.tags.includes(favorite));
+ const shasta=ARCADE_CAVERN_MURALS.find(m=>m.theme==="shasta")!;
+ const neural=ARCADE_CAVERN_MURALS.find(m=>m.theme==="neural")!;
+ assert.ok(shasta.tags.includes("SHASTA"));
+ assert.ok(neural.tags.includes("NEUROSCIENCE"));
+ assert.equal(shasta.surface,"left");
+ assert.equal(neural.surface,"right");
+ assert.ok(shasta.v0>.5 && neural.v0>.5,
+  "identity hero art belongs above the game-sized lower mural band");
  for(const muted of ["VINLAND SAGA","FULLMETAL ALCHEMIST"])
   assert.ok(!ARCADE_CAVERN_MURALS.some(m=>m.tags.some(t=>t.includes(muted))));
  assert.ok(ARCADE_CAVERN_MURALS.every(m=>!validateCavernMural(m)));
