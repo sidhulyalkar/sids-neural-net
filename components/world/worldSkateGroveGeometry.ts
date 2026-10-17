@@ -4,7 +4,7 @@ import {
   skateParkSurface, skateParkZone, GROVE_LOG, GROVE_BRIDGE,
   GROVE_TUNNEL, SKATE_LOOP,
   groveBridgeRise, groveStoneRise, CANYON_FLOW, CANYON_MANUAL_PADS,
-  canyonFlowRise,railLiftAt,insideCanyonFlow,
+  canyonFlowRise,railLiftAt,insideCanyonFlow,SKATE_RAIL_GAPS,
 } from "@/lib/world/skatepark";
 import {terrainHeight,type Point} from "@/lib/world/model";
 import {sequoiaTubePoint,TUBE_TAU} from "@/lib/world/skateTunnel";
@@ -675,6 +675,56 @@ export function createWorldSkateGrove(scene:THREE.Scene,support:(p:Point)=>numbe
  pooled("split-timber-hybrid-rails",hybridRails,darkTimber);
  pooled("durable-grind-caps",railCaps,metal);
  pooled("grind-rail-timber-stands",railPosts,bark);
+
+ // A low, open-air granite/cedar gap garden. These stones sit OUTSIDE the
+ // center trajectory and carry no collision or invisible wheel support.
+ const gapLip:Part[]=[],gapGrain:Part[]=[];
+ const stoneData:{x:number;y:number;z:number;sx:number;sy:number;sz:number;ry:number}[]=[];
+ for(const [i,gap] of SKATE_RAIL_GAPS.entries()){
+  const depart=SKATE_PARK_RAILS.find(r=>r.id===gap.from)!;
+  const arrive=SKATE_PARK_RAILS.find(r=>r.id===gap.to)!;
+  const dx=arrive.a.x-depart.b.x,dz=arrive.a.z-depart.b.z;
+  const length=Math.hypot(dx,dz)||1,fx=dx/length,fz=dz/length;
+  const nx=-fz,nz=fx;
+  for(const [j,rail] of [depart,arrive].entries()){
+   const point=j===0?rail.b:rail.a,t=j===0?1:0;
+   const y=support(point)+railLiftAt(rail,t)+.065;
+   gapLip.push(beam(new THREE.Vector3(point.x+nx*.20,y,point.z+nz*.20),
+    new THREE.Vector3(point.x-nx*.20,y,point.z-nz*.20),.032));
+   const gx=point.x+(j===0?-.12:.12)*fx;
+   const gz=point.z+(j===0?-.12:.12)*fz;
+   gapGrain.push(beam(new THREE.Vector3(gx+nx*.18,y-.035,gz+nz*.18),
+    new THREE.Vector3(gx-nx*.18,y-.035,gz-nz*.18),.015));
+  }
+  for(const side of [-1,1]){
+   const cx=(depart.b.x+arrive.a.x)*.5+nx*side*(2.65+.20*i);
+   const cz=(depart.b.z+arrive.a.z)*.5+nz*side*(2.65+.20*i);
+   const p={x:cx,z:cz};
+   if(!insideCanyonFlow(p)&&!(
+     Math.abs(cx-SKATE_PARK.center.x)<SKATE_PARK.halfWidth&&
+     Math.abs(cz-SKATE_PARK.center.z)<SKATE_PARK.halfDepth))continue;
+   stoneData.push({x:cx,y:ride(p)+.21,z:cz,sx:.40,sy:.29,
+    sz:.47,ry:i*2.1+side*.53});
+  }
+ }
+ pooled("rail-gap-polished-cedar-takeoffs",gapLip,grain);
+ pooled("rail-gap-timber-endgrain",gapGrain,darkTimber);
+ if(stoneData.length){
+  const rockGeometry=geometry(new THREE.IcosahedronGeometry(1,1));
+  const rocks=new THREE.InstancedMesh(rockGeometry,
+   material("#92988f",{roughness:1}),stoneData.length);
+  rocks.name="off-line-northern-california-granite-erratics";
+  rocks.castShadow=false;rocks.receiveShadow=true;
+  stoneData.forEach((stone,i)=>{
+   dummy.position.set(stone.x,stone.y,stone.z);
+   dummy.rotation.set(.07,stone.ry,.09);
+   dummy.scale.set(stone.sx,stone.sy,stone.sz);
+   dummy.updateMatrix();rocks.setMatrixAt(i,dummy.matrix);
+  });
+  rocks.instanceMatrix.needsUpdate=true;rocks.computeBoundingSphere();
+  group.add(rocks);
+ }
+
 
  // Vegetation grows along the outer meadow seam, leaving every bank, rail,
  // stump and entrance clear. Fronds are static pooled strokes, not animated
