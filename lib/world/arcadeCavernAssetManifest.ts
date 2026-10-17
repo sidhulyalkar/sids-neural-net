@@ -27,7 +27,7 @@ export const ARCADE_MURAL_ART_ASSETS:Partial<
 export const ARCADE_MURAL_IMAGE_RULES = {
  maxMasterEdge:4096,
  atlasEdge:2048,
- preferredCompressedFormat:"ktx2" as const,
+ preferredCompressedFormat:"webp" as const,
  requireAlpha:true,
  requireAttribution:true,
 } as const;
@@ -40,7 +40,7 @@ export function validateArcadeMuralAssets(
  const seen=new Set<string>();
  for(const [theme,entry] of Object.entries(assets)){
   if(!entry)continue;
-  if(!/^\/world\/arcade-cavern\/[a-z0-9/_-]+\.(?:png|webp|svg|ktx2)$/.test(entry.src))
+  if(!/^\/world\/arcade-cavern\/[a-z0-9/_-]+\.(?:png|webp|svg)$/.test(entry.src))
    problems.push(theme+": invalid or remote asset path");
   if(seen.has(entry.src))problems.push(theme+": duplicate image path");
   seen.add(entry.src);
