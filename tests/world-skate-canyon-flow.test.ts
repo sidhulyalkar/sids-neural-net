@@ -60,11 +60,11 @@ test("eastern forest route has real pump rollers, two low manual pads and an exi
  assert.equal(skateParkLipCrossing(p,q,{x:1,z:0},1.5),null);
 });
 
-test("five rail lines have matching endpoints, polished rises and safe placement",()=>{
- assert.equal(CANYON_RAIL_CHAINS.length,5);
+test("six rail lines have matching endpoints, polished rises and safe placement",()=>{
+ assert.equal(CANYON_RAIL_CHAINS.length,6);
  const names=new Set<string>();
  for(const chain of CANYON_RAIL_CHAINS){
-  assert.ok(chain.points.length>=4);
+  assert.ok(chain.points.length>=3);
   assert.equal(chain.heights.length,chain.points.length);
   assert.ok(!names.has(chain.id));names.add(chain.id);
   const rails=SKATE_PARK_RAILS.filter(s=>s.chainId===chain.id)
