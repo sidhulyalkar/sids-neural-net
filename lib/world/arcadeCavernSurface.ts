@@ -5,6 +5,8 @@ export type CavernArtTheme="sports"|"anime"|"comedy"|"sport-anime"|"identity"|"s
 export type CavernMural={
  id:string;theme:CavernArtTheme;surface:CavernArtSurface;
  z0:number;z1:number;v0:number;v1:number;title:string;
+ /** Horizontal authored patch range on the BACK wall only. */
+ u0?:number;u1?:number;
  tags:readonly string[];
 };
 export type CavernPoint={x:number;y:number;z:number};
@@ -84,8 +86,17 @@ export function sampleCavernArt(surface:CavernArtSurface,z:number,u:number,v:num
 export function validateCavernMural(m:CavernMural):string|null{
  if(!m.id||!m.title||!m.tags||!["left","right","ceiling","floor","back"].includes(m.surface))return "invalid descriptor";
  if(![m.z0,m.z1,m.v0,m.v1].every(Number.isFinite))return "nonfinite coordinates";
+ if((m.u0!==undefined||m.u1!==undefined)&&
+   (!Number.isFinite(m.u0)||!Number.isFinite(m.u1)||
+    m.u0!<0||m.u1!>1||m.u0!>=m.u1!))return "invalid back patch";
  if(m.surface==="back"){
-  if(m.z0!==-63.32||m.z1!==-63.32||m.v0<.62||m.v1>.91)return "game title overlap";
+  const header=m.v0>=.62&&m.v1<=.91&&m.u0===undefined&&m.u1===undefined;
+  const side=m.v0>=.14&&m.v1<=.60&&(
+   (m.u0!==undefined&&m.u1!==undefined&&m.u1<=.28)||
+   (m.u0!==undefined&&m.u1!==undefined&&m.u0>=.72)
+  );
+  if(m.z0!==-63.32||m.z1!==-63.32||(!header&&!side))
+   return "game title overlap";
  }else if(m.z0< -81.96||m.z1> -63.1||m.z1<=m.z0||m.v0<0||m.v1>1||m.v1<=m.v0){
   return "cave shell bounds";
  }
