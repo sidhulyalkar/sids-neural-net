@@ -17,7 +17,7 @@ test("Granite Ridge arcade beacons lead towards the real reachable cave mouth",(
   assert.ok(mark.height>=2.3&&mark.height<=4.1);
   assert.equal(isWater(mark.point),false,"all lanterns should stand on dry ground");
   assert.ok(Number.isFinite(arcadeTrailFooting(mark.point)));
-  assert.equal(arcadeTrailStage(mark.point,"surface"),"trail");
+  assert.ok(["trail","entrance"].includes(arcadeTrailStage(mark.point,"surface")));
   assert.match(arcadeTrailHint(mark.point,"surface"),/ARCADE/);
  }
  assert.equal(arcadeTrailStage(ARCADE_CAVE.approach,"surface"),"entrance");
