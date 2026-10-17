@@ -6,6 +6,15 @@ on:
       - 'components/world/worldRenderer.ts'
       - 'lib/world/model.ts'
       - 'lib/world/arcadeWayfinding.ts'
+      - 'lib/world/arcadeCavernSurface.ts'
+      - 'lib/world/arcadeCavernArtManifest.ts'
+      - 'lib/world/arcadeMuralsSports.ts'
+      - 'lib/world/arcadeMuralsAnime.ts'
+      - 'lib/world/arcadeMuralsComedy.ts'
+      - 'lib/world/arcadeMuralsIdentity.ts'
+      - 'components/world/worldArcadeGraffitiGeometry.ts'
+      - 'tests/world-arcade-cavern-art.test.ts'
+      - 'scripts/playtest-arcade-interior.mjs'
       - 'tests/world-arcade-wayfinding.test.ts'
       - 'scripts/playtest-arcade-wayfinding.mjs'
       - '.github/workflows/arcade-cavern-browser.yml'
@@ -34,6 +43,7 @@ jobs:
         run: |
           npm run typecheck
           node --import tsx --test tests/world-arcade-wayfinding.test.ts
+          node --import tsx --test tests/world-arcade-cavern-art.test.ts
       - name: Install isolated browser runtime
         run: |
           mkdir -p /tmp/arcade-cave-playwright
@@ -54,6 +64,12 @@ jobs:
           WORLD_AUDIT_DIR: artifacts/world/arcade-wayfinding
           PLAYWRIGHT_MODULE_ROOT: /tmp/arcade-cave-playwright/node_modules/playwright
         run: node scripts/playtest-arcade-wayfinding.mjs
+      - name: Verify handpainted anime, sports and comedy murals in real cave play
+        env:
+          WORLD_BASE_URL: http://127.0.0.1:3000
+          WORLD_AUDIT_DIR: artifacts/world/arcade-interior
+          PLAYWRIGHT_MODULE_ROOT: /tmp/arcade-cave-playwright/node_modules/playwright
+        run: node scripts/playtest-arcade-interior.mjs
       - name: Preserve landmark screenshots and trace
         if: always()
         uses: actions/upload-artifact@v4
@@ -61,5 +77,6 @@ jobs:
           name: arcade-cavern-wayfinding-${{ github.sha }}
           path: |
             artifacts/world/arcade-wayfinding/
+            artifacts/world/arcade-interior/
             /tmp/arcade-cavern-next.log
           if-no-files-found: warn
