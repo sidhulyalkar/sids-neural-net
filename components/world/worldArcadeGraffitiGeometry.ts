@@ -355,9 +355,11 @@ function surfaceMesh(surface:CavernArtSurface,z0:number,z1:number,
   const p=mapped.position;
   vertices.push(p.x,p.y,p.z);
   // Wall horizontal = longitudinal cave axis; floor horizontal = X axis.
-  // The rear wall faces players from -Z, so its backface is mirrored:
-  // unlike left wall facets, use the forward U axis for readable lettering.
-  uvs.push(surface==="floor"||surface==="ceiling"?s:left?1-t:t,
+  // The rear (+Z longitudinal) wall is viewed from -Z: viewer-right is
+  // world -X. Flip U only on that back surface so painted text reads
+  // left-to-right, matching the separately oriented carved game titles.
+  uvs.push(surface==="floor"||surface==="ceiling"?s:
+   (surface==="back"||left)?1-t:t,
    surface==="floor"||surface==="ceiling"?t:s);
  }
  for(let iz=0;iz<zSegments;iz++)for(let iv=0;iv<vSegments;iv++){
