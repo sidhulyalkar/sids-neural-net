@@ -374,13 +374,16 @@ function atmosphereTexture(kind:"floor"|"ceiling",three:ArcadeThree){
 function surfaceMesh(surface:CavernArtSurface,z0:number,z1:number,
  v0:number,v1:number,texture:THREE.Texture,name:string,
  three:ArcadeThree,zSegments=34,vSegments=14,
- glow?:THREE.Texture,bump?:THREE.Texture){
+ glow?:THREE.Texture,bump?:THREE.Texture,
+ backRange?:readonly [number,number]){
  const vertices:number[]=[],uvs:number[]=[],indices:number[]=[];
  const left=surface==="left";
  for(let iz=0;iz<=zSegments;iz++)for(let iv=0;iv<=vSegments;iv++){
   const t=iz/zSegments,s=iv/vSegments;
   const z=z0+(z1-z0)*t,v=v0+(v1-v0)*s;
   const u=surface==="floor"||surface==="ceiling"?s:
+   surface==="back"&&backRange?
+     backRange[0]+(backRange[1]-backRange[0])*t:
    surface==="back"?t:.5;
   const mapped=sampleCavernArt(surface,z,u,v,.056);
   if(!mapped)throw Error("Invalid paint placement: "+name+" "+z+" "+v);
@@ -507,7 +510,9 @@ export function createWorldArcadeGraffiti(scene:THREE.Scene,three:ArcadeThree,
   textures.push(paint,glow);
   const wall=surfaceMesh(mural.surface,mural.z0,mural.z1,
    mural.v0,mural.v1,paint,"paint-"+mural.id,three,
-   mural.surface==="back"?1:34,14,glow,stone.texture);
+   mural.surface==="back"?1:34,14,glow,stone.texture,
+   mural.u0!==undefined&&mural.u1!==undefined?
+     [mural.u0,mural.u1]:undefined);
   // For the rear upper band the longitudinal z dimension is zero: texture
   // horizontal must use wall width, not the degenerate z-coordinate.
   meshes.push(wall);root.add(wall);
