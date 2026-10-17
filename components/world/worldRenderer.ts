@@ -7,6 +7,7 @@ import {beginSkateRailGap,advanceSkateRailGap,skateRailGapSample,type SkateRailG
 import {beginSkateTunnelRide,advanceSkateTunnelRide,skateTunnelSample,
  type SkateTunnelRide} from "@/lib/world/skateTunnel";
 import {createWorldSkateGrove} from "./worldSkateGroveGeometry";
+import {createWorldArcadeGraffiti} from "./worldArcadeGraffitiGeometry";
 import {skateLean} from "@/lib/world/skateDynamics";
 import {selectAssistedSkateTrick,assistedSkateSpin} from "@/lib/world/skateAssist";
 import {idleSkateTrick,startSkateTrick,finishSkateTrick,setSkateGrab,skateTrickPose,flickTrick,scoreSkateGrind,scoreSkateLoop,scoreSkateTunnel,scoreSkateRailGap,queueSkateSpin,startSkateManual,stepSkateManual,finishSkateManual,type SkateTrickName,type SkateTrickState} from "@/lib/world/skateTricks";
@@ -1554,6 +1555,13 @@ export function createWorld(
   const arcadeTrailFloor=instances(boxGeo,arcadeGlacial,arcadeWalkInlays,false);
   arcadeTrailFloor.name="arcade-cavern-baffle-safe-teal-route";
 
+  // SID'S UNDERGROUND: handpainted wall/floor/roof art projected onto the
+  // exact angular arcade cave shell. Art has no collider or raycast targets.
+  const arcadeGraffiti=createWorldArcadeGraffiti(scene);
+  canvas.dataset.arcadeGraffitiVersion="fresco-v1";
+  canvas.dataset.arcadeGraffitiMurals=String(arcadeGraffiti.diagnostics.murals);
+  canvas.dataset.arcadeGraffitiDrawCalls=String(arcadeGraffiti.diagnostics.drawCalls);
+  canvas.dataset.arcadeGraffitiTriangles=String(arcadeGraffiti.diagnostics.triangles);
   // A single small hanging lantern provides the cave's warm interior light.
   const lanternFloor = arcadeCaveFloorHeight(ARCADE_CAVE.lantern);
   const lanternY = lanternFloor + ARCADE_CAVE.ceilingClearance - 0.85;
@@ -6911,6 +6919,7 @@ export function createWorld(
       } else schedule();
     },
     dispose() {
+      arcadeGraffiti.dispose();
       skateGrove.dispose();
 
       shoreLife.dispose();
