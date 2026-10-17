@@ -68,9 +68,11 @@ export const GROVE_TUNNEL={
  * cannot represent both the bottom and the inverted crown. Its dedicated
  * rail traversal provides the 3D wheel/contact pose, then returns to roam. */
 export const SKATE_LOOP={
- center:{x:-1.65,z:44.1},radius:3.75,width:3.45,
+ center:{x:-1.65,z:44.1},radius:3.75,radiusY:4.35,width:3.45,
+ // In contrast to a closed ring, the descending side shifts west to a
+ // separate landing seam. A sampled elliptical tread owns BOTH mesh and pose.
+ exitOffset:2.15,leadLength:1.55,
  minEntrySpeed:8.4,entryHalfWidth:1.27,
- // The rider uses the same 3D centerline as the planked mesh.
  supportThickness:.24,
 } as const;
 
