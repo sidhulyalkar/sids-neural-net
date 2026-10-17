@@ -4,8 +4,10 @@ import type * as THREE from "three/src/Three.Core.js";
 type ArcadeThree=Pick<typeof import("three/src/Three.Core.js"),
  "CanvasTexture"|"BufferGeometry"|"Float32BufferAttribute"|
  "MeshStandardMaterial"|"Color"|"DoubleSide"|"Mesh"|"Group"|
- "SRGBColorSpace"|"LinearMipmapLinearFilter">;
+ "SRGBColorSpace"|"RepeatWrapping"|"LinearMipmapLinearFilter">;
 import {ARCADE_CAVERN_MURALS,validateArcadeArtManifest} from "@/lib/world/arcadeCavernArtManifest";
+import {paintConceptStory,distressPigment} from "./worldArcadeConceptArt";
+import {createArcadeStoneLining} from "./worldArcadeStoneLining";
 import {ARCADE_CAVE,arcadeCaveFloorHeight} from "@/lib/world/model";
 import {sampleCavernArt,type CavernArtTheme,type CavernArtSurface,type CavernMural} from "@/lib/world/arcadeCavernSurface";
 
@@ -293,18 +295,20 @@ function paintCeiling(ctx:Paint){
 }
 function paintTexture(theme:CavernArtTheme,three:ArcadeThree){
  const canvas=document.createElement("canvas");
- canvas.width=1024;canvas.height=theme==="identity"?320:theme==="sports"||theme==="anime"||theme==="sport-anime"||theme==="comedy"?640:1024;
+ canvas.width=1024;canvas.height=theme==="identity"?320:theme==="sports"||theme==="anime"||theme==="sport-anime"||theme==="comedy"||theme==="shasta"||theme==="neural"?640:1024;
  const ctx=canvas.getContext("2d");
  if(!ctx)throw Error("Arcade mural 2D canvas unavailable");
  basePaint(ctx,theme,canvas.width,canvas.height,
   theme==="sports"?"#8bbbef":theme==="anime"?"#947ae5":
-  theme==="comedy"?"#77dca5":"#e1ac78");
+  theme==="comedy"?"#77dca5":theme==="neural"?"#67cdd5":theme==="shasta"?"#bad0b9":"#e1ac78");
  ctx.save();
  if(theme==="identity")paintIdentity(ctx);
  if(theme==="sports")paintSports(ctx);
  if(theme==="anime")paintAnime(ctx);
  if(theme==="comedy")paintComedy(ctx);
  if(theme==="sport-anime")paintSportAnime(ctx);
+ paintConceptStory(ctx,theme);
+ distressPigment(ctx,theme);
  ctx.restore();
  // Feather the spray as pigment on irregular stone, not an abruptly
  // cropped rectangular canvas. Preserve the center and lettering while
@@ -328,7 +332,29 @@ function paintTexture(theme:CavernArtTheme,three:ArcadeThree){
  texture.colorSpace=three.SRGBColorSpace;
  texture.anisotropy=4;texture.generateMipmaps=true;
  texture.minFilter=three.LinearMipmapLinearFilter;
- return texture;
+ // A small filtered emissive mask: only saturated/bright pigment glows,
+ // rather than uniformly lighting every pixel and flattening the cavern.
+ const glowCanvas=document.createElement("canvas");
+ glowCanvas.width=512;glowCanvas.height=Math.round(canvas.height/2);
+ const glowCtx=glowCanvas.getContext("2d");
+ if(!glowCtx)throw Error("Arcade glow canvas unavailable");
+ glowCtx.drawImage(canvas,0,0,glowCanvas.width,glowCanvas.height);
+ const pixels=glowCtx.getImageData(0,0,glowCanvas.width,glowCanvas.height);
+ for(let k=0;k<pixels.data.length;k+=4){
+  const r=pixels.data[k],g=pixels.data[k+1],b=pixels.data[k+2];
+  const max=Math.max(r,g,b),min=Math.min(r,g,b);
+  const saturated=max-min>58 && max>143;
+  const neon=(g>r*1.13&&b>r*.91)||(b>r*1.18&&b>g*.88)||
+   (r>155&&b>105&&b>g*.95)||(r>175&&g>121&&b<130);
+  pixels.data[k+3]=saturated&&neon?
+   Math.round(pixels.data[k+3]*.70):0;
+ }
+ glowCtx.putImageData(pixels,0,0);
+ const glow=new three.CanvasTexture(glowCanvas);
+ glow.colorSpace=three.SRGBColorSpace;
+ glow.anisotropy=4;glow.generateMipmaps=true;
+ glow.minFilter=three.LinearMipmapLinearFilter;
+ return {paint:texture,glow};
 }
 function atmosphereTexture(kind:"floor"|"ceiling",three:ArcadeThree){
  const canvas=document.createElement("canvas");canvas.width=1024;canvas.height=1024;
@@ -342,7 +368,8 @@ function atmosphereTexture(kind:"floor"|"ceiling",three:ArcadeThree){
 }
 function surfaceMesh(surface:CavernArtSurface,z0:number,z1:number,
  v0:number,v1:number,texture:THREE.Texture,name:string,
- three:ArcadeThree,zSegments=34,vSegments=14){
+ three:ArcadeThree,zSegments=34,vSegments=14,
+ glow?:THREE.Texture,bump?:THREE.Texture){
  const vertices:number[]=[],uvs:number[]=[],indices:number[]=[];
  const left=surface==="left";
  for(let iz=0;iz<=zSegments;iz++)for(let iv=0;iv<=vSegments;iv++){
@@ -371,8 +398,10 @@ function surfaceMesh(surface:CavernArtSurface,z0:number,z1:number,
  g.setAttribute("uv",new three.Float32BufferAttribute(uvs,2));
  g.setIndex(indices);g.computeVertexNormals();
  const mat=new three.MeshStandardMaterial({
-  map:texture,emissiveMap:texture,emissive:new three.Color("#7f5f58"),
-  emissiveIntensity:.17,transparent:true,opacity:.97,
+  map:texture,emissiveMap:glow??null,
+  emissive:new three.Color(glow?"#ffffff":"#73665e"),
+  emissiveIntensity:glow?.85:.12,transparent:true,opacity:.97,
+  bumpMap:bump??null,bumpScale:.025,
   alphaTest:.015,depthWrite:false,
   side:three.DoubleSide,roughness:1,polygonOffset:true,
   polygonOffsetFactor:-2,polygonOffsetUnits:-2,
@@ -447,10 +476,14 @@ export function createWorldArcadeGraffiti(scene:THREE.Scene,three:ArcadeThree){
  if(issues.length)throw Error("Cave mural manifest: "+issues.join("; "));
  const root=new three.Group();root.name="sid-underground-fandom-fresco";
  const meshes:THREE.Mesh[]=[],textures:THREE.Texture[]=[];
+ const stone=createArcadeStoneLining(three);
+ meshes.push(stone.mesh);textures.push(stone.texture);root.add(stone.mesh);
  for(const mural of ARCADE_CAVERN_MURALS){
-  const tex=paintTexture(mural.theme,three);textures.push(tex);
+  const {paint,glow}=paintTexture(mural.theme,three);
+  textures.push(paint,glow);
   const wall=surfaceMesh(mural.surface,mural.z0,mural.z1,
-   mural.v0,mural.v1,tex,"paint-"+mural.id,three,mural.surface==="back"?1:34,14);
+   mural.v0,mural.v1,paint,"paint-"+mural.id,three,
+   mural.surface==="back"?1:34,14,glow,stone.texture);
   // For the rear upper band the longitudinal z dimension is zero: texture
   // horizontal must use wall width, not the degenerate z-coordinate.
   meshes.push(wall);root.add(wall);
@@ -459,7 +492,8 @@ export function createWorldArcadeGraffiti(scene:THREE.Scene,three:ArcadeThree){
   const tex=atmosphereTexture(layer,three);textures.push(tex);
   const mesh=surfaceMesh(layer,layer==="floor"?-79:-75.5,
    layer==="floor"?-65:-65.2,layer==="floor"?.06:.18,
-   layer==="floor"?.93:.86,tex,"paint-"+layer,three,38,16);
+   layer==="floor"?.93:.86,tex,"paint-"+layer,three,38,16,
+   undefined,stone.texture);
   meshes.push(mesh);root.add(mesh);
  }
  const nicheFrames=createNicheGraffitiFrames(three);
