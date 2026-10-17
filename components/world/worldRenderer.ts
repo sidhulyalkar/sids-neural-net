@@ -1387,9 +1387,8 @@ export function createWorld(
     return [new THREE.Vector3(16-w,y,z),new THREE.Vector3(16+w,y,z)];
   });
   mesh(geo(ringSurface(arcadeFloorRings)),mat("#535b59",{side:THREE.DoubleSide}),[0,0,0],[1,1,1]);
-  // Recessed throat baffle blocks the direct exterior view of the rear niche.
-  const baffleFloor=arcadeCaveFloorHeight({x:16,z:-74.5});
-  mesh(boxGeo,mat("#646b67"),[14.2,baffleFloor+2.35,-74.5],[4.8,4.7,.7]);
+  // The former box baffle and its collision obstacles are removed. The
+  // continuous centerline now provides a clear view of the rear chamber.
   // GRANITE SIGNAL: a legible exterior silhouette that announces an
   // underground arcade without drawing a floating neon UI or blocking the
   // entrance. Two split basalt horns frame the passage from the southern
@@ -1530,14 +1529,12 @@ export function createWorld(
   canvas.dataset.arcadeTrailMarkers=String(ARCADE_TRAIL_MARKERS.length);
   canvas.dataset.arcadeWayfindingSign=arcadeWord;
 
-  // Subtle gold-to-teal floor studs explain the real route around the
-  // recessed baffle: enter center, move to the open eastern bypass, then
-  // return toward the three carved game niches. Like painted wayfinding,
-  // these have ZERO collision or extra light sources.
+  // A clean centerline of understated teal studs guides visitors to the
+  // actual game portals. No more arrows steering into a dead-end baffle.
+  // Visual only: no collision and no additional light sources.
   const arcadeWalkRoute=[
-    {x:16.0,z:-80.65},{x:18.65,z:-77.1},
-    {x:18.65,z:-73.0},{x:18.3,z:-70.0},
-    {x:16.0,z:-66.65},
+    {x:16.0,z:-80.65},{x:16.0,z:-75.1},
+    {x:16.0,z:-70.7},{x:16.0,z:-66.65},
   ];
   const arcadeWalkInlays:Instance[]=[];
   for(let i=0;i<arcadeWalkRoute.length-1;i++){
@@ -1553,7 +1550,7 @@ export function createWorld(
     }
   }
   const arcadeTrailFloor=instances(boxGeo,arcadeGlacial,arcadeWalkInlays,false);
-  arcadeTrailFloor.name="arcade-cavern-baffle-safe-teal-route";
+  arcadeTrailFloor.name="arcade-cavern-clear-center-teal-route";
 
   // SID'S UNDERGROUND: handpainted wall/floor/roof art projected onto the
   // exact angular arcade cave shell. Art has no collider or raycast targets.
