@@ -32,11 +32,19 @@ try{
   // A source-authored local title texture must really load into WebGL.
   // The procedural fallback is not accepted as evidence of that asset.
   await page.waitForFunction(()=>Number(
-   document.querySelector("canvas")?.dataset.arcadeAuthoredMuralsReady)>=2,
-   null,{timeout:18000});
+   document.querySelector("canvas")?.dataset.arcadeAuthoredMuralsReady)>=3,
+   null,{timeout:40000});
   const titleResponse=await page.request.get(base+
    "/world/arcade-cavern/hero/sids-underground.svg");
   assert.equal(titleResponse.status(),200,"authored mural texture must be present");
+  for(const name of ["chelsea-crest.png","patriots-crest.png",
+   "warriors-crest.png"]){
+   const path="/world/arcade-cavern/sports/"+name;
+   const response=await page.request.get(base+path);
+   assert.equal(response.status(),200,"missing authentic sports source: "+path);
+   assert.match(response.headers()["content-type"]??"",/image\/png/,
+    "team crest must be a real PNG, not missing-page HTML");
+  }
   const shastaPhoto=await page.request.get(base+"/visual-archive/web/photo-037.webp");
   assert.equal(shastaPhoto.status(),200,
    "the source photograph of Shasta must exist in the public visual archive");
