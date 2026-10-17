@@ -150,7 +150,7 @@ export function canyonFlowRise(p:Point):number{
  const along=smooth((p.x-startX)/2.8)*(1-smooth((p.x-(endX-2.4))/2.4));
  const across=1-smooth((Math.abs(p.z-centerZ)-1.4)/(halfWidth-1.4));
  const rollers=CANYON_FLOW.rollers.reduce((v,r)=>
-  v+r.height*Math.exp(-((p.x-r.x)/1.27)**2),0);
+  v+r.height*Math.exp(-Math.pow((p.x-r.x)/1.27,2)),0);
  const hipX=smooth((p.x-19.9)/2.0)*(1-smooth((p.x-22.6)/2.25));
  const hipZ=1-smooth(Math.abs(p.z-CANYON_FLOW.hip.z)/2);
  // Connected low humps and one diagonal transfer bank. No abrupt jumps in Y
