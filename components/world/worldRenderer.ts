@@ -193,7 +193,7 @@ export function createWorld(
   const arcadeTrailHud=document.createElement("div");
   arcadeTrailHud.setAttribute("role","status");
   arcadeTrailHud.setAttribute("aria-label","Arcade Cavern trail guidance");
-  arcadeTrailHud.style.cssText="display:none;position:absolute;left:50%;bottom:55px;transform:translateX(-50%);max-width:85%;z-index:6;pointer-events:none;padding:8px 13px;border-radius:10px;background:#17252add;color:#f4d29d;border:1px solid #ecb56a8a;box-shadow:0 6px 20px #0d181c55;text-align:center;font:650 11px/1.4 system-ui,sans-serif;letter-spacing:.055em";
+  arcadeTrailHud.style.cssText="display:none;position:absolute;left:24px;top:91px;max-width:min(350px,calc(100% - 48px));z-index:6;pointer-events:none;padding:8px 13px;border-radius:10px;background:#17252add;color:#f4d29d;border:1px solid #ecb56a8a;box-shadow:0 6px 20px #0d181c55;text-align:center;font:650 11px/1.4 system-ui,sans-serif;letter-spacing:.055em";
   host.appendChild(arcadeTrailHud);
   // A brief, non-blocking landing card is more rewarding than a permanent
   // dashboard. The island stays visible while the completed move is named.
