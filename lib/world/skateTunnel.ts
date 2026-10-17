@@ -69,7 +69,10 @@ export function advanceSkateTunnelRide(ride:SkateTunnelRide,delta:number){
  const dt=clamp(delta,0,.5)/slices;
  for(let i=0;i<slices;i++){
   speed=Math.max(4.2,speed-.12*dt);
-  progress=Math.min(1,progress+speed*dt/length);
+  // Real frames on software GPUs can be 200-500ms apart. Never skip half
+  // of the wall in one visual update. Normal 10-60 FPS integration is
+  // unaffected; the limited catch-up keeps the inverted pose observable.
+  progress=Math.min(1,progress+Math.min(speed*dt/length,.075/slices));
  }
  return {ride:{...ride,progress,speed},completed:progress>=1-1e-9};
 }
