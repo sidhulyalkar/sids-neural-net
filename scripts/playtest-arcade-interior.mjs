@@ -18,7 +18,7 @@ try{
   await page.getByRole("button",{name:"Explore world",exact:true}).click();
   await page.waitForFunction(()=>Number(document.querySelector("canvas")?.dataset.drawCalls)>0,
    null,{timeout:45000});
-  await page.waitForFunction(()=>document.querySelector("canvas")?.dataset.arcadeGraffitiVersion==="fresco-v1",
+  await page.waitForFunction(()=>document.querySelector("canvas")?.dataset.arcadeGraffitiVersion==="concept-fidelity-v2",
    null,{timeout:14000});
   const canvas=page.locator("canvas");
   evidence.metrics=await canvas.evaluate(el=>({
@@ -26,7 +26,7 @@ try{
    calls:Number(el.dataset.arcadeGraffitiDrawCalls),
    triangles:Number(el.dataset.arcadeGraffitiTriangles),
   }));
-  assert.equal(evidence.metrics.count,5,"all authored original murals must be loaded");
+  assert.equal(evidence.metrics.count,7,"all authored original murals must be loaded");
   assert.ok(evidence.metrics.calls<=18,"graffiti is an optimized draw batch");
   assert.ok(evidence.metrics.triangles<=40000,"stay inside geometry budget");
   await page.getByRole("button",{name:"Open navigation menu"}).click();
@@ -60,7 +60,7 @@ try{
    caveCameraClear:el.dataset.caveCameraClear,
   }));
   assert.equal(evidence.interior.layer,"arcade");
-  assert.equal(evidence.interior.graffiti,"fresco-v1");
+  assert.equal(evidence.interior.graffiti,"concept-fidelity-v2");
   await page.screenshot({path:path.join(out,"03-fandom-main-chamber-reveal.png")});
   // Rotate the gameplay camera to inspect both original side compositions.
   await page.mouse.move(700,430);await page.mouse.down();
@@ -71,6 +71,16 @@ try{
   await page.mouse.move(220,430,{steps:20});await page.mouse.up();
   await page.waitForTimeout(450);
   await page.screenshot({path:path.join(out,"05-graffiti-right-wall.png")});
+  // Deliberately pitch upward: Shasta and the Mind Forge mural are high
+  // on the rock facets, not pasted on the three clickable game panels.
+  await page.mouse.move(700,430);await page.mouse.down();
+  await page.mouse.move(700,600,{steps:14});await page.mouse.up();
+  await page.waitForTimeout(450);
+  await page.screenshot({path:path.join(out,"06-neural-upper-facet.png")});
+  await page.mouse.move(700,430);await page.mouse.down();
+  await page.mouse.move(1180,430,{steps:20});await page.mouse.up();
+  await page.waitForTimeout(450);
+  await page.screenshot({path:path.join(out,"07-shasta-upper-facet.png")});
   assert.deepEqual(errors,[],"graffiti rendering must not produce JavaScript errors");
   console.log("ARCADE FRESCO BROWSER PASS",JSON.stringify({evidence,errors}));
  }catch(error){
