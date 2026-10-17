@@ -27,7 +27,7 @@ import {jetSkiSectionName} from "@/lib/world/jetSkiCourse";
 import {canStartWorldGame,worldGameSession,type WorldGameMode} from "@/lib/world/gameMode";
 import {JET_SKI_DOCK,JET_SKI_GATES,startJetSkiRace,stepJetSkiRace,jetSkiNavigableWater,jetSkiGateDistance,jetSkiBearingToGate,jetSkiOpponentInput,jetSkiRacePlace,type JetSkiState} from "@/lib/world/jetSkiRace";
 import {
-  DISC_GOLF_HOLES,discGolfOpeningClearance,discGolfCourseClearance,discGolfBasketPosition,discGolfNextTarget,discGolfThrowCameraPose,discGolfIntroPose,discGolfThrow,stepDiscGolf,
+  DISC_GOLF_HOLES,discGolfOpeningClearance,discGolfCourseClearance,discGolfBasketPosition,discGolfNextTarget,discGolfFacingHeading,discGolfThrowCameraPose,discGolfIntroPose,discGolfThrow,stepDiscGolf,
   startDiscGolf,idleDiscGolf,type DiscGolfState,type DiscShot,
   type DiscGolfSwingStage,
 } from "@/lib/world/discGolf";
@@ -3884,11 +3884,11 @@ export function createWorld(
           // run and find animation have completed, then move it once.
           player=handoff;playerY=groundHeight(player);
           const nextTarget=discGolfNextTarget(discGolf);
-          const faceX=nextTarget.x-player.x,faceZ=nextTarget.z-player.z;
-          const len=Math.hypot(faceX,faceZ)||1;
-          travel={point:player,speed:0,heading:{x:faceX/len,z:faceZ/len}};
-          explorer.rotation.y=Math.atan2(faceX,faceZ);
-          yaw=Math.atan2(-faceX,-faceZ);
+          const heading=discGolfFacingHeading(player,nextTarget,
+            DISC_GOLF_HOLES[discGolf.holeIndex].target,travel.heading);
+          travel={point:player,speed:0,heading};
+          explorer.rotation.y=Math.atan2(heading.x,heading.z);
+          yaw=Math.atan2(-heading.x,-heading.z);
           airHeight=verticalSpeed=0;
           dogSmoothedTarget={...dog};
           canvas.dataset.discGolfHandoff="complete";
@@ -4223,8 +4223,13 @@ export function createWorld(
         lastRampAt=elapsed;
         callbacks.onBigAir(bigAir);
       }
+      // Disc golf is a standing throwing activity, regardless of the visitor's
+      // previous bike/skate/ski selection. Keep that selection for free roam,
+      // but do not carry its sideways rider pose or equipment into a throw.
       const mode = effectiveActivity(
-        skimHeat.phase!=="off"&&skimHeat.phase!=="finished" ? "run" : state.activity,player);
+        discGolf.phase!=="off" ||
+        (skimHeat.phase!=="off"&&skimHeat.phase!=="finished")
+          ? "run" : state.activity,player);
       if(mode!=="skate"&&(skateTrick.phase!=="ground"||skateTrick.manual!=="none")){
         skateTrick={...idleSkateTrick(),best:skateTrick.best};skateHasBeenAirborne=false;
         skateResultAt=-Infinity;
@@ -4304,9 +4309,17 @@ export function createWorld(
       canvas.dataset.skimWashDepth=(skimContact?.wash??0).toFixed(3);
       snorkel.visible = swimming;
       const running = !swimming && !surfing && (mode === "run" || mode === "boulder");
-      const headingYaw = travel.speed > 0.05 || mode==="skate" || surfing
-        ? Math.atan2(travel.heading.x, travel.heading.z)
-        : explorer.rotation.y;
+      const discGolfAiming=discGolf.phase!=="off" &&
+        discGolf.phase!=="flying"&&!discGolf.presentationPending;
+      const discGolfHeading=discGolfAiming?
+        discGolfFacingHeading(player,discGolfNextTarget(discGolf),
+          DISC_GOLF_HOLES[discGolf.holeIndex].target,travel.heading):null;
+      if(discGolfHeading)travel={...travel,speed:0,heading:discGolfHeading};
+      const headingYaw = discGolfHeading
+        ? Math.atan2(discGolfHeading.x,discGolfHeading.z)
+        : travel.speed > 0.05 || mode==="skate" || surfing
+          ? Math.atan2(travel.heading.x, travel.heading.z)
+          : explorer.rotation.y;
 
         legs.forEach((leg,i)=>{
           const side=i===0?-1:1;
@@ -4390,6 +4403,20 @@ export function createWorld(
         explorer.rotation.set(surfing?skimPosePitch:pitchAngle,
           headingYaw+avatarTurn+(mode==="skate"?trickPose.bodyYaw:0),
           surfing?skimPoseRoll:rollAngle,surfing?"YXZ":"XYZ");
+        // Measure the rendered character's actual forward axis, including
+        // parent yaw and any remaining body-root rotation. This diagnostic
+        // detects inherited sideways skate poses, not merely desired yaw.
+        if(discGolfHeading){
+          const actualForward=new THREE.Vector3(0,0,1)
+            .applyQuaternion(bodyRoot.quaternion).applyQuaternion(explorer.quaternion);
+          canvas.dataset.discGolfFacingDot=(
+            actualForward.x*discGolfHeading.x+
+            actualForward.z*discGolfHeading.z).toFixed(4);
+          canvas.dataset.discGolfBodyYaw=bodyRoot.rotation.y.toFixed(4);
+        }else{
+          canvas.dataset.discGolfFacingDot="";
+          canvas.dataset.discGolfBodyYaw="";
+        }
         if (grind) {
           const logDx = grind.log.b.x - grind.log.a.x;
           const logDz = grind.log.b.z - grind.log.a.z;
@@ -6235,11 +6262,11 @@ export function createWorld(
           discFetch=idleDiscGolfFetch();
           player={...hole.tee};playerY=groundHeight(player);
           const basket=discGolfNextTarget(discGolf);
-          const faceX=basket.x-player.x,faceZ=basket.z-player.z;
-          const faceLength=Math.hypot(faceX,faceZ)||1;
-          travel={point:player,speed:0,heading:{x:faceX/faceLength,z:faceZ/faceLength}};
-          explorer.rotation.y=Math.atan2(faceX,faceZ);
-          yaw=Math.atan2(-faceX,-faceZ);
+          const heading=discGolfFacingHeading(player,basket,
+            DISC_GOLF_HOLES[discGolf.holeIndex].target,travel.heading);
+          travel={point:player,speed:0,heading};
+          explorer.rotation.y=Math.atan2(heading.x,heading.z);
+          yaw=Math.atan2(-heading.x,-heading.z);
           const reducedMotion=window.matchMedia("(prefers-reduced-motion: reduce)").matches;
           // Hole 2 starts *on the open pier*, facing the fairway. Skip the
           // basket flyover that previously placed its opening shot in trees.
