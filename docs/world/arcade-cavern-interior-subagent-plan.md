@@ -148,3 +148,18 @@ Done for **implementation**: coherent mural room rendered in browser, no lane or
 Done for **release**: all required CI workflows green and draft PR approved for integration.
 
 No autonomous subagents are claimed to be running merely because issues and documents exist. Task dispatch requires an available coding-agent executor or human collaborators.
+
+## GitHub issue workboard
+
+| Role | Assigned scope | Issue |
+| --- | --- | --- |
+| S0 | Shared shell sampler, types and manifest | [#102](https://github.com/sidhulyalkar/sids-neural-net/issues/102) |
+| S1 | Sports wall | [#103](https://github.com/sidhulyalkar/sids-neural-net/issues/103) |
+| S2 | Anime wall | [#104](https://github.com/sidhulyalkar/sids-neural-net/issues/104) |
+| S3 | Comedy and hero lettering | [#105](https://github.com/sidhulyalkar/sids-neural-net/issues/105) |
+| S4 | Batched scene art geometry | [#106](https://github.com/sidhulyalkar/sids-neural-net/issues/106) |
+| S5 | Floor, ceiling and lantern atmosphere | [#107](https://github.com/sidhulyalkar/sids-neural-net/issues/107) |
+| S6 | Browser QA, FPS and preexisting cavern navigation audit | [#108](https://github.com/sidhulyalkar/sids-neural-net/issues/108) |
+| S7 | Integration, screenshot review and release | [#109](https://github.com/sidhulyalkar/sids-neural-net/issues/109) |
+
+No coding agents have been launched or assigned automatically. These are scoped work tickets ready for independent executor dispatch. The first dispatch action is **S0**; S1-S6 are unblocked only when S0's contract and fixtures are reviewed. Keep S7 as a single editor of the central World renderer.
