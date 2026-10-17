@@ -3,9 +3,10 @@ import type * as THREE from "three/src/Three.Core.js";
  * only the constructors actually used to render the mural meshes. */
 type ArcadeThree=Pick<typeof import("three/src/Three.Core.js"),
  "CanvasTexture"|"BufferGeometry"|"Float32BufferAttribute"|
- "MeshStandardMaterial"|"Color"|"DoubleSide"|"Mesh"|"Group"|
+ "MeshStandardMaterial"|"Color"|"DoubleSide"|"Mesh"|"Group"|"TextureLoader"|
  "SRGBColorSpace"|"RepeatWrapping"|"LinearMipmapLinearFilter">;
 import {ARCADE_CAVERN_MURALS,validateArcadeArtManifest} from "@/lib/world/arcadeCavernArtManifest";
+import {ARCADE_MURAL_ART_ASSETS,validateArcadeMuralAssets} from "@/lib/world/arcadeCavernAssetManifest";
 import {paintConceptStory,distressPigment} from "./worldArcadeConceptArt";
 import {createArcadeStoneLining} from "./worldArcadeStoneLining";
 import {ARCADE_CAVE,arcadeCaveFloorHeight} from "@/lib/world/model";
@@ -298,16 +299,18 @@ function paintTexture(theme:CavernArtTheme,three:ArcadeThree){
  canvas.width=1024;canvas.height=theme==="identity"?320:theme==="sports"||theme==="anime"||theme==="sport-anime"||theme==="comedy"||theme==="shasta"||theme==="neural"?640:1024;
  const ctx=canvas.getContext("2d");
  if(!ctx)throw Error("Arcade mural 2D canvas unavailable");
- basePaint(ctx,theme,canvas.width,canvas.height,
-  theme==="sports"?"#8bbbef":theme==="anime"?"#947ae5":
-  theme==="comedy"?"#77dca5":theme==="neural"?"#67cdd5":theme==="shasta"?"#bad0b9":"#e1ac78");
+ // Random strokes and splashes across the canvas obscured the artwork.
+ // Do not generate extra fake graffiti over authored murals. Future
+ // revisions should swap in completed local art assets via the manifest.
  ctx.save();
  if(theme==="identity")paintIdentity(ctx);
  if(theme==="sports")paintSports(ctx);
  if(theme==="anime")paintAnime(ctx);
  if(theme==="comedy")paintComedy(ctx);
  if(theme==="sport-anime")paintSportAnime(ctx);
- paintConceptStory(ctx,theme);
+ // Only Shasta and neural science are provisional Canvas studies;
+ // do not add random stickers over characters or display lettering.
+ if(theme==="shasta"||theme==="neural")paintConceptStory(ctx,theme);
  distressPigment(ctx,theme);
  ctx.restore();
  // Feather the spray as pigment on irregular stone, not an abruptly
@@ -472,10 +475,16 @@ function createNicheGraffitiFrames(three:ArcadeThree){
 }
 
 export function createWorldArcadeGraffiti(scene:THREE.Scene,three:ArcadeThree){
- const issues=validateArcadeArtManifest(ARCADE_CAVERN_MURALS);
+ const issues=[
+  ...validateArcadeArtManifest(ARCADE_CAVERN_MURALS),
+  ...validateArcadeMuralAssets(),
+ ];
  if(issues.length)throw Error("Cave mural manifest: "+issues.join("; "));
  const root=new three.Group();root.name="sid-underground-fandom-fresco";
  const meshes:THREE.Mesh[]=[],textures:THREE.Texture[]=[];
+ const loader=new three.TextureLoader();
+ let alive=true;
+ let authoredReady=0;
  const stone=createArcadeStoneLining(three);
  meshes.push(stone.mesh);textures.push(stone.texture);root.add(stone.mesh);
  for(const mural of ARCADE_CAVERN_MURALS){
@@ -487,6 +496,26 @@ export function createWorldArcadeGraffiti(scene:THREE.Scene,three:ArcadeThree){
   // For the rear upper band the longitudinal z dimension is zero: texture
   // horizontal must use wall width, not the degenerate z-coordinate.
   meshes.push(wall);root.add(wall);
+  const artwork=ARCADE_MURAL_ART_ASSETS[mural.theme];
+  if(artwork){
+   // The .svg/.webp/.png lives in /public and is decoded once by the
+   // browser, never fetched from a third-party server. If it fails, the
+   // existing art remains visible; incomplete assets cannot break gameplay.
+   const authored=loader.load(artwork.src,(loaded)=>{
+    if(!alive)return;
+    loaded.colorSpace=three.SRGBColorSpace;
+    loaded.anisotropy=4;
+    const material=wall.material as THREE.MeshStandardMaterial;
+    material.map=loaded;
+    material.opacity=artwork.opacity;
+    material.emissiveMap=null;
+    material.emissiveIntensity=0;
+    material.needsUpdate=true;
+    authoredReady++;
+    root.userData.authoredMuralsReady=authoredReady;
+   });
+   textures.push(authored);
+  }
  }
  for(const layer of ["floor","ceiling"] as const){
   const tex=atmosphereTexture(layer,three);textures.push(tex);
@@ -505,6 +534,7 @@ export function createWorldArcadeGraffiti(scene:THREE.Scene,three:ArcadeThree){
    drawCalls:meshes.length,triangles,materials:meshes.length,
    textureCount:textures.length},
   dispose(){
+   alive=false;
    scene.remove(root);
    for(const mesh of meshes){mesh.geometry.dispose();
     (mesh.material as THREE.Material).dispose();}
