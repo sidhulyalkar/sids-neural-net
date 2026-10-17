@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import * as THREE from "three/src/Three.Core.js";
 import {createWorldSkateGrove} from "../components/world/worldSkateGroveGeometry";
-import {skateParkSurface,SKATE_PARK,REDWOOD_BOWL,redwoodBowlBankRise} from "../lib/world/skatepark";
+import {skateParkSurface,SKATE_PARK,REDWOOD_BOWL,redwoodBowlBankRise,SKATE_PARK_RAILS,railLiftAt,insideCanyonFlow} from "../lib/world/skatepark";
 import {groundHeight} from "../lib/world/activities";
 
 test("authored wood geometry is static, named, low-draw and disposable",()=>{
@@ -148,5 +148,33 @@ test("tree trunk's dark bark exists in the authoritative riding field, not an ov
   assert.ok(brown.r>brown.b&&brown.g>brown.b*.8,
    "outer surface must be warm redwood bark, not concrete or an exposed seam");
   assert.equal(grove.root.getObjectByName("hollow-redwood-bark-shell"),undefined);
+ }finally{grove.dispose();}
+});
+
+
+test("Moss Canyon terrain ribbon and kinked rail art share physics heights",()=>{
+ const scene=new THREE.Scene(),grove=createWorldSkateGrove(scene,groundHeight);
+ try{
+  const mesh=grove.root.getObjectByName("canyon-woodland-flow-surface");
+  assert.ok(mesh instanceof THREE.Mesh);
+  if(!(mesh instanceof THREE.Mesh))return;
+  const verts=mesh.geometry.getAttribute("position");
+  assert.ok(verts.count>2500&&verts.count<5000,
+   "corridor must be a bounded pooled surface, not thousands of individual objects");
+  for(let i=0;i<verts.count;i+=37){
+   const p={x:verts.getX(i),z:verts.getZ(i)};
+   if(!insideCanyonFlow(p))continue;
+   assert.ok(Math.abs(verts.getY(i)-.035-groundHeight(p))<.001,
+    "visible boards must match physical roller support exactly");
+  }
+  for(const name of ["canyon-roller-grain","canyon-manual-wood-rings",
+    "split-timber-hybrid-rails","redwood-log-grind","grind-rail-timber-stands"])
+   assert.ok(grove.root.getObjectByName(name),"missing "+name);
+  const rail=SKATE_PARK_RAILS.find(s=>s.chainId==="canyon-snake"&&s.segment===1);
+  assert.ok(rail);
+  assert.ok(railLiftAt(rail!,1)>.5);
+  // Every instance is pooled; the scene root must not balloon with single
+  // segment objects or reduce frame rate in the forest.
+  assert.ok(grove.root.children.length<=22);
  }finally{grove.dispose();}
 });
