@@ -137,6 +137,7 @@ export function skateParkZone(p:Point):SkateParkZone{
  * visuals and entrance all share this one smooth, bounded rise function. */
 export const CANYON_FLOW={
  startX:7.4,endX:25.6,centerZ:39.4,halfWidth:4.5,
+ start:{x:8.7,z:38.6},
  rollers:[{x:11.1,height:.37},{x:15.6,height:.51},{x:19.4,height:.43}],
  hip:{x:22.4,z:40.2,width:1.6,impulse:2.45},
 } as const;
