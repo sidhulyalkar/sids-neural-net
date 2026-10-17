@@ -3,6 +3,8 @@ import assert from "node:assert/strict";
 import {ARCADE_CAVE,arcadeCaveFloorHeight,caveHalfWidth} from "../lib/world/model";
 import {ARCADE_CAVERN_MURALS,validateArcadeArtManifest} from "../lib/world/arcadeCavernArtManifest";
 import {caveArtRing,sampleCavernArt,validateCavernMural} from "../lib/world/arcadeCavernSurface";
+import {ARCADE_MURAL_ART_ASSETS,validateArcadeMuralAssets}
+ from "../lib/world/arcadeCavernAssetManifest";
 
 test("Curated wall program honors the corrected shonen/isekai/sports anime favorites",()=>{
  assert.deepEqual(validateArcadeArtManifest(ARCADE_CAVERN_MURALS),[]);
@@ -80,4 +82,16 @@ test("No invalid, clipping, nonfinite or game-occluding mural descriptors",()=>{
  assert.equal(sampleCavernArt("left",-90,.5,.5),null);
  assert.equal(sampleCavernArt("right",-70,.5,.5,-.1),null);
  assert.deepEqual(validateArcadeArtManifest([first,first]),["duplicate "+first.id]);
+});
+
+test("Authored cavern artwork is local, attributed, unique and usable without network image hotlinks",()=>{
+ assert.deepEqual(validateArcadeMuralAssets(),[]);
+ assert.match(ARCADE_MURAL_ART_ASSETS.identity!.src,/^\/world\/arcade-cavern\/hero\/sids-underground\.svg$/);
+ assert.equal(ARCADE_MURAL_ART_ASSETS.identity!.authorship,"original");
+ assert.deepEqual(validateArcadeMuralAssets({
+  identity:{...ARCADE_MURAL_ART_ASSETS.identity!,src:"https://example.com/art.png"},
+ }),["identity: invalid or remote asset path"]);
+ assert.deepEqual(validateArcadeMuralAssets({
+  identity:{...ARCADE_MURAL_ART_ASSETS.identity!,attribution:""},
+ }),["identity: missing attribution"]);
 });
