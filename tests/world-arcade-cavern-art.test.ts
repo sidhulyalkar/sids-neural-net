@@ -8,11 +8,11 @@ import {ARCADE_MURAL_ART_ASSETS,validateArcadeMuralAssets}
 
 test("Curated wall program honors the corrected shonen/isekai/sports anime favorites",()=>{
  assert.deepEqual(validateArcadeArtManifest(ARCADE_CAVERN_MURALS),[]);
- assert.equal(ARCADE_CAVERN_MURALS.length,7);
+ assert.equal(ARCADE_CAVERN_MURALS.length,9);
  const ids=ARCADE_CAVERN_MURALS.map(m=>m.id);
  assert.deepEqual(ids,["out-of-this-world","home-stand","raid-ascend",
   "striker-setpoint","sids-underground","shasta-mountain-guardian",
-  "neuroforge-synapses"]);
+  "shasta-rear-fresco","neuroforge-rear-fresco","neuroforge-synapses"]);
  const anime=ARCADE_CAVERN_MURALS.find(m=>m.theme==="anime")!;
  const sports=ARCADE_CAVERN_MURALS.find(m=>m.theme==="sport-anime")!;
  for(const favorite of ["SOLO LEVELING","JUJUTSU KAISEN","CHAINSAW MAN",
@@ -47,16 +47,23 @@ test("Curved graffiti is projected into interior of exact 17-shell ring segments
    const t=i/10,z=mural.z0+(mural.z1-mural.z0)*t;
    for(let j=0;j<=8;j++){
     const v=mural.v0+(mural.v1-mural.v0)*j/8;
-    const p=sampleCavernArt(mural.surface,z,t,v,.056);
+    const u=mural.surface==="back"&&mural.u0!==undefined&&mural.u1!==undefined
+     ?mural.u0+(mural.u1-mural.u0)*t:t;
+    const p=sampleCavernArt(mural.surface,z,u,v,.056);
     assert.ok(p, "missing "+mural.id+" "+i+" "+j);
     const a=p!.position,n=p!.normal;
     assert.ok([a.x,a.y,a.z,n.x,n.y,n.z].every(Number.isFinite));
     assert.ok(Math.abs(Math.hypot(n.x,n.y,n.z)-1)<.00001);
     if(mural.surface==="left")assert.ok(n.x>.20);
     if(mural.surface==="right")assert.ok(n.x<-.20);
-    if(mural.surface==="back")assert.ok(a.y>
-      arcadeCaveFloorHeight(ARCADE_CAVE.wall)+2.35+2.65/2+.20,
-      "rear mural must clear the top of center game selection by 20cm");
+    if(mural.surface==="back"){
+     if(mural.u0!==undefined&&mural.u1!==undefined)
+      assert.ok(a.x<13.27||a.x>18.73,
+       "rear lower murals must remain left/right of the center game panel");
+     else assert.ok(a.y>
+       arcadeCaveFloorHeight(ARCADE_CAVE.wall)+2.35+2.65/2+.20,
+       "rear title must clear the center game selection by 20cm");
+    }
    }
   }
  }
@@ -79,6 +86,11 @@ test("No invalid, clipping, nonfinite or game-occluding mural descriptors",()=>{
  assert.match(validateCavernMural({...first,z1:-62})!,/bounds/);
  assert.match(validateCavernMural({...first,z1:-66})!,/sightline/);
  assert.match(validateCavernMural({...first,v1:NaN})!,/nonfinite/);
+ const rear=ARCADE_CAVERN_MURALS.find(m=>m.id==="shasta-rear-fresco")!;
+ assert.equal(validateCavernMural(rear),null);
+ assert.match(validateCavernMural({...rear,u0:.30,u1:.70})!,/overlap/);
+ assert.match(validateCavernMural({...rear,u1:1.2})!,/invalid back patch/);
+ assert.match(validateCavernMural({...rear,u0:undefined})!,/invalid back patch/);
  assert.equal(sampleCavernArt("left",-90,.5,.5),null);
  assert.equal(sampleCavernArt("right",-70,.5,.5,-.1),null);
  assert.deepEqual(validateArcadeArtManifest([first,first]),["duplicate "+first.id]);
