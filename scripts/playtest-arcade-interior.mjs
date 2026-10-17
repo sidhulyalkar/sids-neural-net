@@ -18,7 +18,7 @@ try{
   await page.getByRole("button",{name:"Explore world",exact:true}).click();
   await page.waitForFunction(()=>Number(document.querySelector("canvas")?.dataset.drawCalls)>0,
    null,{timeout:45000});
-  await page.waitForFunction(()=>document.querySelector("canvas")?.dataset.arcadeGraffitiVersion==="concept-fidelity-v2",
+  await page.waitForFunction(()=>document.querySelector("canvas")?.dataset.arcadeGraffitiVersion==="asset-first-v3",
    null,{timeout:14000});
   const canvas=page.locator("canvas");
   evidence.metrics=await canvas.evaluate(el=>({
@@ -29,6 +29,14 @@ try{
   assert.equal(evidence.metrics.count,7,"all authored original murals must be loaded");
   assert.ok(evidence.metrics.calls<=18,"graffiti is an optimized draw batch");
   assert.ok(evidence.metrics.triangles<=40000,"stay inside geometry budget");
+  // A source-authored local title texture must really load into WebGL.
+  // The procedural fallback is not accepted as evidence of that asset.
+  await page.waitForFunction(()=>Number(
+   document.querySelector("canvas")?.dataset.arcadeAuthoredMuralsReady)>=1,
+   null,{timeout:18000});
+  const titleResponse=await page.request.get(base+
+   "/world/arcade-cavern/hero/sids-underground.svg");
+  assert.equal(titleResponse.status(),200,"authored mural texture must be present");
   await page.getByRole("button",{name:"Open navigation menu"}).click();
   await page.getByRole("button",{name:/08 Arcade cavern Play my games/}).click();
   await page.waitForFunction(()=>{
@@ -64,7 +72,7 @@ try{
    caveCameraClear:el.dataset.caveCameraClear,
   }));
   assert.equal(evidence.interior.layer,"arcade");
-  assert.equal(evidence.interior.graffiti,"concept-fidelity-v2");
+  assert.equal(evidence.interior.graffiti,"asset-first-v3");
   await page.screenshot({path:path.join(out,"03-fandom-main-chamber-reveal.png")});
   // Rotate the gameplay camera to inspect both original side compositions.
   await page.mouse.move(700,430);await page.mouse.down();
