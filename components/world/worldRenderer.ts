@@ -1557,7 +1557,18 @@ export function createWorld(
 
   // SID'S UNDERGROUND: handpainted wall/floor/roof art projected onto the
   // exact angular arcade cave shell. Art has no collider or raycast targets.
-  const arcadeGraffiti=createWorldArcadeGraffiti(scene,THREE);
+  const arcadeGraffiti=createWorldArcadeGraffiti(scene,{
+    CanvasTexture:THREE.CanvasTexture,
+    BufferGeometry:THREE.BufferGeometry,
+    Float32BufferAttribute:THREE.Float32BufferAttribute,
+    MeshStandardMaterial:THREE.MeshStandardMaterial,
+    Color:THREE.Color,
+    DoubleSide:THREE.DoubleSide,
+    Mesh:THREE.Mesh,
+    Group:THREE.Group,
+    SRGBColorSpace:THREE.SRGBColorSpace,
+    LinearMipmapLinearFilter:THREE.LinearMipmapLinearFilter,
+  });
   canvas.dataset.arcadeGraffitiVersion="fresco-v1";
   canvas.dataset.arcadeGraffitiMurals=String(arcadeGraffiti.diagnostics.murals);
   canvas.dataset.arcadeGraffitiDrawCalls=String(arcadeGraffiti.diagnostics.drawCalls);
