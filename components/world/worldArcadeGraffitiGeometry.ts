@@ -1,4 +1,4 @@
-import type * as THREE from "three";
+import type * as THREE from "three/src/Three.Core.js";
 import {ARCADE_CAVERN_MURALS,validateArcadeArtManifest} from "@/lib/world/arcadeCavernArtManifest";
 import {sampleCavernArt,type CavernArtTheme,type CavernArtSurface,type CavernMural} from "@/lib/world/arcadeCavernSurface";
 
@@ -284,7 +284,7 @@ function paintCeiling(ctx:Paint){
  }
  tag(ctx,"LEVELS ABOVE",295,140,56,"#cfb18b",-.025);
 }
-function paintTexture(theme:CavernArtTheme,three:typeof import("three")){
+function paintTexture(theme:CavernArtTheme,three:typeof import("three/src/Three.Core.js")){
  const canvas=document.createElement("canvas");
  canvas.width=1024;canvas.height=theme==="identity"?320:theme==="sports"||theme==="anime"||theme==="sport-anime"||theme==="comedy"?640:1024;
  const ctx=canvas.getContext("2d");
@@ -305,7 +305,7 @@ function paintTexture(theme:CavernArtTheme,three:typeof import("three")){
  texture.minFilter=three.LinearMipmapLinearFilter;
  return texture;
 }
-function atmosphereTexture(kind:"floor"|"ceiling",three:typeof import("three")){
+function atmosphereTexture(kind:"floor"|"ceiling",three:typeof import("three/src/Three.Core.js")){
  const canvas=document.createElement("canvas");canvas.width=1024;canvas.height=1024;
  const ctx=canvas.getContext("2d");
  if(!ctx)throw Error("Arcade paint canvas unavailable");
@@ -317,7 +317,7 @@ function atmosphereTexture(kind:"floor"|"ceiling",three:typeof import("three")){
 }
 function surfaceMesh(surface:CavernArtSurface,z0:number,z1:number,
  v0:number,v1:number,texture:THREE.Texture,name:string,
- three:typeof import("three"),zSegments=34,vSegments=14){
+ three:typeof import("three/src/Three.Core.js"),zSegments=34,vSegments=14){
  const vertices:number[]=[],uvs:number[]=[],indices:number[]=[];
  const left=surface==="left";
  for(let iz=0;iz<=zSegments;iz++)for(let iv=0;iv<=vSegments;iv++){
@@ -353,7 +353,7 @@ function surfaceMesh(surface:CavernArtSurface,z0:number,z1:number,
  mesh.raycast=()=>{};mesh.renderOrder=3;
  return mesh;
 }
-export function createWorldArcadeGraffiti(scene:THREE.Scene,three:typeof import("three")){
+export function createWorldArcadeGraffiti(scene:THREE.Scene,three:typeof import("three/src/Three.Core.js")){
  const issues=validateArcadeArtManifest(ARCADE_CAVERN_MURALS);
  if(issues.length)throw Error("Cave mural manifest: "+issues.join("; "));
  const root=new three.Group();root.name="sid-underground-fandom-fresco";
