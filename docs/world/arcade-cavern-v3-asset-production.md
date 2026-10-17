@@ -109,6 +109,27 @@ randomized filler strokes have been removed.
   asset-runtime assertions.
 
 
+## V3.3 artwork upgrade
+
+- Three new 1600 px wide locally hosted SVG illustrated compositions:
+  `/science/mindforge-brain.svg`, `/anime/raid-ascend.svg`,
+  `/comedy/out-of-this-world.svg`. These replace the thin procedural
+  fallback on their respective walls with deliberately authored, filled
+  art, readable title lettering, shaped portals and a visual hierarchy.
+- Authored masks introduce subtle color-selected emissive accents. They
+  do not emit over the entire painted area or add scene-wide lights.
+- The rear SID'S UNDERGROUND upper edge is now lower, and the existing
+  game selection zones remain protected.
+- Real browser acceptance checks that the new assets load, decode, contain
+  large painted regions with actual colors, and have transparent corners.
+- Anime and comedy images are original theme tributes and do **not**
+  pretend to be pixel-accurate licensed character portraits. To achieve
+  the approved concept's recognizable Rick and Morty, Futurama,
+  South Park, Solar Opposites and anime protagonists, replace the
+  primary figure illustration layer with reviewed high-quality character
+  illustrations from appropriately approved sources. Never substitute
+  a new drawing of circles and wireframes and call it finished.
+
 ## V3.1 review checkpoint
 
 - Centerline baffle and its solid obstacles removed; teal trail now runs
