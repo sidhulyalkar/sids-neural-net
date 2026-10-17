@@ -85,7 +85,7 @@ export function validateCavernMural(m:CavernMural):string|null{
  if(!m.id||!m.title||!m.tags||!["left","right","ceiling","floor","back"].includes(m.surface))return "invalid descriptor";
  if(![m.z0,m.z1,m.v0,m.v1].every(Number.isFinite))return "nonfinite coordinates";
  if(m.surface==="back"){
-  if(m.z0!==-63.32||m.z1!==-63.32||m.v0<.65||m.v1>.96)return "game title overlap";
+  if(m.z0!==-63.32||m.z1!==-63.32||m.v0<.62||m.v1>.91)return "game title overlap";
  }else if(m.z0< -81.96||m.z1> -63.1||m.z1<=m.z0||m.v0<0||m.v1>1||m.v1<=m.v0){
   return "cave shell bounds";
  }
