@@ -95,6 +95,7 @@ try{
    };
    requestAnimationFrame(tick);
   }));
+  console.log("SEQUOIA TUNNEL RIDE TRACE",JSON.stringify({trace,errors}));
   assert.ok(trace.entered?.entries===1,"Q must capture the actual inner wood wall");
   assert.ok(trace.ceiling&&trace.ceiling.angle>.45&&trace.ceiling.angle<.55,
    "skateboard must actually ride inverted across the ceiling");
