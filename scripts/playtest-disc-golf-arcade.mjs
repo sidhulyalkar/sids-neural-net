@@ -46,6 +46,29 @@ try {
   });
   observer.observe(canvas,{attributes:true,attributeFilter:["data-disc-golf-phase"]});
   canvas.__flightObserver=observer;
+  // Start BEFORE launch: expensive screenshots must not make us miss the
+  // chase phase. Capture actual per-frame gait and camera data throughout.
+  const chaseFrames=[],chaseStages=[];
+  canvas.__chaseFrames=chaseFrames;
+  canvas.__chaseStages=chaseStages;
+  let lastChaseStage="";
+  const collect=()=>{
+   if(!canvas.isConnected)return;
+   const d=canvas.dataset,stage=d.dogFetchStage;
+   if(stage!==lastChaseStage){
+    chaseStages.push({stage,at:performance.now()});
+    lastChaseStage=stage;
+   }
+   if(stage==="chase"&&chaseFrames.length<120){
+    chaseFrames.push({
+     stage,gait:d.dogGait,speed:Number(d.dogSpeed),
+     bodyBob:Number(d.dogBodyBob),pawLift:Number(d.dogFootLiftMax),
+     followMode:d.shastaFollowMode,followBoom:Number(d.shastaFollowBoom),
+    });
+   }
+   requestAnimationFrame(collect);
+  };
+  requestAnimationFrame(collect);
  });
  // Use the same keyboard slider release that players use in the live game.
  await page.keyboard.press("Enter");
@@ -77,22 +100,13 @@ try {
  // The footage-derived gait contract applies during Shasta's automatic
  // fetch, not just while following the player. Sample actual animation
  // frames; fixed scene screenshots cannot prove anti-hop behavior.
- await page.waitForFunction(()=>document.querySelector("canvas")?.dataset.dogFetchStage==="chase",
-  null,{timeout:8000});
- const fetchGait=await page.evaluate(async ()=>{
-  const samples=[];
-  for(let i=0;i<18;i++){
-   const d=document.querySelector("canvas")?.dataset;
-   samples.push({
-    stage:d?.dogFetchStage,gait:d?.dogGait,
-    speed:Number(d?.dogSpeed),bodyBob:Number(d?.dogBodyBob),
-    pawLift:Number(d?.dogFootLiftMax),
-    followMode:d?.shastaFollowMode,followBoom:Number(d?.shastaFollowBoom)
-   });
-   await new Promise(resolve=>setTimeout(resolve,100));
-  }
-  return samples;
- });
+ await page.waitForFunction(()=>
+  (document.querySelector("canvas")?.__chaseFrames?.length??0)>=6,
+  null,{timeout:35000});
+ const fetchGait=await page.evaluate(()=>
+  [...document.querySelector("canvas").__chaseFrames]);
+ assert.ok(fetchGait.length>=6,
+  "Actual multi-frame Shasta pursuit must occur, not a transient HUD label");
  assert.ok(fetchGait.every(s=>Number.isFinite(s.bodyBob)&&
    Math.abs(s.bodyBob)<.03),
   "Shasta's body cannot repeatedly bounce while fetching the disc");
