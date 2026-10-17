@@ -56,6 +56,42 @@ try{
    assert.equal(response.status(),200,"missing painted composition: "+source);
    assert.match(await response.text(),/^<svg[^>]+/,"must contain a real SVG composition");
   }
+  // Decode every mural and quantify visible painted area. This rejects
+  // accidental zero-alpha/empty SVGs and wire-only "mural" placeholders.
+  evidence.authoredInk=await page.evaluate(async()=>{
+   const sources=[
+    "/world/arcade-cavern/science/mindforge-brain.svg",
+    "/world/arcade-cavern/anime/raid-ascend.svg",
+    "/world/arcade-cavern/comedy/out-of-this-world.svg",
+   ];
+   const values=[];
+   for(const source of sources){
+    const image=new Image();image.src=source;await image.decode();
+    const c=document.createElement("canvas");c.width=160;c.height=100;
+    const ctx=c.getContext("2d",{willReadFrequently:true});
+    if(!ctx)throw Error("no artwork compositor for "+source);
+    ctx.drawImage(image,0,0,160,100);
+    const pixels=ctx.getImageData(0,0,160,100).data;
+    let painted=0,chromatic=0,opaqueCorners=0;
+    for(let i=0;i<pixels.length;i+=4){
+     if(pixels[i+3]>90)painted++;
+     if(pixels[i+3]>90&&Math.max(pixels[i],pixels[i+1],pixels[i+2])-
+       Math.min(pixels[i],pixels[i+1],pixels[i+2])>30)chromatic++;
+    }
+    for(const [x,y] of [[0,0],[159,0],[0,99],[159,99]])
+     opaqueCorners+=ctx.getImageData(x,y,1,1).data[3]>0?1:0;
+    values.push({source,painted,chromatic,opaqueCorners});
+   }
+   return values;
+  });
+  for(const art of evidence.authoredInk){
+   assert.ok(art.painted>1200,
+    "asset lacks substantial filled graphical paint: "+art.source);
+   assert.ok(art.chromatic>900,
+    "asset needs bold illustrated color masses, not faint lines: "+art.source);
+   assert.equal(art.opaqueCorners,0,
+    "asset must expose stone outside its irregular alpha edges: "+art.source);
+  }
   const shastaPhoto=await page.request.get(base+"/visual-archive/web/photo-037.webp");
   assert.equal(shastaPhoto.status(),200,
    "the source photograph of Shasta must exist in the public visual archive");
