@@ -474,7 +474,8 @@ function createNicheGraffitiFrames(three:ArcadeThree){
  return mesh;
 }
 
-export function createWorldArcadeGraffiti(scene:THREE.Scene,three:ArcadeThree){
+export function createWorldArcadeGraffiti(scene:THREE.Scene,three:ArcadeThree,
+ onAssetReady?:(count:number)=>void){
  const issues=[
   ...validateArcadeArtManifest(ARCADE_CAVERN_MURALS),
   ...validateArcadeMuralAssets(),
@@ -513,6 +514,7 @@ export function createWorldArcadeGraffiti(scene:THREE.Scene,three:ArcadeThree){
     material.needsUpdate=true;
     authoredReady++;
     root.userData.authoredMuralsReady=authoredReady;
+    onAssetReady?.(authoredReady);
    });
    textures.push(authored);
   }
