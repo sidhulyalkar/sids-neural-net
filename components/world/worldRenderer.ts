@@ -4986,6 +4986,12 @@ export function createWorld(
       canvas.dataset.caveInside = String(caveInside);
       canvas.dataset.caveDepth = caveProgress.toFixed(3);
       canvas.dataset.caveLayer = caveLayer;
+      // The underground mural uses only seven draw batches but must not
+      // consume them on the coast, skatepark or other distant islands.
+      // Keep it visible on approach as well as while inside the chamber.
+      arcadeGraffiti.root.visible = caveLayer==="arcade" ||
+        (aquatic==="land" && distance(player,arcade)<29);
+      canvas.dataset.arcadeGraffitiVisible=String(arcadeGraffiti.root.visible);
       const wayfindingStage=arcadeTrailStage(player,caveLayer);
       const trailHint=arcadeTrailHint(player,caveLayer);
       canvas.dataset.arcadeTrailStage=wayfindingStage;
