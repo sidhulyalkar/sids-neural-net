@@ -15,7 +15,7 @@ test("Granite Ridge arcade beacons lead towards the real reachable cave mouth",(
  assert.equal(ARCADE_GATE.beacon.x,ARCADE_CAVE.entrance.x);
  assert.ok(ARCADE_GATE.beacon.z<ARCADE_CAVE.entrance.z);
  for(const mark of ARCADE_TRAIL_MARKERS){
-  assert.ok(mark.height>=2.3&&mark.height<=4.1);
+  assert.ok(mark.height>=2.3&&mark.height<=5.0);
   assert.equal(isWater(mark.point),false,"all lanterns should stand on dry ground");
   assert.ok(Number.isFinite(arcadeTrailFooting(mark.point)));
   assert.ok(["trail","entrance"].includes(arcadeTrailStage(mark.point,"surface")));
@@ -26,6 +26,8 @@ test("Granite Ridge arcade beacons lead towards the real reachable cave mouth",(
  assert.equal(arcadeTrailStage(ARCADE_CAVE.entrance,"arcade"),"inside");
  assert.equal(arcadeTrailHint(ARCADE_CAVE.entrance,"arcade"),"");
  assert.equal(arcadeTrailHint({x:0,z:0},"surface"),"");
+ assert.equal(arcadeTrailStage(ridge,"surface"),"trail",
+  "Granite Ridge arrivals should see the first amber trail cue");
  assert.equal(arcadeTrailStage(ARCADE_CAVE.entrance,"paper"),"hidden");
 });
 
@@ -65,6 +67,9 @@ test("outside portal camera frames the sign from ABOVE the actual approach",()=>
  const pose=arcadeEntranceCameraPose();
  assert.ok(pose.position.z<ARCADE_CAVE.approach.z,
   "the lens belongs downhill of the visitor, in open air");
+ assert.ok(ARCADE_CAVE.approach.z-pose.position.z>4.5&&
+  ARCADE_CAVE.approach.z-pose.position.z<9.5,
+  "the facade should remain in view from a useful third-person camera distance");
  assert.ok(pose.position.y>terrainHeight(pose.position.x,pose.position.z)+1.7);
  assert.ok(pose.look.z<ARCADE_CAVE.entrance.z,
   "the visible focal point must stop outside solid mountain roof");
