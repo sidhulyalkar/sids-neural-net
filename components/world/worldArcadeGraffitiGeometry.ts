@@ -530,8 +530,12 @@ export function createWorldArcadeGraffiti(scene:THREE.Scene,three:ArcadeThree,
    material.emissiveMap=mask;
    material.emissiveIntensity=.85;
   }else{
-   material.emissiveMap=null;
-   material.emissiveIntensity=0;
+   // Tiny ink bounce makes broad ivory lettering and the genuine club
+   // crests remain readable from the player's normal camera in dim basalt.
+   // This is 10x weaker than the localized selective neon highlights.
+   material.emissive=new three.Color("#e2d3c7");
+   material.emissiveMap=painted;
+   material.emissiveIntensity=.08;
   }
   material.needsUpdate=true;
   authoredReady++;
