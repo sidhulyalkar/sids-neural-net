@@ -61,9 +61,11 @@ Owned files:
 - lib/world/arcadeMuralsAnime.ts (new)
 - tests/world-arcade-murals-anime.test.ts (new)
 
-Deliver: dark/fantasy primary mural on RIGHT inner corridor z -72.8 to -68.0. Select Frieren, Solo Leveling, Vinland Saga, Fullmetal Alchemist: Brotherhood and a handful of secondary tags from the user's screenshot (e.g. Hell's Paradise, Demon Slayer, Haikyuu!!, Blue Lock, Spy x Family). Compose magical concentric linework, aged voyage/sword etchings, abstract shadow crown and alchemical geometry with original hand-painted shapes. Do not create a separate poster for each franchise.
+Deliver: **RAID // ASCEND** as the primary action/progression mural on the RIGHT inner corridor z -72.8 to -68.0, emphasizing the user's corrected preferences (Oct 17): **isekai/VRMMO worlds, Solo Leveling, Jujutsu Kaisen, Chainsaw Man, Fire Force, Hell's Paradise, Kaiju No. 8, Tower of God and Shangri-La Frontier**. Use an original interwoven composition of shadow ascension, cracked cursed-energy rings, industrial saw-tooth slashes, flame crescents, overgrown dangerous florals, kaiju-scale stone fractures, vertical tower stages, RPG portals, guild glyphs and boss UI. **Shangri-La Frontier is VRMMO rather than literal isekai**, but its game-world progression visual language belongs in this category.
 
-Acceptance: one primary composition, 2-4 medium motifs and sparse micro-tags. Ensure each descriptor has a distinct ID, bounded ink brightness and no game-niche occlusion.
+Include two distinctly recognizable but smaller sports-anime compositions: **Blue Lock** soccer-target convergence and **Haikyu!!** net-grid/volleyball arcs. Coordinate floor motif placement with S5 by descriptor notes, but never edit S5's files. **Remove Vinland Saga and Fullmetal Alchemist: Brotherhood from the hero/featured mural plan**; if at all, they may be optional future micro-Easter-eggs. Frieren and Demon Slayer are secondary at most.
+
+Acceptance: one cohesive action/isekai hero composition, two readable sports-anime beats, and sparse supporting micro-tags, not individual show posters. Include named priority assertions in tests, unique valid anchors/IDs, limited emissive intensity and no game-niche occlusion.
 
 ### S3: Animation-comedy, title and identity author
 
