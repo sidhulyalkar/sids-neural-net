@@ -51,6 +51,20 @@ test("split portal, sign and standing stones never occlude the cave approach",()
   Math.abs(p.x-ARCADE_CAVE.approach.x)<1.5));
 });
 
+test("player can traverse the entire former baffle zone on the centerline",()=>{
+ let travel:Travel={
+  point:{x:16,z:-79},heading:{x:0,z:1},speed:0,
+ };
+ const solids=caveObstacles();
+ for(let i=0;i<400&&travel.point.z< -70;i++){
+  travel=stepTravel(travel,{x:0,z:1},.05,"run",
+   solids,false,null,0,arcadeCaveFloorHeight);
+  assert.ok(Math.abs(travel.point.x-16)<.3,
+   "center passage forced a lateral detour near z="+travel.point.z.toFixed(2));
+ }
+ assert.ok(travel.point.z>=-70,"new direct approach must reach the arcade chamber");
+});
+
 test("real lateral cave navigation stays open without the former rock baffle",()=>{
  let travel:Travel={
   point:{x:18.57,z:-66.13},heading:{x:0,z:1},speed:0,
