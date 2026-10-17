@@ -44,7 +44,8 @@ test("Curved graffiti is projected into interior of exact 17-shell ring segments
     if(mural.surface==="left")assert.ok(n.x>.20);
     if(mural.surface==="right")assert.ok(n.x<-.20);
     if(mural.surface==="back")assert.ok(a.y>
-      arcadeCaveFloorHeight(ARCADE_CAVE.wall)+4.2);
+      arcadeCaveFloorHeight(ARCADE_CAVE.wall)+2.35+2.65/2+.35,
+      "rear mural must clear the top of center game selection by 35cm");
    }
   }
  }
