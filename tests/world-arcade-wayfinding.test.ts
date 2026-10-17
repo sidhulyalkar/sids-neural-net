@@ -1,7 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {ARCADE_CAVE,isWater,terrainHeight,caveHalfWidth,
- caveObstacles,regionLanding} from "../lib/world/model";
+ caveObstacles,regionLanding,arcadeCaveFloorHeight} from "../lib/world/model";
+import {stepTravel,type Travel} from "../lib/world/activities";
 import {ARCADE_GATE,ARCADE_TRAIL_MARKERS,arcadeTrailStage,
  arcadeTrailHint,arcadeTrailFooting} from "../lib/world/arcadeWayfinding";
 
@@ -45,4 +46,17 @@ test("split portal, sign and standing stones never occlude the cave approach",()
  assert.ok(!solids.some(p=>
   Math.abs(p.z-ARCADE_CAVE.approach.z)<.5&&
   Math.abs(p.x-ARCADE_CAVE.approach.x)<1.5));
+});
+
+test("real lateral cave navigation is open beyond the rock baffle",()=>{
+ let travel:Travel={
+  point:{x:18.57,z:-66.13},heading:{x:0,z:1},speed:0,
+ };
+ for(let i=0;i<100;i++)
+  travel=stepTravel(travel,{x:-1,z:0},.05,"run",
+   caveObstacles(),false,null,0,arcadeCaveFloorHeight);
+ assert.ok(travel.point.x<16.05,
+  "walking left from east chamber niche must reach center game wall");
+ assert.ok(travel.point.z< -65.5&&travel.point.z> -66.8,
+  "sideways motion must not teleport up the tunnel");
 });
