@@ -7,7 +7,8 @@ import {SKATE_PARK,SKATE_PARK_RAILS,insideSkatePark,skateParkSurface,skateParkLi
 import {idleSkateTrick,startSkateTrick,finishSkateTrick,flickTrick,skateTrickPose,scoreSkateGrind,queueSkateSpin,startSkateManual,stepSkateManual,finishSkateManual} from "../lib/world/skateTricks";
 
 test("south-meadow plaza is land, continuous at its boundary and under the actual rider",()=>{
- assert.equal(SKATE_PARK_RAILS.length,3);
+ assert.equal(SKATE_PARK_RAILS.filter(rail=>!rail.chainId).length,3,
+  "retain original rails as additions expand the park");
  for(const x of [-19.9,-14,-6,0,7.9]){
   for(const z of [28.1,31,35,40,45,49,51.9]){
    const p={x,z};
