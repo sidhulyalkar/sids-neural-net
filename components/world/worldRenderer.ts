@@ -8,6 +8,7 @@ import {beginSkateTunnelRide,advanceSkateTunnelRide,skateTunnelSample,
  type SkateTunnelRide} from "@/lib/world/skateTunnel";
 import {createWorldSkateGrove} from "./worldSkateGroveGeometry";
 import {createWorldArcadeGraffiti} from "./worldArcadeGraffitiGeometry";
+import {ARCADE_REAR_CAP_Z} from "@/lib/world/arcadeCavernSurface";
 import {skateLean} from "@/lib/world/skateDynamics";
 import {selectAssistedSkateTrick,assistedSkateSpin} from "@/lib/world/skateAssist";
 import {idleSkateTrick,startSkateTrick,finishSkateTrick,setSkateGrab,skateTrickPose,flickTrick,scoreSkateGrind,scoreSkateLoop,scoreSkateTunnel,scoreSkateRailGap,queueSkateSpin,startSkateManual,stepSkateManual,finishSkateManual,type SkateTrickName,type SkateTrickState} from "@/lib/world/skateTricks";
@@ -1646,7 +1647,7 @@ export function createWorld(
   const rearCap=mesh(
     geo(new THREE.ShapeGeometry(rearOutline)),
     mat("#2f302f",{side:THREE.DoubleSide,roughness:1}),
-    [0,0,-63.41],[1,1,1]
+    [0,0,ARCADE_REAR_CAP_Z],[1,1,1]
   );
   rearCap.name="arcade-carved-rock-rear-cap";
   canvas.dataset.arcadeArchitecture="open-stone-cap-v3";
