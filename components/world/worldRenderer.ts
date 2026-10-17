@@ -1,6 +1,6 @@
 import {createWorldSkimSurf} from "./worldSkimSurfGeometry";
 import { desertTrackTreadBlend, desertTrackSampleAt, DESERT_GAP_DEBRIS, DESERT_JUMPS, DESERT_TRACK_LENGTH } from "@/lib/world/desertTrack";
-import {insideSkatePark,skateParkZone,skateGroveStartHeading,SKATE_LOOP,GROVE_TUNNEL,SKATE_GROVE_FRAME_TREES} from "@/lib/world/skatepark";
+import {insideSkatePark,skateParkZone,skateGroveStartHeading,SKATE_LOOP,GROVE_TUNNEL,SKATE_GROVE_FRAME_TREES,advanceRailChain,railLiftAt,insideCanyonFlow,type SkateRail} from "@/lib/world/skatepark";
 import {beginSkateLoop,skateLoopEntryCrossing,advanceSkateLoop,skateLoopSample,type SkateLoopRide} from "@/lib/world/skateLoop";
 import {beginSkateTunnelRide,advanceSkateTunnelRide,skateTunnelSample,
  type SkateTunnelRide} from "@/lib/world/skateTunnel";
@@ -4020,37 +4020,48 @@ export function createWorld(
           commitSkateTrick(scoreSkateTunnel(skateTrick,elapsed,travel.speed));
         }
       } else if (grind) {
-        const dxLog = grind.log.b.x - grind.log.a.x;
-        const dzLog = grind.log.b.z - grind.log.a.z;
-        const logLength = Math.hypot(dxLog, dzLog);
-        const grindSpeed = Math.max(4.2, travel.speed);
-        const previousGrindT=grind.t;
-        grind.t += grind.direction * grindSpeed * dt / logLength;
-        const finished = grind.t <= 0 || grind.t >= 1;
-        grind.t = THREE.MathUtils.clamp(grind.t, 0, 1);
-        grind.covered+=Math.abs(grind.t-previousGrindT)*logLength;
-        player = {
-          x: grind.log.a.x + dxLog * grind.t,
-          z: grind.log.a.z + dzLog * grind.t,
+        const grindSpeed=Math.max(4.2,travel.speed);
+        const original=grind.log;
+        const chained="chainId" in original&&typeof original.chainId==="string";
+        let finished=false;
+        if(chained){
+          const next=advanceRailChain(original as SkateRail,grind.t,
+            grind.direction,grindSpeed*dt);
+          grind.log=next.rail;
+          grind.t=next.t;
+          grind.covered+=next.covered;
+          finished=next.finished;
+        }else{
+          const length=Math.hypot(original.b.x-original.a.x,
+            original.b.z-original.a.z)||1;
+          const nextT=grind.t+grind.direction*grindSpeed*dt/length;
+          finished=nextT<=0||nextT>=1;
+          const clippedT=THREE.MathUtils.clamp(nextT,0,1);
+          grind.covered+=Math.abs(clippedT-grind.t)*length;
+          grind.t=clippedT;
+        }
+        const segment=grind.log,dxLog=segment.b.x-segment.a.x;
+        const dzLog=segment.b.z-segment.a.z;
+        const length=Math.max(1e-6,Math.hypot(dxLog,dzLog));
+        player={
+          x:segment.a.x+dxLog*grind.t,
+          z:segment.a.z+dzLog*grind.t,
         };
-        const headingSign = grind.direction;
-        travel = {
-          point: player,
-          speed: grindSpeed * 0.995,
-          heading: { x: (dxLog / logLength) * headingSign, z: (dzLog / logLength) * headingSign },
-        };
-        const railGround =
-          groundHeight(grind.log.a) * (1 - grind.t) +
-          groundHeight(grind.log.b) * grind.t;
-        playerY = railGround + grind.log.lift + 0.16;
-        if (finished) {
+        travel={point:player,speed:grindSpeed*.995,heading:{
+          x:dxLog/length*grind.direction,z:dzLog/length*grind.direction,
+        }};
+        const railGround=groundHeight(segment.a)*(1-grind.t)+
+          groundHeight(segment.b)*grind.t;
+        const lift=("chainId" in segment&&segment.chainId)?
+          railLiftAt(segment as SkateRail,grind.t):segment.lift;
+        playerY=railGround+lift+.16;
+        if(finished){
           if(grind.mode==="skate"){
-            const next=scoreSkateGrind(skateTrick,grind.covered,grind.style,elapsed);
-            commitSkateTrick(next);
+            const scored=scoreSkateGrind(skateTrick,grind.covered,
+              grind.style,elapsed);
+            commitSkateTrick(scored);
           }
-          grind = null;
-          airHeight = 0.08;
-          verticalSpeed = 2.5;
+          grind=null;airHeight=.08;verticalSpeed=2.5;
         }
       } else if (bigAir.phase==="flying") {
         // Physics can advance in bounded steps at low render FPS. Running only
@@ -4557,12 +4568,13 @@ export function createWorld(
           "translate(-50%,"+(-5-Math.min(15,resultAge/130))+"px) scale("+
           (0.96+Math.min(1,resultAge/220)*.04)+")";
       }
-      const skateArea=insideSkatePark(player)?({
+      const skateArea=(insideSkatePark(player)||insideCanyonFlow(player))?({
         "redwood-bowl":"REDWOOD BOWL",
         "timber-quarter":"TIMBER HALFPIPE",
         "stump-pad":"STUMP GARDEN",
         "sequoia-tunnel":"HOLLOW SEQUOIA",
         "timber-loop":"360° TIMBER LOOP",
+        "canyon-flow":"MOSS CANYON FLOW TRAIL",
         street:"SKATE GROVE",apron:"SKATE GROVE",
       } as const)[skateParkZone(player)]:"ISLAND RIDE";
       const skateStatus=skateLoopRide?
@@ -4599,7 +4611,7 @@ export function createWorld(
       canvas.dataset.skateHeading=travel.heading.x.toFixed(3)+","+travel.heading.z.toFixed(3);
       canvas.dataset.skateLastTakeoff=skateLastTakeoff;
       // A zone label must never impersonate a *physical* park check.
-      canvas.dataset.skateGroveZone=skateVisible&&insideSkatePark(player)?
+      canvas.dataset.skateGroveZone=skateVisible&&(insideSkatePark(player)||insideCanyonFlow(player))?
         skateParkZone(player):"";
       canvas.dataset.skateAssist="on";
       canvas.dataset.skateResult=resultVisible?skateResultLabel:"";
@@ -4699,6 +4711,8 @@ export function createWorld(
         : null;
       canvas.dataset.grindReady = String(!!grindCandidate);
       canvas.dataset.grindId = grind?.log.id ?? "";
+      canvas.dataset.grindChain = grind&&"chainId" in grind.log?String(grind.log.chainId):"";
+      canvas.dataset.grindMeters = (grind?.covered??0).toFixed(2);
       canvas.dataset.grindStyle = grind?.style ?? candidateGrindStyle ?? "";
       canvas.dataset.rampId = lastRampId;
       canvas.dataset.grinding = String(!!grind);
