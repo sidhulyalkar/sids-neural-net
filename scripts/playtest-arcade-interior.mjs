@@ -26,7 +26,7 @@ try{
    calls:Number(el.dataset.arcadeGraffitiDrawCalls),
    triangles:Number(el.dataset.arcadeGraffitiTriangles),
   }));
-  assert.equal(evidence.metrics.count,7,"all authored original murals must be loaded");
+  assert.equal(evidence.metrics.count,9,"all gallery and identity murals must be loaded");
   assert.ok(evidence.metrics.calls<=18,"graffiti is an optimized draw batch");
   assert.ok(evidence.metrics.triangles<=40000,"stay inside geometry budget");
   assert.equal(await canvas.getAttribute("data-arcade-architecture"),
