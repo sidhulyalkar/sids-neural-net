@@ -10,6 +10,7 @@ export type ArcadeMuralArtwork = Readonly<{
   attribution: string;
   opacity: number;
   revision: number;
+  presentation?: "original-texture" | "shasta-photo-stencil";
 }>;
 
 export const ARCADE_MURAL_ART_ASSETS:Partial<
@@ -21,6 +22,16 @@ export const ARCADE_MURAL_ART_ASSETS:Partial<
   attribution:"Original authored in-project graffiti title graphic",
   opacity:1,
   revision:1,
+  presentation:"original-texture",
+ },
+ shasta: {
+  // Verified personal visual-archive image: Shasta sitting on the trail.
+  src:"/visual-archive/web/photo-037.webp",
+  authorship:"permission",
+  attribution:"Existing personal website photo archive, photo-037 (Shasta on trail)",
+  opacity:1,
+  revision:1,
+  presentation:"shasta-photo-stencil",
  },
 };
 
@@ -40,7 +51,11 @@ export function validateArcadeMuralAssets(
  const seen=new Set<string>();
  for(const [theme,entry] of Object.entries(assets)){
   if(!entry)continue;
-  if(!/^\/world\/arcade-cavern\/[a-z0-9/_-]+\.(?:png|webp|svg)$/.test(entry.src))
+  const localArt=/^\/world\/arcade-cavern\/[a-z0-9/_-]+\.(?:png|webp|svg)$/.test(entry.src);
+  const photoArchive=theme==="shasta"&&
+   entry.presentation==="shasta-photo-stencil"&&
+   entry.src==="/visual-archive/web/photo-037.webp";
+  if(!localArt&&!photoArchive)
    problems.push(theme+": invalid or remote asset path");
   if(seen.has(entry.src))problems.push(theme+": duplicate image path");
   seen.add(entry.src);
