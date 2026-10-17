@@ -89,7 +89,9 @@ test("five rail lines have matching endpoints, polished rises and safe placement
   }
  }
  const mid={x:11.4,z:37.65};
- assert.equal(nearestGrind(mid,.08)?.log.chainId,"canyon-snake");
+ const nearest=nearestGrind(mid,.08);
+ assert.ok(nearest&&"chainId" in nearest.log);
+ assert.equal(nearest.log.chainId,"canyon-snake");
  assert.equal(skateParkZone({x:17,z:39.4}),"canyon-flow");
  assert.equal(SKATE_PARK_RAILS.filter(r=>!r.chainId).length,3,
   "all legacy rail targets must be retained");
