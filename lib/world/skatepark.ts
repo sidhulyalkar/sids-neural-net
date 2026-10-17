@@ -243,6 +243,11 @@ export const CANYON_RAIL_CHAINS:readonly RailChain[]=[
   {x:20.2,z:36.8},{x:21.5,z:37.30},
   {x:22.9,z:37.42},{x:24.0,z:37.00}],
   heights:[.50,.54,.55,.47],radius:.115,wood:true},
+ // An independent short launch rail facing the original down-flat-down.
+ // The air gap is real space, not a connected hidden grind segment.
+ {id:"granite-tongue",points:[
+  {x:8.55,z:42.25},{x:9.85,z:42.15},{x:11.35,z:42.23}],
+  heights:[.56,.63,.67],radius:.085,wood:true},
 ] as const;
 export const SKATE_PARK_RAILS:readonly SkateRail[]=[
  {id:"park-flat-bar",a:{x:5,z:36},b:{x:5,z:44},role:"sport",radius:.075,lift:.54},
@@ -254,6 +259,16 @@ export const SKATE_PARK_RAILS:readonly SkateRail[]=[
   chainId:chain.id,segment:index,
  }))),
 ];
+/** Deliberate *separate* grind-to-grind transfers. Every departure is an
+ * actual terminal rail endpoint; every arrival is a different existing line.
+ * Transfer physics and the visual sandstone/cedar lip both use these IDs.
+ * No arbitrary nearby grind may magnetically acquire a midair rider. */
+export const SKATE_RAIL_GAPS=[
+ {id:"granite-tongue-gap",from:"granite-tongue-1",to:"down-flat-down-0",minSpeed:5.0},
+ {id:"switchback-fern-hop",from:"timber-switchback-2",to:"canyon-snake-0",minSpeed:5.1},
+ {id:"snake-root-transfer",from:"canyon-snake-3",to:"canyon-root-curved-0",minSpeed:5.4},
+] as const;
+
 export function railLiftAt(rail:SkateRail,t:number){
  return rail.lift+((rail.liftEnd??rail.lift)-rail.lift)*Math.max(0,Math.min(1,t));
 }
