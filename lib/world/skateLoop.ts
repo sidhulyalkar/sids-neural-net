@@ -41,7 +41,11 @@ export function skateLoopSample(ride:SkateLoopRide){
  const dx=-radius*Math.cos(angle)-exitOffset/LOOP_TAU;
  const dy=radiusY*Math.sin(angle)+(ride.exitY-ride.baseY)/LOOP_TAU;
  let tilt=Math.atan2(dy,-dx);
- if(angle>Math.PI&&tilt<0)tilt+=LOOP_TAU;
+ // The southern quadrant can have a negative dy at exactly π because
+ // the landing grade differs. Unwrap relative to the true path parameter
+ // (not the sign of the raw atan2 angle) to prevent a one-frame 360° pop.
+ if(tilt<angle-Math.PI)tilt+=LOOP_TAU;
+ else if(tilt>angle+Math.PI)tilt-=LOOP_TAU;
  return {
   point:{x:center.x-radius*Math.sin(angle)-exitOffset*t,z:ride.laneZ},
   y:ride.baseY+radiusY*(1-Math.cos(angle))+
