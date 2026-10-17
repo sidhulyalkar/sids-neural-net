@@ -20,10 +20,10 @@
 </g>
 <!-- The dominant type is block-filled, not a collection of wire outlines. -->
 <g text-anchor="middle" font-family="Impact,'Arial Black',sans-serif" font-stretch="condensed" font-weight="900" paint-order="stroke" stroke-linejoin="round">
- <text x="1029" y="197" font-size="215" fill="#071a22" stroke="#06131e" stroke-width="52" letter-spacing="3">SID'S UNDERGROUND</text>
- <text x="1024" y="179" font-size="215" fill="url(#rainbow)" stroke="#236879" stroke-width="32" letter-spacing="3">SID'S UNDERGROUND</text>
- <text x="1024" y="173" font-size="215" fill="url(#gold)" stroke="#f4e8cd" stroke-width="8" letter-spacing="3">SID'S UNDERGROUND</text>
- <text x="1024" y="173" font-size="215" fill="url(#grain)" stroke="none" letter-spacing="3">SID'S UNDERGROUND</text>
+ <text x="1029" y="197" font-size="157" fill="#071a22" stroke="#06131e" stroke-width="39" letter-spacing="2.5">SID'S UNDERGROUND</text>
+ <text x="1024" y="179" font-size="157" fill="url(#rainbow)" stroke="#236879" stroke-width="24" letter-spacing="3">SID'S UNDERGROUND</text>
+ <text x="1024" y="173" font-size="157" fill="url(#gold)" stroke="#f4e8cd" stroke-width="8" letter-spacing="3">SID'S UNDERGROUND</text>
+ <text x="1024" y="173" font-size="157" fill="url(#grain)" stroke="none" letter-spacing="3">SID'S UNDERGROUND</text>
 </g>
 <g stroke-linecap="round">
  <path d="M84 211Q175 228 248 216" fill="none" stroke="#ef9fb7" stroke-width="7"/>
