@@ -10,6 +10,7 @@ import {ARCADE_MURAL_ART_ASSETS,validateArcadeMuralAssets} from "@/lib/world/arc
 import {paintConceptStory,distressPigment} from "./worldArcadeConceptArt";
 import {createArcadeStoneLining} from "./worldArcadeStoneLining";
 import {createShastaPhotoStencil} from "./worldArcadeShastaStencil";
+import {createSportsFanMural} from "./worldArcadeSportsMural";
 import {ARCADE_CAVE,arcadeCaveFloorHeight} from "@/lib/world/model";
 import {sampleCavernArt,type CavernArtTheme,type CavernArtSurface,type CavernMural} from "@/lib/world/arcadeCavernSurface";
 
@@ -487,6 +488,18 @@ export function createWorldArcadeGraffiti(scene:THREE.Scene,three:ArcadeThree,
  const loader=new three.TextureLoader();
  let alive=true;
  let authoredReady=0;
+ const installAuthored=(wall:THREE.Mesh,painted:THREE.Texture,opacity:number)=>{
+  if(!alive)return;
+  const material=wall.material as THREE.MeshStandardMaterial;
+  material.map=painted;
+  material.opacity=opacity;
+  material.emissiveMap=null;
+  material.emissiveIntensity=0;
+  material.needsUpdate=true;
+  authoredReady++;
+  root.userData.authoredMuralsReady=authoredReady;
+  onAssetReady?.(authoredReady);
+ };
  const stone=createArcadeStoneLining(three);
  meshes.push(stone.mesh);textures.push(stone.texture);root.add(stone.mesh);
  for(const mural of ARCADE_CAVERN_MURALS){
@@ -499,29 +512,45 @@ export function createWorldArcadeGraffiti(scene:THREE.Scene,three:ArcadeThree,
   // horizontal must use wall width, not the degenerate z-coordinate.
   meshes.push(wall);root.add(wall);
   const artwork=ARCADE_MURAL_ART_ASSETS[mural.theme];
-  if(artwork){
-   // The .svg/.webp/.png lives in /public and is decoded once by the
-   // browser, never fetched from a third-party server. If it fails, the
-   // existing art remains visible; incomplete assets cannot break gameplay.
-   const authored=loader.load(artwork.src,(loaded)=>{
+  if(artwork?.presentation==="sports-crest-composite"){
+   const srcs=[artwork.src,...(artwork.supportingSources??[])];
+   // Use only self-hosted, full-color *authentic* crest files. The 3 bitmap
+   // images are composed once into a single matte, transparent atlas. If
+   // any source cannot load, retain the existing fallback painting.
+   const decoded:HTMLImageElement[]=[];
+   let ready=0,failed=false;
+   srcs.forEach((url,index)=>{
+    const source=loader.load(url,(loaded)=>{
+     if(!alive||failed)return;
+     decoded[index]=loaded.image as HTMLImageElement;
+     ready++;
+     if(ready===srcs.length){
+      const atlas=createSportsFanMural(decoded,three);
+      if(!alive){atlas.dispose();return;}
+      textures.push(atlas);
+      installAuthored(wall,atlas,artwork.opacity);
+     }
+    },undefined,()=>{
+     failed=true;
+     root.userData.sportsArtLoadFailure=url;
+    });
+    textures.push(source);
+   });
+  }else if(artwork){
+   // A source-authored mural is loaded from this site's /public files.
+   const source=loader.load(artwork.src,(loaded)=>{
     if(!alive)return;
     loaded.colorSpace=three.SRGBColorSpace;
     loaded.anisotropy=4;
-    const material=wall.material as THREE.MeshStandardMaterial;
     const image=loaded.image as HTMLImageElement;
     const rendered=artwork.presentation==="shasta-photo-stencil"
      ?createShastaPhotoStencil(image,three):loaded;
     if(rendered!==loaded)textures.push(rendered);
-    material.map=rendered;
-    material.opacity=artwork.opacity;
-    material.emissiveMap=null;
-    material.emissiveIntensity=0;
-    material.needsUpdate=true;
-    authoredReady++;
-    root.userData.authoredMuralsReady=authoredReady;
-    onAssetReady?.(authoredReady);
+    installAuthored(wall,rendered,artwork.opacity);
+   },undefined,()=>{
+    root.userData.muralArtLoadFailure=artwork.src;
    });
-   textures.push(authored);
+   textures.push(source);
   }
  }
  for(const layer of ["floor","ceiling"] as const){
