@@ -4817,7 +4817,9 @@ export function createWorld(
         targetLook.set(SKATE_LOOP.center.x,
           skateLoopRide.baseY+SKATE_LOOP.radius+.8,SKATE_LOOP.center.z);
       } else if(sequoiaCamera){
-        targetLook.set(player.x,playerY+1.40,player.z);
+        // The lens sees the skater THROUGH the open tree mouth, even when
+        // the board runs upside-down against the inside ceiling.
+        targetLook.set(player.x,playerY+(skateTunnelRide?.55:1.40),player.z);
       } else if (cavernFraming) {
         targetLook.set(arcadeWall.x, arcadeWallY + 2.05, arcadeWall.z - 0.5);
       } else if (rainforestFraming) {
@@ -4884,8 +4886,10 @@ export function createWorld(
         const side=travel.heading.x<=0?1:-1;
         const mouthX=GROVE_TUNNEL.center.x+
           side*(GROVE_TUNNEL.halfLength+2.9);
-        targetCamera.set(mouthX,
-          Math.max(targetLook.y+.8,groundHeight({x:mouthX,z:GROVE_TUNNEL.center.z})+1.85),
+        const floor=groundHeight({x:mouthX,z:GROVE_TUNNEL.center.z});
+        targetCamera.set(mouthX,skateTunnelRide?
+          floor+GROVE_TUNNEL.innerRadius*.95:
+          Math.max(targetLook.y+.8,floor+1.85),
           GROVE_TUNNEL.center.z);
       } else if (cavernFraming) {
         // Keep the third-person boom centered inside the authored tunnel.
@@ -5735,7 +5739,7 @@ export function createWorld(
     canvas.dataset.dogMaxAcceleration = dogMaxAcceleration.toFixed(3);
     canvas.dataset.dogTargetSwitches = String(dogTargetSwitches);
 
-    explorerContact.visible = aquatic === "land";
+    explorerContact.visible = aquatic === "land"&&!skateLoopRide&&!skateTunnelRide;
     explorerContact.position.set(
       explorer.position.x,
       aquatic === "land" ? supportHeight(player) + 0.04 : SEA_SURFACE,
