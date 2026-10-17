@@ -91,6 +91,20 @@ test("Authored cavern artwork is local, attributed, unique and usable without ne
  assert.equal(ARCADE_MURAL_ART_ASSETS.shasta!.src,
   "/visual-archive/web/photo-037.webp");
  assert.equal(ARCADE_MURAL_ART_ASSETS.shasta!.presentation,"shasta-photo-stencil");
+ assert.equal(ARCADE_MURAL_ART_ASSETS.sports!.presentation,
+  "sports-crest-composite");
+ assert.deepEqual(ARCADE_MURAL_ART_ASSETS.sports!.supportingSources,[
+  "/world/arcade-cavern/sports/patriots-crest.png",
+  "/world/arcade-cavern/sports/warriors-crest.png",
+ ]);
+ assert.equal(ARCADE_MURAL_ART_ASSETS.sports!.authorship,"third-party-trademark");
+ assert.deepEqual(validateArcadeMuralAssets({
+  sports:{...ARCADE_MURAL_ART_ASSETS.sports!,supportingSources:[
+   "/world/arcade-cavern/sports/patriots-crest.png",
+   "https://external.test/logo.png",
+  ]},
+ }),["sports: invalid supporting source"]);
+
  assert.match(ARCADE_MURAL_ART_ASSETS.shasta!.attribution,/photo-037/);
  assert.deepEqual(validateArcadeMuralAssets({
   identity:{...ARCADE_MURAL_ART_ASSETS.identity!,src:"https://example.com/art.png"},
