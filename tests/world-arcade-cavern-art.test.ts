@@ -88,6 +88,10 @@ test("Authored cavern artwork is local, attributed, unique and usable without ne
  assert.deepEqual(validateArcadeMuralAssets(),[]);
  assert.match(ARCADE_MURAL_ART_ASSETS.identity!.src,/^\/world\/arcade-cavern\/hero\/sids-underground\.svg$/);
  assert.equal(ARCADE_MURAL_ART_ASSETS.identity!.authorship,"original");
+ assert.equal(ARCADE_MURAL_ART_ASSETS.shasta!.src,
+  "/visual-archive/web/photo-037.webp");
+ assert.equal(ARCADE_MURAL_ART_ASSETS.shasta!.presentation,"shasta-photo-stencil");
+ assert.match(ARCADE_MURAL_ART_ASSETS.shasta!.attribution,/photo-037/);
  assert.deepEqual(validateArcadeMuralAssets({
   identity:{...ARCADE_MURAL_ART_ASSETS.identity!,src:"https://example.com/art.png"},
  }),["identity: invalid or remote asset path"]);
