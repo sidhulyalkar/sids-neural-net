@@ -2,13 +2,13 @@ import type {Point} from "./model";
 import {SKATE_LOOP} from "./skatepark";
 
 export type SkateLoopRide={
- angle:number; speed:number; baseY:number; laneZ:number;
+ angle:number;speed:number;baseY:number;exitY:number;laneZ:number;
 };
-const TAU=2*Math.PI;
+export const LOOP_TAU=2*Math.PI;
 const clamp=(n:number,lo:number,hi:number)=>Math.max(lo,Math.min(hi,n));
 
-/** A swept crossing, not a proximity trigger. Riding away, drifting across,
- * standing still, or entering outside the actual planked width does nothing. */
+/** Only a fast westbound crossing of the entry seam engages track contact.
+ * Proximity to its supports does not teleport the skater into the loop. */
 export function skateLoopEntryCrossing(
  previous:Point,current:Point,heading:Point,speed:number,
 ):boolean{
@@ -25,45 +25,49 @@ export function skateLoopEntryCrossing(
  return crossed&&Math.abs(crossingZ-center.z)<=entryHalfWidth;
 }
 
-/** This vertical ring has a two-dimensional projection onto the meadow.
- * The rider's wheel support and inversion are parametrized by arclength,
- * never by groundHeight(point), which only supports ordinary flat ground. */
+export function beginSkateLoop(speed:number,groundY:number,laneZ:number,
+ exitGroundY=groundY):SkateLoopRide{
+ return {angle:0,speed:Math.max(0,speed),baseY:groundY+.09,
+  exitY:exitGroundY+.09,laneZ};
+}
+
+/** The sole geometry/physics authority for the skewed elliptical stunt.
+ * East mouth is at cx; west mouth is at cx-exitOffset.
+ * The seamless closed *rotation* is 360°, but the *path* has a distinct exit.
+ * Noncircular tangent determines pitch, not an assumed circle angle. */
 export function skateLoopSample(ride:SkateLoopRide){
- const angle=clamp(ride.angle,0,TAU);
- const {center,radius}=SKATE_LOOP;
+ const angle=clamp(ride.angle,0,LOOP_TAU),t=angle/LOOP_TAU;
+ const {center,radius,radiusY,exitOffset}=SKATE_LOOP;
+ const dx=-radius*Math.cos(angle)-exitOffset/LOOP_TAU;
+ const dy=radiusY*Math.sin(angle)+(ride.exitY-ride.baseY)/LOOP_TAU;
+ let tilt=Math.atan2(dy,-dx);
+ if(angle>Math.PI&&tilt<0)tilt+=LOOP_TAU;
  return {
-  point:{x:center.x-radius*Math.sin(angle),z:ride.laneZ},
-  y:ride.baseY+radius*(1-Math.cos(angle)),
-  pitch:-angle,
-  // Tangential direction in x/y, with a continuous forward orientation.
-  horizontalTangent:-Math.cos(angle),
+  point:{x:center.x-radius*Math.sin(angle)-exitOffset*t,z:ride.laneZ},
+  y:ride.baseY+radiusY*(1-Math.cos(angle))+
+   (ride.exitY-ride.baseY)*t,
+  pitch:-tilt,
+  horizontalTangent:dx,
  };
 }
 
-export function beginSkateLoop(speed:number,groundY:number,laneZ:number):SkateLoopRide{
- return {angle:0,speed:Math.max(0,speed),baseY:groundY+.09,laneZ};
-}
-
-/** Arcade-constrained contact with gravity along the tangent. Minimum entry
- * energy clears the crown; a small assisted contact floor handles discretized
- * rolling resistance at 20 FPS without sticking the avatar upside down.
- * The assist is limited to THIS track and never alters free-roam physics. */
+/** Gravity-guided contact along an ellipse. Bounded slices prevent skipping
+ * the inverted section on low-FPS devices. This assist is track-local only. */
 export function advanceSkateLoop(
  start:SkateLoopRide,delta:number,
 ):{ride:SkateLoopRide;completed:boolean}{
  if(!Number.isFinite(delta)||delta<=0)return {ride:start,completed:false};
- let angle=clamp(start.angle,0,TAU),speed=Math.max(0,start.speed);
+ let angle=clamp(start.angle,0,LOOP_TAU),speed=Math.max(0,start.speed);
  const total=clamp(delta,0,.5);
- const slices=Math.ceil(total/.025);
- const step=total/slices;
- for(let i=0;i<slices&&angle<TAU;i++){
-  // The larger timber ring needs enough assisted contact speed to stay
-  // inverted without demanding expert pumping from the visitor.
-  speed=Math.max(5.1,speed+(-6.0*Math.sin(angle)-.14)*step);
-  angle=Math.min(TAU,angle+speed*step/SKATE_LOOP.radius);
+ const slices=Math.ceil(total/.025),step=total/slices;
+ for(let i=0;i<slices&&angle<LOOP_TAU;i++){
+  speed=Math.max(5.3,speed+(-6.0*Math.sin(angle)-.14)*step);
+  const dx=-SKATE_LOOP.radius*Math.cos(angle)-
+    SKATE_LOOP.exitOffset/LOOP_TAU;
+  const dy=SKATE_LOOP.radiusY*Math.sin(angle)+
+    (start.exitY-start.baseY)/LOOP_TAU;
+  const ds=Math.max(.2,Math.hypot(dx,dy));
+  angle=Math.min(LOOP_TAU,angle+speed*step/ds);
  }
- return {
-  ride:{...start,angle,speed},
-  completed:angle>=TAU-1e-9,
- };
+ return {ride:{...start,angle,speed},completed:angle>=LOOP_TAU-1e-9};
 }
