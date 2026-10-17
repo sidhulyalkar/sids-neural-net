@@ -69,7 +69,11 @@ export function createArcadeStoneLining(three:StoneThree){
    const z=spec.start+(spec.end-spec.start)*t;
    // Hold the stone below the decal offset .056. Very small faceted
    // displacement adds depth without touching the player's collision mesh.
-   const p=sampleCavernArt(spec.surface,z,t,s,.019);
+   // Floor and ceiling use U for the lateral (X) coordinate; the rear wall
+   // uses U for its horizontal face. Using longitudinal t for floor/roof U
+   // twisted both meshes into diagonal ribbons instead of solid linings.
+   const across=spec.surface==="floor"||spec.surface==="ceiling"?s:t;
+   const p=sampleCavernArt(spec.surface,z,across,s,.019);
    if(!p)throw Error("Stone outside cavern "+spec.surface);
    const fine=Math.sin(t*273.7+s*132.4)*Math.sin(t*109.3-s*218.8);
    const bump=(fine+1)*.004;
