@@ -53,7 +53,7 @@ Every completed asset must satisfy:
 | 1 | shasta-mountain-guardian | Actual husky photo-referenced high-res portrait, forest and snow | Source photo / commissioned render required |
 | 2 | out-of-this-world | Character-accurate Rick and Morty, Solar Opposites, Futurama, South Park collage | Approved reference/cutouts required |
 | 3 | raid-ascend | Dynamic Solo Leveling, JJK, Chainsaw Man, Fire Force, Shangri-La Frontier, Tower of God, Hell's Paradise, Kaiju 8 mural | Approved source/cutouts required |
-| 4 | home-stand | Accurate Chelsea, New England Patriots, Golden State Warriors marks | Approved brand artwork required |
+| 4 | home-stand | Accurate Chelsea, New England Patriots, Golden State Warriors marks | **Authentic three-mark PNG wall installed. Trademark provenance recorded; visual signoff pending.** |
 | 5 | striker-setpoint | Blue Lock and Haikyu!! energy and sport imagery | Approved source/cutouts required |
 | 6 | neuroforge-synapses | Graphic brain anatomy with thicker luminous arcs, real circuit hierarchy | Detailed authored composition pending |
 
@@ -107,3 +107,34 @@ randomized filler strokes have been removed.
 - `lib/world/arcadeCavernAssetManifest.ts`: authored source and provenance.
 - `scripts/playtest-arcade-interior.mjs`: screenshots and authored
   asset-runtime assertions.
+
+
+## V3.1 review checkpoint
+
+- Centerline baffle and its solid obstacles removed; teal trail now runs
+  straight through the cave to game selection.
+- Former grey rear-wall `BoxGeometry` removed and replaced with a
+  `ShapeGeometry` cap following the actual seven-vertex roof profile.
+- Added two back-wall identity frescos outside the center game's wide
+  hit target. Left rear panel displays the real Shasta portrait, right rear
+  panel the neural-network artwork, with SID'S UNDERGROUND above.
+- Authored sports wall integrates the three exact existing crest PNG
+  files, as a single intentional pigment composition rather than a
+  procedural substitute. See `arcade-cavern-sports-provenance.md`.
+- Remaining anime/comedy source imagery is not yet a detailed
+  accurate character-art asset set. It must not be represented as complete.
+
+### Release blockers
+
+1. Full in-game browser screenshot review from outside, main room and
+   individual murals, including both new rear panels.
+2. Check that back-wall gold/magenta title is actually fully in frame
+   at normal camera distances. If still clipped, redesign placement
+   instead of increasing font size.
+3. Confirm each real-team crest is recognizably sharp and not distorted
+   by aspect ratio, projection winding or alpha edge problems.
+4. Confirm every arcade target is still reachable and both rear
+   frescos stay outside the actual selection region.
+5. No merge while any CI test is failing or the art visually misses the
+   reference. Software SwiftShader FPS is not representative of
+   GPU-enabled real-device performance.
