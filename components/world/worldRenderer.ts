@@ -5104,7 +5104,7 @@ export function createWorld(
         // the board runs upside-down against the inside ceiling.
         targetLook.set(player.x,playerY+(skateTunnelRide?.55:1.40),player.z);
       } else if (cavernFraming) {
-        targetLook.set(arcadeWall.x, arcadeWallY + 2.05, arcadeWall.z - 0.5);
+        targetLook.set(arcadeWall.x, arcadeWallY + 2.65, arcadeWall.z - 0.5);
       } else if (cavernThroatFraming) {
         // Once under the rock roof look into the lantern corridor, not at
         // the outside face of the mountain behind the skater.
