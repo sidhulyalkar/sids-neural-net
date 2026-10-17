@@ -3,7 +3,7 @@ import test from "node:test";
 import * as THREE from "three/src/Three.Core.js";
 import {
  DISC_GOLF_HOLES,DISC_GOLF_VERSION,discGolfBasketPosition,discGolfWind,
- discGolfNextTarget,discGolfRouteLength,discGolfGateCrossing,
+ discGolfNextTarget,discGolfFacingHeading,discGolfRouteLength,discGolfGateCrossing,
  startDiscGolf,idleDiscGolf,discGolfThrow,stepDiscGolf,discGolfScoreName,
  discGolfRemaining,discGolfTreeContact,traceDiscGolfShot,recommendDiscGolfPower,
  discGolfIntroPose,DISC_GOLF_INTRO_HOLD,DISC_GOLF_INTRO_PULLBACK,
@@ -16,6 +16,30 @@ import {jetSkiPierHeight,JET_SKI_PIER} from "../lib/world/jetSkiPier";
 import { createDiscGolfGeometry } from "../components/world/worldDiscGolfGeometry";
 const ground=discGolfSurfaceHeight;
 const ordinary={power:74,accuracy:0,loft:25,aimOffset:0};
+test("disc-golf stance always points toward the next gate, then basket",()=>{
+ for(let i=0;i<DISC_GOLF_HOLES.length;i++){
+  const hole=DISC_GOLF_HOLES[i];
+  const game=startDiscGolf(i,ground);
+  const target=discGolfNextTarget(game);
+  const heading=discGolfFacingHeading(hole.tee,target,hole.target,{x:-1,z:0});
+  const dx=target.x-hole.tee.x,dz=target.z-hole.tee.z;
+  const length=Math.hypot(dx,dz);
+  assert.ok(length>.15,hole.id);
+  assert.ok((heading.x*dx+heading.z*dz)/length>.999,hole.id);
+  assert.ok(Math.abs(Math.hypot(heading.x,heading.z)-1)<1e-8);
+  // After the last mandatory gate, the basket becomes the facing target.
+  const basketHeading=discGolfFacingHeading(target,hole.target,hole.target,heading);
+  const endDistance=Math.hypot(hole.target.x-target.x,hole.target.z-target.z);
+  if(endDistance>.15)assert.ok(
+   (basketHeading.x*(hole.target.x-target.x)+
+    basketHeading.z*(hole.target.z-target.z))/endDistance>.999);
+ }
+ assert.deepEqual(discGolfFacingHeading({x:0,z:0},{x:0,z:0},
+  {x:0,z:0},{x:-2,z:0}),{x:-1,z:0});
+ assert.deepEqual(discGolfFacingHeading({x:0,z:0},{x:0,z:0},
+  {x:0,z:0},{x:0,z:0}),{x:0,z:1});
+});
+
 test("nine independently placed tees and fixed greens remain on playable land",()=>{
  assert.equal(DISC_GOLF_HOLES.length,9);
  assert.equal(new Set(DISC_GOLF_HOLES.map(h=>h.id)).size,9);
