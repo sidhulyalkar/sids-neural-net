@@ -9,6 +9,7 @@ import {ARCADE_CAVERN_MURALS,validateArcadeArtManifest} from "@/lib/world/arcade
 import {ARCADE_MURAL_ART_ASSETS,validateArcadeMuralAssets} from "@/lib/world/arcadeCavernAssetManifest";
 import {paintConceptStory,distressPigment} from "./worldArcadeConceptArt";
 import {createArcadeStoneLining} from "./worldArcadeStoneLining";
+import {createShastaPhotoStencil} from "./worldArcadeShastaStencil";
 import {ARCADE_CAVE,arcadeCaveFloorHeight} from "@/lib/world/model";
 import {sampleCavernArt,type CavernArtTheme,type CavernArtSurface,type CavernMural} from "@/lib/world/arcadeCavernSurface";
 
@@ -507,7 +508,11 @@ export function createWorldArcadeGraffiti(scene:THREE.Scene,three:ArcadeThree,
     loaded.colorSpace=three.SRGBColorSpace;
     loaded.anisotropy=4;
     const material=wall.material as THREE.MeshStandardMaterial;
-    material.map=loaded;
+    const image=loaded.image as HTMLImageElement;
+    const rendered=artwork.presentation==="shasta-photo-stencil"
+     ?createShastaPhotoStencil(image,three):loaded;
+    if(rendered!==loaded)textures.push(rendered);
+    material.map=rendered;
     material.opacity=artwork.opacity;
     material.emissiveMap=null;
     material.emissiveIntensity=0;
