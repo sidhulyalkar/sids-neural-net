@@ -6,6 +6,8 @@ import {
   groveBridgeRise, groveStoneRise,
 } from "@/lib/world/skatepark";
 import {terrainHeight,type Point} from "@/lib/world/model";
+import {sequoiaTubePoint,TUBE_TAU} from "@/lib/world/skateTunnel";
+import {beginSkateLoop,skateLoopSample,LOOP_TAU} from "@/lib/world/skateLoop";
 import {biomeAt,BIOME_COLORS} from "@/lib/world/biomes";
 
 /**
@@ -153,18 +155,20 @@ export function createWorldSkateGrove(scene:THREE.Scene,support:(p:Point)=>numbe
  const sequoiaInner=material("#ffffff",{side:THREE.DoubleSide,vertexColors:true});
  const sequoiaBark=material("#ffffff",{side:THREE.DoubleSide,vertexColors:true});
  const sequoiaCut=material("#d7ac78",{side:THREE.DoubleSide});
- const archSlices=60,logSlices=44,archExtent=GROVE_TUNNEL.archExtent;
+ const archSlices=88,logSlices=44;
  const treePoint=(x:number,a:number,outer:boolean)=>{
-  const along=(x-GROVE_TUNNEL.center.x)/GROVE_TUNNEL.halfLength;
-  const taper=1-GROVE_TUNNEL.taper*along;
-  // Bark has rugged longitudinal ridges, but the inner bore stays clean.
-  const grain=outer?1+.024*Math.sin(21*a+along*8)+
-   .014*Math.cos(38*a-along*7)+.010*Math.sin(7*a+along*17):1;
-  const vertical=(outer?GROVE_TUNNEL.outerRadius:GROVE_TUNNEL.innerRadius)*taper*grain;
-  const lateral=(outer?GROVE_TUNNEL.outerHalfWidth:GROVE_TUNNEL.innerHalfWidth)*taper*grain;
-  const base=ride({x,z:GROVE_TUNNEL.center.z})+GROVE_TUNNEL.archCenterLift;
-  return new THREE.Vector3(x,base+Math.cos(a)*vertical,
-   GROVE_TUNNEL.center.z+Math.sin(a)*lateral);
+  const base=ride({x,z:GROVE_TUNNEL.center.z});
+  const point=sequoiaTubePoint(x,a,base,outer);
+  if(outer){
+   // Furrows belong on the exterior only. The inner ride wall is analytically
+   // smooth and matches skateTunnelSample exactly, down to the vertex.
+   const across=(x-GROVE_TUNNEL.center.x)/GROVE_TUNNEL.halfLength;
+   const rough=1+.022*Math.sin(a*27+across*6)+.009*Math.cos(a*43-across*9);
+   const midY=base+GROVE_TUNNEL.innerRadius*(1-GROVE_TUNNEL.taper*across);
+   point.y=midY+(point.y-midY)*rough;
+   point.z=GROVE_TUNNEL.center.z+(point.z-GROVE_TUNNEL.center.z)*rough;
+  }
+  return new THREE.Vector3(point.x,point.y,point.z);
  };
  const makeSequoiaSkin=(outer:boolean)=>{
   const vertices:number[]=[],faces:number[]=[],tints:number[]=[];
@@ -175,7 +179,7 @@ export function createWorldSkateGrove(scene:THREE.Scene,support:(p:Point)=>numbe
    const x=GROVE_TUNNEL.center.x-GROVE_TUNNEL.halfLength+
     ix*GROVE_TUNNEL.halfLength*2/logSlices;
    for(let j=0;j<=archSlices;j++){
-    const a=-archExtent+j*2*archExtent/archSlices,p=treePoint(x,a,outer);
+    const a=j*TUBE_TAU/archSlices,p=treePoint(x,a,outer);
     vertices.push(p.x,p.y,p.z);
     const detail=outer ? .44+.29*Math.sin(21*a+x)+.13*Math.cos(38*a-x*2) :
      .78+.075*Math.sin(x*4+a*8);
@@ -202,7 +206,7 @@ export function createWorldSkateGrove(scene:THREE.Scene,support:(p:Point)=>numbe
   const x=GROVE_TUNNEL.center.x+side*GROVE_TUNNEL.halfLength;
   const off=cutVertices.length/3;
   for(let j=0;j<=archSlices;j++){
-   const a=-archExtent+j*2*archExtent/archSlices;
+   const a=j*TUBE_TAU/archSlices;
    for(const outer of [false,true]){
     const p=treePoint(x,a,outer);
     cutVertices.push(p.x+side*.005,p.y,p.z);
@@ -223,7 +227,7 @@ export function createWorldSkateGrove(scene:THREE.Scene,support:(p:Point)=>numbe
  for(const side of [-1,1]){
   const x=GROVE_TUNNEL.center.x+side*GROVE_TUNNEL.halfLength;
   for(const weight of [.18,.54,.91])for(let j=0;j<archSlices;j++){
-   const a=-archExtent+j*2*archExtent/archSlices,b=a+2*archExtent/archSlices;
+   const a=j*TUBE_TAU/archSlices,b=a+TUBE_TAU/archSlices;
    const wood=(angle:number)=>treePoint(x,angle,false)
     .lerp(treePoint(x,angle,true),weight);
    sequoiaEndGrain.push(beam(wood(a),wood(b),weight>.8?.023:.013));
@@ -237,7 +241,7 @@ export function createWorldSkateGrove(scene:THREE.Scene,support:(p:Point)=>numbe
   }
  }
  for(let j=0;j<20;j++){
-  const a=-archExtent+.10+j*(archExtent*2-.20)/19;
+  const a=.10+j*(TUBE_TAU-.20)/19;
   let last:THREE.Vector3|null=null;
   for(let ix=0;ix<=logSlices;ix+=2){
    const x=GROVE_TUNNEL.center.x-GROVE_TUNNEL.halfLength+
