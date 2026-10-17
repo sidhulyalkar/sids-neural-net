@@ -155,7 +155,6 @@ export function createWorldSkateGrove(scene:THREE.Scene,support:(p:Point)=>numbe
  // the rendered grid samples the SAME skateParkSurface at every vertex.
  const flowVertices:number[]=[],flowColors:number[]=[],flowFaces:number[]=[];
  const flowStepsX=80,flowStepsZ=42;
- const canyonEarth=new THREE.Color("#85836e");
  const flowCedar=new THREE.Color("#c5a477");
  for(let iz=0;iz<=flowStepsZ;iz++)for(let ix=0;ix<=flowStepsX;ix++){
   const x=CANYON_FLOW.startX+
@@ -165,8 +164,14 @@ export function createWorldSkateGrove(scene:THREE.Scene,support:(p:Point)=>numbe
   const p={x,z},h=ride(p),lift=canyonFlowRise(p);
   flowVertices.push(x,h+.035,z);
   const mix=THREE.MathUtils.clamp((lift-.02)/.42,0,.85);
-  const color=canyonEarth.clone().lerp(flowCedar,mix);
-  const woodGrain=1+.018*Math.sin(x*6.2+z*1.7);
+  // Low-lying ground is the host biome, not a rectangular olive decal.
+  // Only shaped rollers and polished wood surfaces acquire cedar pigments.
+  const color=new THREE.Color(0,0,0);
+  for(const [biome,weight] of Object.entries(biomeAt(p).weights))
+   color.add(new THREE.Color(BIOME_COLORS[biome as keyof typeof BIOME_COLORS])
+    .multiplyScalar(weight));
+  color.lerp(flowCedar,mix);
+  const woodGrain=1+.018*Math.sin(x*6.2+z*1.7)*mix;
   color.multiplyScalar(woodGrain);
   flowColors.push(color.r,color.g,color.b);
  }
