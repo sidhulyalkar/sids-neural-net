@@ -1566,8 +1566,9 @@ export function createWorld(
     SRGBColorSpace:THREE.SRGBColorSpace,
     RepeatWrapping:THREE.RepeatWrapping,
     LinearMipmapLinearFilter:THREE.LinearMipmapLinearFilter,
-  });
-  canvas.dataset.arcadeGraffitiVersion="concept-fidelity-v2";
+    TextureLoader:THREE.TextureLoader,
+  },count=>{canvas.dataset.arcadeAuthoredMuralsReady=String(count);});
+  canvas.dataset.arcadeGraffitiVersion="asset-first-v3";
   canvas.dataset.arcadeGraffitiMurals=String(arcadeGraffiti.diagnostics.murals);
   canvas.dataset.arcadeGraffitiDrawCalls=String(arcadeGraffiti.diagnostics.drawCalls);
   canvas.dataset.arcadeGraffitiTriangles=String(arcadeGraffiti.diagnostics.triangles);
