@@ -21,7 +21,7 @@ test("Curated wall program honors the corrected shonen/isekai/sports anime favor
  for(const favorite of ["BLUE LOCK","HAIKYU!!"])
   assert.ok(sports.tags.includes(favorite));
  const shasta=ARCADE_CAVERN_MURALS.find(m=>m.theme==="shasta")!;
- const neural=ARCADE_CAVERN_MURALS.find(m=>m.theme==="neural")!;
+ const neural=ARCADE_CAVERN_MURALS.find(m=>m.theme==="neural"&&m.surface==="right")!;
  assert.ok(shasta.tags.includes("SHASTA"));
  assert.ok(neural.tags.includes("NEUROSCIENCE"));
  assert.equal(shasta.surface,"left");
