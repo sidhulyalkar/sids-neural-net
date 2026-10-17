@@ -50,7 +50,7 @@ export function sampleCavernArt(surface:CavernArtSurface,z:number,u:number,v:num
  let p:CavernPoint,n:CavernPoint;
  if(surface==="left"||surface==="right"){
   const indices=surface==="left"?[0,1,2]:[6,5,4];
-  const h=mix(v*2/1.15,0,0); // dimensionless vertical extent
+  const h=v*2; // cover the complete wall-to-roof two-facet surface
   const s=Math.max(0,Math.min(1.999999,h));
   const j=Math.floor(s),t=s-j;
   p=interp(r[indices[j]],r[indices[j+1]],t);
