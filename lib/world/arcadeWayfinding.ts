@@ -1,4 +1,4 @@
-import {ARCADE_CAVE,terrainHeight,type Point} from "./model";
+import {ARCADE_CAVE,arcadeCaveFloorHeight,terrainHeight,type Point} from "./model";
 
 /** Four discoverable breadcrumbs descending the open Granite Ridge shoulder
  * toward the cavern's real south-facing mouth. All stonework is visual-only:
@@ -39,4 +39,19 @@ export function arcadeTrailHint(point:Point,caveLayer:"surface"|"arcade"|"paper"
 /** Grounded anchor points help tests reject visually floating beacons. */
 export function arcadeTrailFooting(p:Point){
  return terrainHeight(p.x,p.z);
+}
+
+/** Safe camera pose on the open outside lip, looking AT the gateway rather
+ * than THROUGH the unreconstructed mountain roof behind the portal. Fast
+ * travel snaps here before lerping resumes, so the camera never flies inside
+ * the terrain while traversing the island from an unrelated biome. */
+export function arcadeEntranceCameraPose(){
+ const {entrance}=ARCADE_CAVE;
+ const floor=arcadeCaveFloorHeight(entrance);
+ const cameraZ=entrance.z-8.1;
+ return {
+  position:{x:entrance.x,y:Math.max(
+   terrainHeight(entrance.x,cameraZ)+4.7,floor+1.9),z:cameraZ},
+  look:{x:entrance.x,y:floor+3.55,z:entrance.z-.95},
+ };
 }
