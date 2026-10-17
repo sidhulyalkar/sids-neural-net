@@ -4933,10 +4933,11 @@ export function createWorld(
         callbacks.onLocation(r, discovery);
       }
       const cavernApproachFraming =
-        aquatic === "land" &&
+        aquatic === "land" && !caveInside &&
         distance(player,arcade)<12 &&
         caveProgress <= 0.32 &&
         distance(player, arcade) < 5.8;
+      const cavernThroatFraming=caveInside&&caveProgress<=.48;
       const cavernFraming =
         caveInside && caveProgress > 0.48 && distance(player, arcadeWall) < 8.5;
       // Arrive at the rainforest clearing from the open coastal side, not
@@ -4990,6 +4991,10 @@ export function createWorld(
         targetLook.set(player.x,playerY+(skateTunnelRide?.55:1.40),player.z);
       } else if (cavernFraming) {
         targetLook.set(arcadeWall.x, arcadeWallY + 2.05, arcadeWall.z - 0.5);
+      } else if (cavernThroatFraming) {
+        // Once under the rock roof look into the lantern corridor, not at
+        // the outside face of the mountain behind the skater.
+        targetLook.set(player.x,playerY+1.6,player.z+2.3);
       } else if (rainforestFraming) {
         targetLook.set(player.x,playerY+2,player.z);
       } else if (cavernApproachFraming) {
@@ -5058,15 +5063,13 @@ export function createWorld(
           GROVE_TUNNEL.center.z);
       } else if (cavernFraming) {
         // Keep the third-person boom centered inside the authored tunnel.
-        // A lower eye line prevents the roof from swallowing the frame while
-        // preserving the explorer silhouette against the carved game wall.
         const caveCameraZ = Math.max(arcade.z + 0.9, player.z - 4.2);
-        const caveCameraFloor = terrainHeight(arcade.x, caveCameraZ);
-        targetCamera.set(
-          arcade.x,
-          caveCameraFloor + 2.05,
-          caveCameraZ,
-        );
+        const caveCameraFloor = arcadeCaveFloorHeight({x:arcade.x,z:caveCameraZ});
+        targetCamera.set(arcade.x,caveCameraFloor+2.05,caveCameraZ);
+      } else if (cavernThroatFraming) {
+        const caveCameraZ=Math.max(arcade.z-1.1,player.z-3.6);
+        const floor=arcadeCaveFloorHeight({x:arcade.x,z:caveCameraZ});
+        targetCamera.set(arcade.x,floor+2.3,caveCameraZ);
       } else if (rainforestFraming) {
         const coastX=eastCoastlineX(player.z)+9;
         // A higher canopy-level overlook opens the clearing without
@@ -5125,7 +5128,7 @@ export function createWorld(
       // tighter camera clearance because the global +3.5m terrain clamp pushed
       // the camera into the roof on the steep backside slope.
       if (aquatic === "land") {
-        if (cavernFraming) {
+        if (cavernFraming||cavernThroatFraming) {
           const cameraFloor = arcadeCaveFloorHeight({x:targetCamera.x,z:targetCamera.z});
           const cameraCeiling = cameraFloor + ARCADE_CAVE.ceilingClearance;
           targetCamera.y = THREE.MathUtils.clamp(
