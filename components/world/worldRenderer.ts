@@ -1,3 +1,4 @@
+import {ARCADE_GATE,ARCADE_TRAIL_MARKERS,arcadeTrailHint,arcadeTrailStage,arcadeTrailFooting} from "@/lib/world/arcadeWayfinding";
 import {createWorldSkimSurf} from "./worldSkimSurfGeometry";
 import { desertTrackTreadBlend, desertTrackSampleAt, DESERT_GAP_DEBRIS, DESERT_JUMPS, DESERT_TRACK_LENGTH } from "@/lib/world/desertTrack";
 import {insideSkatePark,skateParkZone,skateGroveStartHeading,SKATE_LOOP,GROVE_TUNNEL,SKATE_GROVE_FRAME_TREES,advanceRailChain,railLiftAt,insideCanyonFlow,CANYON_FLOW,type SkateRail} from "@/lib/world/skatepark";
@@ -189,6 +190,11 @@ export function createWorld(
   skateHud.setAttribute("role","status");
   skateHud.style.cssText="display:none;position:absolute;bottom:14px;left:50%;transform:translateX(-50%);z-index:7;pointer-events:none;max-width:94%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:7px 13px;border-radius:10px;background:#12242bd9;color:#eef7f4;border:1px solid #bed9cc70;font:600 12px/1.3 system-ui,sans-serif;text-align:center";
   host.appendChild(skateHud);
+  const arcadeTrailHud=document.createElement("div");
+  arcadeTrailHud.setAttribute("role","status");
+  arcadeTrailHud.setAttribute("aria-label","Arcade Cavern trail guidance");
+  arcadeTrailHud.style.cssText="display:none;position:absolute;left:50%;bottom:55px;transform:translateX(-50%);max-width:85%;z-index:6;pointer-events:none;padding:8px 13px;border-radius:10px;background:#17252add;color:#f4d29d;border:1px solid #ecb56a8a;box-shadow:0 6px 20px #0d181c55;text-align:center;font:650 11px/1.4 system-ui,sans-serif;letter-spacing:.055em";
+  host.appendChild(arcadeTrailHud);
   // A brief, non-blocking landing card is more rewarding than a permanent
   // dashboard. The island stays visible while the completed move is named.
   const skateResult=document.createElement("div");
@@ -1382,6 +1388,122 @@ export function createWorld(
   // Recessed throat baffle blocks the direct exterior view of the rear niche.
   const baffleFloor=arcadeCaveFloorHeight({x:16,z:-74.5});
   mesh(boxGeo,mat("#646b67"),[14.2,baffleFloor+2.35,-74.5],[4.8,4.7,.7]);
+  // GRANITE SIGNAL: a legible exterior silhouette that announces an
+  // underground arcade without drawing a floating neon UI or blocking the
+  // entrance. Two split basalt horns frame the passage from the southern
+  // approach. They sit OUTSIDE the authored cave tunnel's walking width.
+  const arcadeWaystone=mat("#4e555a",{roughness:.97});
+  const arcadeBasalt=mat("#343e43",{roughness:.97});
+  const arcadeEmber=mat("#f4bf70",{
+    emissive:"#f2a63d",emissiveIntensity:1.9,roughness:.42,
+  });
+  const arcadeGlacial=mat("#89c9c7",{
+    emissive:"#4baca7",emissiveIntensity:1.0,roughness:.5,
+  });
+  const arcadeStoneParts:Instance[]=[];
+  const arcadeBeaconFlames:Instance[]=[];
+  const arcadeRuneInlays:Instance[]=[];
+  // Paired standing stones form a visible broken crown instead of a prefab
+  // circular doorway. Their inner edges stay >4m from the mouth centerline.
+  for(const [point,side] of [
+    [ARCADE_GATE.left,-1],[ARCADE_GATE.right,1],
+  ] as const){
+    const y=arcadeTrailFooting(point);
+    arcadeStoneParts.push({
+      x:point.x,y:y+2.75,z:point.z,sx:1.08,sy:5.50,sz:1.25,
+      q:new THREE.Quaternion().setFromAxisAngle(
+        new THREE.Vector3(0,0,1),side*.105),
+    });
+    arcadeBeaconFlames.push({
+      x:point.x,y:y+5.46,z:point.z-.21,sx:.18,sy:.35,sz:.17,
+    });
+    for(let j=0;j<3;j++)arcadeRuneInlays.push({
+      x:point.x-side*.59,y:y+1.7+j*.46,z:point.z-.68,
+      sx:.10,sy:.22,sz:.042,
+    });
+  }
+  const caveSignalHeight=arcadeCaveFloorHeight(ARCADE_CAVE.entrance)+5.9;
+  // A suspended amber diamond sits above the passage, readable against both
+  // twilight and the pale mountain face without an expensive new point light.
+  arcadeBeaconFlames.push({
+    x:ARCADE_GATE.beacon.x,y:caveSignalHeight,
+    z:ARCADE_GATE.beacon.z,sx:.54,sy:.73,sz:.43,
+  });
+  const arcadeSignalRim:Instance[]=[];
+  const signalTop=new THREE.Vector3(ARCADE_GATE.beacon.x,
+    caveSignalHeight+1.00,ARCADE_GATE.beacon.z);
+  for(const point of [ARCADE_GATE.left,ARCADE_GATE.right]){
+    arcadeSignalRim.push(segment(
+      new THREE.Vector3(point.x,arcadeTrailFooting(point)+4.2,point.z-.20),
+      signalTop,.11));
+  }
+  // A small sequence of warm, three-stripe cairns leads down the backside
+  // of Granite Ridge. Off-center footings and zero gameplay colliders ensure
+  // ordinary skiing, walking and camera occlusion are not obstructed.
+  const cairnPosts:Instance[]=[],cairnBands:Instance[]=[];
+  for(const mark of ARCADE_TRAIL_MARKERS){
+    const y=arcadeTrailFooting(mark.point);
+    cairnPosts.push({
+      x:mark.point.x,y:y+mark.height*.43,z:mark.point.z,
+      sx:.48,sy:mark.height*.86,sz:.52,
+    });
+    arcadeBeaconFlames.push({
+      x:mark.point.x,y:y+mark.height-.05,z:mark.point.z,
+      sx:.25,sy:.34,sz:.25,
+    });
+    for(let ring=0;ring<3;ring++){
+      cairnBands.push({
+        x:mark.point.x,y:y+mark.height*(.37+ring*.125),
+        z:mark.point.z-.285,sx:.35,sy:.065,sz:.048,
+      });
+    }
+  }
+  const arcadePortalStone=instances(boxGeo,arcadeBasalt,arcadeStoneParts,false);
+  arcadePortalStone.name="arcade-cavern-split-basalt-portal";
+  const arcadeTrailStones=instances(rockGeo,arcadeWaystone,cairnPosts,false);
+  arcadeTrailStones.name="arcade-cavern-ridge-cairns";
+  const arcadeSignal=instances(rockGeo,arcadeEmber,arcadeBeaconFlames,false);
+  arcadeSignal.name="arcade-cavern-amber-beacons";
+  instances(cylinder,arcadeEmber,cairnBands,false);
+  instances(boxGeo,arcadeGlacial,arcadeRuneInlays,false);
+  instances(cylinder,arcadeWaystone,arcadeSignalRim,false);
+  // Lightweight carved sign on the SOUTH face of the mouth. Everything
+  // starts above player height, so there is no arch collision or visual wall
+  // hiding the entrance. Use the same pixel alphabet as the game-wall art.
+  const signY=arcadeCaveFloorHeight(ARCADE_CAVE.entrance)+4.25;
+  const signZ=ARCADE_GATE.sign.z+3.20;
+  mesh(boxGeo,arcadeBasalt,
+    [ARCADE_GATE.sign.x,signY,signZ],[3.55,.85,.18]);
+  const arcadeWord="ARCADE";
+  const signFont:Record<string,string[]>={
+    A:["010","101","111","101","101"],
+    R:["110","101","110","101","101"],
+    C:["111","100","100","100","111"],
+    D:["110","101","101","101","110"],
+    E:["111","100","110","100","111"],
+  };
+  const signPixels:Instance[]=[];
+  const pixelSize=.105;
+  const signWidth=arcadeWord.length*4*pixelSize;
+  [...arcadeWord].forEach((letter,col)=>{
+    signFont[letter]?.forEach((bits,row)=>{
+      [...bits].forEach((bit,k)=>{
+        if(bit!=="1")return;
+        signPixels.push({
+          x:ARCADE_GATE.sign.x-signWidth*.5+
+            (col*4+k+.5)*pixelSize,
+          y:signY+.23-row*pixelSize,
+          z:signZ-.12,sx:pixelSize*.82,sy:pixelSize*.82,sz:.035,
+        });
+      });
+    });
+  });
+  const arcadeSign=instances(boxGeo,arcadeEmber,signPixels,false);
+  arcadeSign.name="arcade-cavern-readable-sign";
+  canvas.dataset.arcadeWayfinding="split-basalt-amber-v1";
+  canvas.dataset.arcadeTrailMarkers=String(ARCADE_TRAIL_MARKERS.length);
+  canvas.dataset.arcadeWayfindingSign=arcadeWord;
+
   // A single small hanging lantern provides the cave's warm interior light.
   const lanternFloor = arcadeCaveFloorHeight(ARCADE_CAVE.lantern);
   const lanternY = lanternFloor + ARCADE_CAVE.ceilingClearance - 0.85;
@@ -4753,6 +4875,14 @@ export function createWorld(
       canvas.dataset.caveInside = String(caveInside);
       canvas.dataset.caveDepth = caveProgress.toFixed(3);
       canvas.dataset.caveLayer = caveLayer;
+      const wayfindingStage=arcadeTrailStage(player,caveLayer);
+      const trailHint=arcadeTrailHint(player,caveLayer);
+      canvas.dataset.arcadeTrailStage=wayfindingStage;
+      canvas.dataset.arcadeTrailHint=trailHint;
+      arcadeTrailHud.textContent=trailHint;
+      arcadeTrailHud.style.display=trailHint&&state.entered&&!state.paused&&
+        aquatic==="land"&&discGolf.phase==="off"&&
+        !jetSki&&!jetChoosing?"block":"none";
       canvas.dataset.player = `${player.x.toFixed(2)},${player.z.toFixed(2)}`;
       canvas.dataset.jetSkiPier=String(nearJetSkiBoarding(player)&&aquatic==="land");
       canvas.dataset.jetSkiDeckHeight=jetSkiPierHeight(player)?.toFixed(2)??"";
@@ -6680,7 +6810,7 @@ export function createWorld(
       discGolfObjects.dispose();
       jetskiCoast.dispose();
       rideVisual.dispose();rideHud.remove();rideReticle.remove();rideAnnounce.remove();
-      skateHud.remove();skateTouch.remove();skateResult.remove();
+      skateHud.remove();skateTouch.remove();skateResult.remove();arcadeTrailHud.remove();
       jetHud.remove();jetAnnounce.remove();jetTouch.remove();jetNotice.remove();jetChooser.remove();
       jetskiVisual.root.traverse(object=>{
         if(object instanceof THREE.Mesh){object.geometry.dispose();
