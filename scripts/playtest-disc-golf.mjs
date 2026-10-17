@@ -52,6 +52,9 @@ try{
   console.error("WORLD BOOT DIAGNOSTICS",JSON.stringify({diagnostics,errors},null,2));
   throw err;
  }
+ // Enter disc golf while skateboarding is still selected. Disc throwing
+ // must use a forward-facing stance, not the old sideways board pose.
+ await page.getByRole("button",{name:"Skateboarding",exact:true}).click();
  await page.getByRole("button",{name:/^Disc golf · (play|resume|scorecard)$/}).click();
  const canvas=page.locator("canvas");
  await page.waitForFunction(()=>document.querySelector("canvas")?.dataset.discGolfPhase==="ready");
@@ -117,6 +120,11 @@ try{
    const c=document.querySelector("canvas");
    return c?.dataset.discGolfHole===id&&c?.dataset.discGolfPhase==="ready";
   },ids[i]);
+  await page.waitForFunction(()=>{
+   const d=document.querySelector("canvas")?.dataset;
+   return Number(d?.discGolfFacingDot)>.96 &&
+    Math.abs(Number(d?.discGolfBodyYaw))<.1 && d?.activity==="run";
+  },null,{timeout:15000});
   assert.equal(await canvas.getAttribute("data-disc-golf-last-shot"),"pending");
   assert.equal(await canvas.getAttribute("data-disc-golf-gates"),"0");
   assert.ok(Number(await canvas.getAttribute("data-disc-golf-gates-total"))>=1,
@@ -233,7 +241,14 @@ try{
    const d=document.querySelector('canvas[role="application"]')?.dataset;
    return d?.discGolfPlayerFramed==="true"&&d.discGolfRenderedCameraClear==="true";
   },null,{timeout:15000});
+  await page.waitForFunction(()=>{
+   const d=document.querySelector("canvas")?.dataset;
+   return Number(d?.discGolfFacingDot)>.96 &&
+    Math.abs(Number(d?.discGolfBodyYaw))<.1;
+  },null,{timeout:10000});
   const cameraEvidence=await canvas.evaluate(c=>({
+   facing:Number(c.dataset.discGolfFacingDot),
+   bodyYaw:Number(c.dataset.discGolfBodyYaw),
    clear:c.dataset.discGolfRenderedCameraClear,framed:c.dataset.discGolfPlayerFramed,
    cutaways:Number(c.dataset.discGolfCameraCutaways),volumes:Number(c.dataset.discGolfRenderedVolumes),
   }));
