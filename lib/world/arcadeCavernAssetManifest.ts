@@ -43,6 +43,12 @@ export const ARCADE_MURAL_ART_ASSETS:Partial<
   attribution:"Original authored SVG brain, neural circuits and Mind Forge graffiti for Sid's World",
   opacity:1,revision:1,presentation:"original-texture",
  },
+ "sport-anime": {
+  src:"/world/arcade-cavern/sport-anime/striker-setpoint.svg",
+  authorship:"original",
+  attribution:"Original authored sports-anime graffiti tribute with soccer and volleyball illustrations",
+  opacity:1,revision:1,presentation:"original-texture",
+ },
  anime: {
   src:"/world/arcade-cavern/anime/raid-ascend.svg",
   authorship:"original",
