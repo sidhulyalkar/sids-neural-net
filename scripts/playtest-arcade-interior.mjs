@@ -29,6 +29,8 @@ try{
   assert.equal(evidence.metrics.count,7,"all authored original murals must be loaded");
   assert.ok(evidence.metrics.calls<=18,"graffiti is an optimized draw batch");
   assert.ok(evidence.metrics.triangles<=40000,"stay inside geometry budget");
+  assert.equal(await canvas.getAttribute("data-arcade-architecture"),
+   "open-stone-cap-v3","the old rear-wall box and throat baffle must be absent");
   // A source-authored local title texture must really load into WebGL.
   // The procedural fallback is not accepted as evidence of that asset.
   await page.waitForFunction(()=>Number(
