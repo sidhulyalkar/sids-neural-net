@@ -1,0 +1,82 @@
+name: Arcade Cavern Wayfinding Browser QA
+
+on:
+  pull_request:
+    paths:
+      - 'components/world/worldRenderer.ts'
+      - 'lib/world/model.ts'
+      - 'lib/world/arcadeWayfinding.ts'
+      - 'lib/world/arcadeCavernSurface.ts'
+      - 'lib/world/arcadeCavernArtManifest.ts'
+      - 'lib/world/arcadeMuralsSports.ts'
+      - 'lib/world/arcadeMuralsAnime.ts'
+      - 'lib/world/arcadeMuralsComedy.ts'
+      - 'lib/world/arcadeMuralsIdentity.ts'
+      - 'components/world/worldArcadeGraffitiGeometry.ts'
+      - 'tests/world-arcade-cavern-art.test.ts'
+      - 'scripts/playtest-arcade-interior.mjs'
+      - 'tests/world-arcade-wayfinding.test.ts'
+      - 'scripts/playtest-arcade-wayfinding.mjs'
+      - '.github/workflows/arcade-cavern-browser.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: arcade-cavern-wayfinding-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  walk-to-arcade:
+    runs-on: ubuntu-latest
+    timeout-minutes: 16
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install locked site dependencies
+        run: npm ci
+      - name: Check types and landmark geometry
+        run: |
+          npm run typecheck
+          node --import tsx --test tests/world-arcade-wayfinding.test.ts
+          node --import tsx --test tests/world-arcade-cavern-art.test.ts
+      - name: Install isolated browser runtime
+        run: |
+          mkdir -p /tmp/arcade-cave-playwright
+          npm install --prefix /tmp/arcade-cave-playwright --no-save --package-lock=false --ignore-scripts playwright@1.56.1
+          /tmp/arcade-cave-playwright/node_modules/.bin/playwright install --with-deps chromium
+      - name: Start World at local preview
+        run: |
+          npm run dev -- --hostname 127.0.0.1 > /tmp/arcade-cavern-next.log 2>&1 &
+          for i in {1..90}; do
+            if curl -fsS http://127.0.0.1:3000/ >/dev/null; then exit 0; fi
+            sleep 2
+          done
+          tail -n 100 /tmp/arcade-cavern-next.log
+          exit 1
+      - name: Discover sign and walk into the cavern
+        env:
+          WORLD_BASE_URL: http://127.0.0.1:3000
+          WORLD_AUDIT_DIR: artifacts/world/arcade-wayfinding
+          PLAYWRIGHT_MODULE_ROOT: /tmp/arcade-cave-playwright/node_modules/playwright
+        run: node scripts/playtest-arcade-wayfinding.mjs
+      - name: Verify handpainted anime, sports and comedy murals in real cave play
+        env:
+          WORLD_BASE_URL: http://127.0.0.1:3000
+          WORLD_AUDIT_DIR: artifacts/world/arcade-interior
+          PLAYWRIGHT_MODULE_ROOT: /tmp/arcade-cave-playwright/node_modules/playwright
+        run: node scripts/playtest-arcade-interior.mjs
+      - name: Preserve landmark screenshots and trace
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: arcade-cavern-wayfinding-${{ github.sha }}
+          path: |
+            artifacts/world/arcade-wayfinding/
+            artifacts/world/arcade-interior/
+            /tmp/arcade-cavern-next.log
+          if-no-files-found: warn

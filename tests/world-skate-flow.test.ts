@@ -65,7 +65,7 @@ test("the bowl assists a safe south-facing carve but rejects unsafe cliff launch
  const south={x:0,z:1};
  assert.equal(redwoodBowlExitCrossing(southInside,southOutside,south,8),null);
  // A southeast exit at *moderate* speed has a meadow landing corridor.
- const p={x:-7.84,z:43.08},q={x:-7.65,z:43.3},se={x:.6,z:.8};
+ const p={x:-7.84,z:43.08},q={x:-7.60,z:43.40},se={x:.6,z:.8};
  const hit=redwoodBowlExitCrossing(p,q,se,8);
  assert.equal(hit?.id,"redwood-bowl-exit");
  assert.ok(hit!.impulse>2.8&&hit!.impulse<3.3);
