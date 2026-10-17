@@ -50,6 +50,8 @@ try{
     return {stage,point:d.player?.split(",").map(Number)??[],
      speed:Number(d.speed),grindId:d.grindId,chain:d.grindChain,
      grind:d.grinding,ready:d.grindReady,meters:Number(d.grindMeters),
+     gapPhase:d.skateGapPhase,gapId:d.skateGapId,
+     gapEntries:Number(d.skateGapEntries),gapLandings:Number(d.skateGapLandings),
      score:Number(d.skateScore),result:d.skateLastResult,
      zone:d.skateGroveZone,activity:d.activity};
    };
@@ -80,9 +82,18 @@ try{
       visited.push(s.grindId);
     }
     if(stage==="grind"&&started&&s.grind==="false"){
+     if(s.gapPhase!=="airborne"||s.gapId!=="snake-root-transfer"){
+      fail("Linked rail exited without taking its authored open-air gap",s);return;
+     }
+     stage="air-gap";
+    }
+    if(stage==="air-gap"&&s.gapLandings>=1&&s.grind==="true"){
      ended=s;release();
      resolve({started,ended,visited,sampled,frames,priorScore});
      return;
+    }
+    if(stage==="air-gap"&&s.gapPhase==="free"&&s.gapLandings===0){
+     fail("Gap completed without catching the receiving rail",s);return;
     }
     if(stage==="approach"&&x>11.7){
      fail("Passed snake rail without entering grind range",s);return;
@@ -95,13 +106,17 @@ try{
    "Space should engage the connected snake line, not an incidental obstacle");
   assert.ok(evidence.visited.length>=3,
    "a single Space press must round multiple corners of the linked rail");
-  assert.equal(evidence.ended?.grind,"false");
+  assert.equal(evidence.ended?.grind,"true");
+  assert.ok(evidence.ended?.grindId?.startsWith("canyon-root-curved"),
+   "Airborne landing should actually attach to the separate root rail");
+  assert.equal(evidence.ended?.gapLandings,1,
+   "Every observed gap should land and count exactly once");
   assert.equal(evidence.ended?.activity,"skate");
   assert.ok(evidence.ended?.score>evidence.priorScore,
    "distance-scored grind should credit exactly after release");
   assert.deepEqual(errors,[]);
-  await page.screenshot({path:path.join(out,"02-curved-rail-landed.png")});
-  console.log("MOSS CANYON CONNECTED RAIL PASS",JSON.stringify({evidence,errors}));
+  await page.screenshot({path:path.join(out,"02-rail-to-rail-gap-landed.png")});
+  console.log("MOSS CANYON RAIL-TO-RAIL GAP PASS",JSON.stringify({evidence,errors}));
  }catch(e){
   try{await page.evaluate(()=>{
    for(const k of ["w"," "])
