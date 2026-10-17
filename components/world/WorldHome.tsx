@@ -563,6 +563,17 @@ export function WorldHome({ content }: { content: WorldContent }) {
                   Skatepark · south meadow
                 </button>
               )}
+              {activity==="skate" && !worldGameActive && (
+                <button className={styles.trialLaunch} disabled={!ready||quiet}
+                  onClick={()=>{
+                    setCommand(previous=>({region:"canyon",
+                      serial:(previous?.serial??0)+1,activity:"skate",
+                      skateDestination:"canyon-flow"}));
+                    requestAnimationFrame(()=>worldRoot.current?.querySelector("canvas")?.focus({preventScroll:true}));
+                  }}>
+                  Moss Canyon · flow trail
+                </button>
+              )}
               {activity==="ski" && bigAir.phase!=="armed" && bigAir.phase!=="flying" &&
                 trial.phase!=="armed"&&trial.phase!=="running" && (
                 <button className={styles.trialLaunch} disabled={!ready||quiet}
