@@ -498,4 +498,5 @@ export type WorldCommand = {
   region: RegionId;
   serial: number;
   activity?: import("./activities").Activity;
+  skateDestination?: "canyon-flow";
 };
