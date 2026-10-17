@@ -128,6 +128,12 @@ export function scoreSkateLoop(state:SkateTrickState,now:number,speed:number):Sk
  return award(state,"Sequoia Loop 360°",420+Math.round(Math.min(18,Math.max(0,speed))*8),now);
 }
 
+/** A real complete inside-trunk revolution, not the proximity of a log. */
+export function scoreSkateTunnel(state:SkateTrickState,now:number,speed:number):SkateTrickState{
+ if(state.phase!=="ground"||!Number.isFinite(now)||!Number.isFinite(speed))return state;
+ return award(state,"Sequoia Hollow 360°",350+Math.round(Math.min(18,Math.max(0,speed))*7),now);
+}
+
 /** Grinding scores only covered distance; a camera-nearby rail never scores. */
 export function scoreSkateGrind(state:SkateTrickState,meters:number,style:"fifty-fifty"|"boardslide",now:number):SkateTrickState{
  if(!Number.isFinite(meters)||meters<.5||state.phase!=="ground")return state;
