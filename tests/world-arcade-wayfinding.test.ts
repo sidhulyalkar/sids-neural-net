@@ -40,17 +40,18 @@ test("split portal, sign and standing stones never occlude the cave approach",()
  }
  assert.ok(ARCADE_GATE.sign.z<ARCADE_CAVE.entrance.z+.3);
  assert.ok(ARCADE_GATE.sign.z>ARCADE_CAVE.approach.z);
- // Wayfinding is *visual only*. Existing underground baffle and stone shell
- // remain the sole cave collision contributors and must not change.
+ // Navigation art must not create new collisions. Cave sidewalls remain
+ // authoritative, while the former center baffle must be gone.
  const solids=caveObstacles();
- assert.ok(solids.length>=75,
-  "existing cave sidewalls and baffle must remain collision-authoritative");
+ assert.ok(solids.length>=65,"cave perimeter obstacles must remain intact");
+ assert.ok(!solids.some(p=>Math.abs(p.z+74.5)<.31 &&
+   p.x>11.5&&p.x<17),"center baffle collision must be removed");
  assert.ok(!solids.some(p=>
   Math.abs(p.z-ARCADE_CAVE.approach.z)<.5&&
   Math.abs(p.x-ARCADE_CAVE.approach.x)<1.5));
 });
 
-test("real lateral cave navigation is open beyond the rock baffle",()=>{
+test("real lateral cave navigation stays open without the former rock baffle",()=>{
  let travel:Travel={
   point:{x:18.57,z:-66.13},heading:{x:0,z:1},speed:0,
  };
