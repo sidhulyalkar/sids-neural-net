@@ -1,6 +1,11 @@
 import {ARCADE_CAVE,arcadeCaveFloorHeight,caveHalfWidth,mountainSurfaceHeight} from "./model";
 
 export type CavernArtSurface="left"|"right"|"ceiling"|"floor"|"back";
+/** The opaque rear rock cap MUST stay behind both the paint mesh
+ * (z=-63.376) and rock liner (z=-63.339), toward the mountain (+Z).
+ * Do not move it toward the camera (negative Z): that would hide the mural. */
+export const ARCADE_REAR_CAP_Z=-63.20;
+
 export type CavernArtTheme="sports"|"anime"|"comedy"|"sport-anime"|"identity"|"shasta"|"neural";
 export type CavernMural={
  id:string;theme:CavernArtTheme;surface:CavernArtSurface;
