@@ -361,6 +361,32 @@ function paintTexture(theme:CavernArtTheme,three:ArcadeThree){
  glow.minFilter=three.LinearMipmapLinearFilter;
  return {paint:texture,glow};
 }
+/** Small RGB-only glow mask, with black everywhere except luminous pigment.
+ * Three multiplies emissive by RGB, so transparency alone cannot mask glow. */
+function authoredNeonMask(image:HTMLImageElement,three:ArcadeThree){
+ const canvas=document.createElement("canvas");
+ canvas.width=384;canvas.height=240;
+ const context=canvas.getContext("2d",{willReadFrequently:true});
+ if(!context)throw Error("Neon compositor unavailable");
+ context.drawImage(image,0,0,canvas.width,canvas.height);
+ const frame=context.getImageData(0,0,canvas.width,canvas.height);
+ for(let i=0;i<frame.data.length;i+=4){
+  const r=frame.data[i],g=frame.data[i+1],b=frame.data[i+2];
+  const alpha=frame.data[i+3]/255;
+  const max=Math.max(r,g,b),min=Math.min(r,g,b);
+  const gate=max>148&&max-min>65?alpha*Math.min(1,(max-148)/68)*.65:0;
+  frame.data[i]=Math.round(r*gate);
+  frame.data[i+1]=Math.round(g*gate);
+  frame.data[i+2]=Math.round(b*gate);
+  frame.data[i+3]=255;
+ }
+ context.putImageData(frame,0,0);
+ const result=new three.CanvasTexture(canvas);
+ result.colorSpace=three.SRGBColorSpace;
+ result.generateMipmaps=true;
+ result.minFilter=three.LinearMipmapLinearFilter;
+ return result;
+}
 function atmosphereTexture(kind:"floor"|"ceiling",three:ArcadeThree){
  const canvas=document.createElement("canvas");canvas.width=1024;canvas.height=1024;
  const ctx=canvas.getContext("2d");
@@ -491,13 +517,22 @@ export function createWorldArcadeGraffiti(scene:THREE.Scene,three:ArcadeThree,
  const loader=new three.TextureLoader();
  let alive=true;
  let authoredReady=0;
- const installAuthored=(wall:THREE.Mesh,painted:THREE.Texture,opacity:number)=>{
+ const installAuthored=(wall:THREE.Mesh,painted:THREE.Texture,
+  opacity:number,theme:CavernArtTheme,source?:HTMLImageElement)=>{
   if(!alive)return;
   const material=wall.material as THREE.MeshStandardMaterial;
   material.map=painted;
   material.opacity=opacity;
-  material.emissiveMap=null;
-  material.emissiveIntensity=0;
+  if(source&&["neural","anime","comedy"].includes(theme)){
+   const mask=authoredNeonMask(source,three);
+   textures.push(mask);
+   material.emissive=new three.Color("#ffffff");
+   material.emissiveMap=mask;
+   material.emissiveIntensity=.85;
+  }else{
+   material.emissiveMap=null;
+   material.emissiveIntensity=0;
+  }
   material.needsUpdate=true;
   authoredReady++;
   root.userData.authoredMuralsReady=authoredReady;
@@ -533,7 +568,7 @@ export function createWorldArcadeGraffiti(scene:THREE.Scene,three:ArcadeThree,
       const atlas=createSportsFanMural(decoded,three);
       if(!alive){atlas.dispose();return;}
       textures.push(atlas);
-      installAuthored(wall,atlas,artwork.opacity);
+      installAuthored(wall,atlas,artwork.opacity,mural.theme);
      }
     },undefined,()=>{
      failed=true;
@@ -551,7 +586,7 @@ export function createWorldArcadeGraffiti(scene:THREE.Scene,three:ArcadeThree,
     const rendered=artwork.presentation==="shasta-photo-stencil"
      ?createShastaPhotoStencil(image,three):loaded;
     if(rendered!==loaded)textures.push(rendered);
-    installAuthored(wall,rendered,artwork.opacity);
+    installAuthored(wall,rendered,artwork.opacity,mural.theme,image);
    },undefined,()=>{
     root.userData.muralArtLoadFailure=artwork.src;
    });
