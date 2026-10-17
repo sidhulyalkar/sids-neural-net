@@ -60,7 +60,9 @@ export const GROVE_TUNNEL={
  innerRadius:2.85,outerRadius:3.32,
  innerHalfWidth:2.61,outerHalfWidth:3.09,
  archCenterLift:1.53,archExtent:2.12,
- taper:.09,
+ // Limit old-growth taper so the northernmost inner wall remains over
+ // actual authored skate terrain (the meadow begins at z=28).
+ taper:.02,
  // Central polished floor is clear; exterior rings never cap the entrances.
  clearFloorHalfWidth:1.36,
 } as const;
