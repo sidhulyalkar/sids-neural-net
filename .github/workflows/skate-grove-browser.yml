@@ -18,6 +18,7 @@ on:
       - 'scripts/playtest-skatepark.mjs'
       - 'scripts/playtest-sequoia-loop.mjs'
       - 'scripts/playtest-sequoia-tunnel.mjs'
+      - 'scripts/playtest-canyon-rails.mjs'
       - 'scripts/playtest-skate-grove-flow.mjs'
       - '.github/workflows/skate-grove-browser.yml'
   pull_request:
@@ -36,6 +37,7 @@ on:
       - 'scripts/playtest-skatepark.mjs'
       - 'scripts/playtest-sequoia-loop.mjs'
       - 'scripts/playtest-sequoia-tunnel.mjs'
+      - 'scripts/playtest-canyon-rails.mjs'
       - 'scripts/playtest-skate-grove-flow.mjs'
       - '.github/workflows/skate-grove-browser.yml'
   workflow_dispatch:
@@ -86,6 +88,12 @@ jobs:
           WORLD_AUDIT_DIR: artifacts/world/sequoia-tunnel-browser
           PLAYWRIGHT_MODULE_ROOT: /tmp/skate-grove-playwright/node_modules/playwright
         run: node scripts/playtest-sequoia-tunnel.mjs
+      - name: Ride a curved Moss Canyon grind across connected timber segments
+        env:
+          WORLD_BASE_URL: http://127.0.0.1:3000
+          WORLD_AUDIT_DIR: artifacts/world/canyon-rail-browser
+          PLAYWRIGHT_MODULE_ROOT: /tmp/skate-grove-playwright/node_modules/playwright
+        run: node scripts/playtest-canyon-rails.mjs
       - name: Audit one-button grove roll-in and safe bowl carve
         env:
           WORLD_BASE_URL: http://127.0.0.1:3000
@@ -108,6 +116,7 @@ jobs:
             artifacts/world/redwood-skate-flow/
             artifacts/world/sequoia-loop-browser/
             artifacts/world/sequoia-tunnel-browser/
+            artifacts/world/canyon-rail-browser/
             /tmp/skate-grove-next.log
           if-no-files-found: warn
       - name: Report browser or server errors
