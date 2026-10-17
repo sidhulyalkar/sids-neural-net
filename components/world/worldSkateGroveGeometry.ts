@@ -3,7 +3,8 @@ import {
   SKATE_PARK, SKATE_PARK_RAILS, REDWOOD_BOWL, STUMP_PADS,
   skateParkSurface, skateParkZone, GROVE_LOG, GROVE_BRIDGE,
   GROVE_TUNNEL, SKATE_LOOP,
-  groveBridgeRise, groveStoneRise,
+  groveBridgeRise, groveStoneRise, CANYON_FLOW, CANYON_MANUAL_PADS,
+  canyonFlowRise,railLiftAt,insideCanyonFlow,
 } from "@/lib/world/skatepark";
 import {terrainHeight,type Point} from "@/lib/world/model";
 import {sequoiaTubePoint,TUBE_TAU} from "@/lib/world/skateTunnel";
@@ -148,6 +149,65 @@ export function createWorldSkateGrove(scene:THREE.Scene,support:(p:Point)=>numbe
  // The new landmark art is one semantic scene group. Root child count stays
  // within the original low-draw / easy-disposal contract.
  const landmarkStart=group.children.length;
+
+ // The long eastern flow corridor extends the forest park toward Moss
+ // Canyon. Only its low, dry native-terrain rollers are added to wheel Y;
+ // the rendered grid samples the SAME skateParkSurface at every vertex.
+ const flowVertices:number[]=[],flowColors:number[]=[],flowFaces:number[]=[];
+ const flowStepsX=80,flowStepsZ=42;
+ const canyonEarth=new THREE.Color("#85836e");
+ const flowCedar=new THREE.Color("#c5a477");
+ for(let iz=0;iz<=flowStepsZ;iz++)for(let ix=0;ix<=flowStepsX;ix++){
+  const x=CANYON_FLOW.startX+
+   ix*(CANYON_FLOW.endX-CANYON_FLOW.startX)/flowStepsX;
+  const z=CANYON_FLOW.centerZ-CANYON_FLOW.halfWidth+
+   iz*2*CANYON_FLOW.halfWidth/flowStepsZ;
+  const p={x,z},h=ride(p),lift=canyonFlowRise(p);
+  flowVertices.push(x,h+.035,z);
+  const mix=THREE.MathUtils.clamp((lift-.02)/.42,0,.85);
+  const color=canyonEarth.clone().lerp(flowCedar,mix);
+  const woodGrain=1+.018*Math.sin(x*6.2+z*1.7);
+  color.multiplyScalar(woodGrain);
+  flowColors.push(color.r,color.g,color.b);
+ }
+ for(let iz=0;iz<flowStepsZ;iz++)for(let ix=0;ix<flowStepsX;ix++){
+  const a=iz*(flowStepsX+1)+ix,b=a+1,d=a+flowStepsX+1;
+  flowFaces.push(a,d,b,b,d,d+1);
+ }
+ const flowGeo=geometry(new THREE.BufferGeometry());
+ flowGeo.setAttribute("position",new THREE.Float32BufferAttribute(flowVertices,3));
+ flowGeo.setAttribute("color",new THREE.Float32BufferAttribute(flowColors,3));
+ flowGeo.setIndex(flowFaces);flowGeo.computeVertexNormals();
+ const flowSurface=new THREE.Mesh(flowGeo,material("#ffffff",{
+  vertexColors:true,side:THREE.DoubleSide,roughness:.99,
+ }));
+ flowSurface.name="canyon-woodland-flow-surface";
+ flowSurface.receiveShadow=true;flowSurface.castShadow=false;
+ group.add(flowSurface);
+ // A few polished manual-pad medallions and curved roller scoring rings.
+ // Painted/low-profile details only; no phantom lip or decorative wheel hit.
+ const flowPlanks:Part[]=[],flowPadRings:Part[]=[],flowWood=material("#987453");
+ for(const pad of CANYON_MANUAL_PADS){
+  for(const radius of [pad.radius*.52,pad.radius*.93])
+   for(let i=0;i<32;i++){
+    const a=i*Math.PI*2/32,b=(i+1)*Math.PI*2/32;
+    const p={x:pad.center.x+radius*Math.cos(a),
+     z:pad.center.z+radius*Math.sin(a)};
+    const q={x:pad.center.x+radius*Math.cos(b),
+     z:pad.center.z+radius*Math.sin(b)};
+    flowPadRings.push(beam(onRide(p,.060),onRide(q,.060),.020));
+   }
+ }
+ for(const roller of CANYON_FLOW.rollers){
+  for(let n=0;n<6;n++){
+   const x=roller.x-.9+n*.36;
+   const p={x,z:CANYON_FLOW.centerZ-1.1};
+   const q={x,z:CANYON_FLOW.centerZ+1.1};
+   flowPlanks.push(beam(onRide(p,.060),onRide(q,.060),.013));
+  }
+ }
+ pooled("canyon-manual-wood-rings",flowPadRings,grain);
+ pooled("canyon-roller-grain",flowPlanks,flowWood);
 
  // An enormous old-growth sequoia, elliptical rather than cylindrical. Inner
  // and outer skins share a tapering skeleton. The sole wheel-height authority
@@ -592,16 +652,18 @@ export function createWorldSkateGrove(scene:THREE.Scene,support:(p:Point)=>numbe
  const logRails:Part[]=[],hybridRails:Part[]=[],railCaps:Part[]=[],railPosts:Part[]=[];
  for(const rail of SKATE_PARK_RAILS){
   const a=new THREE.Vector3(rail.a.x,support(rail.a)+rail.lift,rail.a.z);
-  const b=new THREE.Vector3(rail.b.x,support(rail.b)+rail.lift,rail.b.z);
-  const log=rail.id==="park-flat-bar";
+  const b=new THREE.Vector3(rail.b.x,support(rail.b)+railLiftAt(rail,1),rail.b.z);
+  const log=rail.id==="park-flat-bar"||rail.id.startsWith("root-")||rail.id.startsWith("canyon-root-");
   (log?logRails:hybridRails).push(beam(a,b,log ? 0.14 : 0.085));
   const capOffset=log ? 0.1 : 0.058;
   railCaps.push(beam(a.clone().add(new THREE.Vector3(0,capOffset,0)),
    b.clone().add(new THREE.Vector3(0,capOffset,0)),.023));
-  for(const p of [rail.a,rail.b]){
+  for(const [index,p] of [rail.a,rail.b].entries()){
+   if(index===0&&rail.segment!==undefined&&rail.segment>0)continue;
+   const h=railLiftAt(rail,index);
    railPosts.push(beam(
     new THREE.Vector3(p.x,support(p)+.04,p.z),
-    new THREE.Vector3(p.x,support(p)+rail.lift-.025,p.z),.056));
+    new THREE.Vector3(p.x,support(p)+h-.025,p.z),.056));
   }
  }
  pooled("redwood-log-grind",logRails,timber);
