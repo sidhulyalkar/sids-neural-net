@@ -1,0 +1,58 @@
+name: Disc Golf Browser QA
+on:
+  push:
+    branches: ['feat/sids-world']
+    paths:
+      - '.github/workflows/world-disc-golf-browser-qa.yml'
+      - 'scripts/playtest-disc-golf.mjs'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  disc-golf-playtest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      WORLD_BASE_URL: http://127.0.0.1:3000
+      WORLD_AUDIT_DIR: artifacts/world/disc-golf-playtest
+      PLAYWRIGHT_MODULE_ROOT: ${{ github.workspace }}/node_modules/playwright
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install website dependencies
+        run: npm ci
+      - name: Install temporary browser test dependency
+        run: |
+          npm install --no-save --package-lock=false playwright@1.56.1
+          npx playwright install --with-deps chromium
+      - name: Start website
+        run: |
+          (npm run dev > /tmp/world-next.log 2>&1 &)
+          for i in $(seq 1 90); do
+            if curl --fail --silent http://127.0.0.1:3000 >/dev/null; then
+              echo "Next.js server ready"
+              exit 0
+            fi
+            sleep 2
+          done
+          cat /tmp/world-next.log
+          exit 1
+      - name: Run nine-hole visual browser playtest
+        run: node scripts/playtest-disc-golf.mjs
+      - name: Upload browser screenshots and QA report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: disc-golf-browser-${{ github.sha }}
+          path: |
+            artifacts/world/disc-golf-playtest/
+            /tmp/world-next.log
+          if-no-files-found: warn
+      - name: Show Next.js errors if browser QA failed
+        if: failure()
+        run: tail -n 120 /tmp/world-next.log || true

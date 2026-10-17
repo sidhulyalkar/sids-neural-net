@@ -1,0 +1,197 @@
+name: World Landscape Regression
+
+on:
+  push:
+    branches: ['feat/sids-world', 'feat/island-jetski-dock-race-v1']
+    paths:
+      - 'lib/world/**'
+      - 'components/world/**'
+      - 'tests/world-*.test.ts'
+      - 'scripts/audit-island.ts'
+      - 'scripts/audit-disc-golf.ts'
+      - 'scripts/audit-desert-gaps.ts'
+      - 'scripts/audit-ski-flight.ts'
+      - 'scripts/playtest-world.mjs'
+      - 'scripts/playtest-disc-golf.mjs'
+      - 'scripts/playtest-disc-golf-arcade.mjs'
+      - 'scripts/playtest-disc-hole2-pier.mjs'
+      - 'scripts/playtest-jet-ski.mjs'
+      - 'scripts/playtest-ride-ghost.mjs'
+      - 'scripts/playtest-mountain-jump.mjs'
+      - 'scripts/playtest-shasta-snow.mjs'
+      - 'scripts/playtest-skimboarding.mjs'
+      - '.github/workflows/world-regression.yml'
+  pull_request:
+    paths:
+      - 'lib/world/**'
+      - 'components/world/**'
+      - 'tests/world-*.test.ts'
+      - 'scripts/audit-island.ts'
+      - 'scripts/audit-disc-golf.ts'
+      - 'scripts/audit-desert-gaps.ts'
+      - 'scripts/audit-ski-flight.ts'
+      - 'scripts/playtest-world.mjs'
+      - 'scripts/playtest-disc-golf.mjs'
+      - 'scripts/playtest-disc-golf-arcade.mjs'
+      - 'scripts/playtest-disc-hole2-pier.mjs'
+      - 'scripts/playtest-jet-ski.mjs'
+      - 'scripts/playtest-ride-ghost.mjs'
+      - 'scripts/playtest-mountain-jump.mjs'
+      - 'scripts/playtest-shasta-snow.mjs'
+      - 'scripts/playtest-skimboarding.mjs'
+      - '.github/workflows/world-regression.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: world-landscape-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  world-regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+          cache: npm
+      - name: Install locked packages
+        run: npm ci
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Lint changed world sources
+        run: >-
+          npx eslint
+          lib/world/desertTrack.ts
+          lib/world/technicalFeatures.ts
+          components/world/worldTechnicalGeometry.ts
+          tests/world-technical-features.test.ts
+          lib/world/trials.ts
+          lib/world/rideBoost.ts
+          lib/world/cameraVisibility.ts
+          tests/world-camera-visibility.test.ts
+          lib/world/joshuaGhostRace.ts
+          components/world/worldRideChallengeGeometry.ts
+          tests/world-ride-boost-ghost.test.ts
+          lib/world/bigAir.ts
+          components/world/worldBigAirBirds.ts
+          tests/world-big-air.test.ts
+          lib/world/discGolf.ts
+          lib/world/discGolfSurface.ts
+          lib/world/jetSkiRace.ts
+          lib/world/jetSkiPier.ts
+          lib/world/gameMode.ts
+          tests/world-game-mode.test.ts
+          lib/world/jetSkiCourse.ts
+          lib/world/jetSkiWater.ts
+          components/world/worldJetSkiCourseGeometry.ts
+          components/world/worldCoastalRockGeometry.ts
+          tests/world-coastal-geology.test.ts
+          components/world/worldJetSkiDock.ts
+          tests/world-jet-ski-race.test.ts
+          lib/world/discGolfPowerRail.ts
+          tests/world-disc-golf-power-rail.test.ts
+          lib/world/discGolfAerodynamics.ts
+          lib/world/discGolfRigidBody.ts
+          lib/world/discGolfGroundContact.ts
+          lib/world/discGolfCalibration.ts
+          lib/world/discGolfFairway.ts
+          lib/world/discGolfFetch.ts
+          lib/world/discGolfNames.ts
+          lib/world/discGolfRound.ts
+          tests/world-disc-golf-fairway.test.ts
+          tests/world-disc-golf-fetch.test.ts
+          tests/world-disc-golf-round.test.ts
+          components/world/worldDiscGolfGeometry.ts
+          components/world/WorldDiscGolfHUD.tsx
+          tests/world-disc-golf.test.ts
+          tests/world-disc-golf-aerodynamics.test.ts
+          tests/world-disc-golf-rigid-body.test.ts
+          tests/world-disc-golf-calibration.test.ts
+          components/world/WorldScene.tsx
+          tests/world-trials.test.ts
+          lib/world/activities.ts
+          lib/world/biomes.ts
+          lib/world/ecology.ts
+          lib/world/shastaCharacter.ts
+          lib/world/shastaGait.ts
+          lib/world/shastaFetchRun.ts
+          tests/world-shasta-fetch-run.test.ts
+          lib/world/shastaCamera.ts
+          tests/world-shasta-camera.test.ts
+          lib/world/shastaPersonality.ts
+          tests/world-shasta-gait-personality.test.ts
+          lib/world/model.ts
+          components/world/worldHabitats.ts
+          components/world/worldRenderer.ts
+          components/world/worldSkimWake.ts
+          components/world/worldNorthShoreLife.ts
+          lib/world/northShoreEcology.ts
+          tests/world-desert-track.test.ts
+          tests/world-desert-gaps.test.ts
+          tests/world-contract.test.ts
+          tests/world-habitats.test.ts
+          tests/world-shasta-character.test.ts
+          lib/world/schools.ts
+          lib/world/artifacts.ts
+          components/world/worldSchools.ts
+          components/world/worldTridents.ts
+          components/world/WorldHome.tsx
+          tests/world-marine-discoveries.test.ts
+          lib/world/occupancy.ts
+          tests/world-occupancy.test.ts
+          lib/world/skimboarding.ts
+          tests/world-skimboarding.test.ts
+          --max-warnings=0
+      - name: Verify manual browser playtest script syntax
+        run: |
+          node --check scripts/playtest-world.mjs
+          node --check scripts/playtest-disc-golf.mjs
+          node --check scripts/playtest-disc-golf-arcade.mjs
+          node --check scripts/playtest-disc-hole2-pier.mjs
+          node --check scripts/playtest-jet-ski.mjs
+          node --check scripts/playtest-ride-ghost.mjs
+          node --check scripts/playtest-mountain-jump.mjs
+          node --check scripts/playtest-shasta-snow.mjs
+          node --check scripts/playtest-skatepark.mjs
+          node --check scripts/playtest-skimboarding.mjs
+      - name: Lint dedicated Redwood Skate Grove modules
+        run: >-
+          npx eslint lib/world/skatepark.ts lib/world/skateAssist.ts
+          lib/world/skateTricks.ts lib/world/skateDynamics.ts
+          components/world/worldSkateGroveGeometry.ts
+          tests/world-skatepark.test.ts tests/world-skate-assist.test.ts
+          tests/world-skate-grove.test.ts tests/world-skate-grove-geometry.test.ts
+          --max-warnings=0
+      - name: Qualify isolated Redwood Skate Grove unit contracts
+        run: node --import tsx --test tests/world-skate*.test.ts
+      - name: Run all world unit contracts
+        run: node --import tsx --test tests/world-*.test.ts
+      - name: Produce island occupancy evidence
+        run: node --import tsx scripts/audit-island.ts
+      - name: Audit disc golf course safety and coverage
+        run: node --import tsx scripts/audit-disc-golf.ts
+      - name: Audit physical gap and flight cross sections
+        run: node --import tsx scripts/audit-desert-gaps.ts
+      - name: Survey preliminary ski flight corridors
+        run: node --import tsx scripts/audit-ski-flight.ts
+      - name: Upload occupancy evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: world-occupancy-${{ github.sha }}
+          path: |
+            artifacts/world/island-occupancy.json
+            artifacts/world/island-occupancy.csv
+            artifacts/world/island-occupancy.svg
+            artifacts/world/disc-golf-fairways.json
+            artifacts/world/disc-golf-fairways.md
+            artifacts/world/desert-gap-profiles.json
+            artifacts/world/desert-gap-profiles.svg
+            artifacts/world/ski-flying-candidate-audit.json
+          if-no-files-found: error
+      - name: Validate procedural world scenes
+        run: npm run check:world3d

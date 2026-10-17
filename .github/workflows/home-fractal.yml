@@ -3,7 +3,7 @@ name: Adaptive Fractal Home CI
 on:
   pull_request:
     paths:
-      - 'app/page.tsx'
+      - 'app/atlas/page.tsx'
       - 'components/layout/Header.tsx'
       - 'components/neural-atlas/**'
       - 'components/neural-atlas-canvas/**'
@@ -60,7 +60,7 @@ jobs:
       - name: Lint fractal homepage surface
         run: >-
           npx eslint
-          app/page.tsx
+          app/atlas/page.tsx
           components/layout/Header.tsx
           components/neural-atlas/ComicSectionLayout.tsx
           components/neural-atlas/FractalThemeEcho.tsx
