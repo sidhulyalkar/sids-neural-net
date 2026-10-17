@@ -34,7 +34,7 @@ try{
   // A source-authored local title texture must really load into WebGL.
   // The procedural fallback is not accepted as evidence of that asset.
   await page.waitForFunction(()=>Number(
-   document.querySelector("canvas")?.dataset.arcadeAuthoredMuralsReady)>=3,
+   document.querySelector("canvas")?.dataset.arcadeAuthoredMuralsReady)>=8,
    null,{timeout:40000});
   const titleResponse=await page.request.get(base+
    "/world/arcade-cavern/hero/sids-underground.svg");
@@ -46,6 +46,15 @@ try{
    assert.equal(response.status(),200,"missing authentic sports source: "+path);
    assert.match(response.headers()["content-type"]??"",/image\/png/,
     "team crest must be a real PNG, not missing-page HTML");
+  }
+  for(const source of [
+   "/world/arcade-cavern/science/mindforge-brain.svg",
+   "/world/arcade-cavern/anime/raid-ascend.svg",
+   "/world/arcade-cavern/comedy/out-of-this-world.svg",
+  ]){
+   const response=await page.request.get(base+source);
+   assert.equal(response.status(),200,"missing painted composition: "+source);
+   assert.match(await response.text(),/^<svg[^>]+/,"must contain a real SVG composition");
   }
   const shastaPhoto=await page.request.get(base+"/visual-archive/web/photo-037.webp");
   assert.equal(shastaPhoto.status(),200,
