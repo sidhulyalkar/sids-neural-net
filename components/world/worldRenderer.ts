@@ -1,6 +1,6 @@
 import {createWorldSkimSurf} from "./worldSkimSurfGeometry";
 import { desertTrackTreadBlend, desertTrackSampleAt, DESERT_GAP_DEBRIS, DESERT_JUMPS, DESERT_TRACK_LENGTH } from "@/lib/world/desertTrack";
-import {insideSkatePark,skateParkZone,skateGroveStartHeading,SKATE_LOOP,GROVE_TUNNEL,SKATE_GROVE_FRAME_TREES,advanceRailChain,railLiftAt,insideCanyonFlow,type SkateRail} from "@/lib/world/skatepark";
+import {insideSkatePark,skateParkZone,skateGroveStartHeading,SKATE_LOOP,GROVE_TUNNEL,SKATE_GROVE_FRAME_TREES,advanceRailChain,railLiftAt,insideCanyonFlow,CANYON_FLOW,type SkateRail} from "@/lib/world/skatepark";
 import {beginSkateLoop,skateLoopEntryCrossing,advanceSkateLoop,skateLoopSample,type SkateLoopRide} from "@/lib/world/skateLoop";
 import {beginSkateTunnelRide,advanceSkateTunnelRide,skateTunnelSample,
  type SkateTunnelRide} from "@/lib/world/skateTunnel";
@@ -6586,14 +6586,17 @@ export function createWorld(
         skateBowlLastLanding="";skateBowlLastLandingSpeed=0;
         lastSerial = next.command.serial;
         const r = REGIONS.find((r) => r.id === next.command!.region)!;
+        const flowStart=next.command.skateDestination==="canyon-flow"&&
+          next.command.activity==="skate";
         jetSki=null;jetRivals=[];jetHud.style.display="none";
         callbacks.onJetSkiMode(false);
         if(jetChoosing){jetChoosing=false;jetChooser.hidden=true;}
-        player =
+        player=flowStart?{...CANYON_FLOW.start}:
           (next.command.activity && activityLanding(next.command.activity)) ||
           regionLanding(r.id);
         clearInput();
         travel = { point: player, speed: 0, heading:
+          flowStart?{x:1,z:0}:
           next.command.activity==="skate"&&insideSkatePark(player)?
           skateGroveStartHeading():{x:0,z:r.id==="north-shore"?1:-1} };
         airHeight = verticalSpeed = swimDepth = targetDepth = 0;
@@ -6644,6 +6647,9 @@ export function createWorld(
           yaw = Math.PI;
           pitch = 0.22;
           zoom = Math.min(zoom, 15);
+        }
+        if(flowStart){
+          yaw=-Math.PI/2;pitch=.37;zoom=19;
         }
         if(next.command.activity==="skate"&&insideSkatePark(player)){
           // The old north-facing warp cropped the whole redwood centerpiece.
