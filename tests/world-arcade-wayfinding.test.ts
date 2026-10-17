@@ -4,7 +4,7 @@ import {ARCADE_CAVE,isWater,terrainHeight,caveHalfWidth,
  caveObstacles,regionLanding,arcadeCaveFloorHeight} from "../lib/world/model";
 import {stepTravel,type Travel} from "../lib/world/activities";
 import {ARCADE_GATE,ARCADE_TRAIL_MARKERS,arcadeTrailStage,
- arcadeTrailHint,arcadeTrailFooting} from "../lib/world/arcadeWayfinding";
+ arcadeTrailHint,arcadeTrailFooting,arcadeEntranceCameraPose} from "../lib/world/arcadeWayfinding";
 
 test("Granite Ridge arcade beacons lead towards the real reachable cave mouth",()=>{
  assert.equal(ARCADE_TRAIL_MARKERS.length,4);
@@ -59,4 +59,25 @@ test("real lateral cave navigation is open beyond the rock baffle",()=>{
   "walking left from east chamber niche must reach center game wall");
  assert.ok(travel.point.z< -65.5&&travel.point.z> -66.8,
   "sideways motion must not teleport up the tunnel");
+});
+
+test("outside portal camera frames the sign from ABOVE the actual approach",()=>{
+ const pose=arcadeEntranceCameraPose();
+ assert.ok(pose.position.z<ARCADE_CAVE.approach.z,
+  "the lens belongs downhill of the visitor, in open air");
+ assert.ok(pose.position.y>terrainHeight(pose.position.x,pose.position.z)+1.7);
+ assert.ok(pose.look.z<ARCADE_CAVE.entrance.z,
+  "the visible focal point must stop outside solid mountain roof");
+ assert.ok(pose.look.y>arcadeCaveFloorHeight(ARCADE_CAVE.entrance)+3);
+ // Sample the finite approach heightfield, not its raw mountain roof.
+ // A camera sightline through the actual terrain should never hide the sign.
+ for(let i=1;i<20;i++){
+  const t=i/20;
+  const z=pose.position.z+
+   (pose.look.z-pose.position.z)*t;
+  const y=pose.position.y+
+   (pose.look.y-pose.position.y)*t;
+  assert.ok(y>terrainHeight(pose.position.x,z)+.20,
+   "portal sightline intersects mountain at z="+z.toFixed(2));
+ }
 });
