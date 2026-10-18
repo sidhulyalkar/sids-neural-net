@@ -111,7 +111,7 @@ try{
    }finally{await page.keyboard.up(key);}
   };
   await move("w",1,-77,true);
-  await page.screenshot({path:path.join(out,"02-lantern-throat-comedy.png")});
+  await page.screenshot({path:path.join(out,"02-lantern-throat-nature.png")});
   // The baffle was removed. Walk straight down the open centerline,
   // proving the build no longer hides an invisible obstacle.
   await move("w",1,-69.9,true);
@@ -127,26 +127,26 @@ try{
   }));
   assert.equal(evidence.interior.layer,"arcade");
   assert.equal(evidence.interior.graffiti,"asset-first-v3");
-  await page.screenshot({path:path.join(out,"03-fandom-main-chamber-reveal.png")});
+  await page.screenshot({path:path.join(out,"03-photo-gallery-main-chamber.png")});
   // Rotate the gameplay camera to inspect both original side compositions.
   await page.mouse.move(700,430);await page.mouse.down();
   await page.mouse.move(935,430,{steps:12});await page.mouse.up();
   await page.waitForTimeout(450);
-  await page.screenshot({path:path.join(out,"04-graffiti-left-wall.png")});
+  await page.screenshot({path:path.join(out,"04-shasta-left-wall.png")});
   await page.mouse.move(700,430);await page.mouse.down();
   await page.mouse.move(220,430,{steps:20});await page.mouse.up();
   await page.waitForTimeout(450);
-  await page.screenshot({path:path.join(out,"05-graffiti-right-wall.png")});
-  // Deliberately pitch upward: Shasta and the Mind Forge mural are high
+  await page.screenshot({path:path.join(out,"05-nature-and-sports-right-wall.png")});
+  // Deliberately pitch upward: Shasta and the scenery collage are high
   // on the rock facets, not pasted on the three clickable game panels.
   await page.mouse.move(700,430);await page.mouse.down();
   await page.mouse.move(700,600,{steps:14});await page.mouse.up();
   await page.waitForTimeout(450);
-  await page.screenshot({path:path.join(out,"06-neural-upper-facet.png")});
+  await page.screenshot({path:path.join(out,"06-scenic-upper-rock.png")});
   await page.mouse.move(700,430);await page.mouse.down();
   await page.mouse.move(1180,430,{steps:20});await page.mouse.up();
   await page.waitForTimeout(450);
-  await page.screenshot({path:path.join(out,"07-shasta-upper-facet.png")});
+  await page.screenshot({path:path.join(out,"07-shasta-photo-panel.png")});
   assert.deepEqual(errors,[],"graffiti rendering must not produce JavaScript errors");
   console.log("ARCADE FRESCO BROWSER PASS",JSON.stringify({evidence,errors}));
  }catch(error){
