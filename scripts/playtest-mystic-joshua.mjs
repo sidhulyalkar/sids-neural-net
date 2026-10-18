@@ -58,8 +58,17 @@ try{
   player:c.dataset.player,
   water:c.dataset.aquatic,
   drawCalls:Number(c.dataset.drawCalls),
+  detailDrawCalls:Number(c.dataset.mysticGroveDetailDrawCalls),
+  detailTriangles:Number(c.dataset.mysticGroveDetailTriangles),
+  fernFronds:Number(c.dataset.mysticGroveFronds),
+  quartzDetails:Number(c.dataset.mysticGroveQuartz),
  }));
  assert.equal(mystic.position,"37,65");
+ assert.equal(mystic.detailDrawCalls,3);
+ assert.ok(mystic.detailTriangles>0&&mystic.detailTriangles<22000,
+  "visible flora, granite and quartz stay in the scenery budget");
+ assert.ok(mystic.fernFronds>=35&&mystic.quartzDetails>=8,
+  "forest-floor flora and quartz must exist in actual browser geometry");
  assert.equal(mystic.trees,6);
  assert.equal(mystic.arcs,6);
  assert.equal(mystic.active,"true");
