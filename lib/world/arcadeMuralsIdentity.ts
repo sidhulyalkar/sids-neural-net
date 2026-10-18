@@ -9,10 +9,10 @@ export const ARCADE_IDENTITY_MURALS:readonly CavernMural[]=[
  // Rear-wall painted gallery is carved around the center game target.
  // Both compositions are safely outside the x=14.2..17.8 interaction area.
  {id:"shasta-rear-fresco",theme:"shasta",surface:"back",
-  z0:-63.32,z1:-63.32,u0:.00,u1:.28,v0:.16,v1:.58,
+  z0:-63.32,z1:-63.32,u0:.00,u1:.31,v0:.12,v1:.60,
   title:"SHASTA // MAIN CHAMBER",tags:["SHASTA","MOUNTAINS"]},
  {id:"neuroforge-rear-fresco",theme:"neural",surface:"back",
-  z0:-63.32,z1:-63.32,u0:.72,u1:1.00,v0:.16,v1:.58,
+  z0:-63.32,z1:-63.32,u0:.69,u1:1.00,v0:.12,v1:.60,
   title:"NEURAL NETWORK // MAIN CHAMBER",tags:["MIND FORGE","NEUROSCIENCE"]},
  {id:"neuroforge-synapses",theme:"neural",surface:"right",
   z0:-73.10,z1:-68.17,v0:.53,v1:.94,title:"NEUROSCIENCE // MIND FORGE",
