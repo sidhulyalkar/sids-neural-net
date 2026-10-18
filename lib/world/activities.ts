@@ -346,8 +346,9 @@ export function stepTravel(
   const unbanked={x:blended.x/norm,z:blended.z/norm};
   const heading=mode==="skate"?
     redwoodBowlCarveHeading(current.point,unbanked,current.speed,dt):unbanked;
-  const aboveShortProp=airborne>.2&&Number.isFinite(riderY)&&
-    (mode==="bike"||mode==="ski"||mode==="skate");
+  // A ski jump can be exited into Run in midair. Airborne contact must
+  // remain geometrically consistent across that activity transition.
+  const aboveShortProp=airborne>.2&&Number.isFinite(riderY);
   // The same contact rule must control both speed-grade and climb blocking.
   // Otherwise a high beam "above" the airborne rider can still brake them
   // to a dead stop even though their trunk collision was correctly skipped.
@@ -382,8 +383,7 @@ export function stepTravel(
   );
   // Finite trunks/rocks are solid near ground yet legitimately passable
   // above their visual top during jumps. Cave walls (no topY) stay solid.
-  const contactObstacles=airborne>.2&&Number.isFinite(riderY)&&
-    (mode==="skate"||mode==="bike"||mode==="ski")?
+  const contactObstacles=aboveShortProp?
     obstacles.filter(o=>o.topY===undefined||riderY<=o.topY+.45):
     obstacles;
   const point = constrainMove(
