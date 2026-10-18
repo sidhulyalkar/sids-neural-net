@@ -197,7 +197,12 @@ export async function composeArcadeGallery(
 export async function composeArcadeGamePlaques(
  three:GalleryThree,
 ):Promise<readonly THREE.Texture[]>{
- const images=await Promise.all(CAVERN_GAME_ART.map(item=>
+ // Physical niche order follows worldRenderer's gameTitles:
+ // left Stretchicorn, rear uniRico, right Unicorn Stampede.
+ // The separate wall gallery uses promotional ordering instead.
+ const gameOrder=[CAVERN_GAME_ART[2],CAVERN_GAME_ART[1],
+  CAVERN_GAME_ART[0]] as const;
+ const images=await Promise.all(gameOrder.map(item=>
   new Promise<HTMLImageElement>((resolve,reject)=>{
    const image=new Image();image.decoding="async";
    image.onload=()=>resolve(image);
@@ -226,7 +231,7 @@ export async function composeArcadeGamePlaques(
   const drawW=iw*scale,drawH=ih*scale;
   c.drawImage(image,x+(w-drawW)/2,y+(h-drawH)/2,drawW,drawH);
   c.restore();
-  paintWord(c,CAVERN_GAME_ART[index].label,ww/2,hh-85,65,ww-128,
+  paintWord(c,gameOrder[index].label,ww/2,hh-85,65,ww-128,
    ["#ffe2ac","#b8f7fc","#f4c1eb"][index]);
   c.fillStyle="#afd6ce";c.font="700 22px system-ui,sans-serif";
   c.textAlign="center";c.fillText("ENTER TO PLAY",ww/2,hh-37);
