@@ -327,6 +327,7 @@ export function stepTravel(
   airborne = 0,
   supportHeight: (p: Point) => number = groundHeight,
   boost = false,
+  riderY = NaN,
 ): Travel {
   dt = Math.max(0, Math.min(dt, 0.05));
   const mode = effectiveActivity(selected, current.point);
@@ -368,13 +369,19 @@ export function stepTravel(
     speed * dt,
     destination ? distance(current.point, destination) : Infinity,
   );
+  // Finite trunks/rocks are solid near ground yet legitimately passable
+  // above their visual top during jumps. Cave walls (no topY) stay solid.
+  const contactObstacles=airborne>.2&&Number.isFinite(riderY)&&
+    (mode==="skate"||mode==="bike"||mode==="ski")?
+    obstacles.filter(o=>o.topY===undefined||riderY<=o.topY+.45):
+    obstacles;
   const point = constrainMove(
     current.point,
     {
       x: current.point.x + heading.x * step,
       z: current.point.z + heading.z * step,
     },
-    obstacles,
+    contactObstacles,
   );
   if (
     (!isWater(point)||jetSkiPierHeight(point)!==null) &&
