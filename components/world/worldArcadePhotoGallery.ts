@@ -92,29 +92,6 @@ function galleryShasta(c:CanvasRenderingContext2D,imgs:readonly HTMLImageElement
   });
  }
 }
-/** A softly sprayed landscape exposure without a straight poster border.
- * Each offscreen mask is created once while building the shared gallery atlas.
- * The image remains real photography; the alpha perimeter reveals basalt. */
-function photoWash(c:CanvasRenderingContext2D,img:HTMLImageElement,
- x:number,y:number,w:number,h:number,opacity:number){
- const tile=document.createElement("canvas");
- tile.width=Math.round(w);tile.height=Math.round(h);
- const p=tile.getContext("2d");
- if(!p)throw Error("Nature pigment compositing unavailable");
- const iw=img.naturalWidth||img.width,ih=img.naturalHeight||img.height;
- const scale=Math.max(w/iw,h/ih);
- const sw=w/scale,sh=h/scale;
- p.drawImage(img,(iw-sw)/2,(ih-sh)/2,sw,sh,0,0,w,h);
- p.globalCompositeOperation="destination-in";
- const mask=p.createRadialGradient(w/2,h/2,Math.min(w,h)*.20,
-  w/2,h/2,Math.max(w,h)*.54);
- mask.addColorStop(0,"rgba(255,255,255,1)");
- mask.addColorStop(.62,"rgba(255,255,255,.95)");
- mask.addColorStop(.82,"rgba(255,255,255,.55)");
- mask.addColorStop(1,"rgba(255,255,255,0)");
- p.fillStyle=mask;p.fillRect(0,0,w,h);
- c.save();c.globalAlpha=opacity;c.drawImage(tile,x,y);c.restore();
-}
 /** Large contiguous peaks, glacier facets and rushing water are the visual
  * bridge between the real travel photographs. They sit BEHIND the photos. */
 function natureInk(c:CanvasRenderingContext2D){
