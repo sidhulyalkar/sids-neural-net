@@ -6629,7 +6629,9 @@ export function createWorld(
       mysticGroveDistance(player)<MYSTIC_GROVE.revealRadius;
     fireflies.visible=mysticNearby;
     fireflies.position.y=Math.sin(elapsed*.4)*.12;
-    mysticElectricity.update(elapsed,mysticNearby,mysticReducedMotion);
+    // Electricity is visual-only. Run on the real animation timestamp,
+    // not the .05 s capped physics delta, so it flows even at low FPS.
+    mysticElectricity.update(now*.001,mysticNearby,mysticReducedMotion);
     // Observable state is updated only when the signal advances one tree.
     const pulseLink=mysticElectricity.activeLink;
     if(pulseLink!==lastMysticPulseLink){
