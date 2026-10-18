@@ -1577,6 +1577,7 @@ export function createWorld(
     if(detail){
       const attr=detail.kind==="shasta-gallery"?"arcadeShastaPhotos":
        detail.kind==="nature-gallery"?"arcadeNaturePhotos":
+       detail.kind==="feature-gallery"?"arcadeFeaturePhotos":
        detail.kind==="game-plaques"?"arcadeGamePlaquesReady":
        "arcadeGamePosters";
       canvas.dataset[attr]=String(detail.photoCount);
