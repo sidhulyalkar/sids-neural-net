@@ -17,7 +17,8 @@ import {createWorldArcadeGraffiti} from "./worldArcadeGraffitiGeometry";
 import {ARCADE_REAR_CAP_Z,sampleCavernArt} from "@/lib/world/arcadeCavernSurface";
 import {skateLean} from "@/lib/world/skateDynamics";
 import {advanceRideRecovery,findRideRecoveryPoint,
- initialRideRecovery,isRideMode,isSafeRideContact} from "@/lib/world/rideRecovery";
+ initialRideRecovery,isRideMode,isSafeRideContact,
+ airborneSupportHeight} from "@/lib/world/rideRecovery";
 import {selectAssistedSkateTrick,assistedSkateSpin} from "@/lib/world/skateAssist";
 import {idleSkateTrick,startSkateTrick,finishSkateTrick,setSkateGrab,skateTrickPose,flickTrick,scoreSkateGrind,scoreSkateLoop,scoreSkateTunnel,scoreSkateRailGap,queueSkateSpin,startSkateManual,stepSkateManual,finishSkateManual,type SkateTrickName,type SkateTrickState} from "@/lib/world/skateTricks";
 import { JOSHUA_GATES, armJoshuaTrial, abortJoshuaTrial, tickJoshuaTrial, type TrialState } from "@/lib/world/trials";
@@ -4341,7 +4342,9 @@ export function createWorld(
         let flightDelta=Math.max(0,Math.min(rawDelta,.3));
         while(flightDelta>1e-8&&bigAir.phase==="flying"){
           const flightStep=Math.min(.12,flightDelta);
-          bigAir=advanceBigAir(bigAir,flightStep,p=>groundHeight(p),isWater);
+          bigAir=advanceBigAir(bigAir,flightStep,p=>
+            airborneSupportHeight(bigAir.y,groundHeight(p),
+              terrainHeight(p.x,p.z)),isWater);
           flightDelta-=flightStep;
         }
         player={...bigAir.point};
@@ -4351,15 +4354,24 @@ export function createWorld(
         travel={point:player,speed:bigAir.horizontalSpeed,
           heading:bigAir.heading??BIG_AIR.heading};
         if(bigAir.phase==="landed"||bigAir.phase==="missed") {
-          // No springy auto-hop on touchdown. Natural ground contact resumes
-          // after the challenge has settled, without a second ramp trigger.
-          airHeight=verticalSpeed=0;
-          if(isWater(player)&&jetSkiPierHeight(player)===null){
-            swimDepth=targetDepth=0;
-            setAquaticMode("surface");
-            playerY=SEA_SURFACE-.42;
-          }else playerY=supportHeight(player);
-          travel={...travel,speed:0};
+          // A missed flight can end due to its maximum envelope WHILE still
+          // airborne. Continue gravity; do not snap to a pillar or mountainside.
+          const safeY=airborneSupportHeight(playerY,supportHeight(player),
+            terrainHeight(player.x,player.z));
+          const touchedDown=bigAir.phase==="landed"||playerY<=safeY+.12||
+            (isWater(player)&&playerY<=SEA_SURFACE+.05);
+          if(touchedDown){
+            airHeight=verticalSpeed=0;
+            if(isWater(player)&&jetSkiPierHeight(player)===null){
+              swimDepth=targetDepth=0;setAquaticMode("surface");
+              playerY=SEA_SURFACE-.42;
+            }else playerY=safeY;
+            travel={...travel,speed:0};
+          }else{
+            airHeight=Math.max(.05,playerY-safeY);
+            // Keep the final outbound velocity until ordinary terrain contact.
+            travel={...travel,speed:Math.min(12,bigAir.horizontalSpeed)};
+          }
           lastRampAt=elapsed;
           callbacks.onBigAir(bigAir);
         } else if(elapsed-lastBigAirUpdate>.19) {
@@ -4479,7 +4491,11 @@ export function createWorld(
             }
           }
         } else {
-          const groundY = supportHeight(player);
+          const supportY=supportHeight(player);
+          const groundY=caveLayer==="surface"&&isRideMode(state.activity)&&
+            (airHeight>.01||verticalSpeed!==0)?
+            airborneSupportHeight(previousY,supportY,
+              terrainHeight(player.x,player.z)):supportY;
           // Integrate in world space: crossing a ramp lip must not subtract its
           // deck height from an airborne rider's trajectory.
           if (airHeight > 0 || verticalSpeed > 0) {
