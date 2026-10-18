@@ -194,3 +194,47 @@ still looked underscaled against a large dark rear wall. This tranche delivers:
 - Accurate custom character art for comedy/anime still pending.
 - Keep PR draft and production untouched until photo-real character
   illustration, mural layout and interactive readability are approved.
+
+## V4: Shasta Photo Gallery + Nature and Original Game Art
+
+**Art direction updated October 17:** Stop showing anime, TV characters and
+their stylized glyphs inside the playable arcade. These original asset
+masters remain archived in the repository but are **not** referenced by the
+active `ARCADE_CAVERN_MURALS` scene manifest.
+
+- **Entrance LEFT:** 13 verified photos featuring Shasta, selected by
+  inspecting each visual-archive thumbnail (`photo-002,033,034,037,039,040,
+  042,043,044,045,047,048,049`). One large real portrait and 12 smaller
+  rotating photo frames, a painted treeline, 'SHASTA / TRAIL COMPANION'
+  heading, and wide transparent rock edges. No invented husky character.
+- **Remaining RIGHT upper rock / rear:** 12 actual travel landscapes
+  featuring crater and alpine lakes, granite mountains, glacier ice,
+  streams, pine forests and waterfall views. The ceiling also uses a
+  deliberate wide alpine/forest/waterfall painted design in place of UFO-like
+  rings and thin repeated text.
+- **Arcade gallery:** Artwork taken directly from the user's own game
+  source repositories and copied into local site files:
+  `unirico/docs/banner.svg`,
+  `stretchicorn/docs/stretchicorn-title-v017.png` and
+  `unicorn-stampede/docs/how-to-play.svg`. The Stampede artwork is a real
+  project **instructional illustration**, not yet the polished promotional
+  16:9 cover shown in the concept reference. Replace it with an approved
+  first-party promotional cover once its source is checked into the repo.
+  Never pretend it is an exact concept image.
+- **Sports:** The three authentic local Chelsea, Patriots and Warriors
+  crest assets and their existing composition remain; the sports display
+  moves to the right-side deeper bay so the left belongs to Shasta.
+- **Performance:** Thirteen + twelve photo files are decoded from already
+  local, optimized visual-archive thumbnails, then composed once into two
+  WebGL atlas textures. One third atlas holds the three game graphics.
+  Repeated nature wall geometry shares its atlas. No image is interactive
+  or a collision blocker, no extra photo mesh is placed in the walkway.
+- **QA:** Runtime diagnostics report photo-gallery counts (13 Shasta,
+  12 nature, 3 games), local game-image HTTP status and active mural count.
+  Scene tests explicitly fail if anime/TV themes reenter the active manifest
+  or if Shasta stops being the only painted left-wall exhibit.
+
+**Visual acceptance remains open** until real browser screenshots show
+the completed Shasta wall, complete game artworks, proper rock blending and
+legible game interaction zones. Do not merge draft PR #110 based on source
+code or passing TypeScript alone.
