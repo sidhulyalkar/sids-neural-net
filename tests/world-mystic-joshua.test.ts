@@ -10,6 +10,7 @@ import {desertTrackClearance,desertBypassClearance,DESERT_JUMPS}
  from "../lib/world/desertTrack";
 import {sportClearance} from "../lib/world/activities";
 import {createMysticElectricity} from "../components/world/worldMysticElectricity";
+import {createWorldMysticGroveGeometry} from "../components/world/worldMysticGroveGeometry";
 
 test("Mystic Grove discovery and its six trees moved together onto the north shelf",()=>{
  const region=REGIONS.find(r=>r.id==="neural");
@@ -90,4 +91,49 @@ test("living Joshua trees line both sides of race course without blocking any la
  for(let i=0;i<sites.length;i++)for(let j=0;j<i;j++)
   assert.ok(Math.hypot(sites[i].x-sites[j].x,sites[i].z-sites[j].z)>=3.29);
  assert.deepEqual(joshuaTreeSites(),sites,"forest placement is deterministic");
+});
+
+test("Mystic Grove forest detailing is terrain-rooted, colored, small and disposable",()=>{
+ const scene=new THREE.Scene();
+ const tips=MYSTIC_TREES.map((site,i)=>Array.from({length:8},(_,j)=>{
+  const a=i*1.6+j*.88;
+  return new THREE.Vector3(site.x+Math.cos(a)*1.2,
+   terrainHeight(site.x,site.z)+5.8+(j%3)*.22,
+   site.z+Math.sin(a)*1.2);
+ }));
+ const grove=createWorldMysticGroveGeometry(scene,p=>terrainHeight(p.x,p.z),tips);
+ assert.equal(scene.children.length,1);
+ assert.equal(grove.root.children.length,3);
+ assert.equal(grove.diagnostics.trees,6);
+ assert.equal(grove.diagnostics.drawCalls,3);
+ assert.ok(grove.diagnostics.fronds>=35,"ferns make the forest floor feel alive");
+ assert.ok(grove.diagnostics.canopy>=40,"tree crowns have leaf detail");
+ assert.ok(grove.diagnostics.stones>=12,"granite forms a quiet broken circle");
+ assert.ok(grove.diagnostics.spores>=8,"subtle quartz and mushrooms");
+ assert.ok(grove.diagnostics.triangles<22000,
+  "geometry budget must remain small enough for browser SwiftShader");
+ assert.deepEqual(grove.root.children.map(x=>x.name),[
+  "mystic-rooted-bark","mystic-fern-moss-and-granite",
+  "mystic-quartz-and-biological-glow",
+ ]);
+ for(const child of grove.root.children){
+  assert.ok(child instanceof THREE.Mesh);
+  const positions=(child as THREE.Mesh).geometry.getAttribute("position");
+  const colors=(child as THREE.Mesh).geometry.getAttribute("color");
+  assert.ok(positions.count>60&&colors.count===positions.count);
+  for(let i=0;i<positions.count;i++){
+   const x=positions.getX(i),y=positions.getY(i),z=positions.getZ(i);
+   assert.ok([x,y,z,colors.getX(i)].every(Number.isFinite));
+   assert.ok(Math.hypot(x-MYSTIC_GROVE.center.x,z-MYSTIC_GROVE.center.z)<14,
+    "grove detail may not spill onto the beach, race or meadow");
+  }
+  const material=(child as THREE.Mesh).material as THREE.MeshStandardMaterial;
+  assert.equal(material.transparent,false);
+  assert.equal(material.vertexColors,true);
+ }
+ const emissive=(grove.root.children[2] as THREE.Mesh)
+  .material as THREE.MeshStandardMaterial;
+ assert.ok(emissive.emissiveIntensity<=.3,"quartz must be subtle, not bloom");
+ grove.dispose();
+ assert.equal(scene.children.length,0);
 });
