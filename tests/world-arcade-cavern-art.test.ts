@@ -26,9 +26,10 @@ test("Photo-first arcade is nature, Shasta and game-only, preserving real sports
  assert.deepEqual(games.tags,["UNICORN STAMPEDE","UNIRICO","STRETCHICORN"]);
  assert.equal(ARCADE_CAVERN_MURALS.find(m=>m.theme==="sports")!.surface,"right");
  assert.deepEqual(validateCavernPhotoAlbums(),[]);
- assert.equal(CAVERN_PHOTO_ALBUMS.shasta.images.length,13);
- assert.equal(CAVERN_PHOTO_ALBUMS.nature.images.length,12);
- assert.equal(CAVERN_PHOTO_ALBUMS.feature.images.length,3);
+ for(const album of Object.values(CAVERN_PHOTO_ALBUMS)){
+  assert.ok(album.images.length>0&&album.images.length<=25,
+   "future albums must be nonempty and fit into a single static atlas");
+ }
  assert.equal(SHASTA_PHOTOS.length,13);
  assert.equal(NATURE_PHOTOS.length,12);
  assert.equal(CAVERN_GAME_ART.length,3);
