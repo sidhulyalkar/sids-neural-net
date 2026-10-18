@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 1600 960" width="1600" height="960">
+<title>MindForge: a hand-lettered synapse and brain street mural</title>
+<defs>
+<linearGradient id="brain" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#a99df3"/><stop offset=".33" stop-color="#dc92ef"/><stop offset=".75" stop-color="#76dddf"/><stop offset="1" stop-color="#99ffe0"/></linearGradient>
+<linearGradient id="letter" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#ffdfae"/><stop offset=".49" stop-color="#efe6e2"/><stop offset="1" stop-color="#89cde8"/></linearGradient>
+<radialGradient id="haze"><stop stop-color="#7a36bc" stop-opacity=".57"/><stop offset=".54" stop-color="#38528a" stop-opacity=".28"/><stop offset="1" stop-color="#13263b" stop-opacity="0"/></radialGradient>
+<filter id="halo" x="-25%" y="-45%" width="150%" height="190%"><feGaussianBlur stdDeviation="13"/></filter>
+<pattern id="flecks" width="44" height="52" patternUnits="userSpaceOnUse"><path d="M6 8l9 -4 M29 38l5 -9" fill="none" stroke="#121b31" stroke-width="3" stroke-linecap="round" opacity=".48"/></pattern>
+</defs>
+<ellipse cx="768" cy="510" rx="645" ry="375" fill="url(#haze)"/>
+<g opacity=".53" fill="none" stroke="#57d6e2" stroke-width="20" filter="url(#halo)">
+<path d="M375 550Q180 570 128 420 M1060 500Q1280 414 1459 460 M678 250Q678 98 780 56"/>
+</g>
+<!-- Large authored lettering establishes hierarchy -->
+<g font-family="Impact,Arial Black,sans-serif" font-weight="900" text-anchor="middle" paint-order="stroke" stroke-linejoin="round">
+<text x="795" y="160" font-size="142" letter-spacing="1" fill="#192331" stroke="#101825" stroke-width="37">MIND FORGE</text>
+<text x="795" y="150" font-size="142" letter-spacing="1" fill="url(#letter)" stroke="#446879" stroke-width="15">MIND FORGE</text>
+<text x="800" y="913" font-size="58" letter-spacing="9" fill="#beece8" stroke="#09262e" stroke-width="12">NEUROSCIENCE  /  ENGINEERING</text>
+</g>
+<!-- Brain silhouettes are FILLED paint masses; broad contour strokes read at distance. -->
+<g transform="translate(134 102)">
+<path d="M640 667C539 732 468 685 430 617C322 645 225 570 238 478C176 433 185 337 244 296C221 203 291 124 381 130C430 47 532 31 617 84C643 60 669 58 692 83L698 617Z" fill="#161c3a" opacity=".95"/>
+<path d="M707 83C806 26 900 56 927 131C1017 113 1093 185 1079 280C1179 348 1133 455 1088 473C1100 577 990 638 904 618C858 710 772 708 704 663Z" fill="#131d36" opacity=".95"/>
+<path d="M641 107C553 50 461 76 438 163C333 134 272 213 302 295C200 355 249 457 316 479C268 556 357 630 433 603C493 690 589 678 658 622L661 118Z" fill="url(#brain)" stroke="#f9d5ef" stroke-width="15" stroke-linejoin="round"/>
+<path d="M705 117C802 54 883 94 902 172C1007 147 1092 226 1045 308C1140 364 1085 475 1019 488C1054 573 956 650 882 591C837 684 747 667 700 619Z" fill="url(#brain)" stroke="#95e8e7" stroke-width="15" stroke-linejoin="round"/>
+<path d="M657 125C661 252 652 370 657 613M702 134C690 299 704 434 699 606" fill="none" stroke="#182b43" stroke-width="19" opacity=".75"/>
+<!-- Clefts, broad irregular lobes with shadow and highlight -->
+<g fill="none" stroke="#3f3d7e" stroke-linecap="round" stroke-linejoin="round" stroke-width="21" opacity=".86">
+<path d="M389 193q-58 79 41 109q49 10 34 87q-14 57-91 65"/>
+<path d="M517 134q-68 97 23 116q70 7 49 85q-16 53-73 40"/>
+<path d="M368 544q84-31 107 24q52 62 119 1"/>
+<path d="M304 351q75-24 88 40q-7 49 70 63"/>
+<path d="M782 142q87 44 38 123q-48 69 26 93"/>
+<path d="M943 186q-88 48-54 103q68 40 17 100"/>
+<path d="M1028 357q-95 5-104 75q-50 31-95 6"/>
+<path d="M995 546q-99-60-142-9q-59 83-128 29"/>
+</g>
+<g fill="none" stroke="#f6dbf7" stroke-linecap="round" stroke-width="10" opacity=".78">
+<path d="M338 274q45-39 90 3M482 423q68 35 110-2M755 381q43-27 95 3M882 477q59-38 96-2M560 530q32-24 59-12"/>
+</g>
+<path d="M613 643L599 705L667 744L730 715L725 639" fill="#d2b5dc" stroke="#30436a" stroke-width="15"/>
+<path d="M642 713q-31 70-64 102 M694 724q52 52 70 95" fill="none" stroke="#7be7ec" stroke-width="24" stroke-linecap="round"/>
+</g>
+<!-- Circuit traces are thick and purposeful, not randomized scratch lines -->
+<g stroke-linecap="round" stroke-linejoin="round" fill="none">
+<path d="M287 560H153L104 515H42M260 689H147L108 743H59M1267 545H1372L1435 486H1554M1276 713H1390L1455 778H1563" stroke="#77dbdf" stroke-width="15" opacity=".88"/>
+<path d="M302 450H162L113 394H49M1265 395H1385L1424 345H1552" stroke="#ba9df4" stroke-width="11" opacity=".83"/>
+<path d="M652 823H432L378 884H222M932 824H1112L1177 886H1382" stroke="#ffd2c5" stroke-width="10" opacity=".86"/>
+</g>
+<g fill="#fff4de" stroke="#28586d" stroke-width="8">
+<circle cx="104" cy="515" r="15"/><circle cx="108" cy="743" r="14"/><circle cx="1435" cy="486" r="16"/>
+<circle cx="1455" cy="778" r="15"/><circle cx="378" cy="884" r="16"/><circle cx="1177" cy="886" r="16"/>
+<circle cx="113" cy="394" r="12"/><circle cx="1424" cy="345" r="12"/>
+</g>
+<g opacity=".5" fill="url(#flecks)"><path d="M275 235L1310 235L1320 840L248 840Z"/></g>
+</svg>

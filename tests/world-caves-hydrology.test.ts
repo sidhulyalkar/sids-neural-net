@@ -38,10 +38,10 @@ test("paper cave widens and descends beneath a continuous waterfall shoulder", (
   assert.equal(paperCaveInside({ x: -17, z: -34 }), true);
 });
 
-test("both cave routes permit entry and exit while walls and throat baffle remain solid", () => {
+test("both cave routes permit entry and exit with solid walls and an open arcade centerline", () => {
   const solids = caveObstacles();
   const routes = [
-    [{ x: 16, z: -86 }, { x: 16, z: -77 }, { x: 18.1, z: -77 }, { x: 18.1, z: -67 }, { x: 16, z: -67 }],
+    [{ x: 16, z: -86 }, { x: 16, z: -77 }, { x: 16, z: -71 }, { x: 16, z: -67 }],
     [{ x: -20, z: -27 }, { x: -20, z: -34 }],
   ];
   for (const route of routes) {
@@ -52,7 +52,8 @@ test("both cave routes permit entry and exit while walls and throat baffle remai
       }
     }
   }
-  assert.ok(constrainMove({ x: 14, z: -77 }, { x: 14, z: -71 }, solids).z < -74.5);
+  assert.ok(Math.abs(constrainMove({ x: 14, z: -77 }, { x: 14, z: -71 }, solids).z+71)<.001,
+    "the old baffle footprint must allow a direct corridor traversal");
   assert.ok(constrainMove({ x: -20, z: -34 }, { x: -20, z: -39 }, solids).z > -36.5);
 });
 
