@@ -4497,9 +4497,11 @@ export function createWorld(
           }
         } else {
           const supportY=supportHeight(player);
-          const groundY=caveLayer==="surface"&&
-            (isRideMode(state.activity)||rideFlightContinuity)&&
-            (airHeight>.01||verticalSpeed!==0)?
+          // Even after gravity completes, the player may be BELOW an
+          // elevated beam / boulder lid. Retain natural terrain support there
+          // until the avatar physically reaches the elevated top from above.
+          // Otherwise frame N lands correctly and frame N+1 snaps upward.
+          const groundY=caveLayer==="surface"?
             airborneSupportHeight(previousY,supportY,
               terrainHeight(player.x,player.z)):supportY;
           // Integrate in world space: crossing a ramp lip must not subtract its
