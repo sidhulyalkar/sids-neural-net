@@ -61,7 +61,7 @@ export function validateCavernPhotoAlbums(
   if(data.images.length>25)issues.push(group+": keep a curated set of up to 25 images per static wall");
   if(new Set(data.images).size!==data.images.length)issues.push(group+": duplicate images");
   for(const src of data.images){
-   if(!/^\/(?:visual-archive\/(?:web|thumbs)\/|world\/arcade-cavern\/)[a-z0-9/_-]+\.(?:png|jpe?g|webp|avif)$/.test(src))
+   if(!/^\/(?!\/)(?:[a-z0-9_-]+\/)+[a-z0-9_-]+\.(?:png|jpe?g|webp|avif)$/.test(src))
     issues.push(group+": nonlocal/unsupported source "+src);
   }
  }
