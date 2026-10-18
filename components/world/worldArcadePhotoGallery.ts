@@ -1,6 +1,6 @@
 import type * as THREE from "three/src/Three.Core.js";
 import {
- SHASTA_PHOTOS,NATURE_PHOTOS,CAVERN_GAME_ART,archivePhotoPath,
+ SHASTA_PHOTOS,NATURE_PHOTOS,CAVERN_GAME_ART,CAVERN_GAME_PANEL_ART,archivePhotoPath,
 } from "@/lib/world/arcadeCavernGalleryContent";
 
 type GalleryKind="shasta-gallery"|"nature-gallery"|"game-gallery";
@@ -200,8 +200,7 @@ export async function composeArcadeGamePlaques(
  // Physical niche order follows worldRenderer's gameTitles:
  // left Stretchicorn, rear uniRico, right Unicorn Stampede.
  // The separate wall gallery uses promotional ordering instead.
- const gameOrder=[CAVERN_GAME_ART[2],CAVERN_GAME_ART[1],
-  CAVERN_GAME_ART[0]] as const;
+ const gameOrder=CAVERN_GAME_PANEL_ART;
  const images=await Promise.all(gameOrder.map(item=>
   new Promise<HTMLImageElement>((resolve,reject)=>{
    const image=new Image();image.decoding="async";
