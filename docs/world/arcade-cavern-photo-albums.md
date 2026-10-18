@@ -1,10 +1,11 @@
 # Arcade cavern photo albums
 
-The cavern uses actual local photos as a **temporary visual gallery**. No
-decorative titles, captions, slogans, handwritten text or typography are added
-by the mural compositors. Existing game-cover artwork and sports-team crests
-may still contain lettering *inside their original image files*; the game HUD,
-interaction buttons and accessibility labels remain functional.
+The cavern uses actual local photos as a **temporary visual gallery**.
+The photo and game-image walls have no added captions, headings or slogans.
+**The sports wall is the exception:** CHELSEA, PATRIOTS and WARRIORS labels
+are painted below their original team crests. Writing already inside the
+supplied game-cover artwork remains unchanged; the game HUD, interaction
+buttons and accessibility labels stay functional.
 
 ## Replacing the current pictures
 
