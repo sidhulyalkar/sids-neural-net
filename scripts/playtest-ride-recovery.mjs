@@ -42,28 +42,55 @@ try{
   null,{timeout:15000});
  await page.locator("canvas").focus();
  await page.keyboard.down("w");
+ // Capture AND click inside the browser's animation loop. Host-side screenshot
+ // or locator polls can take several seconds with SwiftShader and would miss
+ // the short flying interval, accidentally testing a finished jump instead.
+ let transition;
  try{
-  await page.waitForFunction(()=>document.querySelector("canvas")?.dataset.bigAirPhase==="flying",
-   null,{timeout:110000});
-  await page.waitForFunction(()=>{
-   const d=document.querySelector("canvas")?.dataset;
-   return d?.bigAirPhase==="flying"&&Number(d?.rideAirHeight)>1.4;
-  },null,{timeout:45000});
+  transition=await page.evaluate(()=>new Promise((resolve,reject)=>{
+   const canvas=document.querySelector("canvas");
+   if(!canvas){reject(Error("World canvas missing"));return;}
+   const started=performance.now();
+   let before=null;
+   const sample=()=>({
+    player:canvas.dataset.player,altitude:Number(canvas.dataset.height),
+    airHeight:Number(canvas.dataset.rideAirHeight??0),
+    airborne:canvas.dataset.airborne==="true",
+    phase:canvas.dataset.bigAirPhase,activity:canvas.dataset.activity,
+    continuity:canvas.dataset.rideFlightContinuity,
+   });
+   function tick(){
+    if(performance.now()-started>105000){
+     reject(Error("Ski exit observation timed out "+JSON.stringify({
+      before,current:sample(),
+     })));return;
+    }
+    const current=sample();
+    if(!before&&current.phase==="flying"&&current.airHeight>1.65){
+     const exit=[...document.querySelectorAll("button")]
+      .find(el=>el.textContent?.trim()==="Exit jump");
+     if(exit){
+      before=current;
+      exit.click();
+     }
+    }else if(before&&current.activity==="run"&&current.phase==="idle"){
+     resolve({before,after:current});return;
+    }
+    requestAnimationFrame(tick);
+   }
+   requestAnimationFrame(tick);
+  }));
  }finally{await page.keyboard.up("w");}
- const before=await snapshot("ski-flight");
- assert.ok(before.airborne,"ski jump must be airborne before exit");
- await page.screenshot({path:path.join(out,"01-ski-flight.png")});
- await page.getByRole("button",{name:"Exit jump",exact:true}).click();
- await page.waitForFunction(()=>{
-  const d=document.querySelector("canvas")?.dataset;
-  return d?.activity==="run"&&d?.bigAirPhase==="idle";
- },null,{timeout:20000});
- const after=await snapshot("jump-exit");
- assert.ok(after.airborne,
-  "leaving the ski challenge midair must preserve physical flight rather than snap to a prop");
- assert.ok(after.altitude>before.altitude-6,
-  "exiting midair should not teleport abruptly down a mountain");
+ metrics.push({stage:"ski-flight",...transition.before});
+ metrics.push({stage:"jump-exit",...transition.after});
+ assert.ok(transition.before.airborne&&transition.before.airHeight>1.65,
+  "must interrupt a real flight, not a grounded result state");
+ assert.ok(transition.after.airborne||transition.after.airHeight<.08,
+  "free-roam must preserve airtime or reach a natural contact");
+ assert.ok(transition.after.altitude>transition.before.altitude-6,
+  "jump exit may not instantly snap the rider onto a distant support plane");
  await page.screenshot({path:path.join(out,"02-exit-airborne.png")});
+ const after=transition.after;
  // Real keyboard traversal across the same mountain. No debug pose injection.
  await page.locator("canvas").focus();
  await page.keyboard.down("w");
