@@ -3,13 +3,18 @@ import type * as THREE from "three/src/Three.Core.js";
  * only the constructors actually used to render the mural meshes. */
 type ArcadeThree=Pick<typeof import("three/src/Three.Core.js"),
  "CanvasTexture"|"BufferGeometry"|"Float32BufferAttribute"|
- "MeshStandardMaterial"|"Color"|"DoubleSide"|"Mesh"|"Group"|
- "SRGBColorSpace"|"LinearMipmapLinearFilter">;
+ "MeshStandardMaterial"|"Color"|"DoubleSide"|"Mesh"|"Group"|"TextureLoader"|
+ "SRGBColorSpace"|"RepeatWrapping"|"LinearMipmapLinearFilter">;
 import {ARCADE_CAVERN_MURALS,validateArcadeArtManifest} from "@/lib/world/arcadeCavernArtManifest";
+import {ARCADE_MURAL_ART_ASSETS,validateArcadeMuralAssets} from "@/lib/world/arcadeCavernAssetManifest";
+import {paintConceptStory,distressPigment} from "./worldArcadeConceptArt";
+import {createArcadeStoneLining} from "./worldArcadeStoneLining";
+import {createShastaPhotoStencil} from "./worldArcadeShastaStencil";
+import {createSportsFanMural} from "./worldArcadeSportsMural";
+import {createArcadeCarvedAlcoves} from "./worldArcadeCarvedAlcoves";
+import {composeArcadeGallery,composeArcadeGamePlaques} from "./worldArcadePhotoGallery";
 import {ARCADE_CAVE,arcadeCaveFloorHeight} from "@/lib/world/model";
 import {sampleCavernArt,type CavernArtTheme,type CavernArtSurface,type CavernMural} from "@/lib/world/arcadeCavernSurface";
-
-import {paintCavernPhotoGallery} from "./worldCavernPhotoGallery";
 
 const TAU=Math.PI*2;
 type Paint=CanvasRenderingContext2D;
@@ -18,7 +23,7 @@ function randomFor(id:string){
  for(const ch of id){h^=ch.charCodeAt(0);h=Math.imul(h,16777619);}
  return ()=>{h^=h<<13;h^=h>>>17;h^=h<<5;return (h>>>0)/4294967296;};
 }
-function stroke(ctx:Paint,points:readonly [number,number][],color:string,width:number,glow=0){
+function stroke(ctx:Paint,points:readonly (readonly [number,number])[],color:string,width:number,glow=0){
  if(points.length<2)return;
  ctx.save();ctx.beginPath();ctx.moveTo(...points[0]);
  for(let i=1;i<points.length-1;i++){
@@ -254,60 +259,113 @@ function paintIdentity(ctx:Paint){
   i%3?"#73c2dd":"#f5ba77",8+rng()*12,rng);
 }
 function paintFloor(ctx:Paint){
- const rng=randomFor("cavern-floor");
- for(let side=0;side<2;side++){
-  const x=side?915:120;
-  stroke(ctx,[[x,35],[x-55*(side?1:-1),300],[x,625],
-   [x+36*(side?1:-1),970]],side?"#e9b55b":"#3ec2cc",15);
-  for(let i=0;i<6;i++){
-   const y=70+i*165;
-   ring(ctx,x+(side?-55:55),y,45,70,side?"#f0b771":"#6ed2d4",4,0,Math.PI);
+ // Wide, restrained inlaid wheels and chalk arrows. No floor typography:
+ // third-person camera rotation makes lettering read mirrored at some angles.
+ const draw=(pts:readonly [number,number][],color:string,width:number,alpha=1)=>{
+  ctx.save();ctx.globalAlpha=alpha;
+  stroke(ctx,pts,color,width);ctx.restore();
+ };
+ // The painted edge runs are intentionally broad, broken and asymmetric,
+ // complementing the existing teal/gold 3D wayfinding breadcrumb trail.
+ for(const [side,x,col] of [
+  ["left",130,"#82cfca"],["right",900,"#f5c27a"],
+ ] as const){
+  const sign=side==="left"?1:-1;
+  draw([[x,24],[x-sign*39,248],[x+sign*13,469],
+   [x-sign*27,715],[x+sign*17,982]],col,18,.65);
+  draw([[x+sign*30,32],[x-sign*6,255],[x+sign*42,465],
+   [x+sign*4,721],[x+sign*43,981]],col,5,.35);
+ }
+ // Three directions to the arcade, composed as bold filled paint/stencil,
+ // never as thin text or repeating small outlines.
+ for(const y of [208,516,824]){
+  polygon(ctx,[[467,y+74],[467,y+8],[420,y+8],
+   [512,y-95],[605,y+8],[556,y+8],[556,y+74]],
+  "#b4ded4",.23);
+  draw([[458,y+78],[458,y+11],[421,y+11],[512,y-82],
+   [604,y+11],[567,y+11],[567,y+78]],"#dbe9db",5,.38);
+ }
+ // Skateboard tire marks with broad worn tread blocks.
+ const tracks=[{x:262,y:315,a:-.32},{x:788,y:645,a:.36}];
+ for(const track of tracks){
+  ctx.save();ctx.translate(track.x,track.y);ctx.rotate(track.a);
+  for(const side of [-1,1]){
+   const x=side*35;
+   draw([[x,-159],[x+5,-60],[x-8,64],[x+4,156]],
+    "#1a2225",20,.46);
+   for(let k=0;k<11;k++){
+    const y=-151+k*29;
+    polygon(ctx,[[x-14,y-9],[x+12,y-11],[x+9,y+8],
+     [x-17,y+10]],"#a38d78",.18);
+   }
   }
+  ctx.restore();
  }
- for(let i=0;i<7;i++){
-  const y=100+i*138;
-  polygon(ctx,[[480,y],[512,y+51],[544,y]],"#b1e8d8",.24);
-  stroke(ctx,[[512,y+42],[512,y+100]],"#c5cfc4",4);
- }
- tag(ctx,"ONE MORE RUN",222,380,62,"#f1c89a",-.07,620);
- tag(ctx,"PLAY LOUD",360,780,68,"#8cc9d6",.025,410);
- for(let i=0;i<55;i++){
-  const x=rng()*1024,y=rng()*1024;
-  splash(ctx,x,y,i%2?"#edb674":"#7da9b7",3+7*rng(),rng);
+ // Two recognizably husky-like paw tread symbols use filled paint masses.
+ for(const [x,y,angle] of [[292,747,-.21],[708,265,.34]] as const){
+  ctx.save();ctx.translate(x,y);ctx.rotate(angle);
+  ctx.fillStyle="#b6d5ca";ctx.globalAlpha=.35;
+  ctx.beginPath();ctx.ellipse(0,17,40,33,0,0,TAU);ctx.fill();
+  for(const [dx,dy] of [[-39,-24],[-14,-43],[16,-42],[41,-25]]){
+   ctx.beginPath();ctx.ellipse(dx,dy,14,18,-.12,0,TAU);ctx.fill();
+  }
+  ctx.restore();
  }
 }
 function paintCeiling(ctx:Paint){
- const rng=randomFor("cavern-ceiling");
- for(let i=0;i<3;i++){
-  const x=230+i*260,y=310+(i%2)*130;
-  ring(ctx,x,y,73+i*20,83+i*9,"#d3ad8a",3.5,Math.PI*.15,TAU*.89);
-  for(let k=0;k<8;k++){
-   const a=k*TAU/8;
-   stroke(ctx,[[x+Math.cos(a)*87,y+Math.sin(a)*96],
-    [x+Math.cos(a)*128,y+Math.sin(a)*133]],"#7ed1d1",3);
-  }
+ // The entrance canopy now draws a large, quiet nature silhouette instead
+ // of the old UFO-like rings. These broad painted masses read from below,
+ // with actual basalt remaining exposed between strokes.
+ const mountain=(pts:readonly [number,number][],fill:string,opacity:number)=>{
+  polygon(ctx,pts,fill,opacity);
+ };
+ mountain([[20,695],[190,397],[295,512],[433,240],[570,482],
+  [679,347],[869,573],[1006,440],[1006,1023],[20,1023]],
+ "#315b57",.57);
+ mountain([[15,827],[201,555],[315,711],[450,385],[584,690],
+  [768,514],[985,818],[1024,971],[0,971]],"#193d40",.66);
+ mountain([[391,306],[433,240],[493,327],[464,315],[436,279],[420,313]],
+ "#f0efdf",.72);
+ mountain([[152,482],[190,397],[237,483],[201,469],[187,437],[174,463]],
+ "#dbeee1",.68);
+ // Waterfall and narrow outflow: substantial multi-layer paint strokes,
+ // never a collection of unrelated thin procedural lines.
+ const fall=[
+  [[738,430],[731,584],[716,707],[737,841]],
+  [[767,421],[773,582],[761,709],[788,876]],
+  [[794,459],[796,592],[785,728],[807,841]],
+ ] as const;
+ for(const [i,pts] of fall.entries()){
+  stroke(ctx,pts,i===1?"#b5f4ee":"#69c9d0",i===1?34:25);
  }
- for(let i=0;i<35;i++){
-  const x=rng()*1024,y=rng()*1024;
-  ring(ctx,x,y,2+rng()*4,2+rng()*4,i%4?"#e2c99d":"#7dbdc4",1.8);
+ stroke(ctx,[[699,877],[779,910],[864,908],[937,953]],"#5dcac9",27);
+ stroke(ctx,[[694,890],[765,932],[876,925],[940,965]],"#d7f7df",9);
+ // Compact pines mark the alpine silhouette rather than floating logos.
+ for(let i=0;i<15;i++){
+  const x=36+i*67,base=940+(i%3)*14,r=29+(i%4)*11;
+  mountain([[x-r,base],[x,base-r*3],[x+r,base]],"#113f3c",.72);
+  mountain([[x-r*.74,base-r*.58],[x,base-r*3.1],
+   [x+r*.74,base-r*.58]],"#2e6660",.35);
  }
- tag(ctx,"LEVELS ABOVE",295,140,56,"#cfb18b",-.025);
 }
-function paintTexture(theme:CavernArtTheme,three:ArcadeThree,active:()=>boolean,id:string){
+function paintTexture(theme:CavernArtTheme,three:ArcadeThree){
  const canvas=document.createElement("canvas");
- canvas.width=1024;canvas.height=theme==="shasta"||theme==="nature"?640:theme==="identity"?320:theme==="sports"||theme==="anime"||theme==="sport-anime"||theme==="comedy"?640:1024;
- if(theme==="shasta"||theme==="nature"){canvas.width=2048;canvas.height=1280;}
+ canvas.width=1024;canvas.height=theme==="identity"?320:theme==="sports"||theme==="anime"||theme==="sport-anime"||theme==="comedy"||theme==="shasta"||theme==="neural"?640:1024;
  const ctx=canvas.getContext("2d");
  if(!ctx)throw Error("Arcade mural 2D canvas unavailable");
- basePaint(ctx,theme,canvas.width,canvas.height,
-  theme==="sports"?"#8bbbef":theme==="anime"?"#947ae5":
-  theme==="comedy"?"#77dca5":"#e1ac78");
+ // Random strokes and splashes across the canvas obscured the artwork.
+ // Do not generate extra fake graffiti over authored murals. Future
+ // revisions should swap in completed local art assets via the manifest.
  ctx.save();
  if(theme==="identity")paintIdentity(ctx);
  if(theme==="sports")paintSports(ctx);
  if(theme==="anime")paintAnime(ctx);
  if(theme==="comedy")paintComedy(ctx);
  if(theme==="sport-anime")paintSportAnime(ctx);
+ // Only Shasta and neural science are provisional Canvas studies;
+ // do not add random stickers over characters or display lettering.
+ if(theme==="shasta"||theme==="neural")paintConceptStory(ctx,theme);
+ distressPigment(ctx,theme);
  ctx.restore();
  // Feather the spray as pigment on irregular stone, not an abruptly
  // cropped rectangular canvas. Preserve the center and lettering while
@@ -331,12 +389,66 @@ function paintTexture(theme:CavernArtTheme,three:ArcadeThree,active:()=>boolean,
  texture.colorSpace=three.SRGBColorSpace;
  texture.anisotropy=4;texture.generateMipmaps=true;
  texture.minFilter=three.LinearMipmapLinearFilter;
- if(theme==="shasta"||theme==="nature"){
-  void paintCavernPhotoGallery(canvas,theme,active,id).then(()=>{
-   if(active())texture.needsUpdate=true;
-  });
+ // A small filtered emissive mask: only saturated/bright pigment glows,
+ // rather than uniformly lighting every pixel and flattening the cavern.
+ const glowCanvas=document.createElement("canvas");
+ glowCanvas.width=512;glowCanvas.height=Math.round(canvas.height/2);
+ const glowCtx=glowCanvas.getContext("2d");
+ if(!glowCtx)throw Error("Arcade glow canvas unavailable");
+ glowCtx.drawImage(canvas,0,0,glowCanvas.width,glowCanvas.height);
+ const pixels=glowCtx.getImageData(0,0,glowCanvas.width,glowCanvas.height);
+ for(let k=0;k<pixels.data.length;k+=4){
+  const r=pixels.data[k],g=pixels.data[k+1],b=pixels.data[k+2];
+  const max=Math.max(r,g,b),min=Math.min(r,g,b);
+  const saturated=max-min>58 && max>143;
+  const neon=(g>r*1.13&&b>r*.91)||(b>r*1.18&&b>g*.88)||
+   (r>155&&b>105&&b>g*.95)||(r>175&&g>121&&b<130);
+  pixels.data[k+3]=saturated&&neon?
+   Math.round(pixels.data[k+3]*.70):0;
  }
- return texture;
+ glowCtx.putImageData(pixels,0,0);
+ const glow=new three.CanvasTexture(glowCanvas);
+ glow.colorSpace=three.SRGBColorSpace;
+ glow.anisotropy=4;glow.generateMipmaps=true;
+ glow.minFilter=three.LinearMipmapLinearFilter;
+ return {paint:texture,glow};
+}
+/** Small RGB-only glow mask, with black everywhere except luminous pigment.
+ * Three multiplies emissive by RGB, so transparency alone cannot mask glow. */
+function authoredNeonMask(image:HTMLImageElement,three:ArcadeThree){
+ const canvas=document.createElement("canvas");
+ canvas.width=384;canvas.height=240;
+ const context=canvas.getContext("2d",{willReadFrequently:true});
+ if(!context)throw Error("Neon compositor unavailable");
+ context.drawImage(image,0,0,canvas.width,canvas.height);
+ const frame=context.getImageData(0,0,canvas.width,canvas.height);
+ for(let i=0;i<frame.data.length;i+=4){
+  const r=frame.data[i],g=frame.data[i+1],b=frame.data[i+2];
+  const alpha=frame.data[i+3]/255;
+  const max=Math.max(r,g,b),min=Math.min(r,g,b);
+  const gate=max>148&&max-min>65?alpha*Math.min(1,(max-148)/68)*.65:0;
+  frame.data[i]=Math.round(r*gate);
+  frame.data[i+1]=Math.round(g*gate);
+  frame.data[i+2]=Math.round(b*gate);
+  frame.data[i+3]=255;
+ }
+ context.putImageData(frame,0,0);
+ const result=new three.CanvasTexture(canvas);
+ result.colorSpace=three.SRGBColorSpace;
+ result.generateMipmaps=true;
+ result.minFilter=three.LinearMipmapLinearFilter;
+ return result;
+}
+/** Authored slots reveal the real illustration once loaded. They should not
+ * render low-fidelity procedural doodles while TextureLoader is resolving. */
+function emptyPaint(three:ArcadeThree){
+ const canvas=document.createElement("canvas");
+ canvas.width=2;canvas.height=2;
+ const paint=new three.CanvasTexture(canvas);
+ paint.colorSpace=three.SRGBColorSpace;
+ const glow=new three.CanvasTexture(canvas);
+ glow.colorSpace=three.SRGBColorSpace;
+ return {paint,glow};
 }
 function atmosphereTexture(kind:"floor"|"ceiling",three:ArcadeThree){
  const canvas=document.createElement("canvas");canvas.width=1024;canvas.height=1024;
@@ -350,13 +462,17 @@ function atmosphereTexture(kind:"floor"|"ceiling",three:ArcadeThree){
 }
 function surfaceMesh(surface:CavernArtSurface,z0:number,z1:number,
  v0:number,v1:number,texture:THREE.Texture,name:string,
- three:ArcadeThree,zSegments=34,vSegments=14){
+ three:ArcadeThree,zSegments=34,vSegments=14,
+ glow?:THREE.Texture,bump?:THREE.Texture,
+ backRange?:readonly [number,number]){
  const vertices:number[]=[],uvs:number[]=[],indices:number[]=[];
  const left=surface==="left";
  for(let iz=0;iz<=zSegments;iz++)for(let iv=0;iv<=vSegments;iv++){
   const t=iz/zSegments,s=iv/vSegments;
   const z=z0+(z1-z0)*t,v=v0+(v1-v0)*s;
   const u=surface==="floor"||surface==="ceiling"?s:
+   surface==="back"&&backRange?
+     backRange[0]+(backRange[1]-backRange[0])*t:
    surface==="back"?t:.5;
   const mapped=sampleCavernArt(surface,z,u,v,.056);
   if(!mapped)throw Error("Invalid paint placement: "+name+" "+z+" "+v);
@@ -379,8 +495,10 @@ function surfaceMesh(surface:CavernArtSurface,z0:number,z1:number,
  g.setAttribute("uv",new three.Float32BufferAttribute(uvs,2));
  g.setIndex(indices);g.computeVertexNormals();
  const mat=new three.MeshStandardMaterial({
-  map:texture,emissiveMap:texture,emissive:new three.Color("#7f5f58"),
-  emissiveIntensity:.17,transparent:true,opacity:.97,
+  map:texture,emissiveMap:glow??null,
+  emissive:new three.Color(glow?"#ffffff":"#73665e"),
+  emissiveIntensity:glow?.85:.12,transparent:true,opacity:.97,
+  bumpMap:bump??null,bumpScale:.025,
   alphaTest:.015,depthWrite:false,
   side:three.DoubleSide,roughness:1,polygonOffset:true,
   polygonOffsetFactor:-2,polygonOffsetUnits:-2,
@@ -450,27 +568,170 @@ function createNicheGraffitiFrames(three:ArcadeThree){
  return mesh;
 }
 
-export function createWorldArcadeGraffiti(scene:THREE.Scene,three:ArcadeThree){
- const issues=validateArcadeArtManifest(ARCADE_CAVERN_MURALS);
+export function createWorldArcadeGraffiti(scene:THREE.Scene,three:ArcadeThree,
+ onAssetReady?:(count:number,detail?:{kind:string;photoCount:number})=>void){
+ const issues=[
+  ...validateArcadeArtManifest(ARCADE_CAVERN_MURALS),
+  ...validateArcadeMuralAssets(),
+ ];
  if(issues.length)throw Error("Cave mural manifest: "+issues.join("; "));
  const root=new three.Group();root.name="sid-underground-fandom-fresco";
- let disposed=false;
  const meshes:THREE.Mesh[]=[],textures:THREE.Texture[]=[];
+ const loader=new three.TextureLoader();
+ let alive=true;
+ let authoredReady=0;
+ // One image decode/composite per theme even when a gallery wraps from the
+ // side wall onto the rear rock. Reuse the same CanvasTexture on both meshes.
+ const galleryCache=new Map<string,ReturnType<typeof composeArcadeGallery>>();
+ const galleryKind=(theme:CavernArtTheme)=>
+  theme==="shasta-gallery"||theme==="nature-gallery"||theme==="game-gallery";
+ const installAuthored=(wall:THREE.Mesh,painted:THREE.Texture,
+  opacity:number,theme:CavernArtTheme,source?:HTMLImageElement)=>{
+  if(!alive)return;
+  const material=wall.material as THREE.MeshStandardMaterial;
+  material.map=painted;
+  material.opacity=opacity;
+  if(source&&["neural","anime","comedy"].includes(theme)){
+   const mask=authoredNeonMask(source,three);
+   textures.push(mask);
+   material.emissive=new three.Color("#ffffff");
+   material.emissiveMap=mask;
+   material.emissiveIntensity=.85;
+  }else{
+   // Tiny ink bounce makes broad ivory lettering and the genuine club
+   // crests remain readable from the player's normal camera in dim basalt.
+   // This is 10x weaker than the localized selective neon highlights.
+   material.emissive=new three.Color("#e2d3c7");
+   material.emissiveMap=painted;
+   material.emissiveIntensity=.08;
+  }
+  material.needsUpdate=true;
+  authoredReady++;
+  root.userData.authoredMuralsReady=authoredReady;
+  onAssetReady?.(authoredReady);
+ };
+ const stone=createArcadeStoneLining(three);
+ meshes.push(stone.mesh);textures.push(stone.texture,stone.heightTexture);root.add(stone.mesh);
  for(const mural of ARCADE_CAVERN_MURALS){
-  const tex=paintTexture(mural.theme,three,()=>!disposed,mural.id);textures.push(tex);
+  const artwork=ARCADE_MURAL_ART_ASSETS[mural.theme];
+  const {paint,glow}=artwork||galleryKind(mural.theme)?emptyPaint(three):paintTexture(mural.theme,three);
+  textures.push(paint,glow);
   const wall=surfaceMesh(mural.surface,mural.z0,mural.z1,
-   mural.v0,mural.v1,tex,"paint-"+mural.id,three,mural.surface==="back"?1:34,14);
+   mural.v0,mural.v1,paint,"paint-"+mural.id,three,
+   mural.surface==="back"?1:34,14,glow,stone.texture,
+   mural.u0!==undefined&&mural.u1!==undefined?
+     [mural.u0,mural.u1]:undefined);
   // For the rear upper band the longitudinal z dimension is zero: texture
   // horizontal must use wall width, not the degenerate z-coordinate.
   meshes.push(wall);root.add(wall);
+  if(galleryKind(mural.theme)){
+   const kind=mural.theme as "shasta-gallery"|"nature-gallery"|"game-gallery";
+   if(!galleryCache.has(kind))
+    galleryCache.set(kind,composeArcadeGallery(kind,three));
+   galleryCache.get(kind)!.then(({texture,photoCount})=>{
+    if(!alive){texture.dispose();return;}
+    if(!textures.includes(texture))textures.push(texture);
+    installAuthored(wall,texture,1,mural.theme);
+    root.userData[kind+"-images"]=photoCount;
+    onAssetReady?.(authoredReady,{kind,photoCount});
+   }).catch(error=>{
+    if(alive)root.userData.galleryLoadFailure=
+      kind+": "+(error instanceof Error?error.message:String(error));
+   });
+  }else if(artwork?.presentation==="sports-crest-composite"){
+   const srcs=[artwork.src,...(artwork.supportingSources??[])];
+   // Use only self-hosted, full-color *authentic* crest files. The 3 bitmap
+   // images are composed once into a single matte, transparent atlas. If
+   // any source cannot load, retain the existing fallback painting.
+   const decoded:HTMLImageElement[]=[];
+   let ready=0,failed=false;
+   srcs.forEach((url,index)=>{
+    const source=loader.load(url,(loaded)=>{
+     if(!alive||failed)return;
+     decoded[index]=loaded.image as HTMLImageElement;
+     ready++;
+     if(ready===srcs.length){
+      const atlas=createSportsFanMural(decoded,three);
+      if(!alive){atlas.dispose();return;}
+      textures.push(atlas);
+      installAuthored(wall,atlas,artwork.opacity,mural.theme);
+     }
+    },undefined,()=>{
+     failed=true;
+     root.userData.sportsArtLoadFailure=url;
+    });
+    textures.push(source);
+   });
+  }else if(artwork){
+   // A source-authored mural is loaded from this site's /public files.
+   const source=loader.load(artwork.src,(loaded)=>{
+    if(!alive)return;
+    loaded.colorSpace=three.SRGBColorSpace;
+    loaded.anisotropy=4;
+    const image=loaded.image as HTMLImageElement;
+    const rendered=artwork.presentation==="shasta-photo-stencil"
+     ?createShastaPhotoStencil(image,three):loaded;
+    if(rendered!==loaded)textures.push(rendered);
+    installAuthored(wall,rendered,artwork.opacity,mural.theme,image);
+   },undefined,()=>{
+    root.userData.muralArtLoadFailure=artwork.src;
+   });
+   textures.push(source);
+  }
  }
+ // Game artwork is also presented IN each existing game target, not only
+ // on the separate poster-gallery wall. All meshes share the cave shell
+ // sampler and remain non-raycast; the original invisible gameplay target
+ // boxes retain exclusive selection/interaction responsibilities.
+ const plaquePositions=[
+  {surface:"left" as const,z0:-68.62,z1:-65.38},
+  {surface:"back" as const,z0:-63.32,z1:-63.32,
+   range:[.391,.609] as const},
+  {surface:"right" as const,z0:-68.62,z1:-65.38},
+ ];
+ const plaqueWalls=plaquePositions.map((p,index)=>{
+  const blank=emptyPaint(three);
+  textures.push(blank.paint,blank.glow);
+  const wall=surfaceMesh(p.surface,p.z0,p.z1,
+   .24,.585,blank.paint,"arcade-game-cover-"+index,three,
+   p.surface==="back"?24:28,12,blank.glow,stone.texture,
+   "range" in p?p.range:undefined);
+  (wall.material as THREE.MeshStandardMaterial).emissiveIntensity=.06;
+  wall.renderOrder=3;
+  meshes.push(wall);root.add(wall);
+  return wall;
+ });
+ composeArcadeGamePlaques(three).then(pictures=>{
+  if(!alive){for(const picture of pictures)picture.dispose();return;}
+  for(const [index,picture] of pictures.entries()){
+   textures.push(picture);
+   const material=plaqueWalls[index].material as THREE.MeshStandardMaterial;
+   material.map=picture;
+   material.emissiveMap=picture;
+   material.emissive=new three.Color("#e1d6c4");
+   material.emissiveIntensity=.16;
+   material.needsUpdate=true;
+  }
+  root.userData.arcadeGamePlaquesReady=pictures.length;
+  onAssetReady?.(authoredReady,{kind:"game-plaques",
+   photoCount:pictures.length});
+ }).catch(error=>{
+  if(alive)root.userData.arcadeGamePlaquesFailure=
+   error instanceof Error?error.message:String(error);
+ });
  for(const layer of ["floor","ceiling"] as const){
   const tex=atmosphereTexture(layer,three);textures.push(tex);
   const mesh=surfaceMesh(layer,layer==="floor"?-79:-75.5,
    layer==="floor"?-65:-65.2,layer==="floor"?.06:.18,
-   layer==="floor"?.93:.86,tex,"paint-"+layer,three,38,16);
+   layer==="floor"?.93:.86,tex,"paint-"+layer,three,38,16,
+   undefined,stone.texture);
   meshes.push(mesh);root.add(mesh);
  }
+ // Irregular carved arch rocks sit only on the OUTSIDE of existing game
+ // selection rectangles, so they never alter the raycast or walking model.
+ const carvedAlcoves=createArcadeCarvedAlcoves(three);
+ root.add(carvedAlcoves);meshes.push(carvedAlcoves);
+ root.userData.carvedAlcoves=true;
  const nicheFrames=createNicheGraffitiFrames(three);
  root.add(nicheFrames);meshes.push(nicheFrames);
  scene.add(root);
@@ -480,7 +741,7 @@ export function createWorldArcadeGraffiti(scene:THREE.Scene,three:ArcadeThree){
    drawCalls:meshes.length,triangles,materials:meshes.length,
    textureCount:textures.length},
   dispose(){
-   disposed=true;
+   alive=false;
    scene.remove(root);
    for(const mesh of meshes){mesh.geometry.dispose();
     (mesh.material as THREE.Material).dispose();}

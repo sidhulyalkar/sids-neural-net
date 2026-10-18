@@ -980,8 +980,8 @@ export function WorldHome({ content }: { content: WorldContent }) {
             <>
               <h2 id="world-panel-title">{trident.title}.</h2>
               <p className={styles.panelIntro}>
-                A small golden trident inspired by UC San Diego, a personal
-                connection to Bioengineering and scientific exploration.
+                A carved navy-and-gold trident inspired by UC San Diego,
+                celebrating Bioengineering and scientific exploration.
                 This sculpture is not an official university emblem.
               </p>
               <div className={styles.panelLinks}>

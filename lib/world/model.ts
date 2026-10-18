@@ -287,7 +287,7 @@ export function caveObstacles(): Obstacle[] {
     for (let z = -81; z < -63; z++) result.push({ x: 16 + side * (caveHalfWidth(z) + .4), z, radius: .32 });
   }
   for (let x = -24; x <= -16; x++) result.push({ x, z: -36.5, radius: .35 });
-  for (let x = 12; x < 16.7; x += .7) result.push({ x, z: -74.5, radius: .28 });
+  // No baffle obstacle at z=-74.5: the main arcade corridor is unobstructed.
   for (let x = 10; x < 23; x += .8) result.push({ x, z: -62.5, radius: .35 });
   return result;
 }

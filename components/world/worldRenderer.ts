@@ -11,6 +11,7 @@ import {beginSkateTunnelRide,advanceSkateTunnelRide,skateTunnelSample,
 import {createWorldSkateGrove} from "./worldSkateGroveGeometry";
 import {detailCavernStone} from "./worldCavernStoneMaterial";
 import {createWorldArcadeGraffiti} from "./worldArcadeGraffitiGeometry";
+import {ARCADE_REAR_CAP_Z,sampleCavernArt} from "@/lib/world/arcadeCavernSurface";
 import {skateLean} from "@/lib/world/skateDynamics";
 import {selectAssistedSkateTrick,assistedSkateSpin} from "@/lib/world/skateAssist";
 import {idleSkateTrick,startSkateTrick,finishSkateTrick,setSkateGrab,skateTrickPose,flickTrick,scoreSkateGrind,scoreSkateLoop,scoreSkateTunnel,scoreSkateRailGap,queueSkateSpin,startSkateManual,stepSkateManual,finishSkateManual,type SkateTrickName,type SkateTrickState} from "@/lib/world/skateTricks";
@@ -1391,9 +1392,8 @@ export function createWorld(
     return [new THREE.Vector3(16-w,y,z),new THREE.Vector3(16+w,y,z)];
   });
   mesh(geo(ringSurface(arcadeFloorRings)),detailCavernStone(mat("#a49c8b",{side:THREE.DoubleSide})),[0,0,0],[1,1,1]);
-  // Recessed throat baffle blocks the direct exterior view of the rear niche.
-  const baffleFloor=arcadeCaveFloorHeight({x:16,z:-74.5});
-  mesh(boxGeo,detailCavernStone(mat("#a49c8b")),[14.2,baffleFloor+2.35,-74.5],[4.8,4.7,.7]);
+  // The former box baffle and its collision obstacles are removed. The
+  // continuous centerline now provides a clear view of the rear chamber.
   // GRANITE SIGNAL: a legible exterior silhouette that announces an
   // underground arcade without drawing a floating neon UI or blocking the
   // entrance. Two split basalt horns frame the passage from the southern
@@ -1534,14 +1534,12 @@ export function createWorld(
   canvas.dataset.arcadeTrailMarkers=String(ARCADE_TRAIL_MARKERS.length);
   canvas.dataset.arcadeWayfindingSign=arcadeWord;
 
-  // Subtle gold-to-teal floor studs explain the real route around the
-  // recessed baffle: enter center, move to the open eastern bypass, then
-  // return toward the three carved game niches. Like painted wayfinding,
-  // these have ZERO collision or extra light sources.
+  // A clean centerline of understated teal studs guides visitors to the
+  // actual game portals. No more arrows steering into a dead-end baffle.
+  // Visual only: no collision and no additional light sources.
   const arcadeWalkRoute=[
-    {x:16.0,z:-80.65},{x:18.65,z:-77.1},
-    {x:18.65,z:-73.0},{x:18.3,z:-70.0},
-    {x:16.0,z:-66.65},
+    {x:16.0,z:-80.65},{x:16.0,z:-75.1},
+    {x:16.0,z:-70.7},{x:16.0,z:-66.65},
   ];
   const arcadeWalkInlays:Instance[]=[];
   for(let i=0;i<arcadeWalkRoute.length-1;i++){
@@ -1557,7 +1555,7 @@ export function createWorld(
     }
   }
   const arcadeTrailFloor=instances(boxGeo,arcadeGlacial,arcadeWalkInlays,false);
-  arcadeTrailFloor.name="arcade-cavern-baffle-safe-teal-route";
+  arcadeTrailFloor.name="arcade-cavern-clear-center-teal-route";
 
   // SID'S UNDERGROUND: handpainted wall/floor/roof art projected onto the
   // exact angular arcade cave shell. Art has no collider or raycast targets.
@@ -1571,9 +1569,20 @@ export function createWorld(
     Mesh:THREE.Mesh,
     Group:THREE.Group,
     SRGBColorSpace:THREE.SRGBColorSpace,
+    RepeatWrapping:THREE.RepeatWrapping,
     LinearMipmapLinearFilter:THREE.LinearMipmapLinearFilter,
+    TextureLoader:THREE.TextureLoader,
+  },(count,detail)=>{
+    canvas.dataset.arcadeAuthoredMuralsReady=String(count);
+    if(detail){
+      const attr=detail.kind==="shasta-gallery"?"arcadeShastaPhotos":
+       detail.kind==="nature-gallery"?"arcadeNaturePhotos":
+       detail.kind==="game-plaques"?"arcadeGamePlaquesReady":
+       "arcadeGamePosters";
+      canvas.dataset[attr]=String(detail.photoCount);
+    }
   });
-  canvas.dataset.arcadeGraffitiVersion="fresco-v1";
+  canvas.dataset.arcadeGraffitiVersion="asset-first-v3";
   canvas.dataset.arcadeGraffitiMurals=String(arcadeGraffiti.diagnostics.murals);
   canvas.dataset.arcadeGraffitiDrawCalls=String(arcadeGraffiti.diagnostics.drawCalls);
   canvas.dataset.arcadeGraffitiTriangles=String(arcadeGraffiti.diagnostics.triangles);
@@ -1638,9 +1647,48 @@ export function createWorld(
   caveLight.position.set(ARCADE_CAVE.lantern.x, lanternY - 0.05, ARCADE_CAVE.lantern.z);
   scene.add(caveLight);
 
-  // Build a rough back wall from stone, then inset three separate game panels.
-  // They are horizontally spaced so gaze/click selection has generous hit areas.
-  mesh(boxGeo,detailCavernStone(mat("#a49c8b")),[16,arcadeWallY+3,-62.9],[12.8,6.2,.8]);
+  // Gallery lights must be physically fixed into real rock faces.
+  // Derive each fixture position from the same 17-ring cave sampler used
+  // for the murals. A freehand (x,y,z) cylinder could float in open air.
+  // Restrained cyan and rose accent sources lift painted colors while
+  // leaving the basalt dark. No additional shadow maps are allocated.
+  for(const accent of [
+    {surface:"left" as const,z:-68.35,color:"#72d1d6",power:3.0},
+    {surface:"right" as const,z:-68.35,color:"#dca3c8",power:2.8},
+  ]){
+    const rock=sampleCavernArt(accent.surface,accent.z,.5,.47,.095);
+    if(!rock)throw Error("Arcade accent lamp outside the cave shell");
+    const p=rock.position,n=rock.normal;
+    const beacon=mesh(cylinder,mat(accent.color,{
+      emissive:accent.color,emissiveIntensity:1.35,roughness:.48,
+    }),[p.x,p.y,p.z],[.065,.19,.065]);
+    beacon.name="arcade-rock-mounted-neon-source-"+accent.surface;
+    beacon.castShadow=false;
+    const light=new THREE.PointLight(accent.color,accent.power,10,2);
+    light.position.set(p.x+n.x*.42,p.y+n.y*.42,p.z+n.z*.42);
+    light.castShadow=false;
+    scene.add(light);
+  }
+  canvas.dataset.arcadeAccentLights="2";
+
+  // A real cave-profile stone cap sits behind the three carved game targets.
+  // Unlike the old 12.8m grey BoxGeometry, this follows the actual roof arch
+  // and closes the tunnel invisibly behind the art and clickable niches.
+  // Its silhouette is shared with the cave shell, not an invented rectangle.
+  const rearProfile=shellRings[shellRings.length-1];
+  const rearOutline=new THREE.Shape();
+  rearOutline.moveTo(rearProfile[0].x,rearProfile[0].y);
+  for(let i=1;i<rearProfile.length;i++)
+    rearOutline.lineTo(rearProfile[i].x,rearProfile[i].y);
+  rearOutline.closePath();
+  const rearCap=mesh(
+    geo(new THREE.ShapeGeometry(rearOutline)),
+    mat("#2f302f",{side:THREE.DoubleSide,roughness:1}),
+    [0,0,ARCADE_REAR_CAP_Z],[1,1,1]
+  );
+  rearCap.name="arcade-carved-rock-rear-cap";
+  canvas.dataset.arcadeArchitecture="open-stone-cap-v3";
+  // Three existing game hit areas remain at their established positions.
   const carvingBandMaterial = mat("#11191b", {
     transparent: true,
     opacity: 0.001,
@@ -1656,15 +1704,6 @@ export function createWorld(
   carvingBandMesh.userData.discoveryByInstance = ["game:0", "game:1", "game:2"];
   markerObjects.push(carvingBandMesh);
 
-  const glyphs: Record<string, string[]> = {
-    A: ["010","101","111","101","101"], C: ["111","100","100","100","111"],
-    D: ["110","101","101","101","110"], E: ["111","100","110","100","111"],
-    H: ["101","101","111","101","101"], I: ["111","010","010","010","111"],
-    M: ["101","111","111","101","101"], N: ["101","111","111","111","101"],
-    O: ["111","101","101","101","111"], P: ["110","101","110","100","100"],
-    R: ["110","101","110","101","101"], S: ["111","100","111","001","111"],
-    T: ["111","010","010","010","010"], U: ["101","101","101","101","111"],
-  };
   const carvingTitles = (gameTitles.length ? gameTitles : ["Stretchicorn", "uniRico", "Unicorn Stampede"]).slice(0, 3);
   canvas.dataset.carvedGames = String(carvingTitles.length);
   canvas.dataset.caveStyle = "backside-mountain-tunnel";
@@ -1676,63 +1715,11 @@ export function createWorld(
   canvas.dataset.caveSurfaceWalkable = "true";
   canvas.dataset.caveLayeredSupport = "true";
   canvas.dataset.rainforestPersistent = "true";
-  const carvingMaterial = mat("#d7bc82", {
-    emissive: "#9b6d31",
-    emissiveIntensity: 0.55,
-    roughness: 0.9,
-  });
-  const carvingGlyphs: Instance[] = [];
-  carvingTitles.forEach((title, panelIndex) => {
-    const words = title.toUpperCase().split(" ");
-    const lines =
-      title.length > 11 && words.length > 1
-        ? words
-        : [title.toUpperCase()];
-    const maxChars = Math.max(...lines.map((line) => line.length));
-    const scale = Math.min(0.055, 2.15 / Math.max(4, maxChars * 4));
-    const lineStep = 6.2 * scale;
-    lines.forEach((line, lineIndex) => {
-      const width = line.length * 4 * scale;
-      // Positions are defined in panel-local coordinates, not global X.
-      const baseline =
-        panelY + ((lines.length - 1) * lineStep) / 2 - lineIndex * lineStep + scale * 2;
-      [...line].forEach((letter, index) => {
-        const pattern = glyphs[letter];
-        if (!pattern) return;
-        pattern.forEach((bits, py) =>
-          [...bits].forEach((bit, px) => {
-            if (bit !== "1") return;
-            const niche = gameNiches[panelIndex];
-            // Each panel has its own viewer-facing tangent. Side niches already
-            // face toward the chamber, so mirroring them produced backwards text.
-            // Only the rear (+Z-facing view) needs horizontal reversal.
-            const leftToRight = -width / 2 + scale * 0.5 + index * 4 * scale + px * scale;
-            const localX = panelIndex === 1
-              ? -leftToRight
-              : leftToRight;
-            carvingGlyphs.push({
-              // Local tangent points viewer-right on both side niches; the rear
-              // niche alone reverses its tangent for readable lettering.
-              x: niche.x+Math.cos(niche.yaw)*localX-Math.sin(niche.yaw)*.14,
-              y: baseline - py * scale,
-              z: niche.z-Math.sin(niche.yaw)*localX-Math.cos(niche.yaw)*.14,
-              ry:niche.yaw,
-              sx: scale * 0.78,
-              sy: scale * 0.78,
-              sz: 0.04,
-            });
-          }),
-        );
-      });
-    });
-  });
-  const gameCarvings = instances(boxGeo, carvingMaterial, carvingGlyphs, false);
-
-  // Subtle carved symbols below each game keep the wall personal without adding
-  // UI chrome: horn, branching neuron, mountain.
-  const caveRunes: Instance[] = gameNiches.flatMap((p,i)=>Array.from({length:3+i},(_,k)=>({x:p.x+Math.cos(p.yaw)*(k*.17-.3)-Math.sin(p.yaw)*.15,y:caveFloorY+1.1+Math.sin(k)*.15,z:p.z-Math.sin(p.yaw)*(k*.17-.3)-Math.cos(p.yaw)*.15,sx:.08,sy:.12,sz:.04,ry:p.yaw})));
-  const runeMesh = instances(boxGeo,mat("#9a8462"),caveRunes,false);
-  gameCarvings.visible = runeMesh.visible = carvingBandMesh.visible = false;
+  // The three invisible target volumes remain the only click/gaze inputs.
+  // Pixel-glyph texts and abstract cube runes were removed completely.
+  // Each bay now gets a photo-backed cover on the rock from the mural
+  // renderer; there is no duplicate mesh representing a physical cabinet.
+  carvingBandMesh.visible=false;
 
   // No arcade cabinet is duplicated here; the mountain wall itself is the portfolio/game interface.
 
@@ -5010,7 +4997,7 @@ export function createWorld(
       );
       const caveInside = aquatic === "land" && caveLayer === "arcade" && arcadeInside(player);
       const paperInside = aquatic === "land" && caveLayer === "paper" && paperCaveInside(player);
-      gameCarvings.visible = runeMesh.visible = carvingBandMesh.visible = caveInside && caveProgress > .4;
+      carvingBandMesh.visible = caveInside && caveProgress > .4;
       canvas.dataset.caveInside = String(caveInside);
       canvas.dataset.caveDepth = caveProgress.toFixed(3);
       canvas.dataset.caveLayer = caveLayer;

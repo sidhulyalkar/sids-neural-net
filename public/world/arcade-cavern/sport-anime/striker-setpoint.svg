@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 960" width="1600" height="960">
+<title>Striker Set Point: energetic soccer and volleyball street mural</title>
+<defs>
+<linearGradient id="ice" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#59dff1"/><stop offset=".53" stop-color="#247fe2"/><stop offset="1" stop-color="#3d4ad0"/></linearGradient>
+<linearGradient id="ember" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#ffea8f"/><stop offset=".52" stop-color="#ffa653"/><stop offset="1" stop-color="#e85d64"/></linearGradient>
+<radialGradient id="blueglow"><stop stop-color="#307bdc" stop-opacity=".53"/><stop offset=".6" stop-color="#173f7f" stop-opacity=".29"/><stop offset="1" stop-color="#121c45" stop-opacity="0"/></radialGradient>
+<radialGradient id="orangeglow"><stop stop-color="#e78a4c" stop-opacity=".5"/><stop offset=".6" stop-color="#8d4a45" stop-opacity=".3"/><stop offset="1" stop-color="#271736" stop-opacity="0"/></radialGradient>
+<filter id="neon"><feGaussianBlur stdDeviation="12"/></filter>
+</defs>
+<ellipse cx="457" cy="539" rx="525" ry="378" fill="url(#blueglow)"/>
+<ellipse cx="1184" cy="514" rx="500" ry="379" fill="url(#orangeglow)"/>
+<!-- Broad irregular diagonal field paint, not a repeating wire grid -->
+<path d="M127 815L447 233 624 308 318 858Z" fill="#21509c" opacity=".58"/>
+<path d="M901 800L1140 241 1460 359 1250 890Z" fill="#7d3a56" opacity=".48"/>
+<!-- Soccer target and pitch progression -->
+<circle cx="454" cy="546" r="229" fill="#172646" stroke="#83d9ef" stroke-width="31"/>
+<circle cx="454" cy="546" r="185" fill="none" stroke="#316fcb" stroke-width="19"/>
+<circle cx="454" cy="546" r="119" fill="#3166a4" stroke="#c9f1ff" stroke-width="21"/>
+<path d="M455 428l75 53-27 87h-95l-29-86Z" fill="#e8eef3" stroke="#202c4d" stroke-width="16"/>
+<path d="M455 424l-53-25-89 54 11 102 86 46 57-34" fill="none" stroke="#c3ecfb" stroke-width="17" stroke-linejoin="round"/>
+<path d="M527 480l61-21 25 83-71 82-77-56" fill="none" stroke="#e3f2f5" stroke-width="16" stroke-linejoin="round"/>
+<path d="M229 700Q467 737 666 662" stroke="#a0dfea" stroke-width="19" fill="none" stroke-linecap="round"/>
+<!-- Player in a painted sprint, ink masses preserve an athletic silhouette -->
+<g transform="translate(272 278) rotate(-9 170 235)">
+<path d="M257 102Q276 37 343 58Q387 103 350 158L302 191 266 153Z" fill="#deb7a0" stroke="#152747" stroke-width="13"/>
+<path d="M266 142L320 162 360 225 322 354 204 340 164 208Z" fill="#1461c3" stroke="#15264a" stroke-width="18"/>
+<path d="M194 224l-100 50-69 117 54 28 83-99 79-12 M346 219l110 45 52 123-58 15-78-96-89-15" fill="#d6b6a8" stroke="#112b4a" stroke-width="17"/>
+<path d="M230 331l97 16 23 89-86 130-62-31 56-118-86-21Z" fill="#1e345b" stroke="#141f3b" stroke-width="21"/>
+<path d="M188 363l49 42-72 158-104 14-10-63 73-20Z" fill="#23385f" stroke="#141f3b" stroke-width="21"/>
+<path d="M48 551l108 9-10 43-117 9Z M251 526l63 23-57 94-66-19Z" fill="#e3ebeb" stroke="#0b2440" stroke-width="15"/>
+</g>
+<!-- Volleyball energy form and net -->
+<g transform="translate(1146 550)">
+<circle r="190" fill="#52304d" stroke="#fbd18b" stroke-width="27"/>
+<path d="M-182-3Q-38-138 88-159Q175-97 181 5M-140 124Q-62-47 80-160M-31 185Q-11 22 167-94" fill="none" stroke="#ffc26b" stroke-width="19"/>
+<path d="M-174-34Q23-50 147 114M-99-155Q-66 18 100 167" fill="none" stroke="#ffe1ad" stroke-width="14"/>
+</g>
+<g opacity=".52" stroke="#ffd6a2" stroke-width="10" fill="none">
+<path d="M863 384H1534M863 439H1534M863 494H1534M863 549H1534M863 604H1534M863 659H1534"/>
+<path d="M884 374V681M954 374V681M1024 374V681M1094 374V681M1164 374V681M1234 374V681M1304 374V681M1374 374V681M1444 374V681M1514 374V681"/>
+</g>
+<!-- Athletic painted slashes and spray arcs -->
+<path d="M78 879L280 622 304 719 398 646 307 904Z" fill="url(#ice)" opacity=".83"/>
+<path d="M1350 895L1422 608 1495 706 1564 641 1517 924Z" fill="url(#ember)" opacity=".85"/>
+<path d="M850 313L1016 270M1320 322L1520 274" fill="none" stroke="#f6c27b" stroke-width="24" stroke-linecap="round" opacity=".8"/>
+<!-- Thick, source-authored headline lettering -->
+<g font-family="Impact,Arial Black,sans-serif" font-weight="900" text-anchor="middle" paint-order="stroke" stroke-linejoin="round">
+<text x="395" y="167" font-size="155" fill="#c5f2fc" stroke="#101e44" stroke-width="39">BLUE LOCK</text>
+<text x="1189" y="167" font-size="169" fill="#ffe2aa" stroke="#3b2137" stroke-width="37">HAIKYU!!</text>
+<text x="793" y="929" font-size="60" letter-spacing="11" fill="#f4e9d9" stroke="#192b45" stroke-width="16">STRIKER  //  SET POINT</text>
+</g>
+</svg>
