@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {isSafeRideContact,findRideRecoveryPoint,initialRideRecovery,
  advanceRideRecovery,isRideMode,airborneSupportHeight} from "../lib/world/rideRecovery";
 import {stepTravel,type Travel} from "../lib/world/activities";
+import {terrainHeight} from "../lib/world/model";
 
 const level=(_p:{x:number;z:number})=>6;
 test("only board, bike and ski enter the recovery watchdog",()=>{
@@ -129,5 +130,21 @@ test("airborne ski, bike and skate clear finite props but not infinite walls",()
    mode+" cannot fly through the actual cave wall");
   assert.ok(run(mode,trunk,0,14).point.z<-55.15,
    mode+" does not disable grounded collision just because Y is high");
+ }
+});
+
+test("ski, bike and skate can pass under an overhead deck without uphill braking",()=>{
+ const start:Travel={point:{x:0,z:15},speed:8,heading:{x:0,z:1}};
+ const terrain=(p:{x:number;z:number})=>terrainHeight(p.x,p.z);
+ // A beam surface twelve meters overhead, but no solid hillside underneath.
+ const elevated=(p:{x:number;z:number})=>terrain(p)+(p.z>16?12:0);
+ const riderY=terrain(start.point)+3.2;
+ for(const mode of ["ski","bike","skate"] as const){
+  let rider=start;
+  for(let n=0;n<28;n++)
+   rider=stepTravel(rider,{x:0,z:1},.05,mode,[],false,
+    null,3.2,elevated,false,riderY);
+  assert.ok(rider.point.z>17,
+   mode+" should glide beneath the elevated deck without an invisible climb barrier");
  }
 });
