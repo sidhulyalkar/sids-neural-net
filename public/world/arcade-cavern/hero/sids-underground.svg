@@ -1,34 +1,47 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2048 280" width="2048" height="280" role="img" aria-label="Sid's Underground graffiti mural">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2400 480" width="2400" height="480" role="img" aria-label="Sid's Underground central graffiti mural">
 <defs>
- <linearGradient id="gold" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff8d4"/><stop offset=".57" stop-color="#f9d8a8"/><stop offset="1" stop-color="#fb9974"/></linearGradient>
- <linearGradient id="rainbow" x1="0" y1="0" x2="1" y2=".7"><stop offset="0" stop-color="#8ef5dd"/><stop offset=".28" stop-color="#9de3f7"/><stop offset=".63" stop-color="#d5afff"/><stop offset="1" stop-color="#ffb3d0"/></linearGradient>
- <filter id="soft" x="-20%" y="-60%" width="140%" height="220%"><feGaussianBlur stdDeviation="9"/></filter>
- <pattern id="grain" width="87" height="63" patternUnits="userSpaceOnUse"><path d="M4 18l9 -5 M39 4l-6 12 M72 49l11 -4" stroke="#090e15" stroke-width="3" opacity=".28"/><circle cx="27" cy="44" r="2.5" fill="#15151c" opacity=".35"/></pattern>
+ <linearGradient id="ivory" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#fff9df"/><stop offset=".52" stop-color="#ffd9a8"/><stop offset="1" stop-color="#ec916f"/></linearGradient>
+ <linearGradient id="pink" x1="0" y1="0" x2="1" y2=".7"><stop stop-color="#8ff4e5"/><stop offset=".31" stop-color="#adf1ef"/><stop offset=".7" stop-color="#e8a9e5"/><stop offset="1" stop-color="#ffbd9c"/></linearGradient>
+ <linearGradient id="forest" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#4a9690"/><stop offset="1" stop-color="#174146"/></linearGradient>
+ <radialGradient id="halo"><stop stop-color="#53d3c9" stop-opacity=".47"/><stop offset=".56" stop-color="#6289b7" stop-opacity=".17"/><stop offset="1" stop-color="#61a5b7" stop-opacity="0"/></radialGradient>
+ <filter id="blur" x="-30%" y="-45%" width="160%" height="190%"><feGaussianBlur stdDeviation="9"/></filter>
+ <pattern id="wear" patternUnits="userSpaceOnUse" width="71" height="59"><path d="M7 8l17 5M43 40l10-7" stroke="#152d31" stroke-width="4" opacity=".32"/><circle cx="23" cy="36" r="3.4" fill="#10262d" opacity=".32"/></pattern>
 </defs>
-<!-- Only ink has alpha; the dark basalt remains fully visible behind it. -->
-<g opacity=".28" fill="none" stroke="#72ebe7" stroke-width="9" stroke-linecap="round">
- <path d="M50 220Q124 191 176 236L232 208 M1799 230Q1890 185 1962 223"/>
- <path d="M244 48l40 -20 38 10 M1726 44l44 -20 58 12"/>
+<!-- This is pigment, not a rectangular billboard. Rock remains visible between the elements. -->
+<ellipse cx="1200" cy="228" rx="940" ry="242" fill="url(#halo)"/>
+<g opacity=".75" fill="none" stroke-linecap="round">
+ <path d="M162 344Q427 264 620 307M1780 300Q1985 249 2231 337" stroke="#82e3d7" stroke-width="22"/>
+ <path d="M168 362Q432 286 629 326M1781 320Q1987 270 2223 355" stroke="#102c36" stroke-width="9"/>
 </g>
-<!-- Underpaint halos and their irregular spray borders -->
-<g fill="none" stroke="#6cc8d6" stroke-width="18" opacity=".36" filter="url(#soft)">
- <path d="M80 137Q476 48 1032 90T1970 129"/>
+<!-- Mountain silhouettes and scattered evergreen motifs frame, never overlap, the headline. -->
+<path d="M55 416L230 221L322 302L447 150L551 283L637 234L740 390Z" fill="#1b4b50" stroke="#83e5db" stroke-width="10"/>
+<path d="M1779 402L1915 277L1992 325L2137 178L2242 313L2362 275L2392 422Z" fill="#224b55" stroke="#9cdae2" stroke-width="10"/>
+<path d="M363 233l84-83 65 101-48-24-19-35-21 37Z M2067 257l70-79 70 108-47-33-25-34-23 28Z" fill="#e4e6d8"/>
+<g fill="url(#forest)" stroke="#122b36" stroke-width="7">
+ <path d="M95 385l35-88 35 89-20-8 21 32H89l21-32Z"/>
+ <path d="M220 420l48-133 42 128-29-15 19 42h-64l15-42Z"/>
+ <path d="M645 412l40-98 39 102-22-9 15 30h-65l15-32Z"/>
+ <path d="M1771 414l37-95 41 96-25-11 16 37h-65l15-30Z"/>
+ <path d="M2303 410l44-117 38 120-24-18 18 40h-70l17-35Z"/>
 </g>
-<g fill="none" stroke-linejoin="round" stroke-linecap="round">
- <path d="M44 188l40 -10 22 24 25 -32 40 18 M1897 195l32 -37 42 39 35 -13" stroke="#79b5c1" stroke-width="7" opacity=".75"/>
- <path d="M327 231l-21 18 m-85 -10l-13 11 m153 -15l12 17 M1632 239l18 15m76 -22l20 18" stroke="#ffa5bd" stroke-width="6"/>
+<g fill="#8adfd4" opacity=".7">
+ <circle cx="307" cy="123" r="7"/><circle cx="347" cy="107" r="4"/><circle cx="2027" cy="101" r="6"/><circle cx="2081" cy="117" r="4"/>
 </g>
-<!-- The dominant type is block-filled, not a collection of wire outlines. -->
-<g text-anchor="middle" font-family="Impact,'Arial Black',sans-serif" font-stretch="condensed" font-weight="900" paint-order="stroke" stroke-linejoin="round">
- <text x="1029" y="197" font-size="157" fill="#071a22" stroke="#06131e" stroke-width="39" letter-spacing="2.5">SID'S UNDERGROUND</text>
- <text x="1024" y="179" font-size="157" fill="url(#rainbow)" stroke="#236879" stroke-width="24" letter-spacing="3">SID'S UNDERGROUND</text>
- <text x="1024" y="173" font-size="157" fill="url(#gold)" stroke="#f4e8cd" stroke-width="8" letter-spacing="3">SID'S UNDERGROUND</text>
- <text x="1024" y="173" font-size="157" fill="url(#grain)" stroke="none" letter-spacing="3">SID'S UNDERGROUND</text>
+<!-- The letterforms are TWO authored baselines rather than an over-stretched 15-letter line. -->
+<g text-anchor="middle" font-family="Impact,'Arial Black',sans-serif" font-weight="900" letter-spacing="2" stroke-linejoin="round" paint-order="stroke">
+ <text x="1204" y="210" font-size="216" stroke="#0b1b29" stroke-width="53" fill="#11242b">SID'S</text>
+ <text x="1200" y="204" font-size="216" stroke="#297380" stroke-width="23" fill="url(#pink)">SID'S</text>
+ <text x="1200" y="199" font-size="216" stroke="#e0d8c8" stroke-width="8" fill="url(#ivory)">SID'S</text>
+ <text x="1200" y="199" font-size="216" stroke="none" fill="url(#wear)">SID'S</text>
+ <text x="1205" y="402" font-size="230" stroke="#101d28" stroke-width="56" fill="#111d2b">UNDERGROUND</text>
+ <text x="1200" y="395" font-size="230" stroke="#316a78" stroke-width="25" fill="url(#pink)">UNDERGROUND</text>
+ <text x="1200" y="389" font-size="230" stroke="#f3ebd2" stroke-width="8" fill="url(#ivory)">UNDERGROUND</text>
+ <text x="1200" y="389" font-size="230" stroke="none" fill="url(#wear)">UNDERGROUND</text>
 </g>
-<g stroke-linecap="round">
- <path d="M84 211Q175 228 248 216" fill="none" stroke="#ef9fb7" stroke-width="7"/>
- <path d="M1784 215Q1889 232 1972 207" fill="none" stroke="#7ce6e1" stroke-width="7"/>
- <path d="M524 222l-4 19m17 -24l-2 33 M1447 216l4 32m27 -33l-2 24" stroke="#ebac9d" stroke-width="8"/>
+<!-- Sparse stencil paint breakups and intentional hand-edged accent strokes -->
+<g stroke-linecap="round" fill="none">
+ <path d="M709 436l55 12 62-7 M1602 438l72-15 48 13" stroke="#eac09d" stroke-width="13" opacity=".72"/>
+ <path d="M730 109L805 90 M1615 101l68-22" stroke="#91dfe2" stroke-width="11" opacity=".58"/>
+ <path d="M882 437l-4 19m36-16l-3 17M1500 437l3 20m-45-19l-2 19" stroke="#f6a3bd" stroke-width="10" opacity=".68"/>
 </g>
-<g fill="#94ddd5" opacity=".75"><circle cx="118" cy="65" r="5"/><circle cx="157" cy="46" r="3"/><circle cx="1863" cy="66" r="5"/><circle cx="1910" cy="54" r="3"/></g>
 </svg>
