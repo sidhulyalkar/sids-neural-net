@@ -1233,6 +1233,7 @@ export function createWorld(
   markerObjects.push(markerHitMesh);
   instances(rockGeo, mat("#8d9185"), cairnPieces, false);
   const habitats = createHabitats(scene, obstacles);
+  canvas.dataset.joshuaTrees=String(habitats.joshuaTreeCount);
   // Low rock clusters and climb ledges can obstruct a low camera even
   // without vegetation. Include their render-authored extents as well.
   const cameraRocks:CameraVolume[]=[
