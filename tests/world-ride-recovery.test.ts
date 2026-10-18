@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {isSafeRideContact,findRideRecoveryPoint,initialRideRecovery,
- advanceRideRecovery,isRideMode} from "../lib/world/rideRecovery";
+ advanceRideRecovery,isRideMode,airborneSupportHeight} from "../lib/world/rideRecovery";
 import {stepTravel,type Travel} from "../lib/world/activities";
 
 const level=(_p:{x:number;z:number})=>6;
@@ -94,4 +94,17 @@ test("ski and bike obstruction remains solid in ordinary travel, recovery is exp
   assert.ok(Math.hypot(t.point.x-obstacle.x,t.point.z-obstacle.z)>=1.55-1e-3,
    mode+" should not ghost through solid obstacles");
  }
+});
+
+test("high beams never pull a flying skier upwards from below",()=>{
+ assert.equal(airborneSupportHeight(4,11,3),3,
+  "high overhead pillar cap must be ignored while flying below it");
+ assert.equal(airborneSupportHeight(12,11,3),11,
+  "a real top-of-platform approach can still land on the prop");
+ assert.equal(airborneSupportHeight(6,6.3,4),6.3,
+  "small ramp contact remains available");
+ assert.equal(airborneSupportHeight(6,8,7),8,
+  "a natural hillside remains a valid ski contact");
+ assert.equal(airborneSupportHeight(6,NaN,4),4,
+  "a broken support sample must not poison player height");
 });
