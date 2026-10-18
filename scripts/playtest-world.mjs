@@ -124,7 +124,8 @@ try {
       );
       await screenshot(page, 'region-08-entrance');
 
-      // Walk the flat tunnel and its offset throat through ordinary controls.
+      // V3 removed the obstructive solid baffle. Walk the open centerline:
+      // the old lateral detour would stall at the cave sidewall and time out.
       const walkUntil = async (key, axis, target, greater) => {
         await page.keyboard.down(key);
         try {
@@ -135,9 +136,11 @@ try {
         } finally {await page.keyboard.up(key);}
       };
       await walkUntil('w',1,-77,true);
-      await walkUntil('a',0,18.1,true);
       await walkUntil('w',1,-67.2,true);
-      await walkUntil('d',0,16.05,false);
+      const clearPath=await page.locator('canvas').getAttribute('data-player');
+      const [crossTrack]=String(clearPath).split(',').map(Number);
+      assert.ok(Math.abs(crossTrack-16)<1.4,
+        'Arcade entry must not require an invisible lateral baffle detour');
       await page.waitForFunction(
         () => document.querySelector('canvas')?.dataset.gazeGame?.startsWith('game:'),
         null,
