@@ -92,5 +92,5 @@ export function advanceRideRecovery(
  const progressed=distance(point,previous)>.012;
  const blockedFor=progressed?0:state.blockedFor+Math.max(0,Math.min(dt,.2));
  const anchor=progressed&&clear?{...point}:state.anchor;
- return {state:{...state,blockedFor},recover:blockedFor>=1.5};
+ return {state:{...state,blockedFor,anchor},recover:blockedFor>=1.5};
 }
