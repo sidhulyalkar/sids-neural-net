@@ -258,44 +258,74 @@ function paintIdentity(ctx:Paint){
   i%3?"#73c2dd":"#f5ba77",8+rng()*12,rng);
 }
 function paintFloor(ctx:Paint){
- const rng=randomFor("cavern-floor");
- for(let side=0;side<2;side++){
-  const x=side?915:120;
-  stroke(ctx,[[x,35],[x-55*(side?1:-1),300],[x,625],
-   [x+36*(side?1:-1),970]],side?"#e9b55b":"#3ec2cc",15);
-  for(let i=0;i<6;i++){
-   const y=70+i*165;
-   ring(ctx,x+(side?-55:55),y,45,70,side?"#f0b771":"#6ed2d4",4,0,Math.PI);
+ // Wide, restrained inlaid wheels and chalk arrows. No floor typography:
+ // third-person camera rotation makes lettering read mirrored at some angles.
+ const draw=(pts:readonly [number,number][],color:string,width:number,alpha=1)=>{
+  ctx.save();ctx.globalAlpha=alpha;
+  stroke(ctx,pts,color,width);ctx.restore();
+ };
+ // The painted edge runs are intentionally broad, broken and asymmetric,
+ // complementing the existing teal/gold 3D wayfinding breadcrumb trail.
+ for(const [side,x,col] of [
+  ["left",130,"#82cfca"],["right",900,"#f5c27a"],
+ ] as const){
+  const sign=side==="left"?1:-1;
+  draw([[x,24],[x-sign*39,248],[x+sign*13,469],
+   [x-sign*27,715],[x+sign*17,982]],col,18,.65);
+  draw([[x+sign*30,32],[x-sign*6,255],[x+sign*42,465],
+   [x+sign*4,721],[x+sign*43,981]],col,5,.35);
+ }
+ // Three directions to the arcade, composed as bold filled paint/stencil,
+ // never as thin text or repeating small outlines.
+ for(const y of [208,516,824]){
+  polygon(ctx,[[467,y+74],[467,y+8],[420,y+8],
+   [512,y-95],[605,y+8],[556,y+8],[556,y+74]],
+  "#b4ded4",.23);
+  draw([[458,y+78],[458,y+11],[421,y+11],[512,y-82],
+   [604,y+11],[567,y+11],[567,y+78]],"#dbe9db",5,.38);
+ }
+ // Skateboard tire marks with broad worn tread blocks.
+ const tracks=[{x:262,y:315,a:-.32},{x:788,y:645,a:.36}];
+ for(const track of tracks){
+  ctx.save();ctx.translate(track.x,track.y);ctx.rotate(track.a);
+  for(const side of [-1,1]){
+   const x=side*35;
+   draw([[x,-159],[x+5,-60],[x-8,64],[x+4,156]],
+    "#1a2225",20,.46);
+   for(let k=0;k<11;k++){
+    const y=-151+k*29;
+    polygon(ctx,[[x-14,y-9],[x+12,y-11],[x+9,y+8],
+     [x-17,y+10]],"#a38d78",.18);
+   }
   }
+  ctx.restore();
  }
- for(let i=0;i<7;i++){
-  const y=100+i*138;
-  polygon(ctx,[[480,y],[512,y+51],[544,y]],"#b1e8d8",.24);
-  stroke(ctx,[[512,y+42],[512,y+100]],"#c5cfc4",4);
- }
- tag(ctx,"ONE MORE RUN",222,380,62,"#f1c89a",-.07,620);
- tag(ctx,"PLAY LOUD",360,780,68,"#8cc9d6",.025,410);
- for(let i=0;i<55;i++){
-  const x=rng()*1024,y=rng()*1024;
-  splash(ctx,x,y,i%2?"#edb674":"#7da9b7",3+7*rng(),rng);
+ // Two recognizably husky-like paw tread symbols use filled paint masses.
+ for(const [x,y,angle] of [[292,747,-.21],[708,265,.34]] as const){
+  ctx.save();ctx.translate(x,y);ctx.rotate(angle);
+  ctx.fillStyle="#b6d5ca";ctx.globalAlpha=.35;
+  ctx.beginPath();ctx.ellipse(0,17,40,33,0,0,TAU);ctx.fill();
+  for(const [dx,dy] of [[-39,-24],[-14,-43],[16,-42],[41,-25]]){
+   ctx.beginPath();ctx.ellipse(dx,dy,14,18,-.12,0,TAU);ctx.fill();
+  }
+  ctx.restore();
  }
 }
 function paintCeiling(ctx:Paint){
- const rng=randomFor("cavern-ceiling");
- for(let i=0;i<3;i++){
-  const x=230+i*260,y=310+(i%2)*130;
-  ring(ctx,x,y,73+i*20,83+i*9,"#d3ad8a",3.5,Math.PI*.15,TAU*.89);
-  for(let k=0;k<8;k++){
-   const a=k*TAU/8;
-   stroke(ctx,[[x+Math.cos(a)*87,y+Math.sin(a)*96],
-    [x+Math.cos(a)*128,y+Math.sin(a)*133]],"#7ed1d1",3);
-  }
+ // Gentle rock-bound celestial emblems. These are distant atmospheric
+ // landmarks rather than distracting, repeated 1px vector glyphs.
+ for(const [cx,cy,r,col] of [
+  [238,343,113,"#d9be99"],
+  [797,612,143,"#78b6bc"],
+ ] as const){
+  ctx.save();ctx.globalAlpha=.23;
+  ctx.strokeStyle=col;ctx.lineWidth=17;ctx.lineCap="round";
+  ctx.beginPath();ctx.arc(cx,cy,r,Math.PI*.14,Math.PI*1.76);ctx.stroke();
+  ctx.beginPath();ctx.arc(cx,cy,r*.71,Math.PI*.72,Math.PI*2.13);ctx.stroke();
+  ctx.restore();
+  polygon(ctx,[[cx,cy-r*.42],[cx+r*.24,cy],
+   [cx,cy+r*.43],[cx-r*.24,cy]],col,.34);
  }
- for(let i=0;i<35;i++){
-  const x=rng()*1024,y=rng()*1024;
-  ring(ctx,x,y,2+rng()*4,2+rng()*4,i%4?"#e2c99d":"#7dbdc4",1.8);
- }
- tag(ctx,"LEVELS ABOVE",295,140,56,"#cfb18b",-.025);
 }
 function paintTexture(theme:CavernArtTheme,three:ArcadeThree){
  const canvas=document.createElement("canvas");
