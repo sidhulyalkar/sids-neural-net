@@ -113,7 +113,7 @@ test("airborne ski, bike and skate clear finite props but not infinite walls",()
  const start:Travel={point:{x:8,z:-56.8},speed:8,heading:{x:0,z:1}};
  const trunk={x:8,z:-54,radius:.8,topY:9};
  const wall={x:8,z:-54,radius:.8};
- const run=(mode:"ski"|"bike"|"skate",obstacle:typeof trunk,air:number,y:number)=>{
+ const run=(mode:"ski"|"bike"|"skate",obstacle:{x:number;z:number;radius:number;topY?:number},air:number,y:number)=>{
   let travel=start;
   for(let i=0;i<28;i++)
    travel=stepTravel(travel,{x:0,z:1},.05,mode,[obstacle],
