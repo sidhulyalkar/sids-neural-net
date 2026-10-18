@@ -27,7 +27,7 @@ try{
    triangles:Number(el.dataset.arcadeGraffitiTriangles),
   }));
   assert.equal(evidence.metrics.count,7,"seven Shasta, nature, game and sports wall murals must load");
-  assert.ok(evidence.metrics.calls<=18,"graffiti is an optimized draw batch");
+  assert.ok(evidence.metrics.calls<=18,"art still uses a bounded draw batch");
   assert.ok(evidence.metrics.triangles<=40000,"stay inside geometry budget");
   assert.equal(await canvas.getAttribute("data-arcade-architecture"),
    "open-stone-cap-v3","the old rear-wall box and throat baffle must be absent");
@@ -66,12 +66,14 @@ try{
    const d=document.querySelector("canvas")?.dataset;
    return Number(d?.arcadeShastaPhotos)===13&&
     Number(d?.arcadeNaturePhotos)===12&&
-    Number(d?.arcadeGamePosters)===3;
+    Number(d?.arcadeGamePosters)===3&&
+    Number(d?.arcadeGamePlaquesReady)===3;
   },null,{timeout:40000});
   evidence.galleries=await canvas.evaluate(el=>({
    shastaPhotos:Number(el.dataset.arcadeShastaPhotos),
    naturePhotos:Number(el.dataset.arcadeNaturePhotos),
    gamePosters:Number(el.dataset.arcadeGamePosters),
+   gamePlaques:Number(el.dataset.arcadeGamePlaquesReady),
   }));
   const shastaPhoto=await page.request.get(base+"/visual-archive/web/photo-037.webp");
   assert.equal(shastaPhoto.status(),200,
