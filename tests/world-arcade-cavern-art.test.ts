@@ -58,8 +58,8 @@ test("Curved graffiti is projected into interior of exact 17-shell ring segments
     if(mural.surface==="right")assert.ok(n.x<-.20);
     if(mural.surface==="back"){
      if(mural.v0<.6)
-      assert.ok(a.x<13.27||a.x>18.73,
-       "rear lower murals must remain left/right of the center game panel");
+      assert.ok(a.x<=13.64||a.x>=18.36,
+       "rear lower murals must remain at least 0.55m away from the center game panel");
      else assert.ok(a.y>
        arcadeCaveFloorHeight(ARCADE_CAVE.wall)+2.35+2.65/2+.20,
        "rear title must clear the center game selection by 20cm");
