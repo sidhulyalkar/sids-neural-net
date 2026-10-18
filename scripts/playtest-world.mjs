@@ -246,7 +246,7 @@ try {
       results.push('Boulder action climbs a real ledge');
     } else {
       await page.keyboard.press('Space');
-      await page.waitForFunction(() => document.querySelector('canvas')?.dataset.airborne === 'true');
+      await page.waitForFunction(() => document.querySelector('canvas')?.dataset.airborne === 'true',null,{timeout:18000});
       await page.waitForFunction(() => document.querySelector('canvas')?.dataset.airborne === 'false');
     }
   }
@@ -322,7 +322,10 @@ try {
     await page.waitForFunction(
       () => document.querySelector('canvas')?.dataset.rampId === 'ski-kicker',
       null,
-      { timeout: 12000 },
+      // SwiftShader CI can render roughly 1 FPS on the combined island.
+      // Kicker is 7 m downhill from Granite Ridge; at ~2 m / 12 sec
+      // the old 12-second gate expired before the player reached the lip.
+      { timeout: 90000 },
     );
     await page.waitForFunction(() => document.querySelector('canvas')?.dataset.airborne === 'true');
   } finally {
