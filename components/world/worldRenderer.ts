@@ -1700,15 +1700,6 @@ export function createWorld(
   carvingBandMesh.userData.discoveryByInstance = ["game:0", "game:1", "game:2"];
   markerObjects.push(carvingBandMesh);
 
-  const glyphs: Record<string, string[]> = {
-    A: ["010","101","111","101","101"], C: ["111","100","100","100","111"],
-    D: ["110","101","101","101","110"], E: ["111","100","110","100","111"],
-    H: ["101","101","111","101","101"], I: ["111","010","010","010","111"],
-    M: ["101","111","111","101","101"], N: ["101","111","111","111","101"],
-    O: ["111","101","101","101","111"], P: ["110","101","110","100","100"],
-    R: ["110","101","110","101","101"], S: ["111","100","111","001","111"],
-    T: ["111","010","010","010","010"], U: ["101","101","101","101","111"],
-  };
   const carvingTitles = (gameTitles.length ? gameTitles : ["Stretchicorn", "uniRico", "Unicorn Stampede"]).slice(0, 3);
   canvas.dataset.carvedGames = String(carvingTitles.length);
   canvas.dataset.caveStyle = "backside-mountain-tunnel";
@@ -1720,63 +1711,11 @@ export function createWorld(
   canvas.dataset.caveSurfaceWalkable = "true";
   canvas.dataset.caveLayeredSupport = "true";
   canvas.dataset.rainforestPersistent = "true";
-  const carvingMaterial = mat("#d7bc82", {
-    emissive: "#9b6d31",
-    emissiveIntensity: 0.55,
-    roughness: 0.9,
-  });
-  const carvingGlyphs: Instance[] = [];
-  carvingTitles.forEach((title, panelIndex) => {
-    const words = title.toUpperCase().split(" ");
-    const lines =
-      title.length > 11 && words.length > 1
-        ? words
-        : [title.toUpperCase()];
-    const maxChars = Math.max(...lines.map((line) => line.length));
-    const scale = Math.min(0.055, 2.15 / Math.max(4, maxChars * 4));
-    const lineStep = 6.2 * scale;
-    lines.forEach((line, lineIndex) => {
-      const width = line.length * 4 * scale;
-      // Positions are defined in panel-local coordinates, not global X.
-      const baseline =
-        panelY + ((lines.length - 1) * lineStep) / 2 - lineIndex * lineStep + scale * 2;
-      [...line].forEach((letter, index) => {
-        const pattern = glyphs[letter];
-        if (!pattern) return;
-        pattern.forEach((bits, py) =>
-          [...bits].forEach((bit, px) => {
-            if (bit !== "1") return;
-            const niche = gameNiches[panelIndex];
-            // Each panel has its own viewer-facing tangent. Side niches already
-            // face toward the chamber, so mirroring them produced backwards text.
-            // Only the rear (+Z-facing view) needs horizontal reversal.
-            const leftToRight = -width / 2 + scale * 0.5 + index * 4 * scale + px * scale;
-            const localX = panelIndex === 1
-              ? -leftToRight
-              : leftToRight;
-            carvingGlyphs.push({
-              // Local tangent points viewer-right on both side niches; the rear
-              // niche alone reverses its tangent for readable lettering.
-              x: niche.x+Math.cos(niche.yaw)*localX-Math.sin(niche.yaw)*.14,
-              y: baseline - py * scale,
-              z: niche.z-Math.sin(niche.yaw)*localX-Math.cos(niche.yaw)*.14,
-              ry:niche.yaw,
-              sx: scale * 0.78,
-              sy: scale * 0.78,
-              sz: 0.04,
-            });
-          }),
-        );
-      });
-    });
-  });
-  const gameCarvings = instances(boxGeo, carvingMaterial, carvingGlyphs, false);
-
-  // Subtle carved symbols below each game keep the wall personal without adding
-  // UI chrome: horn, branching neuron, mountain.
-  const caveRunes: Instance[] = gameNiches.flatMap((p,i)=>Array.from({length:3+i},(_,k)=>({x:p.x+Math.cos(p.yaw)*(k*.17-.3)-Math.sin(p.yaw)*.15,y:caveFloorY+1.1+Math.sin(k)*.15,z:p.z-Math.sin(p.yaw)*(k*.17-.3)-Math.cos(p.yaw)*.15,sx:.08,sy:.12,sz:.04,ry:p.yaw})));
-  const runeMesh = instances(boxGeo,mat("#9a8462"),caveRunes,false);
-  gameCarvings.visible = runeMesh.visible = carvingBandMesh.visible = false;
+  // The three invisible target volumes remain the only click/gaze inputs.
+  // Pixel-glyph texts and abstract cube runes were removed completely.
+  // Each bay now gets a photo-backed cover on the rock from the mural
+  // renderer; there is no duplicate mesh representing a physical cabinet.
+  carvingBandMesh.visible=false;
 
   // No arcade cabinet is duplicated here; the mountain wall itself is the portfolio/game interface.
 
@@ -5030,7 +4969,7 @@ export function createWorld(
       );
       const caveInside = aquatic === "land" && caveLayer === "arcade" && arcadeInside(player);
       const paperInside = aquatic === "land" && caveLayer === "paper" && paperCaveInside(player);
-      gameCarvings.visible = runeMesh.visible = carvingBandMesh.visible = caveInside && caveProgress > .4;
+      carvingBandMesh.visible = caveInside && caveProgress > .4;
       canvas.dataset.caveInside = String(caveInside);
       canvas.dataset.caveDepth = caveProgress.toFixed(3);
       canvas.dataset.caveLayer = caveLayer;
