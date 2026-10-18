@@ -238,3 +238,33 @@ active `ARCADE_CAVERN_MURALS` scene manifest.
 the completed Shasta wall, complete game artworks, proper rock blending and
 legible game interaction zones. Do not merge draft PR #110 based on source
 code or passing TypeScript alone.
+
+## V4.2 screenshot review and nature detailing
+
+The focused 2026-10-18 browser capture confirms seven wall compositions, 
+13 Shasta photos, 12 landscape images, three wall posters and three real 
+game-selection cover surfaces. The main rear alcove and both side alcoves
+are readable at normal third-person distance. No browser errors occurred.
+
+The photos remain a gallery, while the surrounding nature composition
+is intentionally *painted* rather than geometrically re-created. The
+right scenic wall now has a taller surface span. All 12 curated
+landscape photographs contribute to its atlas: eight clear framed
+travel photos and four subtly blended photographs underneath the
+glacial-mountain, pine-forest, waterfall and stream underpainting.
+Both are sourced only from the site's existing visual archive.
+
+The earlier full Website CI failure was an independent ski-kicker
+walkthrough timeout at 12 seconds under software WebGL (the simulation
+advanced only about two meters toward a kicker seven meters away).
+The test now allows a **bounded 90 seconds** to reach the real kicker
+using normal keyboard movement, keeping the physical-ramp assertion.
+
+**Artwork-source gap:** the three polished 16:9 cover images supplied in
+this chat are preferable to the project README/guide images that are
+currently used in the build. The repository does not yet contain those
+particular user-uploaded cover bitmaps. Prepare optimized first-party WebP
+copies under `public/world/arcade-cavern/games/` before switching the
+three `CAVERN_GAME_ART` entries. Never remove the live fallback assets
+while the preferred files are unavailable. Existing cover images remain
+functional, and this is a *visual fidelity*, not gameplay, blocker.
