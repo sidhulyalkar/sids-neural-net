@@ -79,11 +79,13 @@ try{
  await page.screenshot({path:path.join(out,"01-mystic-shore-electric-branches.png")});
  // Record the next actual segment activation, not a guessed frame delay.
  // The player remains stationary while the charged branch link advances.
- await page.waitForFunction(previous=>{
+ const observed=await page.waitForFunction(previous=>{
   const now=Number(document.querySelector("canvas")?.dataset.mysticPulseLink);
-  return Number.isFinite(now)&&now>=0&&now!==previous;
+  // Return the matched sample in the same browser execution, avoiding an
+  // intervening frame advancing the live attribute before we retrieve it.
+  return Number.isInteger(now)&&now>=0&&now!==previous ? now+1 : false;
  },mystic.pulseLink,{timeout:15000});
- const subsequentPulse=Number(await canvas.getAttribute("data-mystic-pulse-link"));
+ const subsequentPulse=Number(await observed.jsonValue())-1;
  assert.ok(subsequentPulse>=0&&subsequentPulse<mystic.arcs&&
   subsequentPulse!==mystic.pulseLink,
   "electrical charge should advance to another real tree during live playback");
