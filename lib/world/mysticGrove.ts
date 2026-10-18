@@ -15,7 +15,7 @@ export const MYSTIC_TREES:readonly Point[]=[
  {x:39.1,z:70.3},
  {x:43.5,z:66.2},
  {x:41.3,z:60.5},
- {x:35.5,z:59.7},
+ {x:38.2,z:58.4},
 ] as const;
 
 export function mysticGroveDistance(point:Point){
