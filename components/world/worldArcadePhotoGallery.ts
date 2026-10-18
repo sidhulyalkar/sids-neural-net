@@ -107,8 +107,88 @@ function galleryShasta(c:CanvasRenderingContext2D,imgs:readonly HTMLImageElement
  }
  c.restore();
 }
+/** A softly sprayed landscape exposure without a straight poster border.
+ * Each offscreen mask is created once while building the shared gallery atlas.
+ * The image remains real photography; the alpha perimeter reveals basalt. */
+function photoWash(c:CanvasRenderingContext2D,img:HTMLImageElement,
+ x:number,y:number,w:number,h:number,opacity:number){
+ const tile=document.createElement("canvas");
+ tile.width=Math.round(w);tile.height=Math.round(h);
+ const p=tile.getContext("2d");
+ if(!p)throw Error("Nature pigment compositing unavailable");
+ const iw=img.naturalWidth||img.width,ih=img.naturalHeight||img.height;
+ const scale=Math.max(w/iw,h/ih);
+ const sw=w/scale,sh=h/scale;
+ p.drawImage(img,(iw-sw)/2,(ih-sh)/2,sw,sh,0,0,w,h);
+ p.globalCompositeOperation="destination-in";
+ const mask=p.createRadialGradient(w/2,h/2,Math.min(w,h)*.20,
+  w/2,h/2,Math.max(w,h)*.54);
+ mask.addColorStop(0,"rgba(255,255,255,1)");
+ mask.addColorStop(.62,"rgba(255,255,255,.95)");
+ mask.addColorStop(.82,"rgba(255,255,255,.55)");
+ mask.addColorStop(1,"rgba(255,255,255,0)");
+ p.fillStyle=mask;p.fillRect(0,0,w,h);
+ c.save();c.globalAlpha=opacity;c.drawImage(tile,x,y);c.restore();
+}
+/** Large contiguous peaks, glacier facets and rushing water are the visual
+ * bridge between the real travel photographs. They sit BEHIND the photos. */
+function natureInk(c:CanvasRenderingContext2D){
+ const landscape=(coords:readonly (readonly [number,number])[],fill:string,a:number)=>{
+  c.save();c.globalAlpha=a;c.fillStyle=fill;c.beginPath();
+  c.moveTo(coords[0][0],coords[0][1]);
+  for(const [x,y] of coords.slice(1))c.lineTo(x,y);
+  c.closePath();c.fill();c.restore();
+ };
+ landscape([[0,460],[153,251],[294,431],[423,158],[560,446],
+  [719,273],[875,488],[1051,313],[1269,537],[1458,256],
+  [1674,467],[1868,213],[2070,422],[2228,285],[2400,506],
+  [2400,1080],[0,1080]],"#26565a",.45);
+ landscape([[386,204],[423,158],[489,286],[454,256],[426,197],
+  [415,241]],"#e8f4e2",.68);
+ landscape([[1816,290],[1868,213],[1944,330],[1893,299],
+  [1863,253],[1841,277]],"#edf6e6",.68);
+ landscape([[0,832],[315,673],[610,826],[880,644],[1120,851],
+  [1435,710],[1780,890],[2097,705],[2400,867],[2400,1080],[0,1080]],
+  "#183f3f",.53);
+ // Thick multi-stroke waterfall + glacier melt, placed in a space
+ // intentionally left behind image borders (not across wildlife/people).
+ const ribbon=(pts:readonly (readonly [number,number])[],stroke:string,width:number,a:number)=>{
+  c.save();c.globalAlpha=a;c.strokeStyle=stroke;c.lineWidth=width;
+  c.lineCap="round";c.lineJoin="round";
+  c.beginPath();c.moveTo(pts[0][0],pts[0][1]);
+  for(const [x,y] of pts.slice(1))c.lineTo(x,y);
+  c.stroke();c.restore();
+ };
+ ribbon([[2280,205],[2250,342],[2266,479],[2231,616],
+  [2247,742]],"#65c3d5",60,.45);
+ ribbon([[2295,212],[2272,350],[2288,500],[2255,619],
+  [2271,737]],"#e7f7f1",18,.55);
+ ribbon([[2256,750],[2108,844],[1943,828],[1747,901],
+  [1505,923]],"#55c7c1",56,.45);
+ ribbon([[2258,754],[2099,866],[1943,850],[1747,923],
+  [1505,944]],"#cbf5e9",13,.53);
+ // Pine clusters silhouette through the transition to the rock floor.
+ for(let i=0;i<28;i++){
+  const x=34+i*90,base=1061+(i%3)*7;
+  const height=75+(i%5)*17;
+  landscape([[x-29,base],[x,base-height],[x+29,base]],
+   i%3===0?"#235e55":"#123f40",.65);
+ }
+}
 function galleryNature(c:CanvasRenderingContext2D,imgs:readonly HTMLImageElement[]){
+ if(imgs.length!==12)throw Error("Nature gallery must use the twelve curated images");
  mountains(c);
+ natureInk(c);
+ // The four unframed travel exposures become wide, feathered pigment.
+ // Eight additional images remain framed and independently readable.
+ for(const [i,area] of [
+  [1,{x:60,y:268,w:670,h:500,opacity:.22}],
+  [4,{x:578,y:292,w:705,h:465,opacity:.28}],
+  [5,{x:1090,y:272,w:690,h:510,opacity:.24}],
+  [10,{x:1640,y:280,w:720,h:500,opacity:.24}],
+ ] as const){
+  photoWash(c,imgs[i],area.x,area.y,area.w,area.h,area.opacity);
+ }
  paintWord(c,"WILD PLACES",1200,115,151,1780,"#eed9bb");
  paintWord(c,"MOUNTAINS  ·  FORESTS  ·  WATER",1200,221,51,1590,"#a5e6d9");
  // A landscape photography exhibition cut directly from the owner's
