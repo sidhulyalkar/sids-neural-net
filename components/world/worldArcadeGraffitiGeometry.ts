@@ -11,6 +11,7 @@ import {paintConceptStory,distressPigment} from "./worldArcadeConceptArt";
 import {createArcadeStoneLining} from "./worldArcadeStoneLining";
 import {createShastaPhotoStencil} from "./worldArcadeShastaStencil";
 import {createSportsFanMural} from "./worldArcadeSportsMural";
+import {createArcadeCarvedAlcoves} from "./worldArcadeCarvedAlcoves";
 import {ARCADE_CAVE,arcadeCaveFloorHeight} from "@/lib/world/model";
 import {sampleCavernArt,type CavernArtTheme,type CavernArtSurface,type CavernMural} from "@/lib/world/arcadeCavernSurface";
 
@@ -616,6 +617,11 @@ export function createWorldArcadeGraffiti(scene:THREE.Scene,three:ArcadeThree,
    undefined,stone.texture);
   meshes.push(mesh);root.add(mesh);
  }
+ // Irregular carved arch rocks sit only on the OUTSIDE of existing game
+ // selection rectangles, so they never alter the raycast or walking model.
+ const carvedAlcoves=createArcadeCarvedAlcoves(three);
+ root.add(carvedAlcoves);meshes.push(carvedAlcoves);
+ root.userData.carvedAlcoves=true;
  const nicheFrames=createNicheGraffitiFrames(three);
  root.add(nicheFrames);meshes.push(nicheFrames);
  scene.add(root);
