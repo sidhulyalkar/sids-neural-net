@@ -47,6 +47,6 @@ export function mysticCircuitIntensity(
  const travel=link===state.link?
   .87*Math.exp(-Math.pow((u-state.progress)/MYSTIC_CIRCUIT.pulseWidth,2)):0;
  // The previous tree retains a fading echo as the impulse reaches its neighbor.
- const echo=link===previous?.10*(1-state.progress)*u:0;
+ const echo=link===previous ? .10*(1-state.progress)*u : 0;
  return Math.min(1,.085+travel+echo);
 }
