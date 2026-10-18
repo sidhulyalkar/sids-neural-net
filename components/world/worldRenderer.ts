@@ -1162,6 +1162,7 @@ export function createWorld(
     if(from&&to)mysticLinks.push([from,to]);
   }
   const mysticElectricity=createMysticElectricity(scene,mysticLinks);
+  let lastMysticPulseLink=-99;
   const mysticForest=createWorldMysticGroveGeometry(scene,terrainPoint=>
     terrainHeight(terrainPoint.x,terrainPoint.z),mysticTips);
   const mysticReducedMotion=window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -6629,6 +6630,12 @@ export function createWorld(
     fireflies.visible=mysticNearby;
     fireflies.position.y=Math.sin(elapsed*.4)*.12;
     mysticElectricity.update(elapsed,mysticNearby,mysticReducedMotion);
+    // Observable state is updated only when the signal advances one tree.
+    const pulseLink=mysticElectricity.activeLink;
+    if(pulseLink!==lastMysticPulseLink){
+      canvas.dataset.mysticPulseLink=String(pulseLink);
+      lastMysticPulseLink=pulseLink;
+    }
     neuralMat.emissiveIntensity=.4+Math.sin(elapsed*.65)*.18;
     particleMat.opacity=.48+Math.sin(elapsed)*.17;
     canvas.dataset.mysticElectricActive=String(mysticNearby);
