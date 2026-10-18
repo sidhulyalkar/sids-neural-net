@@ -54,8 +54,8 @@ unchanged.
 
 - Never stretch original image aspect ratios. Photos are cropped thoughtfully
   within a frame or letterboxed for game covers.
-- No `fillText`, `strokeText`, generated slogans, overlays, or poster captions
-  in the photo, sports, Shasta, or game compositors.
+- No added words in the Shasta, nature, panorama, or game-image compositors.
+  The sports compositor may label exactly the three teams underneath their crests.
 - Gallery image requests are local and checked in to `public/`.
 - Keep the centerline walkable, the game covers distinguishable, and gameplay
   prompts accessible. Do not add decorative UI that blocks the cave.
