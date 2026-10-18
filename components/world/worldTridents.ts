@@ -25,6 +25,12 @@ export function tridentVisualScale(t:UnderwaterTrident){
  return Math.max(0,Math.min(1,available/(TRIDENT_VISUAL.height+.06)));
 }
 
+/** Face the broad trident silhouette toward the most common approach:
+ * looking seaward from the island's western/eastern shoreline. */
+export function tridentFacingYaw(t:UnderwaterTrident){
+ return t.zone==="kelp"?Math.PI/2-.18:-Math.PI/2+.22;
+}
+
 function silhouette(){
  // Broad, distinctive three-prong outline with swept arms. Side blades rise
  // almost as high as the central spear, so it reads at gameplay distance.
@@ -58,10 +64,10 @@ function inlayBetween(
 
 export function createWorldTridents(kelpRoot:THREE.Group,lagoonRoot:THREE.Group){
  const golden=new THREE.ExtrudeGeometry(silhouette(),{
-  depth:.16,steps:1,bevelEnabled:true,bevelThickness:.024,
+  depth:.24,steps:1,bevelEnabled:true,bevelThickness:.025,
   bevelSize:.023,bevelSegments:1,curveSegments:1,
  });
- golden.translate(0,0,-.08);
+ golden.translate(0,0,-.12);
  // A smaller raised navy plate leaves a genuine gold silhouette, not a
  // luminous sticker on the front of the ocean.
  const plate=new THREE.ExtrudeGeometry(silhouette(),{
@@ -108,7 +114,7 @@ export function createWorldTridents(kelpRoot:THREE.Group,lagoonRoot:THREE.Group)
    const {x,z}=t.point,y=tridentBaseY(t);
    // The two lagoons have different approach angles. A second face gives
    // the flat faceted design legibility from either side of the sculpture.
-   const facing=t.id==="trident-kelp"?.28:t.id==="trident-lagoon"?-.39:.58;
+   const facing=tridentFacingYaw(t);
    const p=new THREE.Vector3(x,y,z),s=new THREE.Vector3(scale,scale,scale);
    const add=(batch:number,g:THREE.BufferGeometry,color:string,back=false)=>{
     batches[batch].add(g,color,p,s,new THREE.Euler(0,facing+(back?Math.PI:0),0));
