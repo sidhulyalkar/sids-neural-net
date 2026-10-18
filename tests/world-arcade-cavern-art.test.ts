@@ -50,7 +50,7 @@ test("Hero title fits its real-world atlas aspect and gallery frames stay clear"
   assert.ok(m.u0!==undefined&&m.u1!==undefined);
   const edge=id==="shasta-rear-portrait"?m.u1!:m.u0!;
   const x=16+(edge-.5)*12.45;
-  assert.ok(id==="shasta-rear-fresco"?x<13.65:x>18.35,
+  assert.ok(id==="shasta-rear-portrait"?x<13.65:x>18.35,
    "portrait edge must clear center arcade game by more than half a meter");
  }
 });
