@@ -1,6 +1,7 @@
 import { desertTrackClearance, desertTrackGroundRoute, DESERT_JUMPS } from "./desertTrack";
 import {insideMeadowConnector,insideSkatePark,skateParkSurface,skateParkLipCrossing,redwoodBowlCarveHeading,SKATE_PARK_RAILS,SKATE_GROVE_FLOW,type SkateRail} from "./skatepark";
 import {skateRollingSpeed} from "./skateDynamics";
+import {airborneSupportHeight} from "./rideRecovery";
 import { beamSupportHeight, technicalFeatureClearance } from "./technicalFeatures";
 import { bigAirClearance } from "./bigAir";
 import {jetSkiPierHeight} from "./jetSkiPier";
@@ -345,9 +346,19 @@ export function stepTravel(
   const unbanked={x:blended.x/norm,z:blended.z/norm};
   const heading=mode==="skate"?
     redwoodBowlCarveHeading(current.point,unbanked,current.speed,dt):unbanked;
+  const aboveShortProp=airborne>.2&&Number.isFinite(riderY)&&
+    (mode==="bike"||mode==="ski"||mode==="skate");
+  // The same contact rule must control both speed-grade and climb blocking.
+  // Otherwise a high beam "above" the airborne rider can still brake them
+  // to a dead stop even though their trunk collision was correctly skipped.
+  const contactSupport=(p:Point)=>{
+    const y=supportHeight(p);
+    return aboveShortProp?airborneSupportHeight(riderY,y,
+      terrainHeight(p.x,p.z)):y;
+  };
   const slope =
-    supportHeight({ x: current.point.x + heading.x, z: current.point.z + heading.z }) -
-    supportHeight(current.point);
+    contactSupport({ x: current.point.x + heading.x, z: current.point.z + heading.z }) -
+    contactSupport(current.point);
   const boostEligible=boost && (mode==="bike"||mode==="ski"||mode==="skate");
   const maxSpeed =
     config.speed *
@@ -385,7 +396,7 @@ export function stepTravel(
   );
   if (
     (!isWater(point)||jetSkiPierHeight(point)!==null) &&
-    supportHeight(point) > supportHeight(current.point) + Math.max(0.6, airborne)
+    contactSupport(point) > contactSupport(current.point) + Math.max(0.6, airborne)
   )
     return { ...current, speed: 0 };
   return {
