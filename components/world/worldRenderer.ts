@@ -4812,8 +4812,14 @@ export function createWorld(
           mode==="skate" ? trickPose.grab==="left" ? .48 : -.6+trickPose.crouch*.45 : -.75;
         arms[1].rotation.x = surfing?-1.17:climb ? -1.6 : running ? walking * 0.4 : bikePose ? 0.82 :
           mode==="skate" ? trickPose.grab==="right" ? .48 : -.6+trickPose.crouch*.45 : -.75;
+        // Match wheel/stance samples to the exact support layer selected by
+        // movement physics. Sampling an overhead beam as the ground here would
+        // visually lift the avatar even when the collision solver stayed below.
+        const rigSupport=(p:Point)=>caveLayer==="surface"?
+          airborneSupportHeight(playerY,supportHeight(p),
+            terrainHeight(p.x,p.z)):supportHeight(p);
         const bikeContact = mode==="bike"&&airHeight<=.001&&!climb&&!grind
-          ? bikeTerrainPose(player,travel.heading,supportHeight):null;
+          ? bikeTerrainPose(player,travel.heading,rigSupport):null;
         const footprint = mode === "bike"
           ? { length: 1.05, width: 0.55 }
           : mode === "skate"
@@ -4821,16 +4827,16 @@ export function createWorld(
             : mode === "ski"
               ? { length: 1.35, width: 0.46 }
               : { length: 0.25, width: 0.2 };
-        const contact = terrainContact(player, travel.heading, footprint.length, footprint.width, supportHeight);
+        const contact = terrainContact(player, travel.heading, footprint.length, footprint.width, rigSupport);
         const skateContact=mode==="skate"&&airHeight<=.001&&!climb&&!grind&&
           !skateLoopRide&&!skateTunnelRide&&!skateRailGapRide
-          ? wheelTerrainPose(player,travel.heading,supportHeight,
+          ? wheelTerrainPose(player,travel.heading,rigSupport,
             {radius:.1111,axleY:-.02,halfWheelbase:.63,halfTrack:.33,
              roll:contact.roll+skateCarveLean}):null;
         const gearMode = mode === "bike" || mode === "skate" || mode === "ski";
         const supportLift =
           gearMode && airHeight <= 0.001 && !climb && !grind && !skateLoopRide && !skateTunnelRide
-            ? Math.max(0, contact.support - supportHeight(player))
+            ? Math.max(0, contact.support - rigSupport(player))
             : 0;
         const pitchAngle = skateContact?.pitch ?? bikeContact?.pitch ?? (running || climb || skateRailGapRide ? 0 : contact.pitch);
         const rollAngle =
