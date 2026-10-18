@@ -11,12 +11,12 @@ export type JoshuaTreeSite=Point&{height:number;arms:number;rotation:number};
  */
 export function joshuaTreeSites():JoshuaTreeSite[]{
  const trees:JoshuaTreeSite[]=[];
- const steps=Math.ceil(DESERT_TRACK_LENGTH/7.0);
+ const steps=Math.ceil(DESERT_TRACK_LENGTH/5.0);
  for(let i=0;i<steps;i++){
   const s=(i+.41)*DESERT_TRACK_LENGTH/steps;
   const frame=desertTrackFrame(desertTrackSampleAt(s));
-  const side=i%2?1:-1;
-  const spread=5.0+(i*7%5)*.65;
+  for(const side of [-1,1]){
+  const spread=5.35+((i*7+(side+1)*3)%6)*.67;
   const x=frame.center.x-side*frame.tangent.z*spread;
   const z=frame.center.z+side*frame.tangent.x*spread;
   const p={x,z};
@@ -29,8 +29,10 @@ export function joshuaTreeSites():JoshuaTreeSite[]{
   const slope=Math.hypot(terrainHeight(x+.4,z)-terrainHeight(x-.4,z),
     terrainHeight(x,z+.4)-terrainHeight(x,z-.4));
   if(slope>1.5)continue;
-  trees.push({x,z,height:2.6+(i*13%11)*.25,
-    arms:2+(i%3),rotation:(i*2.39996)%(Math.PI*2)});
+  trees.push({x,z,height:2.6+((i*13+(side+1)*7)%11)*.25,
+    arms:2+((i+(side+1))%3),
+    rotation:(i*2.39996+side*.31)%(Math.PI*2)});
+  }
  }
  return trees;
 }
