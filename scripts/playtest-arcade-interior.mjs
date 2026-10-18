@@ -37,9 +37,15 @@ try{
   await page.waitForFunction(()=>Number(
    document.querySelector("canvas")?.dataset.arcadeAuthoredMuralsReady)>=7,
    null,{timeout:40000});
-  const titleResponse=await page.request.get(base+
-   "/world/arcade-cavern/hero/sids-underground.svg");
-  assert.equal(titleResponse.status(),200,"authored mural texture must be present");
+  // The header must load as source photography, not as SVG lettering.
+  for(const source of [
+   "/visual-archive/thumbs/photo-004-thumb.webp",
+   "/visual-archive/thumbs/photo-009-thumb.webp",
+   "/visual-archive/thumbs/photo-014-thumb.webp",
+  ]){
+   const response=await page.request.get(base+source);
+   assert.equal(response.status(),200,"missing panoramic photo "+source);
+  }
   for(const name of ["chelsea-crest.png","patriots-crest.png",
    "warriors-crest.png"]){
    const path="/world/arcade-cavern/sports/"+name;
@@ -67,31 +73,20 @@ try{
    const d=document.querySelector("canvas")?.dataset;
    return Number(d?.arcadeShastaPhotos)===13&&
     Number(d?.arcadeNaturePhotos)===12&&
+    Number(d?.arcadeFeaturePhotos)===3&&
     Number(d?.arcadeGamePosters)===3&&
     Number(d?.arcadeGamePlaquesReady)===3;
   },null,{timeout:40000});
   evidence.galleries=await canvas.evaluate(el=>({
    shastaPhotos:Number(el.dataset.arcadeShastaPhotos),
    naturePhotos:Number(el.dataset.arcadeNaturePhotos),
+   featurePhotos:Number(el.dataset.arcadeFeaturePhotos),
    gamePosters:Number(el.dataset.arcadeGamePosters),
    gamePlaques:Number(el.dataset.arcadeGamePlaquesReady),
   }));
   const shastaPhoto=await page.request.get(base+"/visual-archive/web/photo-037.webp");
   assert.equal(shastaPhoto.status(),200,
    "the source photograph of Shasta must exist in the public visual archive");
-  const titleAlpha=await page.evaluate(async()=>{
-   const image=new Image();
-   image.src="/world/arcade-cavern/hero/sids-underground.svg";
-   await image.decode();
-   const tile=document.createElement("canvas");tile.width=64;tile.height=64;
-   const ctx=tile.getContext("2d");if(!ctx)throw Error("No art QA 2D canvas");
-   ctx.drawImage(image,0,0,64,64);
-   return [[1,1],[62,1],[1,62],[62,62]].map(([x,y])=>
-    ctx.getImageData(x,y,1,1).data[3]);
-  });
-  assert.ok(titleAlpha.every(v=>v===0),
-   "hero artwork must have true transparent corners, never a rectangular billboard");
-
   await page.getByRole("button",{name:"Open navigation menu"}).click();
   await page.getByRole("button",{name:/08 Arcade cavern Play my games/}).click();
   await page.waitForFunction(()=>{
