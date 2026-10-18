@@ -62,6 +62,7 @@ try{
   detailTriangles:Number(c.dataset.mysticGroveDetailTriangles),
   fernFronds:Number(c.dataset.mysticGroveFronds),
   quartzDetails:Number(c.dataset.mysticGroveQuartz),
+  pulseLink:Number(c.dataset.mysticPulseLink),
  }));
  assert.equal(mystic.position,"37,65");
  assert.equal(mystic.detailDrawCalls,3);
@@ -71,11 +72,21 @@ try{
   "forest-floor flora and quartz must exist in actual browser geometry");
  assert.equal(mystic.trees,6);
  assert.equal(mystic.arcs,6);
+ assert.ok(mystic.pulseLink>=0&&mystic.pulseLink<mystic.arcs,
+  "a charged link is selected from the physical six-link circuit");
  assert.equal(mystic.active,"true");
  assert.equal(mystic.water,"land");
  await page.screenshot({path:path.join(out,"01-mystic-shore-electric-branches.png")});
- await page.waitForTimeout(450);
- await page.screenshot({path:path.join(out,"02-mystic-shore-animation-next-frame.png")});
+ // Record the next actual segment activation, not a guessed frame delay.
+ // The player remains stationary while the charged branch link advances.
+ await page.waitForFunction(previous=>{
+  const now=Number(document.querySelector("canvas")?.dataset.mysticPulseLink);
+  return Number.isFinite(now)&&now>=0&&now!==previous;
+ },mystic.pulseLink,{timeout:5500});
+ const subsequentPulse=Number(await canvas.getAttribute("data-mystic-pulse-link"));
+ assert.equal(subsequentPulse,(mystic.pulseLink+1)%mystic.arcs,
+  "the electrical event should propagate to the next tree in order");
+ await page.screenshot({path:path.join(out,"02-mystic-shore-next-charged-tree.png")});
  await page.getByRole("button",{name:"Open navigation menu"}).click();
  await page.getByRole("button",{name:/Joshua basin Granite and desert trails/}).click();
  await page.waitForFunction(()=>{
