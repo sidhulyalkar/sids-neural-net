@@ -72,7 +72,8 @@ try{
  await page.waitForFunction(()=>{
   const d=document.querySelector("canvas")?.dataset;
   const p=d?.player?.split(",").map(Number);
-  return p&&Math.hypot(p[0]-22,p[1]+33)<2&&Number(d.joshuaTrees)>=15;
+  // Desert discovery uses the same three-unit northward landing offset.
+  return p&&Math.hypot(p[0]-22,p[1]+30)<2&&Number(d.joshuaTrees)>=15;
  },null,{timeout:30000});
  const joshua=await canvas.evaluate(c=>({
   trees:Number(c.dataset.joshuaTrees),player:c.dataset.player,
