@@ -15,6 +15,8 @@ import {detailCavernStone} from "./worldCavernStoneMaterial";
 import {createWorldArcadeGraffiti} from "./worldArcadeGraffitiGeometry";
 import {ARCADE_REAR_CAP_Z,sampleCavernArt} from "@/lib/world/arcadeCavernSurface";
 import {skateLean} from "@/lib/world/skateDynamics";
+import {advanceRideRecovery,findRideRecoveryPoint,
+ initialRideRecovery,isRideMode,isSafeRideContact} from "@/lib/world/rideRecovery";
 import {selectAssistedSkateTrick,assistedSkateSpin} from "@/lib/world/skateAssist";
 import {idleSkateTrick,startSkateTrick,finishSkateTrick,setSkateGrab,skateTrickPose,flickTrick,scoreSkateGrind,scoreSkateLoop,scoreSkateTunnel,scoreSkateRailGap,queueSkateSpin,startSkateManual,stepSkateManual,finishSkateManual,type SkateTrickName,type SkateTrickState} from "@/lib/world/skateTricks";
 import { JOSHUA_GATES, armJoshuaTrial, abortJoshuaTrial, tickJoshuaTrial, type TrialState } from "@/lib/world/trials";
@@ -3227,6 +3229,8 @@ export function createWorld(
     saveSkateBest(next);skateTrick=next;
   }
   let playerY = groundHeight(player);
+  let rideRecovery=initialRideRecovery(player);
+  let lastRideRecoveryAt=-Infinity;
   // Single source of truth for mutually exclusive minigame entrances.
   const occupiedByOtherMode=(requested:WorldGameMode)=>
     !canStartWorldGame(requested,worldGameSession({
@@ -3248,6 +3252,10 @@ export function createWorld(
     }
   }
   function leaveWorldGames(){
+    // The challenge ends immediately, but the skier must still obey gravity.
+    const exitingFlight=bigAir.phase==="flying"||airHeight>.04;
+    const preservedAir=Math.max(airHeight,playerY-supportHeight(player),.05);
+    const preservedVelocity=verticalSpeed;
     closeJetChooser();stopJetSki();
     bigAir=idleBigAir();callbacks.onBigAir(bigAir);
     trial={phase:"idle",nextGate:0,elapsedMs:0,splitsMs:[]};callbacks.onChallenge(trial);
@@ -3257,10 +3265,16 @@ export function createWorld(
     lastDiscCameraSolve=null;sceneryCamera.restore();
     clearInput();resetRideBoost();destination=null;climb=grind=null;
     skateLoopRide=null;skateTunnelRide=null;skateRailGapRide=null;lastSkateLoopEnd=elapsed;
-    airHeight=verticalSpeed=0;travel={...travel,speed:0};
-    if(isWater(player)&&jetSkiPierHeight(player)===null){
+    airHeight=exitingFlight?preservedAir:0;
+    verticalSpeed=exitingFlight?preservedVelocity:0;
+    travel={...travel,speed:exitingFlight?Math.min(travel.speed,12):0};
+    if(isWater(player)&&jetSkiPierHeight(player)===null&&!exitingFlight){
       swimDepth=targetDepth=0;setAquaticMode("surface");playerY=SEA_SURFACE-.42;
-    }else{setAquaticMode("land");playerY=supportHeight(player);}
+    }else{
+      setAquaticMode("land");
+      if(!exitingFlight)playerY=supportHeight(player);
+    }
+    rideRecovery={...rideRecovery,blockedFor:0};
     canvas.focus({preventScroll:true});
   }
   function stopJetSki(){
@@ -4540,6 +4554,44 @@ export function createWorld(
 
       // Skiing may launch from any steep downhill edge on the mountain.
       // The original marked kicker remains as a deliberate easy starting point.
+      // A sustained attempted ride with no translation signals a bad
+      // obstacle/terrain contact. Intentional grinds, loops and airborne tricks
+      // are exempt; the recovery is strictly local and uses safe support.
+      if(isRideMode(state.activity)&&caveLayer==="surface"&&
+         aquatic==="land"&&!jetSki&&!jetChoosing&&
+         discGolf.phase==="off"&&skimHeat.phase==="off"){
+        const controlled=!!grind||!!climb||!!skateLoopRide||
+          !!skateTunnelRide||!!skateRailGapRide||
+          bigAir.phase==="armed"||bigAir.phase==="flying";
+        const grounded=airHeight<=.03&&Math.abs(verticalSpeed)<.15;
+        const moving=Math.hypot(dx,dz)>.16;
+        const clear=grounded&&moving&&
+          isSafeRideContact(player,groundedObstacles,groundHeight);
+        const result=advanceRideRecovery(rideRecovery,{
+          point:player,previous:previousPoint,mode:state.activity,
+          dt:Math.min(rawDelta,.2),moving,grounded,
+          controlledStunt:controlled,clear,
+        });
+        rideRecovery=result.state;
+        if(result.recover&&elapsed-lastRideRecoveryAt>2){
+          const safe=findRideRecoveryPoint(player,travel.heading,
+            rideRecovery.anchor,groundedObstacles,groundHeight);
+          if(safe){
+            player=safe;playerY=groundHeight(player);
+            travel={...travel,point:player,speed:0};
+            airHeight=verticalSpeed=0;destination=null;
+            lastRampAt=elapsed;lastRideRecoveryAt=elapsed;
+            rideRecovery={...rideRecovery,blockedFor:0,
+              anchor:{...player},recoveries:rideRecovery.recoveries+1};
+            canvas.dataset.rideRecovery="released";
+          }else{
+            rideRecovery={...rideRecovery,blockedFor:0};
+            canvas.dataset.rideRecovery="no-safe-landing";
+          }
+        }
+        canvas.dataset.rideRecoveryCount=String(rideRecovery.recoveries);
+        canvas.dataset.rideBlockedSeconds=rideRecovery.blockedFor.toFixed(2);
+      }else rideRecovery={...rideRecovery,blockedFor:0};
       const skiEligible=state.activity==="ski"&&
         bigAir.phase!=="flying"&&elapsed-lastRampAt>1.1&&
         discGolf.phase==="off"&&!jetSki&&!jetChoosing&&
@@ -6664,6 +6716,11 @@ export function createWorld(
       const requestedAction = next.actionSerial !== lastAction;
       const requestedWaterAction = next.waterActionSerial !== lastWaterAction;
       if (changedActivity) {
+        // Do not turn a midair ski exit into an instant unsupported landing.
+        const preserveFlight=bigAir.phase==="flying"||
+          airHeight>.04||verticalSpeed>.1;
+        const airBefore=Math.max(.05,airHeight,playerY-supportHeight(player));
+        const velocityBefore=verticalSpeed;
         if(bigAir.phase==="armed"||bigAir.phase==="flying"){
           bigAir={...bigAir,phase:"missed",reason:"Ski mode changed"};
           callbacks.onBigAir(bigAir);
@@ -6672,7 +6729,9 @@ export function createWorld(
         resetRideBoost();
         climb = null;
         grind = null;
-        airHeight = verticalSpeed = 0;
+        airHeight=preserveFlight?airBefore:0;
+        verticalSpeed=preserveFlight?velocityBefore:0;
+        rideRecovery={...rideRecovery,blockedFor:0};
         if(state.activity==="skate"||next.activity==="skate"){
           // Equipment changes start a fresh, independent trick line. The
           // player's best persists, while old landing cards never leak.
