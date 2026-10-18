@@ -549,7 +549,7 @@ function createNicheGraffitiFrames(three:ArcadeThree){
 }
 
 export function createWorldArcadeGraffiti(scene:THREE.Scene,three:ArcadeThree,
- onAssetReady?:(count:number)=>void){
+ onAssetReady?:(count:number,detail?:{kind:string;photoCount:number})=>void){
  const issues=[
   ...validateArcadeArtManifest(ARCADE_CAVERN_MURALS),
   ...validateArcadeMuralAssets(),
@@ -613,6 +613,7 @@ export function createWorldArcadeGraffiti(scene:THREE.Scene,three:ArcadeThree,
     if(!textures.includes(texture))textures.push(texture);
     installAuthored(wall,texture,1,mural.theme);
     root.userData[kind+"-images"]=photoCount;
+    onAssetReady?.(authoredReady,{kind,photoCount});
    }).catch(error=>{
     if(alive)root.userData.galleryLoadFailure=
       kind+": "+(error instanceof Error?error.message:String(error));
