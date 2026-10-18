@@ -110,18 +110,18 @@ test("high beams never pull a flying skier upwards from below",()=>{
   "a broken support sample must not poison player height");
 });
 
-test("airborne ski, bike and skate clear finite props but not infinite walls",()=>{
+test("airborne ski, bike, skate and interrupted Run clear finite props but not walls",()=>{
  const start:Travel={point:{x:8,z:-56.8},speed:8,heading:{x:0,z:1}};
  const trunk={x:8,z:-54,radius:.8,topY:9};
  const wall={x:8,z:-54,radius:.8};
- const run=(mode:"ski"|"bike"|"skate",obstacle:{x:number;z:number;radius:number;topY?:number},air:number,y:number)=>{
+ const run=(mode:"ski"|"bike"|"skate"|"run",obstacle:{x:number;z:number;radius:number;topY?:number},air:number,y:number)=>{
   let travel=start;
   for(let i=0;i<28;i++)
    travel=stepTravel(travel,{x:0,z:1},.05,mode,[obstacle],
     false,null,air,level,false,y);
   return travel;
  };
- for(const mode of ["ski","bike","skate"] as const){
+ for(const mode of ["ski","bike","skate","run"] as const){
   assert.ok(run(mode,trunk,4,14).point.z>-53.5,
    mode+" should fly above a short trunk without an invisible infinite column");
   assert.ok(run(mode,trunk,4,8.5).point.z<-55.15,
