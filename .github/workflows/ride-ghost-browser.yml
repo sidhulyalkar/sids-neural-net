@@ -8,6 +8,12 @@ on:
       - 'components/world/worldRideChallengeGeometry.ts'
       - 'lib/world/rideBoost.ts'
       - 'lib/world/joshuaGhostRace.ts'
+      - 'lib/world/joshuaTrees.ts'
+      - 'lib/world/mysticGrove.ts'
+      - 'components/world/worldMysticElectricity.ts'
+      - 'components/world/worldHabitats.ts'
+      - 'tests/world-mystic-joshua.test.ts'
+      - 'scripts/playtest-mystic-joshua.mjs'
       - 'scripts/playtest-ride-ghost.mjs'
       - '.github/workflows/ride-ghost-browser.yml'
   pull_request:
@@ -16,6 +22,12 @@ on:
       - 'components/world/worldRideChallengeGeometry.ts'
       - 'lib/world/rideBoost.ts'
       - 'lib/world/joshuaGhostRace.ts'
+      - 'lib/world/joshuaTrees.ts'
+      - 'lib/world/mysticGrove.ts'
+      - 'components/world/worldMysticElectricity.ts'
+      - 'components/world/worldHabitats.ts'
+      - 'tests/world-mystic-joshua.test.ts'
+      - 'scripts/playtest-mystic-joshua.mjs'
       - 'scripts/playtest-ride-ghost.mjs'
       - '.github/workflows/ride-ghost-browser.yml'
   workflow_dispatch:
@@ -59,6 +71,12 @@ jobs:
           WORLD_AUDIT_DIR: artifacts/world/ride-ghost-browser
           PLAYWRIGHT_MODULE_ROOT: /tmp/joshua-playwright/node_modules/playwright
         run: node scripts/playtest-ride-ghost.mjs
+      - name: Validate Mystic shoreline lightning and Joshua living trees
+        env:
+          WORLD_BASE_URL: http://127.0.0.1:3000
+          WORLD_AUDIT_DIR: artifacts/world/mystic-joshua-browser
+          PLAYWRIGHT_MODULE_ROOT: /tmp/joshua-playwright/node_modules/playwright
+        run: node scripts/playtest-mystic-joshua.mjs
       - name: Preserve screenshots and aim-trace even after failure
         if: always()
         uses: actions/upload-artifact@v4
@@ -66,5 +84,6 @@ jobs:
           name: joshua-skillshot-${{ github.sha }}
           path: |
             artifacts/world/ride-ghost-browser/
+            artifacts/world/mystic-joshua-browser/
             /tmp/joshua-world-next.log
           if-no-files-found: warn
