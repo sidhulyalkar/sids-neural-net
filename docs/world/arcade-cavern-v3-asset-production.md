@@ -159,3 +159,38 @@ randomized filler strokes have been removed.
 5. No merge while any CI test is failing or the art visually misses the
    reference. Software SwiftShader FPS is not representative of
    GPU-enabled real-device performance.
+
+## V3.5 screenshot-driven cavern detailing
+
+The previous 1440x900 screenshots established that the readable mural atlas
+still looked underscaled against a large dark rear wall. This tranche delivers:
+
+- **Rebalanced hero:** an authored two-line SID'S / UNDERGROUND graphic,
+  alpine pine/peak framing and intentionally spacious negative space.
+  The banner occupies only the central 56% of the rear wall, with artwork
+  geometry and UV aspect matching its 2400×480 source within 4%. This
+  avoids stretching text over the entire wall.
+- **Larger side gallery:** Shasta and MindForge rear portrait areas grow
+  across the left/right margins but stay ≥0.55m outside the center
+  game's selection rectangle.
+- **Rock materials:** the former tile-like faux-rock image is replaced
+  by four-scale periodic mineral color, dark fissures and a separate
+  grayscale relief texture. Both are owned and disposed by the cavern.
+- **Game architecture:** a single pooled, non-raycast stone mesh shapes
+  irregular basalt above and beside all three game-selection targets.
+  Stone chunks are outside the protected 3.6×2.65m target rectangles,
+  with no new collisions.
+- **Floor and ceiling:** no mirrored text or dense random strokes;
+  reduced to bold treads, occasional filled paw shapes and clear arrows.
+- **Regression recovery:** full-site World browser audit had retained
+  a now-obsolete sideways detour around the deleted baffle and a short
+  22-second timer. The route uses the direct centerline and the same
+  bounded 110-second SwiftShader movement window as focused Arcade QA.
+
+### Required remaining evidence
+- New screenshot set showing the split hero line and frame silhouette.
+- Quantitative 14-ish art draw calls and under 40k art triangles.
+- Normal WebGL device, not SwiftShader, for real FPS.
+- Accurate custom character art for comedy/anime still pending.
+- Keep PR draft and production untouched until photo-real character
+  illustration, mural layout and interactive readability are approved.
