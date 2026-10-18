@@ -3239,6 +3239,7 @@ export function createWorld(
   let playerY = groundHeight(player);
   let rideRecovery=initialRideRecovery(player);
   let lastRideRecoveryAt=-Infinity;
+  let rideFlightContinuity=false,lastFlightExitAt=-Infinity;
   // Single source of truth for mutually exclusive minigame entrances.
   const occupiedByOtherMode=(requested:WorldGameMode)=>
     !canStartWorldGame(requested,worldGameSession({
@@ -3262,6 +3263,9 @@ export function createWorld(
   function leaveWorldGames(){
     // The challenge ends immediately, but the skier must still obey gravity.
     const exitingFlight=bigAir.phase==="flying"||airHeight>.04;
+    if(exitingFlight){
+      rideFlightContinuity=true;lastFlightExitAt=elapsed;
+    }
     const preservedAir=Math.max(airHeight,playerY-supportHeight(player),.05);
     const preservedVelocity=verticalSpeed;
     closeJetChooser();stopJetSki();
@@ -4492,7 +4496,8 @@ export function createWorld(
           }
         } else {
           const supportY=supportHeight(player);
-          const groundY=caveLayer==="surface"&&isRideMode(state.activity)&&
+          const groundY=caveLayer==="surface"&&
+            (isRideMode(state.activity)||rideFlightContinuity)&&
             (airHeight>.01||verticalSpeed!==0)?
             airborneSupportHeight(previousY,supportY,
               terrainHeight(player.x,player.z)):supportY;
@@ -4580,7 +4585,9 @@ export function createWorld(
       // A sustained attempted ride with no translation signals a bad
       // obstacle/terrain contact. Intentional grinds, loops and airborne tricks
       // are exempt; the recovery is strictly local and uses safe support.
-      if(isRideMode(state.activity)&&caveLayer==="surface"&&
+      const watchedRideMode=isRideMode(state.activity)?state.activity:
+        state.activity==="run"&&elapsed-lastFlightExitAt<12?"ski":state.activity;
+      if(isRideMode(watchedRideMode)&&caveLayer==="surface"&&
          aquatic==="land"&&!jetSki&&!jetChoosing&&
          discGolf.phase==="off"&&skimHeat.phase==="off"){
         const controlled=!!grind||!!climb||!!skateLoopRide||
@@ -4591,7 +4598,7 @@ export function createWorld(
         const clear=grounded&&moving&&
           isSafeRideContact(player,groundedObstacles,groundHeight);
         const result=advanceRideRecovery(rideRecovery,{
-          point:player,previous:previousPoint,mode:state.activity,
+          point:player,previous:previousPoint,mode:watchedRideMode,
           dt:Math.min(rawDelta,.2),moving,grounded,
           controlledStunt:controlled,clear,
         });
@@ -4615,6 +4622,8 @@ export function createWorld(
         canvas.dataset.rideRecoveryCount=String(rideRecovery.recoveries);
         canvas.dataset.rideBlockedSeconds=rideRecovery.blockedFor.toFixed(2);
       }else rideRecovery={...rideRecovery,blockedFor:0};
+      if(rideFlightContinuity&&airHeight<=.001&&verticalSpeed===0)
+        rideFlightContinuity=false;
       const skiEligible=state.activity==="ski"&&
         bigAir.phase!=="flying"&&elapsed-lastRampAt>1.1&&
         discGolf.phase==="off"&&!jetSki&&!jetChoosing&&
@@ -5032,6 +5041,8 @@ export function createWorld(
           "AIM + FIRE · Click/tap a glowing ring · F shoots center";
       }
       canvas.dataset.height = playerY.toFixed(2);
+      canvas.dataset.rideAirHeight=airHeight.toFixed(2);
+      canvas.dataset.rideFlightContinuity=String(rideFlightContinuity);
       canvas.dataset.airborne = String(airHeight > 0 || !!climb || !!grind);
       canvas.dataset.discGolfPhase=discGolf.phase;
       canvas.dataset.discGolfSwing=state.discGolfSwingStage;
@@ -6742,6 +6753,9 @@ export function createWorld(
         // Do not turn a midair ski exit into an instant unsupported landing.
         const preserveFlight=bigAir.phase==="flying"||
           airHeight>.04||verticalSpeed>.1;
+        if(preserveFlight){
+          rideFlightContinuity=true;lastFlightExitAt=elapsed;
+        }
         const airBefore=Math.max(.05,airHeight,playerY-supportHeight(player));
         const velocityBefore=verticalSpeed;
         if(bigAir.phase==="armed"||bigAir.phase==="flying"){
