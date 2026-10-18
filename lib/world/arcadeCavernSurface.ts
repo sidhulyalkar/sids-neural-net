@@ -97,7 +97,13 @@ export function validateCavernMural(m:CavernMural):string|null{
    !Number.isFinite(u0)||!Number.isFinite(u1)||
    u0<0||u1>1||u0>=u1))return "invalid back patch";
  if(m.surface==="back"){
-  const header=m.v0>=.62&&m.v1<=.91&&m.u0===undefined&&m.u1===undefined;
+  // The hero banner can now be centered within the rear wall as a
+  // painterly composition rather than stretched across all 12.45 meters.
+  // Its lower edge remains >20cm above the playable center game target.
+  const header=m.v0>=.62&&m.v1<=.91&&(
+   (m.u0===undefined&&m.u1===undefined)||
+   (m.u0!==undefined&&m.u1!==undefined&&m.u0>=.18&&m.u1<=.82)
+  );
   const side=m.v0>=.14&&m.v1<=.60&&(
    (m.u0!==undefined&&m.u1!==undefined&&m.u1<=.28)||
    (m.u0!==undefined&&m.u1!==undefined&&m.u0>=.72)
