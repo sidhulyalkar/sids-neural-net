@@ -132,7 +132,11 @@ try {
           await page.waitForFunction(({axis,target,greater})=>{
             const p=(document.querySelector('canvas')?.dataset.player??'').split(',').map(Number);
             return greater?p[axis]>=target:p[axis]<=target;
-          },{axis,target,greater},{timeout:22000});
+          },{axis,target,greater},{timeout:110000});
+          // The full-site audit runs Chromium on SwiftShader. Movement is
+          // simulation-frame-bound, so real-world 22s is insufficient for
+          // a 9m corridor despite valid running controls. Use the same
+          // bounded 110s limit as the focused Arcade Cavern browser test.
         } finally {await page.keyboard.up(key);}
       };
       await walkUntil('w',1,-77,true);
