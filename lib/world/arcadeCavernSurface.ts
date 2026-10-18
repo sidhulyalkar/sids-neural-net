@@ -6,7 +6,7 @@ export type CavernArtSurface="left"|"right"|"ceiling"|"floor"|"back";
  * Do not move it toward the camera (negative Z): that would hide the mural. */
 export const ARCADE_REAR_CAP_Z=-63.20;
 
-export type CavernArtTheme="sports"|"anime"|"comedy"|"sport-anime"|"identity"|"shasta"|"neural";
+export type CavernArtTheme="sports"|"anime"|"comedy"|"sport-anime"|"identity"|"shasta"|"neural"|"shasta-gallery"|"nature-gallery"|"game-gallery";
 export type CavernMural={
  id:string;theme:CavernArtTheme;surface:CavernArtSurface;
  z0:number;z1:number;v0:number;v1:number;title:string;
