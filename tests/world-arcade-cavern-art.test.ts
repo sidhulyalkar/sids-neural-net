@@ -168,7 +168,7 @@ test("All wall overlays are image-only with no generated words",()=>{
   "components/world/worldArcadeShastaStencil.ts",
  ]){
   const source=readFileSync(file,"utf8");
-  assert.doesNotMatch(source,/\\b(?:fillText|strokeText|paintWord|solidTitle)\\s*\\(/,
+  assert.doesNotMatch(source,/\b(?:fillText|strokeText|paintWord|solidTitle)\s*\(/,
    file+" must never paint titles, labels or slogans over the photo");
  }
  assert.equal(ARCADE_CAVERN_MURALS.some(m=>m.id==="sids-underground"),false);
