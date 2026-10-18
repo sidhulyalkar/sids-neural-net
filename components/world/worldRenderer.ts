@@ -1568,7 +1568,15 @@ export function createWorld(
     RepeatWrapping:THREE.RepeatWrapping,
     LinearMipmapLinearFilter:THREE.LinearMipmapLinearFilter,
     TextureLoader:THREE.TextureLoader,
-  },count=>{canvas.dataset.arcadeAuthoredMuralsReady=String(count);});
+  },(count,detail)=>{
+    canvas.dataset.arcadeAuthoredMuralsReady=String(count);
+    if(detail){
+      const attr=detail.kind==="shasta-gallery"?"arcadeShastaPhotos":
+       detail.kind==="nature-gallery"?"arcadeNaturePhotos":
+       "arcadeGamePosters";
+      canvas.dataset[attr]=String(detail.photoCount);
+    }
+  });
   canvas.dataset.arcadeGraffitiVersion="asset-first-v3";
   canvas.dataset.arcadeGraffitiMurals=String(arcadeGraffiti.diagnostics.murals);
   canvas.dataset.arcadeGraffitiDrawCalls=String(arcadeGraffiti.diagnostics.drawCalls);
