@@ -1,5 +1,5 @@
 import { desertTrackClearance, desertTrackGroundRoute, DESERT_JUMPS } from "./desertTrack";
-import {insideSkatePark,skateParkSurface,skateParkLipCrossing,redwoodBowlCarveHeading,SKATE_PARK_RAILS,SKATE_GROVE_FLOW,type SkateRail} from "./skatepark";
+import {insideMeadowConnector,insideSkatePark,skateParkSurface,skateParkLipCrossing,redwoodBowlCarveHeading,SKATE_PARK_RAILS,SKATE_GROVE_FLOW,type SkateRail} from "./skatepark";
 import {skateRollingSpeed} from "./skateDynamics";
 import { beamSupportHeight, technicalFeatureClearance } from "./technicalFeatures";
 import { bigAirClearance } from "./bigAir";
@@ -634,7 +634,7 @@ export function sportClearance(p: Point) {
     return Math.hypot(p.x - a.x - dx * t, p.z - a.z - dz * t);
   };
   return (
-    insideSkatePark(p,2) ||
+    insideSkatePark(p,2) || insideMeadowConnector(p,2) ||
     desertTrackClearance(p) ||
     technicalFeatureClearance(p) ||
     bigAirClearance(p) ||

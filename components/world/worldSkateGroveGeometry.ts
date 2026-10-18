@@ -4,7 +4,7 @@ import {
   skateParkSurface, skateParkZone, GROVE_LOG, GROVE_BRIDGE,
   GROVE_TUNNEL, SKATE_LOOP,
   groveBridgeRise, groveStoneRise, CANYON_FLOW, CANYON_MANUAL_PADS,
-  canyonFlowRise,railLiftAt,insideCanyonFlow,SKATE_RAIL_GAPS,
+  MEADOW_CONNECTOR,meadowConnectorRise,canyonFlowRise,railLiftAt,insideCanyonFlow,SKATE_RAIL_GAPS,
 } from "@/lib/world/skatepark";
 import {terrainHeight,type Point} from "@/lib/world/model";
 import {sequoiaTubePoint,TUBE_TAU} from "@/lib/world/skateTunnel";
@@ -157,11 +157,11 @@ export function createWorldSkateGrove(scene:THREE.Scene,support:(p:Point)=>numbe
  const flowStepsX=80,flowStepsZ=42;
  const flowCedar=new THREE.Color("#c5a477");
  for(let iz=0;iz<=flowStepsZ;iz++)for(let ix=0;ix<=flowStepsX;ix++){
-  const x=CANYON_FLOW.startX+
-   ix*(CANYON_FLOW.endX-CANYON_FLOW.startX)/flowStepsX;
-  const z=CANYON_FLOW.centerZ-CANYON_FLOW.halfWidth+
-   iz*2*CANYON_FLOW.halfWidth/flowStepsZ;
-  const p={x,z},h=ride(p),lift=canyonFlowRise(p);
+  const x=MEADOW_CONNECTOR.minX+
+   ix*(MEADOW_CONNECTOR.maxX-MEADOW_CONNECTOR.minX)/flowStepsX;
+  const z=MEADOW_CONNECTOR.minZ+
+   iz*(MEADOW_CONNECTOR.maxZ-MEADOW_CONNECTOR.minZ)/flowStepsZ;
+  const p={x,z},h=ride(p),lift=canyonFlowRise(p)+meadowConnectorRise(p);
   flowVertices.push(x,h+.035,z);
   const mix=THREE.MathUtils.clamp((lift-.02)/.42,0,.85);
   // Low-lying ground is the host biome, not a rectangular olive decal.
@@ -326,7 +326,7 @@ export function createWorldSkateGrove(scene:THREE.Scene,support:(p:Point)=>numbe
  // advances to a separate west-side exit instead of returning to its start.
  const loopBase=ride(SKATE_LOOP.center);
  const loopExitPoint={x:SKATE_LOOP.center.x-SKATE_LOOP.exitOffset,
-  z:SKATE_LOOP.center.z};
+  z:SKATE_LOOP.center.z+SKATE_LOOP.laneOffset};
  const sampleRide=beginSkateLoop(9,loopBase,SKATE_LOOP.center.z,
   ride(loopExitPoint));
  const loopCedar=material("#c6a071",{side:THREE.DoubleSide});
@@ -334,12 +334,11 @@ export function createWorldSkateGrove(scene:THREE.Scene,support:(p:Point)=>numbe
  const loopSegments=144;
  const ringPoint=(a:number,z:number,backing=false)=>{
   const pose=skateLoopSample({...sampleRide,angle:a});
-  const nx=-Math.sin(a)/SKATE_LOOP.radius;
-  const ny=-Math.cos(a)/SKATE_LOOP.radiusY;
-  const l=Math.hypot(nx,ny)||1;
-  const thick=backing?SKATE_LOOP.supportThickness:0;
-  return new THREE.Vector3(
-   pose.point.x+thick*nx/l,pose.y+thick*ny/l,z);
+  const side=z-SKATE_LOOP.center.z;
+  const thick=backing?-SKATE_LOOP.supportThickness:0;
+  return new THREE.Vector3(pose.point.x+pose.right[0]*side+pose.up[0]*thick,
+   pose.y+pose.right[1]*side+pose.up[1]*thick,
+   pose.point.z+pose.right[2]*side+pose.up[2]*thick);
  };
  function addLoopSkin(backing:boolean,mat:THREE.Material,name:string){
   const vertices:number[]=[],triangles:number[]=[];
@@ -372,7 +371,7 @@ export function createWorldSkateGrove(scene:THREE.Scene,support:(p:Point)=>numbe
   // Buttresses anchored on the OUTER edge of the lane, not across the tread.
   for(const angle of [LOOP_TAU*.14,LOOP_TAU*.37,LOOP_TAU*.63,LOOP_TAU*.86]){
    const upper=ringPoint(angle,z,true);
-   const outerZ=z+side*.80;
+   const outerZ=upper.z+side*.80;
    const foot=new THREE.Vector3(upper.x,
     terrainHeight(upper.x,outerZ)+.05,outerZ);
    if(upper.y>foot.y+.40)loopStruts.push(beam(foot,upper,.13));
@@ -391,24 +390,32 @@ export function createWorldSkateGrove(scene:THREE.Scene,support:(p:Point)=>numbe
  // inversion starts at the eastern seam and hands off at a different west
  // seam. Render contiguous decks that meet both seams without a sharp lip.
  const loopLead:Part[]=[];
- for(const [startX,endX] of [
-  [SKATE_LOOP.center.x+SKATE_LOOP.leadLength,SKATE_LOOP.center.x],
-  [loopExitPoint.x,loopExitPoint.x-SKATE_LOOP.leadLength],
- ]){
-  const steps=12;
+ const finish=skateLoopSample({...sampleRide,angle:LOOP_TAU});
+ for(const [origin,direction] of [
+  [SKATE_LOOP.center,{x:1,z:0}], [loopExitPoint,finish.heading],
+ ] as const){
+  const steps=32;
   for(let i=0;i<steps;i++){
-   const xa=startX+(endX-startX)*i/steps;
-   const xb=startX+(endX-startX)*(i+1)/steps;
-   for(const side of [-1,1]){
-    const z=SKATE_LOOP.center.z+side*SKATE_LOOP.width*.5;
-    loopLead.push(beam(
-     onRide({x:xa,z},.045),onRide({x:xb,z},.045),.035));
-   }
-   if(i%2===0)loopLead.push(beam(
-    onRide({x:xa,z:SKATE_LOOP.center.z-SKATE_LOOP.width*.5},.048),
-    onRide({x:xa,z:SKATE_LOOP.center.z+SKATE_LOOP.width*.5},.048),.019));
+   const along=i*SKATE_LOOP.leadLength/steps;
+   const next=(i+1)*SKATE_LOOP.leadLength/steps;
+   const at=(d:number,side:number)=>({
+    x:origin.x+direction.x*d+direction.z*side*SKATE_LOOP.width*.5,
+    z:origin.z+direction.z*d-direction.x*side*SKATE_LOOP.width*.5});
+   for(const side of [-1,1])loopLead.push(beam(
+    onRide(at(along,side),.045),onRide(at(next,side),.045),.035));
+   loopLead.push(beam(onRide(at(along,-1),.048),onRide(at(along,1),.048),.019));
   }
  }
+ // Broad planked bridge/roll-in with open ends and low side rails.
+ const bridgeParts:Part[]=[];
+ for(let z=40;z<=50;z+=.28){
+  bridgeParts.push(beam(onRide({x:29.7,z},.045),onRide({x:32.3,z},.045),.08));
+ }
+ for(const x of [29.7,32.3])for(let z=41;z<48;z+=1.4){
+  bridgeParts.push(beam(onRide({x,z},.06),onRide({x,z},.65),.07));
+  bridgeParts.push(beam(onRide({x,z},.65),onRide({x,z:z+1.4},.65),.06));
+ }
+ pooled("meadow-timber-bridge",bridgeParts,timber);
  pooled("loop-distinct-entry-exit-ramps",loopLead,grain);
 
  // The outer stump becomes genuine rugged sequoia bark. This annular shell

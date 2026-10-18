@@ -9,6 +9,8 @@ import {ARCADE_CAVERN_MURALS,validateArcadeArtManifest} from "@/lib/world/arcade
 import {ARCADE_CAVE,arcadeCaveFloorHeight} from "@/lib/world/model";
 import {sampleCavernArt,type CavernArtTheme,type CavernArtSurface,type CavernMural} from "@/lib/world/arcadeCavernSurface";
 
+import {paintCavernPhotoGallery} from "./worldCavernPhotoGallery";
+
 const TAU=Math.PI*2;
 type Paint=CanvasRenderingContext2D;
 function randomFor(id:string){
@@ -291,9 +293,10 @@ function paintCeiling(ctx:Paint){
  }
  tag(ctx,"LEVELS ABOVE",295,140,56,"#cfb18b",-.025);
 }
-function paintTexture(theme:CavernArtTheme,three:ArcadeThree){
+function paintTexture(theme:CavernArtTheme,three:ArcadeThree,active:()=>boolean,id:string){
  const canvas=document.createElement("canvas");
- canvas.width=1024;canvas.height=theme==="identity"?320:theme==="sports"||theme==="anime"||theme==="sport-anime"||theme==="comedy"?640:1024;
+ canvas.width=1024;canvas.height=theme==="shasta"||theme==="nature"?640:theme==="identity"?320:theme==="sports"||theme==="anime"||theme==="sport-anime"||theme==="comedy"?640:1024;
+ if(theme==="shasta"||theme==="nature"){canvas.width=2048;canvas.height=1280;}
  const ctx=canvas.getContext("2d");
  if(!ctx)throw Error("Arcade mural 2D canvas unavailable");
  basePaint(ctx,theme,canvas.width,canvas.height,
@@ -328,6 +331,11 @@ function paintTexture(theme:CavernArtTheme,three:ArcadeThree){
  texture.colorSpace=three.SRGBColorSpace;
  texture.anisotropy=4;texture.generateMipmaps=true;
  texture.minFilter=three.LinearMipmapLinearFilter;
+ if(theme==="shasta"||theme==="nature"){
+  void paintCavernPhotoGallery(canvas,theme,active,id).then(()=>{
+   if(active())texture.needsUpdate=true;
+  });
+ }
  return texture;
 }
 function atmosphereTexture(kind:"floor"|"ceiling",three:ArcadeThree){
@@ -446,9 +454,10 @@ export function createWorldArcadeGraffiti(scene:THREE.Scene,three:ArcadeThree){
  const issues=validateArcadeArtManifest(ARCADE_CAVERN_MURALS);
  if(issues.length)throw Error("Cave mural manifest: "+issues.join("; "));
  const root=new three.Group();root.name="sid-underground-fandom-fresco";
+ let disposed=false;
  const meshes:THREE.Mesh[]=[],textures:THREE.Texture[]=[];
  for(const mural of ARCADE_CAVERN_MURALS){
-  const tex=paintTexture(mural.theme,three);textures.push(tex);
+  const tex=paintTexture(mural.theme,three,()=>!disposed,mural.id);textures.push(tex);
   const wall=surfaceMesh(mural.surface,mural.z0,mural.z1,
    mural.v0,mural.v1,tex,"paint-"+mural.id,three,mural.surface==="back"?1:34,14);
   // For the rear upper band the longitudinal z dimension is zero: texture
@@ -471,6 +480,7 @@ export function createWorldArcadeGraffiti(scene:THREE.Scene,three:ArcadeThree){
    drawCalls:meshes.length,triangles,materials:meshes.length,
    textureCount:textures.length},
   dispose(){
+   disposed=true;
    scene.remove(root);
    for(const mesh of meshes){mesh.geometry.dispose();
     (mesh.material as THREE.Material).dispose();}

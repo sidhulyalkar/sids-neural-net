@@ -22,7 +22,7 @@ try{
    Number(document.querySelector("canvas")?.dataset.drawCalls)>0,
    null,{timeout:45000});
   await page.getByRole("button",{name:"Skateboarding",exact:true}).click();
-  await page.getByRole("button",{name:"Moss Canyon · flow trail",exact:true}).click();
+  await page.getByRole("button",{name:"Meadow trail · rails & bridge",exact:true}).click();
   await page.waitForFunction(()=>{
    const d=document.querySelector("canvas")?.dataset;
    return d?.activity==="skate"&&d?.skateGroveZone==="canyon-flow";

@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import {
  CANYON_FLOW,CANYON_MANUAL_PADS,CANYON_RAIL_CHAINS,
  SKATE_PARK_RAILS,SKATE_LOOP,
- insideCanyonFlow,insideSkatePark,canyonFlowRise,skateParkSurface,
+ insideMeadowConnector,insideCanyonFlow,insideSkatePark,canyonFlowRise,skateParkSurface,
  advanceRailChain,railLiftAt,skateParkLipCrossing,skateParkZone,
 } from "../lib/world/skatepark";
 import {terrainHeight,isWater} from "../lib/world/model";
@@ -37,7 +37,7 @@ test("canyon link stays on dry native terrain and fades smoothly at all edges",(
   assert.ok(Math.abs(groundHeight(a)-groundHeight(b))<.13,
    "east seam must not contain a wheel-catching ledge");
  }
- assert.equal(skateParkSurface({x:27,z:39.4}),null,
+ assert.equal(skateParkSurface({x:36,z:39.4}),null,
   "outside the authored path native terrain remains authoritative");
 });
 
@@ -60,8 +60,8 @@ test("eastern forest route has real pump rollers, two low manual pads and an exi
  assert.equal(skateParkLipCrossing(p,q,{x:1,z:0},1.5),null);
 });
 
-test("six rail lines have matching endpoints, polished rises and safe placement",()=>{
- assert.equal(CANYON_RAIL_CHAINS.length,6);
+test("eight rail lines have matching endpoints, polished rises and safe placement",()=>{
+ assert.equal(CANYON_RAIL_CHAINS.length,8);
  const names=new Set<string>();
  for(const chain of CANYON_RAIL_CHAINS){
   assert.ok(chain.points.length>=3);
@@ -73,8 +73,8 @@ test("six rail lines have matching endpoints, polished rises and safe placement"
   for(let i=0;i<rails.length;i++){
    const rail=rails[i];
    assert.equal(rail.segment,i);
-   assert.ok(insideSkatePark(rail.a)||insideCanyonFlow(rail.a));
-   assert.ok(insideSkatePark(rail.b)||insideCanyonFlow(rail.b));
+   assert.ok(insideSkatePark(rail.a)||insideMeadowConnector(rail.a));
+   assert.ok(insideSkatePark(rail.b)||insideMeadowConnector(rail.b));
    assert.equal(isWater(rail.a),false);
    assert.equal(isWater(rail.b),false);
    assert.ok(Math.hypot(rail.a.x-rail.b.x,rail.a.z-rail.b.z)>.9);

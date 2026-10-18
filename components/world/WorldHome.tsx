@@ -571,8 +571,17 @@ export function WorldHome({ content }: { content: WorldContent }) {
                       skateDestination:"canyon-flow"}));
                     requestAnimationFrame(()=>worldRoot.current?.querySelector("canvas")?.focus({preventScroll:true}));
                   }}>
-                  Moss Canyon · flow trail
+                  Meadow trail · rails & bridge
                 </button>
+              )}
+              {activity==="skate" && !worldGameActive && (
+                <button className={styles.trialLaunch} disabled={!ready||quiet}
+                  onClick={()=>{
+                    setCommand(previous=>({region:"grove",
+                      serial:(previous?.serial??0)+1,activity:"skate",
+                      skateDestination:"loop-rollin"}));
+                    requestAnimationFrame(()=>worldRoot.current?.querySelector("canvas")?.focus({preventScroll:true}));
+                  }}>Loop · downhill roll-in</button>
               )}
               {activity==="ski" && bigAir.phase!=="armed" && bigAir.phase!=="flying" &&
                 trial.phase!=="armed"&&trial.phase!=="running" && (

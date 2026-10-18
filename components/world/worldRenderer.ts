@@ -1,12 +1,15 @@
+import {MOSS_CANYON} from "@/lib/world/model";
+import {bikeTerrainPose,wheelTerrainPose} from "@/lib/world/bikeContact";
 import {ARCADE_GATE,ARCADE_TRAIL_MARKERS,arcadeTrailHint,arcadeTrailStage,arcadeTrailFooting,arcadeEntranceCameraPose} from "@/lib/world/arcadeWayfinding";
 import {createWorldSkimSurf} from "./worldSkimSurfGeometry";
 import { desertTrackTreadBlend, desertTrackSampleAt, DESERT_GAP_DEBRIS, DESERT_JUMPS, DESERT_TRACK_LENGTH } from "@/lib/world/desertTrack";
-import {insideSkatePark,skateParkZone,skateGroveStartHeading,SKATE_LOOP,GROVE_TUNNEL,SKATE_PARK_RAILS,SKATE_GROVE_FRAME_TREES,advanceRailChain,railLiftAt,insideCanyonFlow,CANYON_FLOW,type SkateRail} from "@/lib/world/skatepark";
-import {beginSkateLoop,skateLoopEntryCrossing,advanceSkateLoop,skateLoopSample,type SkateLoopRide} from "@/lib/world/skateLoop";
+import {insideSkatePark,skateParkZone,skateGroveStartHeading,SKATE_LOOP,GROVE_TUNNEL,SKATE_PARK_RAILS,SKATE_GROVE_FRAME_TREES,advanceRailChain,railLiftAt,insideMeadowConnector,CANYON_FLOW,type SkateRail} from "@/lib/world/skatepark";
+import {beginSkateLoop,skateLoopCamera,skateLoopEntryCrossing,advanceSkateLoop,skateLoopSample,type SkateLoopRide} from "@/lib/world/skateLoop";
 import {beginSkateRailGap,advanceSkateRailGap,skateRailGapSample,type SkateRailGapRide} from "@/lib/world/skateRailGaps";
 import {beginSkateTunnelRide,advanceSkateTunnelRide,skateTunnelSample,
  type SkateTunnelRide} from "@/lib/world/skateTunnel";
 import {createWorldSkateGrove} from "./worldSkateGroveGeometry";
+import {detailCavernStone} from "./worldCavernStoneMaterial";
 import {createWorldArcadeGraffiti} from "./worldArcadeGraffitiGeometry";
 import {skateLean} from "@/lib/world/skateDynamics";
 import {selectAssistedSkateTrick,assistedSkateSpin} from "@/lib/world/skateAssist";
@@ -190,7 +193,7 @@ export function createWorld(
   const skateHud=document.createElement("div");
   skateHud.setAttribute("aria-label","Skateboarding tricks and line score");
   skateHud.setAttribute("role","status");
-  skateHud.style.cssText="display:none;position:absolute;bottom:14px;left:50%;transform:translateX(-50%);z-index:7;pointer-events:none;max-width:94%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:7px 13px;border-radius:10px;background:#12242bd9;color:#eef7f4;border:1px solid #bed9cc70;font:600 12px/1.3 system-ui,sans-serif;text-align:center";
+  skateHud.style.cssText="display:none;position:absolute;bottom:48px;left:50%;transform:translateX(-50%);z-index:7;pointer-events:none;max-width:94%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:7px 13px;border-radius:10px;background:#12242bd9;color:#eef7f4;border:1px solid #bed9cc70;font:600 12px/1.3 system-ui,sans-serif;text-align:center";
   host.appendChild(skateHud);
   const arcadeTrailHud=document.createElement("div");
   arcadeTrailHud.setAttribute("role","status");
@@ -1271,7 +1274,8 @@ export function createWorld(
   // A side canyon and waterfall make the expanded loop readable from a distance.
   const canyonStone: Instance[] = [], canyonMoss: Instance[] = [], fernFronds: Instance[] = [];
   for (const side of [-1, 1]) for (let i = 0; i < 8; i++) {
-    const x = 29 + side * (4.6 + Math.sin(i) * 0.5), z = 24 + i * 2.8;
+    const x = MOSS_CANYON.center.x + side * (4.6 + Math.sin(i) * 0.5),
+      z = MOSS_CANYON.startZ + i * MOSS_CANYON.spacing;
     const y = terrainHeight(x, z), h = 3.8 + Math.sin(i * 0.8) * 1.3;
     canyonStone.push({ x, y: y + h * 0.45, z, sx: 1.8, sy: h, sz: 2.1, ry: i });
     obstacles.push({ x, z, radius: 1.3 });
@@ -1374,7 +1378,7 @@ export function createWorld(
       new THREE.Vector3(16+w,floor-.08,z),
     ];
   });
-  mesh(geo(ringSurface(shellRings)),mat("#626766",{side:THREE.DoubleSide,flatShading:false}),[0,0,0],[1,1,1]);
+  mesh(geo(ringSurface(shellRings)),detailCavernStone(mat("#b5aca0",{side:THREE.DoubleSide,flatShading:false})),[0,0,0],[1,1,1]);
   for(const side of [-1,1]){
     const shoulderRings=shellRings.map((ring)=>{
       const z=ring[0].z,w=caveHalfWidth(z),top=ring[3].y;
@@ -1386,10 +1390,10 @@ export function createWorld(
     const z=ring[0].z,w=caveHalfWidth(z)-.14,y=arcadeCaveFloorHeight({x:16,z})-.08;
     return [new THREE.Vector3(16-w,y,z),new THREE.Vector3(16+w,y,z)];
   });
-  mesh(geo(ringSurface(arcadeFloorRings)),mat("#535b59",{side:THREE.DoubleSide}),[0,0,0],[1,1,1]);
+  mesh(geo(ringSurface(arcadeFloorRings)),detailCavernStone(mat("#a49c8b",{side:THREE.DoubleSide})),[0,0,0],[1,1,1]);
   // Recessed throat baffle blocks the direct exterior view of the rear niche.
   const baffleFloor=arcadeCaveFloorHeight({x:16,z:-74.5});
-  mesh(boxGeo,mat("#646b67"),[14.2,baffleFloor+2.35,-74.5],[4.8,4.7,.7]);
+  mesh(boxGeo,detailCavernStone(mat("#a49c8b")),[14.2,baffleFloor+2.35,-74.5],[4.8,4.7,.7]);
   // GRANITE SIGNAL: a legible exterior silhouette that announces an
   // underground arcade without drawing a floating neon UI or blocking the
   // entrance. Two split basalt horns frame the passage from the southern
@@ -1636,7 +1640,7 @@ export function createWorld(
 
   // Build a rough back wall from stone, then inset three separate game panels.
   // They are horizontally spaced so gaze/click selection has generous hit areas.
-  mesh(boxGeo,mat("#424b49"),[16,arcadeWallY+3,-62.9],[12.8,6.2,.8]);
+  mesh(boxGeo,detailCavernStone(mat("#a49c8b")),[16,arcadeWallY+3,-62.9],[12.8,6.2,.8]);
   const carvingBandMaterial = mat("#11191b", {
     transparent: true,
     opacity: 0.001,
@@ -4192,12 +4196,13 @@ export function createWorld(
         skateLoopRide=advanced.ride;
         const pose=skateLoopSample(advanced.ride);
         player=pose.point;playerY=pose.y;
-        travel={point:player,speed:advanced.ride.speed,heading:{x:-1,z:0}};
+        travel={point:player,speed:Math.abs(advanced.ride.speed),heading:pose.heading};
         airHeight=verticalSpeed=0;
-        if(advanced.completed){
+        if(advanced.completed||advanced.returned){
           skateLoopRide=null;lastSkateLoopEnd=elapsed;
-          skateLoopCompletions++;
-          commitSkateTrick(scoreSkateLoop(skateTrick,elapsed,travel.speed));
+          if(advanced.completed){skateLoopCompletions++;
+          commitSkateTrick(scoreSkateLoop(skateTrick,elapsed,travel.speed));}
+          else travel={...travel,heading:{x:1,z:0}};
         }
       } else if(skateTunnelRide){
         const advanced=advanceSkateTunnelRide(skateTunnelRide,rawDelta);
@@ -4392,9 +4397,13 @@ export function createWorld(
           elapsed-lastSkateLoopEnd>1.4&&
           skateLoopEntryCrossing(previousPoint,player,travel.heading,travel.speed)){
           const exitPoint={x:SKATE_LOOP.center.x-SKATE_LOOP.exitOffset,
-            z:SKATE_LOOP.center.z};
+            z:SKATE_LOOP.center.z+SKATE_LOOP.laneOffset};
           skateLoopRide=beginSkateLoop(travel.speed,
             groundHeight(SKATE_LOOP.center),player.z,groundHeight(exitPoint));
+          const loopLens=skateLoopCamera(skateLoopRide);
+          camera.position.set(loopLens.position.x,loopLens.position.y,loopLens.position.z);
+          look.set(loopLens.look.x,loopLens.look.y,loopLens.look.z);
+          camera.lookAt(look);
           const loopStart=skateLoopSample(skateLoopRide);
           player=loopStart.point;playerY=loopStart.y;
           travel={point:player,speed:skateLoopRide.speed,heading:{x:-1,z:0}};
@@ -4695,6 +4704,8 @@ export function createWorld(
           mode==="skate" ? trickPose.grab==="left" ? .48 : -.6+trickPose.crouch*.45 : -.75;
         arms[1].rotation.x = surfing?-1.17:climb ? -1.6 : running ? walking * 0.4 : bikePose ? 0.82 :
           mode==="skate" ? trickPose.grab==="right" ? .48 : -.6+trickPose.crouch*.45 : -.75;
+        const bikeContact = mode==="bike"&&airHeight<=.001&&!climb&&!grind
+          ? bikeTerrainPose(player,travel.heading,supportHeight):null;
         const footprint = mode === "bike"
           ? { length: 1.05, width: 0.55 }
           : mode === "skate"
@@ -4703,14 +4714,19 @@ export function createWorld(
               ? { length: 1.35, width: 0.46 }
               : { length: 0.25, width: 0.2 };
         const contact = terrainContact(player, travel.heading, footprint.length, footprint.width, supportHeight);
+        const skateContact=mode==="skate"&&airHeight<=.001&&!climb&&!grind&&
+          !skateLoopRide&&!skateTunnelRide&&!skateRailGapRide
+          ? wheelTerrainPose(player,travel.heading,supportHeight,
+            {radius:.1111,axleY:-.02,halfWheelbase:.63,halfTrack:.33,
+             roll:contact.roll+skateCarveLean}):null;
         const gearMode = mode === "bike" || mode === "skate" || mode === "ski";
         const supportLift =
           gearMode && airHeight <= 0.001 && !climb && !grind && !skateLoopRide && !skateTunnelRide
             ? Math.max(0, contact.support - supportHeight(player))
             : 0;
-        const pitchAngle = running || climb || skateRailGapRide ? 0 : contact.pitch;
+        const pitchAngle = skateContact?.pitch ?? bikeContact?.pitch ?? (running || climb || skateRailGapRide ? 0 : contact.pitch);
         const rollAngle =
-          (gearMode&&!skateRailGapRide ? contact.roll : 0) +
+          (gearMode&&!skateRailGapRide&&!bikeContact ? contact.roll : 0) +
           (mode === "skate" ? skateCarveLean : 0);
         const loopPitch=skateLoopRide?skateLoopSample(skateLoopRide).pitch:0;
         const tubeRoll=skateTunnelRide?
@@ -4720,7 +4736,13 @@ export function createWorld(
           headingYaw+avatarTurn+(mode==="skate"?trickPose.bodyYaw:0),
           skateLoopRide?0:skateTunnelRide?tubeRoll:
             surfing?skimPoseRoll:rollAngle,
-          skateLoopRide||skateTunnelRide||surfing?"YXZ":"XYZ");
+          "YXZ");
+        if(skateLoopRide){
+          const pose=skateLoopSample(skateLoopRide);
+          explorer.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(
+            new THREE.Vector3(...pose.right),new THREE.Vector3(...pose.up),
+            new THREE.Vector3(...pose.forward)));
+        }
         // Audit the ACTUAL avatar transform for the throwing direction.
         if(discGolfHeading){
           const actualForward=new THREE.Vector3(0,0,1)
@@ -4752,14 +4774,20 @@ export function createWorld(
             grind.style === "boardslide" ? 0.06 : 0,
           );
         }
-        bikeWheels.forEach(wheel => wheel.rotation.z += travel.speed * dt / 0.43);
+        bikeWheels.forEach(wheel => wheel.rotateZ(travel.speed * dt / .586));
         explorer.position.set(
           player.x,
-          playerY + (surfing?skimHeat.air:0) + supportLift +
-            (surfing ? 0.04 : mode === "skate" ? 0.18 : mode === "bike" ? 0.2 : mode === "ski" ? 0.08 : 0) +
+          (skateContact?.y ?? bikeContact?.y ?? playerY) + (surfing?skimHeat.air:0) + (bikeContact||skateContact?0:supportLift) +
+            (surfing ? 0.04 : mode === "skate" ? (skateContact?0:0.18) : mode === "bike" ? 0 : mode === "ski" ? 0.08 : 0) +
             (running ? Math.abs(walking) * 0.045 : 0),
           player.z,
         );
+        if(skateLoopRide){
+          const pose=skateLoopSample(skateLoopRide);
+          explorer.position.set(pose.point.x+pose.up[0]*(.1311+pose.wheelLift),
+            pose.y+pose.up[1]*(.1311+pose.wheelLift),pose.point.z+pose.up[2]*(.1311+pose.wheelLift));
+        }
+        if(bikeContact)canvas.dataset.bikeContactError=bikeContact.error.toFixed(4);
       }
       // Measure the actual transformed soles against the actual deck plane.
       // This replaces the old diagnostic that algebraically cancelled to zero.
@@ -4792,13 +4820,13 @@ export function createWorld(
           "translate(-50%,"+(-5-Math.min(15,resultAge/130))+"px) scale("+
           (0.96+Math.min(1,resultAge/220)*.04)+")";
       }
-      const skateArea=(insideSkatePark(player)||insideCanyonFlow(player))?({
+      const skateArea=(insideSkatePark(player)||insideMeadowConnector(player))?({
         "redwood-bowl":"REDWOOD BOWL",
         "timber-quarter":"TIMBER HALFPIPE",
         "stump-pad":"STUMP GARDEN",
         "sequoia-tunnel":"HOLLOW SEQUOIA",
         "timber-loop":"360° TIMBER LOOP",
-        "canyon-flow":"MOSS CANYON FLOW TRAIL",
+        "canyon-flow":"MEADOW RAIL & BRIDGE TRAIL",
         street:"SKATE GROVE",apron:"SKATE GROVE",
       } as const)[skateParkZone(player)]:"ISLAND RIDE";
       const skateStatus=skateRailGapRide?
@@ -4844,7 +4872,7 @@ export function createWorld(
       canvas.dataset.skateHeading=travel.heading.x.toFixed(3)+","+travel.heading.z.toFixed(3);
       canvas.dataset.skateLastTakeoff=skateLastTakeoff;
       // A zone label must never impersonate a *physical* park check.
-      canvas.dataset.skateGroveZone=skateVisible&&(insideSkatePark(player)||insideCanyonFlow(player))?
+      canvas.dataset.skateGroveZone=skateVisible&&(insideSkatePark(player)||insideMeadowConnector(player))?
         skateParkZone(player):"";
       canvas.dataset.skateAssist="on";
       canvas.dataset.skateResult=resultVisible?skateResultLabel:"";
@@ -5103,8 +5131,8 @@ export function createWorld(
       } else if(skateLoopRide){
         // A stable outside-camera reads the whole vertical circle and the
         // skater's inversion; the moving chase boom would intersect the ring.
-        targetLook.set(SKATE_LOOP.center.x,
-          skateLoopRide.baseY+SKATE_LOOP.radius+.8,SKATE_LOOP.center.z);
+        const pose=skateLoopCamera(skateLoopRide);
+        targetLook.set(pose.look.x,pose.look.y,pose.look.z);
       } else if(sequoiaCamera){
         // The lens sees the skater THROUGH the open tree mouth, even when
         // the board runs upside-down against the inside ceiling.
@@ -5143,7 +5171,7 @@ export function createWorld(
             ? Math.min(zoom, 14)
             : surfing ? Math.min(zoom,skimHeat.air>.08 ? 14.5 : 17)
             : mode === "bike" || mode === "skate"
-              ? Math.min(zoom, mode==="skate"?21:16)
+              ? Math.min(zoom, mode==="skate"?(insideMeadowConnector(player)?9:21):16)
               : mode === "boulder"
                 ? Math.min(zoom, 15)
                 : zoom;
@@ -5173,9 +5201,8 @@ export function createWorld(
         targetCamera.set(player.x-h.x*12+h.z*2.4,
           playerY+7.0,player.z-h.z*12-h.x*2.4);
       } else if(skateLoopRide){
-        targetCamera.set(SKATE_LOOP.center.x+SKATE_LOOP.radius*1.55,
-          skateLoopRide.baseY+SKATE_LOOP.radius*1.70+4.1,
-          SKATE_LOOP.center.z+SKATE_LOOP.radius*3.25+1.6);
+        const pose=skateLoopCamera(skateLoopRide);
+        targetCamera.set(pose.position.x,pose.position.y,pose.position.z);
       } else if(sequoiaCamera){
         const side=travel.heading.x<=0?1:-1;
         const mouthX=GROVE_TUNNEL.center.x+
@@ -6847,12 +6874,13 @@ export function createWorld(
         jetSki=null;jetRivals=[];jetHud.style.display="none";
         callbacks.onJetSkiMode(false);
         if(jetChoosing){jetChoosing=false;jetChooser.hidden=true;}
-        player=flowStart?{...CANYON_FLOW.start}:
+        const loopStart=next.command.skateDestination==="loop-rollin"&&next.command.activity==="skate";
+        player=loopStart?{x:SKATE_LOOP.center.x+SKATE_LOOP.leadLength,z:SKATE_LOOP.center.z}:flowStart?{...CANYON_FLOW.start}:
           (next.command.activity && activityLanding(next.command.activity)) ||
           regionLanding(r.id);
         clearInput();
         travel = { point: player, speed: 0, heading:
-          flowStart?{x:1,z:0}:
+          loopStart?{x:-1,z:0}:flowStart?{x:1,z:0}:
           next.command.activity==="skate"&&insideSkatePark(player)?
           skateGroveStartHeading():{x:0,z:r.id==="north-shore"?1:-1} };
         airHeight = verticalSpeed = swimDepth = targetDepth = 0;
@@ -6915,6 +6943,14 @@ export function createWorld(
         if(flowStart){
           yaw=-Math.PI/2;pitch=.37;zoom=19;
         }
+        if(loopStart){
+          yaw=Math.PI/2;pitch=.4;zoom=9;
+          look.set(player.x,playerY+2.8,player.z);
+          camera.position.set(player.x+zoom*Math.cos(pitch),
+            look.y+zoom*Math.sin(pitch),player.z);
+          camera.lookAt(look);
+        }
+
         if(next.command.activity==="skate"&&insideSkatePark(player)){
           // The old north-facing warp cropped the whole redwood centerpiece.
           // Approach from the timber halfpipe with the tree bowl in front:

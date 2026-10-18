@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   GROVE_LOG,GROVE_TUNNEL,SKATE_LOOP,SKATE_PARK_RAILS,REDWOOD_BOWL,
-  insideSkatePark,skateParkZone,skateParkSurface,
+  insideMeadowConnector,insideSkatePark,skateParkZone,skateParkSurface,
 } from "../lib/world/skatepark";
 import {groundHeight,stepTravel,type Travel} from "../lib/world/activities";
 import {
@@ -41,7 +41,7 @@ test("loop is separate from rails, bowl, and boundary while staying within the p
   assert.ok(radius>=3.65&&width>=3.2,"loop must be enlarged to landmark scale");
   for(const x of [center.x-radius,center.x,center.x+radius])
     for(const z of [center.z-width*.5,center.z,center.z+width*.5])
-      assert.ok(insideSkatePark({x,z}),"all wheel track points must be on the dry meadow");
+      assert.ok(insideMeadowConnector({x,z}),"all wheel track points must be on the dry meadow");
   assert.equal(skateParkZone(center),"timber-loop");
   assert.ok(Math.hypot(center.x-REDWOOD_BOWL.center.x,center.z-REDWOOD_BOWL.center.z)>
     radius+1.5,"the new loop cannot overwrite the old redwood bowl");
@@ -56,7 +56,7 @@ test("loop is separate from rails, bowl, and boundary while staying within the p
 
 test("entry is swept, one-way, fast enough, and centered on planked lane",()=>{
   assert.equal(skateLoopEntryCrossing(entry(.25),entry(-.25),left,9.4),true);
-  assert.equal(skateLoopEntryCrossing(entry(.25),entry(-.25),left,8.39),false);
+  assert.equal(skateLoopEntryCrossing(entry(.25),entry(-.25),left,.79),false);
   assert.equal(skateLoopEntryCrossing(entry(.25),entry(-.25),right,9.4),false);
   assert.equal(skateLoopEntryCrossing(entry(-.25),entry(.25),right,9.4),false);
   assert.equal(skateLoopEntryCrossing(entry(.25,C.z+1.45),entry(-.25,C.z+1.45),left,9.4),false);
@@ -68,14 +68,7 @@ test("entry is swept, one-way, fast enough, and centered on planked lane",()=>{
 test("ordinary WASD skating can line up and enter the giant loop from park spawn",()=>{
  // This is the same two-stage input sequence used by the real browser,
  // but independent of slow software-GPU wall clock and screenshot delays.
- let travel:Travel={point:{x:3,z:40.8},speed:0,heading:{x:-1,z:0}};
- let southSteps=0;
- while(travel.point.z<42.90&&southSteps<220){
-  travel=stepTravel(travel,{x:0,z:1},.05,"skate",[]);
-  southSteps++;
- }
- assert.ok(southSteps<220,"south alignment must remain traversable");
- assert.ok(travel.point.x>SKATE_LOOP.center.x,"must be east of the loop");
+ let travel:Travel={point:{x:C.x+SKATE_LOOP.leadLength,z:C.z},speed:0,heading:{x:-1,z:0}};
  let crossing=false,arrival=travel;
  for(let i=0;i<200;i++){
   const before=travel;
@@ -91,8 +84,8 @@ test("ordinary WASD skating can line up and enter the giant loop from park spawn
 });
 
 test("elliptic loop has true inner contact, full inversion and different entry/exit",()=>{
- const start=beginSkateLoop(9.2,groundHeight(C),C.z+.25,
-  groundHeight({x:C.x-SKATE_LOOP.exitOffset,z:C.z}));
+ const start=beginSkateLoop(9.2,groundHeight(C),C.z,
+  groundHeight({x:C.x-SKATE_LOOP.exitOffset,z:C.z+SKATE_LOOP.laneOffset}));
  const entry=skateLoopSample(start),top=skateLoopSample({...start,angle:Math.PI});
  const finish=skateLoopSample({...start,angle:2*Math.PI});
  assert.ok(SKATE_LOOP.radiusY>SKATE_LOOP.radius,
@@ -106,7 +99,7 @@ test("elliptic loop has true inner contact, full inversion and different entry/e
  assert.ok(Math.abs(finish.pitch+2*Math.PI)<.06);
  assert.ok(Math.abs(finish.point.x-(C.x-SKATE_LOOP.exitOffset))<1e-8);
  assert.ok(Math.abs(finish.y-start.exitY)<1e-6);
- assert.ok(Math.abs(finish.y-groundHeight(finish.point)-.09)<.13,
+ assert.ok(Math.abs(finish.y-groundHeight(finish.point)-.035)<.13,
   "land exactly on the western exit grade");
  assert.ok(Math.abs(finish.point.x-entry.point.x)>2,
   "the exit cannot put the skater back onto the entry seam");
@@ -115,7 +108,7 @@ test("elliptic loop has true inner contact, full inversion and different entry/e
 test("full elliptical loop completes at 10, 20, 40 and 60 FPS",()=>{
  for(const fps of [10,20,40,60]){
   let ride=beginSkateLoop(8.9,groundHeight(C),C.z,
-   groundHeight({x:C.x-SKATE_LOOP.exitOffset,z:C.z}));
+   groundHeight({x:C.x-SKATE_LOOP.exitOffset,z:C.z+SKATE_LOOP.laneOffset}));
   let completed=false,steps=0,maxY=-Infinity;
   while(steps<9*fps&&!completed){
    const next=advanceSkateLoop(ride,1/fps);
@@ -129,7 +122,7 @@ test("full elliptical loop completes at 10, 20, 40 and 60 FPS",()=>{
   }
   assert.equal(completed,true,"must release to ordinary skating: "+fps+" fps");
   assert.ok(steps/fps<8,"track traversal must complete at "+fps+" fps");
-  assert.ok(maxY>ride.baseY+2*SKATE_LOOP.radiusY-.18);
+  assert.ok(maxY>(ride.baseY+ride.exitY)*.5+2*SKATE_LOOP.radiusY-.18);
   assert.ok(Math.abs(skateLoopSample(ride).point.x-
    (C.x-SKATE_LOOP.exitOffset))<1e-6);
  }

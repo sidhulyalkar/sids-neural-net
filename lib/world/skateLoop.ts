@@ -1,77 +1,72 @@
 import type {Point} from "./model";
 import {SKATE_LOOP} from "./skatepark";
-
-export type SkateLoopRide={
- angle:number;speed:number;baseY:number;exitY:number;laneZ:number;
-};
+export type SkateLoopRide={angle:number;speed:number;baseY:number;exitY:number;laneZ:number};
 export const LOOP_TAU=2*Math.PI;
 const clamp=(n:number,lo:number,hi:number)=>Math.max(lo,Math.min(hi,n));
-
-/** Only a fast westbound crossing of the entry seam engages track contact.
- * Proximity to its supports does not teleport the skater into the loop. */
-export function skateLoopEntryCrossing(
- previous:Point,current:Point,heading:Point,speed:number,
-):boolean{
+export function skateLoopEntryCrossing(previous:Point,current:Point,heading:Point,speed:number):boolean{
  const {center,entryHalfWidth,minEntrySpeed}=SKATE_LOOP;
  if(!Number.isFinite(speed)||speed<minEntrySpeed||
-  ![previous.x,previous.z,current.x,current.z,heading.x,heading.z].every(Number.isFinite))
-  return false;
- const headingLength=Math.hypot(heading.x,heading.z);
- if(headingLength<.5||heading.x/headingLength>-.80)return false;
- const crossed=previous.x>center.x&&current.x<=center.x&&
-  previous.x-center.x<1.15&&center.x-current.x<.75;
- const fraction=(previous.x-center.x)/(previous.x-current.x||1);
- const crossingZ=previous.z+(current.z-previous.z)*fraction;
- return crossed&&Math.abs(crossingZ-center.z)<=entryHalfWidth;
+  ![previous.x,previous.z,current.x,current.z,heading.x,heading.z].every(Number.isFinite))return false;
+ const length=Math.hypot(heading.x,heading.z);
+ if(length<.5||heading.x/length>-.80)return false;
+ const crossed=previous.x>center.x&&current.x<=center.x&&previous.x-current.x<4;
+ const t=(previous.x-center.x)/(previous.x-current.x||1);
+ return crossed&&Math.abs(previous.z+(current.z-previous.z)*t-center.z)<=entryHalfWidth;
 }
-
-export function beginSkateLoop(speed:number,groundY:number,laneZ:number,
- exitGroundY=groundY):SkateLoopRide{
- return {angle:0,speed:Math.max(0,speed),baseY:groundY+.09,
-  exitY:exitGroundY+.09,laneZ};
+export function beginSkateLoop(speed:number,groundY:number,laneZ:number,exitGroundY=groundY):SkateLoopRide{
+ return {angle:0,speed:Math.max(0,speed),baseY:groundY+.035,exitY:exitGroundY+.035,laneZ};
 }
-
-/** The sole geometry/physics authority for the skewed elliptical stunt.
- * East mouth is at cx; west mouth is at cx-exitOffset.
- * The seamless closed *rotation* is 360°, but the *path* has a distinct exit.
- * Noncircular tangent determines pitch, not an assumed circle angle. */
+/** Open 3D spiral. The two mouths are a full track width apart; its frame,
+ * cedar skin and wheel contact use the same derivative, including lateral drift. */
 export function skateLoopSample(ride:SkateLoopRide){
- const angle=clamp(ride.angle,0,LOOP_TAU),t=angle/LOOP_TAU;
- const {center,radius,radiusY,exitOffset}=SKATE_LOOP;
- const dx=-radius*Math.cos(angle)-exitOffset/LOOP_TAU;
- const dy=radiusY*Math.sin(angle)+(ride.exitY-ride.baseY)/LOOP_TAU;
+ const a=clamp(ride.angle,0,LOOP_TAU),t=a/LOOP_TAU;
+ const {center,radius,radiusY,exitOffset,laneOffset}=SKATE_LOOP;
+ const blend=t*t*(3-2*t),dBlend=6*t*(1-t)/LOOP_TAU;
+ const dx=-radius*Math.cos(a)-exitOffset/LOOP_TAU;
+ const dy=radiusY*Math.sin(a)+(ride.exitY-ride.baseY)*dBlend;
+ const dz=laneOffset*(4*t-3*t*t)/LOOP_TAU;
+ const ds=Math.hypot(dx,dy,dz),planar=Math.hypot(dx,dy);
+ const forward:[number,number,number]=[dx/ds,dy/ds,dz/ds];
+ const right:[number,number,number]=[-dx*dz/(planar*ds),-dy*dz/(planar*ds),planar/ds];
+ const up:[number,number,number]=[dy/planar,-dx/planar,0];
  let tilt=Math.atan2(dy,-dx);
- // The southern quadrant can have a negative dy at exactly π because
- // the landing grade differs. Unwrap relative to the true path parameter
- // (not the sign of the raw atan2 angle) to prevent a one-frame 360° pop.
- if(tilt<angle-Math.PI)tilt+=LOOP_TAU;
- else if(tilt>angle+Math.PI)tilt-=LOOP_TAU;
- return {
-  point:{x:center.x-radius*Math.sin(angle)-exitOffset*t,z:ride.laneZ},
-  y:ride.baseY+radiusY*(1-Math.cos(angle))+
-   (ride.exitY-ride.baseY)*t,
-  pitch:-tilt,
-  horizontalTangent:dx,
- };
+ if(tilt<a-Math.PI)tilt+=LOOP_TAU;
+ else if(tilt>a+Math.PI)tilt-=LOOP_TAU;
+ const horizontal=Math.hypot(dx,dz);
+ const lateral=ride.laneZ-center.z;
+ const curvature=(radius*Math.sin(a)*up[0]+(radiusY*Math.cos(a)+
+  (ride.exitY-ride.baseY)*6*(1-2*t)/(LOOP_TAU*LOOP_TAU))*up[1])/(ds*ds);
+ const wheelLift=Math.max(0,curvature*.63*.63*.5);
+ return {point:{x:center.x-radius*Math.sin(a)-exitOffset*t+right[0]*lateral,
+  z:center.z+laneOffset*t*t*(2-t)+right[2]*lateral},
+  y:ride.baseY+radiusY*(1-Math.cos(a))+(ride.exitY-ride.baseY)*blend+right[1]*lateral,
+  pitch:-tilt,wheelLift,horizontalTangent:dx,ds,dy,forward,right,up,
+  heading:{x:dx/horizontal,z:dz/horizontal}};
+}
+/** Tangential gravity and rolling drag; no motor or minimum-speed floor.
+ * Insufficient momentum rolls back down the entry. Small substeps preserve
+ * contact and deterministic release even on slow frames. */
+export function advanceSkateLoop(start:SkateLoopRide,delta:number):{
+ ride:SkateLoopRide;completed:boolean;returned:boolean}{
+ if(!Number.isFinite(delta)||delta<=0)return {ride:start,completed:false,returned:false};
+ let ride={...start},returned=false;
+ const total=clamp(delta,0,.5),slices=Math.ceil(total/.008),step=total/slices;
+ for(let i=0;i<slices&&ride.angle<LOOP_TAU;i++){
+  const p=skateLoopSample(ride);
+  const acceleration=-3*p.dy/p.ds-.08*Math.sign(ride.speed);
+  const speed=ride.speed+acceleration*step;
+  const angle=ride.angle+(ride.speed+speed)*.5*step/p.ds;
+  ride={...ride,speed,angle:clamp(angle,0,LOOP_TAU)};
+  if(angle<=0&&speed<0){returned=true;break;}
+ }
+ return {ride,completed:ride.angle>=LOOP_TAU-1e-9,returned};
 }
 
-/** Gravity-guided contact along an ellipse. Bounded slices prevent skipping
- * the inverted section on low-FPS devices. This assist is track-local only. */
-export function advanceSkateLoop(
- start:SkateLoopRide,delta:number,
-):{ride:SkateLoopRide;completed:boolean}{
- if(!Number.isFinite(delta)||delta<=0)return {ride:start,completed:false};
- let angle=clamp(start.angle,0,LOOP_TAU),speed=Math.max(0,start.speed);
- const total=clamp(delta,0,.5);
- const slices=Math.ceil(total/.025),step=total/slices;
- for(let i=0;i<slices&&angle<LOOP_TAU;i++){
-  speed=Math.max(5.3,speed+(-6.0*Math.sin(angle)-.14)*step);
-  const dx=-SKATE_LOOP.radius*Math.cos(angle)-
-    SKATE_LOOP.exitOffset/LOOP_TAU;
-  const dy=SKATE_LOOP.radiusY*Math.sin(angle)+
-    (start.exitY-start.baseY)/LOOP_TAU;
-  const ds=Math.max(.2,Math.hypot(dx,dy));
-  angle=Math.min(LOOP_TAU,angle+speed*step/ds);
- }
- return {ride:{...start,angle,speed},completed:angle>=LOOP_TAU-1e-9};
+/** Look through the open side instead of the opaque descending timber skin. */
+export function skateLoopCamera(ride:SkateLoopRide){
+ const x=SKATE_LOOP.center.x-SKATE_LOOP.exitOffset*.5;
+ return {position:{x:x+1,y:ride.baseY+SKATE_LOOP.radiusY+1.2,
+  z:SKATE_LOOP.center.z-14},
+  look:{x,y:ride.baseY+SKATE_LOOP.radiusY-.2,
+   z:SKATE_LOOP.center.z+SKATE_LOOP.laneOffset*.5}};
 }

@@ -1,7 +1,7 @@
 import {ARCADE_CAVE,arcadeCaveFloorHeight,caveHalfWidth,mountainSurfaceHeight} from "./model";
 
 export type CavernArtSurface="left"|"right"|"ceiling"|"floor"|"back";
-export type CavernArtTheme="sports"|"anime"|"comedy"|"sport-anime"|"identity";
+export type CavernArtTheme="sports"|"anime"|"comedy"|"sport-anime"|"identity"|"shasta"|"nature";
 export type CavernMural={
  id:string;theme:CavernArtTheme;surface:CavernArtSurface;
  z0:number;z1:number;v0:number;v1:number;title:string;

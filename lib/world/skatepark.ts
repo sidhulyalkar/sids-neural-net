@@ -70,11 +70,11 @@ export const GROVE_TUNNEL={
  * cannot represent both the bottom and the inverted crown. Its dedicated
  * rail traversal provides the 3D wheel/contact pose, then returns to roam. */
 export const SKATE_LOOP={
- center:{x:-1.65,z:44.1},radius:3.75,radiusY:4.35,width:3.45,
+ center:{x:19,z:51},radius:3.75,radiusY:4.35,width:3.45,
  // In contrast to a closed ring, the descending side shifts west to a
  // separate landing seam. A sampled elliptical tread owns BOTH mesh and pose.
- exitOffset:2.15,leadLength:1.55,
- minEntrySpeed:8.4,entryHalfWidth:1.27,
+ exitOffset:4.5,laneOffset:6,leadLength:10,
+ minEntrySpeed:.8,recommendedSpeed:8.4,entryHalfWidth:1.27,
  supportThickness:.24,
 } as const;
 
@@ -117,10 +117,12 @@ export function groveStoneRise(p:Point):number{
 }
 export type SkateParkZone="redwood-bowl"|"timber-quarter"|"stump-pad"|"street"|"apron"|"sequoia-tunnel"|"timber-loop"|"canyon-flow";
 export function skateParkZone(p:Point):SkateParkZone{
- if(insideCanyonFlow(p)&&!insideSkatePark(p))return "canyon-flow";
+
  if(Math.abs(p.x-SKATE_LOOP.center.x)<SKATE_LOOP.radius+0.55&&
-  Math.abs(p.z-SKATE_LOOP.center.z)<SKATE_LOOP.width*.55+.18)
+  p.z>SKATE_LOOP.center.z-SKATE_LOOP.width*.55-.18&&
+  p.z<SKATE_LOOP.center.z+SKATE_LOOP.laneOffset+SKATE_LOOP.width*.55+.18)
   return "timber-loop";
+ if(insideMeadowConnector(p)&&!insideSkatePark(p))return "canyon-flow";
  if(Math.abs(p.x-GROVE_TUNNEL.center.x)<GROVE_TUNNEL.halfLength+.15&&
   Math.abs(p.z-GROVE_TUNNEL.center.z)<GROVE_LOG.halfWidth*.92)
   return "sequoia-tunnel";
@@ -132,7 +134,7 @@ export function skateParkZone(p:Point):SkateParkZone{
  if(Math.abs(p.x+1)<3.4&&Math.abs(p.z-40)<4)return "street";
  return "apron";
 }
-/** The underused dry meadow between the forest skatepark and Moss Canyon
+/** The dry meadow beside the forest skatepark
  * becomes an eastern flow connector, not a second square platform. Its support,
  * visuals and entrance all share this one smooth, bounded rise function. */
 export const CANYON_FLOW={
@@ -141,6 +143,22 @@ export const CANYON_FLOW={
  rollers:[{x:11.1,height:.37},{x:15.6,height:.51},{x:19.4,height:.43}],
  hip:{x:22.4,z:40.2,width:1.6,impulse:2.45},
 } as const;
+/** The meadow bridge turns toward a downhill westbound roll-in. */
+export const MEADOW_CONNECTOR={minX:7.4,maxX:35,minZ:34.9,maxZ:60,
+ bridge:{x:31,z:46},rollIn:{x:29,z:51}} as const;
+export function insideMeadowConnector(p:Point,margin=0){
+ return p.x>=MEADOW_CONNECTOR.minX-margin&&p.x<=MEADOW_CONNECTOR.maxX+margin&&
+  p.z>=MEADOW_CONNECTOR.minZ-margin&&p.z<=MEADOW_CONNECTOR.maxZ+margin&&!isWater(p);
+}
+export function meadowConnectorRise(p:Point){
+ if(!insideMeadowConnector(p))return 0;
+ // C1 embankment and low timber bridge; no phantom overpass layer.
+ const bridge=1.5*(1-smooth(Math.abs(p.x-31)/3.5))*
+  smooth((p.z-39)/5)*(1-smooth((p.z-48)/7));
+ const hill=1.85*(1-smooth(Math.abs(p.x-29)/6))*
+  (1-smooth(Math.abs(p.z-51)/3.4));
+ return Math.max(bridge,hill);
+}
 export function insideCanyonFlow(p:Point){
  return p.x>=CANYON_FLOW.startX&&p.x<=CANYON_FLOW.endX&&
   Math.abs(p.z-CANYON_FLOW.centerZ)<=CANYON_FLOW.halfWidth&&!isWater(p);
@@ -190,8 +208,8 @@ export function redwoodBowlBankRise(p:Point):number{
 
 export function skateParkSurface(p:Point):number|null {
  if(!insideSkatePark(p)){
-  return insideCanyonFlow(p)?
-   terrainHeight(p.x,p.z)+canyonFlowRise(p)+canyonPadRise(p):null;
+  return insideMeadowConnector(p)?
+   terrainHeight(p.x,p.z)+canyonFlowRise(p)+canyonPadRise(p)+meadowConnectorRise(p):null;
  }
  const natural=terrainHeight(p.x,p.z);
  const edge=Math.min(
@@ -227,6 +245,11 @@ type RailChain={
  * The connected grind system can roll through the elbows without a fresh
  * Space press, and each wooden segment is drawn at its own physical Y. */
 export const CANYON_RAIL_CHAINS:readonly RailChain[]=[
+ {id:"meadow-bridge-line",points:[{x:24.8,z:38},{x:27,z:39.5},
+  {x:29,z:42},{x:31,z:45},{x:31,z:47.5},{x:30.5,z:49.5}],
+  heights:[.47,.52,.58,.58,.52,.36],radius:.085,wood:true},
+ {id:"meadow-return",points:[{x:9,z:58.5},{x:12,z:59},
+  {x:15,z:59},{x:18,z:59.2}],heights:[.4,.48,.48,.38],radius:.075},
  {id:"root-sweep",points:[
   {x:-8.4,z:35.0},{x:-7.4,z:35.8},{x:-6.1,z:36.45},
   {x:-4.8,z:36.65}],heights:[.48,.52,.56,.58],radius:.102,wood:true},

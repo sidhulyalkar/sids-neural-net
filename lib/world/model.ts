@@ -6,6 +6,8 @@ import { beachBlend, northShoreZ } from "./skimboarding";
 export type RegionId = "grove" | "mountain" | "neural" | "coast" | "lagoon" | "waterfall" | "canyon" | "cavern" | "desert" | "rainforest" | "north-shore";
 export type Point = { x: number; z: number };
 
+export const MOSS_CANYON = {center:{x:46,z:-76},startZ:-85,segments:8,spacing:2.8} as const;
+
 export const REGIONS: {
   id: RegionId;
   name: string;
@@ -19,7 +21,7 @@ export const REGIONS: {
   { id: "coast", name: "Wild coast", meaning: "Cold-water coast", point: { x: -29, z: 13 }, href: "/photography" },
   { id: "lagoon", name: "Lagoon reef", meaning: "South Pacific reef", point: { x: 58, z: 13 }, href: "/photography" },
   { id: "waterfall", name: "Fern falls", meaning: "Follow the water", point: { x: -20, z: -24 }, href: "/photography" },
-  { id: "canyon", name: "Moss canyon", meaning: "A quieter trail", point: { x: 29, z: 34 }, href: "/about" },
+  { id: "canyon", name: "Moss canyon", meaning: "A quieter trail", point: MOSS_CANYON.center, href: "/about" },
   { id: "cavern", name: "Arcade cavern", meaning: "Play my games", point: { x: 16, z: -82 }, href: "/arcade" },
   { id: "desert", name: "Joshua basin", meaning: "Granite and desert trails", point: { x: 22, z: -33 }, href: "/photography" },
   { id: "rainforest", name: "Rainforest", meaning: "Canopy to coast", point: { x: 44, z: 33 }, href: "/photography" },
@@ -498,5 +500,5 @@ export type WorldCommand = {
   region: RegionId;
   serial: number;
   activity?: import("./activities").Activity;
-  skateDestination?: "canyon-flow";
+  skateDestination?: "canyon-flow" | "loop-rollin";
 };

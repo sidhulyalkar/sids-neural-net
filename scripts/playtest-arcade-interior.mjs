@@ -8,11 +8,12 @@ const {chromium}=createRequire(path.join(root,"package.json"))("playwright");
 const base=process.env.WORLD_BASE_URL??"http://127.0.0.1:3000";
 const out=process.env.WORLD_AUDIT_DIR??"artifacts/world/arcade-interior";
 fs.mkdirSync(out,{recursive:true});
-const browser=await chromium.launch({headless:true,args:["--no-sandbox","--enable-unsafe-swiftshader"]});
+const browser=await chromium.launch({headless:true,executablePath:process.env.WORLD_CHROMIUM_PATH||undefined,args:["--no-sandbox","--enable-unsafe-swiftshader"]});
 let evidence={},errors=[];
 try{
  const page=await browser.newPage({viewport:{width:1440,height:900}});
  page.on("pageerror",e=>errors.push(String(e)));
+ page.on("console",m=>{if(m.type()==="error"&&/shader|WebGLProgram/i.test(m.text()))errors.push(m.text());});
  try{
   await page.goto(base);
   await page.getByRole("button",{name:"Explore world",exact:true}).click();
@@ -64,11 +65,11 @@ try{
   await page.screenshot({path:path.join(out,"03-fandom-main-chamber-reveal.png")});
   // Rotate the gameplay camera to inspect both original side compositions.
   await page.mouse.move(700,430);await page.mouse.down();
-  await page.mouse.move(935,430,{steps:12});await page.mouse.up();
+  await page.mouse.move(935,430,{steps:1});await page.mouse.up();
   await page.waitForTimeout(450);
   await page.screenshot({path:path.join(out,"04-graffiti-left-wall.png")});
   await page.mouse.move(700,430);await page.mouse.down();
-  await page.mouse.move(220,430,{steps:20});await page.mouse.up();
+  await page.mouse.move(220,430,{steps:1});await page.mouse.up();
   await page.waitForTimeout(450);
   await page.screenshot({path:path.join(out,"05-graffiti-right-wall.png")});
   assert.deepEqual(errors,[],"graffiti rendering must not produce JavaScript errors");

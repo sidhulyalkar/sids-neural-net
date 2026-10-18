@@ -4,22 +4,15 @@ import {ARCADE_CAVE,arcadeCaveFloorHeight,caveHalfWidth} from "../lib/world/mode
 import {ARCADE_CAVERN_MURALS,validateArcadeArtManifest} from "../lib/world/arcadeCavernArtManifest";
 import {caveArtRing,sampleCavernArt,validateCavernMural} from "../lib/world/arcadeCavernSurface";
 
-test("Curated wall program honors the corrected shonen/isekai/sports anime favorites",()=>{
+test("Curated walls use Shasta and landscapes while preserving sports and game clearance",()=>{
  assert.deepEqual(validateArcadeArtManifest(ARCADE_CAVERN_MURALS),[]);
  assert.equal(ARCADE_CAVERN_MURALS.length,5);
- const ids=ARCADE_CAVERN_MURALS.map(m=>m.id);
- assert.deepEqual(ids,["out-of-this-world","home-stand","raid-ascend",
-  "striker-setpoint","sids-underground"]);
- const anime=ARCADE_CAVERN_MURALS.find(m=>m.theme==="anime")!;
- const sports=ARCADE_CAVERN_MURALS.find(m=>m.theme==="sport-anime")!;
- for(const favorite of ["SOLO LEVELING","JUJUTSU KAISEN","CHAINSAW MAN",
-  "FIRE FORCE","KAIJU NO. 8","TOWER OF GOD","HELL'S PARADISE",
-  "SHANGRI-LA FRONTIER"])assert.ok(anime.tags.includes(favorite));
- for(const favorite of ["BLUE LOCK","HAIKYU!!"])
-  assert.ok(sports.tags.includes(favorite));
- for(const muted of ["VINLAND SAGA","FULLMETAL ALCHEMIST"])
-  assert.ok(!ARCADE_CAVERN_MURALS.some(m=>m.tags.some(t=>t.includes(muted))));
- assert.ok(ARCADE_CAVERN_MURALS.every(m=>!validateCavernMural(m)));
+ const shasta=ARCADE_CAVERN_MURALS.find(m=>m.theme==="shasta")!;
+ // Entering faces +Z, so the visitor's left is the shell's +X/right surface.
+ assert.equal(shasta.surface,"right");
+ assert.ok(ARCADE_CAVERN_MURALS.some(m=>m.theme==="sports"));
+ assert.equal(ARCADE_CAVERN_MURALS.filter(m=>m.theme==="nature").length,2);
+ assert.ok(!ARCADE_CAVERN_MURALS.some(m=>["anime","comedy","sport-anime"].includes(m.theme)));
 });
 
 test("Curved graffiti is projected into interior of exact 17-shell ring segments",()=>{

@@ -9,11 +9,13 @@ const {chromium}=createRequire(path.join(root,"package.json"))("playwright");
 const base=process.env.WORLD_BASE_URL??"http://127.0.0.1:3000";
 const out=process.env.WORLD_AUDIT_DIR??"artifacts/world/sequoia-loop-browser";
 fs.mkdirSync(out,{recursive:true});
-const browser=await chromium.launch({headless:true,args:["--no-sandbox","--enable-unsafe-swiftshader"]});
+const browser=await chromium.launch({headless:true,executablePath:process.env.WORLD_CHROMIUM_PATH||undefined,args:["--no-sandbox","--enable-unsafe-swiftshader"]});
 const errors=[];
 let evidence=null;
 try{
- const page=await browser.newPage({viewport:{width:1440,height:900}});
+ const page=await browser.newPage({viewport:{width:1024,height:720}});
+ await page.exposeFunction("loopAuditInversion",data=>{fs.writeFileSync(path.join(out,"02-inverted-contact.png"),Buffer.from(data.split(",")[1],"base64"));});
+ await page.exposeFunction("loopAuditProgress",s=>console.log("LOOP",JSON.stringify(s)));
  page.on("pageerror",error=>errors.push(error.message));
  const canvas=page.locator("canvas");
  try{
@@ -22,8 +24,8 @@ try{
   await page.waitForFunction(()=>Number(document.querySelector("canvas")?.dataset.drawCalls)>0,
    null,{timeout:45000});
   await page.getByRole("button",{name:"Skateboarding",exact:true}).click();
-  await page.getByRole("button",{name:"Skatepark · south meadow",exact:true}).click();
-  await page.waitForFunction(()=>document.querySelector("canvas")?.dataset.skatePark==="true",
+  await page.getByRole("button",{name:"Loop · downhill roll-in",exact:true}).click();
+  await page.waitForFunction(()=>Math.abs(Number(document.querySelector("canvas")?.dataset.player?.split(",")[0])-29)<.1,
    null,{timeout:15000});
   await canvas.focus();
   assert.equal(await canvas.getAttribute("data-skate-grove-art"),"old-growth-stump-v2");
@@ -37,7 +39,7 @@ try{
    if(!el){reject(Error("World canvas unavailable"));return;}
    const startTime=performance.now();
    const trace=[],pressed=new Set();
-   let stage="south-alignment",aligned=null,entered=null,inverted=null,
+   let stage="loop-approach",aligned=null,entered=null,inverted=null,
        completed=null,resumed=null,frames=0;
    const point=()=>el.dataset.player?.split(",").map(Number)??[];
    const sample=()=>({
@@ -59,11 +61,11 @@ try{
     const snapshot=sample();trace.push({...snapshot,note:message});
     release();reject(Error(message+" "+JSON.stringify({snapshot,trace})));
    };
-   key("keydown","a");
+   aligned=sample();key("keydown","w");
    const tick=()=>{
     frames++;
     const s=sample(),p=s.point;
-    if(frames%18===0)trace.push(s);
+    if(frames%18===0){trace.push(s);window.loopAuditProgress(s);}
     if(performance.now()-startTime>240000){
      fail("Timed out before completing a real full loop");return;
     }
@@ -81,7 +83,7 @@ try{
     // This must sample every rendered frame, not a stale host-side poll after
     // the vehicle has already passed the top of the loop.
     if(stage==="inverting"&&!inverted&&s.phase==="inverting"&&
-       s.angle>=2.45&&s.angle<=4.05)inverted=s;
+       s.angle>=2.45&&s.angle<=4.05){inverted=s;window.loopAuditInversion(el.toDataURL("image/png"));}
     if(stage==="inverting"&&s.completions>=1){
      completed=s;stage="free-roam";
     }
@@ -97,7 +99,7 @@ try{
    requestAnimationFrame(tick);
   }));
   assert.ok(evidence.aligned,"normal A control must reach the loop lane");
-  assert.ok(evidence.aligned.point[0]>-1.65&&evidence.aligned.point[1]<44.1,
+  assert.ok(evidence.aligned.point[0]>19&&Math.abs(evidence.aligned.point[1]-51)<.1,
    "alignment must stay east of the actual entry lane");
   assert.equal(evidence.entered?.entries,1,"the wheel must enter the real 3D track");
   assert.ok(evidence.inverted?.angle>=2.45&&evidence.inverted?.angle<=4.05,
@@ -112,6 +114,35 @@ try{
    "return-control proof must happen before leaving the park");
   assert.deepEqual(errors,[],"no renderer exceptions during loop traversal");
   await page.screenshot({path:path.join(out,"02-after-real-360-loop.png")});
+  await page.getByRole('button',{name:'Mountain biking',exact:true}).click();
+  await page.getByRole('button',{name:'Open navigation menu'}).click();
+  await page.getByRole('button',{name:'02 Granite ridge Things I build',exact:true}).click();
+  await canvas.focus();
+  const bikeTrace=await page.evaluate(()=>new Promise(resolve=>{
+   const el=document.querySelector('canvas'),samples=[];
+   let frames=0;
+   const key=(type,key)=>el.dispatchEvent(new KeyboardEvent(type,{key,bubbles:true}));
+   key('keydown','w');
+   const tick=()=>{
+    frames++;
+    samples.push({point:el.dataset.player,error:Number(el.dataset.bikeContactError),
+     pitch:Number(el.dataset.surfacePitch),activity:el.dataset.activity});
+    if(frames===35){key('keyup','w');key('keydown','s');}
+    if(frames===70){key('keyup','s');resolve(samples);return;}
+    requestAnimationFrame(tick);
+   };
+   requestAnimationFrame(tick);
+  }));
+  assert.ok(bikeTrace.every(s=>s.activity==='bike'&&Number.isFinite(s.pitch)&&s.error<.003));
+  assert.ok(new Set(bikeTrace.map(s=>s.point)).size>20,'bike must actually move on mountain');
+  await page.screenshot({path:path.join(out,'03-mountain-bike-contact.png')});
+  evidence.bikeTrace=bikeTrace;
+  await page.getByRole('button',{name:'Open navigation menu'}).click();
+  await page.getByRole('button',{name:/07 Moss canyon A quieter trail/}).click();
+  await page.waitForFunction(()=>{const p=document.querySelector('canvas')?.dataset.player?.split(',').map(Number);return p&&Math.abs(p[0]-46)<.1&&Math.abs(p[1]+73)<.1;});
+  await page.waitForFunction(()=>Number(document.querySelector('canvas')?.dataset.cameraTargetError)<.25);
+  await page.screenshot({path:path.join(out,'04-relocated-moss-canyon.png')});
+  assert.deepEqual(errors,[]);
   console.log("SEQUOIA LOOP RIDE PASS",JSON.stringify({evidence,errors}));
  }catch(error){
   try{await page.evaluate(()=>{
