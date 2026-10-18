@@ -12,7 +12,7 @@ import {createArcadeStoneLining} from "./worldArcadeStoneLining";
 import {createShastaPhotoStencil} from "./worldArcadeShastaStencil";
 import {createSportsFanMural} from "./worldArcadeSportsMural";
 import {createArcadeCarvedAlcoves} from "./worldArcadeCarvedAlcoves";
-import {composeArcadeGallery} from "./worldArcadePhotoGallery";
+import {composeArcadeGallery,composeArcadeGamePlaques} from "./worldArcadePhotoGallery";
 import {ARCADE_CAVE,arcadeCaveFloorHeight} from "@/lib/world/model";
 import {sampleCavernArt,type CavernArtTheme,type CavernArtSurface,type CavernMural} from "@/lib/world/arcadeCavernSurface";
 
@@ -679,6 +679,46 @@ export function createWorldArcadeGraffiti(scene:THREE.Scene,three:ArcadeThree,
    textures.push(source);
   }
  }
+ // Game artwork is also presented IN each existing game target, not only
+ // on the separate poster-gallery wall. All meshes share the cave shell
+ // sampler and remain non-raycast; the original invisible gameplay target
+ // boxes retain exclusive selection/interaction responsibilities.
+ const plaquePositions=[
+  {surface:"left" as const,z0:-68.62,z1:-65.38},
+  {surface:"back" as const,z0:-63.32,z1:-63.32,
+   range:[.391,.609] as const},
+  {surface:"right" as const,z0:-68.62,z1:-65.38},
+ ];
+ const plaqueWalls=plaquePositions.map((p,index)=>{
+  const blank=emptyPaint(three);
+  textures.push(blank.paint,blank.glow);
+  const wall=surfaceMesh(p.surface,p.z0,p.z1,
+   .24,.585,blank.paint,"arcade-game-cover-"+index,three,
+   p.surface==="back"?24:28,12,blank.glow,stone.texture,
+   "range" in p?p.range:undefined);
+  (wall.material as THREE.MeshStandardMaterial).emissiveIntensity=.06;
+  wall.renderOrder=3;
+  meshes.push(wall);root.add(wall);
+  return wall;
+ });
+ composeArcadeGamePlaques(three).then(pictures=>{
+  if(!alive){for(const picture of pictures)picture.dispose();return;}
+  for(const [index,picture] of pictures.entries()){
+   textures.push(picture);
+   const material=plaqueWalls[index].material as THREE.MeshStandardMaterial;
+   material.map=picture;
+   material.emissiveMap=picture;
+   material.emissive=new three.Color("#e1d6c4");
+   material.emissiveIntensity=.16;
+   material.needsUpdate=true;
+  }
+  root.userData.arcadeGamePlaquesReady=pictures.length;
+  onAssetReady?.(authoredReady,{kind:"game-plaques",
+   photoCount:pictures.length});
+ }).catch(error=>{
+  if(alive)root.userData.arcadeGamePlaquesFailure=
+   error instanceof Error?error.message:String(error);
+ });
  for(const layer of ["floor","ceiling"] as const){
   const tex=atmosphereTexture(layer,three);textures.push(tex);
   const mesh=surfaceMesh(layer,layer==="floor"?-79:-75.5,
