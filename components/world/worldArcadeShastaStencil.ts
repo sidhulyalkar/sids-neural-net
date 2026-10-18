@@ -64,18 +64,6 @@ export function createShastaPhotoStencil(
    rnd()*Math.PI,0,Math.PI*2);c.fill();
  }
  c.restore();
- // Authored block-title: one readable typographic beat rather than
- // a random collection of slogans and overlapping marker strokes.
- c.save();c.font="900 112px Impact, 'Arial Black',sans-serif";
- c.textBaseline="middle";c.lineJoin="round";
- c.lineWidth=21;c.strokeStyle="#0a2830";c.strokeText("SHASTA",67,204);
- c.lineWidth=6;c.strokeStyle="#dfeeda";c.strokeText("SHASTA",67,204);
- c.fillStyle="#f3cfa1";c.fillText("SHASTA",67,204);
- c.font="700 41px 'Arial Black',sans-serif";
- c.lineWidth=8;c.strokeStyle="#102e37";
- c.strokeText("TRAIL COMPANION",76,257);
- c.fillStyle="#c6f0d9";c.fillText("TRAIL COMPANION",76,257);
- c.restore();
  c.strokeStyle="#9cded5";c.lineWidth=10;c.lineCap="round";
  c.beginPath();c.moveTo(81,320);c.lineTo(211,302);c.lineTo(333,330);c.stroke();
  // Edge feather across *every* ink layer, including the mountains. This
