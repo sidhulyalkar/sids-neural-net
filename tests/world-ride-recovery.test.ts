@@ -69,7 +69,7 @@ test("stuck detector needs sustained steering intent, not a normal pause",()=>{
 });
 
 test("normal riding and genuine progress never build a hidden recovery timer",()=>{
- const origin={x:8,z:-54},moved={x:8.25,z:-54};
+ const origin={x:8,z:-54},moved={x:8.46,z:-54};
  const before={...initialRideRecovery(origin),blockedFor:1.45};
  const progress=advanceRideRecovery(before,{
   point:moved,previous:origin,mode:"bike",dt:.05,
@@ -147,4 +147,39 @@ test("ski, bike and skate can pass under an overhead deck without uphill braking
   assert.ok(rider.point.z>17,
    mode+" should glide beneath the elevated deck without an invisible climb barrier");
  }
+});
+
+test("rider jitter cannot indefinitely suppress automatic escape",()=>{
+ const initial={x:8,z:-54};
+ let state=initialRideRecovery(initial);
+ for(let i=0;i<38;i++){
+  const now={x:8+(i%2===0?.075:-.075),z:-54};
+  const before={x:8+(i%2===0?-.075:.075),z:-54};
+  const tick=advanceRideRecovery(state,{
+   point:now,previous:before,mode:"skate",dt:.05,
+   moving:true,grounded:true,controlledStunt:false,clear:false,
+  });
+  state=tick.state;
+  if(i<29)assert.equal(tick.recover,false);
+  if(i>=30)assert.equal(tick.recover,true);
+ }
+ assert.ok(state.blockedFor>=1.5);
+ assert.deepEqual(state.probeFrom,initial,
+  "vibrating around a solid prop never advances the progress origin");
+});
+test("subtle but real cumulative progress clears the stuck timer",()=>{
+ let state=initialRideRecovery({x:8,z:-54});
+ for(let n=1;n<=15;n++){
+  const p={x:8+n*.045,z:-54};
+  const prior={x:8+(n-1)*.045,z:-54};
+  const tick=advanceRideRecovery(state,{
+   point:p,previous:prior,mode:"ski",dt:.05,
+   moving:true,grounded:true,controlledStunt:false,clear:true,
+  });
+  state=tick.state;
+  assert.equal(tick.recover,false);
+ }
+ assert.ok(state.blockedFor<.5,
+  "net forward translation, not tiny per-frame motion, proves mobility");
+ assert.ok(state.anchor.x>8.6);
 });
