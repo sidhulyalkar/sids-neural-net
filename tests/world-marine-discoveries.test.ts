@@ -4,7 +4,7 @@ import * as THREE from "three/src/Three.Core.js";
 import { MARINE_SCHOOLS, sampleFish, validateMarineSchools } from "../lib/world/schools";
 import { createMarineSchools } from "../components/world/worldSchools";
 import { UNDERWATER_TRIDENTS, nearbyUnderwaterTrident, tridentBaseY, tridentReachable } from "../lib/world/artifacts";
-import { createWorldTridents,tridentVisualScale,TRIDENT_VISUAL } from "../components/world/worldTridents";
+import { createWorldTridents,tridentVisualScale,tridentFacingYaw,TRIDENT_VISUAL } from "../components/world/worldTridents";
 import { SEA_SURFACE, seaFloorHeight, waterZone } from "../lib/world/model";
 
 test("schooling fish remain in habitat, with three moving formation types",()=>{
@@ -79,6 +79,11 @@ test("larger navy-and-gold trident sculptures remain fully submerged and dive-ga
  for(const t of UNDERWATER_TRIDENTS){
   const scale=tridentVisualScale(t);
   assert.ok(scale>=TRIDENT_VISUAL.minScale&&scale<=1,t.id);
+  // Approaching the west kelp shore or the eastern reef exposes a broad face,
+  // not the narrow 24cm extrusion of the gold-and-navy silhouette.
+  const outwardX=Math.sin(tridentFacingYaw(t));
+  assert.ok(t.zone==="kelp"?outwardX>.97:outwardX<-.97,
+   "the prongs must face players approaching from shore");
   const group=t.zone==="kelp"?kelp:lagoon;
   const rim=group.children.find(c=>c.name===
    (t.zone==="kelp"?"ucsd-inspired-kelp-trident":"ucsd-inspired-lagoon-tridents")) as THREE.Mesh;
