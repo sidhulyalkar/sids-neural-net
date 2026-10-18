@@ -5,11 +5,13 @@ import type {Activity} from "./activities";
  * Only call when movement is demonstrably blocked or after an invalid spawn. */
 export type RideRecoveryState={
  blockedFor:number;
+ /** Stable origin of the current attempted movement window. */
+ probeFrom:Point;
  anchor:Point;
  recoveries:number;
 };
 export const initialRideRecovery=(point:Point):RideRecoveryState=>({
- blockedFor:0,anchor:{...point},recoveries:0,
+ blockedFor:0,probeFrom:{...point},anchor:{...point},recoveries:0,
 });
 export const isRideMode=(mode:Activity)=>mode==="skate"||mode==="bike"||mode==="ski";
 
@@ -87,10 +89,17 @@ export function advanceRideRecovery(
 ):{state:RideRecoveryState;recover:boolean}{
  const {point,previous,mode,dt,moving,grounded,controlledStunt,clear}=params;
  if(!isRideMode(mode)||!grounded||controlledStunt||!moving){
-  return {state:{...state,blockedFor:0},recover:false};
+  return {state:{...state,blockedFor:0,probeFrom:{...point}},recover:false};
  }
- const progressed=distance(point,previous)>.012;
+ // Single-frame displacement is not proof that a rider escaped: collision
+ // jitter can move a few centimeters in opposite directions forever. Reset
+ // only after meaningful NET translation from the start of the stall window.
+ const progressed=distance(point,state.probeFrom)>.34;
  const blockedFor=progressed?0:state.blockedFor+Math.max(0,Math.min(dt,.2));
- const anchor=progressed&&clear?{...point}:state.anchor;
- return {state:{...state,blockedFor,anchor},recover:blockedFor>=1.5};
+ const probeFrom=progressed?{...point}:state.probeFrom;
+ // The most recently verified *genuinely clear* location is the fallback,
+ // even when the rider is moving slowly across complex open ground.
+ const anchor=clear&&distance(point,previous)>.012?{...point}:state.anchor;
+ return {state:{...state,blockedFor,probeFrom,anchor},
+  recover:blockedFor>=1.5};
 }
