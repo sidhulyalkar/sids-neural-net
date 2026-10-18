@@ -33,6 +33,25 @@ test("Curated wall program honors the corrected shonen/isekai/sports anime favor
  assert.ok(ARCADE_CAVERN_MURALS.every(m=>!validateCavernMural(m)));
 });
 
+test("Hero title fits its real-world atlas aspect and gallery frames stay clear",()=>{
+ const banner=ARCADE_CAVERN_MURALS.find(m=>m.id==="sids-underground")!;
+ assert.equal(banner.surface,"back");
+ assert.ok(banner.u0!==undefined&&banner.u1!==undefined);
+ const width=(banner.u1!-banner.u0!)*12.45;
+ const height=(banner.v1-banner.v0)*5.45;
+ assert.ok(Math.abs(width/height-2400/480)<.16,
+  "identity typography must not be stretched into a single giant line");
+ assert.ok(width<8&&height>1.25,
+  "hero must be readable at normal camera distance, without reaching both walls");
+ for(const id of ["shasta-rear-fresco","neuroforge-rear-fresco"]){
+  const m=ARCADE_CAVERN_MURALS.find(x=>x.id===id)!;
+  assert.ok(m.u0!==undefined&&m.u1!==undefined);
+  const edge=id==="shasta-rear-fresco"?m.u1!:m.u0!;
+  const x=16+(edge-.5)*12.45;
+  assert.ok(id==="shasta-rear-fresco"?x<13.65:x>18.35,
+   "portrait edge must clear center arcade game by more than half a meter");
+ }
+});
 test("Curved graffiti is projected into interior of exact 17-shell ring segments",()=>{
  for(let index=0;index<=16;index++){
   const ring=caveArtRing(index);
