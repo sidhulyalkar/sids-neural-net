@@ -37,30 +37,8 @@ export const ARCADE_MURAL_ART_ASSETS:Partial<
   revision:1,
   presentation:"sports-crest-composite",
  },
- neural: {
-  src:"/world/arcade-cavern/science/mindforge-brain.svg",
-  authorship:"original",
-  attribution:"Original authored SVG brain, neural circuits and Mind Forge graffiti for Sid's World",
-  opacity:1,revision:1,presentation:"original-texture",
- },
- "sport-anime": {
-  src:"/world/arcade-cavern/sport-anime/striker-setpoint.svg",
-  authorship:"original",
-  attribution:"Original authored sports-anime graffiti tribute with soccer and volleyball illustrations",
-  opacity:1,revision:1,presentation:"original-texture",
- },
- anime: {
-  src:"/world/arcade-cavern/anime/raid-ascend.svg",
-  authorship:"original",
-  attribution:"Original fantasy progression and rift mural, not a licensed anime character portrait",
-  opacity:1,revision:1,presentation:"original-texture",
- },
- comedy: {
-  src:"/world/arcade-cavern/comedy/out-of-this-world.svg",
-  authorship:"original",
-  attribution:"Original sci-fi portal graffiti with fan title tributes, not character likeness artwork",
-  opacity:1,revision:1,presentation:"original-texture",
- },
+ // Anime, comedy and sci-fi source masters remain in the repository for a
+ // later optional theme, but are deliberately absent from this room build.
  shasta: {
   // Verified personal visual-archive image: Shasta sitting on the trail.
   src:"/visual-archive/web/photo-037.webp",
