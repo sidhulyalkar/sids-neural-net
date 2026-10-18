@@ -57,7 +57,7 @@ test("Curved graffiti is projected into interior of exact 17-shell ring segments
     if(mural.surface==="left")assert.ok(n.x>.20);
     if(mural.surface==="right")assert.ok(n.x<-.20);
     if(mural.surface==="back"){
-     if(mural.u0!==undefined&&mural.u1!==undefined)
+     if(mural.v0<.6)
       assert.ok(a.x<13.27||a.x>18.73,
        "rear lower murals must remain left/right of the center game panel");
      else assert.ok(a.y>
