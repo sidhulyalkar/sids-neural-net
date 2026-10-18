@@ -584,7 +584,8 @@ export function createWorldArcadeGraffiti(scene:THREE.Scene,three:ArcadeThree,
  // side wall onto the rear rock. Reuse the same CanvasTexture on both meshes.
  const galleryCache=new Map<string,ReturnType<typeof composeArcadeGallery>>();
  const galleryKind=(theme:CavernArtTheme)=>
-  theme==="shasta-gallery"||theme==="nature-gallery"||theme==="game-gallery";
+  theme==="shasta-gallery"||theme==="nature-gallery"||
+  theme==="game-gallery"||theme==="feature-gallery";
  const installAuthored=(wall:THREE.Mesh,painted:THREE.Texture,
   opacity:number,theme:CavernArtTheme,source?:HTMLImageElement)=>{
   if(!alive)return;
@@ -625,7 +626,8 @@ export function createWorldArcadeGraffiti(scene:THREE.Scene,three:ArcadeThree,
   // horizontal must use wall width, not the degenerate z-coordinate.
   meshes.push(wall);root.add(wall);
   if(galleryKind(mural.theme)){
-   const kind=mural.theme as "shasta-gallery"|"nature-gallery"|"game-gallery";
+   const kind=mural.theme as "shasta-gallery"|"nature-gallery"|
+    "game-gallery"|"feature-gallery";
    if(!galleryCache.has(kind))
     galleryCache.set(kind,composeArcadeGallery(kind,three));
    galleryCache.get(kind)!.then(({texture,photoCount})=>{
