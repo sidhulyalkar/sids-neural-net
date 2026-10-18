@@ -1,26 +1,15 @@
 import type * as THREE from "three/src/Three.Core.js";
 import {
- SHASTA_PHOTOS,NATURE_PHOTOS,CAVERN_GAME_ART,CAVERN_GAME_PANEL_ART,archivePhotoPath,
+ CAVERN_PHOTO_ALBUMS,CAVERN_GAME_ART,CAVERN_GAME_PANEL_ART,
 } from "@/lib/world/arcadeCavernGalleryContent";
 
-type GalleryKind="shasta-gallery"|"nature-gallery"|"game-gallery";
+type GalleryKind="shasta-gallery"|"nature-gallery"|"game-gallery"|"feature-gallery";
 type GalleryThree=Pick<typeof import("three/src/Three.Core.js"),
  "CanvasTexture"|"SRGBColorSpace"|"LinearMipmapLinearFilter">;
 type Area={x:number;y:number;w:number;h:number;angle?:number};
 const W=2400,H=1080;
 function roundRect(c:CanvasRenderingContext2D,x:number,y:number,w:number,h:number,r:number){
  c.beginPath();c.roundRect(x,y,w,h,r);
-}
-function paintWord(c:CanvasRenderingContext2D,title:string,x:number,y:number,size:number,maxWidth:number,fill:string){
- c.save();
- c.translate(x,y);
- c.font="900 "+size+"px Impact,'Arial Black',sans-serif";
- c.textAlign="center";c.textBaseline="middle";c.lineJoin="round";
- const measured=c.measureText(title).width;
- c.scale(Math.min(1,maxWidth/Math.max(1,measured)),1);
- c.strokeStyle="#132b2d";c.lineWidth=size*.22;c.strokeText(title,0,0);
- c.strokeStyle="#ecdbc3";c.lineWidth=size*.053;c.strokeText(title,0,0);
- c.fillStyle=fill;c.fillText(title,0,0);c.restore();
 }
 function mountains(c:CanvasRenderingContext2D){
  // Underpaint lives ON the cave; the unpainted background stays transparent.
@@ -77,35 +66,31 @@ function framedImage(c:CanvasRenderingContext2D,img:HTMLImageElement,a:Area,seed
 }
 function galleryShasta(c:CanvasRenderingContext2D,imgs:readonly HTMLImageElement[]){
  mountains(c);
- paintWord(c,"SHASTA",1190,134,157,1150,"#f4e3c6");
- paintWord(c,"TRAIL COMPANION",1200,222,66,985,"#b6e7da");
- // Curated primary portrait: Shasta seated among flowering shrubs.
- const hero=imgs[3];
- framedImage(c,hero,{x:853,y:293,w:694,h:652,angle:-.008},3);
- const cards:Area[]=[
-  {x:72,y:267,w:238,h:283,angle:-.03},
-  {x:346,y:282,w:233,h:275,angle:.042},
-  {x:614,y:298,w:213,h:254,angle:-.033},
-  {x:67,y:627,w:232,h:276,angle:.022},
-  {x:338,y:643,w:234,h:274,angle:-.025},
-  {x:612,y:658,w:211,h:257,angle:.036},
-  {x:1587,y:288,w:215,h:259,angle:.026},
-  {x:1836,y:275,w:228,h:280,angle:-.041},
-  {x:2090,y:286,w:232,h:270,angle:.02},
-  {x:1590,y:651,w:220,h:262,angle:-.019},
-  {x:1844,y:644,w:220,h:269,angle:.032},
-  {x:2094,y:633,w:225,h:282,angle:-.023},
- ];
- const surrounding=imgs.filter((_,i)=>i!==3);
- for(let i=0;i<cards.length;i++)framedImage(c,surrounding[i],cards[i],i+13);
- // Small intentionally chunky paw icon, not a swarm of procedurally
- // random marks over the photo faces.
- c.save();c.globalAlpha=.67;c.fillStyle="#eacb9c";
- c.beginPath();c.ellipse(455,159,20,17,0,0,Math.PI*2);c.fill();
- for(const [x,y] of [[424,133],[443,119],[465,122],[487,139]]){
-  c.beginPath();c.ellipse(x,y,8,11,0,0,Math.PI*2);c.fill();
+ if(!imgs.length)return;
+ // The large central portrait is intentional. Other photos form a balanced
+ // collage WITHOUT captions, titles, or lettering baked into the texture.
+ const heroIndex=Math.min(CAVERN_PHOTO_ALBUMS.shasta.heroIndex,imgs.length-1);
+ framedImage(c,imgs[heroIndex],{x:831,y:101,w:735,h:867,angle:-.006},heroIndex);
+ const others=imgs.filter((_,i)=>i!==heroIndex);
+ const mid=Math.ceil(others.length/2);
+ const groups=[others.slice(0,mid),others.slice(mid)];
+ const cols=Math.max(1,Math.min(4,Math.ceil(mid/2)));
+ const rows=Math.max(1,Math.ceil(mid/cols));
+ for(const [side,group] of groups.entries()){
+  const gap=17,regionX=side===0?57:1590;
+  const regionWidth=750;
+  const cellWidth=(regionWidth-gap*(cols-1))/cols;
+  const cellHeight=(882-gap*(rows-1))/rows;
+  group.forEach((image,i)=>{
+   const col=i%cols,row=Math.floor(i/cols);
+   framedImage(c,image,{
+    x:regionX+col*(cellWidth+gap),
+    y:108+row*(cellHeight+gap),
+    w:cellWidth,h:cellHeight,
+    angle:((i*7+side*3)%5-2)*.008,
+   },i+side*20);
+  });
  }
- c.restore();
 }
 /** A softly sprayed landscape exposure without a straight poster border.
  * Each offscreen mask is created once while building the shared gallery atlas.
@@ -176,65 +161,56 @@ function natureInk(c:CanvasRenderingContext2D){
  }
 }
 function galleryNature(c:CanvasRenderingContext2D,imgs:readonly HTMLImageElement[]){
- if(imgs.length!==12)throw Error("Nature gallery must use the twelve curated images");
+ mountains(c);natureInk(c);
+ if(!imgs.length)return;
+ // Automatically accommodate the next album without editing wall geometry.
+ // Every configured image appears exactly once in a balanced photo grid.
+ const cols=imgs.length>16?5:imgs.length>7?4:Math.min(3,imgs.length);
+ const rows=Math.ceil(imgs.length/cols);
+ const margin=68,gap=23;
+ const cellWidth=(W-margin*2-(cols-1)*gap)/cols;
+ const cellHeight=(H-142-(rows-1)*gap)/rows;
+ imgs.forEach((image,i)=>{
+  const col=i%cols,row=Math.floor(i/cols);
+  framedImage(c,image,{
+   x:margin+col*(cellWidth+gap),
+   y:71+row*(cellHeight+gap),
+   w:cellWidth,h:cellHeight,
+   angle:((i*5)%7-3)*.004,
+  },i+54);
+ });
+}
+function galleryFeature(c:CanvasRenderingContext2D,imgs:readonly HTMLImageElement[]){
+ // Narrow photo triptych at the back. Replaces the former oversized
+ // SID'S UNDERGROUND sign; no typography is generated.
  mountains(c);
- natureInk(c);
- // The four unframed travel exposures become wide, feathered pigment.
- // Eight additional images remain framed and independently readable.
- for(const [i,area] of [
-  [1,{x:60,y:268,w:670,h:500,opacity:.22}],
-  [4,{x:578,y:292,w:705,h:465,opacity:.28}],
-  [5,{x:1090,y:272,w:690,h:510,opacity:.24}],
-  [10,{x:1640,y:280,w:720,h:500,opacity:.24}],
- ] as const){
-  photoWash(c,imgs[i],area.x,area.y,area.w,area.h,area.opacity);
- }
- paintWord(c,"WILD PLACES",1200,115,151,1780,"#eed9bb");
- paintWord(c,"MOUNTAINS  ·  FORESTS  ·  WATER",1200,221,51,1590,"#a5e6d9");
- // A landscape photography exhibition cut directly from the owner's
- // image archive. Broad frames and real subject images take priority over
- // geometric fake waterfall shapes.
- const areas:Area[]=[
-  {x:67,y:280,w:525,h:300,angle:-.016},
-  {x:623,y:284,w:531,h:297,angle:.012},
-  {x:1187,y:280,w:538,h:301,angle:-.01},
-  {x:1752,y:277,w:577,h:302,angle:.022},
-  {x:65,y:621,w:535,h:316,angle:.009},
-  {x:620,y:625,w:538,h:314,angle:-.017},
-  {x:1185,y:619,w:540,h:323,angle:.012},
-  {x:1760,y:620,w:570,h:313,angle:-.014},
- ];
- const ids=[0,2,3,6,7,8,9,11];
- areas.forEach((area,i)=>framedImage(c,imgs[ids[i]],area,i+54));
+ const gap=24,margin=59;
+ const cols=Math.max(1,imgs.length);
+ const w=(W-margin*2-gap*(cols-1))/cols;
+ imgs.forEach((img,i)=>framedImage(c,img,{
+  x:margin+i*(w+gap),y:88,w,h:897,
+  angle:((i%3)-1)*.005,
+ },i+101));
 }
 function galleryGames(c:CanvasRenderingContext2D,imgs:readonly HTMLImageElement[]){
  mountains(c);
- paintWord(c,"PLAY MY GAMES",1200,111,155,1910,"#f8d6bd");
- paintWord(c,"THREE WORLDS · ONE ARCADE",1200,210,53,1530,"#9be0d9");
- const areas:Area[]=[
-  {x:58,y:284,w:728,h:647,angle:-.008},
-  {x:838,y:283,w:728,h:647,angle:.005},
-  {x:1619,y:278,w:719,h:649,angle:-.005},
- ];
- const colors=["#e4c9a8","#9be6df","#f5b8f3"];
- for(let i=0;i<areas.length;i++){
-  const area=areas[i],image=imgs[i];
-  // Distinct real project artwork, never hand-coded character doodles.
-  // Letterbox an original wide banner, so logos are never cropped.
-  c.save();c.translate(area.x+area.w/2,area.y+area.h/2);
-  c.rotate(area.angle??0);c.translate(-area.w/2,-area.h/2);
+ const gap=35,margin=58;
+ const width=(W-2*margin-gap*(imgs.length-1))/Math.max(1,imgs.length);
+ imgs.forEach((image,i)=>{
+  const x=margin+i*(width+gap),y=90,h=890;
+  c.save();c.translate(x+width/2,y+h/2);
+  c.rotate((i-1)*.006);c.translate(-width/2,-h/2);
   c.shadowColor="#081e25";c.shadowBlur=25;c.shadowOffsetY=13;
-  c.fillStyle="#1b253d";roundRect(c,-12,-12,area.w+24,area.h+24,9);c.fill();
-  c.shadowColor="transparent";c.strokeStyle=colors[i];c.lineWidth=10;
-  c.strokeRect(0,0,area.w,area.h);
+  c.fillStyle="#182930";roundRect(c,-13,-13,width+26,h+26,8);c.fill();
+  c.shadowColor="transparent";
+  c.strokeStyle=["#e4c9a8","#9be6df","#f5b8f3"][i%3];c.lineWidth=8;
+  c.strokeRect(0,0,width,h);
   const iw=image.naturalWidth||image.width,ih=image.naturalHeight||image.height;
-  const scale=Math.min((area.w-18)/iw,(area.h-84)/ih);
-  const w=iw*scale,h=ih*scale;
-  c.drawImage(image,(area.w-w)/2,(area.h-85-h)/2+15,w,h);
+  const scale=Math.min((width-24)/iw,(h-24)/ih);
+  const w=iw*scale,drawH=ih*scale;
+  c.drawImage(image,(width-w)/2,(h-drawH)/2,w,drawH);
   c.restore();
-  paintWord(c,CAVERN_GAME_ART[i].label,
-   area.x+area.w/2,area.y+area.h-37,48,area.w-40,colors[i]);
- }
+ });
 }
 /** Runs once per cave mount; each input is an existing local site asset.
  * Cache is only one GPU texture per complete gallery, not 28 extra meshes.
@@ -243,11 +219,10 @@ function galleryGames(c:CanvasRenderingContext2D,imgs:readonly HTMLImageElement[
 export async function composeArcadeGallery(
  kind:GalleryKind,three:GalleryThree,
 ):Promise<{texture:THREE.Texture;photoCount:number}>{
- const sources=kind==="shasta-gallery"?
-  SHASTA_PHOTOS.map(id=>archivePhotoPath(id,id==="photo-037")):
-  kind==="nature-gallery"?
-   NATURE_PHOTOS.map(id=>archivePhotoPath(id)):
-   CAVERN_GAME_ART.map(item=>item.src);
+ const sources=kind==="shasta-gallery"?CAVERN_PHOTO_ALBUMS.shasta.images:
+  kind==="nature-gallery"?CAVERN_PHOTO_ALBUMS.nature.images:
+  kind==="feature-gallery"?CAVERN_PHOTO_ALBUMS.feature.images:
+  CAVERN_GAME_ART.map(item=>item.src);
  const images=await Promise.all(sources.map(src=>new Promise<HTMLImageElement>((resolve,reject)=>{
   const img=new Image();
   img.decoding="async";
@@ -261,6 +236,7 @@ export async function composeArcadeGallery(
  if(!ctx)throw Error("Gallery compositor needs Canvas2D");
  if(kind==="shasta-gallery")galleryShasta(ctx,images);
  else if(kind==="nature-gallery")galleryNature(ctx,images);
+ else if(kind==="feature-gallery")galleryFeature(ctx,images);
  else galleryGames(ctx,images);
  fadeEdges(ctx);
  const texture=new three.CanvasTexture(canvas);
@@ -300,7 +276,7 @@ export async function composeArcadeGamePlaques(
   c.shadowColor="transparent";
   c.strokeStyle=["#ffdf9e","#99e8f4","#f1abec"][index];
   c.lineWidth=10;roundRect(c,34,34,ww-68,hh-74,12);c.stroke();
-  const x=60,y=68,w=ww-120,h=hh-206;
+  const x=60,y=65,w=ww-120,h=hh-130;
   c.save();roundRect(c,x,y,w,h,6);c.clip();
   c.fillStyle="#13242d";c.fillRect(x,y,w,h);
   // Letterboxing is intentional. Cropping original game lettering is worse
@@ -310,10 +286,6 @@ export async function composeArcadeGamePlaques(
   const drawW=iw*scale,drawH=ih*scale;
   c.drawImage(image,x+(w-drawW)/2,y+(h-drawH)/2,drawW,drawH);
   c.restore();
-  paintWord(c,gameOrder[index].label,ww/2,hh-85,65,ww-128,
-   ["#ffe2ac","#b8f7fc","#f4c1eb"][index]);
-  c.fillStyle="#afd6ce";c.font="700 22px system-ui,sans-serif";
-  c.textAlign="center";c.fillText("ENTER TO PLAY",ww/2,hh-37);
   // Fade only the last few outer pixels, not the actual cover image.
   c.save();c.globalCompositeOperation="destination-in";
   const grad=c.createLinearGradient(0,0,ww,0);
