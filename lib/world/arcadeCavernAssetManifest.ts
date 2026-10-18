@@ -17,14 +17,6 @@ export type ArcadeMuralArtwork = Readonly<{
 export const ARCADE_MURAL_ART_ASSETS:Partial<
  Record<CavernArtTheme,ArcadeMuralArtwork>
 > = {
- identity: {
-  src:"/world/arcade-cavern/hero/sids-underground.svg",
-  authorship:"original",
-  attribution:"Original authored in-project graffiti title graphic",
-  opacity:1,
-  revision:1,
-  presentation:"original-texture",
- },
  sports: {
   src:"/world/arcade-cavern/sports/chelsea-crest.png",
   supportingSources:[
