@@ -92,7 +92,7 @@ try {
   for (const [name, prompt, title] of [
     ['01 Redwood grove A little about me', 'Redwood grove', 'Redwood grove.'],
     ['02 Granite ridge Things I build', 'Granite ridge', 'Granite ridge.'],
-    ['03 Strange grove Things I explore', 'Strange grove', 'Strange grove.'],
+    ['03 Mystic grove Things I explore', 'Mystic grove', 'Mystic grove.'],
     ['04 Wild coast Cold-water coast', 'Wild coast', 'Wild coast.'],
     ['05 Lagoon reef South Pacific reef', 'Lagoon reef', 'Lagoon reef.'],
     ['06 Fern falls Follow the water', 'Fern falls', 'Fern falls.'],
