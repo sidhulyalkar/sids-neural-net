@@ -1,11 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import {readFileSync} from "node:fs";
 import {ARCADE_CAVE,arcadeCaveFloorHeight,caveHalfWidth} from "../lib/world/model";
 import {ARCADE_CAVERN_MURALS,validateArcadeArtManifest} from "../lib/world/arcadeCavernArtManifest";
 import {ARCADE_REAR_CAP_Z,caveArtRing,sampleCavernArt,validateCavernMural} from "../lib/world/arcadeCavernSurface";
 import {ARCADE_MURAL_ART_ASSETS,validateArcadeMuralAssets}
  from "../lib/world/arcadeCavernAssetManifest";
-import {SHASTA_PHOTOS,NATURE_PHOTOS,CAVERN_GAME_ART,CAVERN_GAME_PANEL_ART,archivePhotoPath}
+import {SHASTA_PHOTOS,NATURE_PHOTOS,CAVERN_GAME_ART,CAVERN_GAME_PANEL_ART,CAVERN_PHOTO_ALBUMS,validateCavernPhotoAlbums,archivePhotoPath}
  from "../lib/world/arcadeCavernGalleryContent";
 
 test("Photo-first arcade is nature, Shasta and game-only, preserving real sports crests",()=>{
@@ -14,7 +15,7 @@ test("Photo-first arcade is nature, Shasta and game-only, preserving real sports
  const ids=ARCADE_CAVERN_MURALS.map(m=>m.id);
  assert.deepEqual(ids,[
   "shasta-photo-gallery","wild-places-scenic-wall","my-games-gallery",
-  "wild-places-rear","home-stand","sids-underground","shasta-rear-portrait",
+  "wild-places-rear","home-stand","panorama-photo-gallery","shasta-rear-portrait",
  ]);
  assert.ok(!ARCADE_CAVERN_MURALS.some(m=>
   ["anime","comedy","sport-anime","neural"].includes(m.theme)));
@@ -24,6 +25,10 @@ test("Photo-first arcade is nature, Shasta and game-only, preserving real sports
  assert.equal(games.surface,"right");
  assert.deepEqual(games.tags,["UNICORN STAMPEDE","UNIRICO","STRETCHICORN"]);
  assert.equal(ARCADE_CAVERN_MURALS.find(m=>m.theme==="sports")!.surface,"right");
+ assert.deepEqual(validateCavernPhotoAlbums(),[]);
+ assert.equal(CAVERN_PHOTO_ALBUMS.shasta.images.length,13);
+ assert.equal(CAVERN_PHOTO_ALBUMS.nature.images.length,12);
+ assert.equal(CAVERN_PHOTO_ALBUMS.feature.images.length,3);
  assert.equal(SHASTA_PHOTOS.length,13);
  assert.equal(NATURE_PHOTOS.length,12);
  assert.equal(CAVERN_GAME_ART.length,3);
@@ -38,16 +43,16 @@ test("Photo-first arcade is nature, Shasta and game-only, preserving real sports
   assert.match(poster.src,/^\/world\/arcade-cavern\/games\/[-a-z0-9]+\.(?:svg|png)$/);
  assert.ok(ARCADE_CAVERN_MURALS.every(m=>!validateCavernMural(m)));
 });
-test("Hero title fits its real-world atlas aspect and gallery frames stay clear",()=>{
- const banner=ARCADE_CAVERN_MURALS.find(m=>m.id==="sids-underground")!;
+test("Rear photo panorama fits its real-world aspect and game panels stay clear",()=>{
+ const banner=ARCADE_CAVERN_MURALS.find(m=>m.id==="panorama-photo-gallery")!;
  assert.equal(banner.surface,"back");
  assert.ok(banner.u0!==undefined&&banner.u1!==undefined);
  const width=(banner.u1!-banner.u0!)*12.45;
  const height=(banner.v1-banner.v0)*5.45;
  assert.ok(Math.abs(width/height-2400/480)<.16,
-  "identity typography must not be stretched into a single giant line");
+  "panorama image aspect must not stretch across the rock");
  assert.ok(width<8&&height>1.25,
-  "hero must be readable at normal camera distance, without reaching both walls");
+  "panoramic photo mural must fit within the protected rear panel");
  for(const id of ["shasta-rear-portrait","wild-places-rear"]){
   const m=ARCADE_CAVERN_MURALS.find(x=>x.id===id)!;
   assert.ok(m.u0!==undefined&&m.u1!==undefined);
@@ -86,7 +91,7 @@ test("Curved graffiti is projected into interior of exact 17-shell ring segments
        "rear lower murals must remain at least 0.55m away from the center game panel");
      else assert.ok(a.y>
        arcadeCaveFloorHeight(ARCADE_CAVE.wall)+2.35+2.65/2+.20,
-       "rear title must clear the center game selection by 20cm");
+       "rear photo panorama must clear the game selector by 20cm");
     }
    }
   }
@@ -132,8 +137,8 @@ test("No invalid, clipping, nonfinite or game-occluding mural descriptors",()=>{
 
 test("Authored cavern artwork is local, attributed, unique and usable without network image hotlinks",()=>{
  assert.deepEqual(validateArcadeMuralAssets(),[]);
- assert.match(ARCADE_MURAL_ART_ASSETS.identity!.src,/^\/world\/arcade-cavern\/hero\/sids-underground\.svg$/);
- assert.equal(ARCADE_MURAL_ART_ASSETS.identity!.authorship,"original");
+ assert.equal(ARCADE_CAVERN_MURALS.some(m=>m.theme==="identity"),false,
+  "typographic hero banner must not be rendered in the cavern");
  assert.equal(ARCADE_MURAL_ART_ASSETS.shasta!.src,
   "/visual-archive/web/photo-037.webp");
  assert.equal(ARCADE_MURAL_ART_ASSETS.shasta!.presentation,"shasta-photo-stencil");
@@ -153,9 +158,21 @@ test("Authored cavern artwork is local, attributed, unique and usable without ne
 
  assert.match(ARCADE_MURAL_ART_ASSETS.shasta!.attribution,/photo-037/);
  assert.deepEqual(validateArcadeMuralAssets({
-  identity:{...ARCADE_MURAL_ART_ASSETS.identity!,src:"https://example.com/art.png"},
- }),["identity: invalid or remote asset path"]);
- assert.deepEqual(validateArcadeMuralAssets({
-  identity:{...ARCADE_MURAL_ART_ASSETS.identity!,attribution:""},
- }),["identity: missing attribution"]);
+  shasta:{...ARCADE_MURAL_ART_ASSETS.shasta!,attribution:""},
+ }),["shasta: missing attribution"]);
+});
+test("All wall overlays are image-only with no generated words",()=>{
+ for(const file of [
+  "components/world/worldArcadePhotoGallery.ts",
+  "components/world/worldArcadeSportsMural.ts",
+  "components/world/worldArcadeShastaStencil.ts",
+ ]){
+  const source=readFileSync(file,"utf8");
+  assert.doesNotMatch(source,/\\b(?:fillText|strokeText|paintWord|solidTitle)\\s*\\(/,
+   file+" must never paint titles, labels or slogans over the photo");
+ }
+ assert.equal(ARCADE_CAVERN_MURALS.some(m=>m.id==="sids-underground"),false);
+ assert.equal(ARCADE_CAVERN_MURALS.find(m=>m.surface==="left")?.theme,
+  "shasta-gallery");
+ assert.ok(CAVERN_PHOTO_ALBUMS.feature.images.every(p=>p.startsWith("/")));
 });
