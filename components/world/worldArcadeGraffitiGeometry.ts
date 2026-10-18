@@ -554,7 +554,7 @@ export function createWorldArcadeGraffiti(scene:THREE.Scene,three:ArcadeThree,
   onAssetReady?.(authoredReady);
  };
  const stone=createArcadeStoneLining(three);
- meshes.push(stone.mesh);textures.push(stone.texture);root.add(stone.mesh);
+ meshes.push(stone.mesh);textures.push(stone.texture,stone.heightTexture);root.add(stone.mesh);
  for(const mural of ARCADE_CAVERN_MURALS){
   const artwork=ARCADE_MURAL_ART_ASSETS[mural.theme];
   const {paint,glow}=artwork?emptyPaint(three):paintTexture(mural.theme,three);
