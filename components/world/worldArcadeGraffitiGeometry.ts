@@ -12,6 +12,7 @@ import {createArcadeStoneLining} from "./worldArcadeStoneLining";
 import {createShastaPhotoStencil} from "./worldArcadeShastaStencil";
 import {createSportsFanMural} from "./worldArcadeSportsMural";
 import {createArcadeCarvedAlcoves} from "./worldArcadeCarvedAlcoves";
+import {composeArcadeGallery} from "./worldArcadePhotoGallery";
 import {ARCADE_CAVE,arcadeCaveFloorHeight} from "@/lib/world/model";
 import {sampleCavernArt,type CavernArtTheme,type CavernArtSurface,type CavernMural} from "@/lib/world/arcadeCavernSurface";
 
@@ -559,6 +560,11 @@ export function createWorldArcadeGraffiti(scene:THREE.Scene,three:ArcadeThree,
  const loader=new three.TextureLoader();
  let alive=true;
  let authoredReady=0;
+ // One image decode/composite per theme even when a gallery wraps from the
+ // side wall onto the rear rock. Reuse the same CanvasTexture on both meshes.
+ const galleryCache=new Map<string,ReturnType<typeof composeArcadeGallery>>();
+ const galleryKind=(theme:CavernArtTheme)=>
+  theme==="shasta-gallery"||theme==="nature-gallery"||theme==="game-gallery";
  const installAuthored=(wall:THREE.Mesh,painted:THREE.Texture,
   opacity:number,theme:CavernArtTheme,source?:HTMLImageElement)=>{
   if(!alive)return;
@@ -588,7 +594,7 @@ export function createWorldArcadeGraffiti(scene:THREE.Scene,three:ArcadeThree,
  meshes.push(stone.mesh);textures.push(stone.texture,stone.heightTexture);root.add(stone.mesh);
  for(const mural of ARCADE_CAVERN_MURALS){
   const artwork=ARCADE_MURAL_ART_ASSETS[mural.theme];
-  const {paint,glow}=artwork?emptyPaint(three):paintTexture(mural.theme,three);
+  const {paint,glow}=artwork||galleryKind(mural.theme)?emptyPaint(three):paintTexture(mural.theme,three);
   textures.push(paint,glow);
   const wall=surfaceMesh(mural.surface,mural.z0,mural.z1,
    mural.v0,mural.v1,paint,"paint-"+mural.id,three,
@@ -598,7 +604,20 @@ export function createWorldArcadeGraffiti(scene:THREE.Scene,three:ArcadeThree,
   // For the rear upper band the longitudinal z dimension is zero: texture
   // horizontal must use wall width, not the degenerate z-coordinate.
   meshes.push(wall);root.add(wall);
-  if(artwork?.presentation==="sports-crest-composite"){
+  if(galleryKind(mural.theme)){
+   const kind=mural.theme as "shasta-gallery"|"nature-gallery"|"game-gallery";
+   if(!galleryCache.has(kind))
+    galleryCache.set(kind,composeArcadeGallery(kind,three));
+   galleryCache.get(kind)!.then(({texture,photoCount})=>{
+    if(!alive){texture.dispose();return;}
+    if(!textures.includes(texture))textures.push(texture);
+    installAuthored(wall,texture,1,mural.theme);
+    root.userData[kind+"-images"]=photoCount;
+   }).catch(error=>{
+    if(alive)root.userData.galleryLoadFailure=
+      kind+": "+(error instanceof Error?error.message:String(error));
+   });
+  }else if(artwork?.presentation==="sports-crest-composite"){
    const srcs=[artwork.src,...(artwork.supportingSources??[])];
    // Use only self-hosted, full-color *authentic* crest files. The 3 bitmap
    // images are composed once into a single matte, transparent atlas. If
