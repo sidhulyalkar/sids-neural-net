@@ -13,6 +13,18 @@ export const initialRideRecovery=(point:Point):RideRecoveryState=>({
 });
 export const isRideMode=(mode:Activity)=>mode==="skate"||mode==="bike"||mode==="ski";
 
+/** Airborne riders must not be pulled UP onto high, narrow support props
+ * from underneath. Real deck/rail travel is still handled by its own
+ * dedicated contact controller, so this guard only applies in free flight. */
+export function airborneSupportHeight(
+ playerY:number,groundY:number,naturalY:number,
+):number{
+ if(![playerY,groundY,naturalY].every(Number.isFinite))return naturalY;
+ if(groundY-playerY>.55&&groundY-naturalY>1.35)
+  return naturalY;
+ return groundY;
+}
+
 const footprint=.51;
 function clearOfProps(point:Point,obstacles:readonly Obstacle[]){
  return obstacles.every(o=>distance(point,o)>o.radius+footprint);
