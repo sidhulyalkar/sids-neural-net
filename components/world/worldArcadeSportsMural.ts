@@ -58,18 +58,6 @@ function paintGround(c:CanvasRenderingContext2D,a:ArtAnchor,index:number){
  }
  c.restore();
 }
-function solidTitle(
- c:CanvasRenderingContext2D,value:string,
- x:number,y:number,size:number,maxWidth:number,fill:string,
-):void{
- c.save();c.translate(x,y);c.font="900 "+size+"px Impact, 'Arial Black',sans-serif";
- c.textBaseline="middle";c.textAlign="center";c.lineJoin="round";
- const measured=c.measureText(value).width;
- c.scale(Math.min(1,maxWidth/Math.max(measured,1)),1);
- c.lineWidth=size*.18;c.strokeStyle="#081923";c.strokeText(value,0,0);
- c.lineWidth=size*.055;c.strokeStyle="#d2d4c9";c.strokeText(value,0,0);
- c.fillStyle=fill;c.fillText(value,0,0);c.restore();
-}
 function crest(
  c:CanvasRenderingContext2D,image:CanvasImageSource,
  a:ArtAnchor,id:string,
@@ -132,11 +120,6 @@ export function createSportsFanMural(
  c.restore();
  distressBackdrop(c);
  ANCHORS.forEach((a,i)=>crest(c,images[i],a,SPORTS_MARKS[i].id));
- solidTitle(c,"THE HOME STAND",W/2,175,142,1610,"#f4e9c8");
- for(let i=0;i<3;i++){
-  solidTitle(c,["CHELSEA","PATRIOTS","WARRIORS"][i],
-   ANCHORS[i].x,949,93,560,["#c1e0ff","#ffbfbd","#ffe3a4"][i]);
- }
  pigmentMask(c);
  const tex=new three.CanvasTexture(canvas);
  tex.colorSpace=three.SRGBColorSpace;
