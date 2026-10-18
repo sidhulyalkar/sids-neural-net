@@ -38,7 +38,8 @@ try{
   await page.waitForFunction(()=>{
    const d=document.querySelector("canvas")?.dataset;
    const p=d?.player?.split(",").map(Number);
-   return p&&Math.hypot(p[0]-37,p[1]-65)<2&&
+   // The shared fast-travel landing is three units north of the marker.
+   return p&&Math.hypot(p[0]-37,p[1]-68)<2&&
     d.mysticElectricActive==="true";
   },null,{timeout:45000});
  }catch(error){
