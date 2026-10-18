@@ -1,7 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import * as THREE from "three/src/Three.Core.js";
-import {MYSTIC_GROVE,MYSTIC_TREES,mysticGroveDistance}
+import {MYSTIC_GROVE,MYSTIC_TREES,mysticGroveDistance,
+ mysticCircuitPhase,mysticCircuitIntensity,MYSTIC_CIRCUIT}
  from "../lib/world/mysticGrove";
 import {joshuaTreeSites} from "../lib/world/joshuaTrees";
 import {REGIONS,isWater,terrainHeight,waterZone} from "../lib/world/model";
@@ -47,28 +48,48 @@ test("electrical arcs remain tip-connected, bounded and dispose correctly",()=>{
  assert.equal(scene.children.length,1);
  const mesh=scene.children[0] as THREE.LineSegments;
  const geo=mesh.geometry,attribute=geo.getAttribute("position");
- assert.equal(attribute.count,2*9*2);
+ assert.equal(attribute.count,2*12*2);
+ const attributeColors=geo.getAttribute("color");
+ assert.equal(attributeColors.count,attribute.count);
  const before=Array.from(attribute.array);
- effect.update(1,true,false);
+ effect.update(.5,true,false);
  const after=Array.from(attribute.array);
  assert.notDeepEqual(after,before,"lightning should move over time");
+ assert.equal(effect.activeLink,0,"pulse begins at the first actual branch link");
+ // Verify that pulse brightness moves from the first link to the second.
+ const brightness=(vertex:number)=>
+  attributeColors.getX(vertex)+attributeColors.getY(vertex)+
+  attributeColors.getZ(vertex);
+ const firstBright=brightness(6);
+ const secondDim=brightness(24+6);
+ assert.ok(firstBright>secondDim*1.1,
+  "the traveling packet must brighten one link, not flash all six");
+ effect.update(MYSTIC_CIRCUIT.secondsPerLink+.5,true,false);
+ assert.equal(effect.activeLink,1);
+ assert.ok(brightness(24+6)>brightness(6)*1.1,
+  "pulse must travel to next tree with deterministic ordering");
  for(let i=0;i<attribute.count;i++)
   for(const n of [attribute.getX(i),attribute.getY(i),attribute.getZ(i)])
    assert.ok(Number.isFinite(n));
  for(let i=0;i<links.length;i++){
-  const base=i*9*2;
+  const base=i*12*2;
   assert.ok(new THREE.Vector3().fromBufferAttribute(attribute,base)
    .distanceTo(links[i][0])<1e-6);
-  assert.ok(new THREE.Vector3().fromBufferAttribute(attribute,base+17)
+  assert.ok(new THREE.Vector3().fromBufferAttribute(attribute,base+23)
    .distanceTo(links[i][1])<1e-6);
  }
- effect.update(2,false,false);
+ effect.update(4,false,false);
  assert.equal(mesh.visible,false,"do not run offscreen lightning");
+ assert.equal(effect.activeLink,-1);
  effect.update(3,true,true);
+ assert.equal(effect.activeLink,-2,"reduced motion shows a steady low glow");
  const reduced=Array.from(attribute.array);
+ const staticColors=Array.from(attributeColors.array);
  effect.update(4,true,true);
  assert.deepEqual(Array.from(attribute.array),reduced,
-  "reduced motion must not animate");
+  "reduced motion must not animate vertices");
+ assert.deepEqual(Array.from(attributeColors.array),staticColors,
+  "reduced motion must not change pulse color");
  effect.dispose();
  assert.equal(scene.children.length,0);
 });
@@ -136,4 +157,26 @@ test("Mystic Grove forest detailing is terrain-rooted, colored, small and dispos
  assert.ok(emissive.emissiveIntensity<=.3,"quartz must be subtle, not bloom");
  grove.dispose();
  assert.equal(scene.children.length,0);
+});
+
+test("Mystic pulse sweeps a closed six-tree circuit without frame-dependent state",()=>{
+ const total=MYSTIC_TREES.length,step=MYSTIC_CIRCUIT.secondsPerLink;
+ assert.equal(mysticCircuitPhase(0,total).link,0);
+ assert.equal(mysticCircuitPhase(.6*step,total).link,0);
+ for(let i=0;i<total;i++){
+  const when=(i+.43)*step;
+  const phase=mysticCircuitPhase(when,total);
+  assert.equal(phase.link,i);
+  assert.ok(Math.abs(phase.progress-.43)<1e-6);
+  const active=mysticCircuitIntensity(when,i,.43,total);
+  const neighboring=mysticCircuitIntensity(when,(i+1)%total,.43,total);
+  assert.ok(active>.86&&neighboring<.2,
+   "only the traveling link should flare brightly");
+  assert.ok(mysticCircuitIntensity(when,i,0,total)>=0);
+ }
+ assert.equal(mysticCircuitPhase(total*step+.31*step,total).link,0);
+ assert.equal(mysticCircuitPhase(-.2*step,total).link,total-1);
+ assert.equal(mysticCircuitPhase(NaN,total).link,-1);
+ assert.equal(mysticCircuitPhase(2,0).link,-1);
+ assert.equal(mysticCircuitIntensity(3,2,.5,total,true),.32);
 });
