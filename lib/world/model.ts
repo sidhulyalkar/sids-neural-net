@@ -2,6 +2,7 @@ import { desertTrackHeightOffset } from "./desertTrack";
 import { rockGardenHeightOffset } from "./technicalFeatures";
 import { bigAirTerrainOffset } from "./bigAir";
 import { beachBlend, northShoreZ } from "./skimboarding";
+import {MYSTIC_GROVE} from "./mysticGrove";
 /** Small, deterministic geography shared by the renderer, navigation and tests. */
 export type RegionId = "grove" | "mountain" | "neural" | "coast" | "lagoon" | "waterfall" | "canyon" | "cavern" | "desert" | "rainforest" | "north-shore";
 export type Point = { x: number; z: number };
@@ -17,7 +18,7 @@ export const REGIONS: {
 }[] = [
   { id: "grove", name: "Redwood grove", meaning: "A little about me", point: { x: 0, z: 8 }, href: "/about" },
   { id: "mountain", name: "Granite ridge", meaning: "Things I build", point: { x: 8, z: -54 }, href: "/projects" },
-  { id: "neural", name: "Strange grove", meaning: "Things I explore", point: { x: 30, z: -5 }, href: "/ideas" },
+  { id: "neural", name: "Mystic grove", meaning: "Things I explore", point: MYSTIC_GROVE.center, href: "/ideas" },
   { id: "coast", name: "Wild coast", meaning: "Cold-water coast", point: { x: -29, z: 13 }, href: "/photography" },
   { id: "lagoon", name: "Lagoon reef", meaning: "South Pacific reef", point: { x: 58, z: 13 }, href: "/photography" },
   { id: "waterfall", name: "Fern falls", meaning: "Follow the water", point: { x: -20, z: -24 }, href: "/photography" },

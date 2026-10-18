@@ -9,6 +9,8 @@ import {beginSkateRailGap,advanceSkateRailGap,skateRailGapSample,type SkateRailG
 import {beginSkateTunnelRide,advanceSkateTunnelRide,skateTunnelSample,
  type SkateTunnelRide} from "@/lib/world/skateTunnel";
 import {createWorldSkateGrove} from "./worldSkateGroveGeometry";
+import {MYSTIC_GROVE,MYSTIC_TREES,mysticGroveDistance} from "@/lib/world/mysticGrove";
+import {createMysticElectricity} from "./worldMysticElectricity";
 import {detailCavernStone} from "./worldCavernStoneMaterial";
 import {createWorldArcadeGraffiti} from "./worldArcadeGraffitiGeometry";
 import {ARCADE_REAR_CAP_Z,sampleCavernArt} from "@/lib/world/arcadeCavernSurface";
@@ -1101,6 +1103,8 @@ export function createWorld(
   // Dendrites grow naturally out of the eastern grove. Quiet, sparse, no bloom pass.
   const dendrites: Instance[] = [],
     synapses: Instance[] = [];
+  const mysticTips:THREE.Vector3[][]=[];
+  let activeMysticTips:THREE.Vector3[]=[];
   function branch(
     origin: THREE.Vector3,
     length: number,
@@ -1118,6 +1122,7 @@ export function createWorld(
       );
     dendrites.push(segment(origin, end, 0.08 + depth * 0.04));
     if (depth === 0) {
+      activeMysticTips.push(end.clone());
       synapses.push({
         x: end.x,
         y: end.y,
@@ -1131,18 +1136,45 @@ export function createWorld(
     branch(end, length * 0.69, angle + 0.95, depth - 1);
     branch(end, length * 0.69, angle - 1.4, depth - 1);
   }
-  for (let i = 0; i < 5; i++) {
-    const x = 24 + i * 3,
-      z = -14 + Math.sin(i * 2) * 5;
-    branch(new THREE.Vector3(x, terrainHeight(x, z), z), 4.5, i * 1.6, 3);
+  // Existing neural trees now occupy the northern shoreline clearing.
+  // Every tree root follows the same visible ground as the explorer.
+  for(const [i,site] of MYSTIC_TREES.entries()){
+    activeMysticTips=[];
+    branch(new THREE.Vector3(site.x,terrainHeight(site.x,site.z),site.z),
+      4.5,i*1.6,3);
+    mysticTips.push(activeMysticTips);
   }
   instances(cylinder, neuralMat, dendrites);
   instances(rockGeo, lightMat, synapses, false);
+  // The electrical endpoints are actual branch tips, not floating towers.
+  const mysticLinks:[THREE.Vector3,THREE.Vector3][]=[];
+  for(let i=0;i<mysticTips.length;i++){
+    const a=mysticTips[i],b=mysticTips[(i+1)%mysticTips.length];
+    let best=Infinity,from=a[0],to=b[0];
+    for(const p of a)for(const q of b){
+      const d=p.distanceToSquared(q);
+      if(d<best){best=d;from=p;to=q;}
+    }
+    if(from&&to)mysticLinks.push([from,to]);
+  }
+  const mysticElectricity=createMysticElectricity(scene,mysticLinks);
+  const mysticReducedMotion=window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  canvas.dataset.mysticGrovePosition=
+    MYSTIC_GROVE.center.x+","+MYSTIC_GROVE.center.z;
+  canvas.dataset.mysticGroveTrees=String(MYSTIC_TREES.length);
+  canvas.dataset.mysticGroveArcs=String(mysticElectricity.count);
   const particles = new Float32Array(90 * 3);
-  for (let i = 0; i < 90; i++) {
-    const x = 22 + random() * 17,
-      z = -18 + random() * 23;
-    particles.set([x, terrainHeight(x, z) + 0.7 + random() * 7, z], i * 3);
+  for(let i=0;i<90;i++){
+    let x=MYSTIC_GROVE.center.x,z=MYSTIC_GROVE.center.z;
+    for(let attempt=0;attempt<12;attempt++){
+      const trialX=MYSTIC_GROVE.center.x+(random()-.5)*17;
+      const trialZ=MYSTIC_GROVE.center.z+(random()-.5)*17;
+      if(!isWater({x:trialX,z:trialZ})&&
+        !skimBeachClearance({x:trialX,z:trialZ})){
+        x=trialX;z=trialZ;break;
+      }
+    }
+    particles.set([x,terrainHeight(x,z)+.7+random()*7,z],i*3);
   }
   const particleGeo = geo(new THREE.BufferGeometry());
   particleGeo.setAttribute("position", new THREE.BufferAttribute(particles, 3));
@@ -1201,6 +1233,7 @@ export function createWorld(
   markerObjects.push(markerHitMesh);
   instances(rockGeo, mat("#8d9185"), cairnPieces, false);
   const habitats = createHabitats(scene, obstacles);
+  canvas.dataset.joshuaTrees=String(habitats.joshuaTreeCount);
   // Low rock clusters and climb ledges can obstruct a low camera even
   // without vegetation. Include their render-authored extents as well.
   const cameraRocks:CameraVolume[]=[
@@ -6496,10 +6529,14 @@ export function createWorld(
 
     // Detail culling: distant grass and synaptic particles need no GPU work.
     grassMesh.visible = camera.position.y < 45 && aquatic === "land";
-    fireflies.visible = !state.entered || player.x > 8;
-    fireflies.position.y = Math.sin(elapsed * 0.4) * 0.12;
-    neuralMat.emissiveIntensity = 0.4 + Math.sin(elapsed * 0.65) * 0.18;
-    particleMat.opacity = 0.48 + Math.sin(elapsed) * 0.17;
+    const mysticNearby=state.entered&&
+      mysticGroveDistance(player)<MYSTIC_GROVE.revealRadius;
+    fireflies.visible=mysticNearby;
+    fireflies.position.y=Math.sin(elapsed*.4)*.12;
+    mysticElectricity.update(elapsed,mysticNearby,mysticReducedMotion);
+    neuralMat.emissiveIntensity=.4+Math.sin(elapsed*.65)*.18;
+    particleMat.opacity=.48+Math.sin(elapsed)*.17;
+    canvas.dataset.mysticElectricActive=String(mysticNearby);
     tides.position.x = Math.sin(elapsed * 0.2) * 0.5;
     // Animated surf is confined to the north beach. Every other biome should
     // avoid the dynamic vertex writes and normal recomputation entirely.
@@ -6961,6 +6998,7 @@ export function createWorld(
     },
     dispose() {
       arcadeGraffiti.dispose();
+      mysticElectricity.dispose();
       skateGrove.dispose();
 
       shoreLife.dispose();

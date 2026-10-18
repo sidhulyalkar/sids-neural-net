@@ -7,6 +7,7 @@ import { discGolfOpeningClearance, discGolfCourseClearance } from "@/lib/world/d
 import { RAINFOREST_CANOPY_WILDLIFE, RAINFOREST_REPTILES, DESERT_ECOLOGY_ANCHORS } from "@/lib/world/ecology";
 import { skimBeachClearance } from "@/lib/world/skimboarding";
 import { DESERT_JUMPS, desertGapBypassPoints, jumpWorld } from "@/lib/world/desertTrack";
+import {joshuaTreeSites} from "@/lib/world/joshuaTrees";
 import {
   terrainHeight,
   distance,
@@ -236,6 +237,10 @@ export function createHabitats(scene: THREE.Scene, obstacles: Obstacle[]) {
     }
   }
   finish(granite, "desert-granite");
+  // Plant stable Yucca brevifolia silhouettes along BOTH edges of the actual
+  // twisting race course. These remain in the existing desert chunk batches.
+  // No extra draw calls, collision in the tread, or randomized missing forest.
+  const plantedJoshua=joshuaTreeSites();
   // Desert is divided into chunks so distant detail does not pop as one biome root.
   for (let row = 0; row < 3; row++) {
     const b = new GeometryBatch(),
@@ -376,6 +381,36 @@ export function createHabitats(scene: THREE.Scene, obstacles: Obstacle[]) {
           );
         }
       }
+    }
+    for(const [index,tree] of plantedJoshua.entries()){
+      if(tree.z<center.z-10||tree.z>=center.z+10)continue;
+      const {x,z}=tree,y=terrainHeight(x,z),height=tree.height;
+      stem(b,"#857462",V(x,y,z),V(x,y+height*.72,z),.20);
+      // A forked, branching Joshua habit with dense radial spiky rosettes.
+      // Plant trunks and foliage share the same sampled ground support.
+      for(let arm=0;arm<tree.arms;arm++){
+        const a=tree.rotation+arm*Math.PI*2/tree.arms;
+        const root=V(x,y+height*(.48+arm*.035),z);
+        const tip=V(x+Math.cos(a)*(.70+arm*.12),
+          y+height*(.86+arm*.03),z+Math.sin(a)*(.70+arm*.12));
+        stem(b,arm%2?"#847463":"#746657",root,tip,.115);
+        for(let spike=0;spike<14;spike++){
+          const angle=spike*Math.PI*2/14+index*.31;
+          const rise=.18+(.1*(spike%3));
+          const length=.53+(spike%4)*.07;
+          const end=V(tip.x+Math.cos(angle)*length,
+            tip.y+rise,tip.z+Math.sin(angle)*length);
+          stem(b,spike%3===0?"#a2ac7a":spike%2?"#728b7c":"#8e9e78",
+            tip,end,.031);
+        }
+        add(b,leaf,arm%2?"#6f8074":"#879b7c",
+          tip.x,tip.y-.12,tip.z,.22,.38,.22);
+      }
+      stem(b,"#927e69",V(x,y+height*.72,z),
+        V(x,y+height+.22,z),.105);
+      obstacles.push({x,z,radius:.25});
+      cameraOccluders.push({x,y:y+height*.55,z,
+        rx:1.1,ry:height*.55+.6,rz:1.1});
     }
     finish(b, `desert-plants-${row}`);
   }
@@ -917,6 +952,7 @@ export function createHabitats(scene: THREE.Scene, obstacles: Obstacle[]) {
   blade.dispose();
   return {
     cameraOccluders:cameraOccluders as readonly CameraVolume[],
+    joshuaTreeCount:plantedJoshua.length,
     update(_camera: Point, elapsed=0) {
       // Subtle falling motion independent of FPS, contained within the wet
       // region and using no per-frame buffer mutations or allocations.
