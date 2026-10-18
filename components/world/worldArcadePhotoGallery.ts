@@ -189,3 +189,57 @@ export async function composeArcadeGallery(
  texture.anisotropy=4;
  return {texture,photoCount:images.length};
 }
+
+/** Three individual, in-world interaction backdrops. Their visible paint is
+ * mounted on the existing curved walls, never on the invisible click volumes.
+ * Preserves artwork proportions and puts game identity at the point of play.
+ */
+export async function composeArcadeGamePlaques(
+ three:GalleryThree,
+):Promise<readonly THREE.Texture[]>{
+ const images=await Promise.all(CAVERN_GAME_ART.map(item=>
+  new Promise<HTMLImageElement>((resolve,reject)=>{
+   const image=new Image();image.decoding="async";
+   image.onload=()=>resolve(image);
+   image.onerror=()=>reject(new Error("Missing game artwork "+item.src));
+   image.src=item.src;
+  })));
+ return images.map((image,index)=>{
+  const canvas=document.createElement("canvas");
+  canvas.width=840;canvas.height=680;
+  const c=canvas.getContext("2d");
+  if(!c)throw Error("Game plaque paint context missing");
+  const ww=canvas.width,hh=canvas.height;
+  // Keep the canvas transparent outside the game-specific carved frame.
+  c.shadowColor="#04181e";c.shadowBlur=34;c.shadowOffsetY=13;
+  c.fillStyle="#172d33";roundRect(c,26,28,ww-52,hh-55,17);c.fill();
+  c.shadowColor="transparent";
+  c.strokeStyle=["#ffdf9e","#99e8f4","#f1abec"][index];
+  c.lineWidth=10;roundRect(c,34,34,ww-68,hh-74,12);c.stroke();
+  const x=60,y=68,w=ww-120,h=hh-206;
+  c.save();roundRect(c,x,y,w,h,6);c.clip();
+  c.fillStyle="#13242d";c.fillRect(x,y,w,h);
+  // Letterboxing is intentional. Cropping original game lettering is worse
+  // than a dark matte around a logo.
+  const iw=image.naturalWidth||image.width,ih=image.naturalHeight||image.height;
+  const scale=Math.min(w/iw,h/ih);
+  const drawW=iw*scale,drawH=ih*scale;
+  c.drawImage(image,x+(w-drawW)/2,y+(h-drawH)/2,drawW,drawH);
+  c.restore();
+  paintWord(c,CAVERN_GAME_ART[index].label,ww/2,hh-85,65,ww-128,
+   ["#ffe2ac","#b8f7fc","#f4c1eb"][index]);
+  c.fillStyle="#afd6ce";c.font="700 22px system-ui,sans-serif";
+  c.textAlign="center";c.fillText("ENTER TO PLAY",ww/2,hh-37);
+  // Fade only the last few outer pixels, not the actual cover image.
+  c.save();c.globalCompositeOperation="destination-in";
+  const grad=c.createLinearGradient(0,0,ww,0);
+  grad.addColorStop(0,"#0000");grad.addColorStop(.02,"#fff");
+  grad.addColorStop(.98,"#fff");grad.addColorStop(1,"#0000");
+  c.fillStyle=grad;c.fillRect(0,0,ww,hh);c.restore();
+  const texture=new three.CanvasTexture(canvas);
+  texture.colorSpace=three.SRGBColorSpace;
+  texture.generateMipmaps=true;texture.minFilter=three.LinearMipmapLinearFilter;
+  texture.anisotropy=4;
+  return texture;
+ });
+}
