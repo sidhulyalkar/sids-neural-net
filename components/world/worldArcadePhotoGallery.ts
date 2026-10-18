@@ -31,17 +31,18 @@ function mountains(c:CanvasRenderingContext2D){
  c.restore();
 }
 function fadeEdges(c:CanvasRenderingContext2D){
+ const height=c.canvas.height;
  c.save();c.globalCompositeOperation="destination-in";
  const h=c.createLinearGradient(0,0,W,0);
  h.addColorStop(0,"rgba(255,255,255,0)");
  h.addColorStop(.023,"#fff");h.addColorStop(.978,"#fff");
  h.addColorStop(1,"rgba(255,255,255,0)");
  c.fillStyle=h;c.fillRect(0,0,W,H);
- const v=c.createLinearGradient(0,0,0,H);
+ const v=c.createLinearGradient(0,0,0,height);
  v.addColorStop(0,"rgba(255,255,255,0)");
  v.addColorStop(.047,"#fff");v.addColorStop(.954,"#fff");
  v.addColorStop(1,"rgba(255,255,255,0)");
- c.fillStyle=v;c.fillRect(0,0,W,H);
+ c.fillStyle=v;c.fillRect(0,0,W,height);
  c.restore();
 }
 function framedImage(c:CanvasRenderingContext2D,img:HTMLImageElement,a:Area,seed:number){
@@ -158,15 +159,14 @@ function galleryNature(c:CanvasRenderingContext2D,imgs:readonly HTMLImageElement
  });
 }
 function galleryFeature(c:CanvasRenderingContext2D,imgs:readonly HTMLImageElement[]){
- // Narrow photo triptych at the back. Replaces the former oversized
- // SID'S UNDERGROUND sign; no typography is generated.
- mountains(c);
- const gap=24,margin=59;
+ // World-space aspect of the rear upper wall is ~5:1. Use a separate
+ // 2400x480 atlas so none of the replacement photos stretch vertically.
+ const height=c.canvas.height,margin=32,gap=16;
  const cols=Math.max(1,imgs.length);
  const w=(W-margin*2-gap*(cols-1))/cols;
  imgs.forEach((img,i)=>framedImage(c,img,{
-  x:margin+i*(w+gap),y:88,w,h:897,
-  angle:((i%3)-1)*.005,
+  x:margin+i*(w+gap),y:35,w,h:height-70,
+  angle:0,
  },i+101));
 }
 function galleryGames(c:CanvasRenderingContext2D,imgs:readonly HTMLImageElement[]){
@@ -208,7 +208,7 @@ export async function composeArcadeGallery(
   img.src=src;
  })));
  const canvas=document.createElement("canvas");
- canvas.width=W;canvas.height=H;
+ canvas.width=W;canvas.height=kind==="feature-gallery"?480:H;
  const ctx=canvas.getContext("2d");
  if(!ctx)throw Error("Gallery compositor needs Canvas2D");
  if(kind==="shasta-gallery")galleryShasta(ctx,images);
