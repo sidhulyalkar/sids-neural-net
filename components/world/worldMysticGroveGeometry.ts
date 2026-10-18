@@ -82,10 +82,33 @@ export function createWorldMysticGroveGeometry(
     V(x,support(p)+.07,z),.38,.11,.24,a);
    roots++;
   }
-  // Moss-touched branchlets and tapered, wind-swept pine/cypress fronds.
+  // Tiered open coastal crowns, readable while approaching from the
+  // shoreline. Swept evergreen sprays frame rather than obscure the actual
+  // electrical branch endpoints; the silhouette varies by tree and tip.
   for(const [j,tip] of (tips[i]??[]).entries()){
    const theta=i*1.35+j*2.399;
    const reach=.36+(j%3)*.09;
+   const intermediate=V(
+    crown.x+(tip.x-crown.x)*.62,
+    crown.y+(tip.y-crown.y)*.62-.19,
+    crown.z+(tip.z-crown.z)*.62);
+   if(j%2===0){
+    // Slim charcoal-larch wood inside the foliage, no fabricated collider.
+    beam(bark,i%2?"#375c52":"#426963",
+     V(crown.x,crown.y-.12,crown.z),intermediate,.085);
+   }
+   for(let layer=0;layer<3;layer++){
+    const w=.46+.12*(2-layer),h=.65+.10*(layer%2);
+    const across=.24+layer*.20;
+    const p=V(intermediate.x+Math.cos(theta+layer*.8)*across,
+     intermediate.y+layer*.33-.18,
+     intermediate.z+Math.sin(theta+layer*.8)*across);
+    add(understory,leaf,(layer+j)%3===0?"#64897e":
+     layer%2?"#47736d":"#89a598",
+     p,w,h,.36,theta+layer*.55,
+     .12*Math.sin(theta+layer),-.18*Math.cos(theta));
+    canopy++;
+   }
    for(let k=0;k<3;k++){
     const a=theta+k*Math.PI*2/3;
     const endpoint=V(tip.x+Math.cos(a)*reach,
