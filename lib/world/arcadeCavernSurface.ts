@@ -104,9 +104,11 @@ export function validateCavernMural(m:CavernMural):string|null{
    (m.u0===undefined&&m.u1===undefined)||
    (m.u0!==undefined&&m.u1!==undefined&&m.u0>=.18&&m.u1<=.82)
   );
-  const side=m.v0>=.14&&m.v1<=.60&&(
-   (m.u0!==undefined&&m.u1!==undefined&&m.u1<=.28)||
-   (m.u0!==undefined&&m.u1!==undefined&&m.u0>=.72)
+  // Widen the side portraits but preserve at least ~0.5m in front of
+  // the center selection rectangle: u=.355...645 corresponds to its X span.
+  const side=m.v0>=.10&&m.v1<=.60&&(
+   (m.u0!==undefined&&m.u1!==undefined&&m.u1<=.31)||
+   (m.u0!==undefined&&m.u1!==undefined&&m.u0>=.69)
   );
   if(m.z0!==-63.32||m.z1!==-63.32||(!header&&!side))
    return "game title overlap";
