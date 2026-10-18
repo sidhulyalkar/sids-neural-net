@@ -58,7 +58,9 @@ export function validateCavernPhotoAlbums(
  const issues:string[]=[];
  for(const [group,data] of Object.entries(albums)){
   if(data.images.length===0)issues.push(group+": empty album");
-  if(data.images.length>25)issues.push(group+": keep a curated set of up to 25 images per static wall");
+  if(data.images.length>25)issues.push(group+": keep up to 25 images per static wall");
+  if(group==="feature"&&data.images.length>5)
+   issues.push("feature: limit the panoramic strip to five photographs");
   if(new Set(data.images).size!==data.images.length)issues.push(group+": duplicate images");
   for(const src of data.images){
    if(!/^\/(?!\/)(?:[a-z0-9_-]+\/)+[a-z0-9_-]+\.(?:png|jpe?g|webp|avif)$/.test(src))
