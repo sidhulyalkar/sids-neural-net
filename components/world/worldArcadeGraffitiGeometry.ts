@@ -313,19 +313,39 @@ function paintFloor(ctx:Paint){
  }
 }
 function paintCeiling(ctx:Paint){
- // Gentle rock-bound celestial emblems. These are distant atmospheric
- // landmarks rather than distracting, repeated 1px vector glyphs.
- for(const [cx,cy,r,col] of [
-  [238,343,113,"#d9be99"],
-  [797,612,143,"#78b6bc"],
- ] as const){
-  ctx.save();ctx.globalAlpha=.23;
-  ctx.strokeStyle=col;ctx.lineWidth=17;ctx.lineCap="round";
-  ctx.beginPath();ctx.arc(cx,cy,r,Math.PI*.14,Math.PI*1.76);ctx.stroke();
-  ctx.beginPath();ctx.arc(cx,cy,r*.71,Math.PI*.72,Math.PI*2.13);ctx.stroke();
-  ctx.restore();
-  polygon(ctx,[[cx,cy-r*.42],[cx+r*.24,cy],
-   [cx,cy+r*.43],[cx-r*.24,cy]],col,.34);
+ // The entrance canopy now draws a large, quiet nature silhouette instead
+ // of the old UFO-like rings. These broad painted masses read from below,
+ // with actual basalt remaining exposed between strokes.
+ const mountain=(pts:readonly [number,number][],fill:string,opacity:number)=>{
+  polygon(ctx,pts,fill,opacity);
+ };
+ mountain([[20,695],[190,397],[295,512],[433,240],[570,482],
+  [679,347],[869,573],[1006,440],[1006,1023],[20,1023]],
+ "#315b57",.57);
+ mountain([[15,827],[201,555],[315,711],[450,385],[584,690],
+  [768,514],[985,818],[1024,971],[0,971]],"#193d40",.66);
+ mountain([[391,306],[433,240],[493,327],[464,315],[436,279],[420,313]],
+ "#f0efdf",.72);
+ mountain([[152,482],[190,397],[237,483],[201,469],[187,437],[174,463]],
+ "#dbeee1",.68);
+ // Waterfall and narrow outflow: substantial multi-layer paint strokes,
+ // never a collection of unrelated thin procedural lines.
+ const fall=[
+  [[738,430],[731,584],[716,707],[737,841]],
+  [[767,421],[773,582],[761,709],[788,876]],
+  [[794,459],[796,592],[785,728],[807,841]],
+ ] as const;
+ for(const [i,pts] of fall.entries()){
+  stroke(ctx,pts,i===1?"#b5f4ee":"#69c9d0",i===1?34:25);
+ }
+ stroke(ctx,[[699,877],[779,910],[864,908],[937,953]],"#5dcac9",27);
+ stroke(ctx,[[694,890],[765,932],[876,925],[940,965]],"#d7f7df",9);
+ // Compact pines mark the alpine silhouette rather than floating logos.
+ for(let i=0;i<15;i++){
+  const x=36+i*67,base=940+(i%3)*14,r=29+(i%4)*11;
+  mountain([[x-r,base],[x,base-r*3],[x+r,base]],"#113f3c",.72);
+  mountain([[x-r*.74,base-r*.58],[x,base-r*3.1],
+   [x+r*.74,base-r*.58]],"#2e6660",.35);
  }
 }
 function paintTexture(theme:CavernArtTheme,three:ArcadeThree){
