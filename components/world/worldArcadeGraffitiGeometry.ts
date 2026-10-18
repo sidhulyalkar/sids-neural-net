@@ -23,7 +23,7 @@ function randomFor(id:string){
  for(const ch of id){h^=ch.charCodeAt(0);h=Math.imul(h,16777619);}
  return ()=>{h^=h<<13;h^=h>>>17;h^=h<<5;return (h>>>0)/4294967296;};
 }
-function stroke(ctx:Paint,points:readonly [number,number][],color:string,width:number,glow=0){
+function stroke(ctx:Paint,points:readonly (readonly [number,number])[],color:string,width:number,glow=0){
  if(points.length<2)return;
  ctx.save();ctx.beginPath();ctx.moveTo(...points[0]);
  for(let i=1;i<points.length-1;i++){
