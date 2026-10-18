@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
+import {SPORTS_TEAM_CAPTIONS} from "../components/world/worldArcadeSportsMural";
 import {ARCADE_CAVE,arcadeCaveFloorHeight,caveHalfWidth} from "../lib/world/model";
 import {ARCADE_CAVERN_MURALS,validateArcadeArtManifest} from "../lib/world/arcadeCavernArtManifest";
 import {ARCADE_REAR_CAP_Z,caveArtRing,sampleCavernArt,validateCavernMural} from "../lib/world/arcadeCavernSurface";
@@ -162,16 +163,21 @@ test("Authored cavern artwork is local, attributed, unique and usable without ne
   shasta:{...ARCADE_MURAL_ART_ASSETS.shasta!,attribution:""},
  }),["shasta: missing attribution"]);
 });
-test("All wall overlays are image-only with no generated words",()=>{
+test("Photo walls are text-free, with only three sports caption exceptions",()=>{
  for(const file of [
   "components/world/worldArcadePhotoGallery.ts",
-  "components/world/worldArcadeSportsMural.ts",
   "components/world/worldArcadeShastaStencil.ts",
  ]){
   const source=readFileSync(file,"utf8");
   assert.doesNotMatch(source,/\b(?:fillText|strokeText|paintWord|solidTitle)\s*\(/,
    file+" must never paint titles, labels or slogans over the photo");
  }
+ assert.deepEqual([...SPORTS_TEAM_CAPTIONS],["CHELSEA","PATRIOTS","WARRIORS"]);
+ const sportsSource=readFileSync("components/world/worldArcadeSportsMural.ts","utf8");
+ assert.match(sportsSource,/SPORTS_TEAM_CAPTIONS\[i\]/,
+  "all three captions must be painted below their corresponding crest");
+ assert.doesNotMatch(sportsSource,/THE HOME STAND/,
+  "sports mural should not restore unrelated giant headings");
  assert.equal(ARCADE_CAVERN_MURALS.some(m=>m.id==="sids-underground"),false);
  assert.equal(ARCADE_CAVERN_MURALS.find(m=>m.surface==="left")?.theme,
   "shasta-gallery");
