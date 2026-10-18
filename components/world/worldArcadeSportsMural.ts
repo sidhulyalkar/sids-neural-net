@@ -58,6 +58,29 @@ function paintGround(c:CanvasRenderingContext2D,a:ArtAnchor,index:number){
  }
  c.restore();
 }
+/** Only the three team names are overlaid. All other cave photo walls
+ * intentionally contain no generated typography. */
+export const SPORTS_TEAM_CAPTIONS=[
+ "CHELSEA","PATRIOTS","WARRIORS",
+] as const;
+
+function drawTeamCaption(
+ c:CanvasRenderingContext2D,name:string,
+ x:number,y:number,color:string,
+){
+ c.save();
+ c.translate(x,y);
+ c.textAlign="center";c.textBaseline="middle";c.lineJoin="round";
+ c.font="900 88px Impact,'Arial Black',sans-serif";
+ const width=Math.max(1,c.measureText(name).width);
+ c.scale(Math.min(1,520/width),1);
+ c.strokeStyle="#0c1923";c.lineWidth=18;
+ c.strokeText(name,0,0);
+ c.strokeStyle="#f0e4d2";c.lineWidth=4;
+ c.strokeText(name,0,0);
+ c.fillStyle=color;c.fillText(name,0,0);
+ c.restore();
+}
 function crest(
  c:CanvasRenderingContext2D,image:CanvasImageSource,
  a:ArtAnchor,id:string,
@@ -120,6 +143,10 @@ export function createSportsFanMural(
  c.restore();
  distressBackdrop(c);
  ANCHORS.forEach((a,i)=>crest(c,images[i],a,SPORTS_MARKS[i].id));
+ ANCHORS.forEach((a,i)=>drawTeamCaption(
+  c,SPORTS_TEAM_CAPTIONS[i],a.x,963,
+  ["#c1e0ff","#ffbfbd","#ffe3a4"][i],
+ ));
  pigmentMask(c);
  const tex=new three.CanvasTexture(canvas);
  tex.colorSpace=three.SRGBColorSpace;
