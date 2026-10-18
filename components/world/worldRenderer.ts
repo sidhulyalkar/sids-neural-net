@@ -11,6 +11,7 @@ import {beginSkateTunnelRide,advanceSkateTunnelRide,skateTunnelSample,
 import {createWorldSkateGrove} from "./worldSkateGroveGeometry";
 import {MYSTIC_GROVE,MYSTIC_TREES,mysticGroveDistance} from "@/lib/world/mysticGrove";
 import {createMysticElectricity} from "./worldMysticElectricity";
+import {createWorldMysticGroveGeometry} from "./worldMysticGroveGeometry";
 import {detailCavernStone} from "./worldCavernStoneMaterial";
 import {createWorldArcadeGraffiti} from "./worldArcadeGraffitiGeometry";
 import {ARCADE_REAR_CAP_Z,sampleCavernArt} from "@/lib/world/arcadeCavernSurface";
@@ -1158,11 +1159,17 @@ export function createWorld(
     if(from&&to)mysticLinks.push([from,to]);
   }
   const mysticElectricity=createMysticElectricity(scene,mysticLinks);
+  const mysticForest=createWorldMysticGroveGeometry(scene,terrainPoint=>
+    terrainHeight(terrainPoint.x,terrainPoint.z),mysticTips);
   const mysticReducedMotion=window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   canvas.dataset.mysticGrovePosition=
     MYSTIC_GROVE.center.x+","+MYSTIC_GROVE.center.z;
   canvas.dataset.mysticGroveTrees=String(MYSTIC_TREES.length);
   canvas.dataset.mysticGroveArcs=String(mysticElectricity.count);
+  canvas.dataset.mysticGroveDetailDrawCalls=String(mysticForest.diagnostics.drawCalls);
+  canvas.dataset.mysticGroveDetailTriangles=String(mysticForest.diagnostics.triangles);
+  canvas.dataset.mysticGroveFronds=String(mysticForest.diagnostics.fronds);
+  canvas.dataset.mysticGroveQuartz=String(mysticForest.diagnostics.spores);
   const particles = new Float32Array(90 * 3);
   for(let i=0;i<90;i++){
     let x=MYSTIC_GROVE.center.x,z=MYSTIC_GROVE.center.z;
@@ -6999,6 +7006,7 @@ export function createWorld(
     dispose() {
       arcadeGraffiti.dispose();
       mysticElectricity.dispose();
+      mysticForest.dispose();
       skateGrove.dispose();
 
       shoreLife.dispose();
