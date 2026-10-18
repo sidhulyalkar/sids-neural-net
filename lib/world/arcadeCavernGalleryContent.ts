@@ -26,6 +26,11 @@ export const CAVERN_GAME_ART=[
   provenance:"Stretchicorn project / docs/stretchicorn-title-v017.png",
   nature:"official game title artwork"},
 ] as const;
+/** Stable left/rear/right layout aligned with the interactive game targets.
+ * This is deliberately NOT the editorial order of the poster gallery. */
+export const CAVERN_GAME_PANEL_ART=[
+ CAVERN_GAME_ART[2],CAVERN_GAME_ART[1],CAVERN_GAME_ART[0],
+] as const;
 export function archivePhotoPath(id:string,full=false){
  if(!/^photo-\d{3}$/.test(id))throw Error("Invalid visual archive id");
  return "/visual-archive/"+(full?"web/":"thumbs/")+
