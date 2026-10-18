@@ -886,7 +886,7 @@ export function createWorld(
   }
   trees.forEach(({ x, z, h, r }, index) => {
     const y = terrainHeight(x, z);
-    obstacles.push({ x, z, radius: r });
+    obstacles.push({ x, z, radius: r, topY:y+h*1.05 });
     cameraCanopies.push({x,y:y+h*.45,z,rx:r+.3,ry:h*.45,rz:r+.3});
     trunks.push({
       x,
@@ -970,7 +970,7 @@ export function createWorld(
     if (y < 7.5) continue;
     const h = 8 + random() * 8;
     const r = 0.38 + random() * 0.25;
-    obstacles.push({ x, z, radius: r + 0.08 });
+    obstacles.push({ x, z, radius: r + 0.08, topY:y+h*1.1 });
     cameraCanopies.push({x,y:y+h*.44,z,rx:r+.2,ry:h*.44,rz:r+.2});
     skiTrunks.push({ x, y: y + h * 0.44, z, sx: r, sy: h * 0.88, sz: r });
     for (let layer = 0; layer < 3; layer++) {
@@ -1322,7 +1322,7 @@ export function createWorld(
       z = MOSS_CANYON.startZ + i * MOSS_CANYON.spacing;
     const y = terrainHeight(x, z), h = 3.8 + Math.sin(i * 0.8) * 1.3;
     canyonStone.push({ x, y: y + h * 0.45, z, sx: 1.8, sy: h, sz: 2.1, ry: i });
-    obstacles.push({ x, z, radius: 1.3 });
+    obstacles.push({ x, z, radius: 1.3, topY:y+h });
     canyonMoss.push({ x: x - side * 0.8, y: y + h * 0.65, z, sx: 1.2, sy: 0.4, sz: 1.5 });
     for (let j = 0; j < 3; j++) fernFronds.push({ x: x - side * 1.9, y: y + 0.45, z: z + j * 0.3, sx: 0.1, sy: 0.65, sz: 0.55, ry: j * 1.7 });
   }
@@ -4432,6 +4432,7 @@ export function createWorld(
           airHeight,
           supportHeight,
           activeRideBoost(rideBoost,elapsed) && isBoostActivity(state.activity),
+          playerY,
         );
         if(state.activity==="skate"){
           const turn=previousHeading.x*travel.heading.z-previousHeading.z*travel.heading.x;
