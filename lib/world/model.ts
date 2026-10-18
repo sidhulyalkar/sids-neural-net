@@ -427,7 +427,9 @@ export function regionLanding(region: RegionId): Point {
   return { x: target.point.x, z };
 }
 
-export type Obstacle = Point & { radius: number };
+/** topY is optional because walls and unbounded cave solids are deliberate
+ * infinite-height barriers. Above finite tree/rock props, riders can fly over. */
+export type Obstacle = Point & { radius: number; topY?: number };
 
 const clampToWorld = (p: Point): Point => ({
   x: Math.max(WORLD_BOUNDS.minX, Math.min(WORLD_BOUNDS.maxX, p.x)),
