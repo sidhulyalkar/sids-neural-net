@@ -6527,10 +6527,14 @@ export function createWorld(
 
     // Detail culling: distant grass and synaptic particles need no GPU work.
     grassMesh.visible = camera.position.y < 45 && aquatic === "land";
-    fireflies.visible = !state.entered || player.x > 8;
-    fireflies.position.y = Math.sin(elapsed * 0.4) * 0.12;
-    neuralMat.emissiveIntensity = 0.4 + Math.sin(elapsed * 0.65) * 0.18;
-    particleMat.opacity = 0.48 + Math.sin(elapsed) * 0.17;
+    const mysticNearby=state.entered&&
+      mysticGroveDistance(player)<MYSTIC_GROVE.revealRadius;
+    fireflies.visible=mysticNearby;
+    fireflies.position.y=Math.sin(elapsed*.4)*.12;
+    mysticElectricity.update(elapsed,mysticNearby,mysticReducedMotion);
+    neuralMat.emissiveIntensity=.4+Math.sin(elapsed*.65)*.18;
+    particleMat.opacity=.48+Math.sin(elapsed)*.17;
+    canvas.dataset.mysticElectricActive=String(mysticNearby);
     tides.position.x = Math.sin(elapsed * 0.2) * 0.5;
     // Animated surf is confined to the north beach. Every other biome should
     // avoid the dynamic vertex writes and normal recomputation entirely.
@@ -6992,6 +6996,7 @@ export function createWorld(
     },
     dispose() {
       arcadeGraffiti.dispose();
+      mysticElectricity.dispose();
       skateGrove.dispose();
 
       shoreLife.dispose();
