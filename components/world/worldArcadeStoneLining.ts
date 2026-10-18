@@ -1,58 +1,103 @@
 import type * as THREE from "three/src/Three.Core.js";
 import {sampleCavernArt,type CavernArtSurface} from "@/lib/world/arcadeCavernSurface";
-/** Interior-only rough basalt lining. Shares the exact 17-ring collision-
- * independent shell sampler with pigment. It is always behind the painted
- * surface, cannot intercept raycasts and doesn't alter the cave floor. */
+
+/**
+ * The inner rock is surface-conforming, not an obstruction. Two tileable
+ * authored-at-startup pigment maps replace the repeating brick/crack texture:
+ * four octaves of seamless mineral color and a separately encoded height map.
+ * Do not add the mesh to gameplay collision or target raycasting.
+ */
 type StoneThree=Pick<typeof import("three/src/Three.Core.js"),
  "CanvasTexture"|"BufferGeometry"|"Float32BufferAttribute"|
  "MeshStandardMaterial"|"Color"|"DoubleSide"|"Mesh"|
  "SRGBColorSpace"|"RepeatWrapping"|"LinearMipmapLinearFilter">;
-function seeded(){
- let n=0x34ab19cd;
- return ()=>{n=Math.imul(1664525,n)+1013904223|0;return(n>>>0)/4294967296;};
+
+const EDGE=512;
+function rand(seed:number){
+ let v=seed|0;
+ return ()=>{v=(Math.imul(1664525,v)+1013904223)|0;return(v>>>0)/4294967296;};
 }
-function basaltCanvas(){
- const c=document.createElement("canvas");c.width=512;c.height=512;
- const ctx=c.getContext("2d");
- if(!ctx)throw Error("Cavern stone texture unavailable");
- const r=seeded();
- const sky=ctx.createLinearGradient(0,0,512,512);
- sky.addColorStop(0,"#554940");sky.addColorStop(.5,"#342f30");
- sky.addColorStop(1,"#50433b");ctx.fillStyle=sky;ctx.fillRect(0,0,512,512);
- // Broad geological planes make the stone read as carved fractured basalt,
- // unlike a uniformly gray 3D shell.
- for(let i=0;i<110;i++){
-  const x=r()*512,y=r()*512,scale=20+120*r();
-  ctx.beginPath();ctx.moveTo(x,y);
-  ctx.lineTo(x+scale*(.2+r()),y-scale*(.15+r()*.4));
-  ctx.lineTo(x+scale*(.75+r()*.4),y+scale*.4);
-  ctx.lineTo(x+scale*(.1+r()*.5),y+scale*(.8+r()*.2));
-  ctx.closePath();ctx.fillStyle=i%4===0?"rgba(13,18,21,.14)":
-   i%3===0?"rgba(194,130,84,.09)":"rgba(154,157,140,.055)";
-  ctx.fill();
+function hash(x:number,y:number,n:number){
+ let h=(Math.imul(x,374761393)^Math.imul(y,668265263)^Math.imul(n,2246822519))|0;
+ h=Math.imul(h^(h>>>13),1274126177);
+ return((h^(h>>>16))>>>0)/4294967295;
+}
+function noise(x:number,y:number,period:number){
+ const fx=x*period,fy=y*period;
+ const ix=Math.floor(fx),iy=Math.floor(fy);
+ const tx=fx-ix,ty=fy-iy;
+ const u=tx*tx*(3-2*tx),v=ty*ty*(3-2*ty);
+ const a=hash(ix%period,iy%period,period);
+ const b=hash((ix+1)%period,iy%period,period);
+ const c=hash(ix%period,(iy+1)%period,period);
+ const d=hash((ix+1)%period,(iy+1)%period,period);
+ return (a+(b-a)*u)*(1-v)+(c+(d-c)*u)*v;
+}
+function rockTextures(){
+ const albedo=document.createElement("canvas");
+ const height=document.createElement("canvas");
+ albedo.width=height.width=EDGE;albedo.height=height.height=EDGE;
+ const ctx=albedo.getContext("2d"),hc=height.getContext("2d");
+ if(!ctx||!hc)throw Error("Cavern rock drawing context unavailable");
+ const pix=ctx.createImageData(EDGE,EDGE),relief=hc.createImageData(EDGE,EDGE);
+ const a=pix.data,b=relief.data;
+ for(let y=0;y<EDGE;y++)for(let x=0;x<EDGE;x++){
+  const u=x/EDGE,v=y/EDGE,i=(y*EDGE+x)*4;
+  const broad=noise(u,v,4),stone=noise(u,v,13);
+  const fine=noise(u,v,47),grain=noise(u,v,119);
+  // Mineral islands and fine grain; avoid synthetic grid seams or long
+  // horizontal fake brick joints. Values wrap exactly at the atlas edges.
+  const rise=(broad-.5)*.48+(stone-.5)*.27+
+   (fine-.5)*.14+(grain-.5)*.07;
+  const strata=Math.abs(stone-.52);
+  const darkSeam=strata<.026?-.095:0;
+  const mineral=Math.max(0,Math.min(1,.54+rise+darkSeam));
+  const amber=Math.max(0,noise(u+.23,v+.11,7)-.62)*.24;
+  const lichen=Math.max(0,noise(u+.54,v+.4,13)-.70)*.27;
+  a[i]=Math.round(47+mineral*47+amber*33);
+  a[i+1]=Math.round(45+mineral*43+lichen*35);
+  a[i+2]=Math.round(43+mineral*38-amber*23);
+  a[i+3]=255;
+  const elevation=Math.max(0,Math.min(1,.52+rise*1.4+darkSeam*1.7));
+  const h=Math.round(102+elevation*135);
+  b[i]=b[i+1]=b[i+2]=h;b[i+3]=255;
  }
- for(let i=0;i<280;i++){
-  const x=r()*512,y=r()*512,s=8+r()*58;
-  ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x+s,y+(r()-.5)*19);
-  ctx.lineTo(x+s+(r()-.5)*11,y+(r()-.5)*49);
-  ctx.lineWidth=.4+r()*2.3;ctx.strokeStyle=i%7===0?
-   "rgba(174,125,81,.25)":"rgba(10,16,19,.29)";
-  ctx.stroke();
+ ctx.putImageData(pix,0,0);hc.putImageData(relief,0,0);
+ // Angular hairline fractures in a single material layer. They are
+ // intermittent and mineral-scale, not an all-over maze of white scribbles.
+ const rnd=rand(0x5a22bf09);
+ for(let i=0;i<60;i++){
+  const x=rnd()*EDGE,y=rnd()*EDGE;
+  const angle=(rnd()-.5)*2.1;
+  const span=15+rnd()*67;
+  ctx.beginPath();hc.beginPath();
+  ctx.moveTo(x,y);hc.moveTo(x,y);
+  let cx=x,cy=y;
+  for(let j=0;j<4;j++){
+   cx+=Math.cos(angle+(rnd()-.5)*.65)*span/4;
+   cy+=Math.sin(angle+(rnd()-.5)*.65)*span/4;
+   ctx.lineTo(cx,cy);hc.lineTo(cx,cy);
+  }
+  ctx.strokeStyle=i%6===0?"rgba(178,137,94,.14)":"rgba(10,15,20,.32)";
+  ctx.lineWidth=.65+rnd()*1.5;ctx.stroke();
+  hc.strokeStyle="rgba(7,7,7,.5)";hc.lineWidth=ctx.lineWidth;hc.stroke();
  }
- for(let i=0;i<1850;i++){
-  const x=r()*512,y=r()*512,size=.3+r()*2.8;
-  ctx.fillStyle=i%7===0?"rgba(146,135,104,.3)":
-   i%5===0?"rgba(95,130,108,.27)":"rgba(205,190,162,.10)";
-  ctx.fillRect(x,y,size,size*(.5+r()));
- }
- return c;
+ return {albedo,height};
+}
+function gpuTexture(
+ canvas:HTMLCanvasElement,three:StoneThree,isColor:boolean,
+):THREE.Texture{
+ const t=new three.CanvasTexture(canvas);
+ if(isColor)t.colorSpace=three.SRGBColorSpace;
+ t.wrapS=three.RepeatWrapping;t.wrapT=three.RepeatWrapping;
+ t.generateMipmaps=true;t.minFilter=three.LinearMipmapLinearFilter;
+ t.anisotropy=4;
+ return t;
 }
 export function createArcadeStoneLining(three:StoneThree){
- const tex=new three.CanvasTexture(basaltCanvas());
- tex.colorSpace=three.SRGBColorSpace;
- tex.wrapS=three.RepeatWrapping;tex.wrapT=three.RepeatWrapping;
- tex.generateMipmaps=true;tex.minFilter=three.LinearMipmapLinearFilter;
- tex.anisotropy=4;
+ const {albedo,height}=rockTextures();
+ const texture=gpuTexture(albedo,three,true);
+ const heightTexture=gpuTexture(height,three,false);
  const vertices:number[]=[],uvs:number[]=[],colors:number[]=[],indices:number[]=[];
  const color=new three.Color();
  const sections:{surface:CavernArtSurface;start:number;end:number;length:number;breadth:number}[]=[
@@ -67,23 +112,21 @@ export function createArcadeStoneLining(three:StoneThree){
   for(let i=0;i<=spec.length;i++)for(let j=0;j<=spec.breadth;j++){
    const t=i/spec.length,s=j/spec.breadth;
    const z=spec.start+(spec.end-spec.start)*t;
-   // Hold the stone below the decal offset .056. Very small faceted
-   // displacement adds depth without touching the player's collision mesh.
-   // Floor and ceiling use U for the lateral (X) coordinate; the rear wall
-   // uses U for its horizontal face. Using longitudinal t for floor/roof U
-   // twisted both meshes into diagonal ribbons instead of solid linings.
    const across=spec.surface==="floor"||spec.surface==="ceiling"?s:t;
    const p=sampleCavernArt(spec.surface,z,across,s,.019);
    if(!p)throw Error("Stone outside cavern "+spec.surface);
-   const fine=Math.sin(t*273.7+s*132.4)*Math.sin(t*109.3-s*218.8);
-   const bump=(fine+1)*.004;
+   // A fraction of a centimeter of facet displacement remains safely
+   // below the artwork offset and gameplay collision surface.
+   const facets=Math.sin(t*128.2+s*93.1)*Math.cos(t*52.4-s*73.2);
+   const bump=(facets+1)*.004;
    vertices.push(p.position.x+p.normal.x*bump,
     p.position.y+p.normal.y*bump,
     p.position.z+p.normal.z*bump);
-   uvs.push(t*(spec.surface==="back"?2.5:3.8),s*1.9);
-   const l=.73+.12*Math.sin(t*53+s*17)+.08*Math.sin(t*213-s*93);
-   const warm=spec.surface==="ceiling"?.92:spec.surface==="floor"?1.08:1;
-   color.setRGB(l*warm,l*warm*.94,l*warm*.86);
+   uvs.push(t*(spec.surface==="back"?2.7:3.3),s*2.05);
+   const warm=spec.surface==="ceiling"?.94:spec.surface==="floor"?1.05:1;
+   // Faceted geology shading uses broad variation; not repeating grid lines.
+   const l=.82+.11*Math.sin(t*23.8+s*7.3)+.055*Math.cos(t*17.4-s*11.3);
+   color.setRGB(l*warm,l*warm*.96,l*warm*.9);
    colors.push(color.r,color.g,color.b);
   }
   for(let i=0;i<spec.length;i++)for(let j=0;j<spec.breadth;j++){
@@ -98,13 +141,14 @@ export function createArcadeStoneLining(three:StoneThree){
  g.setAttribute("color",new three.Float32BufferAttribute(colors,3));
  g.setIndex(indices);g.computeVertexNormals();
  const mat=new three.MeshStandardMaterial({
-  map:tex,vertexColors:true,roughness:.99,
-  bumpMap:tex,bumpScale:.052,side:three.DoubleSide,
+  map:texture,vertexColors:true,roughness:.96,
+  bumpMap:heightTexture,bumpScale:.13,
+  roughnessMap:heightTexture,side:three.DoubleSide,
   polygonOffset:true,polygonOffsetFactor:-.35,polygonOffsetUnits:-.35,
  });
  const mesh=new three.Mesh(g,mat);
- mesh.name="arcade-weathered-basalt-lining";
+ mesh.name="arcade-layered-mineral-basalt-lining";
  mesh.castShadow=false;mesh.receiveShadow=true;
  mesh.raycast=()=>{};mesh.renderOrder=1;
- return {mesh,texture:tex,triangles:indices.length/3};
+ return {mesh,texture,heightTexture,triangles:indices.length/3};
 }
