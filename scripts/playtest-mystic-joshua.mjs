@@ -23,12 +23,32 @@ try{
   null,{timeout:45000});
  await page.getByRole("button",{name:"Open navigation menu"}).click();
  await page.getByRole("button",{name:/03 Mystic grove Things I explore/}).click();
- await page.waitForFunction(()=>{
-  const d=document.querySelector("canvas")?.dataset;
-  const p=d?.player?.split(",").map(Number);
-  return p&&Math.hypot(p[0]-37,p[1]-65)<2&&
-   d.mysticElectricActive==="true";
- },null,{timeout:30000});
+ const probe=()=>canvas.evaluate(c=>({
+  player:c.dataset.player,activity:c.dataset.activity,
+  region:c.dataset.region,nav:c.dataset.navigation,
+  active:c.dataset.mysticElectricActive,
+  position:c.dataset.mysticGrovePosition,
+  trees:c.dataset.mysticGroveTrees,
+  arcs:c.dataset.mysticGroveArcs,
+  aquatic:c.dataset.aquatic,
+  drawCalls:c.dataset.drawCalls,
+ }));
+ console.log("MYSTIC FIRST NAV",JSON.stringify(await probe()));
+ try{
+  await page.waitForFunction(()=>{
+   const d=document.querySelector("canvas")?.dataset;
+   const p=d?.player?.split(",").map(Number);
+   return p&&Math.hypot(p[0]-37,p[1]-65)<2&&
+    d.mysticElectricActive==="true";
+  },null,{timeout:45000});
+ }catch(error){
+  const snapshot=await probe();
+  fs.writeFileSync(path.join(out,"mystic-failure.json"),
+   JSON.stringify({snapshot,errors},null,2)+"\n");
+  await page.screenshot({path:path.join(out,"mystic-navigation-failure.png")});
+  throw new Error("Mystic Grove did not activate after navigation: "+
+   JSON.stringify(snapshot),{cause:error});
+ }
  const mystic=await canvas.evaluate(c=>({
   trees:Number(c.dataset.mysticGroveTrees),
   arcs:Number(c.dataset.mysticGroveArcs),
