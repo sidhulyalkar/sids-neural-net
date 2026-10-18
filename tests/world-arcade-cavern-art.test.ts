@@ -5,7 +5,7 @@ import {ARCADE_CAVERN_MURALS,validateArcadeArtManifest} from "../lib/world/arcad
 import {ARCADE_REAR_CAP_Z,caveArtRing,sampleCavernArt,validateCavernMural} from "../lib/world/arcadeCavernSurface";
 import {ARCADE_MURAL_ART_ASSETS,validateArcadeMuralAssets}
  from "../lib/world/arcadeCavernAssetManifest";
-import {SHASTA_PHOTOS,NATURE_PHOTOS,CAVERN_GAME_ART,archivePhotoPath}
+import {SHASTA_PHOTOS,NATURE_PHOTOS,CAVERN_GAME_ART,CAVERN_GAME_PANEL_ART,archivePhotoPath}
  from "../lib/world/arcadeCavernGalleryContent";
 
 test("Photo-first arcade is nature, Shasta and game-only, preserving real sports crests",()=>{
@@ -27,6 +27,9 @@ test("Photo-first arcade is nature, Shasta and game-only, preserving real sports
  assert.equal(SHASTA_PHOTOS.length,13);
  assert.equal(NATURE_PHOTOS.length,12);
  assert.equal(CAVERN_GAME_ART.length,3);
+ assert.deepEqual(CAVERN_GAME_PANEL_ART.map(g=>g.id),[
+  "stretchicorn","unirico","unicorn-stampede",
+ ]);
  assert.equal(new Set(SHASTA_PHOTOS).size,13);
  assert.equal(new Set(NATURE_PHOTOS).size,12);
  for(const id of [...SHASTA_PHOTOS,...NATURE_PHOTOS])
