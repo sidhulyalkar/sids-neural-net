@@ -6912,6 +6912,8 @@ export function createWorld(
           yaw=Math.atan2(-BIG_AIR.heading.x,-BIG_AIR.heading.z);
           playerY=groundHeight(player);
           airHeight=verticalSpeed=swimDepth=targetDepth=0;
+          rideRecovery=initialRideRecovery(player);
+          rideFlightContinuity=false;lastFlightExitAt=-Infinity;
           climb=grind=null;
           caveLayer="surface";
           setAquaticMode("land");
@@ -7011,6 +7013,8 @@ export function createWorld(
         setAquaticMode("land");
         caveLayer = "surface";
         playerY = groundHeight(player);
+        rideRecovery=initialRideRecovery(player);
+        rideFlightContinuity=false;lastFlightExitAt=-Infinity;
         dog = { x: player.x + 2, z: player.z - 2 };
         dogVelocity = { x: 0, z: 0 };
         dogSmoothedTarget = { ...dog };
