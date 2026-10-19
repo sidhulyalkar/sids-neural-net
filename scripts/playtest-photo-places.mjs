@@ -41,14 +41,14 @@ try {
     assert.equal(await stills.getByText(/\b(20\d\d|19\d\d)\b/).count(),0,
       "Capture years are never inferred on the public photo gallery");
     if(width===1440)await page.screenshot({path:path.join(out,"desktop-gallery.png"),fullPage:false});
-    for(const [index,expected] of [[28,/Kualoa Regional Park/i],[29,/Moorea/i],[39,/Hidden Garden Steps/i],[3,/Death Valley/i]]){
+    for(const [index,expected] of [[28,/Kualoa Regional Park/i],[29,/Moorea/i],[30,/Bora Bora/i],[31,/Bora Bora/i],[32,/Bora Bora/i],[39,/Hidden Garden Steps/i],[3,/Death Valley/i]]){
       await stills.getByRole("button",{name:`Open image ${index} of 49`}).click();
       const modal=page.getByRole("dialog",{name:"Visual Cortex image viewer"});
       await modal.waitFor({state:"visible",timeout:10000});
       const map=modal.getByRole("link",{name:/Open .* on Google Maps/});
       const query=await mapQuery(map);
       assert.match(query,expected,`Photo ${index} map label`);
-      if(index===3)assert.equal(await modal.getByText(/Approximate location/).isVisible(),true);
+      assert.equal(await modal.getByText(/Approximate location|awaiting confirmation/i).count(),0);
       if(index===29)await page.screenshot({path:path.join(out,width===1440?"desktop-moorea.png":"mobile-moorea.png")});
       await modal.getByRole("button",{name:"Close image viewer"}).click();
       assert.equal(await modal.count(),0);
