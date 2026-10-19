@@ -184,7 +184,7 @@ export function VisualArchiveGallery({ entries }: VisualArchiveGalleryProps) {
                     {entry.place.verification === 'approximate' && <span className="sr-only">(approximate)</span>}
                   </a>
                 </div>
-
+              ))}
             </div>
           ))}
         </div>
