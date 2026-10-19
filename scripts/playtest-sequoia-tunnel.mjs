@@ -21,7 +21,8 @@ try{
    Number(document.querySelector("canvas")?.dataset.drawCalls)>0,
    null,{timeout:45000});
   await page.getByRole("button",{name:"Skateboarding",exact:true}).click();
-  await page.getByRole("button",{name:"Skatepark · south meadow",exact:true}).click();
+  await page.getByRole("button",{name:"Show sport shortcuts",exact:true}).click();
+   await page.getByRole("button",{name:"Skatepark",exact:true}).click();
   await page.waitForFunction(()=>
    document.querySelector("canvas")?.dataset.skatePark==="true",
    null,{timeout:15000});
