@@ -20,7 +20,8 @@ try {
  const canvas=page.locator("canvas");
  await page.waitForFunction(()=>Number(document.querySelector("canvas")?.dataset.drawCalls)>0,
    null,{timeout:45000});
- await page.getByRole("button",{name:/^Disc golf · (play|resume|scorecard)$/}).click();
+ await page.getByRole("button",{name:"Show sport shortcuts"}).click();
+ await page.getByRole("button",{name:"Disc golf",exact:true}).click();
  await page.waitForFunction(()=>document.querySelector("canvas")?.dataset.discGolfPhase==="ready",
    null,{timeout:15000});
  const rail=page.getByRole("slider",{name:/Throw power/});
