@@ -181,7 +181,6 @@ export function VisualArchiveGallery({ entries }: VisualArchiveGalleryProps) {
                   >
                     <MapPin size={13} className="shrink-0" aria-hidden="true" />
                     <span className="min-w-0 truncate">{entry.location}</span>
-                    {entry.place.verification === 'approximate' && <span className="sr-only">(approximate)</span>}
                   </a>
                 </div>
               ))}
@@ -247,9 +246,6 @@ export function VisualArchiveGallery({ entries }: VisualArchiveGalleryProps) {
                   <span className="truncate">{activeEntry.location}</span>
                   <span aria-hidden="true">↗</span>
                 </a>
-                {activeEntry.place.verification === 'approximate' && (
-                  <span className="text-[9px] tracking-wide text-white/40">Approximate location · awaiting confirmation</span>
-                )}
                 <span className="text-[0.68rem] uppercase tracking-[0.18em] text-white/45">
                   {String(activeDisplayIndex).padStart(2, '0')} / {String(entries.length).padStart(2, '0')}
                 </span>
