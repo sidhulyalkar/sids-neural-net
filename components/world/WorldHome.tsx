@@ -541,7 +541,7 @@ export function WorldHome({ content }: { content: WorldContent }) {
       </header>
       {!entered || failed ? (
         <section className={styles.welcome} aria-labelledby="world-title">
-          <h1 id="world-title">Welcome to <em>Sid’s iLand.</em></h1>
+          <h1 id="world-title">Welcome to <em>Sid’s iLand</em></h1>
           <div className={styles.actions}>
             <Link href="/atlas" prefetch={false} className={styles.primary}>
               View site <span aria-hidden="true">↗</span>
@@ -1019,8 +1019,8 @@ export function WorldHome({ content }: { content: WorldContent }) {
                     <span>View photo ↗</span>
                   </a>
                   <p className={styles.geiselCredit}>
-                    Geisel Library · <a href={GEISEL_SOURCE} target="_blank"
-                      rel="noopener noreferrer">Photo source</a>
+                    Geisel Library · Photo: <a href={GEISEL_SOURCE} target="_blank"
+                      rel="noopener noreferrer">ace523 / Wallpapers.com</a>
                   </p>
                 </>
               ) : (
