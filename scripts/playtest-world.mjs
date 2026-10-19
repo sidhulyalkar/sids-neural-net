@@ -260,7 +260,8 @@ try {
   // authored skatepark and an actual landed assisted trick here; dedicated
   // skatepark browser QA verifies its ramps, grinds, bowls and moving lines.
   await page.getByRole('button', { name: 'Skateboarding', exact: true }).click();
-  await page.getByRole('button', { name: 'Skatepark · south meadow', exact: true }).click();
+  await page.getByRole('button', { name: 'Show sport shortcuts' }).click();
+  await page.getByRole('button', { name: 'Skatepark', exact: true }).click();
   await page.waitForFunction(() => {
     const d=document.querySelector('canvas')?.dataset;
     return d?.skatePark==='true' && d?.activity==='skate' && d?.skimPhase==='off';
@@ -504,7 +505,8 @@ try {
   await page.keyboard.press('Escape'); results.push('Menu keeps keyboard focus and supports Escape');
   // Optional challenges are playable without a new screen or account.
   await page.getByRole('button', { name: 'Mountain biking', exact: true }).click();
-  await page.getByRole('button', { name: 'Joshua lap · start trial', exact: true }).click();
+  await page.getByRole('button', { name: 'Show sport shortcuts' }).click();
+  await page.getByRole('button', { name: 'Bike race', exact: true }).click();
   await page.waitForFunction(() => document.querySelector('canvas')?.dataset.trialPhase === 'armed');
   assert.equal(await page.locator('canvas').getAttribute('data-technical-features'), '3-gardens-3-beams');
   await screenshot(page, 'challenge-joshua-start');
@@ -525,7 +527,8 @@ try {
   // Ski Big Air: genuine forward approach, bird escorts, sampled distance
   // and safe landing. This uses only ordinary UI + keyboard input.
   await page.getByRole('button',{name:'Skiing',exact:true}).click();
-  await page.getByRole('button',{name:'Alpine Big Air · start',exact:true}).click();
+  await page.getByRole('button', { name: 'Show sport shortcuts' }).click();
+  await page.getByRole('button', { name: 'Ski jump', exact: true }).click();
   await page.waitForFunction(
     () => document.querySelector('canvas')?.dataset.bigAirPhase === 'armed',
   );
