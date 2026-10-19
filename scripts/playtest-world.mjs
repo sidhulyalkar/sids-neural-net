@@ -565,7 +565,8 @@ try {
 
   // World smoke QA: the dedicated disc-golf browser workflow owns the full
   // nine-hole route. Do not retain old four-hole/three-tap controls here.
-  await page.getByRole('button',{name:/^Disc golf · (play|resume|scorecard)$/}).click();
+  await page.getByRole('button', { name: 'Show sport shortcuts' }).click();
+  await page.getByRole('button', { name: 'Disc golf', exact: true }).click();
   await page.waitForFunction(()=>document.querySelector('canvas')?.dataset.discGolfPhase==='ready');
   assert.equal(await page.locator('canvas').getAttribute('data-disc-golf-holes'),'9');
   const discHud=page.getByRole('complementary',{name:'Disc golf controls'});
