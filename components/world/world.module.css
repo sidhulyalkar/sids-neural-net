@@ -628,27 +628,92 @@
 }
 .activityDock {
   position: absolute;
-  top: 108px;
-  right: 28px;
-  max-width: calc(100% - 48px);
-  padding: 8px;
-  border: 1px solid #ffffff44;
-  border-radius: 16px;
-  background: #15373be8;
-  box-shadow: 0 8px 30px #15373b24;
+  z-index: 3;
+  top: 70px;
+  right: 20px;
+  width: min(360px, calc(100vw - 32px));
+  padding: 7px 7px 5px;
+  border: 1px solid #d5e7d044;
+  border-radius: 15px;
+  background: #12363bdd;
+  box-shadow: 0 10px 32px #102d3355;
+  backdrop-filter: blur(14px);
 }
-.activityButtons { display: flex; gap: 4px; flex-wrap: wrap; }
+.activityButtons { display: flex; align-items: stretch; gap: 3px; }
 .activityButtons button {
-  min-height: 44px;
-  padding: 8px 12px;
-  border-radius: 9px;
-  font-size: 13px;
+  flex: 1;
+  min-width: 0;
+  min-height: 36px;
+  padding: 7px 2px;
+  border-radius: 8px;
+  font-size: 12px;
+  line-height: 1.2;
+  white-space: nowrap;
+  transition: background 130ms ease, color 130ms ease;
 }
-.activityButtons button[aria-pressed="true"] { background: #faf1da; color: #16353b; }
-.activityButtons .actionButton { border: 1px solid #e6bf7e99; color: #ffe0a0; }
-.activityButtons button:disabled { opacity: 0.4; }
-.activityDock p { font-size: 11px; color: #eee5d4; padding: 6px 8px 2px; }
-
+.activityButtons button:hover:not(:disabled) { background: #ffffff1b; }
+.activityButtons button[aria-pressed="true"] {
+  background: #f7e7c8;
+  color: #15363a;
+  font-weight: 650;
+}
+.activityButtons .actionButton {
+  flex: 0 0 auto;
+  min-width: 52px;
+  padding-inline: 8px;
+  border: 1px solid #dfb77a80;
+  color: #f7d59e;
+}
+.activityButtons button:disabled, .sportsDrawer button:disabled { opacity: .45; }
+.sportsToggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  width: 100%;
+  min-height: 25px;
+  margin-top: 3px;
+  border-top: 1px solid #ffffff1c;
+  border-radius: 4px;
+  color: #d5e5ddbd;
+  font-size: 9px;
+  font-weight: 650;
+  letter-spacing: .18em;
+}
+.sportsToggle:hover, .sportsToggle[aria-expanded="true"] { color: #fff0c9; }
+.sportsChevron, .sportsChevronOpen { transition: transform 180ms ease; }
+.sportsChevronOpen { transform: rotate(180deg); }
+.sportsDrawer {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  padding: 7px 2px 3px;
+  border-top: 1px solid #ffffff20;
+}
+.sportsDrawer[hidden] { display: none !important; }
+.sportsDrawer button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-width: 0;
+  min-height: 55px;
+  padding: 7px 3px;
+  border: 1px solid #dfc59645;
+  border-radius: 9px;
+  background: #ffffff0a;
+  color: #f4e9d5;
+  font-size: 11px;
+  line-height: 1.2;
+  transition: background 140ms ease, border-color 140ms ease;
+}
+.sportsDrawer button svg { width: 19px; height: 19px; stroke-width: 1.8; }
+.sportsDrawer button:hover:not(:disabled) {
+  background: #f8ecc326;
+  border-color: #efdfb6a8;
+}
+.activityDock button:focus-visible { outline-offset: 2px; }
 
 /* Disc Golf overlays only the bottom edge of the world. Expanded controls
    rise above this bar on demand, never beside the flight or player. */
@@ -1070,7 +1135,7 @@
 .header { pointer-events: none; }
 .header > * { pointer-events: auto; }
 @media (max-width: 760px) {
-  .activityDock { top: 96px; left: 16px; right: 16px; max-width: none; padding: 6px; }
+  .activityDock { top: 78px; right: 14px; }
   .trialHud {top:auto;bottom:108px;left:16px;right:auto;min-width:170px;max-width:calc(100% - 32px);padding:10px 12px;}
   .bigAirHud {top:auto;bottom:108px;left:16px;right:auto;min-width:170px;max-width:calc(100% - 32px);padding:10px 12px;}
   .bigAirHud strong {font-size:23px;}
@@ -1085,8 +1150,8 @@
   }
   .waterMode { width: 100%; padding: 0 5px 2px; }
   .activityButtons { gap: 2px; }
-  .activityButtons button { flex: 1; padding: 8px 5px; font-size: 12px; }
-  .activityDock p { font-size: 10px; }
+  .activityButtons button { font-size: 11px; }
+  .sportsDrawer button { min-height: 51px; }
   .waterDock button { min-height: 40px; padding: 7px 10px; }
   .actions { flex-direction: row; flex-wrap: wrap; gap: 12px; }
   .primary, .exploreButton { padding: 14px 18px; font-size: 14px; gap: 14px; }
@@ -1094,9 +1159,9 @@
   .welcome h1 { font-size: clamp(42px, 9vw, 64px); }
 }
 @media (max-height: 650px) {
-  .activityDock { top: 78px; }
+  .activityDock { top: 67px; }
   .waterDock { top: 78px; }
-  .activityDock p { display: none; }
+
   .welcome { top: 105px; bottom: 62px; }
   .welcome h1 { font-size: 40px; }
 }
@@ -1376,3 +1441,18 @@
   text-shadow:0 1px 3px #002c2b55;pointer-events:none;
 }
 @media(max-width:760px){.skimTrickCallout{font-size:12px;padding:6px 11px;}}
+
+@media (max-width: 420px) {
+  .activityDock { top: 78px; right: 9px; width: calc(100vw - 18px); }
+  .activityButtons button { font-size: 10px; padding-inline: 1px; }
+  .activityButtons .actionButton { min-width: 48px; padding-inline: 4px; }
+}
+@media (pointer: coarse) {
+  .activityButtons button { min-height: 42px; }
+  .sportsToggle { min-height: 34px; }
+  .sportsDrawer button { min-height: 58px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sportsChevron, .sportsChevronOpen,
+  .activityButtons button, .sportsDrawer button { transition: none; }
+}
