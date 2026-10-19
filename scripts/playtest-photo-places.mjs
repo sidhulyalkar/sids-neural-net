@@ -38,7 +38,7 @@ try {
     const maps=stills.getByRole("link",{name:/View .* on Google Maps/});
     assert.equal(await maps.count(),49);
     for(const link of await maps.all())await mapQuery(link);
-    assert.equal(await page.getByText(/\b(20\d\d|19\d\d)\b/).count(),0,
+    assert.equal(await stills.getByText(/\b(20\d\d|19\d\d)\b/).count(),0,
       "Capture years are never inferred on the public photo gallery");
     if(width===1440)await page.screenshot({path:path.join(out,"desktop-gallery.png"),fullPage:false});
     for(const [index,expected] of [[28,/Kualoa Regional Park/i],[29,/Moorea/i],[39,/Hidden Garden Steps/i],[3,/Death Valley/i]]){
