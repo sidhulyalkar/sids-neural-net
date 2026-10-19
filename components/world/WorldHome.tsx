@@ -991,7 +991,6 @@ export function WorldHome({ content }: { content: WorldContent }) {
                    aria-label={`Open ${photo.location} on Google Maps`}>
                   {photo.location} ↗
                 </a>
-                {photo.locationApproximate && <span> · approximate</span>}
               </p>
               <Link prefetch={false} href="/photography">
                 Photography
