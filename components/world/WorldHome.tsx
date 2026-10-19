@@ -37,10 +37,10 @@ import {
 import styles from "./world.module.css";
 
 const WorldScene = dynamic(() => import("./WorldScene"), { ssr: false });
-// Publicly hosted reference for Geisel Library under lightning. Keep the
-// image and its attribution linked to the same source page.
-const GEISEL_PHOTO = "https://wallpapers.com/images/hd/exemplary-geisel-library-y1oart935m5dz8xl.jpg";
-const GEISEL_SOURCE = "https://wallpapers.com/wallpapers/exemplary-geisel-library-y1oart935m5dz8xl.html";
+// Publicly available crop of the Erik Jepsen lightning photograph.
+// Click through to the source post showing the full image.
+const GEISEL_PHOTO = "https://standardsmichigan.com/wp-content/uploads/2019/08/Lightning-strikes-last-night-over-Geisel-Library.-Photo-by-Erik-Jepsen-UC-San-Diego-california-facebook-timeline-1922-721-700x300.jpg";
+const GEISEL_SOURCE = "https://www.reddit.com/r/UCSD/comments/plr8rs";
 class SceneBoundary extends Component<
   { children: ReactNode; onError: () => void },
   { failed: boolean }
@@ -1012,7 +1012,7 @@ export function WorldHome({ content }: { content: WorldContent }) {
                   <a className={styles.geiselPhoto} href={GEISEL_SOURCE}
                      target="_blank" rel="noopener noreferrer"
                      aria-label="View Geisel Library lightning photograph">
-                    <Image src={GEISEL_PHOTO} width={1920} height={1080}
+                    <Image src={GEISEL_PHOTO} width={700} height={300}
                        unoptimized priority={false}
                        sizes="(max-width: 900px) 92vw, 1000px"
                        alt="Geisel Library at UC San Diego under a sky of lightning at night." />
@@ -1020,7 +1020,7 @@ export function WorldHome({ content }: { content: WorldContent }) {
                   </a>
                   <p className={styles.geiselCredit}>
                     Geisel Library · Photo: <a href={GEISEL_SOURCE} target="_blank"
-                      rel="noopener noreferrer">ace523 / Wallpapers.com</a>
+                      rel="noopener noreferrer">Erik Jepsen / UC San Diego</a>
                   </p>
                 </>
               ) : (
