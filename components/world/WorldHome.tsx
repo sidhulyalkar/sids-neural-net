@@ -269,7 +269,7 @@ export function WorldHome({ content }: { content: WorldContent }) {
           JSON.stringify({version:JOSHUA_TRIAL.version,elapsedMs:next.elapsedMs}));
       } catch { /* A best remains visible during this session. */ }
     }
-  },[setTrial,setPersonalBest]);
+  },[]);
   const onBigAir=useCallback((next:BigAirState)=>{
     setBigAir(next);
     if(next.phase==="armed")lastSpokenFlightMarker.current=0;
@@ -299,7 +299,7 @@ export function WorldHome({ content }: { content: WorldContent }) {
           JSON.stringify({version:BIG_AIR.version,distance:next.radialDistance??next.distance}));
       }catch{/* Session results still work when storage is unavailable. */}
     }
-  },[setBigAir,setBestFlight]);
+  },[]);
   const onLocation = useCallback((r: RegionId, discovery: string | null) => {
     setRegion(r);
     setNearby(discovery);
