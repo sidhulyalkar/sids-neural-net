@@ -486,7 +486,6 @@ export type WorldPhoto = {
   height: number;
   location: string;
   mapUrl: string;
-  locationApproximate: boolean;
 };
 export type WorldVideo = {
   id: string;
