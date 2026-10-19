@@ -44,6 +44,11 @@ jobs:
           cache: npm
       - name: Install lockfile dependencies
         run: npm ci
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Install photo archive validation tools
+        run: python -m pip install Pillow==11.3.0
       - name: Typecheck, lint and photo geography contracts
         run: |
           npm run typecheck
